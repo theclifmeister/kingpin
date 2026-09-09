@@ -1,0 +1,70 @@
+# Headline templates keyed by event kind. Fields available depend on the
+# event; see internal/sim/news for the template data.
+
+flavour_chance = 0.35
+
+flavour = [
+  "Mayor cuts ribbon on new {{.City}} community centre",
+  "Local team wins; {{.City}} bars packed",
+  "Rain expected all week",
+  "Pothole on 4th Street claims another tyre",
+  "City council debates parking meters, again",
+  "Stray dog adopted by {{.City}} fire station",
+  "Power outage hits east side for two hours",
+  "Weekend market draws record crowd",
+  "Late-night diner reopens under new management",
+  "Bus route 12 to be rerouted through {{.City}}",
+  "Local paper struggles as readership falls",
+  "Weather: unseasonably warm",
+  "High school marching band wins state",
+  "New nightclub opens on the strip",
+  "Radio station changes format to talk",
+  "Landlord fined over {{.City}} tenement",
+]
+
+[templates]
+PriceShock = [
+  "{{.Product}} prices surge after bust upriver",
+  "Supply of {{.Product}} dries up; corner boys blame the port",
+  "Dealers scramble as {{.Product}} shipment goes missing",
+  "Word on the street: {{.Product}} is scarce and getting scarcer",
+]
+PriceSlump = [
+  "{{.Product}} demand craters after overdose scare",
+  "Nobody wants {{.Product}} this week, says corner survey",
+  "New crowd in town has no taste for {{.Product}}",
+]
+PlayerSoldBig = [
+  "Someone is moving a lot of {{.Product}} in {{.City}}",
+  "{{.City}} awash in cheap {{.Product}}",
+  "Cops note spike in {{.Product}} activity around {{.City}}",
+]
+PlayerSoldZero = [
+  "Slow night: {{.Product}} sits unsold in {{.City}}",
+]
+EnforcementPatrol = [
+  "Extra patrols hit {{.City}} after complaints",
+  "Squad cars circle {{.City}} corners all night",
+  "Police chief promises 'visible presence' in {{.City}}",
+]
+EnforcementSting = [
+  "Undercover sting nets small-time dealer in {{.City}}",
+  "Buy-and-bust operation rattles {{.City}} corners",
+  "Plainclothes officers make arrests in {{.City}}",
+]
+EnforcementRaid = [
+  "Dawn raid in {{.City}}: cash and product seized",
+  "SWAT storms {{.City}} stash house",
+  "Police hail 'major blow' to {{.City}} drug trade",
+]
+EnforcementArrest = [
+  "{{.City}} dealer arrested in early-morning operation",
+]
+LaidLow = [
+  "Quiet night in {{.City}}",
+  "Nothing to report from {{.City}} corners",
+]
+HeatWarning = [
+  "Residents of {{.City}} demand action on street dealing",
+  "Councillor calls {{.City}} 'an open-air drug market'",
+]
