@@ -14,6 +14,9 @@ var (
 	ErrNoSave = errors.New("no saved run")
 	// ErrNewerSchema means the save was written by a newer build.
 	ErrNewerSchema = errors.New("save file is from a newer version of kingpin")
+	// ErrOldSchema means the save predates a world change. Runs are
+	// roguelike, so there is no migration: start a new one.
+	ErrOldSchema = errors.New("save file is from an older version of kingpin and cannot be continued")
 )
 
 // SaveDir returns the directory saves live in. KINGPIN_HOME overrides the
@@ -87,6 +90,9 @@ func Load() (*World, error) {
 	}
 	if w.SchemaVersion > SchemaVersion {
 		return nil, ErrNewerSchema
+	}
+	if w.SchemaVersion < SchemaVersion {
+		return nil, ErrOldSchema
 	}
 	if w.Market == nil || w.Player.Stock == nil {
 		return nil, fmt.Errorf("save file is corrupt: missing world state")

@@ -1,4 +1,4 @@
-// Package content loads the tuning data (markets, heat, headlines) that
+// Package content loads the tuning data (markets, heat, crew, headlines) that
 // lives in TOML files embedded in the binary. Balance changes never need
 // code changes.
 package content
@@ -8,6 +8,8 @@ import (
 	"fmt"
 
 	"github.com/BurntSushi/toml"
+
+	"github.com/theclifmeister/kingpin/internal/events"
 )
 
 //go:embed *.toml
@@ -17,6 +19,8 @@ var files embed.FS
 type Config struct {
 	Market    MarketConfig
 	Heat      HeatConfig
+	Crew      CrewConfig
+	Names     NamesConfig
 	Headlines HeadlinesConfig
 }
 
@@ -80,6 +84,9 @@ type HeatTuning struct {
 	DirtyCashHeat      float64 `toml:"dirty_cash_heat"`
 	CooldownDays       int     `toml:"cooldown_days"`
 	EvidenceArrest     int     `toml:"evidence_arrest"`
+	CrewHeat           float64 `toml:"crew_heat"`
+	SloppySkill        int     `toml:"sloppy_skill"`
+	SloppyHeat         float64 `toml:"sloppy_heat"`
 }
 
 type ResponseConfig struct {
@@ -91,6 +98,58 @@ type ResponseConfig struct {
 	CashLoss  float64 `toml:"cash_loss"`
 	HeatDrop  float64 `toml:"heat_drop"`
 	Evidence  int     `toml:"evidence"`
+}
+
+// CrewConfig mirrors crew.toml.
+type CrewConfig struct {
+	Crew CrewTuning            `toml:"crew"`
+	Pay  PayTable              `toml:"pay"`
+	Role map[string]RoleConfig `toml:"role"`
+}
+
+type CrewTuning struct {
+	MaxCrew         int     `toml:"max_crew"`
+	Candidates      int     `toml:"candidates"`
+	PoolDays        int     `toml:"pool_days"`
+	UnitsPerSkill   float64 `toml:"units_per_skill"`
+	HireFeeBase     int     `toml:"hire_fee_base"`
+	HireFeePerSkill float64 `toml:"hire_fee_per_skill"`
+	StartLoyaltyMin int     `toml:"start_loyalty_min"`
+	StartLoyaltyMax int     `toml:"start_loyalty_max"`
+	GreedDrift      float64 `toml:"greed_drift"`
+	DangerDays      int     `toml:"danger_days"`
+	DangerLoyalty   float64 `toml:"danger_loyalty"`
+	FireLoyalty     float64 `toml:"fire_loyalty"`
+	UnpaidLoyalty   float64 `toml:"unpaid_loyalty"`
+	SkimThreshold   float64 `toml:"skim_threshold"`
+	SkimChance      float64 `toml:"skim_chance"`
+	SkimShare       float64 `toml:"skim_share"`
+	SkimCap         float64 `toml:"skim_cap"`
+	SuspectDays     int     `toml:"suspect_days"`
+	QuitThreshold   float64 `toml:"quit_threshold"`
+}
+
+type PayTable struct {
+	Stingy   PayConfig `toml:"stingy"`
+	Fair     PayConfig `toml:"fair"`
+	Generous PayConfig `toml:"generous"`
+}
+
+type PayConfig struct {
+	Wage    float64 `toml:"wage"`    // multiplier on each member's fair wage
+	Loyalty float64 `toml:"loyalty"` // loyalty drift per day
+}
+
+type RoleConfig struct {
+	WageBase     float64 `toml:"wage_base"`
+	WagePerSkill float64 `toml:"wage_per_skill"`
+	Protection   float64 `toml:"protection"` // fraction of danger loyalty loss each one absorbs
+	Deterrence   float64 `toml:"deterrence"` // fraction of skim chance each one removes
+}
+
+// NamesConfig mirrors names.toml.
+type NamesConfig struct {
+	Crew []string `toml:"crew"`
 }
 
 // HeadlinesConfig mirrors headlines.toml.
@@ -109,11 +168,25 @@ func Load() (*Config, error) {
 	if err := decode("heat.toml", &c.Heat); err != nil {
 		return nil, err
 	}
+	if err := decode("crew.toml", &c.Crew); err != nil {
+		return nil, err
+	}
+	if err := decode("names.toml", &c.Names); err != nil {
+		return nil, err
+	}
 	if err := decode("headlines.toml", &c.Headlines); err != nil {
 		return nil, err
 	}
 	if len(c.Market.Products) == 0 {
 		return nil, fmt.Errorf("market.toml: no products defined")
+	}
+	for _, role := range []string{"runner", "enforcer"} {
+		if _, ok := c.Crew.Role[role]; !ok {
+			return nil, fmt.Errorf("crew.toml: no [role.%s] table", role)
+		}
+	}
+	if len(c.Names.Crew) < c.Crew.Crew.MaxCrew+c.Crew.Crew.Candidates {
+		return nil, fmt.Errorf("names.toml: only %d crew names", len(c.Names.Crew))
 	}
 	return &c, nil
 }
@@ -146,4 +219,16 @@ func (m MarketConfig) Product(id string) *ProductConfig {
 		}
 	}
 	return nil
+}
+
+// PayFor returns the tuning for a pay dial position.
+func (c CrewConfig) PayFor(p events.Pay) PayConfig {
+	switch p {
+	case events.PayStingy:
+		return c.Pay.Stingy
+	case events.PayGenerous:
+		return c.Pay.Generous
+	default:
+		return c.Pay.Fair
+	}
 }

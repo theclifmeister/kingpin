@@ -56,6 +56,22 @@ func (s *Sim) dialFill(d events.Dial) float64 {
 	}
 }
 
+// Sloppiness sums how far each runner falls below the sloppy-skill line, as
+// a fraction: a skill-0 runner counts 1, a skilled one 0.
+func (s *Sim) Sloppiness(w *game.World) float64 {
+	line := float64(s.cfg.Heat.SloppySkill)
+	if line <= 0 {
+		return 0
+	}
+	total := 0.0
+	for _, m := range w.Crew.Members {
+		if m.Role == "runner" && float64(m.Skill) < line {
+			total += (line - float64(m.Skill)) / line
+		}
+	}
+	return total
+}
+
 // Step applies today's heat sources, decays, then checks thresholds.
 func (s *Sim) Step(w *game.World, t *game.Tick) {
 	tun := s.cfg.Heat
@@ -65,7 +81,10 @@ func (s *Sim) Step(w *game.World, t *game.Tick) {
 
 	// Sales from the market sim, earlier in this tick. Heat follows the
 	// volume you tried to move at that dial, not what a patrol cap let
-	// through: standing on a corner shouting is the exposure.
+	// through: standing on a corner shouting is the exposure. Units the crew
+	// moves beyond what you could serve alone count at a discount: they are
+	// on the corners, you are not.
+	units := 0
 	for _, e := range t.Events() {
 		ps, ok := e.(events.PlayerSold)
 		if !ok || ps.Wanted == 0 {
@@ -76,10 +95,20 @@ func (s *Sim) Step(w *game.World, t *game.Tick) {
 		if m == nil || pc == nil || m.Demand <= 0 {
 			continue
 		}
-		attempted := math.Min(float64(ps.Wanted), math.Round(m.Demand*s.dialFill(ps.Dial)))
+		own := math.Min(float64(ps.Wanted), math.Round(m.Demand*s.dialFill(ps.Dial)))
+		total := math.Min(float64(ps.Wanted), math.Round(m.Demand*w.Reach()*s.dialFill(ps.Dial)))
+		attempted := own + (total-own)*tun.CrewHeat
 		add := tun.SaleHeat * attempted / m.Demand * s.dialHeat(ps.Dial) * pc.Heat
 		h.Value += add
+		units += ps.Sold
 		reasons = append(reasons, fmt.Sprintf("moved %d %s %s (+%.1f)", ps.Sold, w.ProductName(ps.Product), ps.Dial, add))
+	}
+
+	// Sloppy runners get noticed: every unit moved with a low-skill crew
+	// on the corners adds a premium.
+	if add := s.Sloppiness(w) * tun.SloppyHeat * float64(units); add > 0 {
+		h.Value += add
+		reasons = append(reasons, fmt.Sprintf("sloppy crew (+%.1f)", add))
 	}
 
 	// Sitting on a pile of dirty cash is its own tell.

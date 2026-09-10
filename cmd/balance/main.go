@@ -17,10 +17,17 @@ import (
 func main() {
 	runs := flag.Int("runs", 20, "number of seeded runs")
 	days := flag.Int("days", 200, "max days per run")
-	policy := flag.String("policy", "normal", "idle | quiet | normal | aggressive | careful | managed")
+	policy := flag.String("policy", "normal", "idle | quiet | normal | aggressive | careful | managed | crewed")
 	trace := flag.Bool("trace", false, "print a per-day trace of the run with -seed")
 	seed0 := flag.Uint64("seed", 1, "first seed; also the traced run")
+	lieLow := flag.Float64("lielow", 0, "heat at which careful/managed/crewed lie low (0 = policy default)")
 	flag.Parse()
+	at := func(def float64) float64 {
+		if *lieLow > 0 {
+			return *lieLow
+		}
+		return def
+	}
 
 	cfg := content.MustLoad()
 	var p harness.Policy
@@ -32,9 +39,11 @@ func main() {
 	case "aggressive":
 		p = harness.Trader(cfg, events.DialAggressive)
 	case "careful":
-		p = harness.Careful(cfg, 35)
+		p = harness.Careful(cfg, at(35))
 	case "managed":
-		p = harness.Managed(cfg, 50)
+		p = harness.Managed(cfg, at(50))
+	case "crewed":
+		p = harness.Crewed(cfg, at(40))
 	default:
 		p = harness.Trader(cfg, events.DialNormal)
 	}
@@ -46,7 +55,7 @@ func main() {
 		if *trace && seed == *seed0 {
 			pol = func(w *game.World) {
 				p(w)
-				fmt.Printf("day %3d cash %6d heat %5.1f stock %3d orders %d", w.Day, w.Player.DirtyCash, w.Heat.Value, w.Player.TotalStock(), len(w.Orders))
+				fmt.Printf("day %3d cash %6d heat %5.1f stock %3d/%3d orders %d crew %d", w.Day, w.Player.DirtyCash, w.Heat.Value, w.Player.TotalStock(), w.Capacity(), len(w.Orders), len(w.Crew.Members))
 				for _, id := range w.Products {
 					fmt.Printf("  %s $%.1f", id, w.Market[id].Price)
 				}

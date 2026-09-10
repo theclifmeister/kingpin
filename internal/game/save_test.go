@@ -4,6 +4,7 @@ import (
 	"errors"
 	"os"
 	"path/filepath"
+	"strings"
 	"testing"
 
 	"github.com/theclifmeister/kingpin/internal/events"
@@ -89,6 +90,17 @@ func TestLoadErrors(t *testing.T) {
 	if !HasSave() {
 		t.Fatal("HasSave false after Save")
 	}
+	// A save from before the crew existed is refused, not migrated: runs
+	// are roguelike. The message must tell the player what to do.
+	w.SchemaVersion = SchemaVersion - 1
+	if err := Save(w); err != nil {
+		t.Fatal(err)
+	}
+	if _, err := Load(); !errors.Is(err, ErrOldSchema) {
+		t.Fatalf("expected ErrOldSchema, got %v", err)
+	} else if !strings.Contains(err.Error(), "older version") {
+		t.Fatalf("unreadable message: %v", err)
+	}
 	if err := DeleteSave(); err != nil || HasSave() {
 		t.Fatalf("delete failed: %v", err)
 	}
@@ -119,5 +131,46 @@ func TestActions(t *testing.T) {
 	w.SetLieLow(true)
 	if len(w.Orders) != 0 {
 		t.Fatal("lying low should cancel orders")
+	}
+}
+
+func TestSaveKeepsCrew(t *testing.T) {
+	t.Setenv("KINGPIN_HOME", t.TempDir())
+	w := testWorld()
+	w.Crew.Candidates = []CrewMember{
+		{ID: 1, Name: "Dre", Role: "runner", Skill: 60, Loyalty: 55, Greed: 40, Nerve: 70, Units: 36, Wage: 56, Fee: 340},
+		{ID: 2, Name: "Tank", Role: "enforcer", Skill: 30, Loyalty: 60, Greed: 20, Nerve: 90, Wage: 45, Fee: 220},
+	}
+	w.Crew.NextID = 2
+	w.Player.DirtyCash = 400
+	if _, err := w.Hire(1, 6); err != nil {
+		t.Fatal(err)
+	}
+	if _, err := w.Hire(2, 6); err == nil {
+		t.Fatal("hired with too little cash")
+	}
+	if w.Player.DirtyCash != 60 || w.Capacity() != 136 || len(w.Crew.Candidates) != 1 {
+		t.Fatalf("after hire: cash %d capacity %d pool %d", w.Player.DirtyCash, w.Capacity(), len(w.Crew.Candidates))
+	}
+	w.SetPay(events.PayGenerous)
+	w.Crew.Members[0].Loyalty = 33.5
+	if err := Save(w); err != nil {
+		t.Fatal(err)
+	}
+	got, err := Load()
+	if err != nil {
+		t.Fatal(err)
+	}
+	if got.Crew.Pay != events.PayGenerous || len(got.Crew.Members) != 1 || got.Crew.Members[0] != w.Crew.Members[0] {
+		t.Fatalf("crew did not round-trip: %+v", got.Crew)
+	}
+	if got.Crew.Candidates[0] != w.Crew.Candidates[0] || got.Crew.NextID != 2 {
+		t.Fatalf("pool did not round-trip: %+v", got.Crew)
+	}
+	if _, err := got.Fire(1); err != nil || len(got.Crew.Members) != 0 || len(got.Crew.FiredToday) != 1 {
+		t.Fatalf("fire: %v %+v", err, got.Crew)
+	}
+	if _, err := got.Fire(1); err == nil {
+		t.Fatal("fired someone twice")
 	}
 }
