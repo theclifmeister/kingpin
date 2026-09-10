@@ -331,6 +331,12 @@ func (s *Sim) Step(w *game.World, t *game.Tick) {
 			d.Front = ev.Name
 			add("laundering", "FrontFrozen", d)
 			rep.Money = append(rep.Money, fmt.Sprintf("%s shut for %d days: $%d upkeep unpaid. Wash something.", ev.Name, ev.Days, ev.Upkeep))
+		case events.ReputationShifted:
+			key := "Reputation" + capitalize(ev.Axis) + "Down"
+			if ev.Up() {
+				key = "Reputation" + capitalize(ev.Axis) + "Up"
+			}
+			add("reputation", key, base)
 		case events.CrewPaid:
 			wages += ev.Wages
 			line := fmt.Sprintf("Wages (%s) -$%d", ev.Pay, ev.Wages)

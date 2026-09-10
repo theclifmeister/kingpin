@@ -17,12 +17,21 @@ import (
 type Sim struct {
 	cfg  content.MarketConfig
 	tree content.UpgradesConfig
+	rep  content.ReputationFX
 }
 
 // New builds a market sim from config. The upgrade tree is what the
-// Operations branch multiplies: carry, supplier price and fill.
-func New(cfg content.MarketConfig, tree content.UpgradesConfig) *Sim {
-	return &Sim{cfg: cfg, tree: tree}
+// Operations branch multiplies: carry, supplier price and fill. Of the
+// reputation effects it reads one: respect makes the supplier generous.
+func New(cfg content.MarketConfig, tree content.UpgradesConfig, rep content.ReputationFX) *Sim {
+	return &Sim{cfg: cfg, tree: tree, rep: rep}
+}
+
+// SupplierRatio is the supplier's price as a fraction of street today:
+// the tuning, less what a supplier contact and the player's respect
+// take off.
+func (s *Sim) SupplierRatio(w *game.World) float64 {
+	return s.cfg.Market.SupplierRatio * game.FoldEffects(w, s.tree).SupplierMul * content.Cut(w.Player.Reputation.Respect, s.rep.RespectSupplierCut)
 }
 
 func (s *Sim) Name() string { return "market" }
@@ -50,7 +59,6 @@ func (s *Sim) BuyPressure(w *game.World) float64 {
 // interacts with today's price.
 func (s *Sim) Step(w *game.World, t *game.Tick) {
 	tun := s.cfg.Market
-	fx := game.FoldEffects(w, s.tree)
 	for _, id := range w.UpgradesToday {
 		if u := s.tree.Upgrade(id); u != nil {
 			t.Emit(events.UpgradeBought{Day: t.Day, ID: u.ID, Name: u.Name, Branch: u.Branch, Cost: u.Cost, Clean: u.Clean})
@@ -117,8 +125,8 @@ func (s *Sim) Step(w *game.World, t *game.Tick) {
 		m.Demand = math.Max(1, m.Demand)
 
 		// 5. Supplier resets to a fraction of street price, less what
-		// your contact there takes off.
-		m.SupplierPrice = m.Price * tun.SupplierRatio * fx.SupplierMul
+		// your contact there, and your name, take off.
+		m.SupplierPrice = m.Price * s.SupplierRatio(w)
 
 		m.History = append(m.History, m.Price)
 		if n := tun.HistoryDays; n > 0 && len(m.History) > n {

@@ -449,3 +449,27 @@ func TestSaveKeepsFronts(t *testing.T) {
 		t.Fatalf("freeze: %+v", got.Fronts[0])
 	}
 }
+
+func TestSaveKeepsReputation(t *testing.T) {
+	t.Setenv("KINGPIN_HOME", t.TempDir())
+	w := testWorld()
+	w.Player.Reputation = Reputation{Fear: 61.5, Respect: 12.25, Notoriety: 99}
+	if err := Save(w); err != nil {
+		t.Fatal(err)
+	}
+	got, err := Load()
+	if err != nil {
+		t.Fatal(err)
+	}
+	if got.Player.Reputation != w.Player.Reputation {
+		t.Fatalf("reputation did not round-trip: %+v vs %+v", got.Player.Reputation, w.Player.Reputation)
+	}
+	for _, a := range Axes {
+		if p := got.Player.Reputation.Axis(a); p == nil || *p != *w.Player.Reputation.Axis(a) {
+			t.Fatalf("axis %s: %v", a, p)
+		}
+	}
+	if got.Player.Reputation.Axis("charm") != nil {
+		t.Fatal("an axis that does not exist")
+	}
+}

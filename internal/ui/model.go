@@ -853,6 +853,8 @@ func (m *Model) viewOver() string {
 		b.WriteString(fmt.Sprintf("Snitches / defectors %d / %d\n", w.Stats.Informants, w.Stats.Defections))
 	}
 	b.WriteString(fmt.Sprintf("Peak heat       %.0f\n", w.Heat.Peak))
+	rep := w.Player.Reputation
+	b.WriteString(fmt.Sprintf("Reputation      fear %.0f / respect %.0f / notoriety %.0f\n", rep.Fear, rep.Respect, rep.Notoriety))
 	if n := len(w.Journal); n > 0 {
 		b.WriteString("\nLast headline:\n  " + theme.Subtle.Render(truncate(w.Journal[n-1].Text, max(20, m.width-20))) + "\n")
 	}

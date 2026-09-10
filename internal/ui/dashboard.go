@@ -80,7 +80,7 @@ func (m *Model) viewDashboard() string {
 	}
 	street.WriteString("\n")
 	street.WriteString(theme.Subtle.Render(fmt.Sprintf("carrying %d/%d units · supplier sells at ~%.0f%% of street",
-		w.Player.TotalStock(), w.Capacity(), m.cfg.Market.Market.SupplierRatio*100)) + "\n")
+		w.Player.TotalStock(), w.Capacity(), m.set.Market.SupplierRatio(w)*100)) + "\n")
 	if w.Worked() == 0 {
 		street.WriteString(theme.Bad.Render("You hold no corner, so nothing sells. Claim one on the map (5).") + "\n")
 	} else {
@@ -148,7 +148,8 @@ func (m *Model) viewDashboard() string {
 	for i := 0; i < len(thr); i += 2 {
 		heat.WriteString(theme.Subtle.Render(strings.Join(thr[i:min(i+2, len(thr))], " · ")) + "\n")
 	}
-	heatH := 7
+	heat.WriteString(m.reputationLine(rightW-4) + "\n")
+	heatH := 8
 	heatPanel := panel("HEAT", heat.String(), rightW, heatH, theme.Heat)
 
 	// Cash panel.
@@ -192,8 +193,42 @@ func (m *Model) viewDashboard() string {
 	if n == 0 {
 		alerts.WriteString(theme.Subtle.Render("Nobody is looking at you. Yet."))
 	}
-	alertsPanel := panel("ALERTS", alerts.String(), rightW, alertsH, theme.Heat)
-
-	right := lipgloss.JoinVertical(lipgloss.Left, heatPanel, cashPanel, rivalPanel, alertsPanel)
+	right := lipgloss.JoinVertical(lipgloss.Left, heatPanel, cashPanel, rivalPanel)
+	if alertsH >= 3 { // a border with nothing inside is not a panel
+		right = lipgloss.JoinVertical(lipgloss.Left, right, panel("ALERTS", alerts.String(), rightW, alertsH, theme.Heat))
+	}
 	return lipgloss.JoinHorizontal(lipgloss.Top, left, right)
+}
+
+// reputationAxes are the dashboard's three bars: the axis, its label at
+// full and at narrow width, and its accent.
+var reputationAxes = []struct {
+	axis, long, short string
+	colour            lipgloss.Color
+}{
+	{"fear", "fear", "F", theme.Rivals},
+	{"respect", "respect", "R", theme.Crew},
+	{"notoriety", "notoriety", "N", theme.Warn},
+}
+
+// reputationLine is the three reputation bars under the heat gauge, side
+// by side so they fit in one line of a panel width cells wide.
+func (m *Model) reputationLine(width int) string {
+	rep := m.w.Player.Reputation
+	long := width >= 44
+	labels := 3 * 2 // "F "
+	if long {
+		labels = len("fear ") + len("respect ") + len("notoriety ")
+	}
+	barW := max(3, (width-labels-2)/3)
+	var parts []string
+	for _, a := range reputationAxes {
+		label := a.short
+		if long {
+			label = a.long
+		}
+		v := *rep.Axis(a.axis)
+		parts = append(parts, lipgloss.NewStyle().Foreground(a.colour).Render(label+" "+sparkline.Bar(v/100, barW, nil)))
+	}
+	return strings.Join(parts, " ")
 }

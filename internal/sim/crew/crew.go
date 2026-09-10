@@ -36,11 +36,29 @@ func rolesFor(w *game.World) []string {
 type Sim struct {
 	cfg   content.CrewConfig
 	names []string
+	rep   content.ReputationFX
 }
 
-// New builds a crew sim from config and the name pool.
-func New(cfg content.CrewConfig, names content.NamesConfig) *Sim {
-	return &Sim{cfg: cfg, names: names.Crew}
+// New builds a crew sim from config and the name pool. Of the reputation
+// effects it reads two: respect slows loyalty's decay, notoriety cuts
+// what a candidate asks to sign.
+func New(cfg content.CrewConfig, names content.NamesConfig, rep content.ReputationFX) *Sim {
+	return &Sim{cfg: cfg, names: names.Crew, rep: rep}
+}
+
+// LoyaltyLoss is what the player's respect leaves of a day's loyalty
+// loss: 1 for a nobody, less for a name the crew are proud to work for.
+func (s *Sim) LoyaltyLoss(w *game.World) float64 {
+	return content.Cut(w.Player.Reputation.Respect, s.rep.RespectLoyaltyCut)
+}
+
+// HireFee is what a candidate of the given skill asks to sign today: the
+// tuning, less what the player's notoriety takes off. A candidate's fee
+// is fixed when they are generated, so the pool catches up as it rotates.
+func (s *Sim) HireFee(w *game.World, skill int) int {
+	tun := s.cfg.Crew
+	fee := tun.HireFeeBase + int(math.Round(tun.HireFeePerSkill*float64(skill)))
+	return int(math.Round(float64(fee) * content.Cut(w.Player.Reputation.Notoriety, s.rep.NotorietyHireCut)))
 }
 
 func (s *Sim) Name() string { return "crew" }
@@ -243,7 +261,7 @@ func (s *Sim) Step(w *game.World, t *game.Tick) {
 	// 4. Loyalty drift: pay, greed, danger, firings, unpaid wages, an
 	// investigation that named nobody, and for the enforcers, the strike
 	// they went on today: a toll from the rivals sim that the nervous feel
-	// most and a win halves.
+	// most and a win halves. A respected boss's crew feel every loss less.
 	toll := 0.0
 	for _, e := range t.Events() {
 		if cs, ok := e.(events.CornerStruck); ok {
@@ -261,6 +279,7 @@ func (s *Sim) Step(w *game.World, t *game.Tick) {
 		}
 	}
 	shield := math.Pow(1-s.cfg.Role["enforcer"].Protection, float64(enforcers))
+	loss := s.LoyaltyLoss(w)
 	base := s.cfg.PayFor(c.Pay).Loyalty
 	base -= tun.FireLoyalty * float64(fired)
 	if short > 0 {
@@ -277,6 +296,9 @@ func (s *Sim) Step(w *game.World, t *game.Tick) {
 		}
 		if m.Role == "enforcer" {
 			d -= toll * float64(100-m.Nerve) / 100
+		}
+		if d < 0 {
+			d *= loss
 		}
 		m.Loyalty = math.Max(0, math.Min(100, m.Loyalty+d))
 	}
@@ -359,7 +381,7 @@ func (s *Sim) generate(w *game.World, rng rand) game.CrewMember {
 		Greed:   5 + rng.IntN(91),
 		Nerve:   5 + rng.IntN(91),
 		Wage:    int(math.Round(rc.WageBase + rc.WagePerSkill*float64(skill))),
-		Fee:     tun.HireFeeBase + int(math.Round(tun.HireFeePerSkill*float64(skill))),
+		Fee:     s.HireFee(w, skill),
 	}
 	if role == "runner" {
 		m.Units = int(math.Round(tun.UnitsPerSkill * float64(skill)))

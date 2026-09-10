@@ -46,12 +46,39 @@ type World struct {
 	Stats   Stats
 }
 
-// Player is the human's cash and inventory.
+// Player is the human's cash and inventory, and the face the city sees.
 type Player struct {
 	DirtyCash  int
 	CleanCash  int
 	Stock      map[string]int
 	CarryLimit int
+	Reputation Reputation
+}
+
+// Reputation is the player's public face on three axes, 0..100, that the
+// reputation sim drifts from what happens and the other sims read. Its
+// zero value is a nobody, which is what every run starts as.
+type Reputation struct {
+	Fear      float64 // rivals think twice; heat never quite cools
+	Respect   float64 // the crew stay loyal, the supplier is generous
+	Notoriety float64 // hiring is cheap; the DA knows your name
+}
+
+// Axes are the reputation axes in a fixed order, for the UI and the
+// reputation sim.
+var Axes = []string{"fear", "respect", "notoriety"}
+
+// Axis returns a pointer to the named axis, or nil.
+func (r *Reputation) Axis(name string) *float64 {
+	switch name {
+	case "fear":
+		return &r.Fear
+	case "respect":
+		return &r.Respect
+	case "notoriety":
+		return &r.Notoriety
+	}
+	return nil
 }
 
 // TotalStock is the number of units the player holds across all products.

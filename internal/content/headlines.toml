@@ -203,3 +203,30 @@ FrontFrozen = [
   "Sign on the door of {{.City}} {{.Front}}: closed until further notice",
   "Suppliers cut off {{.Front}} over unpaid invoices",
 ]
+ReputationFearUp = [
+  "Corner boys in {{.City}} keep their heads down; 'you don't cross that crew'",
+  "{{.City}} shopkeepers pay up without being asked twice",
+  "Word on the street: somebody in {{.City}} is not to be crossed",
+]
+ReputationFearDown = [
+  "{{.City}} corner talk: 'they've gone soft'",
+  "Rival crews test the water in {{.City}}; nobody pushes back",
+]
+ReputationRespectUp = [
+  "{{.City}} corner boys say one crew 'looks after its own'",
+  "'Best boss I ever had', says {{.City}} man who will not give his name",
+  "A {{.City}} outfit is paying well and the street has noticed",
+]
+ReputationRespectDown = [
+  "{{.City}} crew talk: 'nobody works for that outfit twice'",
+  "Grumbling on {{.City}} corners about who pays and who doesn't",
+]
+ReputationNotorietyUp = [
+  "{{.City}} DA names a 'person of interest' in the drug trade; no charges yet",
+  "Everybody in {{.City}} knows the name; nobody will say it on record",
+  "Local paper runs a profile of {{.City}}'s 'new kingpin'",
+]
+ReputationNotorietyDown = [
+  "{{.City}} DA's office moves on to other targets",
+  "Whatever happened to that {{.City}} outfit? Nobody has heard a thing",
+]

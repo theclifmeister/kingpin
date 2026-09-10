@@ -12,7 +12,7 @@ import (
 func world(t *testing.T, cfg *content.Config, cash int) (*game.World, *crew.Sim) {
 	t.Helper()
 	w := game.NewWorld(7, "Testville", []game.StartingProduct{{ID: "a", Name: "A", Price: 10, Demand: 5}}, cash, 100)
-	s := crew.New(cfg.Crew, cfg.Names)
+	s := crew.New(cfg.Crew, cfg.Names, cfg.Reputation.Effects)
 	s.Seed(w, game.RNGFor(7, 0))
 	return w, s
 }
@@ -284,7 +284,7 @@ func TestTurningAndInvestigation(t *testing.T) {
 	// An investigation that cannot succeed.
 	cfgZero := *cfg
 	cfgZero.Crew.Informant.InvestigateBase, cfgZero.Crew.Informant.InvestigateSkill, cfgZero.Crew.Informant.InvestigateLearn = 0, 0, 0
-	zero := crew.New(cfgZero.Crew, cfgZero.Names)
+	zero := crew.New(cfgZero.Crew, cfgZero.Names, cfgZero.Reputation.Effects)
 	if got := zero.InvestigateOdds(w); got != 0 {
 		t.Fatalf("odds with nothing to go on: %v", got)
 	}
@@ -327,7 +327,7 @@ func TestTurningAndInvestigation(t *testing.T) {
 	// And one that cannot fail.
 	cfgSure := *cfg
 	cfgSure.Crew.Informant.InvestigateBase = 1
-	sure := crew.New(cfgSure.Crew, cfgSure.Names)
+	sure := crew.New(cfgSure.Crew, cfgSure.Names, cfgSure.Reputation.Effects)
 	if err := w.Investigate(inf.InvestigateCost); err != nil {
 		t.Fatal(err)
 	}

@@ -405,6 +405,20 @@ type FallGuyBurned struct {
 
 func (FallGuyBurned) Kind() string { return "FallGuyBurned" }
 
+// ReputationShifted is one of the player's reputation axes crossing a
+// band line (a multiple of reputation.toml's band), either way. From and
+// To are the axis before and after the day.
+type ReputationShifted struct {
+	Day      int
+	Axis     string // fear, respect, notoriety
+	From, To float64
+}
+
+func (ReputationShifted) Kind() string { return "ReputationShifted" }
+
+// Up reports whether the axis crossed the line going up.
+func (r ReputationShifted) Up() bool { return r.To > r.From }
+
 // Launder is the laundering dial: how hard every front is pushed, trading
 // throughput against audits.
 type Launder int

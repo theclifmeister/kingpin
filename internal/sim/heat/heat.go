@@ -18,13 +18,27 @@ type Sim struct {
 	cfg    content.HeatConfig
 	market content.MarketConfig
 	tree   content.UpgradesConfig
+	rep    content.ReputationFX
 }
 
 // New builds a heat sim. It needs the market config for per-product and
-// per-dial heat multipliers, and the upgrade tree for what the Security
-// and Legal branches take off.
-func New(cfg content.HeatConfig, market content.MarketConfig, tree content.UpgradesConfig) *Sim {
-	return &Sim{cfg: cfg, market: market, tree: tree}
+// per-dial heat multipliers, the upgrade tree for what the Security and
+// Legal branches take off, and of the reputation effects the two that
+// are its: fear puts a floor under heat, notoriety makes you the target.
+func New(cfg content.HeatConfig, market content.MarketConfig, tree content.UpgradesConfig, rep content.ReputationFX) *Sim {
+	return &Sim{cfg: cfg, market: market, tree: tree, rep: rep}
+}
+
+// Floor is the heat a feared player never cools below: decay works on
+// what is above it. A nobody's floor is zero.
+func (s *Sim) Floor(w *game.World) float64 {
+	return s.rep.FearHeatFloor * math.Max(0, math.Min(1, w.Player.Reputation.Fear/100))
+}
+
+// PersonalHeat is the weight of a unit you move yourself, relative to a
+// unit a nobody moves: notoriety makes you the one they are watching.
+func (s *Sim) PersonalHeat(w *game.World) float64 {
+	return content.Scale(w.Player.Reputation.Notoriety, s.rep.NotorietyHeat)
 }
 
 // Effects is what the player's upgrades do to heat today.
@@ -84,12 +98,14 @@ func (s *Sim) SaleHeat(w *game.World, product string, wanted int, dial events.Di
 }
 
 // CornerWeight is the heat one unit of a product draws on average across
-// the corners it moves on, relative to a unit you move yourself on a
-// standard corner. A sale spreads over the worked corners by their share;
-// each corner has its own heat, and a unit a runner moves counts at the
-// crew discount: they are on the corner, you are not.
+// the corners it moves on, relative to a unit a nobody moves themselves
+// on a standard corner. A sale spreads over the worked corners by their
+// share; each corner has its own heat, a unit a runner moves counts at
+// the crew discount (they are on the corner, you are not), and a unit
+// you move yourself counts your notoriety.
 func (s *Sim) CornerWeight(w *game.World, product string) float64 {
 	total, weighted := 0.0, 0.0
+	personal := s.PersonalHeat(w)
 	for _, c := range w.Territory.Corners {
 		if !c.Worked() {
 			continue
@@ -99,6 +115,8 @@ func (s *Sim) CornerWeight(w *game.World, product string) float64 {
 		unit := c.Heat
 		if c.Runner != game.You {
 			unit *= s.cfg.Heat.CrewHeat
+		} else {
+			unit *= personal
 		}
 		weighted += share * unit
 	}
@@ -251,14 +269,19 @@ func (s *Sim) Step(w *game.World, t *game.Tick) {
 	}
 
 	// Decay. Cold contacts make both the base rate and lying low better.
+	// A feared name never quite cools: decay works on what is above the
+	// floor, and nothing takes heat under it.
 	decay := math.Max(tun.Decay, fx.Decay)
 	if w.LieLow {
 		decay *= math.Max(tun.LieLowMultiplier, fx.LieLowMultiplier)
 		t.Emit(events.LaidLow{Day: t.Day})
 		reasons = append(reasons, "lay low")
 	}
-	h.Value -= h.Value * decay
-	h.Value = math.Max(0, math.Min(100, h.Value))
+	floor := s.Floor(w)
+	if h.Value > floor {
+		h.Value -= (h.Value - floor) * decay
+	}
+	h.Value = math.Max(floor, math.Min(100, h.Value))
 
 	if h.SellCapDays > 0 {
 		h.SellCapDays--
@@ -310,7 +333,7 @@ func (s *Sim) Step(w *game.World, t *game.Tick) {
 	if h.Value > h.Peak {
 		h.Peak = h.Value
 	}
-	h.Value = math.Max(0, math.Min(100, h.Value))
+	h.Value = math.Max(floor, math.Min(100, h.Value))
 	t.Emit(events.HeatChanged{Day: t.Day, From: from, To: h.Value, Reasons: reasons})
 }
 
