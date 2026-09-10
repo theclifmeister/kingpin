@@ -22,6 +22,41 @@ func (m *Model) mapSelected() *game.Corner {
 	return &cs[m.mapCursor]
 }
 
+// mapMove walks the grid: dx moves along the row to the next corner in
+// that direction (an empty cell is skipped, the edge is a no-op), dy to
+// the corner in the adjacent row nearest by column. The cursor stays an
+// index into Corners, so the post and strike pickers read it as before.
+func (m *Model) mapMove(dx, dy int) {
+	sel := m.mapSelected()
+	if sel == nil {
+		return
+	}
+	cs := m.w.Territory.Corners
+	best, bestD := -1, 0
+	for i := range cs {
+		c := &cs[i]
+		var d int
+		switch {
+		case dx != 0:
+			if c.Y != sel.Y || (c.X-sel.X)*dx <= 0 {
+				continue
+			}
+			d = (c.X - sel.X) * dx
+		default:
+			if c.Y != sel.Y+dy {
+				continue
+			}
+			d = max(c.X-sel.X, sel.X-c.X)
+		}
+		if best < 0 || d < bestD {
+			best, bestD = i, d
+		}
+	}
+	if best >= 0 {
+		m.mapCursor = best
+	}
+}
+
 // ownerStyle is the colour a corner is drawn in: crew blue for yours,
 // rivals purple for theirs, dim for nobody's.
 func ownerStyle(owner string) lipgloss.Style {

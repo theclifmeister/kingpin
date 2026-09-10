@@ -27,7 +27,8 @@ load; a save from a newer build than the one you are running is refused.
 
 | Key | Action |
 |---|---|
-| `1`–`7` / `←` `→` / `tab` | Dashboard, Market, Journal, Crew, Map, Upgrades, Ledger |
+| `1`–`7` / `tab` | Dashboard, Market, Journal, Crew, Map, Upgrades, Ledger (`shift+tab` goes back) |
+| `↑` `↓` `←` `→` | Move the cursor: up and down a list, across the map grid and the upgrade columns; the dial in a dialog |
 | `b` | Buy from the supplier (blank quantity = as much as you can); on the ledger, buy a front |
 | `s` | Queue a street sale and set the dial: quiet / normal / aggressive |
 | `x` | Cancel the queued order on the selected product |
