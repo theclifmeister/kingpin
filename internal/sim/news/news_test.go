@@ -7,7 +7,7 @@ import (
 	"github.com/theclifmeister/kingpin/internal/sim/news"
 )
 
-// Every event the market, crew and heat sims can emit must have a headline
+// Every event the market, territory, crew and heat sims can emit must have a headline
 // template, otherwise the ticker goes silent on something that matters.
 func TestEveryEmittedEventHasTemplate(t *testing.T) {
 	cfg := content.MustLoad()
@@ -21,6 +21,7 @@ func TestEveryEmittedEventHasTemplate(t *testing.T) {
 		"EnforcementPatrol", "EnforcementSting", "EnforcementRaid", "EnforcementArrest",
 		"LaidLow", "HeatWarning",
 		"CrewHired", "CrewFired", "CrewQuit", "CrewSkimmed",
+		"CornerClaimed", "CornerLost", "CornerRobbed",
 	}
 	for _, r := range cfg.Heat.Responses {
 		required = append(required, "Enforcement"+capital(r.Level))

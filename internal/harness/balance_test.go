@@ -109,16 +109,17 @@ func TestAggressiveSellingCrashesPrice(t *testing.T) {
 	}
 }
 
-// A player who sells normally but lies low when heat climbs should survive
-// and out-earn the quiet trader: that is the whole point of the dial.
+// A player who sells normally but lies low when heat climbs is never
+// punished for playing on, and out-earns the quiet trader: that is the
+// whole point of the dial.
 func TestManagedNormalBeatsQuiet(t *testing.T) {
 	cfg := content.MustLoad()
 	for seed := uint64(1); seed <= 10; seed++ {
-		managed, _ := Run(cfg, seed, 200, Managed(cfg, 50))
+		managed, _ := Run(cfg, seed, Horizon, Managed(cfg, 50))
 		if managed.Over != nil {
 			t.Fatalf("seed %d: managed trader ended on day %d: %s", seed, managed.Days, managed.Over.Cause)
 		}
-		quiet, _ := Run(cfg, seed, 200, Trader(cfg, events.DialQuiet))
+		quiet, _ := Run(cfg, seed, Horizon, Trader(cfg, events.DialQuiet))
 		if managed.PeakCash <= quiet.PeakCash {
 			t.Fatalf("seed %d: managed peaked at %d, quiet at %d; managing heat should pay", seed, managed.PeakCash, quiet.PeakCash)
 		}
@@ -140,9 +141,9 @@ func TestHeatBounds(t *testing.T) {
 func TestAlwaysAggressiveGetsArrestedFast(t *testing.T) {
 	cfg := content.MustLoad()
 	for seed := uint64(1); seed <= 10; seed++ {
-		res, _ := Run(cfg, seed, 200, Trader(cfg, events.DialAggressive))
+		res, _ := Run(cfg, seed, Horizon, Trader(cfg, events.DialAggressive))
 		if res.Over == nil || (res.Over.Cause != "arrested" && res.Over.Cause != "indicted") {
-			t.Fatalf("seed %d: aggressive trader survived %d days (over=%v)", seed, res.Days, res.Over)
+			t.Fatalf("seed %d: aggressive trader still free after %d days (over=%v)", seed, res.Days, res.Over)
 		}
 		if res.Days > 40 {
 			t.Fatalf("seed %d: aggressive trader lasted %d days, expected <= 40", seed, res.Days)
@@ -150,10 +151,12 @@ func TestAlwaysAggressiveGetsArrestedFast(t *testing.T) {
 	}
 }
 
-func TestAlwaysQuietSurvivesAndEarnsLess(t *testing.T) {
+// Quiet play is always safe, however long it goes on, and it pays less:
+// the dial has to be a real trade.
+func TestAlwaysQuietStaysFreeAndEarnsLess(t *testing.T) {
 	cfg := content.MustLoad()
 	for seed := uint64(1); seed <= 10; seed++ {
-		quiet, _ := Run(cfg, seed, 200, Trader(cfg, events.DialQuiet))
+		quiet, _ := Run(cfg, seed, Horizon, Trader(cfg, events.DialQuiet))
 		if quiet.Over != nil {
 			t.Fatalf("seed %d: quiet trader ended on day %d: %s", seed, quiet.Days, quiet.Over.Cause)
 		}
@@ -161,8 +164,8 @@ func TestAlwaysQuietSurvivesAndEarnsLess(t *testing.T) {
 			t.Fatalf("seed %d: quiet trader lost money: %d", seed, quiet.EndCash)
 		}
 		// Greed must pay in the short term or the dial has no tension: over
-		// the days the aggressive trader survives, it must out-earn quiet.
-		agg, _ := Run(cfg, seed, 200, Trader(cfg, events.DialAggressive))
+		// the days the aggressive trader lasts, it must out-earn quiet.
+		agg, _ := Run(cfg, seed, Horizon, Trader(cfg, events.DialAggressive))
 		short, _ := Run(cfg, seed, max(1, agg.Days-1), Trader(cfg, events.DialQuiet))
 		if agg.PeakCash <= short.PeakCash {
 			t.Fatalf("seed %d: over %d days aggressive peaked at %d, quiet at %d; greed should pay short term", seed, agg.Days-1, agg.PeakCash, short.PeakCash)
@@ -181,6 +184,7 @@ var moneyCurve = []struct {
 	lo, hi int
 }{
 	{1, "managed", func(cfg *content.Config) Policy { return Managed(cfg, 50) }, 30, 50_000, 200_000},
+	{2, "crewed", func(cfg *content.Config) Policy { return Crewed(cfg, 40) }, 70, 500_000, 2_000_000},
 }
 
 func medianNetWorth(t *testing.T, cfg *content.Config, policy func(*content.Config) Policy, day int) int {

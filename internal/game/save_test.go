@@ -4,6 +4,7 @@ import (
 	"errors"
 	"os"
 	"path/filepath"
+	"reflect"
 	"strings"
 	"testing"
 
@@ -20,8 +21,18 @@ func (c *counter) Step(w *World, t *Tick) {
 	t.Emit(events.PriceMove{Day: t.Day, Product: "a", To: w.Market["a"].Price})
 }
 
+// testWorld is a one-product city with two corners; the player works the
+// first one, the way a fresh run starts.
 func testWorld() *World {
-	return NewWorld(99, "Testville", []StartingProduct{{ID: "a", Name: "A", Price: 10, Demand: 5}}, 500, 100)
+	w := NewWorld(99, "Testville", []StartingProduct{{ID: "a", Name: "A", Price: 10, Demand: 5}}, 500, 100)
+	w.Territory.Corners = []Corner{
+		{ID: "home", Name: "Home", Demand: 1, Heat: 1, Risk: 1, Owner: OwnerNone},
+		{ID: "docks", Name: "Docks", X: 1, Demand: 1.5, Taste: map[string]float64{"a": 2}, Heat: 0.5, Risk: 2, Owner: OwnerNone},
+	}
+	if err := w.Post("home", You); err != nil {
+		panic(err)
+	}
+	return w
 }
 
 func TestSaveRoundTripIsDeterministic(t *testing.T) {
@@ -187,5 +198,96 @@ func TestSaveKeepsCrew(t *testing.T) {
 	}
 	if _, err := got.Fire(1); err == nil {
 		t.Fatal("fired someone twice")
+	}
+}
+
+// Posting claims a corner and moves people; recalling leaves it held but
+// unworked; abandoning gives it back. Demand follows the worked corners.
+func TestPostRecallAbandon(t *testing.T) {
+	w := testWorld()
+	w.Crew.Members = []CrewMember{
+		{ID: 1, Name: "Dre", Role: "runner", Skill: 60, Units: 36},
+		{ID: 2, Name: "Tank", Role: "enforcer", Skill: 30},
+	}
+	home, docks := w.Corner("home"), w.Corner("docks")
+	if !home.Worked() || home.Runner != You || docks.Held() || w.Held() != 1 || w.Worked() != 1 {
+		t.Fatalf("fresh world: home %+v docks %+v", *home, *docks)
+	}
+	if got := w.Demand("a"); got != 5 {
+		t.Fatalf("demand on the home corner = %v, want 5", got)
+	}
+	if err := w.Post("nowhere", 1); err != ErrNoCorner {
+		t.Fatalf("post to a missing corner: %v", err)
+	}
+	if err := w.Post("docks", 99); err != ErrNoMember {
+		t.Fatalf("post a stranger: %v", err)
+	}
+	w.Day = 4
+	if err := w.Post("docks", 1); err != nil {
+		t.Fatal(err)
+	}
+	if !docks.Worked() || docks.Runner != 1 || docks.Since != 4 || w.PostOf(1) != docks {
+		t.Fatalf("after posting Dre: %+v", *docks)
+	}
+	// Docks has share 1.5 * taste 2 = 3 standard corners of product a.
+	if got := w.Demand("a"); got != 5*(1+3) {
+		t.Fatalf("demand with both corners = %v, want 20", got)
+	}
+	if err := w.Post("docks", 2); err != nil || docks.Enforcer != 2 || docks.Runner != 1 {
+		t.Fatalf("post an enforcer: %v %+v", err, *docks)
+	}
+	// Moving Dre home replaces you; the docks stay held but unworked.
+	if err := w.Post("home", 1); err != nil {
+		t.Fatal(err)
+	}
+	if home.Runner != 1 || docks.Runner != 0 || !docks.Held() || docks.Enforcer != 2 || w.PostOf(You) != nil {
+		t.Fatalf("after moving Dre home: home %+v docks %+v", *home, *docks)
+	}
+	if w.Worked() != 1 || w.Held() != 2 || w.Demand("a") != 5 {
+		t.Fatalf("held %d worked %d demand %v", w.Held(), w.Worked(), w.Demand("a"))
+	}
+	// Firing pulls them off; you can step back on.
+	if _, err := w.Fire(1); err != nil || home.Runner != 0 || w.PostOf(1) != nil {
+		t.Fatalf("fire: %v %+v", err, *home)
+	}
+	if err := w.Post("home", You); err != nil || home.Runner != You {
+		t.Fatalf("step back on: %v %+v", err, *home)
+	}
+	if err := w.Abandon("docks"); err != nil || docks.Held() || docks.Enforcer != 0 || w.PostOf(2) != nil {
+		t.Fatalf("abandon: %v %+v", err, *docks)
+	}
+	if err := w.Abandon("docks"); err == nil {
+		t.Fatal("abandoned a corner twice")
+	}
+	docks.Owner = OwnerRival
+	if err := w.Post("docks", You); err != ErrCornerTaken {
+		t.Fatalf("post on a rival corner: %v", err)
+	}
+	if err := w.Abandon("home"); err != nil || w.Demand("a") != 0 || w.Worked() != 0 {
+		t.Fatalf("abandon home: %v demand %v", err, w.Demand("a"))
+	}
+}
+
+func TestSaveKeepsCorners(t *testing.T) {
+	t.Setenv("KINGPIN_HOME", t.TempDir())
+	w := testWorld()
+	w.Crew.Members = []CrewMember{{ID: 1, Name: "Dre", Role: "runner"}, {ID: 2, Name: "Tank", Role: "enforcer"}}
+	w.Day = 3
+	if err := w.Post("docks", 1); err != nil {
+		t.Fatal(err)
+	}
+	if err := w.Post("docks", 2); err != nil {
+		t.Fatal(err)
+	}
+	w.Corner("home").Idle = 2
+	if err := Save(w); err != nil {
+		t.Fatal(err)
+	}
+	got, err := Load()
+	if err != nil {
+		t.Fatal(err)
+	}
+	if !reflect.DeepEqual(got.Territory, w.Territory) {
+		t.Fatalf("corners did not round-trip:\n%+v\n%+v", got.Territory, w.Territory)
 	}
 }

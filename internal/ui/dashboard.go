@@ -81,8 +81,13 @@ func (m *Model) viewDashboard() string {
 	street.WriteString("\n")
 	street.WriteString(theme.Subtle.Render(fmt.Sprintf("carrying %d/%d units · supplier sells at ~%.0f%% of street",
 		w.Player.TotalStock(), w.Capacity(), m.cfg.Market.Market.SupplierRatio*100)) + "\n")
+	if w.Worked() == 0 {
+		street.WriteString(theme.Bad.Render("You hold no corner, so nothing sells. Claim one on the map (5).") + "\n")
+	} else {
+		street.WriteString(lipgloss.NewStyle().Foreground(theme.Rivals).Render(fmt.Sprintf("corners %d worked, %d held of %d", w.Worked(), w.Held(), len(w.Territory.Corners))) + "\n")
+	}
 	if n := len(w.Crew.Members); n > 0 {
-		crew := fmt.Sprintf("crew %d · reach x%.1f · %s pay %s/day", n, w.Reach(), w.Crew.Pay, money(m.set.Crew.Wages(w, w.Crew.Pay)))
+		crew := fmt.Sprintf("crew %d · %s pay %s/day", n, w.Crew.Pay, money(m.set.Crew.Wages(w, w.Crew.Pay)))
 		if w.Crew.LastSkim > 0 && w.Day-w.Crew.LastSkim < m.set.Crew.Tuning().SuspectDays {
 			street.WriteString(lipgloss.NewStyle().Foreground(theme.Crew).Render(crew) + theme.Bad.Render(" · skimming suspected") + "\n")
 		} else {

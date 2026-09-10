@@ -41,7 +41,7 @@ func (m *Model) viewMarket() string {
 			cur, name, price(p.Price), ds,
 			theme.Good.Render(fit(sparkline.Render(p.History, sparkW), sparkW)),
 			price(p.SupplierPrice), w.Player.Stock[id],
-			fmt.Sprintf("~%.0f/day", p.Demand), order)
+			fmt.Sprintf("~%.0f/day", w.Demand(id)), order)
 		b.WriteString(row + "\n")
 	}
 	b.WriteString("\n")
@@ -67,5 +67,6 @@ func (m *Model) viewMarket() string {
 		margin = (p.Price - p.SupplierPrice) / p.SupplierPrice * 100
 	}
 	b.WriteString(fmt.Sprintf("  margin        %.0f%% over supplier\n", margin))
+	b.WriteString(fmt.Sprintf("  demand        ~%.0f/day on your %d corner(s)  %s\n", w.Demand(id), w.Worked(), theme.Subtle.Render(fmt.Sprintf("(~%.0f per standard corner; the map shows the rest)", p.Demand))))
 	return b.String()
 }

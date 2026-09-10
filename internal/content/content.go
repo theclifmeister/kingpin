@@ -1,4 +1,4 @@
-// Package content loads the tuning data (markets, heat, crew, headlines) that
+// Package content loads the tuning data (markets, city, heat, crew, headlines) that
 // lives in TOML files embedded in the binary. Balance changes never need
 // code changes.
 package content
@@ -18,6 +18,7 @@ var files embed.FS
 // Config is everything the simulations need to be constructed.
 type Config struct {
 	Market    MarketConfig
+	City      CityConfig
 	Heat      HeatConfig
 	Crew      CrewConfig
 	Names     NamesConfig
@@ -69,6 +70,32 @@ type DialConfig struct {
 	Price  float64 `toml:"price"`
 	Impact float64 `toml:"impact"`
 	Heat   float64 `toml:"heat"`
+}
+
+// CityConfig mirrors city.toml: the corners and how they are held.
+type CityConfig struct {
+	Territory TerritoryTuning `toml:"territory"`
+	Corners   []CornerConfig  `toml:"corner"`
+}
+
+type TerritoryTuning struct {
+	Start         string  `toml:"start"`
+	DriftDays     int     `toml:"drift_days"`
+	RobberyChance float64 `toml:"robbery_chance"`
+	RobberyStock  float64 `toml:"robbery_stock"`
+	RobberyCash   float64 `toml:"robbery_cash"`
+	EnforcerCut   float64 `toml:"enforcer_cut"`
+}
+
+type CornerConfig struct {
+	ID     string             `toml:"id"`
+	Name   string             `toml:"name"`
+	X      int                `toml:"x"` // map cell
+	Y      int                `toml:"y"`
+	Demand float64            `toml:"demand"` // size relative to one standard corner
+	Heat   float64            `toml:"heat"`   // sale-heat multiplier for units moved here
+	Risk   float64            `toml:"risk"`   // robbery-chance multiplier
+	Taste  map[string]float64 `toml:"taste"`  // per-product demand multiplier; missing = 1
 }
 
 // HeatConfig mirrors heat.toml.
@@ -167,6 +194,9 @@ func Load() (*Config, error) {
 	if err := decode("market.toml", &c.Market); err != nil {
 		return nil, err
 	}
+	if err := decode("city.toml", &c.City); err != nil {
+		return nil, err
+	}
 	if err := decode("heat.toml", &c.Heat); err != nil {
 		return nil, err
 	}
@@ -181,6 +211,12 @@ func Load() (*Config, error) {
 	}
 	if len(c.Market.Products) == 0 {
 		return nil, fmt.Errorf("market.toml: no products defined")
+	}
+	if len(c.City.Corners) == 0 {
+		return nil, fmt.Errorf("city.toml: no corners defined")
+	}
+	if c.City.Corner(c.City.Territory.Start) == nil {
+		return nil, fmt.Errorf("city.toml: start corner %q is not defined", c.City.Territory.Start)
 	}
 	for _, role := range []string{"runner", "enforcer"} {
 		if _, ok := c.Crew.Role[role]; !ok {
@@ -218,6 +254,16 @@ func (m MarketConfig) Product(id string) *ProductConfig {
 	for i := range m.Products {
 		if m.Products[i].ID == id {
 			return &m.Products[i]
+		}
+	}
+	return nil
+}
+
+// Corner returns the config for id, or nil.
+func (c CityConfig) Corner(id string) *CornerConfig {
+	for i := range c.Corners {
+		if c.Corners[i].ID == id {
+			return &c.Corners[i]
 		}
 	}
 	return nil

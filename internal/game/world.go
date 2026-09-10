@@ -10,7 +10,7 @@ import (
 )
 
 // SchemaVersion is bumped whenever World changes shape incompatibly.
-const SchemaVersion = 2
+const SchemaVersion = 3
 
 // World is the complete state of a run. Every field is a plain value so the
 // whole struct can be serialised with encoding/gob.
@@ -20,11 +20,12 @@ type World struct {
 	Day           int
 	City          string
 
-	Player   Player
-	Products []string                  // ordered product ids
-	Market   map[string]*ProductMarket // keyed by product id
-	Heat     HeatState
-	Crew     CrewState
+	Player    Player
+	Products  []string                  // ordered product ids
+	Market    map[string]*ProductMarket // keyed by product id
+	Heat      HeatState
+	Crew      CrewState
+	Territory TerritoryState
 
 	// Per-day scratch, cleared by the clock after every EndDay.
 	Orders map[string]SellOrder // pending sell orders keyed by product id
@@ -59,7 +60,7 @@ type ProductMarket struct {
 	Name          string
 	Price         float64   // street price per unit
 	SupplierPrice float64   // what the player pays per unit today
-	Demand        float64   // units the street absorbs per day at this price
+	Demand        float64   // units one standard corner absorbs per day; see World.Demand
 	Glut          float64   // oversupply from recent selling; pushes price down
 	ShockFactor   float64   // multiplier on equilibrium while ShockDays > 0
 	ShockDays     int       // remaining days of the current shock
@@ -162,6 +163,7 @@ type DayReport struct {
 	Sales      []string
 	Heat       []string
 	Crew       []string
+	Territory  []string
 	Money      []string
 	News       []string
 	CashBefore int
@@ -184,6 +186,7 @@ type Stats struct {
 	Stings       int
 	Wages        int
 	Skimmed      int
+	Robbed       int
 }
 
 // StartingProduct describes a product as it exists at the start of a run.
@@ -267,16 +270,6 @@ func (w *World) Capacity() int {
 		n += m.Units
 	}
 	return n
-}
-
-// Reach is Capacity relative to what the player alone could move. The
-// market fills that much more of demand: runners work corners you cannot
-// stand on yourself.
-func (w *World) Reach() float64 {
-	if w.Player.CarryLimit <= 0 {
-		return 1
-	}
-	return float64(w.Capacity()) / float64(w.Player.CarryLimit)
 }
 
 // Product returns the market state for id, or nil.

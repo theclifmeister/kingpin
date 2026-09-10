@@ -5,7 +5,7 @@
 max_crew = 6
 candidates = 3              # people looking for work at any time
 pool_days = 5               # the pool rotates every this many days
-units_per_skill = 0.6       # sell capacity a runner adds per skill point
+units_per_skill = 2.0       # units a runner can hold and move per skill point; a skill-50 runner carries what you do
 hire_fee_base = 100         # signing fee = base + per_skill * skill
 hire_fee_per_skill = 4
 start_loyalty_min = 45

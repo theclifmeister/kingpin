@@ -51,8 +51,8 @@ func (w *World) Buy(product string, qty int, pricePressure float64) (Purchase, e
 	w.Player.DirtyCash -= cost
 	w.Player.Stock[product] += qty
 	m.BoughtToday += qty
-	if m.Demand > 0 {
-		m.SupplierPrice *= 1 + pricePressure*float64(qty)/m.Demand
+	if demand := w.Demand(product); demand > 0 {
+		m.SupplierPrice *= 1 + pricePressure*float64(qty)/demand
 	}
 	w.Buys = append(w.Buys, p)
 	return p, nil
@@ -119,14 +119,15 @@ func (w *World) Hire(id, maxCrew int) (CrewMember, error) {
 	return c, nil
 }
 
-// Fire removes the member with id. The rest of the crew take it badly when
-// the crew sim steps.
+// Fire removes the member with id and pulls them off their corner. The
+// rest of the crew take it badly when the crew sim steps.
 func (w *World) Fire(id int) (CrewMember, error) {
 	if w.Over != nil {
 		return CrewMember{}, ErrGameOver
 	}
 	for i, m := range w.Crew.Members {
 		if m.ID == id {
+			w.Recall(id)
 			w.Crew.Members = append(w.Crew.Members[:i], w.Crew.Members[i+1:]...)
 			w.Crew.FiredToday = append(w.Crew.FiredToday, m)
 			return m, nil

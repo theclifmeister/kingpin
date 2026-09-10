@@ -1,5 +1,7 @@
 // Package market simulates street prices, demand, shocks and the
-// resolution of the player's sell orders.
+// resolution of the player's sell orders. Demand is per standard corner;
+// what the player can actually serve is that times the corners they work
+// (game.World.Demand).
 package market
 
 import (
@@ -88,7 +90,8 @@ func (s *Sim) Step(w *game.World, t *game.Tick) {
 		m.Price *= 1 + noise
 		m.Price = clamp(m.Price, pc.BasePrice*tun.PriceFloorRatio, pc.BasePrice*tun.PriceCeilingRatio)
 
-		// 4. Demand wanders around its base; slumps cut it.
+		// 4. Demand per standard corner wanders around its base; slumps
+		// cut it. The corners the player works scale it (World.Demand).
 		base := pc.Demand
 		if m.ShockSlump {
 			base *= m.ShockFactor
@@ -130,17 +133,18 @@ func (s *Sim) Fill(w *game.World, d events.Dial) float64 {
 	return fill
 }
 
-// Capacity is how many units of m the street will take at dial d today.
-// Runners extend the player's reach past the corners they can stand on.
-func (s *Sim) Capacity(w *game.World, m *game.ProductMarket, d events.Dial) int {
-	return int(math.Round(m.Demand * w.Reach() * s.Fill(w, d)))
+// Capacity is how many units of a product the street will take at dial d
+// today: the demand of the corners the player works, at the dial's fill.
+// Without a worked corner there is nowhere to sell.
+func (s *Sim) Capacity(w *game.World, product string, d events.Dial) int {
+	return int(math.Round(w.Demand(product) * s.Fill(w, d)))
 }
 
 // resolve turns a sell order into cash, price impact and a PlayerSold event.
 func (s *Sim) resolve(w *game.World, t *game.Tick, m *game.ProductMarket, o game.SellOrder) {
 	d := s.Dial(o.Dial)
-	demand := m.Demand * w.Reach()
-	sold := min(o.Qty, s.Capacity(w, m, o.Dial), w.Player.Stock[o.Product])
+	demand := w.Demand(o.Product)
+	sold := min(o.Qty, s.Capacity(w, o.Product, o.Dial), w.Player.Stock[o.Product])
 	if sold < 0 {
 		sold = 0
 	}
