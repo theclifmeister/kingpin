@@ -172,7 +172,7 @@ func (m *Model) confirmBuy() (tea.Model, tea.Cmd) {
 		m.dlg.err = err.Error()
 		return m, nil
 	}
-	p, err := m.w.Buy(id, qty, m.cfg.Market.Market.BuyPricePressure)
+	p, err := m.w.Buy(id, qty, m.set.Market.BuyPressure(m.w))
 	if err != nil {
 		m.dlg.err = err.Error()
 		return m, nil

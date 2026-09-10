@@ -1,11 +1,12 @@
-// Package content loads the tuning data (markets, city, heat, crew, rivals, headlines) that
-// lives in TOML files embedded in the binary. Balance changes never need
+// Package content loads the tuning data (markets, city, heat, crew, rivals,
+// upgrades, headlines) that lives in TOML files embedded in the binary. Balance changes never need
 // code changes.
 package content
 
 import (
 	"embed"
 	"fmt"
+	"slices"
 
 	"github.com/BurntSushi/toml"
 
@@ -23,6 +24,7 @@ type Config struct {
 	Crew      CrewConfig
 	Rivals    RivalsConfig
 	Names     NamesConfig
+	Upgrades  UpgradesConfig
 	Headlines HeadlinesConfig
 }
 
@@ -241,6 +243,47 @@ type NamesConfig struct {
 	Rivals []string `toml:"rivals"`
 }
 
+// UpgradesConfig mirrors upgrades.toml: the upgrade tree.
+type UpgradesConfig struct {
+	Nodes []UpgradeConfig `toml:"upgrade"`
+}
+
+// Branches an upgrade can belong to, in display order.
+var Branches = []string{"operations", "security", "legal"}
+
+// UpgradeConfig is one node of the tree.
+type UpgradeConfig struct {
+	ID       string         `toml:"id"`
+	Name     string         `toml:"name"`
+	Branch   string         `toml:"branch"`
+	Cost     int            `toml:"cost"`
+	Clean    bool           `toml:"clean"`    // paid in clean cash rather than dirty
+	Requires []string       `toml:"requires"` // ids that must be owned first
+	Desc     string         `toml:"desc"`
+	Effects  UpgradeEffects `toml:"effects"`
+}
+
+// UpgradeEffects are the named multipliers and deltas a node carries. The
+// header of upgrades.toml says how each combines across owned nodes; a
+// zero value means the node does not touch that effect.
+type UpgradeEffects struct {
+	CarryBonus        int     `toml:"carry_bonus"`
+	SupplierMul       float64 `toml:"supplier_mul"`
+	BuyPressureMul    float64 `toml:"buy_pressure_mul"`
+	FillMul           float64 `toml:"fill_mul"`
+	SaleHeatMul       float64 `toml:"sale_heat_mul"`
+	PatrolCap         float64 `toml:"patrol_cap"`
+	CooldownBonus     int     `toml:"cooldown_bonus"`
+	StingStockMul     float64 `toml:"sting_stock_mul"`
+	RaidLossMul       float64 `toml:"raid_loss_mul"`
+	LieLowMultiplier  float64 `toml:"lie_low_multiplier"`
+	Decay             float64 `toml:"decay"`
+	EvidenceCut       int     `toml:"evidence_cut"`
+	EvidenceDecayDays int     `toml:"evidence_decay_days"`
+	EvidenceArrest    int     `toml:"evidence_arrest"`
+	FallGuy           bool    `toml:"fall_guy"`
+}
+
 // HeadlinesConfig mirrors headlines.toml.
 type HeadlinesConfig struct {
 	FlavourChance float64             `toml:"flavour_chance"`
@@ -267,6 +310,9 @@ func Load() (*Config, error) {
 		return nil, err
 	}
 	if err := decode("names.toml", &c.Names); err != nil {
+		return nil, err
+	}
+	if err := decode("upgrades.toml", &c.Upgrades); err != nil {
 		return nil, err
 	}
 	if err := decode("headlines.toml", &c.Headlines); err != nil {
@@ -302,7 +348,38 @@ func Load() (*Config, error) {
 	if len(c.Names.Rivals) == 0 {
 		return nil, fmt.Errorf("names.toml: no rival names")
 	}
+	if err := c.Upgrades.validate(); err != nil {
+		return nil, fmt.Errorf("upgrades.toml: %w", err)
+	}
 	return &c, nil
+}
+
+// validate checks the tree hangs together: ids unique, branches known,
+// costs positive, and every prerequisite an earlier node (so the tree has
+// no cycles and lists in dependency order).
+func (u UpgradesConfig) validate() error {
+	seen := map[string]bool{}
+	for _, n := range u.Nodes {
+		if n.ID == "" || n.Name == "" {
+			return fmt.Errorf("upgrade %q needs an id and a name", n.ID)
+		}
+		if seen[n.ID] {
+			return fmt.Errorf("upgrade %q is defined twice", n.ID)
+		}
+		if !slices.Contains(Branches, n.Branch) {
+			return fmt.Errorf("upgrade %q: unknown branch %q", n.ID, n.Branch)
+		}
+		if n.Cost <= 0 {
+			return fmt.Errorf("upgrade %q: cost must be positive", n.ID)
+		}
+		for _, r := range n.Requires {
+			if !seen[r] {
+				return fmt.Errorf("upgrade %q requires unknown upgrade %q (prerequisites must be defined first)", n.ID, r)
+			}
+		}
+		seen[n.ID] = true
+	}
+	return nil
 }
 
 // MustLoad is Load for tests and main; it panics on error.
@@ -319,10 +396,38 @@ func decode(name string, v any) error {
 	if err != nil {
 		return err
 	}
-	if _, err := toml.Decode(string(b), v); err != nil {
+	md, err := toml.Decode(string(b), v)
+	if err != nil {
 		return fmt.Errorf("%s: %w", name, err)
 	}
+	// An effect name nobody reads would silently do nothing.
+	if name == "upgrades.toml" {
+		if keys := md.Undecoded(); len(keys) > 0 {
+			return fmt.Errorf("%s: unknown key %s", name, keys[0])
+		}
+	}
 	return nil
+}
+
+// Upgrade returns the node with id, or nil.
+func (u UpgradesConfig) Upgrade(id string) *UpgradeConfig {
+	for i := range u.Nodes {
+		if u.Nodes[i].ID == id {
+			return &u.Nodes[i]
+		}
+	}
+	return nil
+}
+
+// Branch returns the nodes of one branch, in tree order.
+func (u UpgradesConfig) Branch(branch string) []UpgradeConfig {
+	var out []UpgradeConfig
+	for _, n := range u.Nodes {
+		if n.Branch == branch {
+			out = append(out, n)
+		}
+	}
+	return out
 }
 
 // Product returns the config for id, or nil.

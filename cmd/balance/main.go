@@ -7,6 +7,7 @@ import (
 	"fmt"
 	"os"
 	"sort"
+	"strings"
 
 	"github.com/theclifmeister/kingpin/internal/content"
 	"github.com/theclifmeister/kingpin/internal/events"
@@ -18,7 +19,7 @@ import (
 func main() {
 	runs := flag.Int("runs", 20, "number of seeded runs")
 	days := flag.Int("days", harness.Horizon, "days to play each run for; a measuring horizon, the game itself has no cap")
-	policy := flag.String("policy", "normal", "idle | hide | quiet | normal | aggressive | careful | managed | crewed | territory | war")
+	policy := flag.String("policy", "normal", "idle | hide | quiet | normal | aggressive | careful | managed | upgraded | crewed | territory | war")
 	corners := flag.Int("corners", 3, "corners the territory and war policies work, counting yours")
 	force := flag.String("force", "push", "warn | push | hit: how hard the war policy strikes")
 	rival := flag.String("rival", "", "force the rival's personality: expansionist | defensive | opportunist | chaotic (default by seed)")
@@ -26,6 +27,7 @@ func main() {
 	seed0 := flag.Uint64("seed", 1, "first seed; also the traced run")
 	lieLow := flag.Float64("lielow", 0, "heat at which careful/managed/crewed lie low (0 = policy default)")
 	cash := flag.Int("cash", 0, "start every run with this much dirty cash instead of the default")
+	own := flag.String("own", "", "comma-separated upgrade ids every run owns from day 0, free (prerequisites first)")
 	flag.Parse()
 	at := func(def float64) float64 {
 		if *lieLow > 0 {
@@ -49,6 +51,8 @@ func main() {
 		p = harness.Careful(cfg, at(35))
 	case "managed":
 		p = harness.Managed(cfg, at(50))
+	case "upgraded":
+		p = harness.Upgraded(cfg, at(50))
 	case "crewed":
 		p = harness.Crewed(cfg, at(40))
 	case "territory":
@@ -66,6 +70,10 @@ func main() {
 		p = harness.Trader(cfg, events.DialNormal)
 	}
 
+	var owned []string
+	if *own != "" {
+		owned = strings.Split(*own, ",")
+	}
 	var played, peaks []int
 	worth := map[int][]int{}
 	endings := map[string]int{}
@@ -73,12 +81,13 @@ func main() {
 	var rivalHeld, takens []int
 	won, strikes, tips, crackdowns := 0, 0, 0, 0
 	personalities := map[string]int{}
+	bought := map[string]int{}
 	for seed := *seed0; seed < *seed0+uint64(*runs); seed++ {
 		pol := p
 		if *trace && seed == *seed0 {
 			pol = func(w *game.World) {
 				p(w)
-				fmt.Printf("day %3d cash %8d heat %5.1f stock %3d/%3d orders %d crew %d corners %d/%d rival %d war %3.0f", w.Day, w.Player.DirtyCash, w.Heat.Value, w.Player.TotalStock(), w.Capacity(), len(w.Orders), len(w.Crew.Members), w.Worked(), w.Held(), w.RivalHeld(), w.Rival.War)
+				fmt.Printf("day %3d cash %8d heat %5.1f file %d stock %3d/%3d orders %d crew %d corners %d/%d rival %d war %3.0f upgrades %d", w.Day, w.Player.DirtyCash, w.Heat.Value, w.Heat.Evidence, w.Player.TotalStock(), w.Capacity(), len(w.Orders), len(w.Crew.Members), w.Worked(), w.Held(), w.RivalHeld(), w.Rival.War, len(w.Upgrades))
 				for _, id := range w.Products {
 					fmt.Printf("  %s $%.1f", id, w.Market[id].Price)
 				}
@@ -92,6 +101,7 @@ func main() {
 		if *rival != "" {
 			w.Rival.Personality = *rival
 		}
+		harness.Own(cfg, w, owned...)
 		res, err := harness.RunFrom(cfg, w, *days, pol)
 		if err != nil {
 			fmt.Fprintln(os.Stderr, err)
@@ -127,6 +137,9 @@ func main() {
 		won += res.World.Stats.CornersWon
 		strikes += res.World.Stats.Strikes
 		personalities[res.World.Rival.Personality]++
+		for id := range res.World.Upgrades {
+			bought[id]++
+		}
 	}
 	sort.Ints(played)
 	sort.Ints(peaks)
@@ -148,6 +161,15 @@ func main() {
 		rivalHeld[len(rivalHeld)/2], takens[0], takens[len(takens)/2], takens[len(takens)-1], float64(tips)/float64(*runs), crackdowns, personalities)
 	if strikes > 0 {
 		fmt.Printf("war:           %.1f strikes per run, %.1f corners won per run\n", float64(strikes)/float64(*runs), float64(won)/float64(*runs))
+	}
+	if len(bought) > 0 {
+		var ids []string
+		for _, n := range cfg.Upgrades.Nodes {
+			if bought[n.ID] > 0 {
+				ids = append(ids, fmt.Sprintf("%s %d", n.ID, bought[n.ID]))
+			}
+		}
+		fmt.Printf("upgrades:      %s (runs owning each)\n", strings.Join(ids, ", "))
 	}
 	fmt.Printf("endings: %v\n", endings)
 }

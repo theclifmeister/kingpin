@@ -15,11 +15,15 @@ import (
 
 // Sim is the market simulation.
 type Sim struct {
-	cfg content.MarketConfig
+	cfg  content.MarketConfig
+	tree content.UpgradesConfig
 }
 
-// New builds a market sim from config.
-func New(cfg content.MarketConfig) *Sim { return &Sim{cfg: cfg} }
+// New builds a market sim from config. The upgrade tree is what the
+// Operations branch multiplies: carry, supplier price and fill.
+func New(cfg content.MarketConfig, tree content.UpgradesConfig) *Sim {
+	return &Sim{cfg: cfg, tree: tree}
+}
 
 func (s *Sim) Name() string { return "market" }
 
@@ -35,10 +39,23 @@ func (s *Sim) Dial(d events.Dial) content.DialConfig {
 	}
 }
 
-// Step resolves sell orders, then drifts prices and demand, then rolls for
-// shocks. Sales resolve first so the dial interacts with today's price.
+// BuyPressure is how much a buy pushes the supplier price today, per unit
+// over demand: the tuning, less what a supplier contact takes off.
+func (s *Sim) BuyPressure(w *game.World) float64 {
+	return s.cfg.Market.BuyPricePressure * game.FoldEffects(w, s.tree).BuyPressureMul
+}
+
+// Step reports upgrades bought, resolves sell orders, then drifts prices
+// and demand, then rolls for shocks. Sales resolve first so the dial
+// interacts with today's price.
 func (s *Sim) Step(w *game.World, t *game.Tick) {
 	tun := s.cfg.Market
+	fx := game.FoldEffects(w, s.tree)
+	for _, id := range w.UpgradesToday {
+		if u := s.tree.Upgrade(id); u != nil {
+			t.Emit(events.UpgradeBought{Day: t.Day, ID: u.ID, Name: u.Name, Branch: u.Branch, Cost: u.Cost, Clean: u.Clean})
+		}
+	}
 	s.unlock(w, t)
 	ids := append([]string(nil), w.Products...)
 	sort.Strings(ids) // deterministic regardless of map order
@@ -99,8 +116,9 @@ func (s *Sim) Step(w *game.World, t *game.Tick) {
 		m.Demand = base * (1 + t.RNG.NormFloat64()*pc.DemandNoise)
 		m.Demand = math.Max(1, m.Demand)
 
-		// 5. Supplier resets to a fraction of street price.
-		m.SupplierPrice = m.Price * tun.SupplierRatio
+		// 5. Supplier resets to a fraction of street price, less what
+		// your contact there takes off.
+		m.SupplierPrice = m.Price * tun.SupplierRatio * fx.SupplierMul
 
 		m.History = append(m.History, m.Price)
 		if n := tun.HistoryDays; n > 0 && len(m.History) > n {
@@ -124,9 +142,9 @@ func (s *Sim) unlock(w *game.World, t *game.Tick) {
 }
 
 // Fill is the fraction of demand a sale at dial d can move today: the dial's
-// fill, capped by patrols.
+// fill, stretched by a street network, capped by patrols.
 func (s *Sim) Fill(w *game.World, d events.Dial) float64 {
-	fill := s.Dial(d).Fill
+	fill := s.Dial(d).Fill * game.FoldEffects(w, s.tree).FillMul
 	if w.Heat.SellCapDays > 0 && w.Heat.SellCap > 0 {
 		fill = math.Min(fill, w.Heat.SellCap)
 	}
