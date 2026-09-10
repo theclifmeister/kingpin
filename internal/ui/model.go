@@ -293,20 +293,20 @@ func (m *Model) keyPlay(key string) (tea.Model, tea.Cmd) {
 		m.mode = modeConfirmNew
 	case "up", "k":
 		if m.screen == screenJournal {
-			m.journal.LineUp(1)
+			m.journal.ScrollUp(1)
 		} else if m.cursor > 0 {
 			m.cursor--
 		}
 	case "down", "j":
 		if m.screen == screenJournal {
-			m.journal.LineDown(1)
+			m.journal.ScrollDown(1)
 		} else if m.cursor < len(m.w.Products)-1 {
 			m.cursor++
 		}
 	case "pgup":
-		m.journal.HalfViewUp()
+		m.journal.HalfPageUp()
 	case "pgdown":
-		m.journal.HalfViewDown()
+		m.journal.HalfPageDown()
 	}
 	return m, nil
 }
