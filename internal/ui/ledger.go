@@ -4,6 +4,7 @@ import (
 	"fmt"
 	"strings"
 
+	"github.com/theclifmeister/kingpin/internal/content"
 	"github.com/theclifmeister/kingpin/internal/events"
 	"github.com/theclifmeister/kingpin/internal/game"
 	"github.com/theclifmeister/kingpin/internal/ui/theme"
@@ -149,6 +150,52 @@ func (m *Model) viewLedger() string {
 	}
 	b.WriteString("\n")
 
+	if n := w.Crew.Role("accountant"); n > 0 {
+		b.WriteString(truncate(theme.Subtle.Render(fmt.Sprintf("  %d accountant(s) on the payroll: more through every front, fewer audits.", n)), m.width) + "\n")
+	} else if len(w.Fronts) > 0 {
+		b.WriteString(truncate(theme.Subtle.Render("  An accountant (crew screen, 4) adds to every front and cuts audit risk. Keep them loyal: they skim the wash."), m.width) + "\n")
+	}
+	b.WriteString("\n")
+
+	// The routes: one dial each, its books beside it. The columns give
+	// way to the width: the route, its dial, what it keeps where and
+	// what is on it come first.
+	lg := m.set.Logistics
+	var routes []content.RouteConfig
+	for _, cid := range w.CityOrder {
+		for _, r := range lg.Routes(cid) {
+			if r.From == cid {
+				routes = append(routes, r)
+			}
+		}
+	}
+	if len(routes) > 0 {
+		lost := 0
+		for _, n := range w.Logistics.Lost {
+			lost += n
+		}
+		targetW, roadW, weekW := 16, 14, 11
+		if m.width >= 100 {
+			targetW, roadW, weekW = 22, 20, 17
+		}
+		b.WriteString(truncate(theme.Bold.Render("LOGISTICS")+theme.Subtle.Render(fmt.Sprintf("  %d route(s) · shipped %d units in %d run(s) · seized %d in %d · the road spends what is over %s dirty · r and R on the map", len(routes), w.Stats.Shipped, w.Stats.Shipments, lost, w.Stats.Seizures, cash(lg.Float()))), m.width) + "\n")
+		b.WriteString(truncate(theme.Subtle.Render(fmt.Sprintf("  %-12s %-5s %-6s %-*s %-*s %-*s %s", "", "mode", "dial", targetW, "target", roadW, "on the road", weekW, "week lots/fare", "lost")), m.width) + "\n")
+		for _, r := range routes {
+			rs := w.Route(r.ID)
+			target, road := m.targetLine(r.ID), m.roadOn(r.ID)
+			if target == "" {
+				target = "-"
+			}
+			if road == "" {
+				road = "-"
+			}
+			lots, fares := w.Logistics.RouteSpend(r.ID, w.Day, 7)
+			line := fmt.Sprintf("  %-12s %-5s %s %-*s %-*s %-*s %d", fit(r.Name, 12), fit(r.Mode, 5), dialStyle(rs.Dial).Render(fit(rs.Dial.String(), 6)), targetW, fit(target, targetW), roadW, fit(road, roadW), weekW, fit(cash(lots)+"/"+cash(fares), weekW), w.Logistics.Lost[r.ID])
+			b.WriteString(truncate(line, m.width) + "\n")
+		}
+		b.WriteString("\n")
+	}
+
 	rows := m.frontRows()
 	b.WriteString(theme.Bold.Render("ON OFFER") + theme.Subtle.Render("  b to buy") + "\n")
 	if len(rows) == 0 {
@@ -167,11 +214,6 @@ func (m *Model) viewLedger() string {
 			}
 			b.WriteString(truncate(line, m.width) + "\n")
 		}
-	}
-	if n := w.Crew.Role("accountant"); n > 0 {
-		b.WriteString("\n" + truncate(theme.Subtle.Render(fmt.Sprintf("  %d accountant(s) on the payroll: more through every front, fewer audits.", n)), m.width) + "\n")
-	} else if len(w.Fronts) > 0 {
-		b.WriteString("\n" + truncate(theme.Subtle.Render("  An accountant (crew screen, 4) adds to every front and cuts audit risk. Keep them loyal: they skim the wash."), m.width) + "\n")
 	}
 	return b.String()
 }

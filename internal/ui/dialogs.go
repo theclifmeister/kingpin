@@ -10,19 +10,16 @@ import (
 	tea "github.com/charmbracelet/bubbletea"
 
 	"github.com/theclifmeister/kingpin/internal/events"
-	"github.com/theclifmeister/kingpin/internal/game"
 	"github.com/theclifmeister/kingpin/internal/ui/theme"
 )
 
 // dialog is the state of the buy or sell modal. A buy is from the
 // supplier where you are, into the stash there; a sale is in the city
-// shown, out of the stash there, by whoever works corners there. Lots
-// says the buy is by the wholesale lot.
+// shown, out of the stash there, by whoever works corners there.
 type dialog struct {
 	step int // 0 product, 1 quantity, 2 dial (sell only)
 	qty  textinput.Model
 	dial events.Dial
-	lots bool
 	err  string
 }
 
@@ -36,9 +33,8 @@ func (m *Model) dialogCity() string {
 	return m.actionCity()
 }
 
-// actionCity is the city a sale, a shipment or a cancelled order is
-// about: the one shown on the market and map screens, where you are
-// everywhere else.
+// actionCity is the city a sale or a cancelled order is about: the one
+// shown on the market and map screens, where you are everywhere else.
 func (m *Model) actionCity() string {
 	if m.screen == screenMarket || m.screen == screenMap {
 		return m.shown().ID
@@ -66,7 +62,7 @@ func (m *Model) openDialog(mode mode) {
 			if m.w.Player.TotalStock() == 0 {
 				m.status = "Nothing to sell. Press b to buy from the supplier."
 			} else {
-				m.status = fmt.Sprintf("Nothing stashed in %s to sell. Ship some (t) or turn to the other city (←→).", m.w.CityName(city))
+				m.status = fmt.Sprintf("Nothing stashed in %s to sell. Turn to the other city (←→), or run a route into it (5, r).", m.w.CityName(city))
 			}
 			return
 		}
@@ -84,12 +80,6 @@ func (m *Model) openDialog(mode mode) {
 		}
 	}
 	m.mode = mode
-}
-
-// wholesale is the lot offer where you are, and whether it is open.
-func (m *Model) wholesale() (game.WholesaleOffer, bool) {
-	o := m.set.Logistics.Wholesale()
-	return o, m.w.Here().Wholesale && !o.Locked(m.w)
 }
 
 func (m *Model) keyDialog(k tea.KeyMsg) (tea.Model, tea.Cmd) {
@@ -149,12 +139,6 @@ func (m *Model) keyDialog(k tea.KeyMsg) (tea.Model, tea.Cmd) {
 			d.step = 2
 			d.qty.Blur()
 			return m, nil
-		case "W", "w":
-			if _, ok := m.wholesale(); ok && m.mode == modeBuy {
-				d.lots = !d.lots
-				d.qty.SetValue("")
-				return m, nil
-			}
 		}
 		var cmd tea.Cmd
 		d.qty, cmd = d.qty.Update(k)
@@ -201,22 +185,14 @@ func parseQtyInput(v string, maxQty int) (int, error) {
 }
 
 // maxBuy is the most of a product the supplier where you are will sell
-// you: what you can pay for and what the stash there can hold. By the
-// lot, it is in lots.
+// you: what you can pay for and what the stash there can hold.
 func (m *Model) maxBuy(id string) int {
 	city := m.w.Player.Location
 	p := m.w.Product(city, id)
 	if p == nil || p.SupplierPrice <= 0 {
 		return 0
 	}
-	unit, per := p.SupplierPrice, 1
-	if o, ok := m.wholesale(); ok && m.dlg.lots {
-		unit, per = p.SupplierPrice*o.Mul, o.Lot
-	}
-	afford := int(math.Floor(float64(m.w.Player.DirtyCash) / (unit * float64(per))))
-	if per > 1 {
-		return max(0, afford) // a lot goes to the dock, not the stash
-	}
+	afford := int(math.Floor(float64(m.w.Player.DirtyCash) / p.SupplierPrice))
 	return max(0, min(afford, m.w.Free(city)))
 }
 
@@ -227,22 +203,13 @@ func (m *Model) confirmBuy() (tea.Model, tea.Cmd) {
 		m.dlg.err = err.Error()
 		return m, nil
 	}
-	var p game.Purchase
-	if o, ok := m.wholesale(); ok && m.dlg.lots {
-		p, err = m.w.BuyWholesale(id, qty, o, m.set.Market.BuyPressure(m.w))
-	} else {
-		p, err = m.w.Buy(id, qty, m.set.Market.BuyPressure(m.w))
-	}
+	p, err := m.w.Buy(id, qty, m.set.Market.BuyPressure(m.w))
 	if err != nil {
 		m.dlg.err = err.Error()
 		return m, nil
 	}
 	m.mode = modePlay
-	how := ""
-	if p.Wholesale {
-		how = " by the lot"
-	}
-	m.status = fmt.Sprintf("Bought %d %s%s for %s.", p.Qty, m.w.ProductName(id), how, money(p.Cost))
+	m.status = fmt.Sprintf("Bought %d %s for %s.", p.Qty, m.w.ProductName(id), money(p.Cost))
 	return m, nil
 }
 
@@ -310,32 +277,17 @@ func (m *Model) viewDialog() string {
 	if d.step >= 1 {
 		if buy {
 			mx := m.maxBuy(id)
-			o, ok := m.wholesale()
-			unit := "max %d"
-			if ok && d.lots {
-				unit = "max %d lots"
-			}
-			b.WriteString(fmt.Sprintf("Quantity  %s   %s\n", d.qty.View(), theme.Subtle.Render(fmt.Sprintf(unit, mx))))
-			qty, err := m.parseQty(mx)
-			if err == nil {
-				var cost int
-				if ok && d.lots {
-					cost = int(math.Ceil(p.SupplierPrice * o.Mul * float64(qty*o.Lot)))
-				} else {
-					cost, _ = w.SupplierQuote(id, qty)
-				}
+			b.WriteString(fmt.Sprintf("Quantity  %s   %s\n", d.qty.View(), theme.Subtle.Render(fmt.Sprintf("max %d", mx))))
+			if qty, err := m.parseQty(mx); err == nil {
+				cost, _ := w.SupplierQuote(id, qty)
 				style := theme.Gold
 				if cost > w.Player.DirtyCash {
 					style = theme.Bad
 				}
 				b.WriteString(fmt.Sprintf("Total     %s   %s\n", style.Render(money(cost)), theme.Subtle.Render("dirty cash "+cash(w.Player.DirtyCash))))
 			}
-			if ok {
-				if d.lots {
-					b.WriteString(theme.Good.Render(fmt.Sprintf("Wholesale lots of %d at %s/unit; w for single units", o.Lot, price(p.SupplierPrice*o.Mul))) + "\n")
-				} else {
-					b.WriteString(theme.Subtle.Render(fmt.Sprintf("w buys by the lot: %d at %s/unit", o.Lot, price(p.SupplierPrice*o.Mul))) + "\n")
-				}
+			if o := m.set.Logistics.Wholesale(); w.Here().Wholesale && !o.Locked(w) {
+				b.WriteString(theme.Subtle.Render(fmt.Sprintf("The wholesaler here sells lots of %d at %s/unit to the routes (map, r).", o.Lot, price(p.SupplierPrice*o.Mul))) + "\n")
 			}
 		} else {
 			b.WriteString(fmt.Sprintf("Quantity  %s   %s\n", d.qty.View(), theme.Subtle.Render(fmt.Sprintf("have %d in %s", w.Stock(city, id), w.CityName(city)))))

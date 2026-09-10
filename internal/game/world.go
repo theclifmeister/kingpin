@@ -31,12 +31,13 @@ type World struct {
 	FallGuyUsed bool            // the fall guy has taken his one fall
 	Fronts      []Front         // businesses the player owns, in the order bought
 	Laundering  LaunderingState
-	Dilemmas    DilemmaState         // the card waiting for an answer, and the deck's pacing
-	Shipments   []Shipment           // product on the road, in the order sent
-	Logistics   LogisticsState       // the shipment counter and the seizure record
-	Offers      []Offer              // deals the rival has put on the table, oldest first
-	Delegated   map[string]SellOrder // the lieutenants' standing sell orders, keyed like Orders; the crew step refreshes them
-	Law         LawState             // the chief and the DA (#41); pressure and goodwill are per city
+	Dilemmas    DilemmaState            // the card waiting for an answer, and the deck's pacing
+	Shipments   []Shipment              // product on the road, in the order sent
+	Logistics   LogisticsState          // the shipment counter, the seizure record and the routes' books
+	Routes      map[string]RouteSetting // the route dials, keyed by route id; a route not here is off
+	Offers      []Offer                 // deals the rival has put on the table, oldest first
+	Delegated   map[string]SellOrder    // the lieutenants' standing sell orders, keyed like Orders; the crew step refreshes them
+	Law         LawState                // the chief and the DA (#41); pressure and goodwill are per city
 
 	// Per-day scratch, cleared by the clock after every EndDay.
 	Orders        map[string]SellOrder // pending sell orders keyed by product id
@@ -152,11 +153,36 @@ type Shipment struct {
 // DaysLeft is how many days the shipment still has to go on day.
 func (s Shipment) DaysLeft(day int) int { return max(0, s.Arrives-day) }
 
-// LogisticsState is the shipment counter and the seizure record the market
-// reads the morning after (it steps before logistics).
+// LogisticsState is the shipment counter, the seizure record the market
+// reads the morning after (it steps before logistics), and the routes'
+// books: what each day on each route cost, kept as long as the seizure
+// record, and what each route has lost for good.
 type LogisticsState struct {
 	NextID   int
 	Seizures []Seizure
+	Days     []RouteDay     // what the routes bought and paid, one entry per route per day it moved something
+	Lost     map[string]int // route id -> units seized on it, lifetime
+}
+
+// RouteDay is one day's spend on one route: the lots bought at its
+// source and the fares paid, both dirty cash.
+type RouteDay struct {
+	Day       int
+	Route     string
+	Wholesale int
+	Fares     int
+}
+
+// RouteSpend sums what a route cost over the last days days: the ledger's
+// "this week".
+func (l LogisticsState) RouteSpend(route string, day, days int) (wholesale, fares int) {
+	for _, d := range l.Days {
+		if d.Route == route && day-d.Day < days {
+			wholesale += d.Wholesale
+			fares += d.Fares
+		}
+	}
+	return wholesale, fares
 }
 
 // Seizure is a shipment the police took on the road: what, how much, and
@@ -408,15 +434,13 @@ type Lead struct {
 	Corner string
 }
 
-// Purchase is a buy from the supplier, applied immediately. Wholesale
-// says it was bought by the lot.
+// Purchase is a buy from the supplier, applied immediately.
 type Purchase struct {
 	City      string
 	Product   string
 	Qty       int
 	UnitPrice float64
 	Cost      int
-	Wholesale bool
 }
 
 // Headline is a journal entry.
@@ -632,6 +656,17 @@ func (w *World) InTransit(product string) int {
 	n := 0
 	for _, s := range w.Shipments {
 		if s.Product == product {
+			n += s.Units
+		}
+	}
+	return n
+}
+
+// Bound is how many units of a product are on the road to a city.
+func (w *World) Bound(to, product string) int {
+	n := 0
+	for _, s := range w.Shipments {
+		if s.To == to && s.Product == product {
 			n += s.Units
 		}
 	}

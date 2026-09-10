@@ -148,20 +148,37 @@ func TestRendersAtCommonSizes(t *testing.T) {
 			assertFits(t, m.View(), sz[0], sz[1], "map elsewhere")
 		}
 		m.Update(key("["))
-		m.w.Stash(m.w.Player.Location)[m.w.Products[0]] = 300
-		m.Update(key("t"))
-		assertFits(t, m.View(), sz[0], sz[1], "ship product")
-		m.Update(key("enter"))
-		assertFits(t, m.View(), sz[0], sz[1], "ship route")
-		m.Update(key("enter"))
-		assertFits(t, m.View(), sz[0], sz[1], "ship qty")
-		m.Update(key("enter"))
-		assertFits(t, m.View(), sz[0], sz[1], "ship dial")
-		m.Update(key("3"))
-		m.Update(key("enter"))
-		if m.mode != modePlay || len(m.w.Shipments) != 1 {
-			t.Fatalf("%dx%d: ship dialog left mode %v with %d shipments: %q %q", sz[0], sz[1], m.mode, len(m.w.Shipments), m.status, m.shp.err)
+		// A route on with a target and a shipment in flight: the routes
+		// under the grid with the cursor on them, the target dialog and
+		// every screen that reports the road.
+		route := m.set.Logistics.Routes(m.w.CityOrder[1])[0]
+		m.w.Stash(route.From)[m.w.Products[0]] = 300
+		m.w.Player.DirtyCash += m.set.Logistics.Float()
+		m.Update(key("]"))
+		for len(m.shown().Corners) > 0 && !m.onRoutes {
+			m.Update(key("j"))
 		}
+		m.Update(key("r"))
+		assertFits(t, m.View(), sz[0], sz[1], "map with the routes cursor")
+		m.Update(key("R"))
+		assertFits(t, m.View(), sz[0], sz[1], "target product")
+		m.Update(key("enter"))
+		for _, r := range "120" {
+			m.Update(key(string(r)))
+		}
+		assertFits(t, m.View(), sz[0], sz[1], "target units")
+		m.Update(key("enter"))
+		if m.mode != modePlay || !m.w.Route(route.ID).Dial.On() || m.w.Route(route.ID).Target[m.w.Products[0]] != 120 {
+			t.Fatalf("%dx%d: the target dialog left mode %v with %+v: %q %q", sz[0], sz[1], m.mode, m.w.Route(route.ID), m.status, m.tgt.err)
+		}
+		endDay(t, m)
+		assertFits(t, m.View(), sz[0], sz[1], "report with the route")
+		m.Update(key("enter"))
+		if len(m.w.Shipments) != 1 {
+			t.Fatalf("%dx%d: the route sent %d shipments: %v", sz[0], sz[1], len(m.w.Shipments), m.w.Report.Shipments)
+		}
+		assertFits(t, m.View(), sz[0], sz[1], "map with a shipment in flight")
+		m.Update(key("["))
 		m.Update(key("g"))
 		assertFits(t, m.View(), sz[0], sz[1], "travel confirm")
 		m.Update(key("esc"))
@@ -396,6 +413,24 @@ func TestEnterDoesNotEndDay(t *testing.T) {
 	m.Update(key("n"))
 	if m.w.Day != day+3 {
 		t.Fatalf("n did not advance the day: %d -> %d", day+2, m.w.Day)
+	}
+	// The target dialog: enter picks the product, enter sets the target,
+	// and neither is a day.
+	m.Update(key("enter"))
+	m.Update(key("5"))
+	m.Update(key("R"))
+	if m.mode != modeTarget {
+		t.Fatalf("R on the map: mode %v status %q", m.mode, m.status)
+	}
+	m.Update(key("enter"))
+	m.Update(key("7"))
+	m.Update(key("enter"))
+	if m.w.Day != day+3 || m.mode != modePlay {
+		t.Fatalf("enter in the target dialog: day %d -> %d, mode %v (%s)", day+3, m.w.Day, m.mode, m.tgt.err)
+	}
+	route := m.set.Logistics.Routes(m.w.Player.Location)[0]
+	if m.w.Route(route.ID).Target[m.w.Products[0]] != 7 {
+		t.Fatalf("the target was not set: %+v", m.w.Route(route.ID))
 	}
 }
 
@@ -647,8 +682,13 @@ func TestMapArrowsWalkGrid(t *testing.T) {
 	}{{"right", 1, 0}, {"left", -1, 0}, {"down", 0, 1}, {"up", 0, -1}}
 	for i := range cs {
 		for _, mv := range moves {
-			m.mapCursor = i
+			m.mapCursor, m.onRoutes = i, false
 			m.Update(key(mv.key))
+			// Down off the bottom row reaches the routes under the grid;
+			// the corner cursor stays put.
+			if bottom := want(i, 0, 1) == i; mv.dy > 0 && bottom != m.onRoutes {
+				t.Errorf("down from %s (%d,%d): on the routes %v", cs[i].Name, cs[i].X, cs[i].Y, m.onRoutes)
+			}
 			if got, w := m.mapCursor, want(i, mv.dx, mv.dy); got != w {
 				t.Errorf("%s from %s (%d,%d): got %s (%d,%d), want %s (%d,%d)", mv.key,
 					cs[i].Name, cs[i].X, cs[i].Y, cs[got].Name, cs[got].X, cs[got].Y, cs[w].Name, cs[w].X, cs[w].Y)
@@ -1279,16 +1319,18 @@ func TestCardBeforeReport(t *testing.T) {
 
 // The route: [ and ] (and the arrows on the market) turn the market and
 // map to the other city without leaving the screen; s there sells out of
-// that city's stash; t ships from it through the dialog (product, route,
-// quantity, dial) and the report says what left and what landed; g asks
+// that city's stash; on the map the arrows walk down past the grid to
+// the routes, r turns the selected route's dial and R sets its target
+// through the dialog (product, units), the report says what the route
+// bought and sent and what landed, and t ships nothing by hand; g asks
 // before moving you, and moving you steps you off your corner and leaves
 // the stock behind.
-func TestShipAndTravelKeys(t *testing.T) {
+func TestRouteAndTravelKeys(t *testing.T) {
 	m := newTestModel(t, 80, 24)
 	w := m.w
 	home, hub := w.Home().ID, w.CityOrder[1]
 	product := w.Products[0]
-	m.w.Player.DirtyCash = 20_000
+	m.w.Player.DirtyCash = 20_000 + m.set.Logistics.Float()
 	m.Update(key("2"))
 	m.Update(key("right"))
 	if m.screen != screenMarket || m.mode != modePlay || m.city != hub {
@@ -1315,90 +1357,140 @@ func TestShipAndTravelKeys(t *testing.T) {
 	if m.mode != modePlay || w.PostOf(game.You).City != home || !strings.Contains(m.status, "go there first") {
 		t.Fatalf("posting yourself elsewhere: mode %v status %q", m.mode, m.status)
 	}
-	m.Update(key("["))
-
-	// Ship 30 of the first product from home by the first route, fast.
-	w.Stash(home)[product] = 50
-	m.Update(key("1"))
+	// t ships nothing by hand any more.
 	m.Update(key("t"))
-	if m.mode != modeShip || m.shp.step != 0 {
-		t.Fatalf("t: mode %v step %d status %q", m.mode, m.shp.step, m.status)
+	if m.mode != modePlay || !strings.Contains(m.status, "routes") {
+		t.Fatalf("t: mode %v status %q", m.mode, m.status)
 	}
-	assertFits(t, m.View(), 80, 24, "ship: product")
-	m.Update(key("enter"))
-	if m.shp.step != 1 {
-		t.Fatalf("after the product: step %d err %q", m.shp.step, m.shp.err)
+
+	// The routes out of the hub run into home. Down past the grid reaches
+	// them, j and k walk them, k off the top comes back to the grid.
+	routes := m.set.Logistics.Routes(hub)
+	if len(routes) < 2 {
+		t.Skipf("%d route(s) out of %s", len(routes), hub)
 	}
-	assertFits(t, m.View(), 80, 24, "ship: route")
+	route := routes[1]
+	for i := 0; i < 10 && !m.onRoutes; i++ {
+		m.Update(key("j"))
+	}
+	if !m.onRoutes || m.routeCursor != 0 {
+		t.Fatalf("down past the grid: on routes %v cursor %d", m.onRoutes, m.routeCursor)
+	}
 	m.Update(key("j"))
+	if m.routeCursor != 1 {
+		t.Fatalf("j on the routes: cursor %d", m.routeCursor)
+	}
+	assertFits(t, m.View(), 80, 24, "map on the routes")
 	m.Update(key("k"))
+	m.Update(key("k"))
+	if m.onRoutes {
+		t.Fatal("k off the top of the routes did not return to the grid")
+	}
+	m.Update(key("j"))
+	m.Update(key("j"))
+	if !m.onRoutes || m.routeCursor != 1 {
+		t.Fatalf("back on the routes: on %v cursor %d", m.onRoutes, m.routeCursor)
+	}
+	// r turns the dial: off -> slow -> normal -> fast -> off.
+	for i, want := range []events.RouteDial{events.RouteSlow, events.RouteNormal, events.RouteFast, events.RouteOff, events.RouteSlow} {
+		m.Update(key("r"))
+		if got := w.Route(route.ID).Dial; got != want {
+			t.Fatalf("r %d: dial %v, want %v (%s)", i+1, got, want, m.status)
+		}
+	}
+	if !strings.Contains(m.status, "target") {
+		t.Fatalf("a dial with no target does not say so: %q", m.status)
+	}
+	// R sets the target: product, then units; esc backs out of the units.
+	m.Update(key("R"))
+	if m.mode != modeTarget || m.tgt.step != 0 {
+		t.Fatalf("R: mode %v step %d status %q", m.mode, m.tgt.step, m.status)
+	}
+	assertFits(t, m.View(), 80, 24, "target: product")
+	m.Update(key("enter"))
+	if m.tgt.step != 1 {
+		t.Fatalf("after the product: step %d err %q", m.tgt.step, m.tgt.err)
+	}
+	m.Update(key("esc"))
+	if m.mode != modeTarget || m.tgt.step != 0 {
+		t.Fatalf("esc on the units: mode %v step %d", m.mode, m.tgt.step)
+	}
 	m.Update(key("enter"))
 	for _, r := range "30" {
 		m.Update(key(string(r)))
 	}
-	assertFits(t, m.View(), 80, 24, "ship: quantity")
+	assertFits(t, m.View(), 80, 24, "target: units")
 	m.Update(key("enter"))
-	if m.shp.step != 3 {
-		t.Fatalf("after the quantity: step %d err %q", m.shp.step, m.shp.err)
+	if m.mode != modePlay || w.Route(route.ID).Target[product] != 30 || !strings.Contains(m.status, "30") {
+		t.Fatalf("after the target: mode %v route %+v err %q status %q", m.mode, w.Route(route.ID), m.tgt.err, m.status)
 	}
-	m.Update(key("right"))
-	assertFits(t, m.View(), 80, 24, "ship: dial")
-	if m.shp.dial != events.ShipFast {
-		t.Fatalf("right on the dial: %v", m.shp.dial)
+	if !strings.Contains(stripANSI(m.View()), "30") || !strings.Contains(stripANSI(m.View()), "slow") {
+		t.Fatalf("the map does not show the dial and target:\n%s", stripANSI(m.View()))
 	}
+	// A target with nothing at the source and no wholesaler open sends
+	// nothing; stocked, the route sends the shortfall the night the day
+	// ends and the report says so, with the fare in the money.
+	w.Stash(route.From)[product] = 50
+	m.cfg.Routes.Routes[1].Risk = 0 // the sim shares the slice it was built with
 	cash := w.Player.DirtyCash
-	m.Update(key("enter"))
-	route := m.set.Logistics.Routes(home)[0]
-	if m.mode != modePlay || len(w.Shipments) != 1 || w.Shipments[0].Units != 30 || w.Shipments[0].Dial != events.ShipFast || w.Shipments[0].Route != route.ID {
-		t.Fatalf("after shipping: mode %v shipments %+v err %q status %q", m.mode, w.Shipments, m.shp.err, m.status)
-	}
-	if w.Stock(home, product) != 20 || w.Player.DirtyCash != cash-30*route.Cost || w.InTransit(product) != 30 {
-		t.Fatalf("stock %d cash %d -> %d transit %d", w.Stock(home, product), cash, w.Player.DirtyCash, w.InTransit(product))
-	}
-	m.Update(key("t"))
-	m.Update(key("enter"))
-	m.Update(key("enter"))
-	m.Update(key("enter"))
-	m.Update(key("enter"))
-	if m.mode != modeShip || !strings.Contains(m.shp.err, "already left") {
-		t.Fatalf("a second shipment on the route today: mode %v err %q", m.mode, m.shp.err)
-	}
-	m.Update(key("esc"))
-	m.Update(key("esc"))
-	m.Update(key("esc"))
-	m.Update(key("esc"))
-	if m.mode != modePlay {
-		t.Fatalf("esc did not close the dialog: %v", m.mode)
-	}
-	if !strings.Contains(stripANSI(m.View()), "on the road") {
-		t.Fatal("the dashboard does not show what is on the road")
-	}
-	m.Update(key("5"))
-	if !strings.Contains(stripANSI(m.View()), "on the road") {
-		t.Fatal("the map does not show what is on the road")
-	}
-	m.Update(key("1"))
-
-	// The morning report lists what left; a fast shipment by a route with
-	// no risk lands and the report says so.
-	m.cfg.Routes.Routes[0].Risk = 0 // the sim shares the slice it was built with
-	days := m.set.Logistics.Days(route, events.ShipFast)
+	days := m.set.Logistics.Days(route, events.ShipSlow)
 	endDay(t, m)
-	if !strings.Contains(strings.Join(w.Report.Shipments, "\n"), "left") || !strings.Contains(strings.Join(w.Report.Money, "\n"), "Shipping") {
+	if len(w.Shipments) != 1 || w.Shipments[0].Units != 30 || w.Shipments[0].Dial != events.ShipSlow || w.Shipments[0].Route != route.ID {
+		t.Fatalf("after the day: shipments %+v report %v", w.Shipments, w.Report.Shipments)
+	}
+	if w.Stock(route.From, product) != 20 || w.Player.DirtyCash > cash-30*route.Cost || w.Bound(home, product) != 30 {
+		t.Fatalf("stock %d cash %d -> %d bound %d", w.Stock(route.From, product), cash, w.Player.DirtyCash, w.Bound(home, product))
+	}
+	if !strings.Contains(strings.Join(w.Report.Shipments, "\n"), "left") || !strings.Contains(strings.Join(w.Report.Money, "\n"), "lots and fares") {
 		t.Fatalf("report: %v %v", w.Report.Shipments, w.Report.Money)
 	}
 	assertFits(t, m.View(), 80, 24, "report with a shipment")
 	m.Update(key("enter"))
-	for i := 1; i < days; i++ {
+	if !strings.Contains(stripANSI(m.View()), "30 ") {
+		t.Fatal("the map does not show what is on the road")
+	}
+	// The dashboard says so: in a line at 80x24, in the CITIES panel
+	// once the terminal is tall enough for one under the law.
+	m.Update(key("1"))
+	if !strings.Contains(stripANSI(m.View()), "30 units on the road") {
+		t.Fatalf("the dashboard does not show what is on the road:\n%s", stripANSI(m.View()))
+	}
+	m.Update(tea.WindowSizeMsg{Width: 120, Height: 40})
+	if v := stripANSI(m.View()); !strings.Contains(v, "CITIES") || !strings.Contains(v, "◂30") {
+		t.Fatalf("the tall dashboard has no CITIES panel with the road:\n%s", v)
+	}
+	assertFits(t, m.View(), 120, 40, "tall dashboard with the road")
+	m.Update(tea.WindowSizeMsg{Width: 80, Height: 24})
+	m.Update(key("7"))
+	if v := stripANSI(m.View()); !strings.Contains(v, "LOGISTICS") || !strings.Contains(v, route.Name) {
+		t.Fatalf("the ledger does not list the route:\n%s", v)
+	}
+	m.Update(key("1"))
+	for i := 0; i < days; i++ {
 		endDay(t, m)
 		m.Update(key("enter"))
 	}
-	if len(w.Shipments) != 0 || w.Stock(hub, product) < 30 || w.Stats.Seizures+w.Stats.SeizedOnRoad != 0 {
-		t.Fatalf("after %d days: shipments %+v hub stash %d stats %+v", days, w.Shipments, w.Stock(hub, product), w.Stats)
+	if len(w.Shipments) != 0 || w.Stock(home, product) < 30 || w.Stats.Seizures+w.Stats.SeizedOnRoad != 0 {
+		t.Fatalf("after %d days: shipments %+v home stash %d stats %+v", days, w.Shipments, w.Stock(home, product), w.Stats)
 	}
 	if !strings.Contains(strings.Join(w.Report.Shipments, "\n"), "landed") {
 		t.Fatalf("report does not mention the arrival: %v", w.Report.Shipments)
 	}
+	// The dial is off again and the route rests.
+	m.Update(key("5"))
+	m.Update(key("]"))
+	for i := 0; i < 10 && !m.onRoutes; i++ {
+		m.Update(key("j"))
+	}
+	m.Update(key("j"))
+	m.Update(key("r"))
+	m.Update(key("r"))
+	m.Update(key("r"))
+	if w.Route(route.ID).Dial != events.RouteOff || w.Route(route.ID).Target[product] != 30 {
+		t.Fatalf("off: %+v", w.Route(route.ID))
+	}
+	m.Update(key("["))
+	m.Update(key("1"))
 
 	// Travel: g asks, esc stays, y goes; your corner is left, stock stays.
 	m.Update(key("g"))
@@ -1406,14 +1498,18 @@ func TestShipAndTravelKeys(t *testing.T) {
 		t.Fatalf("g: mode %v", m.mode)
 	}
 	assertFits(t, m.View(), 80, 24, "travel confirm")
+	if !strings.Contains(stripANSI(m.View()), w.PostOf(game.You).Name) {
+		t.Fatal("the travel confirmation does not name the corner you leave")
+	}
 	m.Update(key("esc"))
 	if m.mode != modePlay || w.Player.Location != home {
 		t.Fatal("esc travelled")
 	}
 	mine := w.PostOf(game.You)
+	stock := w.Stock(home, product)
 	m.Update(key("g"))
 	m.Update(key("y"))
-	if w.Player.Location != hub || m.city != hub || w.PostOf(game.You) != nil || !mine.Held() || w.Stock(home, product) != 20 {
+	if w.Player.Location != hub || m.city != hub || w.PostOf(game.You) != nil || !mine.Held() || w.Stock(home, product) != stock {
 		t.Fatalf("after y: in %s (shown %s), posted %v, corner %+v, home stash %d", w.Player.Location, m.city, w.PostOf(game.You), *mine, w.Stock(home, product))
 	}
 	assertFits(t, m.View(), 80, 24, "dashboard elsewhere")
@@ -1421,7 +1517,7 @@ func TestShipAndTravelKeys(t *testing.T) {
 	m.Update(key("b"))
 	m.Update(key("enter"))
 	m.Update(key("enter"))
-	if m.mode != modePlay || w.Stock(hub, product) <= 30 || w.Stock(home, product) != 20 {
+	if m.mode != modePlay || w.Stock(hub, product) <= 20 || w.Stock(home, product) != stock {
 		t.Fatalf("buy elsewhere: mode %v err %q hub %d home %d", m.mode, m.dlg.err, w.Stock(hub, product), w.Stock(home, product))
 	}
 	m.Update(key("s"))
@@ -1453,10 +1549,11 @@ func TestShipAndTravelKeys(t *testing.T) {
 	}
 }
 
-// The wholesaler: in the city that sells by the lot, once the door is
-// open, w in the buy dialog switches to lots, the quantity is in lots and
-// the stash's capacity does not hold them.
-func TestWholesaleKeys(t *testing.T) {
+// The wholesaler is the routes' supplier, not yours: in the city that
+// sells by the lot, once the door is open, the buy dialog still sells
+// single units held to the stash and says where the lots go, and the
+// market says so too.
+func TestWholesaleFeedsTheRoutes(t *testing.T) {
 	m := newTestModel(t, 100, 30)
 	w := m.w
 	hub := ""
@@ -1471,55 +1568,28 @@ func TestWholesaleKeys(t *testing.T) {
 	offer := m.set.Logistics.Wholesale()
 	w.Player.DirtyCash = 1_000_000
 	product := w.Products[0]
-	m.Update(key("b"))
-	m.Update(key("enter"))
-	m.Update(key("w")) // at home: not a lot, just a letter the field ignores
-	if m.dlg.lots {
-		t.Fatal("bought by the lot where nobody sells by it")
-	}
-	m.Update(key("esc"))
-	m.Update(key("esc"))
 	if err := w.Travel(hub); err != nil {
 		t.Fatal(err)
 	}
 	m.city = hub
-	m.Update(key("b"))
-	m.Update(key("enter"))
-	m.Update(key("w"))
-	if m.dlg.lots {
-		t.Fatal("bought by the lot before the unlock")
-	}
-	m.Update(key("esc"))
-	m.Update(key("esc"))
 	w.Stats.PeakCash = offer.UnlockCash
 	m.Update(key("2"))
-	if !strings.Contains(stripANSI(m.View()), "Wholesale") {
-		t.Fatal("the market does not offer the lots")
+	if v := stripANSI(m.View()); !strings.Contains(v, "Wholesale") || !strings.Contains(v, "routes") {
+		t.Fatalf("the market does not say the lots feed the routes:\n%s", v)
 	}
 	m.Update(key("b"))
 	m.Update(key("enter"))
-	m.Update(key("w"))
-	if !m.dlg.lots {
-		t.Fatal("w did not switch to lots")
+	if mx := m.maxBuy(product); mx != w.Free(hub) {
+		t.Fatalf("max %d units, free %d: the lots are not yours to buy", mx, w.Free(hub))
 	}
-	assertFits(t, m.View(), 100, 30, "buy by the lot")
-	if mx := m.maxBuy(product); mx < 3 {
-		t.Fatalf("max %d lots with $1M", mx)
+	assertFits(t, m.View(), 100, 30, "buy where the wholesaler deals")
+	if !strings.Contains(stripANSI(m.View()), "wholesaler") {
+		t.Fatal("the buy dialog does not say where the lots go")
 	}
-	m.Update(key("3"))
 	m.Update(key("enter"))
-	if m.mode != modePlay || w.Stock(hub, product) != 3*offer.Lot || !strings.Contains(m.status, "by the lot") {
-		t.Fatalf("lots: mode %v err %q stash %d status %q", m.mode, m.dlg.err, w.Stock(hub, product), m.status)
+	if m.mode != modePlay || w.Stock(hub, product) != w.Capacity(hub) || w.Free(hub) != 0 {
+		t.Fatalf("a buy at the hub: mode %v err %q stash %d capacity %d", m.mode, m.dlg.err, w.Stock(hub, product), w.Capacity(hub))
 	}
-	if w.Free(hub) >= 0 {
-		t.Fatalf("the lots fit the stash: free %d", w.Free(hub))
-	}
-	m.Update(key("b"))
-	m.Update(key("enter"))
-	if m.mode != modeBuy || m.dlg.step != 0 || !strings.Contains(m.dlg.err, "hold") {
-		t.Fatalf("retail past capacity: mode %v step %d err %q", m.mode, m.dlg.step, m.dlg.err)
-	}
-	m.Update(key("esc"))
 }
 
 // The rivals screen: d proposes through the two-page dialog (elsewhere
@@ -1644,7 +1714,8 @@ func TestRivalsScreenKeys(t *testing.T) {
 }
 
 // t on the crew screen gives the selected lieutenant a city through a
-// picker (and takes it away again); anywhere else it ships. The roster
+// picker (and takes it away again); anywhere else it only points at the
+// map, where the routes run themselves. The roster
 // shows the city and hides the temper until it has been observed, and
 // the dashboard says who runs what.
 func TestAssignLieutenantKeys(t *testing.T) {
@@ -1658,11 +1729,10 @@ func TestAssignLieutenantKeys(t *testing.T) {
 	w.Crew.NextID = 2
 	other := w.CityOrder[1]
 
-	m.Update(key("t")) // dashboard: the ship dialog, not the picker
-	if m.mode == modeAssign {
-		t.Fatal("t on the dashboard opened the assign picker")
+	m.Update(key("t")) // dashboard: a hint, not the picker
+	if m.mode != modePlay || !strings.Contains(m.status, "routes") {
+		t.Fatalf("t on the dashboard: mode %v status %q", m.mode, m.status)
 	}
-	m.mode = modePlay
 	m.Update(key("4"))
 	m.crewCursor = 0
 	m.Update(key("t")) // a runner

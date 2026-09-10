@@ -53,7 +53,7 @@ func Default(cfg *content.Config) (*Set, []game.Simulation, error) {
 	}
 	set := &Set{
 		Market:     market.New(cfg.Market, cfg.City, cfg.Routes.Shipping, cfg.Upgrades, cfg.Reputation.Effects),
-		Logistics:  logistics.New(cfg.Routes, cfg.City, cfg.Market),
+		Logistics:  logistics.New(cfg.Routes, cfg.City, cfg.Market, cfg.Upgrades, cfg.Laundering.Laundering.Float),
 		Territory:  territory.New(cfg.City),
 		Rivals:     rivals.New(cfg.Rivals, cfg.Names, cfg.Reputation.Effects, cfg.Law.Effects),
 		Crew:       crew.New(cfg.Crew, cfg.Names, cfg.Reputation.Effects),

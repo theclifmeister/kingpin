@@ -122,6 +122,14 @@ func (s *Sim) Step(w *game.World, t *game.Tick) {
 
 	// Money before we look at events: sales are already applied by market.
 	var soldRevenue, lostCash, spent, wages, skimmed, robbed, upgrades, upkeep, seized, paidOff, investigated, shipping, tribute, cuts, funded int
+	routeCost := map[string]int{} // what each route cost today, lots and fares, by name in the order first seen
+	var routeOrder []string
+	charge := func(route string, cost int) {
+		if _, ok := routeCost[route]; !ok {
+			routeOrder = append(routeOrder, route)
+		}
+		routeCost[route] += cost
+	}
 	for _, e := range t.Events() {
 		switch ev := e.(type) {
 		case events.UpgradeBought:
@@ -425,22 +433,30 @@ func (s *Sim) Step(w *game.World, t *game.Tick) {
 			d.Front = ev.Name
 			add("laundering", "FrontFrozen", d)
 			rep.Money = append(rep.Money, fmt.Sprintf("%s shut for %d days: $%d upkeep unpaid. Wash something.", ev.Name, ev.Days, ev.Upkeep))
-		case events.ShipmentSent:
-			// Paid the day it left: the report is the morning after.
+		case events.WholesaleBought:
+			// The route's lots, bought this morning for what it sends.
 			shipping += ev.Cost
-			rep.Shipments = append(rep.Shipments, fmt.Sprintf("%d %s left %s for %s by %s (%s): %d day(s) on the road", ev.Units, w.ProductName(ev.Product), w.CityName(ev.From), w.CityName(ev.To), ev.Mode, ev.Dial, ev.Days))
-			rep.Money = append(rep.Money, fmt.Sprintf("Shipping %d %s to %s -$%d", ev.Units, w.ProductName(ev.Product), w.CityName(ev.To), ev.Cost))
+			charge(ev.Name, ev.Cost)
+			rep.Shipments = append(rep.Shipments, fmt.Sprintf("Bought %d %s (%d lot(s)) in %s for the %s -$%d", ev.Units, w.ProductName(ev.Product), ev.Lots, w.CityName(ev.City), ev.Name, ev.Cost))
+		case events.ShipmentSent:
+			// Paid this morning, when the route put it on the road.
+			shipping += ev.Cost
+			charge(ev.Name, ev.Cost)
+			rep.Shipments = append(rep.Shipments, fmt.Sprintf("%d %s left %s for %s by %s, %s: %d day(s), fare -$%d", ev.Units, w.ProductName(ev.Product), w.CityName(ev.From), w.CityName(ev.To), ev.Mode, ev.Dial, ev.Days, ev.Cost))
 		case events.ShipmentArrived:
 			rep.Shipments = append(rep.Shipments, fmt.Sprintf("%d %s landed in %s from %s by %s", ev.Units, w.ProductName(ev.Product), w.CityName(ev.To), w.CityName(ev.From), ev.Mode))
 		case events.ShipmentSeized:
 			d := at(ev.To)
 			d.Product, d.Qty, d.Mode, d.From, d.To = w.ProductName(ev.Product), ev.Units, ev.Mode, w.CityName(ev.From), w.CityName(ev.To)
 			add("logistics", "ShipmentSeized", d)
-			line := fmt.Sprintf("SEIZED on the road: %d %s bound for %s by %s, every unit gone. Heat in both cities.", ev.Units, w.ProductName(ev.Product), w.CityName(ev.To), ev.Mode)
+			line := fmt.Sprintf("SEIZED on the road: %d %s bound for %s by %s, sent %s, every unit gone. Heat in both cities.", ev.Units, w.ProductName(ev.Product), w.CityName(ev.To), ev.Mode, ev.Dial)
 			if ev.Dial == events.ShipFast {
 				line += " Sent fast, it was asking to be looked at: the DA's file grows."
 			}
 			rep.Shipments = append(rep.Shipments, line)
+			if w.Stats.Seizures == 1 {
+				rep.Shipments = append(rep.Shipments, "The first one is the cue: a hot road wants the dial turned down (map, r), and the route sends what it lost again tomorrow.")
+			}
 		case events.ReputationShifted:
 			key := "Reputation" + capitalize(ev.Axis) + "Down"
 			if ev.Up() {
@@ -485,6 +501,13 @@ func (s *Sim) Step(w *game.World, t *game.Tick) {
 			}
 			rep.Money = append(rep.Money, line)
 		}
+	}
+
+	// What each route cost today, lots and fares together: the money
+	// section carries the one line, the shipments section the total.
+	for _, name := range routeOrder {
+		rep.Shipments = append(rep.Shipments, fmt.Sprintf("The %s cost $%d today, lots and fares.", name, routeCost[name]))
+		rep.Money = append(rep.Money, fmt.Sprintf("The %s: lots and fares -$%d", name, routeCost[name]))
 	}
 
 	// Purchases and signings made during the day. Cash "before" is what the

@@ -58,7 +58,7 @@ const (
 	modeConfirmInvestigate
 	modeConfirmPayOff
 	modeCard          // a dilemma card, before the morning report
-	modeShip          // the ship dialog: product -> route -> quantity -> dial
+	modeTarget        // the route target dialog: product -> units
 	modeConfirmTravel // move to the other city?
 	modePropose       // pick a deal to put to the rival: kind, then terms
 	modeAssign        // pick the city a lieutenant runs
@@ -85,6 +85,8 @@ type Model struct {
 	crewCursor    int    // row on the crew screen: roster first, then candidates
 	fireID        int    // member awaiting the fire confirmation
 	mapCursor     int    // corner selected on the map
+	routeCursor   int    // route selected under the map's grid
+	onRoutes      bool   // the map's arrows are on the routes, past the bottom row
 	postRole      string // runner or enforcer, while the post picker is open
 	postCursor    int
 	strikeCursor  int    // row in the strike picker
@@ -101,7 +103,7 @@ type Model struct {
 	outcome       string // what the last answer did, while it shows
 	journal       viewport.Model
 	dlg           dialog
-	shp           shipDialog
+	tgt           targetDialog
 	fnd           fundDialog
 	startChoice   int
 	tick          int
@@ -181,6 +183,7 @@ func (m *Model) cycleCity(d int) {
 	}
 	m.city = order[(i+d+len(order))%len(order)]
 	m.mapCursor = m.yourCorner()
+	m.routeCursor, m.onRoutes = 0, false
 }
 
 func (m *Model) continueRun() error {
@@ -326,8 +329,8 @@ func (m *Model) handleKey(k tea.KeyMsg) (tea.Model, tea.Cmd) {
 			m.mode = modePlay
 		}
 		return m, nil
-	case modeShip:
-		return m.keyShip(k)
+	case modeTarget:
+		return m.keyTarget(k)
 	case modeFund:
 		return m.keyFund(k)
 	case modeHelp:
@@ -550,8 +553,16 @@ func (m *Model) keyPlay(key string) (tea.Model, tea.Cmd) {
 			m.status = "Upgrades are bought on the tree (6)."
 		}
 	case "r":
-		if m.w.Report != nil {
+		if m.screen == screenMap {
+			m.cycleRoute()
+		} else if m.w.Report != nil {
 			m.mode = modeReport
+		}
+	case "R":
+		if m.screen == screenMap {
+			m.openTarget()
+		} else {
+			m.status = "The routes are run from the map (5): r turns a dial, R sets a target."
 		}
 	case "b":
 		if m.screen == screenLedger {
@@ -565,7 +576,7 @@ func (m *Model) keyPlay(key string) (tea.Model, tea.Cmd) {
 		if m.screen == screenCrew {
 			m.askAssign()
 		} else {
-			m.openShip()
+			m.status = "Nothing to ship by hand: the routes run themselves. Turn one on the map (5, r)."
 		}
 	case "g":
 		m.askTravel()
@@ -784,8 +795,8 @@ func (m *Model) View() string {
 		body = m.payOffConfirm()
 	case modeConfirmTravel:
 		body = m.travelConfirm()
-	case modeShip:
-		body = m.viewShip()
+	case modeTarget:
+		body = m.viewTarget()
 	case modeFund:
 		body = m.viewFund()
 	case modeCard:
@@ -909,7 +920,7 @@ func (m *Model) viewFooter() string {
 		keys = k("y", "pay") + k("any other key", "back")
 	case modeConfirmTravel:
 		keys = k("y", "go") + k("any other key", "stay")
-	case modeShip:
+	case modeTarget:
 		keys = k("↑↓", "pick") + k("enter", "next") + k("esc", "back")
 	case modeFund:
 		keys = k("←→", "city") + k("enter", "give") + k("esc", "back")
@@ -934,9 +945,9 @@ func (m *Model) viewFooter() string {
 		case screenCrew:
 			keys = k("n", "end day") + k("↑↓", "pick") + k("h", "hire") + k("f", "fire") + k("t", "assign") + k("i", "ask") + k("$", "pay off") + k("p", "pay") + k("?", "help")
 		case screenMap:
-			keys = k("n", "end day") + k("↑↓←→", "pick") + k("[ ]", "city") + k("c", "runner") + k("e", "enforcer") + k("a", "abandon") + k("w", "war") + k("t", "ship") + k("g", "go") + k("?", "help")
+			keys = k("n", "end day") + k("↑↓←→", "pick") + k("[ ]", "city") + k("c", "runner") + k("e", "enforcer") + k("a", "abandon") + k("w", "war") + k("r R", "route") + k("g", "go") + k("?", "help")
 		case screenMarket:
-			keys = k("n", "end day") + k("↑↓", "pick") + k("←→", "city") + k("b", "buy") + k("s", "sell") + k("t", "ship") + k("g", "go") + k("x", "cancel") + k("?", "help")
+			keys = k("n", "end day") + k("↑↓", "pick") + k("←→", "city") + k("b", "buy") + k("s", "sell") + k("g", "go") + k("x", "cancel") + k("?", "help")
 		case screenUpgrades:
 			keys = k("n", "end day") + k("↑↓←→", "pick") + k("enter", "buy") + k("?", "help") + k("q", "quit")
 		case screenLedger:
@@ -944,7 +955,7 @@ func (m *Model) viewFooter() string {
 		case screenRivals:
 			keys = k("n", "end day") + k("↑↓", "pick offer") + k("d", "propose") + k("y", "accept") + k("x", "decline") + k("?", "help") + k("q", "quit")
 		default:
-			keys = k("n", "end day") + k("b", "buy") + k("s", "sell") + k("t", "ship") + k("l", "lie low") + k("x", "cancel order") + k("r", "report") + k("?", "help") + k("q", "quit")
+			keys = k("n", "end day") + k("b", "buy") + k("s", "sell") + k("l", "lie low") + k("x", "cancel order") + k("r", "report") + k("?", "help") + k("q", "quit")
 		}
 	}
 	status := theme.Warning.Render(m.status)
@@ -1004,15 +1015,15 @@ func (m *Model) viewHelp() string {
 		{"enter", "end the day, after a confirmation"},
 		{"b", "buy from the supplier where you are (ledger: a front)"},
 		{"s", "queue a street sale with the dial, in the city shown"},
-		{"t", "ship to the other city (crew screen: give a lieutenant a city)"},
+		{"r / R", "map: turn the selected route's dial / set its target"},
 		{"g", "go to the other city; your corner and stock stay put"},
 		{"[ ]", "turn the market and map to the other city"},
 		{"x", "cancel the order on the selected product"},
 		{"l", "lie low today (no sales, heat fades faster)"},
-		{"r", "reopen the morning report"},
+		{"r", "reopen the morning report (anywhere but the map)"},
 		{"h / f", "hire / fire the selected person (crew screen)"},
 		{"f", "on the ledger: fund a city with clean cash for goodwill"},
-		{"t", "on the crew screen: the selected lieutenant runs a city"},
+		{"t", "crew screen: the selected lieutenant runs a city"},
 		{"i / $", "investigate who is talking / pay off the person (crew)"},
 		{"p", "cycle crew pay: stingy / fair / generous"},
 		{"c / e / a", "post a runner / an enforcer / abandon the corner (map)"},
@@ -1020,7 +1031,7 @@ func (m *Model) viewHelp() string {
 		{"u / enter", "buy the selected upgrade, after a confirmation"},
 		{"d", "cycle the launder dial (rivals screen: propose a deal)"},
 		{"y / x", "accept / decline the selected offer (rivals screen)"},
-		{"↑ ↓ / j k", "move the cursor / scroll journal"},
+		{"↑ ↓ / j k", "move the cursor / scroll journal (map: down to the routes)"},
 		{"← →", "walk the map grid / the upgrade columns / the cities"},
 		{"ctrl+s", "save now"},
 		{"N", "abandon run and start over"},

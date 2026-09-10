@@ -1,8 +1,11 @@
-# The route graph: edges between cities, usable both ways. Every mode is a
-# point on the speed / cost / risk triangle: days in transit at the normal
-# dial, the most one shipment carries, what every unit costs to send (dirty
-# cash), and the chance per day in transit that the shipment is intercepted.
-# One shipment per route per day.
+# The route graph: edges between cities. Every mode is a point on the
+# speed / cost / risk triangle: days in transit at the normal dial, the
+# most one shipment carries, what every unit costs to send (dirty cash),
+# and the chance per day in transit that the shipment is intercepted. A
+# route is a dial the player sets once (#61): the logistics sim runs it
+# from `from` to `to` every day, sending what `to` is short of the target
+# the player set for it, one shipment per product per day, and buying the
+# shortfall by the lot at `from` where the wholesaler deals.
 
 [shipping]
 seizure_heat = 15           # heat a seizure adds in both cities on the route
@@ -13,13 +16,15 @@ record_days = 30            # seizures stay on the ledger this long
 
 # The wholesale supplier: a city marked wholesale in city.toml sells by the
 # lot at a fraction of its street supplier's price, once your peak cash
-# says you can move that kind of weight.
+# says you can move that kind of weight. The routes buy from it; you do
+# not. The road spends only what is over the laundering float.
 [wholesale]
 lot = 100
 mul = 0.7
 unlock_cash = 500000
 
-# The ship dial: fast halves the days and multiplies the risk on each.
+# The route dial's speeds: fast halves the days and multiplies the risk on
+# each (off is the fourth position, and the zero value).
 [dial.slow]
 days = 1.5
 risk = 0.5

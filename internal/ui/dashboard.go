@@ -84,7 +84,7 @@ func (m *Model) viewDashboard() string {
 	}
 	street.WriteString(theme.Subtle.Render(fmt.Sprintf("stash here %d/%d units · supplier sells at ~%.0f%% of street",
 		w.Player.StockIn(here.ID), w.Capacity(here.ID), m.set.Market.SupplierRatio(w)*100)) + "\n")
-	if line := m.elsewhereLine(); line != "" {
+	if line := m.elsewhereLine(); line != "" && h-6-(3+len(w.CityOrder)) < 15 {
 		street.WriteString(lipgloss.NewStyle().Foreground(theme.Logistics).Render(line) + "\n")
 	}
 	if w.Worked() == 0 {
@@ -142,12 +142,21 @@ func (m *Model) viewDashboard() string {
 	}
 
 	// The law sits under the street: who the chief and the DA are, and
-	// how loud the city is.
+	// how loud the city is; under that, where the terminal is tall enough
+	// for the street to keep its lines, the cities side by side: what is
+	// stashed in each, who runs it, its heat and what is on the road to
+	// it. Where it is not, the street carries the road in a line.
 	lawH := 6
-	leftH := h - lawH
+	citiesH := 0
+	if len(w.CityOrder) > 1 && h-lawH-(3+len(w.CityOrder)) >= 15 {
+		citiesH = 3 + len(w.CityOrder)
+	}
 	left := lipgloss.JoinVertical(lipgloss.Left,
-		panel("STREET · "+here.Name, street.String(), leftW, leftH, theme.Market),
+		panel("STREET · "+here.Name, street.String(), leftW, h-lawH-citiesH, theme.Market),
 		panel("LAW", m.lawLines(leftW-4), leftW, lawH, theme.Heat))
+	if citiesH > 0 {
+		left = lipgloss.JoinVertical(lipgloss.Left, left, panel("CITIES", m.citiesLines(leftW-4), leftW, citiesH, theme.Logistics))
+	}
 	if rightW == 0 {
 		return left
 	}
@@ -240,7 +249,8 @@ func (m *Model) viewDashboard() string {
 }
 
 // elsewhereLine is what you hold outside the city you are in and what is
-// on the road, or "" when there is nothing.
+// on the road, for a terminal too short for the CITIES panel, or ""
+// when there is nothing.
 func (m *Model) elsewhereLine() string {
 	w := m.w
 	var parts []string
@@ -263,6 +273,61 @@ func (m *Model) elsewhereLine() string {
 		parts = append(parts, fmt.Sprintf("%d units on the road, next in %dd", road, soonest))
 	}
 	return strings.Join(parts, " · ")
+}
+
+// citiesLines is the CITIES panel: one line per city with the value of
+// the stash there, the corners held, who runs it (you where you stand,
+// the lieutenant where one does), its heat and what is on the road to
+// it, in width cells.
+func (m *Model) citiesLines(width int) string {
+	w := m.w
+	var b strings.Builder
+	for _, cid := range w.CityOrder {
+		c := w.Cities[cid]
+		mark := "  "
+		if cid == w.Player.Location {
+			mark = theme.Gold.Render("◉ ")
+		}
+		value := 0
+		for id, q := range w.Player.Stash[cid] {
+			if p := c.Market[id]; p != nil {
+				value += int(float64(q) * p.SupplierPrice)
+			}
+		}
+		held := 0
+		for _, k := range c.Corners {
+			if k.Held() {
+				held++
+			}
+		}
+		runsW := 6
+		if width >= 60 {
+			runsW = 10
+		}
+		runs := theme.Subtle.Render(fit("-", runsW))
+		switch lt := w.Crew.Lieutenant(cid); {
+		case lt != nil:
+			runs = lipgloss.NewStyle().Foreground(theme.Crew).Render(fit(lt.Name, runsW))
+		case cid == w.Player.Location:
+			runs = fit("you", runsW)
+		}
+		road, soonest := 0, 0
+		for _, sh := range w.Shipments {
+			if sh.To != cid {
+				continue
+			}
+			road += sh.Units
+			if d := sh.DaysLeft(w.Day); soonest == 0 || d < soonest {
+				soonest = d
+			}
+		}
+		line := mark + fit(c.Name, 8) + " " + theme.Gold.Render(fit(cash(value), 5)) + theme.Subtle.Render(fit(fmt.Sprintf(" %d/%d", held, len(c.Corners)), 6)) + runs + " " + heatStyle(c.Heat).Render(fmt.Sprintf("heat %.0f", c.Heat))
+		if road > 0 {
+			line += lipgloss.NewStyle().Foreground(theme.Logistics).Render(fmt.Sprintf(" ◂%d %dd", road, soonest))
+		}
+		b.WriteString(truncate(line, width) + "\n")
+	}
+	return strings.TrimRight(b.String(), "\n")
 }
 
 // reputationAxes are the dashboard's three bars: the axis, its label at

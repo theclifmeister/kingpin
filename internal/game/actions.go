@@ -21,12 +21,11 @@ var (
 	ErrInvestigating  = errors.New("somebody is already asking around tonight")
 	ErrNoCity         = errors.New("no such city")
 	ErrNoRoute        = errors.New("no such route")
-	ErrRouteBusy      = errors.New("a shipment already left on that route today")
-	ErrNoWholesale    = errors.New("nobody sells by the lot here")
+	ErrBadDial        = errors.New("no such dial position")
 )
 
-// WholesaleOffer is how the wholesale supplier sells, handed to
-// BuyWholesale by the caller from routes.toml so the world never needs the
+// WholesaleOffer is how the wholesale supplier sells, handed to Restock
+// by the logistics sim from routes.toml so the world never needs the
 // config: lots of Lot units at Mul of the street supplier's price, once
 // peak cash has reached UnlockCash.
 type WholesaleOffer struct {
@@ -72,32 +71,6 @@ func (w *World) Free(city string) int { return w.Capacity(city) - w.Player.Stock
 // with dirty cash, into the stash there. It applies immediately and nudges
 // the supplier price up for the rest of the day.
 func (w *World) Buy(product string, qty int, pricePressure float64) (Purchase, error) {
-	return w.buy(product, qty, 1, pricePressure, false)
-}
-
-// BuyWholesale purchases lots of the offer's lot size from the wholesale
-// supplier in the city the player is in, at the offer's fraction of the
-// street supplier's price. The city must sell by the lot and the offer
-// must be unlocked; otherwise it is a Buy. A lot is delivered to the
-// dock, not to the stash: it is not held to the city's capacity, and
-// only the road out limits how much of it moves.
-func (w *World) BuyWholesale(product string, lots int, o WholesaleOffer, pricePressure float64) (Purchase, error) {
-	if w.Over != nil {
-		return Purchase{}, ErrGameOver
-	}
-	if c := w.Here(); c == nil || !c.Wholesale {
-		return Purchase{}, ErrNoWholesale
-	}
-	if o.Locked(w) {
-		return Purchase{}, fmt.Errorf("the wholesaler will not deal with you until you have moved $%d", o.UnlockCash)
-	}
-	if lots <= 0 || o.Lot <= 0 {
-		return Purchase{}, ErrBadQuantity
-	}
-	return w.buy(product, lots*o.Lot, o.Mul, pricePressure, true)
-}
-
-func (w *World) buy(product string, qty int, mul, pricePressure float64, wholesale bool) (Purchase, error) {
 	if w.Over != nil {
 		return Purchase{}, ErrGameOver
 	}
@@ -109,15 +82,14 @@ func (w *World) buy(product string, qty int, mul, pricePressure float64, wholesa
 	if qty <= 0 {
 		return Purchase{}, ErrBadQuantity
 	}
-	unit := m.SupplierPrice * mul
-	cost := int(math.Ceil(unit * float64(qty)))
+	cost := int(math.Ceil(m.SupplierPrice * float64(qty)))
 	if cost > w.Player.DirtyCash {
 		return Purchase{}, fmt.Errorf("need $%d, only have $%d dirty", cost, w.Player.DirtyCash)
 	}
-	if free := w.Free(city); !wholesale && qty > free {
+	if free := w.Free(city); qty > free {
 		return Purchase{}, fmt.Errorf("can only hold %d more units in %s", free, w.CityName(city))
 	}
-	p := Purchase{City: city, Product: product, Qty: qty, UnitPrice: unit, Cost: cost, Wholesale: wholesale}
+	p := Purchase{City: city, Product: product, Qty: qty, UnitPrice: m.SupplierPrice, Cost: cost}
 	w.Player.DirtyCash -= cost
 	w.Stash(city)[product] += qty
 	m.BoughtToday += qty
@@ -126,6 +98,43 @@ func (w *World) buy(product string, qty int, mul, pricePressure float64, wholesa
 	}
 	w.Buys = append(w.Buys, p)
 	return p, nil
+}
+
+// Restock is the logistics sim buying lots from the wholesale supplier in
+// a city, wherever the player is, to feed a route (#61): it is not a
+// player action and not reported through Buys (the sim reports it as
+// WholesaleBought). The city must sell by the lot and the offer must be
+// open. The lots go into the stash there regardless of its capacity: the
+// road takes them, and the odd lot's remainder waits for tomorrow's
+// shipment.
+func (w *World) Restock(city, product string, lots int, o WholesaleOffer, pricePressure float64) (Purchase, error) {
+	c := w.Cities[city]
+	if c == nil {
+		return Purchase{}, ErrNoCity
+	}
+	if !c.Wholesale || o.Locked(w) {
+		return Purchase{}, ErrNoRoute
+	}
+	m := c.Market[product]
+	if m == nil {
+		return Purchase{}, ErrUnknownProduct
+	}
+	if lots <= 0 || o.Lot <= 0 {
+		return Purchase{}, ErrBadQuantity
+	}
+	qty := lots * o.Lot
+	unit := m.SupplierPrice * o.Mul
+	cost := int(math.Ceil(unit * float64(qty)))
+	if cost > w.Player.DirtyCash {
+		return Purchase{}, fmt.Errorf("need $%d, only have $%d dirty", cost, w.Player.DirtyCash)
+	}
+	w.Player.DirtyCash -= cost
+	w.Stash(city)[product] += qty
+	m.BoughtToday += qty
+	if demand := w.Demand(city, product); demand > 0 {
+		m.SupplierPrice *= 1 + pricePressure*float64(qty)/demand
+	}
+	return Purchase{City: city, Product: product, Qty: qty, UnitPrice: unit, Cost: cost}, nil
 }
 
 // PlaceSell queues a sell order in a city for resolution at end of day by
@@ -161,7 +170,7 @@ func (w *World) Order(city, product string) (SellOrder, bool) {
 func (w *World) CancelSell(city, product string) { delete(w.Orders, OrderKey(city, product)) }
 
 // Travel moves the player to another city at once. Product stays where it
-// is: only a shipment moves it. Whatever corner you stood on is left with
+// is: only the road moves it. Whatever corner you stood on is left with
 // nobody on it and drifts unless a runner takes it.
 func (w *World) Travel(city string) error {
 	if w.Over != nil {
@@ -178,67 +187,99 @@ func (w *World) Travel(city string) error {
 	return nil
 }
 
-// RouteOffer is a route as the logistics config prices it for one dial,
-// handed to Ship by the caller so the world never needs the config.
-type RouteOffer struct {
-	ID       string
-	Name     string
-	Mode     string
-	From     string
-	To       string
-	Days     int // days in transit at this dial
-	Capacity int
-	Cost     int // dirty cash per unit
-	Dial     events.Ship
+// RouteSetting is the player's standing instruction for one route (#61):
+// the dial it runs at and the stock the far city is kept at, per product.
+// The logistics sim reads it every day; the zero value is a route that is
+// off, so a save from before the dial replays as it did.
+type RouteSetting struct {
+	Dial   events.RouteDial
+	Target map[string]int // product id -> units the route's destination is kept stocked to
 }
 
-// Ship sends units of a product from one city's stash to another over a
-// route, paying the cost up front in dirty cash. The units leave the
-// source stash now and land in the destination's when the logistics sim
-// brings them in, unless it is seized first. One shipment per route per
-// day, never more than the route carries.
-func (w *World) Ship(r RouteOffer, from, to, product string, units int) (Shipment, error) {
+// Route returns the setting for a route, off with no targets if it has
+// never been set.
+func (w *World) Route(id string) RouteSetting {
+	if rs, ok := w.Routes[id]; ok {
+		return rs
+	}
+	return RouteSetting{}
+}
+
+// SetRoute turns a route's dial. It is a persistent setting like the pay
+// dial, not per-day scratch: the logistics sim runs the route at it every
+// day until it is turned again. The targets are kept when it is turned
+// off, so turning it back on picks up where it left off.
+func (w *World) SetRoute(id string, d events.RouteDial) error {
 	if w.Over != nil {
-		return Shipment{}, ErrGameOver
+		return ErrGameOver
 	}
-	if w.Cities[from] == nil || w.Cities[to] == nil || from == to {
-		return Shipment{}, ErrNoCity
+	if id == "" {
+		return ErrNoRoute
 	}
-	if r.ID == "" || !((r.From == from && r.To == to) || (r.From == to && r.To == from)) {
-		return Shipment{}, ErrNoRoute
+	if d < events.RouteOff || d > events.RouteFast {
+		return ErrBadDial
 	}
-	if w.Product(from, product) == nil {
-		return Shipment{}, ErrUnknownProduct
+	if w.Routes == nil {
+		w.Routes = map[string]RouteSetting{}
 	}
-	if units <= 0 {
-		return Shipment{}, ErrBadQuantity
+	rs := w.Routes[id]
+	rs.Dial = d
+	w.Routes[id] = rs
+	return nil
+}
+
+// SetRouteTarget sets the stock a route keeps its destination at for a
+// product; zero clears it. The route sends the shortfall against it,
+// buying by the lot at the source where a wholesaler deals.
+func (w *World) SetRouteTarget(id, product string, units int) error {
+	if w.Over != nil {
+		return ErrGameOver
 	}
-	if units > r.Capacity {
-		return Shipment{}, fmt.Errorf("%s carries %d units at most", r.Name, r.Capacity)
+	if id == "" {
+		return ErrNoRoute
 	}
-	if have := w.Stock(from, product); units > have {
-		return Shipment{}, fmt.Errorf("only %d %s in %s", have, w.ProductName(product), w.CityName(from))
+	if w.Home() == nil || w.Home().Market[product] == nil {
+		return ErrUnknownProduct
 	}
-	for _, s := range w.Shipments {
-		if s.Route == r.ID && s.Sent == w.Day {
-			return Shipment{}, ErrRouteBusy
+	if units < 0 {
+		return ErrBadQuantity
+	}
+	if w.Routes == nil {
+		w.Routes = map[string]RouteSetting{}
+	}
+	rs := w.Routes[id]
+	if units == 0 {
+		delete(rs.Target, product)
+		if len(rs.Target) == 0 {
+			rs.Target = nil
 		}
+	} else {
+		if rs.Target == nil {
+			rs.Target = map[string]int{}
+		}
+		rs.Target[product] = units
 	}
-	cost := units * r.Cost
-	if cost > w.Player.DirtyCash {
-		return Shipment{}, fmt.Errorf("sending it costs $%d, only have $%d dirty", cost, w.Player.DirtyCash)
-	}
-	w.Player.DirtyCash -= cost
-	w.Stash(from)[product] -= units
+	w.Routes[id] = rs
+	return nil
+}
+
+// Send is the logistics sim putting a shipment on the road (#61): the
+// units leave the source stash and the fare leaves dirty cash now, and
+// the sim lands or loses it. It is not a player action; the route dial
+// is. The sim fills in the route, the days and the fare; the world gives
+// it an id and keeps the count.
+func (w *World) Send(s Shipment) Shipment {
+	w.Player.DirtyCash -= s.Cost
+	w.Stash(s.From)[s.Product] -= s.Units
 	w.Logistics.NextID++
-	s := Shipment{
-		ID: w.Logistics.NextID, Route: r.ID, Mode: r.Mode, From: from, To: to,
-		Product: product, Units: units, Dial: r.Dial, Sent: w.Day, Arrives: w.Day + max(1, r.Days), Cost: cost,
+	s.ID = w.Logistics.NextID
+	if s.Arrives <= s.Sent {
+		s.Arrives = s.Sent + 1
 	}
 	w.Shipments = append(w.Shipments, s)
 	w.Stats.Shipments++
-	w.Stats.Shipped += units
-	return s, nil
+	w.Stats.Shipped += s.Units
+	return s
 }
 
 // SetLieLow toggles lying low for the day. Lying low cancels all orders.
