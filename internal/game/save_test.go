@@ -90,9 +90,10 @@ func TestLoadErrors(t *testing.T) {
 	if !HasSave() {
 		t.Fatal("HasSave false after Save")
 	}
-	// A save from before the crew existed is refused, not migrated: runs
-	// are roguelike. The message must tell the player what to do.
+	// An older save is upgraded one step at a time; with no path it is
+	// refused with a message that says so.
 	w.SchemaVersion = SchemaVersion - 1
+	w.Day = 12
 	if err := Save(w); err != nil {
 		t.Fatal(err)
 	}
@@ -100,6 +101,20 @@ func TestLoadErrors(t *testing.T) {
 		t.Fatalf("expected ErrOldSchema, got %v", err)
 	} else if !strings.Contains(err.Error(), "older version") {
 		t.Fatalf("unreadable message: %v", err)
+	}
+	applied := 0
+	up, err := Load(Migration{From: SchemaVersion - 1, Apply: func(w *World) {
+		applied++
+		if w.SchemaVersion != SchemaVersion-1 || w.Day != 12 {
+			t.Fatalf("migration saw schema %d day %d", w.SchemaVersion, w.Day)
+		}
+	}})
+	if err != nil || applied != 1 || up.SchemaVersion != SchemaVersion || up.Day != 12 {
+		t.Fatalf("migrate: err %v applied %d schema %d day %d", err, applied, up.SchemaVersion, up.Day)
+	}
+	// A migration for the wrong version is no path at all.
+	if _, err := Load(Migration{From: SchemaVersion - 2, Apply: func(*World) {}}); !errors.Is(err, ErrOldSchema) {
+		t.Fatalf("expected ErrOldSchema with an unrelated migration, got %v", err)
 	}
 	if err := DeleteSave(); err != nil || HasSave() {
 		t.Fatalf("delete failed: %v", err)

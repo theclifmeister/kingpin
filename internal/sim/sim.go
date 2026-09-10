@@ -41,6 +41,13 @@ func Default(cfg *content.Config) (*Set, []game.Simulation, error) {
 	return set, []game.Simulation{set.Market, set.Crew, set.Heat, set.News}, nil
 }
 
+// Migrations is the chain that upgrades older saves to the current schema.
+func (s *Set) Migrations() []game.Migration {
+	return []game.Migration{
+		{From: 1, Apply: s.Crew.Migrate}, // 1 -> 2: the crew arrived
+	}
+}
+
 // NewWorld starts a fresh run from config. The hiring pool is drawn from
 // the day-0 RNG so it is part of the seed like everything else.
 func NewWorld(cfg *content.Config, seed uint64) *game.World {

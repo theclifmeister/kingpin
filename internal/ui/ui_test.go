@@ -211,12 +211,39 @@ func TestCrewScreenKeys(t *testing.T) {
 	}
 }
 
-// A save from an older schema is refused with a readable message and the
-// start menu moves the player to New run.
-func TestOldSaveIsRefused(t *testing.T) {
+// A schema-1 save (before the crew) continues: the run is upgraded with a
+// hiring pool and fair pay, and the day is kept.
+func TestOldSaveIsMigrated(t *testing.T) {
 	t.Setenv("KINGPIN_HOME", t.TempDir())
 	w := sim.NewWorld(content.MustLoad(), 1)
-	w.SchemaVersion = game.SchemaVersion - 1
+	w.SchemaVersion = 1
+	w.Day = 9
+	w.Crew = game.CrewState{}
+	if err := game.Save(w); err != nil {
+		t.Fatal(err)
+	}
+	m, err := New(content.MustLoad())
+	if err != nil {
+		t.Fatal(err)
+	}
+	m.Update(tea.WindowSizeMsg{Width: 80, Height: 24})
+	m.Update(key("c"))
+	if m.mode != modePlay || m.w.Day != 9 || m.w.SchemaVersion != game.SchemaVersion {
+		t.Fatalf("continue: mode %v day %d schema %d status %q", m.mode, m.w.Day, m.w.SchemaVersion, m.status)
+	}
+	if len(m.w.Crew.Candidates) == 0 || m.w.Crew.Pay != events.PayFair {
+		t.Fatalf("migrated crew state: %+v", m.w.Crew)
+	}
+	m.Update(key("4"))
+	assertFits(t, m.View(), 80, 24, "crew screen after migration")
+}
+
+// A save this build cannot read is refused with a readable message and the
+// start menu moves the player to New run.
+func TestUnreadableSaveIsRefused(t *testing.T) {
+	t.Setenv("KINGPIN_HOME", t.TempDir())
+	w := sim.NewWorld(content.MustLoad(), 1)
+	w.SchemaVersion = game.SchemaVersion + 1
 	if err := game.Save(w); err != nil {
 		t.Fatal(err)
 	}
@@ -229,7 +256,7 @@ func TestOldSaveIsRefused(t *testing.T) {
 		t.Fatalf("mode = %v, want the start menu", m.mode)
 	}
 	m.Update(key("c"))
-	if m.mode != modeStart || !strings.Contains(m.status, "older version") || m.startChoice != 1 {
+	if m.mode != modeStart || !strings.Contains(m.status, "newer version") || m.startChoice != 1 {
 		t.Fatalf("continue: mode %v status %q choice %d", m.mode, m.status, m.startChoice)
 	}
 	assertFits(t, m.View(), 80, 24, "start menu with error")

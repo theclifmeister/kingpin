@@ -56,6 +56,14 @@ func (s *Sim) Seed(w *game.World, rng rand) {
 	s.refill(w, rng)
 }
 
+// Migrate brings a save from before the crew existed up to date: an empty
+// roster, fair pay and a hiring pool drawn from the current day's RNG.
+func (s *Sim) Migrate(w *game.World) {
+	if len(w.Crew.Candidates) == 0 {
+		s.Seed(w, game.RNGFor(w.Seed, w.Day))
+	}
+}
+
 // rand is the subset of *math/rand/v2.Rand the sim uses.
 type rand interface {
 	IntN(int) int

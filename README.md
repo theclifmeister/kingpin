@@ -19,7 +19,8 @@ go run ./cmd/kingpin
 
 Needs Go 1.24 and a terminal at least 80x24. A single save slot lives in
 `$KINGPIN_HOME` or your platform config directory under `kingpin/`; the game
-autosaves at the end of every day.
+autosaves at the end of every day. Saves from older builds are upgraded on
+load; a save from a newer build than the one you are running is refused.
 
 | Key | Action |
 |---|---|

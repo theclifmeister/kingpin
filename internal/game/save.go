@@ -14,10 +14,17 @@ var (
 	ErrNoSave = errors.New("no saved run")
 	// ErrNewerSchema means the save was written by a newer build.
 	ErrNewerSchema = errors.New("save file is from a newer version of kingpin")
-	// ErrOldSchema means the save predates a world change. Runs are
-	// roguelike, so there is no migration: start a new one.
-	ErrOldSchema = errors.New("save file is from an older version of kingpin and cannot be continued")
+	// ErrOldSchema means the save predates a world change that has no
+	// migration path. Start a new run.
+	ErrOldSchema = errors.New("save file is from an older version of kingpin and cannot be upgraded")
 )
+
+// Migration upgrades a world from schema From to From+1. The package that
+// owns the new state supplies it, so game never needs content to load.
+type Migration struct {
+	From  int
+	Apply func(w *World)
+}
 
 // SaveDir returns the directory saves live in. KINGPIN_HOME overrides the
 // platform config directory.
@@ -71,8 +78,10 @@ func Save(w *World) error {
 	return os.Rename(tmp, p)
 }
 
-// Load reads the save slot.
-func Load() (*World, error) {
+// Load reads the save slot, upgrading an older save one schema version at a
+// time with the given migrations. A save newer than this build, or older
+// with no migration path, is refused.
+func Load(migrations ...Migration) (*World, error) {
 	p, err := SavePath()
 	if err != nil {
 		return nil, err
@@ -91,11 +100,21 @@ func Load() (*World, error) {
 	if w.SchemaVersion > SchemaVersion {
 		return nil, ErrNewerSchema
 	}
-	if w.SchemaVersion < SchemaVersion {
-		return nil, ErrOldSchema
-	}
 	if w.Market == nil || w.Player.Stock == nil {
 		return nil, fmt.Errorf("save file is corrupt: missing world state")
+	}
+	for w.SchemaVersion < SchemaVersion {
+		var step *Migration
+		for i := range migrations {
+			if migrations[i].From == w.SchemaVersion {
+				step = &migrations[i]
+			}
+		}
+		if step == nil {
+			return nil, fmt.Errorf("%w (schema %d, this build reads %d)", ErrOldSchema, w.SchemaVersion, SchemaVersion)
+		}
+		step.Apply(&w)
+		w.SchemaVersion++
 	}
 	if w.Orders == nil {
 		w.Orders = map[string]SellOrder{}

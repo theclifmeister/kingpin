@@ -118,7 +118,7 @@ func (m *Model) newRun() {
 }
 
 func (m *Model) continueRun() error {
-	w, err := game.Load()
+	w, err := game.Load(m.set.Migrations()...)
 	if err != nil {
 		return err
 	}
