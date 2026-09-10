@@ -16,7 +16,7 @@ import (
 
 func main() {
 	runs := flag.Int("runs", 20, "number of seeded runs")
-	days := flag.Int("days", 200, "max days per run")
+	days := flag.Int("days", harness.Horizon, "days to play each run for; a measuring horizon, the game itself has no cap")
 	policy := flag.String("policy", "normal", "idle | quiet | normal | aggressive | careful | managed | crewed | territory")
 	corners := flag.Int("corners", 3, "corners the territory policy works, counting yours")
 	trace := flag.Bool("trace", false, "print a per-day trace of the run with -seed")
@@ -51,7 +51,7 @@ func main() {
 		p = harness.Trader(cfg, events.DialNormal)
 	}
 
-	var survived, peaks []int
+	var played, peaks []int
 	worth := map[int][]int{}
 	endings := map[string]int{}
 	robberies, robbed := 0, 0
@@ -72,7 +72,7 @@ func main() {
 			fmt.Fprintln(os.Stderr, err)
 			os.Exit(1)
 		}
-		survived = append(survived, res.Days)
+		played = append(played, res.Days)
 		peaks = append(peaks, res.PeakCash)
 		for _, d := range harness.TierDays {
 			if d <= *days {
@@ -82,7 +82,7 @@ func main() {
 		if res.Over != nil {
 			endings[res.Over.Cause]++
 		} else {
-			endings["survived"]++
+			endings["still free"]++
 		}
 		for _, e := range res.Events {
 			if _, ok := e.(events.CornerRobbed); ok {
@@ -91,10 +91,10 @@ func main() {
 		}
 		robbed += res.World.Stats.Robbed
 	}
-	sort.Ints(survived)
+	sort.Ints(played)
 	sort.Ints(peaks)
-	fmt.Printf("policy=%s runs=%d days=%d\n", *policy, *runs, *days)
-	fmt.Printf("survival days: min %d median %d max %d\n", survived[0], survived[len(survived)/2], survived[len(survived)-1])
+	fmt.Printf("policy=%s runs=%d horizon=%d days\n", *policy, *runs, *days)
+	fmt.Printf("days played:   min %d median %d max %d\n", played[0], played[len(played)/2], played[len(played)-1])
 	fmt.Printf("peak cash:     min %d median %d max %d\n", peaks[0], peaks[len(peaks)/2], peaks[len(peaks)-1])
 	fmt.Printf("net worth:    ")
 	for _, d := range harness.TierDays {

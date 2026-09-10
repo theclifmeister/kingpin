@@ -202,6 +202,13 @@ func pickCorner(w *game.World, ok func(game.Corner) bool, score func(game.Corner
 	return best
 }
 
-// TierDays are the days each progression tier ends on (#24): the money
-// curve is measured at these checkpoints.
-var TierDays = []int{30, 70, 120, 200}
+// Horizon is how many days the harness plays a run for when it measures
+// something. It is a ruler, not a run length: the game has no day cap and a
+// run ends only through an ending, so a policy that is "still free at the
+// horizon" is one the game never punished for playing on.
+const Horizon = 200
+
+// TierDays are the checkpoints the money curve is read at (#24): the day
+// each progression tier is expected to have paid off by. Like Horizon they
+// are where the harness looks, not where the game stops.
+var TierDays = []int{30, 70, 120, Horizon}

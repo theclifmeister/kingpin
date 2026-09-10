@@ -90,7 +90,7 @@ func TestSkimOnlyBelowThreshold(t *testing.T) {
 			}
 			days = append(days, minLoyalty)
 		}
-		res, err := Run(cfg, seed, 200, policy)
+		res, err := Run(cfg, seed, Horizon, policy)
 		if err != nil {
 			t.Fatal(err)
 		}
@@ -120,7 +120,7 @@ func TestNoSkimWhenLoyal(t *testing.T) {
 	cfg := content.MustLoad()
 	trade := Trader(cfg, events.DialQuiet)
 	for seed := uint64(1); seed <= 5; seed++ {
-		res, err := Run(cfg, seed, 200, func(w *game.World) {
+		res, err := Run(cfg, seed, Horizon, func(w *game.World) {
 			w.SetPay(events.PayStingy)
 			hireAffordable(cfg, w)
 			for i := range w.Crew.Members {
@@ -141,20 +141,21 @@ func TestNoSkimWhenLoyal(t *testing.T) {
 
 // Runners are how you move more than you can carry and hold more than one
 // corner: a player who builds a crew must out-earn the same player without
-// one, and still be free at the end of tier 3 (day 120). Past that the
-// crewed player sits on well over a million in dirty cash, which is its
-// own heat source until there is somewhere to launder it.
+// one, and building it must not be what ends the run. The check stops at
+// the tier-3 checkpoint because past it the crewed player sits on a
+// dirty-cash pile that is its own heat source until #27 lands; the game
+// itself has no day cap.
 func TestCrewedBeatsManaged(t *testing.T) {
 	cfg := content.MustLoad()
 	for seed := uint64(1); seed <= 10; seed++ {
-		crewed, _ := Run(cfg, seed, 200, Crewed(cfg, 40))
+		crewed, _ := Run(cfg, seed, Horizon, Crewed(cfg, 40))
 		if crewed.Over != nil && crewed.Days <= TierDays[2] {
 			t.Fatalf("seed %d: crewed trader ended on day %d: %s", seed, crewed.Days, crewed.Over.Cause)
 		}
 		if len(crewed.World.Crew.Members) == 0 {
 			t.Fatalf("seed %d: crewed trader ended with no crew", seed)
 		}
-		managed, _ := Run(cfg, seed, 200, Managed(cfg, 50))
+		managed, _ := Run(cfg, seed, Horizon, Managed(cfg, 50))
 		if crewed.PeakCash <= managed.PeakCash {
 			t.Fatalf("seed %d: crewed peaked at %d, managed at %d; runners should pay", seed, crewed.PeakCash, managed.PeakCash)
 		}
