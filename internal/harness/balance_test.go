@@ -9,6 +9,7 @@ import (
 	"github.com/theclifmeister/kingpin/internal/content"
 	"github.com/theclifmeister/kingpin/internal/events"
 	"github.com/theclifmeister/kingpin/internal/game"
+	"github.com/theclifmeister/kingpin/internal/sim"
 )
 
 func TestDeterministicForSeed(t *testing.T) {
@@ -224,5 +225,36 @@ func TestMoneyCurve(t *testing.T) {
 	t.Logf("tier %d with demand halved: %d", row.tier, med)
 	if med >= row.lo {
 		t.Errorf("tier %d with demand halved still reaches %d on day %d; the curve test does not bite", row.tier, med, row.day)
+	}
+}
+
+// A pile of dirty cash draws the police but is not a countdown (#27): a
+// player who has built something and then sits on it, lying low, is never
+// indicted however long they wait. Stings and raids on a day nothing moved
+// cost stock and cash and cool heat, but add no evidence.
+func TestRichHiderIsNeverIndicted(t *testing.T) {
+	cfg := content.MustLoad()
+	for seed := uint64(1); seed <= 5; seed++ {
+		w := sim.NewWorld(cfg, seed)
+		w.Player.DirtyCash = 5_000_000
+		res, _ := RunFrom(cfg, w, 1000, Hide)
+		if res.Over != nil {
+			t.Fatalf("seed %d: rich hider ended on day %d: %s", seed, res.Days, res.Over.Cause)
+		}
+		if res.World.Heat.Evidence != 0 {
+			t.Fatalf("seed %d: rich hider has %d evidence against them without ever selling", seed, res.World.Heat.Evidence)
+		}
+		stings := 0
+		for _, e := range res.Events {
+			if ev, ok := e.(events.Enforcement); ok && (ev.Level == "sting" || ev.Level == "raid") {
+				stings++
+				if ev.Evidence != 0 {
+					t.Fatalf("seed %d day %d: %s on a quiet day added %d evidence", seed, ev.Day, ev.Level, ev.Evidence)
+				}
+			}
+		}
+		if stings == 0 {
+			t.Fatalf("seed %d: $5M dirty drew no stings or raids in 1000 days; the pile should still draw attention", seed)
+		}
 	}
 }
