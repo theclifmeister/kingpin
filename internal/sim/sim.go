@@ -40,7 +40,7 @@ type Set struct {
 // news so a band it crosses is a headline. Logistics slots in when it
 // lands.
 func Default(cfg *content.Config) (*Set, []game.Simulation, error) {
-	n, err := news.New(cfg.Headlines)
+	n, err := news.New(cfg.Headlines, cfg.Dilemmas)
 	if err != nil {
 		return nil, nil, err
 	}

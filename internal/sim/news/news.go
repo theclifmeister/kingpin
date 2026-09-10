@@ -1,5 +1,6 @@
 // Package news turns the day's events into headlines and the morning
-// report. It runs last so it sees everything the other sims emitted.
+// report, and deals the dilemma cards. It runs last so it sees everything
+// the other sims emitted.
 package news
 
 import (
@@ -17,13 +18,20 @@ import (
 // Sim is the news simulation.
 type Sim struct {
 	cfg  content.HeadlinesConfig
+	dcfg content.DilemmasConfig
 	tmpl map[string][]*template.Template
 	flav []*template.Template
+	deck []card
 }
 
-// New parses the headline templates once.
-func New(cfg content.HeadlinesConfig) (*Sim, error) {
-	s := &Sim{cfg: cfg, tmpl: map[string][]*template.Template{}}
+// New parses the headline and card templates once. It refuses a deck
+// whose choices use an effect key the world does not apply.
+func New(cfg content.HeadlinesConfig, dilemmas content.DilemmasConfig) (*Sim, error) {
+	deck, err := parseDeck(dilemmas)
+	if err != nil {
+		return nil, fmt.Errorf("dilemmas: %w", err)
+	}
+	s := &Sim{cfg: cfg, dcfg: dilemmas, tmpl: map[string][]*template.Template{}, deck: deck}
 	for key, list := range cfg.Templates {
 		for i, src := range list {
 			t, err := template.New(fmt.Sprintf("%s#%d", key, i)).Parse(src)
@@ -382,6 +390,17 @@ func (s *Sim) Step(w *game.World, t *game.Tick) {
 		txt := render(s.flav[t.RNG.IntN(len(s.flav))], base)
 		lines = append(lines, game.Headline{Day: t.Day, Source: "news", Text: txt})
 	}
+
+	// Yesterday's card: the choice is already in the journal (Choose put
+	// it there); this is the morning after, when the follow-up makes the
+	// paper. Then, maybe, tonight's card.
+	if a := w.Dilemmas.Answered; a != nil {
+		t.Emit(events.DilemmaAnswered{Day: t.Day, Card: a.Card, Choice: a.Choice})
+		if a.Headline != "" {
+			lines = append(lines, game.Headline{Day: t.Day, Source: "dilemma", Text: a.Headline})
+		}
+	}
+	s.drawCard(w, t)
 
 	for _, h := range lines {
 		w.Journal = append(w.Journal, h)

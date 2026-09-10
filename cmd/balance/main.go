@@ -29,6 +29,7 @@ func main() {
 	cash := flag.Int("cash", 0, "start every run with this much dirty cash instead of the default")
 	own := flag.String("own", "", "comma-separated upgrade ids every run owns from day 0, free (prerequisites first)")
 	snitch := flag.Bool("snitch", false, "start every run with an informant on the payroll (harness.Plant)")
+	cards := flag.String("cards", "", "deal the dilemma cards and answer every one with: decline (the last choice) | first (default: no cards)")
 	flag.Parse()
 	at := func(def float64) float64 {
 		if *lieLow > 0 {
@@ -79,6 +80,17 @@ func main() {
 	if *own != "" {
 		owned = strings.Split(*own, ",")
 	}
+	var pick harness.Chooser
+	switch *cards {
+	case "decline":
+		pick = harness.Decline
+	case "first":
+		pick = harness.First
+	case "":
+	default:
+		fmt.Fprintf(os.Stderr, "unknown -cards %q\n", *cards)
+		os.Exit(2)
+	}
 	var played, peaks []int
 	worth := map[int][]int{}
 	endings := map[string]int{}
@@ -90,6 +102,7 @@ func main() {
 	bought := map[string]int{}
 	audits, laundered, clean := 0, 0, 0
 	var fear, respect, notoriety []int
+	dealt := map[string]int{}
 	for seed := *seed0; seed < *seed0+uint64(*runs); seed++ {
 		pol := p
 		if *trace && seed == *seed0 {
@@ -113,7 +126,13 @@ func main() {
 		if *snitch {
 			harness.Plant(cfg, w)
 		}
-		res, err := harness.RunFrom(cfg, w, *days, pol)
+		var res harness.Result
+		var err error
+		if pick != nil {
+			res, err = harness.RunWith(cfg, w, *days, pol, pick)
+		} else {
+			res, err = harness.RunFrom(cfg, w, *days, pol)
+		}
 		if err != nil {
 			fmt.Fprintln(os.Stderr, err)
 			os.Exit(1)
@@ -151,6 +170,8 @@ func main() {
 				}
 			case events.CrewDefected:
 				defections++
+			case events.DilemmaDrawn:
+				dealt[ev.Card]++
 			case events.HeatChanged:
 				for _, r := range ev.Reasons {
 					if strings.HasPrefix(r, "the DA's file") {
@@ -212,5 +233,16 @@ func main() {
 	sort.Ints(notoriety)
 	fmt.Printf("reputation:    fear %d respect %d notoriety %d at the end (medians), fear max %d respect max %d notoriety max %d\n",
 		fear[len(fear)/2], respect[len(respect)/2], notoriety[len(notoriety)/2], fear[len(fear)-1], respect[len(respect)-1], notoriety[len(notoriety)-1])
+	if pick != nil {
+		total := 0
+		var ids []string
+		for _, c := range cfg.Dilemmas.Cards {
+			if dealt[c.ID] > 0 {
+				total += dealt[c.ID]
+				ids = append(ids, fmt.Sprintf("%s %d", c.ID, dealt[c.ID]))
+			}
+		}
+		fmt.Printf("cards:         %.1f per run answered %s, %d of %d in the deck seen: %s\n", float64(total)/float64(*runs), *cards, len(ids), len(cfg.Dilemmas.Cards), strings.Join(ids, ", "))
+	}
 	fmt.Printf("endings: %v\n", endings)
 }

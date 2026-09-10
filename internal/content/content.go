@@ -1,6 +1,6 @@
 // Package content loads the tuning data (markets, city, heat, crew, rivals,
-// upgrades, laundering, reputation, headlines) that lives in TOML files embedded in the binary. Balance changes never need
-// code changes.
+// upgrades, laundering, reputation, headlines, dilemmas) that lives in TOML
+// files embedded in the binary. Balance changes never need code changes.
 package content
 
 import (
@@ -28,6 +28,7 @@ type Config struct {
 	Upgrades   UpgradesConfig
 	Reputation ReputationConfig
 	Headlines  HeadlinesConfig
+	Dilemmas   DilemmasConfig
 }
 
 // MarketConfig mirrors market.toml.
@@ -416,6 +417,115 @@ type HeadlinesConfig struct {
 	Flavour       []string            `toml:"flavour"`
 }
 
+// DilemmasConfig mirrors dilemmas.toml: the cards and their pacing.
+type DilemmasConfig struct {
+	Dilemmas DilemmasTuning `toml:"dilemmas"`
+	Cards    []CardConfig   `toml:"card"`
+}
+
+// DilemmasTuning paces the cards: none for MinGap days after the last,
+// then a rising chance each day until one is certain at MaxGap.
+type DilemmasTuning struct {
+	MinGap int `toml:"min_gap"`
+	MaxGap int `toml:"max_gap"`
+}
+
+// CardConfig is one dilemma: when it can come up, what it says and what
+// each answer does. Text and choices are text/templates over the slots
+// the news sim fills from the world (Name, Role, Corner, Theirs, Rival,
+// City, Front, Product, Amount). Amount is the sum the card is about:
+// AmountShare of the player's dirty cash (the bag it is paid from), but at
+// least Amount.
+type CardConfig struct {
+	ID          string         `toml:"id"`
+	Title       string         `toml:"title"`
+	Text        string         `toml:"text"`
+	Weight      float64        `toml:"weight"` // relative draw weight; 0 means 1
+	Once        bool           `toml:"once"`   // at most once per run
+	Amount      int            `toml:"amount"`
+	AmountShare float64        `toml:"amount_share"`
+	Trigger     CardTrigger    `toml:"trigger"`
+	Choices     []ChoiceConfig `toml:"choice"`
+}
+
+// CardTrigger is when a card is eligible: every field set must hold. A
+// zero value means the field is not checked, so a card needs at least one
+// set. Fields that name somebody also fill the card's slots: a member
+// (Role, LoyaltyBelow, LoyaltyAbove), a corner of yours (Corners,
+// Contested) and the rival corner it borders (Contested), a front (Fronts).
+type CardTrigger struct {
+	DayMin       int     `toml:"day_min"`
+	DayMax       int     `toml:"day_max"`
+	HeatMin      float64 `toml:"heat_min"`
+	HeatMax      float64 `toml:"heat_max"` // 0 = unchecked
+	CashMin      int     `toml:"cash_min"` // dirty plus clean
+	StockMin     int     `toml:"stock_min"`
+	CrewMin      int     `toml:"crew_min"`
+	Role         string  `toml:"role"`          // a member of this role is on the payroll
+	LoyaltyBelow float64 `toml:"loyalty_below"` // a member (of Role, if set) under this loyalty
+	LoyaltyAbove float64 `toml:"loyalty_above"`
+	Corners      int     `toml:"corners"` // worked corners
+	Contested    bool    `toml:"contested"`
+	Rival        bool    `toml:"rival"` // the rival holds ground
+	Personality  string  `toml:"personality"`
+	WarMin       float64 `toml:"war_min"`
+	Fronts       bool    `toml:"fronts"`
+}
+
+// Set reports whether the trigger checks anything at all.
+func (t CardTrigger) Set() bool { return t != CardTrigger{} }
+
+// ChoiceConfig is one answer: its label, what happened (for the journal),
+// an optional follow-up headline the next morning, and the effects as
+// deltas keyed by name. The world owns the list of legal keys
+// (game.EffectKeys); the news sim refuses a card that uses any other.
+type ChoiceConfig struct {
+	Label    string             `toml:"label"`
+	Outcome  string             `toml:"outcome"`
+	Headline string             `toml:"headline"`
+	Effects  map[string]float64 `toml:"effects"`
+}
+
+// Card returns the card with id, or nil.
+func (d DilemmasConfig) Card(id string) *CardConfig {
+	for i := range d.Cards {
+		if d.Cards[i].ID == id {
+			return &d.Cards[i]
+		}
+	}
+	return nil
+}
+
+// validate checks the deck reads as a deck: ids unique, every card with a
+// title, a trigger and two or three choices, and the pacing sane.
+func (d DilemmasConfig) validate() error {
+	if d.Dilemmas.MinGap < 1 || d.Dilemmas.MaxGap < d.Dilemmas.MinGap {
+		return fmt.Errorf("min_gap %d and max_gap %d must be 1 <= min <= max", d.Dilemmas.MinGap, d.Dilemmas.MaxGap)
+	}
+	seen := map[string]bool{}
+	for _, c := range d.Cards {
+		if c.ID == "" || c.Title == "" || c.Text == "" {
+			return fmt.Errorf("card %q needs an id, a title and text", c.ID)
+		}
+		if seen[c.ID] {
+			return fmt.Errorf("card %q is defined twice", c.ID)
+		}
+		seen[c.ID] = true
+		if !c.Trigger.Set() {
+			return fmt.Errorf("card %q has no trigger", c.ID)
+		}
+		if n := len(c.Choices); n < 2 || n > 3 {
+			return fmt.Errorf("card %q has %d choices; want 2 or 3", c.ID, n)
+		}
+		for i, ch := range c.Choices {
+			if ch.Label == "" || ch.Outcome == "" {
+				return fmt.Errorf("card %q choice %d needs a label and an outcome", c.ID, i)
+			}
+		}
+	}
+	return nil
+}
+
 // Load parses the embedded TOML files.
 func Load() (*Config, error) {
 	var c Config
@@ -447,6 +557,9 @@ func Load() (*Config, error) {
 		return nil, err
 	}
 	if err := decode("headlines.toml", &c.Headlines); err != nil {
+		return nil, err
+	}
+	if err := decode("dilemmas.toml", &c.Dilemmas); err != nil {
 		return nil, err
 	}
 	if len(c.Market.Products) == 0 {
@@ -487,6 +600,9 @@ func Load() (*Config, error) {
 	}
 	if r := c.Reputation.Reputation; r.Total <= 0 || r.Band <= 0 || r.Decay < 0 || r.Decay > 1 {
 		return nil, fmt.Errorf("reputation.toml: bad [reputation] table %+v", r)
+	}
+	if err := c.Dilemmas.validate(); err != nil {
+		return nil, fmt.Errorf("dilemmas.toml: %w", err)
 	}
 	seen := map[string]bool{}
 	for _, f := range c.Laundering.Fronts {
@@ -544,8 +660,9 @@ func decode(name string, v any) error {
 	if err != nil {
 		return fmt.Errorf("%s: %w", name, err)
 	}
-	// An effect name nobody reads would silently do nothing.
-	if name == "upgrades.toml" || name == "reputation.toml" {
+	// An effect name nobody reads, or a trigger field nobody checks, would
+	// silently do nothing.
+	if name == "upgrades.toml" || name == "reputation.toml" || name == "dilemmas.toml" {
 		if keys := md.Undecoded(); len(keys) > 0 {
 			return fmt.Errorf("%s: unknown key %s", name, keys[0])
 		}

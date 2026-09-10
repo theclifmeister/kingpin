@@ -13,6 +13,17 @@ import (
 // Policy decides the player's actions for the coming day.
 type Policy func(w *game.World)
 
+// Chooser answers a dilemma card: the index of the choice to take.
+type Chooser func(w *game.World, c *game.Card) int
+
+// Decline takes the last choice on every card, which by the deck's
+// convention is what happens when the player does nothing: the passive
+// outcome a player who never reads the card would get.
+func Decline(_ *game.World, c *game.Card) int { return len(c.Choices) - 1 }
+
+// First takes the first choice on every card: the active one.
+func First(*game.World, *game.Card) int { return 0 }
+
 // Result summarises a headless run.
 type Result struct {
 	Days     int
@@ -33,15 +44,34 @@ func (r Result) NetWorthAt(d int) int {
 	return r.NetWorth[min(d, len(r.NetWorth))-1]
 }
 
-// Run plays up to days days from a fresh world with the given seed.
+// Run plays up to days days from a fresh world with the given seed. The
+// dilemma deck stays in the box: cards are choices, a scripted player has
+// none to make, and the invariants the harness pins belong to the other
+// sims. RunWith deals them.
 func Run(cfg *content.Config, seed uint64, days int, policy Policy) (Result, error) {
 	return RunFrom(cfg, sim.NewWorld(cfg, seed), days, policy)
 }
 
 // RunFrom plays up to days days on from w, which the caller may have set
 // up (a cash pile, a crew) to test a situation a fresh run takes a while
-// to reach.
+// to reach. No cards are dealt; see Run.
 func RunFrom(cfg *content.Config, w *game.World, days int, policy Policy) (Result, error) {
+	boxed := *cfg
+	boxed.Dilemmas.Cards = nil
+	return run(&boxed, w, days, policy, nil)
+}
+
+// RunWith plays like RunFrom with the deck in play: every card is answered
+// with pick before the policy acts, the way the UI shows the card before
+// the day starts.
+func RunWith(cfg *content.Config, w *game.World, days int, policy Policy, pick Chooser) (Result, error) {
+	if pick == nil {
+		pick = Decline
+	}
+	return run(cfg, w, days, policy, pick)
+}
+
+func run(cfg *content.Config, w *game.World, days int, policy Policy, pick Chooser) (Result, error) {
 	_, sims, err := sim.Default(cfg)
 	if err != nil {
 		return Result{}, err
@@ -50,6 +80,12 @@ func RunFrom(cfg *content.Config, w *game.World, days int, policy Policy) (Resul
 	var all []events.Event
 	var worth []int
 	for d := 0; d < days && w.Over == nil; d++ {
+		if c := w.Dilemmas.Pending; c != nil {
+			if pick == nil {
+				pick = Decline
+			}
+			_, _ = w.Choose(pick(w, c))
+		}
 		if policy != nil {
 			policy(w)
 		}
