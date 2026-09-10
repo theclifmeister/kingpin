@@ -1,0 +1,36 @@
+# Heat tuning. Heat is 0..100; 100 means you are in a cell.
+
+[heat]
+decay = 0.10                # fraction of heat that fades per day
+lie_low_multiplier = 2.2    # decay multiplier on a lie-low day
+sale_heat = 2.35            # heat for selling one day's demand at normal dial
+dirty_cash_threshold = 10000 # holding more dirty cash than this attracts heat
+dirty_cash_heat = 0.5       # heat per threshold multiple above it, per day
+cooldown_days = 3           # a response level cannot fire twice within this
+evidence_arrest = 6         # stings and raids build a case; at this much, indictment
+
+[[response]]
+level = "patrol"
+threshold = 40
+cap_days = 2
+cap = 0.6
+
+[[response]]
+level = "sting"
+threshold = 55
+stock_loss = 0.10
+cash_loss = 0.05
+heat_drop = 4
+evidence = 1
+
+[[response]]
+level = "raid"
+threshold = 75
+stock_loss = 0.50
+cash_loss = 0.30
+heat_drop = 25
+evidence = 2
+
+[[response]]
+level = "arrest"
+threshold = 95

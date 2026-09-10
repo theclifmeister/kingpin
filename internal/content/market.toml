@@ -1,0 +1,63 @@
+# Market tuning. Prices are per unit, demand is units per day.
+
+[market]
+city = "Eastside"
+start_cash = 500
+carry_limit = 100
+history_days = 30
+supplier_ratio = 0.55        # supplier price as a fraction of street price
+buy_price_pressure = 0.25    # supplier price rises by this * qty/demand per buy
+price_floor_ratio = 0.25     # price never drops below base * this
+price_ceiling_ratio = 4.0    # or above base * this
+reversion = 0.18             # fraction of the gap to target closed per day
+glut_decay = 0.40            # fraction of glut that clears per day
+sale_impact = 0.05           # price impact of selling one day's demand at normal; grows with the square of volume/demand
+shock_chance = 0.04          # per product per day
+slump_chance = 0.03
+
+[[product]]
+id = "weed"
+name = "Weed"
+base_price = 20
+volatility = 0.04
+demand = 30
+demand_noise = 0.20
+heat = 0.6
+
+[[product]]
+id = "pills"
+name = "Pills"
+base_price = 45
+volatility = 0.06
+demand = 14
+demand_noise = 0.25
+heat = 1.0
+
+[[product]]
+id = "coke"
+name = "Coke"
+base_price = 120
+volatility = 0.09
+demand = 6
+demand_noise = 0.30
+heat = 1.5
+
+# The dial: how much of demand you can move, the price you get, how hard you
+# push the market, and how much heat you attract.
+[dial.quiet]
+fill = 0.5
+price = 0.95
+impact = 0.4
+heat = 0.6
+
+[dial.normal]
+fill = 1.0
+price = 1.0
+impact = 1.0
+heat = 1.0
+
+[dial.aggressive]
+fill = 1.6
+price = 1.10
+impact = 1.3
+heat = 2.2
