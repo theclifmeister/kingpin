@@ -332,7 +332,7 @@ func (m *Model) viewCrew() string {
 		}
 	}
 	if line := m.runsLine(); line != "" {
-		b.WriteString(truncate(crewStyle.Render("  "+line+". A ? is a temper you have not seen yet."), m.width) + "\n")
+		b.WriteString(truncate(crewStyle.Render("  "+line+"."), m.width) + "\n")
 	} else if n := w.Crew.Role(game.RoleLieutenant); n > 0 {
 		b.WriteString(theme.Warning.Render("  A lieutenant with no city is a wage. Press t to give them one.") + "\n")
 	}

@@ -106,18 +106,18 @@ func heldIn(w *game.World, city string) int {
 }
 
 // temper is a lieutenant's personality as the roster shows it: the word
-// once you have seen enough of them, a question mark until then.
+// once you have seen enough of them, nothing until then (the runs line
+// says how long that is).
 func (m *Model) temper(c game.CrewMember) string {
-	if !c.Lieutenant() {
+	if !c.Lieutenant() || !c.Observed {
 		return ""
 	}
-	if c.Observed {
-		return c.Personality
-	}
-	return "?"
+	return c.Personality
 }
 
-// runsLine is one line per city with a lieutenant, for the dashboard.
+// runsLine is one line per city with a lieutenant, for the dashboard and
+// the crew screen: who runs it, and their temper or how long until it
+// shows.
 func (m *Model) runsLine() string {
 	var parts []string
 	for _, cid := range m.w.CityOrder {
@@ -125,6 +125,9 @@ func (m *Model) runsLine() string {
 			part := fmt.Sprintf("%s runs %s", lt.Name, m.w.CityName(cid))
 			if lt.Observed {
 				part += " (" + lt.Personality + ")"
+			} else {
+				left := max(1, m.set.Crew.RevealDays()-(m.w.Day-lt.Assigned))
+				part += fmt.Sprintf("; temper unknown for %d more day%s", left, map[bool]string{true: "s"}[left != 1])
 			}
 			parts = append(parts, part)
 		}
