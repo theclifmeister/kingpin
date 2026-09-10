@@ -27,7 +27,7 @@ autosaves at the end of every day.
 | `s` | Queue a street sale and set the dial: quiet / normal / aggressive |
 | `x` | Cancel the queued order on the selected product |
 | `l` | Lie low today: no sales, heat fades faster |
-| `n` / `enter` | End the day |
+| `n` | End the day |
 | `r` | Reopen the morning report |
 | `?` | Help |
 | `q` | Save and quit |
