@@ -123,3 +123,21 @@ func TestTickerNeverWiderThanTerminal(t *testing.T) {
 		}
 	}
 }
+
+// Enter confirms dialogs and closes the report, so a stray extra press must
+// never burn a day; only n ends the day.
+func TestEnterDoesNotEndDay(t *testing.T) {
+	m := newTestModel(t, 80, 24)
+	m.Update(key("n"))
+	m.Update(key("enter")) // close report
+	day := m.w.Day
+	m.Update(key("enter"))
+	m.Update(key("enter"))
+	if m.w.Day != day {
+		t.Fatalf("enter advanced the day from %d to %d", day, m.w.Day)
+	}
+	m.Update(key("n"))
+	if m.w.Day != day+1 {
+		t.Fatalf("n did not advance the day: %d -> %d", day, m.w.Day)
+	}
+}
