@@ -17,12 +17,23 @@ import (
 type Sim struct {
 	cfg    content.HeatConfig
 	market content.MarketConfig
+	tree   content.UpgradesConfig
 }
 
 // New builds a heat sim. It needs the market config for per-product and
-// per-dial heat multipliers.
-func New(cfg content.HeatConfig, market content.MarketConfig) *Sim {
-	return &Sim{cfg: cfg, market: market}
+// per-dial heat multipliers, and the upgrade tree for what the Security
+// and Legal branches take off.
+func New(cfg content.HeatConfig, market content.MarketConfig, tree content.UpgradesConfig) *Sim {
+	return &Sim{cfg: cfg, market: market, tree: tree}
+}
+
+// Effects is what the player's upgrades do to heat today.
+func (s *Sim) Effects(w *game.World) game.Effects { return game.FoldEffects(w, s.tree) }
+
+// EvidenceArrest is how thick the DA's file has to be for an indictment,
+// after a retained lawyer has had his say.
+func (s *Sim) EvidenceArrest(w *game.World) int {
+	return max(s.cfg.Heat.EvidenceArrest, s.Effects(w).EvidenceArrest)
 }
 
 func (s *Sim) Name() string { return "heat" }
@@ -67,8 +78,9 @@ func (s *Sim) SaleHeat(w *game.World, product string, wanted int, dial events.Di
 	if pc == nil || tun.StreetUnits <= 0 {
 		return 0
 	}
-	attempted := math.Min(float64(wanted), math.Round(w.Demand(product)*s.dialFill(dial)))
-	return tun.SaleHeat * attempted * s.CornerWeight(w, product) * pc.Heat / tun.StreetUnits * s.dialHeat(dial)
+	fx := s.Effects(w)
+	attempted := math.Min(float64(wanted), math.Round(w.Demand(product)*s.dialFill(dial)*fx.FillMul))
+	return tun.SaleHeat * fx.SaleHeatMul * attempted * s.CornerWeight(w, product) * pc.Heat / tun.StreetUnits * s.dialHeat(dial)
 }
 
 // CornerWeight is the heat one unit of a product draws on average across
@@ -133,6 +145,7 @@ func (s *Sim) Sloppiness(w *game.World) float64 {
 // Step applies today's heat sources, decays, then checks thresholds.
 func (s *Sim) Step(w *game.World, t *game.Tick) {
 	tun := s.cfg.Heat
+	fx := s.Effects(w)
 	h := &w.Heat
 	from := h.Value
 	var reasons []string
@@ -192,10 +205,10 @@ func (s *Sim) Step(w *game.World, t *game.Tick) {
 		reasons = append(reasons, fmt.Sprintf("dirty cash (+%.1f)", add))
 	}
 
-	// Decay.
-	decay := tun.Decay
+	// Decay. Cold contacts make both the base rate and lying low better.
+	decay := math.Max(tun.Decay, fx.Decay)
 	if w.LieLow {
-		decay *= tun.LieLowMultiplier
+		decay *= math.Max(tun.LieLowMultiplier, fx.LieLowMultiplier)
 		t.Emit(events.LaidLow{Day: t.Day})
 		reasons = append(reasons, "lay low")
 	}
@@ -222,20 +235,31 @@ func (s *Sim) Step(w *game.World, t *game.Tick) {
 		if h.Value < r.Threshold {
 			continue
 		}
-		if last, ok := h.LastResponse[r.Level]; ok && t.Day-last < tun.CooldownDays && r.Level != "arrest" {
+		if last, ok := h.LastResponse[r.Level]; ok && t.Day-last < tun.CooldownDays+fx.CooldownBonus && r.Level != "arrest" {
 			continue
 		}
 		h.Responses[r.Level]++
-		s.fire(w, t, r, attempted)
+		s.fire(w, t, r, attempted, fx)
 		h.LastResponse[r.Level] = t.Day
 		break
 	}
 
+	// A retained lawyer lets the file go cold: a page drops off after
+	// enough days without a new one. Only dealing adds pages (#27), so
+	// lying low is how a case is left to die.
+	if w.Over == nil && fx.EvidenceDecayDays > 0 && h.Evidence > 0 && t.Day-h.EvidenceDay >= fx.EvidenceDecayDays {
+		h.Evidence--
+		h.EvidenceDay = t.Day
+		reasons = append(reasons, fmt.Sprintf("the case goes cold (file %d)", h.Evidence))
+	}
+
 	// Every sting and raid goes in a file. A thick enough file is a case.
-	if w.Over == nil && tun.EvidenceArrest > 0 && h.Evidence >= tun.EvidenceArrest {
-		w.Over = &game.Ending{Day: t.Day, Cause: "indicted", PeakCash: w.Stats.PeakCash}
-		t.Emit(events.Enforcement{Day: t.Day, Level: "arrest", StockLost: map[string]int{}})
-		t.Emit(events.GameOver{Day: t.Day, Cause: "indicted"})
+	if arrest := s.EvidenceArrest(w); w.Over == nil && arrest > 0 && h.Evidence >= arrest {
+		if !s.takeFall(w, t, fx) {
+			w.Over = &game.Ending{Day: t.Day, Cause: "indicted", PeakCash: w.Stats.PeakCash}
+			t.Emit(events.Enforcement{Day: t.Day, Level: "arrest", StockLost: map[string]int{}})
+			t.Emit(events.GameOver{Day: t.Day, Cause: "indicted"})
+		}
 	}
 
 	if h.Value > h.Peak {
@@ -248,27 +272,39 @@ func (s *Sim) Step(w *game.World, t *game.Tick) {
 // fire applies one response. attempted says whether the player tried to
 // sell today: a sting or raid that turns up on a day nothing moved still
 // costs stock and cash and cools heat, but finds nothing worth a file.
-// Dirty cash draws attention; only dealing builds a case.
-func (s *Sim) fire(w *game.World, t *game.Tick, r content.ResponseConfig, attempted bool) {
+// Dirty cash draws attention; only dealing builds a case. The Security
+// branch softens what a response takes; a lawyer thins what goes in the
+// file.
+func (s *Sim) fire(w *game.World, t *game.Tick, r content.ResponseConfig, attempted bool, fx game.Effects) {
 	ev := events.Enforcement{Day: t.Day, Level: r.Level, StockLost: map[string]int{}}
 	switch r.Level {
 	case "patrol":
 		w.Heat.SellCapDays = r.CapDays
-		w.Heat.SellCap = r.Cap
+		w.Heat.SellCap = math.Max(r.Cap, fx.PatrolCap)
 	case "arrest":
+		if s.takeFall(w, t, fx) {
+			return
+		}
 		w.Over = &game.Ending{Day: t.Day, Cause: "arrested", PeakCash: w.Stats.PeakCash}
 		t.Emit(ev)
 		t.Emit(events.GameOver{Day: t.Day, Cause: "arrested"})
 		return
 	default: // sting, raid
+		stockLoss, cashLoss := r.StockLoss, r.CashLoss
+		if r.Level == "raid" {
+			stockLoss *= fx.RaidLossMul
+			cashLoss *= fx.RaidLossMul
+		} else {
+			stockLoss *= fx.StingStockMul
+		}
 		for id, q := range w.Player.Stock {
-			lost := int(math.Round(float64(q) * r.StockLoss))
+			lost := int(math.Round(float64(q) * stockLoss))
 			if lost > 0 {
 				w.Player.Stock[id] -= lost
 				ev.StockLost[id] = lost
 			}
 		}
-		ev.CashLost = int(math.Round(float64(w.Player.DirtyCash) * r.CashLoss))
+		ev.CashLost = int(math.Round(float64(w.Player.DirtyCash) * cashLoss))
 		w.Player.DirtyCash -= ev.CashLost
 		if r.Level == "raid" {
 			w.Stats.Raids++
@@ -277,8 +313,11 @@ func (s *Sim) fire(w *game.World, t *game.Tick, r content.ResponseConfig, attemp
 		}
 	}
 	if attempted {
-		ev.Evidence = r.Evidence
-		w.Heat.Evidence += r.Evidence
+		ev.Evidence = max(0, r.Evidence-fx.EvidenceCut)
+		if ev.Evidence > 0 {
+			w.Heat.Evidence += ev.Evidence
+			w.Heat.EvidenceDay = t.Day
+		}
 	}
 	// The first raid convinces them they got you. The second one does not.
 	// Each repeat of the same response cools things down less.
@@ -297,4 +336,23 @@ func pastTense(f events.Force) string {
 	default:
 		return "pushed"
 	}
+}
+
+// takeFall is the fall guy's one job: if the player owns one and he has
+// not been used, the case that would have ended the run closes on him
+// instead. The file is wiped, heat drops to 50 and half of all cash goes
+// on making it stick. It reports whether he took it.
+func (s *Sim) takeFall(w *game.World, t *game.Tick, fx game.Effects) bool {
+	if !fx.FallGuy || w.FallGuyUsed {
+		return false
+	}
+	w.FallGuyUsed = true
+	w.Heat.Evidence = 0
+	w.Heat.EvidenceDay = t.Day
+	w.Heat.Value = math.Min(w.Heat.Value, 50)
+	lost := w.Player.DirtyCash/2 + w.Player.CleanCash/2
+	w.Player.DirtyCash -= w.Player.DirtyCash / 2
+	w.Player.CleanCash -= w.Player.CleanCash / 2
+	t.Emit(events.FallGuyBurned{Day: t.Day, CashLost: lost})
+	return true
 }

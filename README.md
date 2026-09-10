@@ -7,10 +7,11 @@ heat closes in. Written in Go with [Bubble Tea](https://github.com/charmbracelet
 > after that is your fault.
 
 The full design is in [issue #1](https://github.com/theclifmeister/kingpin/issues/1).
-This is the Phase 2.1 build: one city, a six-rung product ladder the supplier
-opens up as your money grows, a market that reacts to you, a police force
-that reacts to how much you move, and a crew that moves product for you as
-long as you keep them paid.
+This is the Phase 2 build: one city of corners to hold, a six-rung product
+ladder the supplier opens up as your money grows, a market that reacts to
+you, a police force that reacts to how much you move, a crew that moves
+product for you as long as you keep them paid, and an upgrade tree to sink
+the money into.
 
 ## Play
 
@@ -25,13 +26,15 @@ load; a save from a newer build than the one you are running is refused.
 
 | Key | Action |
 |---|---|
-| `1` `2` `3` `4` / `←` `→` / `tab` | Dashboard, Market, Journal, Crew |
+| `1`–`6` / `←` `→` / `tab` | Dashboard, Market, Journal, Crew, Map, Upgrades |
 | `b` | Buy from the supplier (blank quantity = as much as you can) |
 | `s` | Queue a street sale and set the dial: quiet / normal / aggressive |
 | `x` | Cancel the queued order on the selected product |
 | `l` | Lie low today: no sales, heat fades faster |
 | `h` / `f` | Hire / fire the selected person (crew screen) |
 | `p` | Cycle crew pay: stingy / fair / generous |
+| `c` / `e` / `a` | Post a runner / an enforcer / abandon the selected corner (map) |
+| `u` / `enter` | Buy the selected upgrade, after a confirmation (upgrades) |
 | `n` | End the day |
 | `enter` | End the day, after a confirmation |
 | `r` | Reopen the morning report |
@@ -40,7 +43,7 @@ load; a save from a newer build than the one you are running is refused.
 
 ## How it works
 
-Every day the simulations step in a fixed order (`market -> crew -> heat -> news`),
+Every day the simulations step in a fixed order (`market -> territory -> rivals -> crew -> heat -> news`),
 each reading the world and emitting typed events that later sims and the UI
 consume. Randomness is derived from the run seed and the day number, so a
 run is fully reproducible and nothing about the RNG needs saving.
@@ -59,6 +62,15 @@ run is fully reproducible and nothing about the RNG needs saving.
   decays slowly, faster if you lie low. Thresholds trigger patrols, stings,
   raids and finally arrest. Every sting and raid goes in the DA's file; a
   thick enough file is an indictment.
+- **Territory** is the city's corners. Each one is its own demand pool and
+  only sells while somebody you own is standing on it; an enforcer on a
+  corner keeps the robbers off it.
+- **Upgrades** are three branches of persistent, stacking bonuses bought
+  with cash: Operations (stash, supplier, street network) to earn more,
+  Security (burners, lookouts, safehouse, cold contacts) to take less
+  damage and cool faster, Legal (lawyer, retainer, fall guy) to survive the
+  case. Every node is a multiplier the sims read from `upgrades.toml`;
+  nothing removes the heat curve, it only softens it.
 - **News** turns everything into headlines and writes the morning report.
 
 Tuning lives in `internal/content/*.toml`, not in code.
@@ -70,11 +82,14 @@ go run ./cmd/balance -policy managed -runs 50 -days 200
 go run ./cmd/balance -policy aggressive -seed 7 -trace
 ```
 
-Policies: `idle`, `quiet`, `normal`, `aggressive`, `careful`, `managed`,
-`crewed`. The tests in `internal/harness` assert the shape of the difficulty
-curve: always-aggressive is indicted within 40 days, always-quiet survives, a
-player who sells normally but lies low when hot out-earns both, and one who
-also builds a crew out-earns that.
+Policies: `idle`, `hide`, `quiet`, `normal`, `aggressive`, `careful`,
+`managed`, `upgraded`, `crewed`, `territory`, `war`. `-own stash,burners` starts
+every run owning those upgrades. The tests in `internal/harness` assert the
+shape of the difficulty curve: always-aggressive is indicted within 40 days,
+always-quiet survives, a player who sells normally but lies low when hot
+out-earns both, one who spends on the tree out-earns that, one who builds a
+crew out-earns that, and the Security branch buys an aggressive player time
+without buying them out of the indictment.
 
 ## Layout
 
@@ -83,7 +98,7 @@ cmd/kingpin/        the game
 cmd/balance/        headless balance tool
 internal/events/    event types and bus
 internal/game/      world state, clock, player actions, save/load
-internal/sim/       simulations: market, crew, heat, news
+internal/sim/       simulations: market, territory, rivals, crew, heat, news
 internal/content/   embedded TOML tuning, names and headline templates
 internal/harness/   headless runner and balance tests
 internal/ui/        Bubble Tea screens, dialogs, theme, sparklines

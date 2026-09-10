@@ -125,6 +125,9 @@ func Load(migrations ...Migration) (*World, error) {
 	if w.Heat.Responses == nil {
 		w.Heat.Responses = map[string]int{}
 	}
+	if w.Upgrades == nil {
+		w.Upgrades = map[string]bool{}
+	}
 	return &w, nil
 }
 

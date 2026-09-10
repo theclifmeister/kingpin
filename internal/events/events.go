@@ -323,3 +323,27 @@ type WarEscalated struct {
 }
 
 func (WarEscalated) Kind() string { return "WarEscalated" }
+
+// UpgradeBought records a node of the upgrade tree the player bought
+// during the day. It is reported, not reacted to: the effect is already in
+// force.
+type UpgradeBought struct {
+	Day    int
+	ID     string
+	Name   string
+	Branch string
+	Cost   int
+	Clean  bool
+}
+
+func (UpgradeBought) Kind() string { return "UpgradeBought" }
+
+// FallGuyBurned records the fall guy taking the indictment that would have
+// ended the run: the case is closed, heat cools, half the cash goes with
+// him, and he is gone.
+type FallGuyBurned struct {
+	Day      int
+	CashLost int
+}
+
+func (FallGuyBurned) Kind() string { return "FallGuyBurned" }

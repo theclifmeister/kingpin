@@ -159,3 +159,14 @@ WarCrackdown = [
   "Task force sweeps {{.City}} after weeks of violence; corners empty",
   "Mayor: 'The war in {{.City}} is over.' Police clear the streets.",
 ]
+UpgradeBought = [
+  "{{.City}} outfit said to be 'getting organised'",
+  "Money is moving in {{.City}}, and not on the corners",
+  "Somebody in {{.City}} is building something, say people who would know",
+  "{{.City}} crew 'not the amateurs they were', says a detective who asked not to be named",
+]
+FallGuyBurned = [
+  "{{.City}} man takes the fall; DA calls it 'a major conviction'",
+  "Indictment lands in {{.City}}: 'we got our man', says DA",
+  "Trial over in a day as {{.City}} defendant pleads to everything",
+]

@@ -1,0 +1,154 @@
+# The upgrade tree: persistent, stacking bonuses bought with cash. Costs are
+# dirty cash unless clean = true. Each node's effects are named multipliers
+# and deltas that the sims read (game.Effects folds the owned nodes); how
+# two nodes with the same effect combine is fixed per name:
+#
+#   carry_bonus          units added to your carry limit (sum; applied on purchase)
+#   supplier_mul         multiplier on the supplier's price (lowest owned wins)
+#   buy_pressure_mul     multiplier on how much a buy pushes the supplier price (product)
+#   fill_mul             multiplier on the fill of every dial (product)
+#   sale_heat_mul        multiplier on the heat a sale draws (product)
+#   patrol_cap           fraction of demand a patrol still lets you sell (highest wins)
+#   cooldown_bonus       days added to the gap before the same response can fire again (sum)
+#   sting_stock_mul      multiplier on the stock a sting takes (product)
+#   raid_loss_mul        multiplier on the stock and cash a raid takes (product)
+#   lie_low_multiplier   replaces heat.toml's lie-low decay multiplier (highest wins)
+#   decay                replaces heat.toml's base heat decay (highest wins)
+#   evidence_cut         evidence knocked off every sting and raid, to a floor of 0 (sum)
+#   evidence_decay_days  a point of evidence goes cold after this many days without a new one (lowest wins)
+#   evidence_arrest      replaces heat.toml's evidence_arrest (highest wins)
+#   fall_guy             the first indictment (or arrest) is survived, once per run
+#
+# Pricing follows the money curve (#24): Operations and Security are tier-1
+# and tier-2 purchases, affordable in the first weeks of a managed run and
+# paid off well before day 70; the two Legal nodes past the lawyer are
+# tier-3 commitments, and the retainer wants clean cash, which nothing yet
+# produces (Phase 3 laundering feeds it).
+
+# Operations: earn more.
+
+[[upgrade]]
+id = "stash"
+name = "Stash spot"
+branch = "operations"
+cost = 5000
+desc = "A place to keep product that is not your pockets."
+[upgrade.effects]
+carry_bonus = 50
+
+[[upgrade]]
+id = "stash2"
+name = "Second stash"
+branch = "operations"
+cost = 15000
+requires = ["stash"]
+desc = "Two places. Nobody knows about the second one."
+[upgrade.effects]
+carry_bonus = 100
+
+[[upgrade]]
+id = "supplier"
+name = "Supplier contact"
+branch = "operations"
+cost = 10000
+desc = "You deal with somebody who deals with somebody."
+[upgrade.effects]
+supplier_mul = 0.92
+buy_pressure_mul = 0.7
+
+[[upgrade]]
+id = "supplier2"
+name = "Wholesale terms"
+branch = "operations"
+cost = 40000
+requires = ["supplier"]
+desc = "Volume pricing. Replaces the contact's discount."
+[upgrade.effects]
+supplier_mul = 0.85
+
+[[upgrade]]
+id = "network"
+name = "Street network"
+branch = "operations"
+cost = 25000
+requires = ["stash"]
+desc = "Touts, lookouts, cousins: every corner reaches further."
+[upgrade.effects]
+fill_mul = 1.25
+
+# Security: take less damage, cool faster.
+
+[[upgrade]]
+id = "burners"
+name = "Burner phones"
+branch = "security"
+cost = 6000
+desc = "Nothing is said twice on the same number."
+[upgrade.effects]
+sale_heat_mul = 0.85
+
+[[upgrade]]
+id = "lookouts"
+name = "Lookouts"
+branch = "security"
+cost = 12000
+requires = ["burners"]
+desc = "Kids on bikes see the squad car before it sees you."
+[upgrade.effects]
+patrol_cap = 0.8
+sting_stock_mul = 0.5
+cooldown_bonus = 2
+
+[[upgrade]]
+id = "safehouse"
+name = "Safehouse"
+branch = "security"
+cost = 30000
+requires = ["stash", "lookouts"]
+desc = "When they kick a door in, it is the wrong door."
+[upgrade.effects]
+raid_loss_mul = 0.5
+
+[[upgrade]]
+id = "laylow"
+name = "Cold contacts"
+branch = "security"
+cost = 20000
+requires = ["burners"]
+desc = "People who can make you disappear for a week."
+[upgrade.effects]
+lie_low_multiplier = 3.0
+decay = 0.13
+
+# Legal: survive the case.
+
+[[upgrade]]
+id = "lawyer"
+name = "Lawyer on call"
+branch = "legal"
+cost = 15000
+desc = "Every sting and raid puts one page less in the file."
+[upgrade.effects]
+evidence_cut = 1
+
+[[upgrade]]
+id = "retainer"
+name = "Lawyer on retainer"
+branch = "legal"
+cost = 500000
+clean = true
+requires = ["lawyer"]
+desc = "Motions, delays, lost paperwork. Cases go cold."
+[upgrade.effects]
+evidence_decay_days = 30
+evidence_arrest = 8
+
+[[upgrade]]
+id = "fallguy"
+name = "Fall guy"
+branch = "legal"
+cost = 2000000
+requires = ["retainer", "safehouse"]
+desc = "Somebody else's name on the indictment. Once."
+[upgrade.effects]
+fall_guy = true

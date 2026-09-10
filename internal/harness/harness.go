@@ -70,7 +70,6 @@ func Hide(w *game.World) { w.SetLieLow(true) }
 // queues the sales so stock bought in the morning is on the street the same
 // night, the way a player who turns the bag over daily plays.
 func Trader(cfg *content.Config, dial events.Dial) Policy {
-	pressure := cfg.Market.Market.BuyPricePressure
 	return func(w *game.World) {
 		// Pushed off a corner, stand on the biggest free one: nothing sells
 		// from nowhere.
@@ -81,6 +80,7 @@ func Trader(cfg *content.Config, dial events.Dial) Policy {
 				_ = w.Post(c.ID, game.You)
 			}
 		}
+		pressure := cfg.Market.Market.BuyPricePressure * game.FoldEffects(w, cfg.Upgrades).BuyPressureMul
 		// Restock toward a demand-proportional mix that fits what the
 		// operation can hold, so a crashed product never hogs the whole bag.
 		total := 0.0
@@ -129,6 +129,68 @@ func Managed(cfg *content.Config, lieLowAt float64) Policy {
 		}
 		trade(w)
 	}
+}
+
+// Upgraded plays like Managed and spends on the tree: whenever it can pay
+// three times the price of the cheapest node it can buy, it buys it,
+// Security first, then Operations, then Legal. It is the baseline for "a
+// player who invests instead of reinvesting every dollar in stock".
+func Upgraded(cfg *content.Config, lieLowAt float64) Policy {
+	managed := Managed(cfg, lieLowAt)
+	return func(w *game.World) {
+		BuyUpgrades(cfg, w, 3)
+		managed(w)
+	}
+}
+
+// BuyUpgrades buys, in branch order Security, Operations, Legal, the
+// cheapest node the player can buy from the right pool with margin times
+// its cost in hand, one per call.
+func BuyUpgrades(cfg *content.Config, w *game.World, margin float64) {
+	for _, branch := range []string{"security", "operations", "legal"} {
+		var pick *content.UpgradeConfig
+		for _, n := range cfg.Upgrades.Branch(branch) {
+			if w.Owns(n.ID) || len(w.Missing(n)) > 0 {
+				continue
+			}
+			if pick == nil || n.Cost < pick.Cost {
+				u := n
+				pick = &u
+			}
+		}
+		if pick == nil {
+			continue
+		}
+		have := w.Player.DirtyCash
+		if pick.Clean {
+			have = w.Player.CleanCash
+		}
+		if float64(have) >= margin*float64(pick.Cost) {
+			_, _ = w.BuyUpgrade(cfg.Upgrades, pick.ID)
+			return
+		}
+	}
+}
+
+// Own grants upgrades for free, prerequisites and all in the order given,
+// so a test can start a run that already has them. It panics on an id
+// the tree does not have or a node whose prerequisites are not owned.
+func Own(cfg *content.Config, w *game.World, ids ...string) {
+	for _, id := range ids {
+		u := cfg.Upgrades.Upgrade(id)
+		if u == nil {
+			panic("harness.Own: no upgrade " + id)
+		}
+		if u.Clean {
+			w.Player.CleanCash += u.Cost
+		} else {
+			w.Player.DirtyCash += u.Cost
+		}
+		if _, err := w.BuyUpgrade(cfg.Upgrades, id); err != nil {
+			panic("harness.Own: " + err.Error())
+		}
+	}
+	w.UpgradesToday = nil // a grant is not a purchase to report
 }
 
 // Crewed plays like Managed but builds a crew: it pays fair, signs the most

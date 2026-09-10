@@ -107,9 +107,20 @@ func TestRendersAtCommonSizes(t *testing.T) {
 			m.mapCursor = i
 			assertFits(t, m.View(), sz[0], sz[1], "map")
 		}
-		for _, s := range []string{"1", "2", "3", "4", "5"} {
+		for _, s := range []string{"1", "2", "3", "4", "5", "6"} {
 			m.Update(key(s))
 			assertFits(t, m.View(), sz[0], sz[1], "screen "+s)
+		}
+		// Every node state on the tree: owned, available, short, locked,
+		// and the buy confirmation.
+		m.Update(key("6"))
+		m.w.Player.DirtyCash += 20_000
+		m.Update(key("enter"))
+		assertFits(t, m.View(), sz[0], sz[1], "upgrade confirm")
+		m.Update(key("y"))
+		for range m.upgradeRows() {
+			assertFits(t, m.View(), sz[0], sz[1], "upgrades")
+			m.Update(key("j"))
 		}
 		m.Update(key("4"))
 		m.Update(key("f"))
@@ -143,7 +154,7 @@ func TestRendersAtCommonSizes(t *testing.T) {
 		// next day unlocks every rung of the product ladder.
 		m.w.Player.DirtyCash = 1_234_567_890
 		m.w.Stats.PeakCash = m.w.Player.DirtyCash
-		for _, s := range []string{"1", "2", "3", "4", "5"} {
+		for _, s := range []string{"1", "2", "3", "4", "5", "6"} {
 			m.Update(key(s))
 			assertFits(t, m.View(), sz[0], sz[1], "rich screen "+s)
 		}
@@ -600,5 +611,79 @@ func TestStrikeKeys(t *testing.T) {
 	}
 	if !strings.Contains(strings.Join(m.w.Report.Heat, "\n"), "enforcers") {
 		t.Fatalf("report does not charge heat for it: %v", m.w.Report.Heat)
+	}
+}
+
+// The upgrades screen: enter (or u) asks before buying the selected node,
+// y buys it and the effect lands at once, a locked or unaffordable node
+// only explains itself, the dashboard lists what is owned, the report
+// lists the purchase, and none of it happens from other screens.
+func TestUpgradesScreenKeys(t *testing.T) {
+	m := newTestModel(t, 100, 30)
+	m.w.Player.DirtyCash = 8000
+	m.Update(key("u"))
+	if m.mode != modePlay || !strings.Contains(m.status, "tree") {
+		t.Fatalf("u on the dashboard: mode %v status %q", m.mode, m.status)
+	}
+	m.Update(key("6"))
+	if m.screen != screenUpgrades {
+		t.Fatalf("screen = %v", m.screen)
+	}
+	rows := m.upgradeRows()
+	if rows[0].ID != "stash" {
+		t.Fatalf("first node is %s", rows[0].ID)
+	}
+	// Enter asks; anything but y backs out.
+	m.Update(key("enter"))
+	if m.mode != modeConfirmUpgrade || m.upgradeID != "stash" {
+		t.Fatalf("enter did not ask: mode %v id %q status %q", m.mode, m.upgradeID, m.status)
+	}
+	m.Update(key("esc"))
+	if m.mode != modePlay || m.w.Owns("stash") || m.w.Day != 0 {
+		t.Fatalf("esc bought something or ended the day: owns %v day %d", m.w.Owns("stash"), m.w.Day)
+	}
+	carry := m.w.Capacity()
+	m.Update(key("u"))
+	m.Update(key("y"))
+	if !m.w.Owns("stash") || m.w.Player.DirtyCash != 3000 || m.w.Capacity() != carry+50 {
+		t.Fatalf("y did not buy: owns %v cash %d capacity %d status %q", m.w.Owns("stash"), m.w.Player.DirtyCash, m.w.Capacity(), m.status)
+	}
+	// Owned, locked and unaffordable nodes explain themselves without a modal.
+	m.Update(key("enter"))
+	if m.mode != modePlay || !strings.Contains(m.status, "already") {
+		t.Fatalf("buying twice: mode %v status %q", m.mode, m.status)
+	}
+	m.Update(key("j")) // stash2: needs nothing more, but $15K
+	m.Update(key("enter"))
+	if m.mode != modePlay || !strings.Contains(m.status, "costs") {
+		t.Fatalf("unaffordable: mode %v status %q", m.mode, m.status)
+	}
+	m.Update(key("j"))
+	m.Update(key("j")) // supplier2: locked behind supplier
+	m.Update(key("enter"))
+	if m.mode != modePlay || !strings.Contains(m.status, "Supplier contact") {
+		t.Fatalf("locked: mode %v status %q", m.mode, m.status)
+	}
+	m.Update(key("1"))
+	if !strings.Contains(stripANSI(m.View()), "upgrades stash") {
+		t.Fatal("dashboard does not list the stash")
+	}
+	m.Update(key("n"))
+	if m.mode != modeReport || len(m.w.Report.Upgrades) != 1 || !strings.Contains(m.w.Report.Upgrades[0], "Stash spot") {
+		t.Fatalf("report: mode %v upgrades %v", m.mode, m.w.Report.Upgrades)
+	}
+	assertFits(t, m.View(), 100, 30, "report with an upgrade")
+	if !strings.Contains(strings.Join(m.w.Report.Money, "\n"), "Stash spot -$5000") {
+		t.Fatalf("money section: %v", m.w.Report.Money)
+	}
+	m.Update(key("enter"))
+	if m.w.Report.CashBefore != 8000 {
+		t.Fatalf("cash before = %d, want the morning's 8000", m.w.Report.CashBefore)
+	}
+	// It survives a save and load.
+	m.Update(key("ctrl+s"))
+	w, err := game.Load(m.set.Migrations()...)
+	if err != nil || !w.Owns("stash") {
+		t.Fatalf("load: %v owns %v", err, w != nil && w.Owns("stash"))
 	}
 }

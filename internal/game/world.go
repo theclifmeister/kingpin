@@ -10,7 +10,7 @@ import (
 )
 
 // SchemaVersion is bumped whenever World changes shape incompatibly.
-const SchemaVersion = 4
+const SchemaVersion = 5
 
 // World is the complete state of a run. Every field is a plain value so the
 // whole struct can be serialised with encoding/gob.
@@ -20,19 +20,22 @@ type World struct {
 	Day           int
 	City          string
 
-	Player    Player
-	Products  []string                  // ordered product ids
-	Market    map[string]*ProductMarket // keyed by product id
-	Heat      HeatState
-	Crew      CrewState
-	Territory TerritoryState
-	Rival     RivalState
+	Player      Player
+	Products    []string                  // ordered product ids
+	Market      map[string]*ProductMarket // keyed by product id
+	Heat        HeatState
+	Crew        CrewState
+	Territory   TerritoryState
+	Rival       RivalState
+	Upgrades    map[string]bool // upgrade ids owned; effects fold from these (FoldEffects)
+	FallGuyUsed bool            // the fall guy has taken his one fall
 
 	// Per-day scratch, cleared by the clock after every EndDay.
-	Orders map[string]SellOrder // pending sell orders keyed by product id
-	Buys   []Purchase           // purchases made today
-	LieLow bool                 // player chose to lie low today
-	Strike *StrikeOrder         // enforcers sent against a rival corner tonight
+	Orders        map[string]SellOrder // pending sell orders keyed by product id
+	Buys          []Purchase           // purchases made today
+	LieLow        bool                 // player chose to lie low today
+	Strike        *StrikeOrder         // enforcers sent against a rival corner tonight
+	UpgradesToday []string             // upgrade ids bought today, for the report
 
 	Journal []Headline // full headline history, oldest first
 	Report  *DayReport // morning report for the current day
@@ -79,6 +82,7 @@ type HeatState struct {
 	LastResponse map[string]int // level -> last day it fired
 	Responses    map[string]int // level -> how many times it has fired this run
 	Evidence     int            // what the DA has on you; enough of it is an indictment
+	EvidenceDay  int            // day the file last grew; a retained lawyer lets old pages go cold
 	Peak         float64
 }
 
@@ -194,6 +198,7 @@ type DayReport struct {
 	Crew       []string
 	Territory  []string
 	Money      []string
+	Upgrades   []string
 	News       []string
 	CashBefore int
 	CashAfter  int
@@ -242,9 +247,10 @@ func NewWorld(seed uint64, city string, products []StartingProduct, startCash, c
 			Stock:      map[string]int{},
 			CarryLimit: carryLimit,
 		},
-		Market: map[string]*ProductMarket{},
-		Heat:   HeatState{LastResponse: map[string]int{}, Responses: map[string]int{}},
-		Orders: map[string]SellOrder{},
+		Market:   map[string]*ProductMarket{},
+		Heat:     HeatState{LastResponse: map[string]int{}, Responses: map[string]int{}},
+		Upgrades: map[string]bool{},
+		Orders:   map[string]SellOrder{},
 	}
 	for _, p := range products {
 		w.AddProduct(p)

@@ -85,9 +85,24 @@ func (s *Sim) Step(w *game.World, t *game.Tick) {
 	base := data{City: w.City}
 
 	// Money before we look at events: sales are already applied by market.
-	var soldRevenue, lostCash, wages, skimmed, robbed int
+	var soldRevenue, lostCash, wages, skimmed, robbed, upgrades int
 	for _, e := range t.Events() {
 		switch ev := e.(type) {
+		case events.UpgradeBought:
+			upgrades += ev.Cost
+			d := base
+			d.Name = ev.Name
+			add("money", "UpgradeBought", d)
+			pool := "dirty"
+			if ev.Clean {
+				pool = "clean"
+			}
+			rep.Upgrades = append(rep.Upgrades, fmt.Sprintf("%s bought for $%d %s. It is yours for the run.", ev.Name, ev.Cost, pool))
+			rep.Money = append(rep.Money, fmt.Sprintf("%s -$%d", ev.Name, ev.Cost))
+		case events.FallGuyBurned:
+			add("heat", "FallGuyBurned", base)
+			lostCash += ev.CashLost
+			rep.Heat = append(rep.Heat, fmt.Sprintf("THE FALL GUY TOOK IT. The case is closed and heat is down, but $%d went on making it stick. There is no second one.", ev.CashLost))
 		case events.PriceMove:
 			rep.Prices = append(rep.Prices, priceLine(w, ev))
 		case events.ProductUnlocked:
@@ -263,7 +278,7 @@ func (s *Sim) Step(w *game.World, t *game.Tick) {
 		spent += m.Fee
 		rep.Money = append(rep.Money, fmt.Sprintf("Signing fee for %s -$%d", m.Name, m.Fee))
 	}
-	rep.CashBefore = w.Cash() - soldRevenue + lostCash + spent + wages + skimmed + robbed
+	rep.CashBefore = w.Cash() - soldRevenue + lostCash + spent + wages + skimmed + robbed + upgrades
 	if soldRevenue > 0 {
 		rep.Money = append(rep.Money, fmt.Sprintf("Street sales +$%d", soldRevenue))
 	}

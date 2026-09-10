@@ -98,6 +98,7 @@ func (m *Model) viewDashboard() string {
 			street.WriteString(lipgloss.NewStyle().Foreground(theme.Crew).Render(crew) + "\n")
 		}
 	}
+	street.WriteString(theme.Subtle.Render(m.ownedLine()) + "\n")
 	if w.LieLow {
 		street.WriteString(theme.Warning.Render("Lying low today. No sales, heat fades faster.") + "\n")
 	} else if len(w.Orders) == 0 {
@@ -131,7 +132,7 @@ func (m *Model) viewDashboard() string {
 	}
 	heat.WriteString(heatStyle(w.Heat.Value).Render(sparkline.Bar(w.Heat.Value/100, gaugeW, marks)) + "\n")
 	line := heatStyle(w.Heat.Value).Render(fmt.Sprintf("%.0f", w.Heat.Value)) + theme.Subtle.Render(fmt.Sprintf(" / 100  peak %.0f", w.Heat.Peak))
-	if ev := m.cfg.Heat.Heat.EvidenceArrest; ev > 0 {
+	if ev := m.set.Heat.EvidenceArrest(w); ev > 0 {
 		style := theme.Subtle
 		if w.Heat.Evidence >= ev-2 {
 			style = theme.Bad

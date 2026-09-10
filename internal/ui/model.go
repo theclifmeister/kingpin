@@ -27,12 +27,13 @@ const (
 	screenJournal
 	screenCrew
 	screenMap
+	screenUpgrades
 	screenCount
 )
 
 var (
-	screenNames = []string{"Dashboard", "Market", "Journal", "Crew", "Map"}
-	screenShort = []string{"Dash", "Market", "News", "Crew", "Map"} // when the title bar is tight
+	screenNames = []string{"Dashboard", "Market", "Journal", "Crew", "Map", "Upgrades"}
+	screenShort = []string{"Dash", "Market", "News", "Crew", "Map", "Upgr"} // when the title bar is tight
 )
 
 type mode int
@@ -48,8 +49,9 @@ const (
 	modeConfirmFire
 	modeConfirmEnd
 	modeHelp
-	modePost   // pick who to post on the selected corner
-	modeStrike // pick how hard to send the enforcers at the selected corner
+	modePost           // pick who to post on the selected corner
+	modeStrike         // pick how hard to send the enforcers at the selected corner
+	modeConfirmUpgrade // buy the selected upgrade?
 )
 
 type tickMsg time.Time
@@ -73,7 +75,9 @@ type Model struct {
 	mapCursor     int    // corner selected on the map
 	postRole      string // runner or enforcer, while the post picker is open
 	postCursor    int
-	strikeCursor  int // row in the strike picker
+	strikeCursor  int    // row in the strike picker
+	upgradeCursor int    // node selected on the upgrades screen
+	upgradeID     string // node awaiting the buy confirmation
 	journal       viewport.Model
 	dlg           dialog
 	startChoice   int
@@ -122,6 +126,7 @@ func (m *Model) newRun() {
 	m.screen = screenDashboard
 	m.cursor = 0
 	m.crewCursor = 0
+	m.upgradeCursor = 0
 	m.mapCursor = m.yourCorner()
 	m.flash = nil
 	m.status = fmt.Sprintf("New run. %s, %s in your pocket. Seed %d.", m.w.City, money(m.w.Player.DirtyCash), m.w.Seed)
@@ -232,6 +237,14 @@ func (m *Model) handleKey(k tea.KeyMsg) (tea.Model, tea.Cmd) {
 		switch key {
 		case "y", "Y", "enter":
 			m.endDay()
+		default:
+			m.mode = modePlay
+		}
+		return m, nil
+	case modeConfirmUpgrade:
+		switch key {
+		case "y", "Y":
+			m.confirmUpgrade()
 		default:
 			m.mode = modePlay
 		}
@@ -356,6 +369,8 @@ func (m *Model) keyPlay(key string) (tea.Model, tea.Cmd) {
 		m.screen = screenCrew
 	case "5":
 		m.screen = screenMap
+	case "6":
+		m.screen = screenUpgrades
 	case "tab", "right":
 		m.screen = (m.screen + 1) % screenCount
 	case "shift+tab", "left":
@@ -363,7 +378,17 @@ func (m *Model) keyPlay(key string) (tea.Model, tea.Cmd) {
 	case "n":
 		m.endDay()
 	case "enter":
-		m.mode = modeConfirmEnd
+		if m.screen == screenUpgrades {
+			m.askUpgrade()
+		} else {
+			m.mode = modeConfirmEnd
+		}
+	case "u":
+		if m.screen == screenUpgrades {
+			m.askUpgrade()
+		} else {
+			m.status = "Upgrades are bought on the tree (6)."
+		}
 	case "r":
 		if m.w.Report != nil {
 			m.mode = modeReport
@@ -431,6 +456,10 @@ func (m *Model) keyPlay(key string) (tea.Model, tea.Cmd) {
 			if m.mapCursor > 0 {
 				m.mapCursor--
 			}
+		case m.screen == screenUpgrades:
+			if m.upgradeCursor > 0 {
+				m.upgradeCursor--
+			}
 		case m.cursor > 0:
 			m.cursor--
 		}
@@ -445,6 +474,10 @@ func (m *Model) keyPlay(key string) (tea.Model, tea.Cmd) {
 		case m.screen == screenMap:
 			if m.mapCursor < len(m.w.Territory.Corners)-1 {
 				m.mapCursor++
+			}
+		case m.screen == screenUpgrades:
+			if m.upgradeCursor < len(m.upgradeRows())-1 {
+				m.upgradeCursor++
 			}
 		case m.cursor < len(m.w.Products)-1:
 			m.cursor++
@@ -512,6 +545,8 @@ func (m *Model) View() string {
 		body = m.viewPost()
 	case modeStrike:
 		body = m.viewStrike()
+	case modeConfirmUpgrade:
+		body = m.upgradeConfirm()
 	default:
 		switch m.screen {
 		case screenMarket:
@@ -522,6 +557,8 @@ func (m *Model) View() string {
 			body = m.viewCrew()
 		case screenMap:
 			body = m.viewMap()
+		case screenUpgrades:
+			body = m.viewUpgrades()
 		default:
 			body = m.viewDashboard()
 		}
@@ -610,6 +647,8 @@ func (m *Model) viewFooter() string {
 		keys = k("enter", "end day") + k("esc", "back")
 	case modeHelp, modeConfirmNew, modeConfirmFire:
 		keys = k("any key", "close")
+	case modeConfirmUpgrade:
+		keys = k("y", "buy") + k("any other key", "back")
 	case modePost:
 		keys = k("↑↓", "pick") + k("enter", "post") + k("esc", "back")
 	case modeStrike:
@@ -620,6 +659,8 @@ func (m *Model) viewFooter() string {
 			keys = k("n", "end day") + k("↑↓", "pick") + k("h", "hire") + k("f", "fire") + k("p", "pay") + k("?", "help") + k("q", "quit")
 		case screenMap:
 			keys = k("n", "end day") + k("↑↓", "pick") + k("c", "runner") + k("e", "enforcer") + k("a", "abandon") + k("w", "war") + k("?", "help") + k("q", "quit")
+		case screenUpgrades:
+			keys = k("n", "end day") + k("↑↓", "pick") + k("enter", "buy") + k("?", "help") + k("q", "quit")
 		default:
 			keys = k("n", "end day") + k("b", "buy") + k("s", "sell") + k("l", "lie low") + k("x", "cancel order") + k("r", "report") + k("?", "help") + k("q", "quit")
 		}
@@ -676,7 +717,7 @@ func (m *Model) viewStart() string {
 
 func (m *Model) viewHelp() string {
 	rows := [][2]string{
-		{"1-5 / ← →", "switch screen (tab / shift+tab too)"},
+		{"1-6 / ← →", "switch screen (tab / shift+tab too)"},
 		{"n", "end the day (sims step, autosave)"},
 		{"enter", "end the day, after a confirmation"},
 		{"b", "buy from the supplier"},
@@ -688,6 +729,7 @@ func (m *Model) viewHelp() string {
 		{"p", "cycle crew pay: stingy / fair / generous"},
 		{"c / e / a", "post a runner / an enforcer / abandon the corner (map)"},
 		{"w", "send the enforcers at a rival corner: warn / push / hit (map)"},
+		{"u / enter", "buy the selected upgrade, after a confirmation (upgrades)"},
 		{"↑ ↓ / j k", "move the cursor / scroll journal"},
 		{"ctrl+s", "save now"},
 		{"N", "abandon run and start over"},
@@ -746,6 +788,7 @@ func (m *Model) viewReport() string {
 	section("CREW", r.Crew, lipgloss.NewStyle().Foreground(theme.Crew))
 	section("TERRITORY", r.Territory, lipgloss.NewStyle().Foreground(theme.Rivals))
 	section("MONEY", append(r.Money, fmt.Sprintf("Cash %s -> %s", cash(r.CashBefore), cash(r.CashAfter))), theme.Gold)
+	section("UPGRADES", r.Upgrades, theme.Gold)
 	section("NEWS", r.News, theme.Subtle)
 	content := clampLines(strings.TrimRight(b.String(), "\n"), m.bodyHeight()-6)
 	return m.modal(fmt.Sprintf("MORNING REPORT · DAY %d", r.Day), content)

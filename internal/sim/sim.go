@@ -38,11 +38,11 @@ func Default(cfg *content.Config) (*Set, []game.Simulation, error) {
 		return nil, nil, err
 	}
 	set := &Set{
-		Market:    market.New(cfg.Market),
+		Market:    market.New(cfg.Market, cfg.Upgrades),
 		Territory: territory.New(cfg.City),
 		Rivals:    rivals.New(cfg.Rivals, cfg.Names),
 		Crew:      crew.New(cfg.Crew, cfg.Names),
-		Heat:      heat.New(cfg.Heat, cfg.Market),
+		Heat:      heat.New(cfg.Heat, cfg.Market, cfg.Upgrades),
 		News:      n,
 	}
 	return set, []game.Simulation{set.Market, set.Territory, set.Rivals, set.Crew, set.Heat, set.News}, nil
@@ -51,9 +51,10 @@ func Default(cfg *content.Config) (*Set, []game.Simulation, error) {
 // Migrations is the chain that upgrades older saves to the current schema.
 func (s *Set) Migrations() []game.Migration {
 	return []game.Migration{
-		{From: 1, Apply: s.Crew.Migrate},      // 1 -> 2: the crew arrived
-		{From: 2, Apply: s.Territory.Migrate}, // 2 -> 3: the city got corners
-		{From: 3, Apply: s.Rivals.Migrate},    // 3 -> 4: a rival came to town
+		{From: 1, Apply: s.Crew.Migrate},       // 1 -> 2: the crew arrived
+		{From: 2, Apply: s.Territory.Migrate},  // 2 -> 3: the city got corners
+		{From: 3, Apply: s.Rivals.Migrate},     // 3 -> 4: a rival came to town
+		{From: 4, Apply: game.MigrateUpgrades}, // 4 -> 5: the upgrade tree, and the DA's file got a date
 	}
 }
 
