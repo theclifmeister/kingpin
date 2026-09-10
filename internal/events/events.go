@@ -75,6 +75,16 @@ type PriceShock struct {
 
 func (PriceShock) Kind() string { return "PriceShock" }
 
+// ProductUnlocked reports that the supplier now offers a new product.
+type ProductUnlocked struct {
+	Day     int
+	Product string
+	Name    string
+	Price   float64
+}
+
+func (ProductUnlocked) Kind() string { return "ProductUnlocked" }
+
 // PriceMove reports a product's price at the start and end of the day.
 type PriceMove struct {
 	Day      int

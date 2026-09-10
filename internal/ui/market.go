@@ -10,10 +10,10 @@ import (
 
 func (m *Model) viewMarket() string {
 	w := m.w
-	sparkW := max(8, min(30, m.width-70))
+	sparkW := max(8, min(30, m.width-72))
 	var b strings.Builder
 	b.WriteString(theme.PanelTitle.Render("MARKET · "+w.City) + theme.Subtle.Render("   ↑↓ pick · b buy · s sell · x cancel") + "\n\n")
-	b.WriteString(theme.Subtle.Render(fmt.Sprintf("  %-6s %9s %6s  %-*s %8s %6s %9s  %s",
+	b.WriteString(theme.Subtle.Render(fmt.Sprintf("  %-8s %9s %6s  %-*s %8s %6s %9s  %s",
 		"", "price", "Δ", sparkW, "last 30 days", "supplier", "stock", "demand", "order")) + "\n")
 	for i, id := range w.Products {
 		p := w.Market[id]
@@ -31,16 +31,16 @@ func (m *Model) viewMarket() string {
 		if o, ok := w.Orders[id]; ok {
 			order = theme.Gold.Render(fmt.Sprintf("%d %s", o.Qty, o.Dial))
 		}
-		name := fit(p.Name, 6)
+		name := fit(p.Name, 8)
 		cur := "  "
 		if i == m.cursor {
 			cur = theme.Gold.Render("▸ ")
 			name = theme.Selected.Render(name)
 		}
 		row := fmt.Sprintf("%s%s %9s %s  %s %8s %6d %9s  %s",
-			cur, name, fmt.Sprintf("$%.2f", p.Price), ds,
+			cur, name, price(p.Price), ds,
 			theme.Good.Render(fit(sparkline.Render(p.History, sparkW), sparkW)),
-			fmt.Sprintf("$%.2f", p.SupplierPrice), w.Player.Stock[id],
+			price(p.SupplierPrice), w.Player.Stock[id],
 			fmt.Sprintf("~%.0f/day", p.Demand), order)
 		b.WriteString(row + "\n")
 	}
@@ -53,7 +53,7 @@ func (m *Model) viewMarket() string {
 		hi = min(max(hi, v), 1e9)
 	}
 	b.WriteString(theme.PanelTitle.Render(p.Name) + "\n")
-	b.WriteString(fmt.Sprintf("  30-day range  $%.2f – $%.2f\n", lo, hi))
+	b.WriteString(fmt.Sprintf("  30-day range  %s – %s\n", price(lo), price(hi)))
 	b.WriteString(fmt.Sprintf("  glut          %.0f%%  %s\n", p.Glut*100, theme.Subtle.Render("(recent oversupply, pushes price down)")))
 	if p.ShockDays > 0 {
 		if p.ShockSlump {

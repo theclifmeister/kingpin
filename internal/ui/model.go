@@ -444,9 +444,9 @@ func (m *Model) viewTitle() string {
 		return theme.Title.Render(" KINGPIN ") + strings.Join(tabs, "")
 	}
 	rightFor := func(clean bool) string {
-		s := fmt.Sprintf("Day %d  ", w.Day) + theme.Gold.Render("dirty "+money(w.Player.DirtyCash)) + "  "
+		s := fmt.Sprintf("Day %d  ", w.Day) + theme.Gold.Render("dirty "+cash(w.Player.DirtyCash)) + "  "
 		if clean {
-			s += theme.Subtle.Render("clean "+money(w.Player.CleanCash)) + "  "
+			s += theme.Subtle.Render("clean "+cash(w.Player.CleanCash)) + "  "
 		}
 		return s + heatStyle(w.Heat.Value).Render(fmt.Sprintf("heat %.0f", w.Heat.Value)) + " "
 	}
@@ -586,11 +586,11 @@ func (m *Model) viewOver() string {
 	var b strings.Builder
 	b.WriteString(theme.Bad.Bold(true).Render(strings.ToUpper(e.Cause)) + fmt.Sprintf(" on day %d\n\n", e.Day))
 	b.WriteString(fmt.Sprintf("Days survived   %d\n", e.Day))
-	b.WriteString(fmt.Sprintf("Peak cash       %s\n", money(w.Stats.PeakCash)))
-	b.WriteString(fmt.Sprintf("Total revenue   %s\n", money(w.Stats.TotalRevenue)))
+	b.WriteString(fmt.Sprintf("Peak cash       %s\n", cash(w.Stats.PeakCash)))
+	b.WriteString(fmt.Sprintf("Total revenue   %s\n", cash(w.Stats.TotalRevenue)))
 	b.WriteString(fmt.Sprintf("Units moved     %d\n", w.Stats.UnitsSold))
 	b.WriteString(fmt.Sprintf("Stings / raids  %d / %d\n", w.Stats.Stings, w.Stats.Raids))
-	b.WriteString(fmt.Sprintf("Wages / skimmed %s / %s\n", money(w.Stats.Wages), money(w.Stats.Skimmed)))
+	b.WriteString(fmt.Sprintf("Wages / skimmed %s / %s\n", cash(w.Stats.Wages), cash(w.Stats.Skimmed)))
 	b.WriteString(fmt.Sprintf("Peak heat       %.0f\n", w.Heat.Peak))
 	if n := len(w.Journal); n > 0 {
 		b.WriteString("\nLast headline:\n  " + theme.Subtle.Render(truncate(w.Journal[n-1].Text, max(20, m.width-20))) + "\n")
@@ -619,7 +619,7 @@ func (m *Model) viewReport() string {
 	section("SALES", r.Sales, theme.Gold)
 	section("HEAT", r.Heat, theme.Bad)
 	section("CREW", r.Crew, lipgloss.NewStyle().Foreground(theme.Crew))
-	section("MONEY", append(r.Money, fmt.Sprintf("Cash %s -> %s", money(r.CashBefore), money(r.CashAfter))), theme.Gold)
+	section("MONEY", append(r.Money, fmt.Sprintf("Cash %s -> %s", cash(r.CashBefore), cash(r.CashAfter))), theme.Gold)
 	section("NEWS", r.News, theme.Subtle)
 	content := clampLines(strings.TrimRight(b.String(), "\n"), m.bodyHeight()-6)
 	return m.modal(fmt.Sprintf("MORNING REPORT · DAY %d", r.Day), content)

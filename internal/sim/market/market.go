@@ -37,6 +37,7 @@ func (s *Sim) Dial(d events.Dial) content.DialConfig {
 // shocks. Sales resolve first so the dial interacts with today's price.
 func (s *Sim) Step(w *game.World, t *game.Tick) {
 	tun := s.cfg.Market
+	s.unlock(w, t)
 	ids := append([]string(nil), w.Products...)
 	sort.Strings(ids) // deterministic regardless of map order
 
@@ -106,6 +107,19 @@ func (s *Sim) Step(w *game.World, t *game.Tick) {
 	}
 }
 
+// unlock lists every product the player's peak cash has earned. The
+// supplier offers it from tomorrow; nothing about the offer is random, so
+// old saves catch up the first day they are stepped.
+func (s *Sim) unlock(w *game.World, t *game.Tick) {
+	for _, p := range s.cfg.Products {
+		if w.Market[p.ID] != nil || w.Stats.PeakCash < p.UnlockCash {
+			continue
+		}
+		w.AddProduct(startingProduct(p))
+		t.Emit(events.ProductUnlocked{Day: t.Day, Product: p.ID, Name: p.Name, Price: p.BasePrice})
+	}
+}
+
 // Fill is the fraction of demand a sale at dial d can move today: the dial's
 // fill, capped by patrols.
 func (s *Sim) Fill(w *game.World, d events.Dial) float64 {
@@ -164,11 +178,18 @@ func clamp(v, lo, hi float64) float64 {
 	return v
 }
 
-// StartingProducts converts config into the starting state NewWorld needs.
+// StartingProducts converts config into the starting state NewWorld needs:
+// the products the supplier offers to someone with the starting cash.
 func StartingProducts(cfg content.MarketConfig) []game.StartingProduct {
 	out := make([]game.StartingProduct, 0, len(cfg.Products))
 	for _, p := range cfg.Products {
-		out = append(out, game.StartingProduct{ID: p.ID, Name: p.Name, Price: p.BasePrice, Demand: p.Demand})
+		if p.UnlockCash <= cfg.Market.StartCash {
+			out = append(out, startingProduct(p))
+		}
 	}
 	return out
+}
+
+func startingProduct(p content.ProductConfig) game.StartingProduct {
+	return game.StartingProduct{ID: p.ID, Name: p.Name, Price: p.BasePrice, Demand: p.Demand}
 }

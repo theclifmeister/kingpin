@@ -16,7 +16,7 @@ func TestEveryEmittedEventHasTemplate(t *testing.T) {
 		t.Fatal(err)
 	}
 	required := []string{
-		"PriceShock", "PriceSlump",
+		"PriceShock", "PriceSlump", "ProductUnlocked",
 		"PlayerSoldBig", "PlayerSoldZero",
 		"EnforcementPatrol", "EnforcementSting", "EnforcementRaid", "EnforcementArrest",
 		"LaidLow", "HeatWarning",

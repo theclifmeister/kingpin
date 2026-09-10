@@ -49,6 +49,7 @@ func main() {
 	}
 
 	var survived, peaks []int
+	worth := map[int][]int{}
 	endings := map[string]int{}
 	for seed := *seed0; seed < *seed0+uint64(*runs); seed++ {
 		pol := p
@@ -69,6 +70,11 @@ func main() {
 		}
 		survived = append(survived, res.Days)
 		peaks = append(peaks, res.PeakCash)
+		for _, d := range harness.TierDays {
+			if d <= *days {
+				worth[d] = append(worth[d], res.NetWorthAt(d))
+			}
+		}
 		if res.Over != nil {
 			endings[res.Over.Cause]++
 		} else {
@@ -80,5 +86,13 @@ func main() {
 	fmt.Printf("policy=%s runs=%d days=%d\n", *policy, *runs, *days)
 	fmt.Printf("survival days: min %d median %d max %d\n", survived[0], survived[len(survived)/2], survived[len(survived)-1])
 	fmt.Printf("peak cash:     min %d median %d max %d\n", peaks[0], peaks[len(peaks)/2], peaks[len(peaks)-1])
+	fmt.Printf("net worth:    ")
+	for _, d := range harness.TierDays {
+		if ws := worth[d]; len(ws) > 0 {
+			sort.Ints(ws)
+			fmt.Printf(" day %d median %d", d, ws[len(ws)/2])
+		}
+	}
+	fmt.Println()
 	fmt.Printf("endings: %v\n", endings)
 }

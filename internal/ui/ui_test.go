@@ -98,6 +98,68 @@ func TestRendersAtCommonSizes(t *testing.T) {
 		m.Update(key("?"))
 		assertFits(t, m.View(), sz[0], sz[1], "help")
 		m.Update(key("x"))
+
+		// A cartel-scale world: ten-digit cash on every screen, then the
+		// money moved clean (dirty cash on that scale is an arrest) so the
+		// next day unlocks every rung of the product ladder.
+		m.w.Player.DirtyCash = 1_234_567_890
+		m.w.Stats.PeakCash = m.w.Player.DirtyCash
+		for _, s := range []string{"1", "2", "3", "4"} {
+			m.Update(key(s))
+			assertFits(t, m.View(), sz[0], sz[1], "rich screen "+s)
+		}
+		m.Update(key("1"))
+		m.Update(key("b"))
+		m.Update(key("enter"))
+		assertFits(t, m.View(), sz[0], sz[1], "rich buy qty")
+		m.Update(key("esc"))
+		m.Update(key("esc"))
+		m.w.Player.CleanCash, m.w.Player.DirtyCash = m.w.Player.DirtyCash, 50_000
+		m.Update(key("n"))
+		m.Update(key("enter"))
+		if got := len(m.w.Products); got != len(m.cfg.Market.Products) {
+			t.Fatalf("%d of %d products unlocked with a billion in the bank", got, len(m.cfg.Market.Products))
+		}
+		last := m.w.Products[len(m.w.Products)-1]
+		m.w.Player.Stock[last] = 20
+		for _, s := range []string{"1", "2"} {
+			m.Update(key(s))
+			assertFits(t, m.View(), sz[0], sz[1], "ladder screen "+s)
+		}
+		m.Update(key("1"))
+		m.Update(key("s"))
+		for range m.w.Products {
+			m.Update(key("j"))
+		}
+		m.Update(key("enter"))
+		m.Update(key("enter"))
+		assertFits(t, m.View(), sz[0], sz[1], "ladder sell dialog")
+		m.Update(key("enter"))
+		m.Update(key("n"))
+		assertFits(t, m.View(), sz[0], sz[1], "ladder report")
+		m.Update(key("enter"))
+		m.w.Over = &game.Ending{Day: m.w.Day, Cause: "indicted", PeakCash: m.w.Stats.PeakCash}
+		m.Update(key("n"))
+		assertFits(t, m.View(), sz[0], sz[1], "rich game over")
+	}
+}
+
+func TestCashFormatting(t *testing.T) {
+	cases := map[int]string{
+		0: "$0", 500: "$500", 9_999: "$9,999", -2_500: "-$2,500",
+		10_000: "$10K", 45_000: "$45K", 123_456: "$123K", 999_499: "$999K", 999_600: "$1.0M",
+		1_234_567: "$1.2M", 12_345_678: "$12M", 3_400_000_000: "$3.4B", -1_500_000: "-$1.5M",
+		1_234_567_890_123: "$1.2T",
+	}
+	for n, want := range cases {
+		if got := cash(n); got != want {
+			t.Errorf("cash(%d) = %q, want %q", n, got, want)
+		}
+	}
+	for v, want := range map[float64]string{19.5: "$19.50", 999.99: "$999.99", 2500: "$2,500", 10000: "$10,000"} {
+		if got := price(v); got != want {
+			t.Errorf("price(%v) = %q, want %q", v, got, want)
+		}
 	}
 }
 

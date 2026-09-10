@@ -20,7 +20,7 @@ id = "weed"
 name = "Weed"
 base_price = 20
 volatility = 0.04
-demand = 30
+demand = 60
 demand_noise = 0.20
 heat = 0.6
 
@@ -29,7 +29,7 @@ id = "pills"
 name = "Pills"
 base_price = 45
 volatility = 0.06
-demand = 14
+demand = 30
 demand_noise = 0.25
 heat = 1.0
 
@@ -38,9 +38,41 @@ id = "coke"
 name = "Coke"
 base_price = 120
 volatility = 0.09
-demand = 6
+demand = 12
 demand_noise = 0.30
 heat = 1.5
+
+# The ladder. Each rung is offered by the supplier once your peak cash shows
+# you can move that kind of money: bigger numbers, bigger heat.
+[[product]]
+id = "heroin"
+name = "Heroin"
+base_price = 400
+volatility = 0.10
+demand = 4
+demand_noise = 0.35
+heat = 2.5
+unlock_cash = 3000
+
+[[product]]
+id = "meth"
+name = "Meth"
+base_price = 800
+volatility = 0.12
+demand = 3
+demand_noise = 0.40
+heat = 3.0
+unlock_cash = 10000
+
+[[product]]
+id = "designer"
+name = "Designer"
+base_price = 2500
+volatility = 0.15
+demand = 2
+demand_noise = 0.50
+heat = 5.0
+unlock_cash = 25000
 
 # The dial: how much of demand you can move, the price you get, how hard you
 # push the market, and how much heat you attract.

@@ -55,6 +55,7 @@ type ProductConfig struct {
 	Demand      float64 `toml:"demand"`
 	DemandNoise float64 `toml:"demand_noise"`
 	Heat        float64 `toml:"heat"`
+	UnlockCash  int     `toml:"unlock_cash"` // supplier offers it once peak cash reaches this; 0 = from day one
 }
 
 type DialTable struct {
@@ -80,6 +81,7 @@ type HeatTuning struct {
 	Decay              float64 `toml:"decay"`
 	LieLowMultiplier   float64 `toml:"lie_low_multiplier"`
 	SaleHeat           float64 `toml:"sale_heat"`
+	StreetUnits        float64 `toml:"street_units"`
 	DirtyCashThreshold int     `toml:"dirty_cash_threshold"`
 	DirtyCashHeat      float64 `toml:"dirty_cash_heat"`
 	CooldownDays       int     `toml:"cooldown_days"`

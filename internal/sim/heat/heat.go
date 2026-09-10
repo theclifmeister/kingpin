@@ -56,6 +56,31 @@ func (s *Sim) dialFill(d events.Dial) float64 {
 	}
 }
 
+// SaleHeat is the heat drawn by trying to move wanted units of a product at
+// a dial. Heat follows volume: every unit is a transaction somebody could
+// see, weighted by how much the product itself draws attention and how
+// loud the dial is. Units the crew moves beyond what the player could
+// serve alone count at a discount: they are on the corners, you are not.
+// The UI's dial preview uses it too, so the estimate is always honest.
+func (s *Sim) SaleHeat(w *game.World, product string, wanted int, dial events.Dial) float64 {
+	tun := s.cfg.Heat
+	m := w.Market[product]
+	pc := s.market.Product(product)
+	if m == nil || pc == nil || tun.StreetUnits <= 0 {
+		return 0
+	}
+	fill := s.dialFill(dial)
+	own := math.Min(float64(wanted), math.Round(m.Demand*fill))
+	total := math.Min(float64(wanted), math.Round(m.Demand*w.Reach()*fill))
+	attempted := own + (total-own)*tun.CrewHeat
+	return tun.SaleHeat * attempted * pc.Heat / tun.StreetUnits * s.dialHeat(dial)
+}
+
+// SloppyHeat is the premium low-skill runners add for moving units today.
+func (s *Sim) SloppyHeat(w *game.World, units int) float64 {
+	return s.Sloppiness(w) * s.cfg.Heat.SloppyHeat * float64(units)
+}
+
 // Sloppiness sums how far each runner falls below the sloppy-skill line, as
 // a fraction: a skill-0 runner counts 1, a skilled one 0.
 func (s *Sim) Sloppiness(w *game.World) float64 {
@@ -90,15 +115,7 @@ func (s *Sim) Step(w *game.World, t *game.Tick) {
 		if !ok || ps.Wanted == 0 {
 			continue
 		}
-		m := w.Market[ps.Product]
-		pc := s.market.Product(ps.Product)
-		if m == nil || pc == nil || m.Demand <= 0 {
-			continue
-		}
-		own := math.Min(float64(ps.Wanted), math.Round(m.Demand*s.dialFill(ps.Dial)))
-		total := math.Min(float64(ps.Wanted), math.Round(m.Demand*w.Reach()*s.dialFill(ps.Dial)))
-		attempted := own + (total-own)*tun.CrewHeat
-		add := tun.SaleHeat * attempted / m.Demand * s.dialHeat(ps.Dial) * pc.Heat
+		add := s.SaleHeat(w, ps.Product, ps.Wanted, ps.Dial)
 		h.Value += add
 		units += ps.Sold
 		reasons = append(reasons, fmt.Sprintf("moved %d %s %s (+%.1f)", ps.Sold, w.ProductName(ps.Product), ps.Dial, add))
@@ -106,7 +123,7 @@ func (s *Sim) Step(w *game.World, t *game.Tick) {
 
 	// Sloppy runners get noticed: every unit moved with a low-skill crew
 	// on the corners adds a premium.
-	if add := s.Sloppiness(w) * tun.SloppyHeat * float64(units); add > 0 {
+	if add := s.SloppyHeat(w, units); add > 0 {
 		h.Value += add
 		reasons = append(reasons, fmt.Sprintf("sloppy crew (+%.1f)", add))
 	}

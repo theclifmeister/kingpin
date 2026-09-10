@@ -7,9 +7,10 @@ heat closes in. Written in Go with [Bubble Tea](https://github.com/charmbracelet
 > after that is your fault.
 
 The full design is in [issue #1](https://github.com/theclifmeister/kingpin/issues/1).
-This is the Phase 2.1 build: one city, three products, a market that reacts
-to you, a police force that reacts to how loudly you sell, and a crew that
-moves product for you as long as you keep them paid.
+This is the Phase 2.1 build: one city, a six-rung product ladder the supplier
+opens up as your money grows, a market that reacts to you, a police force
+that reacts to how much you move, and a crew that moves product for you as
+long as you keep them paid.
 
 ## Play
 

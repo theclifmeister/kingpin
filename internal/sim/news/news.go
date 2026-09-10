@@ -87,6 +87,11 @@ func (s *Sim) Step(w *game.World, t *game.Tick) {
 		switch ev := e.(type) {
 		case events.PriceMove:
 			rep.Prices = append(rep.Prices, priceLine(w, ev))
+		case events.ProductUnlocked:
+			d := base
+			d.Product = ev.Name
+			add("market", "ProductUnlocked", d)
+			rep.Prices = append(rep.Prices, fmt.Sprintf("%-8s now on offer from the supplier, around %s a unit", ev.Name, dollars(ev.Price)))
 		case events.PriceShock:
 			d := base
 			d.Product = w.ProductName(ev.Product)
@@ -222,14 +227,23 @@ func priceLine(w *game.World, ev events.PriceMove) string {
 	case pct < -1:
 		arrow = "↓"
 	}
-	return fmt.Sprintf("%-6s $%7.2f %s $%7.2f (%+.0f%%)", w.ProductName(ev.Product), ev.From, arrow, ev.To, pct)
+	return fmt.Sprintf("%-8s %8s %s %8s (%+.0f%%)", w.ProductName(ev.Product), dollars(ev.From), arrow, dollars(ev.To), pct)
 }
 
 func saleLine(w *game.World, ev events.PlayerSold) string {
 	if ev.Sold == 0 {
-		return fmt.Sprintf("%-6s wanted %d, sold none (%s)", w.ProductName(ev.Product), ev.Wanted, ev.Dial)
+		return fmt.Sprintf("%-8s wanted %d, sold none (%s)", w.ProductName(ev.Product), ev.Wanted, ev.Dial)
 	}
-	return fmt.Sprintf("%-6s sold %d/%d at $%.2f avg = +$%d (%s)", w.ProductName(ev.Product), ev.Sold, ev.Wanted, ev.AvgPrice, ev.Revenue, ev.Dial)
+	return fmt.Sprintf("%-8s sold %d/%d at %s avg = +$%d (%s)", w.ProductName(ev.Product), ev.Sold, ev.Wanted, dollars(ev.AvgPrice), ev.Revenue, ev.Dial)
+}
+
+// dollars formats a unit price: cents on a cheap bag, whole dollars once
+// they stop mattering.
+func dollars(v float64) string {
+	if v < 1000 {
+		return fmt.Sprintf("$%.2f", v)
+	}
+	return fmt.Sprintf("$%.0f", v)
 }
 
 func enforcementLine(w *game.World, ev events.Enforcement) string {

@@ -2,6 +2,7 @@ package ui
 
 import (
 	"fmt"
+	"math"
 	"strings"
 
 	"github.com/charmbracelet/lipgloss"
@@ -25,6 +26,41 @@ func money(n int) string {
 		return "-$" + b.String()
 	}
 	return "$" + b.String()
+}
+
+// cash formats a dollar amount the way a headline would: exact with
+// separators under $10K, then $45K, $1.2M, $34B. Totals on the dashboard,
+// title bar, report and run summary use it; itemised figures stay exact.
+func cash(n int) string {
+	if n > -10_000 && n < 10_000 {
+		return money(n)
+	}
+	sign := ""
+	if n < 0 {
+		sign, n = "-", -n
+	}
+	v := float64(n)
+	units := []string{"K", "M", "B", "T"}
+	i := 0
+	v /= 1000
+	// Round before choosing the unit so $999,600 reads $1.0M, not $1000K.
+	for i < len(units)-1 && math.Round(v) >= 1000 {
+		v /= 1000
+		i++
+	}
+	if v < 10 {
+		return fmt.Sprintf("%s$%.1f%s", sign, v, units[i])
+	}
+	return fmt.Sprintf("%s$%.0f%s", sign, v, units[i])
+}
+
+// price formats a per-unit price: cents matter on a $20 bag, not on a
+// $2,500 one.
+func price(v float64) string {
+	if v < 1000 {
+		return fmt.Sprintf("$%.2f", v)
+	}
+	return money(int(math.Round(v)))
 }
 
 // fit pads or truncates s to exactly width visible cells.

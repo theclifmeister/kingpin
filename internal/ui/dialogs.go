@@ -202,21 +202,15 @@ func (m *Model) confirmSell() (tea.Model, tea.Cmd) {
 	return m, nil
 }
 
-// estHeat mirrors the heat sim's formula so the dial preview is honest:
-// units the crew moves beyond your own reach count at the crew discount,
-// and sloppy runners add their premium.
+// estHeat is what the heat sim will charge for this order, plus the sloppy
+// crew premium on the units it expects to move.
 func (m *Model) estHeat(id string, qty int, dial events.Dial) float64 {
 	p := m.w.Market[id]
-	pc := m.cfg.Market.Product(id)
-	if p == nil || pc == nil || p.Demand <= 0 {
+	if p == nil {
 		return 0
 	}
-	dc := m.set.Market.Dial(dial)
-	tun := m.cfg.Heat.Heat
-	own := math.Min(float64(qty), math.Round(p.Demand*dc.Fill))
-	total := math.Min(float64(qty), math.Round(p.Demand*m.w.Reach()*dc.Fill))
-	attempted := own + (total-own)*tun.CrewHeat
-	return tun.SaleHeat*attempted/p.Demand*dc.Heat*pc.Heat + m.set.Heat.Sloppiness(m.w)*tun.SloppyHeat*total
+	moved := min(qty, m.set.Market.Capacity(m.w, p, dial))
+	return m.set.Heat.SaleHeat(m.w, id, qty, dial) + m.set.Heat.SloppyHeat(m.w, moved)
 }
 
 func (m *Model) viewDialog() string {
@@ -232,9 +226,9 @@ func (m *Model) viewDialog() string {
 		pm := w.Market[pid]
 		var line string
 		if buy {
-			line = fmt.Sprintf("%-6s  %8s/unit   have %d", pm.Name, fmt.Sprintf("$%.2f", pm.SupplierPrice), w.Player.Stock[pid])
+			line = fmt.Sprintf("%-8s  %8s/unit   have %d", pm.Name, price(pm.SupplierPrice), w.Player.Stock[pid])
 		} else {
-			line = fmt.Sprintf("%-6s  %8s/unit   have %d   demand ~%.0f", pm.Name, fmt.Sprintf("$%.2f", pm.Price), w.Player.Stock[pid], pm.Demand)
+			line = fmt.Sprintf("%-8s  %8s/unit   have %d   demand ~%.0f", pm.Name, price(pm.Price), w.Player.Stock[pid], pm.Demand)
 		}
 		if i == m.cursor {
 			b.WriteString(theme.Gold.Render("▸ ") + theme.Selected.Render(line) + "\n")
@@ -256,7 +250,7 @@ func (m *Model) viewDialog() string {
 				if cost > w.Player.DirtyCash {
 					style = theme.Bad
 				}
-				b.WriteString(fmt.Sprintf("Total     %s   %s\n", style.Render(money(cost)), theme.Subtle.Render("dirty cash "+money(w.Player.DirtyCash))))
+				b.WriteString(fmt.Sprintf("Total     %s   %s\n", style.Render(money(cost)), theme.Subtle.Render("dirty cash "+cash(w.Player.DirtyCash))))
 			}
 		} else {
 			b.WriteString(fmt.Sprintf("Quantity  %s   %s\n", d.qty.View(), theme.Subtle.Render(fmt.Sprintf("have %d", w.Player.Stock[id]))))
@@ -281,7 +275,7 @@ func (m *Model) viewDialog() string {
 		b.WriteString("Dial      " + strings.Join(cells, " ") + "\n")
 		dc := m.set.Market.Dial(d.dial)
 		est := min(qty, m.set.Market.Capacity(w, p, d.dial))
-		b.WriteString(fmt.Sprintf("Expect    ~%d of %d sold at ~$%.2f  =  ~%s\n", est, qty, p.Price*dc.Price, theme.Gold.Render(money(int(float64(est)*p.Price*dc.Price)))))
+		b.WriteString(fmt.Sprintf("Expect    ~%d of %d sold at ~%s  =  ~%s\n", est, qty, price(p.Price*dc.Price), theme.Gold.Render(money(int(float64(est)*p.Price*dc.Price)))))
 		h := m.estHeat(id, qty, d.dial)
 		b.WriteString(fmt.Sprintf("Heat      %s   %s\n", heatStyle(w.Heat.Value+h*4).Render(fmt.Sprintf("+%.1f", h)), theme.Subtle.Render(dialBlurb(d.dial))))
 	}
