@@ -18,8 +18,18 @@ type Result struct {
 	Over     *game.Ending
 	PeakCash int
 	EndCash  int
+	NetWorth []int // net worth at the end of each day played, oldest first
 	Events   []events.Event
 	World    *game.World
+}
+
+// NetWorthAt is the net worth at the end of day d, or at the end of the run
+// if it finished sooner.
+func (r Result) NetWorthAt(d int) int {
+	if len(r.NetWorth) == 0 {
+		return 0
+	}
+	return r.NetWorth[min(d, len(r.NetWorth))-1]
 }
 
 // Run plays up to days days from a fresh world with the given seed.
@@ -31,29 +41,27 @@ func Run(cfg *content.Config, seed uint64, days int, policy Policy) (Result, err
 	w := sim.NewWorld(cfg, seed)
 	clock := game.NewClock(nil, sims...)
 	var all []events.Event
+	var worth []int
 	for d := 0; d < days && w.Over == nil; d++ {
 		if policy != nil {
 			policy(w)
 		}
 		all = append(all, clock.EndDay(w)...)
+		worth = append(worth, w.NetWorth())
 	}
-	return Result{Days: w.Day, Over: w.Over, PeakCash: w.Stats.PeakCash, EndCash: w.Cash(), Events: all, World: w}, nil
+	return Result{Days: w.Day, Over: w.Over, PeakCash: w.Stats.PeakCash, EndCash: w.Cash(), NetWorth: worth, Events: all, World: w}, nil
 }
 
 // Idle does nothing; prices drift on their own.
 func Idle(*game.World) {}
 
 // Trader restocks every product it can afford and sells everything it holds
-// at the given dial, every day. It is deliberately greedy.
+// at the given dial, every day. It is deliberately greedy. It buys before it
+// queues the sales so stock bought in the morning is on the street the same
+// night, the way a player who turns the bag over daily plays.
 func Trader(cfg *content.Config, dial events.Dial) Policy {
 	pressure := cfg.Market.Market.BuyPricePressure
 	return func(w *game.World) {
-		// Sell what we hold.
-		for _, id := range w.Products {
-			if q := w.Player.Stock[id]; q > 0 {
-				_ = w.PlaceSell(id, q, dial)
-			}
-		}
 		// Restock toward a demand-proportional mix that fits what the
 		// operation can hold, so a crashed product never hogs the whole bag.
 		total := 0.0
@@ -68,6 +76,12 @@ func Trader(cfg *content.Config, dial events.Dial) Policy {
 			qty := min(target-w.Player.Stock[id], afford, room)
 			if qty > 0 {
 				_, _ = w.Buy(id, qty, pressure)
+			}
+		}
+		// Sell what we hold.
+		for _, id := range w.Products {
+			if q := w.Player.Stock[id]; q > 0 {
+				_ = w.PlaceSell(id, q, dial)
 			}
 		}
 	}
@@ -130,3 +144,7 @@ func Crewed(cfg *content.Config, lieLowAt float64) Policy {
 		managed(w)
 	}
 }
+
+// TierDays are the days each progression tier ends on (#24): the money
+// curve is measured at these checkpoints.
+var TierDays = []int{30, 70, 120, 200}

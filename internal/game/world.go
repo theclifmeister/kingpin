@@ -212,19 +212,28 @@ func NewWorld(seed uint64, city string, products []StartingProduct, startCash, c
 		Orders: map[string]SellOrder{},
 	}
 	for _, p := range products {
-		w.Products = append(w.Products, p.ID)
-		w.Market[p.ID] = &ProductMarket{
-			Name:          p.Name,
-			Price:         p.Price,
-			SupplierPrice: p.Price * 0.55,
-			Demand:        p.Demand,
-			ShockFactor:   1,
-			History:       []float64{p.Price},
-		}
-		w.Player.Stock[p.ID] = 0
+		w.AddProduct(p)
 	}
 	w.Stats.PeakCash = startCash
 	return w
+}
+
+// AddProduct puts a product on the market at its starting values. It is a
+// no-op if the product is already listed.
+func (w *World) AddProduct(p StartingProduct) {
+	if _, ok := w.Market[p.ID]; ok {
+		return
+	}
+	w.Products = append(w.Products, p.ID)
+	w.Market[p.ID] = &ProductMarket{
+		Name:          p.Name,
+		Price:         p.Price,
+		SupplierPrice: p.Price * 0.55,
+		Demand:        p.Demand,
+		ShockFactor:   1,
+		History:       []float64{p.Price},
+	}
+	w.Player.Stock[p.ID] = 0
 }
 
 // NewSeed returns a seed derived from the wall clock.
@@ -238,6 +247,17 @@ func RNGFor(seed uint64, day int) *rand.Rand {
 
 // Cash is the player's total cash, dirty plus clean.
 func (w *World) Cash() int { return w.Player.DirtyCash + w.Player.CleanCash }
+
+// NetWorth is cash plus stock valued at what it would cost to replace.
+func (w *World) NetWorth() int {
+	n := w.Cash()
+	for id, q := range w.Player.Stock {
+		if m := w.Market[id]; m != nil {
+			n += int(float64(q) * m.SupplierPrice)
+		}
+	}
+	return n
+}
 
 // Capacity is how many units the operation can hold and move: the player's
 // own carry limit plus what the crew adds.

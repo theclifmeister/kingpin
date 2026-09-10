@@ -29,6 +29,11 @@ PriceShock = [
   "Dealers scramble as {{.Product}} shipment goes missing",
   "Word on the street: {{.Product}} is scarce and getting scarcer",
 ]
+ProductUnlocked = [
+  "New product turning up on {{.City}} corners: {{.Product}}",
+  "{{.Product}} arrives in {{.City}}; 'somebody upstairs is connected', says source",
+  "Rumour: a {{.City}} outfit has a line on {{.Product}}",
+]
 PriceSlump = [
   "{{.Product}} demand craters after overdose scare",
   "Nobody wants {{.Product}} this week, says corner survey",

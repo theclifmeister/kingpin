@@ -3,6 +3,7 @@ package harness
 import (
 	"fmt"
 	"math"
+	"sort"
 	"testing"
 
 	"github.com/theclifmeister/kingpin/internal/content"
@@ -166,5 +167,58 @@ func TestAlwaysQuietSurvivesAndEarnsLess(t *testing.T) {
 		if agg.PeakCash <= short.PeakCash {
 			t.Fatalf("seed %d: over %d days aggressive peaked at %d, quiet at %d; greed should pay short term", seed, agg.Days-1, agg.PeakCash, short.PeakCash)
 		}
+	}
+}
+
+// moneyCurve is the net-worth target per progression tier (#24): the
+// median of the best harness policy at that tier, at the day the tier ends.
+// Each phase adds its row when its multiplier ships.
+var moneyCurve = []struct {
+	tier   int
+	name   string
+	policy func(cfg *content.Config) Policy
+	day    int
+	lo, hi int
+}{
+	{1, "managed", func(cfg *content.Config) Policy { return Managed(cfg, 50) }, 30, 50_000, 200_000},
+}
+
+func medianNetWorth(t *testing.T, cfg *content.Config, policy func(*content.Config) Policy, day int) int {
+	t.Helper()
+	var worths []int
+	for seed := uint64(1); seed <= 20; seed++ {
+		res, err := Run(cfg, seed, day, policy(cfg))
+		if err != nil {
+			t.Fatal(err)
+		}
+		worths = append(worths, res.NetWorthAt(day))
+	}
+	sort.Ints(worths)
+	return worths[len(worths)/2]
+}
+
+// The economy's scale is a target, not an accident: every tier's median
+// net worth must land in its band, and the test must bite when the
+// numbers drift, so it also checks that halving demand fails tier 1.
+func TestMoneyCurve(t *testing.T) {
+	cfg := content.MustLoad()
+	for _, row := range moneyCurve {
+		med := medianNetWorth(t, cfg, row.policy, row.day)
+		t.Logf("tier %d: %s median net worth on day %d is %d (want %d..%d)", row.tier, row.name, row.day, med, row.lo, row.hi)
+		if med < row.lo || med > row.hi {
+			t.Errorf("tier %d: %s median net worth on day %d is %d, want %d..%d", row.tier, row.name, row.day, med, row.lo, row.hi)
+		}
+	}
+
+	half := *cfg
+	half.Market.Products = append([]content.ProductConfig(nil), cfg.Market.Products...)
+	for i := range half.Market.Products {
+		half.Market.Products[i].Demand /= 2
+	}
+	row := moneyCurve[0]
+	med := medianNetWorth(t, &half, row.policy, row.day)
+	t.Logf("tier %d with demand halved: %d", row.tier, med)
+	if med >= row.lo {
+		t.Errorf("tier %d with demand halved still reaches %d on day %d; the curve test does not bite", row.tier, med, row.day)
 	}
 }

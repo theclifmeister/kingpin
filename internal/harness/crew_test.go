@@ -23,6 +23,16 @@ func hireAll(cfg *content.Config, p events.Pay) Policy {
 	}
 }
 
+// hireAffordable signs everyone in the pool the player can pay for and
+// still have the starting stake left to trade with.
+func hireAffordable(cfg *content.Config, w *game.World) {
+	for _, c := range append([]game.CrewMember(nil), w.Crew.Candidates...) {
+		if w.Player.DirtyCash >= c.Fee+cfg.Market.Market.StartCash {
+			_, _ = w.Hire(c.ID, cfg.Crew.Crew.MaxCrew)
+		}
+	}
+}
+
 // Loyalty after 100 quiet days must be monotone in pay for every member:
 // generous >= fair >= stingy. Someone who quit counts as zero.
 func TestLoyaltyMonotoneInPay(t *testing.T) {
@@ -72,9 +82,7 @@ func TestSkimOnlyBelowThreshold(t *testing.T) {
 		var days []float64 // morning minimum loyalty, indexed by day-1
 		policy := func(w *game.World) {
 			w.SetPay(events.PayStingy)
-			for _, c := range append([]game.CrewMember(nil), w.Crew.Candidates...) {
-				_, _ = w.Hire(c.ID, cfg.Crew.Crew.MaxCrew)
-			}
+			hireAffordable(cfg, w)
 			trade(w)
 			minLoyalty = 100
 			for _, m := range w.Crew.Members {
@@ -114,9 +122,7 @@ func TestNoSkimWhenLoyal(t *testing.T) {
 	for seed := uint64(1); seed <= 5; seed++ {
 		res, err := Run(cfg, seed, 200, func(w *game.World) {
 			w.SetPay(events.PayStingy)
-			for _, c := range append([]game.CrewMember(nil), w.Crew.Candidates...) {
-				_, _ = w.Hire(c.ID, cfg.Crew.Crew.MaxCrew)
-			}
+			hireAffordable(cfg, w)
 			for i := range w.Crew.Members {
 				w.Crew.Members[i].Loyalty = cfg.Crew.Crew.SkimThreshold
 			}

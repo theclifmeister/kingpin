@@ -39,12 +39,12 @@ func (m *Model) viewDashboard() string {
 		leftW, rightW = m.width, 0
 	}
 
-	// Street panel: product table with sparklines. Fixed columns take 39
+	// Street panel: product table with sparklines. Fixed columns take 42
 	// cells; whatever is left goes to the sparkline.
 	var street strings.Builder
 	innerW := leftW - 4
-	sparkW := max(4, min(24, innerW-39))
-	street.WriteString(theme.Subtle.Render(fmt.Sprintf("  %-5s %8s %5s %-*s %4s %-5s", "", "price", "Δ", sparkW, "30d", "stock", "order")) + "\n")
+	sparkW := max(4, min(24, innerW-42))
+	street.WriteString(theme.Subtle.Render(fmt.Sprintf("  %-8s %8s %5s %-*s %4s %-5s", "", "price", "Δ", sparkW, "30d", "stock", "order")) + "\n")
 	for i, id := range w.Products {
 		p := w.Market[id]
 		delta := 0.0
@@ -65,8 +65,8 @@ func (m *Model) viewDashboard() string {
 		if i == m.cursor {
 			cur = theme.Gold.Render("▸ ")
 		}
-		row := fmt.Sprintf("%s%-5s %8s %s %s %4d %s",
-			cur, truncate(p.Name, 5), fmt.Sprintf("$%.2f", p.Price), ds,
+		row := fmt.Sprintf("%s%-8s %8s %s %s %4d %s",
+			cur, truncate(p.Name, 8), price(p.Price), ds,
 			theme.Good.Render(fit(sparkline.Render(p.History, sparkW), sparkW)),
 			w.Player.Stock[id], order)
 		if p.ShockDays > 0 {
@@ -132,15 +132,15 @@ func (m *Model) viewDashboard() string {
 	heatPanel := panel("HEAT", heat.String(), rightW, heatH, theme.Heat)
 
 	// Cash panel.
-	var cash strings.Builder
-	cash.WriteString(theme.Gold.Render("dirty  "+money(w.Player.DirtyCash)) + "\n")
-	cash.WriteString(theme.Subtle.Render("clean  "+money(w.Player.CleanCash)) + "\n")
-	cash.WriteString(theme.Subtle.Render(fmt.Sprintf("peak   %s", money(w.Stats.PeakCash))) + "\n")
+	var till strings.Builder
+	till.WriteString(theme.Gold.Render("dirty  "+cash(w.Player.DirtyCash)) + "\n")
+	till.WriteString(theme.Subtle.Render("clean  "+cash(w.Player.CleanCash)) + "\n")
+	till.WriteString(theme.Subtle.Render(fmt.Sprintf("peak   %s", cash(w.Stats.PeakCash))) + "\n")
 	if thr := m.cfg.Heat.Heat.DirtyCashThreshold; thr > 0 && w.Player.DirtyCash > thr {
-		cash.WriteString(theme.Warning.Render(fmt.Sprintf("dirty cash over %s draws heat", money(thr))) + "\n")
+		till.WriteString(theme.Warning.Render(fmt.Sprintf("dirty cash over %s draws heat", cash(thr))) + "\n")
 	}
 	cashH := 6
-	cashPanel := panel("CASH", cash.String(), rightW, cashH, theme.Money)
+	cashPanel := panel("CASH", till.String(), rightW, cashH, theme.Money)
 
 	// Alerts: recent heat-sourced headlines.
 	alertsH := h - heatH - cashH
