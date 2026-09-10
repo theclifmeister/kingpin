@@ -120,6 +120,12 @@ func (m *Model) viewCrew() string {
 	barW := 10
 	marks := []float64{tun.SkimThreshold / 100}
 	header := theme.Subtle.Render(fmt.Sprintf("  %-8s %-9s %5s  %-*s  %6s %6s  ", "", "role", "skill", barW+4, "loyalty", "wage", "units"))
+	post := func(c game.CrewMember) string {
+		if p := m.w.PostOf(c.ID); p != nil {
+			return fit(p.Name, 12)
+		}
+		return theme.Warning.Render(fit("idle", 12))
+	}
 	row := func(i int, c game.CrewMember, last string) string {
 		cur := "  "
 		name := fit(c.Name, 8)
@@ -140,11 +146,11 @@ func (m *Model) viewCrew() string {
 
 	b.WriteString(theme.Bold.Render("ON THE PAYROLL") + "\n")
 	if len(w.Crew.Members) == 0 {
-		b.WriteString(theme.Subtle.Render("  Nobody. Runners move product you can't carry; pick one below and press h.") + "\n")
+		b.WriteString(theme.Subtle.Render("  Nobody. Runners hold corners you can't stand on yourself; pick one below and press h.") + "\n")
 	} else {
-		b.WriteString(header + theme.Subtle.Render("since") + "\n")
+		b.WriteString(header + theme.Subtle.Render(fmt.Sprintf("%-12s since", "post")) + "\n")
 		for i, c := range w.Crew.Members {
-			b.WriteString(row(i, c, fmt.Sprintf("day %d", c.Hired)) + "\n")
+			b.WriteString(row(i, c, "") + post(c) + theme.Subtle.Render(fmt.Sprintf(" day %d", c.Hired)) + "\n")
 		}
 	}
 	b.WriteString("\n")
@@ -166,8 +172,17 @@ func (m *Model) viewCrew() string {
 	b.WriteString("\n")
 
 	// What the crew adds, in the same terms the dashboard uses.
-	b.WriteString(theme.Subtle.Render(fmt.Sprintf("  Capacity %d units (%d yours + %d crew) · reach x%.1f of the street",
-		w.Capacity(), w.Player.CarryLimit, w.Capacity()-w.Player.CarryLimit, w.Reach())) + "\n")
+	b.WriteString(theme.Subtle.Render(fmt.Sprintf("  Capacity %d units (%d yours + %d crew) · %d corner(s) worked",
+		w.Capacity(), w.Player.CarryLimit, w.Capacity()-w.Player.CarryLimit, w.Worked())) + "\n")
+	idle := 0
+	for _, c := range w.Crew.Members {
+		if w.PostOf(c.ID) == nil {
+			idle++
+		}
+	}
+	if idle > 0 {
+		b.WriteString(theme.Warning.Render(fmt.Sprintf("  %d idle: a runner earns nothing off a corner. Post them on the map (5).", idle)) + "\n")
+	}
 	if sl := m.set.Heat.Sloppiness(w); sl > 0 {
 		per := sl * m.cfg.Heat.Heat.SloppyHeat * 100
 		b.WriteString(theme.Warning.Render(fmt.Sprintf("  Sloppy runners (skill under %d) add +%.1f heat per 100 units moved.", m.cfg.Heat.Heat.SloppySkill, per)) + "\n")

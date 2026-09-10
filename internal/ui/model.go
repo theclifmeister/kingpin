@@ -26,10 +26,14 @@ const (
 	screenMarket
 	screenJournal
 	screenCrew
+	screenMap
 	screenCount
 )
 
-var screenNames = []string{"Dashboard", "Market", "Journal", "Crew"}
+var (
+	screenNames = []string{"Dashboard", "Market", "Journal", "Crew", "Map"}
+	screenShort = []string{"Dash", "Market", "News", "Crew", "Map"} // when the title bar is tight
+)
 
 type mode int
 
@@ -44,6 +48,7 @@ const (
 	modeConfirmFire
 	modeConfirmEnd
 	modeHelp
+	modePost // pick who to post on the selected corner
 )
 
 type tickMsg time.Time
@@ -61,9 +66,12 @@ type Model struct {
 	width, height int
 	screen        screen
 	mode          mode
-	cursor        int // product cursor shared by market screen and dialogs
-	crewCursor    int // row on the crew screen: roster first, then candidates
-	fireID        int // member awaiting the fire confirmation
+	cursor        int    // product cursor shared by market screen and dialogs
+	crewCursor    int    // row on the crew screen: roster first, then candidates
+	fireID        int    // member awaiting the fire confirmation
+	mapCursor     int    // corner selected on the map
+	postRole      string // runner or enforcer, while the post picker is open
+	postCursor    int
 	journal       viewport.Model
 	dlg           dialog
 	startChoice   int
@@ -112,6 +120,7 @@ func (m *Model) newRun() {
 	m.screen = screenDashboard
 	m.cursor = 0
 	m.crewCursor = 0
+	m.mapCursor = m.yourCorner()
 	m.flash = nil
 	m.status = fmt.Sprintf("New run. %s, %s in your pocket. Seed %d.", m.w.City, money(m.w.Player.DirtyCash), m.w.Seed)
 	_ = game.Save(m.w)
@@ -128,9 +137,20 @@ func (m *Model) continueRun() error {
 	if w.Over != nil {
 		m.mode = modeOver
 	}
+	m.mapCursor = m.yourCorner()
 	m.status = fmt.Sprintf("Continued day %d.", w.Day)
 	m.refreshJournal()
 	return nil
+}
+
+// yourCorner is the map index of the corner you stand on, or 0.
+func (m *Model) yourCorner() int {
+	for i, c := range m.w.Territory.Corners {
+		if c.Runner == game.You {
+			return i
+		}
+	}
+	return 0
 }
 
 func (m *Model) endDay() {
@@ -217,6 +237,29 @@ func (m *Model) handleKey(k tea.KeyMsg) (tea.Model, tea.Cmd) {
 	case modeHelp:
 		m.mode = modePlay
 		return m, nil
+	case modePost:
+		switch key {
+		case "esc", "q":
+			m.mode = modePlay
+		case "up", "k":
+			if m.postCursor > 0 {
+				m.postCursor--
+			}
+		case "down", "j":
+			if m.postCursor < len(m.postRows(m.postRole))-1 {
+				m.postCursor++
+			}
+		case "enter":
+			m.confirmPost()
+		default:
+			if len(key) == 1 && key[0] >= '1' && key[0] <= '9' {
+				if i := int(key[0] - '1'); i < len(m.postRows(m.postRole)) {
+					m.postCursor = i
+					m.confirmPost()
+				}
+			}
+		}
+		return m, nil
 	case modeReport:
 		switch key {
 		case "enter", "esc", " ", "r", "q":
@@ -286,6 +329,8 @@ func (m *Model) keyPlay(key string) (tea.Model, tea.Cmd) {
 		m.refreshJournal()
 	case "4":
 		m.screen = screenCrew
+	case "5":
+		m.screen = screenMap
 	case "tab", "right":
 		m.screen = (m.screen + 1) % screenCount
 	case "shift+tab", "left":
@@ -329,6 +374,20 @@ func (m *Model) keyPlay(key string) (tea.Model, tea.Cmd) {
 		}
 	case "p":
 		m.cyclePay()
+	case "c":
+		if m.screen == screenMap {
+			m.askPost("runner")
+		} else {
+			m.status = "Corners are claimed on the map (5)."
+		}
+	case "e":
+		if m.screen == screenMap {
+			m.askPost("enforcer")
+		}
+	case "a":
+		if m.screen == screenMap {
+			m.abandonSelected()
+		}
 	case "up", "k":
 		switch {
 		case m.screen == screenJournal:
@@ -336,6 +395,10 @@ func (m *Model) keyPlay(key string) (tea.Model, tea.Cmd) {
 		case m.screen == screenCrew:
 			if m.crewCursor > 0 {
 				m.crewCursor--
+			}
+		case m.screen == screenMap:
+			if m.mapCursor > 0 {
+				m.mapCursor--
 			}
 		case m.cursor > 0:
 			m.cursor--
@@ -347,6 +410,10 @@ func (m *Model) keyPlay(key string) (tea.Model, tea.Cmd) {
 		case m.screen == screenCrew:
 			if m.crewCursor < len(m.crewRows())-1 {
 				m.crewCursor++
+			}
+		case m.screen == screenMap:
+			if m.mapCursor < len(m.w.Territory.Corners)-1 {
+				m.mapCursor++
 			}
 		case m.cursor < len(m.w.Products)-1:
 			m.cursor++
@@ -410,6 +477,8 @@ func (m *Model) View() string {
 		body = m.modal("END THE DAY?", what+" The sims step and the run autosaves.\n\n"+theme.Key.Render("enter")+" / "+theme.Key.Render("y")+" end the day   "+theme.Key.Render("any other key")+" back")
 	case modeHelp:
 		body = m.viewHelp()
+	case modePost:
+		body = m.viewPost()
 	default:
 		switch m.screen {
 		case screenMarket:
@@ -418,6 +487,8 @@ func (m *Model) View() string {
 			body = m.viewJournal()
 		case screenCrew:
 			body = m.viewCrew()
+		case screenMap:
+			body = m.viewMap()
 		default:
 			body = m.viewDashboard()
 		}
@@ -428,11 +499,16 @@ func (m *Model) View() string {
 
 func (m *Model) viewTitle() string {
 	w := m.w
-	tabsFor := func(short bool) string {
+	tabsFor := func(short int) string {
 		var tabs []string
 		for i, n := range screenNames {
-			label := fmt.Sprintf("%d %s", i+1, n)
-			if short {
+			var label string
+			switch short {
+			case 0:
+				label = fmt.Sprintf("%d %s", i+1, n)
+			case 1:
+				label = fmt.Sprintf("%d %s", i+1, screenShort[i])
+			default:
 				label = fmt.Sprintf("%d", i+1)
 			}
 			if screen(i) == m.screen && m.mode == modePlay {
@@ -451,13 +527,16 @@ func (m *Model) viewTitle() string {
 		return s + heatStyle(w.Heat.Value).Render(fmt.Sprintf("heat %.0f", w.Heat.Value)) + " "
 	}
 	// Try the roomy layout first, then progressively shorter ones.
-	for _, try := range [][2]bool{{false, true}, {false, false}, {true, false}} {
-		left, right := tabsFor(try[0]), rightFor(try[1])
+	for _, try := range []struct {
+		short int
+		clean bool
+	}{{0, true}, {0, false}, {1, false}, {2, false}} {
+		left, right := tabsFor(try.short), rightFor(try.clean)
 		if gap := m.width - lipgloss.Width(left) - lipgloss.Width(right); gap >= 1 {
 			return left + strings.Repeat(" ", gap) + right
 		}
 	}
-	return fit(tabsFor(true)+" "+rightFor(false), m.width)
+	return fit(tabsFor(2)+" "+rightFor(false), m.width)
 }
 
 func (m *Model) viewTicker() string {
@@ -498,10 +577,15 @@ func (m *Model) viewFooter() string {
 		keys = k("enter", "end day") + k("esc", "back")
 	case modeHelp, modeConfirmNew, modeConfirmFire:
 		keys = k("any key", "close")
+	case modePost:
+		keys = k("↑↓", "pick") + k("enter", "post") + k("esc", "back")
 	default:
-		if m.screen == screenCrew {
+		switch m.screen {
+		case screenCrew:
 			keys = k("n", "end day") + k("↑↓", "pick") + k("h", "hire") + k("f", "fire") + k("p", "pay") + k("?", "help") + k("q", "quit")
-		} else {
+		case screenMap:
+			keys = k("n", "end day") + k("↑↓", "pick") + k("c", "runner") + k("e", "enforcer") + k("a", "abandon") + k("?", "help") + k("q", "quit")
+		default:
 			keys = k("n", "end day") + k("b", "buy") + k("s", "sell") + k("l", "lie low") + k("x", "cancel order") + k("r", "report") + k("?", "help") + k("q", "quit")
 		}
 	}
@@ -557,7 +641,7 @@ func (m *Model) viewStart() string {
 
 func (m *Model) viewHelp() string {
 	rows := [][2]string{
-		{"1 2 3 4 / ← →", "switch screen (tab / shift+tab too)"},
+		{"1-5 / ← →", "switch screen (tab / shift+tab too)"},
 		{"n", "end the day (sims step, autosave)"},
 		{"enter", "end the day, after a confirmation"},
 		{"b", "buy from the supplier"},
@@ -567,6 +651,7 @@ func (m *Model) viewHelp() string {
 		{"r", "reopen the morning report"},
 		{"h / f", "hire / fire the selected person (crew screen)"},
 		{"p", "cycle crew pay: stingy / fair / generous"},
+		{"c / e / a", "post a runner / an enforcer / abandon the corner (map)"},
 		{"↑ ↓ / j k", "move the cursor / scroll journal"},
 		{"ctrl+s", "save now"},
 		{"N", "abandon run and start over"},
@@ -591,6 +676,7 @@ func (m *Model) viewOver() string {
 	b.WriteString(fmt.Sprintf("Units moved     %d\n", w.Stats.UnitsSold))
 	b.WriteString(fmt.Sprintf("Stings / raids  %d / %d\n", w.Stats.Stings, w.Stats.Raids))
 	b.WriteString(fmt.Sprintf("Wages / skimmed %s / %s\n", cash(w.Stats.Wages), cash(w.Stats.Skimmed)))
+	b.WriteString(fmt.Sprintf("Corners / robbed %d / %s\n", w.Held(), cash(w.Stats.Robbed)))
 	b.WriteString(fmt.Sprintf("Peak heat       %.0f\n", w.Heat.Peak))
 	if n := len(w.Journal); n > 0 {
 		b.WriteString("\nLast headline:\n  " + theme.Subtle.Render(truncate(w.Journal[n-1].Text, max(20, m.width-20))) + "\n")
@@ -619,6 +705,7 @@ func (m *Model) viewReport() string {
 	section("SALES", r.Sales, theme.Gold)
 	section("HEAT", r.Heat, theme.Bad)
 	section("CREW", r.Crew, lipgloss.NewStyle().Foreground(theme.Crew))
+	section("TERRITORY", r.Territory, lipgloss.NewStyle().Foreground(theme.Rivals))
 	section("MONEY", append(r.Money, fmt.Sprintf("Cash %s -> %s", cash(r.CashBefore), cash(r.CashAfter))), theme.Gold)
 	section("NEWS", r.News, theme.Subtle)
 	content := clampLines(strings.TrimRight(b.String(), "\n"), m.bodyHeight()-6)

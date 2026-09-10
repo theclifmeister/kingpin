@@ -91,3 +91,18 @@ CrewSkimmed = [
   "Talk of thin envelopes on {{.City}} corners",
   "{{.City}} boss said to be 'checking the math'",
 ]
+CornerClaimed = [
+  "New faces working {{.Corner}}, say neighbours",
+  "{{.Corner}} has a new crew on it and everybody knows whose",
+  "Somebody set up shop on {{.Corner}} overnight",
+]
+CornerLost = [
+  "{{.Corner}} quiet again; 'they just stopped showing up'",
+  "Corner boys gone from {{.Corner}}, residents relieved",
+  "Whoever had {{.Corner}} has moved on, or been moved",
+]
+CornerRobbed = [
+  "Stick-up on {{.Corner}}: two masked men, one bag, no witnesses",
+  "Dealer robbed at gunpoint on {{.Corner}}, police 'not looking hard'",
+  "{{.Corner}} crew lose the night's take to a rival with a shotgun",
+]

@@ -58,22 +58,42 @@ func (s *Sim) dialFill(d events.Dial) float64 {
 
 // SaleHeat is the heat drawn by trying to move wanted units of a product at
 // a dial. Heat follows volume: every unit is a transaction somebody could
-// see, weighted by how much the product itself draws attention and how
-// loud the dial is. Units the crew moves beyond what the player could
-// serve alone count at a discount: they are on the corners, you are not.
-// The UI's dial preview uses it too, so the estimate is always honest.
+// see, weighted by how much the product itself draws attention, how loud
+// the dial is, and which corners it moves on (CornerWeight). The UI's dial
+// preview uses it too, so the estimate is always honest.
 func (s *Sim) SaleHeat(w *game.World, product string, wanted int, dial events.Dial) float64 {
 	tun := s.cfg.Heat
-	m := w.Market[product]
 	pc := s.market.Product(product)
-	if m == nil || pc == nil || tun.StreetUnits <= 0 {
+	if pc == nil || tun.StreetUnits <= 0 {
 		return 0
 	}
-	fill := s.dialFill(dial)
-	own := math.Min(float64(wanted), math.Round(m.Demand*fill))
-	total := math.Min(float64(wanted), math.Round(m.Demand*w.Reach()*fill))
-	attempted := own + (total-own)*tun.CrewHeat
-	return tun.SaleHeat * attempted * pc.Heat / tun.StreetUnits * s.dialHeat(dial)
+	attempted := math.Min(float64(wanted), math.Round(w.Demand(product)*s.dialFill(dial)))
+	return tun.SaleHeat * attempted * s.CornerWeight(w, product) * pc.Heat / tun.StreetUnits * s.dialHeat(dial)
+}
+
+// CornerWeight is the heat one unit of a product draws on average across
+// the corners it moves on, relative to a unit you move yourself on a
+// standard corner. A sale spreads over the worked corners by their share;
+// each corner has its own heat, and a unit a runner moves counts at the
+// crew discount: they are on the corner, you are not.
+func (s *Sim) CornerWeight(w *game.World, product string) float64 {
+	total, weighted := 0.0, 0.0
+	for _, c := range w.Territory.Corners {
+		if !c.Worked() {
+			continue
+		}
+		share := c.Share(product)
+		total += share
+		unit := c.Heat
+		if c.Runner != game.You {
+			unit *= s.cfg.Heat.CrewHeat
+		}
+		weighted += share * unit
+	}
+	if total <= 0 {
+		return 0
+	}
+	return weighted / total
 }
 
 // SloppyHeat is the premium low-skill runners add for moving units today.
@@ -81,20 +101,33 @@ func (s *Sim) SloppyHeat(w *game.World, units int) float64 {
 	return s.Sloppiness(w) * s.cfg.Heat.SloppyHeat * float64(units)
 }
 
-// Sloppiness sums how far each runner falls below the sloppy-skill line, as
-// a fraction: a skill-0 runner counts 1, a skilled one 0.
+// Sloppiness is how much of the day's volume moves through a sloppy
+// runner's hands, as a fraction: each runner working a corner counts how
+// far they fall below the sloppy-skill line (a skill-0 runner 1, a skilled
+// one 0) times that corner's share of the corners you work. A runner
+// without a corner is not on the street to be noticed.
 func (s *Sim) Sloppiness(w *game.World) float64 {
 	line := float64(s.cfg.Heat.SloppySkill)
 	if line <= 0 {
 		return 0
 	}
-	total := 0.0
-	for _, m := range w.Crew.Members {
-		if m.Role == "runner" && float64(m.Skill) < line {
-			total += (line - float64(m.Skill)) / line
+	total, sloppy := 0.0, 0.0
+	for _, c := range w.Territory.Corners {
+		if !c.Worked() {
+			continue
+		}
+		total += c.Demand
+		if c.Runner == game.You {
+			continue
+		}
+		if m := w.Crew.Member(c.Runner); m != nil && float64(m.Skill) < line {
+			sloppy += c.Demand * (line - float64(m.Skill)) / line
 		}
 	}
-	return total
+	if total <= 0 {
+		return 0
+	}
+	return sloppy / total
 }
 
 // Step applies today's heat sources, decays, then checks thresholds.
@@ -106,9 +139,8 @@ func (s *Sim) Step(w *game.World, t *game.Tick) {
 
 	// Sales from the market sim, earlier in this tick. Heat follows the
 	// volume you tried to move at that dial, not what a patrol cap let
-	// through: standing on a corner shouting is the exposure. Units the crew
-	// moves beyond what you could serve alone count at a discount: they are
-	// on the corners, you are not.
+	// through: standing on a corner shouting is the exposure. Which
+	// corners, and whether you or a runner stood there, weight it.
 	units := 0
 	for _, e := range t.Events() {
 		ps, ok := e.(events.PlayerSold)

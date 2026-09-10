@@ -5,6 +5,7 @@ package news
 import (
 	"bytes"
 	"fmt"
+	"sort"
 	"strings"
 	"text/template"
 
@@ -64,6 +65,7 @@ type data struct {
 	Level   string
 	Name    string
 	Role    string
+	Corner  string
 }
 
 // Step writes headlines into the journal and assembles the morning report.
@@ -82,7 +84,7 @@ func (s *Sim) Step(w *game.World, t *game.Tick) {
 	base := data{City: w.City}
 
 	// Money before we look at events: sales are already applied by market.
-	var soldRevenue, lostCash, wages, skimmed int
+	var soldRevenue, lostCash, wages, skimmed, robbed int
 	for _, e := range t.Events() {
 		switch ev := e.(type) {
 		case events.PriceMove:
@@ -106,11 +108,10 @@ func (s *Sim) Step(w *game.World, t *game.Tick) {
 			d := base
 			d.Product = w.ProductName(ev.Product)
 			d.Qty = ev.Sold
-			m := w.Market[ev.Product]
 			switch {
 			case ev.Sold == 0:
 				add("market", "PlayerSoldZero", d)
-			case ev.Dial == events.DialAggressive || (m != nil && float64(ev.Sold) >= m.Demand*1.2):
+			case ev.Dial == events.DialAggressive || float64(ev.Sold) >= w.Demand(ev.Product)*1.2:
 				add("market", "PlayerSoldBig", d)
 			}
 		case events.HeatChanged:
@@ -151,6 +152,29 @@ func (s *Sim) Step(w *game.World, t *game.Tick) {
 			add("crew", "CrewSkimmed", base)
 			skimmed += ev.Amount
 			rep.Crew = append(rep.Crew, fmt.Sprintf("$%d of the takings never made it back. Somebody is skimming.", ev.Amount))
+		case events.CornerClaimed:
+			d := base
+			d.Corner, d.Name = ev.Name, ev.Worker
+			add("territory", "CornerClaimed", d)
+			switch ev.Worker {
+			case "you":
+				rep.Territory = append(rep.Territory, fmt.Sprintf("You took %s.", ev.Name))
+			case "nobody":
+				rep.Territory = append(rep.Territory, fmt.Sprintf("You took %s, but nobody is working it.", ev.Name))
+			default:
+				rep.Territory = append(rep.Territory, fmt.Sprintf("You took %s; %s is working it.", ev.Name, ev.Worker))
+			}
+		case events.CornerLost:
+			d := base
+			d.Corner = ev.Name
+			add("territory", "CornerLost", d)
+			rep.Territory = append(rep.Territory, fmt.Sprintf("%s went back to the street: nobody was working it.", ev.Name))
+		case events.CornerRobbed:
+			d := base
+			d.Corner = ev.Name
+			add("territory", "CornerRobbed", d)
+			rep.Territory = append(rep.Territory, robberyLine(w, ev))
+			robbed += ev.Cash
 		case events.CrewPaid:
 			wages += ev.Wages
 			line := fmt.Sprintf("Wages (%s) -$%d", ev.Pay, ev.Wages)
@@ -174,9 +198,12 @@ func (s *Sim) Step(w *game.World, t *game.Tick) {
 		spent += m.Fee
 		rep.Money = append(rep.Money, fmt.Sprintf("Signing fee for %s -$%d", m.Name, m.Fee))
 	}
-	rep.CashBefore = w.Cash() - soldRevenue + lostCash + spent + wages + skimmed
+	rep.CashBefore = w.Cash() - soldRevenue + lostCash + spent + wages + skimmed + robbed
 	if soldRevenue > 0 {
 		rep.Money = append(rep.Money, fmt.Sprintf("Street sales +$%d", soldRevenue))
+	}
+	if robbed > 0 {
+		rep.Money = append(rep.Money, fmt.Sprintf("Robbed on the corner -$%d", robbed))
 	}
 	if skimmed > 0 {
 		rep.Money = append(rep.Money, fmt.Sprintf("Missing from the count -$%d", skimmed))
@@ -244,6 +271,25 @@ func dollars(v float64) string {
 		return fmt.Sprintf("$%.2f", v)
 	}
 	return fmt.Sprintf("$%.0f", v)
+}
+
+func robberyLine(w *game.World, ev events.CornerRobbed) string {
+	parts := []string{}
+	for id, q := range ev.StockLost {
+		parts = append(parts, fmt.Sprintf("%d %s", q, w.ProductName(id)))
+	}
+	sort.Strings(parts)
+	s := fmt.Sprintf("%s was ROBBED: lost", ev.Name)
+	if len(parts) > 0 {
+		s += " " + strings.Join(parts, ", ")
+	}
+	if ev.Cash > 0 {
+		if len(parts) > 0 {
+			s += " and"
+		}
+		s += fmt.Sprintf(" $%d", ev.Cash)
+	}
+	return s + ". An enforcer on the corner would have helped."
 }
 
 func enforcementLine(w *game.World, ev events.Enforcement) string {

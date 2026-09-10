@@ -114,10 +114,22 @@ func Managed(cfg *content.Config, lieLowAt float64) Policy {
 
 // Crewed plays like Managed but builds a crew: it pays fair, signs the most
 // skilled runner on offer whenever it can afford the fee with cash to
-// spare, and replaces anyone whose loyalty has sunk to where they skim.
+// spare, posts every runner on the best free corner, and replaces anyone
+// whose loyalty has sunk to where they skim.
 func Crewed(cfg *content.Config, lieLowAt float64) Policy {
+	return Territory(cfg, lieLowAt, 0)
+}
+
+// Territory plays like Crewed but works at most corners corners (0 means
+// as many as it can staff), counting the one you stand on, and spends the
+// crew slots it has left on enforcers for the corners most likely to be
+// robbed. It is the baseline for "a player who takes ground".
+func Territory(cfg *content.Config, lieLowAt float64, corners int) Policy {
 	managed := Managed(cfg, lieLowAt)
 	tun := cfg.Crew.Crew
+	if corners <= 0 {
+		corners = len(cfg.City.Corners)
+	}
 	return func(w *game.World) {
 		w.SetPay(events.PayFair)
 		for _, m := range w.Crew.Members {
@@ -126,9 +138,17 @@ func Crewed(cfg *content.Config, lieLowAt float64) Policy {
 				break // one a day; each firing sours the rest
 			}
 		}
+		// Runners until the corners are staffed, then enforcers for them.
+		want := "runner"
+		if w.Crew.Runners()+1 >= corners {
+			want = "enforcer"
+		}
+		if n := w.Crew.Role("enforcer"); want == "enforcer" && n >= min(corners, w.Worked()) {
+			want = ""
+		}
 		best := -1
 		for i, c := range w.Crew.Candidates {
-			if c.Role != "runner" {
+			if c.Role != want {
 				continue
 			}
 			if best < 0 || c.Skill > w.Crew.Candidates[best].Skill {
@@ -141,8 +161,45 @@ func Crewed(cfg *content.Config, lieLowAt float64) Policy {
 				_, _ = w.Hire(c.ID, tun.MaxCrew)
 			}
 		}
+		// Every idle runner takes back a held corner nobody is working,
+		// else the biggest free one, up to the cap; every idle enforcer
+		// guards the riskiest unguarded one.
+		for _, m := range w.Crew.Members {
+			if w.PostOf(m.ID) != nil {
+				continue
+			}
+			switch m.Role {
+			case "runner":
+				if w.Worked() >= corners {
+					continue
+				}
+				c := pickCorner(w, func(c game.Corner) bool { return c.Held() && c.Runner == 0 }, func(c game.Corner) float64 { return c.Demand })
+				if c == nil {
+					c = pickCorner(w, func(c game.Corner) bool { return !c.Held() }, func(c game.Corner) float64 { return c.Demand })
+				}
+				if c != nil {
+					_ = w.Post(c.ID, m.ID)
+				}
+			case "enforcer":
+				if c := pickCorner(w, func(c game.Corner) bool { return c.Worked() && c.Enforcer == 0 }, func(c game.Corner) float64 { return c.Risk }); c != nil {
+					_ = w.Post(c.ID, m.ID)
+				}
+			}
+		}
 		managed(w)
 	}
+}
+
+// pickCorner returns the corner passing ok with the highest score, or nil.
+func pickCorner(w *game.World, ok func(game.Corner) bool, score func(game.Corner) float64) *game.Corner {
+	var best *game.Corner
+	for i := range w.Territory.Corners {
+		c := &w.Territory.Corners[i]
+		if ok(*c) && (best == nil || score(*c) > score(*best)) {
+			best = c
+		}
+	}
+	return best
 }
 
 // TierDays are the days each progression tier ends on (#24): the money

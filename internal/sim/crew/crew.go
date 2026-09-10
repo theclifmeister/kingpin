@@ -1,7 +1,7 @@
 // Package crew simulates the people on the payroll: who is looking for
 // work, what they cost, how loyal they feel and what they do about it.
-// Runners raise how much product the operation can move; disloyal crew skim
-// the takings and eventually walk.
+// Runners raise how much product the operation can hold and, posted on a
+// corner, work it; disloyal crew skim the takings and eventually walk.
 package crew
 
 import (
@@ -158,10 +158,11 @@ func (s *Sim) Step(w *game.World, t *game.Tick) {
 		m.Loyalty = math.Max(0, math.Min(100, m.Loyalty+d))
 	}
 
-	// 4. Quitting.
+	// 4. Quitting. Whoever walks leaves their corner unworked.
 	kept := c.Members[:0]
 	for _, m := range c.Members {
 		if m.Loyalty <= tun.QuitThreshold {
+			w.Recall(m.ID)
 			t.Emit(events.CrewQuit{Day: t.Day, Name: m.Name, Role: m.Role})
 			continue
 		}

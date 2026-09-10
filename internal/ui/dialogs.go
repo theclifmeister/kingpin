@@ -205,11 +205,10 @@ func (m *Model) confirmSell() (tea.Model, tea.Cmd) {
 // estHeat is what the heat sim will charge for this order, plus the sloppy
 // crew premium on the units it expects to move.
 func (m *Model) estHeat(id string, qty int, dial events.Dial) float64 {
-	p := m.w.Market[id]
-	if p == nil {
+	if m.w.Market[id] == nil {
 		return 0
 	}
-	moved := min(qty, m.set.Market.Capacity(m.w, p, dial))
+	moved := min(qty, m.set.Market.Capacity(m.w, id, dial))
 	return m.set.Heat.SaleHeat(m.w, id, qty, dial) + m.set.Heat.SloppyHeat(m.w, moved)
 }
 
@@ -228,7 +227,7 @@ func (m *Model) viewDialog() string {
 		if buy {
 			line = fmt.Sprintf("%-8s  %8s/unit   have %d", pm.Name, price(pm.SupplierPrice), w.Player.Stock[pid])
 		} else {
-			line = fmt.Sprintf("%-8s  %8s/unit   have %d   demand ~%.0f", pm.Name, price(pm.Price), w.Player.Stock[pid], pm.Demand)
+			line = fmt.Sprintf("%-8s  %8s/unit   have %d   demand ~%.0f", pm.Name, price(pm.Price), w.Player.Stock[pid], w.Demand(pid))
 		}
 		if i == m.cursor {
 			b.WriteString(theme.Gold.Render("▸ ") + theme.Selected.Render(line) + "\n")
@@ -274,10 +273,13 @@ func (m *Model) viewDialog() string {
 		}
 		b.WriteString("Dial      " + strings.Join(cells, " ") + "\n")
 		dc := m.set.Market.Dial(d.dial)
-		est := min(qty, m.set.Market.Capacity(w, p, d.dial))
+		est := min(qty, m.set.Market.Capacity(w, id, d.dial))
 		b.WriteString(fmt.Sprintf("Expect    ~%d of %d sold at ~%s  =  ~%s\n", est, qty, price(p.Price*dc.Price), theme.Gold.Render(money(int(float64(est)*p.Price*dc.Price)))))
 		h := m.estHeat(id, qty, d.dial)
 		b.WriteString(fmt.Sprintf("Heat      %s   %s\n", heatStyle(w.Heat.Value+h*4).Render(fmt.Sprintf("+%.1f", h)), theme.Subtle.Render(dialBlurb(d.dial))))
+		if w.Worked() == 0 {
+			b.WriteString(theme.Bad.Render("You hold no corner: nothing will sell. Claim one on the map (5).") + "\n")
+		}
 	}
 
 	if d.err != "" {

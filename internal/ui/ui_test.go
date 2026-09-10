@@ -78,15 +78,41 @@ func TestRendersAtCommonSizes(t *testing.T) {
 			m.Update(key("h"))
 		}
 		m.w.Crew.LastSkim = m.w.Day
-		for _, s := range []string{"1", "2", "3", "4"} {
+		// Post the crew across the map so every cell shape is drawn.
+		m.Update(key("5"))
+		for i := range m.w.Territory.Corners {
+			m.mapCursor = i
+			m.Update(key("c"))
+			assertFits(t, m.View(), sz[0], sz[1], "post picker")
+			m.Update(key("j"))
+			m.Update(key("enter"))
+			m.Update(key("e"))
+			m.Update(key("enter"))
+		}
+		m.w.Territory.Corners[0].Owner = game.OwnerRival
+		for i := range m.w.Territory.Corners {
+			m.mapCursor = i
+			assertFits(t, m.View(), sz[0], sz[1], "map")
+		}
+		for _, s := range []string{"1", "2", "3", "4", "5"} {
 			m.Update(key(s))
 			assertFits(t, m.View(), sz[0], sz[1], "screen "+s)
 		}
+		m.Update(key("4"))
 		m.Update(key("f"))
 		assertFits(t, m.View(), sz[0], sz[1], "fire confirm")
 		m.Update(key("y"))
+		m.w.Player.Stock[m.w.Products[0]] = 200
+		m.Update(key("s"))
+		m.Update(key("enter"))
+		m.Update(key("enter"))
+		m.Update(key("enter"))
+		m.w.Corner(m.cfg.City.Territory.Start).Risk = 100 // a robbery for the report
 		m.Update(key("n"))
 		assertFits(t, m.View(), sz[0], sz[1], "report with crew")
+		if len(m.w.Report.Territory) == 0 {
+			t.Fatalf("%dx%d: report has no territory lines: %+v", sz[0], sz[1], m.w.Report)
+		}
 		m.Update(key("enter"))
 		m.Update(key("1"))
 		m.Update(key("b"))
@@ -104,7 +130,7 @@ func TestRendersAtCommonSizes(t *testing.T) {
 		// next day unlocks every rung of the product ladder.
 		m.w.Player.DirtyCash = 1_234_567_890
 		m.w.Stats.PeakCash = m.w.Player.DirtyCash
-		for _, s := range []string{"1", "2", "3", "4"} {
+		for _, s := range []string{"1", "2", "3", "4", "5"} {
 			m.Update(key(s))
 			assertFits(t, m.View(), sz[0], sz[1], "rich screen "+s)
 		}
@@ -122,7 +148,7 @@ func TestRendersAtCommonSizes(t *testing.T) {
 		}
 		last := m.w.Products[len(m.w.Products)-1]
 		m.w.Player.Stock[last] = 20
-		for _, s := range []string{"1", "2"} {
+		for _, s := range []string{"1", "2", "5"} {
 			m.Update(key(s))
 			assertFits(t, m.View(), sz[0], sz[1], "ladder screen "+s)
 		}
@@ -302,6 +328,7 @@ func TestOldSaveIsMigrated(t *testing.T) {
 	w.SchemaVersion = 1
 	w.Day = 9
 	w.Crew = game.CrewState{}
+	w.Territory = game.TerritoryState{}
 	if err := game.Save(w); err != nil {
 		t.Fatal(err)
 	}
@@ -317,8 +344,13 @@ func TestOldSaveIsMigrated(t *testing.T) {
 	if len(m.w.Crew.Candidates) == 0 || m.w.Crew.Pay != events.PayFair {
 		t.Fatalf("migrated crew state: %+v", m.w.Crew)
 	}
+	if m.w.Worked() != 1 || m.w.Corner(m.cfg.City.Territory.Start).Runner != game.You {
+		t.Fatalf("migrated territory: %d worked, corners %+v", m.w.Worked(), m.w.Territory.Corners)
+	}
 	m.Update(key("4"))
 	assertFits(t, m.View(), 80, 24, "crew screen after migration")
+	m.Update(key("5"))
+	assertFits(t, m.View(), 80, 24, "map after migration")
 }
 
 // A save this build cannot read is refused with a readable message and the
@@ -378,5 +410,108 @@ func TestArrowsSwitchTabs(t *testing.T) {
 	m.Update(key("right"))
 	if m.mode != modeSell || m.dlg.dial != events.DialAggressive || m.screen != screenDashboard {
 		t.Fatalf("right in the sell dialog: mode %v dial %v screen %v", m.mode, m.dlg.dial, m.screen)
+	}
+}
+
+// The map screen: c posts a runner (you, or one of the crew) on the
+// selected corner and claims it, e posts an enforcer, a abandons; the
+// dashboard says so when nothing is held; none of it happens elsewhere.
+func TestMapScreenKeys(t *testing.T) {
+	m := newTestModel(t, 100, 30)
+	m.w.Player.DirtyCash = 5000
+	start := m.w.Corner(m.cfg.City.Territory.Start)
+	if m.screen != screenDashboard || m.w.Territory.Corners[m.mapCursor].ID != start.ID {
+		t.Fatalf("cursor starts on corner %d, not yours", m.mapCursor)
+	}
+	m.Update(key("c"))
+	if m.mode != modePlay || !strings.Contains(m.status, "map") {
+		t.Fatalf("c on the dashboard: mode %v status %q", m.mode, m.status)
+	}
+	m.w.Crew.Members = append(m.w.Crew.Members,
+		game.CrewMember{ID: 101, Name: "Dre", Role: "runner", Skill: 60, Loyalty: 70, Units: 120, Wage: 56},
+		game.CrewMember{ID: 102, Name: "Tank", Role: "enforcer", Skill: 50, Loyalty: 70, Wage: 55},
+	)
+	m.w.Crew.NextID = 102
+	runner, enforcer := m.w.Crew.Member(101), m.w.Crew.Member(102)
+	m.Update(key("5"))
+	if m.screen != screenMap {
+		t.Fatalf("screen %v", m.screen)
+	}
+	// Move to a free corner and post the runner: the picker lists you first.
+	m.Update(key("j"))
+	target := m.w.Territory.Corners[m.mapCursor]
+	if target.ID == start.ID {
+		m.Update(key("j"))
+		target = m.w.Territory.Corners[m.mapCursor]
+	}
+	m.Update(key("c"))
+	if m.mode != modePost || m.postRole != "runner" {
+		t.Fatalf("c on the map: mode %v role %q", m.mode, m.postRole)
+	}
+	rows := m.postRows("runner")
+	if rows[0].ID != game.You {
+		t.Fatalf("picker rows %+v", rows)
+	}
+	for i, r := range rows {
+		if r.ID == runner.ID {
+			for j := 0; j < i; j++ {
+				m.Update(key("j"))
+			}
+		}
+	}
+	m.Update(key("enter"))
+	c := m.w.Corner(target.ID)
+	if m.mode != modePlay || !c.Worked() || c.Runner != runner.ID || m.w.Held() != 2 {
+		t.Fatalf("after posting: mode %v corner %+v held %d status %q", m.mode, *c, m.w.Held(), m.status)
+	}
+	m.Update(key("e"))
+	m.Update(key("enter"))
+	if c.Enforcer != enforcer.ID {
+		t.Fatalf("after posting an enforcer: %+v status %q", *c, m.status)
+	}
+	assertFits(t, m.View(), 100, 30, "map with posts")
+	// Firing the runner leaves the corner held but unworked; the day
+	// report and the dashboard both say so once it drifts.
+	m.Update(key("4"))
+	for i, r := range m.crewRows() {
+		if r.ID == runner.ID {
+			m.crewCursor = i
+		}
+	}
+	m.Update(key("f"))
+	m.Update(key("y"))
+	if c.Runner != 0 || !c.Held() {
+		t.Fatalf("after firing the runner: %+v", *c)
+	}
+	for i := 0; i < m.cfg.City.Territory.DriftDays; i++ {
+		m.Update(key("n"))
+		m.Update(key("enter"))
+	}
+	if c.Held() || c.Enforcer != 0 {
+		t.Fatalf("corner did not drift: %+v", *c)
+	}
+	if !strings.Contains(strings.Join(m.w.Report.Territory, "\n"), target.Name) {
+		t.Fatalf("report does not mention %s: %v", target.Name, m.w.Report.Territory)
+	}
+	// Abandon your own corner: nothing sells and the dashboard says why.
+	m.Update(key("5"))
+	m.mapCursor = m.yourCorner()
+	m.Update(key("a"))
+	if m.w.Worked() != 0 {
+		t.Fatalf("abandon: %d worked, status %q", m.w.Worked(), m.status)
+	}
+	m.Update(key("1"))
+	if !strings.Contains(stripANSI(m.View()), "hold no corner") {
+		t.Fatal("dashboard does not say why nothing sells")
+	}
+	m.w.Player.Stock[m.w.Products[0]] = 10
+	m.Update(key("s"))
+	m.Update(key("enter"))
+	m.Update(key("enter"))
+	assertFits(t, m.View(), 100, 30, "sell dialog with no corner")
+	m.Update(key("enter"))
+	m.Update(key("n"))
+	if m.w.Player.Stock[m.w.Products[0]] != 10 {
+		t.Fatalf("sold %d units with no corner", 10-m.w.Player.Stock[m.w.Products[0]])
 	}
 }

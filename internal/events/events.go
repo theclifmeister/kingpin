@@ -185,3 +185,34 @@ type CrewPaid struct {
 }
 
 func (CrewPaid) Kind() string { return "CrewPaid" }
+
+// CornerClaimed records a corner the player took during the day.
+type CornerClaimed struct {
+	Day    int
+	Corner string // corner id
+	Name   string
+	Worker string // who is on it: "you" or a crew member's name
+}
+
+func (CornerClaimed) Kind() string { return "CornerClaimed" }
+
+// CornerLost records a corner going back to the street, or to a rival.
+type CornerLost struct {
+	Day    int
+	Corner string
+	Name   string
+	Reason string // idle, taken
+}
+
+func (CornerLost) Kind() string { return "CornerLost" }
+
+// CornerRobbed is a stick-up on a worked corner: cash and product gone.
+type CornerRobbed struct {
+	Day       int
+	Corner    string
+	Name      string
+	Cash      int
+	StockLost map[string]int
+}
+
+func (CornerRobbed) Kind() string { return "CornerRobbed" }
