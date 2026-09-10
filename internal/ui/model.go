@@ -42,6 +42,7 @@ const (
 	modeOver
 	modeConfirmNew
 	modeConfirmFire
+	modeConfirmEnd
 	modeHelp
 )
 
@@ -205,6 +206,14 @@ func (m *Model) handleKey(k tea.KeyMsg) (tea.Model, tea.Cmd) {
 			m.mode = modePlay
 		}
 		return m, nil
+	case modeConfirmEnd:
+		switch key {
+		case "y", "Y", "enter":
+			m.endDay()
+		default:
+			m.mode = modePlay
+		}
+		return m, nil
 	case modeHelp:
 		m.mode = modePlay
 		return m, nil
@@ -283,6 +292,8 @@ func (m *Model) keyPlay(key string) (tea.Model, tea.Cmd) {
 		m.screen = (m.screen + screenCount - 1) % screenCount
 	case "n":
 		m.endDay()
+	case "enter":
+		m.mode = modeConfirmEnd
 	case "r":
 		if m.w.Report != nil {
 			m.mode = modeReport
@@ -388,6 +399,15 @@ func (m *Model) View() string {
 			name = c.Name
 		}
 		body = m.modal("FIRE "+strings.ToUpper(name)+"?", "No severance in this business. The rest of the crew\nwill take it personally.\n\n"+theme.Key.Render("y")+" yes   "+theme.Key.Render("any other key")+" no")
+	case modeConfirmEnd:
+		what := "No sales queued."
+		switch {
+		case m.w.LieLow:
+			what = "Lying low today."
+		case len(m.w.Orders) > 0:
+			what = fmt.Sprintf("%d order(s) queued.", len(m.w.Orders))
+		}
+		body = m.modal("END THE DAY?", what+" The sims step and the run autosaves.\n\n"+theme.Key.Render("enter")+" / "+theme.Key.Render("y")+" end the day   "+theme.Key.Render("any other key")+" back")
 	case modeHelp:
 		body = m.viewHelp()
 	default:
@@ -474,6 +494,8 @@ func (m *Model) viewFooter() string {
 		keys = k("↑↓", "pick") + k("enter", "next") + k("esc", "back")
 	case modeOver:
 		keys = k("enter", "new run") + k("q", "quit")
+	case modeConfirmEnd:
+		keys = k("enter", "end day") + k("esc", "back")
 	case modeHelp, modeConfirmNew, modeConfirmFire:
 		keys = k("any key", "close")
 	default:
@@ -537,6 +559,7 @@ func (m *Model) viewHelp() string {
 	rows := [][2]string{
 		{"1 2 3 4 / tab", "switch screen"},
 		{"n", "end the day (sims step, autosave)"},
+		{"enter", "end the day, after a confirmation"},
 		{"b", "buy from the supplier"},
 		{"s", "queue a street sale with the dial"},
 		{"x", "cancel the order on the selected product"},
