@@ -118,6 +118,9 @@ type HeatTuning struct {
 	CooldownDays       int     `toml:"cooldown_days"`
 	EvidenceArrest     int     `toml:"evidence_arrest"`
 	CrewHeat           float64 `toml:"crew_heat"`
+	InformantDays      int     `toml:"informant_days"`
+	InformantEvidence  int     `toml:"informant_evidence"`
+	InformantHeat      float64 `toml:"informant_heat"`
 	SloppySkill        int     `toml:"sloppy_skill"`
 	SloppyHeat         float64 `toml:"sloppy_heat"`
 	AuditHeat          float64 `toml:"audit_heat"`     // heat an audited front adds the morning after
@@ -137,9 +140,24 @@ type ResponseConfig struct {
 
 // CrewConfig mirrors crew.toml.
 type CrewConfig struct {
-	Crew CrewTuning            `toml:"crew"`
-	Pay  PayTable              `toml:"pay"`
-	Role map[string]RoleConfig `toml:"role"`
+	Crew      CrewTuning            `toml:"crew"`
+	Informant InformantTuning       `toml:"informant"`
+	Pay       PayTable              `toml:"pay"`
+	Role      map[string]RoleConfig `toml:"role"`
+}
+
+// InformantTuning is who turns, and what finding and keeping them costs.
+type InformantTuning struct {
+	Loyalty            float64 `toml:"loyalty"`
+	Nerve              int     `toml:"nerve"`
+	Chance             float64 `toml:"chance"`
+	InvestigateCost    int     `toml:"investigate_cost"`
+	InvestigateBase    float64 `toml:"investigate_base"`
+	InvestigateSkill   float64 `toml:"investigate_skill"`
+	InvestigateLearn   float64 `toml:"investigate_learn"`
+	InvestigateLoyalty float64 `toml:"investigate_loyalty"`
+	PayoffWages        int     `toml:"payoff_wages"`
+	PayoffLoyalty      float64 `toml:"payoff_loyalty"`
 }
 
 type CrewTuning struct {

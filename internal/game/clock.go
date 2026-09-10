@@ -66,9 +66,11 @@ func (c *Clock) EndDay(w *World) []events.Event {
 	w.Buys = nil
 	w.LieLow = false
 	w.Strike = nil
+	w.Investigation = nil
 	w.UpgradesToday = nil
 	w.Crew.HiredToday = nil
 	w.Crew.FiredToday = nil
+	w.Crew.PaidOffToday = nil
 	for _, m := range w.Market {
 		m.BoughtToday = 0
 	}

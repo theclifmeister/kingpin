@@ -33,6 +33,7 @@ load; a save from a newer build than the one you are running is refused.
 | `x` | Cancel the queued order on the selected product |
 | `l` | Lie low today: no sales, heat fades faster |
 | `h` / `f` | Hire / fire the selected person (crew screen) |
+| `i` / `$` | Investigate who is talking / pay off the selected person (crew screen) |
 | `p` | Cycle crew pay: stingy / fair / generous |
 | `c` / `e` / `a` | Post a runner / an enforcer / abandon the selected corner (map) |
 | `u` / `enter` | Buy the selected upgrade, after a confirmation (upgrades) |
@@ -62,7 +63,16 @@ run is fully reproducible and nothing about the RNG needs saving.
   reach; accountants put more through every front and keep the auditors
   away. The pay dial trades wages for loyalty; loyalty also falls with
   greed, danger and firings. Below a threshold a member skims the takings,
-  or the wash, and at the floor they walk.
+  or the wash (the report says so without naming names); lower still, the
+  nervous start talking to the police, feeding the DA's file every few days
+  whatever you sell, and a raid goes straight to your stash. The roster
+  never shows it: the tell is a file that grows without a bust and a heat
+  delta the dial does not explain, and after two of those the screens hint
+  at it. Investigating (`i`) names them with odds that scale with your best
+  enforcer's skill; firing them stops it. An audit turns a disloyal
+  accountant the same way. At the floor a member walks, or,
+  while the rival holds ground, defects to it and walks it onto the corner
+  they ran.
 - **Heat** rises with the volume you *tried* to move and how loud the dial
   was, plus a little for sitting on a pile of dirty cash. Units your crew
   moves count at a discount, but sloppy low-skill runners add a premium. It
@@ -96,15 +106,18 @@ go run ./cmd/balance -policy aggressive -seed 7 -trace
 ```
 
 Policies: `idle`, `hide`, `quiet`, `normal`, `aggressive`, `careful`,
-`managed`, `upgraded`, `crewed`, `territory`, `war`, `laundered`. `-own
-stash,burners` starts every run owning those upgrades. The tests in
-`internal/harness` assert the shape of the difficulty curve: always-aggressive
-is indicted within 40 days, always-quiet survives, a player who sells normally
-but lies low when hot out-earns both, one who spends on the tree out-earns
-that, one who builds a crew out-earns that, one who also washes the money
-out-earns *that* and is never indicted for sitting on the pile, and the
-Security branch buys an aggressive player time without buying them out of the
-indictment. `TestMoneyCurve` pins the scale per tier.
+`managed`, `upgraded`, `crewed`, `vigilant`, `territory`, `war`, `laundered`.
+`-own stash,burners` starts every run owning those upgrades; `-snitch` starts
+it with an informant on the payroll. The tests in `internal/harness` assert
+the shape of the difficulty curve: always-aggressive is indicted within 40
+days, always-quiet survives, a player who sells normally but lies low when
+hot out-earns both, one who spends on the tree out-earns that, one who builds
+a crew out-earns that, one who also washes the money out-earns *that* and is
+never indicted for sitting on the pile, the Security branch buys an
+aggressive player time without buying them out of the indictment, and an
+informant nobody looks for indicts the always-quiet player within
+`harness.SnitchDays` while one who reads the report (`vigilant`) survives.
+`TestMoneyCurve` pins the scale per tier.
 
 ## Layout
 

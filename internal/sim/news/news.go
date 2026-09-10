@@ -86,7 +86,7 @@ func (s *Sim) Step(w *game.World, t *game.Tick) {
 	base := data{City: w.City}
 
 	// Money before we look at events: sales are already applied by market.
-	var soldRevenue, lostCash, spent, wages, skimmed, robbed, upgrades, upkeep, seized int
+	var soldRevenue, lostCash, spent, wages, skimmed, robbed, upgrades, upkeep, seized, paidOff, investigated int
 	for _, e := range t.Events() {
 		switch ev := e.(type) {
 		case events.UpgradeBought:
@@ -144,6 +144,9 @@ func (s *Sim) Step(w *game.World, t *game.Tick) {
 			d.Level = ev.Level
 			add("heat", "Enforcement"+capitalize(ev.Level), d)
 			rep.Heat = append(rep.Heat, enforcementLine(w, ev))
+			if ev.Stash {
+				rep.Heat = append(rep.Heat, "  they went straight to the stash. Somebody told them where.")
+			}
 			if ev.Level == "sting" || ev.Level == "raid" {
 				if ev.Evidence > 0 {
 					rep.Heat = append(rep.Heat, fmt.Sprintf("  the DA's file on you grows (%d)", w.Heat.Evidence))
@@ -162,8 +165,35 @@ func (s *Sim) Step(w *game.World, t *game.Tick) {
 		case events.CrewFired:
 			d := base
 			d.Name, d.Role = ev.Name, ev.Role
-			add("crew", "CrewFired", d)
-			rep.Crew = append(rep.Crew, fmt.Sprintf("You let %s go. The others noticed.", ev.Name))
+			if ev.Informant {
+				add("crew", "CrewFiredInformant", d)
+				rep.Crew = append(rep.Crew, fmt.Sprintf("You let %s go. Word is they had been talking to the police. Nobody mourned.", ev.Name))
+			} else {
+				add("crew", "CrewFired", d)
+				rep.Crew = append(rep.Crew, fmt.Sprintf("You let %s go. The others noticed.", ev.Name))
+			}
+		case events.CrewDefected:
+			d := base
+			d.Name, d.Role, d.Rival, d.Corner = ev.Name, ev.Role, ev.Rival, ev.CornerName
+			add("crew", "CrewDefected", d)
+			if ev.Corner != "" {
+				rep.Crew = append(rep.Crew, fmt.Sprintf("%s went over to %s, and they know %s. Expect trouble there.", ev.Name, ev.Rival, ev.CornerName))
+			} else {
+				rep.Crew = append(rep.Crew, fmt.Sprintf("%s went over to %s.", ev.Name, ev.Rival))
+			}
+		case events.InvestigationRun:
+			investigated += ev.Cost
+			add("crew", "InvestigationRun", base)
+			if ev.Found {
+				rep.Crew = append(rep.Crew, fmt.Sprintf("The investigation named %s: they have been talking to the police. Fire them (f) and the file stops growing.", ev.Name))
+			} else {
+				rep.Crew = append(rep.Crew, "The investigation named nobody. The crew resent being asked.")
+			}
+			rep.Money = append(rep.Money, fmt.Sprintf("Investigation -$%d", ev.Cost))
+		case events.CrewPaidOff:
+			paidOff += ev.Cost
+			rep.Crew = append(rep.Crew, fmt.Sprintf("%s took your money and stays sweet on you, for now.", ev.Name))
+			rep.Money = append(rep.Money, fmt.Sprintf("Paid off %s -$%d", ev.Name, ev.Cost))
 		case events.CrewQuit:
 			d := base
 			d.Name, d.Role = ev.Name, ev.Role
@@ -215,10 +245,15 @@ func (s *Sim) Step(w *game.World, t *game.Tick) {
 		case events.CornerTaken:
 			d := base
 			d.Corner, d.Rival = ev.Name, ev.Rival
-			if ev.From == game.OwnerPlayer {
+			switch {
+			case ev.Handed != "":
+				d.Name = ev.Handed
+				add("rivals", "CornerHanded", d)
+				rep.Territory = append(rep.Territory, fmt.Sprintf("%s walked %s's crew onto %s. It is theirs now.", ev.Handed, ev.Rival, ev.Name))
+			case ev.From == game.OwnerPlayer:
 				add("rivals", "CornerTaken", d)
 				rep.Territory = append(rep.Territory, fmt.Sprintf("%s's crew TOOK %s from you. Your people walked home.", ev.Rival, ev.Name))
-			} else {
+			default:
 				add("rivals", "RivalClaimed", d)
 				rep.Territory = append(rep.Territory, fmt.Sprintf("%s's crew set up on %s.", ev.Rival, ev.Name))
 			}
@@ -319,7 +354,7 @@ func (s *Sim) Step(w *game.World, t *game.Tick) {
 		spent += m.Fee
 		rep.Money = append(rep.Money, fmt.Sprintf("Signing fee for %s -$%d", m.Name, m.Fee))
 	}
-	rep.CashBefore = w.Cash() - soldRevenue + lostCash + spent + wages + skimmed + robbed + upgrades + upkeep + seized
+	rep.CashBefore = w.Cash() - soldRevenue + lostCash + spent + wages + skimmed + robbed + upgrades + upkeep + seized + paidOff + investigated
 	if soldRevenue > 0 {
 		rep.Money = append(rep.Money, fmt.Sprintf("Street sales +$%d", soldRevenue))
 	}

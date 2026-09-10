@@ -19,10 +19,14 @@ import (
 // Sim is the laundering simulation.
 type Sim struct {
 	cfg content.LaunderingConfig
+	inf content.InformantTuning
 }
 
-// New builds a laundering sim from config.
-func New(cfg content.LaunderingConfig) *Sim { return &Sim{cfg: cfg} }
+// New builds a laundering sim from config. It takes the crew config for
+// the loyalty line under which an audited front's accountant talks.
+func New(cfg content.LaunderingConfig, crew content.CrewConfig) *Sim {
+	return &Sim{cfg: cfg, inf: crew.Informant}
+}
 
 func (s *Sim) Name() string { return "laundering" }
 
@@ -148,6 +152,28 @@ func (s *Sim) Upkeep(w *game.World) int {
 	return n
 }
 
+// flip turns the least loyal accountant under the informant loyalty line
+// who is not already talking, if there is one, and reports it the way the
+// crew sim does: bookkeeping, never a headline.
+func (s *Sim) flip(w *game.World, t *game.Tick) {
+	var pick *game.CrewMember
+	for i := range w.Crew.Members {
+		m := &w.Crew.Members[i]
+		if m.Role != "accountant" || m.Informant || m.Loyalty >= s.inf.Loyalty {
+			continue
+		}
+		if pick == nil || m.Loyalty < pick.Loyalty {
+			pick = m
+		}
+	}
+	if pick == nil {
+		return
+	}
+	pick.Informant = true
+	w.Stats.Informants++
+	t.Emit(events.CrewTurnedInformant{Day: t.Day, ID: pick.ID, Name: pick.Name})
+}
+
 // AnyAuditRisk is the chance at least one open front is audited today.
 func (s *Sim) AnyAuditRisk(w *game.World) float64 {
 	clear := 1.0
@@ -214,6 +240,11 @@ func (s *Sim) Step(w *game.World, t *game.Tick) {
 		f.Audited = t.Day
 		f.AuditDial = dial
 		t.Emit(events.FrontAudited{Day: t.Day, Front: f.ID, Name: f.Name, Dial: dial, Seized: seized, Days: tun.AuditFreezeDays})
+
+		// 4. The auditors question the books' keeper. The least loyal
+		// accountant under the informant line (#13) is turned, no dice:
+		// the heat sim starts its clock the day nobody was talking ends.
+		s.flip(w, t)
 	}
 	if total > 0 || upkeep > 0 {
 		t.Emit(events.CashLaundered{Day: t.Day, Amount: total, Upkeep: upkeep, Fronts: washing})

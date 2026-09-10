@@ -122,7 +122,8 @@ type Enforcement struct {
 	Level     string // patrol, sting, raid, arrest
 	StockLost map[string]int
 	CashLost  int
-	Evidence  int // what went in the DA's file; 0 when a sting or raid found nothing to build a case on
+	Evidence  int  // what went in the DA's file; 0 when a sting or raid found nothing to build a case on
+	Stash     bool // a raid that went straight to the stash: somebody told them where
 }
 
 func (Enforcement) Kind() string { return "Enforcement" }
@@ -150,11 +151,14 @@ type CrewHired struct {
 
 func (CrewHired) Kind() string { return "CrewHired" }
 
-// CrewFired records a member the player let go during the day.
+// CrewFired records a member the player let go during the day. Informant
+// says they had been talking to the police: the file stops growing, and
+// the rest of the crew do not hold it against you.
 type CrewFired struct {
-	Day  int
-	Name string
-	Role string
+	Day       int
+	Name      string
+	Role      string
+	Informant bool
 }
 
 func (CrewFired) Kind() string { return "CrewFired" }
@@ -168,6 +172,44 @@ type CrewQuit struct {
 
 func (CrewQuit) Kind() string { return "CrewQuit" }
 
+// CrewTurnedInformant is a member starting to talk to the police. It is
+// bookkeeping for the heat sim, which starts the leak clock on it; it is
+// never published as a headline, the roster never shows it, and the
+// report only ever shows its effects.
+type CrewTurnedInformant struct {
+	Day  int
+	ID   int
+	Name string
+}
+
+func (CrewTurnedInformant) Kind() string { return "CrewTurnedInformant" }
+
+// CrewDefected is a member whose loyalty bottomed out going over to the
+// rival, taking what they knew about the corner they ran (Corner is empty
+// if they ran none).
+type CrewDefected struct {
+	Day        int
+	Name       string
+	Role       string
+	Rival      string
+	Corner     string
+	CornerName string
+}
+
+func (CrewDefected) Kind() string { return "CrewDefected" }
+
+// InvestigationRun is the result of the player's questions: Found names
+// the informant; otherwise nobody was named, whether or not there was
+// one, and the crew resent being asked.
+type InvestigationRun struct {
+	Day   int
+	Cost  int
+	Found bool
+	Name  string
+}
+
+func (InvestigationRun) Kind() string { return "InvestigationRun" }
+
 // CrewSkimmed reports takings that went missing. It never names names.
 // FromWash is the part of Amount an accountant took out of the wash, in
 // clean cash.
@@ -179,6 +221,16 @@ type CrewSkimmed struct {
 }
 
 func (CrewSkimmed) Kind() string { return "CrewSkimmed" }
+
+// CrewPaidOff is report-only bookkeeping: a member the player paid for
+// loyalty during the day.
+type CrewPaidOff struct {
+	Day  int
+	Name string
+	Cost int
+}
+
+func (CrewPaidOff) Kind() string { return "CrewPaidOff" }
 
 // CrewPaid is the day's wage bill. Short is what could not be covered.
 type CrewPaid struct {
@@ -255,13 +307,15 @@ type RivalMovedIn struct {
 func (RivalMovedIn) Kind() string { return "RivalMovedIn" }
 
 // CornerTaken is a corner the rival gained: claimed free (From none) or
-// flipped from the player (From player), whose people walked back.
+// flipped from the player (From player), whose people walked back. Handed
+// names the defector who walked the rival onto it, if that is how.
 type CornerTaken struct {
 	Day    int
 	Corner string
 	Name   string
 	Rival  string
 	From   string // none, player
+	Handed string
 }
 
 func (CornerTaken) Kind() string { return "CornerTaken" }

@@ -71,7 +71,8 @@ func TestLoyaltyMonotoneInPay(t *testing.T) {
 
 // A member never skims on a day they woke up at or above the threshold.
 // Stingy pay with a full crew is where skimming happens, so the same runs
-// also prove the mechanic fires at all.
+// also prove the mechanic fires at all, and that people at the bottom
+// leave, by walking or by going over to the rival.
 func TestSkimOnlyBelowThreshold(t *testing.T) {
 	cfg := content.MustLoad()
 	thr := cfg.Crew.Crew.SkimThreshold
@@ -104,13 +105,13 @@ func TestSkimOnlyBelowThreshold(t *testing.T) {
 				if morning := days[ev.Day-1]; morning >= thr {
 					t.Fatalf("seed %d day %d: skim with lowest loyalty %.1f >= threshold %.0f", seed, ev.Day, morning, thr)
 				}
-			case events.CrewQuit:
+			case events.CrewQuit, events.CrewDefected:
 				quits++
 			}
 		}
 	}
 	if skims == 0 || quits == 0 {
-		t.Fatalf("stingy pay produced %d skims and %d quits over 10 seeds; the mechanic is dead", skims, quits)
+		t.Fatalf("stingy pay produced %d skims and %d quits or defections over 10 seeds; the mechanic is dead", skims, quits)
 	}
 }
 

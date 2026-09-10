@@ -206,6 +206,28 @@ func (s *Sim) Step(w *game.World, t *game.Tick) {
 		s.strike(w, t, o)
 	}
 
+	// 3b. Defectors: each one joins its muscle, and walks it onto the
+	// corner they ran if nobody stands there; if somebody does, it is a
+	// push like any other, with the defector's help counted in.
+	for _, l := range r.Leads {
+		r.Muscle++
+		r.Observed = true
+		c := w.Corner(l.Corner)
+		if c == nil || !c.Held() {
+			continue
+		}
+		if s.Guard(w, c) == 0 || t.RNG.Float64() < s.PushOdds(w, c) {
+			s.take(c, t.Day)
+			r.Flips++
+			w.Stats.CornersLost++
+			t.Emit(events.CornerTaken{Day: t.Day, Corner: c.ID, Name: c.Name, Rival: r.Leader, From: game.OwnerPlayer, Handed: l.Name})
+			continue
+		}
+		r.War += tun.PushWar
+		t.Emit(events.RivalPushed{Day: t.Day, Corner: c.ID, Name: c.Name, Rival: r.Leader})
+	}
+	r.Leads = nil
+
 	// 4. Claims: a free corner, by personality, up to what it wants.
 	if w.RivalHeld() < pc.MaxCorners && r.Cash >= tun.ClaimCost && (r.Routed == 0 || t.Day-r.Routed >= tun.RegroupDays) && t.RNG.Float64() < pc.ClaimChance {
 		if c := s.pickFree(w, t.RNG, w.RivalHeld() == 0); c != nil {

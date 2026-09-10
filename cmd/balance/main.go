@@ -19,7 +19,7 @@ import (
 func main() {
 	runs := flag.Int("runs", 20, "number of seeded runs")
 	days := flag.Int("days", harness.Horizon, "days to play each run for; a measuring horizon, the game itself has no cap")
-	policy := flag.String("policy", "normal", "idle | hide | quiet | normal | aggressive | careful | managed | upgraded | crewed | territory | war | laundered")
+	policy := flag.String("policy", "normal", "idle | hide | quiet | normal | aggressive | careful | managed | upgraded | crewed | vigilant | territory | war | laundered")
 	corners := flag.Int("corners", 3, "corners the territory and war policies work, counting yours")
 	force := flag.String("force", "push", "warn | push | hit: how hard the war policy strikes")
 	rival := flag.String("rival", "", "force the rival's personality: expansionist | defensive | opportunist | chaotic (default by seed)")
@@ -28,6 +28,7 @@ func main() {
 	lieLow := flag.Float64("lielow", 0, "heat at which careful/managed/crewed lie low (0 = policy default)")
 	cash := flag.Int("cash", 0, "start every run with this much dirty cash instead of the default")
 	own := flag.String("own", "", "comma-separated upgrade ids every run owns from day 0, free (prerequisites first)")
+	snitch := flag.Bool("snitch", false, "start every run with an informant on the payroll (harness.Plant)")
 	flag.Parse()
 	at := func(def float64) float64 {
 		if *lieLow > 0 {
@@ -55,6 +56,8 @@ func main() {
 		p = harness.Upgraded(cfg, at(50))
 	case "crewed":
 		p = harness.Crewed(cfg, at(40))
+	case "vigilant":
+		p = harness.Vigilant(cfg, at(40))
 	case "territory":
 		p = harness.Territory(cfg, at(40), *corners)
 	case "war":
@@ -82,6 +85,7 @@ func main() {
 	robberies, robbed := 0, 0
 	var rivalHeld, takens []int
 	won, strikes, tips, crackdowns := 0, 0, 0, 0
+	informants, leaks, investigations, named, defections := 0, 0, 0, 0, 0
 	personalities := map[string]int{}
 	bought := map[string]int{}
 	audits, laundered, clean := 0, 0, 0
@@ -105,6 +109,9 @@ func main() {
 			w.Rival.Personality = *rival
 		}
 		harness.Own(cfg, w, owned...)
+		if *snitch {
+			harness.Plant(cfg, w)
+		}
 		res, err := harness.RunFrom(cfg, w, *days, pol)
 		if err != nil {
 			fmt.Fprintln(os.Stderr, err)
@@ -134,6 +141,21 @@ func main() {
 				}
 			case events.FrontAudited:
 				audits++
+			case events.CrewTurnedInformant:
+				informants++
+			case events.InvestigationRun:
+				investigations++
+				if ev.Found {
+					named++
+				}
+			case events.CrewDefected:
+				defections++
+			case events.HeatChanged:
+				for _, r := range ev.Reasons {
+					if strings.HasPrefix(r, "the DA's file") {
+						leaks++
+					}
+				}
 			}
 		}
 		robbed += res.World.Stats.Robbed
@@ -168,6 +190,9 @@ func main() {
 		rivalHeld[len(rivalHeld)/2], takens[0], takens[len(takens)/2], takens[len(takens)-1], float64(tips)/float64(*runs), crackdowns, personalities)
 	if strikes > 0 {
 		fmt.Printf("war:           %.1f strikes per run, %.1f corners won per run\n", float64(strikes)/float64(*runs), float64(won)/float64(*runs))
+	}
+	if informants+leaks+investigations+defections > 0 || *snitch {
+		fmt.Printf("snitching:     %d turned, %d pages leaked, %d investigations named %d, %d defections (totals over %d runs)\n", informants, leaks, investigations, named, defections, *runs)
 	}
 	if len(bought) > 0 {
 		var ids []string

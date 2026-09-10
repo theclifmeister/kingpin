@@ -251,3 +251,117 @@ func TestAccountantsFollowFronts(t *testing.T) {
 		t.Fatalf("the accountant took from the takings: dirty %d, expected at least %d", w.Player.DirtyCash, dirty)
 	}
 }
+
+// Only somebody under both the loyalty and the nerve line turns, the event
+// is bookkeeping (no name in the ticker is the news sim's job), and an
+// investigation names them with the odds the sim shows: at zero it names
+// nobody and costs everyone a little loyalty, at one it names them and
+// resets what the failures taught.
+func TestTurningAndInvestigation(t *testing.T) {
+	cfg := content.MustLoad()
+	inf := cfg.Crew.Informant
+	w, s := world(t, cfg, 1_000_000)
+	w.SetPay(events.PayGenerous)
+	w.Crew.Members = []game.CrewMember{
+		{ID: 1, Name: "Rat", Role: "runner", Skill: 50, Loyalty: inf.Loyalty - 1, Greed: 0, Nerve: inf.Nerve - 1, Wage: 50},
+		{ID: 2, Name: "Brave", Role: "runner", Skill: 50, Loyalty: inf.Loyalty - 1, Greed: 0, Nerve: inf.Nerve, Wage: 50},
+		{ID: 3, Name: "Loyal", Role: "enforcer", Skill: 50, Loyalty: inf.Loyalty, Greed: 0, Nerve: 0, Wage: 50},
+	}
+	w.Crew.NextID = 3
+	turned := 0
+	for day := 0; day < 60 && turned == 0; day++ {
+		turned += kinds(step(w, s))["CrewTurnedInformant"]
+	}
+	if turned != 1 || !w.Crew.Members[0].Informant || w.Crew.Members[1].Informant || w.Crew.Members[2].Informant || w.Stats.Informants != 1 {
+		t.Fatalf("after 60 days: %d turned, roster %+v", turned, w.Crew.Members)
+	}
+	for day := 0; day < 10; day++ {
+		if kinds(step(w, s))["CrewTurnedInformant"] != 0 {
+			t.Fatal("an informant turned twice")
+		}
+	}
+
+	// An investigation that cannot succeed.
+	cfgZero := *cfg
+	cfgZero.Crew.Informant.InvestigateBase, cfgZero.Crew.Informant.InvestigateSkill, cfgZero.Crew.Informant.InvestigateLearn = 0, 0, 0
+	zero := crew.New(cfgZero.Crew, cfgZero.Names)
+	if got := zero.InvestigateOdds(w); got != 0 {
+		t.Fatalf("odds with nothing to go on: %v", got)
+	}
+	loyal := map[int]float64{}
+	for _, m := range w.Crew.Members {
+		loyal[m.ID] = m.Loyalty
+	}
+	control := *w
+	control.Crew.Members = append([]game.CrewMember(nil), w.Crew.Members...)
+	control.Crew.Candidates = append([]game.CrewMember(nil), w.Crew.Candidates...)
+	if err := w.Investigate(inf.InvestigateCost); err != nil {
+		t.Fatal(err)
+	}
+	evs := step(w, zero)
+	step(&control, zero)
+	w.Investigation = nil
+	var run events.InvestigationRun
+	for _, e := range evs {
+		if ev, ok := e.(events.InvestigationRun); ok {
+			run = ev
+		}
+	}
+	if run.Day == 0 || run.Found || run.Name != "" || run.Cost != inf.InvestigateCost {
+		t.Fatalf("investigation that cannot succeed reported %+v", run)
+	}
+	if w.Crew.Investigated != 1 || w.Crew.Exposed != 0 || w.Stats.Investigations != 1 {
+		t.Fatalf("after a failed investigation: %+v", w.Crew)
+	}
+	for i, m := range w.Crew.Members {
+		want := control.Crew.Members[i].Loyalty - inf.InvestigateLoyalty
+		if m.Loyalty > want+1e-9 || m.Loyalty < want-1e-9 {
+			t.Fatalf("%s: loyalty %.1f after a failed investigation, control %.1f", m.Name, m.Loyalty, control.Crew.Members[i].Loyalty)
+		}
+	}
+	// What the failure taught shows in the odds.
+	if got, want := s.InvestigateOdds(w), inf.InvestigateBase+inf.InvestigateSkill*0.5+inf.InvestigateLearn; got < want-1e-9 || got > want+1e-9 {
+		t.Fatalf("odds after one failure with a skill-50 enforcer: %v, want %v", got, want)
+	}
+
+	// And one that cannot fail.
+	cfgSure := *cfg
+	cfgSure.Crew.Informant.InvestigateBase = 1
+	sure := crew.New(cfgSure.Crew, cfgSure.Names)
+	if err := w.Investigate(inf.InvestigateCost); err != nil {
+		t.Fatal(err)
+	}
+	evs = step(w, sure)
+	w.Investigation = nil
+	for _, e := range evs {
+		if ev, ok := e.(events.InvestigationRun); ok {
+			run = ev
+		}
+	}
+	if !run.Found || run.Name != "Rat" || w.Crew.Exposed != 1 || w.Crew.Investigated != 0 {
+		t.Fatalf("investigation that cannot fail reported %+v, crew %+v", run, w.Crew)
+	}
+
+	// Firing the informant does not sour the rest.
+	loyal = map[int]float64{}
+	for _, m := range w.Crew.Members {
+		loyal[m.ID] = m.Loyalty
+	}
+	if _, err := w.Fire(1); err != nil {
+		t.Fatal(err)
+	}
+	evs = step(w, s)
+	for _, e := range evs {
+		if ev, ok := e.(events.CrewFired); ok && !ev.Informant {
+			t.Fatalf("firing the informant reported as %+v", ev)
+		}
+	}
+	for _, m := range w.Crew.Members {
+		if m.Loyalty < loyal[m.ID] {
+			t.Fatalf("%s lost loyalty (%.1f -> %.1f) over the informant being fired", m.Name, loyal[m.ID], m.Loyalty)
+		}
+	}
+	if w.Crew.Informants() != 0 {
+		t.Fatal("the informant is still on the payroll")
+	}
+}

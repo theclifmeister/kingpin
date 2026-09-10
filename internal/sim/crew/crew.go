@@ -2,7 +2,10 @@
 // work, what they cost, how loyal they feel and what they do about it.
 // Runners raise how much product the operation can hold and, posted on a
 // corner, work it; accountants help the fronts wash; disloyal crew skim
-// the takings (or the wash) and eventually walk.
+// the takings (or the wash), the nervous among them start talking to the
+// police, and at the bottom they walk, or go over to the rival with the
+// corner they ran. The player's investigation into who is talking
+// resolves here too.
 package crew
 
 import (
@@ -47,6 +50,33 @@ func (s *Sim) Tuning() content.CrewTuning { return s.cfg.Crew }
 
 // MaxCrew is the roster cap.
 func (s *Sim) MaxCrew() int { return s.cfg.Crew.MaxCrew }
+
+// InvestigateCost is what asking questions costs.
+func (s *Sim) InvestigateCost() int { return s.cfg.Informant.InvestigateCost }
+
+// InvestigateOdds is the chance tonight's investigation names the
+// informant, if there is one: a base, plus the best enforcer's skill, plus
+// what every investigation that named nobody taught. The UI shows it, so
+// it is what the dice use.
+func (s *Sim) InvestigateOdds(w *game.World) float64 {
+	tun := s.cfg.Informant
+	best := 0
+	for _, m := range w.Crew.Members {
+		if m.Role == "enforcer" && m.Skill > best {
+			best = m.Skill
+		}
+	}
+	p := tun.InvestigateBase + tun.InvestigateSkill*float64(best)/100 + tun.InvestigateLearn*float64(w.Crew.Investigated)
+	return math.Max(0, math.Min(1, p))
+}
+
+// PayoffCost is what buying m's loyalty costs.
+func (s *Sim) PayoffCost(m game.CrewMember) int {
+	return m.Wage * s.cfg.Informant.PayoffWages
+}
+
+// PayoffLoyalty is what a pay-off buys.
+func (s *Sim) PayoffLoyalty() float64 { return s.cfg.Informant.PayoffLoyalty }
 
 // WageAt is what m costs per day at pay dial p.
 func (s *Sim) WageAt(m game.CrewMember, p events.Pay) int {
@@ -94,8 +124,15 @@ func (s *Sim) Step(w *game.World, t *game.Tick) {
 	for _, m := range c.HiredToday {
 		t.Emit(events.CrewHired{Day: t.Day, Name: m.Name, Role: m.Role, Fee: m.Fee})
 	}
+	fired := 0 // firings the rest hold against you: an informant's is not one
 	for _, m := range c.FiredToday {
-		t.Emit(events.CrewFired{Day: t.Day, Name: m.Name, Role: m.Role})
+		if !m.Informant {
+			fired++
+		}
+		t.Emit(events.CrewFired{Day: t.Day, Name: m.Name, Role: m.Role, Informant: m.Informant})
+	}
+	for _, p := range c.PaidOffToday {
+		t.Emit(events.CrewPaidOff{Day: t.Day, Name: p.Name, Cost: p.Cost})
 	}
 
 	// 1. Skimming, on this morning's loyalty. Street crew skim the day's
@@ -141,6 +178,21 @@ func (s *Sim) Step(w *game.World, t *game.Tick) {
 		}
 	}
 
+	// Turning, on the same morning loyalty: the disloyal and nervous start
+	// talking. Nothing is shown; the heat sim starts its clock on the event.
+	inf := s.cfg.Informant
+	for i := range c.Members {
+		m := &c.Members[i]
+		if m.Informant || m.Loyalty >= inf.Loyalty || m.Nerve >= inf.Nerve {
+			continue
+		}
+		if t.RNG.Float64() < inf.Chance {
+			m.Informant = true
+			w.Stats.Informants++
+			t.Emit(events.CrewTurnedInformant{Day: t.Day, ID: m.ID, Name: m.Name})
+		}
+	}
+
 	// 2. Wages. Coming up short is remembered.
 	short := 0
 	if len(c.Members) > 0 {
@@ -161,9 +213,37 @@ func (s *Sim) Step(w *game.World, t *game.Tick) {
 		return
 	}
 
-	// 3. Loyalty drift: pay, greed, danger, firings, unpaid wages, and for
-	// the enforcers, the strike they went on today: a toll from the rivals
-	// sim that the nervous feel most and a win halves.
+	// 3. The investigation: it names an informant with the odds the UI
+	// showed, or nobody, and being asked costs everyone a little loyalty
+	// either way when it comes up empty.
+	asked := false
+	if o := w.Investigation; o != nil {
+		ev := events.InvestigationRun{Day: t.Day, Cost: o.Cost}
+		w.Stats.Investigations++
+		if c.Informants() > 0 && t.RNG.Float64() < s.InvestigateOdds(w) {
+			pick := t.RNG.IntN(c.Informants())
+			for _, m := range c.Members {
+				if !m.Informant {
+					continue
+				}
+				if pick == 0 {
+					ev.Found, ev.Name = true, m.Name
+					c.Exposed = m.ID
+				}
+				pick--
+			}
+			c.Investigated = 0
+		} else {
+			asked = true
+			c.Investigated++
+		}
+		t.Emit(ev)
+	}
+
+	// 4. Loyalty drift: pay, greed, danger, firings, unpaid wages, an
+	// investigation that named nobody, and for the enforcers, the strike
+	// they went on today: a toll from the rivals sim that the nervous feel
+	// most and a win halves.
 	toll := 0.0
 	for _, e := range t.Events() {
 		if cs, ok := e.(events.CornerStruck); ok {
@@ -182,9 +262,12 @@ func (s *Sim) Step(w *game.World, t *game.Tick) {
 	}
 	shield := math.Pow(1-s.cfg.Role["enforcer"].Protection, float64(enforcers))
 	base := s.cfg.PayFor(c.Pay).Loyalty
-	base -= tun.FireLoyalty * float64(len(c.FiredToday))
+	base -= tun.FireLoyalty * float64(fired)
 	if short > 0 {
 		base -= tun.UnpaidLoyalty
+	}
+	if asked {
+		base -= inf.InvestigateLoyalty
 	}
 	for i := range c.Members {
 		m := &c.Members[i]
@@ -198,19 +281,35 @@ func (s *Sim) Step(w *game.World, t *game.Tick) {
 		m.Loyalty = math.Max(0, math.Min(100, m.Loyalty+d))
 	}
 
-	// 4. Quitting. Whoever walks leaves their corner unworked.
+	// 5. Quitting, or defecting: whoever walks leaves their corner
+	// unworked, and while the rival holds ground in the city they go to
+	// it instead, and walk it onto that corner (the rival sim acts on
+	// the lead next step).
 	kept := c.Members[:0]
 	for _, m := range c.Members {
-		if m.Loyalty <= tun.QuitThreshold {
-			w.Recall(m.ID)
+		if m.Loyalty > tun.QuitThreshold {
+			kept = append(kept, m)
+			continue
+		}
+		post := w.PostOf(m.ID)
+		w.Recall(m.ID)
+		if w.RivalHeld() == 0 {
 			t.Emit(events.CrewQuit{Day: t.Day, Name: m.Name, Role: m.Role})
 			continue
 		}
-		kept = append(kept, m)
+		ev := events.CrewDefected{Day: t.Day, Name: m.Name, Role: m.Role, Rival: w.Rival.Leader}
+		lead := game.Lead{Name: m.Name}
+		if post != nil {
+			ev.Corner, ev.CornerName = post.ID, post.Name
+			lead.Corner = post.ID
+		}
+		w.Rival.Leads = append(w.Rival.Leads, lead)
+		w.Stats.Defections++
+		t.Emit(ev)
 	}
 	c.Members = kept
 
-	// 5. The hiring pool rotates on a schedule and refills after hires.
+	// 6. The hiring pool rotates on a schedule and refills after hires.
 	if tun.PoolDays > 0 && t.Day-c.PoolDay >= tun.PoolDays {
 		c.Candidates = nil
 		c.PoolDay = t.Day

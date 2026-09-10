@@ -17,6 +17,8 @@ var (
 	ErrCrewFull       = errors.New("the crew is as big as you can manage")
 	ErrNoFront        = errors.New("no such front")
 	ErrFrontOwned     = errors.New("you already own that front")
+	ErrNoCrew         = errors.New("nobody on the payroll to ask")
+	ErrInvestigating  = errors.New("somebody is already asking around tonight")
 )
 
 // FrontOffer is a front as the laundering config prices it, handed to
@@ -185,3 +187,54 @@ func (w *World) BuyFront(o FrontOffer) (Front, error) {
 // SetLaunderDial sets the launder dial for every front. It persists until
 // changed.
 func (w *World) SetLaunderDial(d events.Launder) { w.Laundering.Dial = d }
+
+// spend takes cost from dirty cash first and clean cash for the rest, the
+// way somebody paid off the books is paid. It reports whether there was
+// enough between the two.
+func (w *World) spend(cost int) bool {
+	if cost > w.Cash() {
+		return false
+	}
+	dirty := min(cost, w.Player.DirtyCash)
+	w.Player.DirtyCash -= dirty
+	w.Player.CleanCash -= cost - dirty
+	return true
+}
+
+// Investigate pays cost to have the crew looked into tonight: the crew sim
+// rolls whether it names the informant, if there is one, and everyone's
+// loyalty suffers when it names nobody. One a day.
+func (w *World) Investigate(cost int) error {
+	if w.Over != nil {
+		return ErrGameOver
+	}
+	if len(w.Crew.Members) == 0 {
+		return ErrNoCrew
+	}
+	if w.Investigation != nil {
+		return ErrInvestigating
+	}
+	if !w.spend(cost) {
+		return fmt.Errorf("need $%d, only have $%d", cost, w.Cash())
+	}
+	w.Investigation = &InvestigationOrder{Cost: cost}
+	return nil
+}
+
+// PayOff hands the member with id cost in cash for loyalty points, at
+// once. It buys loyalty, not silence: an informant stays one.
+func (w *World) PayOff(id, cost int, loyalty float64) (CrewMember, error) {
+	if w.Over != nil {
+		return CrewMember{}, ErrGameOver
+	}
+	m := w.Crew.Member(id)
+	if m == nil {
+		return CrewMember{}, ErrNoMember
+	}
+	if !w.spend(cost) {
+		return CrewMember{}, fmt.Errorf("%s wants $%d, only have $%d", m.Name, cost, w.Cash())
+	}
+	m.Loyalty = math.Min(100, m.Loyalty+loyalty)
+	w.Crew.PaidOffToday = append(w.Crew.PaidOffToday, Payoff{ID: m.ID, Name: m.Name, Cost: cost})
+	return *m, nil
+}
