@@ -141,20 +141,37 @@ func TestTickerNeverWiderThanTerminal(t *testing.T) {
 }
 
 // Enter confirms dialogs and closes the report, so a stray extra press must
-// never burn a day; only n ends the day.
+// never burn a day: on the play screen it only asks. n ends the day at once;
+// enter ends it after a confirmation.
 func TestEnterDoesNotEndDay(t *testing.T) {
 	m := newTestModel(t, 80, 24)
 	m.Update(key("n"))
 	m.Update(key("enter")) // close report
 	day := m.w.Day
 	m.Update(key("enter"))
-	m.Update(key("enter"))
-	if m.w.Day != day {
-		t.Fatalf("enter advanced the day from %d to %d", day, m.w.Day)
+	if m.w.Day != day || m.mode != modeConfirmEnd {
+		t.Fatalf("one enter: day %d -> %d, mode %v", day, m.w.Day, m.mode)
 	}
+	assertFits(t, m.View(), 80, 24, "end-day confirm")
+	m.Update(key("esc"))
+	if m.w.Day != day || m.mode != modePlay {
+		t.Fatalf("esc on the confirm: day %d -> %d, mode %v", day, m.w.Day, m.mode)
+	}
+	m.Update(key("enter"))
+	m.Update(key("enter"))
+	if m.w.Day != day+1 || m.mode != modeReport {
+		t.Fatalf("enter, enter: day %d -> %d, mode %v", day, m.w.Day, m.mode)
+	}
+	m.Update(key("enter")) // close report: never a day
+	m.Update(key("enter"))
+	m.Update(key("y"))
+	if m.w.Day != day+2 {
+		t.Fatalf("enter, y: day %d -> %d", day+1, m.w.Day)
+	}
+	m.Update(key("enter"))
 	m.Update(key("n"))
-	if m.w.Day != day+1 {
-		t.Fatalf("n did not advance the day: %d -> %d", day, m.w.Day)
+	if m.w.Day != day+3 {
+		t.Fatalf("n did not advance the day: %d -> %d", day+2, m.w.Day)
 	}
 }
 

@@ -32,6 +32,7 @@ load; a save from a newer build than the one you are running is refused.
 | `h` / `f` | Hire / fire the selected person (crew screen) |
 | `p` | Cycle crew pay: stingy / fair / generous |
 | `n` | End the day |
+| `enter` | End the day, after a confirmation |
 | `r` | Reopen the morning report |
 | `?` | Help |
 | `q` | Save and quit |
