@@ -1662,7 +1662,7 @@ func TestAssignLieutenantKeys(t *testing.T) {
 		t.Fatalf("t on a runner: mode %v status %q", m.mode, m.status)
 	}
 	view := m.View()
-	if !strings.Contains(view, "no city") || strings.Contains(view, "violent") || !strings.Contains(view, "?") {
+	if !strings.Contains(view, "no city") || strings.Contains(view, "violent") || strings.Contains(view, "temper") {
 		t.Fatalf("crew screen before assigning:\n%s", view)
 	}
 	m.crewCursor = 1
@@ -1679,7 +1679,7 @@ func TestAssignLieutenantKeys(t *testing.T) {
 		t.Fatalf("after assigning: %+v (%s)", w.Crew.Members[1], m.status)
 	}
 	view = m.View()
-	if !strings.Contains(view, "runs "+w.CityName(other)) {
+	if !strings.Contains(view, "runs "+w.CityName(other)) || !strings.Contains(view, "temper unknown for 10 more days") || strings.Contains(view, "Bayport ?") {
 		t.Fatalf("crew screen after assigning:\n%s", view)
 	}
 	assertFits(t, view, 80, 24, "crew screen with a lieutenant")
@@ -1703,7 +1703,7 @@ func TestAssignLieutenantKeys(t *testing.T) {
 	m.Update(key("enter"))
 	w.Crew.Member(2).Observed = true
 	m.Update(key("4"))
-	if view := m.View(); !strings.Contains(view, "violent") {
+	if view := m.View(); !strings.Contains(view, "violent") || strings.Contains(view, "temper unknown") {
 		t.Fatalf("crew screen with the temper observed:\n%s", view)
 	}
 	// And back off the city: the last row of the picker.
