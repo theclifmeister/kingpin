@@ -798,3 +798,88 @@ func TestLedgerScreenKeys(t *testing.T) {
 		t.Fatal("ledger does not show the front open")
 	}
 }
+
+// i and $ work only on the crew screen, ask first, and the tell shows on
+// the dashboard and the crew screen once the file has grown twice without
+// a bust; an investigation that names somebody marks them on the roster.
+func TestInvestigateAndPayOffKeys(t *testing.T) {
+	m := newTestModel(t, 80, 24)
+	m.w.Player.DirtyCash = 20_000
+	m.Update(key("i"))
+	if m.mode != modePlay || !strings.Contains(m.status, "crew screen") {
+		t.Fatalf("i on the dashboard: mode %v status %q", m.mode, m.status)
+	}
+	m.Update(key("4"))
+	m.Update(key("i"))
+	if m.mode != modePlay || !strings.Contains(m.status, "Nobody") {
+		t.Fatalf("i with no crew: mode %v status %q", m.mode, m.status)
+	}
+	m.Update(key("h"))
+	if len(m.w.Crew.Members) != 1 {
+		t.Fatalf("hire failed: %q", m.status)
+	}
+	hired := m.w.Crew.Members[0]
+	cash := m.w.Player.DirtyCash
+	m.Update(key("i"))
+	if m.mode != modeConfirmInvestigate {
+		t.Fatalf("i did not ask: mode %v status %q", m.mode, m.status)
+	}
+	assertFits(t, m.View(), 80, 24, "investigate confirmation")
+	m.Update(key("esc"))
+	if m.mode != modePlay || m.w.Investigation != nil || m.w.Player.DirtyCash != cash {
+		t.Fatal("esc queued an investigation")
+	}
+	m.Update(key("i"))
+	m.Update(key("y"))
+	if m.w.Investigation == nil || m.w.Player.DirtyCash != cash-m.set.Crew.InvestigateCost() {
+		t.Fatalf("y did not queue: %+v cash %d status %q", m.w.Investigation, m.w.Player.DirtyCash, m.status)
+	}
+	m.Update(key("i"))
+	if m.mode != modePlay || !strings.Contains(m.status, "already") {
+		t.Fatalf("second i: mode %v status %q", m.mode, m.status)
+	}
+	if !strings.Contains(stripANSI(m.View()), "Questions get asked tonight") {
+		t.Fatal("crew screen does not show the queued investigation")
+	}
+
+	// Pay off the new hire.
+	cash = m.w.Player.DirtyCash
+	m.Update(key("$"))
+	if m.mode != modeConfirmPayOff {
+		t.Fatalf("$ did not ask: mode %v status %q", m.mode, m.status)
+	}
+	assertFits(t, m.View(), 80, 24, "pay-off confirmation")
+	m.Update(key("y"))
+	c := m.w.Crew.Member(hired.ID)
+	if c.Loyalty != min(100, hired.Loyalty+m.set.Crew.PayoffLoyalty()) || m.w.Player.DirtyCash != cash-m.set.Crew.PayoffCost(hired) || len(m.w.Crew.PaidOffToday) != 1 {
+		t.Fatalf("pay off: loyalty %.0f -> %.0f cash %d -> %d status %q", hired.Loyalty, c.Loyalty, cash, m.w.Player.DirtyCash, m.status)
+	}
+
+	// The tell, and a named snitch, render everywhere they should.
+	m.w.Heat.Leaks = 2
+	m.w.Crew.Exposed = hired.ID
+	for _, s := range []string{"1", "4"} {
+		m.Update(key(s))
+		view := stripANSI(m.View())
+		assertFits(t, m.View(), 80, 24, "screen "+s+" with the tell")
+		if !strings.Contains(view, "Somebody is talking") {
+			t.Fatalf("screen %s does not hint at the informant:\n%s", s, view)
+		}
+	}
+	if !strings.Contains(stripANSI(m.View()), "SNITCH") {
+		t.Fatal("the roster does not mark the named informant")
+	}
+	m.Update(key("n"))
+	if m.mode != modeReport {
+		t.Fatalf("mode after n: %v", m.mode)
+	}
+	all := strings.Join(append(append([]string(nil), m.w.Report.Crew...), m.w.Report.Money...), "\n")
+	if !strings.Contains(all, "investigation") || !strings.Contains(all, "Paid off "+hired.Name) || !strings.Contains(all, "Investigation -$") {
+		t.Fatalf("report does not cover the night's questions and the pay-off:\n%s", all)
+	}
+	assertFits(t, m.View(), 80, 24, "report after an investigation")
+	m.Update(key("enter"))
+	if m.w.Report.CashBefore != 20_000 {
+		t.Fatalf("cash before = %d, want the morning's 20000", m.w.Report.CashBefore)
+	}
+}

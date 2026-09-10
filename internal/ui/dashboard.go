@@ -92,13 +92,17 @@ func (m *Model) viewDashboard() string {
 	}
 	if n := len(w.Crew.Members); n > 0 {
 		crew := fmt.Sprintf("crew %d · %s pay %s/day", n, w.Crew.Pay, money(m.set.Crew.Wages(w, w.Crew.Pay)))
-		if w.Crew.LastSkim > 0 && w.Day-w.Crew.LastSkim < m.set.Crew.Tuning().SuspectDays {
+		switch {
+		case w.Crew.LastSkim > 0 && w.Day-w.Crew.LastSkim < m.set.Crew.Tuning().SuspectDays:
 			street.WriteString(lipgloss.NewStyle().Foreground(theme.Crew).Render(crew) + theme.Bad.Render(" · skimming suspected") + "\n")
-		} else {
+		default:
 			street.WriteString(lipgloss.NewStyle().Foreground(theme.Crew).Render(crew) + "\n")
 		}
 	}
 	street.WriteString(theme.Subtle.Render(m.ownedLine()) + "\n")
+	if m.talking() {
+		street.WriteString(theme.Bad.Render("Somebody is talking. Investigate (4, i).") + "\n")
+	}
 	if w.LieLow {
 		street.WriteString(theme.Warning.Render("Lying low today. No sales, heat fades faster.") + "\n")
 	} else if len(w.Orders) == 0 {
@@ -174,6 +178,10 @@ func (m *Model) viewDashboard() string {
 	alertsH := h - heatH - cashH - rivalH
 	var alerts strings.Builder
 	n := 0
+	if m.talking() {
+		alerts.WriteString(theme.Bad.Bold(true).Render("Somebody is talking.") + theme.Bad.Render(" Investigate (4, i).") + "\n")
+		n++
+	}
 	for i := len(w.Journal) - 1; i >= 0 && n < max(1, alertsH-2); i-- {
 		if src := w.Journal[i].Source; src != "heat" && src != "rivals" {
 			continue

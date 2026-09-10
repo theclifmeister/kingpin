@@ -20,7 +20,25 @@ skim_chance = 0.6           # per skimmer per day, before enforcer deterrence
 skim_share = 0.10           # of the day's takings per skimmer, times 0.5 + greed/100
 skim_cap = 0.5              # most of the takings that can go missing in a day
 suspect_days = 10           # the crew screen warns for this long after a skim
-quit_threshold = 10
+quit_threshold = 10         # at this loyalty a member walks, or defects to the rival if it holds corners
+
+# Snitching. A member under both lines rolls every day to start talking to
+# the police; from then on they feed the DA's file whatever you sell (the
+# cadence and the pages are in heat.toml) and a raid goes straight to the
+# stash. Only firing them stops it. Investigating names them with a chance
+# that scales with the best enforcer's skill and climbs with every try
+# that came up empty; paying somebody off buys loyalty, not silence.
+[informant]
+loyalty = 20                # under this loyalty ...
+nerve = 40                  # ... and this nerve, a member may turn
+chance = 0.15               # per such member per day
+investigate_cost = 2500     # dirty cash, then clean
+investigate_base = 0.15     # chance an investigation names the informant with no enforcer on the payroll
+investigate_skill = 0.7     # added at enforcer skill 100; scales linearly by the best enforcer's skill
+investigate_learn = 0.2     # added per investigation that named nobody since the last that did
+investigate_loyalty = 2     # loyalty everyone loses when an investigation names nobody
+payoff_wages = 60           # a pay-off costs this many days of the member's fair wage
+payoff_loyalty = 25         # and buys this much loyalty
 
 # The pay dial: wage is a multiplier on each member's fair wage, loyalty the
 # daily drift it buys.

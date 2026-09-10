@@ -37,6 +37,7 @@ type World struct {
 	Buys          []Purchase           // purchases made today
 	LieLow        bool                 // player chose to lie low today
 	Strike        *StrikeOrder         // enforcers sent against a rival corner tonight
+	Investigation *InvestigationOrder  // somebody asking the crew questions tonight
 	UpgradesToday []string             // upgrade ids bought today, for the report
 
 	Journal []Headline // full headline history, oldest first
@@ -85,37 +86,69 @@ type HeatState struct {
 	Responses    map[string]int // level -> how many times it has fired this run
 	Evidence     int            // what the DA has on you; enough of it is an indictment
 	EvidenceDay  int            // day the file last grew; a retained lawyer lets old pages go cold
+	LeakDay      int            // day an informant last fed the file (or turned); the next leak is due informant_days later
+	Leaks        int            // pages an informant has fed the DA since one was last on the payroll; the tell shows at two
 	Peak         float64
 }
 
 // CrewState is the player's crew: the roster, the hiring pool and the pay
-// dial. HiredToday and FiredToday are per-day scratch the clock clears.
+// dial. HiredToday, FiredToday and PaidOffToday are per-day scratch the
+// clock clears.
 type CrewState struct {
-	Members    []CrewMember
-	Candidates []CrewMember
-	Pay        events.Pay
-	NextID     int
-	PoolDay    int // day the candidate pool last rotated
-	LastSkim   int // day skimming was last reported; 0 means never
-	HiredToday []CrewMember
-	FiredToday []CrewMember
+	Members      []CrewMember
+	Candidates   []CrewMember
+	Pay          events.Pay
+	NextID       int
+	PoolDay      int // day the candidate pool last rotated
+	LastSkim     int // day skimming was last reported; 0 means never
+	Exposed      int // member an investigation named as the informant; 0 nobody (they may be gone)
+	Investigated int // investigations that found nobody since the last that did; each makes the next more likely to
+	HiredToday   []CrewMember
+	FiredToday   []CrewMember
+	PaidOffToday []Payoff
 }
 
 // CrewMember is one person on the payroll (or in the hiring pool). Stats are
 // 0..100. Units, Wage and Fee are fixed when the candidate is generated so
-// the world never needs crew tuning to price them.
+// the world never needs crew tuning to price them. Informant is the hidden
+// flag: the roster never shows it, the report does, in its own way.
 type CrewMember struct {
-	ID      int
-	Name    string
-	Role    string // runner, enforcer, accountant
-	Skill   int
-	Loyalty float64
-	Greed   int
-	Nerve   int
-	Units   int // sell capacity this member adds
-	Wage    int // daily wage at fair pay
-	Fee     int // signing fee
-	Hired   int // day hired
+	ID        int
+	Name      string
+	Role      string // runner, enforcer, accountant
+	Skill     int
+	Loyalty   float64
+	Greed     int
+	Nerve     int
+	Units     int  // sell capacity this member adds
+	Wage      int  // daily wage at fair pay
+	Fee       int  // signing fee
+	Hired     int  // day hired
+	Informant bool // talking to the police; only firing them stops it
+}
+
+// Informants counts the members talking to the police.
+func (c CrewState) Informants() int {
+	n := 0
+	for _, m := range c.Members {
+		if m.Informant {
+			n++
+		}
+	}
+	return n
+}
+
+// Payoff is a member paid to stay loyal today, for the report.
+type Payoff struct {
+	ID   int
+	Name string
+	Cost int
+}
+
+// InvestigationOrder is the player asking questions of the crew tonight,
+// paid up front and resolved by the crew sim at end of day.
+type InvestigationOrder struct {
+	Cost int
 }
 
 // Runners counts members in the runner role.
@@ -207,6 +240,14 @@ type RivalState struct {
 	Claims      int     // lifetime counters for the run summary
 	Flips       int     // corners it took from the player
 	Tips        int
+	Leads       []Lead // what defectors brought it, to act on next step
+}
+
+// Lead is a crew member who went over to the rival: their name and the
+// corner they ran (empty if none), which they walk the rival onto.
+type Lead struct {
+	Name   string
+	Corner string
 }
 
 // Purchase is a buy from the supplier, applied immediately.
@@ -248,19 +289,22 @@ type Ending struct {
 
 // Stats are lifetime counters for the run summary.
 type Stats struct {
-	PeakCash     int
-	TotalRevenue int
-	UnitsSold    int
-	Raids        int
-	Stings       int
-	Wages        int
-	Skimmed      int
-	Robbed       int
-	Strikes      int // enforcers sent against a rival corner
-	CornersWon   int // rival corners taken by force
-	CornersLost  int // corners the rival took from you
-	Laundered    int // dirty cash washed clean
-	Seized       int // clean cash lost to audits
+	PeakCash       int
+	TotalRevenue   int
+	UnitsSold      int
+	Raids          int
+	Stings         int
+	Wages          int
+	Skimmed        int
+	Robbed         int
+	Strikes        int // enforcers sent against a rival corner
+	CornersWon     int // rival corners taken by force
+	CornersLost    int // corners the rival took from you
+	Laundered      int // dirty cash washed clean
+	Seized         int // clean cash lost to audits
+	Informants     int // crew who turned on you
+	Defections     int // crew who went over to the rival
+	Investigations int
 }
 
 // StartingProduct describes a product as it exists at the start of a run.

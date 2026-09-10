@@ -180,6 +180,9 @@ func TestSaveKeepsCrew(t *testing.T) {
 	}
 	w.SetPay(events.PayGenerous)
 	w.Crew.Members[0].Loyalty = 33.5
+	w.Crew.Members[0].Informant = true // the hidden flag rides along
+	w.Crew.Exposed, w.Crew.Investigated = 1, 2
+	w.Heat.LeakDay, w.Heat.Leaks = 4, 2
 	if err := Save(w); err != nil {
 		t.Fatal(err)
 	}
@@ -190,6 +193,9 @@ func TestSaveKeepsCrew(t *testing.T) {
 	if got.Crew.Pay != events.PayGenerous || len(got.Crew.Members) != 1 || got.Crew.Members[0] != w.Crew.Members[0] {
 		t.Fatalf("crew did not round-trip: %+v", got.Crew)
 	}
+	if !got.Crew.Members[0].Informant || got.Crew.Informants() != 1 || got.Crew.Exposed != 1 || got.Crew.Investigated != 2 || got.Heat.LeakDay != 4 || got.Heat.Leaks != 2 {
+		t.Fatalf("informant state did not round-trip: %+v %+v", got.Crew, got.Heat)
+	}
 	if got.Crew.Candidates[0] != w.Crew.Candidates[0] || got.Crew.NextID != 2 {
 		t.Fatalf("pool did not round-trip: %+v", got.Crew)
 	}
@@ -198,6 +204,47 @@ func TestSaveKeepsCrew(t *testing.T) {
 	}
 	if _, err := got.Fire(1); err == nil {
 		t.Fatal("fired someone twice")
+	}
+}
+
+// An investigation is paid up front, one a night, and needs a crew to ask;
+// a pay-off buys loyalty at once, capped at 100, from dirty cash first and
+// clean for the rest. Both are cleared or reported by the clock.
+func TestInvestigateAndPayOff(t *testing.T) {
+	w := testWorld()
+	if err := w.Investigate(100); err != ErrNoCrew {
+		t.Fatalf("investigated an empty payroll: %v", err)
+	}
+	w.Crew.Members = []CrewMember{{ID: 1, Name: "Dre", Role: "runner", Loyalty: 90, Wage: 50}}
+	w.Player.DirtyCash, w.Player.CleanCash = 300, 300
+	if err := w.Investigate(1000); err == nil {
+		t.Fatal("investigated with too little cash")
+	}
+	if err := w.Investigate(400); err != nil || w.Investigation == nil || w.Investigation.Cost != 400 {
+		t.Fatalf("investigate: %v %+v", err, w.Investigation)
+	}
+	if w.Player.DirtyCash != 0 || w.Player.CleanCash != 200 {
+		t.Fatalf("investigation took the wrong cash: dirty %d clean %d", w.Player.DirtyCash, w.Player.CleanCash)
+	}
+	if err := w.Investigate(1); err != ErrInvestigating {
+		t.Fatalf("second investigation in a day: %v", err)
+	}
+	if _, err := w.PayOff(2, 100, 25); err != ErrNoMember {
+		t.Fatalf("paid off a stranger: %v", err)
+	}
+	if _, err := w.PayOff(1, 500, 25); err == nil {
+		t.Fatal("paid off with too little cash")
+	}
+	m, err := w.PayOff(1, 150, 25)
+	if err != nil || m.Loyalty != 100 || w.Crew.Members[0].Loyalty != 100 || w.Player.CleanCash != 50 {
+		t.Fatalf("pay off: %v %+v clean %d", err, m, w.Player.CleanCash)
+	}
+	if len(w.Crew.PaidOffToday) != 1 || w.Crew.PaidOffToday[0] != (Payoff{ID: 1, Name: "Dre", Cost: 150}) {
+		t.Fatalf("pay off not recorded: %+v", w.Crew.PaidOffToday)
+	}
+	NewClock(nil, &counter{}).EndDay(w)
+	if w.Investigation != nil || len(w.Crew.PaidOffToday) != 0 {
+		t.Fatalf("scratch not cleared: %+v %+v", w.Investigation, w.Crew.PaidOffToday)
 	}
 }
 
@@ -358,7 +405,7 @@ func TestSaveKeepsRival(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	if got.Rival != w.Rival || !reflect.DeepEqual(got.Territory, w.Territory) || got.Stats != w.Stats {
+	if !reflect.DeepEqual(got.Rival, w.Rival) || !reflect.DeepEqual(got.Territory, w.Territory) || got.Stats != w.Stats {
 		t.Fatalf("rival did not round-trip:\n%+v\n%+v", got.Rival, w.Rival)
 	}
 }

@@ -82,6 +82,20 @@ CrewFired = [
   "{{.Name}} seen drinking alone; 'let go', say friends",
   "Falling out in a {{.City}} crew leaves one on the street",
 ]
+CrewFiredInformant = [
+  "{{.Name}} out of a {{.City}} crew; 'they had been talking', says source",
+  "Police lose a {{.City}} informant; 'somebody worked it out'",
+]
+CrewDefected = [
+  "{{.Name}} seen with {{.Rival}}'s people; 'switched sides', say corner boys",
+  "{{.Name}} now working for {{.Rival}}; the old crew 'not happy'",
+  "{{.City}} {{.Role}} {{.Name}} changes crews overnight",
+]
+InvestigationRun = [
+  "{{.City}} boss said to be asking hard questions of his own people",
+  "Somebody in {{.City}} is looking for a rat, say people who would know",
+  "Tense week in a {{.City}} crew: 'everybody is a suspect'",
+]
 CrewQuit = [
   "{{.Name}} done with the {{.City}} game, tells anyone who listens",
   "Another {{.City}} {{.Role}} walks; 'the pay was a joke'",
@@ -124,6 +138,10 @@ CornerTaken = [
   "{{.Rival}}'s crew run rivals off {{.Corner}}; shots reported",
   "Turf changes hands on {{.Corner}} after a night of trouble",
   "{{.Corner}} taken over; losers 'walked home', says witness",
+]
+CornerHanded = [
+  "{{.Rival}}'s crew walk onto {{.Corner}} without a shot; {{.Name}} showed them in",
+  "{{.Corner}} changes hands quietly; 'the runner brought them', says a neighbour",
 ]
 RivalPushed = [
   "Trouble on {{.Corner}} overnight; the crew on it held their ground",

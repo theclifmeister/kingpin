@@ -66,6 +66,92 @@ func (m *Model) confirmFire() {
 	m.status = fmt.Sprintf("%s is gone. The rest noticed.", got.Name)
 }
 
+// talking reports whether the report's tell has shown enough for the
+// screens to hint at it: the DA's file grew without a bust twice running.
+func (m *Model) talking() bool { return m.w.Heat.Leaks >= 2 }
+
+func (m *Model) askInvestigate() {
+	if len(m.w.Crew.Members) == 0 {
+		m.status = "Nobody on the payroll to ask."
+		return
+	}
+	if m.w.Investigation != nil {
+		m.status = "Somebody is already asking around tonight."
+		return
+	}
+	m.mode = modeConfirmInvestigate
+}
+
+func (m *Model) confirmInvestigate() {
+	m.mode = modePlay
+	if err := m.w.Investigate(m.set.Crew.InvestigateCost()); err != nil {
+		m.status = "Can't investigate: " + err.Error()
+		return
+	}
+	m.status = fmt.Sprintf("Questions get asked tonight. Odds of a name ~%.0f%%.", m.set.Crew.InvestigateOdds(m.w)*100)
+}
+
+func (m *Model) investigateConfirm() string {
+	w := m.w
+	odds := m.set.Crew.InvestigateOdds(w)
+	best := 0
+	for _, c := range w.Crew.Members {
+		if c.Role == "enforcer" && c.Skill > best {
+			best = c.Skill
+		}
+	}
+	who := "With no enforcer on the payroll you are asking yourself."
+	if best > 0 {
+		who = fmt.Sprintf("Your best enforcer (skill %d) does the asking.", best)
+	}
+	var b strings.Builder
+	b.WriteString(fmt.Sprintf("Somebody goes through the crew tonight for %s.\n", money(m.set.Crew.InvestigateCost())))
+	b.WriteString(who + "\n")
+	b.WriteString(fmt.Sprintf("If somebody is talking to the police, ~%.0f%% it names them.\n", odds*100))
+	if w.Crew.Investigated > 0 {
+		b.WriteString(theme.Subtle.Render(fmt.Sprintf("Every empty night so far (%d) narrows it down.", w.Crew.Investigated)) + "\n")
+	}
+	b.WriteString(theme.Warning.Render(fmt.Sprintf("Naming nobody costs everyone %.0f loyalty.", m.cfg.Crew.Informant.InvestigateLoyalty)) + "\n")
+	b.WriteString("\n" + theme.Key.Render("y") + " ask   " + theme.Key.Render("any other key") + " back")
+	return m.modal("INVESTIGATE THE CREW?", b.String())
+}
+
+func (m *Model) askPayOff() {
+	c, onPayroll, ok := m.crewSelected()
+	if !ok || !onPayroll {
+		m.status = "Move the cursor to someone on the payroll, then press $."
+		return
+	}
+	m.fireID = c.ID
+	m.mode = modeConfirmPayOff
+}
+
+func (m *Model) confirmPayOff() {
+	m.mode = modePlay
+	c := m.w.Crew.Member(m.fireID)
+	if c == nil {
+		return
+	}
+	got, err := m.w.PayOff(c.ID, m.set.Crew.PayoffCost(*c), m.set.Crew.PayoffLoyalty())
+	if err != nil {
+		m.status = "Can't pay them off: " + err.Error()
+		return
+	}
+	m.status = fmt.Sprintf("%s pocketed it. Loyalty %.0f.", got.Name, got.Loyalty)
+}
+
+func (m *Model) payOffConfirm() string {
+	c := m.w.Crew.Member(m.fireID)
+	if c == nil {
+		return m.modal("PAY OFF", "They are gone.")
+	}
+	var b strings.Builder
+	b.WriteString(fmt.Sprintf("%s for %s: loyalty %.0f -> %.0f.\n", money(m.set.Crew.PayoffCost(*c)), c.Name, c.Loyalty, min(100, c.Loyalty+m.set.Crew.PayoffLoyalty())))
+	b.WriteString(theme.Subtle.Render("It buys loyalty, not silence: somebody already talking keeps talking.") + "\n")
+	b.WriteString("\n" + theme.Key.Render("y") + " pay   " + theme.Key.Render("any other key") + " back")
+	return m.modal("PAY OFF "+strings.ToUpper(c.Name)+"?", b.String())
+}
+
 func (m *Model) cyclePay() {
 	p := (m.w.Crew.Pay + 1) % 3
 	m.w.SetPay(p)
@@ -110,9 +196,12 @@ func (m *Model) viewCrew() string {
 		}
 	}
 	b.WriteString(title + "   pay " + strings.Join(dial, "") + theme.Gold.Render(fmt.Sprintf("  %s/day", money(m.set.Crew.Wages(w, pay)))) + "\n")
-	if w.Crew.LastSkim > 0 && w.Day-w.Crew.LastSkim < tun.SuspectDays {
+	switch {
+	case m.talking():
+		b.WriteString(truncate(theme.Bad.Bold(true).Render("  ▲ Somebody is talking.")+theme.Bad.Render(" The file grew without a bust. Investigate (i) or fire your suspect."), m.width) + "\n")
+	case w.Crew.LastSkim > 0 && w.Day-w.Crew.LastSkim < tun.SuspectDays:
 		b.WriteString(theme.Bad.Bold(true).Render("  ▲ Skimming suspected.") + theme.Bad.Render(fmt.Sprintf(" Money went missing on day %d. Somebody's loyalty is under %.0f.", w.Crew.LastSkim, tun.SkimThreshold)) + "\n")
-	} else {
+	default:
 		b.WriteString(theme.Subtle.Render(fmt.Sprintf("  Under %.0f loyalty they skim. At %.0f they walk. Firing costs everyone else %.0f.", tun.SkimThreshold, tun.QuitThreshold, tun.FireLoyalty)) + "\n")
 	}
 	b.WriteString("\n")
@@ -150,7 +239,11 @@ func (m *Model) viewCrew() string {
 	} else {
 		b.WriteString(header + theme.Subtle.Render(fmt.Sprintf("%-12s since", "post")) + "\n")
 		for i, c := range w.Crew.Members {
-			b.WriteString(row(i, c, "") + post(c) + theme.Subtle.Render(fmt.Sprintf(" day %d", c.Hired)) + "\n")
+			last := theme.Subtle.Render(fmt.Sprintf(" day %d", c.Hired))
+			if c.ID == w.Crew.Exposed {
+				last = theme.Bad.Bold(true).Render(" SNITCH")
+			}
+			b.WriteString(row(i, c, "") + post(c) + last + "\n")
 		}
 	}
 	b.WriteString("\n")
@@ -182,6 +275,11 @@ func (m *Model) viewCrew() string {
 	}
 	if idle > 0 {
 		b.WriteString(theme.Warning.Render(fmt.Sprintf("  %d idle: a runner earns nothing off a corner. Post them on the map (5).", idle)) + "\n")
+	}
+	if c := w.Crew.Member(w.Crew.Exposed); c != nil {
+		b.WriteString(theme.Bad.Render(fmt.Sprintf("  %s has been talking to the police. The file grows until they go (f).", c.Name)) + "\n")
+	} else if w.Investigation != nil {
+		b.WriteString(theme.Warning.Render("  Questions get asked tonight.") + "\n")
 	}
 	if sl := m.set.Heat.Sloppiness(w); sl > 0 {
 		per := sl * m.cfg.Heat.Heat.SloppyHeat * 100

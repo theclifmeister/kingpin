@@ -197,6 +197,30 @@ func (s *Sim) Step(w *game.World, t *game.Tick) {
 		reasons = append(reasons, fmt.Sprintf("sloppy crew (+%.1f)", add))
 	}
 
+	// An informant on the payroll. The crew sim's turn event starts the
+	// clock; every informant_days after that the DA gets a page whatever
+	// was sold, and the lawyer cannot thin a witness. The heat it adds is
+	// left out of the reasons on purpose: a delta the dial does not
+	// explain, and a file that grew without a bust, are the tells. Once
+	// nobody is talking the count that shows them resets.
+	for _, e := range t.Events() {
+		if ev, ok := e.(events.CrewTurnedInformant); ok {
+			h.LeakDay = ev.Day
+		}
+	}
+	if w.Crew.Informants() == 0 {
+		h.Leaks = 0
+	} else if tun.InformantDays > 0 && t.Day-h.LeakDay >= tun.InformantDays {
+		h.LeakDay = t.Day
+		h.Leaks++
+		h.Value += tun.InformantHeat
+		if tun.InformantEvidence > 0 {
+			h.Evidence += tun.InformantEvidence
+			h.EvidenceDay = t.Day
+			reasons = append(reasons, fmt.Sprintf("the DA's file on you grows (%d)", h.Evidence))
+		}
+	}
+
 	// Sitting on a pile of dirty cash is its own tell.
 	if tun.DirtyCashThreshold > 0 && w.Player.DirtyCash > tun.DirtyCashThreshold {
 		mult := float64(w.Player.DirtyCash-tun.DirtyCashThreshold) / float64(tun.DirtyCashThreshold)
@@ -292,7 +316,8 @@ func (s *Sim) Step(w *game.World, t *game.Tick) {
 // costs stock and cash and cools heat, but finds nothing worth a file.
 // Dirty cash draws attention; only dealing builds a case. The Security
 // branch softens what a response takes; a lawyer thins what goes in the
-// file.
+// file. A raid while an informant is on the payroll goes straight to the
+// stash: every unit, whatever the safehouse would have saved.
 func (s *Sim) fire(w *game.World, t *game.Tick, r content.ResponseConfig, attempted bool, fx game.Effects) {
 	ev := events.Enforcement{Day: t.Day, Level: r.Level, StockLost: map[string]int{}}
 	switch r.Level {
@@ -312,6 +337,9 @@ func (s *Sim) fire(w *game.World, t *game.Tick, r content.ResponseConfig, attemp
 		if r.Level == "raid" {
 			stockLoss *= fx.RaidLossMul
 			cashLoss *= fx.RaidLossMul
+			if w.Crew.Informants() > 0 {
+				stockLoss, ev.Stash = 1, true
+			}
 		} else {
 			stockLoss *= fx.StingStockMul
 		}

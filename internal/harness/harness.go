@@ -298,6 +298,52 @@ func Territory(cfg *content.Config, lieLowAt float64, corners int) Policy {
 	}
 }
 
+// Vigilant plays like Crewed and hunts the snitch: whenever the report's
+// tell has shown (Heat.Leaks, what the alerts panel hints on) and nobody
+// is asking already, it pays for an investigation, and it fires whoever
+// one names. It is the baseline for "a player who reads the report".
+func Vigilant(cfg *content.Config, lieLowAt float64) Policy {
+	crewed := Crewed(cfg, lieLowAt)
+	inf := cfg.Crew.Informant
+	return func(w *game.World) {
+		if m := w.Crew.Member(w.Crew.Exposed); m != nil {
+			_, _ = w.Fire(m.ID)
+		}
+		crewed(w)
+		if w.Heat.Leaks >= 2 && w.Investigation == nil && len(w.Crew.FiredToday) == 0 {
+			_ = w.Investigate(inf.InvestigateCost)
+		}
+	}
+}
+
+// Plant hires the most skilled runner looking for work, free, and turns
+// them: an informant on the payroll from day 0, so a test can measure
+// what one costs without waiting for one to turn. It panics if nobody is
+// looking for work.
+func Plant(cfg *content.Config, w *game.World) game.CrewMember {
+	best := -1
+	for i, c := range w.Crew.Candidates {
+		if c.Role == "runner" && (best < 0 || c.Skill > w.Crew.Candidates[best].Skill) {
+			best = i
+		}
+	}
+	if best < 0 {
+		best = 0
+	}
+	if len(w.Crew.Candidates) == 0 {
+		panic("harness.Plant: nobody looking for work")
+	}
+	c := w.Crew.Candidates[best]
+	w.Player.DirtyCash += c.Fee
+	m, err := w.Hire(c.ID, cfg.Crew.Crew.MaxCrew)
+	if err != nil {
+		panic("harness.Plant: " + err.Error())
+	}
+	w.Crew.HiredToday = nil // a plant is not a signing to report
+	w.Crew.Member(m.ID).Informant = true
+	return *w.Crew.Member(m.ID)
+}
+
 // Warlike plays like Territory but fights the rival: whenever it has an
 // enforcer and heat is under lieLowAt it sends the enforcers against the
 // rival's biggest corner at force, every day, and re-posts a runner on

@@ -9,8 +9,9 @@ import (
 
 // Every event the market, territory, rivals, crew, heat and laundering
 // sims can emit must have a headline template, otherwise the ticker goes
-// silent on something that matters. RivalUndercut and CashLaundered are
-// report-only bookkeeping, like PriceMove and CrewPaid.
+// silent on something that matters. RivalUndercut, CashLaundered and
+// CrewPaidOff are report-only bookkeeping, like PriceMove and CrewPaid;
+// CrewTurnedInformant is deliberately silent, the informant is hidden.
 func TestEveryEmittedEventHasTemplate(t *testing.T) {
 	cfg := content.MustLoad()
 	n, err := news.New(cfg.Headlines)
@@ -22,9 +23,10 @@ func TestEveryEmittedEventHasTemplate(t *testing.T) {
 		"PlayerSoldBig", "PlayerSoldZero",
 		"EnforcementPatrol", "EnforcementSting", "EnforcementRaid", "EnforcementArrest",
 		"LaidLow", "HeatWarning",
-		"CrewHired", "CrewFired", "CrewQuit", "CrewSkimmed",
+		"CrewHired", "CrewFired", "CrewFiredInformant", "CrewQuit", "CrewSkimmed",
+		"CrewDefected", "InvestigationRun",
 		"CornerClaimed", "CornerLost", "CornerRobbed", "CornerCrackdown",
-		"RivalMovedIn", "RivalClaimed", "CornerTaken", "RivalPushed",
+		"RivalMovedIn", "RivalClaimed", "CornerTaken", "CornerHanded", "RivalPushed",
 		"CornerStruckTaken", "CornerStruckHeld", "RivalRouted",
 		"RivalTippedPolice", "WarOpen", "WarCrackdown",
 		"UpgradeBought", "FallGuyBurned",

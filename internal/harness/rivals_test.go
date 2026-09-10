@@ -161,7 +161,7 @@ func TestRivalIsDeterministic(t *testing.T) {
 			t.Fatalf("event %d differs:\n%#v\n%#v", i, a.Events[i], b.Events[i])
 		}
 	}
-	if a.World.Rival != b.World.Rival {
+	if fmt.Sprintf("%+v", a.World.Rival) != fmt.Sprintf("%+v", b.World.Rival) {
 		t.Fatalf("rival state differs: %+v vs %+v", a.World.Rival, b.World.Rival)
 	}
 	if a.World.Stats.Strikes == 0 {

@@ -54,6 +54,8 @@ const (
 	modeStrike         // pick how hard to send the enforcers at the selected corner
 	modeConfirmUpgrade // buy the selected upgrade?
 	modeFront          // pick a front to buy
+	modeConfirmInvestigate
+	modeConfirmPayOff
 )
 
 type tickMsg time.Time
@@ -248,6 +250,22 @@ func (m *Model) handleKey(k tea.KeyMsg) (tea.Model, tea.Cmd) {
 		switch key {
 		case "y", "Y":
 			m.confirmUpgrade()
+		default:
+			m.mode = modePlay
+		}
+		return m, nil
+	case modeConfirmInvestigate:
+		switch key {
+		case "y", "Y":
+			m.confirmInvestigate()
+		default:
+			m.mode = modePlay
+		}
+		return m, nil
+	case modeConfirmPayOff:
+		switch key {
+		case "y", "Y":
+			m.confirmPayOff()
 		default:
 			m.mode = modePlay
 		}
@@ -458,6 +476,18 @@ func (m *Model) keyPlay(key string) (tea.Model, tea.Cmd) {
 		m.cyclePay()
 	case "d":
 		m.cycleLaunder()
+	case "i":
+		if m.screen == screenCrew {
+			m.askInvestigate()
+		} else {
+			m.status = "Questions are asked on the crew screen (4)."
+		}
+	case "$":
+		if m.screen == screenCrew {
+			m.askPayOff()
+		} else {
+			m.status = "People are paid off on the crew screen (4)."
+		}
 	case "c":
 		if m.screen == screenMap {
 			m.askPost("runner")
@@ -583,6 +613,10 @@ func (m *Model) View() string {
 		body = m.upgradeConfirm()
 	case modeFront:
 		body = m.viewFront()
+	case modeConfirmInvestigate:
+		body = m.investigateConfirm()
+	case modeConfirmPayOff:
+		body = m.payOffConfirm()
 	default:
 		switch m.screen {
 		case screenMarket:
@@ -687,6 +721,10 @@ func (m *Model) viewFooter() string {
 		keys = k("any key", "close")
 	case modeConfirmUpgrade:
 		keys = k("y", "buy") + k("any other key", "back")
+	case modeConfirmInvestigate:
+		keys = k("y", "ask") + k("any other key", "back")
+	case modeConfirmPayOff:
+		keys = k("y", "pay") + k("any other key", "back")
 	case modePost:
 		keys = k("↑↓", "pick") + k("enter", "post") + k("esc", "back")
 	case modeStrike:
@@ -696,7 +734,7 @@ func (m *Model) viewFooter() string {
 	default:
 		switch m.screen {
 		case screenCrew:
-			keys = k("n", "end day") + k("↑↓", "pick") + k("h", "hire") + k("f", "fire") + k("p", "pay") + k("?", "help") + k("q", "quit")
+			keys = k("n", "end day") + k("↑↓", "pick") + k("h", "hire") + k("f", "fire") + k("i", "ask") + k("$", "pay off") + k("p", "pay") + k("?", "help")
 		case screenMap:
 			keys = k("n", "end day") + k("↑↓", "pick") + k("c", "runner") + k("e", "enforcer") + k("a", "abandon") + k("w", "war") + k("?", "help") + k("q", "quit")
 		case screenUpgrades:
@@ -768,6 +806,7 @@ func (m *Model) viewHelp() string {
 		{"l", "lie low today (no sales, heat fades faster)"},
 		{"r", "reopen the morning report"},
 		{"h / f", "hire / fire the selected person (crew screen)"},
+		{"i / $", "investigate who is talking / pay off the selected person (crew)"},
 		{"p", "cycle crew pay: stingy / fair / generous"},
 		{"c / e / a", "post a runner / an enforcer / abandon the corner (map)"},
 		{"w", "send the enforcers at a rival corner: warn / push / hit (map)"},
@@ -803,6 +842,9 @@ func (m *Model) viewOver() string {
 	}
 	b.WriteString(fmt.Sprintf("Washed / seized %s / %s\n", cash(w.Stats.Laundered), cash(w.Stats.Seized)))
 	b.WriteString(fmt.Sprintf("Clean cash      %s\n", cash(w.Player.CleanCash)))
+	if w.Stats.Informants+w.Stats.Defections > 0 {
+		b.WriteString(fmt.Sprintf("Snitches / defectors %d / %d\n", w.Stats.Informants, w.Stats.Defections))
+	}
 	b.WriteString(fmt.Sprintf("Peak heat       %.0f\n", w.Heat.Peak))
 	if n := len(w.Journal); n > 0 {
 		b.WriteString("\nLast headline:\n  " + theme.Subtle.Render(truncate(w.Journal[n-1].Text, max(20, m.width-20))) + "\n")
