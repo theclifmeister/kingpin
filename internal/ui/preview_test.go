@@ -6,6 +6,10 @@ import (
 	"testing"
 
 	tea "github.com/charmbracelet/bubbletea"
+
+	"github.com/theclifmeister/kingpin/internal/game"
+	"github.com/theclifmeister/kingpin/internal/sim"
+	"github.com/theclifmeister/kingpin/internal/sim/news"
 )
 
 // TestPreview prints screens to stdout when KINGPIN_PREVIEW is set. It is a
@@ -25,7 +29,7 @@ func TestPreview(t *testing.T) {
 		if m.mode != modePlay {
 			t.Fatalf("dialog stuck at step %d: %s", m.dlg.step, m.dlg.err)
 		}
-		m.Update(key("n"))
+		endDay(t, m)
 		m.Update(key("enter"))
 	}
 	fmt.Println("---- DASHBOARD 100x30")
@@ -70,10 +74,33 @@ func TestPreview(t *testing.T) {
 	fmt.Println("---- FIRE CONFIRM")
 	fmt.Println(m.View())
 	m.Update(key("y"))
-	m.Update(key("n"))
+	endDay(t, m)
 	fmt.Println("---- REPORT WITH CREW")
 	fmt.Println(m.View())
 	m.Update(key("enter"))
+	// The first card in the deck, dealt by hand at 80x24 so its text is
+	// seen at the narrow size.
+	m.Update(tea.WindowSizeMsg{Width: 80, Height: 24})
+	set, _, _ := sim.Default(m.cfg)
+	m.w.Crew.Members[0].Role = "enforcer"
+	m.w.Territory.Corners[1].Owner, m.w.Rival.Arrived = game.OwnerRival, 1
+	if _, ok := news.Eligible(m.w, m.cfg.Dilemmas.Cards[0]); ok {
+		w := m.w
+		w.Dilemmas.LastCard = 0
+		tick := &game.Tick{Day: w.Day + 1, RNG: game.RNGFor(w.Seed, w.Day+1)}
+		for w.Dilemmas.Pending == nil {
+			set.News.Step(w, tick)
+			tick = &game.Tick{Day: tick.Day + 1, RNG: game.RNGFor(w.Seed, tick.Day+1)}
+		}
+		m.mode = modeCard
+		fmt.Println("---- DILEMMA CARD 80x24")
+		fmt.Println(m.View())
+		m.Update(key("enter"))
+		fmt.Println("---- OUTCOME 80x24")
+		fmt.Println(m.View())
+		m.Update(key("enter"))
+	}
+	m.Update(tea.WindowSizeMsg{Width: 100, Height: 30})
 	m.Update(key("1"))
 	m.Update(key("r"))
 	fmt.Println("---- REPORT")

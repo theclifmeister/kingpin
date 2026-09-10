@@ -11,10 +11,11 @@ import (
 // sims can emit must have a headline template, otherwise the ticker goes
 // silent on something that matters. RivalUndercut, CashLaundered and
 // CrewPaidOff are report-only bookkeeping, like PriceMove and CrewPaid;
-// CrewTurnedInformant is deliberately silent, the informant is hidden.
+// CrewTurnedInformant is deliberately silent, the informant is hidden;
+// DilemmaDrawn and DilemmaAnswered carry their own text, the card's.
 func TestEveryEmittedEventHasTemplate(t *testing.T) {
 	cfg := content.MustLoad()
-	n, err := news.New(cfg.Headlines)
+	n, err := news.New(cfg.Headlines, cfg.Dilemmas)
 	if err != nil {
 		t.Fatal(err)
 	}

@@ -484,3 +484,25 @@ type CashLaundered struct {
 }
 
 func (CashLaundered) Kind() string { return "CashLaundered" }
+
+// DilemmaDrawn is a card put in front of the player overnight, to be
+// answered before the morning report. Report-only bookkeeping: the card is
+// the player's business, not the paper's.
+type DilemmaDrawn struct {
+	Day   int
+	Card  string // card id
+	Title string
+}
+
+func (DilemmaDrawn) Kind() string { return "DilemmaDrawn" }
+
+// DilemmaAnswered is the choice the player made on yesterday's card. Its
+// outcome is already in the journal and any follow-up headline comes from
+// the card itself, so it has no template.
+type DilemmaAnswered struct {
+	Day    int
+	Card   string
+	Choice string
+}
+
+func (DilemmaAnswered) Kind() string { return "DilemmaAnswered" }

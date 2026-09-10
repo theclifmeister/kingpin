@@ -31,6 +31,7 @@ type World struct {
 	FallGuyUsed bool            // the fall guy has taken his one fall
 	Fronts      []Front         // businesses the player owns, in the order bought
 	Laundering  LaunderingState
+	Dilemmas    DilemmaState // the card waiting for an answer, and the deck's pacing
 
 	// Per-day scratch, cleared by the clock after every EndDay.
 	Orders        map[string]SellOrder // pending sell orders keyed by product id

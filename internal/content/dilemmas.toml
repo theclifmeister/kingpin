@@ -1,0 +1,892 @@
+# Dilemma cards (#15). The news sim deals at most one a day, none for
+# min_gap days after the last, then a rising chance until one is certain at
+# max_gap, so they come at roughly one every 5-8 days. The card is shown
+# before the morning report; the choice and its outcome go in the journal.
+#
+# Each [[card]] has a [card.trigger] (every set field must hold; see
+# content.CardTrigger), 2-3 [[card.choice]] entries and per-choice
+# [card.choice.effects] keyed by the names in game.EffectKeys:
+#   dirty_cash, clean_cash     fixed deltas
+#   dirty_amount, clean_amount multiples of the card's Amount
+#   heat                       0..100
+#   loyalty                    the member the trigger named
+#   crew_loyalty               everyone on the payroll
+#   war, grudge, rival_muscle, rival_cash
+#   stock_share                fraction of every product, lost if negative
+#   fear, respect, notoriety   reputation axes (#14), 0..100
+# A key the world does not know fails at start-up. Amount is amount_share
+# of the player's dirty cash (the bag it is paid from), but at least
+# amount, rounded to two figures.
+#
+# Slots: {{.Name}} {{.Role}} (the member), {{.Corner}} (yours), {{.Theirs}}
+# (the rival corner it borders, when contested), {{.Rival}} (the leader),
+# {{.City}}, {{.Front}}, {{.Product}}, {{.Amount}}.
+#
+# Convention: the LAST choice is what happens if you do nothing; the
+# harness takes it for any card a policy does not answer. Text reads at 80
+# columns: keep it under ~280 characters and outcomes under 70.
+
+[dilemmas]
+min_gap = 5
+max_gap = 8
+
+# ---------------------------------------------------------------- crew
+
+[[card]]
+id = "stash_hit"
+title = "A night's work"
+text = "{{.Name}} has been watching {{.Rival}}'s stash house for a week and says three people could clear it tonight. Maybe {{.Amount}} in there. Nobody would know who did it, {{.Name}} says. Everybody would know who did it."
+amount = 800
+amount_share = 0.25
+[card.trigger]
+role = "enforcer"
+rival = true
+[[card.choice]]
+label = "Approve it"
+outcome = "{{.Name}} cleared {{.Rival}}'s stash: {{.Amount}}. They will want it back."
+headline = "Stash house hit on the east side; police say 'turf'"
+[card.choice.effects]
+dirty_amount = 1
+war = 15
+grudge = 1
+heat = 6
+loyalty = 8
+fear = 5
+[[card.choice]]
+label = "Veto it"
+outcome = "You told {{.Name}} to stand down. Sulking, but alive."
+[card.choice.effects]
+loyalty = -6
+respect = 2
+[[card.choice]]
+label = "You never heard about it"
+outcome = "{{.Name}} went anyway. Half the take came home; the rest is in the wind."
+headline = "Shots fired at a house on the east side; no arrests"
+[card.choice.effects]
+dirty_amount = 0.5
+war = 15
+heat = 10
+loyalty = -3
+notoriety = 3
+
+[[card]]
+id = "wants_raise"
+title = "A word about money"
+text = "{{.Name}} catches you on the stairs. Rent is up, the kid needs shoes, and {{.Rival}} pays better, or so people say. {{.Amount}} would show some respect."
+amount = 200
+amount_share = 0.06
+[card.trigger]
+loyalty_below = 50
+crew_min = 1
+[[card.choice]]
+label = "Pay it"
+outcome = "You gave {{.Name}} {{.Amount}}. They walked off standing straighter."
+[card.choice.effects]
+dirty_amount = -1
+loyalty = 20
+respect = 2
+[[card.choice]]
+label = "Promise it next month"
+outcome = "{{.Name}} has heard 'next month' before."
+[card.choice.effects]
+loyalty = -4
+[[card.choice]]
+label = "Laugh"
+outcome = "You laughed. {{.Name}} did not, and the others heard."
+[card.choice.effects]
+loyalty = -12
+crew_loyalty = -2
+fear = 2
+
+[[card]]
+id = "runner_arrested"
+title = "One of yours is in the cells"
+text = "{{.Name}} got picked up on {{.Corner}} with a pocketful. The lawyer says {{.Amount}} tonight gets them out before anyone thinks to ask questions. Or they sit, and think about who put them there."
+amount = 400
+amount_share = 0.12
+[card.trigger]
+role = "runner"
+heat_min = 25
+corners = 1
+[[card.choice]]
+label = "Pay the lawyer"
+outcome = "{{.Name}} was home by midnight. The crew noticed who paid."
+[card.choice.effects]
+dirty_amount = -1
+loyalty = 12
+crew_loyalty = 4
+respect = 3
+[[card.choice]]
+label = "Let them sit a night"
+outcome = "{{.Name}} sat a night. They came out quieter than they went in."
+[card.choice.effects]
+loyalty = -15
+crew_loyalty = -3
+heat = -3
+[[card.choice]]
+label = "You don't know anybody by that name"
+outcome = "You never heard of {{.Name}}. Neither, now, has the crew."
+[card.choice.effects]
+loyalty = -30
+crew_loyalty = -6
+heat = -6
+respect = -3
+
+[[card]]
+id = "hand_in_the_bag"
+title = "A hand in the bag"
+text = "The count was short again and this time {{.Name}} was seen. Not much, {{.Amount}} maybe, but everyone knows, and everyone is watching what you do about it."
+amount = 150
+amount_share = 0.04
+[card.trigger]
+loyalty_below = 35
+crew_min = 2
+[[card.choice]]
+label = "Make an example"
+outcome = "{{.Name}} will not be stealing again. Or smiling much."
+[card.choice.effects]
+loyalty = -40
+crew_loyalty = -3
+fear = 6
+[[card.choice]]
+label = "Take it out of their pay"
+outcome = "{{.Name}} paid it back out of wages. Fair, and remembered."
+[card.choice.effects]
+dirty_amount = 0.5
+loyalty = -8
+respect = 2
+[[card.choice]]
+label = "Let it slide"
+outcome = "You let it slide. {{.Name}} is grateful; the rest are taking notes."
+[card.choice.effects]
+loyalty = 10
+crew_loyalty = -4
+respect = -2
+
+[[card]]
+id = "funeral"
+title = "A funeral"
+text = "{{.Name}}'s brother was shot outside a bar on the south side. Nothing to do with you. The family cannot afford to bury him properly, and the crew are waiting to see what a boss does."
+amount = 300
+amount_share = 0.05
+[card.trigger]
+crew_min = 2
+[[card.choice]]
+label = "Pay for the funeral"
+outcome = "You paid for the funeral, {{.Amount}}. The crew stood at the back."
+[card.choice.effects]
+dirty_amount = -1
+crew_loyalty = 8
+respect = 5
+[[card.choice]]
+label = "Send flowers"
+outcome = "You sent flowers. Nice ones."
+[card.choice.effects]
+dirty_cash = -100
+crew_loyalty = 2
+[[card.choice]]
+label = "Business is business"
+outcome = "You sent nothing. The crew noticed."
+[card.choice.effects]
+crew_loyalty = -5
+
+[[card]]
+id = "wants_a_gun"
+title = "Hardware"
+text = "{{.Name}} wants to carry. Says the corners are getting hot and an enforcer with nothing in their waistband is just a big target. {{.Amount}} for something clean, no history."
+amount = 350
+amount_share = 0.05
+[card.trigger]
+role = "enforcer"
+heat_min = 20
+[[card.choice]]
+label = "Buy it"
+outcome = "{{.Name}} carries now. People walk differently around them."
+[card.choice.effects]
+dirty_amount = -1
+loyalty = 6
+heat = 4
+fear = 3
+[[card.choice]]
+label = "No hardware on my crew"
+outcome = "No guns. {{.Name}} thinks you are soft, or careful. Same thing."
+[card.choice.effects]
+loyalty = -5
+respect = 1
+
+[[card]]
+id = "block_party"
+title = "The block wants a party"
+text = "The crew want to throw a party for the block: music, a grill, {{.Amount}} of goodwill. The neighbours would love it. So would every patrol car within a mile."
+amount = 400
+amount_share = 0.05
+[card.trigger]
+crew_min = 3
+cash_min = 1000
+[[card.choice]]
+label = "Throw it"
+outcome = "The party ran till three. The block loves you; so does the precinct."
+headline = "Block party in {{.City}} draws crowd, and complaints"
+[card.choice.effects]
+dirty_amount = -1
+crew_loyalty = 6
+heat = 5
+respect = 4
+notoriety = 3
+[[card.choice]]
+label = "Something small, indoors"
+outcome = "A quiet party. Good food. Nobody called anybody."
+[card.choice.effects]
+dirty_amount = -0.4
+crew_loyalty = 3
+heat = 1
+[[card.choice]]
+label = "No party"
+outcome = "No party. The crew went home early, grumbling."
+[card.choice.effects]
+crew_loyalty = -3
+
+[[card]]
+id = "cops_daughter"
+title = "Complicated"
+text = "{{.Name}} is seeing somebody. Nice, by all accounts. Her father is a sergeant at the precinct that covers {{.Corner}}. {{.Name}} says it is nobody's business."
+[card.trigger]
+crew_min = 1
+loyalty_above = 30
+heat_min = 15
+corners = 1
+[[card.choice]]
+label = "End it, or you're out"
+outcome = "{{.Name}} ended it, or says so. They are not speaking to you."
+[card.choice.effects]
+loyalty = -10
+heat = -2
+[[card.choice]]
+label = "Use it"
+outcome = "{{.Name}} listens at dinner now and tells you what the sergeant says."
+[card.choice.effects]
+heat = -6
+loyalty = -4
+notoriety = 1
+[[card.choice]]
+label = "Stay out of it"
+outcome = "You stayed out of it. Pillow talk goes both ways."
+[card.choice.effects]
+heat = 3
+loyalty = 3
+
+# --------------------------------------------------------------- rival
+
+[[card]]
+id = "sit_down"
+title = "A sit-down"
+text = "Word comes from {{.Rival}}: a meeting, neutral ground, no hardware. Split the city and stop bleeding money on each other. It could be an olive branch. It could be a room with one door."
+[card.trigger]
+rival = true
+war_min = 20
+[[card.choice]]
+label = "Take the meeting"
+outcome = "You sat down with {{.Rival}}. Nobody got shot. Things are quieter."
+headline = "Calm returns to {{.City}} corners after weeks of violence"
+[card.choice.effects]
+war = -25
+grudge = -2
+respect = 3
+[[card.choice]]
+label = "Send a message instead"
+outcome = "You sent {{.Rival}} a message. It was not a letter."
+[card.choice.effects]
+war = 10
+grudge = 1
+heat = 3
+fear = 4
+[[card.choice]]
+label = "Ignore it"
+outcome = "You did not reply. {{.Rival}} took it as an answer."
+[card.choice.effects]
+war = -5
+
+[[card]]
+id = "poaching"
+title = "Poaching"
+text = "{{.Rival}}'s people have been buying {{.Name}} drinks and talking numbers. Double wages, they say. {{.Name}} has not said yes. {{.Name}} has not said no either."
+amount = 300
+amount_share = 0.06
+[card.trigger]
+rival = true
+loyalty_below = 55
+[[card.choice]]
+label = "Match it"
+outcome = "You matched {{.Rival}}'s offer. {{.Name}} stays, {{.Amount}} richer."
+[card.choice.effects]
+dirty_amount = -1
+loyalty = 15
+[[card.choice]]
+label = "Have a word with the recruiter"
+outcome = "{{.Rival}}'s recruiter drinks elsewhere now. {{.Name}} saw why."
+[card.choice.effects]
+war = 8
+heat = 3
+loyalty = 5
+fear = 3
+[[card.choice]]
+label = "If they want to go, let them"
+outcome = "You said nothing. {{.Name}} is still weighing it."
+[card.choice.effects]
+loyalty = -12
+
+[[card]]
+id = "shipment"
+title = "A shipment"
+text = "{{.Rival}}'s connect brings a load through the docks tonight, one car, two people. You know the route. Maybe {{.Amount}} in product and cash if it went missing."
+amount = 1500
+amount_share = 0.3
+[card.trigger]
+rival = true
+crew_min = 1
+[[card.choice]]
+label = "Take it"
+outcome = "The car never reached {{.Rival}}. You are {{.Amount}} richer and at war."
+headline = "Robbery at the docks; two hurt, nothing reported stolen"
+[card.choice.effects]
+dirty_amount = 1
+rival_cash = -3000
+war = 20
+grudge = 1
+heat = 8
+fear = 5
+[[card.choice]]
+label = "Tip the police"
+outcome = "The police took {{.Rival}}'s car apart at the docks. They owe you one."
+headline = "Police seize shipment at the docks after anonymous tip"
+[card.choice.effects]
+rival_cash = -3000
+rival_muscle = -1
+heat = -4
+war = 5
+respect = -3
+[[card.choice]]
+label = "Let it through"
+outcome = "You let it through. {{.Rival}} restocked."
+[card.choice.effects]
+rival_cash = 1000
+
+[[card]]
+id = "detective_lean"
+title = "A friendly detective"
+text = "A detective with expensive shoes offers to make {{.Rival}}'s life difficult for a month. Stops, searches, a raid or two. {{.Amount}}, cash, no receipt."
+amount = 800
+amount_share = 0.15
+[card.trigger]
+rival = true
+heat_min = 10
+[[card.choice]]
+label = "Pay him"
+outcome = "The detective earned his money. {{.Rival}} lost a man and a week."
+headline = "Raids on the east side; police say more to come"
+[card.choice.effects]
+dirty_amount = -1
+rival_muscle = -1
+rival_cash = -2000
+war = 5
+[[card.choice]]
+label = "Never heard of {{.Rival}}"
+outcome = "You know nobody by that name. The detective shrugged and left."
+[card.choice.effects]
+notoriety = -1
+
+[[card]]
+id = "turncoat"
+title = "A turncoat"
+text = "One of {{.Rival}}'s people wants out and wants in with you. They know where {{.Rival}} keeps the money and who they pay. They also might be exactly what they look like: a plant."
+amount = 300
+amount_share = 0.05
+weight = 2
+[card.trigger]
+rival = true
+war_min = 20
+[[card.choice]]
+label = "Take them in"
+outcome = "You took the turncoat in. {{.Rival}} is one short and knows it."
+[card.choice.effects]
+rival_muscle = -1
+war = 5
+grudge = 1
+heat = 3
+[[card.choice]]
+label = "Pay for what they know, send them back"
+outcome = "You paid {{.Amount}} for the map of {{.Rival}}'s money. Then used it."
+[card.choice.effects]
+dirty_amount = -1
+rival_cash = -2500
+[[card.choice]]
+label = "Turn them away"
+outcome = "You sent them back. A boss who buys traitors breeds them."
+[card.choice.effects]
+respect = 2
+
+[[card]]
+id = "rival_laid_up"
+title = "{{.Rival}} is in hospital"
+text = "{{.Rival}} went into hospital last night. Nothing to do with you. Their crew are standing around on {{.Theirs}} looking at each other. Everybody knows this is the week to move, if you are going to."
+[card.trigger]
+rival = true
+contested = true
+[[card.choice]]
+label = "Push now"
+outcome = "You pushed while {{.Rival}} was flat. Their crew scattered; some came back."
+[card.choice.effects]
+war = 12
+rival_muscle = -2
+heat = 4
+fear = 4
+[[card.choice]]
+label = "Send flowers"
+outcome = "You sent {{.Rival}} flowers. They will remember that, either way."
+[card.choice.effects]
+war = -10
+respect = 4
+[[card.choice]]
+label = "Wait and see"
+outcome = "You waited. {{.Rival}} was back on {{.Theirs}} by Friday."
+[card.choice.effects]
+war = -2
+
+[[card]]
+id = "leave_by_friday"
+title = "A deadline"
+text = "A note under the door: {{.Rival}} wants {{.Corner}} cleared by Friday. Your people can keep their legs if they go quietly. {{.Rival}} has taken corners before. {{.Rival}} means it."
+amount = 500
+amount_share = 0.1
+[card.trigger]
+rival = true
+personality = "expansionist"
+contested = true
+[[card.choice]]
+label = "Fortify {{.Corner}}"
+outcome = "You spent {{.Amount}} making {{.Corner}} hard to take. The crew felt it."
+[card.choice.effects]
+dirty_amount = -1
+war = 5
+crew_loyalty = 3
+rival_muscle = -1
+fear = 3
+[[card.choice]]
+label = "Offer {{.Rival}} a cut"
+outcome = "You bought a month's peace on {{.Corner}} for {{.Amount}}."
+[card.choice.effects]
+dirty_amount = -0.5
+rival_cash = 1000
+war = -10
+respect = -3
+[[card.choice]]
+label = "Ignore the note"
+outcome = "Friday came. {{.Rival}} is still on {{.Theirs}}, and closer."
+[card.choice.effects]
+war = 5
+grudge = 1
+
+[[card]]
+id = "torched_car"
+title = "A car on fire"
+text = "Somebody torched a car outside your place last night. Nobody's car in particular, which is the point. {{.Rival}}'s crew were laughing about it on {{.Theirs}} this morning."
+[card.trigger]
+rival = true
+personality = "chaotic"
+contested = true
+[[card.choice]]
+label = "Torch two of theirs"
+outcome = "Two of {{.Rival}}'s cars burned. Everyone on the block knows the score."
+headline = "Third car fire this month; 'not random', says fire chief"
+[card.choice.effects]
+war = 20
+heat = 8
+rival_cash = -1000
+fear = 5
+[[card.choice]]
+label = "Report it to the fire department"
+outcome = "You reported it. A patrol car sat on your block all week."
+[card.choice.effects]
+heat = 3
+war = -5
+respect = -2
+[[card.choice]]
+label = "Shrug"
+outcome = "You shrugged it off. {{.Rival}}'s crew are still laughing."
+[card.choice.effects]
+crew_loyalty = -3
+war = 2
+
+[[card]]
+id = "line_on_the_map"
+title = "A line on the map"
+text = "{{.Rival}} sends a map with a line drawn across it: their side, yours. They do not want the city. They want to be left alone, and to leave you alone. Nobody crosses, nobody talks to the police."
+[card.trigger]
+rival = true
+personality = "defensive"
+[[card.choice]]
+label = "Agree to the line"
+outcome = "You agreed to {{.Rival}}'s line. The corners are quiet."
+[card.choice.effects]
+war = -20
+grudge = -1
+respect = 3
+[[card.choice]]
+label = "Refuse"
+outcome = "You tore up the map. {{.Rival}} put more people on the line."
+[card.choice.effects]
+war = 5
+rival_muscle = 1
+
+[[card]]
+id = "bulk_buyer"
+title = "A bulk buyer"
+text = "{{.Rival}} is short of {{.Product}} and sends word: they will buy a third of what you are holding, cash, {{.Amount}}, no questions. Today only. Selling to the competition is money. It is also selling to the competition."
+amount = 400
+amount_share = 0.15
+[card.trigger]
+rival = true
+personality = "opportunist"
+stock_min = 30
+[[card.choice]]
+label = "Sell"
+outcome = "You sold {{.Rival}} a third of your {{.Product}} for {{.Amount}}."
+[card.choice.effects]
+dirty_amount = 1
+stock_share = -0.33
+war = -5
+rival_cash = -1000
+[[card.choice]]
+label = "Not to them"
+outcome = "You do not sell to {{.Rival}}. They found it elsewhere."
+[card.choice.effects]
+war = 2
+
+# ---------------------------------------------------------------- heat
+
+[[card]]
+id = "lose_a_file"
+title = "A file goes missing"
+text = "A detective you have never met sits down across from you in a diner. There is a file with your name on it. For {{.Amount}} it could get lost in the move to the new building. He orders pie."
+amount = 600
+amount_share = 0.15
+[card.trigger]
+heat_min = 40
+[[card.choice]]
+label = "Pay him"
+outcome = "The file is gone. So is {{.Amount}}. He tipped the waitress with yours."
+[card.choice.effects]
+dirty_amount = -1
+heat = -15
+[[card.choice]]
+label = "Pay half and haggle"
+outcome = "He took half and 'lost' half the file. Cheap cops are cheap."
+[card.choice.effects]
+dirty_amount = -0.5
+heat = -6
+notoriety = 2
+[[card.choice]]
+label = "Tell him to get lost"
+outcome = "You told him where to go. He finished his pie and made a call."
+[card.choice.effects]
+heat = 5
+fear = 2
+
+[[card]]
+id = "reporter"
+title = "A reporter"
+text = "A reporter has been on {{.Corner}} with a notebook asking the runners for their names. She has a byline and a photographer, and a story about a young outfit in {{.City}} is a story about you."
+amount = 200
+amount_share = 0.04
+[card.trigger]
+heat_min = 25
+corners = 1
+[[card.choice]]
+label = "Buy her a drink and a better story"
+outcome = "You bought her a drink and a story about the docks. She ran that instead."
+headline = "Corruption at the port? {{.City}} paper promises a series"
+[card.choice.effects]
+dirty_amount = -1
+heat = -5
+notoriety = 5
+[[card.choice]]
+label = "Have the crew scare her off"
+outcome = "The crew scared her off {{.Corner}}. She wrote about that instead."
+headline = "Reporter threatened on {{.City}} corner; editor demands answers"
+[card.choice.effects]
+heat = 8
+fear = 4
+notoriety = 6
+[[card.choice]]
+label = "Say nothing"
+outcome = "You said nothing. The story ran on page nine."
+headline = "Who runs the corners? A look at {{.City}}'s new faces"
+[card.choice.effects]
+heat = 2
+notoriety = 2
+
+[[card]]
+id = "witness"
+title = "A witness"
+text = "A woman who has lived over {{.Corner}} for forty years saw the last stick-up from her window, and the police have been round twice with photographs. She likes her tea and her quiet."
+amount = 500
+amount_share = 0.1
+[card.trigger]
+heat_min = 30
+corners = 1
+[[card.choice]]
+label = "Pay her rent for the year"
+outcome = "Her rent is paid for the year. Her eyesight has gone terrible."
+[card.choice.effects]
+dirty_amount = -1
+heat = -8
+respect = 4
+[[card.choice]]
+label = "Have somebody explain the situation to her"
+outcome = "Somebody explained things to her. The block heard about it too."
+[card.choice.effects]
+heat = -4
+fear = 5
+respect = -5
+[[card.choice]]
+label = "Let her talk"
+outcome = "She talked. The police have a description now."
+[card.choice.effects]
+heat = 6
+
+[[card]]
+id = "sergeant"
+title = "The sergeant's rate"
+text = "The sergeant whose cars roll through {{.Corner}} sends a uniform round with a number: {{.Amount}}, and his cars find other streets to roll through for a while. It is not a request so much as a price list."
+amount = 300
+amount_share = 0.08
+[card.trigger]
+heat_min = 20
+corners = 1
+[[card.choice]]
+label = "Pay the rate"
+outcome = "You paid the sergeant. {{.Corner}} has not seen a car since."
+[card.choice.effects]
+dirty_amount = -1
+heat = -10
+[[card.choice]]
+label = "Send the uniform back with nothing"
+outcome = "You sent him back empty. The cars are on {{.Corner}} every hour."
+[card.choice.effects]
+heat = 4
+fear = 1
+
+[[card]]
+id = "sweep_tip"
+title = "A tip"
+text = "A patrolman you once did a favour for calls from a payphone: they are sweeping the corners tomorrow, every one, warrants or not. He would like something for the call. He would also like you to remember he made it."
+amount = 200
+amount_share = 0.05
+[card.trigger]
+heat_min = 35
+crew_min = 1
+[[card.choice]]
+label = "Pay for the call and pull everyone in"
+outcome = "You pulled the crew in before the sweep. They came back to empty corners."
+[card.choice.effects]
+dirty_amount = -1
+heat = -7
+crew_loyalty = 3
+[[card.choice]]
+label = "Thank him and keep working"
+outcome = "You kept working through the sweep. It cost you."
+[card.choice.effects]
+heat = 5
+stock_share = -0.15
+crew_loyalty = -3
+
+# --------------------------------------------------------------- money
+
+[[card]]
+id = "church_roof"
+title = "The church roof"
+text = "The pastor from the church on {{.Corner}} comes by, hat in hand. The roof leaks and the collection does not cover it. He knows what you do. He also knows who fixes roofs in this neighbourhood."
+amount = 300
+amount_share = 0.05
+[card.trigger]
+cash_min = 1500
+corners = 1
+[[card.choice]]
+label = "Fix the roof"
+outcome = "The church has a new roof and you have a friend who talks to everyone."
+headline = "Anonymous donor fixes {{.City}} church roof"
+[card.choice.effects]
+dirty_amount = -1
+heat = -3
+respect = 6
+[[card.choice]]
+label = "Put something in the plate"
+outcome = "You put something in the plate. The pastor blessed you anyway."
+[card.choice.effects]
+dirty_amount = -0.2
+respect = 2
+[[card.choice]]
+label = "Not today"
+outcome = "You sent the pastor away. The whole block heard the sermon."
+[card.choice.effects]
+respect = -2
+heat = 1
+
+[[card]]
+id = "counterfeit"
+title = "Funny money"
+text = "{{.Name}} took {{.Amount}} in twenties on {{.Corner}} last night and every one of them is fake. Good fakes. Somebody is passing paper on your corners and {{.Name}} did not check."
+amount = 200
+amount_share = 0.06
+[card.trigger]
+role = "runner"
+cash_min = 800
+corners = 1
+[[card.choice]]
+label = "Find whoever passed it"
+outcome = "You found the passer. Some of it came back; so did a patrol car."
+[card.choice.effects]
+dirty_amount = -0.4
+heat = 5
+fear = 3
+[[card.choice]]
+label = "Dock {{.Name}} for it"
+outcome = "{{.Name}} is paying it back out of wages, and checks every bill now."
+[card.choice.effects]
+dirty_amount = -0.5
+loyalty = -12
+[[card.choice]]
+label = "Eat the loss"
+outcome = "You ate the {{.Amount}}. {{.Name}} is very grateful, and very careful."
+[card.choice.effects]
+dirty_amount = -1
+loyalty = 6
+
+[[card]]
+id = "the_car"
+title = "A boss's car"
+text = "The crew have started saying it: a boss should not be pulling up in that. {{.Amount}} gets something with tinted windows and a sound system. Everyone on the street would know it. Everyone."
+amount = 3000
+amount_share = 0.15
+[card.trigger]
+cash_min = 20000
+crew_min = 2
+[[card.choice]]
+label = "Buy the car"
+outcome = "You bought the car. The crew love it. So does every cop in {{.City}}."
+[card.choice.effects]
+dirty_amount = -1
+crew_loyalty = 5
+heat = 3
+notoriety = 6
+[[card.choice]]
+label = "Keep the beater"
+outcome = "You kept the old car. Quiet money is money."
+[card.choice.effects]
+crew_loyalty = -1
+respect = 1
+
+[[card]]
+id = "cousins_books"
+title = "The cousin's books"
+text = "An accountant with a nervous cousin who owns a car wash offers to run {{.Amount}} through the books this month. Seventy cents on the dollar comes back clean. He has done it before. He says."
+amount = 1000
+amount_share = 0.2
+[card.trigger]
+cash_min = 5000
+[[card.choice]]
+label = "Do it"
+outcome = "The car wash washed {{.Amount}}. Seventy cents on the dollar came back clean."
+[card.choice.effects]
+dirty_amount = -1
+clean_amount = 0.7
+[[card.choice]]
+label = "Pass"
+outcome = "You passed on the car wash. The pile stays dirty."
+
+[[card]]
+id = "card_game"
+title = "A game upstairs"
+text = "There is a card game above the club tonight, the kind with a doctor, a councilman and a man nobody introduces. Your name came up. Sitting down costs {{.Amount}}; sitting down means being seen."
+amount = 500
+amount_share = 0.1
+[card.trigger]
+cash_min = 3000
+[[card.choice]]
+label = "Sit in"
+outcome = "You sat in and walked out up {{.Amount}}. The councilman knows your name."
+[card.choice.effects]
+dirty_amount = 0.5
+heat = 3
+notoriety = 4
+[[card.choice]]
+label = "Send your regrets"
+outcome = "You sent your regrets. The game went on without you."
+[card.choice.effects]
+notoriety = -1
+
+[[card]]
+id = "permit"
+title = "A man from the city"
+text = "A man from the city with a clipboard says {{.Front}} is operating without the right permit. {{.Amount}}, in clean money, and the paperwork appears. Otherwise there will be an inspection, and inspectors look at books."
+amount = 400
+amount_share = 0.05
+[card.trigger]
+fronts = true
+[[card.choice]]
+label = "Pay for the permit"
+outcome = "{{.Front}} has its permit. The man with the clipboard has {{.Amount}}."
+[card.choice.effects]
+clean_amount = -1
+[[card.choice]]
+label = "Tell him to inspect away"
+outcome = "The inspector came to {{.Front}} and asked to see the books."
+[card.choice.effects]
+heat = 5
+
+[[card]]
+id = "mother_calls"
+title = "Your mother calls"
+text = "Your mother calls. The furnace is out, the landlord is useless, and she does not ask what you do for a living because she does not want to know. {{.Amount}} would fix it. She did not ask."
+amount = 250
+amount_share = 0.04
+[card.trigger]
+cash_min = 1000
+day_min = 10
+[[card.choice]]
+label = "Send it"
+outcome = "You sent your mother {{.Amount}}. She did not ask where it came from."
+[card.choice.effects]
+dirty_amount = -1
+respect = 2
+[[card.choice]]
+label = "Send half"
+outcome = "You sent half. The furnace works most days."
+[card.choice.effects]
+dirty_amount = -0.5
+[[card.choice]]
+label = "Not this month"
+outcome = "You did not send anything. The crew heard the call."
+[card.choice.effects]
+crew_loyalty = -2
+
+[[card]]
+id = "kid_on_the_corner"
+title = "A kid on the corner"
+text = "A twelve-year-old has been hanging around {{.Corner}} asking to hold the bag. Quick, fearless, and the police cannot charge him with much. Every outfit in {{.City}} uses kids. That is one reason people hate them."
+[card.trigger]
+corners = 1
+crew_min = 1
+[[card.choice]]
+label = "No kids. Send him to school"
+outcome = "You sent the kid to school. He will be back; so will your reputation."
+[card.choice.effects]
+respect = 3
+[[card.choice]]
+label = "Let him hold the bag"
+outcome = "The kid holds the bag on {{.Corner}}. Nobody stops him; everybody sees."
+[card.choice.effects]
+dirty_cash = 200
+heat = 4
+respect = -4
+notoriety = 2

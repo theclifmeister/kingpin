@@ -49,6 +49,24 @@ func key(s string) tea.KeyMsg {
 	return tea.KeyMsg{Type: tea.KeyRunes, Runes: []rune(s)}
 }
 
+// endDay presses n and, if the news sim dealt a dilemma card overnight,
+// answers it with the highlighted choice and reads the outcome, so the
+// caller lands on the morning report the way it did before cards. Cards
+// come at the seed's whim from day 5 on, and test seeds are wall-clock.
+func endDay(t *testing.T, m *Model) {
+	t.Helper()
+	m.Update(key("n"))
+	if m.mode == modeCard {
+		assertFits(t, m.View(), m.width, m.height, "dilemma card")
+		m.Update(key("enter"))
+		if m.mode != modeCard || !m.cardDone {
+			t.Fatalf("answering the card: mode %v done %v", m.mode, m.cardDone)
+		}
+		assertFits(t, m.View(), m.width, m.height, "dilemma outcome")
+		m.Update(key("enter"))
+	}
+}
+
 func assertFits(t *testing.T, view string, w, h int, what string) {
 	t.Helper()
 	ls := strings.Split(view, "\n")
@@ -73,7 +91,7 @@ func TestRendersAtCommonSizes(t *testing.T) {
 			m.Update(key("enter")) // qty (blank = all)
 			m.Update(key("3"))     // aggressive
 			m.Update(key("enter")) // confirm
-			m.Update(key("n"))     // end day -> report
+			endDay(t, m)           // end day -> report
 			assertFits(t, m.View(), sz[0], sz[1], "report")
 			m.Update(key("enter"))
 		}
@@ -138,7 +156,7 @@ func TestRendersAtCommonSizes(t *testing.T) {
 		m.Update(key("enter"))
 		m.Update(key("enter"))
 		m.w.Corner(m.cfg.City.Territory.Start).Risk = 100 // a robbery for the report
-		m.Update(key("n"))
+		endDay(t, m)
 		assertFits(t, m.View(), sz[0], sz[1], "report with crew")
 		if len(m.w.Report.Territory) == 0 {
 			t.Fatalf("%dx%d: report has no territory lines: %+v", sz[0], sz[1], m.w.Report)
@@ -159,7 +177,7 @@ func TestRendersAtCommonSizes(t *testing.T) {
 			t.Fatalf("%dx%d: bought %d fronts: %q", sz[0], sz[1], len(m.w.Fronts), m.status)
 		}
 		m.w.Crew.Members = append(m.w.Crew.Members, game.CrewMember{ID: 901, Name: "Books", Role: "accountant", Skill: 60, Loyalty: 60, Wage: 130})
-		m.Update(key("n"))
+		endDay(t, m)
 		assertFits(t, m.View(), sz[0], sz[1], "report with fronts")
 		if !strings.Contains(strings.Join(m.w.Report.Money, "\n"), "Washed") {
 			t.Fatalf("%dx%d: report has no wash line: %v", sz[0], sz[1], m.w.Report.Money)
@@ -203,7 +221,7 @@ func TestRendersAtCommonSizes(t *testing.T) {
 		m.Update(key("esc"))
 		m.Update(key("esc"))
 		m.w.Player.CleanCash, m.w.Player.DirtyCash = m.w.Player.DirtyCash, 50_000
-		m.Update(key("n"))
+		endDay(t, m)
 		m.Update(key("enter"))
 		if got := len(m.w.Products); got != len(m.cfg.Market.Products) {
 			t.Fatalf("%d of %d products unlocked with a billion in the bank", got, len(m.cfg.Market.Products))
@@ -223,11 +241,11 @@ func TestRendersAtCommonSizes(t *testing.T) {
 		m.Update(key("enter"))
 		assertFits(t, m.View(), sz[0], sz[1], "ladder sell dialog")
 		m.Update(key("enter"))
-		m.Update(key("n"))
+		endDay(t, m)
 		assertFits(t, m.View(), sz[0], sz[1], "ladder report")
 		m.Update(key("enter"))
 		m.w.Over = &game.Ending{Day: m.w.Day, Cause: "indicted", PeakCash: m.w.Stats.PeakCash}
-		m.Update(key("n"))
+		endDay(t, m)
 		assertFits(t, m.View(), sz[0], sz[1], "rich game over")
 	}
 }
@@ -283,7 +301,7 @@ func TestBuyThenSellFlow(t *testing.T) {
 func TestTickerNeverWiderThanTerminal(t *testing.T) {
 	m := newTestModel(t, 60, 20)
 	for i := 0; i < 30; i++ {
-		m.Update(key("n"))
+		endDay(t, m)
 		m.Update(key("enter"))
 	}
 	for i := 0; i < 200; i++ {
@@ -732,7 +750,7 @@ func TestMapScreenKeys(t *testing.T) {
 		t.Fatalf("after firing the runner: %+v", *c)
 	}
 	for i := 0; i < m.cfg.City.Territory.DriftDays; i++ {
-		m.Update(key("n"))
+		endDay(t, m)
 		m.Update(key("enter"))
 	}
 	if c.Held() || c.Enforcer != 0 {
@@ -1064,5 +1082,95 @@ func TestInvestigateAndPayOffKeys(t *testing.T) {
 	m.Update(key("enter"))
 	if m.w.Report.CashBefore != 20_000 {
 		t.Fatalf("cash before = %d, want the morning's 20000", m.w.Report.CashBefore)
+	}
+}
+
+// A dilemma card dealt overnight is shown before the morning report:
+// enter inside it decides, shows the outcome and then opens the report,
+// and never ends the day; 1-3 pick a choice directly; the effects land
+// at once and the outcome goes in the journal. A save on a card brings
+// the same card back.
+func TestCardBeforeReport(t *testing.T) {
+	m := newTestModel(t, 80, 24)
+	deal := func() {
+		m.w.Dilemmas.Pending = &game.Card{ID: "test", Day: m.w.Day + 1, Title: "A test", Text: strings.Repeat("A long question about what to do next. ", 6),
+			Choices: []game.Choice{
+				{Label: "Pay", Outcome: "You paid.", Effects: map[string]float64{"dirty_cash": -100}},
+				{Label: "Shout", Outcome: "You shouted.", Effects: map[string]float64{"heat": 7}},
+				{Label: "Walk away", Outcome: "You walked."},
+			}}
+	}
+	deal()
+	cash, day := m.w.Player.DirtyCash, m.w.Day
+	m.Update(key("n"))
+	if m.mode != modeCard || m.w.Day != day+1 || m.w.Dilemmas.Pending == nil {
+		t.Fatalf("after n: mode %v day %d pending %v", m.mode, m.w.Day, m.w.Dilemmas.Pending)
+	}
+	assertFits(t, m.View(), 80, 24, "card")
+	if !strings.Contains(stripANSI(m.View()), "A TEST") {
+		t.Fatal("card does not show its title")
+	}
+	m.Update(key("j"))
+	m.Update(key("k"))
+	m.Update(key("enter")) // decide: Pay
+	if m.w.Day != day+1 || m.mode != modeCard || !m.cardDone || m.w.Dilemmas.Pending != nil {
+		t.Fatalf("after deciding: day %d mode %v done %v pending %v", m.w.Day, m.mode, m.cardDone, m.w.Dilemmas.Pending)
+	}
+	if m.w.Player.DirtyCash != cash-100 {
+		t.Fatalf("effect did not land: $%d -> $%d", cash, m.w.Player.DirtyCash)
+	}
+	if !strings.Contains(stripANSI(m.View()), "You paid.") {
+		t.Fatal("outcome not shown")
+	}
+	assertFits(t, m.View(), 80, 24, "outcome")
+	if last := m.w.Journal[len(m.w.Journal)-1]; last.Text != "You paid." || last.Source != "dilemma" {
+		t.Fatalf("journal: %+v", last)
+	}
+	m.Update(key("enter")) // to the report
+	if m.mode != modeReport || m.w.Day != day+1 {
+		t.Fatalf("after the outcome: mode %v day %d", m.mode, m.w.Day)
+	}
+	m.Update(key("enter")) // close the report
+	if m.mode != modePlay || m.w.Day != day+1 {
+		t.Fatalf("after the report: mode %v day %d", m.mode, m.w.Day)
+	}
+
+	// Digits pick directly; the outcome's heat shows up.
+	deal()
+	heat := m.w.Heat.Value
+	m.Update(key("n"))
+	m.Update(key("2"))
+	if !m.cardDone || m.w.Heat.Value != heat+7 || m.w.Day != day+2 {
+		t.Fatalf("digit pick: done %v heat %v -> %v day %d", m.cardDone, heat, m.w.Heat.Value, m.w.Day)
+	}
+	m.Update(key("enter"))
+	m.Update(key("enter"))
+
+	// Saved on a card: continuing shows it again, and the choice still works.
+	deal()
+	m.Update(key("n"))
+	if m.mode != modeCard {
+		t.Fatalf("mode %v", m.mode)
+	}
+	m.Update(key("ctrl+c")) // quit saves
+	m2, err := New(m.cfg)
+	if err != nil {
+		t.Fatal(err)
+	}
+	m2.Update(tea.WindowSizeMsg{Width: 80, Height: 24})
+	if m2.mode != modeStart {
+		t.Fatalf("no continue offered: mode %v", m2.mode)
+	}
+	m2.Update(key("c"))
+	if m2.mode != modeCard || m2.w.Dilemmas.Pending == nil || m2.w.Dilemmas.Pending.ID != "test" {
+		t.Fatalf("continue: mode %v pending %+v", m2.mode, m2.w.Dilemmas.Pending)
+	}
+	m2.Update(key("3"))
+	if !m2.cardDone || m2.w.Dilemmas.Pending != nil || m2.w.Day != day+3 {
+		t.Fatalf("after continuing and deciding: done %v pending %v day %d", m2.cardDone, m2.w.Dilemmas.Pending, m2.w.Day)
+	}
+	m2.Update(key("enter"))
+	if m2.mode != modeReport {
+		t.Fatalf("mode %v", m2.mode)
 	}
 }

@@ -54,7 +54,7 @@ func Source(name string) lipgloss.Color {
 		return Crew
 	case "money", "laundering":
 		return Money
-	case "reputation":
+	case "reputation", "dilemma":
 		return Warn
 	default:
 		return News

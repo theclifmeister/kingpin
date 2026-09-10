@@ -95,7 +95,13 @@ run is fully reproducible and nothing about the RNG needs saving.
   The wash always leaves a float in the till for the street. Dirty cash
   over the threshold is heat every day it sits there; clean cash is what
   the retainer, and the endgame, ask for.
-- **News** turns everything into headlines and writes the morning report.
+- **News** turns everything into headlines and writes the morning report,
+  and every five to eight days deals a **dilemma card**: an enforcer who
+  wants to hit the rival's stash, a detective with a file to lose, a
+  reporter on your corner, your mother on the phone. The card is shown
+  before the report, `1`–`3` or `enter` decide, the effects land at once
+  and the outcome goes in the journal. Quit on a card and it is waiting
+  when you come back. The deck is `internal/content/dilemmas.toml`.
 
 Tuning lives in `internal/content/*.toml`, not in code.
 
@@ -109,7 +115,10 @@ go run ./cmd/balance -policy aggressive -seed 7 -trace
 Policies: `idle`, `hide`, `quiet`, `normal`, `aggressive`, `careful`,
 `managed`, `upgraded`, `crewed`, `vigilant`, `territory`, `war`, `laundered`.
 `-own stash,burners` starts every run owning those upgrades; `-snitch` starts
-it with an informant on the payroll. The tests in `internal/harness` assert
+it with an informant on the payroll; `-cards decline|first` deals the
+dilemma cards and answers each with its last (do-nothing) or first choice
+(by default the harness plays without them, so its numbers measure the sims,
+not the deck). The tests in `internal/harness` assert
 the shape of the difficulty curve: always-aggressive is indicted within 40
 days, always-quiet survives, a player who sells normally but lies low when
 hot out-earns both, one who spends on the tree out-earns that, one who builds

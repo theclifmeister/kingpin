@@ -56,6 +56,7 @@ const (
 	modeFront          // pick a front to buy
 	modeConfirmInvestigate
 	modeConfirmPayOff
+	modeCard // a dilemma card, before the morning report
 )
 
 type tickMsg time.Time
@@ -83,6 +84,9 @@ type Model struct {
 	upgradeCursor int    // node selected on the upgrades screen
 	upgradeID     string // node awaiting the buy confirmation
 	frontCursor   int    // offer selected in the buy-a-front picker
+	cardCursor    int    // choice highlighted on the dilemma card
+	cardDone      bool   // the card is answered; the outcome is showing
+	outcome       string // what the last answer did, while it shows
 	journal       viewport.Model
 	dlg           dialog
 	startChoice   int
@@ -148,6 +152,8 @@ func (m *Model) continueRun() error {
 	m.mode = modePlay
 	if w.Over != nil {
 		m.mode = modeOver
+	} else if w.Dilemmas.Pending != nil {
+		m.showCard() // saved on a card: it is still waiting
 	}
 	m.mapCursor = m.yourCorner()
 	m.status = fmt.Sprintf("Continued day %d.", w.Day)
@@ -178,7 +184,7 @@ func (m *Model) endDay() {
 		m.mode = modeOver
 		return
 	}
-	m.mode = modeReport
+	m.showCard()
 }
 
 func (m *Model) save() {
@@ -348,6 +354,8 @@ func (m *Model) handleKey(k tea.KeyMsg) (tea.Model, tea.Cmd) {
 			m.mode = modePlay
 		}
 		return m, nil
+	case modeCard:
+		return m.keyCard(key)
 	case modeOver:
 		switch key {
 		case "enter", "n":
@@ -623,6 +631,8 @@ func (m *Model) View() string {
 		body = m.investigateConfirm()
 	case modeConfirmPayOff:
 		body = m.payOffConfirm()
+	case modeCard:
+		body = m.viewCard()
 	default:
 		switch m.screen {
 		case screenMarket:
@@ -737,6 +747,12 @@ func (m *Model) viewFooter() string {
 		keys = k("↑↓", "pick") + k("enter", "send") + k("esc", "back")
 	case modeFront:
 		keys = k("↑↓", "pick") + k("enter", "buy") + k("esc", "back")
+	case modeCard:
+		if m.cardDone {
+			keys = k("enter", "morning report")
+		} else {
+			keys = k("↑↓", "pick") + k("1-3", "choose") + k("enter", "decide")
+		}
 	default:
 		switch m.screen {
 		case screenCrew:
