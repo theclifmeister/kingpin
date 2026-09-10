@@ -10,7 +10,7 @@ Every change follows the same path. Do not skip steps.
 2. **One branch per issue, holding all of its changes.** Never commit to `main`. Branch from an up-to-date `main` and keep every change for that issue on that branch. `main` is protected: changes land only through a pull request with green CI.
 3. **Link the PR to its issue.** The PR body must contain `Closes #N` for the issue it implements, so merging closes it. If a PR deliberately deviates from the issue's spec, say so in the PR.
 
-CI (`.github/workflows/ci.yml`) runs gofmt, `go mod tidy` drift, `go vet`, staticcheck, `go build`, `go test -race`, and a short balance smoke run. Make the same checks pass locally before pushing.
+CI (`.github/workflows/ci.yml`) runs on pull requests only (never on `main`; it changes only through merged PRs) and checks gofmt, `go mod tidy` drift, `go vet`, staticcheck, `go build`, `go test -race`, and a short balance smoke run. Make the same checks pass locally before pushing.
 
 ## Commands
 

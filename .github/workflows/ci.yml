@@ -1,8 +1,8 @@
 name: CI
 
+# Runs on pull requests only: main changes solely through merged PRs whose
+# checks already passed, so a second run there would be redundant.
 on:
-  push:
-    branches: [main]
   pull_request:
 
 permissions:
