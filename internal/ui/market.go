@@ -56,7 +56,7 @@ func (m *Model) viewMarket() string {
 	here := city.ID == w.Player.Location
 	sparkW := max(8, min(30, m.width-72))
 	var b strings.Builder
-	b.WriteString(truncate(theme.PanelTitle.Render("MARKET · ")+m.cityTabs()+theme.Subtle.Render("   ←→ city · b buy · s sell · t ship · g go"), m.width) + "\n\n")
+	b.WriteString(truncate(theme.PanelTitle.Render("MARKET · ")+m.cityTabs()+theme.Subtle.Render("   ←→ city · b buy · s sell · g go · routes on the map"), m.width) + "\n\n")
 	b.WriteString(theme.Subtle.Render(fmt.Sprintf("  %-8s %9s %6s  %-*s %8s %6s %9s  %s",
 		"", "price", "Δ", sparkW, "last 30 days", "supplier", "stash", "demand", "order")) + "\n")
 	for i, id := range w.Products {
@@ -138,12 +138,13 @@ func (m *Model) viewMarket() string {
 	}
 	if !here {
 		b.WriteString(truncate(theme.Subtle.Render(fmt.Sprintf("  You are in %s: the supplier here sells to you there (g). Runners sell what is stashed here.", w.Here().Name)), m.width) + "\n")
-	} else if city.Wholesale {
+	}
+	if city.Wholesale {
 		o := m.set.Logistics.Wholesale()
 		if o.Locked(w) {
-			b.WriteString(truncate(theme.Subtle.Render(fmt.Sprintf("  The supplier here sells by the lot of %d at %.0f%% once you have moved %s.", o.Lot, o.Mul*100, cash(o.UnlockCash))), m.width) + "\n")
+			b.WriteString(truncate(theme.Subtle.Render(fmt.Sprintf("  The supplier here sells lots of %d at %.0f%% to the routes once you have moved %s.", o.Lot, o.Mul*100, cash(o.UnlockCash))), m.width) + "\n")
 		} else {
-			b.WriteString(truncate(theme.Good.Render(fmt.Sprintf("  Wholesale: lots of %d at %.0f%% of the supplier price (b, then W).", o.Lot, o.Mul*100)), m.width) + "\n")
+			b.WriteString(truncate(theme.Good.Render(fmt.Sprintf("  Wholesale: lots of %d at %.0f%% of the supplier price feed the routes out of here (map, r).", o.Lot, o.Mul*100)), m.width) + "\n")
 		}
 	}
 	return b.String()

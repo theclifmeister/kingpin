@@ -10,63 +10,75 @@ import (
 	"github.com/theclifmeister/kingpin/internal/events"
 )
 
-// Shipping takes the units and the cost at once, refuses what the route
-// cannot carry, what is not in the stash, a second shipment on the route
-// the same day, and a route that does not join the cities; stock is
-// conserved between the stash and the road.
-func TestShip(t *testing.T) {
+// The route dial is a setting, not scratch: it turns, keeps its targets
+// while off, refuses a position it does not have and a product the
+// ladder does not list, and clears a target set to zero.
+func TestRouteSettings(t *testing.T) {
+	w := twoCityWorld()
+	if rs := w.Route("road"); rs.Dial != events.RouteOff || rs.Dial.On() || len(rs.Target) != 0 {
+		t.Fatalf("an untouched route: %+v", rs)
+	}
+	if err := w.SetRoute("", events.RouteNormal); err != ErrNoRoute {
+		t.Fatalf("set no route: %v", err)
+	}
+	if err := w.SetRoute("road", events.RouteFast+1); err != ErrBadDial {
+		t.Fatalf("set a dial past fast: %v", err)
+	}
+	if err := w.SetRouteTarget("road", "b", 10); err != ErrUnknownProduct {
+		t.Fatalf("a target for nothing: %v", err)
+	}
+	if err := w.SetRouteTarget("road", "a", -1); err != ErrBadQuantity {
+		t.Fatalf("a negative target: %v", err)
+	}
+	if err := w.SetRouteTarget("road", "a", 120); err != nil {
+		t.Fatal(err)
+	}
+	if err := w.SetRoute("road", events.RouteSlow); err != nil {
+		t.Fatal(err)
+	}
+	if rs := w.Route("road"); rs.Dial != events.RouteSlow || !rs.Dial.On() || rs.Dial.Ship() != events.ShipSlow || rs.Target["a"] != 120 {
+		t.Fatalf("set: %+v", rs)
+	}
+	if err := w.SetRoute("road", events.RouteOff); err != nil || w.Route("road").Target["a"] != 120 {
+		t.Fatalf("turning it off lost the target: %v %+v", err, w.Route("road"))
+	}
+	if err := w.SetRouteTarget("road", "a", 0); err != nil || w.Route("road").Target != nil {
+		t.Fatalf("clearing the target: %v %+v", err, w.Route("road"))
+	}
+	if d := events.RouteDial(0); d.String() != "off" || events.RouteFast.String() != "fast" || events.RouteNormal.Ship() != events.ShipNormal || events.RouteFast.Ship() != events.ShipFast || events.RouteOff.Ship() != events.ShipNormal {
+		t.Fatal("the dial's names or ship positions")
+	}
+	w.Over = &Ending{Day: 1, Cause: "test"}
+	if err := w.SetRoute("road", events.RouteNormal); err != ErrGameOver {
+		t.Fatalf("set after the end: %v", err)
+	}
+	if err := w.SetRouteTarget("road", "a", 1); err != ErrGameOver {
+		t.Fatalf("target after the end: %v", err)
+	}
+}
+
+// Send takes the units and the fare at once and counts the shipment;
+// stock is conserved between the stash and the road, and net worth
+// values the road at the far end's supplier price.
+func TestSend(t *testing.T) {
 	w := twoCityWorld()
 	w.Stash("test")["a"] = 80
 	w.Player.DirtyCash = 100
-	if _, err := w.Ship(testRoute, "test", "nowhere", "a", 10); err != ErrNoCity {
-		t.Fatalf("shipped to nowhere: %v", err)
-	}
-	if _, err := w.Ship(RouteOffer{ID: "x", From: "test", To: "test"}, "test", "port", "a", 10); err != ErrNoRoute {
-		t.Fatalf("shipped on a route that goes elsewhere: %v", err)
-	}
-	if _, err := w.Ship(testRoute, "test", "port", "b", 10); err != ErrUnknownProduct {
-		t.Fatalf("shipped nothing: %v", err)
-	}
-	if _, err := w.Ship(testRoute, "test", "port", "a", 60); err == nil {
-		t.Fatal("shipped more than the route carries")
-	}
-	if _, err := w.Ship(testRoute, "port", "test", "a", 10); err == nil {
-		t.Fatal("shipped from an empty stash")
-	}
-	if _, err := w.Ship(testRoute, "test", "port", "a", 0); err != ErrBadQuantity {
-		t.Fatalf("shipped nothing: %v", err)
-	}
-	w.Player.DirtyCash = 50
-	if _, err := w.Ship(testRoute, "test", "port", "a", 40); err == nil {
-		t.Fatal("shipped without the fare")
-	}
-	w.Player.DirtyCash = 100
-	w.Day = 3
-	s, err := w.Ship(testRoute, "test", "port", "a", 40)
-	if err != nil {
-		t.Fatal(err)
-	}
+	s := w.Send(testShipment(40))
 	if s.ID != 1 || s.Units != 40 || s.Cost != 80 || s.Sent != 3 || s.Arrives != 5 || s.From != "test" || s.To != "port" || s.Dial != events.ShipNormal {
 		t.Fatalf("shipment: %+v", s)
 	}
-	if w.Stock("test", "a") != 40 || w.Player.DirtyCash != 20 || w.InTransit("a") != 40 || w.TotalStock() != 80 || w.Player.TotalStock() != 40 {
-		t.Fatalf("after shipping: stash %d cash %d transit %d total %d", w.Stock("test", "a"), w.Player.DirtyCash, w.InTransit("a"), w.TotalStock())
+	if w.Stock("test", "a") != 40 || w.Player.DirtyCash != 20 || w.InTransit("a") != 40 || w.Bound("port", "a") != 40 || w.Bound("test", "a") != 0 || w.TotalStock() != 80 || w.Player.TotalStock() != 40 {
+		t.Fatalf("after sending: stash %d cash %d transit %d total %d", w.Stock("test", "a"), w.Player.DirtyCash, w.InTransit("a"), w.TotalStock())
 	}
 	if w.Stats.Shipments != 1 || w.Stats.Shipped != 40 {
 		t.Fatalf("stats: %+v", w.Stats)
 	}
-	if _, err := w.Ship(testRoute, "test", "port", "a", 10); err != ErrRouteBusy {
-		t.Fatalf("second shipment on the route today: %v", err)
-	}
-	w.Day = 4
-	w.Player.DirtyCash = 100
-	if _, err := w.Ship(testRoute, "test", "port", "a", 10); err != nil {
-		t.Fatalf("tomorrow's shipment: %v", err)
-	}
-	if len(w.Shipments) != 2 || w.Shipments[1].ID != 2 || w.Shipments[1].DaysLeft(4) != 2 || w.Shipments[0].DaysLeft(5) != 0 {
+	same := testShipment(10)
+	same.Arrives = same.Sent // a route that takes no days still takes one
+	if s2 := w.Send(same); len(w.Shipments) != 2 || s2.ID != 2 || s2.Arrives != 4 || w.Shipments[1].DaysLeft(3) != 1 || w.Shipments[0].DaysLeft(5) != 0 {
 		t.Fatalf("shipments: %+v", w.Shipments)
 	}
-	// Net worth counts what is on the road at the far end's supplier price.
 	want := w.Cash() + int(30*w.Home().Market["a"].SupplierPrice) + int(50*w.Cities["port"].Market["a"].SupplierPrice)
 	if w.NetWorth() != want {
 		t.Fatalf("net worth %d, want %d", w.NetWorth(), want)
@@ -125,36 +137,41 @@ func TestTravelAndBuyWhereYouAre(t *testing.T) {
 }
 
 // The wholesaler sells by the lot, cheaper, only where it deals and only
-// once the door is open, and a lot goes to the dock: the stash's capacity
-// does not hold it.
-func TestBuyWholesale(t *testing.T) {
+// once the door is open, wherever the player is, and a lot is not held
+// to the stash's capacity: the road takes it.
+func TestRestock(t *testing.T) {
 	w := twoCityWorld()
 	w.Home().Market["a"].SupplierPrice = 10
 	w.Cities["port"].Market["a"].SupplierPrice = 4
 	w.Player.DirtyCash = 10_000
 	offer := WholesaleOffer{Lot: 100, Mul: 0.5, UnlockCash: 5_000}
-	if _, err := w.BuyWholesale("a", 1, offer, 0); err != ErrNoWholesale {
+	if _, err := w.Restock("test", "a", 1, offer, 0); err != ErrNoRoute {
 		t.Fatalf("bought by the lot at home: %v", err)
 	}
-	_ = w.Travel("port")
-	if _, err := w.BuyWholesale("a", 1, offer, 0); err == nil || !offer.Locked(w) {
+	if _, err := w.Restock("nowhere", "a", 1, offer, 0); err != ErrNoCity {
+		t.Fatalf("bought by the lot nowhere: %v", err)
+	}
+	if _, err := w.Restock("port", "a", 1, offer, 0); err == nil || !offer.Locked(w) {
 		t.Fatalf("bought by the lot before the unlock: %v", err)
 	}
 	w.Stats.PeakCash = 5_000
-	if _, err := w.BuyWholesale("a", 0, offer, 0); err != ErrBadQuantity {
+	if _, err := w.Restock("port", "b", 1, offer, 0); err != ErrUnknownProduct {
+		t.Fatalf("bought nothing: %v", err)
+	}
+	if _, err := w.Restock("port", "a", 0, offer, 0); err != ErrBadQuantity {
 		t.Fatalf("bought no lots: %v", err)
 	}
-	p, err := w.BuyWholesale("a", 3, offer, 0)
-	if err != nil || p.Qty != 300 || p.Cost != 600 || p.UnitPrice != 2 || !p.Wholesale || w.Stock("port", "a") != 300 || w.Player.DirtyCash != 9_400 {
+	p, err := w.Restock("port", "a", 3, offer, 0)
+	if err != nil || p.Qty != 300 || p.Cost != 600 || p.UnitPrice != 2 || w.Stock("port", "a") != 300 || w.Player.DirtyCash != 9_400 || w.Player.Location != "test" {
 		t.Fatalf("lots: %v %+v cash %d stash %d", err, p, w.Player.DirtyCash, w.Stock("port", "a"))
+	}
+	if len(w.Buys) != 0 {
+		t.Fatalf("a lot is not the player's buy: %+v", w.Buys)
 	}
 	if w.Free("port") >= 0 {
 		t.Fatalf("the lots should be past capacity: free %d", w.Free("port"))
 	}
-	if _, err := w.Buy("a", 1, 0); err == nil {
-		t.Fatal("bought at retail past capacity")
-	}
-	if _, err := w.BuyWholesale("a", 100, offer, 0); err == nil {
+	if _, err := w.Restock("port", "a", 100, offer, 0); err == nil {
 		t.Fatal("bought lots without the cash")
 	}
 }
@@ -166,13 +183,19 @@ func TestSaveKeepsLogistics(t *testing.T) {
 	w.Stash("test")["a"] = 30
 	w.Stash("port")["a"] = 7
 	w.Player.DirtyCash = 1000
-	if _, err := w.Ship(testRoute, "test", "port", "a", 20); err != nil {
-		t.Fatal(err)
-	}
+	w.Send(testShipment(20))
 	_ = w.Travel("port")
 	w.Cities["port"].Heat = 12.5
 	w.Logistics.Seizures = []Seizure{{Day: 1, Route: "road", From: "test", To: "port", Product: "a", Units: 5}}
+	w.Logistics.Days = []RouteDay{{Day: 2, Route: "road", Wholesale: 300, Fares: 40}}
+	w.Logistics.Lost = map[string]int{"road": 5}
 	w.Stats.Seizures, w.Stats.SeizedOnRoad = 1, 5
+	if err := w.SetRoute("road", events.RouteFast); err != nil {
+		t.Fatal(err)
+	}
+	if err := w.SetRouteTarget("road", "a", 250); err != nil {
+		t.Fatal(err)
+	}
 	if err := Save(w); err != nil {
 		t.Fatal(err)
 	}
@@ -182,6 +205,15 @@ func TestSaveKeepsLogistics(t *testing.T) {
 	}
 	if !reflect.DeepEqual(got.Player, w.Player) || !reflect.DeepEqual(got.Shipments, w.Shipments) || !reflect.DeepEqual(got.Logistics, w.Logistics) || got.Stats != w.Stats {
 		t.Fatalf("logistics did not round-trip:\n%+v %+v %+v\n%+v %+v %+v", got.Player, got.Shipments, got.Logistics, w.Player, w.Shipments, w.Logistics)
+	}
+	if !reflect.DeepEqual(got.Routes, w.Routes) || got.Route("road").Dial != events.RouteFast || got.Route("road").Target["a"] != 250 {
+		t.Fatalf("the route dial did not round-trip: %+v, saved %+v", got.Routes, w.Routes)
+	}
+	if wholesale, fares := got.Logistics.RouteSpend("road", 5, 7); wholesale != 300 || fares != 40 {
+		t.Fatalf("the route's week: %d %d", wholesale, fares)
+	}
+	if wholesale, fares := got.Logistics.RouteSpend("road", 20, 7); wholesale+fares != 0 {
+		t.Fatalf("a spend past the week: %d %d", wholesale, fares)
 	}
 	if !reflect.DeepEqual(got.CityOrder, w.CityOrder) || got.Cities["port"].Heat != 12.5 || got.Cities["port"].Wholesale != true || got.Cities["port"].HeatMul != 0.5 {
 		t.Fatalf("cities did not round-trip: %v %+v", got.CityOrder, got.Cities["port"])

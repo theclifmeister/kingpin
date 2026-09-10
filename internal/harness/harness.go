@@ -3,8 +3,6 @@
 package harness
 
 import (
-	"sort"
-
 	"github.com/theclifmeister/kingpin/internal/content"
 	"github.com/theclifmeister/kingpin/internal/events"
 	"github.com/theclifmeister/kingpin/internal/game"
@@ -616,25 +614,31 @@ func Elect(cfg *content.Config, w *game.World, day int) events.DAElected {
 }
 
 // Distributor plays like Laundered until the wholesaler will deal with it,
-// then runs the route: it moves to the city that sells by the lot and
-// stays there as the buyer, keeps runners on the corners at home and puts
-// the rest on the corners there, ships home every unit of whatever is
-// cheaper by the lot than at home (the normal dial, the biggest route
-// with room) and buys the next lots behind it, sells the rest where it
-// is, and sells everything that lands at home. It is the baseline for "a
-// player who runs a route".
+// then runs the route: on day one it turns the dial of the biggest route
+// into home to normal (#61) and keeps its target at DistributorDays of
+// home's demand for every product cheaper by the lot at the far end than
+// on home's street, so the logistics sim buys the lots and sends them;
+// once the wholesaler deals it moves to the city that sells by the lot
+// and stays there, keeps runners on the corners at home and puts the
+// rest on the corners there, buys at retail for the corners there, and
+// sells everything that lands at home and everything stashed where it
+// is. It is the baseline for "a player who runs a route".
 func Distributor(cfg *content.Config, lieLowAt float64) Policy {
 	return distribute(cfg, lieLowAt, false, "")
 }
+
+// DistributorDays is how many days of home's demand the distributor keeps
+// the route's target at.
+const DistributorDays = 4
 
 // Delegated plays like Distributor and hands home over: the first
 // lieutenant who comes looking for work is hired ahead of anyone else and
 // given the city the player is not in, and from then on the policy posts
 // nothing and sells nothing there itself. It keeps HubCorners runners on
 // the hub's corners, leaves the rest of the crew idle for the lieutenant
-// to post, fills the roster the lieutenant's people make room for, buys
-// by the lot and ships everything home, where the lieutenant sells it at
-// their dial and keeps their cut. personality, if set, is what the
+// to post, fills the roster the lieutenant's people make room for, and
+// leaves the route to send everything home, where the lieutenant sells it
+// at their dial and keeps their cut. personality, if set, is what the
 // lieutenant turns out to be, so one seed can be played under each
 // temper; "" takes them as they come. It is the tier-4 policy: the
 // second city staffed by somebody who is not you.
@@ -650,22 +654,50 @@ const HubCorners = 2
 func distribute(cfg *content.Config, lieLowAt float64, delegate bool, personality string) Policy {
 	laundered := Laundered(cfg, lieLowAt)
 	crewSim := crew.New(cfg.Crew, cfg.Names, cfg.Reputation.Effects)
-	lg := logistics.New(cfg.Routes, cfg.City, cfg.Market)
+	lg := logistics.New(cfg.Routes, cfg.City, cfg.Market, cfg.Upgrades, cfg.Laundering.Laundering.Float)
 	wholesale := lg.Wholesale()
 	home := cfg.City.Home().ID
-	hub := ""
+	// The route into home with the most room, from the city that sells
+	// by the lot; the hub is where it starts.
+	var route *content.RouteConfig
 	for _, c := range cfg.City.Cities {
-		if c.Wholesale && c.ID != home {
-			hub = c.ID
-			break
+		if !c.Wholesale || c.ID == home {
+			continue
 		}
+		for _, r := range lg.Routes(c.ID) {
+			if r.From == c.ID && r.To == home && (route == nil || r.Capacity > route.Capacity) {
+				rc := r
+				route = &rc
+			}
+		}
+	}
+	hub := ""
+	if route != nil {
+		hub = route.From
 	}
 	tun := cfg.Crew.Crew
 	homeCorners := max(1, tun.MaxCrew/2)
-	pressure := cfg.Market.Market.BuyPricePressure
 	hot := TooHot(cfg, lieLowAt)
 	return func(w *game.World) {
-		if hub == "" || wholesale.Locked(w) || len(lg.Routes(hub)) == 0 {
+		if route == nil {
+			laundered(w)
+			return
+		}
+		// The dial, set once and left; the target, refreshed as home's
+		// corners come and go. Whatever the lot does not undercut home's
+		// street by DistributorMargin is not worth the road.
+		if !w.Route(route.ID).Dial.On() {
+			_ = w.SetRoute(route.ID, events.RouteNormal)
+		}
+		for _, id := range w.Products {
+			hubP, homeP := w.Product(hub, id), w.Product(home, id)
+			target := 0
+			if hubP != nil && homeP != nil && hubP.SupplierPrice*wholesale.Mul <= homeP.Price*DistributorMargin {
+				target = int(DistributorDays * w.Demand(home, id))
+			}
+			_ = w.SetRouteTarget(route.ID, id, target)
+		}
+		if wholesale.Locked(w) {
 			laundered(w)
 			return
 		}
@@ -797,35 +829,13 @@ func distribute(cfg *content.Config, lieLowAt float64, delegate bool, personalit
 			}
 		}
 
-		// The route. Whatever sells for more at home than it costs here
-		// goes home today, less what the corners here sell dearer than
-		// home does, and the next few days of home's demand is bought
-		// behind it: by the lot where a lot fits, at retail for the rest.
-		fx := game.FoldEffects(w, cfg.Upgrades).BuyPressureMul
-		keep := map[string]int{}
-		for _, id := range w.Products {
-			hubP, homeP := w.Product(hub, id), w.Product(home, id)
-			if hubP == nil || homeP == nil {
-				continue
-			}
-			if hubP.Price > homeP.Price {
-				keep[id] = int(w.Demand(hub, id))
-			}
-			if hubP.SupplierPrice > homeP.Price*0.7 {
-				continue // not worth the road
-			}
-			if q := w.Stock(hub, id) - keep[id]; q > 0 {
-				ship(lg, w, hub, home, id, q)
-			}
-			want := int(4*w.Demand(home, id)) - w.Stock(home, id) - w.InTransit(id) + keep[id] - w.Stock(hub, id)
-			lots := min((want+wholesale.Lot-1)/wholesale.Lot, int(float64(w.Player.DirtyCash)/(hubP.SupplierPrice*wholesale.Mul))/wholesale.Lot)
-			if lots > 0 {
-				_, _ = w.BuyWholesale(id, lots, wholesale, pressure*fx)
-			}
-		}
+		// The corners here: the supplier stocks them at retail, toward
+		// what they sell, the way any trader restocks. The route feeds
+		// home on its own.
+		restock(cfg, w)
 
-		// Sales: everything at home, and here whatever is not waiting
-		// for a truck. Heat anywhere over the line is a day off.
+		// Sales: everything at home, and everything here. Heat anywhere
+		// over the line is a day off.
 		if hot(w) {
 			w.SetLieLow(true)
 			return
@@ -834,12 +844,16 @@ func distribute(cfg *content.Config, lieLowAt float64, delegate bool, personalit
 			if q := w.Stock(home, id); q > 0 && !delegated {
 				_ = w.PlaceSell(home, id, q, events.DialNormal)
 			}
-			if q := min(w.Stock(hub, id), keep[id]); q > 0 {
+			if q := w.Stock(hub, id); q > 0 {
 				_ = w.PlaceSell(hub, id, q, events.DialNormal)
 			}
 		}
 	}
 }
+
+// DistributorMargin is the fraction of home's street price a lot must
+// come under for the distributor to route the product at all.
+const DistributorMargin = 0.7
 
 // Delegate puts a lieutenant on the payroll, free, running city with the
 // given temper, so a test can measure what one does without waiting for
@@ -864,25 +878,6 @@ func Delegate(cfg *content.Config, w *game.World, city, personality string) game
 		panic("harness.Delegate: " + err.Error())
 	}
 	return *lt
-}
-
-// ship sends units of a product between two cities at the normal dial on
-// the emptiest route that will take them today, splitting across routes
-// if one will not.
-func ship(lg *logistics.Sim, w *game.World, from, to, product string, units int) {
-	routes := lg.Routes(from)
-	sort.SliceStable(routes, func(i, j int) bool { return routes[i].Capacity > routes[j].Capacity })
-	for _, r := range routes {
-		if units <= 0 {
-			break
-		}
-		if r.Other(from) != to {
-			continue
-		}
-		if _, err := lg.Ship(w, r.ID, from, to, product, min(units, r.Capacity), events.ShipNormal); err == nil {
-			units -= min(units, r.Capacity)
-		}
-	}
 }
 
 // washUp is the Laundered policy's fronts: the cheapest one lacking when

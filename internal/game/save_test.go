@@ -45,8 +45,12 @@ func twoCityWorld() *World {
 	return w
 }
 
-// testRoute is a two-day car route between the test cities.
-var testRoute = RouteOffer{ID: "road", Name: "Road", Mode: "car", From: "test", To: "port", Days: 2, Capacity: 50, Cost: 2, Dial: events.ShipNormal}
+// testShipment is a two-day car shipment between the test cities as the
+// logistics sim would put it on the road on day 3, before Send gives it
+// an id.
+func testShipment(units int) Shipment {
+	return Shipment{Route: "road", Mode: "car", From: "test", To: "port", Product: "a", Units: units, Dial: events.ShipNormal, Sent: 3, Arrives: 5, Cost: units * 2}
+}
 
 func TestSaveRoundTripIsDeterministic(t *testing.T) {
 	t.Setenv("KINGPIN_HOME", t.TempDir())

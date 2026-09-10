@@ -12,9 +12,9 @@ ladder the supplier opens up as your money grows, a market in each city that
 reacts to you, a police force in each that reacts to how much you move
 there, a crew that moves product for you as long as you keep them paid, an
 upgrade tree to sink the money into, fronts that wash the money once there
-is too much of it to sit on, and a road between the cities that everything
-cheap at one end and dear at the other has to travel, where the police can
-take it.
+is too much of it to sit on, and a road between the cities that runs on a
+dial you set once: what is cheap at one end and dear at the other travels
+it every day, and the police can take it.
 
 ## Play
 
@@ -32,10 +32,11 @@ load; a save from a newer build than the one you are running is refused.
 | `1`–`8` / `tab` | Dashboard, Market, Journal, Crew, Map, Upgrades, Ledger, Rivals (`shift+tab` goes back) |
 | `↑` `↓` `←` `→` | Move the cursor: up and down a list, across the map grid and the upgrade columns, between the cities on the market; the dial in a dialog |
 | `[` `]` | Turn the market and the map to the other city |
-| `b` | Buy from the supplier where you are (blank quantity = as much as you can; `w` in the dialog buys by the lot where a wholesaler deals); on the ledger, buy a front |
+| `b` | Buy from the supplier where you are (blank quantity = as much as you can); on the ledger, buy a front |
 | `s` | Queue a street sale and set the dial: quiet / normal / aggressive, in the city shown |
-| `t` | Ship product to the other city: route, quantity, and the dial: slow / normal / fast; on the crew screen, give the selected lieutenant a city to run |
-| `g` | Go to the other city, after a confirmation; your corner and your stock stay behind |
+| `r` / `R` | On the map: turn the selected route's dial (off / slow / normal / fast) / set what it keeps the far city stocked with (`↓` past the grid reaches the routes) |
+| `t` | On the crew screen, give the selected lieutenant a city to run |
+| `g` | Go to the other city, after a confirmation that names the corner you leave; your corner and your stock stay behind |
 | `x` | Cancel the queued order on the selected product |
 | `l` | Lie low today: no sales, heat fades faster |
 | `h` / `f` | Hire / fire the selected person (crew screen); on the ledger, `f` funds a city with clean cash |
@@ -47,7 +48,7 @@ load; a save from a newer build than the one you are running is refused.
 | `y` / `x` | Accept / decline the selected offer (rivals screen) |
 | `n` | End the day |
 | `enter` | End the day, after a confirmation |
-| `r` | Reopen the morning report |
+| `r` | Reopen the morning report (anywhere but the map) |
 | `?` | Help |
 | `q` | Save and quit |
 
@@ -67,19 +68,26 @@ never leaves the first city plays the same as it always did.
   the police watch the water. You are in one city at a time: the supplier
   sells to you where you stand, into a stash there, and you can only work
   a corner yourself where you are; runners sell where they are posted.
-  `g` moves you; stock only moves by shipment.
+  `g` moves you, for what only you can do there; the routes move the
+  stock.
 - **Market** drifts prices toward an equilibrium with noise, rolls supply
   shocks and demand slumps, and resolves your sell orders, city by city.
   Selling into demand barely moves the price; flooding past it craters it.
 - **Logistics** is the road between the cities: a car, a truck and a boat,
-  each a different point on the speed / cost / risk triangle. A shipment
-  leaves the stash it was loaded from, rides the route for its days (the
-  ship dial trades days against the chance of a seizure on each), and
-  lands in the other stash unless the police take it, in which case every
-  unit is gone, heat rises in both cities, the street that was waiting for
-  it spikes, and, if it was sent fast, the DA gets a page. Once your peak
-  cash says you can move weight, Bayport's supplier sells by the lot at a
-  discount, and a lot goes to the dock rather than your pockets.
+  each a different point on the speed / cost / risk triangle, and each a
+  **dial** you set once on the map: off, slow, normal or fast, with a
+  target stock for the far end per product. Every day a route that is on
+  sends what Eastside is short of its target, up to what the route
+  carries, out of the Bayport stash first and then by the lot from
+  Bayport's wholesaler once your peak cash says you can move weight,
+  spending only what is over the float the fronts leave in the till. A
+  shipment rides the route for its days (the dial trades days against the
+  chance of a seizure on each) and lands in the other stash unless the
+  police take it, in which case every unit is gone, heat rises in both
+  cities, the street that was waiting for it spikes, the route sends it
+  again tomorrow, and, if it was sent fast, the DA gets a page. The
+  morning report reads as a supply line, and the first seizure is the cue
+  to turn the dial down.
 - **Territory** is each city's corners. Each is its own demand pool and only
   a corner somebody stands on sells; a runner holds one for you, an enforcer
   keeps it from being robbed, and a corner nobody works drifts back to the
@@ -192,8 +200,9 @@ go run ./cmd/balance -policy aggressive -seed 7 -trace
 
 Policies: `idle`, `hide`, `quiet`, `normal`, `aggressive`, `careful`,
 `managed`, `upgraded`, `crewed`, `vigilant`, `territory`, `war`, `diplomat`,
-`laundered`, `distributor` (moves to Bayport once the wholesaler deals, buys
-by the lot and ships everything worth the road home to runners in Eastside),
+`laundered`, `distributor` (turns the biggest route into Eastside on with a
+target of a few days of demand, moves to Bayport once the wholesaler deals
+and sells at both ends),
 `delegated` (the distributor with a lieutenant running Eastside; `-lt
 violent|greedy|careful|steady` forces their temper), `funded` (the
 laundered player who pays the town whenever the pressure is up).

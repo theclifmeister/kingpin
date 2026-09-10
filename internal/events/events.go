@@ -543,12 +543,69 @@ func (s Ship) String() string {
 	}
 }
 
-// ShipmentSent is report-only bookkeeping: a shipment that left yesterday,
-// with how long it is expected to take.
+// RouteDial is the route dial (#61): a persistent setting per route, off or
+// the ship dial the logistics sim runs the route at every day. Off is the
+// zero value, so a route nobody has touched runs nothing.
+type RouteDial int
+
+const (
+	RouteOff RouteDial = iota
+	RouteSlow
+	RouteNormal
+	RouteFast
+)
+
+func (r RouteDial) String() string {
+	switch r {
+	case RouteSlow:
+		return "slow"
+	case RouteNormal:
+		return "normal"
+	case RouteFast:
+		return "fast"
+	default:
+		return "off"
+	}
+}
+
+// On reports whether the route runs at all.
+func (r RouteDial) On() bool { return r > RouteOff && r <= RouteFast }
+
+// Ship is the ship dial a running route sends at; normal for one that is
+// off, which never sends.
+func (r RouteDial) Ship() Ship {
+	switch r {
+	case RouteSlow:
+		return ShipSlow
+	case RouteFast:
+		return ShipFast
+	default:
+		return ShipNormal
+	}
+}
+
+// WholesaleBought is report-only bookkeeping: lots the logistics sim
+// bought at the source of a route to cover the far city's shortfall.
+type WholesaleBought struct {
+	Day     int
+	City    string // city id the lots were bought in
+	Route   string // route id they were bought for
+	Name    string // the route's name, for the report
+	Product string
+	Lots    int
+	Units   int
+	Cost    int // dirty cash
+}
+
+func (WholesaleBought) Kind() string { return "WholesaleBought" }
+
+// ShipmentSent is report-only bookkeeping: a shipment the route put on
+// the road this morning, with how long it is expected to take.
 type ShipmentSent struct {
 	Day     int
 	ID      int
 	Route   string
+	Name    string // the route's name, for the report
 	Mode    string
 	From    string // city ids
 	To      string

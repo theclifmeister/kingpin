@@ -24,11 +24,27 @@ func (m *Model) mapSelected() *game.Corner {
 
 // mapMove walks the grid: dx moves along the row to the next corner in
 // that direction (an empty cell is skipped, the edge is a no-op), dy to
-// the corner in the adjacent row nearest by column. The cursor stays an
-// index into Corners, so the post and strike pickers read it as before.
+// the corner in the adjacent row nearest by column. Down past the bottom
+// row goes to the routes listed under the grid, and up from the first
+// route comes back; the corner cursor stays an index into Corners, so
+// the post and strike pickers read it as before.
 func (m *Model) mapMove(dx, dy int) {
+	if m.onRoutes {
+		switch {
+		case dy < 0 && m.routeCursor == 0:
+			m.onRoutes = false
+		case dy < 0:
+			m.routeCursor--
+		case dy > 0:
+			m.routeCursor = min(m.routeCursor+1, len(m.mapRoutes())-1)
+		}
+		return
+	}
 	sel := m.mapSelected()
 	if sel == nil {
+		if dy > 0 && len(m.mapRoutes()) > 0 {
+			m.onRoutes, m.routeCursor = true, 0
+		}
 		return
 	}
 	cs := m.shown().Corners
@@ -54,6 +70,8 @@ func (m *Model) mapMove(dx, dy int) {
 	}
 	if best >= 0 {
 		m.mapCursor = best
+	} else if dy > 0 && len(m.mapRoutes()) > 0 {
+		m.onRoutes, m.routeCursor = true, 0
 	}
 }
 
@@ -227,7 +245,7 @@ func (m *Model) viewMap() string {
 		head += theme.Rival.Render(fmt.Sprintf(" · %s %d", m.rivalName(), w.RivalHeld()))
 	}
 	b.WriteString(truncate(head, m.width) + "\n")
-	b.WriteString(truncate(theme.Subtle.Render(fmt.Sprintf("  heat %.0f · %s  [ ] turns the map · g goes there", city.Heat, m.stashLine(city.ID))), m.width) + "\n\n")
+	b.WriteString(truncate(theme.Subtle.Render(fmt.Sprintf("  heat %.0f · %s  [ ] turns the map · g goes there · ↓ past the grid reaches the routes", city.Heat, m.stashLine(city.ID))), m.width) + "\n\n")
 
 	// The grid. Cells are laid out by their x, y; the body width decides
 	// how wide a cell can be.
@@ -259,8 +277,10 @@ func (m *Model) viewMap() string {
 				mark = "▴"
 			}
 			name := fit(mark+" "+strings.ToUpper(c.Name), cellW-1)
-			if sel != nil && c.ID == sel.ID {
+			if sel != nil && c.ID == sel.ID && !m.onRoutes {
 				name = theme.Selected.Render(name)
+			} else if sel != nil && c.ID == sel.ID {
+				name = st.Bold(true).Underline(true).Render(name)
 			} else {
 				name = st.Render(name)
 			}
@@ -293,28 +313,19 @@ func (m *Model) viewMap() string {
 		}
 		b.WriteString(" " + strings.Join(l1, "") + "\n" + " " + strings.Join(l2, "") + "\n" + " " + strings.Join(l3, "") + "\n")
 	}
-	b.WriteString("\n")
 
-	// The routes out of here and what is on them.
-	var routes []string
-	for _, r := range m.set.Logistics.Routes(city.ID) {
-		routes = append(routes, fmt.Sprintf("%s (%s) %s %dd %d units %s/unit ~%.0f%%", r.Name, r.Mode, w.CityName(r.Other(city.ID)), m.set.Logistics.Days(r, events.ShipNormal), r.Capacity, money(r.Cost), m.set.Logistics.Risk(r, events.ShipNormal)*100))
-	}
-	if len(routes) > 0 {
-		b.WriteString(truncate(lipgloss.NewStyle().Foreground(theme.Logistics).Render("routes  ")+theme.Subtle.Render(strings.Join(routes, " · ")), m.width) + "\n")
-	}
-	var transit []string
-	for _, sh := range w.Shipments {
-		transit = append(transit, fmt.Sprintf("%d %s → %s %dd (%s, %s)", sh.Units, w.ProductName(sh.Product), w.CityName(sh.To), sh.DaysLeft(w.Day), sh.Mode, sh.Dial))
-	}
-	if len(transit) > 0 {
-		b.WriteString(truncate(lipgloss.NewStyle().Foreground(theme.Logistics).Render("on the road  ")+strings.Join(transit, " · "), m.width) + "\n")
-	} else if len(routes) > 0 {
-		b.WriteString(truncate(theme.Subtle.Render("on the road  nothing. t ships what is stashed here."), m.width) + "\n")
+	// The routes out of here, each an edge between the cities with its
+	// dial and what is on it; the selected one carries its targets.
+	if lines := m.routeLines(); len(lines) > 0 {
+		b.WriteString(truncate(lipgloss.NewStyle().Foreground(theme.Logistics).Render("ROUTES")+theme.Subtle.Render("  r turns the dial · R sets the target · one dial, set once"), m.width) + "\n")
+		for _, l := range lines {
+			b.WriteString(truncate(l, m.width) + "\n")
+		}
 	}
 
-	// The inspector for the selected corner.
-	if sel == nil {
+	// The inspector for the selected corner, unless the cursor is on the
+	// routes.
+	if sel == nil || m.onRoutes {
 		return b.String()
 	}
 	st := ownerStyle(sel.Owner)
