@@ -164,10 +164,28 @@ func TestRendersAtCommonSizes(t *testing.T) {
 		m.Update(key("g"))
 		assertFits(t, m.View(), sz[0], sz[1], "travel confirm")
 		m.Update(key("esc"))
-		for _, s := range []string{"1", "2", "3", "4", "5", "6", "7"} {
+		for _, s := range []string{"1", "2", "3", "4", "5", "6", "7", "8"} {
 			m.Update(key(s))
 			assertFits(t, m.View(), sz[0], sz[1], "screen "+s)
 		}
+		// The table: a deal that holds, an offer waiting, a proposal for
+		// tonight, and both pages of the propose dialog.
+		m.Update(key("8"))
+		m.w.Rival.Deals = []game.Deal{{Kind: game.DealSplit, Terms: game.Terms{Corners: []string{m.w.Home().Corners[1].ID}}, Since: m.w.Day}}
+		m.w.Offers = []game.Offer{{ID: 1, Deal: game.Deal{Kind: game.DealTruce, Terms: game.Terms{Days: 30}, Offered: true}, Expires: m.w.Day + 4}}
+		assertFits(t, m.View(), sz[0], sz[1], "rivals screen")
+		m.Update(key("d"))
+		assertFits(t, m.View(), sz[0], sz[1], "propose kinds")
+		m.Update(key("2"))
+		assertFits(t, m.View(), sz[0], sz[1], "propose terms")
+		m.Update(key("enter"))
+		if m.w.Proposal == nil || m.w.Proposal.Kind != game.DealTribute {
+			t.Fatalf("%dx%d: no tribute proposed: %q", sz[0], sz[1], m.status)
+		}
+		assertFits(t, m.View(), sz[0], sz[1], "rivals screen with a proposal")
+		m.Update(key("1"))
+		assertFits(t, m.View(), sz[0], sz[1], "dashboard with the table")
+		m.w.Rival.Deals, m.w.Offers, m.w.Proposal = nil, nil, nil
 		// Every node state on the tree: owned, available, short, locked,
 		// and the buy confirmation.
 		m.Update(key("6"))
@@ -240,7 +258,7 @@ func TestRendersAtCommonSizes(t *testing.T) {
 		// next day unlocks every rung of the product ladder.
 		m.w.Player.DirtyCash = 1_234_567_890
 		m.w.Stats.PeakCash = m.w.Player.DirtyCash
-		for _, s := range []string{"1", "2", "3", "4", "5", "6", "7"} {
+		for _, s := range []string{"1", "2", "3", "4", "5", "6", "7", "8"} {
 			m.Update(key(s))
 			assertFits(t, m.View(), sz[0], sz[1], "rich screen "+s)
 		}
@@ -1493,4 +1511,125 @@ func TestWholesaleKeys(t *testing.T) {
 		t.Fatalf("retail past capacity: mode %v step %d err %q", m.mode, m.dlg.step, m.dlg.err)
 	}
 	m.Update(key("esc"))
+}
+
+// The rivals screen: d proposes through the two-page dialog (elsewhere
+// it still cycles the launder dial), the proposal is answered in the
+// morning, y and x answer the selected offer, enter in the dialog never
+// ends the day, and a joint shipment is listed but not for sale.
+func TestRivalsScreenKeys(t *testing.T) {
+	m := newTestModel(t, 100, 30)
+	w := m.w
+	m.Update(key("8"))
+	if m.screen != screenRivals {
+		t.Fatalf("screen %v", m.screen)
+	}
+	m.Update(key("d"))
+	if m.mode != modePlay || !strings.Contains(m.status, "Nobody") {
+		t.Fatalf("d with no rival in town: mode %v status %q", m.mode, m.status)
+	}
+	// A rival dug in next door, with a grudge.
+	w.Home().Corners[1].Owner, w.Home().Corners[1].Since = game.OwnerRival, 1
+	w.Rival.Arrived, w.Rival.Muscle, w.Rival.Cash, w.Rival.Observed = 1, 4, 30_000, true
+	// Full trust, a feared player and a war that is not yet loud: a short
+	// truce is a certainty whatever the seed's personality.
+	w.Rival.Trust, w.Rival.War, w.Player.Reputation.Fear = 100, 30, 100
+	day := w.Day
+	m.Update(key("d"))
+	if m.mode != modePropose || m.proposeStep != 0 {
+		t.Fatalf("d on the rivals screen: mode %v step %d", m.mode, m.proposeStep)
+	}
+	m.Update(key("4")) // shipment: listed, locked
+	if m.mode != modePropose || !strings.Contains(m.status, "routes") {
+		t.Fatalf("shipment: mode %v status %q", m.mode, m.status)
+	}
+	m.Update(key("1")) // truce -> terms page
+	if m.proposeStep != 1 || proposeKinds[m.proposeKind] != game.DealTruce {
+		t.Fatalf("after picking truce: step %d kind %d", m.proposeStep, m.proposeKind)
+	}
+	m.Update(key("esc"))
+	if m.mode != modePropose || m.proposeStep != 0 {
+		t.Fatalf("esc on the terms page should go back a page: mode %v step %d", m.mode, m.proposeStep)
+	}
+	m.Update(key("enter")) // truce again
+	m.Update(key("enter")) // the standard term
+	if m.mode != modePlay || w.Proposal == nil || w.Proposal.Kind != game.DealTruce || w.Proposal.Terms.Days != m.cfg.Rivals.Diplomacy.TruceDays[1] {
+		t.Fatalf("proposing: mode %v proposal %+v status %q", m.mode, w.Proposal, m.status)
+	}
+	if w.Day != day {
+		t.Fatal("enter in the dialog ended the day")
+	}
+	m.Update(key("d"))
+	if rows := m.proposeRows(); rows != len(proposeKinds)+1 {
+		t.Fatalf("no withdraw row with a proposal queued: %d rows", rows)
+	}
+	m.Update(key("5")) // withdraw
+	if w.Proposal != nil || m.mode != modePlay {
+		t.Fatalf("withdraw: %+v mode %v", w.Proposal, m.mode)
+	}
+	m.Update(key("d"))
+	m.Update(key("1"))
+	m.Update(key("1")) // the short truce
+	if w.Proposal == nil || m.set.Rivals.Chance(w, *w.Proposal) < 1 {
+		t.Fatalf("propose: %+v status %q", w.Proposal, m.status)
+	}
+	endDay(t, m)
+	m.Update(key("enter"))
+	if d := w.Deal(game.DealTruce); d == nil || d.Terms.Days != m.cfg.Rivals.Diplomacy.TruceDays[0] {
+		t.Fatalf("the morning after: deals %+v report %v", w.Rival.Deals, w.Report.Territory)
+	}
+	if !strings.Contains(strings.Join(w.Report.Territory, "\n"), "ACCEPTED") {
+		t.Fatalf("report: %v", w.Report.Territory)
+	}
+	view := stripANSI(m.View())
+	if !strings.Contains(view, "Truce") || !strings.Contains(view, "left") {
+		t.Fatalf("rivals screen does not show the truce:\n%s", view)
+	}
+	// d elsewhere is still the launder dial.
+	m.Update(key("1"))
+	m.Update(key("d"))
+	if m.mode != modePlay || w.Laundering.Dial == events.LaunderNormal {
+		t.Fatalf("d on the dashboard: mode %v dial %v", m.mode, w.Laundering.Dial)
+	}
+	m.Update(key("d"))
+	m.Update(key("d"))
+	// Offers: x declines the selected one, y accepts, a lapsed one is refused.
+	m.Update(key("8"))
+	w.Offers = []game.Offer{
+		{ID: 7, Deal: game.Deal{Kind: game.DealTribute, Terms: game.Terms{PerDay: 400}, Offered: true}, Expires: w.Day + 2},
+		{ID: 8, Deal: game.Deal{Kind: game.DealSplit, Terms: game.Terms{Corners: []string{w.Home().Corners[0].ID}}, Offered: true}, Expires: w.Day - 1},
+	}
+	m.Update(key("down"))
+	m.Update(key("y"))
+	if len(w.Accepted) != 0 || !strings.Contains(m.status, "lapsed") {
+		t.Fatalf("accepting a lapsed offer: accepted %+v status %q", w.Accepted, m.status)
+	}
+	m.Update(key("x"))
+	if len(w.Offers) != 1 || w.Offers[0].ID != 7 {
+		t.Fatalf("declining: offers %+v", w.Offers)
+	}
+	m.Update(key("y"))
+	if len(w.Offers) != 0 || len(w.Accepted) != 1 || w.Accepted[0].ID != 7 {
+		t.Fatalf("accepting: offers %+v accepted %+v status %q", w.Offers, w.Accepted, m.status)
+	}
+	w.Player.DirtyCash += 10_000
+	endDay(t, m)
+	if d := w.Deal(game.DealTribute); d == nil || d.Terms.PerDay != 400 || !d.Offered {
+		t.Fatalf("the morning after accepting: %+v", w.Rival.Deals)
+	}
+	if !strings.Contains(strings.Join(w.Report.Money, "\n"), "Tribute") {
+		t.Fatalf("report money: %v", w.Report.Money)
+	}
+	m.Update(key("enter"))
+	// x elsewhere still cancels an order.
+	m.Update(key("1"))
+	home := w.Home().ID
+	w.Stash(home)[w.Products[0]] = 5
+	if err := w.PlaceSell(home, w.Products[0], 5, events.DialNormal); err != nil {
+		t.Fatal(err)
+	}
+	m.Update(key("x"))
+	if _, ok := w.Order(home, w.Products[0]); ok {
+		t.Fatal("x on the dashboard did not cancel the order")
+	}
 }

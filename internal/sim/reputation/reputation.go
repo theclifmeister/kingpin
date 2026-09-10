@@ -1,6 +1,7 @@
 // Package reputation drifts the player's public face from what already
 // happened today: violence and held ground for fear, what the crew were
-// paid for respect, volume and headlines for notoriety. It owns
+// paid and the peace kept with the rival for respect, volume and
+// headlines for notoriety. It owns
 // Player.Reputation; the sims that feel it (rivals, crew, market, heat)
 // each read their own knob off reputation.toml and the world. It steps
 // after laundering and before news, so the headlines it counts are
@@ -65,6 +66,15 @@ func (s *Sim) Step(w *game.World, t *game.Tick) {
 	}
 	if s.cfg.Notoriety.Units > 0 {
 		notoriety += float64(units) / s.cfg.Notoriety.Units
+	}
+	// A peace kept is respect: every truce or split that held tonight,
+	// counted from the night after it was struck. Tribute is not respect.
+	// The rival sim has already ended the ones that ran out, so what is
+	// left held.
+	for _, d := range w.Rival.Deals {
+		if (d.Kind == game.DealTruce || d.Kind == game.DealSplit) && d.Since < t.Day {
+			respect += s.cfg.Respect.DealKept
+		}
 	}
 	// Yesterday's headlines about you: the news sim steps after this one,
 	// so today's are not written yet, and the source says whose story a

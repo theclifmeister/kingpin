@@ -137,6 +137,24 @@ func (m *Model) rivalLines() string {
 	default:
 		war = theme.Subtle.Render("no war")
 	}
+	// The table: trust, and whatever holds or waits.
+	table := theme.Subtle.Render(fmt.Sprintf("trust %.0f", r.Trust))
+	switch {
+	case len(w.Offers) > 0:
+		table += theme.Gold.Render(fmt.Sprintf(" · %d offer(s) (8)", len(w.Offers)))
+	case len(r.Deals) > 0:
+		var ds []string
+		for _, d := range r.Deals {
+			if d.Until > 0 {
+				ds = append(ds, fmt.Sprintf("%s %dd", d.Kind, d.Left(w.Day)))
+			} else {
+				ds = append(ds, d.Kind)
+			}
+		}
+		table += theme.Good.Render(" · " + strings.Join(ds, ", "))
+	case w.Proposal != nil:
+		table += theme.Gold.Render(" · proposal tonight")
+	}
 	return theme.Rival.Render(r.Leader) + theme.Subtle.Render(" · "+corners) + "\n" +
-		theme.Subtle.Render(m.personalityWord()+" · ") + war + "\n"
+		theme.Subtle.Render(m.personalityWord()+" · ") + war + "\n" + table + "\n"
 }

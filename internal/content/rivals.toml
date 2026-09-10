@@ -25,7 +25,45 @@ crackdown_corners = 2       # corners each side loses in a crackdown, contested 
 crackdown_heat = 12         # heat the player draws from a crackdown
 crackdown_muscle = 0.5      # fraction of the rival's muscle a crackdown takes
 
-# Personalities. claim_chance and push_chance are per day; max_corners is
+# Diplomacy (#32): the table. A proposal is answered the next morning with
+# a chance built from the deal kind's base, the terms asked (the easy
+# option adds `terms`, the hard one takes it away), accept_trust at full
+# trust, the personality's deal_bias, accept_war at a full-loud war, and
+# what the player's reputation adds (reputation.toml [effects]). After a
+# betrayal the rival takes nothing for distrust_days and trust sits at
+# betrayal_floor. Every day of a live deal earns trust_kept.
+[diplomacy]
+offer_days = 5              # a rival offer stays on the table this long
+trust_kept = 0.6            # trust per day of a live deal (respect adds to it: reputation.toml)
+accept_trust = 0.5          # added to the chance at trust 100
+accept_war = 0.35           # added to the chance at war 100: a loud war makes peace attractive to both sides
+betrayal_floor = 5          # trust after you break a deal
+distrust_days = 30          # days after a betrayal it takes no deal and offers none
+betrayal_spread = 20        # trust every other faction loses when you betray one (Phase 4 wires it)
+joint_trust = 70            # trust a joint shipment needs (#30 wires it)
+truce_days = [15, 30, 60]   # the three lengths a truce can be proposed at: the short one is the easy ask
+tribute_cuts = [0.05, 0.10, 0.20] # the three cuts of your daily street value a tribute can be: the big one is the easy ask
+tribute_min = 200           # a tribute is never under this a day
+low_cash_days = 3           # an expansionist that cannot pay its muscle this many days offers a truce
+upper_hand = 1.5            # an opportunist with this many times the guard on your front line demands tribute
+split_fair = 0.45           # share of the city's demand it lets your side of a split have at trust 0 ...
+split_trust = 0.30          # ... plus this at trust 100; a greedier line is refused outright
+
+# What each deal kind is worth to it before trust and temper.
+[deal.truce]
+base = 0.20
+terms = 0.15
+[deal.tribute]
+base = 0.35
+terms = 0.20
+[deal.split]
+base = 0.10
+terms = 0.15
+
+# Personalities. trust is where its trust in you starts; deal_bias is
+# added to the chance it accepts any proposal; betrayal is the chance per
+# live deal per day it breaks one itself; offer_chance is per day its
+# situation calls for a deal. claim_chance and push_chance are per day; max_corners is
 # the most it sets up on, and past it it pushes on your corners at
 # push_past_cap times the chance (0: only with a grudge); grow says where
 # it claims (biggest free
@@ -34,6 +72,10 @@ crackdown_muscle = 0.5      # fraction of the rival's muscle a crackdown takes
 # a contested corner's demand it steals; tip_chance is per day with a
 # grudge; defence multiplies its muscle when you strike it.
 [personality.expansionist]
+trust = 35
+deal_bias = -0.15           # it wants the city; a truce is a pause, and it offers one only when it cannot pay its muscle
+betrayal = 0
+offer_chance = 0.25
 claim_chance = 0.25
 max_corners = 6
 push_past_cap = 0.5         # it wants the city, and slows down once it has most of it
@@ -45,6 +87,10 @@ tip_chance = 0.30
 defence = 1.0
 
 [personality.defensive]
+trust = 55
+deal_bias = 0.20            # it would rather hold what it has; it offers a truce once the war is loud, and never breaks one
+betrayal = 0
+offer_chance = 0.30
 claim_chance = 0.08
 max_corners = 3
 grow = "adjacent"
@@ -55,6 +101,10 @@ tip_chance = 0.50
 defence = 1.6
 
 [personality.opportunist]
+trust = 40
+deal_bias = 0
+betrayal = 0
+offer_chance = 0.20         # it demands tribute while it has the upper hand on the front line
 claim_chance = 0.15
 max_corners = 4
 grow = "biggest"
@@ -65,6 +115,10 @@ tip_chance = 0.60
 defence = 0.9
 
 [personality.chaotic]
+trust = 45
+deal_bias = 0.05
+betrayal = 0.02             # per deal-day: it breaks deals for no reason
+offer_chance = 0.10         # a truce now and then, on a whim
 claim_chance = 0.20
 max_corners = 4
 grow = "random"
@@ -77,13 +131,16 @@ defence = 1.0
 # The force dial on a strike. attack multiplies your enforcers' strength;
 # flip is the chance to take the corner at even odds; heat is what the
 # player draws (times the corner's heat); war is what it adds to the war;
-# loyalty is what an enforcer with no nerve loses over it.
+# loyalty is what an enforcer with no nerve loses over it; trust is what
+# it costs the rival's trust in you (a push or a hit under a live deal is
+# a betrayal on top of that; a warning is not).
 [force.warn]
 attack = 0.4
 flip = 0.25
 heat = 3
 war = 5
 loyalty = 1
+trust = 2
 
 [force.push]
 attack = 1.0
@@ -91,6 +148,7 @@ flip = 0.6
 heat = 8
 war = 12
 loyalty = 3
+trust = 6
 
 [force.hit]
 attack = 1.8
@@ -98,3 +156,4 @@ flip = 0.9
 heat = 18
 war = 25
 loyalty = 6
+trust = 12

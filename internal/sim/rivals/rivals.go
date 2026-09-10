@@ -59,6 +59,7 @@ func (s *Sim) Seed(w *game.World, rng rand) {
 	r.Supplier = tun.SupplierMin + rng.Float64()*(tun.SupplierMax-tun.SupplierMin)
 	r.Cash = tun.StartCash
 	r.Muscle = tun.StartMuscle
+	r.Trust = s.cfg.Personality[r.Personality].Trust
 }
 
 // Migrate brings a save from before the rival existed up to date: the
@@ -176,8 +177,10 @@ func (s *Sim) Income(w *game.World) int {
 	return int(math.Round(v * s.cfg.Rivals.Margin))
 }
 
-// Step runs the rival's day: arrival, money, the player's strike, claims,
-// pushes, undercutting, tips, and the war getting louder or crushed.
+// Step runs the rival's day: arrival, money, the table (offers taken,
+// tribute paid, deals broken), the player's strike, its answer to the
+// player's proposal, claims, pushes, undercutting, tips, the war getting
+// louder or crushed, the deals kept, and an offer of its own.
 func (s *Sim) Step(w *game.World, t *game.Tick) {
 	tun := s.cfg.Rivals
 	r := &w.Rival
@@ -218,10 +221,25 @@ func (s *Sim) Step(w *game.World, t *game.Tick) {
 		r.Muscle++
 	}
 
-	// 3. The player's strike resolves before the rival moves.
+	// 2b. The table: offers lapse, the ones you took are sealed, tribute
+	// is paid or missed, a split corner you walked off is noticed.
+	betrayed := s.table(w, t)
+
+	// 3. The player's strike resolves before the rival moves; a push or a
+	// hit under a deal is a betrayal of every deal, and a betrayal is
+	// paid back with one phone call tonight, whatever else the night
+	// brings. Then it answers what you proposed, and a chaotic one may
+	// tear something up on a whim.
 	if o := w.Strike; o != nil {
 		s.strike(w, t, o)
+		betrayed = s.crossed(w, t, o) || betrayed
 	}
+	if betrayed {
+		r.Tips++
+		t.Emit(events.RivalTippedPolice{Day: t.Day, Rival: r.Leader, Heat: tun.TipHeat})
+	}
+	s.answer(w, t)
+	s.whim(w, t)
 
 	// 3b. Defectors: each one joins its muscle, and walks it onto the
 	// corner they ran if nobody stands there; if somebody does, it is a
@@ -230,12 +248,13 @@ func (s *Sim) Step(w *game.World, t *game.Tick) {
 		r.Muscle++
 		r.Observed = true
 		c := w.Corner(l.Corner)
-		if c == nil || !c.Held() {
+		if c == nil || !c.Held() || s.offLimits(w, c) {
 			continue
 		}
 		if s.Guard(w, c) == 0 || t.RNG.Float64() < s.PushOdds(w, c) {
 			s.take(c, t.Day)
 			r.Flips++
+			r.LastFlip = t.Day
 			w.Stats.CornersLost++
 			t.Emit(events.CornerTaken{Day: t.Day, Corner: c.ID, Name: c.Name, Rival: r.Leader, From: game.OwnerPlayer, Handed: l.Name})
 			continue
@@ -259,11 +278,13 @@ func (s *Sim) Step(w *game.World, t *game.Tick) {
 	// wants more ground or has a grudge to pay back, at its personality's
 	// pace past that, and slower against a player it fears. Every push is
 	// noise; one that lands flips the corner and sends its people home.
+	// A deal keeps it off: every corner under a truce or a tribute, your
+	// side of the line under a split.
 	pace := s.PushPace(w)
 	ground := s.corners(w)
 	for i := range ground {
 		c := &ground[i]
-		if !c.Held() || !w.Contested(*c) || r.Muscle == 0 {
+		if !c.Held() || !w.Contested(*c) || r.Muscle == 0 || s.offLimits(w, c) {
 			continue
 		}
 		chance := pc.PushChance * pace
@@ -282,6 +303,7 @@ func (s *Sim) Step(w *game.World, t *game.Tick) {
 		if t.RNG.Float64() < s.PushOdds(w, c) {
 			s.take(c, t.Day)
 			r.Flips++
+			r.LastFlip = t.Day
 			w.Stats.CornersLost++
 			t.Emit(events.CornerTaken{Day: t.Day, Corner: c.ID, Name: c.Name, Rival: r.Leader, From: game.OwnerPlayer})
 			continue
@@ -292,8 +314,8 @@ func (s *Sim) Step(w *game.World, t *game.Tick) {
 		t.Emit(events.RivalPushed{Day: t.Day, Corner: c.ID, Name: c.Name, Rival: r.Leader})
 	}
 
-	// 6. A grudge is paid back with a phone call.
-	if r.Grudge > 0 && t.RNG.Float64() < pc.TipChance {
+	// 6. A grudge is paid back with a phone call, unless there is a peace.
+	if r.Grudge > 0 && !w.AtPeace() && t.RNG.Float64() < pc.TipChance {
 		r.Grudge--
 		r.Tips++
 		r.Observed = true
@@ -311,12 +333,16 @@ func (s *Sim) Step(w *game.World, t *game.Tick) {
 		r.War -= r.War * tun.WarDecay
 	}
 
-	// 8. Undercutting on whatever is contested after today's moves.
+	// 8. Undercutting on whatever is contested after today's moves, then
+	// the deals kept and, maybe, one of its own on the table.
 	s.undercut(w, t)
+	s.keep(w, t)
+	s.offer(w, t)
 	if !r.Observed && t.Day-r.Arrived >= tun.ObserveDays {
 		r.Observed = true
 	}
 	r.War = math.Max(0, math.Min(100, r.War))
+	r.Trust = math.Max(0, math.Min(100, r.Trust))
 	if r.Cash < 0 {
 		r.Cash = 0
 	}
@@ -340,6 +366,7 @@ func (s *Sim) strike(w *game.World, t *game.Tick, o *game.StrikeOrder) {
 	w.Stats.Strikes++
 	r.Observed = true
 	r.War += fc.War
+	r.Trust = math.Max(0, r.Trust-fc.Trust)
 	if t.RNG.Float64() < s.Odds(w, o.Force) {
 		ev.Taken = true
 		c.Owner, c.Runner, c.Enforcer, c.Idle, c.Squeeze, c.Since = game.OwnerPlayer, 0, 0, 0, 0, t.Day
@@ -368,9 +395,10 @@ func (s *Sim) take(c *game.Corner, day int) {
 func (s *Sim) pickFree(w *game.World, rng rand, arriving bool) *game.Corner {
 	var free, quiet, adjacent []*game.Corner
 	ground := s.corners(w)
+	split := w.Deal(game.DealSplit)
 	for i := range ground {
 		c := &ground[i]
-		if c.Owner != game.OwnerNone {
+		if c.Owner != game.OwnerNone || (split != nil && split.Covers(c.ID)) {
 			continue
 		}
 		free = append(free, c)
@@ -423,7 +451,7 @@ func (s *Sim) undercut(w *game.World, t *game.Tick) {
 	for i := range ground {
 		c := &ground[i]
 		c.Squeeze = 0
-		if !c.Held() || !w.Contested(*c) {
+		if !c.Held() || !w.Contested(*c) || s.offLimits(w, c) {
 			continue
 		}
 		c.Squeeze = share

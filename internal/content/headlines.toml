@@ -182,6 +182,26 @@ WarCrackdown = [
   "Task force sweeps {{.City}} after weeks of violence; corners empty",
   "Mayor: 'The war in {{.City}} is over.' Police clear the streets.",
 ]
+DealOffered = [
+  "{{.Rival}} said to be 'talking' to a {{.City}} crew; 'nobody wants a war', says source",
+  "Envoy seen crossing {{.City}} corners at night; {{.Rival}} 'has an offer'",
+  "Word is {{.Rival}} sent a message. It was not a threat.",
+]
+DealAccepted = [
+  "Quiet night in {{.City}}: 'they made a {{.Deal}}', say corner boys",
+  "Handshake in a {{.City}} back room; {{.Rival}}'s people 'standing down'",
+  "{{.City}} crews reach terms; police 'watching with interest'",
+]
+DealRefused = [
+  "{{.Rival}} sends the {{.City}} envoy home; 'not interested'",
+  "No deal in {{.City}}: {{.Rival}} 'laughed', says a witness",
+  "Talks in {{.City}} go nowhere; {{.Rival}}'s people back on the corners",
+]
+DealBroken = [
+  "The {{.Deal}} in {{.City}} is off; 'somebody lied', say corner boys",
+  "{{.City}} peace lasts a week: shots and recriminations after the {{.Deal}} collapses",
+  "{{.Rival}} 'furious' as a {{.City}} {{.Deal}} falls apart overnight",
+]
 UpgradeBought = [
   "{{.City}} outfit said to be 'getting organised'",
   "Money is moving in {{.City}}, and not on the corners",

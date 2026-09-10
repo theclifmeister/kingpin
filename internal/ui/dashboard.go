@@ -200,7 +200,7 @@ func (m *Model) viewDashboard() string {
 
 	// The rival: who, what they are like, how much they hold, how loud
 	// the war is, and where the enforcers go tonight.
-	rivalH := 5
+	rivalH := 6
 	rivalPanel := panel("RIVALS", m.rivalLines(), rightW, rivalH, theme.Rivals)
 
 	// Alerts: recent heat-sourced headlines.

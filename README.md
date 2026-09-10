@@ -29,7 +29,7 @@ load; a save from a newer build than the one you are running is refused.
 
 | Key | Action |
 |---|---|
-| `1`–`7` / `tab` | Dashboard, Market, Journal, Crew, Map, Upgrades, Ledger (`shift+tab` goes back) |
+| `1`–`8` / `tab` | Dashboard, Market, Journal, Crew, Map, Upgrades, Ledger, Rivals (`shift+tab` goes back) |
 | `↑` `↓` `←` `→` | Move the cursor: up and down a list, across the map grid and the upgrade columns, between the cities on the market; the dial in a dialog |
 | `[` `]` | Turn the market and the map to the other city |
 | `b` | Buy from the supplier where you are (blank quantity = as much as you can; `w` in the dialog buys by the lot where a wholesaler deals); on the ledger, buy a front |
@@ -43,7 +43,8 @@ load; a save from a newer build than the one you are running is refused.
 | `p` | Cycle crew pay: stingy / fair / generous |
 | `c` / `e` / `a` | Post a runner / an enforcer / abandon the selected corner (map) |
 | `u` / `enter` | Buy the selected upgrade, after a confirmation (upgrades) |
-| `d` | Cycle the launder dial: careful / normal / greedy |
+| `d` | Cycle the launder dial: careful / normal / greedy; on the rivals screen, propose a deal |
+| `y` / `x` | Accept / decline the selected offer (rivals screen) |
 | `n` | End the day |
 | `enter` | End the day, after a confirmation |
 | `r` | Reopen the morning report |
@@ -98,6 +99,24 @@ never leaves the first city plays the same as it always did.
   accountant the same way. At the floor a member walks, or,
   while the rival holds ground, defects to it and walks it onto the corner
   they ran.
+- **Rivals** is the other crew in the city: one per run, with a leader and
+  a temperament drawn from the seed. It moves in on a free corner, claims
+  more, pushes on the corners of yours it borders, undercuts you there and
+  calls the police when you hurt it. Enforcers on the war dial (warn /
+  push / hit) are one answer; the table is the other. It keeps a **trust**
+  in you, seeded by its temperament, and you can propose a **truce** (a
+  term of peace: no pushes, no undercutting, no tips), **tribute** (you pay
+  a cut a day and it leaves your corners alone) or a **territory split** (a
+  line through the city, each side keeping to its own). It answers in the
+  morning with odds the dialog shows, built from the deal, the terms, its
+  trust, its temperament, how loud the war is and how feared you are; it
+  makes offers of its own when its situation calls for one, and they stand
+  a few days. Every day a deal holds earns trust (and a kept peace earns
+  respect); a strike costs it; a push or a hit under a deal, a missed
+  tribute or walking off a split corner is a **betrayal**: trust falls to
+  the floor, it makes one call to the police, and it takes nothing for a
+  month. A chaotic rival breaks deals on a whim; a defensive one never.
+  Joint shipments wait on routes.
 - **Heat** is per city: it rises with the volume you *tried* to move there
   and how loud the dial was, plus a little, where you are, for sitting on a
   pile of dirty cash. Units your crew moves count at a discount, but sloppy
@@ -139,9 +158,9 @@ go run ./cmd/balance -policy aggressive -seed 7 -trace
 ```
 
 Policies: `idle`, `hide`, `quiet`, `normal`, `aggressive`, `careful`,
-`managed`, `upgraded`, `crewed`, `vigilant`, `territory`, `war`, `laundered`,
-`distributor` (moves to Bayport once the wholesaler deals, buys by the lot
-and ships everything worth the road home to runners in Eastside).
+`managed`, `upgraded`, `crewed`, `vigilant`, `territory`, `war`, `diplomat`,
+`laundered`, `distributor` (moves to Bayport once the wholesaler deals, buys
+by the lot and ships everything worth the road home to runners in Eastside).
 `-own stash,burners` starts every run owning those upgrades; `-snitch` starts
 it with an informant on the payroll; `-cards decline|first` deals the
 dilemma cards and answers each with its last (do-nothing) or first choice
@@ -155,7 +174,10 @@ never indicted for sitting on the pile, the Security branch buys an
 aggressive player time without buying them out of the indictment, and an
 informant nobody looks for indicts the always-quiet player within
 `harness.SnitchDays` while one who reads the report (`vigilant`) survives.
-`TestMoneyCurve` pins the scale per tier.
+`TestMoneyCurve` pins the scale per tier. `diplomacy_test.go` pins the
+table: a truce holds and then lapses, the `diplomat` keeps more ground than
+the passive player and runs cooler than a war, a defensive rival never
+breaks a deal and a chaotic one does, and the table survives a save.
 
 ## Layout
 

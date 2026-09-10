@@ -19,7 +19,7 @@ import (
 func main() {
 	runs := flag.Int("runs", 20, "number of seeded runs")
 	days := flag.Int("days", harness.Horizon, "days to play each run for; a measuring horizon, the game itself has no cap")
-	policy := flag.String("policy", "normal", "idle | hide | quiet | normal | aggressive | careful | managed | upgraded | crewed | vigilant | territory | war | laundered | distributor")
+	policy := flag.String("policy", "normal", "idle | hide | quiet | normal | aggressive | careful | managed | upgraded | crewed | vigilant | territory | war | diplomat | laundered | distributor")
 	corners := flag.Int("corners", 3, "corners the territory and war policies work, counting yours")
 	force := flag.String("force", "push", "warn | push | hit: how hard the war policy strikes")
 	rival := flag.String("rival", "", "force the rival's personality: expansionist | defensive | opportunist | chaotic (default by seed)")
@@ -70,6 +70,8 @@ func main() {
 			f = events.ForceHit
 		}
 		p = harness.Warlike(cfg, at(40), *corners, f)
+	case "diplomat":
+		p = harness.Diplomat(cfg, at(40), *corners)
 	case "laundered":
 		p = harness.Laundered(cfg, at(40))
 	case "distributor":
@@ -106,6 +108,8 @@ func main() {
 	shipments, shipped, seizures, seizedUnits := 0, 0, 0, 0
 	var fear, respect, notoriety []int
 	dealt := map[string]int{}
+	deals, refused, betrayals, betrayedBy, tribute, offers := 0, 0, 0, 0, 0, 0
+	var trust []int
 	for seed := *seed0; seed < *seed0+uint64(*runs); seed++ {
 		pol := p
 		if *trace && seed == *seed0 {
@@ -182,6 +186,8 @@ func main() {
 				defections++
 			case events.DilemmaDrawn:
 				dealt[ev.Card]++
+			case events.DealOffered:
+				offers++
 			case events.HeatChanged:
 				for _, r := range ev.Reasons {
 					if strings.HasPrefix(r, "the DA's file") {
@@ -207,6 +213,9 @@ func main() {
 		seizedUnits += res.World.Stats.SeizedOnRoad
 		rep := res.World.Player.Reputation
 		fear, respect, notoriety = append(fear, int(rep.Fear)), append(respect, int(rep.Respect)), append(notoriety, int(rep.Notoriety))
+		st := res.World.Stats
+		deals, refused, betrayals, betrayedBy, tribute = deals+st.Deals, refused+st.DealsRefused, betrayals+st.Betrayals, betrayedBy+st.BetrayedBy, tribute+st.Tribute
+		trust = append(trust, int(res.World.Rival.Trust))
 	}
 	sort.Ints(played)
 	sort.Ints(peaks)
@@ -251,6 +260,11 @@ func main() {
 	sort.Ints(notoriety)
 	fmt.Printf("reputation:    fear %d respect %d notoriety %d at the end (medians), fear max %d respect max %d notoriety max %d\n",
 		fear[len(fear)/2], respect[len(respect)/2], notoriety[len(notoriety)/2], fear[len(fear)-1], respect[len(respect)-1], notoriety[len(notoriety)-1])
+	if deals+refused+offers > 0 {
+		sort.Ints(trust)
+		fmt.Printf("diplomacy:     %d deals struck, %d refused, %d offered by the rival, %d broken by you, %d by them, $%d tribute per run, trust %d at the end (median)\n",
+			deals, refused, offers, betrayals, betrayedBy, tribute / *runs, trust[len(trust)/2])
+	}
 	if pick != nil {
 		total := 0
 		var ids []string

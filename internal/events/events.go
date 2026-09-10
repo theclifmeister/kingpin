@@ -589,3 +589,71 @@ type ShipmentSeized struct {
 }
 
 func (ShipmentSeized) Kind() string { return "ShipmentSeized" }
+
+// DealOffered is the rival putting a deal on the table: it sits in
+// World.Offers until the player answers or it expires. Terms is the deal
+// in words.
+type DealOffered struct {
+	Day     int
+	ID      int
+	Rival   string
+	Deal    string // truce, tribute, split
+	Terms   string
+	Expires int // last day it can be accepted
+}
+
+func (DealOffered) Kind() string { return "DealOffered" }
+
+// DealAccepted is a deal struck: the rival took the player's proposal
+// (Offered false) or the player took the rival's offer (Offered true).
+type DealAccepted struct {
+	Day     int
+	Rival   string
+	Deal    string
+	Terms   string
+	Until   int // last day it runs; 0 for a deal with no end
+	Offered bool
+}
+
+func (DealAccepted) Kind() string { return "DealAccepted" }
+
+// DealRefused is the rival turning the player's proposal down.
+type DealRefused struct {
+	Day   int
+	Rival string
+	Deal  string
+	Terms string
+}
+
+func (DealRefused) Kind() string { return "DealRefused" }
+
+// DealBroken is a live deal betrayed: by the player (By "you": a push or
+// hit, a missed tribute, a split corner abandoned) or by the rival (By
+// "rival"). Why says how.
+type DealBroken struct {
+	Day   int
+	Rival string
+	Deal  string
+	By    string // you, rival
+	Why   string
+}
+
+func (DealBroken) Kind() string { return "DealBroken" }
+
+// DealEnded is report-only bookkeeping: a deal that ran its course.
+type DealEnded struct {
+	Day   int
+	Rival string
+	Deal  string
+}
+
+func (DealEnded) Kind() string { return "DealEnded" }
+
+// TributePaid is report-only bookkeeping: the day's tribute handed over.
+type TributePaid struct {
+	Day    int
+	Rival  string
+	Amount int
+}
+
+func (TributePaid) Kind() string { return "TributePaid" }
