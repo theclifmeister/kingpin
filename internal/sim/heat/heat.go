@@ -23,17 +23,87 @@ type Sim struct {
 	tree   content.UpgradesConfig
 	rep    content.ReputationFX
 	lt     content.LieutenantTuning
+	law    content.LawConfig
 }
 
 // New builds a heat sim. It needs the market config for per-product and
 // per-dial heat multipliers, the shipping tuning for what a seizure on
 // the road adds, the upgrade tree for what the Security and Legal
 // branches take off, of the reputation effects the two that are its
-// (fear puts a floor under heat, notoriety makes you the target), and
-// the lieutenant tuning for what a temper does to a city's heat and what
-// a flipped one feeds the DA.
-func New(cfg content.HeatConfig, market content.MarketConfig, ship content.ShippingTuning, tree content.UpgradesConfig, rep content.ReputationFX, lt content.LieutenantTuning) *Sim {
-	return &Sim{cfg: cfg, market: market, ship: ship, tree: tree, rep: rep, lt: lt}
+// (fear puts a floor under heat, notoriety makes you the target), the
+// lieutenant tuning for what a temper does to a city's heat and what a
+// flipped one feeds the DA, and the law tables (#41) for what the chief,
+// the DA and a city's pressure do to its own thresholds, cooldown and
+// decay; it reads who they are off w.Law and never adds a page for them.
+func New(cfg content.HeatConfig, market content.MarketConfig, ship content.ShippingTuning, tree content.UpgradesConfig, rep content.ReputationFX, lt content.LieutenantTuning, law content.LawConfig) *Sim {
+	return &Sim{cfg: cfg, market: market, ship: ship, tree: tree, rep: rep, lt: lt, law: law}
+}
+
+// Chief is what the sitting police chief does to the tuning: multipliers
+// on the response cooldown, what a patrol lets through and the decay.
+func (s *Sim) Chief(w *game.World) content.ChiefConfig {
+	return s.law.ChiefFor(w.Law.Chief.Personality)
+}
+
+// DA is what the sitting district attorney does to the tuning:
+// multipliers on the pages an indictment needs and the sting line.
+func (s *Sim) DA(w *game.World) content.DAConfig { return s.law.DAFor(w.Law.DA.Stance) }
+
+// CooldownDays is how long a response level waits before it can fire
+// again: the base, plus the Security branch, and for a sting or a raid
+// times the chief, never under one day. The patrol keeps its cadence
+// under every chief: it fires as often as its cap lifts, and a chief who
+// sent it back sooner would never lift it.
+func (s *Sim) CooldownDays(w *game.World, level string) int {
+	days := float64(s.cfg.Heat.CooldownDays + s.Effects(w).CooldownBonus)
+	if level != "patrol" {
+		days *= s.Chief(w).Cooldown
+	}
+	return max(1, int(math.Round(days)))
+}
+
+// Decay is the fraction of heat above the floor that fades in a day: the
+// base or the cold contacts, times the chief.
+func (s *Sim) Decay(w *game.World) float64 {
+	return math.Min(1, math.Max(s.cfg.Heat.Decay, s.Effects(w).Decay)*s.Chief(w).Decay)
+}
+
+// PatrolCap is the share of demand a patrol in a city lets through: the
+// response's, or the lookouts', times the chief, less what the city's
+// pressure takes off, never over one.
+func (s *Sim) PatrolCap(w *game.World, r content.ResponseConfig, city *game.City) float64 {
+	cap := math.Max(r.Cap, s.Effects(w).PatrolCap) * s.Chief(w).Cap
+	if city != nil {
+		cap *= content.Cut(city.Pressure, s.law.Effects.PressureCapCut)
+	}
+	return math.Min(1, cap)
+}
+
+// Threshold is the heat at which a response fires in a city today: the
+// ladder's line, moved by the law (#41). The sting line is the DA's: it
+// is where a case starts, and a law-and-order DA wants it lower, a
+// reformer higher. Every other line (the patrols, the raid, the arrest)
+// is the police's, and drops the louder the city is: yesterday's
+// pressure, since the law sim steps after this one.
+func (s *Sim) Threshold(w *game.World, r content.ResponseConfig, city *game.City) float64 {
+	v := r.Threshold
+	if r.Level == "sting" {
+		return v * s.DA(w).Sting
+	}
+	if city != nil {
+		v *= content.Cut(city.Pressure, s.law.Effects.PressureThresholdCut)
+	}
+	return v
+}
+
+// ThresholdsIn is the response ladder as it stands in a city today, for
+// the UI: the same lines the dice use.
+func (s *Sim) ThresholdsIn(w *game.World, city *game.City) []content.ResponseConfig {
+	out := s.Thresholds()
+	for i := range out {
+		out[i].Threshold = s.Threshold(w, out[i], city)
+	}
+	return out
 }
 
 // LieutenantHeat is what the temper of whoever runs a city does to the
@@ -61,9 +131,14 @@ func (s *Sim) PersonalHeat(w *game.World) float64 {
 func (s *Sim) Effects(w *game.World) game.Effects { return game.FoldEffects(w, s.tree) }
 
 // EvidenceArrest is how thick the DA's file has to be for an indictment,
-// after a retained lawyer has had his say.
+// after a retained lawyer has had his say and for the DA in office: a
+// law-and-order DA needs fewer pages, a reformer more, never under one.
 func (s *Sim) EvidenceArrest(w *game.World) int {
-	return max(s.cfg.Heat.EvidenceArrest, s.Effects(w).EvidenceArrest)
+	base := max(s.cfg.Heat.EvidenceArrest, s.Effects(w).EvidenceArrest)
+	if base <= 0 {
+		return 0
+	}
+	return max(1, int(math.Round(float64(base)*s.DA(w).EvidenceArrest)))
 }
 
 func (s *Sim) Name() string { return "heat" }
@@ -329,9 +404,10 @@ func (s *Sim) Step(w *game.World, t *game.Tick) {
 	}
 
 	// Decay, in every city. Cold contacts make both the base rate and
-	// lying low better. A feared name never quite cools: decay works on
-	// what is above the floor, and nothing takes heat under it.
-	decay := math.Max(tun.Decay, fx.Decay)
+	// lying low better; a zealous chief makes it worse. A feared name
+	// never quite cools: decay works on what is above the floor, and
+	// nothing takes heat under it.
+	decay := s.Decay(w)
 	if w.LieLow {
 		decay *= math.Max(tun.LieLowMultiplier, fx.LieLowMultiplier)
 		t.Emit(events.LaidLow{Day: t.Day})
@@ -367,10 +443,10 @@ func (s *Sim) Step(w *game.World, t *game.Tick) {
 	resp := s.Thresholds()
 	for i := len(resp) - 1; i >= 0; i-- {
 		r := resp[i]
-		if hot.Heat < r.Threshold {
+		if hot.Heat < s.Threshold(w, r, hot) {
 			continue
 		}
-		if last, ok := h.LastResponse[r.Level]; ok && t.Day-last < tun.CooldownDays+fx.CooldownBonus && r.Level != "arrest" {
+		if last, ok := h.LastResponse[r.Level]; ok && t.Day-last < s.CooldownDays(w, r.Level) && r.Level != "arrest" {
 			continue
 		}
 		h.Responses[r.Level]++
@@ -432,7 +508,7 @@ func (s *Sim) fire(w *game.World, t *game.Tick, city *game.City, r content.Respo
 	switch r.Level {
 	case "patrol":
 		w.Heat.SellCapDays = r.CapDays
-		w.Heat.SellCap = math.Max(r.Cap, fx.PatrolCap)
+		w.Heat.SellCap = s.PatrolCap(w, r, city)
 	case "arrest":
 		if s.takeFall(w, t, fx) {
 			return

@@ -82,7 +82,6 @@ func (m *Model) viewDashboard() string {
 		}
 		street.WriteString(row + "\n")
 	}
-	street.WriteString("\n")
 	street.WriteString(theme.Subtle.Render(fmt.Sprintf("stash here %d/%d units · supplier sells at ~%.0f%% of street",
 		w.Player.StockIn(here.ID), w.Capacity(here.ID), m.set.Market.SupplierRatio(w)*100)) + "\n")
 	if line := m.elsewhereLine(); line != "" {
@@ -142,8 +141,13 @@ func (m *Model) viewDashboard() string {
 		}
 	}
 
-	leftH := h
-	left := panel("STREET · "+here.Name, street.String(), leftW, leftH, theme.Market)
+	// The law sits under the street: who the chief and the DA are, and
+	// how loud the city is.
+	lawH := 6
+	leftH := h - lawH
+	left := lipgloss.JoinVertical(lipgloss.Left,
+		panel("STREET · "+here.Name, street.String(), leftW, leftH, theme.Market),
+		panel("LAW", m.lawLines(leftW-4), leftW, lawH, theme.Heat))
 	if rightW == 0 {
 		return left
 	}
@@ -153,7 +157,7 @@ func (m *Model) viewDashboard() string {
 	gaugeW := max(8, rightW-8)
 	var marks []float64
 	var thr []string
-	for _, r := range m.set.Heat.Thresholds() {
+	for _, r := range m.set.Heat.ThresholdsIn(w, here) {
 		marks = append(marks, r.Threshold/100)
 		thr = append(thr, fmt.Sprintf("%.0f %s", r.Threshold, r.Level))
 	}
@@ -219,7 +223,7 @@ func (m *Model) viewDashboard() string {
 		n++
 	}
 	for i := len(w.Journal) - 1; i >= 0 && n < max(1, alertsH-2); i-- {
-		if src := w.Journal[i].Source; src != "heat" && src != "rivals" {
+		if src := w.Journal[i].Source; src != "heat" && src != "rivals" && src != "law" {
 			continue
 		}
 		alerts.WriteString(theme.Subtle.Render(fmt.Sprintf("d%-3d ", w.Journal[i].Day)) + truncate(w.Journal[i].Text, max(10, rightW-11)) + "\n")

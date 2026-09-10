@@ -10,7 +10,7 @@ import (
 )
 
 // SchemaVersion is bumped whenever World changes shape incompatibly.
-const SchemaVersion = 8
+const SchemaVersion = 9
 
 // World is the complete state of a run. Every field is a plain value so the
 // whole struct can be serialised with encoding/gob.
@@ -36,6 +36,7 @@ type World struct {
 	Logistics   LogisticsState       // the shipment counter and the seizure record
 	Offers      []Offer              // deals the rival has put on the table, oldest first
 	Delegated   map[string]SellOrder // the lieutenants' standing sell orders, keyed like Orders; the crew step refreshes them
+	Law         LawState             // the chief and the DA (#41); pressure and goodwill are per city
 
 	// Per-day scratch, cleared by the clock after every EndDay.
 	Orders        map[string]SellOrder // pending sell orders keyed by product id
@@ -47,6 +48,7 @@ type World struct {
 	Proposal      *Deal                // the deal put to the rival today; it answers in the morning
 	Accepted      []Offer              // rival offers the player took today; the rival sim seals them
 	Abandoned     []string             // corner ids given back to the street today
+	Funded        []Funding            // clean cash given to a city today; the law sim turns it into goodwill
 
 	Journal []Headline // full headline history, oldest first
 	Report  *DayReport // morning report for the current day
@@ -67,6 +69,8 @@ type City struct {
 	Market    map[string]*ProductMarket // keyed by product id
 	Corners   []Corner
 	Heat      float64 // city heat, 0..100: how hard the police here are looking
+	Pressure  float64 // public pressure, 0..100: how loudly the city wants something done (#41)
+	Goodwill  float64 // what the player has bought the city, 0..100: it takes pressure off a little every day
 }
 
 // Player is the human's cash, where they are and what they keep where,
@@ -431,6 +435,7 @@ type DayReport struct {
 	Crew       []string
 	Territory  []string
 	Shipments  []string
+	Law        []string // elections, a new chief, pressure bands crossed, what you gave a city
 	Money      []string
 	Upgrades   []string
 	News       []string
@@ -474,6 +479,9 @@ type Stats struct {
 	Tribute        int // dirty cash paid the rival in tribute
 	Cuts           int // dirty cash the lieutenants kept as their cut
 	Walked         int // lieutenants who walked with their city
+	Funded         int // clean cash given to the cities (#41)
+	Elections      int // DA elections held
+	Chiefs         int // police chiefs replaced
 }
 
 // StartingProduct describes a product as it exists at the start of a run,

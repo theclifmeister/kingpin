@@ -7,6 +7,7 @@ import (
 	"github.com/theclifmeister/kingpin/internal/sim/crew"
 	"github.com/theclifmeister/kingpin/internal/sim/heat"
 	"github.com/theclifmeister/kingpin/internal/sim/laundering"
+	"github.com/theclifmeister/kingpin/internal/sim/law"
 	"github.com/theclifmeister/kingpin/internal/sim/logistics"
 	"github.com/theclifmeister/kingpin/internal/sim/market"
 	"github.com/theclifmeister/kingpin/internal/sim/news"
@@ -26,6 +27,7 @@ type Set struct {
 	Rivals     *rivals.Sim
 	Crew       *crew.Sim
 	Heat       *heat.Sim
+	Law        *law.Sim
 	Laundering *laundering.Sim
 	Reputation *reputation.Sim
 	News       *news.Sim
@@ -33,16 +35,17 @@ type Set struct {
 
 // Default builds every simulation in the canonical order:
 //
-//	market -> logistics -> territory -> rivals -> crew -> heat -> laundering -> reputation -> news
+//	market -> logistics -> territory -> rivals -> crew -> heat -> law -> laundering -> reputation -> news
 //
 // Logistics lands shipments after the day's sales, so what arrives sells
 // tomorrow, and before heat, so a seizure is today's heat (the market
 // reads it off the world tomorrow); territory settles who stands where
 // before the rival moves on it; the rival goes before crew and heat so
-// its strikes and tips land on today's loyalty and heat; laundering goes
-// after heat so the wash works on what the day's stings left; reputation
-// reads the whole day and goes before news so a band it crosses is a
-// headline.
+// its strikes and tips land on today's loyalty and heat; the law goes
+// after heat so the police answer on yesterday's pressure and the
+// pressure counts today's violence; laundering goes after heat so the
+// wash works on what the day's stings left; reputation reads the whole
+// day and goes before news so a band it crosses is a headline.
 func Default(cfg *content.Config) (*Set, []game.Simulation, error) {
 	n, err := news.New(cfg.Headlines, cfg.Dilemmas)
 	if err != nil {
@@ -52,14 +55,15 @@ func Default(cfg *content.Config) (*Set, []game.Simulation, error) {
 		Market:     market.New(cfg.Market, cfg.City, cfg.Routes.Shipping, cfg.Upgrades, cfg.Reputation.Effects),
 		Logistics:  logistics.New(cfg.Routes, cfg.City, cfg.Market),
 		Territory:  territory.New(cfg.City),
-		Rivals:     rivals.New(cfg.Rivals, cfg.Names, cfg.Reputation.Effects),
+		Rivals:     rivals.New(cfg.Rivals, cfg.Names, cfg.Reputation.Effects, cfg.Law.Effects),
 		Crew:       crew.New(cfg.Crew, cfg.Names, cfg.Reputation.Effects),
-		Heat:       heat.New(cfg.Heat, cfg.Market, cfg.Routes.Shipping, cfg.Upgrades, cfg.Reputation.Effects, cfg.Crew.Lieutenant),
+		Heat:       heat.New(cfg.Heat, cfg.Market, cfg.Routes.Shipping, cfg.Upgrades, cfg.Reputation.Effects, cfg.Crew.Lieutenant, cfg.Law),
+		Law:        law.New(cfg.Law, cfg.Names),
 		Laundering: laundering.New(cfg.Laundering, cfg.Crew),
 		Reputation: reputation.New(cfg.Reputation),
 		News:       n,
 	}
-	return set, []game.Simulation{set.Market, set.Logistics, set.Territory, set.Rivals, set.Crew, set.Heat, set.Laundering, set.Reputation, set.News}, nil
+	return set, []game.Simulation{set.Market, set.Logistics, set.Territory, set.Rivals, set.Crew, set.Heat, set.Law, set.Laundering, set.Reputation, set.News}, nil
 }
 
 // Migrations is the chain that upgrades older saves to the current schema.
@@ -78,20 +82,22 @@ func (s *Set) Migrations() []game.Migration {
 			s.Territory.Migrate(w)
 		}},
 		{From: 7, Apply: s.Rivals.MigrateDiplomacy}, // 7 -> 8: the rival's trust, deals and offers
+		{From: 8, Apply: s.Law.Migrate},             // 8 -> 9: a chief and a DA took office
 	}
 }
 
 // NewWorld starts a fresh run from config: every city's corners with the
-// player on the starting one at home, a hiring pool and a rival drawn from
-// the day-0 RNG so they are part of the seed like everything else, and the
-// launder dial at normal.
+// player on the starting one at home, a hiring pool, a rival, a chief and
+// a DA drawn from the day-0 RNG so they are part of the seed like
+// everything else, and the launder dial at normal.
 func NewWorld(cfg *content.Config, seed uint64) *game.World {
 	t := cfg.Market.Market
 	w := game.NewWorld(seed, logistics.StartingCities(cfg.City, cfg.Market), t.StartCash, t.CarryLimit)
 	territory.New(cfg.City).Seed(w)
 	rng := game.RNGFor(seed, 0)
 	crew.New(cfg.Crew, cfg.Names, cfg.Reputation.Effects).Seed(w, rng)
-	rivals.New(cfg.Rivals, cfg.Names, cfg.Reputation.Effects).Seed(w, rng)
+	rivals.New(cfg.Rivals, cfg.Names, cfg.Reputation.Effects, cfg.Law.Effects).Seed(w, rng)
 	laundering.New(cfg.Laundering, cfg.Crew).Seed(w)
+	law.New(cfg.Law, cfg.Names).Seed(w, rng)
 	return w
 }

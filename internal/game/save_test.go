@@ -492,3 +492,37 @@ func TestSaveKeepsReputation(t *testing.T) {
 		t.Fatal("an axis that does not exist")
 	}
 }
+
+// Fund gives a city clean cash and only clean cash: dirty is refused
+// however much of it there is, the amount is checked, and the gift is
+// today's scratch for the law sim.
+func TestFund(t *testing.T) {
+	w := testWorld()
+	w.Player.DirtyCash, w.Player.CleanCash = 1_000_000, 0
+	if err := w.Fund("test", 100); err != ErrNoCleanCash {
+		t.Fatalf("funded from dirty cash: %v", err)
+	}
+	w.Player.CleanCash = 500
+	if err := w.Fund("test", 600); err == nil || err == ErrNoCleanCash {
+		t.Fatalf("funded more than the clean cash: %v", err)
+	}
+	if err := w.Fund("nowhere", 100); err != ErrNoCity {
+		t.Fatalf("funded a city that does not exist: %v", err)
+	}
+	if err := w.Fund("test", 0); err != ErrBadQuantity {
+		t.Fatalf("funded nothing: %v", err)
+	}
+	if err := w.Fund("test", 300); err != nil {
+		t.Fatal(err)
+	}
+	if err := w.Fund("test", 100); err != nil {
+		t.Fatal(err)
+	}
+	if w.Player.CleanCash != 100 || w.Player.DirtyCash != 1_000_000 || w.Stats.Funded != 400 || w.FundedToday("test") != 400 || len(w.Funded) != 2 {
+		t.Fatalf("after funding: clean %d dirty %d stats %d today %d %+v", w.Player.CleanCash, w.Player.DirtyCash, w.Stats.Funded, w.FundedToday("test"), w.Funded)
+	}
+	w.Over = &Ending{Day: 1, Cause: "test"}
+	if err := w.Fund("test", 1); err != ErrGameOver {
+		t.Fatalf("funded after the end: %v", err)
+	}
+}

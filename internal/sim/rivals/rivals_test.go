@@ -22,7 +22,7 @@ func world(t *testing.T, cfg *content.Config, seed uint64) (*game.World, *rivals
 		{ID: 3, Name: "Moose", Role: "enforcer", Skill: 80, Loyalty: 70, Nerve: 90},
 	}
 	w.Crew.NextID = 3
-	s := rivals.New(cfg.Rivals, cfg.Names, cfg.Reputation.Effects)
+	s := rivals.New(cfg.Rivals, cfg.Names, cfg.Reputation.Effects, cfg.Law.Effects)
 	s.Seed(w, game.RNGFor(seed, 0))
 	return w, s
 }
@@ -302,5 +302,42 @@ func TestTipsAndCrackdown(t *testing.T) {
 	}
 	if w.PostOf(1) != nil || w.PostOf(2) != nil || w.PostOf(game.You) != nil {
 		t.Fatal("somebody is still standing on cleared ground")
+	}
+}
+
+// A loud city gets the rival's calls answered (#41): with a grudge to
+// pay back, it tips the police more often at pressure 100 than at 0, and
+// the pace it reads is the home city's, scaled by the law's knob.
+func TestTipsRiseWithPressure(t *testing.T) {
+	cfg := content.MustLoad()
+	w, s := world(t, cfg, 1)
+	if s.TipPace(w) != 1 {
+		t.Fatalf("tip pace at pressure 0: %.2f", s.TipPace(w))
+	}
+	w.Home().Pressure = 100
+	if want := 1 + cfg.Law.Effects.PressureTip; s.TipPace(w) != want {
+		t.Fatalf("tip pace at pressure 100: %.2f, want %.2f", s.TipPace(w), want)
+	}
+	tips := func(pressure float64) int {
+		n := 0
+		for seed := uint64(1); seed <= 40; seed++ {
+			w, s := world(t, cfg, seed)
+			w.Rival.Arrived, w.Rival.Cash, w.Rival.Muscle = 1, 100_000, 3
+			w.Rival.Personality = "defensive"
+			w.Day = 10
+			w.Home().Pressure = pressure
+			w.Rival.Grudge = 5
+			for d := 0; d < 10; d++ {
+				w.Rival.Grudge = 5
+				w.Home().Pressure = pressure
+				n += kinds(step(w, s))["RivalTippedPolice"]
+			}
+		}
+		return n
+	}
+	loud, quiet := tips(100), tips(0)
+	t.Logf("tips over 40 seeds x 10 days: %d at pressure 100, %d at 0", loud, quiet)
+	if loud <= quiet {
+		t.Fatalf("pressure should make the calls land: %d at 100 vs %d at 0", loud, quiet)
 	}
 }

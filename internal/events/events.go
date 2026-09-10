@@ -714,3 +714,53 @@ type LieutenantActed struct {
 }
 
 func (LieutenantActed) Kind() string { return "LieutenantActed" }
+
+// DAElected is the district attorney's race decided (#41): who won and
+// on what ticket (law_and_order, moderate, reform). Incumbent says the
+// sitting DA kept the seat. Pressure is the mean public pressure the
+// vote swung on.
+type DAElected struct {
+	Day       int
+	Name      string
+	Stance    string
+	Incumbent bool
+	Pressure  float64
+}
+
+func (DAElected) Kind() string { return "DAElected" }
+
+// ChiefReplaced is a new police chief taking office (#41): on schedule
+// (Why "term") or because a law-and-order DA wanted one (Why "da"). The
+// personality stays hidden until the player has seen them work.
+type ChiefReplaced struct {
+	Day  int
+	Name string
+	Old  string
+	Why  string // term, da
+}
+
+func (ChiefReplaced) Kind() string { return "ChiefReplaced" }
+
+// PressureShifted is a city's public pressure crossing a band line (a
+// multiple of law.toml's band), either way.
+type PressureShifted struct {
+	Day      int
+	City     string
+	From, To float64
+}
+
+func (PressureShifted) Kind() string { return "PressureShifted" }
+
+// Up reports whether pressure crossed the line going up.
+func (p PressureShifted) Up() bool { return p.To > p.From }
+
+// CityFunded is report-only bookkeeping: clean cash the player gave a
+// city today and the goodwill it bought.
+type CityFunded struct {
+	Day      int
+	City     string
+	Amount   int
+	Goodwill float64
+}
+
+func (CityFunded) Kind() string { return "CityFunded" }

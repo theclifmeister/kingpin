@@ -1,0 +1,78 @@
+# The law (#41): the police chief, the DA and public pressure. The law sim
+# owns the actors and the pressure; the heat sim and the rival sim read
+# them off the world and scale their own tuning, never the other way.
+# #27 holds throughout: nothing here adds evidence on a day the player did
+# not deal. The chief and the DA change thresholds, cooldowns and decay.
+
+[law]
+chief_term = 150            # days a chief serves before the mayor names another (0: for life)
+term_days = 90              # days between DA elections (0: no elections)
+replace_pressure = 60       # a law-and-order DA elected with mean pressure over this replaces the chief at once
+observe_days = 20           # days in office before the report names the chief's personality (a patrol, sting or raid tells you sooner)
+baseline = 10               # pressure in every city fades toward this ...
+decay = 0.03                # ... closing this fraction of the gap per day
+band = 25                   # PressureShifted fires when a city's pressure crosses a multiple of this
+goodwill_cash = 1000        # clean cash per point of goodwill (Fund)
+goodwill_cut = 3.0          # pressure a day that full goodwill (100) takes off a city
+goodwill_decay = 0.02       # fraction of goodwill that fades per day
+election_swing = 1.6        # how hard pressure swings an election: the law-and-order share of the
+                            # vote is 0.5 + (mean pressure - 50) / 100 x this, clamped to 0..1
+moderate = 0.25             # share of every election a moderate takes, whatever the pressure
+
+# Where pressure comes from, per city. Violence is the home city's (the
+# rival lives there); hard product counts where it sold; a headline about
+# you counts where you are, the same rule as notoriety's.
+[pressure]
+strike = 5                  # enforcers sent in, taken or held
+push = 2                    # a rival push on your corner, held or not (a flip counts too)
+crackdown = 15              # the police clearing the front line
+hard_units = 25             # a point per this many units of a hard product sold in the city in a day
+hard_products = ["heroin", "meth", "designer"]
+headline = 0.8              # per headline about you the day before, ...
+headline_sources = ["heat", "crew", "territory", "laundering"] # ... from these sims
+
+# The chief: what the heat sim multiplies its own tuning by while they
+# serve. cooldown scales cooldown_days for stings and raids (rounded,
+# never under one; the patrol keeps its cadence, it fires as often as its
+# cap lifts), cap the share of demand a patrol lets through (never over
+# one), decay the daily heat decay. The corrupt chief is neutral until 4.2
+# makes them bribable. A tighter cap for the zealous chief (0.9 and under)
+# is what stops managed play paying at all, so the cap is the lazy chief's
+# knob, not theirs.
+[chief.zealous]
+cooldown = 0.67
+cap = 1.0
+decay = 0.95
+
+[chief.lazy]
+cooldown = 1.67
+cap = 1.2
+decay = 1.05
+
+[chief.corrupt]
+cooldown = 1.0
+cap = 1.0
+decay = 1.0
+
+# The DA: evidence_arrest scales the pages an indictment needs (rounded,
+# never under one); sting scales the sting threshold.
+[da.law_and_order]
+evidence_arrest = 0.85
+sting = 0.95
+
+[da.moderate]
+evidence_arrest = 1.0
+sting = 1.0
+
+[da.reform]
+evidence_arrest = 1.2
+sting = 1.05
+
+# What the other sims read off a city's pressure, each from its own step.
+# Every knob is the effect at pressure 100; it scales linearly from
+# nothing at 0.
+[effects]
+pressure_threshold_cut = 0.10   # heat: fraction cut from the patrol, raid and arrest thresholds in the city whose
+                                # police answer (the sting line is the DA's, above: it is where a case starts)
+pressure_cap_cut = 0.25         # heat: fraction cut from what a patrol there lets through
+pressure_tip = 1.0              # rivals: extra on the chance a grudge becomes a phone call

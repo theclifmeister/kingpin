@@ -62,6 +62,7 @@ const (
 	modeConfirmTravel // move to the other city?
 	modePropose       // pick a deal to put to the rival: kind, then terms
 	modeAssign        // pick the city a lieutenant runs
+	modeFund          // give a city clean cash for goodwill
 )
 
 type tickMsg time.Time
@@ -101,6 +102,7 @@ type Model struct {
 	journal       viewport.Model
 	dlg           dialog
 	shp           shipDialog
+	fnd           fundDialog
 	startChoice   int
 	tick          int
 	status        string
@@ -326,6 +328,8 @@ func (m *Model) handleKey(k tea.KeyMsg) (tea.Model, tea.Cmd) {
 		return m, nil
 	case modeShip:
 		return m.keyShip(k)
+	case modeFund:
+		return m.keyFund(k)
 	case modeHelp:
 		m.mode = modePlay
 		return m, nil
@@ -603,8 +607,13 @@ func (m *Model) keyPlay(key string) (tea.Model, tea.Cmd) {
 			m.status = "Hiring happens on the crew screen (4)."
 		}
 	case "f":
-		if m.screen == screenCrew {
+		switch m.screen {
+		case screenCrew:
 			m.askFire()
+		case screenLedger:
+			m.askFund()
+		default:
+			m.status = "A city is funded from the ledger (7)."
 		}
 	case "p":
 		m.cyclePay()
@@ -777,6 +786,8 @@ func (m *Model) View() string {
 		body = m.travelConfirm()
 	case modeShip:
 		body = m.viewShip()
+	case modeFund:
+		body = m.viewFund()
 	case modeCard:
 		body = m.viewCard()
 	case modePropose:
@@ -900,6 +911,8 @@ func (m *Model) viewFooter() string {
 		keys = k("y", "go") + k("any other key", "stay")
 	case modeShip:
 		keys = k("↑↓", "pick") + k("enter", "next") + k("esc", "back")
+	case modeFund:
+		keys = k("←→", "city") + k("enter", "give") + k("esc", "back")
 	case modePost:
 		keys = k("↑↓", "pick") + k("enter", "post") + k("esc", "back")
 	case modeStrike:
@@ -927,7 +940,7 @@ func (m *Model) viewFooter() string {
 		case screenUpgrades:
 			keys = k("n", "end day") + k("↑↓←→", "pick") + k("enter", "buy") + k("?", "help") + k("q", "quit")
 		case screenLedger:
-			keys = k("n", "end day") + k("b", "buy a front") + k("d", "launder dial") + k("l", "lie low") + k("?", "help") + k("q", "quit")
+			keys = k("n", "end day") + k("b", "buy a front") + k("f", "fund the city") + k("d", "launder dial") + k("l", "lie low") + k("?", "help") + k("q", "quit")
 		case screenRivals:
 			keys = k("n", "end day") + k("↑↓", "pick offer") + k("d", "propose") + k("y", "accept") + k("x", "decline") + k("?", "help") + k("q", "quit")
 		default:
@@ -998,6 +1011,7 @@ func (m *Model) viewHelp() string {
 		{"l", "lie low today (no sales, heat fades faster)"},
 		{"r", "reopen the morning report"},
 		{"h / f", "hire / fire the selected person (crew screen)"},
+		{"f", "on the ledger: fund a city with clean cash for goodwill"},
 		{"t", "on the crew screen: the selected lieutenant runs a city"},
 		{"i / $", "investigate who is talking / pay off the person (crew)"},
 		{"p", "cycle crew pay: stingy / fair / generous"},
@@ -1050,6 +1064,8 @@ func (m *Model) viewOver() string {
 		b.WriteString(fmt.Sprintf("Snitches / defectors %d / %d\n", w.Stats.Informants, w.Stats.Defections))
 	}
 	b.WriteString(fmt.Sprintf("Peak heat       %.0f\n", w.Heat.Peak))
+	b.WriteString(fmt.Sprintf("The law         Chief %s (%s) · DA %s (%s)\n", truncate(w.Law.Chief.Name, 10), w.Law.Chief.Personality, truncate(w.Law.DA.Name, 10), stanceWord(w.Law.DA.Stance)))
+	b.WriteString(fmt.Sprintf("Pressure        %.0f · %d election(s) · %s given to the cities\n", w.Here().Pressure, w.Stats.Elections, cash(w.Stats.Funded)))
 	rep := w.Player.Reputation
 	b.WriteString(fmt.Sprintf("Reputation      fear %.0f / respect %.0f / notoriety %.0f\n", rep.Fear, rep.Respect, rep.Notoriety))
 	if n := len(w.Journal); n > 0 {
@@ -1080,6 +1096,7 @@ func (m *Model) viewReport() string {
 	section("SALES", r.Sales, theme.Gold)
 	section("SHIPMENTS", r.Shipments, lipgloss.NewStyle().Foreground(theme.Logistics))
 	section("HEAT", r.Heat, theme.Bad)
+	section("LAW", r.Law, lawReportStyle)
 	section("CREW", r.Crew, lipgloss.NewStyle().Foreground(theme.Crew))
 	section("TERRITORY", r.Territory, lipgloss.NewStyle().Foreground(theme.Rivals))
 	section("MONEY", append(r.Money, fmt.Sprintf("Cash %s -> %s", cash(r.CashBefore), cash(r.CashAfter))), theme.Gold)
