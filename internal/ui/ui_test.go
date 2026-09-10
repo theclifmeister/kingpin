@@ -89,7 +89,20 @@ func TestRendersAtCommonSizes(t *testing.T) {
 			m.Update(key("e"))
 			m.Update(key("enter"))
 		}
-		m.w.Territory.Corners[0].Owner = game.OwnerRival
+		// A rival in town, at war, with the enforcers queued against it,
+		// exercises the rival cells, the picker and the dashboard panel.
+		m.Update(key("esc")) // a stray enter above may be asking to end the day
+		m.w.Territory.Corners[0].Owner, m.w.Territory.Corners[0].Runner, m.w.Territory.Corners[0].Enforcer = game.OwnerRival, 0, 0
+		m.w.Rival.Arrived, m.w.Rival.Muscle, m.w.Rival.War, m.w.Rival.Observed = 1, 4, 47, true
+		m.w.Crew.Members = append(m.w.Crew.Members, game.CrewMember{ID: 900, Name: "Moose", Role: "enforcer", Skill: 70, Loyalty: 70, Nerve: 60, Wage: 65})
+		m.w.Crew.NextID = 900
+		m.mapCursor = 0
+		m.Update(key("w"))
+		assertFits(t, m.View(), sz[0], sz[1], "strike picker")
+		m.Update(key("enter"))
+		if m.w.Strike == nil {
+			t.Fatalf("%dx%d: no strike queued: %q", sz[0], sz[1], m.status)
+		}
 		for i := range m.w.Territory.Corners {
 			m.mapCursor = i
 			assertFits(t, m.View(), sz[0], sz[1], "map")
@@ -329,6 +342,7 @@ func TestOldSaveIsMigrated(t *testing.T) {
 	w.Day = 9
 	w.Crew = game.CrewState{}
 	w.Territory = game.TerritoryState{}
+	w.Rival = game.RivalState{}
 	if err := game.Save(w); err != nil {
 		t.Fatal(err)
 	}
@@ -346,6 +360,9 @@ func TestOldSaveIsMigrated(t *testing.T) {
 	}
 	if m.w.Worked() != 1 || m.w.Corner(m.cfg.City.Territory.Start).Runner != game.You {
 		t.Fatalf("migrated territory: %d worked, corners %+v", m.w.Worked(), m.w.Territory.Corners)
+	}
+	if m.w.Rival.Leader == "" || m.w.Rival.Personality == "" || m.w.Rival.Arrived != 0 {
+		t.Fatalf("migrated rival: %+v", m.w.Rival)
 	}
 	m.Update(key("4"))
 	assertFits(t, m.View(), 80, 24, "crew screen after migration")
@@ -513,5 +530,75 @@ func TestMapScreenKeys(t *testing.T) {
 	m.Update(key("n"))
 	if m.w.Player.Stock[m.w.Products[0]] != 10 {
 		t.Fatalf("sold %d units with no corner", 10-m.w.Player.Stock[m.w.Products[0]])
+	}
+}
+
+// The map screen's w: enforcers go against a rival corner at a force the
+// picker chooses, one strike a day that can be called off, and nothing
+// happens from other screens, on your own corners, or without enforcers.
+func TestStrikeKeys(t *testing.T) {
+	m := newTestModel(t, 100, 30)
+	m.Update(key("w"))
+	if m.mode != modePlay || !strings.Contains(m.status, "map") {
+		t.Fatalf("w on the dashboard: mode %v status %q", m.mode, m.status)
+	}
+	m.Update(key("5"))
+	m.mapCursor = m.yourCorner()
+	m.Update(key("w"))
+	if m.mode != modePlay || !strings.Contains(m.status, "rival") {
+		t.Fatalf("w on your own corner: mode %v status %q", m.mode, m.status)
+	}
+	docks := m.w.Corner("docks")
+	docks.Owner = game.OwnerRival
+	m.w.Rival.Arrived, m.w.Rival.Muscle = 1, 3
+	for i, c := range m.w.Territory.Corners {
+		if c.ID == "docks" {
+			m.mapCursor = i
+		}
+	}
+	m.Update(key("w"))
+	if m.mode != modePlay || !strings.Contains(m.status, "enforcers") {
+		t.Fatalf("w with no enforcers: mode %v status %q", m.mode, m.status)
+	}
+	m.w.Crew.Members = append(m.w.Crew.Members, game.CrewMember{ID: 102, Name: "Tank", Role: "enforcer", Skill: 50, Loyalty: 70, Nerve: 60, Wage: 55})
+	m.w.Crew.NextID = 102
+	m.Update(key("w"))
+	if m.mode != modeStrike || len(m.strikeRows()) != 3 {
+		t.Fatalf("w with an enforcer: mode %v rows %v", m.mode, m.strikeRows())
+	}
+	m.Update(key("3")) // hit
+	if m.mode != modePlay || m.w.Strike == nil || m.w.Strike.Corner != "docks" || m.w.Strike.Force != events.ForceHit {
+		t.Fatalf("after picking hit: mode %v strike %+v status %q", m.mode, m.w.Strike, m.status)
+	}
+	if !strings.Contains(stripANSI(m.View()), "hit tonight") {
+		t.Fatal("the map does not show where the enforcers go")
+	}
+	m.Update(key("1"))
+	if !strings.Contains(stripANSI(m.View()), "tonight") {
+		t.Fatal("the dashboard does not show where the enforcers go")
+	}
+	m.Update(key("5"))
+	m.Update(key("w"))
+	rows := m.strikeRows()
+	if len(rows) != 4 {
+		t.Fatalf("picker with a strike queued: %v", rows)
+	}
+	m.Update(key("4")) // stop
+	if m.w.Strike != nil {
+		t.Fatalf("stop did not call it off: %+v", m.w.Strike)
+	}
+	m.Update(key("w"))
+	m.Update(key("j"))
+	m.Update(key("j"))
+	m.Update(key("enter")) // hit again
+	m.Update(key("n"))
+	if m.mode != modeReport || m.w.Strike != nil || m.w.Stats.Strikes != 1 {
+		t.Fatalf("after the night: mode %v strike %+v stats %+v", m.mode, m.w.Strike, m.w.Stats)
+	}
+	if !strings.Contains(strings.Join(m.w.Report.Territory, "\n"), "The Docks") {
+		t.Fatalf("report does not mention the strike: %v", m.w.Report.Territory)
+	}
+	if !strings.Contains(strings.Join(m.w.Report.Heat, "\n"), "enforcers") {
+		t.Fatalf("report does not charge heat for it: %v", m.w.Report.Heat)
 	}
 }

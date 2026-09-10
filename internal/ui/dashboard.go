@@ -84,7 +84,11 @@ func (m *Model) viewDashboard() string {
 	if w.Worked() == 0 {
 		street.WriteString(theme.Bad.Render("You hold no corner, so nothing sells. Claim one on the map (5).") + "\n")
 	} else {
-		street.WriteString(lipgloss.NewStyle().Foreground(theme.Rivals).Render(fmt.Sprintf("corners %d worked, %d held of %d", w.Worked(), w.Held(), len(w.Territory.Corners))) + "\n")
+		corners := fmt.Sprintf("corners %d worked, %d held of %d", w.Worked(), w.Held(), len(w.Territory.Corners))
+		if n := w.RivalHeld(); n > 0 {
+			corners += fmt.Sprintf(", %d theirs", n)
+		}
+		street.WriteString(theme.Rival.Render(corners) + "\n")
 	}
 	if n := len(w.Crew.Members); n > 0 {
 		crew := fmt.Sprintf("crew %d · %s pay %s/day", n, w.Crew.Pay, money(m.set.Crew.Wages(w, w.Crew.Pay)))
@@ -104,6 +108,11 @@ func (m *Model) viewDashboard() string {
 	if w.Heat.SellCapDays > 0 {
 		street.WriteString(theme.Bad.Render(fmt.Sprintf("Patrols: sales capped at %.0f%% of demand for %d more day(s).", w.Heat.SellCap*100, w.Heat.SellCapDays)) + "\n")
 	}
+	if s := w.Strike; s != nil {
+		if c := w.Corner(s.Corner); c != nil {
+			street.WriteString(theme.Rival.Render(fmt.Sprintf("Enforcers go to %s tonight: %s.", c.Name, s.Force)) + "\n")
+		}
+	}
 
 	leftH := h
 	left := panel("STREET · "+w.City, street.String(), leftW, leftH, theme.Market)
@@ -121,19 +130,20 @@ func (m *Model) viewDashboard() string {
 		thr = append(thr, fmt.Sprintf("%.0f %s", r.Threshold, r.Level))
 	}
 	heat.WriteString(heatStyle(w.Heat.Value).Render(sparkline.Bar(w.Heat.Value/100, gaugeW, marks)) + "\n")
-	heat.WriteString(heatStyle(w.Heat.Value).Render(fmt.Sprintf("%.0f", w.Heat.Value)) + theme.Subtle.Render(fmt.Sprintf(" / 100   peak %.0f", w.Heat.Peak)) + "\n")
-	// Thresholds two per line so they fit narrow panels.
-	for i := 0; i < len(thr); i += 2 {
-		heat.WriteString(theme.Subtle.Render(strings.Join(thr[i:min(i+2, len(thr))], " · ")) + "\n")
-	}
+	line := heatStyle(w.Heat.Value).Render(fmt.Sprintf("%.0f", w.Heat.Value)) + theme.Subtle.Render(fmt.Sprintf(" / 100  peak %.0f", w.Heat.Peak))
 	if ev := m.cfg.Heat.Heat.EvidenceArrest; ev > 0 {
 		style := theme.Subtle
 		if w.Heat.Evidence >= ev-2 {
 			style = theme.Bad
 		}
-		heat.WriteString(style.Render(fmt.Sprintf("case file %d/%d", w.Heat.Evidence, ev)) + "\n")
+		line += style.Render(fmt.Sprintf("  file %d/%d", w.Heat.Evidence, ev))
 	}
-	heatH := 8
+	heat.WriteString(line + "\n")
+	// Thresholds two per line so they fit narrow panels.
+	for i := 0; i < len(thr); i += 2 {
+		heat.WriteString(theme.Subtle.Render(strings.Join(thr[i:min(i+2, len(thr))], " · ")) + "\n")
+	}
+	heatH := 7
 	heatPanel := panel("HEAT", heat.String(), rightW, heatH, theme.Heat)
 
 	// Cash panel.
@@ -147,12 +157,17 @@ func (m *Model) viewDashboard() string {
 	cashH := 6
 	cashPanel := panel("CASH", till.String(), rightW, cashH, theme.Money)
 
+	// The rival: who, what they are like, how much they hold, how loud
+	// the war is, and where the enforcers go tonight.
+	rivalH := 5
+	rivalPanel := panel("RIVALS", m.rivalLines(), rightW, rivalH, theme.Rivals)
+
 	// Alerts: recent heat-sourced headlines.
-	alertsH := h - heatH - cashH
+	alertsH := h - heatH - cashH - rivalH
 	var alerts strings.Builder
 	n := 0
 	for i := len(w.Journal) - 1; i >= 0 && n < max(1, alertsH-2); i-- {
-		if w.Journal[i].Source != "heat" {
+		if src := w.Journal[i].Source; src != "heat" && src != "rivals" {
 			continue
 		}
 		alerts.WriteString(theme.Subtle.Render(fmt.Sprintf("d%-3d ", w.Journal[i].Day)) + truncate(w.Journal[i].Text, max(10, rightW-11)) + "\n")
@@ -163,6 +178,6 @@ func (m *Model) viewDashboard() string {
 	}
 	alertsPanel := panel("ALERTS", alerts.String(), rightW, alertsH, theme.Heat)
 
-	right := lipgloss.JoinVertical(lipgloss.Left, heatPanel, cashPanel, alertsPanel)
+	right := lipgloss.JoinVertical(lipgloss.Left, heatPanel, cashPanel, rivalPanel, alertsPanel)
 	return lipgloss.JoinHorizontal(lipgloss.Top, left, right)
 }

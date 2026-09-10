@@ -24,6 +24,7 @@ var (
 	Bad      = lipgloss.NewStyle().Foreground(Heat)
 	Warning  = lipgloss.NewStyle().Foreground(Warn)
 	Gold     = lipgloss.NewStyle().Foreground(Money)
+	Rival    = lipgloss.NewStyle().Foreground(Rivals)
 	Selected = lipgloss.NewStyle().Bold(true).Foreground(Bg).Background(Money)
 	Key      = lipgloss.NewStyle().Foreground(Money)
 	Tab      = lipgloss.NewStyle().Foreground(Dim).Padding(0, 1)
