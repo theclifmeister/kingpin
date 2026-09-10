@@ -54,7 +54,7 @@ func Default(cfg *content.Config) (*Set, []game.Simulation, error) {
 		Territory:  territory.New(cfg.City),
 		Rivals:     rivals.New(cfg.Rivals, cfg.Names, cfg.Reputation.Effects),
 		Crew:       crew.New(cfg.Crew, cfg.Names, cfg.Reputation.Effects),
-		Heat:       heat.New(cfg.Heat, cfg.Market, cfg.Routes.Shipping, cfg.Upgrades, cfg.Reputation.Effects),
+		Heat:       heat.New(cfg.Heat, cfg.Market, cfg.Routes.Shipping, cfg.Upgrades, cfg.Reputation.Effects, cfg.Crew.Lieutenant),
 		Laundering: laundering.New(cfg.Laundering, cfg.Crew),
 		Reputation: reputation.New(cfg.Reputation),
 		News:       n,

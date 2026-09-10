@@ -4,6 +4,8 @@ import (
 	"fmt"
 	"strings"
 
+	"github.com/charmbracelet/lipgloss"
+
 	"github.com/theclifmeister/kingpin/internal/ui/sparkline"
 	"github.com/theclifmeister/kingpin/internal/ui/theme"
 )
@@ -75,6 +77,8 @@ func (m *Model) viewMarket() string {
 		order := theme.Subtle.Render("-")
 		if o, ok := w.Order(city.ID, id); ok {
 			order = theme.Gold.Render(fmt.Sprintf("%d %s", o.Qty, o.Dial))
+		} else if o, ok := w.StandingOrder(city.ID, id); ok {
+			order = lipgloss.NewStyle().Foreground(theme.Crew).Render(fmt.Sprintf("%d %s (lt)", o.Qty, o.Dial))
 		}
 		name := fit(p.Name, 8)
 		cur := "  "

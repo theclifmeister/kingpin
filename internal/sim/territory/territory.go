@@ -118,6 +118,11 @@ func (s *Sim) step(w *game.World, t *game.Tick, rng rand, city *game.City, reven
 	for i := range city.Corners {
 		c := &city.Corners[i]
 		if !c.Held() {
+			// Off the street long enough, a corner's stick-ups are
+			// forgotten: a lieutenant who gave it up will try it again.
+			if c.Robbed > 0 && t.Day-c.Since >= tun.DriftDays {
+				c.Robbed = 0
+			}
 			continue
 		}
 		// Posts must point at people still on the payroll.
@@ -168,6 +173,7 @@ func (s *Sim) step(w *game.World, t *game.Tick, rng rand, city *game.City, reven
 		}
 		w.Player.DirtyCash -= ev.Cash
 		w.Stats.Robbed += ev.Cash
+		c.Robbed++
 		t.Emit(ev)
 	}
 }

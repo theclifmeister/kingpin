@@ -110,9 +110,15 @@ func (s *Sim) Step(w *game.World, t *game.Tick) {
 			basePrice := pc.BasePrice * cp.Price
 			open := m.Price
 
-			// 1. Resolve the player's order for this product here.
-			if o, ok := w.Order(cid, id); ok && !w.LieLow {
-				s.resolve(w, t, cid, m, o)
+			// 1. Resolve the player's order for this product here, or
+			// the standing order of the lieutenant who runs the city:
+			// the player's wins the day. Lying low is everyone's day off.
+			if !w.LieLow {
+				if o, ok := w.Order(cid, id); ok {
+					s.resolve(w, t, cid, m, o, false)
+				} else if o, ok := w.StandingOrder(cid, id); ok {
+					s.resolve(w, t, cid, m, o, true)
+				}
 			}
 
 			// 2. Shock bookkeeping. Yesterday's seizure on the road
@@ -226,8 +232,10 @@ func (s *Sim) Capacity(w *game.World, city, product string, d events.Dial) int {
 }
 
 // resolve turns a sell order into cash, price impact and a PlayerSold
-// event, out of the city's stash.
-func (s *Sim) resolve(w *game.World, t *game.Tick, city string, m *game.ProductMarket, o game.SellOrder) {
+// event, out of the city's stash. standing says the order was the
+// lieutenant's; either way the event names whoever runs the city, for
+// the crew sim's cut and the heat sim's temper.
+func (s *Sim) resolve(w *game.World, t *game.Tick, city string, m *game.ProductMarket, o game.SellOrder, standing bool) {
 	d := s.Dial(o.Dial)
 	demand := w.Demand(city, o.Product)
 	sold := min(o.Qty, s.Capacity(w, city, o.Product, o.Dial), w.Stock(city, o.Product))
@@ -252,10 +260,14 @@ func (s *Sim) resolve(w *game.World, t *game.Tick, city string, m *game.ProductM
 	m.Price *= 1 - impact
 	m.Glut += impact
 
-	t.Emit(events.PlayerSold{
+	ev := events.PlayerSold{
 		Day: t.Day, City: city, Product: o.Product, Wanted: o.Qty, Sold: sold,
-		Dial: o.Dial, AvgPrice: avg, Revenue: revenue,
-	})
+		Dial: o.Dial, AvgPrice: avg, Revenue: revenue, Standing: standing,
+	}
+	if lt := w.Crew.Lieutenant(city); lt != nil {
+		ev.Lieutenant, ev.LieutenantName = lt.ID, lt.Name
+	}
+	t.Emit(ev)
 }
 
 func clamp(v, lo, hi float64) float64 {

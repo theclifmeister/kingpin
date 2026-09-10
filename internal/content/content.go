@@ -294,10 +294,55 @@ type ResponseConfig struct {
 
 // CrewConfig mirrors crew.toml.
 type CrewConfig struct {
-	Crew      CrewTuning            `toml:"crew"`
-	Informant InformantTuning       `toml:"informant"`
-	Pay       PayTable              `toml:"pay"`
-	Role      map[string]RoleConfig `toml:"role"`
+	Crew       CrewTuning            `toml:"crew"`
+	Informant  InformantTuning       `toml:"informant"`
+	Lieutenant LieutenantTuning      `toml:"lieutenant"`
+	Pay        PayTable              `toml:"pay"`
+	Role       map[string]RoleConfig `toml:"role"`
+}
+
+// LieutenantTuning is who runs a city for you: how often one is looking
+// for work, when they turn and what they feed the DA, how long before
+// you know what they are like, and the four temperaments.
+type LieutenantTuning struct {
+	Chance      float64                          `toml:"chance"`      // chance a candidate is a lieutenant, once corners are held in two cities
+	Flip        float64                          `toml:"flip"`        // under this loyalty a lieutenant turns informant, no dice
+	Evidence    int                              `toml:"evidence"`    // pages a flipped lieutenant feeds the DA per leak
+	RevealDays  int                              `toml:"reveal_days"` // days on the job before the report names their personality
+	Personality map[string]LieutenantPersonality `toml:"personality"`
+}
+
+// LieutenantPersonality is what a temperament does to the city it runs.
+type LieutenantPersonality struct {
+	Dial  string  `toml:"dial"`  // the sell dial they favour: quiet, normal, aggressive
+	Heat  float64 `toml:"heat"`  // multiplier on the sale heat of their city
+	Skim  float64 `toml:"skim"`  // share of their city's takings they take on top of the cut, at any loyalty
+	Guard bool    `toml:"guard"` // they post idle enforcers on their corners
+}
+
+// LieutenantPersonalities are the temperaments a lieutenant can have, in
+// a fixed order for generation.
+var LieutenantPersonalities = []string{"violent", "greedy", "careful", "steady"}
+
+// Temper returns the tuning for a lieutenant temperament, or a steady
+// default for one the config does not know.
+func (t LieutenantTuning) Temper(name string) LieutenantPersonality {
+	if p, ok := t.Personality[name]; ok {
+		return p
+	}
+	return LieutenantPersonality{Dial: "normal", Heat: 1, Guard: true}
+}
+
+// SellDial is the dial a temperament sells at.
+func (p LieutenantPersonality) SellDial() events.Dial {
+	switch p.Dial {
+	case "quiet":
+		return events.DialQuiet
+	case "aggressive":
+		return events.DialAggressive
+	default:
+		return events.DialNormal
+	}
 }
 
 // InformantTuning is who turns, and what finding and keeping them costs.
@@ -352,6 +397,8 @@ type RoleConfig struct {
 	WagePerSkill float64 `toml:"wage_per_skill"`
 	Protection   float64 `toml:"protection"` // fraction of danger loyalty loss each one absorbs
 	Deterrence   float64 `toml:"deterrence"` // fraction of skim chance each one removes
+	Cut          float64 `toml:"cut"`        // share of their city's takings a lieutenant keeps
+	Crew         int     `toml:"crew"`       // roster slots an assigned lieutenant adds
 }
 
 // RivalsConfig mirrors rivals.toml.
@@ -788,12 +835,33 @@ func Load() (*Config, error) {
 	if err := c.Routes.validate(c.City); err != nil {
 		return nil, fmt.Errorf("routes.toml: %w", err)
 	}
-	for _, role := range []string{"runner", "enforcer", "accountant"} {
+	for _, role := range []string{"runner", "enforcer", "accountant", "lieutenant"} {
 		if _, ok := c.Crew.Role[role]; !ok {
 			return nil, fmt.Errorf("crew.toml: no [role.%s] table", role)
 		}
 	}
-	if len(c.Names.Crew) < c.Crew.Crew.MaxCrew+c.Crew.Crew.Candidates {
+	for _, p := range LieutenantPersonalities {
+		lp, ok := c.Crew.Lieutenant.Personality[p]
+		if !ok {
+			return nil, fmt.Errorf("crew.toml: no [lieutenant.personality.%s] table", p)
+		}
+		if d := lp.Dial; d != "quiet" && d != "normal" && d != "aggressive" {
+			return nil, fmt.Errorf("crew.toml: [lieutenant.personality.%s] dial %q", p, d)
+		}
+		if lp.Heat <= 0 || lp.Skim < 0 || lp.Skim >= 1 {
+			return nil, fmt.Errorf("crew.toml: bad [lieutenant.personality.%s] table %+v", p, lp)
+		}
+	}
+	if lt := c.Crew.Lieutenant; lt.Chance < 0 || lt.Chance > 1 || lt.Flip < 0 || lt.RevealDays < 0 {
+		return nil, fmt.Errorf("crew.toml: bad [lieutenant] table %+v", lt)
+	}
+	if r := c.Crew.Role["lieutenant"]; r.Cut < 0 || r.Cut >= 1 || r.Crew < 0 {
+		return nil, fmt.Errorf("crew.toml: bad [role.lieutenant] table %+v", r)
+	}
+	// The roster can grow past max_crew by a lieutenant's people, and every
+	// city can have one; the pool of names has to cover it.
+	roster := c.Crew.Crew.MaxCrew + len(c.City.Cities)*c.Crew.Role["lieutenant"].Crew
+	if len(c.Names.Crew) < roster+c.Crew.Crew.Candidates {
 		return nil, fmt.Errorf("names.toml: only %d crew names", len(c.Names.Crew))
 	}
 	for _, p := range Personalities {

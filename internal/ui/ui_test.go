@@ -1633,3 +1633,86 @@ func TestRivalsScreenKeys(t *testing.T) {
 		t.Fatal("x on the dashboard did not cancel the order")
 	}
 }
+
+// t on the crew screen gives the selected lieutenant a city through a
+// picker (and takes it away again); anywhere else it ships. The roster
+// shows the city and hides the temper until it has been observed, and
+// the dashboard says who runs what.
+func TestAssignLieutenantKeys(t *testing.T) {
+	m := newTestModel(t, 80, 24)
+	w := m.w
+	w.Player.DirtyCash = 50_000
+	w.Crew.Members = append(w.Crew.Members,
+		game.CrewMember{ID: 1, Name: "Dre", Role: "runner", Skill: 60, Units: 120, Loyalty: 80, Nerve: 50, Wage: 50},
+		game.CrewMember{ID: 2, Name: "Marcus", Role: game.RoleLieutenant, Skill: 70, Loyalty: 80, Nerve: 50, Wage: 150, Personality: "violent"},
+	)
+	w.Crew.NextID = 2
+	other := w.CityOrder[1]
+
+	m.Update(key("t")) // dashboard: the ship dialog, not the picker
+	if m.mode == modeAssign {
+		t.Fatal("t on the dashboard opened the assign picker")
+	}
+	m.mode = modePlay
+	m.Update(key("4"))
+	m.crewCursor = 0
+	m.Update(key("t")) // a runner
+	if m.mode != modePlay || !strings.Contains(m.status, "Only a lieutenant") {
+		t.Fatalf("t on a runner: mode %v status %q", m.mode, m.status)
+	}
+	view := m.View()
+	if !strings.Contains(view, "no city") || strings.Contains(view, "violent") || !strings.Contains(view, "?") {
+		t.Fatalf("crew screen before assigning:\n%s", view)
+	}
+	m.crewCursor = 1
+	m.Update(key("t"))
+	if m.mode != modeAssign {
+		t.Fatalf("mode after t on a lieutenant = %v (%s)", m.mode, m.status)
+	}
+	assertFits(t, m.View(), 80, 24, "assign picker")
+	m.Update(key("2")) // the second city
+	if m.mode != modePlay {
+		t.Fatalf("mode after picking = %v", m.mode)
+	}
+	if lt := w.Crew.Lieutenant(other); lt == nil || lt.ID != 2 || lt.Assigned != w.Day {
+		t.Fatalf("after assigning: %+v (%s)", w.Crew.Members[1], m.status)
+	}
+	view = m.View()
+	if !strings.Contains(view, "runs "+w.CityName(other)) {
+		t.Fatalf("crew screen after assigning:\n%s", view)
+	}
+	assertFits(t, view, 80, 24, "crew screen with a lieutenant")
+	m.Update(key("1"))
+	if view := m.View(); !strings.Contains(view, "Marcus runs "+w.CityName(other)) {
+		t.Fatalf("dashboard after assigning:\n%s", view)
+	}
+	// The night's report says what they did, and the temper shows once
+	// observed.
+	endDay(t, m)
+	if m.mode != modeReport {
+		t.Fatalf("mode after the day = %v", m.mode)
+	}
+	found := false
+	for _, l := range w.Report.Crew {
+		found = found || strings.Contains(l, "Marcus runs "+w.CityName(other))
+	}
+	if !found {
+		t.Fatalf("report crew lines: %v", w.Report.Crew)
+	}
+	m.Update(key("enter"))
+	w.Crew.Member(2).Observed = true
+	m.Update(key("4"))
+	if view := m.View(); !strings.Contains(view, "violent") {
+		t.Fatalf("crew screen with the temper observed:\n%s", view)
+	}
+	// And back off the city: the last row of the picker.
+	m.crewCursor = 1
+	m.Update(key("t"))
+	m.Update(key("down"))
+	m.Update(key("down"))
+	m.Update(key("enter"))
+	if w.Crew.Lieutenant(other) != nil || w.Crew.Member(2).City != "" {
+		t.Fatalf("after unassigning: %+v (%s)", *w.Crew.Member(2), m.status)
+	}
+	assertFits(t, m.View(), 80, 24, "crew screen after unassigning")
+}

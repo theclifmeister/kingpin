@@ -100,16 +100,21 @@ type PriceMove struct {
 func (PriceMove) Kind() string { return "PriceMove" }
 
 // PlayerSold is the resolution of a sell order at end of day, in the city
-// whose corners moved it.
+// whose corners moved it. Lieutenant names the crew member running that
+// city, if one does (0 otherwise): the crew sim takes their cut, the heat
+// sim their temper. Standing says the order was theirs, not the player's.
 type PlayerSold struct {
-	Day      int
-	City     string
-	Product  string
-	Wanted   int
-	Sold     int
-	Dial     Dial
-	AvgPrice float64
-	Revenue  int
+	Day            int
+	City           string
+	Product        string
+	Wanted         int
+	Sold           int
+	Dial           Dial
+	AvgPrice       float64
+	Revenue        int
+	Lieutenant     int
+	LieutenantName string
+	Standing       bool
 }
 
 func (PlayerSold) Kind() string { return "PlayerSold" }
@@ -657,3 +662,55 @@ type TributePaid struct {
 }
 
 func (TributePaid) Kind() string { return "TributePaid" }
+
+// LieutenantFlipped is a lieutenant turning informant: their loyalty fell
+// under the line and they know where everything is. Like
+// CrewTurnedInformant it is bookkeeping for the heat sim, never a
+// headline; the tells are the same, the pages come thicker.
+type LieutenantFlipped struct {
+	Day  int
+	ID   int
+	Name string
+	City string
+}
+
+func (LieutenantFlipped) Kind() string { return "LieutenantFlipped" }
+
+// LieutenantWalked is a lieutenant leaving with the city they ran: every
+// corner they held there is gone (to the rival, named, if it holds
+// ground there, else back to the street) and so is the stash.
+type LieutenantWalked struct {
+	Day      int
+	ID       int
+	Name     string
+	City     string
+	CityName string
+	Corners  []string // names of the corners that went with them
+	Units    int      // stock lost with the stash
+	Rival    string   // who the corners went to, "" for the street
+}
+
+func (LieutenantWalked) Kind() string { return "LieutenantWalked" }
+
+// LieutenantActed is report-only bookkeeping: what a lieutenant did for
+// their city tonight, and what it cost. Personality is named once the
+// player has seen enough of them (Revealed on the first such morning).
+type LieutenantActed struct {
+	Day         int
+	ID          int
+	Name        string
+	City        string
+	CityName    string
+	Personality string
+	Revealed    bool
+	Dial        Dial
+	Posted      []string // corner names runners were put on
+	Guarded     []string // corner names enforcers were put on
+	Dropped     []string // corner names given up, after a second robbery or for want of a runner
+	Orders      int      // standing orders placed for tomorrow
+	Revenue     int      // what their city took today
+	Cut         int      // what they kept of it
+	Skimmed     int      // what a greedy one took on top; the report never says so
+}
+
+func (LieutenantActed) Kind() string { return "LieutenantActed" }

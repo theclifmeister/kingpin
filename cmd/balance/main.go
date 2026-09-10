@@ -19,7 +19,8 @@ import (
 func main() {
 	runs := flag.Int("runs", 20, "number of seeded runs")
 	days := flag.Int("days", harness.Horizon, "days to play each run for; a measuring horizon, the game itself has no cap")
-	policy := flag.String("policy", "normal", "idle | hide | quiet | normal | aggressive | careful | managed | upgraded | crewed | vigilant | territory | war | diplomat | laundered | distributor")
+	policy := flag.String("policy", "normal", "idle | hide | quiet | normal | aggressive | careful | managed | upgraded | crewed | vigilant | territory | war | diplomat | laundered | distributor | delegated")
+	lt := flag.String("lt", "", "force the delegated policy's lieutenant temper: violent | greedy | careful | steady (default as generated)")
 	corners := flag.Int("corners", 3, "corners the territory and war policies work, counting yours")
 	force := flag.String("force", "push", "warn | push | hit: how hard the war policy strikes")
 	rival := flag.String("rival", "", "force the rival's personality: expansionist | defensive | opportunist | chaotic (default by seed)")
@@ -76,6 +77,8 @@ func main() {
 		p = harness.Laundered(cfg, at(40))
 	case "distributor":
 		p = harness.Distributor(cfg, at(40))
+	case "delegated":
+		p = harness.Delegated(cfg, at(40), *lt)
 	default:
 		p = harness.Trader(cfg, events.DialNormal)
 	}
@@ -102,6 +105,8 @@ func main() {
 	var rivalHeld, takens []int
 	won, strikes, tips, crackdowns := 0, 0, 0, 0
 	informants, leaks, investigations, named, defections := 0, 0, 0, 0, 0
+	lieutenants, cuts, walked, flipped := 0, 0, 0, 0
+	tempers := map[string]int{}
 	personalities := map[string]int{}
 	bought := map[string]int{}
 	audits, laundered, clean := 0, 0, 0
@@ -184,6 +189,8 @@ func main() {
 				}
 			case events.CrewDefected:
 				defections++
+			case events.LieutenantFlipped:
+				flipped++
 			case events.DilemmaDrawn:
 				dealt[ev.Card]++
 			case events.DealOffered:
@@ -197,6 +204,14 @@ func main() {
 			}
 		}
 		robbed += res.World.Stats.Robbed
+		cuts += res.World.Stats.Cuts
+		walked += res.World.Stats.Walked
+		for _, m := range res.World.Crew.Members {
+			if m.Runs() {
+				lieutenants++
+				tempers[m.Personality]++
+			}
+		}
 		rivalHeld = append(rivalHeld, res.World.RivalHeld())
 		takens = append(takens, res.World.Stats.CornersLost)
 		won += res.World.Stats.CornersWon
@@ -240,6 +255,9 @@ func main() {
 	}
 	if informants+leaks+investigations+defections > 0 || *snitch {
 		fmt.Printf("snitching:     %d turned, %d pages leaked, %d investigations named %d, %d defections (totals over %d runs)\n", informants, leaks, investigations, named, defections, *runs)
+	}
+	if lieutenants+walked+flipped > 0 {
+		fmt.Printf("lieutenants:   %d running a city at the end, $%d cut per run, %d walked, %d flipped (totals over %d runs); %v\n", lieutenants, cuts / *runs, walked, flipped, *runs, tempers)
 	}
 	if len(bought) > 0 {
 		var ids []string
