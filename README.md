@@ -24,7 +24,7 @@ load; a save from a newer build than the one you are running is refused.
 
 | Key | Action |
 |---|---|
-| `1` `2` `3` `4` / `tab` | Dashboard, Market, Journal, Crew |
+| `1` `2` `3` `4` / `←` `→` / `tab` | Dashboard, Market, Journal, Crew |
 | `b` | Buy from the supplier (blank quantity = as much as you can) |
 | `s` | Queue a street sale and set the dial: quiet / normal / aggressive |
 | `x` | Cancel the queued order on the selected product |

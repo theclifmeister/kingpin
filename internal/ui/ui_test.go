@@ -35,6 +35,10 @@ func key(s string) tea.KeyMsg {
 		return tea.KeyMsg{Type: tea.KeyEsc}
 	case "tab":
 		return tea.KeyMsg{Type: tea.KeyTab}
+	case "left":
+		return tea.KeyMsg{Type: tea.KeyLeft}
+	case "right":
+		return tea.KeyMsg{Type: tea.KeyRight}
 	}
 	return tea.KeyMsg{Type: tea.KeyRunes, Runes: []rune(s)}
 }
@@ -280,5 +284,37 @@ func TestUnreadableSaveIsRefused(t *testing.T) {
 	m.Update(key("enter"))
 	if m.mode != modePlay || m.w.SchemaVersion != game.SchemaVersion || m.w.Day != 0 {
 		t.Fatalf("new run: mode %v schema %d day %d", m.mode, m.w.SchemaVersion, m.w.Day)
+	}
+}
+
+// Left and right walk the tab bar and wrap; inside the sell dialog they
+// still move the dial.
+func TestArrowsSwitchTabs(t *testing.T) {
+	m := newTestModel(t, 80, 24)
+	if m.screen != screenDashboard {
+		t.Fatalf("start screen %v", m.screen)
+	}
+	m.Update(key("left"))
+	if m.screen != screenCount-1 {
+		t.Fatalf("left from the first tab went to %v", m.screen)
+	}
+	m.Update(key("right"))
+	if m.screen != screenDashboard {
+		t.Fatalf("right from the last tab went to %v", m.screen)
+	}
+	for i := 1; i < int(screenCount); i++ {
+		m.Update(key("right"))
+		if m.screen != screen(i) {
+			t.Fatalf("right %d: screen %v", i, m.screen)
+		}
+	}
+	m.Update(key("1"))
+	m.w.Player.Stock[m.w.Products[0]] = 5
+	m.Update(key("s"))
+	m.Update(key("enter"))
+	m.Update(key("enter"))
+	m.Update(key("right"))
+	if m.mode != modeSell || m.dlg.dial != events.DialAggressive || m.screen != screenDashboard {
+		t.Fatalf("right in the sell dialog: mode %v dial %v screen %v", m.mode, m.dlg.dial, m.screen)
 	}
 }
