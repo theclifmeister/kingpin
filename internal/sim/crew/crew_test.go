@@ -74,7 +74,7 @@ func TestWagesFiringAndQuitting(t *testing.T) {
 	w.SetPay(events.PayFair)
 	var ids []int
 	for _, c := range append([]game.CrewMember(nil), w.Crew.Candidates...) {
-		m, err := w.Hire(c.ID, s.MaxCrew())
+		m, err := w.Hire(c.ID, s.MaxCrew(w))
 		if err != nil {
 			t.Fatal(err)
 		}
@@ -142,7 +142,7 @@ func TestSkimTakesFromTakings(t *testing.T) {
 	cfg := content.MustLoad()
 	w, s := world(t, cfg, 10_000)
 	for _, c := range append([]game.CrewMember(nil), w.Crew.Candidates...) {
-		if _, err := w.Hire(c.ID, s.MaxCrew()); err != nil {
+		if _, err := w.Hire(c.ID, s.MaxCrew(w)); err != nil {
 			t.Fatal(err)
 		}
 	}
@@ -185,7 +185,7 @@ func TestBrokeEndsTheRun(t *testing.T) {
 	w, s := world(t, cfg, 500)
 	c := w.Crew.Candidates[0]
 	w.Player.DirtyCash = c.Fee
-	if _, err := w.Hire(c.ID, s.MaxCrew()); err != nil {
+	if _, err := w.Hire(c.ID, s.MaxCrew(w)); err != nil {
 		t.Fatal(err)
 	}
 	evs := step(w, s)

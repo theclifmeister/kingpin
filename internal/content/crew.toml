@@ -40,6 +40,53 @@ investigate_loyalty = 2     # loyalty everyone loses when an investigation names
 payoff_wages = 60           # a pay-off costs this many days of the member's fair wage
 payoff_loyalty = 25         # and buys this much loyalty
 
+# Lieutenants run a city for you (Phase 3.3): assigned to one, every night
+# they post the idle runners on its best corners, give up on a corner
+# after its second stick-up or when nobody is left to work it, and sell
+# everything in its stash at the dial their temperament favours; your own
+# order for a product there wins the day. They keep a cut of the city's
+# takings ([role.lieutenant]) and bring their own people: an assigned
+# lieutenant adds crew roster slots to max_crew. The temperament is
+# drawn when they are generated and hidden until they have run a city
+# for reveal_days. Under flip loyalty they turn informant with no dice
+# (they know where everything is; the DA gets evidence pages a leak
+# instead of heat.toml's informant_evidence), and at quit_threshold they
+# walk with the city: every corner they ran goes back to the street, or
+# to the rival if it holds ground there, and the stash there goes too.
+# Candidates only come looking once you hold corners in two cities.
+[lieutenant]
+chance = 0.3                # chance a candidate is a lieutenant, once you hold corners in two cities
+flip = 30                   # under this loyalty a lieutenant turns informant, no dice
+evidence = 2                # pages a flipped lieutenant feeds the DA per leak (informant_days apart)
+reveal_days = 10            # days on the job before the report names their temperament
+
+# What each temperament does with the city: the sell dial it favours, a
+# multiplier on the city's sale heat, what it skims on top of the cut at
+# any loyalty, and whether it bothers posting enforcers on its corners.
+[lieutenant.personality.violent]
+dial = "aggressive"
+heat = 1.25
+skim = 0
+guard = true
+
+[lieutenant.personality.greedy]
+dial = "normal"
+heat = 1.0
+skim = 0.08
+guard = false
+
+[lieutenant.personality.careful]
+dial = "quiet"
+heat = 0.8
+skim = 0
+guard = true
+
+[lieutenant.personality.steady]
+dial = "normal"
+heat = 1.0
+skim = 0
+guard = true
+
 # The pay dial: wage is a multiplier on each member's fair wage, loyalty the
 # daily drift it buys.
 [pay.stingy]
@@ -70,3 +117,9 @@ wage_base = 60
 wage_per_skill = 1.2
 # Accountants only show up looking for work once you own a front. What they
 # add to every front, and cut from its audit risk, is in laundering.toml.
+
+[role.lieutenant]
+wage_base = 80
+wage_per_skill = 1.5
+cut = 0.08                  # share of their city's takings they keep, every day
+crew = 4                    # roster slots an assigned lieutenant adds: their own people

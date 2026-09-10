@@ -9,6 +9,7 @@ import (
 	"github.com/theclifmeister/kingpin/internal/events"
 	"github.com/theclifmeister/kingpin/internal/game"
 	"github.com/theclifmeister/kingpin/internal/sim"
+	"github.com/theclifmeister/kingpin/internal/sim/crew"
 	"github.com/theclifmeister/kingpin/internal/sim/laundering"
 	"github.com/theclifmeister/kingpin/internal/sim/logistics"
 	"github.com/theclifmeister/kingpin/internal/sim/rivals"
@@ -509,9 +510,34 @@ const LaunderCarefulDays = 30
 // cheaper by the lot than at home (the normal dial, the biggest route
 // with room) and buys the next lots behind it, sells the rest where it
 // is, and sells everything that lands at home. It is the baseline for "a
-// player who runs a route", and the tier-4 policy.
+// player who runs a route".
 func Distributor(cfg *content.Config, lieLowAt float64) Policy {
+	return distribute(cfg, lieLowAt, false, "")
+}
+
+// Delegated plays like Distributor and hands home over: the first
+// lieutenant who comes looking for work is hired ahead of anyone else and
+// given the city the player is not in, and from then on the policy posts
+// nothing and sells nothing there itself. It keeps HubCorners runners on
+// the hub's corners, leaves the rest of the crew idle for the lieutenant
+// to post, fills the roster the lieutenant's people make room for, buys
+// by the lot and ships everything home, where the lieutenant sells it at
+// their dial and keeps their cut. personality, if set, is what the
+// lieutenant turns out to be, so one seed can be played under each
+// temper; "" takes them as they come. It is the tier-4 policy: the
+// second city staffed by somebody who is not you.
+func Delegated(cfg *content.Config, lieLowAt float64, personality string) Policy {
+	return distribute(cfg, lieLowAt, true, personality)
+}
+
+// HubCorners is how many corners the delegated player keeps working in
+// the hub with runners of its own; the rest of the roster is the
+// lieutenant's to post.
+const HubCorners = 2
+
+func distribute(cfg *content.Config, lieLowAt float64, delegate bool, personality string) Policy {
 	laundered := Laundered(cfg, lieLowAt)
+	crewSim := crew.New(cfg.Crew, cfg.Names, cfg.Reputation.Effects)
 	lg := logistics.New(cfg.Routes, cfg.City, cfg.Market)
 	wholesale := lg.Wholesale()
 	home := cfg.City.Home().ID
@@ -538,16 +564,46 @@ func Distributor(cfg *content.Config, lieLowAt float64) Policy {
 		w.SetPay(events.PayFair)
 
 		// The crew: runners, and one enforcer for home once the rival is
-		// about. Whoever has sunk to skimming goes, one a day.
+		// about. Whoever has sunk to skimming goes, one a day. The
+		// delegated player hires the first lieutenant looking for work
+		// ahead of anyone else and hands them home; while one is on the
+		// payroll it leaves home to them.
 		for _, m := range w.Crew.Members {
 			if m.Loyalty < tun.SkimThreshold {
 				_, _ = w.Fire(m.ID)
 				break
 			}
 		}
+		var lt *game.CrewMember
+		for i := range w.Crew.Members {
+			if w.Crew.Members[i].Lieutenant() {
+				lt = &w.Crew.Members[i]
+			}
+		}
 		want := "runner"
 		if w.Rival.Arrived > 0 && w.Crew.Role("enforcer") == 0 && w.Crew.Runners() >= 2 {
 			want = "enforcer"
+		}
+		if delegate && lt == nil {
+			for _, c := range w.Crew.Candidates {
+				if c.Lieutenant() {
+					want = game.RoleLieutenant
+				}
+			}
+			// A full roster makes room for them: the least skilled
+			// runner goes, and the lieutenant's people more than make
+			// up for it.
+			if want == game.RoleLieutenant && len(w.Crew.Members) >= crewSim.MaxCrew(w) && len(w.Crew.FiredToday) == 0 {
+				worst := -1
+				for i, m := range w.Crew.Members {
+					if m.Role == "runner" && (worst < 0 || m.Skill < w.Crew.Members[worst].Skill) {
+						worst = i
+					}
+				}
+				if worst >= 0 {
+					_, _ = w.Fire(w.Crew.Members[worst].ID)
+				}
+			}
 		}
 		best := -1
 		for i, c := range w.Crew.Candidates {
@@ -555,29 +611,65 @@ func Distributor(cfg *content.Config, lieLowAt float64) Policy {
 				best = i
 			}
 		}
-		if best >= 0 && len(w.Crew.Members) < tun.MaxCrew {
+		if best >= 0 && len(w.Crew.Members) < crewSim.MaxCrew(w) {
 			if c := w.Crew.Candidates[best]; w.Player.DirtyCash >= c.Fee+cfg.Market.Market.StartCash {
-				_, _ = w.Hire(c.ID, tun.MaxCrew)
+				if m, err := w.Hire(c.ID, crewSim.MaxCrew(w)); err == nil && m.Lieutenant() {
+					lt = w.Crew.Member(m.ID)
+					if personality != "" {
+						lt.Personality = personality
+					}
+				}
+			}
+		}
+		if lt != nil && lt.City != home {
+			_ = w.Assign(lt.ID, home)
+		}
+		// A lieutenant whose loyalty is sliding toward the flip line is
+		// paid off before they get there: the player who reads the
+		// roster keeps the one person who knows everything sweet.
+		if lt != nil && lt.Loyalty < crewSim.FlipLine()+10 && len(w.Crew.PaidOffToday) == 0 {
+			if cost := crewSim.PayoffCost(*lt); w.Player.DirtyCash >= cost+cfg.Market.Market.StartCash {
+				_, _ = w.PayOff(lt.ID, cost, crewSim.PayoffLoyalty())
+			}
+		}
+		delegated := lt != nil
+		// Arriving with the whole crew posted at home, one runner comes
+		// off the smallest home corner to work here: the route needs
+		// somebody on this end, and a lieutenant only comes looking
+		// once corners are held in both cities.
+		if !delegated && w.WorkedIn(hub) == 0 && w.WorkedIn(home) > homeCorners {
+			if c := pickCorner(w, func(c game.Corner) bool { return c.City == home && c.Worked() && c.Runner != game.You }, func(c game.Corner) float64 { return -c.Demand }); c != nil {
+				w.Recall(c.Runner)
 			}
 		}
 		// Idle runners take corners at home until homeCorners are worked,
 		// then here; the enforcer guards the home corner the rival borders.
+		// With home handed over, HubCorners runners work here, the rest
+		// wait for the lieutenant, enforcer included, and whoever the
+		// lieutenant had no corner for last night works here after all.
 		for _, m := range w.Crew.Members {
 			if w.PostOf(m.ID) != nil {
 				continue
 			}
+			if delegated && (m.Role != "runner" || (w.WorkedIn(hub) >= HubCorners && m.Hired == w.Day)) {
+				continue
+			}
 			switch m.Role {
 			case "runner":
-				city := home
-				if w.WorkedIn(home) >= homeCorners {
-					city = hub
-				}
-				c := pickCorner(w, func(c game.Corner) bool { return c.City == city && c.Held() && c.Runner == 0 }, size)
-				if c == nil {
-					c = pickCorner(w, func(c game.Corner) bool { return c.City == city && c.Owner == game.OwnerNone }, size)
-				}
-				if c != nil {
-					_ = w.Post(c.ID, m.ID)
+				// Home first, until homeCorners are worked or the rival
+				// has left nothing to work; then here.
+				for _, city := range []string{home, hub} {
+					if city == home && (delegated || w.WorkedIn(home) >= homeCorners) {
+						continue
+					}
+					c := pickCorner(w, func(c game.Corner) bool { return c.City == city && c.Held() && c.Runner == 0 }, size)
+					if c == nil {
+						c = pickCorner(w, func(c game.Corner) bool { return c.City == city && c.Owner == game.OwnerNone }, size)
+					}
+					if c != nil {
+						_ = w.Post(c.ID, m.ID)
+						break
+					}
 				}
 			case "enforcer":
 				score := func(c game.Corner) float64 {
@@ -626,7 +718,7 @@ func Distributor(cfg *content.Config, lieLowAt float64) Policy {
 			return
 		}
 		for _, id := range w.Products {
-			if q := w.Stock(home, id); q > 0 {
+			if q := w.Stock(home, id); q > 0 && !delegated {
 				_ = w.PlaceSell(home, id, q, events.DialNormal)
 			}
 			if q := min(w.Stock(hub, id), keep[id]); q > 0 {
@@ -634,6 +726,31 @@ func Distributor(cfg *content.Config, lieLowAt float64) Policy {
 			}
 		}
 	}
+}
+
+// Delegate puts a lieutenant on the payroll, free, running city with the
+// given temper, so a test can measure what one does without waiting for
+// one to come looking. The first candidate becomes them; it panics if
+// nobody is looking for work.
+func Delegate(cfg *content.Config, w *game.World, city, personality string) game.CrewMember {
+	if len(w.Crew.Candidates) == 0 {
+		panic("harness.Delegate: nobody looking for work")
+	}
+	c := w.Crew.Candidates[0]
+	w.Player.DirtyCash += c.Fee
+	m, err := w.Hire(c.ID, len(w.Crew.Members)+1)
+	if err != nil {
+		panic("harness.Delegate: " + err.Error())
+	}
+	w.Crew.HiredToday = nil // not a signing to report
+	lt := w.Crew.Member(m.ID)
+	rc := cfg.Crew.Role[game.RoleLieutenant]
+	lt.Role, lt.Personality, lt.Units = game.RoleLieutenant, personality, 0
+	lt.Wage = int(rc.WageBase + rc.WagePerSkill*float64(lt.Skill))
+	if err := w.Assign(lt.ID, city); err != nil {
+		panic("harness.Delegate: " + err.Error())
+	}
+	return *lt
 }
 
 // ship sends units of a product between two cities at the normal dial on

@@ -22,15 +22,27 @@ type Sim struct {
 	ship   content.ShippingTuning
 	tree   content.UpgradesConfig
 	rep    content.ReputationFX
+	lt     content.LieutenantTuning
 }
 
 // New builds a heat sim. It needs the market config for per-product and
 // per-dial heat multipliers, the shipping tuning for what a seizure on
 // the road adds, the upgrade tree for what the Security and Legal
-// branches take off, and of the reputation effects the two that are its:
-// fear puts a floor under heat, notoriety makes you the target.
-func New(cfg content.HeatConfig, market content.MarketConfig, ship content.ShippingTuning, tree content.UpgradesConfig, rep content.ReputationFX) *Sim {
-	return &Sim{cfg: cfg, market: market, ship: ship, tree: tree, rep: rep}
+// branches take off, of the reputation effects the two that are its
+// (fear puts a floor under heat, notoriety makes you the target), and
+// the lieutenant tuning for what a temper does to a city's heat and what
+// a flipped one feeds the DA.
+func New(cfg content.HeatConfig, market content.MarketConfig, ship content.ShippingTuning, tree content.UpgradesConfig, rep content.ReputationFX, lt content.LieutenantTuning) *Sim {
+	return &Sim{cfg: cfg, market: market, ship: ship, tree: tree, rep: rep, lt: lt}
+}
+
+// LieutenantHeat is what the temper of whoever runs a city does to the
+// heat of every sale there: 1 for a city nobody runs.
+func (s *Sim) LieutenantHeat(w *game.World, city string) float64 {
+	if lt := w.Crew.Lieutenant(city); lt != nil {
+		return s.lt.Temper(lt.Personality).Heat
+	}
+	return 1
 }
 
 // Floor is the heat a feared player never cools below: decay works on
@@ -100,7 +112,7 @@ func (s *Sim) SaleHeat(w *game.World, city, product string, wanted int, dial eve
 	}
 	fx := s.Effects(w)
 	attempted := math.Min(float64(wanted), math.Round(w.Demand(city, product)*s.dialFill(dial)*fx.FillMul))
-	return tun.SaleHeat * fx.SaleHeatMul * attempted * s.CornerWeight(w, city, product) * c.HeatMul * pc.Heat / tun.StreetUnits * s.dialHeat(dial)
+	return tun.SaleHeat * fx.SaleHeatMul * attempted * s.CornerWeight(w, city, product) * c.HeatMul * pc.Heat / tun.StreetUnits * s.dialHeat(dial) * s.LieutenantHeat(w, city)
 }
 
 // CornerWeight is the heat one unit of a product draws on average across
@@ -209,7 +221,11 @@ func (s *Sim) Step(w *game.World, t *game.Tick) {
 			continue
 		}
 		attempted[ps.City] = true
-		add(ps.City, s.SaleHeat(w, ps.City, ps.Product, ps.Wanted, ps.Dial), fmt.Sprintf("moved %d %s %s", ps.Sold, w.ProductName(ps.Product), ps.Dial))
+		why := fmt.Sprintf("moved %d %s %s", ps.Sold, w.ProductName(ps.Product), ps.Dial)
+		if ps.Standing {
+			why = fmt.Sprintf("%s moved %d %s %s", ps.LieutenantName, ps.Sold, w.ProductName(ps.Product), ps.Dial)
+		}
+		add(ps.City, s.SaleHeat(w, ps.City, ps.Product, ps.Wanted, ps.Dial), why)
 		units[ps.City] += ps.Sold
 	}
 
@@ -259,8 +275,13 @@ func (s *Sim) Step(w *game.World, t *game.Tick) {
 	// a delta the dial does not explain, and a file that grew without a
 	// bust, are the tells. Once nobody is talking the count that shows
 	// them resets.
+	// A flipped lieutenant is the same clock with thicker pages: they
+	// know where everything is.
 	for _, e := range t.Events() {
-		if ev, ok := e.(events.CrewTurnedInformant); ok {
+		switch ev := e.(type) {
+		case events.CrewTurnedInformant:
+			h.LeakDay = ev.Day
+		case events.LieutenantFlipped:
 			h.LeakDay = ev.Day
 		}
 	}
@@ -271,8 +292,14 @@ func (s *Sim) Step(w *game.World, t *game.Tick) {
 		h.LeakDay = t.Day
 		h.Leaks++
 		add(here, tun.InformantHeat, "")
-		if tun.InformantEvidence > 0 {
-			h.Evidence += tun.InformantEvidence
+		pages := tun.InformantEvidence
+		for _, m := range w.Crew.Members {
+			if m.Informant && m.Lieutenant() {
+				pages = max(pages, s.lt.Evidence)
+			}
+		}
+		if pages > 0 {
+			h.Evidence += pages
 			h.EvidenceDay = t.Day
 			reasons[here] = append(reasons[here], fmt.Sprintf("the DA's file on you grows (%d)", h.Evidence))
 		}

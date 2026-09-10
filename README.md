@@ -34,7 +34,7 @@ load; a save from a newer build than the one you are running is refused.
 | `[` `]` | Turn the market and the map to the other city |
 | `b` | Buy from the supplier where you are (blank quantity = as much as you can; `w` in the dialog buys by the lot where a wholesaler deals); on the ledger, buy a front |
 | `s` | Queue a street sale and set the dial: quiet / normal / aggressive, in the city shown |
-| `t` | Ship product to the other city: route, quantity, and the dial: slow / normal / fast |
+| `t` | Ship product to the other city: route, quantity, and the dial: slow / normal / fast; on the crew screen, give the selected lieutenant a city to run |
 | `g` | Go to the other city, after a confirmation; your corner and your stock stay behind |
 | `x` | Cancel the queued order on the selected product |
 | `l` | Lie low today: no sales, heat fades faster |
@@ -99,6 +99,20 @@ never leaves the first city plays the same as it always did.
   accountant the same way. At the floor a member walks, or,
   while the rival holds ground, defects to it and walks it onto the corner
   they ran.
+- **Lieutenants** run a city for you. Once you hold corners in both
+  cities, one turns up in the hiring pool now and then; give them a city
+  (`t` on the crew screen) and every night they post your idle runners
+  on its best corners, give up a corner after its second stick-up, and
+  sell everything stashed there at the dial their temper favours: a
+  **violent** one sells aggressive and runs the city hot, a **greedy**
+  one skims on top of the cut, a **careful** one sells quiet and earns
+  less, a **steady** one just runs it. You learn which after ten days on
+  the job. They keep a cut of the city's takings, bring people of their
+  own (the roster grows while they run a city), and your own order for a
+  product there wins the day. Watch their loyalty more than anyone's:
+  under the line they turn informant with no dice and feed the DA thick
+  pages; at the floor they walk with the city, every corner they ran and
+  the stash there.
 - **Rivals** is the other crew in the city: one per run, with a leader and
   a temperament drawn from the seed. It moves in on a free corner, claims
   more, pushes on the corners of yours it borders, undercuts you there and
@@ -160,7 +174,9 @@ go run ./cmd/balance -policy aggressive -seed 7 -trace
 Policies: `idle`, `hide`, `quiet`, `normal`, `aggressive`, `careful`,
 `managed`, `upgraded`, `crewed`, `vigilant`, `territory`, `war`, `diplomat`,
 `laundered`, `distributor` (moves to Bayport once the wholesaler deals, buys
-by the lot and ships everything worth the road home to runners in Eastside).
+by the lot and ships everything worth the road home to runners in Eastside),
+`delegated` (the distributor with a lieutenant running Eastside; `-lt
+violent|greedy|careful|steady` forces their temper).
 `-own stash,burners` starts every run owning those upgrades; `-snitch` starts
 it with an informant on the payroll; `-cards decline|first` deals the
 dilemma cards and answers each with its last (do-nothing) or first choice
@@ -178,6 +194,11 @@ informant nobody looks for indicts the always-quiet player within
 table: a truce holds and then lapses, the `diplomat` keeps more ground than
 the passive player and runs cooler than a war, a defensive rival never
 breaks a deal and a chaotic one does, and the table survives a save.
+`lieutenant_test.go` pins delegation: the delegated player's home sells on
+the lieutenant's orders alone, the four tempers pull their way on one seed,
+a lieutenant at the floor walks with the city, your order beats theirs, a
+flip is dice-free, and `delegated` at steady stays within 20% of
+`distributor`.
 
 ## Layout
 
@@ -186,7 +207,7 @@ cmd/kingpin/        the game
 cmd/balance/        headless balance tool
 internal/events/    event types and bus
 internal/game/      world state, clock, player actions, save/load
-internal/sim/       simulations: market, territory, rivals, crew, heat, laundering, news
+internal/sim/       simulations: market, logistics, territory, rivals, crew, heat, laundering, reputation, news
 internal/content/   embedded TOML tuning, names and headline templates
 internal/harness/   headless runner and balance tests
 internal/ui/        Bubble Tea screens, dialogs, theme, sparklines

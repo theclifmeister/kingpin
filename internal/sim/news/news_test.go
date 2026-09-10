@@ -11,9 +11,10 @@ import (
 // laundering sims can emit must have a headline template, otherwise the
 // ticker goes silent on something that matters. RivalUndercut,
 // CashLaundered, CrewPaidOff, ShipmentSent and ShipmentArrived are
-// report-only bookkeeping, like PriceMove and CrewPaid; CrewTurnedInformant
-// is deliberately silent, the informant is hidden; DilemmaDrawn and
-// DilemmaAnswered carry their own text, the card's.
+// report-only bookkeeping, like PriceMove, CrewPaid and LieutenantActed;
+// CrewTurnedInformant and LieutenantFlipped are deliberately silent, the
+// informant is hidden; DilemmaDrawn and DilemmaAnswered carry their own
+// text, the card's.
 func TestEveryEmittedEventHasTemplate(t *testing.T) {
 	cfg := content.MustLoad()
 	n, err := news.New(cfg.Headlines, cfg.Dilemmas)
@@ -26,7 +27,7 @@ func TestEveryEmittedEventHasTemplate(t *testing.T) {
 		"EnforcementPatrol", "EnforcementSting", "EnforcementRaid", "EnforcementArrest",
 		"LaidLow", "HeatWarning",
 		"CrewHired", "CrewFired", "CrewFiredInformant", "CrewQuit", "CrewSkimmed",
-		"CrewDefected", "InvestigationRun",
+		"CrewDefected", "InvestigationRun", "LieutenantWalked", "LieutenantWalkedRival",
 		"CornerClaimed", "CornerLost", "CornerRobbed", "CornerCrackdown",
 		"RivalMovedIn", "RivalClaimed", "CornerTaken", "CornerHanded", "RivalPushed",
 		"CornerStruckTaken", "CornerStruckHeld", "RivalRouted",

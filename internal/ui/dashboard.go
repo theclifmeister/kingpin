@@ -115,6 +115,9 @@ func (m *Model) viewDashboard() string {
 			street.WriteString(lipgloss.NewStyle().Foreground(theme.Crew).Render(crew) + "\n")
 		}
 	}
+	if line := m.runsLine(); line != "" {
+		street.WriteString(truncate(lipgloss.NewStyle().Foreground(theme.Crew).Render(line), innerW) + "\n")
+	}
 	street.WriteString(theme.Subtle.Render(m.ownedLine()) + "\n")
 	if m.talking() {
 		street.WriteString(theme.Bad.Render("Somebody is talking. Investigate (4, i).") + "\n")
@@ -122,7 +125,11 @@ func (m *Model) viewDashboard() string {
 	if w.LieLow {
 		street.WriteString(theme.Warning.Render("Lying low today. No sales, heat fades faster.") + "\n")
 	} else if len(w.Orders) == 0 {
-		street.WriteString(theme.Subtle.Render("No sales queued. Press s to sell, n to end the day.") + "\n")
+		if lt := w.Crew.Lieutenant(here.ID); lt != nil && m.standingHere() > 0 {
+			street.WriteString(theme.Gold.Render(fmt.Sprintf("%s sells the stash here at %s. Press s to override, n to end the day.", lt.Name, m.set.Crew.Dial(*lt))) + "\n")
+		} else {
+			street.WriteString(theme.Subtle.Render("No sales queued. Press s to sell, n to end the day.") + "\n")
+		}
 	} else {
 		street.WriteString(theme.Gold.Render("Orders queued. Press n to end the day.") + "\n")
 	}

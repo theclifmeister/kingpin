@@ -120,7 +120,7 @@ func (s *Sim) Step(w *game.World, t *game.Tick) {
 	}
 
 	// Money before we look at events: sales are already applied by market.
-	var soldRevenue, lostCash, spent, wages, skimmed, robbed, upgrades, upkeep, seized, paidOff, investigated, shipping, tribute int
+	var soldRevenue, lostCash, spent, wages, skimmed, robbed, upgrades, upkeep, seized, paidOff, investigated, shipping, tribute, cuts int
 	for _, e := range t.Events() {
 		switch ev := e.(type) {
 		case events.UpgradeBought:
@@ -243,6 +243,22 @@ func (s *Sim) Step(w *game.World, t *game.Tick) {
 			d.Name, d.Role = ev.Name, ev.Role
 			add("crew", "CrewQuit", d)
 			rep.Crew = append(rep.Crew, fmt.Sprintf("%s walked. Nobody was surprised.", ev.Name))
+		case events.LieutenantWalked:
+			d := at(ev.City)
+			d.Name, d.Rival = ev.Name, ev.Rival
+			if ev.Rival != "" {
+				add("crew", "LieutenantWalkedRival", d)
+			} else {
+				add("crew", "LieutenantWalked", d)
+			}
+			rep.Crew = append(rep.Crew, lieutenantWalkedLine(ev))
+		case events.LieutenantActed:
+			cuts += ev.Cut
+			skimmed += ev.Skimmed
+			rep.Crew = append(rep.Crew, lieutenantLines(ev)...)
+			if ev.Cut > 0 {
+				rep.Money = append(rep.Money, fmt.Sprintf("%s's cut of %s -$%d", ev.Name, ev.CityName, ev.Cut))
+			}
 		case events.CrewSkimmed:
 			add("crew", "CrewSkimmed", base)
 			skimmed += ev.Amount
@@ -453,7 +469,7 @@ func (s *Sim) Step(w *game.World, t *game.Tick) {
 		spent += m.Fee
 		rep.Money = append(rep.Money, fmt.Sprintf("Signing fee for %s -$%d", m.Name, m.Fee))
 	}
-	rep.CashBefore = w.Cash() - soldRevenue + lostCash + spent + wages + skimmed + robbed + upgrades + upkeep + seized + paidOff + investigated + shipping + tribute
+	rep.CashBefore = w.Cash() - soldRevenue + lostCash + spent + wages + skimmed + robbed + upgrades + upkeep + seized + paidOff + investigated + shipping + tribute + cuts
 	if soldRevenue > 0 {
 		rep.Money = append(rep.Money, fmt.Sprintf("Street sales +$%d", soldRevenue))
 	}
@@ -539,10 +555,70 @@ func priceLine(w *game.World, ev events.PriceMove) string {
 }
 
 func saleLine(w *game.World, ev events.PlayerSold) string {
-	if ev.Sold == 0 {
-		return fmt.Sprintf("%-8s wanted %d, sold none (%s)", w.ProductName(ev.Product), ev.Wanted, ev.Dial)
+	who := ""
+	if ev.Standing {
+		who = ", " + ev.LieutenantName
 	}
-	return fmt.Sprintf("%-8s sold %d/%d at %s avg = +$%d (%s)", w.ProductName(ev.Product), ev.Sold, ev.Wanted, dollars(ev.AvgPrice), ev.Revenue, ev.Dial)
+	if ev.Sold == 0 {
+		return fmt.Sprintf("%-8s wanted %d, sold none (%s%s)", w.ProductName(ev.Product), ev.Wanted, ev.Dial, who)
+	}
+	return fmt.Sprintf("%-8s sold %d/%d at %s avg = +$%d (%s%s)", w.ProductName(ev.Product), ev.Sold, ev.Wanted, dollars(ev.AvgPrice), ev.Revenue, ev.Dial, who)
+}
+
+// lieutenantLines is what a lieutenant's night reads like in the report:
+// what they did with the crew and the corners, and, once you know them,
+// what they are like. A greedy one's skim is missing money like anyone
+// else's; the line never says so.
+func lieutenantLines(ev events.LieutenantActed) []string {
+	var did []string
+	if n := len(ev.Posted); n > 0 {
+		did = append(did, fmt.Sprintf("posted %s on %s", count(n, "runner"), strings.Join(ev.Posted, ", ")))
+	}
+	if n := len(ev.Guarded); n > 0 {
+		did = append(did, fmt.Sprintf("put %s on %s", count(n, "enforcer"), strings.Join(ev.Guarded, ", ")))
+	}
+	if n := len(ev.Dropped); n > 0 {
+		did = append(did, fmt.Sprintf("gave up %s", strings.Join(ev.Dropped, ", ")))
+	}
+	if ev.Orders > 0 {
+		did = append(did, fmt.Sprintf("sells %s tomorrow", ev.Dial))
+	}
+	line := fmt.Sprintf("%s runs %s", ev.Name, ev.CityName)
+	if len(did) > 0 {
+		line += ": " + strings.Join(did, ", ")
+	}
+	lines := []string{line + "."}
+	if ev.Revenue > 0 {
+		lines = append(lines, fmt.Sprintf("  %s took $%d; %s kept $%d of it.", ev.CityName, ev.Revenue, ev.Name, ev.Cut))
+	}
+	if ev.Revealed {
+		lines = append(lines, fmt.Sprintf("  You have seen enough of %s to know: %s.", ev.Name, ev.Personality))
+	}
+	return lines
+}
+
+// lieutenantWalkedLine is the report on a lieutenant who left with the
+// city.
+func lieutenantWalkedLine(ev events.LieutenantWalked) string {
+	s := fmt.Sprintf("%s WALKED, and took %s with them", ev.Name, ev.CityName)
+	switch {
+	case len(ev.Corners) > 0 && ev.Rival != "":
+		s += fmt.Sprintf(": %s now fly %s's colours", strings.Join(ev.Corners, ", "), ev.Rival)
+	case len(ev.Corners) > 0:
+		s += fmt.Sprintf(": %s went back to the street", strings.Join(ev.Corners, ", "))
+	}
+	if ev.Units > 0 {
+		s += fmt.Sprintf(", and the %d units stashed there are gone", ev.Units)
+	}
+	return s + "."
+}
+
+// count is n things, pluralised.
+func count(n int, what string) string {
+	if n == 1 {
+		return "a " + what
+	}
+	return fmt.Sprintf("%d %ss", n, what)
 }
 
 // dollars formats a unit price: cents on a cheap bag, whole dollars once

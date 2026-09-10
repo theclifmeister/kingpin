@@ -37,7 +37,7 @@ func (m *Model) hireSelected() {
 		m.status = "Move the cursor to someone looking for work, then press h."
 		return
 	}
-	got, err := m.w.Hire(c.ID, m.set.Crew.MaxCrew())
+	got, err := m.w.Hire(c.ID, m.set.Crew.MaxCrew(m.w))
 	if err != nil {
 		m.status = "Can't hire: " + err.Error()
 		return
@@ -186,7 +186,7 @@ func (m *Model) viewCrew() string {
 	pay := w.Crew.Pay
 	var b strings.Builder
 
-	title := theme.PanelTitle.Render("CREW") + theme.Subtle.Render(fmt.Sprintf("  %d of %d on the payroll", len(w.Crew.Members), tun.MaxCrew))
+	title := theme.PanelTitle.Render("CREW") + theme.Subtle.Render(fmt.Sprintf("  %d of %d on the payroll", len(w.Crew.Members), m.set.Crew.MaxCrew(w)))
 	var dial []string
 	for p := events.PayStingy; p <= events.PayGenerous; p++ {
 		if p == pay {
@@ -200,7 +200,13 @@ func (m *Model) viewCrew() string {
 	case m.talking():
 		b.WriteString(truncate(theme.Bad.Bold(true).Render("  ▲ Somebody is talking.")+theme.Bad.Render(" The file grew without a bust. Investigate (i) or fire your suspect."), m.width) + "\n")
 	case w.Crew.LastSkim > 0 && w.Day-w.Crew.LastSkim < tun.SuspectDays:
-		b.WriteString(theme.Bad.Bold(true).Render("  ▲ Skimming suspected.") + theme.Bad.Render(fmt.Sprintf(" Money went missing on day %d. Somebody's loyalty is under %.0f.", w.Crew.LastSkim, tun.SkimThreshold)) + "\n")
+		who := fmt.Sprintf("Somebody's loyalty is under %.0f.", tun.SkimThreshold)
+		if w.Crew.Role(game.RoleLieutenant) > 0 {
+			who = fmt.Sprintf("Somebody's loyalty is under %.0f, or a lieutenant is greedy.", tun.SkimThreshold)
+		}
+		b.WriteString(truncate(theme.Bad.Bold(true).Render("  ▲ Skimming suspected.")+theme.Bad.Render(fmt.Sprintf(" Money went missing on day %d. %s", w.Crew.LastSkim, who)), m.width) + "\n")
+	case w.Crew.Role(game.RoleLieutenant) > 0:
+		b.WriteString(truncate(theme.Subtle.Render(fmt.Sprintf("  Skim under %.0f; a lieutenant turns under %.0f. Walk at %.0f; a lieutenant takes the city.", tun.SkimThreshold, m.set.Crew.FlipLine(), tun.QuitThreshold)), m.width) + "\n")
 	default:
 		b.WriteString(theme.Subtle.Render(fmt.Sprintf("  Under %.0f loyalty they skim. At %.0f they walk. Firing costs everyone else %.0f.", tun.SkimThreshold, tun.QuitThreshold, tun.FireLoyalty)) + "\n")
 	}
@@ -208,8 +214,14 @@ func (m *Model) viewCrew() string {
 
 	barW := 10
 	marks := []float64{tun.SkimThreshold / 100}
-	header := theme.Subtle.Render(fmt.Sprintf("  %-8s %-9s %5s  %-*s  %6s %6s  ", "", "role", "skill", barW+4, "loyalty", "wage", "units"))
+	header := theme.Subtle.Render(fmt.Sprintf("  %-8s %-10s %5s  %-*s  %6s %6s  ", "", "role", "skill", barW+4, "loyalty", "wage", "units"))
 	post := func(c game.CrewMember) string {
+		if c.Lieutenant() {
+			if c.City != "" {
+				return lipgloss.NewStyle().Foreground(theme.Crew).Render(fit("runs "+m.w.CityName(c.City), 12))
+			}
+			return theme.Warning.Render(fit("no city (t)", 12))
+		}
 		if p := m.w.PostOf(c.ID); p != nil {
 			return fit(p.Name, 12)
 		}
@@ -223,11 +235,14 @@ func (m *Model) viewCrew() string {
 			name = theme.Selected.Render(name)
 		}
 		ls := loyaltyStyle(c.Loyalty, tun.SkimThreshold)
+		if c.Lieutenant() {
+			ls = loyaltyStyle(c.Loyalty, m.set.Crew.FlipLine())
+		}
 		units := theme.Subtle.Render(fmt.Sprintf("%6s", "-"))
 		if c.Units > 0 {
 			units = fmt.Sprintf("%+6d", c.Units)
 		}
-		return fmt.Sprintf("%s%s %-9s %5d  %s %s  %6s %s  %s",
+		return fmt.Sprintf("%s%s %-10s %5d  %s %s  %6s %s  %s",
 			cur, name, c.Role, c.Skill,
 			ls.Render(sparkline.Bar(c.Loyalty/100, barW, marks)), ls.Render(fmt.Sprintf("%3.0f", c.Loyalty)),
 			money(m.set.Crew.WageAt(c, pay)), units, theme.Subtle.Render(last))
@@ -240,10 +255,13 @@ func (m *Model) viewCrew() string {
 		b.WriteString(header + theme.Subtle.Render(fmt.Sprintf("%-12s since", "post")) + "\n")
 		for i, c := range w.Crew.Members {
 			last := theme.Subtle.Render(fmt.Sprintf(" day %d", c.Hired))
+			if t := m.temper(c); t != "" {
+				last = lipgloss.NewStyle().Foreground(theme.Crew).Render(" " + t)
+			}
 			if c.ID == w.Crew.Exposed {
 				last = theme.Bad.Bold(true).Render(" SNITCH")
 			}
-			b.WriteString(row(i, c, "") + post(c) + last + "\n")
+			b.WriteString(truncate(row(i, c, "")+post(c)+last, m.width) + "\n")
 		}
 	}
 	b.WriteString("\n")
@@ -276,6 +294,11 @@ func (m *Model) viewCrew() string {
 	}
 	if idle > 0 {
 		b.WriteString(theme.Warning.Render(fmt.Sprintf("  %d idle: a runner earns nothing off a corner. Post them on the map (5).", idle)) + "\n")
+	}
+	if line := m.runsLine(); line != "" {
+		b.WriteString(truncate(lipgloss.NewStyle().Foreground(theme.Crew).Render("  "+line+". A ? is a temper you have not seen yet."), m.width) + "\n")
+	} else if n := w.Crew.Role(game.RoleLieutenant); n > 0 {
+		b.WriteString(theme.Warning.Render("  A lieutenant with no city is a wage. Press t to give them one.") + "\n")
 	}
 	if c := w.Crew.Member(w.Crew.Exposed); c != nil {
 		b.WriteString(theme.Bad.Render(fmt.Sprintf("  %s has been talking to the police. The file grows until they go (f).", c.Name)) + "\n")

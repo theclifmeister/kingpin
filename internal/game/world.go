@@ -31,10 +31,11 @@ type World struct {
 	FallGuyUsed bool            // the fall guy has taken his one fall
 	Fronts      []Front         // businesses the player owns, in the order bought
 	Laundering  LaunderingState
-	Dilemmas    DilemmaState   // the card waiting for an answer, and the deck's pacing
-	Shipments   []Shipment     // product on the road, in the order sent
-	Logistics   LogisticsState // the shipment counter and the seizure record
-	Offers      []Offer        // deals the rival has put on the table, oldest first
+	Dilemmas    DilemmaState         // the card waiting for an answer, and the deck's pacing
+	Shipments   []Shipment           // product on the road, in the order sent
+	Logistics   LogisticsState       // the shipment counter and the seizure record
+	Offers      []Offer              // deals the rival has put on the table, oldest first
+	Delegated   map[string]SellOrder // the lieutenants' standing sell orders, keyed like Orders; the crew step refreshes them
 
 	// Per-day scratch, cleared by the clock after every EndDay.
 	Orders        map[string]SellOrder // pending sell orders keyed by product id
@@ -214,21 +215,38 @@ type CrewState struct {
 // CrewMember is one person on the payroll (or in the hiring pool). Stats are
 // 0..100. Units, Wage and Fee are fixed when the candidate is generated so
 // the world never needs crew tuning to price them. Informant is the hidden
-// flag: the roster never shows it, the report does, in its own way.
+// flag: the roster never shows it, the report does, in its own way. A
+// lieutenant has a Personality (violent, greedy, careful, steady), fixed
+// when they are generated and hidden until Observed, and runs the City
+// they are assigned to.
 type CrewMember struct {
-	ID        int
-	Name      string
-	Role      string // runner, enforcer, accountant
-	Skill     int
-	Loyalty   float64
-	Greed     int
-	Nerve     int
-	Units     int  // sell capacity this member adds
-	Wage      int  // daily wage at fair pay
-	Fee       int  // signing fee
-	Hired     int  // day hired
-	Informant bool // talking to the police; only firing them stops it
+	ID          int
+	Name        string
+	Role        string // runner, enforcer, accountant, lieutenant
+	Skill       int
+	Loyalty     float64
+	Greed       int
+	Nerve       int
+	Units       int    // sell capacity this member adds
+	Wage        int    // daily wage at fair pay
+	Fee         int    // signing fee
+	Hired       int    // day hired
+	Informant   bool   // talking to the police; only firing them stops it
+	Personality string // a lieutenant's: violent, greedy, careful, steady
+	City        string // the city a lieutenant runs; empty when unassigned
+	Assigned    int    // day the lieutenant was last given a city
+	Observed    bool   // the lieutenant has been on the job long enough for the report to name their personality
 }
+
+// Lieutenant reports whether the member is a lieutenant.
+func (m CrewMember) Lieutenant() bool { return m.Role == RoleLieutenant }
+
+// Runs reports whether the member is a lieutenant running a city.
+func (m CrewMember) Runs() bool { return m.Lieutenant() && m.City != "" }
+
+// RoleLieutenant is the role of a crew member who runs a city for the
+// player.
+const RoleLieutenant = "lieutenant"
 
 // Informants counts the members talking to the police.
 func (c CrewState) Informants() int {
@@ -276,6 +294,27 @@ func (c *CrewState) Member(id int) *CrewMember {
 		}
 	}
 	return nil
+}
+
+// Lieutenant returns the member running a city, or nil.
+func (c *CrewState) Lieutenant(city string) *CrewMember {
+	for i := range c.Members {
+		if m := &c.Members[i]; m.Runs() && m.City == city {
+			return m
+		}
+	}
+	return nil
+}
+
+// Lieutenants counts the members running a city.
+func (c CrewState) Lieutenants() int {
+	n := 0
+	for _, m := range c.Members {
+		if m.Runs() {
+			n++
+		}
+	}
+	return n
 }
 
 // LaunderingState is the launder dial: a persistent setting, not scratch.
@@ -433,6 +472,8 @@ type Stats struct {
 	Betrayals      int // deals you broke
 	BetrayedBy     int // deals it broke
 	Tribute        int // dirty cash paid the rival in tribute
+	Cuts           int // dirty cash the lieutenants kept as their cut
+	Walked         int // lieutenants who walked with their city
 }
 
 // StartingProduct describes a product as it exists at the start of a run,

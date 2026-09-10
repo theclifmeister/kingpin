@@ -61,6 +61,7 @@ const (
 	modeShip          // the ship dialog: product -> route -> quantity -> dial
 	modeConfirmTravel // move to the other city?
 	modePropose       // pick a deal to put to the rival: kind, then terms
+	modeAssign        // pick the city a lieutenant runs
 )
 
 type tickMsg time.Time
@@ -95,6 +96,7 @@ type Model struct {
 	proposeStep   int    // 0: pick the kind, 1: pick the terms
 	proposeKind   int    // index into proposeKinds while on the terms page
 	proposeCursor int
+	assignCursor  int    // row in the assign picker
 	outcome       string // what the last answer did, while it shows
 	journal       viewport.Model
 	dlg           dialog
@@ -373,6 +375,29 @@ func (m *Model) handleKey(k tea.KeyMsg) (tea.Model, tea.Cmd) {
 			}
 		}
 		return m, nil
+	case modeAssign:
+		switch key {
+		case "esc", "q":
+			m.mode = modePlay
+		case "up", "k":
+			if m.assignCursor > 0 {
+				m.assignCursor--
+			}
+		case "down", "j":
+			if m.assignCursor < len(m.assignRows())-1 {
+				m.assignCursor++
+			}
+		case "enter":
+			m.confirmAssign()
+		default:
+			if len(key) == 1 && key[0] >= '1' && key[0] <= '9' {
+				if i := int(key[0] - '1'); i < len(m.assignRows()) {
+					m.assignCursor = i
+					m.confirmAssign()
+				}
+			}
+		}
+		return m, nil
 	case modeFront:
 		switch key {
 		case "esc", "q":
@@ -533,7 +558,11 @@ func (m *Model) keyPlay(key string) (tea.Model, tea.Cmd) {
 	case "s":
 		m.openDialog(modeSell)
 	case "t":
-		m.openShip()
+		if m.screen == screenCrew {
+			m.askAssign()
+		} else {
+			m.openShip()
+		}
 	case "g":
 		m.askTravel()
 	case "[", "]":
@@ -738,6 +767,8 @@ func (m *Model) View() string {
 		body = m.upgradeConfirm()
 	case modeFront:
 		body = m.viewFront()
+	case modeAssign:
+		body = m.viewAssign()
 	case modeConfirmInvestigate:
 		body = m.investigateConfirm()
 	case modeConfirmPayOff:
@@ -875,6 +906,8 @@ func (m *Model) viewFooter() string {
 		keys = k("↑↓", "pick") + k("enter", "send") + k("esc", "back")
 	case modeFront:
 		keys = k("↑↓", "pick") + k("enter", "buy") + k("esc", "back")
+	case modeAssign:
+		keys = k("↑↓", "pick") + k("enter", "assign") + k("esc", "back")
 	case modeCard:
 		if m.cardDone {
 			keys = k("enter", "morning report")
@@ -886,7 +919,7 @@ func (m *Model) viewFooter() string {
 	default:
 		switch m.screen {
 		case screenCrew:
-			keys = k("n", "end day") + k("↑↓", "pick") + k("h", "hire") + k("f", "fire") + k("i", "ask") + k("$", "pay off") + k("p", "pay") + k("?", "help")
+			keys = k("n", "end day") + k("↑↓", "pick") + k("h", "hire") + k("f", "fire") + k("t", "assign") + k("i", "ask") + k("$", "pay off") + k("p", "pay") + k("?", "help")
 		case screenMap:
 			keys = k("n", "end day") + k("↑↓←→", "pick") + k("[ ]", "city") + k("c", "runner") + k("e", "enforcer") + k("a", "abandon") + k("w", "war") + k("t", "ship") + k("g", "go") + k("?", "help")
 		case screenMarket:
@@ -958,13 +991,14 @@ func (m *Model) viewHelp() string {
 		{"enter", "end the day, after a confirmation"},
 		{"b", "buy from the supplier where you are (ledger: a front)"},
 		{"s", "queue a street sale with the dial, in the city shown"},
-		{"t", "ship to the other city: route, quantity, slow/normal/fast"},
+		{"t", "ship to the other city (crew screen: give a lieutenant a city)"},
 		{"g", "go to the other city; your corner and stock stay put"},
 		{"[ ]", "turn the market and map to the other city"},
 		{"x", "cancel the order on the selected product"},
 		{"l", "lie low today (no sales, heat fades faster)"},
 		{"r", "reopen the morning report"},
 		{"h / f", "hire / fire the selected person (crew screen)"},
+		{"t", "on the crew screen: the selected lieutenant runs a city"},
 		{"i / $", "investigate who is talking / pay off the person (crew)"},
 		{"p", "cycle crew pay: stingy / fair / generous"},
 		{"c / e / a", "post a runner / an enforcer / abandon the corner (map)"},

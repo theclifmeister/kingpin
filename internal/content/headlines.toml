@@ -105,6 +105,15 @@ CrewQuit = [
   "{{.Name}} done with the {{.City}} game, tells anyone who listens",
   "Another {{.City}} {{.Role}} walks; 'the pay was a joke'",
 ]
+LieutenantWalked = [
+  "{{.Name}} out of the {{.City}} game; the corners they ran are 'up for grabs'",
+  "Crew running {{.City}} for an out-of-town boss walks off the job",
+  "{{.Name}} 'done taking orders'; {{.City}} corners empty overnight",
+]
+LieutenantWalkedRival = [
+  "{{.Name}} takes the {{.City}} corners to {{.Rival}}; 'a whole city changed hands'",
+  "{{.Rival}} inherits {{.City}} as {{.Name}} switches sides",
+]
 CrewSkimmed = [
   "Somebody in {{.City}} is light on their count",
   "Talk of thin envelopes on {{.City}} corners",

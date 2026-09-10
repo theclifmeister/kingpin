@@ -43,6 +43,7 @@ type Corner struct {
 	Since    int                // day the current owner took it
 	Idle     int                // consecutive days held with nobody working it
 	Squeeze  float64            // share of its demand a rival is undercutting away today, 0..1
+	Robbed   int                // stick-ups since it was last claimed; a lieutenant gives up on a corner at two
 }
 
 // Share is the corner's share of the city's demand for a product, in

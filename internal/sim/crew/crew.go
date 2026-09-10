@@ -66,8 +66,11 @@ func (s *Sim) Name() string { return "crew" }
 // Tuning exposes the crew constants the UI needs to explain itself.
 func (s *Sim) Tuning() content.CrewTuning { return s.cfg.Crew }
 
-// MaxCrew is the roster cap.
-func (s *Sim) MaxCrew() int { return s.cfg.Crew.MaxCrew }
+// MaxCrew is the roster cap: the tuning, plus the people every
+// lieutenant running a city brings with them.
+func (s *Sim) MaxCrew(w *game.World) int {
+	return s.cfg.Crew.MaxCrew + w.Crew.Lieutenants()*s.cfg.Role[game.RoleLieutenant].Crew
+}
 
 // InvestigateCost is what asking questions costs.
 func (s *Sim) InvestigateCost() int { return s.cfg.Informant.InvestigateCost }
@@ -184,8 +187,15 @@ func (s *Sim) Step(w *game.World, t *game.Tick) {
 			skimmers++
 		}
 	}
+	// The lieutenants' cut of their cities' takings, and what a greedy
+	// one skims on top, at any loyalty: nobody deters the boss of a city.
+	acted := map[int]*events.LieutenantActed{}
+	extra := s.take(w, t, acted)
+	if extra > 0 {
+		skimmers++
+	}
 	if skimmers > 0 {
-		amount := min(int(math.Round(float64(revenue)*math.Min(share, tun.SkimCap))), w.Player.DirtyCash)
+		amount := min(int(math.Round(float64(revenue)*math.Min(share, tun.SkimCap))), w.Player.DirtyCash-extra) + extra
 		fromWash := min(int(math.Round(float64(wash)*math.Min(washShare, tun.SkimCap))), w.Player.CleanCash)
 		if amount+fromWash > 0 {
 			w.Player.DirtyCash -= amount
@@ -198,10 +208,21 @@ func (s *Sim) Step(w *game.World, t *game.Tick) {
 
 	// Turning, on the same morning loyalty: the disloyal and nervous start
 	// talking. Nothing is shown; the heat sim starts its clock on the event.
+	// A lieutenant turns under a higher line and without dice: they know
+	// where everything is, and the DA knows it.
 	inf := s.cfg.Informant
 	for i := range c.Members {
 		m := &c.Members[i]
-		if m.Informant || m.Loyalty >= inf.Loyalty || m.Nerve >= inf.Nerve {
+		if m.Informant {
+			continue
+		}
+		if m.Lieutenant() && m.Loyalty < s.cfg.Lieutenant.Flip {
+			m.Informant = true
+			w.Stats.Informants++
+			t.Emit(events.LieutenantFlipped{Day: t.Day, ID: m.ID, Name: m.Name, City: m.City})
+			continue
+		}
+		if m.Loyalty >= inf.Loyalty || m.Nerve >= inf.Nerve {
 			continue
 		}
 		if t.RNG.Float64() < inf.Chance {
@@ -307,11 +328,18 @@ func (s *Sim) Step(w *game.World, t *game.Tick) {
 	// 5. Quitting, or defecting: whoever walks leaves their corner
 	// unworked, and while the rival holds ground in the city they go to
 	// it instead, and walk it onto that corner (the rival sim acts on
-	// the lead next step).
+	// the lead next step) if it is one the rival fights over: the rival
+	// lives at home, so a corner in another city is just a corner left.
+	// A lieutenant running a city walks with it.
 	kept := c.Members[:0]
 	for _, m := range c.Members {
 		if m.Loyalty > tun.QuitThreshold {
 			kept = append(kept, m)
+			continue
+		}
+		if m.Runs() {
+			delete(acted, m.ID)
+			s.walk(w, t, m)
 			continue
 		}
 		post := w.PostOf(m.ID)
@@ -322,7 +350,7 @@ func (s *Sim) Step(w *game.World, t *game.Tick) {
 		}
 		ev := events.CrewDefected{Day: t.Day, Name: m.Name, Role: m.Role, Rival: w.Rival.Leader}
 		lead := game.Lead{Name: m.Name}
-		if post != nil {
+		if post != nil && post.City == w.Home().ID {
 			ev.Corner, ev.CornerName = post.ID, post.Name
 			lead.Corner = post.ID
 		}
@@ -332,7 +360,22 @@ func (s *Sim) Step(w *game.World, t *game.Tick) {
 	}
 	c.Members = kept
 
-	// 6. The hiring pool rotates on a schedule and refills after hires.
+	// 6. The lieutenants' night: each runs their city with whoever is
+	// left, and reports in the morning.
+	for _, cid := range w.CityOrder {
+		lt := c.Lieutenant(cid)
+		if lt == nil {
+			continue
+		}
+		ev := acted[lt.ID]
+		if ev == nil { // assigned today, after the takings were counted
+			ev = &events.LieutenantActed{Day: t.Day, ID: lt.ID, Name: lt.Name, City: cid, CityName: w.CityName(cid), Dial: s.Dial(*lt)}
+		}
+		s.delegate(w, t, lt, ev)
+		t.Emit(*ev)
+	}
+
+	// 7. The hiring pool rotates on a schedule and refills after hires.
 	if tun.PoolDays > 0 && t.Day-c.PoolDay >= tun.PoolDays {
 		c.Candidates = nil
 		c.PoolDay = t.Day
@@ -371,6 +414,14 @@ func (s *Sim) generate(w *game.World, rng rand) game.CrewMember {
 	}
 	roles := rolesFor(w)
 	role := roles[rng.IntN(len(roles))]
+	// Lieutenants are rare, and only come looking once there is a second
+	// city to hand over; the roll is only made then, so a run in one city
+	// draws the same pool it always did.
+	personality := ""
+	if lt := s.cfg.Lieutenant; LieutenantsWanted(w) && rng.Float64() < lt.Chance {
+		role = game.RoleLieutenant
+		personality = content.LieutenantPersonalities[rng.IntN(len(content.LieutenantPersonalities))]
+	}
 	rc := s.cfg.Role[role]
 	skill := 15 + rng.IntN(71)
 	m := game.CrewMember{
@@ -383,6 +434,8 @@ func (s *Sim) generate(w *game.World, rng rand) game.CrewMember {
 		Nerve:   5 + rng.IntN(91),
 		Wage:    int(math.Round(rc.WageBase + rc.WagePerSkill*float64(skill))),
 		Fee:     s.HireFee(w, skill),
+
+		Personality: personality, // "" for anyone but a lieutenant
 	}
 	if role == "runner" {
 		m.Units = int(math.Round(tun.UnitsPerSkill * float64(skill)))

@@ -203,13 +203,19 @@ var moneyCurve = []struct {
 	{2, "crewed", func(cfg *content.Config) Policy { return Crewed(cfg, 40) }, 70, 500_000, 2_000_000, false},
 	// Tier 3 (#29): laundering lifts the dirty-cash ceiling, but the city's
 	// seven corners absorb ~$20k a day and $10M by day 120 needs ~$80k, so
-	// the row waits on a demand multiplier. Tier 4 (#30): the second city
-	// and the route double the margin, not the volume: a six-strong crew
-	// works the same handful of corners wherever they are, so the
-	// distributor lands near $3M at the horizon and the row waits on
-	// lieutenants (Phase 3.3) to staff the second city.
+	// the row waits on a demand multiplier. Tier 4 (#30, #31): the second
+	// city and the route double the margin and a lieutenant staffs the far
+	// city (#31: the roster grows by their people and every free home
+	// corner is worked), but the volume that adds is bounded twice over:
+	// the rival takes four to ten of home's ten corners in most seeds
+	// (these policies never fight it), and heat caps what a city moves
+	// under the sting line whatever the corner count. The delegated
+	// player lands near $2M at the horizon taking lieutenants as they
+	// come ($2.7M with a steady one, $2.6M for the distributor); even the
+	// ceiling of both cities fully worked, no rival and no heat is about
+	// $20M, so the band needs a price or demand multiplier, not staffing.
 	{3, "laundered", func(cfg *content.Config) Policy { return Laundered(cfg, 40) }, 120, 5_000_000, 20_000_000, true},
-	{4, "distributor", func(cfg *content.Config) Policy { return Distributor(cfg, 40) }, Horizon, 50_000_000, 200_000_000, true},
+	{4, "delegated", func(cfg *content.Config) Policy { return Delegated(cfg, 40, "") }, Horizon, 50_000_000, 200_000_000, true},
 }
 
 func medianNetWorth(t *testing.T, cfg *content.Config, policy func(*content.Config) Policy, day int) int {

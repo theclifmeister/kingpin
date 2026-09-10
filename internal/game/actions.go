@@ -288,6 +288,9 @@ func (w *World) Fire(id int) (CrewMember, error) {
 	for i, m := range w.Crew.Members {
 		if m.ID == id {
 			w.Recall(id)
+			if m.Runs() {
+				w.DropStanding(m.City)
+			}
 			w.Crew.Members = append(w.Crew.Members[:i], w.Crew.Members[i+1:]...)
 			w.Crew.FiredToday = append(w.Crew.FiredToday, m)
 			return m, nil
@@ -378,4 +381,87 @@ func (w *World) PayOff(id, cost int, loyalty float64) (CrewMember, error) {
 	m.Loyalty = math.Min(100, m.Loyalty+loyalty)
 	w.Crew.PaidOffToday = append(w.Crew.PaidOffToday, Payoff{ID: m.ID, Name: m.Name, Cost: cost})
 	return *m, nil
+}
+
+var (
+	ErrNotLieutenant = errors.New("only a lieutenant can run a city")
+	ErrCityRun       = errors.New("somebody already runs that city")
+)
+
+// Assign gives a lieutenant on the payroll a city to run. From the next
+// crew step they post the idle crew on its corners, sell its stash at
+// their dial and keep their cut. One lieutenant per city; assigning to
+// another city moves them.
+func (w *World) Assign(id int, city string) error {
+	if w.Over != nil {
+		return ErrGameOver
+	}
+	m := w.Crew.Member(id)
+	if m == nil {
+		return ErrNoMember
+	}
+	if !m.Lieutenant() {
+		return ErrNotLieutenant
+	}
+	if w.Cities[city] == nil {
+		return ErrNoCity
+	}
+	if lt := w.Crew.Lieutenant(city); lt != nil && lt.ID != id {
+		return ErrCityRun
+	}
+	if m.City == city {
+		return nil
+	}
+	w.DropStanding(m.City)
+	m.City = city
+	m.Assigned = w.Day
+	return nil
+}
+
+// Unassign takes a lieutenant off their city. The crew they posted stay
+// where they are; the standing orders go.
+func (w *World) Unassign(id int) error {
+	if w.Over != nil {
+		return ErrGameOver
+	}
+	m := w.Crew.Member(id)
+	if m == nil {
+		return ErrNoMember
+	}
+	if !m.Lieutenant() {
+		return ErrNotLieutenant
+	}
+	w.DropStanding(m.City)
+	m.City = ""
+	return nil
+}
+
+// StandingOrder returns the order a lieutenant has standing for a product
+// in a city, if the city is run and the order stands.
+func (w *World) StandingOrder(city, product string) (SellOrder, bool) {
+	if w.Crew.Lieutenant(city) == nil {
+		return SellOrder{}, false
+	}
+	o, ok := w.Delegated[OrderKey(city, product)]
+	return o, ok
+}
+
+// Delegate records a lieutenant's standing order for a product in a city.
+// It is the crew sim's to place, and it resolves the next day unless the
+// player places their own.
+func (w *World) Delegate(city, product string, qty int, dial events.Dial) {
+	if w.Delegated == nil {
+		w.Delegated = map[string]SellOrder{}
+	}
+	w.Delegated[OrderKey(city, product)] = SellOrder{City: city, Product: product, Qty: qty, Dial: dial}
+}
+
+// DropStanding forgets every standing order in a city: the crew sim's,
+// when the lieutenant who placed them is gone.
+func (w *World) DropStanding(city string) {
+	for k, o := range w.Delegated {
+		if o.City == city {
+			delete(w.Delegated, k)
+		}
+	}
 }
