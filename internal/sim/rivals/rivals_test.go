@@ -14,7 +14,7 @@ import (
 // two enforcers on the payroll, and a rival picked from the seed.
 func world(t *testing.T, cfg *content.Config, seed uint64) (*game.World, *rivals.Sim) {
 	t.Helper()
-	w := game.NewWorld(seed, "Testville", []game.StartingProduct{{ID: "weed", Name: "Weed", Price: 20, Demand: 60}}, 10_000, 100)
+	w := game.NewWorld(seed, []game.StartingCity{{ID: cfg.City.Home().ID, Name: "Testville", Products: []game.StartingProduct{{ID: "weed", Name: "Weed", Price: 20, Demand: 60}}}}, 10_000, 100)
 	territory.New(cfg.City).Seed(w)
 	w.Crew.Members = []game.CrewMember{
 		{ID: 1, Name: "Dre", Role: "runner", Skill: 60, Units: 120, Loyalty: 70, Nerve: 50},
@@ -69,21 +69,21 @@ func TestSeedAndArrival(t *testing.T) {
 	}
 	you := w.Corner(cfg.City.Territory.Start)
 	var got *game.Corner
-	for i := range w.Territory.Corners {
-		if c := &w.Territory.Corners[i]; c.Owner == game.OwnerRival {
+	for i := range w.Home().Corners {
+		if c := &w.Home().Corners[i]; c.Owner == game.OwnerRival {
 			got = c
 		}
 	}
 	if got.Borders(*you) {
 		t.Fatalf("arrived on %s, right next to you", got.ID)
 	}
-	for _, c := range w.Territory.Corners {
+	for _, c := range w.Home().Corners {
 		if c.Owner == game.OwnerNone && !c.Borders(*you) && c.Demand > got.Demand {
 			t.Fatalf("arrived on %s (%.1f) with %s (%.1f) free and quiet", got.ID, got.Demand, c.ID, c.Demand)
 		}
 	}
 	// Migration gives an old save a rival without moving anyone.
-	old := game.NewWorld(1, "Testville", nil, 500, 100)
+	old := game.NewWorld(1, []game.StartingCity{{ID: cfg.City.Home().ID, Name: "Testville"}}, 500, 100)
 	s.Migrate(old)
 	if old.Rival.Leader == "" || old.Rival.Arrived != 0 {
 		t.Fatalf("migrated rival %+v", old.Rival)
@@ -106,7 +106,7 @@ func TestClaimsRespectTheCap(t *testing.T) {
 					t.Fatalf("%s day %d: holds %d corners, cap %d", p, w.Day, n, cfg.Rivals.Personality[p].MaxCorners)
 				}
 			}
-			for _, c := range w.Territory.Corners {
+			for _, c := range w.Home().Corners {
 				if c.Owner == game.OwnerRival && (c.Runner != 0 || c.Enforcer != 0) {
 					t.Fatalf("%s day %d: %s is the rival's with %d/%d on it", p, w.Day, c.ID, c.Runner, c.Enforcer)
 				}
@@ -201,7 +201,7 @@ func TestUndercutFollowsTheBorder(t *testing.T) {
 	if err := w.Post("heights", 1); err != nil { // far from the docks
 		t.Fatal(err)
 	}
-	price := w.Market["weed"].Price
+	price := w.Home().Market["weed"].Price
 	evs := step(w, s)
 	share := cfg.Rivals.Personality["defensive"].Undercut
 	if f := w.Corner("fourth"); f.Squeeze != share || !w.Contested(*f) {
@@ -210,8 +210,8 @@ func TestUndercutFollowsTheBorder(t *testing.T) {
 	if h := w.Corner("heights"); h.Squeeze != 0 {
 		t.Fatalf("heights squeezed %.2f with no rival nearby", h.Squeeze)
 	}
-	if w.Market["weed"].Price >= price {
-		t.Fatalf("price %.2f did not drop from %.2f", w.Market["weed"].Price, price)
+	if w.Home().Market["weed"].Price >= price {
+		t.Fatalf("price %.2f did not drop from %.2f", w.Home().Market["weed"].Price, price)
 	}
 	found := false
 	for _, e := range evs {

@@ -79,7 +79,7 @@ func TestReputationCannotMaxAllThree(t *testing.T) {
 	w.Rival.Arrived, w.Rival.Cash = 1, 1_000_000
 	res, err := RunFrom(cfg, w, Horizon, func(w *game.World) {
 		w.Player.DirtyCash = 10_000_000 // whatever it costs
-		w.Heat.Value, w.Heat.Evidence = 0, 0
+		w.Home().Heat, w.Heat.Evidence = 0, 0
 		// A rival that is always there to be hit, a war that never
 		// brings the crackdown that would rout it.
 		w.Rival.Muscle, w.Rival.War, w.Rival.Routed = 5, 0, 0
@@ -97,8 +97,8 @@ func TestReputationCannotMaxAllThree(t *testing.T) {
 			break
 		}
 		for _, id := range w.Products {
-			w.Player.Stock[id] = 500
-			_ = w.PlaceSell(id, 500, events.DialAggressive)
+			w.Stash(w.Home().ID)[id] = 500
+			_ = w.PlaceSell(w.Home().ID, id, 500, events.DialAggressive)
 		}
 	})
 	if err != nil {
@@ -120,8 +120,8 @@ func TestReputationCannotMaxAllThree(t *testing.T) {
 func pinned(rep game.Reputation, qty int) Policy {
 	return func(w *game.World) {
 		w.Player.Reputation = rep
-		w.Player.Stock["weed"] = qty
-		_ = w.PlaceSell("weed", qty, events.DialNormal)
+		w.Stash(w.Home().ID)["weed"] = qty
+		_ = w.PlaceSell(w.Home().ID, "weed", qty, events.DialNormal)
 	}
 }
 
@@ -240,9 +240,9 @@ func TestReputationEffects(t *testing.T) {
 	}
 	w = sim.NewWorld(cfg, 1)
 	product := w.Products[0]
-	quiet := set.Heat.SaleHeat(w, product, 30, events.DialNormal)
+	quiet := set.Heat.SaleHeat(w, w.Home().ID, product, 30, events.DialNormal)
 	w.Player.Reputation.Notoriety = 100
-	if loud := set.Heat.SaleHeat(w, product, 30, events.DialNormal); loud <= quiet {
+	if loud := set.Heat.SaleHeat(w, w.Home().ID, product, 30, events.DialNormal); loud <= quiet {
 		t.Fatalf("notorious and moving 30 units yourself draws %.2f heat, a nobody %.2f", loud, quiet)
 	}
 	w.Crew.Members = append(w.Crew.Members, game.CrewMember{ID: 901, Name: "Runner", Role: "runner", Skill: 60, Units: 120, Loyalty: 80, Nerve: 50, Wage: 50})
@@ -252,9 +252,9 @@ func TestReputationEffects(t *testing.T) {
 	if err := w.Post(start.ID, 901); err != nil {
 		t.Fatal(err)
 	}
-	byRunner := set.Heat.SaleHeat(w, product, 30, events.DialNormal)
+	byRunner := set.Heat.SaleHeat(w, w.Home().ID, product, 30, events.DialNormal)
 	w.Player.Reputation.Notoriety = 0
-	if nobody := set.Heat.SaleHeat(w, product, 30, events.DialNormal); byRunner != nobody {
+	if nobody := set.Heat.SaleHeat(w, w.Home().ID, product, 30, events.DialNormal); byRunner != nobody {
 		t.Fatalf("a runner's units draw %.2f heat under a notorious boss, %.2f under a nobody; notoriety is personal", byRunner, nobody)
 	}
 }
@@ -274,14 +274,14 @@ func TestReputationSourcesAndHeadlines(t *testing.T) {
 	c.Owner, c.Since = game.OwnerRival, 0
 	res, err := RunFrom(cfg, w, 40, func(w *game.World) {
 		w.Player.DirtyCash = 1_000_000
-		w.Heat.Value = 0
+		w.Home().Heat = 0
 		if c := pickCorner(w, func(c game.Corner) bool { return c.Owner == game.OwnerRival }, func(c game.Corner) float64 { return c.Demand }); c != nil {
 			_ = w.SendEnforcers(c.ID, events.ForceHit)
 		}
 		_, _ = w.PayOff(900, 1, 0)
 		for _, id := range w.Products {
-			w.Player.Stock[id] = 300
-			_ = w.PlaceSell(id, 300, events.DialNormal)
+			w.Stash(w.Home().ID)[id] = 300
+			_ = w.PlaceSell(w.Home().ID, id, 300, events.DialNormal)
 		}
 	})
 	if err != nil {

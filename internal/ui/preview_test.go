@@ -20,7 +20,7 @@ func TestPreview(t *testing.T) {
 	}
 	m := newTestModel(t, 100, 30)
 	for i := 0; i < 12; i++ {
-		m.w.Player.Stock[m.w.Products[i%3]] += 30
+		m.w.Stash(m.w.Player.Location)[m.w.Products[i%3]] += 30
 		m.Update(key("s"))
 		m.Update(key("enter"))
 		m.Update(key("enter"))
@@ -83,7 +83,7 @@ func TestPreview(t *testing.T) {
 	m.Update(tea.WindowSizeMsg{Width: 80, Height: 24})
 	set, _, _ := sim.Default(m.cfg)
 	m.w.Crew.Members[0].Role = "enforcer"
-	m.w.Territory.Corners[1].Owner, m.w.Rival.Arrived = game.OwnerRival, 1
+	m.w.Home().Corners[1].Owner, m.w.Rival.Arrived = game.OwnerRival, 1
 	if _, ok := news.Eligible(m.w, m.cfg.Dilemmas.Cards[0]); ok {
 		w := m.w
 		w.Dilemmas.LastCard = 0

@@ -1,8 +1,8 @@
-// Package territory simulates the corners: which ones the player holds,
-// which drift back to the street because nobody works them, and which get
-// robbed. Corners are the demand pool the market serves; this sim only
-// decides who is standing on them. The rival's moves on them are the
-// rivals sim, which steps next.
+// Package territory simulates the corners of every city: which ones the
+// player holds, which drift back to the street because nobody works them,
+// and which get robbed. Corners are the demand pool the market serves;
+// this sim only decides who is standing on them. The rival's moves on
+// them are the rivals sim, which steps next.
 package territory
 
 import (
@@ -27,25 +27,36 @@ func (s *Sim) Name() string { return "territory" }
 // Tuning exposes the territory constants the UI needs to explain itself.
 func (s *Sim) Tuning() content.TerritoryTuning { return s.cfg.Territory }
 
-// Seed lays the city's corners out in a fresh world and stands the player
-// on the starting one.
+// Seed lays every city's corners out in a fresh world and stands the
+// player on the starting one.
 func (s *Sim) Seed(w *game.World) {
-	w.Territory.Corners = StartingCorners(s.cfg)
+	for _, c := range s.cfg.Cities {
+		if city := w.Cities[c.ID]; city != nil {
+			city.Corners = StartingCorners(c)
+		}
+	}
 	_ = w.Post(s.cfg.Territory.Start, game.You)
 }
 
-// Migrate brings a save from before corners existed up to date: the city
-// is laid out and the player is on the starting corner, where the whole
-// game used to happen.
+// Migrate brings a save from before corners existed up to date: every
+// city without corners is laid out, and if the player stands nowhere they
+// are put on the starting corner, where the whole game used to happen.
+// It is run for a pre-3 save and again after the cities arrived, so it
+// only ever fills what is missing.
 func (s *Sim) Migrate(w *game.World) {
-	if len(w.Territory.Corners) == 0 {
-		s.Seed(w)
+	for _, c := range s.cfg.Cities {
+		if city := w.Cities[c.ID]; city != nil && len(city.Corners) == 0 {
+			city.Corners = StartingCorners(c)
+		}
+	}
+	if w.PostOf(game.You) == nil && w.Player.Location == s.cfg.Home().ID {
+		_ = w.Post(s.cfg.Territory.Start, game.You)
 	}
 }
 
-// StartingCorners converts config into the corner list a new world starts
+// StartingCorners converts a city's config into the corner list it starts
 // with. Every corner is free.
-func StartingCorners(cfg content.CityConfig) []game.Corner {
+func StartingCorners(cfg content.CityEntry) []game.Corner {
 	out := make([]game.Corner, 0, len(cfg.Corners))
 	for _, c := range cfg.Corners {
 		var taste map[string]float64 // nil when the corner has no taste: gob drops empty maps anyway
@@ -56,7 +67,7 @@ func StartingCorners(cfg content.CityConfig) []game.Corner {
 			}
 		}
 		out = append(out, game.Corner{
-			ID: c.ID, Name: c.Name, X: c.X, Y: c.Y,
+			ID: c.ID, City: cfg.ID, Name: c.Name, X: c.X, Y: c.Y,
 			Demand: c.Demand, Taste: taste, Heat: c.Heat, Risk: c.Risk,
 			Owner: game.OwnerNone,
 		})
@@ -77,20 +88,35 @@ func (s *Sim) RobberyChance(w *game.World, c *game.Corner) float64 {
 }
 
 // Step reports today's claims, drops corners nobody has worked for a
-// while, and rolls for robberies on the corners that are worked.
+// while, and rolls for robberies on the corners that are worked, city by
+// city.
 func (s *Sim) Step(w *game.World, t *game.Tick) {
-	tun := s.cfg.Territory
-
-	// Today's takings per product, for the robbers.
+	// Today's takings per city and product, for the robbers.
 	revenue := map[string]int{}
 	for _, e := range t.Events() {
 		if ps, ok := e.(events.PlayerSold); ok {
-			revenue[ps.Product] += ps.Revenue
+			revenue[game.OrderKey(ps.City, ps.Product)] += ps.Revenue
 		}
 	}
+	for _, cid := range w.CityOrder {
+		// Home rolls off the day's stream, every other city off its own.
+		rng := t.RNG
+		if cid != w.Home().ID {
+			rng = t.Sub("territory:" + cid)
+		}
+		s.step(w, t, rng, w.Cities[cid], revenue)
+	}
+}
 
-	for i := range w.Territory.Corners {
-		c := &w.Territory.Corners[i]
+// rand is the subset of *math/rand/v2.Rand the sim uses.
+type rand interface {
+	Float64() float64
+}
+
+func (s *Sim) step(w *game.World, t *game.Tick, rng rand, city *game.City, revenue map[string]int) {
+	tun := s.cfg.Territory
+	for i := range city.Corners {
+		c := &city.Corners[i]
 		if !c.Held() {
 			continue
 		}
@@ -118,20 +144,21 @@ func (s *Sim) Step(w *game.World, t *game.Tick) {
 
 		// 2. Robbery. The stick-up takes a slice of today's takings and of
 		// the stock, sized by this corner's share of what you work.
-		if t.RNG.Float64() >= s.RobberyChance(w, c) {
+		if rng.Float64() >= s.RobberyChance(w, c) {
 			continue
 		}
 		ev := events.CornerRobbed{Day: t.Day, Corner: c.ID, Name: c.Name, StockLost: map[string]int{}}
 		ids := append([]string(nil), w.Products...)
 		sort.Strings(ids)
+		stash := w.Stash(city.ID)
 		for _, id := range ids {
 			frac := 0.0
-			if held := w.HeldShare(id); held > 0 {
+			if held := w.HeldShare(city.ID, id); held > 0 {
 				frac = c.Share(id) / held
 			}
-			ev.Cash += int(math.Round(float64(revenue[id]) * tun.RobberyCash * frac))
-			if lost := int(math.Round(float64(w.Player.Stock[id]) * tun.RobberyStock * frac)); lost > 0 {
-				w.Player.Stock[id] -= lost
+			ev.Cash += int(math.Round(float64(revenue[game.OrderKey(city.ID, id)]) * tun.RobberyCash * frac))
+			if lost := int(math.Round(float64(stash[id]) * tun.RobberyStock * frac)); lost > 0 {
+				stash[id] -= lost
 				ev.StockLost[id] = lost
 			}
 		}

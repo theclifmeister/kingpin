@@ -223,9 +223,10 @@ func (s *Sim) Step(w *game.World, t *game.Tick) {
 	}
 
 	// Wages are the only way money leaves without something coming back.
-	// If they empty the till with nothing left to sell, the run is over:
-	// there is no move that makes money from nothing.
-	if w.Player.TotalStock() == 0 && float64(w.Player.DirtyCash) < cheapestUnit(w) {
+	// If they empty the till with nothing left to sell, anywhere or on
+	// the road, the run is over: there is no move that makes money from
+	// nothing.
+	if w.TotalStock() == 0 && float64(w.Player.DirtyCash) < cheapestUnit(w) {
 		w.Over = &game.Ending{Day: t.Day, Cause: "broke", PeakCash: w.Stats.PeakCash}
 		t.Emit(events.GameOver{Day: t.Day, Cause: "broke"})
 		return
@@ -390,11 +391,13 @@ func (s *Sim) generate(w *game.World, rng rand) game.CrewMember {
 	return m
 }
 
-// cheapestUnit is the lowest supplier price on the board.
+// cheapestUnit is the lowest supplier price where the player is.
 func cheapestUnit(w *game.World) float64 {
 	price := math.Inf(1)
-	for _, m := range w.Market {
-		price = math.Min(price, m.SupplierPrice)
+	if c := w.Here(); c != nil {
+		for _, m := range c.Market {
+			price = math.Min(price, m.SupplierPrice)
+		}
 	}
 	if math.IsInf(price, 1) {
 		return 0

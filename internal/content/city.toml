@@ -1,20 +1,31 @@
-# Eastside, block by block. Every corner is its own demand pool: the city's
-# demand for a product is the sum over the corners you work. demand is the
-# corner's size relative to one standard corner (the whole tier-1 game);
+# The cities, block by block. Every corner is its own demand pool: a city's
+# demand for a product is the sum over the corners you work there. demand is
+# the corner's size relative to one standard corner (the whole tier-1 game);
 # taste scales one product's share on that corner; heat multiplies the sale
 # heat of units moved there; risk multiplies the chance it gets robbed.
+#
+# The first city is home: a run starts there and the rival sets up there.
+# Each city has its own take on the product ladder ([city.market]: a price
+# and demand multiplier per product; unlisted products are at 1) and its own
+# police (heat, a multiplier on every sale there), so what is cheap in one
+# city is worth shipping to the other (routes.toml). wholesale says the
+# city's supplier sells by the lot.
 
 [territory]
-start = "fourth"            # the corner you stand on from day 0
+start = "fourth"            # the corner you stand on from day 0 (in the home city)
 drift_days = 3              # a held corner nobody works goes back to the street after this many days
 robbery_chance = 0.04       # per worked corner per day, before risk and the enforcer's cut
 robbery_stock = 0.50        # of the stock that corner's share of the operation was carrying
 robbery_cash = 0.50         # of the day's takings on that corner
 enforcer_cut = 0.80         # fraction of the robbery chance a skill-100 enforcer removes; half that at skill 0
 
-# The map is a 4 x 3 grid; x and y are the cell.
+[[city]]
+id = "eastside"
+name = "Eastside"
+heat = 1.0
 
-[[corner]]
+# The map is a 4 x 3 grid; x and y are the cell.
+[[city.corner]]
 id = "docks"
 name = "The Docks"
 x = 0
@@ -24,7 +35,7 @@ heat = 0.6
 risk = 1.6
 taste = { coke = 1.5, heroin = 1.5 }
 
-[[corner]]
+[[city.corner]]
 id = "railyard"
 name = "Rail Yard"
 x = 1
@@ -34,7 +45,7 @@ heat = 0.5
 risk = 1.7
 taste = { meth = 1.6, heroin = 1.3 }
 
-[[corner]]
+[[city.corner]]
 id = "oldmill"
 name = "Old Mill"
 x = 2
@@ -44,7 +55,7 @@ heat = 0.4
 risk = 1.5
 taste = { meth = 2.0 }
 
-[[corner]]
+[[city.corner]]
 id = "fourth"
 name = "Fourth & Main"
 x = 0
@@ -53,7 +64,7 @@ demand = 1.0
 heat = 1.0
 risk = 1.0
 
-[[corner]]
+[[city.corner]]
 id = "depot"
 name = "Bus Depot"
 x = 1
@@ -62,7 +73,7 @@ demand = 0.8
 heat = 1.1
 risk = 1.1
 
-[[corner]]
+[[city.corner]]
 id = "projects"
 name = "The Projects"
 x = 2
@@ -72,7 +83,7 @@ heat = 0.9
 risk = 1.4
 taste = { weed = 1.3, pills = 1.2 }
 
-[[corner]]
+[[city.corner]]
 id = "precinct"
 name = "Precinct Row"
 x = 3
@@ -82,7 +93,7 @@ heat = 1.6
 risk = 0.4
 taste = { pills = 1.4 }
 
-[[corner]]
+[[city.corner]]
 id = "strip"
 name = "The Strip"
 x = 1
@@ -92,7 +103,7 @@ heat = 1.3
 risk = 0.8
 taste = { coke = 1.6, pills = 1.3, designer = 2.0 }
 
-[[corner]]
+[[city.corner]]
 id = "riverside"
 name = "Riverside"
 x = 2
@@ -102,7 +113,7 @@ heat = 0.8
 risk = 0.6
 taste = { weed = 1.5, designer = 1.4 }
 
-[[corner]]
+[[city.corner]]
 id = "heights"
 name = "The Heights"
 x = 3
@@ -111,3 +122,80 @@ demand = 1.3
 heat = 1.2
 risk = 0.5
 taste = { weed = 0.6, coke = 1.8, designer = 1.8 }
+
+# Bayport: the port town down the coast. Coke and heroin come off the
+# boats cheap and the locals have little taste for them; weed and pills
+# cost more than they do at home. The police watch the water, not the
+# corners. A 3 x 2 grid.
+
+[[city]]
+id = "bayport"
+name = "Bayport"
+heat = 0.85
+wholesale = true
+
+[city.market]
+coke = { price = 0.35, demand = 0.5 }
+heroin = { price = 0.35, demand = 0.5 }
+meth = { price = 0.8, demand = 0.8 }
+weed = { price = 1.3, demand = 1.1 }
+pills = { price = 1.15, demand = 1.0 }
+
+[[city.corner]]
+id = "wharf"
+name = "The Wharf"
+x = 0
+y = 0
+demand = 1.3
+heat = 0.5
+risk = 1.5
+taste = { coke = 1.3, heroin = 1.4 }
+
+[[city.corner]]
+id = "cannery"
+name = "Cannery Row"
+x = 1
+y = 0
+demand = 0.9
+heat = 0.6
+risk = 1.3
+taste = { meth = 1.5 }
+
+[[city.corner]]
+id = "customs"
+name = "Customs House"
+x = 2
+y = 0
+demand = 0.8
+heat = 1.5
+risk = 0.5
+taste = { pills = 1.3 }
+
+[[city.corner]]
+id = "boardwalk"
+name = "The Boardwalk"
+x = 0
+y = 1
+demand = 1.4
+heat = 1.2
+risk = 0.8
+taste = { weed = 1.4, designer = 1.6 }
+
+[[city.corner]]
+id = "fishmarket"
+name = "Fish Market"
+x = 1
+y = 1
+demand = 1.0
+heat = 0.9
+risk = 1.0
+
+[[city.corner]]
+id = "shipyard"
+name = "Shipyard"
+x = 2
+y = 1
+demand = 1.1
+heat = 0.7
+risk = 1.2
+taste = { heroin = 1.3, weed = 1.2 }

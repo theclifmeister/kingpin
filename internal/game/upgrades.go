@@ -77,8 +77,10 @@ func (w *World) BuyUpgrade(tree content.UpgradesConfig, id string) (content.Upgr
 	// quote needs bringing into line.
 	w.Player.CarryLimit += u.Effects.CarryBonus
 	if after.SupplierMul != before.SupplierMul {
-		for _, m := range w.Market {
-			m.SupplierPrice *= after.SupplierMul / before.SupplierMul
+		for _, c := range w.Cities {
+			for _, m := range c.Market {
+				m.SupplierPrice *= after.SupplierMul / before.SupplierMul
+			}
 		}
 	}
 	return *u, nil

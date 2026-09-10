@@ -113,10 +113,10 @@ func TestRivalInvariants(t *testing.T) {
 				if r.War < 0 || r.War > 100 {
 					t.Fatalf("%s seed %d day %d: war %.1f", name, seed, w.Day, r.War)
 				}
-				if n := w.RivalHeld(); n > len(w.Territory.Corners) || n+w.Held() > len(w.Territory.Corners) {
-					t.Fatalf("%s seed %d day %d: rival holds %d, you %d of %d corners", name, seed, w.Day, n, w.Held(), len(w.Territory.Corners))
+				if n := w.RivalHeld(); n > len(w.Home().Corners) || n+w.Held() > len(w.Home().Corners) {
+					t.Fatalf("%s seed %d day %d: rival holds %d, you %d of %d corners", name, seed, w.Day, n, w.Held(), len(w.Home().Corners))
 				}
-				for _, c := range w.Territory.Corners {
+				for _, c := range w.Home().Corners {
 					switch c.Owner {
 					case game.OwnerNone, game.OwnerPlayer, game.OwnerRival:
 					default:

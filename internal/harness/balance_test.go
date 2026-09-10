@@ -47,9 +47,10 @@ func TestPriceInvariants(t *testing.T) {
 				continue
 			}
 			pc := cfg.Market.Product(pm.Product)
-			lo, hi := pc.BasePrice*tun.PriceFloorRatio, pc.BasePrice*tun.PriceCeilingRatio
+			base := pc.BasePrice * cfg.City.City(pm.City).Product(pm.Product).Price
+			lo, hi := base*tun.PriceFloorRatio, base*tun.PriceCeilingRatio
 			if pm.To < lo || pm.To > hi || math.IsNaN(pm.To) {
-				t.Fatalf("seed %d day %d: %s price %.2f outside [%.2f, %.2f]", seed, pm.Day, pm.Product, pm.To, lo, hi)
+				t.Fatalf("seed %d day %d: %s %s price %.2f outside [%.2f, %.2f]", seed, pm.Day, pm.City, pm.Product, pm.To, lo, hi)
 			}
 		}
 	}
@@ -59,19 +60,30 @@ func TestIdleMarketStaysNearEquilibrium(t *testing.T) {
 	cfg := content.MustLoad()
 	sum := map[string]float64{}
 	n := map[string]int{}
-	for seed := uint64(1); seed <= 3; seed++ {
+	for seed := uint64(1); seed <= 5; seed++ {
 		res, _ := Run(cfg, seed, 1000, Idle)
 		for _, e := range res.Events {
 			if pm, ok := e.(events.PriceMove); ok {
-				sum[pm.Product] += pm.To
-				n[pm.Product]++
+				sum[game.OrderKey(pm.City, pm.Product)] += pm.To
+				n[game.OrderKey(pm.City, pm.Product)]++
 			}
 		}
 	}
-	for _, p := range cfg.Market.Products {
-		mean := sum[p.ID] / float64(n[p.ID])
-		if diff := math.Abs(mean-p.BasePrice) / p.BasePrice; diff > 0.20 {
-			t.Errorf("%s: mean price %.2f is %.0f%% off base %.2f", p.ID, mean, diff*100, p.BasePrice)
+	// Every city's street settles on its own take on the ladder. Supply
+	// shocks pull the mean about a fifth over the base (a slump cuts
+	// demand, not price), in every city alike; an idle player never
+	// unlocks the upper rungs, so those are not measured.
+	for _, c := range cfg.City.Cities {
+		for _, p := range cfg.Market.Products {
+			k := game.OrderKey(c.ID, p.ID)
+			if n[k] == 0 {
+				continue
+			}
+			base := p.BasePrice * c.Product(p.ID).Price
+			mean := sum[k] / float64(n[k])
+			if diff := math.Abs(mean-base) / base; diff > 0.25 {
+				t.Errorf("%s %s: mean price %.2f is %.0f%% off base %.2f", c.ID, p.ID, mean, diff*100, base)
+			}
 		}
 	}
 }
@@ -84,17 +96,17 @@ func TestAggressiveSellingCrashesPrice(t *testing.T) {
 	var start float64
 	res, err := Run(cfg, 7, 3, func(w *game.World) {
 		if w.Day == 0 {
-			start = w.Market["weed"].Price
-			w.Player.Stock["weed"] = 500
+			start = w.Home().Market["weed"].Price
+			w.Stash(w.Home().ID)["weed"] = 500
 		}
-		if err := w.PlaceSell("weed", w.Player.Stock["weed"], events.DialAggressive); err != nil {
+		if err := w.PlaceSell(w.Home().ID, "weed", w.Stock(w.Home().ID, "weed"), events.DialAggressive); err != nil {
 			t.Fatalf("day %d: %v", w.Day, err)
 		}
 	})
 	if err != nil {
 		t.Fatal(err)
 	}
-	end := res.World.Market["weed"].Price
+	end := res.World.Home().Market["weed"].Price
 	if drop := (start - end) / start; drop < 0.30 {
 		t.Fatalf("three aggressive days only dropped weed %.0f%% (%.2f -> %.2f)", drop*100, start, end)
 	}
@@ -191,8 +203,13 @@ var moneyCurve = []struct {
 	{2, "crewed", func(cfg *content.Config) Policy { return Crewed(cfg, 40) }, 70, 500_000, 2_000_000, false},
 	// Tier 3 (#29): laundering lifts the dirty-cash ceiling, but the city's
 	// seven corners absorb ~$20k a day and $10M by day 120 needs ~$80k, so
-	// the row waits on the demand multiplier (cities and routes, #30).
+	// the row waits on a demand multiplier. Tier 4 (#30): the second city
+	// and the route double the margin, not the volume: a six-strong crew
+	// works the same handful of corners wherever they are, so the
+	// distributor lands near $3M at the horizon and the row waits on
+	// lieutenants (Phase 3.3) to staff the second city.
 	{3, "laundered", func(cfg *content.Config) Policy { return Laundered(cfg, 40) }, 120, 5_000_000, 20_000_000, true},
+	{4, "distributor", func(cfg *content.Config) Policy { return Distributor(cfg, 40) }, Horizon, 50_000_000, 200_000_000, true},
 }
 
 func medianNetWorth(t *testing.T, cfg *content.Config, policy func(*content.Config) Policy, day int) int {

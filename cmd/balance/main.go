@@ -19,7 +19,7 @@ import (
 func main() {
 	runs := flag.Int("runs", 20, "number of seeded runs")
 	days := flag.Int("days", harness.Horizon, "days to play each run for; a measuring horizon, the game itself has no cap")
-	policy := flag.String("policy", "normal", "idle | hide | quiet | normal | aggressive | careful | managed | upgraded | crewed | vigilant | territory | war | laundered")
+	policy := flag.String("policy", "normal", "idle | hide | quiet | normal | aggressive | careful | managed | upgraded | crewed | vigilant | territory | war | laundered | distributor")
 	corners := flag.Int("corners", 3, "corners the territory and war policies work, counting yours")
 	force := flag.String("force", "push", "warn | push | hit: how hard the war policy strikes")
 	rival := flag.String("rival", "", "force the rival's personality: expansionist | defensive | opportunist | chaotic (default by seed)")
@@ -72,6 +72,8 @@ func main() {
 		p = harness.Warlike(cfg, at(40), *corners, f)
 	case "laundered":
 		p = harness.Laundered(cfg, at(40))
+	case "distributor":
+		p = harness.Distributor(cfg, at(40))
 	default:
 		p = harness.Trader(cfg, events.DialNormal)
 	}
@@ -101,6 +103,7 @@ func main() {
 	personalities := map[string]int{}
 	bought := map[string]int{}
 	audits, laundered, clean := 0, 0, 0
+	shipments, shipped, seizures, seizedUnits := 0, 0, 0, 0
 	var fear, respect, notoriety []int
 	dealt := map[string]int{}
 	for seed := *seed0; seed < *seed0+uint64(*runs); seed++ {
@@ -108,9 +111,16 @@ func main() {
 		if *trace && seed == *seed0 {
 			pol = func(w *game.World) {
 				p(w)
-				fmt.Printf("day %3d dirty %8d clean %9d heat %5.1f file %d stock %3d/%3d orders %d crew %d corners %d/%d rival %d war %3.0f upgrades %d fronts %d %s rep %.0f/%.0f/%.0f", w.Day, w.Player.DirtyCash, w.Player.CleanCash, w.Heat.Value, w.Heat.Evidence, w.Player.TotalStock(), w.Capacity(), len(w.Orders), len(w.Crew.Members), w.Worked(), w.Held(), w.RivalHeld(), w.Rival.War, len(w.Upgrades), len(w.Fronts), w.Laundering.Dial, w.Player.Reputation.Fear, w.Player.Reputation.Respect, w.Player.Reputation.Notoriety)
+				fmt.Printf("day %3d %s dirty %8d clean %9d heat", w.Day, w.Player.Location, w.Player.DirtyCash, w.Player.CleanCash)
+				for _, cid := range w.CityOrder {
+					fmt.Printf(" %.0f", w.Cities[cid].Heat)
+				}
+				fmt.Printf(" file %d stock %3d/%3d +%d road orders %d crew %d corners %d/%d rival %d war %3.0f upgrades %d fronts %d %s rep %.0f/%.0f/%.0f", w.Heat.Evidence, w.Player.TotalStock(), w.Capacity(w.Player.Location), w.TotalStock()-w.Player.TotalStock(), len(w.Orders), len(w.Crew.Members), w.Worked(), w.Held(), w.RivalHeld(), w.Rival.War, len(w.Upgrades), len(w.Fronts), w.Laundering.Dial, w.Player.Reputation.Fear, w.Player.Reputation.Respect, w.Player.Reputation.Notoriety)
 				for _, id := range w.Products {
-					fmt.Printf("  %s $%.1f", id, w.Market[id].Price)
+					fmt.Printf("  %s", id)
+					for _, cid := range w.CityOrder {
+						fmt.Printf(" $%.1f", w.Cities[cid].Market[id].Price)
+					}
 				}
 				fmt.Println()
 			}
@@ -191,6 +201,10 @@ func main() {
 		}
 		laundered += res.World.Stats.Laundered
 		clean += res.World.Player.CleanCash
+		shipments += res.World.Stats.Shipments
+		shipped += res.World.Stats.Shipped
+		seizures += res.World.Stats.Seizures
+		seizedUnits += res.World.Stats.SeizedOnRoad
 		rep := res.World.Player.Reputation
 		fear, respect, notoriety = append(fear, int(rep.Fear)), append(respect, int(rep.Respect)), append(notoriety, int(rep.Notoriety))
 	}
@@ -228,6 +242,10 @@ func main() {
 		fmt.Printf("upgrades:      %s (runs owning each)\n", strings.Join(ids, ", "))
 	}
 	fmt.Printf("laundering:    $%d washed per run, %d audits per run, $%d clean at the end\n", laundered / *runs, audits / *runs, clean / *runs)
+	if shipments > 0 {
+		fmt.Printf("logistics:     %.1f shipments per run carrying %d units, %.1f seized per run taking %d units (%.0f%% of shipments)\n",
+			float64(shipments)/float64(*runs), shipped / *runs, float64(seizures)/float64(*runs), seizedUnits / *runs, 100*float64(seizures)/float64(shipments))
+	}
 	sort.Ints(fear)
 	sort.Ints(respect)
 	sort.Ints(notoriety)

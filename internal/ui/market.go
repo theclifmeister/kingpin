@@ -8,15 +8,60 @@ import (
 	"github.com/theclifmeister/kingpin/internal/ui/theme"
 )
 
+// cityTabs is the city selector on the market and map screens: the
+// cities in order, the one shown highlighted, with a mark on the one you
+// are in.
+func (m *Model) cityTabs() string {
+	var parts []string
+	for _, id := range m.w.CityOrder {
+		c := m.w.Cities[id]
+		label := c.Name
+		if id == m.w.Player.Location {
+			label = "◉ " + label
+		}
+		if id == m.city {
+			parts = append(parts, theme.Selected.Render(" "+label+" "))
+		} else {
+			parts = append(parts, theme.Subtle.Render(" "+label+" "))
+		}
+	}
+	return strings.Join(parts, "")
+}
+
+// stashElsewhere is one line on what you hold of a product outside the
+// city shown, and what is on the road.
+func (m *Model) stashElsewhere(id string) string {
+	var parts []string
+	for _, cid := range m.w.CityOrder {
+		if cid == m.city {
+			continue
+		}
+		if q := m.w.Stock(cid, id); q > 0 {
+			parts = append(parts, fmt.Sprintf("%d in %s", q, m.w.CityName(cid)))
+		}
+	}
+	for _, s := range m.w.Shipments {
+		if s.Product == id {
+			parts = append(parts, fmt.Sprintf("%d on the road to %s (%dd)", s.Units, m.w.CityName(s.To), s.DaysLeft(m.w.Day)))
+		}
+	}
+	return strings.Join(parts, " · ")
+}
+
 func (m *Model) viewMarket() string {
 	w := m.w
+	city := m.shown()
+	here := city.ID == w.Player.Location
 	sparkW := max(8, min(30, m.width-72))
 	var b strings.Builder
-	b.WriteString(theme.PanelTitle.Render("MARKET · "+w.City) + theme.Subtle.Render("   ↑↓ pick · b buy · s sell · x cancel") + "\n\n")
+	b.WriteString(truncate(theme.PanelTitle.Render("MARKET · ")+m.cityTabs()+theme.Subtle.Render("   ←→ city · b buy · s sell · t ship · g go"), m.width) + "\n\n")
 	b.WriteString(theme.Subtle.Render(fmt.Sprintf("  %-8s %9s %6s  %-*s %8s %6s %9s  %s",
-		"", "price", "Δ", sparkW, "last 30 days", "supplier", "stock", "demand", "order")) + "\n")
+		"", "price", "Δ", sparkW, "last 30 days", "supplier", "stash", "demand", "order")) + "\n")
 	for i, id := range w.Products {
-		p := w.Market[id]
+		p := city.Market[id]
+		if p == nil {
+			continue
+		}
 		delta := 0.0
 		if n := len(p.History); n >= 2 {
 			delta = pct(p.History[n-2], p.History[n-1])
@@ -28,7 +73,7 @@ func (m *Model) viewMarket() string {
 			ds = theme.Bad.Render(fmt.Sprintf("%+5.0f%%", delta))
 		}
 		order := theme.Subtle.Render("-")
-		if o, ok := w.Orders[id]; ok {
+		if o, ok := w.Order(city.ID, id); ok {
 			order = theme.Gold.Render(fmt.Sprintf("%d %s", o.Qty, o.Dial))
 		}
 		name := fit(p.Name, 8)
@@ -40,19 +85,22 @@ func (m *Model) viewMarket() string {
 		row := fmt.Sprintf("%s%s %9s %s  %s %8s %6d %9s  %s",
 			cur, name, price(p.Price), ds,
 			theme.Good.Render(fit(sparkline.Render(p.History, sparkW), sparkW)),
-			price(p.SupplierPrice), w.Player.Stock[id],
-			fmt.Sprintf("~%.0f/day", w.Demand(id)), order)
-		b.WriteString(row + "\n")
+			price(p.SupplierPrice), w.Stock(city.ID, id),
+			fmt.Sprintf("~%.0f/day", w.Demand(city.ID, id)), order)
+		b.WriteString(truncate(row, m.width) + "\n")
 	}
 	b.WriteString("\n")
 	id := w.Products[m.cursor]
-	p := w.Market[id]
+	p := city.Market[id]
+	if p == nil {
+		return b.String()
+	}
 	lo, hi := p.Price, p.Price
 	for _, v := range p.History {
 		lo = min(lo, v)
 		hi = min(max(hi, v), 1e9)
 	}
-	b.WriteString(theme.PanelTitle.Render(p.Name) + "\n")
+	b.WriteString(theme.PanelTitle.Render(p.Name) + theme.Subtle.Render(" in "+city.Name) + "\n")
 	b.WriteString(fmt.Sprintf("  30-day range  %s – %s\n", price(lo), price(hi)))
 	b.WriteString(fmt.Sprintf("  glut          %.0f%%  %s\n", p.Glut*100, theme.Subtle.Render("(recent oversupply, pushes price down)")))
 	if p.ShockDays > 0 {
@@ -67,6 +115,32 @@ func (m *Model) viewMarket() string {
 		margin = (p.Price - p.SupplierPrice) / p.SupplierPrice * 100
 	}
 	b.WriteString(fmt.Sprintf("  margin        %.0f%% over supplier\n", margin))
-	b.WriteString(fmt.Sprintf("  demand        ~%.0f/day on your %d corner(s)  %s\n", w.Demand(id), w.Worked(), theme.Subtle.Render(fmt.Sprintf("(~%.0f per standard corner; the map shows the rest)", p.Demand))))
+	b.WriteString(truncate(fmt.Sprintf("  demand        ~%.0f/day on your %d corner(s) here  %s", w.Demand(city.ID, id), w.WorkedIn(city.ID), theme.Subtle.Render(fmt.Sprintf("(~%.0f per standard corner; the map shows the rest)", p.Demand))), m.width) + "\n")
+	// The other city's price is what a route is worth.
+	var elsewhere []string
+	for _, cid := range w.CityOrder {
+		if cid == city.ID {
+			continue
+		}
+		if o := w.Product(cid, id); o != nil {
+			elsewhere = append(elsewhere, fmt.Sprintf("%s %s street, %s supplier", w.CityName(cid), price(o.Price), price(o.SupplierPrice)))
+		}
+	}
+	if len(elsewhere) > 0 {
+		b.WriteString(truncate("  elsewhere     "+strings.Join(elsewhere, " · "), m.width) + "\n")
+	}
+	if s := m.stashElsewhere(id); s != "" {
+		b.WriteString(truncate("  stash         "+s, m.width) + "\n")
+	}
+	if !here {
+		b.WriteString(truncate(theme.Subtle.Render(fmt.Sprintf("  You are in %s: the supplier here sells to you there (g). Runners sell what is stashed here.", w.Here().Name)), m.width) + "\n")
+	} else if city.Wholesale {
+		o := m.set.Logistics.Wholesale()
+		if o.Locked(w) {
+			b.WriteString(truncate(theme.Subtle.Render(fmt.Sprintf("  The supplier here sells by the lot of %d at %.0f%% once you have moved %s.", o.Lot, o.Mul*100, cash(o.UnlockCash))), m.width) + "\n")
+		} else {
+			b.WriteString(truncate(theme.Good.Render(fmt.Sprintf("  Wholesale: lots of %d at %.0f%% of the supplier price (b, then W).", o.Lot, o.Mul*100)), m.width) + "\n")
+		}
+	}
 	return b.String()
 }

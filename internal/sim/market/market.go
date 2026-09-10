@@ -1,7 +1,9 @@
 // Package market simulates street prices, demand, shocks and the
-// resolution of the player's sell orders. Demand is per standard corner;
-// what the player can actually serve is that times the corners they work
-// (game.World.Demand).
+// resolution of the player's sell orders, city by city. Demand is per
+// standard corner; what the player can actually serve in a city is that
+// times the corners they work there (game.World.Demand). Every city has
+// its own take on the ladder (city.toml), which is what makes a route
+// worth the risk.
 package market
 
 import (
@@ -15,16 +17,35 @@ import (
 
 // Sim is the market simulation.
 type Sim struct {
-	cfg  content.MarketConfig
-	tree content.UpgradesConfig
-	rep  content.ReputationFX
+	cfg    content.MarketConfig
+	cities content.CityConfig
+	ship   content.ShippingTuning
+	tree   content.UpgradesConfig
+	rep    content.ReputationFX
 }
 
-// New builds a market sim from config. The upgrade tree is what the
-// Operations branch multiplies: carry, supplier price and fill. Of the
-// reputation effects it reads one: respect makes the supplier generous.
-func New(cfg content.MarketConfig, tree content.UpgradesConfig, rep content.ReputationFX) *Sim {
-	return &Sim{cfg: cfg, tree: tree, rep: rep}
+// New builds a market sim from config. The cities say how each one
+// prices the ladder; the shipping tuning is what a seizure on the road
+// does to the street that was waiting for it; the upgrade tree is what
+// the Operations branch multiplies: carry, supplier price and fill. Of
+// the reputation effects it reads one: respect makes the supplier
+// generous.
+func New(cfg content.MarketConfig, cities content.CityConfig, ship content.ShippingTuning, tree content.UpgradesConfig, rep content.ReputationFX) *Sim {
+	return &Sim{cfg: cfg, cities: cities, ship: ship, tree: tree, rep: rep}
+}
+
+// cityProduct is a city's multipliers on a product, 1 and 1 for a city
+// the config does not know.
+func (s *Sim) cityProduct(city, product string) content.CityProduct {
+	if c := s.cities.City(city); c != nil {
+		return c.Product(product)
+	}
+	return content.CityProduct{Price: 1, Demand: 1}
+}
+
+// BasePrice is what a product's price reverts toward in a city.
+func (s *Sim) BasePrice(city string, pc content.ProductConfig) float64 {
+	return pc.BasePrice * s.cityProduct(city, pc.ID).Price
 }
 
 // SupplierRatio is the supplier's price as a fraction of street today:
@@ -54,9 +75,11 @@ func (s *Sim) BuyPressure(w *game.World) float64 {
 	return s.cfg.Market.BuyPricePressure * game.FoldEffects(w, s.tree).BuyPressureMul
 }
 
-// Step reports upgrades bought, resolves sell orders, then drifts prices
-// and demand, then rolls for shocks. Sales resolve first so the dial
-// interacts with today's price.
+// Step reports upgrades bought, then in every city resolves sell orders,
+// drifts prices and demand, and rolls for shocks. Sales resolve first so
+// the dial interacts with today's price. A shipment the police took on
+// the road yesterday (the logistics sim steps after this one) is a supply
+// shock this morning on the street that was waiting for it.
 func (s *Sim) Step(w *game.World, t *game.Tick) {
 	tun := s.cfg.Market
 	for _, id := range w.UpgradesToday {
@@ -68,84 +91,120 @@ func (s *Sim) Step(w *game.World, t *game.Tick) {
 	ids := append([]string(nil), w.Products...)
 	sort.Strings(ids) // deterministic regardless of map order
 
-	for _, id := range ids {
-		m := w.Market[id]
-		pc := s.cfg.Product(id)
-		if m == nil || pc == nil {
-			continue
+	for _, cid := range w.CityOrder {
+		city := w.Cities[cid]
+		// The home city's market rolls off the day's stream; every other
+		// city's off its own side stream, so it never shifts what happens
+		// at home.
+		rng := t.RNG
+		if city != w.Home() {
+			rng = t.Sub("market:" + cid)
 		}
-		open := m.Price
-
-		// 1. Resolve the player's order for this product.
-		if o, ok := w.Orders[id]; ok && !w.LieLow {
-			s.resolve(w, t, m, o)
-		}
-
-		// 2. Shock bookkeeping.
-		if m.ShockDays > 0 {
-			m.ShockDays--
-			if m.ShockDays == 0 {
-				m.ShockFactor = 1
-				m.ShockSlump = false
+		for _, id := range ids {
+			m := city.Market[id]
+			pc := s.cfg.Product(id)
+			if m == nil || pc == nil {
+				continue
 			}
-		} else {
-			r := t.RNG.Float64()
+			cp := s.cityProduct(cid, id)
+			basePrice := pc.BasePrice * cp.Price
+			open := m.Price
+
+			// 1. Resolve the player's order for this product here.
+			if o, ok := w.Order(cid, id); ok && !w.LieLow {
+				s.resolve(w, t, cid, m, o)
+			}
+
+			// 2. Shock bookkeeping. Yesterday's seizure on the road
+			// comes first: the street was counting on that product.
+			seized := 0
+			for _, z := range w.Logistics.Seizures {
+				if z.Day == t.Day-1 && z.To == cid && z.Product == id {
+					seized += z.Units
+				}
+			}
 			switch {
-			case r < tun.ShockChance:
-				m.ShockFactor = 1.5 + t.RNG.Float64()*1.5
-				m.ShockDays = 3 + t.RNG.IntN(5)
+			case seized > 0 && s.ship.ShockDays > 0 && s.ship.ShockFactor > 1:
+				m.ShockFactor = s.ship.ShockFactor
+				m.ShockDays = s.ship.ShockDays
 				m.ShockSlump = false
-				t.Emit(events.PriceShock{Day: t.Day, Product: id, Factor: m.ShockFactor, Days: m.ShockDays})
-			case r < tun.ShockChance+tun.SlumpChance:
-				m.ShockFactor = 0.5 + t.RNG.Float64()*0.2
-				m.ShockDays = 3 + t.RNG.IntN(5)
-				m.ShockSlump = true
-				t.Emit(events.PriceShock{Day: t.Day, Product: id, Factor: m.ShockFactor, Days: m.ShockDays, Slump: true})
+				t.Emit(events.PriceShock{Day: t.Day, City: cid, Product: id, Factor: m.ShockFactor, Days: m.ShockDays, Seized: true})
+			case m.ShockDays > 0:
+				m.ShockDays--
+				if m.ShockDays == 0 {
+					m.ShockFactor = 1
+					m.ShockSlump = false
+				}
+			default:
+				r := rng.Float64()
+				switch {
+				case r < tun.ShockChance:
+					m.ShockFactor = 1.5 + rng.Float64()*1.5
+					m.ShockDays = 3 + rng.IntN(5)
+					m.ShockSlump = false
+					t.Emit(events.PriceShock{Day: t.Day, City: cid, Product: id, Factor: m.ShockFactor, Days: m.ShockDays})
+				case r < tun.ShockChance+tun.SlumpChance:
+					m.ShockFactor = 0.5 + rng.Float64()*0.2
+					m.ShockDays = 3 + rng.IntN(5)
+					m.ShockSlump = true
+					t.Emit(events.PriceShock{Day: t.Day, City: cid, Product: id, Factor: m.ShockFactor, Days: m.ShockDays, Slump: true})
+				}
 			}
-		}
 
-		// 3. Glut clears, price reverts toward target with noise.
-		m.Glut *= 1 - tun.GlutDecay
-		target := pc.BasePrice / (1 + m.Glut)
-		if !m.ShockSlump {
-			target *= m.ShockFactor
-		}
-		noise := t.RNG.NormFloat64() * pc.Volatility
-		m.Price += (target - m.Price) * tun.Reversion
-		m.Price *= 1 + noise
-		m.Price = clamp(m.Price, pc.BasePrice*tun.PriceFloorRatio, pc.BasePrice*tun.PriceCeilingRatio)
+			// 3. Glut clears, price reverts toward target with noise.
+			m.Glut *= 1 - tun.GlutDecay
+			target := basePrice / (1 + m.Glut)
+			if !m.ShockSlump {
+				target *= m.ShockFactor
+			}
+			noise := rng.NormFloat64() * pc.Volatility
+			m.Price += (target - m.Price) * tun.Reversion
+			m.Price *= 1 + noise
+			m.Price = clamp(m.Price, basePrice*tun.PriceFloorRatio, basePrice*tun.PriceCeilingRatio)
 
-		// 4. Demand per standard corner wanders around its base; slumps
-		// cut it. The corners the player works scale it (World.Demand).
-		base := pc.Demand
-		if m.ShockSlump {
-			base *= m.ShockFactor
-		}
-		m.Demand = base * (1 + t.RNG.NormFloat64()*pc.DemandNoise)
-		m.Demand = math.Max(1, m.Demand)
+			// 4. Demand per standard corner wanders around the city's
+			// base; slumps cut it. The corners the player works there
+			// scale it (World.Demand).
+			base := pc.Demand * cp.Demand
+			if m.ShockSlump {
+				base *= m.ShockFactor
+			}
+			m.Demand = base * (1 + rng.NormFloat64()*pc.DemandNoise)
+			m.Demand = math.Max(1, m.Demand)
 
-		// 5. Supplier resets to a fraction of street price, less what
-		// your contact there, and your name, take off.
-		m.SupplierPrice = m.Price * s.SupplierRatio(w)
+			// 5. Supplier resets to a fraction of street price, less what
+			// your contact there, and your name, take off.
+			m.SupplierPrice = m.Price * s.SupplierRatio(w)
 
-		m.History = append(m.History, m.Price)
-		if n := tun.HistoryDays; n > 0 && len(m.History) > n {
-			m.History = m.History[len(m.History)-n:]
+			m.History = append(m.History, m.Price)
+			if n := tun.HistoryDays; n > 0 && len(m.History) > n {
+				m.History = m.History[len(m.History)-n:]
+			}
+			t.Emit(events.PriceMove{Day: t.Day, City: cid, Product: id, From: open, To: m.Price})
 		}
-		t.Emit(events.PriceMove{Day: t.Day, Product: id, From: open, To: m.Price})
 	}
 }
 
-// unlock lists every product the player's peak cash has earned. The
-// supplier offers it from tomorrow; nothing about the offer is random, so
-// old saves catch up the first day they are stepped.
+// unlock lists every product the player's peak cash has earned, in every
+// city at once. The supplier offers it from tomorrow; nothing about the
+// offer is random, so old saves catch up the first day they are stepped.
 func (s *Sim) unlock(w *game.World, t *game.Tick) {
 	for _, p := range s.cfg.Products {
-		if w.Market[p.ID] != nil || w.Stats.PeakCash < p.UnlockCash {
+		if w.Stats.PeakCash < p.UnlockCash {
 			continue
 		}
-		w.AddProduct(startingProduct(p))
-		t.Emit(events.ProductUnlocked{Day: t.Day, Product: p.ID, Name: p.Name, Price: p.BasePrice})
+		fresh := false
+		for _, cid := range w.CityOrder {
+			if w.Product(cid, p.ID) != nil {
+				continue
+			}
+			fresh = true
+			cp := s.cityProduct(cid, p.ID)
+			w.AddProduct(cid, game.StartingProduct{ID: p.ID, Name: p.Name, Price: p.BasePrice * cp.Price, Demand: p.Demand * cp.Demand})
+		}
+		if fresh {
+			t.Emit(events.ProductUnlocked{Day: t.Day, Product: p.ID, Name: p.Name, Price: p.BasePrice})
+		}
 	}
 }
 
@@ -159,18 +218,19 @@ func (s *Sim) Fill(w *game.World, d events.Dial) float64 {
 	return fill
 }
 
-// Capacity is how many units of a product the street will take at dial d
-// today: the demand of the corners the player works, at the dial's fill.
-// Without a worked corner there is nowhere to sell.
-func (s *Sim) Capacity(w *game.World, product string, d events.Dial) int {
-	return int(math.Round(w.Demand(product) * s.Fill(w, d)))
+// Capacity is how many units of a product the street of a city will take
+// at dial d today: the demand of the corners the player works there, at
+// the dial's fill. Without a worked corner there is nowhere to sell.
+func (s *Sim) Capacity(w *game.World, city, product string, d events.Dial) int {
+	return int(math.Round(w.Demand(city, product) * s.Fill(w, d)))
 }
 
-// resolve turns a sell order into cash, price impact and a PlayerSold event.
-func (s *Sim) resolve(w *game.World, t *game.Tick, m *game.ProductMarket, o game.SellOrder) {
+// resolve turns a sell order into cash, price impact and a PlayerSold
+// event, out of the city's stash.
+func (s *Sim) resolve(w *game.World, t *game.Tick, city string, m *game.ProductMarket, o game.SellOrder) {
 	d := s.Dial(o.Dial)
-	demand := w.Demand(o.Product)
-	sold := min(o.Qty, s.Capacity(w, o.Product, o.Dial), w.Player.Stock[o.Product])
+	demand := w.Demand(city, o.Product)
+	sold := min(o.Qty, s.Capacity(w, city, o.Product, o.Dial), w.Stock(city, o.Product))
 	if sold < 0 {
 		sold = 0
 	}
@@ -185,7 +245,7 @@ func (s *Sim) resolve(w *game.World, t *game.Tick, m *game.ProductMarket, o game
 	avg := m.Price * d.Price * (1 - impact/2)
 	revenue := int(math.Round(avg * float64(sold)))
 
-	w.Player.Stock[o.Product] -= sold
+	w.Stash(city)[o.Product] -= sold
 	w.Player.DirtyCash += revenue
 	w.Stats.TotalRevenue += revenue
 	w.Stats.UnitsSold += sold
@@ -193,7 +253,7 @@ func (s *Sim) resolve(w *game.World, t *game.Tick, m *game.ProductMarket, o game
 	m.Glut += impact
 
 	t.Emit(events.PlayerSold{
-		Day: t.Day, Product: o.Product, Wanted: o.Qty, Sold: sold,
+		Day: t.Day, City: city, Product: o.Product, Wanted: o.Qty, Sold: sold,
 		Dial: o.Dial, AvgPrice: avg, Revenue: revenue,
 	})
 }
@@ -206,20 +266,4 @@ func clamp(v, lo, hi float64) float64 {
 		return hi
 	}
 	return v
-}
-
-// StartingProducts converts config into the starting state NewWorld needs:
-// the products the supplier offers to someone with the starting cash.
-func StartingProducts(cfg content.MarketConfig) []game.StartingProduct {
-	out := make([]game.StartingProduct, 0, len(cfg.Products))
-	for _, p := range cfg.Products {
-		if p.UnlockCash <= cfg.Market.StartCash {
-			out = append(out, startingProduct(p))
-		}
-	}
-	return out
-}
-
-func startingProduct(p content.ProductConfig) game.StartingProduct {
-	return game.StartingProduct{ID: p.ID, Name: p.Name, Price: p.BasePrice, Demand: p.Demand}
 }

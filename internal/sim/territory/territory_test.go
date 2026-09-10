@@ -11,7 +11,7 @@ import (
 
 func world(t *testing.T, cfg *content.Config) (*game.World, *territory.Sim) {
 	t.Helper()
-	w := game.NewWorld(7, "Testville", []game.StartingProduct{{ID: "weed", Name: "Weed", Price: 20, Demand: 60}}, 10_000, 100)
+	w := game.NewWorld(7, []game.StartingCity{{ID: cfg.City.Home().ID, Name: "Testville", Products: []game.StartingProduct{{ID: "weed", Name: "Weed", Price: 20, Demand: 60}}}}, 10_000, 100)
 	s := territory.New(cfg.City)
 	s.Seed(w)
 	w.Crew.Members = []game.CrewMember{
@@ -42,8 +42,8 @@ func kinds(evs []events.Event) map[string]int {
 func TestSeedAndClaims(t *testing.T) {
 	cfg := content.MustLoad()
 	w, s := world(t, cfg)
-	if len(w.Territory.Corners) != len(cfg.City.Corners) || w.Held() != 1 || w.Worked() != 1 {
-		t.Fatalf("seeded %d corners, %d held, %d worked", len(w.Territory.Corners), w.Held(), w.Worked())
+	if len(w.Home().Corners) != len(cfg.City.Home().Corners) || w.Held() != 1 || w.Worked() != 1 {
+		t.Fatalf("seeded %d corners, %d held, %d worked", len(w.Home().Corners), w.Held(), w.Worked())
 	}
 	start := w.Corner(cfg.City.Territory.Start)
 	if start == nil || start.Runner != game.You {
@@ -80,7 +80,7 @@ func TestSeedAndClaims(t *testing.T) {
 		t.Fatalf("claims reported twice: %v", k)
 	}
 	// Migration lays the city out for a save that has none.
-	old := game.NewWorld(1, "Testville", nil, 500, 100)
+	old := game.NewWorld(1, []game.StartingCity{{ID: cfg.City.Home().ID, Name: "Testville"}}, 500, 100)
 	s.Migrate(old)
 	if old.Worked() != 1 || old.Corner(cfg.City.Territory.Start).Runner != game.You {
 		t.Fatalf("migrated world: %d worked", old.Worked())
@@ -139,9 +139,9 @@ func TestRobberies(t *testing.T) {
 			t.Fatal(err)
 		}
 		for day := 0; day < 400; day++ {
-			w.Player.Stock["weed"] = 100
+			w.Stash(w.Home().ID)["weed"] = 100
 			w.Player.DirtyCash = 10_000
-			for _, e := range step(w, s, events.PlayerSold{Day: w.Day + 1, Product: "weed", Sold: 60, Revenue: 1200}) {
+			for _, e := range step(w, s, events.PlayerSold{Day: w.Day + 1, City: w.Home().ID, Product: "weed", Sold: 60, Revenue: 1200}) {
 				r, ok := e.(events.CornerRobbed)
 				if !ok {
 					continue
@@ -152,8 +152,8 @@ func TestRobberies(t *testing.T) {
 				if r.Corner != "docks" || r.Cash <= 0 || r.StockLost["weed"] <= 0 {
 					t.Fatalf("robbery %+v", r)
 				}
-				if w.Player.DirtyCash != 10_000-r.Cash || w.Player.Stock["weed"] != 100-r.StockLost["weed"] {
-					t.Fatalf("robbery not applied: cash %d stock %d for %+v", w.Player.DirtyCash, w.Player.Stock["weed"], r)
+				if w.Player.DirtyCash != 10_000-r.Cash || w.Stock(w.Home().ID, "weed") != 100-r.StockLost["weed"] {
+					t.Fatalf("robbery not applied: cash %d stock %d for %+v", w.Player.DirtyCash, w.Stock(w.Home().ID, "weed"), r)
 				}
 			}
 		}

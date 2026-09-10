@@ -1,6 +1,7 @@
 package game
 
 import (
+	"hash/fnv"
 	"math/rand/v2"
 
 	"github.com/theclifmeister/kingpin/internal/events"
@@ -11,8 +12,30 @@ import (
 // which is where cross-simulation reactions live.
 type Tick struct {
 	Day    int
-	RNG    *rand.Rand
+	RNG    *rand.Rand // the day's stream, shared by every sim in step order
+	Seed   uint64     // the run's seed, for Sub
 	events []events.Event
+	subs   map[string]*rand.Rand
+}
+
+// Sub is a side stream of the day's randomness named for what it rolls
+// (a city's market, the road), derived from the run's seed, the day and
+// the name, so that what happens away from home never shifts the home
+// stream: a run that never leaves the first city replays the same
+// whether or not the second exists. Sims draw the home city's dice from
+// RNG and everything else from a Sub.
+func (t *Tick) Sub(name string) *rand.Rand {
+	if r := t.subs[name]; r != nil {
+		return r
+	}
+	if t.subs == nil {
+		t.subs = map[string]*rand.Rand{}
+	}
+	h := fnv.New64a()
+	_, _ = h.Write([]byte(name))
+	r := rand.New(rand.NewPCG(t.Seed^h.Sum64(), uint64(t.Day)*0x9E3779B97F4A7C15+1))
+	t.subs[name] = r
+	return r
 }
 
 // Emit records an event for this tick.
@@ -54,7 +77,7 @@ func (c *Clock) EndDay(w *World) []events.Event {
 		return nil
 	}
 	day := w.Day + 1
-	t := &Tick{Day: day, RNG: RNGFor(w.Seed, day)}
+	t := &Tick{Day: day, RNG: RNGFor(w.Seed, day), Seed: w.Seed}
 	for _, s := range c.sims {
 		s.Step(w, t)
 		if w.Over != nil {
@@ -72,8 +95,10 @@ func (c *Clock) EndDay(w *World) []events.Event {
 	w.Crew.HiredToday = nil
 	w.Crew.FiredToday = nil
 	w.Crew.PaidOffToday = nil
-	for _, m := range w.Market {
-		m.BoughtToday = 0
+	for _, c := range w.Cities {
+		for _, m := range c.Market {
+			m.BoughtToday = 0
+		}
 	}
 	if w.Cash() > w.Stats.PeakCash {
 		w.Stats.PeakCash = w.Cash()

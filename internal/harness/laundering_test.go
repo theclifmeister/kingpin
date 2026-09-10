@@ -140,7 +140,9 @@ func TestAuditEvidenceOnlyWhenGreedy(t *testing.T) {
 		for _, e := range res.Events {
 			switch ev := e.(type) {
 			case events.HeatChanged:
-				heat = append(heat, ev)
+				if ev.City == w.Home().ID { // one a day per city; the audit lands where you are
+					heat = append(heat, ev)
+				}
 			case events.FrontAudited:
 				audits++
 			}

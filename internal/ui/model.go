@@ -56,7 +56,9 @@ const (
 	modeFront          // pick a front to buy
 	modeConfirmInvestigate
 	modeConfirmPayOff
-	modeCard // a dilemma card, before the morning report
+	modeCard          // a dilemma card, before the morning report
+	modeShip          // the ship dialog: product -> route -> quantity -> dial
+	modeConfirmTravel // move to the other city?
 )
 
 type tickMsg time.Time
@@ -74,6 +76,7 @@ type Model struct {
 	width, height int
 	screen        screen
 	mode          mode
+	city          string // city the market and map screens show; follows you when you travel
 	cursor        int    // product cursor shared by market screen and dialogs
 	crewCursor    int    // row on the crew screen: roster first, then candidates
 	fireID        int    // member awaiting the fire confirmation
@@ -89,6 +92,7 @@ type Model struct {
 	outcome       string // what the last answer did, while it shows
 	journal       viewport.Model
 	dlg           dialog
+	shp           shipDialog
 	startChoice   int
 	tick          int
 	status        string
@@ -136,11 +140,37 @@ func (m *Model) newRun() {
 	m.cursor = 0
 	m.crewCursor = 0
 	m.upgradeCursor = 0
+	m.city = m.w.Player.Location
 	m.mapCursor = m.yourCorner()
 	m.flash = nil
-	m.status = fmt.Sprintf("New run. %s, %s in your pocket. Seed %d.", m.w.City, money(m.w.Player.DirtyCash), m.w.Seed)
+	m.status = fmt.Sprintf("New run. %s, %s in your pocket. Seed %d.", m.w.Here().Name, money(m.w.Player.DirtyCash), m.w.Seed)
 	_ = game.Save(m.w)
 	m.refreshJournal()
+}
+
+// shown is the city the market and map screens are looking at.
+func (m *Model) shown() *game.City {
+	if c := m.w.City(m.city); c != nil {
+		return c
+	}
+	m.city = m.w.Player.Location
+	return m.w.Here()
+}
+
+// cycleCity turns the market and map screens to the next city.
+func (m *Model) cycleCity(d int) {
+	order := m.w.CityOrder
+	if len(order) < 2 {
+		return
+	}
+	i := 0
+	for j, id := range order {
+		if id == m.city {
+			i = j
+		}
+	}
+	m.city = order[(i+d+len(order))%len(order)]
+	m.mapCursor = m.yourCorner()
 }
 
 func (m *Model) continueRun() error {
@@ -155,15 +185,17 @@ func (m *Model) continueRun() error {
 	} else if w.Dilemmas.Pending != nil {
 		m.showCard() // saved on a card: it is still waiting
 	}
+	m.city = w.Player.Location
 	m.mapCursor = m.yourCorner()
 	m.status = fmt.Sprintf("Continued day %d.", w.Day)
 	m.refreshJournal()
 	return nil
 }
 
-// yourCorner is the map index of the corner you stand on, or 0.
+// yourCorner is the map index, in the city shown, of the corner you stand
+// on, or 0.
 func (m *Model) yourCorner() int {
-	for i, c := range m.w.Territory.Corners {
+	for i, c := range m.shown().Corners {
 		if c.Runner == game.You {
 			return i
 		}
@@ -276,6 +308,16 @@ func (m *Model) handleKey(k tea.KeyMsg) (tea.Model, tea.Cmd) {
 			m.mode = modePlay
 		}
 		return m, nil
+	case modeConfirmTravel:
+		switch key {
+		case "y", "Y":
+			m.confirmTravel()
+		default:
+			m.mode = modePlay
+		}
+		return m, nil
+	case modeShip:
+		return m.keyShip(k)
 	case modeHelp:
 		m.mode = modePlay
 		return m, nil
@@ -455,11 +497,23 @@ func (m *Model) keyPlay(key string) (tea.Model, tea.Cmd) {
 		}
 	case "s":
 		m.openDialog(modeSell)
+	case "t":
+		m.openShip()
+	case "g":
+		m.askTravel()
+	case "[", "]":
+		d := 1
+		if key == "[" {
+			d = -1
+		}
+		m.cycleCity(d)
 	case "x":
 		id := m.w.Products[m.cursor]
-		if _, ok := m.w.Orders[id]; ok {
-			m.w.CancelSell(id)
-			m.status = "Order cancelled."
+		if city := m.actionCity(); m.w.Cities[city] != nil {
+			if _, ok := m.w.Order(city, id); ok {
+				m.w.CancelSell(city, id)
+				m.status = "Order cancelled."
+			}
 		}
 	case "l":
 		m.w.SetLieLow(!m.w.LieLow)
@@ -548,8 +602,8 @@ func (m *Model) keyPlay(key string) (tea.Model, tea.Cmd) {
 		}
 	case "left", "right":
 		// Arrows move within a screen, never between tabs: along the
-		// map's grid, across the upgrade columns. Screens with no
-		// horizontal structure ignore them.
+		// map's grid, across the upgrade columns, between the cities on
+		// the market. Screens with no horizontal structure ignore them.
 		dx := 1
 		if key == "left" {
 			dx = -1
@@ -559,6 +613,8 @@ func (m *Model) keyPlay(key string) (tea.Model, tea.Cmd) {
 			m.mapMove(dx, 0)
 		case screenUpgrades:
 			m.upgradeMove(dx, 0)
+		case screenMarket:
+			m.cycleCity(dx)
 		}
 	case "pgup":
 		m.journal.HalfPageUp()
@@ -631,6 +687,10 @@ func (m *Model) View() string {
 		body = m.investigateConfirm()
 	case modeConfirmPayOff:
 		body = m.payOffConfirm()
+	case modeConfirmTravel:
+		body = m.travelConfirm()
+	case modeShip:
+		body = m.viewShip()
 	case modeCard:
 		body = m.viewCard()
 	default:
@@ -677,24 +737,29 @@ func (m *Model) viewTitle() string {
 		}
 		return theme.Title.Render(" KINGPIN ") + strings.Join(tabs, "")
 	}
-	rightFor := func(clean bool) string {
-		s := fmt.Sprintf("Day %d  ", w.Day) + theme.Gold.Render("dirty "+cash(w.Player.DirtyCash)) + "  "
+	here := w.Here()
+	rightFor := func(clean, city bool) string {
+		s := ""
+		if city {
+			s = theme.Subtle.Render(here.Name+" · ") + " "
+		}
+		s += fmt.Sprintf("Day %d  ", w.Day) + theme.Gold.Render("dirty "+cash(w.Player.DirtyCash)) + "  "
 		if clean {
 			s += theme.Subtle.Render("clean "+cash(w.Player.CleanCash)) + "  "
 		}
-		return s + heatStyle(w.Heat.Value).Render(fmt.Sprintf("heat %.0f", w.Heat.Value)) + " "
+		return s + heatStyle(here.Heat).Render(fmt.Sprintf("heat %.0f", here.Heat)) + " "
 	}
 	// Try the roomy layout first, then progressively shorter ones.
 	for _, try := range []struct {
-		short int
-		clean bool
-	}{{0, true}, {0, false}, {1, false}, {2, false}} {
-		left, right := tabsFor(try.short), rightFor(try.clean)
+		short       int
+		clean, city bool
+	}{{0, true, true}, {0, false, true}, {1, false, true}, {1, false, false}, {2, false, false}} {
+		left, right := tabsFor(try.short), rightFor(try.clean, try.city)
 		if gap := m.width - lipgloss.Width(left) - lipgloss.Width(right); gap >= 1 {
 			return left + strings.Repeat(" ", gap) + right
 		}
 	}
-	return fit(tabsFor(2)+" "+rightFor(false), m.width)
+	return fit(tabsFor(2)+" "+rightFor(false, false), m.width)
 }
 
 func (m *Model) viewTicker() string {
@@ -741,6 +806,10 @@ func (m *Model) viewFooter() string {
 		keys = k("y", "ask") + k("any other key", "back")
 	case modeConfirmPayOff:
 		keys = k("y", "pay") + k("any other key", "back")
+	case modeConfirmTravel:
+		keys = k("y", "go") + k("any other key", "stay")
+	case modeShip:
+		keys = k("↑↓", "pick") + k("enter", "next") + k("esc", "back")
 	case modePost:
 		keys = k("↑↓", "pick") + k("enter", "post") + k("esc", "back")
 	case modeStrike:
@@ -758,13 +827,15 @@ func (m *Model) viewFooter() string {
 		case screenCrew:
 			keys = k("n", "end day") + k("↑↓", "pick") + k("h", "hire") + k("f", "fire") + k("i", "ask") + k("$", "pay off") + k("p", "pay") + k("?", "help")
 		case screenMap:
-			keys = k("n", "end day") + k("↑↓←→", "pick") + k("c", "runner") + k("e", "enforcer") + k("a", "abandon") + k("w", "war") + k("?", "help") + k("q", "quit")
+			keys = k("n", "end day") + k("↑↓←→", "pick") + k("[ ]", "city") + k("c", "runner") + k("e", "enforcer") + k("a", "abandon") + k("w", "war") + k("t", "ship") + k("g", "go") + k("?", "help")
+		case screenMarket:
+			keys = k("n", "end day") + k("↑↓", "pick") + k("←→", "city") + k("b", "buy") + k("s", "sell") + k("t", "ship") + k("g", "go") + k("x", "cancel") + k("?", "help")
 		case screenUpgrades:
 			keys = k("n", "end day") + k("↑↓←→", "pick") + k("enter", "buy") + k("?", "help") + k("q", "quit")
 		case screenLedger:
 			keys = k("n", "end day") + k("b", "buy a front") + k("d", "launder dial") + k("l", "lie low") + k("?", "help") + k("q", "quit")
 		default:
-			keys = k("n", "end day") + k("b", "buy") + k("s", "sell") + k("l", "lie low") + k("x", "cancel order") + k("r", "report") + k("?", "help") + k("q", "quit")
+			keys = k("n", "end day") + k("b", "buy") + k("s", "sell") + k("t", "ship") + k("l", "lie low") + k("x", "cancel order") + k("r", "report") + k("?", "help") + k("q", "quit")
 		}
 	}
 	status := theme.Warning.Render(m.status)
@@ -822,27 +893,33 @@ func (m *Model) viewHelp() string {
 		{"1-7 / tab", "switch screen (shift+tab goes back)"},
 		{"n", "end the day (sims step, autosave)"},
 		{"enter", "end the day, after a confirmation"},
-		{"b", "buy from the supplier (on the ledger: buy a front)"},
-		{"s", "queue a street sale with the dial"},
+		{"b", "buy from the supplier where you are (ledger: a front)"},
+		{"s", "queue a street sale with the dial, in the city shown"},
+		{"t", "ship to the other city: route, quantity, slow/normal/fast"},
+		{"g", "go to the other city; your corner and stock stay put"},
+		{"[ ]", "turn the market and map to the other city"},
 		{"x", "cancel the order on the selected product"},
 		{"l", "lie low today (no sales, heat fades faster)"},
 		{"r", "reopen the morning report"},
 		{"h / f", "hire / fire the selected person (crew screen)"},
-		{"i / $", "investigate who is talking / pay off the selected person (crew)"},
+		{"i / $", "investigate who is talking / pay off the person (crew)"},
 		{"p", "cycle crew pay: stingy / fair / generous"},
 		{"c / e / a", "post a runner / an enforcer / abandon the corner (map)"},
-		{"w", "send the enforcers at a rival corner: warn / push / hit (map)"},
-		{"u / enter", "buy the selected upgrade, after a confirmation (upgrades)"},
+		{"w", "send the enforcers at a rival corner: warn/push/hit (map)"},
+		{"u / enter", "buy the selected upgrade, after a confirmation"},
 		{"d", "cycle the launder dial: careful / normal / greedy"},
 		{"↑ ↓ / j k", "move the cursor / scroll journal"},
-		{"← →", "walk the map grid / the upgrade columns"},
+		{"← →", "walk the map grid / the upgrade columns / the cities"},
 		{"ctrl+s", "save now"},
 		{"N", "abandon run and start over"},
 		{"q", "save and quit"},
 	}
+	// The key column, two spaces and the modal's frame leave the rest of
+	// the width for the description; a long one is cut, never wrapped.
+	descW := max(20, m.width-14-2-6)
 	var b strings.Builder
 	for _, r := range rows {
-		b.WriteString(fmt.Sprintf("%s  %s\n", theme.Key.Render(fit(r[0], 14)), r[1]))
+		b.WriteString(fmt.Sprintf("%s  %s\n", theme.Key.Render(fit(r[0], 14)), truncate(r[1], descW)))
 	}
 	b.WriteString("\n" + theme.Subtle.Render("Heat is the antagonist. Greed is always available."))
 	return m.modal("HELP", b.String())
@@ -864,6 +941,9 @@ func (m *Model) viewOver() string {
 		b.WriteString(fmt.Sprintf("Won / lost to %s %d / %d\n", truncate(w.Rival.Leader, 12), w.Stats.CornersWon, w.Stats.CornersLost))
 	}
 	b.WriteString(fmt.Sprintf("Washed / seized %s / %s\n", cash(w.Stats.Laundered), cash(w.Stats.Seized)))
+	if w.Stats.Shipments > 0 {
+		b.WriteString(fmt.Sprintf("Shipped / lost on the road %d / %d units in %d / %d runs\n", w.Stats.Shipped, w.Stats.SeizedOnRoad, w.Stats.Shipments, w.Stats.Seizures))
+	}
 	b.WriteString(fmt.Sprintf("Clean cash      %s\n", cash(w.Player.CleanCash)))
 	if w.Stats.Informants+w.Stats.Defections > 0 {
 		b.WriteString(fmt.Sprintf("Snitches / defectors %d / %d\n", w.Stats.Informants, w.Stats.Defections))
@@ -884,18 +964,20 @@ func (m *Model) viewReport() string {
 		return m.modal("MORNING REPORT", "Nothing happened yet.")
 	}
 	var b strings.Builder
+	lineW := max(20, m.width-8) // inside the modal's frame; long lines are cut, never wrapped
 	section := func(title string, ls []string, style lipgloss.Style) {
 		if len(ls) == 0 {
 			return
 		}
 		b.WriteString(style.Bold(true).Render(title) + "\n")
 		for _, l := range ls {
-			b.WriteString("  " + l + "\n")
+			b.WriteString(truncate("  "+l, lineW) + "\n")
 		}
 		b.WriteString("\n")
 	}
 	section("PRICES", r.Prices, theme.Good)
 	section("SALES", r.Sales, theme.Gold)
+	section("SHIPMENTS", r.Shipments, lipgloss.NewStyle().Foreground(theme.Logistics))
 	section("HEAT", r.Heat, theme.Bad)
 	section("CREW", r.Crew, lipgloss.NewStyle().Foreground(theme.Crew))
 	section("TERRITORY", r.Territory, lipgloss.NewStyle().Foreground(theme.Rivals))

@@ -11,7 +11,7 @@ import (
 
 func world(t *testing.T, cfg *content.Config, cash int) (*game.World, *crew.Sim) {
 	t.Helper()
-	w := game.NewWorld(7, "Testville", []game.StartingProduct{{ID: "a", Name: "A", Price: 10, Demand: 5}}, cash, 100)
+	w := game.NewWorld(7, []game.StartingCity{{ID: "test", Name: "Testville", Products: []game.StartingProduct{{ID: "a", Name: "A", Price: 10, Demand: 5}}}}, cash, 100)
 	s := crew.New(cfg.Crew, cfg.Names, cfg.Reputation.Effects)
 	s.Seed(w, game.RNGFor(7, 0))
 	return w, s
@@ -120,7 +120,7 @@ func TestWagesFiringAndQuitting(t *testing.T) {
 
 	// Unpaid wages hurt, and a member at the floor walks.
 	w.Player.DirtyCash = 0
-	w.Player.Stock["a"] = 10
+	w.Stash("test")["a"] = 10
 	w.Crew.Members[0].Loyalty = cfg.Crew.Crew.QuitThreshold + 1
 	evs = step(w, s)
 	k = kinds(evs)

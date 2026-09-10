@@ -203,8 +203,8 @@ func TestDefectionHandsTheRivalACorner(t *testing.T) {
 		}
 		w.Crew.NextID = 902
 		var walked, kept *game.Corner
-		for i := range w.Territory.Corners {
-			c := &w.Territory.Corners[i]
+		for i := range w.Home().Corners {
+			c := &w.Home().Corners[i]
 			if c.Owner == game.OwnerNone && c.Runner == 0 {
 				if walked == nil {
 					walked = c
@@ -267,9 +267,9 @@ func TestInformantRaidAndFiring(t *testing.T) {
 		Own(cfg, w, "stash", "burners", "lookouts", "safehouse")
 		w.Player.DirtyCash = 50_000
 		snitch := Plant(cfg, w)
-		w.Heat.Value = 90 // a raid tonight, after the day's decay
+		w.Home().Heat = 90 // a raid tonight, after the day's decay
 		for _, id := range w.Products {
-			w.Player.Stock[id] = 20
+			w.Stash(w.Home().ID)[id] = 20
 		}
 		res, err := RunFrom(cfg, w, 1, Idle)
 		if err != nil {
@@ -288,7 +288,7 @@ func TestInformantRaidAndFiring(t *testing.T) {
 		// Now fire them: the file stops, the tell resets, and the rest of
 		// the crew shrug.
 		w = res.World
-		w.Heat.Value = 0
+		w.Home().Heat = 0
 		loyal := map[int]float64{}
 		for _, m := range w.Crew.Members {
 			loyal[m.ID] = m.Loyalty

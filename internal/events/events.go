@@ -64,13 +64,16 @@ type Headline struct {
 
 func (Headline) Kind() string { return "Headline" }
 
-// PriceShock is a supply shock (Factor > 1) or demand slump (Slump) on a product.
+// PriceShock is a supply shock (Factor > 1) or demand slump (Slump) on a
+// product in a city. Seized says a seizure on the road caused it.
 type PriceShock struct {
 	Day     int
+	City    string
 	Product string
 	Factor  float64
 	Days    int
 	Slump   bool
+	Seized  bool
 }
 
 func (PriceShock) Kind() string { return "PriceShock" }
@@ -85,18 +88,22 @@ type ProductUnlocked struct {
 
 func (ProductUnlocked) Kind() string { return "ProductUnlocked" }
 
-// PriceMove reports a product's price at the start and end of the day.
+// PriceMove reports a product's price in a city at the start and end of
+// the day.
 type PriceMove struct {
 	Day      int
+	City     string
 	Product  string
 	From, To float64
 }
 
 func (PriceMove) Kind() string { return "PriceMove" }
 
-// PlayerSold is the resolution of a sell order at end of day.
+// PlayerSold is the resolution of a sell order at end of day, in the city
+// whose corners moved it.
 type PlayerSold struct {
 	Day      int
+	City     string
 	Product  string
 	Wanted   int
 	Sold     int
@@ -107,18 +114,21 @@ type PlayerSold struct {
 
 func (PlayerSold) Kind() string { return "PlayerSold" }
 
-// HeatChanged reports the day's heat delta and why.
+// HeatChanged reports the day's heat delta in a city and why.
 type HeatChanged struct {
 	Day      int
+	City     string
 	From, To float64
 	Reasons  []string
 }
 
 func (HeatChanged) Kind() string { return "HeatChanged" }
 
-// Enforcement is a police response triggered by a heat threshold.
+// Enforcement is a police response triggered by a heat threshold, in the
+// city whose heat crossed it; what it took came out of the stash there.
 type Enforcement struct {
 	Day       int
+	City      string
 	Level     string // patrol, sting, raid, arrest
 	StockLost map[string]int
 	CashLost  int
@@ -506,3 +516,76 @@ type DilemmaAnswered struct {
 }
 
 func (DilemmaAnswered) Kind() string { return "DilemmaAnswered" }
+
+// Ship is the shipping dial: how fast a shipment is pushed over its route,
+// trading days in transit against the chance of a seizure on each.
+type Ship int
+
+const (
+	ShipSlow Ship = iota
+	ShipNormal
+	ShipFast
+)
+
+func (s Ship) String() string {
+	switch s {
+	case ShipSlow:
+		return "slow"
+	case ShipFast:
+		return "fast"
+	default:
+		return "normal"
+	}
+}
+
+// ShipmentSent is report-only bookkeeping: a shipment that left yesterday,
+// with how long it is expected to take.
+type ShipmentSent struct {
+	Day     int
+	ID      int
+	Route   string
+	Mode    string
+	From    string // city ids
+	To      string
+	Product string
+	Units   int
+	Cost    int
+	Dial    Ship
+	Days    int
+}
+
+func (ShipmentSent) Kind() string { return "ShipmentSent" }
+
+// ShipmentArrived is report-only bookkeeping: a shipment landing in the
+// destination's stash.
+type ShipmentArrived struct {
+	Day     int
+	ID      int
+	Route   string
+	Mode    string
+	From    string
+	To      string
+	Product string
+	Units   int
+}
+
+func (ShipmentArrived) Kind() string { return "ShipmentArrived" }
+
+// ShipmentSeized is a shipment intercepted on the road: every unit is
+// gone. Heat reacts in both cities (and the DA gets a page if it was sent
+// fast); the market in the city it was bound for reacts the next morning
+// with a supply shock. It is a market shock, not a bust: what was seized
+// was never sold.
+type ShipmentSeized struct {
+	Day     int
+	ID      int
+	Route   string
+	Mode    string
+	From    string
+	To      string
+	Product string
+	Units   int
+	Dial    Ship
+}
+
+func (ShipmentSeized) Kind() string { return "ShipmentSeized" }

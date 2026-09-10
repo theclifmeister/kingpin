@@ -74,15 +74,15 @@ func TestUpgradeEffectsAreMonotone(t *testing.T) {
 		w := sim.NewWorld(cfg, seed)
 		grant(w, "burners")
 		burners, _ := RunFrom(cfg, w, 30, Trader(cfg, events.DialNormal))
-		if burners.World.Heat.Value > plain.World.Heat.Value {
-			t.Fatalf("seed %d: heat at day 30 is %.1f with burners, %.1f without", seed, burners.World.Heat.Value, plain.World.Heat.Value)
+		if burners.World.MaxHeat() > plain.World.MaxHeat() {
+			t.Fatalf("seed %d: heat at day 30 is %.1f with burners, %.1f without", seed, burners.World.MaxHeat(), plain.World.MaxHeat())
 		}
 
 		w = sim.NewWorld(cfg, seed)
-		carry := w.Capacity()
+		carry := w.Capacity(w.Player.Location)
 		Own(cfg, w, "stash")
-		if w.Capacity() != carry+50 {
-			t.Fatalf("seed %d: stash took carry from %d to %d", seed, carry, w.Capacity())
+		if w.Capacity(w.Player.Location) != carry+50 {
+			t.Fatalf("seed %d: stash took carry from %d to %d", seed, carry, w.Capacity(w.Player.Location))
 		}
 
 		w = sim.NewWorld(cfg, seed)

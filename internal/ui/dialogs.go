@@ -10,15 +10,40 @@ import (
 	tea "github.com/charmbracelet/bubbletea"
 
 	"github.com/theclifmeister/kingpin/internal/events"
+	"github.com/theclifmeister/kingpin/internal/game"
 	"github.com/theclifmeister/kingpin/internal/ui/theme"
 )
 
-// dialog is the state of the buy or sell modal.
+// dialog is the state of the buy or sell modal. A buy is from the
+// supplier where you are, into the stash there; a sale is in the city
+// shown, out of the stash there, by whoever works corners there. Lots
+// says the buy is by the wholesale lot.
 type dialog struct {
 	step int // 0 product, 1 quantity, 2 dial (sell only)
 	qty  textinput.Model
 	dial events.Dial
+	lots bool
 	err  string
+}
+
+// dialogCity is the city a buy or sell dialog is about: a buy is where
+// you are; a sale is in the city the market or map is turned to, and
+// where you are from any other screen.
+func (m *Model) dialogCity() string {
+	if m.mode == modeBuy {
+		return m.w.Player.Location
+	}
+	return m.actionCity()
+}
+
+// actionCity is the city a sale, a shipment or a cancelled order is
+// about: the one shown on the market and map screens, where you are
+// everywhere else.
+func (m *Model) actionCity() string {
+	if m.screen == screenMarket || m.screen == screenMap {
+		return m.shown().ID
+	}
+	return m.w.Player.Location
 }
 
 func (m *Model) openDialog(mode mode) {
@@ -36,24 +61,35 @@ func (m *Model) openDialog(mode mode) {
 	ti.Prompt = "> "
 	m.dlg = dialog{qty: ti, dial: events.DialNormal}
 	if mode == modeSell {
-		if m.w.Player.TotalStock() == 0 {
-			m.status = "Nothing to sell. Press b to buy from the supplier."
+		city := m.actionCity()
+		if m.w.Player.StockIn(city) == 0 {
+			if m.w.Player.TotalStock() == 0 {
+				m.status = "Nothing to sell. Press b to buy from the supplier."
+			} else {
+				m.status = fmt.Sprintf("Nothing stashed in %s to sell. Ship some (t) or turn to the other city (←→).", m.w.CityName(city))
+			}
 			return
 		}
-		// Land on something you actually hold.
-		if m.w.Player.Stock[m.w.Products[m.cursor]] == 0 {
+		// Land on something you actually hold there.
+		if m.w.Stock(city, m.w.Products[m.cursor]) == 0 {
 			for i, id := range m.w.Products {
-				if m.w.Player.Stock[id] > 0 {
+				if m.w.Stock(city, id) > 0 {
 					m.cursor = i
 					break
 				}
 			}
 		}
-		if o, ok := m.w.Orders[m.w.Products[m.cursor]]; ok {
+		if o, ok := m.w.Order(city, m.w.Products[m.cursor]); ok {
 			m.dlg.dial = o.Dial
 		}
 	}
 	m.mode = mode
+}
+
+// wholesale is the lot offer where you are, and whether it is open.
+func (m *Model) wholesale() (game.WholesaleOffer, bool) {
+	o := m.set.Logistics.Wholesale()
+	return o, m.w.Here().Wholesale && !o.Locked(m.w)
 }
 
 func (m *Model) keyDialog(k tea.KeyMsg) (tea.Model, tea.Cmd) {
@@ -91,12 +127,12 @@ func (m *Model) keyDialog(k tea.KeyMsg) (tea.Model, tea.Cmd) {
 				m.cursor = i
 			}
 		case "enter", "right", "l":
-			if m.mode == modeSell && m.w.Player.Stock[m.w.Products[m.cursor]] == 0 {
-				d.err = "you have none of that"
+			if m.mode == modeSell && m.w.Stock(m.dialogCity(), m.w.Products[m.cursor]) == 0 {
+				d.err = "you have none of that here"
 				return m, nil
 			}
 			if m.mode == modeBuy && m.maxBuy(m.w.Products[m.cursor]) == 0 {
-				d.err = "you can't afford or carry any"
+				d.err = "you can't afford or hold any"
 				return m, nil
 			}
 			d.step = 1
@@ -113,6 +149,12 @@ func (m *Model) keyDialog(k tea.KeyMsg) (tea.Model, tea.Cmd) {
 			d.step = 2
 			d.qty.Blur()
 			return m, nil
+		case "W", "w":
+			if _, ok := m.wholesale(); ok && m.mode == modeBuy {
+				d.lots = !d.lots
+				d.qty.SetValue("")
+				return m, nil
+			}
 		}
 		var cmd tea.Cmd
 		d.qty, cmd = d.qty.Update(k)
@@ -140,8 +182,11 @@ func (m *Model) keyDialog(k tea.KeyMsg) (tea.Model, tea.Cmd) {
 	return m, nil
 }
 
-func (m *Model) parseQty(maxQty int) (int, error) {
-	s := strings.TrimSpace(m.dlg.qty.Value())
+func (m *Model) parseQty(maxQty int) (int, error) { return parseQtyInput(m.dlg.qty.Value(), maxQty) }
+
+// parseQtyInput reads a quantity field: blank means the most allowed.
+func parseQtyInput(v string, maxQty int) (int, error) {
+	s := strings.TrimSpace(v)
 	if s == "" {
 		if maxQty <= 0 {
 			return 0, fmt.Errorf("nothing to do")
@@ -155,14 +200,24 @@ func (m *Model) parseQty(maxQty int) (int, error) {
 	return n, nil
 }
 
+// maxBuy is the most of a product the supplier where you are will sell
+// you: what you can pay for and what the stash there can hold. By the
+// lot, it is in lots.
 func (m *Model) maxBuy(id string) int {
-	p := m.w.Market[id]
+	city := m.w.Player.Location
+	p := m.w.Product(city, id)
 	if p == nil || p.SupplierPrice <= 0 {
 		return 0
 	}
-	afford := int(math.Floor(float64(m.w.Player.DirtyCash) / p.SupplierPrice))
-	room := m.w.Capacity() - m.w.Player.TotalStock()
-	return max(0, min(afford, room))
+	unit, per := p.SupplierPrice, 1
+	if o, ok := m.wholesale(); ok && m.dlg.lots {
+		unit, per = p.SupplierPrice*o.Mul, o.Lot
+	}
+	afford := int(math.Floor(float64(m.w.Player.DirtyCash) / (unit * float64(per))))
+	if per > 1 {
+		return max(0, afford) // a lot goes to the dock, not the stash
+	}
+	return max(0, min(afford, m.w.Free(city)))
 }
 
 func (m *Model) confirmBuy() (tea.Model, tea.Cmd) {
@@ -172,62 +227,76 @@ func (m *Model) confirmBuy() (tea.Model, tea.Cmd) {
 		m.dlg.err = err.Error()
 		return m, nil
 	}
-	p, err := m.w.Buy(id, qty, m.set.Market.BuyPressure(m.w))
+	var p game.Purchase
+	if o, ok := m.wholesale(); ok && m.dlg.lots {
+		p, err = m.w.BuyWholesale(id, qty, o, m.set.Market.BuyPressure(m.w))
+	} else {
+		p, err = m.w.Buy(id, qty, m.set.Market.BuyPressure(m.w))
+	}
 	if err != nil {
 		m.dlg.err = err.Error()
 		return m, nil
 	}
 	m.mode = modePlay
-	m.status = fmt.Sprintf("Bought %d %s for %s.", p.Qty, m.w.ProductName(id), money(p.Cost))
+	how := ""
+	if p.Wholesale {
+		how = " by the lot"
+	}
+	m.status = fmt.Sprintf("Bought %d %s%s for %s.", p.Qty, m.w.ProductName(id), how, money(p.Cost))
 	return m, nil
 }
 
 func (m *Model) confirmSell() (tea.Model, tea.Cmd) {
 	id := m.w.Products[m.cursor]
-	qty, err := m.parseQty(m.w.Player.Stock[id])
+	city := m.dialogCity()
+	qty, err := m.parseQty(m.w.Stock(city, id))
 	if err != nil {
 		m.dlg.err = err.Error()
 		m.dlg.step = 1
 		m.dlg.qty.Focus()
 		return m, nil
 	}
-	if err := m.w.PlaceSell(id, qty, m.dlg.dial); err != nil {
+	if err := m.w.PlaceSell(city, id, qty, m.dlg.dial); err != nil {
 		m.dlg.err = err.Error()
 		m.dlg.step = 1
 		m.dlg.qty.Focus()
 		return m, nil
 	}
 	m.mode = modePlay
-	m.status = fmt.Sprintf("Queued %d %s, %s. Ends at end of day.", qty, m.w.ProductName(id), m.dlg.dial)
+	m.status = fmt.Sprintf("Queued %d %s in %s, %s. Ends at end of day.", qty, m.w.ProductName(id), m.w.CityName(city), m.dlg.dial)
 	return m, nil
 }
 
-// estHeat is what the heat sim will charge for this order, plus the sloppy
-// crew premium on the units it expects to move.
-func (m *Model) estHeat(id string, qty int, dial events.Dial) float64 {
-	if m.w.Market[id] == nil {
+// estHeat is what the heat sim will charge for this order in a city, plus
+// the sloppy crew premium on the units it expects to move.
+func (m *Model) estHeat(city, id string, qty int, dial events.Dial) float64 {
+	if m.w.Product(city, id) == nil {
 		return 0
 	}
-	moved := min(qty, m.set.Market.Capacity(m.w, id, dial))
-	return m.set.Heat.SaleHeat(m.w, id, qty, dial) + m.set.Heat.SloppyHeat(m.w, moved)
+	moved := min(qty, m.set.Market.Capacity(m.w, city, id, dial))
+	return m.set.Heat.SaleHeat(m.w, city, id, qty, dial) + m.set.Heat.SloppyHeat(m.w, city, moved)
 }
 
 func (m *Model) viewDialog() string {
 	w := m.w
 	d := m.dlg
 	id := w.Products[m.cursor]
-	p := w.Market[id]
+	city := m.dialogCity()
+	p := w.Product(city, id)
 	buy := m.mode == modeBuy
 	var b strings.Builder
 
 	// Step 0: product list.
 	for i, pid := range w.Products {
-		pm := w.Market[pid]
+		pm := w.Product(city, pid)
+		if pm == nil {
+			continue
+		}
 		var line string
 		if buy {
-			line = fmt.Sprintf("%-8s  %8s/unit   have %d", pm.Name, price(pm.SupplierPrice), w.Player.Stock[pid])
+			line = fmt.Sprintf("%-8s  %8s/unit   have %d", pm.Name, price(pm.SupplierPrice), w.Stock(city, pid))
 		} else {
-			line = fmt.Sprintf("%-8s  %8s/unit   have %d   demand ~%.0f", pm.Name, price(pm.Price), w.Player.Stock[pid], w.Demand(pid))
+			line = fmt.Sprintf("%-8s  %8s/unit   have %d   demand ~%.0f", pm.Name, price(pm.Price), w.Stock(city, pid), w.Demand(city, pid))
 		}
 		if i == m.cursor {
 			b.WriteString(theme.Gold.Render("▸ ") + theme.Selected.Render(line) + "\n")
@@ -241,18 +310,35 @@ func (m *Model) viewDialog() string {
 	if d.step >= 1 {
 		if buy {
 			mx := m.maxBuy(id)
-			b.WriteString(fmt.Sprintf("Quantity  %s   %s\n", d.qty.View(), theme.Subtle.Render(fmt.Sprintf("max %d", mx))))
+			o, ok := m.wholesale()
+			unit := "max %d"
+			if ok && d.lots {
+				unit = "max %d lots"
+			}
+			b.WriteString(fmt.Sprintf("Quantity  %s   %s\n", d.qty.View(), theme.Subtle.Render(fmt.Sprintf(unit, mx))))
 			qty, err := m.parseQty(mx)
 			if err == nil {
-				cost, _ := w.SupplierQuote(id, qty)
+				var cost int
+				if ok && d.lots {
+					cost = int(math.Ceil(p.SupplierPrice * o.Mul * float64(qty*o.Lot)))
+				} else {
+					cost, _ = w.SupplierQuote(id, qty)
+				}
 				style := theme.Gold
 				if cost > w.Player.DirtyCash {
 					style = theme.Bad
 				}
 				b.WriteString(fmt.Sprintf("Total     %s   %s\n", style.Render(money(cost)), theme.Subtle.Render("dirty cash "+cash(w.Player.DirtyCash))))
 			}
+			if ok {
+				if d.lots {
+					b.WriteString(theme.Good.Render(fmt.Sprintf("Wholesale lots of %d at %s/unit; w for single units", o.Lot, price(p.SupplierPrice*o.Mul))) + "\n")
+				} else {
+					b.WriteString(theme.Subtle.Render(fmt.Sprintf("w buys by the lot: %d at %s/unit", o.Lot, price(p.SupplierPrice*o.Mul))) + "\n")
+				}
+			}
 		} else {
-			b.WriteString(fmt.Sprintf("Quantity  %s   %s\n", d.qty.View(), theme.Subtle.Render(fmt.Sprintf("have %d", w.Player.Stock[id]))))
+			b.WriteString(fmt.Sprintf("Quantity  %s   %s\n", d.qty.View(), theme.Subtle.Render(fmt.Sprintf("have %d in %s", w.Stock(city, id), w.CityName(city)))))
 		}
 	} else {
 		b.WriteString(theme.Subtle.Render("Pick a product, then enter.") + "\n")
@@ -261,7 +347,7 @@ func (m *Model) viewDialog() string {
 	// Step 2: dial preview.
 	if !buy && d.step >= 2 {
 		b.WriteString("\n")
-		qty, _ := m.parseQty(w.Player.Stock[id])
+		qty, _ := m.parseQty(w.Stock(city, id))
 		names := []string{"quiet", "normal", "aggressive"}
 		var cells []string
 		for i, n := range names {
@@ -273,21 +359,21 @@ func (m *Model) viewDialog() string {
 		}
 		b.WriteString("Dial      " + strings.Join(cells, " ") + "\n")
 		dc := m.set.Market.Dial(d.dial)
-		est := min(qty, m.set.Market.Capacity(w, id, d.dial))
+		est := min(qty, m.set.Market.Capacity(w, city, id, d.dial))
 		b.WriteString(fmt.Sprintf("Expect    ~%d of %d sold at ~%s  =  ~%s\n", est, qty, price(p.Price*dc.Price), theme.Gold.Render(money(int(float64(est)*p.Price*dc.Price)))))
-		h := m.estHeat(id, qty, d.dial)
-		b.WriteString(fmt.Sprintf("Heat      %s   %s\n", heatStyle(w.Heat.Value+h*4).Render(fmt.Sprintf("+%.1f", h)), theme.Subtle.Render(dialBlurb(d.dial))))
-		if w.Worked() == 0 {
-			b.WriteString(theme.Bad.Render("You hold no corner: nothing will sell. Claim one on the map (5).") + "\n")
+		h := m.estHeat(city, id, qty, d.dial)
+		b.WriteString(fmt.Sprintf("Heat      %s   %s\n", heatStyle(w.City(city).Heat+h*4).Render(fmt.Sprintf("+%.1f", h)), theme.Subtle.Render(dialBlurb(d.dial))))
+		if w.WorkedIn(city) == 0 {
+			b.WriteString(theme.Bad.Render(fmt.Sprintf("You work no corner in %s: nothing will sell. Post somebody on the map (5).", w.CityName(city))) + "\n")
 		}
 	}
 
 	if d.err != "" {
 		b.WriteString("\n" + theme.Bad.Render(d.err) + "\n")
 	}
-	title := "SELL ON THE STREET"
+	title := "SELL ON THE STREET · " + strings.ToUpper(w.CityName(city))
 	if buy {
-		title = "BUY FROM SUPPLIER"
+		title = "BUY FROM SUPPLIER · " + strings.ToUpper(w.CityName(city))
 	}
 	return m.modal(title, strings.TrimRight(b.String(), "\n"))
 }

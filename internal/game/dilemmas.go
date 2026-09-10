@@ -131,8 +131,11 @@ func (w *World) applyEffect(c *Card, key string, v float64) error {
 	case "clean_amount":
 		w.Player.CleanCash = max(0, w.Player.CleanCash+int(math.Round(v*float64(c.Amount))))
 	case "heat":
-		w.Heat.Value = clamp(w.Heat.Value + v)
-		w.Heat.Peak = math.Max(w.Heat.Peak, w.Heat.Value)
+		// Where you are: the card is about tonight, and you are here.
+		if c := w.Here(); c != nil {
+			c.Heat = clamp(c.Heat + v)
+			w.Heat.Peak = math.Max(w.Heat.Peak, c.Heat)
+		}
 	case "loyalty":
 		if m := w.Crew.Member(c.Member); m != nil {
 			m.Loyalty = clamp(m.Loyalty + v)
@@ -150,14 +153,17 @@ func (w *World) applyEffect(c *Card, key string, v float64) error {
 	case "rival_cash":
 		w.Rival.Cash = max(0, w.Rival.Cash+int(v))
 	case "stock_share":
-		free := w.Capacity() - w.Player.TotalStock()
-		for _, id := range w.Products {
-			d := int(math.Round(float64(w.Player.Stock[id]) * v))
-			if d > 0 {
-				d = min(d, free)
-				free -= d
+		for _, cid := range w.CityOrder {
+			stash := w.Stash(cid)
+			free := w.Free(cid)
+			for _, id := range w.Products {
+				d := int(math.Round(float64(stash[id]) * v))
+				if d > 0 {
+					d = min(d, free)
+					free -= d
+				}
+				stash[id] = max(0, stash[id]+d)
 			}
-			w.Player.Stock[id] = max(0, w.Player.Stock[id]+d)
 		}
 	case "fear", "respect", "notoriety":
 		// The axis moves at once, clamped like the sim clamps it; the

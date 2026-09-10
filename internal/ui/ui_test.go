@@ -1,6 +1,10 @@
 package ui
 
 import (
+	"bytes"
+	"encoding/gob"
+	"os"
+	"reflect"
 	"strings"
 	"testing"
 
@@ -77,6 +81,11 @@ func assertFits(t *testing.T, view string, w, h int, what string) {
 		if lw := lipgloss.Width(l); lw > w {
 			t.Errorf("%s: line %d is %d cells wide > %d: %q", what, i, lw, w, l)
 		}
+		// A modal wider than the screen wraps its border onto the next
+		// line: the top-right corner then starts a line of its own.
+		if p := strings.TrimSpace(stripANSI(l)); strings.HasPrefix(p, "═") && strings.HasSuffix(p, "╗") && !strings.HasPrefix(p, "╔") {
+			t.Errorf("%s: a modal wider than %d wrapped at line %d", what, w, i)
+		}
 	}
 }
 
@@ -85,7 +94,7 @@ func TestRendersAtCommonSizes(t *testing.T) {
 		m := newTestModel(t, sz[0], sz[1])
 		// Play a few days with some trading so every panel has content.
 		for i := 0; i < 5; i++ {
-			m.w.Player.Stock[m.w.Products[0]] = 40
+			m.w.Stash(m.w.Player.Location)[m.w.Products[0]] = 40
 			m.Update(key("s"))
 			m.Update(key("enter")) // product
 			m.Update(key("enter")) // qty (blank = all)
@@ -104,7 +113,7 @@ func TestRendersAtCommonSizes(t *testing.T) {
 		m.w.Crew.LastSkim = m.w.Day
 		// Post the crew across the map so every cell shape is drawn.
 		m.Update(key("5"))
-		for i := range m.w.Territory.Corners {
+		for i := range m.shown().Corners {
 			m.mapCursor = i
 			m.Update(key("c"))
 			assertFits(t, m.View(), sz[0], sz[1], "post picker")
@@ -116,7 +125,7 @@ func TestRendersAtCommonSizes(t *testing.T) {
 		// A rival in town, at war, with the enforcers queued against it,
 		// exercises the rival cells, the picker and the dashboard panel.
 		m.Update(key("esc")) // a stray enter above may be asking to end the day
-		m.w.Territory.Corners[0].Owner, m.w.Territory.Corners[0].Runner, m.w.Territory.Corners[0].Enforcer = game.OwnerRival, 0, 0
+		m.w.Home().Corners[0].Owner, m.w.Home().Corners[0].Runner, m.w.Home().Corners[0].Enforcer = game.OwnerRival, 0, 0
 		m.w.Rival.Arrived, m.w.Rival.Muscle, m.w.Rival.War, m.w.Rival.Observed = 1, 4, 47, true
 		m.w.Crew.Members = append(m.w.Crew.Members, game.CrewMember{ID: 900, Name: "Moose", Role: "enforcer", Skill: 70, Loyalty: 70, Nerve: 60, Wage: 65})
 		m.w.Crew.NextID = 900
@@ -127,10 +136,34 @@ func TestRendersAtCommonSizes(t *testing.T) {
 		if m.w.Strike == nil {
 			t.Fatalf("%dx%d: no strike queued: %q", sz[0], sz[1], m.status)
 		}
-		for i := range m.w.Territory.Corners {
+		for i := range m.shown().Corners {
 			m.mapCursor = i
 			assertFits(t, m.View(), sz[0], sz[1], "map")
 		}
+		// The other city's map, and the ship dialog with something to send.
+		m.Update(key("]"))
+		for i := range m.shown().Corners {
+			m.mapCursor = i
+			assertFits(t, m.View(), sz[0], sz[1], "map elsewhere")
+		}
+		m.Update(key("["))
+		m.w.Stash(m.w.Player.Location)[m.w.Products[0]] = 300
+		m.Update(key("t"))
+		assertFits(t, m.View(), sz[0], sz[1], "ship product")
+		m.Update(key("enter"))
+		assertFits(t, m.View(), sz[0], sz[1], "ship route")
+		m.Update(key("enter"))
+		assertFits(t, m.View(), sz[0], sz[1], "ship qty")
+		m.Update(key("enter"))
+		assertFits(t, m.View(), sz[0], sz[1], "ship dial")
+		m.Update(key("3"))
+		m.Update(key("enter"))
+		if m.mode != modePlay || len(m.w.Shipments) != 1 {
+			t.Fatalf("%dx%d: ship dialog left mode %v with %d shipments: %q %q", sz[0], sz[1], m.mode, len(m.w.Shipments), m.status, m.shp.err)
+		}
+		m.Update(key("g"))
+		assertFits(t, m.View(), sz[0], sz[1], "travel confirm")
+		m.Update(key("esc"))
 		for _, s := range []string{"1", "2", "3", "4", "5", "6", "7"} {
 			m.Update(key(s))
 			assertFits(t, m.View(), sz[0], sz[1], "screen "+s)
@@ -150,7 +183,7 @@ func TestRendersAtCommonSizes(t *testing.T) {
 		m.Update(key("f"))
 		assertFits(t, m.View(), sz[0], sz[1], "fire confirm")
 		m.Update(key("y"))
-		m.w.Player.Stock[m.w.Products[0]] = 200
+		m.w.Stash(m.w.Player.Location)[m.w.Products[0]] = 200
 		m.Update(key("s"))
 		m.Update(key("enter"))
 		m.Update(key("enter"))
@@ -227,7 +260,7 @@ func TestRendersAtCommonSizes(t *testing.T) {
 			t.Fatalf("%d of %d products unlocked with a billion in the bank", got, len(m.cfg.Market.Products))
 		}
 		last := m.w.Products[len(m.w.Products)-1]
-		m.w.Player.Stock[last] = 20
+		m.w.Stash(m.w.Player.Location)[last] = 20
 		for _, s := range []string{"1", "2", "5"} {
 			m.Update(key(s))
 			assertFits(t, m.View(), sz[0], sz[1], "ladder screen "+s)
@@ -281,15 +314,15 @@ func TestBuyThenSellFlow(t *testing.T) {
 		t.Fatalf("buy did not complete: mode=%v err=%q", m.mode, m.dlg.err)
 	}
 	id := m.w.Products[0]
-	if m.w.Player.Stock[id] != 10 {
-		t.Fatalf("stock after buy = %d", m.w.Player.Stock[id])
+	if m.w.Stock(m.w.Player.Location, id) != 10 {
+		t.Fatalf("stock after buy = %d", m.w.Stock(m.w.Player.Location, id))
 	}
 	m.Update(key("s"))
 	m.Update(key("enter"))
 	m.Update(key("enter")) // blank = all
 	m.Update(key("1"))     // quiet
 	m.Update(key("enter"))
-	if o, ok := m.w.Orders[id]; !ok || o.Qty != 10 {
+	if o, ok := m.w.Order(m.w.Player.Location, id); !ok || o.Qty != 10 {
 		t.Fatalf("order not placed: %+v", m.w.Orders)
 	}
 	m.Update(key("n"))
@@ -365,8 +398,8 @@ func TestCrewScreenKeys(t *testing.T) {
 		t.Fatalf("hire failed: %q", m.status)
 	}
 	hired := m.w.Crew.Members[0]
-	if m.w.Capacity() != m.w.Player.CarryLimit+hired.Units || m.w.Player.DirtyCash != 5000-hired.Fee {
-		t.Fatalf("after hire: capacity %d cash %d, member %+v", m.w.Capacity(), m.w.Player.DirtyCash, hired)
+	if m.w.Capacity(m.w.Player.Location) != m.w.Player.CarryLimit+hired.Units || m.w.Player.DirtyCash != 5000-hired.Fee {
+		t.Fatalf("after hire: capacity %d cash %d, member %+v", m.w.Capacity(m.w.Player.Location), m.w.Player.DirtyCash, hired)
 	}
 	m.Update(key("p"))
 	if m.w.Crew.Pay != events.PayGenerous {
@@ -400,17 +433,43 @@ func TestCrewScreenKeys(t *testing.T) {
 	}
 }
 
+// v1World is the shape a schema-1 save had: one city, its market and the
+// player's stock on World and Player themselves, no crew, corners, rival,
+// fronts or second city. gob fills what it does not carry with zero
+// values, the way a real old save reads today.
+type v1World struct {
+	SchemaVersion int
+	Seed          uint64
+	Day           int
+	City          string
+	Player        struct {
+		DirtyCash  int
+		Stock      map[string]int
+		CarryLimit int
+	}
+	Products []string
+	Market   map[string]*game.ProductMarket
+	Heat     struct{ Value float64 }
+	Upgrades map[string]bool
+	Orders   map[string]game.SellOrder
+}
+
 // A schema-1 save (before the crew) continues: the run is upgraded with a
-// hiring pool and fair pay, and the day is kept.
+// hiring pool and fair pay, corners, a rival, the launder dial, a second
+// city with routes to it, and the day is kept.
 func TestOldSaveIsMigrated(t *testing.T) {
 	t.Setenv("KINGPIN_HOME", t.TempDir())
-	w := sim.NewWorld(content.MustLoad(), 1)
-	w.SchemaVersion = 1
-	w.Day = 9
-	w.Crew = game.CrewState{}
-	w.Territory = game.TerritoryState{}
-	w.Rival = game.RivalState{}
-	if err := game.Save(w); err != nil {
+	cfg := content.MustLoad()
+	fresh := sim.NewWorld(cfg, 1)
+	old := v1World{SchemaVersion: 1, Seed: 1, Day: 9, City: "Eastside", Products: fresh.Products, Market: fresh.Home().Market, Upgrades: map[string]bool{}, Orders: map[string]game.SellOrder{}}
+	old.Player.DirtyCash, old.Player.Stock, old.Player.CarryLimit = 4321, map[string]int{fresh.Products[0]: 7}, 100
+	old.Heat.Value = 12
+	var buf bytes.Buffer
+	if err := gob.NewEncoder(&buf).Encode(old); err != nil {
+		t.Fatal(err)
+	}
+	p, _ := game.SavePath()
+	if err := os.WriteFile(p, buf.Bytes(), 0o644); err != nil {
 		t.Fatal(err)
 	}
 	m, err := New(content.MustLoad())
@@ -426,7 +485,7 @@ func TestOldSaveIsMigrated(t *testing.T) {
 		t.Fatalf("migrated crew state: %+v", m.w.Crew)
 	}
 	if m.w.Worked() != 1 || m.w.Corner(m.cfg.City.Territory.Start).Runner != game.You {
-		t.Fatalf("migrated territory: %d worked, corners %+v", m.w.Worked(), m.w.Territory.Corners)
+		t.Fatalf("migrated territory: %d worked, corners %+v", m.w.Worked(), m.w.Home().Corners)
 	}
 	if m.w.Rival.Leader == "" || m.w.Rival.Personality == "" || m.w.Rival.Arrived != 0 {
 		t.Fatalf("migrated rival: %+v", m.w.Rival)
@@ -434,12 +493,28 @@ func TestOldSaveIsMigrated(t *testing.T) {
 	if len(m.w.Fronts) != 0 || m.w.Laundering.Dial != events.LaunderNormal {
 		t.Fatalf("migrated laundering: fronts %+v dial %v", m.w.Fronts, m.w.Laundering.Dial)
 	}
+	home := m.cfg.City.Home().ID
+	if len(m.w.CityOrder) != len(m.cfg.City.Cities) || m.w.Player.Location != home || m.w.Home().Heat != 12 || m.w.Stock(home, m.w.Products[0]) != 7 || m.w.Player.DirtyCash != 4321 {
+		t.Fatalf("migrated cities: %v in %s heat %.0f stock %d cash %d", m.w.CityOrder, m.w.Player.Location, m.w.Home().Heat, m.w.Stock(home, m.w.Products[0]), m.w.Player.DirtyCash)
+	}
+	for _, cid := range m.w.CityOrder {
+		if c := m.w.Cities[cid]; len(c.Corners) != len(m.cfg.City.City(cid).Corners) || len(c.Market) != len(m.w.Products) {
+			t.Fatalf("migrated %s: %d corners, %d products", cid, len(c.Corners), len(c.Market))
+		}
+	}
+	if !reflect.DeepEqual(m.w.Home().Market, fresh.Home().Market) {
+		t.Fatal("the home market did not survive the migration")
+	}
 	m.Update(key("7"))
 	assertFits(t, m.View(), 80, 24, "ledger after migration")
 	m.Update(key("4"))
 	assertFits(t, m.View(), 80, 24, "crew screen after migration")
 	m.Update(key("5"))
 	assertFits(t, m.View(), 80, 24, "map after migration")
+	m.Update(key("]"))
+	assertFits(t, m.View(), 80, 24, "the new city after migration")
+	m.Update(key("2"))
+	assertFits(t, m.View(), 80, 24, "market of the new city after migration")
 }
 
 // A save this build cannot read is refused with a readable message and the
@@ -499,7 +574,7 @@ func TestArrowsStayOnScreen(t *testing.T) {
 		t.Fatalf("shift+tab from the first tab went to %v", m.screen)
 	}
 	m.Update(key("1"))
-	m.w.Player.Stock[m.w.Products[0]] = 5
+	m.w.Stash(m.w.Player.Location)[m.w.Products[0]] = 5
 	m.Update(key("s"))
 	m.Update(key("enter"))
 	m.Update(key("enter"))
@@ -515,7 +590,7 @@ func TestArrowsStayOnScreen(t *testing.T) {
 func TestMapArrowsWalkGrid(t *testing.T) {
 	m := newTestModel(t, 100, 30)
 	m.Update(key("5"))
-	cs := m.w.Territory.Corners
+	cs := m.shown().Corners
 	// want is the corner the arrow should land on from i, or i itself.
 	want := func(i, dx, dy int) int {
 		best, bestD := i, 0
@@ -597,7 +672,7 @@ func TestMapArrowsWalkGrid(t *testing.T) {
 	}
 	m.Update(key("enter"))
 	if m.w.Corner(sel).Runner != game.You {
-		t.Fatalf("posted on %s, not the arrowed corner %s", m.w.Territory.Corners[m.mapCursor].ID, sel)
+		t.Fatalf("posted on %s, not the arrowed corner %s", m.shown().Corners[m.mapCursor].ID, sel)
 	}
 }
 
@@ -686,7 +761,7 @@ func TestMapScreenKeys(t *testing.T) {
 	m := newTestModel(t, 100, 30)
 	m.w.Player.DirtyCash = 5000
 	start := m.w.Corner(m.cfg.City.Territory.Start)
-	if m.screen != screenDashboard || m.w.Territory.Corners[m.mapCursor].ID != start.ID {
+	if m.screen != screenDashboard || m.shown().Corners[m.mapCursor].ID != start.ID {
 		t.Fatalf("cursor starts on corner %d, not yours", m.mapCursor)
 	}
 	m.Update(key("c"))
@@ -705,10 +780,10 @@ func TestMapScreenKeys(t *testing.T) {
 	}
 	// Move to a free corner and post the runner: the picker lists you first.
 	m.Update(key("j"))
-	target := m.w.Territory.Corners[m.mapCursor]
+	target := m.shown().Corners[m.mapCursor]
 	if target.ID == start.ID {
 		m.Update(key("j"))
-		target = m.w.Territory.Corners[m.mapCursor]
+		target = m.shown().Corners[m.mapCursor]
 	}
 	m.Update(key("c"))
 	if m.mode != modePost || m.postRole != "runner" {
@@ -770,15 +845,15 @@ func TestMapScreenKeys(t *testing.T) {
 	if !strings.Contains(stripANSI(m.View()), "hold no corner") {
 		t.Fatal("dashboard does not say why nothing sells")
 	}
-	m.w.Player.Stock[m.w.Products[0]] = 10
+	m.w.Stash(m.w.Player.Location)[m.w.Products[0]] = 10
 	m.Update(key("s"))
 	m.Update(key("enter"))
 	m.Update(key("enter"))
 	assertFits(t, m.View(), 100, 30, "sell dialog with no corner")
 	m.Update(key("enter"))
 	m.Update(key("n"))
-	if m.w.Player.Stock[m.w.Products[0]] != 10 {
-		t.Fatalf("sold %d units with no corner", 10-m.w.Player.Stock[m.w.Products[0]])
+	if m.w.Stock(m.w.Player.Location, m.w.Products[0]) != 10 {
+		t.Fatalf("sold %d units with no corner", 10-m.w.Stock(m.w.Player.Location, m.w.Products[0]))
 	}
 }
 
@@ -800,7 +875,7 @@ func TestStrikeKeys(t *testing.T) {
 	docks := m.w.Corner("docks")
 	docks.Owner = game.OwnerRival
 	m.w.Rival.Arrived, m.w.Rival.Muscle = 1, 3
-	for i, c := range m.w.Territory.Corners {
+	for i, c := range m.shown().Corners {
 		if c.ID == "docks" {
 			m.mapCursor = i
 		}
@@ -880,11 +955,11 @@ func TestUpgradesScreenKeys(t *testing.T) {
 	if m.mode != modePlay || m.w.Owns("stash") || m.w.Day != 0 {
 		t.Fatalf("esc bought something or ended the day: owns %v day %d", m.w.Owns("stash"), m.w.Day)
 	}
-	carry := m.w.Capacity()
+	carry := m.w.Capacity(m.w.Player.Location)
 	m.Update(key("u"))
 	m.Update(key("y"))
-	if !m.w.Owns("stash") || m.w.Player.DirtyCash != 3000 || m.w.Capacity() != carry+50 {
-		t.Fatalf("y did not buy: owns %v cash %d capacity %d status %q", m.w.Owns("stash"), m.w.Player.DirtyCash, m.w.Capacity(), m.status)
+	if !m.w.Owns("stash") || m.w.Player.DirtyCash != 3000 || m.w.Capacity(m.w.Player.Location) != carry+50 {
+		t.Fatalf("y did not buy: owns %v cash %d capacity %d status %q", m.w.Owns("stash"), m.w.Player.DirtyCash, m.w.Capacity(m.w.Player.Location), m.status)
 	}
 	// Owned, locked and unaffordable nodes explain themselves without a modal.
 	m.Update(key("enter"))
@@ -1137,11 +1212,11 @@ func TestCardBeforeReport(t *testing.T) {
 
 	// Digits pick directly; the outcome's heat shows up.
 	deal()
-	heat := m.w.Heat.Value
+	heat := m.w.Here().Heat
 	m.Update(key("n"))
 	m.Update(key("2"))
-	if !m.cardDone || m.w.Heat.Value != heat+7 || m.w.Day != day+2 {
-		t.Fatalf("digit pick: done %v heat %v -> %v day %d", m.cardDone, heat, m.w.Heat.Value, m.w.Day)
+	if !m.cardDone || m.w.Here().Heat != heat+7 || m.w.Day != day+2 {
+		t.Fatalf("digit pick: done %v heat %v -> %v day %d", m.cardDone, heat, m.w.Here().Heat, m.w.Day)
 	}
 	m.Update(key("enter"))
 	m.Update(key("enter"))
@@ -1173,4 +1248,249 @@ func TestCardBeforeReport(t *testing.T) {
 	if m2.mode != modeReport {
 		t.Fatalf("mode %v", m2.mode)
 	}
+}
+
+// The route: [ and ] (and the arrows on the market) turn the market and
+// map to the other city without leaving the screen; s there sells out of
+// that city's stash; t ships from it through the dialog (product, route,
+// quantity, dial) and the report says what left and what landed; g asks
+// before moving you, and moving you steps you off your corner and leaves
+// the stock behind.
+func TestShipAndTravelKeys(t *testing.T) {
+	m := newTestModel(t, 80, 24)
+	w := m.w
+	home, hub := w.Home().ID, w.CityOrder[1]
+	product := w.Products[0]
+	m.w.Player.DirtyCash = 20_000
+	m.Update(key("2"))
+	m.Update(key("right"))
+	if m.screen != screenMarket || m.mode != modePlay || m.city != hub {
+		t.Fatalf("right on the market: screen %v mode %v city %s", m.screen, m.mode, m.city)
+	}
+	assertFits(t, m.View(), 80, 24, "the other city's market")
+	m.Update(key("s"))
+	if m.mode != modePlay || !strings.Contains(m.status, "Nothing") {
+		t.Fatalf("s with nothing there: mode %v status %q", m.mode, m.status)
+	}
+	m.Update(key("["))
+	if m.city != home {
+		t.Fatalf("[ went to %s", m.city)
+	}
+	m.Update(key("5"))
+	m.Update(key("]"))
+	if m.screen != screenMap || m.mode != modePlay || m.city != hub || len(m.shown().Corners) != len(m.cfg.City.City(hub).Corners) {
+		t.Fatalf("] on the map: screen %v mode %v city %s corners %d", m.screen, m.mode, m.city, len(m.shown().Corners))
+	}
+	assertFits(t, m.View(), 80, 24, "the other city's map")
+	// You cannot stand on a corner there from here.
+	m.Update(key("c"))
+	m.Update(key("enter"))
+	if m.mode != modePlay || w.PostOf(game.You).City != home || !strings.Contains(m.status, "go there first") {
+		t.Fatalf("posting yourself elsewhere: mode %v status %q", m.mode, m.status)
+	}
+	m.Update(key("["))
+
+	// Ship 30 of the first product from home by the first route, fast.
+	w.Stash(home)[product] = 50
+	m.Update(key("1"))
+	m.Update(key("t"))
+	if m.mode != modeShip || m.shp.step != 0 {
+		t.Fatalf("t: mode %v step %d status %q", m.mode, m.shp.step, m.status)
+	}
+	assertFits(t, m.View(), 80, 24, "ship: product")
+	m.Update(key("enter"))
+	if m.shp.step != 1 {
+		t.Fatalf("after the product: step %d err %q", m.shp.step, m.shp.err)
+	}
+	assertFits(t, m.View(), 80, 24, "ship: route")
+	m.Update(key("j"))
+	m.Update(key("k"))
+	m.Update(key("enter"))
+	for _, r := range "30" {
+		m.Update(key(string(r)))
+	}
+	assertFits(t, m.View(), 80, 24, "ship: quantity")
+	m.Update(key("enter"))
+	if m.shp.step != 3 {
+		t.Fatalf("after the quantity: step %d err %q", m.shp.step, m.shp.err)
+	}
+	m.Update(key("right"))
+	assertFits(t, m.View(), 80, 24, "ship: dial")
+	if m.shp.dial != events.ShipFast {
+		t.Fatalf("right on the dial: %v", m.shp.dial)
+	}
+	cash := w.Player.DirtyCash
+	m.Update(key("enter"))
+	route := m.set.Logistics.Routes(home)[0]
+	if m.mode != modePlay || len(w.Shipments) != 1 || w.Shipments[0].Units != 30 || w.Shipments[0].Dial != events.ShipFast || w.Shipments[0].Route != route.ID {
+		t.Fatalf("after shipping: mode %v shipments %+v err %q status %q", m.mode, w.Shipments, m.shp.err, m.status)
+	}
+	if w.Stock(home, product) != 20 || w.Player.DirtyCash != cash-30*route.Cost || w.InTransit(product) != 30 {
+		t.Fatalf("stock %d cash %d -> %d transit %d", w.Stock(home, product), cash, w.Player.DirtyCash, w.InTransit(product))
+	}
+	m.Update(key("t"))
+	m.Update(key("enter"))
+	m.Update(key("enter"))
+	m.Update(key("enter"))
+	m.Update(key("enter"))
+	if m.mode != modeShip || !strings.Contains(m.shp.err, "already left") {
+		t.Fatalf("a second shipment on the route today: mode %v err %q", m.mode, m.shp.err)
+	}
+	m.Update(key("esc"))
+	m.Update(key("esc"))
+	m.Update(key("esc"))
+	m.Update(key("esc"))
+	if m.mode != modePlay {
+		t.Fatalf("esc did not close the dialog: %v", m.mode)
+	}
+	if !strings.Contains(stripANSI(m.View()), "on the road") {
+		t.Fatal("the dashboard does not show what is on the road")
+	}
+	m.Update(key("5"))
+	if !strings.Contains(stripANSI(m.View()), "on the road") {
+		t.Fatal("the map does not show what is on the road")
+	}
+	m.Update(key("1"))
+
+	// The morning report lists what left; a fast shipment by a route with
+	// no risk lands and the report says so.
+	m.cfg.Routes.Routes[0].Risk = 0 // the sim shares the slice it was built with
+	days := m.set.Logistics.Days(route, events.ShipFast)
+	endDay(t, m)
+	if !strings.Contains(strings.Join(w.Report.Shipments, "\n"), "left") || !strings.Contains(strings.Join(w.Report.Money, "\n"), "Shipping") {
+		t.Fatalf("report: %v %v", w.Report.Shipments, w.Report.Money)
+	}
+	assertFits(t, m.View(), 80, 24, "report with a shipment")
+	m.Update(key("enter"))
+	for i := 1; i < days; i++ {
+		endDay(t, m)
+		m.Update(key("enter"))
+	}
+	if len(w.Shipments) != 0 || w.Stock(hub, product) < 30 || w.Stats.Seizures+w.Stats.SeizedOnRoad != 0 {
+		t.Fatalf("after %d days: shipments %+v hub stash %d stats %+v", days, w.Shipments, w.Stock(hub, product), w.Stats)
+	}
+	if !strings.Contains(strings.Join(w.Report.Shipments, "\n"), "landed") {
+		t.Fatalf("report does not mention the arrival: %v", w.Report.Shipments)
+	}
+
+	// Travel: g asks, esc stays, y goes; your corner is left, stock stays.
+	m.Update(key("g"))
+	if m.mode != modeConfirmTravel {
+		t.Fatalf("g: mode %v", m.mode)
+	}
+	assertFits(t, m.View(), 80, 24, "travel confirm")
+	m.Update(key("esc"))
+	if m.mode != modePlay || w.Player.Location != home {
+		t.Fatal("esc travelled")
+	}
+	mine := w.PostOf(game.You)
+	m.Update(key("g"))
+	m.Update(key("y"))
+	if w.Player.Location != hub || m.city != hub || w.PostOf(game.You) != nil || !mine.Held() || w.Stock(home, product) != 20 {
+		t.Fatalf("after y: in %s (shown %s), posted %v, corner %+v, home stash %d", w.Player.Location, m.city, w.PostOf(game.You), *mine, w.Stock(home, product))
+	}
+	assertFits(t, m.View(), 80, 24, "dashboard elsewhere")
+	// Now b buys here, and s sells out of the stash here.
+	m.Update(key("b"))
+	m.Update(key("enter"))
+	m.Update(key("enter"))
+	if m.mode != modePlay || w.Stock(hub, product) <= 30 || w.Stock(home, product) != 20 {
+		t.Fatalf("buy elsewhere: mode %v err %q hub %d home %d", m.mode, m.dlg.err, w.Stock(hub, product), w.Stock(home, product))
+	}
+	m.Update(key("s"))
+	m.Update(key("enter"))
+	m.Update(key("enter"))
+	m.Update(key("enter"))
+	if o, ok := w.Order(hub, product); !ok || o.City != hub {
+		t.Fatalf("sell elsewhere: %+v %v status %q", o, ok, m.status)
+	}
+	if _, ok := w.Order(home, product); ok {
+		t.Fatal("sold at home from elsewhere")
+	}
+	m.Update(key("x"))
+	if _, ok := w.Order(hub, product); ok {
+		t.Fatal("x did not cancel the order here")
+	}
+	// And g goes home again, to your empty corner.
+	m.Update(key("g"))
+	m.Update(key("y"))
+	if w.Player.Location != home {
+		t.Fatalf("back home: in %s", w.Player.Location)
+	}
+	m.Update(key("5"))
+	m.mapCursor = m.yourCorner()
+	m.Update(key("c"))
+	m.Update(key("enter"))
+	if w.PostOf(game.You) == nil {
+		t.Fatalf("could not step back on: %q", m.status)
+	}
+}
+
+// The wholesaler: in the city that sells by the lot, once the door is
+// open, w in the buy dialog switches to lots, the quantity is in lots and
+// the stash's capacity does not hold them.
+func TestWholesaleKeys(t *testing.T) {
+	m := newTestModel(t, 100, 30)
+	w := m.w
+	hub := ""
+	for _, c := range m.cfg.City.Cities {
+		if c.Wholesale {
+			hub = c.ID
+		}
+	}
+	if hub == "" {
+		t.Skip("no city sells by the lot")
+	}
+	offer := m.set.Logistics.Wholesale()
+	w.Player.DirtyCash = 1_000_000
+	product := w.Products[0]
+	m.Update(key("b"))
+	m.Update(key("enter"))
+	m.Update(key("w")) // at home: not a lot, just a letter the field ignores
+	if m.dlg.lots {
+		t.Fatal("bought by the lot where nobody sells by it")
+	}
+	m.Update(key("esc"))
+	m.Update(key("esc"))
+	if err := w.Travel(hub); err != nil {
+		t.Fatal(err)
+	}
+	m.city = hub
+	m.Update(key("b"))
+	m.Update(key("enter"))
+	m.Update(key("w"))
+	if m.dlg.lots {
+		t.Fatal("bought by the lot before the unlock")
+	}
+	m.Update(key("esc"))
+	m.Update(key("esc"))
+	w.Stats.PeakCash = offer.UnlockCash
+	m.Update(key("2"))
+	if !strings.Contains(stripANSI(m.View()), "Wholesale") {
+		t.Fatal("the market does not offer the lots")
+	}
+	m.Update(key("b"))
+	m.Update(key("enter"))
+	m.Update(key("w"))
+	if !m.dlg.lots {
+		t.Fatal("w did not switch to lots")
+	}
+	assertFits(t, m.View(), 100, 30, "buy by the lot")
+	if mx := m.maxBuy(product); mx < 3 {
+		t.Fatalf("max %d lots with $1M", mx)
+	}
+	m.Update(key("3"))
+	m.Update(key("enter"))
+	if m.mode != modePlay || w.Stock(hub, product) != 3*offer.Lot || !strings.Contains(m.status, "by the lot") {
+		t.Fatalf("lots: mode %v err %q stash %d status %q", m.mode, m.dlg.err, w.Stock(hub, product), m.status)
+	}
+	if w.Free(hub) >= 0 {
+		t.Fatalf("the lots fit the stash: free %d", w.Free(hub))
+	}
+	m.Update(key("b"))
+	m.Update(key("enter"))
+	if m.mode != modeBuy || m.dlg.step != 0 || !strings.Contains(m.dlg.err, "hold") {
+		t.Fatalf("retail past capacity: mode %v step %d err %q", m.mode, m.dlg.step, m.dlg.err)
+	}
+	m.Update(key("esc"))
 }

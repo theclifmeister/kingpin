@@ -265,8 +265,9 @@ func (m *Model) viewCrew() string {
 	b.WriteString("\n")
 
 	// What the crew adds, in the same terms the dashboard uses.
-	b.WriteString(theme.Subtle.Render(fmt.Sprintf("  Capacity %d units (%d yours + %d crew) · %d corner(s) worked",
-		w.Capacity(), w.Player.CarryLimit, w.Capacity()-w.Player.CarryLimit, w.Worked())) + "\n")
+	here := w.Here()
+	b.WriteString(truncate(theme.Subtle.Render(fmt.Sprintf("  Capacity in %s %d units (%d yours + %d crew) · %d corner(s) worked",
+		here.Name, w.Capacity(here.ID), w.Player.CarryLimit, w.Capacity(here.ID)-w.Player.CarryLimit, w.Worked())), m.width) + "\n")
 	idle := 0
 	for _, c := range w.Crew.Members {
 		if w.PostOf(c.ID) == nil {
@@ -281,7 +282,7 @@ func (m *Model) viewCrew() string {
 	} else if w.Investigation != nil {
 		b.WriteString(theme.Warning.Render("  Questions get asked tonight.") + "\n")
 	}
-	if sl := m.set.Heat.Sloppiness(w); sl > 0 {
+	if sl := m.set.Heat.Sloppiness(w, here.ID); sl > 0 {
 		per := sl * m.cfg.Heat.Heat.SloppyHeat * 100
 		b.WriteString(theme.Warning.Render(fmt.Sprintf("  Sloppy runners (skill under %d) add +%.1f heat per 100 units moved.", m.cfg.Heat.Heat.SloppySkill, per)) + "\n")
 	}
