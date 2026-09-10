@@ -30,6 +30,33 @@ func (m *Model) upgradeSelected() (content.UpgradeConfig, bool) {
 	return rows[m.upgradeCursor], true
 }
 
+// upgradeMove walks the tree as three columns: dc moves to the branch
+// beside this one at the same row (the last node if that column is
+// shorter), dr up or down within the column. The edges are no-ops.
+func (m *Model) upgradeMove(dc, dr int) {
+	if _, ok := m.upgradeSelected(); !ok {
+		return
+	}
+	var lens []int
+	for _, b := range content.Branches {
+		lens = append(lens, len(m.cfg.Upgrades.Branch(b)))
+	}
+	col, row := 0, m.upgradeCursor
+	for col < len(lens)-1 && row >= lens[col] {
+		row -= lens[col]
+		col++
+	}
+	col = max(0, min(col+dc, len(lens)-1))
+	if lens[col] == 0 {
+		return
+	}
+	row = max(0, min(row+dr, lens[col]-1))
+	for _, n := range lens[:col] {
+		row += n
+	}
+	m.upgradeCursor = row
+}
+
 // upgradeState is where a node stands for the player: owned, available
 // (prerequisites met) or locked.
 func (m *Model) upgradeState(u content.UpgradeConfig) string {
@@ -182,7 +209,8 @@ func (m *Model) viewUpgrades() string {
 		theme.Gold.Render("dirty "+cash(w.Player.DirtyCash))+theme.Subtle.Render(" · clean "+cash(w.Player.CleanCash)), m.width) + "\n\n")
 
 	// Three columns, one per branch; each node is a name-and-cost line
-	// over a one-line effect. The cursor walks the columns top to bottom.
+	// over a one-line effect. The cursor walks a column with up and down
+	// and crosses to the next with left and right.
 	colW := max(20, (m.width-1)/len(content.Branches))
 	var cols []string
 	idx := 0

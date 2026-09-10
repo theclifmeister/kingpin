@@ -417,9 +417,9 @@ func (m *Model) keyPlay(key string) (tea.Model, tea.Cmd) {
 		m.screen = screenUpgrades
 	case "7":
 		m.screen = screenLedger
-	case "tab", "right":
+	case "tab":
 		m.screen = (m.screen + 1) % screenCount
-	case "shift+tab", "left":
+	case "shift+tab":
 		m.screen = (m.screen + screenCount - 1) % screenCount
 	case "n":
 		m.endDay()
@@ -517,13 +517,9 @@ func (m *Model) keyPlay(key string) (tea.Model, tea.Cmd) {
 				m.crewCursor--
 			}
 		case m.screen == screenMap:
-			if m.mapCursor > 0 {
-				m.mapCursor--
-			}
+			m.mapMove(0, -1)
 		case m.screen == screenUpgrades:
-			if m.upgradeCursor > 0 {
-				m.upgradeCursor--
-			}
+			m.upgradeMove(0, -1)
 		case m.cursor > 0:
 			m.cursor--
 		}
@@ -536,15 +532,25 @@ func (m *Model) keyPlay(key string) (tea.Model, tea.Cmd) {
 				m.crewCursor++
 			}
 		case m.screen == screenMap:
-			if m.mapCursor < len(m.w.Territory.Corners)-1 {
-				m.mapCursor++
-			}
+			m.mapMove(0, 1)
 		case m.screen == screenUpgrades:
-			if m.upgradeCursor < len(m.upgradeRows())-1 {
-				m.upgradeCursor++
-			}
+			m.upgradeMove(0, 1)
 		case m.cursor < len(m.w.Products)-1:
 			m.cursor++
+		}
+	case "left", "right":
+		// Arrows move within a screen, never between tabs: along the
+		// map's grid, across the upgrade columns. Screens with no
+		// horizontal structure ignore them.
+		dx := 1
+		if key == "left" {
+			dx = -1
+		}
+		switch m.screen {
+		case screenMap:
+			m.mapMove(dx, 0)
+		case screenUpgrades:
+			m.upgradeMove(dx, 0)
 		}
 	case "pgup":
 		m.journal.HalfPageUp()
@@ -736,9 +742,9 @@ func (m *Model) viewFooter() string {
 		case screenCrew:
 			keys = k("n", "end day") + k("↑↓", "pick") + k("h", "hire") + k("f", "fire") + k("i", "ask") + k("$", "pay off") + k("p", "pay") + k("?", "help")
 		case screenMap:
-			keys = k("n", "end day") + k("↑↓", "pick") + k("c", "runner") + k("e", "enforcer") + k("a", "abandon") + k("w", "war") + k("?", "help") + k("q", "quit")
+			keys = k("n", "end day") + k("↑↓←→", "pick") + k("c", "runner") + k("e", "enforcer") + k("a", "abandon") + k("w", "war") + k("?", "help") + k("q", "quit")
 		case screenUpgrades:
-			keys = k("n", "end day") + k("↑↓", "pick") + k("enter", "buy") + k("?", "help") + k("q", "quit")
+			keys = k("n", "end day") + k("↑↓←→", "pick") + k("enter", "buy") + k("?", "help") + k("q", "quit")
 		case screenLedger:
 			keys = k("n", "end day") + k("b", "buy a front") + k("d", "launder dial") + k("l", "lie low") + k("?", "help") + k("q", "quit")
 		default:
@@ -797,7 +803,7 @@ func (m *Model) viewStart() string {
 
 func (m *Model) viewHelp() string {
 	rows := [][2]string{
-		{"1-7 / ← →", "switch screen (tab / shift+tab too)"},
+		{"1-7 / tab", "switch screen (shift+tab goes back)"},
 		{"n", "end the day (sims step, autosave)"},
 		{"enter", "end the day, after a confirmation"},
 		{"b", "buy from the supplier (on the ledger: buy a front)"},
@@ -813,6 +819,7 @@ func (m *Model) viewHelp() string {
 		{"u / enter", "buy the selected upgrade, after a confirmation (upgrades)"},
 		{"d", "cycle the launder dial: careful / normal / greedy"},
 		{"↑ ↓ / j k", "move the cursor / scroll journal"},
+		{"← →", "walk the map grid / the upgrade columns"},
 		{"ctrl+s", "save now"},
 		{"N", "abandon run and start over"},
 		{"q", "save and quit"},

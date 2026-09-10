@@ -39,6 +39,12 @@ func key(s string) tea.KeyMsg {
 		return tea.KeyMsg{Type: tea.KeyLeft}
 	case "right":
 		return tea.KeyMsg{Type: tea.KeyRight}
+	case "up":
+		return tea.KeyMsg{Type: tea.KeyUp}
+	case "down":
+		return tea.KeyMsg{Type: tea.KeyDown}
+	case "shift+tab":
+		return tea.KeyMsg{Type: tea.KeyShiftTab}
 	}
 	return tea.KeyMsg{Type: tea.KeyRunes, Runes: []rune(s)}
 }
@@ -446,26 +452,33 @@ func TestUnreadableSaveIsRefused(t *testing.T) {
 	}
 }
 
-// Left and right walk the tab bar and wrap; inside the sell dialog they
-// still move the dial.
-func TestArrowsSwitchTabs(t *testing.T) {
+// Left and right never switch tabs (#36): on every play screen they leave
+// the screen alone, while tab, shift+tab and the digits still switch. In
+// the sell dialog they still move the dial.
+func TestArrowsStayOnScreen(t *testing.T) {
 	m := newTestModel(t, 80, 24)
 	if m.screen != screenDashboard {
 		t.Fatalf("start screen %v", m.screen)
 	}
-	m.Update(key("left"))
-	if m.screen != screenCount-1 {
-		t.Fatalf("left from the first tab went to %v", m.screen)
-	}
-	m.Update(key("right"))
-	if m.screen != screenDashboard {
-		t.Fatalf("right from the last tab went to %v", m.screen)
-	}
-	for i := 1; i < int(screenCount); i++ {
-		m.Update(key("right"))
+	for i := 0; i < int(screenCount); i++ {
+		m.Update(key(string(rune('1' + i))))
 		if m.screen != screen(i) {
-			t.Fatalf("right %d: screen %v", i, m.screen)
+			t.Fatalf("digit %d: screen %v", i+1, m.screen)
 		}
+		m.Update(key("left"))
+		m.Update(key("right"))
+		m.Update(key("right"))
+		if m.screen != screen(i) || m.mode != modePlay {
+			t.Fatalf("arrows on screen %v went to %v (mode %v)", screen(i), m.screen, m.mode)
+		}
+	}
+	m.Update(key("tab"))
+	if m.screen != screenDashboard {
+		t.Fatalf("tab from the last tab went to %v", m.screen)
+	}
+	m.Update(key("shift+tab"))
+	if m.screen != screenCount-1 {
+		t.Fatalf("shift+tab from the first tab went to %v", m.screen)
 	}
 	m.Update(key("1"))
 	m.w.Player.Stock[m.w.Products[0]] = 5
@@ -475,6 +488,176 @@ func TestArrowsSwitchTabs(t *testing.T) {
 	m.Update(key("right"))
 	if m.mode != modeSell || m.dlg.dial != events.DialAggressive || m.screen != screenDashboard {
 		t.Fatalf("right in the sell dialog: mode %v dial %v screen %v", m.mode, m.dlg.dial, m.screen)
+	}
+}
+
+// The map is walked as a grid: from every cell, right selects the next
+// corner along the row (a no-op at the edge), down the nearest corner in
+// the row below, and the arrows alone reach every corner in city.toml.
+func TestMapArrowsWalkGrid(t *testing.T) {
+	m := newTestModel(t, 100, 30)
+	m.Update(key("5"))
+	cs := m.w.Territory.Corners
+	// want is the corner the arrow should land on from i, or i itself.
+	want := func(i, dx, dy int) int {
+		best, bestD := i, 0
+		for j, c := range cs {
+			var d int
+			switch {
+			case dx != 0:
+				if c.Y != cs[i].Y || (c.X-cs[i].X)*dx <= 0 {
+					continue
+				}
+				d = (c.X - cs[i].X) * dx
+			default:
+				if c.Y != cs[i].Y+dy {
+					continue
+				}
+				d = max(c.X-cs[i].X, cs[i].X-c.X)
+			}
+			if best == i || d < bestD {
+				best, bestD = j, d
+			}
+		}
+		return best
+	}
+	moves := []struct {
+		key    string
+		dx, dy int
+	}{{"right", 1, 0}, {"left", -1, 0}, {"down", 0, 1}, {"up", 0, -1}}
+	for i := range cs {
+		for _, mv := range moves {
+			m.mapCursor = i
+			m.Update(key(mv.key))
+			if got, w := m.mapCursor, want(i, mv.dx, mv.dy); got != w {
+				t.Errorf("%s from %s (%d,%d): got %s (%d,%d), want %s (%d,%d)", mv.key,
+					cs[i].Name, cs[i].X, cs[i].Y, cs[got].Name, cs[got].X, cs[got].Y, cs[w].Name, cs[w].X, cs[w].Y)
+			}
+			if m.screen != screenMap || m.mode != modePlay {
+				t.Fatalf("%s left the map: screen %v mode %v", mv.key, m.screen, m.mode)
+			}
+		}
+	}
+	// A right at the end of a row stays put; the grid has a hole at (3,0).
+	for i, c := range cs {
+		if c.X == 2 && c.Y == 0 {
+			m.mapCursor = i
+			m.Update(key("right"))
+			if m.mapCursor != i {
+				t.Fatalf("right from %s jumped to %s", c.Name, cs[m.mapCursor].Name)
+			}
+		}
+	}
+	// Reachability: a flood fill by arrows from corner 0 visits every corner.
+	seen := map[int]bool{0: true}
+	queue := []int{0}
+	for len(queue) > 0 {
+		i := queue[0]
+		queue = queue[1:]
+		for _, mv := range moves {
+			m.mapCursor = i
+			m.Update(key(mv.key))
+			if !seen[m.mapCursor] {
+				seen[m.mapCursor] = true
+				queue = append(queue, m.mapCursor)
+			}
+		}
+	}
+	if len(seen) != len(cs) {
+		t.Fatalf("arrows reach %d of %d corners", len(seen), len(cs))
+	}
+	// The picker reads the same index: the corner it posts on is the one
+	// the arrows selected.
+	m.mapCursor = 0
+	m.Update(key("down"))
+	m.Update(key("right"))
+	sel := m.mapSelected().ID
+	m.w.Player.DirtyCash = 5000
+	m.Update(key("c"))
+	if m.mode != modePost {
+		t.Fatalf("c after arrows: mode %v status %q", m.mode, m.status)
+	}
+	m.Update(key("enter"))
+	if m.w.Corner(sel).Runner != game.You {
+		t.Fatalf("posted on %s, not the arrowed corner %s", m.w.Territory.Corners[m.mapCursor].ID, sel)
+	}
+}
+
+// The upgrades tree is walked as three columns: right from a node in
+// Operations selects the Security node at the same row, or the last one
+// if that column is shorter; left at the first column is a no-op; up and
+// down stay within a column; enter still buys the node under the cursor.
+func TestUpgradeArrowsMoveColumns(t *testing.T) {
+	m := newTestModel(t, 100, 30)
+	m.w.Player.DirtyCash = 8000
+	m.Update(key("6"))
+	ops := m.cfg.Upgrades.Branch("operations")
+	sec := m.cfg.Upgrades.Branch("security")
+	legal := m.cfg.Upgrades.Branch("legal")
+	if len(ops) <= len(sec) || len(sec) <= len(legal) {
+		t.Skipf("branches are %d/%d/%d nodes; the test wants them shrinking", len(ops), len(sec), len(legal))
+	}
+	id := func() string {
+		u, _ := m.upgradeSelected()
+		return u.ID
+	}
+	m.Update(key("left"))
+	if id() != ops[0].ID {
+		t.Fatalf("left at the first column moved to %s", id())
+	}
+	m.Update(key("down"))
+	m.Update(key("right"))
+	if id() != sec[1].ID {
+		t.Fatalf("right from %s selected %s, want %s", ops[1].ID, id(), sec[1].ID)
+	}
+	m.Update(key("left"))
+	if id() != ops[1].ID {
+		t.Fatalf("left back selected %s, want %s", id(), ops[1].ID)
+	}
+	// Down to the bottom of Operations, then right lands on the last of
+	// each shorter column and up/down never leave it.
+	for range ops {
+		m.Update(key("down"))
+	}
+	if id() != ops[len(ops)-1].ID {
+		t.Fatalf("down past the end of Operations selected %s", id())
+	}
+	m.Update(key("right"))
+	if id() != sec[len(sec)-1].ID {
+		t.Fatalf("right from the bottom of Operations selected %s, want %s", id(), sec[len(sec)-1].ID)
+	}
+	m.Update(key("down"))
+	if id() != sec[len(sec)-1].ID {
+		t.Fatalf("down at the bottom of Security selected %s", id())
+	}
+	m.Update(key("right"))
+	m.Update(key("right"))
+	if id() != legal[len(legal)-1].ID {
+		t.Fatalf("right at the last column selected %s, want %s", id(), legal[len(legal)-1].ID)
+	}
+	for range legal {
+		m.Update(key("up"))
+	}
+	if id() != legal[0].ID {
+		t.Fatalf("up past the top of Legal selected %s", id())
+	}
+	if m.screen != screenUpgrades || m.mode != modePlay {
+		t.Fatalf("arrows left the tree: screen %v mode %v", m.screen, m.mode)
+	}
+	// Enter buys the node under the cursor: back to the top of Security.
+	m.Update(key("left"))
+	m.Update(key("left"))
+	m.Update(key("right"))
+	if id() != sec[0].ID {
+		t.Fatalf("cursor is on %s, want %s", id(), sec[0].ID)
+	}
+	m.Update(key("enter"))
+	if m.mode != modeConfirmUpgrade || m.upgradeID != sec[0].ID {
+		t.Fatalf("enter: mode %v id %q status %q", m.mode, m.upgradeID, m.status)
+	}
+	m.Update(key("y"))
+	if !m.w.Owns(sec[0].ID) || m.w.Day != 0 {
+		t.Fatalf("y did not buy %s: owns %v day %d status %q", sec[0].ID, m.w.Owns(sec[0].ID), m.w.Day, m.status)
 	}
 }
 
