@@ -13,7 +13,7 @@
 #   crew_loyalty               everyone on the payroll
 #   war, grudge, rival_muscle, rival_cash
 #   stock_share                fraction of every product, lost if negative
-#   fear, respect, notoriety   reputation (#14); no-op until it lands
+#   fear, respect, notoriety   reputation axes (#14), 0..100
 # A key the world does not know fails at start-up. Amount is amount_share
 # of the player's dirty cash (the bag it is paid from), but at least
 # amount, rounded to two figures.

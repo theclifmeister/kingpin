@@ -64,9 +64,9 @@ type Answer struct {
 // 0..100. The *_amount keys are multiples of the card's Amount, so a card
 // can name the sum it is about and then take or pay it. stock_share is the
 // fraction of every product lost (negative) or found (positive, capped by
-// what the operation can hold). fear, respect and notoriety are the
-// reputation axes of #14: accepted so cards can carry them now, a no-op
-// until the axes exist.
+// what the operation can hold). fear, respect and notoriety move the
+// reputation axes (#14), clamped to 0..100; the sum cap is applied by the
+// reputation sim at its next step.
 var EffectKeys = []string{
 	"dirty_cash", "clean_cash", "dirty_amount", "clean_amount",
 	"heat",
@@ -160,7 +160,11 @@ func (w *World) applyEffect(c *Card, key string, v float64) error {
 			w.Player.Stock[id] = max(0, w.Player.Stock[id]+d)
 		}
 	case "fear", "respect", "notoriety":
-		// Reputation (#14) is not in yet: accepted, does nothing.
+		// The axis moves at once, clamped like the sim clamps it; the
+		// street's total attention (the sum cap) is the reputation sim's
+		// to enforce, and it does so on every source when it steps tonight.
+		a := w.Player.Reputation.Axis(key)
+		*a = clamp(*a + v)
 	default:
 		return fmt.Errorf("card %s: unknown effect %q", c.ID, key)
 	}

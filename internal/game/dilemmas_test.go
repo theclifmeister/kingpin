@@ -15,6 +15,7 @@ func cardWorld() *World {
 	w.Heat.Value = 50
 	w.Crew.Members = []CrewMember{{ID: 1, Name: "Dre", Role: "runner", Loyalty: 50}, {ID: 2, Name: "Tank", Role: "enforcer", Loyalty: 50}}
 	w.Rival = RivalState{Leader: "Ghost", War: 50, Grudge: 1, Muscle: 3, Cash: 5000, Arrived: 1}
+	w.Player.Reputation = Reputation{Fear: 10, Respect: 20, Notoriety: 30}
 	return w
 }
 
@@ -48,6 +49,9 @@ func TestChooseAppliesEveryEffectKey(t *testing.T) {
 		"rival_muscle":                w.Rival.Muscle == 2,
 		"rival_cash":                  w.Rival.Cash == 4999,
 		"stock_share":                 w.Player.Stock["a"] == 20,
+		"fear":                        w.Player.Reputation.Fear == 9,
+		"respect":                     w.Player.Reputation.Respect == 19,
+		"notoriety":                   w.Player.Reputation.Notoriety == 29,
 	}
 	for what, ok := range checks {
 		if !ok {
@@ -91,7 +95,7 @@ func TestChooseClamps(t *testing.T) {
 	w := cardWorld()
 	w.Player.CarryLimit = 50
 	w.Dilemmas.Pending = &Card{ID: "t", Amount: 10_000, Member: 2, Choices: []Choice{
-		{Label: "x", Outcome: "x", Effects: map[string]float64{"dirty_amount": -1, "clean_cash": -9000, "heat": 80, "loyalty": 90, "war": -90, "stock_share": 2}},
+		{Label: "x", Outcome: "x", Effects: map[string]float64{"dirty_amount": -1, "clean_cash": -9000, "heat": 80, "loyalty": 90, "war": -90, "stock_share": 2, "fear": 95, "respect": -50}},
 		{Label: "y", Outcome: "y"},
 	}}
 	if _, err := w.Choose(0); err != nil {
@@ -102,6 +106,9 @@ func TestChooseClamps(t *testing.T) {
 	}
 	if w.Player.Stock["a"] != 50 {
 		t.Fatalf("found stock past capacity: %d", w.Player.Stock["a"])
+	}
+	if r := w.Player.Reputation; r.Fear != 100 || r.Respect != 0 {
+		t.Fatalf("reputation not clamped: %+v", r)
 	}
 }
 
