@@ -31,7 +31,7 @@ type Simulation interface {
 // Clock advances the world one day at a time. Simulations run in the fixed
 // order they were registered in:
 //
-//	market -> logistics -> rivals -> crew -> heat -> laundering -> news
+//	market -> logistics -> territory -> rivals -> crew -> heat -> laundering -> news
 //
 // so that results are reproducible for a given seed.
 type Clock struct {
@@ -65,6 +65,7 @@ func (c *Clock) EndDay(w *World) []events.Event {
 	w.Orders = map[string]SellOrder{}
 	w.Buys = nil
 	w.LieLow = false
+	w.Strike = nil
 	w.Crew.HiredToday = nil
 	w.Crew.FiredToday = nil
 	for _, m := range w.Market {

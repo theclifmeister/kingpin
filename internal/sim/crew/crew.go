@@ -136,7 +136,19 @@ func (s *Sim) Step(w *game.World, t *game.Tick) {
 		return
 	}
 
-	// 3. Loyalty drift: pay, greed, danger, firings, unpaid wages.
+	// 3. Loyalty drift: pay, greed, danger, firings, unpaid wages, and for
+	// the enforcers, the strike they went on today: a toll from the rivals
+	// sim that the nervous feel most and a win halves.
+	toll := 0.0
+	for _, e := range t.Events() {
+		if cs, ok := e.(events.CornerStruck); ok {
+			if cs.Taken {
+				toll += cs.Toll / 2
+			} else {
+				toll += cs.Toll
+			}
+		}
+	}
 	danger := false
 	for _, level := range []string{"sting", "raid"} {
 		if d, ok := w.Heat.LastResponse[level]; ok && t.Day-d <= tun.DangerDays {
@@ -154,6 +166,9 @@ func (s *Sim) Step(w *game.World, t *game.Tick) {
 		d := base - tun.GreedDrift*float64(m.Greed)/100
 		if danger {
 			d -= tun.DangerLoyalty * float64(100-m.Nerve) / 100 * shield
+		}
+		if m.Role == "enforcer" {
+			d -= toll * float64(100-m.Nerve) / 100
 		}
 		m.Loyalty = math.Max(0, math.Min(100, m.Loyalty+d))
 	}

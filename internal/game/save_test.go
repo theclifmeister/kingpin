@@ -291,3 +291,74 @@ func TestSaveKeepsCorners(t *testing.T) {
 		t.Fatalf("corners did not round-trip:\n%+v\n%+v", got.Territory, w.Territory)
 	}
 }
+
+// Enforcers go against a rival corner only, one strike a day, and the
+// clock clears it. Borders and contested corners follow the grid, and a
+// squeeze cuts a corner's share.
+func TestSendEnforcersAndBorders(t *testing.T) {
+	w := testWorld()
+	home, docks := w.Corner("home"), w.Corner("docks")
+	if !home.Borders(*docks) || home.Borders(*home) {
+		t.Fatalf("home (%d,%d) docks (%d,%d): borders %v", home.X, home.Y, docks.X, docks.Y, home.Borders(*docks))
+	}
+	if w.Contested(*home) || w.RivalHeld() != 0 {
+		t.Fatal("contested with no rival")
+	}
+	if err := w.SendEnforcers("docks", events.ForceHit); err == nil {
+		t.Fatal("sent enforcers at a free corner")
+	}
+	docks.Owner = OwnerRival
+	if !w.Contested(*home) || !w.Contested(*docks) || w.RivalHeld() != 1 {
+		t.Fatal("home and docks should contest each other")
+	}
+	if err := w.SendEnforcers("docks", events.ForceHit); err != ErrNoEnforcers {
+		t.Fatalf("sent enforcers with none: %v", err)
+	}
+	w.Crew.Members = []CrewMember{{ID: 2, Name: "Tank", Role: "enforcer"}}
+	if err := w.SendEnforcers("nowhere", events.ForcePush); err != ErrNoCorner {
+		t.Fatalf("sent enforcers nowhere: %v", err)
+	}
+	if err := w.SendEnforcers("docks", events.ForceWarn); err != nil || w.Strike == nil || w.Strike.Force != events.ForceWarn {
+		t.Fatalf("send: %v %+v", err, w.Strike)
+	}
+	if err := w.SendEnforcers("docks", events.ForceHit); err != nil || w.Strike.Force != events.ForceHit {
+		t.Fatalf("sending again should replace: %v %+v", err, w.Strike)
+	}
+	w.CallOff()
+	if w.Strike != nil {
+		t.Fatal("call off")
+	}
+	if err := w.SendEnforcers("docks", events.ForcePush); err != nil {
+		t.Fatal(err)
+	}
+	NewClock(nil, &counter{}).EndDay(w)
+	if w.Strike != nil {
+		t.Fatal("the clock did not clear the strike")
+	}
+	home.Squeeze = 0.25
+	if got := home.Share("a"); got != 0.75 {
+		t.Fatalf("squeezed share %v", got)
+	}
+	if got := w.Demand("a"); got != 5*0.75 {
+		t.Fatalf("squeezed demand %v", got)
+	}
+}
+
+func TestSaveKeepsRival(t *testing.T) {
+	t.Setenv("KINGPIN_HOME", t.TempDir())
+	w := testWorld()
+	w.Rival = RivalState{Leader: "Big Sal", Personality: "chaotic", Supplier: 0.8, Cash: 1234, Muscle: 3, Arrived: 2, Observed: true, Grudge: 1, War: 33.5, Claims: 2, Flips: 1, Tips: 1}
+	w.Corner("docks").Owner = OwnerRival
+	w.Corner("home").Squeeze = 0.2
+	w.Stats.Strikes, w.Stats.CornersWon, w.Stats.CornersLost = 3, 1, 2
+	if err := Save(w); err != nil {
+		t.Fatal(err)
+	}
+	got, err := Load()
+	if err != nil {
+		t.Fatal(err)
+	}
+	if got.Rival != w.Rival || !reflect.DeepEqual(got.Territory, w.Territory) || got.Stats != w.Stats {
+		t.Fatalf("rival did not round-trip:\n%+v\n%+v", got.Rival, w.Rival)
+	}
+}

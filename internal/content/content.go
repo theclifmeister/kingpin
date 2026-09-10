@@ -1,4 +1,4 @@
-// Package content loads the tuning data (markets, city, heat, crew, headlines) that
+// Package content loads the tuning data (markets, city, heat, crew, rivals, headlines) that
 // lives in TOML files embedded in the binary. Balance changes never need
 // code changes.
 package content
@@ -21,6 +21,7 @@ type Config struct {
 	City      CityConfig
 	Heat      HeatConfig
 	Crew      CrewConfig
+	Rivals    RivalsConfig
 	Names     NamesConfig
 	Headlines HeadlinesConfig
 }
@@ -176,9 +177,68 @@ type RoleConfig struct {
 	Deterrence   float64 `toml:"deterrence"` // fraction of skim chance each one removes
 }
 
+// RivalsConfig mirrors rivals.toml.
+type RivalsConfig struct {
+	Rivals      RivalsTuning                 `toml:"rivals"`
+	Personality map[string]PersonalityConfig `toml:"personality"`
+	Force       map[string]ForceConfig       `toml:"force"`
+}
+
+type RivalsTuning struct {
+	ArriveDay          int     `toml:"arrive_day"`
+	StartCash          int     `toml:"start_cash"`
+	StartMuscle        int     `toml:"start_muscle"`
+	Margin             float64 `toml:"margin"`
+	MuscleWage         int     `toml:"muscle_wage"`
+	MuscleFee          int     `toml:"muscle_fee"`
+	ClaimCost          int     `toml:"claim_cost"`
+	SupplierMin        float64 `toml:"supplier_min"`
+	SupplierMax        float64 `toml:"supplier_max"`
+	PushFlip           float64 `toml:"push_flip"`
+	PushWar            float64 `toml:"push_war"`
+	UndercutPrice      float64 `toml:"undercut_price"`
+	TipHeat            float64 `toml:"tip_heat"`
+	ObserveDays        int     `toml:"observe_days"`
+	RegroupDays        int     `toml:"regroup_days"`
+	WarDecay           float64 `toml:"war_decay"`
+	WarThreshold       float64 `toml:"war_threshold"`
+	CrackdownThreshold float64 `toml:"crackdown_threshold"`
+	CrackdownCorners   int     `toml:"crackdown_corners"`
+	CrackdownHeat      float64 `toml:"crackdown_heat"`
+	CrackdownMuscle    float64 `toml:"crackdown_muscle"`
+}
+
+type PersonalityConfig struct {
+	ClaimChance     float64 `toml:"claim_chance"`
+	MaxCorners      int     `toml:"max_corners"`
+	PushPastCap     float64 `toml:"push_past_cap"` // multiplier on push_chance once it holds max_corners; 0 stops
+	Grow            string  `toml:"grow"`          // biggest, adjacent, random
+	PushChance      float64 `toml:"push_chance"`
+	MusclePerCorner float64 `toml:"muscle_per_corner"`
+	Undercut        float64 `toml:"undercut"`
+	TipChance       float64 `toml:"tip_chance"`
+	Defence         float64 `toml:"defence"`
+}
+
+type ForceConfig struct {
+	Attack  float64 `toml:"attack"`
+	Flip    float64 `toml:"flip"`
+	Heat    float64 `toml:"heat"`
+	War     float64 `toml:"war"`
+	Loyalty float64 `toml:"loyalty"`
+}
+
+// Personalities are the rival personalities in a fixed order, so a pick
+// by seed is reproducible.
+var Personalities = []string{"expansionist", "defensive", "opportunist", "chaotic"}
+
+// ForceFor returns the tuning for a force dial position.
+func (r RivalsConfig) ForceFor(f events.Force) ForceConfig { return r.Force[f.String()] }
+
 // NamesConfig mirrors names.toml.
 type NamesConfig struct {
-	Crew []string `toml:"crew"`
+	Crew   []string `toml:"crew"`
+	Rivals []string `toml:"rivals"`
 }
 
 // HeadlinesConfig mirrors headlines.toml.
@@ -203,6 +263,9 @@ func Load() (*Config, error) {
 	if err := decode("crew.toml", &c.Crew); err != nil {
 		return nil, err
 	}
+	if err := decode("rivals.toml", &c.Rivals); err != nil {
+		return nil, err
+	}
 	if err := decode("names.toml", &c.Names); err != nil {
 		return nil, err
 	}
@@ -225,6 +288,19 @@ func Load() (*Config, error) {
 	}
 	if len(c.Names.Crew) < c.Crew.Crew.MaxCrew+c.Crew.Crew.Candidates {
 		return nil, fmt.Errorf("names.toml: only %d crew names", len(c.Names.Crew))
+	}
+	for _, p := range Personalities {
+		if _, ok := c.Rivals.Personality[p]; !ok {
+			return nil, fmt.Errorf("rivals.toml: no [personality.%s] table", p)
+		}
+	}
+	for _, f := range []events.Force{events.ForceWarn, events.ForcePush, events.ForceHit} {
+		if _, ok := c.Rivals.Force[f.String()]; !ok {
+			return nil, fmt.Errorf("rivals.toml: no [force.%s] table", f)
+		}
+	}
+	if len(c.Names.Rivals) == 0 {
+		return nil, fmt.Errorf("names.toml: no rival names")
 	}
 	return &c, nil
 }

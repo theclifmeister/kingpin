@@ -66,6 +66,7 @@ type data struct {
 	Name    string
 	Role    string
 	Corner  string
+	Rival   string
 }
 
 // Step writes headlines into the journal and assembles the morning report.
@@ -171,8 +172,68 @@ func (s *Sim) Step(w *game.World, t *game.Tick) {
 		case events.CornerLost:
 			d := base
 			d.Corner = ev.Name
-			add("territory", "CornerLost", d)
-			rep.Territory = append(rep.Territory, fmt.Sprintf("%s went back to the street: nobody was working it.", ev.Name))
+			switch ev.Reason {
+			case "crackdown":
+				add("rivals", "CornerCrackdown", d)
+				if ev.Owner == game.OwnerRival {
+					rep.Territory = append(rep.Territory, fmt.Sprintf("Police cleared %s: %s's crew lost it.", ev.Name, w.Rival.Leader))
+				} else {
+					rep.Territory = append(rep.Territory, fmt.Sprintf("Police cleared %s: you lost it.", ev.Name))
+				}
+			default:
+				add("territory", "CornerLost", d)
+				rep.Territory = append(rep.Territory, fmt.Sprintf("%s went back to the street: nobody was working it.", ev.Name))
+			}
+		case events.RivalMovedIn:
+			d := base
+			d.Corner, d.Rival = ev.Name, ev.Rival
+			add("rivals", "RivalMovedIn", d)
+			rep.Territory = append(rep.Territory, fmt.Sprintf("%s's crew moved in on %s. Somebody new wants the city.", ev.Rival, ev.Name))
+		case events.CornerTaken:
+			d := base
+			d.Corner, d.Rival = ev.Name, ev.Rival
+			if ev.From == game.OwnerPlayer {
+				add("rivals", "CornerTaken", d)
+				rep.Territory = append(rep.Territory, fmt.Sprintf("%s's crew TOOK %s from you. Your people walked home.", ev.Rival, ev.Name))
+			} else {
+				add("rivals", "RivalClaimed", d)
+				rep.Territory = append(rep.Territory, fmt.Sprintf("%s's crew set up on %s.", ev.Rival, ev.Name))
+			}
+		case events.RivalPushed:
+			d := base
+			d.Corner, d.Rival = ev.Name, ev.Rival
+			add("rivals", "RivalPushed", d)
+			rep.Territory = append(rep.Territory, fmt.Sprintf("%s's crew pushed on %s. You held it.", ev.Rival, ev.Name))
+		case events.CornerStruck:
+			d := base
+			d.Corner, d.Rival = ev.Name, ev.Rival
+			switch {
+			case ev.Routed:
+				add("rivals", "RivalRouted", d)
+				rep.Territory = append(rep.Territory, fmt.Sprintf("Your enforcers %s %s and TOOK it. That was %s's last corner.", pastTense(ev.Force), ev.Name, ev.Rival))
+			case ev.Taken:
+				add("rivals", "CornerStruckTaken", d)
+				rep.Territory = append(rep.Territory, fmt.Sprintf("Your enforcers %s %s and TOOK it. Post a runner before it drifts.", pastTense(ev.Force), ev.Name))
+			default:
+				add("rivals", "CornerStruckHeld", d)
+				rep.Territory = append(rep.Territory, fmt.Sprintf("Your enforcers %s %s; %s's people held it.", pastTense(ev.Force), ev.Name, ev.Rival))
+			}
+		case events.RivalTippedPolice:
+			d := base
+			d.Rival = ev.Rival
+			add("rivals", "RivalTippedPolice", d)
+			rep.Territory = append(rep.Territory, fmt.Sprintf("Somebody tipped the police about you. It was %s. Heat +%.0f.", ev.Rival, ev.Heat))
+		case events.RivalUndercut:
+			rep.Territory = append(rep.Territory, fmt.Sprintf("%s's crew are undercutting you on %s: -%.0f%% demand there.", ev.Rival, strings.Join(ev.Corners, ", "), ev.Share*100))
+		case events.WarEscalated:
+			d := base
+			if ev.Stage == "crackdown" {
+				add("rivals", "WarCrackdown", d)
+				rep.Territory = append(rep.Territory, fmt.Sprintf("CRACKDOWN. The police cleared %s. Both sides lost ground.", strings.Join(ev.Lost, ", ")))
+			} else {
+				add("rivals", "WarOpen", d)
+				rep.Territory = append(rep.Territory, fmt.Sprintf("The war is loud (%.0f/100). Keep it up and the police clear both sides.", ev.War))
+			}
 		case events.CornerRobbed:
 			d := base
 			d.Corner = ev.Name
@@ -237,6 +298,18 @@ func render(t *template.Template, d data) string {
 		return t.Name()
 	}
 	return b.String()
+}
+
+// pastTense is what the enforcers did, for the report.
+func pastTense(f events.Force) string {
+	switch f {
+	case events.ForceWarn:
+		return "warned"
+	case events.ForceHit:
+		return "hit"
+	default:
+		return "pushed"
+	}
 }
 
 func capitalize(s string) string {

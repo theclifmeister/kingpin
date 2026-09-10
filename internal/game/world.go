@@ -10,7 +10,7 @@ import (
 )
 
 // SchemaVersion is bumped whenever World changes shape incompatibly.
-const SchemaVersion = 3
+const SchemaVersion = 4
 
 // World is the complete state of a run. Every field is a plain value so the
 // whole struct can be serialised with encoding/gob.
@@ -26,11 +26,13 @@ type World struct {
 	Heat      HeatState
 	Crew      CrewState
 	Territory TerritoryState
+	Rival     RivalState
 
 	// Per-day scratch, cleared by the clock after every EndDay.
 	Orders map[string]SellOrder // pending sell orders keyed by product id
 	Buys   []Purchase           // purchases made today
 	LieLow bool                 // player chose to lie low today
+	Strike *StrikeOrder         // enforcers sent against a rival corner tonight
 
 	Journal []Headline // full headline history, oldest first
 	Report  *DayReport // morning report for the current day
@@ -141,6 +143,33 @@ type SellOrder struct {
 	Dial    events.Dial
 }
 
+// StrikeOrder is the player's enforcers sent against a rival corner at a
+// force, resolved by the rival sim at end of day.
+type StrikeOrder struct {
+	Corner string
+	Force  events.Force
+}
+
+// RivalState is the faction competing for the city's corners. Leader is
+// empty until the sim seeds it; Arrived is 0 until it holds its first
+// corner. War is how loud the fight has got, 0..100: past the crackdown
+// line the police clear both sides.
+type RivalState struct {
+	Leader      string
+	Personality string  // expansionist, defensive, opportunist, chaotic
+	Supplier    float64 // its supplier price as a fraction of street; a better connect undercuts harder
+	Cash        int
+	Muscle      int // enforcers on its side, abstract
+	Arrived     int // day it moved in; 0 = not yet
+	Routed      int // day it last lost its last corner; 0 = never
+	Observed    bool
+	Grudge      int     // losses it has not yet paid back
+	War         float64 // 0..100
+	Claims      int     // lifetime counters for the run summary
+	Flips       int     // corners it took from the player
+	Tips        int
+}
+
 // Purchase is a buy from the supplier, applied immediately.
 type Purchase struct {
 	Product   string
@@ -187,6 +216,9 @@ type Stats struct {
 	Wages        int
 	Skimmed      int
 	Robbed       int
+	Strikes      int // enforcers sent against a rival corner
+	CornersWon   int // rival corners taken by force
+	CornersLost  int // corners the rival took from you
 }
 
 // StartingProduct describes a product as it exists at the start of a run.

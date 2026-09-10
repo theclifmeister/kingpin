@@ -7,6 +7,7 @@ import (
 
 	"github.com/charmbracelet/lipgloss"
 
+	"github.com/theclifmeister/kingpin/internal/events"
 	"github.com/theclifmeister/kingpin/internal/game"
 	"github.com/theclifmeister/kingpin/internal/ui/theme"
 )
@@ -28,7 +29,7 @@ func ownerStyle(owner string) lipgloss.Style {
 	case game.OwnerPlayer:
 		return lipgloss.NewStyle().Foreground(theme.Crew)
 	case game.OwnerRival:
-		return lipgloss.NewStyle().Foreground(theme.Rivals)
+		return theme.Rival
 	default:
 		return theme.Subtle
 	}
@@ -173,8 +174,12 @@ func (m *Model) viewMap() string {
 			unserved += m.cornerUnits(c)
 		}
 	}
-	b.WriteString(truncate(theme.PanelTitle.Render("MAP · "+w.City)+
-		theme.Subtle.Render(fmt.Sprintf("  %d/%d held · %d worked · ~%.0f units/day unworked", w.Held(), len(cs), w.Worked(), unserved)), m.width) + "\n\n")
+	head := theme.PanelTitle.Render("MAP · "+w.City) +
+		theme.Subtle.Render(fmt.Sprintf("  %d/%d held · %d worked · ~%.0f units/day unworked", w.Held(), len(cs), w.Worked(), unserved))
+	if w.Rival.Arrived > 0 {
+		head += theme.Rival.Render(fmt.Sprintf(" · %s %d", m.rivalName(), w.RivalHeld()))
+	}
+	b.WriteString(truncate(head, m.width) + "\n\n")
 
 	// The grid. Cells are laid out by their x, y; the body width decides
 	// how wide a cell can be.
@@ -222,13 +227,21 @@ func (m *Model) viewMap() string {
 			case c.Held():
 				who = theme.Warning.Render(fit(fmt.Sprintf("  nobody, %dd left", max(1, m.set.Territory.Tuning().DriftDays-c.Idle)), cellW-1))
 			case c.Owner == game.OwnerRival:
-				who = st.Render(fit("  theirs", cellW-1))
+				if s := w.Strike; s != nil && s.Corner == c.ID {
+					who = theme.Warning.Render(fit(fmt.Sprintf("  ⚔ %s tonight", s.Force), cellW-1))
+				} else {
+					who = st.Render(fit("  theirs", cellW-1))
+				}
 			default:
 				who = theme.Subtle.Render(fit("  free", cellW-1))
 			}
+			facts := fmt.Sprintf("  ~%.0f/day %s", m.cornerUnits(*c), heatWord(c.Heat))
+			if c.Squeeze > 0 {
+				facts = fmt.Sprintf("  ~%.0f/day undercut", m.cornerUnits(*c))
+			}
 			l1 = append(l1, name+" ")
 			l2 = append(l2, who+" ")
-			l3 = append(l3, theme.Subtle.Render(fit(fmt.Sprintf("  ~%.0f/day %s", m.cornerUnits(*c), heatWord(c.Heat)), cellW-1))+" ")
+			l3 = append(l3, theme.Subtle.Render(fit(facts, cellW-1))+" ")
 		}
 		b.WriteString(" " + strings.Join(l1, "") + "\n" + " " + strings.Join(l2, "") + "\n" + " " + strings.Join(l3, "") + "\n\n")
 	}
@@ -238,12 +251,12 @@ func (m *Model) viewMap() string {
 		return b.String()
 	}
 	st := ownerStyle(sel.Owner)
-	head := st.Bold(true).Render(strings.ToUpper(sel.Name))
+	head = st.Bold(true).Render(strings.ToUpper(sel.Name))
 	switch {
 	case sel.Held():
 		head += theme.Subtle.Render(fmt.Sprintf("  yours since day %d", sel.Since))
 	case sel.Owner == game.OwnerRival:
-		head += theme.Subtle.Render("  held by a rival")
+		head += theme.Subtle.Render(fmt.Sprintf("  %s's since day %d", w.Rival.Leader, sel.Since))
 	default:
 		head += theme.Subtle.Render("  free")
 	}
@@ -251,6 +264,12 @@ func (m *Model) viewMap() string {
 	facts := fmt.Sprintf("  size x%.1f · heat x%.1f %s · risk x%.1f %s", sel.Demand, sel.Heat, heatWord(sel.Heat), sel.Risk, riskWord(sel.Risk))
 	if sel.Held() {
 		facts += fmt.Sprintf(" · robbery %.1f%%/day", m.set.Territory.RobberyChance(w, sel)*100)
+	}
+	if sel.Squeeze > 0 {
+		facts += theme.Rival.Render(fmt.Sprintf(" · undercut -%.0f%%", sel.Squeeze*100))
+	}
+	if sel.Held() && w.Contested(*sel) {
+		facts += theme.Rival.Render(fmt.Sprintf(" · push flips it ~%.0f%%", m.set.Rivals.PushOdds(w, sel)*100))
 	}
 	b.WriteString(truncate(theme.Subtle.Render(facts), m.width) + "\n")
 	var dem []string
@@ -281,7 +300,11 @@ func (m *Model) viewMap() string {
 	case sel.Held():
 		hint = theme.Warning.Render("  Nobody is working it: it goes back to the street unless you post a runner (c).")
 	case sel.Owner == game.OwnerRival:
-		hint = theme.Subtle.Render("  Taking it back is a matter for the enforcers. Soon.")
+		if n := w.Crew.Role("enforcer"); n > 0 {
+			hint = theme.Subtle.Render(fmt.Sprintf("  w sends the enforcers at it: push takes it ~%.0f%%, hit ~%.0f%%.", m.set.Rivals.Odds(w, events.ForcePush)*100, m.set.Rivals.Odds(w, events.ForceHit)*100))
+		} else {
+			hint = theme.Subtle.Render("  Taking it is a matter for the enforcers. Hire some on the crew screen (4).")
+		}
 	default:
 		hint = theme.Subtle.Render("  Post a runner (c) or yourself to claim it. Its demand is yours while it is worked.")
 	}

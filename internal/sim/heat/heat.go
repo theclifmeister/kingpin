@@ -155,6 +155,28 @@ func (s *Sim) Step(w *game.World, t *game.Tick) {
 		reasons = append(reasons, fmt.Sprintf("moved %d %s %s (+%.1f)", ps.Sold, w.ProductName(ps.Product), ps.Dial, add))
 	}
 
+	// The war, from the rivals sim: enforcers you sent in, a rival's call
+	// to the precinct, the police clearing the front line.
+	for _, e := range t.Events() {
+		var add float64
+		var why string
+		switch ev := e.(type) {
+		case events.CornerStruck:
+			add, why = ev.Heat, fmt.Sprintf("enforcers %s %s", pastTense(ev.Force), ev.Name)
+		case events.RivalTippedPolice:
+			add, why = ev.Heat, "somebody tipped the police"
+		case events.WarEscalated:
+			if ev.Stage != "crackdown" {
+				continue
+			}
+			add, why = ev.Heat, "the crackdown"
+		default:
+			continue
+		}
+		h.Value += add
+		reasons = append(reasons, fmt.Sprintf("%s (+%.1f)", why, add))
+	}
+
 	// Sloppy runners get noticed: every unit moved with a low-skill crew
 	// on the corners adds a premium.
 	if add := s.SloppyHeat(w, units); add > 0 {
@@ -263,4 +285,16 @@ func (s *Sim) fire(w *game.World, t *game.Tick, r content.ResponseConfig, attemp
 	n := float64(max(1, w.Heat.Responses[r.Level]))
 	w.Heat.Value -= r.HeatDrop / n
 	t.Emit(ev)
+}
+
+// pastTense is what the enforcers did, for the heat report.
+func pastTense(f events.Force) string {
+	switch f {
+	case events.ForceWarn:
+		return "warned"
+	case events.ForceHit:
+		return "hit"
+	default:
+		return "pushed"
+	}
 }

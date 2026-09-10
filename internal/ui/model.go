@@ -48,7 +48,8 @@ const (
 	modeConfirmFire
 	modeConfirmEnd
 	modeHelp
-	modePost // pick who to post on the selected corner
+	modePost   // pick who to post on the selected corner
+	modeStrike // pick how hard to send the enforcers at the selected corner
 )
 
 type tickMsg time.Time
@@ -72,6 +73,7 @@ type Model struct {
 	mapCursor     int    // corner selected on the map
 	postRole      string // runner or enforcer, while the post picker is open
 	postCursor    int
+	strikeCursor  int // row in the strike picker
 	journal       viewport.Model
 	dlg           dialog
 	startChoice   int
@@ -260,6 +262,29 @@ func (m *Model) handleKey(k tea.KeyMsg) (tea.Model, tea.Cmd) {
 			}
 		}
 		return m, nil
+	case modeStrike:
+		switch key {
+		case "esc", "q":
+			m.mode = modePlay
+		case "up", "k":
+			if m.strikeCursor > 0 {
+				m.strikeCursor--
+			}
+		case "down", "j":
+			if m.strikeCursor < len(m.strikeRows())-1 {
+				m.strikeCursor++
+			}
+		case "enter":
+			m.confirmStrike()
+		default:
+			if len(key) == 1 && key[0] >= '1' && key[0] <= '9' {
+				if i := int(key[0] - '1'); i < len(m.strikeRows()) {
+					m.strikeCursor = i
+					m.confirmStrike()
+				}
+			}
+		}
+		return m, nil
 	case modeReport:
 		switch key {
 		case "enter", "esc", " ", "r", "q":
@@ -388,6 +413,12 @@ func (m *Model) keyPlay(key string) (tea.Model, tea.Cmd) {
 		if m.screen == screenMap {
 			m.abandonSelected()
 		}
+	case "w":
+		if m.screen == screenMap {
+			m.askStrike()
+		} else {
+			m.status = "Enforcers are sent from the map (5)."
+		}
 	case "up", "k":
 		switch {
 		case m.screen == screenJournal:
@@ -479,6 +510,8 @@ func (m *Model) View() string {
 		body = m.viewHelp()
 	case modePost:
 		body = m.viewPost()
+	case modeStrike:
+		body = m.viewStrike()
 	default:
 		switch m.screen {
 		case screenMarket:
@@ -579,12 +612,14 @@ func (m *Model) viewFooter() string {
 		keys = k("any key", "close")
 	case modePost:
 		keys = k("↑↓", "pick") + k("enter", "post") + k("esc", "back")
+	case modeStrike:
+		keys = k("↑↓", "pick") + k("enter", "send") + k("esc", "back")
 	default:
 		switch m.screen {
 		case screenCrew:
 			keys = k("n", "end day") + k("↑↓", "pick") + k("h", "hire") + k("f", "fire") + k("p", "pay") + k("?", "help") + k("q", "quit")
 		case screenMap:
-			keys = k("n", "end day") + k("↑↓", "pick") + k("c", "runner") + k("e", "enforcer") + k("a", "abandon") + k("?", "help") + k("q", "quit")
+			keys = k("n", "end day") + k("↑↓", "pick") + k("c", "runner") + k("e", "enforcer") + k("a", "abandon") + k("w", "war") + k("?", "help") + k("q", "quit")
 		default:
 			keys = k("n", "end day") + k("b", "buy") + k("s", "sell") + k("l", "lie low") + k("x", "cancel order") + k("r", "report") + k("?", "help") + k("q", "quit")
 		}
@@ -652,6 +687,7 @@ func (m *Model) viewHelp() string {
 		{"h / f", "hire / fire the selected person (crew screen)"},
 		{"p", "cycle crew pay: stingy / fair / generous"},
 		{"c / e / a", "post a runner / an enforcer / abandon the corner (map)"},
+		{"w", "send the enforcers at a rival corner: warn / push / hit (map)"},
 		{"↑ ↓ / j k", "move the cursor / scroll journal"},
 		{"ctrl+s", "save now"},
 		{"N", "abandon run and start over"},
@@ -677,6 +713,9 @@ func (m *Model) viewOver() string {
 	b.WriteString(fmt.Sprintf("Stings / raids  %d / %d\n", w.Stats.Stings, w.Stats.Raids))
 	b.WriteString(fmt.Sprintf("Wages / skimmed %s / %s\n", cash(w.Stats.Wages), cash(w.Stats.Skimmed)))
 	b.WriteString(fmt.Sprintf("Corners / robbed %d / %s\n", w.Held(), cash(w.Stats.Robbed)))
+	if w.Rival.Arrived > 0 {
+		b.WriteString(fmt.Sprintf("Won / lost to %s %d / %d\n", truncate(w.Rival.Leader, 12), w.Stats.CornersWon, w.Stats.CornersLost))
+	}
 	b.WriteString(fmt.Sprintf("Peak heat       %.0f\n", w.Heat.Peak))
 	if n := len(w.Journal); n > 0 {
 		b.WriteString("\nLast headline:\n  " + theme.Subtle.Render(truncate(w.Journal[n-1].Text, max(20, m.width-20))) + "\n")

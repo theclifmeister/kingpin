@@ -11,3 +11,10 @@ crew = [
   "Jules", "Kap", "Lolo", "Mack", "Nook", "Otis", "Pike", "Rudy", "Sosa",
   "Trey", "Vito", "Wally", "Yung", "Ziggy", "Benny", "Cal", "Dom", "Frankie",
 ]
+
+# Rival leaders. One per run; the faction is "<leader>'s crew".
+rivals = [
+  "Big Sal", "Marisol", "Deacon", "Uncle Roy", "Cass", "Little Tony",
+  "Mother", "The Preacher", "Dutch", "Lena", "Cyrus", "Mona", "Slick Eddie",
+  "Reverend", "Coop", "Ivory",
+]
