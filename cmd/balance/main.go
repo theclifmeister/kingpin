@@ -19,11 +19,13 @@ import (
 func main() {
 	runs := flag.Int("runs", 20, "number of seeded runs")
 	days := flag.Int("days", harness.Horizon, "days to play each run for; a measuring horizon, the game itself has no cap")
-	policy := flag.String("policy", "normal", "idle | hide | quiet | normal | aggressive | careful | managed | upgraded | crewed | vigilant | territory | war | diplomat | laundered | distributor | delegated")
+	policy := flag.String("policy", "normal", "idle | hide | quiet | normal | aggressive | careful | managed | upgraded | crewed | vigilant | territory | war | diplomat | laundered | funded | distributor | delegated")
 	lt := flag.String("lt", "", "force the delegated policy's lieutenant temper: violent | greedy | careful | steady (default as generated)")
 	corners := flag.Int("corners", 3, "corners the territory and war policies work, counting yours")
 	force := flag.String("force", "push", "warn | push | hit: how hard the war policy strikes")
 	rival := flag.String("rival", "", "force the rival's personality: expansionist | defensive | opportunist | chaotic (default by seed)")
+	chief := flag.String("chief", "", "force the police chief's personality for the whole run: corrupt | zealous | lazy (default by seed, replaced on schedule)")
+	da := flag.String("da", "", "force the DA's stance for the whole run: law_and_order | moderate | reform (default by seed, elections every term)")
 	trace := flag.Bool("trace", false, "print a per-day trace of the run with -seed")
 	seed0 := flag.Uint64("seed", 1, "first seed; also the traced run")
 	lieLow := flag.Float64("lielow", 0, "heat at which careful/managed/crewed lie low (0 = policy default)")
@@ -75,6 +77,8 @@ func main() {
 		p = harness.Diplomat(cfg, at(40), *corners)
 	case "laundered":
 		p = harness.Laundered(cfg, at(40))
+	case "funded":
+		p = harness.Funded(cfg, at(40))
 	case "distributor":
 		p = harness.Distributor(cfg, at(40))
 	case "delegated":
@@ -115,6 +119,10 @@ func main() {
 	dealt := map[string]int{}
 	deals, refused, betrayals, betrayedBy, tribute, offers := 0, 0, 0, 0, 0, 0
 	var trust []int
+	var pressure, goodwill []int
+	elections, chiefs, funded := 0, 0, 0
+	stances := map[string]int{}
+	tempersOfChief := map[string]int{}
 	for seed := *seed0; seed < *seed0+uint64(*runs); seed++ {
 		pol := p
 		if *trace && seed == *seed0 {
@@ -123,6 +131,10 @@ func main() {
 				fmt.Printf("day %3d %s dirty %8d clean %9d heat", w.Day, w.Player.Location, w.Player.DirtyCash, w.Player.CleanCash)
 				for _, cid := range w.CityOrder {
 					fmt.Printf(" %.0f", w.Cities[cid].Heat)
+				}
+				fmt.Printf(" pressure")
+				for _, cid := range w.CityOrder {
+					fmt.Printf(" %.0f", w.Cities[cid].Pressure)
 				}
 				fmt.Printf(" file %d stock %3d/%3d +%d road orders %d crew %d corners %d/%d rival %d war %3.0f upgrades %d fronts %d %s rep %.0f/%.0f/%.0f", w.Heat.Evidence, w.Player.TotalStock(), w.Capacity(w.Player.Location), w.TotalStock()-w.Player.TotalStock(), len(w.Orders), len(w.Crew.Members), w.Worked(), w.Held(), w.RivalHeld(), w.Rival.War, len(w.Upgrades), len(w.Fronts), w.Laundering.Dial, w.Player.Reputation.Fear, w.Player.Reputation.Respect, w.Player.Reputation.Notoriety)
 				for _, id := range w.Products {
@@ -145,12 +157,13 @@ func main() {
 		if *snitch {
 			harness.Plant(cfg, w)
 		}
+		runCfg := harness.Appoint(cfg, w, *chief, *da)
 		var res harness.Result
 		var err error
 		if pick != nil {
-			res, err = harness.RunWith(cfg, w, *days, pol, pick)
+			res, err = harness.RunWith(runCfg, w, *days, pol, pick)
 		} else {
-			res, err = harness.RunFrom(cfg, w, *days, pol)
+			res, err = harness.RunFrom(runCfg, w, *days, pol)
 		}
 		if err != nil {
 			fmt.Fprintln(os.Stderr, err)
@@ -231,6 +244,11 @@ func main() {
 		st := res.World.Stats
 		deals, refused, betrayals, betrayedBy, tribute = deals+st.Deals, refused+st.DealsRefused, betrayals+st.Betrayals, betrayedBy+st.BetrayedBy, tribute+st.Tribute
 		trust = append(trust, int(res.World.Rival.Trust))
+		pressure = append(pressure, int(res.World.Here().Pressure))
+		goodwill = append(goodwill, int(res.World.Here().Goodwill))
+		elections, chiefs, funded = elections+st.Elections, chiefs+st.Chiefs, funded+st.Funded
+		stances[res.World.Law.DA.Stance]++
+		tempersOfChief[res.World.Law.Chief.Personality]++
 	}
 	sort.Ints(played)
 	sort.Ints(peaks)
@@ -283,6 +301,10 @@ func main() {
 		fmt.Printf("diplomacy:     %d deals struck, %d refused, %d offered by the rival, %d broken by you, %d by them, $%d tribute per run, trust %d at the end (median)\n",
 			deals, refused, offers, betrayals, betrayedBy, tribute / *runs, trust[len(trust)/2])
 	}
+	sort.Ints(pressure)
+	sort.Ints(goodwill)
+	fmt.Printf("law:           pressure %d goodwill %d at the end (medians), pressure max %d, %d elections, %d chiefs replaced, $%d given per run; DA %v chief %v\n",
+		pressure[len(pressure)/2], goodwill[len(goodwill)/2], pressure[len(pressure)-1], elections, chiefs, funded / *runs, stances, tempersOfChief)
 	if pick != nil {
 		total := 0
 		var ids []string

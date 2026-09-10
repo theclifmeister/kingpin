@@ -10,7 +10,9 @@ import (
 	"github.com/theclifmeister/kingpin/internal/game"
 	"github.com/theclifmeister/kingpin/internal/sim"
 	"github.com/theclifmeister/kingpin/internal/sim/crew"
+	"github.com/theclifmeister/kingpin/internal/sim/heat"
 	"github.com/theclifmeister/kingpin/internal/sim/laundering"
+	"github.com/theclifmeister/kingpin/internal/sim/law"
 	"github.com/theclifmeister/kingpin/internal/sim/logistics"
 	"github.com/theclifmeister/kingpin/internal/sim/rivals"
 )
@@ -179,8 +181,9 @@ func sellEverything(w *game.World, dial events.Dial) {
 // Careful trades quietly and lies low whenever heat climbs.
 func Careful(cfg *content.Config, lieLowAt float64) Policy {
 	trade := Trader(cfg, events.DialQuiet)
+	hot := TooHot(cfg, lieLowAt)
 	return func(w *game.World) {
-		if w.MaxHeat() >= lieLowAt {
+		if hot(w) {
 			w.SetLieLow(true)
 			return
 		}
@@ -192,13 +195,59 @@ func Careful(cfg *content.Config, lieLowAt float64) Policy {
 // lieLowAt. It is the baseline for "a player who pays attention".
 func Managed(cfg *content.Config, lieLowAt float64) Policy {
 	trade := Trader(cfg, events.DialNormal)
+	hot := TooHot(cfg, lieLowAt)
 	return func(w *game.World) {
-		if w.MaxHeat() >= lieLowAt {
+		if hot(w) {
 			w.SetLieLow(true)
 			return
 		}
 		trade(w)
 	}
+}
+
+// TooHot reports whether a policy that lies low at line on the ladder as
+// heat.toml prints it should lie low today. The line moves with the
+// sting threshold (#41: the DA moves it, and the dashboard shows where it
+// stands), so a player who pays attention keeps the same distance under
+// it: at 40 on a ladder whose sting is 55, they lie low at 36 once the
+// sting line is 50. And once the DA's file is within two pages of an
+// indictment (the dashboard paints it red) they keep RedMargin more.
+// The hottest city is the one whose police answer, so its line is the
+// one read.
+func TooHot(cfg *content.Config, line float64) func(w *game.World) bool {
+	hs := heat.New(cfg.Heat, cfg.Market, cfg.Routes.Shipping, cfg.Upgrades, cfg.Reputation.Effects, cfg.Crew.Lieutenant, cfg.Law)
+	var sting *content.ResponseConfig
+	for i := range cfg.Heat.Responses {
+		if cfg.Heat.Responses[i].Level == "sting" {
+			sting = &cfg.Heat.Responses[i]
+		}
+	}
+	return func(w *game.World) bool {
+		at := line
+		if sting != nil && sting.Threshold > 0 {
+			at = line * hs.Threshold(w, *sting, hottest(w)) / sting.Threshold
+		}
+		if arrest := hs.EvidenceArrest(w); arrest > 0 && w.Heat.Evidence >= arrest-2 {
+			at -= RedMargin
+		}
+		return w.MaxHeat() >= at
+	}
+}
+
+// RedMargin is how much lower a policy that pays attention lies low once
+// the DA's file is two pages from an indictment.
+const RedMargin = 5
+
+// hottest is the city whose police answer today: the hottest, and where
+// the player is when it is a tie.
+func hottest(w *game.World) *game.City {
+	best := w.Here()
+	for _, cid := range w.CityOrder {
+		if c := w.Cities[cid]; c.Heat > best.Heat {
+			best = c
+		}
+	}
+	return best
 }
 
 // Upgraded plays like Managed and spends on the tree: whenever it can pay
@@ -438,9 +487,10 @@ func Plant(cfg *content.Config, w *game.World) game.CrewMember {
 // whatever it wins. It is the baseline for "a player who goes to war".
 func Warlike(cfg *content.Config, lieLowAt float64, corners int, force events.Force) Policy {
 	territory := Territory(cfg, lieLowAt, corners)
+	hot := TooHot(cfg, lieLowAt)
 	return func(w *game.World) {
 		territory(w)
-		if w.MaxHeat() >= lieLowAt || w.Crew.Role("enforcer") == 0 {
+		if hot(w) || w.Crew.Role("enforcer") == 0 {
 			return
 		}
 		if c := pickCorner(w, func(c game.Corner) bool { return c.Owner == game.OwnerRival }, size); c != nil {
@@ -457,7 +507,7 @@ func Warlike(cfg *content.Config, lieLowAt float64, corners int, force events.Fo
 // baseline for "a player who buys peace".
 func Diplomat(cfg *content.Config, lieLowAt float64, corners int) Policy {
 	territory := Territory(cfg, lieLowAt, corners)
-	rv := rivals.New(cfg.Rivals, cfg.Names, cfg.Reputation.Effects)
+	rv := rivals.New(cfg.Rivals, cfg.Names, cfg.Reputation.Effects, cfg.Law.Effects)
 	dip := cfg.Rivals.Diplomacy
 	return func(w *game.World) {
 		territory(w)
@@ -502,6 +552,68 @@ func Laundered(cfg *content.Config, lieLowAt float64) Policy {
 // LaunderCarefulDays is how long the laundered policy runs its fronts
 // careful after an audit.
 const LaunderCarefulDays = 30
+
+// Funded plays like Laundered and buys the city off (#41): whenever the
+// pressure where it is has passed FundPressure it gives the city
+// FundShare of its clean cash, up to what takes goodwill to 100, never a
+// dollar of dirty. It is the baseline for "a player who pays the town".
+func Funded(cfg *content.Config, lieLowAt float64) Policy {
+	laundered := Laundered(cfg, lieLowAt)
+	tun := cfg.Law.Law
+	return func(w *game.World) {
+		laundered(w)
+		here := w.Here()
+		if here.Pressure <= FundPressure || w.FundedToday(here.ID) > 0 {
+			return
+		}
+		need := int((100 - here.Goodwill) * float64(tun.GoodwillCash))
+		if amt := min(int(float64(w.Player.CleanCash)*FundShare), need); amt > 0 {
+			_ = w.Fund(here.ID, amt)
+		}
+	}
+}
+
+// FundPressure is the pressure past which the funded policy pays, and
+// FundShare the share of its clean cash it pays at a time.
+const (
+	FundPressure = 60
+	FundShare    = 0.25
+)
+
+// Appoint fixes who the law is for a run: the chief's personality and
+// the DA's stance, whichever are given, and stops the clock on both so
+// they stay in office however long the run goes. It returns the config to
+// run with; the world's actors are renamed in place. Either may be "" to
+// take the seed's.
+func Appoint(cfg *content.Config, w *game.World, chief, da string) *content.Config {
+	fixed := *cfg
+	if chief != "" {
+		w.Law.Chief.Personality = chief
+		fixed.Law.Law.ChiefTerm = 0
+	}
+	if da != "" {
+		w.Law.DA.Stance = da
+		fixed.Law.Law.TermDays = 0
+	}
+	return &fixed
+}
+
+// Elect holds a DA election on w now, on the given day's dice, and
+// returns the winner: a test's way of asking the ballot box a question
+// without playing to the term.
+func Elect(cfg *content.Config, w *game.World, day int) events.DAElected {
+	forced := *cfg
+	forced.Law.Law.TermDays = 1
+	w.Law.DA.ElectedDay = day - 1
+	t := &game.Tick{Day: day, RNG: game.RNGFor(w.Seed, day), Seed: w.Seed}
+	law.New(forced.Law, forced.Names).Step(w, t)
+	for _, e := range t.Events() {
+		if ev, ok := e.(events.DAElected); ok {
+			return ev
+		}
+	}
+	return events.DAElected{}
+}
 
 // Distributor plays like Laundered until the wholesaler will deal with it,
 // then runs the route: it moves to the city that sells by the lot and
@@ -551,6 +663,7 @@ func distribute(cfg *content.Config, lieLowAt float64, delegate bool, personalit
 	tun := cfg.Crew.Crew
 	homeCorners := max(1, tun.MaxCrew/2)
 	pressure := cfg.Market.Market.BuyPricePressure
+	hot := TooHot(cfg, lieLowAt)
 	return func(w *game.World) {
 		if hub == "" || wholesale.Locked(w) || len(lg.Routes(hub)) == 0 {
 			laundered(w)
@@ -713,7 +826,7 @@ func distribute(cfg *content.Config, lieLowAt float64, delegate bool, personalit
 
 		// Sales: everything at home, and here whatever is not waiting
 		// for a truck. Heat anywhere over the line is a day off.
-		if w.MaxHeat() >= lieLowAt {
+		if hot(w) {
 			w.SetLieLow(true)
 			return
 		}

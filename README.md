@@ -38,7 +38,7 @@ load; a save from a newer build than the one you are running is refused.
 | `g` | Go to the other city, after a confirmation; your corner and your stock stay behind |
 | `x` | Cancel the queued order on the selected product |
 | `l` | Lie low today: no sales, heat fades faster |
-| `h` / `f` | Hire / fire the selected person (crew screen) |
+| `h` / `f` | Hire / fire the selected person (crew screen); on the ledger, `f` funds a city with clean cash |
 | `i` / `$` | Investigate who is talking / pay off the selected person (crew screen) |
 | `p` | Cycle crew pay: stingy / fair / generous |
 | `c` / `e` / `a` | Post a runner / an enforcer / abandon the selected corner (map) |
@@ -53,7 +53,7 @@ load; a save from a newer build than the one you are running is refused.
 
 ## How it works
 
-Every day the simulations step in a fixed order (`market -> logistics -> territory -> rivals -> crew -> heat -> laundering -> reputation -> news`),
+Every day the simulations step in a fixed order (`market -> logistics -> territory -> rivals -> crew -> heat -> law -> laundering -> reputation -> news`),
 each reading the world and emitting typed events that later sims and the UI
 consume. Randomness is derived from the run seed and the day number, so a
 run is fully reproducible and nothing about the RNG needs saving; what
@@ -139,6 +139,25 @@ never leaves the first city plays the same as it always did.
   raids and finally arrest, and what they take comes out of the stash
   there. Every sting and raid goes in the DA's file, which is yours
   wherever you are; a thick enough file is an indictment.
+- **The law** has faces. A **police chief** with a temperament drawn from
+  the seed and hidden until you have seen them work: a **zealous** one
+  sends the stings and raids back sooner and lets heat fade slower, a
+  **lazy** one the opposite and their patrols let more through, a
+  **corrupt** one is neutral for now. They serve a term and the mayor
+  names another. A **DA** elected every ninety days on a ticket: a
+  **law-and-order** DA needs a thinner file to indict and stings sooner,
+  a **reformer** the reverse, a **moderate** runs the courthouse by the
+  book. Who wins is decided by **public pressure**, a number every city
+  carries: violence, hard product (heroin, meth, designer) and headlines
+  about you push it up, it fades on its own, and a loud city gets its
+  police answering sooner (patrols, raids, the arrest line), gets the
+  rival's phone calls returned, and elects a crackdown DA, who may fire
+  the chief on the way in. Clean cash buys **goodwill** (`f` on the
+  ledger): community centres, campaigns, benevolent funds, which take the
+  pressure off a little every day. Dirty money is not welcome. The
+  dashboard's LAW panel shows all of it, and the report carries elections
+  and new chiefs. The law never adds a page to the file by itself: it
+  moves the thresholds, the cooldowns and the decay.
 - **Upgrades** are three branches of persistent, stacking bonuses bought
   with cash: Operations (stash, supplier, street network) to earn more,
   Security (burners, lookouts, safehouse, cold contacts) to take less
@@ -176,7 +195,10 @@ Policies: `idle`, `hide`, `quiet`, `normal`, `aggressive`, `careful`,
 `laundered`, `distributor` (moves to Bayport once the wholesaler deals, buys
 by the lot and ships everything worth the road home to runners in Eastside),
 `delegated` (the distributor with a lieutenant running Eastside; `-lt
-violent|greedy|careful|steady` forces their temper).
+violent|greedy|careful|steady` forces their temper), `funded` (the
+laundered player who pays the town whenever the pressure is up).
+`-chief corrupt|zealous|lazy` and `-da law_and_order|moderate|reform` hold
+the law fixed for the run.
 `-own stash,burners` starts every run owning those upgrades; `-snitch` starts
 it with an informant on the payroll; `-cards decline|first` deals the
 dilemma cards and answers each with its last (do-nothing) or first choice
@@ -198,7 +220,12 @@ breaks a deal and a chaotic one does, and the table survives a save.
 the lieutenant's orders alone, the four tempers pull their way on one seed,
 a lieutenant at the floor walks with the city, your order beats theirs, a
 flip is dice-free, and `delegated` at steady stays within 20% of
-`distributor`.
+`distributor`. `law_test.go` pins the law: a zealous chief indicts the
+aggressive trader sooner than a lazy one, a law-and-order DA the hot crewed
+player sooner than a reformer, a hit war is louder than holding ground,
+the funded player ends quieter than the laundered one on clean money
+alone, loud cities elect law-and-order, and the quiet-day rule holds under
+every chief and DA.
 
 ## Layout
 
@@ -207,7 +234,7 @@ cmd/kingpin/        the game
 cmd/balance/        headless balance tool
 internal/events/    event types and bus
 internal/game/      world state, clock, player actions, save/load
-internal/sim/       simulations: market, logistics, territory, rivals, crew, heat, laundering, reputation, news
+internal/sim/       simulations: market, logistics, territory, rivals, crew, heat, law, laundering, reputation, news
 internal/content/   embedded TOML tuning, names and headline templates
 internal/harness/   headless runner and balance tests
 internal/ui/        Bubble Tea screens, dialogs, theme, sparklines

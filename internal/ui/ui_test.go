@@ -512,6 +512,9 @@ func TestOldSaveIsMigrated(t *testing.T) {
 	if len(m.w.Fronts) != 0 || m.w.Laundering.Dial != events.LaunderNormal {
 		t.Fatalf("migrated laundering: fronts %+v dial %v", m.w.Fronts, m.w.Laundering.Dial)
 	}
+	if l := m.w.Law; l.Chief.Name == "" || l.Chief.Personality == "" || l.DA.Name == "" || l.DA.Stance == "" || l.Chief.Since != 9 || l.DA.ElectedDay != 9 {
+		t.Fatalf("migrated law: %+v", l)
+	}
 	home := m.cfg.City.Home().ID
 	if len(m.w.CityOrder) != len(m.cfg.City.Cities) || m.w.Player.Location != home || m.w.Home().Heat != 12 || m.w.Stock(home, m.w.Products[0]) != 7 || m.w.Player.DirtyCash != 4321 {
 		t.Fatalf("migrated cities: %v in %s heat %.0f stock %d cash %d", m.w.CityOrder, m.w.Player.Location, m.w.Home().Heat, m.w.Stock(home, m.w.Products[0]), m.w.Player.DirtyCash)
@@ -534,6 +537,11 @@ func TestOldSaveIsMigrated(t *testing.T) {
 	assertFits(t, m.View(), 80, 24, "the new city after migration")
 	m.Update(key("2"))
 	assertFits(t, m.View(), 80, 24, "market of the new city after migration")
+	m.Update(key("1"))
+	endDay(t, m)
+	if m.w.Day != 10 || m.w.Over != nil {
+		t.Fatalf("the migrated save did not play on: day %d over %v", m.w.Day, m.w.Over)
+	}
 }
 
 // A save this build cannot read is refused with a readable message and the
@@ -1788,5 +1796,78 @@ func TestCrewScreenUnpostedEnforcer(t *testing.T) {
 	v = m.View()
 	if !strings.Contains(v, "works fronts") || !strings.Contains(v, "guards corner") {
 		t.Fatalf("pool: want the role blurbs:\n%s", v)
+	}
+}
+
+// f funds the city from the ledger and nowhere else: it wants clean
+// cash, the dialog turns between the cities and takes an amount, the
+// gift lands as goodwill overnight and the report says so; the dashboard
+// carries the LAW panel with the chief, the DA and the pressure bar.
+func TestFundKeys(t *testing.T) {
+	m := newTestModel(t, 80, 24)
+	w := m.w
+	view := stripANSI(m.View())
+	for _, want := range []string{"LAW", "Chief " + w.Law.Chief.Name, "DA " + w.Law.DA.Name, "pressure", "election in"} {
+		if !strings.Contains(view, want) {
+			t.Fatalf("dashboard lacks %q:\n%s", want, view)
+		}
+	}
+	m.Update(key("f"))
+	if m.mode != modePlay || !strings.Contains(m.status, "ledger") {
+		t.Fatalf("f on the dashboard: mode %v status %q", m.mode, m.status)
+	}
+	m.Update(key("7"))
+	m.Update(key("f"))
+	if m.mode != modePlay || !strings.Contains(m.status, "clean cash") {
+		t.Fatalf("f with no clean cash: mode %v status %q", m.mode, m.status)
+	}
+	w.Player.CleanCash = 30_000
+	m.Update(key("f"))
+	if m.mode != modeFund {
+		t.Fatalf("f on the ledger: mode %v", m.mode)
+	}
+	assertFits(t, m.View(), 80, 24, "fund dialog")
+	m.Update(key("right"))
+	if c := m.fundCity(); c.ID != w.CityOrder[1] {
+		t.Fatalf("right did not turn to the other city: %s", c.ID)
+	}
+	m.Update(key("left"))
+	if c := m.fundCity(); c.ID != w.Player.Location {
+		t.Fatalf("left did not turn back: %s", c.ID)
+	}
+	m.Update(key("esc"))
+	if m.mode != modePlay || len(w.Funded) != 0 {
+		t.Fatal("esc funded")
+	}
+	m.Update(key("f"))
+	for _, r := range "5000" {
+		m.Update(key(string(r)))
+	}
+	m.Update(key("enter"))
+	if m.mode != modePlay || w.Player.CleanCash != 25_000 || w.FundedToday(w.Player.Location) != 5_000 || !strings.Contains(m.status, "Goodwill") {
+		t.Fatalf("enter: mode %v clean %d funded %d status %q", m.mode, w.Player.CleanCash, w.FundedToday(w.Player.Location), m.status)
+	}
+	// Blank fills goodwill to 100, capped by the clean cash in hand.
+	m.Update(key("f"))
+	m.Update(key("enter"))
+	if w.Player.CleanCash != 0 || w.FundedToday(w.Player.Location) != 30_000 {
+		t.Fatalf("blank amount: clean %d funded %d status %q", w.Player.CleanCash, w.FundedToday(w.Player.Location), m.status)
+	}
+	m.Update(key("1"))
+	endDay(t, m)
+	if m.mode != modeReport {
+		t.Fatalf("mode %v", m.mode)
+	}
+	law := strings.Join(w.Report.Law, "\n")
+	if !strings.Contains(law, "goodwill") || w.Here().Goodwill <= 0 || w.Stats.Funded != 30_000 {
+		t.Fatalf("report %v goodwill %.1f stats %d", w.Report.Law, w.Here().Goodwill, w.Stats.Funded)
+	}
+	if !strings.Contains(strings.Join(w.Report.Money, "\n"), "Funded") {
+		t.Fatalf("money: %v", w.Report.Money)
+	}
+	assertFits(t, m.View(), 80, 24, "report with a gift")
+	m.Update(key("enter"))
+	if !strings.Contains(stripANSI(m.View()), "goodwill") {
+		t.Fatal("dashboard does not show the goodwill")
 	}
 }

@@ -80,6 +80,7 @@ type data struct {
 	From    string // the cities a shipment joined
 	To      string
 	Deal    string
+	Stance  string // a DA's ticket or a chief's personality, in words
 }
 
 // Step writes headlines into the journal and assembles the morning report.
@@ -120,7 +121,7 @@ func (s *Sim) Step(w *game.World, t *game.Tick) {
 	}
 
 	// Money before we look at events: sales are already applied by market.
-	var soldRevenue, lostCash, spent, wages, skimmed, robbed, upgrades, upkeep, seized, paidOff, investigated, shipping, tribute, cuts int
+	var soldRevenue, lostCash, spent, wages, skimmed, robbed, upgrades, upkeep, seized, paidOff, investigated, shipping, tribute, cuts, funded int
 	for _, e := range t.Events() {
 		switch ev := e.(type) {
 		case events.UpgradeBought:
@@ -446,6 +447,35 @@ func (s *Sim) Step(w *game.World, t *game.Tick) {
 				key = "Reputation" + capitalize(ev.Axis) + "Up"
 			}
 			add("reputation", key, base)
+		case events.DAElected:
+			d := at(w.Home().ID)
+			d.Name, d.Stance = ev.Name, stanceWords(ev.Stance)
+			key := "DAElected"
+			if ev.Incumbent {
+				key = "DAReElected"
+			}
+			add("law", key, d)
+			rep.Law = append([]string{electionLine(ev)}, rep.Law...) // the courthouse before the small print
+		case events.ChiefReplaced:
+			d := at(w.Home().ID)
+			d.Name, d.Rival = ev.Name, ev.Old
+			key := "ChiefReplaced"
+			if ev.Why == "da" {
+				key = "ChiefReplacedDA"
+			}
+			add("law", key, d)
+			rep.Law = append([]string{chiefLine(ev)}, rep.Law...)
+		case events.PressureShifted:
+			key := "PressureShiftedDown"
+			if ev.Up() {
+				key = "PressureShiftedUp"
+			}
+			add("law", key, at(ev.City))
+			rep.Law = append(rep.Law, fmt.Sprintf("%s pressure %.0f -> %.0f", w.CityName(ev.City), ev.From, ev.To))
+		case events.CityFunded:
+			funded += ev.Amount
+			rep.Law = append(rep.Law, fmt.Sprintf("Gave %s $%d clean: goodwill +%.0f (now %.0f)", w.CityName(ev.City), ev.Amount, ev.Goodwill, w.Cities[ev.City].Goodwill))
+			rep.Money = append(rep.Money, fmt.Sprintf("Funded %s -$%d clean", w.CityName(ev.City), ev.Amount))
 		case events.CrewPaid:
 			wages += ev.Wages
 			line := fmt.Sprintf("Wages (%s) -$%d", ev.Pay, ev.Wages)
@@ -469,7 +499,7 @@ func (s *Sim) Step(w *game.World, t *game.Tick) {
 		spent += m.Fee
 		rep.Money = append(rep.Money, fmt.Sprintf("Signing fee for %s -$%d", m.Name, m.Fee))
 	}
-	rep.CashBefore = w.Cash() - soldRevenue + lostCash + spent + wages + skimmed + robbed + upgrades + upkeep + seized + paidOff + investigated + shipping + tribute + cuts
+	rep.CashBefore = w.Cash() - soldRevenue + lostCash + spent + wages + skimmed + robbed + upgrades + upkeep + seized + paidOff + investigated + shipping + tribute + cuts + funded
 	if soldRevenue > 0 {
 		rep.Money = append(rep.Money, fmt.Sprintf("Street sales +$%d", soldRevenue))
 	}
@@ -510,6 +540,39 @@ func (s *Sim) Step(w *game.World, t *game.Tick) {
 	}
 	rep.CashAfter = w.Cash()
 	w.Report = rep
+}
+
+// stanceWords is a DA's ticket as the paper prints it.
+func stanceWords(stance string) string {
+	switch stance {
+	case "law_and_order":
+		return "law-and-order"
+	default:
+		return stance
+	}
+}
+
+// electionLine is the report's line on a DA election.
+func electionLine(ev events.DAElected) string {
+	if ev.Incumbent {
+		return fmt.Sprintf("DA %s re-elected on the %s ticket; nothing changes at the courthouse.", ev.Name, stanceWords(ev.Stance))
+	}
+	switch ev.Stance {
+	case "law_and_order":
+		return fmt.Sprintf("DA %s elected on a law-and-order ticket: the file need not be as thick, and the sting line drops.", ev.Name)
+	case "reform":
+		return fmt.Sprintf("DA %s elected on a reform ticket: it takes a thicker file to indict, and stings come later.", ev.Name)
+	default:
+		return fmt.Sprintf("DA %s elected, a moderate: the courthouse runs by the book.", ev.Name)
+	}
+}
+
+// chiefLine is the report's line on a new police chief.
+func chiefLine(ev events.ChiefReplaced) string {
+	if ev.Why == "da" {
+		return fmt.Sprintf("The new DA wanted a new chief: %s is out, %s is in. You will learn what they are like.", ev.Old, ev.Name)
+	}
+	return fmt.Sprintf("Chief %s's term is up; %s takes over. You will learn what they are like.", ev.Old, ev.Name)
 }
 
 func render(t *template.Template, d data) string {

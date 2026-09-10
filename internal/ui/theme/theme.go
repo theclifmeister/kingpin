@@ -47,7 +47,7 @@ func Source(name string) lipgloss.Color {
 	switch name {
 	case "market":
 		return Market
-	case "heat":
+	case "heat", "law":
 		return Heat
 	case "rivals", "territory":
 		return Rivals

@@ -7,11 +7,12 @@ import (
 	"github.com/theclifmeister/kingpin/internal/sim/news"
 )
 
-// Every event the market, logistics, territory, rivals, crew, heat and
-// laundering sims can emit must have a headline template, otherwise the
-// ticker goes silent on something that matters. RivalUndercut,
-// CashLaundered, CrewPaidOff, ShipmentSent and ShipmentArrived are
-// report-only bookkeeping, like PriceMove, CrewPaid and LieutenantActed;
+// Every event the market, logistics, territory, rivals, crew, heat, law
+// and laundering sims can emit must have a headline template, otherwise
+// the ticker goes silent on something that matters. RivalUndercut,
+// CashLaundered, CrewPaidOff, ShipmentSent, ShipmentArrived and
+// CityFunded are report-only bookkeeping, like PriceMove, CrewPaid and
+// LieutenantActed;
 // CrewTurnedInformant and LieutenantFlipped are deliberately silent, the
 // informant is hidden; DilemmaDrawn and DilemmaAnswered carry their own
 // text, the card's.
@@ -37,6 +38,7 @@ func TestEveryEmittedEventHasTemplate(t *testing.T) {
 		"FrontBought", "FrontAudited", "FrontFrozen",
 		"ReputationFearUp", "ReputationFearDown", "ReputationRespectUp", "ReputationRespectDown",
 		"ReputationNotorietyUp", "ReputationNotorietyDown",
+		"DAElected", "DAReElected", "ChiefReplaced", "ChiefReplacedDA", "PressureShiftedUp", "PressureShiftedDown", // CityFunded is report-only
 	}
 	for _, r := range cfg.Heat.Responses {
 		required = append(required, "Enforcement"+capital(r.Level))

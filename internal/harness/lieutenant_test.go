@@ -87,18 +87,25 @@ func TestLieutenantSellsWhileYouAreAway(t *testing.T) {
 			t.Fatalf("seed %d: %d sales on standing orders and %d on the player's after the lieutenant took home on day %d", seed, standing, own, hired)
 		}
 
-		// Unassigned every evening, nothing sells at home.
+		// Unassigned every evening, nothing sells at home on any day a
+		// lieutenant was on the payroll (the policy sells there itself
+		// on the days between one it fired and the next it hired).
 		w := sim.NewWorld(cfg, seed)
+		payroll := map[int]bool{}
 		res, _ = RunFrom(cfg, w, Horizon, func(w *game.World) {
 			pol(w)
 			if lt := w.Crew.Lieutenant(home); lt != nil {
 				_ = w.Unassign(lt.ID)
+				payroll[w.Day+1] = true
 			}
 		})
 		for _, e := range res.Events {
-			if ps, ok := e.(events.PlayerSold); ok && ps.City == home && ps.Day > hired+1 && ps.Sold > 0 {
+			if ps, ok := e.(events.PlayerSold); ok && ps.City == home && payroll[ps.Day] && ps.Sold > 0 {
 				t.Fatalf("seed %d day %d: home sold %d with the lieutenant unassigned: %+v", seed, ps.Day, ps.Sold, ps)
 			}
+		}
+		if len(payroll) < 20 {
+			t.Fatalf("seed %d: a lieutenant was on the payroll on only %d days", seed, len(payroll))
 		}
 	}
 }

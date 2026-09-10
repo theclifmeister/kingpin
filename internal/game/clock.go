@@ -54,7 +54,7 @@ type Simulation interface {
 // Clock advances the world one day at a time. Simulations run in the fixed
 // order they were registered in:
 //
-//	market -> logistics -> territory -> rivals -> crew -> heat -> laundering -> reputation -> news
+//	market -> logistics -> territory -> rivals -> crew -> heat -> law -> laundering -> reputation -> news
 //
 // so that results are reproducible for a given seed.
 type Clock struct {
@@ -94,6 +94,7 @@ func (c *Clock) EndDay(w *World) []events.Event {
 	w.Proposal = nil
 	w.Accepted = nil
 	w.Abandoned = nil
+	w.Funded = nil
 	w.Dilemmas.Answered = nil
 	w.Crew.HiredToday = nil
 	w.Crew.FiredToday = nil

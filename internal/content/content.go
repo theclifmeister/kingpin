@@ -1,5 +1,5 @@
 // Package content loads the tuning data (markets, cities, routes, heat,
-// crew, rivals, upgrades, laundering, reputation, headlines, dilemmas) that
+// crew, rivals, upgrades, laundering, reputation, law, headlines, dilemmas) that
 // lives in TOML files embedded in the binary. Balance changes never need
 // code changes.
 package content
@@ -29,6 +29,7 @@ type Config struct {
 	Names      NamesConfig
 	Upgrades   UpgradesConfig
 	Reputation ReputationConfig
+	Law        LawConfig
 	Headlines  HeadlinesConfig
 	Dilemmas   DilemmasConfig
 }
@@ -628,6 +629,127 @@ func clamp01(v float64) float64 {
 type NamesConfig struct {
 	Crew   []string `toml:"crew"`
 	Rivals []string `toml:"rivals"`
+	Chiefs []string `toml:"chiefs"`
+	DAs    []string `toml:"das"`
+}
+
+// LawConfig mirrors law.toml (#41): the chief's term and the election
+// cycle, where public pressure comes from and how it fades, what a chief
+// personality and a DA stance do to the heat sim's tuning, and what the
+// other sims read off a city's pressure.
+type LawConfig struct {
+	Law      LawTuning              `toml:"law"`
+	Pressure PressureSources        `toml:"pressure"`
+	Chief    map[string]ChiefConfig `toml:"chief"`
+	DA       map[string]DAConfig    `toml:"da"`
+	Effects  LawFX                  `toml:"effects"`
+}
+
+type LawTuning struct {
+	ChiefTerm       int     `toml:"chief_term"`       // days a chief serves; 0 for life
+	TermDays        int     `toml:"term_days"`        // days between DA elections; 0 for none
+	ReplacePressure float64 `toml:"replace_pressure"` // a law-and-order DA elected over this mean pressure replaces the chief
+	ObserveDays     int     `toml:"observe_days"`     // days in office before the chief's personality shows
+	Baseline        float64 `toml:"baseline"`         // pressure fades toward this
+	Decay           float64 `toml:"decay"`            // fraction of the gap to baseline closed per day
+	Band            float64 `toml:"band"`             // PressureShifted fires on crossing a multiple of this
+	GoodwillCash    int     `toml:"goodwill_cash"`    // clean cash per point of goodwill
+	GoodwillCut     float64 `toml:"goodwill_cut"`     // pressure a day full goodwill takes off
+	GoodwillDecay   float64 `toml:"goodwill_decay"`   // fraction of goodwill that fades per day
+	ElectionSwing   float64 `toml:"election_swing"`   // how hard mean pressure swings the vote
+	Moderate        float64 `toml:"moderate"`         // the moderate's share of every election
+}
+
+// PressureSources is where a city's pressure comes from.
+type PressureSources struct {
+	Strike    float64  `toml:"strike"`
+	Push      float64  `toml:"push"`
+	Crackdown float64  `toml:"crackdown"`
+	HardUnits float64  `toml:"hard_units"`    // a point per this many units of a hard product sold in a day
+	Hard      []string `toml:"hard_products"` // the products that count
+	Headline  float64  `toml:"headline"`
+	Sources   []string `toml:"headline_sources"` // journal sources whose headlines are about you
+}
+
+// ChiefConfig is what a chief personality does to the heat sim's tuning:
+// multipliers on the response cooldown, what a patrol lets through and
+// the daily decay.
+type ChiefConfig struct {
+	Cooldown float64 `toml:"cooldown"`
+	Cap      float64 `toml:"cap"`
+	Decay    float64 `toml:"decay"`
+}
+
+// DAConfig is what a DA stance does to the heat sim's tuning: multipliers
+// on the pages an indictment needs and on the sting threshold.
+type DAConfig struct {
+	EvidenceArrest float64 `toml:"evidence_arrest"`
+	Sting          float64 `toml:"sting"`
+}
+
+// LawFX is what a city's pressure does at 100; each sim scales the knob
+// it owns and never reads another sim's.
+type LawFX struct {
+	PressureThresholdCut float64 `toml:"pressure_threshold_cut"` // heat: fraction cut from every response threshold
+	PressureCapCut       float64 `toml:"pressure_cap_cut"`       // heat: fraction cut from what a patrol lets through
+	PressureTip          float64 `toml:"pressure_tip"`           // rivals: extra on the chance of a police tip
+}
+
+// ChiefPersonalities are the personalities a chief can have, in a fixed
+// order for generation.
+var ChiefPersonalities = []string{"corrupt", "zealous", "lazy"}
+
+// DAStances are the tickets a DA can run on, in a fixed order for
+// generation.
+var DAStances = []string{"law_and_order", "moderate", "reform"}
+
+// ChiefFor returns the tuning for a chief personality, neutral for one
+// the config does not know.
+func (l LawConfig) ChiefFor(name string) ChiefConfig {
+	if c, ok := l.Chief[name]; ok {
+		return c
+	}
+	return ChiefConfig{Cooldown: 1, Cap: 1, Decay: 1}
+}
+
+// DAFor returns the tuning for a DA stance, neutral for one the config
+// does not know.
+func (l LawConfig) DAFor(name string) DAConfig {
+	if d, ok := l.DA[name]; ok {
+		return d
+	}
+	return DAConfig{EvidenceArrest: 1, Sting: 1}
+}
+
+// validate checks the tables read as one: a table per personality and
+// stance with positive multipliers, and sane pacing.
+func (l LawConfig) validate() error {
+	for _, p := range ChiefPersonalities {
+		c, ok := l.Chief[p]
+		if !ok {
+			return fmt.Errorf("no [chief.%s] table", p)
+		}
+		if c.Cooldown <= 0 || c.Cap <= 0 || c.Decay <= 0 {
+			return fmt.Errorf("bad [chief.%s] table %+v", p, c)
+		}
+	}
+	for _, st := range DAStances {
+		d, ok := l.DA[st]
+		if !ok {
+			return fmt.Errorf("no [da.%s] table", st)
+		}
+		if d.EvidenceArrest <= 0 || d.Sting <= 0 {
+			return fmt.Errorf("bad [da.%s] table %+v", st, d)
+		}
+	}
+	t := l.Law
+	if t.ChiefTerm < 0 || t.TermDays < 0 || t.ObserveDays < 0 || t.Band <= 0 || t.Decay < 0 || t.Decay > 1 || t.GoodwillCash <= 0 || t.GoodwillDecay < 0 || t.GoodwillDecay > 1 || t.Moderate < 0 || t.Moderate >= 1 {
+		return fmt.Errorf("bad [law] table %+v", t)
+	}
+	if fx := l.Effects; fx.PressureThresholdCut < 0 || fx.PressureThresholdCut >= 1 || fx.PressureCapCut < 0 || fx.PressureCapCut > 1 || fx.PressureTip < 0 {
+		return fmt.Errorf("bad [effects] table %+v", fx)
+	}
+	return nil
 }
 
 // UpgradesConfig mirrors upgrades.toml: the upgrade tree.
@@ -820,6 +942,9 @@ func Load() (*Config, error) {
 	if err := decode("reputation.toml", &c.Reputation); err != nil {
 		return nil, err
 	}
+	if err := decode("law.toml", &c.Law); err != nil {
+		return nil, err
+	}
 	if err := decode("headlines.toml", &c.Headlines); err != nil {
 		return nil, err
 	}
@@ -892,6 +1017,12 @@ func Load() (*Config, error) {
 	if err := c.Dilemmas.validate(); err != nil {
 		return nil, fmt.Errorf("dilemmas.toml: %w", err)
 	}
+	if err := c.Law.validate(); err != nil {
+		return nil, fmt.Errorf("law.toml: %w", err)
+	}
+	if len(c.Names.Chiefs) == 0 || len(c.Names.DAs) == 0 {
+		return nil, fmt.Errorf("names.toml: no chief or DA names")
+	}
 	seen := map[string]bool{}
 	for _, f := range c.Laundering.Fronts {
 		if f.ID == "" || seen[f.ID] || f.Cost <= 0 || f.Throughput <= 0 {
@@ -950,7 +1081,7 @@ func decode(name string, v any) error {
 	}
 	// An effect name nobody reads, or a trigger field nobody checks, would
 	// silently do nothing.
-	if name == "upgrades.toml" || name == "reputation.toml" || name == "dilemmas.toml" || name == "routes.toml" {
+	if name == "upgrades.toml" || name == "reputation.toml" || name == "dilemmas.toml" || name == "routes.toml" || name == "law.toml" {
 		if keys := md.Undecoded(); len(keys) > 0 {
 			return fmt.Errorf("%s: unknown key %s", name, keys[0])
 		}

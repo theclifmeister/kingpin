@@ -18,3 +18,14 @@ rivals = [
   "Mother", "The Preacher", "Dutch", "Lena", "Cyrus", "Mona", "Slick Eddie",
   "Reverend", "Coop", "Ivory",
 ]
+
+# Police chiefs and district attorneys (#41). Surnames: the UI says "Chief
+# Halloran" and "DA Okafor".
+chiefs = [
+  "Halloran", "Brandt", "Okonkwo", "Reyes", "Kowalski", "Devereaux", "Marsh",
+  "Castellano", "Pruitt", "Ambrose", "Whitfield", "Sato", "Delgado", "Kerr",
+]
+das = [
+  "Ramirez", "Okafor", "Lindqvist", "Thornton", "Abernathy", "Vance", "Moreau",
+  "Haddad", "Pettigrew", "Nakamura", "Sloane", "Fitzgerald", "Ostrowski", "Bell",
+]
