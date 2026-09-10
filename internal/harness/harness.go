@@ -11,6 +11,7 @@ import (
 	"github.com/theclifmeister/kingpin/internal/sim"
 	"github.com/theclifmeister/kingpin/internal/sim/laundering"
 	"github.com/theclifmeister/kingpin/internal/sim/logistics"
+	"github.com/theclifmeister/kingpin/internal/sim/rivals"
 )
 
 // Policy decides the player's actions for the coming day.
@@ -141,6 +142,12 @@ func size(c game.Corner) float64 { return c.Demand }
 func restock(cfg *content.Config, w *game.World) {
 	pressure := cfg.Market.Market.BuyPricePressure * game.FoldEffects(w, cfg.Upgrades).BuyPressureMul
 	city := w.Here()
+	// Tribute is paid tonight out of what is left after the buying: a
+	// player who owes it keeps it aside.
+	reserve := 0
+	if d := w.Deal(game.DealTribute); d != nil {
+		reserve = d.Terms.PerDay
+	}
 	total := 0.0
 	for _, id := range w.Products {
 		total += city.Market[id].Demand
@@ -148,7 +155,7 @@ func restock(cfg *content.Config, w *game.World) {
 	for _, id := range w.Products {
 		m := city.Market[id]
 		target := int(float64(w.Capacity(city.ID)) * m.Demand / total)
-		afford := int(float64(w.Player.DirtyCash) / m.SupplierPrice)
+		afford := int(float64(w.Player.DirtyCash-reserve) / m.SupplierPrice)
 		qty := min(target-w.Stock(city.ID, id), afford, w.Free(city.ID))
 		if qty > 0 {
 			_, _ = w.Buy(id, qty, pressure)
@@ -440,6 +447,44 @@ func Warlike(cfg *content.Config, lieLowAt float64, corners int, force events.Fo
 		}
 	}
 }
+
+// Diplomat plays like Territory and talks: whenever the rival has taken a
+// corner off it in the last DiplomatDays it proposes a truce, and once
+// the truce has been refused twice it offers tribute at the fair cut
+// instead; it takes any truce the rival offers, and a tribute offer once
+// it has been refused twice. It never sends the enforcers in. It is the
+// baseline for "a player who buys peace".
+func Diplomat(cfg *content.Config, lieLowAt float64, corners int) Policy {
+	territory := Territory(cfg, lieLowAt, corners)
+	rv := rivals.New(cfg.Rivals, cfg.Names, cfg.Reputation.Effects)
+	dip := cfg.Rivals.Diplomacy
+	return func(w *game.World) {
+		territory(w)
+		humbled := w.Stats.DealsRefused >= 2
+		for _, o := range w.Offers {
+			switch o.Deal.Kind {
+			case game.DealTruce:
+				_, _ = w.Accept(o.ID)
+			case game.DealTribute:
+				if humbled {
+					_, _ = w.Accept(o.ID)
+				}
+			}
+		}
+		if w.AtPeace() || w.Proposal != nil || w.Rival.LastFlip == 0 || w.Day-w.Rival.LastFlip > DiplomatDays {
+			return
+		}
+		if humbled {
+			_ = w.Propose(game.DealTribute, game.Terms{PerDay: rv.Cut(w, dip.TributeCuts[1])})
+			return
+		}
+		_ = w.Propose(game.DealTruce, game.Terms{Days: dip.TruceDays[1]})
+	}
+}
+
+// DiplomatDays is how long after losing a corner the diplomat keeps
+// asking for peace.
+const DiplomatDays = 7
 
 // Laundered plays like Crewed and washes the money: it buys the cheapest
 // front it does not own whenever dirty cash is three times the price, runs

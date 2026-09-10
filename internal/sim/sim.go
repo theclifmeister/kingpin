@@ -77,6 +77,7 @@ func (s *Set) Migrations() []game.Migration {
 			s.Logistics.Migrate(w)
 			s.Territory.Migrate(w)
 		}},
+		{From: 7, Apply: s.Rivals.MigrateDiplomacy}, // 7 -> 8: the rival's trust, deals and offers
 	}
 }
 

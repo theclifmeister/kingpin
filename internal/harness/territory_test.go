@@ -20,9 +20,10 @@ func TestHeldDemandIsServed(t *testing.T) {
 		t.Fatal(err)
 	}
 	crewed := Crewed(cfg, 40)
-	checked := 0
+	checked, most := 0, 0
 	res, err := Run(cfg, 3, 150, func(w *game.World) {
 		crewed(w)
+		most = max(most, w.Worked())
 		for _, cid := range w.CityOrder {
 			for _, id := range w.Products {
 				want := 0.0
@@ -49,8 +50,8 @@ func TestHeldDemandIsServed(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	if res.World.Worked() < 3 || checked == 0 {
-		t.Fatalf("the run never took ground: %d corners worked, %d checks", res.World.Worked(), checked)
+	if most < 3 || checked == 0 {
+		t.Fatalf("the run never took ground: %d corners worked at most, %d checks", most, checked)
 	}
 	// And what actually sold never exceeded it.
 	for _, e := range res.Events {

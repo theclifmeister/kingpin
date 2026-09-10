@@ -29,12 +29,13 @@ const (
 	screenMap
 	screenUpgrades
 	screenLedger
+	screenRivals
 	screenCount
 )
 
 var (
-	screenNames = []string{"Dashboard", "Market", "Journal", "Crew", "Map", "Upgrades", "Ledger"}
-	screenShort = []string{"Dash", "Market", "News", "Crew", "Map", "Upgr", "Ledger"} // when the title bar is tight
+	screenNames = []string{"Dashboard", "Market", "Journal", "Crew", "Map", "Upgrades", "Ledger", "Rivals"}
+	screenShort = []string{"Dash", "Market", "News", "Crew", "Map", "Upgr", "Ledger", "Rivals"} // when the title bar is tight
 )
 
 type mode int
@@ -59,6 +60,7 @@ const (
 	modeCard          // a dilemma card, before the morning report
 	modeShip          // the ship dialog: product -> route -> quantity -> dial
 	modeConfirmTravel // move to the other city?
+	modePropose       // pick a deal to put to the rival: kind, then terms
 )
 
 type tickMsg time.Time
@@ -89,6 +91,10 @@ type Model struct {
 	frontCursor   int    // offer selected in the buy-a-front picker
 	cardCursor    int    // choice highlighted on the dilemma card
 	cardDone      bool   // the card is answered; the outcome is showing
+	dealCursor    int    // offer selected on the rivals screen
+	proposeStep   int    // 0: pick the kind, 1: pick the terms
+	proposeKind   int    // index into proposeKinds while on the terms page
+	proposeCursor int
 	outcome       string // what the last answer did, while it shows
 	journal       viewport.Model
 	dlg           dialog
@@ -398,6 +404,33 @@ func (m *Model) handleKey(k tea.KeyMsg) (tea.Model, tea.Cmd) {
 		return m, nil
 	case modeCard:
 		return m.keyCard(key)
+	case modePropose:
+		switch key {
+		case "esc", "q":
+			if m.proposeStep == 1 {
+				m.proposeStep, m.proposeCursor = 0, m.proposeKind
+			} else {
+				m.mode = modePlay
+			}
+		case "up", "k":
+			if m.proposeCursor > 0 {
+				m.proposeCursor--
+			}
+		case "down", "j":
+			if m.proposeCursor < m.proposeRows()-1 {
+				m.proposeCursor++
+			}
+		case "enter":
+			m.pickPropose()
+		default:
+			if len(key) == 1 && key[0] >= '1' && key[0] <= '9' {
+				if i := int(key[0] - '1'); i < m.proposeRows() {
+					m.proposeCursor = i
+					m.pickPropose()
+				}
+			}
+		}
+		return m, nil
 	case modeOver:
 		switch key {
 		case "enter", "n":
@@ -467,6 +500,8 @@ func (m *Model) keyPlay(key string) (tea.Model, tea.Cmd) {
 		m.screen = screenUpgrades
 	case "7":
 		m.screen = screenLedger
+	case "8":
+		m.screen = screenRivals
 	case "tab":
 		m.screen = (m.screen + 1) % screenCount
 	case "shift+tab":
@@ -508,12 +543,20 @@ func (m *Model) keyPlay(key string) (tea.Model, tea.Cmd) {
 		}
 		m.cycleCity(d)
 	case "x":
+		if m.screen == screenRivals {
+			m.answerOffer(false)
+			break
+		}
 		id := m.w.Products[m.cursor]
 		if city := m.actionCity(); m.w.Cities[city] != nil {
 			if _, ok := m.w.Order(city, id); ok {
 				m.w.CancelSell(city, id)
 				m.status = "Order cancelled."
 			}
+		}
+	case "y":
+		if m.screen == screenRivals {
+			m.answerOffer(true)
 		}
 	case "l":
 		m.w.SetLieLow(!m.w.LieLow)
@@ -537,7 +580,11 @@ func (m *Model) keyPlay(key string) (tea.Model, tea.Cmd) {
 	case "p":
 		m.cyclePay()
 	case "d":
-		m.cycleLaunder()
+		if m.screen == screenRivals {
+			m.askPropose()
+		} else {
+			m.cycleLaunder()
+		}
 	case "i":
 		if m.screen == screenCrew {
 			m.askInvestigate()
@@ -582,6 +629,10 @@ func (m *Model) keyPlay(key string) (tea.Model, tea.Cmd) {
 			m.mapMove(0, -1)
 		case m.screen == screenUpgrades:
 			m.upgradeMove(0, -1)
+		case m.screen == screenRivals:
+			if m.dealCursor > 0 {
+				m.dealCursor--
+			}
 		case m.cursor > 0:
 			m.cursor--
 		}
@@ -597,6 +648,10 @@ func (m *Model) keyPlay(key string) (tea.Model, tea.Cmd) {
 			m.mapMove(0, 1)
 		case m.screen == screenUpgrades:
 			m.upgradeMove(0, 1)
+		case m.screen == screenRivals:
+			if m.dealCursor < len(m.w.Offers)-1 {
+				m.dealCursor++
+			}
 		case m.cursor < len(m.w.Products)-1:
 			m.cursor++
 		}
@@ -693,6 +748,8 @@ func (m *Model) View() string {
 		body = m.viewShip()
 	case modeCard:
 		body = m.viewCard()
+	case modePropose:
+		body = m.viewPropose()
 	default:
 		switch m.screen {
 		case screenMarket:
@@ -707,6 +764,8 @@ func (m *Model) View() string {
 			body = m.viewUpgrades()
 		case screenLedger:
 			body = m.viewLedger()
+		case screenRivals:
+			body = m.viewRivals()
 		default:
 			body = m.viewDashboard()
 		}
@@ -822,6 +881,8 @@ func (m *Model) viewFooter() string {
 		} else {
 			keys = k("↑↓", "pick") + k("1-3", "choose") + k("enter", "decide")
 		}
+	case modePropose:
+		keys = k("↑↓", "pick") + k("enter", "next") + k("esc", "back")
 	default:
 		switch m.screen {
 		case screenCrew:
@@ -834,6 +895,8 @@ func (m *Model) viewFooter() string {
 			keys = k("n", "end day") + k("↑↓←→", "pick") + k("enter", "buy") + k("?", "help") + k("q", "quit")
 		case screenLedger:
 			keys = k("n", "end day") + k("b", "buy a front") + k("d", "launder dial") + k("l", "lie low") + k("?", "help") + k("q", "quit")
+		case screenRivals:
+			keys = k("n", "end day") + k("↑↓", "pick offer") + k("d", "propose") + k("y", "accept") + k("x", "decline") + k("?", "help") + k("q", "quit")
 		default:
 			keys = k("n", "end day") + k("b", "buy") + k("s", "sell") + k("t", "ship") + k("l", "lie low") + k("x", "cancel order") + k("r", "report") + k("?", "help") + k("q", "quit")
 		}
@@ -890,7 +953,7 @@ func (m *Model) viewStart() string {
 
 func (m *Model) viewHelp() string {
 	rows := [][2]string{
-		{"1-7 / tab", "switch screen (shift+tab goes back)"},
+		{"1-8 / tab", "switch screen (shift+tab goes back)"},
 		{"n", "end the day (sims step, autosave)"},
 		{"enter", "end the day, after a confirmation"},
 		{"b", "buy from the supplier where you are (ledger: a front)"},
@@ -907,7 +970,8 @@ func (m *Model) viewHelp() string {
 		{"c / e / a", "post a runner / an enforcer / abandon the corner (map)"},
 		{"w", "send the enforcers at a rival corner: warn/push/hit (map)"},
 		{"u / enter", "buy the selected upgrade, after a confirmation"},
-		{"d", "cycle the launder dial: careful / normal / greedy"},
+		{"d", "cycle the launder dial (rivals screen: propose a deal)"},
+		{"y / x", "accept / decline the selected offer (rivals screen)"},
 		{"↑ ↓ / j k", "move the cursor / scroll journal"},
 		{"← →", "walk the map grid / the upgrade columns / the cities"},
 		{"ctrl+s", "save now"},
@@ -939,6 +1003,9 @@ func (m *Model) viewOver() string {
 	b.WriteString(fmt.Sprintf("Corners / robbed %d / %s\n", w.Held(), cash(w.Stats.Robbed)))
 	if w.Rival.Arrived > 0 {
 		b.WriteString(fmt.Sprintf("Won / lost to %s %d / %d\n", truncate(w.Rival.Leader, 12), w.Stats.CornersWon, w.Stats.CornersLost))
+	}
+	if s := w.Stats; s.Deals+s.Betrayals+s.BetrayedBy > 0 {
+		b.WriteString(fmt.Sprintf("Deals / broken   %d / %d by you, %d by them\n", s.Deals, s.Betrayals, s.BetrayedBy))
 	}
 	b.WriteString(fmt.Sprintf("Washed / seized %s / %s\n", cash(w.Stats.Laundered), cash(w.Stats.Seized)))
 	if w.Stats.Shipments > 0 {

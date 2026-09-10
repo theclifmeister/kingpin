@@ -10,7 +10,7 @@ import (
 )
 
 // SchemaVersion is bumped whenever World changes shape incompatibly.
-const SchemaVersion = 7
+const SchemaVersion = 8
 
 // World is the complete state of a run. Every field is a plain value so the
 // whole struct can be serialised with encoding/gob.
@@ -34,6 +34,7 @@ type World struct {
 	Dilemmas    DilemmaState   // the card waiting for an answer, and the deck's pacing
 	Shipments   []Shipment     // product on the road, in the order sent
 	Logistics   LogisticsState // the shipment counter and the seizure record
+	Offers      []Offer        // deals the rival has put on the table, oldest first
 
 	// Per-day scratch, cleared by the clock after every EndDay.
 	Orders        map[string]SellOrder // pending sell orders keyed by product id
@@ -42,6 +43,9 @@ type World struct {
 	Strike        *StrikeOrder         // enforcers sent against a rival corner tonight
 	Investigation *InvestigationOrder  // somebody asking the crew questions tonight
 	UpgradesToday []string             // upgrade ids bought today, for the report
+	Proposal      *Deal                // the deal put to the rival today; it answers in the morning
+	Accepted      []Offer              // rival offers the player took today; the rival sim seals them
+	Abandoned     []string             // corner ids given back to the street today
 
 	Journal []Headline // full headline history, oldest first
 	Report  *DayReport // morning report for the current day
@@ -345,6 +349,13 @@ type RivalState struct {
 	Flips       int     // corners it took from the player
 	Tips        int
 	Leads       []Lead // what defectors brought it, to act on next step
+
+	// Diplomacy (#32): what it thinks of you and what you have agreed.
+	Trust     float64 // 0..100; seeded by personality, earned by kept deals, spent by force
+	Deals     []Deal  // live deals, oldest first
+	Betrayed  int     // day the player last broke a deal; 0 never. It takes nothing for a while after.
+	LastFlip  int     // day it last took a corner from the player; 0 never
+	NextOffer int     // id of the next offer it makes
 }
 
 // Lead is a crew member who went over to the rival: their name and the
@@ -417,6 +428,11 @@ type Stats struct {
 	Shipped        int // units sent over a route
 	Seizures       int // shipments the police took on the road
 	SeizedOnRoad   int // units lost to them
+	Deals          int // deals struck with the rival, either way
+	DealsRefused   int // proposals it turned down
+	Betrayals      int // deals you broke
+	BetrayedBy     int // deals it broke
+	Tribute        int // dirty cash paid the rival in tribute
 }
 
 // StartingProduct describes a product as it exists at the start of a run,

@@ -357,6 +357,8 @@ type RoleConfig struct {
 // RivalsConfig mirrors rivals.toml.
 type RivalsConfig struct {
 	Rivals      RivalsTuning                 `toml:"rivals"`
+	Diplomacy   DiplomacyTuning              `toml:"diplomacy"`
+	Deal        map[string]DealConfig        `toml:"deal"`
 	Personality map[string]PersonalityConfig `toml:"personality"`
 	Force       map[string]ForceConfig       `toml:"force"`
 }
@@ -386,6 +388,10 @@ type RivalsTuning struct {
 }
 
 type PersonalityConfig struct {
+	Trust           float64 `toml:"trust"`        // trust in the player at the start of a run
+	DealBias        float64 `toml:"deal_bias"`    // added to the chance it accepts any proposal
+	Betrayal        float64 `toml:"betrayal"`     // chance per live deal per day it breaks one itself
+	OfferChance     float64 `toml:"offer_chance"` // chance per day it puts a deal on the table when its situation calls for one
 	ClaimChance     float64 `toml:"claim_chance"`
 	MaxCorners      int     `toml:"max_corners"`
 	PushPastCap     float64 `toml:"push_past_cap"` // multiplier on push_chance once it holds max_corners; 0 stops
@@ -403,6 +409,37 @@ type ForceConfig struct {
 	Heat    float64 `toml:"heat"`
 	War     float64 `toml:"war"`
 	Loyalty float64 `toml:"loyalty"`
+	Trust   float64 `toml:"trust"` // what a strike at this force costs the rival's trust in you
+}
+
+// DiplomacyTuning is the table: how deals are offered, judged, kept and
+// broken. The rival's answer is a chance built from a base per deal kind,
+// the terms asked, its trust, its personality and the war, plus what the
+// player's reputation adds (reputation.toml [effects]).
+type DiplomacyTuning struct {
+	OfferDays      int       `toml:"offer_days"`      // days a rival offer stays on the table
+	TrustKept      float64   `toml:"trust_kept"`      // trust per day of a live deal
+	AcceptTrust    float64   `toml:"accept_trust"`    // added to the chance at trust 100
+	AcceptWar      float64   `toml:"accept_war"`      // added to the chance at war 100: a loud war makes peace attractive
+	BetrayalFloor  float64   `toml:"betrayal_floor"`  // trust after the player breaks a deal
+	DistrustDays   int       `toml:"distrust_days"`   // days after a betrayal the rival takes no deal and offers none
+	BetrayalSpread float64   `toml:"betrayal_spread"` // trust every other faction loses (Phase 4)
+	JointTrust     float64   `toml:"joint_trust"`     // trust a joint shipment needs (#30)
+	TruceDays      []int     `toml:"truce_days"`      // the three lengths a truce can be proposed at
+	TributeCuts    []float64 `toml:"tribute_cuts"`    // the three cuts of the player's daily street value a tribute can be
+	TributeMin     int       `toml:"tribute_min"`     // a tribute is never under this a day
+	LowCashDays    int       `toml:"low_cash_days"`   // an expansionist that cannot pay its muscle this long offers a truce
+	UpperHand      float64   `toml:"upper_hand"`      // an opportunist with this many times the muscle on the front line demands tribute
+	SplitFair      float64   `toml:"split_fair"`      // share of the city's demand the rival lets the player's side of a split have at trust 0 ...
+	SplitTrust     float64   `toml:"split_trust"`     // ... plus this much at trust 100
+}
+
+// DealConfig is what the rival thinks of one deal kind: the base chance
+// it accepts, and how much the terms move it (the easy option adds terms,
+// the hard one takes it away).
+type DealConfig struct {
+	Base  float64 `toml:"base"`
+	Terms float64 `toml:"terms"`
 }
 
 // Personalities are the rival personalities in a fixed order, so a pick
@@ -411,6 +448,28 @@ var Personalities = []string{"expansionist", "defensive", "opportunist", "chaoti
 
 // ForceFor returns the tuning for a force dial position.
 func (r RivalsConfig) ForceFor(f events.Force) ForceConfig { return r.Force[f.String()] }
+
+// DealKinds are the deals that can be proposed, in the order the UI
+// lists them. The joint shipment waits on routes (#30).
+var DealKinds = []string{"truce", "tribute", "split"}
+
+// validate checks the diplomacy table reads as one: a [deal.X] table per
+// kind, three options for the truce and the tribute, and sane days.
+func (r RivalsConfig) validate() error {
+	d := r.Diplomacy
+	for _, k := range DealKinds {
+		if _, ok := r.Deal[k]; !ok {
+			return fmt.Errorf("no [deal.%s] table", k)
+		}
+	}
+	if len(d.TruceDays) != 3 || len(d.TributeCuts) != 3 {
+		return fmt.Errorf("truce_days and tribute_cuts need three options each, got %d and %d", len(d.TruceDays), len(d.TributeCuts))
+	}
+	if d.OfferDays < 1 || d.DistrustDays < 1 {
+		return fmt.Errorf("offer_days %d and distrust_days %d must be positive", d.OfferDays, d.DistrustDays)
+	}
+	return nil
+}
 
 // LaunderingConfig mirrors laundering.toml.
 type LaunderingConfig struct {
@@ -476,6 +535,7 @@ type RespectSources struct {
 	GenerousPay float64 `toml:"generous_pay"`
 	Payoff      float64 `toml:"payoff"`
 	ShortPay    float64 `toml:"short_pay"`
+	DealKept    float64 `toml:"deal_kept"` // per day of a truce or split kept
 }
 
 type NotorietySources struct {
@@ -495,6 +555,8 @@ type ReputationFX struct {
 	RespectSupplierCut float64 `toml:"respect_supplier_cut"`
 	NotorietyHireCut   float64 `toml:"notoriety_hire_cut"`
 	NotorietyHeat      float64 `toml:"notoriety_heat"`
+	FearDeal           float64 `toml:"fear_deal"`     // rivals: added to the chance a proposal is accepted
+	RespectTrust       float64 `toml:"respect_trust"` // rivals: extra on the trust a kept deal-day earns
 }
 
 // Scale is v at axis 0 and v times (1 + full) at axis 100: how an effect
@@ -746,6 +808,9 @@ func Load() (*Config, error) {
 	}
 	if len(c.Names.Rivals) == 0 {
 		return nil, fmt.Errorf("names.toml: no rival names")
+	}
+	if err := c.Rivals.validate(); err != nil {
+		return nil, fmt.Errorf("rivals.toml: %w", err)
 	}
 	if err := c.Upgrades.validate(); err != nil {
 		return nil, fmt.Errorf("upgrades.toml: %w", err)

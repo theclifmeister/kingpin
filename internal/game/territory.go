@@ -236,6 +236,11 @@ func (w *World) Post(corner string, id int) error {
 	if role != "runner" && role != "enforcer" {
 		return ErrNotPostable
 	}
+	if c.Owner != OwnerPlayer {
+		if d := w.Deal(DealSplit); d != nil && !d.Covers(c.ID) {
+			return fmt.Errorf("the split gives %s to %s; break it first", c.Name, w.Rival.Leader)
+		}
+	}
 	w.Recall(id)
 	if c.Owner != OwnerPlayer {
 		c.Owner = OwnerPlayer
@@ -280,6 +285,7 @@ func (w *World) Abandon(corner string) error {
 	}
 	c.Owner = OwnerNone
 	c.Runner, c.Enforcer, c.Idle, c.Since = 0, 0, 0, w.Day
+	w.Abandoned = append(w.Abandoned, c.ID)
 	return nil
 }
 

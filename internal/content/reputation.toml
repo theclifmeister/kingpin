@@ -23,6 +23,7 @@ push_held = 2               # a rival push on your corner that you held
 generous_pay = 1.5          # per day the whole crew is paid generous, in full
 payoff = 4                  # per member paid off for loyalty
 short_pay = -3              # per day wages come up short
+deal_kept = 0.4             # per day a truce or a territory split with the rival is kept (tribute is not respect)
 
 # Notoriety: how much of the city is talking about you.
 [notoriety]
@@ -42,3 +43,5 @@ respect_loyalty_cut = 0.5   # crew: fraction cut from each day's loyalty loss
 respect_supplier_cut = 0.15 # market: fraction cut from the supplier's price
 notoriety_hire_cut = 0.5    # crew: fraction cut from a candidate's signing fee
 notoriety_heat = 0.5        # heat: extra on the heat of every unit you move yourself (a runner's units are theirs)
+fear_deal = 0.25            # rivals: added to the chance it accepts a proposal; they would rather deal than fight you
+respect_trust = 0.5         # rivals: extra on the trust a kept deal-day earns

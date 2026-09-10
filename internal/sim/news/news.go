@@ -79,6 +79,7 @@ type data struct {
 	Mode    string // how a shipment travelled
 	From    string // the cities a shipment joined
 	To      string
+	Deal    string
 }
 
 // Step writes headlines into the journal and assembles the morning report.
@@ -119,7 +120,7 @@ func (s *Sim) Step(w *game.World, t *game.Tick) {
 	}
 
 	// Money before we look at events: sales are already applied by market.
-	var soldRevenue, lostCash, spent, wages, skimmed, robbed, upgrades, upkeep, seized, paidOff, investigated, shipping int
+	var soldRevenue, lostCash, spent, wages, skimmed, robbed, upgrades, upkeep, seized, paidOff, investigated, shipping, tribute int
 	for _, e := range t.Events() {
 		switch ev := e.(type) {
 		case events.UpgradeBought:
@@ -326,6 +327,39 @@ func (s *Sim) Step(w *game.World, t *game.Tick) {
 			rep.Territory = append(rep.Territory, fmt.Sprintf("Somebody tipped the police about you. It was %s. Heat +%.0f.", ev.Rival, ev.Heat))
 		case events.RivalUndercut:
 			rep.Territory = append(rep.Territory, fmt.Sprintf("%s's crew are undercutting you on %s: -%.0f%% demand there.", ev.Rival, strings.Join(ev.Corners, ", "), ev.Share*100))
+		case events.DealOffered:
+			d := base
+			d.Rival, d.Deal = ev.Rival, ev.Deal
+			add("rivals", "DealOffered", d)
+			rep.Territory = append(rep.Territory, fmt.Sprintf("%s offers %s. It stands %d day(s): answer it on the rivals screen (8).", ev.Rival, ev.Terms, ev.Expires-t.Day+1))
+		case events.DealAccepted:
+			d := base
+			d.Rival, d.Deal = ev.Rival, ev.Deal
+			add("rivals", "DealAccepted", d)
+			if ev.Offered {
+				rep.Territory = append(rep.Territory, fmt.Sprintf("You took %s's offer: %s. It holds from tonight.", ev.Rival, ev.Terms))
+			} else {
+				rep.Territory = append(rep.Territory, fmt.Sprintf("%s ACCEPTED %s. It holds from tonight.", ev.Rival, ev.Terms))
+			}
+		case events.DealRefused:
+			d := base
+			d.Rival, d.Deal = ev.Rival, ev.Deal
+			add("rivals", "DealRefused", d)
+			rep.Territory = append(rep.Territory, fmt.Sprintf("%s refused %s.", ev.Rival, ev.Terms))
+		case events.DealBroken:
+			d := base
+			d.Rival, d.Deal = ev.Rival, ev.Deal
+			add("rivals", "DealBroken", d)
+			if ev.By == "rival" {
+				rep.Territory = append(rep.Territory, fmt.Sprintf("%s BROKE the %s: %s. So much for that.", ev.Rival, ev.Deal, ev.Why))
+			} else {
+				rep.Territory = append(rep.Territory, fmt.Sprintf("You BROKE the %s with %s: %s. Trust is gone, and they made a call.", ev.Deal, ev.Rival, ev.Why))
+			}
+		case events.DealEnded:
+			rep.Territory = append(rep.Territory, fmt.Sprintf("The %s with %s has run out. Expect them back on your corners.", ev.Deal, ev.Rival))
+		case events.TributePaid:
+			tribute += ev.Amount
+			rep.Money = append(rep.Money, fmt.Sprintf("Tribute to %s -$%d", ev.Rival, ev.Amount))
 		case events.WarEscalated:
 			d := base
 			if ev.Stage == "crackdown" {
@@ -419,7 +453,7 @@ func (s *Sim) Step(w *game.World, t *game.Tick) {
 		spent += m.Fee
 		rep.Money = append(rep.Money, fmt.Sprintf("Signing fee for %s -$%d", m.Name, m.Fee))
 	}
-	rep.CashBefore = w.Cash() - soldRevenue + lostCash + spent + wages + skimmed + robbed + upgrades + upkeep + seized + paidOff + investigated + shipping
+	rep.CashBefore = w.Cash() - soldRevenue + lostCash + spent + wages + skimmed + robbed + upgrades + upkeep + seized + paidOff + investigated + shipping + tribute
 	if soldRevenue > 0 {
 		rep.Money = append(rep.Money, fmt.Sprintf("Street sales +$%d", soldRevenue))
 	}
