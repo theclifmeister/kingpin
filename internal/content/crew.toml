@@ -46,3 +46,9 @@ wage_base = 30
 wage_per_skill = 0.5
 protection = 0.5            # each enforcer halves what danger costs the crew's loyalty
 deterrence = 0.5            # each enforcer halves the chance a skimmer dares
+
+[role.accountant]
+wage_base = 60
+wage_per_skill = 1.2
+# Accountants only show up looking for work once you own a front. What they
+# add to every front, and cut from its audit risk, is in laundering.toml.

@@ -170,3 +170,18 @@ FallGuyBurned = [
   "Indictment lands in {{.City}}: 'we got our man', says DA",
   "Trial over in a day as {{.City}} defendant pleads to everything",
 ]
+FrontBought = [
+  "{{.Front}} changes hands; new owner 'keen to invest in {{.City}}'",
+  "Under new management: {{.City}} {{.Front}} reopens with cash to spare",
+  "Local {{.Front}} bought outright; 'paid in full', says the agent",
+]
+FrontAudited = [
+  "Tax investigators seen leaving {{.City}} {{.Front}} with boxes",
+  "{{.Front}} shut pending audit; staff sent home",
+  "Revenue agents 'taking an interest' in a {{.City}} {{.Front}}",
+]
+FrontFrozen = [
+  "{{.Front}} dark: 'unpaid bills', says landlord",
+  "Sign on the door of {{.City}} {{.Front}}: closed until further notice",
+  "Suppliers cut off {{.Front}} over unpaid invoices",
+]

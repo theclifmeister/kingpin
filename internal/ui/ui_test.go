@@ -107,7 +107,7 @@ func TestRendersAtCommonSizes(t *testing.T) {
 			m.mapCursor = i
 			assertFits(t, m.View(), sz[0], sz[1], "map")
 		}
-		for _, s := range []string{"1", "2", "3", "4", "5", "6"} {
+		for _, s := range []string{"1", "2", "3", "4", "5", "6", "7"} {
 			m.Update(key(s))
 			assertFits(t, m.View(), sz[0], sz[1], "screen "+s)
 		}
@@ -138,6 +138,35 @@ func TestRendersAtCommonSizes(t *testing.T) {
 			t.Fatalf("%dx%d: report has no territory lines: %+v", sz[0], sz[1], m.w.Report)
 		}
 		m.Update(key("enter"))
+		// The ledger: the picker, three fronts bought, one of them audited,
+		// and an accountant on the books.
+		m.Update(key("7"))
+		m.w.Player.DirtyCash = 700_000
+		m.w.Stats.PeakCash = 700_000
+		m.Update(key("b"))
+		assertFits(t, m.View(), sz[0], sz[1], "front picker")
+		for i := 0; i < 3; i++ {
+			m.Update(key("b"))
+			m.Update(key("enter"))
+		}
+		if len(m.w.Fronts) != 3 {
+			t.Fatalf("%dx%d: bought %d fronts: %q", sz[0], sz[1], len(m.w.Fronts), m.status)
+		}
+		m.w.Crew.Members = append(m.w.Crew.Members, game.CrewMember{ID: 901, Name: "Books", Role: "accountant", Skill: 60, Loyalty: 60, Wage: 130})
+		m.Update(key("n"))
+		assertFits(t, m.View(), sz[0], sz[1], "report with fronts")
+		if !strings.Contains(strings.Join(m.w.Report.Money, "\n"), "Washed") {
+			t.Fatalf("%dx%d: report has no wash line: %v", sz[0], sz[1], m.w.Report.Money)
+		}
+		m.Update(key("enter"))
+		m.w.Fronts[1].Audited = m.w.Day
+		m.w.Fronts[1].FrozenUntil = m.w.Day + m.cfg.Laundering.Laundering.AuditFreezeDays
+		m.w.Fronts[2].FrozenUntil = m.w.Day + 2
+		m.Update(key("d"))
+		for _, s := range []string{"7", "1", "4"} {
+			m.Update(key(s))
+			assertFits(t, m.View(), sz[0], sz[1], "ledger screen "+s)
+		}
 		m.Update(key("1"))
 		m.Update(key("b"))
 		assertFits(t, m.View(), sz[0], sz[1], "buy dialog")
@@ -154,10 +183,13 @@ func TestRendersAtCommonSizes(t *testing.T) {
 		// next day unlocks every rung of the product ladder.
 		m.w.Player.DirtyCash = 1_234_567_890
 		m.w.Stats.PeakCash = m.w.Player.DirtyCash
-		for _, s := range []string{"1", "2", "3", "4", "5", "6"} {
+		for _, s := range []string{"1", "2", "3", "4", "5", "6", "7"} {
 			m.Update(key(s))
 			assertFits(t, m.View(), sz[0], sz[1], "rich screen "+s)
 		}
+		m.Update(key("b"))
+		assertFits(t, m.View(), sz[0], sz[1], "rich front picker")
+		m.Update(key("esc"))
 		m.Update(key("1"))
 		m.Update(key("b"))
 		m.Update(key("enter"))
@@ -375,6 +407,11 @@ func TestOldSaveIsMigrated(t *testing.T) {
 	if m.w.Rival.Leader == "" || m.w.Rival.Personality == "" || m.w.Rival.Arrived != 0 {
 		t.Fatalf("migrated rival: %+v", m.w.Rival)
 	}
+	if len(m.w.Fronts) != 0 || m.w.Laundering.Dial != events.LaunderNormal {
+		t.Fatalf("migrated laundering: fronts %+v dial %v", m.w.Fronts, m.w.Laundering.Dial)
+	}
+	m.Update(key("7"))
+	assertFits(t, m.View(), 80, 24, "ledger after migration")
 	m.Update(key("4"))
 	assertFits(t, m.View(), 80, 24, "crew screen after migration")
 	m.Update(key("5"))
@@ -685,5 +722,79 @@ func TestUpgradesScreenKeys(t *testing.T) {
 	w, err := game.Load(m.set.Migrations()...)
 	if err != nil || !w.Owns("stash") {
 		t.Fatalf("load: %v owns %v", err, w != nil && w.Owns("stash"))
+	}
+}
+
+// The ledger: b buys a front through the picker (elsewhere it still buys
+// from the supplier), d cycles the launder dial from anywhere, the
+// dashboard and report say what the fronts did, and a locked or
+// unaffordable front is refused with a reason.
+func TestLedgerScreenKeys(t *testing.T) {
+	m := newTestModel(t, 100, 30)
+	cheapest := m.set.Laundering.Offers()[0]
+	m.Update(key("b"))
+	if m.mode != modeBuy {
+		t.Fatalf("b on the dashboard: mode %v", m.mode)
+	}
+	m.Update(key("esc"))
+	m.Update(key("d"))
+	if m.w.Laundering.Dial != events.LaunderGreedy || !strings.Contains(m.status, "greedy") {
+		t.Fatalf("d from the dashboard: dial %v status %q", m.w.Laundering.Dial, m.status)
+	}
+	m.Update(key("d"))
+	m.Update(key("d"))
+	if m.w.Laundering.Dial != events.LaunderNormal {
+		t.Fatalf("three d: dial %v", m.w.Laundering.Dial)
+	}
+	m.Update(key("7"))
+	if m.screen != screenLedger {
+		t.Fatalf("screen %v", m.screen)
+	}
+	// Too poor, then unlocked but short, then bought.
+	m.Update(key("b"))
+	if m.mode != modeFront {
+		t.Fatalf("b on the ledger: mode %v", m.mode)
+	}
+	m.Update(key("enter"))
+	if m.mode != modePlay || len(m.w.Fronts) != 0 || !strings.Contains(m.status, "Can't buy") {
+		t.Fatalf("bought with $%d: fronts %d status %q", m.w.Player.DirtyCash, len(m.w.Fronts), m.status)
+	}
+	m.w.Stats.PeakCash = cheapest.UnlockCash
+	m.w.Player.DirtyCash = cheapest.Cost - 1
+	m.Update(key("b"))
+	m.Update(key("enter"))
+	if len(m.w.Fronts) != 0 || !strings.Contains(m.status, "only have") {
+		t.Fatalf("bought short: fronts %d status %q", len(m.w.Fronts), m.status)
+	}
+	m.w.Player.DirtyCash = cheapest.Cost + m.cfg.Laundering.Laundering.Float + 10_000
+	m.Update(key("b"))
+	m.Update(key("enter"))
+	if len(m.w.Fronts) != 1 || m.w.Fronts[0].ID != cheapest.ID || m.w.Player.DirtyCash != m.cfg.Laundering.Laundering.Float+10_000 {
+		t.Fatalf("buy: fronts %+v cash %d status %q", m.w.Fronts, m.w.Player.DirtyCash, m.status)
+	}
+	m.Update(key("b"))
+	if rows := m.frontRows(); len(rows) != len(m.set.Laundering.Offers())-1 || rows[0].ID == cheapest.ID {
+		t.Fatalf("picker still offers what you own: %+v", rows)
+	}
+	m.Update(key("esc"))
+	m.Update(key("1"))
+	if !strings.Contains(stripANSI(m.View()), "/day") {
+		t.Fatal("dashboard does not show the wash rate")
+	}
+	m.Update(key("n"))
+	if m.mode != modeReport {
+		t.Fatalf("mode %v", m.mode)
+	}
+	money := strings.Join(m.w.Report.Money, "\n")
+	if !strings.Contains(money, cheapest.Name) || !strings.Contains(money, "Washed") {
+		t.Fatalf("report: %v", m.w.Report.Money)
+	}
+	if m.w.Player.CleanCash <= 0 || m.w.Fronts[0].WashedToday <= 0 {
+		t.Fatalf("nothing washed: clean %d front %+v", m.w.Player.CleanCash, m.w.Fronts[0])
+	}
+	m.Update(key("enter"))
+	m.Update(key("7"))
+	if !strings.Contains(stripANSI(m.View()), "open") {
+		t.Fatal("ledger does not show the front open")
 	}
 }

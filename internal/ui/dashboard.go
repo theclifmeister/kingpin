@@ -150,12 +150,19 @@ func (m *Model) viewDashboard() string {
 	// Cash panel.
 	var till strings.Builder
 	till.WriteString(theme.Gold.Render("dirty  "+cash(w.Player.DirtyCash)) + "\n")
-	till.WriteString(theme.Subtle.Render("clean  "+cash(w.Player.CleanCash)) + "\n")
-	till.WriteString(theme.Subtle.Render(fmt.Sprintf("peak   %s", cash(w.Stats.PeakCash))) + "\n")
-	if thr := m.cfg.Heat.Heat.DirtyCashThreshold; thr > 0 && w.Player.DirtyCash > thr {
-		till.WriteString(theme.Warning.Render(fmt.Sprintf("dirty cash over %s draws heat", cash(thr))) + "\n")
+	clean := theme.Subtle.Render("clean  " + cash(w.Player.CleanCash))
+	if len(w.Fronts) > 0 {
+		clean += theme.Subtle.Render(fmt.Sprintf("  +%s/day %s", cash(m.set.Laundering.Capacity(w)), w.Laundering.Dial))
 	}
-	cashH := 6
+	till.WriteString(clean + "\n")
+	till.WriteString(theme.Subtle.Render(fmt.Sprintf("peak   %s", cash(w.Stats.PeakCash))) + "\n")
+	switch rows := m.frontRows(); {
+	case m.cfg.Heat.Heat.DirtyCashThreshold > 0 && w.Player.DirtyCash > m.cfg.Heat.Heat.DirtyCashThreshold:
+		till.WriteString(theme.Warning.Render(fmt.Sprintf("dirty cash over %s draws heat", cash(m.cfg.Heat.Heat.DirtyCashThreshold))) + "\n")
+	case len(w.Fronts) == 0 && len(rows) > 0 && !rows[0].Locked(w):
+		till.WriteString(theme.Subtle.Render("a front is on offer (7)") + "\n")
+	}
+	cashH := 7
 	cashPanel := panel("CASH", till.String(), rightW, cashH, theme.Money)
 
 	// The rival: who, what they are like, how much they hold, how loud

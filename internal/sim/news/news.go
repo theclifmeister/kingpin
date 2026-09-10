@@ -67,6 +67,7 @@ type data struct {
 	Role    string
 	Corner  string
 	Rival   string
+	Front   string
 }
 
 // Step writes headlines into the journal and assembles the morning report.
@@ -85,7 +86,7 @@ func (s *Sim) Step(w *game.World, t *game.Tick) {
 	base := data{City: w.City}
 
 	// Money before we look at events: sales are already applied by market.
-	var soldRevenue, lostCash, wages, skimmed, robbed, upgrades int
+	var soldRevenue, lostCash, spent, wages, skimmed, robbed, upgrades, upkeep, seized int
 	for _, e := range t.Events() {
 		switch ev := e.(type) {
 		case events.UpgradeBought:
@@ -171,7 +172,14 @@ func (s *Sim) Step(w *game.World, t *game.Tick) {
 		case events.CrewSkimmed:
 			add("crew", "CrewSkimmed", base)
 			skimmed += ev.Amount
-			rep.Crew = append(rep.Crew, fmt.Sprintf("$%d of the takings never made it back. Somebody is skimming.", ev.Amount))
+			switch {
+			case ev.FromWash == ev.Amount:
+				rep.Crew = append(rep.Crew, fmt.Sprintf("$%d of the wash never came out clean. Somebody is cooking the books.", ev.Amount))
+			case ev.FromWash > 0:
+				rep.Crew = append(rep.Crew, fmt.Sprintf("$%d of the takings never made it back, $%d of it from the wash. Somebody is skimming.", ev.Amount, ev.FromWash))
+			default:
+				rep.Crew = append(rep.Crew, fmt.Sprintf("$%d of the takings never made it back. Somebody is skimming.", ev.Amount))
+			}
 		case events.CornerClaimed:
 			d := base
 			d.Corner, d.Name = ev.Name, ev.Worker
@@ -255,6 +263,39 @@ func (s *Sim) Step(w *game.World, t *game.Tick) {
 			add("territory", "CornerRobbed", d)
 			rep.Territory = append(rep.Territory, robberyLine(w, ev))
 			robbed += ev.Cash
+		case events.FrontBought:
+			d := base
+			d.Front = ev.Name
+			add("laundering", "FrontBought", d)
+			spent += ev.Cost
+			rep.Money = append(rep.Money, fmt.Sprintf("Bought %s -$%d. It opens today.", ev.Name, ev.Cost))
+		case events.CashLaundered:
+			line := fmt.Sprintf("Washed $%d clean through %d front(s)", ev.Amount, ev.Fronts)
+			if ev.Upkeep > 0 {
+				line += fmt.Sprintf(", upkeep -$%d", ev.Upkeep)
+			}
+			upkeep += ev.Upkeep
+			rep.Money = append(rep.Money, line)
+		case events.FrontAudited:
+			d := base
+			d.Front = ev.Name
+			add("laundering", "FrontAudited", d)
+			seized += ev.Seized
+			line := fmt.Sprintf("AUDIT at %s: shut for %d days", ev.Name, ev.Days)
+			if ev.Seized > 0 {
+				line += fmt.Sprintf(", $%d seized", ev.Seized)
+			}
+			if ev.Dial == events.LaunderGreedy {
+				line += ". Run greedy, the books will interest the DA."
+			} else {
+				line += ". The books were clean enough."
+			}
+			rep.Money = append(rep.Money, line)
+		case events.FrontFrozen:
+			d := base
+			d.Front = ev.Name
+			add("laundering", "FrontFrozen", d)
+			rep.Money = append(rep.Money, fmt.Sprintf("%s shut for %d days: $%d upkeep unpaid. Wash something.", ev.Name, ev.Days, ev.Upkeep))
 		case events.CrewPaid:
 			wages += ev.Wages
 			line := fmt.Sprintf("Wages (%s) -$%d", ev.Pay, ev.Wages)
@@ -267,9 +308,9 @@ func (s *Sim) Step(w *game.World, t *game.Tick) {
 	}
 
 	// Purchases and signings made during the day. Cash "before" is what the
-	// player woke up with: undo today's buys, fees, sales, wages, skims and
-	// seizures from the current total.
-	spent := 0
+	// player woke up with: undo today's buys, fees, sales, wages, skims,
+	// upkeep and seizures from the current total (the wash itself moves
+	// money between pools and changes nothing).
 	for _, b := range w.Buys {
 		spent += b.Cost
 		rep.Money = append(rep.Money, fmt.Sprintf("Bought %d %s at $%.0f = -$%d", b.Qty, w.ProductName(b.Product), b.UnitPrice, b.Cost))
@@ -278,7 +319,7 @@ func (s *Sim) Step(w *game.World, t *game.Tick) {
 		spent += m.Fee
 		rep.Money = append(rep.Money, fmt.Sprintf("Signing fee for %s -$%d", m.Name, m.Fee))
 	}
-	rep.CashBefore = w.Cash() - soldRevenue + lostCash + spent + wages + skimmed + robbed + upgrades
+	rep.CashBefore = w.Cash() - soldRevenue + lostCash + spent + wages + skimmed + robbed + upgrades + upkeep + seized
 	if soldRevenue > 0 {
 		rep.Money = append(rep.Money, fmt.Sprintf("Street sales +$%d", soldRevenue))
 	}
@@ -290,6 +331,9 @@ func (s *Sim) Step(w *game.World, t *game.Tick) {
 	}
 	if lostCash > 0 {
 		rep.Money = append(rep.Money, fmt.Sprintf("Seized by police -$%d", lostCash))
+	}
+	if seized > 0 {
+		rep.Money = append(rep.Money, fmt.Sprintf("Seized by the auditors -$%d", seized))
 	}
 
 	// Flavour keeps the ticker alive on quiet days.

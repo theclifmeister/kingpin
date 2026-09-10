@@ -1,0 +1,85 @@
+# Laundering tuning. Fronts turn dirty cash into clean cash at a capped
+# rate; the launder dial pushes every front harder or softer at once.
+# Money is per day.
+
+[laundering]
+float = 50000               # the wash never takes dirty cash below this: the street needs a float to restock
+audit_freeze_days = 14      # an audited front washes nothing for this long
+audit_seize = 0.5           # of what the front washed today is seized in an audit
+upkeep_freeze_days = 7      # a front whose upkeep went unpaid is shut for this long
+accountant_throughput = 4000 # added to every front per accountant, at skill 100 (scales with skill)
+accountant_risk_cut = 0.5   # of every front's audit risk a skill-100 accountant removes (each one takes its cut of what is left)
+
+# The launder dial: mul scales every front's throughput, risk its audit
+# chance. Greedy washes more and gets looked at; careful is the reverse.
+[dial.careful]
+mul = 0.5
+risk = 0.3
+
+[dial.normal]
+mul = 1.0
+risk = 1.0
+
+[dial.greedy]
+mul = 1.6
+risk = 3.0
+
+# The fronts. cost is paid in dirty cash, once. throughput is dirty cash
+# washed per day at the normal dial. upkeep is clean cash per day; unpaid,
+# the place shuts. audit_risk is the chance per day of an audit at the
+# normal dial. unlock_cash gates the offer on peak cash, like products.
+# Sized so the whole ladder washes ~$380k/day: a tier-3 operation wants the
+# first four, a tier-4 one the rest.
+[[front]]
+id = "laundromat"
+name = "Laundromat"
+cost = 25000
+throughput = 2000
+upkeep = 150
+audit_risk = 0.004
+unlock_cash = 25000
+
+[[front]]
+id = "carwash"
+name = "Car Wash"
+cost = 60000
+throughput = 5000
+upkeep = 400
+audit_risk = 0.006
+unlock_cash = 60000
+
+[[front]]
+id = "restaurant"
+name = "Restaurant"
+cost = 150000
+throughput = 12000
+upkeep = 1000
+audit_risk = 0.008
+unlock_cash = 150000
+
+[[front]]
+id = "nightclub"
+name = "Nightclub"
+cost = 400000
+throughput = 30000
+upkeep = 3000
+audit_risk = 0.02
+unlock_cash = 400000
+
+[[front]]
+id = "construction"
+name = "Construction Firm"
+cost = 1200000
+throughput = 80000
+upkeep = 8000
+audit_risk = 0.012
+unlock_cash = 1200000
+
+[[front]]
+id = "exchange"
+name = "Crypto Exchange"
+cost = 3000000
+throughput = 250000
+upkeep = 25000
+audit_risk = 0.03
+unlock_cash = 3000000

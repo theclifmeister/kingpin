@@ -193,3 +193,61 @@ func TestBrokeEndsTheRun(t *testing.T) {
 		t.Fatalf("no cash, no stock, wages due: over=%v events=%v", w.Over, kinds(evs))
 	}
 }
+
+// Accountants only come looking for work once there is a front to keep
+// the books of, and when one skims it comes out of the wash, in clean
+// cash, not the takings.
+func TestAccountantsFollowFronts(t *testing.T) {
+	cfg := content.MustLoad()
+	w, s := world(t, cfg, 1_000_000)
+	for i := 0; i < 40; i++ {
+		step(w, s)
+		for _, c := range w.Crew.Candidates {
+			if c.Role == "accountant" {
+				t.Fatalf("day %d: %s is an accountant looking for work with no front to keep", w.Day, c.Name)
+			}
+		}
+	}
+	w.Fronts = []game.Front{{ID: "laundromat", Name: "Laundromat", WashedToday: 10_000}}
+	seen := false
+	for i := 0; i < 60 && !seen; i++ {
+		step(w, s)
+		for _, c := range w.Crew.Candidates {
+			if c.Role == "accountant" {
+				seen = true
+				if c.Units != 0 || c.Wage <= 0 {
+					t.Fatalf("badly generated accountant %+v", c)
+				}
+			}
+		}
+	}
+	if !seen {
+		t.Fatal("no accountant came looking for work in 60 days with a front owned")
+	}
+	// A disloyal accountant skims the wash.
+	w.Crew.Members = []game.CrewMember{{ID: 900, Name: "Books", Role: "accountant", Skill: 50, Loyalty: 20, Greed: 100, Wage: 100}}
+	w.Player.CleanCash = 50_000
+	dirty := w.Player.DirtyCash
+	skimmed := false
+	for i := 0; i < 20 && !skimmed; i++ {
+		w.Crew.Members[0].Loyalty = 20
+		for _, e := range step(w, s, events.PlayerSold{Day: w.Day + 1, Product: "a", Wanted: 10, Sold: 10, Revenue: 100_000}) {
+			if sk, ok := e.(events.CrewSkimmed); ok {
+				skimmed = true
+				if sk.FromWash != sk.Amount || sk.FromWash <= 0 {
+					t.Fatalf("accountant skim %+v should come from the wash alone", sk)
+				}
+				if w.Player.CleanCash != 50_000-sk.Amount {
+					t.Fatalf("clean cash %d after a %d skim", w.Player.CleanCash, sk.Amount)
+				}
+			}
+		}
+		dirty -= s.Wages(w, w.Crew.Pay)
+	}
+	if !skimmed {
+		t.Fatal("a loyalty-5 accountant never skimmed in 20 days")
+	}
+	if w.Player.DirtyCash < dirty {
+		t.Fatalf("the accountant took from the takings: dirty %d, expected at least %d", w.Player.DirtyCash, dirty)
+	}
+}

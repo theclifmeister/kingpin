@@ -7,11 +7,12 @@ heat closes in. Written in Go with [Bubble Tea](https://github.com/charmbracelet
 > after that is your fault.
 
 The full design is in [issue #1](https://github.com/theclifmeister/kingpin/issues/1).
-This is the Phase 2 build: one city of corners to hold, a six-rung product
+This is the Phase 3.1 build: one city of corners to hold, a six-rung product
 ladder the supplier opens up as your money grows, a market that reacts to
 you, a police force that reacts to how much you move, a crew that moves
-product for you as long as you keep them paid, and an upgrade tree to sink
-the money into.
+product for you as long as you keep them paid, an upgrade tree to sink the
+money into, and fronts that wash the money once there is too much of it to
+sit on.
 
 ## Play
 
@@ -26,8 +27,8 @@ load; a save from a newer build than the one you are running is refused.
 
 | Key | Action |
 |---|---|
-| `1`–`6` / `←` `→` / `tab` | Dashboard, Market, Journal, Crew, Map, Upgrades |
-| `b` | Buy from the supplier (blank quantity = as much as you can) |
+| `1`–`7` / `←` `→` / `tab` | Dashboard, Market, Journal, Crew, Map, Upgrades, Ledger |
+| `b` | Buy from the supplier (blank quantity = as much as you can); on the ledger, buy a front |
 | `s` | Queue a street sale and set the dial: quiet / normal / aggressive |
 | `x` | Cancel the queued order on the selected product |
 | `l` | Lie low today: no sales, heat fades faster |
@@ -35,6 +36,7 @@ load; a save from a newer build than the one you are running is refused.
 | `p` | Cycle crew pay: stingy / fair / generous |
 | `c` / `e` / `a` | Post a runner / an enforcer / abandon the selected corner (map) |
 | `u` / `enter` | Buy the selected upgrade, after a confirmation (upgrades) |
+| `d` | Cycle the launder dial: careful / normal / greedy |
 | `n` | End the day |
 | `enter` | End the day, after a confirmation |
 | `r` | Reopen the morning report |
@@ -43,7 +45,7 @@ load; a save from a newer build than the one you are running is refused.
 
 ## How it works
 
-Every day the simulations step in a fixed order (`market -> territory -> rivals -> crew -> heat -> news`),
+Every day the simulations step in a fixed order (`market -> territory -> rivals -> crew -> heat -> laundering -> news`),
 each reading the world and emitting typed events that later sims and the UI
 consume. Randomness is derived from the run seed and the day number, so a
 run is fully reproducible and nothing about the RNG needs saving.
@@ -51,26 +53,37 @@ run is fully reproducible and nothing about the RNG needs saving.
 - **Market** drifts prices toward an equilibrium with noise, rolls supply
   shocks and demand slumps, and resolves your sell orders. Selling into
   demand barely moves the price; flooding past it craters it.
-- **Crew** are runners and enforcers you hire from a rotating pool. Runners
-  raise how much you can hold and how much of the street you reach. The pay
-  dial trades wages for loyalty; loyalty also falls with greed, danger and
-  firings. Below a threshold a member skims the takings (the report says so
-  without naming names), and at the floor they walk.
+- **Territory** is the city's corners. Each is its own demand pool and only
+  a corner somebody stands on sells; a runner holds one for you, an enforcer
+  keeps it from being robbed, and a corner nobody works drifts back to the
+  street.
+- **Crew** are runners, enforcers and accountants you hire from a rotating
+  pool. Runners raise how much you can hold and how much of the street you
+  reach; accountants put more through every front and keep the auditors
+  away. The pay dial trades wages for loyalty; loyalty also falls with
+  greed, danger and firings. Below a threshold a member skims the takings,
+  or the wash, and at the floor they walk.
 - **Heat** rises with the volume you *tried* to move and how loud the dial
   was, plus a little for sitting on a pile of dirty cash. Units your crew
   moves count at a discount, but sloppy low-skill runners add a premium. It
   decays slowly, faster if you lie low. Thresholds trigger patrols, stings,
   raids and finally arrest. Every sting and raid goes in the DA's file; a
   thick enough file is an indictment.
-- **Territory** is the city's corners. Each one is its own demand pool and
-  only sells while somebody you own is standing on it; an enforcer on a
-  corner keeps the robbers off it.
 - **Upgrades** are three branches of persistent, stacking bonuses bought
   with cash: Operations (stash, supplier, street network) to earn more,
   Security (burners, lookouts, safehouse, cold contacts) to take less
   damage and cool faster, Legal (lawyer, retainer, fall guy) to survive the
   case. Every node is a multiplier the sims read from `upgrades.toml`;
-  nothing removes the heat curve, it only softens it.
+  nothing removes the heat curve, it only softens it. The retainer costs
+  clean cash: money the fronts have washed.
+- **Laundering** is the fronts: a laundromat, a car wash, a restaurant, a
+  nightclub, a construction firm, a crypto exchange. Each washes dirty cash
+  clean up to a daily cap for a daily upkeep, and each can be audited. The
+  launder dial pushes them all harder or softer: greedy washes more, gets
+  audited more, and an audit of a front run greedy goes in the DA's file.
+  The wash always leaves a float in the till for the street. Dirty cash
+  over the threshold is heat every day it sits there; clean cash is what
+  the retainer, and the endgame, ask for.
 - **News** turns everything into headlines and writes the morning report.
 
 Tuning lives in `internal/content/*.toml`, not in code.
@@ -83,13 +96,15 @@ go run ./cmd/balance -policy aggressive -seed 7 -trace
 ```
 
 Policies: `idle`, `hide`, `quiet`, `normal`, `aggressive`, `careful`,
-`managed`, `upgraded`, `crewed`, `territory`, `war`. `-own stash,burners` starts
-every run owning those upgrades. The tests in `internal/harness` assert the
-shape of the difficulty curve: always-aggressive is indicted within 40 days,
-always-quiet survives, a player who sells normally but lies low when hot
-out-earns both, one who spends on the tree out-earns that, one who builds a
-crew out-earns that, and the Security branch buys an aggressive player time
-without buying them out of the indictment.
+`managed`, `upgraded`, `crewed`, `territory`, `war`, `laundered`. `-own
+stash,burners` starts every run owning those upgrades. The tests in
+`internal/harness` assert the shape of the difficulty curve: always-aggressive
+is indicted within 40 days, always-quiet survives, a player who sells normally
+but lies low when hot out-earns both, one who spends on the tree out-earns
+that, one who builds a crew out-earns that, one who also washes the money
+out-earns *that* and is never indicted for sitting on the pile, and the
+Security branch buys an aggressive player time without buying them out of the
+indictment. `TestMoneyCurve` pins the scale per tier.
 
 ## Layout
 
@@ -98,7 +113,7 @@ cmd/kingpin/        the game
 cmd/balance/        headless balance tool
 internal/events/    event types and bus
 internal/game/      world state, clock, player actions, save/load
-internal/sim/       simulations: market, territory, rivals, crew, heat, news
+internal/sim/       simulations: market, territory, rivals, crew, heat, laundering, news
 internal/content/   embedded TOML tuning, names and headline templates
 internal/harness/   headless runner and balance tests
 internal/ui/        Bubble Tea screens, dialogs, theme, sparklines

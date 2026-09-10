@@ -205,6 +205,24 @@ func (s *Sim) Step(w *game.World, t *game.Tick) {
 		reasons = append(reasons, fmt.Sprintf("dirty cash (+%.1f)", add))
 	}
 
+	// An audit at one of your fronts yesterday is a tell too: the books
+	// were looked at. Only a front that was being run greedy gives the DA
+	// something to file (#27: a case is built from what you did, not
+	// what you have). Laundering steps after heat, so the front's record
+	// is how yesterday's audit reaches today's heat.
+	for _, f := range w.Fronts {
+		if f.Audited == 0 || f.Audited != t.Day-1 {
+			continue
+		}
+		h.Value += tun.AuditHeat
+		if f.AuditDial == events.LaunderGreedy && tun.AuditEvidence > 0 {
+			h.Evidence += tun.AuditEvidence
+			reasons = append(reasons, fmt.Sprintf("audit at %s, run greedy: the DA's file grows (+%.1f)", f.Name, tun.AuditHeat))
+		} else {
+			reasons = append(reasons, fmt.Sprintf("audit at %s (+%.1f)", f.Name, tun.AuditHeat))
+		}
+	}
+
 	// Decay. Cold contacts make both the base rate and lying low better.
 	decay := math.Max(tun.Decay, fx.Decay)
 	if w.LieLow {
