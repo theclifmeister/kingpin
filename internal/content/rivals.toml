@@ -1,0 +1,100 @@
+# The rival faction: one per run, picked by seed. It earns off the corners
+# it holds, spends on muscle and claims, pushes on the corners of yours it
+# borders, undercuts you there, and calls the cops when you hurt it.
+
+[rivals]
+arrive_day = 10             # it moves in on the first day from this one with a free corner
+start_cash = 6000
+start_muscle = 2
+margin = 0.30               # of the street value its corners move, as daily income
+muscle_wage = 120           # per muscle per day; unpaid muscle walks
+muscle_fee = 1500           # to recruit one
+claim_cost = 2500           # to set up on a free corner
+supplier_min = 0.75         # its supplier price as a fraction of street, drawn between these:
+supplier_max = 0.95         # a better connect than yours (0.55 is what you pay) is what lets it undercut
+push_flip = 0.4             # chance a push flips a corner at even odds; scales by attack/(attack+defence)
+push_war = 8                # war heat per push
+undercut_price = 0.03       # street price drag per day when every corner you work is undercut by the best connect (scales by the share that is); against reversion it settles prices ~10% lower
+tip_heat = 6                # heat a tip to the police adds
+observe_days = 8            # days after arrival before its personality shows; a push or a tip shows it sooner
+regroup_days = 20           # days after losing its last corner before it tries again
+war_decay = 0.10            # fraction of war heat that fades per day
+war_threshold = 40          # past this the war is open: headlines, and the police notice
+crackdown_threshold = 80    # past this the police clear the front line on both sides
+crackdown_corners = 2       # corners each side loses in a crackdown, contested ones first
+crackdown_heat = 12         # heat the player draws from a crackdown
+crackdown_muscle = 0.5      # fraction of the rival's muscle a crackdown takes
+
+# Personalities. claim_chance and push_chance are per day; max_corners is
+# the most it sets up on, and past it it pushes on your corners at
+# push_past_cap times the chance (0: only with a grudge); grow says where
+# it claims (biggest free
+# corner anywhere, one next to its own, or at random); muscle_per_corner is how
+# much muscle it keeps per corner held (plus one); undercut is the share of
+# a contested corner's demand it steals; tip_chance is per day with a
+# grudge; defence multiplies its muscle when you strike it.
+[personality.expansionist]
+claim_chance = 0.25
+max_corners = 6
+push_past_cap = 0.5         # it wants the city, and slows down once it has most of it
+grow = "biggest"
+push_chance = 0.15
+muscle_per_corner = 1.0
+undercut = 0.15
+tip_chance = 0.30
+defence = 1.0
+
+[personality.defensive]
+claim_chance = 0.08
+max_corners = 3
+grow = "adjacent"
+push_chance = 0.03
+muscle_per_corner = 2.0
+undercut = 0.10
+tip_chance = 0.50
+defence = 1.6
+
+[personality.opportunist]
+claim_chance = 0.15
+max_corners = 4
+grow = "biggest"
+push_chance = 0.08          # doubled on a corner with no enforcer, or while your heat is over 50
+muscle_per_corner = 1.0
+undercut = 0.25
+tip_chance = 0.60
+defence = 0.9
+
+[personality.chaotic]
+claim_chance = 0.20
+max_corners = 4
+grow = "random"
+push_chance = 0.15
+muscle_per_corner = 1.2
+undercut = 0.20
+tip_chance = 0.40
+defence = 1.0
+
+# The force dial on a strike. attack multiplies your enforcers' strength;
+# flip is the chance to take the corner at even odds; heat is what the
+# player draws (times the corner's heat); war is what it adds to the war;
+# loyalty is what an enforcer with no nerve loses over it.
+[force.warn]
+attack = 0.4
+flip = 0.25
+heat = 3
+war = 5
+loyalty = 1
+
+[force.push]
+attack = 1.0
+flip = 0.6
+heat = 8
+war = 12
+loyalty = 3
+
+[force.hit]
+attack = 1.8
+flip = 0.9
+heat = 18
+war = 25
+loyalty = 6

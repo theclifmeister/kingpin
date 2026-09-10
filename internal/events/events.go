@@ -197,12 +197,14 @@ type CornerClaimed struct {
 
 func (CornerClaimed) Kind() string { return "CornerClaimed" }
 
-// CornerLost records a corner going back to the street, or to a rival.
+// CornerLost records a corner going back to the street: nobody worked it
+// (idle) or the police cleared it in a crackdown, from either side.
 type CornerLost struct {
 	Day    int
 	Corner string
 	Name   string
-	Reason string // idle, taken
+	Reason string // idle, crackdown
+	Owner  string // who lost it: player, rival
 }
 
 func (CornerLost) Kind() string { return "CornerLost" }
@@ -217,3 +219,107 @@ type CornerRobbed struct {
 }
 
 func (CornerRobbed) Kind() string { return "CornerRobbed" }
+
+// Force is the dial on a strike against a rival corner: how hard the
+// enforcers go in. Harder flips corners faster and draws more heat.
+type Force int
+
+const (
+	ForceWarn Force = iota
+	ForcePush
+	ForceHit
+)
+
+func (f Force) String() string {
+	switch f {
+	case ForceWarn:
+		return "warn"
+	case ForceHit:
+		return "hit"
+	default:
+		return "push"
+	}
+}
+
+// RivalMovedIn is the rival faction's arrival: its first corner.
+type RivalMovedIn struct {
+	Day    int
+	Rival  string // leader's name
+	Corner string
+	Name   string
+}
+
+func (RivalMovedIn) Kind() string { return "RivalMovedIn" }
+
+// CornerTaken is a corner the rival gained: claimed free (From none) or
+// flipped from the player (From player), whose people walked back.
+type CornerTaken struct {
+	Day    int
+	Corner string
+	Name   string
+	Rival  string
+	From   string // none, player
+}
+
+func (CornerTaken) Kind() string { return "CornerTaken" }
+
+// RivalPushed is a push on a player corner that was held off.
+type RivalPushed struct {
+	Day    int
+	Corner string
+	Name   string
+	Rival  string
+}
+
+func (RivalPushed) Kind() string { return "RivalPushed" }
+
+// CornerStruck is the resolution of the player's strike on a rival corner.
+// Heat is what the strike drew; Toll is the loyalty an enforcer with no
+// nerve loses over it (the crew sim scales it by nerve); Routed means it
+// was the rival's last corner.
+type CornerStruck struct {
+	Day    int
+	Corner string
+	Name   string
+	Rival  string
+	Force  Force
+	Taken  bool
+	Routed bool
+	Heat   float64
+	Toll   float64
+}
+
+func (CornerStruck) Kind() string { return "CornerStruck" }
+
+// RivalTippedPolice is the rival calling the cops on the player: heat.
+type RivalTippedPolice struct {
+	Day   int
+	Rival string
+	Heat  float64
+}
+
+func (RivalTippedPolice) Kind() string { return "RivalTippedPolice" }
+
+// RivalUndercut is report-only bookkeeping: the corners the rival is
+// undercutting the player on today and the share of their demand it steals.
+type RivalUndercut struct {
+	Day     int
+	Rival   string
+	Corners []string // corner names
+	Share   float64
+}
+
+func (RivalUndercut) Kind() string { return "RivalUndercut" }
+
+// WarEscalated marks the war getting loud (Stage open) or the police
+// crushing both sides (Stage crackdown), when Lost names the corners
+// cleared and Heat is what the player draws for it.
+type WarEscalated struct {
+	Day   int
+	Stage string // open, crackdown
+	War   float64
+	Lost  []string // corner names cleared, both sides
+	Heat  float64
+}
+
+func (WarEscalated) Kind() string { return "WarEscalated" }

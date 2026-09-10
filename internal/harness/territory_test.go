@@ -31,6 +31,7 @@ func TestHeldDemandIsServed(t *testing.T) {
 					if taste, ok := cfg.City.Corner(c.ID).Taste[id]; ok {
 						share *= taste
 					}
+					share *= 1 - c.Squeeze // less what the rival undercuts away
 					want += share * w.Market[id].Demand
 				}
 			}
@@ -58,14 +59,17 @@ func TestHeldDemandIsServed(t *testing.T) {
 }
 
 // Losing every runner loses every corner they held within drift_days: a
-// corner is only yours while somebody works it.
+// corner is only yours while somebody works it. The rival is kept
+// defensive so the corners are lost to the street, not to it.
 func TestLosingRunnersLosesCorners(t *testing.T) {
 	cfg := content.MustLoad()
 	drift := cfg.City.Territory.DriftDays
 	crewed := Crewed(cfg, 40)
 	fired := 0
 	var heldBefore int
-	res, err := Run(cfg, 5, 80, func(w *game.World) {
+	start := sim.NewWorld(cfg, 5)
+	start.Rival.Personality = "defensive"
+	res, err := RunFrom(cfg, start, 80, func(w *game.World) {
 		switch {
 		case w.Day < 40:
 			crewed(w)
@@ -91,8 +95,15 @@ func TestLosingRunnersLosesCorners(t *testing.T) {
 	}
 	lost := 0
 	for _, e := range res.Events {
-		if cl, ok := e.(events.CornerLost); ok && cl.Day > 40 {
-			lost++
+		switch ev := e.(type) {
+		case events.CornerLost:
+			if ev.Day > 40 {
+				lost++
+			}
+		case events.CornerTaken:
+			if ev.Day > 40 && ev.From == game.OwnerPlayer {
+				lost++ // an idle corner the rival walked onto
+			}
 		}
 	}
 	if lost != heldBefore {
@@ -140,9 +151,12 @@ func TestNoCornersSellsNothing(t *testing.T) {
 
 // Taking ground is the tier-3 multiplier: working three corners must
 // out-earn the single-corner managed player by the end of tier 2, and the
-// robberies that come with it must stay a cost, not a wipe-out.
+// robberies that come with it must stay a cost, not a wipe-out. A guarded
+// corner can go 70 days unrobbed, so that they happen at all is checked
+// across the seeds.
 func TestTerritoryPaysAndRobberiesCost(t *testing.T) {
 	cfg := content.MustLoad()
+	robberies := 0
 	for seed := uint64(1); seed <= 5; seed++ {
 		three, _ := Run(cfg, seed, TierDays[1], Territory(cfg, 40, 3))
 		if three.Over != nil {
@@ -152,17 +166,16 @@ func TestTerritoryPaysAndRobberiesCost(t *testing.T) {
 		if three.NetWorthAt(TierDays[1]) < 2*managed.NetWorthAt(TierDays[1]) {
 			t.Fatalf("seed %d: three corners worth %d on day %d, one corner %d; ground should pay", seed, three.NetWorthAt(TierDays[1]), TierDays[1], managed.NetWorthAt(TierDays[1]))
 		}
-		robberies := 0
 		for _, e := range three.Events {
 			if _, ok := e.(events.CornerRobbed); ok {
 				robberies++
 			}
 		}
-		if robberies == 0 {
-			t.Fatalf("seed %d: %d days on three corners and never robbed", seed, TierDays[1])
-		}
 		if lost := three.World.Stats.Robbed; lost > three.World.Stats.TotalRevenue/5 {
 			t.Fatalf("seed %d: robbed of %d out of %d revenue", seed, lost, three.World.Stats.TotalRevenue)
 		}
+	}
+	if robberies < 5 {
+		t.Fatalf("%d robberies over five %d-day runs on three corners; they should be a fact of life", robberies, TierDays[1])
 	}
 }

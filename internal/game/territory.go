@@ -3,13 +3,15 @@ package game
 import (
 	"errors"
 	"fmt"
+
+	"github.com/theclifmeister/kingpin/internal/events"
 )
 
 // Owners of a corner.
 const (
 	OwnerNone   = "none"
 	OwnerPlayer = "player"
-	OwnerRival  = "rival" // arrives with the rival sim
+	OwnerRival  = "rival"
 )
 
 // You is the worker id for the player standing on a corner in person.
@@ -19,6 +21,7 @@ var (
 	ErrNoCorner    = errors.New("no such corner")
 	ErrCornerTaken = errors.New("somebody else holds that corner")
 	ErrNotPostable = errors.New("only runners and enforcers work corners")
+	ErrNoEnforcers = errors.New("no enforcers on the payroll")
 )
 
 // TerritoryState is the city's corners and who works them.
@@ -42,15 +45,26 @@ type Corner struct {
 	Enforcer int                // crew id guarding it, 0 nobody
 	Since    int                // day the current owner took it
 	Idle     int                // consecutive days held with nobody working it
+	Squeeze  float64            // share of its demand a rival is undercutting away today, 0..1
 }
 
 // Share is the corner's share of the city's demand for a product, in
-// standard corners.
+// standard corners, less what a rival is undercutting away.
 func (c Corner) Share(product string) float64 {
+	s := c.Demand
 	if t, ok := c.Taste[product]; ok {
-		return c.Demand * t
+		s *= t
 	}
-	return c.Demand
+	return s * (1 - c.Squeeze)
+}
+
+// Borders reports whether two corners are neighbours on the map.
+func (c Corner) Borders(o Corner) bool {
+	if c.ID == o.ID {
+		return false
+	}
+	dx, dy := c.X-o.X, c.Y-o.Y
+	return dx*dx+dy*dy == 1
 }
 
 // Held reports whether the player owns the corner.
@@ -68,6 +82,37 @@ func (w *World) Corner(id string) *Corner {
 		}
 	}
 	return nil
+}
+
+// RivalHeld counts the corners the rival owns.
+func (w *World) RivalHeld() int {
+	n := 0
+	for _, c := range w.Territory.Corners {
+		if c.Owner == OwnerRival {
+			n++
+		}
+	}
+	return n
+}
+
+// Contested reports whether a corner borders one the other side holds:
+// a player corner next to a rival one, or the reverse.
+func (w *World) Contested(c Corner) bool {
+	var other string
+	switch c.Owner {
+	case OwnerPlayer:
+		other = OwnerRival
+	case OwnerRival:
+		other = OwnerPlayer
+	default:
+		return false
+	}
+	for _, o := range w.Territory.Corners {
+		if o.Owner == other && c.Borders(o) {
+			return true
+		}
+	}
+	return false
 }
 
 // Held counts the corners the player owns.
@@ -200,3 +245,27 @@ func (w *World) Abandon(corner string) error {
 	c.Runner, c.Enforcer, c.Idle, c.Since = 0, 0, 0, w.Day
 	return nil
 }
+
+// SendEnforcers queues the crew's enforcers against a rival corner at a
+// force; the rival sim resolves it at end of day. One strike a day: sending
+// again replaces it.
+func (w *World) SendEnforcers(corner string, force events.Force) error {
+	if w.Over != nil {
+		return ErrGameOver
+	}
+	c := w.Corner(corner)
+	if c == nil {
+		return ErrNoCorner
+	}
+	if c.Owner != OwnerRival {
+		return fmt.Errorf("%s is not the rival's", c.Name)
+	}
+	if w.Crew.Role("enforcer") == 0 {
+		return ErrNoEnforcers
+	}
+	w.Strike = &StrikeOrder{Corner: corner, Force: force}
+	return nil
+}
+
+// CallOff cancels tonight's strike.
+func (w *World) CallOff() { w.Strike = nil }

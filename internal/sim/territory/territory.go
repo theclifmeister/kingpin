@@ -1,7 +1,8 @@
 // Package territory simulates the corners: which ones the player holds,
 // which drift back to the street because nobody works them, and which get
 // robbed. Corners are the demand pool the market serves; this sim only
-// decides who is standing on them.
+// decides who is standing on them. The rival's moves on them are the
+// rivals sim, which steps next.
 package territory
 
 import (
@@ -109,7 +110,7 @@ func (s *Sim) Step(w *game.World, t *game.Tick) {
 			c.Idle++
 			if tun.DriftDays > 0 && c.Idle >= tun.DriftDays {
 				c.Owner, c.Runner, c.Enforcer, c.Idle, c.Since = game.OwnerNone, 0, 0, 0, t.Day
-				t.Emit(events.CornerLost{Day: t.Day, Corner: c.ID, Name: c.Name, Reason: "idle"})
+				t.Emit(events.CornerLost{Day: t.Day, Corner: c.ID, Name: c.Name, Reason: "idle", Owner: game.OwnerPlayer})
 			}
 			continue
 		}

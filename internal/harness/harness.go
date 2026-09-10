@@ -72,6 +72,15 @@ func Hide(w *game.World) { w.SetLieLow(true) }
 func Trader(cfg *content.Config, dial events.Dial) Policy {
 	pressure := cfg.Market.Market.BuyPricePressure
 	return func(w *game.World) {
+		// Pushed off a corner, stand on the biggest free one: nothing sells
+		// from nowhere.
+		if w.PostOf(game.You) == nil {
+			if c := pickCorner(w, func(c game.Corner) bool { return c.Held() && c.Runner == 0 }, func(c game.Corner) float64 { return c.Demand }); c != nil {
+				_ = w.Post(c.ID, game.You)
+			} else if c := pickCorner(w, func(c game.Corner) bool { return c.Owner == game.OwnerNone }, func(c game.Corner) float64 { return c.Demand }); c != nil {
+				_ = w.Post(c.ID, game.You)
+			}
+		}
 		// Restock toward a demand-proportional mix that fits what the
 		// operation can hold, so a crashed product never hogs the whole bag.
 		total := 0.0
@@ -133,13 +142,16 @@ func Crewed(cfg *content.Config, lieLowAt float64) Policy {
 // Territory plays like Crewed but works at most corners corners (0 means
 // as many as it can staff), counting the one you stand on, and spends the
 // crew slots it has left on enforcers for the corners most likely to be
-// robbed. It is the baseline for "a player who takes ground".
+// robbed. Once the rival is in town it keeps a couple of enforcers on the
+// corners it borders, whatever else it is doing. It is the baseline for
+// "a player who takes ground"; it never sends them in.
 func Territory(cfg *content.Config, lieLowAt float64, corners int) Policy {
 	managed := Managed(cfg, lieLowAt)
 	tun := cfg.Crew.Crew
 	if corners <= 0 {
 		corners = len(cfg.City.Corners)
 	}
+	guards := max(1, tun.MaxCrew/3)
 	return func(w *game.World) {
 		w.SetPay(events.PayFair)
 		for _, m := range w.Crew.Members {
@@ -148,13 +160,29 @@ func Territory(cfg *content.Config, lieLowAt float64, corners int) Policy {
 				break // one a day; each firing sours the rest
 			}
 		}
-		// Runners until the corners are staffed, then enforcers for them.
+		// Runners until the corners are staffed, then enforcers for them;
+		// with a rival about, enforcers come first once one runner is on.
 		want := "runner"
 		if w.Crew.Runners()+1 >= corners {
 			want = "enforcer"
 		}
 		if n := w.Crew.Role("enforcer"); want == "enforcer" && n >= min(corners, w.Worked()) {
 			want = ""
+		}
+		if w.Rival.Arrived > 0 && w.Crew.Runners() >= 1 && w.Crew.Role("enforcer") < guards {
+			want = "enforcer"
+			// A full roster of runners makes room: the least skilled goes.
+			if len(w.Crew.Members) >= tun.MaxCrew && len(w.Crew.FiredToday) == 0 {
+				worst := -1
+				for i, m := range w.Crew.Members {
+					if m.Role == "runner" && (worst < 0 || m.Skill < w.Crew.Members[worst].Skill) {
+						worst = i
+					}
+				}
+				if worst >= 0 {
+					_, _ = w.Fire(w.Crew.Members[worst].ID)
+				}
+			}
 		}
 		best := -1
 		for i, c := range w.Crew.Candidates {
@@ -191,12 +219,36 @@ func Territory(cfg *content.Config, lieLowAt float64, corners int) Policy {
 					_ = w.Post(c.ID, m.ID)
 				}
 			case "enforcer":
-				if c := pickCorner(w, func(c game.Corner) bool { return c.Worked() && c.Enforcer == 0 }, func(c game.Corner) float64 { return c.Risk }); c != nil {
+				// The corners the rival borders first, then the riskiest.
+				score := func(c game.Corner) float64 {
+					if w.Contested(c) {
+						return 10 + c.Demand
+					}
+					return c.Risk
+				}
+				if c := pickCorner(w, func(c game.Corner) bool { return c.Worked() && c.Enforcer == 0 }, score); c != nil {
 					_ = w.Post(c.ID, m.ID)
 				}
 			}
 		}
 		managed(w)
+	}
+}
+
+// Warlike plays like Territory but fights the rival: whenever it has an
+// enforcer and heat is under lieLowAt it sends the enforcers against the
+// rival's biggest corner at force, every day, and re-posts a runner on
+// whatever it wins. It is the baseline for "a player who goes to war".
+func Warlike(cfg *content.Config, lieLowAt float64, corners int, force events.Force) Policy {
+	territory := Territory(cfg, lieLowAt, corners)
+	return func(w *game.World) {
+		territory(w)
+		if w.Heat.Value >= lieLowAt || w.Crew.Role("enforcer") == 0 {
+			return
+		}
+		if c := pickCorner(w, func(c game.Corner) bool { return c.Owner == game.OwnerRival }, func(c game.Corner) float64 { return c.Demand }); c != nil {
+			_ = w.SendEnforcers(c.ID, force)
+		}
 	}
 }
 

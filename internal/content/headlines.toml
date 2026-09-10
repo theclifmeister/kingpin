@@ -106,3 +106,56 @@ CornerRobbed = [
   "Dealer robbed at gunpoint on {{.Corner}}, police 'not looking hard'",
   "{{.Corner}} crew lose the night's take to a rival with a shotgun",
 ]
+CornerCrackdown = [
+  "Police clear {{.Corner}} after week of violence; 'nobody is dealing here tonight'",
+  "Task force sweeps {{.Corner}}; both crews gone by morning",
+]
+RivalMovedIn = [
+  "New outfit sets up on {{.Corner}}; police say leader goes by '{{.Rival}}'",
+  "{{.Rival}}'s people seen on {{.Corner}}; 'they are not from here', say residents",
+  "Strangers working {{.Corner}} overnight; word is {{.Rival}} sent them",
+]
+RivalClaimed = [
+  "{{.Rival}}'s crew now working {{.Corner}}",
+  "{{.Corner}} has new faces on it and they answer to {{.Rival}}",
+  "{{.Rival}} spreading out: {{.Corner}} is theirs now, say corner boys",
+]
+CornerTaken = [
+  "{{.Rival}}'s crew run rivals off {{.Corner}}; shots reported",
+  "Turf changes hands on {{.Corner}} after a night of trouble",
+  "{{.Corner}} taken over; losers 'walked home', says witness",
+]
+RivalPushed = [
+  "Trouble on {{.Corner}} overnight; the crew on it held their ground",
+  "Shots fired on {{.Corner}}; nobody moved, nobody talking",
+  "{{.Rival}}'s people chased off {{.Corner}}, residents say",
+]
+CornerStruckTaken = [
+  "{{.Rival}}'s crew driven off {{.Corner}} in a night of violence",
+  "{{.Corner}} changes hands; {{.Rival}} 'furious', says source",
+  "Muscle moves in on {{.Corner}}; {{.Rival}}'s people nowhere to be seen",
+]
+CornerStruckHeld = [
+  "Violence on {{.Corner}}; {{.Rival}}'s crew still standing",
+  "Attack on {{.Corner}} fails; police 'aware of an ongoing dispute'",
+  "{{.Corner}} sees a fight; {{.Rival}}'s people hold it",
+]
+RivalRouted = [
+  "{{.Rival}}'s crew run out of {{.City}}; 'it is over', says police source",
+  "End of the road for {{.Rival}}: last corner lost on {{.Corner}}",
+]
+RivalTippedPolice = [
+  "Anonymous tip sends police to {{.City}} corners",
+  "Police 'acting on information' in {{.City}}",
+  "Somebody talked: detectives asking questions around {{.City}}",
+]
+WarOpen = [
+  "Turf war in {{.City}}: police promise a crackdown if it goes on",
+  "Third shooting this week in {{.City}}; councillor demands action",
+  "'It is a war out there,' says {{.City}} resident after another loud night",
+]
+WarCrackdown = [
+  "CRACKDOWN: police clear {{.City}} corners on both sides of the war",
+  "Task force sweeps {{.City}} after weeks of violence; corners empty",
+  "Mayor: 'The war in {{.City}} is over.' Police clear the streets.",
+]

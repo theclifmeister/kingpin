@@ -18,8 +18,10 @@ import (
 func main() {
 	runs := flag.Int("runs", 20, "number of seeded runs")
 	days := flag.Int("days", harness.Horizon, "days to play each run for; a measuring horizon, the game itself has no cap")
-	policy := flag.String("policy", "normal", "idle | hide | quiet | normal | aggressive | careful | managed | crewed | territory")
-	corners := flag.Int("corners", 3, "corners the territory policy works, counting yours")
+	policy := flag.String("policy", "normal", "idle | hide | quiet | normal | aggressive | careful | managed | crewed | territory | war")
+	corners := flag.Int("corners", 3, "corners the territory and war policies work, counting yours")
+	force := flag.String("force", "push", "warn | push | hit: how hard the war policy strikes")
+	rival := flag.String("rival", "", "force the rival's personality: expansionist | defensive | opportunist | chaotic (default by seed)")
 	trace := flag.Bool("trace", false, "print a per-day trace of the run with -seed")
 	seed0 := flag.Uint64("seed", 1, "first seed; also the traced run")
 	lieLow := flag.Float64("lielow", 0, "heat at which careful/managed/crewed lie low (0 = policy default)")
@@ -51,6 +53,15 @@ func main() {
 		p = harness.Crewed(cfg, at(40))
 	case "territory":
 		p = harness.Territory(cfg, at(40), *corners)
+	case "war":
+		f := events.ForcePush
+		switch *force {
+		case "warn":
+			f = events.ForceWarn
+		case "hit":
+			f = events.ForceHit
+		}
+		p = harness.Warlike(cfg, at(40), *corners, f)
 	default:
 		p = harness.Trader(cfg, events.DialNormal)
 	}
@@ -59,12 +70,15 @@ func main() {
 	worth := map[int][]int{}
 	endings := map[string]int{}
 	robberies, robbed := 0, 0
+	var rivalHeld, takens []int
+	won, strikes, tips, crackdowns := 0, 0, 0, 0
+	personalities := map[string]int{}
 	for seed := *seed0; seed < *seed0+uint64(*runs); seed++ {
 		pol := p
 		if *trace && seed == *seed0 {
 			pol = func(w *game.World) {
 				p(w)
-				fmt.Printf("day %3d cash %8d heat %5.1f stock %3d/%3d orders %d crew %d corners %d/%d", w.Day, w.Player.DirtyCash, w.Heat.Value, w.Player.TotalStock(), w.Capacity(), len(w.Orders), len(w.Crew.Members), w.Worked(), w.Held())
+				fmt.Printf("day %3d cash %8d heat %5.1f stock %3d/%3d orders %d crew %d corners %d/%d rival %d war %3.0f", w.Day, w.Player.DirtyCash, w.Heat.Value, w.Player.TotalStock(), w.Capacity(), len(w.Orders), len(w.Crew.Members), w.Worked(), w.Held(), w.RivalHeld(), w.Rival.War)
 				for _, id := range w.Products {
 					fmt.Printf("  %s $%.1f", id, w.Market[id].Price)
 				}
@@ -74,6 +88,9 @@ func main() {
 		w := sim.NewWorld(cfg, seed)
 		if *cash > 0 {
 			w.Player.DirtyCash = *cash
+		}
+		if *rival != "" {
+			w.Rival.Personality = *rival
 		}
 		res, err := harness.RunFrom(cfg, w, *days, pol)
 		if err != nil {
@@ -93,11 +110,23 @@ func main() {
 			endings["still free"]++
 		}
 		for _, e := range res.Events {
-			if _, ok := e.(events.CornerRobbed); ok {
+			switch ev := e.(type) {
+			case events.CornerRobbed:
 				robberies++
+			case events.RivalTippedPolice:
+				tips++
+			case events.WarEscalated:
+				if ev.Stage == "crackdown" {
+					crackdowns++
+				}
 			}
 		}
 		robbed += res.World.Stats.Robbed
+		rivalHeld = append(rivalHeld, res.World.RivalHeld())
+		takens = append(takens, res.World.Stats.CornersLost)
+		won += res.World.Stats.CornersWon
+		strikes += res.World.Stats.Strikes
+		personalities[res.World.Rival.Personality]++
 	}
 	sort.Ints(played)
 	sort.Ints(peaks)
@@ -113,5 +142,12 @@ func main() {
 	}
 	fmt.Println()
 	fmt.Printf("robberies:     %d per run, $%d lost per run\n", robberies / *runs, robbed / *runs)
+	sort.Ints(rivalHeld)
+	sort.Ints(takens)
+	fmt.Printf("rival:         holds %d corners at the end (median), took %d/%d/%d of yours (min/median/max), tipped police %.1f times per run, %d crackdowns; %v\n",
+		rivalHeld[len(rivalHeld)/2], takens[0], takens[len(takens)/2], takens[len(takens)-1], float64(tips)/float64(*runs), crackdowns, personalities)
+	if strikes > 0 {
+		fmt.Printf("war:           %.1f strikes per run, %.1f corners won per run\n", float64(strikes)/float64(*runs), float64(won)/float64(*runs))
+	}
 	fmt.Printf("endings: %v\n", endings)
 }
