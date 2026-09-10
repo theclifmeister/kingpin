@@ -2,6 +2,7 @@ package ui
 
 import (
 	"fmt"
+	"math"
 	"strings"
 
 	"github.com/charmbracelet/lipgloss"
@@ -215,15 +216,33 @@ func (m *Model) viewCrew() string {
 	barW := 10
 	marks := []float64{tun.SkimThreshold / 100}
 	header := theme.Subtle.Render(fmt.Sprintf("  %-8s %-10s %5s  %-*s  %6s %6s  ", "", "role", "skill", barW+4, "loyalty", "wage", "units"))
+	crewStyle := lipgloss.NewStyle().Foreground(theme.Crew)
+	// post is the status column: where the member is and, when they are
+	// nowhere, what that means for their role. An accountant has no post,
+	// they work every front you own; an enforcer without a corner guards
+	// nothing; a runner without one is idle.
 	post := func(c game.CrewMember) string {
-		if c.Lieutenant() {
+		switch {
+		case c.Lieutenant():
 			if c.City != "" {
-				return lipgloss.NewStyle().Foreground(theme.Crew).Render(fit("runs "+m.w.CityName(c.City), 12))
+				return crewStyle.Render(fit("runs "+m.w.CityName(c.City), 12))
 			}
 			return theme.Warning.Render(fit("no city (t)", 12))
+		case c.Role == "accountant":
+			switch n := len(w.Fronts); {
+			case n == 0:
+				return theme.Warning.Render(fit("no front", 12))
+			case n == 1:
+				return crewStyle.Render(fit("the books", 12))
+			default:
+				return crewStyle.Render(fit(fmt.Sprintf("%d fronts", n), 12))
+			}
 		}
 		if p := m.w.PostOf(c.ID); p != nil {
 			return fit(p.Name, 12)
+		}
+		if c.Role == "enforcer" {
+			return theme.Warning.Render(fit("unposted", 12))
 		}
 		return theme.Warning.Render(fit("idle", 12))
 	}
@@ -277,7 +296,7 @@ func (m *Model) viewCrew() string {
 			if c.Fee > w.Player.DirtyCash {
 				fee = theme.Bad.Render(fee)
 			}
-			b.WriteString(row(len(w.Crew.Members)+i, c, "") + fee + "\n")
+			b.WriteString(truncate(row(len(w.Crew.Members)+i, c, "")+fmt.Sprintf("%-6s ", fee)+theme.Subtle.Render(hireBlurb(c.Role)), m.width) + "\n")
 		}
 	}
 	b.WriteString("\n")
@@ -286,17 +305,34 @@ func (m *Model) viewCrew() string {
 	here := w.Here()
 	b.WriteString(truncate(theme.Subtle.Render(fmt.Sprintf("  Capacity in %s %d units (%d yours + %d crew) · %d corner(s) worked",
 		here.Name, w.Capacity(here.ID), w.Player.CarryLimit, w.Capacity(here.ID)-w.Player.CarryLimit, w.Worked())), m.width) + "\n")
-	idle := 0
+	idle, unposted := 0, 0
 	for _, c := range w.Crew.Members {
-		if w.PostOf(c.ID) == nil {
+		if w.PostOf(c.ID) != nil {
+			continue
+		}
+		switch c.Role {
+		case "runner":
 			idle++
+		case "enforcer":
+			unposted++
 		}
 	}
 	if idle > 0 {
 		b.WriteString(theme.Warning.Render(fmt.Sprintf("  %d idle: a runner earns nothing off a corner. Post them on the map (5).", idle)) + "\n")
 	}
+	if unposted > 0 {
+		b.WriteString(theme.Warning.Render(fmt.Sprintf("  %d unposted: post them on a corner to guard it (map, 5).", unposted)) + "\n")
+	}
+	if n := w.Crew.Role("accountant"); n > 0 {
+		if len(w.Fronts) == 0 {
+			b.WriteString(theme.Warning.Render("  An accountant with no front is a wage. Buy one on the ledger (7).") + "\n")
+		} else {
+			add, cut := m.accountants()
+			b.WriteString(truncate(crewStyle.Render(fmt.Sprintf("  %d accountant(s): +%s/day through each front, audit risk cut %.0f%%, no post.", n, money(add), cut*100)), m.width) + "\n")
+		}
+	}
 	if line := m.runsLine(); line != "" {
-		b.WriteString(truncate(lipgloss.NewStyle().Foreground(theme.Crew).Render("  "+line+". A ? is a temper you have not seen yet."), m.width) + "\n")
+		b.WriteString(truncate(crewStyle.Render("  "+line+". A ? is a temper you have not seen yet."), m.width) + "\n")
 	} else if n := w.Crew.Role(game.RoleLieutenant); n > 0 {
 		b.WriteString(theme.Warning.Render("  A lieutenant with no city is a wage. Press t to give them one.") + "\n")
 	}
@@ -310,4 +346,38 @@ func (m *Model) viewCrew() string {
 		b.WriteString(theme.Warning.Render(fmt.Sprintf("  Sloppy runners (skill under %d) add +%.1f heat per 100 units moved.", m.cfg.Heat.Heat.SloppySkill, per)) + "\n")
 	}
 	return b.String()
+}
+
+// hireBlurb is what a candidate would do on the payroll, short enough for
+// the pool's last column at 80 columns.
+func hireBlurb(role string) string {
+	switch role {
+	case "accountant":
+		return "works fronts"
+	case "enforcer":
+		return "guards corner"
+	case game.RoleLieutenant:
+		return "runs a city"
+	default:
+		return "holds corner"
+	}
+}
+
+// accountants is what the accountants on the payroll add to every front's
+// daily wash at the current dial and the share of its audit risk they
+// remove, by the laundering sim's rule: each counts by skill, and each
+// takes its cut of the risk the ones before them left.
+func (m *Model) accountants() (add int, cut float64) {
+	tun := m.cfg.Laundering.Laundering
+	through, risk := 0.0, 1.0
+	for _, c := range m.w.Crew.Members {
+		if c.Role != "accountant" {
+			continue
+		}
+		skill := float64(c.Skill) / 100
+		through += tun.AccountantThroughput * skill
+		risk *= 1 - tun.AccountantRiskCut*skill
+	}
+	add = int(math.Round(through * m.set.Laundering.Dial(m.w.Laundering.Dial).Mul))
+	return add, 1 - math.Max(0, risk)
 }

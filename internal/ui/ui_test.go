@@ -3,6 +3,7 @@ package ui
 import (
 	"bytes"
 	"encoding/gob"
+	"fmt"
 	"os"
 	"reflect"
 	"strings"
@@ -1715,4 +1716,77 @@ func TestAssignLieutenantKeys(t *testing.T) {
 		t.Fatalf("after unassigning: %+v (%s)", *w.Crew.Member(2), m.status)
 	}
 	assertFits(t, m.View(), 80, 24, "crew screen after unassigning")
+}
+
+// TestCrewScreenAccountantIsNotIdle: an accountant works every front you
+// own and has no post, so the status column says so instead of idle and
+// the idle footer does not count them (#62).
+func TestCrewScreenAccountantIsNotIdle(t *testing.T) {
+	m := newTestModel(t, 100, 30)
+	fronts := m.cfg.Laundering.Fronts
+	m.w.Crew.Members = []game.CrewMember{{ID: 1, Name: "Nadia", Role: "accountant", Skill: 50, Loyalty: 70, Nerve: 50, Wage: 60}}
+	m.Update(key("4"))
+
+	m.w.Fronts = []game.Front{{ID: fronts[0].ID, Name: fronts[0].Name}}
+	v := m.View()
+	if !strings.Contains(v, "the books") {
+		t.Fatalf("one front: no 'the books' on the accountant's row:\n%s", v)
+	}
+	if strings.Contains(v, "idle") {
+		t.Fatalf("one front: the accountant is called idle:\n%s", v)
+	}
+	tun := m.cfg.Laundering.Laundering
+	want := fmt.Sprintf("+%s/day through each front, audit risk cut %.0f%%", money(int(tun.AccountantThroughput*0.5)), tun.AccountantRiskCut*0.5*100)
+	if !strings.Contains(v, want) {
+		t.Fatalf("one front: footer does not say %q:\n%s", want, v)
+	}
+
+	m.w.Fronts = append(m.w.Fronts, game.Front{ID: fronts[1].ID, Name: fronts[1].Name})
+	if v := m.View(); !strings.Contains(v, "2 fronts") || strings.Contains(v, "idle") {
+		t.Fatalf("two fronts: want '2 fronts' and no idle:\n%s", v)
+	}
+
+	m.w.Fronts = nil
+	v = m.View()
+	if !strings.Contains(v, "no front") || !strings.Contains(v, "An accountant with no front is a wage") {
+		t.Fatalf("no front: want the warning:\n%s", v)
+	}
+	if strings.Contains(v, "idle") || strings.Contains(v, "the books") {
+		t.Fatalf("no front: accountant is idle or on the books:\n%s", v)
+	}
+}
+
+// TestCrewScreenUnpostedEnforcer: an enforcer without a corner is unposted
+// and the hint names guarding; a runner without one is idle with the map
+// hint; the idle count is runners only (#62).
+func TestCrewScreenUnpostedEnforcer(t *testing.T) {
+	m := newTestModel(t, 100, 30)
+	m.w.Crew.Members = []game.CrewMember{{ID: 1, Name: "Moose", Role: "enforcer", Skill: 70, Loyalty: 70, Nerve: 60, Wage: 65}}
+	m.Update(key("4"))
+	v := m.View()
+	if !strings.Contains(v, "unposted") || !strings.Contains(v, "post them on a corner to guard it") {
+		t.Fatalf("enforcer: want 'unposted' and the guarding hint:\n%s", v)
+	}
+	if strings.Contains(v, "idle") {
+		t.Fatalf("enforcer: called idle:\n%s", v)
+	}
+
+	m.w.Crew.Members = append(m.w.Crew.Members, game.CrewMember{ID: 2, Name: "Ray", Role: "runner", Skill: 40, Loyalty: 70, Nerve: 50, Wage: 40, Units: 20})
+	v = m.View()
+	if !strings.Contains(v, "idle") || !strings.Contains(v, "1 idle: a runner earns nothing off a corner. Post them on the map (5).") {
+		t.Fatalf("runner: want 'idle' and the map hint counting one runner:\n%s", v)
+	}
+	if !strings.Contains(v, "1 unposted") {
+		t.Fatalf("runner: enforcer no longer unposted:\n%s", v)
+	}
+
+	// The hiring pool says what each role does.
+	m.w.Crew.Candidates = []game.CrewMember{
+		{ID: 3, Name: "Pat", Role: "accountant", Skill: 50, Loyalty: 60, Nerve: 50, Wage: 60, Fee: 100},
+		{ID: 4, Name: "Bo", Role: "enforcer", Skill: 50, Loyalty: 60, Nerve: 50, Wage: 60, Fee: 100},
+	}
+	v = m.View()
+	if !strings.Contains(v, "works fronts") || !strings.Contains(v, "guards corner") {
+		t.Fatalf("pool: want the role blurbs:\n%s", v)
+	}
 }
