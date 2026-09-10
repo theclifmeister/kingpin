@@ -46,7 +46,7 @@ func Default(cfg *content.Config) (*Set, []game.Simulation, error) {
 		Rivals:     rivals.New(cfg.Rivals, cfg.Names),
 		Crew:       crew.New(cfg.Crew, cfg.Names),
 		Heat:       heat.New(cfg.Heat, cfg.Market, cfg.Upgrades),
-		Laundering: laundering.New(cfg.Laundering),
+		Laundering: laundering.New(cfg.Laundering, cfg.Crew),
 		News:       n,
 	}
 	return set, []game.Simulation{set.Market, set.Territory, set.Rivals, set.Crew, set.Heat, set.Laundering, set.News}, nil
@@ -74,6 +74,6 @@ func NewWorld(cfg *content.Config, seed uint64) *game.World {
 	rng := game.RNGFor(seed, 0)
 	crew.New(cfg.Crew, cfg.Names).Seed(w, rng)
 	rivals.New(cfg.Rivals, cfg.Names).Seed(w, rng)
-	laundering.New(cfg.Laundering).Seed(w)
+	laundering.New(cfg.Laundering, cfg.Crew).Seed(w)
 	return w
 }

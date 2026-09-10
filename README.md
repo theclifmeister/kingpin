@@ -69,7 +69,8 @@ run is fully reproducible and nothing about the RNG needs saving.
   never shows it: the tell is a file that grows without a bust and a heat
   delta the dial does not explain, and after two of those the screens hint
   at it. Investigating (`i`) names them with odds that scale with your best
-  enforcer's skill; firing them stops it. At the floor a member walks, or,
+  enforcer's skill; firing them stops it. An audit turns a disloyal
+  accountant the same way. At the floor a member walks, or,
   while the rival holds ground, defects to it and walks it onto the corner
   they ran.
 - **Heat** rises with the volume you *tried* to move and how loud the dial

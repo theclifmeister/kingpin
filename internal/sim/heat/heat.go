@@ -198,11 +198,13 @@ func (s *Sim) Step(w *game.World, t *game.Tick) {
 	}
 
 	// An informant on the payroll. The crew sim's turn event starts the
-	// clock; every informant_days after that the DA gets a page whatever
-	// was sold, and the lawyer cannot thin a witness. The heat it adds is
-	// left out of the reasons on purpose: a delta the dial does not
-	// explain, and a file that grew without a bust, are the tells. Once
-	// nobody is talking the count that shows them resets.
+	// clock (the laundering sim, stepping after this one, flips an
+	// accountant without it: the clock then runs from today, the last day
+	// nobody was talking); every informant_days after that the DA gets a
+	// page whatever was sold, and the lawyer cannot thin a witness. The
+	// heat it adds is left out of the reasons on purpose: a delta the dial
+	// does not explain, and a file that grew without a bust, are the
+	// tells. Once nobody is talking the count that shows them resets.
 	for _, e := range t.Events() {
 		if ev, ok := e.(events.CrewTurnedInformant); ok {
 			h.LeakDay = ev.Day
@@ -210,6 +212,7 @@ func (s *Sim) Step(w *game.World, t *game.Tick) {
 	}
 	if w.Crew.Informants() == 0 {
 		h.Leaks = 0
+		h.LeakDay = t.Day
 	} else if tun.InformantDays > 0 && t.Day-h.LeakDay >= tun.InformantDays {
 		h.LeakDay = t.Day
 		h.Leaks++

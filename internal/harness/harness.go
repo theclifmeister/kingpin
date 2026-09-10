@@ -367,7 +367,7 @@ func Warlike(cfg *content.Config, lieLowAt float64, corners int, force events.Fo
 // audit. It is the baseline for "a player who stops sitting on a pile".
 func Laundered(cfg *content.Config, lieLowAt float64) Policy {
 	crewed := Crewed(cfg, lieLowAt)
-	offers := laundering.New(cfg.Laundering).Offers()
+	offers := laundering.New(cfg.Laundering, cfg.Crew).Offers()
 	return func(w *game.World) {
 		for _, o := range offers {
 			if w.Front(o.ID) != nil {

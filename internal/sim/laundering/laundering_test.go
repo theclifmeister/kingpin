@@ -38,7 +38,7 @@ func kinds(evs []events.Event) map[string]int {
 // id is refused the same way.
 func TestBuyFrontRefusals(t *testing.T) {
 	cfg := content.MustLoad()
-	s := laundering.New(cfg.Laundering)
+	s := laundering.New(cfg.Laundering, cfg.Crew)
 	if _, err := s.Buy(world(1_000_000_000), "casino"); err != game.ErrNoFront {
 		t.Fatalf("unknown front: %v", err)
 	}
@@ -93,7 +93,7 @@ func TestBuyFrontRefusals(t *testing.T) {
 func TestWashAndFloat(t *testing.T) {
 	cfg := content.MustLoad()
 	cfg.Laundering.Fronts[0].AuditRisk = 0
-	s := laundering.New(cfg.Laundering)
+	s := laundering.New(cfg.Laundering, cfg.Crew)
 	tun := cfg.Laundering.Laundering
 	fc := cfg.Laundering.Fronts[0]
 	w := world(fc.Cost + tun.Float + fc.Throughput*3)
@@ -141,7 +141,7 @@ func TestWashAndFloat(t *testing.T) {
 // Upkeep the clean cash cannot cover shuts the front for a while.
 func TestUnpaidUpkeepFreezes(t *testing.T) {
 	cfg := content.MustLoad()
-	s := laundering.New(cfg.Laundering)
+	s := laundering.New(cfg.Laundering, cfg.Crew)
 	tun := cfg.Laundering.Laundering
 	fc := cfg.Laundering.Fronts[0]
 	w := world(fc.Cost + tun.Float) // nothing over the float to wash
@@ -164,7 +164,7 @@ func TestAuditAndDial(t *testing.T) {
 	fc := cfg.Laundering.Fronts[0]
 	cfg.Laundering.Fronts[0].AuditRisk = 1 // certain, at every dial
 	cfg.Laundering.Dial.Careful.Risk = 1
-	s := laundering.New(cfg.Laundering)
+	s := laundering.New(cfg.Laundering, cfg.Crew)
 	tun := cfg.Laundering.Laundering
 	for _, d := range []events.Launder{events.LaunderCareful, events.LaunderNormal, events.LaunderGreedy} {
 		w := world(fc.Cost + tun.Float + fc.Throughput*10)
@@ -197,7 +197,8 @@ func TestAuditAndDial(t *testing.T) {
 	}
 	// Risk follows the dial.
 	w := world(fc.Cost * 2)
-	s = laundering.New(content.MustLoad().Laundering)
+	fresh := content.MustLoad()
+	s = laundering.New(fresh.Laundering, fresh.Crew)
 	if _, err := s.Buy(w, fc.ID); err != nil {
 		t.Fatal(err)
 	}
@@ -215,7 +216,7 @@ func TestAuditAndDial(t *testing.T) {
 // audit risk, both by skill; two of them stack.
 func TestAccountants(t *testing.T) {
 	cfg := content.MustLoad()
-	s := laundering.New(cfg.Laundering)
+	s := laundering.New(cfg.Laundering, cfg.Crew)
 	tun := cfg.Laundering.Laundering
 	fc := cfg.Laundering.Fronts[0]
 	w := world(fc.Cost * 2)
@@ -248,7 +249,7 @@ func TestAccountants(t *testing.T) {
 // no longer lists is inert rather than a crash.
 func TestOffers(t *testing.T) {
 	cfg := content.MustLoad()
-	s := laundering.New(cfg.Laundering)
+	s := laundering.New(cfg.Laundering, cfg.Crew)
 	offers := s.Offers()
 	if len(offers) != len(cfg.Laundering.Fronts) {
 		t.Fatalf("%d offers for %d fronts", len(offers), len(cfg.Laundering.Fronts))
@@ -262,5 +263,54 @@ func TestOffers(t *testing.T) {
 	w.Fronts = append(w.Fronts, game.Front{ID: "ghost", Name: "Ghost"})
 	if k := kinds(step(w, s)); len(k) != 0 || s.Capacity(w) != 0 {
 		t.Fatalf("a front the config does not know did something: %v", k)
+	}
+}
+
+// An audit is the auditors questioning whoever keeps the books: the least
+// loyal accountant under the informant line is turned (#13), one per
+// audit, never twice, and never anybody loyal or in another role. The
+// event is the crew sim's, so the heat sim treats it the same way.
+func TestAuditFlipsTheAccountant(t *testing.T) {
+	cfg := content.MustLoad()
+	fc := cfg.Laundering.Fronts[0]
+	cfg.Laundering.Fronts[0].AuditRisk = 1
+	cfg.Laundering.Laundering.AccountantRiskCut = 0 // still certain with accountants about
+	s := laundering.New(cfg.Laundering, cfg.Crew)
+	tun := cfg.Laundering.Laundering
+	line := cfg.Crew.Informant.Loyalty
+	w := world(fc.Cost + tun.Float + fc.Throughput*10)
+	if _, err := s.Buy(w, fc.ID); err != nil {
+		t.Fatal(err)
+	}
+	w.Crew.Members = []game.CrewMember{
+		{ID: 1, Name: "Books", Role: "accountant", Skill: 50, Loyalty: line - 5, Nerve: 90},
+		{ID: 2, Name: "Ledger", Role: "accountant", Skill: 50, Loyalty: line - 10, Nerve: 90},
+		{ID: 3, Name: "Steady", Role: "accountant", Skill: 50, Loyalty: line, Nerve: 0},
+		{ID: 4, Name: "Runs", Role: "runner", Skill: 50, Loyalty: 0, Nerve: 0},
+	}
+	evs := step(w, s)
+	k := kinds(evs)
+	if k["FrontAudited"] != 1 || k["CrewTurnedInformant"] != 1 {
+		t.Fatalf("first audit: %v", k)
+	}
+	if !w.Crew.Members[1].Informant || w.Crew.Informants() != 1 || w.Stats.Informants != 1 {
+		t.Fatalf("the least loyal accountant did not turn: %+v", w.Crew.Members)
+	}
+	for _, e := range evs {
+		if ev, ok := e.(events.CrewTurnedInformant); ok && (ev.ID != 2 || ev.Name != "Ledger") {
+			t.Fatalf("turned %+v", ev)
+		}
+	}
+	// The next audit (the front is frozen; open another) turns the next
+	// one down, and the loyal and the runner never.
+	w.Fronts[0].FrozenUntil = 0
+	evs = step(w, s)
+	if kinds(evs)["CrewTurnedInformant"] != 1 || !w.Crew.Members[0].Informant || w.Crew.Informants() != 2 {
+		t.Fatalf("second audit: %v, roster %+v", kinds(evs), w.Crew.Members)
+	}
+	w.Fronts[0].FrozenUntil = 0
+	evs = step(w, s)
+	if kinds(evs)["CrewTurnedInformant"] != 0 || w.Crew.Informants() != 2 {
+		t.Fatalf("third audit: %v, roster %+v", kinds(evs), w.Crew.Members)
 	}
 }
