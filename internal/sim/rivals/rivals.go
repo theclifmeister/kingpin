@@ -243,12 +243,13 @@ func (s *Sim) Step(w *game.World, t *game.Tick) {
 
 	// 3b. Defectors: each one joins its muscle, and walks it onto the
 	// corner they ran if nobody stands there; if somebody does, it is a
-	// push like any other, with the defector's help counted in.
+	// push like any other, with the defector's help counted in. Only a
+	// corner of the city it fights over: it never sets up elsewhere.
 	for _, l := range r.Leads {
 		r.Muscle++
 		r.Observed = true
 		c := w.Corner(l.Corner)
-		if c == nil || !c.Held() || s.offLimits(w, c) {
+		if c == nil || c.City != w.Home().ID || !c.Held() || s.offLimits(w, c) {
 			continue
 		}
 		if s.Guard(w, c) == 0 || t.RNG.Float64() < s.PushOdds(w, c) {

@@ -328,7 +328,9 @@ func (s *Sim) Step(w *game.World, t *game.Tick) {
 	// 5. Quitting, or defecting: whoever walks leaves their corner
 	// unworked, and while the rival holds ground in the city they go to
 	// it instead, and walk it onto that corner (the rival sim acts on
-	// the lead next step). A lieutenant running a city walks with it.
+	// the lead next step) if it is one the rival fights over: the rival
+	// lives at home, so a corner in another city is just a corner left.
+	// A lieutenant running a city walks with it.
 	kept := c.Members[:0]
 	for _, m := range c.Members {
 		if m.Loyalty > tun.QuitThreshold {
@@ -348,7 +350,7 @@ func (s *Sim) Step(w *game.World, t *game.Tick) {
 		}
 		ev := events.CrewDefected{Day: t.Day, Name: m.Name, Role: m.Role, Rival: w.Rival.Leader}
 		lead := game.Lead{Name: m.Name}
-		if post != nil {
+		if post != nil && post.City == w.Home().ID {
 			ev.Corner, ev.CornerName = post.ID, post.Name
 			lead.Corner = post.ID
 		}

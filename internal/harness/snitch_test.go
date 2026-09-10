@@ -343,3 +343,57 @@ func TestInformantPagesIgnoreTheLawyer(t *testing.T) {
 		}
 	}
 }
+
+// The rival lives at home: a runner who defects from a corner in the
+// other city takes nothing there with them. The defection is reported
+// without a corner, the rival gains muscle but no ground away from home,
+// and the corner is merely left unworked.
+func TestDefectionElsewhereHandsNoCorner(t *testing.T) {
+	cfg := content.MustLoad()
+	_, hub, _ := twoCities(t, cfg)
+	for seed := uint64(1); seed <= 5; seed++ {
+		w := sim.NewWorld(cfg, seed)
+		w.Player.DirtyCash = 100_000
+		w.Rival.Arrived = 1
+		w.Corner("docks").Owner, w.Corner("docks").Since = game.OwnerRival, 1
+		w.Crew.Members = []game.CrewMember{
+			{ID: 901, Name: "Vee", Role: "runner", Skill: 50, Loyalty: cfg.Crew.Crew.QuitThreshold, Greed: 90, Nerve: 50, Units: 100, Wage: 50},
+		}
+		w.Crew.NextID = 901
+		corner := cfg.City.City(hub).Corners[0].ID
+		if err := w.Post(corner, 901); err != nil {
+			t.Fatal(err)
+		}
+		// A lead the rival should not act on even if it were handed one.
+		w.Rival.Leads = append(w.Rival.Leads, game.Lead{Name: "Ghost", Corner: corner})
+		muscle := w.Rival.Muscle
+		res, err := RunFrom(cfg, w, 3, Idle)
+		if err != nil {
+			t.Fatal(err)
+		}
+		for _, e := range res.Events {
+			switch ev := e.(type) {
+			case events.CrewDefected:
+				if ev.Day != 1 || ev.Name != "Vee" || ev.Corner != "" || ev.CornerName != "" {
+					t.Fatalf("seed %d: defection %+v, want one naming no corner", seed, ev)
+				}
+			case events.CornerTaken:
+				if ev.Handed != "" {
+					t.Fatalf("seed %d: the rival was handed %s in %s", seed, ev.Name, hub)
+				}
+			case events.RivalPushed:
+				if c := res.World.Corner(ev.Corner); c != nil && c.City == hub {
+					t.Fatalf("seed %d: the rival pushed on %s in %s", seed, ev.Name, hub)
+				}
+			}
+		}
+		for _, c := range res.World.City(hub).Corners {
+			if c.Owner == game.OwnerRival {
+				t.Fatalf("seed %d: the rival holds %s in %s", seed, c.Name, hub)
+			}
+		}
+		if res.World.Rival.Muscle != muscle+2 || res.World.Stats.Defections != 1 || res.World.Stats.CornersLost != 0 {
+			t.Fatalf("seed %d: muscle %d (was %d), stats %+v", seed, res.World.Rival.Muscle, muscle, res.World.Stats)
+		}
+	}
+}
