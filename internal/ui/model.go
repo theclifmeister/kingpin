@@ -286,9 +286,9 @@ func (m *Model) keyPlay(key string) (tea.Model, tea.Cmd) {
 		m.refreshJournal()
 	case "4":
 		m.screen = screenCrew
-	case "tab":
+	case "tab", "right":
 		m.screen = (m.screen + 1) % screenCount
-	case "shift+tab":
+	case "shift+tab", "left":
 		m.screen = (m.screen + screenCount - 1) % screenCount
 	case "n":
 		m.endDay()
@@ -557,7 +557,7 @@ func (m *Model) viewStart() string {
 
 func (m *Model) viewHelp() string {
 	rows := [][2]string{
-		{"1 2 3 4 / tab", "switch screen"},
+		{"1 2 3 4 / ← →", "switch screen (tab / shift+tab too)"},
 		{"n", "end the day (sims step, autosave)"},
 		{"enter", "end the day, after a confirmation"},
 		{"b", "buy from the supplier"},
