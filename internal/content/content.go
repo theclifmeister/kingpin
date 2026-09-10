@@ -1,5 +1,5 @@
 // Package content loads the tuning data (markets, city, heat, crew, rivals,
-// upgrades, headlines) that lives in TOML files embedded in the binary. Balance changes never need
+// upgrades, laundering, headlines) that lives in TOML files embedded in the binary. Balance changes never need
 // code changes.
 package content
 
@@ -18,14 +18,15 @@ var files embed.FS
 
 // Config is everything the simulations need to be constructed.
 type Config struct {
-	Market    MarketConfig
-	City      CityConfig
-	Heat      HeatConfig
-	Crew      CrewConfig
-	Rivals    RivalsConfig
-	Names     NamesConfig
-	Upgrades  UpgradesConfig
-	Headlines HeadlinesConfig
+	Market     MarketConfig
+	City       CityConfig
+	Heat       HeatConfig
+	Crew       CrewConfig
+	Rivals     RivalsConfig
+	Laundering LaunderingConfig
+	Names      NamesConfig
+	Upgrades   UpgradesConfig
+	Headlines  HeadlinesConfig
 }
 
 // MarketConfig mirrors market.toml.
@@ -119,6 +120,8 @@ type HeatTuning struct {
 	CrewHeat           float64 `toml:"crew_heat"`
 	SloppySkill        int     `toml:"sloppy_skill"`
 	SloppyHeat         float64 `toml:"sloppy_heat"`
+	AuditHeat          float64 `toml:"audit_heat"`     // heat an audited front adds the morning after
+	AuditEvidence      int     `toml:"audit_evidence"` // evidence an audit adds when the front was run greedy
 }
 
 type ResponseConfig struct {
@@ -237,6 +240,43 @@ var Personalities = []string{"expansionist", "defensive", "opportunist", "chaoti
 // ForceFor returns the tuning for a force dial position.
 func (r RivalsConfig) ForceFor(f events.Force) ForceConfig { return r.Force[f.String()] }
 
+// LaunderingConfig mirrors laundering.toml.
+type LaunderingConfig struct {
+	Laundering LaunderingTuning `toml:"laundering"`
+	Dial       LaunderTable     `toml:"dial"`
+	Fronts     []FrontConfig    `toml:"front"`
+}
+
+type LaunderingTuning struct {
+	Float                int     `toml:"float"` // dirty cash the wash always leaves in the till
+	AuditFreezeDays      int     `toml:"audit_freeze_days"`
+	AuditSeize           float64 `toml:"audit_seize"`
+	UpkeepFreezeDays     int     `toml:"upkeep_freeze_days"`
+	AccountantThroughput float64 `toml:"accountant_throughput"`
+	AccountantRiskCut    float64 `toml:"accountant_risk_cut"`
+}
+
+type LaunderTable struct {
+	Careful LaunderConfig `toml:"careful"`
+	Normal  LaunderConfig `toml:"normal"`
+	Greedy  LaunderConfig `toml:"greedy"`
+}
+
+type LaunderConfig struct {
+	Mul  float64 `toml:"mul"`  // multiplier on every front's throughput
+	Risk float64 `toml:"risk"` // multiplier on every front's audit risk
+}
+
+type FrontConfig struct {
+	ID         string  `toml:"id"`
+	Name       string  `toml:"name"`
+	Cost       int     `toml:"cost"`       // dirty cash, once
+	Throughput int     `toml:"throughput"` // dirty cash washed per day at the normal dial
+	Upkeep     int     `toml:"upkeep"`     // clean cash per day
+	AuditRisk  float64 `toml:"audit_risk"` // chance per day of an audit at the normal dial
+	UnlockCash int     `toml:"unlock_cash"`
+}
+
 // NamesConfig mirrors names.toml.
 type NamesConfig struct {
 	Crew   []string `toml:"crew"`
@@ -309,6 +349,9 @@ func Load() (*Config, error) {
 	if err := decode("rivals.toml", &c.Rivals); err != nil {
 		return nil, err
 	}
+	if err := decode("laundering.toml", &c.Laundering); err != nil {
+		return nil, err
+	}
 	if err := decode("names.toml", &c.Names); err != nil {
 		return nil, err
 	}
@@ -327,7 +370,7 @@ func Load() (*Config, error) {
 	if c.City.Corner(c.City.Territory.Start) == nil {
 		return nil, fmt.Errorf("city.toml: start corner %q is not defined", c.City.Territory.Start)
 	}
-	for _, role := range []string{"runner", "enforcer"} {
+	for _, role := range []string{"runner", "enforcer", "accountant"} {
 		if _, ok := c.Crew.Role[role]; !ok {
 			return nil, fmt.Errorf("crew.toml: no [role.%s] table", role)
 		}
@@ -350,6 +393,16 @@ func Load() (*Config, error) {
 	}
 	if err := c.Upgrades.validate(); err != nil {
 		return nil, fmt.Errorf("upgrades.toml: %w", err)
+	}
+	if len(c.Laundering.Fronts) == 0 {
+		return nil, fmt.Errorf("laundering.toml: no fronts defined")
+	}
+	seen := map[string]bool{}
+	for _, f := range c.Laundering.Fronts {
+		if f.ID == "" || seen[f.ID] || f.Cost <= 0 || f.Throughput <= 0 {
+			return nil, fmt.Errorf("laundering.toml: bad front %+v", f)
+		}
+		seen[f.ID] = true
 	}
 	return &c, nil
 }
@@ -448,6 +501,28 @@ func (c CityConfig) Corner(id string) *CornerConfig {
 		}
 	}
 	return nil
+}
+
+// Front returns the config for id, or nil.
+func (l LaunderingConfig) Front(id string) *FrontConfig {
+	for i := range l.Fronts {
+		if l.Fronts[i].ID == id {
+			return &l.Fronts[i]
+		}
+	}
+	return nil
+}
+
+// DialFor returns the tuning for a launder dial position.
+func (l LaunderingConfig) DialFor(d events.Launder) LaunderConfig {
+	switch d {
+	case events.LaunderCareful:
+		return l.Dial.Careful
+	case events.LaunderGreedy:
+		return l.Dial.Greedy
+	default:
+		return l.Dial.Normal
+	}
 }
 
 // PayFor returns the tuning for a pay dial position.

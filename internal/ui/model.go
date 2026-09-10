@@ -28,12 +28,13 @@ const (
 	screenCrew
 	screenMap
 	screenUpgrades
+	screenLedger
 	screenCount
 )
 
 var (
-	screenNames = []string{"Dashboard", "Market", "Journal", "Crew", "Map", "Upgrades"}
-	screenShort = []string{"Dash", "Market", "News", "Crew", "Map", "Upgr"} // when the title bar is tight
+	screenNames = []string{"Dashboard", "Market", "Journal", "Crew", "Map", "Upgrades", "Ledger"}
+	screenShort = []string{"Dash", "Market", "News", "Crew", "Map", "Upgr", "Ledger"} // when the title bar is tight
 )
 
 type mode int
@@ -52,6 +53,7 @@ const (
 	modePost           // pick who to post on the selected corner
 	modeStrike         // pick how hard to send the enforcers at the selected corner
 	modeConfirmUpgrade // buy the selected upgrade?
+	modeFront          // pick a front to buy
 )
 
 type tickMsg time.Time
@@ -78,6 +80,7 @@ type Model struct {
 	strikeCursor  int    // row in the strike picker
 	upgradeCursor int    // node selected on the upgrades screen
 	upgradeID     string // node awaiting the buy confirmation
+	frontCursor   int    // offer selected in the buy-a-front picker
 	journal       viewport.Model
 	dlg           dialog
 	startChoice   int
@@ -298,6 +301,29 @@ func (m *Model) handleKey(k tea.KeyMsg) (tea.Model, tea.Cmd) {
 			}
 		}
 		return m, nil
+	case modeFront:
+		switch key {
+		case "esc", "q":
+			m.mode = modePlay
+		case "up", "k":
+			if m.frontCursor > 0 {
+				m.frontCursor--
+			}
+		case "down", "j":
+			if m.frontCursor < len(m.frontRows())-1 {
+				m.frontCursor++
+			}
+		case "enter":
+			m.confirmFront()
+		default:
+			if len(key) == 1 && key[0] >= '1' && key[0] <= '9' {
+				if i := int(key[0] - '1'); i < len(m.frontRows()) {
+					m.frontCursor = i
+					m.confirmFront()
+				}
+			}
+		}
+		return m, nil
 	case modeReport:
 		switch key {
 		case "enter", "esc", " ", "r", "q":
@@ -371,6 +397,8 @@ func (m *Model) keyPlay(key string) (tea.Model, tea.Cmd) {
 		m.screen = screenMap
 	case "6":
 		m.screen = screenUpgrades
+	case "7":
+		m.screen = screenLedger
 	case "tab", "right":
 		m.screen = (m.screen + 1) % screenCount
 	case "shift+tab", "left":
@@ -394,7 +422,11 @@ func (m *Model) keyPlay(key string) (tea.Model, tea.Cmd) {
 			m.mode = modeReport
 		}
 	case "b":
-		m.openDialog(modeBuy)
+		if m.screen == screenLedger {
+			m.askFront()
+		} else {
+			m.openDialog(modeBuy)
+		}
 	case "s":
 		m.openDialog(modeSell)
 	case "x":
@@ -424,6 +456,8 @@ func (m *Model) keyPlay(key string) (tea.Model, tea.Cmd) {
 		}
 	case "p":
 		m.cyclePay()
+	case "d":
+		m.cycleLaunder()
 	case "c":
 		if m.screen == screenMap {
 			m.askPost("runner")
@@ -547,6 +581,8 @@ func (m *Model) View() string {
 		body = m.viewStrike()
 	case modeConfirmUpgrade:
 		body = m.upgradeConfirm()
+	case modeFront:
+		body = m.viewFront()
 	default:
 		switch m.screen {
 		case screenMarket:
@@ -559,6 +595,8 @@ func (m *Model) View() string {
 			body = m.viewMap()
 		case screenUpgrades:
 			body = m.viewUpgrades()
+		case screenLedger:
+			body = m.viewLedger()
 		default:
 			body = m.viewDashboard()
 		}
@@ -653,6 +691,8 @@ func (m *Model) viewFooter() string {
 		keys = k("↑↓", "pick") + k("enter", "post") + k("esc", "back")
 	case modeStrike:
 		keys = k("↑↓", "pick") + k("enter", "send") + k("esc", "back")
+	case modeFront:
+		keys = k("↑↓", "pick") + k("enter", "buy") + k("esc", "back")
 	default:
 		switch m.screen {
 		case screenCrew:
@@ -661,6 +701,8 @@ func (m *Model) viewFooter() string {
 			keys = k("n", "end day") + k("↑↓", "pick") + k("c", "runner") + k("e", "enforcer") + k("a", "abandon") + k("w", "war") + k("?", "help") + k("q", "quit")
 		case screenUpgrades:
 			keys = k("n", "end day") + k("↑↓", "pick") + k("enter", "buy") + k("?", "help") + k("q", "quit")
+		case screenLedger:
+			keys = k("n", "end day") + k("b", "buy a front") + k("d", "launder dial") + k("l", "lie low") + k("?", "help") + k("q", "quit")
 		default:
 			keys = k("n", "end day") + k("b", "buy") + k("s", "sell") + k("l", "lie low") + k("x", "cancel order") + k("r", "report") + k("?", "help") + k("q", "quit")
 		}
@@ -717,10 +759,10 @@ func (m *Model) viewStart() string {
 
 func (m *Model) viewHelp() string {
 	rows := [][2]string{
-		{"1-6 / ← →", "switch screen (tab / shift+tab too)"},
+		{"1-7 / ← →", "switch screen (tab / shift+tab too)"},
 		{"n", "end the day (sims step, autosave)"},
 		{"enter", "end the day, after a confirmation"},
-		{"b", "buy from the supplier"},
+		{"b", "buy from the supplier (on the ledger: buy a front)"},
 		{"s", "queue a street sale with the dial"},
 		{"x", "cancel the order on the selected product"},
 		{"l", "lie low today (no sales, heat fades faster)"},
@@ -730,6 +772,7 @@ func (m *Model) viewHelp() string {
 		{"c / e / a", "post a runner / an enforcer / abandon the corner (map)"},
 		{"w", "send the enforcers at a rival corner: warn / push / hit (map)"},
 		{"u / enter", "buy the selected upgrade, after a confirmation (upgrades)"},
+		{"d", "cycle the launder dial: careful / normal / greedy"},
 		{"↑ ↓ / j k", "move the cursor / scroll journal"},
 		{"ctrl+s", "save now"},
 		{"N", "abandon run and start over"},
@@ -758,6 +801,8 @@ func (m *Model) viewOver() string {
 	if w.Rival.Arrived > 0 {
 		b.WriteString(fmt.Sprintf("Won / lost to %s %d / %d\n", truncate(w.Rival.Leader, 12), w.Stats.CornersWon, w.Stats.CornersLost))
 	}
+	b.WriteString(fmt.Sprintf("Washed / seized %s / %s\n", cash(w.Stats.Laundered), cash(w.Stats.Seized)))
+	b.WriteString(fmt.Sprintf("Clean cash      %s\n", cash(w.Player.CleanCash)))
 	b.WriteString(fmt.Sprintf("Peak heat       %.0f\n", w.Heat.Peak))
 	if n := len(w.Journal); n > 0 {
 		b.WriteString("\nLast headline:\n  " + theme.Subtle.Render(truncate(w.Journal[n-1].Text, max(20, m.width-20))) + "\n")

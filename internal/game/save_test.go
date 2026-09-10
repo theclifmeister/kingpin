@@ -362,3 +362,43 @@ func TestSaveKeepsRival(t *testing.T) {
 		t.Fatalf("rival did not round-trip:\n%+v\n%+v", got.Rival, w.Rival)
 	}
 }
+
+// Fronts, their freezes and audits, and the launder dial survive a save.
+func TestSaveKeepsFronts(t *testing.T) {
+	t.Setenv("KINGPIN_HOME", t.TempDir())
+	w := testWorld()
+	w.Player.DirtyCash = 100_000
+	w.Stats.PeakCash = 100_000
+	w.Day = 6
+	offer := FrontOffer{ID: "laundromat", Name: "Laundromat", Cost: 25_000, Throughput: 2_000, Upkeep: 150, AuditRisk: 0.01, UnlockCash: 25_000}
+	f, err := w.BuyFront(offer)
+	if err != nil || f.Bought != 6 || f.Cost != 25_000 || w.Player.DirtyCash != 75_000 || w.NetWorth() != 100_000 {
+		t.Fatalf("buy: %v %+v cash %d worth %d", err, f, w.Player.DirtyCash, w.NetWorth())
+	}
+	if _, err := w.BuyFront(offer); err != ErrFrontOwned {
+		t.Fatalf("bought twice: %v", err)
+	}
+	if _, err := w.BuyFront(FrontOffer{}); err != ErrNoFront {
+		t.Fatalf("bought nothing: %v", err)
+	}
+	w.Fronts[0].FrozenUntil = 20
+	w.Fronts[0].Washed = 12_000
+	w.Fronts[0].WashedToday = 2_000
+	w.Fronts[0].Audited = 6
+	w.Fronts[0].AuditDial = events.LaunderGreedy
+	w.SetLaunderDial(events.LaunderCareful)
+	w.Player.CleanCash = 9_000
+	if err := Save(w); err != nil {
+		t.Fatal(err)
+	}
+	got, err := Load()
+	if err != nil {
+		t.Fatal(err)
+	}
+	if !reflect.DeepEqual(got.Fronts, w.Fronts) || got.Laundering != w.Laundering || got.Player.CleanCash != 9_000 {
+		t.Fatalf("laundering did not round-trip:\n%+v %+v\n%+v %+v", got.Fronts, got.Laundering, w.Fronts, w.Laundering)
+	}
+	if !got.Fronts[0].Frozen(19) || got.Fronts[0].Frozen(20) {
+		t.Fatalf("freeze: %+v", got.Fronts[0])
+	}
+}

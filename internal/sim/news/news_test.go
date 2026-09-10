@@ -7,10 +7,10 @@ import (
 	"github.com/theclifmeister/kingpin/internal/sim/news"
 )
 
-// Every event the market, territory, rivals, crew and heat sims can emit
-// must have a headline template, otherwise the ticker goes silent on
-// something that matters. RivalUndercut is report-only bookkeeping, like
-// PriceMove and CrewPaid.
+// Every event the market, territory, rivals, crew, heat and laundering
+// sims can emit must have a headline template, otherwise the ticker goes
+// silent on something that matters. RivalUndercut and CashLaundered are
+// report-only bookkeeping, like PriceMove and CrewPaid.
 func TestEveryEmittedEventHasTemplate(t *testing.T) {
 	cfg := content.MustLoad()
 	n, err := news.New(cfg.Headlines)
@@ -28,6 +28,7 @@ func TestEveryEmittedEventHasTemplate(t *testing.T) {
 		"CornerStruckTaken", "CornerStruckHeld", "RivalRouted",
 		"RivalTippedPolice", "WarOpen", "WarCrackdown",
 		"UpgradeBought", "FallGuyBurned",
+		"FrontBought", "FrontAudited", "FrontFrozen",
 	}
 	for _, r := range cfg.Heat.Responses {
 		required = append(required, "Enforcement"+capital(r.Level))

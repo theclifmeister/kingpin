@@ -22,8 +22,8 @@
 # Pricing follows the money curve (#24): Operations and Security are tier-1
 # and tier-2 purchases, affordable in the first weeks of a managed run and
 # paid off well before day 70; the two Legal nodes past the lawyer are
-# tier-3 commitments, and the retainer wants clean cash, which nothing yet
-# produces (Phase 3 laundering feeds it).
+# tier-3 commitments, and the retainer wants clean cash, which only the
+# fronts produce (laundering.toml): wash first, then lawyer up.
 
 # Operations: earn more.
 

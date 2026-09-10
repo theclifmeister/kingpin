@@ -176,16 +176,23 @@ func TestAlwaysQuietStaysFreeAndEarnsLess(t *testing.T) {
 
 // moneyCurve is the net-worth target per progression tier (#24): the
 // median of the best harness policy at that tier, at the day the tier ends.
-// Each phase adds its row when its multiplier ships.
+// Each phase adds its row when its multiplier ships. A pending row is
+// measured and logged but not enforced: its band is the target, and the
+// multiplier that reaches it has not shipped yet.
 var moneyCurve = []struct {
-	tier   int
-	name   string
-	policy func(cfg *content.Config) Policy
-	day    int
-	lo, hi int
+	tier    int
+	name    string
+	policy  func(cfg *content.Config) Policy
+	day     int
+	lo, hi  int
+	pending bool
 }{
-	{1, "managed", func(cfg *content.Config) Policy { return Managed(cfg, 50) }, 30, 50_000, 200_000},
-	{2, "crewed", func(cfg *content.Config) Policy { return Crewed(cfg, 40) }, 70, 500_000, 2_000_000},
+	{1, "managed", func(cfg *content.Config) Policy { return Managed(cfg, 50) }, 30, 50_000, 200_000, false},
+	{2, "crewed", func(cfg *content.Config) Policy { return Crewed(cfg, 40) }, 70, 500_000, 2_000_000, false},
+	// Tier 3 (#29): laundering lifts the dirty-cash ceiling, but the city's
+	// seven corners absorb ~$20k a day and $10M by day 120 needs ~$80k, so
+	// the row waits on the demand multiplier (cities and routes, #30).
+	{3, "laundered", func(cfg *content.Config) Policy { return Laundered(cfg, 40) }, 120, 5_000_000, 20_000_000, true},
 }
 
 func medianNetWorth(t *testing.T, cfg *content.Config, policy func(*content.Config) Policy, day int) int {
@@ -211,6 +218,10 @@ func TestMoneyCurve(t *testing.T) {
 		med := medianNetWorth(t, cfg, row.policy, row.day)
 		t.Logf("tier %d: %s median net worth on day %d is %d (want %d..%d)", row.tier, row.name, row.day, med, row.lo, row.hi)
 		if med < row.lo || med > row.hi {
+			if row.pending {
+				t.Logf("tier %d: %s median net worth on day %d is %d, target %d..%d not yet pinned", row.tier, row.name, row.day, med, row.lo, row.hi)
+				continue
+			}
 			t.Errorf("tier %d: %s median net worth on day %d is %d, want %d..%d", row.tier, row.name, row.day, med, row.lo, row.hi)
 		}
 	}

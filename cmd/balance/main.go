@@ -19,7 +19,7 @@ import (
 func main() {
 	runs := flag.Int("runs", 20, "number of seeded runs")
 	days := flag.Int("days", harness.Horizon, "days to play each run for; a measuring horizon, the game itself has no cap")
-	policy := flag.String("policy", "normal", "idle | hide | quiet | normal | aggressive | careful | managed | upgraded | crewed | territory | war")
+	policy := flag.String("policy", "normal", "idle | hide | quiet | normal | aggressive | careful | managed | upgraded | crewed | territory | war | laundered")
 	corners := flag.Int("corners", 3, "corners the territory and war policies work, counting yours")
 	force := flag.String("force", "push", "warn | push | hit: how hard the war policy strikes")
 	rival := flag.String("rival", "", "force the rival's personality: expansionist | defensive | opportunist | chaotic (default by seed)")
@@ -66,6 +66,8 @@ func main() {
 			f = events.ForceHit
 		}
 		p = harness.Warlike(cfg, at(40), *corners, f)
+	case "laundered":
+		p = harness.Laundered(cfg, at(40))
 	default:
 		p = harness.Trader(cfg, events.DialNormal)
 	}
@@ -82,12 +84,13 @@ func main() {
 	won, strikes, tips, crackdowns := 0, 0, 0, 0
 	personalities := map[string]int{}
 	bought := map[string]int{}
+	audits, laundered, clean := 0, 0, 0
 	for seed := *seed0; seed < *seed0+uint64(*runs); seed++ {
 		pol := p
 		if *trace && seed == *seed0 {
 			pol = func(w *game.World) {
 				p(w)
-				fmt.Printf("day %3d cash %8d heat %5.1f file %d stock %3d/%3d orders %d crew %d corners %d/%d rival %d war %3.0f upgrades %d", w.Day, w.Player.DirtyCash, w.Heat.Value, w.Heat.Evidence, w.Player.TotalStock(), w.Capacity(), len(w.Orders), len(w.Crew.Members), w.Worked(), w.Held(), w.RivalHeld(), w.Rival.War, len(w.Upgrades))
+				fmt.Printf("day %3d dirty %8d clean %9d heat %5.1f file %d stock %3d/%3d orders %d crew %d corners %d/%d rival %d war %3.0f upgrades %d fronts %d %s", w.Day, w.Player.DirtyCash, w.Player.CleanCash, w.Heat.Value, w.Heat.Evidence, w.Player.TotalStock(), w.Capacity(), len(w.Orders), len(w.Crew.Members), w.Worked(), w.Held(), w.RivalHeld(), w.Rival.War, len(w.Upgrades), len(w.Fronts), w.Laundering.Dial)
 				for _, id := range w.Products {
 					fmt.Printf("  %s $%.1f", id, w.Market[id].Price)
 				}
@@ -129,6 +132,8 @@ func main() {
 				if ev.Stage == "crackdown" {
 					crackdowns++
 				}
+			case events.FrontAudited:
+				audits++
 			}
 		}
 		robbed += res.World.Stats.Robbed
@@ -140,6 +145,8 @@ func main() {
 		for id := range res.World.Upgrades {
 			bought[id]++
 		}
+		laundered += res.World.Stats.Laundered
+		clean += res.World.Player.CleanCash
 	}
 	sort.Ints(played)
 	sort.Ints(peaks)
@@ -171,5 +178,6 @@ func main() {
 		}
 		fmt.Printf("upgrades:      %s (runs owning each)\n", strings.Join(ids, ", "))
 	}
+	fmt.Printf("laundering:    $%d washed per run, %d audits per run, $%d clean at the end\n", laundered / *runs, audits / *runs, clean / *runs)
 	fmt.Printf("endings: %v\n", endings)
 }

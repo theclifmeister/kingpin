@@ -10,7 +10,7 @@ import (
 )
 
 // SchemaVersion is bumped whenever World changes shape incompatibly.
-const SchemaVersion = 5
+const SchemaVersion = 6
 
 // World is the complete state of a run. Every field is a plain value so the
 // whole struct can be serialised with encoding/gob.
@@ -29,6 +29,8 @@ type World struct {
 	Rival       RivalState
 	Upgrades    map[string]bool // upgrade ids owned; effects fold from these (FoldEffects)
 	FallGuyUsed bool            // the fall guy has taken his one fall
+	Fronts      []Front         // businesses the player owns, in the order bought
+	Laundering  LaunderingState
 
 	// Per-day scratch, cleared by the clock after every EndDay.
 	Orders        map[string]SellOrder // pending sell orders keyed by product id
@@ -105,7 +107,7 @@ type CrewState struct {
 type CrewMember struct {
 	ID      int
 	Name    string
-	Role    string // runner, enforcer
+	Role    string // runner, enforcer, accountant
 	Skill   int
 	Loyalty float64
 	Greed   int
@@ -135,6 +137,39 @@ func (c *CrewState) Member(id int) *CrewMember {
 	for i := range c.Members {
 		if c.Members[i].ID == id {
 			return &c.Members[i]
+		}
+	}
+	return nil
+}
+
+// LaunderingState is the launder dial: a persistent setting, not scratch.
+type LaunderingState struct {
+	Dial events.Launder
+}
+
+// Front is a business the player owns that washes dirty cash. Its rate,
+// upkeep and risk live in the laundering config; the world only records
+// ownership and what has happened to it.
+type Front struct {
+	ID          string
+	Name        string
+	Cost        int            // what it was bought for
+	Bought      int            // day bought
+	FrozenUntil int            // day it reopens; 0 or past means open
+	Washed      int            // lifetime dirty cash washed through it
+	WashedToday int            // what it washed on the last day stepped
+	Audited     int            // day of the last audit; 0 means never
+	AuditDial   events.Launder // the dial it was run at when that audit hit
+}
+
+// Frozen reports whether the front is shut on day.
+func (f Front) Frozen(day int) bool { return f.FrozenUntil > day }
+
+// Front returns the owned front with id, or nil.
+func (w *World) Front(id string) *Front {
+	for i := range w.Fronts {
+		if w.Fronts[i].ID == id {
+			return &w.Fronts[i]
 		}
 	}
 	return nil
@@ -224,6 +259,8 @@ type Stats struct {
 	Strikes      int // enforcers sent against a rival corner
 	CornersWon   int // rival corners taken by force
 	CornersLost  int // corners the rival took from you
+	Laundered    int // dirty cash washed clean
+	Seized       int // clean cash lost to audits
 }
 
 // StartingProduct describes a product as it exists at the start of a run.
@@ -289,13 +326,17 @@ func RNGFor(seed uint64, day int) *rand.Rand {
 // Cash is the player's total cash, dirty plus clean.
 func (w *World) Cash() int { return w.Player.DirtyCash + w.Player.CleanCash }
 
-// NetWorth is cash plus stock valued at what it would cost to replace.
+// NetWorth is cash, dirty and clean, plus stock and fronts valued at what
+// they cost to replace.
 func (w *World) NetWorth() int {
 	n := w.Cash()
 	for id, q := range w.Player.Stock {
 		if m := w.Market[id]; m != nil {
 			n += int(float64(q) * m.SupplierPrice)
 		}
+	}
+	for _, f := range w.Fronts {
+		n += f.Cost
 	}
 	return n
 }

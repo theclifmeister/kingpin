@@ -58,7 +58,7 @@ func (DayEnded) Kind() string { return "DayEnded" }
 // Headline is a line of news produced by the news simulation.
 type Headline struct {
 	Day    int
-	Source string // sim that caused it: market, heat, news
+	Source string // sim that caused it: market, heat, crew, territory, laundering, news
 	Text   string
 }
 
@@ -169,10 +169,13 @@ type CrewQuit struct {
 func (CrewQuit) Kind() string { return "CrewQuit" }
 
 // CrewSkimmed reports takings that went missing. It never names names.
+// FromWash is the part of Amount an accountant took out of the wash, in
+// clean cash.
 type CrewSkimmed struct {
 	Day      int
 	Amount   int
 	Skimmers int
+	FromWash int
 }
 
 func (CrewSkimmed) Kind() string { return "CrewSkimmed" }
@@ -347,3 +350,69 @@ type FallGuyBurned struct {
 }
 
 func (FallGuyBurned) Kind() string { return "FallGuyBurned" }
+
+// Launder is the laundering dial: how hard every front is pushed, trading
+// throughput against audits.
+type Launder int
+
+const (
+	LaunderCareful Launder = iota
+	LaunderNormal
+	LaunderGreedy
+)
+
+func (l Launder) String() string {
+	switch l {
+	case LaunderCareful:
+		return "careful"
+	case LaunderGreedy:
+		return "greedy"
+	default:
+		return "normal"
+	}
+}
+
+// FrontBought records a front the player bought during the day.
+type FrontBought struct {
+	Day   int
+	Front string // front id
+	Name  string
+	Cost  int
+}
+
+func (FrontBought) Kind() string { return "FrontBought" }
+
+// FrontAudited is the taxman looking at a front's books: it is frozen for
+// Days and part of what it washed today is seized.
+type FrontAudited struct {
+	Day    int
+	Front  string
+	Name   string
+	Dial   Launder // the dial the front was run at when the audit hit
+	Seized int
+	Days   int
+}
+
+func (FrontAudited) Kind() string { return "FrontAudited" }
+
+// FrontFrozen is a front shut because its upkeep went unpaid.
+type FrontFrozen struct {
+	Day    int
+	Front  string
+	Name   string
+	Upkeep int
+	Days   int
+}
+
+func (FrontFrozen) Kind() string { return "FrontFrozen" }
+
+// CashLaundered is the day's wash: dirty cash turned clean across every
+// open front, and the upkeep paid for it. Report-only bookkeeping.
+type CashLaundered struct {
+	Day    int
+	Amount int
+	Upkeep int
+	Fronts int // fronts that washed something
+}
+
+func (CashLaundered) Kind() string { return "CashLaundered" }

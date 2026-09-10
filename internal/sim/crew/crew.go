@@ -1,7 +1,8 @@
 // Package crew simulates the people on the payroll: who is looking for
 // work, what they cost, how loyal they feel and what they do about it.
 // Runners raise how much product the operation can hold and, posted on a
-// corner, work it; disloyal crew skim the takings and eventually walk.
+// corner, work it; accountants help the fronts wash; disloyal crew skim
+// the takings (or the wash) and eventually walk.
 package crew
 
 import (
@@ -13,8 +14,20 @@ import (
 	"github.com/theclifmeister/kingpin/internal/game"
 )
 
-// Roles a candidate can be generated with, in order of how often.
-var roles = []string{"runner", "runner", "enforcer"}
+// Roles a candidate can be generated with, weighted by how often. An
+// accountant only comes looking for work once there is a front to keep the
+// books of.
+var (
+	roles      = []string{"runner", "runner", "enforcer"}
+	rolesFront = []string{"runner", "runner", "enforcer", "accountant"}
+)
+
+func rolesFor(w *game.World) []string {
+	if len(w.Fronts) > 0 {
+		return rolesFront
+	}
+	return roles
+}
 
 // Sim is the crew simulation.
 type Sim struct {
@@ -85,34 +98,46 @@ func (s *Sim) Step(w *game.World, t *game.Tick) {
 		t.Emit(events.CrewFired{Day: t.Day, Name: m.Name, Role: m.Role})
 	}
 
-	// 1. Skimming, on this morning's loyalty.
-	revenue := 0
+	// 1. Skimming, on this morning's loyalty. Street crew skim the day's
+	// takings; an accountant skims the wash, and the wash they can see is
+	// the last one the fronts did (laundering steps after crew), so it
+	// comes out of clean cash.
+	revenue, wash := 0, 0
 	for _, e := range t.Events() {
 		if ps, ok := e.(events.PlayerSold); ok {
 			revenue += ps.Revenue
 		}
 	}
+	for _, f := range w.Fronts {
+		wash += f.WashedToday
+	}
 	enforcers := c.Role("enforcer")
 	deter := math.Pow(1-s.cfg.Role["enforcer"].Deterrence, float64(enforcers))
-	share := 0.0
+	share, washShare := 0.0, 0.0
 	skimmers := 0
 	for _, m := range c.Members {
 		if m.Loyalty >= tun.SkimThreshold {
 			continue
 		}
 		if t.RNG.Float64() < tun.SkimChance*deter {
-			share += tun.SkimShare * (0.5 + float64(m.Greed)/100)
+			cut := tun.SkimShare * (0.5 + float64(m.Greed)/100)
+			if m.Role == "accountant" {
+				washShare += cut
+			} else {
+				share += cut
+			}
 			skimmers++
 		}
 	}
-	if skimmers > 0 && revenue > 0 {
-		amount := int(math.Round(float64(revenue) * math.Min(share, tun.SkimCap)))
-		amount = min(amount, w.Player.DirtyCash)
-		if amount > 0 {
+	if skimmers > 0 {
+		amount := min(int(math.Round(float64(revenue)*math.Min(share, tun.SkimCap))), w.Player.DirtyCash)
+		fromWash := min(int(math.Round(float64(wash)*math.Min(washShare, tun.SkimCap))), w.Player.CleanCash)
+		if amount+fromWash > 0 {
 			w.Player.DirtyCash -= amount
-			w.Stats.Skimmed += amount
+			w.Player.CleanCash -= fromWash
+			w.Stats.Skimmed += amount + fromWash
 			c.LastSkim = t.Day
-			t.Emit(events.CrewSkimmed{Day: t.Day, Amount: amount, Skimmers: skimmers})
+			t.Emit(events.CrewSkimmed{Day: t.Day, Amount: amount + fromWash, Skimmers: skimmers, FromWash: fromWash})
 		}
 	}
 
@@ -222,6 +247,7 @@ func (s *Sim) generate(w *game.World, rng rand) game.CrewMember {
 	if len(free) > 0 {
 		name = free[rng.IntN(len(free))]
 	}
+	roles := rolesFor(w)
 	role := roles[rng.IntN(len(roles))]
 	rc := s.cfg.Role[role]
 	skill := 15 + rng.IntN(71)

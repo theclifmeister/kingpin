@@ -17,6 +17,9 @@ evidence_arrest = 6         # stings and raids build a case; at this much, indic
 crew_heat = 0.2             # heat a unit a runner moves on their corner draws, relative to one you move yourself
 sloppy_skill = 40           # runners below this skill are sloppy
 sloppy_heat = 0.03          # heat per unit sold through a fully sloppy (skill 0) runner's corner
+audit_heat = 6.0            # heat an audited front adds the morning after
+audit_evidence = 1          # evidence an audit adds when the front was being run greedy; run normal
+                            # or careful it is city heat only (#27: a case is built from what you do)
 
 [[response]]
 level = "patrol"

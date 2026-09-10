@@ -7,6 +7,7 @@ import (
 	"github.com/theclifmeister/kingpin/internal/events"
 	"github.com/theclifmeister/kingpin/internal/game"
 	"github.com/theclifmeister/kingpin/internal/sim"
+	"github.com/theclifmeister/kingpin/internal/sim/laundering"
 )
 
 // Policy decides the player's actions for the coming day.
@@ -313,6 +314,38 @@ func Warlike(cfg *content.Config, lieLowAt float64, corners int, force events.Fo
 		}
 	}
 }
+
+// Laundered plays like Crewed and washes the money: it buys the cheapest
+// front it does not own whenever dirty cash is three times the price, runs
+// the dial at normal, and drops to careful for LaunderCarefulDays after an
+// audit. It is the baseline for "a player who stops sitting on a pile".
+func Laundered(cfg *content.Config, lieLowAt float64) Policy {
+	crewed := Crewed(cfg, lieLowAt)
+	offers := laundering.New(cfg.Laundering).Offers()
+	return func(w *game.World) {
+		for _, o := range offers {
+			if w.Front(o.ID) != nil {
+				continue
+			}
+			if !o.Locked(w) && w.Player.DirtyCash >= 3*o.Cost {
+				_, _ = w.BuyFront(o)
+			}
+			break // the cheapest one you lack, or nothing
+		}
+		dial := events.LaunderNormal
+		for _, f := range w.Fronts {
+			if f.Audited > 0 && w.Day-f.Audited < LaunderCarefulDays {
+				dial = events.LaunderCareful
+			}
+		}
+		w.SetLaunderDial(dial)
+		crewed(w)
+	}
+}
+
+// LaunderCarefulDays is how long the laundered policy runs its fronts
+// careful after an audit.
+const LaunderCarefulDays = 30
 
 // pickCorner returns the corner passing ok with the highest score, or nil.
 func pickCorner(w *game.World, ok func(game.Corner) bool, score func(game.Corner) float64) *game.Corner {
