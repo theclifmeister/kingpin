@@ -12,9 +12,9 @@ import (
 	"github.com/theclifmeister/kingpin/internal/ui/theme"
 )
 
-// mapSelected returns the corner under the map cursor.
+// mapSelected returns the corner under the map cursor, in the city shown.
 func (m *Model) mapSelected() *game.Corner {
-	cs := m.w.Territory.Corners
+	cs := m.shown().Corners
 	if len(cs) == 0 {
 		return nil
 	}
@@ -31,7 +31,7 @@ func (m *Model) mapMove(dx, dy int) {
 	if sel == nil {
 		return
 	}
-	cs := m.w.Territory.Corners
+	cs := m.shown().Corners
 	best, bestD := -1, 0
 	for i := range cs {
 		c := &cs[i]
@@ -85,11 +85,13 @@ func (m *Model) workerName(id int) string {
 }
 
 // cornerUnits is how many units a day a corner adds across every product
-// the supplier lists, at today's per-corner demand.
+// the supplier lists, at its city's per-corner demand today.
 func (m *Model) cornerUnits(c game.Corner) float64 {
 	n := 0.0
 	for _, id := range m.w.Products {
-		n += m.w.Market[id].Demand * c.Share(id)
+		if p := m.w.Product(c.City, id); p != nil {
+			n += p.Demand * c.Share(id)
+		}
 	}
 	return n
 }
@@ -137,6 +139,10 @@ func (m *Model) confirmPost() {
 	}
 	who := rows[max(0, min(m.postCursor, len(rows)-1))]
 	if err := m.w.Post(c.ID, who.ID); err != nil {
+		if who.ID == game.You && err == game.ErrElsewhere {
+			m.status = fmt.Sprintf("You are in %s: go there first (g) to stand on %s.", m.w.Here().Name, c.Name)
+			return
+		}
 		m.status = "Can't post: " + err.Error()
 		return
 	}
@@ -199,22 +205,29 @@ func (m *Model) viewPost() string {
 
 func (m *Model) viewMap() string {
 	w := m.w
-	cs := w.Territory.Corners
+	city := m.shown()
+	cs := city.Corners
 	sel := m.mapSelected()
 	var b strings.Builder
 
-	unserved := 0.0
+	held, worked, unserved := 0, 0, 0.0
 	for _, c := range cs {
-		if !c.Worked() {
+		if c.Held() {
+			held++
+		}
+		if c.Worked() {
+			worked++
+		} else {
 			unserved += m.cornerUnits(c)
 		}
 	}
-	head := theme.PanelTitle.Render("MAP · "+w.City) +
-		theme.Subtle.Render(fmt.Sprintf("  %d/%d held · %d worked · ~%.0f units/day unworked", w.Held(), len(cs), w.Worked(), unserved))
-	if w.Rival.Arrived > 0 {
+	head := theme.PanelTitle.Render("MAP · ") + m.cityTabs() +
+		theme.Subtle.Render(fmt.Sprintf(" %d/%d held · %d worked · ~%.0f/day unworked", held, len(cs), worked, unserved))
+	if w.Rival.Arrived > 0 && city.ID == w.Home().ID {
 		head += theme.Rival.Render(fmt.Sprintf(" · %s %d", m.rivalName(), w.RivalHeld()))
 	}
-	b.WriteString(truncate(head, m.width) + "\n\n")
+	b.WriteString(truncate(head, m.width) + "\n")
+	b.WriteString(truncate(theme.Subtle.Render(fmt.Sprintf("  heat %.0f · %s  [ ] turns the map · g goes there", city.Heat, m.stashLine(city.ID))), m.width) + "\n\n")
 
 	// The grid. Cells are laid out by their x, y; the body width decides
 	// how wide a cell can be.
@@ -278,7 +291,26 @@ func (m *Model) viewMap() string {
 			l2 = append(l2, who+" ")
 			l3 = append(l3, theme.Subtle.Render(fit(facts, cellW-1))+" ")
 		}
-		b.WriteString(" " + strings.Join(l1, "") + "\n" + " " + strings.Join(l2, "") + "\n" + " " + strings.Join(l3, "") + "\n\n")
+		b.WriteString(" " + strings.Join(l1, "") + "\n" + " " + strings.Join(l2, "") + "\n" + " " + strings.Join(l3, "") + "\n")
+	}
+	b.WriteString("\n")
+
+	// The routes out of here and what is on them.
+	var routes []string
+	for _, r := range m.set.Logistics.Routes(city.ID) {
+		routes = append(routes, fmt.Sprintf("%s (%s) %s %dd %d units %s/unit ~%.0f%%", r.Name, r.Mode, w.CityName(r.Other(city.ID)), m.set.Logistics.Days(r, events.ShipNormal), r.Capacity, money(r.Cost), m.set.Logistics.Risk(r, events.ShipNormal)*100))
+	}
+	if len(routes) > 0 {
+		b.WriteString(truncate(lipgloss.NewStyle().Foreground(theme.Logistics).Render("routes  ")+theme.Subtle.Render(strings.Join(routes, " · ")), m.width) + "\n")
+	}
+	var transit []string
+	for _, sh := range w.Shipments {
+		transit = append(transit, fmt.Sprintf("%d %s → %s %dd (%s, %s)", sh.Units, w.ProductName(sh.Product), w.CityName(sh.To), sh.DaysLeft(w.Day), sh.Mode, sh.Dial))
+	}
+	if len(transit) > 0 {
+		b.WriteString(truncate(lipgloss.NewStyle().Foreground(theme.Logistics).Render("on the road  ")+strings.Join(transit, " · "), m.width) + "\n")
+	} else if len(routes) > 0 {
+		b.WriteString(truncate(theme.Subtle.Render("on the road  nothing. t ships what is stashed here."), m.width) + "\n")
 	}
 
 	// The inspector for the selected corner.
@@ -309,11 +341,15 @@ func (m *Model) viewMap() string {
 	b.WriteString(truncate(theme.Subtle.Render(facts), m.width) + "\n")
 	var dem []string
 	ids := append([]string(nil), w.Products...)
-	sort.SliceStable(ids, func(i, j int) bool {
-		return sel.Share(ids[i])*w.Market[ids[i]].Demand > sel.Share(ids[j])*w.Market[ids[j]].Demand
-	})
+	demand := func(id string) float64 {
+		if p := w.Product(city.ID, id); p != nil {
+			return p.Demand * sel.Share(id)
+		}
+		return 0
+	}
+	sort.SliceStable(ids, func(i, j int) bool { return demand(ids[i]) > demand(ids[j]) })
 	for _, id := range ids {
-		dem = append(dem, fmt.Sprintf("%s ~%.0f", w.ProductName(id), w.Market[id].Demand*sel.Share(id)))
+		dem = append(dem, fmt.Sprintf("%s ~%.0f", w.ProductName(id), demand(id)))
 	}
 	b.WriteString("  demand   " + truncate(strings.Join(dem, " · "), max(10, m.width-12)) + "\n")
 	runner, enforcer := m.workerName(sel.Runner), m.workerName(sel.Enforcer)
@@ -341,10 +377,28 @@ func (m *Model) viewMap() string {
 			hint = theme.Subtle.Render("  Taking it is a matter for the enforcers. Hire some on the crew screen (4).")
 		}
 	default:
-		hint = theme.Subtle.Render("  Post a runner (c) or yourself to claim it. Its demand is yours while it is worked.")
+		if city.ID == w.Player.Location {
+			hint = theme.Subtle.Render("  Post a runner (c) or yourself to claim it. Its demand is yours while it is worked.")
+		} else {
+			hint = theme.Subtle.Render("  Post a runner (c) to claim it; you would have to go there (g) to stand on it yourself.")
+		}
 	}
 	b.WriteString(truncate(hint, m.width) + "\n")
 	return b.String()
+}
+
+// stashLine is what you hold in a city, product by product.
+func (m *Model) stashLine(city string) string {
+	var parts []string
+	for _, id := range m.w.Products {
+		if q := m.w.Stock(city, id); q > 0 {
+			parts = append(parts, fmt.Sprintf("%d %s", q, m.w.ProductName(id)))
+		}
+	}
+	if len(parts) == 0 {
+		return "stash empty"
+	}
+	return "stash " + strings.Join(parts, ", ")
 }
 
 func heatWord(h float64) string {

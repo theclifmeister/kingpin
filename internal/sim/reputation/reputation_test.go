@@ -11,7 +11,7 @@ import (
 )
 
 func world() *game.World {
-	return game.NewWorld(1, "Test", []game.StartingProduct{{ID: "weed", Name: "Weed", Price: 20, Demand: 60}}, 500, 100)
+	return game.NewWorld(1, []game.StartingCity{{ID: "test", Name: "Test", Products: []game.StartingProduct{{ID: "weed", Name: "Weed", Price: 20, Demand: 60}}}}, 500, 100)
 }
 
 // step runs one day with the given events already emitted, as if by the

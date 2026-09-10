@@ -22,18 +22,15 @@ var (
 	ErrCornerTaken = errors.New("somebody else holds that corner")
 	ErrNotPostable = errors.New("only runners and enforcers work corners")
 	ErrNoEnforcers = errors.New("no enforcers on the payroll")
+	ErrElsewhere   = errors.New("you are not in that city")
 )
 
-// TerritoryState is the city's corners and who works them.
-type TerritoryState struct {
-	Corners []Corner
-}
-
-// Corner is one block of the city: a demand pool the player has to hold to
+// Corner is one block of a city: a demand pool the player has to hold to
 // serve. Static tuning is copied in from content so the world never needs
-// the city config to step.
+// the city config to step. Corner ids are unique across cities.
 type Corner struct {
 	ID       string
+	City     string // city id
 	Name     string
 	X, Y     int                // map cell
 	Demand   float64            // size relative to one standard corner
@@ -58,9 +55,9 @@ func (c Corner) Share(product string) float64 {
 	return s * (1 - c.Squeeze)
 }
 
-// Borders reports whether two corners are neighbours on the map.
+// Borders reports whether two corners are neighbours on the same map.
 func (c Corner) Borders(o Corner) bool {
-	if c.ID == o.ID {
+	if c.ID == o.ID || c.City != o.City {
 		return false
 	}
 	dx, dy := c.X-o.X, c.Y-o.Y
@@ -74,11 +71,24 @@ func (c Corner) Held() bool { return c.Owner == OwnerPlayer }
 // selling: only worked corners serve demand.
 func (c Corner) Worked() bool { return c.Held() && c.Runner != 0 }
 
-// Corner returns the corner with id, or nil.
+// Corners lists every corner of every city, in city order. The slice is
+// fresh but the corners are copies: mutate through Corner.
+func (w *World) Corners() []Corner {
+	var out []Corner
+	for _, cid := range w.CityOrder {
+		out = append(out, w.Cities[cid].Corners...)
+	}
+	return out
+}
+
+// Corner returns the corner with id in any city, or nil.
 func (w *World) Corner(id string) *Corner {
-	for i := range w.Territory.Corners {
-		if w.Territory.Corners[i].ID == id {
-			return &w.Territory.Corners[i]
+	for _, cid := range w.CityOrder {
+		cs := w.Cities[cid].Corners
+		for i := range cs {
+			if cs[i].ID == id {
+				return &cs[i]
+			}
 		}
 	}
 	return nil
@@ -87,7 +97,7 @@ func (w *World) Corner(id string) *Corner {
 // RivalHeld counts the corners the rival owns.
 func (w *World) RivalHeld() int {
 	n := 0
-	for _, c := range w.Territory.Corners {
+	for _, c := range w.Corners() {
 		if c.Owner == OwnerRival {
 			n++
 		}
@@ -107,7 +117,11 @@ func (w *World) Contested(c Corner) bool {
 	default:
 		return false
 	}
-	for _, o := range w.Territory.Corners {
+	city := w.Cities[c.City]
+	if city == nil {
+		return false
+	}
+	for _, o := range city.Corners {
 		if o.Owner == other && c.Borders(o) {
 			return true
 		}
@@ -115,10 +129,10 @@ func (w *World) Contested(c Corner) bool {
 	return false
 }
 
-// Held counts the corners the player owns.
+// Held counts the corners the player owns, in every city.
 func (w *World) Held() int {
 	n := 0
-	for _, c := range w.Territory.Corners {
+	for _, c := range w.Corners() {
 		if c.Held() {
 			n++
 		}
@@ -126,10 +140,11 @@ func (w *World) Held() int {
 	return n
 }
 
-// Worked counts the corners the player owns and has somebody on.
+// Worked counts the corners the player owns and has somebody on, in every
+// city.
 func (w *World) Worked() int {
 	n := 0
-	for _, c := range w.Territory.Corners {
+	for _, c := range w.Corners() {
 		if c.Worked() {
 			n++
 		}
@@ -137,46 +152,65 @@ func (w *World) Worked() int {
 	return n
 }
 
-// HeldShare is the demand share the player serves for a product: the sum
-// over worked corners, in standard corners.
-func (w *World) HeldShare(product string) float64 {
+// WorkedIn counts the corners the player works in one city.
+func (w *World) WorkedIn(city string) int {
+	n := 0
+	if c := w.Cities[city]; c != nil {
+		for _, k := range c.Corners {
+			if k.Worked() {
+				n++
+			}
+		}
+	}
+	return n
+}
+
+// HeldShare is the demand share the player serves for a product in a city:
+// the sum over the corners worked there, in standard corners.
+func (w *World) HeldShare(city, product string) float64 {
 	s := 0.0
-	for _, c := range w.Territory.Corners {
-		if c.Worked() {
-			s += c.Share(product)
+	if c := w.Cities[city]; c != nil {
+		for _, k := range c.Corners {
+			if k.Worked() {
+				s += k.Share(product)
+			}
 		}
 	}
 	return s
 }
 
-// Demand is how many units of a product the street the player works
-// absorbs today: the city's per-corner demand times the share held.
-func (w *World) Demand(product string) float64 {
-	m := w.Market[product]
+// Demand is how many units of a product the street the player works in a
+// city absorbs today: the city's per-corner demand times the share held.
+func (w *World) Demand(city, product string) float64 {
+	m := w.Product(city, product)
 	if m == nil {
 		return 0
 	}
-	return m.Demand * w.HeldShare(product)
+	return m.Demand * w.HeldShare(city, product)
 }
 
-// PostOf returns the corner a crew member (or You) is posted on, or nil.
+// PostOf returns the corner a crew member (or You) is posted on, in any
+// city, or nil.
 func (w *World) PostOf(id int) *Corner {
 	if id == 0 {
 		return nil
 	}
-	for i := range w.Territory.Corners {
-		c := &w.Territory.Corners[i]
-		if c.Runner == id || c.Enforcer == id {
-			return c
+	for _, cid := range w.CityOrder {
+		cs := w.Cities[cid].Corners
+		for i := range cs {
+			if cs[i].Runner == id || cs[i].Enforcer == id {
+				return &cs[i]
+			}
 		}
 	}
 	return nil
 }
 
 // Post puts a crew member, or You, on a corner: runners and You work it,
-// enforcers guard it. A free corner is claimed; a rival's is refused.
-// Somebody already posted elsewhere is moved, and whoever held that slot
-// on the corner steps off.
+// enforcers guard it. A free corner is claimed; a rival's is refused; You
+// can only stand on a corner of the city you are in (the crew go where
+// they are sent). Somebody already posted elsewhere is moved, and whoever
+// held that slot on the corner steps off.
 func (w *World) Post(corner string, id int) error {
 	if w.Over != nil {
 		return ErrGameOver
@@ -187,6 +221,9 @@ func (w *World) Post(corner string, id int) error {
 	}
 	if c.Owner == OwnerRival {
 		return ErrCornerTaken
+	}
+	if id == You && c.City != w.Player.Location {
+		return ErrElsewhere
 	}
 	role := "runner"
 	if id != You {

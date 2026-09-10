@@ -17,23 +17,36 @@ func (c *counter) Name() string { return "counter" }
 func (c *counter) Step(w *World, t *Tick) {
 	c.n++
 	// Use the RNG so determinism after reload is actually exercised.
-	w.Market["a"].Price = 10 + t.RNG.Float64()
-	t.Emit(events.PriceMove{Day: t.Day, Product: "a", To: w.Market["a"].Price})
+	m := w.Home().Market["a"]
+	m.Price = 10 + t.RNG.Float64()
+	t.Emit(events.PriceMove{Day: t.Day, City: w.Home().ID, Product: "a", To: m.Price})
 }
 
 // testWorld is a one-product city with two corners; the player works the
 // first one, the way a fresh run starts.
 func testWorld() *World {
-	w := NewWorld(99, "Testville", []StartingProduct{{ID: "a", Name: "A", Price: 10, Demand: 5}}, 500, 100)
-	w.Territory.Corners = []Corner{
-		{ID: "home", Name: "Home", Demand: 1, Heat: 1, Risk: 1, Owner: OwnerNone},
-		{ID: "docks", Name: "Docks", X: 1, Demand: 1.5, Taste: map[string]float64{"a": 2}, Heat: 0.5, Risk: 2, Owner: OwnerNone},
+	w := NewWorld(99, []StartingCity{{ID: "test", Name: "Testville", HeatMul: 1, Products: []StartingProduct{{ID: "a", Name: "A", Price: 10, Demand: 5}}}}, 500, 100)
+	w.Home().Corners = []Corner{
+		{ID: "home", City: "test", Name: "Home", Demand: 1, Heat: 1, Risk: 1, Owner: OwnerNone},
+		{ID: "docks", City: "test", Name: "Docks", X: 1, Demand: 1.5, Taste: map[string]float64{"a": 2}, Heat: 0.5, Risk: 2, Owner: OwnerNone},
 	}
 	if err := w.Post("home", You); err != nil {
 		panic(err)
 	}
 	return w
 }
+
+// twoCityWorld is testWorld with a second city, Port, where a is cheap,
+// one corner there and a route between the two.
+func twoCityWorld() *World {
+	w := testWorld()
+	w.AddCity(StartingCity{ID: "port", Name: "Port", HeatMul: 0.5, Wholesale: true, Products: []StartingProduct{{ID: "a", Name: "A", Price: 4, Demand: 2}}})
+	w.Cities["port"].Corners = []Corner{{ID: "wharf", City: "port", Name: "Wharf", Demand: 1, Heat: 1, Risk: 1, Owner: OwnerNone}}
+	return w
+}
+
+// testRoute is a two-day car route between the test cities.
+var testRoute = RouteOffer{ID: "road", Name: "Road", Mode: "car", From: "test", To: "port", Days: 2, Capacity: 50, Cost: 2, Dial: events.ShipNormal}
 
 func TestSaveRoundTripIsDeterministic(t *testing.T) {
 	t.Setenv("KINGPIN_HOME", t.TempDir())
@@ -72,8 +85,8 @@ func TestSaveRoundTripIsDeterministic(t *testing.T) {
 			t.Fatalf("event %d differs after reload: %#v vs %#v", i, evA[i], evB[i])
 		}
 	}
-	if a.Market["a"].Price != b2.Market["a"].Price {
-		t.Fatalf("final price differs: %v vs %v", a.Market["a"].Price, b2.Market["a"].Price)
+	if a.Home().Market["a"].Price != b2.Home().Market["a"].Price {
+		t.Fatalf("final price differs: %v vs %v", a.Home().Market["a"].Price, b2.Home().Market["a"].Price)
 	}
 }
 
@@ -134,7 +147,7 @@ func TestLoadErrors(t *testing.T) {
 
 func TestActions(t *testing.T) {
 	w := testWorld()
-	w.Market["a"].SupplierPrice = 5
+	w.Home().Market["a"].SupplierPrice = 5
 	if _, err := w.Buy("a", 200, 0.25); err == nil {
 		t.Fatal("bought more than affordable")
 	}
@@ -142,17 +155,23 @@ func TestActions(t *testing.T) {
 		t.Fatal("bought more than carry limit")
 	}
 	p, err := w.Buy("a", 20, 0.25)
-	if err != nil || p.Cost != 100 || w.Player.DirtyCash != 400 || w.Player.Stock["a"] != 20 {
-		t.Fatalf("buy: %v %+v cash=%d stock=%d", err, p, w.Player.DirtyCash, w.Player.Stock["a"])
+	if err != nil || p.Cost != 100 || w.Player.DirtyCash != 400 || w.Stock("test", "a") != 20 {
+		t.Fatalf("buy: %v %+v cash=%d stock=%d", err, p, w.Player.DirtyCash, w.Stock("test", "a"))
 	}
-	if w.Market["a"].SupplierPrice <= 5 {
+	if w.Home().Market["a"].SupplierPrice <= 5 {
 		t.Fatal("buying did not raise the supplier price")
 	}
-	if err := w.PlaceSell("a", 21, events.DialNormal); err == nil {
+	if err := w.PlaceSell("test", "a", 21, events.DialNormal); err == nil {
 		t.Fatal("sold more than stock")
 	}
-	if err := w.PlaceSell("a", 20, events.DialQuiet); err != nil {
+	if err := w.PlaceSell("nowhere", "a", 1, events.DialNormal); err != ErrNoCity {
+		t.Fatalf("sold in a city that does not exist: %v", err)
+	}
+	if err := w.PlaceSell("test", "a", 20, events.DialQuiet); err != nil {
 		t.Fatal(err)
+	}
+	if o, ok := w.Order("test", "a"); !ok || o.City != "test" || o.Qty != 20 {
+		t.Fatalf("order: %+v %v", o, ok)
 	}
 	w.SetLieLow(true)
 	if len(w.Orders) != 0 {
@@ -175,8 +194,8 @@ func TestSaveKeepsCrew(t *testing.T) {
 	if _, err := w.Hire(2, 6); err == nil {
 		t.Fatal("hired with too little cash")
 	}
-	if w.Player.DirtyCash != 60 || w.Capacity() != 136 || len(w.Crew.Candidates) != 1 {
-		t.Fatalf("after hire: cash %d capacity %d pool %d", w.Player.DirtyCash, w.Capacity(), len(w.Crew.Candidates))
+	if w.Player.DirtyCash != 60 || w.Capacity("test") != 136 || len(w.Crew.Candidates) != 1 {
+		t.Fatalf("after hire: cash %d capacity %d pool %d", w.Player.DirtyCash, w.Capacity("test"), len(w.Crew.Candidates))
 	}
 	w.SetPay(events.PayGenerous)
 	w.Crew.Members[0].Loyalty = 33.5
@@ -260,7 +279,7 @@ func TestPostRecallAbandon(t *testing.T) {
 	if !home.Worked() || home.Runner != You || docks.Held() || w.Held() != 1 || w.Worked() != 1 {
 		t.Fatalf("fresh world: home %+v docks %+v", *home, *docks)
 	}
-	if got := w.Demand("a"); got != 5 {
+	if got := w.Demand("test", "a"); got != 5 {
 		t.Fatalf("demand on the home corner = %v, want 5", got)
 	}
 	if err := w.Post("nowhere", 1); err != ErrNoCorner {
@@ -277,7 +296,7 @@ func TestPostRecallAbandon(t *testing.T) {
 		t.Fatalf("after posting Dre: %+v", *docks)
 	}
 	// Docks has share 1.5 * taste 2 = 3 standard corners of product a.
-	if got := w.Demand("a"); got != 5*(1+3) {
+	if got := w.Demand("test", "a"); got != 5*(1+3) {
 		t.Fatalf("demand with both corners = %v, want 20", got)
 	}
 	if err := w.Post("docks", 2); err != nil || docks.Enforcer != 2 || docks.Runner != 1 {
@@ -290,8 +309,8 @@ func TestPostRecallAbandon(t *testing.T) {
 	if home.Runner != 1 || docks.Runner != 0 || !docks.Held() || docks.Enforcer != 2 || w.PostOf(You) != nil {
 		t.Fatalf("after moving Dre home: home %+v docks %+v", *home, *docks)
 	}
-	if w.Worked() != 1 || w.Held() != 2 || w.Demand("a") != 5 {
-		t.Fatalf("held %d worked %d demand %v", w.Held(), w.Worked(), w.Demand("a"))
+	if w.Worked() != 1 || w.Held() != 2 || w.Demand("test", "a") != 5 {
+		t.Fatalf("held %d worked %d demand %v", w.Held(), w.Worked(), w.Demand("test", "a"))
 	}
 	// Firing pulls them off; you can step back on.
 	if _, err := w.Fire(1); err != nil || home.Runner != 0 || w.PostOf(1) != nil {
@@ -310,8 +329,8 @@ func TestPostRecallAbandon(t *testing.T) {
 	if err := w.Post("docks", You); err != ErrCornerTaken {
 		t.Fatalf("post on a rival corner: %v", err)
 	}
-	if err := w.Abandon("home"); err != nil || w.Demand("a") != 0 || w.Worked() != 0 {
-		t.Fatalf("abandon home: %v demand %v", err, w.Demand("a"))
+	if err := w.Abandon("home"); err != nil || w.Demand("test", "a") != 0 || w.Worked() != 0 {
+		t.Fatalf("abandon home: %v demand %v", err, w.Demand("test", "a"))
 	}
 }
 
@@ -334,8 +353,8 @@ func TestSaveKeepsCorners(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	if !reflect.DeepEqual(got.Territory, w.Territory) {
-		t.Fatalf("corners did not round-trip:\n%+v\n%+v", got.Territory, w.Territory)
+	if !reflect.DeepEqual(got.Home().Corners, w.Home().Corners) {
+		t.Fatalf("corners did not round-trip:\n%+v\n%+v", got.Home().Corners, w.Home().Corners)
 	}
 }
 
@@ -386,7 +405,7 @@ func TestSendEnforcersAndBorders(t *testing.T) {
 	if got := home.Share("a"); got != 0.75 {
 		t.Fatalf("squeezed share %v", got)
 	}
-	if got := w.Demand("a"); got != 5*0.75 {
+	if got := w.Demand("test", "a"); got != 5*0.75 {
 		t.Fatalf("squeezed demand %v", got)
 	}
 }
@@ -405,7 +424,7 @@ func TestSaveKeepsRival(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	if !reflect.DeepEqual(got.Rival, w.Rival) || !reflect.DeepEqual(got.Territory, w.Territory) || got.Stats != w.Stats {
+	if !reflect.DeepEqual(got.Rival, w.Rival) || !reflect.DeepEqual(got.Home().Corners, w.Home().Corners) || got.Stats != w.Stats {
 		t.Fatalf("rival did not round-trip:\n%+v\n%+v", got.Rival, w.Rival)
 	}
 }

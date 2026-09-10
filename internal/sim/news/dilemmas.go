@@ -95,17 +95,18 @@ func (s *Sim) Deck() []content.CardConfig {
 // names the same people.
 func Eligible(w *game.World, c content.CardConfig) (Slots, bool) {
 	t := c.Trigger
-	s := Slots{City: w.City, Rival: w.Rival.Leader}
+	s := Slots{City: w.Here().Name, Rival: w.Rival.Leader}
 	if t.DayMin > 0 && w.Day < t.DayMin {
 		return s, false
 	}
 	if t.DayMax > 0 && w.Day > t.DayMax {
 		return s, false
 	}
-	if w.Heat.Value < t.HeatMin {
+	// Heat where you are: the card finds you there.
+	if w.HeatHere() < t.HeatMin {
 		return s, false
 	}
-	if t.HeatMax > 0 && w.Heat.Value > t.HeatMax {
+	if t.HeatMax > 0 && w.HeatHere() > t.HeatMax {
 		return s, false
 	}
 	if w.Cash() < t.CashMin {
@@ -148,15 +149,16 @@ func Eligible(w *game.World, c content.CardConfig) (Slots, bool) {
 	}
 	if t.Corners > 0 || t.Contested {
 		var mine, theirs *game.Corner
-		for i := range w.Territory.Corners {
-			c := &w.Territory.Corners[i]
+		corners := w.Corners()
+		for i := range corners {
+			c := &corners[i]
 			if !c.Worked() {
 				continue
 			}
 			if t.Contested {
 				var o *game.Corner
-				for j := range w.Territory.Corners {
-					r := &w.Territory.Corners[j]
+				for j := range corners {
+					r := &corners[j]
 					if r.Owner == game.OwnerRival && r.Borders(*c) && (o == nil || r.Demand > o.Demand) {
 						o = r
 					}
@@ -198,7 +200,11 @@ func Eligible(w *game.World, c content.CardConfig) (Slots, bool) {
 	}
 	most := -1
 	for _, id := range w.Products {
-		if q := w.Player.Stock[id]; q > most {
+		q := 0
+		for _, stash := range w.Player.Stash {
+			q += stash[id]
+		}
+		if q > most {
 			most, s.Product = q, w.ProductName(id)
 		}
 	}

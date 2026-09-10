@@ -99,11 +99,11 @@ func TestTriggersHold(t *testing.T) {
 	}{
 		{"day_min", content.CardTrigger{DayMin: 30}, func(w *game.World) { w.Day = 29 }, func(w *game.World) { w.Day = 30 }, nil},
 		{"day_max", content.CardTrigger{DayMax: 30}, func(w *game.World) { w.Day = 31 }, func(w *game.World) { w.Day = 30 }, nil},
-		{"heat_min", content.CardTrigger{HeatMin: 40}, func(w *game.World) { w.Heat.Value = 39 }, func(w *game.World) { w.Heat.Value = 40 }, nil},
-		{"heat_max", content.CardTrigger{HeatMax: 40}, func(w *game.World) { w.Heat.Value = 41 }, func(w *game.World) { w.Heat.Value = 40 }, nil},
+		{"heat_min", content.CardTrigger{HeatMin: 40}, func(w *game.World) { w.Home().Heat = 39 }, func(w *game.World) { w.Home().Heat = 40 }, nil},
+		{"heat_max", content.CardTrigger{HeatMax: 40}, func(w *game.World) { w.Home().Heat = 41 }, func(w *game.World) { w.Home().Heat = 40 }, nil},
 		{"cash_min", content.CardTrigger{CashMin: 5000}, func(w *game.World) { w.Player.DirtyCash, w.Player.CleanCash = 4000, 999 }, func(w *game.World) { w.Player.CleanCash = 1000 },
 			func(s news.Slots) bool { return s.Amount != "" }},
-		{"stock_min", content.CardTrigger{StockMin: 30}, func(w *game.World) { w.Player.Stock[w.Products[0]] = 29 }, func(w *game.World) { w.Player.Stock[w.Products[1]] = 1 },
+		{"stock_min", content.CardTrigger{StockMin: 30}, func(w *game.World) { w.Stash(w.Home().ID)[w.Products[0]] = 29 }, func(w *game.World) { w.Stash(w.Home().ID)[w.Products[1]] = 1 },
 			func(s news.Slots) bool { return s.Product != "" }},
 		{"crew_min", content.CardTrigger{CrewMin: 2}, func(w *game.World) { w.Crew.Members = w.Crew.Members[:1] }, func(w *game.World) {
 			w.Crew.Members = append(w.Crew.Members, game.CrewMember{ID: 9, Name: "Boo", Role: "runner", Loyalty: 50})
@@ -118,15 +118,15 @@ func TestTriggersHold(t *testing.T) {
 			func(s news.Slots) bool { return s.Name == "Boo" }}, // the least loyal
 		{"loyalty_above", content.CardTrigger{LoyaltyAbove: 60}, func(w *game.World) { w.Crew.Members[0].Loyalty = 60 }, func(w *game.World) { w.Crew.Members[0].Loyalty = 61 },
 			func(s news.Slots) bool { return s.Name == "Dre" }},
-		{"corners", content.CardTrigger{Corners: 2}, func(w *game.World) {}, func(w *game.World) { _ = w.Post(w.Territory.Corners[1].ID, 1) },
+		{"corners", content.CardTrigger{Corners: 2}, func(w *game.World) {}, func(w *game.World) { _ = w.Post(w.Home().Corners[1].ID, 1) },
 			func(s news.Slots) bool { return s.Corner != "" }},
-		{"contested", content.CardTrigger{Contested: true}, func(w *game.World) { w.Territory.Corners[1].Owner = game.OwnerNone },
+		{"contested", content.CardTrigger{Contested: true}, func(w *game.World) { w.Home().Corners[1].Owner = game.OwnerNone },
 			func(w *game.World) {
 				// The rival takes the corner next to yours.
 				mine := w.PostOf(game.You)
-				for i := range w.Territory.Corners {
-					if w.Territory.Corners[i].Borders(*mine) {
-						w.Territory.Corners[i].Owner = game.OwnerRival
+				for i := range w.Home().Corners {
+					if w.Home().Corners[i].Borders(*mine) {
+						w.Home().Corners[i].Owner = game.OwnerRival
 						w.Rival.Arrived = 1
 						return
 					}
@@ -134,11 +134,11 @@ func TestTriggersHold(t *testing.T) {
 				t.Fatal("no corner borders yours")
 			},
 			func(s news.Slots) bool { return s.Corner != "" && s.Theirs != "" && s.Corner != s.Theirs }},
-		{"rival", content.CardTrigger{Rival: true}, func(w *game.World) {}, func(w *game.World) { w.Territory.Corners[1].Owner = game.OwnerRival; w.Rival.Arrived = 1 },
+		{"rival", content.CardTrigger{Rival: true}, func(w *game.World) {}, func(w *game.World) { w.Home().Corners[1].Owner = game.OwnerRival; w.Rival.Arrived = 1 },
 			func(s news.Slots) bool { return s.Rival != "" }},
-		{"personality", content.CardTrigger{Personality: "chaotic"}, func(w *game.World) { w.Territory.Corners[1].Owner = game.OwnerRival; w.Rival.Personality = "defensive" },
+		{"personality", content.CardTrigger{Personality: "chaotic"}, func(w *game.World) { w.Home().Corners[1].Owner = game.OwnerRival; w.Rival.Personality = "defensive" },
 			func(w *game.World) { w.Rival.Personality = "chaotic" }, nil},
-		{"war_min", content.CardTrigger{WarMin: 30}, func(w *game.World) { w.Territory.Corners[1].Owner = game.OwnerRival; w.Rival.War = 29 }, func(w *game.World) { w.Rival.War = 30 }, nil},
+		{"war_min", content.CardTrigger{WarMin: 30}, func(w *game.World) { w.Home().Corners[1].Owner = game.OwnerRival; w.Rival.War = 29 }, func(w *game.World) { w.Rival.War = 30 }, nil},
 		{"fronts", content.CardTrigger{Fronts: true}, func(w *game.World) {}, func(w *game.World) { w.Fronts = []game.Front{{ID: "laundromat", Name: "Suds"}} },
 			func(s news.Slots) bool { return s.Front == "Suds" }},
 	}

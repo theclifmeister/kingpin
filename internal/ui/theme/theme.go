@@ -5,16 +5,17 @@ package theme
 import "github.com/charmbracelet/lipgloss"
 
 var (
-	Market = lipgloss.Color("#5fd77a") // green
-	Heat   = lipgloss.Color("#ff5f5f") // red
-	Rivals = lipgloss.Color("#b58cff") // purple
-	Crew   = lipgloss.Color("#5fafff") // blue
-	Money  = lipgloss.Color("#ffd75f") // gold
-	News   = lipgloss.Color("#c0c0c0") // grey
-	Dim    = lipgloss.Color("#6c6c6c")
-	Text   = lipgloss.Color("#e4e4e4")
-	Bg     = lipgloss.Color("#1c1c1c")
-	Warn   = lipgloss.Color("#ffaf5f") // orange
+	Market    = lipgloss.Color("#5fd77a") // green
+	Heat      = lipgloss.Color("#ff5f5f") // red
+	Rivals    = lipgloss.Color("#b58cff") // purple
+	Crew      = lipgloss.Color("#5fafff") // blue
+	Money     = lipgloss.Color("#ffd75f") // gold
+	Logistics = lipgloss.Color("#5fd7d7") // teal
+	News      = lipgloss.Color("#c0c0c0") // grey
+	Dim       = lipgloss.Color("#6c6c6c")
+	Text      = lipgloss.Color("#e4e4e4")
+	Bg        = lipgloss.Color("#1c1c1c")
+	Warn      = lipgloss.Color("#ffaf5f") // orange
 
 	Title    = lipgloss.NewStyle().Bold(true).Foreground(Money)
 	Subtle   = lipgloss.NewStyle().Foreground(Dim)
@@ -54,6 +55,8 @@ func Source(name string) lipgloss.Color {
 		return Crew
 	case "money", "laundering":
 		return Money
+	case "logistics":
+		return Logistics
 	case "reputation", "dilemma":
 		return Warn
 	default:

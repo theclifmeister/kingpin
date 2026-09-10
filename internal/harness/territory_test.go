@@ -23,25 +23,27 @@ func TestHeldDemandIsServed(t *testing.T) {
 	checked := 0
 	res, err := Run(cfg, 3, 150, func(w *game.World) {
 		crewed(w)
-		for _, id := range w.Products {
-			want := 0.0
-			for _, c := range w.Territory.Corners {
-				if c.Owner == game.OwnerPlayer && c.Runner != 0 {
-					share := c.Demand
-					if taste, ok := cfg.City.Corner(c.ID).Taste[id]; ok {
-						share *= taste
+		for _, cid := range w.CityOrder {
+			for _, id := range w.Products {
+				want := 0.0
+				for _, c := range w.Cities[cid].Corners {
+					if c.Owner == game.OwnerPlayer && c.Runner != 0 {
+						share := c.Demand
+						if taste, ok := cfg.City.Corner(c.ID).Taste[id]; ok {
+							share *= taste
+						}
+						share *= 1 - c.Squeeze // less what the rival undercuts away
+						want += share * w.Product(cid, id).Demand
 					}
-					share *= 1 - c.Squeeze // less what the rival undercuts away
-					want += share * w.Market[id].Demand
 				}
+				if got := w.Demand(cid, id); math.Abs(got-want) > 1e-9 {
+					t.Fatalf("day %d %s %s: served demand %.2f, corners add up to %.2f", w.Day, cid, id, got, want)
+				}
+				if cap := set.Market.Capacity(w, cid, id, events.DialNormal); cap != int(math.Round(want*set.Market.Fill(w, events.DialNormal))) {
+					t.Fatalf("day %d %s %s: capacity %d for demand %.2f", w.Day, cid, id, cap, want)
+				}
+				checked++
 			}
-			if got := w.Demand(id); math.Abs(got-want) > 1e-9 {
-				t.Fatalf("day %d %s: served demand %.2f, corners add up to %.2f", w.Day, id, got, want)
-			}
-			if cap := set.Market.Capacity(w, id, events.DialNormal); cap != int(math.Round(want*set.Market.Fill(w, events.DialNormal))) {
-				t.Fatalf("day %d %s: capacity %d for demand %.2f", w.Day, id, cap, want)
-			}
-			checked++
 		}
 	})
 	if err != nil {
@@ -109,8 +111,8 @@ func TestLosingRunnersLosesCorners(t *testing.T) {
 	if lost != heldBefore {
 		t.Fatalf("%d CornerLost events for %d corners", lost, heldBefore)
 	}
-	if res.World.Worked() != 0 || res.World.Demand(res.World.Products[0]) != 0 {
-		t.Fatalf("with nobody on a corner: %d worked, demand %.1f", res.World.Worked(), res.World.Demand(res.World.Products[0]))
+	if res.World.Worked() != 0 || res.World.Demand(res.World.Home().ID, res.World.Products[0]) != 0 {
+		t.Fatalf("with nobody on a corner: %d worked, demand %.1f", res.World.Worked(), res.World.Demand(res.World.Home().ID, res.World.Products[0]))
 	}
 }
 
@@ -119,7 +121,7 @@ func TestNoCornersSellsNothing(t *testing.T) {
 	cfg := content.MustLoad()
 	res, err := Run(cfg, 2, 5, func(w *game.World) {
 		if w.Day == 0 {
-			for _, c := range w.Territory.Corners {
+			for _, c := range w.Corners() {
 				if c.Owner == game.OwnerPlayer {
 					if err := w.Abandon(c.ID); err != nil {
 						t.Fatal(err)
@@ -127,8 +129,8 @@ func TestNoCornersSellsNothing(t *testing.T) {
 				}
 			}
 		}
-		w.Player.Stock[w.Products[0]] = 100
-		if err := w.PlaceSell(w.Products[0], 100, events.DialAggressive); err != nil {
+		w.Stash(w.Home().ID)[w.Products[0]] = 100
+		if err := w.PlaceSell(w.Home().ID, w.Products[0], 100, events.DialAggressive); err != nil {
 			t.Fatal(err)
 		}
 	})

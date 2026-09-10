@@ -13,7 +13,7 @@ import (
 func snapshot(w *World) string {
 	var b strings.Builder
 	fmt.Fprintf(&b, "%+v %v %v %v", w.Player, w.Upgrades, w.UpgradesToday, w.FallGuyUsed)
-	for id, m := range w.Market {
+	for id, m := range w.Home().Market {
 		fmt.Fprintf(&b, " %s=%.4f", id, m.SupplierPrice)
 	}
 	return b.String()
@@ -72,7 +72,7 @@ func TestBuyUpgradeTable(t *testing.T) {
 			}
 			// With everything in place.
 			*pool() = u.Cost
-			carry, quote := w.Player.CarryLimit, w.Market["a"].SupplierPrice
+			carry, quote := w.Player.CarryLimit, w.Home().Market["a"].SupplierPrice
 			got, err := w.BuyUpgrade(tree, u.ID)
 			if err != nil || got.ID != u.ID {
 				t.Fatalf("buy: %v %+v", err, got)
@@ -83,8 +83,8 @@ func TestBuyUpgradeTable(t *testing.T) {
 			if w.Player.CarryLimit != carry+u.Effects.CarryBonus {
 				t.Fatalf("carry %d -> %d, node adds %d", carry, w.Player.CarryLimit, u.Effects.CarryBonus)
 			}
-			if u.Effects.SupplierMul > 0 && w.Market["a"].SupplierPrice >= quote {
-				t.Fatalf("supplier quote %.2f -> %.2f did not drop", quote, w.Market["a"].SupplierPrice)
+			if u.Effects.SupplierMul > 0 && w.Home().Market["a"].SupplierPrice >= quote {
+				t.Fatalf("supplier quote %.2f -> %.2f did not drop", quote, w.Home().Market["a"].SupplierPrice)
 			}
 			// Twice.
 			*pool() = u.Cost * 2

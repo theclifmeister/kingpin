@@ -100,7 +100,17 @@ func Load(migrations ...Migration) (*World, error) {
 	if w.SchemaVersion > SchemaVersion {
 		return nil, ErrNewerSchema
 	}
-	if w.Market == nil || w.Player.Stock == nil {
+	if w.SchemaVersion < 7 {
+		// The one city there was lived on World itself. Read those fields
+		// off the stream a second time (gob matches by name and ignores
+		// the rest) for MigrateCities to wrap.
+		var old v6
+		if err := gob.NewDecoder(bytes.NewReader(b)).Decode(&old); err != nil {
+			return nil, fmt.Errorf("save file is corrupt: %w", err)
+		}
+		w.legacy = &old
+	}
+	if len(w.Cities) == 0 && (w.legacy == nil || w.legacy.Market == nil) {
 		return nil, fmt.Errorf("save file is corrupt: missing world state")
 	}
 	for w.SchemaVersion < SchemaVersion {
@@ -128,7 +138,50 @@ func Load(migrations ...Migration) (*World, error) {
 	if w.Upgrades == nil {
 		w.Upgrades = map[string]bool{}
 	}
+	if w.Player.Stash == nil {
+		w.Player.Stash = map[string]map[string]int{}
+	}
+	w.legacy = nil
 	return &w, nil
+}
+
+// v6 is what a pre-7 save carried for the one city there was, in the
+// shape it had then: the market, the corners, the player's stock and the
+// heat on World, Player and HeatState themselves.
+type v6 struct {
+	Market    map[string]*ProductMarket
+	Territory struct{ Corners []Corner }
+	Player    struct{ Stock map[string]int }
+	Heat      struct{ Value float64 }
+}
+
+// MigrateCities is the 6 -> 7 step: the single city becomes the home
+// entry of Cities, keeping its market, corners, stock and heat, and the
+// player is standing in it. A save that already has cities (or nothing
+// to wrap) is left alone; the caller lays out whatever cities are
+// missing from the config, as a migration seeds any new state.
+func (w *World) MigrateCities(home StartingCity) {
+	w.Player.Location = home.ID
+	if w.Cities[home.ID] != nil {
+		return
+	}
+	old := w.legacy
+	if old == nil || old.Market == nil {
+		w.AddCity(home)
+		return
+	}
+	c := w.AddCity(StartingCity{ID: home.ID, Name: home.Name, HeatMul: home.HeatMul, Wholesale: home.Wholesale})
+	c.Market = old.Market
+	c.Corners = old.Territory.Corners
+	for i := range c.Corners {
+		c.Corners[i].City = home.ID
+	}
+	c.Heat = old.Heat.Value
+	stash := w.Stash(home.ID)
+	for id, q := range old.Player.Stock {
+		stash[id] = q
+	}
+	w.legacy = nil
 }
 
 // DeleteSave removes the save slot; missing is not an error.

@@ -34,6 +34,11 @@ ProductUnlocked = [
   "{{.Product}} arrives in {{.City}}; 'somebody upstairs is connected', says source",
   "Rumour: a {{.City}} outfit has a line on {{.Product}}",
 ]
+PriceShockSeized = [
+  "{{.Product}} scarce in {{.City}} after seizure on the road",
+  "{{.City}} corners dry as {{.Product}} shipment never arrives",
+  "Price of {{.Product}} jumps in {{.City}}; dealers blame the highway patrol",
+]
 PriceSlump = [
   "{{.Product}} demand craters after overdose scare",
   "Nobody wants {{.Product}} this week, says corner survey",
@@ -197,6 +202,12 @@ FrontAudited = [
   "Tax investigators seen leaving {{.City}} {{.Front}} with boxes",
   "{{.Front}} shut pending audit; staff sent home",
   "Revenue agents 'taking an interest' in a {{.City}} {{.Front}}",
+]
+ShipmentSeized = [
+  "Police seize {{.Qty}} units of {{.Product}} bound for {{.City}}",
+  "{{.Mode}} stopped on the {{.From}} road: {{.Product}} shipment seized",
+  "Highway patrol intercepts {{.Product}} shipment headed for {{.City}}",
+  "Traffic stop turns up {{.Qty}} units of {{.Product}}; driver held",
 ]
 FrontFrozen = [
   "{{.Front}} dark: 'unpaid bills', says landlord",

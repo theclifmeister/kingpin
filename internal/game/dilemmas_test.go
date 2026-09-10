@@ -11,8 +11,8 @@ import (
 func cardWorld() *World {
 	w := testWorld()
 	w.Player.DirtyCash, w.Player.CleanCash = 1000, 500
-	w.Player.Stock["a"] = 40
-	w.Heat.Value = 50
+	w.Stash("test")["a"] = 40
+	w.Home().Heat = 50
 	w.Crew.Members = []CrewMember{{ID: 1, Name: "Dre", Role: "runner", Loyalty: 50}, {ID: 2, Name: "Tank", Role: "enforcer", Loyalty: 50}}
 	w.Rival = RivalState{Leader: "Ghost", War: 50, Grudge: 1, Muscle: 3, Cash: 5000, Arrived: 1}
 	w.Player.Reputation = Reputation{Fear: 10, Respect: 20, Notoriety: 30}
@@ -41,21 +41,21 @@ func TestChooseAppliesEveryEffectKey(t *testing.T) {
 	checks := map[string]bool{
 		"dirty_cash and dirty_amount": w.Player.DirtyCash == 1000-1-100,
 		"clean_cash and clean_amount": w.Player.CleanCash == 500-1+200,
-		"heat":                        w.Heat.Value == 49,
+		"heat":                        w.Home().Heat == 49,
 		"loyalty":                     w.Crew.Members[0].Loyalty == 48, // -1 named, -1 crew
 		"crew_loyalty":                w.Crew.Members[1].Loyalty == 49,
 		"war":                         w.Rival.War == 49,
 		"grudge":                      w.Rival.Grudge == 0,
 		"rival_muscle":                w.Rival.Muscle == 2,
 		"rival_cash":                  w.Rival.Cash == 4999,
-		"stock_share":                 w.Player.Stock["a"] == 20,
+		"stock_share":                 w.Stock("test", "a") == 20,
 		"fear":                        w.Player.Reputation.Fear == 9,
 		"respect":                     w.Player.Reputation.Respect == 19,
 		"notoriety":                   w.Player.Reputation.Notoriety == 29,
 	}
 	for what, ok := range checks {
 		if !ok {
-			t.Errorf("%s did not apply: %+v %+v %+v", what, w.Player, w.Heat.Value, w.Rival)
+			t.Errorf("%s did not apply: %+v %+v %+v", what, w.Player, w.Home().Heat, w.Rival)
 		}
 	}
 	last := w.Journal[len(w.Journal)-1]
@@ -101,11 +101,11 @@ func TestChooseClamps(t *testing.T) {
 	if _, err := w.Choose(0); err != nil {
 		t.Fatal(err)
 	}
-	if w.Player.DirtyCash != 0 || w.Player.CleanCash != 0 || w.Heat.Value != 100 || w.Crew.Members[1].Loyalty != 100 || w.Rival.War != 0 {
-		t.Fatalf("clamps: %+v heat %v loyalty %v war %v", w.Player, w.Heat.Value, w.Crew.Members[1].Loyalty, w.Rival.War)
+	if w.Player.DirtyCash != 0 || w.Player.CleanCash != 0 || w.Home().Heat != 100 || w.Crew.Members[1].Loyalty != 100 || w.Rival.War != 0 {
+		t.Fatalf("clamps: %+v heat %v loyalty %v war %v", w.Player, w.Home().Heat, w.Crew.Members[1].Loyalty, w.Rival.War)
 	}
-	if w.Player.Stock["a"] != 50 {
-		t.Fatalf("found stock past capacity: %d", w.Player.Stock["a"])
+	if w.Stock("test", "a") != 50 {
+		t.Fatalf("found stock past capacity: %d", w.Stock("test", "a"))
 	}
 	if r := w.Player.Reputation; r.Fear != 100 || r.Respect != 0 {
 		t.Fatalf("reputation not clamped: %+v", r)
@@ -132,7 +132,7 @@ func TestSaveKeepsCard(t *testing.T) {
 	if c == nil || c.ID != "stash_hit" || c.Text != "Tank wants to hit the stash." || len(c.Choices) != 2 || c.Choices[0].Effects["heat"] != 6 || w2.Dilemmas.LastCard != 7 || w2.Dilemmas.Drawn["stash_hit"] != 1 {
 		t.Fatalf("card did not survive the save: %+v", w2.Dilemmas)
 	}
-	if _, err := w2.Choose(0); err != nil || w2.Heat.Value != 56 || w2.Player.DirtyCash != 1800 {
-		t.Fatalf("answering after load: %v heat %v cash %d", err, w2.Heat.Value, w2.Player.DirtyCash)
+	if _, err := w2.Choose(0); err != nil || w2.Home().Heat != 56 || w2.Player.DirtyCash != 1800 {
+		t.Fatalf("answering after load: %v heat %v cash %d", err, w2.Home().Heat, w2.Player.DirtyCash)
 	}
 }

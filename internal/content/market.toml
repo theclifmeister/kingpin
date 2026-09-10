@@ -1,7 +1,7 @@
-# Market tuning. Prices are per unit, demand is units per day.
+# Market tuning. Prices are per unit, demand is units per day, both for the
+# home city; city.toml scales them per city.
 
 [market]
-city = "Eastside"
 start_cash = 500
 carry_limit = 100
 history_days = 30

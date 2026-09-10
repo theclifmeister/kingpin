@@ -3,11 +3,14 @@
 package harness
 
 import (
+	"sort"
+
 	"github.com/theclifmeister/kingpin/internal/content"
 	"github.com/theclifmeister/kingpin/internal/events"
 	"github.com/theclifmeister/kingpin/internal/game"
 	"github.com/theclifmeister/kingpin/internal/sim"
 	"github.com/theclifmeister/kingpin/internal/sim/laundering"
+	"github.com/theclifmeister/kingpin/internal/sim/logistics"
 )
 
 // Policy decides the player's actions for the coming day.
@@ -108,36 +111,58 @@ func Hide(w *game.World) { w.SetLieLow(true) }
 // night, the way a player who turns the bag over daily plays.
 func Trader(cfg *content.Config, dial events.Dial) Policy {
 	return func(w *game.World) {
-		// Pushed off a corner, stand on the biggest free one: nothing sells
-		// from nowhere.
-		if w.PostOf(game.You) == nil {
-			if c := pickCorner(w, func(c game.Corner) bool { return c.Held() && c.Runner == 0 }, func(c game.Corner) float64 { return c.Demand }); c != nil {
-				_ = w.Post(c.ID, game.You)
-			} else if c := pickCorner(w, func(c game.Corner) bool { return c.Owner == game.OwnerNone }, func(c game.Corner) float64 { return c.Demand }); c != nil {
-				_ = w.Post(c.ID, game.You)
-			}
+		standSomewhere(w)
+		restock(cfg, w)
+		sellEverything(w, dial)
+	}
+}
+
+// standSomewhere puts you on a corner in the city you are in if you are on
+// none: a held one nobody works, else the biggest free one. Nothing sells
+// from nowhere.
+func standSomewhere(w *game.World) {
+	if w.PostOf(game.You) != nil {
+		return
+	}
+	here := w.Player.Location
+	if c := pickCorner(w, func(c game.Corner) bool { return c.City == here && c.Held() && c.Runner == 0 }, size); c != nil {
+		_ = w.Post(c.ID, game.You)
+	} else if c := pickCorner(w, func(c game.Corner) bool { return c.City == here && c.Owner == game.OwnerNone }, size); c != nil {
+		_ = w.Post(c.ID, game.You)
+	}
+}
+
+// size scores a corner by its demand.
+func size(c game.Corner) float64 { return c.Demand }
+
+// restock buys from the supplier where you are toward a demand-
+// proportional mix that fits what the stash there can hold, so a crashed
+// product never hogs the whole bag.
+func restock(cfg *content.Config, w *game.World) {
+	pressure := cfg.Market.Market.BuyPricePressure * game.FoldEffects(w, cfg.Upgrades).BuyPressureMul
+	city := w.Here()
+	total := 0.0
+	for _, id := range w.Products {
+		total += city.Market[id].Demand
+	}
+	for _, id := range w.Products {
+		m := city.Market[id]
+		target := int(float64(w.Capacity(city.ID)) * m.Demand / total)
+		afford := int(float64(w.Player.DirtyCash) / m.SupplierPrice)
+		qty := min(target-w.Stock(city.ID, id), afford, w.Free(city.ID))
+		if qty > 0 {
+			_, _ = w.Buy(id, qty, pressure)
 		}
-		pressure := cfg.Market.Market.BuyPricePressure * game.FoldEffects(w, cfg.Upgrades).BuyPressureMul
-		// Restock toward a demand-proportional mix that fits what the
-		// operation can hold, so a crashed product never hogs the whole bag.
-		total := 0.0
+	}
+}
+
+// sellEverything queues every stash for sale at the dial: the runners sell
+// where they stand, you sell where you are.
+func sellEverything(w *game.World, dial events.Dial) {
+	for _, cid := range w.CityOrder {
 		for _, id := range w.Products {
-			total += w.Market[id].Demand
-		}
-		for _, id := range w.Products {
-			m := w.Market[id]
-			target := int(float64(w.Capacity()) * m.Demand / total)
-			room := w.Capacity() - w.Player.TotalStock()
-			afford := int(float64(w.Player.DirtyCash) / m.SupplierPrice)
-			qty := min(target-w.Player.Stock[id], afford, room)
-			if qty > 0 {
-				_, _ = w.Buy(id, qty, pressure)
-			}
-		}
-		// Sell what we hold.
-		for _, id := range w.Products {
-			if q := w.Player.Stock[id]; q > 0 {
-				_ = w.PlaceSell(id, q, dial)
+			if q := w.Stock(cid, id); q > 0 {
+				_ = w.PlaceSell(cid, id, q, dial)
 			}
 		}
 	}
@@ -147,7 +172,7 @@ func Trader(cfg *content.Config, dial events.Dial) Policy {
 func Careful(cfg *content.Config, lieLowAt float64) Policy {
 	trade := Trader(cfg, events.DialQuiet)
 	return func(w *game.World) {
-		if w.Heat.Value >= lieLowAt {
+		if w.MaxHeat() >= lieLowAt {
 			w.SetLieLow(true)
 			return
 		}
@@ -160,7 +185,7 @@ func Careful(cfg *content.Config, lieLowAt float64) Policy {
 func Managed(cfg *content.Config, lieLowAt float64) Policy {
 	trade := Trader(cfg, events.DialNormal)
 	return func(w *game.World) {
-		if w.Heat.Value >= lieLowAt {
+		if w.MaxHeat() >= lieLowAt {
 			w.SetLieLow(true)
 			return
 		}
@@ -243,94 +268,113 @@ func Crewed(cfg *content.Config, lieLowAt float64) Policy {
 // crew slots it has left on enforcers for the corners most likely to be
 // robbed. Once the rival is in town it keeps a couple of enforcers on the
 // corners it borders, whatever else it is doing. It is the baseline for
-// "a player who takes ground"; it never sends them in.
+// "a player who takes ground"; it never sends them in. It stays in the
+// city it is in: Distributor is the one that spreads out.
 func Territory(cfg *content.Config, lieLowAt float64, corners int) Policy {
 	managed := Managed(cfg, lieLowAt)
+	return func(w *game.World) {
+		staff(cfg, w, w.Player.Location, corners)
+		managed(w)
+	}
+}
+
+// staff hires and posts the crew for one city, the way Territory plays:
+// runners until corners corners there are worked (0 means every corner),
+// then enforcers for them; with a rival about, enforcers come first once
+// one runner is on. Runners and enforcers already posted elsewhere are
+// left where they are.
+func staff(cfg *content.Config, w *game.World, city string, corners int) {
 	tun := cfg.Crew.Crew
 	if corners <= 0 {
-		corners = len(cfg.City.Corners)
+		corners = len(cfg.City.City(city).Corners)
 	}
 	guards := max(1, tun.MaxCrew/3)
-	return func(w *game.World) {
-		w.SetPay(events.PayFair)
-		for _, m := range w.Crew.Members {
-			if m.Loyalty < tun.SkimThreshold {
-				_, _ = w.Fire(m.ID)
-				break // one a day; each firing sours the rest
+	w.SetPay(events.PayFair)
+	for _, m := range w.Crew.Members {
+		if m.Loyalty < tun.SkimThreshold {
+			_, _ = w.Fire(m.ID)
+			break // one a day; each firing sours the rest
+		}
+	}
+	// Runners until the corners are staffed, then enforcers for them;
+	// with a rival about, enforcers come first once one runner is on.
+	runners, worked := 0, w.WorkedIn(city)
+	for _, m := range w.Crew.Members {
+		if m.Role != "runner" {
+			continue
+		}
+		if p := w.PostOf(m.ID); p == nil || p.City == city {
+			runners++
+		}
+	}
+	want := "runner"
+	if runners+1 >= corners {
+		want = "enforcer"
+	}
+	if n := w.Crew.Role("enforcer"); want == "enforcer" && n >= min(corners, worked) {
+		want = ""
+	}
+	if w.Rival.Arrived > 0 && w.Crew.Runners() >= 1 && w.Crew.Role("enforcer") < guards {
+		want = "enforcer"
+		// A full roster of runners makes room: the least skilled goes.
+		if len(w.Crew.Members) >= tun.MaxCrew && len(w.Crew.FiredToday) == 0 {
+			worst := -1
+			for i, m := range w.Crew.Members {
+				if m.Role == "runner" && (worst < 0 || m.Skill < w.Crew.Members[worst].Skill) {
+					worst = i
+				}
+			}
+			if worst >= 0 {
+				_, _ = w.Fire(w.Crew.Members[worst].ID)
 			}
 		}
-		// Runners until the corners are staffed, then enforcers for them;
-		// with a rival about, enforcers come first once one runner is on.
-		want := "runner"
-		if w.Crew.Runners()+1 >= corners {
-			want = "enforcer"
+	}
+	best := -1
+	for i, c := range w.Crew.Candidates {
+		if c.Role != want {
+			continue
 		}
-		if n := w.Crew.Role("enforcer"); want == "enforcer" && n >= min(corners, w.Worked()) {
-			want = ""
+		if best < 0 || c.Skill > w.Crew.Candidates[best].Skill {
+			best = i
 		}
-		if w.Rival.Arrived > 0 && w.Crew.Runners() >= 1 && w.Crew.Role("enforcer") < guards {
-			want = "enforcer"
-			// A full roster of runners makes room: the least skilled goes.
-			if len(w.Crew.Members) >= tun.MaxCrew && len(w.Crew.FiredToday) == 0 {
-				worst := -1
-				for i, m := range w.Crew.Members {
-					if m.Role == "runner" && (worst < 0 || m.Skill < w.Crew.Members[worst].Skill) {
-						worst = i
-					}
-				}
-				if worst >= 0 {
-					_, _ = w.Fire(w.Crew.Members[worst].ID)
-				}
-			}
+	}
+	if best >= 0 && len(w.Crew.Members) < tun.MaxCrew {
+		c := w.Crew.Candidates[best]
+		if w.Player.DirtyCash >= c.Fee+cfg.Market.Market.StartCash {
+			_, _ = w.Hire(c.ID, tun.MaxCrew)
 		}
-		best := -1
-		for i, c := range w.Crew.Candidates {
-			if c.Role != want {
+	}
+	// Every idle runner takes back a held corner nobody is working,
+	// else the biggest free one, up to the cap; every idle enforcer
+	// guards the riskiest unguarded one.
+	for _, m := range w.Crew.Members {
+		if w.PostOf(m.ID) != nil {
+			continue
+		}
+		switch m.Role {
+		case "runner":
+			if w.WorkedIn(city) >= corners {
 				continue
 			}
-			if best < 0 || c.Skill > w.Crew.Candidates[best].Skill {
-				best = i
+			c := pickCorner(w, func(c game.Corner) bool { return c.City == city && c.Held() && c.Runner == 0 }, size)
+			if c == nil {
+				c = pickCorner(w, func(c game.Corner) bool { return c.City == city && !c.Held() && c.Owner != game.OwnerRival }, size)
+			}
+			if c != nil {
+				_ = w.Post(c.ID, m.ID)
+			}
+		case "enforcer":
+			// The corners the rival borders first, then the riskiest.
+			score := func(c game.Corner) float64 {
+				if w.Contested(c) {
+					return 10 + c.Demand
+				}
+				return c.Risk
+			}
+			if c := pickCorner(w, func(c game.Corner) bool { return c.City == city && c.Worked() && c.Enforcer == 0 }, score); c != nil {
+				_ = w.Post(c.ID, m.ID)
 			}
 		}
-		if best >= 0 && len(w.Crew.Members) < tun.MaxCrew {
-			c := w.Crew.Candidates[best]
-			if w.Player.DirtyCash >= c.Fee+cfg.Market.Market.StartCash {
-				_, _ = w.Hire(c.ID, tun.MaxCrew)
-			}
-		}
-		// Every idle runner takes back a held corner nobody is working,
-		// else the biggest free one, up to the cap; every idle enforcer
-		// guards the riskiest unguarded one.
-		for _, m := range w.Crew.Members {
-			if w.PostOf(m.ID) != nil {
-				continue
-			}
-			switch m.Role {
-			case "runner":
-				if w.Worked() >= corners {
-					continue
-				}
-				c := pickCorner(w, func(c game.Corner) bool { return c.Held() && c.Runner == 0 }, func(c game.Corner) float64 { return c.Demand })
-				if c == nil {
-					c = pickCorner(w, func(c game.Corner) bool { return !c.Held() }, func(c game.Corner) float64 { return c.Demand })
-				}
-				if c != nil {
-					_ = w.Post(c.ID, m.ID)
-				}
-			case "enforcer":
-				// The corners the rival borders first, then the riskiest.
-				score := func(c game.Corner) float64 {
-					if w.Contested(c) {
-						return 10 + c.Demand
-					}
-					return c.Risk
-				}
-				if c := pickCorner(w, func(c game.Corner) bool { return c.Worked() && c.Enforcer == 0 }, score); c != nil {
-					_ = w.Post(c.ID, m.ID)
-				}
-			}
-		}
-		managed(w)
 	}
 }
 
@@ -388,10 +432,10 @@ func Warlike(cfg *content.Config, lieLowAt float64, corners int, force events.Fo
 	territory := Territory(cfg, lieLowAt, corners)
 	return func(w *game.World) {
 		territory(w)
-		if w.Heat.Value >= lieLowAt || w.Crew.Role("enforcer") == 0 {
+		if w.MaxHeat() >= lieLowAt || w.Crew.Role("enforcer") == 0 {
 			return
 		}
-		if c := pickCorner(w, func(c game.Corner) bool { return c.Owner == game.OwnerRival }, func(c game.Corner) float64 { return c.Demand }); c != nil {
+		if c := pickCorner(w, func(c game.Corner) bool { return c.Owner == game.OwnerRival }, size); c != nil {
 			_ = w.SendEnforcers(c.ID, force)
 		}
 	}
@@ -403,24 +447,8 @@ func Warlike(cfg *content.Config, lieLowAt float64, corners int, force events.Fo
 // audit. It is the baseline for "a player who stops sitting on a pile".
 func Laundered(cfg *content.Config, lieLowAt float64) Policy {
 	crewed := Crewed(cfg, lieLowAt)
-	offers := laundering.New(cfg.Laundering, cfg.Crew).Offers()
 	return func(w *game.World) {
-		for _, o := range offers {
-			if w.Front(o.ID) != nil {
-				continue
-			}
-			if !o.Locked(w) && w.Player.DirtyCash >= 3*o.Cost {
-				_, _ = w.BuyFront(o)
-			}
-			break // the cheapest one you lack, or nothing
-		}
-		dial := events.LaunderNormal
-		for _, f := range w.Fronts {
-			if f.Audited > 0 && w.Day-f.Audited < LaunderCarefulDays {
-				dial = events.LaunderCareful
-			}
-		}
-		w.SetLaunderDial(dial)
+		washUp(cfg, w)
 		crewed(w)
 	}
 }
@@ -429,13 +457,192 @@ func Laundered(cfg *content.Config, lieLowAt float64) Policy {
 // careful after an audit.
 const LaunderCarefulDays = 30
 
-// pickCorner returns the corner passing ok with the highest score, or nil.
+// Distributor plays like Laundered until the wholesaler will deal with it,
+// then runs the route: it moves to the city that sells by the lot and
+// stays there as the buyer, keeps runners on the corners at home and puts
+// the rest on the corners there, ships home every unit of whatever is
+// cheaper by the lot than at home (the normal dial, the biggest route
+// with room) and buys the next lots behind it, sells the rest where it
+// is, and sells everything that lands at home. It is the baseline for "a
+// player who runs a route", and the tier-4 policy.
+func Distributor(cfg *content.Config, lieLowAt float64) Policy {
+	laundered := Laundered(cfg, lieLowAt)
+	lg := logistics.New(cfg.Routes, cfg.City, cfg.Market)
+	wholesale := lg.Wholesale()
+	home := cfg.City.Home().ID
+	hub := ""
+	for _, c := range cfg.City.Cities {
+		if c.Wholesale && c.ID != home {
+			hub = c.ID
+			break
+		}
+	}
+	tun := cfg.Crew.Crew
+	homeCorners := max(1, tun.MaxCrew/2)
+	pressure := cfg.Market.Market.BuyPricePressure
+	return func(w *game.World) {
+		if hub == "" || wholesale.Locked(w) || len(lg.Routes(hub)) == 0 {
+			laundered(w)
+			return
+		}
+		if w.Player.Location != hub {
+			_ = w.Travel(hub)
+		}
+		washUp(cfg, w)
+		BuyUpgrades(cfg, w, 3) // the stash spots are what a lot needs room for
+		w.SetPay(events.PayFair)
+
+		// The crew: runners, and one enforcer for home once the rival is
+		// about. Whoever has sunk to skimming goes, one a day.
+		for _, m := range w.Crew.Members {
+			if m.Loyalty < tun.SkimThreshold {
+				_, _ = w.Fire(m.ID)
+				break
+			}
+		}
+		want := "runner"
+		if w.Rival.Arrived > 0 && w.Crew.Role("enforcer") == 0 && w.Crew.Runners() >= 2 {
+			want = "enforcer"
+		}
+		best := -1
+		for i, c := range w.Crew.Candidates {
+			if c.Role == want && (best < 0 || c.Skill > w.Crew.Candidates[best].Skill) {
+				best = i
+			}
+		}
+		if best >= 0 && len(w.Crew.Members) < tun.MaxCrew {
+			if c := w.Crew.Candidates[best]; w.Player.DirtyCash >= c.Fee+cfg.Market.Market.StartCash {
+				_, _ = w.Hire(c.ID, tun.MaxCrew)
+			}
+		}
+		// Idle runners take corners at home until homeCorners are worked,
+		// then here; the enforcer guards the home corner the rival borders.
+		for _, m := range w.Crew.Members {
+			if w.PostOf(m.ID) != nil {
+				continue
+			}
+			switch m.Role {
+			case "runner":
+				city := home
+				if w.WorkedIn(home) >= homeCorners {
+					city = hub
+				}
+				c := pickCorner(w, func(c game.Corner) bool { return c.City == city && c.Held() && c.Runner == 0 }, size)
+				if c == nil {
+					c = pickCorner(w, func(c game.Corner) bool { return c.City == city && c.Owner == game.OwnerNone }, size)
+				}
+				if c != nil {
+					_ = w.Post(c.ID, m.ID)
+				}
+			case "enforcer":
+				score := func(c game.Corner) float64 {
+					if w.Contested(c) {
+						return 10 + c.Demand
+					}
+					return c.Risk
+				}
+				if c := pickCorner(w, func(c game.Corner) bool { return c.City == home && c.Worked() && c.Enforcer == 0 }, score); c != nil {
+					_ = w.Post(c.ID, m.ID)
+				}
+			}
+		}
+
+		// The route. Whatever sells for more at home than it costs here
+		// goes home today, less what the corners here sell dearer than
+		// home does, and the next few days of home's demand is bought
+		// behind it: by the lot where a lot fits, at retail for the rest.
+		fx := game.FoldEffects(w, cfg.Upgrades).BuyPressureMul
+		keep := map[string]int{}
+		for _, id := range w.Products {
+			hubP, homeP := w.Product(hub, id), w.Product(home, id)
+			if hubP == nil || homeP == nil {
+				continue
+			}
+			if hubP.Price > homeP.Price {
+				keep[id] = int(w.Demand(hub, id))
+			}
+			if hubP.SupplierPrice > homeP.Price*0.7 {
+				continue // not worth the road
+			}
+			if q := w.Stock(hub, id) - keep[id]; q > 0 {
+				ship(lg, w, hub, home, id, q)
+			}
+			want := int(4*w.Demand(home, id)) - w.Stock(home, id) - w.InTransit(id) + keep[id] - w.Stock(hub, id)
+			lots := min((want+wholesale.Lot-1)/wholesale.Lot, int(float64(w.Player.DirtyCash)/(hubP.SupplierPrice*wholesale.Mul))/wholesale.Lot)
+			if lots > 0 {
+				_, _ = w.BuyWholesale(id, lots, wholesale, pressure*fx)
+			}
+		}
+
+		// Sales: everything at home, and here whatever is not waiting
+		// for a truck. Heat anywhere over the line is a day off.
+		if w.MaxHeat() >= lieLowAt {
+			w.SetLieLow(true)
+			return
+		}
+		for _, id := range w.Products {
+			if q := w.Stock(home, id); q > 0 {
+				_ = w.PlaceSell(home, id, q, events.DialNormal)
+			}
+			if q := min(w.Stock(hub, id), keep[id]); q > 0 {
+				_ = w.PlaceSell(hub, id, q, events.DialNormal)
+			}
+		}
+	}
+}
+
+// ship sends units of a product between two cities at the normal dial on
+// the emptiest route that will take them today, splitting across routes
+// if one will not.
+func ship(lg *logistics.Sim, w *game.World, from, to, product string, units int) {
+	routes := lg.Routes(from)
+	sort.SliceStable(routes, func(i, j int) bool { return routes[i].Capacity > routes[j].Capacity })
+	for _, r := range routes {
+		if units <= 0 {
+			break
+		}
+		if r.Other(from) != to {
+			continue
+		}
+		if _, err := lg.Ship(w, r.ID, from, to, product, min(units, r.Capacity), events.ShipNormal); err == nil {
+			units -= min(units, r.Capacity)
+		}
+	}
+}
+
+// washUp is the Laundered policy's fronts: the cheapest one lacking when
+// dirty cash is three times its price, the dial at normal and careful for
+// a while after an audit.
+func washUp(cfg *content.Config, w *game.World) {
+	for _, o := range laundering.New(cfg.Laundering, cfg.Crew).Offers() {
+		if w.Front(o.ID) != nil {
+			continue
+		}
+		if !o.Locked(w) && w.Player.DirtyCash >= 3*o.Cost {
+			_, _ = w.BuyFront(o)
+		}
+		break // the cheapest one you lack, or nothing
+	}
+	dial := events.LaunderNormal
+	for _, f := range w.Fronts {
+		if f.Audited > 0 && w.Day-f.Audited < LaunderCarefulDays {
+			dial = events.LaunderCareful
+		}
+	}
+	w.SetLaunderDial(dial)
+}
+
+// pickCorner returns the corner in any city passing ok with the highest
+// score, or nil.
 func pickCorner(w *game.World, ok func(game.Corner) bool, score func(game.Corner) float64) *game.Corner {
 	var best *game.Corner
-	for i := range w.Territory.Corners {
-		c := &w.Territory.Corners[i]
-		if ok(*c) && (best == nil || score(*c) > score(*best)) {
-			best = c
+	for _, cid := range w.CityOrder {
+		cs := w.Cities[cid].Corners
+		for i := range cs {
+			c := &cs[i]
+			if ok(*c) && (best == nil || score(*c) > score(*best)) {
+				best = c
+			}
 		}
 	}
 	return best

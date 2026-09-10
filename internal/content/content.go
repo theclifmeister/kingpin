@@ -1,6 +1,7 @@
-// Package content loads the tuning data (markets, city, heat, crew, rivals,
-// upgrades, laundering, reputation, headlines, dilemmas) that lives in TOML
-// files embedded in the binary. Balance changes never need code changes.
+// Package content loads the tuning data (markets, cities, routes, heat,
+// crew, rivals, upgrades, laundering, reputation, headlines, dilemmas) that
+// lives in TOML files embedded in the binary. Balance changes never need
+// code changes.
 package content
 
 import (
@@ -20,6 +21,7 @@ var files embed.FS
 type Config struct {
 	Market     MarketConfig
 	City       CityConfig
+	Routes     RoutesConfig
 	Heat       HeatConfig
 	Crew       CrewConfig
 	Rivals     RivalsConfig
@@ -39,7 +41,6 @@ type MarketConfig struct {
 }
 
 type MarketTuning struct {
-	City              string  `toml:"city"`
 	StartCash         int     `toml:"start_cash"`
 	CarryLimit        int     `toml:"carry_limit"`
 	HistoryDays       int     `toml:"history_days"`
@@ -78,10 +79,161 @@ type DialConfig struct {
 	Heat   float64 `toml:"heat"`
 }
 
-// CityConfig mirrors city.toml: the corners and how they are held.
+// CityConfig mirrors city.toml: the cities, each with its own corners and
+// its own take on every product, and how corners are held. The first city
+// is home: where a run starts and where the rival sets up.
 type CityConfig struct {
 	Territory TerritoryTuning `toml:"territory"`
-	Corners   []CornerConfig  `toml:"corner"`
+	Cities    []CityEntry     `toml:"city"`
+}
+
+// CityEntry is one city. Heat multiplies the sale heat of every unit
+// moved there (a port town's police have other things to look at);
+// Wholesale says its supplier sells by the lot (routes.toml [wholesale]);
+// Market is how its street differs from the product ladder, per product.
+type CityEntry struct {
+	ID        string                 `toml:"id"`
+	Name      string                 `toml:"name"`
+	Heat      float64                `toml:"heat"`
+	Wholesale bool                   `toml:"wholesale"`
+	Market    map[string]CityProduct `toml:"market"`
+	Corners   []CornerConfig         `toml:"corner"`
+}
+
+// CityProduct is a city's multipliers on a product's base price and
+// per-corner demand; a product the city does not list is at 1 and 1.
+type CityProduct struct {
+	Price  float64 `toml:"price"`
+	Demand float64 `toml:"demand"`
+}
+
+// Product returns the city's multipliers for a product, 1 and 1 when it
+// has no view of it.
+func (c CityEntry) Product(id string) CityProduct {
+	if p, ok := c.Market[id]; ok {
+		if p.Price <= 0 {
+			p.Price = 1
+		}
+		if p.Demand <= 0 {
+			p.Demand = 1
+		}
+		return p
+	}
+	return CityProduct{Price: 1, Demand: 1}
+}
+
+// HeatMul is the city's sale-heat multiplier, 1 when unset.
+func (c CityEntry) HeatMul() float64 {
+	if c.Heat <= 0 {
+		return 1
+	}
+	return c.Heat
+}
+
+// Corner returns the city's corner with id, or nil.
+func (c CityEntry) Corner(id string) *CornerConfig {
+	for i := range c.Corners {
+		if c.Corners[i].ID == id {
+			return &c.Corners[i]
+		}
+	}
+	return nil
+}
+
+// RoutesConfig mirrors routes.toml: the edges between cities, the ship
+// dial, what a seizure does and how the wholesale supplier sells.
+type RoutesConfig struct {
+	Shipping  ShippingTuning  `toml:"shipping"`
+	Wholesale WholesaleTuning `toml:"wholesale"`
+	Dial      ShipDialTable   `toml:"dial"`
+	Routes    []RouteConfig   `toml:"route"`
+}
+
+// ShippingTuning is what a seizure does to the world: heat in both cities
+// on the route, a page in the DA's file if the shipment was sent fast, and
+// a supply shock on the product in the city it was bound for.
+type ShippingTuning struct {
+	SeizureHeat     float64 `toml:"seizure_heat"`
+	SeizureEvidence int     `toml:"seizure_evidence"`
+	ShockFactor     float64 `toml:"shock_factor"`
+	ShockDays       int     `toml:"shock_days"`
+	RecordDays      int     `toml:"record_days"` // how long a seizure stays on the ledger
+}
+
+// WholesaleTuning is the lot the wholesale supplier sells by, at what
+// fraction of the street supplier's price, and the peak cash that opens
+// the door.
+type WholesaleTuning struct {
+	Lot        int     `toml:"lot"`
+	Mul        float64 `toml:"mul"`
+	UnlockCash int     `toml:"unlock_cash"`
+}
+
+type ShipDialTable struct {
+	Slow   ShipDialConfig `toml:"slow"`
+	Normal ShipDialConfig `toml:"normal"`
+	Fast   ShipDialConfig `toml:"fast"`
+}
+
+// ShipDialConfig scales a route: Days multiplies the days in transit,
+// Risk the chance of interception on each of them.
+type ShipDialConfig struct {
+	Days float64 `toml:"days"`
+	Risk float64 `toml:"risk"`
+}
+
+// RouteConfig is one edge of the route graph, usable both ways. Days is
+// the time in transit at the normal dial, Capacity the most one shipment
+// carries, Cost what every unit costs to send (dirty cash), Risk the
+// chance per day in transit that the shipment is intercepted.
+type RouteConfig struct {
+	ID       string  `toml:"id"`
+	Name     string  `toml:"name"`
+	Mode     string  `toml:"mode"` // car, truck, boat
+	From     string  `toml:"from"`
+	To       string  `toml:"to"`
+	Days     int     `toml:"days"`
+	Capacity int     `toml:"capacity"`
+	Cost     int     `toml:"cost"`
+	Risk     float64 `toml:"risk"`
+}
+
+// Connects reports whether the route joins the two cities, either way.
+func (r RouteConfig) Connects(a, b string) bool {
+	return (r.From == a && r.To == b) || (r.From == b && r.To == a)
+}
+
+// Other is the city at the far end of the route from city, or "".
+func (r RouteConfig) Other(city string) string {
+	switch city {
+	case r.From:
+		return r.To
+	case r.To:
+		return r.From
+	}
+	return ""
+}
+
+// Route returns the route with id, or nil.
+func (r RoutesConfig) Route(id string) *RouteConfig {
+	for i := range r.Routes {
+		if r.Routes[i].ID == id {
+			return &r.Routes[i]
+		}
+	}
+	return nil
+}
+
+// DialFor returns the tuning for a ship dial position.
+func (r RoutesConfig) DialFor(d events.Ship) ShipDialConfig {
+	switch d {
+	case events.ShipSlow:
+		return r.Dial.Slow
+	case events.ShipFast:
+		return r.Dial.Fast
+	default:
+		return r.Dial.Normal
+	}
 }
 
 type TerritoryTuning struct {
@@ -535,6 +687,9 @@ func Load() (*Config, error) {
 	if err := decode("city.toml", &c.City); err != nil {
 		return nil, err
 	}
+	if err := decode("routes.toml", &c.Routes); err != nil {
+		return nil, err
+	}
 	if err := decode("heat.toml", &c.Heat); err != nil {
 		return nil, err
 	}
@@ -565,11 +720,11 @@ func Load() (*Config, error) {
 	if len(c.Market.Products) == 0 {
 		return nil, fmt.Errorf("market.toml: no products defined")
 	}
-	if len(c.City.Corners) == 0 {
-		return nil, fmt.Errorf("city.toml: no corners defined")
+	if err := c.City.validate(); err != nil {
+		return nil, fmt.Errorf("city.toml: %w", err)
 	}
-	if c.City.Corner(c.City.Territory.Start) == nil {
-		return nil, fmt.Errorf("city.toml: start corner %q is not defined", c.City.Territory.Start)
+	if err := c.Routes.validate(c.City); err != nil {
+		return nil, fmt.Errorf("routes.toml: %w", err)
 	}
 	for _, role := range []string{"runner", "enforcer", "accountant"} {
 		if _, ok := c.Crew.Role[role]; !ok {
@@ -662,7 +817,7 @@ func decode(name string, v any) error {
 	}
 	// An effect name nobody reads, or a trigger field nobody checks, would
 	// silently do nothing.
-	if name == "upgrades.toml" || name == "reputation.toml" || name == "dilemmas.toml" {
+	if name == "upgrades.toml" || name == "reputation.toml" || name == "dilemmas.toml" || name == "routes.toml" {
 		if keys := md.Undecoded(); len(keys) > 0 {
 			return fmt.Errorf("%s: unknown key %s", name, keys[0])
 		}
@@ -701,12 +856,97 @@ func (m MarketConfig) Product(id string) *ProductConfig {
 	return nil
 }
 
-// Corner returns the config for id, or nil.
+// Corner returns the config for a corner id in any city, or nil.
 func (c CityConfig) Corner(id string) *CornerConfig {
-	for i := range c.Corners {
-		if c.Corners[i].ID == id {
-			return &c.Corners[i]
+	for i := range c.Cities {
+		if k := c.Cities[i].Corner(id); k != nil {
+			return k
 		}
+	}
+	return nil
+}
+
+// City returns the city with id, or nil.
+func (c CityConfig) City(id string) *CityEntry {
+	for i := range c.Cities {
+		if c.Cities[i].ID == id {
+			return &c.Cities[i]
+		}
+	}
+	return nil
+}
+
+// Home is the first city: where a run starts.
+func (c CityConfig) Home() CityEntry { return c.Cities[0] }
+
+// Corners lists every corner of every city, in file order.
+func (c CityConfig) Corners() []CornerConfig {
+	var out []CornerConfig
+	for _, city := range c.Cities {
+		out = append(out, city.Corners...)
+	}
+	return out
+}
+
+// validate checks the cities read as a map: at least one, ids unique,
+// every one with corners, corner ids unique across the lot, and the start
+// corner in the home city.
+func (c CityConfig) validate() error {
+	if len(c.Cities) == 0 {
+		return fmt.Errorf("no cities defined")
+	}
+	cities := map[string]bool{}
+	corners := map[string]bool{}
+	for _, city := range c.Cities {
+		if city.ID == "" || city.Name == "" {
+			return fmt.Errorf("city %q needs an id and a name", city.ID)
+		}
+		if cities[city.ID] {
+			return fmt.Errorf("city %q is defined twice", city.ID)
+		}
+		cities[city.ID] = true
+		if len(city.Corners) == 0 {
+			return fmt.Errorf("city %q has no corners", city.ID)
+		}
+		for _, k := range city.Corners {
+			if k.ID == "" || corners[k.ID] {
+				return fmt.Errorf("city %q: corner %q missing or defined twice", city.ID, k.ID)
+			}
+			corners[k.ID] = true
+		}
+	}
+	if c.Home().Corner(c.Territory.Start) == nil {
+		return fmt.Errorf("start corner %q is not in %s", c.Territory.Start, c.Home().ID)
+	}
+	return nil
+}
+
+// validate checks the routes join cities that exist, the numbers make
+// sense, and the wholesale lot and the dials are usable.
+func (r RoutesConfig) validate(cities CityConfig) error {
+	seen := map[string]bool{}
+	for _, rt := range r.Routes {
+		if rt.ID == "" || seen[rt.ID] {
+			return fmt.Errorf("route %q missing or defined twice", rt.ID)
+		}
+		seen[rt.ID] = true
+		if cities.City(rt.From) == nil || cities.City(rt.To) == nil || rt.From == rt.To {
+			return fmt.Errorf("route %q joins %q and %q", rt.ID, rt.From, rt.To)
+		}
+		if rt.Days < 1 || rt.Capacity < 1 || rt.Cost < 0 || rt.Risk < 0 || rt.Risk > 1 || rt.Mode == "" {
+			return fmt.Errorf("bad route %+v", rt)
+		}
+	}
+	if r.Wholesale.Lot < 1 || r.Wholesale.Mul <= 0 {
+		return fmt.Errorf("bad [wholesale] table %+v", r.Wholesale)
+	}
+	for _, d := range []ShipDialConfig{r.Dial.Slow, r.Dial.Normal, r.Dial.Fast} {
+		if d.Days <= 0 || d.Risk < 0 {
+			return fmt.Errorf("bad ship dial %+v", d)
+		}
+	}
+	if r.Shipping.ShockDays < 0 || r.Shipping.ShockFactor < 0 {
+		return fmt.Errorf("bad [shipping] table %+v", r.Shipping)
 	}
 	return nil
 }

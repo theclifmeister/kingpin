@@ -7,12 +7,14 @@ heat closes in. Written in Go with [Bubble Tea](https://github.com/charmbracelet
 > after that is your fault.
 
 The full design is in [issue #1](https://github.com/theclifmeister/kingpin/issues/1).
-This is the Phase 3.1 build: one city of corners to hold, a six-rung product
-ladder the supplier opens up as your money grows, a market that reacts to
-you, a police force that reacts to how much you move, a crew that moves
-product for you as long as you keep them paid, an upgrade tree to sink the
-money into, and fronts that wash the money once there is too much of it to
-sit on.
+This is the Phase 3.2 build: two cities of corners to hold, a six-rung product
+ladder the supplier opens up as your money grows, a market in each city that
+reacts to you, a police force in each that reacts to how much you move
+there, a crew that moves product for you as long as you keep them paid, an
+upgrade tree to sink the money into, fronts that wash the money once there
+is too much of it to sit on, and a road between the cities that everything
+cheap at one end and dear at the other has to travel, where the police can
+take it.
 
 ## Play
 
@@ -28,9 +30,12 @@ load; a save from a newer build than the one you are running is refused.
 | Key | Action |
 |---|---|
 | `1`–`7` / `tab` | Dashboard, Market, Journal, Crew, Map, Upgrades, Ledger (`shift+tab` goes back) |
-| `↑` `↓` `←` `→` | Move the cursor: up and down a list, across the map grid and the upgrade columns; the dial in a dialog |
-| `b` | Buy from the supplier (blank quantity = as much as you can); on the ledger, buy a front |
-| `s` | Queue a street sale and set the dial: quiet / normal / aggressive |
+| `↑` `↓` `←` `→` | Move the cursor: up and down a list, across the map grid and the upgrade columns, between the cities on the market; the dial in a dialog |
+| `[` `]` | Turn the market and the map to the other city |
+| `b` | Buy from the supplier where you are (blank quantity = as much as you can; `w` in the dialog buys by the lot where a wholesaler deals); on the ledger, buy a front |
+| `s` | Queue a street sale and set the dial: quiet / normal / aggressive, in the city shown |
+| `t` | Ship product to the other city: route, quantity, and the dial: slow / normal / fast |
+| `g` | Go to the other city, after a confirmation; your corner and your stock stay behind |
 | `x` | Cancel the queued order on the selected product |
 | `l` | Lie low today: no sales, heat fades faster |
 | `h` / `f` | Hire / fire the selected person (crew screen) |
@@ -47,18 +52,37 @@ load; a save from a newer build than the one you are running is refused.
 
 ## How it works
 
-Every day the simulations step in a fixed order (`market -> territory -> rivals -> crew -> heat -> laundering -> news`),
+Every day the simulations step in a fixed order (`market -> logistics -> territory -> rivals -> crew -> heat -> laundering -> reputation -> news`),
 each reading the world and emitting typed events that later sims and the UI
 consume. Randomness is derived from the run seed and the day number, so a
-run is fully reproducible and nothing about the RNG needs saving.
+run is fully reproducible and nothing about the RNG needs saving; what
+happens away from home rolls on its own side of the stream, so a run that
+never leaves the first city plays the same as it always did.
 
+- **Cities.** Everything happens in one of two cities, each with its own
+  street prices, its own corners and its own police. Eastside is home;
+  Bayport is the port down the coast, where coke and heroin come off the
+  boats cheap and nobody much wants them, weed and pills cost more, and
+  the police watch the water. You are in one city at a time: the supplier
+  sells to you where you stand, into a stash there, and you can only work
+  a corner yourself where you are; runners sell where they are posted.
+  `g` moves you; stock only moves by shipment.
 - **Market** drifts prices toward an equilibrium with noise, rolls supply
-  shocks and demand slumps, and resolves your sell orders. Selling into
-  demand barely moves the price; flooding past it craters it.
-- **Territory** is the city's corners. Each is its own demand pool and only
+  shocks and demand slumps, and resolves your sell orders, city by city.
+  Selling into demand barely moves the price; flooding past it craters it.
+- **Logistics** is the road between the cities: a car, a truck and a boat,
+  each a different point on the speed / cost / risk triangle. A shipment
+  leaves the stash it was loaded from, rides the route for its days (the
+  ship dial trades days against the chance of a seizure on each), and
+  lands in the other stash unless the police take it, in which case every
+  unit is gone, heat rises in both cities, the street that was waiting for
+  it spikes, and, if it was sent fast, the DA gets a page. Once your peak
+  cash says you can move weight, Bayport's supplier sells by the lot at a
+  discount, and a lot goes to the dock rather than your pockets.
+- **Territory** is each city's corners. Each is its own demand pool and only
   a corner somebody stands on sells; a runner holds one for you, an enforcer
   keeps it from being robbed, and a corner nobody works drifts back to the
-  street.
+  street. The rival fights over Eastside.
 - **Crew** are runners, enforcers and accountants you hire from a rotating
   pool. Runners raise how much you can hold and how much of the street you
   reach; accountants put more through every front and keep the auditors
@@ -74,12 +98,14 @@ run is fully reproducible and nothing about the RNG needs saving.
   accountant the same way. At the floor a member walks, or,
   while the rival holds ground, defects to it and walks it onto the corner
   they ran.
-- **Heat** rises with the volume you *tried* to move and how loud the dial
-  was, plus a little for sitting on a pile of dirty cash. Units your crew
-  moves count at a discount, but sloppy low-skill runners add a premium. It
-  decays slowly, faster if you lie low. Thresholds trigger patrols, stings,
-  raids and finally arrest. Every sting and raid goes in the DA's file; a
-  thick enough file is an indictment.
+- **Heat** is per city: it rises with the volume you *tried* to move there
+  and how loud the dial was, plus a little, where you are, for sitting on a
+  pile of dirty cash. Units your crew moves count at a discount, but sloppy
+  low-skill runners add a premium. It decays slowly, faster if you lie low.
+  The hottest city's police answer at the thresholds: patrols, stings,
+  raids and finally arrest, and what they take comes out of the stash
+  there. Every sting and raid goes in the DA's file, which is yours
+  wherever you are; a thick enough file is an indictment.
 - **Upgrades** are three branches of persistent, stacking bonuses bought
   with cash: Operations (stash, supplier, street network) to earn more,
   Security (burners, lookouts, safehouse, cold contacts) to take less
@@ -113,7 +139,9 @@ go run ./cmd/balance -policy aggressive -seed 7 -trace
 ```
 
 Policies: `idle`, `hide`, `quiet`, `normal`, `aggressive`, `careful`,
-`managed`, `upgraded`, `crewed`, `vigilant`, `territory`, `war`, `laundered`.
+`managed`, `upgraded`, `crewed`, `vigilant`, `territory`, `war`, `laundered`,
+`distributor` (moves to Bayport once the wholesaler deals, buys by the lot
+and ships everything worth the road home to runners in Eastside).
 `-own stash,burners` starts every run owning those upgrades; `-snitch` starts
 it with an informant on the payroll; `-cards decline|first` deals the
 dilemma cards and answers each with its last (do-nothing) or first choice

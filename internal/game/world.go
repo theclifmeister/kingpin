@@ -10,7 +10,7 @@ import (
 )
 
 // SchemaVersion is bumped whenever World changes shape incompatibly.
-const SchemaVersion = 6
+const SchemaVersion = 7
 
 // World is the complete state of a run. Every field is a plain value so the
 // whole struct can be serialised with encoding/gob.
@@ -18,20 +18,22 @@ type World struct {
 	SchemaVersion int
 	Seed          uint64
 	Day           int
-	City          string
+
+	Cities    map[string]*City // keyed by city id; CityCityOrder fixes their sequence
+	CityOrder []string         // city ids in a fixed order, home first
 
 	Player      Player
-	Products    []string                  // ordered product ids
-	Market      map[string]*ProductMarket // keyed by product id
+	Products    []string // ordered product ids, the same in every city
 	Heat        HeatState
 	Crew        CrewState
-	Territory   TerritoryState
 	Rival       RivalState
 	Upgrades    map[string]bool // upgrade ids owned; effects fold from these (FoldEffects)
 	FallGuyUsed bool            // the fall guy has taken his one fall
 	Fronts      []Front         // businesses the player owns, in the order bought
 	Laundering  LaunderingState
-	Dilemmas    DilemmaState // the card waiting for an answer, and the deck's pacing
+	Dilemmas    DilemmaState   // the card waiting for an answer, and the deck's pacing
+	Shipments   []Shipment     // product on the road, in the order sent
+	Logistics   LogisticsState // the shipment counter and the seizure record
 
 	// Per-day scratch, cleared by the clock after every EndDay.
 	Orders        map[string]SellOrder // pending sell orders keyed by product id
@@ -45,13 +47,31 @@ type World struct {
 	Report  *DayReport // morning report for the current day
 	Over    *Ending    // non-nil once the run has ended
 	Stats   Stats
+
+	legacy *v6 // what a pre-7 save carried for its one city; Load sets it, MigrateCities consumes it
 }
 
-// Player is the human's cash and inventory, and the face the city sees.
+// City is one city of the run: its own street prices and demand, its own
+// corners and its own police. Static tuning (HeatMul, Wholesale) is copied
+// in from content so the world never needs the city config to step.
+type City struct {
+	ID        string
+	Name      string
+	HeatMul   float64                   // multiplier on the sale heat of every unit moved here
+	Wholesale bool                      // the supplier here sells by the lot
+	Market    map[string]*ProductMarket // keyed by product id
+	Corners   []Corner
+	Heat      float64 // city heat, 0..100: how hard the police here are looking
+}
+
+// Player is the human's cash, where they are and what they keep where,
+// and the face the city sees. Stock lives in a stash per city: it moves
+// between them only by shipment.
 type Player struct {
 	DirtyCash  int
 	CleanCash  int
-	Stock      map[string]int
+	Stash      map[string]map[string]int // city id -> product id -> units
+	Location   string                    // city id the player is in
 	CarryLimit int
 	Reputation Reputation
 }
@@ -82,13 +102,63 @@ func (r *Reputation) Axis(name string) *float64 {
 	return nil
 }
 
-// TotalStock is the number of units the player holds across all products.
+// TotalStock is the number of units in every stash, all products. What
+// is on the road is not counted; World.TotalStock is.
 func (p Player) TotalStock() int {
 	n := 0
-	for _, q := range p.Stock {
+	for _, s := range p.Stash {
+		for _, q := range s {
+			n += q
+		}
+	}
+	return n
+}
+
+// StockIn is the number of units in one city's stash, all products.
+func (p Player) StockIn(city string) int {
+	n := 0
+	for _, q := range p.Stash[city] {
 		n += q
 	}
 	return n
+}
+
+// Shipment is product on the road between two cities. Every unit in it
+// left the source stash when it was sent and lands in the destination's
+// on Arrives, unless it is seized first.
+type Shipment struct {
+	ID      int
+	Route   string // route id
+	Mode    string
+	From    string // city ids
+	To      string
+	Product string
+	Units   int
+	Dial    events.Ship
+	Sent    int // day it left
+	Arrives int // day it lands
+	Cost    int // what sending it cost, dirty cash
+}
+
+// DaysLeft is how many days the shipment still has to go on day.
+func (s Shipment) DaysLeft(day int) int { return max(0, s.Arrives-day) }
+
+// LogisticsState is the shipment counter and the seizure record the market
+// reads the morning after (it steps before logistics).
+type LogisticsState struct {
+	NextID   int
+	Seizures []Seizure
+}
+
+// Seizure is a shipment the police took on the road: what, how much, and
+// where it was going.
+type Seizure struct {
+	Day     int
+	Route   string
+	From    string
+	To      string
+	Product string
+	Units   int
 }
 
 // ProductMarket is the live market state for one product in one city.
@@ -105,9 +175,10 @@ type ProductMarket struct {
 	BoughtToday   int
 }
 
-// HeatState is the law-enforcement pressure on the player.
+// HeatState is the law-enforcement pressure on the player: what the DA
+// has and how the police have responded. City heat itself is per city
+// (City.Heat); the case and the response ladder are personal.
 type HeatState struct {
-	Value        float64        // 0..100
 	SellCapDays  int            // days the patrol cap is still in force
 	SellCap      float64        // fraction of demand you can sell while capped
 	LastResponse map[string]int // level -> last day it fired
@@ -116,7 +187,7 @@ type HeatState struct {
 	EvidenceDay  int            // day the file last grew; a retained lawyer lets old pages go cold
 	LeakDay      int            // day an informant last fed the file (or turned); the next leak is due informant_days later
 	Leaks        int            // pages an informant has fed the DA since one was last on the payroll; the tell shows at two
-	Peak         float64
+	Peak         float64        // the hottest any city has been
 }
 
 // CrewState is the player's crew: the roster, the hiring pool and the pay
@@ -236,12 +307,17 @@ func (w *World) Front(id string) *Front {
 	return nil
 }
 
-// SellOrder is a queued street sale, resolved at end of day.
+// SellOrder is a queued street sale in a city, resolved at end of day by
+// whoever works corners there.
 type SellOrder struct {
+	City    string
 	Product string
 	Qty     int
 	Dial    events.Dial
 }
+
+// OrderKey is how Orders is keyed: one order per product per city.
+func OrderKey(city, product string) string { return city + "/" + product }
 
 // StrikeOrder is the player's enforcers sent against a rival corner at a
 // force, resolved by the rival sim at end of day.
@@ -278,12 +354,15 @@ type Lead struct {
 	Corner string
 }
 
-// Purchase is a buy from the supplier, applied immediately.
+// Purchase is a buy from the supplier, applied immediately. Wholesale
+// says it was bought by the lot.
 type Purchase struct {
+	City      string
 	Product   string
 	Qty       int
 	UnitPrice float64
 	Cost      int
+	Wholesale bool
 }
 
 // Headline is a journal entry.
@@ -301,6 +380,7 @@ type DayReport struct {
 	Heat       []string
 	Crew       []string
 	Territory  []string
+	Shipments  []string
 	Money      []string
 	Upgrades   []string
 	News       []string
@@ -333,9 +413,14 @@ type Stats struct {
 	Informants     int // crew who turned on you
 	Defections     int // crew who went over to the rival
 	Investigations int
+	Shipments      int // shipments sent
+	Shipped        int // units sent over a route
+	Seizures       int // shipments the police took on the road
+	SeizedOnRoad   int // units lost to them
 }
 
-// StartingProduct describes a product as it exists at the start of a run.
+// StartingProduct describes a product as it exists at the start of a run,
+// priced for one city.
 type StartingProduct struct {
 	ID     string
 	Name   string
@@ -343,39 +428,85 @@ type StartingProduct struct {
 	Demand float64
 }
 
-// NewWorld creates a fresh run. Product state is seeded from starting values
-// so the world does not depend on the content package.
-func NewWorld(seed uint64, city string, products []StartingProduct, startCash, carryLimit int) *World {
+// StartingCity describes a city as a run starts: its identity, its static
+// tuning and its market's starting values. Corners are laid out by the
+// territory sim.
+type StartingCity struct {
+	ID        string
+	Name      string
+	HeatMul   float64
+	Wholesale bool
+	Products  []StartingProduct
+}
+
+// NewWorld creates a fresh run in the first city given, which is home.
+// Market state is seeded from starting values so the world does not
+// depend on the content package.
+func NewWorld(seed uint64, cities []StartingCity, startCash, carryLimit int) *World {
 	w := &World{
 		SchemaVersion: SchemaVersion,
 		Seed:          seed,
 		Day:           0,
-		City:          city,
+		Cities:        map[string]*City{},
 		Player: Player{
 			DirtyCash:  startCash,
-			Stock:      map[string]int{},
+			Stash:      map[string]map[string]int{},
 			CarryLimit: carryLimit,
 		},
-		Market:   map[string]*ProductMarket{},
 		Heat:     HeatState{LastResponse: map[string]int{}, Responses: map[string]int{}},
 		Upgrades: map[string]bool{},
 		Orders:   map[string]SellOrder{},
 	}
-	for _, p := range products {
-		w.AddProduct(p)
+	for _, c := range cities {
+		w.AddCity(c)
+	}
+	if len(w.CityOrder) > 0 {
+		w.Player.Location = w.CityOrder[0]
 	}
 	w.Stats.PeakCash = startCash
 	return w
 }
 
-// AddProduct puts a product on the market at its starting values. It is a
-// no-op if the product is already listed.
-func (w *World) AddProduct(p StartingProduct) {
-	if _, ok := w.Market[p.ID]; ok {
+// AddCity puts a city on the map with its market at starting values and an
+// empty stash. It is a no-op if the city is already there.
+func (w *World) AddCity(c StartingCity) *City {
+	if have := w.Cities[c.ID]; have != nil {
+		return have
+	}
+	city := &City{ID: c.ID, Name: c.Name, HeatMul: c.HeatMul, Wholesale: c.Wholesale, Market: map[string]*ProductMarket{}}
+	if city.HeatMul <= 0 {
+		city.HeatMul = 1
+	}
+	if w.Cities == nil {
+		w.Cities = map[string]*City{}
+	}
+	w.Cities[c.ID] = city
+	w.CityOrder = append(w.CityOrder, c.ID)
+	for _, p := range c.Products {
+		w.AddProduct(c.ID, p)
+	}
+	w.Stash(c.ID)
+	return city
+}
+
+// AddProduct puts a product on a city's market at its starting values and
+// lists it if it is new. It is a no-op if the city already has it.
+func (w *World) AddProduct(city string, p StartingProduct) {
+	c := w.Cities[city]
+	if c == nil {
 		return
 	}
-	w.Products = append(w.Products, p.ID)
-	w.Market[p.ID] = &ProductMarket{
+	if _, ok := c.Market[p.ID]; ok {
+		return
+	}
+	listed := false
+	for _, id := range w.Products {
+		listed = listed || id == p.ID
+	}
+	if !listed {
+		w.Products = append(w.Products, p.ID)
+	}
+	c.Market[p.ID] = &ProductMarket{
 		Name:          p.Name,
 		Price:         p.Price,
 		SupplierPrice: p.Price * 0.55,
@@ -383,7 +514,92 @@ func (w *World) AddProduct(p StartingProduct) {
 		ShockFactor:   1,
 		History:       []float64{p.Price},
 	}
-	w.Player.Stock[p.ID] = 0
+	w.Stash(city)[p.ID] += 0
+}
+
+// City returns the city with id, or nil.
+func (w *World) City(id string) *City { return w.Cities[id] }
+
+// Home is the first city: where the run started and the rival lives.
+func (w *World) Home() *City {
+	if len(w.CityOrder) == 0 {
+		return nil
+	}
+	return w.Cities[w.CityOrder[0]]
+}
+
+// Here is the city the player is in.
+func (w *World) Here() *City {
+	if c := w.Cities[w.Player.Location]; c != nil {
+		return c
+	}
+	return w.Home()
+}
+
+// CityName is a display name for a city id.
+func (w *World) CityName(id string) string {
+	if c := w.Cities[id]; c != nil {
+		return c.Name
+	}
+	return id
+}
+
+// Stash is the player's stock in a city, created empty on first use so
+// callers can index it.
+func (w *World) Stash(city string) map[string]int {
+	if w.Player.Stash == nil {
+		w.Player.Stash = map[string]map[string]int{}
+	}
+	s := w.Player.Stash[city]
+	if s == nil {
+		s = map[string]int{}
+		w.Player.Stash[city] = s
+	}
+	return s
+}
+
+// Stock is how many units of a product the player holds in a city.
+func (w *World) Stock(city, product string) int { return w.Player.Stash[city][product] }
+
+// InTransit is how many units of a product are on the road, bound
+// anywhere.
+func (w *World) InTransit(product string) int {
+	n := 0
+	for _, s := range w.Shipments {
+		if s.Product == product {
+			n += s.Units
+		}
+	}
+	return n
+}
+
+// TotalStock is every unit the operation holds: every stash plus
+// everything on the road.
+func (w *World) TotalStock() int {
+	n := w.Player.TotalStock()
+	for _, s := range w.Shipments {
+		n += s.Units
+	}
+	return n
+}
+
+// MaxHeat is the heat of the hottest city: what the police ladder reads.
+func (w *World) MaxHeat() float64 {
+	h := 0.0
+	for _, c := range w.Cities {
+		if c.Heat > h {
+			h = c.Heat
+		}
+	}
+	return h
+}
+
+// HeatHere is the heat where the player is.
+func (w *World) HeatHere() float64 {
+	if c := w.Here(); c != nil {
+		return c.Heat
+	}
+	return 0
 }
 
 // NewSeed returns a seed derived from the wall clock.
@@ -399,12 +615,20 @@ func RNGFor(seed uint64, day int) *rand.Rand {
 func (w *World) Cash() int { return w.Player.DirtyCash + w.Player.CleanCash }
 
 // NetWorth is cash, dirty and clean, plus stock and fronts valued at what
-// they cost to replace.
+// they cost to replace: every stash at its city's supplier price, what is
+// on the road at its destination's.
 func (w *World) NetWorth() int {
 	n := w.Cash()
-	for id, q := range w.Player.Stock {
-		if m := w.Market[id]; m != nil {
-			n += int(float64(q) * m.SupplierPrice)
+	for _, cid := range w.CityOrder {
+		for id, q := range w.Player.Stash[cid] {
+			if m := w.Product(cid, id); m != nil {
+				n += int(float64(q) * m.SupplierPrice)
+			}
+		}
+	}
+	for _, s := range w.Shipments {
+		if m := w.Product(s.To, s.Product); m != nil {
+			n += int(float64(s.Units) * m.SupplierPrice)
 		}
 	}
 	for _, f := range w.Fronts {
@@ -413,23 +637,44 @@ func (w *World) NetWorth() int {
 	return n
 }
 
-// Capacity is how many units the operation can hold and move: the player's
-// own carry limit plus what the crew adds.
-func (w *World) Capacity() int {
-	n := w.Player.CarryLimit
+// Capacity is how many units the operation can hold in a city: the
+// player's own carry limit if they are there, plus the runners posted on
+// corners there, plus the ones on nobody's corner wherever the player is.
+// Shipments land regardless; capacity is what the supplier will sell to.
+func (w *World) Capacity(city string) int {
+	n := 0
+	here := city == w.Player.Location
+	if here {
+		n += w.Player.CarryLimit
+	}
 	for _, m := range w.Crew.Members {
-		n += m.Units
+		if m.Units == 0 {
+			continue
+		}
+		switch c := w.PostOf(m.ID); {
+		case c != nil && c.City == city:
+			n += m.Units
+		case c == nil && here:
+			n += m.Units
+		}
 	}
 	return n
 }
 
-// Product returns the market state for id, or nil.
-func (w *World) Product(id string) *ProductMarket { return w.Market[id] }
+// Product returns the market state for a product in a city, or nil.
+func (w *World) Product(city, id string) *ProductMarket {
+	if c := w.Cities[city]; c != nil {
+		return c.Market[id]
+	}
+	return nil
+}
 
 // ProductName returns a display name for id.
 func (w *World) ProductName(id string) string {
-	if m := w.Market[id]; m != nil {
-		return m.Name
+	if h := w.Home(); h != nil {
+		if m := h.Market[id]; m != nil {
+			return m.Name
+		}
 	}
 	return id
 }

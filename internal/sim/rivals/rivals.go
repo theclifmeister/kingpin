@@ -1,5 +1,5 @@
-// Package rivals simulates the faction competing for the city's corners.
-// One per run: it moves in on a free corner, earns off what it holds,
+// Package rivals simulates the faction competing for the home city's
+// corners. One per run: it moves in on a free corner, earns off what it holds,
 // claims more by personality, pushes on the player's corners it borders,
 // undercuts them there, calls the police after a loss, and resolves the
 // player's strikes against it. Violence is abstract: enforcers go in at a
@@ -73,6 +73,14 @@ func (s *Sim) personality(w *game.World) content.PersonalityConfig {
 	return s.cfg.Personality[w.Rival.Personality]
 }
 
+// corners is the ground the rival fights over: the home city's.
+func (s *Sim) corners(w *game.World) []game.Corner {
+	if h := w.Home(); h != nil {
+		return h.Corners
+	}
+	return nil
+}
+
 // Strength is the weight the crew's enforcers bring to a strike: each one
 // counts 0.5 + skill/100, and one guarding a corner counts half of that,
 // they are busy.
@@ -95,7 +103,7 @@ func (s *Sim) Strength(w *game.World) float64 {
 // muscle stands there.
 func (s *Sim) frontline(w *game.World) int {
 	n := 0
-	for _, c := range w.Territory.Corners {
+	for _, c := range s.corners(w) {
 		if c.Owner == game.OwnerRival && w.Contested(c) {
 			n++
 		}
@@ -155,13 +163,14 @@ func (s *Sim) PushOdds(w *game.World, c *game.Corner) float64 {
 // Income is what the rival's corners earn it in a day.
 func (s *Sim) Income(w *game.World) int {
 	v := 0.0
-	for _, c := range w.Territory.Corners {
+	for _, c := range s.corners(w) {
 		if c.Owner != game.OwnerRival {
 			continue
 		}
 		for _, id := range w.Products {
-			m := w.Market[id]
-			v += m.Demand * c.Share(id) * m.Price
+			if m := w.Product(c.City, id); m != nil {
+				v += m.Demand * c.Share(id) * m.Price
+			}
 		}
 	}
 	return int(math.Round(v * s.cfg.Rivals.Margin))
@@ -251,8 +260,9 @@ func (s *Sim) Step(w *game.World, t *game.Tick) {
 	// pace past that, and slower against a player it fears. Every push is
 	// noise; one that lands flips the corner and sends its people home.
 	pace := s.PushPace(w)
-	for i := range w.Territory.Corners {
-		c := &w.Territory.Corners[i]
+	ground := s.corners(w)
+	for i := range ground {
+		c := &ground[i]
 		if !c.Held() || !w.Contested(*c) || r.Muscle == 0 {
 			continue
 		}
@@ -260,7 +270,7 @@ func (s *Sim) Step(w *game.World, t *game.Tick) {
 		if w.RivalHeld() >= pc.MaxCorners && r.Grudge == 0 {
 			chance *= pc.PushPastCap
 		}
-		if r.Personality == "opportunist" && (c.Enforcer == 0 || w.Heat.Value > 50) {
+		if r.Personality == "opportunist" && (c.Enforcer == 0 || w.Home().Heat > 50) {
 			chance *= 2
 		}
 		chance *= 1 + 0.25*float64(min(r.Grudge, 4))
@@ -357,14 +367,15 @@ func (s *Sim) take(c *game.Corner, day int) {
 // says: the biggest free corner anywhere, one next to its own, or any.
 func (s *Sim) pickFree(w *game.World, rng rand, arriving bool) *game.Corner {
 	var free, quiet, adjacent []*game.Corner
-	for i := range w.Territory.Corners {
-		c := &w.Territory.Corners[i]
+	ground := s.corners(w)
+	for i := range ground {
+		c := &ground[i]
 		if c.Owner != game.OwnerNone {
 			continue
 		}
 		free = append(free, c)
 		next, own := false, false
-		for _, o := range w.Territory.Corners {
+		for _, o := range ground {
 			if c.Borders(o) {
 				next = next || o.Held()
 				own = own || o.Owner == game.OwnerRival
@@ -408,8 +419,9 @@ func (s *Sim) undercut(w *game.World, t *game.Tick) {
 	share := s.personality(w).Undercut
 	var names []string
 	total, squeezed := 0.0, 0.0
-	for i := range w.Territory.Corners {
-		c := &w.Territory.Corners[i]
+	ground := s.corners(w)
+	for i := range ground {
+		c := &ground[i]
 		c.Squeeze = 0
 		if !c.Held() || !w.Contested(*c) {
 			continue
@@ -420,7 +432,7 @@ func (s *Sim) undercut(w *game.World, t *game.Tick) {
 			squeezed += c.Demand
 		}
 	}
-	for _, c := range w.Territory.Corners {
+	for _, c := range ground {
 		if c.Worked() {
 			total += c.Demand
 		}
@@ -431,8 +443,8 @@ func (s *Sim) undercut(w *game.World, t *game.Tick) {
 	if total > 0 && squeezed > 0 {
 		connect := (1 - r.Supplier) / math.Max(0.01, 1-tun.SupplierMin) // 1 for the best connect it can have
 		drag := tun.UndercutPrice * connect * squeezed / total
-		for _, id := range w.Products {
-			w.Market[id].Price *= 1 - drag
+		for _, m := range w.Home().Market {
+			m.Price *= 1 - drag
 		}
 	}
 	t.Emit(events.RivalUndercut{Day: t.Day, Rival: r.Leader, Corners: names, Share: share})
@@ -447,10 +459,11 @@ func (s *Sim) crackdown(w *game.World, t *game.Tick) {
 	r := &w.Rival
 	ev := events.WarEscalated{Day: t.Day, Stage: "crackdown", War: r.War, Heat: tun.CrackdownHeat}
 	var cleared []*game.Corner
+	ground := s.corners(w)
 	for _, owner := range []string{game.OwnerPlayer, game.OwnerRival} {
 		var held []*game.Corner
-		for i := range w.Territory.Corners {
-			if c := &w.Territory.Corners[i]; c.Owner == owner {
+		for i := range ground {
+			if c := &ground[i]; c.Owner == owner {
 				held = append(held, c)
 			}
 		}

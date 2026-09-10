@@ -1,0 +1,417 @@
+package harness
+
+import (
+	"fmt"
+	"sort"
+	"testing"
+
+	"github.com/theclifmeister/kingpin/internal/content"
+	"github.com/theclifmeister/kingpin/internal/events"
+	"github.com/theclifmeister/kingpin/internal/game"
+	"github.com/theclifmeister/kingpin/internal/sim"
+	"github.com/theclifmeister/kingpin/internal/sim/logistics"
+)
+
+// twoCities is the home city and the one with a route to it, from the
+// config, and the route between them with the most room.
+func twoCities(t *testing.T, cfg *content.Config) (home, hub string, route content.RouteConfig) {
+	t.Helper()
+	home = cfg.City.Home().ID
+	lg := logistics.New(cfg.Routes, cfg.City, cfg.Market)
+	for _, c := range cfg.City.Cities {
+		if c.ID == home {
+			continue
+		}
+		for _, r := range lg.Routes(c.ID) {
+			if r.Other(c.ID) == home && r.Capacity > route.Capacity {
+				hub, route = c.ID, r
+			}
+		}
+	}
+	if hub == "" {
+		t.Fatal("no route joins the home city to another")
+	}
+	return home, hub, route
+}
+
+// quiet is a world with nobody on any corner, so nothing sells and
+// nothing is robbed: only the road moves stock.
+func quiet(cfg *content.Config, seed uint64) *game.World {
+	w := sim.NewWorld(cfg, seed)
+	for _, c := range w.Corners() {
+		if c.Held() {
+			_ = w.Abandon(c.ID)
+		}
+	}
+	w.Player.DirtyCash = 100_000
+	return w
+}
+
+// Stock is conserved across a shipment: what left the source stash is on
+// the road until it lands in the destination's, and the three add up to
+// the same number on every day of the trip. A seized shipment never
+// arrives: it comes off the road and lands nowhere.
+func TestStockIsConservedAcrossShipments(t *testing.T) {
+	cfg := content.MustLoad()
+	home, hub, route := twoCities(t, cfg)
+	product := cfg.Market.Products[0].ID
+	lg := logistics.New(cfg.Routes, cfg.City, cfg.Market)
+	for _, seized := range []bool{false, true} {
+		safe := *cfg
+		safe.Routes.Routes = append([]content.RouteConfig(nil), cfg.Routes.Routes...)
+		for i := range safe.Routes.Routes {
+			safe.Routes.Routes[i].Risk = 0
+			if seized {
+				safe.Routes.Routes[i].Risk = 1
+			}
+		}
+		lgs := logistics.New(safe.Routes, safe.City, safe.Market)
+		w := quiet(&safe, 1)
+		w.Stash(home)[product] = 500
+		units := min(200, route.Capacity)
+		var ids []int
+		res, err := RunFrom(&safe, w, route.Days*2+3, func(w *game.World) {
+			if w.Day == 0 {
+				s, err := lgs.Ship(w, route.ID, home, hub, product, units, events.ShipNormal)
+				if err != nil {
+					t.Fatal(err)
+				}
+				ids = append(ids, s.ID)
+				if w.Stock(home, product) != 500-units || w.InTransit(product) != units {
+					t.Fatalf("after shipping: stash %d road %d", w.Stock(home, product), w.InTransit(product))
+				}
+			}
+			if total := w.Stock(home, product) + w.Stock(hub, product) + w.InTransit(product); total != 500 && !seized {
+				t.Fatalf("day %d: %d + %d + %d on the road = %d, not 500", w.Day, w.Stock(home, product), w.Stock(hub, product), w.InTransit(product), total)
+			}
+		})
+		if err != nil {
+			t.Fatal(err)
+		}
+		arrived, lost := 0, 0
+		for _, e := range res.Events {
+			switch ev := e.(type) {
+			case events.ShipmentArrived:
+				arrived++
+				if ev.Day != 0+lg.Days(route, events.ShipNormal) || ev.Units != units || ev.To != hub {
+					t.Fatalf("arrival %+v, want day %d %d units in %s", ev, lg.Days(route, events.ShipNormal), units, hub)
+				}
+			case events.ShipmentSeized:
+				lost++
+			}
+		}
+		switch {
+		case !seized && (arrived != 1 || lost != 0 || res.World.Stock(hub, product) != units || res.World.InTransit(product) != 0):
+			t.Fatalf("safe road: %d arrived %d seized, hub holds %d, %d on the road", arrived, lost, res.World.Stock(hub, product), res.World.InTransit(product))
+		case seized && (arrived != 0 || lost != 1 || res.World.Stock(hub, product) != 0 || res.World.InTransit(product) != 0 || res.World.Stock(home, product) != 500-units):
+			t.Fatalf("seized: %d arrived %d seized, hub holds %d, home %d, %d on the road", arrived, lost, res.World.Stock(hub, product), res.World.Stock(home, product), res.World.InTransit(product))
+		}
+		if seized && (res.World.Stats.Seizures != 1 || res.World.Stats.SeizedOnRoad != units) {
+			t.Fatalf("stats: %+v", res.World.Stats)
+		}
+	}
+}
+
+// No shipment ever exceeds its route's capacity, over a whole run of the
+// policy that ships the most; and every one that leaves either lands or
+// is seized, never both.
+func TestNoShipmentExceedsCapacity(t *testing.T) {
+	cfg := content.MustLoad()
+	sent := 0
+	for seed := uint64(1); seed <= 3; seed++ {
+		res, err := Run(cfg, seed, Horizon, Distributor(cfg, 40))
+		if err != nil {
+			t.Fatal(err)
+		}
+		fate := map[int]string{}
+		for _, e := range res.Events {
+			switch ev := e.(type) {
+			case events.ShipmentSent:
+				sent++
+				r := cfg.Routes.Route(ev.Route)
+				if r == nil || ev.Units > r.Capacity || ev.Units <= 0 {
+					t.Fatalf("seed %d day %d: %d units on %s (capacity %d)", seed, ev.Day, ev.Units, ev.Route, r.Capacity)
+				}
+			case events.ShipmentArrived:
+				if fate[ev.ID] != "" {
+					t.Fatalf("seed %d: shipment %d %s and then arrived", seed, ev.ID, fate[ev.ID])
+				}
+				fate[ev.ID] = "arrived"
+			case events.ShipmentSeized:
+				if fate[ev.ID] != "" {
+					t.Fatalf("seed %d: shipment %d %s and then was seized", seed, ev.ID, fate[ev.ID])
+				}
+				fate[ev.ID] = "seized"
+			}
+		}
+	}
+	if sent < 50 {
+		t.Fatalf("the distributor only sent %d shipments over three runs", sent)
+	}
+}
+
+// Sent fast, a shipment is seized more often than sent slow, over 200
+// days of shipping every day on the same seed.
+func TestFastIsSeizedMoreThanSlow(t *testing.T) {
+	cfg := content.MustLoad()
+	cfg.Heat.Heat.EvidenceArrest = 0 // a fast seizure is a page in the file; this measures the road, not the case
+	home, hub, route := twoCities(t, cfg)
+	product := cfg.Market.Products[0].ID
+	lg := logistics.New(cfg.Routes, cfg.City, cfg.Market)
+	count := func(d events.Ship) (seized, sent int) {
+		for seed := uint64(1); seed <= 3; seed++ {
+			w := quiet(cfg, seed)
+			res, err := RunFrom(cfg, w, Horizon, func(w *game.World) {
+				w.Player.DirtyCash = 50_000 // the fare, never a pile that draws the police
+				w.Stash(home)[product] = 10_000
+				if _, err := lg.Ship(w, route.ID, home, hub, product, min(50, route.Capacity), d); err != nil {
+					t.Fatalf("day %d: %v", w.Day, err)
+				}
+			})
+			if err != nil {
+				t.Fatal(err)
+			}
+			if res.Over != nil {
+				t.Fatalf("seed %d: the shipper ended on day %d: %s", seed, res.Days, res.Over.Cause)
+			}
+			for _, e := range res.Events {
+				switch e.(type) {
+				case events.ShipmentSeized:
+					seized++
+				case events.ShipmentSent:
+					sent++
+				}
+			}
+		}
+		return seized, sent
+	}
+	slowSeized, slowSent := count(events.ShipSlow)
+	fastSeized, fastSent := count(events.ShipFast)
+	t.Logf("slow: %d of %d seized (%.0f%%); fast: %d of %d (%.0f%%)", slowSeized, slowSent, 100*float64(slowSeized)/float64(slowSent), fastSeized, fastSent, 100*float64(fastSeized)/float64(fastSent))
+	if fastSeized <= slowSeized {
+		t.Fatalf("fast was seized %d times, slow %d; fast should be the risk", fastSeized, slowSeized)
+	}
+	if lg.Days(route, events.ShipFast) >= lg.Days(route, events.ShipSlow) {
+		t.Fatalf("fast takes %d days, slow %d", lg.Days(route, events.ShipFast), lg.Days(route, events.ShipSlow))
+	}
+}
+
+// A seizure is a market shock, not a bust (#27): heat rises in both
+// cities and the street it was bound for spikes the next morning, but
+// the DA's file only grows when the shipment was sent fast.
+func TestSeizureIsShockNotEvidence(t *testing.T) {
+	cfg := content.MustLoad()
+	home, hub, route := twoCities(t, cfg)
+	product := cfg.Market.Products[0].ID
+	risky := *cfg
+	risky.Routes.Routes = append([]content.RouteConfig(nil), cfg.Routes.Routes...)
+	for i := range risky.Routes.Routes {
+		risky.Routes.Routes[i].Risk = 1
+	}
+	lg := logistics.New(risky.Routes, risky.City, risky.Market)
+	for _, d := range []events.Ship{events.ShipNormal, events.ShipFast} {
+		w := quiet(&risky, 2)
+		w.Stash(hub)[product] = 100
+		res, err := RunFrom(&risky, w, 3, func(w *game.World) {
+			if w.Day == 0 {
+				if _, err := lg.Ship(w, route.ID, hub, home, product, 50, d); err != nil {
+					t.Fatal(err)
+				}
+			}
+		})
+		if err != nil {
+			t.Fatal(err)
+		}
+		var heat []events.HeatChanged
+		var shocks []events.PriceShock
+		seized := 0
+		for _, e := range res.Events {
+			switch ev := e.(type) {
+			case events.ShipmentSeized:
+				seized++
+			case events.HeatChanged:
+				if ev.Day == 1 {
+					heat = append(heat, ev)
+				}
+			case events.PriceShock:
+				if ev.Seized {
+					shocks = append(shocks, ev)
+				}
+			case events.Enforcement:
+				if ev.Evidence > 0 {
+					t.Fatalf("%s: a bust with evidence on a quiet day: %+v", d, ev)
+				}
+			}
+		}
+		if seized != 1 {
+			t.Fatalf("%s: %d seizures", d, seized)
+		}
+		for _, h := range heat {
+			if h.To-h.From < cfg.Routes.Shipping.SeizureHeat/2 {
+				t.Fatalf("%s: %s heat rose %.1f on the seizure, want about %.0f", d, h.City, h.To-h.From, cfg.Routes.Shipping.SeizureHeat)
+			}
+		}
+		if len(heat) != 2 {
+			t.Fatalf("%s: heat reported in %d cities", d, len(heat))
+		}
+		if len(shocks) != 1 || shocks[0].City != home || shocks[0].Product != product || shocks[0].Day != 2 {
+			t.Fatalf("%s: shocks %+v, want one in %s the morning after", d, shocks, home)
+		}
+		if p := res.World.Product(home, product); p.ShockFactor != cfg.Routes.Shipping.ShockFactor || p.ShockSlump {
+			t.Fatalf("%s: %s in %s after the seizure: %+v", d, product, home, p)
+		}
+		want := 0
+		if d == events.ShipFast {
+			want = cfg.Routes.Shipping.SeizureEvidence
+		}
+		if res.World.Heat.Evidence != want {
+			t.Fatalf("%s: evidence %d after a seizure, want %d", d, res.World.Heat.Evidence, want)
+		}
+	}
+}
+
+// A sale in a city the player is not in is served only by the runners
+// posted there: with one on a corner it sells up to that corner's demand,
+// with nobody it sells nothing, and you cannot stand on a corner there
+// yourself.
+func TestSalesElsewhereAreRunnersOnly(t *testing.T) {
+	cfg := content.MustLoad()
+	home, hub, _ := twoCities(t, cfg)
+	product := cfg.Market.Products[0].ID
+	set, _, err := sim.Default(cfg)
+	if err != nil {
+		t.Fatal(err)
+	}
+	w := sim.NewWorld(cfg, 3)
+	w.Player.DirtyCash = 100_000
+	w.Crew.Members = []game.CrewMember{{ID: 1, Name: "Dre", Role: "runner", Skill: 60, Units: 120, Loyalty: 90, Nerve: 50, Wage: 50}}
+	w.Crew.NextID = 1
+	corner := cfg.City.City(hub).Corners[0].ID
+	if err := w.Post(corner, game.You); err != game.ErrElsewhere {
+		t.Fatalf("stood on %s from %s: %v", corner, home, err)
+	}
+	if err := w.Post(corner, 1); err != nil {
+		t.Fatal(err)
+	}
+	if w.Capacity(hub) != 120 || w.Capacity(home) != w.Player.CarryLimit {
+		t.Fatalf("capacity hub %d home %d", w.Capacity(hub), w.Capacity(home))
+	}
+	var sold []events.PlayerSold
+	res, err := RunFrom(cfg, w, 6, func(w *game.World) {
+		if w.Day == 3 {
+			w.Recall(1)
+		}
+		w.Stash(hub)[product] = 1000
+		if err := w.PlaceSell(hub, product, 1000, events.DialNormal); err != nil {
+			t.Fatal(err)
+		}
+	})
+	if err != nil {
+		t.Fatal(err)
+	}
+	for _, e := range res.Events {
+		if ps, ok := e.(events.PlayerSold); ok && ps.City == hub {
+			sold = append(sold, ps)
+		}
+	}
+	if len(sold) != 6 {
+		t.Fatalf("%d sales reported in %s", len(sold), hub)
+	}
+	for i, ps := range sold {
+		if i < 3 && ps.Sold == 0 {
+			t.Fatalf("day %d: the runner sold nothing in %s", ps.Day, hub)
+		}
+		if i < 3 && float64(ps.Sold) > w.Product(hub, product).Demand*cfg.City.City(hub).Corners[0].Demand*3 {
+			t.Fatalf("day %d: sold %d, more than one corner absorbs", ps.Day, ps.Sold)
+		}
+		if i >= 3 && ps.Sold != 0 {
+			t.Fatalf("day %d: sold %d in %s with nobody on a corner there", ps.Day, ps.Sold, hub)
+		}
+	}
+	// And the runner's sale was heat there, not at home.
+	if h := res.World.City(hub).Heat; h <= 0 {
+		t.Fatalf("no heat in %s after three days of selling there", hub)
+	}
+	_ = set
+}
+
+// Two cities with shipments in flight are as deterministic as one: the
+// same seed gives the same events, and a save in the middle of a run
+// changes nothing about the rest of it.
+func TestDistributorIsDeterministicAndSaves(t *testing.T) {
+	t.Setenv("KINGPIN_HOME", t.TempDir())
+	cfg := content.MustLoad()
+	a, err := Run(cfg, 4, 150, Distributor(cfg, 40))
+	if err != nil {
+		t.Fatal(err)
+	}
+	b, _ := Run(cfg, 4, 150, Distributor(cfg, 40))
+	if len(a.Events) != len(b.Events) {
+		t.Fatalf("event counts differ: %d vs %d", len(a.Events), len(b.Events))
+	}
+	for i := range a.Events {
+		if fmt.Sprintf("%#v", a.Events[i]) != fmt.Sprintf("%#v", b.Events[i]) {
+			t.Fatalf("event %d differs:\n%#v\n%#v", i, a.Events[i], b.Events[i])
+		}
+	}
+	if a.World.Stats.Shipments < 20 || a.World.Player.Location == cfg.City.Home().ID {
+		t.Fatalf("the distributor never left home: %d shipments, in %s", a.World.Stats.Shipments, a.World.Player.Location)
+	}
+	// Save on day 100 with shipments on the road, load, play on.
+	c, _ := Run(cfg, 4, 100, Distributor(cfg, 40))
+	if len(c.World.Shipments) == 0 {
+		t.Fatal("nothing on the road on day 100 to save")
+	}
+	if err := game.Save(c.World); err != nil {
+		t.Fatal(err)
+	}
+	set, _, err := sim.Default(cfg)
+	if err != nil {
+		t.Fatal(err)
+	}
+	loaded, err := game.Load(set.Migrations()...)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if loaded.Player.Location != c.World.Player.Location || len(loaded.Shipments) != len(c.World.Shipments) || loaded.Player.TotalStock() != c.World.Player.TotalStock() {
+		t.Fatalf("loaded: %s %d shipments %d units; saved %s %d %d", loaded.Player.Location, len(loaded.Shipments), loaded.Player.TotalStock(), c.World.Player.Location, len(c.World.Shipments), c.World.Player.TotalStock())
+	}
+	d, _ := RunFrom(cfg, loaded, 50, Distributor(cfg, 40))
+	rest := a.Events[len(c.Events):]
+	if len(d.Events) != len(rest) {
+		t.Fatalf("after loading, %d events for the last 50 days, want %d", len(d.Events), len(rest))
+	}
+	for i := range rest {
+		if fmt.Sprintf("%#v", rest[i]) != fmt.Sprintf("%#v", d.Events[i]) {
+			t.Fatalf("event %d after the save differs:\n%#v\n%#v", i, rest[i], d.Events[i])
+		}
+	}
+	if d.World.NetWorth() != a.World.NetWorth() {
+		t.Fatalf("net worth %d after the save, %d straight through", d.World.NetWorth(), a.World.NetWorth())
+	}
+}
+
+// The route is the tier-4 multiplier: the distributor out-earns the
+// launderer on median net worth at the horizon, and is never indicted.
+func TestDistributorBeatsLaundered(t *testing.T) {
+	cfg := content.MustLoad()
+	var dist, laun []int
+	for seed := uint64(1); seed <= 10; seed++ {
+		d, err := Run(cfg, seed, Horizon, Distributor(cfg, 40))
+		if err != nil {
+			t.Fatal(err)
+		}
+		if d.Over != nil {
+			t.Fatalf("seed %d: distributor ended on day %d: %s", seed, d.Days, d.Over.Cause)
+		}
+		l, _ := Run(cfg, seed, Horizon, Laundered(cfg, 40))
+		dist = append(dist, d.NetWorthAt(Horizon))
+		laun = append(laun, l.NetWorthAt(Horizon))
+	}
+	sort.Ints(dist)
+	sort.Ints(laun)
+	t.Logf("day %d median net worth: distributor %d, laundered %d", Horizon, dist[len(dist)/2], laun[len(laun)/2])
+	if dist[len(dist)/2] <= laun[len(laun)/2] {
+		t.Fatalf("distributor median %d, laundered %d; the route should pay", dist[len(dist)/2], laun[len(laun)/2])
+	}
+}
