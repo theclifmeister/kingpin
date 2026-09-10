@@ -8,6 +8,9 @@ dirty_cash_threshold = 10000 # holding more dirty cash than this attracts heat
 dirty_cash_heat = 0.5       # heat per threshold multiple above it, per day
 cooldown_days = 3           # a response level cannot fire twice within this
 evidence_arrest = 6         # stings and raids build a case; at this much, indictment
+crew_heat = 0.2             # heat a unit moved by the crew draws, relative to one you move yourself
+sloppy_skill = 40           # runners below this skill are sloppy
+sloppy_heat = 0.03          # heat per unit sold per fully sloppy (skill 0) runner
 
 [[response]]
 level = "patrol"

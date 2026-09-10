@@ -62,6 +62,8 @@ type data struct {
 	Product string
 	Qty     int
 	Level   string
+	Name    string
+	Role    string
 }
 
 // Step writes headlines into the journal and assembles the morning report.
@@ -80,7 +82,7 @@ func (s *Sim) Step(w *game.World, t *game.Tick) {
 	base := data{City: w.City}
 
 	// Money before we look at events: sales are already applied by market.
-	var soldRevenue, lostCash int
+	var soldRevenue, lostCash, wages, skimmed int
 	for _, e := range t.Events() {
 		switch ev := e.(type) {
 		case events.PriceMove:
@@ -125,19 +127,54 @@ func (s *Sim) Step(w *game.World, t *game.Tick) {
 			lostCash += ev.CashLost
 		case events.LaidLow:
 			add("heat", "LaidLow", base)
+		case events.CrewHired:
+			d := base
+			d.Name, d.Role = ev.Name, ev.Role
+			add("crew", "CrewHired", d)
+			rep.Crew = append(rep.Crew, fmt.Sprintf("%s signed on as a %s for $%d", ev.Name, ev.Role, ev.Fee))
+		case events.CrewFired:
+			d := base
+			d.Name, d.Role = ev.Name, ev.Role
+			add("crew", "CrewFired", d)
+			rep.Crew = append(rep.Crew, fmt.Sprintf("You let %s go. The others noticed.", ev.Name))
+		case events.CrewQuit:
+			d := base
+			d.Name, d.Role = ev.Name, ev.Role
+			add("crew", "CrewQuit", d)
+			rep.Crew = append(rep.Crew, fmt.Sprintf("%s walked. Nobody was surprised.", ev.Name))
+		case events.CrewSkimmed:
+			add("crew", "CrewSkimmed", base)
+			skimmed += ev.Amount
+			rep.Crew = append(rep.Crew, fmt.Sprintf("$%d of the takings never made it back. Somebody is skimming.", ev.Amount))
+		case events.CrewPaid:
+			wages += ev.Wages
+			line := fmt.Sprintf("Wages (%s) -$%d", ev.Pay, ev.Wages)
+			if ev.Short > 0 {
+				line += fmt.Sprintf(", $%d SHORT", ev.Short)
+				rep.Crew = append(rep.Crew, "You could not make payroll. That gets around.")
+			}
+			rep.Money = append(rep.Money, line)
 		}
 	}
 
-	// Purchases made during the day. Cash "before" is what the player woke
-	// up with: undo today's buys, sales and seizures from the current total.
-	buyCost := 0
+	// Purchases and signings made during the day. Cash "before" is what the
+	// player woke up with: undo today's buys, fees, sales, wages, skims and
+	// seizures from the current total.
+	spent := 0
 	for _, b := range w.Buys {
-		buyCost += b.Cost
+		spent += b.Cost
 		rep.Money = append(rep.Money, fmt.Sprintf("Bought %d %s at $%.0f = -$%d", b.Qty, w.ProductName(b.Product), b.UnitPrice, b.Cost))
 	}
-	rep.CashBefore = w.Cash() - soldRevenue + lostCash + buyCost
+	for _, m := range w.Crew.HiredToday {
+		spent += m.Fee
+		rep.Money = append(rep.Money, fmt.Sprintf("Signing fee for %s -$%d", m.Name, m.Fee))
+	}
+	rep.CashBefore = w.Cash() - soldRevenue + lostCash + spent + wages + skimmed
 	if soldRevenue > 0 {
 		rep.Money = append(rep.Money, fmt.Sprintf("Street sales +$%d", soldRevenue))
+	}
+	if skimmed > 0 {
+		rep.Money = append(rep.Money, fmt.Sprintf("Missing from the count -$%d", skimmed))
 	}
 	if lostCash > 0 {
 		rep.Money = append(rep.Money, fmt.Sprintf("Seized by police -$%d", lostCash))

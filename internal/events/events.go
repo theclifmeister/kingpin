@@ -29,6 +29,27 @@ func (d Dial) String() string {
 	}
 }
 
+// Pay is the crew pay dial: every day the whole crew is paid stingy, fair or
+// generous, trading cash against loyalty.
+type Pay int
+
+const (
+	PayStingy Pay = iota
+	PayFair
+	PayGenerous
+)
+
+func (p Pay) String() string {
+	switch p {
+	case PayStingy:
+		return "stingy"
+	case PayGenerous:
+		return "generous"
+	default:
+		return "fair"
+	}
+}
+
 // DayEnded closes a day. It is always the last event of a tick.
 type DayEnded struct{ Day int }
 
@@ -107,3 +128,50 @@ type GameOver struct {
 }
 
 func (GameOver) Kind() string { return "GameOver" }
+
+// CrewHired records a signing made during the day.
+type CrewHired struct {
+	Day  int
+	Name string
+	Role string
+	Fee  int
+}
+
+func (CrewHired) Kind() string { return "CrewHired" }
+
+// CrewFired records a member the player let go during the day.
+type CrewFired struct {
+	Day  int
+	Name string
+	Role string
+}
+
+func (CrewFired) Kind() string { return "CrewFired" }
+
+// CrewQuit records a member who walked because loyalty bottomed out.
+type CrewQuit struct {
+	Day  int
+	Name string
+	Role string
+}
+
+func (CrewQuit) Kind() string { return "CrewQuit" }
+
+// CrewSkimmed reports takings that went missing. It never names names.
+type CrewSkimmed struct {
+	Day      int
+	Amount   int
+	Skimmers int
+}
+
+func (CrewSkimmed) Kind() string { return "CrewSkimmed" }
+
+// CrewPaid is the day's wage bill. Short is what could not be covered.
+type CrewPaid struct {
+	Day   int
+	Pay   Pay
+	Wages int
+	Short int
+}
+
+func (CrewPaid) Kind() string { return "CrewPaid" }

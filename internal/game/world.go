@@ -10,7 +10,7 @@ import (
 )
 
 // SchemaVersion is bumped whenever World changes shape incompatibly.
-const SchemaVersion = 1
+const SchemaVersion = 2
 
 // World is the complete state of a run. Every field is a plain value so the
 // whole struct can be serialised with encoding/gob.
@@ -24,6 +24,7 @@ type World struct {
 	Products []string                  // ordered product ids
 	Market   map[string]*ProductMarket // keyed by product id
 	Heat     HeatState
+	Crew     CrewState
 
 	// Per-day scratch, cleared by the clock after every EndDay.
 	Orders map[string]SellOrder // pending sell orders keyed by product id
@@ -78,6 +79,60 @@ type HeatState struct {
 	Peak         float64
 }
 
+// CrewState is the player's crew: the roster, the hiring pool and the pay
+// dial. HiredToday and FiredToday are per-day scratch the clock clears.
+type CrewState struct {
+	Members    []CrewMember
+	Candidates []CrewMember
+	Pay        events.Pay
+	NextID     int
+	PoolDay    int // day the candidate pool last rotated
+	LastSkim   int // day skimming was last reported; 0 means never
+	HiredToday []CrewMember
+	FiredToday []CrewMember
+}
+
+// CrewMember is one person on the payroll (or in the hiring pool). Stats are
+// 0..100. Units, Wage and Fee are fixed when the candidate is generated so
+// the world never needs crew tuning to price them.
+type CrewMember struct {
+	ID      int
+	Name    string
+	Role    string // runner, enforcer
+	Skill   int
+	Loyalty float64
+	Greed   int
+	Nerve   int
+	Units   int // sell capacity this member adds
+	Wage    int // daily wage at fair pay
+	Fee     int // signing fee
+	Hired   int // day hired
+}
+
+// Runners counts members in the runner role.
+func (c CrewState) Runners() int { return c.Role("runner") }
+
+// Role counts members in a role.
+func (c CrewState) Role(role string) int {
+	n := 0
+	for _, m := range c.Members {
+		if m.Role == role {
+			n++
+		}
+	}
+	return n
+}
+
+// Member returns the roster entry with id, or nil.
+func (c *CrewState) Member(id int) *CrewMember {
+	for i := range c.Members {
+		if c.Members[i].ID == id {
+			return &c.Members[i]
+		}
+	}
+	return nil
+}
+
 // SellOrder is a queued street sale, resolved at end of day.
 type SellOrder struct {
 	Product string
@@ -106,6 +161,7 @@ type DayReport struct {
 	Prices     []string
 	Sales      []string
 	Heat       []string
+	Crew       []string
 	Money      []string
 	News       []string
 	CashBefore int
@@ -126,6 +182,8 @@ type Stats struct {
 	UnitsSold    int
 	Raids        int
 	Stings       int
+	Wages        int
+	Skimmed      int
 }
 
 // StartingProduct describes a product as it exists at the start of a run.
@@ -180,6 +238,26 @@ func RNGFor(seed uint64, day int) *rand.Rand {
 
 // Cash is the player's total cash, dirty plus clean.
 func (w *World) Cash() int { return w.Player.DirtyCash + w.Player.CleanCash }
+
+// Capacity is how many units the operation can hold and move: the player's
+// own carry limit plus what the crew adds.
+func (w *World) Capacity() int {
+	n := w.Player.CarryLimit
+	for _, m := range w.Crew.Members {
+		n += m.Units
+	}
+	return n
+}
+
+// Reach is Capacity relative to what the player alone could move. The
+// market fills that much more of demand: runners work corners you cannot
+// stand on yourself.
+func (w *World) Reach() float64 {
+	if w.Player.CarryLimit <= 0 {
+		return 1
+	}
+	return float64(w.Capacity()) / float64(w.Player.CarryLimit)
+}
 
 // Product returns the market state for id, or nil.
 func (w *World) Product(id string) *ProductMarket { return w.Market[id] }

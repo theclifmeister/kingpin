@@ -80,7 +80,15 @@ func (m *Model) viewDashboard() string {
 	}
 	street.WriteString("\n")
 	street.WriteString(theme.Subtle.Render(fmt.Sprintf("carrying %d/%d units · supplier sells at ~%.0f%% of street",
-		w.Player.TotalStock(), w.Player.CarryLimit, m.cfg.Market.Market.SupplierRatio*100)) + "\n")
+		w.Player.TotalStock(), w.Capacity(), m.cfg.Market.Market.SupplierRatio*100)) + "\n")
+	if n := len(w.Crew.Members); n > 0 {
+		crew := fmt.Sprintf("crew %d · reach x%.1f · %s pay %s/day", n, w.Reach(), w.Crew.Pay, money(m.set.Crew.Wages(w, w.Crew.Pay)))
+		if w.Crew.LastSkim > 0 && w.Day-w.Crew.LastSkim < m.set.Crew.Tuning().SuspectDays {
+			street.WriteString(lipgloss.NewStyle().Foreground(theme.Crew).Render(crew) + theme.Bad.Render(" · skimming suspected") + "\n")
+		} else {
+			street.WriteString(lipgloss.NewStyle().Foreground(theme.Crew).Render(crew) + "\n")
+		}
+	}
 	if w.LieLow {
 		street.WriteString(theme.Warning.Render("Lying low today. No sales, heat fades faster.") + "\n")
 	} else if len(w.Orders) == 0 {

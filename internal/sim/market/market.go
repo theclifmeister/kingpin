@@ -106,16 +106,27 @@ func (s *Sim) Step(w *game.World, t *game.Tick) {
 	}
 }
 
-// resolve turns a sell order into cash, price impact and a PlayerSold event.
-func (s *Sim) resolve(w *game.World, t *game.Tick, m *game.ProductMarket, o game.SellOrder) {
-	d := s.Dial(o.Dial)
-	demand := m.Demand
-	fill := d.Fill
+// Fill is the fraction of demand a sale at dial d can move today: the dial's
+// fill, capped by patrols.
+func (s *Sim) Fill(w *game.World, d events.Dial) float64 {
+	fill := s.Dial(d).Fill
 	if w.Heat.SellCapDays > 0 && w.Heat.SellCap > 0 {
 		fill = math.Min(fill, w.Heat.SellCap)
 	}
-	capacity := int(math.Round(demand * fill))
-	sold := min(o.Qty, capacity, w.Player.Stock[o.Product])
+	return fill
+}
+
+// Capacity is how many units of m the street will take at dial d today.
+// Runners extend the player's reach past the corners they can stand on.
+func (s *Sim) Capacity(w *game.World, m *game.ProductMarket, d events.Dial) int {
+	return int(math.Round(m.Demand * w.Reach() * s.Fill(w, d)))
+}
+
+// resolve turns a sell order into cash, price impact and a PlayerSold event.
+func (s *Sim) resolve(w *game.World, t *game.Tick, m *game.ProductMarket, o game.SellOrder) {
+	d := s.Dial(o.Dial)
+	demand := m.Demand * w.Reach()
+	sold := min(o.Qty, s.Capacity(w, m, o.Dial), w.Player.Stock[o.Product])
 	if sold < 0 {
 		sold = 0
 	}

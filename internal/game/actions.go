@@ -12,6 +12,9 @@ var (
 	ErrGameOver       = errors.New("the run is over")
 	ErrUnknownProduct = errors.New("unknown product")
 	ErrBadQuantity    = errors.New("quantity must be positive")
+	ErrNoCandidate    = errors.New("nobody by that name is looking for work")
+	ErrNoMember       = errors.New("nobody by that name works for you")
+	ErrCrewFull       = errors.New("the crew is as big as you can manage")
 )
 
 // SupplierQuote is what qty units would cost right now, before any pressure
@@ -41,7 +44,7 @@ func (w *World) Buy(product string, qty int, pricePressure float64) (Purchase, e
 	if cost > w.Player.DirtyCash {
 		return Purchase{}, fmt.Errorf("need $%d, only have $%d dirty", cost, w.Player.DirtyCash)
 	}
-	if free := w.Player.CarryLimit - w.Player.TotalStock(); qty > free {
+	if free := w.Capacity() - w.Player.TotalStock(); qty > free {
 		return Purchase{}, fmt.Errorf("can only carry %d more units", free)
 	}
 	p := Purchase{Product: product, Qty: qty, UnitPrice: m.SupplierPrice, Cost: cost}
@@ -85,3 +88,52 @@ func (w *World) SetLieLow(on bool) {
 		w.Orders = map[string]SellOrder{}
 	}
 }
+
+// Hire signs the candidate with id, paying the fee in dirty cash. maxCrew
+// caps the roster. The crew sim reports the signing at end of day.
+func (w *World) Hire(id, maxCrew int) (CrewMember, error) {
+	if w.Over != nil {
+		return CrewMember{}, ErrGameOver
+	}
+	idx := -1
+	for i, c := range w.Crew.Candidates {
+		if c.ID == id {
+			idx = i
+		}
+	}
+	if idx < 0 {
+		return CrewMember{}, ErrNoCandidate
+	}
+	if len(w.Crew.Members) >= maxCrew {
+		return CrewMember{}, ErrCrewFull
+	}
+	c := w.Crew.Candidates[idx]
+	if c.Fee > w.Player.DirtyCash {
+		return CrewMember{}, fmt.Errorf("%s wants $%d up front, only have $%d dirty", c.Name, c.Fee, w.Player.DirtyCash)
+	}
+	w.Player.DirtyCash -= c.Fee
+	c.Hired = w.Day
+	w.Crew.Candidates = append(w.Crew.Candidates[:idx], w.Crew.Candidates[idx+1:]...)
+	w.Crew.Members = append(w.Crew.Members, c)
+	w.Crew.HiredToday = append(w.Crew.HiredToday, c)
+	return c, nil
+}
+
+// Fire removes the member with id. The rest of the crew take it badly when
+// the crew sim steps.
+func (w *World) Fire(id int) (CrewMember, error) {
+	if w.Over != nil {
+		return CrewMember{}, ErrGameOver
+	}
+	for i, m := range w.Crew.Members {
+		if m.ID == id {
+			w.Crew.Members = append(w.Crew.Members[:i], w.Crew.Members[i+1:]...)
+			w.Crew.FiredToday = append(w.Crew.FiredToday, m)
+			return m, nil
+		}
+	}
+	return CrewMember{}, ErrNoMember
+}
+
+// SetPay sets the pay dial for the whole crew. It persists until changed.
+func (w *World) SetPay(p events.Pay) { w.Crew.Pay = p }

@@ -1,0 +1,13 @@
+# Street names for crew members. Keep them short: they go in tables.
+
+crew = [
+  "Dre", "Tiny", "Rico", "Ghost", "Marcus", "Lil J", "Boo", "Tank", "Sly",
+  "Nino", "Kev", "Diesel", "Peanut", "Ace", "Smoke", "Ray Ray", "Bird",
+  "Chino", "Dollar", "Fish", "Juice", "Lenny", "Moose", "Nelly", "Pooh",
+  "Q", "Rell", "Shorty", "Tee", "Vic", "Wink", "Zeke", "Bones", "Cash",
+  "Duke", "Eli", "Flaco", "Gato", "Hutch", "Ike", "Jojo", "Kilo", "Lucky",
+  "Manny", "Nate", "Ozzie", "Pep", "Reese", "Slim", "Tone", "Unc", "Vee",
+  "Wes", "Yaya", "Bugs", "Cece", "Dez", "Fats", "Gee", "Hollis", "Ivy",
+  "Jules", "Kap", "Lolo", "Mack", "Nook", "Otis", "Pike", "Rudy", "Sosa",
+  "Trey", "Vito", "Wally", "Yung", "Ziggy", "Benny", "Cal", "Dom", "Frankie",
+]

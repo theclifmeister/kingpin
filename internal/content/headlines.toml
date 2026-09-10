@@ -68,3 +68,21 @@ HeatWarning = [
   "Residents of {{.City}} demand action on street dealing",
   "Councillor calls {{.City}} 'an open-air drug market'",
 ]
+CrewHired = [
+  "New face running for somebody on the {{.City}} corners",
+  "{{.City}} crews hiring, say people who would know",
+  "Word is {{.Name}} found work in {{.City}}",
+]
+CrewFired = [
+  "{{.Name}} seen drinking alone; 'let go', say friends",
+  "Falling out in a {{.City}} crew leaves one on the street",
+]
+CrewQuit = [
+  "{{.Name}} done with the {{.City}} game, tells anyone who listens",
+  "Another {{.City}} {{.Role}} walks; 'the pay was a joke'",
+]
+CrewSkimmed = [
+  "Somebody in {{.City}} is light on their count",
+  "Talk of thin envelopes on {{.City}} corners",
+  "{{.City}} boss said to be 'checking the math'",
+]

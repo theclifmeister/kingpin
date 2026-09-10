@@ -161,7 +161,7 @@ func (m *Model) maxBuy(id string) int {
 		return 0
 	}
 	afford := int(math.Floor(float64(m.w.Player.DirtyCash) / p.SupplierPrice))
-	room := m.w.Player.CarryLimit - m.w.Player.TotalStock()
+	room := m.w.Capacity() - m.w.Player.TotalStock()
 	return max(0, min(afford, room))
 }
 
@@ -202,7 +202,9 @@ func (m *Model) confirmSell() (tea.Model, tea.Cmd) {
 	return m, nil
 }
 
-// estHeat mirrors the heat sim's formula so the dial preview is honest.
+// estHeat mirrors the heat sim's formula so the dial preview is honest:
+// units the crew moves beyond your own reach count at the crew discount,
+// and sloppy runners add their premium.
 func (m *Model) estHeat(id string, qty int, dial events.Dial) float64 {
 	p := m.w.Market[id]
 	pc := m.cfg.Market.Product(id)
@@ -210,8 +212,11 @@ func (m *Model) estHeat(id string, qty int, dial events.Dial) float64 {
 		return 0
 	}
 	dc := m.set.Market.Dial(dial)
-	sold := math.Min(float64(qty), math.Round(p.Demand*dc.Fill))
-	return m.cfg.Heat.Heat.SaleHeat * sold / p.Demand * dc.Heat * pc.Heat
+	tun := m.cfg.Heat.Heat
+	own := math.Min(float64(qty), math.Round(p.Demand*dc.Fill))
+	total := math.Min(float64(qty), math.Round(p.Demand*m.w.Reach()*dc.Fill))
+	attempted := own + (total-own)*tun.CrewHeat
+	return tun.SaleHeat*attempted/p.Demand*dc.Heat*pc.Heat + m.set.Heat.Sloppiness(m.w)*tun.SloppyHeat*total
 }
 
 func (m *Model) viewDialog() string {
@@ -275,11 +280,7 @@ func (m *Model) viewDialog() string {
 		}
 		b.WriteString("Dial      " + strings.Join(cells, " ") + "\n")
 		dc := m.set.Market.Dial(d.dial)
-		capacity := int(math.Round(p.Demand * dc.Fill))
-		if w.Heat.SellCapDays > 0 && w.Heat.SellCap > 0 && w.Heat.SellCap < dc.Fill {
-			capacity = int(math.Round(p.Demand * w.Heat.SellCap))
-		}
-		est := min(qty, capacity)
+		est := min(qty, m.set.Market.Capacity(w, p, d.dial))
 		b.WriteString(fmt.Sprintf("Expect    ~%d of %d sold at ~$%.2f  =  ~%s\n", est, qty, p.Price*dc.Price, theme.Gold.Render(money(int(float64(est)*p.Price*dc.Price)))))
 		h := m.estHeat(id, qty, d.dial)
 		b.WriteString(fmt.Sprintf("Heat      %s   %s\n", heatStyle(w.Heat.Value+h*4).Render(fmt.Sprintf("+%.1f", h)), theme.Subtle.Render(dialBlurb(d.dial))))

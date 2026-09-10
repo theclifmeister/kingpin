@@ -25,10 +25,11 @@ const (
 	screenDashboard screen = iota
 	screenMarket
 	screenJournal
+	screenCrew
 	screenCount
 )
 
-var screenNames = []string{"Dashboard", "Market", "Journal"}
+var screenNames = []string{"Dashboard", "Market", "Journal", "Crew"}
 
 type mode int
 
@@ -40,6 +41,7 @@ const (
 	modeSell
 	modeOver
 	modeConfirmNew
+	modeConfirmFire
 	modeHelp
 )
 
@@ -59,6 +61,8 @@ type Model struct {
 	screen        screen
 	mode          mode
 	cursor        int // product cursor shared by market screen and dialogs
+	crewCursor    int // row on the crew screen: roster first, then candidates
+	fireID        int // member awaiting the fire confirmation
 	journal       viewport.Model
 	dlg           dialog
 	startChoice   int
@@ -106,6 +110,7 @@ func (m *Model) newRun() {
 	m.mode = modePlay
 	m.screen = screenDashboard
 	m.cursor = 0
+	m.crewCursor = 0
 	m.flash = nil
 	m.status = fmt.Sprintf("New run. %s, %s in your pocket. Seed %d.", m.w.City, money(m.w.Player.DirtyCash), m.w.Seed)
 	_ = game.Save(m.w)
@@ -113,7 +118,7 @@ func (m *Model) newRun() {
 }
 
 func (m *Model) continueRun() error {
-	w, err := game.Load()
+	w, err := game.Load(m.set.Migrations()...)
 	if err != nil {
 		return err
 	}
@@ -192,6 +197,14 @@ func (m *Model) handleKey(k tea.KeyMsg) (tea.Model, tea.Cmd) {
 			m.mode = modePlay
 		}
 		return m, nil
+	case modeConfirmFire:
+		switch key {
+		case "y", "Y":
+			m.confirmFire()
+		default:
+			m.mode = modePlay
+		}
+		return m, nil
 	case modeHelp:
 		m.mode = modePlay
 		return m, nil
@@ -253,7 +266,7 @@ func (m *Model) keyPlay(key string) (tea.Model, tea.Cmd) {
 		return m.quit()
 	case "ctrl+s":
 		m.save()
-	case "?", "h":
+	case "?":
 		m.mode = modeHelp
 	case "1":
 		m.screen = screenDashboard
@@ -262,6 +275,8 @@ func (m *Model) keyPlay(key string) (tea.Model, tea.Cmd) {
 	case "3":
 		m.screen = screenJournal
 		m.refreshJournal()
+	case "4":
+		m.screen = screenCrew
 	case "tab":
 		m.screen = (m.screen + 1) % screenCount
 	case "shift+tab":
@@ -291,16 +306,38 @@ func (m *Model) keyPlay(key string) (tea.Model, tea.Cmd) {
 		}
 	case "N":
 		m.mode = modeConfirmNew
+	case "h":
+		if m.screen == screenCrew {
+			m.hireSelected()
+		} else {
+			m.status = "Hiring happens on the crew screen (4)."
+		}
+	case "f":
+		if m.screen == screenCrew {
+			m.askFire()
+		}
+	case "p":
+		m.cyclePay()
 	case "up", "k":
-		if m.screen == screenJournal {
+		switch {
+		case m.screen == screenJournal:
 			m.journal.ScrollUp(1)
-		} else if m.cursor > 0 {
+		case m.screen == screenCrew:
+			if m.crewCursor > 0 {
+				m.crewCursor--
+			}
+		case m.cursor > 0:
 			m.cursor--
 		}
 	case "down", "j":
-		if m.screen == screenJournal {
+		switch {
+		case m.screen == screenJournal:
 			m.journal.ScrollDown(1)
-		} else if m.cursor < len(m.w.Products)-1 {
+		case m.screen == screenCrew:
+			if m.crewCursor < len(m.crewRows())-1 {
+				m.crewCursor++
+			}
+		case m.cursor < len(m.w.Products)-1:
 			m.cursor++
 		}
 	case "pgup":
@@ -345,6 +382,12 @@ func (m *Model) View() string {
 		body = m.viewOver()
 	case modeConfirmNew:
 		body = m.modal("NEW RUN?", "Abandon the current run and start over?\n\n"+theme.Key.Render("y")+" yes   "+theme.Key.Render("any other key")+" no")
+	case modeConfirmFire:
+		name := "them"
+		if c := m.w.Crew.Member(m.fireID); c != nil {
+			name = c.Name
+		}
+		body = m.modal("FIRE "+strings.ToUpper(name)+"?", "No severance in this business. The rest of the crew\nwill take it personally.\n\n"+theme.Key.Render("y")+" yes   "+theme.Key.Render("any other key")+" no")
 	case modeHelp:
 		body = m.viewHelp()
 	default:
@@ -353,6 +396,8 @@ func (m *Model) View() string {
 			body = m.viewMarket()
 		case screenJournal:
 			body = m.viewJournal()
+		case screenCrew:
+			body = m.viewCrew()
 		default:
 			body = m.viewDashboard()
 		}
@@ -429,10 +474,14 @@ func (m *Model) viewFooter() string {
 		keys = k("↑↓", "pick") + k("enter", "next") + k("esc", "back")
 	case modeOver:
 		keys = k("enter", "new run") + k("q", "quit")
-	case modeHelp, modeConfirmNew:
+	case modeHelp, modeConfirmNew, modeConfirmFire:
 		keys = k("any key", "close")
 	default:
-		keys = k("n", "end day") + k("b", "buy") + k("s", "sell") + k("l", "lie low") + k("x", "cancel order") + k("r", "report") + k("?", "help") + k("q", "quit")
+		if m.screen == screenCrew {
+			keys = k("n", "end day") + k("↑↓", "pick") + k("h", "hire") + k("f", "fire") + k("p", "pay") + k("?", "help") + k("q", "quit")
+		} else {
+			keys = k("n", "end day") + k("b", "buy") + k("s", "sell") + k("l", "lie low") + k("x", "cancel order") + k("r", "report") + k("?", "help") + k("q", "quit")
+		}
 	}
 	status := theme.Warning.Render(m.status)
 	gap := m.width - lipgloss.Width(keys) - lipgloss.Width(status)
@@ -477,7 +526,8 @@ func (m *Model) viewStart() string {
 	}
 	b.WriteString("\n" + theme.Subtle.Render("enter select · c continue · n new · q quit"))
 	if m.status != "" {
-		b.WriteString("\n" + theme.Warning.Render(m.status))
+		// Load errors can be long; wrap inside the box instead of past it.
+		b.WriteString("\n" + theme.Warning.Width(max(20, m.width-12)).Render(m.status))
 	}
 	box := theme.Modal.Render(theme.Title.Render("KINGPIN") + "\n" + theme.Subtle.Render("a drug empire, one day at a time") + "\n\n" + b.String())
 	return lipgloss.Place(m.width, m.height, lipgloss.Center, lipgloss.Center, box)
@@ -485,21 +535,23 @@ func (m *Model) viewStart() string {
 
 func (m *Model) viewHelp() string {
 	rows := [][2]string{
-		{"1 2 3 / tab", "switch screen"},
+		{"1 2 3 4 / tab", "switch screen"},
 		{"n", "end the day (sims step, autosave)"},
 		{"b", "buy from the supplier"},
 		{"s", "queue a street sale with the dial"},
 		{"x", "cancel the order on the selected product"},
 		{"l", "lie low today (no sales, heat fades faster)"},
 		{"r", "reopen the morning report"},
-		{"↑ ↓ / j k", "move the product cursor / scroll journal"},
+		{"h / f", "hire / fire the selected person (crew screen)"},
+		{"p", "cycle crew pay: stingy / fair / generous"},
+		{"↑ ↓ / j k", "move the cursor / scroll journal"},
 		{"ctrl+s", "save now"},
 		{"N", "abandon run and start over"},
 		{"q", "save and quit"},
 	}
 	var b strings.Builder
 	for _, r := range rows {
-		b.WriteString(fmt.Sprintf("%s  %s\n", theme.Key.Render(fit(r[0], 12)), r[1]))
+		b.WriteString(fmt.Sprintf("%s  %s\n", theme.Key.Render(fit(r[0], 14)), r[1]))
 	}
 	b.WriteString("\n" + theme.Subtle.Render("Heat is the antagonist. Greed is always available."))
 	return m.modal("HELP", b.String())
@@ -515,6 +567,7 @@ func (m *Model) viewOver() string {
 	b.WriteString(fmt.Sprintf("Total revenue   %s\n", money(w.Stats.TotalRevenue)))
 	b.WriteString(fmt.Sprintf("Units moved     %d\n", w.Stats.UnitsSold))
 	b.WriteString(fmt.Sprintf("Stings / raids  %d / %d\n", w.Stats.Stings, w.Stats.Raids))
+	b.WriteString(fmt.Sprintf("Wages / skimmed %s / %s\n", money(w.Stats.Wages), money(w.Stats.Skimmed)))
 	b.WriteString(fmt.Sprintf("Peak heat       %.0f\n", w.Heat.Peak))
 	if n := len(w.Journal); n > 0 {
 		b.WriteString("\nLast headline:\n  " + theme.Subtle.Render(truncate(w.Journal[n-1].Text, max(20, m.width-20))) + "\n")
@@ -542,6 +595,7 @@ func (m *Model) viewReport() string {
 	section("PRICES", r.Prices, theme.Good)
 	section("SALES", r.Sales, theme.Gold)
 	section("HEAT", r.Heat, theme.Bad)
+	section("CREW", r.Crew, lipgloss.NewStyle().Foreground(theme.Crew))
 	section("MONEY", append(r.Money, fmt.Sprintf("Cash %s -> %s", money(r.CashBefore), money(r.CashAfter))), theme.Gold)
 	section("NEWS", r.News, theme.Subtle)
 	content := clampLines(strings.TrimRight(b.String(), "\n"), m.bodyHeight()-6)
