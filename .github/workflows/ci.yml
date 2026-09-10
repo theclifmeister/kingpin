@@ -13,15 +13,17 @@ concurrency:
   cancel-in-progress: true
 
 jobs:
-  check:
-    name: Lint and test
+  lint:
+    # Runs on the latest stable Go so staticcheck@latest is always usable;
+    # analysing a module that declares an older go directive is fine.
+    name: Lint
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v7
 
       - uses: actions/setup-go@v7
         with:
-          go-version-file: go.mod
+          go-version: stable
           cache: true
 
       - name: gofmt
@@ -40,10 +42,22 @@ jobs:
         run: go vet ./...
 
       - name: staticcheck
-        uses: dominikh/staticcheck-action@v1
+        run: |
+          go install honnef.co/go/tools/cmd/staticcheck@latest
+          "$(go env GOPATH)/bin/staticcheck" ./...
+
+  test:
+    # Builds and tests with the toolchain declared in go.mod so the
+    # minimum supported Go version is what actually gets verified.
+    name: Test
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v7
+
+      - uses: actions/setup-go@v7
         with:
-          version: latest
-          install-go: false
+          go-version-file: go.mod
+          cache: true
 
       - name: build
         run: go build ./...
