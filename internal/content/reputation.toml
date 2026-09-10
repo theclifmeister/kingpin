@@ -1,0 +1,44 @@
+# Reputation tuning (#14). Three axes, 0..100, drift from what already
+# happens and feed back into the other sims. Fear keeps rivals off your
+# corners but puts a floor under heat. Respect keeps the crew loyal and the
+# supplier generous. Notoriety makes hiring cheap and makes you the DA's
+# favourite target. The street has only so much attention for you: past
+# `total` points between the three, every gain crowds the other axes, so
+# you cannot max all three.
+
+[reputation]
+baseline = 0                # every axis fades toward this ...
+decay = 0.03                # ... closing this fraction of the gap per day
+total = 200                 # the three axes never add up to more than this; over it they shrink to fit
+band = 25                   # ReputationShifted fires when an axis crosses a multiple of this
+
+# Fear: violence, and holding your ground.
+[fear]
+strike_taken = 8            # a rival corner your enforcers took
+strike_held = 4             # a strike the rival held off; the neighbourhood saw it anyway
+push_held = 2               # a rival push on your corner that you held
+
+# Respect: what you do for your people.
+[respect]
+generous_pay = 1.5          # per day the whole crew is paid generous, in full
+payoff = 4                  # per member paid off for loyalty
+short_pay = -3              # per day wages come up short
+
+# Notoriety: how much of the city is talking about you.
+[notoriety]
+units = 250                 # a point per this many units sold in a day
+headline = 0.6              # per headline about you the day before, ...
+headline_sources = ["heat", "crew", "territory", "laundering"] # ... which is one from these sims (market and flavour
+                            # are the city's news, the rival's story is its own; strikes are counted above)
+strike_taken = 4            # violence is news
+strike_held = 2
+
+# What the other sims read, each from its own step. Every knob is the
+# effect at the axis's full 100; it scales linearly from nothing at 0.
+[effects]
+fear_push_cut = 0.6         # rivals: fraction cut from the chance of a push on your corners
+fear_heat_floor = 25        # heat: heat decays only toward this floor, not zero
+respect_loyalty_cut = 0.5   # crew: fraction cut from each day's loyalty loss
+respect_supplier_cut = 0.15 # market: fraction cut from the supplier's price
+notoriety_hire_cut = 0.5    # crew: fraction cut from a candidate's signing fee
+notoriety_heat = 0.5        # heat: extra on the heat of every unit you move yourself (a runner's units are theirs)

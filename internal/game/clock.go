@@ -31,7 +31,7 @@ type Simulation interface {
 // Clock advances the world one day at a time. Simulations run in the fixed
 // order they were registered in:
 //
-//	market -> logistics -> territory -> rivals -> crew -> heat -> laundering -> news
+//	market -> logistics -> territory -> rivals -> crew -> heat -> laundering -> reputation -> news
 //
 // so that results are reproducible for a given seed.
 type Clock struct {

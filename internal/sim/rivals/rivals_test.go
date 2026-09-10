@@ -22,7 +22,7 @@ func world(t *testing.T, cfg *content.Config, seed uint64) (*game.World, *rivals
 		{ID: 3, Name: "Moose", Role: "enforcer", Skill: 80, Loyalty: 70, Nerve: 90},
 	}
 	w.Crew.NextID = 3
-	s := rivals.New(cfg.Rivals, cfg.Names)
+	s := rivals.New(cfg.Rivals, cfg.Names, cfg.Reputation.Effects)
 	s.Seed(w, game.RNGFor(seed, 0))
 	return w, s
 }

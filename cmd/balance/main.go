@@ -89,12 +89,13 @@ func main() {
 	personalities := map[string]int{}
 	bought := map[string]int{}
 	audits, laundered, clean := 0, 0, 0
+	var fear, respect, notoriety []int
 	for seed := *seed0; seed < *seed0+uint64(*runs); seed++ {
 		pol := p
 		if *trace && seed == *seed0 {
 			pol = func(w *game.World) {
 				p(w)
-				fmt.Printf("day %3d dirty %8d clean %9d heat %5.1f file %d stock %3d/%3d orders %d crew %d corners %d/%d rival %d war %3.0f upgrades %d fronts %d %s", w.Day, w.Player.DirtyCash, w.Player.CleanCash, w.Heat.Value, w.Heat.Evidence, w.Player.TotalStock(), w.Capacity(), len(w.Orders), len(w.Crew.Members), w.Worked(), w.Held(), w.RivalHeld(), w.Rival.War, len(w.Upgrades), len(w.Fronts), w.Laundering.Dial)
+				fmt.Printf("day %3d dirty %8d clean %9d heat %5.1f file %d stock %3d/%3d orders %d crew %d corners %d/%d rival %d war %3.0f upgrades %d fronts %d %s rep %.0f/%.0f/%.0f", w.Day, w.Player.DirtyCash, w.Player.CleanCash, w.Heat.Value, w.Heat.Evidence, w.Player.TotalStock(), w.Capacity(), len(w.Orders), len(w.Crew.Members), w.Worked(), w.Held(), w.RivalHeld(), w.Rival.War, len(w.Upgrades), len(w.Fronts), w.Laundering.Dial, w.Player.Reputation.Fear, w.Player.Reputation.Respect, w.Player.Reputation.Notoriety)
 				for _, id := range w.Products {
 					fmt.Printf("  %s $%.1f", id, w.Market[id].Price)
 				}
@@ -169,6 +170,8 @@ func main() {
 		}
 		laundered += res.World.Stats.Laundered
 		clean += res.World.Player.CleanCash
+		rep := res.World.Player.Reputation
+		fear, respect, notoriety = append(fear, int(rep.Fear)), append(respect, int(rep.Respect)), append(notoriety, int(rep.Notoriety))
 	}
 	sort.Ints(played)
 	sort.Ints(peaks)
@@ -204,5 +207,10 @@ func main() {
 		fmt.Printf("upgrades:      %s (runs owning each)\n", strings.Join(ids, ", "))
 	}
 	fmt.Printf("laundering:    $%d washed per run, %d audits per run, $%d clean at the end\n", laundered / *runs, audits / *runs, clean / *runs)
+	sort.Ints(fear)
+	sort.Ints(respect)
+	sort.Ints(notoriety)
+	fmt.Printf("reputation:    fear %d respect %d notoriety %d at the end (medians), fear max %d respect max %d notoriety max %d\n",
+		fear[len(fear)/2], respect[len(respect)/2], notoriety[len(notoriety)/2], fear[len(fear)-1], respect[len(respect)-1], notoriety[len(notoriety)-1])
 	fmt.Printf("endings: %v\n", endings)
 }

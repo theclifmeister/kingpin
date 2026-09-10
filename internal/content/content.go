@@ -1,5 +1,5 @@
 // Package content loads the tuning data (markets, city, heat, crew, rivals,
-// upgrades, laundering, headlines) that lives in TOML files embedded in the binary. Balance changes never need
+// upgrades, laundering, reputation, headlines) that lives in TOML files embedded in the binary. Balance changes never need
 // code changes.
 package content
 
@@ -26,6 +26,7 @@ type Config struct {
 	Laundering LaunderingConfig
 	Names      NamesConfig
 	Upgrades   UpgradesConfig
+	Reputation ReputationConfig
 	Headlines  HeadlinesConfig
 }
 
@@ -295,6 +296,72 @@ type FrontConfig struct {
 	UnlockCash int     `toml:"unlock_cash"`
 }
 
+// ReputationConfig mirrors reputation.toml: where the three axes come
+// from, how they fade, and what the other sims read off them.
+type ReputationConfig struct {
+	Reputation ReputationTuning `toml:"reputation"`
+	Fear       FearSources      `toml:"fear"`
+	Respect    RespectSources   `toml:"respect"`
+	Notoriety  NotorietySources `toml:"notoriety"`
+	Effects    ReputationFX     `toml:"effects"`
+}
+
+type ReputationTuning struct {
+	Baseline float64 `toml:"baseline"` // every axis fades toward this
+	Decay    float64 `toml:"decay"`    // fraction of the gap to baseline closed per day
+	Total    float64 `toml:"total"`    // the three never add up to more than this
+	Band     float64 `toml:"band"`     // ReputationShifted fires on crossing a multiple of this
+}
+
+type FearSources struct {
+	StrikeTaken float64 `toml:"strike_taken"`
+	StrikeHeld  float64 `toml:"strike_held"`
+	PushHeld    float64 `toml:"push_held"`
+}
+
+type RespectSources struct {
+	GenerousPay float64 `toml:"generous_pay"`
+	Payoff      float64 `toml:"payoff"`
+	ShortPay    float64 `toml:"short_pay"`
+}
+
+type NotorietySources struct {
+	Units       float64  `toml:"units"` // a point per this many units sold in a day
+	Headline    float64  `toml:"headline"`
+	Sources     []string `toml:"headline_sources"` // journal sources whose headlines are about you
+	StrikeTaken float64  `toml:"strike_taken"`
+	StrikeHeld  float64  `toml:"strike_held"`
+}
+
+// ReputationFX is what each axis does at 100; each sim scales the knob it
+// owns by the axis and never reads another sim's.
+type ReputationFX struct {
+	FearPushCut        float64 `toml:"fear_push_cut"`
+	FearHeatFloor      float64 `toml:"fear_heat_floor"`
+	RespectLoyaltyCut  float64 `toml:"respect_loyalty_cut"`
+	RespectSupplierCut float64 `toml:"respect_supplier_cut"`
+	NotorietyHireCut   float64 `toml:"notoriety_hire_cut"`
+	NotorietyHeat      float64 `toml:"notoriety_heat"`
+}
+
+// Scale is v at axis 0 and v times (1 + full) at axis 100: how an effect
+// that adds grows with an axis.
+func Scale(axis, full float64) float64 { return 1 + full*clamp01(axis/100) }
+
+// Cut is 1 at axis 0 and 1 - full at axis 100: how an effect that takes
+// away grows with an axis.
+func Cut(axis, full float64) float64 { return 1 - full*clamp01(axis/100) }
+
+func clamp01(v float64) float64 {
+	if v < 0 {
+		return 0
+	}
+	if v > 1 {
+		return 1
+	}
+	return v
+}
+
 // NamesConfig mirrors names.toml.
 type NamesConfig struct {
 	Crew   []string `toml:"crew"`
@@ -376,6 +443,9 @@ func Load() (*Config, error) {
 	if err := decode("upgrades.toml", &c.Upgrades); err != nil {
 		return nil, err
 	}
+	if err := decode("reputation.toml", &c.Reputation); err != nil {
+		return nil, err
+	}
 	if err := decode("headlines.toml", &c.Headlines); err != nil {
 		return nil, err
 	}
@@ -414,6 +484,9 @@ func Load() (*Config, error) {
 	}
 	if len(c.Laundering.Fronts) == 0 {
 		return nil, fmt.Errorf("laundering.toml: no fronts defined")
+	}
+	if r := c.Reputation.Reputation; r.Total <= 0 || r.Band <= 0 || r.Decay < 0 || r.Decay > 1 {
+		return nil, fmt.Errorf("reputation.toml: bad [reputation] table %+v", r)
 	}
 	seen := map[string]bool{}
 	for _, f := range c.Laundering.Fronts {
@@ -472,7 +545,7 @@ func decode(name string, v any) error {
 		return fmt.Errorf("%s: %w", name, err)
 	}
 	// An effect name nobody reads would silently do nothing.
-	if name == "upgrades.toml" {
+	if name == "upgrades.toml" || name == "reputation.toml" {
 		if keys := md.Undecoded(); len(keys) > 0 {
 			return fmt.Errorf("%s: unknown key %s", name, keys[0])
 		}

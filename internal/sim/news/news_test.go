@@ -31,6 +31,8 @@ func TestEveryEmittedEventHasTemplate(t *testing.T) {
 		"RivalTippedPolice", "WarOpen", "WarCrackdown",
 		"UpgradeBought", "FallGuyBurned",
 		"FrontBought", "FrontAudited", "FrontFrozen",
+		"ReputationFearUp", "ReputationFearDown", "ReputationRespectUp", "ReputationRespectDown",
+		"ReputationNotorietyUp", "ReputationNotorietyDown",
 	}
 	for _, r := range cfg.Heat.Responses {
 		required = append(required, "Enforcement"+capital(r.Level))

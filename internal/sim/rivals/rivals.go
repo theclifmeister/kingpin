@@ -20,11 +20,19 @@ import (
 type Sim struct {
 	cfg   content.RivalsConfig
 	names []string
+	rep   content.ReputationFX
 }
 
-// New builds a rival sim from config and the leader name pool.
-func New(cfg content.RivalsConfig, names content.NamesConfig) *Sim {
-	return &Sim{cfg: cfg, names: names.Rivals}
+// New builds a rival sim from config and the leader name pool. Of the
+// reputation effects it reads one: fear slows its pushes.
+func New(cfg content.RivalsConfig, names content.NamesConfig, rep content.ReputationFX) *Sim {
+	return &Sim{cfg: cfg, names: names.Rivals, rep: rep}
+}
+
+// PushPace is what the player's reputation does to the rival's chance
+// of pushing on a corner today: a feared player is pushed on less.
+func (s *Sim) PushPace(w *game.World) float64 {
+	return content.Cut(w.Player.Reputation.Fear, s.rep.FearPushCut)
 }
 
 func (s *Sim) Name() string { return "rivals" }
@@ -240,14 +248,15 @@ func (s *Sim) Step(w *game.World, t *game.Tick) {
 
 	// 5. Pushes on the player's corners it borders: at full pace while it
 	// wants more ground or has a grudge to pay back, at its personality's
-	// pace past that. Every push is noise; one that lands flips the corner
-	// and sends its people home.
+	// pace past that, and slower against a player it fears. Every push is
+	// noise; one that lands flips the corner and sends its people home.
+	pace := s.PushPace(w)
 	for i := range w.Territory.Corners {
 		c := &w.Territory.Corners[i]
 		if !c.Held() || !w.Contested(*c) || r.Muscle == 0 {
 			continue
 		}
-		chance := pc.PushChance
+		chance := pc.PushChance * pace
 		if w.RivalHeld() >= pc.MaxCorners && r.Grudge == 0 {
 			chance *= pc.PushPastCap
 		}

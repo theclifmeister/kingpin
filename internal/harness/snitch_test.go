@@ -76,7 +76,10 @@ func TestPlantedInformantIndictsQuietPlayer(t *testing.T) {
 // The informant is beatable by reading the report: a crewed player who
 // investigates once the tell has shown twice and fires whoever it names
 // survives the horizon on every seed, while the same player who ignores
-// the report is indicted on most of them.
+// the report is indicted on most of them. The vigilant player reads the
+// heat gauge too: a full crew's day at the normal dial spikes heat from
+// under 40 to the sting line, and the notoriety a big operation earns
+// (#14) makes a line of 40 one sting too many on seed 1.
 func TestVigilantSurvivesInformant(t *testing.T) {
 	cfg := content.MustLoad()
 	const seeds = 10
@@ -84,7 +87,7 @@ func TestVigilantSurvivesInformant(t *testing.T) {
 	for seed := uint64(1); seed <= seeds; seed++ {
 		w := sim.NewWorld(cfg, seed)
 		Plant(cfg, w)
-		vigilant, err := RunFrom(cfg, w, Horizon, Vigilant(cfg, 40))
+		vigilant, err := RunFrom(cfg, w, Horizon, Vigilant(cfg, 35))
 		if err != nil {
 			t.Fatal(err)
 		}
