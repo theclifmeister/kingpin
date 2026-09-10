@@ -34,11 +34,17 @@ func (r Result) NetWorthAt(d int) int {
 
 // Run plays up to days days from a fresh world with the given seed.
 func Run(cfg *content.Config, seed uint64, days int, policy Policy) (Result, error) {
+	return RunFrom(cfg, sim.NewWorld(cfg, seed), days, policy)
+}
+
+// RunFrom plays up to days days on from w, which the caller may have set
+// up (a cash pile, a crew) to test a situation a fresh run takes a while
+// to reach.
+func RunFrom(cfg *content.Config, w *game.World, days int, policy Policy) (Result, error) {
 	_, sims, err := sim.Default(cfg)
 	if err != nil {
 		return Result{}, err
 	}
-	w := sim.NewWorld(cfg, seed)
 	clock := game.NewClock(nil, sims...)
 	var all []events.Event
 	var worth []int
@@ -54,6 +60,10 @@ func Run(cfg *content.Config, seed uint64, days int, policy Policy) (Result, err
 
 // Idle does nothing; prices drift on their own.
 func Idle(*game.World) {}
+
+// Hide lies low every day and never trades: the player who has built
+// something and sits on it.
+func Hide(w *game.World) { w.SetLieLow(true) }
 
 // Trader restocks every product it can afford and sells everything it holds
 // at the given dial, every day. It is deliberately greedy. It buys before it

@@ -122,6 +122,7 @@ type Enforcement struct {
 	Level     string // patrol, sting, raid, arrest
 	StockLost map[string]int
 	CashLost  int
+	Evidence  int // what went in the DA's file; 0 when a sting or raid found nothing to build a case on
 }
 
 func (Enforcement) Kind() string { return "Enforcement" }

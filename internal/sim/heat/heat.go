@@ -142,11 +142,13 @@ func (s *Sim) Step(w *game.World, t *game.Tick) {
 	// through: standing on a corner shouting is the exposure. Which
 	// corners, and whether you or a runner stood there, weight it.
 	units := 0
+	attempted := false
 	for _, e := range t.Events() {
 		ps, ok := e.(events.PlayerSold)
 		if !ok || ps.Wanted == 0 {
 			continue
 		}
+		attempted = true
 		add := s.SaleHeat(w, ps.Product, ps.Wanted, ps.Dial)
 		h.Value += add
 		units += ps.Sold
@@ -202,7 +204,7 @@ func (s *Sim) Step(w *game.World, t *game.Tick) {
 			continue
 		}
 		h.Responses[r.Level]++
-		s.fire(w, t, r)
+		s.fire(w, t, r, attempted)
 		h.LastResponse[r.Level] = t.Day
 		break
 	}
@@ -221,7 +223,11 @@ func (s *Sim) Step(w *game.World, t *game.Tick) {
 	t.Emit(events.HeatChanged{Day: t.Day, From: from, To: h.Value, Reasons: reasons})
 }
 
-func (s *Sim) fire(w *game.World, t *game.Tick, r content.ResponseConfig) {
+// fire applies one response. attempted says whether the player tried to
+// sell today: a sting or raid that turns up on a day nothing moved still
+// costs stock and cash and cools heat, but finds nothing worth a file.
+// Dirty cash draws attention; only dealing builds a case.
+func (s *Sim) fire(w *game.World, t *game.Tick, r content.ResponseConfig, attempted bool) {
 	ev := events.Enforcement{Day: t.Day, Level: r.Level, StockLost: map[string]int{}}
 	switch r.Level {
 	case "patrol":
@@ -248,7 +254,10 @@ func (s *Sim) fire(w *game.World, t *game.Tick, r content.ResponseConfig) {
 			w.Stats.Stings++
 		}
 	}
-	w.Heat.Evidence += r.Evidence
+	if attempted {
+		ev.Evidence = r.Evidence
+		w.Heat.Evidence += r.Evidence
+	}
 	// The first raid convinces them they got you. The second one does not.
 	// Each repeat of the same response cools things down less.
 	n := float64(max(1, w.Heat.Responses[r.Level]))

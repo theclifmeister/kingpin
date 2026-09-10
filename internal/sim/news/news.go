@@ -128,7 +128,11 @@ func (s *Sim) Step(w *game.World, t *game.Tick) {
 			add("heat", "Enforcement"+capitalize(ev.Level), d)
 			rep.Heat = append(rep.Heat, enforcementLine(w, ev))
 			if ev.Level == "sting" || ev.Level == "raid" {
-				rep.Heat = append(rep.Heat, fmt.Sprintf("  the DA's file on you grows (%d)", w.Heat.Evidence))
+				if ev.Evidence > 0 {
+					rep.Heat = append(rep.Heat, fmt.Sprintf("  the DA's file on you grows (%d)", w.Heat.Evidence))
+				} else {
+					rep.Heat = append(rep.Heat, "  they found nothing to hang on you")
+				}
 			}
 			lostCash += ev.CashLost
 		case events.LaidLow:

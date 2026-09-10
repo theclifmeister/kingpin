@@ -12,16 +12,18 @@ import (
 	"github.com/theclifmeister/kingpin/internal/events"
 	"github.com/theclifmeister/kingpin/internal/game"
 	"github.com/theclifmeister/kingpin/internal/harness"
+	"github.com/theclifmeister/kingpin/internal/sim"
 )
 
 func main() {
 	runs := flag.Int("runs", 20, "number of seeded runs")
 	days := flag.Int("days", harness.Horizon, "days to play each run for; a measuring horizon, the game itself has no cap")
-	policy := flag.String("policy", "normal", "idle | quiet | normal | aggressive | careful | managed | crewed | territory")
+	policy := flag.String("policy", "normal", "idle | hide | quiet | normal | aggressive | careful | managed | crewed | territory")
 	corners := flag.Int("corners", 3, "corners the territory policy works, counting yours")
 	trace := flag.Bool("trace", false, "print a per-day trace of the run with -seed")
 	seed0 := flag.Uint64("seed", 1, "first seed; also the traced run")
 	lieLow := flag.Float64("lielow", 0, "heat at which careful/managed/crewed lie low (0 = policy default)")
+	cash := flag.Int("cash", 0, "start every run with this much dirty cash instead of the default")
 	flag.Parse()
 	at := func(def float64) float64 {
 		if *lieLow > 0 {
@@ -35,6 +37,8 @@ func main() {
 	switch *policy {
 	case "idle":
 		p = harness.Idle
+	case "hide":
+		p = harness.Hide
 	case "quiet":
 		p = harness.Trader(cfg, events.DialQuiet)
 	case "aggressive":
@@ -67,7 +71,11 @@ func main() {
 				fmt.Println()
 			}
 		}
-		res, err := harness.Run(cfg, seed, *days, pol)
+		w := sim.NewWorld(cfg, seed)
+		if *cash > 0 {
+			w.Player.DirtyCash = *cash
+		}
+		res, err := harness.RunFrom(cfg, w, *days, pol)
 		if err != nil {
 			fmt.Fprintln(os.Stderr, err)
 			os.Exit(1)
