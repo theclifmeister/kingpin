@@ -26,6 +26,7 @@ func TestPreview(t *testing.T) {
 		m.Update(key("enter"))
 		m.Update(key(fmt.Sprint(1 + i%3)))
 		m.Update(key("enter"))
+		m.Update(key("esc"))
 		if m.mode != modePlay {
 			t.Fatalf("dialog stuck at step %d: %s", m.dlg.step, m.dlg.err)
 		}

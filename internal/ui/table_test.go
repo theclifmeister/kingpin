@@ -20,7 +20,7 @@ var kindPatterns = map[colKind]*regexp.Regexp{
 	kPct:   regexp.MustCompile(`^(-|~?[+-]?\d+(\.\d)?%)$`),
 	kDays:  regexp.MustCompile(`^(-|\d+d|d\d+)$`),
 	kBar:   regexp.MustCompile(`^(-|[█░┆]+ \d+|[▁▂▃▄▅▆▇█]+( [▲▼])?)$`),
-	kDial:  regexp.MustCompile(`^(-|\d+ (quiet|normal|aggr\.)( \(lt\))?|off|slow|normal|fast)$`),
+	kDial:  regexp.MustCompile(`^(-|\d+ (quiet|normal|aggr\.)( \(lt\))?|quiet|normal|aggr\.|off|slow|fast)$`),
 }
 
 // cells splits one rendered table line into its cells by the widths
@@ -201,6 +201,7 @@ func TestReportNumbers(t *testing.T) {
 	m.Update(key("enter"))
 	m.Update(key("3"))
 	m.Update(key("enter"))
+	m.Update(key("esc"))
 	endDay(t, m)
 	r := m.w.Report
 	for _, l := range append(append([]string(nil), r.Money...), r.Prices...) {

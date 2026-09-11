@@ -23,6 +23,8 @@ var (
 	ErrNoRoute        = errors.New("no such route")
 	ErrBadDial        = errors.New("no such dial position")
 	ErrNotSupplied    = errors.New("the supplier here does not sell that; it comes in by the road")
+	ErrNothingBought  = errors.New("nothing bought there today to return")
+	ErrReturnGone     = errors.New("the units are no longer in the stash")
 )
 
 // WholesaleOffer is how the wholesale supplier sells, handed to Restock
@@ -93,7 +95,7 @@ func (w *World) Buy(product string, qty int, pricePressure float64) (Purchase, e
 	if free := w.Free(city); qty > free {
 		return Purchase{}, fmt.Errorf("can only hold %d more units in %s", free, w.CityName(city))
 	}
-	p := Purchase{City: city, Product: product, Qty: qty, UnitPrice: m.SupplierPrice, Cost: cost}
+	p := Purchase{City: city, Product: product, Qty: qty, UnitPrice: m.SupplierPrice, Cost: cost, Prior: m.SupplierPrice}
 	w.Player.DirtyCash -= cost
 	w.Stash(city)[product] += qty
 	m.BoughtToday += qty
@@ -102,6 +104,83 @@ func (w *World) Buy(product string, qty int, pricePressure float64) (Purchase, e
 	}
 	w.Buys = append(w.Buys, p)
 	return p, nil
+}
+
+// Bought is how many units of a product the player has bought in a city
+// today and still holds the receipt for: what Return can take back.
+func (w *World) Bought(city, product string) int {
+	n := 0
+	for _, b := range w.Buys {
+		if b.City == city && b.Product == product {
+			n += b.Qty
+		}
+	}
+	return n
+}
+
+// Return is the exact inverse of Buy, the same day (#103): qty units of a
+// product bought in a city today go back to the supplier, the last buy
+// first. The units come out of the stash there (refused if they are no
+// longer in it), the cost is refunded at the price paid, BoughtToday
+// comes down and the supplier price goes back to what the buy found it
+// at; a part of a buy is returned in proportion, so returning the whole
+// of it leaves cash, stash, BoughtToday and the price exactly as they
+// were. Buys is per-day scratch, so once the day ends there is nothing
+// to return. It reports what was refunded.
+func (w *World) Return(city, product string, qty int) (int, error) {
+	if w.Over != nil {
+		return 0, ErrGameOver
+	}
+	if qty <= 0 {
+		return 0, ErrBadQuantity
+	}
+	m := w.Product(city, product)
+	if m == nil {
+		return 0, ErrUnknownProduct
+	}
+	if bought := w.Bought(city, product); bought == 0 {
+		return 0, ErrNothingBought
+	} else if qty > bought {
+		return 0, fmt.Errorf("only %d %s bought in %s today", bought, w.ProductName(product), w.CityName(city))
+	}
+	if have := w.Stock(city, product); qty > have {
+		return 0, fmt.Errorf("%w: only %d %s left in %s", ErrReturnGone, have, w.ProductName(product), w.CityName(city))
+	}
+	refund := 0
+	left := qty
+	for i := len(w.Buys) - 1; i >= 0 && left > 0; i-- {
+		b := &w.Buys[i]
+		if b.City != city || b.Product != product {
+			continue
+		}
+		back := min(left, b.Qty)
+		keep := b.Qty - back
+		// What Buy would have charged and nudged for the units kept, so
+		// a part of a buy is returned in proportion and the whole of one
+		// exactly. The nudge is read back off the price rather than the
+		// pressure, which the world does not hold.
+		cost := int(math.Ceil(b.UnitPrice * float64(keep)))
+		if b.Prior > 0 {
+			m.SupplierPrice = b.Prior * (1 + (m.SupplierPrice/b.Prior-1)*float64(keep)/float64(b.Qty))
+		}
+		refund += b.Cost - cost
+		b.Qty, b.Cost = keep, cost
+		left -= back
+	}
+	kept := w.Buys[:0]
+	for _, b := range w.Buys {
+		if b.Qty > 0 {
+			kept = append(kept, b)
+		}
+	}
+	w.Buys = kept
+	if len(w.Buys) == 0 {
+		w.Buys = nil
+	}
+	w.Player.DirtyCash += refund
+	w.Stash(city)[product] -= qty
+	m.BoughtToday -= qty
+	return refund, nil
 }
 
 // Restock is the logistics sim buying lots from the wholesale supplier in

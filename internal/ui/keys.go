@@ -123,6 +123,9 @@ var bindings = []binding{
 		}},
 	{key: "[ ]", label: "city", help: "turn the market and the map to the other city", keys: []string{"[", "]"}, screens: on(screenMarket, screenMap), global: true,
 		do: func(m *Model, key string) { m.cycleCity(dir(key)) }},
+	// The dashboard and the market: the day's cart.
+	{key: "c", label: "cart", help: "the day's cart: edit its buys and orders", screens: on(screenDashboard, screenMarket),
+		do: func(m *Model, _ string) { m.openCart() }},
 	// The market, with the cursor on the buyers under the table.
 	{key: "a", label: "accept", help: "take the buyer's offer", screens: on(screenMarket), when: onBuyers,
 		do: func(m *Model, _ string) { m.answerContract(true) }},
@@ -227,10 +230,13 @@ var bindings = []binding{
 var modeBindings = []binding{
 	{key: "↑↓", label: "pick", modes: in(modeStart, modePost, modeStrike, modeFront, modeAssign, modePropose)},
 	{key: "↑↓", label: "pick", modes: in(modeBuy, modeSell, modeTarget), when: step(0)},
+	{key: "↑↓", label: "pick", modes: in(modeCart), when: cartHasLines},
 	{key: "↑↓", label: "pick", modes: in(modeCard), when: step(0)},
 	{key: "←→", label: "dial", modes: in(modeSell), when: step(2)},
+	{key: "←→", label: "dial", modes: in(modeCart), when: cartOnSell},
 	{key: "←→", label: "city", modes: in(modeFund)},
 	{key: "1-3", label: "dial", modes: in(modeSell), when: step(2)},
+	{key: "1-3", label: "dial", modes: in(modeCart), when: cartOnSell},
 	{key: "1-3", label: "choose", modes: in(modeCard), when: step(0)},
 	{key: "enter", label: "next", modes: in(modeBuy, modeSell, modeTarget, modePropose), when: step(0)},
 	{key: "enter", label: "next", modes: in(modeSell), when: step(1)},
@@ -239,6 +245,9 @@ var modeBindings = []binding{
 	{key: "enter", label: "buy", modes: in(modeFront)},
 	{key: "enter", label: "sell", modes: in(modeSell), when: step(2)},
 	{key: "enter", label: "set", modes: in(modeTarget), when: step(1)},
+	{key: "enter", label: "quantity", modes: in(modeCart), when: cartHasLines},
+	{key: "x", label: "remove", modes: in(modeCart), when: cartHasLines},
+	{key: "enter", label: "set", modes: in(modeCart), when: step(1)},
 	{key: "enter", label: "propose", modes: in(modePropose), when: step(1)},
 	{key: "enter", label: "post", modes: in(modePost)},
 	{key: "enter", label: "send", modes: in(modeStrike)},
@@ -256,7 +265,7 @@ var modeBindings = []binding{
 	{key: "y", label: "pay", modes: in(modeConfirmPayOff)},
 	{key: "y", label: "go", modes: in(modeConfirmTravel)},
 	{key: "q", label: "quit", modes: in(modeStart, modeOver)},
-	{key: "esc", label: "back", modes: in(modeBuy, modeSell, modeTarget, modePropose, modePost, modeStrike, modeFront, modeAssign, modeFund,
+	{key: "esc", label: "back", modes: in(modeBuy, modeSell, modeTarget, modePropose, modePost, modeStrike, modeFront, modeAssign, modeFund, modeCart,
 		modeConfirmNew, modeConfirmFire, modeConfirmEnd, modeConfirmUpgrade, modeConfirmInvestigate, modeConfirmPayOff, modeConfirmTravel)},
 	{key: "enter esc", label: "close", modes: in(modeReport, modeHelp)},
 	{key: "enter esc", label: "close", modes: in(modeCard), when: step(1)},
@@ -272,6 +281,8 @@ func (m *Model) modalStep() int {
 		return m.dlg.step
 	case modeTarget:
 		return m.tgt.step
+	case modeCart:
+		return m.crt.step
 	case modePropose:
 		return m.proposeStep
 	case modeCard:
@@ -386,8 +397,12 @@ func pointer(key string) string {
 			continue
 		}
 		var where []string
-		for _, s := range b.screens {
-			where = append(where, screenPointer(s))
+		for i, s := range b.screens {
+			p := screenPointer(s)
+			if i > 0 {
+				p = strings.TrimPrefix(p, "on ") // `on the dashboard screen (1) or the market screen (2)`
+			}
+			where = append(where, p)
 		}
 		ps = append(ps, strings.ToUpper(b.label[:1])+b.label[1:]+" "+strings.Join(where, " or ")+".")
 	}

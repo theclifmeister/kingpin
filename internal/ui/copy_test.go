@@ -157,6 +157,7 @@ func TestStatusKinds(t *testing.T) {
 	m.Update(key("b"))
 	m.Update(key("enter"))
 	m.Update(key("enter"))
+	m.Update(key("esc")) // the dialog stays open for the next line (#103)
 	check("a buy", theme.Body)
 	// A danger: the morning after the tell has shown twice, with the
 	// informant still on the payroll (the count resets once nobody is

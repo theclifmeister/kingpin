@@ -55,6 +55,7 @@ says where it works.
 | `ctrl+s` | save | save now; the end of the day saves too | everywhere |
 | `N` | new run | start over, after a confirmation | everywhere |
 | `q` | quit | save and quit | everywhere |
+| `c` | cart | the day's cart: edit its buys and orders | dashboard, market |
 | `←→` | city | turn the market to the other city | market |
 | `a` | accept | take the buyer's offer | market |
 | `x` | decline | turn the buyer's offer down | market |

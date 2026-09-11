@@ -213,9 +213,18 @@ func (m *Model) confirmBuy() (tea.Model, tea.Cmd) {
 		m.dlg.err = dialogError(err)
 		return m, nil
 	}
-	m.mode = modePlay
 	m.say(fmt.Sprintf("Bought %d %s for %s.", p.Qty, m.w.ProductName(id), money(p.Cost)))
+	m.nextLine()
 	return m, nil
+}
+
+// nextLine is the dialog after a buy or an order (#103): back on the
+// product step with the cart under the table, so the next product can
+// be picked without reopening; esc there closes it.
+func (m *Model) nextLine() {
+	m.dlg.step = 0
+	m.dlg.qty.SetValue("")
+	m.dlg.qty.Blur()
 }
 
 func (m *Model) confirmSell() (tea.Model, tea.Cmd) {
@@ -234,8 +243,8 @@ func (m *Model) confirmSell() (tea.Model, tea.Cmd) {
 		m.dlg.qty.Focus()
 		return m, nil
 	}
-	m.mode = modePlay
 	m.say(fmt.Sprintf("Queued %d %s in %s, %s. It sells at the end of the day.", qty, m.w.ProductName(id), m.w.CityName(city), m.dlg.dial))
+	m.nextLine()
 	return m, nil
 }
 
@@ -304,7 +313,7 @@ func (m *Model) viewDialog() string {
 		} else {
 			body = append(body, fmt.Sprintf("quantity   %s   %s", d.qty.View(), theme.Subtle.Render(fmt.Sprintf("have %d in %s", w.Stock(city, id), w.CityName(city)))))
 		}
-	} else {
+	} else if len(w.Buys)+len(w.Orders) == 0 {
 		body = append(body, theme.Subtle.Render("Pick a product."))
 	}
 
@@ -325,6 +334,12 @@ func (m *Model) viewDialog() string {
 
 	if d.err != "" {
 		body = append(body, "", theme.Bad.Render(d.err))
+	}
+	if cb := m.cartBlock(); cb != nil {
+		if body[len(body)-1] != "" {
+			body = append(body, "")
+		}
+		body = append(body, cb...)
 	}
 	title := "SELL · " + w.CityName(city)
 	if buy {

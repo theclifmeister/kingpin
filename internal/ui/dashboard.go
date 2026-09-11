@@ -586,7 +586,7 @@ func (m *Model) sellEstimate(city, id string, dial events.Dial) (units int, take
 func (m *Model) dashboardDetails() []section {
 	w := m.w
 	here := w.Here()
-	var secs []section
+	secs := m.cartSection(here.ID) // the day's cart first, so the strip carries its totals (#103)
 	if m.cursor < len(w.Products) {
 		id := w.Products[m.cursor]
 		if p := here.Market[id]; p != nil {

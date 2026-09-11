@@ -198,7 +198,9 @@ func richFixture(t *testing.T, sz [2]int, check func(m *Model, view, what string
 		m.Update(key("3"))     // aggressive
 		see(m, "sell dial")
 		m.Update(key("enter")) // confirm
-		endDay(t, m)           // end day -> report
+		see(m, "sell dialog with the cart")
+		m.Update(key("esc")) // the dialog stays open for the next line (#103)
+		endDay(t, m)         // end day -> report
 		see(m, "report")
 		m.Update(key("enter"))
 	}
@@ -340,6 +342,7 @@ func richFixture(t *testing.T, sz [2]int, check func(m *Model, view, what string
 	m.Update(key("enter"))
 	m.Update(key("enter"))
 	m.Update(key("enter"))
+	m.Update(key("esc"))
 	// A robbery for the report. The stick-up rolls only on a corner
 	// you hold with somebody on it, and test seeds are wall-clock:
 	// the rival, at war and bordering your corner, can push you off
@@ -445,6 +448,8 @@ func richFixture(t *testing.T, sz [2]int, check func(m *Model, view, what string
 	m.Update(key("enter"))
 	see(m, "ladder sell dialog")
 	m.Update(key("enter"))
+	see(m, "ladder sell dialog with the cart")
+	m.Update(key("esc"))
 	endDay(t, m)
 	see(m, "ladder report")
 	m.Update(key("enter"))
@@ -502,8 +507,12 @@ func TestBuyThenSellFlow(t *testing.T) {
 		m.Update(key(string(r)))
 	}
 	m.Update(key("enter"))
+	if m.mode != modeBuy || m.dlg.step != 0 || m.dlg.err != "" {
+		t.Fatalf("buy did not complete: mode=%v step=%d err=%q", m.mode, m.dlg.step, m.dlg.err)
+	}
+	m.Update(key("esc")) // the dialog stays open for the next line (#103)
 	if m.mode != modePlay {
-		t.Fatalf("buy did not complete: mode=%v err=%q", m.mode, m.dlg.err)
+		t.Fatalf("esc did not close the dialog: mode=%v", m.mode)
 	}
 	id := m.w.Products[0]
 	if m.w.Stock(m.w.Player.Location, id) != 10 {
@@ -514,6 +523,7 @@ func TestBuyThenSellFlow(t *testing.T) {
 	m.Update(key("enter")) // blank = all
 	m.Update(key("1"))     // quiet
 	m.Update(key("enter"))
+	m.Update(key("esc"))
 	if o, ok := m.w.Order(m.w.Player.Location, id); !ok || o.Qty != 10 {
 		t.Fatalf("order not placed: %+v", m.w.Orders)
 	}
@@ -1018,10 +1028,12 @@ func TestMapScreenKeys(t *testing.T) {
 	if m.screen != screenDashboard || m.shown().Corners[m.mapCursor].ID != start.ID {
 		t.Fatalf("cursor starts on corner %d, not yours", m.mapCursor)
 	}
+	m.Update(key("3"))
 	m.Update(key("c"))
 	if m.mode != modePlay || !strings.Contains(m.status, "map") {
-		t.Fatalf("c on the dashboard: mode %v status %q", m.mode, m.status)
+		t.Fatalf("c on the journal: mode %v status %q", m.mode, m.status)
 	}
+	m.Update(key("1"))
 	m.w.Crew.Members = append(m.w.Crew.Members,
 		game.CrewMember{ID: 101, Name: "Dre", Role: "runner", Skill: 60, Loyalty: 70, Units: 120, Wage: 56},
 		game.CrewMember{ID: 102, Name: "Tank", Role: "enforcer", Skill: 50, Loyalty: 70, Wage: 55},
@@ -1105,6 +1117,7 @@ func TestMapScreenKeys(t *testing.T) {
 	m.Update(key("enter"))
 	assertFits(t, m.View(), 100, 30, "sell dialog with no corner")
 	m.Update(key("enter"))
+	m.Update(key("esc"))
 	m.Update(key("n"))
 	if m.w.Stock(m.w.Player.Location, m.w.Products[0]) != 10 {
 		t.Fatalf("sold %d units with no corner", 10-m.w.Stock(m.w.Player.Location, m.w.Products[0]))
@@ -1550,6 +1563,7 @@ func TestRouteAndTravelKeys(t *testing.T) {
 	m.Update(key("b"))
 	m.Update(key("enter"))
 	m.Update(key("enter"))
+	m.Update(key("esc"))
 	if m.mode != modePlay || w.Stock(hub, product) <= 20 || w.Stock(home, product) != stock {
 		t.Fatalf("buy elsewhere: mode %v err %q hub %d home %d", m.mode, m.dlg.err, w.Stock(hub, product), w.Stock(home, product))
 	}
@@ -1557,6 +1571,7 @@ func TestRouteAndTravelKeys(t *testing.T) {
 	m.Update(key("enter"))
 	m.Update(key("enter"))
 	m.Update(key("enter"))
+	m.Update(key("esc"))
 	if o, ok := w.Order(hub, product); !ok || o.City != hub {
 		t.Fatalf("sell elsewhere: %+v %v status %q", o, ok, m.status)
 	}
@@ -1620,6 +1635,7 @@ func TestWholesaleFeedsTheRoutes(t *testing.T) {
 		t.Fatal("the buy dialog does not say where the lots go")
 	}
 	m.Update(key("enter"))
+	m.Update(key("esc"))
 	if m.mode != modePlay || w.Stock(hub, product) != w.Capacity(hub) || w.Free(hub) != 0 {
 		t.Fatalf("a buy at the hub: mode %v err %q stash %d capacity %d", m.mode, m.dlg.err, w.Stock(hub, product), w.Capacity(hub))
 	}
@@ -1842,6 +1858,7 @@ func richModel(t *testing.T, w, h int) *Model {
 		m.Update(key("enter")) // qty (blank = all)
 		m.Update(key("3"))     // aggressive
 		m.Update(key("enter")) // confirm
+		m.Update(key("esc"))   // the dialog stays open for the next line (#103)
 		endDay(t, m)
 		m.Update(key("enter"))
 	}
@@ -1885,6 +1902,7 @@ func richModel(t *testing.T, w, h int) *Model {
 	m.Update(key("enter"))
 	m.Update(key("enter"))
 	m.Update(key("enter"))
+	m.Update(key("esc"))
 	endDay(t, m)
 	m.Update(key("enter"))
 	if len(world.Shipments) != 1 {
@@ -1907,6 +1925,26 @@ func richModel(t *testing.T, w, h int) *Model {
 	m.cursor, m.crewCursor, m.mapCursor, m.upgradeCursor = 0, 0, 0, 0
 	m.status = ""
 	return m
+}
+
+// fillCart lines up two buys and two orders in one visit each (#103),
+// so the cart, the dialogs and the panes have a full cart to show.
+func fillCart(t *testing.T, m *Model) {
+	t.Helper()
+	w := m.w
+	w.Stash(w.Player.Location)[w.Products[1]] = 20
+	m.Update(key("1"))
+	m.Update(key("b"))
+	for _, k := range []string{"enter", "5", "enter", "j", "enter", "3", "enter", "esc"} {
+		m.Update(key(k))
+	}
+	m.Update(key("s"))
+	for _, k := range []string{"1", "enter", "enter", "3", "enter", "2", "enter", "enter", "1", "enter", "esc"} {
+		m.Update(key(k))
+	}
+	if m.mode != modePlay || len(w.Buys) != 2 || len(w.Orders) != 2 {
+		t.Fatalf("filling the cart: mode %v, %d buys, %d orders, %q %q", m.mode, len(w.Buys), len(w.Orders), m.dlg.err, m.status)
+	}
 }
 
 // testCard is a dilemma card for the fixture; its prose wraps.
@@ -2010,6 +2048,12 @@ func TestModalsFit(t *testing.T) {
 		{"assign", modeAssign, func(t *testing.T, m *Model) { m.Update(key("4")); m.crewCursor = 3; m.Update(key("t")) }},
 		{"fund", modeFund, func(t *testing.T, m *Model) { m.Update(key("7")); m.Update(key("f")) }},
 		{"details", modeDetails, func(t *testing.T, m *Model) { m.Update(key("5")); m.mode = modeDetails }},
+		// The cart (#103): the modal on its lines and on a quantity, and
+		// the dialogs with a full cart under the table.
+		{"cart", modeCart, func(t *testing.T, m *Model) { fillCart(t, m); m.Update(key("c")) }},
+		{"cart quantity", modeCart, func(t *testing.T, m *Model) { fillCart(t, m); m.Update(key("c")); m.Update(key("enter")) }},
+		{"buy with cart", modeBuy, func(t *testing.T, m *Model) { fillCart(t, m); m.Update(key("b")) }},
+		{"sell with cart", modeSell, func(t *testing.T, m *Model) { fillCart(t, m); m.Update(key("s")) }},
 	}
 	covered := map[mode]bool{}
 	for _, c := range cases {
