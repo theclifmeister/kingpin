@@ -25,7 +25,7 @@ func TestBackIsOneKey(t *testing.T) {
 	}
 	dialogs := []dialog{
 		{"sell", modeSell, func(m *Model) { m.Update(key("s")) }, func(m *Model) int { return m.dlg.step }, func(m *Model) int { return m.cursor }, 2, []string{"enter", "5", "enter"}},
-		{"buy", modeBuy, func(m *Model) { m.Update(key("b")) }, func(m *Model) int { return m.dlg.step }, func(m *Model) int { return m.cursor }, 1, []string{"enter"}},
+		{"buy", modeBuy, func(m *Model) { m.Update(key("b")) }, func(m *Model) int { return m.dlg.step }, func(m *Model) int { return m.cursor }, 2, []string{"enter", "5", "enter"}},
 		{"target", modeTarget, func(m *Model) {
 			m.Update(key("5"))
 			m.Update(key("]"))

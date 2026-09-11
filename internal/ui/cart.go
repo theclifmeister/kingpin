@@ -12,7 +12,9 @@ import (
 )
 
 // The cart (#103) is the day's shopping in one place: every buy made
-// today and every sell order queued, with the totals, readable in the
+// today, what the supply contracts bought this morning (#113, lines
+// marked contract, returnable like a buy) and every sell order queued,
+// with the totals, readable in the
 // buy and sell dialogs and the dashboard's and the market's pane and
 // editable in the cart modal (modeCart, one modal like every other):
 // a line's quantity, its dial, or the line itself. Removing or
@@ -21,17 +23,20 @@ import (
 // per-day scratch (w.Buys, w.Orders): nothing new is saved.
 
 // cartLine is one line of the cart: a buy made today, merged per city
-// and product, or a sell order queued.
+// and product, what a supply contract bought this morning (#113: a buy
+// marked contract, merged the same way and kept apart from the buys by
+// hand), or a sell order queued.
 type cartLine struct {
-	buy     bool
-	city    string
-	product string
-	qty     int
-	unit    float64     // a buy: the price paid a unit
-	cost    int         // a buy: what it cost
-	dial    events.Dial // an order: its dial
-	take    int         // an order: the take expected
-	heat    float64     // an order: the heat expected
+	buy      bool
+	contract bool // a buy the supply contract made this morning
+	city     string
+	product  string
+	qty      int
+	unit     float64     // a buy: the price paid a unit
+	cost     int         // a buy: what it cost
+	dial     events.Dial // an order: its dial
+	take     int         // an order: the take expected
+	heat     float64     // an order: the heat expected
 }
 
 // cartDialog is the state of the cart modal: the line under the cursor
@@ -43,21 +48,25 @@ type cartDialog struct {
 	err    string
 }
 
-// cartLines is the cart: the buys in the order they were made, then the
-// orders in city and ladder order.
+// cartLines is the cart: the buys in the order they were made, the
+// contracts' first since they were made first, then the orders in city
+// and ladder order.
 func (m *Model) cartLines() []cartLine {
 	w := m.w
 	var lines []cartLine
 	at := map[string]int{}
 	for _, b := range w.Buys {
 		k := game.OrderKey(b.City, b.Product)
+		if b.Contract {
+			k = "contract " + k
+		}
 		if i, ok := at[k]; ok {
 			lines[i].qty += b.Qty
 			lines[i].cost += b.Cost
 			continue
 		}
 		at[k] = len(lines)
-		lines = append(lines, cartLine{buy: true, city: b.City, product: b.Product, qty: b.Qty, cost: b.Cost})
+		lines = append(lines, cartLine{buy: true, contract: b.Contract, city: b.City, product: b.Product, qty: b.Qty, cost: b.Cost})
 	}
 	for i := range lines {
 		if lines[i].qty > 0 {
@@ -89,12 +98,14 @@ func (m *Model) orderEstimate(o game.SellOrder) (units, take int, heat float64) 
 	return units, take, m.estHeat(o.City, o.Product, o.Qty, o.Dial)
 }
 
-// cartTotals is the bottom line: the lines bought and what they cost,
-// the lines queued, what they are expected to take and the heat.
+// cartTotals is the bottom line: the lines bought and what they cost
+// (the contracts' among them, counted again on their own), the lines
+// queued, what they are expected to take and the heat.
 type cartTotals struct {
-	buys, sells int
-	spent, take int
-	heat        float64
+	buys, sells         int
+	spent, take         int
+	contracts, supplied int // the contract lines and what they cost, part of buys and spent
+	heat                float64
 }
 
 func totals(lines []cartLine) cartTotals {
@@ -103,6 +114,10 @@ func totals(lines []cartLine) cartTotals {
 		if l.buy {
 			t.buys++
 			t.spent += l.cost
+			if l.contract {
+				t.contracts++
+				t.supplied += l.cost
+			}
 		} else {
 			t.sells++
 			t.take += l.take
@@ -113,13 +128,17 @@ func totals(lines []cartLine) cartTotals {
 }
 
 // cartSummary is the cart in a sentence, the END THE DAY? modal's:
-// `Buying 3 lines for $12K, selling 2 lines, ~$30K, +4.2 heat.`; empty
-// for an empty cart.
+// `Buying 3 lines for $12K (2 by contract), selling 2 lines, ~$30K,
+// +4.2 heat.`; empty for an empty cart.
 func (m *Model) cartSummary() string {
 	t := totals(m.cartLines())
 	var parts []string
 	if t.buys > 0 {
-		parts = append(parts, fmt.Sprintf("buying %s for %s", plural(t.buys, "line"), cash(t.spent)))
+		line := fmt.Sprintf("buying %s for %s", plural(t.buys, "line"), cash(t.spent))
+		if t.contracts > 0 {
+			line += fmt.Sprintf(" (%d by contract)", t.contracts)
+		}
+		parts = append(parts, line)
 	}
 	if t.sells > 0 {
 		parts = append(parts, fmt.Sprintf("selling %s, ~%s, %+.1f heat", plural(t.sells, "line"), cash(t.take), t.heat))
@@ -140,9 +159,12 @@ func (m *Model) cartRows(lines []cartLine) [][]any {
 	var rows [][]any
 	for _, l := range lines {
 		name, city := m.w.ProductName(l.product), m.w.CityName(l.city)
-		if l.buy {
+		switch {
+		case l.contract:
+			rows = append(rows, []any{"contract", name, city, l.qty, l.unit, nil, styled{theme.Bad, -l.cost}, nil})
+		case l.buy:
 			rows = append(rows, []any{"buy", name, city, l.qty, l.unit, nil, styled{theme.Bad, -l.cost}, nil})
-		} else {
+		default:
 			rows = append(rows, []any{"sell", name, city, l.qty, nil, dialShort(l.dial), styled{theme.Gold, l.take}, styled{heatStyle(m.w.City(l.city).Heat + l.heat*4), fmt.Sprintf("%+.1f", l.heat)}})
 		}
 	}
@@ -156,6 +178,9 @@ func (m *Model) cartTotalLine(t cartTotals) string {
 	var parts []string
 	if t.buys > 0 {
 		parts = append(parts, sub("spent ")+money(t.spent))
+	}
+	if t.contracts > 0 {
+		parts = append(parts, sub("by contract ")+money(t.supplied))
 	}
 	if t.sells > 0 {
 		parts = append(parts, sub("expect ")+theme.Gold.Render("~"+money(t.take)), sub("heat ")+fmt.Sprintf("%+.1f", t.heat))
@@ -189,16 +214,23 @@ func (m *Model) cartSection(city string) []section {
 	t := totals(lines)
 	var ls []string
 	if t.buys > 0 {
-		ls = append(ls, row("buying", fmt.Sprintf("%s, %s", plural(t.buys, "line"), cash(t.spent))))
+		line := fmt.Sprintf("%s, %s", plural(t.buys, "line"), cash(t.spent))
+		if t.contracts > 0 {
+			line += sep + fmt.Sprintf("%d by contract", t.contracts)
+		}
+		ls = append(ls, row("buying", line))
 	}
 	if t.sells > 0 {
 		ls = append(ls, row("selling", fmt.Sprintf("%s, ~%s", plural(t.sells, "line"), cash(t.take))), row("heat", fmt.Sprintf("%+.1f expected", t.heat)))
 	}
 	for _, l := range lines {
 		what := fmt.Sprintf("%d %s", l.qty, m.w.ProductName(l.product))
-		if l.buy {
+		switch {
+		case l.contract:
+			ls = append(ls, row("contract", what+" "+money(l.cost)))
+		case l.buy:
 			ls = append(ls, row("buy", what+" "+money(l.cost)))
-		} else {
+		default:
 			ls = append(ls, row("sell", what+" "+dialShort(l.dial)+" ~"+cash(l.take)))
 		}
 		if l.city != city {
@@ -332,10 +364,19 @@ func (m *Model) cartMax() int {
 		return 0
 	case !l.buy:
 		return m.w.Stock(l.city, l.product)
-	case l.city == m.w.Player.Location:
+	case l.city == m.w.Player.Location && !l.contract:
 		return l.qty + m.maxBuy(l.product)
 	}
 	return l.qty
+}
+
+// giveBack is the cart returning units of a buy line: a contract's
+// through ReturnSupplied, a buy by hand's through Return.
+func (m *Model) giveBack(l cartLine, qty int) (int, error) {
+	if l.contract {
+		return m.w.ReturnSupplied(l.city, l.product, qty)
+	}
+	return m.w.Return(l.city, l.product, qty)
 }
 
 // setCartQty is enter on the cart's quantity step: an order is placed
@@ -357,13 +398,16 @@ func (m *Model) setCartQty() {
 		}
 		switch {
 		case qty < l.qty:
-			refund, err := m.w.Return(l.city, l.product, l.qty-qty)
+			refund, err := m.giveBack(*l, l.qty-qty)
 			if err != nil {
 				d.err = dialogError(err)
 				m.refuse("Can't return: " + err.Error())
 				return
 			}
 			m.say(fmt.Sprintf("Returned %d %s, %s back.", l.qty-qty, m.w.ProductName(l.product), money(refund)))
+		case qty > l.qty && l.contract:
+			d.err = "A contract's line only goes back: the supplier sells you more by hand."
+			return
 		case qty > l.qty && !here:
 			d.err = fmt.Sprintf("You are in %s: it was bought in %s.", m.w.CityName(m.w.Player.Location), m.w.CityName(l.city))
 			return
@@ -400,7 +444,7 @@ func (m *Model) removeCartLine(l cartLine) {
 		m.say("Order cancelled.")
 		return
 	}
-	refund, err := m.w.Return(l.city, l.product, l.qty)
+	refund, err := m.giveBack(l, l.qty)
 	if err != nil {
 		m.crt.err = dialogError(err)
 		m.refuse("Can't return: " + err.Error())
@@ -429,7 +473,9 @@ func (m *Model) viewCart() string {
 		line := "quantity   " + d.qty.View()
 		if l.buy {
 			note := fmt.Sprintf("bought %d", l.qty)
-			if l.city == m.w.Player.Location {
+			if l.contract {
+				note += " by contract"
+			} else if l.city == m.w.Player.Location {
 				note += fmt.Sprintf(", up to %d more", m.maxBuy(l.product))
 			}
 			line += "   " + theme.Subtle.Render(note)

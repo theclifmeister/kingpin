@@ -599,6 +599,35 @@ type WholesaleBought struct {
 
 func (WholesaleBought) Kind() string { return "WholesaleBought" }
 
+// SupplyBought is report-only bookkeeping: what a supply contract (#113)
+// bought from the supplier in its city this morning, at the contract
+// markup, to bring the stash there back to its level.
+type SupplyBought struct {
+	Day     int
+	City    string
+	Product string
+	Units   int
+	Level   int     // the contract's level
+	Price   float64 // per unit paid, the markup included
+	Cost    int     // dirty cash
+}
+
+func (SupplyBought) Kind() string { return "SupplyBought" }
+
+// SupplyShort is report-only bookkeeping: a supply contract that could
+// not bring the stash to its level this morning, for want of cash over
+// the float or of room in the stash, and what it bought instead.
+type SupplyShort struct {
+	Day     int
+	City    string
+	Product string
+	Units   int    // bought
+	Short   int    // still under the level
+	Why     string // "cash" or "room"
+}
+
+func (SupplyShort) Kind() string { return "SupplyShort" }
+
 // ShipmentSent is report-only bookkeeping: a shipment the route put on
 // the road this morning, with how long it is expected to take.
 type ShipmentSent struct {

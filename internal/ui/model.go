@@ -730,7 +730,7 @@ func (m *Model) moveCursor(dx, dy int) {
 }
 
 // cancelSelected cancels the order on the selected product in the city
-// acted on.
+// acted on, or, with none, clears its supply contract (#113).
 func (m *Model) cancelSelected() {
 	if m.cursor >= len(m.w.Products) {
 		return
@@ -740,6 +740,11 @@ func (m *Model) cancelSelected() {
 		if _, ok := m.w.Order(city, id); ok {
 			m.w.CancelSell(city, id)
 			m.say("Order cancelled.")
+		} else if c, ok := m.w.Supplied(city, id); ok {
+			// With no order to cancel, x clears the supply contract
+			// (#113): the stash is no longer kept there.
+			m.w.ClearSupply(city, id)
+			m.say(fmt.Sprintf("Contract cleared: %s in %s is no longer kept at %d.", m.w.ProductName(id), m.w.CityName(city), c.Units))
 		}
 	}
 }

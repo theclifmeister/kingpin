@@ -72,6 +72,9 @@ func (c *Clock) Sims() []Simulation { return c.sims }
 
 // EndDay steps every simulation, clears per-day scratch, publishes the
 // tick's events and returns them. It is a no-op once the run is over.
+// Of the day's receipts it keeps what the supply contracts bought this
+// morning (#113), so the cart can show and return them through the day;
+// the buys made by hand and yesterday's contract receipts go.
 func (c *Clock) EndDay(w *World) []events.Event {
 	if w.Over != nil {
 		return nil
@@ -86,7 +89,7 @@ func (c *Clock) EndDay(w *World) []events.Event {
 	}
 	w.Day = day
 	w.Orders = map[string]SellOrder{}
-	w.Buys = nil
+	w.Buys = supplied(w.Buys, day)
 	w.LieLow = false
 	w.Strike = nil
 	w.Investigation = nil
@@ -115,4 +118,20 @@ func (c *Clock) EndDay(w *World) []events.Event {
 		}
 	}
 	return t.events
+}
+
+// supplied is the receipts the clock keeps into the morning of day: the
+// supply contracts' buys made in the tick that brings it, with Prior
+// cleared, since the market has reset the supplier price since and a
+// return must not walk it back to yesterday's. Nil when there are none,
+// as the scratch was before the contracts.
+func supplied(buys []Purchase, day int) []Purchase {
+	var kept []Purchase
+	for _, b := range buys {
+		if b.Contract && b.Day == day {
+			b.Prior = 0
+			kept = append(kept, b)
+		}
+	}
+	return kept
 }

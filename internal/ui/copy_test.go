@@ -157,7 +157,8 @@ func TestStatusKinds(t *testing.T) {
 	m.Update(key("b"))
 	m.Update(key("enter"))
 	m.Update(key("enter"))
-	m.Update(key("esc")) // the dialog stays open for the next line (#103)
+	m.Update(key("enter")) // once
+	m.Update(key("esc"))   // the dialog stays open for the next line (#103)
 	check("a buy", theme.Body)
 	// A danger: the morning after the tell has shown twice, with the
 	// informant still on the payroll (the count resets once nobody is
@@ -176,6 +177,7 @@ func TestStatusKinds(t *testing.T) {
 	m.Update(key("enter"))
 	m.dlg.qty.SetValue("x")
 	m.Update(key("enter"))
+	m.Update(key("enter")) // once: refused back to the quantity step
 	if m.dlg.err != "Enter a whole number above zero." {
 		t.Errorf("the dialog error: %q", m.dlg.err)
 	}
