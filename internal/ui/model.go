@@ -7,7 +7,6 @@ import (
 	"fmt"
 	"strings"
 
-	"github.com/charmbracelet/bubbles/viewport"
 	tea "github.com/charmbracelet/bubbletea"
 	"github.com/charmbracelet/lipgloss"
 
@@ -114,8 +113,9 @@ type Model struct {
 	assignCursor  int    // row in the assign picker
 	modalScroll   int    // first body line the open modal shows
 	outcome       string // what the last answer did, while it shows
-	journal       viewport.Model
-	journalSeen   int // the journal's length when the journal screen was last shown; not saved, a view cursor like city
+	journalCursor int    // headline selected on the journal screen, newest first
+	journalTop    int    // first headline the journal screen shows
+	journalSeen   int    // the journal's length when the journal screen was last shown; not saved, a view cursor like city
 	dlg           dialog
 	tgt           targetDialog
 	fnd           fundDialog
@@ -141,7 +141,6 @@ func New(cfg *content.Config) (*Model, error) {
 		clock: game.NewClock(bus, sims...),
 	}
 	bus.Subscribe(m.onEvent)
-	m.journal = viewport.New(80, 20)
 	if game.HasSave() {
 		m.mode = modeStart
 	} else {
@@ -572,11 +571,7 @@ func (m *Model) switchScreen(s screen) {
 func (m *Model) moveCursor(dx, dy int) {
 	switch m.screen {
 	case screenJournal:
-		if dy < 0 {
-			m.journal.ScrollUp(1)
-		} else if dy > 0 {
-			m.journal.ScrollDown(1)
-		}
+		m.journalMove(dy)
 	case screenCrew:
 		if dy < 0 && m.crewCursor > 0 {
 			m.crewCursor--
@@ -1054,62 +1049,4 @@ func (m *Model) viewReport() string {
 		body = body[:len(body)-1]
 	}
 	return m.modal(fmt.Sprintf("MORNING REPORT · DAY %d", r.Day), body, m.modalFooter())
-}
-
-func (m *Model) refreshJournal() {
-	if m.w == nil {
-		return
-	}
-	var b strings.Builder
-	for i := len(m.w.Journal) - 1; i >= 0; i-- {
-		h := m.w.Journal[i]
-		b.WriteString(theme.Subtle.Render(fmt.Sprintf("day %3d  ", h.Day)))
-		b.WriteString(lipgloss.NewStyle().Foreground(theme.Source(h.Source)).Render(h.Text))
-		b.WriteString("\n")
-	}
-	if b.Len() == 0 {
-		b.WriteString(theme.Subtle.Render("The paper has nothing to say about you. Yet."))
-	}
-	m.journal.SetContent(b.String())
-	m.journal.GotoTop()
-	// A new run's journal is shorter than the last one's: nothing in it
-	// has been read past its end.
-	m.journalSeen = min(m.journalSeen, len(m.w.Journal))
-}
-
-// journalUnread is how many headlines have landed since the journal
-// screen was last shown.
-func (m *Model) journalUnread() int {
-	return max(0, len(m.w.Journal)-m.journalSeen)
-}
-
-func (m *Model) viewJournal() string {
-	m.journalSeen = len(m.w.Journal) // shown is read
-	title := theme.PanelTitle.Render("JOURNAL") + theme.Subtle.Render(fmt.Sprintf("  %d headlines, newest first", len(m.w.Journal)))
-	return title + "\n" + m.journal.View()
-}
-
-// journalSources are the sources a headline can have, in the order the
-// journal's legend lists them.
-var journalSources = []string{"market", "buyers", "heat", "law", "crew", "territory", "rivals", "laundering", "logistics", "reputation", "dilemma", "flavour"}
-
-// journalDetails is the journal's pane: what the colours mean, and the
-// keys.
-func (m *Model) journalDetails() []section {
-	var legend []string
-	for i := 0; i < len(journalSources); i += 2 {
-		l := fit(lipgloss.NewStyle().Foreground(theme.Source(journalSources[i])).Render(journalSources[i]), paneTextW/2)
-		if i+1 < len(journalSources) {
-			l += lipgloss.NewStyle().Foreground(theme.Source(journalSources[i+1])).Render(journalSources[i+1])
-		}
-		legend = append(legend, l)
-	}
-	secs := []section{
-		{"JOURNAL", []string{
-			row("headlines", fmt.Sprintf("%d", len(m.w.Journal))),
-			row("order", "newest first"),
-		}},
-		{"LEGEND", legend},
-	}
-	return secs
 }
