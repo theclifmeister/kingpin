@@ -86,19 +86,17 @@ func (m *Model) viewStrike() string {
 	width := max(30, m.width-10)
 	var b strings.Builder
 	b.WriteString(truncate(theme.Subtle.Render(fmt.Sprintf("%d enforcer(s) vs %s on %s, muscle ~%.1f", m.w.Crew.Role("enforcer"), m.rivalName(), c.Name, m.set.Rivals.Defence(m.w))), width) + "\n\n")
+	var cells [][]any
 	for i, r := range rows {
-		var line string
 		if i < len(forces) {
 			f := forces[i]
-			line = fmt.Sprintf("%-5s  take it ~%3.0f%%  heat +%-4.0f war +%-3.0f", f, m.set.Rivals.Odds(m.w, f)*100, m.set.Rivals.StrikeHeat(c, f), m.cfg.Rivals.ForceFor(f).War)
+			cells = append(cells, []any{r, approx{m.set.Rivals.Odds(m.w, f) * 100}, signed{m.set.Rivals.StrikeHeat(c, f)}, signed{m.cfg.Rivals.ForceFor(f).War}})
 		} else {
-			line = fmt.Sprintf("%-5s  keep them home tonight", r)
+			cells = append(cells, []any{r, nil, nil, nil})
 		}
-		if i == m.strikeCursor {
-			b.WriteString(theme.Gold.Render("▸ ") + theme.Selected.Render(line) + "\n")
-		} else {
-			b.WriteString("  " + line + "\n")
-		}
+	}
+	for _, l := range table([]col{{"force", kText, 0}, {"takes it", kPct, 0}, {"heat", kInt, 0}, {"war", kInt, 0}}, cells, m.strikeCursor, width) {
+		b.WriteString(l + "\n")
 	}
 	for _, l := range []string{
 		"Harder flips faster, draws more heat on you, adds to the war",

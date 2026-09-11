@@ -40,51 +40,19 @@ func (m *Model) viewDashboard() string {
 		leftW, rightW = m.width, 0
 	}
 
-	// Street panel: product table with sparklines. Fixed columns take 42
-	// cells; whatever is left goes to the sparkline.
+	// Street panel: the product table with sparklines; the sparkline
+	// takes what the fixed columns leave, up to 24 days.
 	var street strings.Builder
 	innerW := leftW - 4
-	sparkW := max(4, min(24, innerW-42))
-	street.WriteString(theme.Subtle.Render(fmt.Sprintf("  %-8s %8s %5s %-*s %4s %-5s", "", "price", "Δ", sparkW, "30d", "stock", "order")) + "\n")
-	for i, id := range w.Products {
-		p := here.Market[id]
-		if p == nil {
-			continue
-		}
-		delta := 0.0
-		if n := len(p.History); n >= 2 {
-			delta = pct(p.History[n-2], p.History[n-1])
-		}
-		ds := theme.Subtle.Render(fmt.Sprintf("%+4.0f%%", delta))
-		if delta > 1 {
-			ds = theme.Good.Render(fmt.Sprintf("%+4.0f%%", delta))
-		} else if delta < -1 {
-			ds = theme.Bad.Render(fmt.Sprintf("%+4.0f%%", delta))
-		}
-		order := theme.Subtle.Render("-    ")
-		if o, ok := w.Order(here.ID, id); ok {
-			order = theme.Gold.Render(fit(fmt.Sprintf("%d%s", o.Qty, o.Dial.String()[:1]), 5))
-		}
-		cur := "  "
-		if i == m.cursor {
-			cur = theme.Gold.Render("▸ ")
-		}
-		row := fmt.Sprintf("%s%-8s %8s %s %s %4d %s",
-			cur, truncate(p.Name, 8), price(p.Price), ds,
-			theme.Good.Render(fit(sparkline.Render(p.History, sparkW), sparkW)),
-			w.Stock(here.ID, id), order)
-		if p.ShockDays > 0 {
-			if p.ShockSlump {
-				row += theme.Warning.Render(" ▼")
-			} else {
-				row += theme.Good.Render(" ▲")
-			}
-		}
-		street.WriteString(row + "\n")
+	cols, rows, cursor := m.productRows(here.ID, m.cursor, false)
+	sparkW := max(3, min(24, innerW-tableWidth(cols, rows)))
+	sparkCol(cols, rows, sparkW)
+	for _, l := range table(cols, rows, cursor, innerW) {
+		street.WriteString(l + "\n")
 	}
 	street.WriteString(theme.Subtle.Render(fmt.Sprintf("stash here %d/%d units · supplier sells at ~%.0f%% of street",
 		w.Player.StockIn(here.ID), w.Capacity(here.ID), m.set.Market.SupplierRatio(w)*100)) + "\n")
-	if line := m.elsewhereLine(); line != "" && h-6-(3+len(w.CityOrder)) < 15 {
+	if line := m.elsewhereLine(); line != "" && h-6-(4+len(w.CityOrder)) < 15 {
 		street.WriteString(lipgloss.NewStyle().Foreground(theme.Logistics).Render(line) + "\n")
 	}
 	if w.Worked() == 0 {
@@ -151,8 +119,8 @@ func (m *Model) viewDashboard() string {
 	// it. Where it is not, the street carries the road in a line.
 	lawH := 6
 	citiesH := 0
-	if len(w.CityOrder) > 1 && h-lawH-(3+len(w.CityOrder)) >= 15 {
-		citiesH = 3 + len(w.CityOrder)
+	if len(w.CityOrder) > 1 && h-lawH-(4+len(w.CityOrder)) >= 15 {
+		citiesH = 4 + len(w.CityOrder) // the border, the title, the header and a row per city
 	}
 	left := lipgloss.JoinVertical(lipgloss.Left,
 		panel("STREET · "+here.Name, street.String(), leftW, h-lawH-citiesH, theme.Market),
@@ -288,12 +256,12 @@ func (m *Model) elsewhereLine() string {
 // it, in width cells.
 func (m *Model) citiesLines(width int) string {
 	w := m.w
-	var b strings.Builder
+	var rows [][]any
 	for _, cid := range w.CityOrder {
 		c := w.Cities[cid]
-		mark := "  "
+		var name any = "  " + c.Name
 		if cid == w.Player.Location {
-			mark = theme.Gold.Render("◉ ")
+			name = styled{theme.Gold, "◉ " + c.Name}
 		}
 		value := 0
 		for id, q := range w.Player.Stash[cid] {
@@ -307,16 +275,12 @@ func (m *Model) citiesLines(width int) string {
 				held++
 			}
 		}
-		runsW := 6
-		if width >= 60 {
-			runsW = 10
-		}
-		runs := theme.Subtle.Render(fit("-", runsW))
+		var runs any = "nobody"
 		switch lt := w.Crew.Lieutenant(cid); {
 		case lt != nil:
-			runs = lipgloss.NewStyle().Foreground(theme.Crew).Render(fit(lt.Name, runsW))
+			runs = styled{lipgloss.NewStyle().Foreground(theme.Crew), lt.Name}
 		case cid == w.Player.Location:
-			runs = fit("you", runsW)
+			runs = "you"
 		}
 		road, soonest := 0, 0
 		for _, sh := range w.Shipments {
@@ -328,13 +292,14 @@ func (m *Model) citiesLines(width int) string {
 				soonest = d
 			}
 		}
-		line := mark + fit(c.Name, 8) + " " + theme.Gold.Render(fit(cash(value), 5)) + theme.Subtle.Render(fit(fmt.Sprintf(" %d/%d", held, len(c.Corners)), 6)) + runs + " " + heatStyle(c.Heat).Render(fmt.Sprintf("heat %.0f", c.Heat))
+		var onRoad any
 		if road > 0 {
-			line += lipgloss.NewStyle().Foreground(theme.Logistics).Render(fmt.Sprintf(" ◂%d %dd", road, soonest))
+			onRoad = styled{lipgloss.NewStyle().Foreground(theme.Logistics), fmt.Sprintf("◂ %s in %dd", plural(road, "unit"), soonest)}
 		}
-		b.WriteString(truncate(line, width) + "\n")
+		rows = append(rows, []any{name, value, fmt.Sprintf("%d/%d", held, len(c.Corners)), runs, styled{heatStyle(c.Heat), c.Heat}, onRoad})
 	}
-	return strings.TrimRight(b.String(), "\n")
+	cols := []col{{"city", kText, 0}, {"stash", kCash, 0}, {"corners", kText, 0}, {"runs", kText, 0}, {"heat", kInt, 0}, {"road", kText, 0}}
+	return strings.Join(table(cols, rows, -1, width), "\n")
 }
 
 // reputationAxes are the dashboard's three bars: the axis, its label at

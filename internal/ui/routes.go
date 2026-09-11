@@ -86,7 +86,7 @@ func (m *Model) openTarget() {
 	ti := textinput.New()
 	ti.Placeholder = "blank = none"
 	ti.CharLimit = 6
-	ti.Width = 14
+	ti.Width = 8
 	ti.Prompt = "> "
 	m.tgt = targetDialog{route: r.ID, units: ti}
 	m.mode = modeTarget
@@ -199,18 +199,16 @@ func (m *Model) viewTarget() string {
 	lineW := max(20, m.width-10) // inside the modal's frame
 	b.WriteString(truncate(theme.Subtle.Render(fmt.Sprintf("%s keeps %s stocked: every day it sends what is short of", r.Name, w.CityName(r.To))), lineW) + "\n")
 	b.WriteString(truncate(theme.Subtle.Render(fmt.Sprintf("the target, up to %d units, buying by the lot in %s.", r.Capacity, w.CityName(r.From))), lineW) + "\n\n")
-	b.WriteString(theme.Subtle.Render(fmt.Sprintf("  %-8s %7s %7s %7s %9s", "", "target", "there", "road", "sells/day")) + "\n")
-	for i, pid := range w.Products {
-		target := "-"
+	var rows [][]any
+	for _, pid := range w.Products {
+		var target any
 		if t := rs.Target[pid]; t > 0 {
-			target = strconv.Itoa(t)
+			target = t
 		}
-		line := fmt.Sprintf("%-8s %7s %7d %7d %9s", fit(w.ProductName(pid), 8), target, w.Stock(r.To, pid), w.Bound(r.To, pid), fmt.Sprintf("~%.0f", w.Demand(r.To, pid)))
-		if i == m.cursor {
-			b.WriteString(theme.Gold.Render("▸ ") + theme.Selected.Render(line) + "\n")
-		} else {
-			b.WriteString("  " + theme.Subtle.Render(line) + "\n")
-		}
+		rows = append(rows, []any{w.ProductName(pid), target, w.Stock(r.To, pid), w.Bound(r.To, pid), approx{w.Demand(r.To, pid)}})
+	}
+	for _, l := range table([]col{{"product", kText, 0}, {"target", kInt, 0}, {"there", kInt, 0}, {"road", kInt, 0}, {"sells/day", kInt, 0}}, rows, m.cursor, lineW) {
+		b.WriteString(l + "\n")
 	}
 	if d.step == 0 {
 		b.WriteString("\n" + theme.Subtle.Render("Pick a product, then enter.") + "\n")

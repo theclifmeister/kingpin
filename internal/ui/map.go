@@ -193,25 +193,24 @@ func (m *Model) viewPost() string {
 	}
 	m.postCursor = max(0, min(m.postCursor, len(rows)-1))
 	var b strings.Builder
-	for i, r := range rows {
-		where := theme.Subtle.Render("idle")
+	var cells [][]any
+	for _, r := range rows {
+		var where any = styled{theme.Subtle, "idle"}
 		if p := m.w.PostOf(r.ID); p != nil {
 			if p.ID == c.ID {
-				where = theme.Good.Render("already here")
+				where = styled{theme.Good, "already here"}
 			} else {
-				where = theme.Warning.Render("on " + p.Name + ", will move")
+				where = styled{theme.Warning, "on " + p.Name + ", will move"}
 			}
 		}
-		skill := fmt.Sprintf("skill %2d", r.Skill)
+		var skill any = r.Skill
 		if r.ID == game.You {
-			skill = "in person"
+			skill = nil
 		}
-		line := fmt.Sprintf("%-8s %-10s ", fit(r.Name, 8), skill)
-		if i == m.postCursor {
-			b.WriteString(theme.Gold.Render("▸ ") + theme.Selected.Render(line) + " " + where + "\n")
-		} else {
-			b.WriteString("  " + line + " " + where + "\n")
-		}
+		cells = append(cells, []any{r.Name, skill, where})
+	}
+	for _, l := range table([]col{{"name", kText, 0}, {"skill", kInt, 0}, {"where", kText, 0}}, cells, m.postCursor, max(30, m.width-6)) {
+		b.WriteString(l + "\n")
 	}
 	what := "work"
 	if m.postRole == "enforcer" {

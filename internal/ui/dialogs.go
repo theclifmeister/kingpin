@@ -254,22 +254,28 @@ func (m *Model) viewDialog() string {
 	var b strings.Builder
 
 	// Step 0: product list.
+	cols := []col{{"product", kText, 0}, {"price/unit", kPrice, 0}, {"have", kInt, 0}}
+	if !buy {
+		cols = append(cols, col{"demand/day", kInt, 0})
+	}
+	var rows [][]any
+	cursor := -1
 	for i, pid := range w.Products {
 		pm := w.Product(city, pid)
 		if pm == nil {
 			continue
 		}
-		var line string
-		if buy {
-			line = fmt.Sprintf("%-8s  %8s/unit   have %d", pm.Name, price(pm.SupplierPrice), w.Stock(city, pid))
-		} else {
-			line = fmt.Sprintf("%-8s  %8s/unit   have %d   demand ~%.0f", pm.Name, price(pm.Price), w.Stock(city, pid), w.Demand(city, pid))
-		}
 		if i == m.cursor {
-			b.WriteString(theme.Gold.Render("▸ ") + theme.Selected.Render(line) + "\n")
-		} else {
-			b.WriteString("  " + theme.Subtle.Render(line) + "\n")
+			cursor = len(rows)
 		}
+		if buy {
+			rows = append(rows, []any{pm.Name, pm.SupplierPrice, w.Stock(city, pid)})
+		} else {
+			rows = append(rows, []any{pm.Name, pm.Price, w.Stock(city, pid), approx{w.Demand(city, pid)}})
+		}
+	}
+	for _, l := range table(cols, rows, cursor, max(30, m.width-6)) {
+		b.WriteString(l + "\n")
 	}
 	b.WriteString("\n")
 

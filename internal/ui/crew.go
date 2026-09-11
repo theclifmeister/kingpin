@@ -9,7 +9,6 @@ import (
 
 	"github.com/theclifmeister/kingpin/internal/events"
 	"github.com/theclifmeister/kingpin/internal/game"
-	"github.com/theclifmeister/kingpin/internal/ui/sparkline"
 	"github.com/theclifmeister/kingpin/internal/ui/theme"
 )
 
@@ -213,74 +212,67 @@ func (m *Model) viewCrew() string {
 	}
 	b.WriteString("\n")
 
-	barW := 10
 	marks := []float64{tun.SkimThreshold / 100}
-	header := theme.Subtle.Render(fmt.Sprintf("  %-8s %-10s %5s  %-*s  %6s %6s  ", "", "role", "skill", barW+4, "loyalty", "wage", "units"))
 	crewStyle := lipgloss.NewStyle().Foreground(theme.Crew)
 	// post is the status column: where the member is and, when they are
 	// nowhere, what that means for their role. An accountant has no post,
 	// they work every front you own; an enforcer without a corner guards
 	// nothing; a runner without one is idle.
-	post := func(c game.CrewMember) string {
+	post := func(c game.CrewMember) any {
 		switch {
 		case c.Lieutenant():
 			if c.City != "" {
-				return crewStyle.Render(fit("runs "+m.w.CityName(c.City), 12))
+				return styled{crewStyle, "runs " + m.w.CityName(c.City)}
 			}
-			return theme.Warning.Render(fit("no city (t)", 12))
+			return styled{theme.Warning, "no city"}
 		case c.Role == "accountant":
 			switch n := len(w.Fronts); {
 			case n == 0:
-				return theme.Warning.Render(fit("no front", 12))
+				return styled{theme.Warning, "no front"}
 			case n == 1:
-				return crewStyle.Render(fit("the books", 12))
+				return styled{crewStyle, "the books"}
 			default:
-				return crewStyle.Render(fit(fmt.Sprintf("%d fronts", n), 12))
+				return styled{crewStyle, fmt.Sprintf("%d fronts", n)}
 			}
 		}
 		if p := m.w.PostOf(c.ID); p != nil {
-			return fit(p.Name, 12)
+			return p.Name
 		}
 		if c.Role == "enforcer" {
-			return theme.Warning.Render(fit("unposted", 12))
+			return styled{theme.Warning, "unposted"}
 		}
-		return theme.Warning.Render(fit("idle", 12))
+		return styled{theme.Warning, "idle"}
 	}
-	row := func(i int, c game.CrewMember, last string) string {
-		cur := "  "
-		name := fit(c.Name, 8)
-		if i == m.crewCursor {
-			cur = theme.Gold.Render("▸ ")
-			name = theme.Selected.Render(name)
-		}
-		ls := loyaltyStyle(c.Loyalty, tun.SkimThreshold)
+	// row is the cells every member and candidate shares: the loyalty
+	// bar is coloured against the line they skim (or, for a lieutenant,
+	// turn) under, and carry is what a runner adds to the stash.
+	row := func(c game.CrewMember) []any {
+		line := tun.SkimThreshold
 		if c.Lieutenant() {
-			ls = loyaltyStyle(c.Loyalty, m.set.Crew.FlipLine())
+			line = m.set.Crew.FlipLine()
 		}
-		units := theme.Subtle.Render(fmt.Sprintf("%6s", "-"))
+		var carry any
 		if c.Units > 0 {
-			units = fmt.Sprintf("%+6d", c.Units)
+			carry = c.Units
 		}
-		return fmt.Sprintf("%s%s %-10s %5d  %s %s  %6s %s  %s",
-			cur, name, c.Role, c.Skill,
-			ls.Render(sparkline.Bar(c.Loyalty/100, barW, marks)), ls.Render(fmt.Sprintf("%3.0f", c.Loyalty)),
-			money(m.set.Crew.WageAt(c, pay)), units, theme.Subtle.Render(last))
+		var name any = c.Name
+		if c.ID == w.Crew.Exposed {
+			name = styled{theme.Bad.Bold(true), c.Name}
+		}
+		return []any{name, c.Role, c.Skill, styled{loyaltyStyle(c.Loyalty, line), gauge{c.Loyalty / 100, marks, c.Loyalty}}, m.set.Crew.WageAt(c, pay), carry}
 	}
+	shared := []col{{"name", kText, 0}, {"role", kText, 0}, {"skill", kInt, 0}, {"loyalty", kBar, 10}, {"wage", kMoney, 0}, {"carry", kInt, 0}}
 
 	b.WriteString(theme.Bold.Render("ON THE PAYROLL") + "\n")
 	if len(w.Crew.Members) == 0 {
 		b.WriteString(theme.Subtle.Render("  Nobody. Runners hold corners you can't stand on yourself; pick one below and press h.") + "\n")
 	} else {
-		b.WriteString(header + theme.Subtle.Render(fmt.Sprintf("%-12s since", "post")) + "\n")
-		for i, c := range w.Crew.Members {
-			last := theme.Subtle.Render(fmt.Sprintf(" day %d", c.Hired))
-			if t := m.temper(c); t != "" {
-				last = lipgloss.NewStyle().Foreground(theme.Crew).Render(" " + t)
-			}
-			if c.ID == w.Crew.Exposed {
-				last = theme.Bad.Bold(true).Render(" SNITCH")
-			}
-			b.WriteString(truncate(row(i, c, "")+post(c)+last, m.width) + "\n")
+		var rows [][]any
+		for _, c := range w.Crew.Members {
+			rows = append(rows, append(row(c), post(c), day(c.Hired)))
+		}
+		for _, l := range table(append(shared, col{"post", kText, 0}, col{"hired", kDays, 0}), rows, m.crewCursor, m.width) {
+			b.WriteString(l + "\n")
 		}
 	}
 	b.WriteString("\n")
@@ -290,13 +282,16 @@ func (m *Model) viewCrew() string {
 	if len(w.Crew.Candidates) == 0 {
 		b.WriteString(theme.Subtle.Render("  Nobody right now.") + "\n")
 	} else {
-		b.WriteString(header + theme.Subtle.Render("fee") + "\n")
-		for i, c := range w.Crew.Candidates {
-			fee := money(c.Fee)
+		var rows [][]any
+		for _, c := range w.Crew.Candidates {
+			var fee any = c.Fee
 			if c.Fee > w.Player.DirtyCash {
-				fee = theme.Bad.Render(fee)
+				fee = styled{theme.Bad, c.Fee}
 			}
-			b.WriteString(truncate(row(len(w.Crew.Members)+i, c, "")+fmt.Sprintf("%-6s ", fee)+theme.Subtle.Render(hireBlurb(c.Role)), m.width) + "\n")
+			rows = append(rows, append(row(c), fee))
+		}
+		for _, l := range table(append(shared, col{"fee", kMoney, 0}), rows, m.crewCursor-len(w.Crew.Members), m.width) {
+			b.WriteString(l + "\n")
 		}
 	}
 	b.WriteString("\n")
@@ -337,7 +332,7 @@ func (m *Model) viewCrew() string {
 		b.WriteString(theme.Warning.Render("  A lieutenant with no city is a wage. Press t to give them one.") + "\n")
 	}
 	if c := w.Crew.Member(w.Crew.Exposed); c != nil {
-		b.WriteString(theme.Bad.Render(fmt.Sprintf("  %s has been talking to the police. The file grows until they go (f).", c.Name)) + "\n")
+		b.WriteString(theme.Bad.Render(fmt.Sprintf("  SNITCH: %s has been talking to the police. The file grows until they go (f).", c.Name)) + "\n")
 	} else if w.Investigation != nil {
 		b.WriteString(theme.Warning.Render("  Questions get asked tonight.") + "\n")
 	}
@@ -346,21 +341,6 @@ func (m *Model) viewCrew() string {
 		b.WriteString(theme.Warning.Render(fmt.Sprintf("  Sloppy runners (skill under %d) add +%.1f heat per 100 units moved.", m.cfg.Heat.Heat.SloppySkill, per)) + "\n")
 	}
 	return b.String()
-}
-
-// hireBlurb is what a candidate would do on the payroll, short enough for
-// the pool's last column at 80 columns.
-func hireBlurb(role string) string {
-	switch role {
-	case "accountant":
-		return "works fronts"
-	case "enforcer":
-		return "guards corner"
-	case game.RoleLieutenant:
-		return "runs a city"
-	default:
-		return "holds corner"
-	}
 }
 
 // accountants is what the accountants on the payroll add to every front's

@@ -67,25 +67,23 @@ func (m *Model) viewAssign() string {
 	rows := m.assignRows()
 	m.assignCursor = max(0, min(m.assignCursor, len(rows)-1))
 	var b strings.Builder
-	for i, cid := range rows {
-		label, note := "nobody's", theme.Subtle.Render("take them off the city")
-		if cid != "" {
-			label = m.w.CityName(cid)
-			switch other := m.w.Crew.Lieutenant(cid); {
-			case other != nil && other.ID == lt.ID:
-				note = theme.Good.Render("theirs now")
-			case other != nil:
-				note = theme.Warning.Render(other.Name + " runs it")
-			default:
-				note = theme.Subtle.Render(fmt.Sprintf("%d corner(s) held, %d units stashed", heldIn(m.w, cid), m.w.Player.StockIn(cid)))
-			}
+	var cells [][]any
+	for _, cid := range rows {
+		if cid == "" {
+			cells = append(cells, []any{"nobody's", nil, nil, styled{theme.Subtle, "take them off the city"}})
+			continue
 		}
-		line := fmt.Sprintf("%-12s", fit(label, 12))
-		if i == m.assignCursor {
-			b.WriteString(theme.Gold.Render("▸ ") + theme.Selected.Render(line) + " " + note + "\n")
-		} else {
-			b.WriteString("  " + line + " " + note + "\n")
+		var runs any = "nobody"
+		switch other := m.w.Crew.Lieutenant(cid); {
+		case other != nil && other.ID == lt.ID:
+			runs = styled{theme.Good, "theirs now"}
+		case other != nil:
+			runs = styled{theme.Warning, other.Name}
 		}
+		cells = append(cells, []any{m.w.CityName(cid), heldIn(m.w, cid), m.w.Player.StockIn(cid), runs})
+	}
+	for _, l := range table([]col{{"city", kText, 0}, {"corners", kInt, 0}, {"units", kInt, 0}, {"runs", kText, 0}}, cells, m.assignCursor, max(30, m.width-6)) {
+		b.WriteString(l + "\n")
 	}
 	b.WriteString("\n" + theme.Subtle.Render(fmt.Sprintf("Every night they post the idle crew on the city's corners, give up a corner\nrobbed twice, and sell the stash there at their dial; your own order wins.\nThey keep %.0f%% of the city's takings and bring %d people of their own.", m.set.Crew.Cut()*100, m.cfg.Crew.Role[game.RoleLieutenant].Crew)) + "\n")
 	b.WriteString("\n" + theme.Subtle.Render(fmt.Sprintf("Which city should %s run?  ", lt.Name)) + theme.Key.Render("enter") + " assign  " + theme.Key.Render("esc") + " back")
@@ -103,16 +101,6 @@ func heldIn(w *game.World, city string) int {
 		}
 	}
 	return n
-}
-
-// temper is a lieutenant's personality as the roster shows it: the word
-// once you have seen enough of them, nothing until then (the runs line
-// says how long that is).
-func (m *Model) temper(c game.CrewMember) string {
-	if !c.Lieutenant() || !c.Observed {
-		return ""
-	}
-	return c.Personality
 }
 
 // runsLine is one line per city with a lieutenant, for the dashboard and
