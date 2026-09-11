@@ -1,7 +1,12 @@
 package game
 
 import (
+	"bytes"
+	"encoding/gob"
 	"fmt"
+	"math"
+	"os"
+	"reflect"
 	"strings"
 	"testing"
 
@@ -12,7 +17,7 @@ import (
 // when it fails".
 func snapshot(w *World) string {
 	var b strings.Builder
-	fmt.Fprintf(&b, "%+v %v %v %v", w.Player, w.Upgrades, w.UpgradesToday, w.FallGuyUsed)
+	fmt.Fprintf(&b, "%+v %v %v %v", w.Player, w.Upgrades, w.UpgradesToday, w.FallsTaken)
 	for id, m := range w.Home().Market {
 		fmt.Fprintf(&b, " %s=%.4f", id, m.SupplierPrice)
 	}
@@ -111,11 +116,11 @@ func TestBuyUpgradeTable(t *testing.T) {
 // The fold uses each effect's own rule: the supplier's discount is
 // replaced, not stacked; multipliers multiply; deltas add; an empty world
 // is the identity.
-func TestFoldEffects(t *testing.T) {
+func TestFoldEffectsOnTheTree(t *testing.T) {
 	tree := content.MustLoad().Upgrades
 	w := testWorld()
 	fx := FoldEffects(w, tree)
-	if fx != (Effects{SupplierMul: 1, BuyPressureMul: 1, FillMul: 1, SaleHeatMul: 1, CrewHeatMul: 1, StingStockMul: 1, RaidLossMul: 1}) {
+	if fx != identity {
 		t.Fatalf("fresh world folds to %+v", fx)
 	}
 	w.Upgrades["ghosts"], w.Upgrades["cutouts"] = true, true
@@ -132,14 +137,176 @@ func TestFoldEffects(t *testing.T) {
 	if fx := FoldEffects(w, tree); fx.SupplierMul != 0.85 || fx.BuyPressureMul != 0.7 {
 		t.Fatalf("supplier2 should replace the discount: %+v", fx)
 	}
-	for _, id := range []string{"burners", "lookouts", "laylow", "lawyer", "retainer", "fallguy"} {
+	for _, id := range []string{"burners", "lookouts", "laylow", "lawyer", "paper", "retainer", "judge", "fallguy", "fallguy2"} {
 		w.Upgrades[id] = true
 	}
 	fx = FoldEffects(w, tree)
 	if fx.SaleHeatMul != 0.85 || fx.PatrolCap != 0.8 || fx.CooldownBonus != 2 || fx.StingStockMul != 0.5 ||
-		fx.LieLowMultiplier != 3.0 || fx.Decay != 0.13 || fx.EvidenceCut != 1 || fx.EvidenceDecayDays != 30 ||
-		fx.EvidenceArrest != 8 || !fx.FallGuy || fx.RaidLossMul != 1 {
+		fx.LieLowMultiplier != 3.0 || fx.Decay != 0.13 || fx.EvidenceCut != 2 || fx.EvidenceDecayDays != 20 ||
+		fx.EvidenceArrest != 8 || fx.FallGuys != 2 || fx.RaidLossMul != 1 {
 		t.Fatalf("security and legal: %+v", fx)
+	}
+}
+
+// foldRule is how two owned nodes carrying the same effect combine
+// (#117): the four rules of the upgrades.toml header.
+type foldRule int
+
+const (
+	product foldRule = iota // the multipliers stack
+	sum                     // the deltas add
+	lowest                  // the best discount owned counts; a multiplier over 1 is ignored
+	highest                 // the biggest replacement or raise owned counts
+)
+
+// Every name of the vocabulary with its fold rule, tabled by the field
+// it lands on. TestFoldEffects folds two nodes carrying a and b and
+// checks the result against the rule; a field of content.UpgradeEffects
+// missing from this table fails the test, so a new name cannot land
+// without its rule.
+var foldRules = []struct {
+	name string
+	rule foldRule
+}{
+	{"CarryBonus", sum},
+
+	{"SupplierMul", lowest},
+	{"BuyPressureMul", product},
+	{"FillMul", product},
+	{"SaleImpactMul", product},
+	{"DemandMul", product},
+	{"GlutDecayMul", highest},
+	{"BuyerGapMul", lowest},
+	{"ContractPremiumBonus", sum},
+
+	{"SaleHeatMul", product},
+	{"CrewHeatMul", product},
+	{"PatrolCap", highest},
+	{"CooldownBonus", sum},
+	{"StingStockMul", product},
+	{"RaidLossMul", product},
+	{"LieLowMultiplier", highest},
+	{"Decay", highest},
+	{"DirtyCashThresholdMul", highest},
+	{"EvidenceCut", sum},
+	{"AuditEvidenceCut", sum},
+	{"EvidenceDecayDays", lowest},
+	{"EvidenceArrest", highest},
+	{"FallGuys", sum},
+
+	{"WageMul", lowest},
+	{"LoyaltyLossMul", product},
+	{"DangerLoyaltyMul", product},
+	{"SkimChanceMul", product},
+	{"InformantChanceMul", product},
+	{"CrewSlots", sum},
+	{"CandidatesBonus", sum},
+	{"PoolDaysCut", sum},
+	{"SkillBonus", sum},
+	{"HireFeeMul", lowest},
+	{"StartLoyaltyBonus", sum},
+
+	{"WashMul", product},
+	{"AuditRiskMul", product},
+	{"AuditSeizeMul", lowest},
+	{"UpkeepMul", lowest},
+	{"AuditFreezeCut", sum},
+	{"FloatMul", lowest},
+
+	{"RouteRiskMul", product},
+	{"RouteCapacityMul", product},
+	{"RouteDaysMul", lowest},
+	{"FareMul", lowest},
+	{"WholesaleMul", lowest},
+
+	{"DriftDaysBonus", sum},
+	{"RobberyMul", product},
+	{"GuardBonus", sum},
+	{"RivalPushMul", product},
+}
+
+// Every name in the vocabulary folds by its rule: two owned nodes
+// carrying a and b give a*b, a+b, min or max (carry_bonus is applied on
+// purchase and is the one name Effects does not carry); the table covers
+// every field of content.UpgradeEffects, and every field of Effects has
+// its rule in the table.
+func TestFoldEffects(t *testing.T) {
+	cfgT := reflect.TypeOf(content.UpgradeEffects{})
+	fxT := reflect.TypeOf(Effects{})
+	tabled := map[string]bool{}
+	for _, r := range foldRules {
+		tabled[r.name] = true
+	}
+	for i := 0; i < cfgT.NumField(); i++ {
+		if f := cfgT.Field(i); !tabled[f.Name] {
+			t.Errorf("content.UpgradeEffects.%s (%s) has no fold rule in the table", f.Name, f.Tag.Get("toml"))
+		}
+	}
+	for i := 0; i < fxT.NumField(); i++ {
+		if f := fxT.Field(i); !tabled[f.Name] {
+			t.Errorf("Effects.%s has no fold rule in the table", f.Name)
+		}
+	}
+	for _, r := range foldRules {
+		if _, ok := fxT.FieldByName(r.name); !ok {
+			if r.name == "CarryBonus" {
+				continue
+			}
+			t.Errorf("%s is tabled but Effects has no such field", r.name)
+			continue
+		}
+		cf, ok := cfgT.FieldByName(r.name)
+		if !ok {
+			t.Errorf("%s is tabled but content.UpgradeEffects has no such field", r.name)
+			continue
+		}
+		// Two nodes, a and b, in one tree: for a multiplier the values
+		// sit either side of 1 so lowest and highest are told apart
+		// from a product; for a delta they are plain counts.
+		a, b := 0.6, 1.5
+		if cf.Type.Kind() == reflect.Int {
+			a, b = 3, 5
+		}
+		set := func(v float64) content.UpgradeEffects {
+			var e content.UpgradeEffects
+			f := reflect.ValueOf(&e).Elem().FieldByName(r.name)
+			if f.Kind() == reflect.Int {
+				f.SetInt(int64(v))
+			} else {
+				f.SetFloat(v)
+			}
+			return e
+		}
+		tree := content.UpgradesConfig{Nodes: []content.UpgradeConfig{
+			{ID: "a", Name: "A", Branch: "operations", Cost: 1, Effects: set(a)},
+			{ID: "b", Name: "B", Branch: "operations", Cost: 1, Effects: set(b)},
+		}}
+		w := testWorld()
+		w.Upgrades["a"], w.Upgrades["b"] = true, true
+		got := reflect.ValueOf(FoldEffects(w, tree)).FieldByName(r.name)
+		var val float64
+		if got.Kind() == reflect.Int {
+			val = float64(got.Int())
+		} else {
+			val = got.Float()
+		}
+		want := map[foldRule]float64{product: a * b, sum: a + b, lowest: math.Min(a, b), highest: math.Max(a, b)}[r.rule]
+		if r.name == "EvidenceDecayDays" || r.name == "EvidenceArrest" {
+			// Replacements: 0 means the config's own, so lowest and
+			// highest are between the nodes that set them.
+			want = map[foldRule]float64{lowest: math.Min(a, b), highest: math.Max(a, b)}[r.rule]
+		}
+		if math.Abs(val-want) > 1e-9 {
+			t.Errorf("%s: two nodes at %v and %v fold to %v, want %v (%s)", r.name, a, b, val, want, []string{"product", "sum", "lowest", "highest"}[r.rule])
+		}
+		// Nothing owned folds to the identity: 1 for a multiplier, 0
+		// for the rest.
+		w.Upgrades = map[string]bool{}
+		none := reflect.ValueOf(FoldEffects(w, tree)).FieldByName(r.name)
+		id := reflect.ValueOf(identity).FieldByName(r.name)
+		if none.Kind() == reflect.Int && none.Int() != 0 || none.Kind() == reflect.Float64 && none.Float() != id.Float() {
+			t.Errorf("%s: nothing owned folds to %v", r.name, none)
+		}
 	}
 }
 
@@ -148,7 +315,7 @@ func TestSaveKeepsUpgrades(t *testing.T) {
 	w := testWorld()
 	w.Upgrades["stash"] = true
 	w.Upgrades["burners"] = true
-	w.FallGuyUsed = true
+	w.FallsTaken = 1
 	w.Heat.Evidence = 2
 	w.Heat.EvidenceDay = 7
 	if err := Save(1, w); err != nil {
@@ -158,8 +325,8 @@ func TestSaveKeepsUpgrades(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	if !got.Owns("stash") || !got.Owns("burners") || got.Owns("lawyer") || !got.FallGuyUsed || got.Heat.Evidence != 2 || got.Heat.EvidenceDay != 7 {
-		t.Fatalf("upgrades did not round-trip: %v fallguy %v heat %+v", got.Upgrades, got.FallGuyUsed, got.Heat)
+	if !got.Owns("stash") || !got.Owns("burners") || got.Owns("lawyer") || got.FallsTaken != 1 || got.Heat.Evidence != 2 || got.Heat.EvidenceDay != 7 {
+		t.Fatalf("upgrades did not round-trip: %v falls %d heat %+v", got.Upgrades, got.FallsTaken, got.Heat)
 	}
 	// A save from before the tree loads with nothing owned and a dated
 	// file, and can buy.
@@ -174,5 +341,55 @@ func TestSaveKeepsUpgrades(t *testing.T) {
 	w.Player.DirtyCash = 1_000_000
 	if _, err := w.BuyUpgrade(content.MustLoad().Upgrades, "stash"); err != nil {
 		t.Fatal(err)
+	}
+}
+
+// v9World is a schema-9 save as far as the fall guy goes: the flag on
+// World that fall_guys as a count (#117) replaced.
+type v9World struct {
+	SchemaVersion int
+	Seed          uint64
+	Day           int
+	Cities        map[string]*City
+	CityOrder     []string
+	Player        Player
+	Upgrades      map[string]bool
+	FallGuyUsed   bool
+}
+
+// A save owning the fall guy migrates to the count with the same
+// meaning: one who had taken his fall is one fall taken, one who had
+// not is none, and the flag is gone from the stream either way.
+func TestSaveMigratesTheFallGuy(t *testing.T) {
+	t.Setenv("KINGPIN_HOME", t.TempDir())
+	fresh := testWorld()
+	for _, used := range []bool{true, false} {
+		old := v9World{SchemaVersion: 9, Seed: fresh.Seed, Day: 4, Cities: fresh.Cities, CityOrder: fresh.CityOrder, Player: fresh.Player, Upgrades: map[string]bool{"fallguy": true}, FallGuyUsed: used}
+		var buf bytes.Buffer
+		if err := gob.NewEncoder(&buf).Encode(old); err != nil {
+			t.Fatal(err)
+		}
+		p, _ := SavePath(1)
+		if err := os.WriteFile(p, buf.Bytes(), 0o644); err != nil {
+			t.Fatal(err)
+		}
+		if _, err := Load(1); err == nil {
+			t.Fatal("a schema-9 save loaded without a migration")
+		}
+		got, err := Load(1, Migration{From: 9, Apply: MigrateFallGuys})
+		if err != nil {
+			t.Fatal(err)
+		}
+		want := 0
+		if used {
+			want = 1
+		}
+		if got.SchemaVersion != SchemaVersion || got.FallsTaken != want || !got.Owns("fallguy") || got.Day != 4 {
+			t.Fatalf("used %v: schema %d falls %d owns %v day %d", used, got.SchemaVersion, got.FallsTaken, got.Upgrades, got.Day)
+		}
+		fx := FoldEffects(got, content.MustLoad().Upgrades)
+		if got.FallGuyLeft(fx) == used {
+			t.Fatalf("used %v: a fall guy is left = %v", used, got.FallGuyLeft(fx))
+		}
 	}
 }

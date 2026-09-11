@@ -259,15 +259,20 @@ func hottest(w *game.World) *game.City {
 	return best
 }
 
-// Upgraded plays like Managed and spends on the tree: whenever it can pay
+// Upgraded plays like Crewed and spends on the tree: whenever it can pay
 // three times the price of the cheapest node it can buy, it buys it,
 // Security first, then Operations, then Legal. It is the baseline for "a
-// player who invests instead of reinvesting every dollar in stock".
+// player who invests instead of reinvesting every dollar in stock", and
+// since #117 it is the crewed player, the tree's customer: a lone
+// trader who buys every node pays for insurance and for crew, front and
+// road nodes it cannot use, so buying everything is a trap for one by
+// design, and the tree is measured on the operation it is for
+// (TestUpgradedBeatsCrewed).
 func Upgraded(cfg *content.Config, lieLowAt float64) Policy {
-	managed := Managed(cfg, lieLowAt)
+	crewed := Crewed(cfg, lieLowAt)
 	return func(w *game.World) {
 		BuyUpgrades(cfg, w, 3)
-		managed(w)
+		crewed(w)
 	}
 }
 

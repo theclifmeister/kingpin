@@ -93,6 +93,7 @@ func (s *Sim) BuyPressure(w *game.World) float64 {
 // shock this morning on the street that was waiting for it.
 func (s *Sim) Step(w *game.World, t *game.Tick) {
 	tun := s.cfg.Market
+	fx := game.FoldEffects(w, s.tree)
 	for _, id := range w.UpgradesToday {
 		if u := s.tree.Upgrade(id); u != nil {
 			t.Emit(events.UpgradeBought{Day: t.Day, ID: u.ID, Name: u.Name, Branch: u.Branch, Cost: u.Cost, Clean: u.Clean})
@@ -173,8 +174,9 @@ func (s *Sim) Step(w *game.World, t *game.Tick) {
 				}
 			}
 
-			// 3. Glut clears, price reverts toward target with noise.
-			m.Glut *= 1 - tun.GlutDecay
+			// 3. Glut clears (faster with a price runner on the
+			// street), price reverts toward target with noise.
+			m.Glut *= 1 - math.Min(1, tun.GlutDecay*fx.GlutDecayMul)
 			target := basePrice / (1 + m.Glut)
 			if !m.ShockSlump {
 				target *= m.ShockFactor
@@ -242,11 +244,23 @@ func (s *Sim) Fill(w *game.World, d events.Dial) float64 {
 	return fill
 }
 
+// Demand is what the player's worked corners in a city serve of a
+// product today: World.Demand (the city's demand per standard corner
+// times the share of corners worked there, which the UI shows as the
+// street's demand), stretched by the Operations branch (demand_mul: the
+// regulars and the name on the street). It is what the market serves an
+// order against and what a sale's impact is measured against; the heat
+// sim reads the same multiplier for what a sale attempts, so the dial
+// preview stays honest.
+func (s *Sim) Demand(w *game.World, city, product string) float64 {
+	return w.Demand(city, product) * game.FoldEffects(w, s.tree).DemandMul
+}
+
 // Capacity is how many units of a product the street of a city will take
 // at dial d today: the demand of the corners the player works there, at
 // the dial's fill. Without a worked corner there is nowhere to sell.
 func (s *Sim) Capacity(w *game.World, city, product string, d events.Dial) int {
-	return int(math.Round(w.Demand(city, product) * s.Fill(w, d)))
+	return int(math.Round(s.Demand(w, city, product) * s.Fill(w, d)))
 }
 
 // resolve turns a sell order into cash, price impact and a PlayerSold
@@ -255,17 +269,18 @@ func (s *Sim) Capacity(w *game.World, city, product string, d events.Dial) int {
 // the crew sim's cut and the heat sim's temper.
 func (s *Sim) resolve(w *game.World, t *game.Tick, city string, m *game.ProductMarket, o game.SellOrder, standing bool) {
 	d := s.Dial(o.Dial)
-	demand := w.Demand(city, o.Product)
+	demand := s.Demand(w, city, o.Product)
 	sold := min(o.Qty, s.Capacity(w, city, o.Product, o.Dial), w.Stock(city, o.Product))
 	if sold < 0 {
 		sold = 0
 	}
 	// Impact grows with the square of volume over demand: moving what the
-	// street absorbs barely dents the price, flooding it craters it.
+	// street absorbs barely dents the price, flooding it craters it. A
+	// set of scales (sale_impact_mul) dents it less.
 	impact := 0.0
 	if demand > 0 {
 		ratio := float64(sold) / demand
-		impact = s.cfg.Market.SaleImpact * d.Impact * ratio * ratio
+		impact = s.cfg.Market.SaleImpact * game.FoldEffects(w, s.tree).SaleImpactMul * d.Impact * ratio * ratio
 	}
 	impact = math.Min(impact, 0.6)
 	avg := m.Price * d.Price * (1 - impact/2)

@@ -10,7 +10,7 @@ import (
 )
 
 // SchemaVersion is bumped whenever World changes shape incompatibly.
-const SchemaVersion = 9
+const SchemaVersion = 10
 
 // World is the complete state of a run. Every field is a plain value so the
 // whole struct can be serialised with encoding/gob.
@@ -22,24 +22,24 @@ type World struct {
 	Cities    map[string]*City // keyed by city id; CityCityOrder fixes their sequence
 	CityOrder []string         // city ids in a fixed order, home first
 
-	Player      Player
-	Products    []string // ordered product ids, the same in every city
-	Heat        HeatState
-	Crew        CrewState
-	Rival       RivalState
-	Upgrades    map[string]bool // upgrade ids owned; effects fold from these (FoldEffects)
-	FallGuyUsed bool            // the fall guy has taken his one fall
-	Fronts      []Front         // businesses the player owns, in the order bought
-	Laundering  LaunderingState
-	Dilemmas    DilemmaState            // the card waiting for an answer, and the deck's pacing
-	Shipments   []Shipment              // product on the road, in the order sent
-	Logistics   LogisticsState          // the shipment counter, the seizure record and the routes' books
-	Routes      map[string]RouteSetting // the route dials, keyed by route id; a route not here is off
-	Offers      []Offer                 // deals the rival has put on the table, oldest first
-	Delegated   map[string]SellOrder    // the lieutenants' standing sell orders, keyed like Orders; the crew step refreshes them
-	Law         LawState                // the chief and the DA (#41); pressure and goodwill are per city
-	Contracts   []Contract              // the buyers' orders (#71), oldest first; the market sim deals and resolves them
-	Buyers      BuyersState             // the buyer deck's pacing and blacklist
+	Player     Player
+	Products   []string // ordered product ids, the same in every city
+	Heat       HeatState
+	Crew       CrewState
+	Rival      RivalState
+	Upgrades   map[string]bool // upgrade ids owned; effects fold from these (FoldEffects)
+	FallsTaken int             // fall guys who have taken their fall (#117: fall_guys is a count; each takes one)
+	Fronts     []Front         // businesses the player owns, in the order bought
+	Laundering LaunderingState
+	Dilemmas   DilemmaState            // the card waiting for an answer, and the deck's pacing
+	Shipments  []Shipment              // product on the road, in the order sent
+	Logistics  LogisticsState          // the shipment counter, the seizure record and the routes' books
+	Routes     map[string]RouteSetting // the route dials, keyed by route id; a route not here is off
+	Offers     []Offer                 // deals the rival has put on the table, oldest first
+	Delegated  map[string]SellOrder    // the lieutenants' standing sell orders, keyed like Orders; the crew step refreshes them
+	Law        LawState                // the chief and the DA (#41); pressure and goodwill are per city
+	Contracts  []Contract              // the buyers' orders (#71), oldest first; the market sim deals and resolves them
+	Buyers     BuyersState             // the buyer deck's pacing and blacklist
 
 	// Per-day scratch, cleared by the clock after every EndDay.
 	Orders        map[string]SellOrder // pending sell orders keyed by product id
@@ -59,7 +59,8 @@ type World struct {
 	Over    *Ending    // non-nil once the run has ended
 	Stats   Stats
 
-	legacy *v6 // what a pre-7 save carried for its one city; Load sets it, MigrateCities consumes it
+	legacy *v6  // what a pre-7 save carried for its one city; Load sets it, MigrateCities consumes it
+	fell   bool // what a pre-10 save carried as FallGuyUsed; Load sets it, MigrateFallGuys consumes it
 }
 
 // City is one city of the run: its own street prices and demand, its own

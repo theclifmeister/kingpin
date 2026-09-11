@@ -101,6 +101,18 @@ func (s *Sim) wants(w *game.World, b content.BuyerConfig) (cities []string, prod
 	return cities, products
 }
 
+// Gaps is the pacing of the buyers' offers today: none for the first
+// gap of days after the last, one certain by the second, both
+// [buyers]'s scaled by the Operations branch (buyer_gap_mul), the first
+// never over the second.
+func (s *Sim) Gaps(w *game.World) (minGap, maxGap int) {
+	mul := game.FoldEffects(w, s.tree).BuyerGapMul
+	pace := s.bcfg.Buyers
+	minGap = max(0, int(math.Round(float64(pace.MinGap)*mul)))
+	maxGap = max(minGap, int(math.Round(float64(pace.MaxGap)*mul)))
+	return minGap, maxGap
+}
+
 // deal puts at most one offer on the table: none while one is open or
 // for MinGap days after the last, then a chance rising each day so one
 // is certain by MaxGap, if any buyer is eligible. Every roll comes off
@@ -111,13 +123,17 @@ func (s *Sim) deal(w *game.World, t *game.Tick) {
 		return
 	}
 	pace := s.bcfg.Buyers
+	fx := game.FoldEffects(w, s.tree)
 	rng := t.Sub("buyers")
 	roll := rng.Float64()
 	since := t.Day - w.Buyers.LastOffer
-	if w.OpenOffer() || since < pace.MinGap {
+	// A buyer's book (buyer_gap_mul) shortens both gaps; the roll is made
+	// either way, so the side stream is the same whatever is owned.
+	minGap, maxGap := s.Gaps(w)
+	if w.OpenOffer() || since < minGap {
 		return
 	}
-	if roll >= float64(since-pace.MinGap+1)/float64(pace.MaxGap-pace.MinGap+1) {
+	if roll >= float64(since-minGap+1)/float64(maxGap-minGap+1) {
 		return
 	}
 	// Weighted pick over who is eligible, ones already seen thinned so the
@@ -177,7 +193,7 @@ func (s *Sim) deal(w *game.World, t *game.Tick) {
 	base := pc.Demand * s.cityProduct(city, product).Demand * math.Max(1, w.HeldShare(city, product))
 	size := b.Size[0] + rng.Float64()*(b.Size[1]-b.Size[0])
 	days := b.Days[0] + rng.IntN(b.Days[1]-b.Days[0]+1)
-	premium := b.Premium[0] + rng.Float64()*(b.Premium[1]-b.Premium[0])
+	premium := b.Premium[0] + rng.Float64()*(b.Premium[1]-b.Premium[0]) + fx.ContractPremiumBonus
 	premium = math.Round(premium*20) / 20 // to the nearest 0.05, the way a price is named out loud
 	units := max(1, int(math.Round(size*base)))
 	c := game.Contract{

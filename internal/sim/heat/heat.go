@@ -129,6 +129,14 @@ func (s *Sim) Cover(w *game.World) int {
 	return int(math.Round(s.cfg.Heat.DirtyCashCover * float64(cost)))
 }
 
+// DirtyCashThreshold is the dirty cash the police read nothing into,
+// before what the fronts cover: heat.toml's line, raised by the Security
+// branch (dirty_cash_threshold_mul). The dashboard's warning reads it,
+// so the line the player sees is the one the dice use.
+func (s *Sim) DirtyCashThreshold(w *game.World) int {
+	return int(math.Round(float64(s.cfg.Heat.DirtyCashThreshold) * s.Effects(w).DirtyCashThresholdMul))
+}
+
 // Floor is the heat a feared player never cools below: decay works on
 // what is above it. A nobody's floor is zero.
 func (s *Sim) Floor(w *game.World) float64 {
@@ -200,7 +208,7 @@ func (s *Sim) SaleHeat(w *game.World, city, product string, wanted int, dial eve
 		return 0
 	}
 	fx := s.Effects(w)
-	attempted := math.Min(float64(wanted), math.Round(w.Demand(city, product)*s.dialFill(dial)*fx.FillMul))
+	attempted := math.Min(float64(wanted), math.Round(w.Demand(city, product)*fx.DemandMul*s.dialFill(dial)*fx.FillMul))
 	return tun.SaleHeat * fx.SaleHeatMul * attempted * s.CornerWeight(w, city, product) * c.HeatMul * pc.Heat / tun.StreetUnits * s.dialHeat(dial) * s.LieutenantHeat(w, city)
 }
 
@@ -438,8 +446,8 @@ func (s *Sim) Step(w *game.World, t *game.Tick) {
 
 	// Sitting on a pile of dirty cash is its own tell, wherever you sit,
 	// past what your fronts give a story to (Cover).
-	if tun.DirtyCashThreshold > 0 && w.Player.DirtyCash > tun.DirtyCashThreshold+s.Cover(w) {
-		mult := float64(w.Player.DirtyCash-tun.DirtyCashThreshold-s.Cover(w)) / float64(tun.DirtyCashThreshold)
+	if thr := s.DirtyCashThreshold(w); thr > 0 && w.Player.DirtyCash > thr+s.Cover(w) {
+		mult := float64(w.Player.DirtyCash-thr-s.Cover(w)) / float64(thr)
 		add(here, tun.DirtyCashHeat*mult, "dirty cash")
 	}
 
@@ -452,8 +460,8 @@ func (s *Sim) Step(w *game.World, t *game.Tick) {
 		if f.Audited == 0 || f.Audited != t.Day-1 {
 			continue
 		}
-		if f.AuditDial == events.LaunderGreedy && tun.AuditEvidence > 0 {
-			h.Evidence += tun.AuditEvidence
+		if pages := max(0, tun.AuditEvidence-fx.AuditEvidenceCut); f.AuditDial == events.LaunderGreedy && pages > 0 {
+			h.Evidence += pages
 			add(here, tun.AuditHeat, fmt.Sprintf("audit at %s, run greedy: the DA's file grows", f.Name))
 		} else {
 			add(here, tun.AuditHeat, fmt.Sprintf("audit at %s", f.Name))
@@ -627,15 +635,16 @@ func pastTense(f events.Force) string {
 	}
 }
 
-// takeFall is the fall guy's one job: if the player owns one and he has
-// not been used, the case that would have ended the run closes on him
-// instead. The file is wiped, heat drops to 50 everywhere and half of all
-// cash goes on making it stick. It reports whether he took it.
+// takeFall is the fall guy's one job: if the player owns one who has not
+// taken his fall (fall_guys is a count, one fall each: World.FallGuyLeft),
+// the case that would have ended the run closes on him instead. The file
+// is wiped, heat drops to 50 everywhere and half of all cash goes on
+// making it stick. It reports whether he took it.
 func (s *Sim) takeFall(w *game.World, t *game.Tick, fx game.Effects) bool {
-	if !fx.FallGuy || w.FallGuyUsed {
+	if !w.FallGuyLeft(fx) {
 		return false
 	}
-	w.FallGuyUsed = true
+	w.FallsTaken++
 	w.Heat.Evidence = 0
 	w.Heat.EvidenceDay = t.Day
 	for _, c := range w.Cities {

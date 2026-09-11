@@ -270,7 +270,7 @@ func (m *Model) viewLedger() string {
 	line(theme.PanelTitle.Render("LEDGER"))
 	line(theme.Gold.Render("dirty "+cash(w.Player.DirtyCash)) + sub(" · ") + theme.Good.Render("clean "+cash(w.Player.CleanCash)) + sub(fmt.Sprintf(" · seized %s lifetime", cash(w.Stats.Seized))))
 	line(sub("launder  ") + launderRow(w.Laundering.Dial) + sub(fmt.Sprintf("   audit %.1f%%/day · up to %s/day", l.AnyAuditRisk(w)*100, money(l.Capacity(w)))))
-	if thr := m.cfg.Heat.Heat.DirtyCashThreshold; thr > 0 && w.Player.DirtyCash > thr {
+	if thr := m.set.Heat.DirtyCashThreshold(w); thr > 0 && w.Player.DirtyCash > thr {
 		line(theme.Warning.Render(fmt.Sprintf("▲ Dirty cash over %s draws heat every day it sits there.", cash(thr))))
 	}
 
@@ -482,7 +482,7 @@ func (m *Model) washSection() section {
 	} else if len(w.Fronts) > 0 {
 		lines = append(lines, wrapped(theme.Subtle, "An accountant, hired "+screenPointer(screenCrew)+", adds to every front and cuts audit risk. Keep them loyal: they skim the wash.")...)
 	}
-	if thr := m.cfg.Heat.Heat.DirtyCashThreshold; thr > 0 && w.Player.DirtyCash > thr {
+	if thr := m.set.Heat.DirtyCashThreshold(w); thr > 0 && w.Player.DirtyCash > thr {
 		lines = append(lines, wrapped(theme.Warning, fmt.Sprintf("Dirty cash over %s draws heat every day it sits there.", cash(thr)))...)
 	}
 	return section{"WASH", lines}

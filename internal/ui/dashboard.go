@@ -296,7 +296,7 @@ func (m *Model) heatLines(innerW int, narrow bool) []string {
 func (m *Model) cashLines(innerW int, narrow bool) []string {
 	w := m.w
 	over := ""
-	if line := m.cfg.Heat.Heat.DirtyCashThreshold; line > 0 {
+	if line := m.set.Heat.DirtyCashThreshold(w); line > 0 {
 		if line += m.set.Heat.Cover(w); w.Player.DirtyCash > line {
 			over = theme.Warning.Render(fmt.Sprintf("over %s: heat", cash(line)))
 		}

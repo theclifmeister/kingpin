@@ -791,26 +791,75 @@ type UpgradeConfig struct {
 	Effects  UpgradeEffects `toml:"effects"`
 }
 
-// UpgradeEffects are the named multipliers and deltas a node carries. The
-// header of upgrades.toml says how each combines across owned nodes; a
-// zero value means the node does not touch that effect.
+// UpgradeEffects are the named multipliers and deltas a node carries,
+// grouped by the sim that reads each (#117): the header of upgrades.toml
+// says how each combines across owned nodes (game.FoldEffects); a zero
+// value means the node does not touch that effect. Decode refuses a name
+// that is not here, so a typo in the file fails at start-up rather than
+// doing nothing.
 type UpgradeEffects struct {
-	CarryBonus        int     `toml:"carry_bonus"`
-	SupplierMul       float64 `toml:"supplier_mul"`
-	BuyPressureMul    float64 `toml:"buy_pressure_mul"`
-	FillMul           float64 `toml:"fill_mul"`
-	SaleHeatMul       float64 `toml:"sale_heat_mul"`
-	CrewHeatMul       float64 `toml:"crew_heat_mul"`
-	PatrolCap         float64 `toml:"patrol_cap"`
-	CooldownBonus     int     `toml:"cooldown_bonus"`
-	StingStockMul     float64 `toml:"sting_stock_mul"`
-	RaidLossMul       float64 `toml:"raid_loss_mul"`
-	LieLowMultiplier  float64 `toml:"lie_low_multiplier"`
-	Decay             float64 `toml:"decay"`
-	EvidenceCut       int     `toml:"evidence_cut"`
-	EvidenceDecayDays int     `toml:"evidence_decay_days"`
-	EvidenceArrest    int     `toml:"evidence_arrest"`
-	FallGuy           bool    `toml:"fall_guy"`
+	// Applied on purchase (game.World.BuyUpgrade).
+	CarryBonus int `toml:"carry_bonus"`
+
+	// The market sim.
+	SupplierMul          float64 `toml:"supplier_mul"`
+	BuyPressureMul       float64 `toml:"buy_pressure_mul"`
+	FillMul              float64 `toml:"fill_mul"`
+	SaleImpactMul        float64 `toml:"sale_impact_mul"`
+	DemandMul            float64 `toml:"demand_mul"`
+	GlutDecayMul         float64 `toml:"glut_decay_mul"`
+	BuyerGapMul          float64 `toml:"buyer_gap_mul"`
+	ContractPremiumBonus float64 `toml:"contract_premium_bonus"`
+
+	// The heat sim.
+	SaleHeatMul           float64 `toml:"sale_heat_mul"`
+	CrewHeatMul           float64 `toml:"crew_heat_mul"`
+	PatrolCap             float64 `toml:"patrol_cap"`
+	CooldownBonus         int     `toml:"cooldown_bonus"`
+	StingStockMul         float64 `toml:"sting_stock_mul"`
+	RaidLossMul           float64 `toml:"raid_loss_mul"`
+	LieLowMultiplier      float64 `toml:"lie_low_multiplier"`
+	Decay                 float64 `toml:"decay"`
+	DirtyCashThresholdMul float64 `toml:"dirty_cash_threshold_mul"`
+	EvidenceCut           int     `toml:"evidence_cut"`
+	AuditEvidenceCut      int     `toml:"audit_evidence_cut"`
+	EvidenceDecayDays     int     `toml:"evidence_decay_days"`
+	EvidenceArrest        int     `toml:"evidence_arrest"`
+	FallGuys              int     `toml:"fall_guys"`
+
+	// The crew sim (#118).
+	WageMul            float64 `toml:"wage_mul"`
+	LoyaltyLossMul     float64 `toml:"loyalty_loss_mul"`
+	DangerLoyaltyMul   float64 `toml:"danger_loyalty_mul"`
+	SkimChanceMul      float64 `toml:"skim_chance_mul"`
+	InformantChanceMul float64 `toml:"informant_chance_mul"`
+	CrewSlots          int     `toml:"crew_slots"`
+	CandidatesBonus    int     `toml:"candidates_bonus"`
+	PoolDaysCut        int     `toml:"pool_days_cut"`
+	SkillBonus         int     `toml:"skill_bonus"`
+	HireFeeMul         float64 `toml:"hire_fee_mul"`
+	StartLoyaltyBonus  int     `toml:"start_loyalty_bonus"`
+
+	// The laundering sim (#118).
+	WashMul        float64 `toml:"wash_mul"`
+	AuditRiskMul   float64 `toml:"audit_risk_mul"`
+	AuditSeizeMul  float64 `toml:"audit_seize_mul"`
+	UpkeepMul      float64 `toml:"upkeep_mul"`
+	AuditFreezeCut int     `toml:"audit_freeze_cut"`
+	FloatMul       float64 `toml:"float_mul"`
+
+	// The logistics sim (#119).
+	RouteRiskMul     float64 `toml:"route_risk_mul"`
+	RouteCapacityMul float64 `toml:"route_capacity_mul"`
+	RouteDaysMul     float64 `toml:"route_days_mul"`
+	FareMul          float64 `toml:"fare_mul"`
+	WholesaleMul     float64 `toml:"wholesale_mul"`
+
+	// The street: the territory and rivals sims (#119).
+	DriftDaysBonus int     `toml:"drift_days_bonus"`
+	RobberyMul     float64 `toml:"robbery_mul"`
+	GuardBonus     int     `toml:"guard_bonus"`
+	RivalPushMul   float64 `toml:"rival_push_mul"`
 }
 
 // HeadlinesConfig mirrors headlines.toml.

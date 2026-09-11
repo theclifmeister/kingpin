@@ -1,30 +1,86 @@
 # The upgrade tree: persistent, stacking bonuses bought with cash. Costs are
 # dirty cash unless clean = true. Each node's effects are named multipliers
-# and deltas that the sims read (game.Effects folds the owned nodes); how
-# two nodes with the same effect combine is fixed per name:
+# and deltas that the sims read (game.Effects folds the owned nodes at the
+# top of the owning sim's step; no sim reads another's); how two nodes
+# with the same effect combine is fixed per name, one of four rules:
+# product (the multipliers stack), sum (the deltas add), lowest (the best
+# discount owned counts, a multiplier over 1 is ignored) or highest (the
+# biggest replacement or raise owned counts). The vocabulary (#117) is
+# every name below, by the sim that reads it; a name not here is refused
+# at start-up.
 #
-#   carry_bonus          units added to your carry limit (sum; applied on purchase)
-#   supplier_mul         multiplier on the supplier's price (lowest owned wins)
-#   buy_pressure_mul     multiplier on how much a buy pushes the supplier price (product)
-#   fill_mul             multiplier on the fill of every dial (product)
-#   sale_heat_mul        multiplier on the heat a sale draws (product)
-#   crew_heat_mul        multiplier on the heat a unit a runner moves draws, relative to one you move (product)
-#   patrol_cap           fraction of demand a patrol still lets you sell (highest wins)
-#   cooldown_bonus       days added to the gap before the same response can fire again (sum)
-#   sting_stock_mul      multiplier on the stock a sting takes (product)
-#   raid_loss_mul        multiplier on the stock and cash a raid takes (product)
-#   lie_low_multiplier   replaces heat.toml's lie-low decay multiplier (highest wins)
-#   decay                replaces heat.toml's base heat decay (highest wins)
-#   evidence_cut         evidence knocked off every sting and raid, to a floor of 0 (sum)
-#   evidence_decay_days  a point of evidence goes cold after this many days without a new one (lowest wins)
-#   evidence_arrest      replaces heat.toml's evidence_arrest (highest wins)
-#   fall_guy             the first indictment (or arrest) is survived, once per run
+# Applied on purchase (game.World.BuyUpgrade):
+#   carry_bonus              units added to your carry limit (sum)
 #
-# Pricing follows the money curve (#24): Operations and Security are tier-1
-# and tier-2 purchases, affordable in the first weeks of a managed run and
-# paid off well before day 70; the two Legal nodes past the lawyer are
-# tier-3 commitments, and the retainer wants clean cash, which only the
-# fronts produce (laundering.toml): wash first, then lawyer up.
+# The market sim (market.Sim):
+#   supplier_mul             on the supplier's price (lowest)
+#   buy_pressure_mul         on how much a buy pushes the supplier price (product)
+#   fill_mul                 on the fill of every dial (product)
+#   sale_impact_mul          on the price impact of a sale (product)
+#   demand_mul               on what your worked corners serve: market.Sim.Demand, which an order is served against (product)
+#   glut_decay_mul           on how fast a glut clears, never over all of it (highest)
+#   buyer_gap_mul            on the buyers' min_gap and max_gap between offers (lowest)
+#   contract_premium_bonus   added to every contract's premium when it is offered (sum)
+#
+# The heat sim (heat.Sim):
+#   sale_heat_mul            on the heat a sale draws (product)
+#   crew_heat_mul            on the heat a unit a runner moves draws, relative to one you move (product)
+#   patrol_cap               fraction of demand a patrol still lets you sell (highest)
+#   cooldown_bonus           days added to the gap before the same response can fire again (sum)
+#   sting_stock_mul          on the stock a sting takes (product)
+#   raid_loss_mul            on the stock and cash a raid takes (product)
+#   lie_low_multiplier       replaces heat.toml's lie-low decay multiplier (highest)
+#   decay                    replaces heat.toml's base heat decay (highest)
+#   dirty_cash_threshold_mul on the dirty cash the police read nothing into, before what the fronts cover (highest)
+#   evidence_cut             evidence knocked off every sting and raid, to a floor of 0 (sum)
+#   audit_evidence_cut       evidence knocked off a greedy front's audit, to a floor of 0 (sum)
+#   evidence_decay_days      a point of evidence goes cold after this many days without a new one (lowest)
+#   evidence_arrest          replaces heat.toml's evidence_arrest (highest)
+#   fall_guys                indictments (or arrests) somebody else takes, one each, once per run (sum)
+#
+# The crew sim (crew.Sim, #118):
+#   wage_mul                 on the wage bill (lowest)
+#   loyalty_loss_mul         on the daily loyalty loss: greed drift, danger, unpaid (product)
+#   danger_loyalty_mul       on what a robbery or a strike costs in loyalty (product)
+#   skim_chance_mul          on the chance a member under the line skims (product)
+#   informant_chance_mul     on the chance a member under the line turns (product)
+#   crew_slots               added to the roster's size, crew.Sim.MaxCrew (sum)
+#   candidates_bonus         added to the hiring pool (sum)
+#   pool_days_cut            days off the pool's rotation, never under 1 (sum)
+#   skill_bonus              added to a generated candidate's skill (sum)
+#   hire_fee_mul             on a candidate's signing fee (lowest)
+#   start_loyalty_bonus      added to a generated candidate's loyalty (sum)
+#
+# The laundering sim (laundering.Sim, #118):
+#   wash_mul                 on every front's throughput (product)
+#   audit_risk_mul           on every front's audit risk (product)
+#   audit_seize_mul          on what an audit seizes (lowest)
+#   upkeep_mul               on every front's upkeep (lowest)
+#   audit_freeze_cut         days off an audit's freeze, never under 1 (sum)
+#   float_mul                on the float the wash, the road and a supply contract leave in the till (lowest)
+#
+# The logistics sim (logistics.Sim, #119):
+#   route_risk_mul           on every route's risk of interception (product)
+#   route_capacity_mul       on every route's capacity per shipment (product)
+#   route_days_mul           on every route's days in transit, never under one day (lowest)
+#   fare_mul                 on every route's fare per unit (lowest)
+#   wholesale_mul            on [wholesale] mul, the wholesaler's price over street supply (lowest)
+#
+# The street: the territory and rivals sims (#119):
+#   drift_days_bonus         days added before a held corner nobody works drifts (sum)
+#   robbery_mul              on every corner's robbery chance, before an enforcer's cut (product)
+#   guard_bonus              an extra body on every contested corner in rivals.Sim.Guard (sum)
+#   rival_push_mul           on the rival's push chance, rivals.Sim.PushPace (product)
+#
+# Pricing follows the money curve (#24): tier 1 under $50k, tier 2 to
+# $500k, tier 3 to $2M, tier 4 above. Operations and Security open as
+# tier-1 and tier-2 purchases, affordable in the first weeks of a managed
+# run, and each branch runs up the tiers; the Legal nodes past the lawyer
+# are tier-3 and tier-4 commitments, and the clean-cash nodes want what
+# only the fronts produce (laundering.toml): wash first, then lawyer up.
+# No node adds sale_heat_mul, crew_heat_mul or street_units beyond the
+# ones below (#60's rule, TestSecurityBranchSoftensAggressive): heat
+# scales with the operation, never with the lone trader.
 
 # Operations: earn more.
 
@@ -77,6 +133,65 @@ desc = "Touts, lookouts, cousins: every corner reaches further."
 [upgrade.effects]
 fill_mul = 1.25
 
+[[upgrade]]
+id = "stash3"
+name = "Warehouse"
+branch = "operations"
+cost = 60000
+requires = ["stash2"]
+desc = "A roller door, a forklift and a lease in somebody else's name."
+[upgrade.effects]
+carry_bonus = 300
+
+[[upgrade]]
+id = "scales"
+name = "Scales"
+branch = "operations"
+cost = 8000
+desc = "Weighed right, every bag. The street stops haggling."
+[upgrade.effects]
+sale_impact_mul = 0.8
+
+[[upgrade]]
+id = "regulars"
+name = "Regulars"
+branch = "operations"
+cost = 20000
+requires = ["network"]
+desc = "The same faces every day, and they bring friends."
+[upgrade.effects]
+demand_mul = 1.1
+
+[[upgrade]]
+id = "brand"
+name = "A name on the street"
+branch = "operations"
+cost = 80000
+requires = ["regulars"]
+desc = "Your stamp on the bag. People ask for it by name."
+[upgrade.effects]
+demand_mul = 1.15
+
+[[upgrade]]
+id = "pricerunner"
+name = "Price runner"
+branch = "operations"
+cost = 30000
+requires = ["supplier"]
+desc = "A kid who walks the corners and knows what every one is paying."
+[upgrade.effects]
+glut_decay_mul = 1.5
+
+[[upgrade]]
+id = "book"
+name = "Buyer's book"
+branch = "operations"
+cost = 50000
+desc = "Names, numbers, what they want and what they pay for it."
+[upgrade.effects]
+buyer_gap_mul = 0.6
+contract_premium_bonus = 0.1
+
 # Security: take less damage, cool faster.
 
 [[upgrade]]
@@ -121,6 +236,47 @@ desc = "People who can make you disappear for a week."
 lie_low_multiplier = 3.0
 decay = 0.13
 
+[[upgrade]]
+id = "scanner"
+name = "Police scanner"
+branch = "security"
+cost = 9000
+requires = ["burners"]
+desc = "You hear the call go out before the car pulls up."
+[upgrade.effects]
+sting_stock_mul = 0.7
+cooldown_bonus = 1
+
+[[upgrade]]
+id = "cleancars"
+name = "Clean cars"
+branch = "security"
+cost = 25000
+requires = ["lookouts"]
+desc = "Registered, insured, boring. Nothing in the boot they can find."
+[upgrade.effects]
+raid_loss_mul = 0.8
+
+[[upgrade]]
+id = "quietmoney"
+name = "Quiet money"
+branch = "security"
+cost = 45000
+requires = ["laylow"]
+desc = "Cash in the walls, not in the bank. Nobody counts what nobody sees."
+[upgrade.effects]
+dirty_cash_threshold_mul = 1.5
+
+[[upgrade]]
+id = "counter"
+name = "Counter-surveillance"
+branch = "security"
+cost = 120000
+requires = ["scanner", "laylow"]
+desc = "Sweeps, tails spotted, meetings moved. They lose you faster."
+[upgrade.effects]
+decay = 0.15
+
 # The tier-3 and tier-4 Security nodes (#60) are how an operation outgrows
 # the street's notice: they cut what a runner's unit draws, not what yours
 # does, so a crew of ghosts moves ten times the tier-2 volume under the
@@ -149,6 +305,16 @@ desc = "Three people between every corner and you. None of them know your name."
 [upgrade.effects]
 crew_heat_mul = 0.4
 
+[[upgrade]]
+id = "drops"
+name = "Dead drops"
+branch = "security"
+cost = 400000
+requires = ["ghosts"]
+desc = "The product is never on anybody. A sting finds a bin."
+[upgrade.effects]
+sting_stock_mul = 0.6
+
 # Legal: survive the case.
 
 [[upgrade]]
@@ -159,6 +325,27 @@ cost = 15000
 desc = "Every sting and raid puts one page less in the file."
 [upgrade.effects]
 evidence_cut = 1
+
+[[upgrade]]
+id = "paper"
+name = "Paper trail"
+branch = "legal"
+cost = 100000
+requires = ["lawyer"]
+desc = "Receipts for everything. Every bust reads like a misunderstanding."
+[upgrade.effects]
+evidence_cut = 1
+
+[[upgrade]]
+id = "auditlawyer"
+name = "Accountant's lawyer"
+branch = "legal"
+cost = 150000
+clean = true
+requires = ["lawyer"]
+desc = "The books are a matter for the civil courts. An audit is just an audit."
+[upgrade.effects]
+audit_evidence_cut = 1
 
 [[upgrade]]
 id = "retainer"
@@ -173,6 +360,17 @@ evidence_decay_days = 30
 evidence_arrest = 8
 
 [[upgrade]]
+id = "judge"
+name = "A friendly judge"
+branch = "legal"
+cost = 300000
+clean = true
+requires = ["retainer"]
+desc = "Warrants take longer. Old pages go missing sooner."
+[upgrade.effects]
+evidence_decay_days = 20
+
+[[upgrade]]
 id = "fallguy"
 name = "Fall guy"
 branch = "legal"
@@ -180,4 +378,14 @@ cost = 2000000
 requires = ["retainer", "safehouse"]
 desc = "Somebody else's name on the indictment. Once."
 [upgrade.effects]
-fall_guy = true
+fall_guys = 1
+
+[[upgrade]]
+id = "fallguy2"
+name = "Another name"
+branch = "legal"
+cost = 5000000
+requires = ["fallguy"]
+desc = "There is always somebody who owes you. One more indictment with the wrong name on it."
+[upgrade.effects]
+fall_guys = 1
