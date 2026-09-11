@@ -39,7 +39,7 @@ var (
 	Modal      = lipgloss.NewStyle().
 			Border(lipgloss.DoubleBorder()).
 			BorderForeground(Money).
-			Padding(1, 2)
+			Padding(0, 1)
 )
 
 // Source returns the accent colour for a simulation name.

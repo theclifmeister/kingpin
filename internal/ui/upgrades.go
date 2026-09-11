@@ -287,9 +287,12 @@ func (m *Model) viewUpgrades() string {
 func (m *Model) upgradeConfirm() string {
 	u := m.cfg.Upgrades.Upgrade(m.upgradeID)
 	if u == nil {
-		return m.modal("BUY?", "Nothing selected.")
+		return m.modal("BUY?", []string{"Nothing selected."}, m.modalFooter())
 	}
-	body := fmt.Sprintf("%s for %s %s cash. It applies at once and stays for the run.\n%s\n\n", u.Name, money(u.Cost), pool(*u), theme.Subtle.Render(strings.Join(effectWords(u.Effects), " · ")))
-	body += theme.Key.Render("y") + " buy   " + theme.Key.Render("any other key") + " back"
-	return m.modal("BUY "+strings.ToUpper(u.Name)+"?", body)
+	body := []string{
+		fmt.Sprintf("%s for %s %s cash.", u.Name, money(u.Cost), pool(*u)),
+		"It applies at once and stays for the run.",
+		theme.Subtle.Render(strings.Join(effectWords(u.Effects), " · ")),
+	}
+	return m.modal("BUY "+u.Name+"?", body, m.modalFooter())
 }
