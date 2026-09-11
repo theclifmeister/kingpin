@@ -16,16 +16,35 @@ import (
 
 // Sim is the territory simulation.
 type Sim struct {
-	cfg content.CityConfig
+	cfg  content.CityConfig
+	tree content.UpgradesConfig
 }
 
-// New builds a territory sim from the city config.
-func New(cfg content.CityConfig) *Sim { return &Sim{cfg: cfg} }
+// New builds a territory sim from the city config and the upgrade tree,
+// which it folds for the two Street effects it reads (#119): the drift
+// days and the robbery chance.
+func New(cfg content.CityConfig, tree content.UpgradesConfig) *Sim { return &Sim{cfg: cfg, tree: tree} }
 
 func (s *Sim) Name() string { return "territory" }
 
 // Tuning exposes the territory constants the UI needs to explain itself.
 func (s *Sim) Tuning() content.TerritoryTuning { return s.cfg.Territory }
+
+// Effects is what the owned upgrades do to the street (#119), folded at
+// the top of the step and for every number the map shows.
+func (s *Sim) Effects(w *game.World) game.Effects { return game.FoldEffects(w, s.tree) }
+
+// DriftDays is how many days a held corner nobody works lasts before it
+// goes back to the street: drift_days plus the tree's drift_days_bonus
+// (the corner boys). Zero in the file is never, and stays never.
+func (s *Sim) DriftDays(w *game.World) int { return s.driftDays(s.Effects(w)) }
+
+func (s *Sim) driftDays(fx game.Effects) int {
+	if s.cfg.Territory.DriftDays <= 0 {
+		return 0
+	}
+	return s.cfg.Territory.DriftDays + fx.DriftDaysBonus
+}
 
 // Seed lays every city's corners out in a fresh world and stands the
 // player on the starting one.
@@ -76,11 +95,16 @@ func StartingCorners(cfg content.CityEntry) []game.Corner {
 }
 
 // RobberyChance is the chance a corner gets stuck up today: the base rate,
-// the corner's risk, less what its enforcer takes off. A skill-100
-// enforcer removes the full cut; a skill-0 one, half of it.
+// the corner's risk, the tree's robbery_mul (the watchmen, the dogs),
+// less what its enforcer takes off. A skill-100 enforcer removes the
+// full cut; a skill-0 one, half of it.
 func (s *Sim) RobberyChance(w *game.World, c *game.Corner) float64 {
+	return s.robberyChance(s.Effects(w), w, c)
+}
+
+func (s *Sim) robberyChance(fx game.Effects, w *game.World, c *game.Corner) float64 {
 	tun := s.cfg.Territory
-	p := tun.RobberyChance * c.Risk
+	p := tun.RobberyChance * c.Risk * fx.RobberyMul
 	if m := w.Crew.Member(c.Enforcer); m != nil && c.Enforcer != 0 {
 		p *= 1 - tun.EnforcerCut*(0.5+float64(m.Skill)/200)
 	}
@@ -91,6 +115,7 @@ func (s *Sim) RobberyChance(w *game.World, c *game.Corner) float64 {
 // while, and rolls for robberies on the corners that are worked, city by
 // city.
 func (s *Sim) Step(w *game.World, t *game.Tick) {
+	fx := s.Effects(w)
 	// Today's takings per city and product, for the robbers.
 	revenue := map[string]int{}
 	for _, e := range t.Events() {
@@ -104,7 +129,7 @@ func (s *Sim) Step(w *game.World, t *game.Tick) {
 		if cid != w.Home().ID {
 			rng = t.Sub("territory:" + cid)
 		}
-		s.step(w, t, rng, w.Cities[cid], revenue)
+		s.step(w, t, rng, fx, w.Cities[cid], revenue)
 	}
 }
 
@@ -113,14 +138,15 @@ type rand interface {
 	Float64() float64
 }
 
-func (s *Sim) step(w *game.World, t *game.Tick, rng rand, city *game.City, revenue map[string]int) {
+func (s *Sim) step(w *game.World, t *game.Tick, rng rand, fx game.Effects, city *game.City, revenue map[string]int) {
 	tun := s.cfg.Territory
+	drift := s.driftDays(fx)
 	for i := range city.Corners {
 		c := &city.Corners[i]
 		if !c.Held() {
 			// Off the street long enough, a corner's stick-ups are
 			// forgotten: a lieutenant who gave it up will try it again.
-			if c.Robbed > 0 && t.Day-c.Since >= tun.DriftDays {
+			if c.Robbed > 0 && t.Day-c.Since >= drift {
 				c.Robbed = 0
 			}
 			continue
@@ -142,7 +168,7 @@ func (s *Sim) step(w *game.World, t *game.Tick, rng rand, city *game.City, reven
 		// 1. Drift: a corner nobody works goes back to the street.
 		if c.Runner == 0 {
 			c.Idle++
-			if tun.DriftDays > 0 && c.Idle >= tun.DriftDays {
+			if drift > 0 && c.Idle >= drift {
 				c.Owner, c.Runner, c.Enforcer, c.Idle, c.Since = game.OwnerNone, 0, 0, 0, t.Day
 				t.Emit(events.CornerLost{Day: t.Day, Corner: c.ID, Name: c.Name, Reason: "idle", Owner: game.OwnerPlayer})
 			}
@@ -152,7 +178,7 @@ func (s *Sim) step(w *game.World, t *game.Tick, rng rand, city *game.City, reven
 
 		// 2. Robbery. The stick-up takes a slice of today's takings and of
 		// the stock, sized by this corner's share of what you work.
-		if rng.Float64() >= s.RobberyChance(w, c) {
+		if rng.Float64() >= s.robberyChance(fx, w, c) {
 			continue
 		}
 		ev := events.CornerRobbed{Day: t.Day, Corner: c.ID, Name: c.Name, StockLost: map[string]int{}}

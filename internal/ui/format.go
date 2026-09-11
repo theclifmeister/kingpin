@@ -17,6 +17,16 @@ func cash(n int) string { return format.Cash(n) }
 
 func price(v float64) string { return format.Price(v) }
 
+// fare is a route's fare a unit: whole dollars as money prints them
+// (`$8`), cents through price where the tree has cut one under a dollar
+// (`$0.50`, #119).
+func fare(v float64) string {
+	if v == float64(int(v)) {
+		return money(int(v))
+	}
+	return price(v)
+}
+
 // plural is n of a thing: `1 corner`, `3 corners`.
 func plural(n int, noun string) string { return format.Plural(n, noun) }
 

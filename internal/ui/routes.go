@@ -2,6 +2,7 @@ package ui
 
 import (
 	"fmt"
+	"math"
 	"strconv"
 	"strings"
 
@@ -72,7 +73,7 @@ func (m *Model) sayRouteDial(r content.RouteConfig, d events.RouteDial) {
 		return
 	}
 	lg := m.set.Logistics
-	line := fmt.Sprintf("%s %s: %s %s to %s, seized ~%.0f%%.", r.Name, d, plural(lg.Days(r, d.Ship()), "day"), r.Mode, m.w.CityName(r.To), lg.Risk(r, d.Ship())*100)
+	line := fmt.Sprintf("%s %s: %s %s to %s, seized ~%.0f%%.", r.Name, d, plural(lg.Days(m.w, r, d.Ship()), "day"), r.Mode, m.w.CityName(r.To), lg.Risk(m.w, r, d.Ship())*100)
 	if len(m.w.Route(r.ID).Target) == 0 {
 		line += " It sends nothing without a target."
 	}
@@ -213,7 +214,7 @@ func (m *Model) viewTarget() string {
 	rs := w.Route(r.ID)
 	body := []string{
 		theme.Subtle.Render(fmt.Sprintf("%s keeps %s stocked: every day it sends what is short of", r.Name, w.CityName(r.To))),
-		theme.Subtle.Render(fmt.Sprintf("the target, up to %d units, buying by the lot in %s.", r.Capacity, w.CityName(r.From))),
+		theme.Subtle.Render(fmt.Sprintf("the target, up to %d units, buying by the lot in %s.", m.set.Logistics.Capacity(w, *r), w.CityName(r.From))),
 		"",
 	}
 	var rows [][]any
@@ -234,7 +235,7 @@ func (m *Model) viewTarget() string {
 		if s := strings.TrimSpace(d.units.Value()); s != "" {
 			if n, err := strconv.Atoi(s); err == nil && n > 0 {
 				if src := w.Product(r.From, id); src != nil {
-					o := m.set.Logistics.Wholesale()
+					o := m.set.Logistics.Wholesale(w)
 					unit := src.SupplierPrice
 					how := "at retail in " + w.CityName(r.From)
 					if w.City(r.From).Wholesale && !o.Locked(w) {
@@ -242,7 +243,7 @@ func (m *Model) viewTarget() string {
 						how = "by the lot in " + w.CityName(r.From)
 					}
 					short := max(0, n-w.Stock(r.To, id)-w.Bound(r.To, id))
-					body = append(body, theme.Subtle.Render(fmt.Sprintf("Short     %d: ~%s %s + %s fares", short, money(int(float64(short)*unit)), how, money(short*r.Cost))))
+					body = append(body, theme.Subtle.Render(fmt.Sprintf("Short     %d: ~%s %s + %s fares", short, money(int(float64(short)*unit)), how, money(int(math.Ceil(float64(short)*m.set.Logistics.Fare(w, *r)))))))
 				}
 			}
 		}
@@ -325,7 +326,7 @@ func (m *Model) routeLines(width int) []string {
 			dial := fit(d.String(), 6)
 			terms := ""
 			if units != "" {
-				terms = fmt.Sprintf("  %dd · %d%s · %s/u · ~%.0f%%", lg.Days(r, d.Ship()), r.Capacity, units, money(r.Cost), lg.Risk(r, d.Ship())*100)
+				terms = fmt.Sprintf("  %dd · %d%s · %s/u · ~%.0f%%", lg.Days(w, r, d.Ship()), lg.Capacity(w, r), units, fare(lg.Fare(w, r)), lg.Risk(w, r, d.Ship())*100)
 			}
 			road := ""
 			if n := m.unitsOn(r.ID); n > 0 {
@@ -379,8 +380,8 @@ func (m *Model) routeSection(r content.RouteConfig) section {
 	lines := []string{
 		theme.Subtle.Render(fmt.Sprintf("%s %s %s", w.CityName(r.From), edge(r.Mode), w.CityName(r.To))),
 		row("dial", dialStyle(d).Render("["+d.String()+"]")),
-		row("days", fmt.Sprintf("%d · capacity %d", lg.Days(r, d.Ship()), r.Capacity)),
-		row("fare", fmt.Sprintf("%s/u · seized ~%.0f%%", money(r.Cost), lg.Risk(r, d.Ship())*100)),
+		row("days", fmt.Sprintf("%d · capacity %d", lg.Days(w, r, d.Ship()), lg.Capacity(w, r))),
+		row("fare", fmt.Sprintf("%s/u · seized ~%.0f%%", fare(lg.Fare(w, r)), lg.Risk(w, r, d.Ship())*100)),
 	}
 	switch t := m.targetLine(r.ID); {
 	case t == "" && d.On():

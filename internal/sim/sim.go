@@ -58,8 +58,8 @@ func Default(cfg *content.Config) (*Set, []game.Simulation, error) {
 	set := &Set{
 		Market:     mk,
 		Logistics:  logistics.New(cfg.Routes, cfg.City, cfg.Market, cfg.Upgrades, cfg.Laundering.Laundering.Float),
-		Territory:  territory.New(cfg.City),
-		Rivals:     rivals.New(cfg.Rivals, cfg.Names, cfg.Reputation.Effects, cfg.Law.Effects),
+		Territory:  territory.New(cfg.City, cfg.Upgrades),
+		Rivals:     rivals.New(cfg.Rivals, cfg.Names, cfg.Reputation.Effects, cfg.Law.Effects, cfg.Upgrades),
 		Crew:       crew.New(cfg.Crew, cfg.Names, cfg.Reputation.Effects, cfg.Upgrades),
 		Heat:       heat.New(cfg.Heat, cfg.Market, cfg.Routes.Shipping, cfg.Upgrades, cfg.Reputation.Effects, cfg.Crew.Lieutenant, cfg.Law),
 		Law:        law.New(cfg.Law, cfg.Names),
@@ -98,10 +98,10 @@ func (s *Set) Migrations() []game.Migration {
 func NewWorld(cfg *content.Config, seed uint64) *game.World {
 	t := cfg.Market.Market
 	w := game.NewWorld(seed, logistics.StartingCities(cfg.City, cfg.Market), t.StartCash, t.CarryLimit)
-	territory.New(cfg.City).Seed(w)
+	territory.New(cfg.City, cfg.Upgrades).Seed(w)
 	rng := game.RNGFor(seed, 0)
 	crew.New(cfg.Crew, cfg.Names, cfg.Reputation.Effects, cfg.Upgrades).Seed(w, rng)
-	rivals.New(cfg.Rivals, cfg.Names, cfg.Reputation.Effects, cfg.Law.Effects).Seed(w, rng)
+	rivals.New(cfg.Rivals, cfg.Names, cfg.Reputation.Effects, cfg.Law.Effects, cfg.Upgrades).Seed(w, rng)
 	laundering.New(cfg.Laundering, cfg.Crew, cfg.Upgrades).Seed(w)
 	law.New(cfg.Law, cfg.Names).Seed(w, rng)
 	return w

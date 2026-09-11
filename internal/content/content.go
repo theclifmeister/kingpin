@@ -777,7 +777,7 @@ type UpgradesConfig struct {
 }
 
 // Branches an upgrade can belong to, in display order.
-var Branches = []string{"operations", "security", "legal", "crew", "laundering"}
+var Branches = []string{"operations", "security", "legal", "crew", "laundering", "logistics", "street"}
 
 // UpgradeConfig is one node of the tree.
 type UpgradeConfig struct {

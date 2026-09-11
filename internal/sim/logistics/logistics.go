@@ -46,10 +46,21 @@ func (s *Sim) Tuning() content.ShippingTuning { return s.cfg.Shipping }
 // Float is the dirty cash the road never spends below.
 func (s *Sim) Float() int { return s.float }
 
-// Wholesale is the wholesale supplier's offer: what the routes buy by.
-func (s *Sim) Wholesale() game.WholesaleOffer {
+// Effects is what the owned upgrades do to the road (#119): the fold the
+// sim reads its own tuning through at the top of its step and in every
+// number the map and the pane show, so the odds the player reads are
+// the ones the dice use.
+func (s *Sim) Effects(w *game.World) game.Effects { return game.FoldEffects(w, s.tree) }
+
+// Wholesale is the wholesale supplier's offer: what the routes buy by,
+// at [wholesale] mul times the tree's wholesale_mul (the ticket).
+func (s *Sim) Wholesale(w *game.World) game.WholesaleOffer {
+	return s.wholesale(s.Effects(w))
+}
+
+func (s *Sim) wholesale(fx game.Effects) game.WholesaleOffer {
 	t := s.cfg.Wholesale
-	return game.WholesaleOffer{Lot: t.Lot, Mul: t.Mul, UnlockCash: t.UnlockCash}
+	return game.WholesaleOffer{Lot: t.Lot, Mul: t.Mul * fx.WholesaleMul, UnlockCash: t.UnlockCash}
 }
 
 // Dial returns the tuning for a ship dial position.
@@ -69,22 +80,65 @@ func (s *Sim) Routes(city string) []content.RouteConfig {
 // Route returns the route with id, or nil.
 func (s *Sim) Route(id string) *content.RouteConfig { return s.cfg.Route(id) }
 
-// Days is how long a route takes at a dial: at least a day.
-func (s *Sim) Days(r content.RouteConfig, d events.Ship) int {
-	return max(1, int(math.Round(float64(r.Days)*s.Dial(d).Days)))
+// Days is how long a route takes at a dial: the route's days times the
+// dial's and the tree's route_days_mul (the drivers), at least a day.
+func (s *Sim) Days(w *game.World, r content.RouteConfig, d events.Ship) int {
+	return s.days(s.Effects(w), r, d)
+}
+
+func (s *Sim) days(fx game.Effects, r content.RouteConfig, d events.Ship) int {
+	return max(1, int(math.Round(float64(r.Days)*s.Dial(d).Days*fx.RouteDaysMul)))
 }
 
 // DayRisk is the chance a shipment on a route at a dial is intercepted on
-// any one day in transit.
-func (s *Sim) DayRisk(r content.RouteConfig, d events.Ship) float64 {
-	return math.Max(0, math.Min(1, r.Risk*s.Dial(d).Risk))
+// any one day in transit: the route's risk times the dial's and the
+// tree's route_risk_mul (the tyres, the compartments).
+func (s *Sim) DayRisk(w *game.World, r content.RouteConfig, d events.Ship) float64 {
+	return s.dayRisk(s.Effects(w), r, d)
+}
+
+func (s *Sim) dayRisk(fx game.Effects, r content.RouteConfig, d events.Ship) float64 {
+	return math.Max(0, math.Min(1, r.Risk*s.Dial(d).Risk*fx.RouteRiskMul))
 }
 
 // Risk is the chance a shipment on a route at a dial is seized at all
 // before it lands: what the map shows against the dial, and what the dice
 // add up to over the days.
-func (s *Sim) Risk(r content.RouteConfig, d events.Ship) float64 {
-	return 1 - math.Pow(1-s.DayRisk(r, d), float64(s.Days(r, d)))
+func (s *Sim) Risk(w *game.World, r content.RouteConfig, d events.Ship) float64 {
+	return s.risk(s.Effects(w), r, d)
+}
+
+func (s *Sim) risk(fx game.Effects, r content.RouteConfig, d events.Ship) float64 {
+	return 1 - math.Pow(1-s.dayRisk(fx, r, d), float64(s.days(fx, r, d)))
+}
+
+// Capacity is the most one shipment on a route carries: the route's
+// capacity times the tree's route_capacity_mul (the trucks), at least a
+// unit.
+func (s *Sim) Capacity(w *game.World, r content.RouteConfig) int {
+	return capacity(s.Effects(w), r)
+}
+
+func capacity(fx game.Effects, r content.RouteConfig) int {
+	return max(1, int(math.Round(float64(r.Capacity)*fx.RouteCapacityMul)))
+}
+
+// Fare is what a route charges a unit: the route's cost times the tree's
+// fare_mul (the forwarder). It is a price, so a discount on a dollar
+// fare is fifty cents, not nothing or the dollar; a shipment's cost is
+// the fare over its units, rounded up (fare).
+func (s *Sim) Fare(w *game.World, r content.RouteConfig) float64 {
+	return fare(s.Effects(w), r)
+}
+
+func fare(fx game.Effects, r content.RouteConfig) float64 {
+	return float64(r.Cost) * fx.FareMul
+}
+
+// fareFor is what sending units on a route costs, whole dollars, rounded
+// up.
+func fareFor(fx game.Effects, r content.RouteConfig, units int) int {
+	return int(math.Ceil(fare(fx, r) * float64(units)))
 }
 
 // Shortfall is how many units of a product a route owes its destination
@@ -161,12 +215,13 @@ func (s *Sim) Migrate(w *game.World) {
 // route needs no dice at all: a run with every route off replays as it
 // did before the dial.
 func (s *Sim) Step(w *game.World, t *game.Tick) {
-	s.move(w, t)
-	s.run(w, t)
+	fx := s.Effects(w)
+	s.move(w, t, fx)
+	s.run(w, t, fx)
 }
 
 // move is the road: today's rolls, and the arrivals landed.
-func (s *Sim) move(w *game.World, t *game.Tick) {
+func (s *Sim) move(w *game.World, t *game.Tick, fx game.Effects) {
 	tun := s.cfg.Shipping
 	rng := t.Sub("logistics")
 	sort.SliceStable(w.Shipments, func(i, j int) bool { return w.Shipments[i].ID < w.Shipments[j].ID })
@@ -174,7 +229,7 @@ func (s *Sim) move(w *game.World, t *game.Tick) {
 	for _, sh := range w.Shipments {
 		risk := 0.0
 		if r := s.cfg.Route(sh.Route); r != nil {
-			risk = s.DayRisk(*r, sh.Dial)
+			risk = s.dayRisk(fx, *r, sh.Dial)
 		}
 		if rng.Float64() < risk {
 			w.Stats.Seizures++
@@ -230,12 +285,14 @@ func (s *Sim) move(w *game.World, t *game.Tick) {
 // fares, and a lot it cannot then afford to send waits in the stash. The
 // shipment leaves this morning (the tick's day) with the lots bought for
 // it, rolls from tomorrow and is in the morning report today. No dice.
-func (s *Sim) run(w *game.World, t *game.Tick) {
+// The tree (#119) scales the capacity, the days, the fare and the
+// wholesaler's price the road runs at.
+func (s *Sim) run(w *game.World, t *game.Tick, fx game.Effects) {
 	if w.Over != nil {
 		return
 	}
-	offer := s.Wholesale()
-	pressure := s.market.Market.BuyPricePressure * game.FoldEffects(w, s.tree).BuyPressureMul
+	offer := s.wholesale(fx)
+	pressure := s.market.Market.BuyPricePressure * fx.BuyPressureMul
 	for _, r := range s.cfg.Routes {
 		rs := w.Route(r.ID)
 		if !rs.Dial.On() || w.Cities[r.From] == nil || w.Cities[r.To] == nil {
@@ -247,7 +304,7 @@ func (s *Sim) run(w *game.World, t *game.Tick) {
 			if w.Product(r.From, id) == nil || w.Product(r.To, id) == nil {
 				continue
 			}
-			units := min(s.Shortfall(w, r, id), r.Capacity)
+			units := min(s.Shortfall(w, r, id), capacity(fx, r))
 			if units <= 0 {
 				continue
 			}
@@ -259,7 +316,7 @@ func (s *Sim) run(w *game.World, t *game.Tick) {
 				// make up: never a lot the road then cannot move.
 				for lots > 0 {
 					cost := int(math.Ceil(unit * float64(lots*offer.Lot)))
-					if cost+min(units, have+lots*offer.Lot)*r.Cost <= s.Budget(w) {
+					if cost+fareFor(fx, r, min(units, have+lots*offer.Lot)) <= s.Budget(w) {
 						break
 					}
 					lots--
@@ -273,16 +330,19 @@ func (s *Sim) run(w *game.World, t *game.Tick) {
 				have = w.Stock(r.From, id)
 			}
 			units = min(units, have)
-			if r.Cost > 0 {
-				units = min(units, s.Budget(w)/r.Cost)
+			if f := fare(fx, r); f > 0 {
+				units = min(units, int(float64(s.Budget(w))/f))
+				for units > 0 && fareFor(fx, r, units) > s.Budget(w) {
+					units-- // a cent of rounding never takes the road under the float
+				}
 			}
 			if units <= 0 {
 				continue
 			}
-			days := s.Days(r, dial)
+			days := s.days(fx, r, dial)
 			sh := w.Send(game.Shipment{
 				Route: r.ID, Mode: r.Mode, From: r.From, To: r.To, Product: id, Units: units,
-				Dial: dial, Sent: t.Day, Arrives: t.Day + days, Cost: units * r.Cost,
+				Dial: dial, Sent: t.Day, Arrives: t.Day + days, Cost: fareFor(fx, r, units),
 			})
 			day.Fares += sh.Cost
 			t.Emit(events.ShipmentSent{

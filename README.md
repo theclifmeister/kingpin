@@ -379,8 +379,8 @@ never leaves the first city plays the same as it always did.
   dashboard's LAW panel shows all of it, and the report carries elections
   and new chiefs. The law never adds a page to the file by itself: it
   moves the thresholds, the cooldowns and the decay.
-- **Upgrades** are five branches of persistent, stacking bonuses bought
-  with cash, forty-five nodes: Operations (stashes up to a warehouse,
+- **Upgrades** are seven branches of persistent, stacking bonuses bought
+  with cash, fifty-six nodes: Operations (stashes up to a warehouse,
   supplier terms, street network, regulars and a name on the street,
   scales, a price runner, a buyer's book) to earn more, Security
   (burners, lookouts, a police scanner, safehouse, clean cars, cold
@@ -390,11 +390,15 @@ never leaves the first city plays the same as it always did.
   fall guys) to survive the case, Crew (word on the street, payroll,
   like family, hazard pay, room for two more and a second room,
   discipline, training, vetting, signing bonuses) for a crew that costs
-  less and stays, and Laundering (a bookkeeper, a shell company, a cash
+  less and stays, Laundering (a bookkeeper, a shell company, a cash
   business, a thinner float, offshore, a second set of books) to wash
-  more and be looked at less. Every node is a multiplier the sims read
-  from `upgrades.toml`; nothing removes the heat curve, it only softens
-  it. The clean-cash nodes cost money the fronts have washed.
+  more and be looked at less, Logistics (spare tyres and hidden
+  compartments, your own trucks and drivers on call, a wholesale ticket,
+  a freight forwarder) to move more for less on the road, and Street
+  (corner boys, watchmen, guard dogs, the front line, held ground) to
+  keep your corners. Every node is a multiplier the sims read from
+  `upgrades.toml`; nothing removes the heat curve, it only softens it.
+  The clean-cash nodes cost money the fronts have washed.
 - **Laundering** is the fronts: a laundromat, a car wash, a restaurant, a
   nightclub, a construction firm, a crypto exchange. Each washes dirty cash
   clean up to a daily cap for a daily upkeep, and each can be audited. The

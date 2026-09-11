@@ -222,7 +222,7 @@ func effectWords(e content.UpgradeEffects) []string {
 		add(fmt.Sprintf("corners drift %d days later", e.DriftDaysBonus))
 	}
 	mul(e.RobberyMul, "robberies ×%.1f")
-	bonus(e.GuardBonus, "guard on every contested corner")
+	bonus(e.GuardBonus, "guard on contested corners")
 	mul(e.RivalPushMul, "rival pushes ×%.1f")
 	return out
 }

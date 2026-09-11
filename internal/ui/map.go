@@ -336,7 +336,7 @@ func (m *Model) viewMap() string {
 // driftLeft is the days a held corner nobody works has before it goes
 // back to the street.
 func (m *Model) driftLeft(c *game.Corner) int {
-	return max(1, m.set.Territory.Tuning().DriftDays-c.Idle)
+	return max(1, m.set.Territory.DriftDays(m.w)-c.Idle)
 }
 
 // mapDetails is the map's pane: the inspector for the corner under the
