@@ -26,6 +26,8 @@ var (
 	Warning  = lipgloss.NewStyle().Foreground(Warn)
 	Gold     = lipgloss.NewStyle().Foreground(Money)
 	Rival    = lipgloss.NewStyle().Foreground(Rivals)
+	CrewText = lipgloss.NewStyle().Foreground(Crew)      // yours: the crew, your corners, a lieutenant's order
+	RoadText = lipgloss.NewStyle().Foreground(Logistics) // the road
 	Selected = lipgloss.NewStyle().Bold(true).Foreground(Bg).Background(Money)
 	Key      = lipgloss.NewStyle().Foreground(Money)
 	Tab      = lipgloss.NewStyle().Foreground(Dim).Padding(0, 1)
