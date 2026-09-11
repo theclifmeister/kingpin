@@ -87,6 +87,8 @@ type Model struct {
 	mapCursor     int    // corner selected on the map
 	routeCursor   int    // route selected under the map's grid
 	onRoutes      bool   // the map's arrows are on the routes, past the bottom row
+	buyerCursor   int    // contract selected under the market's product table
+	onBuyers      bool   // the market's arrows are on the buyers, past the bottom row
 	postRole      string // runner or enforcer, while the post picker is open
 	postCursor    int
 	strikeCursor  int    // row in the strike picker
@@ -184,6 +186,7 @@ func (m *Model) cycleCity(d int) {
 	m.city = order[(i+d+len(order))%len(order)]
 	m.mapCursor = m.yourCorner()
 	m.routeCursor, m.onRoutes = 0, false
+	m.buyerCursor, m.onBuyers = 0, false
 }
 
 func (m *Model) continueRun() error {
@@ -591,6 +594,10 @@ func (m *Model) keyPlay(key string) (tea.Model, tea.Cmd) {
 			m.answerOffer(false)
 			break
 		}
+		if m.screen == screenMarket && m.onBuyers {
+			m.answerContract(false)
+			break
+		}
 		id := m.w.Products[m.cursor]
 		if city := m.actionCity(); m.w.Cities[city] != nil {
 			if _, ok := m.w.Order(city, id); ok {
@@ -629,9 +636,12 @@ func (m *Model) keyPlay(key string) (tea.Model, tea.Cmd) {
 	case "p":
 		m.cyclePay()
 	case "d":
-		if m.screen == screenRivals {
+		switch {
+		case m.screen == screenRivals:
 			m.askPropose()
-		} else {
+		case m.screen == screenMarket && m.onBuyers:
+			m.deliverSelected()
+		default:
 			m.cycleLaunder()
 		}
 	case "i":
@@ -657,8 +667,11 @@ func (m *Model) keyPlay(key string) (tea.Model, tea.Cmd) {
 			m.askPost("enforcer")
 		}
 	case "a":
-		if m.screen == screenMap {
+		switch {
+		case m.screen == screenMap:
 			m.abandonSelected()
+		case m.screen == screenMarket && m.onBuyers:
+			m.answerContract(true)
 		}
 	case "w":
 		if m.screen == screenMap {
@@ -682,6 +695,8 @@ func (m *Model) keyPlay(key string) (tea.Model, tea.Cmd) {
 			if m.dealCursor > 0 {
 				m.dealCursor--
 			}
+		case m.screen == screenMarket && m.onBuyers:
+			m.buyersMove(-1)
 		case m.cursor > 0:
 			m.cursor--
 		}
@@ -701,8 +716,14 @@ func (m *Model) keyPlay(key string) (tea.Model, tea.Cmd) {
 			if m.dealCursor < len(m.w.Offers)-1 {
 				m.dealCursor++
 			}
+		case m.screen == screenMarket && m.onBuyers:
+			m.buyersMove(1)
 		case m.cursor < len(m.w.Products)-1:
 			m.cursor++
+		case m.screen == screenMarket && len(m.buyerRows()) > 0:
+			// Off the bottom of the table the arrows reach the buyers,
+			// the way the map's reach the routes.
+			m.onBuyers, m.buyerCursor = true, 0
 		}
 	case "left", "right":
 		// Arrows move within a screen, never between tabs: along the
@@ -947,7 +968,11 @@ func (m *Model) viewFooter() string {
 		case screenMap:
 			keys = k("n", "end day") + k("↑↓←→", "pick") + k("[ ]", "city") + k("c", "runner") + k("e", "enforcer") + k("a", "abandon") + k("w", "war") + k("r R", "route") + k("g", "go") + k("?", "help")
 		case screenMarket:
-			keys = k("n", "end day") + k("↑↓", "pick") + k("←→", "city") + k("b", "buy") + k("s", "sell") + k("g", "go") + k("x", "cancel") + k("?", "help")
+			if m.onBuyers {
+				keys = k("n", "end day") + k("↑↓", "pick") + k("a", "accept") + k("x", "decline") + k("d", "deliver") + k("g", "go") + k("?", "help")
+			} else {
+				keys = k("n", "end day") + k("↑↓", "pick") + k("←→", "city") + k("b", "buy") + k("s", "sell") + k("g", "go") + k("x", "cancel") + k("?", "help")
+			}
 		case screenUpgrades:
 			keys = k("n", "end day") + k("↑↓←→", "pick") + k("enter", "buy") + k("?", "help") + k("q", "quit")
 		case screenLedger:
@@ -1031,6 +1056,7 @@ func (m *Model) viewHelp() string {
 		{"u / enter", "buy the selected upgrade, after a confirmation"},
 		{"d", "cycle the launder dial (rivals screen: propose a deal)"},
 		{"y / x", "accept / decline the selected offer (rivals screen)"},
+		{"a / x / d", "market, on a buyer: accept / decline / deliver from the stash there"},
 		{"↑ ↓ / j k", "move the cursor / scroll journal (map: down to the routes)"},
 		{"← →", "walk the map grid / the upgrade columns / the cities"},
 		{"ctrl+s", "save now"},

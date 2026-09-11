@@ -117,6 +117,9 @@ func (m *Model) viewDashboard() string {
 	if line := m.runsLine(); line != "" {
 		street.WriteString(truncate(lipgloss.NewStyle().Foreground(theme.Crew).Render(line), innerW) + "\n")
 	}
+	if line := m.contractsLine(); line != "" {
+		street.WriteString(truncate(line, innerW) + "\n")
+	}
 	street.WriteString(theme.Subtle.Render(m.ownedLine()) + "\n")
 	if m.talking() {
 		street.WriteString(theme.Bad.Render("Somebody is talking. Investigate (4, i).") + "\n")
@@ -229,6 +232,10 @@ func (m *Model) viewDashboard() string {
 	n := 0
 	if m.talking() {
 		alerts.WriteString(theme.Bad.Bold(true).Render("Somebody is talking.") + theme.Bad.Render(" Investigate (4, i).") + "\n")
+		n++
+	}
+	for _, a := range m.contractAlerts() {
+		alerts.WriteString(truncate(a, max(10, rightW-4)) + "\n")
 		n++
 	}
 	for i := len(w.Journal) - 1; i >= 0 && n < max(1, alertsH-2); i-- {
