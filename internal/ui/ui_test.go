@@ -1833,7 +1833,15 @@ func TestFundKeys(t *testing.T) {
 // the tree.
 func richModel(t *testing.T, w, h int) *Model {
 	t.Helper()
+	return richModelSeeded(t, w, h, game.NewSeed())
+}
+
+// richModelSeeded is richModel on a seed of the caller's: the same run
+// every time, which is what the README's captures are diffed against.
+func richModelSeeded(t *testing.T, w, h int, seed uint64) *Model {
+	t.Helper()
 	m := newTestModel(t, w, h)
+	m.startRun(seed)
 	world := m.w
 	for i := 0; i < 3; i++ {
 		world.Stash(world.Player.Location)[world.Products[0]] = 40

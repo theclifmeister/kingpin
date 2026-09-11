@@ -1,8 +1,10 @@
 // Command keys prints the README's key table from the UI's key table
 // (internal/ui/keys.go), so the two never disagree: `go run ./cmd/keys`
 // prints the markdown, `go run ./cmd/keys -w` writes it into README.md
-// between the `<!-- keys -->` markers. TestReadmeMatchesKeys holds the
-// README to it.
+// between the `<!-- keys:begin -->` / `<!-- keys:end -->` markers.
+// TestReadmeMatchesKeys holds the README to it. The README's captures
+// are the ui package's test fixture, so `go test ./internal/ui -run
+// TestReadmeCaptures -update` is what rewrites those.
 package main
 
 import (

@@ -161,8 +161,13 @@ func (m *Model) onEvent(e events.Event) {
 	}
 }
 
-func (m *Model) newRun() {
-	m.w = sim.NewWorld(m.cfg, game.NewSeed())
+func (m *Model) newRun() { m.startRun(game.NewSeed()) }
+
+// startRun begins a run from a seed: a new world, the dashboard and the
+// cursors at their start. A test that wants a run it can replay (the
+// README's captures) passes the seed.
+func (m *Model) startRun(seed uint64) {
+	m.w = sim.NewWorld(m.cfg, seed)
 	m.mode = modePlay
 	m.screen = screenDashboard
 	m.cursor = 0
@@ -990,8 +995,9 @@ func (m *Model) viewStart() string {
 	return theme.Plain.Width(m.width).Height(m.height).MaxHeight(m.height).Render(box)
 }
 
-// viewHelp is the whole key table, grouped by screen, in the scrolling
-// modal.
+// viewHelp is the help modal (#89): the key table, GLOBAL first and then
+// each screen's own keys, WORDS, the game's terms in a line each, and
+// the one line of voice, in the scrolling modal.
 func (m *Model) viewHelp() string {
 	body := append(m.helpLines(), "", theme.Subtle.Render("Heat is the antagonist. Greed is always available."))
 	return m.modal("HELP", body, m.modalFooter())
