@@ -115,7 +115,7 @@ above the legend stands in for the pane):
 │ raid 75 · arrest 95      ││ Bayport heat 0      ││ Mona · 1 corner           │
 ╰──────────────────────────╯╰─────────────────────╯╰───────────────────────────╯
 ▸ WEED · EASTSIDE · price $19.23 -6% · supplier $10.67 · margin 80% · s…  ␣ more
- n end day  ↑↓ pick  b buy  s sell  x cancel order  l lie low  ? help
+ n end day  ↑↓ pick  c cart  b buy  s sell  x cancel order  l lie low  ? help
 ```
 <!-- capture:end -->
 
@@ -202,6 +202,7 @@ the float, the file, drift, the pane and the strip in a line each.
 | `ctrl+s` | save | save now; the end of the day saves too | everywhere |
 | `N` | new run | start over, after a confirmation | everywhere |
 | `q` | quit | save and quit | everywhere |
+| `c` | cart | the day's cart: edit its buys and orders | dashboard, market |
 | `←→` | city | turn the market to the other city | market |
 | `a` | accept | take the buyer's offer | market |
 | `x` | decline | turn the buyer's offer down | market |

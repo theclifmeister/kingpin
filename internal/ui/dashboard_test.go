@@ -213,6 +213,7 @@ func TestDashboardEstimateMatchesDialog(t *testing.T) {
 			m.Update(key("enter"))
 			m.Update(key("3"))
 			m.Update(key("enter"))
+			m.Update(key("esc")) // the dialog stays open for the next line (#103)
 			if o, ok := w.Order(w.Player.Location, id); !ok || o.Dial != dial {
 				t.Fatalf("queuing at %s: %+v", dial, w.Orders)
 			}

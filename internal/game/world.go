@@ -440,13 +440,16 @@ type Lead struct {
 	Corner string
 }
 
-// Purchase is a buy from the supplier, applied immediately.
+// Purchase is a buy from the supplier, applied immediately. Prior is the
+// supplier price before the buy nudged it, so a Return the same day can
+// put it back (#103).
 type Purchase struct {
 	City      string
 	Product   string
 	Qty       int
 	UnitPrice float64
 	Cost      int
+	Prior     float64
 }
 
 // Headline is a journal entry.

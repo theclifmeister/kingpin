@@ -199,7 +199,7 @@ func (m *Model) marketDetails() []section {
 	if len(m.buyerRows()) > 0 {
 		sel = append(sel, keyRow("↓", "past the table reaches the buyers"))
 	}
-	secs := []section{{strings.ToUpper(p.Name) + " · " + strings.ToUpper(city.Name), sel}}
+	secs := append(m.cartSection(city.ID), section{strings.ToUpper(p.Name) + " · " + strings.ToUpper(city.Name), sel}) // the cart first, so the strip carries its totals (#103)
 	// The other city's price is what a route is worth.
 	var elsewhere []string
 	for _, cid := range w.CityOrder {

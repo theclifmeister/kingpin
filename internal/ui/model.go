@@ -63,6 +63,7 @@ const (
 	modeAssign        // pick the city a lieutenant runs
 	modeFund          // give a city clean cash for goodwill
 	modeDetails       // the details pane as an overlay, where the terminal is too narrow to hold it beside MAIN
+	modeCart          // the day's cart: its buys and orders, editable until the day ends
 	modeCount
 )
 
@@ -121,6 +122,7 @@ type Model struct {
 	journalSeen   int    // the journal's length when the journal screen was last shown; not saved, a view cursor like city
 	dlg           dialog
 	tgt           targetDialog
+	crt           cartDialog
 	fnd           fundDialog
 	startChoice   int
 	status        string
@@ -357,6 +359,8 @@ func (m *Model) handleKey(k tea.KeyMsg) (tea.Model, tea.Cmd) {
 		return m.keyTarget(k)
 	case modeFund:
 		return m.keyFund(k)
+	case modeCart:
+		return m.keyCart(k)
 	case modeHelp:
 		if !m.scrollModal(key) {
 			m.mode = modePlay
@@ -699,14 +703,8 @@ func (m *Model) View() string {
 		}
 		body = m.modal("FIRE "+name+"?", []string{"No severance in this business. The rest of the crew", "will take it personally."}, m.modalFooter())
 	case modeConfirmEnd:
-		what := "No sales queued."
-		switch {
-		case m.w.LieLow:
-			what = "Lying low today."
-		case len(m.w.Orders) > 0:
-			what = plural(len(m.w.Orders), "order") + " queued."
-		}
-		body = m.modal("END THE DAY?", []string{what + " The sims step and the run autosaves."}, m.modalFooter())
+		// The cart in a sentence, then what the night does.
+		body = m.modal("END THE DAY?", []string{m.endDayLine(), "The sims step and the run autosaves."}, m.modalFooter())
 	case modeHelp:
 		body = m.viewHelp()
 	case modePost:
@@ -729,6 +727,8 @@ func (m *Model) View() string {
 		body = m.viewTarget()
 	case modeFund:
 		body = m.viewFund()
+	case modeCart:
+		body = m.viewCart()
 	case modeCard:
 		body = m.viewCard()
 	case modePropose:
