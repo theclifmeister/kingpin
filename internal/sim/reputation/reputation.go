@@ -1,7 +1,7 @@
 // Package reputation drifts the player's public face from what already
 // happened today: violence and held ground for fear, what the crew were
-// paid and the peace kept with the rival for respect, volume and
-// headlines for notoriety. It owns
+// paid, the peace kept with the rival and the buyers' contracts delivered
+// for respect, volume and headlines for notoriety. It owns
 // Player.Reputation; the sims that feel it (rivals, crew, market, heat)
 // each read their own knob off reputation.toml and the world. It steps
 // after laundering and before news, so the headlines it counts are
@@ -62,6 +62,17 @@ func (s *Sim) Step(w *game.World, t *game.Tick) {
 			respect += s.cfg.Respect.Payoff
 		case events.PlayerSold:
 			units += ev.Sold
+		case events.ContractDelivered:
+			// A buyer's contract delivered in full is respect (#71), the
+			// third source beside the payroll and a kept deal; the event
+			// carries what the deck says it earns. The units are volume
+			// like any other.
+			respect += ev.Respect
+			units += ev.Units
+		case events.ContractFailed:
+			// Word gets round that you did not deliver.
+			respect -= ev.Respect
+			notoriety += ev.Notoriety
 		}
 	}
 	if s.cfg.Notoriety.Units > 0 {

@@ -296,3 +296,22 @@ PressureShiftedDown = [
   "{{.City}} calm returns; council moves on to potholes",
   "Fewer complaints about {{.City}} corners, says precinct",
 ]
+
+# Buyers (#71): an order on the table, one delivered in full, one you let
+# down. Source "buyers": the city's news, never a headline "about you"
+# that notoriety or the law counts.
+ContractOffered = [
+  "{{.City}} nightlife 'thirsty' as private buyers shop around for {{.Product}}",
+  "Word on the street: somebody in {{.City}} is paying over the odds for {{.Product}}",
+  "Off-corner {{.Product}} deals 'the new thing' in {{.City}}, says source",
+]
+ContractDelivered = [
+  "{{.City}} crew 'delivers on time'; {{.Product}} buyer 'very satisfied'",
+  "Private {{.Product}} order filled in {{.City}}; no corner involved, no complaints",
+  "'Reliable' {{.City}} outfit said to be taking orders by the case",
+]
+ContractFailed = [
+  "{{.City}} buyer 'left waiting' for {{.Product}}; 'they took the money and vanished'",
+  "Word gets round {{.City}}: a {{.Product}} order went unfilled",
+  "'Don't front them the cash': {{.City}} {{.Product}} buyer burned",
+]

@@ -94,6 +94,17 @@ func (m *Model) viewMarket() string {
 		b.WriteString(truncate(row, m.width) + "\n")
 	}
 	b.WriteString("\n")
+	// The buyers (#71): the reason to visit. Their rows sit under the
+	// table, and while the cursor is on one the detail below is the
+	// contract's, not the product's.
+	for _, l := range m.buyersLines() {
+		b.WriteString(l + "\n")
+	}
+	b.WriteString("\n")
+	if c := m.selectedContract(); c != nil {
+		b.WriteString(m.contractDetail(*c))
+		return b.String()
+	}
 	id := w.Products[m.cursor]
 	p := city.Market[id]
 	if p == nil {

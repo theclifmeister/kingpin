@@ -821,3 +821,100 @@ type CityFunded struct {
 }
 
 func (CityFunded) Kind() string { return "CityFunded" }
+
+// ContractOffered is a buyer putting an order on the table (#71): so
+// many units of a product in a city, by a day, at Premium times that
+// city's street price on the day it is handed over. It sits in
+// World.Contracts until the player answers it on the market screen or it
+// lapses on Expires.
+type ContractOffered struct {
+	Day     int
+	ID      int
+	Buyer   string // deck id
+	Name    string // the buyer as the offer names them
+	Pitch   string // what they said
+	City    string
+	Product string
+	Units   int
+	Premium float64
+	Due     int // last day to deliver
+	Expires int // last day to answer
+}
+
+func (ContractOffered) Kind() string { return "ContractOffered" }
+
+// ContractAccepted is report-only bookkeeping: a contract the player took
+// during the day.
+type ContractAccepted struct {
+	Day     int
+	ID      int
+	Name    string
+	City    string
+	Product string
+	Units   int
+	Due     int
+}
+
+func (ContractAccepted) Kind() string { return "ContractAccepted" }
+
+// ContractDelivered is a handoff against a contract: Units moved out of
+// the city's stash at Price each (Street times the premium, on the
+// day), for Revenue in dirty cash. Complete says the contract is now
+// delivered in full, and Respect is what that earns (0 for a part). It
+// is off-corner: it consumed no demand and took no dial, so the heat sim
+// weights it by HeatMul alone, with no corner, and the law sim counts it
+// as product sold in City. No lieutenant takes a cut: it is your
+// handoff, not the city's takings.
+type ContractDelivered struct {
+	Day      int
+	ID       int
+	Buyer    string
+	Name     string
+	City     string
+	Product  string
+	Units    int     // handed over today
+	Owed     int     // still to deliver after today
+	Total    int     // the contract's size
+	Price    float64 // per unit paid
+	Street   float64 // the street price in City today
+	Signed   float64 // the street price the day the offer came: what the bet was against
+	Revenue  int
+	Complete bool
+	HeatMul  float64
+	Respect  float64
+}
+
+func (ContractDelivered) Kind() string { return "ContractDelivered" }
+
+// ContractFailed is a contract short at its due day: Delivered of Units
+// went over, Cash was taken for the rest, Respect is lost and Notoriety
+// gained, and the buyer stays away until Blacklisted.
+type ContractFailed struct {
+	Day         int
+	ID          int
+	Buyer       string
+	Name        string
+	City        string
+	Product     string
+	Units       int
+	Delivered   int
+	Cash        int
+	Respect     float64 // positive: what respect loses
+	Notoriety   float64 // what notoriety gains
+	Blacklisted int     // first day the buyer will deal again
+}
+
+func (ContractFailed) Kind() string { return "ContractFailed" }
+
+// ContractExpired is report-only bookkeeping: an offer that lapsed
+// unanswered.
+type ContractExpired struct {
+	Day     int
+	ID      int
+	Name    string
+	City    string
+	Product string
+	Units   int
+}
+
+func (ContractExpired) Kind() string { return "ContractExpired" }

@@ -1,0 +1,197 @@
+# Buyers (#71): named people in each city who want product off-corner,
+# on a deadline, at a premium. The market sim deals them the way the news
+# sim deals dilemma cards: none for min_gap days after the last offer,
+# then a rising chance until one is certain at max_gap, one offer on the
+# table at a time, off its own side stream (Tick.Sub("buyers")) so the
+# deck never moves the home city's dice. An offer is answered on the
+# market screen (2); the stock is handed over out of that city's stash,
+# and only if you are standing there.
+#
+# Every price in this file is a multiplier of the street price in the
+# buyer's city ON THE DAY OF DELIVERY: a contract is a bet on where the
+# street will be, not a fixed figure. Sizes are in days of the demand the
+# corners you work in that city serve for the product (never less than
+# one standard corner's): buyers come to the operation they have heard
+# of, so the same buyer asks for a bag of weed or a handful of coke, and
+# for more of either once you hold the block.
+#
+# Each [[buyer]]:
+#   id, name        the buyer; name is what the offer and the report say
+#   pitch           what they say (slots: Name, Units, Product, City, Days, Premium)
+#   city            city id, or "any" (drawn per offer)
+#   product         product id, or "any" listed product (min_price narrows it
+#                   to the tier whose home base price is at least that)
+#   size            [lo, hi] days of your corners' demand there (at least a standard corner's)
+#   days            [lo, hi] days to deliver, counted from the offer
+#   premium         [lo, hi] multiplier on that city's street price at delivery
+#   penalty         respect lost if the contract is short at the due day
+#   penalty_cash    of the undelivered units' street value, taken in cash
+#   heat            heat per unit handed over, relative to a unit a nobody
+#                   moves on a standard corner: no corner discounts it and no
+#                   dial quietens it, so it sits well above what a runner's
+#                   unit draws (heat.toml crew_heat) and under your own
+#   weight          relative draw weight; 0 means 1
+#   once            at most once per run
+#   unlock_cash     peak cash before the buyer comes looking, like products
+#   [buyer.trigger] optional, the shape of a dilemma card's (content.CardTrigger)
+# A key nobody reads fails at start-up.
+
+[buyers]
+min_gap = 3              # days after the last offer before the next can come
+max_gap = 7              # by which the next is certain, if anyone is eligible
+offer_days = 3           # days an offer stands before it lapses (never past its due day)
+blacklist_days = 30      # a buyer you let down stays away this long
+respect = 3              # respect a contract delivered in full earns
+notoriety_penalty = 5    # notoriety a failed contract adds: word gets round
+keep_days = 14           # resolved contracts stay on the books this long
+
+# ---------------------------------------------------------------- weed and pills
+
+[[buyer]]
+id = "club_owner"
+name = "Marco at the Velvet Room"
+pitch = "{{.Name}} wants {{.Units}} {{.Product}} for the weekend crowd: {{.Days}} days, {{.Premium}} street."
+city = "eastside"
+product = "pills"
+size = [0.75, 2.0]
+days = [4, 7]
+premium = [1.5, 1.9]
+penalty = 6
+penalty_cash = 0.2
+heat = 0.4
+weight = 2
+
+[[buyer]]
+id = "party"
+name = "a promoter putting on a party"
+pitch = "{{.Name}} needs {{.Units}} {{.Product}} in {{.City}} inside {{.Days}} days and will pay {{.Premium}} street to skip the corner."
+city = "any"
+product = "weed"
+size = [0.75, 2.0]
+days = [3, 6]
+premium = [1.4, 1.8]
+penalty = 5
+penalty_cash = 0.15
+heat = 0.35
+weight = 2
+
+[[buyer]]
+id = "doctor"
+name = "a doctor with a private practice"
+pitch = "{{.Name}} wants {{.Units}} {{.Product}} quietly, {{.Days}} days, {{.Premium}} street, and never wants to meet on a corner."
+city = "any"
+product = "pills"
+size = [0.5, 1.5]
+days = [2, 4]
+premium = [1.7, 2.2]
+penalty = 8
+penalty_cash = 0.25
+heat = 0.35
+[buyer.trigger]
+heat_max = 40
+
+[[buyer]]
+id = "dockhand"
+name = "a foreman at the docks"
+pitch = "{{.Name}} has a crew coming off a ship and wants {{.Units}} {{.Product}} in {{.Days}} days at {{.Premium}} street. Cash on the pier."
+city = "bayport"
+product = "any"
+size = [1.0, 2.0]
+days = [2, 4]
+premium = [1.2, 1.5]
+penalty = 4
+penalty_cash = 0.1
+heat = 0.4
+
+# ---------------------------------------------------------------- coke and up
+
+[[buyer]]
+id = "out_of_towner"
+name = "a face from out of town"
+pitch = "{{.Name}} wants {{.Units}} {{.Product}} in {{.City}}, {{.Days}} days, {{.Premium}} street, and is not coming back for seconds."
+city = "bayport"
+product = "coke"
+size = [1.5, 3.0]
+days = [5, 9]
+premium = [1.8, 2.4]
+penalty = 8
+penalty_cash = 0.25
+heat = 0.5
+unlock_cash = 3000
+
+[[buyer]]
+id = "banker"
+name = "a banker with a habit"
+pitch = "{{.Name}} wants {{.Units}} {{.Product}} delivered by somebody who owns the block: {{.Days}} days, {{.Premium}} street."
+city = "eastside"
+product = "coke"
+size = [0.75, 1.5]
+days = [3, 5]
+premium = [2.0, 2.6]
+penalty = 8
+penalty_cash = 0.3
+heat = 0.35
+unlock_cash = 3000
+[buyer.trigger]
+corners = 3
+
+[[buyer]]
+id = "chemist"
+name = "a chemist from across the river"
+pitch = "{{.Name}} wants {{.Units}} {{.Product}} in {{.City}} for their own operation: {{.Days}} days at {{.Premium}} street."
+city = "any"
+product = "heroin"
+size = [1.0, 2.5]
+days = [5, 8]
+premium = [1.5, 1.9]
+penalty = 8
+penalty_cash = 0.25
+heat = 0.6
+unlock_cash = 3000
+
+[[buyer]]
+id = "cook"
+name = "a cook who lost a batch"
+pitch = "{{.Name}} needs {{.Units}} {{.Product}} in {{.City}} to keep their customers, {{.Days}} days, {{.Premium}} street."
+city = "any"
+product = "meth"
+size = [1.0, 2.0]
+days = [4, 7]
+premium = [1.4, 1.8]
+penalty = 8
+penalty_cash = 0.25
+heat = 0.7
+unlock_cash = 10000
+
+# The bulk mover pays under the street as often as over it: the volume is
+# the point, and it needs no corner to move it.
+[[buyer]]
+id = "bulk_mover"
+name = "a mover who deals by the case"
+pitch = "{{.Name}} will take {{.Units}} {{.Product}} in {{.City}} off your hands in {{.Days}} days at {{.Premium}} street, no questions, no corner."
+city = "any"
+product = "any"
+min_price = 100
+size = [3.0, 5.0]
+days = [6, 10]
+premium = [0.85, 1.1]
+penalty = 10
+penalty_cash = 0.3
+heat = 0.5
+unlock_cash = 10000
+
+[[buyer]]
+id = "gallery"
+name = "a gallery owner with a clean name"
+pitch = "{{.Name}} wants {{.Units}} {{.Product}} for an opening, {{.Days}} days, {{.Premium}} street, and only deals with people who own a business."
+city = "eastside"
+product = "designer"
+size = [0.5, 1.5]
+days = [4, 8]
+premium = [1.6, 2.2]
+penalty = 10
+penalty_cash = 0.3
+heat = 0.5
+unlock_cash = 25000
+[buyer.trigger]
+fronts = true

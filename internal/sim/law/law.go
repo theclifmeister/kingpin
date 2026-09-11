@@ -121,7 +121,8 @@ func (s *Sim) Step(w *game.World, t *game.Tick) {
 	}
 
 	// Sources. Violence is the home city's; hard product counts where it
-	// sold; a headline about you counts where you are, as notoriety does.
+	// sold, on a corner or handed to a buyer; a headline about you counts
+	// where you are, as notoriety does.
 	gain := map[string]float64{}
 	units := map[string]int{}
 	for _, e := range t.Events() {
@@ -141,6 +142,12 @@ func (s *Sim) Step(w *game.World, t *game.Tick) {
 		case events.PlayerSold:
 			if slices.Contains(src.Hard, ev.Product) {
 				units[ev.City] += ev.Sold
+			}
+		case events.ContractDelivered:
+			// A buyer's handoff is product sold in that city (#71): it
+			// counts against hard_units the way a corner sale does.
+			if slices.Contains(src.Hard, ev.Product) {
+				units[ev.City] += ev.Units
 			}
 		}
 	}

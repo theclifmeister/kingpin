@@ -46,6 +46,7 @@ load; a save from a newer build than the one you are running is refused.
 | `u` / `enter` | Buy the selected upgrade, after a confirmation (upgrades) |
 | `d` | Cycle the launder dial: careful / normal / greedy; on the rivals screen, propose a deal |
 | `y` / `x` | Accept / decline the selected offer (rivals screen) |
+| `a` / `x` / `d` | On the market, with the cursor on a buyer (`↓` past the product table): accept / decline the offer / hand over what is in that city's stash |
 | `n` | End the day |
 | `enter` | End the day, after a confirmation |
 | `r` | Reopen the morning report (anywhere but the map) |
@@ -73,6 +74,18 @@ never leaves the first city plays the same as it always did.
 - **Market** drifts prices toward an equilibrium with noise, rolls supply
   shocks and demand slumps, and resolves your sell orders, city by city.
   Selling into demand barely moves the price; flooding past it craters it.
+  It also deals the **buyers**: every few days somebody in one of the
+  cities wants product off-corner, on a deadline, at a premium over that
+  city's street price on the day you hand it over (a club owner who wants
+  pills for the weekend, a face from out of town who wants coke in bulk).
+  Offers come to the market screen and lapse in a few days; take one and
+  it is yours to deliver out of that city's stash, standing there, by its
+  due day. A handoff needs no corner, is not capped by a patrol, takes no
+  cut for a lieutenant and draws heat at the buyer's own rate; short at
+  the due day, you lose respect, gain notoriety, the buyer collects for
+  the rest and stays away for a month. The premium is a bet: it is against
+  the street on the day, so a slump or a spike since the buyer asked is
+  yours to eat. The deck is `internal/content/buyers.toml`.
 - **Logistics** is the road between the cities: a car, a truck and a boat,
   each a different point on the speed / cost / risk triangle, and each a
   **dial** you set once on the map: off, slow, normal or fast, with a
@@ -205,7 +218,10 @@ target of a few days of demand, moves to Bayport once the wholesaler deals
 and sells at both ends),
 `delegated` (the distributor with a lieutenant running Eastside; `-lt
 violent|greedy|careful|steady` forces their temper), `funded` (the
-laundered player who pays the town whenever the pressure is up).
+laundered player who pays the town whenever the pressure is up), `dealer`
+(the crewed player who works the buyers where it stands: takes every offer
+it can cover, keeps the stock aside and hands it over when the heat
+allows).
 `-chief corrupt|zealous|lazy` and `-da law_and_order|moderate|reform` hold
 the law fixed for the run.
 `-own stash,burners` starts every run owning those upgrades; `-snitch` starts
@@ -234,7 +250,13 @@ aggressive trader sooner than a lazy one, a law-and-order DA the hot crewed
 player sooner than a reformer, a hit war is louder than holding ground,
 the funded player ends quieter than the laundered one on clean money
 alone, loud cities elect law-and-order, and the quiet-day rule holds under
-every chief and DA.
+every chief and DA. `buyers_test.go` pins the contracts: a handoff never
+exceeds the stash and conserves stock and cash, a cornerless player can
+still work one, the premium is a bet against the day, a welsher ends
+with less respect and the buyer stays away, a handoff is dealing for the
+DA's file and hard-product pressure, the `dealer` out-earns `crewed`,
+every buyer is dealt and reads clean, and the deck boxed changes nothing
+but the contracts.
 
 ## Layout
 
