@@ -131,10 +131,10 @@ func TestUpgradedBeatsCrewed(t *testing.T) {
 	}
 	sort.Ints(up)
 	sort.Ints(crew)
-	t.Logf("median peak cash over %d seeds: upgraded %d, crewed %d", len(up), up[len(up)/2], crew[len(crew)/2])
 	if up[len(up)/2] <= crew[len(crew)/2] {
 		t.Fatalf("upgraded median peak %d, crewed %d; the tree should pay for itself", up[len(up)/2], crew[len(crew)/2])
 	}
+	t.Logf("upgraded median peak %d, crewed %d", up[len(up)/2], crew[len(crew)/2])
 }
 
 // What the upgraded player owns at the tier checkpoints is the record

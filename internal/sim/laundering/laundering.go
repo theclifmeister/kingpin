@@ -18,14 +18,21 @@ import (
 
 // Sim is the laundering simulation.
 type Sim struct {
-	cfg content.LaunderingConfig
-	inf content.InformantTuning
+	cfg  content.LaunderingConfig
+	inf  content.InformantTuning
+	tree content.UpgradesConfig
 }
 
 // New builds a laundering sim from config. It takes the crew config for
-// the loyalty line under which an audited front's accountant talks.
-func New(cfg content.LaunderingConfig, crew content.CrewConfig) *Sim {
-	return &Sim{cfg: cfg, inf: crew.Informant}
+// the loyalty line under which an audited front's accountant talks, and
+// the upgrade tree, whose Laundering branch it folds at the top of its
+// step (#118): wash_mul on every front's throughput, audit_risk_mul on
+// its audit risk, audit_seize_mul on what an audit takes, upkeep_mul on
+// what a front costs, audit_freeze_cut on how long an audit shuts it and
+// float_mul on the float, through World.Float, the one number the wash,
+// the road and a supply contract read.
+func New(cfg content.LaunderingConfig, crew content.CrewConfig, tree content.UpgradesConfig) *Sim {
+	return &Sim{cfg: cfg, inf: crew.Informant, tree: tree}
 }
 
 func (s *Sim) Name() string { return "laundering" }
@@ -103,39 +110,78 @@ func (s *Sim) accountants(w *game.World) (throughput float64, risk float64) {
 }
 
 // Throughput is how much dirty cash a front can wash today at the current
-// dial, with the accountants' help, whether or not it is open.
+// dial, with the accountants' help and the tree's wash_mul, whether or
+// not it is open.
 func (s *Sim) Throughput(w *game.World, f game.Front) int {
+	return s.throughput(w, f, game.FoldEffects(w, s.tree))
+}
+
+func (s *Sim) throughput(w *game.World, f game.Front, fx game.Effects) int {
 	fc := s.cfg.Front(f.ID)
 	if fc == nil {
 		return 0
 	}
 	acct, _ := s.accountants(w)
-	return int(math.Round((float64(fc.Throughput) + acct) * s.Dial(w.Laundering.Dial).Mul))
+	return int(math.Round((float64(fc.Throughput) + acct) * s.Dial(w.Laundering.Dial).Mul * fx.WashMul))
 }
 
 // AuditRisk is the chance a front is audited today at the current dial,
-// after the accountants' cut.
+// after the accountants' cut and the tree's audit_risk_mul.
 func (s *Sim) AuditRisk(w *game.World, f game.Front) float64 {
+	return s.auditRisk(w, f, game.FoldEffects(w, s.tree))
+}
+
+func (s *Sim) auditRisk(w *game.World, f game.Front, fx game.Effects) float64 {
 	fc := s.cfg.Front(f.ID)
 	if fc == nil {
 		return 0
 	}
 	_, cut := s.accountants(w)
-	return math.Max(0, math.Min(1, fc.AuditRisk*s.Dial(w.Laundering.Dial).Risk*cut))
+	return math.Max(0, math.Min(1, fc.AuditRisk*s.Dial(w.Laundering.Dial).Risk*cut*fx.AuditRiskMul))
 }
+
+// FrontUpkeep is what a front costs in clean cash a day, after the
+// tree's upkeep_mul.
+func (s *Sim) FrontUpkeep(w *game.World, f game.Front) int {
+	fc := s.cfg.Front(f.ID)
+	if fc == nil {
+		return 0
+	}
+	return upkeep(*fc, game.FoldEffects(w, s.tree))
+}
+
+func upkeep(fc content.FrontConfig, fx game.Effects) int {
+	return int(math.Round(float64(fc.Upkeep) * fx.UpkeepMul))
+}
+
+// Float is the dirty cash the wash never takes the till below:
+// laundering.toml's float folded by the tree (World.Float), the number
+// the road and a supply contract keep to as well.
+func (s *Sim) Float(w *game.World) int { return w.Float(s.tree, s.cfg.Laundering.Float) }
 
 // Washable is the dirty cash the fronts may take today: what is over the
 // float.
 func (s *Sim) Washable(w *game.World) int {
-	return max(0, w.Player.DirtyCash-s.cfg.Laundering.Float)
+	return max(0, w.Player.DirtyCash-s.Float(w))
+}
+
+// AuditFreezeDays is how long an audit shuts a front, after the tree's
+// audit_freeze_cut, never under a day.
+func (s *Sim) AuditFreezeDays(w *game.World) int {
+	return auditFreezeDays(s.cfg.Laundering, game.FoldEffects(w, s.tree))
+}
+
+func auditFreezeDays(tun content.LaunderingTuning, fx game.Effects) int {
+	return max(1, tun.AuditFreezeDays-fx.AuditFreezeCut)
 }
 
 // Capacity is the most the open fronts can wash today between them.
 func (s *Sim) Capacity(w *game.World) int {
+	fx := game.FoldEffects(w, s.tree)
 	n := 0
 	for _, f := range w.Fronts {
 		if !f.Frozen(w.Day + 1) {
-			n += s.Throughput(w, f)
+			n += s.throughput(w, f, fx)
 		}
 	}
 	return n
@@ -143,10 +189,11 @@ func (s *Sim) Capacity(w *game.World) int {
 
 // Upkeep is what the open fronts cost in clean cash today between them.
 func (s *Sim) Upkeep(w *game.World) int {
+	fx := game.FoldEffects(w, s.tree)
 	n := 0
 	for _, f := range w.Fronts {
 		if fc := s.cfg.Front(f.ID); fc != nil && !f.Frozen(w.Day+1) {
-			n += fc.Upkeep
+			n += upkeep(*fc, fx)
 		}
 	}
 	return n
@@ -176,10 +223,11 @@ func (s *Sim) flip(w *game.World, t *game.Tick) {
 
 // AnyAuditRisk is the chance at least one open front is audited today.
 func (s *Sim) AnyAuditRisk(w *game.World) float64 {
+	fx := game.FoldEffects(w, s.tree)
 	clear := 1.0
 	for _, f := range w.Fronts {
 		if !f.Frozen(w.Day + 1) {
-			clear *= 1 - s.AuditRisk(w, f)
+			clear *= 1 - s.auditRisk(w, f, fx)
 		}
 	}
 	return 1 - clear
@@ -189,10 +237,13 @@ func (s *Sim) AnyAuditRisk(w *game.World) float64 {
 // what it can, pays its upkeep and rolls for an audit. A front whose
 // upkeep cannot be paid shuts; an audited one shuts longer and loses part
 // of what it washed today. Heat reads the audit off the front tomorrow.
+// The tree folds once at the top (#118) and every number below is the
+// tuning times it, the same number the ledger shows.
 func (s *Sim) Step(w *game.World, t *game.Tick) {
 	tun := s.cfg.Laundering
+	fx := game.FoldEffects(w, s.tree)
 	dial := w.Laundering.Dial
-	total, upkeep, washing := 0, 0, 0
+	total, paid, washing := 0, 0, 0
 	for i := range w.Fronts {
 		f := &w.Fronts[i]
 		f.WashedToday = 0
@@ -209,7 +260,7 @@ func (s *Sim) Step(w *game.World, t *game.Tick) {
 
 		// 1. The wash: dirty in, clean out, up to today's throughput and
 		// never below the float.
-		if amt := min(s.Throughput(w, *f), s.Washable(w)); amt > 0 {
+		if amt := min(s.throughput(w, *f, fx), s.Washable(w)); amt > 0 {
 			w.Player.DirtyCash -= amt
 			w.Player.CleanCash += amt
 			f.WashedToday = amt
@@ -220,33 +271,35 @@ func (s *Sim) Step(w *game.World, t *game.Tick) {
 		}
 
 		// 2. Upkeep, in clean cash. Unpaid, the place shuts.
-		if fc.Upkeep > w.Player.CleanCash {
+		due := upkeep(*fc, fx)
+		if due > w.Player.CleanCash {
 			f.FrozenUntil = t.Day + tun.UpkeepFreezeDays
-			t.Emit(events.FrontFrozen{Day: t.Day, Front: f.ID, Name: f.Name, Upkeep: fc.Upkeep, Days: tun.UpkeepFreezeDays})
+			t.Emit(events.FrontFrozen{Day: t.Day, Front: f.ID, Name: f.Name, Upkeep: due, Days: tun.UpkeepFreezeDays})
 			continue
 		}
-		w.Player.CleanCash -= fc.Upkeep
-		upkeep += fc.Upkeep
+		w.Player.CleanCash -= due
+		paid += due
 
 		// 3. The audit. It freezes the front and takes a slice of what
 		// went through the books today.
-		if t.RNG.Float64() >= s.AuditRisk(w, *f) {
+		if t.RNG.Float64() >= s.auditRisk(w, *f, fx) {
 			continue
 		}
-		seized := min(int(math.Round(float64(f.WashedToday)*tun.AuditSeize)), w.Player.CleanCash)
+		seized := min(int(math.Round(float64(f.WashedToday)*tun.AuditSeize*fx.AuditSeizeMul)), w.Player.CleanCash)
 		w.Player.CleanCash -= seized
 		w.Stats.Seized += seized
-		f.FrozenUntil = t.Day + tun.AuditFreezeDays
+		freeze := auditFreezeDays(tun, fx)
+		f.FrozenUntil = t.Day + freeze
 		f.Audited = t.Day
 		f.AuditDial = dial
-		t.Emit(events.FrontAudited{Day: t.Day, Front: f.ID, Name: f.Name, Dial: dial, Seized: seized, Days: tun.AuditFreezeDays})
+		t.Emit(events.FrontAudited{Day: t.Day, Front: f.ID, Name: f.Name, Dial: dial, Seized: seized, Days: freeze})
 
 		// 4. The auditors question the books' keeper. The least loyal
 		// accountant under the informant line (#13) is turned, no dice:
 		// the heat sim starts its clock the day nobody was talking ends.
 		s.flip(w, t)
 	}
-	if total > 0 || upkeep > 0 {
-		t.Emit(events.CashLaundered{Day: t.Day, Amount: total, Upkeep: upkeep, Fronts: washing})
+	if total > 0 || paid > 0 {
+		t.Emit(events.CashLaundered{Day: t.Day, Amount: total, Upkeep: paid, Fronts: washing})
 	}
 }

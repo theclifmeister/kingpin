@@ -37,28 +37,46 @@ type Sim struct {
 	cfg   content.CrewConfig
 	names []string
 	rep   content.ReputationFX
+	tree  content.UpgradesConfig
 }
 
-// New builds a crew sim from config and the name pool. Of the reputation
-// effects it reads two: respect slows loyalty's decay, notoriety cuts
-// what a candidate asks to sign.
-func New(cfg content.CrewConfig, names content.NamesConfig, rep content.ReputationFX) *Sim {
-	return &Sim{cfg: cfg, names: names.Crew, rep: rep}
+// New builds a crew sim from config, the name pool and the upgrade tree.
+// Of the reputation effects it reads two: respect slows loyalty's decay,
+// notoriety cuts what a candidate asks to sign. Of the tree it folds the
+// Crew branch at the top of its step (#118): wage_mul on the bill,
+// loyalty_loss_mul on a day's loss (the way respect scales it),
+// danger_loyalty_mul on what a sting or raid costs, skim_chance_mul and
+// informant_chance_mul on the rolls under the lines, crew_slots on
+// MaxCrew, candidates_bonus and pool_days_cut on the pool, skill_bonus
+// and start_loyalty_bonus on a generated candidate and hire_fee_mul on
+// their fee, both fixed when they are generated.
+func New(cfg content.CrewConfig, names content.NamesConfig, rep content.ReputationFX, tree content.UpgradesConfig) *Sim {
+	return &Sim{cfg: cfg, names: names.Crew, rep: rep, tree: tree}
 }
 
-// LoyaltyLoss is what the player's respect leaves of a day's loyalty
-// loss: 1 for a nobody, less for a name the crew are proud to work for.
+// LoyaltyLoss is what the player's respect and the tree leave of a day's
+// loyalty loss: 1 for a nobody with no nodes, less for a name the crew
+// are proud to work for, times loyalty_loss_mul.
 func (s *Sim) LoyaltyLoss(w *game.World) float64 {
-	return content.Cut(w.Player.Reputation.Respect, s.rep.RespectLoyaltyCut)
+	return s.loyaltyLoss(w, game.FoldEffects(w, s.tree))
+}
+
+func (s *Sim) loyaltyLoss(w *game.World, fx game.Effects) float64 {
+	return content.Cut(w.Player.Reputation.Respect, s.rep.RespectLoyaltyCut) * fx.LoyaltyLossMul
 }
 
 // HireFee is what a candidate of the given skill asks to sign today: the
-// tuning, less what the player's notoriety takes off. A candidate's fee
-// is fixed when they are generated, so the pool catches up as it rotates.
+// tuning, less what the player's notoriety takes off, times the tree's
+// hire_fee_mul. A candidate's fee is fixed when they are generated, so
+// the pool catches up as it rotates.
 func (s *Sim) HireFee(w *game.World, skill int) int {
+	return s.hireFee(w, skill, game.FoldEffects(w, s.tree))
+}
+
+func (s *Sim) hireFee(w *game.World, skill int, fx game.Effects) int {
 	tun := s.cfg.Crew
 	fee := tun.HireFeeBase + int(math.Round(tun.HireFeePerSkill*float64(skill)))
-	return int(math.Round(float64(fee) * content.Cut(w.Player.Reputation.Notoriety, s.rep.NotorietyHireCut)))
+	return int(math.Round(float64(fee) * content.Cut(w.Player.Reputation.Notoriety, s.rep.NotorietyHireCut) * fx.HireFeeMul))
 }
 
 func (s *Sim) Name() string { return "crew" }
@@ -66,10 +84,31 @@ func (s *Sim) Name() string { return "crew" }
 // Tuning exposes the crew constants the UI needs to explain itself.
 func (s *Sim) Tuning() content.CrewTuning { return s.cfg.Crew }
 
-// MaxCrew is the roster cap: the tuning, plus the people every
-// lieutenant running a city brings with them.
+// MaxCrew is the roster cap: the tuning, plus the tree's crew_slots,
+// plus the people every lieutenant running a city brings with them.
 func (s *Sim) MaxCrew(w *game.World) int {
-	return s.cfg.Crew.MaxCrew + w.Crew.Lieutenants()*s.cfg.Role[game.RoleLieutenant].Crew
+	return s.cfg.Crew.MaxCrew + game.FoldEffects(w, s.tree).CrewSlots + w.Crew.Lieutenants()*s.cfg.Role[game.RoleLieutenant].Crew
+}
+
+// Candidates is how many people are looking for work at any time: the
+// tuning plus the tree's candidates_bonus.
+func (s *Sim) Candidates(w *game.World) int {
+	return s.candidates(game.FoldEffects(w, s.tree))
+}
+
+func (s *Sim) candidates(fx game.Effects) int { return s.cfg.Crew.Candidates + fx.CandidatesBonus }
+
+// PoolDays is how often the hiring pool rotates: the tuning less the
+// tree's pool_days_cut, never under a day; 0 is a pool that never does.
+func (s *Sim) PoolDays(w *game.World) int {
+	return s.poolDays(game.FoldEffects(w, s.tree))
+}
+
+func (s *Sim) poolDays(fx game.Effects) int {
+	if s.cfg.Crew.PoolDays <= 0 {
+		return 0
+	}
+	return max(1, s.cfg.Crew.PoolDays-fx.PoolDaysCut)
 }
 
 // InvestigateCost is what asking questions costs.
@@ -99,16 +138,25 @@ func (s *Sim) PayoffCost(m game.CrewMember) int {
 // PayoffLoyalty is what a pay-off buys.
 func (s *Sim) PayoffLoyalty() float64 { return s.cfg.Informant.PayoffLoyalty }
 
-// WageAt is what m costs per day at pay dial p.
-func (s *Sim) WageAt(m game.CrewMember, p events.Pay) int {
-	return int(math.Round(float64(m.Wage) * s.cfg.PayFor(p).Wage))
+// WageAt is what m costs per day at pay dial p, after the tree's
+// wage_mul: the roster's column, and the bill is the sum.
+func (s *Sim) WageAt(w *game.World, m game.CrewMember, p events.Pay) int {
+	return s.wageAt(m, p, game.FoldEffects(w, s.tree))
+}
+
+func (s *Sim) wageAt(m game.CrewMember, p events.Pay, fx game.Effects) int {
+	return int(math.Round(float64(m.Wage) * s.cfg.PayFor(p).Wage * fx.WageMul))
 }
 
 // Wages is the whole roster's daily bill at pay dial p.
 func (s *Sim) Wages(w *game.World, p events.Pay) int {
+	return s.wages(w, p, game.FoldEffects(w, s.tree))
+}
+
+func (s *Sim) wages(w *game.World, p events.Pay, fx game.Effects) int {
 	n := 0
 	for _, m := range w.Crew.Members {
-		n += s.WageAt(m, p)
+		n += s.wageAt(m, p, fx)
 	}
 	return n
 }
@@ -117,7 +165,7 @@ func (s *Sim) Wages(w *game.World, p events.Pay) int {
 // day 0. It draws from rng, which the caller derives from the seed.
 func (s *Sim) Seed(w *game.World, rng rand) {
 	w.Crew.Pay = events.PayFair
-	s.refill(w, rng)
+	s.refill(w, rng, game.FoldEffects(w, s.tree))
 }
 
 // Migrate brings a save from before the crew existed up to date: an empty
@@ -137,9 +185,11 @@ type rand interface {
 // Step pays wages, lets disloyal members skim, drifts loyalty, and handles
 // quitting and the hiring pool. Skimming is checked on how people felt this
 // morning, before today's drift, so a member never skims on a day they
-// started above the threshold.
+// started above the threshold. The tree folds once at the top (#118)
+// and every number below is the tuning times it.
 func (s *Sim) Step(w *game.World, t *game.Tick) {
 	tun := s.cfg.Crew
+	fx := game.FoldEffects(w, s.tree)
 	c := &w.Crew
 
 	for _, m := range c.HiredToday {
@@ -177,7 +227,7 @@ func (s *Sim) Step(w *game.World, t *game.Tick) {
 		if m.Loyalty >= tun.SkimThreshold {
 			continue
 		}
-		if t.RNG.Float64() < tun.SkimChance*deter {
+		if t.RNG.Float64() < tun.SkimChance*fx.SkimChanceMul*deter {
 			cut := tun.SkimShare * (0.5 + float64(m.Greed)/100)
 			if m.Role == "accountant" {
 				washShare += cut
@@ -225,7 +275,7 @@ func (s *Sim) Step(w *game.World, t *game.Tick) {
 		if m.Loyalty >= inf.Loyalty || m.Nerve >= inf.Nerve {
 			continue
 		}
-		if t.RNG.Float64() < inf.Chance {
+		if t.RNG.Float64() < inf.Chance*fx.InformantChanceMul {
 			m.Informant = true
 			w.Stats.Informants++
 			t.Emit(events.CrewTurnedInformant{Day: t.Day, ID: m.ID, Name: m.Name})
@@ -235,7 +285,7 @@ func (s *Sim) Step(w *game.World, t *game.Tick) {
 	// 2. Wages. Coming up short is remembered.
 	short := 0
 	if len(c.Members) > 0 {
-		wages := s.Wages(w, c.Pay)
+		wages := s.wages(w, c.Pay, fx)
 		paid := min(wages, w.Player.DirtyCash)
 		short = wages - paid
 		w.Player.DirtyCash -= paid
@@ -301,7 +351,7 @@ func (s *Sim) Step(w *game.World, t *game.Tick) {
 		}
 	}
 	shield := math.Pow(1-s.cfg.Role["enforcer"].Protection, float64(enforcers))
-	loss := s.LoyaltyLoss(w)
+	loss := s.loyaltyLoss(w, fx)
 	base := s.cfg.PayFor(c.Pay).Loyalty
 	base -= tun.FireLoyalty * float64(fired)
 	if short > 0 {
@@ -314,7 +364,7 @@ func (s *Sim) Step(w *game.World, t *game.Tick) {
 		m := &c.Members[i]
 		d := base - tun.GreedDrift*float64(m.Greed)/100
 		if danger {
-			d -= tun.DangerLoyalty * float64(100-m.Nerve) / 100 * shield
+			d -= tun.DangerLoyalty * fx.DangerLoyaltyMul * float64(100-m.Nerve) / 100 * shield
 		}
 		if m.Role == "enforcer" {
 			d -= toll * float64(100-m.Nerve) / 100
@@ -376,23 +426,26 @@ func (s *Sim) Step(w *game.World, t *game.Tick) {
 	}
 
 	// 7. The hiring pool rotates on a schedule and refills after hires.
-	if tun.PoolDays > 0 && t.Day-c.PoolDay >= tun.PoolDays {
+	if days := s.poolDays(fx); days > 0 && t.Day-c.PoolDay >= days {
 		c.Candidates = nil
 		c.PoolDay = t.Day
 	}
-	s.refill(w, t.RNG)
+	s.refill(w, t.RNG, fx)
 }
 
 // refill tops the candidate pool up to size with fresh faces.
-func (s *Sim) refill(w *game.World, rng rand) {
-	tun := s.cfg.Crew
-	for len(w.Crew.Candidates) < tun.Candidates {
-		w.Crew.Candidates = append(w.Crew.Candidates, s.generate(w, rng))
+func (s *Sim) refill(w *game.World, rng rand, fx game.Effects) {
+	for len(w.Crew.Candidates) < s.candidates(fx) {
+		w.Crew.Candidates = append(w.Crew.Candidates, s.generate(w, rng, fx))
 	}
 }
 
-// generate rolls a new candidate whose name is not already in use.
-func (s *Sim) generate(w *game.World, rng rand) game.CrewMember {
+// generate rolls a new candidate whose name is not already in use. The
+// tree's skill_bonus and start_loyalty_bonus land on the roll, never
+// over 100, and the fee is priced on the skill they arrive with; none
+// of it adds a draw, so a run owning nothing rolls the pool it always
+// did.
+func (s *Sim) generate(w *game.World, rng rand, fx game.Effects) game.CrewMember {
 	tun := s.cfg.Crew
 	used := map[string]bool{}
 	for _, m := range w.Crew.Members {
@@ -423,17 +476,17 @@ func (s *Sim) generate(w *game.World, rng rand) game.CrewMember {
 		personality = content.LieutenantPersonalities[rng.IntN(len(content.LieutenantPersonalities))]
 	}
 	rc := s.cfg.Role[role]
-	skill := 15 + rng.IntN(71)
+	skill := min(100, 15+rng.IntN(71)+fx.SkillBonus)
 	m := game.CrewMember{
 		ID:      w.Crew.NextID + 1,
 		Name:    name,
 		Role:    role,
 		Skill:   skill,
-		Loyalty: float64(tun.StartLoyaltyMin + rng.IntN(max(1, tun.StartLoyaltyMax-tun.StartLoyaltyMin+1))),
+		Loyalty: float64(min(100, tun.StartLoyaltyMin+rng.IntN(max(1, tun.StartLoyaltyMax-tun.StartLoyaltyMin+1))+fx.StartLoyaltyBonus)),
 		Greed:   5 + rng.IntN(91),
 		Nerve:   5 + rng.IntN(91),
 		Wage:    int(math.Round(rc.WageBase + rc.WagePerSkill*float64(skill))),
-		Fee:     s.HireFee(w, skill),
+		Fee:     s.hireFee(w, skill, fx),
 
 		Personality: personality, // "" for anyone but a lieutenant
 	}

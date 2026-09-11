@@ -390,6 +390,173 @@ desc = "There is always somebody who owes you. One more indictment with the wron
 [upgrade.effects]
 fall_guys = 1
 
+# Crew: cheaper, steadier, more of them (#118). The crew sim reads
+# these; a lone trader gets nothing from any of them.
+
+[[upgrade]]
+id = "word"
+name = "Word on the street"
+branch = "crew"
+cost = 8000
+desc = "You are hiring, and everybody knows it. More faces, sooner."
+[upgrade.effects]
+candidates_bonus = 2
+pool_days_cut = 2
+
+[[upgrade]]
+id = "payroll"
+name = "Payroll"
+branch = "crew"
+cost = 15000
+desc = "Paid on the same day every week, in envelopes. It costs less than it did."
+[upgrade.effects]
+wage_mul = 0.9
+
+[[upgrade]]
+id = "family"
+name = "Like family"
+branch = "crew"
+cost = 30000
+requires = ["payroll"]
+desc = "Birthdays, funerals, bail. They lose faith slower."
+[upgrade.effects]
+loyalty_loss_mul = 0.7
+
+[[upgrade]]
+id = "hazard"
+name = "Hazard pay"
+branch = "crew"
+cost = 40000
+requires = ["payroll"]
+desc = "A bonus the week after a bust. Danger costs half the loyalty."
+[upgrade.effects]
+danger_loyalty_mul = 0.5
+
+[[upgrade]]
+id = "room"
+name = "Room for two more"
+branch = "crew"
+cost = 60000
+requires = ["word"]
+desc = "A bigger back room. Two more on the payroll."
+[upgrade.effects]
+crew_slots = 2
+
+[[upgrade]]
+id = "room2"
+name = "A second room"
+branch = "crew"
+cost = 250000
+requires = ["room"]
+desc = "The place next door, knocked through. Two more again."
+[upgrade.effects]
+crew_slots = 2
+
+[[upgrade]]
+id = "discipline"
+name = "Discipline"
+branch = "crew"
+cost = 90000
+requires = ["family"]
+desc = "Everybody knows what happens to a thief. Half of them think twice."
+[upgrade.effects]
+skim_chance_mul = 0.5
+
+[[upgrade]]
+id = "training"
+name = "Training"
+branch = "crew"
+cost = 120000
+requires = ["word"]
+desc = "A week with somebody who has done it for twenty years. New faces arrive better."
+[upgrade.effects]
+skill_bonus = 10
+
+[[upgrade]]
+id = "vetting"
+name = "Vetting"
+branch = "crew"
+cost = 200000
+requires = ["discipline"]
+desc = "Somebody checks where they came from. Half as many go to the police."
+[upgrade.effects]
+informant_chance_mul = 0.5
+
+[[upgrade]]
+id = "bonuses"
+name = "Signing bonuses"
+branch = "crew"
+cost = 500000
+requires = ["room2"]
+desc = "Cash on the first day and a reputation for it. They ask for less and arrive loyal."
+[upgrade.effects]
+hire_fee_mul = 0.5
+start_loyalty_bonus = 10
+
+# Laundering: wash more, get looked at less (#118). The laundering sim
+# reads these; the float is the road's budget too (World.Float).
+
+[[upgrade]]
+id = "books"
+name = "Bookkeeper"
+branch = "laundering"
+cost = 20000
+desc = "Somebody who knows which column the cash goes in. Every front washes more."
+[upgrade.effects]
+wash_mul = 1.15
+
+[[upgrade]]
+id = "shell"
+name = "Shell company"
+branch = "laundering"
+cost = 75000
+requires = ["books"]
+desc = "The fronts belong to a company that belongs to a company. Auditors lose the thread."
+[upgrade.effects]
+audit_risk_mul = 0.7
+
+[[upgrade]]
+id = "cashbiz"
+name = "Cash business"
+branch = "laundering"
+cost = 150000
+requires = ["books"]
+desc = "Vending machines, parking, a bar with no card reader. Nobody can say how much came in."
+[upgrade.effects]
+wash_mul = 1.25
+
+[[upgrade]]
+id = "float"
+name = "A thinner float"
+branch = "laundering"
+cost = 50000
+desc = "The street restocks on credit. The wash and the road can take the till down to half what they left."
+[upgrade.effects]
+float_mul = 0.5
+
+[[upgrade]]
+id = "offshore"
+name = "Offshore"
+branch = "laundering"
+cost = 600000
+clean = true
+requires = ["shell"]
+desc = "An account in a country with no treaty. An audit finds half of what it came for, and the fronts run cheaper."
+[upgrade.effects]
+audit_seize_mul = 0.5
+upkeep_mul = 0.8
+
+[[upgrade]]
+id = "books2"
+name = "A second set of books"
+branch = "laundering"
+cost = 1200000
+clean = true
+requires = ["offshore"]
+desc = "The ones the auditors see balance. A front is back in a week."
+[upgrade.effects]
+audit_freeze_cut = 7
+
 # Logistics: the road (#119). Every node is read by the logistics sim
 # alone: the risk on every route, its capacity, its days, its fare and the
 # wholesaler's price. A lone trader with no route on gets nothing from

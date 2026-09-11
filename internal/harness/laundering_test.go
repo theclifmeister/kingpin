@@ -210,3 +210,74 @@ func TestLaunderedIsDeterministic(t *testing.T) {
 		}
 	}
 }
+
+// The wash invariants hold with the whole Laundering branch owned
+// (#118), and the thinner float is one number for the wash and the
+// road: over a laundered run neither pool goes negative, a day's wash
+// never exceeds the folded capacity, a frozen front washes nothing,
+// every wash leaves the till at or over the folded float (half the
+// file's) and the road's budget is what is over that same float.
+func TestLaunderingInvariantsUnderTheBranch(t *testing.T) {
+	cfg := content.MustLoad()
+	set, _, err := sim.Default(cfg)
+	if err != nil {
+		t.Fatal(err)
+	}
+	laundered := Laundered(cfg, 40)
+	half := cfg.Laundering.Laundering.Float / 2
+	washed := 0
+	for seed := uint64(1); seed <= 5; seed++ {
+		w := sim.NewWorld(cfg, seed)
+		for _, n := range cfg.Upgrades.Branch("laundering") {
+			grant(w, n.ID)
+		}
+		if got := set.Laundering.Float(w); got != half || set.Logistics.Budget(w) != max(0, w.Player.DirtyCash-half) {
+			t.Fatalf("seed %d: float %d, budget %d, want %d and %d", seed, got, set.Logistics.Budget(w), half, max(0, w.Player.DirtyCash-half))
+		}
+		capacity := 0
+		var frozen []string
+		res, err := RunFrom(cfg, w, Horizon, func(w *game.World) {
+			laundered(w)
+			capacity = set.Laundering.Capacity(w)
+			frozen = frozen[:0]
+			for _, f := range w.Fronts {
+				if f.Frozen(w.Day + 1) {
+					frozen = append(frozen, f.ID)
+				}
+			}
+			if w.Player.DirtyCash < 0 || w.Player.CleanCash < 0 {
+				t.Fatalf("seed %d day %d: dirty %d clean %d", seed, w.Day, w.Player.DirtyCash, w.Player.CleanCash)
+			}
+			if w.Player.DirtyCash > half && set.Logistics.Budget(w) != w.Player.DirtyCash-half {
+				t.Fatalf("seed %d day %d: the road's budget is %d with %d dirty over a float of %d", seed, w.Day, set.Logistics.Budget(w), w.Player.DirtyCash, half)
+			}
+		})
+		if err != nil {
+			t.Fatal(err)
+		}
+		if res.Over != nil {
+			t.Fatalf("seed %d: laundered run ended on day %d: %s", seed, res.Days, res.Over.Cause)
+		}
+		for _, e := range res.Events {
+			if cl, ok := e.(events.CashLaundered); ok && cl.Amount > 0 {
+				washed += cl.Amount
+				if cl.Day == res.Days && cl.Amount > capacity {
+					t.Fatalf("seed %d day %d: washed %d with capacity %d", seed, cl.Day, cl.Amount, capacity)
+				}
+			}
+		}
+		for _, f := range res.World.Fronts {
+			for _, id := range frozen {
+				if f.ID == id && f.WashedToday != 0 {
+					t.Fatalf("seed %d: frozen front %s washed %d on the last day", seed, id, f.WashedToday)
+				}
+			}
+		}
+		if res.World.Player.DirtyCash < half && res.World.Stats.Laundered > 0 && res.World.Fronts[0].WashedToday > 0 {
+			t.Fatalf("seed %d: the wash took the till to %d, under the float of %d", seed, res.World.Player.DirtyCash, half)
+		}
+	}
+	if washed == 0 {
+		t.Fatal("nothing was washed in five laundered runs")
+	}
+}

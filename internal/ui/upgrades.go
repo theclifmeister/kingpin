@@ -31,7 +31,7 @@ func (m *Model) upgradeSelected() (content.UpgradeConfig, bool) {
 	return rows[m.upgradeCursor], true
 }
 
-// upgradeMove walks the tree as three columns: dc moves to the branch
+// upgradeMove walks the tree as columns, one a branch: dc moves to the branch
 // beside this one at the same row (the last node if that column is
 // shorter), dr up or down within the column. The edges are no-ops.
 func (m *Model) upgradeMove(dc, dr int) {
@@ -252,32 +252,33 @@ func (m *Model) upgradeAt() (col, row int) {
 }
 
 // upgradePage is the window of rows the columns show: the tree is
-// taller than MAIN at 80x24 since #117, so the three columns page
-// together (they walk at the same row) by as many nodes as fit under
-// the title, the pools, the column heads and over the legend, and the
-// page is the cursor's. The screen for seven branches is #120's.
+// taller than MAIN at 80x24 since #117, so the columns page together
+// (they walk at the same row) by as many nodes as fit under the title,
+// the pools, the column heads and over the legend, and the page is the
+// cursor's. The screen for seven branches is #120's.
 func (m *Model) upgradePage() (top, per int) {
 	per = max(1, (m.mainHeight()-7)/2)
 	_, row := m.upgradeAt()
 	return row / per * per, per
 }
 
-// upgradeColW is the narrowest a branch's column is drawn.
-const upgradeColW = 20
+// upgradeColMin is the narrowest a branch's column is drawn.
+const upgradeColMin = 20
 
-// upgradeColumns is the window of branches the screen shows: since
-// #119 the tree has more branches than MAIN holds columns of
-// upgradeColW at 80 columns, so the branches page sideways by as many
-// as fit a space apart, the page being the cursor's column's. The
-// screen for seven branches is #120's.
-func (m *Model) upgradeColumns() (first, n int) {
-	n = max(1, min(len(content.Branches), (m.mainWidth()+1)/(upgradeColW+1)))
+// upgradeColumns is the window of branches MAIN shows: since #118 the
+// tree is wider than MAIN too, so it shows as many columns of
+// upgradeColMin as the width holds, a space apart, the leftmost window
+// that has the cursor's column in it (stateless, like the row page);
+// left and right still cross every branch, and the title says which
+// are shown.
+func (m *Model) upgradeColumns() (first, per int) {
+	per = max(1, min(len(content.Branches), (m.mainWidth()+1)/(upgradeColMin+1)))
 	col, _ := m.upgradeAt()
-	return col / n * n, n
+	return max(0, min(col, len(content.Branches)-per)), per
 }
 
 // viewUpgrades is the tree's MAIN (#86): the title with the count, the
-// two pools, and the three branches as columns, each node a
+// two pools, and the branches as columns (as many as fit), each node a
 // name-and-cost line over a one-line summary of its effects; the node
 // under the cursor is the pane's.
 func (m *Model) viewUpgrades() string {
@@ -290,22 +291,27 @@ func (m *Model) viewUpgrades() string {
 			owned++
 		}
 	}
-	b.WriteString(truncate(sectionTitle("UPGRADES", theme.Money)+theme.Subtle.Render(fmt.Sprintf(" · %d of %d owned", owned, len(m.cfg.Upgrades.Nodes))), width) + "\n")
+	firstCol, perCol := m.upgradeColumns()
+	title := sectionTitle("UPGRADES", theme.Money) + theme.Subtle.Render(fmt.Sprintf(" · %d of %d owned", owned, len(m.cfg.Upgrades.Nodes)))
+	if perCol < len(content.Branches) {
+		title += theme.Subtle.Render(fmt.Sprintf(" · branches %d–%d of %d", firstCol+1, min(firstCol+perCol, len(content.Branches)), len(content.Branches)))
+	}
+	b.WriteString(truncate(title, width) + "\n")
 	b.WriteString(truncate(theme.Gold.Render("dirty "+cash(w.Player.DirtyCash))+theme.Subtle.Render(" · ")+theme.Good.Render("clean "+cash(w.Player.CleanCash)), width) + "\n\n")
 
-	// The branches as columns a space apart, sharing the width, as many
-	// as fit at upgradeColW (the rest page sideways with the cursor).
-	// The cursor walks a column with up and down and crosses to the
-	// next with left and right.
-	first, shown := m.upgradeColumns()
-	colW := max(upgradeColW, (width-shown+1)/shown)
+	// The branches as columns a space apart, sharing the width, as
+	// many as it holds at once (upgradeColumns). The cursor walks a
+	// column with up and down and crosses to the next with left and
+	// right; the nodes of a branch off the page still count toward
+	// the cursor's index.
+	colW := max(upgradeColMin, (width-perCol+1)/perCol)
 	top, per := m.upgradePage()
 	var cols []string
 	idx := 0
-	for b, branch := range content.Branches {
+	for i, branch := range content.Branches {
 		all := m.cfg.Upgrades.Branch(branch)
-		if b < first || b >= first+shown {
-			idx += len(all) // off the page; the cursor still counts its nodes
+		if i < firstCol || i >= firstCol+perCol {
+			idx += len(all)
 			continue
 		}
 		var c strings.Builder
