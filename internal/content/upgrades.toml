@@ -8,6 +8,7 @@
 #   buy_pressure_mul     multiplier on how much a buy pushes the supplier price (product)
 #   fill_mul             multiplier on the fill of every dial (product)
 #   sale_heat_mul        multiplier on the heat a sale draws (product)
+#   crew_heat_mul        multiplier on the heat a unit a runner moves draws, relative to one you move (product)
 #   patrol_cap           fraction of demand a patrol still lets you sell (highest wins)
 #   cooldown_bonus       days added to the gap before the same response can fire again (sum)
 #   sting_stock_mul      multiplier on the stock a sting takes (product)
@@ -119,6 +120,34 @@ desc = "People who can make you disappear for a week."
 [upgrade.effects]
 lie_low_multiplier = 3.0
 decay = 0.13
+
+# The tier-3 and tier-4 Security nodes (#60) are how an operation outgrows
+# the street's notice: they cut what a runner's unit draws, not what yours
+# does, so a crew of ghosts moves ten times the tier-2 volume under the
+# same sting line while you, on your own corner at the aggressive dial,
+# are as hot as ever (the always-aggressive trader is indicted just as
+# fast with the whole branch: heat.toml's ladder is a rate the tier can
+# afford, not a wall a purchase removes).
+
+[[upgrade]]
+id = "ghosts"
+name = "Ghost crew"
+branch = "security"
+cost = 250000
+requires = ["lookouts"]
+desc = "Your people are nobody. Nobody sees nobody."
+[upgrade.effects]
+crew_heat_mul = 0.4
+
+[[upgrade]]
+id = "cutouts"
+name = "Cut-outs"
+branch = "security"
+cost = 1500000
+requires = ["ghosts", "safehouse"]
+desc = "Three people between every corner and you. None of them know your name."
+[upgrade.effects]
+crew_heat_mul = 0.4
 
 # Legal: survive the case.
 

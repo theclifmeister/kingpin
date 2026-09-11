@@ -208,6 +208,7 @@ type ProductMarket struct {
 	ShockSlump    bool      // true if the shock is a demand slump
 	History       []float64 // closing prices, oldest first
 	BoughtToday   int
+	NoSupply      bool // the supplier here does not sell it: the road is the only way in
 }
 
 // HeatState is the law-enforcement pressure on the player: what the DA
@@ -418,6 +419,8 @@ type RivalState struct {
 	Flips       int     // corners it took from the player
 	Tips        int
 	Leads       []Lead // what defectors brought it, to act on next step
+	LastClaim   int    // day it last set up on a free corner; 0 never (#60: the pace's cooldown)
+	LastStruck  int    // day the player's enforcers last went in; 0 never (#60: under attack it grows as fast as it can)
 
 	// Diplomacy (#32): what it thinks of you and what you have agreed.
 	Trust     float64 // 0..100; seeded by personality, earned by kept deals, spent by force
@@ -511,10 +514,11 @@ type Stats struct {
 // StartingProduct describes a product as it exists at the start of a run,
 // priced for one city.
 type StartingProduct struct {
-	ID     string
-	Name   string
-	Price  float64
-	Demand float64
+	ID       string
+	Name     string
+	Price    float64
+	Demand   float64
+	NoSupply bool // the supplier in this city does not sell it
 }
 
 // StartingCity describes a city as a run starts: its identity, its static
@@ -602,6 +606,7 @@ func (w *World) AddProduct(city string, p StartingProduct) {
 		Demand:        p.Demand,
 		ShockFactor:   1,
 		History:       []float64{p.Price},
+		NoSupply:      p.NoSupply,
 	}
 	w.Stash(city)[p.ID] += 0
 }

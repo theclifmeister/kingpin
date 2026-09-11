@@ -94,6 +94,7 @@ type Effects struct {
 	BuyPressureMul    float64 // on how much a buy pushes the supplier price
 	FillMul           float64 // on every dial's fill
 	SaleHeatMul       float64 // on the heat a sale draws
+	CrewHeatMul       float64 // on the heat a unit a runner moves draws, relative to one you move
 	PatrolCap         float64 // patrol sell cap, 0 = the response's own
 	CooldownBonus     int     // days added before the same response can fire again
 	StingStockMul     float64 // on stock a sting takes
@@ -109,7 +110,7 @@ type Effects struct {
 // FoldEffects folds the upgrades w owns into one Effects, using the combining
 // rule upgrades.toml documents for each name.
 func FoldEffects(w *World, tree content.UpgradesConfig) Effects {
-	fx := Effects{SupplierMul: 1, BuyPressureMul: 1, FillMul: 1, SaleHeatMul: 1, StingStockMul: 1, RaidLossMul: 1}
+	fx := Effects{SupplierMul: 1, BuyPressureMul: 1, FillMul: 1, SaleHeatMul: 1, CrewHeatMul: 1, StingStockMul: 1, RaidLossMul: 1}
 	for _, n := range tree.Nodes {
 		if !w.Owns(n.ID) {
 			continue
@@ -126,6 +127,9 @@ func FoldEffects(w *World, tree content.UpgradesConfig) Effects {
 		}
 		if e.SaleHeatMul > 0 {
 			fx.SaleHeatMul *= e.SaleHeatMul
+		}
+		if e.CrewHeatMul > 0 {
+			fx.CrewHeatMul *= e.CrewHeatMul
 		}
 		fx.PatrolCap = math.Max(fx.PatrolCap, e.PatrolCap)
 		fx.CooldownBonus += e.CooldownBonus

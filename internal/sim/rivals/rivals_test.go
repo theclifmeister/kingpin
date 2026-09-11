@@ -100,10 +100,10 @@ func TestClaimsRespectTheCap(t *testing.T) {
 		w.Rival.Cash = 10_000_000
 		for w.Day < 200 {
 			step(w, s)
-			if n := w.RivalHeld(); n > cfg.Rivals.Personality[p].MaxCorners {
+			if n := w.RivalHeld(); n > s.MaxCorners(w) {
 				// Pushes can carry an expansionist past its cap; claims cannot.
 				if p != "expansionist" {
-					t.Fatalf("%s day %d: holds %d corners, cap %d", p, w.Day, n, cfg.Rivals.Personality[p].MaxCorners)
+					t.Fatalf("%s day %d: holds %d corners, cap %d", p, w.Day, n, s.MaxCorners(w))
 				}
 			}
 			for _, c := range w.Home().Corners {
@@ -339,5 +339,28 @@ func TestTipsRiseWithPressure(t *testing.T) {
 	t.Logf("tips over 40 seeds x 10 days: %d at pressure 100, %d at 0", loud, quiet)
 	if loud <= quiet {
 		t.Fatalf("pressure should make the calls land: %d at 100 vs %d at 0", loud, quiet)
+	}
+}
+
+// max_share is a share of home's map (#60): on today's ten corners it
+// reproduces the six, three, four and four corners the personalities
+// set up on before it was a share, and a bigger map gives them more.
+func TestMaxShareReproducesTheCaps(t *testing.T) {
+	cfg := content.MustLoad()
+	w, s := world(t, cfg, 1)
+	want := map[string]int{"expansionist": 6, "defensive": 3, "opportunist": 4, "chaotic": 4}
+	if n := len(w.Home().Corners); n != 10 {
+		t.Fatalf("home has %d corners; the table below is for ten", n)
+	}
+	for p, n := range want {
+		w.Rival.Personality = p
+		if got := s.MaxCorners(w); got != n {
+			t.Errorf("%s: max corners %d on ten, want %d", p, got, n)
+		}
+	}
+	w.Home().Corners = append(w.Home().Corners, w.Home().Corners...)
+	w.Rival.Personality = "expansionist"
+	if got := s.MaxCorners(w); got != 12 {
+		t.Errorf("expansionist: max corners %d on twenty, want 12", got)
 	}
 }

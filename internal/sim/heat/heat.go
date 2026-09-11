@@ -115,6 +115,20 @@ func (s *Sim) LieutenantHeat(w *game.World, city string) float64 {
 	return 1
 }
 
+// Cover is how much of a dirty-cash pile the player's fronts give a
+// story to, on top of heat.toml's threshold: dirty_cash_cover times what
+// they paid for every front. A rich hider with no fronts is covered for
+// nothing (#27 holds: the pile still draws the police, it is just not a
+// countdown); a tier-4 operation whose takings outrun the wash ladder is
+// covered for what its fronts are worth.
+func (s *Sim) Cover(w *game.World) int {
+	cost := 0
+	for _, f := range w.Fronts {
+		cost += f.Cost
+	}
+	return int(math.Round(s.cfg.Heat.DirtyCashCover * float64(cost)))
+}
+
 // Floor is the heat a feared player never cools below: decay works on
 // what is above it. A nobody's floor is zero.
 func (s *Sim) Floor(w *game.World) float64 {
@@ -190,6 +204,14 @@ func (s *Sim) SaleHeat(w *game.World, city, product string, wanted int, dial eve
 	return tun.SaleHeat * fx.SaleHeatMul * attempted * s.CornerWeight(w, city, product) * c.HeatMul * pc.Heat / tun.StreetUnits * s.dialHeat(dial) * s.LieutenantHeat(w, city)
 }
 
+// CrewHeat is what a unit a runner moves draws relative to one you move
+// yourself: the tuning, times what the Security branch takes off it (#60:
+// the tier-3 and tier-4 nodes are how an operation's volume outgrows the
+// street's notice while you, on your own corner, are as hot as ever).
+func (s *Sim) CrewHeat(w *game.World) float64 {
+	return s.cfg.Heat.CrewHeat * s.Effects(w).CrewHeatMul
+}
+
 // CornerWeight is the heat one unit of a product draws on average across
 // the corners it moves on in a city, relative to a unit a nobody moves
 // themselves on a standard corner. A sale spreads over the worked corners
@@ -198,7 +220,7 @@ func (s *Sim) SaleHeat(w *game.World, city, product string, wanted int, dial eve
 // a unit you move yourself counts your notoriety.
 func (s *Sim) CornerWeight(w *game.World, city, product string) float64 {
 	total, weighted := 0.0, 0.0
-	personal := s.PersonalHeat(w)
+	personal, crew := s.PersonalHeat(w), s.CrewHeat(w)
 	c0 := w.City(city)
 	if c0 == nil {
 		return 0
@@ -211,7 +233,7 @@ func (s *Sim) CornerWeight(w *game.World, city, product string) float64 {
 		total += share
 		unit := c.Heat
 		if c.Runner != game.You {
-			unit *= s.cfg.Heat.CrewHeat
+			unit *= crew
 		} else {
 			unit *= personal
 		}
@@ -380,9 +402,10 @@ func (s *Sim) Step(w *game.World, t *game.Tick) {
 		}
 	}
 
-	// Sitting on a pile of dirty cash is its own tell, wherever you sit.
-	if tun.DirtyCashThreshold > 0 && w.Player.DirtyCash > tun.DirtyCashThreshold {
-		mult := float64(w.Player.DirtyCash-tun.DirtyCashThreshold) / float64(tun.DirtyCashThreshold)
+	// Sitting on a pile of dirty cash is its own tell, wherever you sit,
+	// past what your fronts give a story to (Cover).
+	if tun.DirtyCashThreshold > 0 && w.Player.DirtyCash > tun.DirtyCashThreshold+s.Cover(w) {
+		mult := float64(w.Player.DirtyCash-tun.DirtyCashThreshold-s.Cover(w)) / float64(tun.DirtyCashThreshold)
 		add(here, tun.DirtyCashHeat*mult, "dirty cash")
 	}
 

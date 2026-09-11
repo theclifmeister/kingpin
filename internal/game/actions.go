@@ -22,6 +22,7 @@ var (
 	ErrNoCity         = errors.New("no such city")
 	ErrNoRoute        = errors.New("no such route")
 	ErrBadDial        = errors.New("no such dial position")
+	ErrNotSupplied    = errors.New("the supplier here does not sell that; it comes in by the road")
 )
 
 // WholesaleOffer is how the wholesale supplier sells, handed to Restock
@@ -81,6 +82,9 @@ func (w *World) Buy(product string, qty int, pricePressure float64) (Purchase, e
 	}
 	if qty <= 0 {
 		return Purchase{}, ErrBadQuantity
+	}
+	if m.NoSupply {
+		return Purchase{}, ErrNotSupplied
 	}
 	cost := int(math.Ceil(m.SupplierPrice * float64(qty)))
 	if cost > w.Player.DirtyCash {

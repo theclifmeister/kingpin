@@ -127,7 +127,7 @@ func StartingCity(c content.CityEntry, market content.MarketConfig) game.Startin
 // Product is a product's starting values in a city.
 func Product(c content.CityEntry, p content.ProductConfig) game.StartingProduct {
 	cp := c.Product(p.ID)
-	return game.StartingProduct{ID: p.ID, Name: p.Name, Price: p.BasePrice * cp.Price, Demand: p.Demand * cp.Demand}
+	return game.StartingProduct{ID: p.ID, Name: p.Name, Price: p.BasePrice * cp.Price, Demand: p.Demand * cp.Demand, NoSupply: cp.NoSupply}
 }
 
 // Migrate brings a save from before the second city up to date: the one

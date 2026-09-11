@@ -141,6 +141,12 @@ func size(c game.Corner) float64 { return c.Demand }
 // proportional mix that fits what the stash there can hold, so a crashed
 // product never hogs the whole bag.
 func restock(cfg *content.Config, w *game.World) {
+	restockOnly(cfg, w, func(string) bool { return true })
+}
+
+// restockOnly is restock over the products ok passes: the bag is shared
+// out by demand among those alone.
+func restockOnly(cfg *content.Config, w *game.World, ok func(product string) bool) {
 	pressure := cfg.Market.Market.BuyPricePressure * game.FoldEffects(w, cfg.Upgrades).BuyPressureMul
 	city := w.Here()
 	// Tribute is paid tonight out of what is left after the buying: a
@@ -151,9 +157,14 @@ func restock(cfg *content.Config, w *game.World) {
 	}
 	total := 0.0
 	for _, id := range w.Products {
-		total += city.Market[id].Demand
+		if ok(id) && !city.Market[id].NoSupply {
+			total += city.Market[id].Demand
+		}
 	}
 	for _, id := range w.Products {
+		if !ok(id) || city.Market[id].NoSupply {
+			continue
+		}
 		m := city.Market[id]
 		target := int(float64(w.Capacity(city.ID)) * m.Demand / total)
 		afford := int(float64(w.Player.DirtyCash-reserve) / m.SupplierPrice)
@@ -624,7 +635,7 @@ func Elect(cfg *content.Config, w *game.World, day int) events.DAElected {
 // sells everything that lands at home and everything stashed where it
 // is. It is the baseline for "a player who runs a route".
 func Distributor(cfg *content.Config, lieLowAt float64) Policy {
-	return distribute(cfg, lieLowAt, false, "")
+	return distribute(cfg, lieLowAt, false, false, "")
 }
 
 // DistributorDays is how many days of home's demand the distributor keeps
@@ -643,7 +654,54 @@ const DistributorDays = 4
 // temper; "" takes them as they come. It is the tier-4 policy: the
 // second city staffed by somebody who is not you.
 func Delegated(cfg *content.Config, lieLowAt float64, personality string) Policy {
-	return distribute(cfg, lieLowAt, true, personality)
+	return distribute(cfg, lieLowAt, true, false, personality)
+}
+
+// Boss plays the whole game (#60): Delegated, and it holds home as well
+// as handing it over. Once the rival is about it keeps Territory's share
+// of the roster as enforcers and, whenever a corner is contested, sends
+// them against the rival's biggest corner at push when the odds (the
+// ones the picker shows) clear BossOdds; otherwise it talks the way
+// Diplomat does, proposing a truce whenever
+// the rival has taken a corner off it lately and taking any truce on the
+// table. It sells only what is worth the heat (BossWorth), spends at
+// BossMargin, pays generous, fires a lieutenant who turns out violent and
+// works every corner in the hub. It launders and buys the tree as
+// Delegated does. It is the tier-3 and tier-4 policy: the player who
+// uses every screen.
+func Boss(cfg *content.Config, lieLowAt float64, personality string) Policy {
+	return distribute(cfg, lieLowAt, true, true, personality)
+}
+
+// BossOdds is the strike odds under which the boss talks instead.
+const BossOdds = 0.5
+
+// BossMargin is how many times a front's or a node's price the boss has
+// in hand before it buys.
+const BossMargin = 1.5
+
+// BossWorth is the share of the best unlocked product's price per point
+// of heat under which the boss leaves a product alone: heat is the bind
+// from tier 2 on, and a unit of weed draws a fifteenth of what a unit of
+// designer does for a hundredth of the money. With the ladder to meth it
+// keeps coke and up; once designer is on offer, heroin and up.
+const BossWorth = 0.2
+
+// worth reports whether a product is worth the heat to the boss: its base
+// price per point of heat is at least BossWorth of the best on offer.
+func worth(cfg *content.Config, w *game.World, id string) bool {
+	value := func(id string) float64 {
+		pc := cfg.Market.Product(id)
+		if pc == nil || pc.Heat <= 0 {
+			return 0
+		}
+		return pc.BasePrice / pc.Heat
+	}
+	best := 0.0
+	for _, p := range w.Products {
+		best = max(best, value(p))
+	}
+	return value(id) >= BossWorth*best
 }
 
 // HubCorners is how many corners the delegated player keeps working in
@@ -651,9 +709,11 @@ func Delegated(cfg *content.Config, lieLowAt float64, personality string) Policy
 // lieutenant's to post.
 const HubCorners = 2
 
-func distribute(cfg *content.Config, lieLowAt float64, delegate bool, personality string) Policy {
+func distribute(cfg *content.Config, lieLowAt float64, delegate, fight bool, personality string) Policy {
 	laundered := Laundered(cfg, lieLowAt)
 	crewSim := crew.New(cfg.Crew, cfg.Names, cfg.Reputation.Effects)
+	rv := rivals.New(cfg.Rivals, cfg.Names, cfg.Reputation.Effects, cfg.Law.Effects)
+	dip := cfg.Rivals.Diplomacy
 	lg := logistics.New(cfg.Routes, cfg.City, cfg.Market, cfg.Upgrades, cfg.Laundering.Laundering.Float)
 	wholesale := lg.Wholesale()
 	home := cfg.City.Home().ID
@@ -677,11 +737,22 @@ func distribute(cfg *content.Config, lieLowAt float64, delegate bool, personalit
 	}
 	tun := cfg.Crew.Crew
 	homeCorners := max(1, tun.MaxCrew/2)
+	guards := max(1, tun.MaxCrew/3)
+	// The delegated player keeps HubCorners runners of its own in the hub
+	// and leaves the rest to the lieutenant; the boss works every corner
+	// there, the lieutenant's people being their own.
+	hubCorners := HubCorners
+	if fight && hub != "" {
+		hubCorners = len(cfg.City.City(hub).Corners)
+	}
 	hot := TooHot(cfg, lieLowAt)
 	return func(w *game.World) {
 		if route == nil {
 			laundered(w)
 			return
+		}
+		if fight {
+			defer war(w, rv, dip, hot)
 		}
 		// The dial, set once and left; the target, refreshed as home's
 		// corners come and go. Whatever the lot does not undercut home's
@@ -689,11 +760,18 @@ func distribute(cfg *content.Config, lieLowAt float64, delegate bool, personalit
 		if !w.Route(route.ID).Dial.On() {
 			_ = w.SetRoute(route.ID, events.RouteNormal)
 		}
+		// The boss keeps the pipeline full: the road takes days, and a
+		// target under that many days of demand starves home between
+		// landings.
+		days := float64(DistributorDays)
+		if fight {
+			days = max(days, float64(lg.Days(*route, w.Route(route.ID).Dial.Ship())+2))
+		}
 		for _, id := range w.Products {
 			hubP, homeP := w.Product(hub, id), w.Product(home, id)
 			target := 0
-			if hubP != nil && homeP != nil && hubP.SupplierPrice*wholesale.Mul <= homeP.Price*DistributorMargin {
-				target = int(DistributorDays * w.Demand(home, id))
+			if hubP != nil && homeP != nil && hubP.SupplierPrice*wholesale.Mul <= homeP.Price*DistributorMargin && (!fight || worth(cfg, w, id)) {
+				target = int(days * w.Demand(home, id))
 			}
 			_ = w.SetRouteTarget(route.ID, id, target)
 		}
@@ -704,9 +782,20 @@ func distribute(cfg *content.Config, lieLowAt float64, delegate bool, personalit
 		if w.Player.Location != hub {
 			_ = w.Travel(hub)
 		}
-		washUp(cfg, w)
-		BuyUpgrades(cfg, w, 3) // the stash spots are what a lot needs room for
-		w.SetPay(events.PayFair)
+		// The boss spends at a thinner margin (the pile is what draws the
+		// police at this scale, and a front or a node is where it goes)
+		// and pays generous: wages are noise against the takings, and
+		// the loyalty is what keeps a ten-strong roster from firing
+		// itself one a day.
+		if fight {
+			washUpAt(cfg, w, BossMargin)
+			BuyUpgrades(cfg, w, BossMargin)
+			w.SetPay(events.PayGenerous)
+		} else {
+			washUp(cfg, w)
+			BuyUpgrades(cfg, w, 3) // the stash spots are what a lot needs room for
+			w.SetPay(events.PayFair)
+		}
 
 		// The crew: runners, and one enforcer for home once the rival is
 		// about. Whoever has sunk to skimming goes, one a day. The
@@ -725,8 +814,27 @@ func distribute(cfg *content.Config, lieLowAt float64, delegate bool, personalit
 				lt = &w.Crew.Members[i]
 			}
 		}
+		// The boss reads the market screen: a lieutenant whose standing
+		// orders are at the aggressive dial is a violent one, and runs
+		// the city into an arrest the first night a shipment lands, so
+		// they go the morning the orders show, before those resolve. (A
+		// careful one sells half of what the corners take, but firing
+		// them costs more than they do: the loyalty, their people and
+		// the wait for the next one looking for work.)
+		if fight && lt != nil && len(w.Crew.FiredToday) == 0 {
+			for _, id := range w.Products {
+				if o, ok := w.StandingOrder(home, id); ok && o.Dial == events.DialAggressive {
+					_, _ = w.Fire(lt.ID)
+					lt = nil
+					break
+				}
+			}
+		}
 		want := "runner"
 		if w.Rival.Arrived > 0 && w.Crew.Role("enforcer") == 0 && w.Crew.Runners() >= 2 {
+			want = "enforcer"
+		}
+		if fight && w.Rival.Arrived > 0 && w.Crew.Role("enforcer") < guards && w.Crew.Runners() >= 2 {
 			want = "enforcer"
 		}
 		if delegate && lt == nil {
@@ -796,7 +904,7 @@ func distribute(cfg *content.Config, lieLowAt float64, delegate bool, personalit
 			if w.PostOf(m.ID) != nil {
 				continue
 			}
-			if delegated && (m.Role != "runner" || (w.WorkedIn(hub) >= HubCorners && m.Hired == w.Day)) {
+			if delegated && (m.Role != "runner" || (w.WorkedIn(hub) >= hubCorners && m.Hired == w.Day)) {
 				continue
 			}
 			switch m.Role {
@@ -830,9 +938,13 @@ func distribute(cfg *content.Config, lieLowAt float64, delegate bool, personalit
 		}
 
 		// The corners here: the supplier stocks them at retail, toward
-		// what they sell, the way any trader restocks. The route feeds
-		// home on its own.
-		restock(cfg, w)
+		// what they sell, the way any trader restocks; the boss stocks
+		// only what is worth the heat. The route feeds home on its own.
+		if fight {
+			restockOnly(cfg, w, func(id string) bool { return worth(cfg, w, id) })
+		} else {
+			restock(cfg, w)
+		}
 
 		// Sales: everything at home, and everything here. Heat anywhere
 		// over the line is a day off.
@@ -854,6 +966,43 @@ func distribute(cfg *content.Config, lieLowAt float64, delegate bool, personalit
 // DistributorMargin is the fraction of home's street price a lot must
 // come under for the distributor to route the product at all.
 const DistributorMargin = 0.7
+
+// war is the boss's answer to the rival, after the day's trading is
+// queued: the enforcers against the rival's biggest corner at push when
+// a corner is contested, heat is under the line and the odds are over
+// BossOdds; else the diplomat's table, a truce proposed whenever a
+// corner was lost in the last DiplomatDays and any truce offered taken.
+func war(w *game.World, rv *rivals.Sim, dip content.DiplomacyTuning, hot func(*game.World) bool) {
+	if w.Rival.Arrived == 0 {
+		return
+	}
+	for _, o := range w.Offers {
+		if o.Deal.Kind == game.DealTruce {
+			_, _ = w.Accept(o.ID)
+		}
+	}
+	contested := false
+	for _, c := range w.Home().Corners {
+		if c.Owner == game.OwnerPlayer && w.Contested(c) {
+			contested = true
+		}
+	}
+	// A push when the odds clear the line; otherwise it talks. A strike
+	// under a deal would be a betrayal, so never at peace. (A hit at the
+	// same line wins corners and loses the run: 6.6 strikes a run took 4
+	// corners, brought 23 crackdowns over 20 seeds and indicted 4 of
+	// them, for a lower median at the horizon than talking.)
+	if contested && !w.AtPeace() && !hot(w) && rv.Odds(w, events.ForcePush) >= BossOdds {
+		if c := pickCorner(w, func(c game.Corner) bool { return c.Owner == game.OwnerRival }, size); c != nil {
+			_ = w.SendEnforcers(c.ID, events.ForcePush)
+			return
+		}
+	}
+	if w.AtPeace() || w.Proposal != nil || w.Rival.LastFlip == 0 || w.Day-w.Rival.LastFlip > DiplomatDays {
+		return
+	}
+	_ = w.Propose(game.DealTruce, game.Terms{Days: dip.TruceDays[1]})
+}
 
 // Delegate puts a lieutenant on the payroll, free, running city with the
 // given temper, so a test can measure what one does without waiting for
@@ -884,11 +1033,17 @@ func Delegate(cfg *content.Config, w *game.World, city, personality string) game
 // dirty cash is three times its price, the dial at normal and careful for
 // a while after an audit.
 func washUp(cfg *content.Config, w *game.World) {
+	washUpAt(cfg, w, 3)
+}
+
+// washUpAt is washUp with the margin given: the front is bought when
+// dirty cash is margin times its price.
+func washUpAt(cfg *content.Config, w *game.World, margin float64) {
 	for _, o := range laundering.New(cfg.Laundering, cfg.Crew).Offers() {
 		if w.Front(o.ID) != nil {
 			continue
 		}
-		if !o.Locked(w) && w.Player.DirtyCash >= 3*o.Cost {
+		if !o.Locked(w) && float64(w.Player.DirtyCash) >= margin*float64(o.Cost) {
 			_, _ = w.BuyFront(o)
 		}
 		break // the cheapest one you lack, or nothing
@@ -928,3 +1083,53 @@ const Horizon = 200
 // each progression tier is expected to have paid off by. Like Horizon they
 // are where the harness looks, not where the game stops.
 var TierDays = []int{30, 70, 120, Horizon}
+
+// NoRival returns a copy of cfg in which the rival never arrives, so a
+// run measures what the corners are worth with nobody contesting them
+// (#60: the ceiling a policy plays against). Nothing else moves.
+func NoRival(cfg *content.Config) *content.Config {
+	boxed := *cfg
+	boxed.Rivals.Rivals.ArriveDay = 1 << 30
+	return &boxed
+}
+
+// FlatPace returns a copy of cfg in which the rival claims at the flat
+// pace it had before #60: no scaling by what the player holds, no
+// cooldown, no grace after it arrives and no fear in it, so a run
+// measures what the pace alone moved.
+func FlatPace(cfg *content.Config) *content.Config {
+	boxed := *cfg
+	boxed.Rivals.Pace = content.PaceTuning{}
+	boxed.Reputation.Effects.RivalClaimCut = 0
+	return &boxed
+}
+
+// PaceDays are the days cmd/balance reads the rival's corner count at.
+var PaceDays = []int{30, 60, 120}
+
+// NoHeat returns a copy of cfg in which nothing adds heat and the police
+// never answer: every source the sims read is zeroed (sales, the cash
+// pile, sloppy crews, informants, audits, tips, strikes, the crackdown, a
+// seizure, fear's floor) and the ladder is lifted past 100, so a run
+// measures what the street would move if it were never watched (#60: the
+// ceiling a policy plays against). The DA's file still fills from what
+// is not heat (an informant's pages, a fast seizure), so a run can still
+// end.
+func NoHeat(cfg *content.Config) *content.Config {
+	boxed := *cfg
+	h := &boxed.Heat.Heat
+	h.SaleHeat, h.DirtyCashHeat, h.SloppyHeat, h.InformantHeat, h.AuditHeat = 0, 0, 0, 0, 0
+	boxed.Heat.Responses = append([]content.ResponseConfig(nil), cfg.Heat.Responses...)
+	for i := range boxed.Heat.Responses {
+		boxed.Heat.Responses[i].Threshold += 1000
+	}
+	boxed.Rivals.Rivals.TipHeat, boxed.Rivals.Rivals.CrackdownHeat = 0, 0
+	boxed.Rivals.Force = map[string]content.ForceConfig{}
+	for k, f := range cfg.Rivals.Force {
+		f.Heat = 0
+		boxed.Rivals.Force[k] = f
+	}
+	boxed.Routes.Shipping.SeizureHeat = 0
+	boxed.Reputation.Effects.FearHeatFloor = 0
+	return &boxed
+}

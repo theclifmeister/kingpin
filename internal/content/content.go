@@ -103,9 +103,12 @@ type CityEntry struct {
 
 // CityProduct is a city's multipliers on a product's base price and
 // per-corner demand; a product the city does not list is at 1 and 1.
+// NoSupply says the city's supplier does not sell it (#60: designer is
+// the port's product; the road is the only way it reaches home).
 type CityProduct struct {
-	Price  float64 `toml:"price"`
-	Demand float64 `toml:"demand"`
+	Price    float64 `toml:"price"`
+	Demand   float64 `toml:"demand"`
+	NoSupply bool    `toml:"no_supply"`
 }
 
 // Product returns the city's multipliers for a product, 1 and 1 when it
@@ -270,6 +273,7 @@ type HeatTuning struct {
 	StreetUnits        float64 `toml:"street_units"`
 	DirtyCashThreshold int     `toml:"dirty_cash_threshold"`
 	DirtyCashHeat      float64 `toml:"dirty_cash_heat"`
+	DirtyCashCover     float64 `toml:"dirty_cash_cover"` // a front covers this many times its price of the pile
 	CooldownDays       int     `toml:"cooldown_days"`
 	EvidenceArrest     int     `toml:"evidence_arrest"`
 	CrewHeat           float64 `toml:"crew_heat"`
@@ -405,6 +409,7 @@ type RoleConfig struct {
 // RivalsConfig mirrors rivals.toml.
 type RivalsConfig struct {
 	Rivals      RivalsTuning                 `toml:"rivals"`
+	Pace        PaceTuning                   `toml:"pace"`
 	Diplomacy   DiplomacyTuning              `toml:"diplomacy"`
 	Deal        map[string]DealConfig        `toml:"deal"`
 	Personality map[string]PersonalityConfig `toml:"personality"`
@@ -435,14 +440,26 @@ type RivalsTuning struct {
 	CrackdownMuscle    float64 `toml:"crackdown_muscle"`
 }
 
+// PaceTuning is how fast the rival takes the city (#60): its claim chance
+// scaled by the player's share of home's corners between ClaimScaleMin
+// (nothing held) and ClaimScaleMax (all of it), a cooldown after any claim,
+// and a grace period after it arrives in which it never sets up on a
+// corner the player has ever worked.
+type PaceTuning struct {
+	ClaimScaleMin float64 `toml:"claim_scale_min"`
+	ClaimScaleMax float64 `toml:"claim_scale_max"`
+	ClaimCooldown int     `toml:"claim_cooldown"`
+	ArriveGrace   int     `toml:"arrive_grace"`
+}
+
 type PersonalityConfig struct {
 	Trust           float64 `toml:"trust"`        // trust in the player at the start of a run
 	DealBias        float64 `toml:"deal_bias"`    // added to the chance it accepts any proposal
 	Betrayal        float64 `toml:"betrayal"`     // chance per live deal per day it breaks one itself
 	OfferChance     float64 `toml:"offer_chance"` // chance per day it puts a deal on the table when its situation calls for one
 	ClaimChance     float64 `toml:"claim_chance"`
-	MaxCorners      int     `toml:"max_corners"`
-	PushPastCap     float64 `toml:"push_past_cap"` // multiplier on push_chance once it holds max_corners; 0 stops
+	MaxShare        float64 `toml:"max_share"`     // the most of home's corners it sets up on, as a share of the map
+	PushPastCap     float64 `toml:"push_past_cap"` // multiplier on push_chance once it holds its share; 0 stops
 	Grow            string  `toml:"grow"`          // biggest, adjacent, random
 	PushChance      float64 `toml:"push_chance"`
 	MusclePerCorner float64 `toml:"muscle_per_corner"`
@@ -603,8 +620,9 @@ type ReputationFX struct {
 	RespectSupplierCut float64 `toml:"respect_supplier_cut"`
 	NotorietyHireCut   float64 `toml:"notoriety_hire_cut"`
 	NotorietyHeat      float64 `toml:"notoriety_heat"`
-	FearDeal           float64 `toml:"fear_deal"`     // rivals: added to the chance a proposal is accepted
-	RespectTrust       float64 `toml:"respect_trust"` // rivals: extra on the trust a kept deal-day earns
+	FearDeal           float64 `toml:"fear_deal"`       // rivals: added to the chance a proposal is accepted
+	RespectTrust       float64 `toml:"respect_trust"`   // rivals: extra on the trust a kept deal-day earns
+	RivalClaimCut      float64 `toml:"rival_claim_cut"` // rivals: fraction cut from the chance it claims a corner
 }
 
 // Scale is v at axis 0 and v times (1 + full) at axis 100: how an effect
@@ -781,6 +799,7 @@ type UpgradeEffects struct {
 	BuyPressureMul    float64 `toml:"buy_pressure_mul"`
 	FillMul           float64 `toml:"fill_mul"`
 	SaleHeatMul       float64 `toml:"sale_heat_mul"`
+	CrewHeatMul       float64 `toml:"crew_heat_mul"`
 	PatrolCap         float64 `toml:"patrol_cap"`
 	CooldownBonus     int     `toml:"cooldown_bonus"`
 	StingStockMul     float64 `toml:"sting_stock_mul"`

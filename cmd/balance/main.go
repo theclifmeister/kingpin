@@ -19,11 +19,13 @@ import (
 func main() {
 	runs := flag.Int("runs", 20, "number of seeded runs")
 	days := flag.Int("days", harness.Horizon, "days to play each run for; a measuring horizon, the game itself has no cap")
-	policy := flag.String("policy", "normal", "idle | hide | quiet | normal | aggressive | careful | managed | upgraded | crewed | vigilant | territory | war | diplomat | laundered | funded | distributor | delegated")
+	policy := flag.String("policy", "normal", "idle | hide | quiet | normal | aggressive | careful | managed | upgraded | crewed | vigilant | territory | war | diplomat | laundered | funded | distributor | delegated | boss")
 	lt := flag.String("lt", "", "force the delegated policy's lieutenant temper: violent | greedy | careful | steady (default as generated)")
 	corners := flag.Int("corners", 3, "corners the territory and war policies work, counting yours")
 	force := flag.String("force", "push", "warn | push | hit: how hard the war policy strikes")
-	rival := flag.String("rival", "", "force the rival's personality: expansionist | defensive | opportunist | chaotic (default by seed)")
+	rival := flag.String("rival", "", "force the rival's personality: expansionist | defensive | opportunist | chaotic (default by seed); none keeps the rival out of the run (harness.NoRival)")
+	heatFlag := flag.String("heat", "on", "on | off: off switches heat off, nothing adds any and the police never answer (harness.NoHeat)")
+	pace := flag.String("pace", "on", "on | off: off has the rival claim at the flat pace it had before #60 (harness.FlatPace)")
 	chief := flag.String("chief", "", "force the police chief's personality for the whole run: corrupt | zealous | lazy (default by seed, replaced on schedule)")
 	da := flag.String("da", "", "force the DA's stance for the whole run: law_and_order | moderate | reform (default by seed, elections every term)")
 	trace := flag.Bool("trace", false, "print a per-day trace of the run with -seed")
@@ -42,6 +44,15 @@ func main() {
 	}
 
 	cfg := content.MustLoad()
+	if *rival == "none" {
+		cfg = harness.NoRival(cfg)
+	}
+	if *heatFlag == "off" {
+		cfg = harness.NoHeat(cfg)
+	}
+	if *pace == "off" {
+		cfg = harness.FlatPace(cfg)
+	}
 	var p harness.Policy
 	switch *policy {
 	case "idle":
@@ -83,6 +94,8 @@ func main() {
 		p = harness.Distributor(cfg, at(40))
 	case "delegated":
 		p = harness.Delegated(cfg, at(40), *lt)
+	case "boss":
+		p = harness.Boss(cfg, at(40), *lt)
 	default:
 		p = harness.Trader(cfg, events.DialNormal)
 	}
@@ -107,6 +120,7 @@ func main() {
 	endings := map[string]int{}
 	robberies, robbed := 0, 0
 	var rivalHeld, takens []int
+	rivalAt := map[int][]int{}
 	won, strikes, tips, crackdowns := 0, 0, 0, 0
 	informants, leaks, investigations, named, defections := 0, 0, 0, 0, 0
 	lieutenants, cuts, walked, flipped := 0, 0, 0, 0
@@ -124,10 +138,19 @@ func main() {
 	stances := map[string]int{}
 	tempersOfChief := map[string]int{}
 	for seed := *seed0; seed < *seed0+uint64(*runs); seed++ {
-		pol := p
+		// The rival's corners at the pace days, read the morning after.
+		pol := func(w *game.World) {
+			for _, d := range harness.PaceDays {
+				if w.Day == d {
+					rivalAt[d] = append(rivalAt[d], w.RivalHeld())
+				}
+			}
+			p(w)
+		}
 		if *trace && seed == *seed0 {
+			inner := pol
 			pol = func(w *game.World) {
-				p(w)
+				inner(w)
 				fmt.Printf("day %3d %s dirty %8d clean %9d heat", w.Day, w.Player.Location, w.Player.DirtyCash, w.Player.CleanCash)
 				for _, cid := range w.CityOrder {
 					fmt.Printf(" %.0f", w.Cities[cid].Heat)
@@ -150,7 +173,7 @@ func main() {
 		if *cash > 0 {
 			w.Player.DirtyCash = *cash
 		}
-		if *rival != "" {
+		if *rival != "" && *rival != "none" {
 			w.Rival.Personality = *rival
 		}
 		harness.Own(cfg, w, owned...)
@@ -168,6 +191,13 @@ func main() {
 		if err != nil {
 			fmt.Fprintln(os.Stderr, err)
 			os.Exit(1)
+		}
+		if res.World.Day == *days {
+			for _, d := range harness.PaceDays {
+				if d == *days {
+					rivalAt[d] = append(rivalAt[d], res.World.RivalHeld())
+				}
+			}
 		}
 		played = append(played, res.Days)
 		peaks = append(peaks, res.PeakCash)
@@ -268,6 +298,14 @@ func main() {
 	sort.Ints(takens)
 	fmt.Printf("rival:         holds %d corners at the end (median), took %d/%d/%d of yours (min/median/max), tipped police %.1f times per run, %d crackdowns; %v\n",
 		rivalHeld[len(rivalHeld)/2], takens[0], takens[len(takens)/2], takens[len(takens)-1], float64(tips)/float64(*runs), crackdowns, personalities)
+	fmt.Printf("rival pace:   ")
+	for _, d := range harness.PaceDays {
+		if ws := rivalAt[d]; len(ws) > 0 {
+			sort.Ints(ws)
+			fmt.Printf(" day %d median %d corners (%d..%d)", d, ws[len(ws)/2], ws[0], ws[len(ws)-1])
+		}
+	}
+	fmt.Printf(" (pace %s)\n", *pace)
 	if strikes > 0 {
 		fmt.Printf("war:           %.1f strikes per run, %.1f corners won per run\n", float64(strikes)/float64(*runs), float64(won)/float64(*runs))
 	}

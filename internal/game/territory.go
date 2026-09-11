@@ -44,6 +44,7 @@ type Corner struct {
 	Idle     int                // consecutive days held with nobody working it
 	Squeeze  float64            // share of its demand a rival is undercutting away today, 0..1
 	Robbed   int                // stick-ups since it was last claimed; a lieutenant gives up on a corner at two
+	Yours    bool               // you have held it at some time; the rival's grace period leaves those alone (#60)
 }
 
 // Share is the corner's share of the city's demand for a product, in
@@ -136,6 +137,19 @@ func (w *World) Held() int {
 	for _, c := range w.Corners() {
 		if c.Held() {
 			n++
+		}
+	}
+	return n
+}
+
+// HeldIn counts the corners the player owns in one city.
+func (w *World) HeldIn(city string) int {
+	n := 0
+	if c := w.Cities[city]; c != nil {
+		for _, k := range c.Corners {
+			if k.Held() {
+				n++
+			}
 		}
 	}
 	return n

@@ -115,9 +115,15 @@ func TestFoldEffects(t *testing.T) {
 	tree := content.MustLoad().Upgrades
 	w := testWorld()
 	fx := FoldEffects(w, tree)
-	if fx != (Effects{SupplierMul: 1, BuyPressureMul: 1, FillMul: 1, SaleHeatMul: 1, StingStockMul: 1, RaidLossMul: 1}) {
+	if fx != (Effects{SupplierMul: 1, BuyPressureMul: 1, FillMul: 1, SaleHeatMul: 1, CrewHeatMul: 1, StingStockMul: 1, RaidLossMul: 1}) {
 		t.Fatalf("fresh world folds to %+v", fx)
 	}
+	w.Upgrades["ghosts"], w.Upgrades["cutouts"] = true, true
+	if fx := FoldEffects(w, tree); fx.CrewHeatMul < 0.15 || fx.CrewHeatMul > 0.17 {
+		t.Fatalf("ghosts and cut-outs: %+v", fx)
+	}
+	delete(w.Upgrades, "ghosts")
+	delete(w.Upgrades, "cutouts")
 	w.Upgrades["supplier"] = true
 	if fx := FoldEffects(w, tree); fx.SupplierMul != 0.92 || fx.BuyPressureMul != 0.7 {
 		t.Fatalf("supplier: %+v", fx)
