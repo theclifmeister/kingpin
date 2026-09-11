@@ -131,6 +131,7 @@ func TestUpgradedBeatsCrewed(t *testing.T) {
 	}
 	sort.Ints(up)
 	sort.Ints(crew)
+	t.Logf("median peak cash over %d seeds: upgraded %d, crewed %d", len(up), up[len(up)/2], crew[len(crew)/2])
 	if up[len(up)/2] <= crew[len(crew)/2] {
 		t.Fatalf("upgraded median peak %d, crewed %d; the tree should pay for itself", up[len(up)/2], crew[len(crew)/2])
 	}
@@ -302,5 +303,117 @@ func TestLawyerThinsTheFile(t *testing.T) {
 				t.Fatalf("seed %d day %d: a sting added %d evidence past the lawyer", seed, ev.Day, ev.Evidence)
 			}
 		}
+	}
+}
+
+// The Street branch (#119) slows the rival's taking of ground and never
+// stops it: a passive player with all five nodes from day 0 still loses
+// corners to an expansionist on every seed by the tier-3 checkpoint,
+// loses no more of them by then than with nothing owned, and the first
+// loss comes no sooner over the seeds than it did bare (the rival's
+// dice move with any change in what stands on a corner, so one seed can
+// go either way). The first-loss day is logged per seed: with the
+// proposed numbers it is within 60 days on four seeds of five and day
+// 66 on seed 5 (day 34 bare); holding every seed to the passive test's
+// 60 days would need rival_push_mul at 0.95, a $400k node that does
+// nothing, so the window here is the checkpoint's.
+func TestStreetBranchSlowsTheRivalNeverStopsIt(t *testing.T) {
+	cfg := content.MustLoad()
+	street := []string{"boys", "watch", "dogs", "frontline", "ground"}
+	firstLoss := func(seed uint64, own bool) (day, lost int) {
+		w := sim.NewWorld(cfg, seed)
+		w.Rival.Personality = "expansionist"
+		if own {
+			Own(cfg, w, street...)
+		}
+		res, err := RunFrom(cfg, w, TierDays[2], Territory(cfg, 40, 3))
+		if err != nil {
+			t.Fatal(err)
+		}
+		if res.World.Stats.Strikes != 0 {
+			t.Fatalf("seed %d: the passive player sent enforcers", seed)
+		}
+		for _, e := range res.Events {
+			if ct, ok := e.(events.CornerTaken); ok && ct.From == game.OwnerPlayer {
+				if day == 0 {
+					day = ct.Day
+				}
+				lost++
+			}
+		}
+		return day, lost
+	}
+	plainDays, streetDays, plainLost, streetLost := 0, 0, 0, 0
+	for seed := uint64(1); seed <= 5; seed++ {
+		pd, pl := firstLoss(seed, false)
+		sd, sl := firstLoss(seed, true)
+		if sl == 0 {
+			t.Fatalf("seed %d: with the whole Street branch the passive player held its corners for %d days next to an expansionist; the branch must slow the loss, never stop it", seed, TierDays[2])
+		}
+		t.Logf("seed %d: first corner lost on day %d with the Street branch (day %d without); %d lost by day %d (%d without)", seed, sd, pd, sl, TierDays[2], pl)
+		plainDays, streetDays, plainLost, streetLost = plainDays+pd, streetDays+sd, plainLost+pl, streetLost+sl
+	}
+	t.Logf("over 5 seeds: first loss on day %.1f with the branch, %.1f without; %d corners lost with it, %d without", float64(streetDays)/5, float64(plainDays)/5, streetLost, plainLost)
+	if streetDays < plainDays || streetLost > plainLost {
+		t.Fatalf("the Street branch did not slow the rival: first loss on day %d (sum) against %d, %d corners lost against %d", streetDays, plainDays, streetLost, plainLost)
+	}
+}
+
+// The Logistics branch (#119) moves more for less: with all six nodes
+// from day 0 the distributor's road carries more units a shipment, pays
+// less a unit in fares and is seized less over the horizon, summed over
+// the seeds (the road rolls on its own side stream, so the risk cut is a
+// count over five runs, never a promise on one), and the branch pays at
+// the horizon on median peak cash.
+func TestLogisticsBranchMovesMoreForLess(t *testing.T) {
+	cfg := content.MustLoad()
+	road := []string{"tyres", "compartments", "trucks", "drivers", "supplier", "supplier2", "ticket", "forwarder"}
+	type tally struct {
+		shipped, shipments, seized, fares int
+		peaks                             []int
+	}
+	run := func(own bool) tally {
+		var tl tally
+		for seed := uint64(1); seed <= 5; seed++ {
+			w := sim.NewWorld(cfg, seed)
+			if own {
+				Own(cfg, w, road...)
+			}
+			res, err := RunFrom(cfg, w, Horizon, Distributor(cfg, 40))
+			if err != nil {
+				t.Fatal(err)
+			}
+			tl.shipped += res.World.Stats.Shipped
+			tl.shipments += res.World.Stats.Shipments
+			tl.seized += res.World.Stats.Seizures
+			for _, e := range res.Events {
+				if sh, ok := e.(events.ShipmentSent); ok {
+					tl.fares += sh.Cost
+				}
+			}
+			tl.peaks = append(tl.peaks, res.PeakCash)
+		}
+		sort.Ints(tl.peaks)
+		return tl
+	}
+	plain, branch := run(false), run(true)
+	per := func(tl tally) (units, fare float64) {
+		if tl.shipments == 0 || tl.shipped == 0 {
+			return 0, 0
+		}
+		return float64(tl.shipped) / float64(tl.shipments), float64(tl.fares) / float64(tl.shipped)
+	}
+	pu, pf := per(plain)
+	bu, bf := per(branch)
+	t.Logf("plain: %d shipments, %.0f units each at $%.2f/u, %d seized, median peak %d; branch: %d shipments, %.0f units each at $%.2f/u, %d seized, median peak %d",
+		plain.shipments, pu, pf, plain.seized, plain.peaks[len(plain.peaks)/2], branch.shipments, bu, bf, branch.seized, branch.peaks[len(branch.peaks)/2])
+	if plain.shipments == 0 || branch.shipments == 0 {
+		t.Fatal("the distributor never ran the road")
+	}
+	if bf >= pf || branch.seized > plain.seized {
+		t.Fatalf("the road with the branch pays $%.2f/u (was $%.2f) and lost %d shipments (was %d)", bf, pf, branch.seized, plain.seized)
+	}
+	if branch.peaks[len(branch.peaks)/2] <= plain.peaks[len(plain.peaks)/2] {
+		t.Fatalf("the branch does not pay: median peak %d with it, %d without", branch.peaks[len(branch.peaks)/2], plain.peaks[len(plain.peaks)/2])
 	}
 }

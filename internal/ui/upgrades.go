@@ -222,7 +222,7 @@ func effectWords(e content.UpgradeEffects) []string {
 		add(fmt.Sprintf("corners drift %d days later", e.DriftDaysBonus))
 	}
 	mul(e.RobberyMul, "robberies ×%.1f")
-	bonus(e.GuardBonus, "guard on every contested corner")
+	bonus(e.GuardBonus, "guard on contested corners")
 	mul(e.RivalPushMul, "rival pushes ×%.1f")
 	return out
 }
@@ -262,6 +262,20 @@ func (m *Model) upgradePage() (top, per int) {
 	return row / per * per, per
 }
 
+// upgradeColW is the narrowest a branch's column is drawn.
+const upgradeColW = 20
+
+// upgradeColumns is the window of branches the screen shows: since
+// #119 the tree has more branches than MAIN holds columns of
+// upgradeColW at 80 columns, so the branches page sideways by as many
+// as fit a space apart, the page being the cursor's column's. The
+// screen for seven branches is #120's.
+func (m *Model) upgradeColumns() (first, n int) {
+	n = max(1, min(len(content.Branches), (m.mainWidth()+1)/(upgradeColW+1)))
+	col, _ := m.upgradeAt()
+	return col / n * n, n
+}
+
 // viewUpgrades is the tree's MAIN (#86): the title with the count, the
 // two pools, and the three branches as columns, each node a
 // name-and-cost line over a one-line summary of its effects; the node
@@ -279,16 +293,22 @@ func (m *Model) viewUpgrades() string {
 	b.WriteString(truncate(sectionTitle("UPGRADES", theme.Money)+theme.Subtle.Render(fmt.Sprintf(" · %d of %d owned", owned, len(m.cfg.Upgrades.Nodes))), width) + "\n")
 	b.WriteString(truncate(theme.Gold.Render("dirty "+cash(w.Player.DirtyCash))+theme.Subtle.Render(" · ")+theme.Good.Render("clean "+cash(w.Player.CleanCash)), width) + "\n\n")
 
-	// Three columns a space apart, one per branch, sharing the width.
+	// The branches as columns a space apart, sharing the width, as many
+	// as fit at upgradeColW (the rest page sideways with the cursor).
 	// The cursor walks a column with up and down and crosses to the
 	// next with left and right.
-	colW := max(20, (width-len(content.Branches)+1)/len(content.Branches))
+	first, shown := m.upgradeColumns()
+	colW := max(upgradeColW, (width-shown+1)/shown)
 	top, per := m.upgradePage()
 	var cols []string
 	idx := 0
-	for _, branch := range content.Branches {
-		var c strings.Builder
+	for b, branch := range content.Branches {
 		all := m.cfg.Upgrades.Branch(branch)
+		if b < first || b >= first+shown {
+			idx += len(all) // off the page; the cursor still counts its nodes
+			continue
+		}
+		var c strings.Builder
 		title := sectionTitle(strings.ToUpper(branch), theme.Money)
 		if len(all) > per {
 			title += theme.Subtle.Render(fmt.Sprintf(" · %d–%d of %d", min(top+1, len(all)), min(top+per, len(all)), len(all)))

@@ -389,3 +389,122 @@ requires = ["fallguy"]
 desc = "There is always somebody who owes you. One more indictment with the wrong name on it."
 [upgrade.effects]
 fall_guys = 1
+
+# Logistics: the road (#119). Every node is read by the logistics sim
+# alone: the risk on every route, its capacity, its days, its fare and the
+# wholesaler's price. A lone trader with no route on gets nothing from
+# any of them; the operation that runs the road at tier 3 and 4 is what
+# they are priced for.
+
+[[upgrade]]
+id = "tyres"
+name = "Spare tyres"
+branch = "logistics"
+cost = 15000
+desc = "A wheel well is a place to keep things. Every stop finds less."
+[upgrade.effects]
+route_risk_mul = 0.8
+
+[[upgrade]]
+id = "compartments"
+name = "Hidden compartments"
+branch = "logistics"
+cost = 60000
+requires = ["tyres"]
+desc = "Welded in, painted over. A dog would find it; a patrol does not."
+[upgrade.effects]
+route_risk_mul = 0.7
+
+[[upgrade]]
+id = "trucks"
+name = "Your own trucks"
+branch = "logistics"
+cost = 120000
+desc = "Nobody else's schedule, nobody else's manifest. Every run carries half as much again."
+[upgrade.effects]
+route_capacity_mul = 1.5
+
+[[upgrade]]
+id = "drivers"
+name = "Drivers on call"
+branch = "logistics"
+cost = 200000
+requires = ["trucks"]
+desc = "Two on every truck, driving in shifts. The road is a day shorter."
+[upgrade.effects]
+route_days_mul = 0.75
+
+[[upgrade]]
+id = "ticket"
+name = "Wholesale ticket"
+branch = "logistics"
+cost = 300000
+requires = ["supplier2"]
+desc = "A name on the wholesaler's list. The lot is cheaper for the people on it."
+[upgrade.effects]
+wholesale_mul = 0.9
+
+[[upgrade]]
+id = "forwarder"
+name = "Freight forwarder"
+branch = "logistics"
+cost = 800000
+requires = ["drivers"]
+desc = "A firm with a licence and a dock. Your freight rides with everybody else's, at half the fare."
+[upgrade.effects]
+fare_mul = 0.5
+
+# Street: the corners (#119). The territory sim reads the drift and the
+# robberies, the rivals sim the guard on every contested corner and the
+# pace of its pushes. The branch slows the rival's taking of ground and
+# never stops it: a passive player still loses corners to an expansionist
+# with all of it owned.
+
+[[upgrade]]
+id = "boys"
+name = "Corner boys"
+branch = "street"
+cost = 10000
+desc = "Kids who hold a corner for a look and a few dollars. One nobody works stays yours two days longer."
+[upgrade.effects]
+drift_days_bonus = 2
+
+[[upgrade]]
+id = "watch"
+name = "Watchmen"
+branch = "street"
+cost = 35000
+requires = ["boys"]
+desc = "Somebody on every roof. A stick-up wants a corner nobody is watching."
+[upgrade.effects]
+robbery_mul = 0.7
+
+[[upgrade]]
+id = "dogs"
+name = "Guard dogs"
+branch = "street"
+cost = 80000
+requires = ["watch"]
+desc = "Chained by the stash, fed by the crew. Fewer people try their luck."
+[upgrade.effects]
+robbery_mul = 0.6
+
+[[upgrade]]
+id = "frontline"
+name = "The front line"
+branch = "street"
+cost = 150000
+requires = ["watch"]
+desc = "A body on every corner they border, whoever else is there. Nothing of yours is walked onto."
+[upgrade.effects]
+guard_bonus = 1
+
+[[upgrade]]
+id = "ground"
+name = "Held ground"
+branch = "street"
+cost = 400000
+requires = ["frontline"]
+desc = "The street knows whose corners these are. They push less often."
+[upgrade.effects]
+rival_push_mul = 0.7

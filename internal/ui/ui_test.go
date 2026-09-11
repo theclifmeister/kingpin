@@ -1653,7 +1653,7 @@ func TestRouteAndTravelKeys(t *testing.T) {
 	// so the corner carries no risk while this test counts the road.
 	w.PostOf(game.You).Risk = 0
 	cash := w.Player.DirtyCash
-	days := m.set.Logistics.Days(route, events.ShipSlow)
+	days := m.set.Logistics.Days(w, route, events.ShipSlow)
 	endDay(t, m)
 	if len(w.Shipments) != 1 || w.Shipments[0].Units != 30 || w.Shipments[0].Dial != events.ShipSlow || w.Shipments[0].Route != route.ID {
 		t.Fatalf("after the day: shipments %+v report %v", w.Shipments, w.Report.Shipments)
@@ -1787,7 +1787,7 @@ func TestWholesaleFeedsTheRoutes(t *testing.T) {
 	if hub == "" {
 		t.Skip("no city sells by the lot")
 	}
-	offer := m.set.Logistics.Wholesale()
+	offer := m.set.Logistics.Wholesale(w)
 	w.Player.DirtyCash = 1_000_000
 	product := w.Products[0]
 	if err := w.Travel(hub); err != nil {

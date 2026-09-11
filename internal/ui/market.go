@@ -229,7 +229,7 @@ func (m *Model) marketDetails() []section {
 		notes = append(notes, wrapped(theme.Subtle, fmt.Sprintf("You are in %s: the supplier here sells to you there, not here. Runners sell what is stashed here.", w.Here().Name))...)
 	}
 	if city.Wholesale {
-		o := m.set.Logistics.Wholesale()
+		o := m.set.Logistics.Wholesale(w)
 		if o.Locked(w) {
 			notes = append(notes, wrapped(theme.Subtle, fmt.Sprintf("The supplier here sells lots of %d at %.0f%% to the routes once you have moved %s.", o.Lot, o.Mul*100, cash(o.UnlockCash)))...)
 		} else {

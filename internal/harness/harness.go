@@ -276,11 +276,17 @@ func Upgraded(cfg *content.Config, lieLowAt float64) Policy {
 	}
 }
 
-// BuyUpgrades buys, in branch order Security, Operations, Legal, the
-// cheapest node the player can buy from the right pool with margin times
-// its cost in hand, one per call.
+// BuyUpgrades buys, in branch order Security, Operations, Legal, Street,
+// Logistics, the cheapest node the player can buy from the right pool
+// with margin times its cost in hand, one per call. The Logistics
+// branch (#119) is bought only once a route is on: its nodes do nothing
+// for a player who never runs the road, and the crewed player never
+// does.
 func BuyUpgrades(cfg *content.Config, w *game.World, margin float64) {
-	for _, branch := range []string{"security", "operations", "legal"} {
+	for _, branch := range []string{"security", "operations", "legal", "street", "logistics"} {
+		if branch == "logistics" && !routeOn(w) {
+			continue
+		}
 		var pick *content.UpgradeConfig
 		for _, n := range cfg.Upgrades.Branch(branch) {
 			if w.Owns(n.ID) || len(w.Missing(n)) > 0 {
@@ -303,6 +309,16 @@ func BuyUpgrades(cfg *content.Config, w *game.World, margin float64) {
 			return
 		}
 	}
+}
+
+// routeOn reports whether any route's dial is on.
+func routeOn(w *game.World) bool {
+	for _, rs := range w.Routes {
+		if rs.Dial.On() {
+			return true
+		}
+	}
+	return false
 }
 
 // Own grants upgrades for free, prerequisites and all in the order given,
@@ -521,7 +537,7 @@ func Warlike(cfg *content.Config, lieLowAt float64, corners int, force events.Fo
 // baseline for "a player who buys peace".
 func Diplomat(cfg *content.Config, lieLowAt float64, corners int) Policy {
 	territory := Territory(cfg, lieLowAt, corners)
-	rv := rivals.New(cfg.Rivals, cfg.Names, cfg.Reputation.Effects, cfg.Law.Effects)
+	rv := rivals.New(cfg.Rivals, cfg.Names, cfg.Reputation.Effects, cfg.Law.Effects, cfg.Upgrades)
 	dip := cfg.Rivals.Diplomacy
 	return func(w *game.World) {
 		territory(w)
@@ -717,10 +733,9 @@ const HubCorners = 2
 func distribute(cfg *content.Config, lieLowAt float64, delegate, fight bool, personality string) Policy {
 	laundered := Laundered(cfg, lieLowAt)
 	crewSim := crew.New(cfg.Crew, cfg.Names, cfg.Reputation.Effects)
-	rv := rivals.New(cfg.Rivals, cfg.Names, cfg.Reputation.Effects, cfg.Law.Effects)
+	rv := rivals.New(cfg.Rivals, cfg.Names, cfg.Reputation.Effects, cfg.Law.Effects, cfg.Upgrades)
 	dip := cfg.Rivals.Diplomacy
 	lg := logistics.New(cfg.Routes, cfg.City, cfg.Market, cfg.Upgrades, cfg.Laundering.Laundering.Float)
-	wholesale := lg.Wholesale()
 	home := cfg.City.Home().ID
 	// The route into home with the most room, from the city that sells
 	// by the lot; the hub is where it starts.
@@ -770,8 +785,9 @@ func distribute(cfg *content.Config, lieLowAt float64, delegate, fight bool, per
 		// landings.
 		days := float64(DistributorDays)
 		if fight {
-			days = max(days, float64(lg.Days(*route, w.Route(route.ID).Dial.Ship())+2))
+			days = max(days, float64(lg.Days(w, *route, w.Route(route.ID).Dial.Ship())+2))
 		}
+		wholesale := lg.Wholesale(w)
 		for _, id := range w.Products {
 			hubP, homeP := w.Product(hub, id), w.Product(home, id)
 			target := 0

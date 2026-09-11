@@ -22,19 +22,28 @@ type Sim struct {
 	names []string
 	rep   content.ReputationFX
 	law   content.LawFX
+	tree  content.UpgradesConfig
 }
 
 // New builds a rival sim from config and the leader name pool. Of the
 // reputation effects it reads one: fear slows its pushes. Of the law's
-// (#41) it reads one: a loud city makes its phone calls land.
-func New(cfg content.RivalsConfig, names content.NamesConfig, rep content.ReputationFX, law content.LawFX) *Sim {
-	return &Sim{cfg: cfg, names: names.Rivals, rep: rep, law: law}
+// (#41) it reads one: a loud city makes its phone calls land. Of the
+// upgrade tree (#119) it reads two: the guard on every contested corner
+// and the pace of its pushes.
+func New(cfg content.RivalsConfig, names content.NamesConfig, rep content.ReputationFX, law content.LawFX, tree content.UpgradesConfig) *Sim {
+	return &Sim{cfg: cfg, names: names.Rivals, rep: rep, law: law, tree: tree}
 }
 
-// PushPace is what the player's reputation does to the rival's chance
-// of pushing on a corner today: a feared player is pushed on less.
+// Effects is what the owned upgrades do to the rival's fight (#119),
+// folded wherever the sim reads the street's numbers, so the odds the
+// picker and the map show are the ones the dice use.
+func (s *Sim) Effects(w *game.World) game.Effects { return game.FoldEffects(w, s.tree) }
+
+// PushPace is what the player's reputation and the tree do to the
+// rival's chance of pushing on a corner today: a feared player is
+// pushed on less, and held ground (rival_push_mul) less again.
 func (s *Sim) PushPace(w *game.World) float64 {
-	return content.Cut(w.Player.Reputation.Fear, s.rep.FearPushCut)
+	return content.Cut(w.Player.Reputation.Fear, s.rep.FearPushCut) * s.Effects(w).RivalPushMul
 }
 
 // ClaimPace is what the player's fear does to the rival's chance of
@@ -186,9 +195,11 @@ func (s *Sim) StrikeHeat(c *game.Corner, force events.Force) float64 {
 }
 
 // Guard is the weight of whoever stands on a player corner when it is
-// pushed: an enforcer counts 1 + skill/50, you count 1.5, a runner 0.5.
+// pushed: an enforcer counts 1 + skill/50, you count 1.5, a runner 0.5,
+// and the tree's guard_bonus (the front line) is a body on every one,
+// so a corner it covers is never walked onto unopposed.
 func (s *Sim) Guard(w *game.World, c *game.Corner) float64 {
-	g := 0.0
+	g := float64(s.Effects(w).GuardBonus)
 	if m := w.Crew.Member(c.Enforcer); m != nil && c.Enforcer != 0 {
 		g += 1 + float64(m.Skill)/50
 	}

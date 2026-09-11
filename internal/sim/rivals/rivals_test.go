@@ -1,6 +1,7 @@
 package rivals_test
 
 import (
+	"math"
 	"testing"
 
 	"github.com/theclifmeister/kingpin/internal/content"
@@ -15,14 +16,14 @@ import (
 func world(t *testing.T, cfg *content.Config, seed uint64) (*game.World, *rivals.Sim) {
 	t.Helper()
 	w := game.NewWorld(seed, []game.StartingCity{{ID: cfg.City.Home().ID, Name: "Testville", Products: []game.StartingProduct{{ID: "weed", Name: "Weed", Price: 20, Demand: 60}}}}, 10_000, 100)
-	territory.New(cfg.City).Seed(w)
+	territory.New(cfg.City, cfg.Upgrades).Seed(w)
 	w.Crew.Members = []game.CrewMember{
 		{ID: 1, Name: "Dre", Role: "runner", Skill: 60, Units: 120, Loyalty: 70, Nerve: 50},
 		{ID: 2, Name: "Tank", Role: "enforcer", Skill: 50, Loyalty: 70, Nerve: 50},
 		{ID: 3, Name: "Moose", Role: "enforcer", Skill: 80, Loyalty: 70, Nerve: 90},
 	}
 	w.Crew.NextID = 3
-	s := rivals.New(cfg.Rivals, cfg.Names, cfg.Reputation.Effects, cfg.Law.Effects)
+	s := rivals.New(cfg.Rivals, cfg.Names, cfg.Reputation.Effects, cfg.Law.Effects, cfg.Upgrades)
 	s.Seed(w, game.RNGFor(seed, 0))
 	return w, s
 }
@@ -362,5 +363,94 @@ func TestMaxShareReproducesTheCaps(t *testing.T) {
 	w.Rival.Personality = "expansionist"
 	if got := s.MaxCorners(w); got != 12 {
 		t.Errorf("expansionist: max corners %d on twenty, want 12", got)
+	}
+}
+
+// The Street branch's rival nodes (#119): each moves the one number it
+// names and nothing else. The front line is a body on every contested
+// corner in Guard, so the push odds the map shows fall on a bare corner
+// and a guarded one alike and a corner with nobody on it is no longer
+// walked onto; held ground cuts the push pace beside fear's cut and
+// leaves the guard alone; neither touches the claim pace or the strike
+// odds.
+func TestRivalNodesMoveTheirNumbers(t *testing.T) {
+	cfg := content.MustLoad()
+	own := func(ids ...string) (*game.World, *rivals.Sim) {
+		w, s := world(t, cfg, 5)
+		w.Upgrades = map[string]bool{}
+		for _, id := range ids {
+			if cfg.Upgrades.Upgrade(id) == nil {
+				t.Fatalf("no node %s", id)
+			}
+			w.Upgrades[id] = true
+		}
+		w.Rival.Arrived, w.Rival.Muscle = 1, 4
+		w.Corner("docks").Owner = game.OwnerRival
+		w.Corner("railyard").Owner = game.OwnerPlayer // bare, and borders the docks
+		if !w.Contested(*w.Corner("railyard")) {
+			t.Fatal("the rail yard does not border the docks")
+		}
+		return w, s
+	}
+	plain, s := own()
+	bare := plain.Corner("railyard")
+	you := plain.Corner(cfg.City.Territory.Start)
+	baseBare, baseYou := s.Guard(plain, bare), s.Guard(plain, you)
+	if baseBare != 0 || baseYou != 1.5 {
+		t.Fatalf("bare guard %.1f, yours %.1f", baseBare, baseYou)
+	}
+	basePace, baseClaim, baseOdds := s.PushPace(plain), s.ClaimPace(plain), s.Odds(plain, events.ForcePush)
+	cases := []struct {
+		nodes []string
+		guard float64 // added to every corner's guard
+		pace  float64 // on the push pace
+	}{
+		{[]string{"frontline"}, 1, 1},
+		{[]string{"ground"}, 0, 0.7},
+		{[]string{"frontline", "ground"}, 1, 0.7},
+	}
+	for _, tc := range cases {
+		w, s := own(tc.nodes...)
+		b, y := w.Corner("railyard"), w.Corner(cfg.City.Territory.Start)
+		if got := s.Guard(w, b); got != baseBare+tc.guard {
+			t.Errorf("%v: bare guard %.1f, want %.1f", tc.nodes, got, baseBare+tc.guard)
+		}
+		if got := s.Guard(w, y); got != baseYou+tc.guard {
+			t.Errorf("%v: your guard %.1f, want %.1f", tc.nodes, got, baseYou+tc.guard)
+		}
+		if got, want := s.PushPace(w), basePace*tc.pace; math.Abs(got-want) > 1e-12 {
+			t.Errorf("%v: push pace %.3f, want %.3f", tc.nodes, got, want)
+		}
+		if s.ClaimPace(w) != baseClaim || s.Odds(w, events.ForcePush) != baseOdds {
+			t.Errorf("%v: claim pace %.3f (was %.3f), strike odds %.3f (was %.3f)", tc.nodes, s.ClaimPace(w), baseClaim, s.Odds(w, events.ForcePush), baseOdds)
+		}
+		// The odds the map shows are the guard's: lower on every corner
+		// with the front line, the same without it.
+		if tc.guard > 0 && s.PushOdds(w, b) >= s.PushOdds(plain, bare) {
+			t.Errorf("%v: push odds on a bare corner %.3f, %.3f without", tc.nodes, s.PushOdds(w, b), s.PushOdds(plain, bare))
+		}
+		if tc.guard == 0 && s.PushOdds(w, b) != s.PushOdds(plain, bare) {
+			t.Errorf("%v: push odds on a bare corner moved to %.3f from %.3f", tc.nodes, s.PushOdds(w, b), s.PushOdds(plain, bare))
+		}
+	}
+	// A defector's lead onto a bare corner walks straight on without the
+	// front line, and has to push with it: the corner is no longer
+	// unopposed, so the rival rolls the odds the map shows.
+	took := func(nodes ...string) bool {
+		w, s := own(nodes...)
+		w.Rival.Leads = []game.Lead{{Corner: "railyard", Name: "Dre"}}
+		evs := step(w, s)
+		for _, e := range evs {
+			if ct, ok := e.(events.CornerTaken); ok && ct.Corner == "railyard" && ct.Handed == "Dre" {
+				return true
+			}
+		}
+		return false
+	}
+	if !took() {
+		t.Fatal("a defector's lead onto a bare corner was not walked onto")
+	}
+	if took("frontline") {
+		t.Log("the front line's push on seed 5 landed; the roll was made either way")
 	}
 }

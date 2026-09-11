@@ -365,7 +365,7 @@ func (m *Model) viewDialog() string {
 				}
 				body = append(body, fmt.Sprintf("total      %s   %s", style.Render(money(cost)), theme.Subtle.Render("dirty cash "+cash(w.Player.DirtyCash))))
 			}
-			if o := m.set.Logistics.Wholesale(); w.Here().Wholesale && !o.Locked(w) {
+			if o := m.set.Logistics.Wholesale(w); w.Here().Wholesale && !o.Locked(w) {
 				body = append(body, theme.Subtle.Render(fmt.Sprintf("The wholesaler's lots of %d at %s/unit go to the routes %s.", o.Lot, price(p.SupplierPrice*o.Mul), screenPointer(screenMap))))
 			}
 		} else {
