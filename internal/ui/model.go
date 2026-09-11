@@ -734,9 +734,9 @@ func (m *Model) View() string {
 	case modePropose:
 		body = m.viewPropose()
 	case modeDetails:
-		body = m.overlay(m.details(), m.legendKeys(), m.accent())
+		body = m.overlay(m.details(), m.paneKeys(), m.accent())
 	default:
-		return m.frame(m.viewScreen(), m.details(), m.legendKeys(), m.accent())
+		return m.frame(m.viewScreen(), m.details(), m.paneKeys(), m.accent())
 	}
 	body = theme.Plain.Width(m.width).Height(m.bodyHeight()).MaxHeight(m.bodyHeight()).Render(body)
 	return lines(m.viewTitle(), body, m.viewFooter())
@@ -894,12 +894,12 @@ func (m *Model) viewTitle() string {
 	return fit(tabsFor(2)+" "+rightFor(false, false), m.width)
 }
 
-// legendKeys is the status bar's legend in play mode: the key table's
+// paneKeys is the pane's KEYS section in play mode: the key table's
 // list for the screen shown (keysFor: `n end day` first, the cursor
-// keys, the screen's actions, `? help` last). The pane's KEYS section
-// lists the same. Inside a modal the bar repeats the modal's footer
-// instead (modalFooter).
-func (m *Model) legendKeys() []binding {
+// keys, the screen's actions, `? help` last). The status bar lists none
+// of it (#109): it is the message and `? help`, and inside a modal the
+// modal's footer (modalFooter).
+func (m *Model) paneKeys() []binding {
 	return m.keysFor(m.screen)
 }
 
@@ -916,43 +916,33 @@ func (m *Model) statusStyle() lipgloss.Style {
 	return theme.Body
 }
 
-// viewFooter is the status bar: the legend at the left, its last pair
-// (`? help`) pinned and the pairs before it dropped whole from the
-// right until the rest fits beside it, and the status message at the
-// right. The message wins: when the two cannot share the row it shows
-// alone, never the legend alone.
+// viewFooter is the status bar: the status message at the left, in its
+// kind's colour, and `? help` pinned at the right; no legend (#109: the
+// keys are listed where they are used, in the pane). The message wins:
+// when the two cannot share the row it shows alone, and it is cut only
+// when it alone does not fit. Inside a modal the bar repeats the
+// modal's footer and nothing else.
 func (m *Model) viewFooter() string {
-	// During a modal the bar repeats the modal's footer and nothing else.
 	if f := m.modalFooter(); f != nil {
 		return fit(legend(f), m.width)
 	}
-	pairs := m.legendKeys()
-	last := ""
-	if n := len(pairs); n > 0 {
-		last = k(pairs[n-1].key, m.labelOf(pairs[n-1]))
-		pairs = pairs[:n-1]
+	help := m.helpPair()
+	if m.status == "" {
+		return fit(strings.Repeat(" ", max(0, m.width-lipgloss.Width(help)))+help, m.width)
 	}
-	msg := ""
-	if m.status != "" {
-		msg = m.statusStyle().Render(m.status)
+	msg := " " + m.statusStyle().Render(m.status)
+	if gap := m.width - lipgloss.Width(msg) - lipgloss.Width(help); gap >= 0 {
+		return msg + strings.Repeat(" ", gap) + help
 	}
-	msgW := lipgloss.Width(msg)
-	for n := len(pairs); n >= 0; n-- {
-		var keys string
-		for _, b := range pairs[:n] {
-			keys += k(b.key, m.labelOf(b))
+	return truncate(msg, m.width)
+}
+
+// helpPair is the `? help` pair the status bar pins, the key table's.
+func (m *Model) helpPair() string {
+	for _, b := range bindings {
+		if b.key == "?" {
+			return k(b.key, m.labelOf(b))
 		}
-		keys += last
-		kw := lipgloss.Width(keys)
-		switch {
-		case msg == "" && kw <= m.width:
-			return keys
-		case msg != "" && kw+msgW+1 <= m.width:
-			return keys + strings.Repeat(" ", m.width-kw-msgW) + msg
-		}
-	}
-	if msg != "" {
-		return truncate(msg, m.width)
 	}
 	return ""
 }

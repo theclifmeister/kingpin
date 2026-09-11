@@ -35,15 +35,15 @@ Every screen is the same frame. The **title bar** on the top row carries
 the game's name, the eight screens as tabs (`1`–`8`, `tab`) with the
 journal's unread count beside its name, and the day, the dirty cash and the
 heat where you stand (the clean cash and the city where the width allows).
-The **status bar** on the bottom row is the legend, the keys the screen
-takes in the order they matter (`n end day` first, `? help` last), and
-your last action's reply at the right: a confirmation, a refusal
-(`Can't hire: …`) or a danger in red. Between them is the body: **MAIN**,
-the screen itself, and, from 100 columns, the **DETAILS** pane beside it,
-which holds whatever is under the cursor (the product, the corner, the
-route, the person, the node, the front, the offer), the facts about it,
-what the keys would do to it and, last, the KEYS section, every key the
-screen takes. `space` hides the pane and shows it again. Under 100
+The **status bar** on the bottom row is your last action's reply: a
+confirmation, a refusal (`Can't hire: …`) or a danger in red, with
+`? help` at the right. Between them is the body: **MAIN**, the screen
+itself, and, from 100 columns, the **DETAILS** pane beside it, which
+holds whatever is under the cursor (the product, the corner, the route,
+the person, the node, the front, the offer), the facts about it, what
+the keys would do to it and, last, the KEYS section, the keys the screen
+takes in the order they matter (`n end day` first, `? help` last).
+`space` hides the pane and shows it again. Under 100
 columns the pane collapses to the **details strip**, one line above the
 status bar with the selection's name and its first facts, and `space`
 opens the pane whole as an overlay over MAIN; `esc` or `space` closes
@@ -55,7 +55,9 @@ asks first and `n` ends it at once.
 
 The keys never move: a key does the same thing everywhere it works, and a
 key pressed on a screen that does not take it says which screen does
-(`Hire on the crew screen (4).`).
+(`Hire on the crew screen (4).`). A key is listed where it is used: the
+globals (`b buy`, `s sell`, `p pay dial`, `g go to <city>`, …) work on
+every screen and are in the KEYS of the screens they belong to.
 
 ## Screens
 
@@ -88,7 +90,7 @@ key pressed on a screen that does not take it says which screen does
    of the table and the lifetime numbers.
 
 The dashboard at 80x24, the smallest terminal the game takes (the strip
-above the legend stands in for the pane):
+above the status bar stands in for the pane):
 
 <!-- capture:dashboard-80x24 -->
 ```text
@@ -115,7 +117,7 @@ above the legend stands in for the pane):
 │ raid 75 · arrest 95      ││ Bayport heat 0      ││ Mona · 1 corner           │
 ╰──────────────────────────╯╰─────────────────────╯╰───────────────────────────╯
 ▸ WEED · EASTSIDE · price $19.23 -6% · supplier $10.67 · margin 80% · s…  ␣ more
- n end day  ↑↓ pick  c cart  b buy  s sell  x cancel order  l lie low  ? help
+                                                                         ? help
 ```
 <!-- capture:end -->
 
@@ -150,6 +152,9 @@ ROUTES                                                                          
                                                                                     │                                  │
                                                                                     │                                  │
                                                                                     │                                  │
+                                                                                    │                                  │
+                                                                                    │                                  │
+                                                                                    │                                  │
                                                                                     │ KEYS                             │
                                                                                     │ n  end day      ↑↓←→ pick        │
                                                                                     │ [ ] city        c  post runner   │
@@ -157,13 +162,10 @@ ROUTES                                                                          
                                                                                     │ a  abandon                       │
                                                                                     │ w  send enforcers                │
                                                                                     │ r  route dial   R  route target  │
-                                                                                    │ b  buy          s  sell          │
-                                                                                    │ x  cancel order l  lie low       │
-                                                                                    │ p  pay dial     d  launder dial  │
                                                                                     │ g  go to Bayport                 │
                                                                                     │ ␣  details      ?  help          │
                                                                                     ╰──────────────────────────────────╯
- n end day  ↑↓←→ pick  [ ] city  c post runner  e post enforcer  a abandon  w send enforcers  r route dial  ? help
+                                                                                                                 ? help
 ```
 <!-- capture:end -->
 
@@ -174,8 +176,8 @@ matches the screens.
 
 ## Keys
 
-The keys are one table, `internal/ui/keys.go`: the status bar's legend,
-the details pane's KEYS section, the help modal (`?`) and this table are
+The keys are one table, `internal/ui/keys.go`: the details pane's KEYS
+section, the modal footers, the help modal (`?`) and this table are
 rendered from it (`go run ./cmd/keys -w` rewrites this section; the test
 holds it to the code). The help modal has a `WORDS` group too: the dial,
 the float, the file, drift, the pane and the strip in a line each.

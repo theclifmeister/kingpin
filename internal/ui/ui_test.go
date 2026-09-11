@@ -152,7 +152,7 @@ func assertFrame(t *testing.T, m *Model, what string) {
 		}
 		// Nothing but key rows between KEYS and the bottom border.
 		var keys []string
-		for _, b := range m.legendKeys() {
+		for _, b := range m.paneKeys() {
 			keys = append(keys, b.key)
 		}
 		for i := keysAt + 1; i < h-2; i++ {
@@ -534,7 +534,7 @@ func TestBuyThenSellFlow(t *testing.T) {
 }
 
 // The status bar never drops the message: at 80 columns a long status
-// set after a key is on row h-1 on every screen, the legend giving way.
+// set after a key is on row h-1 on every screen, `? help` giving way.
 func TestStatusMessageAlwaysShows(t *testing.T) {
 	m := newTestModel(t, 80, 24)
 	msg := "Pay generous, $108/day. Loyalty climbs. The crew notice it too."
@@ -551,44 +551,76 @@ func TestStatusMessageAlwaysShows(t *testing.T) {
 	}
 }
 
-// The legend is a whole number of k() pairs at every width: pairs are
-// dropped from the right, never cut in the middle.
-// The legend is whole pairs: the last pair (`? help`) pinned, the ones
-// before it dropped from the right until the rest fits beside it (#85:
-// the epic's legends end in `? help` at every width).
-func TestLegendNeverTruncatesMidPair(t *testing.T) {
+// statusBarShape is what the status bar must be in play mode (#109):
+// the message at the left, `? help` at the right, the row exactly the
+// width, and nothing else; with no message the row is `? help` alone;
+// a message too long to share the row shows alone, cut only when it
+// alone does not fit.
+func statusBarShape(t *testing.T, m *Model, what string) {
+	t.Helper()
+	got := stripANSI(m.viewFooter())
+	w := m.width
+	help := stripANSI(m.helpPair())
+	if lipgloss.Width(got) != w {
+		t.Errorf("%s: the status bar is %d cells, want %d: %q", what, lipgloss.Width(got), w, got)
+	}
+	if help != " ? help " {
+		t.Errorf("%s: the help pair is %q", what, help)
+	}
+	switch {
+	case m.status == "":
+		if want := strings.Repeat(" ", w-len(help)) + help; got != want {
+			t.Errorf("%s: the empty bar is %q, want %q", what, got, want)
+		}
+	case 1+len([]rune(m.status))+len(help) <= w:
+		if want := " " + m.status + strings.Repeat(" ", w-1-len([]rune(m.status))-len(help)) + help; got != want {
+			t.Errorf("%s: the bar is %q, want %q", what, got, want)
+		}
+	default:
+		if want := truncate(" "+m.status, w); got != want {
+			t.Errorf("%s: the long message is %q, want %q", what, got, want)
+		}
+		if strings.Contains(got, "? help") {
+			t.Errorf("%s: the legend shares the row with a message too long for it: %q", what, got)
+		}
+	}
+}
+
+// The status bar is the message and `? help` at every width, on every
+// screen, with and without a message: no legend, no pair but the last
+// (#109; #85's whole-pair legend is gone with the legend).
+func TestStatusBarIsMessageAndHelp(t *testing.T) {
 	for _, w := range []int{60, 80, 120} {
 		m := newTestModel(t, w, 24)
 		for _, s := range []string{"1", "2", "3", "4", "5", "6", "7", "8"} {
 			m.Update(key(s))
-			m.status = ""
-			got := stripANSI(m.viewFooter())
-			keys := m.legendKeys()
-			last := stripANSI(k(keys[len(keys)-1].key, m.labelOf(keys[len(keys)-1])))
-			var prefixes []string
-			for n := 0; n < len(keys); n++ {
-				var p string
-				for _, b := range keys[:n] {
-					p += stripANSI(k(b.key, m.labelOf(b)))
-				}
-				prefixes = append(prefixes, p+last)
-			}
-			whole := false
-			for _, p := range prefixes {
-				if got == p {
-					whole = true
-				}
-			}
-			if !whole {
-				t.Errorf("%d columns, screen %s: the legend is not whole pairs: %q", w, s, got)
-			}
-			if !strings.HasSuffix(got, " ? help ") {
-				t.Errorf("%d columns, screen %s: the legend does not end in ? help: %q", w, s, got)
-			}
-			if lipgloss.Width(m.viewFooter()) > w {
-				t.Errorf("%d columns, screen %s: the legend is wider than the terminal: %q", w, s, got)
+			for _, msg := range []string{"", "Bought 10 units.", "Pay generous, $108/day. Loyalty climbs. The crew notice it too.", strings.Repeat("Somebody is talking. ", 8)} {
+				m.status = msg
+				statusBarShape(t, m, fmt.Sprintf("%d columns, screen %s, status %q", w, s, msg))
 			}
 		}
+	}
+}
+
+// The status bar of the rich fixture on every play-mode screen at 80x24
+// and 120x40 is the message (or nothing) and `? help`, and nothing
+// else; inside a modal it is the modal's footer.
+func TestStatusBarIsTheMessage(t *testing.T) {
+	for _, sz := range [][2]int{{80, 24}, {120, 40}} {
+		richFixture(t, sz, func(m *Model, view, what string) {
+			rows := strings.Split(view, "\n")
+			bar := stripANSI(rows[len(rows)-1])
+			if m.mode != modePlay {
+				if want := stripANSI(fit(legend(m.modalFooter()), m.width)); bar != want {
+					t.Errorf("%dx%d %s: the bar in a modal is %q, want the footer %q", sz[0], sz[1], what, bar, want)
+				}
+				return
+			}
+			statusBarShape(t, m, fmt.Sprintf("%dx%d %s", sz[0], sz[1], what))
+			if bar != stripANSI(m.viewFooter()) {
+				t.Errorf("%dx%d %s: the last row %q is not the status bar", sz[0], sz[1], what, bar)
+			}
+		})
 	}
 }
 
