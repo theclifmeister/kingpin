@@ -197,6 +197,10 @@ func (m *Model) ownedLine() string {
 	return "upgrades " + strings.Join(ids, ", ")
 }
 
+// viewUpgrades is the tree's MAIN (#86): the title with the count, the
+// two pools, and the three branches as columns, each node a
+// name-and-cost line over a one-line summary of its effects; the node
+// under the cursor is the pane's.
 func (m *Model) viewUpgrades() string {
 	w := m.w
 	width := m.mainWidth()
@@ -207,29 +211,27 @@ func (m *Model) viewUpgrades() string {
 			owned++
 		}
 	}
-	b.WriteString(truncate(theme.PanelTitle.Render("UPGRADES")+
-		theme.Subtle.Render(fmt.Sprintf("  %d of %d owned · ", owned, len(m.cfg.Upgrades.Nodes)))+
-		theme.Gold.Render("dirty "+cash(w.Player.DirtyCash))+theme.Subtle.Render(" · clean "+cash(w.Player.CleanCash)), width) + "\n\n")
+	b.WriteString(truncate(sectionTitle("UPGRADES", theme.Money)+theme.Subtle.Render(fmt.Sprintf(" · %d of %d owned", owned, len(m.cfg.Upgrades.Nodes))), width) + "\n")
+	b.WriteString(truncate(theme.Gold.Render("dirty "+cash(w.Player.DirtyCash))+theme.Subtle.Render(" · ")+theme.Good.Render("clean "+cash(w.Player.CleanCash)), width) + "\n\n")
 
-	// Three columns, one per branch; each node is a name-and-cost line
-	// over a one-line effect. The cursor walks a column with up and down
-	// and crosses to the next with left and right.
-	colW := max(20, (width-1)/len(content.Branches))
+	// Three columns a space apart, one per branch, sharing the width.
+	// The cursor walks a column with up and down and crosses to the
+	// next with left and right.
+	colW := max(20, (width-len(content.Branches)+1)/len(content.Branches))
 	var cols []string
 	idx := 0
 	for _, branch := range content.Branches {
 		var c strings.Builder
-		c.WriteString(theme.Bold.Render(fit(strings.ToUpper(branch), colW)) + "\n")
+		c.WriteString(fit(sectionTitle(strings.ToUpper(branch), theme.Money), colW) + "\n")
 		nodes := m.cfg.Upgrades.Branch(branch)
-		// The mark in the gutter is the node's state; the cost is in
-		// green when it is clean cash. The tree and the inspector print
-		// a cost the same way, through cash().
+		// The mark in the gutter is the node's state; the cost is
+		// through cash(), as the pane prints it, and a node paid in
+		// clean cash says so on its effects line.
 		var rows [][]any
 		cursor := -1
 		for i, u := range nodes {
-			state := m.upgradeState(u)
 			sign, st := "·", theme.Subtle
-			switch state {
+			switch m.upgradeState(u) {
 			case "owned":
 				sign, st = "✓", theme.Good
 			case "available":
@@ -238,57 +240,71 @@ func (m *Model) viewUpgrades() string {
 					st = theme.Warning
 				}
 			}
-			var cost any = styled{st, u.Cost}
-			if u.Clean {
-				cost = styled{theme.Good, u.Cost}
-			}
-			rows = append(rows, []any{mark(sign), styled{st, u.Name}, cost})
+			rows = append(rows, []any{mark(sign), styled{st, u.Name}, styled{st, u.Cost}})
 			if idx == m.upgradeCursor {
 				cursor = i
 			}
 			idx++
 		}
-		lines := table([]col{{"node", kText, 0}, {"cost", kCash, 0}}, rows, cursor, colW-1)
-		c.WriteString(lines[0] + "\n")
+		lines := table([]col{{"node", kText, 0}, {"cost", kCash, 0}}, rows, cursor, colW)
+		c.WriteString(fit(lines[0], colW) + "\n")
 		for i, u := range nodes {
 			c.WriteString(fit(lines[i+1], colW) + "\n")
-			c.WriteString(theme.Subtle.Render(fit("  "+strings.Join(effectWords(u.Effects), ", "), colW-2)) + "\n")
+			words := effectWords(u.Effects)
+			if u.Clean {
+				words = append([]string{theme.Good.Render("clean")}, words...)
+			}
+			c.WriteString(fit(theme.Subtle.Render("  "+truncate(strings.Join(words, ", "), colW-2)), colW) + "\n")
 		}
-		cols = append(cols, strings.TrimRight(c.String(), "\n"))
+		cols = append(cols, strings.TrimRight(c.String(), "\n"), " ")
 	}
-	b.WriteString(lipgloss.JoinHorizontal(lipgloss.Top, cols...) + "\n")
-	b.WriteString(truncate(theme.Good.Render("✓")+theme.Subtle.Render(" owned · ")+theme.Gold.Render("○")+theme.Subtle.Render(" available · · locked · ")+theme.Good.Render("green")+theme.Subtle.Render(" clean cash"), width) + "\n")
+	b.WriteString(lipgloss.JoinHorizontal(lipgloss.Top, cols[:len(cols)-1]...) + "\n\n")
+	b.WriteString(truncate(theme.Good.Render("✓")+theme.Subtle.Render(" owned  ")+theme.Gold.Render("○")+theme.Subtle.Render(" available  · locked"), width) + "\n")
 	return b.String()
 }
 
-// upgradesDetails is the tree's pane: the inspector for the node under
-// the cursor (what it costs and from which pool, where it stands, what
-// it does, one effect per line) and the keys.
+// costLine is a node's cost and pool as the pane's first line prints
+// them: `$12K dirty`, the tree's cost string.
+func costLine(u content.UpgradeConfig) string {
+	return cash(u.Cost) + " " + pool(u)
+}
+
+// upgradesDetails is the tree's pane (#86): the node under the cursor,
+// its cost and pool with where it stands (owned, available, short, or
+// what it needs first), what it does in a sentence and one effect a
+// line, the notes that apply, and what u would do.
 func (m *Model) upgradesDetails() []section {
 	w := m.w
 	sel, ok := m.upgradeSelected()
 	if !ok {
 		return nil
 	}
-	lines := []string{row("cost", theme.Gold.Render(cash(sel.Cost)+" "+pool(sel)))}
+	cost := theme.Gold.Render(costLine(sel))
+	var lines []string
 	switch m.upgradeState(sel) {
 	case "owned":
-		lines = append(lines, row("status", theme.Good.Render("owned")))
+		lines = append(lines, cost+theme.Subtle.Render(" · ")+theme.Good.Render("owned"))
 	case "available":
 		if m.canAfford(sel) {
-			lines = append(lines, row("status", theme.Gold.Render("available")))
+			lines = append(lines, cost+theme.Subtle.Render(" · ")+theme.Gold.Render("available"))
 		} else {
-			lines = append(lines, row("status", theme.Warning.Render(fmt.Sprintf("%s short", cash(sel.Cost-m.poolCash(sel))))))
+			lines = append(lines, cost+theme.Subtle.Render(" · ")+theme.Warning.Render(fmt.Sprintf("%s short", cash(sel.Cost-m.poolCash(sel)))))
 		}
 	default:
 		var names []string
 		for _, id := range w.Missing(sel) {
 			names = append(names, m.cfg.Upgrades.Upgrade(id).Name)
 		}
-		label := "needs"
-		for _, l := range wrap(strings.Join(names, " and "), paneTextW-paneLabelW-1) {
-			lines = append(lines, row(label, theme.Subtle.Render(l)))
-			label = ""
+		needs := "needs " + strings.Join(names, " and ")
+		if lipgloss.Width(costLine(sel)+" · "+needs) <= paneTextW {
+			lines = append(lines, cost+theme.Subtle.Render(" · "+needs))
+		} else {
+			lines = append(lines, cost)
+			label := "needs"
+			for _, l := range wrap(strings.Join(names, " and "), paneTextW-paneLabelW-1) {
+				lines = append(lines, row(label, theme.Subtle.Render(l)))
+				label = ""
+			}
 		}
 	}
 	lines = append(lines, wrapped(theme.Subtle, sel.Desc)...)
@@ -302,7 +318,7 @@ func (m *Model) upgradesDetails() []section {
 		lines = append(lines, wrapped(theme.Warning, "He already took his fall. There is no second one.")...)
 	}
 	if m.upgradeState(sel) == "available" && m.canAfford(sel) {
-		lines = append(lines, keyRow("u", "buy it"))
+		lines = append(lines, keyRow("u", "buy it for "+costLine(sel)))
 	}
 	return []section{{strings.ToUpper(sel.Name), lines}}
 }
