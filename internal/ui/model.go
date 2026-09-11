@@ -299,6 +299,14 @@ func (m *Model) handleKey(k tea.KeyMsg) (tea.Model, tea.Cmd) {
 	switch m.mode {
 	case modeStart:
 		return m.keyStart(key)
+	}
+	// Tab and shift+tab are the screens' keys and a dialog's pages
+	// (#110): a modal with no pages, a confirmation included, leaves them
+	// alone rather than closing on them.
+	if m.mode != modePlay && (key == "tab" || key == "shift+tab") && !hasPages(m.mode) {
+		return m, nil
+	}
+	switch m.mode {
 	case modeConfirmNew:
 		switch key {
 		case "y", "Y":
@@ -477,12 +485,21 @@ func (m *Model) handleKey(k tea.KeyMsg) (tea.Model, tea.Cmd) {
 	case modeCard:
 		return m.keyCard(key)
 	case modePropose:
+		// Back is one key and close is one key (#110): esc closes from
+		// either page, shift+tab leaves the terms for the kinds (the kind
+		// kept under the cursor) and is silent on the first page, tab
+		// opens the terms for the kind under the cursor and is silent on
+		// them and on `withdraw`, which is not a page.
 		switch key {
 		case "esc", "q":
+			m.mode = modePlay
+		case "shift+tab":
 			if m.proposeStep == 1 {
 				m.proposeStep, m.proposeCursor = 0, m.proposeKind
-			} else {
-				m.mode = modePlay
+			}
+		case "tab":
+			if m.proposeStep == 0 && m.proposeCursor < len(proposeKinds) {
+				m.pickPropose()
 			}
 		case "up", "k":
 			if m.proposeCursor > 0 {
@@ -518,6 +535,16 @@ func (m *Model) handleKey(k tea.KeyMsg) (tea.Model, tea.Cmd) {
 		return m.keyDialog(k)
 	}
 	return m.keyPlay(key)
+}
+
+// hasPages is a modal whose keys walk pages: the dialogs tab and
+// shift+tab move through.
+func hasPages(md mode) bool {
+	switch md {
+	case modeBuy, modeSell, modeTarget, modeCart, modePropose:
+		return true
+	}
+	return false
 }
 
 func (m *Model) keyStart(key string) (tea.Model, tea.Cmd) {

@@ -115,15 +115,25 @@ func (m *Model) keyTarget(k tea.KeyMsg) (tea.Model, tea.Cmd) {
 		m.mode = modePlay
 		return m, nil
 	}
+	// Back is one key and close is one key (#110): esc closes from
+	// either step, shift+tab leaves the units for the product (kept under
+	// the cursor) and is silent on the first step, tab goes to the units
+	// (a product is always chosen) and is silent on the last.
 	switch key {
 	case "esc":
-		if d.step == 0 {
-			m.mode = modePlay
-		} else {
+		m.mode = modePlay
+		return m, nil
+	case "shift+tab":
+		if d.step == 1 {
 			d.step = 0
+			d.units.SetValue("")
 			d.units.Blur()
 		}
 		return m, nil
+	case "tab":
+		if d.step == 1 {
+			return m, nil
+		}
 	case "q":
 		if d.step == 0 {
 			m.mode = modePlay
@@ -145,7 +155,7 @@ func (m *Model) keyTarget(k tea.KeyMsg) (tea.Model, tea.Cmd) {
 			if i := int(key[0] - '1'); i < len(m.w.Products) {
 				m.cursor = i
 			}
-		case "enter", "right", "l":
+		case "enter", "right", "l", "tab":
 			d.step = 1
 			d.units.SetValue("")
 			if t := m.w.Route(r.ID).Target[m.w.Products[m.cursor]]; t > 0 {

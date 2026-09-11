@@ -248,15 +248,24 @@ func (m *Model) keyCart(k tea.KeyMsg) (tea.Model, tea.Cmd) {
 	key := k.String()
 	d := &m.crt
 	d.err = ""
+	// Back is one key and close is one key (#110): esc closes from
+	// either step, shift+tab returns the quantity step to the line list
+	// (the line stays under the cursor) and is silent there, tab opens
+	// the quantity for the line under the cursor and is silent on it.
 	switch key {
 	case "esc":
-		if d.step == 0 {
-			m.mode = modePlay
-		} else {
+		m.mode = modePlay
+		return m, nil
+	case "shift+tab":
+		if d.step == 1 {
 			d.step = 0
 			d.qty.Blur()
 		}
 		return m, nil
+	case "tab":
+		if d.step == 1 {
+			return m, nil
+		}
 	case "q":
 		if d.step == 0 {
 			m.mode = modePlay
@@ -282,7 +291,7 @@ func (m *Model) keyCart(k tea.KeyMsg) (tea.Model, tea.Cmd) {
 		if l != nil && d.cursor < len(m.cartLines())-1 {
 			d.cursor++
 		}
-	case "enter":
+	case "enter", "tab":
 		if l == nil {
 			return m, nil
 		}
