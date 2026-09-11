@@ -166,15 +166,21 @@ func TestHelpMatchesKeys(t *testing.T) {
 	lines := m.helpLines()
 	var rows []string
 	for _, l := range lines {
-		if p := stripANSI(l); p != "" && p != strings.ToUpper(p) {
+		if p := stripANSI(l); p != "" && p != strings.ToUpper(p) && !strings.HasPrefix(p, "WORDS") {
 			rows = append(rows, p)
+		}
+		if p := stripANSI(l); p == "WORDS" {
+			break
 		}
 	}
 	if len(rows) != len(bindings) {
 		t.Errorf("help has %d rows for %d bindings:\n%s", len(rows), len(bindings), strings.Join(rows, "\n"))
 	}
 	for _, b := range bindings {
-		want := fit(b.key, helpKeyW) + "  " + fit(b.label, helpLabelW) + "  " + b.help
+		want := stripANSI(helpRow(b.key, b.label, b.help))
+		if len([]rune(b.help)) > helpSentenceW {
+			t.Errorf("the help for %s %s runs to %d characters, over %d", b.key, b.label, len([]rune(b.help)), helpSentenceW)
+		}
 		n := 0
 		for _, r := range rows {
 			if r == want {

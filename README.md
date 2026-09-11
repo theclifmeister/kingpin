@@ -7,14 +7,16 @@ heat closes in. Written in Go with [Bubble Tea](https://github.com/charmbracelet
 > after that is your fault.
 
 The full design is in [issue #1](https://github.com/theclifmeister/kingpin/issues/1).
-This is the Phase 3.2 build: two cities of corners to hold, a six-rung product
-ladder the supplier opens up as your money grows, a market in each city that
-reacts to you, a police force in each that reacts to how much you move
-there, a crew that moves product for you as long as you keep them paid, an
-upgrade tree to sink the money into, fronts that wash the money once there
-is too much of it to sit on, and a road between the cities that runs on a
-dial you set once: what is cheap at one end and dear at the other travels
-it every day, and the police can take it.
+This build has two cities of corners to hold, a six-rung product ladder the
+supplier opens up as your money grows, a market in each city that reacts to
+you, a police force in each that reacts to how much you move there, a chief
+and a DA with faces and terms, a rival crew that fights over the home city
+and sits at the table, a crew that moves product for you as long as you
+keep them paid and lieutenants who run a city on their own, an upgrade tree
+to sink the money into, fronts that wash the money once there is too much
+of it to sit on, a road between the cities that runs on a dial you set
+once, buyers who want product off-corner on a deadline, a reputation the
+street keeps on you, and a dilemma card every few days.
 
 ## Play
 
@@ -27,18 +29,163 @@ Needs Go 1.24 and a terminal at least 80x24. A single save slot lives in
 autosaves at the end of every day. Saves from older builds are upgraded on
 load; a save from a newer build than the one you are running is refused.
 
+## Layout
+
+Every screen is the same frame. The **title bar** on the top row carries
+the game's name, the eight screens as tabs (`1`–`8`, `tab`) with the
+journal's unread count beside its name, and the day, the dirty cash and the
+heat where you stand (the clean cash and the city where the width allows).
+The **status bar** on the bottom row is the legend, the keys the screen
+takes in the order they matter (`n end day` first, `? help` last), and
+your last action's reply at the right: a confirmation, a refusal
+(`Can't hire: …`) or a danger in red. Between them is the body: **MAIN**,
+the screen itself, and, from 100 columns, the **DETAILS** pane beside it,
+which holds whatever is under the cursor (the product, the corner, the
+route, the person, the node, the front, the offer), the facts about it,
+what the keys would do to it and, last, the KEYS section, every key the
+screen takes. `space` hides the pane and shows it again. Under 100
+columns the pane collapses to the **details strip**, one line above the
+status bar with the selection's name and its first facts, and `space`
+opens the pane whole as an overlay over MAIN; `esc` or `space` closes
+it. Dialogs, pickers, confirmations, the morning report, the dilemma card
+and help are one **modal** box, 76 columns at most, with the keys it takes
+in its footer; a body taller than the box scrolls. Inside a modal `enter`
+confirms and closes and never ends the day; on the play screen `enter`
+asks first and `n` ends it at once.
+
+The keys never move: a key does the same thing everywhere it works, and a
+key pressed on a screen that does not take it says which screen does
+(`Hire on the crew screen (4).`).
+
+## Screens
+
+1. **Dashboard** — the street where you stand: the product table with the
+   cursor, the stash and the corners, the crew, what is elsewhere and on
+   the road; then HEAT (the gauge with the police thresholds marked, the
+   DA's file and, from 100 columns, the reputation bars), CASH (dirty,
+   clean and the day's wash), LAW (the chief, the DA, the pressure) and
+   RIVALS (the leader, their corners, the war and the trust); the pane has
+   the alerts and the selected product with what `s` would sell.
+2. **Market** — the shown city's prices, supplier, stash, demand and your
+   orders; `←→` turns it to the other city; the BUYERS under the table are
+   the people who want product off-corner, with their own cursor.
+3. **Journal** — every headline, newest first, in the colour of the sim
+   that wrote it; the pane shows the one under the cursor whole.
+4. **Crew** — the payroll and the faces looking for work, the pay dial,
+   and in the pane the person: loyalty against the lines, wage, post,
+   temper, and what hiring, firing, paying off and asking around cost.
+5. **Map** — the shown city's corners as a grid (yours in blue, the
+   rival's in purple, free ones plain) and the routes between the cities
+   under it, each with its dial; the pane is the corner's inspector or
+   the route's detail.
+6. **Upgrades** — the three branches of the tree as columns; the pane is
+   the node, its cost, what it needs and what it does.
+7. **Ledger** — the till (dirty, clean, seized, the launder dial), the
+   fronts, the routes' books and the fronts on offer, under one cursor;
+   the pane is the selected front, route or offer and the wash.
+8. **Rivals** — the rival's leader, trust and war, the deals that hold and
+   the offers on the table; the pane is the deal or the offer, the rules
+   of the table and the lifetime numbers.
+
+The dashboard at 80x24, the smallest terminal the game takes (the strip
+above the legend stands in for the pane):
+
+<!-- capture:dashboard-80x24 -->
+```text
+ KINGPIN  1  2  3  4  5  6  7  8                  Day 4 · dirty $465K · heat 12
+╭─ STREET · Eastside ──────────────────────────────────────────────────────────╮
+│   product     price     Δ  5d       stock  order                             │
+│ ▸ Weed       $19.23   -6%  ▄▇▁█▁       40  -                                 │
+│   Pills      $44.21  -14%  ▁▂▆█▁        0  -                                 │
+│   Coke      $153.32   -1%  ▁▂▂█▇ ▲      0  -                                 │
+│   Heroin    $375.84   -5%  █▁           0  -                                 │
+│   Meth      $701.73  -12%  █▁           0  -                                 │
+│   Designer   $2,740  +11%  ▁█           0  -                                 │
+│ stash 40/310 · corners 3 worked, 3 held of 10, 1 theirs                      │
+│ 240 units in Bayport · 60 units on the road, next in 2d                      │
+│ crew 5 · fair pay $440/day · skimming suspected                              │
+│ 1 offer on the market screen (2)                                             │
+│ no upgrades yet: buy on the upgrades screen (6)                              │
+│ No sales queued. Press s to sell, n to end the day.                          │
+╰──────────────────────────────────────────────────────────────────────────────╯
+╭─ HEAT ───────────────────╮╭─ CASH ──────────────╮╭─ LAW ─────────────────────╮
+│ ███░░░░░░┆░░░┆░░░┆░░░░┆░ ││ dirty  $465K        ││ Chief Whitfield · new     │
+│ 12/100 peak 12 file 0/7  ││ clean  $50K +$19K   ││ DA Bell · reform          │
+│ patrol 40 · sting 58     ││ peak   $700K        ││ pressure ░░░░░░░░ 2       │
+│ raid 75 · arrest 95      ││ Bayport heat 0      ││ Mona · 1 corner           │
+╰──────────────────────────╯╰─────────────────────╯╰───────────────────────────╯
+▸ WEED · EASTSIDE · price $19.23 -6% · supplier $10.67 · margin 80% · s…  ␣ more
+ n end day  ↑↓ pick  b buy  s sell  x cancel order  l lie low  ? help
+```
+<!-- capture:end -->
+
+The map at 120x40, with the pane beside it (the cursor is on the rival's
+corner; the pane says what the enforcers' odds are):
+
+<!-- capture:map-120x40 -->
+```text
+ KINGPIN  1 Dash  2 Market  3 Journal 12  4 Crew  5 Map  6 Upgr  7 Ledger  8 Rivals       Day 4 · dirty $465K · heat 12
+MAP · Eastside  [ ◉ Eastside ]  Bayport  3/10 held · 3 worked · ~1828/day free      ╭─ DETAILS ────────────────────────╮
+ ▴ THE DOCKS         ▪ RAIL YARD         ▪ OLD MILL                                 │ THE DOCKS                        │
+   theirs              Dre                 Gato ⚔ Moose                             │ Mona's since day 0               │
+   ~231/day quiet      ~130/day quiet      ~109/day quiet                           │ holds       1 corner             │
+ ▪ FOURTH & MAIN     · BUS DEPOT         · THE PROJECTS      · PRECINCT ROW         │ size        ×1.2                 │
+   you                 free                free                free                 │ heat        ×0.6 quiet           │
+   ~142/day undercut   ~142/day warm       ~326/day average    ~269/day hot         │ risk        ×1.6 rough           │
+                     · THE STRIP         · RIVERSIDE         · THE HEIGHTS          │ demand      Weed ~75             │
+                       free                free                free                 │             Designer ~52         │
+                       ~357/day warm       ~249/day average    ~254/day warm        │             Pills ~44            │
+                                                                                    │             Heroin ~37           │
+ROUTES                                                                              │             Coke ~17 · Meth ~5   │
+▸ Coast Road   Bayport  ──car──▶ Eastside  normal  2d · 60 units · $8/u · ~0%  ▪60  │ runner      nobody               │
+  Interstate   Bayport  ─truck─▶ Eastside  off     3d · 400 units · $3/u · ~9%      │ enforcer    nobody               │
+  The Channel  Bayport  ─boat──▶ Eastside  off     5d · 2000 units · $1/u · ~7%     │ w  push takes it ~8%, hit ~19%   │
+                                                                                    │                                  │
+                                                                                    │                                  │
+                                                                                    │                                  │
+                                                                                    │                                  │
+                                                                                    │                                  │
+                                                                                    │                                  │
+                                                                                    │                                  │
+                                                                                    │                                  │
+                                                                                    │                                  │
+                                                                                    │                                  │
+                                                                                    │ KEYS                             │
+                                                                                    │ n  end day      ↑↓←→ pick        │
+                                                                                    │ [ ] city        c  post runner   │
+                                                                                    │ e  post enforcer                 │
+                                                                                    │ a  abandon                       │
+                                                                                    │ w  send enforcers                │
+                                                                                    │ r  route dial   R  route target  │
+                                                                                    │ b  buy          s  sell          │
+                                                                                    │ x  cancel order l  lie low       │
+                                                                                    │ p  pay dial     d  launder dial  │
+                                                                                    │ g  go to Bayport                 │
+                                                                                    │ ␣  details      ?  help          │
+                                                                                    ╰──────────────────────────────────╯
+ n end day  ↑↓←→ pick  [ ] city  c post runner  e post enforcer  a abandon  w send enforcers  r route dial  ? help
+```
+<!-- capture:end -->
+
+Both captures are the test fixture on a fixed seed:
+`go test ./internal/ui -run TestReadmeCaptures -update` renders them into
+this file, and the same test without the flag fails until the README
+matches the screens.
+
+## Keys
+
 The keys are one table, `internal/ui/keys.go`: the status bar's legend,
 the details pane's KEYS section, the help modal (`?`) and this table are
 rendered from it (`go run ./cmd/keys -w` rewrites this section; the test
-holds it to the code). A key pressed on a screen that does not take it
-says where it works.
+holds it to the code). The help modal has a `WORDS` group too: the dial,
+the float, the file, drift, the pane and the strip in a line each.
 
 <!-- keys:begin -->
 | Key | Legend | What it does | Where |
 |---|---|---|---|
-| `n` | end day | end the day: the sims step, the run autosaves | everywhere |
+| `n` | end day | end the day: the sims step and the run saves | everywhere |
 | `↑↓` | pick | move the cursor (j and k move it too) | everywhere |
-| `[ ]` | city | turn the market and the map to the other city | everywhere |
+| `[ ]` | city | turn the market or the map to the other city | everywhere |
 | `b` | buy | buy from the supplier where you stand | everywhere |
 | `s` | sell | queue a street sale in the city shown | everywhere |
 | `x` | cancel order | cancel the order on the selected product | everywhere |
@@ -64,7 +211,7 @@ says where it works.
 | `h` | hire | hire the selected candidate | crew |
 | `f` | fire | fire the selected member, after asking | crew |
 | `t` | assign | give the selected lieutenant a city to run | crew |
-| `i` | investigate | ask who is talking to the police, for a price | crew |
+| `i` | investigate | ask who is talking to the police, for a fee | crew |
 | `$` | pay off | buy the selected member's loyalty | crew |
 | `↑↓←→` | pick | walk the map's grid or the tree's columns | map, upgrades |
 | `c` | post runner | post a runner on the selected corner | map |
@@ -180,7 +327,7 @@ never leaves the first city plays the same as it always did.
   tribute or walking off a split corner is a **betrayal**: trust falls to
   the floor, it makes one call to the police, and it takes nothing for a
   month. A chaotic rival breaks deals on a whim; a defensive one never.
-  Joint shipments wait on routes.
+  The joint shipment is on the list and not yet on the table.
 - **Heat** is per city: it rises with the volume you *tried* to move there
   and how loud the dial was, plus a little, where you are, for sitting on a
   pile of dirty cash. Units your crew moves count at a discount, but sloppy
@@ -189,6 +336,16 @@ never leaves the first city plays the same as it always did.
   raids and finally arrest, and what they take comes out of the stash
   there. Every sting and raid goes in the DA's file, which is yours
   wherever you are; a thick enough file is an indictment.
+- **Reputation** is the face the street keeps on you: **fear** (from
+  strikes and pushes), **respect** (from a generous payroll, a pay-off and
+  every night a deal holds; a full delivery to a buyer too) and
+  **notoriety** (from volume and every headline about you). Each does one
+  thing at full strength: fear slows the rival's pushes and claims and
+  sways it at the table but sets a floor heat never falls under; respect
+  keeps the crew loyal and the supplier friendly; notoriety raises what a
+  new hire asks and makes every unit *you* move on your own corner hotter,
+  so a notorious boss gets off the corner. The street has only so much
+  attention: you cannot max all three.
 - **The law** has faces. A **police chief** with a temperament drawn from
   the seed and hidden until you have seen them work: a **zealous** one
   sends the stings and raids back sooner and lets heat fade slower, a
@@ -250,7 +407,12 @@ violent|greedy|careful|steady` forces their temper), `funded` (the
 laundered player who pays the town whenever the pressure is up), `dealer`
 (the crewed player who works the buyers where it stands: takes every offer
 it can cover, keeps the stock aside and hands it over when the heat
-allows).
+allows), `boss` (the delegated player who plays the whole game: every
+corner in the hub, enforcers sent in only when the odds clear a line,
+fronts and the tree bought at a margin, a lieutenant fired the morning
+their orders turn aggressive). `-rival none` keeps the rival out of a run,
+`-heat off` switches heat off and `-pace off` gives the rival its flat
+pace, so a policy's ceiling can be measured against each wall.
 `-chief corrupt|zealous|lazy` and `-da law_and_order|moderate|reform` hold
 the law fixed for the run.
 `-own stash,burners` starts every run owning those upgrades; `-snitch` starts
@@ -287,7 +449,7 @@ DA's file and hard-product pressure, the `dealer` out-earns `crewed`,
 every buyer is dealt and reads clean, and the deck boxed changes nothing
 but the contracts.
 
-## Layout
+## Source
 
 ```
 cmd/kingpin/        the game
@@ -298,5 +460,6 @@ internal/game/      world state, clock, player actions, save/load
 internal/sim/       simulations: market, logistics, territory, rivals, crew, heat, law, laundering, reputation, news
 internal/content/   embedded TOML tuning, names and headline templates
 internal/harness/   headless runner and balance tests
-internal/ui/        Bubble Tea screens, dialogs, theme, sparklines
+internal/format/    the one place a number is written: cash, money, price, arrows, plurals
+internal/ui/        Bubble Tea: the frame, the pane, the key table, the modal, the tables, the screens, the theme
 ```
