@@ -189,10 +189,9 @@ func (m *Model) viewPost() string {
 	c := m.mapSelected()
 	rows := m.postRows(m.postRole)
 	if c == nil || len(rows) == 0 {
-		return m.modal("POST", "Nobody to post.")
+		return m.modal("POST", []string{"Nobody to post."}, m.modalFooter())
 	}
 	m.postCursor = max(0, min(m.postCursor, len(rows)-1))
-	var b strings.Builder
 	var cells [][]any
 	for _, r := range rows {
 		var where any = styled{theme.Subtle, "idle"}
@@ -209,15 +208,14 @@ func (m *Model) viewPost() string {
 		}
 		cells = append(cells, []any{r.Name, skill, where})
 	}
-	for _, l := range table([]col{{"name", kText, 0}, {"skill", kInt, 0}, {"where", kText, 0}}, cells, m.postCursor, max(30, m.width-6)) {
-		b.WriteString(l + "\n")
-	}
-	what := "work"
+	m.modalFollow(1 + m.postCursor) // under the header
+	body := table([]col{{"name", kText, 0}, {"skill", kInt, 0}, {"where", kText, 0}}, cells, m.postCursor, m.modalInner())
+	what, title := "work", "POST A RUNNER"
 	if m.postRole == "enforcer" {
-		what = "guard"
+		what, title = "guard", "POST AN ENFORCER"
 	}
-	b.WriteString("\n" + theme.Subtle.Render(fmt.Sprintf("Who should %s %s?  ", what, c.Name)) + theme.Key.Render("enter") + " post  " + theme.Key.Render("esc") + " back")
-	return m.modal("POST A "+strings.ToUpper(m.postRole), strings.TrimRight(b.String(), "\n"))
+	body = append(body, "", theme.Subtle.Render(fmt.Sprintf("Who should %s %s?", what, c.Name)))
+	return m.modal(title, body, m.modalFooter())
 }
 
 func (m *Model) viewMap() string {

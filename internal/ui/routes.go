@@ -192,13 +192,14 @@ func (m *Model) viewTarget() string {
 	d := m.tgt
 	r := m.targetRoute()
 	if r == nil {
-		return m.modal("TARGET", "No route.")
+		return m.modal("TARGET", []string{"No route."}, m.modalFooter())
 	}
 	rs := w.Route(r.ID)
-	var b strings.Builder
-	lineW := max(20, m.width-10) // inside the modal's frame
-	b.WriteString(truncate(theme.Subtle.Render(fmt.Sprintf("%s keeps %s stocked: every day it sends what is short of", r.Name, w.CityName(r.To))), lineW) + "\n")
-	b.WriteString(truncate(theme.Subtle.Render(fmt.Sprintf("the target, up to %d units, buying by the lot in %s.", r.Capacity, w.CityName(r.From))), lineW) + "\n\n")
+	body := []string{
+		theme.Subtle.Render(fmt.Sprintf("%s keeps %s stocked: every day it sends what is short of", r.Name, w.CityName(r.To))),
+		theme.Subtle.Render(fmt.Sprintf("the target, up to %d units, buying by the lot in %s.", r.Capacity, w.CityName(r.From))),
+		"",
+	}
 	var rows [][]any
 	for _, pid := range w.Products {
 		var target any
@@ -207,14 +208,13 @@ func (m *Model) viewTarget() string {
 		}
 		rows = append(rows, []any{w.ProductName(pid), target, w.Stock(r.To, pid), w.Bound(r.To, pid), approx{w.Demand(r.To, pid)}})
 	}
-	for _, l := range table([]col{{"product", kText, 0}, {"target", kInt, 0}, {"there", kInt, 0}, {"road", kInt, 0}, {"sells/day", kInt, 0}}, rows, m.cursor, lineW) {
-		b.WriteString(l + "\n")
-	}
+	m.modalFollow(len(body) + 1 + m.cursor) // under the header
+	body = append(body, table([]col{{"product", kText, 0}, {"target", kInt, 0}, {"there", kInt, 0}, {"road", kInt, 0}, {"sells/day", kInt, 0}}, rows, m.cursor, m.modalInner())...)
 	if d.step == 0 {
-		b.WriteString("\n" + theme.Subtle.Render("Pick a product, then enter.") + "\n")
+		body = append(body, "", theme.Subtle.Render("Pick a product."))
 	} else {
 		id := w.Products[m.cursor]
-		b.WriteString(fmt.Sprintf("\nTarget    %s   %s\n", d.units.View(), theme.Subtle.Render(fmt.Sprintf("units of %s kept in %s", w.ProductName(id), w.CityName(r.To)))))
+		body = append(body, "", fmt.Sprintf("Target    %s   %s", d.units.View(), theme.Subtle.Render(fmt.Sprintf("units of %s kept in %s", w.ProductName(id), w.CityName(r.To)))))
 		if s := strings.TrimSpace(d.units.Value()); s != "" {
 			if n, err := strconv.Atoi(s); err == nil && n > 0 {
 				if src := w.Product(r.From, id); src != nil {
@@ -226,15 +226,15 @@ func (m *Model) viewTarget() string {
 						how = "by the lot in " + w.CityName(r.From)
 					}
 					short := max(0, n-w.Stock(r.To, id)-w.Bound(r.To, id))
-					b.WriteString(truncate(theme.Subtle.Render(fmt.Sprintf("Short     %d: ~%s %s + %s fares", short, money(int(float64(short)*unit)), how, money(short*r.Cost))), lineW) + "\n")
+					body = append(body, theme.Subtle.Render(fmt.Sprintf("Short     %d: ~%s %s + %s fares", short, money(int(float64(short)*unit)), how, money(short*r.Cost))))
 				}
 			}
 		}
 	}
 	if d.err != "" {
-		b.WriteString("\n" + theme.Bad.Render(d.err) + "\n")
+		body = append(body, "", theme.Bad.Render(d.err))
 	}
-	return m.modal("TARGET · "+strings.ToUpper(r.Name), strings.TrimRight(b.String(), "\n"))
+	return m.modal("TARGET · "+r.Name, body, m.modalFooter())
 }
 
 // roadOn is what is on the road on a route: units per product with the
@@ -382,14 +382,18 @@ func (m *Model) confirmTravel() {
 
 func (m *Model) travelConfirm() string {
 	to := m.travelTo()
-	var b strings.Builder
-	b.WriteString(fmt.Sprintf("Leave %s for %s today?\n\n", m.w.Here().Name, m.w.CityName(to)))
+	body := []string{fmt.Sprintf("Leave %s for %s today?", m.w.Here().Name, m.w.CityName(to)), ""}
 	if c := m.w.PostOf(game.You); c != nil {
-		b.WriteString(theme.Warning.Render(fmt.Sprintf("You step off %s: it drifts back to the street\nunless a runner takes it.", c.Name)) + "\n")
+		body = append(body, theme.Warning.Render(fmt.Sprintf("You step off %s: it drifts back to the street", c.Name)), theme.Warning.Render("unless a runner takes it."))
 	} else {
-		b.WriteString(theme.Subtle.Render("You stand on no corner here to leave.") + "\n")
+		body = append(body, theme.Subtle.Render("You stand on no corner here to leave."))
 	}
-	b.WriteString(theme.Subtle.Render("Stock stays where it is; the routes move it (map, r).\nThe supplier sells to you where you stand. Go for what\nonly you can do there: stand on a corner, hire, ask around.") + "\n\n")
-	b.WriteString(theme.Key.Render("y") + " go   " + theme.Key.Render("any other key") + " stay")
-	return m.modal("GO TO "+strings.ToUpper(m.w.CityName(to))+"?", b.String())
+	for _, l := range []string{
+		"Stock stays where it is; the routes move it (map, r).",
+		"The supplier sells to you where you stand. Go for what",
+		"only you can do there: stand on a corner, hire, ask around.",
+	} {
+		body = append(body, theme.Subtle.Render(l))
+	}
+	return m.modal("GO TO "+m.w.CityName(to)+"?", body, m.modalFooter())
 }

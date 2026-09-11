@@ -113,15 +113,13 @@ func (m *Model) offerRows(rows []game.FrontOffer) [][]any {
 func (m *Model) viewFront() string {
 	rows := m.frontRows()
 	if len(rows) == 0 {
-		return m.modal("BUY A FRONT", "Nothing for sale.")
+		return m.modal("BUY A FRONT", []string{"Nothing for sale."}, m.modalFooter())
 	}
 	m.frontCursor = max(0, min(m.frontCursor, len(rows)-1))
-	var b strings.Builder
-	for _, l := range table(offerCols, m.offerRows(rows), m.frontCursor, max(30, m.width-6)) {
-		b.WriteString(l + "\n")
-	}
-	b.WriteString("\n" + theme.Subtle.Render(fmt.Sprintf("Dirty cash %s. It opens tomorrow.  ", cash(m.w.Player.DirtyCash))) + theme.Key.Render("enter") + " buy  " + theme.Key.Render("esc") + " back")
-	return m.modal("BUY A FRONT", strings.TrimRight(b.String(), "\n"))
+	m.modalFollow(1 + m.frontCursor) // under the header
+	body := table(offerCols, m.offerRows(rows), m.frontCursor, m.modalInner())
+	body = append(body, "", theme.Subtle.Render(fmt.Sprintf("Dirty cash %s. It opens tomorrow.", cash(m.w.Player.DirtyCash))))
+	return m.modal("BUY A FRONT", body, m.modalFooter())
 }
 
 func (m *Model) viewLedger() string {

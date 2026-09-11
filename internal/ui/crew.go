@@ -104,16 +104,16 @@ func (m *Model) investigateConfirm() string {
 	if best > 0 {
 		who = fmt.Sprintf("Your best enforcer (skill %d) does the asking.", best)
 	}
-	var b strings.Builder
-	b.WriteString(fmt.Sprintf("Somebody goes through the crew tonight for %s.\n", money(m.set.Crew.InvestigateCost())))
-	b.WriteString(who + "\n")
-	b.WriteString(fmt.Sprintf("If somebody is talking to the police, ~%.0f%% it names them.\n", odds*100))
-	if w.Crew.Investigated > 0 {
-		b.WriteString(theme.Subtle.Render(fmt.Sprintf("Every empty night so far (%d) narrows it down.", w.Crew.Investigated)) + "\n")
+	body := []string{
+		fmt.Sprintf("Somebody goes through the crew tonight for %s.", money(m.set.Crew.InvestigateCost())),
+		who,
+		fmt.Sprintf("If somebody is talking to the police, ~%.0f%% it names them.", odds*100),
 	}
-	b.WriteString(theme.Warning.Render(fmt.Sprintf("Naming nobody costs everyone %.0f loyalty.", m.cfg.Crew.Informant.InvestigateLoyalty)) + "\n")
-	b.WriteString("\n" + theme.Key.Render("y") + " ask   " + theme.Key.Render("any other key") + " back")
-	return m.modal("INVESTIGATE THE CREW?", b.String())
+	if w.Crew.Investigated > 0 {
+		body = append(body, theme.Subtle.Render(fmt.Sprintf("Every empty night so far (%d) narrows it down.", w.Crew.Investigated)))
+	}
+	body = append(body, theme.Warning.Render(fmt.Sprintf("Naming nobody costs everyone %.0f loyalty.", m.cfg.Crew.Informant.InvestigateLoyalty)))
+	return m.modal("INVESTIGATE?", body, m.modalFooter())
 }
 
 func (m *Model) askPayOff() {
@@ -143,13 +143,13 @@ func (m *Model) confirmPayOff() {
 func (m *Model) payOffConfirm() string {
 	c := m.w.Crew.Member(m.fireID)
 	if c == nil {
-		return m.modal("PAY OFF", "They are gone.")
+		return m.modal("PAY OFF", []string{"They are gone."}, m.modalFooter())
 	}
-	var b strings.Builder
-	b.WriteString(fmt.Sprintf("%s for %s: loyalty %.0f → %.0f.\n", money(m.set.Crew.PayoffCost(*c)), c.Name, c.Loyalty, min(100, c.Loyalty+m.set.Crew.PayoffLoyalty())))
-	b.WriteString(theme.Subtle.Render("It buys loyalty, not silence: somebody already talking keeps talking.") + "\n")
-	b.WriteString("\n" + theme.Key.Render("y") + " pay   " + theme.Key.Render("any other key") + " back")
-	return m.modal("PAY OFF "+strings.ToUpper(c.Name)+"?", b.String())
+	body := []string{
+		fmt.Sprintf("%s for %s: loyalty %.0f → %.0f.", money(m.set.Crew.PayoffCost(*c)), c.Name, c.Loyalty, min(100, c.Loyalty+m.set.Crew.PayoffLoyalty())),
+		theme.Subtle.Render("It buys loyalty, not silence: somebody already talking keeps talking."),
+	}
+	return m.modal("PAY OFF "+c.Name+"?", body, m.modalFooter())
 }
 
 func (m *Model) cyclePay() {

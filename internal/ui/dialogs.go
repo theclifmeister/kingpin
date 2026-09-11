@@ -251,7 +251,7 @@ func (m *Model) viewDialog() string {
 	city := m.dialogCity()
 	p := w.Product(city, id)
 	buy := m.mode == modeBuy
-	var b strings.Builder
+	var body []string
 
 	// Step 0: product list.
 	cols := []col{{"product", kText, 0}, {"price/unit", kPrice, 0}, {"have", kInt, 0}}
@@ -274,75 +274,81 @@ func (m *Model) viewDialog() string {
 			rows = append(rows, []any{pm.Name, pm.Price, w.Stock(city, pid), approx{w.Demand(city, pid)}})
 		}
 	}
-	for _, l := range table(cols, rows, cursor, max(30, m.width-6)) {
-		b.WriteString(l + "\n")
+	if cursor >= 0 {
+		m.modalFollow(len(body) + 1 + cursor) // under the header
 	}
-	b.WriteString("\n")
+	body = append(body, table(cols, rows, cursor, m.modalInner())...)
+	body = append(body, "")
 
 	// Step 1: quantity.
 	if d.step >= 1 {
 		if buy {
 			mx := m.maxBuy(id)
-			b.WriteString(fmt.Sprintf("Quantity  %s   %s\n", d.qty.View(), theme.Subtle.Render(fmt.Sprintf("max %d", mx))))
+			body = append(body, fmt.Sprintf("quantity   %s   %s", d.qty.View(), theme.Subtle.Render(fmt.Sprintf("max %d", mx))))
 			if qty, err := m.parseQty(mx); err == nil {
 				cost, _ := w.SupplierQuote(id, qty)
 				style := theme.Gold
 				if cost > w.Player.DirtyCash {
 					style = theme.Bad
 				}
-				b.WriteString(fmt.Sprintf("Total     %s   %s\n", style.Render(money(cost)), theme.Subtle.Render("dirty cash "+cash(w.Player.DirtyCash))))
+				body = append(body, fmt.Sprintf("total      %s   %s", style.Render(money(cost)), theme.Subtle.Render("dirty cash "+cash(w.Player.DirtyCash))))
 			}
 			if o := m.set.Logistics.Wholesale(); w.Here().Wholesale && !o.Locked(w) {
-				b.WriteString(theme.Subtle.Render(fmt.Sprintf("The wholesaler here sells lots of %d at %s/unit to the routes (map, r).", o.Lot, price(p.SupplierPrice*o.Mul))) + "\n")
+				body = append(body, theme.Subtle.Render(fmt.Sprintf("The wholesaler here sells lots of %d at %s/unit to the routes (map, r).", o.Lot, price(p.SupplierPrice*o.Mul))))
 			}
 		} else {
-			b.WriteString(fmt.Sprintf("Quantity  %s   %s\n", d.qty.View(), theme.Subtle.Render(fmt.Sprintf("have %d in %s", w.Stock(city, id), w.CityName(city)))))
+			body = append(body, fmt.Sprintf("quantity   %s   %s", d.qty.View(), theme.Subtle.Render(fmt.Sprintf("have %d in %s", w.Stock(city, id), w.CityName(city)))))
 		}
 	} else {
-		b.WriteString(theme.Subtle.Render("Pick a product, then enter.") + "\n")
+		body = append(body, theme.Subtle.Render("Pick a product."))
 	}
 
-	// Step 2: dial preview.
+	// Step 2: dial preview. The dial row is the dial convention: the
+	// chosen notch in brackets and the accent.
 	if !buy && d.step >= 2 {
-		b.WriteString("\n")
 		qty, _ := m.parseQty(w.Stock(city, id))
-		names := []string{"quiet", "normal", "aggressive"}
-		var cells []string
-		for i, n := range names {
-			if events.Dial(i) == d.dial {
-				cells = append(cells, theme.Selected.Render(" "+n+" "))
-			} else {
-				cells = append(cells, theme.Subtle.Render(" "+n+" "))
-			}
-		}
-		b.WriteString("Dial      " + strings.Join(cells, " ") + "\n")
+		body = append(body, "", "dial       "+dialRow(d.dial))
 		dc := m.set.Market.Dial(d.dial)
 		est := min(qty, m.set.Market.Capacity(w, city, id, d.dial))
-		b.WriteString(fmt.Sprintf("Expect    ~%d of %d sold at ~%s  =  ~%s\n", est, qty, price(p.Price*dc.Price), theme.Gold.Render(money(int(float64(est)*p.Price*dc.Price)))))
+		body = append(body, fmt.Sprintf("expect     ~%d of %d at ~%s = ~%s", est, qty, price(p.Price*dc.Price), theme.Gold.Render(money(int(float64(est)*p.Price*dc.Price)))))
 		h := m.estHeat(city, id, qty, d.dial)
-		b.WriteString(fmt.Sprintf("Heat      %s   %s\n", heatStyle(w.City(city).Heat+h*4).Render(fmt.Sprintf("+%.1f", h)), theme.Subtle.Render(dialBlurb(d.dial))))
+		body = append(body, fmt.Sprintf("heat       %s   %s", heatStyle(w.City(city).Heat+h*4).Render(fmt.Sprintf("+%.1f", h)), theme.Subtle.Render(dialBlurb(d.dial))))
 		if w.WorkedIn(city) == 0 {
-			// Short enough for an 80-column modal with the city's name in it.
-			b.WriteString(theme.Bad.Render(fmt.Sprintf("You work no corner in %s: nothing will sell. Post somebody (map, 5).", w.CityName(city))) + "\n")
+			body = append(body, theme.Bad.Render(fmt.Sprintf("You work no corner in %s: nothing will sell. Post somebody (map, 5).", w.CityName(city))))
 		}
 	}
 
 	if d.err != "" {
-		b.WriteString("\n" + theme.Bad.Render(d.err) + "\n")
+		body = append(body, "", theme.Bad.Render(d.err))
 	}
-	title := "SELL ON THE STREET · " + strings.ToUpper(w.CityName(city))
+	title := "SELL · " + w.CityName(city)
 	if buy {
-		title = "BUY FROM SUPPLIER · " + strings.ToUpper(w.CityName(city))
+		title = "BUY · " + w.CityName(city)
 	}
-	return m.modal(title, strings.TrimRight(b.String(), "\n"))
+	return m.modal(title, body, m.modalFooter())
 }
 
+// dialRow draws the sell dial as `quiet  normal  [aggressive]`.
+func dialRow(d events.Dial) string {
+	var cells []string
+	for i, n := range []string{"quiet", "normal", "aggressive"} {
+		if events.Dial(i) == d {
+			cells = append(cells, theme.Gold.Render("["+n+"]"))
+		} else {
+			cells = append(cells, theme.Subtle.Render(n))
+		}
+	}
+	return strings.Join(cells, "  ")
+}
+
+// dialBlurb is what the dial does, short enough for the modal's width
+// after the heat figure.
 func dialBlurb(d events.Dial) string {
 	switch d {
 	case events.DialQuiet:
 		return "half the volume, small discount, barely a ripple"
 	case events.DialAggressive:
-		return "push past demand, premium at first, then the price crashes"
+		return "push past demand, premium first, then the crash"
 	default:
 		return "sell to demand at market price"
 	}

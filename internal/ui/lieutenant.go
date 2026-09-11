@@ -62,11 +62,10 @@ func (m *Model) confirmAssign() {
 func (m *Model) viewAssign() string {
 	lt := m.w.Crew.Member(m.fireID)
 	if lt == nil {
-		return m.modal("ASSIGN", "They are gone.")
+		return m.modal("ASSIGN", []string{"They are gone."}, m.modalFooter())
 	}
 	rows := m.assignRows()
 	m.assignCursor = max(0, min(m.assignCursor, len(rows)-1))
-	var b strings.Builder
 	var cells [][]any
 	for _, cid := range rows {
 		if cid == "" {
@@ -82,12 +81,14 @@ func (m *Model) viewAssign() string {
 		}
 		cells = append(cells, []any{m.w.CityName(cid), heldIn(m.w, cid), m.w.Player.StockIn(cid), runs})
 	}
-	for _, l := range table([]col{{"city", kText, 0}, {"corners", kInt, 0}, {"units", kInt, 0}, {"runs", kText, 0}}, cells, m.assignCursor, max(30, m.width-6)) {
-		b.WriteString(l + "\n")
-	}
-	b.WriteString("\n" + theme.Subtle.Render(fmt.Sprintf("Every night they post the idle crew on the city's corners, give up a corner\nrobbed twice, and sell the stash there at their dial; your own order wins.\nThey keep %.0f%% of the city's takings and bring %d people of their own.", m.set.Crew.Cut()*100, m.cfg.Crew.Role[game.RoleLieutenant].Crew)) + "\n")
-	b.WriteString("\n" + theme.Subtle.Render(fmt.Sprintf("Which city should %s run?  ", lt.Name)) + theme.Key.Render("enter") + " assign  " + theme.Key.Render("esc") + " back")
-	return m.modal("ASSIGN "+strings.ToUpper(lt.Name), strings.TrimRight(b.String(), "\n"))
+	m.modalFollow(1 + m.assignCursor) // under the header
+	body := table([]col{{"city", kText, 0}, {"corners", kInt, 0}, {"units", kInt, 0}, {"runs", kText, 0}}, cells, m.assignCursor, m.modalInner())
+	// Two lines that fit the modal's width.
+	body = append(body, "",
+		theme.Subtle.Render("Each night they post the idle crew, drop a corner robbed twice and sell"),
+		theme.Subtle.Render(fmt.Sprintf("the stash at their dial; your own order wins. Cut %.0f%%, +%d crew slots.", m.set.Crew.Cut()*100, m.cfg.Crew.Role[game.RoleLieutenant].Crew)),
+		"", theme.Subtle.Render(fmt.Sprintf("Which city should %s run?", lt.Name)))
+	return m.modal("ASSIGN "+lt.Name, body, m.modalFooter())
 }
 
 // heldIn counts the corners the player holds in a city.

@@ -64,6 +64,7 @@ const (
 	modePropose       // pick a deal to put to the rival: kind, then terms
 	modeAssign        // pick the city a lieutenant runs
 	modeFund          // give a city clean cash for goodwill
+	modeCount
 )
 
 type tickMsg time.Time
@@ -103,6 +104,7 @@ type Model struct {
 	proposeKind   int    // index into proposeKinds while on the terms page
 	proposeCursor int
 	assignCursor  int    // row in the assign picker
+	modalScroll   int    // first body line the open modal shows
 	outcome       string // what the last answer did, while it shows
 	journal       viewport.Model
 	dlg           dialog
@@ -264,7 +266,12 @@ func (m *Model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 		m.tick++
 		return m, tickCmd()
 	case tea.KeyMsg:
-		return m.handleKey(msg)
+		before := m.mode
+		r, cmd := m.handleKey(msg)
+		if m.mode != before {
+			m.modalScroll = 0 // a new modal opens at its top
+		}
+		return r, cmd
 	}
 	return m, nil
 }
@@ -338,7 +345,9 @@ func (m *Model) handleKey(k tea.KeyMsg) (tea.Model, tea.Cmd) {
 	case modeFund:
 		return m.keyFund(k)
 	case modeHelp:
-		m.mode = modePlay
+		if !m.scrollModal(key) {
+			m.mode = modePlay
+		}
 		return m, nil
 	case modePost:
 		switch key {
@@ -436,6 +445,8 @@ func (m *Model) handleKey(k tea.KeyMsg) (tea.Model, tea.Cmd) {
 		switch key {
 		case "enter", "esc", " ", "r", "q":
 			m.mode = modePlay
+		default:
+			m.scrollModal(key)
 		}
 		return m, nil
 	case modeCard:
@@ -474,6 +485,8 @@ func (m *Model) handleKey(k tea.KeyMsg) (tea.Model, tea.Cmd) {
 			m.newRun()
 		case "q":
 			return m.quit()
+		default:
+			m.scrollModal(key)
 		}
 		return m, nil
 	case modeBuy, modeSell:
@@ -783,13 +796,13 @@ func (m *Model) View() string {
 	case modeOver:
 		body = m.viewOver()
 	case modeConfirmNew:
-		body = m.modal("NEW RUN?", "Abandon the current run and start over?\n\n"+theme.Key.Render("y")+" yes   "+theme.Key.Render("any other key")+" no")
+		body = m.modal("NEW RUN?", []string{"Abandon the current run and start over?"}, m.modalFooter())
 	case modeConfirmFire:
 		name := "them"
 		if c := m.w.Crew.Member(m.fireID); c != nil {
 			name = c.Name
 		}
-		body = m.modal("FIRE "+strings.ToUpper(name)+"?", "No severance in this business. The rest of the crew\nwill take it personally.\n\n"+theme.Key.Render("y")+" yes   "+theme.Key.Render("any other key")+" no")
+		body = m.modal("FIRE "+name+"?", []string{"No severance in this business. The rest of the crew", "will take it personally."}, m.modalFooter())
 	case modeConfirmEnd:
 		what := "No sales queued."
 		switch {
@@ -798,7 +811,7 @@ func (m *Model) View() string {
 		case len(m.w.Orders) > 0:
 			what = fmt.Sprintf("%d order(s) queued.", len(m.w.Orders))
 		}
-		body = m.modal("END THE DAY?", what+" The sims step and the run autosaves.\n\n"+theme.Key.Render("enter")+" / "+theme.Key.Render("y")+" end the day   "+theme.Key.Render("any other key")+" back")
+		body = m.modal("END THE DAY?", []string{what + " The sims step and the run autosaves."}, m.modalFooter())
 	case modeHelp:
 		body = m.viewHelp()
 	case modePost:
@@ -922,46 +935,12 @@ func (m *Model) viewTicker() string {
 }
 
 func (m *Model) viewFooter() string {
+	// During a modal the bar repeats the modal's footer and nothing else.
+	if f := m.modalFooter(); f != nil {
+		return fit(legend(f), m.width)
+	}
 	var keys string
 	switch m.mode {
-	case modeReport:
-		keys = k("enter", "close report")
-	case modeBuy, modeSell:
-		keys = k("↑↓", "pick") + k("enter", "next") + k("esc", "back")
-	case modeOver:
-		keys = k("enter", "new run") + k("q", "quit")
-	case modeConfirmEnd:
-		keys = k("enter", "end day") + k("esc", "back")
-	case modeHelp, modeConfirmNew, modeConfirmFire:
-		keys = k("any key", "close")
-	case modeConfirmUpgrade:
-		keys = k("y", "buy") + k("any other key", "back")
-	case modeConfirmInvestigate:
-		keys = k("y", "ask") + k("any other key", "back")
-	case modeConfirmPayOff:
-		keys = k("y", "pay") + k("any other key", "back")
-	case modeConfirmTravel:
-		keys = k("y", "go") + k("any other key", "stay")
-	case modeTarget:
-		keys = k("↑↓", "pick") + k("enter", "next") + k("esc", "back")
-	case modeFund:
-		keys = k("←→", "city") + k("enter", "give") + k("esc", "back")
-	case modePost:
-		keys = k("↑↓", "pick") + k("enter", "post") + k("esc", "back")
-	case modeStrike:
-		keys = k("↑↓", "pick") + k("enter", "send") + k("esc", "back")
-	case modeFront:
-		keys = k("↑↓", "pick") + k("enter", "buy") + k("esc", "back")
-	case modeAssign:
-		keys = k("↑↓", "pick") + k("enter", "assign") + k("esc", "back")
-	case modeCard:
-		if m.cardDone {
-			keys = k("enter", "morning report")
-		} else {
-			keys = k("↑↓", "pick") + k("1-3", "choose") + k("enter", "decide")
-		}
-	case modePropose:
-		keys = k("↑↓", "pick") + k("enter", "next") + k("esc", "back")
 	default:
 		switch m.screen {
 		case screenCrew:
@@ -1009,29 +988,25 @@ func heatStyle(v float64) lipgloss.Style {
 	}
 }
 
-// modal centres a bordered box in the body.
-func (m *Model) modal(title, content string) string {
-	box := theme.Modal.Render(theme.Title.Render(title) + "\n\n" + content)
-	return lipgloss.Place(m.width, m.bodyHeight(), lipgloss.Center, lipgloss.Center, box)
-}
-
 func (m *Model) viewStart() string {
-	opts := []string{"Continue saved run", "New run"}
-	var b strings.Builder
-	for i, o := range opts {
+	body := []string{theme.Subtle.Render("a drug empire, one day at a time"), ""}
+	for i, o := range []string{"Continue saved run", "New run"} {
 		if i == m.startChoice {
-			b.WriteString(theme.Selected.Render(" ▸ "+o+" ") + "\n")
+			body = append(body, theme.Gold.Render("▸ ")+theme.Selected.Render(" "+o+" "))
 		} else {
-			b.WriteString("   " + o + "\n")
+			body = append(body, "   "+o)
 		}
 	}
-	b.WriteString("\n" + theme.Subtle.Render("enter select · c continue · n new · q quit"))
 	if m.status != "" {
 		// Load errors can be long; wrap inside the box instead of past it.
-		b.WriteString("\n" + theme.Warning.Width(max(20, m.width-12)).Render(m.status))
+		body = append(body, "")
+		for _, l := range m.wrapLines(m.status) {
+			body = append(body, theme.Warning.Render(l))
+		}
 	}
-	box := theme.Modal.Render(theme.Title.Render("KINGPIN") + "\n" + theme.Subtle.Render("a drug empire, one day at a time") + "\n\n" + b.String())
-	return lipgloss.Place(m.width, m.height, lipgloss.Center, lipgloss.Center, box)
+	// No title bar yet: the box sits where it does on every other screen.
+	box := "\n" + m.modal("KINGPIN", body, m.modalFooter())
+	return lipgloss.NewStyle().Width(m.width).Height(m.height).MaxHeight(m.height).Render(box)
 }
 
 func (m *Model) viewHelp() string {
@@ -1064,15 +1039,14 @@ func (m *Model) viewHelp() string {
 		{"N", "abandon run and start over"},
 		{"q", "save and quit"},
 	}
-	// The key column, two spaces and the modal's frame leave the rest of
-	// the width for the description; a long one is cut, never wrapped.
-	descW := max(20, m.width-14-2-6)
-	var b strings.Builder
+	// The key column, two spaces and the description; the modal cuts a
+	// long one to its width, never wraps it.
+	var body []string
 	for _, r := range rows {
-		b.WriteString(fmt.Sprintf("%s  %s\n", theme.Key.Render(fit(r[0], 14)), truncate(r[1], descW)))
+		body = append(body, theme.Key.Render(fit(r[0], 14))+"  "+r[1])
 	}
-	b.WriteString("\n" + theme.Subtle.Render("Heat is the antagonist. Greed is always available."))
-	return m.modal("HELP", b.String())
+	body = append(body, "", theme.Subtle.Render("Heat is the antagonist. Greed is always available."))
+	return m.modal("HELP", body, m.modalFooter())
 }
 
 func (m *Model) viewOver() string {
@@ -1123,32 +1097,30 @@ func (m *Model) viewOver() string {
 		[]any{"elections", fmt.Sprint(w.Stats.Elections)},
 		[]any{"given to the cities", cash(w.Stats.Funded)},
 		[]any{"reputation", fmt.Sprintf("fear %.0f · respect %.0f · notoriety %.0f", rep.Fear, rep.Respect, rep.Notoriety)})
-	for _, l := range table([]col{{"stat", kText, 0}, {"value", kText, 0}}, facts, -1, max(30, m.width-6)) {
+	for _, l := range table([]col{{"stat", kText, 0}, {"value", kText, 0}}, facts, -1, m.modalInner()) {
 		b.WriteString(l + "\n")
 	}
 	if n := len(w.Journal); n > 0 {
-		b.WriteString("\nLast headline:\n  " + theme.Subtle.Render(truncate(w.Journal[n-1].Text, max(20, m.width-20))) + "\n")
+		b.WriteString("\nLast headline:\n  " + theme.Subtle.Render(w.Journal[n-1].Text) + "\n")
 	}
-	b.WriteString("\n" + theme.Key.Render("enter") + " new run   " + theme.Key.Render("q") + " quit")
-	return m.modal("GAME OVER", b.String())
+	return m.modal("GAME OVER", strings.Split(strings.TrimRight(b.String(), "\n"), "\n"), m.modalFooter())
 }
 
 func (m *Model) viewReport() string {
 	r := m.w.Report
 	if r == nil {
-		return m.modal("MORNING REPORT", "Nothing happened yet.")
+		return m.modal("MORNING REPORT", []string{"Nothing happened yet."}, m.modalFooter())
 	}
-	var b strings.Builder
-	lineW := max(20, m.width-8) // inside the modal's frame; long lines are cut, never wrapped
+	var body []string // the modal cuts a long line to its width, never wraps it
 	section := func(title string, ls []string, style lipgloss.Style) {
 		if len(ls) == 0 {
 			return
 		}
-		b.WriteString(style.Bold(true).Render(title) + "\n")
+		body = append(body, style.Bold(true).Render(title))
 		for _, l := range ls {
-			b.WriteString(truncate("  "+l, lineW) + "\n")
+			body = append(body, "  "+l)
 		}
-		b.WriteString("\n")
+		body = append(body, "")
 	}
 	section("PRICES", r.Prices, theme.Good)
 	section("SALES", r.Sales, theme.Gold)
@@ -1160,8 +1132,10 @@ func (m *Model) viewReport() string {
 	section("MONEY", append(r.Money, fmt.Sprintf("Cash %s %s %s", cash(r.CashBefore), format.Arrow, cash(r.CashAfter))), theme.Gold)
 	section("UPGRADES", r.Upgrades, theme.Gold)
 	section("NEWS", r.News, theme.Subtle)
-	content := clampLines(strings.TrimRight(b.String(), "\n"), m.bodyHeight()-6)
-	return m.modal(fmt.Sprintf("MORNING REPORT · DAY %d", r.Day), content)
+	for len(body) > 0 && body[len(body)-1] == "" {
+		body = body[:len(body)-1]
+	}
+	return m.modal(fmt.Sprintf("MORNING REPORT · DAY %d", r.Day), body, m.modalFooter())
 }
 
 func (m *Model) refreshJournal() {
