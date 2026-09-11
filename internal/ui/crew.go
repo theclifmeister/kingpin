@@ -35,22 +35,22 @@ func (m *Model) crewSelected() (game.CrewMember, bool, bool) {
 func (m *Model) hireSelected() {
 	c, onPayroll, ok := m.crewSelected()
 	if !ok || onPayroll {
-		m.status = "Move the cursor to someone looking for work first."
+		m.refuse("Can't hire: put the cursor on somebody looking for work.")
 		return
 	}
 	got, err := m.w.Hire(c.ID, m.set.Crew.MaxCrew(m.w))
 	if err != nil {
-		m.status = "Can't hire: " + err.Error()
+		m.refuse("Can't hire: " + err.Error())
 		return
 	}
-	m.status = fmt.Sprintf("%s hired for %s.", got.Name, money(got.Fee))
+	m.say(fmt.Sprintf("%s hired for %s.", got.Name, money(got.Fee)))
 	m.crewCursor = len(m.w.Crew.Members) - 1
 }
 
 func (m *Model) askFire() {
 	c, onPayroll, ok := m.crewSelected()
 	if !ok || !onPayroll {
-		m.status = "Move the cursor to someone on the payroll first."
+		m.refuse("Can't fire: put the cursor on somebody on the payroll.")
 		return
 	}
 	m.fireID = c.ID
@@ -61,10 +61,10 @@ func (m *Model) confirmFire() {
 	m.mode = modePlay
 	got, err := m.w.Fire(m.fireID)
 	if err != nil {
-		m.status = "Can't fire: " + err.Error()
+		m.refuse("Can't fire: " + err.Error())
 		return
 	}
-	m.status = fmt.Sprintf("%s is gone. The rest noticed.", got.Name)
+	m.say(fmt.Sprintf("%s is gone. The rest noticed.", got.Name))
 }
 
 // talking reports whether the report's tell has shown enough for the
@@ -73,11 +73,11 @@ func (m *Model) talking() bool { return m.w.Heat.Leaks >= 2 }
 
 func (m *Model) askInvestigate() {
 	if len(m.w.Crew.Members) == 0 {
-		m.status = "Nobody on the payroll to ask."
+		m.refuse("Nothing to ask: nobody on the payroll.")
 		return
 	}
 	if m.w.Investigation != nil {
-		m.status = "Somebody is already asking around tonight."
+		m.refuse("Can't ask twice: somebody is already asking around tonight.")
 		return
 	}
 	m.mode = modeConfirmInvestigate
@@ -86,10 +86,10 @@ func (m *Model) askInvestigate() {
 func (m *Model) confirmInvestigate() {
 	m.mode = modePlay
 	if err := m.w.Investigate(m.set.Crew.InvestigateCost()); err != nil {
-		m.status = "Can't investigate: " + err.Error()
+		m.refuse("Can't investigate: " + err.Error())
 		return
 	}
-	m.status = fmt.Sprintf("Questions get asked tonight. Odds of a name ~%.0f%%.", m.set.Crew.InvestigateOdds(m.w)*100)
+	m.say(fmt.Sprintf("Questions get asked tonight. Odds of a name ~%.0f%%.", m.set.Crew.InvestigateOdds(m.w)*100))
 }
 
 func (m *Model) investigateConfirm() string {
@@ -120,7 +120,7 @@ func (m *Model) investigateConfirm() string {
 func (m *Model) askPayOff() {
 	c, onPayroll, ok := m.crewSelected()
 	if !ok || !onPayroll {
-		m.status = "Move the cursor to someone on the payroll first."
+		m.refuse("Can't pay off: put the cursor on somebody on the payroll.")
 		return
 	}
 	m.fireID = c.ID
@@ -135,10 +135,10 @@ func (m *Model) confirmPayOff() {
 	}
 	got, err := m.w.PayOff(c.ID, m.set.Crew.PayoffCost(*c), m.set.Crew.PayoffLoyalty())
 	if err != nil {
-		m.status = "Can't pay them off: " + err.Error()
+		m.refuse("Can't pay them off: " + err.Error())
 		return
 	}
-	m.status = fmt.Sprintf("%s pocketed it. Loyalty %.0f.", got.Name, got.Loyalty)
+	m.say(fmt.Sprintf("%s pocketed it. Loyalty %.0f.", got.Name, got.Loyalty))
 }
 
 func (m *Model) payOffConfirm() string {
@@ -156,7 +156,7 @@ func (m *Model) payOffConfirm() string {
 func (m *Model) cyclePay() {
 	p := (m.w.Crew.Pay + 1) % 3
 	m.w.SetPay(p)
-	m.status = fmt.Sprintf("Pay %s, %s/day. %s", p, money(m.set.Crew.Wages(m.w, p)), payBlurb(p))
+	m.say(fmt.Sprintf("Pay %s, %s/day. %s", p, money(m.set.Crew.Wages(m.w, p)), payBlurb(p)))
 }
 
 func payBlurb(p events.Pay) string {
@@ -203,15 +203,11 @@ func (m *Model) crewWarning() string {
 
 // payRow draws the pay dial as `stingy  [fair]  generous`.
 func payRow(p events.Pay) string {
-	var cells []string
+	var notches []string
 	for d := events.PayStingy; d <= events.PayGenerous; d++ {
-		if d == p {
-			cells = append(cells, theme.Gold.Render("["+d.String()+"]"))
-		} else {
-			cells = append(cells, theme.Subtle.Render(d.String()))
-		}
+		notches = append(notches, d.String())
 	}
-	return strings.Join(cells, "  ")
+	return dialCells(notches, int(p-events.PayStingy))
 }
 
 // post is the roster's status column: where the member is and, when they
@@ -220,22 +216,17 @@ func payRow(p events.Pay) string {
 // guards nothing; a runner without one is idle.
 func (m *Model) post(c game.CrewMember) any {
 	w := m.w
-	crewStyle := lipgloss.NewStyle().Foreground(theme.Crew)
 	switch {
 	case c.Lieutenant():
 		if c.City != "" {
-			return styled{crewStyle, "runs " + w.CityName(c.City)}
+			return styled{theme.CrewText, "runs " + w.CityName(c.City)}
 		}
 		return styled{theme.Warning, "no city"}
 	case c.Role == "accountant":
-		switch n := len(w.Fronts); {
-		case n == 0:
-			return styled{theme.Warning, "no front"}
-		case n == 1:
-			return styled{crewStyle, "the books"}
-		default:
-			return styled{crewStyle, fmt.Sprintf("%d fronts", n)}
+		if n := len(w.Fronts); n > 0 {
+			return styled{theme.CrewText, plural(n, "front")}
 		}
+		return styled{theme.Warning, "no front"}
 	}
 	if p := w.PostOf(c.ID); p != nil {
 		return p.Name
@@ -291,7 +282,7 @@ func (m *Model) viewCrew() string {
 
 	b.WriteString(sectionTitle("ON THE PAYROLL", theme.Crew) + "\n")
 	if len(w.Crew.Members) == 0 {
-		b.WriteString(theme.Subtle.Render("Nobody. Runners hold corners you can't stand on yourself; pick one below and hire them.") + "\n")
+		b.WriteString(emptyState("Nobody on the payroll. Pick a face below and press ", "h", ".") + "\n")
 	} else {
 		var rows [][]any
 		for _, c := range w.Crew.Members {
@@ -405,7 +396,7 @@ func (m *Model) personLines(c game.CrewMember, onPayroll bool) []string {
 	}
 	lines = append(lines, row("wage", fmt.Sprintf("%s/day %s", money(m.set.Crew.WageAt(c, pay)), pay)), sub("  "+strings.Join(others, " · ")))
 	if c.Units > 0 {
-		lines = append(lines, row("carries", fmt.Sprintf("+%d units", c.Units)))
+		lines = append(lines, row("carries", "+"+plural(c.Units, "unit")))
 	}
 	if !onPayroll {
 		lines = append(lines, row("would", hireBlurb(c.Role)))

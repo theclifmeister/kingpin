@@ -8,6 +8,7 @@ import (
 	"github.com/charmbracelet/lipgloss"
 
 	"github.com/theclifmeister/kingpin/internal/events"
+	"github.com/theclifmeister/kingpin/internal/format"
 	"github.com/theclifmeister/kingpin/internal/game"
 	"github.com/theclifmeister/kingpin/internal/ui/theme"
 )
@@ -80,9 +81,9 @@ func (m *Model) mapMove(dx, dy int) {
 func ownerStyle(owner string) lipgloss.Style {
 	switch owner {
 	case game.OwnerPlayer:
-		return lipgloss.NewStyle().Foreground(theme.Crew)
+		return theme.CrewText
 	case game.OwnerRival:
-		return theme.Rival
+		return theme.RivalText
 	default:
 		return theme.Subtle
 	}
@@ -136,11 +137,11 @@ func (m *Model) askPost(role string) {
 		return
 	}
 	if c.Owner == game.OwnerRival {
-		m.status = "Somebody else holds " + c.Name + "."
+		m.refuse("Can't post there: somebody else holds " + c.Name + ".")
 		return
 	}
 	if len(m.postRows(role)) == 0 {
-		m.status = "No " + role + "s to post. Hire one " + screenPointer(screenCrew) + "."
+		m.refuse("Nothing to post: no " + format.Plurals(role) + ". Hire one " + screenPointer(screenCrew) + ".")
 		return
 	}
 	m.postRole = role
@@ -158,18 +159,18 @@ func (m *Model) confirmPost() {
 	who := rows[max(0, min(m.postCursor, len(rows)-1))]
 	if err := m.w.Post(c.ID, who.ID); err != nil {
 		if who.ID == game.You && err == game.ErrElsewhere {
-			m.status = fmt.Sprintf("You are in %s: go there first to stand on %s.", m.w.Here().Name, c.Name)
+			m.refuse(fmt.Sprintf("Can't stand on %s from %s: go there first.", c.Name, m.w.Here().Name))
 			return
 		}
-		m.status = "Can't post: " + err.Error()
+		m.refuse("Can't post: " + err.Error())
 		return
 	}
 	if who.ID == game.You {
-		m.status = fmt.Sprintf("You are working %s now.", c.Name)
+		m.say(fmt.Sprintf("You are working %s now.", c.Name))
 	} else if m.postRole == "enforcer" {
-		m.status = fmt.Sprintf("%s is guarding %s.", who.Name, c.Name)
+		m.say(fmt.Sprintf("%s is guarding %s.", who.Name, c.Name))
 	} else {
-		m.status = fmt.Sprintf("%s is working %s.", who.Name, c.Name)
+		m.say(fmt.Sprintf("%s is working %s.", who.Name, c.Name))
 	}
 }
 
@@ -179,10 +180,10 @@ func (m *Model) abandonSelected() {
 		return
 	}
 	if err := m.w.Abandon(c.ID); err != nil {
-		m.status = "Can't abandon: " + err.Error()
+		m.refuse("Can't abandon: " + err.Error())
 		return
 	}
-	m.status = c.Name + " goes back to the street."
+	m.say(c.Name + " goes back to the street.")
 }
 
 func (m *Model) viewPost() string {
@@ -326,7 +327,7 @@ func (m *Model) viewMap() string {
 	// The routes out of here, each an edge between the cities with its
 	// dial and what is on it. The selected route's detail is the pane's.
 	if len(routes) > 0 {
-		lines = append(lines, "", lipgloss.NewStyle().Foreground(theme.Logistics).Render("ROUTES"))
+		lines = append(lines, "", theme.RoadText.Render("ROUTES"))
 		lines = append(lines, routes...)
 	}
 	return strings.Join(lines, "\n") + "\n"
@@ -369,11 +370,11 @@ func (m *Model) cornerSection(sel *game.Corner) section {
 		}
 		lines = append(lines, theme.Subtle.Render(owner))
 	case sel.Owner == game.OwnerRival:
-		lines = append(lines, theme.Rival.Render(fmt.Sprintf("%s's since day %d", w.Rival.Leader, sel.Since)))
+		lines = append(lines, theme.RivalText.Render(fmt.Sprintf("%s's since day %d", w.Rival.Leader, sel.Since)))
 		if s := w.Strike; s != nil && s.Corner == sel.ID {
 			lines = append(lines, theme.Warning.Render(fmt.Sprintf("⚔ %s tonight", s.Force)))
 		}
-		lines = append(lines, row("holds", theme.Rival.Render(plural(w.RivalHeld(), "corner"))))
+		lines = append(lines, row("holds", theme.RivalText.Render(plural(w.RivalHeld(), "corner"))))
 	default:
 		lines = append(lines, theme.Subtle.Render("free"))
 	}
@@ -385,10 +386,10 @@ func (m *Model) cornerSection(sel *game.Corner) section {
 		lines = append(lines, row("robbery", fmt.Sprintf("%.1f%%/day", m.set.Territory.RobberyChance(w, sel)*100)))
 	}
 	if sel.Squeeze > 0 {
-		lines = append(lines, row("undercut", theme.Rival.Render(fmt.Sprintf("-%.0f%% (%s)", sel.Squeeze*100, w.Rival.Leader))))
+		lines = append(lines, row("undercut", theme.RivalText.Render(fmt.Sprintf("-%.0f%% (%s)", sel.Squeeze*100, w.Rival.Leader))))
 	}
 	if sel.Held() && w.Contested(*sel) {
-		lines = append(lines, row("push flips", theme.Rival.Render(fmt.Sprintf("~%.0f%%", m.set.Rivals.PushOdds(w, sel)*100))))
+		lines = append(lines, row("push flips", theme.RivalText.Render(fmt.Sprintf("~%.0f%%", m.set.Rivals.PushOdds(w, sel)*100))))
 	}
 	// Demand per product, biggest first, as many to a line as the value
 	// column holds whole (two, mostly).

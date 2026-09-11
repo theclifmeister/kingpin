@@ -4,6 +4,8 @@ import (
 	"strings"
 
 	"github.com/charmbracelet/lipgloss"
+
+	"github.com/theclifmeister/kingpin/internal/ui/theme"
 )
 
 // The frame (#79, #95) is what every play-mode screen renders into: the
@@ -92,9 +94,9 @@ func (m *Model) frame(main string, sections []section, keys []binding, accent li
 func panel(title, content string, w, h int, accent lipgloss.Color) string {
 	w, h = max(8, w), max(2, h)
 	textW := w - 4
-	border := lipgloss.NewStyle().Foreground(accent)
+	border := theme.Fg(accent)
 	head := truncate(title, w-6)
-	top := border.Render("╭─ ") + lipgloss.NewStyle().Bold(true).Foreground(accent).Render(head) + border.Render(" "+strings.Repeat("─", w-5-lipgloss.Width(head))+"╮")
+	top := border.Render("╭─ ") + theme.Heading(accent).Render(head) + border.Render(" "+strings.Repeat("─", w-5-lipgloss.Width(head))+"╮")
 	ls := []string{top}
 	for _, l := range block(content, textW, h-2) {
 		ls = append(ls, border.Render("│ ")+l+border.Render(" │"))

@@ -76,7 +76,7 @@ func TestInvestigateAndPayOffKeys(t *testing.T) {
 	}
 	m.Update(key("4"))
 	m.Update(key("i"))
-	if m.mode != modePlay || !strings.Contains(m.status, "Nobody") {
+	if m.mode != modePlay || !strings.Contains(m.status, "nobody on the payroll") || m.statusKind != statusWarning {
 		t.Fatalf("i with no crew: mode %v status %q", m.mode, m.status)
 	}
 	m.Update(key("h"))
@@ -172,7 +172,7 @@ func TestAssignLieutenantKeys(t *testing.T) {
 	m.Update(key("4"))
 	m.crewCursor = 0
 	m.Update(key("t")) // a runner
-	if m.mode != modePlay || !strings.Contains(m.status, "Only a lieutenant") {
+	if m.mode != modePlay || !strings.Contains(m.status, "only a lieutenant") || m.statusKind != statusWarning {
 		t.Fatalf("t on a runner: mode %v status %q", m.mode, m.status)
 	}
 	view := stripANSI(m.View())

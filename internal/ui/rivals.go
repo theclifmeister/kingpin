@@ -45,11 +45,11 @@ func (m *Model) askStrike() {
 		return
 	}
 	if c.Owner != game.OwnerRival {
-		m.status = "Enforcers go against a corner the rival holds (purple)."
+		m.refuse("Can't send them there: enforcers go against a corner the rival holds.")
 		return
 	}
 	if m.w.Crew.Role("enforcer") == 0 {
-		m.status = "No enforcers to send. Hire one " + screenPointer(screenCrew) + "."
+		m.refuse("Nothing to send: no enforcers. Hire one " + screenPointer(screenCrew) + ".")
 		return
 	}
 	m.strikeCursor = 1
@@ -66,14 +66,14 @@ func (m *Model) confirmStrike() {
 	i := max(0, min(m.strikeCursor, len(rows)-1))
 	if i >= len(forces) {
 		m.w.CallOff()
-		m.status = "Called off. The enforcers stay home tonight."
+		m.say("Called off. The enforcers stay home tonight.")
 		return
 	}
 	if err := m.w.SendEnforcers(c.ID, forces[i]); err != nil {
-		m.status = "Can't send them: " + err.Error()
+		m.refuse("Can't send them: " + err.Error())
 		return
 	}
-	m.status = fmt.Sprintf("Enforcers go to %s tonight: %s. Odds ~%.0f%%, heat +%.0f.", c.Name, forces[i], m.set.Rivals.Odds(m.w, forces[i])*100, m.set.Rivals.StrikeHeat(c, forces[i]))
+	m.say(fmt.Sprintf("Enforcers go to %s tonight: %s. Odds ~%.0f%%, heat +%.0f.", c.Name, forces[i], m.set.Rivals.Odds(m.w, forces[i])*100, m.set.Rivals.StrikeHeat(c, forces[i])))
 }
 
 func (m *Model) viewStrike() string {
@@ -83,7 +83,7 @@ func (m *Model) viewStrike() string {
 	}
 	rows := m.strikeRows()
 	m.strikeCursor = max(0, min(m.strikeCursor, len(rows)-1))
-	body := []string{theme.Subtle.Render(fmt.Sprintf("%d enforcer(s) vs %s on %s, muscle ~%.1f", m.w.Crew.Role("enforcer"), m.rivalName(), c.Name, m.set.Rivals.Defence(m.w))), ""}
+	body := []string{theme.Subtle.Render(fmt.Sprintf("%s vs %s on %s, muscle ~%.1f", plural(m.w.Crew.Role("enforcer"), "enforcer"), m.rivalName(), c.Name, m.set.Rivals.Defence(m.w))), ""}
 	var cells [][]any
 	for i, r := range rows {
 		if i < len(forces) {

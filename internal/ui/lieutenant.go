@@ -4,6 +4,7 @@ import (
 	"fmt"
 	"strings"
 
+	"github.com/theclifmeister/kingpin/internal/format"
 	"github.com/theclifmeister/kingpin/internal/game"
 	"github.com/theclifmeister/kingpin/internal/ui/theme"
 )
@@ -20,10 +21,10 @@ func (m *Model) askAssign() {
 	c, onPayroll, ok := m.crewSelected()
 	switch {
 	case !ok || !onPayroll:
-		m.status = "Move the cursor to a lieutenant on the payroll, then press t."
+		m.refuse("Can't give a city: put the cursor on a lieutenant on the payroll.")
 		return
 	case !c.Lieutenant():
-		m.status = fmt.Sprintf("%s is a %s. Only a lieutenant can run a city.", c.Name, c.Role)
+		m.refuse(fmt.Sprintf("Can't give a city to %s: only a lieutenant runs one, and they are %s.", c.Name, format.A(c.Role)))
 		return
 	}
 	m.fireID = c.ID
@@ -46,17 +47,17 @@ func (m *Model) confirmAssign() {
 	city := rows[max(0, min(m.assignCursor, len(rows)-1))]
 	if city == "" {
 		if err := m.w.Unassign(lt.ID); err != nil {
-			m.status = "Can't: " + err.Error()
+			m.refuse("Can't take the city back: " + err.Error())
 			return
 		}
-		m.status = fmt.Sprintf("%s runs nothing now. The crew they posted stay where they are.", lt.Name)
+		m.say(fmt.Sprintf("%s runs nothing now. The crew they posted stay where they are.", lt.Name))
 		return
 	}
 	if err := m.w.Assign(lt.ID, city); err != nil {
-		m.status = "Can't: " + err.Error()
+		m.refuse("Can't give them the city: " + err.Error())
 		return
 	}
-	m.status = fmt.Sprintf("%s runs %s from tonight: posts the idle crew, sells the stash, keeps %.0f%%.", lt.Name, m.w.CityName(city), m.set.Crew.Cut()*100)
+	m.say(fmt.Sprintf("%s runs %s from tonight: posts the idle crew, sells the stash, keeps %.0f%%.", lt.Name, m.w.CityName(city), m.set.Crew.Cut()*100))
 }
 
 func (m *Model) viewAssign() string {

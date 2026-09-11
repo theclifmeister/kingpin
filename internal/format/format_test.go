@@ -41,6 +41,25 @@ func TestPlural(t *testing.T) {
 			t.Errorf("Plural(%d) = %q, want %q", c.n, got, c.want)
 		}
 	}
+	// The irregulars the game counts, and a two-word noun on its last.
+	for noun, want := range map[string]string{
+		"day": "days", "front": "fronts", "offer": "offers", "run": "runs", "election": "elections",
+		"enforcer": "enforcers", "accountant": "accountants", "route": "routes", "headline": "headlines",
+		"unit": "units", "lot": "lots", "city": "cities", "more day": "more days",
+		"person": "people", "box": "boxes", "bus": "buses", "key": "keys", "crew": "crew",
+	} {
+		if got := Plural(2, noun); got != "2 "+want {
+			t.Errorf("Plural(2, %q) = %q, want %q", noun, got, "2 "+want)
+		}
+		if got := Plural(1, noun); got != "1 "+noun {
+			t.Errorf("Plural(1, %q) = %q", noun, got)
+		}
+	}
+	for noun, want := range map[string]string{"runner": "a runner", "enforcer": "an enforcer", "accountant": "an accountant"} {
+		if got := A(noun); got != want {
+			t.Errorf("A(%q) = %q, want %q", noun, got, want)
+		}
+	}
 	if Arrow != "→" {
 		t.Errorf("Arrow = %q", Arrow)
 	}

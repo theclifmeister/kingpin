@@ -4,8 +4,6 @@ import (
 	"fmt"
 	"strings"
 
-	"github.com/charmbracelet/lipgloss"
-
 	"github.com/theclifmeister/kingpin/internal/ui/theme"
 )
 
@@ -84,7 +82,7 @@ func (m *Model) productRows(city string, selected int, market bool) (cols []col,
 		if o, ok := w.Order(city, id); ok {
 			ord = styled{theme.Gold, order{o.Qty, dialShort(o.Dial), false}}
 		} else if o, ok := w.StandingOrder(city, id); ok {
-			ord = styled{lipgloss.NewStyle().Foreground(theme.Crew), order{o.Qty, dialShort(o.Dial), true}}
+			ord = styled{theme.CrewText, order{o.Qty, dialShort(o.Dial), true}}
 		}
 		row := []any{p.Name, p.Price, ds, styled{theme.Good, sp}}
 		if market {
@@ -217,7 +215,7 @@ func (m *Model) marketDetails() []section {
 	}
 	for _, sh := range w.Shipments {
 		if sh.Product == id {
-			elsewhere = append(elsewhere, row("road", lipgloss.NewStyle().Foreground(theme.Logistics).Render(fmt.Sprintf("%d → %s, %dd", sh.Units, w.CityName(sh.To), sh.DaysLeft(w.Day)))))
+			elsewhere = append(elsewhere, row("road", theme.RoadText.Render(fmt.Sprintf("%d → %s, %dd", sh.Units, w.CityName(sh.To), sh.DaysLeft(w.Day)))))
 		}
 	}
 	if len(elsewhere) > 0 {

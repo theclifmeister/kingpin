@@ -47,7 +47,7 @@ func (m *Model) openDialog(mode mode) {
 		return
 	}
 	if m.w.LieLow && mode == modeSell {
-		m.status = "You are lying low today: nothing sells."
+		m.refuse("Can't sell: you are lying low today, nothing sells.")
 		return
 	}
 	ti := textinput.New()
@@ -60,9 +60,9 @@ func (m *Model) openDialog(mode mode) {
 		city := m.actionCity()
 		if m.w.Player.StockIn(city) == 0 {
 			if m.w.Player.TotalStock() == 0 {
-				m.status = "Nothing to sell. Buy from the supplier first."
+				m.refuse("Nothing to sell: buy from the supplier first.")
 			} else {
-				m.status = fmt.Sprintf("Nothing stashed in %s to sell: turn to the other city, or run a route into it %s.", m.w.CityName(city), screenPointer(screenMap))
+				m.refuse(fmt.Sprintf("Nothing to sell in %s: turn to the other city, or run a route into it %s.", m.w.CityName(city), screenPointer(screenMap)))
 			}
 			return
 		}
@@ -118,11 +118,11 @@ func (m *Model) keyDialog(k tea.KeyMsg) (tea.Model, tea.Cmd) {
 			}
 		case "enter", "right", "l":
 			if m.mode == modeSell && m.w.Stock(m.dialogCity(), m.w.Products[m.cursor]) == 0 {
-				d.err = "you have none of that here"
+				d.err = "You have none of that here."
 				return m, nil
 			}
 			if m.mode == modeBuy && m.maxBuy(m.w.Products[m.cursor]) == 0 {
-				d.err = "you can't afford or hold any"
+				d.err = "Can't afford or hold any."
 				return m, nil
 			}
 			d.step = 1
@@ -168,6 +168,11 @@ func (m *Model) keyDialog(k tea.KeyMsg) (tea.Model, tea.Cmd) {
 
 func (m *Model) parseQty(maxQty int) (int, error) { return parseQtyInput(m.dlg.qty.Value(), maxQty) }
 
+// dialogError is a game error as a dialog shows it: in the register of
+// the status bar's refusals, sentence case with a full stop (`Enter a
+// whole number above zero.`, `Only 3 Weed in Eastside.`).
+func dialogError(err error) string { return sentence(capitalize(err.Error())) }
+
 // parseQtyInput reads a quantity field: blank means the most allowed.
 func parseQtyInput(v string, maxQty int) (int, error) {
 	s := strings.TrimSpace(v)
@@ -200,16 +205,16 @@ func (m *Model) confirmBuy() (tea.Model, tea.Cmd) {
 	id := m.w.Products[m.cursor]
 	qty, err := m.parseQty(m.maxBuy(id))
 	if err != nil {
-		m.dlg.err = err.Error()
+		m.dlg.err = dialogError(err)
 		return m, nil
 	}
 	p, err := m.w.Buy(id, qty, m.set.Market.BuyPressure(m.w))
 	if err != nil {
-		m.dlg.err = err.Error()
+		m.dlg.err = dialogError(err)
 		return m, nil
 	}
 	m.mode = modePlay
-	m.status = fmt.Sprintf("Bought %d %s for %s.", p.Qty, m.w.ProductName(id), money(p.Cost))
+	m.say(fmt.Sprintf("Bought %d %s for %s.", p.Qty, m.w.ProductName(id), money(p.Cost)))
 	return m, nil
 }
 
@@ -218,19 +223,19 @@ func (m *Model) confirmSell() (tea.Model, tea.Cmd) {
 	city := m.dialogCity()
 	qty, err := m.parseQty(m.w.Stock(city, id))
 	if err != nil {
-		m.dlg.err = err.Error()
+		m.dlg.err = dialogError(err)
 		m.dlg.step = 1
 		m.dlg.qty.Focus()
 		return m, nil
 	}
 	if err := m.w.PlaceSell(city, id, qty, m.dlg.dial); err != nil {
-		m.dlg.err = err.Error()
+		m.dlg.err = dialogError(err)
 		m.dlg.step = 1
 		m.dlg.qty.Focus()
 		return m, nil
 	}
 	m.mode = modePlay
-	m.status = fmt.Sprintf("Queued %d %s in %s, %s. Ends at end of day.", qty, m.w.ProductName(id), m.w.CityName(city), m.dlg.dial)
+	m.say(fmt.Sprintf("Queued %d %s in %s, %s. It sells at the end of the day.", qty, m.w.ProductName(id), m.w.CityName(city), m.dlg.dial))
 	return m, nil
 }
 
@@ -330,13 +335,20 @@ func (m *Model) viewDialog() string {
 
 // dialRow draws the sell dial as `quiet  normal  [aggressive]`.
 func dialRow(d events.Dial) string {
-	var cells []string
-	for i, n := range []string{"quiet", "normal", "aggressive"} {
-		if events.Dial(i) == d {
-			cells = append(cells, theme.Gold.Render("["+n+"]"))
-		} else {
-			cells = append(cells, theme.Subtle.Render(n))
+	return dialCells([]string{"quiet", "normal", "aggressive"}, int(d))
+}
+
+// dialCells is the dial convention (#88): every notch in a row two
+// spaces apart, the chosen one bracketed in the accent (theme.Dial), as
+// `quiet  [normal]  aggressive`. The sell, pay and launder dials draw
+// through it.
+func dialCells(notches []string, on int) string {
+	cells := make([]string, len(notches))
+	for i, n := range notches {
+		if i == on {
+			n = "[" + n + "]"
 		}
+		cells[i] = theme.Dial(i == on).Render(n)
 	}
 	return strings.Join(cells, "  ")
 }

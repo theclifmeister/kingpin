@@ -111,12 +111,15 @@ func TestDealLifetime(t *testing.T) {
 		want string
 	}{
 		{d, "a 15-day truce"},
-		{Deal{Kind: DealTribute, Terms: Terms{PerDay: 1200}}, "tribute of $1200 a day"},
-		{split, "a split: 2 corner(s) your side of the line"},
+		{Deal{Kind: DealTribute, Terms: Terms{PerDay: 1200}}, "tribute of $1,200 a day"},
+		{split, "a split: 2 corners your side of the line"},
 	} {
 		if got := tc.d.String(); got != tc.want {
 			t.Fatalf("%q, want %q", got, tc.want)
 		}
+	}
+	if got := w.Side(split); got != "Home, Docks" {
+		t.Errorf("Side(split) = %q", got)
 	}
 	if got := w.Describe(split); got != "a split: yours Home, Docks" {
 		t.Fatalf("%q", got)

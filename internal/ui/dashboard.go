@@ -403,7 +403,7 @@ func (m *Model) rivalShort() string {
 	if w.Rival.Arrived == 0 {
 		return theme.Subtle.Render("no rival yet")
 	}
-	return theme.Rival.Render(w.Rival.Leader) + sep + theme.Subtle.Render(plural(w.RivalHeld(), "corner"))
+	return theme.RivalText.Render(w.Rival.Leader) + sep + theme.Subtle.Render(plural(w.RivalHeld(), "corner"))
 }
 
 // rivalLines is the RIVALS panel's content, four lines: who they are,
@@ -421,7 +421,7 @@ func (m *Model) rivalLines(innerW int) []string {
 		}
 		return ls
 	}
-	who := theme.Rival.Render(r.Leader) + sep + theme.Subtle.Render(plural(w.RivalHeld(), "corner"))
+	who := theme.RivalText.Render(r.Leader) + sep + theme.Subtle.Render(plural(w.RivalHeld(), "corner"))
 	who = firstFit(innerW, who+sep+theme.Subtle.Render(m.personalityWord()), who)
 	war := bar("war", r.War/tun.CrackdownThreshold, fmt.Sprintf("%.0f/%.0f", r.War, tun.CrackdownThreshold))
 	switch {
@@ -763,7 +763,7 @@ func (m *Model) reputationLine(width int) string {
 			label = a.long
 		}
 		v := *rep.Axis(a.axis)
-		parts = append(parts, lipgloss.NewStyle().Foreground(a.colour).Render(label+" "+sparkline.Bar(v/100, barW, nil)))
+		parts = append(parts, theme.Fg(a.colour).Render(label+" "+sparkline.Bar(v/100, barW, nil)))
 	}
 	return strings.Join(parts, " ")
 }

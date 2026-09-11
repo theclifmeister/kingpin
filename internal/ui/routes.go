@@ -53,24 +53,30 @@ func (m *Model) cycleRoute() {
 	}
 	r := m.selectedRoute()
 	if r == nil {
-		m.status = "No route out of " + m.shown().Name + "."
+		m.refuse("Nothing to turn: no route out of " + m.shown().Name + ".")
 		return
 	}
 	d := (m.w.Route(r.ID).Dial + 1) % (events.RouteFast + 1)
 	if err := m.w.SetRoute(r.ID, d); err != nil {
-		m.status = "Can't turn the dial: " + err.Error()
+		m.refuse("Can't turn the dial: " + err.Error())
 		return
 	}
+	m.sayRouteDial(*r, d)
+}
+
+// sayRouteDial is the status after a route's dial is turned, on the
+// map or the ledger: what the road does at the notch.
+func (m *Model) sayRouteDial(r content.RouteConfig, d events.RouteDial) {
 	if !d.On() {
-		m.status = fmt.Sprintf("%s off: nothing moves on it. Its targets are kept.", r.Name)
+		m.say(fmt.Sprintf("%s off: nothing moves on it. Its targets are kept.", r.Name))
 		return
 	}
 	lg := m.set.Logistics
-	line := fmt.Sprintf("%s %s: %d day(s) %s to %s, seized ~%.0f%%.", r.Name, d, lg.Days(*r, d.Ship()), r.Mode, m.w.CityName(r.To), lg.Risk(*r, d.Ship())*100)
+	line := fmt.Sprintf("%s %s: %s %s to %s, seized ~%.0f%%.", r.Name, d, plural(lg.Days(r, d.Ship()), "day"), r.Mode, m.w.CityName(r.To), lg.Risk(r, d.Ship())*100)
 	if len(m.w.Route(r.ID).Target) == 0 {
 		line += " It sends nothing without a target."
 	}
-	m.status = line
+	m.say(line)
 }
 
 // openTarget opens the target dialog for the selected route.
@@ -80,7 +86,7 @@ func (m *Model) openTarget() {
 	}
 	r := m.selectedRoute()
 	if r == nil {
-		m.status = "No route out of " + m.shown().Name + "."
+		m.refuse("Nothing to target: no route out of " + m.shown().Name + ".")
 		return
 	}
 	ti := textinput.New()
@@ -178,11 +184,11 @@ func (m *Model) confirmTarget() (tea.Model, tea.Cmd) {
 	m.mode = modePlay
 	switch {
 	case units == 0:
-		m.status = fmt.Sprintf("%s: no target for %s; the route leaves it alone.", r.Name, m.w.ProductName(id))
+		m.say(fmt.Sprintf("%s: no target for %s; the route leaves it alone.", r.Name, m.w.ProductName(id)))
 	case !m.w.Route(r.ID).Dial.On():
-		m.status = fmt.Sprintf("%s keeps %s at %d %s once its dial is on.", r.Name, m.w.CityName(r.To), units, m.w.ProductName(id))
+		m.say(fmt.Sprintf("%s keeps %s at %d %s once its dial is on.", r.Name, m.w.CityName(r.To), units, m.w.ProductName(id)))
 	default:
-		m.status = fmt.Sprintf("%s keeps %s at %d %s: it sends the shortfall every day.", r.Name, m.w.CityName(r.To), units, m.w.ProductName(id))
+		m.say(fmt.Sprintf("%s keeps %s at %d %s: it sends the shortfall every day.", r.Name, m.w.CityName(r.To), units, m.w.ProductName(id)))
 	}
 	return m, nil
 }
@@ -272,15 +278,16 @@ func (m *Model) targetLine(route string) string {
 	return strings.Join(parts, " · ")
 }
 
-// dialStyle is the colour a route dial is drawn in.
+// dialStyle is the colour a route dial is drawn in: the dial's accent
+// when it is on, red at fast (the risk is the road's danger), Subtle
+// off. The pane's row is one bracketed notch, `[slow]`, because four
+// notches do not fit its value column.
 func dialStyle(d events.RouteDial) lipgloss.Style {
 	switch d {
 	case events.RouteFast:
 		return theme.Bad
-	case events.RouteSlow, events.RouteNormal:
-		return theme.Gold
 	default:
-		return theme.Subtle
+		return theme.Dial(d.On())
 	}
 }
 
@@ -324,7 +331,7 @@ func (m *Model) routeLines(width int) []string {
 					continue
 				}
 			}
-			lines = append(lines, mark+name+"  "+theme.Subtle.Render(edge)+"  "+dialStyle(d).Render(dial)+theme.Subtle.Render(terms)+lipgloss.NewStyle().Foreground(theme.Logistics).Render(road))
+			lines = append(lines, mark+name+"  "+theme.Subtle.Render(edge)+"  "+dialStyle(d).Render(dial)+theme.Subtle.Render(terms)+theme.RoadText.Render(road))
 		}
 		return lines, widest
 	}
@@ -380,7 +387,7 @@ func (m *Model) routeSection(r content.RouteConfig) section {
 	if road := m.roadOn(r.ID); road != "" {
 		label := "on the road"
 		for _, l := range wrap(road, paneTextW-paneLabelW-1) {
-			lines = append(lines, row(label, lipgloss.NewStyle().Foreground(theme.Logistics).Render(l)))
+			lines = append(lines, row(label, theme.RoadText.Render(l)))
 			label = ""
 		}
 	}
@@ -403,7 +410,7 @@ func (m *Model) askTravel() {
 		return
 	}
 	if len(m.w.CityOrder) < 2 {
-		m.status = "There is nowhere else to go."
+		m.refuse("Can't go: there is nowhere else.")
 		return
 	}
 	m.mode = modeConfirmTravel
@@ -428,12 +435,12 @@ func (m *Model) confirmTravel() {
 	to := m.travelTo()
 	m.mode = modePlay
 	if err := m.w.Travel(to); err != nil {
-		m.status = "Can't go: " + err.Error()
+		m.refuse("Can't go: " + err.Error())
 		return
 	}
 	m.city = to
 	m.mapCursor = m.yourCorner()
-	m.status = fmt.Sprintf("You are in %s. Your stock stayed where it was; post yourself on a corner %s.", m.w.CityName(to), screenPointer(screenMap))
+	m.say(fmt.Sprintf("You are in %s. Your stock stayed where it was; post yourself on a corner %s.", m.w.CityName(to), screenPointer(screenMap)))
 }
 
 func (m *Model) travelConfirm() string {
