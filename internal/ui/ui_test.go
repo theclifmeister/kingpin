@@ -321,15 +321,18 @@ func richFixture(t *testing.T, sz [2]int, check func(m *Model, view, what string
 	see(m, "dashboard with the table")
 	m.w.Rival.Deals, m.w.Offers, m.w.Proposal = nil, nil, nil
 	// Every node state on the tree: owned, available, short, locked,
-	// and the buy confirmation.
+	// and the buy confirmation; every branch, every node.
 	m.Update(key("6"))
 	m.w.Player.DirtyCash += 20_000
 	m.Update(key("enter"))
 	see(m, "upgrade confirm")
 	m.Update(key("y"))
-	for range m.upgradeRows() {
-		see(m, "upgrades")
-		m.Update(key("j"))
+	for range content.Branches {
+		for range m.upgradeRows() {
+			see(m, "upgrades")
+			m.Update(key("j"))
+		}
+		m.Update(key("right"))
 	}
 	m.Update(key("4"))
 	m.Update(key("f"))
@@ -2123,7 +2126,7 @@ func richModelSeeded(t *testing.T, w, h int, seed uint64) *Model {
 	world.Player.CleanCash = 50_000
 	world.Stash(world.Player.Location)[world.Products[0]] = 40 // something to sell
 	m.Update(key("1"))
-	m.cursor, m.crewCursor, m.mapCursor, m.upgradeCursor = 0, 0, 0, 0
+	m.cursor, m.crewCursor, m.mapCursor, m.branch, m.upgradeCursor = 0, 0, 0, 0, nil
 	m.status = ""
 	return m
 }
