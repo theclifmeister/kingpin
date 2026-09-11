@@ -99,6 +99,10 @@ func onBuyers(m *Model) bool { return m.screen == screenMarket && m.onBuyers }
 // step is the dialog open being on its nth page.
 func step(n int) func(*Model) bool { return func(m *Model) bool { return m.modalStep() == n } }
 
+// pastFirstStep is the dialog open being on a page past its first: where
+// shift+tab has a page to go back to.
+func pastFirstStep(m *Model) bool { return m.modalStep() > 0 }
+
 var bindings = []binding{
 	{key: "n", label: "end day", help: "end the day: the sims step and the run saves", screens: everywhere, global: true,
 		do: func(m *Model, _ string) { m.endDay() }},
@@ -207,7 +211,7 @@ var bindings = []binding{
 		do: func(m *Model, _ string) { m.mode = modeConfirmEnd }},
 	{key: "1-8", label: "switch screen", help: "the screens in the title bar's order", keys: []string{"1", "2", "3", "4", "5", "6", "7", "8"}, global: true, quiet: true,
 		do: func(m *Model, key string) { m.switchScreen(screen(key[0] - '1')) }},
-	{key: "tab", label: "next screen", help: "the next screen; shift+tab the one before", keys: []string{"tab", "shift+tab"}, global: true, quiet: true,
+	{key: "tab", label: "next screen", help: "next screen; shift+tab back, in dialogs too", keys: []string{"tab", "shift+tab"}, global: true, quiet: true,
 		do: func(m *Model, key string) {
 			if key == "tab" {
 				m.switchScreen((m.screen + 1) % screenCount)
@@ -224,12 +228,18 @@ var bindings = []binding{
 }
 
 // modeBindings are the modals' footers: what each mode lists, in its
-// order. Confirmations are `y <verb>` / `esc back` (any other key still
-// declines); pickers and dialogs `enter <verb>` / `esc back` (q still
-// closes, silently); the end of the day is the one that also takes enter
-// and says so; the report, the card's outcome and help close on enter or
-// esc. The keys themselves are handled by handleKey; the table is what
-// the footer and the status bar say.
+// order. Back is one key and close is one key (#110): every modal
+// closes on esc and lists `esc close`, nothing lists `esc back`, and a
+// dialog with pages lists `⇧tab back` on every page past the first
+// (shift+tab goes back a page keeping the earlier pages' input, tab
+// forward once the page is complete; the key column draws `⇧tab`,
+// shift+tab being too wide for the footer at 80 columns). Confirmations
+// are `y <verb>` / `esc close` (any other key still declines, tab and
+// shift+tab aside); pickers and dialogs `enter <verb>` / `esc close` (q
+// still closes, silently); the end of the day is the one that also takes
+// enter and says so; the report, the card's outcome and help close on
+// enter or esc. The keys themselves are handled by handleKey; the table
+// is what the footer and the status bar say.
 var modeBindings = []binding{
 	{key: "↑↓", label: "pick", modes: in(modeStart, modePost, modeStrike, modeFront, modeAssign, modePropose)},
 	{key: "↑↓", label: "pick", modes: in(modeBuy, modeSell, modeTarget), when: step(0)},
@@ -268,7 +278,8 @@ var modeBindings = []binding{
 	{key: "y", label: "pay", modes: in(modeConfirmPayOff)},
 	{key: "y", label: "go", modes: in(modeConfirmTravel)},
 	{key: "q", label: "quit", modes: in(modeStart, modeOver)},
-	{key: "esc", label: "back", modes: in(modeBuy, modeSell, modeTarget, modePropose, modePost, modeStrike, modeFront, modeAssign, modeFund, modeCart,
+	{key: "⇧tab", label: "back", keys: []string{"shift+tab"}, modes: in(modeBuy, modeSell, modeTarget, modeCart, modePropose), when: pastFirstStep},
+	{key: "esc", label: "close", modes: in(modeBuy, modeSell, modeTarget, modePropose, modePost, modeStrike, modeFront, modeAssign, modeFund, modeCart,
 		modeConfirmNew, modeConfirmFire, modeConfirmEnd, modeConfirmUpgrade, modeConfirmInvestigate, modeConfirmPayOff, modeConfirmTravel)},
 	{key: "enter esc", label: "close", modes: in(modeReport, modeHelp)},
 	{key: "enter esc", label: "close", modes: in(modeCard), when: step(1)},

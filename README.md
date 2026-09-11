@@ -51,7 +51,12 @@ it. Dialogs, pickers, confirmations, the morning report, the dilemma card
 and help are one **modal** box, 76 columns at most, with the keys it takes
 in its footer; a body taller than the box scrolls. Inside a modal `enter`
 confirms and closes and never ends the day; on the play screen `enter`
-asks first and `n` ends it at once.
+asks first and `n` ends it at once. Back is one key and close is one
+key: `esc` closes any modal whole, from whatever step a dialog is on,
+and `shift+tab` goes back a step in a dialog with steps (the buy, sell,
+target, cart and propose dialogs), keeping what the earlier steps hold;
+`tab` goes forward once the step is complete. On a screen `tab` and
+`shift+tab` are the next and the previous screen.
 
 The keys never move: a key does the same thing everywhere it works, and a
 key pressed on a screen that does not take it says which screen does
@@ -200,7 +205,7 @@ the float, the file, drift, the pane and the strip in a line each.
 | `?` | help | this list | everywhere |
 | `enter` | end day | end the day, after a confirmation | everywhere |
 | `1-8` | switch screen | the screens in the title bar's order | everywhere |
-| `tab` | next screen | the next screen; shift+tab the one before | everywhere |
+| `tab` | next screen | next screen; shift+tab back, in dialogs too | everywhere |
 | `ctrl+s` | save | save now; the end of the day saves too | everywhere |
 | `N` | new run | start over, after a confirmation | everywhere |
 | `q` | quit | save and quit | everywhere |

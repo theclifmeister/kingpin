@@ -1474,7 +1474,8 @@ func TestRouteAndTravelKeys(t *testing.T) {
 	if !strings.Contains(m.status, "target") {
 		t.Fatalf("a dial with no target does not say so: %q", m.status)
 	}
-	// R sets the target: product, then units; esc backs out of the units.
+	// R sets the target: product, then units; shift+tab backs out of the
+	// units (#110).
 	m.Update(key("R"))
 	if m.mode != modeTarget || m.tgt.step != 0 {
 		t.Fatalf("R: mode %v step %d status %q", m.mode, m.tgt.step, m.status)
@@ -1484,9 +1485,9 @@ func TestRouteAndTravelKeys(t *testing.T) {
 	if m.tgt.step != 1 {
 		t.Fatalf("after the product: step %d err %q", m.tgt.step, m.tgt.err)
 	}
-	m.Update(key("esc"))
+	m.Update(key("shift+tab"))
 	if m.mode != modeTarget || m.tgt.step != 0 {
-		t.Fatalf("esc on the units: mode %v step %d", m.mode, m.tgt.step)
+		t.Fatalf("shift+tab on the units: mode %v step %d", m.mode, m.tgt.step)
 	}
 	m.Update(key("enter"))
 	for _, r := range "30" {
@@ -1707,9 +1708,9 @@ func TestRivalsScreenKeys(t *testing.T) {
 	if m.proposeStep != 1 || proposeKinds[m.proposeKind] != game.DealTruce {
 		t.Fatalf("after picking truce: step %d kind %d", m.proposeStep, m.proposeKind)
 	}
-	m.Update(key("esc"))
+	m.Update(key("shift+tab"))
 	if m.mode != modePropose || m.proposeStep != 0 {
-		t.Fatalf("esc on the terms page should go back a page: mode %v step %d", m.mode, m.proposeStep)
+		t.Fatalf("shift+tab on the terms page should go back a page: mode %v step %d", m.mode, m.proposeStep)
 	}
 	m.Update(key("enter")) // truce again
 	m.Update(key("enter")) // the standard term
