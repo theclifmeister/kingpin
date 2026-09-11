@@ -379,12 +379,16 @@ never leaves the first city plays the same as it always did.
   and new chiefs. The law never adds a page to the file by itself: it
   moves the thresholds, the cooldowns and the decay.
 - **Upgrades** are three branches of persistent, stacking bonuses bought
-  with cash: Operations (stash, supplier, street network) to earn more,
-  Security (burners, lookouts, safehouse, cold contacts) to take less
-  damage and cool faster, Legal (lawyer, retainer, fall guy) to survive the
-  case. Every node is a multiplier the sims read from `upgrades.toml`;
-  nothing removes the heat curve, it only softens it. The retainer costs
-  clean cash: money the fronts have washed.
+  with cash, twenty-nine nodes: Operations (stashes up to a warehouse,
+  supplier terms, street network, regulars and a name on the street,
+  scales, a price runner, a buyer's book) to earn more, Security
+  (burners, lookouts, a police scanner, safehouse, clean cars, cold
+  contacts, quiet money, counter-surveillance, the ghost crew, dead
+  drops, cut-outs) to take less damage and cool faster, Legal (lawyer, a
+  paper trail, an accountant's lawyer, retainer, a friendly judge, two
+  fall guys) to survive the case. Every node is a multiplier the sims
+  read from `upgrades.toml`; nothing removes the heat curve, it only
+  softens it. The clean-cash nodes cost money the fronts have washed.
 - **Laundering** is the fronts: a laundromat, a car wash, a restaurant, a
   nightclub, a construction firm, a crypto exchange. Each washes dirty cash
   clean up to a daily cap for a daily upkeep, and each can be audited. The
@@ -435,8 +439,8 @@ dilemma cards and answers each with its last (do-nothing) or first choice
 not the deck). The tests in `internal/harness` assert
 the shape of the difficulty curve: always-aggressive is indicted within 40
 days, always-quiet survives, a player who sells normally but lies low when
-hot out-earns both, one who spends on the tree out-earns that, one who builds
-a crew out-earns that, one who also washes the money out-earns *that* and is
+hot out-earns both, one who builds a crew out-earns that, one who also
+spends on the tree out-earns that, one who washes the money out-earns *that* and is
 never indicted for sitting on the pile, the Security branch buys an
 aggressive player time without buying them out of the indictment, and an
 informant nobody looks for indicts the always-quiet player within

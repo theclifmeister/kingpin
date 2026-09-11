@@ -7,6 +7,7 @@ import (
 	"github.com/charmbracelet/lipgloss"
 
 	"github.com/theclifmeister/kingpin/internal/content"
+	"github.com/theclifmeister/kingpin/internal/game"
 	"github.com/theclifmeister/kingpin/internal/ui/theme"
 )
 
@@ -41,11 +42,7 @@ func (m *Model) upgradeMove(dc, dr int) {
 	for _, b := range content.Branches {
 		lens = append(lens, len(m.cfg.Upgrades.Branch(b)))
 	}
-	col, row := 0, m.upgradeCursor
-	for col < len(lens)-1 && row >= lens[col] {
-		row -= lens[col]
-		col++
-	}
+	col, row := m.upgradeAt()
 	col = max(0, min(col+dc, len(lens)-1))
 	if lens[col] == 0 {
 		return
@@ -129,57 +126,104 @@ func (m *Model) poolCash(u content.UpgradeConfig) int {
 	return m.w.Player.DirtyCash
 }
 
-// effectWords spells a node's effects out the way the tooling reads them.
+// effectWords spells a node's effects out the way the tooling reads
+// them, one sentence an effect, in the order of the vocabulary (#117):
+// the market's, heat's, the crew's, laundering's, the road's and the
+// street's.
 func effectWords(e content.UpgradeEffects) []string {
 	var out []string
+	add := func(s string) { out = append(out, s) }
+	mul := func(v float64, format string) {
+		if v > 0 {
+			add(fmt.Sprintf(format, v))
+		}
+	}
+	bonus := func(v int, noun string) {
+		if v != 0 {
+			add(fmt.Sprintf("%+d %s", v, noun))
+		}
+	}
 	if e.CarryBonus != 0 {
-		out = append(out, fmt.Sprintf("carry +%d", e.CarryBonus))
+		add(fmt.Sprintf("carry +%d", e.CarryBonus))
 	}
-	if e.SupplierMul > 0 {
-		out = append(out, fmt.Sprintf("supplier price ×%.2f", e.SupplierMul))
+	// The market.
+	mul(e.SupplierMul, "supplier price ×%.2f")
+	mul(e.BuyPressureMul, "buy pressure ×%.1f")
+	mul(e.FillMul, "fill ×%.2f every dial")
+	mul(e.SaleImpactMul, "price impact ×%.1f")
+	mul(e.DemandMul, "demand ×%.2f on your corners")
+	mul(e.GlutDecayMul, "gluts clear ×%.1f faster")
+	mul(e.BuyerGapMul, "buyers come ×%.1f as often")
+	if e.ContractPremiumBonus != 0 {
+		add(fmt.Sprintf("contracts pay +%.0f%%", e.ContractPremiumBonus*100))
 	}
-	if e.BuyPressureMul > 0 {
-		out = append(out, fmt.Sprintf("buy pressure ×%.1f", e.BuyPressureMul))
-	}
-	if e.FillMul > 0 {
-		out = append(out, fmt.Sprintf("fill ×%.2f every dial", e.FillMul))
-	}
-	if e.SaleHeatMul > 0 {
-		out = append(out, fmt.Sprintf("sale heat ×%.2f", e.SaleHeatMul))
-	}
-	if e.CrewHeatMul > 0 {
-		out = append(out, fmt.Sprintf("runners' heat ×%.2f", e.CrewHeatMul))
-	}
+	// Heat.
+	mul(e.SaleHeatMul, "sale heat ×%.2f")
+	mul(e.CrewHeatMul, "runners' heat ×%.2f")
 	if e.PatrolCap > 0 {
-		out = append(out, fmt.Sprintf("patrols cap sales at %.0f%%", e.PatrolCap*100))
+		add(fmt.Sprintf("patrols cap sales at %.0f%%", e.PatrolCap*100))
 	}
 	if e.CooldownBonus > 0 {
-		out = append(out, "+"+plural(e.CooldownBonus, "day")+" between busts")
+		add("+" + plural(e.CooldownBonus, "day") + " between busts")
 	}
-	if e.StingStockMul > 0 {
-		out = append(out, fmt.Sprintf("stings take ×%.1f stock", e.StingStockMul))
-	}
-	if e.RaidLossMul > 0 {
-		out = append(out, fmt.Sprintf("raids take ×%.1f", e.RaidLossMul))
-	}
-	if e.LieLowMultiplier > 0 {
-		out = append(out, fmt.Sprintf("lie low ×%.1f", e.LieLowMultiplier))
-	}
+	mul(e.StingStockMul, "stings take ×%.1f stock")
+	mul(e.RaidLossMul, "raids take ×%.1f")
+	mul(e.LieLowMultiplier, "lie low ×%.1f")
 	if e.Decay > 0 {
-		out = append(out, fmt.Sprintf("heat fades %.0f%%/day", e.Decay*100))
+		add(fmt.Sprintf("heat fades %.0f%%/day", e.Decay*100))
 	}
+	mul(e.DirtyCashThresholdMul, "cash pile ×%.1f before heat")
 	if e.EvidenceCut > 0 {
-		out = append(out, fmt.Sprintf("file −%d per bust", e.EvidenceCut))
+		add(fmt.Sprintf("file −%d per bust", e.EvidenceCut))
+	}
+	if e.AuditEvidenceCut > 0 {
+		add(fmt.Sprintf("file −%d per audit", e.AuditEvidenceCut))
 	}
 	if e.EvidenceDecayDays > 0 {
-		out = append(out, fmt.Sprintf("file −1 per %d quiet days", e.EvidenceDecayDays))
+		add(fmt.Sprintf("file −1 per %d quiet days", e.EvidenceDecayDays))
 	}
 	if e.EvidenceArrest > 0 {
-		out = append(out, fmt.Sprintf("indicted at file %d", e.EvidenceArrest))
+		add(fmt.Sprintf("indicted at file %d", e.EvidenceArrest))
 	}
-	if e.FallGuy {
-		out = append(out, "survive one indictment")
+	if e.FallGuys > 0 {
+		add("survive " + plural(e.FallGuys, "indictment"))
 	}
+	// The crew.
+	mul(e.WageMul, "wages ×%.2f")
+	mul(e.LoyaltyLossMul, "loyalty loss ×%.1f")
+	mul(e.DangerLoyaltyMul, "danger costs ×%.1f loyalty")
+	mul(e.SkimChanceMul, "skimming ×%.1f")
+	mul(e.InformantChanceMul, "turning ×%.1f")
+	bonus(e.CrewSlots, "crew")
+	bonus(e.CandidatesBonus, "faces looking for work")
+	if e.PoolDaysCut > 0 {
+		add(fmt.Sprintf("new faces %d days sooner", e.PoolDaysCut))
+	}
+	bonus(e.SkillBonus, "skill on new faces")
+	mul(e.HireFeeMul, "signing fees ×%.1f")
+	bonus(e.StartLoyaltyBonus, "loyalty on new faces")
+	// Laundering.
+	mul(e.WashMul, "wash ×%.2f every front")
+	mul(e.AuditRiskMul, "audit risk ×%.1f")
+	mul(e.AuditSeizeMul, "audits seize ×%.1f")
+	mul(e.UpkeepMul, "upkeep ×%.1f")
+	if e.AuditFreezeCut > 0 {
+		add(fmt.Sprintf("audits freeze %d days less", e.AuditFreezeCut))
+	}
+	mul(e.FloatMul, "float ×%.1f")
+	// The road.
+	mul(e.RouteRiskMul, "route risk ×%.1f")
+	mul(e.RouteCapacityMul, "route capacity ×%.1f")
+	mul(e.RouteDaysMul, "road days ×%.2f")
+	mul(e.FareMul, "fares ×%.1f")
+	mul(e.WholesaleMul, "wholesale price ×%.1f")
+	// The street.
+	if e.DriftDaysBonus > 0 {
+		add(fmt.Sprintf("corners drift %d days later", e.DriftDaysBonus))
+	}
+	mul(e.RobberyMul, "robberies ×%.1f")
+	bonus(e.GuardBonus, "guard on every contested corner")
+	mul(e.RivalPushMul, "rival pushes ×%.1f")
 	return out
 }
 
@@ -195,6 +239,27 @@ func (m *Model) ownedLine() string {
 		return "no upgrades yet: buy " + screenPointer(screenUpgrades)
 	}
 	return "upgrades " + strings.Join(ids, ", ")
+}
+
+// upgradeAt is the column and the row within it of the cursor.
+func (m *Model) upgradeAt() (col, row int) {
+	row = m.upgradeCursor
+	for col < len(content.Branches)-1 && row >= len(m.cfg.Upgrades.Branch(content.Branches[col])) {
+		row -= len(m.cfg.Upgrades.Branch(content.Branches[col]))
+		col++
+	}
+	return col, row
+}
+
+// upgradePage is the window of rows the columns show: the tree is
+// taller than MAIN at 80x24 since #117, so the three columns page
+// together (they walk at the same row) by as many nodes as fit under
+// the title, the pools, the column heads and over the legend, and the
+// page is the cursor's. The screen for seven branches is #120's.
+func (m *Model) upgradePage() (top, per int) {
+	per = max(1, (m.mainHeight()-7)/2)
+	_, row := m.upgradeAt()
+	return row / per * per, per
 }
 
 // viewUpgrades is the tree's MAIN (#86): the title with the count, the
@@ -218,12 +283,21 @@ func (m *Model) viewUpgrades() string {
 	// The cursor walks a column with up and down and crosses to the
 	// next with left and right.
 	colW := max(20, (width-len(content.Branches)+1)/len(content.Branches))
+	top, per := m.upgradePage()
 	var cols []string
 	idx := 0
 	for _, branch := range content.Branches {
 		var c strings.Builder
-		c.WriteString(fit(sectionTitle(strings.ToUpper(branch), theme.Money), colW) + "\n")
-		nodes := m.cfg.Upgrades.Branch(branch)
+		all := m.cfg.Upgrades.Branch(branch)
+		title := sectionTitle(strings.ToUpper(branch), theme.Money)
+		if len(all) > per {
+			title += theme.Subtle.Render(fmt.Sprintf(" · %d–%d of %d", min(top+1, len(all)), min(top+per, len(all)), len(all)))
+		}
+		c.WriteString(fit(title, colW) + "\n")
+		// The page's window of the branch; the cursor is an index into
+		// the whole tree, so the nodes before the window still count.
+		nodes := all[min(top, len(all)):min(top+per, len(all))]
+		idx += min(top, len(all))
 		// The mark in the gutter is the node's state; the cost is
 		// through cash(), as the pane prints it, and a node paid in
 		// clean cash says so on its effects line.
@@ -256,6 +330,7 @@ func (m *Model) viewUpgrades() string {
 			}
 			c.WriteString(fit(theme.Subtle.Render("  "+truncate(strings.Join(words, ", "), colW-2)), colW) + "\n")
 		}
+		idx += len(all) - min(top+per, len(all))
 		cols = append(cols, strings.TrimRight(c.String(), "\n"), " ")
 	}
 	b.WriteString(lipgloss.JoinHorizontal(lipgloss.Top, cols[:len(cols)-1]...) + "\n\n")
@@ -314,7 +389,7 @@ func (m *Model) upgradesDetails() []section {
 	if sel.Clean && w.Player.CleanCash == 0 {
 		lines = append(lines, wrapped(theme.Subtle, "Clean cash only. Nothing you do yet makes any; that comes with the fronts.")...)
 	}
-	if sel.Effects.FallGuy && w.FallGuyUsed {
+	if sel.Effects.FallGuys > 0 && w.Owns(sel.ID) && !w.FallGuyLeft(game.FoldEffects(w, m.cfg.Upgrades)) {
 		lines = append(lines, wrapped(theme.Warning, "He already took his fall. There is no second one.")...)
 	}
 	if m.upgradeState(sel) == "available" && m.canAfford(sel) {

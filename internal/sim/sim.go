@@ -87,6 +87,7 @@ func (s *Set) Migrations() []game.Migration {
 		}},
 		{From: 7, Apply: s.Rivals.MigrateDiplomacy}, // 7 -> 8: the rival's trust, deals and offers
 		{From: 8, Apply: s.Law.Migrate},             // 8 -> 9: a chief and a DA took office
+		{From: 9, Apply: game.MigrateFallGuys},      // 9 -> 10: the fall guy became a count (#117)
 	}
 }
 

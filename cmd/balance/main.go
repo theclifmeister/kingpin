@@ -68,7 +68,7 @@ func main() {
 	case "managed":
 		p = harness.Managed(cfg, at(50))
 	case "upgraded":
-		p = harness.Upgraded(cfg, at(50))
+		p = harness.Upgraded(cfg, at(40))
 	case "crewed":
 		p = harness.Crewed(cfg, at(40))
 	case "vigilant":
