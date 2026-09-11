@@ -196,10 +196,10 @@ func TestSaveKeepsLogistics(t *testing.T) {
 	if err := w.SetRouteTarget("road", "a", 250); err != nil {
 		t.Fatal(err)
 	}
-	if err := Save(w); err != nil {
+	if err := Save(1, w); err != nil {
 		t.Fatal(err)
 	}
-	got, err := Load()
+	got, err := Load(1)
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -271,21 +271,21 @@ func TestSaveMigratesTheOneCity(t *testing.T) {
 	if err := gob.NewEncoder(&buf).Encode(old); err != nil {
 		t.Fatal(err)
 	}
-	p, _ := SavePath()
+	p, _ := SavePath(1)
 	if err := os.MkdirAll(t.TempDir(), 0o755); err != nil {
 		t.Fatal(err)
 	}
 	if err := os.WriteFile(p, buf.Bytes(), 0o644); err != nil {
 		t.Fatal(err)
 	}
-	if _, err := Load(); err == nil {
+	if _, err := Load(1); err == nil {
 		t.Fatal("a schema-6 save loaded without a migration")
 	}
 	home := StartingCity{ID: "test", Name: "Testville", HeatMul: 1}
 	// The steps past 7 are other packages' (the rival's trust, #32; the
 	// chief and the DA, #41); the chain only needs to reach the current
 	// schema.
-	got, err := Load(Migration{From: 6, Apply: func(w *World) { w.MigrateCities(home) }}, Migration{From: 7, Apply: func(*World) {}}, Migration{From: 8, Apply: func(*World) {}})
+	got, err := Load(1, Migration{From: 6, Apply: func(w *World) { w.MigrateCities(home) }}, Migration{From: 7, Apply: func(*World) {}}, Migration{From: 8, Apply: func(*World) {}})
 	if err != nil {
 		t.Fatal(err)
 	}

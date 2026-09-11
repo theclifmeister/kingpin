@@ -391,14 +391,14 @@ func TestDistributorIsDeterministicAndSaves(t *testing.T) {
 	if len(c.World.Shipments) == 0 {
 		t.Fatal("nothing on the road on day 100 to save")
 	}
-	if err := game.Save(c.World); err != nil {
+	if err := game.Save(1, c.World); err != nil {
 		t.Fatal(err)
 	}
 	set, _, err := sim.Default(cfg)
 	if err != nil {
 		t.Fatal(err)
 	}
-	loaded, err := game.Load(set.Migrations()...)
+	loaded, err := game.Load(1, set.Migrations()...)
 	if err != nil {
 		t.Fatal(err)
 	}

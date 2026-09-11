@@ -84,10 +84,10 @@ func TestCardSurvivesSave(t *testing.T) {
 		policy(b)
 		clock.EndDay(b)
 	}
-	if err := game.Save(b); err != nil {
+	if err := game.Save(1, b); err != nil {
 		t.Fatal(err)
 	}
-	b2, err := game.Load()
+	b2, err := game.Load(1)
 	if err != nil {
 		t.Fatal(err)
 	}

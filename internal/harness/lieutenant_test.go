@@ -376,14 +376,14 @@ func TestLieutenantSurvivesSave(t *testing.T) {
 	if len(b.World.Delegated) == 0 {
 		t.Fatal("no standing orders on day 120 to save")
 	}
-	if err := game.Save(b.World); err != nil {
+	if err := game.Save(1, b.World); err != nil {
 		t.Fatal(err)
 	}
 	set, _, err := sim.Default(cfg)
 	if err != nil {
 		t.Fatal(err)
 	}
-	loaded, err := game.Load(set.Migrations()...)
+	loaded, err := game.Load(1, set.Migrations()...)
 	if err != nil {
 		t.Fatal(err)
 	}

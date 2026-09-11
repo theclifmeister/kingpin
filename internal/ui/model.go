@@ -6,6 +6,7 @@ package ui
 import (
 	"fmt"
 	"strings"
+	"time"
 
 	tea "github.com/charmbracelet/bubbletea"
 	"github.com/charmbracelet/lipgloss"
@@ -40,13 +41,14 @@ var (
 type mode int
 
 const (
-	modeStart mode = iota // continue or new run
+	modeStart mode = iota // the start menu: a save slot to continue or start in, or quit
 	modePlay
 	modeReport
 	modeBuy
 	modeSell
 	modeOver
 	modeConfirmNew
+	modeConfirmDelete // empty the slot under the start menu's cursor?
 	modeConfirmFire
 	modeConfirmEnd
 	modeHelp
@@ -124,16 +126,50 @@ type Model struct {
 	tgt           targetDialog
 	crt           cartDialog
 	fnd           fundDialog
-	startChoice   int
+	slot          int // the save slot this run lives in: where ctrl+s, the end of the day and quitting save
+	startChoice   int // row on the start menu: the slots, then Quit
 	status        string
 	statusKind    statusKind // how the status bar colours the message; set where the status is
 	flash         []string   // enforcement lines from the last tick, via the bus
 	quitting      bool
 }
 
-// New wires config, simulations, clock and bus together. If a save exists
-// the player is offered Continue / New run; otherwise a run starts.
+// New wires config, simulations, clock and bus together. With a run in
+// any slot the start menu offers the slots; on a fresh install a run
+// starts in slot 1.
 func New(cfg *content.Config) (*Model, error) {
+	m, err := wire(cfg)
+	if err != nil {
+		return nil, err
+	}
+	for _, s := range game.Slots() {
+		if !s.Empty {
+			m.mode = modeStart
+			return m, nil
+		}
+	}
+	m.newRun(1)
+	return m, nil
+}
+
+// NewSlot is New opening one slot directly (`kingpin -slot N`): the run
+// in it continues, or a new one starts in it if it is empty. A run that
+// does not load leaves the player on the start menu with the error, the
+// cursor on the slot.
+func NewSlot(cfg *content.Config, slot int) (*Model, error) {
+	if slot < 1 || slot > game.SlotCount {
+		return nil, fmt.Errorf("%w: %d (1 to %d)", game.ErrBadSlot, slot, game.SlotCount)
+	}
+	m, err := wire(cfg)
+	if err != nil {
+		return nil, err
+	}
+	m.startChoice = slot - 1
+	m.pickStart()
+	return m, nil
+}
+
+func wire(cfg *content.Config) (*Model, error) {
 	set, sims, err := sim.Default(cfg)
 	if err != nil {
 		return nil, err
@@ -146,11 +182,6 @@ func New(cfg *content.Config) (*Model, error) {
 		clock: game.NewClock(bus, sims...),
 	}
 	bus.Subscribe(m.onEvent)
-	if game.HasSave() {
-		m.mode = modeStart
-	} else {
-		m.newRun()
-	}
 	return m, nil
 }
 
@@ -163,11 +194,16 @@ func (m *Model) onEvent(e events.Event) {
 	}
 }
 
-func (m *Model) newRun() { m.startRun(game.NewSeed()) }
+// newRun starts a fresh run in the slot, which is where it saves from
+// now on.
+func (m *Model) newRun(slot int) {
+	m.slot = slot
+	m.startRun(game.NewSeed())
+}
 
-// startRun begins a run from a seed: a new world, the dashboard and the
-// cursors at their start. A test that wants a run it can replay (the
-// README's captures) passes the seed.
+// startRun begins a run from a seed in the current slot: a new world,
+// the dashboard and the cursors at their start. A test that wants a run
+// it can replay (the README's captures) passes the seed.
 func (m *Model) startRun(seed uint64) {
 	m.w = sim.NewWorld(m.cfg, seed)
 	m.mode = modePlay
@@ -179,7 +215,7 @@ func (m *Model) startRun(seed uint64) {
 	m.mapCursor = m.yourCorner()
 	m.flash = nil
 	m.say(fmt.Sprintf("New run. %s, %s in your pocket. Seed %d.", m.w.Here().Name, money(m.w.Player.DirtyCash), m.w.Seed))
-	_ = game.Save(m.w)
+	_ = game.Save(m.slot, m.w)
 	m.refreshJournal()
 }
 
@@ -210,11 +246,14 @@ func (m *Model) cycleCity(d int) {
 	m.buyerCursor, m.onBuyers = 0, false
 }
 
-func (m *Model) continueRun() error {
-	w, err := game.Load(m.set.Migrations()...)
+// continueRun picks up the run saved in the slot, which is where it
+// saves from now on.
+func (m *Model) continueRun(slot int) error {
+	w, err := game.Load(slot, m.set.Migrations()...)
 	if err != nil {
 		return err
 	}
+	m.slot = slot
 	m.w = w
 	m.mode = modePlay
 	if w.Over != nil {
@@ -263,7 +302,7 @@ func (m *Model) endDay() {
 }
 
 func (m *Model) save() {
-	if err := game.Save(m.w); err != nil {
+	if err := game.Save(m.slot, m.w); err != nil {
 		m.alarm("Save failed: " + err.Error())
 		return
 	}
@@ -310,9 +349,17 @@ func (m *Model) handleKey(k tea.KeyMsg) (tea.Model, tea.Cmd) {
 	case modeConfirmNew:
 		switch key {
 		case "y", "Y":
-			m.newRun()
+			m.newRun(m.slot)
 		default:
 			m.mode = modePlay
+		}
+		return m, nil
+	case modeConfirmDelete:
+		switch key {
+		case "y", "Y":
+			m.confirmDelete()
+		default:
+			m.mode = modeStart
 		}
 		return m, nil
 	case modeConfirmFire:
@@ -523,8 +570,8 @@ func (m *Model) handleKey(k tea.KeyMsg) (tea.Model, tea.Cmd) {
 	case modeOver:
 		switch key {
 		case "enter", "n":
-			_ = game.DeleteSave()
-			m.newRun()
+			_ = game.DeleteSave(m.slot)
+			m.newRun(m.slot)
 		case "q":
 			return m.quit()
 		default:
@@ -547,34 +594,56 @@ func hasPages(md mode) bool {
 	return false
 }
 
+// keyStart is the start menu: the slots and Quit under one cursor, enter
+// takes the row, D asks before emptying a slot, q quits.
 func (m *Model) keyStart(key string) (tea.Model, tea.Cmd) {
+	rows := game.SlotCount + 1
 	switch key {
-	case "up", "k", "down", "j", "tab":
-		m.startChoice = 1 - m.startChoice
-	case "c":
-		m.startChoice = 0
-		return m.pickStart()
-	case "n":
-		m.startChoice = 1
-		return m.pickStart()
+	case "up", "k":
+		m.startChoice = (m.startChoice + rows - 1) % rows
+	case "down", "j":
+		m.startChoice = (m.startChoice + 1) % rows
 	case "enter":
 		return m.pickStart()
+	case "D":
+		if m.startChoice >= game.SlotCount || game.Slots()[m.startChoice].Empty {
+			m.refuse("Nothing to delete.")
+			return m, nil
+		}
+		m.mode = modeConfirmDelete
 	case "q":
 		return m.quit()
 	}
 	return m, nil
 }
 
+// pickStart takes the start menu's row: a full slot continues its run,
+// an empty one starts a new run in it, Quit quits. A run that does not
+// load leaves the menu up with the error under the rows.
 func (m *Model) pickStart() (tea.Model, tea.Cmd) {
-	if m.startChoice == 0 {
-		if err := m.continueRun(); err != nil {
-			m.alarm("Could not load save: " + err.Error())
-			m.startChoice = 1
-		}
+	if m.startChoice >= game.SlotCount {
+		return m.quit()
+	}
+	slot := m.startChoice + 1
+	if game.Slots()[m.startChoice].Empty {
+		m.newRun(slot)
 		return m, nil
 	}
-	m.newRun()
+	if err := m.continueRun(slot); err != nil {
+		m.alarm(fmt.Sprintf("Could not load slot %d: %s", slot, err.Error()))
+	}
 	return m, nil
+}
+
+// confirmDelete empties the slot under the start menu's cursor.
+func (m *Model) confirmDelete() {
+	slot := m.startChoice + 1
+	m.mode = modeStart
+	if err := game.DeleteSave(slot); err != nil {
+		m.alarm(fmt.Sprintf("Could not delete slot %d: %s", slot, err.Error()))
+		return
+	}
+	m.say(fmt.Sprintf("Slot %d deleted.", slot))
 }
 
 // keyPlay is the main screen's key handler: the key table (keys.go) and
@@ -696,7 +765,7 @@ func (m *Model) toggleDetails() {
 
 func (m *Model) quit() (tea.Model, tea.Cmd) {
 	if m.w != nil {
-		_ = game.Save(m.w)
+		_ = game.Save(m.slot, m.w)
 	}
 	m.quitting = true
 	return m, tea.Quit
@@ -710,7 +779,7 @@ func (m *Model) View() string {
 	if m.width == 0 {
 		return "loading…"
 	}
-	if m.mode == modeStart || m.w == nil {
+	if m.mode == modeStart || m.mode == modeConfirmDelete || m.w == nil {
 		return m.viewStart()
 	}
 	var body string
@@ -991,25 +1060,66 @@ func heatStyle(v float64) lipgloss.Style {
 	}
 }
 
+// viewStart is the start menu: the three slots and Quit under one
+// cursor, and the delete confirmation over it. There is no run behind
+// it, so no frame: the box sits where it does on every other screen.
 func (m *Model) viewStart() string {
-	body := []string{theme.Subtle.Render("a drug empire, one day at a time"), ""}
-	for i, o := range []string{"Continue saved run", "New run"} {
-		if i == m.startChoice {
-			body = append(body, theme.Gold.Render("▸ ")+theme.Selected.Render(" "+o+" "))
-		} else {
-			body = append(body, "   "+o)
+	var box string
+	if m.mode == modeConfirmDelete {
+		box = m.deleteConfirm()
+	} else {
+		body := []string{theme.Subtle.Render("a drug empire, one day at a time"), ""}
+		for i, o := range m.startRows() {
+			if i == m.startChoice {
+				body = append(body, theme.Gold.Render("▸ ")+theme.Selected.Render(" "+o+" "))
+			} else {
+				body = append(body, "   "+o)
+			}
 		}
-	}
-	if m.status != "" {
-		// Load errors can be long; wrap inside the box instead of past it.
-		body = append(body, "")
-		for _, l := range m.wrapLines(m.status) {
-			body = append(body, m.statusStyle().Render(l))
+		if m.status != "" {
+			// Load errors can be long; wrap inside the box instead of past it.
+			body = append(body, "")
+			for _, l := range m.wrapLines(m.status) {
+				body = append(body, m.statusStyle().Render(l))
+			}
 		}
+		box = m.modal("KINGPIN", body, m.modalFooter())
 	}
-	// No title bar yet: the box sits where it does on every other screen.
-	box := "\n" + m.modal("KINGPIN", body, m.modalFooter())
-	return theme.Plain.Width(m.width).Height(m.height).MaxHeight(m.height).Render(box)
+	return theme.Plain.Width(m.width).Height(m.height).MaxHeight(m.height).Render("\n" + box)
+}
+
+// startRows is the start menu's rows: one a slot, then Quit.
+func (m *Model) startRows() []string {
+	rows := make([]string, 0, game.SlotCount+1)
+	for _, s := range game.Slots() {
+		rows = append(rows, slotLine(s, time.Now()))
+	}
+	return append(rows, "Quit")
+}
+
+// slotLine is what the start menu says of a slot: `Slot 1 · day 42 ·
+// $1.2M · Eastside · saved 2h ago`, or `Slot 2 · empty`.
+func slotLine(s game.SlotInfo, now time.Time) string {
+	if s.Empty {
+		return fmt.Sprintf("Slot %d · empty", s.Slot)
+	}
+	parts := []string{fmt.Sprintf("Slot %d", s.Slot), fmt.Sprintf("day %d", s.Day), cash(s.Cash)}
+	if s.City != "" {
+		parts = append(parts, s.City)
+	}
+	parts = append(parts, "saved "+format.Ago(now.Sub(s.Saved)))
+	return strings.Join(parts, " · ")
+}
+
+// deleteConfirm asks before a slot is emptied, naming the run in it.
+func (m *Model) deleteConfirm() string {
+	s := game.Slots()[m.startChoice]
+	line := slotLine(s, time.Now())
+	if i := strings.Index(line, " · "); i >= 0 {
+		line = line[i+len(" · "):]
+	}
+	line = strings.ToUpper(line[:1]) + line[1:]
+	return m.modal(fmt.Sprintf("DELETE SLOT %d?", s.Slot), []string{line, "The run is gone for good."}, m.modalFooter())
 }
 
 // viewHelp is the help modal (#89): the key table, GLOBAL first and then

@@ -335,7 +335,7 @@ func TestQuitKeySaves(t *testing.T) {
 	if cmd == nil || !m.quitting {
 		t.Fatalf("q: cmd %v quitting %v", cmd, m.quitting)
 	}
-	w, err := game.Load()
+	w, err := game.Load(1)
 	if err != nil || w.Player.DirtyCash != 4321 {
 		t.Fatalf("q did not save: %v %+v", err, w)
 	}

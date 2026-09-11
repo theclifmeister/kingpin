@@ -5,9 +5,11 @@ import (
 	"encoding/gob"
 	"fmt"
 	"os"
+	"path/filepath"
 	"reflect"
 	"strings"
 	"testing"
+	"time"
 
 	tea "github.com/charmbracelet/bubbletea"
 	"github.com/charmbracelet/lipgloss"
@@ -735,7 +737,7 @@ func TestJournalUnreadCount(t *testing.T) {
 	if got := stripANSI(m.viewTitle()); !strings.Contains(got, "Journal 1 ") {
 		t.Fatalf("a new headline does not count: %q", got)
 	}
-	m.newRun()
+	m.newRun(1)
 	if m.journalUnread() != 0 {
 		t.Fatalf("a new run starts with %d unread", m.journalUnread())
 	}
@@ -815,11 +817,13 @@ type v1World struct {
 	Orders   map[string]game.SellOrder
 }
 
-// A schema-1 save (before the crew) continues: the run is upgraded with a
-// hiring pool and fair pay, corners, a rival, the launder dial, a second
-// city with routes to it, and the day is kept.
+// A schema-1 save (before the crew) under its old name, save.gob, is slot
+// 1 and continues: the run is upgraded with a hiring pool and fair pay,
+// corners, a rival, the launder dial, a second city with routes to it,
+// and the day is kept.
 func TestOldSaveIsMigrated(t *testing.T) {
-	t.Setenv("KINGPIN_HOME", t.TempDir())
+	dir := t.TempDir()
+	t.Setenv("KINGPIN_HOME", dir)
 	cfg := content.MustLoad()
 	fresh := sim.NewWorld(cfg, 1)
 	old := v1World{SchemaVersion: 1, Seed: 1, Day: 9, City: "Eastside", Products: fresh.Products, Market: fresh.Home().Market, Upgrades: map[string]bool{}, Orders: map[string]game.SellOrder{}}
@@ -829,8 +833,7 @@ func TestOldSaveIsMigrated(t *testing.T) {
 	if err := gob.NewEncoder(&buf).Encode(old); err != nil {
 		t.Fatal(err)
 	}
-	p, _ := game.SavePath()
-	if err := os.WriteFile(p, buf.Bytes(), 0o644); err != nil {
+	if err := os.WriteFile(filepath.Join(dir, "save.gob"), buf.Bytes(), 0o644); err != nil {
 		t.Fatal(err)
 	}
 	m, err := New(content.MustLoad())
@@ -838,9 +841,12 @@ func TestOldSaveIsMigrated(t *testing.T) {
 		t.Fatal(err)
 	}
 	m.Update(tea.WindowSizeMsg{Width: 80, Height: 24})
-	m.Update(key("c"))
-	if m.mode != modePlay || m.w.Day != 9 || m.w.SchemaVersion != game.SchemaVersion {
-		t.Fatalf("continue: mode %v day %d schema %d status %q", m.mode, m.w.Day, m.w.SchemaVersion, m.status)
+	if m.mode != modeStart || m.startChoice != 0 {
+		t.Fatalf("mode %v choice %d, want the start menu on slot 1", m.mode, m.startChoice)
+	}
+	m.Update(key("enter"))
+	if m.mode != modePlay || m.slot != 1 || m.w.Day != 9 || m.w.SchemaVersion != game.SchemaVersion {
+		t.Fatalf("continue: mode %v slot %d day %d schema %d status %q", m.mode, m.slot, m.w.Day, m.w.SchemaVersion, m.status)
 	}
 	if len(m.w.Crew.Candidates) == 0 || m.w.Crew.Pay != events.PayFair {
 		t.Fatalf("migrated crew state: %+v", m.w.Crew)
@@ -886,13 +892,14 @@ func TestOldSaveIsMigrated(t *testing.T) {
 	}
 }
 
-// A save this build cannot read is refused with a readable message and the
-// start menu moves the player to New run.
+// A save this build cannot read is refused with a readable message and
+// the start menu stays up on the slot; deleting the slot after the
+// confirmation is what frees it for a new run.
 func TestUnreadableSaveIsRefused(t *testing.T) {
 	t.Setenv("KINGPIN_HOME", t.TempDir())
 	w := sim.NewWorld(content.MustLoad(), 1)
 	w.SchemaVersion = game.SchemaVersion + 1
-	if err := game.Save(w); err != nil {
+	if err := game.Save(2, w); err != nil {
 		t.Fatal(err)
 	}
 	m, err := New(content.MustLoad())
@@ -903,14 +910,148 @@ func TestUnreadableSaveIsRefused(t *testing.T) {
 	if m.mode != modeStart {
 		t.Fatalf("mode = %v, want the start menu", m.mode)
 	}
-	m.Update(key("c"))
-	if m.mode != modeStart || !strings.Contains(m.status, "newer version") || m.startChoice != 1 {
+	m.Update(key("down"))
+	m.Update(key("enter"))
+	if m.mode != modeStart || !strings.Contains(m.status, "slot 2") || !strings.Contains(m.status, "newer version") || m.startChoice != 1 {
 		t.Fatalf("continue: mode %v status %q choice %d", m.mode, m.status, m.startChoice)
 	}
 	assertFits(t, m.View(), 80, 24, "start menu with error")
+	m.Update(key("D"))
+	if m.mode != modeConfirmDelete {
+		t.Fatalf("D: mode %v", m.mode)
+	}
+	if got := stripANSI(m.View()); !strings.Contains(got, "DELETE SLOT 2?") || !strings.Contains(got, "Day 0 · $") {
+		t.Fatalf("the confirmation names the slot and the run:\n%s", got)
+	}
+	m.Update(key("esc"))
+	if m.mode != modeStart || game.Slots()[1].Empty {
+		t.Fatalf("esc: mode %v, slot 2 empty %v", m.mode, game.Slots()[1].Empty)
+	}
+	m.Update(key("D"))
+	m.Update(key("y"))
+	if m.mode != modeStart || !game.Slots()[1].Empty || m.status != "Slot 2 deleted." {
+		t.Fatalf("delete: mode %v status %q", m.mode, m.status)
+	}
 	m.Update(key("enter"))
-	if m.mode != modePlay || m.w.SchemaVersion != game.SchemaVersion || m.w.Day != 0 {
-		t.Fatalf("new run: mode %v schema %d day %d", m.mode, m.w.SchemaVersion, m.w.Day)
+	if m.mode != modePlay || m.slot != 2 || m.w.SchemaVersion != game.SchemaVersion || m.w.Day != 0 {
+		t.Fatalf("new run: mode %v slot %d schema %d day %d", m.mode, m.slot, m.w.SchemaVersion, m.w.Day)
+	}
+	if s := game.Slots(); s[0].Empty != true || s[1].Empty || !s[2].Empty {
+		t.Fatalf("the new run did not save into slot 2: %+v", s)
+	}
+}
+
+// The start menu lists the three slots and Quit: an empty slot is
+// `Slot N · empty`, a full one its day, cash, city and when it was
+// saved, and D on an empty slot has nothing to delete.
+func TestStartMenuLists(t *testing.T) {
+	m := newTestModel(t, 80, 24)
+	if err := game.DeleteSave(1); err != nil {
+		t.Fatal(err)
+	}
+	m.mode = modeStart
+	menu := func(what string) []string {
+		view := m.View()
+		assertFits(t, view, 80, 24, what)
+		_, _, box := modalBox(t, view)
+		var rows []string
+		for _, l := range box {
+			p := strings.TrimSpace(strings.Trim(strings.TrimSpace(stripANSI(l)), "║"))
+			if strings.HasPrefix(p, "▸") {
+				p = strings.TrimSpace(p[len("▸"):])
+			}
+			if strings.HasPrefix(p, "Slot ") || p == "Quit" {
+				rows = append(rows, p)
+			}
+		}
+		return rows
+	}
+	want := []string{"Slot 1 · empty", "Slot 2 · empty", "Slot 3 · empty", "Quit"}
+	if got := menu("no slots"); !reflect.DeepEqual(got, want) {
+		t.Fatalf("empty menu:\n%q\nwant\n%q", got, want)
+	}
+	m.Update(key("D"))
+	if m.mode != modeStart || m.status != "Nothing to delete." {
+		t.Fatalf("D on an empty slot: mode %v status %q", m.mode, m.status)
+	}
+	m.status = ""
+	w := m.w
+	w.Day, w.Player.DirtyCash, w.Player.CleanCash = 42, 1_000_000, 234_567
+	if err := game.Save(1, w); err != nil {
+		t.Fatal(err)
+	}
+	want[0] = fmt.Sprintf("Slot 1 · day 42 · $1.2M · %s · saved just now", w.Here().Name)
+	if got := menu("one slot"); !reflect.DeepEqual(got, want) {
+		t.Fatalf("one slot:\n%q\nwant\n%q", got, want)
+	}
+	w.Day, w.Player.DirtyCash, w.Player.CleanCash = 3, 4_000, 0
+	if err := game.Save(2, w); err != nil {
+		t.Fatal(err)
+	}
+	w.Day, w.Player.DirtyCash, w.Player.CleanCash = 200, 63_000_000, 0
+	if err := game.Save(3, w); err != nil {
+		t.Fatal(err)
+	}
+	want[1] = fmt.Sprintf("Slot 2 · day 3 · $4,000 · %s · saved just now", w.Here().Name)
+	want[2] = fmt.Sprintf("Slot 3 · day 200 · $63M · %s · saved just now", w.Here().Name)
+	if got := menu("three slots"); !reflect.DeepEqual(got, want) {
+		t.Fatalf("three slots:\n%q\nwant\n%q", got, want)
+	}
+	// The cursor wraps through Quit, and the age is the file's.
+	for i := 0; i < 4; i++ {
+		m.Update(key("down"))
+	}
+	if m.startChoice != 0 {
+		t.Fatalf("four downs from the top: row %d", m.startChoice)
+	}
+	m.Update(key("up"))
+	if m.startChoice != game.SlotCount {
+		t.Fatalf("up from the top: row %d, not Quit", m.startChoice)
+	}
+	s := game.Slots()[0]
+	if got := slotLine(s, s.Saved.Add(2*time.Hour+5*time.Minute)); got != fmt.Sprintf("Slot 1 · day 42 · $1.2M · %s · saved 2h ago", w.Here().Name) {
+		t.Fatalf("slot line: %q", got)
+	}
+	// Enter on a full slot continues it in that slot; on an empty one a
+	// run starts there.
+	m.startChoice = 2
+	m.Update(key("enter"))
+	if m.mode != modePlay || m.slot != 3 || m.w.Day != 200 {
+		t.Fatalf("continue slot 3: mode %v slot %d day %d", m.mode, m.slot, m.w.Day)
+	}
+	if err := game.DeleteSave(2); err != nil {
+		t.Fatal(err)
+	}
+	m.mode, m.startChoice = modeStart, 1
+	m.Update(key("enter"))
+	if m.mode != modePlay || m.slot != 2 || m.w.Day != 0 || game.Slots()[1].Empty {
+		t.Fatalf("new run in slot 2: mode %v slot %d day %d", m.mode, m.slot, m.w.Day)
+	}
+	if s := game.Slots(); s[0].Day != 42 || s[2].Day != 200 {
+		t.Fatalf("the other slots moved: %+v", s)
+	}
+}
+
+// -slot N opens the slot straight away: a full one continues, an empty
+// one starts a run there, and a bad number is refused.
+func TestNewSlot(t *testing.T) {
+	t.Setenv("KINGPIN_HOME", t.TempDir())
+	cfg := content.MustLoad()
+	w := sim.NewWorld(cfg, 1)
+	w.Day = 5
+	if err := game.Save(1, w); err != nil {
+		t.Fatal(err)
+	}
+	m, err := NewSlot(cfg, 1)
+	if err != nil || m.mode != modePlay || m.slot != 1 || m.w.Day != 5 {
+		t.Fatalf("slot 1: %v mode %v slot %d", err, m.mode, m.slot)
+	}
+	m, err = NewSlot(cfg, 3)
+	if err != nil || m.mode != modePlay || m.slot != 3 || m.w.Day != 0 || game.Slots()[2].Empty {
+		t.Fatalf("slot 3: %v mode %v slot %d", err, m.mode, m.slot)
+	}
+	if _, err := NewSlot(cfg, 4); err == nil {
+		t.Fatal("opened slot 4")
 	}
 }
 
@@ -1376,7 +1517,7 @@ func TestCardBeforeReport(t *testing.T) {
 	if m2.mode != modeStart {
 		t.Fatalf("no continue offered: mode %v", m2.mode)
 	}
-	m2.Update(key("c"))
+	m2.Update(key("enter"))
 	if m2.mode != modeCard || m2.w.Dilemmas.Pending == nil || m2.w.Dilemmas.Pending.ID != "test" {
 		t.Fatalf("continue: mode %v pending %+v", m2.mode, m2.w.Dilemmas.Pending)
 	}
@@ -2036,6 +2177,12 @@ func TestModalsFit(t *testing.T) {
 	}
 	cases := []open{
 		{"start", modeStart, func(t *testing.T, m *Model) { m.mode = modeStart }},
+		{"start with three slots", modeStart, func(t *testing.T, m *Model) { fillSlots(t, m); m.mode = modeStart }},
+		{"confirm delete", modeConfirmDelete, func(t *testing.T, m *Model) {
+			fillSlots(t, m)
+			m.mode = modeStart
+			m.Update(key("D"))
+		}},
 		{"report", modeReport, func(t *testing.T, m *Model) { m.mode = modeReport }},
 		{"buy product", modeBuy, func(t *testing.T, m *Model) { m.Update(key("b")) }},
 		{"buy quantity", modeBuy, func(t *testing.T, m *Model) { m.Update(key("b")); m.Update(key("enter")) }},
@@ -2156,12 +2303,23 @@ func TestModalsFit(t *testing.T) {
 					}
 				}
 			}
-			if c.mode != modeStart {
+			if c.mode != modeStart && c.mode != modeConfirmDelete { // no run behind the start menu, so no status bar
 				ls := strings.Split(view, "\n")
 				if bar := strings.TrimSpace(stripANSI(ls[len(ls)-1])); bar != foot {
 					t.Errorf("%s: the status bar shows %q, not the footer %q", what, bar, foot)
 				}
 			}
+		}
+	}
+}
+
+// fillSlots saves the rich run into every slot, so the start menu has a
+// full line for each.
+func fillSlots(t *testing.T, m *Model) {
+	t.Helper()
+	for slot := 1; slot <= game.SlotCount; slot++ {
+		if err := game.Save(slot, m.w); err != nil {
+			t.Fatal(err)
 		}
 	}
 }
