@@ -22,7 +22,7 @@ func policies(cfg *content.Config) map[string]Policy {
 		"aggressive": Trader(cfg, events.DialAggressive),
 		"careful":    Careful(cfg, 35),
 		"managed":    Managed(cfg, 50),
-		"upgraded":   Upgraded(cfg, 50),
+		"upgraded":   Upgraded(cfg, 40),
 		"crewed":     Crewed(cfg, 40),
 		"vigilant":   Vigilant(cfg, 40),
 		"territory":  Territory(cfg, 40, 3),

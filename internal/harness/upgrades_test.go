@@ -3,6 +3,7 @@ package harness
 import (
 	"fmt"
 	"sort"
+	"strings"
 	"testing"
 
 	"github.com/theclifmeister/kingpin/internal/content"
@@ -103,31 +104,59 @@ func TestUpgradeEffectsAreMonotone(t *testing.T) {
 }
 
 // Spending on the tree must pay: the upgraded player out-earns the
-// managed one on median peak cash over the horizon, and is never punished
-// for it. Twenty seeds, like the money curve: the rival's path diverges
-// with any change in the player's (a different cash curve unlocks
-// products on different days, which shifts every later RNG draw), so a
-// handful of seeds can land the upgraded player next to an expansionist
-// the managed one never met.
-func TestUpgradedBeatsManaged(t *testing.T) {
+// crewed one on median peak cash over the horizon, and is never punished
+// for it. The yardstick is the crewed operation, the tree's customer
+// (#117): a lone trader who buys every node pays for insurance and for
+// crew, front and road nodes it cannot use, and with twenty-nine nodes
+// (fifty-six once parts 2 and 3 land) buying everything is a trap for
+// one by design. Twenty seeds, like the money curve: the rival's path
+// diverges with any change in the player's (a different cash curve
+// unlocks products on different days, which shifts every later RNG
+// draw), so a handful of seeds can land the upgraded player next to an
+// expansionist the crewed one never met.
+func TestUpgradedBeatsCrewed(t *testing.T) {
 	cfg := content.MustLoad()
-	var up, man []int
+	var up, crew []int
 	for seed := uint64(1); seed <= 20; seed++ {
-		u, _ := Run(cfg, seed, Horizon, Upgraded(cfg, 50))
+		u, _ := Run(cfg, seed, Horizon, Upgraded(cfg, 40))
 		if u.Over != nil {
-			t.Fatalf("seed %d: upgraded trader ended on day %d: %s", seed, u.Days, u.Over.Cause)
+			t.Fatalf("seed %d: upgraded player ended on day %d: %s", seed, u.Days, u.Over.Cause)
 		}
 		if len(u.World.Upgrades) < 5 {
-			t.Fatalf("seed %d: upgraded trader only bought %v", seed, u.World.Upgrades)
+			t.Fatalf("seed %d: upgraded player only bought %v", seed, u.World.Upgrades)
 		}
-		m, _ := Run(cfg, seed, Horizon, Managed(cfg, 50))
+		c, _ := Run(cfg, seed, Horizon, Crewed(cfg, 40))
 		up = append(up, u.PeakCash)
-		man = append(man, m.PeakCash)
+		crew = append(crew, c.PeakCash)
 	}
 	sort.Ints(up)
-	sort.Ints(man)
-	if up[len(up)/2] <= man[len(man)/2] {
-		t.Fatalf("upgraded median peak %d, managed %d; the tree should pay for itself", up[len(up)/2], man[len(man)/2])
+	sort.Ints(crew)
+	if up[len(up)/2] <= crew[len(crew)/2] {
+		t.Fatalf("upgraded median peak %d, crewed %d; the tree should pay for itself", up[len(up)/2], crew[len(crew)/2])
+	}
+}
+
+// What the upgraded player owns at the tier checkpoints is the record
+// part 4's screen and parts 2 and 3's nodes are laid against: the
+// median count over twenty seeds and seed 1's list, logged.
+func TestUpgradedOwns(t *testing.T) {
+	cfg := content.MustLoad()
+	for _, day := range []int{70, 120, Horizon} {
+		var counts []int
+		var owned []string
+		for seed := uint64(1); seed <= 20; seed++ {
+			res, _ := Run(cfg, seed, day, Upgraded(cfg, 40))
+			counts = append(counts, len(res.World.Upgrades))
+			if seed == 1 {
+				for _, n := range cfg.Upgrades.Nodes {
+					if res.World.Owns(n.ID) {
+						owned = append(owned, n.ID)
+					}
+				}
+			}
+		}
+		sort.Ints(counts)
+		t.Logf("day %d: upgraded owns a median of %d of %d nodes; seed 1 owns %s", day, counts[len(counts)/2], len(cfg.Upgrades.Nodes), strings.Join(owned, ", "))
 	}
 }
 
@@ -187,11 +216,35 @@ func TestFallGuyFiresOnce(t *testing.T) {
 				}
 			}
 		}
-		if burned != 1 || !res.World.FallGuyUsed {
-			t.Fatalf("seed %d: fall guy fired %d times (used=%v)", seed, burned, res.World.FallGuyUsed)
+		if burned != 1 || res.World.FallsTaken != 1 {
+			t.Fatalf("seed %d: fall guy fired %d times (taken=%d)", seed, burned, res.World.FallsTaken)
 		}
 		if res.Over == nil || res.Days <= burnDay || res.Days <= plain.Days {
 			t.Fatalf("seed %d: with a fall guy burned on day %d the run went %d days (over=%v), plain %d", seed, burnDay, res.Days, res.Over, plain.Days)
+		}
+	}
+}
+
+// fall_guys is a count (#117): with the second name owned two
+// indictments close on somebody else, one each, and the third is the
+// player's.
+func TestSecondFallGuyTakesTheSecondFall(t *testing.T) {
+	cfg := content.MustLoad()
+	for seed := uint64(1); seed <= 5; seed++ {
+		w := sim.NewWorld(cfg, seed)
+		grant(w, "fallguy", "fallguy2")
+		res, _ := RunFrom(cfg, w, Horizon, Trader(cfg, events.DialAggressive))
+		burned := 0
+		for _, e := range res.Events {
+			if _, ok := e.(events.FallGuyBurned); ok {
+				burned++
+			}
+		}
+		if burned != 2 || res.World.FallsTaken != 2 {
+			t.Fatalf("seed %d: two fall guys fired %d times (taken=%d)", seed, burned, res.World.FallsTaken)
+		}
+		if res.Over == nil {
+			t.Fatalf("seed %d: the aggressive trader with two fall guys was never indicted", seed)
 		}
 	}
 }

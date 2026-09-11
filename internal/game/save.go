@@ -189,6 +189,16 @@ func Load(slot int, migrations ...Migration) (*World, error) {
 		}
 		w.legacy = &old
 	}
+	if w.SchemaVersion < 10 {
+		// The fall guy was a flag (FallGuyUsed) before fall_guys became a
+		// count (#117); gob will not read a bool into an int, so the old
+		// field is read off the stream a second time for MigrateFallGuys.
+		var old v9
+		if err := gob.NewDecoder(bytes.NewReader(b)).Decode(&old); err != nil {
+			return nil, fmt.Errorf("save file is corrupt: %w", err)
+		}
+		w.fell = old.FallGuyUsed
+	}
 	if len(w.Cities) == 0 && (w.legacy == nil || w.legacy.Market == nil) {
 		return nil, fmt.Errorf("save file is corrupt: missing world state")
 	}
@@ -232,6 +242,23 @@ type v6 struct {
 	Territory struct{ Corners []Corner }
 	Player    struct{ Stock map[string]int }
 	Heat      struct{ Value float64 }
+}
+
+// v9 is what a pre-10 save carried for the fall guy: one flag on World.
+// The schema is read beside it because gob leaves a false flag out of
+// the stream and refuses a record none of whose fields it finds.
+type v9 struct {
+	SchemaVersion int
+	FallGuyUsed   bool
+}
+
+// MigrateFallGuys is the 9 -> 10 step: the fall guy who had taken his
+// fall is counted as one, so a save owning fallguy reads as it did.
+func MigrateFallGuys(w *World) {
+	if w.fell {
+		w.FallsTaken = max(w.FallsTaken, 1)
+	}
+	w.fell = false
 }
 
 // MigrateCities is the 6 -> 7 step: the single city becomes the home

@@ -283,9 +283,9 @@ func TestSaveMigratesTheOneCity(t *testing.T) {
 	}
 	home := StartingCity{ID: "test", Name: "Testville", HeatMul: 1}
 	// The steps past 7 are other packages' (the rival's trust, #32; the
-	// chief and the DA, #41); the chain only needs to reach the current
-	// schema.
-	got, err := Load(1, Migration{From: 6, Apply: func(w *World) { w.MigrateCities(home) }}, Migration{From: 7, Apply: func(*World) {}}, Migration{From: 8, Apply: func(*World) {}})
+	// chief and the DA, #41) or the fall guy's count (#117); the chain
+	// only needs to reach the current schema.
+	got, err := Load(1, Migration{From: 6, Apply: func(w *World) { w.MigrateCities(home) }}, Migration{From: 7, Apply: func(*World) {}}, Migration{From: 8, Apply: func(*World) {}}, Migration{From: 9, Apply: MigrateFallGuys})
 	if err != nil {
 		t.Fatal(err)
 	}
