@@ -45,7 +45,7 @@ var (
 // Source returns the accent colour for a simulation name.
 func Source(name string) lipgloss.Color {
 	switch name {
-	case "market":
+	case "market", "buyers":
 		return Market
 	case "heat", "law":
 		return Heat

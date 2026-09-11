@@ -212,6 +212,26 @@ func (s *Sim) CrewHeat(w *game.World) float64 {
 	return s.cfg.Heat.CrewHeat * s.Effects(w).CrewHeatMul
 }
 
+// ContractHeat is the heat a handoff of units of a product to a buyer
+// draws in a city (#71): the per-unit weight a street sale carries (the
+// tuning, the Security branch, the product and the city) with the
+// buyer's own multiplier where a sale has its corners and its dial. A
+// bulk handoff is one big exposure: no corner discounts it, no patrol
+// caps it, and the volume is what scales it. It is SaleHeat's formula
+// less the fill, the corner weight, the dial and the lieutenant, which
+// that signature cannot leave out; the two sit side by side on purpose.
+// The market screen's buyers panel previews it.
+func (s *Sim) ContractHeat(w *game.World, city, product string, units int, mul float64) float64 {
+	tun := s.cfg.Heat
+	pc := s.market.Product(product)
+	c := w.City(city)
+	if pc == nil || c == nil || tun.StreetUnits <= 0 || units <= 0 {
+		return 0
+	}
+	fx := s.Effects(w)
+	return tun.SaleHeat * fx.SaleHeatMul * float64(units) * c.HeatMul * pc.Heat / tun.StreetUnits * mul
+}
+
 // CornerWeight is the heat one unit of a product draws on average across
 // the corners it moves on in a city, relative to a unit a nobody moves
 // themselves on a standard corner. A sale spreads over the worked corners
@@ -353,6 +373,20 @@ func (s *Sim) Step(w *game.World, t *game.Tick) {
 				reasons[ev.To] = append(reasons[ev.To], fmt.Sprintf("sent fast: the DA's file on you grows (%d)", h.Evidence))
 			}
 		}
+	}
+
+	// A buyer's contract handed over today, from the market sim (#71). It
+	// is dealing like any sale: the city counts as attempted, so a sting
+	// tonight finds something to file (#27 holds for a handoff exactly as
+	// for a sale), and it weighs what the buyer's own multiplier says, on
+	// no corner at all.
+	for _, e := range t.Events() {
+		cd, ok := e.(events.ContractDelivered)
+		if !ok || cd.Units == 0 {
+			continue
+		}
+		attempted[cd.City] = true
+		add(cd.City, s.ContractHeat(w, cd.City, cd.Product, cd.Units, cd.HeatMul), fmt.Sprintf("handed %d %s to %s", cd.Units, w.ProductName(cd.Product), cd.Name))
 	}
 
 	// Sloppy runners get noticed: every unit moved with a low-skill crew

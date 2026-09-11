@@ -6,6 +6,7 @@ package news
 import (
 	"bytes"
 	"fmt"
+	"math"
 	"sort"
 	"strings"
 	"text/template"
@@ -96,6 +97,18 @@ func (s *Sim) Step(w *game.World, t *game.Tick) {
 		txt := render(list[t.RNG.IntN(len(list))], d)
 		lines = append(lines, game.Headline{Day: t.Day, Source: source, Text: txt})
 	}
+	// The buyers' lines pick their template off the deck's own side stream
+	// (#71): the deck never touches the home city's dice, and its news
+	// must not either, or a run would deal its cards on different days
+	// with the deck in and out of the box.
+	addBuyers := func(key string, d data) {
+		list := s.tmpl[key]
+		if len(list) == 0 {
+			return
+		}
+		txt := render(list[t.Sub("buyers").IntN(len(list))], d)
+		lines = append(lines, game.Headline{Day: t.Day, Source: "buyers", Text: txt})
+	}
 	here := w.Here()
 	base := data{City: here.Name}
 	// in names a city for a line about somewhere other than where you are.
@@ -121,7 +134,7 @@ func (s *Sim) Step(w *game.World, t *game.Tick) {
 	}
 
 	// Money before we look at events: sales are already applied by market.
-	var soldRevenue, lostCash, spent, wages, skimmed, robbed, upgrades, upkeep, seized, paidOff, investigated, shipping, tribute, cuts, funded int
+	var soldRevenue, lostCash, spent, wages, skimmed, robbed, upgrades, upkeep, seized, paidOff, investigated, shipping, tribute, cuts, funded, contracts, forfeits int
 	routeCost := map[string]int{} // what each route cost today, lots and fares, by name in the order first seen
 	var routeOrder []string
 	charge := func(route string, cost int) {
@@ -181,6 +194,49 @@ func (s *Sim) Step(w *game.World, t *game.Tick) {
 			case ev.Dial == events.DialAggressive || float64(ev.Sold) >= w.Demand(ev.City, ev.Product)*1.2:
 				add("market", "PlayerSoldBig", d)
 			}
+		case events.ContractOffered:
+			rep.Sales = append(rep.Sales, fmt.Sprintf("%s Answer it on the market (2)%s: it stands %d day(s).", ev.Pitch, in(ev.City), ev.Expires-t.Day+1))
+			d := at(ev.City)
+			d.Product = w.ProductName(ev.Product)
+			d.Name = ev.Name
+			addBuyers("ContractOffered", d)
+		case events.ContractAccepted:
+			rep.Sales = append(rep.Sales, fmt.Sprintf("You took %s's order: %d %s by day %d%s. Deliver it there (2, d).", ev.Name, ev.Units, w.ProductName(ev.Product), ev.Due, in(ev.City)))
+		case events.ContractDelivered:
+			contracts += ev.Revenue
+			line := fmt.Sprintf("Handed %d %s to %s at %s (%.3gx street) = +$%d%s", ev.Units, w.ProductName(ev.Product), ev.Name, dollars(ev.Price), ev.Price/math.Max(ev.Street, 1e-9), ev.Revenue, in(ev.City))
+			if ev.Complete {
+				line += ". Delivered in full."
+			} else {
+				line += fmt.Sprintf(". %d still owed.", ev.Owed)
+			}
+			if ev.Price < ev.Signed {
+				line += fmt.Sprintf(" The street was %s the day they asked.", dollars(ev.Signed))
+			}
+			rep.Sales = append(rep.Sales, line)
+			rep.Money = append(rep.Money, fmt.Sprintf("%s paid +$%d", ev.Name, ev.Revenue))
+			if ev.Complete {
+				d := at(ev.City)
+				d.Product = w.ProductName(ev.Product)
+				d.Name = ev.Name
+				d.Qty = ev.Total
+				addBuyers("ContractDelivered", d)
+			}
+		case events.ContractFailed:
+			forfeits += ev.Cash
+			line := fmt.Sprintf("You let %s down: %d of %d %s delivered by the day%s.", ev.Name, ev.Delivered, ev.Units, w.ProductName(ev.Product), in(ev.City))
+			if ev.Cash > 0 {
+				line += fmt.Sprintf(" They took $%d for the rest.", ev.Cash)
+				rep.Money = append(rep.Money, fmt.Sprintf("%s collected for the shortfall -$%d", ev.Name, ev.Cash))
+			}
+			line += " Word gets round."
+			rep.Sales = append(rep.Sales, line)
+			d := at(ev.City)
+			d.Product = w.ProductName(ev.Product)
+			d.Name = ev.Name
+			addBuyers("ContractFailed", d)
+		case events.ContractExpired:
+			rep.Sales = append(rep.Sales, fmt.Sprintf("%s's offer lapsed: %d %s nobody answered for%s.", capitalize(ev.Name), ev.Units, w.ProductName(ev.Product), in(ev.City)))
 		case events.HeatChanged:
 			if ev.City != here.ID && len(ev.Reasons) == 0 && ev.To < 1 {
 				break // a city nothing happened in
@@ -522,7 +578,7 @@ func (s *Sim) Step(w *game.World, t *game.Tick) {
 		spent += m.Fee
 		rep.Money = append(rep.Money, fmt.Sprintf("Signing fee for %s -$%d", m.Name, m.Fee))
 	}
-	rep.CashBefore = w.Cash() - soldRevenue + lostCash + spent + wages + skimmed + robbed + upgrades + upkeep + seized + paidOff + investigated + shipping + tribute + cuts + funded
+	rep.CashBefore = w.Cash() - soldRevenue - contracts + forfeits + lostCash + spent + wages + skimmed + robbed + upgrades + upkeep + seized + paidOff + investigated + shipping + tribute + cuts + funded
 	if soldRevenue > 0 {
 		rep.Money = append(rep.Money, fmt.Sprintf("Street sales +$%d", soldRevenue))
 	}

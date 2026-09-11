@@ -38,6 +38,8 @@ type World struct {
 	Offers      []Offer                 // deals the rival has put on the table, oldest first
 	Delegated   map[string]SellOrder    // the lieutenants' standing sell orders, keyed like Orders; the crew step refreshes them
 	Law         LawState                // the chief and the DA (#41); pressure and goodwill are per city
+	Contracts   []Contract              // the buyers' orders (#71), oldest first; the market sim deals and resolves them
+	Buyers      BuyersState             // the buyer deck's pacing and blacklist
 
 	// Per-day scratch, cleared by the clock after every EndDay.
 	Orders        map[string]SellOrder // pending sell orders keyed by product id
@@ -50,6 +52,7 @@ type World struct {
 	Accepted      []Offer              // rival offers the player took today; the rival sim seals them
 	Abandoned     []string             // corner ids given back to the street today
 	Funded        []Funding            // clean cash given to a city today; the law sim turns it into goodwill
+	Deliveries    map[int]int          // contract id -> units handed over tonight; the market sim resolves them
 
 	Journal []Headline // full headline history, oldest first
 	Report  *DayReport // morning report for the current day
@@ -509,6 +512,10 @@ type Stats struct {
 	Funded         int // clean cash given to the cities (#41)
 	Elections      int // DA elections held
 	Chiefs         int // police chiefs replaced
+	Contracts      int // buyers' contracts delivered in full (#71)
+	ContractUnits  int // units handed over to buyers
+	ContractCash   int // dirty cash the buyers paid
+	ContractsShort int // contracts short at the due day
 }
 
 // StartingProduct describes a product as it exists at the start of a run,

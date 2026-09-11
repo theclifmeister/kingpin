@@ -19,7 +19,7 @@ import (
 func main() {
 	runs := flag.Int("runs", 20, "number of seeded runs")
 	days := flag.Int("days", harness.Horizon, "days to play each run for; a measuring horizon, the game itself has no cap")
-	policy := flag.String("policy", "normal", "idle | hide | quiet | normal | aggressive | careful | managed | upgraded | crewed | vigilant | territory | war | diplomat | laundered | funded | distributor | delegated | boss")
+	policy := flag.String("policy", "normal", "idle | hide | quiet | normal | aggressive | careful | managed | upgraded | crewed | vigilant | territory | war | diplomat | laundered | funded | distributor | delegated | dealer | boss")
 	lt := flag.String("lt", "", "force the delegated policy's lieutenant temper: violent | greedy | careful | steady (default as generated)")
 	corners := flag.Int("corners", 3, "corners the territory and war policies work, counting yours")
 	force := flag.String("force", "push", "warn | push | hit: how hard the war policy strikes")
@@ -94,6 +94,8 @@ func main() {
 		p = harness.Distributor(cfg, at(40))
 	case "delegated":
 		p = harness.Delegated(cfg, at(40), *lt)
+	case "dealer":
+		p = harness.Dealer(cfg, at(40))
 	case "boss":
 		p = harness.Boss(cfg, at(40), *lt)
 	default:
