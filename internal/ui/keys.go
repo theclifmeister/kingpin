@@ -97,7 +97,7 @@ func onBuyers(m *Model) bool { return m.screen == screenMarket && m.onBuyers }
 func step(n int) func(*Model) bool { return func(m *Model) bool { return m.modalStep() == n } }
 
 var bindings = []binding{
-	{key: "n", label: "end day", help: "end the day: the sims step, the run autosaves", global: true,
+	{key: "n", label: "end day", help: "end the day: the sims step and the run saves", global: true,
 		do: func(m *Model, _ string) { m.endDay() }},
 	// The cursor keys. The map and the tree are walked in two dimensions,
 	// the market's arrows turn it to the other city, the journal pages.
@@ -121,7 +121,7 @@ var bindings = []binding{
 				m.journalPage(1)
 			}
 		}},
-	{key: "[ ]", label: "city", help: "turn the market and the map to the other city", keys: []string{"[", "]"}, screens: on(screenMarket, screenMap), global: true,
+	{key: "[ ]", label: "city", help: "turn the market or the map to the other city", keys: []string{"[", "]"}, screens: on(screenMarket, screenMap), global: true,
 		do: func(m *Model, key string) { m.cycleCity(dir(key)) }},
 	// The market, with the cursor on the buyers under the table.
 	{key: "a", label: "accept", help: "take the buyer's offer", screens: on(screenMarket), when: onBuyers,
@@ -137,7 +137,7 @@ var bindings = []binding{
 		do: func(m *Model, _ string) { m.askFire() }},
 	{key: "t", label: "assign", help: "give the selected lieutenant a city to run", screens: on(screenCrew),
 		do: func(m *Model, _ string) { m.askAssign() }},
-	{key: "i", label: "investigate", help: "ask who is talking to the police, for a price", screens: on(screenCrew),
+	{key: "i", label: "investigate", help: "ask who is talking to the police, for a fee", screens: on(screenCrew),
 		do: func(m *Model, _ string) { m.askInvestigate() }},
 	{key: "$", label: "pay off", help: "buy the selected member's loyalty", screens: on(screenCrew),
 		do: func(m *Model, _ string) { m.askPayOff() }},
@@ -400,8 +400,8 @@ func screenPointer(s screen) string {
 	return fmt.Sprintf("on the %s screen (%d)", screenOf[s], int(s)+1)
 }
 
-// helpGroups are the help modal's and the README's groups: the keys that
-// work everywhere first, then each screen's own, every binding once
+// helpGroups are the help modal's and the README's groups: GLOBAL, the
+// keys that work everywhere, then each screen's own, every binding once
 // under the first screen it names.
 type helpGroup struct {
 	title string
@@ -409,7 +409,7 @@ type helpGroup struct {
 }
 
 func helpGroups() []helpGroup {
-	groups := []helpGroup{{title: "EVERYWHERE"}}
+	groups := []helpGroup{{title: "GLOBAL"}}
 	for s := screen(0); s < screenCount; s++ {
 		groups = append(groups, helpGroup{title: strings.ToUpper(screenOf[s])})
 	}
@@ -429,15 +429,35 @@ func helpGroups() []helpGroup {
 	return out
 }
 
-// helpKeyW and helpLabelW are the help modal's columns: the key, the
-// label, and the sentence in what is left.
+// The help modal's columns: the key, the label, a dash, and the sentence
+// in what is left of the modal at 80 columns, so no row is ever cut.
+// helpSentenceW is the most a binding's help may run to; a word's line
+// in WORDS has the label's room too.
 const (
-	helpKeyW   = 9
-	helpLabelW = 14
+	helpKeyW      = 9
+	helpLabelW    = 14
+	helpSentenceW = modalMax - 4 - helpKeyW - 2 - helpLabelW - 3
 )
 
+// helpRow is one line of the help modal: `key  label — help`.
+func helpRow(key, label, help string) string {
+	return theme.Key.Render(fit(key, helpKeyW)) + "  " + theme.Subtle.Render(fit(label, helpLabelW)) + " — " + help
+}
+
+// words are the help modal's last group, WORDS: the terms the screens
+// use without explaining, one line each. Each fits beside the key
+// column at 80 columns; the legend's spelling for a key (`␣`).
+var words = [][2]string{
+	{"dial", "quiet, normal or aggressive: a sale's volume against its heat"},
+	{"float", "the dirty cash the wash and the road leave for the street"},
+	{"file", "the DA's evidence: stings and raids add pages, enough indicts"},
+	{"drift", "a held corner nobody works goes back to the street in days"},
+	{"pane", "the details beside MAIN from 100 columns; ␣ hides and shows"},
+	{"strip", "the pane's one line under 100 columns; ␣ opens it over MAIN"},
+}
+
 // helpLines is the help modal's body: every binding, grouped, one a
-// line as `key  label  help`.
+// line as `key  label — help`, then WORDS.
 func (m *Model) helpLines() []string {
 	var body []string
 	for i, g := range helpGroups() {
@@ -446,8 +466,12 @@ func (m *Model) helpLines() []string {
 		}
 		body = append(body, theme.PanelTitle.Render(g.title))
 		for _, b := range g.keys {
-			body = append(body, theme.Key.Render(fit(b.key, helpKeyW))+"  "+theme.Subtle.Render(fit(b.label, helpLabelW))+"  "+b.help)
+			body = append(body, helpRow(b.key, b.label, b.help))
 		}
+	}
+	body = append(body, "", theme.PanelTitle.Render("WORDS"))
+	for _, w := range words {
+		body = append(body, theme.Key.Render(fit(w[0], helpKeyW))+"  "+w[1])
 	}
 	return body
 }
@@ -486,30 +510,55 @@ func tutorialLine() string {
 }
 
 // The README's key table sits between these markers; cmd/keys writes it
-// there and TestReadmeMatchesKeys reads it back.
+// there and TestReadmeMatchesKeys reads it back. The captures sit between
+// ReadmeCaptureBegin(name) and ReadmeCaptureEnd the same way, written by
+// `go test ./internal/ui -run TestReadmeCaptures -update` from the rich
+// fixture on a fixed seed and read back by the same test.
 const (
-	ReadmeKeysBegin = "<!-- keys:begin -->"
-	ReadmeKeysEnd   = "<!-- keys:end -->"
+	ReadmeKeysBegin  = "<!-- keys:begin -->"
+	ReadmeKeysEnd    = "<!-- keys:end -->"
+	ReadmeCaptureEnd = "<!-- capture:end -->"
 )
 
-// SpliceReadmeKeys replaces the table between the README's markers with
-// table; it reports false when the markers are missing.
-func SpliceReadmeKeys(readme, table string) (string, bool) {
-	i := strings.Index(readme, ReadmeKeysBegin)
-	j := strings.Index(readme, ReadmeKeysEnd)
-	if i < 0 || j < i {
+// ReadmeCaptureBegin is the marker a named capture starts at:
+// `<!-- capture:dashboard-80x24 -->`.
+func ReadmeCaptureBegin(name string) string { return "<!-- capture:" + name + " -->" }
+
+// SpliceReadme replaces what sits between the begin and end markers with
+// body; it reports false when the markers are missing.
+func SpliceReadme(readme, begin, end, body string) (string, bool) {
+	i := strings.Index(readme, begin)
+	if i < 0 {
 		return readme, false
 	}
-	return readme[:i+len(ReadmeKeysBegin)] + "\n" + table + readme[j:], true
+	j := strings.Index(readme[i:], end)
+	if j < 0 {
+		return readme, false
+	}
+	return readme[:i+len(begin)] + "\n" + body + readme[i+j:], true
 }
 
-// ReadmeKeysSection is the table as the README carries it, markers
-// included: what cmd/keys writes and what the README must hold.
-func ReadmeKeysSection(readme string) (string, bool) {
-	i := strings.Index(readme, ReadmeKeysBegin)
-	j := strings.Index(readme, ReadmeKeysEnd)
-	if i < 0 || j < i {
+// ReadmeSection is what sits between the begin and end markers, the
+// newline after the begin marker dropped: what the README holds.
+func ReadmeSection(readme, begin, end string) (string, bool) {
+	i := strings.Index(readme, begin)
+	if i < 0 {
 		return "", false
 	}
-	return readme[i+len(ReadmeKeysBegin)+1 : j], true
+	j := strings.Index(readme[i:], end)
+	if j < 0 {
+		return "", false
+	}
+	return readme[i+len(begin)+1 : i+j], true
+}
+
+// SpliceReadmeKeys replaces the table between the README's key markers.
+func SpliceReadmeKeys(readme, table string) (string, bool) {
+	return SpliceReadme(readme, ReadmeKeysBegin, ReadmeKeysEnd, table)
+}
+
+// ReadmeKeysSection is the table as the README carries it: what cmd/keys
+// writes and what the README must hold.
+func ReadmeKeysSection(readme string) (string, bool) {
+	return ReadmeSection(readme, ReadmeKeysBegin, ReadmeKeysEnd)
 }
