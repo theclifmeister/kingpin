@@ -99,8 +99,8 @@ func (s *Sim) Shortfall(w *game.World, r content.RouteConfig, product string) in
 }
 
 // Budget is the dirty cash the road may spend today: what is over the
-// float.
-func (s *Sim) Budget(w *game.World) int { return max(0, w.Player.DirtyCash-s.float) }
+// float, folded by the tree the way the wash folds it (World.Float, #118).
+func (s *Sim) Budget(w *game.World) int { return max(0, w.Player.DirtyCash-w.Float(s.tree, s.float)) }
 
 // StartingCities converts config into the cities a new world starts with:
 // every city, home first, its ladder priced for it.
