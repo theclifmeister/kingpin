@@ -254,7 +254,7 @@ func (m *Model) roadOn(route string) string {
 			}
 		}
 		if units > 0 {
-			parts = append(parts, fmt.Sprintf("%d %s %dd", units, w.ProductName(id), soonest))
+			parts = append(parts, fmt.Sprintf("%d %s, %dd", units, w.ProductName(id), soonest))
 		}
 	}
 	return strings.Join(parts, ", ")
@@ -286,26 +286,57 @@ func dialStyle(d events.RouteDial) lipgloss.Style {
 
 // routeLines are the routes out of the city shown, one line each, drawn
 // as an edge between the cities with the dial, the route's terms at that
-// dial and what is on it, the selected one marked. The selected route's
-// targets are the pane's (routeSection).
-func (m *Model) routeLines() []string {
+// dial (`3d · 60 units · $8/u · ~3%`; `60u` where the long form would
+// not fit the width, and no terms at all where that would not either:
+// the pane has them) and what is on it (`▪60`); the routes cursor's row
+// is marked ▸ and drawn Selected across while the cursor is on the
+// routes. The selected route's targets are the pane's (routeSection).
+func (m *Model) routeLines(width int) []string {
 	w := m.w
 	lg := m.set.Logistics
-	var lines []string
-	for i, r := range m.mapRoutes() {
-		rs := w.Route(r.ID)
-		d := rs.Dial
-		mark := "  "
-		if i == m.routeCursor {
-			mark = theme.Gold.Render("▸ ")
+	routes := m.mapRoutes()
+	nameW, cityW := 0, 0
+	for _, r := range routes {
+		nameW = max(nameW, lipgloss.Width(r.Name))
+		cityW = max(cityW, lipgloss.Width(w.CityName(r.From)), lipgloss.Width(w.CityName(r.To)))
+	}
+	draw := func(units string) (lines []string, widest int) {
+		for i, r := range routes {
+			d := w.Route(r.ID).Dial
+			name := fit(r.Name, nameW)
+			edge := fmt.Sprintf("%s %s %s", fit(w.CityName(r.From), cityW), edge(r.Mode), fit(w.CityName(r.To), cityW))
+			dial := fit(d.String(), 6)
+			terms := ""
+			if units != "" {
+				terms = fmt.Sprintf("  %dd · %d%s · %s/u · ~%.0f%%", lg.Days(r, d.Ship()), r.Capacity, units, money(r.Cost), lg.Risk(r, d.Ship())*100)
+			}
+			road := ""
+			if n := m.unitsOn(r.ID); n > 0 {
+				road = fmt.Sprintf("  ▪%d", n)
+			}
+			plain := name + "  " + edge + "  " + dial + terms + road
+			widest = max(widest, 2+lipgloss.Width(plain))
+			mark := "  "
+			if i == m.routeCursor {
+				mark = theme.Gold.Render("▸ ")
+				if m.onRoutes {
+					lines = append(lines, mark+theme.Selected.Render(plain))
+					continue
+				}
+			}
+			lines = append(lines, mark+name+"  "+theme.Subtle.Render(edge)+"  "+dialStyle(d).Render(dial)+theme.Subtle.Render(terms)+lipgloss.NewStyle().Foreground(theme.Logistics).Render(road))
 		}
-		edge := fmt.Sprintf("%s %s %s", fit(w.CityName(r.From), 8), edge(r.Mode), fit(w.CityName(r.To), 8))
-		terms := fmt.Sprintf("%dd %du %s/u ~%.0f%%", lg.Days(r, d.Ship()), r.Capacity, money(r.Cost), lg.Risk(r, d.Ship())*100)
-		line := mark + fit(r.Name, 12) + " " + theme.Subtle.Render(edge) + "  " + dialStyle(d).Render(fit(d.String(), 6)) + " " + theme.Subtle.Render(terms)
-		if units := m.unitsOn(r.ID); units > 0 {
-			line += lipgloss.NewStyle().Foreground(theme.Logistics).Render(fmt.Sprintf(" ▪%d", units))
-		}
-		lines = append(lines, line)
+		return lines, widest
+	}
+	lines, widest := draw(" units")
+	if widest > width {
+		lines, widest = draw("u")
+	}
+	if widest > width {
+		lines, _ = draw("")
+	}
+	for i, l := range lines {
+		lines[i] = truncate(l, width)
 	}
 	return lines
 }
@@ -330,10 +361,9 @@ func (m *Model) routeSection(r content.RouteConfig) section {
 	d := w.Route(r.ID).Dial
 	lines := []string{
 		theme.Subtle.Render(fmt.Sprintf("%s %s %s", w.CityName(r.From), edge(r.Mode), w.CityName(r.To))),
-		row("dial", dialStyle(d).Render(d.String())),
-		row("days", fmt.Sprintf("%d · %d units a run", lg.Days(r, d.Ship()), r.Capacity)),
-		row("fare", money(r.Cost)+" a unit"),
-		row("seized", fmt.Sprintf("~%.0f%% a run", lg.Risk(r, d.Ship())*100)),
+		row("dial", dialStyle(d).Render("["+d.String()+"]")),
+		row("days", fmt.Sprintf("%d · capacity %d", lg.Days(r, d.Ship()), r.Capacity)),
+		row("fare", fmt.Sprintf("%s/u · seized ~%.0f%%", money(r.Cost), lg.Risk(r, d.Ship())*100)),
 	}
 	switch t := m.targetLine(r.ID); {
 	case t == "" && d.On():
