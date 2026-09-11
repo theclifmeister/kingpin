@@ -90,8 +90,9 @@ func in(ms ...mode) []mode     { return ms }
 var everywhere = on(screenDashboard, screenMarket, screenJournal, screenCrew, screenMap, screenUpgrades, screenLedger, screenRivals)
 
 // listScreens are the screens whose cursor is the plain up-and-down
-// one: the map and the tree walk two dimensions and list their own.
-var listScreens = on(screenDashboard, screenMarket, screenJournal, screenCrew, screenLedger, screenRivals)
+// one: the map walks two dimensions and lists its own; the tree's
+// branch is a list, and its arrows turn the branch (#120).
+var listScreens = on(screenDashboard, screenMarket, screenJournal, screenCrew, screenUpgrades, screenLedger, screenRivals)
 
 // onBuyers is the market's cursor being on the buyers under the table.
 func onBuyers(m *Model) bool { return m.screen == screenMarket && m.onBuyers }
@@ -123,11 +124,12 @@ func stripShown(m *Model) bool { return m.width < paneMinWidth }
 var bindings = []binding{
 	{key: "n", label: "end day", help: "end the day: the sims step and the run saves", screens: everywhere, global: true,
 		do: func(m *Model, _ string) { m.endDay() }},
-	// The cursor keys. The map and the tree are walked in two dimensions,
-	// the market's arrows turn it to the other city, the journal pages.
+	// The cursor keys. The map is walked in two dimensions, the market's
+	// arrows turn it to the other city, the tree's turn it to the next
+	// branch, the journal pages.
 	{key: "↑↓", label: "pick", help: "move the cursor (j and k move it too)", keys: upDown, screens: listScreens, global: true,
 		do: func(m *Model, key string) { m.moveCursor(0, dir(key)) }},
-	{key: "↑↓←→", label: "pick", help: "walk the map's grid or the tree's columns", keys: arrows, screens: on(screenMap, screenUpgrades),
+	{key: "↑↓←→", label: "pick", help: "walk the map's grid", keys: arrows, screens: on(screenMap),
 		do: func(m *Model, key string) {
 			if key == "left" || key == "right" {
 				m.moveCursor(dir(key), 0)
@@ -136,6 +138,8 @@ var bindings = []binding{
 			}
 		}},
 	{key: "←→", label: "city", help: "turn the market to the other city", keys: leftRight, screens: on(screenMarket),
+		do: func(m *Model, key string) { m.moveCursor(dir(key), 0) }},
+	{key: "←→", label: "branch", help: "turn the tree to the next branch", keys: leftRight, screens: on(screenUpgrades),
 		do: func(m *Model, key string) { m.moveCursor(dir(key), 0) }},
 	{key: "pgup pgdn", label: "page", help: "page through the journal", keys: []string{"pgup", "pgdown"}, screens: on(screenJournal),
 		do: func(m *Model, key string) {
