@@ -268,10 +268,10 @@ func TestLawSurvivesSave(t *testing.T) {
 	if a.World.Law.Chief.Name == "" || a.World.Law.DA.Name == "" || a.World.Home().Goodwill <= 0 || a.World.Home().Pressure <= 0 {
 		t.Fatalf("nothing to save: %+v %+v", a.World.Law, a.World.Home())
 	}
-	if err := game.Save(a.World); err != nil {
+	if err := game.Save(1, a.World); err != nil {
 		t.Fatal(err)
 	}
-	got, err := game.Load(set.Migrations()...)
+	got, err := game.Load(1, set.Migrations()...)
 	if err != nil {
 		t.Fatal(err)
 	}

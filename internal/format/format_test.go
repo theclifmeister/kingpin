@@ -1,6 +1,9 @@
 package format
 
-import "testing"
+import (
+	"testing"
+	"time"
+)
 
 func TestCash(t *testing.T) {
 	cases := map[int]string{
@@ -62,5 +65,13 @@ func TestPlural(t *testing.T) {
 	}
 	if Arrow != "→" {
 		t.Errorf("Arrow = %q", Arrow)
+	}
+	for d, want := range map[time.Duration]string{
+		0: "just now", 59 * time.Second: "just now", time.Minute: "1m ago", 5*time.Minute + 30*time.Second: "5m ago",
+		2*time.Hour + 59*time.Minute: "2h ago", 25 * time.Hour: "1d ago", 240 * time.Hour: "10d ago",
+	} {
+		if got := Ago(d); got != want {
+			t.Errorf("Ago(%v) = %q, want %q", d, got, want)
+		}
 	}
 }

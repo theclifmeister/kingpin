@@ -1,12 +1,15 @@
 package game
 
 import (
+	"bytes"
+	"encoding/gob"
 	"errors"
 	"os"
 	"path/filepath"
 	"reflect"
 	"strings"
 	"testing"
+	"time"
 
 	"github.com/theclifmeister/kingpin/internal/events"
 )
@@ -52,86 +55,198 @@ func testShipment(units int) Shipment {
 	return Shipment{Route: "road", Mode: "car", From: "test", To: "port", Product: "a", Units: units, Dial: events.ShipNormal, Sent: 3, Arrives: 5, Cost: units * 2}
 }
 
+// A run saved and loaded halfway plays on exactly as one that never
+// stopped, whichever slot it went through.
 func TestSaveRoundTripIsDeterministic(t *testing.T) {
 	t.Setenv("KINGPIN_HOME", t.TempDir())
-	// Run A: 10 days straight.
-	a := testWorld()
-	ca := NewClock(nil, &counter{})
-	var evA []events.Event
-	for i := 0; i < 10; i++ {
-		evA = append(evA, ca.EndDay(a)...)
-	}
-	// Run B: 5 days, save, load, 5 more.
-	b := testWorld()
-	cb := NewClock(nil, &counter{})
-	var evB []events.Event
-	for i := 0; i < 5; i++ {
-		evB = append(evB, cb.EndDay(b)...)
-	}
-	if err := Save(b); err != nil {
-		t.Fatal(err)
-	}
-	b2, err := Load()
-	if err != nil {
-		t.Fatal(err)
-	}
-	if b2.Day != 5 || b2.Seed != 99 || b2.Cash() != 500 {
-		t.Fatalf("loaded world differs: day %d seed %d cash %d", b2.Day, b2.Seed, b2.Cash())
-	}
-	for i := 0; i < 5; i++ {
-		evB = append(evB, cb.EndDay(b2)...)
-	}
-	if len(evA) != len(evB) {
-		t.Fatalf("event counts differ: %d vs %d", len(evA), len(evB))
-	}
-	for i := range evA {
-		if evA[i] != evB[i] {
-			t.Fatalf("event %d differs after reload: %#v vs %#v", i, evA[i], evB[i])
+	for slot := 1; slot <= SlotCount; slot++ {
+		// Run A: 10 days straight.
+		a := testWorld()
+		ca := NewClock(nil, &counter{})
+		var evA []events.Event
+		for i := 0; i < 10; i++ {
+			evA = append(evA, ca.EndDay(a)...)
+		}
+		// Run B: 5 days, save, load, 5 more.
+		b := testWorld()
+		cb := NewClock(nil, &counter{})
+		var evB []events.Event
+		for i := 0; i < 5; i++ {
+			evB = append(evB, cb.EndDay(b)...)
+		}
+		if err := Save(slot, b); err != nil {
+			t.Fatal(err)
+		}
+		b2, err := Load(slot)
+		if err != nil {
+			t.Fatal(err)
+		}
+		if b2.Day != 5 || b2.Seed != 99 || b2.Cash() != 500 {
+			t.Fatalf("slot %d: loaded world differs: day %d seed %d cash %d", slot, b2.Day, b2.Seed, b2.Cash())
+		}
+		for i := 0; i < 5; i++ {
+			evB = append(evB, cb.EndDay(b2)...)
+		}
+		if len(evA) != len(evB) {
+			t.Fatalf("slot %d: event counts differ: %d vs %d", slot, len(evA), len(evB))
+		}
+		for i := range evA {
+			if evA[i] != evB[i] {
+				t.Fatalf("slot %d: event %d differs after reload: %#v vs %#v", slot, i, evA[i], evB[i])
+			}
+		}
+		if a.Home().Market["a"].Price != b2.Home().Market["a"].Price {
+			t.Fatalf("slot %d: final price differs: %v vs %v", slot, a.Home().Market["a"].Price, b2.Home().Market["a"].Price)
 		}
 	}
-	if a.Home().Market["a"].Price != b2.Home().Market["a"].Price {
-		t.Fatalf("final price differs: %v vs %v", a.Home().Market["a"].Price, b2.Home().Market["a"].Price)
+}
+
+// The slots are three runs: a save into one leaves the others as they
+// were, Slots reads each without loading it, and a delete empties only
+// its own.
+func TestSlotsAreIndependent(t *testing.T) {
+	t.Setenv("KINGPIN_HOME", t.TempDir())
+	for _, s := range Slots() {
+		if !s.Empty || s.Day != 0 || !s.Saved.IsZero() {
+			t.Fatalf("a fresh directory: %+v", s)
+		}
+	}
+	for _, bad := range []int{0, SlotCount + 1} {
+		if err := Save(bad, testWorld()); !errors.Is(err, ErrBadSlot) {
+			t.Fatalf("saved into slot %d: %v", bad, err)
+		}
+		if _, err := Load(bad); !errors.Is(err, ErrBadSlot) {
+			t.Fatalf("loaded slot %d: %v", bad, err)
+		}
+	}
+	one := testWorld()
+	one.Day = 7
+	if err := Save(1, one); err != nil {
+		t.Fatal(err)
+	}
+	two := testWorld()
+	two.Day = 42
+	two.Player.DirtyCash = 1_234_567
+	if err := Save(2, two); err != nil {
+		t.Fatal(err)
+	}
+	got, err := Load(1)
+	if err != nil || got.Day != 7 {
+		t.Fatalf("slot 1 after a save into 2: %v day %d", err, got.Day)
+	}
+	if _, err := Load(3); !errors.Is(err, ErrNoSave) {
+		t.Fatalf("slot 3: %v", err)
+	}
+	infos := Slots()
+	if len(infos) != SlotCount {
+		t.Fatalf("%d slots", len(infos))
+	}
+	want := []SlotInfo{{Slot: 1, Day: 7, Cash: 500, City: "Testville"}, {Slot: 2, Day: 42, Cash: 1_234_567, City: "Testville"}, {Slot: 3, Empty: true}}
+	for i, s := range infos {
+		if s.Slot != want[i].Slot || s.Day != want[i].Day || s.Cash != want[i].Cash || s.City != want[i].City || s.Empty != want[i].Empty {
+			t.Fatalf("slot %d: %+v, want %+v", i+1, s, want[i])
+		}
+		if s.Empty != s.Saved.IsZero() || (!s.Empty && time.Since(s.Saved) > time.Minute) {
+			t.Fatalf("slot %d saved at %v", i+1, s.Saved)
+		}
+	}
+	if err := DeleteSave(2); err != nil {
+		t.Fatal(err)
+	}
+	if HasSave(2) || !HasSave(1) {
+		t.Fatal("deleting slot 2 touched slot 1")
+	}
+	if got, err := Load(1); err != nil || got.Day != 7 {
+		t.Fatalf("slot 1 after deleting 2: %v", err)
+	}
+	if err := DeleteSave(2); err != nil {
+		t.Fatalf("deleting an empty slot: %v", err)
+	}
+}
+
+// The single save.gob of builds before the slots is slot 1: the first
+// look at the slots renames it and the run carries on from there.
+func TestOldSaveIsSlotOne(t *testing.T) {
+	dir := t.TempDir()
+	t.Setenv("KINGPIN_HOME", dir)
+	w := testWorld()
+	w.Day = 33
+	var buf bytes.Buffer
+	if err := gob.NewEncoder(&buf).Encode(w); err != nil {
+		t.Fatal(err)
+	}
+	old := filepath.Join(dir, "save.gob")
+	if err := os.WriteFile(old, buf.Bytes(), 0o644); err != nil {
+		t.Fatal(err)
+	}
+	if s := Slots()[0]; s.Empty || s.Day != 33 {
+		t.Fatalf("slot 1: %+v", s)
+	}
+	if _, err := os.Stat(old); !errors.Is(err, os.ErrNotExist) {
+		t.Fatalf("save.gob still there: %v", err)
+	}
+	if _, err := os.Stat(filepath.Join(dir, "save1.gob")); err != nil {
+		t.Fatalf("save1.gob: %v", err)
+	}
+	got, err := Load(1)
+	if err != nil || got.Day != 33 {
+		t.Fatalf("load slot 1: %v", err)
+	}
+	// A save.gob that turns up beside a slot 1 already in use is left
+	// alone: the slot is the newer run.
+	if err := os.WriteFile(old, buf.Bytes(), 0o644); err != nil {
+		t.Fatal(err)
+	}
+	got.Day = 34
+	if err := Save(1, got); err != nil {
+		t.Fatal(err)
+	}
+	if s := Slots()[0]; s.Day != 34 {
+		t.Fatalf("slot 1 after the second save.gob: %+v", s)
+	}
+	if _, err := os.Stat(old); err != nil {
+		t.Fatalf("the second save.gob was taken: %v", err)
 	}
 }
 
 func TestLoadErrors(t *testing.T) {
 	dir := t.TempDir()
 	t.Setenv("KINGPIN_HOME", dir)
-	if _, err := Load(); !errors.Is(err, ErrNoSave) {
+	if _, err := Load(1); !errors.Is(err, ErrNoSave) {
 		t.Fatalf("expected ErrNoSave, got %v", err)
 	}
-	p := filepath.Join(dir, "save.gob")
+	p := filepath.Join(dir, "save1.gob")
 	if err := os.WriteFile(p, []byte("not a gob"), 0o644); err != nil {
 		t.Fatal(err)
 	}
-	if _, err := Load(); err == nil {
+	if _, err := Load(1); err == nil {
 		t.Fatal("corrupt save loaded without error")
 	}
 	w := testWorld()
 	w.SchemaVersion = SchemaVersion + 1
-	if err := Save(w); err != nil {
+	if err := Save(1, w); err != nil {
 		t.Fatal(err)
 	}
-	if _, err := Load(); !errors.Is(err, ErrNewerSchema) {
+	if _, err := Load(1); !errors.Is(err, ErrNewerSchema) {
 		t.Fatalf("expected ErrNewerSchema, got %v", err)
 	}
-	if !HasSave() {
+	if !HasSave(1) {
 		t.Fatal("HasSave false after Save")
 	}
 	// An older save is upgraded one step at a time; with no path it is
 	// refused with a message that says so.
 	w.SchemaVersion = SchemaVersion - 1
 	w.Day = 12
-	if err := Save(w); err != nil {
+	if err := Save(1, w); err != nil {
 		t.Fatal(err)
 	}
-	if _, err := Load(); !errors.Is(err, ErrOldSchema) {
+	if _, err := Load(1); !errors.Is(err, ErrOldSchema) {
 		t.Fatalf("expected ErrOldSchema, got %v", err)
 	} else if !strings.Contains(err.Error(), "older version") {
 		t.Fatalf("unreadable message: %v", err)
 	}
 	applied := 0
-	up, err := Load(Migration{From: SchemaVersion - 1, Apply: func(w *World) {
+	up, err := Load(1, Migration{From: SchemaVersion - 1, Apply: func(w *World) {
 		applied++
 		if w.SchemaVersion != SchemaVersion-1 || w.Day != 12 {
 			t.Fatalf("migration saw schema %d day %d", w.SchemaVersion, w.Day)
@@ -141,10 +256,10 @@ func TestLoadErrors(t *testing.T) {
 		t.Fatalf("migrate: err %v applied %d schema %d day %d", err, applied, up.SchemaVersion, up.Day)
 	}
 	// A migration for the wrong version is no path at all.
-	if _, err := Load(Migration{From: SchemaVersion - 2, Apply: func(*World) {}}); !errors.Is(err, ErrOldSchema) {
+	if _, err := Load(1, Migration{From: SchemaVersion - 2, Apply: func(*World) {}}); !errors.Is(err, ErrOldSchema) {
 		t.Fatalf("expected ErrOldSchema with an unrelated migration, got %v", err)
 	}
-	if err := DeleteSave(); err != nil || HasSave() {
+	if err := DeleteSave(1); err != nil || HasSave(1) {
 		t.Fatalf("delete failed: %v", err)
 	}
 }
@@ -206,10 +321,10 @@ func TestSaveKeepsCrew(t *testing.T) {
 	w.Crew.Members[0].Informant = true // the hidden flag rides along
 	w.Crew.Exposed, w.Crew.Investigated = 1, 2
 	w.Heat.LeakDay, w.Heat.Leaks = 4, 2
-	if err := Save(w); err != nil {
+	if err := Save(1, w); err != nil {
 		t.Fatal(err)
 	}
-	got, err := Load()
+	got, err := Load(1)
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -350,10 +465,10 @@ func TestSaveKeepsCorners(t *testing.T) {
 		t.Fatal(err)
 	}
 	w.Corner("home").Idle = 2
-	if err := Save(w); err != nil {
+	if err := Save(1, w); err != nil {
 		t.Fatal(err)
 	}
-	got, err := Load()
+	got, err := Load(1)
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -421,10 +536,10 @@ func TestSaveKeepsRival(t *testing.T) {
 	w.Corner("docks").Owner = OwnerRival
 	w.Corner("home").Squeeze = 0.2
 	w.Stats.Strikes, w.Stats.CornersWon, w.Stats.CornersLost = 3, 1, 2
-	if err := Save(w); err != nil {
+	if err := Save(1, w); err != nil {
 		t.Fatal(err)
 	}
-	got, err := Load()
+	got, err := Load(1)
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -458,10 +573,10 @@ func TestSaveKeepsFronts(t *testing.T) {
 	w.Fronts[0].AuditDial = events.LaunderGreedy
 	w.SetLaunderDial(events.LaunderCareful)
 	w.Player.CleanCash = 9_000
-	if err := Save(w); err != nil {
+	if err := Save(1, w); err != nil {
 		t.Fatal(err)
 	}
-	got, err := Load()
+	got, err := Load(1)
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -477,10 +592,10 @@ func TestSaveKeepsReputation(t *testing.T) {
 	t.Setenv("KINGPIN_HOME", t.TempDir())
 	w := testWorld()
 	w.Player.Reputation = Reputation{Fear: 61.5, Respect: 12.25, Notoriety: 99}
-	if err := Save(w); err != nil {
+	if err := Save(1, w); err != nil {
 		t.Fatal(err)
 	}
-	got, err := Load()
+	got, err := Load(1)
 	if err != nil {
 		t.Fatal(err)
 	}

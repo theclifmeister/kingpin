@@ -151,10 +151,10 @@ func TestSaveKeepsUpgrades(t *testing.T) {
 	w.FallGuyUsed = true
 	w.Heat.Evidence = 2
 	w.Heat.EvidenceDay = 7
-	if err := Save(w); err != nil {
+	if err := Save(1, w); err != nil {
 		t.Fatal(err)
 	}
-	got, err := Load()
+	got, err := Load(1)
 	if err != nil {
 		t.Fatal(err)
 	}

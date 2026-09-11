@@ -24,10 +24,16 @@ street keeps on you, and a dilemma card every few days.
 go run ./cmd/kingpin
 ```
 
-Needs Go 1.24 and a terminal at least 80x24. A single save slot lives in
-`$KINGPIN_HOME` or your platform config directory under `kingpin/`; the game
-autosaves at the end of every day. Saves from older builds are upgraded on
-load; a save from a newer build than the one you are running is refused.
+Needs Go 1.24 and a terminal at least 80x24. Three save slots live in
+`$KINGPIN_HOME` or your platform config directory under `kingpin/`
+(`save1.gob` to `save3.gob`; a `save.gob` from an older build is slot 1). The
+start menu lists them (`Slot 1 · day 42 · $1.2M · Eastside · saved 2h ago`,
+`Slot 2 · empty`): `enter` continues the run in a slot or starts one in an
+empty slot, `D` empties a slot after a confirmation, and `go run ./cmd/kingpin
+-slot 2` opens a slot without the menu. The game autosaves at the end of every
+day into the slot the run came from; `N` starts over in the same slot. Saves
+from older builds are upgraded on load; a save from a newer build than the one
+you are running is refused.
 
 ## Layout
 

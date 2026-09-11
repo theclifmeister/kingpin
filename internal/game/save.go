@@ -7,11 +7,18 @@ import (
 	"fmt"
 	"os"
 	"path/filepath"
+	"time"
 )
+
+// SlotCount is how many runs live on disk: save1.gob to save3.gob under
+// SaveDir. A slot is a whole world; the start menu picks one.
+const SlotCount = 3
 
 var (
 	// ErrNoSave means there is nothing to continue.
 	ErrNoSave = errors.New("no saved run")
+	// ErrBadSlot is a slot number outside 1..SlotCount.
+	ErrBadSlot = errors.New("no such save slot")
 	// ErrNewerSchema means the save was written by a newer build.
 	ErrNewerSchema = errors.New("save file is from a newer version of kingpin")
 	// ErrOldSchema means the save predates a world change that has no
@@ -39,18 +46,40 @@ func SaveDir() (string, error) {
 	return filepath.Join(base, "kingpin"), nil
 }
 
-// SavePath is the single save slot.
-func SavePath() (string, error) {
+// SavePath is the file a slot lives in, save<N>.gob under SaveDir. The
+// single save.gob of builds before the slots is slot 1: the first time
+// slot 1 is looked at it is renamed, so an old run carries on where it
+// was.
+func SavePath(slot int) (string, error) {
+	if slot < 1 || slot > SlotCount {
+		return "", fmt.Errorf("%w: %d", ErrBadSlot, slot)
+	}
 	dir, err := SaveDir()
 	if err != nil {
 		return "", err
 	}
-	return filepath.Join(dir, "save.gob"), nil
+	p := filepath.Join(dir, fmt.Sprintf("save%d.gob", slot))
+	if slot == 1 {
+		adopt(filepath.Join(dir, "save.gob"), p)
+	}
+	return p, nil
 }
 
-// HasSave reports whether a save slot exists.
-func HasSave() bool {
-	p, err := SavePath()
+// adopt renames the pre-slot save.gob to slot 1's file, once, and only
+// where slot 1 is empty: a run saved into slot 1 since is the newer one.
+func adopt(old, p string) {
+	if _, err := os.Stat(old); err != nil {
+		return
+	}
+	if _, err := os.Stat(p); err == nil {
+		return
+	}
+	_ = os.Rename(old, p)
+}
+
+// HasSave reports whether a slot holds a run.
+func HasSave(slot int) bool {
+	p, err := SavePath(slot)
 	if err != nil {
 		return false
 	}
@@ -58,9 +87,59 @@ func HasSave() bool {
 	return err == nil
 }
 
-// Save writes w to the save slot atomically (temp file then rename).
-func Save(w *World) error {
-	p, err := SavePath()
+// SlotInfo is what the start menu says about a slot without loading it:
+// the day, the cash in hand, the city the player stands in and when the
+// file was written. Empty is a slot with no run in it; a file that does
+// not read leaves the rest zero and Load says why.
+type SlotInfo struct {
+	Slot  int
+	Day   int
+	Cash  int
+	City  string
+	Saved time.Time
+	Empty bool
+}
+
+// Slots describes every slot in order, 1 to SlotCount.
+func Slots() []SlotInfo {
+	infos := make([]SlotInfo, 0, SlotCount)
+	for slot := 1; slot <= SlotCount; slot++ {
+		infos = append(infos, slotInfo(slot))
+	}
+	return infos
+}
+
+func slotInfo(slot int) SlotInfo {
+	info := SlotInfo{Slot: slot, Empty: true}
+	p, err := SavePath(slot)
+	if err != nil {
+		return info
+	}
+	st, err := os.Stat(p)
+	if err != nil {
+		return info
+	}
+	info.Empty = false
+	info.Saved = st.ModTime()
+	b, err := os.ReadFile(p)
+	if err != nil {
+		return info
+	}
+	var w World
+	if err := gob.NewDecoder(bytes.NewReader(b)).Decode(&w); err != nil {
+		return info
+	}
+	info.Day = w.Day
+	info.Cash = w.Cash()
+	if c := w.City(w.Player.Location); c != nil {
+		info.City = c.Name
+	}
+	return info
+}
+
+// Save writes w to the slot atomically (temp file then rename).
+func Save(slot int, w *World) error {
+	p, err := SavePath(slot)
 	if err != nil {
 		return err
 	}
@@ -78,11 +157,11 @@ func Save(w *World) error {
 	return os.Rename(tmp, p)
 }
 
-// Load reads the save slot, upgrading an older save one schema version at a
+// Load reads the slot, upgrading an older save one schema version at a
 // time with the given migrations. A save newer than this build, or older
 // with no migration path, is refused.
-func Load(migrations ...Migration) (*World, error) {
-	p, err := SavePath()
+func Load(slot int, migrations ...Migration) (*World, error) {
+	p, err := SavePath(slot)
 	if err != nil {
 		return nil, err
 	}
@@ -184,9 +263,9 @@ func (w *World) MigrateCities(home StartingCity) {
 	w.legacy = nil
 }
 
-// DeleteSave removes the save slot; missing is not an error.
-func DeleteSave() error {
-	p, err := SavePath()
+// DeleteSave empties the slot; an empty one is not an error.
+func DeleteSave(slot int) error {
+	p, err := SavePath(slot)
 	if err != nil {
 		return err
 	}

@@ -757,14 +757,14 @@ func TestSaveKeepsContracts(t *testing.T) {
 	if got := b.Contract(c.ID); got == nil || got.Delivered != 5 || got.Status != game.ContractAccepted {
 		t.Fatalf("no part-delivered contract to save: %+v", got)
 	}
-	if err := game.Save(b); err != nil {
+	if err := game.Save(1, b); err != nil {
 		t.Fatal(err)
 	}
 	set, _, err := sim.Default(cfg)
 	if err != nil {
 		t.Fatal(err)
 	}
-	b2, err := game.Load(set.Migrations()...)
+	b2, err := game.Load(1, set.Migrations()...)
 	if err != nil {
 		t.Fatal(err)
 	}

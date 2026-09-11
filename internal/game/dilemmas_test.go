@@ -121,10 +121,10 @@ func TestSaveKeepsCard(t *testing.T) {
 	w.Dilemmas.Drawn = map[string]int{"stash_hit": 1}
 	w.Dilemmas.Pending = &Card{ID: "stash_hit", Day: 7, Title: "A night's work", Text: "Tank wants to hit the stash.", Member: 2, Amount: 800,
 		Choices: []Choice{{Label: "Approve it", Outcome: "done", Headline: "Stash hit", Effects: map[string]float64{"heat": 6, "dirty_amount": 1}}, {Label: "Veto it", Outcome: "no"}}}
-	if err := Save(w); err != nil {
+	if err := Save(1, w); err != nil {
 		t.Fatal(err)
 	}
-	w2, err := Load()
+	w2, err := Load(1)
 	if err != nil {
 		t.Fatal(err)
 	}

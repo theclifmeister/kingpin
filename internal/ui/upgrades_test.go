@@ -156,7 +156,7 @@ func TestUpgradesScreenKeys(t *testing.T) {
 	}
 	// It survives a save and load.
 	m.Update(key("ctrl+s"))
-	w, err := game.Load(m.set.Migrations()...)
+	w, err := game.Load(1, m.set.Migrations()...)
 	if err != nil || !w.Owns("stash") {
 		t.Fatalf("load: %v owns %v", err, w != nil && w.Owns("stash"))
 	}

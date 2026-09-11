@@ -8,6 +8,7 @@ import (
 	"fmt"
 	"math"
 	"strings"
+	"time"
 )
 
 // Arrow is what a change is written with: `14 → 17`, never `->`.
@@ -67,6 +68,20 @@ func Price(v float64) string {
 		return fmt.Sprintf("$%.2f", v)
 	}
 	return Money(int(math.Round(v)))
+}
+
+// Ago is how long since something happened, the way the start menu dates
+// a save: `just now` under a minute, then `5m ago`, `2h ago`, `3d ago`.
+func Ago(d time.Duration) string {
+	switch {
+	case d < time.Minute:
+		return "just now"
+	case d < time.Hour:
+		return fmt.Sprintf("%dm ago", int(d/time.Minute))
+	case d < 24*time.Hour:
+		return fmt.Sprintf("%dh ago", int(d/time.Hour))
+	}
+	return fmt.Sprintf("%dd ago", int(d/(24*time.Hour)))
 }
 
 // A is a noun with its indefinite article: `a runner`, `an enforcer`.
