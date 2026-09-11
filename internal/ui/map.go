@@ -140,7 +140,7 @@ func (m *Model) askPost(role string) {
 		return
 	}
 	if len(m.postRows(role)) == 0 {
-		m.status = "No " + role + "s to post. Hire one on the crew screen (4)."
+		m.status = "No " + role + "s to post. Hire one " + screenPointer(screenCrew) + "."
 		return
 	}
 	m.postRole = role
@@ -158,7 +158,7 @@ func (m *Model) confirmPost() {
 	who := rows[max(0, min(m.postCursor, len(rows)-1))]
 	if err := m.w.Post(c.ID, who.ID); err != nil {
 		if who.ID == game.You && err == game.ErrElsewhere {
-			m.status = fmt.Sprintf("You are in %s: go there first (g) to stand on %s.", m.w.Here().Name, c.Name)
+			m.status = fmt.Sprintf("You are in %s: go there first to stand on %s.", m.w.Here().Name, c.Name)
 			return
 		}
 		m.status = "Can't post: " + err.Error()
@@ -326,17 +326,17 @@ func (m *Model) viewMap() string {
 // mapDetails is the map's pane: the inspector for the corner under the
 // cursor, or the route's detail while the cursor is on the routes, and
 // the keys.
-func (m *Model) mapDetails() ([]section, []binding) {
+func (m *Model) mapDetails() []section {
 	if m.onRoutes {
 		if r := m.selectedRoute(); r != nil {
-			return []section{m.routeSection(*r)}, m.screenKeys()
+			return []section{m.routeSection(*r)}
 		}
 	}
 	sel := m.mapSelected()
 	if sel == nil {
-		return nil, m.screenKeys()
+		return nil
 	}
-	return []section{m.cornerSection(sel)}, m.screenKeys()
+	return []section{m.cornerSection(sel)}
 }
 
 // cornerSection is the corner inspector: whose it is and since when,
@@ -408,20 +408,20 @@ func (m *Model) cornerSection(sel *game.Corner) section {
 	case sel.Worked():
 		lines = append(lines, keyRow("c", "move a runner here"), keyRow("e", "post an enforcer"), keyRow("a", "abandon the corner"))
 	case sel.Held():
-		lines = append(lines, wrapped(theme.Warning, "Nobody is working it: it goes back to the street unless you post a runner (c).")...)
+		lines = append(lines, wrapped(theme.Warning, "Nobody is working it: it goes back to the street unless a runner takes it.")...)
 	case sel.Owner == game.OwnerRival:
 		if n := w.Crew.Role("enforcer"); n > 0 {
 			lines = append(lines,
 				keyRow("w", fmt.Sprintf("push takes it ~%.0f%%", m.set.Rivals.Odds(w, events.ForcePush)*100)),
 				keyRow("", fmt.Sprintf("hit takes it ~%.0f%%", m.set.Rivals.Odds(w, events.ForceHit)*100)))
 		} else {
-			lines = append(lines, wrapped(theme.Subtle, "Taking it is a matter for the enforcers. Hire some on the crew screen (4).")...)
+			lines = append(lines, wrapped(theme.Subtle, "Taking it is a matter for the enforcers. Hire some "+screenPointer(screenCrew)+".")...)
 		}
 	default:
 		if city.ID == w.Player.Location {
-			lines = append(lines, wrapped(theme.Subtle, "Post a runner (c) or yourself to claim it. Its demand is yours while it is worked.")...)
+			lines = append(lines, wrapped(theme.Subtle, "Post a runner or yourself to claim it. Its demand is yours while it is worked.")...)
 		} else {
-			lines = append(lines, wrapped(theme.Subtle, "Post a runner (c) to claim it; you would have to go there (g) to stand on it yourself.")...)
+			lines = append(lines, wrapped(theme.Subtle, "Post a runner to claim it; you would have to go there to stand on it yourself.")...)
 		}
 	}
 	return section{strings.ToUpper(sel.Name), lines}

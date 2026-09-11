@@ -144,20 +144,20 @@ func (m *Model) viewMarket() string {
 // the city shown (its range, glut, margin and demand), what it is worth
 // elsewhere, the notes on where you are and the wholesaler, and the
 // keys; the contract's terms instead while the cursor is on the buyers.
-func (m *Model) marketDetails() ([]section, []binding) {
+func (m *Model) marketDetails() []section {
 	w := m.w
 	city := m.shown()
 	here := city.ID == w.Player.Location
 	if c := m.selectedContract(); c != nil {
-		return m.contractSections(*c), m.screenKeys()
+		return m.contractSections(*c)
 	}
 	if m.cursor >= len(w.Products) {
-		return nil, m.screenKeys()
+		return nil
 	}
 	id := w.Products[m.cursor]
 	p := city.Market[id]
 	if p == nil {
-		return nil, m.screenKeys()
+		return nil
 	}
 	lo, hi := p.Price, p.Price
 	for _, v := range p.History {
@@ -191,6 +191,9 @@ func (m *Model) marketDetails() ([]section, []binding) {
 	sel = append(sel,
 		row("demand", fmt.Sprintf("~%.0f/day, %d %s", w.Demand(city.ID, id), w.WorkedIn(city.ID), corners)),
 		row("", theme.Subtle.Render(fmt.Sprintf("~%.0f/standard corner", p.Demand))))
+	if len(m.buyerRows()) > 0 {
+		sel = append(sel, keyRow("↓", "past the table reaches the buyers"))
+	}
 	secs := []section{{strings.ToUpper(p.Name) + " · " + strings.ToUpper(city.Name), sel}}
 	// The other city's price is what a route is worth.
 	var elsewhere []string
@@ -218,18 +221,18 @@ func (m *Model) marketDetails() ([]section, []binding) {
 		notes = append(notes, wrapped(theme.Warning, "Not sold here: it comes in by the road (the map's routes) or in your pockets.")...)
 	}
 	if !here {
-		notes = append(notes, wrapped(theme.Subtle, fmt.Sprintf("You are in %s: the supplier here sells to you there (g). Runners sell what is stashed here.", w.Here().Name))...)
+		notes = append(notes, wrapped(theme.Subtle, fmt.Sprintf("You are in %s: the supplier here sells to you there, not here. Runners sell what is stashed here.", w.Here().Name))...)
 	}
 	if city.Wholesale {
 		o := m.set.Logistics.Wholesale()
 		if o.Locked(w) {
 			notes = append(notes, wrapped(theme.Subtle, fmt.Sprintf("The supplier here sells lots of %d at %.0f%% to the routes once you have moved %s.", o.Lot, o.Mul*100, cash(o.UnlockCash)))...)
 		} else {
-			notes = append(notes, wrapped(theme.Good, fmt.Sprintf("Wholesale: lots of %d at %.0f%% of the supplier price feed the routes out of here (map, r).", o.Lot, o.Mul*100))...)
+			notes = append(notes, wrapped(theme.Good, fmt.Sprintf("Wholesale: lots of %d at %.0f%% of the supplier price feed the routes out of here, run %s.", o.Lot, o.Mul*100, screenPointer(screenMap)))...)
 		}
 	}
 	if len(notes) > 0 {
 		secs = append(secs, section{"NOTES", notes})
 	}
-	return secs, m.screenKeys()
+	return secs
 }

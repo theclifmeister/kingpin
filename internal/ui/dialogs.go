@@ -47,7 +47,7 @@ func (m *Model) openDialog(mode mode) {
 		return
 	}
 	if m.w.LieLow && mode == modeSell {
-		m.status = "You are lying low today. Press l to get back on the corner."
+		m.status = "You are lying low today: nothing sells."
 		return
 	}
 	ti := textinput.New()
@@ -60,9 +60,9 @@ func (m *Model) openDialog(mode mode) {
 		city := m.actionCity()
 		if m.w.Player.StockIn(city) == 0 {
 			if m.w.Player.TotalStock() == 0 {
-				m.status = "Nothing to sell. Press b to buy from the supplier."
+				m.status = "Nothing to sell. Buy from the supplier first."
 			} else {
-				m.status = fmt.Sprintf("Nothing stashed in %s to sell. Turn to the other city (←→), or run a route into it (5, r).", m.w.CityName(city))
+				m.status = fmt.Sprintf("Nothing stashed in %s to sell: turn to the other city, or run a route into it %s.", m.w.CityName(city), screenPointer(screenMap))
 			}
 			return
 		}
@@ -294,7 +294,7 @@ func (m *Model) viewDialog() string {
 				body = append(body, fmt.Sprintf("total      %s   %s", style.Render(money(cost)), theme.Subtle.Render("dirty cash "+cash(w.Player.DirtyCash))))
 			}
 			if o := m.set.Logistics.Wholesale(); w.Here().Wholesale && !o.Locked(w) {
-				body = append(body, theme.Subtle.Render(fmt.Sprintf("The wholesaler here sells lots of %d at %s/unit to the routes (map, r).", o.Lot, price(p.SupplierPrice*o.Mul))))
+				body = append(body, theme.Subtle.Render(fmt.Sprintf("The wholesaler's lots of %d at %s/unit go to the routes %s.", o.Lot, price(p.SupplierPrice*o.Mul), screenPointer(screenMap))))
 			}
 		} else {
 			body = append(body, fmt.Sprintf("quantity   %s   %s", d.qty.View(), theme.Subtle.Render(fmt.Sprintf("have %d in %s", w.Stock(city, id), w.CityName(city)))))
@@ -314,7 +314,7 @@ func (m *Model) viewDialog() string {
 		h := m.estHeat(city, id, qty, d.dial)
 		body = append(body, fmt.Sprintf("heat       %s   %s", heatStyle(w.City(city).Heat+h*4).Render(fmt.Sprintf("+%.1f", h)), theme.Subtle.Render(dialBlurb(d.dial))))
 		if w.WorkedIn(city) == 0 {
-			body = append(body, theme.Bad.Render(fmt.Sprintf("You work no corner in %s: nothing will sell. Post somebody (map, 5).", w.CityName(city))))
+			body = append(body, theme.Bad.Render(fmt.Sprintf("You work no corner in %s: nothing will sell.", w.CityName(city))), theme.Bad.Render("Post somebody "+screenPointer(screenMap)+"."))
 		}
 	}
 

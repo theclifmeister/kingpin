@@ -536,7 +536,7 @@ func (m *Model) keyStart(key string) (tea.Model, tea.Cmd) {
 func (m *Model) pickStart() (tea.Model, tea.Cmd) {
 	if m.startChoice == 0 {
 		if err := m.continueRun(); err != nil {
-			m.status = "Could not load save: " + err.Error() + " (press n for a new run)"
+			m.status = "Could not load save: " + err.Error()
 			m.startChoice = 1
 		}
 		return m, nil
@@ -545,251 +545,122 @@ func (m *Model) pickStart() (tea.Model, tea.Cmd) {
 	return m, nil
 }
 
+// keyPlay is the main screen's key handler: the key table (keys.go) and
+// nothing else. A key no binding on this screen takes is refused with a
+// pointer to the screen where one does, if it is a letter that means
+// something there; a key the screen lists but that is not live now, the
+// arrows and the paging keys are silent where they do nothing.
 func (m *Model) keyPlay(key string) (tea.Model, tea.Cmd) {
 	m.status, m.statusKind = "", statusBody
-	switch key {
-	case "q":
-		return m.quit()
-	case " ":
-		// The details: beside MAIN they hide and show; where the terminal
-		// is too narrow for that they open as an overlay.
-		if m.width >= paneMinWidth {
-			m.paneHidden = !m.paneHidden
-			m.resize()
-		} else {
-			m.mode = modeDetails
+	b, found, own := m.lookup(key)
+	switch {
+	case found:
+		b.do(m, key)
+		if m.quitting {
+			return m, tea.Quit
 		}
-	case "ctrl+s":
-		m.save()
-	case "?":
-		m.mode = modeHelp
-	case "1":
-		m.screen = screenDashboard
-	case "2":
-		m.screen = screenMarket
-	case "3":
-		m.screen = screenJournal
+	case !own && len(key) == 1:
+		if p := pointer(key); p != "" {
+			m.refuse(p)
+		}
+	}
+	return m, nil
+}
+
+// switchScreen shows a screen.
+func (m *Model) switchScreen(s screen) {
+	m.screen = s
+	if s == screenJournal {
 		m.refreshJournal()
-	case "4":
-		m.screen = screenCrew
-	case "5":
-		m.screen = screenMap
-	case "6":
-		m.screen = screenUpgrades
-	case "7":
-		m.screen = screenLedger
-	case "8":
-		m.screen = screenRivals
-	case "tab":
-		m.screen = (m.screen + 1) % screenCount
-	case "shift+tab":
-		m.screen = (m.screen + screenCount - 1) % screenCount
-	case "n":
-		m.endDay()
-	case "enter":
-		if m.screen == screenUpgrades {
-			m.askUpgrade()
-		} else {
-			m.mode = modeConfirmEnd
-		}
-	case "u":
-		if m.screen == screenUpgrades {
-			m.askUpgrade()
-		} else {
-			m.refuse("Upgrades are bought on the tree (6).")
-		}
-	case "r":
-		if m.screen == screenMap {
-			m.cycleRoute()
-		} else if m.w.Report != nil {
-			m.mode = modeReport
-		}
-	case "R":
-		if m.screen == screenMap {
-			m.openTarget()
-		} else {
-			m.refuse("The routes are run from the map (5): r turns a dial, R sets a target.")
-		}
-	case "b":
-		if m.screen == screenLedger {
-			m.askFront()
-		} else {
-			m.openDialog(modeBuy)
-		}
-	case "s":
-		m.openDialog(modeSell)
-	case "t":
-		if m.screen == screenCrew {
-			m.askAssign()
-		} else {
-			m.refuse("Nothing to ship by hand: the routes run themselves. Turn one on the map (5, r).")
-		}
-	case "g":
-		m.askTravel()
-	case "[", "]":
-		d := 1
-		if key == "[" {
-			d = -1
-		}
-		m.cycleCity(d)
-	case "x":
-		if m.screen == screenRivals {
-			m.answerOffer(false)
-			break
-		}
-		if m.screen == screenMarket && m.onBuyers {
-			m.answerContract(false)
-			break
-		}
-		id := m.w.Products[m.cursor]
-		if city := m.actionCity(); m.w.Cities[city] != nil {
-			if _, ok := m.w.Order(city, id); ok {
-				m.w.CancelSell(city, id)
-				m.status = "Order cancelled."
-			}
-		}
-	case "y":
-		if m.screen == screenRivals {
-			m.answerOffer(true)
-		}
-	case "l":
-		m.w.SetLieLow(!m.w.LieLow)
-		if m.w.LieLow {
-			m.status = "Lying low today: no sales, heat fades faster."
-		} else {
-			m.status = "Back on the corner."
-		}
-	case "N":
-		m.mode = modeConfirmNew
-	case "h":
-		if m.screen == screenCrew {
-			m.hireSelected()
-		} else {
-			m.refuse("Hiring happens on the crew screen (4).")
-		}
-	case "f":
-		switch m.screen {
-		case screenCrew:
-			m.askFire()
-		case screenLedger:
-			m.askFund()
-		default:
-			m.refuse("A city is funded from the ledger (7).")
-		}
-	case "p":
-		m.cyclePay()
-	case "d":
-		switch {
-		case m.screen == screenRivals:
-			m.askPropose()
-		case m.screen == screenMarket && m.onBuyers:
-			m.deliverSelected()
-		default:
-			m.cycleLaunder()
-		}
-	case "i":
-		if m.screen == screenCrew {
-			m.askInvestigate()
-		} else {
-			m.refuse("Questions are asked on the crew screen (4).")
-		}
-	case "$":
-		if m.screen == screenCrew {
-			m.askPayOff()
-		} else {
-			m.refuse("People are paid off on the crew screen (4).")
-		}
-	case "c":
-		if m.screen == screenMap {
-			m.askPost("runner")
-		} else {
-			m.refuse("Corners are claimed on the map (5).")
-		}
-	case "e":
-		if m.screen == screenMap {
-			m.askPost("enforcer")
-		}
-	case "a":
-		switch {
-		case m.screen == screenMap:
-			m.abandonSelected()
-		case m.screen == screenMarket && m.onBuyers:
-			m.answerContract(true)
-		}
-	case "w":
-		if m.screen == screenMap {
-			m.askStrike()
-		} else {
-			m.refuse("Enforcers are sent from the map (5).")
-		}
-	case "up", "k":
-		switch {
-		case m.screen == screenJournal:
+	}
+}
+
+// moveCursor moves the screen's cursor: down a list, along the map's
+// grid, across the upgrade columns, between the cities on the market;
+// the journal scrolls. Arrows never move between tabs (the digits and
+// tab do that), and a screen with no horizontal structure ignores dx.
+func (m *Model) moveCursor(dx, dy int) {
+	switch m.screen {
+	case screenJournal:
+		if dy < 0 {
 			m.journal.ScrollUp(1)
-		case m.screen == screenCrew:
-			if m.crewCursor > 0 {
-				m.crewCursor--
-			}
-		case m.screen == screenMap:
-			m.mapMove(0, -1)
-		case m.screen == screenUpgrades:
-			m.upgradeMove(0, -1)
-		case m.screen == screenRivals:
-			if m.dealCursor > 0 {
-				m.dealCursor--
-			}
-		case m.screen == screenMarket && m.onBuyers:
-			m.buyersMove(-1)
-		case m.cursor > 0:
-			m.cursor--
-		}
-	case "down", "j":
-		switch {
-		case m.screen == screenJournal:
+		} else if dy > 0 {
 			m.journal.ScrollDown(1)
-		case m.screen == screenCrew:
-			if m.crewCursor < len(m.crewRows())-1 {
-				m.crewCursor++
-			}
-		case m.screen == screenMap:
-			m.mapMove(0, 1)
-		case m.screen == screenUpgrades:
-			m.upgradeMove(0, 1)
-		case m.screen == screenRivals:
-			if m.dealCursor < len(m.w.Offers)-1 {
-				m.dealCursor++
-			}
-		case m.screen == screenMarket && m.onBuyers:
-			m.buyersMove(1)
-		case m.cursor < len(m.w.Products)-1:
+		}
+	case screenCrew:
+		if dy < 0 && m.crewCursor > 0 {
+			m.crewCursor--
+		} else if dy > 0 && m.crewCursor < len(m.crewRows())-1 {
+			m.crewCursor++
+		}
+	case screenMap:
+		m.mapMove(dx, dy)
+	case screenUpgrades:
+		m.upgradeMove(dx, dy)
+	case screenRivals:
+		if dy < 0 && m.dealCursor > 0 {
+			m.dealCursor--
+		} else if dy > 0 && m.dealCursor < len(m.w.Offers)-1 {
+			m.dealCursor++
+		}
+	case screenMarket:
+		switch {
+		case dx != 0:
+			m.cycleCity(dx)
+		case m.onBuyers:
+			m.buyersMove(dy)
+		case dy < 0 && m.cursor > 0:
+			m.cursor--
+		case dy > 0 && m.cursor < len(m.w.Products)-1:
 			m.cursor++
-		case m.screen == screenMarket && len(m.buyerRows()) > 0:
+		case dy > 0 && len(m.buyerRows()) > 0:
 			// Off the bottom of the table the arrows reach the buyers,
 			// the way the map's reach the routes.
 			m.onBuyers, m.buyerCursor = true, 0
 		}
-	case "left", "right":
-		// Arrows move within a screen, never between tabs: along the
-		// map's grid, across the upgrade columns, between the cities on
-		// the market. Screens with no horizontal structure ignore them.
-		dx := 1
-		if key == "left" {
-			dx = -1
+	default:
+		if dy < 0 && m.cursor > 0 {
+			m.cursor--
+		} else if dy > 0 && m.cursor < len(m.w.Products)-1 {
+			m.cursor++
 		}
-		switch m.screen {
-		case screenMap:
-			m.mapMove(dx, 0)
-		case screenUpgrades:
-			m.upgradeMove(dx, 0)
-		case screenMarket:
-			m.cycleCity(dx)
-		}
-	case "pgup":
-		m.journal.HalfPageUp()
-	case "pgdown":
-		m.journal.HalfPageDown()
 	}
-	return m, nil
+}
+
+// cancelSelected cancels the order on the selected product in the city
+// acted on.
+func (m *Model) cancelSelected() {
+	if m.cursor >= len(m.w.Products) {
+		return
+	}
+	id := m.w.Products[m.cursor]
+	if city := m.actionCity(); m.w.Cities[city] != nil {
+		if _, ok := m.w.Order(city, id); ok {
+			m.w.CancelSell(city, id)
+			m.status = "Order cancelled."
+		}
+	}
+}
+
+// toggleLieLow turns lying low on and off for today.
+func (m *Model) toggleLieLow() {
+	m.w.SetLieLow(!m.w.LieLow)
+	if m.w.LieLow {
+		m.status = "Lying low today: no sales, heat fades faster."
+	} else {
+		m.status = "Back on the corner."
+	}
+}
+
+// toggleDetails is space: beside MAIN the details pane hides and shows;
+// where the terminal is too narrow for that it opens as an overlay.
+func (m *Model) toggleDetails() {
+	if m.width >= paneMinWidth {
+		m.paneHidden = !m.paneHidden
+		m.resize()
+	} else {
+		m.mode = modeDetails
+	}
 }
 
 func (m *Model) quit() (tea.Model, tea.Cmd) {
@@ -863,11 +734,9 @@ func (m *Model) View() string {
 	case modePropose:
 		body = m.viewPropose()
 	case modeDetails:
-		secs, keys := m.details()
-		body = m.overlay(secs, keys, m.accent())
+		body = m.overlay(m.details(), m.legendKeys(), m.accent())
 	default:
-		secs, keys := m.details()
-		return m.frame(m.viewScreen(), secs, keys, m.accent())
+		return m.frame(m.viewScreen(), m.details(), m.legendKeys(), m.accent())
 	}
 	body = lipgloss.NewStyle().Width(m.width).Height(m.bodyHeight()).MaxHeight(m.bodyHeight()).Render(body)
 	return lines(m.viewTitle(), body, m.viewTicker(), m.viewFooter())
@@ -896,8 +765,8 @@ func (m *Model) viewScreen() string {
 }
 
 // details is the pane's content for the screen shown: its sections, the
-// selection first, and the keys it accepts.
-func (m *Model) details() ([]section, []binding) {
+// selection first. The keys it accepts are the key table's (keysFor).
+func (m *Model) details() []section {
 	switch m.screen {
 	case screenMarket:
 		return m.marketDetails()
@@ -1020,41 +889,13 @@ func (m *Model) viewTicker() string {
 	return lipgloss.NewStyle().Foreground(theme.News).Render(fit(rot, m.width))
 }
 
-// screenKeys are the keys a screen accepts beyond the globals (n, ?, q
-// and the screen switches): what the legend lists after `n end day`
-// and the pane's KEYS section lists. #80 replaces the source with the
-// key table.
-func (m *Model) screenKeys() []binding {
-	switch m.screen {
-	case screenCrew:
-		return []binding{{"↑↓", "pick"}, {"h", "hire"}, {"f", "fire"}, {"t", "assign"}, {"i", "ask"}, {"$", "pay off"}, {"p", "pay dial"}}
-	case screenMap:
-		return []binding{{"↑↓←→", "pick"}, {"[ ]", "city"}, {"c", "runner"}, {"e", "enforcer"}, {"a", "abandon"}, {"w", "war"}, {"r R", "route"}, {"g", "go"}}
-	case screenMarket:
-		if m.onBuyers {
-			return []binding{{"↑↓", "pick"}, {"a", "accept"}, {"x", "decline"}, {"d", "deliver"}, {"g", "go"}}
-		}
-		return []binding{{"↑↓", "pick"}, {"←→", "city"}, {"b", "buy"}, {"s", "sell"}, {"x", "cancel"}, {"g", "go"}}
-	case screenJournal:
-		return []binding{{"↑↓", "scroll"}, {"pgup", "page up"}, {"pgdn", "page down"}}
-	case screenUpgrades:
-		return []binding{{"↑↓←→", "pick"}, {"enter", "buy"}}
-	case screenLedger:
-		return []binding{{"b", "buy a front"}, {"f", "fund the city"}, {"d", "launder dial"}, {"l", "lie low"}}
-	case screenRivals:
-		return []binding{{"↑↓", "pick offer"}, {"d", "propose"}, {"y", "accept"}, {"x", "decline"}}
-	default:
-		return []binding{{"↑↓", "pick"}, {"b", "buy"}, {"s", "sell"}, {"x", "cancel order"}, {"l", "lie low"}, {"p", "pay dial"}, {"d", "launder dial"}, {"g", "go"}, {"r", "report"}}
-	}
-}
-
-// playLegend is the status bar's key pairs in play mode: `n end day`
-// first, the screen's keys, `␣ details`, then `? help` last. Inside a
-// modal the bar repeats the modal's footer instead (modalFooter).
-func (m *Model) playLegend() []binding {
-	keys := []binding{{"n", "end day"}}
-	keys = append(keys, m.screenKeys()...)
-	return append(keys, binding{"␣", "details"}, binding{"?", "help"})
+// legendKeys is the status bar's legend in play mode: the key table's
+// list for the screen shown (keysFor: `n end day` first, the cursor
+// keys, the screen's actions, `? help` last). The pane's KEYS section
+// lists the same. Inside a modal the bar repeats the modal's footer
+// instead (modalFooter).
+func (m *Model) legendKeys() []binding {
+	return m.keysFor(m.screen)
 }
 
 // statusStyle is the colour of the status message by its kind. A site
@@ -1085,7 +926,7 @@ func (m *Model) viewFooter() string {
 	if f := m.modalFooter(); f != nil {
 		return fit(legend(f), m.width)
 	}
-	pairs := m.playLegend()
+	pairs := m.legendKeys()
 	msg := ""
 	if m.status != "" {
 		msg = m.statusStyle().Render(m.status)
@@ -1094,7 +935,7 @@ func (m *Model) viewFooter() string {
 	for n := len(pairs); n >= 0; n-- {
 		var keys string
 		for _, b := range pairs[:n] {
-			keys += k(b.key, b.label)
+			keys += k(b.key, m.labelOf(b))
 		}
 		kw := lipgloss.Width(keys)
 		switch {
@@ -1147,43 +988,10 @@ func (m *Model) viewStart() string {
 	return lipgloss.NewStyle().Width(m.width).Height(m.height).MaxHeight(m.height).Render(box)
 }
 
+// viewHelp is the whole key table, grouped by screen, in the scrolling
+// modal.
 func (m *Model) viewHelp() string {
-	rows := [][2]string{
-		{"1-8 / tab", "switch screen (shift+tab goes back)"},
-		{"n", "end the day (sims step, autosave)"},
-		{"enter", "end the day, after a confirmation"},
-		{"b", "buy from the supplier where you are (ledger: a front)"},
-		{"s", "queue a street sale with the dial, in the city shown"},
-		{"r / R", "map: turn the selected route's dial / set its target"},
-		{"g", "go to the other city; your corner and stock stay put"},
-		{"[ ]", "turn the market and map to the other city"},
-		{"x", "cancel the order on the selected product"},
-		{"l", "lie low today (no sales, heat fades faster)"},
-		{"r", "reopen the morning report (anywhere but the map)"},
-		{"h / f", "hire / fire the selected person (crew screen)"},
-		{"f", "on the ledger: fund a city with clean cash for goodwill"},
-		{"t", "crew screen: the selected lieutenant runs a city"},
-		{"i / $", "investigate who is talking / pay off the person (crew)"},
-		{"p", "cycle crew pay: stingy / fair / generous"},
-		{"c / e / a", "post a runner / an enforcer / abandon the corner (map)"},
-		{"w", "send the enforcers at a rival corner: warn/push/hit (map)"},
-		{"u / enter", "buy the selected upgrade, after a confirmation"},
-		{"d", "cycle the launder dial (rivals screen: propose a deal)"},
-		{"y / x", "accept / decline the selected offer (rivals screen)"},
-		{"a / x / d", "market, on a buyer: accept / decline / deliver from the stash there"},
-		{"↑ ↓ / j k", "move the cursor / scroll journal (map: down to the routes)"},
-		{"← →", "walk the map grid / the upgrade columns / the cities"},
-		{"ctrl+s", "save now"},
-		{"N", "abandon run and start over"},
-		{"q", "save and quit"},
-	}
-	// The key column, two spaces and the description; the modal cuts a
-	// long one to its width, never wraps it.
-	var body []string
-	for _, r := range rows {
-		body = append(body, theme.Key.Render(fit(r[0], 14))+"  "+r[1])
-	}
-	body = append(body, "", theme.Subtle.Render("Heat is the antagonist. Greed is always available."))
+	body := append(m.helpLines(), "", theme.Subtle.Render("Heat is the antagonist. Greed is always available."))
 	return m.modal("HELP", body, m.modalFooter())
 }
 
@@ -1305,7 +1113,7 @@ var journalSources = []string{"market", "buyers", "heat", "law", "crew", "territ
 
 // journalDetails is the journal's pane: what the colours mean, and the
 // keys.
-func (m *Model) journalDetails() ([]section, []binding) {
+func (m *Model) journalDetails() []section {
 	var legend []string
 	for i := 0; i < len(journalSources); i += 2 {
 		l := fit(lipgloss.NewStyle().Foreground(theme.Source(journalSources[i])).Render(journalSources[i]), paneTextW/2)
@@ -1321,7 +1129,7 @@ func (m *Model) journalDetails() ([]section, []binding) {
 		}},
 		{"LEGEND", legend},
 	}
-	return secs, m.screenKeys()
+	return secs
 }
 
 // stripANSI removes escape sequences so the ticker can be rotated by rune.

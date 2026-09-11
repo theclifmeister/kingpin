@@ -192,7 +192,7 @@ func (m *Model) ownedLine() string {
 		}
 	}
 	if len(ids) == 0 {
-		return "no upgrades yet: see the tree (6)"
+		return "no upgrades yet: buy " + screenPointer(screenUpgrades)
 	}
 	return "upgrades " + strings.Join(ids, ", ")
 }
@@ -264,11 +264,11 @@ func (m *Model) viewUpgrades() string {
 // upgradesDetails is the tree's pane: the inspector for the node under
 // the cursor (what it costs and from which pool, where it stands, what
 // it does, one effect per line) and the keys.
-func (m *Model) upgradesDetails() ([]section, []binding) {
+func (m *Model) upgradesDetails() []section {
 	w := m.w
 	sel, ok := m.upgradeSelected()
 	if !ok {
-		return nil, m.screenKeys()
+		return nil
 	}
 	lines := []string{row("cost", theme.Gold.Render(cash(sel.Cost)+" "+pool(sel)))}
 	switch m.upgradeState(sel) {
@@ -304,7 +304,7 @@ func (m *Model) upgradesDetails() ([]section, []binding) {
 	if m.upgradeState(sel) == "available" && m.canAfford(sel) {
 		lines = append(lines, keyRow("u", "buy it"))
 	}
-	return []section{{strings.ToUpper(sel.Name), lines}}, m.screenKeys()
+	return []section{{strings.ToUpper(sel.Name), lines}}
 }
 
 // upgradeConfirm is the modal body for buying the node awaiting yes.

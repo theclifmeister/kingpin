@@ -39,7 +39,7 @@ func (m *Model) streetLines(innerW int, withRoad bool) string {
 		street.WriteString(lipgloss.NewStyle().Foreground(theme.Logistics).Render(line) + "\n")
 	}
 	if w.Worked() == 0 {
-		street.WriteString(theme.Bad.Render("You hold no corner, so nothing sells. Claim one on the map (5).") + "\n")
+		street.WriteString(theme.Bad.Render("You hold no corner, so nothing sells. Claim one "+screenPointer(screenMap)+".") + "\n")
 	} else {
 		held := 0
 		for _, c := range here.Corners {
@@ -73,18 +73,18 @@ func (m *Model) streetLines(innerW int, withRoad bool) string {
 	}
 	street.WriteString(theme.Subtle.Render(m.ownedLine()) + "\n")
 	if m.talking() {
-		street.WriteString(theme.Bad.Render("Somebody is talking. Investigate (4, i).") + "\n")
+		street.WriteString(theme.Bad.Render("Somebody is talking. Investigate "+screenPointer(screenCrew)+".") + "\n")
 	}
 	if w.LieLow {
 		street.WriteString(theme.Warning.Render("Lying low today. No sales, heat fades faster.") + "\n")
 	} else if len(w.Orders) == 0 {
 		if lt := w.Crew.Lieutenant(here.ID); lt != nil && m.standingHere() > 0 {
-			street.WriteString(theme.Gold.Render(fmt.Sprintf("%s sells the stash here at %s. Press s to override, n to end the day.", lt.Name, m.set.Crew.Dial(*lt))) + "\n")
+			street.WriteString(theme.Gold.Render(fmt.Sprintf("%s sells the stash here at %s; an order of yours overrides it.", lt.Name, m.set.Crew.Dial(*lt))) + "\n")
 		} else {
-			street.WriteString(theme.Subtle.Render("No sales queued. Press s to sell, n to end the day.") + "\n")
+			street.WriteString(tutorialLine() + "\n")
 		}
 	} else {
-		street.WriteString(theme.Gold.Render("Orders queued. Press n to end the day.") + "\n")
+		street.WriteString(theme.Gold.Render("Orders queued for tonight.") + "\n")
 	}
 	if w.Heat.SellCapDays > 0 {
 		street.WriteString(theme.Bad.Render(fmt.Sprintf("Patrols: sales capped at %.0f%% of demand for %d more day(s).", w.Heat.SellCap*100, w.Heat.SellCapDays)) + "\n")
@@ -173,7 +173,7 @@ func (m *Model) cashLines(elsewhere bool) string {
 	case m.cfg.Heat.Heat.DirtyCashThreshold > 0 && w.Player.DirtyCash > m.cfg.Heat.Heat.DirtyCashThreshold:
 		till.WriteString(theme.Warning.Render(fmt.Sprintf("dirty cash over %s draws heat", cash(m.cfg.Heat.Heat.DirtyCashThreshold))) + "\n")
 	case len(w.Fronts) == 0 && len(rows) > 0 && !rows[0].Locked(w):
-		till.WriteString(theme.Subtle.Render("a front is on offer (7)") + "\n")
+		till.WriteString(theme.Subtle.Render("a front is on offer") + "\n")
 	}
 	if other := m.otherHeat(); other != "" && elsewhere {
 		till.WriteString(theme.Subtle.Render("heat elsewhere ") + other + "\n")
@@ -188,7 +188,7 @@ func (m *Model) alertLines(width, n int) []string {
 	w := m.w
 	var out []string
 	if m.talking() {
-		out = append(out, theme.Bad.Bold(true).Render("Somebody is talking.")+theme.Bad.Render(" Investigate (4, i)."))
+		out = append(out, theme.Bad.Bold(true).Render("Somebody is talking.")+theme.Bad.Render(" Investigate "+screenPointer(screenCrew)+"."))
 	}
 	for _, a := range m.contractAlerts() {
 		out = append(out, truncate(a, max(10, width)))
@@ -297,7 +297,7 @@ func (m *Model) dashboardWide(width, h int) string {
 
 // dashboardDetails is the dashboard's pane: the product under the
 // cursor, the alerts, and the keys.
-func (m *Model) dashboardDetails() ([]section, []binding) {
+func (m *Model) dashboardDetails() []section {
 	w := m.w
 	here := w.Here()
 	var secs []section
@@ -357,7 +357,7 @@ func (m *Model) dashboardDetails() ([]section, []binding) {
 		}
 	}
 	secs = append(secs, section{"ALERTS", m.alertLines(paneTextW, 8)})
-	return secs, m.screenKeys()
+	return secs
 }
 
 // elsewhereLine is what you hold outside the city you are in and what is

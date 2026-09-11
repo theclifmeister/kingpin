@@ -54,7 +54,7 @@ func (m *Model) cycleLaunder() {
 	d := (m.w.Laundering.Dial + 1) % 3
 	m.w.SetLaunderDial(d)
 	if len(m.w.Fronts) == 0 {
-		m.status = fmt.Sprintf("Launder dial %s. %s Buy a front on the ledger (7) to use it.", d, launderBlurb(d))
+		m.status = fmt.Sprintf("Launder dial %s. %s Buy a front %s to use it.", d, launderBlurb(d), screenPointer(screenLedger))
 		return
 	}
 	m.status = fmt.Sprintf("Launder dial %s: washing up to %s/day, audit risk %.1f%%/day. %s", d, money(m.set.Laundering.Capacity(m.w)), m.set.Laundering.AnyAuditRisk(m.w)*100, launderBlurb(d))
@@ -138,7 +138,7 @@ func (m *Model) viewLedger() string {
 			dial = append(dial, theme.Subtle.Render(" "+d.String()+" "))
 		}
 	}
-	b.WriteString(truncate("  dial "+strings.Join(dial, "")+theme.Subtle.Render(fmt.Sprintf("  audit risk %.1f%%/day · d turns it; a greedy audit is evidence", l.AnyAuditRisk(w)*100)), m.mainWidth()) + "\n")
+	b.WriteString(truncate("  dial "+strings.Join(dial, "")+theme.Subtle.Render(fmt.Sprintf("  audit risk %.1f%%/day · a greedy audit is evidence", l.AnyAuditRisk(w)*100)), m.mainWidth()) + "\n")
 	b.WriteString(truncate(theme.Subtle.Render(fmt.Sprintf("  washing up to %s/day · upkeep %s/day · the till keeps %s dirty for the street",
 		money(l.Capacity(w)), money(l.Upkeep(w)), cash(tun.Float))), m.mainWidth()) + "\n")
 	if thr := m.cfg.Heat.Heat.DirtyCashThreshold; thr > 0 && w.Player.DirtyCash > thr {
@@ -163,7 +163,7 @@ func (m *Model) viewLedger() string {
 	if n := w.Crew.Role("accountant"); n > 0 {
 		b.WriteString(truncate(theme.Subtle.Render(fmt.Sprintf("  %d accountant(s) on the payroll: more through every front, fewer audits.", n)), m.mainWidth()) + "\n")
 	} else if len(w.Fronts) > 0 {
-		b.WriteString(truncate(theme.Subtle.Render("  An accountant (crew screen, 4) adds to every front and cuts audit risk. Keep them loyal: they skim the wash."), m.mainWidth()) + "\n")
+		b.WriteString(truncate(theme.Subtle.Render("  An accountant, hired "+screenPointer(screenCrew)+", adds to every front and cuts audit risk. Keep them loyal: they skim the wash."), m.mainWidth()) + "\n")
 	}
 	b.WriteString("\n")
 
@@ -219,7 +219,7 @@ func (m *Model) viewLedger() string {
 
 // ledgerDetails is the ledger's pane: the wash as it stands (the dial,
 // what the fronts wash and cost, the float the till keeps) and the keys.
-func (m *Model) ledgerDetails() ([]section, []binding) {
+func (m *Model) ledgerDetails() []section {
 	w := m.w
 	l := m.set.Laundering
 	tun := l.Tuning()
@@ -235,5 +235,5 @@ func (m *Model) ledgerDetails() ([]section, []binding) {
 		lines = append(lines, wrapped(theme.Warning, fmt.Sprintf("Dirty cash over %s draws heat every day it sits there.", cash(thr)))...)
 	}
 	lines = append(lines, keyRow("d", "turn the dial"))
-	return []section{{"LAUNDERING", lines}}, m.screenKeys()
+	return []section{{"LAUNDERING", lines}}
 }
