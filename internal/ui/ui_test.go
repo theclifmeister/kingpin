@@ -460,6 +460,7 @@ func TestRendersAtCommonSizes(t *testing.T) {
 			if m.mode == modePlay {
 				assertFrame(t, m, what)
 			}
+			checkMap(t, m, view, what)
 		})
 	}
 }
@@ -542,6 +543,9 @@ func TestStatusMessageAlwaysShows(t *testing.T) {
 
 // The legend is a whole number of k() pairs at every width: pairs are
 // dropped from the right, never cut in the middle.
+// The legend is whole pairs: the last pair (`? help`) pinned, the ones
+// before it dropped from the right until the rest fits beside it (#85:
+// the epic's legends end in `? help` at every width).
 func TestLegendNeverTruncatesMidPair(t *testing.T) {
 	for _, w := range []int{60, 80, 120} {
 		m := newTestModel(t, w, 24)
@@ -549,13 +553,15 @@ func TestLegendNeverTruncatesMidPair(t *testing.T) {
 			m.Update(key(s))
 			m.status = ""
 			got := stripANSI(m.viewFooter())
+			keys := m.legendKeys()
+			last := stripANSI(k(keys[len(keys)-1].key, m.labelOf(keys[len(keys)-1])))
 			var prefixes []string
-			for n := 0; n <= len(m.legendKeys()); n++ {
+			for n := 0; n < len(keys); n++ {
 				var p string
-				for _, b := range m.legendKeys()[:n] {
+				for _, b := range keys[:n] {
 					p += stripANSI(k(b.key, m.labelOf(b)))
 				}
-				prefixes = append(prefixes, p)
+				prefixes = append(prefixes, p+last)
 			}
 			whole := false
 			for _, p := range prefixes {
@@ -565,6 +571,9 @@ func TestLegendNeverTruncatesMidPair(t *testing.T) {
 			}
 			if !whole {
 				t.Errorf("%d columns, screen %s: the legend is not whole pairs: %q", w, s, got)
+			}
+			if !strings.HasSuffix(got, " ? help ") {
+				t.Errorf("%d columns, screen %s: the legend does not end in ? help: %q", w, s, got)
 			}
 			if lipgloss.Width(m.viewFooter()) > w {
 				t.Errorf("%d columns, screen %s: the legend is wider than the terminal: %q", w, s, got)

@@ -9,9 +9,9 @@ import (
 	"github.com/theclifmeister/kingpin/internal/game"
 )
 
-// paneText is the details pane's text read off a view at a width from
+// paneRender is the details pane's text read off a view at a width from
 // the pane's: every body row's last paneWidth cells, borders trimmed.
-func paneText(m *Model) string {
+func paneRender(m *Model) string {
 	var out []string
 	for _, l := range strings.Split(stripANSI(m.View()), "\n")[1 : m.height-1] {
 		rs := []rune(l)
@@ -60,7 +60,7 @@ func TestRivalsPane(t *testing.T) {
 			t.Errorf("MAIN still carries %q:\n%s", stale, main)
 		}
 	}
-	pane := paneText(m)
+	pane := paneRender(m)
 	for _, want := range []string{"TRUCE · 30 DAYS", "theirs · 4 days to answer", "y  accept it", "x  turn it down", "RULES", "LIFETIME", "struck", "broken", "tribute", "KEYS"} {
 		if !strings.Contains(pane, want) {
 			t.Errorf("the pane lacks %q:\n%s", want, pane)

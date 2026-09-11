@@ -94,6 +94,7 @@ type Model struct {
 	crewCursor    int    // row on the crew screen: roster first, then candidates
 	fireID        int    // member awaiting the fire confirmation
 	mapCursor     int    // corner selected on the map
+	mapTop        int    // the first row of the map's grid drawn, scrolled to keep the cursor in view
 	routeCursor   int    // route selected under the map's grid
 	onRoutes      bool   // the map's arrows are on the routes, past the bottom row
 	buyerCursor   int    // contract selected under the market's product table
@@ -888,8 +889,9 @@ func (m *Model) statusStyle() lipgloss.Style {
 	return theme.Body
 }
 
-// viewFooter is the status bar: the legend at the left, whole pairs
-// dropped from the right until it fits, and the status message at the
+// viewFooter is the status bar: the legend at the left, its last pair
+// (`? help`) pinned and the pairs before it dropped whole from the
+// right until the rest fits beside it, and the status message at the
 // right. The message wins: when the two cannot share the row it shows
 // alone, never the legend alone.
 func (m *Model) viewFooter() string {
@@ -898,6 +900,11 @@ func (m *Model) viewFooter() string {
 		return fit(legend(f), m.width)
 	}
 	pairs := m.legendKeys()
+	last := ""
+	if n := len(pairs); n > 0 {
+		last = k(pairs[n-1].key, m.labelOf(pairs[n-1]))
+		pairs = pairs[:n-1]
+	}
 	msg := ""
 	if m.status != "" {
 		msg = m.statusStyle().Render(m.status)
@@ -908,15 +915,17 @@ func (m *Model) viewFooter() string {
 		for _, b := range pairs[:n] {
 			keys += k(b.key, m.labelOf(b))
 		}
+		keys += last
 		kw := lipgloss.Width(keys)
 		switch {
 		case msg == "" && kw <= m.width:
 			return keys
-		case msg != "" && n == 0:
-			return truncate(msg, m.width)
 		case msg != "" && kw+msgW+1 <= m.width:
 			return keys + strings.Repeat(" ", m.width-kw-msgW) + msg
 		}
+	}
+	if msg != "" {
+		return truncate(msg, m.width)
 	}
 	return ""
 }
