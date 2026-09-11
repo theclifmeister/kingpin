@@ -91,7 +91,6 @@ type Model struct {
 	width, height int
 	screen        screen
 	mode          mode
-	paneHidden    bool   // space hid the details pane, where it sits beside MAIN
 	city          string // city the market and map screens show; follows you when you travel
 	cursor        int    // product cursor shared by market screen and dialogs
 	crewCursor    int    // row on the crew screen: roster first, then candidates
@@ -752,13 +751,12 @@ func (m *Model) toggleLieLow() {
 	}
 }
 
-// toggleDetails is space: beside MAIN the details pane hides and shows;
-// where the terminal is too narrow for that it opens as an overlay.
-func (m *Model) toggleDetails() {
-	if m.width >= paneMinWidth {
-		m.paneHidden = !m.paneHidden
-		m.resize()
-	} else {
+// openDetails is space under paneMinWidth: the pane's sections open
+// whole as an overlay where the strip is, the one place they can be read
+// at 80 columns (#87). Beside MAIN the pane is always open and space
+// does nothing (#111).
+func (m *Model) openDetails() {
+	if m.width < paneMinWidth {
 		m.mode = modeDetails
 	}
 }

@@ -15,9 +15,11 @@ import (
 // strip (row h-2) under that. Modals keep the whole body (bodyHeight); a
 // screen's MAIN gets mainWidth by mainHeight.
 
-// paneShown reports whether the details pane sits beside MAIN.
+// paneShown reports whether the details pane sits beside MAIN: it is
+// open wherever it fits (#111: there is no toggle), and under
+// paneMinWidth the strip stands in for it.
 func (m *Model) paneShown() bool {
-	return m.width >= paneMinWidth && !m.paneHidden
+	return m.width >= paneMinWidth
 }
 
 // mainWidth is the width a screen's MAIN is drawn to.

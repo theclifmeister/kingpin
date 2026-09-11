@@ -86,7 +86,7 @@ func on(ss ...screen) []screen { return ss }
 func in(ms ...mode) []mode     { return ms }
 
 // everywhere lists a binding on every screen: `n end day`, `? help`
-// and, until #111, `␣ details`.
+// and, under paneMinWidth, `␣ more`.
 var everywhere = on(screenDashboard, screenMarket, screenJournal, screenCrew, screenMap, screenUpgrades, screenLedger, screenRivals)
 
 // listScreens are the screens whose cursor is the plain up-and-down
@@ -102,6 +102,10 @@ func step(n int) func(*Model) bool { return func(m *Model) bool { return m.modal
 // pastFirstStep is the dialog open being on a page past its first: where
 // shift+tab has a page to go back to.
 func pastFirstStep(m *Model) bool { return m.modalStep() > 0 }
+
+// stripShown is the terminal being too narrow for the pane beside MAIN,
+// so the strip stands in for it and ␣ opens it whole (#111).
+func stripShown(m *Model) bool { return m.width < paneMinWidth }
 
 var bindings = []binding{
 	{key: "n", label: "end day", help: "end the day: the sims step and the run saves", screens: everywhere, global: true,
@@ -202,8 +206,8 @@ var bindings = []binding{
 				m.mode = modeReport
 			}
 		}},
-	{key: "␣", label: "details", help: "show and hide the details", keys: []string{" "}, screens: everywhere, global: true,
-		do: func(m *Model, _ string) { m.toggleDetails() }},
+	{key: "␣", label: "more", help: "open the details whole (under 100 columns)", keys: []string{" "}, screens: everywhere, global: true, when: stripShown,
+		do: func(m *Model, _ string) { m.openDetails() }},
 	{key: "?", label: "help", help: "this list", screens: everywhere, global: true,
 		do: func(m *Model, _ string) { m.mode = modeHelp }},
 	// The frame's keys: the title bar carries the screens, help the rest.
@@ -479,7 +483,7 @@ var words = [][2]string{
 	{"float", "the dirty cash the wash and the road leave for the street"},
 	{"file", "the DA's evidence: stings and raids add pages, enough indicts"},
 	{"drift", "a held corner nobody works goes back to the street in days"},
-	{"pane", "the details beside MAIN from 100 columns; ␣ hides and shows"},
+	{"pane", "the details beside MAIN from 100 columns, always open"},
 	{"strip", "the pane's one line under 100 columns; ␣ opens it over MAIN"},
 }
 

@@ -286,8 +286,8 @@ func richFixture(t *testing.T, sz [2]int, check func(m *Model, view, what string
 	for _, s := range []string{"1", "2", "3", "4", "5", "6", "7", "8"} {
 		m.Update(key(s))
 		see(m, "screen "+s)
-		// Space: the overlay where the strip is, the pane hidden and
-		// shown again where it sits beside MAIN.
+		// Space: the overlay where the strip is; nothing where the pane
+		// sits beside MAIN (#111: the pane has no toggle).
 		m.Update(key(" "))
 		if sz[0] < paneMinWidth {
 			if m.mode != modeDetails {
@@ -295,15 +295,11 @@ func richFixture(t *testing.T, sz [2]int, check func(m *Model, view, what string
 			}
 			see(m, "details overlay "+s)
 			m.Update(key("esc"))
-		} else {
-			if m.mode != modePlay || !m.paneHidden {
-				t.Fatalf("%dx%d: space on screen %s: mode %v hidden %v", sz[0], sz[1], s, m.mode, m.paneHidden)
-			}
-			see(m, "screen "+s+" with the pane hidden")
-			m.Update(key(" "))
+		} else if m.mode != modePlay || !m.paneShown() {
+			t.Fatalf("%dx%d: space on screen %s: mode %v pane shown %v", sz[0], sz[1], s, m.mode, m.paneShown())
 		}
-		if m.mode != modePlay || m.paneHidden {
-			t.Fatalf("%dx%d: after space twice on screen %s: mode %v hidden %v", sz[0], sz[1], s, m.mode, m.paneHidden)
+		if m.mode != modePlay {
+			t.Fatalf("%dx%d: after space on screen %s: mode %v", sz[0], sz[1], s, m.mode)
 		}
 	}
 	// The table: a deal that holds, an offer waiting, a proposal for
@@ -465,6 +461,12 @@ func TestRendersAtCommonSizes(t *testing.T) {
 		richFixture(t, sz, func(m *Model, view, what string) {
 			assertFits(t, view, sz[0], sz[1], what)
 			if m.mode == modePlay {
+				// #111: from paneMinWidth the pane is beside MAIN on every
+				// render, and assertFrame then holds every body row to
+				// its border column.
+				if sz[0] >= paneMinWidth && !m.paneShown() {
+					t.Errorf("%dx%d %s: no pane beside MAIN", sz[0], sz[1], what)
+				}
 				assertFrame(t, m, what)
 			}
 			checkMap(t, m, view, what)
@@ -627,9 +629,10 @@ func TestStatusBarIsTheMessage(t *testing.T) {
 }
 
 // Space opens the details as an overlay where the strip is, with the
-// sections the pane shows beside MAIN at 120, and esc closes it; at 120
-// space hides the pane and the main content takes the width.
-func TestSpaceTogglesDetails(t *testing.T) {
+// sections the pane shows beside MAIN at 120, and esc or space closes
+// it; at 120 the pane is beside MAIN on every screen and space is a
+// no-op, listed nowhere (#111: the pane has no toggle).
+func TestSpaceOpensTheOverlayUnder100(t *testing.T) {
 	m := newTestModel(t, 80, 24)
 	m.Update(key("5"))
 	secs := m.details()
@@ -655,31 +658,47 @@ func TestSpaceTogglesDetails(t *testing.T) {
 		t.Fatalf("esc on the overlay: mode %v", m.mode)
 	}
 	m.Update(key(" "))
+	if m.mode != modeDetails {
+		t.Fatalf("space again at 80: mode %v", m.mode)
+	}
 	m.Update(key(" "))
 	if m.mode != modePlay {
-		t.Fatalf("space twice: mode %v", m.mode)
+		t.Fatalf("space on the overlay: mode %v", m.mode)
+	}
+	listed := false
+	for _, b := range m.keysFor(m.screen) {
+		listed = listed || b.key == "␣"
+	}
+	if !listed {
+		t.Errorf("␣ more is not listed at 80: %v", m.keysFor(m.screen))
 	}
 	m.Update(tea.WindowSizeMsg{Width: 120, Height: 40})
-	beside := stripANSI(m.View())
-	for _, s := range secs {
-		if !strings.Contains(beside, s.title) {
-			t.Errorf("the pane at 120 lacks the section %q:\n%s", s.title, beside)
+	for s := screen(0); s < screenCount; s++ {
+		m.switchScreen(s)
+		m.status = ""
+		beside := stripANSI(m.View())
+		if !m.paneShown() || !strings.Contains(beside, "DETAILS") || strings.Contains(beside, "␣ more") {
+			t.Errorf("%s: the pane is not beside MAIN at 120:\n%s", screenOf[s], beside)
 		}
-	}
-	m.Update(key(" "))
-	if m.mode != modePlay || !m.paneHidden {
-		t.Fatalf("space at 120: mode %v hidden %v", m.mode, m.paneHidden)
-	}
-	hidden := stripANSI(m.View())
-	if strings.Contains(hidden, "DETAILS") || strings.Contains(hidden, "␣ more") {
-		t.Errorf("the pane did not hide:\n%s", hidden)
-	}
-	if m.mainWidth() != 120 {
-		t.Errorf("main is %d wide with the pane hidden", m.mainWidth())
-	}
-	m.Update(key(" "))
-	if m.paneHidden || !strings.Contains(stripANSI(m.View()), "DETAILS") {
-		t.Errorf("space again did not show the pane")
+		if m.mainWidth() != 120-paneWidth {
+			t.Errorf("%s: MAIN is %d wide beside the pane, want %d", screenOf[s], m.mainWidth(), 120-paneWidth)
+		}
+		m.Update(key(" "))
+		if m.mode != modePlay || !m.paneShown() || m.status != "" {
+			t.Errorf("%s: space at 120: mode %v pane shown %v status %q", screenOf[s], m.mode, m.paneShown(), m.status)
+		}
+		for _, b := range m.keysFor(s) {
+			if b.key == "␣" {
+				t.Errorf("%s: ␣ is listed at 120", screenOf[s])
+			}
+		}
+		if s == screenMap {
+			for _, sec := range secs {
+				if !strings.Contains(beside, sec.title) {
+					t.Errorf("the pane at 120 lacks the section %q:\n%s", sec.title, beside)
+				}
+			}
+		}
 	}
 }
 
