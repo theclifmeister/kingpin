@@ -14,6 +14,7 @@ import (
 
 	"github.com/theclifmeister/kingpin/internal/content"
 	"github.com/theclifmeister/kingpin/internal/events"
+	"github.com/theclifmeister/kingpin/internal/format"
 	"github.com/theclifmeister/kingpin/internal/game"
 	"github.com/theclifmeister/kingpin/internal/sim"
 	"github.com/theclifmeister/kingpin/internal/ui/theme"
@@ -1053,32 +1054,52 @@ func (m *Model) viewOver() string {
 	e := w.Over
 	var b strings.Builder
 	b.WriteString(theme.Bad.Bold(true).Render(strings.ToUpper(e.Cause)) + fmt.Sprintf(" on day %d\n\n", e.Day))
-	b.WriteString(fmt.Sprintf("Days survived   %d\n", e.Day))
-	b.WriteString(fmt.Sprintf("Peak cash       %s\n", cash(w.Stats.PeakCash)))
-	b.WriteString(fmt.Sprintf("Total revenue   %s\n", cash(w.Stats.TotalRevenue)))
-	b.WriteString(fmt.Sprintf("Units moved     %d\n", w.Stats.UnitsSold))
-	b.WriteString(fmt.Sprintf("Stings / raids  %d / %d\n", w.Stats.Stings, w.Stats.Raids))
-	b.WriteString(fmt.Sprintf("Wages / skimmed %s / %s\n", cash(w.Stats.Wages), cash(w.Stats.Skimmed)))
-	b.WriteString(fmt.Sprintf("Corners / robbed %d / %s\n", w.Held(), cash(w.Stats.Robbed)))
+	// One fact a row: the label and its value, values written the way
+	// the screens write them.
+	facts := [][]any{
+		{"days survived", fmt.Sprint(e.Day)},
+		{"peak cash", cash(w.Stats.PeakCash)},
+		{"total revenue", cash(w.Stats.TotalRevenue)},
+		{"units moved", fmt.Sprint(w.Stats.UnitsSold)},
+		{"stings", fmt.Sprint(w.Stats.Stings)},
+		{"raids", fmt.Sprint(w.Stats.Raids)},
+		{"wages", cash(w.Stats.Wages)},
+		{"skimmed", cash(w.Stats.Skimmed)},
+		{"corners held", fmt.Sprint(w.Held())},
+		{"robbed", cash(w.Stats.Robbed)},
+	}
 	if w.Rival.Arrived > 0 {
-		b.WriteString(fmt.Sprintf("Won / lost to %s %d / %d\n", truncate(w.Rival.Leader, 12), w.Stats.CornersWon, w.Stats.CornersLost))
+		facts = append(facts,
+			[]any{"corners won", fmt.Sprint(w.Stats.CornersWon)},
+			[]any{"lost to " + truncate(w.Rival.Leader, 12), fmt.Sprint(w.Stats.CornersLost)})
 	}
 	if s := w.Stats; s.Deals+s.Betrayals+s.BetrayedBy > 0 {
-		b.WriteString(fmt.Sprintf("Deals / broken   %d / %d by you, %d by them\n", s.Deals, s.Betrayals, s.BetrayedBy))
+		facts = append(facts,
+			[]any{"deals", fmt.Sprint(s.Deals)},
+			[]any{"broken by you", fmt.Sprint(s.Betrayals)},
+			[]any{"broken by them", fmt.Sprint(s.BetrayedBy)})
 	}
-	b.WriteString(fmt.Sprintf("Washed / seized %s / %s\n", cash(w.Stats.Laundered), cash(w.Stats.Seized)))
+	facts = append(facts, []any{"washed", cash(w.Stats.Laundered)}, []any{"seized", cash(w.Stats.Seized)})
 	if w.Stats.Shipments > 0 {
-		b.WriteString(fmt.Sprintf("Shipped / lost on the road %d / %d units in %d / %d runs\n", w.Stats.Shipped, w.Stats.SeizedOnRoad, w.Stats.Shipments, w.Stats.Seizures))
+		facts = append(facts,
+			[]any{"shipped", fmt.Sprintf("%s in %s", plural(w.Stats.Shipped, "unit"), plural(w.Stats.Shipments, "run"))},
+			[]any{"lost on the road", fmt.Sprintf("%s in %s", plural(w.Stats.SeizedOnRoad, "unit"), plural(w.Stats.Seizures, "run"))})
 	}
-	b.WriteString(fmt.Sprintf("Clean cash      %s\n", cash(w.Player.CleanCash)))
+	facts = append(facts, []any{"clean cash", cash(w.Player.CleanCash)})
 	if w.Stats.Informants+w.Stats.Defections > 0 {
-		b.WriteString(fmt.Sprintf("Snitches / defectors %d / %d\n", w.Stats.Informants, w.Stats.Defections))
+		facts = append(facts, []any{"snitches", fmt.Sprint(w.Stats.Informants)}, []any{"defectors", fmt.Sprint(w.Stats.Defections)})
 	}
-	b.WriteString(fmt.Sprintf("Peak heat       %.0f\n", w.Heat.Peak))
-	b.WriteString(fmt.Sprintf("The law         Chief %s (%s) · DA %s (%s)\n", truncate(w.Law.Chief.Name, 10), w.Law.Chief.Personality, truncate(w.Law.DA.Name, 10), stanceWord(w.Law.DA.Stance)))
-	b.WriteString(fmt.Sprintf("Pressure        %.0f · %d election(s) · %s given to the cities\n", w.Here().Pressure, w.Stats.Elections, cash(w.Stats.Funded)))
 	rep := w.Player.Reputation
-	b.WriteString(fmt.Sprintf("Reputation      fear %.0f / respect %.0f / notoriety %.0f\n", rep.Fear, rep.Respect, rep.Notoriety))
+	facts = append(facts,
+		[]any{"peak heat", fmt.Sprintf("%.0f", w.Heat.Peak)},
+		[]any{"the law", fmt.Sprintf("Chief %s (%s) · DA %s (%s)", truncate(w.Law.Chief.Name, 10), w.Law.Chief.Personality, truncate(w.Law.DA.Name, 10), stanceWord(w.Law.DA.Stance))},
+		[]any{"pressure", fmt.Sprintf("%.0f", w.Here().Pressure)},
+		[]any{"elections", fmt.Sprint(w.Stats.Elections)},
+		[]any{"given to the cities", cash(w.Stats.Funded)},
+		[]any{"reputation", fmt.Sprintf("fear %.0f · respect %.0f · notoriety %.0f", rep.Fear, rep.Respect, rep.Notoriety)})
+	for _, l := range table([]col{{"stat", kText, 0}, {"value", kText, 0}}, facts, -1, m.modalInner()) {
+		b.WriteString(l + "\n")
+	}
 	if n := len(w.Journal); n > 0 {
 		b.WriteString("\nLast headline:\n  " + theme.Subtle.Render(w.Journal[n-1].Text) + "\n")
 	}
@@ -1108,7 +1129,7 @@ func (m *Model) viewReport() string {
 	section("LAW", r.Law, lawReportStyle)
 	section("CREW", r.Crew, lipgloss.NewStyle().Foreground(theme.Crew))
 	section("TERRITORY", r.Territory, lipgloss.NewStyle().Foreground(theme.Rivals))
-	section("MONEY", append(r.Money, fmt.Sprintf("Cash %s -> %s", cash(r.CashBefore), cash(r.CashAfter))), theme.Gold)
+	section("MONEY", append(r.Money, fmt.Sprintf("Cash %s %s %s", cash(r.CashBefore), format.Arrow, cash(r.CashAfter))), theme.Gold)
 	section("UPGRADES", r.Upgrades, theme.Gold)
 	section("NEWS", r.News, theme.Subtle)
 	for len(body) > 0 && body[len(body)-1] == "" {

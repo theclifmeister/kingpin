@@ -220,41 +220,48 @@ func (m *Model) viewUpgrades() string {
 	for _, branch := range content.Branches {
 		var c strings.Builder
 		c.WriteString(theme.Bold.Render(fit(strings.ToUpper(branch), colW)) + "\n")
-		for _, u := range m.cfg.Upgrades.Branch(branch) {
+		nodes := m.cfg.Upgrades.Branch(branch)
+		// The mark in the gutter is the node's state; the cost is in
+		// green when it is clean cash. The tree and the inspector print
+		// a cost the same way, through cash().
+		var rows [][]any
+		cursor := -1
+		for i, u := range nodes {
 			state := m.upgradeState(u)
-			mark, st := "·", theme.Subtle
+			sign, st := "·", theme.Subtle
 			switch state {
 			case "owned":
-				mark, st = "✓", theme.Good
+				sign, st = "✓", theme.Good
 			case "available":
-				mark, st = "○", theme.Gold
+				sign, st = "○", theme.Gold
 				if !m.canAfford(u) {
 					st = theme.Warning
 				}
 			}
-			costW := 6
-			name := fit(u.Name, colW-5-costW)
-			cost := fmt.Sprintf("%*s", costW, cash(u.Cost))
+			var cost any = styled{st, u.Cost}
 			if u.Clean {
-				cost = fmt.Sprintf("%*s", costW, cash(u.Cost)+"*")
+				cost = styled{theme.Good, u.Cost}
 			}
-			line := name + " " + cost
+			rows = append(rows, []any{mark(sign), styled{st, u.Name}, cost})
 			if idx == m.upgradeCursor {
-				c.WriteString(theme.Gold.Render(mark+" ") + theme.Selected.Render(line) + "\n")
-			} else {
-				c.WriteString(st.Render(mark+" "+line) + "\n")
+				cursor = i
 			}
-			c.WriteString(theme.Subtle.Render(fit("  "+strings.Join(effectWords(u.Effects), ", "), colW-2)) + "\n")
 			idx++
+		}
+		lines := table([]col{{"node", kText, 0}, {"cost", kCash, 0}}, rows, cursor, colW-1)
+		c.WriteString(lines[0] + "\n")
+		for i, u := range nodes {
+			c.WriteString(fit(lines[i+1], colW) + "\n")
+			c.WriteString(theme.Subtle.Render(fit("  "+strings.Join(effectWords(u.Effects), ", "), colW-2)) + "\n")
 		}
 		cols = append(cols, strings.TrimRight(c.String(), "\n"))
 	}
 	b.WriteString(lipgloss.JoinHorizontal(lipgloss.Top, cols...) + "\n")
-	b.WriteString(truncate(theme.Good.Render("✓")+theme.Subtle.Render(" owned · ")+theme.Gold.Render("○")+theme.Subtle.Render(" available · · locked · * clean cash"), m.width) + "\n\n")
+	b.WriteString(truncate(theme.Good.Render("✓")+theme.Subtle.Render(" owned · ")+theme.Gold.Render("○")+theme.Subtle.Render(" available · · locked · ")+theme.Good.Render("green")+theme.Subtle.Render(" clean cash"), m.width) + "\n\n")
 
 	// The inspector for the selected node.
 	state := m.upgradeState(sel)
-	head := theme.Bold.Render(strings.ToUpper(sel.Name)) + "  " + theme.Gold.Render(money(sel.Cost)+" "+pool(sel))
+	head := theme.Bold.Render(strings.ToUpper(sel.Name)) + "  " + theme.Gold.Render(cash(sel.Cost)+" "+pool(sel))
 	switch state {
 	case "owned":
 		head += theme.Good.Render("  · owned")
@@ -262,7 +269,7 @@ func (m *Model) viewUpgrades() string {
 		if m.canAfford(sel) {
 			head += theme.Gold.Render("  · available: ") + theme.Key.Render("enter") + theme.Gold.Render(" buys it")
 		} else {
-			head += theme.Warning.Render(fmt.Sprintf("  · %s short", money(sel.Cost-m.poolCash(sel))))
+			head += theme.Warning.Render(fmt.Sprintf("  · %s short", cash(sel.Cost-m.poolCash(sel))))
 		}
 	default:
 		var names []string

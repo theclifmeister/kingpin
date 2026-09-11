@@ -71,18 +71,43 @@ func launderBlurb(d events.Launder) string {
 	}
 }
 
-// frontStatus is one word on a front's state for the ledger.
-func (m *Model) frontStatus(f game.Front) string {
+// frontStatus is a front's state for the ledger's status column, in
+// the one lowercase vocabulary: open, opens tomorrow, audit, back in
+// 14d, shut, back in 2d.
+func (m *Model) frontStatus(f game.Front) any {
 	switch {
 	case f.Frozen(m.w.Day+1) && f.Audited > 0 && f.FrozenUntil == f.Audited+m.set.Laundering.Tuning().AuditFreezeDays:
-		return theme.Bad.Render(fmt.Sprintf("AUDIT, back in %dd", f.FrozenUntil-m.w.Day))
+		return styled{theme.Bad, fmt.Sprintf("audit, back in %dd", f.FrozenUntil-m.w.Day)}
 	case f.Frozen(m.w.Day + 1):
-		return theme.Warning.Render(fmt.Sprintf("shut, back in %dd", f.FrozenUntil-m.w.Day))
+		return styled{theme.Warning, fmt.Sprintf("shut, back in %dd", f.FrozenUntil-m.w.Day)}
 	case f.Bought == m.w.Day:
-		return theme.Subtle.Render("opens tomorrow")
+		return styled{theme.Subtle, "opens tomorrow"}
 	default:
-		return theme.Good.Render("open")
+		return styled{theme.Good, "open"}
 	}
+}
+
+// offerCols and offerRows are the fronts on offer, on the ledger and in
+// the picker: what one costs, washes and keeps, its audit risk, and
+// whether it is open to you, locked until you have moved enough, or
+// short of what is in the till.
+var offerCols = []col{{"front", kText, 0}, {"cost", kMoney, 0}, {"washes/day", kMoney, 0}, {"upkeep/day", kMoney, 0}, {"audit", kPct, 0}, {"status", kText, 0}}
+
+func (m *Model) offerRows(rows []game.FrontOffer) [][]any {
+	var out [][]any
+	for _, o := range rows {
+		var status any
+		switch {
+		case o.Locked(m.w):
+			status = styled{theme.Subtle, "locked at " + cash(o.UnlockCash)}
+		case o.Cost > m.w.Player.DirtyCash:
+			status = styled{theme.Bad, "short " + money(o.Cost-m.w.Player.DirtyCash)}
+		default:
+			status = "open to you"
+		}
+		out = append(out, []any{o.Name, o.Cost, o.Throughput, o.Upkeep, o.AuditRisk * 100, status})
+	}
+	return out
 }
 
 func (m *Model) viewFront() string {
@@ -91,25 +116,8 @@ func (m *Model) viewFront() string {
 		return m.modal("BUY A FRONT", []string{"Nothing for sale."}, m.modalFooter())
 	}
 	m.frontCursor = max(0, min(m.frontCursor, len(rows)-1))
-	body := []string{theme.Subtle.Render(fmt.Sprintf("  %-18s %10s %10s %10s  %s", "", "cost", "washes/day", "upkeep/day", "audit/day"))}
-	for i, o := range rows {
-		line := fmt.Sprintf("%-18s %10s %10s %10s  ", fit(o.Name, 18), money(o.Cost), money(o.Throughput), money(o.Upkeep))
-		var note string
-		switch {
-		case o.Locked(m.w):
-			note = theme.Subtle.Render(fmt.Sprintf("locked (%s)", cash(o.UnlockCash)))
-		case o.Cost > m.w.Player.DirtyCash:
-			note = theme.Bad.Render(fmt.Sprintf("%.1f%%  can't afford", o.AuditRisk*100))
-		default:
-			note = fmt.Sprintf("%.1f%%", o.AuditRisk*100)
-		}
-		if i == m.frontCursor {
-			m.modalFollow(len(body))
-			body = append(body, theme.Gold.Render("▸ ")+theme.Selected.Render(line)+note)
-		} else {
-			body = append(body, "  "+theme.Subtle.Render(line)+note)
-		}
-	}
+	m.modalFollow(1 + m.frontCursor) // under the header
+	body := table(offerCols, m.offerRows(rows), m.frontCursor, m.modalInner())
 	body = append(body, "", theme.Subtle.Render(fmt.Sprintf("Dirty cash %s. It opens tomorrow.", cash(m.w.Player.DirtyCash))))
 	return m.modal("BUY A FRONT", body, m.modalFooter())
 }
@@ -142,10 +150,12 @@ func (m *Model) viewLedger() string {
 	if len(w.Fronts) == 0 {
 		b.WriteString(truncate(theme.Subtle.Render("  None. A front turns dirty cash into clean cash a little every day; b buys one."), m.width) + "\n")
 	} else {
-		b.WriteString(theme.Subtle.Render(fmt.Sprintf("  %-18s %9s %9s %10s %6s  %s", "", "per day", "today", "lifetime", "audit", "status")) + "\n")
+		var rows [][]any
 		for _, f := range w.Fronts {
-			b.WriteString(truncate(fmt.Sprintf("  %-18s %9s %9s %10s %5.1f%%  %s",
-				fit(f.Name, 18), money(l.Throughput(w, f)), money(f.WashedToday), money(f.Washed), l.AuditRisk(w, f)*100, m.frontStatus(f)), m.width) + "\n")
+			rows = append(rows, []any{f.Name, l.Throughput(w, f), f.WashedToday, f.Washed, l.AuditRisk(w, f) * 100, m.frontStatus(f)})
+		}
+		for _, line := range table([]col{{"front", kText, 0}, {"washes/day", kMoney, 0}, {"today", kMoney, 0}, {"lifetime", kMoney, 0}, {"audit", kPct, 0}, {"status", kText, 0}}, rows, -1, m.width) {
+			b.WriteString(line + "\n")
 		}
 	}
 	b.WriteString("\n")
@@ -174,24 +184,23 @@ func (m *Model) viewLedger() string {
 		for _, n := range w.Logistics.Lost {
 			lost += n
 		}
-		targetW, roadW, weekW := 16, 14, 11
-		if m.width >= 100 {
-			targetW, roadW, weekW = 22, 20, 17
-		}
 		b.WriteString(truncate(theme.Bold.Render("LOGISTICS")+theme.Subtle.Render(fmt.Sprintf("  %d route(s) · shipped %d units in %d run(s) · seized %d in %d · the road spends what is over %s dirty · r and R on the map", len(routes), w.Stats.Shipped, w.Stats.Shipments, lost, w.Stats.Seizures, cash(lg.Float()))), m.width) + "\n")
-		b.WriteString(truncate(theme.Subtle.Render(fmt.Sprintf("  %-12s %-5s %-6s %-*s %-*s %-*s %s", "", "mode", "dial", targetW, "target", roadW, "on the road", weekW, "week lots/fare", "lost")), m.width) + "\n")
+		var rows [][]any
 		for _, r := range routes {
 			rs := w.Route(r.ID)
 			target, road := m.targetLine(r.ID), m.roadOn(r.ID)
 			if target == "" {
-				target = "-"
+				target = "none"
 			}
 			if road == "" {
-				road = "-"
+				road = "none"
 			}
 			lots, fares := w.Logistics.RouteSpend(r.ID, w.Day, 7)
-			line := fmt.Sprintf("  %-12s %-5s %s %-*s %-*s %-*s %d", fit(r.Name, 12), fit(r.Mode, 5), dialStyle(rs.Dial).Render(fit(rs.Dial.String(), 6)), targetW, fit(target, targetW), roadW, fit(road, roadW), weekW, fit(cash(lots)+"/"+cash(fares), weekW), w.Logistics.Lost[r.ID])
-			b.WriteString(truncate(line, m.width) + "\n")
+			rows = append(rows, []any{r.Name, r.Mode, styled{dialStyle(rs.Dial), rs.Dial}, target, road, lots, fares, w.Logistics.Lost[r.ID]})
+		}
+		cols := []col{{"route", kText, 0}, {"mode", kText, 0}, {"dial", kDial, 0}, {"target", kText, 0}, {"on the road", kText, 0}, {"lots/wk", kCash, 0}, {"fares/wk", kCash, 0}, {"lost units", kInt, 0}}
+		for _, line := range table(cols, rows, -1, m.width) {
+			b.WriteString(line + "\n")
 		}
 		b.WriteString("\n")
 	}
@@ -201,18 +210,8 @@ func (m *Model) viewLedger() string {
 	if len(rows) == 0 {
 		b.WriteString(theme.Subtle.Render("  You own every front there is.") + "\n")
 	} else {
-		b.WriteString(theme.Subtle.Render(fmt.Sprintf("  %-18s %10s %10s %10s  %s", "", "cost", "washes/day", "upkeep/day", "audit/day")) + "\n")
-		for _, o := range rows {
-			line := fmt.Sprintf("  %-18s %10s %10s %10s  ", fit(o.Name, 18), money(o.Cost), money(o.Throughput), money(o.Upkeep))
-			switch {
-			case o.Locked(m.w):
-				line = theme.Subtle.Render(line + fmt.Sprintf("locked (%s)", cash(o.UnlockCash)))
-			case o.Cost > w.Player.DirtyCash:
-				line += theme.Bad.Render(fmt.Sprintf("%.1f%%  need %s dirty", o.AuditRisk*100, money(o.Cost)))
-			default:
-				line += fmt.Sprintf("%.1f%%", o.AuditRisk*100)
-			}
-			b.WriteString(truncate(line, m.width) + "\n")
+		for _, line := range table(offerCols, m.offerRows(rows), -1, m.width) {
+			b.WriteString(line + "\n")
 		}
 	}
 	return b.String()

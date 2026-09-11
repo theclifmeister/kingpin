@@ -96,242 +96,253 @@ func assertFits(t *testing.T, view string, w, h int, what string) {
 	}
 }
 
+// richFixture plays one run through every screen, dialog and picker the
+// game has, with a crew, a rival at war, a route with a shipment in
+// flight, three fronts, a billion in the bank and the whole ladder, and
+// hands every view it reaches to check with a name for it.
+func richFixture(t *testing.T, sz [2]int, check func(view, what string)) {
+	t.Helper()
+	m := newTestModel(t, sz[0], sz[1])
+	// Play a few days with some trading so every panel has content.
+	for i := 0; i < 5; i++ {
+		m.w.Stash(m.w.Player.Location)[m.w.Products[0]] = 40
+		m.Update(key("s"))
+		m.Update(key("enter")) // product
+		m.Update(key("enter")) // qty (blank = all)
+		m.Update(key("3"))     // aggressive
+		check(m.View(), "sell dial")
+		m.Update(key("enter")) // confirm
+		endDay(t, m)           // end day -> report
+		check(m.View(), "report")
+		m.Update(key("enter"))
+	}
+	// A full crew with a skim on record exercises every crew-screen line.
+	m.Update(key("4"))
+	m.w.Player.DirtyCash += 5000
+	for i := 0; i < 6; i++ {
+		m.Update(key("h"))
+	}
+	m.w.Crew.LastSkim = m.w.Day
+	// Post the crew across the map so every cell shape is drawn.
+	m.Update(key("5"))
+	for i := range m.shown().Corners {
+		m.mapCursor = i
+		m.Update(key("c"))
+		check(m.View(), "post picker")
+		m.Update(key("j"))
+		m.Update(key("enter"))
+		m.Update(key("e"))
+		m.Update(key("enter"))
+	}
+	// A rival in town, at war, with the enforcers queued against it,
+	// exercises the rival cells, the picker and the dashboard panel.
+	m.Update(key("esc")) // a stray enter above may be asking to end the day
+	m.w.Home().Corners[0].Owner, m.w.Home().Corners[0].Runner, m.w.Home().Corners[0].Enforcer = game.OwnerRival, 0, 0
+	m.w.Rival.Arrived, m.w.Rival.Muscle, m.w.Rival.War, m.w.Rival.Observed = 1, 4, 47, true
+	m.w.Crew.Members = append(m.w.Crew.Members, game.CrewMember{ID: 900, Name: "Moose", Role: "enforcer", Skill: 70, Loyalty: 70, Nerve: 60, Wage: 65})
+	m.w.Crew.NextID = 900
+	m.mapCursor = 0
+	m.Update(key("w"))
+	check(m.View(), "strike picker")
+	m.Update(key("enter"))
+	if m.w.Strike == nil {
+		t.Fatalf("%dx%d: no strike queued: %q", sz[0], sz[1], m.status)
+	}
+	for i := range m.shown().Corners {
+		m.mapCursor = i
+		check(m.View(), "map")
+	}
+	// The other city's map, and the ship dialog with something to send.
+	m.Update(key("]"))
+	for i := range m.shown().Corners {
+		m.mapCursor = i
+		check(m.View(), "map elsewhere")
+	}
+	m.Update(key("["))
+	// A route on with a target and a shipment in flight: the routes
+	// under the grid with the cursor on them, the target dialog and
+	// every screen that reports the road.
+	route := m.set.Logistics.Routes(m.w.CityOrder[1])[0]
+	m.w.Stash(route.From)[m.w.Products[0]] = 300
+	m.w.Player.DirtyCash += m.set.Logistics.Float()
+	m.Update(key("]"))
+	for len(m.shown().Corners) > 0 && !m.onRoutes {
+		m.Update(key("j"))
+	}
+	m.Update(key("r"))
+	check(m.View(), "map with the routes cursor")
+	m.Update(key("R"))
+	check(m.View(), "target product")
+	m.Update(key("enter"))
+	for _, r := range "120" {
+		m.Update(key(string(r)))
+	}
+	check(m.View(), "target units")
+	m.Update(key("enter"))
+	if m.mode != modePlay || !m.w.Route(route.ID).Dial.On() || m.w.Route(route.ID).Target[m.w.Products[0]] != 120 {
+		t.Fatalf("%dx%d: the target dialog left mode %v with %+v: %q %q", sz[0], sz[1], m.mode, m.w.Route(route.ID), m.status, m.tgt.err)
+	}
+	endDay(t, m)
+	check(m.View(), "report with the route")
+	m.Update(key("enter"))
+	if len(m.w.Shipments) != 1 {
+		t.Fatalf("%dx%d: the route sent %d shipments: %v", sz[0], sz[1], len(m.w.Shipments), m.w.Report.Shipments)
+	}
+	check(m.View(), "map with a shipment in flight")
+	m.Update(key("["))
+	m.Update(key("g"))
+	check(m.View(), "travel confirm")
+	m.Update(key("esc"))
+	for _, s := range []string{"1", "2", "3", "4", "5", "6", "7", "8"} {
+		m.Update(key(s))
+		check(m.View(), "screen "+s)
+	}
+	// The table: a deal that holds, an offer waiting, a proposal for
+	// tonight, and both pages of the propose dialog.
+	m.Update(key("8"))
+	m.w.Rival.Deals = []game.Deal{{Kind: game.DealSplit, Terms: game.Terms{Corners: []string{m.w.Home().Corners[1].ID}}, Since: m.w.Day}}
+	m.w.Offers = []game.Offer{{ID: 1, Deal: game.Deal{Kind: game.DealTruce, Terms: game.Terms{Days: 30}, Offered: true}, Expires: m.w.Day + 4}}
+	check(m.View(), "rivals screen")
+	m.Update(key("d"))
+	check(m.View(), "propose kinds")
+	m.Update(key("2"))
+	check(m.View(), "propose terms")
+	m.Update(key("enter"))
+	if m.w.Proposal == nil || m.w.Proposal.Kind != game.DealTribute {
+		t.Fatalf("%dx%d: no tribute proposed: %q", sz[0], sz[1], m.status)
+	}
+	check(m.View(), "rivals screen with a proposal")
+	m.Update(key("1"))
+	check(m.View(), "dashboard with the table")
+	m.w.Rival.Deals, m.w.Offers, m.w.Proposal = nil, nil, nil
+	// Every node state on the tree: owned, available, short, locked,
+	// and the buy confirmation.
+	m.Update(key("6"))
+	m.w.Player.DirtyCash += 20_000
+	m.Update(key("enter"))
+	check(m.View(), "upgrade confirm")
+	m.Update(key("y"))
+	for range m.upgradeRows() {
+		check(m.View(), "upgrades")
+		m.Update(key("j"))
+	}
+	m.Update(key("4"))
+	m.Update(key("f"))
+	check(m.View(), "fire confirm")
+	m.Update(key("y"))
+	m.w.Stash(m.w.Player.Location)[m.w.Products[0]] = 200
+	m.Update(key("s"))
+	m.Update(key("enter"))
+	m.Update(key("enter"))
+	m.Update(key("enter"))
+	// A robbery for the report. The stick-up rolls only on a corner
+	// you hold with somebody on it, and test seeds are wall-clock:
+	// the rival, at war and bordering your corner, can push you off
+	// it on the route day (#90), and a skill-88+ enforcer takes the
+	// chance under one. So the corner is yours again, worked by you,
+	// unguarded and unsqueezed before the roll; territory steps
+	// before rivals, so the robbery lands whatever the rival does.
+	start := m.w.Corner(m.cfg.City.Territory.Start)
+	m.w.Recall(game.You)
+	start.Owner, start.Runner, start.Enforcer, start.Squeeze, start.Risk = game.OwnerPlayer, game.You, 0, 0, 100
+	endDay(t, m)
+	check(m.View(), "report with crew")
+	if len(m.w.Report.Territory) == 0 {
+		t.Fatalf("%dx%d: report has no territory lines: %+v", sz[0], sz[1], m.w.Report)
+	}
+	m.Update(key("enter"))
+	// The ledger: the picker, three fronts bought, one of them audited,
+	// and an accountant on the books.
+	m.Update(key("7"))
+	m.w.Player.DirtyCash = 700_000
+	m.w.Stats.PeakCash = 700_000
+	m.Update(key("b"))
+	check(m.View(), "front picker")
+	for i := 0; i < 3; i++ {
+		m.Update(key("b"))
+		m.Update(key("enter"))
+	}
+	if len(m.w.Fronts) != 3 {
+		t.Fatalf("%dx%d: bought %d fronts: %q", sz[0], sz[1], len(m.w.Fronts), m.status)
+	}
+	m.w.Crew.Members = append(m.w.Crew.Members, game.CrewMember{ID: 901, Name: "Books", Role: "accountant", Skill: 60, Loyalty: 60, Wage: 130})
+	endDay(t, m)
+	check(m.View(), "report with fronts")
+	if !strings.Contains(strings.Join(m.w.Report.Money, "\n"), "Washed") {
+		t.Fatalf("%dx%d: report has no wash line: %v", sz[0], sz[1], m.w.Report.Money)
+	}
+	m.Update(key("enter"))
+	m.w.Fronts[1].Audited = m.w.Day
+	m.w.Fronts[1].FrozenUntil = m.w.Day + m.cfg.Laundering.Laundering.AuditFreezeDays
+	m.w.Fronts[2].FrozenUntil = m.w.Day + 2
+	m.Update(key("d"))
+	for _, s := range []string{"7", "1", "4"} {
+		m.Update(key(s))
+		check(m.View(), "ledger screen "+s)
+	}
+	m.Update(key("1"))
+	m.Update(key("b"))
+	check(m.View(), "buy dialog")
+	m.Update(key("enter"))
+	check(m.View(), "buy qty")
+	m.Update(key("esc"))
+	m.Update(key("esc"))
+	m.Update(key("?"))
+	check(m.View(), "help")
+	m.Update(key("x"))
+
+	// A cartel-scale world: ten-digit cash on every screen, then the
+	// money moved clean (dirty cash on that scale is an arrest) so the
+	// next day unlocks every rung of the product ladder.
+	m.w.Player.DirtyCash = 1_234_567_890
+	m.w.Stats.PeakCash = m.w.Player.DirtyCash
+	for _, s := range []string{"1", "2", "3", "4", "5", "6", "7", "8"} {
+		m.Update(key(s))
+		check(m.View(), "rich screen "+s)
+	}
+	m.Update(key("b"))
+	check(m.View(), "rich front picker")
+	m.Update(key("esc"))
+	m.Update(key("1"))
+	m.Update(key("b"))
+	m.Update(key("enter"))
+	check(m.View(), "rich buy qty")
+	m.Update(key("esc"))
+	m.Update(key("esc"))
+	m.w.Player.CleanCash, m.w.Player.DirtyCash = m.w.Player.DirtyCash, 50_000
+	endDay(t, m)
+	m.Update(key("enter"))
+	if got := len(m.w.Products); got != len(m.cfg.Market.Products) {
+		t.Fatalf("%d of %d products unlocked with a billion in the bank", got, len(m.cfg.Market.Products))
+	}
+	last := m.w.Products[len(m.w.Products)-1]
+	m.w.Stash(m.w.Player.Location)[last] = 20
+	for _, s := range []string{"1", "2", "5"} {
+		m.Update(key(s))
+		check(m.View(), "ladder screen "+s)
+	}
+	m.Update(key("1"))
+	m.Update(key("s"))
+	for range m.w.Products {
+		m.Update(key("j"))
+	}
+	m.Update(key("enter"))
+	m.Update(key("enter"))
+	check(m.View(), "ladder sell dialog")
+	m.Update(key("enter"))
+	endDay(t, m)
+	check(m.View(), "ladder report")
+	m.Update(key("enter"))
+	m.w.Over = &game.Ending{Day: m.w.Day, Cause: "indicted", PeakCash: m.w.Stats.PeakCash}
+	endDay(t, m)
+	check(m.View(), "rich game over")
+}
+
 func TestRendersAtCommonSizes(t *testing.T) {
 	for _, sz := range [][2]int{{80, 24}, {120, 40}, {100, 30}} {
-		m := newTestModel(t, sz[0], sz[1])
-		// Play a few days with some trading so every panel has content.
-		for i := 0; i < 5; i++ {
-			m.w.Stash(m.w.Player.Location)[m.w.Products[0]] = 40
-			m.Update(key("s"))
-			m.Update(key("enter")) // product
-			m.Update(key("enter")) // qty (blank = all)
-			m.Update(key("3"))     // aggressive
-			assertFits(t, m.View(), sz[0], sz[1], "sell dial")
-			m.Update(key("enter")) // confirm
-			endDay(t, m)           // end day -> report
-			assertFits(t, m.View(), sz[0], sz[1], "report")
-			m.Update(key("enter"))
-		}
-		// A full crew with a skim on record exercises every crew-screen line.
-		m.Update(key("4"))
-		m.w.Player.DirtyCash += 5000
-		for i := 0; i < 6; i++ {
-			m.Update(key("h"))
-		}
-		m.w.Crew.LastSkim = m.w.Day
-		// Post the crew across the map so every cell shape is drawn.
-		m.Update(key("5"))
-		for i := range m.shown().Corners {
-			m.mapCursor = i
-			m.Update(key("c"))
-			assertFits(t, m.View(), sz[0], sz[1], "post picker")
-			m.Update(key("j"))
-			m.Update(key("enter"))
-			m.Update(key("e"))
-			m.Update(key("enter"))
-		}
-		// A rival in town, at war, with the enforcers queued against it,
-		// exercises the rival cells, the picker and the dashboard panel.
-		m.Update(key("esc")) // a stray enter above may be asking to end the day
-		m.w.Home().Corners[0].Owner, m.w.Home().Corners[0].Runner, m.w.Home().Corners[0].Enforcer = game.OwnerRival, 0, 0
-		m.w.Rival.Arrived, m.w.Rival.Muscle, m.w.Rival.War, m.w.Rival.Observed = 1, 4, 47, true
-		m.w.Crew.Members = append(m.w.Crew.Members, game.CrewMember{ID: 900, Name: "Moose", Role: "enforcer", Skill: 70, Loyalty: 70, Nerve: 60, Wage: 65})
-		m.w.Crew.NextID = 900
-		m.mapCursor = 0
-		m.Update(key("w"))
-		assertFits(t, m.View(), sz[0], sz[1], "strike picker")
-		m.Update(key("enter"))
-		if m.w.Strike == nil {
-			t.Fatalf("%dx%d: no strike queued: %q", sz[0], sz[1], m.status)
-		}
-		for i := range m.shown().Corners {
-			m.mapCursor = i
-			assertFits(t, m.View(), sz[0], sz[1], "map")
-		}
-		// The other city's map, and the ship dialog with something to send.
-		m.Update(key("]"))
-		for i := range m.shown().Corners {
-			m.mapCursor = i
-			assertFits(t, m.View(), sz[0], sz[1], "map elsewhere")
-		}
-		m.Update(key("["))
-		// A route on with a target and a shipment in flight: the routes
-		// under the grid with the cursor on them, the target dialog and
-		// every screen that reports the road.
-		route := m.set.Logistics.Routes(m.w.CityOrder[1])[0]
-		m.w.Stash(route.From)[m.w.Products[0]] = 300
-		m.w.Player.DirtyCash += m.set.Logistics.Float()
-		m.Update(key("]"))
-		for len(m.shown().Corners) > 0 && !m.onRoutes {
-			m.Update(key("j"))
-		}
-		m.Update(key("r"))
-		assertFits(t, m.View(), sz[0], sz[1], "map with the routes cursor")
-		m.Update(key("R"))
-		assertFits(t, m.View(), sz[0], sz[1], "target product")
-		m.Update(key("enter"))
-		for _, r := range "120" {
-			m.Update(key(string(r)))
-		}
-		assertFits(t, m.View(), sz[0], sz[1], "target units")
-		m.Update(key("enter"))
-		if m.mode != modePlay || !m.w.Route(route.ID).Dial.On() || m.w.Route(route.ID).Target[m.w.Products[0]] != 120 {
-			t.Fatalf("%dx%d: the target dialog left mode %v with %+v: %q %q", sz[0], sz[1], m.mode, m.w.Route(route.ID), m.status, m.tgt.err)
-		}
-		endDay(t, m)
-		assertFits(t, m.View(), sz[0], sz[1], "report with the route")
-		m.Update(key("enter"))
-		if len(m.w.Shipments) != 1 {
-			t.Fatalf("%dx%d: the route sent %d shipments: %v", sz[0], sz[1], len(m.w.Shipments), m.w.Report.Shipments)
-		}
-		assertFits(t, m.View(), sz[0], sz[1], "map with a shipment in flight")
-		m.Update(key("["))
-		m.Update(key("g"))
-		assertFits(t, m.View(), sz[0], sz[1], "travel confirm")
-		m.Update(key("esc"))
-		for _, s := range []string{"1", "2", "3", "4", "5", "6", "7", "8"} {
-			m.Update(key(s))
-			assertFits(t, m.View(), sz[0], sz[1], "screen "+s)
-		}
-		// The table: a deal that holds, an offer waiting, a proposal for
-		// tonight, and both pages of the propose dialog.
-		m.Update(key("8"))
-		m.w.Rival.Deals = []game.Deal{{Kind: game.DealSplit, Terms: game.Terms{Corners: []string{m.w.Home().Corners[1].ID}}, Since: m.w.Day}}
-		m.w.Offers = []game.Offer{{ID: 1, Deal: game.Deal{Kind: game.DealTruce, Terms: game.Terms{Days: 30}, Offered: true}, Expires: m.w.Day + 4}}
-		assertFits(t, m.View(), sz[0], sz[1], "rivals screen")
-		m.Update(key("d"))
-		assertFits(t, m.View(), sz[0], sz[1], "propose kinds")
-		m.Update(key("2"))
-		assertFits(t, m.View(), sz[0], sz[1], "propose terms")
-		m.Update(key("enter"))
-		if m.w.Proposal == nil || m.w.Proposal.Kind != game.DealTribute {
-			t.Fatalf("%dx%d: no tribute proposed: %q", sz[0], sz[1], m.status)
-		}
-		assertFits(t, m.View(), sz[0], sz[1], "rivals screen with a proposal")
-		m.Update(key("1"))
-		assertFits(t, m.View(), sz[0], sz[1], "dashboard with the table")
-		m.w.Rival.Deals, m.w.Offers, m.w.Proposal = nil, nil, nil
-		// Every node state on the tree: owned, available, short, locked,
-		// and the buy confirmation.
-		m.Update(key("6"))
-		m.w.Player.DirtyCash += 20_000
-		m.Update(key("enter"))
-		assertFits(t, m.View(), sz[0], sz[1], "upgrade confirm")
-		m.Update(key("y"))
-		for range m.upgradeRows() {
-			assertFits(t, m.View(), sz[0], sz[1], "upgrades")
-			m.Update(key("j"))
-		}
-		m.Update(key("4"))
-		m.Update(key("f"))
-		assertFits(t, m.View(), sz[0], sz[1], "fire confirm")
-		m.Update(key("y"))
-		m.w.Stash(m.w.Player.Location)[m.w.Products[0]] = 200
-		m.Update(key("s"))
-		m.Update(key("enter"))
-		m.Update(key("enter"))
-		m.Update(key("enter"))
-		// A robbery for the report. The stick-up rolls only on a corner
-		// you hold with somebody on it, and test seeds are wall-clock:
-		// the rival, at war and bordering your corner, can push you off
-		// it on the route day (#90), and a skill-88+ enforcer takes the
-		// chance under one. So the corner is yours again, worked by you,
-		// unguarded and unsqueezed before the roll; territory steps
-		// before rivals, so the robbery lands whatever the rival does.
-		start := m.w.Corner(m.cfg.City.Territory.Start)
-		m.w.Recall(game.You)
-		start.Owner, start.Runner, start.Enforcer, start.Squeeze, start.Risk = game.OwnerPlayer, game.You, 0, 0, 100
-		endDay(t, m)
-		assertFits(t, m.View(), sz[0], sz[1], "report with crew")
-		if len(m.w.Report.Territory) == 0 {
-			t.Fatalf("%dx%d: report has no territory lines: %+v", sz[0], sz[1], m.w.Report)
-		}
-		m.Update(key("enter"))
-		// The ledger: the picker, three fronts bought, one of them audited,
-		// and an accountant on the books.
-		m.Update(key("7"))
-		m.w.Player.DirtyCash = 700_000
-		m.w.Stats.PeakCash = 700_000
-		m.Update(key("b"))
-		assertFits(t, m.View(), sz[0], sz[1], "front picker")
-		for i := 0; i < 3; i++ {
-			m.Update(key("b"))
-			m.Update(key("enter"))
-		}
-		if len(m.w.Fronts) != 3 {
-			t.Fatalf("%dx%d: bought %d fronts: %q", sz[0], sz[1], len(m.w.Fronts), m.status)
-		}
-		m.w.Crew.Members = append(m.w.Crew.Members, game.CrewMember{ID: 901, Name: "Books", Role: "accountant", Skill: 60, Loyalty: 60, Wage: 130})
-		endDay(t, m)
-		assertFits(t, m.View(), sz[0], sz[1], "report with fronts")
-		if !strings.Contains(strings.Join(m.w.Report.Money, "\n"), "Washed") {
-			t.Fatalf("%dx%d: report has no wash line: %v", sz[0], sz[1], m.w.Report.Money)
-		}
-		m.Update(key("enter"))
-		m.w.Fronts[1].Audited = m.w.Day
-		m.w.Fronts[1].FrozenUntil = m.w.Day + m.cfg.Laundering.Laundering.AuditFreezeDays
-		m.w.Fronts[2].FrozenUntil = m.w.Day + 2
-		m.Update(key("d"))
-		for _, s := range []string{"7", "1", "4"} {
-			m.Update(key(s))
-			assertFits(t, m.View(), sz[0], sz[1], "ledger screen "+s)
-		}
-		m.Update(key("1"))
-		m.Update(key("b"))
-		assertFits(t, m.View(), sz[0], sz[1], "buy dialog")
-		m.Update(key("enter"))
-		assertFits(t, m.View(), sz[0], sz[1], "buy qty")
-		m.Update(key("esc"))
-		m.Update(key("esc"))
-		m.Update(key("?"))
-		assertFits(t, m.View(), sz[0], sz[1], "help")
-		m.Update(key("x"))
-
-		// A cartel-scale world: ten-digit cash on every screen, then the
-		// money moved clean (dirty cash on that scale is an arrest) so the
-		// next day unlocks every rung of the product ladder.
-		m.w.Player.DirtyCash = 1_234_567_890
-		m.w.Stats.PeakCash = m.w.Player.DirtyCash
-		for _, s := range []string{"1", "2", "3", "4", "5", "6", "7", "8"} {
-			m.Update(key(s))
-			assertFits(t, m.View(), sz[0], sz[1], "rich screen "+s)
-		}
-		m.Update(key("b"))
-		assertFits(t, m.View(), sz[0], sz[1], "rich front picker")
-		m.Update(key("esc"))
-		m.Update(key("1"))
-		m.Update(key("b"))
-		m.Update(key("enter"))
-		assertFits(t, m.View(), sz[0], sz[1], "rich buy qty")
-		m.Update(key("esc"))
-		m.Update(key("esc"))
-		m.w.Player.CleanCash, m.w.Player.DirtyCash = m.w.Player.DirtyCash, 50_000
-		endDay(t, m)
-		m.Update(key("enter"))
-		if got := len(m.w.Products); got != len(m.cfg.Market.Products) {
-			t.Fatalf("%d of %d products unlocked with a billion in the bank", got, len(m.cfg.Market.Products))
-		}
-		last := m.w.Products[len(m.w.Products)-1]
-		m.w.Stash(m.w.Player.Location)[last] = 20
-		for _, s := range []string{"1", "2", "5"} {
-			m.Update(key(s))
-			assertFits(t, m.View(), sz[0], sz[1], "ladder screen "+s)
-		}
-		m.Update(key("1"))
-		m.Update(key("s"))
-		for range m.w.Products {
-			m.Update(key("j"))
-		}
-		m.Update(key("enter"))
-		m.Update(key("enter"))
-		assertFits(t, m.View(), sz[0], sz[1], "ladder sell dialog")
-		m.Update(key("enter"))
-		endDay(t, m)
-		assertFits(t, m.View(), sz[0], sz[1], "ladder report")
-		m.Update(key("enter"))
-		m.w.Over = &game.Ending{Day: m.w.Day, Cause: "indicted", PeakCash: m.w.Stats.PeakCash}
-		endDay(t, m)
-		assertFits(t, m.View(), sz[0], sz[1], "rich game over")
+		richFixture(t, sz, func(view, what string) {
+			assertFits(t, view, sz[0], sz[1], what)
+		})
 	}
 }
 
@@ -350,6 +361,16 @@ func TestCashFormatting(t *testing.T) {
 	for v, want := range map[float64]string{19.5: "$19.50", 999.99: "$999.99", 2500: "$2,500", 10000: "$10,000"} {
 		if got := price(v); got != want {
 			t.Errorf("price(%v) = %q, want %q", v, got, want)
+		}
+	}
+	// A table column is one of the three, by kind.
+	for _, c := range []struct {
+		kind colKind
+		v    any
+		want string
+	}{{kCash, 1_234_567, cash(1_234_567)}, {kMoney, 1_234_567, money(1_234_567)}, {kPrice, 19.5, price(19.5)}, {kCash, 9_999, "$9,999"}, {kMoney, 9_999, "$9,999"}} {
+		if got, _ := cellText(c.kind, 0, c.v); got != c.want {
+			t.Errorf("%s cell of %v = %q, want %q", kindName(c.kind), c.v, got, c.want)
 		}
 	}
 }
@@ -1069,7 +1090,7 @@ func TestUpgradesScreenKeys(t *testing.T) {
 		t.Fatalf("report: mode %v upgrades %v", m.mode, m.w.Report.Upgrades)
 	}
 	assertFits(t, m.View(), 100, 30, "report with an upgrade")
-	if !strings.Contains(strings.Join(m.w.Report.Money, "\n"), "Stash spot -$5000") {
+	if !strings.Contains(strings.Join(m.w.Report.Money, "\n"), "Stash spot -$5,000") {
 		t.Fatalf("money section: %v", m.w.Report.Money)
 	}
 	m.Update(key("enter"))
@@ -1477,7 +1498,7 @@ func TestRouteAndTravelKeys(t *testing.T) {
 		t.Fatalf("the dashboard does not show what is on the road:\n%s", stripANSI(m.View()))
 	}
 	m.Update(tea.WindowSizeMsg{Width: 120, Height: 40})
-	if v := stripANSI(m.View()); !strings.Contains(v, "CITIES") || !strings.Contains(v, "◂30") {
+	if v := stripANSI(m.View()); !strings.Contains(v, "CITIES") || !strings.Contains(v, "◂ 30 units in") {
 		t.Fatalf("the tall dashboard has no CITIES panel with the road:\n%s", v)
 	}
 	assertFits(t, m.View(), 120, 40, "tall dashboard with the road")
@@ -1879,14 +1900,14 @@ func TestCrewScreenUnpostedEnforcer(t *testing.T) {
 		t.Fatalf("runner: enforcer no longer unposted:\n%s", v)
 	}
 
-	// The hiring pool says what each role does.
+	// The hiring pool names each candidate's role and fee.
 	m.w.Crew.Candidates = []game.CrewMember{
 		{ID: 3, Name: "Pat", Role: "accountant", Skill: 50, Loyalty: 60, Nerve: 50, Wage: 60, Fee: 100},
 		{ID: 4, Name: "Bo", Role: "enforcer", Skill: 50, Loyalty: 60, Nerve: 50, Wage: 60, Fee: 100},
 	}
-	v = m.View()
-	if !strings.Contains(v, "works fronts") || !strings.Contains(v, "guards corner") {
-		t.Fatalf("pool: want the role blurbs:\n%s", v)
+	v = stripANSI(m.View())
+	if !strings.Contains(v, "Pat   accountant") || !strings.Contains(v, "Bo    enforcer") || !strings.Contains(v, "$100") {
+		t.Fatalf("pool: want the roles and fees:\n%s", v)
 	}
 }
 

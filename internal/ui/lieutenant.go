@@ -66,28 +66,23 @@ func (m *Model) viewAssign() string {
 	}
 	rows := m.assignRows()
 	m.assignCursor = max(0, min(m.assignCursor, len(rows)-1))
-	var body []string
-	for i, cid := range rows {
-		label, note := "nobody's", theme.Subtle.Render("take them off the city")
-		if cid != "" {
-			label = m.w.CityName(cid)
-			switch other := m.w.Crew.Lieutenant(cid); {
-			case other != nil && other.ID == lt.ID:
-				note = theme.Good.Render("theirs now")
-			case other != nil:
-				note = theme.Warning.Render(other.Name + " runs it")
-			default:
-				note = theme.Subtle.Render(fmt.Sprintf("%d corner(s) held, %d units stashed", heldIn(m.w, cid), m.w.Player.StockIn(cid)))
-			}
+	var cells [][]any
+	for _, cid := range rows {
+		if cid == "" {
+			cells = append(cells, []any{"nobody's", nil, nil, styled{theme.Subtle, "take them off the city"}})
+			continue
 		}
-		line := fmt.Sprintf("%-12s", fit(label, 12))
-		if i == m.assignCursor {
-			m.modalFollow(len(body))
-			body = append(body, theme.Gold.Render("▸ ")+theme.Selected.Render(line)+" "+note)
-		} else {
-			body = append(body, "  "+line+" "+note)
+		var runs any = "nobody"
+		switch other := m.w.Crew.Lieutenant(cid); {
+		case other != nil && other.ID == lt.ID:
+			runs = styled{theme.Good, "theirs now"}
+		case other != nil:
+			runs = styled{theme.Warning, other.Name}
 		}
+		cells = append(cells, []any{m.w.CityName(cid), heldIn(m.w, cid), m.w.Player.StockIn(cid), runs})
 	}
+	m.modalFollow(1 + m.assignCursor) // under the header
+	body := table([]col{{"city", kText, 0}, {"corners", kInt, 0}, {"units", kInt, 0}, {"runs", kText, 0}}, cells, m.assignCursor, m.modalInner())
 	// Two lines that fit the modal's width.
 	body = append(body, "",
 		theme.Subtle.Render("Each night they post the idle crew, drop a corner robbed twice and sell"),
@@ -107,16 +102,6 @@ func heldIn(w *game.World, city string) int {
 		}
 	}
 	return n
-}
-
-// temper is a lieutenant's personality as the roster shows it: the word
-// once you have seen enough of them, nothing until then (the runs line
-// says how long that is).
-func (m *Model) temper(c game.CrewMember) string {
-	if !c.Lieutenant() || !c.Observed {
-		return ""
-	}
-	return c.Personality
 }
 
 // runsLine is one line per city with a lieutenant, for the dashboard and

@@ -13,6 +13,7 @@ import (
 
 	"github.com/theclifmeister/kingpin/internal/content"
 	"github.com/theclifmeister/kingpin/internal/events"
+	"github.com/theclifmeister/kingpin/internal/format"
 	"github.com/theclifmeister/kingpin/internal/game"
 )
 
@@ -154,12 +155,12 @@ func (s *Sim) Step(w *game.World, t *game.Tick) {
 			if ev.Clean {
 				pool = "clean"
 			}
-			rep.Upgrades = append(rep.Upgrades, fmt.Sprintf("%s bought for $%d %s. It is yours for the run.", ev.Name, ev.Cost, pool))
-			rep.Money = append(rep.Money, fmt.Sprintf("%s -$%d", ev.Name, ev.Cost))
+			rep.Upgrades = append(rep.Upgrades, fmt.Sprintf("%s bought for %s %s. It is yours for the run.", ev.Name, format.Money(ev.Cost), pool))
+			rep.Money = append(rep.Money, fmt.Sprintf("%s -%s", ev.Name, format.Money(ev.Cost)))
 		case events.FallGuyBurned:
 			add("heat", "FallGuyBurned", base)
 			lostCash += ev.CashLost
-			rep.Heat = append(rep.Heat, fmt.Sprintf("THE FALL GUY TOOK IT. The case is closed and heat is down, but $%d went on making it stick. There is no second one.", ev.CashLost))
+			rep.Heat = append(rep.Heat, fmt.Sprintf("THE FALL GUY TOOK IT. The case is closed and heat is down, but %s went on making it stick. There is no second one.", format.Money(ev.CashLost)))
 		case events.PriceMove:
 			// The street where you are; the market screen has the rest.
 			if ev.City == here.ID {
@@ -169,7 +170,7 @@ func (s *Sim) Step(w *game.World, t *game.Tick) {
 			d := base
 			d.Product = ev.Name
 			add("market", "ProductUnlocked", d)
-			rep.Prices = append(rep.Prices, fmt.Sprintf("%-8s now on offer from the supplier, around %s a unit", ev.Name, dollars(ev.Price)))
+			rep.Prices = append(rep.Prices, fmt.Sprintf("%-8s now on offer from the supplier, around %s a unit", ev.Name, format.Price(ev.Price)))
 		case events.PriceShock:
 			d := at(ev.City)
 			d.Product = w.ProductName(ev.Product)
@@ -204,17 +205,17 @@ func (s *Sim) Step(w *game.World, t *game.Tick) {
 			rep.Sales = append(rep.Sales, fmt.Sprintf("You took %s's order: %d %s by day %d%s. Deliver it there (2, d).", ev.Name, ev.Units, w.ProductName(ev.Product), ev.Due, in(ev.City)))
 		case events.ContractDelivered:
 			contracts += ev.Revenue
-			line := fmt.Sprintf("Handed %d %s to %s at %s (%.3gx street) = +$%d%s", ev.Units, w.ProductName(ev.Product), ev.Name, dollars(ev.Price), ev.Price/math.Max(ev.Street, 1e-9), ev.Revenue, in(ev.City))
+			line := fmt.Sprintf("Handed %d %s to %s at %s (%.3gx street) = +%s%s", ev.Units, w.ProductName(ev.Product), ev.Name, format.Price(ev.Price), ev.Price/math.Max(ev.Street, 1e-9), format.Money(ev.Revenue), in(ev.City))
 			if ev.Complete {
 				line += ". Delivered in full."
 			} else {
 				line += fmt.Sprintf(". %d still owed.", ev.Owed)
 			}
 			if ev.Price < ev.Signed {
-				line += fmt.Sprintf(" The street was %s the day they asked.", dollars(ev.Signed))
+				line += fmt.Sprintf(" The street was %s the day they asked.", format.Price(ev.Signed))
 			}
 			rep.Sales = append(rep.Sales, line)
-			rep.Money = append(rep.Money, fmt.Sprintf("%s paid +$%d", ev.Name, ev.Revenue))
+			rep.Money = append(rep.Money, fmt.Sprintf("%s paid +%s", ev.Name, format.Money(ev.Revenue)))
 			if ev.Complete {
 				d := at(ev.City)
 				d.Product = w.ProductName(ev.Product)
@@ -226,8 +227,8 @@ func (s *Sim) Step(w *game.World, t *game.Tick) {
 			forfeits += ev.Cash
 			line := fmt.Sprintf("You let %s down: %d of %d %s delivered by the day%s.", ev.Name, ev.Delivered, ev.Units, w.ProductName(ev.Product), in(ev.City))
 			if ev.Cash > 0 {
-				line += fmt.Sprintf(" They took $%d for the rest.", ev.Cash)
-				rep.Money = append(rep.Money, fmt.Sprintf("%s collected for the shortfall -$%d", ev.Name, ev.Cash))
+				line += fmt.Sprintf(" They took %s for the rest.", format.Money(ev.Cash))
+				rep.Money = append(rep.Money, fmt.Sprintf("%s collected for the shortfall -%s", ev.Name, format.Money(ev.Cash)))
 			}
 			line += " Word gets round."
 			rep.Sales = append(rep.Sales, line)
@@ -241,7 +242,7 @@ func (s *Sim) Step(w *game.World, t *game.Tick) {
 			if ev.City != here.ID && len(ev.Reasons) == 0 && ev.To < 1 {
 				break // a city nothing happened in
 			}
-			rep.Heat = append(rep.Heat, fmt.Sprintf("%s heat %.0f -> %.0f", w.CityName(ev.City), ev.From, ev.To))
+			rep.Heat = append(rep.Heat, fmt.Sprintf("%s heat %.0f %s %.0f", w.CityName(ev.City), ev.From, format.Arrow, ev.To))
 			for _, r := range ev.Reasons {
 				rep.Heat = append(rep.Heat, "  "+r)
 			}
@@ -270,7 +271,7 @@ func (s *Sim) Step(w *game.World, t *game.Tick) {
 			d := base
 			d.Name, d.Role = ev.Name, ev.Role
 			add("crew", "CrewHired", d)
-			rep.Crew = append(rep.Crew, fmt.Sprintf("%s signed on as a %s for $%d", ev.Name, ev.Role, ev.Fee))
+			rep.Crew = append(rep.Crew, fmt.Sprintf("%s signed on as a %s for %s", ev.Name, ev.Role, format.Money(ev.Fee)))
 		case events.CrewFired:
 			d := base
 			d.Name, d.Role = ev.Name, ev.Role
@@ -298,11 +299,11 @@ func (s *Sim) Step(w *game.World, t *game.Tick) {
 			} else {
 				rep.Crew = append(rep.Crew, "The investigation named nobody. The crew resent being asked.")
 			}
-			rep.Money = append(rep.Money, fmt.Sprintf("Investigation -$%d", ev.Cost))
+			rep.Money = append(rep.Money, fmt.Sprintf("Investigation -%s", format.Money(ev.Cost)))
 		case events.CrewPaidOff:
 			paidOff += ev.Cost
 			rep.Crew = append(rep.Crew, fmt.Sprintf("%s took your money and stays sweet on you, for now.", ev.Name))
-			rep.Money = append(rep.Money, fmt.Sprintf("Paid off %s -$%d", ev.Name, ev.Cost))
+			rep.Money = append(rep.Money, fmt.Sprintf("Paid off %s -%s", ev.Name, format.Money(ev.Cost)))
 		case events.CrewQuit:
 			d := base
 			d.Name, d.Role = ev.Name, ev.Role
@@ -322,18 +323,18 @@ func (s *Sim) Step(w *game.World, t *game.Tick) {
 			skimmed += ev.Skimmed
 			rep.Crew = append(rep.Crew, lieutenantLines(ev)...)
 			if ev.Cut > 0 {
-				rep.Money = append(rep.Money, fmt.Sprintf("%s's cut of %s -$%d", ev.Name, ev.CityName, ev.Cut))
+				rep.Money = append(rep.Money, fmt.Sprintf("%s's cut of %s -%s", ev.Name, ev.CityName, format.Money(ev.Cut)))
 			}
 		case events.CrewSkimmed:
 			add("crew", "CrewSkimmed", base)
 			skimmed += ev.Amount
 			switch {
 			case ev.FromWash == ev.Amount:
-				rep.Crew = append(rep.Crew, fmt.Sprintf("$%d of the wash never came out clean. Somebody is cooking the books.", ev.Amount))
+				rep.Crew = append(rep.Crew, fmt.Sprintf("%s of the wash never came out clean. Somebody is cooking the books.", format.Money(ev.Amount)))
 			case ev.FromWash > 0:
-				rep.Crew = append(rep.Crew, fmt.Sprintf("$%d of the takings never made it back, $%d of it from the wash. Somebody is skimming.", ev.Amount, ev.FromWash))
+				rep.Crew = append(rep.Crew, fmt.Sprintf("%s of the takings never made it back, %s of it from the wash. Somebody is skimming.", format.Money(ev.Amount), format.Money(ev.FromWash)))
 			default:
-				rep.Crew = append(rep.Crew, fmt.Sprintf("$%d of the takings never made it back. Somebody is skimming.", ev.Amount))
+				rep.Crew = append(rep.Crew, fmt.Sprintf("%s of the takings never made it back. Somebody is skimming.", format.Money(ev.Amount)))
 			}
 		case events.CornerClaimed:
 			d := at(cornerCity(ev.Corner))
@@ -440,7 +441,7 @@ func (s *Sim) Step(w *game.World, t *game.Tick) {
 			rep.Territory = append(rep.Territory, fmt.Sprintf("The %s with %s has run out. Expect them back on your corners.", ev.Deal, ev.Rival))
 		case events.TributePaid:
 			tribute += ev.Amount
-			rep.Money = append(rep.Money, fmt.Sprintf("Tribute to %s -$%d", ev.Rival, ev.Amount))
+			rep.Money = append(rep.Money, fmt.Sprintf("Tribute to %s -%s", ev.Rival, format.Money(ev.Amount)))
 		case events.WarEscalated:
 			d := base
 			if ev.Stage == "crackdown" {
@@ -461,11 +462,11 @@ func (s *Sim) Step(w *game.World, t *game.Tick) {
 			d.Front = ev.Name
 			add("laundering", "FrontBought", d)
 			spent += ev.Cost
-			rep.Money = append(rep.Money, fmt.Sprintf("Bought %s -$%d. It opens today.", ev.Name, ev.Cost))
+			rep.Money = append(rep.Money, fmt.Sprintf("Bought %s -%s. It opens today.", ev.Name, format.Money(ev.Cost)))
 		case events.CashLaundered:
-			line := fmt.Sprintf("Washed $%d clean through %d front(s)", ev.Amount, ev.Fronts)
+			line := fmt.Sprintf("Washed %s clean through %d front(s)", format.Money(ev.Amount), ev.Fronts)
 			if ev.Upkeep > 0 {
-				line += fmt.Sprintf(", upkeep -$%d", ev.Upkeep)
+				line += fmt.Sprintf(", upkeep -%s", format.Money(ev.Upkeep))
 			}
 			upkeep += ev.Upkeep
 			rep.Money = append(rep.Money, line)
@@ -476,7 +477,7 @@ func (s *Sim) Step(w *game.World, t *game.Tick) {
 			seized += ev.Seized
 			line := fmt.Sprintf("AUDIT at %s: shut for %d days", ev.Name, ev.Days)
 			if ev.Seized > 0 {
-				line += fmt.Sprintf(", $%d seized", ev.Seized)
+				line += fmt.Sprintf(", %s seized", format.Money(ev.Seized))
 			}
 			if ev.Dial == events.LaunderGreedy {
 				line += ". Run greedy, the books will interest the DA."
@@ -488,17 +489,17 @@ func (s *Sim) Step(w *game.World, t *game.Tick) {
 			d := base
 			d.Front = ev.Name
 			add("laundering", "FrontFrozen", d)
-			rep.Money = append(rep.Money, fmt.Sprintf("%s shut for %d days: $%d upkeep unpaid. Wash something.", ev.Name, ev.Days, ev.Upkeep))
+			rep.Money = append(rep.Money, fmt.Sprintf("%s shut for %d days: %s upkeep unpaid. Wash something.", ev.Name, ev.Days, format.Money(ev.Upkeep)))
 		case events.WholesaleBought:
 			// The route's lots, bought this morning for what it sends.
 			shipping += ev.Cost
 			charge(ev.Name, ev.Cost)
-			rep.Shipments = append(rep.Shipments, fmt.Sprintf("Bought %d %s (%d lot(s)) in %s for the %s -$%d", ev.Units, w.ProductName(ev.Product), ev.Lots, w.CityName(ev.City), ev.Name, ev.Cost))
+			rep.Shipments = append(rep.Shipments, fmt.Sprintf("Bought %d %s (%d lot(s)) in %s for the %s -%s", ev.Units, w.ProductName(ev.Product), ev.Lots, w.CityName(ev.City), ev.Name, format.Money(ev.Cost)))
 		case events.ShipmentSent:
 			// Paid this morning, when the route put it on the road.
 			shipping += ev.Cost
 			charge(ev.Name, ev.Cost)
-			rep.Shipments = append(rep.Shipments, fmt.Sprintf("%d %s left %s for %s by %s, %s: %d day(s), fare -$%d", ev.Units, w.ProductName(ev.Product), w.CityName(ev.From), w.CityName(ev.To), ev.Mode, ev.Dial, ev.Days, ev.Cost))
+			rep.Shipments = append(rep.Shipments, fmt.Sprintf("%d %s left %s for %s by %s, %s: %d day(s), fare -%s", ev.Units, w.ProductName(ev.Product), w.CityName(ev.From), w.CityName(ev.To), ev.Mode, ev.Dial, ev.Days, format.Money(ev.Cost)))
 		case events.ShipmentArrived:
 			rep.Shipments = append(rep.Shipments, fmt.Sprintf("%d %s landed in %s from %s by %s", ev.Units, w.ProductName(ev.Product), w.CityName(ev.To), w.CityName(ev.From), ev.Mode))
 		case events.ShipmentSeized:
@@ -543,16 +544,16 @@ func (s *Sim) Step(w *game.World, t *game.Tick) {
 				key = "PressureShiftedUp"
 			}
 			add("law", key, at(ev.City))
-			rep.Law = append(rep.Law, fmt.Sprintf("%s pressure %.0f -> %.0f", w.CityName(ev.City), ev.From, ev.To))
+			rep.Law = append(rep.Law, fmt.Sprintf("%s pressure %.0f %s %.0f", w.CityName(ev.City), ev.From, format.Arrow, ev.To))
 		case events.CityFunded:
 			funded += ev.Amount
-			rep.Law = append(rep.Law, fmt.Sprintf("Gave %s $%d clean: goodwill +%.0f (now %.0f)", w.CityName(ev.City), ev.Amount, ev.Goodwill, w.Cities[ev.City].Goodwill))
-			rep.Money = append(rep.Money, fmt.Sprintf("Funded %s -$%d clean", w.CityName(ev.City), ev.Amount))
+			rep.Law = append(rep.Law, fmt.Sprintf("Gave %s %s clean: goodwill +%.0f (now %.0f)", w.CityName(ev.City), format.Money(ev.Amount), ev.Goodwill, w.Cities[ev.City].Goodwill))
+			rep.Money = append(rep.Money, fmt.Sprintf("Funded %s -%s clean", w.CityName(ev.City), format.Money(ev.Amount)))
 		case events.CrewPaid:
 			wages += ev.Wages
-			line := fmt.Sprintf("Wages (%s) -$%d", ev.Pay, ev.Wages)
+			line := fmt.Sprintf("Wages (%s) -%s", ev.Pay, format.Money(ev.Wages))
 			if ev.Short > 0 {
-				line += fmt.Sprintf(", $%d SHORT", ev.Short)
+				line += fmt.Sprintf(", %s SHORT", format.Money(ev.Short))
 				rep.Crew = append(rep.Crew, "You could not make payroll. That gets around.")
 			}
 			rep.Money = append(rep.Money, line)
@@ -562,8 +563,8 @@ func (s *Sim) Step(w *game.World, t *game.Tick) {
 	// What each route cost today, lots and fares together: the money
 	// section carries the one line, the shipments section the total.
 	for _, name := range routeOrder {
-		rep.Shipments = append(rep.Shipments, fmt.Sprintf("The %s cost $%d today, lots and fares.", name, routeCost[name]))
-		rep.Money = append(rep.Money, fmt.Sprintf("The %s: lots and fares -$%d", name, routeCost[name]))
+		rep.Shipments = append(rep.Shipments, fmt.Sprintf("The %s cost %s today, lots and fares.", name, format.Money(routeCost[name])))
+		rep.Money = append(rep.Money, fmt.Sprintf("The %s: lots and fares -%s", name, format.Money(routeCost[name])))
 	}
 
 	// Purchases and signings made during the day. Cash "before" is what the
@@ -572,27 +573,27 @@ func (s *Sim) Step(w *game.World, t *game.Tick) {
 	// money between pools and changes nothing).
 	for _, b := range w.Buys {
 		spent += b.Cost
-		rep.Money = append(rep.Money, fmt.Sprintf("Bought %d %s at $%.0f = -$%d", b.Qty, w.ProductName(b.Product), b.UnitPrice, b.Cost))
+		rep.Money = append(rep.Money, fmt.Sprintf("Bought %d %s at %s = -%s", b.Qty, w.ProductName(b.Product), format.Price(b.UnitPrice), format.Money(b.Cost)))
 	}
 	for _, m := range w.Crew.HiredToday {
 		spent += m.Fee
-		rep.Money = append(rep.Money, fmt.Sprintf("Signing fee for %s -$%d", m.Name, m.Fee))
+		rep.Money = append(rep.Money, fmt.Sprintf("Signing fee for %s -%s", m.Name, format.Money(m.Fee)))
 	}
 	rep.CashBefore = w.Cash() - soldRevenue - contracts + forfeits + lostCash + spent + wages + skimmed + robbed + upgrades + upkeep + seized + paidOff + investigated + shipping + tribute + cuts + funded
 	if soldRevenue > 0 {
-		rep.Money = append(rep.Money, fmt.Sprintf("Street sales +$%d", soldRevenue))
+		rep.Money = append(rep.Money, fmt.Sprintf("Street sales +%s", format.Money(soldRevenue)))
 	}
 	if robbed > 0 {
-		rep.Money = append(rep.Money, fmt.Sprintf("Robbed on the corner -$%d", robbed))
+		rep.Money = append(rep.Money, fmt.Sprintf("Robbed on the corner -%s", format.Money(robbed)))
 	}
 	if skimmed > 0 {
-		rep.Money = append(rep.Money, fmt.Sprintf("Missing from the count -$%d", skimmed))
+		rep.Money = append(rep.Money, fmt.Sprintf("Missing from the count -%s", format.Money(skimmed)))
 	}
 	if lostCash > 0 {
-		rep.Money = append(rep.Money, fmt.Sprintf("Seized by police -$%d", lostCash))
+		rep.Money = append(rep.Money, fmt.Sprintf("Seized by police -%s", format.Money(lostCash)))
 	}
 	if seized > 0 {
-		rep.Money = append(rep.Money, fmt.Sprintf("Seized by the auditors -$%d", seized))
+		rep.Money = append(rep.Money, fmt.Sprintf("Seized by the auditors -%s", format.Money(seized)))
 	}
 
 	// Flavour keeps the ticker alive on quiet days.
@@ -682,7 +683,7 @@ func capitalize(s string) string {
 }
 
 func priceLine(w *game.World, ev events.PriceMove) string {
-	arrow := "→"
+	arrow := format.Arrow
 	pct := 0.0
 	if ev.From > 0 {
 		pct = (ev.To - ev.From) / ev.From * 100
@@ -693,7 +694,7 @@ func priceLine(w *game.World, ev events.PriceMove) string {
 	case pct < -1:
 		arrow = "↓"
 	}
-	return fmt.Sprintf("%-8s %8s %s %8s (%+.0f%%)", w.ProductName(ev.Product), dollars(ev.From), arrow, dollars(ev.To), pct)
+	return fmt.Sprintf("%-8s %8s %s %8s (%+.0f%%)", w.ProductName(ev.Product), format.Price(ev.From), arrow, format.Price(ev.To), pct)
 }
 
 func saleLine(w *game.World, ev events.PlayerSold) string {
@@ -704,7 +705,7 @@ func saleLine(w *game.World, ev events.PlayerSold) string {
 	if ev.Sold == 0 {
 		return fmt.Sprintf("%-8s wanted %d, sold none (%s%s)", w.ProductName(ev.Product), ev.Wanted, ev.Dial, who)
 	}
-	return fmt.Sprintf("%-8s sold %d/%d at %s avg = +$%d (%s%s)", w.ProductName(ev.Product), ev.Sold, ev.Wanted, dollars(ev.AvgPrice), ev.Revenue, ev.Dial, who)
+	return fmt.Sprintf("%-8s sold %d/%d at %s avg = +%s (%s%s)", w.ProductName(ev.Product), ev.Sold, ev.Wanted, format.Price(ev.AvgPrice), format.Money(ev.Revenue), ev.Dial, who)
 }
 
 // lieutenantLines is what a lieutenant's night reads like in the report:
@@ -731,7 +732,7 @@ func lieutenantLines(ev events.LieutenantActed) []string {
 	}
 	lines := []string{line + "."}
 	if ev.Revenue > 0 {
-		lines = append(lines, fmt.Sprintf("  %s took $%d; %s kept $%d of it.", ev.CityName, ev.Revenue, ev.Name, ev.Cut))
+		lines = append(lines, fmt.Sprintf("  %s took %s; %s kept %s of it.", ev.CityName, format.Money(ev.Revenue), ev.Name, format.Money(ev.Cut)))
 	}
 	if ev.Revealed {
 		lines = append(lines, fmt.Sprintf("  You have seen enough of %s to know: %s.", ev.Name, ev.Personality))
@@ -763,15 +764,6 @@ func count(n int, what string) string {
 	return fmt.Sprintf("%d %ss", n, what)
 }
 
-// dollars formats a unit price: cents on a cheap bag, whole dollars once
-// they stop mattering.
-func dollars(v float64) string {
-	if v < 1000 {
-		return fmt.Sprintf("$%.2f", v)
-	}
-	return fmt.Sprintf("$%.0f", v)
-}
-
 func robberyLine(w *game.World, ev events.CornerRobbed) string {
 	parts := []string{}
 	for id, q := range ev.StockLost {
@@ -786,7 +778,7 @@ func robberyLine(w *game.World, ev events.CornerRobbed) string {
 		if len(parts) > 0 {
 			s += " and"
 		}
-		s += fmt.Sprintf(" $%d", ev.Cash)
+		s += " " + format.Money(ev.Cash)
 	}
 	return s + ". An enforcer on the corner would have helped."
 }
@@ -807,7 +799,7 @@ func enforcementLine(w *game.World, ev events.Enforcement) string {
 		s += " " + strings.Join(parts, ", ")
 	}
 	if ev.CashLost > 0 {
-		s += fmt.Sprintf(" and $%d", ev.CashLost)
+		s += " and " + format.Money(ev.CashLost)
 	}
 	if len(parts) == 0 && ev.CashLost == 0 {
 		s += " nothing; they found an empty stash"
