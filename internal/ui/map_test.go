@@ -70,8 +70,9 @@ func mapFacts(t *testing.T, m *Model, c *game.Corner, text, where string) {
 // opens at 80: owner and since, size, heat and risk, robbery, undercut,
 // push odds, demand per product, runner, enforcer and the hint, for a
 // worked corner, one held with nobody on it, the rival's and a free
-// one. At 80x24 the overlay cuts the inspector to what fits over KEYS
-// (the shared overlay's rule), so the whole of it is read at 80x36.
+// one. At 80x24 the overlay's first screen holds only the top of the
+// inspector (the shared overlay decides whether the rest is cut or
+// scrolled to), so the whole of it is read at 80x36.
 func TestMapInspectorInPane(t *testing.T) {
 	for _, sz := range [][2]int{{120, 40}, {80, 36}, {80, 24}} {
 		m := richModel(t, sz[0], sz[1])
@@ -124,8 +125,8 @@ func TestMapInspectorInPane(t *testing.T) {
 				assertFits(t, m.View(), sz[0], sz[1], "map overlay")
 				if sz[1] >= 36 {
 					mapFacts(t, m, c, overlay, "the overlay")
-				} else if !strings.Contains(overlay, strings.ToUpper(c.Name)) || !strings.Contains(overlay, "size") || !strings.Contains(overlay, "KEYS") {
-					t.Errorf("%dx%d: the overlay does not open on %s over KEYS:\n%s", sz[0], sz[1], c.Name, overlay)
+				} else if !strings.Contains(overlay, strings.ToUpper(c.Name)) || !strings.Contains(overlay, "size") {
+					t.Errorf("%dx%d: the overlay does not open on %s:\n%s", sz[0], sz[1], c.Name, overlay)
 				}
 				m.Update(key("esc"))
 			}
