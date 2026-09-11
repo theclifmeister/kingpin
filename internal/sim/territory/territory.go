@@ -125,6 +125,9 @@ func (s *Sim) step(w *game.World, t *game.Tick, rng rand, city *game.City, reven
 			}
 			continue
 		}
+		// Held once is held for the record: the rival's grace period
+		// (#60) leaves what you have worked alone.
+		c.Yours = true
 		// Posts must point at people still on the payroll.
 		if c.Runner != 0 && c.Runner != game.You && w.Crew.Member(c.Runner) == nil {
 			c.Runner = 0

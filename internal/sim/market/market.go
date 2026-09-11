@@ -121,6 +121,10 @@ func (s *Sim) Step(w *game.World, t *game.Tick) {
 			cp := s.cityProduct(cid, id)
 			basePrice := pc.BasePrice * cp.Price
 			open := m.Price
+			// Whether the supplier here sells it is the config's to say,
+			// stamped every day so a save from before the port product
+			// (#60) plays by the file it is loaded under.
+			m.NoSupply = cp.NoSupply
 
 			// 1. Resolve the player's order for this product here, or
 			// the standing order of the lieutenant who runs the city:
@@ -220,7 +224,7 @@ func (s *Sim) unlock(w *game.World, t *game.Tick) {
 			}
 			fresh = true
 			cp := s.cityProduct(cid, p.ID)
-			w.AddProduct(cid, game.StartingProduct{ID: p.ID, Name: p.Name, Price: p.BasePrice * cp.Price, Demand: p.Demand * cp.Demand})
+			w.AddProduct(cid, game.StartingProduct{ID: p.ID, Name: p.Name, Price: p.BasePrice * cp.Price, Demand: p.Demand * cp.Demand, NoSupply: cp.NoSupply})
 		}
 		if fresh {
 			t.Emit(events.ProductUnlocked{Day: t.Day, Product: p.ID, Name: p.Name, Price: p.BasePrice})

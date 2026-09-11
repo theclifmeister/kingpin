@@ -2,6 +2,7 @@ package harness
 
 import (
 	"fmt"
+	"sort"
 	"testing"
 
 	"github.com/theclifmeister/kingpin/internal/content"
@@ -27,6 +28,7 @@ func policies(cfg *content.Config) map[string]Policy {
 		"territory":  Territory(cfg, 40, 3),
 		"war":        Warlike(cfg, 40, 3, events.ForcePush),
 		"laundered":  Laundered(cfg, 40),
+		"boss":       Boss(cfg, 40, ""),
 	}
 }
 
@@ -70,7 +72,7 @@ func TestReputationInvariants(t *testing.T) {
 func TestReputationCannotMaxAllThree(t *testing.T) {
 	cfg := content.MustLoad()
 	w := sim.NewWorld(cfg, 1)
-	w.Player.DirtyCash = 10_000_000
+	w.Player.DirtyCash = 1_000_000
 	w.SetPay(events.PayGenerous)
 	for i := 0; i < 3; i++ {
 		w.Crew.Members = append(w.Crew.Members, game.CrewMember{ID: 100 + i, Name: fmt.Sprintf("E%d", i), Role: "enforcer", Skill: 90, Loyalty: 90, Nerve: 90, Wage: 55})
@@ -78,7 +80,7 @@ func TestReputationCannotMaxAllThree(t *testing.T) {
 	w.Crew.NextID = 103
 	w.Rival.Arrived, w.Rival.Cash = 1, 1_000_000
 	res, err := RunFrom(cfg, w, Horizon, func(w *game.World) {
-		w.Player.DirtyCash = 10_000_000 // whatever it costs
+		w.Player.DirtyCash = 1_000_000 // whatever it costs (a bigger pile is its own heat, and the day's sales are already an aggressive dump)
 		w.Home().Heat, w.Heat.Evidence = 0, 0
 		// A rival that is always there to be hit, a war that never
 		// brings the crackdown that would rout it.
@@ -201,6 +203,36 @@ func TestReputationEffects(t *testing.T) {
 	t.Logf("pushes over five 100-day runs: %d at fear 0, %d at fear 100", pushes[0], pushes[100])
 	if pushes[100] >= pushes[0] || pushes[0] == 0 {
 		t.Fatalf("fear 100 was pushed on %d times, fear 0 %d; fear should keep the rival off", pushes[100], pushes[0])
+	}
+
+	// Fear: the expansionist is slower to set up on free corners too
+	// (#60, rival_claim_cut): its third claim comes later against a
+	// feared name than against a nobody, on the median over seeds.
+	third := map[float64][]int{}
+	for _, fear := range []float64{0, 100} {
+		for seed := uint64(1); seed <= 10; seed++ {
+			w := sim.NewWorld(cfg, seed)
+			w.Rival.Personality = "expansionist"
+			res, _ := RunFrom(cfg, w, Horizon, func(w *game.World) {
+				w.Player.Reputation.Fear = fear
+				Territory(cfg, 40, 3)(w)
+			})
+			claims, day := 0, Horizon+1
+			for _, e := range res.Events {
+				if ev, ok := e.(events.CornerTaken); ok && ev.From == game.OwnerNone {
+					if claims++; claims == 3 {
+						day = ev.Day
+						break
+					}
+				}
+			}
+			third[fear] = append(third[fear], day)
+		}
+		sort.Ints(third[fear])
+	}
+	t.Logf("day of the rival's third claim (median of ten): %d at fear 0, %d at fear 100", third[0][5], third[100][5])
+	if third[100][5] <= third[0][5] {
+		t.Fatalf("the third claim came on day %d at fear 100 and day %d at fear 0; fear should slow the rival's claims", third[100][5], third[0][5])
 	}
 
 	// Respect: the same crew on stingy pay keeps more loyalty, and the

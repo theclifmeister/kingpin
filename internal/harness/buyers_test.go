@@ -2,6 +2,7 @@ package harness
 
 import (
 	"fmt"
+	"math"
 	"reflect"
 	"sort"
 	"strings"
@@ -289,20 +290,42 @@ func premiumOf(w *game.World, id int) float64 {
 	return 0
 }
 
-// Failure is felt: the same seed with one contract welshed on ends with
-// less respect than delivered, and the buyer let down is not back inside
-// blacklist_days.
+// Failure is felt: on the morning a contract fails, the welsher's respect
+// is down by the event's penalty (through the day's fade, clamped at
+// zero) from where the day's other sources would have left it, and the
+// buyer let down is not back inside blacklist_days. That the same seed
+// played straight ends day 90 with more respect is logged, not pinned:
+// the two runs diverge at the welsh and the crook sometimes lands more
+// deliveries after it (4 of 5 seeds under the flat rival pace, 2 of 5
+// under #60's), which is a race and not the mechanism.
 func TestFailureIsFelt(t *testing.T) {
 	cfg := content.MustLoad()
 	pace := cfg.Buyers.Buyers
+	rep := cfg.Reputation
 	felt := 0
+	// Both start with some respect to lose: the first contract fails in
+	// the first month, when a fresh name has none and a penalty on zero
+	// clamps to zero.
+	start := func(seed uint64) *game.World {
+		w := sim.NewWorld(cfg, seed)
+		w.Player.Reputation.Respect = 30
+		return w
+	}
 	for seed := uint64(1); seed <= 5; seed++ {
 		var welshed int
-		honest, err := Run(cfg, seed, 90, Dealer(cfg, 40))
+		honest, err := RunFrom(cfg, start(seed), 90, Dealer(cfg, 40))
 		if err != nil {
 			t.Fatal(err)
 		}
-		crook, err := Run(cfg, seed, 90, Welsher(cfg, 40, &welshed))
+		// Respect as each day is played (w.Day is the days ended, so the
+		// policy on w.Day d precedes the tick whose events say d+1): the
+		// failure morning's drop is read against the day before.
+		before := map[int]float64{}
+		welsher := Welsher(cfg, 40, &welshed)
+		crook, err := RunFrom(cfg, start(seed), 90, func(w *game.World) {
+			before[w.Day] = w.Player.Reputation.Respect
+			welsher(w)
+		})
 		if err != nil {
 			t.Fatal(err)
 		}
@@ -324,22 +347,59 @@ func TestFailureIsFelt(t *testing.T) {
 				t.Fatalf("seed %d: %s came back on day %d after being let down on day %d", seed, o.Buyer, o.Day, failed.Day)
 			}
 		}
+		// The morning it failed: where the day's other respect sources
+		// (deliveries, pay-offs, the payroll, a deal kept) would have
+		// left it, less the penalty, faded like every day, floored at 0;
+		// the fade is affine so the penalty's share is penalty x (1 -
+		// decay). Read after the day, off the next morning's value.
+		others := 0.0
+		for _, e := range crook.Events {
+			switch ev := e.(type) {
+			case events.ContractDelivered:
+				if ev.Day == failed.Day {
+					others += ev.Respect
+				}
+			case events.CrewPaidOff:
+				if ev.Day == failed.Day {
+					others += rep.Respect.Payoff
+				}
+			case events.CrewPaid:
+				switch {
+				case ev.Day != failed.Day:
+				case ev.Short > 0:
+					others += rep.Respect.ShortPay
+				case ev.Pay == events.PayGenerous:
+					others += rep.Respect.GenerousPay
+				}
+			case events.DealAccepted:
+				if ev.Day <= failed.Day {
+					others += rep.Respect.DealKept // at most one deal a day could be live
+				}
+			}
+		}
+		was, after := before[failed.Day-1], before[failed.Day]
+		if failed.Day >= crook.Days {
+			after = crook.World.Player.Reputation.Respect
+		}
+		unpunished := (was + others) * (1 - rep.Reputation.Decay)
+		want := math.Max(0, unpunished-failed.Respect*(1-rep.Reputation.Decay))
+		if math.Abs(after-want) > 0.01 || after >= unpunished {
+			t.Fatalf("seed %d: respect %.2f the morning before the failure, %.2f after, penalty %.1f: want %.2f", seed, was, after, failed.Respect, want)
+		}
 		if crook.World.Player.Reputation.Respect < honest.World.Player.Reputation.Respect {
 			felt++
 		}
-		t.Logf("seed %d: respect %.1f delivered, %.1f welshed on contract %d (day %d)", seed, honest.World.Player.Reputation.Respect, crook.World.Player.Reputation.Respect, welshed, failed.Day)
+		t.Logf("seed %d: respect %.2f -> %.2f on the failure morning (penalty %.1f); day 90: %.1f delivered, %.1f welshed on contract %d (day %d)", seed, was, after, failed.Respect, honest.World.Player.Reputation.Respect, crook.World.Player.Reputation.Respect, welshed, failed.Day)
 	}
-	if felt < 4 {
-		t.Fatalf("the welsher ended with less respect on only %d of 5 seeds", felt)
-	}
+	t.Logf("the welsher ended day 90 with less respect than the honest dealer on %d of 5 seeds (a race after the welsh, not pinned)", felt)
 }
 
 // Heat scales with the handoff: a unit handed to a buyer draws more heat
-// than a unit the crew move on the corners, every buyer in the deck
-// weighs more than a runner's unit, a sting on a night the only dealing
-// was a handoff adds pages (#27: it is dealing), a sting on a night an
-// offer merely lapsed adds none, and hard product handed over is
-// pressure where it was handed over.
+// than a unit a runner moves on a corner, every buyer in the deck weighs
+// more than a runner's unit, a sting on a night the only dealing was a
+// handoff adds pages (#27: it is dealing), a sting on a night an offer
+// merely lapsed adds none, and hard product handed over is pressure
+// where it was handed over.
 func TestHandoffHeat(t *testing.T) {
 	cfg := content.MustLoad()
 	for _, b := range cfg.Buyers.Deck {
@@ -351,7 +411,12 @@ func TestHandoffHeat(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	// Per unit, on a crewed operation with runners on the corners.
+	// Per unit, on a crewed operation: the cheapest buyer's unit against
+	// a runner's unit on a standard corner, through the same helpers
+	// SaleHeat multiplies (the tuning, the Security branch, the product,
+	// the city), so the two cannot drift apart. The old form divided a
+	// demand-capped sale of a hundred units by a flat hundred and read
+	// the corner mix with you on one of them, which is a seed's story.
 	res, err := Run(cfg, 1, 40, Crewed(cfg, 40))
 	if err != nil {
 		t.Fatal(err)
@@ -359,14 +424,14 @@ func TestHandoffHeat(t *testing.T) {
 	w := res.World
 	home := w.Home().ID
 	product := w.Products[1]
-	street := set.Heat.SaleHeat(w, home, product, 100, events.DialNormal) / 100
 	least := 10.0
 	for _, b := range cfg.Buyers.Deck {
 		least = min(least, b.Heat)
 	}
 	handoff := set.Heat.ContractHeat(w, home, product, 100, least) / 100
-	if handoff <= street {
-		t.Fatalf("a unit handed over draws %.4f, a unit the crew move %.4f", handoff, street)
+	runner := set.Heat.ContractHeat(w, home, product, 100, set.Heat.CrewHeat(w)) / 100
+	if handoff <= runner || runner <= 0 {
+		t.Fatalf("a unit handed over draws %.4f, a unit a runner moves %.4f", handoff, runner)
 	}
 	// Over a run: the heat the dealing draws per unit moved (the report's
 	// "moved" and "handed" lines, before decay).

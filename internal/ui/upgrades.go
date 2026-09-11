@@ -147,6 +147,9 @@ func effectWords(e content.UpgradeEffects) []string {
 	if e.SaleHeatMul > 0 {
 		out = append(out, fmt.Sprintf("sale heat ×%.2f", e.SaleHeatMul))
 	}
+	if e.CrewHeatMul > 0 {
+		out = append(out, fmt.Sprintf("runners' heat ×%.2f", e.CrewHeatMul))
+	}
 	if e.PatrolCap > 0 {
 		out = append(out, fmt.Sprintf("patrols cap sales at %.0f%%", e.PatrolCap*100))
 	}

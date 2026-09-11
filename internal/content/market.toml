@@ -43,15 +43,21 @@ demand_noise = 0.30
 heat = 1.5
 
 # The ladder. Each rung is offered by the supplier once your peak cash shows
-# you can move that kind of money: bigger numbers, bigger heat.
+# you can move that kind of money: bigger numbers, bigger heat per unit,
+# and less heat per dollar the higher you climb, which is what climbing is
+# for. Heroin and meth are on offer in the first weeks (tiers 1 and 2);
+# designer is the port's product (#60): it unlocks at the wholesaler's
+# line, only Bayport's supplier sells it (city.toml), and it reaches home
+# by the road. Its demand is tier-3 sized because only a tier-3 player
+# can reach it: a standard corner moves forty a day.
 [[product]]
 id = "heroin"
 name = "Heroin"
 base_price = 400
 volatility = 0.10
-demand = 4
+demand = 14
 demand_noise = 0.35
-heat = 2.5
+heat = 1.8
 unlock_cash = 3000
 
 [[product]]
@@ -61,7 +67,7 @@ base_price = 800
 volatility = 0.12
 demand = 3
 demand_noise = 0.40
-heat = 3.0
+heat = 2.2
 unlock_cash = 10000
 
 [[product]]
@@ -69,10 +75,10 @@ id = "designer"
 name = "Designer"
 base_price = 2500
 volatility = 0.15
-demand = 2
+demand = 40
 demand_noise = 0.50
-heat = 5.0
-unlock_cash = 25000
+heat = 2.5
+unlock_cash = 500000
 
 # The dial: how much of demand you can move, the price you get, how hard you
 # push the market, and how much heat you attract.

@@ -22,6 +22,12 @@ func runCity(t *testing.T, cfg *content.Config, seed uint64, personality string)
 	_, hub, _ := twoCities(t, cfg)
 	w := sim.NewWorld(cfg, seed)
 	w.Player.DirtyCash = 300_000
+	// Every rung on offer from day one: a product that unlocks mid-run
+	// would unlock on a different day for the temper that skims, and the
+	// tempers are meant to differ in nothing but what they do.
+	for _, p := range cfg.Market.Products {
+		w.Stats.PeakCash = max(w.Stats.PeakCash, p.UnlockCash)
+	}
 	for i, name := range []string{"Dre", "Tank", "Sly"} {
 		w.Crew.Members = append(w.Crew.Members, game.CrewMember{ID: 100 + i, Name: name, Role: "runner", Skill: 60, Units: 100, Loyalty: 90, Nerve: 60, Wage: 50})
 	}

@@ -122,4 +122,4 @@ wage_per_skill = 1.2
 wage_base = 80
 wage_per_skill = 1.5
 cut = 0.08                  # share of their city's takings they keep, every day
-crew = 4                    # roster slots an assigned lieutenant adds: their own people
+crew = 8                    # roster slots an assigned lieutenant adds: their own people

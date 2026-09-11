@@ -316,7 +316,8 @@ func (m *Model) viewDialog() string {
 		h := m.estHeat(city, id, qty, d.dial)
 		b.WriteString(fmt.Sprintf("Heat      %s   %s\n", heatStyle(w.City(city).Heat+h*4).Render(fmt.Sprintf("+%.1f", h)), theme.Subtle.Render(dialBlurb(d.dial))))
 		if w.WorkedIn(city) == 0 {
-			b.WriteString(theme.Bad.Render(fmt.Sprintf("You work no corner in %s: nothing will sell. Post somebody on the map (5).", w.CityName(city))) + "\n")
+			// Short enough for an 80-column modal with the city's name in it.
+			b.WriteString(theme.Bad.Render(fmt.Sprintf("You work no corner in %s: nothing will sell. Post somebody (map, 5).", w.CityName(city))) + "\n")
 		}
 	}
 

@@ -37,6 +37,48 @@ func (s *Sim) PushPace(w *game.World) float64 {
 	return content.Cut(w.Player.Reputation.Fear, s.rep.FearPushCut)
 }
 
+// ClaimPace is what the player's fear does to the rival's chance of
+// setting up on a free corner: a feared name is left the city.
+func (s *Sim) ClaimPace(w *game.World) float64 {
+	return content.Cut(w.Player.Reputation.Fear, s.rep.RivalClaimCut)
+}
+
+// ClaimScale is the pace's multiplier on the rival's claim chance (#60):
+// claim_scale_min with none of home's corners held by the player,
+// claim_scale_max with all of them, in between by the share. A player
+// with nothing gets time; one with most of the city gets a fight. Zero
+// tuning is a flat pace.
+func (s *Sim) ClaimScale(w *game.World) float64 {
+	pace := s.cfg.Pace
+	if pace.ClaimScaleMin <= 0 && pace.ClaimScaleMax <= 0 {
+		return 1
+	}
+	n := len(s.corners(w))
+	if n == 0 {
+		return pace.ClaimScaleMin
+	}
+	share := float64(w.HeldIn(w.Home().ID)) / float64(n)
+	return pace.ClaimScaleMin + (pace.ClaimScaleMax-pace.ClaimScaleMin)*share
+}
+
+// Rested reports whether the rival may set up on a free corner today
+// (#60): its last claim was claim_cooldown days ago or more, or your
+// enforcers have been in within those days, when it grows as fast as it
+// can. Resting, it pushes on your corners at push_past_cap like a rival
+// held at its cap: a slower spread must not be a longer fight at full
+// pace.
+func (s *Sim) Rested(w *game.World, day int) bool {
+	r := w.Rival
+	cooldown := s.cfg.Pace.ClaimCooldown
+	return r.LastClaim == 0 || day-r.LastClaim >= cooldown || (r.LastStruck > 0 && day-r.LastStruck < cooldown)
+}
+
+// MaxCorners is the most corners its personality sets up on: max_share
+// of home's map, rounded (0.6 of ten is six).
+func (s *Sim) MaxCorners(w *game.World) int {
+	return int(math.Round(s.personality(w).MaxShare * float64(len(s.corners(w)))))
+}
+
 // TipPace is what the home city's public pressure does to the rival's
 // chance of turning a grudge into a phone call: a city that wants
 // arrests gets its calls answered.
@@ -204,7 +246,7 @@ func (s *Sim) Step(w *game.World, t *game.Tick) {
 			s.undercut(w, t)
 			return
 		}
-		if c := s.pickFree(w, t.RNG, true); c != nil {
+		if c := s.pickFree(w, t.RNG, t.Day, true); c != nil {
 			s.take(c, t.Day)
 			r.Arrived = t.Day
 			r.Claims++
@@ -274,13 +316,22 @@ func (s *Sim) Step(w *game.World, t *game.Tick) {
 	}
 	r.Leads = nil
 
-	// 4. Claims: a free corner, by personality, up to what it wants.
-	if w.RivalHeld() < pc.MaxCorners && r.Cash >= tun.ClaimCost && (r.Routed == 0 || t.Day-r.Routed >= tun.RegroupDays) && t.RNG.Float64() < pc.ClaimChance {
-		if c := s.pickFree(w, t.RNG, w.RivalHeld() == 0); c != nil {
-			r.Cash -= tun.ClaimCost
-			r.Claims++
-			s.take(c, t.Day)
-			t.Emit(events.CornerTaken{Day: t.Day, Corner: c.ID, Name: c.Name, Rival: r.Leader, From: game.OwnerNone})
+	// 4. Claims: a free corner, by personality, up to what it wants, at
+	// the pace (#60): faster the more of the city you hold, slower the
+	// more you are feared, and never twice within claim_cooldown days
+	// unless your enforcers have been in within those days, when it
+	// grows as fast as it can (the roll is made either way, so the
+	// seed's dice stay put; its arrival is not a claim, so the second
+	// corner comes as it likes).
+	if w.RivalHeld() < s.MaxCorners(w) && r.Cash >= tun.ClaimCost && (r.Routed == 0 || t.Day-r.Routed >= tun.RegroupDays) && t.RNG.Float64() < pc.ClaimChance*s.ClaimScale(w)*s.ClaimPace(w) {
+		if s.Rested(w, t.Day) {
+			if c := s.pickFree(w, t.RNG, t.Day, w.RivalHeld() == 0); c != nil {
+				r.Cash -= tun.ClaimCost
+				r.Claims++
+				r.LastClaim = t.Day
+				s.take(c, t.Day)
+				t.Emit(events.CornerTaken{Day: t.Day, Corner: c.ID, Name: c.Name, Rival: r.Leader, From: game.OwnerNone})
+			}
 		}
 	}
 
@@ -298,8 +349,8 @@ func (s *Sim) Step(w *game.World, t *game.Tick) {
 			continue
 		}
 		chance := pc.PushChance * pace
-		if w.RivalHeld() >= pc.MaxCorners && r.Grudge == 0 {
-			chance *= pc.PushPastCap
+		if (w.RivalHeld() >= s.MaxCorners(w) || !s.Rested(w, t.Day)) && r.Grudge == 0 {
+			chance *= pc.PushPastCap // held at its cap, or resting after a claim (#60): the slow pace, not a pause
 		}
 		if r.Personality == "opportunist" && (c.Enforcer == 0 || w.Home().Heat > 50) {
 			chance *= 2
@@ -376,6 +427,7 @@ func (s *Sim) strike(w *game.World, t *game.Tick, o *game.StrikeOrder) {
 	}
 	w.Stats.Strikes++
 	r.Observed = true
+	r.LastStruck = t.Day
 	r.War += fc.War
 	r.Trust = math.Max(0, r.Trust-fc.Trust)
 	if t.RNG.Float64() < s.Odds(w, o.Force) {
@@ -403,13 +455,16 @@ func (s *Sim) take(c *game.Corner, day int) {
 // starting over) it takes the biggest one that does not border the player
 // if there is one, so it grows toward you. After that its personality
 // says: the biggest free corner anywhere, one next to its own, or any.
-func (s *Sim) pickFree(w *game.World, rng rand, arriving bool) *game.Corner {
+// Arriving, and for arrive_grace days after, a corner you have ever
+// worked is not one it sets up on (#60).
+func (s *Sim) pickFree(w *game.World, rng rand, day int, arriving bool) *game.Corner {
 	var free, quiet, adjacent []*game.Corner
 	ground := s.corners(w)
 	split := w.Deal(game.DealSplit)
+	grace := arriving || (w.Rival.Arrived > 0 && day-w.Rival.Arrived < s.cfg.Pace.ArriveGrace)
 	for i := range ground {
 		c := &ground[i]
-		if c.Owner != game.OwnerNone || (split != nil && split.Covers(c.ID)) {
+		if c.Owner != game.OwnerNone || (split != nil && split.Covers(c.ID)) || (grace && c.Yours) {
 			continue
 		}
 		free = append(free, c)

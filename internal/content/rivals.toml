@@ -25,6 +25,25 @@ crackdown_corners = 2       # corners each side loses in a crackdown, contested 
 crackdown_heat = 12         # heat the player draws from a crackdown
 crackdown_muscle = 0.5      # fraction of the rival's muscle a crackdown takes
 
+# Pace (#60): how fast it takes the city. Its claim chance is scaled by
+# your share of home's corners, from claim_scale_min with nothing held to
+# claim_scale_max with all of it (a player with nothing gets time, one
+# with eight corners gets a fight); after any claim it waits
+# claim_cooldown days before it claims again, unless your enforcers have
+# been in within those days (a fight is a fight: struck, it grows as
+# fast as it can), and its arrival is not a claim, so the second corner
+# comes as soon as it likes (the roll is still made on a cooldown day,
+# so the seed's dice do not move); and for arrive_grace days after it
+# arrives it never sets up on a corner you have ever worked. While it
+# waits it pushes on your corners at push_past_cap, as it does once it
+# holds its share: the pace is slower, never a pause. Fear slows its
+# claims too (reputation.toml rival_claim_cut).
+[pace]
+claim_scale_min = 0.25
+claim_scale_max = 1.5
+claim_cooldown = 12
+arrive_grace = 5
+
 # Diplomacy (#32): the table. A proposal is answered the next morning with
 # a chance built from the deal kind's base, the terms asked (the easy
 # option adds `terms`, the hard one takes it away), accept_trust at full
@@ -63,8 +82,9 @@ terms = 0.15
 # Personalities. trust is where its trust in you starts; deal_bias is
 # added to the chance it accepts any proposal; betrayal is the chance per
 # live deal per day it breaks one itself; offer_chance is per day its
-# situation calls for a deal. claim_chance and push_chance are per day; max_corners is
-# the most it sets up on, and past it it pushes on your corners at
+# situation calls for a deal. claim_chance and push_chance are per day; max_share is
+# the most of home's corners it sets up on, as a share of the map (0.6 of
+# ten corners is six), and past it it pushes on your corners at
 # push_past_cap times the chance (0: only with a grudge); grow says where
 # it claims (biggest free
 # corner anywhere, one next to its own, or at random); muscle_per_corner is how
@@ -77,7 +97,7 @@ deal_bias = -0.15           # it wants the city; a truce is a pause, and it offe
 betrayal = 0
 offer_chance = 0.25
 claim_chance = 0.25
-max_corners = 6
+max_share = 0.6
 push_past_cap = 0.5         # it wants the city, and slows down once it has most of it
 grow = "biggest"
 push_chance = 0.15
@@ -92,7 +112,7 @@ deal_bias = 0.20            # it would rather hold what it has; it offers a truc
 betrayal = 0
 offer_chance = 0.30
 claim_chance = 0.08
-max_corners = 3
+max_share = 0.3
 grow = "adjacent"
 push_chance = 0.03
 muscle_per_corner = 2.0
@@ -106,7 +126,7 @@ deal_bias = 0
 betrayal = 0
 offer_chance = 0.20         # it demands tribute while it has the upper hand on the front line
 claim_chance = 0.15
-max_corners = 4
+max_share = 0.4
 grow = "biggest"
 push_chance = 0.08          # doubled on a corner with no enforcer, or while your heat is over 50
 muscle_per_corner = 1.0
@@ -120,7 +140,7 @@ deal_bias = 0.05
 betrayal = 0.02             # per deal-day: it breaks deals for no reason
 offer_chance = 0.10         # a truce now and then, on a whim
 claim_chance = 0.20
-max_corners = 4
+max_share = 0.4
 grow = "random"
 push_chance = 0.15
 muscle_per_corner = 1.2

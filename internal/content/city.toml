@@ -24,6 +24,11 @@ id = "eastside"
 name = "Eastside"
 heat = 1.0
 
+# Designer is the port's product (#60): nobody in Eastside sells it to
+# you, so it reaches home by the road (routes.toml) or in your pockets.
+[city.market]
+designer = { no_supply = true }
+
 # The map is a 4 x 3 grid; x and y are the cell.
 [[city.corner]]
 id = "docks"
@@ -140,6 +145,7 @@ heroin = { price = 0.35, demand = 0.5 }
 meth = { price = 0.8, demand = 0.8 }
 weed = { price = 1.3, demand = 1.1 }
 pills = { price = 1.15, demand = 1.0 }
+designer = { price = 0.6, demand = 2.0 }
 
 [[city.corner]]
 id = "wharf"

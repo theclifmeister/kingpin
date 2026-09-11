@@ -86,10 +86,14 @@ func (m *Model) viewMarket() string {
 			cur = theme.Gold.Render("▸ ")
 			name = theme.Selected.Render(name)
 		}
+		supplier := price(p.SupplierPrice)
+		if p.NoSupply {
+			supplier = theme.Subtle.Render("not sold")
+		}
 		row := fmt.Sprintf("%s%s %9s %s  %s %8s %6d %9s  %s",
 			cur, name, price(p.Price), ds,
 			theme.Good.Render(fit(sparkline.Render(p.History, sparkW), sparkW)),
-			price(p.SupplierPrice), w.Stock(city.ID, id),
+			supplier, w.Stock(city.ID, id),
 			fmt.Sprintf("~%.0f/day", w.Demand(city.ID, id)), order)
 		b.WriteString(truncate(row, m.width) + "\n")
 	}
@@ -129,7 +133,11 @@ func (m *Model) viewMarket() string {
 	if p.SupplierPrice > 0 {
 		margin = (p.Price - p.SupplierPrice) / p.SupplierPrice * 100
 	}
-	b.WriteString(fmt.Sprintf("  margin        %.0f%% over supplier\n", margin))
+	if p.NoSupply {
+		b.WriteString(truncate(theme.Warning.Render("  supplier      not sold here: it comes in by the road (the map's routes) or in your pockets"), m.width) + "\n")
+	} else {
+		b.WriteString(fmt.Sprintf("  margin        %.0f%% over supplier\n", margin))
+	}
 	b.WriteString(truncate(fmt.Sprintf("  demand        ~%.0f/day on your %d corner(s) here  %s", w.Demand(city.ID, id), w.WorkedIn(city.ID), theme.Subtle.Render(fmt.Sprintf("(~%.0f per standard corner; the map shows the rest)", p.Demand))), m.width) + "\n")
 	// The other city's price is what a route is worth.
 	var elsewhere []string

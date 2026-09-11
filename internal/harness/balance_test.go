@@ -201,21 +201,14 @@ var moneyCurve = []struct {
 }{
 	{1, "managed", func(cfg *content.Config) Policy { return Managed(cfg, 50) }, 30, 50_000, 200_000, false},
 	{2, "crewed", func(cfg *content.Config) Policy { return Crewed(cfg, 40) }, 70, 500_000, 2_000_000, false},
-	// Tier 3 (#29): laundering lifts the dirty-cash ceiling, but the city's
-	// seven corners absorb ~$20k a day and $10M by day 120 needs ~$80k, so
-	// the row waits on a demand multiplier. Tier 4 (#30, #31): the second
-	// city and the route double the margin and a lieutenant staffs the far
-	// city (#31: the roster grows by their people and every free home
-	// corner is worked), but the volume that adds is bounded twice over:
-	// the rival takes four to ten of home's ten corners in most seeds
-	// (these policies never fight it), and heat caps what a city moves
-	// under the sting line whatever the corner count. The delegated
-	// player lands near $2M at the horizon taking lieutenants as they
-	// come ($2.7M with a steady one, $2.6M for the distributor); even the
-	// ceiling of both cities fully worked, no rival and no heat is about
-	// $20M, so the band needs a price or demand multiplier, not staffing.
-	{3, "laundered", func(cfg *content.Config) Policy { return Laundered(cfg, 40) }, 120, 5_000_000, 20_000_000, true},
-	{4, "delegated", func(cfg *content.Config) Policy { return Delegated(cfg, 40, "") }, Horizon, 50_000_000, 200_000_000, true},
+	// Tiers 3 and 4 (#60) are the boss: the player who uses every screen.
+	// Designer is the port's product, so it reaches home by the road and
+	// never through a tier-2 crew's supplier; the Security branch's ghost
+	// nodes are how a crew's volume outgrows the street's notice; the
+	// fronts cover the pile the wash cannot keep up with. TestMoneyCeilings
+	// logs what each row would make with the rival kept out and heat off.
+	{3, "boss", func(cfg *content.Config) Policy { return Boss(cfg, 40, "") }, 120, 5_000_000, 20_000_000, false},
+	{4, "boss", func(cfg *content.Config) Policy { return Boss(cfg, 40, "") }, Horizon, 50_000_000, 200_000_000, false},
 }
 
 func medianNetWorth(t *testing.T, cfg *content.Config, policy func(*content.Config) Policy, day int) int {
@@ -290,5 +283,101 @@ func TestRichHiderIsNeverIndicted(t *testing.T) {
 		if stings == 0 {
 			t.Fatalf("seed %d: $5M dirty drew no stings or raids in 1000 days; the pile should still draw attention", seed)
 		}
+	}
+}
+
+// The ceilings (#60): what each tier's policy would make with the rival
+// kept out, with heat switched off, and with both, at that tier's
+// checkpoint. Logged, never enforced: they are the wall every balance
+// change is judged against, so the log says whether a missed band is the
+// rival's, the police's or the street's.
+func TestMoneyCeilings(t *testing.T) {
+	cfg := content.MustLoad()
+	boxes := []struct {
+		name string
+		box  func(*content.Config) *content.Config
+	}{
+		{"as is", func(c *content.Config) *content.Config { return c }},
+		{"no rival", NoRival},
+		{"no heat", NoHeat},
+		{"no rival, no heat", func(c *content.Config) *content.Config { return NoHeat(NoRival(c)) }},
+	}
+	for _, row := range moneyCurve {
+		for _, b := range boxes {
+			med := medianNetWorth(t, b.box(cfg), row.policy, row.day)
+			t.Logf("tier %d: %s on day %d, %s: %d", row.tier, row.name, row.day, b.name, med)
+		}
+	}
+}
+
+// The boss is the best policy the harness has, and it is still not a
+// free ride (#60): one that never lies low is indicted before the
+// horizon on every seed.
+func TestBossWhoNeverLiesLowIsIndicted(t *testing.T) {
+	cfg := content.MustLoad()
+	for seed := uint64(1); seed <= 10; seed++ {
+		res, _ := Run(cfg, seed, Horizon, Boss(cfg, 100, ""))
+		if res.Over == nil || (res.Over.Cause != "indicted" && res.Over.Cause != "arrested") {
+			t.Fatalf("seed %d: the boss who never lies low is still free after %d days (over=%v)", seed, res.Days, res.Over)
+		}
+	}
+}
+
+// Designer is the port's product (#60): the home supplier does not sell
+// it, the wholesale city's does, and it reaches home by the road.
+func TestDesignerComesByRoad(t *testing.T) {
+	cfg := content.MustLoad()
+	home, hub := cfg.City.Home().ID, ""
+	for _, c := range cfg.City.Cities {
+		if c.Wholesale {
+			hub = c.ID
+		}
+	}
+	w := sim.NewWorld(cfg, 1)
+	w.Player.DirtyCash = 10_000_000
+	w.Stats.PeakCash = 10_000_000
+	if _, err := RunFrom(cfg, w, 1, Idle); err != nil {
+		t.Fatal(err)
+	}
+	if w.Product(home, "designer") == nil || w.Product(hub, "designer") == nil {
+		t.Fatal("designer is not on the ladder with a fortune in the bank")
+	}
+	if _, err := w.Buy("designer", 1, 0); err != game.ErrNotSupplied {
+		t.Fatalf("bought designer from the home supplier: %v", err)
+	}
+	if _, err := w.Buy("heroin", 1, 0); err != nil {
+		t.Fatalf("the home supplier stopped selling heroin: %v", err)
+	}
+	_ = w.Travel(hub)
+	if _, err := w.Buy("designer", 1, 0); err != nil {
+		t.Fatalf("the port's supplier does not sell designer: %v", err)
+	}
+	// The boss's home sells designer, and every unit of it landed off a
+	// shipment: nothing bought at home, everything bought by the lot at
+	// the hub or at its retail counter.
+	boss := Boss(cfg, 40, "steady")
+	res, _ := Run(cfg, 1, TierDays[2], func(w *game.World) {
+		boss(w)
+		for _, b := range w.Buys {
+			if b.City == home && b.Product == "designer" {
+				t.Fatalf("day %d: designer bought at home: %+v", w.Day, b)
+			}
+		}
+	})
+	sold, landed := 0, 0
+	for _, e := range res.Events {
+		switch ev := e.(type) {
+		case events.PlayerSold:
+			if ev.City == home && ev.Product == "designer" {
+				sold += ev.Sold
+			}
+		case events.ShipmentArrived:
+			if ev.To == home && ev.Product == "designer" {
+				landed += ev.Units
+			}
+		}
+	}
+	if sold == 0 || landed == 0 || sold > landed {
+		t.Fatalf("home sold %d designer and %d landed by road", sold, landed)
 	}
 }

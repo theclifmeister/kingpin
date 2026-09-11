@@ -44,4 +44,5 @@ respect_supplier_cut = 0.15 # market: fraction cut from the supplier's price
 notoriety_hire_cut = 0.5    # crew: fraction cut from a candidate's signing fee
 notoriety_heat = 0.5        # heat: extra on the heat of every unit you move yourself (a runner's units are theirs)
 fear_deal = 0.25            # rivals: added to the chance it accepts a proposal; they would rather deal than fight you
+rival_claim_cut = 0.4       # rivals: fraction cut from the chance it sets up on a free corner; a feared name is left the city
 respect_trust = 0.5         # rivals: extra on the trust a kept deal-day earns
