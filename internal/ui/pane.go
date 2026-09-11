@@ -23,11 +23,6 @@ const (
 	paneLabelW   = 11 // a section row's label column; the value has the rest
 )
 
-// binding is a key and the one- or two-word label the legend and the
-// pane's KEYS section print for it. #80 replaces the source of these
-// with the key table; the shape stays.
-type binding struct{ key, label string }
-
 // section is a titled block of the pane: the selection's name in caps
 // with its facts one per line, or a further block like ALERTS.
 type section struct {
@@ -207,16 +202,13 @@ func strip(sections []section, w int, accent lipgloss.Color) string {
 }
 
 // overlay renders the pane's sections as a modal over MAIN, for a
-// terminal too narrow to hold the pane beside it.
+// terminal too narrow to hold the pane beside it: the same sections in
+// the one modal (#81), cut to its room the way the pane cuts them, so
+// KEYS is last and never out of sight.
 func (m *Model) overlay(sections []section, keys []binding, accent lipgloss.Color) string {
-	// The modal's frame and title take six rows; a blank, the KEYS
-	// title and the key rows take the rest from the sections.
-	room := m.bodyHeight() - 6 - 2 - (len(keys)+1)/2
-	ls := sectionLines(sections, paneTextW, max(1, room), accent)
+	kl := keyLines(keys, paneTextW, accent)
+	ls := sectionLines(sections, m.modalInner(), m.modalRoom()-len(kl)-1, accent)
 	ls = append(ls, "")
-	ls = append(ls, keyLines(keys, paneTextW, accent)...)
-	for i, l := range ls {
-		ls[i] = fit(l, paneTextW)
-	}
-	return m.modal("DETAILS", strings.Join(ls, "\n"))
+	ls = append(ls, kl...)
+	return m.modal("DETAILS", ls, m.modalFooter())
 }

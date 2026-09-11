@@ -83,9 +83,15 @@ func assertFits(t *testing.T, view string, w, h int, what string) {
 			t.Errorf("%s: line %d is %d cells wide > %d: %q", what, i, lw, w, l)
 		}
 		// A modal wider than the screen wraps its border onto the next
-		// line: the top-right corner then starts a line of its own.
-		if p := strings.TrimSpace(stripANSI(l)); strings.HasPrefix(p, "═") && strings.HasSuffix(p, "╗") && !strings.HasPrefix(p, "╔") {
-			t.Errorf("%s: a modal wider than %d wrapped at line %d", what, w, i)
+		// line: the top-right corner then starts a line of its own, a
+		// one-cell overflow leaves a lone corner, and a body line loses
+		// its closing bar.
+		p := strings.TrimSpace(stripANSI(l))
+		switch {
+		case strings.HasPrefix(p, "═") && strings.HasSuffix(p, "╗") && !strings.HasPrefix(p, "╔"),
+			p == "╗" || p == "╝",
+			strings.Contains(p, "║") && !strings.HasSuffix(p, "║"):
+			t.Errorf("%s: a modal wider than %d wrapped at line %d: %q", what, w, i, p)
 		}
 	}
 }
@@ -140,7 +146,7 @@ func assertFrame(t *testing.T, m *Model, what string) {
 		}
 		// Nothing but key rows between KEYS and the bottom border.
 		var keys []string
-		for _, b := range m.legend() {
+		for _, b := range m.playLegend() {
 			keys = append(keys, b.key)
 		}
 		for i := keysAt + 1; i < h-3; i++ {
@@ -164,260 +170,278 @@ func assertFrame(t *testing.T, m *Model, what string) {
 	}
 }
 
+// richFixture plays one run through every screen, dialog and picker the
+// game has, with a crew, a rival at war, a route with a shipment in
+// flight, three fronts, a billion in the bank and the whole ladder, and
+// hands every view it reaches to check, with the model and a name
+// for it.
+func richFixture(t *testing.T, sz [2]int, check func(m *Model, view, what string)) {
+	t.Helper()
+	handed := check
+	see := func(m *Model, what string) { handed(m, m.View(), what) }
+	m := newTestModel(t, sz[0], sz[1])
+	// Play a few days with some trading so every panel has content.
+	for i := 0; i < 5; i++ {
+		m.w.Stash(m.w.Player.Location)[m.w.Products[0]] = 40
+		m.Update(key("s"))
+		m.Update(key("enter")) // product
+		m.Update(key("enter")) // qty (blank = all)
+		m.Update(key("3"))     // aggressive
+		see(m, "sell dial")
+		m.Update(key("enter")) // confirm
+		endDay(t, m)           // end day -> report
+		see(m, "report")
+		m.Update(key("enter"))
+	}
+	// A full crew with a skim on record exercises every crew-screen line.
+	m.Update(key("4"))
+	m.w.Player.DirtyCash += 5000
+	for i := 0; i < 6; i++ {
+		m.Update(key("h"))
+	}
+	m.w.Crew.LastSkim = m.w.Day
+	// Post the crew across the map so every cell shape is drawn.
+	m.Update(key("5"))
+	for i := range m.shown().Corners {
+		m.mapCursor = i
+		m.Update(key("c"))
+		see(m, "post picker")
+		m.Update(key("j"))
+		m.Update(key("enter"))
+		m.Update(key("e"))
+		m.Update(key("enter"))
+	}
+	// A rival in town, at war, with the enforcers queued against it,
+	// exercises the rival cells, the picker and the dashboard panel.
+	m.Update(key("esc")) // a stray enter above may be asking to end the day
+	m.w.Home().Corners[0].Owner, m.w.Home().Corners[0].Runner, m.w.Home().Corners[0].Enforcer = game.OwnerRival, 0, 0
+	m.w.Rival.Arrived, m.w.Rival.Muscle, m.w.Rival.War, m.w.Rival.Observed = 1, 4, 47, true
+	m.w.Crew.Members = append(m.w.Crew.Members, game.CrewMember{ID: 900, Name: "Moose", Role: "enforcer", Skill: 70, Loyalty: 70, Nerve: 60, Wage: 65})
+	m.w.Crew.NextID = 900
+	m.mapCursor = 0
+	m.Update(key("w"))
+	see(m, "strike picker")
+	m.Update(key("enter"))
+	if m.w.Strike == nil {
+		t.Fatalf("%dx%d: no strike queued: %q", sz[0], sz[1], m.status)
+	}
+	for i := range m.shown().Corners {
+		m.mapCursor = i
+		see(m, "map")
+	}
+	// The other city's map, and the ship dialog with something to send.
+	m.Update(key("]"))
+	for i := range m.shown().Corners {
+		m.mapCursor = i
+		see(m, "map elsewhere")
+	}
+	m.Update(key("["))
+	// A route on with a target and a shipment in flight: the routes
+	// under the grid with the cursor on them, the target dialog and
+	// every screen that reports the road.
+	route := m.set.Logistics.Routes(m.w.CityOrder[1])[0]
+	m.w.Stash(route.From)[m.w.Products[0]] = 300
+	m.w.Player.DirtyCash += m.set.Logistics.Float()
+	m.Update(key("]"))
+	for len(m.shown().Corners) > 0 && !m.onRoutes {
+		m.Update(key("j"))
+	}
+	m.Update(key("r"))
+	see(m, "map with the routes cursor")
+	m.Update(key("R"))
+	see(m, "target product")
+	m.Update(key("enter"))
+	for _, r := range "120" {
+		m.Update(key(string(r)))
+	}
+	see(m, "target units")
+	m.Update(key("enter"))
+	if m.mode != modePlay || !m.w.Route(route.ID).Dial.On() || m.w.Route(route.ID).Target[m.w.Products[0]] != 120 {
+		t.Fatalf("%dx%d: the target dialog left mode %v with %+v: %q %q", sz[0], sz[1], m.mode, m.w.Route(route.ID), m.status, m.tgt.err)
+	}
+	endDay(t, m)
+	see(m, "report with the route")
+	m.Update(key("enter"))
+	if len(m.w.Shipments) != 1 {
+		t.Fatalf("%dx%d: the route sent %d shipments: %v", sz[0], sz[1], len(m.w.Shipments), m.w.Report.Shipments)
+	}
+	see(m, "map with a shipment in flight")
+	m.Update(key("["))
+	m.Update(key("g"))
+	see(m, "travel confirm")
+	m.Update(key("esc"))
+	for _, s := range []string{"1", "2", "3", "4", "5", "6", "7", "8"} {
+		m.Update(key(s))
+		see(m, "screen "+s)
+		// Space: the overlay where the strip is, the pane hidden and
+		// shown again where it sits beside MAIN.
+		m.Update(key(" "))
+		if sz[0] < paneMinWidth {
+			if m.mode != modeDetails {
+				t.Fatalf("%dx%d: space on screen %s: mode %v", sz[0], sz[1], s, m.mode)
+			}
+			see(m, "details overlay "+s)
+			m.Update(key("esc"))
+		} else {
+			if m.mode != modePlay || !m.paneHidden {
+				t.Fatalf("%dx%d: space on screen %s: mode %v hidden %v", sz[0], sz[1], s, m.mode, m.paneHidden)
+			}
+			see(m, "screen "+s+" with the pane hidden")
+			m.Update(key(" "))
+		}
+		if m.mode != modePlay || m.paneHidden {
+			t.Fatalf("%dx%d: after space twice on screen %s: mode %v hidden %v", sz[0], sz[1], s, m.mode, m.paneHidden)
+		}
+	}
+	// The table: a deal that holds, an offer waiting, a proposal for
+	// tonight, and both pages of the propose dialog.
+	m.Update(key("8"))
+	m.w.Rival.Deals = []game.Deal{{Kind: game.DealSplit, Terms: game.Terms{Corners: []string{m.w.Home().Corners[1].ID}}, Since: m.w.Day}}
+	m.w.Offers = []game.Offer{{ID: 1, Deal: game.Deal{Kind: game.DealTruce, Terms: game.Terms{Days: 30}, Offered: true}, Expires: m.w.Day + 4}}
+	see(m, "rivals screen")
+	m.Update(key("d"))
+	see(m, "propose kinds")
+	m.Update(key("2"))
+	see(m, "propose terms")
+	m.Update(key("enter"))
+	if m.w.Proposal == nil || m.w.Proposal.Kind != game.DealTribute {
+		t.Fatalf("%dx%d: no tribute proposed: %q", sz[0], sz[1], m.status)
+	}
+	see(m, "rivals screen with a proposal")
+	m.Update(key("1"))
+	see(m, "dashboard with the table")
+	m.w.Rival.Deals, m.w.Offers, m.w.Proposal = nil, nil, nil
+	// Every node state on the tree: owned, available, short, locked,
+	// and the buy confirmation.
+	m.Update(key("6"))
+	m.w.Player.DirtyCash += 20_000
+	m.Update(key("enter"))
+	see(m, "upgrade confirm")
+	m.Update(key("y"))
+	for range m.upgradeRows() {
+		see(m, "upgrades")
+		m.Update(key("j"))
+	}
+	m.Update(key("4"))
+	m.Update(key("f"))
+	see(m, "fire confirm")
+	m.Update(key("y"))
+	m.w.Stash(m.w.Player.Location)[m.w.Products[0]] = 200
+	m.Update(key("s"))
+	m.Update(key("enter"))
+	m.Update(key("enter"))
+	m.Update(key("enter"))
+	// A robbery for the report. The stick-up rolls only on a corner
+	// you hold with somebody on it, and test seeds are wall-clock:
+	// the rival, at war and bordering your corner, can push you off
+	// it on the route day (#90), and a skill-88+ enforcer takes the
+	// chance under one. So the corner is yours again, worked by you,
+	// unguarded and unsqueezed before the roll; territory steps
+	// before rivals, so the robbery lands whatever the rival does.
+	start := m.w.Corner(m.cfg.City.Territory.Start)
+	m.w.Recall(game.You)
+	start.Owner, start.Runner, start.Enforcer, start.Squeeze, start.Risk = game.OwnerPlayer, game.You, 0, 0, 100
+	endDay(t, m)
+	see(m, "report with crew")
+	if len(m.w.Report.Territory) == 0 {
+		t.Fatalf("%dx%d: report has no territory lines: %+v", sz[0], sz[1], m.w.Report)
+	}
+	m.Update(key("enter"))
+	// The ledger: the picker, three fronts bought, one of them audited,
+	// and an accountant on the books.
+	m.Update(key("7"))
+	m.w.Player.DirtyCash = 700_000
+	m.w.Stats.PeakCash = 700_000
+	m.Update(key("b"))
+	see(m, "front picker")
+	for i := 0; i < 3; i++ {
+		m.Update(key("b"))
+		m.Update(key("enter"))
+	}
+	if len(m.w.Fronts) != 3 {
+		t.Fatalf("%dx%d: bought %d fronts: %q", sz[0], sz[1], len(m.w.Fronts), m.status)
+	}
+	m.w.Crew.Members = append(m.w.Crew.Members, game.CrewMember{ID: 901, Name: "Books", Role: "accountant", Skill: 60, Loyalty: 60, Wage: 130})
+	endDay(t, m)
+	see(m, "report with fronts")
+	if !strings.Contains(strings.Join(m.w.Report.Money, "\n"), "Washed") {
+		t.Fatalf("%dx%d: report has no wash line: %v", sz[0], sz[1], m.w.Report.Money)
+	}
+	m.Update(key("enter"))
+	m.w.Fronts[1].Audited = m.w.Day
+	m.w.Fronts[1].FrozenUntil = m.w.Day + m.cfg.Laundering.Laundering.AuditFreezeDays
+	m.w.Fronts[2].FrozenUntil = m.w.Day + 2
+	m.Update(key("d"))
+	for _, s := range []string{"7", "1", "4"} {
+		m.Update(key(s))
+		see(m, "ledger screen "+s)
+	}
+	m.Update(key("1"))
+	m.Update(key("b"))
+	see(m, "buy dialog")
+	m.Update(key("enter"))
+	see(m, "buy qty")
+	m.Update(key("esc"))
+	m.Update(key("esc"))
+	m.Update(key("?"))
+	see(m, "help")
+	m.Update(key("x"))
+
+	// A cartel-scale world: ten-digit cash on every screen, then the
+	// money moved clean (dirty cash on that scale is an arrest) so the
+	// next day unlocks every rung of the product ladder.
+	m.w.Player.DirtyCash = 1_234_567_890
+	m.w.Stats.PeakCash = m.w.Player.DirtyCash
+	for _, s := range []string{"1", "2", "3", "4", "5", "6", "7", "8"} {
+		m.Update(key(s))
+		see(m, "rich screen "+s)
+	}
+	m.Update(key("b"))
+	see(m, "rich front picker")
+	m.Update(key("esc"))
+	m.Update(key("1"))
+	m.Update(key("b"))
+	m.Update(key("enter"))
+	see(m, "rich buy qty")
+	m.Update(key("esc"))
+	m.Update(key("esc"))
+	m.w.Player.CleanCash, m.w.Player.DirtyCash = m.w.Player.DirtyCash, 50_000
+	endDay(t, m)
+	m.Update(key("enter"))
+	if got := len(m.w.Products); got != len(m.cfg.Market.Products) {
+		t.Fatalf("%d of %d products unlocked with a billion in the bank", got, len(m.cfg.Market.Products))
+	}
+	last := m.w.Products[len(m.w.Products)-1]
+	m.w.Stash(m.w.Player.Location)[last] = 20
+	for _, s := range []string{"1", "2", "5"} {
+		m.Update(key(s))
+		see(m, "ladder screen "+s)
+	}
+	m.Update(key("1"))
+	m.Update(key("s"))
+	for range m.w.Products {
+		m.Update(key("j"))
+	}
+	m.Update(key("enter"))
+	m.Update(key("enter"))
+	see(m, "ladder sell dialog")
+	m.Update(key("enter"))
+	endDay(t, m)
+	see(m, "ladder report")
+	m.Update(key("enter"))
+	m.w.Over = &game.Ending{Day: m.w.Day, Cause: "indicted", PeakCash: m.w.Stats.PeakCash}
+	endDay(t, m)
+	see(m, "rich game over")
+}
+
 func TestRendersAtCommonSizes(t *testing.T) {
 	for _, sz := range [][2]int{{80, 24}, {120, 40}, {100, 30}} {
-		m := newTestModel(t, sz[0], sz[1])
-		// Play a few days with some trading so every panel has content.
-		for i := 0; i < 5; i++ {
-			m.w.Stash(m.w.Player.Location)[m.w.Products[0]] = 40
-			m.Update(key("s"))
-			m.Update(key("enter")) // product
-			m.Update(key("enter")) // qty (blank = all)
-			m.Update(key("3"))     // aggressive
-			m.Update(key("enter")) // confirm
-			endDay(t, m)           // end day -> report
-			assertFits(t, m.View(), sz[0], sz[1], "report")
-			m.Update(key("enter"))
-		}
-		// A full crew with a skim on record exercises every crew-screen line.
-		m.Update(key("4"))
-		m.w.Player.DirtyCash += 5000
-		for i := 0; i < 6; i++ {
-			m.Update(key("h"))
-		}
-		m.w.Crew.LastSkim = m.w.Day
-		// Post the crew across the map so every cell shape is drawn.
-		m.Update(key("5"))
-		for i := range m.shown().Corners {
-			m.mapCursor = i
-			m.Update(key("c"))
-			assertFits(t, m.View(), sz[0], sz[1], "post picker")
-			m.Update(key("j"))
-			m.Update(key("enter"))
-			m.Update(key("e"))
-			m.Update(key("enter"))
-		}
-		// A rival in town, at war, with the enforcers queued against it,
-		// exercises the rival cells, the picker and the dashboard panel.
-		m.Update(key("esc")) // a stray enter above may be asking to end the day
-		m.w.Home().Corners[0].Owner, m.w.Home().Corners[0].Runner, m.w.Home().Corners[0].Enforcer = game.OwnerRival, 0, 0
-		m.w.Rival.Arrived, m.w.Rival.Muscle, m.w.Rival.War, m.w.Rival.Observed = 1, 4, 47, true
-		m.w.Crew.Members = append(m.w.Crew.Members, game.CrewMember{ID: 900, Name: "Moose", Role: "enforcer", Skill: 70, Loyalty: 70, Nerve: 60, Wage: 65})
-		m.w.Crew.NextID = 900
-		m.mapCursor = 0
-		m.Update(key("w"))
-		assertFits(t, m.View(), sz[0], sz[1], "strike picker")
-		m.Update(key("enter"))
-		if m.w.Strike == nil {
-			t.Fatalf("%dx%d: no strike queued: %q", sz[0], sz[1], m.status)
-		}
-		for i := range m.shown().Corners {
-			m.mapCursor = i
-			assertFits(t, m.View(), sz[0], sz[1], "map")
-		}
-		// The other city's map, and the ship dialog with something to send.
-		m.Update(key("]"))
-		for i := range m.shown().Corners {
-			m.mapCursor = i
-			assertFits(t, m.View(), sz[0], sz[1], "map elsewhere")
-		}
-		m.Update(key("["))
-		// A route on with a target and a shipment in flight: the routes
-		// under the grid with the cursor on them, the target dialog and
-		// every screen that reports the road.
-		route := m.set.Logistics.Routes(m.w.CityOrder[1])[0]
-		m.w.Stash(route.From)[m.w.Products[0]] = 300
-		m.w.Player.DirtyCash += m.set.Logistics.Float()
-		m.Update(key("]"))
-		for len(m.shown().Corners) > 0 && !m.onRoutes {
-			m.Update(key("j"))
-		}
-		m.Update(key("r"))
-		assertFits(t, m.View(), sz[0], sz[1], "map with the routes cursor")
-		m.Update(key("R"))
-		assertFits(t, m.View(), sz[0], sz[1], "target product")
-		m.Update(key("enter"))
-		for _, r := range "120" {
-			m.Update(key(string(r)))
-		}
-		assertFits(t, m.View(), sz[0], sz[1], "target units")
-		m.Update(key("enter"))
-		if m.mode != modePlay || !m.w.Route(route.ID).Dial.On() || m.w.Route(route.ID).Target[m.w.Products[0]] != 120 {
-			t.Fatalf("%dx%d: the target dialog left mode %v with %+v: %q %q", sz[0], sz[1], m.mode, m.w.Route(route.ID), m.status, m.tgt.err)
-		}
-		endDay(t, m)
-		assertFits(t, m.View(), sz[0], sz[1], "report with the route")
-		m.Update(key("enter"))
-		if len(m.w.Shipments) != 1 {
-			t.Fatalf("%dx%d: the route sent %d shipments: %v", sz[0], sz[1], len(m.w.Shipments), m.w.Report.Shipments)
-		}
-		assertFits(t, m.View(), sz[0], sz[1], "map with a shipment in flight")
-		m.Update(key("["))
-		m.Update(key("g"))
-		assertFits(t, m.View(), sz[0], sz[1], "travel confirm")
-		m.Update(key("esc"))
-		for _, s := range []string{"1", "2", "3", "4", "5", "6", "7", "8"} {
-			m.Update(key(s))
-			assertFrame(t, m, "screen "+s)
-			// Space: the overlay where the strip is, the pane hidden and
-			// shown again where it sits beside MAIN.
-			m.Update(key(" "))
-			if sz[0] < paneMinWidth {
-				if m.mode != modeDetails {
-					t.Fatalf("%dx%d: space on screen %s: mode %v", sz[0], sz[1], s, m.mode)
-				}
-				assertFits(t, m.View(), sz[0], sz[1], "details overlay "+s)
-				m.Update(key("esc"))
-			} else {
-				if m.mode != modePlay || !m.paneHidden {
-					t.Fatalf("%dx%d: space on screen %s: mode %v hidden %v", sz[0], sz[1], s, m.mode, m.paneHidden)
-				}
-				assertFrame(t, m, "screen "+s+" with the pane hidden")
-				m.Update(key(" "))
+		richFixture(t, sz, func(m *Model, view, what string) {
+			assertFits(t, view, sz[0], sz[1], what)
+			if m.mode == modePlay {
+				assertFrame(t, m, what)
 			}
-			if m.mode != modePlay || m.paneHidden {
-				t.Fatalf("%dx%d: after space twice on screen %s: mode %v hidden %v", sz[0], sz[1], s, m.mode, m.paneHidden)
-			}
-		}
-		// The table: a deal that holds, an offer waiting, a proposal for
-		// tonight, and both pages of the propose dialog.
-		m.Update(key("8"))
-		m.w.Rival.Deals = []game.Deal{{Kind: game.DealSplit, Terms: game.Terms{Corners: []string{m.w.Home().Corners[1].ID}}, Since: m.w.Day}}
-		m.w.Offers = []game.Offer{{ID: 1, Deal: game.Deal{Kind: game.DealTruce, Terms: game.Terms{Days: 30}, Offered: true}, Expires: m.w.Day + 4}}
-		assertFits(t, m.View(), sz[0], sz[1], "rivals screen")
-		m.Update(key("d"))
-		assertFits(t, m.View(), sz[0], sz[1], "propose kinds")
-		m.Update(key("2"))
-		assertFits(t, m.View(), sz[0], sz[1], "propose terms")
-		m.Update(key("enter"))
-		if m.w.Proposal == nil || m.w.Proposal.Kind != game.DealTribute {
-			t.Fatalf("%dx%d: no tribute proposed: %q", sz[0], sz[1], m.status)
-		}
-		assertFits(t, m.View(), sz[0], sz[1], "rivals screen with a proposal")
-		m.Update(key("1"))
-		assertFits(t, m.View(), sz[0], sz[1], "dashboard with the table")
-		m.w.Rival.Deals, m.w.Offers, m.w.Proposal = nil, nil, nil
-		// Every node state on the tree: owned, available, short, locked,
-		// and the buy confirmation.
-		m.Update(key("6"))
-		m.w.Player.DirtyCash += 20_000
-		m.Update(key("enter"))
-		assertFits(t, m.View(), sz[0], sz[1], "upgrade confirm")
-		m.Update(key("y"))
-		for range m.upgradeRows() {
-			assertFits(t, m.View(), sz[0], sz[1], "upgrades")
-			m.Update(key("j"))
-		}
-		m.Update(key("4"))
-		m.Update(key("f"))
-		assertFits(t, m.View(), sz[0], sz[1], "fire confirm")
-		m.Update(key("y"))
-		m.w.Stash(m.w.Player.Location)[m.w.Products[0]] = 200
-		m.Update(key("s"))
-		m.Update(key("enter"))
-		m.Update(key("enter"))
-		m.Update(key("enter"))
-		// A robbery for the report. The stick-up rolls only on a corner
-		// you hold with somebody on it, and test seeds are wall-clock:
-		// the rival, at war and bordering your corner, can push you off
-		// it on the route day (#90), and a skill-88+ enforcer takes the
-		// chance under one. So the corner is yours again, worked by you,
-		// unguarded and unsqueezed before the roll; territory steps
-		// before rivals, so the robbery lands whatever the rival does.
-		start := m.w.Corner(m.cfg.City.Territory.Start)
-		m.w.Recall(game.You)
-		start.Owner, start.Runner, start.Enforcer, start.Squeeze, start.Risk = game.OwnerPlayer, game.You, 0, 0, 100
-		endDay(t, m)
-		assertFits(t, m.View(), sz[0], sz[1], "report with crew")
-		if len(m.w.Report.Territory) == 0 {
-			t.Fatalf("%dx%d: report has no territory lines: %+v", sz[0], sz[1], m.w.Report)
-		}
-		m.Update(key("enter"))
-		// The ledger: the picker, three fronts bought, one of them audited,
-		// and an accountant on the books.
-		m.Update(key("7"))
-		m.w.Player.DirtyCash = 700_000
-		m.w.Stats.PeakCash = 700_000
-		m.Update(key("b"))
-		assertFits(t, m.View(), sz[0], sz[1], "front picker")
-		for i := 0; i < 3; i++ {
-			m.Update(key("b"))
-			m.Update(key("enter"))
-		}
-		if len(m.w.Fronts) != 3 {
-			t.Fatalf("%dx%d: bought %d fronts: %q", sz[0], sz[1], len(m.w.Fronts), m.status)
-		}
-		m.w.Crew.Members = append(m.w.Crew.Members, game.CrewMember{ID: 901, Name: "Books", Role: "accountant", Skill: 60, Loyalty: 60, Wage: 130})
-		endDay(t, m)
-		assertFits(t, m.View(), sz[0], sz[1], "report with fronts")
-		if !strings.Contains(strings.Join(m.w.Report.Money, "\n"), "Washed") {
-			t.Fatalf("%dx%d: report has no wash line: %v", sz[0], sz[1], m.w.Report.Money)
-		}
-		m.Update(key("enter"))
-		m.w.Fronts[1].Audited = m.w.Day
-		m.w.Fronts[1].FrozenUntil = m.w.Day + m.cfg.Laundering.Laundering.AuditFreezeDays
-		m.w.Fronts[2].FrozenUntil = m.w.Day + 2
-		m.Update(key("d"))
-		for _, s := range []string{"7", "1", "4"} {
-			m.Update(key(s))
-			assertFits(t, m.View(), sz[0], sz[1], "ledger screen "+s)
-		}
-		m.Update(key("1"))
-		m.Update(key("b"))
-		assertFits(t, m.View(), sz[0], sz[1], "buy dialog")
-		m.Update(key("enter"))
-		assertFits(t, m.View(), sz[0], sz[1], "buy qty")
-		m.Update(key("esc"))
-		m.Update(key("esc"))
-		m.Update(key("?"))
-		assertFits(t, m.View(), sz[0], sz[1], "help")
-		m.Update(key("x"))
-
-		// A cartel-scale world: ten-digit cash on every screen, then the
-		// money moved clean (dirty cash on that scale is an arrest) so the
-		// next day unlocks every rung of the product ladder.
-		m.w.Player.DirtyCash = 1_234_567_890
-		m.w.Stats.PeakCash = m.w.Player.DirtyCash
-		for _, s := range []string{"1", "2", "3", "4", "5", "6", "7", "8"} {
-			m.Update(key(s))
-			assertFrame(t, m, "rich screen "+s)
-		}
-		m.Update(key("b"))
-		assertFits(t, m.View(), sz[0], sz[1], "rich front picker")
-		m.Update(key("esc"))
-		m.Update(key("1"))
-		m.Update(key("b"))
-		m.Update(key("enter"))
-		assertFits(t, m.View(), sz[0], sz[1], "rich buy qty")
-		m.Update(key("esc"))
-		m.Update(key("esc"))
-		m.w.Player.CleanCash, m.w.Player.DirtyCash = m.w.Player.DirtyCash, 50_000
-		endDay(t, m)
-		m.Update(key("enter"))
-		if got := len(m.w.Products); got != len(m.cfg.Market.Products) {
-			t.Fatalf("%d of %d products unlocked with a billion in the bank", got, len(m.cfg.Market.Products))
-		}
-		last := m.w.Products[len(m.w.Products)-1]
-		m.w.Stash(m.w.Player.Location)[last] = 20
-		for _, s := range []string{"1", "2", "5"} {
-			m.Update(key(s))
-			assertFits(t, m.View(), sz[0], sz[1], "ladder screen "+s)
-		}
-		m.Update(key("1"))
-		m.Update(key("s"))
-		for range m.w.Products {
-			m.Update(key("j"))
-		}
-		m.Update(key("enter"))
-		m.Update(key("enter"))
-		assertFits(t, m.View(), sz[0], sz[1], "ladder sell dialog")
-		m.Update(key("enter"))
-		endDay(t, m)
-		assertFits(t, m.View(), sz[0], sz[1], "ladder report")
-		m.Update(key("enter"))
-		m.w.Over = &game.Ending{Day: m.w.Day, Cause: "indicted", PeakCash: m.w.Stats.PeakCash}
-		endDay(t, m)
-		assertFits(t, m.View(), sz[0], sz[1], "rich game over")
+		})
 	}
 }
 
@@ -436,6 +460,16 @@ func TestCashFormatting(t *testing.T) {
 	for v, want := range map[float64]string{19.5: "$19.50", 999.99: "$999.99", 2500: "$2,500", 10000: "$10,000"} {
 		if got := price(v); got != want {
 			t.Errorf("price(%v) = %q, want %q", v, got, want)
+		}
+	}
+	// A table column is one of the three, by kind.
+	for _, c := range []struct {
+		kind colKind
+		v    any
+		want string
+	}{{kCash, 1_234_567, cash(1_234_567)}, {kMoney, 1_234_567, money(1_234_567)}, {kPrice, 19.5, price(19.5)}, {kCash, 9_999, "$9,999"}, {kMoney, 9_999, "$9,999"}} {
+		if got, _ := cellText(c.kind, 0, c.v); got != c.want {
+			t.Errorf("%s cell of %v = %q, want %q", kindName(c.kind), c.v, got, c.want)
 		}
 	}
 }
@@ -497,9 +531,9 @@ func TestLegendNeverTruncatesMidPair(t *testing.T) {
 			m.status = ""
 			got := stripANSI(m.viewFooter())
 			var prefixes []string
-			for n := 0; n <= len(m.legend()); n++ {
+			for n := 0; n <= len(m.playLegend()); n++ {
 				var p string
-				for _, b := range m.legend()[:n] {
+				for _, b := range m.playLegend()[:n] {
 					p += stripANSI(k(b.key, b.label))
 				}
 				prefixes = append(prefixes, p)
@@ -1263,7 +1297,7 @@ func TestUpgradesScreenKeys(t *testing.T) {
 		t.Fatalf("report: mode %v upgrades %v", m.mode, m.w.Report.Upgrades)
 	}
 	assertFits(t, m.View(), 100, 30, "report with an upgrade")
-	if !strings.Contains(strings.Join(m.w.Report.Money, "\n"), "Stash spot -$5000") {
+	if !strings.Contains(strings.Join(m.w.Report.Money, "\n"), "Stash spot -$5,000") {
 		t.Fatalf("money section: %v", m.w.Report.Money)
 	}
 	m.Update(key("enter"))
@@ -1671,7 +1705,7 @@ func TestRouteAndTravelKeys(t *testing.T) {
 		t.Fatalf("the dashboard does not show what is on the road:\n%s", stripANSI(m.View()))
 	}
 	m.Update(tea.WindowSizeMsg{Width: 120, Height: 40})
-	if v := stripANSI(m.View()); !strings.Contains(v, "CITIES") || !strings.Contains(v, "◂30") {
+	if v := stripANSI(m.View()); !strings.Contains(v, "CITIES") || !strings.Contains(v, "◂ 30 units in") {
 		t.Fatalf("the tall dashboard has no CITIES panel with the road:\n%s", v)
 	}
 	assertFits(t, m.View(), 120, 40, "tall dashboard with the road")
@@ -2075,14 +2109,14 @@ func TestCrewScreenUnpostedEnforcer(t *testing.T) {
 		t.Fatalf("runner: enforcer no longer unposted:\n%s", v)
 	}
 
-	// The hiring pool says what each role does.
+	// The hiring pool names each candidate's role and fee.
 	m.w.Crew.Candidates = []game.CrewMember{
 		{ID: 3, Name: "Pat", Role: "accountant", Skill: 50, Loyalty: 60, Nerve: 50, Wage: 60, Fee: 100},
 		{ID: 4, Name: "Bo", Role: "enforcer", Skill: 50, Loyalty: 60, Nerve: 50, Wage: 60, Fee: 100},
 	}
-	v = m.View()
-	if !strings.Contains(v, "works fronts") || !strings.Contains(v, "guards corner") {
-		t.Fatalf("pool: want the role blurbs:\n%s", v)
+	v = stripANSI(m.View())
+	if !strings.Contains(v, "Pat   accountant") || !strings.Contains(v, "Bo    enforcer") || !strings.Contains(v, "$100") {
+		t.Fatalf("pool: want the roles and fees:\n%s", v)
 	}
 }
 
@@ -2156,5 +2190,300 @@ func TestFundKeys(t *testing.T) {
 	m.Update(key("enter"))
 	if !strings.Contains(stripANSI(m.View()), "goodwill") {
 		t.Fatal("dashboard does not show the goodwill")
+	}
+}
+
+// richModel is a run with something behind every modal: a report with
+// sales, a crew posted across the map with a lieutenant and an
+// accountant, the rival in town at war, a route on with a shipment in
+// flight, fronts on the ledger, a card, a deal, an offer and cash for
+// the tree.
+func richModel(t *testing.T, w, h int) *Model {
+	t.Helper()
+	m := newTestModel(t, w, h)
+	world := m.w
+	for i := 0; i < 3; i++ {
+		world.Stash(world.Player.Location)[world.Products[0]] = 40
+		m.Update(key("s"))
+		m.Update(key("enter")) // product
+		m.Update(key("enter")) // qty (blank = all)
+		m.Update(key("3"))     // aggressive
+		m.Update(key("enter")) // confirm
+		endDay(t, m)
+		m.Update(key("enter"))
+	}
+	world.Player.DirtyCash = 700_000
+	world.Stats.PeakCash = 700_000
+	world.Crew.Members = append(world.Crew.Members,
+		game.CrewMember{ID: 1, Name: "Dre", Role: "runner", Skill: 60, Units: 120, Loyalty: 80, Nerve: 50, Wage: 50},
+		game.CrewMember{ID: 2, Name: "Gato", Role: "runner", Skill: 40, Units: 90, Loyalty: 40, Nerve: 30, Wage: 45},
+		game.CrewMember{ID: 3, Name: "Moose", Role: "enforcer", Skill: 70, Loyalty: 70, Nerve: 60, Wage: 65},
+		game.CrewMember{ID: 4, Name: "Vasquez", Role: game.RoleLieutenant, Skill: 70, Loyalty: 80, Nerve: 50, Wage: 150, Personality: "steady"},
+		game.CrewMember{ID: 5, Name: "Books", Role: "accountant", Skill: 60, Loyalty: 60, Wage: 130},
+	)
+	world.Crew.NextID = 5
+	world.Crew.LastSkim = world.Day
+	home := world.Home()
+	if err := world.Post(home.Corners[1].ID, 1); err != nil {
+		t.Fatal(err)
+	}
+	if err := world.Post(home.Corners[2].ID, 2); err != nil {
+		t.Fatal(err)
+	}
+	if err := world.Post(home.Corners[2].ID, 3); err != nil {
+		t.Fatal(err)
+	}
+	home.Corners[0].Owner, home.Corners[0].Runner, home.Corners[0].Enforcer = game.OwnerRival, 0, 0
+	world.Rival.Arrived, world.Rival.Muscle, world.Rival.War, world.Rival.Observed = 1, 4, 47, true
+	world.Rival.Deals = []game.Deal{{Kind: game.DealSplit, Terms: game.Terms{Corners: []string{home.Corners[1].ID}}, Since: world.Day}}
+	world.Offers = []game.Offer{{ID: 1, Deal: game.Deal{Kind: game.DealTruce, Terms: game.Terms{Days: 30}, Offered: true}, Expires: world.Day + 4}}
+	// A route on with a target, and a day for it to send a shipment.
+	route := m.set.Logistics.Routes(world.CityOrder[1])[0]
+	m.cfg.Routes.Routes[0].Risk = 0
+	world.Stash(route.From)[world.Products[0]] = 300
+	if err := world.SetRoute(route.ID, events.RouteNormal); err != nil {
+		t.Fatal(err)
+	}
+	if err := world.SetRouteTarget(route.ID, world.Products[0], 120); err != nil {
+		t.Fatal(err)
+	}
+	world.Stash(world.Player.Location)[world.Products[0]] = 60
+	m.Update(key("s"))
+	m.Update(key("enter"))
+	m.Update(key("enter"))
+	m.Update(key("enter"))
+	endDay(t, m)
+	m.Update(key("enter"))
+	if len(world.Shipments) != 1 {
+		t.Fatalf("the route sent %d shipments: %v", len(world.Shipments), world.Report.Shipments)
+	}
+	// Three fronts, one of them audited.
+	m.Update(key("7"))
+	for i := 0; i < 3; i++ {
+		m.Update(key("b"))
+		m.Update(key("enter"))
+	}
+	if len(world.Fronts) != 3 {
+		t.Fatalf("bought %d fronts: %q", len(world.Fronts), m.status)
+	}
+	world.Fronts[1].Audited = world.Day
+	world.Fronts[1].FrozenUntil = world.Day + m.cfg.Laundering.Laundering.AuditFreezeDays
+	world.Player.CleanCash = 50_000
+	world.Stash(world.Player.Location)[world.Products[0]] = 40 // something to sell
+	m.Update(key("1"))
+	m.cursor, m.crewCursor, m.mapCursor, m.upgradeCursor = 0, 0, 0, 0
+	m.status = ""
+	return m
+}
+
+// testCard is a dilemma card for the fixture; its prose wraps.
+func testCard(day int) *game.Card {
+	return &game.Card{ID: "test", Day: day, Title: "A test", Text: strings.Repeat("A long question about what to do next. ", 6),
+		Choices: []game.Choice{
+			{Label: "Pay", Outcome: "You paid. " + strings.Repeat("And that was the end of it. ", 4), Effects: map[string]float64{"dirty_cash": -100}},
+			{Label: "Shout", Outcome: "You shouted.", Effects: map[string]float64{"heat": 7}},
+			{Label: "Walk away", Outcome: "You walked."},
+		}}
+}
+
+// modalBox finds the modal in a view: its top border's line index, its
+// width, and its lines from the top border to the bottom one.
+func modalBox(t *testing.T, view string) (top, width int, box []string) {
+	t.Helper()
+	ls := strings.Split(view, "\n")
+	top = -1
+	for i, l := range ls {
+		p := strings.TrimSpace(stripANSI(l))
+		switch {
+		case strings.HasPrefix(p, "╔"):
+			if top >= 0 {
+				t.Fatalf("two modals in the view:\n%s", stripANSI(view))
+			}
+			top, width = i, lipgloss.Width(p)
+		case strings.HasPrefix(p, "╚"):
+			if top < 0 {
+				t.Fatalf("a bottom border with no top:\n%s", stripANSI(view))
+			}
+			box = ls[top : i+1]
+			return top, width, box
+		}
+	}
+	t.Fatalf("no modal in the view:\n%s", stripANSI(view))
+	return
+}
+
+// Every mode's modal is the one modal (#81): min(width-4, 76) wide, on
+// body row 2, a footer line of the mode's bindings, and the status bar
+// repeating that footer. The table opens every mode in the enum from the
+// rich fixture, the dialogs on each of their steps.
+func TestModalsFit(t *testing.T) {
+	type open struct {
+		name string
+		mode mode
+		open func(t *testing.T, m *Model)
+	}
+	cases := []open{
+		{"start", modeStart, func(t *testing.T, m *Model) { m.mode = modeStart }},
+		{"report", modeReport, func(t *testing.T, m *Model) { m.mode = modeReport }},
+		{"buy product", modeBuy, func(t *testing.T, m *Model) { m.Update(key("b")) }},
+		{"buy quantity", modeBuy, func(t *testing.T, m *Model) { m.Update(key("b")); m.Update(key("enter")) }},
+		{"sell product", modeSell, func(t *testing.T, m *Model) { m.Update(key("s")) }},
+		{"sell quantity", modeSell, func(t *testing.T, m *Model) { m.Update(key("s")); m.Update(key("enter")) }},
+		{"sell dial", modeSell, func(t *testing.T, m *Model) {
+			m.Update(key("s"))
+			m.Update(key("enter"))
+			m.Update(key("enter"))
+			m.Update(key("3"))
+		}},
+		{"game over", modeOver, func(t *testing.T, m *Model) {
+			m.w.Over = &game.Ending{Day: m.w.Day, Cause: "indicted", PeakCash: m.w.Stats.PeakCash}
+			m.mode = modeOver
+		}},
+		{"confirm new", modeConfirmNew, func(t *testing.T, m *Model) { m.Update(key("N")) }},
+		{"confirm fire", modeConfirmFire, func(t *testing.T, m *Model) { m.Update(key("4")); m.Update(key("f")) }},
+		{"confirm end", modeConfirmEnd, func(t *testing.T, m *Model) { m.Update(key("enter")) }},
+		{"help", modeHelp, func(t *testing.T, m *Model) { m.Update(key("?")) }},
+		{"post", modePost, func(t *testing.T, m *Model) { m.Update(key("5")); m.mapCursor = 1; m.Update(key("c")) }},
+		{"strike", modeStrike, func(t *testing.T, m *Model) { m.Update(key("5")); m.mapCursor = 0; m.Update(key("w")) }},
+		{"confirm upgrade", modeConfirmUpgrade, func(t *testing.T, m *Model) { m.Update(key("6")); m.Update(key("enter")) }},
+		{"front", modeFront, func(t *testing.T, m *Model) { m.Update(key("7")); m.Update(key("b")) }},
+		{"confirm investigate", modeConfirmInvestigate, func(t *testing.T, m *Model) { m.Update(key("4")); m.Update(key("i")) }},
+		{"confirm pay off", modeConfirmPayOff, func(t *testing.T, m *Model) { m.Update(key("4")); m.Update(key("$")) }},
+		{"card", modeCard, func(t *testing.T, m *Model) { m.w.Dilemmas.Pending = testCard(m.w.Day); m.showCard() }},
+		{"card outcome", modeCard, func(t *testing.T, m *Model) {
+			m.w.Dilemmas.Pending = testCard(m.w.Day)
+			m.showCard()
+			m.Update(key("enter"))
+			if !m.cardDone {
+				t.Fatal("the card was not answered")
+			}
+		}},
+		{"target product", modeTarget, func(t *testing.T, m *Model) {
+			m.Update(key("5"))
+			m.Update(key("]"))
+			m.onRoutes = true
+			m.Update(key("R"))
+		}},
+		{"target units", modeTarget, func(t *testing.T, m *Model) {
+			m.Update(key("5"))
+			m.Update(key("]"))
+			m.onRoutes = true
+			m.Update(key("R"))
+			m.Update(key("enter"))
+		}},
+		{"confirm travel", modeConfirmTravel, func(t *testing.T, m *Model) { m.Update(key("g")) }},
+		{"propose kinds", modePropose, func(t *testing.T, m *Model) { m.Update(key("8")); m.Update(key("d")) }},
+		{"propose terms", modePropose, func(t *testing.T, m *Model) { m.Update(key("8")); m.Update(key("d")); m.Update(key("2")) }},
+		{"assign", modeAssign, func(t *testing.T, m *Model) { m.Update(key("4")); m.crewCursor = 3; m.Update(key("t")) }},
+		{"fund", modeFund, func(t *testing.T, m *Model) { m.Update(key("7")); m.Update(key("f")) }},
+		{"details", modeDetails, func(t *testing.T, m *Model) { m.Update(key("5")); m.mode = modeDetails }},
+	}
+	covered := map[mode]bool{}
+	for _, c := range cases {
+		covered[c.mode] = true
+	}
+	for md := modeStart; md < modeCount; md++ {
+		if md != modePlay && !covered[md] {
+			t.Errorf("mode %d has no case in the table", md)
+		}
+	}
+	for _, sz := range [][2]int{{80, 24}, {120, 40}} {
+		want := min(sz[0]-4, 76)
+		for _, c := range cases {
+			m := richModel(t, sz[0], sz[1])
+			c.open(t, m)
+			if m.mode != c.mode {
+				t.Fatalf("%dx%d %s: mode %v, not %v: %q", sz[0], sz[1], c.name, m.mode, c.mode, m.status)
+			}
+			view := m.View()
+			what := fmt.Sprintf("%dx%d %s", sz[0], sz[1], c.name)
+			assertFits(t, view, sz[0], sz[1], what)
+			top, width, box := modalBox(t, view)
+			if top != 2 {
+				t.Errorf("%s: the modal starts on row %d, not 2:\n%s", what, top, stripANSI(view))
+			}
+			if width != want {
+				t.Errorf("%s: the modal is %d wide, not %d:\n%s", what, width, want, stripANSI(view))
+			}
+			for i, l := range box {
+				if lw := lipgloss.Width(strings.TrimSpace(stripANSI(l))); lw != want {
+					t.Errorf("%s: box line %d is %d wide, not %d: %q", what, i, lw, want, stripANSI(l))
+				}
+			}
+			// The title, a blank, the body, a blank, the footer.
+			inner := func(i int) string {
+				return strings.TrimSpace(strings.Trim(strings.TrimSpace(stripANSI(box[i])), "║"))
+			}
+			if len(box) < 6 {
+				t.Fatalf("%s: a modal of %d lines", what, len(box))
+			}
+			if title := inner(1); title == "" || title != strings.ToUpper(title) {
+				t.Errorf("%s: the title is %q", what, title)
+			}
+			if inner(2) != "" || inner(len(box)-3) != "" {
+				t.Errorf("%s: no blank around the body:\n%s", what, stripANSI(strings.Join(box, "\n")))
+			}
+			foot := strings.TrimSpace(stripANSI(legend(m.modalFooter())))
+			got := inner(len(box) - 2)
+			if got != foot && got != foot+"  ↓ more" {
+				t.Errorf("%s: the footer is %q, not %q", what, got, foot)
+			}
+			if c.mode != modeHelp && c.mode != modeReport && c.mode != modeDetails { // the overlay's KEYS section lists keys on purpose
+				for _, l := range box[3 : len(box)-3] {
+					p := stripANSI(l)
+					for _, hint := range []string{"enter ", "esc ", "any other key", "any key"} {
+						if strings.Contains(p, hint) {
+							t.Errorf("%s: a key hint in the body: %q", what, strings.TrimSpace(p))
+						}
+					}
+				}
+			}
+			if c.mode != modeStart {
+				ls := strings.Split(view, "\n")
+				if bar := strings.TrimSpace(stripANSI(ls[len(ls)-1])); bar != foot {
+					t.Errorf("%s: the status bar shows %q, not the footer %q", what, bar, foot)
+				}
+			}
+		}
+	}
+}
+
+// A modal taller than the room scrolls instead of clamping: the report
+// with thirty lines says ↓ more at 80x24, ↓ reaches its last line and
+// enter closes it; help the same.
+func TestReportScrolls(t *testing.T) {
+	m := newTestModel(t, 80, 24)
+	var news []string
+	for i := 1; i <= 30; i++ {
+		news = append(news, fmt.Sprintf("Headline number %d", i))
+	}
+	m.w.Report = &game.DayReport{Day: m.w.Day, News: news}
+	for _, c := range []struct {
+		name string
+		open string
+		last string
+	}{
+		{"report", "r", "Headline number 30"},
+		{"help", "?", "Greed is always available."},
+	} {
+		m.Update(key(c.open))
+		view := stripANSI(m.View())
+		if !strings.Contains(view, "↓ more") || strings.Contains(view, c.last) {
+			t.Fatalf("%s at 80x24 does not scroll:\n%s", c.name, view)
+		}
+		assertFits(t, m.View(), 80, 24, c.name)
+		for i := 0; i < 20; i++ {
+			m.Update(key("down"))
+		}
+		view = stripANSI(m.View())
+		if strings.Contains(view, "↓ more") || !strings.Contains(view, "↑ more") || !strings.Contains(view, c.last) {
+			t.Fatalf("%s after twenty ↓ does not show its last line:\n%s", c.name, view)
+		}
+		assertFits(t, m.View(), 80, 24, c.name+" scrolled")
+		day := m.w.Day
+		m.Update(key("enter"))
+		if m.mode != modePlay || m.w.Day != day {
+			t.Fatalf("enter on the %s: mode %v day %d -> %d", c.name, m.mode, day, m.w.Day)
+		}
 	}
 }

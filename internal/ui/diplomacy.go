@@ -110,11 +110,10 @@ func (m *Model) pickPropose() {
 
 func (m *Model) viewPropose() string {
 	w := m.w
-	width := max(30, m.width-10)
-	var b strings.Builder
+	var body []string
 	m.proposeCursor = max(0, min(m.proposeCursor, m.proposeRows()-1))
 	if m.proposeStep == 0 {
-		b.WriteString(truncate(theme.Subtle.Render(fmt.Sprintf("%s · %s · trust %.0f", m.rivalName(), m.personalityWord(), w.Rival.Trust)), width) + "\n\n")
+		body = append(body, theme.Subtle.Render(fmt.Sprintf("%s · %s · trust %.0f", m.rivalName(), m.personalityWord(), w.Rival.Trust)), "")
 		for i, kind := range proposeKinds {
 			var line, note string
 			switch kind {
@@ -130,15 +129,15 @@ func (m *Model) viewPropose() string {
 			if d := w.Deal(kind); d != nil {
 				note = theme.Good.Render("live: " + w.Describe(*d))
 			}
-			m.proposeLine(&b, i, line, note, width)
+			body = m.proposeLine(body, i, line, note)
 		}
 		if w.Proposal != nil {
-			m.proposeLine(&b, len(proposeKinds), "withdraw", "take back tonight's proposal: "+w.Describe(*w.Proposal), width)
+			body = m.proposeLine(body, len(proposeKinds), "withdraw", "take back tonight's proposal: "+w.Describe(*w.Proposal))
 		}
 	} else {
 		kind := proposeKinds[m.proposeKind]
 		deals, words := m.termRows(kind)
-		b.WriteString(truncate(theme.Subtle.Render(fmt.Sprintf("%s to %s. Odds are what the dice use.", capitalize(kind), m.rivalName())), width) + "\n\n")
+		body = append(body, theme.Subtle.Render(fmt.Sprintf("%s to %s. Odds are what the dice use.", capitalize(kind), m.rivalName())), "")
 		for i, d := range deals {
 			odds := m.set.Rivals.Chance(w, d)
 			var line string
@@ -154,25 +153,26 @@ func (m *Model) viewPropose() string {
 			if odds == 0 {
 				note = theme.Bad.Render("refused")
 			}
-			m.proposeLine(&b, i, line, note, width)
+			body = m.proposeLine(body, i, line, note)
 		}
 		if kind == game.DealSplit {
-			b.WriteString("\n" + truncate(theme.Subtle.Render("Your side: "+w.Describe(deals[m.proposeCursor])[len("a split: yours "):]), width) + "\n")
+			body = append(body, "", theme.Subtle.Render("Your side: "+w.Describe(deals[m.proposeCursor])[len("a split: yours "):]))
 		}
 		if m.set.Rivals.Distrusted(w, w.Day+1) {
-			b.WriteString("\n" + truncate(theme.Bad.Render("They are not taking your calls. You broke a deal."), width) + "\n")
+			body = append(body, "", theme.Bad.Render("They are not taking your calls. You broke a deal."))
 		}
 	}
-	b.WriteString("\n" + theme.Key.Render("enter") + " pick  " + theme.Key.Render("esc") + " back")
-	return m.modal("PROPOSE A DEAL", strings.TrimRight(b.String(), "\n"))
+	return m.modal("PROPOSE A DEAL", body, m.modalFooter())
 }
 
-func (m *Model) proposeLine(b *strings.Builder, i int, line, note string, width int) {
+// proposeLine appends a row of the propose dialog; the modal cuts it to
+// its width.
+func (m *Model) proposeLine(body []string, i int, line, note string) []string {
 	if i == m.proposeCursor {
-		b.WriteString(truncate(theme.Gold.Render("▸ ")+theme.Selected.Render(line)+"  "+note, width) + "\n")
-	} else {
-		b.WriteString(truncate("  "+line+"  "+note, width) + "\n")
+		m.modalFollow(len(body))
+		return append(body, theme.Gold.Render("▸ ")+theme.Selected.Render(line)+"  "+note)
 	}
+	return append(body, "  "+line+"  "+note)
 }
 
 // answerOffer is y or x on the rivals screen: the selected offer taken

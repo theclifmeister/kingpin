@@ -79,36 +79,31 @@ func (m *Model) confirmStrike() {
 func (m *Model) viewStrike() string {
 	c := m.mapSelected()
 	if c == nil {
-		return m.modal("SEND ENFORCERS", "Nowhere to send them.")
+		return m.modal("SEND ENFORCERS", []string{"Nowhere to send them."}, m.modalFooter())
 	}
 	rows := m.strikeRows()
 	m.strikeCursor = max(0, min(m.strikeCursor, len(rows)-1))
-	width := max(30, m.width-10)
-	var b strings.Builder
-	b.WriteString(truncate(theme.Subtle.Render(fmt.Sprintf("%d enforcer(s) vs %s on %s, muscle ~%.1f", m.w.Crew.Role("enforcer"), m.rivalName(), c.Name, m.set.Rivals.Defence(m.w))), width) + "\n\n")
+	body := []string{theme.Subtle.Render(fmt.Sprintf("%d enforcer(s) vs %s on %s, muscle ~%.1f", m.w.Crew.Role("enforcer"), m.rivalName(), c.Name, m.set.Rivals.Defence(m.w))), ""}
+	var cells [][]any
 	for i, r := range rows {
-		var line string
 		if i < len(forces) {
 			f := forces[i]
-			line = fmt.Sprintf("%-5s  take it ~%3.0f%%  heat +%-4.0f war +%-3.0f", f, m.set.Rivals.Odds(m.w, f)*100, m.set.Rivals.StrikeHeat(c, f), m.cfg.Rivals.ForceFor(f).War)
+			cells = append(cells, []any{r, approx{m.set.Rivals.Odds(m.w, f) * 100}, signed{m.set.Rivals.StrikeHeat(c, f)}, signed{m.cfg.Rivals.ForceFor(f).War}})
 		} else {
-			line = fmt.Sprintf("%-5s  keep them home tonight", r)
-		}
-		if i == m.strikeCursor {
-			b.WriteString(theme.Gold.Render("▸ ") + theme.Selected.Render(line) + "\n")
-		} else {
-			b.WriteString("  " + line + "\n")
+			cells = append(cells, []any{r, nil, nil, nil})
 		}
 	}
+	m.modalFollow(len(body) + 1 + m.strikeCursor) // under the header
+	body = append(body, table([]col{{"force", kText, 0}, {"takes it", kPct, 0}, {"heat", kInt, 0}, {"war", kInt, 0}}, cells, m.strikeCursor, m.modalInner())...)
+	body = append(body, "")
 	for _, l := range []string{
 		"Harder flips faster, draws more heat on you, adds to the war",
 		"and costs the enforcers' nerve. A loud enough war brings a",
 		"crackdown on both sides.",
 	} {
-		b.WriteString(truncate(theme.Subtle.Render(l), width) + "\n")
+		body = append(body, theme.Subtle.Render(l))
 	}
-	b.WriteString("\n" + theme.Key.Render("enter") + " send  " + theme.Key.Render("esc") + " back")
-	return m.modal("SEND ENFORCERS", strings.TrimRight(b.String(), "\n"))
+	return m.modal("SEND ENFORCERS", body, m.modalFooter())
 }
 
 // rivalLines is the dashboard panel's content: who and how much they

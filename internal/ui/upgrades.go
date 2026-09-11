@@ -220,37 +220,44 @@ func (m *Model) viewUpgrades() string {
 	for _, branch := range content.Branches {
 		var c strings.Builder
 		c.WriteString(theme.Bold.Render(fit(strings.ToUpper(branch), colW)) + "\n")
-		for _, u := range m.cfg.Upgrades.Branch(branch) {
+		nodes := m.cfg.Upgrades.Branch(branch)
+		// The mark in the gutter is the node's state; the cost is in
+		// green when it is clean cash. The tree and the inspector print
+		// a cost the same way, through cash().
+		var rows [][]any
+		cursor := -1
+		for i, u := range nodes {
 			state := m.upgradeState(u)
-			mark, st := "·", theme.Subtle
+			sign, st := "·", theme.Subtle
 			switch state {
 			case "owned":
-				mark, st = "✓", theme.Good
+				sign, st = "✓", theme.Good
 			case "available":
-				mark, st = "○", theme.Gold
+				sign, st = "○", theme.Gold
 				if !m.canAfford(u) {
 					st = theme.Warning
 				}
 			}
-			costW := 6
-			name := fit(u.Name, colW-5-costW)
-			cost := fmt.Sprintf("%*s", costW, cash(u.Cost))
+			var cost any = styled{st, u.Cost}
 			if u.Clean {
-				cost = fmt.Sprintf("%*s", costW, cash(u.Cost)+"*")
+				cost = styled{theme.Good, u.Cost}
 			}
-			line := name + " " + cost
+			rows = append(rows, []any{mark(sign), styled{st, u.Name}, cost})
 			if idx == m.upgradeCursor {
-				c.WriteString(theme.Gold.Render(mark+" ") + theme.Selected.Render(line) + "\n")
-			} else {
-				c.WriteString(st.Render(mark+" "+line) + "\n")
+				cursor = i
 			}
-			c.WriteString(theme.Subtle.Render(fit("  "+strings.Join(effectWords(u.Effects), ", "), colW-2)) + "\n")
 			idx++
+		}
+		lines := table([]col{{"node", kText, 0}, {"cost", kCash, 0}}, rows, cursor, colW-1)
+		c.WriteString(lines[0] + "\n")
+		for i, u := range nodes {
+			c.WriteString(fit(lines[i+1], colW) + "\n")
+			c.WriteString(theme.Subtle.Render(fit("  "+strings.Join(effectWords(u.Effects), ", "), colW-2)) + "\n")
 		}
 		cols = append(cols, strings.TrimRight(c.String(), "\n"))
 	}
 	b.WriteString(lipgloss.JoinHorizontal(lipgloss.Top, cols...) + "\n")
-	b.WriteString(truncate(theme.Good.Render("✓")+theme.Subtle.Render(" owned · ")+theme.Gold.Render("○")+theme.Subtle.Render(" available · · locked · * clean cash"), width) + "\n")
+	b.WriteString(truncate(theme.Good.Render("✓")+theme.Subtle.Render(" owned · ")+theme.Gold.Render("○")+theme.Subtle.Render(" available · · locked · ")+theme.Good.Render("green")+theme.Subtle.Render(" clean cash"), width) + "\n")
 	return b.String()
 }
 
@@ -263,7 +270,7 @@ func (m *Model) upgradesDetails() ([]section, []binding) {
 	if !ok {
 		return nil, m.screenKeys()
 	}
-	lines := []string{row("cost", theme.Gold.Render(money(sel.Cost)+" "+pool(sel)))}
+	lines := []string{row("cost", theme.Gold.Render(cash(sel.Cost)+" "+pool(sel)))}
 	switch m.upgradeState(sel) {
 	case "owned":
 		lines = append(lines, row("status", theme.Good.Render("owned")))
@@ -271,7 +278,7 @@ func (m *Model) upgradesDetails() ([]section, []binding) {
 		if m.canAfford(sel) {
 			lines = append(lines, row("status", theme.Gold.Render("available")))
 		} else {
-			lines = append(lines, row("status", theme.Warning.Render(fmt.Sprintf("%s short", money(sel.Cost-m.poolCash(sel))))))
+			lines = append(lines, row("status", theme.Warning.Render(fmt.Sprintf("%s short", cash(sel.Cost-m.poolCash(sel))))))
 		}
 	default:
 		var names []string
@@ -304,9 +311,12 @@ func (m *Model) upgradesDetails() ([]section, []binding) {
 func (m *Model) upgradeConfirm() string {
 	u := m.cfg.Upgrades.Upgrade(m.upgradeID)
 	if u == nil {
-		return m.modal("BUY?", "Nothing selected.")
+		return m.modal("BUY?", []string{"Nothing selected."}, m.modalFooter())
 	}
-	body := fmt.Sprintf("%s for %s %s cash. It applies at once and stays for the run.\n%s\n\n", u.Name, money(u.Cost), pool(*u), theme.Subtle.Render(strings.Join(effectWords(u.Effects), " · ")))
-	body += theme.Key.Render("y") + " buy   " + theme.Key.Render("any other key") + " back"
-	return m.modal("BUY "+strings.ToUpper(u.Name)+"?", body)
+	body := []string{
+		fmt.Sprintf("%s for %s %s cash.", u.Name, money(u.Cost), pool(*u)),
+		"It applies at once and stays for the run.",
+		theme.Subtle.Render(strings.Join(effectWords(u.Effects), " · ")),
+	}
+	return m.modal("BUY "+u.Name+"?", body, m.modalFooter())
 }

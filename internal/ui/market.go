@@ -6,7 +6,6 @@ import (
 
 	"github.com/charmbracelet/lipgloss"
 
-	"github.com/theclifmeister/kingpin/internal/ui/sparkline"
 	"github.com/theclifmeister/kingpin/internal/ui/theme"
 )
 
@@ -30,52 +29,106 @@ func (m *Model) cityTabs() string {
 	return strings.Join(parts, "")
 }
 
-func (m *Model) viewMarket() string {
+// productRows is the product table the dashboard and the market share:
+// the price, its change on the day, the sparkline (sized by sparkCol
+// once the caller knows what the width leaves), the stock in the city
+// and the order queued there, which is the lieutenant's standing order
+// where you placed none; the market adds the supplier's price and the
+// demand your corners there serve. The cursor is the row of the
+// product selected, or -1 when it is not in the city.
+func (m *Model) productRows(city string, selected int, market bool) (cols []col, rows [][]any, cursor int) {
 	w := m.w
-	city := m.shown()
-	width := m.mainWidth()
-	sparkW := max(8, min(30, width-72))
-	var b strings.Builder
-	b.WriteString(truncate(theme.PanelTitle.Render("MARKET · ")+m.cityTabs(), width) + "\n\n")
-	b.WriteString(theme.Subtle.Render(fmt.Sprintf("  %-8s %9s %6s  %-*s %8s %6s %9s  %s",
-		"", "price", "Δ", sparkW, "last 30 days", "supplier", "stash", "demand", "order")) + "\n")
+	c := w.City(city)
+	cols = []col{{"product", kText, 0}, {"price", kPrice, 0}, {"Δ", kPct, 0}, {"", kBar, 0}}
+	if market {
+		cols = append(cols, col{"supplier", kPrice, 0})
+	}
+	cols = append(cols, col{"stock", kInt, 0})
+	if market {
+		cols = append(cols, col{"demand/day", kInt, 0})
+	}
+	cols = append(cols, col{"order", kDial, 0})
+	cursor = -1
 	for i, id := range w.Products {
-		p := city.Market[id]
+		p := c.Market[id]
 		if p == nil {
 			continue
+		}
+		if i == selected {
+			cursor = len(rows)
 		}
 		delta := 0.0
 		if n := len(p.History); n >= 2 {
 			delta = pct(p.History[n-2], p.History[n-1])
 		}
-		ds := theme.Subtle.Render(fmt.Sprintf("%+5.0f%%", delta))
+		var ds any = styled{theme.Subtle, signed{delta}}
 		if delta > 1 {
-			ds = theme.Good.Render(fmt.Sprintf("%+5.0f%%", delta))
+			ds = styled{theme.Good, signed{delta}}
 		} else if delta < -1 {
-			ds = theme.Bad.Render(fmt.Sprintf("%+5.0f%%", delta))
+			ds = styled{theme.Bad, signed{delta}}
 		}
-		order := theme.Subtle.Render("-")
-		if o, ok := w.Order(city.ID, id); ok {
-			order = theme.Gold.Render(fmt.Sprintf("%d %s", o.Qty, o.Dial))
-		} else if o, ok := w.StandingOrder(city.ID, id); ok {
-			order = lipgloss.NewStyle().Foreground(theme.Crew).Render(fmt.Sprintf("%d %s (lt)", o.Qty, o.Dial))
+		sp := spark{vs: p.History}
+		if p.ShockDays > 0 {
+			if p.ShockSlump {
+				sp.mark = theme.Warning.Render("▼")
+			} else {
+				sp.mark = theme.Good.Render("▲")
+			}
 		}
-		name := fit(p.Name, 8)
-		cur := "  "
-		if i == m.cursor {
-			cur = theme.Gold.Render("▸ ")
-			name = theme.Selected.Render(name)
+		var ord any
+		if o, ok := w.Order(city, id); ok {
+			ord = styled{theme.Gold, order{o.Qty, dialShort(o.Dial), false}}
+		} else if o, ok := w.StandingOrder(city, id); ok {
+			ord = styled{lipgloss.NewStyle().Foreground(theme.Crew), order{o.Qty, dialShort(o.Dial), true}}
 		}
-		supplier := price(p.SupplierPrice)
-		if p.NoSupply {
-			supplier = theme.Subtle.Render("not sold")
+		row := []any{p.Name, p.Price, ds, styled{theme.Good, sp}}
+		if market {
+			var supplier any = p.SupplierPrice
+			if p.NoSupply {
+				supplier = nil
+			}
+			row = append(row, supplier)
 		}
-		row := fmt.Sprintf("%s%s %9s %s  %s %8s %6d %9s  %s",
-			cur, name, price(p.Price), ds,
-			theme.Good.Render(fit(sparkline.Render(p.History, sparkW), sparkW)),
-			supplier, w.Stock(city.ID, id),
-			fmt.Sprintf("~%.0f/day", w.Demand(city.ID, id)), order)
-		b.WriteString(truncate(row, width) + "\n")
+		row = append(row, w.Stock(city, id))
+		if market {
+			row = append(row, approx{w.Demand(city, id)})
+		}
+		rows = append(rows, append(row, ord))
+	}
+	return cols, rows, cursor
+}
+
+// sparkCol sizes the product table's sparkline to width cells, or the
+// days of history there are to draw, and titles it by those days.
+func sparkCol(cols []col, rows [][]any, width int) {
+	days := 0
+	for i := range cols {
+		if cols[i].kind != kBar {
+			continue
+		}
+		for _, r := range rows {
+			if sp, ok := r[i].(styled); ok {
+				if x, ok := sp.v.(spark); ok {
+					days = max(days, len(x.vs))
+				}
+			}
+		}
+		// No wider than the history it has to draw, so the mark
+		// after a short series sits by it.
+		cols[i].width = max(3, min(days, width))
+		cols[i].title = fmt.Sprintf("%dd", min(days, width))
+	}
+}
+
+func (m *Model) viewMarket() string {
+	city := m.shown()
+	width := m.mainWidth()
+	var b strings.Builder
+	b.WriteString(truncate(theme.PanelTitle.Render("MARKET · ")+m.cityTabs(), width) + "\n\n")
+	cols, rows, cursor := m.productRows(city.ID, m.cursor, true)
+	sparkCol(cols, rows, max(3, min(30, width-tableWidth(cols, rows))))
+	for _, l := range table(cols, rows, cursor, width) {
+		b.WriteString(l + "\n")
 	}
 	b.WriteString("\n")
 	// The buyers (#71): the reason to visit. Their rows sit under the

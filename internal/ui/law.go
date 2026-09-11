@@ -156,7 +156,6 @@ func (m *Model) viewFund() string {
 	w := m.w
 	c := m.fundCity()
 	tun := m.set.Law.Tuning()
-	var b strings.Builder
 	var cities []string
 	for i, id := range w.CityOrder {
 		name := " " + w.CityName(id) + " "
@@ -166,25 +165,26 @@ func (m *Model) viewFund() string {
 			cities = append(cities, theme.Subtle.Render(name))
 		}
 	}
-	lineW := max(20, m.width-8) // inside the modal's frame
-	b.WriteString("City      " + strings.Join(cities, " ") + theme.Subtle.Render("  ← → to turn") + "\n")
-	b.WriteString(fmt.Sprintf("Now       pressure %s  goodwill %s\n", theme.Bad.Render(fmt.Sprintf("%.0f", c.Pressure)), theme.Good.Render(fmt.Sprintf("%.0f", c.Goodwill))))
-	b.WriteString(fmt.Sprintf("Amount    %s   %s\n", m.fnd.amt.View(), theme.Subtle.Render("clean "+cash(w.Player.CleanCash))))
+	body := []string{
+		"City      " + strings.Join(cities, " "),
+		fmt.Sprintf("Now       pressure %s  goodwill %s", theme.Bad.Render(fmt.Sprintf("%.0f", c.Pressure)), theme.Good.Render(fmt.Sprintf("%.0f", c.Goodwill))),
+		fmt.Sprintf("Amount    %s   %s", m.fnd.amt.View(), theme.Subtle.Render("clean "+cash(w.Player.CleanCash))),
+	}
 	if amt, err := parseQtyInput(m.fnd.amt.Value(), m.maxFund(c)); err == nil {
 		g := m.set.Law.Goodwill(amt)
 		style := theme.Gold
 		if amt > w.Player.CleanCash {
 			style = theme.Bad
 		}
-		b.WriteString(truncate(fmt.Sprintf("Buys      %s goodwill for %s   %s", theme.Good.Render(fmt.Sprintf("+%.0f", g)), style.Render(money(amt)), theme.Subtle.Render(fmt.Sprintf("(%s a point, 100 at most)", money(tun.GoodwillCash)))), lineW) + "\n")
+		body = append(body, fmt.Sprintf("Buys      %s goodwill for %s   %s", theme.Good.Render(fmt.Sprintf("+%.0f", g)), style.Render(money(amt)), theme.Subtle.Render(fmt.Sprintf("(%s a point, 100 at most)", money(tun.GoodwillCash)))))
 	}
-	b.WriteString("\n" + truncate(theme.Subtle.Render(fmt.Sprintf("Full goodwill takes %.1f pressure off the city a day; it fades %.0f%% a day.", tun.GoodwillCut, tun.GoodwillDecay*100)), lineW) + "\n")
-	b.WriteString(truncate(theme.Subtle.Render("Community centres, campaigns, benevolent funds: clean money only."), lineW) + "\n")
+	body = append(body, "",
+		theme.Subtle.Render(fmt.Sprintf("Full goodwill takes %.1f pressure off the city a day; it fades %.0f%% a day.", tun.GoodwillCut, tun.GoodwillDecay*100)),
+		theme.Subtle.Render("Community centres, campaigns, benevolent funds: clean money only."))
 	if m.fnd.err != "" {
-		b.WriteString("\n" + theme.Bad.Render(m.fnd.err) + "\n")
+		body = append(body, "", theme.Bad.Render(m.fnd.err))
 	}
-	b.WriteString("\n" + theme.Key.Render("enter") + " give  " + theme.Key.Render("esc") + " back")
-	return m.modal("FUND "+strings.ToUpper(c.Name), strings.TrimRight(b.String(), "\n"))
+	return m.modal("FUND · "+c.Name, body, m.modalFooter())
 }
 
 // lawReportStyle is the colour the report's LAW section is printed in.

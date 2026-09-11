@@ -1,10 +1,7 @@
 package ui
 
 import (
-	"strings"
-
 	tea "github.com/charmbracelet/bubbletea"
-	"github.com/charmbracelet/lipgloss"
 
 	"github.com/theclifmeister/kingpin/internal/ui/theme"
 )
@@ -40,6 +37,8 @@ func (m *Model) keyCard(key string) (tea.Model, tea.Cmd) {
 			} else {
 				m.mode = modePlay
 			}
+		default:
+			m.scrollModal(key)
 		}
 		return m, nil
 	}
@@ -76,31 +75,31 @@ func (m *Model) answerCard() {
 	}
 	m.outcome = a.Outcome
 	m.cardDone = true
+	m.modalScroll = 0
 	m.save()
 	m.refreshJournal()
 }
 
+// viewCard is the card, its prose wrapped to the modal's width (the one
+// thing that wraps), then the choices; after the answer, the outcome.
 func (m *Model) viewCard() string {
-	width := max(30, min(72, m.width-10))
-	wrap := lipgloss.NewStyle().Width(width)
 	if m.cardDone {
-		return m.modal("WHAT HAPPENED", wrap.Render(m.outcome)+"\n\n"+theme.Key.Render("enter")+" the morning report")
+		return m.modal("WHAT HAPPENED", m.wrapLines(m.outcome), m.modalFooter())
 	}
 	c := m.w.Dilemmas.Pending
 	if c == nil {
-		return m.modal("DILEMMA", "Nothing to decide.")
+		return m.modal("DILEMMA", []string{"Nothing to decide."}, m.modalFooter())
 	}
 	m.cardCursor = max(0, min(m.cardCursor, len(c.Choices)-1))
-	var b strings.Builder
-	b.WriteString(wrap.Render(c.Text) + "\n\n")
+	body := append(m.wrapLines(c.Text), "")
 	for i, ch := range c.Choices {
-		label := string(rune('1'+i)) + " " + truncate(ch.Label, width-6)
+		label := string(rune('1'+i)) + " " + truncate(ch.Label, m.modalInner()-6)
 		if i == m.cardCursor {
-			b.WriteString(theme.Gold.Render("▸ ") + theme.Selected.Render(" "+label+" ") + "\n")
+			m.modalFollow(len(body))
+			body = append(body, theme.Gold.Render("▸ ")+theme.Selected.Render(" "+label+" "))
 		} else {
-			b.WriteString("    " + label + "\n")
+			body = append(body, "    "+label)
 		}
 	}
-	b.WriteString("\n" + theme.Subtle.Render("Your call. ") + theme.Key.Render("enter") + " decide")
-	return m.modal(strings.ToUpper(c.Title), strings.TrimRight(b.String(), "\n"))
+	return m.modal(c.Title, body, m.modalFooter())
 }

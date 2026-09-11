@@ -14,6 +14,7 @@ import (
 
 	"github.com/theclifmeister/kingpin/internal/content"
 	"github.com/theclifmeister/kingpin/internal/events"
+	"github.com/theclifmeister/kingpin/internal/format"
 	"github.com/theclifmeister/kingpin/internal/game"
 	"github.com/theclifmeister/kingpin/internal/sim"
 	"github.com/theclifmeister/kingpin/internal/ui/theme"
@@ -64,6 +65,7 @@ const (
 	modeAssign        // pick the city a lieutenant runs
 	modeFund          // give a city clean cash for goodwill
 	modeDetails       // the details pane as an overlay, where the terminal is too narrow to hold it beside MAIN
+	modeCount
 )
 
 // statusKind is what a status message is, and so how the status bar
@@ -115,6 +117,7 @@ type Model struct {
 	proposeKind   int    // index into proposeKinds while on the terms page
 	proposeCursor int
 	assignCursor  int    // row in the assign picker
+	modalScroll   int    // first body line the open modal shows
 	outcome       string // what the last answer did, while it shows
 	journal       viewport.Model
 	dlg           dialog
@@ -275,7 +278,12 @@ func (m *Model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 		m.tick++
 		return m, tickCmd()
 	case tea.KeyMsg:
-		return m.handleKey(msg)
+		before := m.mode
+		r, cmd := m.handleKey(msg)
+		if m.mode != before {
+			m.modalScroll = 0 // a new modal opens at its top
+		}
+		return r, cmd
 	}
 	return m, nil
 }
@@ -349,12 +357,16 @@ func (m *Model) handleKey(k tea.KeyMsg) (tea.Model, tea.Cmd) {
 	case modeFund:
 		return m.keyFund(k)
 	case modeHelp:
-		m.mode = modePlay
+		if !m.scrollModal(key) {
+			m.mode = modePlay
+		}
 		return m, nil
 	case modeDetails:
 		switch key {
 		case "esc", " ", "enter", "q":
 			m.mode = modePlay
+		default:
+			m.scrollModal(key)
 		}
 		return m, nil
 	case modePost:
@@ -453,6 +465,8 @@ func (m *Model) handleKey(k tea.KeyMsg) (tea.Model, tea.Cmd) {
 		switch key {
 		case "enter", "esc", " ", "r", "q":
 			m.mode = modePlay
+		default:
+			m.scrollModal(key)
 		}
 		return m, nil
 	case modeCard:
@@ -491,6 +505,8 @@ func (m *Model) handleKey(k tea.KeyMsg) (tea.Model, tea.Cmd) {
 			m.newRun()
 		case "q":
 			return m.quit()
+		default:
+			m.scrollModal(key)
 		}
 		return m, nil
 	case modeBuy, modeSell:
@@ -804,13 +820,13 @@ func (m *Model) View() string {
 	case modeOver:
 		body = m.viewOver()
 	case modeConfirmNew:
-		body = m.modal("NEW RUN?", "Abandon the current run and start over?\n\n"+theme.Key.Render("y")+" yes   "+theme.Key.Render("any other key")+" no")
+		body = m.modal("NEW RUN?", []string{"Abandon the current run and start over?"}, m.modalFooter())
 	case modeConfirmFire:
 		name := "them"
 		if c := m.w.Crew.Member(m.fireID); c != nil {
 			name = c.Name
 		}
-		body = m.modal("FIRE "+strings.ToUpper(name)+"?", "No severance in this business. The rest of the crew\nwill take it personally.\n\n"+theme.Key.Render("y")+" yes   "+theme.Key.Render("any other key")+" no")
+		body = m.modal("FIRE "+name+"?", []string{"No severance in this business. The rest of the crew", "will take it personally."}, m.modalFooter())
 	case modeConfirmEnd:
 		what := "No sales queued."
 		switch {
@@ -819,7 +835,7 @@ func (m *Model) View() string {
 		case len(m.w.Orders) > 0:
 			what = fmt.Sprintf("%d order(s) queued.", len(m.w.Orders))
 		}
-		body = m.modal("END THE DAY?", what+" The sims step and the run autosaves.\n\n"+theme.Key.Render("enter")+" / "+theme.Key.Render("y")+" end the day   "+theme.Key.Render("any other key")+" back")
+		body = m.modal("END THE DAY?", []string{what + " The sims step and the run autosaves."}, m.modalFooter())
 	case modeHelp:
 		body = m.viewHelp()
 	case modePost:
@@ -1032,51 +1048,10 @@ func (m *Model) screenKeys() []binding {
 	}
 }
 
-// legend is the status bar's key pairs for the mode, or for the screen
-// in play mode: `n end day` first, the screen's keys, `␣ details`, then
-// `? help` last.
-func (m *Model) legend() []binding {
-	switch m.mode {
-	case modeReport:
-		return []binding{{"enter", "close report"}}
-	case modeBuy, modeSell:
-		return []binding{{"↑↓", "pick"}, {"enter", "next"}, {"esc", "back"}}
-	case modeOver:
-		return []binding{{"enter", "new run"}, {"q", "quit"}}
-	case modeConfirmEnd:
-		return []binding{{"enter", "end day"}, {"esc", "back"}}
-	case modeHelp, modeConfirmNew, modeConfirmFire:
-		return []binding{{"any key", "close"}}
-	case modeDetails:
-		return []binding{{"esc", "close"}}
-	case modeConfirmUpgrade:
-		return []binding{{"y", "buy"}, {"any other key", "back"}}
-	case modeConfirmInvestigate:
-		return []binding{{"y", "ask"}, {"any other key", "back"}}
-	case modeConfirmPayOff:
-		return []binding{{"y", "pay"}, {"any other key", "back"}}
-	case modeConfirmTravel:
-		return []binding{{"y", "go"}, {"any other key", "stay"}}
-	case modeTarget:
-		return []binding{{"↑↓", "pick"}, {"enter", "next"}, {"esc", "back"}}
-	case modeFund:
-		return []binding{{"←→", "city"}, {"enter", "give"}, {"esc", "back"}}
-	case modePost:
-		return []binding{{"↑↓", "pick"}, {"enter", "post"}, {"esc", "back"}}
-	case modeStrike:
-		return []binding{{"↑↓", "pick"}, {"enter", "send"}, {"esc", "back"}}
-	case modeFront:
-		return []binding{{"↑↓", "pick"}, {"enter", "buy"}, {"esc", "back"}}
-	case modeAssign:
-		return []binding{{"↑↓", "pick"}, {"enter", "assign"}, {"esc", "back"}}
-	case modeCard:
-		if m.cardDone {
-			return []binding{{"enter", "morning report"}}
-		}
-		return []binding{{"↑↓", "pick"}, {"1-3", "choose"}, {"enter", "decide"}}
-	case modePropose:
-		return []binding{{"↑↓", "pick"}, {"enter", "next"}, {"esc", "back"}}
-	}
+// playLegend is the status bar's key pairs in play mode: `n end day`
+// first, the screen's keys, `␣ details`, then `? help` last. Inside a
+// modal the bar repeats the modal's footer instead (modalFooter).
+func (m *Model) playLegend() []binding {
 	keys := []binding{{"n", "end day"}}
 	keys = append(keys, m.screenKeys()...)
 	return append(keys, binding{"␣", "details"}, binding{"?", "help"})
@@ -1106,7 +1081,11 @@ func (m *Model) statusStyle() lipgloss.Style {
 // right. The message wins: when the two cannot share the row it shows
 // alone, never the legend alone.
 func (m *Model) viewFooter() string {
-	pairs := m.legend()
+	// During a modal the bar repeats the modal's footer and nothing else.
+	if f := m.modalFooter(); f != nil {
+		return fit(legend(f), m.width)
+	}
+	pairs := m.playLegend()
 	msg := ""
 	if m.status != "" {
 		msg = m.statusStyle().Render(m.status)
@@ -1147,29 +1126,25 @@ func heatStyle(v float64) lipgloss.Style {
 	}
 }
 
-// modal centres a bordered box in the body.
-func (m *Model) modal(title, content string) string {
-	box := theme.Modal.Render(theme.Title.Render(title) + "\n\n" + content)
-	return lipgloss.Place(m.width, m.bodyHeight(), lipgloss.Center, lipgloss.Center, box)
-}
-
 func (m *Model) viewStart() string {
-	opts := []string{"Continue saved run", "New run"}
-	var b strings.Builder
-	for i, o := range opts {
+	body := []string{theme.Subtle.Render("a drug empire, one day at a time"), ""}
+	for i, o := range []string{"Continue saved run", "New run"} {
 		if i == m.startChoice {
-			b.WriteString(theme.Selected.Render(" ▸ "+o+" ") + "\n")
+			body = append(body, theme.Gold.Render("▸ ")+theme.Selected.Render(" "+o+" "))
 		} else {
-			b.WriteString("   " + o + "\n")
+			body = append(body, "   "+o)
 		}
 	}
-	b.WriteString("\n" + theme.Subtle.Render("enter select · c continue · n new · q quit"))
 	if m.status != "" {
 		// Load errors can be long; wrap inside the box instead of past it.
-		b.WriteString("\n" + theme.Warning.Width(max(20, m.width-12)).Render(m.status))
+		body = append(body, "")
+		for _, l := range m.wrapLines(m.status) {
+			body = append(body, theme.Warning.Render(l))
+		}
 	}
-	box := theme.Modal.Render(theme.Title.Render("KINGPIN") + "\n" + theme.Subtle.Render("a drug empire, one day at a time") + "\n\n" + b.String())
-	return lipgloss.Place(m.width, m.height, lipgloss.Center, lipgloss.Center, box)
+	// No title bar yet: the box sits where it does on every other screen.
+	box := "\n" + m.modal("KINGPIN", body, m.modalFooter())
+	return lipgloss.NewStyle().Width(m.width).Height(m.height).MaxHeight(m.height).Render(box)
 }
 
 func (m *Model) viewHelp() string {
@@ -1202,15 +1177,14 @@ func (m *Model) viewHelp() string {
 		{"N", "abandon run and start over"},
 		{"q", "save and quit"},
 	}
-	// The key column, two spaces and the modal's frame leave the rest of
-	// the width for the description; a long one is cut, never wrapped.
-	descW := max(20, m.width-14-2-6)
-	var b strings.Builder
+	// The key column, two spaces and the description; the modal cuts a
+	// long one to its width, never wraps it.
+	var body []string
 	for _, r := range rows {
-		b.WriteString(fmt.Sprintf("%s  %s\n", theme.Key.Render(fit(r[0], 14)), truncate(r[1], descW)))
+		body = append(body, theme.Key.Render(fit(r[0], 14))+"  "+r[1])
 	}
-	b.WriteString("\n" + theme.Subtle.Render("Heat is the antagonist. Greed is always available."))
-	return m.modal("HELP", b.String())
+	body = append(body, "", theme.Subtle.Render("Heat is the antagonist. Greed is always available."))
+	return m.modal("HELP", body, m.modalFooter())
 }
 
 func (m *Model) viewOver() string {
@@ -1218,55 +1192,73 @@ func (m *Model) viewOver() string {
 	e := w.Over
 	var b strings.Builder
 	b.WriteString(theme.Bad.Bold(true).Render(strings.ToUpper(e.Cause)) + fmt.Sprintf(" on day %d\n\n", e.Day))
-	b.WriteString(fmt.Sprintf("Days survived   %d\n", e.Day))
-	b.WriteString(fmt.Sprintf("Peak cash       %s\n", cash(w.Stats.PeakCash)))
-	b.WriteString(fmt.Sprintf("Total revenue   %s\n", cash(w.Stats.TotalRevenue)))
-	b.WriteString(fmt.Sprintf("Units moved     %d\n", w.Stats.UnitsSold))
-	b.WriteString(fmt.Sprintf("Stings / raids  %d / %d\n", w.Stats.Stings, w.Stats.Raids))
-	b.WriteString(fmt.Sprintf("Wages / skimmed %s / %s\n", cash(w.Stats.Wages), cash(w.Stats.Skimmed)))
-	b.WriteString(fmt.Sprintf("Corners / robbed %d / %s\n", w.Held(), cash(w.Stats.Robbed)))
+	// One fact a row: the label and its value, values written the way
+	// the screens write them.
+	facts := [][]any{
+		{"days survived", fmt.Sprint(e.Day)},
+		{"peak cash", cash(w.Stats.PeakCash)},
+		{"total revenue", cash(w.Stats.TotalRevenue)},
+		{"units moved", fmt.Sprint(w.Stats.UnitsSold)},
+		{"stings", fmt.Sprint(w.Stats.Stings)},
+		{"raids", fmt.Sprint(w.Stats.Raids)},
+		{"wages", cash(w.Stats.Wages)},
+		{"skimmed", cash(w.Stats.Skimmed)},
+		{"corners held", fmt.Sprint(w.Held())},
+		{"robbed", cash(w.Stats.Robbed)},
+	}
 	if w.Rival.Arrived > 0 {
-		b.WriteString(fmt.Sprintf("Won / lost to %s %d / %d\n", truncate(w.Rival.Leader, 12), w.Stats.CornersWon, w.Stats.CornersLost))
+		facts = append(facts,
+			[]any{"corners won", fmt.Sprint(w.Stats.CornersWon)},
+			[]any{"lost to " + truncate(w.Rival.Leader, 12), fmt.Sprint(w.Stats.CornersLost)})
 	}
 	if s := w.Stats; s.Deals+s.Betrayals+s.BetrayedBy > 0 {
-		b.WriteString(fmt.Sprintf("Deals / broken   %d / %d by you, %d by them\n", s.Deals, s.Betrayals, s.BetrayedBy))
+		facts = append(facts,
+			[]any{"deals", fmt.Sprint(s.Deals)},
+			[]any{"broken by you", fmt.Sprint(s.Betrayals)},
+			[]any{"broken by them", fmt.Sprint(s.BetrayedBy)})
 	}
-	b.WriteString(fmt.Sprintf("Washed / seized %s / %s\n", cash(w.Stats.Laundered), cash(w.Stats.Seized)))
+	facts = append(facts, []any{"washed", cash(w.Stats.Laundered)}, []any{"seized", cash(w.Stats.Seized)})
 	if w.Stats.Shipments > 0 {
-		b.WriteString(fmt.Sprintf("Shipped / lost on the road %d / %d units in %d / %d runs\n", w.Stats.Shipped, w.Stats.SeizedOnRoad, w.Stats.Shipments, w.Stats.Seizures))
+		facts = append(facts,
+			[]any{"shipped", fmt.Sprintf("%s in %s", plural(w.Stats.Shipped, "unit"), plural(w.Stats.Shipments, "run"))},
+			[]any{"lost on the road", fmt.Sprintf("%s in %s", plural(w.Stats.SeizedOnRoad, "unit"), plural(w.Stats.Seizures, "run"))})
 	}
-	b.WriteString(fmt.Sprintf("Clean cash      %s\n", cash(w.Player.CleanCash)))
+	facts = append(facts, []any{"clean cash", cash(w.Player.CleanCash)})
 	if w.Stats.Informants+w.Stats.Defections > 0 {
-		b.WriteString(fmt.Sprintf("Snitches / defectors %d / %d\n", w.Stats.Informants, w.Stats.Defections))
+		facts = append(facts, []any{"snitches", fmt.Sprint(w.Stats.Informants)}, []any{"defectors", fmt.Sprint(w.Stats.Defections)})
 	}
-	b.WriteString(fmt.Sprintf("Peak heat       %.0f\n", w.Heat.Peak))
-	b.WriteString(fmt.Sprintf("The law         Chief %s (%s) · DA %s (%s)\n", truncate(w.Law.Chief.Name, 10), w.Law.Chief.Personality, truncate(w.Law.DA.Name, 10), stanceWord(w.Law.DA.Stance)))
-	b.WriteString(fmt.Sprintf("Pressure        %.0f · %d election(s) · %s given to the cities\n", w.Here().Pressure, w.Stats.Elections, cash(w.Stats.Funded)))
 	rep := w.Player.Reputation
-	b.WriteString(fmt.Sprintf("Reputation      fear %.0f / respect %.0f / notoriety %.0f\n", rep.Fear, rep.Respect, rep.Notoriety))
-	if n := len(w.Journal); n > 0 {
-		b.WriteString("\nLast headline:\n  " + theme.Subtle.Render(truncate(w.Journal[n-1].Text, max(20, m.width-20))) + "\n")
+	facts = append(facts,
+		[]any{"peak heat", fmt.Sprintf("%.0f", w.Heat.Peak)},
+		[]any{"the law", fmt.Sprintf("Chief %s (%s) · DA %s (%s)", truncate(w.Law.Chief.Name, 10), w.Law.Chief.Personality, truncate(w.Law.DA.Name, 10), stanceWord(w.Law.DA.Stance))},
+		[]any{"pressure", fmt.Sprintf("%.0f", w.Here().Pressure)},
+		[]any{"elections", fmt.Sprint(w.Stats.Elections)},
+		[]any{"given to the cities", cash(w.Stats.Funded)},
+		[]any{"reputation", fmt.Sprintf("fear %.0f · respect %.0f · notoriety %.0f", rep.Fear, rep.Respect, rep.Notoriety)})
+	for _, l := range table([]col{{"stat", kText, 0}, {"value", kText, 0}}, facts, -1, m.modalInner()) {
+		b.WriteString(l + "\n")
 	}
-	b.WriteString("\n" + theme.Key.Render("enter") + " new run   " + theme.Key.Render("q") + " quit")
-	return m.modal("GAME OVER", b.String())
+	if n := len(w.Journal); n > 0 {
+		b.WriteString("\nLast headline:\n  " + theme.Subtle.Render(w.Journal[n-1].Text) + "\n")
+	}
+	return m.modal("GAME OVER", strings.Split(strings.TrimRight(b.String(), "\n"), "\n"), m.modalFooter())
 }
 
 func (m *Model) viewReport() string {
 	r := m.w.Report
 	if r == nil {
-		return m.modal("MORNING REPORT", "Nothing happened yet.")
+		return m.modal("MORNING REPORT", []string{"Nothing happened yet."}, m.modalFooter())
 	}
-	var b strings.Builder
-	lineW := max(20, m.width-8) // inside the modal's frame; long lines are cut, never wrapped
+	var body []string // the modal cuts a long line to its width, never wraps it
 	section := func(title string, ls []string, style lipgloss.Style) {
 		if len(ls) == 0 {
 			return
 		}
-		b.WriteString(style.Bold(true).Render(title) + "\n")
+		body = append(body, style.Bold(true).Render(title))
 		for _, l := range ls {
-			b.WriteString(truncate("  "+l, lineW) + "\n")
+			body = append(body, "  "+l)
 		}
-		b.WriteString("\n")
+		body = append(body, "")
 	}
 	section("PRICES", r.Prices, theme.Good)
 	section("SALES", r.Sales, theme.Gold)
@@ -1275,11 +1267,13 @@ func (m *Model) viewReport() string {
 	section("LAW", r.Law, lawReportStyle)
 	section("CREW", r.Crew, lipgloss.NewStyle().Foreground(theme.Crew))
 	section("TERRITORY", r.Territory, lipgloss.NewStyle().Foreground(theme.Rivals))
-	section("MONEY", append(r.Money, fmt.Sprintf("Cash %s -> %s", cash(r.CashBefore), cash(r.CashAfter))), theme.Gold)
+	section("MONEY", append(r.Money, fmt.Sprintf("Cash %s %s %s", cash(r.CashBefore), format.Arrow, cash(r.CashAfter))), theme.Gold)
 	section("UPGRADES", r.Upgrades, theme.Gold)
 	section("NEWS", r.News, theme.Subtle)
-	content := clampLines(strings.TrimRight(b.String(), "\n"), m.bodyHeight()-6)
-	return m.modal(fmt.Sprintf("MORNING REPORT · DAY %d", r.Day), content)
+	for len(body) > 0 && body[len(body)-1] == "" {
+		body = body[:len(body)-1]
+	}
+	return m.modal(fmt.Sprintf("MORNING REPORT · DAY %d", r.Day), body, m.modalFooter())
 }
 
 func (m *Model) refreshJournal() {
