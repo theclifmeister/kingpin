@@ -2,6 +2,8 @@ package ui
 
 import (
 	"fmt"
+	"math"
+	"strconv"
 	"strings"
 
 	"github.com/charmbracelet/lipgloss"
@@ -11,14 +13,83 @@ import (
 	"github.com/theclifmeister/kingpin/internal/ui/theme"
 )
 
-// upgradeRows is the list the upgrades cursor walks: every node, branch by
-// branch, in tree order.
-func (m *Model) upgradeRows() []content.UpgradeConfig {
-	var rows []content.UpgradeConfig
-	for _, b := range content.Branches {
-		rows = append(rows, m.cfg.Upgrades.Branch(b)...)
+// upgradeRow is one row of the shown branch's table: the node and how
+// deep it sits under the branch's roots, one level per prerequisite in
+// the branch (#120).
+type upgradeRow struct {
+	node  content.UpgradeConfig
+	depth int
+}
+
+// branchRows lays a branch out as a tree: a node's parent is the
+// deepest of its prerequisites in the branch (the later in the file
+// between two as deep; a prerequisite in another branch is the status
+// column's business, not the layout's), the roots are the nodes with
+// none, and each node's children follow it in file order, one cell
+// deeper, so the branch reads as a tree and the cursor walks it top to
+// bottom.
+func (m *Model) branchRows(branch string) []upgradeRow {
+	nodes := m.cfg.Upgrades.Branch(branch)
+	depth := map[string]int{}
+	order := map[string]int{}
+	children := map[string][]content.UpgradeConfig{}
+	var roots []content.UpgradeConfig
+	for i, u := range nodes {
+		order[u.ID] = i
+		parent := ""
+		for _, r := range u.Requires {
+			if m.cfg.Upgrades.Upgrade(r).Branch != branch {
+				continue
+			}
+			if parent == "" || depth[r] > depth[parent] || depth[r] == depth[parent] && order[r] > order[parent] {
+				parent = r
+			}
+		}
+		if parent == "" {
+			roots = append(roots, u)
+			continue
+		}
+		depth[u.ID] = depth[parent] + 1
+		children[parent] = append(children[parent], u)
+	}
+	var rows []upgradeRow
+	var walk func(u content.UpgradeConfig)
+	walk = func(u content.UpgradeConfig) {
+		rows = append(rows, upgradeRow{u, depth[u.ID]})
+		for _, c := range children[u.ID] {
+			walk(c)
+		}
+	}
+	for _, u := range roots {
+		walk(u)
 	}
 	return rows
+}
+
+// shownBranch is the branch the upgrades screen is turned to.
+func (m *Model) shownBranch() string {
+	m.branch = max(0, min(m.branch, len(content.Branches)-1))
+	return content.Branches[m.branch]
+}
+
+// upgradeRows is the list the upgrades cursor walks: the shown branch's
+// nodes in tree order (branchRows).
+func (m *Model) upgradeRows() []content.UpgradeConfig {
+	var rows []content.UpgradeConfig
+	for _, r := range m.branchRows(m.shownBranch()) {
+		rows = append(rows, r.node)
+	}
+	return rows
+}
+
+// nodeCursor is the shown branch's cursor: each branch keeps its own,
+// so a branch left and come back to is on the node it was on.
+func (m *Model) nodeCursor() *int {
+	m.shownBranch()
+	for len(m.upgradeCursor) < len(content.Branches) {
+		m.upgradeCursor = append(m.upgradeCursor, 0)
+	}
+	return &m.upgradeCursor[m.branch]
 }
 
 // upgradeSelected returns the node under the cursor.
@@ -27,31 +98,24 @@ func (m *Model) upgradeSelected() (content.UpgradeConfig, bool) {
 	if len(rows) == 0 {
 		return content.UpgradeConfig{}, false
 	}
-	m.upgradeCursor = max(0, min(m.upgradeCursor, len(rows)-1))
-	return rows[m.upgradeCursor], true
+	c := m.nodeCursor()
+	*c = max(0, min(*c, len(rows)-1))
+	return rows[*c], true
 }
 
-// upgradeMove walks the tree as columns, one a branch: dc moves to the branch
-// beside this one at the same row (the last node if that column is
-// shorter), dr up or down within the column. The edges are no-ops.
+// upgradeMove walks the tree: dc turns it to the branch beside this one
+// (round the end, as the market's arrows turn the city), dr up or down
+// the shown branch's nodes; the ends of a branch are no-ops.
 func (m *Model) upgradeMove(dc, dr int) {
+	if dc != 0 {
+		m.branch = (m.branch + dc + len(content.Branches)) % len(content.Branches)
+		return
+	}
 	if _, ok := m.upgradeSelected(); !ok {
 		return
 	}
-	var lens []int
-	for _, b := range content.Branches {
-		lens = append(lens, len(m.cfg.Upgrades.Branch(b)))
-	}
-	col, row := m.upgradeAt()
-	col = max(0, min(col+dc, len(lens)-1))
-	if lens[col] == 0 {
-		return
-	}
-	row = max(0, min(row+dr, lens[col]-1))
-	for _, n := range lens[:col] {
-		row += n
-	}
-	m.upgradeCursor = row
+	c := m.nodeCursor()
+	*c = max(0, min(*c+dr, len(m.upgradeRows())-1))
 }
 
 // upgradeState is where a node stands for the player: owned, available
@@ -135,7 +199,7 @@ func effectWords(e content.UpgradeEffects) []string {
 	add := func(s string) { out = append(out, s) }
 	mul := func(v float64, format string) {
 		if v > 0 {
-			add(fmt.Sprintf(format, v))
+			add(fmt.Sprintf(format, times(v)))
 		}
 	}
 	bonus := func(v int, noun string) {
@@ -147,32 +211,32 @@ func effectWords(e content.UpgradeEffects) []string {
 		add(fmt.Sprintf("carry +%d", e.CarryBonus))
 	}
 	// The market.
-	mul(e.SupplierMul, "supplier price ×%.2f")
-	mul(e.BuyPressureMul, "buy pressure ×%.1f")
-	mul(e.FillMul, "fill ×%.2f every dial")
-	mul(e.SaleImpactMul, "price impact ×%.1f")
-	mul(e.DemandMul, "demand ×%.2f on your corners")
-	mul(e.GlutDecayMul, "gluts clear ×%.1f faster")
-	mul(e.BuyerGapMul, "buyers come ×%.1f as often")
+	mul(e.SupplierMul, "supplier price ×%s")
+	mul(e.BuyPressureMul, "buy pressure ×%s")
+	mul(e.FillMul, "fill ×%s every dial")
+	mul(e.SaleImpactMul, "price impact ×%s")
+	mul(e.DemandMul, "demand ×%s on your corners")
+	mul(e.GlutDecayMul, "gluts clear ×%s faster")
+	mul(e.BuyerGapMul, "buyers come ×%s as often")
 	if e.ContractPremiumBonus != 0 {
 		add(fmt.Sprintf("contracts pay +%.0f%%", e.ContractPremiumBonus*100))
 	}
 	// Heat.
-	mul(e.SaleHeatMul, "sale heat ×%.2f")
-	mul(e.CrewHeatMul, "runners' heat ×%.2f")
+	mul(e.SaleHeatMul, "sale heat ×%s")
+	mul(e.CrewHeatMul, "runners' heat ×%s")
 	if e.PatrolCap > 0 {
 		add(fmt.Sprintf("patrols cap sales at %.0f%%", e.PatrolCap*100))
 	}
 	if e.CooldownBonus > 0 {
 		add("+" + plural(e.CooldownBonus, "day") + " between busts")
 	}
-	mul(e.StingStockMul, "stings take ×%.1f stock")
-	mul(e.RaidLossMul, "raids take ×%.1f")
-	mul(e.LieLowMultiplier, "lie low ×%.1f")
+	mul(e.StingStockMul, "stings take ×%s stock")
+	mul(e.RaidLossMul, "raids take ×%s")
+	mul(e.LieLowMultiplier, "lie low ×%s")
 	if e.Decay > 0 {
 		add(fmt.Sprintf("heat fades %.0f%%/day", e.Decay*100))
 	}
-	mul(e.DirtyCashThresholdMul, "cash pile ×%.1f before heat")
+	mul(e.DirtyCashThresholdMul, "cash pile ×%s before heat")
 	if e.EvidenceCut > 0 {
 		add(fmt.Sprintf("file −%d per bust", e.EvidenceCut))
 	}
@@ -189,178 +253,195 @@ func effectWords(e content.UpgradeEffects) []string {
 		add("survive " + plural(e.FallGuys, "indictment"))
 	}
 	// The crew.
-	mul(e.WageMul, "wages ×%.2f")
-	mul(e.LoyaltyLossMul, "loyalty loss ×%.1f")
-	mul(e.DangerLoyaltyMul, "danger costs ×%.1f loyalty")
-	mul(e.SkimChanceMul, "skimming ×%.1f")
-	mul(e.InformantChanceMul, "turning ×%.1f")
+	mul(e.WageMul, "wages ×%s")
+	mul(e.LoyaltyLossMul, "loyalty loss ×%s")
+	mul(e.DangerLoyaltyMul, "danger costs ×%s loyalty")
+	mul(e.SkimChanceMul, "skimming ×%s")
+	mul(e.InformantChanceMul, "turning ×%s")
 	bonus(e.CrewSlots, "crew")
 	bonus(e.CandidatesBonus, "faces looking for work")
 	if e.PoolDaysCut > 0 {
 		add(fmt.Sprintf("new faces %d days sooner", e.PoolDaysCut))
 	}
 	bonus(e.SkillBonus, "skill on new faces")
-	mul(e.HireFeeMul, "signing fees ×%.1f")
+	mul(e.HireFeeMul, "signing fees ×%s")
 	bonus(e.StartLoyaltyBonus, "loyalty on new faces")
 	// Laundering.
-	mul(e.WashMul, "wash ×%.2f every front")
-	mul(e.AuditRiskMul, "audit risk ×%.1f")
-	mul(e.AuditSeizeMul, "audits seize ×%.1f")
-	mul(e.UpkeepMul, "upkeep ×%.1f")
+	mul(e.WashMul, "wash ×%s every front")
+	mul(e.AuditRiskMul, "audit risk ×%s")
+	mul(e.AuditSeizeMul, "audits seize ×%s")
+	mul(e.UpkeepMul, "upkeep ×%s")
 	if e.AuditFreezeCut > 0 {
 		add(fmt.Sprintf("audits freeze %d days less", e.AuditFreezeCut))
 	}
-	mul(e.FloatMul, "float ×%.1f")
+	mul(e.FloatMul, "float ×%s")
 	// The road.
-	mul(e.RouteRiskMul, "route risk ×%.1f")
-	mul(e.RouteCapacityMul, "route capacity ×%.1f")
-	mul(e.RouteDaysMul, "road days ×%.2f")
-	mul(e.FareMul, "fares ×%.1f")
-	mul(e.WholesaleMul, "wholesale price ×%.1f")
+	mul(e.RouteRiskMul, "route risk ×%s")
+	mul(e.RouteCapacityMul, "route capacity ×%s")
+	mul(e.RouteDaysMul, "road days ×%s")
+	mul(e.FareMul, "fares ×%s")
+	mul(e.WholesaleMul, "wholesale price ×%s")
 	// The street.
 	if e.DriftDaysBonus > 0 {
 		add(fmt.Sprintf("corners drift %d days later", e.DriftDaysBonus))
 	}
-	mul(e.RobberyMul, "robberies ×%.1f")
+	mul(e.RobberyMul, "robberies ×%s")
 	bonus(e.GuardBonus, "guard on contested corners")
-	mul(e.RivalPushMul, "rival pushes ×%.1f")
+	mul(e.RivalPushMul, "rival pushes ×%s")
 	return out
 }
 
-// ownedLine is the dashboard's compact list of what the player has bought.
+// times writes a multiplier as the effects read it: `0.9`, `0.75`,
+// `1.5`, two decimals at most and no trailing zero.
+func times(v float64) string {
+	return strconv.FormatFloat(math.Round(v*100)/100, 'f', -1, 64)
+}
+
+// ownedLine is the dashboard's fact on the tree: how much of it is
+// yours (`upgrades 9 of 56`), or where to buy the first node.
 func (m *Model) ownedLine() string {
-	var ids []string
-	for _, u := range m.upgradeRows() {
-		if m.w.Owns(u.ID) {
-			ids = append(ids, u.ID)
-		}
-	}
-	if len(ids) == 0 {
+	owned, total := m.ownedCount()
+	if owned == 0 {
 		return "no upgrades yet: buy " + screenPointer(screenUpgrades)
 	}
-	return "upgrades " + strings.Join(ids, ", ")
+	return fmt.Sprintf("upgrades %d of %d", owned, total)
 }
 
-// upgradeAt is the column and the row within it of the cursor.
-func (m *Model) upgradeAt() (col, row int) {
-	row = m.upgradeCursor
-	for col < len(content.Branches)-1 && row >= len(m.cfg.Upgrades.Branch(content.Branches[col])) {
-		row -= len(m.cfg.Upgrades.Branch(content.Branches[col]))
-		col++
+// ownedCount is how many nodes of the tree are owned, and how many
+// there are; given a branch, of that branch alone.
+func (m *Model) ownedCount(branch ...string) (owned, total int) {
+	for _, u := range m.cfg.Upgrades.Nodes {
+		if len(branch) > 0 && u.Branch != branch[0] {
+			continue
+		}
+		total++
+		if m.w.Owns(u.ID) {
+			owned++
+		}
 	}
-	return col, row
+	return owned, total
 }
 
-// upgradePage is the window of rows the columns show: the tree is
-// taller than MAIN at 80x24 since #117, so the columns page together
-// (they walk at the same row) by as many nodes as fit under the title,
-// the pools, the column heads and over the legend, and the page is the
-// cursor's. The screen for seven branches is #120's.
-func (m *Model) upgradePage() (top, per int) {
-	per = max(1, (m.mainHeight()-7)/2)
-	_, row := m.upgradeAt()
-	return row / per * per, per
+// branchShort is a branch's name where the tabs have no room for the
+// long ones, as the title bar's tabs shorten.
+var branchShort = map[string]string{"operations": "Ops", "laundering": "Launder", "logistics": "Road"}
+
+// branchFor is what a branch is for, in one line of the pane
+// (paneTextW): the BRANCH section says it under the node.
+var branchFor = map[string]string{
+	"operations": "Hold more, buy and sell better.",
+	"security":   "Take less damage, cool faster.",
+	"legal":      "Survive the case the DA builds.",
+	"crew":       "Cheaper, steadier, more of them.",
+	"laundering": "Wash more, get looked at less.",
+	"logistics":  "Move more for less on the road.",
+	"street":     "Hold your corners, lose fewer.",
 }
 
-// upgradeColMin is the narrowest a branch's column is drawn.
-const upgradeColMin = 20
-
-// upgradeColumns is the window of branches MAIN shows: since #118 the
-// tree is wider than MAIN too, so it shows as many columns of
-// upgradeColMin as the width holds, a space apart, the leftmost window
-// that has the cursor's column in it (stateless, like the row page);
-// left and right still cross every branch, and the title says which
-// are shown.
-func (m *Model) upgradeColumns() (first, per int) {
-	per = max(1, min(len(content.Branches), (m.mainWidth()+1)/(upgradeColMin+1)))
-	col, _ := m.upgradeAt()
-	return max(0, min(col, len(content.Branches)-per)), per
+// branchName is a branch's name as the tabs print it.
+func branchName(branch string) string {
+	return strings.ToUpper(branch[:1]) + branch[1:]
 }
 
-// viewUpgrades is the tree's MAIN (#86): the title with the count, the
-// two pools, and the branches as columns (as many as fit), each node a
-// name-and-cost line over a one-line summary of its effects; the node
-// under the cursor is the pane's.
+// branchTabs is the branch selector under the upgrades title, in the
+// market's city-tab convention: every branch in order, the shown one in
+// brackets and Selected; the names shorten where the width has no room
+// for the long ones, as the title bar's tabs do.
+func (m *Model) branchTabs(width int) string {
+	long := make([]string, len(content.Branches))
+	short := make([]string, len(content.Branches))
+	for i, b := range content.Branches {
+		long[i] = branchName(b)
+		short[i] = long[i]
+		if s, ok := branchShort[b]; ok {
+			short[i] = s
+		}
+	}
+	if line := tabLine(long, m.branch); lipgloss.Width(line) <= width {
+		return line
+	}
+	return truncate(tabLine(short, m.branch), width)
+}
+
+// tabLine is the branch tabs in the market's city-tab convention
+// (cityTabs, which #113 holds; fold the two once it lands): the labels
+// two spaces apart in Subtle, the shown one in brackets and Selected.
+func tabLine(labels []string, shown int) string {
+	var parts []string
+	for i, label := range labels {
+		if i == shown {
+			parts = append(parts, theme.Selected.Render("[ "+label+" ]"))
+		} else {
+			parts = append(parts, theme.Subtle.Render(label))
+		}
+	}
+	return strings.Join(parts, "  ")
+}
+
+// upgradeStatus is where a node stands as the table's status column
+// says it: owned, available, what it needs first, or how short the
+// pool is.
+func (m *Model) upgradeStatus(u content.UpgradeConfig) (string, lipgloss.Style) {
+	switch m.upgradeState(u) {
+	case "owned":
+		return "owned", theme.Good
+	case "available":
+		if m.canAfford(u) {
+			return "available", theme.Gold
+		}
+		return cash(u.Cost-m.poolCash(u)) + " short", theme.Warning
+	}
+	var names []string
+	for _, id := range m.w.Missing(u) {
+		names = append(names, m.cfg.Upgrades.Upgrade(id).Name)
+	}
+	return "needs " + strings.Join(names, " and "), theme.Subtle
+}
+
+// viewUpgrades is the tree's MAIN (#86, #120): the title with the count
+// and the two pools, the branch tabs, the shown branch as one table
+// (the mark in the gutter is the node's state, the name indented a cell
+// a level under its prerequisite so the branch reads as a tree, the
+// cost through cash() as the pane prints it, and where the node stands)
+// and the legend; the node under the cursor is the pane's.
 func (m *Model) viewUpgrades() string {
 	w := m.w
 	width := m.mainWidth()
 	var b strings.Builder
-	owned := 0
-	for _, u := range m.cfg.Upgrades.Nodes {
-		if w.Owns(u.ID) {
-			owned++
-		}
-	}
-	firstCol, perCol := m.upgradeColumns()
-	title := sectionTitle("UPGRADES", theme.Money) + theme.Subtle.Render(fmt.Sprintf(" · %d of %d owned", owned, len(m.cfg.Upgrades.Nodes)))
-	if perCol < len(content.Branches) {
-		title += theme.Subtle.Render(fmt.Sprintf(" · branches %d–%d of %d", firstCol+1, min(firstCol+perCol, len(content.Branches)), len(content.Branches)))
-	}
+	owned, total := m.ownedCount()
+	sep := theme.Subtle.Render(" · ")
+	title := sectionTitle("UPGRADES", theme.Money) + theme.Subtle.Render(fmt.Sprintf(" · %d of %d owned", owned, total)) +
+		sep + theme.Gold.Render("dirty "+cash(w.Player.DirtyCash)) + sep + theme.Good.Render("clean "+cash(w.Player.CleanCash))
 	b.WriteString(truncate(title, width) + "\n")
-	b.WriteString(truncate(theme.Gold.Render("dirty "+cash(w.Player.DirtyCash))+theme.Subtle.Render(" · ")+theme.Good.Render("clean "+cash(w.Player.CleanCash)), width) + "\n\n")
+	b.WriteString(m.branchTabs(width) + "\n\n")
 
-	// The branches as columns a space apart, sharing the width, as
-	// many as it holds at once (upgradeColumns). The cursor walks a
-	// column with up and down and crosses to the next with left and
-	// right; the nodes of a branch off the page still count toward
-	// the cursor's index.
-	colW := max(upgradeColMin, (width-perCol+1)/perCol)
-	top, per := m.upgradePage()
-	var cols []string
-	idx := 0
-	for i, branch := range content.Branches {
-		all := m.cfg.Upgrades.Branch(branch)
-		if i < firstCol || i >= firstCol+perCol {
-			idx += len(all)
-			continue
-		}
-		var c strings.Builder
-		title := sectionTitle(strings.ToUpper(branch), theme.Money)
-		if len(all) > per {
-			title += theme.Subtle.Render(fmt.Sprintf(" · %d–%d of %d", min(top+1, len(all)), min(top+per, len(all)), len(all)))
-		}
-		c.WriteString(fit(title, colW) + "\n")
-		// The page's window of the branch; the cursor is an index into
-		// the whole tree, so the nodes before the window still count.
-		nodes := all[min(top, len(all)):min(top+per, len(all))]
-		idx += min(top, len(all))
-		// The mark in the gutter is the node's state; the cost is
-		// through cash(), as the pane prints it, and a node paid in
-		// clean cash says so on its effects line.
-		var rows [][]any
-		cursor := -1
-		for i, u := range nodes {
-			sign, st := "·", theme.Subtle
-			switch m.upgradeState(u) {
-			case "owned":
-				sign, st = "✓", theme.Good
-			case "available":
-				sign, st = "○", theme.Gold
-				if !m.canAfford(u) {
-					st = theme.Warning
-				}
+	var rows [][]any
+	for _, r := range m.branchRows(m.shownBranch()) {
+		u := r.node
+		sign, st := "·", theme.Subtle
+		switch m.upgradeState(u) {
+		case "owned":
+			sign, st = "✓", theme.Good
+		case "available":
+			sign, st = "○", theme.Gold
+			if !m.canAfford(u) {
+				st = theme.Warning
 			}
-			rows = append(rows, []any{mark(sign), styled{st, u.Name}, styled{st, u.Cost}})
-			if idx == m.upgradeCursor {
-				cursor = i
-			}
-			idx++
 		}
-		lines := table([]col{{"node", kText, 0}, {"cost", kCash, 0}}, rows, cursor, colW)
-		c.WriteString(fit(lines[0], colW) + "\n")
-		for i, u := range nodes {
-			c.WriteString(fit(lines[i+1], colW) + "\n")
-			words := effectWords(u.Effects)
-			if u.Clean {
-				words = append([]string{theme.Good.Render("clean")}, words...)
-			}
-			c.WriteString(fit(theme.Subtle.Render("  "+truncate(strings.Join(words, ", "), colW-2)), colW) + "\n")
+		status, sst := m.upgradeStatus(u)
+		if u.Clean {
+			status = "clean · " + status
 		}
-		idx += len(all) - min(top+per, len(all))
-		cols = append(cols, strings.TrimRight(c.String(), "\n"), " ")
+		rows = append(rows, []any{mark(sign), styled{st, strings.Repeat(" ", r.depth) + u.Name}, styled{st, u.Cost}, styled{sst, status}})
 	}
-	b.WriteString(lipgloss.JoinHorizontal(lipgloss.Top, cols[:len(cols)-1]...) + "\n\n")
-	b.WriteString(truncate(theme.Good.Render("✓")+theme.Subtle.Render(" owned  ")+theme.Gold.Render("○")+theme.Subtle.Render(" available  · locked"), width) + "\n")
+	cursor := -1
+	if _, ok := m.upgradeSelected(); ok {
+		cursor = *m.nodeCursor()
+	}
+	for _, l := range table([]col{{"node", kText, 0}, {"cost", kCash, 0}, {"status", kText, 0}}, rows, cursor, width) {
+		b.WriteString(l + "\n")
+	}
+	b.WriteString("\n" + truncate(theme.Good.Render("✓")+theme.Subtle.Render(" owned  ")+theme.Gold.Render("○")+theme.Subtle.Render(" available  · locked"), width) + "\n")
 	return b.String()
 }
 
@@ -421,7 +502,17 @@ func (m *Model) upgradesDetails() []section {
 	if m.upgradeState(sel) == "available" && m.canAfford(sel) {
 		lines = append(lines, keyRow("u", "buy it for "+costLine(sel)))
 	}
-	return []section{{strings.ToUpper(sel.Name), lines}}
+	return []section{{strings.ToUpper(sel.Name), lines}, m.branchSection()}
+}
+
+// branchSection is the pane's BRANCH section (#120): what the shown
+// branch is for, in a line, and how much of it is owned.
+func (m *Model) branchSection() section {
+	branch := m.shownBranch()
+	owned, total := m.ownedCount(branch)
+	lines := wrapped(theme.Subtle, branchFor[branch])
+	lines = append(lines, row("owned", fmt.Sprintf("%d of %d", owned, total)))
+	return section{strings.ToUpper(branch), lines}
 }
 
 // upgradeConfirm is the modal body for buying the node awaiting yes.

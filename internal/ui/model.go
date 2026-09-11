@@ -104,7 +104,8 @@ type Model struct {
 	postRole      string // runner or enforcer, while the post picker is open
 	postCursor    int
 	strikeCursor  int    // row in the strike picker
-	upgradeCursor int    // node selected on the upgrades screen
+	branch        int    // branch shown on the upgrades screen, an index into content.Branches: a view cursor like city
+	upgradeCursor []int  // node selected in each branch, one an entry of content.Branches, so a branch left and returned to is where it was
 	upgradeID     string // node awaiting the buy confirmation
 	frontCursor   int    // offer selected in the buy-a-front picker
 	ledgerCursor  int    // row on the ledger: fronts, then routes, then offers
@@ -209,7 +210,8 @@ func (m *Model) startRun(seed uint64) {
 	m.screen = screenDashboard
 	m.cursor = 0
 	m.crewCursor = 0
-	m.upgradeCursor = 0
+	m.branch = 0
+	m.upgradeCursor = nil
 	m.city = m.w.Player.Location
 	m.mapCursor = m.yourCorner()
 	m.flash = nil
@@ -677,7 +679,8 @@ func (m *Model) switchScreen(s screen) {
 }
 
 // moveCursor moves the screen's cursor: down a list, along the map's
-// grid, across the upgrade columns, between the cities on the market;
+// grid, down the tree's branch and between its branches, between the
+// cities on the market;
 // the journal scrolls. Arrows never move between tabs (the digits and
 // tab do that), and a screen with no horizontal structure ignores dx.
 func (m *Model) moveCursor(dx, dy int) {

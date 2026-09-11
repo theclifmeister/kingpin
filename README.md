@@ -98,9 +98,10 @@ every screen and are in the KEYS of the screens they belong to.
    rival's in purple, free ones plain) and the routes between the cities
    under it, each with its dial; the pane is the corner's inspector or
    the route's detail.
-6. **Upgrades** — the branches of the tree as columns, as many as fit,
-   left and right crossing them; the pane is the node, its cost, what it
-   needs and what it does.
+6. **Upgrades** — the tree one branch at a time under branch tabs, left
+   and right turning it, each node indented under the one it needs; the
+   pane is the node, its cost, what it needs and what it does, and what
+   the branch is for.
 7. **Ledger** — the till (dirty, clean, seized, the launder dial), the
    fronts, the routes' books and the fronts on offer, under one cursor;
    the pane is the selected front, route or offer and the wash.
@@ -234,13 +235,14 @@ the float, the file, drift, the pane and the strip in a line each.
 | `t` | assign | give the selected lieutenant a city to run | crew |
 | `i` | investigate | ask who is talking to the police, for a fee | crew |
 | `$` | pay off | buy the selected member's loyalty | crew |
-| `↑↓←→` | pick | walk the map's grid or the tree's columns | map, upgrades |
+| `↑↓←→` | pick | walk the map's grid | map |
 | `c` | post runner | post a runner on the selected corner | map |
 | `e` | post enforcer | post an enforcer on the selected corner | map |
 | `a` | abandon | give the selected corner up | map |
 | `w` | send enforcers | send the enforcers at the selected corner | map |
 | `r` | route dial | the selected route: off, slow, normal, fast | map |
 | `R` | route target | what the selected route keeps the far end at | map |
+| `←→` | branch | turn the tree to the next branch | upgrades |
 | `u` | buy upgrade | buy the node under the cursor (enter too) | upgrades |
 | `b` | buy front | buy a front through the picker | ledger |
 | `f` | fund city | give a city clean cash for goodwill | ledger |
