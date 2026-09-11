@@ -7,6 +7,7 @@
 package market
 
 import (
+	"fmt"
 	"math"
 	"sort"
 
@@ -22,6 +23,8 @@ type Sim struct {
 	ship   content.ShippingTuning
 	tree   content.UpgradesConfig
 	rep    content.ReputationFX
+	bcfg   content.BuyersConfig
+	buyers []buyer
 }
 
 // New builds a market sim from config. The cities say how each one
@@ -29,9 +32,14 @@ type Sim struct {
 // does to the street that was waiting for it; the upgrade tree is what
 // the Operations branch multiplies: carry, supplier price and fill. Of
 // the reputation effects it reads one: respect makes the supplier
-// generous.
-func New(cfg content.MarketConfig, cities content.CityConfig, ship content.ShippingTuning, tree content.UpgradesConfig, rep content.ReputationFX) *Sim {
-	return &Sim{cfg: cfg, cities: cities, ship: ship, tree: tree, rep: rep}
+// generous. The buyers (#71) are the deck of off-corner contracts it
+// deals and resolves; it refuses one whose pitch does not parse.
+func New(cfg content.MarketConfig, cities content.CityConfig, ship content.ShippingTuning, tree content.UpgradesConfig, rep content.ReputationFX, buyers content.BuyersConfig) (*Sim, error) {
+	deck, err := parseBuyers(buyers)
+	if err != nil {
+		return nil, fmt.Errorf("buyers: %w", err)
+	}
+	return &Sim{cfg: cfg, cities: cities, ship: ship, tree: tree, rep: rep, bcfg: buyers, buyers: deck}, nil
 }
 
 // cityProduct is a city's multipliers on a product, 1 and 1 for a city
@@ -75,9 +83,12 @@ func (s *Sim) BuyPressure(w *game.World) float64 {
 	return s.cfg.Market.BuyPricePressure * game.FoldEffects(w, s.tree).BuyPressureMul
 }
 
-// Step reports upgrades bought, then in every city resolves sell orders,
-// drifts prices and demand, and rolls for shocks. Sales resolve first so
-// the dial interacts with today's price. A shipment the police took on
+// Step reports upgrades bought, then in every city hands over what was
+// queued against the buyers' contracts, resolves sell orders, drifts
+// prices and demand, and rolls for shocks; then it settles the contracts
+// that ran out and deals the next offer. Sales resolve first so the dial
+// interacts with today's price; a handoff comes before them so a
+// contract has first call on the stash. A shipment the police took on
 // the road yesterday (the logistics sim steps after this one) is a supply
 // shock this morning on the street that was waiting for it.
 func (s *Sim) Step(w *game.World, t *game.Tick) {
@@ -100,6 +111,7 @@ func (s *Sim) Step(w *game.World, t *game.Tick) {
 		if city != w.Home() {
 			rng = t.Sub("market:" + cid)
 		}
+		s.deliver(w, t, cid)
 		for _, id := range ids {
 			m := city.Market[id]
 			pc := s.cfg.Product(id)
@@ -189,6 +201,8 @@ func (s *Sim) Step(w *game.World, t *game.Tick) {
 			t.Emit(events.PriceMove{Day: t.Day, City: cid, Product: id, From: open, To: m.Price})
 		}
 	}
+	s.settle(w, t)
+	s.deal(w, t)
 }
 
 // unlock lists every product the player's peak cash has earned, in every

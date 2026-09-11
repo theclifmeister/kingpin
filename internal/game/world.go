@@ -38,6 +38,8 @@ type World struct {
 	Offers      []Offer                 // deals the rival has put on the table, oldest first
 	Delegated   map[string]SellOrder    // the lieutenants' standing sell orders, keyed like Orders; the crew step refreshes them
 	Law         LawState                // the chief and the DA (#41); pressure and goodwill are per city
+	Contracts   []Contract              // the buyers' orders (#71), oldest first; the market sim deals and resolves them
+	Buyers      BuyersState             // the buyer deck's pacing and blacklist
 
 	// Per-day scratch, cleared by the clock after every EndDay.
 	Orders        map[string]SellOrder // pending sell orders keyed by product id
@@ -50,6 +52,7 @@ type World struct {
 	Accepted      []Offer              // rival offers the player took today; the rival sim seals them
 	Abandoned     []string             // corner ids given back to the street today
 	Funded        []Funding            // clean cash given to a city today; the law sim turns it into goodwill
+	Deliveries    map[int]int          // contract id -> units handed over tonight; the market sim resolves them
 
 	Journal []Headline // full headline history, oldest first
 	Report  *DayReport // morning report for the current day
@@ -476,36 +479,40 @@ type Ending struct {
 
 // Stats are lifetime counters for the run summary.
 type Stats struct {
-	PeakCash       int
-	TotalRevenue   int
-	UnitsSold      int
-	Raids          int
-	Stings         int
-	Wages          int
-	Skimmed        int
-	Robbed         int
-	Strikes        int // enforcers sent against a rival corner
-	CornersWon     int // rival corners taken by force
-	CornersLost    int // corners the rival took from you
-	Laundered      int // dirty cash washed clean
-	Seized         int // clean cash lost to audits
-	Informants     int // crew who turned on you
-	Defections     int // crew who went over to the rival
-	Investigations int
-	Shipments      int // shipments sent
-	Shipped        int // units sent over a route
-	Seizures       int // shipments the police took on the road
-	SeizedOnRoad   int // units lost to them
-	Deals          int // deals struck with the rival, either way
-	DealsRefused   int // proposals it turned down
-	Betrayals      int // deals you broke
-	BetrayedBy     int // deals it broke
-	Tribute        int // dirty cash paid the rival in tribute
-	Cuts           int // dirty cash the lieutenants kept as their cut
-	Walked         int // lieutenants who walked with their city
-	Funded         int // clean cash given to the cities (#41)
-	Elections      int // DA elections held
-	Chiefs         int // police chiefs replaced
+	PeakCash        int
+	TotalRevenue    int
+	UnitsSold       int
+	Raids           int
+	Stings          int
+	Wages           int
+	Skimmed         int
+	Robbed          int
+	Strikes         int // enforcers sent against a rival corner
+	CornersWon      int // rival corners taken by force
+	CornersLost     int // corners the rival took from you
+	Laundered       int // dirty cash washed clean
+	Seized          int // clean cash lost to audits
+	Informants      int // crew who turned on you
+	Defections      int // crew who went over to the rival
+	Investigations  int
+	Shipments       int // shipments sent
+	Shipped         int // units sent over a route
+	Seizures        int // shipments the police took on the road
+	SeizedOnRoad    int // units lost to them
+	Deals           int // deals struck with the rival, either way
+	DealsRefused    int // proposals it turned down
+	Betrayals       int // deals you broke
+	BetrayedBy      int // deals it broke
+	Tribute         int // dirty cash paid the rival in tribute
+	Cuts            int // dirty cash the lieutenants kept as their cut
+	Walked          int // lieutenants who walked with their city
+	Funded          int // clean cash given to the cities (#41)
+	Elections       int // DA elections held
+	Chiefs          int // police chiefs replaced
+	Contracts       int // buyers' contracts delivered in full (#71)
+	ContractUnits   int // units handed over to buyers
+	ContractCash    int // dirty cash the buyers paid
+	ContractsFailed int // contracts short at the due day
 }
 
 // StartingProduct describes a product as it exists at the start of a run,

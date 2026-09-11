@@ -32,6 +32,7 @@ type Config struct {
 	Law        LawConfig
 	Headlines  HeadlinesConfig
 	Dilemmas   DilemmasConfig
+	Buyers     BuyersConfig
 }
 
 // MarketConfig mirrors market.toml.
@@ -951,6 +952,9 @@ func Load() (*Config, error) {
 	if err := decode("dilemmas.toml", &c.Dilemmas); err != nil {
 		return nil, err
 	}
+	if err := decode("buyers.toml", &c.Buyers); err != nil {
+		return nil, err
+	}
 	if len(c.Market.Products) == 0 {
 		return nil, fmt.Errorf("market.toml: no products defined")
 	}
@@ -1017,6 +1021,9 @@ func Load() (*Config, error) {
 	if err := c.Dilemmas.validate(); err != nil {
 		return nil, fmt.Errorf("dilemmas.toml: %w", err)
 	}
+	if err := c.Buyers.validate(c.Market, c.City); err != nil {
+		return nil, fmt.Errorf("buyers.toml: %w", err)
+	}
 	if err := c.Law.validate(); err != nil {
 		return nil, fmt.Errorf("law.toml: %w", err)
 	}
@@ -1075,13 +1082,19 @@ func decode(name string, v any) error {
 	if err != nil {
 		return err
 	}
+	return decodeBytes(name, b, v)
+}
+
+// decodeBytes parses one file's bytes into v. It is decode without the
+// embedded read, so a test can feed a file that is not in the box.
+func decodeBytes(name string, b []byte, v any) error {
 	md, err := toml.Decode(string(b), v)
 	if err != nil {
 		return fmt.Errorf("%s: %w", name, err)
 	}
 	// An effect name nobody reads, or a trigger field nobody checks, would
 	// silently do nothing.
-	if name == "upgrades.toml" || name == "reputation.toml" || name == "dilemmas.toml" || name == "routes.toml" || name == "law.toml" {
+	if name == "upgrades.toml" || name == "reputation.toml" || name == "dilemmas.toml" || name == "routes.toml" || name == "law.toml" || name == "buyers.toml" {
 		if keys := md.Undecoded(); len(keys) > 0 {
 			return fmt.Errorf("%s: unknown key %s", name, keys[0])
 		}

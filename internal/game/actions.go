@@ -282,11 +282,14 @@ func (w *World) Send(s Shipment) Shipment {
 	return s
 }
 
-// SetLieLow toggles lying low for the day. Lying low cancels all orders.
+// SetLieLow toggles lying low for the day. Lying low cancels all orders,
+// and the handoffs queued against the buyers' contracts (#71): it is
+// everyone's day off.
 func (w *World) SetLieLow(on bool) {
 	w.LieLow = on
 	if on {
 		w.Orders = map[string]SellOrder{}
+		w.Deliveries = nil
 	}
 }
 
