@@ -83,9 +83,15 @@ func assertFits(t *testing.T, view string, w, h int, what string) {
 			t.Errorf("%s: line %d is %d cells wide > %d: %q", what, i, lw, w, l)
 		}
 		// A modal wider than the screen wraps its border onto the next
-		// line: the top-right corner then starts a line of its own.
-		if p := strings.TrimSpace(stripANSI(l)); strings.HasPrefix(p, "═") && strings.HasSuffix(p, "╗") && !strings.HasPrefix(p, "╔") {
-			t.Errorf("%s: a modal wider than %d wrapped at line %d", what, w, i)
+		// line: the top-right corner then starts a line of its own, a
+		// one-cell overflow leaves a lone corner, and a body line loses
+		// its closing bar.
+		p := strings.TrimSpace(stripANSI(l))
+		switch {
+		case strings.HasPrefix(p, "═") && strings.HasSuffix(p, "╗") && !strings.HasPrefix(p, "╔"),
+			p == "╗" || p == "╝",
+			strings.Contains(p, "║") && !strings.HasSuffix(p, "║"):
+			t.Errorf("%s: a modal wider than %d wrapped at line %d: %q", what, w, i, p)
 		}
 	}
 }
@@ -100,6 +106,7 @@ func TestRendersAtCommonSizes(t *testing.T) {
 			m.Update(key("enter")) // product
 			m.Update(key("enter")) // qty (blank = all)
 			m.Update(key("3"))     // aggressive
+			assertFits(t, m.View(), sz[0], sz[1], "sell dial")
 			m.Update(key("enter")) // confirm
 			endDay(t, m)           // end day -> report
 			assertFits(t, m.View(), sz[0], sz[1], "report")
@@ -1953,5 +1960,299 @@ func TestFundKeys(t *testing.T) {
 	m.Update(key("enter"))
 	if !strings.Contains(stripANSI(m.View()), "goodwill") {
 		t.Fatal("dashboard does not show the goodwill")
+	}
+}
+
+// richModel is a run with something behind every modal: a report with
+// sales, a crew posted across the map with a lieutenant and an
+// accountant, the rival in town at war, a route on with a shipment in
+// flight, fronts on the ledger, a card, a deal, an offer and cash for
+// the tree.
+func richModel(t *testing.T, w, h int) *Model {
+	t.Helper()
+	m := newTestModel(t, w, h)
+	world := m.w
+	for i := 0; i < 3; i++ {
+		world.Stash(world.Player.Location)[world.Products[0]] = 40
+		m.Update(key("s"))
+		m.Update(key("enter")) // product
+		m.Update(key("enter")) // qty (blank = all)
+		m.Update(key("3"))     // aggressive
+		m.Update(key("enter")) // confirm
+		endDay(t, m)
+		m.Update(key("enter"))
+	}
+	world.Player.DirtyCash = 700_000
+	world.Stats.PeakCash = 700_000
+	world.Crew.Members = append(world.Crew.Members,
+		game.CrewMember{ID: 1, Name: "Dre", Role: "runner", Skill: 60, Units: 120, Loyalty: 80, Nerve: 50, Wage: 50},
+		game.CrewMember{ID: 2, Name: "Gato", Role: "runner", Skill: 40, Units: 90, Loyalty: 40, Nerve: 30, Wage: 45},
+		game.CrewMember{ID: 3, Name: "Moose", Role: "enforcer", Skill: 70, Loyalty: 70, Nerve: 60, Wage: 65},
+		game.CrewMember{ID: 4, Name: "Vasquez", Role: game.RoleLieutenant, Skill: 70, Loyalty: 80, Nerve: 50, Wage: 150, Personality: "steady"},
+		game.CrewMember{ID: 5, Name: "Books", Role: "accountant", Skill: 60, Loyalty: 60, Wage: 130},
+	)
+	world.Crew.NextID = 5
+	world.Crew.LastSkim = world.Day
+	home := world.Home()
+	if err := world.Post(home.Corners[1].ID, 1); err != nil {
+		t.Fatal(err)
+	}
+	if err := world.Post(home.Corners[2].ID, 2); err != nil {
+		t.Fatal(err)
+	}
+	if err := world.Post(home.Corners[2].ID, 3); err != nil {
+		t.Fatal(err)
+	}
+	home.Corners[0].Owner, home.Corners[0].Runner, home.Corners[0].Enforcer = game.OwnerRival, 0, 0
+	world.Rival.Arrived, world.Rival.Muscle, world.Rival.War, world.Rival.Observed = 1, 4, 47, true
+	world.Rival.Deals = []game.Deal{{Kind: game.DealSplit, Terms: game.Terms{Corners: []string{home.Corners[1].ID}}, Since: world.Day}}
+	world.Offers = []game.Offer{{ID: 1, Deal: game.Deal{Kind: game.DealTruce, Terms: game.Terms{Days: 30}, Offered: true}, Expires: world.Day + 4}}
+	// A route on with a target, and a day for it to send a shipment.
+	route := m.set.Logistics.Routes(world.CityOrder[1])[0]
+	m.cfg.Routes.Routes[0].Risk = 0
+	world.Stash(route.From)[world.Products[0]] = 300
+	if err := world.SetRoute(route.ID, events.RouteNormal); err != nil {
+		t.Fatal(err)
+	}
+	if err := world.SetRouteTarget(route.ID, world.Products[0], 120); err != nil {
+		t.Fatal(err)
+	}
+	world.Stash(world.Player.Location)[world.Products[0]] = 60
+	m.Update(key("s"))
+	m.Update(key("enter"))
+	m.Update(key("enter"))
+	m.Update(key("enter"))
+	endDay(t, m)
+	m.Update(key("enter"))
+	if len(world.Shipments) != 1 {
+		t.Fatalf("the route sent %d shipments: %v", len(world.Shipments), world.Report.Shipments)
+	}
+	// Three fronts, one of them audited.
+	m.Update(key("7"))
+	for i := 0; i < 3; i++ {
+		m.Update(key("b"))
+		m.Update(key("enter"))
+	}
+	if len(world.Fronts) != 3 {
+		t.Fatalf("bought %d fronts: %q", len(world.Fronts), m.status)
+	}
+	world.Fronts[1].Audited = world.Day
+	world.Fronts[1].FrozenUntil = world.Day + m.cfg.Laundering.Laundering.AuditFreezeDays
+	world.Player.CleanCash = 50_000
+	world.Stash(world.Player.Location)[world.Products[0]] = 40 // something to sell
+	m.Update(key("1"))
+	m.cursor, m.crewCursor, m.mapCursor, m.upgradeCursor = 0, 0, 0, 0
+	m.status = ""
+	return m
+}
+
+// testCard is a dilemma card for the fixture; its prose wraps.
+func testCard(day int) *game.Card {
+	return &game.Card{ID: "test", Day: day, Title: "A test", Text: strings.Repeat("A long question about what to do next. ", 6),
+		Choices: []game.Choice{
+			{Label: "Pay", Outcome: "You paid. " + strings.Repeat("And that was the end of it. ", 4), Effects: map[string]float64{"dirty_cash": -100}},
+			{Label: "Shout", Outcome: "You shouted.", Effects: map[string]float64{"heat": 7}},
+			{Label: "Walk away", Outcome: "You walked."},
+		}}
+}
+
+// modalBox finds the modal in a view: its top border's line index, its
+// width, and its lines from the top border to the bottom one.
+func modalBox(t *testing.T, view string) (top, width int, box []string) {
+	t.Helper()
+	ls := strings.Split(view, "\n")
+	top = -1
+	for i, l := range ls {
+		p := strings.TrimSpace(stripANSI(l))
+		switch {
+		case strings.HasPrefix(p, "╔"):
+			if top >= 0 {
+				t.Fatalf("two modals in the view:\n%s", stripANSI(view))
+			}
+			top, width = i, lipgloss.Width(p)
+		case strings.HasPrefix(p, "╚"):
+			if top < 0 {
+				t.Fatalf("a bottom border with no top:\n%s", stripANSI(view))
+			}
+			box = ls[top : i+1]
+			return top, width, box
+		}
+	}
+	t.Fatalf("no modal in the view:\n%s", stripANSI(view))
+	return
+}
+
+// Every mode's modal is the one modal (#81): min(width-4, 76) wide, on
+// body row 2, a footer line of the mode's bindings, and the status bar
+// repeating that footer. The table opens every mode in the enum from the
+// rich fixture, the dialogs on each of their steps.
+func TestModalsFit(t *testing.T) {
+	type open struct {
+		name string
+		mode mode
+		open func(t *testing.T, m *Model)
+	}
+	cases := []open{
+		{"start", modeStart, func(t *testing.T, m *Model) { m.mode = modeStart }},
+		{"report", modeReport, func(t *testing.T, m *Model) { m.mode = modeReport }},
+		{"buy product", modeBuy, func(t *testing.T, m *Model) { m.Update(key("b")) }},
+		{"buy quantity", modeBuy, func(t *testing.T, m *Model) { m.Update(key("b")); m.Update(key("enter")) }},
+		{"sell product", modeSell, func(t *testing.T, m *Model) { m.Update(key("s")) }},
+		{"sell quantity", modeSell, func(t *testing.T, m *Model) { m.Update(key("s")); m.Update(key("enter")) }},
+		{"sell dial", modeSell, func(t *testing.T, m *Model) {
+			m.Update(key("s"))
+			m.Update(key("enter"))
+			m.Update(key("enter"))
+			m.Update(key("3"))
+		}},
+		{"game over", modeOver, func(t *testing.T, m *Model) {
+			m.w.Over = &game.Ending{Day: m.w.Day, Cause: "indicted", PeakCash: m.w.Stats.PeakCash}
+			m.mode = modeOver
+		}},
+		{"confirm new", modeConfirmNew, func(t *testing.T, m *Model) { m.Update(key("N")) }},
+		{"confirm fire", modeConfirmFire, func(t *testing.T, m *Model) { m.Update(key("4")); m.Update(key("f")) }},
+		{"confirm end", modeConfirmEnd, func(t *testing.T, m *Model) { m.Update(key("enter")) }},
+		{"help", modeHelp, func(t *testing.T, m *Model) { m.Update(key("?")) }},
+		{"post", modePost, func(t *testing.T, m *Model) { m.Update(key("5")); m.mapCursor = 1; m.Update(key("c")) }},
+		{"strike", modeStrike, func(t *testing.T, m *Model) { m.Update(key("5")); m.mapCursor = 0; m.Update(key("w")) }},
+		{"confirm upgrade", modeConfirmUpgrade, func(t *testing.T, m *Model) { m.Update(key("6")); m.Update(key("enter")) }},
+		{"front", modeFront, func(t *testing.T, m *Model) { m.Update(key("7")); m.Update(key("b")) }},
+		{"confirm investigate", modeConfirmInvestigate, func(t *testing.T, m *Model) { m.Update(key("4")); m.Update(key("i")) }},
+		{"confirm pay off", modeConfirmPayOff, func(t *testing.T, m *Model) { m.Update(key("4")); m.Update(key("$")) }},
+		{"card", modeCard, func(t *testing.T, m *Model) { m.w.Dilemmas.Pending = testCard(m.w.Day); m.showCard() }},
+		{"card outcome", modeCard, func(t *testing.T, m *Model) {
+			m.w.Dilemmas.Pending = testCard(m.w.Day)
+			m.showCard()
+			m.Update(key("enter"))
+			if !m.cardDone {
+				t.Fatal("the card was not answered")
+			}
+		}},
+		{"target product", modeTarget, func(t *testing.T, m *Model) {
+			m.Update(key("5"))
+			m.Update(key("]"))
+			m.onRoutes = true
+			m.Update(key("R"))
+		}},
+		{"target units", modeTarget, func(t *testing.T, m *Model) {
+			m.Update(key("5"))
+			m.Update(key("]"))
+			m.onRoutes = true
+			m.Update(key("R"))
+			m.Update(key("enter"))
+		}},
+		{"confirm travel", modeConfirmTravel, func(t *testing.T, m *Model) { m.Update(key("g")) }},
+		{"propose kinds", modePropose, func(t *testing.T, m *Model) { m.Update(key("8")); m.Update(key("d")) }},
+		{"propose terms", modePropose, func(t *testing.T, m *Model) { m.Update(key("8")); m.Update(key("d")); m.Update(key("2")) }},
+		{"assign", modeAssign, func(t *testing.T, m *Model) { m.Update(key("4")); m.crewCursor = 3; m.Update(key("t")) }},
+		{"fund", modeFund, func(t *testing.T, m *Model) { m.Update(key("7")); m.Update(key("f")) }},
+	}
+	covered := map[mode]bool{}
+	for _, c := range cases {
+		covered[c.mode] = true
+	}
+	for md := modeStart; md < modeCount; md++ {
+		if md != modePlay && !covered[md] {
+			t.Errorf("mode %d has no case in the table", md)
+		}
+	}
+	for _, sz := range [][2]int{{80, 24}, {120, 40}} {
+		want := min(sz[0]-4, 76)
+		for _, c := range cases {
+			m := richModel(t, sz[0], sz[1])
+			c.open(t, m)
+			if m.mode != c.mode {
+				t.Fatalf("%dx%d %s: mode %v, not %v: %q", sz[0], sz[1], c.name, m.mode, c.mode, m.status)
+			}
+			view := m.View()
+			what := fmt.Sprintf("%dx%d %s", sz[0], sz[1], c.name)
+			assertFits(t, view, sz[0], sz[1], what)
+			top, width, box := modalBox(t, view)
+			if top != 2 {
+				t.Errorf("%s: the modal starts on row %d, not 2:\n%s", what, top, stripANSI(view))
+			}
+			if width != want {
+				t.Errorf("%s: the modal is %d wide, not %d:\n%s", what, width, want, stripANSI(view))
+			}
+			for i, l := range box {
+				if lw := lipgloss.Width(strings.TrimSpace(stripANSI(l))); lw != want {
+					t.Errorf("%s: box line %d is %d wide, not %d: %q", what, i, lw, want, stripANSI(l))
+				}
+			}
+			// The title, a blank, the body, a blank, the footer.
+			inner := func(i int) string {
+				return strings.TrimSpace(strings.Trim(strings.TrimSpace(stripANSI(box[i])), "║"))
+			}
+			if len(box) < 6 {
+				t.Fatalf("%s: a modal of %d lines", what, len(box))
+			}
+			if title := inner(1); title == "" || title != strings.ToUpper(title) {
+				t.Errorf("%s: the title is %q", what, title)
+			}
+			if inner(2) != "" || inner(len(box)-3) != "" {
+				t.Errorf("%s: no blank around the body:\n%s", what, stripANSI(strings.Join(box, "\n")))
+			}
+			foot := strings.TrimSpace(stripANSI(legend(m.modalFooter())))
+			got := inner(len(box) - 2)
+			if got != foot && got != foot+"  ↓ more" {
+				t.Errorf("%s: the footer is %q, not %q", what, got, foot)
+			}
+			if c.mode != modeHelp && c.mode != modeReport {
+				for _, l := range box[3 : len(box)-3] {
+					p := stripANSI(l)
+					for _, hint := range []string{"enter ", "esc ", "any other key", "any key"} {
+						if strings.Contains(p, hint) {
+							t.Errorf("%s: a key hint in the body: %q", what, strings.TrimSpace(p))
+						}
+					}
+				}
+			}
+			if c.mode != modeStart {
+				ls := strings.Split(view, "\n")
+				if bar := strings.TrimSpace(stripANSI(ls[len(ls)-1])); bar != foot {
+					t.Errorf("%s: the status bar shows %q, not the footer %q", what, bar, foot)
+				}
+			}
+		}
+	}
+}
+
+// A modal taller than the room scrolls instead of clamping: the report
+// with thirty lines says ↓ more at 80x24, ↓ reaches its last line and
+// enter closes it; help the same.
+func TestReportScrolls(t *testing.T) {
+	m := newTestModel(t, 80, 24)
+	var news []string
+	for i := 1; i <= 30; i++ {
+		news = append(news, fmt.Sprintf("Headline number %d", i))
+	}
+	m.w.Report = &game.DayReport{Day: m.w.Day, News: news}
+	for _, c := range []struct {
+		name string
+		open string
+		last string
+	}{
+		{"report", "r", "Headline number 30"},
+		{"help", "?", "Greed is always available."},
+	} {
+		m.Update(key(c.open))
+		view := stripANSI(m.View())
+		if !strings.Contains(view, "↓ more") || strings.Contains(view, c.last) {
+			t.Fatalf("%s at 80x24 does not scroll:\n%s", c.name, view)
+		}
+		assertFits(t, m.View(), 80, 24, c.name)
+		for i := 0; i < 20; i++ {
+			m.Update(key("down"))
+		}
+		view = stripANSI(m.View())
+		if strings.Contains(view, "↓ more") || !strings.Contains(view, "↑ more") || !strings.Contains(view, c.last) {
+			t.Fatalf("%s after twenty ↓ does not show its last line:\n%s", c.name, view)
+		}
+		assertFits(t, m.View(), 80, 24, c.name+" scrolled")
+		day := m.w.Day
+		m.Update(key("enter"))
+		if m.mode != modePlay || m.w.Day != day {
+			t.Fatalf("enter on the %s: mode %v day %d -> %d", c.name, m.mode, day, m.w.Day)
+		}
 	}
 }

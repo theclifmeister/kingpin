@@ -88,11 +88,10 @@ func (m *Model) frontStatus(f game.Front) string {
 func (m *Model) viewFront() string {
 	rows := m.frontRows()
 	if len(rows) == 0 {
-		return m.modal("BUY A FRONT", "Nothing for sale.")
+		return m.modal("BUY A FRONT", []string{"Nothing for sale."}, m.modalFooter())
 	}
 	m.frontCursor = max(0, min(m.frontCursor, len(rows)-1))
-	var b strings.Builder
-	b.WriteString(theme.Subtle.Render(fmt.Sprintf("  %-18s %10s %10s %10s  %s", "", "cost", "washes/day", "upkeep/day", "audit/day")) + "\n")
+	body := []string{theme.Subtle.Render(fmt.Sprintf("  %-18s %10s %10s %10s  %s", "", "cost", "washes/day", "upkeep/day", "audit/day"))}
 	for i, o := range rows {
 		line := fmt.Sprintf("%-18s %10s %10s %10s  ", fit(o.Name, 18), money(o.Cost), money(o.Throughput), money(o.Upkeep))
 		var note string
@@ -105,13 +104,14 @@ func (m *Model) viewFront() string {
 			note = fmt.Sprintf("%.1f%%", o.AuditRisk*100)
 		}
 		if i == m.frontCursor {
-			b.WriteString(theme.Gold.Render("▸ ") + theme.Selected.Render(line) + note + "\n")
+			m.modalFollow(len(body))
+			body = append(body, theme.Gold.Render("▸ ")+theme.Selected.Render(line)+note)
 		} else {
-			b.WriteString("  " + theme.Subtle.Render(line) + note + "\n")
+			body = append(body, "  "+theme.Subtle.Render(line)+note)
 		}
 	}
-	b.WriteString("\n" + theme.Subtle.Render(fmt.Sprintf("Dirty cash %s. It opens tomorrow.  ", cash(m.w.Player.DirtyCash))) + theme.Key.Render("enter") + " buy  " + theme.Key.Render("esc") + " back")
-	return m.modal("BUY A FRONT", strings.TrimRight(b.String(), "\n"))
+	body = append(body, "", theme.Subtle.Render(fmt.Sprintf("Dirty cash %s. It opens tomorrow.", cash(m.w.Player.DirtyCash))))
+	return m.modal("BUY A FRONT", body, m.modalFooter())
 }
 
 func (m *Model) viewLedger() string {
