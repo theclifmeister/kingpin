@@ -398,13 +398,23 @@ func (w *World) Travel(city string) error {
 }
 
 // RouteSetting is the player's standing instruction for one route (#61):
-// the dial it runs at and the stock the far city is kept at, per product.
+// the dial it runs at and the stock the far city is kept at, per product,
+// as units (Target) or as days of the far city's demand (Days, #115: the
+// logistics sim sizes the units each morning from what the corners there
+// serve, so the target follows the ground held). A product has one or
+// the other: SetRouteDays clears the units and SetRouteTarget the days.
 // The logistics sim reads it every day; the zero value is a route that is
-// off, so a save from before the dial replays as it did.
+// off, so a save from before the dial replays as it did, and a save from
+// before the days target loads with Days nil, no schema bump.
 type RouteSetting struct {
 	Dial   events.RouteDial
 	Target map[string]int // product id -> units the route's destination is kept stocked to
+	Days   map[string]int // product id -> days of the destination's demand it is kept stocked to
 }
+
+// HasTargets is whether the route keeps anything anywhere: a route with
+// none sends nothing however its dial stands.
+func (rs RouteSetting) HasTargets() bool { return len(rs.Target) > 0 || len(rs.Days) > 0 }
 
 // Route returns the setting for a route, off with no targets if it has
 // never been set.
@@ -439,9 +449,27 @@ func (w *World) SetRoute(id string, d events.RouteDial) error {
 }
 
 // SetRouteTarget sets the stock a route keeps its destination at for a
-// product; zero clears it. The route sends the shortfall against it,
-// buying by the lot at the source where a wholesaler deals.
+// product, in units; zero clears it. The route sends the shortfall
+// against it, buying by the lot at the source where a wholesaler deals.
+// A days target for the product (SetRouteDays) is cleared: it has one or
+// the other.
 func (w *World) SetRouteTarget(id, product string, units int) error {
+	return w.setRouteTarget(id, product, units, false)
+}
+
+// SetRouteDays sets the stock a route keeps its destination at for a
+// product as days of that city's demand (#115): the logistics sim reads
+// it each morning as days times World.Demand there, rounded up, so the
+// target follows the corners held without being set again. Zero clears
+// it, and a units target for the product goes with it.
+func (w *World) SetRouteDays(id, product string, days int) error {
+	return w.setRouteTarget(id, product, days, true)
+}
+
+// setRouteTarget is SetRouteTarget and SetRouteDays: the number goes in
+// the one map and comes out of the other, and a map left empty is nil
+// again so a cleared setting is the zero value it was.
+func (w *World) setRouteTarget(id, product string, n int, days bool) error {
 	if w.Over != nil {
 		return ErrGameOver
 	}
@@ -451,23 +479,31 @@ func (w *World) SetRouteTarget(id, product string, units int) error {
 	if w.Home() == nil || w.Home().Market[product] == nil {
 		return ErrUnknownProduct
 	}
-	if units < 0 {
+	if n < 0 {
 		return ErrBadQuantity
 	}
 	if w.Routes == nil {
 		w.Routes = map[string]RouteSetting{}
 	}
 	rs := w.Routes[id]
-	if units == 0 {
-		delete(rs.Target, product)
-		if len(rs.Target) == 0 {
-			rs.Target = nil
+	set, other := &rs.Target, &rs.Days
+	if days {
+		set, other = &rs.Days, &rs.Target
+	}
+	delete(*other, product)
+	if len(*other) == 0 {
+		*other = nil
+	}
+	if n == 0 {
+		delete(*set, product)
+		if len(*set) == 0 {
+			*set = nil
 		}
 	} else {
-		if rs.Target == nil {
-			rs.Target = map[string]int{}
+		if *set == nil {
+			*set = map[string]int{}
 		}
-		rs.Target[product] = units
+		(*set)[product] = n
 	}
 	w.Routes[id] = rs
 	return nil

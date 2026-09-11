@@ -65,7 +65,9 @@ marked `contract` in the cart, and a sell order may count on what the
 contract brings. Back is one key and close is one
 key: `esc` closes any modal whole, from whatever step a dialog is on,
 and `shift+tab` goes back a step in a dialog with steps (the buy, sell,
-target, cart and propose dialogs), keeping what the earlier steps hold;
+target, cart and propose dialogs; the target dialog is the product,
+then `←`/`→` for units or days of demand, then the number), keeping
+what the earlier steps hold;
 `tab` goes forward once the step is complete. On a screen `tab` and
 `shift+tab` are the next and the previous screen. Every **number field**
 (a buy or sell quantity, the cart's, a route target, a fund) takes
@@ -102,9 +104,10 @@ every screen and are in the KEYS of the screens they belong to.
    rival's in purple, free ones plain) and the routes between the cities
    under it, each with its dial; the pane is the corner's inspector or
    the route's detail.
-6. **Upgrades** — the branches of the tree as columns, as many as fit,
-   left and right crossing them; the pane is the node, its cost, what it
-   needs and what it does.
+6. **Upgrades** — the tree one branch at a time under branch tabs, left
+   and right turning it, each node indented under the one it needs; the
+   pane is the node, its cost, what it needs and what it does, and what
+   the branch is for.
 7. **Ledger** — the till (dirty, clean, seized, the launder dial), the
    fronts, the routes' books and the fronts on offer, under one cursor;
    the pane is the selected front, route or offer and the wash.
@@ -238,13 +241,14 @@ the float, the file, drift, the pane and the strip in a line each.
 | `t` | assign | give the selected lieutenant a city to run | crew |
 | `i` | investigate | ask who is talking to the police, for a fee | crew |
 | `$` | pay off | buy the selected member's loyalty | crew |
-| `↑↓←→` | pick | walk the map's grid or the tree's columns | map, upgrades |
+| `↑↓←→` | pick | walk the map's grid | map |
 | `c` | post runner | post a runner on the selected corner | map |
 | `e` | post enforcer | post an enforcer on the selected corner | map |
 | `a` | abandon | give the selected corner up | map |
 | `w` | send enforcers | send the enforcers at the selected corner | map |
 | `r` | route dial | the selected route: off, slow, normal, fast | map |
 | `R` | route target | what the selected route keeps the far end at | map |
+| `←→` | branch | turn the tree to the next branch | upgrades |
 | `u` | buy upgrade | buy the node under the cursor (enter too) | upgrades |
 | `b` | buy front | buy a front through the picker | ledger |
 | `f` | fund city | give a city clean cash for goodwill | ledger |
@@ -295,9 +299,12 @@ never leaves the first city plays the same as it always did.
 - **Logistics** is the road between the cities: a car, a truck and a boat,
   each a different point on the speed / cost / risk triangle, and each a
   **dial** you set once on the map: off, slow, normal or fast, with a
-  target stock for the far end per product. Every day a route that is on
-  sends what Eastside is short of its target, up to what the route
-  carries, out of the Bayport stash first and then by the lot from
+  target stock for the far end per product, in units or in **days of
+  demand** (what the corners you hold there sell in that many days,
+  sized again every morning, so the target follows the ground you hold;
+  the dialog says what the days mean today, `3d ≈ 180 units`). Every day
+  a route that is on sends what Eastside is short of its target, up to
+  what the route carries, out of the Bayport stash first and then by the lot from
   Bayport's wholesaler once your peak cash says you can move weight,
   spending only what is over the float the fronts leave in the till. A
   shipment rides the route for its days (the dial trades days against the

@@ -90,8 +90,9 @@ func in(ms ...mode) []mode     { return ms }
 var everywhere = on(screenDashboard, screenMarket, screenJournal, screenCrew, screenMap, screenUpgrades, screenLedger, screenRivals)
 
 // listScreens are the screens whose cursor is the plain up-and-down
-// one: the map and the tree walk two dimensions and list their own.
-var listScreens = on(screenDashboard, screenMarket, screenJournal, screenCrew, screenLedger, screenRivals)
+// one: the map walks two dimensions and lists its own; the tree's
+// branch is a list, and its arrows turn the branch (#120).
+var listScreens = on(screenDashboard, screenMarket, screenJournal, screenCrew, screenUpgrades, screenLedger, screenRivals)
 
 // onBuyers is the market's cursor being on the buyers under the table.
 func onBuyers(m *Model) bool { return m.screen == screenMarket && m.onBuyers }
@@ -104,14 +105,17 @@ func step(n int) func(*Model) bool { return func(m *Model) bool { return m.modal
 func pastFirstStep(m *Model) bool { return m.modalStep() > 0 }
 
 // numberStep is the open modal being on a number field (#112): the buy,
-// sell, target and cart dialogs' quantity page, and the fund dialog's
-// amount. The field's shortcuts are listed there and nowhere else.
+// sell and cart dialogs' quantity page, the target dialog's number (its
+// third page, after units or days, #115) and the fund dialog's amount.
+// The field's shortcuts are listed there and nowhere else.
 func numberStep(m *Model) bool {
 	switch m.mode {
 	case modeFund:
 		return true
-	case modeBuy, modeSell, modeTarget, modeCart:
+	case modeBuy, modeSell, modeCart:
 		return m.modalStep() == 1
+	case modeTarget:
+		return m.modalStep() == 2
 	}
 	return false
 }
@@ -129,11 +133,12 @@ func stripShown(m *Model) bool { return m.width < paneMinWidth }
 var bindings = []binding{
 	{key: "n", label: "end day", help: "end the day: the sims step and the run saves", screens: everywhere, global: true,
 		do: func(m *Model, _ string) { m.endDay() }},
-	// The cursor keys. The map and the tree are walked in two dimensions,
-	// the market's arrows turn it to the other city, the journal pages.
+	// The cursor keys. The map is walked in two dimensions, the market's
+	// arrows turn it to the other city, the tree's turn it to the next
+	// branch, the journal pages.
 	{key: "↑↓", label: "pick", help: "move the cursor (j and k move it too)", keys: upDown, screens: listScreens, global: true,
 		do: func(m *Model, key string) { m.moveCursor(0, dir(key)) }},
-	{key: "↑↓←→", label: "pick", help: "walk the map's grid or the tree's columns", keys: arrows, screens: on(screenMap, screenUpgrades),
+	{key: "↑↓←→", label: "pick", help: "walk the map's grid", keys: arrows, screens: on(screenMap),
 		do: func(m *Model, key string) {
 			if key == "left" || key == "right" {
 				m.moveCursor(dir(key), 0)
@@ -142,6 +147,8 @@ var bindings = []binding{
 			}
 		}},
 	{key: "←→", label: "city", help: "turn the market to the other city", keys: leftRight, screens: on(screenMarket),
+		do: func(m *Model, key string) { m.moveCursor(dir(key), 0) }},
+	{key: "←→", label: "branch", help: "turn the tree to the next branch", keys: leftRight, screens: on(screenUpgrades),
 		do: func(m *Model, key string) { m.moveCursor(dir(key), 0) }},
 	{key: "pgup pgdn", label: "page", help: "page through the journal", keys: []string{"pgup", "pgdown"}, screens: on(screenJournal),
 		do: func(m *Model, key string) {
@@ -274,6 +281,7 @@ var modeBindings = []binding{
 	{key: "←→", label: "repeat", modes: in(modeBuy), when: step(2)},
 	{key: "←→", label: "dial", modes: in(modeCart), when: cartOnSell},
 	{key: "←→", label: "city", modes: in(modeFund)},
+	{key: "←→", label: "units/days", modes: in(modeTarget), when: step(1)},
 	{key: "1-3", label: "dial", modes: in(modeSell), when: step(2)},
 	{key: "1-2", label: "repeat", modes: in(modeBuy), when: step(2)},
 	{key: "1-3", label: "dial", modes: in(modeCart), when: cartOnSell},
@@ -283,13 +291,13 @@ var modeBindings = []binding{
 	{key: "↑↓", label: "±1", modes: in(modeBuy, modeSell, modeTarget, modeCart, modeFund), when: numberStep},
 	{key: "pgup pgdn", label: "±10", modes: in(modeBuy, modeSell, modeTarget, modeCart, modeFund), when: numberStep},
 	{key: "enter", label: "next", modes: in(modeBuy, modeSell, modeTarget, modePropose), when: step(0)},
-	{key: "enter", label: "next", modes: in(modeBuy, modeSell), when: step(1)},
+	{key: "enter", label: "next", modes: in(modeBuy, modeSell, modeTarget), when: step(1)},
 	{key: "enter", label: "select", modes: in(modeStart)},
 	{key: "enter", label: "buy", modes: in(modeBuy), when: buyOnce},
 	{key: "enter", label: "keep at", modes: in(modeBuy), when: buyKeep},
 	{key: "enter", label: "buy", modes: in(modeFront)},
 	{key: "enter", label: "sell", modes: in(modeSell), when: step(2)},
-	{key: "enter", label: "set", modes: in(modeTarget), when: step(1)},
+	{key: "enter", label: "set", modes: in(modeTarget), when: step(2)},
 	{key: "enter", label: "quantity", modes: in(modeCart), when: cartHasLines},
 	{key: "x", label: "remove", modes: in(modeCart), when: cartHasLines},
 	{key: "enter", label: "set", modes: in(modeCart), when: step(1)},
@@ -509,6 +517,7 @@ func helpRow(key, label, help string) string {
 var words = [][2]string{
 	{"dial", "quiet, normal or aggressive: a sale's volume against its heat"},
 	{"float", "the dirty cash the wash and the road leave for the street"},
+	{"target", "what a route keeps the far end at: units or days of demand"},
 	{"file", "the DA's evidence: stings and raids add pages, enough indicts"},
 	{"drift", "a held corner nobody works goes back to the street in days"},
 	{"keep at", "a supply contract: the stash bought back to a level daily"},

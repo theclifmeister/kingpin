@@ -168,7 +168,7 @@ func TestMapRouteInPane(t *testing.T) {
 	text := paneText(m)
 	for _, s := range []string{
 		m.w.CityName(r.From) + " ", "▶ " + m.w.CityName(r.To), "dial", "[normal]", "days", "capacity", "fare", "/u", "seized",
-		"target", m.w.CityName(r.To) + " keeps " + m.w.ProductName(m.w.Products[0]), " 120", "on the road", "60 " + m.w.ProductName(m.w.Products[0]) + ", ",
+		"target", "120 " + m.w.ProductName(m.w.Products[0]), "on the road", "60 " + m.w.ProductName(m.w.Products[0]) + ", ",
 		"r  turn the dial", "R  set a target",
 	} {
 		if !strings.Contains(text, s) {

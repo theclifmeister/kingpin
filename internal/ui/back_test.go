@@ -31,7 +31,7 @@ func TestBackIsOneKey(t *testing.T) {
 			m.Update(key("]"))
 			m.onRoutes = true
 			m.Update(key("R"))
-		}, func(m *Model) int { return m.tgt.step }, func(m *Model) int { return m.cursor }, 1, []string{"enter"}},
+		}, func(m *Model) int { return m.tgt.step }, func(m *Model) int { return m.cursor }, 2, []string{"enter", "enter"}},
 		{"cart", modeCart, func(m *Model) { fillCart(t, m); m.Update(key("c")); m.Update(key("down")) }, func(m *Model) int { return m.crt.step }, func(m *Model) int { return m.crt.cursor }, 1, []string{"enter"}},
 		{"propose", modePropose, func(m *Model) { m.Update(key("8")); m.Update(key("d")); m.Update(key("down")) }, func(m *Model) int { return m.proposeStep }, func(m *Model) int { return m.proposeCursor }, 1, []string{"enter"}},
 	}
