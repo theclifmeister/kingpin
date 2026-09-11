@@ -82,19 +82,26 @@ func (m *Model) openDialog(mode mode) {
 	m.mode = mode
 }
 
+// keyDialog is the buy and sell dialogs' key handler. Back is one key
+// and close is one key (#110): esc closes the dialog from any step,
+// shift+tab goes back a step keeping what the earlier steps hold (the
+// product stays under the cursor; the quantity is cleared on leaving
+// its step and kept on coming back to it from the dial) and is silent
+// on the first, tab goes forward once the step is complete (a product
+// you can buy or sell, a quantity that reads) and is silent otherwise;
+// enter is as it was.
 func (m *Model) keyDialog(k tea.KeyMsg) (tea.Model, tea.Cmd) {
 	key := k.String()
 	d := &m.dlg
 	d.err = ""
 	switch key {
 	case "esc":
-		if d.step == 0 {
-			m.mode = modePlay
-		} else {
-			d.step--
-			d.qty.Blur()
-		}
+		m.mode = modePlay
 		return m, nil
+	case "shift+tab":
+		return m.dialogBack()
+	case "tab":
+		return m.dialogForward()
 	case "q":
 		if d.step != 1 {
 			m.mode = modePlay
@@ -117,17 +124,11 @@ func (m *Model) keyDialog(k tea.KeyMsg) (tea.Model, tea.Cmd) {
 				m.cursor = i
 			}
 		case "enter", "right", "l":
-			if m.mode == modeSell && m.w.Stock(m.dialogCity(), m.w.Products[m.cursor]) == 0 {
-				d.err = "You have none of that here."
+			if err := m.productErr(); err != "" {
+				d.err = err
 				return m, nil
 			}
-			if m.mode == modeBuy && m.maxBuy(m.w.Products[m.cursor]) == 0 {
-				d.err = "Can't afford or hold any."
-				return m, nil
-			}
-			d.step = 1
-			d.qty.Focus()
-			return m, textinput.Blink
+			return m.dialogForward()
 		}
 		return m, nil
 	case 1:
@@ -162,6 +163,63 @@ func (m *Model) keyDialog(k tea.KeyMsg) (tea.Model, tea.Cmd) {
 		case "enter":
 			return m.confirmSell()
 		}
+	}
+	return m, nil
+}
+
+// productErr is why the product under the cursor cannot go to the
+// quantity step: none of it here to sell, or none affordable to buy;
+// empty when it can.
+func (m *Model) productErr() string {
+	id := m.w.Products[m.cursor]
+	if m.mode == modeSell && m.w.Stock(m.dialogCity(), id) == 0 {
+		return "You have none of that here."
+	}
+	if m.mode == modeBuy && m.maxBuy(id) == 0 {
+		return "Can't afford or hold any."
+	}
+	return ""
+}
+
+// dialogForward is tab on the buy or sell dialog: the next step once
+// this one is complete, silent otherwise, and silent on the last (enter
+// is what buys or sells).
+func (m *Model) dialogForward() (tea.Model, tea.Cmd) {
+	d := &m.dlg
+	switch d.step {
+	case 0:
+		if m.productErr() != "" {
+			return m, nil
+		}
+		d.step = 1
+		d.qty.Focus()
+		return m, textinput.Blink
+	case 1:
+		if m.mode == modeBuy {
+			return m, nil
+		}
+		if _, err := m.parseQty(m.w.Stock(m.dialogCity(), m.w.Products[m.cursor])); err != nil {
+			return m, nil
+		}
+		d.step = 2
+		d.qty.Blur()
+	}
+	return m, nil
+}
+
+// dialogBack is shift+tab on the buy or sell dialog: the step before,
+// silent on the first.
+func (m *Model) dialogBack() (tea.Model, tea.Cmd) {
+	d := &m.dlg
+	switch d.step {
+	case 1:
+		d.step = 0
+		d.qty.SetValue("")
+		d.qty.Blur()
+	case 2:
+		d.step = 1
+		d.qty.Focus()
+		return m, textinput.Blink
 	}
 	return m, nil
 }

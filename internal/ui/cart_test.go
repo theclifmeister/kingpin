@@ -63,15 +63,14 @@ func TestDialogStaysOpenForTheNextLine(t *testing.T) {
 	if o, _ := w.Order(home, pills); o.Qty != 4 || o.Dial != events.DialQuiet {
 		t.Fatalf("the pills order: %+v", o)
 	}
-	// Deeper in, esc goes back a step, as before.
+	// Deeper in, shift+tab goes back a step and esc closes whole (#110).
 	m.Update(key("s"))
 	m.Update(key("enter"))
 	m.Update(key("enter"))
-	m.Update(key("esc"))
+	m.Update(key("shift+tab"))
 	if m.mode != modeSell || m.dlg.step != 1 {
-		t.Fatalf("esc on the dial step: mode %v step %d", m.mode, m.dlg.step)
+		t.Fatalf("shift+tab on the dial step: mode %v step %d", m.mode, m.dlg.step)
 	}
-	m.Update(key("esc"))
 	m.Update(key("esc"))
 	if m.mode != modePlay {
 		t.Fatalf("mode %v after closing", m.mode)
