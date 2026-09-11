@@ -202,11 +202,12 @@ func TestGlobalsAreListedWhereUsed(t *testing.T) {
 				t.Errorf("%s %s names %s: %v, want %v", b.key, b.label, screenOf[s], b.names(s), listed)
 			}
 			// Pressed anywhere, the key is taken: by the global or by the
-			// screen's own binding for it, never pointed away.
+			// screen's own binding for it, never pointed away (␣ at 120
+			// is the screen's own and not live, so it is silent, #111).
 			m.switchScreen(s)
 			m.status = ""
 			for _, k := range rawKeys(b) {
-				if _, found, _ := m.lookup(k); !found {
+				if _, found, own := m.lookup(k); !found && !own {
 					t.Errorf("%s: %q is not taken by any binding", screenOf[s], k)
 				}
 			}
