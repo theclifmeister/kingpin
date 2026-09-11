@@ -228,7 +228,16 @@ func richFixture(t *testing.T, sz [2]int, check func(view, what string)) {
 	m.Update(key("enter"))
 	m.Update(key("enter"))
 	m.Update(key("enter"))
-	m.w.Corner(m.cfg.City.Territory.Start).Risk = 100 // a robbery for the report
+	// A robbery for the report. The stick-up rolls only on a corner
+	// you hold with somebody on it, and test seeds are wall-clock:
+	// the rival, at war and bordering your corner, can push you off
+	// it on the route day (#90), and a skill-88+ enforcer takes the
+	// chance under one. So the corner is yours again, worked by you,
+	// unguarded and unsqueezed before the roll; territory steps
+	// before rivals, so the robbery lands whatever the rival does.
+	start := m.w.Corner(m.cfg.City.Territory.Start)
+	m.w.Recall(game.You)
+	start.Owner, start.Runner, start.Enforcer, start.Squeeze, start.Risk = game.OwnerPlayer, game.You, 0, 0, 100
 	endDay(t, m)
 	check(m.View(), "report with crew")
 	if len(m.w.Report.Territory) == 0 {
