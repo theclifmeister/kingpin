@@ -6,179 +6,454 @@ import (
 
 	"github.com/charmbracelet/lipgloss"
 
+	"github.com/theclifmeister/kingpin/internal/events"
 	"github.com/theclifmeister/kingpin/internal/ui/sparkline"
 	"github.com/theclifmeister/kingpin/internal/ui/theme"
 )
 
-// Panel heights on the dashboard, borders included: the title sits in
-// the top border, so a panel is its lines plus two.
+// The dashboard (#83) is the overview: MAIN holds the state, the pane
+// what happened (ALERTS), what is selected (the product under the
+// cursor and what s would do to it) and the keys. Two layouts: from
+// paneMinWidth columns STREET runs the width, sized to its lines, then
+// HEAT beside CASH, LAW beside RIVALS and CITIES under them; narrower
+// than that STREET, then HEAT, CASH and LAW side by side with the
+// rival's line folded into LAW and the other city into the street.
+// Panels are sized to what they hold, so no panel carries dead space,
+// and the room a layout leaves goes to ALERTS where no pane carries
+// them.
 const (
-	dashLawH   = 5
-	dashCashH  = 6
-	dashRivalH = 5
+	streetMaxH = 15 // STREET's most rows at the wide layout, border included
+	dashPanelH = 6  // HEAT, CASH, LAW and RIVALS: four lines and the border
+	dashBarW   = 8  // the war, trust and pressure bars
 )
 
+// sep joins the facts of a street line.
+var sep = theme.Subtle.Render(" · ")
+
+// fact is one thing the street says, with how much it matters when
+// the panel is out of room: the lowest go first.
+type fact struct {
+	s   string
+	pri int
+}
+
+// What a street fact is worth when the panel is out of room, lowest
+// dropped first.
+const (
+	priSupplier = iota
+	priUpgrades
+	priStash
+	priRuns
+	priRoad
+	priContracts
+	priCrew
+	priStrike
+	priPatrol
+	priTalking
+	priCorners
+)
+
+// pack joins facts into lines of at most width cells, ` · ` between
+// them, a fact that does not fit starting the next line.
+func pack(facts []fact, width int) []string {
+	var out []string
+	var line string
+	for _, f := range facts {
+		switch {
+		case f.s == "":
+		case line == "":
+			line = f.s
+		case lipgloss.Width(line)+3+lipgloss.Width(f.s) <= width:
+			line += sep + f.s
+		default:
+			out = append(out, line)
+			line = f.s
+		}
+	}
+	if line != "" {
+		out = append(out, line)
+	}
+	return out
+}
+
+// firstFit is the first of the candidates that fits width cells, or
+// the last of them.
+func firstFit(width int, candidates ...string) string {
+	for _, c := range candidates {
+		if lipgloss.Width(c) <= width {
+			return c
+		}
+	}
+	return candidates[len(candidates)-1]
+}
+
 // streetLines is the STREET panel's content for a panel innerW cells
-// wide: the product table with sparklines (the sparkline takes what the
-// fixed columns leave, up to 24 days), then the state of the street.
-// withRoad adds the line on what is stashed elsewhere and on the road,
-// for a layout without the CITIES panel.
-func (m *Model) streetLines(innerW int, withRoad bool) string {
+// wide, at most maxLines of it: the product table with sparklines (the
+// sparkline takes what the fixed columns leave, up to 24 days), then
+// the state of the street as facts, and last the line on tonight's
+// sales, which is never cut. The facts are topics, one a line where
+// they fit (the stash and the supplier, the corners and the road, the
+// crew and the skim); narrow packs them into as few lines as the width
+// allows, and so does a wide panel out of room, which then drops the
+// facts that matter least until the rest fit. withRoad adds the stash
+// elsewhere and the road, for a layout without the CITIES panel.
+func (m *Model) streetLines(innerW, maxLines int, narrow, withRoad bool) []string {
 	w := m.w
 	here := w.Here()
-	var street strings.Builder
 	cols, rows, cursor := m.productRows(here.ID, m.cursor, false)
 	sparkW := max(3, min(24, innerW-tableWidth(cols, rows)))
 	sparkCol(cols, rows, sparkW)
-	for _, l := range table(cols, rows, cursor, innerW) {
-		street.WriteString(l + "\n")
-	}
-	street.WriteString(theme.Subtle.Render(fmt.Sprintf("stash here %d/%d units · supplier sells at ~%.0f%% of street",
-		w.Player.StockIn(here.ID), w.Capacity(here.ID), m.set.Market.SupplierRatio(w)*100)) + "\n")
-	if line := m.elsewhereLine(); line != "" && withRoad {
-		street.WriteString(lipgloss.NewStyle().Foreground(theme.Logistics).Render(line) + "\n")
-	}
-	if w.Worked() == 0 {
-		street.WriteString(theme.Bad.Render("You hold no corner, so nothing sells. Claim one "+screenPointer(screenMap)+".") + "\n")
+	lines := table(cols, rows, cursor, innerW)
+
+	var topics [][]fact
+	topic := func(facts ...fact) { topics = append(topics, facts) }
+	stash := fact{theme.Subtle.Render(fmt.Sprintf("stash %d/%d", w.Player.StockIn(here.ID), w.Capacity(here.ID))), priStash}
+	if narrow {
+		topic(stash)
 	} else {
-		held := 0
-		for _, c := range here.Corners {
-			if c.Held() {
-				held++
-			}
-		}
-		corners := fmt.Sprintf("corners %d worked, %d held of %d", w.WorkedIn(here.ID), held, len(here.Corners))
-		if n := w.RivalHeld(); n > 0 && here == w.Home() {
-			corners += fmt.Sprintf(", %d theirs", n)
-		}
-		if n := w.Worked() - w.WorkedIn(here.ID); n > 0 {
-			corners += fmt.Sprintf(", %d worked elsewhere", n)
-		}
-		street.WriteString(theme.Rival.Render(corners) + "\n")
+		topic(stash, fact{theme.Subtle.Render(fmt.Sprintf("supplier at ~%.0f%% of street", m.set.Market.SupplierRatio(w)*100)), priSupplier})
+	}
+	corners := fact{theme.CrewText.Render(m.cornersLine(here.ID)), priCorners}
+	if w.Worked() == 0 {
+		corners.s = theme.Bad.Render("You hold no corner, so nothing sells. Claim one " + screenPointer(screenMap) + ".")
+	}
+	if withRoad {
+		topic(append([]fact{corners}, m.elsewhereFacts()...)...)
+	} else {
+		topic(corners)
 	}
 	if n := len(w.Crew.Members); n > 0 {
-		crew := fmt.Sprintf("crew %d · %s pay %s/day", n, w.Crew.Pay, money(m.set.Crew.Wages(w, w.Crew.Pay)))
-		switch {
-		case w.Crew.LastSkim > 0 && w.Day-w.Crew.LastSkim < m.set.Crew.Tuning().SuspectDays:
-			street.WriteString(lipgloss.NewStyle().Foreground(theme.Crew).Render(crew) + theme.Bad.Render(" · skimming suspected") + "\n")
-		default:
-			street.WriteString(lipgloss.NewStyle().Foreground(theme.Crew).Render(crew) + "\n")
+		crew := fact{theme.CrewText.Render(fmt.Sprintf("crew %d · %s pay %s/day", n, w.Crew.Pay, money(m.set.Crew.Wages(w, w.Crew.Pay)))), priCrew}
+		if w.Crew.LastSkim > 0 && w.Day-w.Crew.LastSkim < m.set.Crew.Tuning().SuspectDays {
+			topic(crew, fact{theme.Bad.Render("skimming suspected"), priCrew})
+		} else {
+			topic(crew)
 		}
 	}
 	if line := m.runsLine(); line != "" {
-		street.WriteString(truncate(lipgloss.NewStyle().Foreground(theme.Crew).Render(line), innerW) + "\n")
+		topic(fact{theme.CrewText.Render(line), priRuns})
 	}
 	if line := m.contractsLine(); line != "" {
-		street.WriteString(truncate(line, innerW) + "\n")
+		topic(fact{line, priContracts})
 	}
-	street.WriteString(theme.Subtle.Render(m.ownedLine()) + "\n")
+	topic(fact{theme.Subtle.Render(m.ownedLine()), priUpgrades})
 	if m.talking() {
-		street.WriteString(theme.Bad.Render("Somebody is talking. Investigate "+screenPointer(screenCrew)+".") + "\n")
-	}
-	if w.LieLow {
-		street.WriteString(theme.Warning.Render("Lying low today. No sales, heat fades faster.") + "\n")
-	} else if len(w.Orders) == 0 {
-		if lt := w.Crew.Lieutenant(here.ID); lt != nil && m.standingHere() > 0 {
-			street.WriteString(theme.Gold.Render(fmt.Sprintf("%s sells the stash here at %s; an order of yours overrides it.", lt.Name, m.set.Crew.Dial(*lt))) + "\n")
-		} else {
-			street.WriteString(tutorialLine() + "\n")
-		}
-	} else {
-		street.WriteString(theme.Gold.Render("Orders queued for tonight.") + "\n")
+		topic(fact{theme.Bad.Render("Somebody is talking. Investigate " + screenPointer(screenCrew) + "."), priTalking})
 	}
 	if w.Heat.SellCapDays > 0 {
-		street.WriteString(theme.Bad.Render(fmt.Sprintf("Patrols: sales capped at %.0f%% of demand for %d more day(s).", w.Heat.SellCap*100, w.Heat.SellCapDays)) + "\n")
+		topic(fact{theme.Bad.Render(fmt.Sprintf("Patrols: sales capped at %.0f%% of demand for %s more.", w.Heat.SellCap*100, plural(w.Heat.SellCapDays, "day"))), priPatrol})
 	}
 	if s := w.Strike; s != nil {
 		if c := w.Corner(s.Corner); c != nil {
-			street.WriteString(theme.Rival.Render(fmt.Sprintf("Enforcers go to %s tonight: %s.", c.Name, s.Force)) + "\n")
+			topic(fact{theme.Warning.Render(fmt.Sprintf("Enforcers go to %s tonight: %s.", c.Name, s.Force)), priStrike})
 		}
 	}
-	return street.String()
+
+	var last string
+	switch {
+	case w.LieLow:
+		last = theme.Warning.Render("Lying low today. No sales, heat fades faster.")
+	case len(w.Orders) > 0:
+		last = theme.Gold.Render("Orders queued for tonight.")
+	default:
+		if lt := w.Crew.Lieutenant(here.ID); lt != nil && m.standingHere() > 0 {
+			last = theme.Gold.Render(fmt.Sprintf("%s sells the stash here at %s; an order of yours overrides it.", lt.Name, m.set.Crew.Dial(*lt)))
+		} else {
+			last = tutorialLine()
+		}
+	}
+
+	room := max(0, maxLines-len(lines)-1)
+	var packed []string
+	if !narrow {
+		for _, t := range topics {
+			packed = append(packed, pack(t, innerW)...)
+		}
+	}
+	if narrow || len(packed) > room {
+		// Out of room, or narrow: every fact packed as tight as the
+		// width allows, whatever its topic, and the facts that matter
+		// least dropped until the rest fit.
+		var facts []fact
+		for _, t := range topics {
+			facts = append(facts, t...)
+		}
+		for packed = pack(facts, innerW); len(packed) > room && len(facts) > 0; packed = pack(facts, innerW) {
+			least := 0
+			for i, f := range facts {
+				if f.pri < facts[least].pri {
+					least = i
+				}
+			}
+			facts = append(facts[:least], facts[least+1:]...)
+		}
+	}
+	lines = append(lines, packed...)
+	return append(lines, last)
 }
 
-// otherHeat is the other cities' heat, `Bayport 1`, joined, or "".
+// cornersLine is the street's corner count in the map's vocabulary:
+// `corners 1 worked, 1 held of 10, 1 theirs`, and what is worked in
+// the other city.
+func (m *Model) cornersLine(city string) string {
+	w := m.w
+	held := 0
+	for _, c := range w.City(city).Corners {
+		if c.Held() {
+			held++
+		}
+	}
+	line := fmt.Sprintf("corners %d worked, %d held of %d", w.WorkedIn(city), held, len(w.City(city).Corners))
+	if n := w.RivalHeld(); n > 0 && w.City(city) == w.Home() {
+		line += fmt.Sprintf(", %d theirs", n)
+	}
+	if n := w.Worked() - w.WorkedIn(city); n > 0 {
+		line += fmt.Sprintf(", %d worked elsewhere", n)
+	}
+	return line
+}
+
+// elsewhereFacts are what you hold outside the city you are in and
+// what is on the road, as street facts, for a layout without the
+// CITIES panel.
+func (m *Model) elsewhereFacts() []fact {
+	w := m.w
+	var facts []fact
+	for _, cid := range w.CityOrder {
+		if cid == w.Player.Location {
+			continue
+		}
+		if n := w.Player.StockIn(cid); n > 0 {
+			facts = append(facts, fact{theme.RoadText.Render(fmt.Sprintf("%s in %s", plural(n, "unit"), w.CityName(cid))), priRoad})
+		}
+	}
+	if road, soonest := m.roadUnits(""); road > 0 {
+		facts = append(facts, fact{theme.RoadText.Render(fmt.Sprintf("%s on the road, next in %dd", plural(road, "unit"), soonest)), priRoad})
+	}
+	return facts
+}
+
+// otherHeat is the other cities' heat, `Bayport heat 1`, joined, or "".
 func (m *Model) otherHeat() string {
 	w := m.w
 	var elsewhere []string
 	for _, cid := range w.CityOrder {
 		if c := w.Cities[cid]; c != w.Here() {
-			elsewhere = append(elsewhere, heatStyle(c.Heat).Render(fmt.Sprintf("%s %.0f", c.Name, c.Heat)))
+			elsewhere = append(elsewhere, theme.Subtle.Render(c.Name+" heat ")+heatStyle(c.Heat).Render(fmt.Sprintf("%.0f", c.Heat)))
 		}
 	}
-	return strings.Join(elsewhere, theme.Subtle.Render(" · "))
+	return strings.Join(elsewhere, sep)
 }
 
-// heatLines is the HEAT panel's content for a panel width cells wide:
-// the gauge with the thresholds marked, the numbers, the thresholds,
-// the reputation bars and, if elsewhere, the other city's heat. It
-// returns the lines and how many there are.
-func (m *Model) heatLines(width int, elsewhere bool) (string, int) {
+// heatLines is the HEAT panel's content for a panel innerW cells wide:
+// the gauge with the thresholds marked, the numbers, the thresholds on
+// one line where they fit and two a line where they do not, and, wide,
+// the three reputation bars on one line (narrow has four lines with
+// the thresholds and leaves the bars to the wide layout).
+func (m *Model) heatLines(innerW int, narrow bool) []string {
 	w := m.w
 	here := w.Here()
-	var heat strings.Builder
-	n := 0
-	gaugeW := max(8, width-4)
 	var marks []float64
 	var thr []string
 	for _, r := range m.set.Heat.ThresholdsIn(w, here) {
 		marks = append(marks, r.Threshold/100)
-		thr = append(thr, fmt.Sprintf("%.0f %s", r.Threshold, r.Level))
+		thr = append(thr, fmt.Sprintf("%s %.0f", r.Level, r.Threshold))
 	}
-	heat.WriteString(heatStyle(here.Heat).Render(sparkline.Bar(here.Heat/100, gaugeW, marks)) + "\n")
-	n++
-	line := heatStyle(here.Heat).Render(fmt.Sprintf("%.0f", here.Heat)) + theme.Subtle.Render(fmt.Sprintf(" / 100  peak %.0f", w.Heat.Peak))
+	lines := []string{heatStyle(here.Heat).Render(sparkline.Bar(here.Heat/100, innerW, marks))}
+	numbers := []string{heatStyle(here.Heat).Render(fmt.Sprintf("%.0f", here.Heat)) + theme.Subtle.Render("/100"), theme.Subtle.Render(fmt.Sprintf("peak %.0f", w.Heat.Peak))}
 	if ev := m.set.Heat.EvidenceArrest(w); ev > 0 {
 		style := theme.Subtle
 		if w.Heat.Evidence >= ev-2 {
 			style = theme.Bad
 		}
-		line += style.Render(fmt.Sprintf("  file %d/%d", w.Heat.Evidence, ev))
+		numbers = append(numbers, style.Render(fmt.Sprintf("file %d/%d", w.Heat.Evidence, ev)))
 	}
-	heat.WriteString(line + "\n")
-	n++
-	// Thresholds on one line where they fit, else two per line.
-	if all := strings.Join(thr, " · "); lipgloss.Width(all) <= width-4 {
-		heat.WriteString(theme.Subtle.Render(all) + "\n")
-		n++
+	if line := strings.Join(numbers, sep); lipgloss.Width(line) <= innerW {
+		lines = append(lines, line)
+	} else {
+		lines = append(lines, strings.Join(numbers, " "))
+	}
+	if all := strings.Join(thr, " · "); lipgloss.Width(all) <= innerW {
+		lines = append(lines, theme.Subtle.Render(all))
 	} else {
 		for i := 0; i < len(thr); i += 2 {
-			heat.WriteString(theme.Subtle.Render(strings.Join(thr[i:min(i+2, len(thr))], " · ")) + "\n")
-			n++
+			lines = append(lines, theme.Subtle.Render(strings.Join(thr[i:min(i+2, len(thr))], " · ")))
 		}
 	}
-	heat.WriteString(m.reputationLine(width-4) + "\n")
-	n++
-	if other := m.otherHeat(); other != "" && elsewhere {
-		heat.WriteString(theme.Subtle.Render("elsewhere ") + other + "\n")
-		n++
+	if !narrow {
+		lines = append(lines, m.reputationLine(innerW))
 	}
-	return heat.String(), n
+	return lines
 }
 
-// cashLines is the CASH panel's content: the two pools, the peak, a
-// word on what the dirty pile draws and, if elsewhere, the other
-// city's heat (the layout that keeps HEAT to four lines puts it here).
-func (m *Model) cashLines(elsewhere bool) string {
+// cashLines is the CASH panel's content, four lines: the dirty pile
+// with the warning on its row once it is past what the fronts cover,
+// the clean cash with the day's wash, the peak, and the other city's
+// heat (the layout keeps HEAT to four lines by putting it here).
+// Narrow has the pools alone, the wash as a total, and the warning as
+// the last line, where the other city's heat and the note on a front
+// go without it.
+func (m *Model) cashLines(innerW int, narrow bool) []string {
 	w := m.w
-	var till strings.Builder
-	till.WriteString(theme.Gold.Render("dirty  "+cash(w.Player.DirtyCash)) + "\n")
+	over := ""
+	if line := m.cfg.Heat.Heat.DirtyCashThreshold; line > 0 {
+		if line += m.set.Heat.Cover(w); w.Player.DirtyCash > line {
+			over = theme.Warning.Render(fmt.Sprintf("over %s: heat", cash(line)))
+		}
+	}
+	dirty := theme.Gold.Render("dirty  " + cash(w.Player.DirtyCash))
 	clean := theme.Subtle.Render("clean  " + cash(w.Player.CleanCash))
 	if len(w.Fronts) > 0 {
-		clean += theme.Subtle.Render(fmt.Sprintf("  +%s/day %s", cash(m.set.Laundering.Capacity(w)), w.Laundering.Dial))
+		wash := cash(m.set.Laundering.Capacity(w))
+		clean = firstFit(innerW, clean+theme.Subtle.Render(fmt.Sprintf("  +%s/day %s", wash, w.Laundering.Dial)), clean+theme.Subtle.Render(" +"+wash))
 	}
-	till.WriteString(clean + "\n")
-	till.WriteString(theme.Subtle.Render(fmt.Sprintf("peak   %s", cash(w.Stats.PeakCash))) + "\n")
-	switch rows := m.frontRows(); {
-	case m.cfg.Heat.Heat.DirtyCashThreshold > 0 && w.Player.DirtyCash > m.cfg.Heat.Heat.DirtyCashThreshold:
-		till.WriteString(theme.Warning.Render(fmt.Sprintf("dirty cash over %s draws heat", cash(m.cfg.Heat.Heat.DirtyCashThreshold))) + "\n")
-	case len(w.Fronts) == 0 && len(rows) > 0 && !rows[0].Locked(w):
-		till.WriteString(theme.Subtle.Render("a front is on offer") + "\n")
+	peak := theme.Subtle.Render("peak   " + cash(w.Stats.PeakCash))
+	front := ""
+	if rows := m.frontRows(); len(w.Fronts) == 0 && len(rows) > 0 && !rows[0].Locked(w) {
+		front = theme.Subtle.Render("a front is on offer")
 	}
-	if other := m.otherHeat(); other != "" && elsewhere {
-		till.WriteString(theme.Subtle.Render("heat elsewhere ") + other + "\n")
+	last := m.otherHeat()
+	// The warning rides the dirty row where the row has the room, and
+	// is the last line where it does not (narrow, or a middling width).
+	if over != "" && !narrow && lipgloss.Width(dirty)+2+lipgloss.Width(over) <= innerW {
+		dirty = fit(dirty, lipgloss.Width(dirty)+2) + over
+		over = ""
 	}
-	return till.String()
+	switch {
+	case over != "":
+		last = over
+	case last == "":
+		last = front
+	}
+	return []string{dirty, clean, peak, last}
+}
+
+// bar is a labelled gauge: `war ████░░░░ 58/80 loud`.
+func bar(label string, frac float64, after string) string {
+	return label + " " + sparkline.Bar(frac, dashBarW, nil) + " " + after
+}
+
+// lawLines is the LAW panel's content, four lines: the chief and what
+// they are like once you have seen them work with the days they have
+// left, the DA and their ticket with the days to the election, the
+// pressure where you are with what you have bought the city, and the
+// other city's pressure. Narrow drops the days, shortens the ticket
+// and folds the rival's line into the last row.
+func (m *Model) lawLines(innerW int, narrow bool) []string {
+	w := m.w
+	l := w.Law
+	here := w.Here()
+	chief := "Chief " + l.Chief.Name + sep
+	if l.Chief.Observed {
+		chief += theme.Subtle.Render(l.Chief.Personality)
+	} else {
+		chief += theme.Subtle.Render("new")
+	}
+	if end := m.set.Law.ChiefTermEnds(w); end > 0 && !narrow {
+		chief = firstFit(innerW, chief+sep+theme.Subtle.Render(fmt.Sprintf("%dd left", max(0, end-w.Day))), chief)
+	}
+	// The ticket is spelt out where the line has the room for it and
+	// the election, and law-order where it does not; the election goes
+	// before the ticket does.
+	da := "DA " + l.DA.Name + sep
+	long, short := stanceWord(l.DA.Stance), stanceWord(l.DA.Stance)
+	if l.DA.Stance == "law_and_order" {
+		short = "law-order"
+	}
+	election, tight := "", ""
+	if next := m.set.Law.NextElection(w); next > 0 && !narrow {
+		election = sep + theme.Subtle.Render(fmt.Sprintf("election in %dd", max(0, next-w.Day)))
+		tight = sep + theme.Subtle.Render(fmt.Sprintf("election %dd", max(0, next-w.Day)))
+	}
+	da = firstFit(innerW,
+		da+theme.Subtle.Render(long)+election,
+		da+theme.Subtle.Render(short)+election,
+		da+theme.Subtle.Render(short)+tight,
+		da+theme.Subtle.Render(long),
+		da+theme.Subtle.Render(short))
+	// The pressure bar, in heat's red, with the goodwill after it: what
+	// you have bought the city is always shown once you have bought
+	// some, the bar giving way to the number where the room is short.
+	pressure := theme.Bad.Render(bar("pressure", here.Pressure/100, fmt.Sprintf("%.0f", here.Pressure)))
+	switch goodwill := theme.Good.Render(fmt.Sprintf("goodwill %.0f", here.Goodwill)); {
+	case here.Goodwill > 0:
+		pressure = firstFit(innerW, pressure+sep+goodwill, theme.Bad.Render(fmt.Sprintf("pressure %.0f", here.Pressure))+sep+goodwill, pressure)
+	case !narrow:
+		pressure = firstFit(innerW, pressure+sep+theme.Subtle.Render("goodwill 0"), pressure)
+	}
+	last := ""
+	if narrow {
+		last = m.rivalShort()
+	} else {
+		var others []string
+		for _, cid := range w.CityOrder {
+			if c := w.Cities[cid]; c != here {
+				others = append(others, theme.Subtle.Render(fmt.Sprintf("%s pressure %.0f", c.Name, c.Pressure)))
+			}
+		}
+		last = strings.Join(others, sep)
+	}
+	return []string{chief, da, pressure, last}
+}
+
+// rivalShort is the rival in one line for the narrow layout's LAW
+// panel: who they are and what they hold.
+func (m *Model) rivalShort() string {
+	w := m.w
+	if w.Rival.Arrived == 0 {
+		return theme.Subtle.Render("no rival yet")
+	}
+	return theme.Rival.Render(w.Rival.Leader) + sep + theme.Subtle.Render(plural(w.RivalHeld(), "corner"))
+}
+
+// rivalLines is the RIVALS panel's content, four lines: who they are,
+// what they hold and what they are like, the war as a bar against the
+// line the police crack down at, the trust as a bar, and whatever
+// holds or waits at the table.
+func (m *Model) rivalLines(innerW int) []string {
+	w := m.w
+	r := w.Rival
+	tun := m.set.Rivals.Tuning()
+	if r.Arrived == 0 {
+		var ls []string
+		for _, l := range wrap("Nobody is contesting the city. Yet.", innerW) {
+			ls = append(ls, theme.Subtle.Render(l))
+		}
+		return ls
+	}
+	who := theme.Rival.Render(r.Leader) + sep + theme.Subtle.Render(plural(w.RivalHeld(), "corner"))
+	who = firstFit(innerW, who+sep+theme.Subtle.Render(m.personalityWord()), who)
+	war := bar("war", r.War/tun.CrackdownThreshold, fmt.Sprintf("%.0f/%.0f", r.War, tun.CrackdownThreshold))
+	switch {
+	case r.War >= tun.WarThreshold:
+		war = theme.Bad.Render(war + " loud")
+	case r.War > 0:
+		war = theme.Warning.Render(war)
+	default:
+		war = theme.Subtle.Render(war)
+	}
+	trust := theme.Subtle.Render(bar("trust", r.Trust/100, fmt.Sprintf("%.0f", r.Trust)))
+	var table string
+	switch {
+	case len(w.Offers) > 0:
+		offers := plural(len(w.Offers), "offer")
+		table = theme.Gold.Render(firstFit(innerW, offers+" "+screenPointer(screenRivals), offers+" waits"))
+	case len(r.Deals) > 0:
+		var ds []string
+		for _, d := range r.Deals {
+			if d.Until > 0 {
+				ds = append(ds, fmt.Sprintf("%s %dd", d.Kind, d.Left(w.Day)))
+			} else {
+				ds = append(ds, string(d.Kind))
+			}
+		}
+		table = theme.Good.Render(strings.Join(ds, ", "))
+	case w.Proposal != nil:
+		table = theme.Gold.Render("proposal tonight")
+	default:
+		table = theme.Subtle.Render("Nothing on the table.")
+	}
+	return []string{who, war, trust, table}
 }
 
 // alertLines are the ALERTS: somebody talking, a contract due, then the
@@ -197,7 +472,8 @@ func (m *Model) alertLines(width, n int) []string {
 		if src := w.Journal[i].Source; src != "heat" && src != "rivals" && src != "law" {
 			continue
 		}
-		out = append(out, theme.Subtle.Render(fmt.Sprintf("d%-3d ", w.Journal[i].Day))+truncate(w.Journal[i].Text, max(10, width-5)))
+		day := fmt.Sprintf("d%-2d ", w.Journal[i].Day)
+		out = append(out, theme.Subtle.Render(day)+truncate(w.Journal[i].Text, max(10, width-lipgloss.Width(day))))
 	}
 	if len(out) == 0 {
 		out = append(out, theme.Subtle.Render("Nobody is looking at you. Yet."))
@@ -205,98 +481,108 @@ func (m *Model) alertLines(width, n int) []string {
 	return out
 }
 
-// viewDashboard is the overview. Two layouts: at paneMinWidth columns
-// and up (the pane's regime) STREET runs the width, then HEAT beside
-// CASH, LAW beside RIVALS, and CITIES under them; narrower than that
-// the street and the law are the left column and the heat, the cash
-// and the rival the right, the way 80 columns has always read. The
-// ALERTS are the pane's; MAIN carries them only where no pane sits
-// beside it and there is room.
-func (m *Model) viewDashboard() string {
-	w := m.w
-	here := w.Here()
-	h := m.mainHeight()
-	width := m.mainWidth()
-	if m.width >= paneMinWidth {
-		return m.dashboardWide(width, h)
+// alertsPanel is the ALERTS panel for a layout with room rows left and
+// no pane beside MAIN, sized to its lines, or "" where there is no
+// room for one (a border with nothing inside is not a panel).
+func (m *Model) alertsPanel(width, room int) string {
+	if room < 3 || m.paneShown() {
+		return ""
 	}
-	leftW := width * 3 / 5
-	rightW := width - leftW
-	if width < 70 {
-		leftW, rightW = width, 0
-	}
-
-	// The law sits under the street: who the chief and the DA are, and
-	// how loud the city is; under that, where the terminal is tall enough
-	// for the street to keep its lines, the cities side by side: what is
-	// stashed in each, who runs it, its heat and what is on the road to
-	// it. Where it is not, the street carries the road in a line.
-	citiesH := 0
-	if len(w.CityOrder) > 1 && h-dashLawH-(3+len(w.CityOrder)) >= 15 {
-		citiesH = 3 + len(w.CityOrder) // the border, the header and a row per city
-	}
-	left := lipgloss.JoinVertical(lipgloss.Left,
-		panel("STREET · "+here.Name, m.streetLines(leftW-4, citiesH == 0), leftW, h-dashLawH-citiesH, theme.Market),
-		panel("LAW", m.lawLines(leftW-4), leftW, dashLawH, theme.Heat))
-	if citiesH > 0 {
-		left = lipgloss.JoinVertical(lipgloss.Left, left, panel("CITIES", m.citiesLines(leftW-4), leftW, citiesH, theme.Logistics))
-	}
-	if rightW == 0 {
-		return left
-	}
-	heat, heatN := m.heatLines(rightW, true)
-	heatH := heatN + 2
-	right := lipgloss.JoinVertical(lipgloss.Left,
-		panel("HEAT", heat, rightW, heatH, theme.Heat),
-		panel("CASH", m.cashLines(false), rightW, dashCashH, theme.Money),
-		panel("RIVALS", m.rivalLines(), rightW, dashRivalH, theme.Rivals))
-	if alertsH := h - heatH - dashCashH - dashRivalH; alertsH >= 3 && !m.paneShown() { // a border with nothing inside is not a panel
-		right = lipgloss.JoinVertical(lipgloss.Left, right, panel("ALERTS", strings.Join(m.alertLines(rightW-4, alertsH-2), "\n"), rightW, alertsH, theme.Heat))
-	}
-	return lipgloss.JoinHorizontal(lipgloss.Top, left, right)
+	alerts := m.alertLines(width-4, room-2)
+	return panel("ALERTS", strings.Join(alerts, "\n"), width, len(alerts)+2, theme.Heat)
 }
 
-// dashboardWide is the layout for the pane's regime: STREET over HEAT |
-// CASH over LAW | RIVALS over CITIES, each row of panels sized to its
-// lines, the street taking what is left.
-func (m *Model) dashboardWide(width, h int) string {
-	w := m.w
-	here := w.Here()
-	leftW := width * 11 / 20
-	rightW := width - leftW
-	heat, heatN := m.heatLines(leftW, false)
-	heatH := max(heatN, 5) + 2 // CASH beside it has five lines
-	citiesH := 0
-	if len(w.CityOrder) > 1 && h-heatH-dashLawH-(3+len(w.CityOrder)) >= 12 {
-		citiesH = 3 + len(w.CityOrder) // the border, the header and a row per city
+// viewDashboard is the overview, in the layout the width calls for.
+func (m *Model) viewDashboard() string {
+	if m.width >= paneMinWidth {
+		return m.dashboardWide(m.mainWidth(), m.mainHeight())
 	}
-	streetH := h - heatH - dashLawH - citiesH
-	// The street takes no more than its lines need; what it leaves goes
-	// to ALERTS where no pane carries them.
-	street := m.streetLines(width-4, citiesH == 0)
-	if n := strings.Count(strings.TrimRight(street, "\n"), "\n") + 3; n < streetH {
-		streetH = n
+	return m.dashboardNarrow(m.mainWidth(), m.mainHeight())
+}
+
+// dashboardNarrow is the layout under paneMinWidth columns: STREET
+// over HEAT | CASH | LAW at 28 | 23 | 29 of 80 (the law has the two
+// columns the heat's four lines can spare, for the goodwill), the
+// rival's line in LAW and the other city in the street, and what the
+// street leaves going to ALERTS.
+func (m *Model) dashboardNarrow(width, h int) string {
+	here := m.w.Here()
+	heatW := width * 28 / 80
+	cashW := width * 23 / 80
+	lawW := width - heatW - cashW
+	street := m.streetLines(width-4, h-dashPanelH-2, true, true)
+	streetH := min(len(street)+2, h-dashPanelH)
+	alerts := m.alertsPanel(width, h-dashPanelH-streetH)
+	if alerts == "" {
+		streetH = h - dashPanelH
 	}
 	rows := []string{
-		panel("STREET · "+here.Name, street, width, streetH, theme.Market),
+		panel("STREET · "+here.Name, strings.Join(street, "\n"), width, streetH, theme.Market),
 		lipgloss.JoinHorizontal(lipgloss.Top,
-			panel("HEAT", heat, leftW, heatH, theme.Heat),
-			panel("CASH", m.cashLines(true), rightW, heatH, theme.Money)),
-		lipgloss.JoinHorizontal(lipgloss.Top,
-			panel("LAW", m.lawLines(leftW-4), leftW, dashLawH, theme.Heat),
-			panel("RIVALS", m.rivalLines(), rightW, dashLawH, theme.Rivals)),
+			panel("HEAT", strings.Join(m.heatLines(heatW-4, true), "\n"), heatW, dashPanelH, theme.Heat),
+			panel("CASH", strings.Join(m.cashLines(cashW-4, true), "\n"), cashW, dashPanelH, theme.Money),
+			panel("LAW", strings.Join(m.lawLines(lawW-4, true), "\n"), lawW, dashPanelH, theme.Heat)),
 	}
-	if citiesH > 0 {
-		rows = append(rows, panel("CITIES", m.citiesLines(width-4), width, citiesH, theme.Logistics))
-	}
-	if alertsH := h - streetH - heatH - dashLawH - citiesH; alertsH >= 3 && !m.paneShown() {
-		rows = append(rows, panel("ALERTS", strings.Join(m.alertLines(width-4, alertsH-2), "\n"), width, alertsH, theme.Heat))
+	if alerts != "" {
+		rows = append(rows, alerts)
 	}
 	return lipgloss.JoinVertical(lipgloss.Left, rows...)
 }
 
+// dashboardWide is the layout for the pane's regime: STREET the width,
+// sized to its lines up to streetMaxH; HEAT | CASH at 46 | 38 of 84;
+// LAW | RIVALS the same; CITIES, one row a city, where the height
+// leaves the street its lines (where it does not, the street carries
+// the road in a line); and what is left to ALERTS where no pane sits
+// beside MAIN.
+func (m *Model) dashboardWide(width, h int) string {
+	w := m.w
+	here := w.Here()
+	leftW := width * 46 / 84
+	rightW := width - leftW
+	heat := m.heatLines(leftW-4, false)
+	rowH := max(len(heat), 4) + 2
+	room := h - rowH - dashPanelH
+	citiesH := 0
+	street := m.streetLines(width-4, streetMaxH-2, false, false)
+	if n := len(w.CityOrder); n > 1 && room-(n+2) >= min(len(street)+2, streetMaxH) {
+		citiesH = n + 2
+	} else {
+		street = m.streetLines(width-4, streetMaxH-2, false, true)
+	}
+	streetH := min(len(street)+2, streetMaxH, room-citiesH)
+	rows := []string{
+		panel("STREET · "+here.Name, strings.Join(street, "\n"), width, streetH, theme.Market),
+		lipgloss.JoinHorizontal(lipgloss.Top,
+			panel("HEAT", strings.Join(heat, "\n"), leftW, rowH, theme.Heat),
+			panel("CASH", strings.Join(m.cashLines(rightW-4, false), "\n"), rightW, rowH, theme.Money)),
+		lipgloss.JoinHorizontal(lipgloss.Top,
+			panel("LAW", strings.Join(m.lawLines(leftW-4, false), "\n"), leftW, dashPanelH, theme.Heat),
+			panel("RIVALS", strings.Join(m.rivalLines(rightW-4), "\n"), rightW, dashPanelH, theme.Rivals)),
+	}
+	if citiesH > 0 {
+		rows = append(rows, panel("CITIES", strings.Join(m.citiesLines(width-4), "\n"), width, citiesH, theme.Logistics))
+	}
+	if alerts := m.alertsPanel(width, room-citiesH-streetH); alerts != "" {
+		rows = append(rows, alerts)
+	}
+	return lipgloss.JoinVertical(lipgloss.Left, rows...)
+}
+
+// sellEstimate is what s would sell of a product here at a dial, and
+// what it would bring: the sell dialog's expect row for the whole stash.
+func (m *Model) sellEstimate(city, id string, dial events.Dial) (units int, take int) {
+	w := m.w
+	p := w.Product(city, id)
+	if p == nil {
+		return 0, 0
+	}
+	units = min(w.Stock(city, id), m.set.Market.Capacity(w, city, id, dial))
+	return units, int(float64(units) * p.Price * m.set.Market.Dial(dial).Price)
+}
+
 // dashboardDetails is the dashboard's pane: the product under the
-// cursor, the alerts, and the keys.
+// cursor with what s would do to it, the alerts, and the keys.
 func (m *Model) dashboardDetails() []section {
 	w := m.w
 	here := w.Here()
@@ -314,7 +600,7 @@ func (m *Model) dashboardDetails() []section {
 			} else if delta < -1 {
 				ds = theme.Bad.Render(fmt.Sprintf("%+.0f%%", delta))
 			}
-			lines := []string{row("price", price(p.Price)+" "+ds)}
+			lines := []string{row("price", price(p.Price)+"  "+ds)}
 			if p.NoSupply {
 				lines = append(lines, row("supplier", theme.Subtle.Render("not sold here")))
 			} else {
@@ -322,7 +608,7 @@ func (m *Model) dashboardDetails() []section {
 				if p.SupplierPrice > 0 {
 					margin = (p.Price - p.SupplierPrice) / p.SupplierPrice * 100
 				}
-				lines = append(lines, row("supplier", fmt.Sprintf("%s · margin %.0f%%", price(p.SupplierPrice), margin)))
+				lines = append(lines, row("supplier", price(p.SupplierPrice)+sep+fmt.Sprintf("margin %.0f%%", margin)))
 			}
 			stock := []string{fmt.Sprintf("%d here", w.Stock(here.ID, id))}
 			for _, cid := range w.CityOrder {
@@ -330,28 +616,42 @@ func (m *Model) dashboardDetails() []section {
 					stock = append(stock, fmt.Sprintf("%d in %s", q, w.CityName(cid)))
 				}
 			}
+			// One row where the cities fit on it, one a city where not.
+			if one := strings.Join(stock, sep); lipgloss.Width(one) <= paneTextW-paneLabelW-1 {
+				lines = append(lines, row("stock", one))
+			} else {
+				label := "stock"
+				for _, st := range stock {
+					lines = append(lines, row(label, st))
+					label = ""
+				}
+			}
 			if road, soonest := m.roadUnits(id); road > 0 {
-				stock = append(stock, fmt.Sprintf("%d on the road, %dd", road, soonest))
+				lines = append(lines, row("road", theme.RoadText.Render(fmt.Sprintf("%s, %dd", plural(road, "unit"), soonest))))
 			}
-			label := "stock"
-			for _, l := range wrap(strings.Join(stock, " · "), paneTextW-paneLabelW-1) {
-				lines = append(lines, row(label, l))
-				label = ""
-			}
-			corners := "corners"
-			if w.WorkedIn(here.ID) == 1 {
-				corners = "corner"
-			}
-			lines = append(lines, row("demand", fmt.Sprintf("~%.0f/day on %d %s", w.Demand(here.ID, id), w.WorkedIn(here.ID), corners)))
+			lines = append(lines, row("demand", fmt.Sprintf("~%.0f/day on %s", w.Demand(here.ID, id), plural(w.WorkedIn(here.ID), "corner"))))
+			dial := events.DialNormal
 			switch o, ok := w.Order(here.ID, id); {
 			case ok:
+				dial = o.Dial
 				lines = append(lines, row("order", theme.Gold.Render(fmt.Sprintf("%d %s", o.Qty, o.Dial))))
 			default:
 				if so, ok := w.StandingOrder(here.ID, id); ok {
-					lines = append(lines, row("order", lipgloss.NewStyle().Foreground(theme.Crew).Render(fmt.Sprintf("%d %s (lt)", so.Qty, so.Dial))))
+					lines = append(lines, row("order", theme.CrewText.Render(fmt.Sprintf("%d %s (lt)", so.Qty, so.Dial))))
 				} else {
 					lines = append(lines, row("order", theme.Subtle.Render("none")))
 				}
+			}
+			switch units, take := m.sellEstimate(here.ID, id, dial); {
+			case w.LieLow:
+				lines = append(lines, keyRow("s", theme.Subtle.Render("nothing sells today: lying low")))
+			case w.Stock(here.ID, id) == 0:
+				lines = append(lines, keyRow("s", theme.Subtle.Render("nothing stashed here to sell")))
+			default:
+				lines = append(lines, keyRow("s", fmt.Sprintf("sell ~%d at %s = ~%s", units, dialShort(dial), theme.Gold.Render(money(take)))))
+			}
+			if o, ok := w.Order(here.ID, id); ok {
+				lines = append(lines, keyRow("x", fmt.Sprintf("cancel the %d %s", o.Qty, o.Dial)))
 			}
 			secs = append(secs, section{strings.ToUpper(p.Name) + " · " + strings.ToUpper(here.Name), lines})
 		}
@@ -360,45 +660,22 @@ func (m *Model) dashboardDetails() []section {
 	return secs
 }
 
-// elsewhereLine is what you hold outside the city you are in and what is
-// on the road, for a terminal too short for the CITIES panel, or ""
-// when there is nothing.
-func (m *Model) elsewhereLine() string {
-	w := m.w
-	var parts []string
-	for _, cid := range w.CityOrder {
-		if cid == w.Player.Location {
-			continue
-		}
-		if n := w.Player.StockIn(cid); n > 0 {
-			parts = append(parts, fmt.Sprintf("%d units in %s", n, w.CityName(cid)))
-		}
-	}
-	road, soonest := 0, 0
-	for _, s := range w.Shipments {
-		road += s.Units
-		if d := s.DaysLeft(w.Day); soonest == 0 || d < soonest {
-			soonest = d
-		}
-	}
-	if road > 0 {
-		parts = append(parts, fmt.Sprintf("%d units on the road, next in %dd", road, soonest))
-	}
-	return strings.Join(parts, " · ")
-}
-
 // citiesLines is the CITIES panel: one line per city with the value of
 // the stash there, the corners held, who runs it (you where you stand,
 // the lieutenant where one does), its heat and what is on the road to
-// it, in width cells.
-func (m *Model) citiesLines(width int) string {
+// it, the columns aligned, in width cells.
+func (m *Model) citiesLines(width int) []string {
 	w := m.w
-	var rows [][]any
+	type cityRow struct {
+		cells []string
+		style []lipgloss.Style
+	}
+	var rows []cityRow
 	for _, cid := range w.CityOrder {
 		c := w.Cities[cid]
-		var name any = "  " + c.Name
+		name, nameStyle := "  "+c.Name, theme.Subtle
 		if cid == w.Player.Location {
-			name = styled{theme.Gold, "◉ " + c.Name}
+			name, nameStyle = "◉ "+c.Name, theme.Gold
 		}
 		value := 0
 		for id, q := range w.Player.Stash[cid] {
@@ -412,12 +689,12 @@ func (m *Model) citiesLines(width int) string {
 				held++
 			}
 		}
-		var runs any = "nobody"
+		runs, runsStyle := "nobody", theme.Subtle
 		switch lt := w.Crew.Lieutenant(cid); {
 		case lt != nil:
-			runs = styled{lipgloss.NewStyle().Foreground(theme.Crew), lt.Name}
+			runs, runsStyle = lt.Name, theme.CrewText
 		case cid == w.Player.Location:
-			runs = "you"
+			runs, runsStyle = "you", theme.Body
 		}
 		road, soonest := 0, 0
 		for _, sh := range w.Shipments {
@@ -429,14 +706,33 @@ func (m *Model) citiesLines(width int) string {
 				soonest = d
 			}
 		}
-		var onRoad any
+		onRoad := ""
 		if road > 0 {
-			onRoad = styled{lipgloss.NewStyle().Foreground(theme.Logistics), fmt.Sprintf("◂ %s in %dd", plural(road, "unit"), soonest)}
+			onRoad = fmt.Sprintf("◂ %s in %dd", plural(road, "unit"), soonest)
 		}
-		rows = append(rows, []any{name, value, fmt.Sprintf("%d/%d", held, len(c.Corners)), runs, styled{heatStyle(c.Heat), c.Heat}, onRoad})
+		rows = append(rows, cityRow{
+			cells: []string{name, "stash " + cash(value), fmt.Sprintf("%d/%d corners", held, len(c.Corners)), runs, fmt.Sprintf("heat %.0f", c.Heat), onRoad},
+			style: []lipgloss.Style{nameStyle, theme.Subtle, theme.Subtle, runsStyle, heatStyle(c.Heat), theme.RoadText},
+		})
 	}
-	cols := []col{{"city", kText, 0}, {"stash", kCash, 0}, {"corners", kText, 0}, {"runs", kText, 0}, {"heat", kInt, 0}, {"road", kText, 0}}
-	return strings.Join(table(cols, rows, -1, width), "\n")
+	var widths []int
+	for _, r := range rows {
+		for i, c := range r.cells {
+			if i >= len(widths) {
+				widths = append(widths, 0)
+			}
+			widths[i] = max(widths[i], lipgloss.Width(c))
+		}
+	}
+	var out []string
+	for _, r := range rows {
+		var parts []string
+		for i, c := range r.cells {
+			parts = append(parts, r.style[i].Render(fit(c, widths[i])))
+		}
+		out = append(out, truncate(strings.TrimRight(strings.Join(parts, "  "), " "), width))
+	}
+	return out
 }
 
 // reputationAxes are the dashboard's three bars: the axis, its label at
@@ -454,10 +750,10 @@ var reputationAxes = []struct {
 // by side so they fit in one line of a panel width cells wide.
 func (m *Model) reputationLine(width int) string {
 	rep := m.w.Player.Reputation
-	long := width >= 44
-	labels := 3 * 2 // "F "
-	if long {
-		labels = len("fear ") + len("respect ") + len("notoriety ")
+	labels := len("fear ") + len("respect ") + len("notoriety ")
+	long := width >= labels+2+3*3 // the words, with bars of three
+	if !long {
+		labels = 3 * 2 // "F "
 	}
 	barW := max(3, (width-labels-2)/3)
 	var parts []string
@@ -472,11 +768,11 @@ func (m *Model) reputationLine(width int) string {
 	return strings.Join(parts, " ")
 }
 
-// roadUnits is how many units of a product are on the road, and the
-// soonest any of them land.
+// roadUnits is how many units of a product (every product for "") are
+// on the road, and the soonest any of them land.
 func (m *Model) roadUnits(id string) (units, soonest int) {
 	for _, sh := range m.w.Shipments {
-		if sh.Product != id {
+		if id != "" && sh.Product != id {
 			continue
 		}
 		units += sh.Units

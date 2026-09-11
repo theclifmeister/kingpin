@@ -9,7 +9,6 @@ import (
 	"github.com/charmbracelet/lipgloss"
 
 	"github.com/theclifmeister/kingpin/internal/game"
-	"github.com/theclifmeister/kingpin/internal/ui/sparkline"
 	"github.com/theclifmeister/kingpin/internal/ui/theme"
 )
 
@@ -19,48 +18,6 @@ func stanceWord(stance string) string {
 		return "law-and-order"
 	}
 	return stance
-}
-
-// lawLines is the dashboard's LAW panel: the chief and what they are
-// like once you have seen them work, the DA and their ticket with the
-// days to the election, and the pressure where you are with what you
-// have bought the city.
-func (m *Model) lawLines(width int) string {
-	w := m.w
-	l := w.Law
-	here := w.Here()
-	var b strings.Builder
-	chief := fmt.Sprintf("Chief %s", l.Chief.Name)
-	if l.Chief.Observed {
-		chief += theme.Subtle.Render(" · " + l.Chief.Personality)
-	} else {
-		chief += theme.Subtle.Render(" · new in the job")
-	}
-	if end := m.set.Law.ChiefTermEnds(w); end > 0 {
-		chief += theme.Subtle.Render(fmt.Sprintf(" · %dd left", max(0, end-w.Day)))
-	}
-	b.WriteString(chief + "\n")
-	da := fmt.Sprintf("DA %s", l.DA.Name) + theme.Subtle.Render(" · "+stanceWord(l.DA.Stance))
-	if next := m.set.Law.NextElection(w); next > 0 {
-		da += theme.Subtle.Render(fmt.Sprintf(" · election in %dd", max(0, next-w.Day)))
-	}
-	b.WriteString(da + "\n")
-	// The pressure bar where you are, in heat's red; goodwill once you
-	// have bought some; the other city's number when there is room.
-	barW := max(6, min(16, width-28))
-	line := theme.Bad.Render("pressure " + sparkline.Bar(here.Pressure/100, barW, nil) + fmt.Sprintf(" %.0f", here.Pressure))
-	if here.Goodwill > 0 {
-		line += theme.Good.Render(fmt.Sprintf(" · goodwill %.0f", here.Goodwill))
-	}
-	if width >= 60 {
-		for _, cid := range w.CityOrder {
-			if c := w.Cities[cid]; c != here {
-				line += theme.Subtle.Render(fmt.Sprintf(" · %s %.0f", c.Name, c.Pressure))
-			}
-		}
-	}
-	b.WriteString(line + "\n")
-	return b.String()
 }
 
 // fundDialog is the state of the fund-a-city modal: which city and how

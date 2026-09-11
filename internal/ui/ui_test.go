@@ -1754,11 +1754,18 @@ func TestFundKeys(t *testing.T) {
 	m := newTestModel(t, 80, 24)
 	w := m.w
 	view := stripANSI(m.View())
-	for _, want := range []string{"LAW", "Chief " + w.Law.Chief.Name, "DA " + w.Law.DA.Name, "pressure", "election in"} {
+	for _, want := range []string{"LAW", "Chief " + w.Law.Chief.Name, "DA " + w.Law.DA.Name, "pressure"} {
 		if !strings.Contains(view, want) {
 			t.Fatalf("dashboard lacks %q:\n%s", want, view)
 		}
 	}
+	// The election countdown needs the wide LAW panel (#83): `election
+	// in 90d`, or `election 90d` under a long name on a long ticket.
+	m.Update(tea.WindowSizeMsg{Width: 120, Height: 40})
+	if view := stripANSI(m.View()); !strings.Contains(view, "election") {
+		t.Fatalf("wide dashboard lacks the election countdown:\n%s", view)
+	}
+	m.Update(tea.WindowSizeMsg{Width: 80, Height: 24})
 	m.Update(key("f"))
 	if m.mode != modePlay || !strings.Contains(m.status, "ledger") {
 		t.Fatalf("f on the dashboard: mode %v status %q", m.mode, m.status)
