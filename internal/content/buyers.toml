@@ -58,7 +58,7 @@ days = [4, 7]
 premium = [1.5, 1.9]
 penalty = 6
 penalty_cash = 0.2
-heat = 0.3
+heat = 0.4
 weight = 2
 
 [[buyer]]
@@ -72,7 +72,7 @@ days = [3, 6]
 premium = [1.4, 1.8]
 penalty = 5
 penalty_cash = 0.15
-heat = 0.25
+heat = 0.35
 weight = 2
 
 [[buyer]]
@@ -86,7 +86,7 @@ days = [2, 4]
 premium = [1.7, 2.2]
 penalty = 8
 penalty_cash = 0.25
-heat = 0.25
+heat = 0.35
 [buyer.trigger]
 heat_max = 40
 
@@ -101,7 +101,7 @@ days = [2, 4]
 premium = [1.2, 1.5]
 penalty = 4
 penalty_cash = 0.1
-heat = 0.3
+heat = 0.4
 
 # ---------------------------------------------------------------- coke and up
 
@@ -116,7 +116,7 @@ days = [5, 9]
 premium = [1.8, 2.4]
 penalty = 8
 penalty_cash = 0.25
-heat = 0.4
+heat = 0.5
 unlock_cash = 3000
 
 [[buyer]]
@@ -130,7 +130,7 @@ days = [3, 5]
 premium = [2.0, 2.6]
 penalty = 8
 penalty_cash = 0.3
-heat = 0.3
+heat = 0.35
 unlock_cash = 3000
 [buyer.trigger]
 corners = 3
@@ -146,7 +146,7 @@ days = [5, 8]
 premium = [1.5, 1.9]
 penalty = 8
 penalty_cash = 0.25
-heat = 0.5
+heat = 0.6
 unlock_cash = 3000
 
 [[buyer]]
@@ -160,7 +160,7 @@ days = [4, 7]
 premium = [1.4, 1.8]
 penalty = 8
 penalty_cash = 0.25
-heat = 0.6
+heat = 0.7
 unlock_cash = 10000
 
 # The bulk mover pays under the street as often as over it: the volume is
@@ -177,7 +177,7 @@ days = [6, 10]
 premium = [0.85, 1.1]
 penalty = 10
 penalty_cash = 0.3
-heat = 0.4
+heat = 0.5
 unlock_cash = 10000
 
 [[buyer]]
@@ -191,7 +191,7 @@ days = [4, 8]
 premium = [1.6, 2.2]
 penalty = 10
 penalty_cash = 0.3
-heat = 0.4
+heat = 0.5
 unlock_cash = 25000
 [buyer.trigger]
 fronts = true
