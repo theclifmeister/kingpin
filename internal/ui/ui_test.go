@@ -146,7 +146,7 @@ func assertFrame(t *testing.T, m *Model, what string) {
 		}
 		// Nothing but key rows between KEYS and the bottom border.
 		var keys []string
-		for _, b := range m.playLegend() {
+		for _, b := range m.legendKeys() {
 			keys = append(keys, b.key)
 		}
 		for i := keysAt + 1; i < h-3; i++ {
@@ -531,10 +531,10 @@ func TestLegendNeverTruncatesMidPair(t *testing.T) {
 			m.status = ""
 			got := stripANSI(m.viewFooter())
 			var prefixes []string
-			for n := 0; n <= len(m.playLegend()); n++ {
+			for n := 0; n <= len(m.legendKeys()); n++ {
 				var p string
-				for _, b := range m.playLegend()[:n] {
-					p += stripANSI(k(b.key, b.label))
+				for _, b := range m.legendKeys()[:n] {
+					p += stripANSI(k(b.key, m.labelOf(b)))
 				}
 				prefixes = append(prefixes, p)
 			}
@@ -560,7 +560,7 @@ func TestLegendNeverTruncatesMidPair(t *testing.T) {
 func TestSpaceTogglesDetails(t *testing.T) {
 	m := newTestModel(t, 80, 24)
 	m.Update(key("5"))
-	secs, _ := m.details()
+	secs := m.details()
 	if len(secs) == 0 {
 		t.Fatal("the map has no details")
 	}
@@ -1246,7 +1246,7 @@ func TestUpgradesScreenKeys(t *testing.T) {
 	m := newTestModel(t, 100, 30)
 	m.w.Player.DirtyCash = 8000
 	m.Update(key("u"))
-	if m.mode != modePlay || !strings.Contains(m.status, "tree") {
+	if m.mode != modePlay || m.status != "Buy upgrade on the upgrades screen (6)." {
 		t.Fatalf("u on the dashboard: mode %v status %q", m.mode, m.status)
 	}
 	m.Update(key("6"))
@@ -1601,9 +1601,9 @@ func TestRouteAndTravelKeys(t *testing.T) {
 	if m.mode != modePlay || w.PostOf(game.You).City != home || !strings.Contains(m.status, "go there first") {
 		t.Fatalf("posting yourself elsewhere: mode %v status %q", m.mode, m.status)
 	}
-	// t ships nothing by hand any more.
+	// t ships nothing by hand any more: it points at the crew screen.
 	m.Update(key("t"))
-	if m.mode != modePlay || !strings.Contains(m.status, "routes") {
+	if m.mode != modePlay || m.status != "Assign on the crew screen (4)." {
 		t.Fatalf("t: mode %v status %q", m.mode, m.status)
 	}
 
@@ -1978,8 +1978,8 @@ func TestAssignLieutenantKeys(t *testing.T) {
 	w.Crew.NextID = 2
 	other := w.CityOrder[1]
 
-	m.Update(key("t")) // dashboard: a hint, not the picker
-	if m.mode != modePlay || !strings.Contains(m.status, "routes") {
+	m.Update(key("t")) // dashboard: a pointer, not the picker
+	if m.mode != modePlay || !strings.Contains(m.status, "crew screen (4)") {
 		t.Fatalf("t on the dashboard: mode %v status %q", m.mode, m.status)
 	}
 	m.Update(key("4"))
@@ -2093,7 +2093,7 @@ func TestCrewScreenUnpostedEnforcer(t *testing.T) {
 	m.Update(key("4"))
 	m.Update(key(" ")) // the pane cuts the crew's long lines at 100 columns; #86 moves them into it
 	v := m.View()
-	if !strings.Contains(v, "unposted") || !strings.Contains(v, "post them on a corner to guard it") {
+	if !strings.Contains(v, "unposted") || !strings.Contains(v, "an enforcer guards nothing off a corner") {
 		t.Fatalf("enforcer: want 'unposted' and the guarding hint:\n%s", v)
 	}
 	if strings.Contains(v, "idle") {
@@ -2102,7 +2102,7 @@ func TestCrewScreenUnpostedEnforcer(t *testing.T) {
 
 	m.w.Crew.Members = append(m.w.Crew.Members, game.CrewMember{ID: 2, Name: "Ray", Role: "runner", Skill: 40, Loyalty: 70, Nerve: 50, Wage: 40, Units: 20})
 	v = m.View()
-	if !strings.Contains(v, "idle") || !strings.Contains(v, "1 idle: a runner earns nothing off a corner. Post them on the map (5).") {
+	if !strings.Contains(v, "idle") || !strings.Contains(v, "1 idle: a runner earns nothing off a corner. Post them on the map screen (5).") {
 		t.Fatalf("runner: want 'idle' and the map hint counting one runner:\n%s", v)
 	}
 	if !strings.Contains(v, "1 unposted") {
@@ -2472,12 +2472,12 @@ func TestReportScrolls(t *testing.T) {
 			t.Fatalf("%s at 80x24 does not scroll:\n%s", c.name, view)
 		}
 		assertFits(t, m.View(), 80, 24, c.name)
-		for i := 0; i < 20; i++ {
+		for i := 0; i < 60; i++ {
 			m.Update(key("down"))
 		}
 		view = stripANSI(m.View())
 		if strings.Contains(view, "↓ more") || !strings.Contains(view, "↑ more") || !strings.Contains(view, c.last) {
-			t.Fatalf("%s after twenty ↓ does not show its last line:\n%s", c.name, view)
+			t.Fatalf("%s after sixty ↓ does not show its last line:\n%s", c.name, view)
 		}
 		assertFits(t, m.View(), 80, 24, c.name+" scrolled")
 		day := m.w.Day

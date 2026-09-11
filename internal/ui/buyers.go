@@ -50,11 +50,6 @@ func (m *Model) buyersLines() []string {
 	if len(rows) == 0 {
 		return []string{title + theme.Subtle.Render("   nobody is asking. Offers come to the market screen and lapse in a few days.")}
 	}
-	if m.onBuyers {
-		title += theme.Subtle.Render("   a accept · x decline · d deliver from the stash here")
-	} else {
-		title += theme.Subtle.Render("   ↓ past the table to answer")
-	}
 	out := []string{title}
 	for i, c := range rows {
 		cur := "  "
@@ -127,7 +122,7 @@ func (m *Model) contractSections(c game.Contract) []section {
 		notes = append(notes, wrapped(theme.Subtle, "A handoff needs no corner and no dial.")...)
 	}
 	if c.City != w.Player.Location {
-		notes = append(notes, wrapped(theme.Subtle, fmt.Sprintf("The handoff is in %s: you have to be there (g) with the stock in the stash there.", w.CityName(c.City)))...)
+		notes = append(notes, wrapped(theme.Subtle, fmt.Sprintf("The handoff is in %s: you have to be there, with the stock in the stash there.", w.CityName(c.City)))...)
 	}
 	return append(secs, section{"NOTES", notes})
 }
@@ -187,7 +182,7 @@ func (m *Model) deliverSelected() {
 		return
 	}
 	if c.Status == game.ContractOffered {
-		m.status = "Take the offer first (a)."
+		m.status = "Take the offer first."
 		return
 	}
 	n := m.w.Deliverable(*c)
@@ -197,7 +192,7 @@ func (m *Model) deliverSelected() {
 	}
 	if err := m.w.Deliver(c.ID, n); err != nil {
 		if err == game.ErrElsewhere {
-			m.status = fmt.Sprintf("The handoff is in %s: go there (g) and deliver from the stash there.", m.w.CityName(c.City))
+			m.status = fmt.Sprintf("The handoff is in %s: go there and deliver from the stash there.", m.w.CityName(c.City))
 		} else {
 			m.status = err.Error()
 		}
@@ -233,7 +228,7 @@ func (m *Model) contractsLine() string {
 		parts = append(parts, s)
 	}
 	if offers > 0 {
-		parts = append(parts, theme.Gold.Render(fmt.Sprintf("%d offer(s) on the market (2)", offers)))
+		parts = append(parts, theme.Gold.Render(fmt.Sprintf("%d offer(s) "+screenPointer(screenMarket), offers)))
 	}
 	return strings.Join(parts, " · ")
 }

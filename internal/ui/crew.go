@@ -34,7 +34,7 @@ func (m *Model) crewSelected() (game.CrewMember, bool, bool) {
 func (m *Model) hireSelected() {
 	c, onPayroll, ok := m.crewSelected()
 	if !ok || onPayroll {
-		m.status = "Move the cursor to someone looking for work, then press h."
+		m.status = "Move the cursor to someone looking for work first."
 		return
 	}
 	got, err := m.w.Hire(c.ID, m.set.Crew.MaxCrew(m.w))
@@ -49,7 +49,7 @@ func (m *Model) hireSelected() {
 func (m *Model) askFire() {
 	c, onPayroll, ok := m.crewSelected()
 	if !ok || !onPayroll {
-		m.status = "Move the cursor to someone on the payroll, then press f."
+		m.status = "Move the cursor to someone on the payroll first."
 		return
 	}
 	m.fireID = c.ID
@@ -119,7 +119,7 @@ func (m *Model) investigateConfirm() string {
 func (m *Model) askPayOff() {
 	c, onPayroll, ok := m.crewSelected()
 	if !ok || !onPayroll {
-		m.status = "Move the cursor to someone on the payroll, then press $."
+		m.status = "Move the cursor to someone on the payroll first."
 		return
 	}
 	m.fireID = c.ID
@@ -265,7 +265,7 @@ func (m *Model) viewCrew() string {
 
 	b.WriteString(theme.Bold.Render("ON THE PAYROLL") + "\n")
 	if len(w.Crew.Members) == 0 {
-		b.WriteString(theme.Subtle.Render("  Nobody. Runners hold corners you can't stand on yourself; pick one below and press h.") + "\n")
+		b.WriteString(theme.Subtle.Render("  Nobody. Runners hold corners you can't stand on yourself; pick one below and hire them.") + "\n")
 	} else {
 		var rows [][]any
 		for _, c := range w.Crew.Members {
@@ -313,14 +313,14 @@ func (m *Model) viewCrew() string {
 		}
 	}
 	if idle > 0 {
-		b.WriteString(theme.Warning.Render(fmt.Sprintf("  %d idle: a runner earns nothing off a corner. Post them on the map (5).", idle)) + "\n")
+		b.WriteString(theme.Warning.Render(fmt.Sprintf("  %d idle: a runner earns nothing off a corner. Post them "+screenPointer(screenMap)+".", idle)) + "\n")
 	}
 	if unposted > 0 {
-		b.WriteString(theme.Warning.Render(fmt.Sprintf("  %d unposted: post them on a corner to guard it (map, 5).", unposted)) + "\n")
+		b.WriteString(theme.Warning.Render(fmt.Sprintf("  %d unposted: an enforcer guards nothing off a corner. Post them "+screenPointer(screenMap)+".", unposted)) + "\n")
 	}
 	if n := w.Crew.Role("accountant"); n > 0 {
 		if len(w.Fronts) == 0 {
-			b.WriteString(theme.Warning.Render("  An accountant with no front is a wage. Buy one on the ledger (7).") + "\n")
+			b.WriteString(theme.Warning.Render("  An accountant with no front is a wage. Buy one "+screenPointer(screenLedger)+".") + "\n")
 		} else {
 			add, cut := m.accountants()
 			b.WriteString(truncate(crewStyle.Render(fmt.Sprintf("  %d accountant(s): +%s/day through each front, audit risk cut %.0f%%, no post.", n, money(add), cut*100)), m.mainWidth()) + "\n")
@@ -329,10 +329,10 @@ func (m *Model) viewCrew() string {
 	if line := m.runsLine(); line != "" {
 		b.WriteString(truncate(crewStyle.Render("  "+line+"."), m.mainWidth()) + "\n")
 	} else if n := w.Crew.Role(game.RoleLieutenant); n > 0 {
-		b.WriteString(theme.Warning.Render("  A lieutenant with no city is a wage. Press t to give them one.") + "\n")
+		b.WriteString(theme.Warning.Render("  A lieutenant with no city is a wage.") + "\n")
 	}
 	if c := w.Crew.Member(w.Crew.Exposed); c != nil {
-		b.WriteString(theme.Bad.Render(fmt.Sprintf("  SNITCH: %s has been talking to the police. The file grows until they go (f).", c.Name)) + "\n")
+		b.WriteString(theme.Bad.Render(fmt.Sprintf("  SNITCH: %s has been talking to the police. The file grows until you fire them.", c.Name)) + "\n")
 	} else if w.Investigation != nil {
 		b.WriteString(theme.Warning.Render("  Questions get asked tonight.") + "\n")
 	}
@@ -365,13 +365,12 @@ func (m *Model) accountants() (add int, cut float64) {
 // crewDetails is the crew screen's pane: the person under the cursor
 // (their role, skill, loyalty against the lines, wage at the pay dial,
 // post, temper and whether they were named) and the keys.
-func (m *Model) crewDetails() ([]section, []binding) {
+func (m *Model) crewDetails() []section {
 	w := m.w
 	tun := m.set.Crew.Tuning()
-	keys := m.screenKeys()
 	c, onPayroll, ok := m.crewSelected()
 	if !ok {
-		return []section{{"NOBODY", wrapped(theme.Subtle, "Nobody on the payroll and nobody looking for work. New faces come by every few days.")}}, keys
+		return []section{{"NOBODY", wrapped(theme.Subtle, "Nobody on the payroll and nobody looking for work. New faces come by every few days.")}}
 	}
 	line := tun.SkimThreshold
 	if c.Lieutenant() {
@@ -419,7 +418,7 @@ func (m *Model) crewDetails() ([]section, []binding) {
 		}
 		lines = append(lines, row("fee", fee), row("would", hireBlurb(c.Role)), keyRow("h", "hire them"))
 	}
-	return []section{{strings.ToUpper(c.Name), lines}}, keys
+	return []section{{strings.ToUpper(c.Name), lines}}
 }
 
 // temper is a lieutenant's personality as the pane shows it: the word

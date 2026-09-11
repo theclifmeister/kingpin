@@ -27,31 +27,59 @@ Needs Go 1.24 and a terminal at least 80x24. A single save slot lives in
 autosaves at the end of every day. Saves from older builds are upgraded on
 load; a save from a newer build than the one you are running is refused.
 
-| Key | Action |
-|---|---|
-| `1`–`8` / `tab` | Dashboard, Market, Journal, Crew, Map, Upgrades, Ledger, Rivals (`shift+tab` goes back) |
-| `↑` `↓` `←` `→` | Move the cursor: up and down a list, across the map grid and the upgrade columns, between the cities on the market; the dial in a dialog |
-| `[` `]` | Turn the market and the map to the other city |
-| `b` | Buy from the supplier where you are (blank quantity = as much as you can); on the ledger, buy a front |
-| `s` | Queue a street sale and set the dial: quiet / normal / aggressive, in the city shown |
-| `r` / `R` | On the map: turn the selected route's dial (off / slow / normal / fast) / set what it keeps the far city stocked with (`↓` past the grid reaches the routes) |
-| `t` | On the crew screen, give the selected lieutenant a city to run |
-| `g` | Go to the other city, after a confirmation that names the corner you leave; your corner and your stock stay behind |
-| `x` | Cancel the queued order on the selected product |
-| `l` | Lie low today: no sales, heat fades faster |
-| `h` / `f` | Hire / fire the selected person (crew screen); on the ledger, `f` funds a city with clean cash |
-| `i` / `$` | Investigate who is talking / pay off the selected person (crew screen) |
-| `p` | Cycle crew pay: stingy / fair / generous |
-| `c` / `e` / `a` | Post a runner / an enforcer / abandon the selected corner (map) |
-| `u` / `enter` | Buy the selected upgrade, after a confirmation (upgrades) |
-| `d` | Cycle the launder dial: careful / normal / greedy; on the rivals screen, propose a deal |
-| `y` / `x` | Accept / decline the selected offer (rivals screen) |
-| `a` / `x` / `d` | On the market, with the cursor on a buyer (`↓` past the product table): accept / decline the offer / hand over what is in that city's stash |
-| `n` | End the day |
-| `enter` | End the day, after a confirmation |
-| `r` | Reopen the morning report (anywhere but the map) |
-| `?` | Help |
-| `q` | Save and quit |
+The keys are one table, `internal/ui/keys.go`: the status bar's legend,
+the details pane's KEYS section, the help modal (`?`) and this table are
+rendered from it (`go run ./cmd/keys -w` rewrites this section; the test
+holds it to the code). A key pressed on a screen that does not take it
+says where it works.
+
+<!-- keys:begin -->
+| Key | Legend | What it does | Where |
+|---|---|---|---|
+| `n` | end day | end the day: the sims step, the run autosaves | everywhere |
+| `↑↓` | pick | move the cursor (j and k move it too) | everywhere |
+| `[ ]` | city | turn the market and the map to the other city | everywhere |
+| `b` | buy | buy from the supplier where you stand | everywhere |
+| `s` | sell | queue a street sale in the city shown | everywhere |
+| `x` | cancel order | cancel the order on the selected product | everywhere |
+| `l` | lie low | lie low today: no sales, heat fades faster | everywhere |
+| `p` | pay dial | the pay dial: stingy, fair, generous | everywhere |
+| `d` | launder dial | the launder dial: careful, normal, greedy | everywhere |
+| `g` | go to \<city\> | go to the other city; the stock stays put | everywhere |
+| `r` | report | reopen the morning report | everywhere |
+| `␣` | details | show and hide the details | everywhere |
+| `?` | help | this list | everywhere |
+| `enter` | end day | end the day, after a confirmation | everywhere |
+| `1-8` | switch screen | the screens in the title bar's order | everywhere |
+| `tab` | next screen | the next screen; shift+tab the one before | everywhere |
+| `ctrl+s` | save | save now; the end of the day saves too | everywhere |
+| `N` | new run | start over, after a confirmation | everywhere |
+| `q` | quit | save and quit | everywhere |
+| `←→` | city | turn the market to the other city | market |
+| `a` | accept | take the buyer's offer | market |
+| `x` | decline | turn the buyer's offer down | market |
+| `d` | deliver | hand the buyer what the stash here holds | market |
+| `↑↓` | scroll | scroll the journal | journal |
+| `pgup pgdn` | page | page through the journal | journal |
+| `h` | hire | hire the selected candidate | crew |
+| `f` | fire | fire the selected member, after asking | crew |
+| `t` | assign | give the selected lieutenant a city to run | crew |
+| `i` | investigate | ask who is talking to the police, for a price | crew |
+| `$` | pay off | buy the selected member's loyalty | crew |
+| `↑↓←→` | pick | walk the map's grid or the tree's columns | map, upgrades |
+| `c` | post runner | post a runner on the selected corner | map |
+| `e` | post enforcer | post an enforcer on the selected corner | map |
+| `a` | abandon | give the selected corner up | map |
+| `w` | send enforcers | send the enforcers at the selected corner | map |
+| `r` | route dial | the selected route: off, slow, normal, fast | map |
+| `R` | route target | what the selected route keeps the far end at | map |
+| `u` | buy upgrade | buy the node under the cursor (enter too) | upgrades |
+| `b` | buy front | buy a front through the picker | ledger |
+| `f` | fund city | give a city clean cash for goodwill | ledger |
+| `d` | propose | offer the rival a truce, tribute or a split | rivals |
+| `y` | accept | take the selected offer | rivals |
+| `x` | decline | turn the selected offer down | rivals |
+<!-- keys:end -->
 
 ## How it works
 
@@ -263,6 +291,7 @@ but the contracts.
 ```
 cmd/kingpin/        the game
 cmd/balance/        headless balance tool
+cmd/keys/           prints the key table above from the UI's bindings (-w writes it here)
 internal/events/    event types and bus
 internal/game/      world state, clock, player actions, save/load
 internal/sim/       simulations: market, logistics, territory, rivals, crew, heat, law, laundering, reputation, news

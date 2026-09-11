@@ -68,7 +68,7 @@ func (m *Model) cycleRoute() {
 	lg := m.set.Logistics
 	line := fmt.Sprintf("%s %s: %d day(s) %s to %s, seized ~%.0f%%.", r.Name, d, lg.Days(*r, d.Ship()), r.Mode, m.w.CityName(r.To), lg.Risk(*r, d.Ship())*100)
 	if len(m.w.Route(r.ID).Target) == 0 {
-		line += " Set a target (R) or it sends nothing."
+		line += " It sends nothing without a target."
 	}
 	m.status = line
 }
@@ -180,7 +180,7 @@ func (m *Model) confirmTarget() (tea.Model, tea.Cmd) {
 	case units == 0:
 		m.status = fmt.Sprintf("%s: no target for %s; the route leaves it alone.", r.Name, m.w.ProductName(id))
 	case !m.w.Route(r.ID).Dial.On():
-		m.status = fmt.Sprintf("%s keeps %s at %d %s once its dial is on (r).", r.Name, m.w.CityName(r.To), units, m.w.ProductName(id))
+		m.status = fmt.Sprintf("%s keeps %s at %d %s once its dial is on.", r.Name, m.w.CityName(r.To), units, m.w.ProductName(id))
 	default:
 		m.status = fmt.Sprintf("%s keeps %s at %d %s: it sends the shortfall every day.", r.Name, m.w.CityName(r.To), units, m.w.ProductName(id))
 	}
@@ -403,7 +403,7 @@ func (m *Model) confirmTravel() {
 	}
 	m.city = to
 	m.mapCursor = m.yourCorner()
-	m.status = fmt.Sprintf("You are in %s. Your stock stayed where it was; post yourself on a corner here (5, c).", m.w.CityName(to))
+	m.status = fmt.Sprintf("You are in %s. Your stock stayed where it was; post yourself on a corner %s.", m.w.CityName(to), screenPointer(screenMap))
 }
 
 func (m *Model) travelConfirm() string {
@@ -415,7 +415,7 @@ func (m *Model) travelConfirm() string {
 		body = append(body, theme.Subtle.Render("You stand on no corner here to leave."))
 	}
 	for _, l := range []string{
-		"Stock stays where it is; the routes move it (map, r).",
+		"Stock stays where it is; the routes " + screenPointer(screenMap) + " move it.",
 		"The supplier sells to you where you stand. Go for what",
 		"only you can do there: stand on a corner, hire, ask around.",
 	} {

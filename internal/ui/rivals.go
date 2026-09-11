@@ -49,7 +49,7 @@ func (m *Model) askStrike() {
 		return
 	}
 	if m.w.Crew.Role("enforcer") == 0 {
-		m.status = "No enforcers to send. Hire one on the crew screen (4)."
+		m.status = "No enforcers to send. Hire one " + screenPointer(screenCrew) + "."
 		return
 	}
 	m.strikeCursor = 1
@@ -136,7 +136,7 @@ func (m *Model) rivalLines() string {
 	table := theme.Subtle.Render(fmt.Sprintf("trust %.0f", r.Trust))
 	switch {
 	case len(w.Offers) > 0:
-		table += theme.Gold.Render(fmt.Sprintf(" · %d offer(s) (8)", len(w.Offers)))
+		table += theme.Gold.Render(fmt.Sprintf(" · %d offer(s) open", len(w.Offers)))
 	case len(r.Deals) > 0:
 		var ds []string
 		for _, d := range r.Deals {
@@ -165,12 +165,11 @@ var dealRules = []string{
 // rivalsDetails is the rivals screen's pane: the offer under the cursor
 // (or, with none on the table, the rival and where you stand with
 // them), the rules of the table, and the keys.
-func (m *Model) rivalsDetails() ([]section, []binding) {
+func (m *Model) rivalsDetails() []section {
 	w := m.w
 	r := w.Rival
-	keys := m.screenKeys()
 	if r.Arrived == 0 {
-		return []section{{"NO RIVAL", wrapped(theme.Subtle, "Nobody is contesting the city. Yet. When somebody does, this is where you talk to them.")}}, keys
+		return []section{{"NO RIVAL", wrapped(theme.Subtle, "Nobody is contesting the city. Yet. When somebody does, this is where you talk to them.")}}
 	}
 	var secs []section
 	if n := len(w.Offers); n > 0 {
@@ -221,5 +220,5 @@ func (m *Model) rivalsDetails() ([]section, []binding) {
 	for _, l := range dealRules {
 		rules = append(rules, wrapped(theme.Subtle, l)...)
 	}
-	return append(secs, section{"RULES", rules}), keys
+	return append(secs, section{"RULES", rules})
 }

@@ -73,8 +73,7 @@ func (m *Model) frame(main string, sections []section, keys []binding, accent li
 	body := block(main, m.mainWidth(), h)
 	switch {
 	case m.paneShown():
-		keys = append(append([]binding(nil), keys...), binding{"␣", "hide details"})
-		side := strings.Split(pane(sections, keys, paneWidth, h, accent), "\n")
+		side := strings.Split(m.pane(sections, keys, paneWidth, h, accent), "\n")
 		for i := range body {
 			if i < len(side) {
 				body[i] += side[i]

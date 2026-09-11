@@ -91,21 +91,30 @@ func sectionTitle(title string, accent lipgloss.Color) string {
 	return lipgloss.NewStyle().Bold(true).Foreground(accent).Render(truncate(title, paneTextW))
 }
 
-// keyLines is the KEYS section: the title, then the bindings two per
-// line as `key  label`.
-func keyLines(keys []binding, textW int, accent lipgloss.Color) []string {
+// keyCellW is a KEYS cell: `key  label` in the pane's half-width.
+const keyCellW = paneTextW / 2
+
+// keyLines is the KEYS section: the title, then the bindings as
+// `key  label` in cells of keyCellW, as many a line as textW holds (two
+// in the pane, four in the overlay), the labels as the legend draws
+// them; a pair too wide for one cell takes two rather than a cut.
+func (m *Model) keyLines(keys []binding, textW int, accent lipgloss.Color) []string {
 	ls := []string{sectionTitle("KEYS", accent)}
-	colW := textW / 2
-	cell := func(b binding) string {
-		k := fit(b.key, max(2, lipgloss.Width(b.key)))
-		return fit(cut(theme.Key.Render(k)+" "+theme.Subtle.Render(b.label), colW-1), colW)
-	}
-	for i := 0; i < len(keys); i += 2 {
-		l := cell(keys[i])
-		if i+1 < len(keys) {
-			l += cell(keys[i+1])
+	cols := max(1, textW/keyCellW)
+	var line string
+	used := 0
+	for _, b := range keys {
+		cell := theme.Key.Render(fit(b.key, max(2, lipgloss.Width(b.key)))) + " " + theme.Subtle.Render(m.labelOf(b))
+		need := min(cols, (lipgloss.Width(cell)+1+keyCellW-1)/keyCellW)
+		if used+need > cols {
+			ls = append(ls, strings.TrimRight(line, " "))
+			line, used = "", 0
 		}
-		ls = append(ls, strings.TrimRight(l, " "))
+		line += fit(cut(cell, need*keyCellW-1), need*keyCellW)
+		used += need
+	}
+	if line != "" {
+		ls = append(ls, strings.TrimRight(line, " "))
 	}
 	return ls
 }
@@ -165,10 +174,10 @@ func sectionLines(secs []section, textW, room int, accent lipgloss.Color) []stri
 // pane renders the bordered details pane, w by h cells: the sections
 // from the top, KEYS anchored at the bottom, whatever is between them
 // blank.
-func pane(sections []section, keys []binding, w, h int, accent lipgloss.Color) string {
+func (m *Model) pane(sections []section, keys []binding, w, h int, accent lipgloss.Color) string {
 	textW := w - 4
 	rows := h - 2
-	kl := keyLines(keys, textW, accent)
+	kl := m.keyLines(keys, textW, accent)
 	room := rows - len(kl) - 1 // a blank over KEYS
 	ls := sectionLines(sections, textW, room, accent)
 	for len(ls) < rows-len(kl) {
@@ -206,7 +215,7 @@ func strip(sections []section, w int, accent lipgloss.Color) string {
 // the one modal (#81), cut to its room the way the pane cuts them, so
 // KEYS is last and never out of sight.
 func (m *Model) overlay(sections []section, keys []binding, accent lipgloss.Color) string {
-	kl := keyLines(keys, paneTextW, accent)
+	kl := m.keyLines(keys, m.modalInner(), accent)
 	ls := sectionLines(sections, m.modalInner(), m.modalRoom()-len(kl)-1, accent)
 	ls = append(ls, "")
 	ls = append(ls, kl...)

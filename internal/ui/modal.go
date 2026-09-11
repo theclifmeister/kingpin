@@ -19,12 +19,6 @@ import (
 // wrapped (the card wraps its prose before it gets here). A body taller
 // than the room scrolls, and the footer says so.
 
-// binding is one key and what it does, the way k() draws it: what a
-// modal's footer, the status bar's legend and the details pane's KEYS
-// section are made of. #80's key table is the same shape; until it lands
-// each of them lists its own.
-type binding struct{ key, label string }
-
 // modalMax is the widest a modal gets. Under it the modal is the terminal
 // less a two-column margin each side.
 const modalMax = 76
@@ -112,77 +106,11 @@ func (m *Model) wrapLines(s string) []string {
 }
 
 // modalFooter is the footer of the modal open now, and what the status bar
-// shows while it is: nil when no modal is open. Confirmations are
-// y <verb> / esc back (any other key still declines); pickers and dialogs
-// enter <verb> / esc back (q still closes, silently); the end of the day
-// is the one that also takes enter and says so; the report, the card's
-// outcome and help close on enter or esc.
+// shows while it is: the key table's list for the mode (modeKeys), nil
+// when no modal is open.
 func (m *Model) modalFooter() []binding {
-	pick := binding{"↑↓", "pick"}
-	next := binding{"enter", "next"}
-	back := binding{"esc", "back"}
-	closes := []binding{{"enter esc", "close"}}
-	switch m.mode {
-	case modeStart:
-		return []binding{pick, {"enter", "select"}, {"c", "continue"}, {"n", "new run"}, {"q", "quit"}}
-	case modeReport, modeHelp:
-		return closes
-	case modeDetails:
-		return []binding{{"space esc", "close"}}
-	case modeOver:
-		return []binding{{"enter", "new run"}, {"q", "quit"}}
-	case modeBuy:
-		if m.dlg.step == 0 {
-			return []binding{pick, next, back}
-		}
-		return []binding{{"enter", "buy"}, back}
-	case modeSell:
-		switch m.dlg.step {
-		case 0:
-			return []binding{pick, next, back}
-		case 1:
-			return []binding{next, back}
-		}
-		return []binding{{"←→", "dial"}, {"1-3", "dial"}, {"enter", "sell"}, back}
-	case modeConfirmNew:
-		return []binding{{"y", "new run"}, back}
-	case modeConfirmFire:
-		return []binding{{"y", "fire"}, back}
-	case modeConfirmEnd:
-		return []binding{{"y enter", "end day"}, back}
-	case modeConfirmUpgrade:
-		return []binding{{"y", "buy"}, back}
-	case modeConfirmInvestigate:
-		return []binding{{"y", "ask"}, back}
-	case modeConfirmPayOff:
-		return []binding{{"y", "pay"}, back}
-	case modeConfirmTravel:
-		return []binding{{"y", "go"}, back}
-	case modeCard:
-		if m.cardDone {
-			return closes
-		}
-		return []binding{pick, {"1-3", "choose"}, {"enter", "decide"}}
-	case modePost:
-		return []binding{pick, {"enter", "post"}, back}
-	case modeStrike:
-		return []binding{pick, {"enter", "send"}, back}
-	case modeFront:
-		return []binding{pick, {"enter", "buy"}, back}
-	case modeTarget:
-		if m.tgt.step == 0 {
-			return []binding{pick, next, back}
-		}
-		return []binding{{"enter", "set"}, back}
-	case modePropose:
-		if m.proposeStep == 0 {
-			return []binding{pick, next, back}
-		}
-		return []binding{pick, {"enter", "propose"}, back}
-	case modeAssign:
-		return []binding{pick, {"enter", "assign"}, back}
-	case modeFund:
-		return []binding{{"←→", "city"}, {"enter", "give"}, back}
+	if m.mode == modePlay {
+		return nil
 	}
-	return nil
+	return m.modeKeys(m.mode)
 }
