@@ -59,7 +59,7 @@ const (
 	modeConfirmInvestigate
 	modeConfirmPayOff
 	modeCard          // a dilemma card, before the morning report
-	modeTarget        // the route target dialog: product -> units
+	modeTarget        // the route target dialog: product -> units or days -> the number
 	modeConfirmTravel // move to the other city?
 	modePropose       // pick a deal to put to the rival: kind, then terms
 	modeAssign        // pick the city a lieutenant runs

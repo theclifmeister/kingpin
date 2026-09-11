@@ -16,16 +16,20 @@ import (
 )
 
 // The route dial (#61). Every route has a dial, off / slow / normal /
-// fast, and a target stock for its far end per product; the logistics
-// sim runs it every day. The map lists the routes out of the city shown
-// under its grid, with a cursor the arrows reach past the bottom row: r
-// turns the selected route's dial, R opens the target dialog. The ledger
-// lists the same routes with their books.
+// fast, and a target stock for its far end per product, in units or in
+// days of the far end's demand (#115); the logistics sim runs it every
+// day. The map lists the routes out of the city shown under its grid,
+// with a cursor the arrows reach past the bottom row: r turns the
+// selected route's dial, R opens the target dialog. The ledger lists
+// the same routes with their books.
 
-// targetDialog is the state of the target modal: product, then units.
+// targetDialog is the state of the target modal: product, then whether
+// the target is units or days of the far end's demand (←→, #115), then
+// the number.
 type targetDialog struct {
 	route string // route id it sets
-	step  int    // 0 product, 1 units
+	step  int    // 0 product, 1 units or days, 2 the number
+	days  bool   // the number is days of the far end's demand, not units
 	units numberField
 	err   string
 }
@@ -73,7 +77,7 @@ func (m *Model) sayRouteDial(r content.RouteConfig, d events.RouteDial) {
 	}
 	lg := m.set.Logistics
 	line := fmt.Sprintf("%s %s: %s %s to %s, seized ~%.0f%%.", r.Name, d, plural(lg.Days(m.w, r, d.Ship()), "day"), r.Mode, m.w.CityName(r.To), lg.Risk(m.w, r, d.Ship())*100)
-	if len(m.w.Route(r.ID).Target) == 0 {
+	if !m.w.Route(r.ID).HasTargets() {
 		line += " It sends nothing without a target."
 	}
 	m.say(line)
@@ -110,24 +114,28 @@ func (m *Model) keyTarget(k tea.KeyMsg) (tea.Model, tea.Cmd) {
 		m.mode = modePlay
 		return m, nil
 	}
-	// Back is one key and close is one key (#110): esc closes from
-	// either step, shift+tab leaves the units for the product (kept under
-	// the cursor) and is silent on the first step, tab goes to the units
-	// (a product is always chosen) and is silent on the last. The units
-	// are a numberField (#112) whose max is targetMax.
+	// Back is one key and close is one key (#110): esc closes from any
+	// step, shift+tab goes back one (the product stays under the cursor
+	// and the kind stays turned; the number is cleared on leaving its
+	// step) and is silent on the first, tab goes forward (a product and
+	// a kind are always chosen) and is silent on the last. The number is
+	// a numberField (#112) whose max is targetMax.
 	switch key {
 	case "esc":
 		m.mode = modePlay
 		return m, nil
 	case "shift+tab":
-		if d.step == 1 {
-			d.step = 0
+		switch d.step {
+		case 2:
+			d.step = 1
 			d.units.SetValue("")
 			d.units.Blur()
+		case 1:
+			d.step = 0
 		}
 		return m, nil
 	case "tab":
-		if d.step == 1 {
+		if d.step == 2 {
 			return m, nil
 		}
 	case "q":
@@ -152,14 +160,27 @@ func (m *Model) keyTarget(k tea.KeyMsg) (tea.Model, tea.Cmd) {
 				m.cursor = i
 			}
 		case "enter", "right", "l", "tab":
+			// The kind opens on what the product has: days if it keeps
+			// days, else units.
 			d.step = 1
+			d.days = m.w.Route(r.ID).Days[m.w.Products[m.cursor]] > 0
+		}
+	case 1:
+		switch key {
+		case "left", "right", "h", "l":
+			d.days = !d.days
+		case "enter", "tab":
+			d.step = 2
 			d.units.SetValue("")
-			if t := m.w.Route(r.ID).Target[m.w.Products[m.cursor]]; t > 0 {
+			rs := m.w.Route(r.ID)
+			if t := rs.Days[m.w.Products[m.cursor]]; d.days && t > 0 {
+				d.units.Set(t)
+			} else if t := rs.Target[m.w.Products[m.cursor]]; !d.days && t > 0 {
 				d.units.Set(t)
 			}
 			return m, d.units.Focus()
 		}
-	case 1:
+	case 2:
 		if key == "enter" {
 			return m.confirmTarget()
 		}
@@ -171,36 +192,61 @@ func (m *Model) keyTarget(k tea.KeyMsg) (tea.Model, tea.Cmd) {
 
 // targetMax is what the target's shortcuts fill to: what the stash at
 // the route's far end can hold (World.Capacity there: the runners
-// posted there, and you and the idle runners when you stand there). A
+// posted there, and you and the idle runners when you stand there), or
+// for a days target the days of the far end's demand that holds. A
 // target is stock to keep, not a shipment, so the route's capacity is
 // not the line; and a typed target over it is set as it always was,
 // the wholesaler selling into the stash whatever its room.
-func (m *Model) targetMax(r *content.RouteConfig) int { return m.w.Capacity(r.To) }
+func (m *Model) targetMax(r *content.RouteConfig) int {
+	room := m.w.Capacity(r.To)
+	if !m.tgt.days {
+		return room
+	}
+	if demand := m.w.Demand(r.To, m.w.Products[m.cursor]); demand > 0 {
+		return int(float64(room) / demand)
+	}
+	return 0
+}
+
+// targetToday is the units a route's target means this morning, the
+// logistics sim's read of it (Sim.Target) so the dialog and the pane
+// show the number the road sends against.
+func (m *Model) targetToday(r content.RouteConfig, product string) int {
+	return m.set.Logistics.Target(m.w, r, product)
+}
 
 func (m *Model) confirmTarget() (tea.Model, tea.Cmd) {
 	r := m.targetRoute()
 	id := m.w.Products[m.cursor]
-	units := 0
+	n := 0
 	if s := strings.TrimSpace(m.tgt.units.Value()); s != "" {
-		n, err := strconv.Atoi(s)
-		if err != nil || n < 0 {
+		v, err := strconv.Atoi(s)
+		if err != nil || v < 0 {
 			m.tgt.err = "enter a whole number, or nothing for none"
 			return m, nil
 		}
-		units = n
+		n = v
 	}
-	if err := m.w.SetRouteTarget(r.ID, id, units); err != nil {
+	set, kept := m.w.SetRouteTarget, fmt.Sprintf("%d %s", n, m.w.ProductName(id))
+	if m.tgt.days {
+		set = m.w.SetRouteDays
+		kept = fmt.Sprintf("%s of %s's demand", plural(n, "day"), m.w.ProductName(id))
+	}
+	if err := set(r.ID, id, n); err != nil {
 		m.tgt.err = err.Error()
 		return m, nil
 	}
+	if m.tgt.days && n > 0 {
+		kept += fmt.Sprintf(" (≈%d today)", m.targetToday(*r, id))
+	}
 	m.mode = modePlay
 	switch {
-	case units == 0:
+	case n == 0:
 		m.say(fmt.Sprintf("%s: no target for %s; the route leaves it alone.", r.Name, m.w.ProductName(id)))
 	case !m.w.Route(r.ID).Dial.On():
-		m.say(fmt.Sprintf("%s keeps %s at %d %s once its dial is on.", r.Name, m.w.CityName(r.To), units, m.w.ProductName(id)))
+		m.say(fmt.Sprintf("%s keeps %s at %s once its dial is on.", r.Name, m.w.CityName(r.To), kept))
 	default:
-		m.say(fmt.Sprintf("%s keeps %s at %d %s: it sends the shortfall every day.", r.Name, m.w.CityName(r.To), units, m.w.ProductName(id)))
+		m.say(fmt.Sprintf("%s keeps %s at %s: it sends the shortfall every day.", r.Name, m.w.CityName(r.To), kept))
 	}
 	return m, nil
 }
@@ -221,21 +267,49 @@ func (m *Model) viewTarget() string {
 	var rows [][]any
 	for _, pid := range w.Products {
 		var target any
-		if t := rs.Target[pid]; t > 0 {
-			target = t
+		switch {
+		case rs.Days[pid] > 0:
+			target = fmt.Sprintf("%dd (≈%d)", rs.Days[pid], m.targetToday(*r, pid))
+		case rs.Target[pid] > 0:
+			target = strconv.Itoa(rs.Target[pid])
 		}
 		rows = append(rows, []any{w.ProductName(pid), target, w.Stock(r.To, pid), w.Bound(r.To, pid), approx{w.Demand(r.To, pid)}})
 	}
 	m.modalFollow(len(body) + 1 + m.cursor) // under the header
-	body = append(body, table([]col{{"product", kText, 0}, {"target", kInt, 0}, {"there", kInt, 0}, {"road", kInt, 0}, {"sells/day", kInt, 0}}, rows, m.cursor, m.modalInner())...)
-	if d.step == 0 {
+	body = append(body, table([]col{{"product", kText, 0}, {"target", kText, 0}, {"there", kInt, 0}, {"road", kInt, 0}, {"sells/day", kInt, 0}}, rows, m.cursor, m.modalInner())...)
+	id := w.Products[m.cursor]
+	on := 0
+	if d.days {
+		on = 1
+	}
+	switch d.step {
+	case 0:
 		body = append(body, "", theme.Subtle.Render("Pick a product."))
-	} else {
-		id := w.Products[m.cursor]
+	case 1:
+		// The kind: a count of units, or days of what the corners at
+		// the far end sell, which the road sizes again every morning.
+		body = append(body, "", "Kept as   "+dialCells([]string{"units", "days"}, on))
+		if d.days {
+			body = append(body, theme.Subtle.Render(fmt.Sprintf("          days of %s's demand in %s, ~%.0f/day today: the", w.ProductName(id), w.CityName(r.To), w.Demand(r.To, id))),
+				theme.Subtle.Render("          target follows the corners you hold there."))
+		} else {
+			body = append(body, theme.Subtle.Render(fmt.Sprintf("          units of %s kept in %s, whatever sells there.", w.ProductName(id), w.CityName(r.To))))
+		}
+	default:
 		d.units.max = m.targetMax(r)
-		body = append(body, "", fmt.Sprintf("Target    %s   %s", d.units.View(), theme.Subtle.Render(fmt.Sprintf("units of %s kept in %s", w.ProductName(id), w.CityName(r.To)))))
+		what := fmt.Sprintf("units of %s kept in %s", w.ProductName(id), w.CityName(r.To))
+		if d.days {
+			what = fmt.Sprintf("days of %s's demand in %s", w.ProductName(id), w.CityName(r.To))
+		}
+		body = append(body, "", fmt.Sprintf("Target    %s   %s", d.units.View(), theme.Subtle.Render(what)))
 		if s := strings.TrimSpace(d.units.Value()); s != "" {
 			if n, err := strconv.Atoi(s); err == nil && n > 0 {
+				if d.days {
+					// What the days mean this morning: the number the
+					// road sends against, and where it comes from.
+					n = m.set.Logistics.DaysTarget(w, *r, id, n)
+					body = append(body, theme.Subtle.Render(fmt.Sprintf("Today     %sd ≈ %s: ~%.0f/day on your corners in %s", s, plural(n, "unit"), w.Demand(r.To, id), w.CityName(r.To))))
+				}
 				if src := w.Product(r.From, id); src != nil {
 					o := m.set.Logistics.Wholesale(w)
 					unit := src.SupplierPrice
@@ -279,13 +353,19 @@ func (m *Model) roadOn(route string) string {
 	return strings.Join(parts, ", ")
 }
 
-// targetLine is a route's targets in one line, or "" when it has none.
+// targetLine is a route's targets in one line, `3d (≈180) Weed · 400
+// Coke`, a days target with the units it means today, or "" when it
+// has none.
 func (m *Model) targetLine(route string) string {
+	r := m.set.Logistics.Route(route)
 	rs := m.w.Route(route)
 	var parts []string
 	for _, id := range m.w.Products {
-		if t := rs.Target[id]; t > 0 {
-			parts = append(parts, fmt.Sprintf("%s %d", m.w.ProductName(id), t))
+		switch {
+		case rs.Days[id] > 0 && r != nil:
+			parts = append(parts, fmt.Sprintf("%dd (≈%d) %s", rs.Days[id], m.targetToday(*r, id), m.w.ProductName(id)))
+		case rs.Target[id] > 0:
+			parts = append(parts, fmt.Sprintf("%d %s", rs.Target[id], m.w.ProductName(id)))
 		}
 	}
 	return strings.Join(parts, " · ")
@@ -392,7 +472,7 @@ func (m *Model) routeSection(r content.RouteConfig) section {
 		lines = append(lines, row("target", theme.Subtle.Render("none")))
 	default:
 		label := "target"
-		for _, l := range wrap(w.CityName(r.To)+" keeps "+t, paneTextW-paneLabelW-1) {
+		for _, l := range wrap(t, paneTextW-paneLabelW-1) {
 			lines = append(lines, row(label, l))
 			label = ""
 		}

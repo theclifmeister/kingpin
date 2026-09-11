@@ -45,6 +45,37 @@ func TestRouteSettings(t *testing.T) {
 	if err := w.SetRouteTarget("road", "a", 0); err != nil || w.Route("road").Target != nil {
 		t.Fatalf("clearing the target: %v %+v", err, w.Route("road"))
 	}
+	// A days target (#115) is the other kind: a product keeps units or
+	// days, never both, setting one clears the other, and a cleared
+	// setting is the zero value again.
+	if err := w.SetRouteDays("road", "b", 3); err != ErrUnknownProduct {
+		t.Fatalf("days for nothing: %v", err)
+	}
+	if err := w.SetRouteDays("road", "a", -1); err != ErrBadQuantity {
+		t.Fatalf("negative days: %v", err)
+	}
+	if err := w.SetRouteTarget("road", "a", 120); err != nil {
+		t.Fatal(err)
+	}
+	if err := w.SetRouteDays("road", "a", 3); err != nil {
+		t.Fatal(err)
+	}
+	if rs := w.Route("road"); rs.Days["a"] != 3 || rs.Target != nil || !rs.HasTargets() {
+		t.Fatalf("days over units: %+v", rs)
+	}
+	if err := w.SetRouteTarget("road", "a", 50); err != nil {
+		t.Fatal(err)
+	}
+	if rs := w.Route("road"); rs.Target["a"] != 50 || rs.Days != nil {
+		t.Fatalf("units over days: %+v", rs)
+	}
+	_ = w.SetRouteDays("road", "a", 2)
+	if err := w.SetRouteDays("road", "a", 0); err != nil || w.Route("road").HasTargets() || w.Route("road").Days != nil {
+		t.Fatalf("clearing the days: %v %+v", err, w.Route("road"))
+	}
+	if rs := w.Route("road"); !reflect.DeepEqual(rs, RouteSetting{}) {
+		t.Fatalf("a cleared route is not the zero value: %+v", rs)
+	}
 	if d := events.RouteDial(0); d.String() != "off" || events.RouteFast.String() != "fast" || events.RouteNormal.Ship() != events.ShipNormal || events.RouteFast.Ship() != events.ShipFast || events.RouteOff.Ship() != events.ShipNormal {
 		t.Fatal("the dial's names or ship positions")
 	}
@@ -196,6 +227,9 @@ func TestSaveKeepsLogistics(t *testing.T) {
 	if err := w.SetRouteTarget("road", "a", 250); err != nil {
 		t.Fatal(err)
 	}
+	if err := w.SetRouteDays("sea", "a", 3); err != nil { // a days target (#115) on another route
+		t.Fatal(err)
+	}
 	if err := Save(1, w); err != nil {
 		t.Fatal(err)
 	}
@@ -206,8 +240,8 @@ func TestSaveKeepsLogistics(t *testing.T) {
 	if !reflect.DeepEqual(got.Player, w.Player) || !reflect.DeepEqual(got.Shipments, w.Shipments) || !reflect.DeepEqual(got.Logistics, w.Logistics) || got.Stats != w.Stats {
 		t.Fatalf("logistics did not round-trip:\n%+v %+v %+v\n%+v %+v %+v", got.Player, got.Shipments, got.Logistics, w.Player, w.Shipments, w.Logistics)
 	}
-	if !reflect.DeepEqual(got.Routes, w.Routes) || got.Route("road").Dial != events.RouteFast || got.Route("road").Target["a"] != 250 {
-		t.Fatalf("the route dial did not round-trip: %+v, saved %+v", got.Routes, w.Routes)
+	if !reflect.DeepEqual(got.Routes, w.Routes) || got.Route("road").Dial != events.RouteFast || got.Route("road").Target["a"] != 250 || got.Route("sea").Days["a"] != 3 || got.Route("sea").Target != nil {
+		t.Fatalf("the route settings did not round-trip: %+v, saved %+v", got.Routes, w.Routes)
 	}
 	if wholesale, fares := got.Logistics.RouteSpend("road", 5, 7); wholesale != 300 || fares != 40 {
 		t.Fatalf("the route's week: %d %d", wholesale, fares)

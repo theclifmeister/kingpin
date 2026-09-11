@@ -62,6 +62,7 @@ func TestNumberField(t *testing.T) {
 			m.onRoutes = true
 			m.Update(key("R"))
 			m.Update(key("enter"))
+			m.Update(key("enter")) // units
 		}, func(m *Model) *numberField { return &m.tgt.units }, func(m *Model) int { return m.w.Capacity(m.targetRoute().To) },
 			func(m *Model) string { return m.tgt.err }, false, false},
 		{"fund", func(m *Model) {

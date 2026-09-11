@@ -423,6 +423,101 @@ func TestDistributorIsDeterministicAndSaves(t *testing.T) {
 	}
 }
 
+// A days target (#115) follows the ground: the route keeps the far end
+// at days times what the corners worked there serve, read again each
+// morning by the logistics sim, so holding more corners there raises
+// what the route sends with no change to the setting, and the setting,
+// the days and the units it means, survives a save.
+func TestRouteDaysTargetFollowsDemand(t *testing.T) {
+	t.Setenv("KINGPIN_HOME", t.TempDir())
+	cfg := content.MustLoad()
+	home, hub, route := twoCities(t, cfg)
+	product := cfg.Market.Products[0].ID
+	lg := newLogistics(cfg)
+	safe := *cfg
+	safe.Routes.Routes = append([]content.RouteConfig(nil), cfg.Routes.Routes...)
+	for i := range safe.Routes.Routes {
+		safe.Routes.Routes[i].Risk = 0
+	}
+	const days = 3
+	// held is the quiet player holding that many corners at home with
+	// runners who sell nothing (no order is placed), the route on at
+	// normal with a days target, and the hub stashed so nothing is
+	// bought by the lot: only the target moves.
+	held := func(corners int) (*game.World, int) {
+		w := quiet(&safe, 5)
+		w.Stash(hub)[product] = 100_000
+		w.Player.DirtyCash = cfg.Heat.Heat.DirtyCashThreshold
+		for i, c := range w.Home().Corners[:corners] {
+			id := 900 + i
+			w.Crew.Members = append(w.Crew.Members, game.CrewMember{ID: id, Name: fmt.Sprintf("R%d", i), Role: "runner", Skill: 60, Units: 100, Loyalty: 90, Nerve: 60, Wage: 50})
+			if err := w.Post(c.ID, id); err != nil {
+				t.Fatal(err)
+			}
+		}
+		_ = w.SetRouteDays(route.ID, product, days)
+		_ = w.SetRoute(route.ID, events.RouteNormal)
+		return w, lg.Target(w, route, product)
+	}
+	// sent runs the world a week and is what the route sent: the
+	// setting never moves, and every morning after the first the far
+	// end plus the road is at the target the road read that night (the
+	// street's demand drifts with its price, so the units a days target
+	// means drift too, and the boat carries a day's shortfall whole).
+	sent := func(w *game.World) int {
+		res, err := RunFrom(&safe, w, 8, func(w *game.World) {
+			w.Player.CleanCash = 0
+			if rs := w.Route(route.ID); rs.Days[product] != days || rs.Target != nil {
+				t.Fatalf("day %d: the setting moved: %+v", w.Day, rs)
+			}
+			if w.Day > 0 && lg.Shortfall(w, route, product) != 0 {
+				t.Fatalf("day %d: %d short of %d (%d there, %d on the road)", w.Day, lg.Shortfall(w, route, product), lg.Target(w, route, product), w.Stock(home, product), w.Bound(home, product))
+			}
+		})
+		if err != nil {
+			t.Fatal(err)
+		}
+		n := 0
+		for _, e := range res.Events {
+			if ev, ok := e.(events.ShipmentSent); ok {
+				n += ev.Units
+			}
+		}
+		return n
+	}
+	one, oneTarget := held(1)
+	if oneTarget <= 0 {
+		t.Fatalf("a corner worked and a target of %d", oneTarget)
+	}
+	three, threeTarget := held(3)
+	if threeTarget <= oneTarget {
+		t.Fatalf("three corners mean %d, one %d", threeTarget, oneTarget)
+	}
+	a, b := sent(one), sent(three)
+	if b <= a || a < oneTarget || b < threeTarget {
+		t.Fatalf("the route sent %d holding one corner and %d holding three (day-0 targets %d and %d)", a, b, oneTarget, threeTarget)
+	}
+	if three.Stock(home, product) <= one.Stock(home, product) {
+		t.Fatalf("home holds %d with three corners and %d with one", three.Stock(home, product), one.Stock(home, product))
+	}
+	threeTarget = lg.Target(three, route, product)
+	// The days survive a save, and the loaded world reads them the same.
+	if err := game.Save(1, three); err != nil {
+		t.Fatal(err)
+	}
+	set, _, err := sim.Default(cfg)
+	if err != nil {
+		t.Fatal(err)
+	}
+	loaded, err := game.Load(1, set.Migrations()...)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if fmt.Sprint(loaded.Routes) != fmt.Sprint(three.Routes) || loaded.Route(route.ID).Days[product] != days || lg.Target(loaded, route, product) != threeTarget {
+		t.Fatalf("loaded %v (target %d), saved %v (target %d)", loaded.Routes, lg.Target(loaded, route, product), three.Routes, threeTarget)
+	}
+}
+
 // The dial runs the route (#61): with it on and a target set, the far
 // city's stash is brought to the target within the route's capacity a
 // day and kept there, buying by the lot at the source; nothing moves
