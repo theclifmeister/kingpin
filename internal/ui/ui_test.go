@@ -1432,6 +1432,11 @@ func TestRouteAndTravelKeys(t *testing.T) {
 	// ends and the report says so, with the fare in the money.
 	w.Stash(route.From)[product] = 50
 	m.cfg.Routes.Routes[1].Risk = 0 // the sim shares the slice it was built with
+	// The seed is wall-clock and the corner you stand on rolls for a
+	// stick-up every day: one on the day the shipment lands would take
+	// half of it out of the home stash (and Stats.Robbed counts cash only),
+	// so the corner carries no risk while this test counts the road.
+	w.PostOf(game.You).Risk = 0
 	cash := w.Player.DirtyCash
 	days := m.set.Logistics.Days(route, events.ShipSlow)
 	endDay(t, m)
