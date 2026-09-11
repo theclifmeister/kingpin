@@ -320,7 +320,21 @@ func (m *Model) viewLedger() string {
 		for _, r := range routes {
 			rows = append(rows, m.routeRow(r))
 		}
-		tableLines(ledgerRoute, routeCols, rows)
+		cols := append([]col(nil), routeCols...)
+		// Where MAIN is too narrow for the targets to read whole (64
+		// columns beside the pane at 100, with a route keeping two
+		// products), the columns the pane carries go first: what the
+		// route has lost, then its mode.
+		for _, drop := range []int{7, 1} {
+			if tableWidth(cols, rows) <= width {
+				break
+			}
+			cols = append(cols[:drop:drop], cols[drop+1:]...)
+			for i := range rows {
+				rows[i] = append(rows[i][:drop:drop], rows[i][drop+1:]...)
+			}
+		}
+		tableLines(ledgerRoute, cols, rows)
 	}
 
 	offers := m.frontRows()

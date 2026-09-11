@@ -264,6 +264,8 @@ func richFixture(t *testing.T, sz [2]int, check func(m *Model, view, what string
 	m.Update(key("R"))
 	see(m, "target product")
 	m.Update(key("enter"))
+	see(m, "target kind")
+	m.Update(key("enter"))
 	for _, r := range "120" {
 		m.Update(key(string(r)))
 	}
@@ -271,6 +273,19 @@ func richFixture(t *testing.T, sz [2]int, check func(m *Model, view, what string
 	m.Update(key("enter"))
 	if m.mode != modePlay || !m.w.Route(route.ID).Dial.On() || m.w.Route(route.ID).Target[m.w.Products[0]] != 120 {
 		t.Fatalf("%dx%d: the target dialog left mode %v with %+v: %q %q", sz[0], sz[1], m.mode, m.w.Route(route.ID), m.status, m.tgt.err)
+	}
+	// A days target on the second product (#115): the dialog on days
+	// and every line that reads `3d (≈N)`.
+	m.Update(key("R"))
+	m.Update(key("down"))
+	m.Update(key("enter"))
+	m.Update(key("right"))
+	m.Update(key("enter"))
+	m.Update(key("3"))
+	see(m, "target days")
+	m.Update(key("enter"))
+	if m.mode != modePlay || m.w.Route(route.ID).Days[m.w.Products[1]] != 3 {
+		t.Fatalf("%dx%d: the days target left mode %v with %+v: %q %q", sz[0], sz[1], m.mode, m.w.Route(route.ID), m.status, m.tgt.err)
 	}
 	endDay(t, m)
 	see(m, "report with the route")
@@ -795,14 +810,15 @@ func TestEnterDoesNotEndDay(t *testing.T) {
 	if m.w.Day != day+3 {
 		t.Fatalf("n did not advance the day: %d -> %d", day+2, m.w.Day)
 	}
-	// The target dialog: enter picks the product, enter sets the target,
-	// and neither is a day.
+	// The target dialog: enter picks the product, enter the kind, enter
+	// sets the target, and none is a day.
 	m.Update(key("enter"))
 	m.Update(key("5"))
 	m.Update(key("R"))
 	if m.mode != modeTarget {
 		t.Fatalf("R on the map: mode %v status %q", m.mode, m.status)
 	}
+	m.Update(key("enter"))
 	m.Update(key("enter"))
 	m.Update(key("7"))
 	m.Update(key("enter"))
@@ -1634,19 +1650,29 @@ func TestRouteAndTravelKeys(t *testing.T) {
 	if !strings.Contains(m.status, "target") {
 		t.Fatalf("a dial with no target does not say so: %q", m.status)
 	}
-	// R sets the target: product, then units; shift+tab backs out of the
-	// units (#110).
+	// R sets the target: product, then units or days, then the number;
+	// shift+tab backs out of each step (#110).
 	m.Update(key("R"))
 	if m.mode != modeTarget || m.tgt.step != 0 {
 		t.Fatalf("R: mode %v step %d status %q", m.mode, m.tgt.step, m.status)
 	}
 	assertFits(t, m.View(), 80, 24, "target: product")
 	m.Update(key("enter"))
-	if m.tgt.step != 1 {
-		t.Fatalf("after the product: step %d err %q", m.tgt.step, m.tgt.err)
+	if m.tgt.step != 1 || m.tgt.days {
+		t.Fatalf("after the product: step %d days %v err %q", m.tgt.step, m.tgt.days, m.tgt.err)
 	}
+	assertFits(t, m.View(), 80, 24, "target: kind")
 	m.Update(key("shift+tab"))
 	if m.mode != modeTarget || m.tgt.step != 0 {
+		t.Fatalf("shift+tab on the kind: mode %v step %d", m.mode, m.tgt.step)
+	}
+	m.Update(key("enter"))
+	m.Update(key("enter"))
+	if m.tgt.step != 2 || m.tgt.days {
+		t.Fatalf("after the kind: step %d days %v err %q", m.tgt.step, m.tgt.days, m.tgt.err)
+	}
+	m.Update(key("shift+tab"))
+	if m.mode != modeTarget || m.tgt.step != 1 {
 		t.Fatalf("shift+tab on the units: mode %v step %d", m.mode, m.tgt.step)
 	}
 	m.Update(key("enter"))
@@ -1657,6 +1683,52 @@ func TestRouteAndTravelKeys(t *testing.T) {
 	m.Update(key("enter"))
 	if m.mode != modePlay || w.Route(route.ID).Target[product] != 30 || !strings.Contains(m.status, "30") {
 		t.Fatalf("after the target: mode %v route %+v err %q status %q", m.mode, w.Route(route.ID), m.tgt.err, m.status)
+	}
+	// A days target (#115): ←→ on the kind step turn it to days, the
+	// number is days of the far end's demand, the dialog says what that
+	// is today, and setting it clears the units. The kind opens on what
+	// the product keeps: days now.
+	m.Update(key("R"))
+	m.Update(key("enter"))
+	m.Update(key("right"))
+	if m.tgt.step != 1 || !m.tgt.days {
+		t.Fatalf("right on the kind: step %d days %v", m.tgt.step, m.tgt.days)
+	}
+	m.Update(key("enter"))
+	m.Update(key("3"))
+	today := m.set.Logistics.DaysTarget(w, route, product, 3)
+	if view := stripANSI(m.View()); !strings.Contains(view, "3d ≈ "+plural(today, "unit")) {
+		t.Fatalf("the days step does not say what 3 days mean today (%d):\n%s", today, view)
+	}
+	assertFits(t, m.View(), 80, 24, "target: days")
+	m.Update(key("enter"))
+	if rs := w.Route(route.ID); m.mode != modePlay || rs.Days[product] != 3 || rs.Target != nil || !strings.Contains(m.status, "3 days") {
+		t.Fatalf("after the days target: mode %v route %+v err %q status %q", m.mode, rs, m.tgt.err, m.status)
+	}
+	m.Update(key("R"))
+	m.Update(key("enter"))
+	if m.tgt.step != 1 || !m.tgt.days {
+		t.Fatalf("the kind does not open on days for a product kept in days: step %d days %v", m.tgt.step, m.tgt.days)
+	}
+	m.Update(key("enter"))
+	if m.tgt.units.Value() != "3" {
+		t.Fatalf("the number is not the days kept: %q", m.tgt.units.Value())
+	}
+	m.Update(key("esc"))
+	if line := m.targetLine(route.ID); !strings.Contains(line, fmt.Sprintf("3d (≈%d) %s", today, w.ProductName(product))) {
+		t.Fatalf("the target line reads %q", line)
+	}
+	// And back to units, which clears the days.
+	m.Update(key("R"))
+	m.Update(key("enter"))
+	m.Update(key("left"))
+	m.Update(key("enter"))
+	for _, r := range "30" {
+		m.Update(key(string(r)))
+	}
+	m.Update(key("enter"))
+	if rs := w.Route(route.ID); m.mode != modePlay || rs.Target[product] != 30 || rs.Days != nil {
+		t.Fatalf("after the units target again: mode %v route %+v err %q", m.mode, rs, m.tgt.err)
 	}
 	if !strings.Contains(stripANSI(m.View()), "30") || !strings.Contains(stripANSI(m.View()), "slow") {
 		t.Fatalf("the map does not show the dial and target:\n%s", stripANSI(m.View()))
@@ -2242,12 +2314,31 @@ func TestModalsFit(t *testing.T) {
 			m.onRoutes = true
 			m.Update(key("R"))
 		}},
+		{"target kind", modeTarget, func(t *testing.T, m *Model) {
+			m.Update(key("5"))
+			m.Update(key("]"))
+			m.onRoutes = true
+			m.Update(key("R"))
+			m.Update(key("enter"))
+			m.Update(key("right")) // days
+		}},
 		{"target units", modeTarget, func(t *testing.T, m *Model) {
 			m.Update(key("5"))
 			m.Update(key("]"))
 			m.onRoutes = true
 			m.Update(key("R"))
 			m.Update(key("enter"))
+			m.Update(key("enter"))
+		}},
+		{"target days", modeTarget, func(t *testing.T, m *Model) {
+			m.Update(key("5"))
+			m.Update(key("]"))
+			m.onRoutes = true
+			m.Update(key("R"))
+			m.Update(key("enter"))
+			m.Update(key("right"))
+			m.Update(key("enter"))
+			m.Update(key("3"))
 		}},
 		{"confirm travel", modeConfirmTravel, func(t *testing.T, m *Model) { m.Update(key("g")) }},
 		{"propose kinds", modePropose, func(t *testing.T, m *Model) { m.Update(key("8")); m.Update(key("d")) }},

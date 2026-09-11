@@ -104,14 +104,17 @@ func step(n int) func(*Model) bool { return func(m *Model) bool { return m.modal
 func pastFirstStep(m *Model) bool { return m.modalStep() > 0 }
 
 // numberStep is the open modal being on a number field (#112): the buy,
-// sell, target and cart dialogs' quantity page, and the fund dialog's
-// amount. The field's shortcuts are listed there and nowhere else.
+// sell and cart dialogs' quantity page, the target dialog's number (its
+// third page, after units or days, #115) and the fund dialog's amount.
+// The field's shortcuts are listed there and nowhere else.
 func numberStep(m *Model) bool {
 	switch m.mode {
 	case modeFund:
 		return true
-	case modeBuy, modeSell, modeTarget, modeCart:
+	case modeBuy, modeSell, modeCart:
 		return m.modalStep() == 1
+	case modeTarget:
+		return m.modalStep() == 2
 	}
 	return false
 }
@@ -267,6 +270,7 @@ var modeBindings = []binding{
 	{key: "←→", label: "dial", modes: in(modeSell), when: step(2)},
 	{key: "←→", label: "dial", modes: in(modeCart), when: cartOnSell},
 	{key: "←→", label: "city", modes: in(modeFund)},
+	{key: "←→", label: "units/days", modes: in(modeTarget), when: step(1)},
 	{key: "1-3", label: "dial", modes: in(modeSell), when: step(2)},
 	{key: "1-3", label: "dial", modes: in(modeCart), when: cartOnSell},
 	{key: "1-3", label: "choose", modes: in(modeCard), when: step(0)},
@@ -275,12 +279,12 @@ var modeBindings = []binding{
 	{key: "↑↓", label: "±1", modes: in(modeBuy, modeSell, modeTarget, modeCart, modeFund), when: numberStep},
 	{key: "pgup pgdn", label: "±10", modes: in(modeBuy, modeSell, modeTarget, modeCart, modeFund), when: numberStep},
 	{key: "enter", label: "next", modes: in(modeBuy, modeSell, modeTarget, modePropose), when: step(0)},
-	{key: "enter", label: "next", modes: in(modeSell), when: step(1)},
+	{key: "enter", label: "next", modes: in(modeSell, modeTarget), when: step(1)},
 	{key: "enter", label: "select", modes: in(modeStart)},
 	{key: "enter", label: "buy", modes: in(modeBuy), when: step(1)},
 	{key: "enter", label: "buy", modes: in(modeFront)},
 	{key: "enter", label: "sell", modes: in(modeSell), when: step(2)},
-	{key: "enter", label: "set", modes: in(modeTarget), when: step(1)},
+	{key: "enter", label: "set", modes: in(modeTarget), when: step(2)},
 	{key: "enter", label: "quantity", modes: in(modeCart), when: cartHasLines},
 	{key: "x", label: "remove", modes: in(modeCart), when: cartHasLines},
 	{key: "enter", label: "set", modes: in(modeCart), when: step(1)},
@@ -500,6 +504,7 @@ func helpRow(key, label, help string) string {
 var words = [][2]string{
 	{"dial", "quiet, normal or aggressive: a sale's volume against its heat"},
 	{"float", "the dirty cash the wash and the road leave for the street"},
+	{"target", "what a route keeps the far end at: units or days of demand"},
 	{"file", "the DA's evidence: stings and raids add pages, enough indicts"},
 	{"drift", "a held corner nobody works goes back to the street in days"},
 	{"pane", "the details beside MAIN from 100 columns, always open"},

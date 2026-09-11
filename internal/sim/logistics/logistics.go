@@ -141,11 +141,37 @@ func fareFor(fx game.Effects, r content.RouteConfig, units int) int {
 	return int(math.Ceil(fare(fx, r) * float64(units)))
 }
 
+// Target is the units a route keeps its destination at for a product
+// today: the units target as set, or a days target (#115) read as days
+// times World.Demand at the far end this morning, the number the market
+// screen shows as demand/day, rounded up; no dice. Zero for a route with
+// no target for the product, and for a days target where nothing sells.
+func (s *Sim) Target(w *game.World, r content.RouteConfig, product string) int {
+	rs := w.Route(r.ID)
+	if d := rs.Days[product]; d > 0 {
+		return s.DaysTarget(w, r, product, d)
+	}
+	return max(0, rs.Target[product])
+}
+
+// DaysTarget is the units that many days of the far end's demand for a
+// product are this morning, rounded up: what a days target of that many
+// days would keep there today. The target dialog previews a number
+// with it before it is set.
+func (s *Sim) DaysTarget(w *game.World, r content.RouteConfig, product string, days int) int {
+	if days <= 0 {
+		return 0
+	}
+	// A hair under the product, so a share that multiplies to a whole
+	// number is that number and not the one over it.
+	return int(math.Ceil(float64(days)*w.Demand(r.To, product) - 1e-9))
+}
+
 // Shortfall is how many units of a product a route owes its destination
 // today: the target less what is stashed there and what is already on
 // the road to it. Zero for a route with no target for the product.
 func (s *Sim) Shortfall(w *game.World, r content.RouteConfig, product string) int {
-	target := w.Route(r.ID).Target[product]
+	target := s.Target(w, r, product)
 	if target <= 0 {
 		return 0
 	}

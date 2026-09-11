@@ -473,3 +473,74 @@ func TestRunReadsTheTree(t *testing.T) {
 		t.Fatalf("three dollars over the float: %+v, cash %d (float %d)", w.Shipments, w.Player.DirtyCash, s.Float())
 	}
 }
+
+// A days target (#115) is read each morning as days times what the
+// corners at the far end serve (World.Demand there), rounded up, with no
+// dice: nothing while nobody works a corner there, more as corners are
+// worked, and the road sends the shortfall against it the way it does
+// against units. The units read (Sim.Target) is what the dialog and the
+// pane show and what run sends against.
+func TestDaysTargetIsDemand(t *testing.T) {
+	cfg := content.MustLoad()
+	w, s, r := world(t, cfg, 0)
+	product := w.Products[0]
+	// Nobody on any corner at the far end: a days target is nothing.
+	for _, c := range w.Corners() {
+		if c.Held() {
+			_ = w.Abandon(c.ID)
+		}
+	}
+	_ = w.SetRouteDays(r.ID, product, 3)
+	_ = w.SetRoute(r.ID, events.RouteNormal)
+	if got := s.Target(w, r, product); got != 0 || s.Shortfall(w, r, product) != 0 {
+		t.Fatalf("3 days of nothing: target %d shortfall %d", got, s.Shortfall(w, r, product))
+	}
+	if step(w, s); len(w.Shipments) != 0 {
+		t.Fatalf("the road sent %+v against a days target with no demand", w.Shipments)
+	}
+	// One corner worked at the far end, then two: the target follows.
+	w.Player.Location = r.To
+	corners := w.Cities[r.To].Corners
+	if err := w.Post(corners[0].ID, game.You); err != nil {
+		t.Fatal(err)
+	}
+	one := s.Target(w, r, product)
+	if want := int(math.Ceil(3*w.Demand(r.To, product) - 1e-9)); one != want || one <= 0 {
+		t.Fatalf("one corner: target %d, want %d (3 x %.2f)", one, want, w.Demand(r.To, product))
+	}
+	if got := s.DaysTarget(w, r, product, 3); got != one {
+		t.Fatalf("DaysTarget %d, Target %d", got, one)
+	}
+	if got := s.Shortfall(w, r, product); got != one-w.Stock(r.To, product) {
+		t.Fatalf("shortfall %d, target %d over %d there", got, one, w.Stock(r.To, product))
+	}
+	w.Crew.Members = append(w.Crew.Members, game.CrewMember{ID: 900, Name: "Runner", Role: "runner", Skill: 60, Units: 100, Loyalty: 80, Nerve: 50, Wage: 50})
+	if err := w.Post(corners[1].ID, 900); err != nil {
+		t.Fatal(err)
+	}
+	two := s.Target(w, r, product)
+	if two <= one {
+		t.Fatalf("two corners: target %d, one corner %d", two, one)
+	}
+	// The setting is untouched: the sim sized the units.
+	if rs := w.Route(r.ID); rs.Days[product] != 3 || rs.Target != nil {
+		t.Fatalf("the setting moved: %+v", rs)
+	}
+	// The road sends the shortfall against today's read, up to the
+	// route's capacity, out of the source stash.
+	w.Player.DirtyCash = s.Float() + 1_000_000
+	short := s.Shortfall(w, r, product)
+	evs := step(w, s)
+	sent := 0
+	for _, sh := range w.Shipments {
+		sent += sh.Units
+	}
+	if want := min(short, r.Capacity); sent != want || len(evs) == 0 {
+		t.Fatalf("sent %d against a shortfall of %d (capacity %d)", sent, short, r.Capacity)
+	}
+	// Units are the other kind, and setting them puts the days away.
+	_ = w.SetRouteTarget(r.ID, product, 7)
+	if got := s.Target(w, r, product); got != 7 || w.Route(r.ID).Days != nil {
+		t.Fatalf("units after days: target %d, setting %+v", got, w.Route(r.ID))
+	}
+}

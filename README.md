@@ -60,7 +60,9 @@ confirms and closes and never ends the day; on the play screen `enter`
 asks first and `n` ends it at once. Back is one key and close is one
 key: `esc` closes any modal whole, from whatever step a dialog is on,
 and `shift+tab` goes back a step in a dialog with steps (the buy, sell,
-target, cart and propose dialogs), keeping what the earlier steps hold;
+target, cart and propose dialogs; the target dialog is the product,
+then `←`/`→` for units or days of demand, then the number), keeping
+what the earlier steps hold;
 `tab` goes forward once the step is complete. On a screen `tab` and
 `shift+tab` are the next and the previous screen. Every **number field**
 (a buy or sell quantity, the cart's, a route target, a fund) takes
@@ -284,9 +286,12 @@ never leaves the first city plays the same as it always did.
 - **Logistics** is the road between the cities: a car, a truck and a boat,
   each a different point on the speed / cost / risk triangle, and each a
   **dial** you set once on the map: off, slow, normal or fast, with a
-  target stock for the far end per product. Every day a route that is on
-  sends what Eastside is short of its target, up to what the route
-  carries, out of the Bayport stash first and then by the lot from
+  target stock for the far end per product, in units or in **days of
+  demand** (what the corners you hold there sell in that many days,
+  sized again every morning, so the target follows the ground you hold;
+  the dialog says what the days mean today, `3d ≈ 180 units`). Every day
+  a route that is on sends what Eastside is short of its target, up to
+  what the route carries, out of the Bayport stash first and then by the lot from
   Bayport's wholesaler once your peak cash says you can move weight,
   spending only what is over the float the fronts leave in the till. A
   shipment rides the route for its days (the dial trades days against the
