@@ -14,6 +14,7 @@ import (
 
 	"github.com/theclifmeister/kingpin/internal/content"
 	"github.com/theclifmeister/kingpin/internal/events"
+	"github.com/theclifmeister/kingpin/internal/format"
 	"github.com/theclifmeister/kingpin/internal/game"
 	"github.com/theclifmeister/kingpin/internal/sim"
 	"github.com/theclifmeister/kingpin/internal/ui/theme"
@@ -1136,7 +1137,7 @@ func (m *Model) viewReport() string {
 	section("LAW", r.Law, lawReportStyle)
 	section("CREW", r.Crew, lipgloss.NewStyle().Foreground(theme.Crew))
 	section("TERRITORY", r.Territory, lipgloss.NewStyle().Foreground(theme.Rivals))
-	section("MONEY", append(r.Money, fmt.Sprintf("Cash %s -> %s", cash(r.CashBefore), cash(r.CashAfter))), theme.Gold)
+	section("MONEY", append(r.Money, fmt.Sprintf("Cash %s %s %s", cash(r.CashBefore), format.Arrow, cash(r.CashAfter))), theme.Gold)
 	section("UPGRADES", r.Upgrades, theme.Gold)
 	section("NEWS", r.News, theme.Subtle)
 	content := clampLines(strings.TrimRight(b.String(), "\n"), m.bodyHeight()-6)

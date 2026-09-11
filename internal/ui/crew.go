@@ -147,7 +147,7 @@ func (m *Model) payOffConfirm() string {
 		return m.modal("PAY OFF", "They are gone.")
 	}
 	var b strings.Builder
-	b.WriteString(fmt.Sprintf("%s for %s: loyalty %.0f -> %.0f.\n", money(m.set.Crew.PayoffCost(*c)), c.Name, c.Loyalty, min(100, c.Loyalty+m.set.Crew.PayoffLoyalty())))
+	b.WriteString(fmt.Sprintf("%s for %s: loyalty %.0f → %.0f.\n", money(m.set.Crew.PayoffCost(*c)), c.Name, c.Loyalty, min(100, c.Loyalty+m.set.Crew.PayoffLoyalty())))
 	b.WriteString(theme.Subtle.Render("It buys loyalty, not silence: somebody already talking keeps talking.") + "\n")
 	b.WriteString("\n" + theme.Key.Render("y") + " pay   " + theme.Key.Render("any other key") + " back")
 	return m.modal("PAY OFF "+strings.ToUpper(c.Name)+"?", b.String())

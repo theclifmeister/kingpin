@@ -1053,7 +1053,7 @@ func TestUpgradesScreenKeys(t *testing.T) {
 		t.Fatalf("report: mode %v upgrades %v", m.mode, m.w.Report.Upgrades)
 	}
 	assertFits(t, m.View(), 100, 30, "report with an upgrade")
-	if !strings.Contains(strings.Join(m.w.Report.Money, "\n"), "Stash spot -$5000") {
+	if !strings.Contains(strings.Join(m.w.Report.Money, "\n"), "Stash spot -$5,000") {
 		t.Fatalf("money section: %v", m.w.Report.Money)
 	}
 	m.Update(key("enter"))
