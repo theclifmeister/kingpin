@@ -103,6 +103,19 @@ func step(n int) func(*Model) bool { return func(m *Model) bool { return m.modal
 // shift+tab has a page to go back to.
 func pastFirstStep(m *Model) bool { return m.modalStep() > 0 }
 
+// numberStep is the open modal being on a number field (#112): the buy,
+// sell, target and cart dialogs' quantity page, and the fund dialog's
+// amount. The field's shortcuts are listed there and nowhere else.
+func numberStep(m *Model) bool {
+	switch m.mode {
+	case modeFund:
+		return true
+	case modeBuy, modeSell, modeTarget, modeCart:
+		return m.modalStep() == 1
+	}
+	return false
+}
+
 // stripShown is the terminal being too narrow for the pane beside MAIN,
 // so the strip stands in for it and ␣ opens it whole (#111).
 func stripShown(m *Model) bool { return m.width < paneMinWidth }
@@ -242,8 +255,10 @@ var bindings = []binding{
 // shift+tab aside); pickers and dialogs `enter <verb>` / `esc close` (q
 // still closes, silently); the end of the day is the one that also takes
 // enter and says so; the report, the card's outcome and help close on
-// enter or esc. The keys themselves are handled by handleKey; the table
-// is what the footer and the status bar say.
+// enter or esc. Every number field (#112, numberField) lists `m max  h
+// half  ↑↓ ±1  pgup pgdn ±10` before its enter (a is max's unlisted
+// alias). The keys themselves are handled by handleKey; the table is
+// what the footer and the status bar say.
 var modeBindings = []binding{
 	{key: "↑↓", label: "pick", modes: in(modeStart, modePost, modeStrike, modeFront, modeAssign, modePropose)},
 	{key: "↑↓", label: "pick", modes: in(modeBuy, modeSell, modeTarget), when: step(0)},
@@ -255,6 +270,10 @@ var modeBindings = []binding{
 	{key: "1-3", label: "dial", modes: in(modeSell), when: step(2)},
 	{key: "1-3", label: "dial", modes: in(modeCart), when: cartOnSell},
 	{key: "1-3", label: "choose", modes: in(modeCard), when: step(0)},
+	{key: "m", label: "max", modes: in(modeBuy, modeSell, modeTarget, modeCart, modeFund), when: numberStep},
+	{key: "h", label: "half", modes: in(modeBuy, modeSell, modeTarget, modeCart, modeFund), when: numberStep},
+	{key: "↑↓", label: "±1", modes: in(modeBuy, modeSell, modeTarget, modeCart, modeFund), when: numberStep},
+	{key: "pgup pgdn", label: "±10", modes: in(modeBuy, modeSell, modeTarget, modeCart, modeFund), when: numberStep},
 	{key: "enter", label: "next", modes: in(modeBuy, modeSell, modeTarget, modePropose), when: step(0)},
 	{key: "enter", label: "next", modes: in(modeSell), when: step(1)},
 	{key: "enter", label: "select", modes: in(modeStart)},

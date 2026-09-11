@@ -5,7 +5,6 @@ import (
 	"strconv"
 	"strings"
 
-	"github.com/charmbracelet/bubbles/textinput"
 	tea "github.com/charmbracelet/bubbletea"
 	"github.com/charmbracelet/lipgloss"
 
@@ -26,7 +25,7 @@ import (
 type targetDialog struct {
 	route string // route id it sets
 	step  int    // 0 product, 1 units
-	units textinput.Model
+	units numberField
 	err   string
 }
 
@@ -89,12 +88,7 @@ func (m *Model) openTarget() {
 		m.refuse("Nothing to target: no route out of " + m.shown().Name + ".")
 		return
 	}
-	ti := textinput.New()
-	ti.Placeholder = "blank = none"
-	ti.CharLimit = 6
-	ti.Width = 8
-	ti.Prompt = "> "
-	m.tgt = targetDialog{route: r.ID, units: ti}
+	m.tgt = targetDialog{route: r.ID, units: newNumberField("blank = none")}
 	m.mode = modeTarget
 }
 
@@ -118,7 +112,8 @@ func (m *Model) keyTarget(k tea.KeyMsg) (tea.Model, tea.Cmd) {
 	// Back is one key and close is one key (#110): esc closes from
 	// either step, shift+tab leaves the units for the product (kept under
 	// the cursor) and is silent on the first step, tab goes to the units
-	// (a product is always chosen) and is silent on the last.
+	// (a product is always chosen) and is silent on the last. The units
+	// are a numberField (#112) whose max is targetMax.
 	switch key {
 	case "esc":
 		m.mode = modePlay
@@ -159,21 +154,27 @@ func (m *Model) keyTarget(k tea.KeyMsg) (tea.Model, tea.Cmd) {
 			d.step = 1
 			d.units.SetValue("")
 			if t := m.w.Route(r.ID).Target[m.w.Products[m.cursor]]; t > 0 {
-				d.units.SetValue(strconv.Itoa(t))
+				d.units.Set(t)
 			}
-			d.units.Focus()
-			return m, textinput.Blink
+			return m, d.units.Focus()
 		}
 	case 1:
 		if key == "enter" {
 			return m.confirmTarget()
 		}
-		var cmd tea.Cmd
-		d.units, cmd = d.units.Update(k)
-		return m, cmd
+		d.units.max = m.targetMax(r)
+		return m, d.units.Update(k)
 	}
 	return m, nil
 }
+
+// targetMax is what the target's shortcuts fill to: what the stash at
+// the route's far end can hold (World.Capacity there: the runners
+// posted there, and you and the idle runners when you stand there). A
+// target is stock to keep, not a shipment, so the route's capacity is
+// not the line; and a typed target over it is set as it always was,
+// the wholesaler selling into the stash whatever its room.
+func (m *Model) targetMax(r *content.RouteConfig) int { return m.w.Capacity(r.To) }
 
 func (m *Model) confirmTarget() (tea.Model, tea.Cmd) {
 	r := m.targetRoute()
@@ -230,6 +231,7 @@ func (m *Model) viewTarget() string {
 		body = append(body, "", theme.Subtle.Render("Pick a product."))
 	} else {
 		id := w.Products[m.cursor]
+		d.units.max = m.targetMax(r)
 		body = append(body, "", fmt.Sprintf("Target    %s   %s", d.units.View(), theme.Subtle.Render(fmt.Sprintf("units of %s kept in %s", w.ProductName(id), w.CityName(r.To)))))
 		if s := strings.TrimSpace(d.units.Value()); s != "" {
 			if n, err := strconv.Atoi(s); err == nil && n > 0 {

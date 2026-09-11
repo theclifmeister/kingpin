@@ -4,7 +4,6 @@ import (
 	"fmt"
 	"strings"
 
-	"github.com/charmbracelet/bubbles/textinput"
 	tea "github.com/charmbracelet/bubbletea"
 
 	"github.com/theclifmeister/kingpin/internal/events"
@@ -40,7 +39,7 @@ type cartLine struct {
 type cartDialog struct {
 	cursor int
 	step   int // 0 the lines, 1 a quantity for the selected one
-	qty    textinput.Model
+	qty    numberField
 	err    string
 }
 
@@ -215,12 +214,7 @@ func (m *Model) openCart() {
 	if m.w.Over != nil {
 		return
 	}
-	ti := textinput.New()
-	ti.Placeholder = "blank = max"
-	ti.CharLimit = 6
-	ti.Width = 14
-	ti.Prompt = "> "
-	m.crt = cartDialog{qty: ti}
+	m.crt = cartDialog{qty: newNumberField("blank = max")}
 	m.mode = modeCart
 }
 
@@ -277,9 +271,8 @@ func (m *Model) keyCart(k tea.KeyMsg) (tea.Model, tea.Cmd) {
 			m.setCartQty()
 			return m, nil
 		}
-		var cmd tea.Cmd
-		d.qty, cmd = d.qty.Update(k)
-		return m, cmd
+		d.qty.max = m.cartMax()
+		return m, d.qty.Update(k)
 	}
 	l := m.cartSelected()
 	switch key {
@@ -296,10 +289,8 @@ func (m *Model) keyCart(k tea.KeyMsg) (tea.Model, tea.Cmd) {
 			return m, nil
 		}
 		d.step = 1
-		d.qty.SetValue(fmt.Sprint(l.qty))
-		d.qty.CursorEnd()
-		d.qty.Focus()
-		return m, textinput.Blink
+		d.qty.Set(l.qty)
+		return m, d.qty.Focus()
 	case "x":
 		if l != nil {
 			m.removeCartLine(*l)
@@ -330,6 +321,23 @@ func (m *Model) keyCart(k tea.KeyMsg) (tea.Model, tea.Cmd) {
 	return m, nil
 }
 
+// cartMax is what the cart's quantity can take for the line under the
+// cursor: an order, the stash of the product in its city; a buy, what
+// was bought today plus what the supplier would sell you more where you
+// stand (a return down to nothing is x). Blank has always meant it.
+func (m *Model) cartMax() int {
+	l := m.cartSelected()
+	switch {
+	case l == nil:
+		return 0
+	case !l.buy:
+		return m.w.Stock(l.city, l.product)
+	case l.city == m.w.Player.Location:
+		return l.qty + m.maxBuy(l.product)
+	}
+	return l.qty
+}
+
 // setCartQty is enter on the cart's quantity step: an order is placed
 // again at the new quantity; a buy is returned down to it, or added to
 // from the supplier where you stand.
@@ -342,11 +350,7 @@ func (m *Model) setCartQty() {
 	}
 	if l.buy {
 		here := l.city == m.w.Player.Location
-		most := l.qty
-		if here {
-			most += m.maxBuy(l.product)
-		}
-		qty, err := parseQtyInput(d.qty.Value(), most)
+		qty, err := parseQtyInput(d.qty.Value(), m.cartMax())
 		if err != nil {
 			d.err = dialogError(err)
 			return
@@ -372,7 +376,7 @@ func (m *Model) setCartQty() {
 			m.say(fmt.Sprintf("Bought %d more %s for %s.", p.Qty, m.w.ProductName(l.product), money(p.Cost)))
 		}
 	} else {
-		qty, err := parseQtyInput(d.qty.Value(), m.w.Stock(l.city, l.product))
+		qty, err := parseQtyInput(d.qty.Value(), m.cartMax())
 		if err != nil {
 			d.err = dialogError(err)
 			return
@@ -421,16 +425,16 @@ func (m *Model) viewCart() string {
 	body = append(body, "", m.cartTotalLine(totals(lines)))
 	if d.step == 1 {
 		l := lines[cursor]
-		var note string
+		d.qty.max = m.cartMax()
+		line := "quantity   " + d.qty.View()
 		if l.buy {
-			note = fmt.Sprintf("bought %d", l.qty)
+			note := fmt.Sprintf("bought %d", l.qty)
 			if l.city == m.w.Player.Location {
 				note += fmt.Sprintf(", up to %d more", m.maxBuy(l.product))
 			}
-		} else {
-			note = fmt.Sprintf("have %d in %s", m.w.Stock(l.city, l.product), m.w.CityName(l.city))
+			line += "   " + theme.Subtle.Render(note)
 		}
-		body = append(body, "", fmt.Sprintf("quantity   %s   %s", d.qty.View(), theme.Subtle.Render(note)))
+		body = append(body, "", line)
 	}
 	if d.err != "" {
 		body = append(body, "", theme.Bad.Render(d.err))

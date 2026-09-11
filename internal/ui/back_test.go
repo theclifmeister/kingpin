@@ -103,10 +103,12 @@ func TestBackIsOneKey(t *testing.T) {
 		if m.mode != modePlay || m.screen != screen {
 			t.Fatalf("%s: esc from the last step: mode %v screen %v", d.name, m.mode, m.screen)
 		}
+		// A quantity that does not read is not a complete step: the field
+		// takes digits only (#112), so 0 is the one a player can type.
 		if d.name == "sell" || d.name == "buy" {
 			d.open(m)
 			m.Update(key("enter"))
-			for _, k := range []string{"backspace", "x"} {
+			for _, k := range []string{"backspace", "0"} {
 				m.Update(key(k))
 			}
 			m.Update(key("tab"))
