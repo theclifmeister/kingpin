@@ -276,7 +276,7 @@ func (s *Sim) settle(w *game.World, t *game.Tick) {
 			cash := w.TakeCash(int(math.Round(c.PenaltyCash * float64(c.Owed()) * street)))
 			c.Status = game.ContractFailed
 			c.Resolved = t.Day
-			w.Stats.ContractsFailed++
+			w.Stats.ContractsShort++
 			if w.Buyers.Blacklist == nil {
 				w.Buyers.Blacklist = map[string]int{}
 			}
