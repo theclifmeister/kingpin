@@ -76,6 +76,7 @@ says where it works.
 | `u` | buy upgrade | buy the node under the cursor (enter too) | upgrades |
 | `b` | buy front | buy a front through the picker | ledger |
 | `f` | fund city | give a city clean cash for goodwill | ledger |
+| `enter` | buy / dial | buy the offer or turn the route selected | ledger |
 | `d` | propose | offer the rival a truce, tribute or a split | rivals |
 | `y` | accept | take the selected offer | rivals |
 | `x` | decline | turn the selected offer down | rivals |

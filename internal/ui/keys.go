@@ -164,6 +164,8 @@ var bindings = []binding{
 		do: func(m *Model, _ string) { m.askFront() }},
 	{key: "f", label: "fund city", help: "give a city clean cash for goodwill", screens: on(screenLedger),
 		do: func(m *Model, _ string) { m.askFund() }},
+	{key: "enter", label: "buy / dial", help: "buy the offer or turn the route selected", screens: on(screenLedger), when: ledgerActable,
+		do: func(m *Model, _ string) { m.ledgerEnter() }},
 	// The rivals.
 	{key: "d", label: "propose", help: "offer the rival a truce, tribute or a split", screens: on(screenRivals),
 		do: func(m *Model, _ string) { m.askPropose() }},

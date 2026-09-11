@@ -105,6 +105,8 @@ type Model struct {
 	upgradeCursor int    // node selected on the upgrades screen
 	upgradeID     string // node awaiting the buy confirmation
 	frontCursor   int    // offer selected in the buy-a-front picker
+	ledgerCursor  int    // row on the ledger: fronts, then routes, then offers
+	ledgerScroll  int    // first line of the ledger MAIN shows, following the cursor
 	cardCursor    int    // choice highlighted on the dilemma card
 	cardDone      bool   // the card is answered; the outcome is showing
 	dealCursor    int    // offer selected on the rivals screen
@@ -593,6 +595,8 @@ func (m *Model) moveCursor(dx, dy int) {
 		} else if dy > 0 && m.dealCursor < len(m.w.Offers)-1 {
 			m.dealCursor++
 		}
+	case screenLedger:
+		m.ledgerMove(dy)
 	case screenMarket:
 		switch {
 		case dx != 0:
