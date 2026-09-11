@@ -6,7 +6,6 @@ package ui
 import (
 	"fmt"
 	"strings"
-	"time"
 
 	"github.com/charmbracelet/bubbles/viewport"
 	tea "github.com/charmbracelet/bubbletea"
@@ -36,7 +35,7 @@ const (
 
 var (
 	screenNames = []string{"Dashboard", "Market", "Journal", "Crew", "Map", "Upgrades", "Ledger", "Rivals"}
-	screenShort = []string{"Dash", "Market", "News", "Crew", "Map", "Upgr", "Ledger", "Rivals"} // when the title bar is tight
+	screenShort = []string{"Dash", "Market", "Journal", "Crew", "Map", "Upgr", "Ledger", "Rivals"} // when the title bar is tight
 )
 
 type mode int
@@ -79,10 +78,6 @@ const (
 	statusBad
 )
 
-type tickMsg time.Time
-
-const tickerPeriod = 180 * time.Millisecond
-
 // Model is the root Bubble Tea model.
 type Model struct {
 	cfg   *content.Config
@@ -120,11 +115,11 @@ type Model struct {
 	modalScroll   int    // first body line the open modal shows
 	outcome       string // what the last answer did, while it shows
 	journal       viewport.Model
+	journalSeen   int // the journal's length when the journal screen was last shown; not saved, a view cursor like city
 	dlg           dialog
 	tgt           targetDialog
 	fnd           fundDialog
 	startChoice   int
-	tick          int
 	status        string
 	statusKind    statusKind // how the status bar colours the message; set where the status is
 	flash         []string   // enforcement lines from the last tick, via the bus
@@ -222,6 +217,7 @@ func (m *Model) continueRun() error {
 	m.mapCursor = m.yourCorner()
 	m.status = fmt.Sprintf("Continued day %d.", w.Day)
 	m.refreshJournal()
+	m.journalSeen = len(w.Journal) // the news before this morning was yesterday's
 	return nil
 }
 
@@ -260,12 +256,8 @@ func (m *Model) save() {
 	m.status = fmt.Sprintf("Day %d saved.", m.w.Day)
 }
 
-// Init starts the ticker that scrolls the news crawl.
-func (m *Model) Init() tea.Cmd { return tickCmd() }
-
-func tickCmd() tea.Cmd {
-	return tea.Tick(tickerPeriod, func(t time.Time) tea.Msg { return tickMsg(t) })
-}
+// Init starts nothing: the UI redraws only on a key or a resize.
+func (m *Model) Init() tea.Cmd { return nil }
 
 // Update is the Bubble Tea update loop.
 func (m *Model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
@@ -274,9 +266,6 @@ func (m *Model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 		m.width, m.height = msg.Width, msg.Height
 		m.resize()
 		return m, nil
-	case tickMsg:
-		m.tick++
-		return m, tickCmd()
 	case tea.KeyMsg:
 		before := m.mode
 		r, cmd := m.handleKey(msg)
@@ -572,6 +561,7 @@ func (m *Model) switchScreen(s screen) {
 	m.screen = s
 	if s == screenJournal {
 		m.refreshJournal()
+		m.journalSeen = len(m.w.Journal)
 	}
 }
 
@@ -739,7 +729,7 @@ func (m *Model) View() string {
 		return m.frame(m.viewScreen(), m.details(), m.legendKeys(), m.accent())
 	}
 	body = lipgloss.NewStyle().Width(m.width).Height(m.bodyHeight()).MaxHeight(m.bodyHeight()).Render(body)
-	return lines(m.viewTitle(), body, m.viewTicker(), m.viewFooter())
+	return lines(m.viewTitle(), body, m.viewFooter())
 }
 
 // viewScreen is the MAIN of the screen shown.
@@ -811,6 +801,10 @@ func (m *Model) refuse(s string) {
 
 func (m *Model) viewTitle() string {
 	w := m.w
+	// The Journal tab carries the count of headlines you have not read
+	// (`Journal 3`, the count in the news accent) wherever its name
+	// fits; the digits-only bar drops it with the name.
+	unread := m.journalUnread()
 	tabsFor := func(short int) string {
 		var tabs []string
 		for i, n := range screenNames {
@@ -822,6 +816,9 @@ func (m *Model) viewTitle() string {
 				label = fmt.Sprintf("%d %s", i+1, screenShort[i])
 			default:
 				label = fmt.Sprintf("%d", i+1)
+			}
+			if screen(i) == screenJournal && short < 2 && unread > 0 {
+				label += " " + lipgloss.NewStyle().Foreground(theme.News).Render(fmt.Sprintf("%d", unread))
 			}
 			if screen(i) == m.screen && m.mode == modePlay {
 				tabs = append(tabs, theme.TabOn.Render(label))
@@ -862,31 +859,6 @@ func (m *Model) viewTitle() string {
 		}
 	}
 	return fit(tabsFor(2)+" "+rightFor(false, false), m.width)
-}
-
-func (m *Model) viewTicker() string {
-	items := m.w.Journal
-	if len(items) > 12 {
-		items = items[len(items)-12:]
-	}
-	if len(items) == 0 {
-		return theme.Subtle.Render(fit(" ◆ No news yet. Make some.", m.width))
-	}
-	var parts []string
-	for _, h := range items {
-		parts = append(parts, lipgloss.NewStyle().Foreground(theme.Source(h.Source)).Render(h.Text))
-	}
-	sep := theme.Subtle.Render("  ◆  ")
-	text := strings.Join(parts, sep) + sep
-	// Scroll by rotating the plain runes; styling is per item so we rotate
-	// the styled string by measuring visible width of a prefix.
-	plain := []rune(stripANSI(text))
-	if len(plain) == 0 {
-		return ""
-	}
-	off := m.tick % len(plain)
-	rot := string(append(append([]rune{}, plain[off:]...), plain[:off]...))
-	return lipgloss.NewStyle().Foreground(theme.News).Render(fit(rot, m.width))
 }
 
 // legendKeys is the status bar's legend in play mode: the key table's
@@ -1100,9 +1072,19 @@ func (m *Model) refreshJournal() {
 	}
 	m.journal.SetContent(b.String())
 	m.journal.GotoTop()
+	// A new run's journal is shorter than the last one's: nothing in it
+	// has been read past its end.
+	m.journalSeen = min(m.journalSeen, len(m.w.Journal))
+}
+
+// journalUnread is how many headlines have landed since the journal
+// screen was last shown.
+func (m *Model) journalUnread() int {
+	return max(0, len(m.w.Journal)-m.journalSeen)
 }
 
 func (m *Model) viewJournal() string {
+	m.journalSeen = len(m.w.Journal) // shown is read
 	title := theme.PanelTitle.Render("JOURNAL") + theme.Subtle.Render(fmt.Sprintf("  %d headlines, newest first", len(m.w.Journal)))
 	return title + "\n" + m.journal.View()
 }
@@ -1130,21 +1112,4 @@ func (m *Model) journalDetails() []section {
 		{"LEGEND", legend},
 	}
 	return secs
-}
-
-// stripANSI removes escape sequences so the ticker can be rotated by rune.
-func stripANSI(s string) string {
-	var b strings.Builder
-	in := false
-	for _, r := range s {
-		switch {
-		case r == 0x1b:
-			in = true
-		case in && r == 'm':
-			in = false
-		case !in:
-			b.WriteRune(r)
-		}
-	}
-	return b.String()
 }
