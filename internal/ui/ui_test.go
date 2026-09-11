@@ -385,6 +385,16 @@ func richFixture(t *testing.T, sz [2]int, check func(m *Model, view, what string
 		m.Update(key(s))
 		see(m, "ledger screen "+s)
 	}
+	// The ledger's cursor over every front, route and offer (#87), so
+	// each row's pane section is rendered.
+	m.Update(key("7"))
+	for range m.ledgerRows() {
+		see(m, "ledger row")
+		m.Update(key("j"))
+	}
+	for range m.ledgerRows() {
+		m.Update(key("k"))
+	}
 	m.Update(key("1"))
 	m.Update(key("b"))
 	see(m, "buy dialog")

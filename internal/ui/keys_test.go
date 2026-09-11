@@ -240,12 +240,14 @@ var keyHints = []*regexp.Regexp{
 var (
 	parenKey        = regexp.MustCompile(`\(([a-rt-zA-Z]|\d)\)`)
 	screenPointerRE = regexp.MustCompile(`on the \w+ screen \(\d\)$`)
-	tutorialRE      = regexp.MustCompile(`No sales queued\. Press s[^\n│]*`)
+	tutorialRE      = regexp.MustCompile(`No sales queued\. Press s[^\n│]*|[Pp]ress [a-z] to [a-z]+ one\.`)
 )
 
 // No screen, modal or status carries a key hint outside the legend, the
 // pane and the modal footers, and every pointer to a screen is spelled
-// `on the <screen> (<digit>)`. The tutorial line is the one exception.
+// `on the <screen> (<digit>)`. The tutorial line and the empty states
+// that name their key the legend's way (emptyState: `No deals. Press d
+// to propose one.`) are the exceptions.
 func TestNoKeyHintsOutsideTheLegend(t *testing.T) {
 	for _, sz := range [][2]int{{80, 24}, {120, 40}} {
 		richFixture(t, sz, func(m *Model, view, what string) {

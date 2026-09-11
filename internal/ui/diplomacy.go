@@ -4,8 +4,6 @@ import (
 	"fmt"
 	"strings"
 
-	"github.com/charmbracelet/lipgloss"
-
 	"github.com/theclifmeister/kingpin/internal/game"
 	"github.com/theclifmeister/kingpin/internal/ui/sparkline"
 	"github.com/theclifmeister/kingpin/internal/ui/theme"
@@ -212,86 +210,118 @@ func (m *Model) trustBar(width int) string {
 	return style.Render(sparkline.Bar(t/100, width, nil)) + style.Render(fmt.Sprintf(" %.0f", t))
 }
 
+// warBar is the war against the line the police crack down at, as a
+// bar: `war ████░░░░ 53/80 loud`, or `no war`.
+func (m *Model) warBar(width int) string {
+	r := m.w.Rival
+	tun := m.set.Rivals.Tuning()
+	if r.War <= 0 {
+		return theme.Subtle.Render("no war")
+	}
+	style := theme.Warning
+	word := ""
+	if r.War >= tun.WarThreshold {
+		style, word = theme.Bad, " loud"
+	}
+	return style.Render(sparkline.Bar(r.War/tun.CrackdownThreshold, width, nil)) + style.Render(fmt.Sprintf(" %.0f/%.0f%s", r.War, tun.CrackdownThreshold, word))
+}
+
+// rivalCorners is how much of the city the rival holds, in words.
+func (m *Model) rivalCorners() string {
+	if n := m.w.RivalHeld(); n > 0 {
+		return plural(n, "corner")
+	}
+	return "run out of town"
+}
+
+// dealTerms is a deal's terms for a table cell: the description less
+// its article, so the kind column carries the kind.
+func (m *Model) dealTerms(d game.Deal) string {
+	switch d.Kind {
+	case game.DealTruce:
+		return plural(d.Terms.Days, "day")
+	case game.DealTribute:
+		return money(d.Terms.PerDay) + " a day"
+	case game.DealSplit:
+		return strings.TrimPrefix(m.w.Describe(d), "a split: ")
+	}
+	return m.w.Describe(d)
+}
+
+// dealTitle is a deal's name in caps for the pane: `TRUCE · 30 DAYS`.
+func (m *Model) dealTitle(d game.Deal) string {
+	switch d.Kind {
+	case game.DealTruce:
+		return fmt.Sprintf("TRUCE · %d DAYS", d.Terms.Days)
+	case game.DealTribute:
+		return "TRIBUTE · " + strings.ToUpper(money(d.Terms.PerDay)) + "/DAY"
+	case game.DealSplit:
+		return "SPLIT · " + strings.ToUpper(plural(len(d.Terms.Corners), "corner"))
+	}
+	return strings.ToUpper(d.Kind)
+}
+
+var (
+	dealCols       = []col{{"kind", kText, 0}, {"terms", kText, 0}, {"days", kDays, 0}, {"who", kText, 0}}
+	rivalOfferCols = []col{{"kind", kText, 0}, {"terms", kText, 0}, {"answer by", kDays, 0}}
+)
+
+// viewRivals is the rivals screen's MAIN: who the rival is, trust and
+// the war, the deals that hold, tonight's proposal and the offers
+// waiting under the cursor. The mood, the rules and the lifetime
+// figures are the pane's.
 func (m *Model) viewRivals() string {
 	w := m.w
 	r := w.Rival
-	var b strings.Builder
-	title := theme.PanelTitle.Render("RIVALS · " + w.Home().Name)
+	width := m.mainWidth()
+	var ls []string
+	line := func(s string) { ls = append(ls, truncate(s, width)) }
+	sub := theme.Subtle.Render
+	line(theme.PanelTitle.Render("RIVALS · " + w.Home().Name))
 	if r.Arrived == 0 {
-		b.WriteString(title + "\n\n" + theme.Subtle.Render("Nobody is contesting the city. Yet. When somebody does, this is where you talk to them.") + "\n")
-		return b.String()
+		line(sub("Nobody is contesting the city yet."))
+		return strings.Join(ls, "\n")
 	}
-	tun := m.set.Rivals.Tuning()
-	corners := fmt.Sprintf("%d corners", w.RivalHeld())
-	if w.RivalHeld() == 0 {
-		corners = "run out of town"
-	}
-	b.WriteString(truncate(title+theme.Subtle.Render(fmt.Sprintf("  %s · %s · %s · muscle %d", m.rivalName(), m.personalityWord(), corners, r.Muscle)), m.mainWidth()) + "\n\n")
+	line(theme.Rival.Render(m.rivalName()) + sub(fmt.Sprintf(" · %s · %s · muscle %d", m.personalityWord(), m.rivalCorners(), r.Muscle)))
+	barW := max(6, min(12, width/6))
+	line(sub("trust ") + m.trustBar(barW) + "   " + sub("war ") + m.warBar(barW))
+	ls = append(ls, "")
 
-	// Trust and the war, side by side.
-	war := fmt.Sprintf("war %.0f/%.0f", r.War, tun.CrackdownThreshold)
-	switch {
-	case r.War >= tun.WarThreshold:
-		war = theme.Bad.Render(war + " loud")
-	case r.War > 0:
-		war = theme.Warning.Render(war)
-	default:
-		war = theme.Subtle.Render("no war")
-	}
-	b.WriteString(truncate("  trust "+m.trustBar(max(6, min(20, m.mainWidth()/4)))+"   "+war, m.mainWidth()) + "\n")
-	var mood string
-	switch {
-	case m.set.Rivals.Distrusted(w, w.Day+1):
-		mood = theme.Bad.Render(fmt.Sprintf("  You broke a deal. They take nothing for %d more day(s).", r.Betrayed+m.set.Rivals.Diplomacy().DistrustDays-w.Day-1))
-	case r.Trust >= 60:
-		mood = theme.Subtle.Render("  They take you at your word. A deal is cheap to strike.")
-	case r.Trust < 20:
-		mood = theme.Subtle.Render("  They do not trust you. Keep a deal a while and that changes.")
-	default:
-		mood = theme.Subtle.Render("  Trust grows a little every day a deal holds and falls with every strike.")
-	}
-	b.WriteString(truncate(mood, m.mainWidth()) + "\n\n")
-
-	// Live deals.
-	b.WriteString(lipgloss.NewStyle().Bold(true).Foreground(theme.Rivals).Render("DEALS") + "\n")
+	line(sectionTitle("DEALS", theme.Rivals))
 	if len(r.Deals) == 0 {
-		b.WriteString(theme.Subtle.Render("  none. d proposes one.") + "\n")
-	}
-	for _, d := range r.Deals {
-		term := "holds until broken"
-		if d.Until > 0 {
-			term = fmt.Sprintf("%d day(s) left", d.Left(w.Day))
+		line(emptyState("No deals. Press ", "d", " to propose one."))
+	} else {
+		var rows [][]any
+		for _, d := range r.Deals {
+			var left any
+			if d.Until > 0 {
+				left = d.Left(w.Day)
+			}
+			who := "yours"
+			if d.Offered {
+				who = "theirs"
+			}
+			rows = append(rows, []any{d.Kind, m.dealTerms(d), left, who})
 		}
-		who := "yours"
-		if d.Offered {
-			who = "theirs"
-		}
-		b.WriteString(truncate(fmt.Sprintf("  %-10s %s · %s · since day %d, %s", capitalize(d.Kind), w.Describe(d), term, d.Since, who), m.mainWidth()) + "\n")
+		ls = append(ls, table(dealCols, rows, -1, width)...)
 	}
 	if p := w.Proposal; p != nil {
-		b.WriteString(truncate(theme.Gold.Render(fmt.Sprintf("  Tonight    you propose %s; they answer in the morning, ~%.0f%%", w.Describe(*p), m.set.Rivals.Chance(w, *p)*100)), m.mainWidth()) + "\n")
+		line(theme.Gold.Render(fmt.Sprintf("Tonight  you propose %s; they answer in the morning, ~%.0f%%", w.Describe(*p), m.set.Rivals.Chance(w, *p)*100)))
 	}
-	b.WriteString("\n")
+	ls = append(ls, "")
 
-	// Offers, with the cursor.
-	b.WriteString(lipgloss.NewStyle().Bold(true).Foreground(theme.Rivals).Render("OFFERS") + "\n")
+	line(sectionTitle("OFFERS", theme.Rivals))
 	if len(w.Offers) == 0 {
-		b.WriteString(theme.Subtle.Render("  nothing on the table.") + "\n")
+		line(sub("Nothing on the table."))
+		return strings.Join(ls, "\n")
 	}
-	m.dealCursor = max(0, min(m.dealCursor, max(0, len(w.Offers)-1)))
-	for i, o := range w.Offers {
-		line := fmt.Sprintf("%-10s %s · %d day(s) to answer", capitalize(o.Deal.Kind), w.Describe(o.Deal), o.Expires-w.Day+1)
-		if i == m.dealCursor {
-			b.WriteString(truncate(theme.Gold.Render("▸ ")+theme.Selected.Render(line), m.mainWidth()) + "\n")
-		} else {
-			b.WriteString(truncate("  "+line, m.mainWidth()) + "\n")
-		}
+	m.dealCursor = max(0, min(m.dealCursor, len(w.Offers)-1))
+	var rows [][]any
+	for _, o := range w.Offers {
+		rows = append(rows, []any{o.Deal.Kind, m.dealTerms(o.Deal), day(o.Expires)})
 	}
-	b.WriteString("\n")
-	if s := w.Stats; s.Deals+s.Betrayals+s.BetrayedBy > 0 {
-		b.WriteString(truncate(theme.Subtle.Render(fmt.Sprintf("Struck %d · refused %d · broken by you %d, by them %d · tribute paid %s", s.Deals, s.DealsRefused, s.Betrayals, s.BetrayedBy, cash(s.Tribute))), m.mainWidth()) + "\n")
-	}
-	return b.String()
+	ls = append(ls, table(rivalOfferCols, rows, m.dealCursor, width)...)
+	return strings.Join(ls, "\n")
 }
 
 func capitalize(s string) string {
