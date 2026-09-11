@@ -122,104 +122,363 @@ func (m *Model) viewFront() string {
 	return m.modal("BUY A FRONT", body, m.modalFooter())
 }
 
-func (m *Model) viewLedger() string {
-	w := m.w
-	l := m.set.Laundering
-	tun := l.Tuning()
-	var b strings.Builder
+// The ledger (#87) is the till, the fronts, the road and what is on
+// offer, under one cursor: ledgerRows lists every row of the three
+// tables in order, ledgerCursor walks them with the arrows, and the
+// pane shows the selected front, route or offer. A ledger taller than
+// MAIN scrolls with the cursor, its table kept in view, and never
+// clamps.
 
-	b.WriteString(truncate(theme.PanelTitle.Render("LEDGER")+"  "+theme.Gold.Render("dirty "+cash(w.Player.DirtyCash))+theme.Subtle.Render(" · ")+theme.Good.Render("clean "+cash(w.Player.CleanCash))+
-		theme.Subtle.Render(fmt.Sprintf(" · seized %s lifetime", cash(w.Stats.Seized))), m.mainWidth()) + "\n")
-	var dial []string
-	for d := events.LaunderCareful; d <= events.LaunderGreedy; d++ {
-		if d == w.Laundering.Dial {
-			dial = append(dial, theme.Selected.Render(" "+d.String()+" "))
-		} else {
-			dial = append(dial, theme.Subtle.Render(" "+d.String()+" "))
-		}
-	}
-	b.WriteString(truncate("  dial "+strings.Join(dial, "")+theme.Subtle.Render(fmt.Sprintf("  audit risk %.1f%%/day · a greedy audit is evidence", l.AnyAuditRisk(w)*100)), m.mainWidth()) + "\n")
-	b.WriteString(truncate(theme.Subtle.Render(fmt.Sprintf("  washing up to %s/day · upkeep %s/day · the till keeps %s dirty for the street",
-		money(l.Capacity(w)), money(l.Upkeep(w)), cash(tun.Float))), m.mainWidth()) + "\n")
-	if thr := m.cfg.Heat.Heat.DirtyCashThreshold; thr > 0 && w.Player.DirtyCash > thr {
-		b.WriteString(truncate(theme.Warning.Render(fmt.Sprintf("  ▲ Dirty cash over %s draws heat every day it sits there.", cash(thr))), m.mainWidth()) + "\n")
-	}
-	b.WriteString("\n")
+// The kinds of row the ledger's cursor walks, in table order.
+const (
+	ledgerFront = iota
+	ledgerRoute
+	ledgerOffer
+)
 
-	b.WriteString(theme.Bold.Render("FRONTS") + theme.Subtle.Render(fmt.Sprintf("  %d owned · washed %s lifetime", len(w.Fronts), cash(w.Stats.Laundered))) + "\n")
-	if len(w.Fronts) == 0 {
-		b.WriteString(truncate(theme.Subtle.Render("  None. A front turns dirty cash into clean cash a little every day; b buys one."), m.mainWidth()) + "\n")
-	} else {
-		var rows [][]any
-		for _, f := range w.Fronts {
-			rows = append(rows, []any{f.Name, l.Throughput(w, f), f.WashedToday, f.Washed, l.AuditRisk(w, f) * 100, m.frontStatus(f)})
-		}
-		for _, line := range table([]col{{"front", kText, 0}, {"washes/day", kMoney, 0}, {"today", kMoney, 0}, {"lifetime", kMoney, 0}, {"audit", kPct, 0}, {"status", kText, 0}}, rows, -1, m.mainWidth()) {
-			b.WriteString(line + "\n")
-		}
-	}
-	b.WriteString("\n")
+// ledgerRow is one row of the ledger: which table and the index in it.
+type ledgerRow struct{ kind, i int }
 
-	if n := w.Crew.Role("accountant"); n > 0 {
-		b.WriteString(truncate(theme.Subtle.Render(fmt.Sprintf("  %d accountant(s) on the payroll: more through every front, fewer audits.", n)), m.mainWidth()) + "\n")
-	} else if len(w.Fronts) > 0 {
-		b.WriteString(truncate(theme.Subtle.Render("  An accountant, hired "+screenPointer(screenCrew)+", adds to every front and cuts audit risk. Keep them loyal: they skim the wash."), m.mainWidth()) + "\n")
-	}
-	b.WriteString("\n")
-
-	// The routes: one dial each, its books beside it. The columns give
-	// way to the width: the route, its dial, what it keeps where and
-	// what is on it come first.
-	lg := m.set.Logistics
+// ledgerRoutes are every route in the file, in city order: the
+// LOGISTICS table's rows.
+func (m *Model) ledgerRoutes() []content.RouteConfig {
 	var routes []content.RouteConfig
-	for _, cid := range w.CityOrder {
-		for _, r := range lg.Routes(cid) {
+	for _, cid := range m.w.CityOrder {
+		for _, r := range m.set.Logistics.Routes(cid) {
 			if r.From == cid {
 				routes = append(routes, r)
 			}
 		}
 	}
+	return routes
+}
+
+// ledgerRows are the rows the cursor walks: the fronts, the routes,
+// then the offers.
+func (m *Model) ledgerRows() []ledgerRow {
+	var rows []ledgerRow
+	for i := range m.w.Fronts {
+		rows = append(rows, ledgerRow{ledgerFront, i})
+	}
+	for i := range m.ledgerRoutes() {
+		rows = append(rows, ledgerRow{ledgerRoute, i})
+	}
+	for i := range m.frontRows() {
+		rows = append(rows, ledgerRow{ledgerOffer, i})
+	}
+	return rows
+}
+
+// ledgerSelected is the row under the cursor, the cursor clamped to the
+// rows there are; kind -1 when the ledger has none.
+func (m *Model) ledgerSelected() ledgerRow {
+	rows := m.ledgerRows()
+	if len(rows) == 0 {
+		return ledgerRow{-1, 0}
+	}
+	m.ledgerCursor = max(0, min(m.ledgerCursor, len(rows)-1))
+	return rows[m.ledgerCursor]
+}
+
+// ledgerMove is the arrows on the ledger: the cursor down the fronts,
+// the routes and the offers as one list.
+func (m *Model) ledgerMove(dy int) {
+	n := len(m.ledgerRows())
+	if dy < 0 && m.ledgerCursor > 0 {
+		m.ledgerCursor--
+	} else if dy > 0 && m.ledgerCursor < n-1 {
+		m.ledgerCursor++
+	}
+}
+
+// ledgerActable reports whether enter is the ledger's on the selected
+// row: it buys an offer or turns a route's dial; on a front it is the
+// frame's, and asks to end the day as it does everywhere.
+func ledgerActable(m *Model) bool {
+	return m.screen == screenLedger && m.ledgerSelected().kind != ledgerFront
+}
+
+// ledgerEnter is enter on the ledger: the selected offer goes to the
+// buy confirmation (the picker, on that row), the selected route's dial
+// turns a notch.
+func (m *Model) ledgerEnter() {
+	if m.w.Over != nil {
+		return
+	}
+	sel := m.ledgerSelected()
+	switch sel.kind {
+	case ledgerOffer:
+		m.frontCursor = sel.i
+		m.mode = modeFront
+	case ledgerRoute:
+		m.cycleLedgerRoute(m.ledgerRoutes()[sel.i])
+	}
+}
+
+// cycleLedgerRoute turns a route's dial a notch, as the map's r does,
+// and says what the road does at it.
+func (m *Model) cycleLedgerRoute(r content.RouteConfig) {
+	d := (m.w.Route(r.ID).Dial + 1) % (events.RouteFast + 1)
+	if err := m.w.SetRoute(r.ID, d); err != nil {
+		m.refuse("Can't turn the dial: " + err.Error())
+		return
+	}
+	if !d.On() {
+		m.status = fmt.Sprintf("%s off: nothing moves on it. Its targets are kept.", r.Name)
+		return
+	}
+	lg := m.set.Logistics
+	line := fmt.Sprintf("%s %s: %s %s to %s, seized ~%.0f%%.", r.Name, d, plural(lg.Days(r, d.Ship()), "day"), r.Mode, m.w.CityName(r.To), lg.Risk(r, d.Ship())*100)
+	if len(m.w.Route(r.ID).Target) == 0 {
+		line += " It sends nothing without a target."
+	}
+	m.status = line
+}
+
+// launderRow draws the launder dial as `careful  [normal]  greedy`.
+func launderRow(d events.Launder) string {
+	var cells []string
+	for x := events.LaunderCareful; x <= events.LaunderGreedy; x++ {
+		if x == d {
+			cells = append(cells, theme.Gold.Render("["+x.String()+"]"))
+		} else {
+			cells = append(cells, theme.Subtle.Render(x.String()))
+		}
+	}
+	return strings.Join(cells, "  ")
+}
+
+var frontCols = []col{{"front", kText, 0}, {"washes/day", kMoney, 0}, {"today", kMoney, 0}, {"lifetime", kMoney, 0}, {"audit", kPct, 0}, {"status", kText, 0}}
+
+var routeCols = []col{{"route", kText, 0}, {"mode", kText, 0}, {"dial", kDial, 0}, {"target", kText, 0}, {"on the road", kText, 0}, {"lots/wk", kCash, 0}, {"fares/wk", kCash, 0}, {"lost", kInt, 0}}
+
+// routeRow is a route's LOGISTICS row: its dial, what it keeps where,
+// what is on it, and the week's books.
+func (m *Model) routeRow(r content.RouteConfig) []any {
+	w := m.w
+	rs := w.Route(r.ID)
+	target, road := m.targetLine(r.ID), m.roadOn(r.ID)
+	if target == "" {
+		target = "none"
+	}
+	if road == "" {
+		road = "none"
+	}
+	lots, fares := w.Logistics.RouteSpend(r.ID, w.Day, 7)
+	return []any{r.Name, r.Mode, styled{dialStyle(rs.Dial), rs.Dial}, target, road, lots, fares, w.Logistics.Lost[r.ID]}
+}
+
+// viewLedger is the ledger's MAIN: the till lines, then FRONTS,
+// LOGISTICS and ON OFFER as tables under the one cursor, scrolled so
+// the cursor's table stays in view.
+func (m *Model) viewLedger() string {
+	w := m.w
+	l := m.set.Laundering
+	width := m.mainWidth()
+	sel := m.ledgerSelected()
+	var ls []string
+	line := func(s string) { ls = append(ls, truncate(s, width)) }
+	sub := theme.Subtle.Render
+
+	line(theme.PanelTitle.Render("LEDGER"))
+	line(theme.Gold.Render("dirty "+cash(w.Player.DirtyCash)) + sub(" · ") + theme.Good.Render("clean "+cash(w.Player.CleanCash)) + sub(fmt.Sprintf(" · seized %s lifetime", cash(w.Stats.Seized))))
+	line(sub("launder  ") + launderRow(w.Laundering.Dial) + sub(fmt.Sprintf("   audit %.1f%%/day · up to %s/day", l.AnyAuditRisk(w)*100, money(l.Capacity(w)))))
+	if thr := m.cfg.Heat.Heat.DirtyCashThreshold; thr > 0 && w.Player.DirtyCash > thr {
+		line(theme.Warning.Render(fmt.Sprintf("▲ Dirty cash over %s draws heat every day it sits there.", cash(thr))))
+	}
+
+	// Each table's heading and the line the cursor is on, for the
+	// scroll: the cursor's table is kept in view from its heading, and
+	// the till lines with the first table.
+	top, at, first := -1, -1, -1
+	cursorIn := func(kind int) int {
+		if sel.kind == kind {
+			return sel.i
+		}
+		return -1
+	}
+	heading := func(title, note string) {
+		if first < 0 {
+			first = len(ls)
+		}
+		line(sectionTitle(title, theme.Money) + sub(note))
+	}
+	tableLines := func(kind int, cols []col, rows [][]any) {
+		c := cursorIn(kind)
+		if c >= 0 {
+			top, at = len(ls)-1, len(ls)+1+c
+		}
+		ls = append(ls, table(cols, rows, c, width)...)
+	}
+
+	heading("FRONTS", fmt.Sprintf(" · %d owned · washed %s lifetime", len(w.Fronts), cash(w.Stats.Laundered)))
+	if len(w.Fronts) == 0 {
+		line(emptyState("No fronts yet. A front washes dirty cash clean; press ", "b", " to buy one."))
+	} else {
+		var rows [][]any
+		for _, f := range w.Fronts {
+			rows = append(rows, []any{f.Name, l.Throughput(w, f), f.WashedToday, f.Washed, l.AuditRisk(w, f) * 100, m.frontStatus(f)})
+		}
+		tableLines(ledgerFront, frontCols, rows)
+	}
+
+	routes := m.ledgerRoutes()
 	if len(routes) > 0 {
 		lost := 0
 		for _, n := range w.Logistics.Lost {
 			lost += n
 		}
-		b.WriteString(truncate(theme.Bold.Render("LOGISTICS")+theme.Subtle.Render(fmt.Sprintf("  %d route(s) · shipped %d units in %d run(s) · seized %d in %d · the road spends what is over %s dirty · r and R on the map", len(routes), w.Stats.Shipped, w.Stats.Shipments, lost, w.Stats.Seizures, cash(lg.Float()))), m.mainWidth()) + "\n")
+		heading("LOGISTICS", fmt.Sprintf(" · shipped %s in %s · seized %d", plural(w.Stats.Shipped, "unit"), plural(w.Stats.Shipments, "run"), lost))
 		var rows [][]any
 		for _, r := range routes {
-			rs := w.Route(r.ID)
-			target, road := m.targetLine(r.ID), m.roadOn(r.ID)
-			if target == "" {
-				target = "none"
-			}
-			if road == "" {
-				road = "none"
-			}
-			lots, fares := w.Logistics.RouteSpend(r.ID, w.Day, 7)
-			rows = append(rows, []any{r.Name, r.Mode, styled{dialStyle(rs.Dial), rs.Dial}, target, road, lots, fares, w.Logistics.Lost[r.ID]})
+			rows = append(rows, m.routeRow(r))
 		}
-		cols := []col{{"route", kText, 0}, {"mode", kText, 0}, {"dial", kDial, 0}, {"target", kText, 0}, {"on the road", kText, 0}, {"lots/wk", kCash, 0}, {"fares/wk", kCash, 0}, {"lost units", kInt, 0}}
-		for _, line := range table(cols, rows, -1, m.mainWidth()) {
-			b.WriteString(line + "\n")
-		}
-		b.WriteString("\n")
+		tableLines(ledgerRoute, routeCols, rows)
 	}
 
-	rows := m.frontRows()
-	b.WriteString(theme.Bold.Render("ON OFFER") + theme.Subtle.Render("  b to buy") + "\n")
-	if len(rows) == 0 {
-		b.WriteString(theme.Subtle.Render("  You own every front there is.") + "\n")
+	offers := m.frontRows()
+	heading("ON OFFER", "")
+	if len(offers) == 0 {
+		line(sub("You own every front there is."))
 	} else {
-		for _, line := range table(offerCols, m.offerRows(rows), -1, m.mainWidth()) {
-			b.WriteString(line + "\n")
-		}
+		tableLines(ledgerOffer, offerCols, m.offerRows(offers))
 	}
-	return b.String()
+
+	if top == first {
+		top = 0
+	}
+	return strings.Join(m.ledgerWindow(ls, top, at), "\n")
 }
 
-// ledgerDetails is the ledger's pane: the wash as it stands (the dial,
-// what the fronts wash and cost, the float the till keeps) and the keys.
+// ledgerWindow is the slice of the ledger's lines MAIN shows: the
+// scroll follows the cursor, keeping its row and, where they fit, the
+// lines from top (its table's heading, or the title for the first
+// table) in view; a ledger that fits scrolls nowhere.
+func (m *Model) ledgerWindow(ls []string, top, at int) []string {
+	h := m.mainHeight()
+	if len(ls) <= h {
+		m.ledgerScroll = 0
+		return ls
+	}
+	s := max(0, min(m.ledgerScroll, len(ls)-h))
+	if at >= 0 {
+		if at >= s+h {
+			s = at - h + 1
+		}
+		if at < s {
+			s = at
+		}
+		if top >= 0 && at-top < h {
+			s = min(s, top)
+		}
+		s = max(0, min(s, len(ls)-h))
+	}
+	m.ledgerScroll = s
+	return ls[s : s+h]
+}
+
+// emptyState is an empty state that names its key the legend's way, as
+// the tutorial line does: `No deals. Press d to propose one.`
+func emptyState(before, key, after string) string {
+	return theme.Subtle.Render(before) + theme.Key.Render(key) + theme.Subtle.Render(after)
+}
+
+// ledgerDetails is the ledger's pane: the selected front, route or
+// offer, then WASH (the float, what the fronts wash and cost, the
+// accountants) and the keys.
 func (m *Model) ledgerDetails() []section {
+	var secs []section
+	sel := m.ledgerSelected()
+	switch sel.kind {
+	case ledgerFront:
+		secs = append(secs, m.frontSection(m.w.Fronts[sel.i]))
+	case ledgerRoute:
+		secs = append(secs, m.ledgerRouteSection(m.ledgerRoutes()[sel.i]))
+	case ledgerOffer:
+		secs = append(secs, m.offerSection(m.frontRows()[sel.i]))
+	}
+	return append(secs, m.washSection())
+}
+
+// frontSection is a front's detail: its state, what it washes and has
+// washed, its audit risk at the dial, its upkeep and the day it was
+// bought.
+func (m *Model) frontSection(f game.Front) section {
+	w := m.w
+	l := m.set.Laundering
+	status, _ := cellText(kText, 0, m.frontStatus(f))
+	st := m.frontStatus(f).(styled).st
+	washes := money(l.Throughput(w, f)) + "/day"
+	if acct, ok := m.accountantBonus(f); ok {
+		washes += fmt.Sprintf(" (+%s accountants)", money(acct))
+	}
+	lines := []string{
+		st.Render(status),
+		row("washes", washes),
+		row("today", money(f.WashedToday)+" · lifetime "+money(f.Washed)),
+		row("audit", fmt.Sprintf("%.1f%%/day at %s", l.AuditRisk(w, f)*100, w.Laundering.Dial)),
+	}
+	if fc := m.cfg.Laundering.Front(f.ID); fc != nil {
+		lines = append(lines, row("upkeep", money(fc.Upkeep)+"/day clean"))
+	}
+	lines = append(lines, row("bought", fmt.Sprintf("day %d · %s", f.Bought, money(f.Cost))))
+	return section{strings.ToUpper(f.Name), lines}
+}
+
+// accountantBonus is what the accountants add to a front's daily wash
+// at the dial, when there are any.
+func (m *Model) accountantBonus(f game.Front) (int, bool) {
+	fc := m.cfg.Laundering.Front(f.ID)
+	if fc == nil || m.w.Crew.Role("accountant") == 0 {
+		return 0, false
+	}
+	base := int(float64(fc.Throughput)*m.set.Laundering.Dial(m.w.Laundering.Dial).Mul + 0.5)
+	return m.set.Laundering.Throughput(m.w, f) - base, true
+}
+
+// ledgerRouteSection is a route's detail on the ledger: the edge, its
+// dial and terms, the targets, what is on the road, the week's lots and
+// fares, what it has lost, and where the road's money comes from.
+func (m *Model) ledgerRouteSection(r content.RouteConfig) section {
+	w := m.w
+	lg := m.set.Logistics
+	sec := m.routeSection(r)
+	// The map's key rows come off: the ledger's keys are its own.
+	lines := sec.lines[:len(sec.lines)-2]
+	lots, fares := w.Logistics.RouteSpend(r.ID, w.Day, 7)
+	lines = append(lines,
+		row("this week", fmt.Sprintf("lots %s · fares %s", cash(lots), cash(fares))),
+		row("lost", plural(w.Logistics.Lost[r.ID], "unit")+" on the road"))
+	lines = append(lines, wrapped(theme.Subtle, fmt.Sprintf("The road spends what is over %s dirty.", cash(lg.Float())))...)
+	lines = append(lines, keyRow("enter", "turn the dial"))
+	return section{sec.title, lines}
+}
+
+// offerSection is an offer's detail: what it costs, washes and keeps,
+// its audit risk, and whether it is locked, short or open to you.
+func (m *Model) offerSection(o game.FrontOffer) section {
+	w := m.w
+	lines := []string{
+		row("cost", money(o.Cost)+" dirty"),
+		row("washes", money(o.Throughput)+"/day"),
+		row("upkeep", money(o.Upkeep)+"/day clean"),
+		row("audit", fmt.Sprintf("%.1f%%/day", o.AuditRisk*100)),
+	}
+	switch {
+	case o.Locked(w):
+		lines = append(lines, theme.Subtle.Render("locked until peak cash "+cash(o.UnlockCash)))
+	case o.Cost > w.Player.DirtyCash:
+		lines = append(lines, theme.Bad.Render("short "+money(o.Cost-w.Player.DirtyCash)))
+	default:
+		lines = append(lines, keyRow("enter", "buy it"))
+	}
+	return section{strings.ToUpper(o.Name), lines}
+}
+
+// washSection is the wash as it stands: the dial, what the fronts wash
+// and cost between them, the float the till keeps, the accountants and
+// the dirty-cash warning.
+func (m *Model) washSection() section {
 	w := m.w
 	l := m.set.Laundering
 	tun := l.Tuning()
@@ -228,12 +487,16 @@ func (m *Model) ledgerDetails() []section {
 		row("washing", fmt.Sprintf("up to %s/day", money(l.Capacity(w)))),
 		row("upkeep", fmt.Sprintf("%s/day", money(l.Upkeep(w)))),
 		row("audit", fmt.Sprintf("%.1f%%/day", l.AnyAuditRisk(w)*100)),
-		row("float", fmt.Sprintf("%s kept dirty", cash(tun.Float))),
 		row("fronts", fmt.Sprintf("%d · washed %s", len(w.Fronts), cash(w.Stats.Laundered))),
+	}
+	lines = append(lines, wrapped(theme.Subtle, fmt.Sprintf("The till keeps %s dirty for the street; the wash and the road spend only what is over it.", cash(tun.Float)))...)
+	if n := w.Crew.Role("accountant"); n > 0 {
+		lines = append(lines, wrapped(theme.Subtle, fmt.Sprintf("%s on the payroll: more through every front, fewer audits.", plural(n, "accountant")))...)
+	} else if len(w.Fronts) > 0 {
+		lines = append(lines, wrapped(theme.Subtle, "An accountant, hired "+screenPointer(screenCrew)+", adds to every front and cuts audit risk. Keep them loyal: they skim the wash.")...)
 	}
 	if thr := m.cfg.Heat.Heat.DirtyCashThreshold; thr > 0 && w.Player.DirtyCash > thr {
 		lines = append(lines, wrapped(theme.Warning, fmt.Sprintf("Dirty cash over %s draws heat every day it sits there.", cash(thr)))...)
 	}
-	lines = append(lines, keyRow("d", "turn the dial"))
-	return []section{{"LAUNDERING", lines}}
+	return section{"WASH", lines}
 }

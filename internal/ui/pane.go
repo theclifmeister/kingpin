@@ -46,7 +46,7 @@ func cut(s string, w int) string {
 
 // keyRow is a section line saying what a key would do to the selection.
 func keyRow(key, what string) string {
-	return theme.Key.Render(fit(key, 2)) + " " + what
+	return theme.Key.Render(fit(key, max(2, lipgloss.Width(key)))) + " " + what
 }
 
 // wrap breaks plain prose into lines of at most w cells at the spaces,
@@ -156,10 +156,13 @@ func trimSections(secs []section, room int) []section {
 }
 
 // sectionLines renders sections as text lines textW cells wide, a blank
-// between sections, cut to room lines.
+// between sections, cut to room lines; a room under zero cuts nothing.
 func sectionLines(secs []section, textW, room int, accent lipgloss.Color) []string {
+	if room >= 0 {
+		secs = trimSections(secs, room)
+	}
 	var ls []string
-	for i, s := range trimSections(secs, room) {
+	for i, s := range secs {
 		if i > 0 {
 			ls = append(ls, "")
 		}
@@ -212,11 +215,13 @@ func strip(sections []section, w int, accent lipgloss.Color) string {
 
 // overlay renders the pane's sections as a modal over MAIN, for a
 // terminal too narrow to hold the pane beside it: the same sections in
-// the one modal (#81), cut to its room the way the pane cuts them, so
-// KEYS is last and never out of sight.
+// the one modal (#81), every one whole, KEYS last. The overlay is the
+// one place the 80-column player can read what the strip could not
+// show, so nothing is cut there (#87): a body taller than the room
+// scrolls, as every modal's does, and the footer says so.
 func (m *Model) overlay(sections []section, keys []binding, accent lipgloss.Color) string {
 	kl := m.keyLines(keys, m.modalInner(), accent)
-	ls := sectionLines(sections, m.modalInner(), m.modalRoom()-len(kl)-1, accent)
+	ls := sectionLines(sections, m.modalInner(), -1, accent)
 	ls = append(ls, "")
 	ls = append(ls, kl...)
 	return m.modal("DETAILS", ls, m.modalFooter())
