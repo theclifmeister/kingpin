@@ -116,6 +116,12 @@ func numberStep(m *Model) bool {
 	return false
 }
 
+// buyOnce and buyKeep are the buy dialog's last step at once and at keep
+// at (#113): enter buys, or sets the supply contract.
+func buyOnce(m *Model) bool { return m.modalStep() == 2 && m.dlg.repeat == repeatOnce }
+
+func buyKeep(m *Model) bool { return m.modalStep() == 2 && m.dlg.repeat == repeatKeep }
+
 // stripShown is the terminal being too narrow for the pane beside MAIN,
 // so the strip stands in for it and ␣ opens it whole (#111).
 func stripShown(m *Model) bool { return m.width < paneMinWidth }
@@ -203,7 +209,7 @@ var bindings = []binding{
 		do: func(m *Model, _ string) { m.openDialog(modeBuy) }},
 	{key: "s", label: "sell", help: "queue a street sale in the city shown", screens: on(screenDashboard, screenMarket), global: true,
 		do: func(m *Model, _ string) { m.openDialog(modeSell) }},
-	{key: "x", label: "cancel order", help: "cancel the order on the selected product", screens: on(screenDashboard, screenMarket), global: true,
+	{key: "x", label: "cancel order", help: "cancel the order, else the supply contract", screens: on(screenDashboard, screenMarket), global: true,
 		do: func(m *Model, _ string) { m.cancelSelected() }},
 	{key: "l", label: "lie low", help: "lie low today: no sales, heat fades faster", screens: on(screenDashboard), global: true,
 		do: func(m *Model, _ string) { m.toggleLieLow() }},
@@ -265,9 +271,11 @@ var modeBindings = []binding{
 	{key: "↑↓", label: "pick", modes: in(modeCart), when: cartHasLines},
 	{key: "↑↓", label: "pick", modes: in(modeCard), when: step(0)},
 	{key: "←→", label: "dial", modes: in(modeSell), when: step(2)},
+	{key: "←→", label: "repeat", modes: in(modeBuy), when: step(2)},
 	{key: "←→", label: "dial", modes: in(modeCart), when: cartOnSell},
 	{key: "←→", label: "city", modes: in(modeFund)},
 	{key: "1-3", label: "dial", modes: in(modeSell), when: step(2)},
+	{key: "1-2", label: "repeat", modes: in(modeBuy), when: step(2)},
 	{key: "1-3", label: "dial", modes: in(modeCart), when: cartOnSell},
 	{key: "1-3", label: "choose", modes: in(modeCard), when: step(0)},
 	{key: "m", label: "max", modes: in(modeBuy, modeSell, modeTarget, modeCart, modeFund), when: numberStep},
@@ -275,9 +283,10 @@ var modeBindings = []binding{
 	{key: "↑↓", label: "±1", modes: in(modeBuy, modeSell, modeTarget, modeCart, modeFund), when: numberStep},
 	{key: "pgup pgdn", label: "±10", modes: in(modeBuy, modeSell, modeTarget, modeCart, modeFund), when: numberStep},
 	{key: "enter", label: "next", modes: in(modeBuy, modeSell, modeTarget, modePropose), when: step(0)},
-	{key: "enter", label: "next", modes: in(modeSell), when: step(1)},
+	{key: "enter", label: "next", modes: in(modeBuy, modeSell), when: step(1)},
 	{key: "enter", label: "select", modes: in(modeStart)},
-	{key: "enter", label: "buy", modes: in(modeBuy), when: step(1)},
+	{key: "enter", label: "buy", modes: in(modeBuy), when: buyOnce},
+	{key: "enter", label: "keep at", modes: in(modeBuy), when: buyKeep},
 	{key: "enter", label: "buy", modes: in(modeFront)},
 	{key: "enter", label: "sell", modes: in(modeSell), when: step(2)},
 	{key: "enter", label: "set", modes: in(modeTarget), when: step(1)},
@@ -502,6 +511,7 @@ var words = [][2]string{
 	{"float", "the dirty cash the wash and the road leave for the street"},
 	{"file", "the DA's evidence: stings and raids add pages, enough indicts"},
 	{"drift", "a held corner nobody works goes back to the street in days"},
+	{"keep at", "a supply contract: the stash bought back to a level daily"},
 	{"pane", "the details beside MAIN from 100 columns, always open"},
 	{"strip", "the pane's one line under 100 columns; ␣ opens it over MAIN"},
 }

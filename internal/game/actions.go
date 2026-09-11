@@ -77,7 +77,33 @@ func (w *World) Buy(product string, qty int, pricePressure float64) (Purchase, e
 	if w.Over != nil {
 		return Purchase{}, ErrGameOver
 	}
-	city := w.Player.Location
+	return w.buy(w.Player.Location, product, qty, 1, pricePressure, false)
+}
+
+// FillSupply is the market sim buying against a supply contract (#113):
+// qty units of a product from the supplier in a city, wherever the
+// player is, at markup times the supplier's price, into the stash there.
+// It is the same path as Buy (the price pressure and BoughtToday move
+// exactly as they do for a buy by hand, so the supplier reacts to a
+// contract as it does to you) with the receipt marked a contract's and
+// dated, so the clock keeps it through the day for the cart. The sim
+// sizes qty to the shortfall, the room and the budget; the world holds
+// it to the stash's room and the cash as it holds a buy.
+func (w *World) FillSupply(city, product string, qty int, markup, pricePressure float64) (Purchase, error) {
+	if w.Cities[city] == nil {
+		return Purchase{}, ErrNoCity
+	}
+	if markup <= 0 {
+		markup = 1
+	}
+	return w.buy(city, product, qty, markup, pricePressure, true)
+}
+
+// buy is the one path a unit takes from a supplier into a stash: Buy's,
+// where the player stands at the supplier's price, and a supply
+// contract's, in its city at the contract markup. Cost is the unit
+// price times the units, rounded up to the dollar.
+func (w *World) buy(city, product string, qty int, markup, pricePressure float64, contract bool) (Purchase, error) {
 	m := w.Product(city, product)
 	if m == nil {
 		return Purchase{}, ErrUnknownProduct
@@ -88,14 +114,18 @@ func (w *World) Buy(product string, qty int, pricePressure float64) (Purchase, e
 	if m.NoSupply {
 		return Purchase{}, ErrNotSupplied
 	}
-	cost := int(math.Ceil(m.SupplierPrice * float64(qty)))
+	unit := m.SupplierPrice * markup
+	cost := int(math.Ceil(unit * float64(qty)))
 	if cost > w.Player.DirtyCash {
 		return Purchase{}, fmt.Errorf("need $%d, only have $%d dirty", cost, w.Player.DirtyCash)
 	}
 	if free := w.Free(city); qty > free {
 		return Purchase{}, fmt.Errorf("can only hold %d more units in %s", free, w.CityName(city))
 	}
-	p := Purchase{City: city, Product: product, Qty: qty, UnitPrice: m.SupplierPrice, Cost: cost, Prior: m.SupplierPrice}
+	p := Purchase{City: city, Product: product, Qty: qty, UnitPrice: unit, Cost: cost, Prior: m.SupplierPrice, Contract: contract}
+	if contract {
+		p.Day = w.Day + 1 // the morning the tick brings
+	}
 	w.Player.DirtyCash -= cost
 	w.Stash(city)[product] += qty
 	m.BoughtToday += qty
@@ -106,12 +136,94 @@ func (w *World) Buy(product string, qty int, pricePressure float64) (Purchase, e
 	return p, nil
 }
 
+// SupplyKey is how Supply is keyed: one contract per product per city,
+// like Orders.
+func SupplyKey(city, product string) string { return OrderKey(city, product) }
+
+// Supplied returns the supply contract for a product in a city, if one
+// stands.
+func (w *World) Supplied(city, product string) (SupplyContract, bool) {
+	c, ok := w.Supply[SupplyKey(city, product)]
+	return c, ok
+}
+
+// SetSupply sets a supply contract (#113): keep the stash in a city at
+// units of a product, bought each morning from the supplier there. It is
+// a persistent setting like a route target: the market sim fills it
+// every day until it is cleared. A city whose supplier does not sell the
+// product is refused (ErrNotSupplied); a city the player holds no
+// capacity in is allowed, the contract filling as far as Free(city).
+func (w *World) SetSupply(city, product string, units int) error {
+	if w.Over != nil {
+		return ErrGameOver
+	}
+	if w.Cities[city] == nil {
+		return ErrNoCity
+	}
+	m := w.Product(city, product)
+	if m == nil {
+		return ErrUnknownProduct
+	}
+	if units <= 0 {
+		return ErrBadQuantity
+	}
+	if m.NoSupply {
+		return ErrNotSupplied
+	}
+	if w.Supply == nil {
+		w.Supply = map[string]SupplyContract{}
+	}
+	w.Supply[SupplyKey(city, product)] = SupplyContract{City: city, Product: product, Units: units, Since: w.Day}
+	return nil
+}
+
+// ClearSupply removes the supply contract for a product in a city, if
+// one stands.
+func (w *World) ClearSupply(city, product string) {
+	delete(w.Supply, SupplyKey(city, product))
+	if len(w.Supply) == 0 {
+		w.Supply = nil
+	}
+}
+
+// SupplyDue is what the supply contract for a product in a city will
+// try to buy in the morning: the level less the stash there and what is
+// on the road to it; zero with no contract. A sell order may count on
+// it (PlaceSell), since the contract fills before the orders resolve.
+func (w *World) SupplyDue(city, product string) int {
+	c, ok := w.Supplied(city, product)
+	if !ok {
+		return 0
+	}
+	return max(0, c.Units-w.Stock(city, product)-w.Bound(city, product))
+}
+
+// SuppliedToday is what the supply contracts bought this morning, all
+// products and cities: the receipts and what they cost.
+func (w *World) SuppliedToday() (units, cost int) {
+	for _, b := range w.Buys {
+		if b.Contract {
+			units += b.Qty
+			cost += b.Cost
+		}
+	}
+	return units, cost
+}
+
 // Bought is how many units of a product the player has bought in a city
-// today and still holds the receipt for: what Return can take back.
-func (w *World) Bought(city, product string) int {
+// today and still holds the receipt for: what Return can take back. It
+// counts the buys made by hand; SuppliedIn counts a contract's.
+func (w *World) Bought(city, product string) int { return w.receipts(city, product, false) }
+
+// SuppliedIn is how many units of a product the supply contract bought
+// in a city this morning and still holds the receipt for: what
+// ReturnSupplied can take back.
+func (w *World) SuppliedIn(city, product string) int { return w.receipts(city, product, true) }
+
+func (w *World) receipts(city, product string, contract bool) int {
 	n := 0
 	for _, b := range w.Buys {
-		if b.City == city && b.Product == product {
+		if b.City == city && b.Product == product && b.Contract == contract {
 			n += b.Qty
 		}
 	}
@@ -126,8 +238,20 @@ func (w *World) Bought(city, product string) int {
 // at; a part of a buy is returned in proportion, so returning the whole
 // of it leaves cash, stash, BoughtToday and the price exactly as they
 // were. Buys is per-day scratch, so once the day ends there is nothing
-// to return. It reports what was refunded.
+// to return. It reports what was refunded. It takes back the buys made
+// by hand; ReturnSupplied takes back a contract's.
 func (w *World) Return(city, product string, qty int) (int, error) {
+	return w.giveBack(city, product, qty, false)
+}
+
+// ReturnSupplied is Return for what the supply contract bought this
+// morning (#113): the units go back at the price the contract paid.
+// The supplier price is left alone, the market having reset it since.
+func (w *World) ReturnSupplied(city, product string, qty int) (int, error) {
+	return w.giveBack(city, product, qty, true)
+}
+
+func (w *World) giveBack(city, product string, qty int, contract bool) (int, error) {
 	if w.Over != nil {
 		return 0, ErrGameOver
 	}
@@ -138,7 +262,7 @@ func (w *World) Return(city, product string, qty int) (int, error) {
 	if m == nil {
 		return 0, ErrUnknownProduct
 	}
-	if bought := w.Bought(city, product); bought == 0 {
+	if bought := w.receipts(city, product, contract); bought == 0 {
 		return 0, ErrNothingBought
 	} else if qty > bought {
 		return 0, fmt.Errorf("only %d %s bought in %s today", bought, w.ProductName(product), w.CityName(city))
@@ -150,7 +274,7 @@ func (w *World) Return(city, product string, qty int) (int, error) {
 	left := qty
 	for i := len(w.Buys) - 1; i >= 0 && left > 0; i-- {
 		b := &w.Buys[i]
-		if b.City != city || b.Product != product {
+		if b.City != city || b.Product != product || b.Contract != contract {
 			continue
 		}
 		back := min(left, b.Qty)
@@ -222,7 +346,10 @@ func (w *World) Restock(city, product string, lots int, o WholesaleOffer, priceP
 
 // PlaceSell queues a sell order in a city for resolution at end of day by
 // whoever works corners there. One order per product per city; placing
-// again replaces the previous one.
+// again replaces the previous one. An order may be for what the stash
+// holds plus what the supply contract there brings in the morning
+// (SupplyDue, #113): the contract fills before the orders resolve, and
+// the market sells what is there either way.
 func (w *World) PlaceSell(city, product string, qty int, dial events.Dial) error {
 	if w.Over != nil {
 		return ErrGameOver
@@ -236,7 +363,7 @@ func (w *World) PlaceSell(city, product string, qty int, dial events.Dial) error
 	if qty <= 0 {
 		return ErrBadQuantity
 	}
-	if have := w.Stock(city, product); qty > have {
+	if have := w.Stock(city, product) + w.SupplyDue(city, product); qty > have {
 		return fmt.Errorf("only %d %s in %s", have, w.ProductName(product), w.CityName(city))
 	}
 	w.Orders[OrderKey(city, product)] = SellOrder{City: city, Product: product, Qty: qty, Dial: dial}

@@ -26,6 +26,7 @@ func TestDialogStaysOpenForTheNextLine(t *testing.T) {
 	m.Update(key("1"))
 	m.Update(key("0"))
 	m.Update(key("enter"))
+	m.Update(key("enter")) // once
 	if m.mode != modeBuy || m.dlg.step != 0 || w.Stock(home, weed) != 10 {
 		t.Fatalf("after the first buy: mode %v step %d weed %d err %q", m.mode, m.dlg.step, w.Stock(home, weed), m.dlg.err)
 	}
@@ -37,6 +38,7 @@ func TestDialogStaysOpenForTheNextLine(t *testing.T) {
 	m.Update(key("enter"))
 	m.Update(key("4"))
 	m.Update(key("enter"))
+	m.Update(key("enter")) // once
 	if w.Stock(home, pills) != 4 || len(w.Buys) != 2 {
 		t.Fatalf("after the second buy: pills %d, %d buys, err %q", w.Stock(home, pills), len(w.Buys), m.dlg.err)
 	}
@@ -91,7 +93,7 @@ func TestCartListsAndEdits(t *testing.T) {
 	cash := w.Player.DirtyCash
 	price := w.Product(home, weed).SupplierPrice
 	m.Update(key("b"))
-	for _, k := range []string{"1", "enter", "1", "0", "enter", "2", "enter", "4", "enter", "esc"} {
+	for _, k := range []string{"1", "enter", "1", "0", "enter", "enter", "2", "enter", "4", "enter", "enter", "esc"} {
 		m.Update(key(k))
 	}
 	m.Update(key("s"))

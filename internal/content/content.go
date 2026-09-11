@@ -40,6 +40,18 @@ type MarketConfig struct {
 	Market   MarketTuning    `toml:"market"`
 	Products []ProductConfig `toml:"product"`
 	Dial     DialTable       `toml:"dial"`
+	Supply   SupplyTuning    `toml:"supply"`
+}
+
+// SupplyTuning is the supply contracts (#113): Markup is the supplier's
+// price for a standing order as a multiple of the price you would pay
+// by hand, the penalty the routine costs; Float is the dirty cash a
+// contract leaves in the till, folded by the tree like the wash's
+// (World.Float). It is the street's own restock, so the laundering
+// float is not its rule: a run starts with a fraction of that.
+type SupplyTuning struct {
+	Markup float64 `toml:"markup"`
+	Float  int     `toml:"float"`
 }
 
 type MarketTuning struct {
@@ -1025,6 +1037,9 @@ func Load() (*Config, error) {
 	}
 	if len(c.Market.Products) == 0 {
 		return nil, fmt.Errorf("market.toml: no products defined")
+	}
+	if c.Market.Supply.Markup < 1 || c.Market.Supply.Float < 0 {
+		return nil, fmt.Errorf("market.toml: [supply] markup %v (at least 1) float %d (not negative)", c.Market.Supply.Markup, c.Market.Supply.Float)
 	}
 	if err := c.City.validate(); err != nil {
 		return nil, fmt.Errorf("city.toml: %w", err)

@@ -203,6 +203,16 @@ func (s *Sim) Step(w *game.World, t *game.Tick) {
 			addBuyers("ContractOffered", d)
 		case events.ContractAccepted:
 			rep.Sales = append(rep.Sales, fmt.Sprintf("You took %s's order: %d %s by day %d%s. Deliver it there (2, d).", ev.Name, ev.Units, w.ProductName(ev.Product), ev.Due, in(ev.City)))
+		case events.SupplyBought:
+			// The contract's buy this morning (#113): the money line is
+			// the receipt's, below, and this is the sales section's.
+			rep.Sales = append(rep.Sales, fmt.Sprintf("Supply contract bought %d %s at %s to keep %d%s = -%s", ev.Units, w.ProductName(ev.Product), format.Price(ev.Price), ev.Level, in(ev.City), format.Money(ev.Cost)))
+		case events.SupplyShort:
+			why := "there was no cash over the float for the rest"
+			if ev.Why == "room" {
+				why = "the stash there has no room for the rest"
+			}
+			rep.Sales = append(rep.Sales, fmt.Sprintf("Supply contract short: %d %s under the level%s, %s.", ev.Short, w.ProductName(ev.Product), in(ev.City), why))
 		case events.ContractDelivered:
 			contracts += ev.Revenue
 			line := fmt.Sprintf("Handed %d %s to %s at %s (×%.3g street) = +%s%s", ev.Units, w.ProductName(ev.Product), ev.Name, format.Price(ev.Price), ev.Price/math.Max(ev.Street, 1e-9), format.Money(ev.Revenue), in(ev.City))
@@ -572,8 +582,15 @@ func (s *Sim) Step(w *game.World, t *game.Tick) {
 	// upkeep and seizures from the current total (the wash itself moves
 	// money between pools and changes nothing).
 	for _, b := range w.Buys {
+		if b.Contract && b.Day != t.Day {
+			continue // yesterday's contract receipts, kept for the cart, were paid for yesterday
+		}
 		spent += b.Cost
-		rep.Money = append(rep.Money, fmt.Sprintf("Bought %d %s at %s = -%s", b.Qty, w.ProductName(b.Product), format.Price(b.UnitPrice), format.Money(b.Cost)))
+		line := fmt.Sprintf("Bought %d %s at %s = -%s", b.Qty, w.ProductName(b.Product), format.Price(b.UnitPrice), format.Money(b.Cost))
+		if b.Contract {
+			line = fmt.Sprintf("Supply contract: %d %s at %s = -%s", b.Qty, w.ProductName(b.Product), format.Price(b.UnitPrice), format.Money(b.Cost))
+		}
+		rep.Money = append(rep.Money, line)
 	}
 	for _, m := range w.Crew.HiredToday {
 		spent += m.Fee

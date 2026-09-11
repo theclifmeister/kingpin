@@ -511,6 +511,7 @@ func TestBuyThenSellFlow(t *testing.T) {
 		m.Update(key(string(r)))
 	}
 	m.Update(key("enter"))
+	m.Update(key("enter")) // once (#113)
 	if m.mode != modeBuy || m.dlg.step != 0 || m.dlg.err != "" {
 		t.Fatalf("buy did not complete: mode=%v step=%d err=%q", m.mode, m.dlg.step, m.dlg.err)
 	}
@@ -1456,7 +1457,7 @@ func TestLedgerScreenKeys(t *testing.T) {
 	m.Update(key("enter"))
 	m.Update(key("7"))
 	if !strings.Contains(stripANSI(m.View()), "open") {
-		t.Fatal("ledger does not show the front open")
+		t.Fatalf("ledger does not show the front open: mode %v\n%s", m.mode, stripANSI(m.View()))
 	}
 }
 
@@ -1756,6 +1757,7 @@ func TestRouteAndTravelKeys(t *testing.T) {
 	m.Update(key("b"))
 	m.Update(key("enter"))
 	m.Update(key("enter"))
+	m.Update(key("enter")) // once
 	m.Update(key("esc"))
 	if m.mode != modePlay || w.Stock(hub, product) <= 20 || w.Stock(home, product) != stock {
 		t.Fatalf("buy elsewhere: mode %v err %q hub %d home %d", m.mode, m.dlg.err, w.Stock(hub, product), w.Stock(home, product))
@@ -1828,6 +1830,7 @@ func TestWholesaleFeedsTheRoutes(t *testing.T) {
 		t.Fatal("the buy dialog does not say where the lots go")
 	}
 	m.Update(key("enter"))
+	m.Update(key("enter")) // once
 	m.Update(key("esc"))
 	if m.mode != modePlay || w.Stock(hub, product) != w.Capacity(hub) || w.Free(hub) != 0 {
 		t.Fatalf("a buy at the hub: mode %v err %q stash %d capacity %d", m.mode, m.dlg.err, w.Stock(hub, product), w.Capacity(hub))
@@ -2104,10 +2107,18 @@ func richModelSeeded(t *testing.T, w, h int, seed uint64) *Model {
 	m.Update(key("enter"))
 	m.Update(key("enter"))
 	m.Update(key("esc"))
+	// A supply contract (#113), so the morning brings a contract line
+	// to the cart, the keep column a level and the street its fact.
+	if err := world.SetSupply(world.Player.Location, world.Products[1], 30); err != nil {
+		t.Fatal(err)
+	}
 	endDay(t, m)
 	m.Update(key("enter"))
 	if len(world.Shipments) != 1 {
 		t.Fatalf("the route sent %d shipments: %v", len(world.Shipments), world.Report.Shipments)
+	}
+	if n, _ := world.SuppliedToday(); n != 30 {
+		t.Fatalf("the contract bought %d this morning, want 30: %v", n, world.Report.Sales)
 	}
 	// Three fronts, one of them audited.
 	m.Update(key("7"))
@@ -2136,7 +2147,7 @@ func fillCart(t *testing.T, m *Model) {
 	w.Stash(w.Player.Location)[w.Products[1]] = 20
 	m.Update(key("1"))
 	m.Update(key("b"))
-	for _, k := range []string{"enter", "5", "enter", "j", "enter", "3", "enter", "esc"} {
+	for _, k := range []string{"enter", "5", "enter", "enter", "j", "enter", "3", "enter", "enter", "esc"} {
 		m.Update(key(k))
 	}
 	m.Update(key("s"))
@@ -2205,6 +2216,13 @@ func TestModalsFit(t *testing.T) {
 		{"report", modeReport, func(t *testing.T, m *Model) { m.mode = modeReport }},
 		{"buy product", modeBuy, func(t *testing.T, m *Model) { m.Update(key("b")) }},
 		{"buy quantity", modeBuy, func(t *testing.T, m *Model) { m.Update(key("b")); m.Update(key("enter")) }},
+		{"buy once", modeBuy, func(t *testing.T, m *Model) { m.Update(key("b")); m.Update(key("enter")); m.Update(key("enter")) }},
+		{"buy keep at", modeBuy, func(t *testing.T, m *Model) {
+			m.Update(key("b"))
+			m.Update(key("enter"))
+			m.Update(key("enter"))
+			m.Update(key("right"))
+		}},
 		{"sell product", modeSell, func(t *testing.T, m *Model) { m.Update(key("s")) }},
 		{"sell quantity", modeSell, func(t *testing.T, m *Model) { m.Update(key("s")); m.Update(key("enter")) }},
 		{"sell dial", modeSell, func(t *testing.T, m *Model) {

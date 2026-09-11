@@ -31,19 +31,20 @@ type World struct {
 	FallsTaken int             // fall guys who have taken their fall (#117: fall_guys is a count; each takes one)
 	Fronts     []Front         // businesses the player owns, in the order bought
 	Laundering LaunderingState
-	Dilemmas   DilemmaState            // the card waiting for an answer, and the deck's pacing
-	Shipments  []Shipment              // product on the road, in the order sent
-	Logistics  LogisticsState          // the shipment counter, the seizure record and the routes' books
-	Routes     map[string]RouteSetting // the route dials, keyed by route id; a route not here is off
-	Offers     []Offer                 // deals the rival has put on the table, oldest first
-	Delegated  map[string]SellOrder    // the lieutenants' standing sell orders, keyed like Orders; the crew step refreshes them
-	Law        LawState                // the chief and the DA (#41); pressure and goodwill are per city
-	Contracts  []Contract              // the buyers' orders (#71), oldest first; the market sim deals and resolves them
-	Buyers     BuyersState             // the buyer deck's pacing and blacklist
+	Dilemmas   DilemmaState              // the card waiting for an answer, and the deck's pacing
+	Shipments  []Shipment                // product on the road, in the order sent
+	Logistics  LogisticsState            // the shipment counter, the seizure record and the routes' books
+	Routes     map[string]RouteSetting   // the route dials, keyed by route id; a route not here is off
+	Offers     []Offer                   // deals the rival has put on the table, oldest first
+	Delegated  map[string]SellOrder      // the lieutenants' standing sell orders, keyed like Orders; the crew step refreshes them
+	Law        LawState                  // the chief and the DA (#41); pressure and goodwill are per city
+	Contracts  []Contract                // the buyers' orders (#71), oldest first; the market sim deals and resolves them
+	Buyers     BuyersState               // the buyer deck's pacing and blacklist
+	Supply     map[string]SupplyContract // the supply contracts (#113), keyed like Orders; the market sim fills them every morning
 
 	// Per-day scratch, cleared by the clock after every EndDay.
 	Orders        map[string]SellOrder // pending sell orders keyed by product id
-	Buys          []Purchase           // purchases made today
+	Buys          []Purchase           // purchases made today, and what the supply contracts bought this morning (#113)
 	LieLow        bool                 // player chose to lie low today
 	Strike        *StrikeOrder         // enforcers sent against a rival corner tonight
 	Investigation *InvestigationOrder  // somebody asking the crew questions tonight
@@ -443,7 +444,10 @@ type Lead struct {
 
 // Purchase is a buy from the supplier, applied immediately. Prior is the
 // supplier price before the buy nudged it, so a Return the same day can
-// put it back (#103).
+// put it back (#103). Contract marks a buy a supply contract made in the
+// morning (#113) rather than one made by hand, Day the morning it was
+// made: the clock keeps the morning's contract receipts through the day
+// so the cart can show and return them, and drops them the next.
 type Purchase struct {
 	City      string
 	Product   string
@@ -451,6 +455,19 @@ type Purchase struct {
 	UnitPrice float64
 	Cost      int
 	Prior     float64
+	Contract  bool
+	Day       int
+}
+
+// SupplyContract is a standing buy (#113): keep the stash in City at
+// Units of Product, bought each morning from the supplier there. It is a
+// persistent setting like the route target, not per-day scratch; the
+// market sim fills it at the top of its step, with no dice.
+type SupplyContract struct {
+	City    string
+	Product string
+	Units   int
+	Since   int // day it was set
 }
 
 // Headline is a journal entry.

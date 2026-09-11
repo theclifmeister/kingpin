@@ -43,6 +43,7 @@ const (
 	priSupplier = iota
 	priUpgrades
 	priStash
+	priSupply
 	priRuns
 	priRoad
 	priContracts
@@ -129,6 +130,9 @@ func (m *Model) streetLines(innerW, maxLines int, narrow, withRoad bool) []strin
 		} else {
 			topic(crew)
 		}
+	}
+	if line := m.supplyLine(); line != "" {
+		topic(fact{line, priSupply})
 	}
 	if line := m.runsLine(); line != "" {
 		topic(fact{theme.CrewText.Render(line), priRuns})
@@ -653,11 +657,27 @@ func (m *Model) dashboardDetails() []section {
 			if o, ok := w.Order(here.ID, id); ok {
 				lines = append(lines, keyRow("x", fmt.Sprintf("cancel the %d %s", o.Qty, o.Dial)))
 			}
+			lines = append(lines, m.contractRows(here.ID, id)...)
 			secs = append(secs, section{strings.ToUpper(p.Name) + " · " + strings.ToUpper(here.Name), lines})
 		}
 	}
 	secs = append(secs, section{"ALERTS", m.alertLines(paneTextW, 8)})
 	return secs
+}
+
+// supplyLine is the dashboard's one line on the supply contracts
+// (#113): how many stand and what they bought this morning (`supply 2
+// contracts · $3,400 this morning`). Empty with none.
+func (m *Model) supplyLine() string {
+	n := len(m.w.Supply)
+	if n == 0 {
+		return ""
+	}
+	line := theme.Gold.Render("supply " + plural(n, "contract"))
+	if _, cost := m.w.SuppliedToday(); cost > 0 {
+		line += sep + money(cost) + " this morning"
+	}
+	return line
 }
 
 // citiesLines is the CITIES panel: one line per city with the value of

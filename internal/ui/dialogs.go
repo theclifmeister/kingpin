@@ -14,12 +14,51 @@ import (
 
 // dialog is the state of the buy or sell modal. A buy is from the
 // supplier where you are, into the stash there; a sale is in the city
-// shown, out of the stash there, by whoever works corners there.
+// shown, out of the stash there, by whoever works corners there. A
+// buy's last step is whether it is for today or stands (#113: `once` /
+// `keep at`, a supply contract at the quantity); a sale's is the dial.
 type dialog struct {
-	step int // 0 product, 1 quantity, 2 dial (sell only)
-	qty  numberField
-	dial events.Dial
-	err  string
+	step   int // 0 product, 1 quantity, 2 the buy's repeat or the sale's dial
+	qty    numberField
+	dial   events.Dial
+	repeat repeat
+	err    string
+}
+
+// repeat is the last step of the buy dialog (#113), and the shape the
+// sell dialog's standing orders (#114) mirror: whether the line is for
+// today (once) or stands (keep at: a supply contract at the quantity).
+type repeat int
+
+const (
+	repeatOnce repeat = iota
+	repeatKeep
+)
+
+// repeatNames are the notches as the dialog draws them, through the
+// dial convention (dialCells).
+var repeatNames = []string{"once", "keep at"}
+
+// stepRepeat is the key handling of a repeat step: ←→ (h, l) turn it, a
+// digit picks a notch. It reports whether the key was one of those.
+func stepRepeat(key string, on *repeat, n int) bool {
+	switch key {
+	case "left", "h":
+		if *on > 0 {
+			*on--
+		}
+	case "right", "l":
+		if int(*on) < n-1 {
+			*on++
+		}
+	case "1", "2", "3", "4", "5", "6", "7", "8", "9":
+		if i := int(key[0] - '1'); i < n {
+			*on = repeat(i)
+		}
+	default:
+		return false
+	}
+	return true
 }
 
 // dialogCity is the city a buy or sell dialog is about: a buy is where
@@ -52,7 +91,7 @@ func (m *Model) openDialog(mode mode) {
 	m.dlg = dialog{qty: newNumberField("blank = max"), dial: events.DialNormal}
 	if mode == modeSell {
 		city := m.actionCity()
-		if m.w.Player.StockIn(city) == 0 {
+		if m.sellableIn(city) == 0 {
 			if m.w.Player.TotalStock() == 0 {
 				m.refuse("Nothing to sell: buy from the supplier first.")
 			} else {
@@ -60,10 +99,11 @@ func (m *Model) openDialog(mode mode) {
 			}
 			return
 		}
-		// Land on something you actually hold there.
-		if m.w.Stock(city, m.w.Products[m.cursor]) == 0 {
+		// Land on something you actually hold there, or that the
+		// contract brings.
+		if m.sellable(city, m.w.Products[m.cursor]) == 0 {
 			for i, id := range m.w.Products {
-				if m.w.Stock(city, id) > 0 {
+				if m.sellable(city, id) > 0 {
 					m.cursor = i
 					break
 				}
@@ -80,12 +120,15 @@ func (m *Model) openDialog(mode mode) {
 // and close is one key (#110): esc closes the dialog from any step,
 // shift+tab goes back a step keeping what the earlier steps hold (the
 // product stays under the cursor; the quantity is cleared on leaving
-// its step and kept on coming back to it from the dial) and is silent
-// on the first, tab goes forward once the step is complete (a product
-// you can buy or sell, a quantity that reads) and is silent otherwise;
-// enter is as it was. The quantity step is a numberField (#112): m, h,
-// ↑↓ and pgup pgdn move the number within what the field can take, the
-// stash here for a sale and maxBuy for a buy.
+// its step and kept on coming back to it from the last step) and is
+// silent on the first, tab goes forward once the step is complete (a
+// product you can buy or sell, a quantity that reads) and is silent
+// otherwise; enter is next until the last step, where it commits: a
+// buy's `once` / `keep at` (#113, ←→ or 1-2; enter buys, or sets the
+// contract), a sale's dial. The quantity step is a numberField (#112):
+// m, h, ↑↓ and pgup pgdn move the number within what the field can
+// take, the stash here (and what the contract brings) for a sale and
+// maxBuy for a buy.
 func (m *Model) keyDialog(k tea.KeyMsg) (tea.Model, tea.Cmd) {
 	key := k.String()
 	d := &m.dlg
@@ -130,9 +173,6 @@ func (m *Model) keyDialog(k tea.KeyMsg) (tea.Model, tea.Cmd) {
 	case 1:
 		switch key {
 		case "enter":
-			if m.mode == modeBuy {
-				return m.confirmBuy()
-			}
 			d.step = 2
 			d.qty.Blur()
 			return m, nil
@@ -140,6 +180,16 @@ func (m *Model) keyDialog(k tea.KeyMsg) (tea.Model, tea.Cmd) {
 		d.qty.max = m.qtyMax()
 		return m, d.qty.Update(k)
 	case 2:
+		if m.mode == modeBuy {
+			if key == "enter" {
+				if d.repeat == repeatKeep {
+					return m.confirmKeep()
+				}
+				return m.confirmBuy()
+			}
+			stepRepeat(key, &d.repeat, len(repeatNames))
+			return m, nil
+		}
 		switch key {
 		case "left", "h":
 			if d.dial > events.DialQuiet {
@@ -163,14 +213,33 @@ func (m *Model) keyDialog(k tea.KeyMsg) (tea.Model, tea.Cmd) {
 }
 
 // qtyMax is what the quantity step can take: the stash of the product
-// in the dialog's city for a sale, what the supplier will sell you for
-// a buy (maxBuy). Blank has always meant it; m fills it in.
+// in the dialog's city plus what the supply contract there brings in
+// the morning (#113: the contract fills before the orders resolve) for
+// a sale, what the supplier will sell you for a buy (maxBuy). Blank has
+// always meant it; m fills it in.
 func (m *Model) qtyMax() int {
 	id := m.w.Products[m.cursor]
 	if m.mode == modeBuy {
 		return m.maxBuy(id)
 	}
-	return m.w.Stock(m.dialogCity(), id)
+	return m.sellable(m.dialogCity(), id)
+}
+
+// sellable is what an order for a product in a city may be for: the
+// stash there and what its supply contract will buy in the morning by
+// the market sim's plan.
+func (m *Model) sellable(city, id string) int {
+	return m.w.Stock(city, id) + m.set.Market.Due(m.w, city, id)
+}
+
+// sellableIn is sellable over every product in a city: whether the sell
+// dialog has anything to open on there.
+func (m *Model) sellableIn(city string) int {
+	n := 0
+	for _, id := range m.w.Products {
+		n += m.sellable(city, id)
+	}
+	return n
 }
 
 // productErr is why the product under the cursor cannot go to the
@@ -178,7 +247,7 @@ func (m *Model) qtyMax() int {
 // empty when it can.
 func (m *Model) productErr() string {
 	id := m.w.Products[m.cursor]
-	if m.mode == modeSell && m.w.Stock(m.dialogCity(), id) == 0 {
+	if m.mode == modeSell && m.sellable(m.dialogCity(), id) == 0 {
 		return "You have none of that here."
 	}
 	if m.mode == modeBuy && m.maxBuy(id) == 0 {
@@ -198,12 +267,15 @@ func (m *Model) dialogForward() (tea.Model, tea.Cmd) {
 			return m, nil
 		}
 		d.step = 1
+		// A product kept by contract opens on its level, at keep at,
+		// the way the target dialog opens on the target (#113).
+		if c, ok := m.w.Supplied(m.dialogCity(), m.w.Products[m.cursor]); ok && m.mode == modeBuy {
+			d.qty.Set(c.Units)
+			d.repeat = repeatKeep
+		}
 		return m, d.qty.Focus()
 	case 1:
-		if m.mode == modeBuy {
-			return m, nil
-		}
-		if _, err := m.parseQty(m.w.Stock(m.dialogCity(), m.w.Products[m.cursor])); err != nil {
+		if _, err := m.parseQty(m.qtyMax()); err != nil {
 			return m, nil
 		}
 		d.step = 2
@@ -263,21 +335,50 @@ func (m *Model) maxBuy(id string) int {
 	return max(0, min(afford, m.w.Free(city)))
 }
 
+// confirmBuy is enter on the buy dialog's last step at once: the buy
+// itself. A quantity that does not read, or that the supplier refuses,
+// puts the dialog back on the quantity step with the reason.
 func (m *Model) confirmBuy() (tea.Model, tea.Cmd) {
 	id := m.w.Products[m.cursor]
 	qty, err := m.parseQty(m.maxBuy(id))
 	if err != nil {
-		m.dlg.err = dialogError(err)
-		return m, nil
+		return m.quantityAgain(err)
 	}
 	p, err := m.w.Buy(id, qty, m.set.Market.BuyPressure(m.w))
 	if err != nil {
-		m.dlg.err = dialogError(err)
-		return m, nil
+		return m.quantityAgain(err)
 	}
 	m.say(fmt.Sprintf("Bought %d %s for %s.", p.Qty, m.w.ProductName(id), money(p.Cost)))
 	m.nextLine()
 	return m, nil
+}
+
+// confirmKeep is enter on the buy dialog's last step at keep at (#113):
+// a supply contract for the product where you stand at the quantity,
+// bought each morning at the contract price. The quantity may be over
+// what you can buy today: the contract fills as far as the room and
+// the cash allow.
+func (m *Model) confirmKeep() (tea.Model, tea.Cmd) {
+	id := m.w.Products[m.cursor]
+	city := m.dialogCity()
+	qty, err := m.parseQty(m.maxBuy(id))
+	if err != nil {
+		return m.quantityAgain(err)
+	}
+	if err := m.w.SetSupply(city, id, qty); err != nil {
+		return m.quantityAgain(err)
+	}
+	m.say(fmt.Sprintf("Keeping %d %s in %s: bought each morning at ×%.2f the supplier's price.", qty, m.w.ProductName(id), m.w.CityName(city), m.set.Market.Markup()))
+	m.nextLine()
+	return m, nil
+}
+
+// quantityAgain is a buy or sell dialog refused on its last step: back
+// on the quantity step, the reason shown, the field focused.
+func (m *Model) quantityAgain(err error) (tea.Model, tea.Cmd) {
+	m.dlg.err = dialogError(err)
+	m.dlg.step = 1
+	return m, m.dlg.qty.Focus()
 }
 
 // nextLine is the dialog after a buy or an order (#103): back on the
@@ -287,23 +388,18 @@ func (m *Model) nextLine() {
 	m.dlg.step = 0
 	m.dlg.qty.SetValue("")
 	m.dlg.qty.Blur()
+	m.dlg.repeat = repeatOnce
 }
 
 func (m *Model) confirmSell() (tea.Model, tea.Cmd) {
 	id := m.w.Products[m.cursor]
 	city := m.dialogCity()
-	qty, err := m.parseQty(m.w.Stock(city, id))
+	qty, err := m.parseQty(m.sellable(city, id))
 	if err != nil {
-		m.dlg.err = dialogError(err)
-		m.dlg.step = 1
-		m.dlg.qty.Focus()
-		return m, nil
+		return m.quantityAgain(err)
 	}
 	if err := m.w.PlaceSell(city, id, qty, m.dlg.dial); err != nil {
-		m.dlg.err = dialogError(err)
-		m.dlg.step = 1
-		m.dlg.qty.Focus()
-		return m, nil
+		return m.quantityAgain(err)
 	}
 	m.say(fmt.Sprintf("Queued %d %s in %s, %s. It sells at the end of the day.", qty, m.w.ProductName(id), m.w.CityName(city), m.dlg.dial))
 	m.nextLine()
@@ -372,15 +468,32 @@ func (m *Model) viewDialog() string {
 			if o := m.set.Logistics.Wholesale(w); w.Here().Wholesale && !o.Locked(w) {
 				body = append(body, theme.Subtle.Render(fmt.Sprintf("The wholesaler's lots of %d at %s/unit go to the routes %s.", o.Lot, price(p.SupplierPrice*o.Mul), screenPointer(screenMap))))
 			}
+		} else if due := m.set.Market.Due(w, city, id); due > 0 {
+			body = append(body, theme.Subtle.Render(fmt.Sprintf("%d stashed and %d the contract brings in the morning.", w.Stock(city, id), due)))
 		}
 	} else if len(w.Buys)+len(w.Orders) == 0 {
 		body = append(body, theme.Subtle.Render("Pick a product."))
 	}
 
-	// Step 2: dial preview. The dial row is the dial convention: the
-	// chosen notch in brackets and the accent.
+	// Step 2 of a buy: once or keep at (#113), in the dial convention,
+	// and what keeping the quantity means.
+	if buy && d.step >= 2 {
+		qty, _ := m.parseQty(m.maxBuy(id))
+		body = append(body, "", "repeat     "+dialCells(repeatNames, int(d.repeat)))
+		if d.repeat == repeatKeep {
+			body = append(body, fmt.Sprintf("contract   keep %d here, the shortfall bought each morning at %s (×%.2f)", qty, price(m.set.Market.SupplyPrice(w, city, id)), m.set.Market.Markup()))
+			if c, ok := w.Supplied(city, id); ok {
+				body = append(body, theme.Subtle.Render(fmt.Sprintf("Kept at %d since day %d; this replaces it.", c.Units, c.Since)))
+			}
+		} else {
+			body = append(body, theme.Subtle.Render("Bought now, once. Keep at is a supply contract: the same each morning."))
+		}
+	}
+
+	// Step 2 of a sale: dial preview. The dial row is the dial
+	// convention: the chosen notch in brackets and the accent.
 	if !buy && d.step >= 2 {
-		qty, _ := m.parseQty(w.Stock(city, id))
+		qty, _ := m.parseQty(m.sellable(city, id))
 		body = append(body, "", "dial       "+dialRow(d.dial))
 		dc := m.set.Market.Dial(d.dial)
 		est := min(qty, m.set.Market.Capacity(w, city, id, d.dial))

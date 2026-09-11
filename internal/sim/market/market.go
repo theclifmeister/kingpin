@@ -33,13 +33,150 @@ type Sim struct {
 // the Operations branch multiplies: carry, supplier price and fill. Of
 // the reputation effects it reads one: respect makes the supplier
 // generous. The buyers (#71) are the deck of off-corner contracts it
-// deals and resolves; it refuses one whose pitch does not parse.
+// deals and resolves; it refuses one whose pitch does not parse. The
+// supply contracts (#113) are its own [supply] table.
 func New(cfg content.MarketConfig, cities content.CityConfig, ship content.ShippingTuning, tree content.UpgradesConfig, rep content.ReputationFX, buyers content.BuyersConfig) (*Sim, error) {
 	deck, err := parseBuyers(buyers)
 	if err != nil {
 		return nil, fmt.Errorf("buyers: %w", err)
 	}
 	return &Sim{cfg: cfg, cities: cities, ship: ship, tree: tree, rep: rep, bcfg: buyers, buyers: deck}, nil
+}
+
+// Markup is the supplier's price for a standing order as a multiple of
+// the price by hand ([supply] markup): what a supply contract pays a
+// unit over the supplier price.
+func (s *Sim) Markup() float64 {
+	if s.cfg.Supply.Markup < 1 {
+		return 1
+	}
+	return s.cfg.Supply.Markup
+}
+
+// SupplyPrice is what a supply contract would pay a unit of a product
+// in a city this morning: the supplier's price at the markup.
+func (s *Sim) SupplyPrice(w *game.World, city, product string) float64 {
+	m := w.Product(city, product)
+	if m == nil {
+		return 0
+	}
+	return m.SupplierPrice * s.Markup()
+}
+
+// Float is the dirty cash the supply contracts leave in the till:
+// [supply] float folded by the tree the way the wash and the road fold
+// theirs (World.Float, #118). The file has it at zero: a contract is the
+// street's own restock and spends like a buy by hand, and the laundering
+// float is what the wash and the road leave for it, not a line it keeps
+// (a run starts with a fraction of that float). It keeps nothing back
+// for tomorrow's wages either, which the hand does not either: the
+// market sim cannot price the payroll without the crew's tuning.
+func (s *Sim) Float(w *game.World) int { return w.Float(s.tree, s.cfg.Supply.Float) }
+
+// Budget is the dirty cash the supply contracts may spend today: what is
+// over their float.
+func (s *Sim) Budget(w *game.World) int { return max(0, w.Player.DirtyCash-s.Float(w)) }
+
+// Shortfall is how many units a supply contract owes its stash today:
+// the level less what is stashed there and what is on the road to it.
+func (s *Sim) Shortfall(w *game.World, c game.SupplyContract) int {
+	return max(0, c.Units-w.Stock(c.City, c.Product)-w.Bound(c.City, c.Product))
+}
+
+// SupplyPlan is what each supply contract would buy this morning at
+// today's prices: one entry per contract, in city and ladder order,
+// each the shortfall cut to the stash's room and the cash over the
+// float after the contracts before it have had theirs. It is what the
+// step buys (supply) and what the sell dialog and the harness count on
+// for tonight (a sell order may be for the stash plus what the contract
+// brings).
+type SupplyPlan struct {
+	Contract game.SupplyContract
+	Short    int    // the shortfall
+	Units    int    // what it buys
+	Cost     int    // what that costs
+	Why      string // "cash" or "room" when Units is under Short, else empty
+}
+
+// Plan lays out the morning's supply buys (SupplyPlan) with no dice.
+func (s *Sim) Plan(w *game.World) []SupplyPlan {
+	if len(w.Supply) == 0 {
+		return nil
+	}
+	var plan []SupplyPlan
+	budget := s.Budget(w)
+	room := map[string]int{}
+	for _, cid := range w.CityOrder {
+		room[cid] = w.Free(cid)
+		for _, id := range w.Products {
+			c, ok := w.Supplied(cid, id)
+			if !ok {
+				continue
+			}
+			m := w.Product(cid, id)
+			if m == nil || m.NoSupply {
+				continue
+			}
+			short := s.Shortfall(w, c)
+			if short <= 0 {
+				continue
+			}
+			afford := short
+			unit := m.SupplierPrice * s.Markup()
+			if unit > 0 {
+				afford = int(float64(budget) / unit)
+				for afford > 0 && int(math.Ceil(unit*float64(afford))) > budget {
+					afford-- // a cent of rounding never takes the till under the float
+				}
+			}
+			qty := max(0, min(short, room[cid], afford))
+			p := SupplyPlan{Contract: c, Short: short, Units: qty, Cost: int(math.Ceil(unit * float64(qty)))}
+			if qty < short {
+				p.Why = "cash"
+				if room[cid] < short && room[cid] <= afford {
+					p.Why = "room"
+				}
+			}
+			budget -= p.Cost
+			room[cid] -= qty
+			plan = append(plan, p)
+		}
+	}
+	return plan
+}
+
+// Due is what the supply contract for a product in a city will buy this
+// morning by the plan: what a sell order there may count on over the
+// stash. Zero with no contract or nothing to buy.
+func (s *Sim) Due(w *game.World, city, product string) int {
+	for _, p := range s.Plan(w) {
+		if p.Contract.City == city && p.Contract.Product == product {
+			return p.Units
+		}
+	}
+	return 0
+}
+
+// supply fills the supply contracts (#113): the plan, bought in its
+// order and with no dice, through the same path as a buy by hand
+// (World.FillSupply: the price pressure and BoughtToday move as they do
+// for you) at the contract markup; it reports what each bought and,
+// once, what it could not.
+func (s *Sim) supply(w *game.World, t *game.Tick, fx game.Effects) {
+	pressure := s.cfg.Market.BuyPricePressure * fx.BuyPressureMul
+	for _, p := range s.Plan(w) {
+		c := p.Contract
+		if p.Units > 0 {
+			b, err := w.FillSupply(c.City, c.Product, p.Units, s.Markup(), pressure)
+			if err != nil {
+				continue
+			}
+			t.Emit(events.SupplyBought{Day: t.Day, City: c.City, Product: c.Product, Units: b.Qty, Level: c.Units, Price: b.UnitPrice, Cost: b.Cost})
+		}
+		if p.Units < p.Short {
+			t.Emit(events.SupplyShort{Day: t.Day, City: c.City, Product: c.Product, Units: p.Units, Short: p.Short - p.Units, Why: p.Why})
+		}
+	}
 }
 
 // cityProduct is a city's multipliers on a product, 1 and 1 for a city
@@ -83,14 +220,15 @@ func (s *Sim) BuyPressure(w *game.World) float64 {
 	return s.cfg.Market.BuyPricePressure * game.FoldEffects(w, s.tree).BuyPressureMul
 }
 
-// Step reports upgrades bought, then in every city hands over what was
-// queued against the buyers' contracts, resolves sell orders, drifts
-// prices and demand, and rolls for shocks; then it settles the contracts
-// that ran out and deals the next offer. Sales resolve first so the dial
-// interacts with today's price; a handoff comes before them so a
-// contract has first call on the stash. A shipment the police took on
-// the road yesterday (the logistics sim steps after this one) is a supply
-// shock this morning on the street that was waiting for it.
+// Step reports upgrades bought, fills the supply contracts (#113: the
+// morning's buys, before anything sells), then in every city hands over
+// what was queued against the buyers' contracts, resolves sell orders,
+// drifts prices and demand, and rolls for shocks; then it settles the
+// contracts that ran out and deals the next offer. Sales resolve first
+// so the dial interacts with today's price; a handoff comes before them
+// so a contract has first call on the stash. A shipment the police took
+// on the road yesterday (the logistics sim steps after this one) is a
+// supply shock this morning on the street that was waiting for it.
 func (s *Sim) Step(w *game.World, t *game.Tick) {
 	tun := s.cfg.Market
 	fx := game.FoldEffects(w, s.tree)
@@ -99,6 +237,7 @@ func (s *Sim) Step(w *game.World, t *game.Tick) {
 			t.Emit(events.UpgradeBought{Day: t.Day, ID: u.ID, Name: u.Name, Branch: u.Branch, Cost: u.Cost, Clean: u.Clean})
 		}
 	}
+	s.supply(w, t, fx)
 	s.unlock(w, t)
 	ids := append([]string(nil), w.Products...)
 	sort.Strings(ids) // deterministic regardless of map order

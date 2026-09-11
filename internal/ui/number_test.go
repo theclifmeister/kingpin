@@ -41,6 +41,7 @@ func TestNumberField(t *testing.T) {
 		{"cart buy", func(m *Model) {
 			fillCart(t, m)
 			m.Update(key("c"))
+			m.Update(key("down")) // past the contract's line (#113), which only goes back
 			m.Update(key("enter"))
 		}, func(m *Model) *numberField { return &m.crt.qty }, func(m *Model) int {
 			l := m.cartSelected()
@@ -140,8 +141,8 @@ func TestNumberField(t *testing.T) {
 		// or, for a target, set as it always was.
 		fld.SetValue(strconv.Itoa(mx + 1))
 		m.Update(key("enter"))
-		if f.name == "sell" {
-			m.Update(key("enter")) // the dial step commits
+		if f.name == "sell" || f.name == "buy" {
+			m.Update(key("enter")) // the dial step, or the buy's once, commits
 		}
 		switch {
 		case f.refused && (m.mode != mode || f.err(m) == ""):

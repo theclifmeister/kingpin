@@ -80,6 +80,18 @@ demand_noise = 0.50
 heat = 2.5
 unlock_cash = 500000
 
+# Supply contracts (#113): keep the stash in a city at a level, bought
+# each morning from the supplier there. The markup is the supplier's price
+# for a standing order over the price you would pay by hand: the routine
+# costs a little, so buying by hand still has a point. The float is the
+# dirty cash a contract leaves in the till (folded by the tree's float_mul
+# like the wash's): zero, because a contract is the street's own restock
+# and spends like a buy by hand; the laundering float is what the wash and
+# the road leave *for* it.
+[supply]
+markup = 1.05
+float = 0
+
 # The dial: how much of demand you can move, the price you get, how hard you
 # push the market, and how much heat you attract.
 [dial.quiet]
