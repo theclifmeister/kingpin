@@ -49,7 +49,7 @@ holds whatever is under the cursor (the product, the corner, the route,
 the person, the node, the front, the offer), the facts about it, what
 the keys would do to it and, last, the KEYS section, the keys the screen
 takes in the order they matter (`n end day` first, `? help` last).
-`space` hides the pane and shows it again. Under 100
+The pane is open wherever it fits; it has no toggle. Under 100
 columns the pane collapses to the **details strip**, one line above the
 status bar with the selection's name and its first facts, and `space`
 opens the pane whole as an overlay over MAIN; `esc` or `space` closes
@@ -174,7 +174,7 @@ ROUTES                                                                          
                                                                                     │ w  send enforcers                │
                                                                                     │ r  route dial   R  route target  │
                                                                                     │ g  go to Bayport                 │
-                                                                                    │ ␣  details      ?  help          │
+                                                                                    │ ?  help                          │
                                                                                     ╰──────────────────────────────────╯
                                                                                                                  ? help
 ```
@@ -207,7 +207,7 @@ the float, the file, drift, the pane and the strip in a line each.
 | `d` | launder dial | the launder dial: careful, normal, greedy | everywhere |
 | `g` | go to \<city\> | go to the other city; the stock stays put | everywhere |
 | `r` | report | reopen the morning report | everywhere |
-| `␣` | details | show and hide the details | everywhere |
+| `␣` | more | open the details whole (under 100 columns) | everywhere |
 | `?` | help | this list | everywhere |
 | `enter` | end day | end the day, after a confirmation | everywhere |
 | `1-8` | switch screen | the screens in the title bar's order | everywhere |
