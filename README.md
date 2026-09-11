@@ -115,7 +115,7 @@ above the legend stands in for the pane):
 │ raid 75 · arrest 95      ││ Bayport heat 0      ││ Mona · 1 corner           │
 ╰──────────────────────────╯╰─────────────────────╯╰───────────────────────────╯
 ▸ WEED · EASTSIDE · price $19.23 -6% · supplier $10.67 · margin 80% · s…  ␣ more
- n end day  ↑↓ pick  b buy  s sell  x cancel order  l lie low  ? help
+ n end day  ↑↓ pick  c cart  b buy  s sell  x cancel order  l lie low  ? help
 ```
 <!-- capture:end -->
 
