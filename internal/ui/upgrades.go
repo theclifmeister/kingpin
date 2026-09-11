@@ -87,18 +87,18 @@ func (m *Model) askUpgrade() {
 	}
 	switch m.upgradeState(u) {
 	case "owned":
-		m.status = "You already have " + u.Name + "."
+		m.refuse("Can't buy " + u.Name + ": you already have it.")
 		return
 	case "locked":
 		var names []string
 		for _, id := range m.w.Missing(u) {
 			names = append(names, m.cfg.Upgrades.Upgrade(id).Name)
 		}
-		m.status = u.Name + " needs " + strings.Join(names, " and ") + " first."
+		m.refuse("Can't buy " + u.Name + ": it needs " + strings.Join(names, " and ") + " first.")
 		return
 	}
 	if !m.canAfford(u) {
-		m.status = fmt.Sprintf("%s costs %s %s; you have %s.", u.Name, money(u.Cost), pool(u), money(m.poolCash(u)))
+		m.refuse(fmt.Sprintf("Can't buy %s: it costs %s %s, and you have %s.", u.Name, money(u.Cost), pool(u), money(m.poolCash(u))))
 		return
 	}
 	m.upgradeID = u.ID
@@ -109,10 +109,10 @@ func (m *Model) confirmUpgrade() {
 	m.mode = modePlay
 	got, err := m.w.BuyUpgrade(m.cfg.Upgrades, m.upgradeID)
 	if err != nil {
-		m.status = "Can't buy: " + err.Error()
+		m.refuse("Can't buy: " + err.Error())
 		return
 	}
-	m.status = fmt.Sprintf("%s bought for %s %s. It is yours for the run.", got.Name, money(got.Cost), pool(got))
+	m.say(fmt.Sprintf("%s bought for %s %s. It is yours for the run.", got.Name, money(got.Cost), pool(got)))
 }
 
 func pool(u content.UpgradeConfig) string {
@@ -154,7 +154,7 @@ func effectWords(e content.UpgradeEffects) []string {
 		out = append(out, fmt.Sprintf("patrols cap sales at %.0f%%", e.PatrolCap*100))
 	}
 	if e.CooldownBonus > 0 {
-		out = append(out, fmt.Sprintf("+%d days between busts", e.CooldownBonus))
+		out = append(out, "+"+plural(e.CooldownBonus, "day")+" between busts")
 	}
 	if e.StingStockMul > 0 {
 		out = append(out, fmt.Sprintf("stings take ×%.1f stock", e.StingStockMul))

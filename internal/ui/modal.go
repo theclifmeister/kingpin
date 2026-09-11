@@ -102,7 +102,7 @@ func (m *Model) scrollModal(key string) bool {
 
 // wrapLines wraps prose to the modal's width, the one thing that wraps.
 func (m *Model) wrapLines(s string) []string {
-	return strings.Split(lipgloss.NewStyle().Width(m.modalInner()).Render(s), "\n")
+	return strings.Split(theme.Plain.Width(m.modalInner()).Render(s), "\n")
 }
 
 // modalFooter is the footer of the modal open now, and what the status bar

@@ -6,6 +6,8 @@ import (
 	"testing"
 
 	"github.com/charmbracelet/lipgloss"
+
+	"github.com/theclifmeister/kingpin/internal/ui/theme"
 )
 
 // kindPatterns is what a cell of each kind reads as once rendered: a
@@ -94,7 +96,7 @@ func TestTableFormatsByKind(t *testing.T) {
 	cols := []col{{"name", kText, 0}, {"n", kInt, 0}, {"total", kCash, 0}, {"fee", kMoney, 0}, {"price", kPrice, 0}, {"share", kPct, 0}, {"left", kDays, 0}, {"loyalty", kBar, 4}, {"order", kDial, 0}, {"note", kText, 0}}
 	rows := [][]any{
 		{"Vasquez", 12, 1_234_567, 25_000, 19.5, 0.8, 3, gauge{0.5, nil, 58}, order{40, "aggr.", false}, "runs Bayport"},
-		{"Books", signed{-3}, nil, styled{lipgloss.NewStyle(), 150}, 2500.0, signed{15.0}, day(0), spark{[]float64{1, 2, 3}, "▲"}, order{240, "normal", true}, nil},
+		{"Books", signed{-3}, nil, styled{theme.Plain, 150}, 2500.0, signed{15.0}, day(0), spark{[]float64{1, 2, 3}, "▲"}, order{240, "normal", true}, nil},
 		{nil, approx{40}, -1500, nil, nil, 12.34, nil, nil, nil, "a very long note that is cut"},
 	}
 	lines := table(cols, rows, 1, 90)

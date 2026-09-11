@@ -4,8 +4,6 @@ import (
 	"fmt"
 	"strings"
 
-	"github.com/charmbracelet/lipgloss"
-
 	"github.com/theclifmeister/kingpin/internal/game"
 	"github.com/theclifmeister/kingpin/internal/ui/theme"
 )
@@ -142,7 +140,7 @@ func (m *Model) viewJournal() string {
 			b.WriteString(theme.Gold.Render("▸ ") + theme.Selected.Render(day+"  "+text) + "\n")
 			continue
 		}
-		b.WriteString("  " + theme.Subtle.Render(day) + "  " + lipgloss.NewStyle().Foreground(theme.Source(h.Source)).Render(text) + "\n")
+		b.WriteString("  " + theme.Subtle.Render(day) + "  " + theme.SourceText(h.Source).Render(text) + "\n")
 	}
 	return b.String()
 }
@@ -161,7 +159,7 @@ func (m *Model) journalDetails() []section {
 	}
 	var secs []section
 	if h := m.selectedHeadline(); h != nil {
-		style := lipgloss.NewStyle().Foreground(theme.Source(h.Source))
+		style := theme.SourceText(h.Source)
 		var lines []string
 		for _, l := range wrap(h.Text, textW) {
 			lines = append(lines, style.Render(l))
@@ -174,7 +172,7 @@ func (m *Model) journalDetails() []section {
 	for i := 0; i < len(journalSources); i += cols {
 		var line string
 		for _, s := range journalSources[i:min(i+cols, len(journalSources))] {
-			line += fit(lipgloss.NewStyle().Foreground(theme.Source(s)).Render(s), keyCellW)
+			line += fit(theme.SourceText(s).Render(s), keyCellW)
 		}
 		legend = append(legend, strings.TrimRight(line, " "))
 	}

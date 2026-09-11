@@ -69,10 +69,48 @@ func Price(v float64) string {
 	return Money(int(math.Round(v)))
 }
 
-// Plural is n of a thing: `1 corner`, `3 corners`, `0 corners`.
+// A is a noun with its indefinite article: `a runner`, `an enforcer`.
+func A(noun string) string {
+	if noun != "" && strings.ContainsRune("aeiou", rune(noun[0])) {
+		return "an " + noun
+	}
+	return "a " + noun
+}
+
+// Plural is n of a thing: `1 corner`, `3 corners`, `0 corners`. It
+// knows the irregulars the game counts (`city` to `cities`, `person` to
+// `people`, `box` to `boxes`); a noun of two words is pluralised on its
+// last (`1 more day`, `2 more days`).
 func Plural(n int, noun string) string {
 	if n == 1 {
 		return "1 " + noun
 	}
-	return fmt.Sprintf("%d %ss", n, noun)
+	return fmt.Sprintf("%d %s", n, Plurals(noun))
+}
+
+// Plurals is the plural of a noun on its own: `corners`, `cities`,
+// `people`.
+func Plurals(noun string) string {
+	if i := strings.LastIndex(noun, " "); i >= 0 {
+		return noun[:i+1] + Plurals(noun[i+1:])
+	}
+	if p, ok := irregular[noun]; ok {
+		return p
+	}
+	switch {
+	case strings.HasSuffix(noun, "y") && len(noun) > 1 && !strings.ContainsRune("aeiou", rune(noun[len(noun)-2])):
+		return noun[:len(noun)-1] + "ies"
+	case strings.HasSuffix(noun, "s"), strings.HasSuffix(noun, "x"), strings.HasSuffix(noun, "z"),
+		strings.HasSuffix(noun, "ch"), strings.HasSuffix(noun, "sh"):
+		return noun + "es"
+	}
+	return noun + "s"
+}
+
+var irregular = map[string]string{
+	"person": "people",
+	"police": "police",
+	"crew":   "crew",
+	"cash":   "cash",
+	"stock":  "stock",
 }

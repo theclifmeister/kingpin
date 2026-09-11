@@ -667,7 +667,7 @@ func TestJournalUnreadCount(t *testing.T) {
 	if !strings.Contains(stripANSI(title), "3 Journal 3 ") {
 		t.Fatalf("three unread headlines do not read Journal 3: %q", stripANSI(title))
 	}
-	if !strings.Contains(title, lipgloss.NewStyle().Foreground(theme.News).Render("3")) {
+	if !strings.Contains(title, theme.NewsText.Render("3")) {
 		t.Fatalf("the count is not in the news accent: %q", title)
 	}
 	if lw := lipgloss.Width(title); lw > 120 {
@@ -1637,7 +1637,7 @@ func TestRivalsScreenKeys(t *testing.T) {
 		t.Fatalf("screen %v", m.screen)
 	}
 	m.Update(key("d"))
-	if m.mode != modePlay || !strings.Contains(m.status, "Nobody") {
+	if m.mode != modePlay || !strings.Contains(m.status, "nobody is contesting") || m.statusKind != statusWarning {
 		t.Fatalf("d with no rival in town: mode %v status %q", m.mode, m.status)
 	}
 	// A rival dug in next door, with a grudge.

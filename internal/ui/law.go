@@ -2,11 +2,9 @@ package ui
 
 import (
 	"fmt"
-	"strings"
 
 	"github.com/charmbracelet/bubbles/textinput"
 	tea "github.com/charmbracelet/bubbletea"
-	"github.com/charmbracelet/lipgloss"
 
 	"github.com/theclifmeister/kingpin/internal/game"
 	"github.com/theclifmeister/kingpin/internal/ui/theme"
@@ -34,7 +32,7 @@ func (m *Model) askFund() {
 		return
 	}
 	if m.w.Player.CleanCash <= 0 {
-		m.status = "Goodwill is bought with clean cash, and you have none. A front washes it."
+		m.refuse("Can't fund a city: goodwill is bought with clean cash, and you have none.")
 		return
 	}
 	ti := textinput.New()
@@ -97,15 +95,15 @@ func (m *Model) confirmFund() (tea.Model, tea.Cmd) {
 	c := m.fundCity()
 	amt, err := parseQtyInput(m.fnd.amt.Value(), m.maxFund(c))
 	if err != nil {
-		m.fnd.err = err.Error()
+		m.fnd.err = dialogError(err)
 		return m, nil
 	}
 	if err := m.w.Fund(c.ID, amt); err != nil {
-		m.fnd.err = err.Error()
+		m.fnd.err = dialogError(err)
 		return m, nil
 	}
 	m.mode = modePlay
-	m.status = fmt.Sprintf("Gave %s %s clean. Goodwill +%.0f tonight; it takes the pressure off a little every day.", c.Name, money(amt), m.set.Law.Goodwill(amt))
+	m.say(fmt.Sprintf("Gave %s %s clean. Goodwill +%.0f tonight; it takes the pressure off a little every day.", c.Name, money(amt), m.set.Law.Goodwill(amt)))
 	return m, nil
 }
 
@@ -113,17 +111,13 @@ func (m *Model) viewFund() string {
 	w := m.w
 	c := m.fundCity()
 	tun := m.set.Law.Tuning()
+	// The city is turned with left and right, so it is drawn as a dial.
 	var cities []string
-	for i, id := range w.CityOrder {
-		name := " " + w.CityName(id) + " "
-		if i == m.fnd.city {
-			cities = append(cities, theme.Selected.Render(name))
-		} else {
-			cities = append(cities, theme.Subtle.Render(name))
-		}
+	for _, id := range w.CityOrder {
+		cities = append(cities, w.CityName(id))
 	}
 	body := []string{
-		"City      " + strings.Join(cities, " "),
+		"City      " + dialCells(cities, m.fnd.city),
 		fmt.Sprintf("Now       pressure %s  goodwill %s", theme.Bad.Render(fmt.Sprintf("%.0f", c.Pressure)), theme.Good.Render(fmt.Sprintf("%.0f", c.Goodwill))),
 		fmt.Sprintf("Amount    %s   %s", m.fnd.amt.View(), theme.Subtle.Render("clean "+cash(w.Player.CleanCash))),
 	}
@@ -145,4 +139,4 @@ func (m *Model) viewFund() string {
 }
 
 // lawReportStyle is the colour the report's LAW section is printed in.
-var lawReportStyle = lipgloss.NewStyle().Foreground(theme.Heat)
+var lawReportStyle = theme.LawText

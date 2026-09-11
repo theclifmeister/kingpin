@@ -46,9 +46,9 @@ func urgency(days int) lipgloss.Style {
 func (m *Model) buyersLines() []string {
 	w := m.w
 	rows := m.buyerRows()
-	title := theme.PanelTitle.Render("BUYERS") + theme.Subtle.Render(" in "+m.shown().Name)
+	title := sectionTitle("BUYERS", theme.Market) + theme.Subtle.Render(" · "+m.shown().Name)
 	if len(rows) == 0 {
-		return []string{title + theme.Subtle.Render("   nobody is asking. Offers come to the market screen and lapse in a few days.")}
+		return []string{title, theme.Subtle.Render("Nobody is asking. Offers come here and lapse in a few days.")}
 	}
 	out := []string{title}
 	for i, c := range rows {
@@ -63,7 +63,7 @@ func (m *Model) buyersLines() []string {
 		if left <= 1 {
 			days = urgency(left).Render("last day")
 		}
-		pays := fmt.Sprintf("%s (%.3gx)", price(m.set.Market.ContractPrice(w, c)), c.Premium)
+		pays := fmt.Sprintf("%s (×%.3g)", price(m.set.Market.ContractPrice(w, c)), c.Premium)
 		var state string
 		switch c.Status {
 		case game.ContractOffered:
@@ -89,13 +89,13 @@ func (m *Model) contractSections(c game.Contract) []section {
 		row("status", c.Status.String()),
 		row("wants", fmt.Sprintf("%d %s", c.Units, w.ProductName(c.Product))),
 		row("pays", fmt.Sprintf("%s a unit today", price(pays))),
-		row("", theme.Subtle.Render(fmt.Sprintf("%.3gx the street (%s)", c.Premium, price(pays/c.Premium)))),
+		row("", theme.Subtle.Render(fmt.Sprintf("×%.3g the street (%s)", c.Premium, price(pays/c.Premium)))),
 		row("", theme.Subtle.Render(fmt.Sprintf("%s when they asked", price(c.Street)))),
 	}
 	switch c.Status {
 	case game.ContractOffered:
 		sel = append(sel,
-			row("by", fmt.Sprintf("day %d (%d days)", c.Due, c.Due-w.Day)),
+			row("by", fmt.Sprintf("day %d (%s)", c.Due, plural(c.Due-w.Day, "day"))),
 			row("lapses", fmt.Sprintf("after day %d", c.Expires)))
 	default:
 		sel = append(sel,
@@ -116,8 +116,8 @@ func (m *Model) contractSections(c game.Contract) []section {
 	var notes []string
 	notes = append(notes, wrapped(theme.Subtle, c.Pitch)...)
 	if c.Status == game.ContractOffered {
-		notes = append(notes, wrapped(theme.Warning, fmt.Sprintf("If you fail: respect -%.0f, notoriety +%.0f, and they collect %.0f%% of what is short; they stay away %d days.",
-			c.Penalty, m.set.Market.BuyersTuning().NotorietyPenalty, c.PenaltyCash*100, m.set.Market.BuyersTuning().BlacklistDays))...)
+		notes = append(notes, wrapped(theme.Warning, fmt.Sprintf("If you fail: respect -%.0f, notoriety +%.0f, and they collect %.0f%% of what is short; they stay away %s.",
+			c.Penalty, m.set.Market.BuyersTuning().NotorietyPenalty, c.PenaltyCash*100, plural(m.set.Market.BuyersTuning().BlacklistDays, "day")))...)
 	} else {
 		notes = append(notes, wrapped(theme.Subtle, "A handoff needs no corner and no dial.")...)
 	}
@@ -154,7 +154,7 @@ func (m *Model) answerContract(accept bool) {
 		return
 	}
 	if c.Status != game.ContractOffered {
-		m.status = "That one is yours already: deliver it (d)."
+		m.refuse("Can't answer that: it is yours already, deliver it from the stash.")
 		return
 	}
 	var err error
@@ -164,13 +164,13 @@ func (m *Model) answerContract(accept bool) {
 		err = m.w.DeclineContract(c.ID)
 	}
 	if err != nil {
-		m.status = err.Error()
+		m.refuse("Can't answer that: " + err.Error())
 		return
 	}
 	if accept {
-		m.status = fmt.Sprintf("Taken: %d %s to %s by day %d. Deliver from the stash in %s (d).", c.Units, m.w.ProductName(c.Product), c.Name, c.Due, m.w.CityName(c.City))
+		m.say(fmt.Sprintf("Taken: %d %s to %s by day %d. Deliver from the stash in %s.", c.Units, m.w.ProductName(c.Product), c.Name, c.Due, m.w.CityName(c.City)))
 	} else {
-		m.status = fmt.Sprintf("Declined %s's offer.", c.Name)
+		m.say(fmt.Sprintf("Declined %s's offer.", c.Name))
 	}
 }
 
@@ -182,23 +182,23 @@ func (m *Model) deliverSelected() {
 		return
 	}
 	if c.Status == game.ContractOffered {
-		m.status = "Take the offer first."
+		m.refuse("Nothing to deliver: take the offer first.")
 		return
 	}
 	n := m.w.Deliverable(*c)
 	if n <= 0 {
-		m.status = fmt.Sprintf("No %s in the stash in %s to hand over.", m.w.ProductName(c.Product), m.w.CityName(c.City))
+		m.refuse(fmt.Sprintf("Nothing to hand over: no %s in the stash in %s.", m.w.ProductName(c.Product), m.w.CityName(c.City)))
 		return
 	}
 	if err := m.w.Deliver(c.ID, n); err != nil {
 		if err == game.ErrElsewhere {
-			m.status = fmt.Sprintf("The handoff is in %s: go there and deliver from the stash there.", m.w.CityName(c.City))
+			m.refuse(fmt.Sprintf("Can't deliver from here: the handoff is in %s, go there.", m.w.CityName(c.City)))
 		} else {
-			m.status = err.Error()
+			m.refuse("Can't deliver: " + err.Error())
 		}
 		return
 	}
-	m.status = fmt.Sprintf("%d %s go to %s tonight for about %s. n ends the day.", n, m.w.ProductName(c.Product), c.Name, money(int(m.set.Market.ContractPrice(m.w, *c)*float64(n))))
+	m.say(fmt.Sprintf("%d %s go to %s tonight for about %s.", n, m.w.ProductName(c.Product), c.Name, money(int(m.set.Market.ContractPrice(m.w, *c)*float64(n)))))
 }
 
 // contractsLine is the dashboard's one line on the buyers: how many
@@ -218,7 +218,7 @@ func (m *Model) contractsLine() string {
 	}
 	var parts []string
 	if live > 0 {
-		s := fmt.Sprintf("%d contract(s)", live)
+		s := plural(live, "contract")
 		switch {
 		case today > 0:
 			s += theme.Bad.Render(fmt.Sprintf(", %d due today", today))
@@ -228,7 +228,7 @@ func (m *Model) contractsLine() string {
 		parts = append(parts, s)
 	}
 	if offers > 0 {
-		parts = append(parts, theme.Gold.Render(fmt.Sprintf("%d offer(s) "+screenPointer(screenMarket), offers)))
+		parts = append(parts, theme.Gold.Render(plural(offers, "offer")+" "+screenPointer(screenMarket)))
 	}
 	return strings.Join(parts, " · ")
 }

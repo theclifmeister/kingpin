@@ -69,7 +69,7 @@ func (m *Model) keyCard(key string) (tea.Model, tea.Cmd) {
 func (m *Model) answerCard() {
 	a, err := m.w.Choose(m.cardCursor)
 	if err != nil {
-		m.status = "Can't answer that: " + err.Error()
+		m.refuse("Can't answer that: " + err.Error())
 		m.showCard()
 		return
 	}

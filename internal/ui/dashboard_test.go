@@ -189,7 +189,7 @@ func TestDashboardCornersAreYours(t *testing.T) {
 		if !strings.Contains(view, theme.CrewText.Render(line)) {
 			t.Errorf("%dx%d: the corner line is not in Crew blue:\n%s", sz[0], sz[1], stripANSI(view))
 		}
-		if strings.Contains(view, theme.Rival.Render(line)) {
+		if strings.Contains(view, theme.RivalText.Render(line)) {
 			t.Errorf("%dx%d: the corner line is in the rival's purple", sz[0], sz[1])
 		}
 	}

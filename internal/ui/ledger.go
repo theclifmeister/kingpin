@@ -28,7 +28,7 @@ func (m *Model) askFront() {
 		return
 	}
 	if len(m.frontRows()) == 0 {
-		m.status = "You own every front there is."
+		m.refuse("Nothing to buy: you own every front there is.")
 		return
 	}
 	m.frontCursor = 0
@@ -44,20 +44,20 @@ func (m *Model) confirmFront() {
 	o := rows[max(0, min(m.frontCursor, len(rows)-1))]
 	f, err := m.w.BuyFront(o)
 	if err != nil {
-		m.status = "Can't buy: " + err.Error()
+		m.refuse("Can't buy: " + err.Error())
 		return
 	}
-	m.status = fmt.Sprintf("Bought %s for %s. It opens tomorrow, washing up to %s/day.", f.Name, money(o.Cost), money(m.set.Laundering.Throughput(m.w, f)))
+	m.say(fmt.Sprintf("Bought %s for %s. It opens tomorrow, washing up to %s/day.", f.Name, money(o.Cost), money(m.set.Laundering.Throughput(m.w, f))))
 }
 
 func (m *Model) cycleLaunder() {
 	d := (m.w.Laundering.Dial + 1) % 3
 	m.w.SetLaunderDial(d)
 	if len(m.w.Fronts) == 0 {
-		m.status = fmt.Sprintf("Launder dial %s. %s Buy a front %s to use it.", d, launderBlurb(d), screenPointer(screenLedger))
+		m.say(fmt.Sprintf("Launder dial %s. %s Buy a front %s to use it.", d, launderBlurb(d), screenPointer(screenLedger)))
 		return
 	}
-	m.status = fmt.Sprintf("Launder dial %s: washing up to %s/day, audit risk %.1f%%/day. %s", d, money(m.set.Laundering.Capacity(m.w)), m.set.Laundering.AnyAuditRisk(m.w)*100, launderBlurb(d))
+	m.say(fmt.Sprintf("Launder dial %s: washing up to %s/day, audit risk %.1f%%/day. %s", d, money(m.set.Laundering.Capacity(m.w)), m.set.Laundering.AnyAuditRisk(m.w)*100, launderBlurb(d)))
 }
 
 func launderBlurb(d events.Launder) string {
@@ -223,29 +223,16 @@ func (m *Model) cycleLedgerRoute(r content.RouteConfig) {
 		m.refuse("Can't turn the dial: " + err.Error())
 		return
 	}
-	if !d.On() {
-		m.status = fmt.Sprintf("%s off: nothing moves on it. Its targets are kept.", r.Name)
-		return
-	}
-	lg := m.set.Logistics
-	line := fmt.Sprintf("%s %s: %s %s to %s, seized ~%.0f%%.", r.Name, d, plural(lg.Days(r, d.Ship()), "day"), r.Mode, m.w.CityName(r.To), lg.Risk(r, d.Ship())*100)
-	if len(m.w.Route(r.ID).Target) == 0 {
-		line += " It sends nothing without a target."
-	}
-	m.status = line
+	m.sayRouteDial(r, d)
 }
 
 // launderRow draws the launder dial as `careful  [normal]  greedy`.
 func launderRow(d events.Launder) string {
-	var cells []string
+	var notches []string
 	for x := events.LaunderCareful; x <= events.LaunderGreedy; x++ {
-		if x == d {
-			cells = append(cells, theme.Gold.Render("["+x.String()+"]"))
-		} else {
-			cells = append(cells, theme.Subtle.Render(x.String()))
-		}
+		notches = append(notches, x.String())
 	}
-	return strings.Join(cells, "  ")
+	return dialCells(notches, int(d-events.LaunderCareful))
 }
 
 var frontCols = []col{{"front", kText, 0}, {"washes/day", kMoney, 0}, {"today", kMoney, 0}, {"lifetime", kMoney, 0}, {"audit", kPct, 0}, {"status", kText, 0}}

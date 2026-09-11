@@ -5,6 +5,8 @@ import (
 	"fmt"
 	"slices"
 	"strings"
+
+	"github.com/theclifmeister/kingpin/internal/format"
 )
 
 // Deal kinds. The joint shipment (#30) is proposed but not yet struck:
@@ -82,27 +84,35 @@ func (d Deal) String() string {
 	case DealTruce:
 		return fmt.Sprintf("a %d-day truce", d.Terms.Days)
 	case DealTribute:
-		return fmt.Sprintf("tribute of $%d a day", d.Terms.PerDay)
+		return "tribute of " + format.Money(d.Terms.PerDay) + " a day"
 	case DealSplit:
-		return fmt.Sprintf("a split: %d corner(s) your side of the line", len(d.Terms.Corners))
+		return fmt.Sprintf("a split: %s your side of the line", format.Plural(len(d.Terms.Corners), "corner"))
 	case DealShipment:
 		return fmt.Sprintf("a joint shipment of %d units", d.Terms.Units)
 	}
 	return d.Kind
 }
 
-// Describe is the deal in words with the corners named, for the screens.
+// Describe is the deal in words with the corners named, for the screens
+// and the report: `a split: yours Rail Yard, Docks`.
 func (w *World) Describe(d Deal) string {
 	if d.Kind != DealSplit {
 		return d.String()
 	}
+	return "a split: yours " + w.Side(d)
+}
+
+// Side names the corners a split leaves on the player's side of the
+// line, `Rail Yard, Docks`, for a screen that has already said it is a
+// split.
+func (w *World) Side(d Deal) string {
 	var names []string
 	for _, id := range d.Terms.Corners {
 		if c := w.Corner(id); c != nil {
 			names = append(names, c.Name)
 		}
 	}
-	return "a split: yours " + strings.Join(names, ", ")
+	return strings.Join(names, ", ")
 }
 
 // Deal returns the deal of a kind that holds tonight, or nil.

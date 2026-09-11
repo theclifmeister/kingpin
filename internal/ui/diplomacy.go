@@ -47,7 +47,7 @@ func (m *Model) termRows(kind string) ([]game.Deal, []string) {
 // askPropose opens the dialog, or explains why there is nobody to talk to.
 func (m *Model) askPropose() {
 	if m.w.Rival.Arrived == 0 {
-		m.status = "Nobody is contesting the city yet. There is nobody to deal with."
+		m.refuse("Nothing to propose: nobody is contesting the city yet.")
 		return
 	}
 	if m.w.Over != nil {
@@ -77,16 +77,16 @@ func (m *Model) pickPropose() {
 		if m.proposeCursor >= len(proposeKinds) {
 			m.w.Withdraw()
 			m.mode = modePlay
-			m.status = "Proposal withdrawn."
+			m.say("Proposal withdrawn.")
 			return
 		}
 		kind := proposeKinds[m.proposeCursor]
 		if kind == game.DealShipment {
-			m.status = "Joint shipments need routes. Not yet."
+			m.refuse("Can't propose a shipment: joint shipments need routes, and there are none yet.")
 			return
 		}
 		if d := m.w.Deal(kind); d != nil {
-			m.status = fmt.Sprintf("You already have %s.", m.w.Describe(*d))
+			m.refuse(fmt.Sprintf("Can't propose that: you already have %s.", m.w.Describe(*d)))
 			return
 		}
 		m.proposeKind, m.proposeStep, m.proposeCursor = m.proposeCursor, 1, 1
@@ -100,10 +100,10 @@ func (m *Model) pickPropose() {
 	d := deals[max(0, min(m.proposeCursor, len(deals)-1))]
 	m.mode = modePlay
 	if err := m.w.Propose(d.Kind, d.Terms); err != nil {
-		m.status = "Can't propose: " + err.Error()
+		m.refuse("Can't propose: " + err.Error())
 		return
 	}
-	m.status = fmt.Sprintf("Proposed %s to %s. They answer in the morning; odds ~%.0f%%.", m.w.Describe(d), m.rivalName(), m.set.Rivals.Chance(m.w, d)*100)
+	m.say(fmt.Sprintf("Proposed %s to %s. They answer in the morning; odds ~%.0f%%.", m.w.Describe(d), m.rivalName(), m.set.Rivals.Chance(m.w, d)*100))
 }
 
 func (m *Model) viewPropose() string {
@@ -125,12 +125,12 @@ func (m *Model) viewPropose() string {
 				line, note = "shipment", theme.Subtle.Render("half the cost of a run, half the loss (needs routes)")
 			}
 			if d := w.Deal(kind); d != nil {
-				note = theme.Good.Render("live: " + w.Describe(*d))
+				note = theme.Good.Render("live: " + m.dealTerms(*d))
 			}
 			body = m.proposeLine(body, i, line, note)
 		}
 		if w.Proposal != nil {
-			body = m.proposeLine(body, len(proposeKinds), "withdraw", "take back tonight's proposal: "+w.Describe(*w.Proposal))
+			body = m.proposeLine(body, len(proposeKinds), "withdraw", "take back tonight's proposal, "+w.Describe(*w.Proposal))
 		}
 	} else {
 		kind := proposeKinds[m.proposeKind]
@@ -145,7 +145,7 @@ func (m *Model) viewPropose() string {
 			case game.DealTribute:
 				line = fmt.Sprintf("%9s/day  %-22s", money(d.Terms.PerDay), words[i])
 			case game.DealSplit:
-				line = fmt.Sprintf("%d corners  %-36s", len(d.Terms.Corners), words[i])
+				line = fmt.Sprintf("%-10s %-36s", plural(len(d.Terms.Corners), "corner"), words[i])
 			}
 			note := fmt.Sprintf("~%.0f%%", odds*100)
 			if odds == 0 {
@@ -154,7 +154,7 @@ func (m *Model) viewPropose() string {
 			body = m.proposeLine(body, i, line, note)
 		}
 		if kind == game.DealSplit {
-			body = append(body, "", theme.Subtle.Render("Your side: "+w.Describe(deals[m.proposeCursor])[len("a split: yours "):]))
+			body = append(body, "", theme.Subtle.Render("Your side: "+w.Side(deals[m.proposeCursor])))
 		}
 		if m.set.Rivals.Distrusted(w, w.Day+1) {
 			body = append(body, "", theme.Bad.Render("They are not taking your calls. You broke a deal."))
@@ -178,29 +178,29 @@ func (m *Model) proposeLine(body []string, i int, line, note string) []string {
 func (m *Model) answerOffer(accept bool) {
 	w := m.w
 	if len(w.Offers) == 0 {
-		m.status = "No offer on the table."
+		m.refuse("Nothing to answer: no offer on the table.")
 		return
 	}
 	o := w.Offers[max(0, min(m.dealCursor, len(w.Offers)-1))]
 	if accept {
 		if _, err := w.Accept(o.ID); err != nil {
-			m.status = "Can't accept: " + err.Error()
+			m.refuse("Can't accept: " + err.Error())
 			return
 		}
-		m.status = fmt.Sprintf("Accepted %s. It holds from tonight.", w.Describe(o.Deal))
+		m.say(fmt.Sprintf("Accepted %s. It holds from tonight.", w.Describe(o.Deal)))
 		return
 	}
 	if _, err := w.Decline(o.ID); err != nil {
-		m.status = "Can't decline: " + err.Error()
+		m.refuse("Can't decline: " + err.Error())
 		return
 	}
-	m.status = fmt.Sprintf("Turned down %s.", w.Describe(o.Deal))
+	m.say(fmt.Sprintf("Turned down %s.", w.Describe(o.Deal)))
 }
 
 // trustBar is the rival's trust in you, as a bar.
 func (m *Model) trustBar(width int) string {
 	t := m.w.Rival.Trust
-	style := theme.Rival
+	style := theme.RivalText
 	switch {
 	case t < 20:
 		style = theme.Bad
@@ -243,7 +243,7 @@ func (m *Model) dealTerms(d game.Deal) string {
 	case game.DealTribute:
 		return money(d.Terms.PerDay) + " a day"
 	case game.DealSplit:
-		return strings.TrimPrefix(m.w.Describe(d), "a split: ")
+		return "yours " + m.w.Side(d)
 	}
 	return m.w.Describe(d)
 }
@@ -282,7 +282,7 @@ func (m *Model) viewRivals() string {
 		line(sub("Nobody is contesting the city yet."))
 		return strings.Join(ls, "\n")
 	}
-	line(theme.Rival.Render(m.rivalName()) + sub(fmt.Sprintf(" · %s · %s · muscle %d", m.personalityWord(), m.rivalCorners(), r.Muscle)))
+	line(theme.RivalText.Render(m.rivalName()) + sub(fmt.Sprintf(" · %s · %s · muscle %d", m.personalityWord(), m.rivalCorners(), r.Muscle)))
 	barW := max(6, min(12, width/6))
 	line(sub("trust ") + m.trustBar(barW) + "   " + sub("war ") + m.warBar(barW))
 	ls = append(ls, "")

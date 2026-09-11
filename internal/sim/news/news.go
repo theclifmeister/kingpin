@@ -177,7 +177,7 @@ func (s *Sim) Step(w *game.World, t *game.Tick) {
 			switch {
 			case ev.Seized:
 				add("market", "PriceShockSeized", d)
-				rep.Prices = append(rep.Prices, fmt.Sprintf("%-8s x%.1f%s for %d days: the street was waiting on the shipment", w.ProductName(ev.Product), ev.Factor, in(ev.City), ev.Days))
+				rep.Prices = append(rep.Prices, fmt.Sprintf("%-8s ×%.1f%s for %s: the street was waiting on the shipment", w.ProductName(ev.Product), ev.Factor, in(ev.City), format.Plural(ev.Days, "day")))
 			case ev.Slump:
 				add("market", "PriceSlump", d)
 			default:
@@ -196,7 +196,7 @@ func (s *Sim) Step(w *game.World, t *game.Tick) {
 				add("market", "PlayerSoldBig", d)
 			}
 		case events.ContractOffered:
-			rep.Sales = append(rep.Sales, fmt.Sprintf("%s Answer it on the market (2)%s: it stands %d day(s).", ev.Pitch, in(ev.City), ev.Expires-t.Day+1))
+			rep.Sales = append(rep.Sales, fmt.Sprintf("%s Answer it on the market (2)%s: it stands %s.", ev.Pitch, in(ev.City), format.Plural(ev.Expires-t.Day+1, "day")))
 			d := at(ev.City)
 			d.Product = w.ProductName(ev.Product)
 			d.Name = ev.Name
@@ -205,7 +205,7 @@ func (s *Sim) Step(w *game.World, t *game.Tick) {
 			rep.Sales = append(rep.Sales, fmt.Sprintf("You took %s's order: %d %s by day %d%s. Deliver it there (2, d).", ev.Name, ev.Units, w.ProductName(ev.Product), ev.Due, in(ev.City)))
 		case events.ContractDelivered:
 			contracts += ev.Revenue
-			line := fmt.Sprintf("Handed %d %s to %s at %s (%.3gx street) = +%s%s", ev.Units, w.ProductName(ev.Product), ev.Name, format.Price(ev.Price), ev.Price/math.Max(ev.Street, 1e-9), format.Money(ev.Revenue), in(ev.City))
+			line := fmt.Sprintf("Handed %d %s to %s at %s (×%.3g street) = +%s%s", ev.Units, w.ProductName(ev.Product), ev.Name, format.Price(ev.Price), ev.Price/math.Max(ev.Street, 1e-9), format.Money(ev.Revenue), in(ev.City))
 			if ev.Complete {
 				line += ". Delivered in full."
 			} else {
@@ -271,7 +271,7 @@ func (s *Sim) Step(w *game.World, t *game.Tick) {
 			d := base
 			d.Name, d.Role = ev.Name, ev.Role
 			add("crew", "CrewHired", d)
-			rep.Crew = append(rep.Crew, fmt.Sprintf("%s signed on as a %s for %s", ev.Name, ev.Role, format.Money(ev.Fee)))
+			rep.Crew = append(rep.Crew, fmt.Sprintf("%s signed on as %s for %s", ev.Name, format.A(ev.Role), format.Money(ev.Fee)))
 		case events.CrewFired:
 			d := base
 			d.Name, d.Role = ev.Name, ev.Role
@@ -413,7 +413,7 @@ func (s *Sim) Step(w *game.World, t *game.Tick) {
 			d := base
 			d.Rival, d.Deal = ev.Rival, ev.Deal
 			add("rivals", "DealOffered", d)
-			rep.Territory = append(rep.Territory, fmt.Sprintf("%s offers %s. It stands %d day(s): answer it on the rivals screen (8).", ev.Rival, ev.Terms, ev.Expires-t.Day+1))
+			rep.Territory = append(rep.Territory, fmt.Sprintf("%s offers %s. It stands %s: answer it on the rivals screen (8).", ev.Rival, ev.Terms, format.Plural(ev.Expires-t.Day+1, "day")))
 		case events.DealAccepted:
 			d := base
 			d.Rival, d.Deal = ev.Rival, ev.Deal
@@ -464,7 +464,7 @@ func (s *Sim) Step(w *game.World, t *game.Tick) {
 			spent += ev.Cost
 			rep.Money = append(rep.Money, fmt.Sprintf("Bought %s -%s. It opens today.", ev.Name, format.Money(ev.Cost)))
 		case events.CashLaundered:
-			line := fmt.Sprintf("Washed %s clean through %d front(s)", format.Money(ev.Amount), ev.Fronts)
+			line := fmt.Sprintf("Washed %s clean through %s", format.Money(ev.Amount), format.Plural(ev.Fronts, "front"))
 			if ev.Upkeep > 0 {
 				line += fmt.Sprintf(", upkeep -%s", format.Money(ev.Upkeep))
 			}
@@ -475,7 +475,7 @@ func (s *Sim) Step(w *game.World, t *game.Tick) {
 			d.Front = ev.Name
 			add("laundering", "FrontAudited", d)
 			seized += ev.Seized
-			line := fmt.Sprintf("AUDIT at %s: shut for %d days", ev.Name, ev.Days)
+			line := fmt.Sprintf("AUDIT at %s: shut for %s", ev.Name, format.Plural(ev.Days, "day"))
 			if ev.Seized > 0 {
 				line += fmt.Sprintf(", %s seized", format.Money(ev.Seized))
 			}
@@ -489,17 +489,17 @@ func (s *Sim) Step(w *game.World, t *game.Tick) {
 			d := base
 			d.Front = ev.Name
 			add("laundering", "FrontFrozen", d)
-			rep.Money = append(rep.Money, fmt.Sprintf("%s shut for %d days: %s upkeep unpaid. Wash something.", ev.Name, ev.Days, format.Money(ev.Upkeep)))
+			rep.Money = append(rep.Money, fmt.Sprintf("%s shut for %s: %s upkeep unpaid. Wash something.", ev.Name, format.Plural(ev.Days, "day"), format.Money(ev.Upkeep)))
 		case events.WholesaleBought:
 			// The route's lots, bought this morning for what it sends.
 			shipping += ev.Cost
 			charge(ev.Name, ev.Cost)
-			rep.Shipments = append(rep.Shipments, fmt.Sprintf("Bought %d %s (%d lot(s)) in %s for the %s -%s", ev.Units, w.ProductName(ev.Product), ev.Lots, w.CityName(ev.City), ev.Name, format.Money(ev.Cost)))
+			rep.Shipments = append(rep.Shipments, fmt.Sprintf("Bought %d %s (%s) in %s for the %s -%s", ev.Units, w.ProductName(ev.Product), format.Plural(ev.Lots, "lot"), w.CityName(ev.City), ev.Name, format.Money(ev.Cost)))
 		case events.ShipmentSent:
 			// Paid this morning, when the route put it on the road.
 			shipping += ev.Cost
 			charge(ev.Name, ev.Cost)
-			rep.Shipments = append(rep.Shipments, fmt.Sprintf("%d %s left %s for %s by %s, %s: %d day(s), fare -%s", ev.Units, w.ProductName(ev.Product), w.CityName(ev.From), w.CityName(ev.To), ev.Mode, ev.Dial, ev.Days, format.Money(ev.Cost)))
+			rep.Shipments = append(rep.Shipments, fmt.Sprintf("%d %s left %s for %s by %s, %s: %s, fare -%s", ev.Units, w.ProductName(ev.Product), w.CityName(ev.From), w.CityName(ev.To), ev.Mode, ev.Dial, format.Plural(ev.Days, "day"), format.Money(ev.Cost)))
 		case events.ShipmentArrived:
 			rep.Shipments = append(rep.Shipments, fmt.Sprintf("%d %s landed in %s from %s by %s", ev.Units, w.ProductName(ev.Product), w.CityName(ev.To), w.CityName(ev.From), ev.Mode))
 		case events.ShipmentSeized:
@@ -751,7 +751,7 @@ func lieutenantWalkedLine(ev events.LieutenantWalked) string {
 		s += fmt.Sprintf(": %s went back to the street", strings.Join(ev.Corners, ", "))
 	}
 	if ev.Units > 0 {
-		s += fmt.Sprintf(", and the %d units stashed there are gone", ev.Units)
+		s += fmt.Sprintf(", and the %s stashed there are gone", format.Plural(ev.Units, "unit"))
 	}
 	return s + "."
 }

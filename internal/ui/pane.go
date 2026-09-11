@@ -88,7 +88,7 @@ func wrapped(style lipgloss.Style, s string) []string {
 
 // sectionTitle is how a section is headed in the pane and the overlay.
 func sectionTitle(title string, accent lipgloss.Color) string {
-	return lipgloss.NewStyle().Bold(true).Foreground(accent).Render(truncate(title, paneTextW))
+	return theme.Heading(accent).Render(truncate(title, paneTextW))
 }
 
 // keyCellW is a KEYS cell: `key  label` in the pane's half-width.
@@ -201,7 +201,7 @@ func strip(sections []section, w int, accent lipgloss.Color) string {
 	var text string
 	if len(sections) > 0 {
 		s := sections[0]
-		parts := []string{lipgloss.NewStyle().Bold(true).Foreground(accent).Render(s.title)}
+		parts := []string{theme.Heading(accent).Render(s.title)}
 		for _, l := range s.lines {
 			if l = strings.TrimSpace(spaces.ReplaceAllString(l, " ")); l != "" {
 				parts = append(parts, l)

@@ -171,7 +171,7 @@ func (m *Model) newRun() {
 	m.city = m.w.Player.Location
 	m.mapCursor = m.yourCorner()
 	m.flash = nil
-	m.status = fmt.Sprintf("New run. %s, %s in your pocket. Seed %d.", m.w.Here().Name, money(m.w.Player.DirtyCash), m.w.Seed)
+	m.say(fmt.Sprintf("New run. %s, %s in your pocket. Seed %d.", m.w.Here().Name, money(m.w.Player.DirtyCash), m.w.Seed))
 	_ = game.Save(m.w)
 	m.refreshJournal()
 }
@@ -217,7 +217,7 @@ func (m *Model) continueRun() error {
 	}
 	m.city = w.Player.Location
 	m.mapCursor = m.yourCorner()
-	m.status = fmt.Sprintf("Continued day %d.", w.Day)
+	m.say(fmt.Sprintf("Continued day %d.", w.Day))
 	m.refreshJournal()
 	m.journalSeen = len(w.Journal) // the news before this morning was yesterday's
 	return nil
@@ -247,15 +247,20 @@ func (m *Model) endDay() {
 		m.mode = modeOver
 		return
 	}
+	// The danger wins the morning's status bar: the tell that somebody
+	// on the payroll is talking, in red, over the save.
+	if m.talking() {
+		m.alarm("Somebody is talking. Investigate " + screenPointer(screenCrew) + ".")
+	}
 	m.showCard()
 }
 
 func (m *Model) save() {
 	if err := game.Save(m.w); err != nil {
-		m.status, m.statusKind = "Save failed: "+err.Error(), statusBad
+		m.alarm("Save failed: " + err.Error())
 		return
 	}
-	m.status = fmt.Sprintf("Day %d saved.", m.w.Day)
+	m.say(fmt.Sprintf("Day %d saved.", m.w.Day))
 }
 
 // Init starts nothing: the UI redraws only on a key or a resize.
@@ -527,7 +532,7 @@ func (m *Model) keyStart(key string) (tea.Model, tea.Cmd) {
 func (m *Model) pickStart() (tea.Model, tea.Cmd) {
 	if m.startChoice == 0 {
 		if err := m.continueRun(); err != nil {
-			m.status = "Could not load save: " + err.Error()
+			m.alarm("Could not load save: " + err.Error())
 			m.startChoice = 1
 		}
 		return m, nil
@@ -627,7 +632,7 @@ func (m *Model) cancelSelected() {
 	if city := m.actionCity(); m.w.Cities[city] != nil {
 		if _, ok := m.w.Order(city, id); ok {
 			m.w.CancelSell(city, id)
-			m.status = "Order cancelled."
+			m.say("Order cancelled.")
 		}
 	}
 }
@@ -636,9 +641,9 @@ func (m *Model) cancelSelected() {
 func (m *Model) toggleLieLow() {
 	m.w.SetLieLow(!m.w.LieLow)
 	if m.w.LieLow {
-		m.status = "Lying low today: no sales, heat fades faster."
+		m.say("Lying low today: no sales, heat fades faster.")
 	} else {
-		m.status = "Back on the corner."
+		m.say("Back on the corner.")
 	}
 }
 
@@ -694,7 +699,7 @@ func (m *Model) View() string {
 		case m.w.LieLow:
 			what = "Lying low today."
 		case len(m.w.Orders) > 0:
-			what = fmt.Sprintf("%d order(s) queued.", len(m.w.Orders))
+			what = plural(len(m.w.Orders), "order") + " queued."
 		}
 		body = m.modal("END THE DAY?", []string{what + " The sims step and the run autosaves."}, m.modalFooter())
 	case modeHelp:
@@ -728,7 +733,7 @@ func (m *Model) View() string {
 	default:
 		return m.frame(m.viewScreen(), m.details(), m.legendKeys(), m.accent())
 	}
-	body = lipgloss.NewStyle().Width(m.width).Height(m.bodyHeight()).MaxHeight(m.bodyHeight()).Render(body)
+	body = theme.Plain.Width(m.width).Height(m.bodyHeight()).MaxHeight(m.bodyHeight()).Render(body)
 	return lines(m.viewTitle(), body, m.viewFooter())
 }
 
@@ -794,9 +799,32 @@ func (m *Model) accent() lipgloss.Color {
 	}
 }
 
-// refuse sets a status message that says no to what you asked.
+// say sets the status to a confirmation of what you did, in the body
+// colour; refuse to a refusal, in the warning colour, ended with a full
+// stop where the site left it off (`Can't hire: the crew is as big as
+// you can manage.`); alarm to a danger, in red. Every site sets the
+// kind through one of the three (#88, TestStatusKinds).
+func (m *Model) say(s string) {
+	m.status, m.statusKind = s, statusBody
+}
+
 func (m *Model) refuse(s string) {
-	m.status, m.statusKind = s, statusWarning
+	m.status, m.statusKind = sentence(s), statusWarning
+}
+
+func (m *Model) alarm(s string) {
+	m.status, m.statusKind = sentence(s), statusBad
+}
+
+// sentence ends s with a full stop where it has no end punctuation, so
+// a refusal built on a game error (`Can't sell: only 3 Weed in
+// Eastside`) reads as one; a dialog error is capitalized too
+// (dialogError).
+func sentence(s string) string {
+	if s == "" || strings.ContainsRune(".!?", rune(s[len(s)-1])) {
+		return s
+	}
+	return s + "."
 }
 
 func (m *Model) viewTitle() string {
@@ -818,7 +846,7 @@ func (m *Model) viewTitle() string {
 				label = fmt.Sprintf("%d", i+1)
 			}
 			if screen(i) == screenJournal && short < 2 && unread > 0 {
-				label += " " + lipgloss.NewStyle().Foreground(theme.News).Render(fmt.Sprintf("%d", unread))
+				label += " " + theme.NewsText.Render(fmt.Sprintf("%d", unread))
 			}
 			if screen(i) == m.screen && m.mode == modePlay {
 				tabs = append(tabs, theme.TabOn.Render(label))
@@ -870,21 +898,15 @@ func (m *Model) legendKeys() []binding {
 	return m.keysFor(m.screen)
 }
 
-// statusStyle is the colour of the status message by its kind. A site
-// that has not said what its message is gets the copy's convention:
-// a refusal starts with "Can't", "Nothing to" or "No"; the rest is
-// neutral. #88 sets the kind at every site.
+// statusStyle is the colour of the status message by its kind: a
+// confirmation in the body colour, a refusal in the warning colour, a
+// danger in red. Every site sets the kind (say, refuse, alarm).
 func (m *Model) statusStyle() lipgloss.Style {
 	switch m.statusKind {
 	case statusWarning:
 		return theme.Warning
 	case statusBad:
 		return theme.Bad
-	}
-	for _, p := range []string{"Can't ", "Nothing to ", "No ", "Nobody ", "Nowhere ", "Move the cursor"} {
-		if strings.HasPrefix(m.status, p) {
-			return theme.Warning
-		}
 	}
 	return theme.Body
 }
@@ -960,12 +982,12 @@ func (m *Model) viewStart() string {
 		// Load errors can be long; wrap inside the box instead of past it.
 		body = append(body, "")
 		for _, l := range m.wrapLines(m.status) {
-			body = append(body, theme.Warning.Render(l))
+			body = append(body, m.statusStyle().Render(l))
 		}
 	}
 	// No title bar yet: the box sits where it does on every other screen.
 	box := "\n" + m.modal("KINGPIN", body, m.modalFooter())
-	return lipgloss.NewStyle().Width(m.width).Height(m.height).MaxHeight(m.height).Render(box)
+	return theme.Plain.Width(m.width).Height(m.height).MaxHeight(m.height).Render(box)
 }
 
 // viewHelp is the whole key table, grouped by screen, in the scrolling
@@ -1050,11 +1072,11 @@ func (m *Model) viewReport() string {
 	}
 	section("PRICES", r.Prices, theme.Good)
 	section("SALES", r.Sales, theme.Gold)
-	section("SHIPMENTS", r.Shipments, lipgloss.NewStyle().Foreground(theme.Logistics))
+	section("SHIPMENTS", r.Shipments, theme.RoadText)
 	section("HEAT", r.Heat, theme.Bad)
 	section("LAW", r.Law, lawReportStyle)
-	section("CREW", r.Crew, lipgloss.NewStyle().Foreground(theme.Crew))
-	section("TERRITORY", r.Territory, lipgloss.NewStyle().Foreground(theme.Rivals))
+	section("CREW", r.Crew, theme.CrewText)
+	section("TERRITORY", r.Territory, theme.RivalText)
 	section("MONEY", append(r.Money, fmt.Sprintf("Cash %s %s %s", cash(r.CashBefore), format.Arrow, cash(r.CashAfter))), theme.Gold)
 	section("UPGRADES", r.Upgrades, theme.Gold)
 	section("NEWS", r.News, theme.Subtle)
