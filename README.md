@@ -91,8 +91,9 @@ every screen and are in the KEYS of the screens they belong to.
    rival's in purple, free ones plain) and the routes between the cities
    under it, each with its dial; the pane is the corner's inspector or
    the route's detail.
-6. **Upgrades** — the three branches of the tree as columns; the pane is
-   the node, its cost, what it needs and what it does.
+6. **Upgrades** — the branches of the tree as columns, as many as fit,
+   left and right crossing them; the pane is the node, its cost, what it
+   needs and what it does.
 7. **Ledger** — the till (dirty, clean, seized, the launder dial), the
    fronts, the routes' books and the fronts on offer, under one cursor;
    the pane is the selected front, route or offer and the wash.
@@ -378,17 +379,22 @@ never leaves the first city plays the same as it always did.
   dashboard's LAW panel shows all of it, and the report carries elections
   and new chiefs. The law never adds a page to the file by itself: it
   moves the thresholds, the cooldowns and the decay.
-- **Upgrades** are three branches of persistent, stacking bonuses bought
-  with cash, twenty-nine nodes: Operations (stashes up to a warehouse,
+- **Upgrades** are five branches of persistent, stacking bonuses bought
+  with cash, forty-five nodes: Operations (stashes up to a warehouse,
   supplier terms, street network, regulars and a name on the street,
   scales, a price runner, a buyer's book) to earn more, Security
   (burners, lookouts, a police scanner, safehouse, clean cars, cold
   contacts, quiet money, counter-surveillance, the ghost crew, dead
   drops, cut-outs) to take less damage and cool faster, Legal (lawyer, a
   paper trail, an accountant's lawyer, retainer, a friendly judge, two
-  fall guys) to survive the case. Every node is a multiplier the sims
-  read from `upgrades.toml`; nothing removes the heat curve, it only
-  softens it. The clean-cash nodes cost money the fronts have washed.
+  fall guys) to survive the case, Crew (word on the street, payroll,
+  like family, hazard pay, room for two more and a second room,
+  discipline, training, vetting, signing bonuses) for a crew that costs
+  less and stays, and Laundering (a bookkeeper, a shell company, a cash
+  business, a thinner float, offshore, a second set of books) to wash
+  more and be looked at less. Every node is a multiplier the sims read
+  from `upgrades.toml`; nothing removes the heat curve, it only softens
+  it. The clean-cash nodes cost money the fronts have washed.
 - **Laundering** is the fronts: a laundromat, a car wash, a restaurant, a
   nightclub, a construction firm, a crypto exchange. Each washes dirty cash
   clean up to a daily cap for a daily upkeep, and each can be audited. The

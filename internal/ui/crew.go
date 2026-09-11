@@ -276,7 +276,7 @@ func (m *Model) viewCrew() string {
 		if c.ID == w.Crew.Exposed {
 			name = styled{theme.Bad.Bold(true), c.Name}
 		}
-		return []any{name, c.Role, c.Skill, styled{loyaltyStyle(c.Loyalty, m.crewLine(c)), gauge{c.Loyalty / 100, marks, c.Loyalty}}, m.set.Crew.WageAt(c, pay), carry}
+		return []any{name, c.Role, c.Skill, styled{loyaltyStyle(c.Loyalty, m.crewLine(c)), gauge{c.Loyalty / 100, marks, c.Loyalty}}, m.set.Crew.WageAt(w, c, pay), carry}
 	}
 	shared := []col{{"name", kText, 0}, {"role", kText, 0}, {"skill", kInt, 0}, {"loyalty", kBar, 10}, {"wage", kMoney, 0}, {"carry", kInt, 0}}
 
@@ -307,7 +307,7 @@ func (m *Model) viewCrew() string {
 	}
 	b.WriteString("\n")
 
-	next := max(1, tun.PoolDays-(w.Day-w.Crew.PoolDay))
+	next := max(1, m.set.Crew.PoolDays(w)-(w.Day-w.Crew.PoolDay))
 	b.WriteString(truncate(sectionTitle("LOOKING FOR WORK", theme.Crew)+theme.Subtle.Render(" · new faces in "+plural(next, "day")), width) + "\n")
 	if len(w.Crew.Candidates) == 0 {
 		b.WriteString(theme.Subtle.Render("Nobody right now.") + "\n")
@@ -391,10 +391,10 @@ func (m *Model) personLines(c game.CrewMember, onPayroll bool) []string {
 	var others []string
 	for d := events.PayStingy; d <= events.PayGenerous; d++ {
 		if d != pay {
-			others = append(others, fmt.Sprintf("%s %s", d, money(m.set.Crew.WageAt(c, d))))
+			others = append(others, fmt.Sprintf("%s %s", d, money(m.set.Crew.WageAt(w, c, d))))
 		}
 	}
-	lines = append(lines, row("wage", fmt.Sprintf("%s/day %s", money(m.set.Crew.WageAt(c, pay)), pay)), sub("  "+strings.Join(others, " · ")))
+	lines = append(lines, row("wage", fmt.Sprintf("%s/day %s", money(m.set.Crew.WageAt(w, c, pay)), pay)), sub("  "+strings.Join(others, " · ")))
 	if c.Units > 0 {
 		lines = append(lines, row("carries", "+"+plural(c.Units, "unit")))
 	}

@@ -12,7 +12,7 @@ import (
 func world(t *testing.T, cfg *content.Config, cash int) (*game.World, *crew.Sim) {
 	t.Helper()
 	w := game.NewWorld(7, []game.StartingCity{{ID: "test", Name: "Testville", Products: []game.StartingProduct{{ID: "a", Name: "A", Price: 10, Demand: 5}}}}, cash, 100)
-	s := crew.New(cfg.Crew, cfg.Names, cfg.Reputation.Effects)
+	s := crew.New(cfg.Crew, cfg.Names, cfg.Reputation.Effects, cfg.Upgrades)
 	s.Seed(w, game.RNGFor(7, 0))
 	return w, s
 }
@@ -284,7 +284,7 @@ func TestTurningAndInvestigation(t *testing.T) {
 	// An investigation that cannot succeed.
 	cfgZero := *cfg
 	cfgZero.Crew.Informant.InvestigateBase, cfgZero.Crew.Informant.InvestigateSkill, cfgZero.Crew.Informant.InvestigateLearn = 0, 0, 0
-	zero := crew.New(cfgZero.Crew, cfgZero.Names, cfgZero.Reputation.Effects)
+	zero := crew.New(cfgZero.Crew, cfgZero.Names, cfgZero.Reputation.Effects, cfgZero.Upgrades)
 	if got := zero.InvestigateOdds(w); got != 0 {
 		t.Fatalf("odds with nothing to go on: %v", got)
 	}
@@ -327,7 +327,7 @@ func TestTurningAndInvestigation(t *testing.T) {
 	// And one that cannot fail.
 	cfgSure := *cfg
 	cfgSure.Crew.Informant.InvestigateBase = 1
-	sure := crew.New(cfgSure.Crew, cfgSure.Names, cfgSure.Reputation.Effects)
+	sure := crew.New(cfgSure.Crew, cfgSure.Names, cfgSure.Reputation.Effects, cfgSure.Upgrades)
 	if err := w.Investigate(inf.InvestigateCost); err != nil {
 		t.Fatal(err)
 	}
@@ -364,4 +364,132 @@ func TestTurningAndInvestigation(t *testing.T) {
 	if w.Crew.Informants() != 0 {
 		t.Fatal("the informant is still on the payroll")
 	}
+}
+
+// crewProbe reads every number the Crew branch can move off a world
+// that owns the given nodes (granted, prerequisites ignored: a node is
+// measured alone), so TestCrewNodesPullTheirWay can say a node moves
+// the ones it names and nothing else. The static ones are the sim's
+// public reads; the dice-driven ones (a skim, a turn) are counted over
+// many steps on the same seed, and danger's cost is one step's loyalty
+// drop for a member with nothing else pulling on them.
+func crewProbe(t *testing.T, cfg *content.Config, ids ...string) map[string]float64 {
+	t.Helper()
+	fresh := func() (*game.World, *crew.Sim) {
+		w := game.NewWorld(7, []game.StartingCity{{ID: "test", Name: "Testville", Products: []game.StartingProduct{{ID: "a", Name: "A", Price: 10, Demand: 5}}}}, 1_000_000, 100)
+		for _, id := range ids {
+			w.Upgrades[id] = true
+		}
+		s := crew.New(cfg.Crew, cfg.Names, cfg.Reputation.Effects, cfg.Upgrades)
+		s.Seed(w, game.RNGFor(7, 0))
+		return w, s
+	}
+	w, s := fresh()
+	p := map[string]float64{}
+	m := game.CrewMember{ID: 99, Name: "Probe", Role: "runner", Skill: 50, Loyalty: 50, Wage: 50}
+	p["wage"] = float64(s.WageAt(w, m, events.PayFair))
+	p["loyalty_loss"] = s.LoyaltyLoss(w)
+	p["hire_fee"] = float64(s.HireFee(w, 50))
+	p["max_crew"] = float64(s.MaxCrew(w))
+	p["candidates"] = float64(s.Candidates(w))
+	p["pool_days"] = float64(s.PoolDays(w))
+	// The first faces of the pool are drawn the same whatever its size,
+	// so a bigger pool is more people, not different ones.
+	first := w.Crew.Candidates[:cfg.Crew.Crew.Candidates]
+	skill, loyalty := 0, 0.0
+	for _, c := range first {
+		skill += c.Skill
+		loyalty += c.Loyalty
+	}
+	p["pool_skill"] = float64(skill) / float64(len(first))
+	p["pool_loyalty"] = loyalty / float64(len(first))
+
+	// Danger: a sting yesterday, one member with no greed and no nerve,
+	// nobody to shield them; what fair pay's drift leaves of the loss.
+	w, s = fresh()
+	w.Crew.Members = []game.CrewMember{{ID: 1, Name: "Probe", Role: "runner", Skill: 50, Loyalty: 50, Wage: 50, Greed: 0, Nerve: 0}}
+	w.Heat.LastResponse = map[string]int{"sting": w.Day}
+	step(w, s)
+	p["danger_drop"] = 50 - w.Crew.Members[0].Loyalty
+
+	// Skims: one member under the line, takings every night, loyalty
+	// pinned so they neither climb over it nor walk; the count over a
+	// hundred nights on one seed.
+	w, s = fresh()
+	w.Crew.Members = []game.CrewMember{{ID: 1, Name: "Probe", Role: "runner", Skill: 50, Loyalty: 20, Wage: 50, Greed: 50, Nerve: 100}}
+	skims := 0
+	for range 100 {
+		w.Crew.Members[0].Loyalty = 20
+		skims += kinds(step(w, s, events.PlayerSold{Day: w.Day + 1, Product: "a", Sold: 100, Revenue: 1000}))["CrewSkimmed"]
+	}
+	p["skims"] = float64(skims)
+
+	// Turns: one member under both lines, the flag cleared every morning.
+	w, s = fresh()
+	w.Crew.Members = []game.CrewMember{{ID: 1, Name: "Probe", Role: "runner", Skill: 50, Loyalty: 15, Wage: 50, Greed: 50, Nerve: 10}}
+	turns := 0
+	for range 100 {
+		w.Crew.Members[0].Loyalty, w.Crew.Members[0].Informant = 15, false
+		turns += kinds(step(w, s, events.PlayerSold{Day: w.Day + 1, Product: "a", Sold: 100, Revenue: 1000}))["CrewTurnedInformant"]
+	}
+	p["turns"] = float64(turns)
+	return p
+}
+
+// Every Crew node moves the number it names, the way it says, and no
+// other (#118). The probe reads each number off the sim the way the
+// crew screen does, so what the pane prints is what the dice use.
+func TestCrewNodesPullTheirWay(t *testing.T) {
+	cfg := content.MustLoad()
+	base := crewProbe(t, cfg)
+	if base["skims"] == 0 || base["turns"] == 0 || base["danger_drop"] <= 0 {
+		t.Fatalf("the probe reads nothing to move: %v", base)
+	}
+	rows := []struct {
+		id    string
+		moves map[string]float64 // probe -> the factor (a multiplier) or, for a delta, base+delta
+	}{
+		{"word", map[string]float64{"candidates": base["candidates"] + 2, "pool_days": base["pool_days"] - 2}},
+		{"payroll", map[string]float64{"wage": base["wage"] * 0.9}},
+		{"family", map[string]float64{"loyalty_loss": base["loyalty_loss"] * 0.7, "danger_drop": -1}},
+		{"hazard", map[string]float64{"danger_drop": -1}},
+		{"room", map[string]float64{"max_crew": base["max_crew"] + 2}},
+		{"room2", map[string]float64{"max_crew": base["max_crew"] + 2}},
+		{"discipline", map[string]float64{"skims": -1}},
+		{"training", map[string]float64{"pool_skill": base["pool_skill"] + 10}},
+		{"vetting", map[string]float64{"turns": -1}},
+		{"bonuses", map[string]float64{"hire_fee": base["hire_fee"] * 0.5, "pool_loyalty": base["pool_loyalty"] + 10}},
+	}
+	seen := map[string]bool{}
+	for _, row := range rows {
+		seen[row.id] = true
+		got := crewProbe(t, cfg, row.id)
+		for k, want := range row.moves {
+			switch {
+			case want < 0: // a chance: fewer, and not none
+				if got[k] >= base[k] || got[k] == 0 {
+					t.Errorf("%s: %s is %v with it, %v without; want fewer", row.id, k, got[k], base[k])
+				}
+			case abs(got[k]-want) > 0.5:
+				t.Errorf("%s: %s is %v with it, want %v (base %v)", row.id, k, got[k], want, base[k])
+			}
+		}
+		for k, v := range got {
+			if _, named := row.moves[k]; !named && v != base[k] {
+				t.Errorf("%s: moves %s (%v -> %v), which it does not name", row.id, k, base[k], v)
+			}
+		}
+	}
+	for _, n := range cfg.Upgrades.Branch("crew") {
+		if !seen[n.ID] {
+			t.Errorf("the Crew branch has %s, which the table does not", n.ID)
+		}
+	}
+}
+
+func abs(x float64) float64 {
+	if x < 0 {
+		return -x
+	}
+	return x
 }

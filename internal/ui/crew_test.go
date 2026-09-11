@@ -364,8 +364,8 @@ func TestCrewPaneNamesTheCosts(t *testing.T) {
 	want := []string{
 		strings.ToUpper(hired.Name),
 		fmt.Sprintf("%s · skill %d · hired d%d", hired.Role, hired.Skill, hired.Hired),
-		fmt.Sprintf("wage        %s/day fair", money(crew.WageAt(hired, events.PayFair))),
-		fmt.Sprintf("stingy %s · generous %s", money(crew.WageAt(hired, events.PayStingy)), money(crew.WageAt(hired, events.PayGenerous))),
+		fmt.Sprintf("wage        %s/day fair", money(crew.WageAt(m.w, hired, events.PayFair))),
+		fmt.Sprintf("stingy %s · generous %s", money(crew.WageAt(m.w, hired, events.PayStingy)), money(crew.WageAt(m.w, hired, events.PayGenerous))),
 		fmt.Sprintf("skims under %.0f · walks at %.0f", crew.Tuning().SkimThreshold, crew.Tuning().QuitThreshold),
 		fmt.Sprintf("f  fire: the rest lose %.0f loyalty", crew.Tuning().FireLoyalty),
 		fmt.Sprintf("i  ask around %s, names ~%.0f%%", money(crew.InvestigateCost()), crew.InvestigateOdds(m.w)*100),
