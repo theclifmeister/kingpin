@@ -16,6 +16,7 @@ import (
 	"github.com/theclifmeister/kingpin/internal/events"
 	"github.com/theclifmeister/kingpin/internal/game"
 	"github.com/theclifmeister/kingpin/internal/sim"
+	"github.com/theclifmeister/kingpin/internal/ui/theme"
 )
 
 func newTestModel(t *testing.T, w, h int) *Model {
@@ -96,10 +97,12 @@ func assertFits(t *testing.T, view string, w, h int, what string) {
 	}
 }
 
-// assertFrame checks the frame every play-mode screen renders into: row
-// 0 the title bar, row h-2 the ticker, row h-1 the status bar; from 100
+// assertFrame checks the three-part frame every play-mode screen
+// renders into: row 0 the title bar, rows 1..h-2 the body, row h-1 the
+// status bar directly under it, and no ticker row (#95); from 100
 // columns every body row ends in the pane's border column and the
-// pane's last section is KEYS; under that row h-3 is the details strip.
+// pane's last section is KEYS; under that the body is MAIN over the
+// details strip on row h-2.
 func assertFrame(t *testing.T, m *Model, what string) {
 	t.Helper()
 	w, h := m.width, m.height
@@ -117,16 +120,19 @@ func assertFrame(t *testing.T, m *Model, what string) {
 	if !strings.HasPrefix(plain[0], " KINGPIN") {
 		t.Errorf("%s: row 0 is not the title bar: %q", what, plain[0])
 	}
-	if plain[h-2] != stripANSI(m.viewTicker()) {
-		t.Errorf("%s: row %d is not the ticker: %q", what, h-2, plain[h-2])
-	}
 	if plain[h-1] != stripANSI(m.viewFooter()) {
 		t.Errorf("%s: row %d is not the status bar: %q", what, h-1, plain[h-1])
 	}
+	if want := h - 2; m.bodyHeight() != want {
+		t.Errorf("%s: the body is %d rows, want %d", what, m.bodyHeight(), want)
+	}
 	switch {
 	case m.paneShown():
+		if want := h - 2; m.mainHeight() != want {
+			t.Errorf("%s: MAIN is %d rows beside the pane, want %d", what, m.mainHeight(), want)
+		}
 		keysAt := -1
-		for i := 1; i <= h-3; i++ {
+		for i := 1; i <= h-2; i++ {
 			if lw := lipgloss.Width(ls[i]); lw != w {
 				t.Errorf("%s: body row %d is %d cells, want %d: %q", what, i, lw, w, plain[i])
 				continue
@@ -149,7 +155,7 @@ func assertFrame(t *testing.T, m *Model, what string) {
 		for _, b := range m.legendKeys() {
 			keys = append(keys, b.key)
 		}
-		for i := keysAt + 1; i < h-3; i++ {
+		for i := keysAt + 1; i < h-2; i++ {
 			rs := []rune(plain[i])
 			text := strings.TrimSpace(strings.Trim(string(rs[len(rs)-paneWidth:]), "│"))
 			ok := false
@@ -163,9 +169,12 @@ func assertFrame(t *testing.T, m *Model, what string) {
 			}
 		}
 	case w < paneMinWidth:
-		strip := strings.TrimRight(plain[h-3], " ")
+		if want := h - 3; m.mainHeight() != want {
+			t.Errorf("%s: MAIN is %d rows over the strip, want %d", what, m.mainHeight(), want)
+		}
+		strip := strings.TrimRight(plain[h-2], " ")
 		if !strings.HasPrefix(strip, "▸ ") || !strings.HasSuffix(strip, "␣ more") {
-			t.Errorf("%s: row %d is not the details strip: %q", what, h-3, strip)
+			t.Errorf("%s: row %d is not the details strip: %q", what, h-2, strip)
 		}
 	}
 }
@@ -611,17 +620,63 @@ func TestSpaceTogglesDetails(t *testing.T) {
 	}
 }
 
-func TestTickerNeverWiderThanTerminal(t *testing.T) {
-	m := newTestModel(t, 60, 20)
-	for i := 0; i < 30; i++ {
-		endDay(t, m)
-		m.Update(key("enter"))
+// The UI redraws only on a key or a resize (#95): nothing in the frame
+// moves without you, so Init starts no ticker.
+func TestInitStartsNothing(t *testing.T) {
+	m := newTestModel(t, 80, 24)
+	if cmd := m.Init(); cmd != nil {
+		t.Fatalf("Init returned a command")
 	}
-	for i := 0; i < 200; i++ {
-		m.Update(tickMsg{})
-		if w := lipgloss.Width(m.viewTicker()); w > 60 {
-			t.Fatalf("ticker width %d at tick %d", w, i)
-		}
+}
+
+// The title bar says when there is news you have not read: headlines
+// that land after the journal was last shown count on its tab, in the
+// news accent, and the count clears on entering the screen. The count
+// goes with the tab's name, never widening the bar past the terminal,
+// and the digits-only bar carries none.
+func TestJournalUnreadCount(t *testing.T) {
+	m := newTestModel(t, 120, 40)
+	m.Update(key("3"))
+	m.Update(key("1"))
+	if n := m.journalUnread(); n != 0 {
+		t.Fatalf("%d unread before any news landed", n)
+	}
+	for _, text := range []string{"one", "two", "three"} {
+		m.w.Journal = append(m.w.Journal, game.Headline{Day: m.w.Day, Source: "heat", Text: text})
+	}
+	title := m.viewTitle()
+	if !strings.Contains(stripANSI(title), "3 Journal 3 ") {
+		t.Fatalf("three unread headlines do not read Journal 3: %q", stripANSI(title))
+	}
+	if !strings.Contains(title, lipgloss.NewStyle().Foreground(theme.News).Render("3")) {
+		t.Fatalf("the count is not in the news accent: %q", title)
+	}
+	if lw := lipgloss.Width(title); lw > 120 {
+		t.Fatalf("the title bar is %d wide", lw)
+	}
+	// The count goes with the name: the digits-only bar carries none.
+	m.Update(tea.WindowSizeMsg{Width: 40, Height: 24})
+	if got := stripANSI(m.viewTitle()); lipgloss.Width(got) > 40 || strings.Contains(got, "Journal") || strings.Contains(got, "3 3") {
+		t.Fatalf("the digits-only bar carries the count or is too wide: %q", got)
+	}
+	m.Update(tea.WindowSizeMsg{Width: 120, Height: 40})
+	// Entering the journal reads it.
+	m.Update(key("3"))
+	if got := stripANSI(m.View()); !strings.Contains(got, "3 Journal ") || strings.Contains(got, "Journal 3") {
+		t.Fatalf("the count did not clear on the journal screen:\n%s", got)
+	}
+	m.Update(key("1"))
+	if got := stripANSI(m.viewTitle()); strings.Contains(got, "Journal 3") {
+		t.Fatalf("the count came back after the journal was shown: %q", got)
+	}
+	// More news counts again, and a new run starts with none.
+	m.w.Journal = append(m.w.Journal, game.Headline{Day: m.w.Day, Source: "crew", Text: "four"})
+	if got := stripANSI(m.viewTitle()); !strings.Contains(got, "Journal 1 ") {
+		t.Fatalf("a new headline does not count: %q", got)
+	}
+	m.newRun()
+	if m.journalUnread() != 0 {
+		t.Fatalf("a new run starts with %d unread", m.journalUnread())
 	}
 }
 
@@ -2486,4 +2541,21 @@ func TestReportScrolls(t *testing.T) {
 			t.Fatalf("enter on the %s: mode %v day %d -> %d", c.name, m.mode, day, m.w.Day)
 		}
 	}
+}
+
+// stripANSI removes escape sequences so a render can be read as text.
+func stripANSI(s string) string {
+	var b strings.Builder
+	in := false
+	for _, r := range s {
+		switch {
+		case r == 0x1b:
+			in = true
+		case in && r == 'm':
+			in = false
+		case !in:
+			b.WriteRune(r)
+		}
+	}
+	return b.String()
 }

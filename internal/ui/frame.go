@@ -6,12 +6,12 @@ import (
 	"github.com/charmbracelet/lipgloss"
 )
 
-// The frame (#79) is what every play-mode screen renders into: the
-// title bar on row 0, the body, the ticker on row h-2 and the status bar
-// on row h-1. The body is MAIN beside the details pane from paneMinWidth
-// columns, MAIN over the one-line details strip under that. Modals keep
-// the whole body (bodyHeight); a screen's MAIN gets mainWidth by
-// mainHeight.
+// The frame (#79, #95) is what every play-mode screen renders into: the
+// title bar on row 0, the body on rows 1..h-2 and the status bar on row
+// h-1; nothing in it moves without you. The body is MAIN beside the
+// details pane from paneMinWidth columns, MAIN over the one-line details
+// strip (row h-2) under that. Modals keep the whole body (bodyHeight); a
+// screen's MAIN gets mainWidth by mainHeight.
 
 // paneShown reports whether the details pane sits beside MAIN.
 func (m *Model) paneShown() bool {
@@ -26,11 +26,11 @@ func (m *Model) mainWidth() int {
 	return m.width
 }
 
-// bodyHeight is the body between the title bar and the ticker: the
+// bodyHeight is the body between the title bar and the status bar: the
 // rows a modal has.
 func (m *Model) bodyHeight() int {
-	// title bar + ticker + status bar
-	return max(5, m.height-3)
+	// title bar + status bar
+	return max(5, m.height-2)
 }
 
 // mainHeight is the rows a screen's MAIN has: the body, less the
@@ -67,7 +67,7 @@ func block(s string, w, h int) []string {
 }
 
 // frame lays a screen out: the title bar, MAIN with the pane beside it
-// or the strip under it, the ticker and the status bar.
+// or the strip under it, and the status bar.
 func (m *Model) frame(main string, sections []section, keys []binding, accent lipgloss.Color) string {
 	h := m.mainHeight()
 	body := block(main, m.mainWidth(), h)
@@ -84,7 +84,7 @@ func (m *Model) frame(main string, sections []section, keys []binding, accent li
 	}
 	// Every row is drawn, an empty status bar included, so the rows
 	// keep their places.
-	return strings.Join([]string{m.viewTitle(), strings.Join(body, "\n"), m.viewTicker(), m.viewFooter()}, "\n")
+	return strings.Join([]string{m.viewTitle(), strings.Join(body, "\n"), m.viewFooter()}, "\n")
 }
 
 // panel renders a titled bordered box of exactly w by h cells, the
