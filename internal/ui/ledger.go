@@ -121,7 +121,7 @@ func (m *Model) viewLedger() string {
 	var b strings.Builder
 
 	b.WriteString(truncate(theme.PanelTitle.Render("LEDGER")+"  "+theme.Gold.Render("dirty "+cash(w.Player.DirtyCash))+theme.Subtle.Render(" · ")+theme.Good.Render("clean "+cash(w.Player.CleanCash))+
-		theme.Subtle.Render(fmt.Sprintf(" · seized %s lifetime", cash(w.Stats.Seized))), m.width) + "\n")
+		theme.Subtle.Render(fmt.Sprintf(" · seized %s lifetime", cash(w.Stats.Seized))), m.mainWidth()) + "\n")
 	var dial []string
 	for d := events.LaunderCareful; d <= events.LaunderGreedy; d++ {
 		if d == w.Laundering.Dial {
@@ -130,30 +130,30 @@ func (m *Model) viewLedger() string {
 			dial = append(dial, theme.Subtle.Render(" "+d.String()+" "))
 		}
 	}
-	b.WriteString(truncate("  dial "+strings.Join(dial, "")+theme.Subtle.Render(fmt.Sprintf("  audit risk %.1f%%/day · d turns it; a greedy audit is evidence", l.AnyAuditRisk(w)*100)), m.width) + "\n")
+	b.WriteString(truncate("  dial "+strings.Join(dial, "")+theme.Subtle.Render(fmt.Sprintf("  audit risk %.1f%%/day · d turns it; a greedy audit is evidence", l.AnyAuditRisk(w)*100)), m.mainWidth()) + "\n")
 	b.WriteString(truncate(theme.Subtle.Render(fmt.Sprintf("  washing up to %s/day · upkeep %s/day · the till keeps %s dirty for the street",
-		money(l.Capacity(w)), money(l.Upkeep(w)), cash(tun.Float))), m.width) + "\n")
+		money(l.Capacity(w)), money(l.Upkeep(w)), cash(tun.Float))), m.mainWidth()) + "\n")
 	if thr := m.cfg.Heat.Heat.DirtyCashThreshold; thr > 0 && w.Player.DirtyCash > thr {
-		b.WriteString(truncate(theme.Warning.Render(fmt.Sprintf("  ▲ Dirty cash over %s draws heat every day it sits there.", cash(thr))), m.width) + "\n")
+		b.WriteString(truncate(theme.Warning.Render(fmt.Sprintf("  ▲ Dirty cash over %s draws heat every day it sits there.", cash(thr))), m.mainWidth()) + "\n")
 	}
 	b.WriteString("\n")
 
 	b.WriteString(theme.Bold.Render("FRONTS") + theme.Subtle.Render(fmt.Sprintf("  %d owned · washed %s lifetime", len(w.Fronts), cash(w.Stats.Laundered))) + "\n")
 	if len(w.Fronts) == 0 {
-		b.WriteString(truncate(theme.Subtle.Render("  None. A front turns dirty cash into clean cash a little every day; b buys one."), m.width) + "\n")
+		b.WriteString(truncate(theme.Subtle.Render("  None. A front turns dirty cash into clean cash a little every day; b buys one."), m.mainWidth()) + "\n")
 	} else {
 		b.WriteString(theme.Subtle.Render(fmt.Sprintf("  %-18s %9s %9s %10s %6s  %s", "", "per day", "today", "lifetime", "audit", "status")) + "\n")
 		for _, f := range w.Fronts {
 			b.WriteString(truncate(fmt.Sprintf("  %-18s %9s %9s %10s %5.1f%%  %s",
-				fit(f.Name, 18), money(l.Throughput(w, f)), money(f.WashedToday), money(f.Washed), l.AuditRisk(w, f)*100, m.frontStatus(f)), m.width) + "\n")
+				fit(f.Name, 18), money(l.Throughput(w, f)), money(f.WashedToday), money(f.Washed), l.AuditRisk(w, f)*100, m.frontStatus(f)), m.mainWidth()) + "\n")
 		}
 	}
 	b.WriteString("\n")
 
 	if n := w.Crew.Role("accountant"); n > 0 {
-		b.WriteString(truncate(theme.Subtle.Render(fmt.Sprintf("  %d accountant(s) on the payroll: more through every front, fewer audits.", n)), m.width) + "\n")
+		b.WriteString(truncate(theme.Subtle.Render(fmt.Sprintf("  %d accountant(s) on the payroll: more through every front, fewer audits.", n)), m.mainWidth()) + "\n")
 	} else if len(w.Fronts) > 0 {
-		b.WriteString(truncate(theme.Subtle.Render("  An accountant (crew screen, 4) adds to every front and cuts audit risk. Keep them loyal: they skim the wash."), m.width) + "\n")
+		b.WriteString(truncate(theme.Subtle.Render("  An accountant (crew screen, 4) adds to every front and cuts audit risk. Keep them loyal: they skim the wash."), m.mainWidth()) + "\n")
 	}
 	b.WriteString("\n")
 
@@ -175,11 +175,11 @@ func (m *Model) viewLedger() string {
 			lost += n
 		}
 		targetW, roadW, weekW := 16, 14, 11
-		if m.width >= 100 {
+		if m.mainWidth() >= 100 {
 			targetW, roadW, weekW = 22, 20, 17
 		}
-		b.WriteString(truncate(theme.Bold.Render("LOGISTICS")+theme.Subtle.Render(fmt.Sprintf("  %d route(s) · shipped %d units in %d run(s) · seized %d in %d · the road spends what is over %s dirty · r and R on the map", len(routes), w.Stats.Shipped, w.Stats.Shipments, lost, w.Stats.Seizures, cash(lg.Float()))), m.width) + "\n")
-		b.WriteString(truncate(theme.Subtle.Render(fmt.Sprintf("  %-12s %-5s %-6s %-*s %-*s %-*s %s", "", "mode", "dial", targetW, "target", roadW, "on the road", weekW, "week lots/fare", "lost")), m.width) + "\n")
+		b.WriteString(truncate(theme.Bold.Render("LOGISTICS")+theme.Subtle.Render(fmt.Sprintf("  %d route(s) · shipped %d units in %d run(s) · seized %d in %d · the road spends what is over %s dirty · r and R on the map", len(routes), w.Stats.Shipped, w.Stats.Shipments, lost, w.Stats.Seizures, cash(lg.Float()))), m.mainWidth()) + "\n")
+		b.WriteString(truncate(theme.Subtle.Render(fmt.Sprintf("  %-12s %-5s %-6s %-*s %-*s %-*s %s", "", "mode", "dial", targetW, "target", roadW, "on the road", weekW, "week lots/fare", "lost")), m.mainWidth()) + "\n")
 		for _, r := range routes {
 			rs := w.Route(r.ID)
 			target, road := m.targetLine(r.ID), m.roadOn(r.ID)
@@ -191,7 +191,7 @@ func (m *Model) viewLedger() string {
 			}
 			lots, fares := w.Logistics.RouteSpend(r.ID, w.Day, 7)
 			line := fmt.Sprintf("  %-12s %-5s %s %-*s %-*s %-*s %d", fit(r.Name, 12), fit(r.Mode, 5), dialStyle(rs.Dial).Render(fit(rs.Dial.String(), 6)), targetW, fit(target, targetW), roadW, fit(road, roadW), weekW, fit(cash(lots)+"/"+cash(fares), weekW), w.Logistics.Lost[r.ID])
-			b.WriteString(truncate(line, m.width) + "\n")
+			b.WriteString(truncate(line, m.mainWidth()) + "\n")
 		}
 		b.WriteString("\n")
 	}
@@ -212,8 +212,29 @@ func (m *Model) viewLedger() string {
 			default:
 				line += fmt.Sprintf("%.1f%%", o.AuditRisk*100)
 			}
-			b.WriteString(truncate(line, m.width) + "\n")
+			b.WriteString(truncate(line, m.mainWidth()) + "\n")
 		}
 	}
 	return b.String()
+}
+
+// ledgerDetails is the ledger's pane: the wash as it stands (the dial,
+// what the fronts wash and cost, the float the till keeps) and the keys.
+func (m *Model) ledgerDetails() ([]section, []binding) {
+	w := m.w
+	l := m.set.Laundering
+	tun := l.Tuning()
+	lines := []string{
+		row("dial", w.Laundering.Dial.String()),
+		row("washing", fmt.Sprintf("up to %s/day", money(l.Capacity(w)))),
+		row("upkeep", fmt.Sprintf("%s/day", money(l.Upkeep(w)))),
+		row("audit", fmt.Sprintf("%.1f%%/day", l.AnyAuditRisk(w)*100)),
+		row("float", fmt.Sprintf("%s kept dirty", cash(tun.Float))),
+		row("fronts", fmt.Sprintf("%d · washed %s", len(w.Fronts), cash(w.Stats.Laundered))),
+	}
+	if thr := m.cfg.Heat.Heat.DirtyCashThreshold; thr > 0 && w.Player.DirtyCash > thr {
+		lines = append(lines, wrapped(theme.Warning, fmt.Sprintf("Dirty cash over %s draws heat every day it sits there.", cash(thr)))...)
+	}
+	lines = append(lines, keyRow("d", "turn the dial"))
+	return []section{{"LAUNDERING", lines}}, m.screenKeys()
 }

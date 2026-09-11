@@ -288,8 +288,8 @@ func dialStyle(d events.RouteDial) lipgloss.Style {
 
 // routeLines are the routes out of the city shown, one line each, drawn
 // as an edge between the cities with the dial, the route's terms at that
-// dial and what is on it, the selected one marked. The line after the
-// selected route is its targets.
+// dial and what is on it, the selected one marked. The selected route's
+// targets are the pane's (routeSection).
 func (m *Model) routeLines() []string {
 	w := m.w
 	lg := m.set.Logistics
@@ -304,34 +304,60 @@ func (m *Model) routeLines() []string {
 		edge := fmt.Sprintf("%s %s %s", fit(w.CityName(r.From), 8), edge(r.Mode), fit(w.CityName(r.To), 8))
 		terms := fmt.Sprintf("%dd %du %s/u ~%.0f%%", lg.Days(r, d.Ship()), r.Capacity, money(r.Cost), lg.Risk(r, d.Ship())*100)
 		line := mark + fit(r.Name, 12) + " " + theme.Subtle.Render(edge) + "  " + dialStyle(d).Render(fit(d.String(), 6)) + " " + theme.Subtle.Render(terms)
-		road := m.roadOn(r.ID)
-		if road != "" && i != m.routeCursor {
-			units := 0
-			for _, sh := range w.Shipments {
-				if sh.Route == r.ID {
-					units += sh.Units
-				}
-			}
+		if units := m.unitsOn(r.ID); units > 0 {
 			line += lipgloss.NewStyle().Foreground(theme.Logistics).Render(fmt.Sprintf(" ▪%d", units))
 		}
 		lines = append(lines, line)
-		if i == m.routeCursor {
-			var detail string
-			switch t := m.targetLine(r.ID); {
-			case t == "" && d.On():
-				detail = theme.Warning.Render("no target: it sends nothing. R sets one.")
-			case t == "":
-				detail = theme.Subtle.Render("target  none · r turns the dial, R sets a target")
-			default:
-				detail = theme.Subtle.Render("target  "+w.CityName(r.To)+" keeps ") + t
-			}
-			if road != "" {
-				detail += theme.Subtle.Render(" · on the road ") + lipgloss.NewStyle().Foreground(theme.Logistics).Render(road)
-			}
-			lines = append(lines, "   "+detail)
-		}
 	}
 	return lines
+}
+
+// unitsOn is how many units are on the road on a route.
+func (m *Model) unitsOn(route string) int {
+	units := 0
+	for _, sh := range m.w.Shipments {
+		if sh.Route == route {
+			units += sh.Units
+		}
+	}
+	return units
+}
+
+// routeSection is the route's detail for the pane: the edge, the dial
+// and the terms at it, the targets, what is on the road, and what r and
+// R do.
+func (m *Model) routeSection(r content.RouteConfig) section {
+	w := m.w
+	lg := m.set.Logistics
+	d := w.Route(r.ID).Dial
+	lines := []string{
+		theme.Subtle.Render(fmt.Sprintf("%s %s %s", w.CityName(r.From), edge(r.Mode), w.CityName(r.To))),
+		row("dial", dialStyle(d).Render(d.String())),
+		row("days", fmt.Sprintf("%d · %d units a run", lg.Days(r, d.Ship()), r.Capacity)),
+		row("fare", money(r.Cost)+" a unit"),
+		row("seized", fmt.Sprintf("~%.0f%% a run", lg.Risk(r, d.Ship())*100)),
+	}
+	switch t := m.targetLine(r.ID); {
+	case t == "" && d.On():
+		lines = append(lines, row("target", theme.Warning.Render("none: it sends nothing")))
+	case t == "":
+		lines = append(lines, row("target", theme.Subtle.Render("none")))
+	default:
+		label := "target"
+		for _, l := range wrap(w.CityName(r.To)+" keeps "+t, paneTextW-paneLabelW-1) {
+			lines = append(lines, row(label, l))
+			label = ""
+		}
+	}
+	if road := m.roadOn(r.ID); road != "" {
+		label := "on the road"
+		for _, l := range wrap(road, paneTextW-paneLabelW-1) {
+			lines = append(lines, row(label, lipgloss.NewStyle().Foreground(theme.Logistics).Render(l)))
+			label = ""
+		}
+	}
+	lines = append(lines, keyRow("r", "turn the dial"), keyRow("R", "set a target"))
+	return section{strings.ToUpper(r.Name), lines}
 }
 
 // edge draws a route's mode as an arrow of fixed width, so the routes

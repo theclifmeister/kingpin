@@ -90,6 +90,80 @@ func assertFits(t *testing.T, view string, w, h int, what string) {
 	}
 }
 
+// assertFrame checks the frame every play-mode screen renders into: row
+// 0 the title bar, row h-2 the ticker, row h-1 the status bar; from 100
+// columns every body row ends in the pane's border column and the
+// pane's last section is KEYS; under that row h-3 is the details strip.
+func assertFrame(t *testing.T, m *Model, what string) {
+	t.Helper()
+	w, h := m.width, m.height
+	view := m.View()
+	assertFits(t, view, w, h, what)
+	ls := strings.Split(view, "\n")
+	if len(ls) != h {
+		t.Errorf("%s: %d rows, want %d", what, len(ls), h)
+		return
+	}
+	plain := make([]string, len(ls))
+	for i, l := range ls {
+		plain[i] = stripANSI(l)
+	}
+	if !strings.HasPrefix(plain[0], " KINGPIN") {
+		t.Errorf("%s: row 0 is not the title bar: %q", what, plain[0])
+	}
+	if plain[h-2] != stripANSI(m.viewTicker()) {
+		t.Errorf("%s: row %d is not the ticker: %q", what, h-2, plain[h-2])
+	}
+	if plain[h-1] != stripANSI(m.viewFooter()) {
+		t.Errorf("%s: row %d is not the status bar: %q", what, h-1, plain[h-1])
+	}
+	switch {
+	case m.paneShown():
+		keysAt := -1
+		for i := 1; i <= h-3; i++ {
+			if lw := lipgloss.Width(ls[i]); lw != w {
+				t.Errorf("%s: body row %d is %d cells, want %d: %q", what, i, lw, w, plain[i])
+				continue
+			}
+			rs := []rune(plain[i])
+			pane := string(rs[len(rs)-paneWidth:])
+			if last := rs[len(rs)-1]; last != '│' && last != '╮' && last != '╯' {
+				t.Errorf("%s: body row %d does not end in the pane's border: %q", what, i, plain[i])
+			}
+			if strings.HasPrefix(pane, "│ KEYS") {
+				keysAt = i
+			}
+		}
+		if keysAt < 0 {
+			t.Errorf("%s: the pane has no KEYS section:\n%s", what, stripANSI(view))
+			return
+		}
+		// Nothing but key rows between KEYS and the bottom border.
+		var keys []string
+		for _, b := range m.legend() {
+			keys = append(keys, b.key)
+		}
+		for i := keysAt + 1; i < h-3; i++ {
+			rs := []rune(plain[i])
+			text := strings.TrimSpace(strings.Trim(string(rs[len(rs)-paneWidth:]), "│"))
+			ok := false
+			for _, k := range keys {
+				if strings.HasPrefix(text, k) {
+					ok = true
+				}
+			}
+			if !ok {
+				t.Errorf("%s: row %d after KEYS is not a key row: %q", what, i, text)
+			}
+		}
+	case w < paneMinWidth:
+		strip := strings.TrimRight(plain[h-3], " ")
+		if !strings.HasPrefix(strip, "▸ ") || !strings.HasSuffix(strip, "␣ more") {
+			t.Errorf("%s: row %d is not the details strip: %q", what, h-3, strip)
+		}
+	}
+}
+
 func TestRendersAtCommonSizes(t *testing.T) {
 	for _, sz := range [][2]int{{80, 24}, {120, 40}, {100, 30}} {
 		m := newTestModel(t, sz[0], sz[1])
@@ -184,7 +258,26 @@ func TestRendersAtCommonSizes(t *testing.T) {
 		m.Update(key("esc"))
 		for _, s := range []string{"1", "2", "3", "4", "5", "6", "7", "8"} {
 			m.Update(key(s))
-			assertFits(t, m.View(), sz[0], sz[1], "screen "+s)
+			assertFrame(t, m, "screen "+s)
+			// Space: the overlay where the strip is, the pane hidden and
+			// shown again where it sits beside MAIN.
+			m.Update(key(" "))
+			if sz[0] < paneMinWidth {
+				if m.mode != modeDetails {
+					t.Fatalf("%dx%d: space on screen %s: mode %v", sz[0], sz[1], s, m.mode)
+				}
+				assertFits(t, m.View(), sz[0], sz[1], "details overlay "+s)
+				m.Update(key("esc"))
+			} else {
+				if m.mode != modePlay || !m.paneHidden {
+					t.Fatalf("%dx%d: space on screen %s: mode %v hidden %v", sz[0], sz[1], s, m.mode, m.paneHidden)
+				}
+				assertFrame(t, m, "screen "+s+" with the pane hidden")
+				m.Update(key(" "))
+			}
+			if m.mode != modePlay || m.paneHidden {
+				t.Fatalf("%dx%d: after space twice on screen %s: mode %v hidden %v", sz[0], sz[1], s, m.mode, m.paneHidden)
+			}
 		}
 		// The table: a deal that holds, an offer waiting, a proposal for
 		// tonight, and both pages of the propose dialog.
@@ -278,7 +371,7 @@ func TestRendersAtCommonSizes(t *testing.T) {
 		m.w.Stats.PeakCash = m.w.Player.DirtyCash
 		for _, s := range []string{"1", "2", "3", "4", "5", "6", "7", "8"} {
 			m.Update(key(s))
-			assertFits(t, m.View(), sz[0], sz[1], "rich screen "+s)
+			assertFrame(t, m, "rich screen "+s)
 		}
 		m.Update(key("b"))
 		assertFits(t, m.View(), sz[0], sz[1], "rich front picker")
@@ -364,6 +457,114 @@ func TestBuyThenSellFlow(t *testing.T) {
 	m.Update(key("n"))
 	if m.mode != modeReport || m.w.Day != 1 {
 		t.Fatalf("end day: mode=%v day=%d", m.mode, m.w.Day)
+	}
+}
+
+// The status bar never drops the message: at 80 columns a long status
+// set after a key is on row h-1 on every screen, the legend giving way.
+func TestStatusMessageAlwaysShows(t *testing.T) {
+	m := newTestModel(t, 80, 24)
+	msg := "Pay generous, $108/day. Loyalty climbs. The crew notice it too."
+	if len(msg) < 60 {
+		t.Fatalf("the message is %d characters", len(msg))
+	}
+	for _, s := range []string{"1", "2", "3", "4", "5", "6", "7", "8"} {
+		m.Update(key(s))
+		m.status = msg
+		rows := strings.Split(m.View(), "\n")
+		if got := stripANSI(rows[len(rows)-1]); !strings.Contains(got, msg) {
+			t.Errorf("screen %s: the status bar lost the message: %q", s, got)
+		}
+	}
+}
+
+// The legend is a whole number of k() pairs at every width: pairs are
+// dropped from the right, never cut in the middle.
+func TestLegendNeverTruncatesMidPair(t *testing.T) {
+	for _, w := range []int{60, 80, 120} {
+		m := newTestModel(t, w, 24)
+		for _, s := range []string{"1", "2", "3", "4", "5", "6", "7", "8"} {
+			m.Update(key(s))
+			m.status = ""
+			got := stripANSI(m.viewFooter())
+			var prefixes []string
+			for n := 0; n <= len(m.legend()); n++ {
+				var p string
+				for _, b := range m.legend()[:n] {
+					p += stripANSI(k(b.key, b.label))
+				}
+				prefixes = append(prefixes, p)
+			}
+			whole := false
+			for _, p := range prefixes {
+				if got == p {
+					whole = true
+				}
+			}
+			if !whole {
+				t.Errorf("%d columns, screen %s: the legend is not whole pairs: %q", w, s, got)
+			}
+			if lipgloss.Width(m.viewFooter()) > w {
+				t.Errorf("%d columns, screen %s: the legend is wider than the terminal: %q", w, s, got)
+			}
+		}
+	}
+}
+
+// Space opens the details as an overlay where the strip is, with the
+// sections the pane shows beside MAIN at 120, and esc closes it; at 120
+// space hides the pane and the main content takes the width.
+func TestSpaceTogglesDetails(t *testing.T) {
+	m := newTestModel(t, 80, 24)
+	m.Update(key("5"))
+	secs, _ := m.details()
+	if len(secs) == 0 {
+		t.Fatal("the map has no details")
+	}
+	m.Update(key(" "))
+	if m.mode != modeDetails {
+		t.Fatalf("space at 80: mode %v", m.mode)
+	}
+	overlay := stripANSI(m.View())
+	assertFits(t, m.View(), 80, 24, "details overlay")
+	for _, s := range secs {
+		if !strings.Contains(overlay, s.title) {
+			t.Errorf("the overlay lacks the section %q:\n%s", s.title, overlay)
+		}
+	}
+	if !strings.Contains(overlay, "KEYS") {
+		t.Errorf("the overlay has no KEYS:\n%s", overlay)
+	}
+	m.Update(key("esc"))
+	if m.mode != modePlay {
+		t.Fatalf("esc on the overlay: mode %v", m.mode)
+	}
+	m.Update(key(" "))
+	m.Update(key(" "))
+	if m.mode != modePlay {
+		t.Fatalf("space twice: mode %v", m.mode)
+	}
+	m.Update(tea.WindowSizeMsg{Width: 120, Height: 40})
+	beside := stripANSI(m.View())
+	for _, s := range secs {
+		if !strings.Contains(beside, s.title) {
+			t.Errorf("the pane at 120 lacks the section %q:\n%s", s.title, beside)
+		}
+	}
+	m.Update(key(" "))
+	if m.mode != modePlay || !m.paneHidden {
+		t.Fatalf("space at 120: mode %v hidden %v", m.mode, m.paneHidden)
+	}
+	hidden := stripANSI(m.View())
+	if strings.Contains(hidden, "DETAILS") || strings.Contains(hidden, "␣ more") {
+		t.Errorf("the pane did not hide:\n%s", hidden)
+	}
+	if m.mainWidth() != 120 {
+		t.Errorf("main is %d wide with the pane hidden", m.mainWidth())
+	}
+	m.Update(key(" "))
+	if m.paneHidden || !strings.Contains(stripANSI(m.View()), "DETAILS") {
+		t.Errorf("space again did not show the pane")
 	}
 }
 
@@ -1809,6 +2010,7 @@ func TestCrewScreenAccountantIsNotIdle(t *testing.T) {
 	fronts := m.cfg.Laundering.Fronts
 	m.w.Crew.Members = []game.CrewMember{{ID: 1, Name: "Nadia", Role: "accountant", Skill: 50, Loyalty: 70, Nerve: 50, Wage: 60}}
 	m.Update(key("4"))
+	m.Update(key(" ")) // the pane cuts the crew's long lines at 100 columns; #86 moves them into it
 
 	m.w.Fronts = []game.Front{{ID: fronts[0].ID, Name: fronts[0].Name}}
 	v := m.View()
@@ -1846,6 +2048,7 @@ func TestCrewScreenUnpostedEnforcer(t *testing.T) {
 	m := newTestModel(t, 100, 30)
 	m.w.Crew.Members = []game.CrewMember{{ID: 1, Name: "Moose", Role: "enforcer", Skill: 70, Loyalty: 70, Nerve: 60, Wage: 65}}
 	m.Update(key("4"))
+	m.Update(key(" ")) // the pane cuts the crew's long lines at 100 columns; #86 moves them into it
 	v := m.View()
 	if !strings.Contains(v, "unposted") || !strings.Contains(v, "post them on a corner to guard it") {
 		t.Fatalf("enforcer: want 'unposted' and the guarding hint:\n%s", v)

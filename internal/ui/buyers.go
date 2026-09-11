@@ -79,45 +79,57 @@ func (m *Model) buyersLines() []string {
 				state += theme.Gold.Render(fmt.Sprintf(", %d tonight", q))
 			}
 		}
-		out = append(out, truncate(fmt.Sprintf("%s%s %4d %-8s %-12s %s  %s", cur, name, c.Units, fit(w.ProductName(c.Product), 8), pays, days, state), m.width))
+		out = append(out, truncate(fmt.Sprintf("%s%s %4d %-8s %-12s %s  %s", cur, name, c.Units, fit(w.ProductName(c.Product), 8), pays, days, state), m.mainWidth()))
 	}
 	return out
 }
 
-// contractDetail is what the market screen shows under the table when
-// the cursor is on a contract instead of a product: the pitch, the terms,
-// what a handoff would pay and draw tonight.
-func (m *Model) contractDetail(c game.Contract) string {
+// contractSections is the market's pane when the cursor is on a
+// contract instead of a product: the pitch, the terms, what a handoff
+// would pay and draw tonight.
+func (m *Model) contractSections(c game.Contract) []section {
 	w := m.w
-	var b strings.Builder
-	b.WriteString(theme.PanelTitle.Render(capitalize(c.Name)) + theme.Subtle.Render(fmt.Sprintf(" · %s", c.Status)) + "\n")
-	b.WriteString(truncate("  "+c.Pitch, m.width) + "\n")
 	pays := m.set.Market.ContractPrice(w, c)
-	b.WriteString(truncate(fmt.Sprintf("  pays          %s a unit today: %.3gx the street here (%s), against %s the day they asked",
-		price(pays), c.Premium, price(pays/c.Premium), price(c.Street)), m.width) + "\n")
+	sel := []string{
+		row("status", c.Status.String()),
+		row("wants", fmt.Sprintf("%d %s", c.Units, w.ProductName(c.Product))),
+		row("pays", fmt.Sprintf("%s a unit today", price(pays))),
+		row("", theme.Subtle.Render(fmt.Sprintf("%.3gx the street (%s)", c.Premium, price(pays/c.Premium)))),
+		row("", theme.Subtle.Render(fmt.Sprintf("%s when they asked", price(c.Street)))),
+	}
 	switch c.Status {
 	case game.ContractOffered:
-		b.WriteString(truncate(fmt.Sprintf("  wants         %d %s by day %d (%d day(s)); the offer lapses after day %d",
-			c.Units, w.ProductName(c.Product), c.Due, c.Due-w.Day, c.Expires), m.width) + "\n")
-		b.WriteString(truncate(fmt.Sprintf("  if you fail   respect -%.0f, notoriety +%.0f, and they collect %.0f%% of what is short; they stay away %d days",
-			c.Penalty, m.set.Market.BuyersTuning().NotorietyPenalty, c.PenaltyCash*100, m.set.Market.BuyersTuning().BlacklistDays), m.width) + "\n")
+		sel = append(sel,
+			row("by", fmt.Sprintf("day %d (%d days)", c.Due, c.Due-w.Day)),
+			row("lapses", fmt.Sprintf("after day %d", c.Expires)))
 	default:
-		b.WriteString(truncate(fmt.Sprintf("  owed          %d of %d %s by day %d; %d in the stash here",
-			c.Owed(), c.Units, w.ProductName(c.Product), c.Due, w.Stock(c.City, c.Product)), m.width) + "\n")
+		sel = append(sel,
+			row("owed", fmt.Sprintf("%d of %d by day %d", c.Owed(), c.Units, c.Due)),
+			row("stash", fmt.Sprintf("%d %s here", w.Stock(c.City, c.Product), w.ProductName(c.Product))))
 		n := w.Deliverable(c)
 		if q := w.QueuedDelivery(c.ID); q > 0 {
 			n = q
 		}
 		if n > 0 {
 			heat := m.set.Heat.ContractHeat(w, c.City, c.Product, n, c.HeatMul)
-			b.WriteString(truncate(fmt.Sprintf("  tonight       hand over %d for about %s, heat +%.1f here (a handoff needs no corner and no dial)",
-				n, money(int(pays*float64(n))), heat), m.width) + "\n")
+			sel = append(sel,
+				row("tonight", fmt.Sprintf("%d for ~%s", n, money(int(pays*float64(n))))),
+				row("heat", fmt.Sprintf("+%.1f in %s", heat, w.CityName(c.City))))
 		}
 	}
-	if c.City != w.Player.Location {
-		b.WriteString(truncate(theme.Subtle.Render(fmt.Sprintf("  The handoff is in %s: you have to be there (g) with the stock in the stash there.", w.CityName(c.City))), m.width) + "\n")
+	secs := []section{{strings.ToUpper(c.Name), sel}}
+	var notes []string
+	notes = append(notes, wrapped(theme.Subtle, c.Pitch)...)
+	if c.Status == game.ContractOffered {
+		notes = append(notes, wrapped(theme.Warning, fmt.Sprintf("If you fail: respect -%.0f, notoriety +%.0f, and they collect %.0f%% of what is short; they stay away %d days.",
+			c.Penalty, m.set.Market.BuyersTuning().NotorietyPenalty, c.PenaltyCash*100, m.set.Market.BuyersTuning().BlacklistDays))...)
+	} else {
+		notes = append(notes, wrapped(theme.Subtle, "A handoff needs no corner and no dial.")...)
 	}
-	return b.String()
+	if c.City != w.Player.Location {
+		notes = append(notes, wrapped(theme.Subtle, fmt.Sprintf("The handoff is in %s: you have to be there (g) with the stock in the stash there.", w.CityName(c.City)))...)
+	}
+	return append(secs, section{"NOTES", notes})
 }
 
 // buyersMove moves the buyers cursor by d, or hands the arrows back to

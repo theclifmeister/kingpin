@@ -244,8 +244,9 @@ func (m *Model) viewMap() string {
 	if w.Rival.Arrived > 0 && city.ID == w.Home().ID {
 		head += theme.Rival.Render(fmt.Sprintf(" · %s %d", m.rivalName(), w.RivalHeld()))
 	}
-	b.WriteString(truncate(head, m.width) + "\n")
-	b.WriteString(truncate(theme.Subtle.Render(fmt.Sprintf("  heat %.0f · %s  [ ] turns the map · g goes there · ↓ past the grid reaches the routes", city.Heat, m.stashLine(city.ID))), m.width) + "\n\n")
+	width := m.mainWidth()
+	b.WriteString(truncate(head, width) + "\n")
+	b.WriteString(truncate(theme.Subtle.Render(fmt.Sprintf("  heat %.0f · %s", city.Heat, m.stashLine(city.ID))), width) + "\n\n")
 
 	// The grid. Cells are laid out by their x, y; the body width decides
 	// how wide a cell can be.
@@ -254,7 +255,7 @@ func (m *Model) viewMap() string {
 		cols = max(cols, c.X+1)
 		rows = max(rows, c.Y+1)
 	}
-	cellW := max(12, min(24, (m.width-2)/max(1, cols)))
+	cellW := max(12, min(24, (width-2)/max(1, cols)))
 	grid := map[[2]int]*game.Corner{}
 	for i := range cs {
 		grid[[2]int{cs[i].X, cs[i].Y}] = &cs[i]
@@ -315,42 +316,68 @@ func (m *Model) viewMap() string {
 	}
 
 	// The routes out of here, each an edge between the cities with its
-	// dial and what is on it; the selected one carries its targets.
+	// dial and what is on it. The selected route's detail is the pane's.
 	if lines := m.routeLines(); len(lines) > 0 {
-		b.WriteString(truncate(lipgloss.NewStyle().Foreground(theme.Logistics).Render("ROUTES")+theme.Subtle.Render("  r turns the dial · R sets the target · one dial, set once"), m.width) + "\n")
+		b.WriteString(lipgloss.NewStyle().Foreground(theme.Logistics).Render("ROUTES") + "\n")
 		for _, l := range lines {
-			b.WriteString(truncate(l, m.width) + "\n")
+			b.WriteString(truncate(l, width) + "\n")
 		}
 	}
+	return b.String()
+}
 
-	// The inspector for the selected corner, unless the cursor is on the
-	// routes.
-	if sel == nil || m.onRoutes {
-		return b.String()
+// mapDetails is the map's pane: the inspector for the corner under the
+// cursor, or the route's detail while the cursor is on the routes, and
+// the keys.
+func (m *Model) mapDetails() ([]section, []binding) {
+	if m.onRoutes {
+		if r := m.selectedRoute(); r != nil {
+			return []section{m.routeSection(*r)}, m.screenKeys()
+		}
 	}
-	st := ownerStyle(sel.Owner)
-	head = st.Bold(true).Render(strings.ToUpper(sel.Name))
+	sel := m.mapSelected()
+	if sel == nil {
+		return nil, m.screenKeys()
+	}
+	return []section{m.cornerSection(sel)}, m.screenKeys()
+}
+
+// cornerSection is the corner inspector: whose it is and since when,
+// its size, heat and risk, what it draws, who works and guards it, and
+// what the keys would do to it.
+func (m *Model) cornerSection(sel *game.Corner) section {
+	w := m.w
+	city := m.shown()
+	var lines []string
 	switch {
 	case sel.Held():
-		head += theme.Subtle.Render(fmt.Sprintf("  yours since day %d", sel.Since))
+		owner := fmt.Sprintf("yours since day %d", sel.Since)
+		if sel.Runner == game.You {
+			owner += " · you work it"
+		}
+		lines = append(lines, theme.Subtle.Render(owner))
 	case sel.Owner == game.OwnerRival:
-		head += theme.Subtle.Render(fmt.Sprintf("  %s's since day %d", w.Rival.Leader, sel.Since))
+		lines = append(lines, theme.Rival.Render(fmt.Sprintf("%s's since day %d", w.Rival.Leader, sel.Since)))
+		if s := w.Strike; s != nil && s.Corner == sel.ID {
+			lines = append(lines, theme.Warning.Render(fmt.Sprintf("⚔ %s tonight", s.Force)))
+		}
 	default:
-		head += theme.Subtle.Render("  free")
+		lines = append(lines, theme.Subtle.Render("free"))
 	}
-	b.WriteString(truncate(head, m.width) + "\n")
-	facts := fmt.Sprintf("  size x%.1f · heat x%.1f %s · risk x%.1f %s", sel.Demand, sel.Heat, heatWord(sel.Heat), sel.Risk, riskWord(sel.Risk))
+	lines = append(lines,
+		row("size", fmt.Sprintf("×%.1f", sel.Demand)),
+		row("heat", fmt.Sprintf("×%.1f %s", sel.Heat, heatWord(sel.Heat))),
+		row("risk", fmt.Sprintf("×%.1f %s", sel.Risk, riskWord(sel.Risk))))
 	if sel.Held() {
-		facts += fmt.Sprintf(" · robbery %.1f%%/day", m.set.Territory.RobberyChance(w, sel)*100)
+		lines = append(lines, row("robbery", fmt.Sprintf("%.1f%%/day", m.set.Territory.RobberyChance(w, sel)*100)))
 	}
 	if sel.Squeeze > 0 {
-		facts += theme.Rival.Render(fmt.Sprintf(" · undercut -%.0f%%", sel.Squeeze*100))
+		lines = append(lines, row("undercut", theme.Rival.Render(fmt.Sprintf("-%.0f%%", sel.Squeeze*100))))
 	}
 	if sel.Held() && w.Contested(*sel) {
-		facts += theme.Rival.Render(fmt.Sprintf(" · push flips it ~%.0f%%", m.set.Rivals.PushOdds(w, sel)*100))
+		lines = append(lines, row("push flips", theme.Rival.Render(fmt.Sprintf("~%.0f%%", m.set.Rivals.PushOdds(w, sel)*100))))
 	}
-	b.WriteString(truncate(theme.Subtle.Render(facts), m.width) + "\n")
-	var dem []string
+	// Demand per product, biggest first, packed into the value column.
 	ids := append([]string(nil), w.Products...)
 	demand := func(id string) float64 {
 		if p := w.Product(city.ID, id); p != nil {
@@ -359,10 +386,15 @@ func (m *Model) viewMap() string {
 		return 0
 	}
 	sort.SliceStable(ids, func(i, j int) bool { return demand(ids[i]) > demand(ids[j]) })
+	var dem []string
 	for _, id := range ids {
 		dem = append(dem, fmt.Sprintf("%s ~%.0f", w.ProductName(id), demand(id)))
 	}
-	b.WriteString("  demand   " + truncate(strings.Join(dem, " · "), max(10, m.width-12)) + "\n")
+	label := "demand"
+	for _, l := range wrap(strings.Join(dem, " · "), paneTextW-paneLabelW-1) {
+		lines = append(lines, row(label, l))
+		label = ""
+	}
 	runner, enforcer := m.workerName(sel.Runner), m.workerName(sel.Enforcer)
 	if runner == "" {
 		runner = theme.Subtle.Render("nobody")
@@ -374,28 +406,28 @@ func (m *Model) viewMap() string {
 	} else if c := w.Crew.Member(sel.Enforcer); c != nil {
 		enforcer += fmt.Sprintf(" (skill %d)", c.Skill)
 	}
-	b.WriteString(truncate(fmt.Sprintf("  runner   %s   enforcer  %s", runner, enforcer), m.width) + "\n")
-	var hint string
+	lines = append(lines, row("runner", runner), row("enforcer", enforcer))
 	switch {
 	case sel.Worked():
-		hint = theme.Subtle.Render("  c move a runner here · e post an enforcer · a abandon the corner")
+		lines = append(lines, keyRow("c", "move a runner here"), keyRow("e", "post an enforcer"), keyRow("a", "abandon the corner"))
 	case sel.Held():
-		hint = theme.Warning.Render("  Nobody is working it: it goes back to the street unless you post a runner (c).")
+		lines = append(lines, wrapped(theme.Warning, "Nobody is working it: it goes back to the street unless you post a runner (c).")...)
 	case sel.Owner == game.OwnerRival:
 		if n := w.Crew.Role("enforcer"); n > 0 {
-			hint = theme.Subtle.Render(fmt.Sprintf("  w sends the enforcers at it: push takes it ~%.0f%%, hit ~%.0f%%.", m.set.Rivals.Odds(w, events.ForcePush)*100, m.set.Rivals.Odds(w, events.ForceHit)*100))
+			lines = append(lines,
+				keyRow("w", fmt.Sprintf("push takes it ~%.0f%%", m.set.Rivals.Odds(w, events.ForcePush)*100)),
+				keyRow("", fmt.Sprintf("hit takes it ~%.0f%%", m.set.Rivals.Odds(w, events.ForceHit)*100)))
 		} else {
-			hint = theme.Subtle.Render("  Taking it is a matter for the enforcers. Hire some on the crew screen (4).")
+			lines = append(lines, wrapped(theme.Subtle, "Taking it is a matter for the enforcers. Hire some on the crew screen (4).")...)
 		}
 	default:
 		if city.ID == w.Player.Location {
-			hint = theme.Subtle.Render("  Post a runner (c) or yourself to claim it. Its demand is yours while it is worked.")
+			lines = append(lines, wrapped(theme.Subtle, "Post a runner (c) or yourself to claim it. Its demand is yours while it is worked.")...)
 		} else {
-			hint = theme.Subtle.Render("  Post a runner (c) to claim it; you would have to go there (g) to stand on it yourself.")
+			lines = append(lines, wrapped(theme.Subtle, "Post a runner (c) to claim it; you would have to go there (g) to stand on it yourself.")...)
 		}
 	}
-	b.WriteString(truncate(hint, m.width) + "\n")
-	return b.String()
+	return section{strings.ToUpper(sel.Name), lines}
 }
 
 // stashLine is what you hold in a city, product by product.
