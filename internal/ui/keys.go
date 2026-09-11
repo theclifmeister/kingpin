@@ -8,31 +8,36 @@ import (
 )
 
 // The key table (#80, the epic's "Key legend" convention): every key the
-// game accepts in play mode, once, with the label the legend draws it
+// game accepts in play mode, once, with the label the pane draws it
 // with, the sentence help and the README explain it with, and where it
-// applies. keyPlay dispatches through it and nothing else, the status
-// bar's legend, the details pane's KEYS section, the help modal and the
+// applies. keyPlay dispatches through it and nothing else, the details
+// pane's KEYS section, the modal footers, the help modal and the
 // README's key table are rendered from it, and a key pressed on a screen
 // that does not list it is refused with a pointer to the one that does,
 // in the one spelling: `Hire on the crew screen (4).` The modals' footers
 // are the second table, modeBindings, in the same shape.
 //
-// The table's order is the legend's: `n end day`, the cursor keys, the
+// The table's order is the pane's: `n end day`, the cursor keys, the
 // screen's own actions, the keys that work everywhere, `? help`, and
-// last the frame's keys, which help and the README list and the legend
-// and the pane leave out (quiet). A screen's own binding for a key wins
-// over the global one there (`b` buys a front on the ledger, `r` turns a
-// route's dial on the map), and the global one is not listed there.
+// last the frame's keys, which help and the README list and the pane
+// leaves out (quiet). A binding is listed where it names the screen and
+// nowhere else (#109: a key is listed where it is used and works
+// wherever it makes sense), so a global one names the screens it
+// belongs on (`s sell` the dashboard and the market, `p pay dial` the
+// crew) and works on the rest unlisted. A screen's own binding for a key
+// wins over the global one there (`b` buys a front on the ledger, `r`
+// turns a route's dial on the map), and the global one is not listed
+// there.
 
 // binding is one key and what it does.
 type binding struct {
-	key     string               // as the legend draws it: `↑↓`, `[ ]`, `␣`, `pgup pgdn`, `r`
+	key     string               // as the pane draws it: `↑↓`, `[ ]`, `␣`, `pgup pgdn`, `r`
 	label   string               // one or two lowercase words, the same everywhere it appears; `<city>` is the other city
 	help    string               // one sentence for help and the README
 	keys    []string             // the tea.KeyMsg strings it answers to; the key alone when nil
-	screens []screen             // the screens that list it; every screen when nil and global
+	screens []screen             // the screens whose pane lists it; nil lists it nowhere
 	modes   []mode               // the modals whose footer lists it (modeBindings)
-	global  bool                 // works on every screen; a screen's own binding for the same key wins there
+	global  bool                 // works on every screen, listed or not; a screen's own binding for the same key wins there
 	quiet   bool                 // in help and the README only: the frame's keys, which the title bar and help carry
 	when    func(*Model) bool    // live only while this holds; nil is always
 	do      func(*Model, string) // what it does in play mode, given the key pressed
@@ -61,16 +66,6 @@ func (b binding) names(s screen) bool {
 	return false
 }
 
-// listed reports whether the legend lists the binding on the screen: one
-// of its own, or global with none named ([ ] works everywhere and is
-// listed where it matters, the market and the map).
-func (b binding) listed(s screen) bool {
-	if b.screens == nil {
-		return b.global
-	}
-	return b.names(s)
-}
-
 // live reports whether the binding is in force now.
 func (b binding) live(m *Model) bool { return b.when == nil || b.when(m) }
 
@@ -90,6 +85,14 @@ var screenOf = map[screen]string{
 func on(ss ...screen) []screen { return ss }
 func in(ms ...mode) []mode     { return ms }
 
+// everywhere lists a binding on every screen: `n end day`, `? help`
+// and, until #111, `␣ details`.
+var everywhere = on(screenDashboard, screenMarket, screenJournal, screenCrew, screenMap, screenUpgrades, screenLedger, screenRivals)
+
+// listScreens are the screens whose cursor is the plain up-and-down
+// one: the map and the tree walk two dimensions and list their own.
+var listScreens = on(screenDashboard, screenMarket, screenJournal, screenCrew, screenLedger, screenRivals)
+
 // onBuyers is the market's cursor being on the buyers under the table.
 func onBuyers(m *Model) bool { return m.screen == screenMarket && m.onBuyers }
 
@@ -97,11 +100,11 @@ func onBuyers(m *Model) bool { return m.screen == screenMarket && m.onBuyers }
 func step(n int) func(*Model) bool { return func(m *Model) bool { return m.modalStep() == n } }
 
 var bindings = []binding{
-	{key: "n", label: "end day", help: "end the day: the sims step and the run saves", global: true,
+	{key: "n", label: "end day", help: "end the day: the sims step and the run saves", screens: everywhere, global: true,
 		do: func(m *Model, _ string) { m.endDay() }},
 	// The cursor keys. The map and the tree are walked in two dimensions,
 	// the market's arrows turn it to the other city, the journal pages.
-	{key: "↑↓", label: "pick", help: "move the cursor (j and k move it too)", keys: upDown, global: true,
+	{key: "↑↓", label: "pick", help: "move the cursor (j and k move it too)", keys: upDown, screens: listScreens, global: true,
 		do: func(m *Model, key string) { m.moveCursor(0, dir(key)) }},
 	{key: "↑↓←→", label: "pick", help: "walk the map's grid or the tree's columns", keys: arrows, screens: on(screenMap, screenUpgrades),
 		do: func(m *Model, key string) {
@@ -174,30 +177,30 @@ var bindings = []binding{
 		do: func(m *Model, _ string) { m.answerOffer(true) }},
 	{key: "x", label: "decline", help: "turn the selected offer down", screens: on(screenRivals),
 		do: func(m *Model, _ string) { m.answerOffer(false) }},
-	// Everywhere.
-	{key: "b", label: "buy", help: "buy from the supplier where you stand", global: true,
+	// Everywhere, listed where it is used.
+	{key: "b", label: "buy", help: "buy from the supplier where you stand", screens: on(screenDashboard, screenMarket), global: true,
 		do: func(m *Model, _ string) { m.openDialog(modeBuy) }},
-	{key: "s", label: "sell", help: "queue a street sale in the city shown", global: true,
+	{key: "s", label: "sell", help: "queue a street sale in the city shown", screens: on(screenDashboard, screenMarket), global: true,
 		do: func(m *Model, _ string) { m.openDialog(modeSell) }},
-	{key: "x", label: "cancel order", help: "cancel the order on the selected product", global: true,
+	{key: "x", label: "cancel order", help: "cancel the order on the selected product", screens: on(screenDashboard, screenMarket), global: true,
 		do: func(m *Model, _ string) { m.cancelSelected() }},
-	{key: "l", label: "lie low", help: "lie low today: no sales, heat fades faster", global: true,
+	{key: "l", label: "lie low", help: "lie low today: no sales, heat fades faster", screens: on(screenDashboard), global: true,
 		do: func(m *Model, _ string) { m.toggleLieLow() }},
-	{key: "p", label: "pay dial", help: "the pay dial: stingy, fair, generous", global: true,
+	{key: "p", label: "pay dial", help: "the pay dial: stingy, fair, generous", screens: on(screenCrew), global: true,
 		do: func(m *Model, _ string) { m.cyclePay() }},
-	{key: "d", label: "launder dial", help: "the launder dial: careful, normal, greedy", global: true,
+	{key: "d", label: "launder dial", help: "the launder dial: careful, normal, greedy", screens: on(screenLedger), global: true,
 		do: func(m *Model, _ string) { m.cycleLaunder() }},
-	{key: "g", label: "go to <city>", help: "go to the other city; the stock stays put", global: true,
+	{key: "g", label: "go to <city>", help: "go to the other city; the stock stays put", screens: on(screenDashboard, screenMap), global: true,
 		do: func(m *Model, _ string) { m.askTravel() }},
-	{key: "r", label: "report", help: "reopen the morning report", global: true,
+	{key: "r", label: "report", help: "reopen the morning report", screens: on(screenDashboard, screenJournal), global: true,
 		do: func(m *Model, _ string) {
 			if m.w.Report != nil {
 				m.mode = modeReport
 			}
 		}},
-	{key: "␣", label: "details", help: "show and hide the details", keys: []string{" "}, global: true,
+	{key: "␣", label: "details", help: "show and hide the details", keys: []string{" "}, screens: everywhere, global: true,
 		do: func(m *Model, _ string) { m.toggleDetails() }},
-	{key: "?", label: "help", help: "this list", global: true,
+	{key: "?", label: "help", help: "this list", screens: everywhere, global: true,
 		do: func(m *Model, _ string) { m.mode = modeHelp }},
 	// The frame's keys: the title bar carries the screens, help the rest.
 	{key: "enter", label: "end day", help: "end the day, after a confirmation", global: true, quiet: true,
@@ -303,27 +306,24 @@ func dir(key string) int {
 	return 1
 }
 
-// keysFor is what the legend and the pane list for a screen, in table
-// order: the screen's own live bindings and the global ones none of
-// them shadows, the quiet ones left out.
+// keysFor is what the pane's KEYS lists for a screen, in table order:
+// every live binding that names the screen, the quiet ones left out, and
+// none that an earlier one for the same key shadows there. That is the
+// rule lookup dispatches by (the first live binding naming the screen
+// that takes the key), so a key is listed exactly where pressing it does
+// what the label says: the market's `x decline` while the cursor is on
+// the buyers, `x cancel order` while it is on the table.
 func (m *Model) keysFor(s screen) []binding {
-	var own, out []binding
+	var out []binding
 	for _, b := range bindings {
-		if !b.quiet && b.names(s) && b.live(m) {
-			own = append(own, b)
-		}
-	}
-	for _, b := range bindings {
-		if b.quiet || !b.listed(s) || !b.live(m) {
+		if b.quiet || !b.names(s) || !b.live(m) {
 			continue
 		}
 		shadowed := false
-		if !b.names(s) {
-			for _, o := range own {
-				for _, k := range rawKeys(b) {
-					if o.accepts(k) {
-						shadowed = true
-					}
+		for _, o := range out {
+			for _, k := range rawKeys(b) {
+				if o.accepts(k) {
+					shadowed = true
 				}
 			}
 		}
@@ -356,7 +356,7 @@ func rawKeys(b binding) []string {
 	return b.keys
 }
 
-// labelOf is the label as the legend draws it, the other city named.
+// labelOf is the label as the pane draws it, the other city named.
 func (m *Model) labelOf(b binding) string {
 	if strings.Contains(b.label, "<city>") && m.w != nil {
 		return strings.ReplaceAll(b.label, "<city>", m.w.CityName(m.travelTo()))
@@ -416,8 +416,9 @@ func screenPointer(s screen) string {
 }
 
 // helpGroups are the help modal's and the README's groups: GLOBAL, the
-// keys that work everywhere, then each screen's own, every binding once
-// under the first screen it names.
+// keys that work everywhere (once, whatever screens list them), then
+// each screen's own, every binding once under the first screen it
+// names.
 type helpGroup struct {
 	title string
 	keys  []binding
@@ -429,7 +430,7 @@ func helpGroups() []helpGroup {
 		groups = append(groups, helpGroup{title: strings.ToUpper(screenOf[s])})
 	}
 	for _, b := range bindings {
-		i := 0 // a global one is everyone's, wherever the legend lists it
+		i := 0 // a global one is everyone's, wherever the pane lists it
 		if !b.global {
 			i = int(b.screens[0]) + 1
 		}
@@ -461,7 +462,7 @@ func helpRow(key, label, help string) string {
 
 // words are the help modal's last group, WORDS: the terms the screens
 // use without explaining, one line each. Each fits beside the key
-// column at 80 columns; the legend's spelling for a key (`␣`).
+// column at 80 columns; the pane's spelling for a key (`␣`).
 var words = [][2]string{
 	{"dial", "quiet, normal or aggressive: a sale's volume against its heat"},
 	{"float", "the dirty cash the wash and the road leave for the street"},
@@ -516,9 +517,9 @@ func ReadmeKeys() string {
 
 // tutorialLine is the one line of prose that names keys: the
 // dashboard's `No sales queued. Press s to sell, n to end the day.`, the
-// first thing a new player reads, its two keys drawn the legend's way.
-// Every other key the player is told about is in the legend, the pane
-// or a modal's footer.
+// first thing a new player reads, its two keys drawn the pane's way.
+// Every other key the player is told about is in the pane's KEYS or a
+// modal's footer.
 func tutorialLine() string {
 	sub := theme.Subtle.Render
 	return sub("No sales queued. Press ") + theme.Key.Render("s") + sub(" to sell, ") + theme.Key.Render("n") + sub(" to end the day.")

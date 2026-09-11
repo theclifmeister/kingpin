@@ -24,7 +24,7 @@ var handledKeys = []string{
 var pointerRE = regexp.MustCompile(`^[A-Z][a-z]+(?: [a-z]+)* on the \w+ screen \(\d\)(?: or the \w+ screen \(\d\))?\.(?: [A-Z][a-z]+(?: [a-z]+)* on the \w+ screen \(\d\)\.)*$`)
 
 // Every key keyPlay handled is in the table, the table lists no other,
-// every binding is listed somewhere with a legend label of one or two
+// every binding is listed somewhere with a label of one or two
 // lowercase words, no screen has two bindings of its own for one key,
 // and a letter pressed on a screen that does not take it is refused
 // with the one pointer format (the arrows and the paging keys are
@@ -43,11 +43,14 @@ func TestEveryKeyIsInTheTable(t *testing.T) {
 				t.Errorf("the table lists %q (%s %s), which keyPlay never handled", k, b.key, b.label)
 			}
 		}
-		if !b.global && len(b.screens) == 0 {
+		// #109: screens is the only thing that lists a binding, so every
+		// one the pane shows names its screens, global or not, and the
+		// quiet ones name none.
+		if !b.quiet && len(b.screens) == 0 {
 			t.Errorf("%s %s is listed nowhere", b.key, b.label)
 		}
-		if b.global && b.screens != nil && !b.quiet && b.key != "[ ]" {
-			t.Errorf("%s %s is global and named for screens", b.key, b.label)
+		if b.quiet && (b.screens != nil || !b.global) {
+			t.Errorf("%s %s is quiet and named for screens, or not global", b.key, b.label)
 		}
 		if words := strings.Fields(b.label); len(words) == 0 || len(words) > 3 || b.label != strings.ToLower(b.label) {
 			t.Errorf("%s: the label %q is not one or two lowercase words", b.key, b.label)
@@ -63,16 +66,19 @@ func TestEveryKeyIsInTheTable(t *testing.T) {
 	}
 	for s := screen(0); s < screenCount; s++ {
 		m.switchScreen(s)
-		own := map[string]string{}
+		// Two bindings of a screen's own for one key must be told apart
+		// by a `when` (the market's `x decline` on the buyers, `x cancel
+		// order` on the table).
+		own := map[string]binding{}
 		for _, b := range bindings {
 			if !b.names(s) {
 				continue
 			}
 			for _, k := range rawKeys(b) {
-				if prev, dup := own[k]; dup && b.when == nil {
-					t.Errorf("%s: %q is both %s and %s", screenOf[s], k, prev, b.label)
+				if prev, dup := own[k]; dup && b.when == nil && prev.when == nil {
+					t.Errorf("%s: %q is both %s and %s", screenOf[s], k, prev.label, b.label)
 				}
-				own[k] = b.label
+				own[k] = b
 			}
 		}
 		for _, k := range handledKeys {
@@ -100,9 +106,10 @@ func TestEveryKeyIsInTheTable(t *testing.T) {
 	m.Update(tea.WindowSizeMsg{Width: 120, Height: 40})
 }
 
-// The status bar's legend and the pane's KEYS section are exactly
-// keysFor(screen), in order, with the table's labels, on every screen:
-// `n end day` first, `? help` last, `q quit` in neither.
+// The pane's KEYS section is exactly keysFor(screen), in order, with
+// the table's labels, on every screen: `n end day` first, `? help`
+// last, `q quit` in neither, and nothing listed that does not name the
+// screen (#109: a key is listed where it is used).
 func TestLegendMatchesTable(t *testing.T) {
 	m := newTestModel(t, 300, 60)
 	for s := screen(0); s < screenCount; s++ {
@@ -112,15 +119,13 @@ func TestLegendMatchesTable(t *testing.T) {
 		if len(keys) < 3 || keys[0].key != "n" || keys[0].label != "end day" || keys[len(keys)-1].key != "?" {
 			t.Errorf("%s: keysFor is %v", screenOf[s], keys)
 		}
-		var want string
 		for _, b := range keys {
 			if b.key == "q" {
-				t.Errorf("%s: q is in the legend", screenOf[s])
+				t.Errorf("%s: q is in the pane's KEYS", screenOf[s])
 			}
-			want += stripANSI(k(b.key, m.labelOf(b)))
-		}
-		if got := stripANSI(m.viewFooter()); got != want {
-			t.Errorf("%s: the legend is\n%q\nwant\n%q", screenOf[s], got, want)
+			if !b.names(s) {
+				t.Errorf("%s: the pane lists %s %s, which does not name the screen", screenOf[s], b.key, b.label)
+			}
 		}
 		// The pane's KEYS rows, read off the render: every key and its
 		// label in order, two a row.
@@ -155,6 +160,56 @@ func TestLegendMatchesTable(t *testing.T) {
 		}
 		if rest := strings.TrimSpace(text[at:]); rest != "" {
 			t.Errorf("%s: the pane's KEYS carry %q past the table", screenOf[s], rest)
+		}
+	}
+}
+
+// Every global is listed on the screens #109 gives it and works on
+// every screen, listed or not; the screens a global names are exactly
+// the issue's.
+func TestGlobalsAreListedWhereUsed(t *testing.T) {
+	want := map[string][]screen{
+		"n":   everywhere,
+		"↑↓":  listScreens,
+		"[ ]": on(screenMarket, screenMap),
+		"b":   on(screenDashboard, screenMarket),
+		"s":   on(screenDashboard, screenMarket),
+		"x":   on(screenDashboard, screenMarket),
+		"l":   on(screenDashboard),
+		"p":   on(screenCrew),
+		"d":   on(screenLedger),
+		"g":   on(screenDashboard, screenMap),
+		"r":   on(screenDashboard, screenJournal),
+		"␣":   everywhere,
+		"?":   everywhere,
+	}
+	m := newTestModel(t, 120, 40)
+	for _, b := range bindings {
+		if !b.global || b.quiet {
+			continue
+		}
+		ws, ok := want[b.key]
+		if !ok {
+			t.Errorf("%s %s is a global the test does not know", b.key, b.label)
+			continue
+		}
+		for s := screen(0); s < screenCount; s++ {
+			listed := false
+			for _, x := range ws {
+				listed = listed || x == s
+			}
+			if b.names(s) != listed {
+				t.Errorf("%s %s names %s: %v, want %v", b.key, b.label, screenOf[s], b.names(s), listed)
+			}
+			// Pressed anywhere, the key is taken: by the global or by the
+			// screen's own binding for it, never pointed away.
+			m.switchScreen(s)
+			m.status = ""
+			for _, k := range rawKeys(b) {
+				if _, found, _ := m.lookup(k); !found {
+					t.Errorf("%s: %q is not taken by any binding", screenOf[s], k)
+				}
+			}
 		}
 	}
 }
