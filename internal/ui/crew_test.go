@@ -327,22 +327,8 @@ func TestCrewScreenUnpostedEnforcer(t *testing.T) {
 	}
 }
 
-// paneText is the pane's sections as plain text, one line each, however
-// wide the terminal is: what the pane shows beside MAIN or the overlay
-// opens at 80 columns.
-func paneText(m *Model) string {
-	var b strings.Builder
-	for _, s := range m.details() {
-		b.WriteString(s.title + "\n")
-		for _, l := range s.lines {
-			b.WriteString(stripANSI(l) + "\n")
-		}
-	}
-	return b.String()
-}
-
-// paneProse is paneText with each section's lines run together, so a
-// wrapped note reads whole.
+// paneProse is paneText (map_test.go) with each section's lines run
+// together, so a wrapped note reads whole.
 func paneProse(m *Model) string {
 	var b strings.Builder
 	for _, s := range m.details() {
