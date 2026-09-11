@@ -117,8 +117,8 @@ func TestStockIsConservedAcrossShipments(t *testing.T) {
 				}
 			case events.ShipmentArrived:
 				arrived++
-				if ev.Day != 1+lg.Days(route, events.ShipNormal) || ev.Units != units || ev.To != home {
-					t.Fatalf("arrival %+v, want day %d %d units in %s", ev, 1+lg.Days(route, events.ShipNormal), units, home)
+				if ev.Day != 1+lg.Days(res.World, route, events.ShipNormal) || ev.Units != units || ev.To != home {
+					t.Fatalf("arrival %+v, want day %d %d units in %s", ev, 1+lg.Days(res.World, route, events.ShipNormal), units, home)
 				}
 			case events.ShipmentSeized:
 				lost++
@@ -225,8 +225,8 @@ func TestFastIsSeizedMoreThanSlow(t *testing.T) {
 	if fastSeized <= slowSeized || slowSent < 3*(Horizon-2) || fastSent < 3*(Horizon-2) {
 		t.Fatalf("fast was seized %d of %d, slow %d of %d; fast should be the risk and both should send daily", fastSeized, fastSent, slowSeized, slowSent)
 	}
-	if lg.Days(route, events.ShipFast) >= lg.Days(route, events.ShipSlow) {
-		t.Fatalf("fast takes %d days, slow %d", lg.Days(route, events.ShipFast), lg.Days(route, events.ShipSlow))
+	if plain := quiet(cfg, 1); lg.Days(plain, route, events.ShipFast) >= lg.Days(plain, route, events.ShipSlow) {
+		t.Fatalf("fast takes %d days, slow %d", lg.Days(plain, route, events.ShipFast), lg.Days(plain, route, events.ShipSlow))
 	}
 }
 
@@ -433,15 +433,15 @@ func TestRouteDialKeepsTheTarget(t *testing.T) {
 	home, hub, route := twoCities(t, cfg)
 	product := cfg.Market.Products[0].ID
 	lg := newLogistics(cfg)
-	offer := lg.Wholesale()
 	safe := *cfg
 	safe.Routes.Routes = append([]content.RouteConfig(nil), cfg.Routes.Routes...)
 	for i := range safe.Routes.Routes {
 		safe.Routes.Routes[i].Risk = 0
 	}
-	target := 2*route.Capacity + offer.Lot/2
-	days := lg.Days(route, events.ShipNormal)
 	w := quiet(&safe, 5)
+	offer := lg.Wholesale(w)
+	target := 2*route.Capacity + offer.Lot/2
+	days := lg.Days(w, route, events.ShipNormal)
 	w.Player.DirtyCash = cfg.Heat.Heat.DirtyCashThreshold // enough for the lots, never a pile that draws a sting on the stash
 	w.Stats.PeakCash = offer.UnlockCash
 	_ = w.SetRouteTarget(route.ID, product, target)

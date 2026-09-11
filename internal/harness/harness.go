@@ -276,11 +276,24 @@ func Upgraded(cfg *content.Config, lieLowAt float64) Policy {
 	}
 }
 
-// BuyUpgrades buys, in branch order Security, Operations, Legal, the
-// cheapest node the player can buy from the right pool with margin times
-// its cost in hand, one per call.
+// TreeOrder is the order BuyUpgrades walks the branches: Security,
+// Operations, Legal, then the branches of #118, Crew and Laundering,
+// then #119's Street and Logistics.
+var TreeOrder = []string{"security", "operations", "legal", "crew", "laundering", "street", "logistics"}
+
+// BuyUpgrades buys, in TreeOrder, the cheapest node the player can buy
+// from the right pool with margin times its cost in hand, one per call.
+// The Laundering branch waits for a front, the way an accountant does:
+// a player with nothing to wash has no use for a bookkeeper (#118: the
+// crewed player buying it paid $300k for nothing), and the policies that
+// launder buy it as soon as they own one. The Logistics branch (#119)
+// waits for a route to be on the same way: its nodes do nothing for a
+// player who never runs the road, and the crewed player never does.
 func BuyUpgrades(cfg *content.Config, w *game.World, margin float64) {
-	for _, branch := range []string{"security", "operations", "legal"} {
+	for _, branch := range TreeOrder {
+		if (branch == "laundering" && len(w.Fronts) == 0) || (branch == "logistics" && !routeOn(w)) {
+			continue
+		}
 		var pick *content.UpgradeConfig
 		for _, n := range cfg.Upgrades.Branch(branch) {
 			if w.Owns(n.ID) || len(w.Missing(n)) > 0 {
@@ -303,6 +316,16 @@ func BuyUpgrades(cfg *content.Config, w *game.World, margin float64) {
 			return
 		}
 	}
+}
+
+// routeOn reports whether any route's dial is on.
+func routeOn(w *game.World) bool {
+	for _, rs := range w.Routes {
+		if rs.Dial.On() {
+			return true
+		}
+	}
+	return false
 }
 
 // Own grants upgrades for free, prerequisites and all in the order given,
@@ -353,13 +376,16 @@ func Territory(cfg *content.Config, lieLowAt float64, corners int) Policy {
 // runners until corners corners there are worked (0 means every corner),
 // then enforcers for them; with a rival about, enforcers come first once
 // one runner is on. Runners and enforcers already posted elsewhere are
-// left where they are.
+// left where they are. The roster cap is the crew sim's (#118: the
+// tree's crew_slots count, so a policy that buys the Crew branch fills
+// the room it bought).
 func staff(cfg *content.Config, w *game.World, city string, corners int) {
 	tun := cfg.Crew.Crew
 	if corners <= 0 {
 		corners = len(cfg.City.City(city).Corners)
 	}
 	guards := max(1, tun.MaxCrew/3)
+	maxCrew := crew.New(cfg.Crew, cfg.Names, cfg.Reputation.Effects, cfg.Upgrades).MaxCrew(w)
 	w.SetPay(events.PayFair)
 	for _, m := range w.Crew.Members {
 		if m.Loyalty < tun.SkimThreshold {
@@ -388,7 +414,7 @@ func staff(cfg *content.Config, w *game.World, city string, corners int) {
 	if w.Rival.Arrived > 0 && w.Crew.Runners() >= 1 && w.Crew.Role("enforcer") < guards {
 		want = "enforcer"
 		// A full roster of runners makes room: the least skilled goes.
-		if len(w.Crew.Members) >= tun.MaxCrew && len(w.Crew.FiredToday) == 0 {
+		if len(w.Crew.Members) >= maxCrew && len(w.Crew.FiredToday) == 0 {
 			worst := -1
 			for i, m := range w.Crew.Members {
 				if m.Role == "runner" && (worst < 0 || m.Skill < w.Crew.Members[worst].Skill) {
@@ -409,10 +435,10 @@ func staff(cfg *content.Config, w *game.World, city string, corners int) {
 			best = i
 		}
 	}
-	if best >= 0 && len(w.Crew.Members) < tun.MaxCrew {
+	if best >= 0 && len(w.Crew.Members) < maxCrew {
 		c := w.Crew.Candidates[best]
 		if w.Player.DirtyCash >= c.Fee+cfg.Market.Market.StartCash {
-			_, _ = w.Hire(c.ID, tun.MaxCrew)
+			_, _ = w.Hire(c.ID, maxCrew)
 		}
 	}
 	// Every idle runner takes back a held corner nobody is working,
@@ -521,7 +547,7 @@ func Warlike(cfg *content.Config, lieLowAt float64, corners int, force events.Fo
 // baseline for "a player who buys peace".
 func Diplomat(cfg *content.Config, lieLowAt float64, corners int) Policy {
 	territory := Territory(cfg, lieLowAt, corners)
-	rv := rivals.New(cfg.Rivals, cfg.Names, cfg.Reputation.Effects, cfg.Law.Effects)
+	rv := rivals.New(cfg.Rivals, cfg.Names, cfg.Reputation.Effects, cfg.Law.Effects, cfg.Upgrades)
 	dip := cfg.Rivals.Diplomacy
 	return func(w *game.World) {
 		territory(w)
@@ -716,11 +742,10 @@ const HubCorners = 2
 
 func distribute(cfg *content.Config, lieLowAt float64, delegate, fight bool, personality string) Policy {
 	laundered := Laundered(cfg, lieLowAt)
-	crewSim := crew.New(cfg.Crew, cfg.Names, cfg.Reputation.Effects)
-	rv := rivals.New(cfg.Rivals, cfg.Names, cfg.Reputation.Effects, cfg.Law.Effects)
+	crewSim := crew.New(cfg.Crew, cfg.Names, cfg.Reputation.Effects, cfg.Upgrades)
+	rv := rivals.New(cfg.Rivals, cfg.Names, cfg.Reputation.Effects, cfg.Law.Effects, cfg.Upgrades)
 	dip := cfg.Rivals.Diplomacy
 	lg := logistics.New(cfg.Routes, cfg.City, cfg.Market, cfg.Upgrades, cfg.Laundering.Laundering.Float)
-	wholesale := lg.Wholesale()
 	home := cfg.City.Home().ID
 	// The route into home with the most room, from the city that sells
 	// by the lot; the hub is where it starts.
@@ -770,8 +795,9 @@ func distribute(cfg *content.Config, lieLowAt float64, delegate, fight bool, per
 		// landings.
 		days := float64(DistributorDays)
 		if fight {
-			days = max(days, float64(lg.Days(*route, w.Route(route.ID).Dial.Ship())+2))
+			days = max(days, float64(lg.Days(w, *route, w.Route(route.ID).Dial.Ship())+2))
 		}
+		wholesale := lg.Wholesale(w)
 		for _, id := range w.Products {
 			hubP, homeP := w.Product(hub, id), w.Product(home, id)
 			target := 0
@@ -1044,7 +1070,7 @@ func washUp(cfg *content.Config, w *game.World) {
 // washUpAt is washUp with the margin given: the front is bought when
 // dirty cash is margin times its price.
 func washUpAt(cfg *content.Config, w *game.World, margin float64) {
-	for _, o := range laundering.New(cfg.Laundering, cfg.Crew).Offers() {
+	for _, o := range laundering.New(cfg.Laundering, cfg.Crew, cfg.Upgrades).Offers() {
 		if w.Front(o.ID) != nil {
 			continue
 		}

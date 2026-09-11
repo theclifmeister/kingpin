@@ -31,7 +31,7 @@ func (m *Model) upgradeSelected() (content.UpgradeConfig, bool) {
 	return rows[m.upgradeCursor], true
 }
 
-// upgradeMove walks the tree as three columns: dc moves to the branch
+// upgradeMove walks the tree as columns, one a branch: dc moves to the branch
 // beside this one at the same row (the last node if that column is
 // shorter), dr up or down within the column. The edges are no-ops.
 func (m *Model) upgradeMove(dc, dr int) {
@@ -222,7 +222,7 @@ func effectWords(e content.UpgradeEffects) []string {
 		add(fmt.Sprintf("corners drift %d days later", e.DriftDaysBonus))
 	}
 	mul(e.RobberyMul, "robberies ×%.1f")
-	bonus(e.GuardBonus, "guard on every contested corner")
+	bonus(e.GuardBonus, "guard on contested corners")
 	mul(e.RivalPushMul, "rival pushes ×%.1f")
 	return out
 }
@@ -252,18 +252,33 @@ func (m *Model) upgradeAt() (col, row int) {
 }
 
 // upgradePage is the window of rows the columns show: the tree is
-// taller than MAIN at 80x24 since #117, so the three columns page
-// together (they walk at the same row) by as many nodes as fit under
-// the title, the pools, the column heads and over the legend, and the
-// page is the cursor's. The screen for seven branches is #120's.
+// taller than MAIN at 80x24 since #117, so the columns page together
+// (they walk at the same row) by as many nodes as fit under the title,
+// the pools, the column heads and over the legend, and the page is the
+// cursor's. The screen for seven branches is #120's.
 func (m *Model) upgradePage() (top, per int) {
 	per = max(1, (m.mainHeight()-7)/2)
 	_, row := m.upgradeAt()
 	return row / per * per, per
 }
 
+// upgradeColMin is the narrowest a branch's column is drawn.
+const upgradeColMin = 20
+
+// upgradeColumns is the window of branches MAIN shows: since #118 the
+// tree is wider than MAIN too, so it shows as many columns of
+// upgradeColMin as the width holds, a space apart, the leftmost window
+// that has the cursor's column in it (stateless, like the row page);
+// left and right still cross every branch, and the title says which
+// are shown.
+func (m *Model) upgradeColumns() (first, per int) {
+	per = max(1, min(len(content.Branches), (m.mainWidth()+1)/(upgradeColMin+1)))
+	col, _ := m.upgradeAt()
+	return max(0, min(col, len(content.Branches)-per)), per
+}
+
 // viewUpgrades is the tree's MAIN (#86): the title with the count, the
-// two pools, and the three branches as columns, each node a
+// two pools, and the branches as columns (as many as fit), each node a
 // name-and-cost line over a one-line summary of its effects; the node
 // under the cursor is the pane's.
 func (m *Model) viewUpgrades() string {
@@ -276,19 +291,30 @@ func (m *Model) viewUpgrades() string {
 			owned++
 		}
 	}
-	b.WriteString(truncate(sectionTitle("UPGRADES", theme.Money)+theme.Subtle.Render(fmt.Sprintf(" · %d of %d owned", owned, len(m.cfg.Upgrades.Nodes))), width) + "\n")
+	firstCol, perCol := m.upgradeColumns()
+	title := sectionTitle("UPGRADES", theme.Money) + theme.Subtle.Render(fmt.Sprintf(" · %d of %d owned", owned, len(m.cfg.Upgrades.Nodes)))
+	if perCol < len(content.Branches) {
+		title += theme.Subtle.Render(fmt.Sprintf(" · branches %d–%d of %d", firstCol+1, min(firstCol+perCol, len(content.Branches)), len(content.Branches)))
+	}
+	b.WriteString(truncate(title, width) + "\n")
 	b.WriteString(truncate(theme.Gold.Render("dirty "+cash(w.Player.DirtyCash))+theme.Subtle.Render(" · ")+theme.Good.Render("clean "+cash(w.Player.CleanCash)), width) + "\n\n")
 
-	// Three columns a space apart, one per branch, sharing the width.
-	// The cursor walks a column with up and down and crosses to the
-	// next with left and right.
-	colW := max(20, (width-len(content.Branches)+1)/len(content.Branches))
+	// The branches as columns a space apart, sharing the width, as
+	// many as it holds at once (upgradeColumns). The cursor walks a
+	// column with up and down and crosses to the next with left and
+	// right; the nodes of a branch off the page still count toward
+	// the cursor's index.
+	colW := max(upgradeColMin, (width-perCol+1)/perCol)
 	top, per := m.upgradePage()
 	var cols []string
 	idx := 0
-	for _, branch := range content.Branches {
-		var c strings.Builder
+	for i, branch := range content.Branches {
 		all := m.cfg.Upgrades.Branch(branch)
+		if i < firstCol || i >= firstCol+perCol {
+			idx += len(all)
+			continue
+		}
+		var c strings.Builder
 		title := sectionTitle(strings.ToUpper(branch), theme.Money)
 		if len(all) > per {
 			title += theme.Subtle.Render(fmt.Sprintf(" · %d–%d of %d", min(top+1, len(all)), min(top+per, len(all)), len(all)))

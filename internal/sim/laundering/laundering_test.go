@@ -38,7 +38,7 @@ func kinds(evs []events.Event) map[string]int {
 // id is refused the same way.
 func TestBuyFrontRefusals(t *testing.T) {
 	cfg := content.MustLoad()
-	s := laundering.New(cfg.Laundering, cfg.Crew)
+	s := laundering.New(cfg.Laundering, cfg.Crew, cfg.Upgrades)
 	if _, err := s.Buy(world(1_000_000_000), "casino"); err != game.ErrNoFront {
 		t.Fatalf("unknown front: %v", err)
 	}
@@ -93,7 +93,7 @@ func TestBuyFrontRefusals(t *testing.T) {
 func TestWashAndFloat(t *testing.T) {
 	cfg := content.MustLoad()
 	cfg.Laundering.Fronts[0].AuditRisk = 0
-	s := laundering.New(cfg.Laundering, cfg.Crew)
+	s := laundering.New(cfg.Laundering, cfg.Crew, cfg.Upgrades)
 	tun := cfg.Laundering.Laundering
 	fc := cfg.Laundering.Fronts[0]
 	w := world(fc.Cost + tun.Float + fc.Throughput*3)
@@ -141,7 +141,7 @@ func TestWashAndFloat(t *testing.T) {
 // Upkeep the clean cash cannot cover shuts the front for a while.
 func TestUnpaidUpkeepFreezes(t *testing.T) {
 	cfg := content.MustLoad()
-	s := laundering.New(cfg.Laundering, cfg.Crew)
+	s := laundering.New(cfg.Laundering, cfg.Crew, cfg.Upgrades)
 	tun := cfg.Laundering.Laundering
 	fc := cfg.Laundering.Fronts[0]
 	w := world(fc.Cost + tun.Float) // nothing over the float to wash
@@ -164,7 +164,7 @@ func TestAuditAndDial(t *testing.T) {
 	fc := cfg.Laundering.Fronts[0]
 	cfg.Laundering.Fronts[0].AuditRisk = 1 // certain, at every dial
 	cfg.Laundering.Dial.Careful.Risk = 1
-	s := laundering.New(cfg.Laundering, cfg.Crew)
+	s := laundering.New(cfg.Laundering, cfg.Crew, cfg.Upgrades)
 	tun := cfg.Laundering.Laundering
 	for _, d := range []events.Launder{events.LaunderCareful, events.LaunderNormal, events.LaunderGreedy} {
 		w := world(fc.Cost + tun.Float + fc.Throughput*10)
@@ -198,7 +198,7 @@ func TestAuditAndDial(t *testing.T) {
 	// Risk follows the dial.
 	w := world(fc.Cost * 2)
 	fresh := content.MustLoad()
-	s = laundering.New(fresh.Laundering, fresh.Crew)
+	s = laundering.New(fresh.Laundering, fresh.Crew, fresh.Upgrades)
 	if _, err := s.Buy(w, fc.ID); err != nil {
 		t.Fatal(err)
 	}
@@ -216,7 +216,7 @@ func TestAuditAndDial(t *testing.T) {
 // audit risk, both by skill; two of them stack.
 func TestAccountants(t *testing.T) {
 	cfg := content.MustLoad()
-	s := laundering.New(cfg.Laundering, cfg.Crew)
+	s := laundering.New(cfg.Laundering, cfg.Crew, cfg.Upgrades)
 	tun := cfg.Laundering.Laundering
 	fc := cfg.Laundering.Fronts[0]
 	w := world(fc.Cost * 2)
@@ -249,7 +249,7 @@ func TestAccountants(t *testing.T) {
 // no longer lists is inert rather than a crash.
 func TestOffers(t *testing.T) {
 	cfg := content.MustLoad()
-	s := laundering.New(cfg.Laundering, cfg.Crew)
+	s := laundering.New(cfg.Laundering, cfg.Crew, cfg.Upgrades)
 	offers := s.Offers()
 	if len(offers) != len(cfg.Laundering.Fronts) {
 		t.Fatalf("%d offers for %d fronts", len(offers), len(cfg.Laundering.Fronts))
@@ -275,7 +275,7 @@ func TestAuditFlipsTheAccountant(t *testing.T) {
 	fc := cfg.Laundering.Fronts[0]
 	cfg.Laundering.Fronts[0].AuditRisk = 1
 	cfg.Laundering.Laundering.AccountantRiskCut = 0 // still certain with accountants about
-	s := laundering.New(cfg.Laundering, cfg.Crew)
+	s := laundering.New(cfg.Laundering, cfg.Crew, cfg.Upgrades)
 	tun := cfg.Laundering.Laundering
 	line := cfg.Crew.Informant.Loyalty
 	w := world(fc.Cost + tun.Float + fc.Throughput*10)
@@ -312,5 +312,97 @@ func TestAuditFlipsTheAccountant(t *testing.T) {
 	evs = step(w, s)
 	if kinds(evs)["CrewTurnedInformant"] != 0 || w.Crew.Informants() != 2 {
 		t.Fatalf("third audit: %v, roster %+v", kinds(evs), w.Crew.Members)
+	}
+}
+
+// launderProbe reads every number the Laundering branch can move off a
+// world owning the given nodes (granted, prerequisites ignored: a node
+// is measured alone) with the first front bought: the sim's public
+// reads, and what one certain audit seizes and shuts the front for.
+func launderProbe(t *testing.T, cfg *content.Config, ids ...string) map[string]float64 {
+	t.Helper()
+	certain := *cfg
+	certain.Laundering.Fronts = append([]content.FrontConfig(nil), cfg.Laundering.Fronts...)
+	certain.Laundering.Fronts[0].AuditRisk = 1
+	fc := cfg.Laundering.Fronts[0]
+	tun := cfg.Laundering.Laundering
+	w := world(fc.Cost + tun.Float + fc.Throughput*10)
+	for _, id := range ids {
+		w.Upgrades[id] = true
+	}
+	s := laundering.New(cfg.Laundering, cfg.Crew, cfg.Upgrades)
+	if _, err := s.Buy(w, fc.ID); err != nil {
+		t.Fatal(err)
+	}
+	p := map[string]float64{}
+	f := w.Fronts[0]
+	p["throughput"] = float64(s.Throughput(w, f))
+	p["audit_risk"] = s.AuditRisk(w, f)
+	p["upkeep"] = float64(s.FrontUpkeep(w, f))
+	p["float"] = float64(s.Float(w))
+	p["freeze"] = float64(s.AuditFreezeDays(w))
+	// One night with the audit certain: what it seizes of the wash.
+	s = laundering.New(certain.Laundering, certain.Crew, certain.Upgrades)
+	var audit events.FrontAudited
+	for _, e := range step(w, s) {
+		if a, ok := e.(events.FrontAudited); ok {
+			audit = a
+		}
+	}
+	if audit.Front == "" {
+		t.Fatalf("no audit with the risk certain")
+	}
+	p["seized"] = float64(audit.Seized) / float64(w.Fronts[0].WashedToday)
+	p["shut"] = float64(audit.Days)
+	return p
+}
+
+// Every Laundering node moves the number it names, the way it says, and
+// no other (#118). The probe reads each number off the sim the way the
+// ledger does, so what the pane prints is what the dice use.
+func TestLaunderingNodesPullTheirWay(t *testing.T) {
+	cfg := content.MustLoad()
+	base := launderProbe(t, cfg)
+	rows := []struct {
+		id    string
+		moves map[string]float64
+	}{
+		{"books", map[string]float64{"throughput": base["throughput"] * 1.15}},
+		{"shell", map[string]float64{"audit_risk": base["audit_risk"] * 0.7}},
+		{"cashbiz", map[string]float64{"throughput": base["throughput"] * 1.25}},
+		{"float", map[string]float64{"float": base["float"] * 0.5}},
+		{"offshore", map[string]float64{"seized": base["seized"] * 0.5, "upkeep": base["upkeep"] * 0.8}},
+		{"books2", map[string]float64{"freeze": base["freeze"] - 7, "shut": base["shut"] - 7}},
+	}
+	seen := map[string]bool{}
+	for _, row := range rows {
+		seen[row.id] = true
+		got := launderProbe(t, cfg, row.id)
+		for k, want := range row.moves {
+			if d := got[k] - want; d > 0.51 || d < -0.51 {
+				t.Errorf("%s: %s is %v with it, want %v (base %v)", row.id, k, got[k], want, base[k])
+			}
+		}
+		for k, v := range got {
+			if _, named := row.moves[k]; !named && v != base[k] {
+				t.Errorf("%s: moves %s (%v -> %v), which it does not name", row.id, k, base[k], v)
+			}
+		}
+	}
+	for _, n := range cfg.Upgrades.Branch("laundering") {
+		if !seen[n.ID] {
+			t.Errorf("the Laundering branch has %s, which the table does not", n.ID)
+		}
+	}
+	// The thinner float is the road's too: the wash and the budget read
+	// one number off the world.
+	w := world(1_000_000)
+	w.Upgrades["float"] = true
+	s := laundering.New(cfg.Laundering, cfg.Crew, cfg.Upgrades)
+	if got, want := s.Float(w), w.Float(cfg.Upgrades, cfg.Laundering.Laundering.Float); got != want || got != cfg.Laundering.Laundering.Float/2 {
+		t.Fatalf("float %d, world %d, want half of %d", got, want, cfg.Laundering.Laundering.Float)
+	}
+	if got := s.Washable(w); got != 1_000_000-cfg.Laundering.Laundering.Float/2 {
+		t.Fatalf("washable %d over a float of %d", got, s.Float(w))
 	}
 }

@@ -405,8 +405,8 @@ func (m *Model) frontSection(f game.Front) section {
 		row("today", money(f.WashedToday)+" · lifetime "+money(f.Washed)),
 		row("audit", fmt.Sprintf("%.1f%%/day at %s", l.AuditRisk(w, f)*100, w.Laundering.Dial)),
 	}
-	if fc := m.cfg.Laundering.Front(f.ID); fc != nil {
-		lines = append(lines, row("upkeep", money(fc.Upkeep)+"/day clean"))
+	if m.cfg.Laundering.Front(f.ID) != nil {
+		lines = append(lines, row("upkeep", money(l.FrontUpkeep(w, f))+"/day clean"))
 	}
 	lines = append(lines, row("bought", fmt.Sprintf("day %d · %s", f.Bought, money(f.Cost))))
 	return section{strings.ToUpper(f.Name), lines}
@@ -428,7 +428,6 @@ func (m *Model) accountantBonus(f game.Front) (int, bool) {
 // fares, what it has lost, and where the road's money comes from.
 func (m *Model) ledgerRouteSection(r content.RouteConfig) section {
 	w := m.w
-	lg := m.set.Logistics
 	sec := m.routeSection(r)
 	// The map's key rows come off: the ledger's keys are its own.
 	lines := sec.lines[:len(sec.lines)-2]
@@ -436,7 +435,7 @@ func (m *Model) ledgerRouteSection(r content.RouteConfig) section {
 	lines = append(lines,
 		row("this week", fmt.Sprintf("lots %s · fares %s", cash(lots), cash(fares))),
 		row("lost", plural(w.Logistics.Lost[r.ID], "unit")+" on the road"))
-	lines = append(lines, wrapped(theme.Subtle, fmt.Sprintf("The road spends what is over %s dirty.", cash(lg.Float())))...)
+	lines = append(lines, wrapped(theme.Subtle, fmt.Sprintf("The road spends what is over %s dirty.", cash(m.set.Laundering.Float(w))))...)
 	lines = append(lines, keyRow("enter", "turn the dial"))
 	return section{sec.title, lines}
 }

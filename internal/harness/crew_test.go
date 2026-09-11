@@ -6,6 +6,8 @@ import (
 	"github.com/theclifmeister/kingpin/internal/content"
 	"github.com/theclifmeister/kingpin/internal/events"
 	"github.com/theclifmeister/kingpin/internal/game"
+	"github.com/theclifmeister/kingpin/internal/sim"
+	"github.com/theclifmeister/kingpin/internal/sim/crew"
 )
 
 // hireAll signs everyone in the pool on day 0 and keeps the crew paid at p.
@@ -177,6 +179,96 @@ func TestCrewedIsDeterministic(t *testing.T) {
 	for i := range a.World.Crew.Members {
 		if a.World.Crew.Members[i] != b.World.Crew.Members[i] {
 			t.Fatalf("member %d differs: %+v vs %+v", i, a.World.Crew.Members[i], b.World.Crew.Members[i])
+		}
+	}
+}
+
+// The crew invariants hold with the whole Crew branch owned (#118):
+// loyalty stays monotone in pay, nobody skims on a day they woke up over
+// the line, and the roster fills the room the tree bought and not a seat
+// more (Hire takes the cap from crew.Sim.MaxCrew, which folds
+// crew_slots).
+func TestCrewInvariantsUnderTheBranch(t *testing.T) {
+	cfg := content.MustLoad()
+	crewSim := crew.New(cfg.Crew, cfg.Names, cfg.Reputation.Effects, cfg.Upgrades)
+	branch := func(w *game.World) {
+		for _, n := range cfg.Upgrades.Branch("crew") {
+			grant(w, n.ID)
+		}
+	}
+	// Room for four more, and not five: hire everyone the pool offers,
+	// day after day, until the door shuts.
+	w := sim.NewWorld(cfg, 1)
+	branch(w)
+	w.Player.DirtyCash = 1_000_000
+	if got, want := crewSim.MaxCrew(w), cfg.Crew.Crew.MaxCrew+4; got != want {
+		t.Fatalf("max crew with the branch is %d, want %d", got, want)
+	}
+	res, _ := RunFrom(cfg, w, 30, func(w *game.World) {
+		for _, c := range append([]game.CrewMember(nil), w.Crew.Candidates...) {
+			if _, err := w.Hire(c.ID, crewSim.MaxCrew(w)); err != nil && err != game.ErrCrewFull {
+				t.Fatalf("day %d: hire: %v", w.Day, err)
+			}
+		}
+		if len(w.Crew.Members) > crewSim.MaxCrew(w) {
+			t.Fatalf("day %d: %d on the payroll, room for %d", w.Day, len(w.Crew.Members), crewSim.MaxCrew(w))
+		}
+	})
+	if len(res.World.Crew.Members) != crewSim.MaxCrew(res.World) {
+		t.Fatalf("after 30 days of hiring the payroll is %d of %d", len(res.World.Crew.Members), crewSim.MaxCrew(res.World))
+	}
+
+	// Monotone in pay, a quiet rich player.
+	quiet := *cfg
+	quiet.Heat.Heat.DirtyCashHeat = 0
+	quiet.Market.Market.StartCash = 1_000_000
+	dials := []events.Pay{events.PayStingy, events.PayFair, events.PayGenerous}
+	for seed := uint64(1); seed <= 5; seed++ {
+		loyalty := make([]map[int]float64, len(dials))
+		for i, p := range dials {
+			w := sim.NewWorld(&quiet, seed)
+			branch(w)
+			res, err := RunFrom(&quiet, w, 100, hireAll(&quiet, p))
+			if err != nil || res.Over != nil {
+				t.Fatalf("seed %d %s: %v %v", seed, p, err, res.Over)
+			}
+			loyalty[i] = map[int]float64{}
+			for _, m := range res.World.Crew.Members {
+				loyalty[i][m.ID] = m.Loyalty
+			}
+		}
+		for id := range loyalty[2] {
+			s, f, g := loyalty[0][id], loyalty[1][id], loyalty[2][id]
+			if !(g >= f && f >= s) {
+				t.Fatalf("seed %d member %d: stingy %.1f fair %.1f generous %.1f is not monotone", seed, id, s, f, g)
+			}
+		}
+	}
+
+	// No skim over the line, stingy pay and a full crew trading.
+	thr := cfg.Crew.Crew.SkimThreshold
+	trade := Trader(cfg, events.DialQuiet)
+	for seed := uint64(1); seed <= 5; seed++ {
+		var days []float64
+		w := sim.NewWorld(cfg, seed)
+		branch(w)
+		res, err := RunFrom(cfg, w, Horizon, func(w *game.World) {
+			w.SetPay(events.PayStingy)
+			hireAffordable(cfg, w)
+			trade(w)
+			lowest := 100.0
+			for _, m := range w.Crew.Members {
+				lowest = min(lowest, m.Loyalty)
+			}
+			days = append(days, lowest)
+		})
+		if err != nil {
+			t.Fatal(err)
+		}
+		for _, e := range res.Events {
+			if ev, ok := e.(events.CrewSkimmed); ok && days[ev.Day-1] >= thr {
+				t.Fatalf("seed %d day %d: skim with lowest loyalty %.1f >= threshold %.0f", seed, ev.Day, days[ev.Day-1], thr)
+			}
 		}
 	}
 }

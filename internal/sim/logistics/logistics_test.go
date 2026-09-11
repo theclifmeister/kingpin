@@ -1,6 +1,7 @@
 package logistics_test
 
 import (
+	"math"
 	"testing"
 
 	"github.com/theclifmeister/kingpin/internal/content"
@@ -22,7 +23,7 @@ func world(t *testing.T, cfg *content.Config, risk float64) (*game.World, *logis
 	}
 	s := logistics.New(routes, cfg.City, cfg.Market, cfg.Upgrades, cfg.Laundering.Laundering.Float)
 	w := game.NewWorld(7, logistics.StartingCities(cfg.City, cfg.Market), 100_000, 100)
-	territory.New(cfg.City).Seed(w)
+	territory.New(cfg.City, cfg.Upgrades).Seed(w)
 	if len(routes.Routes) == 0 {
 		t.Fatal("no routes")
 	}
@@ -44,22 +45,26 @@ func step(w *game.World, s *logistics.Sim) []events.Event {
 func TestDialsAndOffers(t *testing.T) {
 	cfg := content.MustLoad()
 	s := logistics.New(cfg.Routes, cfg.City, cfg.Market, cfg.Upgrades, cfg.Laundering.Laundering.Float)
+	w := game.NewWorld(7, logistics.StartingCities(cfg.City, cfg.Market), 100_000, 100)
 	for _, r := range cfg.Routes.Routes {
-		slow, normal, fast := s.Days(r, events.ShipSlow), s.Days(r, events.ShipNormal), s.Days(r, events.ShipFast)
+		slow, normal, fast := s.Days(w, r, events.ShipSlow), s.Days(w, r, events.ShipNormal), s.Days(w, r, events.ShipFast)
 		if normal != r.Days || fast > normal || slow < normal || fast < 1 {
 			t.Fatalf("%s: days slow %d normal %d fast %d (route %d)", r.ID, slow, normal, fast, r.Days)
 		}
-		if s.DayRisk(r, events.ShipFast) <= s.DayRisk(r, events.ShipNormal) || s.DayRisk(r, events.ShipSlow) >= s.DayRisk(r, events.ShipNormal) {
-			t.Fatalf("%s: day risk slow %.3f normal %.3f fast %.3f", r.ID, s.DayRisk(r, events.ShipSlow), s.DayRisk(r, events.ShipNormal), s.DayRisk(r, events.ShipFast))
+		if s.DayRisk(w, r, events.ShipFast) <= s.DayRisk(w, r, events.ShipNormal) || s.DayRisk(w, r, events.ShipSlow) >= s.DayRisk(w, r, events.ShipNormal) {
+			t.Fatalf("%s: day risk slow %.3f normal %.3f fast %.3f", r.ID, s.DayRisk(w, r, events.ShipSlow), s.DayRisk(w, r, events.ShipNormal), s.DayRisk(w, r, events.ShipFast))
 		}
-		if risk := s.Risk(r, events.ShipNormal); risk <= 0 || risk >= 1 || risk < s.DayRisk(r, events.ShipNormal) {
-			t.Fatalf("%s: risk %.3f over %d days at %.3f a day", r.ID, risk, normal, s.DayRisk(r, events.ShipNormal))
+		if risk := s.Risk(w, r, events.ShipNormal); risk <= 0 || risk >= 1 || risk < s.DayRisk(w, r, events.ShipNormal) {
+			t.Fatalf("%s: risk %.3f over %d days at %.3f a day", r.ID, risk, normal, s.DayRisk(w, r, events.ShipNormal))
+		}
+		if s.Capacity(w, r) != r.Capacity || s.Fare(w, r) != float64(r.Cost) {
+			t.Fatalf("%s: capacity %d fare %.2f with nothing owned (route %d, %d)", r.ID, s.Capacity(w, r), s.Fare(w, r), r.Capacity, r.Cost)
 		}
 		if !r.Connects(r.From, r.To) || r.Other(r.From) != r.To {
 			t.Fatalf("%s: joins %s and %s", r.ID, r.From, r.To)
 		}
 	}
-	if o := s.Wholesale(); o.Lot != cfg.Routes.Wholesale.Lot || o.Mul != cfg.Routes.Wholesale.Mul || o.UnlockCash != cfg.Routes.Wholesale.UnlockCash {
+	if o := s.Wholesale(w); o.Lot != cfg.Routes.Wholesale.Lot || o.Mul != cfg.Routes.Wholesale.Mul || o.UnlockCash != cfg.Routes.Wholesale.UnlockCash {
 		t.Fatalf("wholesale offer %+v", o)
 	}
 	if s.Float() != cfg.Laundering.Laundering.Float {
@@ -90,7 +95,7 @@ func TestStepLandsOrSeizes(t *testing.T) {
 		if err := w.SetRoute(r.ID, events.RouteSlow); err != nil {
 			t.Fatal(err)
 		}
-		days := s.Days(r, events.ShipSlow)
+		days := s.Days(w, r, events.ShipSlow)
 		var sent, arrived, seized int
 		var sh events.ShipmentSent
 		for day := 0; day < days+1; day++ {
@@ -168,7 +173,7 @@ func TestRunKeepsTheTarget(t *testing.T) {
 	cfg := content.MustLoad()
 	w, s, r := world(t, cfg, 0)
 	product := w.Products[0]
-	offer := s.Wholesale()
+	offer := s.Wholesale(w)
 	if !w.Cities[r.From].Wholesale {
 		t.Skipf("%s does not sell by the lot", r.From)
 	}
@@ -182,7 +187,7 @@ func TestRunKeepsTheTarget(t *testing.T) {
 		t.Fatalf("the road spent the float: %+v %d", w.Shipments, w.Stock(r.From, product))
 	}
 	w.Player.DirtyCash = s.Float() + 10_000_000
-	days := s.Days(r, events.ShipNormal)
+	days := s.Days(w, r, events.ShipNormal)
 	var bought []events.WholesaleBought
 	for day := 0; day < days+5; day++ {
 		for _, e := range step(w, s) {
@@ -319,5 +324,152 @@ func TestStartingCitiesAndMigrate(t *testing.T) {
 	s.Migrate(w)
 	if len(w.CityOrder) != len(cfg.City.Cities) {
 		t.Fatalf("migrated twice: %v", w.CityOrder)
+	}
+}
+
+// The Logistics branch (#119): each node moves the one number it names
+// and nothing else, read through the sim's own accessors, which are what
+// the map, the pane and the dice use. The drivers never take a route
+// under a day; the forwarder's fare is a price, so a dollar fare halves
+// to fifty cents.
+func TestLogisticsNodesMoveTheirNumbers(t *testing.T) {
+	cfg := content.MustLoad()
+	s := logistics.New(cfg.Routes, cfg.City, cfg.Market, cfg.Upgrades, cfg.Laundering.Laundering.Float)
+	type numbers struct {
+		days, capacity int
+		risk, fare     float64
+		wholesale      float64
+	}
+	read := func(w *game.World, r content.RouteConfig, d events.Ship) numbers {
+		return numbers{s.Days(w, r, d), s.Capacity(w, r), s.DayRisk(w, r, d), s.Fare(w, r), s.Wholesale(w).Mul}
+	}
+	own := func(ids ...string) *game.World {
+		w := game.NewWorld(7, logistics.StartingCities(cfg.City, cfg.Market), 100_000, 100)
+		w.Upgrades = map[string]bool{}
+		for _, id := range ids {
+			if cfg.Upgrades.Upgrade(id) == nil {
+				t.Fatalf("no node %s", id)
+			}
+			w.Upgrades[id] = true
+		}
+		return w
+	}
+	plain := own()
+	cases := []struct {
+		node string
+		want func(base numbers, r content.RouteConfig, d events.Ship) numbers
+	}{
+		{"tyres", func(b numbers, r content.RouteConfig, d events.Ship) numbers { b.risk *= 0.8; return b }},
+		{"compartments", func(b numbers, r content.RouteConfig, d events.Ship) numbers { b.risk *= 0.7; return b }},
+		{"trucks", func(b numbers, r content.RouteConfig, d events.Ship) numbers {
+			b.capacity = int(math.Round(float64(r.Capacity) * 1.5))
+			return b
+		}},
+		{"drivers", func(b numbers, r content.RouteConfig, d events.Ship) numbers {
+			b.days = max(1, int(math.Round(float64(r.Days)*s.Dial(d).Days*0.75)))
+			return b
+		}},
+		{"ticket", func(b numbers, r content.RouteConfig, d events.Ship) numbers { b.wholesale *= 0.9; return b }},
+		{"forwarder", func(b numbers, r content.RouteConfig, d events.Ship) numbers { b.fare *= 0.5; return b }},
+	}
+	near := func(a, b numbers) bool {
+		return a.days == b.days && a.capacity == b.capacity && math.Abs(a.risk-b.risk) < 1e-12 && math.Abs(a.fare-b.fare) < 1e-12 && math.Abs(a.wholesale-b.wholesale) < 1e-12
+	}
+	for _, tc := range cases {
+		w := own(tc.node)
+		for _, r := range cfg.Routes.Routes {
+			for _, d := range []events.Ship{events.ShipSlow, events.ShipNormal, events.ShipFast} {
+				base := read(plain, r, d)
+				got, want := read(w, r, d), tc.want(base, r, d)
+				if !near(got, want) {
+					t.Errorf("%s on %s at %s: %+v, want %+v (bare %+v)", tc.node, r.ID, d, got, want, base)
+				}
+				if got.days < 1 {
+					t.Errorf("%s on %s at %s: %d days", tc.node, r.ID, d, got.days)
+				}
+			}
+		}
+	}
+	// The two risk nodes stack as a product, and the road's risk over the
+	// days is what the day risk compounds to.
+	w := own("tyres", "compartments")
+	for _, r := range cfg.Routes.Routes {
+		if got, want := s.DayRisk(w, r, events.ShipNormal), s.DayRisk(plain, r, events.ShipNormal)*0.8*0.7; math.Abs(got-want) > 1e-12 {
+			t.Errorf("tyres and compartments on %s: day risk %.5f, want %.5f", r.ID, got, want)
+		}
+		if got, want := s.Risk(w, r, events.ShipNormal), 1-math.Pow(1-s.DayRisk(w, r, events.ShipNormal), float64(s.Days(w, r, events.ShipNormal))); math.Abs(got-want) > 1e-12 {
+			t.Errorf("risk on %s: %.5f, want %.5f", r.ID, got, want)
+		}
+	}
+	// Drivers on a two-day car at fast: never under a day.
+	fast := content.RouteConfig{ID: "sprint", Days: 1, Capacity: 10, Cost: 1, Risk: 0.1, Mode: "car", From: "a", To: "b"}
+	if got := s.Days(own("drivers"), fast, events.ShipFast); got != 1 {
+		t.Errorf("a one-day route at fast with drivers takes %d days", got)
+	}
+}
+
+// The road runs on the folded numbers (#119): with the trucks a route
+// sends half as much again a day, with the forwarder the shipment's
+// fare is half, rounded up to the dollar, and the road still never
+// spends under the float.
+func TestRunReadsTheTree(t *testing.T) {
+	cfg := content.MustLoad()
+	send := func(ids ...string) (game.Shipment, *game.World) {
+		w, s, r := world(t, cfg, 0)
+		product := w.Products[0]
+		w.Upgrades = map[string]bool{}
+		for _, id := range ids {
+			w.Upgrades[id] = true
+		}
+		w.Stash(r.From)[product] = 10 * r.Capacity
+		_ = w.SetRouteTarget(r.ID, product, 10*r.Capacity)
+		_ = w.SetRoute(r.ID, events.RouteNormal)
+		w.Player.DirtyCash = s.Float() + 1_000_000
+		step(w, s)
+		if len(w.Shipments) != 1 {
+			t.Fatalf("%v: %d shipments", ids, len(w.Shipments))
+		}
+		return w.Shipments[0], w
+	}
+	r := cfg.Routes.Routes[0]
+	plain, _ := send()
+	if plain.Units != r.Capacity || plain.Cost != r.Capacity*r.Cost {
+		t.Fatalf("bare: %+v", plain)
+	}
+	trucks, _ := send("trucks")
+	if want := int(math.Round(float64(r.Capacity) * 1.5)); trucks.Units != want || trucks.Cost != want*r.Cost {
+		t.Fatalf("trucks: %+v, want %d units at $%d", trucks, want, want*r.Cost)
+	}
+	fwd, _ := send("drivers", "trucks", "forwarder")
+	if want := int(math.Ceil(float64(trucks.Units*r.Cost) * 0.5)); fwd.Cost != want || fwd.Units != trucks.Units {
+		t.Fatalf("forwarder: %+v, want %d units at $%d", fwd, trucks.Units, want)
+	}
+	if got, want := fwd.Arrives-fwd.Sent, max(1, int(math.Round(float64(r.Days)*0.75))); got != want {
+		t.Fatalf("drivers: %d days, want %d", got, want)
+	}
+	// The float: on the dollar-a-unit boat with the forwarder, fifty
+	// cents a unit, three dollars over the float send six units and the
+	// till stays at the float; two dollars and fifty cents' worth never
+	// goes a cent under it.
+	w, s, _ := world(t, cfg, 0)
+	var boat *content.RouteConfig
+	for _, r := range cfg.Routes.Routes {
+		if r.Cost == 1 {
+			rc := r
+			boat = &rc
+		}
+	}
+	if boat == nil {
+		t.Skip("no route charges a dollar a unit")
+	}
+	product := w.Products[0]
+	w.Upgrades = map[string]bool{"trucks": true, "drivers": true, "forwarder": true}
+	w.Stash(boat.From)[product] = 400
+	_ = w.SetRouteTarget(boat.ID, product, 400)
+	_ = w.SetRoute(boat.ID, events.RouteNormal)
+	w.Player.DirtyCash = s.Float() + 3
+	step(w, s)
+	if len(w.Shipments) != 1 || w.Shipments[0].Units != 6 || w.Shipments[0].Cost != 3 || w.Player.DirtyCash != s.Float() {
+		t.Fatalf("three dollars over the float: %+v, cash %d (float %d)", w.Shipments, w.Player.DirtyCash, s.Float())
 	}
 }

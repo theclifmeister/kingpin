@@ -261,6 +261,17 @@ func FoldEffects(w *World, tree content.UpgradesConfig) Effects {
 	return fx
 }
 
+// Float is the dirty cash the wash, the road and a supply contract
+// (#113) leave in the till: base, laundering.toml's float, folded by the
+// tree (float_mul, the lowest owned wins). It is the one place the
+// folded float is computed, so the three readers cannot disagree about
+// where the street's restock money starts; each passes its own copy of
+// the tree and the base, the way every sim folds for itself, and a
+// world owning no float node reads the base exactly (#118).
+func (w *World) Float(tree content.UpgradesConfig, base int) int {
+	return int(math.Round(float64(base) * FoldEffects(w, tree).FloatMul))
+}
+
 // FallGuyLeft reports whether one of the fall guys the tree gives has
 // not taken his fall yet: the owned count over what FallsTaken records.
 func (w *World) FallGuyLeft(fx Effects) bool { return w.FallsTaken < fx.FallGuys }

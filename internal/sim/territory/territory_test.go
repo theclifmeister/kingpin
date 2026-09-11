@@ -1,6 +1,7 @@
 package territory_test
 
 import (
+	"math"
 	"testing"
 
 	"github.com/theclifmeister/kingpin/internal/content"
@@ -12,7 +13,7 @@ import (
 func world(t *testing.T, cfg *content.Config) (*game.World, *territory.Sim) {
 	t.Helper()
 	w := game.NewWorld(7, []game.StartingCity{{ID: cfg.City.Home().ID, Name: "Testville", Products: []game.StartingProduct{{ID: "weed", Name: "Weed", Price: 20, Demand: 60}}}}, 10_000, 100)
-	s := territory.New(cfg.City)
+	s := territory.New(cfg.City, cfg.Upgrades)
 	s.Seed(w)
 	w.Crew.Members = []game.CrewMember{
 		{ID: 1, Name: "Dre", Role: "runner", Skill: 60, Units: 120},
@@ -180,5 +181,73 @@ func TestRobberies(t *testing.T) {
 	d := w.Corner("docks")
 	if p := s.RobberyChance(w, d); p != tun.RobberyChance*d.Risk {
 		t.Fatalf("unguarded chance %.4f", p)
+	}
+}
+
+// The Street branch's territory nodes (#119): each moves the one number
+// it names and nothing else. The corner boys add two days to the drift
+// and leave the robbery chance alone; the watchmen and the dogs cut the
+// robbery chance, as a product, before the enforcer's cut, and leave the
+// drift alone; and an idle corner with the boys lasts exactly the folded
+// days.
+func TestStreetNodesMoveTheirNumbers(t *testing.T) {
+	cfg := content.MustLoad()
+	own := func(ids ...string) (*game.World, *territory.Sim) {
+		w, s := world(t, cfg)
+		w.Upgrades = map[string]bool{}
+		for _, id := range ids {
+			if cfg.Upgrades.Upgrade(id) == nil {
+				t.Fatalf("no node %s", id)
+			}
+			w.Upgrades[id] = true
+		}
+		if err := w.Post("docks", 1); err != nil {
+			t.Fatal(err)
+		}
+		return w, s
+	}
+	plain, s := own()
+	drift := cfg.City.Territory.DriftDays
+	base := s.RobberyChance(plain, plain.Corner("docks"))
+	guarded := plain.Corner("docks")
+	guarded.Enforcer = 2
+	baseGuarded := s.RobberyChance(plain, guarded)
+	guarded.Enforcer = 0
+	cases := []struct {
+		nodes   []string
+		drift   int
+		robbery float64
+	}{
+		{[]string{"boys"}, drift + 2, 1},
+		{[]string{"watch"}, drift, 0.7},
+		{[]string{"dogs"}, drift, 0.6},
+		{[]string{"boys", "watch", "dogs"}, drift + 2, 0.42},
+	}
+	for _, tc := range cases {
+		w, s := own(tc.nodes...)
+		if got := s.DriftDays(w); got != tc.drift {
+			t.Errorf("%v: drift %d days, want %d", tc.nodes, got, tc.drift)
+		}
+		c := w.Corner("docks")
+		if got, want := s.RobberyChance(w, c), base*tc.robbery; math.Abs(got-want) > 1e-12 {
+			t.Errorf("%v: robbery %.5f, want %.5f", tc.nodes, got, want)
+		}
+		c.Enforcer = 2
+		if got, want := s.RobberyChance(w, c), baseGuarded*tc.robbery; math.Abs(got-want) > 1e-12 {
+			t.Errorf("%v with an enforcer: robbery %.5f, want %.5f (the cut comes after the node)", tc.nodes, got, want)
+		}
+		c.Enforcer = 0
+	}
+	// An idle corner with the boys goes back to the street on the folded
+	// day, not the file's.
+	w, s := own("boys")
+	w.Crew.Members = w.Crew.Members[1:] // Dre vanishes
+	for i := 0; i < drift+1; i++ {
+		if k := kinds(step(w, s)); k["CornerLost"] != 0 {
+			t.Fatalf("day %d: lost the corner before %d days with the boys: %v", w.Day, drift+2, k)
+		}
+	}
+	if k := kinds(step(w, s)); k["CornerLost"] != 1 || w.Corner("docks").Held() {
+		t.Fatalf("day %d: no CornerLost on the folded day: %v", w.Day, k)
 	}
 }
