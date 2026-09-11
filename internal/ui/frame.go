@@ -45,9 +45,7 @@ func (m *Model) mainHeight() int {
 
 // resize sizes what keeps its own dimensions to the frame.
 func (m *Model) resize() {
-	m.journal.Width = max(10, m.mainWidth()-4)
-	m.journal.Height = max(3, m.mainHeight()-1)
-	m.refreshJournal()
+	m.journalFollow()
 }
 
 // block cuts and pads text to exactly w by h cells: every line

@@ -59,7 +59,6 @@ says where it works.
 | `a` | accept | take the buyer's offer | market |
 | `x` | decline | turn the buyer's offer down | market |
 | `d` | deliver | hand the buyer what the stash here holds | market |
-| `↑↓` | scroll | scroll the journal | journal |
 | `pgup pgdn` | page | page through the journal | journal |
 | `h` | hire | hire the selected candidate | crew |
 | `f` | fire | fire the selected member, after asking | crew |

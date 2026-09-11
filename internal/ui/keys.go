@@ -100,10 +100,8 @@ var bindings = []binding{
 	{key: "n", label: "end day", help: "end the day: the sims step, the run autosaves", global: true,
 		do: func(m *Model, _ string) { m.endDay() }},
 	// The cursor keys. The map and the tree are walked in two dimensions,
-	// the market's arrows turn it to the other city, the journal scrolls.
+	// the market's arrows turn it to the other city, the journal pages.
 	{key: "↑↓", label: "pick", help: "move the cursor (j and k move it too)", keys: upDown, global: true,
-		do: func(m *Model, key string) { m.moveCursor(0, dir(key)) }},
-	{key: "↑↓", label: "scroll", help: "scroll the journal", keys: upDown, screens: on(screenJournal),
 		do: func(m *Model, key string) { m.moveCursor(0, dir(key)) }},
 	{key: "↑↓←→", label: "pick", help: "walk the map's grid or the tree's columns", keys: arrows, screens: on(screenMap, screenUpgrades),
 		do: func(m *Model, key string) {
@@ -118,9 +116,9 @@ var bindings = []binding{
 	{key: "pgup pgdn", label: "page", help: "page through the journal", keys: []string{"pgup", "pgdown"}, screens: on(screenJournal),
 		do: func(m *Model, key string) {
 			if key == "pgup" {
-				m.journal.HalfPageUp()
+				m.journalPage(-1)
 			} else {
-				m.journal.HalfPageDown()
+				m.journalPage(1)
 			}
 		}},
 	{key: "[ ]", label: "city", help: "turn the market and the map to the other city", keys: []string{"[", "]"}, screens: on(screenMarket, screenMap), global: true,

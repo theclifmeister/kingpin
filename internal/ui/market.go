@@ -10,8 +10,8 @@ import (
 )
 
 // cityTabs is the city selector on the market and map screens: the
-// cities in order, the one shown highlighted, with a mark on the one you
-// are in.
+// cities in order, the one shown in brackets and Selected, with a mark
+// on the one you are in (`[ ◉ Eastside ]  Bayport`).
 func (m *Model) cityTabs() string {
 	var parts []string
 	for _, id := range m.w.CityOrder {
@@ -21,12 +21,18 @@ func (m *Model) cityTabs() string {
 			label = "◉ " + label
 		}
 		if id == m.city {
-			parts = append(parts, theme.Selected.Render(" "+label+" "))
+			parts = append(parts, theme.Selected.Render("[ "+label+" ]"))
 		} else {
-			parts = append(parts, theme.Subtle.Render(" "+label+" "))
+			parts = append(parts, theme.Subtle.Render(label))
 		}
 	}
-	return strings.Join(parts, "")
+	return strings.Join(parts, "  ")
+}
+
+// screenTitle is a screen's title line: the name and the city shown
+// (`MARKET · Eastside`), then the city tabs.
+func (m *Model) screenTitle(name string) string {
+	return theme.PanelTitle.Render(name+" · "+m.shown().Name) + "   " + m.cityTabs()
 }
 
 // productRows is the product table the dashboard and the market share:
@@ -34,18 +40,17 @@ func (m *Model) cityTabs() string {
 // once the caller knows what the width leaves), the stock in the city
 // and the order queued there, which is the lieutenant's standing order
 // where you placed none; the market adds the supplier's price and the
-// demand your corners there serve. The cursor is the row of the
-// product selected, or -1 when it is not in the city.
+// demand your corners there serve, and calls the stock the stash it is
+// (`product price Δ Nd supplier stash demand/day order`). The cursor is
+// the row of the product selected, or -1 when it is not in the city.
 func (m *Model) productRows(city string, selected int, market bool) (cols []col, rows [][]any, cursor int) {
 	w := m.w
 	c := w.City(city)
 	cols = []col{{"product", kText, 0}, {"price", kPrice, 0}, {"Δ", kPct, 0}, {"", kBar, 0}}
 	if market {
-		cols = append(cols, col{"supplier", kPrice, 0})
-	}
-	cols = append(cols, col{"stock", kInt, 0})
-	if market {
-		cols = append(cols, col{"demand/day", kInt, 0})
+		cols = append(cols, col{"supplier", kPrice, 0}, col{"stash", kInt, 0}, col{"demand/day", kInt, 0})
+	} else {
+		cols = append(cols, col{"stock", kInt, 0})
 	}
 	cols = append(cols, col{"order", kDial, 0})
 	cursor = -1
@@ -120,11 +125,14 @@ func sparkCol(cols []col, rows [][]any, width int) {
 	}
 }
 
+// viewMarket is the market's MAIN (#84): the title with the city tabs,
+// the product table for the city shown, a blank, and the buyers there.
+// Nothing else: the product's detail and the notes are the pane's.
 func (m *Model) viewMarket() string {
 	city := m.shown()
 	width := m.mainWidth()
 	var b strings.Builder
-	b.WriteString(truncate(theme.PanelTitle.Render("MARKET · ")+m.cityTabs(), width) + "\n\n")
+	b.WriteString(truncate(m.screenTitle("MARKET"), width) + "\n\n")
 	cols, rows, cursor := m.productRows(city.ID, m.cursor, true)
 	sparkCol(cols, rows, max(3, min(30, width-tableWidth(cols, rows))))
 	for _, l := range table(cols, rows, cursor, width) {
@@ -140,10 +148,13 @@ func (m *Model) viewMarket() string {
 	return b.String()
 }
 
-// marketDetails is the market's pane: the product under the cursor in
-// the city shown (its range, glut, margin and demand), what it is worth
-// elsewhere, the notes on where you are and the wholesaler, and the
-// keys; the contract's terms instead while the cursor is on the buyers.
+// marketDetails is the market's pane (#84): the product under the
+// cursor in the city shown (`WEED · EASTSIDE`: its range, glut, margin,
+// the demand your corners there serve and a standard corner's, and a
+// shock while one runs), ELSEWHERE (the other city's street and
+// supplier price, your stash there, what is on the road to it), the
+// NOTES on where you are and the wholesaler, and the keys; the
+// contract's terms instead while the cursor is on the buyers.
 func (m *Model) marketDetails() []section {
 	w := m.w
 	city := m.shown()
@@ -168,13 +179,6 @@ func (m *Model) marketDetails() []section {
 		row("range 30d", fmt.Sprintf("%s – %s", price(lo), price(hi))),
 		row("glut", fmt.Sprintf("%.0f%%", p.Glut*100)),
 	}
-	if p.ShockDays > 0 {
-		if p.ShockSlump {
-			sel = append(sel, row("slump", theme.Warning.Render(fmt.Sprintf("×%.2f, %d more days", p.ShockFactor, p.ShockDays))))
-		} else {
-			sel = append(sel, row("shock", theme.Good.Render(fmt.Sprintf("×%.2f, %d more days", p.ShockFactor, p.ShockDays))))
-		}
-	}
 	margin := 0.0
 	if p.SupplierPrice > 0 {
 		margin = (p.Price - p.SupplierPrice) / p.SupplierPrice * 100
@@ -184,13 +188,16 @@ func (m *Model) marketDetails() []section {
 	} else {
 		sel = append(sel, row("margin", fmt.Sprintf("%.0f%% over supplier", margin)))
 	}
-	corners := "corners"
-	if w.WorkedIn(city.ID) == 1 {
-		corners = "corner"
-	}
 	sel = append(sel,
-		row("demand", fmt.Sprintf("~%.0f/day, %d %s", w.Demand(city.ID, id), w.WorkedIn(city.ID), corners)),
-		row("", theme.Subtle.Render(fmt.Sprintf("~%.0f/standard corner", p.Demand))))
+		row("demand", fmt.Sprintf("~%.0f/day on %s", w.Demand(city.ID, id), plural(w.WorkedIn(city.ID), "corner"))),
+		row("", theme.Subtle.Render(fmt.Sprintf("~%.0f per standard", p.Demand))))
+	if p.ShockDays > 0 {
+		if p.ShockSlump {
+			sel = append(sel, row("slump", theme.Warning.Render(fmt.Sprintf("×%.2f, %s more", p.ShockFactor, plural(p.ShockDays, "day")))))
+		} else {
+			sel = append(sel, row("shock", theme.Good.Render(fmt.Sprintf("×%.2f, %s more", p.ShockFactor, plural(p.ShockDays, "day")))))
+		}
+	}
 	if len(m.buyerRows()) > 0 {
 		sel = append(sel, keyRow("↓", "past the table reaches the buyers"))
 	}
