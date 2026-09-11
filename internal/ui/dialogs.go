@@ -6,7 +6,6 @@ import (
 	"strconv"
 	"strings"
 
-	"github.com/charmbracelet/bubbles/textinput"
 	tea "github.com/charmbracelet/bubbletea"
 
 	"github.com/theclifmeister/kingpin/internal/events"
@@ -18,7 +17,7 @@ import (
 // shown, out of the stash there, by whoever works corners there.
 type dialog struct {
 	step int // 0 product, 1 quantity, 2 dial (sell only)
-	qty  textinput.Model
+	qty  numberField
 	dial events.Dial
 	err  string
 }
@@ -50,12 +49,7 @@ func (m *Model) openDialog(mode mode) {
 		m.refuse("Can't sell: you are lying low today, nothing sells.")
 		return
 	}
-	ti := textinput.New()
-	ti.Placeholder = "blank = max"
-	ti.CharLimit = 6
-	ti.Width = 14
-	ti.Prompt = "> "
-	m.dlg = dialog{qty: ti, dial: events.DialNormal}
+	m.dlg = dialog{qty: newNumberField("blank = max"), dial: events.DialNormal}
 	if mode == modeSell {
 		city := m.actionCity()
 		if m.w.Player.StockIn(city) == 0 {
@@ -89,7 +83,9 @@ func (m *Model) openDialog(mode mode) {
 // its step and kept on coming back to it from the dial) and is silent
 // on the first, tab goes forward once the step is complete (a product
 // you can buy or sell, a quantity that reads) and is silent otherwise;
-// enter is as it was.
+// enter is as it was. The quantity step is a numberField (#112): m, h,
+// ↑↓ and pgup pgdn move the number within what the field can take, the
+// stash here for a sale and maxBuy for a buy.
 func (m *Model) keyDialog(k tea.KeyMsg) (tea.Model, tea.Cmd) {
 	key := k.String()
 	d := &m.dlg
@@ -141,9 +137,8 @@ func (m *Model) keyDialog(k tea.KeyMsg) (tea.Model, tea.Cmd) {
 			d.qty.Blur()
 			return m, nil
 		}
-		var cmd tea.Cmd
-		d.qty, cmd = d.qty.Update(k)
-		return m, cmd
+		d.qty.max = m.qtyMax()
+		return m, d.qty.Update(k)
 	case 2:
 		switch key {
 		case "left", "h":
@@ -165,6 +160,17 @@ func (m *Model) keyDialog(k tea.KeyMsg) (tea.Model, tea.Cmd) {
 		}
 	}
 	return m, nil
+}
+
+// qtyMax is what the quantity step can take: the stash of the product
+// in the dialog's city for a sale, what the supplier will sell you for
+// a buy (maxBuy). Blank has always meant it; m fills it in.
+func (m *Model) qtyMax() int {
+	id := m.w.Products[m.cursor]
+	if m.mode == modeBuy {
+		return m.maxBuy(id)
+	}
+	return m.w.Stock(m.dialogCity(), id)
 }
 
 // productErr is why the product under the cursor cannot go to the
@@ -192,8 +198,7 @@ func (m *Model) dialogForward() (tea.Model, tea.Cmd) {
 			return m, nil
 		}
 		d.step = 1
-		d.qty.Focus()
-		return m, textinput.Blink
+		return m, d.qty.Focus()
 	case 1:
 		if m.mode == modeBuy {
 			return m, nil
@@ -218,8 +223,7 @@ func (m *Model) dialogBack() (tea.Model, tea.Cmd) {
 		d.qty.Blur()
 	case 2:
 		d.step = 1
-		d.qty.Focus()
-		return m, textinput.Blink
+		return m, d.qty.Focus()
 	}
 	return m, nil
 }
@@ -352,12 +356,12 @@ func (m *Model) viewDialog() string {
 	body = append(body, table(cols, rows, cursor, m.modalInner())...)
 	body = append(body, "")
 
-	// Step 1: quantity.
+	// Step 1: quantity, the number field with what it can take after it.
 	if d.step >= 1 {
+		d.qty.max = m.qtyMax()
+		body = append(body, "quantity   "+d.qty.View())
 		if buy {
-			mx := m.maxBuy(id)
-			body = append(body, fmt.Sprintf("quantity   %s   %s", d.qty.View(), theme.Subtle.Render(fmt.Sprintf("max %d", mx))))
-			if qty, err := m.parseQty(mx); err == nil {
+			if qty, err := m.parseQty(d.qty.max); err == nil {
 				cost, _ := w.SupplierQuote(id, qty)
 				style := theme.Gold
 				if cost > w.Player.DirtyCash {
@@ -368,8 +372,6 @@ func (m *Model) viewDialog() string {
 			if o := m.set.Logistics.Wholesale(w); w.Here().Wholesale && !o.Locked(w) {
 				body = append(body, theme.Subtle.Render(fmt.Sprintf("The wholesaler's lots of %d at %s/unit go to the routes %s.", o.Lot, price(p.SupplierPrice*o.Mul), screenPointer(screenMap))))
 			}
-		} else {
-			body = append(body, fmt.Sprintf("quantity   %s   %s", d.qty.View(), theme.Subtle.Render(fmt.Sprintf("have %d in %s", w.Stock(city, id), w.CityName(city)))))
 		}
 	} else if len(w.Buys)+len(w.Orders) == 0 {
 		body = append(body, theme.Subtle.Render("Pick a product."))

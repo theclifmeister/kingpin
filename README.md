@@ -62,7 +62,12 @@ key: `esc` closes any modal whole, from whatever step a dialog is on,
 and `shift+tab` goes back a step in a dialog with steps (the buy, sell,
 target, cart and propose dialogs), keeping what the earlier steps hold;
 `tab` goes forward once the step is complete. On a screen `tab` and
-`shift+tab` are the next and the previous screen.
+`shift+tab` are the next and the previous screen. Every **number field**
+(a buy or sell quantity, the cart's, a route target, a fund) takes
+digits and `backspace`, and the same shortcuts: `m` (or `a`) is the most
+the field can take, `h` half of it, `↑`/`↓` ±1 and `pgup`/`pgdn` ±10,
+clamped to it; the field shows `/ 340 max` after the number, and a blank
+still means the most (none for a target).
 
 The keys never move: a key does the same thing everywhere it works, and a
 key pressed on a screen that does not take it says which screen does

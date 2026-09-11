@@ -3,7 +3,6 @@ package ui
 import (
 	"fmt"
 
-	"github.com/charmbracelet/bubbles/textinput"
 	tea "github.com/charmbracelet/bubbletea"
 
 	"github.com/theclifmeister/kingpin/internal/game"
@@ -22,7 +21,7 @@ func stanceWord(stance string) string {
 // much clean cash.
 type fundDialog struct {
 	city int // index into CityOrder
-	amt  textinput.Model
+	amt  numberField
 	err  string
 }
 
@@ -35,13 +34,9 @@ func (m *Model) askFund() {
 		m.refuse("Can't fund a city: goodwill is bought with clean cash, and you have none.")
 		return
 	}
-	ti := textinput.New()
-	ti.Placeholder = "blank = up to 100"
-	ti.CharLimit = 9
-	ti.Width = 24
-	ti.Prompt = "> "
-	ti.Focus()
-	m.fnd = fundDialog{amt: ti}
+	m.fnd = fundDialog{amt: newNumberField("blank = up to 100")}
+	m.fnd.amt.money = true
+	m.fnd.amt.Focus()
 	for i, id := range m.w.CityOrder {
 		if id == m.w.Player.Location {
 			m.fnd.city = i
@@ -59,8 +54,10 @@ func (m *Model) fundCity() *game.City {
 	return m.w.Cities[m.w.CityOrder[m.fnd.city]]
 }
 
-// maxFund is what a blank amount means: enough clean cash to take the
-// city's goodwill to 100, or all of it if that is less.
+// maxFund is what a blank amount means and what the field's m fills in
+// (#112): enough clean cash to take the city's goodwill to 100, or all
+// of it if that is less. Goodwill stops at 100, so more would be given
+// for nothing.
 func (m *Model) maxFund(c *game.City) int {
 	need := int((100 - c.Goodwill) * float64(m.set.Law.Tuning().GoodwillCash))
 	return max(0, min(need, m.w.Player.CleanCash))
@@ -86,9 +83,8 @@ func (m *Model) keyFund(k tea.KeyMsg) (tea.Model, tea.Cmd) {
 	case "enter":
 		return m.confirmFund()
 	}
-	var cmd tea.Cmd
-	d.amt, cmd = d.amt.Update(k)
-	return m, cmd
+	d.amt.max = m.maxFund(m.fundCity())
+	return m, d.amt.Update(k)
 }
 
 func (m *Model) confirmFund() (tea.Model, tea.Cmd) {
@@ -116,10 +112,12 @@ func (m *Model) viewFund() string {
 	for _, id := range w.CityOrder {
 		cities = append(cities, w.CityName(id))
 	}
+	amt := m.fnd.amt
+	amt.max = m.maxFund(c)
 	body := []string{
 		"City      " + dialCells(cities, m.fnd.city),
 		fmt.Sprintf("Now       pressure %s  goodwill %s", theme.Bad.Render(fmt.Sprintf("%.0f", c.Pressure)), theme.Good.Render(fmt.Sprintf("%.0f", c.Goodwill))),
-		fmt.Sprintf("Amount    %s   %s", m.fnd.amt.View(), theme.Subtle.Render("clean "+cash(w.Player.CleanCash))),
+		fmt.Sprintf("Amount    %s   %s", amt.View(), theme.Subtle.Render("clean "+cash(w.Player.CleanCash))),
 	}
 	if amt, err := parseQtyInput(m.fnd.amt.Value(), m.maxFund(c)); err == nil {
 		g := m.set.Law.Goodwill(amt)
