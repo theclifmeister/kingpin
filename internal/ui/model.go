@@ -122,6 +122,7 @@ type Model struct {
 	journalCursor int    // headline selected on the journal screen, newest first
 	journalTop    int    // first headline the journal screen shows
 	journalSeen   int    // the journal's length when the journal screen was last shown; not saved, a view cursor like city
+	journalFilter string // the source the journal screen shows, or every one when empty (#122); a view cursor like journalSeen
 	dlg           dialog
 	tgt           targetDialog
 	crt           cartDialog
@@ -217,6 +218,7 @@ func (m *Model) startRun(seed uint64) {
 	m.flash = nil
 	m.say(fmt.Sprintf("New run. %s, %s in your pocket. Seed %d.", m.w.Here().Name, money(m.w.Player.DirtyCash), m.w.Seed))
 	_ = game.Save(m.slot, m.w)
+	m.journalFilter = "" // a new run's journal is read whole
 	m.refreshJournal()
 }
 
@@ -265,6 +267,7 @@ func (m *Model) continueRun(slot int) error {
 	m.city = w.Player.Location
 	m.mapCursor = m.yourCorner()
 	m.say(fmt.Sprintf("Continued day %d.", w.Day))
+	m.journalFilter = ""
 	m.refreshJournal()
 	m.journalSeen = len(w.Journal) // the news before this morning was yesterday's
 	return nil
