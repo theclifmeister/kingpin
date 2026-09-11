@@ -64,7 +64,19 @@ const (
 	modePropose       // pick a deal to put to the rival: kind, then terms
 	modeAssign        // pick the city a lieutenant runs
 	modeFund          // give a city clean cash for goodwill
+	modeDetails       // the details pane as an overlay, where the terminal is too narrow to hold it beside MAIN
 	modeCount
+)
+
+// statusKind is what a status message is, and so how the status bar
+// colours it: neutral for a confirmation of what you did, a warning for
+// a refusal, bad for a danger.
+type statusKind int
+
+const (
+	statusBody statusKind = iota
+	statusWarning
+	statusBad
 )
 
 type tickMsg time.Time
@@ -82,6 +94,7 @@ type Model struct {
 	width, height int
 	screen        screen
 	mode          mode
+	paneHidden    bool   // space hid the details pane, where it sits beside MAIN
 	city          string // city the market and map screens show; follows you when you travel
 	cursor        int    // product cursor shared by market screen and dialogs
 	crewCursor    int    // row on the crew screen: roster first, then candidates
@@ -113,7 +126,8 @@ type Model struct {
 	startChoice   int
 	tick          int
 	status        string
-	flash         []string // enforcement lines from the last tick, via the bus
+	statusKind    statusKind // how the status bar colours the message; set where the status is
+	flash         []string   // enforcement lines from the last tick, via the bus
 	quitting      bool
 }
 
@@ -240,7 +254,7 @@ func (m *Model) endDay() {
 
 func (m *Model) save() {
 	if err := game.Save(m.w); err != nil {
-		m.status = "Save failed: " + err.Error()
+		m.status, m.statusKind = "Save failed: "+err.Error(), statusBad
 		return
 	}
 	m.status = fmt.Sprintf("Day %d saved.", m.w.Day)
@@ -258,9 +272,7 @@ func (m *Model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 	switch msg := msg.(type) {
 	case tea.WindowSizeMsg:
 		m.width, m.height = msg.Width, msg.Height
-		m.journal.Width = max(10, m.width-4)
-		m.journal.Height = max(3, m.bodyHeight()-2)
-		m.refreshJournal()
+		m.resize()
 		return m, nil
 	case tickMsg:
 		m.tick++
@@ -347,6 +359,14 @@ func (m *Model) handleKey(k tea.KeyMsg) (tea.Model, tea.Cmd) {
 	case modeHelp:
 		if !m.scrollModal(key) {
 			m.mode = modePlay
+		}
+		return m, nil
+	case modeDetails:
+		switch key {
+		case "esc", " ", "enter", "q":
+			m.mode = modePlay
+		default:
+			m.scrollModal(key)
 		}
 		return m, nil
 	case modePost:
@@ -526,10 +546,19 @@ func (m *Model) pickStart() (tea.Model, tea.Cmd) {
 }
 
 func (m *Model) keyPlay(key string) (tea.Model, tea.Cmd) {
-	m.status = ""
+	m.status, m.statusKind = "", statusBody
 	switch key {
 	case "q":
 		return m.quit()
+	case " ":
+		// The details: beside MAIN they hide and show; where the terminal
+		// is too narrow for that they open as an overlay.
+		if m.width >= paneMinWidth {
+			m.paneHidden = !m.paneHidden
+			m.resize()
+		} else {
+			m.mode = modeDetails
+		}
 	case "ctrl+s":
 		m.save()
 	case "?":
@@ -567,7 +596,7 @@ func (m *Model) keyPlay(key string) (tea.Model, tea.Cmd) {
 		if m.screen == screenUpgrades {
 			m.askUpgrade()
 		} else {
-			m.status = "Upgrades are bought on the tree (6)."
+			m.refuse("Upgrades are bought on the tree (6).")
 		}
 	case "r":
 		if m.screen == screenMap {
@@ -579,7 +608,7 @@ func (m *Model) keyPlay(key string) (tea.Model, tea.Cmd) {
 		if m.screen == screenMap {
 			m.openTarget()
 		} else {
-			m.status = "The routes are run from the map (5): r turns a dial, R sets a target."
+			m.refuse("The routes are run from the map (5): r turns a dial, R sets a target.")
 		}
 	case "b":
 		if m.screen == screenLedger {
@@ -593,7 +622,7 @@ func (m *Model) keyPlay(key string) (tea.Model, tea.Cmd) {
 		if m.screen == screenCrew {
 			m.askAssign()
 		} else {
-			m.status = "Nothing to ship by hand: the routes run themselves. Turn one on the map (5, r)."
+			m.refuse("Nothing to ship by hand: the routes run themselves. Turn one on the map (5, r).")
 		}
 	case "g":
 		m.askTravel()
@@ -636,7 +665,7 @@ func (m *Model) keyPlay(key string) (tea.Model, tea.Cmd) {
 		if m.screen == screenCrew {
 			m.hireSelected()
 		} else {
-			m.status = "Hiring happens on the crew screen (4)."
+			m.refuse("Hiring happens on the crew screen (4).")
 		}
 	case "f":
 		switch m.screen {
@@ -645,7 +674,7 @@ func (m *Model) keyPlay(key string) (tea.Model, tea.Cmd) {
 		case screenLedger:
 			m.askFund()
 		default:
-			m.status = "A city is funded from the ledger (7)."
+			m.refuse("A city is funded from the ledger (7).")
 		}
 	case "p":
 		m.cyclePay()
@@ -662,19 +691,19 @@ func (m *Model) keyPlay(key string) (tea.Model, tea.Cmd) {
 		if m.screen == screenCrew {
 			m.askInvestigate()
 		} else {
-			m.status = "Questions are asked on the crew screen (4)."
+			m.refuse("Questions are asked on the crew screen (4).")
 		}
 	case "$":
 		if m.screen == screenCrew {
 			m.askPayOff()
 		} else {
-			m.status = "People are paid off on the crew screen (4)."
+			m.refuse("People are paid off on the crew screen (4).")
 		}
 	case "c":
 		if m.screen == screenMap {
 			m.askPost("runner")
 		} else {
-			m.status = "Corners are claimed on the map (5)."
+			m.refuse("Corners are claimed on the map (5).")
 		}
 	case "e":
 		if m.screen == screenMap {
@@ -691,7 +720,7 @@ func (m *Model) keyPlay(key string) (tea.Model, tea.Cmd) {
 		if m.screen == screenMap {
 			m.askStrike()
 		} else {
-			m.status = "Enforcers are sent from the map (5)."
+			m.refuse("Enforcers are sent from the map (5).")
 		}
 	case "up", "k":
 		switch {
@@ -771,11 +800,6 @@ func (m *Model) quit() (tea.Model, tea.Cmd) {
 	return m, tea.Quit
 }
 
-func (m *Model) bodyHeight() int {
-	// title bar + ticker + footer
-	return max(5, m.height-3)
-}
-
 // View renders the whole screen.
 func (m *Model) View() string {
 	if m.quitting {
@@ -838,28 +862,82 @@ func (m *Model) View() string {
 		body = m.viewCard()
 	case modePropose:
 		body = m.viewPropose()
+	case modeDetails:
+		secs, keys := m.details()
+		body = m.overlay(secs, keys, m.accent())
 	default:
-		switch m.screen {
-		case screenMarket:
-			body = m.viewMarket()
-		case screenJournal:
-			body = m.viewJournal()
-		case screenCrew:
-			body = m.viewCrew()
-		case screenMap:
-			body = m.viewMap()
-		case screenUpgrades:
-			body = m.viewUpgrades()
-		case screenLedger:
-			body = m.viewLedger()
-		case screenRivals:
-			body = m.viewRivals()
-		default:
-			body = m.viewDashboard()
-		}
+		secs, keys := m.details()
+		return m.frame(m.viewScreen(), secs, keys, m.accent())
 	}
 	body = lipgloss.NewStyle().Width(m.width).Height(m.bodyHeight()).MaxHeight(m.bodyHeight()).Render(body)
 	return lines(m.viewTitle(), body, m.viewTicker(), m.viewFooter())
+}
+
+// viewScreen is the MAIN of the screen shown.
+func (m *Model) viewScreen() string {
+	switch m.screen {
+	case screenMarket:
+		return m.viewMarket()
+	case screenJournal:
+		return m.viewJournal()
+	case screenCrew:
+		return m.viewCrew()
+	case screenMap:
+		return m.viewMap()
+	case screenUpgrades:
+		return m.viewUpgrades()
+	case screenLedger:
+		return m.viewLedger()
+	case screenRivals:
+		return m.viewRivals()
+	default:
+		return m.viewDashboard()
+	}
+}
+
+// details is the pane's content for the screen shown: its sections, the
+// selection first, and the keys it accepts.
+func (m *Model) details() ([]section, []binding) {
+	switch m.screen {
+	case screenMarket:
+		return m.marketDetails()
+	case screenJournal:
+		return m.journalDetails()
+	case screenCrew:
+		return m.crewDetails()
+	case screenMap:
+		return m.mapDetails()
+	case screenUpgrades:
+		return m.upgradesDetails()
+	case screenLedger:
+		return m.ledgerDetails()
+	case screenRivals:
+		return m.rivalsDetails()
+	default:
+		return m.dashboardDetails()
+	}
+}
+
+// accent is the colour the screen shown draws its pane and titles in:
+// one per sim.
+func (m *Model) accent() lipgloss.Color {
+	switch m.screen {
+	case screenMarket:
+		return theme.Market
+	case screenJournal:
+		return theme.News
+	case screenCrew:
+		return theme.Crew
+	case screenMap, screenRivals:
+		return theme.Rivals
+	default:
+		return theme.Money
+	}
+}
+
+// refuse sets a status message that says no to what you asked.
+func (m *Model) refuse(s string) {
+	m.status, m.statusKind = s, statusWarning
 }
 
 func (m *Model) viewTitle() string {
@@ -884,24 +962,32 @@ func (m *Model) viewTitle() string {
 		}
 		return theme.Title.Render(" KINGPIN ") + strings.Join(tabs, "")
 	}
+	// The right side is city · Day N · dirty X · clean Y · heat Z. As
+	// width runs out it loses the clean cash, then the city (the epic's
+	// mockups: the bar is what says where you stand; clean cash is on
+	// the CASH panel and the ledger); the day, the dirty cash and the
+	// heat never move.
 	here := w.Here()
-	rightFor := func(clean, city bool) string {
-		s := ""
+	sep := theme.Subtle.Render(" · ")
+	rightFor := func(city, clean bool) string {
+		var parts []string
 		if city {
-			s = theme.Subtle.Render(here.Name+" · ") + " "
+			parts = append(parts, theme.Subtle.Render(here.Name))
 		}
-		s += fmt.Sprintf("Day %d  ", w.Day) + theme.Gold.Render("dirty "+cash(w.Player.DirtyCash)) + "  "
+		parts = append(parts, fmt.Sprintf("Day %d", w.Day), theme.Gold.Render("dirty "+cash(w.Player.DirtyCash)))
 		if clean {
-			s += theme.Subtle.Render("clean "+cash(w.Player.CleanCash)) + "  "
+			parts = append(parts, theme.Subtle.Render("clean "+cash(w.Player.CleanCash)))
 		}
-		return s + heatStyle(here.Heat).Render(fmt.Sprintf("heat %.0f", here.Heat)) + " "
+		parts = append(parts, heatStyle(here.Heat).Render(fmt.Sprintf("heat %.0f", here.Heat)))
+		return strings.Join(parts, sep) + " "
 	}
-	// Try the roomy layout first, then progressively shorter ones.
+	// Try the roomy layout first, then progressively shorter ones: the
+	// tabs shorten before the right side loses anything.
 	for _, try := range []struct {
 		short       int
-		clean, city bool
-	}{{0, true, true}, {0, false, true}, {1, false, true}, {1, false, false}, {2, false, false}} {
-		left, right := tabsFor(try.short), rightFor(try.clean, try.city)
+		city, clean bool
+	}{{0, true, true}, {1, true, true}, {1, true, false}, {1, false, false}, {2, false, false}} {
+		left, right := tabsFor(try.short), rightFor(try.city, try.clean)
 		if gap := m.width - lipgloss.Width(left) - lipgloss.Width(right); gap >= 1 {
 			return left + strings.Repeat(" ", gap) + right
 		}
@@ -934,41 +1020,93 @@ func (m *Model) viewTicker() string {
 	return lipgloss.NewStyle().Foreground(theme.News).Render(fit(rot, m.width))
 }
 
+// screenKeys are the keys a screen accepts beyond the globals (n, ?, q
+// and the screen switches): what the legend lists after `n end day`
+// and the pane's KEYS section lists. #80 replaces the source with the
+// key table.
+func (m *Model) screenKeys() []binding {
+	switch m.screen {
+	case screenCrew:
+		return []binding{{"↑↓", "pick"}, {"h", "hire"}, {"f", "fire"}, {"t", "assign"}, {"i", "ask"}, {"$", "pay off"}, {"p", "pay dial"}}
+	case screenMap:
+		return []binding{{"↑↓←→", "pick"}, {"[ ]", "city"}, {"c", "runner"}, {"e", "enforcer"}, {"a", "abandon"}, {"w", "war"}, {"r R", "route"}, {"g", "go"}}
+	case screenMarket:
+		if m.onBuyers {
+			return []binding{{"↑↓", "pick"}, {"a", "accept"}, {"x", "decline"}, {"d", "deliver"}, {"g", "go"}}
+		}
+		return []binding{{"↑↓", "pick"}, {"←→", "city"}, {"b", "buy"}, {"s", "sell"}, {"x", "cancel"}, {"g", "go"}}
+	case screenJournal:
+		return []binding{{"↑↓", "scroll"}, {"pgup", "page up"}, {"pgdn", "page down"}}
+	case screenUpgrades:
+		return []binding{{"↑↓←→", "pick"}, {"enter", "buy"}}
+	case screenLedger:
+		return []binding{{"b", "buy a front"}, {"f", "fund the city"}, {"d", "launder dial"}, {"l", "lie low"}}
+	case screenRivals:
+		return []binding{{"↑↓", "pick offer"}, {"d", "propose"}, {"y", "accept"}, {"x", "decline"}}
+	default:
+		return []binding{{"↑↓", "pick"}, {"b", "buy"}, {"s", "sell"}, {"x", "cancel order"}, {"l", "lie low"}, {"p", "pay dial"}, {"d", "launder dial"}, {"g", "go"}, {"r", "report"}}
+	}
+}
+
+// playLegend is the status bar's key pairs in play mode: `n end day`
+// first, the screen's keys, `␣ details`, then `? help` last. Inside a
+// modal the bar repeats the modal's footer instead (modalFooter).
+func (m *Model) playLegend() []binding {
+	keys := []binding{{"n", "end day"}}
+	keys = append(keys, m.screenKeys()...)
+	return append(keys, binding{"␣", "details"}, binding{"?", "help"})
+}
+
+// statusStyle is the colour of the status message by its kind. A site
+// that has not said what its message is gets the copy's convention:
+// a refusal starts with "Can't", "Nothing to" or "No"; the rest is
+// neutral. #88 sets the kind at every site.
+func (m *Model) statusStyle() lipgloss.Style {
+	switch m.statusKind {
+	case statusWarning:
+		return theme.Warning
+	case statusBad:
+		return theme.Bad
+	}
+	for _, p := range []string{"Can't ", "Nothing to ", "No ", "Nobody ", "Nowhere ", "Move the cursor"} {
+		if strings.HasPrefix(m.status, p) {
+			return theme.Warning
+		}
+	}
+	return theme.Body
+}
+
+// viewFooter is the status bar: the legend at the left, whole pairs
+// dropped from the right until it fits, and the status message at the
+// right. The message wins: when the two cannot share the row it shows
+// alone, never the legend alone.
 func (m *Model) viewFooter() string {
 	// During a modal the bar repeats the modal's footer and nothing else.
 	if f := m.modalFooter(); f != nil {
 		return fit(legend(f), m.width)
 	}
-	var keys string
-	switch m.mode {
-	default:
-		switch m.screen {
-		case screenCrew:
-			keys = k("n", "end day") + k("↑↓", "pick") + k("h", "hire") + k("f", "fire") + k("t", "assign") + k("i", "ask") + k("$", "pay off") + k("p", "pay") + k("?", "help")
-		case screenMap:
-			keys = k("n", "end day") + k("↑↓←→", "pick") + k("[ ]", "city") + k("c", "runner") + k("e", "enforcer") + k("a", "abandon") + k("w", "war") + k("r R", "route") + k("g", "go") + k("?", "help")
-		case screenMarket:
-			if m.onBuyers {
-				keys = k("n", "end day") + k("↑↓", "pick") + k("a", "accept") + k("x", "decline") + k("d", "deliver") + k("g", "go") + k("?", "help")
-			} else {
-				keys = k("n", "end day") + k("↑↓", "pick") + k("←→", "city") + k("b", "buy") + k("s", "sell") + k("g", "go") + k("x", "cancel") + k("?", "help")
-			}
-		case screenUpgrades:
-			keys = k("n", "end day") + k("↑↓←→", "pick") + k("enter", "buy") + k("?", "help") + k("q", "quit")
-		case screenLedger:
-			keys = k("n", "end day") + k("b", "buy a front") + k("f", "fund the city") + k("d", "launder dial") + k("l", "lie low") + k("?", "help") + k("q", "quit")
-		case screenRivals:
-			keys = k("n", "end day") + k("↑↓", "pick offer") + k("d", "propose") + k("y", "accept") + k("x", "decline") + k("?", "help") + k("q", "quit")
-		default:
-			keys = k("n", "end day") + k("b", "buy") + k("s", "sell") + k("l", "lie low") + k("x", "cancel order") + k("r", "report") + k("?", "help") + k("q", "quit")
+	pairs := m.playLegend()
+	msg := ""
+	if m.status != "" {
+		msg = m.statusStyle().Render(m.status)
+	}
+	msgW := lipgloss.Width(msg)
+	for n := len(pairs); n >= 0; n-- {
+		var keys string
+		for _, b := range pairs[:n] {
+			keys += k(b.key, b.label)
+		}
+		kw := lipgloss.Width(keys)
+		switch {
+		case msg == "" && kw <= m.width:
+			return keys
+		case msg != "" && n == 0:
+			return truncate(msg, m.width)
+		case msg != "" && kw+msgW+1 <= m.width:
+			return keys + strings.Repeat(" ", m.width-kw-msgW) + msg
 		}
 	}
-	status := theme.Warning.Render(m.status)
-	gap := m.width - lipgloss.Width(keys) - lipgloss.Width(status)
-	if gap < 1 {
-		return fit(keys, m.width)
-	}
-	return keys + strings.Repeat(" ", gap) + status
+	return ""
 }
 
 func k(key, label string) string {
@@ -1159,6 +1297,31 @@ func (m *Model) refreshJournal() {
 func (m *Model) viewJournal() string {
 	title := theme.PanelTitle.Render("JOURNAL") + theme.Subtle.Render(fmt.Sprintf("  %d headlines, newest first", len(m.w.Journal)))
 	return title + "\n" + m.journal.View()
+}
+
+// journalSources are the sources a headline can have, in the order the
+// journal's legend lists them.
+var journalSources = []string{"market", "buyers", "heat", "law", "crew", "territory", "rivals", "laundering", "logistics", "reputation", "dilemma", "flavour"}
+
+// journalDetails is the journal's pane: what the colours mean, and the
+// keys.
+func (m *Model) journalDetails() ([]section, []binding) {
+	var legend []string
+	for i := 0; i < len(journalSources); i += 2 {
+		l := fit(lipgloss.NewStyle().Foreground(theme.Source(journalSources[i])).Render(journalSources[i]), paneTextW/2)
+		if i+1 < len(journalSources) {
+			l += lipgloss.NewStyle().Foreground(theme.Source(journalSources[i+1])).Render(journalSources[i+1])
+		}
+		legend = append(legend, l)
+	}
+	secs := []section{
+		{"JOURNAL", []string{
+			row("headlines", fmt.Sprintf("%d", len(m.w.Journal))),
+			row("order", "newest first"),
+		}},
+		{"LEGEND", legend},
+	}
+	return secs, m.screenKeys()
 }
 
 // stripANSI removes escape sequences so the ticker can be rotated by rune.

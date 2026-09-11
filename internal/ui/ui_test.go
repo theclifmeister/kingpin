@@ -96,12 +96,89 @@ func assertFits(t *testing.T, view string, w, h int, what string) {
 	}
 }
 
+// assertFrame checks the frame every play-mode screen renders into: row
+// 0 the title bar, row h-2 the ticker, row h-1 the status bar; from 100
+// columns every body row ends in the pane's border column and the
+// pane's last section is KEYS; under that row h-3 is the details strip.
+func assertFrame(t *testing.T, m *Model, what string) {
+	t.Helper()
+	w, h := m.width, m.height
+	view := m.View()
+	assertFits(t, view, w, h, what)
+	ls := strings.Split(view, "\n")
+	if len(ls) != h {
+		t.Errorf("%s: %d rows, want %d", what, len(ls), h)
+		return
+	}
+	plain := make([]string, len(ls))
+	for i, l := range ls {
+		plain[i] = stripANSI(l)
+	}
+	if !strings.HasPrefix(plain[0], " KINGPIN") {
+		t.Errorf("%s: row 0 is not the title bar: %q", what, plain[0])
+	}
+	if plain[h-2] != stripANSI(m.viewTicker()) {
+		t.Errorf("%s: row %d is not the ticker: %q", what, h-2, plain[h-2])
+	}
+	if plain[h-1] != stripANSI(m.viewFooter()) {
+		t.Errorf("%s: row %d is not the status bar: %q", what, h-1, plain[h-1])
+	}
+	switch {
+	case m.paneShown():
+		keysAt := -1
+		for i := 1; i <= h-3; i++ {
+			if lw := lipgloss.Width(ls[i]); lw != w {
+				t.Errorf("%s: body row %d is %d cells, want %d: %q", what, i, lw, w, plain[i])
+				continue
+			}
+			rs := []rune(plain[i])
+			pane := string(rs[len(rs)-paneWidth:])
+			if last := rs[len(rs)-1]; last != '│' && last != '╮' && last != '╯' {
+				t.Errorf("%s: body row %d does not end in the pane's border: %q", what, i, plain[i])
+			}
+			if strings.HasPrefix(pane, "│ KEYS") {
+				keysAt = i
+			}
+		}
+		if keysAt < 0 {
+			t.Errorf("%s: the pane has no KEYS section:\n%s", what, stripANSI(view))
+			return
+		}
+		// Nothing but key rows between KEYS and the bottom border.
+		var keys []string
+		for _, b := range m.playLegend() {
+			keys = append(keys, b.key)
+		}
+		for i := keysAt + 1; i < h-3; i++ {
+			rs := []rune(plain[i])
+			text := strings.TrimSpace(strings.Trim(string(rs[len(rs)-paneWidth:]), "│"))
+			ok := false
+			for _, k := range keys {
+				if strings.HasPrefix(text, k) {
+					ok = true
+				}
+			}
+			if !ok {
+				t.Errorf("%s: row %d after KEYS is not a key row: %q", what, i, text)
+			}
+		}
+	case w < paneMinWidth:
+		strip := strings.TrimRight(plain[h-3], " ")
+		if !strings.HasPrefix(strip, "▸ ") || !strings.HasSuffix(strip, "␣ more") {
+			t.Errorf("%s: row %d is not the details strip: %q", what, h-3, strip)
+		}
+	}
+}
+
 // richFixture plays one run through every screen, dialog and picker the
 // game has, with a crew, a rival at war, a route with a shipment in
 // flight, three fronts, a billion in the bank and the whole ladder, and
-// hands every view it reaches to check with a name for it.
-func richFixture(t *testing.T, sz [2]int, check func(view, what string)) {
+// hands every view it reaches to check, with the model and a name
+// for it.
+func richFixture(t *testing.T, sz [2]int, check func(m *Model, view, what string)) {
 	t.Helper()
+	handed := check
+	see := func(m *Model, what string) { handed(m, m.View(), what) }
 	m := newTestModel(t, sz[0], sz[1])
 	// Play a few days with some trading so every panel has content.
 	for i := 0; i < 5; i++ {
@@ -110,10 +187,10 @@ func richFixture(t *testing.T, sz [2]int, check func(view, what string)) {
 		m.Update(key("enter")) // product
 		m.Update(key("enter")) // qty (blank = all)
 		m.Update(key("3"))     // aggressive
-		check(m.View(), "sell dial")
+		see(m, "sell dial")
 		m.Update(key("enter")) // confirm
 		endDay(t, m)           // end day -> report
-		check(m.View(), "report")
+		see(m, "report")
 		m.Update(key("enter"))
 	}
 	// A full crew with a skim on record exercises every crew-screen line.
@@ -128,7 +205,7 @@ func richFixture(t *testing.T, sz [2]int, check func(view, what string)) {
 	for i := range m.shown().Corners {
 		m.mapCursor = i
 		m.Update(key("c"))
-		check(m.View(), "post picker")
+		see(m, "post picker")
 		m.Update(key("j"))
 		m.Update(key("enter"))
 		m.Update(key("e"))
@@ -143,20 +220,20 @@ func richFixture(t *testing.T, sz [2]int, check func(view, what string)) {
 	m.w.Crew.NextID = 900
 	m.mapCursor = 0
 	m.Update(key("w"))
-	check(m.View(), "strike picker")
+	see(m, "strike picker")
 	m.Update(key("enter"))
 	if m.w.Strike == nil {
 		t.Fatalf("%dx%d: no strike queued: %q", sz[0], sz[1], m.status)
 	}
 	for i := range m.shown().Corners {
 		m.mapCursor = i
-		check(m.View(), "map")
+		see(m, "map")
 	}
 	// The other city's map, and the ship dialog with something to send.
 	m.Update(key("]"))
 	for i := range m.shown().Corners {
 		m.mapCursor = i
-		check(m.View(), "map elsewhere")
+		see(m, "map elsewhere")
 	}
 	m.Update(key("["))
 	// A route on with a target and a shipment in flight: the routes
@@ -170,65 +247,84 @@ func richFixture(t *testing.T, sz [2]int, check func(view, what string)) {
 		m.Update(key("j"))
 	}
 	m.Update(key("r"))
-	check(m.View(), "map with the routes cursor")
+	see(m, "map with the routes cursor")
 	m.Update(key("R"))
-	check(m.View(), "target product")
+	see(m, "target product")
 	m.Update(key("enter"))
 	for _, r := range "120" {
 		m.Update(key(string(r)))
 	}
-	check(m.View(), "target units")
+	see(m, "target units")
 	m.Update(key("enter"))
 	if m.mode != modePlay || !m.w.Route(route.ID).Dial.On() || m.w.Route(route.ID).Target[m.w.Products[0]] != 120 {
 		t.Fatalf("%dx%d: the target dialog left mode %v with %+v: %q %q", sz[0], sz[1], m.mode, m.w.Route(route.ID), m.status, m.tgt.err)
 	}
 	endDay(t, m)
-	check(m.View(), "report with the route")
+	see(m, "report with the route")
 	m.Update(key("enter"))
 	if len(m.w.Shipments) != 1 {
 		t.Fatalf("%dx%d: the route sent %d shipments: %v", sz[0], sz[1], len(m.w.Shipments), m.w.Report.Shipments)
 	}
-	check(m.View(), "map with a shipment in flight")
+	see(m, "map with a shipment in flight")
 	m.Update(key("["))
 	m.Update(key("g"))
-	check(m.View(), "travel confirm")
+	see(m, "travel confirm")
 	m.Update(key("esc"))
 	for _, s := range []string{"1", "2", "3", "4", "5", "6", "7", "8"} {
 		m.Update(key(s))
-		check(m.View(), "screen "+s)
+		see(m, "screen "+s)
+		// Space: the overlay where the strip is, the pane hidden and
+		// shown again where it sits beside MAIN.
+		m.Update(key(" "))
+		if sz[0] < paneMinWidth {
+			if m.mode != modeDetails {
+				t.Fatalf("%dx%d: space on screen %s: mode %v", sz[0], sz[1], s, m.mode)
+			}
+			see(m, "details overlay "+s)
+			m.Update(key("esc"))
+		} else {
+			if m.mode != modePlay || !m.paneHidden {
+				t.Fatalf("%dx%d: space on screen %s: mode %v hidden %v", sz[0], sz[1], s, m.mode, m.paneHidden)
+			}
+			see(m, "screen "+s+" with the pane hidden")
+			m.Update(key(" "))
+		}
+		if m.mode != modePlay || m.paneHidden {
+			t.Fatalf("%dx%d: after space twice on screen %s: mode %v hidden %v", sz[0], sz[1], s, m.mode, m.paneHidden)
+		}
 	}
 	// The table: a deal that holds, an offer waiting, a proposal for
 	// tonight, and both pages of the propose dialog.
 	m.Update(key("8"))
 	m.w.Rival.Deals = []game.Deal{{Kind: game.DealSplit, Terms: game.Terms{Corners: []string{m.w.Home().Corners[1].ID}}, Since: m.w.Day}}
 	m.w.Offers = []game.Offer{{ID: 1, Deal: game.Deal{Kind: game.DealTruce, Terms: game.Terms{Days: 30}, Offered: true}, Expires: m.w.Day + 4}}
-	check(m.View(), "rivals screen")
+	see(m, "rivals screen")
 	m.Update(key("d"))
-	check(m.View(), "propose kinds")
+	see(m, "propose kinds")
 	m.Update(key("2"))
-	check(m.View(), "propose terms")
+	see(m, "propose terms")
 	m.Update(key("enter"))
 	if m.w.Proposal == nil || m.w.Proposal.Kind != game.DealTribute {
 		t.Fatalf("%dx%d: no tribute proposed: %q", sz[0], sz[1], m.status)
 	}
-	check(m.View(), "rivals screen with a proposal")
+	see(m, "rivals screen with a proposal")
 	m.Update(key("1"))
-	check(m.View(), "dashboard with the table")
+	see(m, "dashboard with the table")
 	m.w.Rival.Deals, m.w.Offers, m.w.Proposal = nil, nil, nil
 	// Every node state on the tree: owned, available, short, locked,
 	// and the buy confirmation.
 	m.Update(key("6"))
 	m.w.Player.DirtyCash += 20_000
 	m.Update(key("enter"))
-	check(m.View(), "upgrade confirm")
+	see(m, "upgrade confirm")
 	m.Update(key("y"))
 	for range m.upgradeRows() {
-		check(m.View(), "upgrades")
+		see(m, "upgrades")
 		m.Update(key("j"))
 	}
 	m.Update(key("4"))
 	m.Update(key("f"))
-	check(m.View(), "fire confirm")
+	see(m, "fire confirm")
 	m.Update(key("y"))
 	m.w.Stash(m.w.Player.Location)[m.w.Products[0]] = 200
 	m.Update(key("s"))
@@ -246,7 +342,7 @@ func richFixture(t *testing.T, sz [2]int, check func(view, what string)) {
 	m.w.Recall(game.You)
 	start.Owner, start.Runner, start.Enforcer, start.Squeeze, start.Risk = game.OwnerPlayer, game.You, 0, 0, 100
 	endDay(t, m)
-	check(m.View(), "report with crew")
+	see(m, "report with crew")
 	if len(m.w.Report.Territory) == 0 {
 		t.Fatalf("%dx%d: report has no territory lines: %+v", sz[0], sz[1], m.w.Report)
 	}
@@ -257,7 +353,7 @@ func richFixture(t *testing.T, sz [2]int, check func(view, what string)) {
 	m.w.Player.DirtyCash = 700_000
 	m.w.Stats.PeakCash = 700_000
 	m.Update(key("b"))
-	check(m.View(), "front picker")
+	see(m, "front picker")
 	for i := 0; i < 3; i++ {
 		m.Update(key("b"))
 		m.Update(key("enter"))
@@ -267,7 +363,7 @@ func richFixture(t *testing.T, sz [2]int, check func(view, what string)) {
 	}
 	m.w.Crew.Members = append(m.w.Crew.Members, game.CrewMember{ID: 901, Name: "Books", Role: "accountant", Skill: 60, Loyalty: 60, Wage: 130})
 	endDay(t, m)
-	check(m.View(), "report with fronts")
+	see(m, "report with fronts")
 	if !strings.Contains(strings.Join(m.w.Report.Money, "\n"), "Washed") {
 		t.Fatalf("%dx%d: report has no wash line: %v", sz[0], sz[1], m.w.Report.Money)
 	}
@@ -278,17 +374,17 @@ func richFixture(t *testing.T, sz [2]int, check func(view, what string)) {
 	m.Update(key("d"))
 	for _, s := range []string{"7", "1", "4"} {
 		m.Update(key(s))
-		check(m.View(), "ledger screen "+s)
+		see(m, "ledger screen "+s)
 	}
 	m.Update(key("1"))
 	m.Update(key("b"))
-	check(m.View(), "buy dialog")
+	see(m, "buy dialog")
 	m.Update(key("enter"))
-	check(m.View(), "buy qty")
+	see(m, "buy qty")
 	m.Update(key("esc"))
 	m.Update(key("esc"))
 	m.Update(key("?"))
-	check(m.View(), "help")
+	see(m, "help")
 	m.Update(key("x"))
 
 	// A cartel-scale world: ten-digit cash on every screen, then the
@@ -298,15 +394,15 @@ func richFixture(t *testing.T, sz [2]int, check func(view, what string)) {
 	m.w.Stats.PeakCash = m.w.Player.DirtyCash
 	for _, s := range []string{"1", "2", "3", "4", "5", "6", "7", "8"} {
 		m.Update(key(s))
-		check(m.View(), "rich screen "+s)
+		see(m, "rich screen "+s)
 	}
 	m.Update(key("b"))
-	check(m.View(), "rich front picker")
+	see(m, "rich front picker")
 	m.Update(key("esc"))
 	m.Update(key("1"))
 	m.Update(key("b"))
 	m.Update(key("enter"))
-	check(m.View(), "rich buy qty")
+	see(m, "rich buy qty")
 	m.Update(key("esc"))
 	m.Update(key("esc"))
 	m.w.Player.CleanCash, m.w.Player.DirtyCash = m.w.Player.DirtyCash, 50_000
@@ -319,7 +415,7 @@ func richFixture(t *testing.T, sz [2]int, check func(view, what string)) {
 	m.w.Stash(m.w.Player.Location)[last] = 20
 	for _, s := range []string{"1", "2", "5"} {
 		m.Update(key(s))
-		check(m.View(), "ladder screen "+s)
+		see(m, "ladder screen "+s)
 	}
 	m.Update(key("1"))
 	m.Update(key("s"))
@@ -328,20 +424,23 @@ func richFixture(t *testing.T, sz [2]int, check func(view, what string)) {
 	}
 	m.Update(key("enter"))
 	m.Update(key("enter"))
-	check(m.View(), "ladder sell dialog")
+	see(m, "ladder sell dialog")
 	m.Update(key("enter"))
 	endDay(t, m)
-	check(m.View(), "ladder report")
+	see(m, "ladder report")
 	m.Update(key("enter"))
 	m.w.Over = &game.Ending{Day: m.w.Day, Cause: "indicted", PeakCash: m.w.Stats.PeakCash}
 	endDay(t, m)
-	check(m.View(), "rich game over")
+	see(m, "rich game over")
 }
 
 func TestRendersAtCommonSizes(t *testing.T) {
 	for _, sz := range [][2]int{{80, 24}, {120, 40}, {100, 30}} {
-		richFixture(t, sz, func(view, what string) {
+		richFixture(t, sz, func(m *Model, view, what string) {
 			assertFits(t, view, sz[0], sz[1], what)
+			if m.mode == modePlay {
+				assertFrame(t, m, what)
+			}
 		})
 	}
 }
@@ -401,6 +500,114 @@ func TestBuyThenSellFlow(t *testing.T) {
 	m.Update(key("n"))
 	if m.mode != modeReport || m.w.Day != 1 {
 		t.Fatalf("end day: mode=%v day=%d", m.mode, m.w.Day)
+	}
+}
+
+// The status bar never drops the message: at 80 columns a long status
+// set after a key is on row h-1 on every screen, the legend giving way.
+func TestStatusMessageAlwaysShows(t *testing.T) {
+	m := newTestModel(t, 80, 24)
+	msg := "Pay generous, $108/day. Loyalty climbs. The crew notice it too."
+	if len(msg) < 60 {
+		t.Fatalf("the message is %d characters", len(msg))
+	}
+	for _, s := range []string{"1", "2", "3", "4", "5", "6", "7", "8"} {
+		m.Update(key(s))
+		m.status = msg
+		rows := strings.Split(m.View(), "\n")
+		if got := stripANSI(rows[len(rows)-1]); !strings.Contains(got, msg) {
+			t.Errorf("screen %s: the status bar lost the message: %q", s, got)
+		}
+	}
+}
+
+// The legend is a whole number of k() pairs at every width: pairs are
+// dropped from the right, never cut in the middle.
+func TestLegendNeverTruncatesMidPair(t *testing.T) {
+	for _, w := range []int{60, 80, 120} {
+		m := newTestModel(t, w, 24)
+		for _, s := range []string{"1", "2", "3", "4", "5", "6", "7", "8"} {
+			m.Update(key(s))
+			m.status = ""
+			got := stripANSI(m.viewFooter())
+			var prefixes []string
+			for n := 0; n <= len(m.playLegend()); n++ {
+				var p string
+				for _, b := range m.playLegend()[:n] {
+					p += stripANSI(k(b.key, b.label))
+				}
+				prefixes = append(prefixes, p)
+			}
+			whole := false
+			for _, p := range prefixes {
+				if got == p {
+					whole = true
+				}
+			}
+			if !whole {
+				t.Errorf("%d columns, screen %s: the legend is not whole pairs: %q", w, s, got)
+			}
+			if lipgloss.Width(m.viewFooter()) > w {
+				t.Errorf("%d columns, screen %s: the legend is wider than the terminal: %q", w, s, got)
+			}
+		}
+	}
+}
+
+// Space opens the details as an overlay where the strip is, with the
+// sections the pane shows beside MAIN at 120, and esc closes it; at 120
+// space hides the pane and the main content takes the width.
+func TestSpaceTogglesDetails(t *testing.T) {
+	m := newTestModel(t, 80, 24)
+	m.Update(key("5"))
+	secs, _ := m.details()
+	if len(secs) == 0 {
+		t.Fatal("the map has no details")
+	}
+	m.Update(key(" "))
+	if m.mode != modeDetails {
+		t.Fatalf("space at 80: mode %v", m.mode)
+	}
+	overlay := stripANSI(m.View())
+	assertFits(t, m.View(), 80, 24, "details overlay")
+	for _, s := range secs {
+		if !strings.Contains(overlay, s.title) {
+			t.Errorf("the overlay lacks the section %q:\n%s", s.title, overlay)
+		}
+	}
+	if !strings.Contains(overlay, "KEYS") {
+		t.Errorf("the overlay has no KEYS:\n%s", overlay)
+	}
+	m.Update(key("esc"))
+	if m.mode != modePlay {
+		t.Fatalf("esc on the overlay: mode %v", m.mode)
+	}
+	m.Update(key(" "))
+	m.Update(key(" "))
+	if m.mode != modePlay {
+		t.Fatalf("space twice: mode %v", m.mode)
+	}
+	m.Update(tea.WindowSizeMsg{Width: 120, Height: 40})
+	beside := stripANSI(m.View())
+	for _, s := range secs {
+		if !strings.Contains(beside, s.title) {
+			t.Errorf("the pane at 120 lacks the section %q:\n%s", s.title, beside)
+		}
+	}
+	m.Update(key(" "))
+	if m.mode != modePlay || !m.paneHidden {
+		t.Fatalf("space at 120: mode %v hidden %v", m.mode, m.paneHidden)
+	}
+	hidden := stripANSI(m.View())
+	if strings.Contains(hidden, "DETAILS") || strings.Contains(hidden, "␣ more") {
+		t.Errorf("the pane did not hide:\n%s", hidden)
+	}
+	if m.mainWidth() != 120 {
+		t.Errorf("main is %d wide with the pane hidden", m.mainWidth())
+	}
+	m.Update(key(" "))
+	if m.paneHidden || !strings.Contains(stripANSI(m.View()), "DETAILS") {
+		t.Errorf("space again did not show the pane")
 	}
 }
 
@@ -1846,6 +2053,7 @@ func TestCrewScreenAccountantIsNotIdle(t *testing.T) {
 	fronts := m.cfg.Laundering.Fronts
 	m.w.Crew.Members = []game.CrewMember{{ID: 1, Name: "Nadia", Role: "accountant", Skill: 50, Loyalty: 70, Nerve: 50, Wage: 60}}
 	m.Update(key("4"))
+	m.Update(key(" ")) // the pane cuts the crew's long lines at 100 columns; #86 moves them into it
 
 	m.w.Fronts = []game.Front{{ID: fronts[0].ID, Name: fronts[0].Name}}
 	v := m.View()
@@ -1883,6 +2091,7 @@ func TestCrewScreenUnpostedEnforcer(t *testing.T) {
 	m := newTestModel(t, 100, 30)
 	m.w.Crew.Members = []game.CrewMember{{ID: 1, Name: "Moose", Role: "enforcer", Skill: 70, Loyalty: 70, Nerve: 60, Wage: 65}}
 	m.Update(key("4"))
+	m.Update(key(" ")) // the pane cuts the crew's long lines at 100 columns; #86 moves them into it
 	v := m.View()
 	if !strings.Contains(v, "unposted") || !strings.Contains(v, "post them on a corner to guard it") {
 		t.Fatalf("enforcer: want 'unposted' and the guarding hint:\n%s", v)
@@ -2167,6 +2376,7 @@ func TestModalsFit(t *testing.T) {
 		{"propose terms", modePropose, func(t *testing.T, m *Model) { m.Update(key("8")); m.Update(key("d")); m.Update(key("2")) }},
 		{"assign", modeAssign, func(t *testing.T, m *Model) { m.Update(key("4")); m.crewCursor = 3; m.Update(key("t")) }},
 		{"fund", modeFund, func(t *testing.T, m *Model) { m.Update(key("7")); m.Update(key("f")) }},
+		{"details", modeDetails, func(t *testing.T, m *Model) { m.Update(key("5")); m.mode = modeDetails }},
 	}
 	covered := map[mode]bool{}
 	for _, c := range cases {
@@ -2218,7 +2428,7 @@ func TestModalsFit(t *testing.T) {
 			if got != foot && got != foot+"  ↓ more" {
 				t.Errorf("%s: the footer is %q, not %q", what, got, foot)
 			}
-			if c.mode != modeHelp && c.mode != modeReport {
+			if c.mode != modeHelp && c.mode != modeReport && c.mode != modeDetails { // the overlay's KEYS section lists keys on purpose
 				for _, l := range box[3 : len(box)-3] {
 					p := stripANSI(l)
 					for _, hint := range []string{"enter ", "esc ", "any other key", "any key"} {

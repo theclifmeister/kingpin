@@ -150,7 +150,7 @@ func TestTablesAreConsistent(t *testing.T) {
 			n++
 			checkTable(t, cols, lines)
 		}
-		richFixture(t, sz, func(string, string) {})
+		richFixture(t, sz, func(*Model, string, string) {})
 		tableHook = nil
 		if n < 50 {
 			t.Errorf("%dx%d: only %d tables rendered", sz[0], sz[1], n)

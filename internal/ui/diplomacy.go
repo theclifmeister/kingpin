@@ -226,7 +226,7 @@ func (m *Model) viewRivals() string {
 	if w.RivalHeld() == 0 {
 		corners = "run out of town"
 	}
-	b.WriteString(truncate(title+theme.Subtle.Render(fmt.Sprintf("  %s · %s · %s · muscle %d", m.rivalName(), m.personalityWord(), corners, r.Muscle)), m.width) + "\n\n")
+	b.WriteString(truncate(title+theme.Subtle.Render(fmt.Sprintf("  %s · %s · %s · muscle %d", m.rivalName(), m.personalityWord(), corners, r.Muscle)), m.mainWidth()) + "\n\n")
 
 	// Trust and the war, side by side.
 	war := fmt.Sprintf("war %.0f/%.0f", r.War, tun.CrackdownThreshold)
@@ -238,7 +238,7 @@ func (m *Model) viewRivals() string {
 	default:
 		war = theme.Subtle.Render("no war")
 	}
-	b.WriteString(truncate("  trust "+m.trustBar(max(6, min(20, m.width/4)))+"   "+war, m.width) + "\n")
+	b.WriteString(truncate("  trust "+m.trustBar(max(6, min(20, m.mainWidth()/4)))+"   "+war, m.mainWidth()) + "\n")
 	var mood string
 	switch {
 	case m.set.Rivals.Distrusted(w, w.Day+1):
@@ -250,7 +250,7 @@ func (m *Model) viewRivals() string {
 	default:
 		mood = theme.Subtle.Render("  Trust grows a little every day a deal holds and falls with every strike.")
 	}
-	b.WriteString(truncate(mood, m.width) + "\n\n")
+	b.WriteString(truncate(mood, m.mainWidth()) + "\n\n")
 
 	// Live deals.
 	b.WriteString(lipgloss.NewStyle().Bold(true).Foreground(theme.Rivals).Render("DEALS") + "\n")
@@ -266,10 +266,10 @@ func (m *Model) viewRivals() string {
 		if d.Offered {
 			who = "theirs"
 		}
-		b.WriteString(truncate(fmt.Sprintf("  %-10s %s · %s · since day %d, %s", capitalize(d.Kind), w.Describe(d), term, d.Since, who), m.width) + "\n")
+		b.WriteString(truncate(fmt.Sprintf("  %-10s %s · %s · since day %d, %s", capitalize(d.Kind), w.Describe(d), term, d.Since, who), m.mainWidth()) + "\n")
 	}
 	if p := w.Proposal; p != nil {
-		b.WriteString(truncate(theme.Gold.Render(fmt.Sprintf("  Tonight    you propose %s; they answer in the morning, ~%.0f%%", w.Describe(*p), m.set.Rivals.Chance(w, *p)*100)), m.width) + "\n")
+		b.WriteString(truncate(theme.Gold.Render(fmt.Sprintf("  Tonight    you propose %s; they answer in the morning, ~%.0f%%", w.Describe(*p), m.set.Rivals.Chance(w, *p)*100)), m.mainWidth()) + "\n")
 	}
 	b.WriteString("\n")
 
@@ -282,21 +282,14 @@ func (m *Model) viewRivals() string {
 	for i, o := range w.Offers {
 		line := fmt.Sprintf("%-10s %s · %d day(s) to answer", capitalize(o.Deal.Kind), w.Describe(o.Deal), o.Expires-w.Day+1)
 		if i == m.dealCursor {
-			b.WriteString(truncate(theme.Gold.Render("▸ ")+theme.Selected.Render(line)+"  "+theme.Key.Render("y")+" accept "+theme.Key.Render("x")+" decline", m.width) + "\n")
+			b.WriteString(truncate(theme.Gold.Render("▸ ")+theme.Selected.Render(line), m.mainWidth()) + "\n")
 		} else {
-			b.WriteString(truncate("  "+line, m.width) + "\n")
+			b.WriteString(truncate("  "+line, m.mainWidth()) + "\n")
 		}
 	}
 	b.WriteString("\n")
-	for _, l := range []string{
-		"Truce or tribute: they stay off your corners. Split: off your side of the line.",
-		"A push or a hit under a deal breaks it: trust hits the floor and they make a call.",
-		"So does a missed tribute, or walking off a split corner. A warning does not.",
-	} {
-		b.WriteString(truncate(theme.Subtle.Render(l), m.width) + "\n")
-	}
 	if s := w.Stats; s.Deals+s.Betrayals+s.BetrayedBy > 0 {
-		b.WriteString(truncate(theme.Subtle.Render(fmt.Sprintf("Struck %d · refused %d · broken by you %d, by them %d · tribute paid %s", s.Deals, s.DealsRefused, s.Betrayals, s.BetrayedBy, cash(s.Tribute))), m.width) + "\n")
+		b.WriteString(truncate(theme.Subtle.Render(fmt.Sprintf("Struck %d · refused %d · broken by you %d, by them %d · tribute paid %s", s.Deals, s.DealsRefused, s.Betrayals, s.BetrayedBy, cash(s.Tribute))), m.mainWidth()) + "\n")
 	}
 	return b.String()
 }

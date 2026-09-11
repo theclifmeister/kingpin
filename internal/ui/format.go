@@ -62,18 +62,6 @@ func lines(ss ...string) string {
 	return strings.Join(out, "\n")
 }
 
-// clampLines keeps at most n lines of s.
-func clampLines(s string, n int) string {
-	if n <= 0 {
-		return ""
-	}
-	ls := strings.Split(s, "\n")
-	if len(ls) > n {
-		ls = ls[:n]
-	}
-	return strings.Join(ls, "\n")
-}
-
 func pct(from, to float64) float64 {
 	if from == 0 {
 		return 0

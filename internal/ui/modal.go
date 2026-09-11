@@ -19,8 +19,10 @@ import (
 // wrapped (the card wraps its prose before it gets here). A body taller
 // than the room scrolls, and the footer says so.
 
-// binding is one key and what it does, the way k() draws it. #80's key
-// table is the same shape; until it lands this is the modal's own.
+// binding is one key and what it does, the way k() draws it: what a
+// modal's footer, the status bar's legend and the details pane's KEYS
+// section are made of. #80's key table is the same shape; until it lands
+// each of them lists its own.
 type binding struct{ key, label string }
 
 // modalMax is the widest a modal gets. Under it the modal is the terminal
@@ -125,6 +127,8 @@ func (m *Model) modalFooter() []binding {
 		return []binding{pick, {"enter", "select"}, {"c", "continue"}, {"n", "new run"}, {"q", "quit"}}
 	case modeReport, modeHelp:
 		return closes
+	case modeDetails:
+		return []binding{{"space esc", "close"}}
 	case modeOver:
 		return []binding{{"enter", "new run"}, {"q", "quit"}}
 	case modeBuy:

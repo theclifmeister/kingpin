@@ -153,3 +153,73 @@ func (m *Model) rivalLines() string {
 	return theme.Rival.Render(r.Leader) + theme.Subtle.Render(" · "+corners) + "\n" +
 		theme.Subtle.Render(m.personalityWord()+" · ") + war + "\n" + table + "\n"
 }
+
+// dealRules are the three lines on what a deal does and what breaks it,
+// the rivals screen's RULES section.
+var dealRules = []string{
+	"Truce or tribute: they stay off your corners. Split: off your side of the line.",
+	"A push or a hit under a deal breaks it: trust hits the floor and they make a call.",
+	"So does a missed tribute, or walking off a split corner. A warning does not.",
+}
+
+// rivalsDetails is the rivals screen's pane: the offer under the cursor
+// (or, with none on the table, the rival and where you stand with
+// them), the rules of the table, and the keys.
+func (m *Model) rivalsDetails() ([]section, []binding) {
+	w := m.w
+	r := w.Rival
+	keys := m.screenKeys()
+	if r.Arrived == 0 {
+		return []section{{"NO RIVAL", wrapped(theme.Subtle, "Nobody is contesting the city. Yet. When somebody does, this is where you talk to them.")}}, keys
+	}
+	var secs []section
+	if n := len(w.Offers); n > 0 {
+		o := w.Offers[max(0, min(m.dealCursor, n-1))]
+		lines := []string{
+			row("terms", w.Describe(o.Deal)),
+			row("to answer", fmt.Sprintf("%d days", o.Expires-w.Day+1)),
+			row("offered by", m.rivalName()),
+			keyRow("y", "accept it"),
+			keyRow("x", "turn it down"),
+		}
+		secs = append(secs, section{strings.ToUpper(o.Deal.Kind) + " · OFFERED", lines})
+	}
+	tun := m.set.Rivals.Tuning()
+	corners := fmt.Sprintf("%d corners", w.RivalHeld())
+	if w.RivalHeld() == 0 {
+		corners = "run out of town"
+	}
+	war := theme.Subtle.Render("none")
+	switch {
+	case r.War >= tun.WarThreshold:
+		war = theme.Bad.Render(fmt.Sprintf("%.0f/%.0f loud", r.War, tun.CrackdownThreshold))
+	case r.War > 0:
+		war = theme.Warning.Render(fmt.Sprintf("%.0f/%.0f", r.War, tun.CrackdownThreshold))
+	}
+	lines := []string{
+		row("temper", m.personalityWord()),
+		row("holds", corners),
+		row("muscle", fmt.Sprintf("%d", r.Muscle)),
+		row("trust", fmt.Sprintf("%.0f", r.Trust)),
+		row("war", war),
+	}
+	for _, d := range r.Deals {
+		term := "until broken"
+		if d.Until > 0 {
+			term = fmt.Sprintf("%d days left", d.Left(w.Day))
+		}
+		lines = append(lines, row(d.Kind, term))
+	}
+	if p := w.Proposal; p != nil {
+		lines = append(lines, row("tonight", theme.Gold.Render(fmt.Sprintf("you propose, ~%.0f%%", m.set.Rivals.Chance(w, *p)*100))))
+	}
+	if m.set.Rivals.Distrusted(w, w.Day+1) {
+		lines = append(lines, wrapped(theme.Bad, fmt.Sprintf("You broke a deal. They take nothing for %d more days.", r.Betrayed+m.set.Rivals.Diplomacy().DistrustDays-w.Day-1))...)
+	}
+	secs = append(secs, section{strings.ToUpper(m.rivalName()), lines})
+	var rules []string
+	for _, l := range dealRules {
+		rules = append(rules, wrapped(theme.Subtle, l)...)
+	}
+	return append(secs, section{"RULES", rules}), keys
+}

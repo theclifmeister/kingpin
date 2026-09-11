@@ -199,7 +199,7 @@ func (m *Model) ownedLine() string {
 
 func (m *Model) viewUpgrades() string {
 	w := m.w
-	sel, _ := m.upgradeSelected()
+	width := m.mainWidth()
 	var b strings.Builder
 	owned := 0
 	for _, u := range m.cfg.Upgrades.Nodes {
@@ -209,12 +209,12 @@ func (m *Model) viewUpgrades() string {
 	}
 	b.WriteString(truncate(theme.PanelTitle.Render("UPGRADES")+
 		theme.Subtle.Render(fmt.Sprintf("  %d of %d owned · ", owned, len(m.cfg.Upgrades.Nodes)))+
-		theme.Gold.Render("dirty "+cash(w.Player.DirtyCash))+theme.Subtle.Render(" · clean "+cash(w.Player.CleanCash)), m.width) + "\n\n")
+		theme.Gold.Render("dirty "+cash(w.Player.DirtyCash))+theme.Subtle.Render(" · clean "+cash(w.Player.CleanCash)), width) + "\n\n")
 
 	// Three columns, one per branch; each node is a name-and-cost line
 	// over a one-line effect. The cursor walks a column with up and down
 	// and crosses to the next with left and right.
-	colW := max(20, (m.width-1)/len(content.Branches))
+	colW := max(20, (width-1)/len(content.Branches))
 	var cols []string
 	idx := 0
 	for _, branch := range content.Branches {
@@ -257,37 +257,54 @@ func (m *Model) viewUpgrades() string {
 		cols = append(cols, strings.TrimRight(c.String(), "\n"))
 	}
 	b.WriteString(lipgloss.JoinHorizontal(lipgloss.Top, cols...) + "\n")
-	b.WriteString(truncate(theme.Good.Render("✓")+theme.Subtle.Render(" owned · ")+theme.Gold.Render("○")+theme.Subtle.Render(" available · · locked · ")+theme.Good.Render("green")+theme.Subtle.Render(" clean cash"), m.width) + "\n\n")
+	b.WriteString(truncate(theme.Good.Render("✓")+theme.Subtle.Render(" owned · ")+theme.Gold.Render("○")+theme.Subtle.Render(" available · · locked · ")+theme.Good.Render("green")+theme.Subtle.Render(" clean cash"), width) + "\n")
+	return b.String()
+}
 
-	// The inspector for the selected node.
-	state := m.upgradeState(sel)
-	head := theme.Bold.Render(strings.ToUpper(sel.Name)) + "  " + theme.Gold.Render(cash(sel.Cost)+" "+pool(sel))
-	switch state {
+// upgradesDetails is the tree's pane: the inspector for the node under
+// the cursor (what it costs and from which pool, where it stands, what
+// it does, one effect per line) and the keys.
+func (m *Model) upgradesDetails() ([]section, []binding) {
+	w := m.w
+	sel, ok := m.upgradeSelected()
+	if !ok {
+		return nil, m.screenKeys()
+	}
+	lines := []string{row("cost", theme.Gold.Render(cash(sel.Cost)+" "+pool(sel)))}
+	switch m.upgradeState(sel) {
 	case "owned":
-		head += theme.Good.Render("  · owned")
+		lines = append(lines, row("status", theme.Good.Render("owned")))
 	case "available":
 		if m.canAfford(sel) {
-			head += theme.Gold.Render("  · available: ") + theme.Key.Render("enter") + theme.Gold.Render(" buys it")
+			lines = append(lines, row("status", theme.Gold.Render("available")))
 		} else {
-			head += theme.Warning.Render(fmt.Sprintf("  · %s short", cash(sel.Cost-m.poolCash(sel))))
+			lines = append(lines, row("status", theme.Warning.Render(fmt.Sprintf("%s short", cash(sel.Cost-m.poolCash(sel))))))
 		}
 	default:
 		var names []string
-		for _, id := range m.w.Missing(sel) {
+		for _, id := range w.Missing(sel) {
 			names = append(names, m.cfg.Upgrades.Upgrade(id).Name)
 		}
-		head += theme.Subtle.Render("  · needs " + strings.Join(names, " and "))
+		label := "needs"
+		for _, l := range wrap(strings.Join(names, " and "), paneTextW-paneLabelW-1) {
+			lines = append(lines, row(label, theme.Subtle.Render(l)))
+			label = ""
+		}
 	}
-	b.WriteString(truncate(head, m.width) + "\n")
-	b.WriteString(truncate("  "+theme.Subtle.Render(sel.Desc), m.width) + "\n")
-	b.WriteString(truncate("  "+strings.Join(effectWords(sel.Effects), " · "), m.width) + "\n")
+	lines = append(lines, wrapped(theme.Subtle, sel.Desc)...)
+	for _, e := range effectWords(sel.Effects) {
+		lines = append(lines, "  "+e)
+	}
 	if sel.Clean && w.Player.CleanCash == 0 {
-		b.WriteString(truncate(theme.Subtle.Render("  Clean cash only. Nothing you do yet makes any; that comes with the fronts."), m.width) + "\n")
+		lines = append(lines, wrapped(theme.Subtle, "Clean cash only. Nothing you do yet makes any; that comes with the fronts.")...)
 	}
 	if sel.Effects.FallGuy && w.FallGuyUsed {
-		b.WriteString(theme.Warning.Render("  He already took his fall. There is no second one.") + "\n")
+		lines = append(lines, wrapped(theme.Warning, "He already took his fall. There is no second one.")...)
 	}
-	return b.String()
+	if m.upgradeState(sel) == "available" && m.canAfford(sel) {
+		lines = append(lines, keyRow("u", "buy it"))
+	}
+	return []section{{strings.ToUpper(sel.Name), lines}}, m.screenKeys()
 }
 
 // upgradeConfirm is the modal body for buying the node awaiting yes.
