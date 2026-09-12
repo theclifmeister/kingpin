@@ -96,7 +96,9 @@ every screen and are in the KEYS of the screens they belong to.
    other city; the BUYERS under the table are the people who want product
    off-corner, with their own cursor.
 3. **Journal** — every headline, newest first, in the colour of the sim
-   that wrote it; the pane shows the one under the cursor whole.
+   that wrote it; the pane shows the one under the cursor whole. `f`
+   filters it by source, each source in the legend's order and then
+   every one again; the title counts what is shown against the whole.
 4. **Crew** — the payroll and the faces looking for work, the pay dial,
    and in the pane the person: loyalty against the lines, wage, post,
    temper, and what hiring, firing, paying off and asking around cost.
@@ -236,6 +238,7 @@ the float, the file, drift, the pane and the strip in a line each.
 | `x` | decline | turn the buyer's offer down | market |
 | `d` | deliver | hand the buyer what the stash here holds | market |
 | `pgup pgdn` | page | page through the journal | journal |
+| `f` | filter | show one source's headlines, then all again | journal |
 | `h` | hire | hire the selected candidate | crew |
 | `f` | fire | fire the selected member, after asking | crew |
 | `t` | assign | give the selected lieutenant a city to run | crew |

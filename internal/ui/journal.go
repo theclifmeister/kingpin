@@ -12,7 +12,9 @@ import (
 // MAIN is the list with the day in front of each headline, cut to the
 // width with an ellipsis; the pane is the headline under the cursor
 // (its day and source, the text whole), the legend of the sources'
-// colours, and the keys.
+// colours, and the keys. `f` filters it by source (#122): the list, the
+// cursor and the window are then the one source's headlines, the title
+// counts them against the whole and the legend marks the source shown.
 
 // journalSources are the sources a headline can have, in the order the
 // journal's legend lists them.
@@ -27,15 +29,57 @@ func sourceName(source string) string {
 	return source
 }
 
-// headlines is the journal newest first: the order the list draws it in
-// and the cursor counts through.
+// headlines is the journal newest first, the one source's while the
+// filter is on: the order the list draws it in and the cursor counts
+// through.
 func (m *Model) headlines() []game.Headline {
 	j := m.w.Journal
 	out := make([]game.Headline, 0, len(j))
 	for i := len(j) - 1; i >= 0; i-- {
-		out = append(out, j[i])
+		if m.journalFilter == "" || sourceName(j[i].Source) == m.journalFilter {
+			out = append(out, j[i])
+		}
 	}
 	return out
+}
+
+// journalSourcesPresent is the legend's order cut to the sources the
+// journal has a headline from: what `f` cycles through.
+func (m *Model) journalSourcesPresent() []string {
+	present := map[string]bool{}
+	for _, h := range m.w.Journal {
+		present[sourceName(h.Source)] = true
+	}
+	var out []string
+	for _, s := range journalSources {
+		if present[s] {
+			out = append(out, s)
+		}
+	}
+	return out
+}
+
+// cycleFilter turns the journal to the next source it has headlines
+// from, in the legend's order, and after the last back to every source.
+// The cursor goes to the newest headline of the list it now counts
+// through; the filter is a view cursor, kept across mornings and
+// cleared on a new run, and the title carries it, so nothing is said.
+func (m *Model) cycleFilter() {
+	present := m.journalSourcesPresent()
+	next := "" // after the last source present, and after one no longer present
+	if m.journalFilter == "" {
+		if len(present) > 0 {
+			next = present[0]
+		}
+	} else {
+		for i, s := range present {
+			if s == m.journalFilter && i+1 < len(present) {
+				next = present[i+1]
+			}
+		}
+	}
+	m.journalFilter = next
+	m.journalCursor, m.journalTop = 0, 0
 }
 
 // journalRows is how many headlines MAIN shows at once: its rows less
@@ -45,7 +89,9 @@ func (m *Model) journalRows() int {
 }
 
 // refreshJournal puts the cursor back on the newest headline: a new
-// morning, a new run or a continued save starts at the top.
+// morning, a new run or a continued save starts at the top. The filter
+// stays: a player reading the law's headlines reads the morning's too
+// (startRun and continueRun clear it, a run's journal being its own).
 func (m *Model) refreshJournal() {
 	if m.w == nil {
 		return
@@ -64,7 +110,7 @@ func (m *Model) journalUnread() int {
 
 // journalMove moves the cursor by d headlines, held inside the list.
 func (m *Model) journalMove(d int) {
-	n := len(m.w.Journal)
+	n := len(m.headlines())
 	if n == 0 {
 		m.journalCursor, m.journalTop = 0, 0
 		return
@@ -89,7 +135,7 @@ func (m *Model) journalFollow() {
 	if m.w == nil {
 		return
 	}
-	n, rows := len(m.w.Journal), m.journalRows()
+	n, rows := len(m.headlines()), m.journalRows()
 	m.journalCursor = min(max(m.journalCursor, 0), max(n-1, 0))
 	m.journalTop = min(m.journalTop, max(n-rows, 0))
 	if m.journalCursor < m.journalTop {
@@ -112,15 +158,25 @@ func (m *Model) selectedHeadline() *game.Headline {
 	return &h
 }
 
+// journalTitle is the journal's title line: the count, newest first, or
+// with a filter on the source's count against the whole and the source
+// (`JOURNAL · 14 of 212 headlines · law`).
+func (m *Model) journalTitle(shown int) string {
+	if m.journalFilter == "" {
+		return theme.PanelTitle.Render("JOURNAL") + theme.Subtle.Render(fmt.Sprintf(" · %s, newest first", plural(shown, "headline")))
+	}
+	return theme.PanelTitle.Render("JOURNAL") + theme.Subtle.Render(fmt.Sprintf(" · %d of %s · ", shown, plural(len(m.w.Journal), "headline"))) + theme.SourceText(m.journalFilter).Render(m.journalFilter)
+}
+
 // viewJournal is the journal's MAIN: the title with the count, then the
 // headlines from journalTop, each as its day and its text in the
 // source's colour, cut to the width, the cursor's row selected across.
 func (m *Model) viewJournal() string {
-	m.journalSeen = len(m.w.Journal) // shown is read
+	m.journalSeen = len(m.w.Journal) // shown is read, whatever the filter hides
 	width := m.mainWidth()
 	hs := m.headlines()
 	var b strings.Builder
-	b.WriteString(truncate(theme.PanelTitle.Render("JOURNAL")+theme.Subtle.Render(fmt.Sprintf(" · %s, newest first", plural(len(hs), "headline"))), width) + "\n")
+	b.WriteString(truncate(m.journalTitle(len(hs)), width) + "\n")
 	if len(hs) == 0 {
 		b.WriteString(theme.Subtle.Render("The paper has nothing to say about you. Yet.") + "\n")
 		return b.String()
@@ -147,7 +203,8 @@ func (m *Model) viewJournal() string {
 
 // journalDetails is the journal's pane: the headline under the cursor
 // (its day and source in the title, the text whole) and the LEGEND of
-// what the colours mean, one source a line. Both are laid out for
+// what the colours mean, one source a line, the source the filter shows
+// marked Selected. Both are laid out for
 // where they are drawn: the pane beside MAIN, or else the overlay,
 // which is wider and shorter, so the text wraps to its width and the
 // legend packs its sources in cells the way KEYS does.
@@ -172,7 +229,11 @@ func (m *Model) journalDetails() []section {
 	for i := 0; i < len(journalSources); i += cols {
 		var line string
 		for _, s := range journalSources[i:min(i+cols, len(journalSources))] {
-			line += fit(theme.SourceText(s).Render(s), keyCellW)
+			style := theme.SourceText(s)
+			if s == m.journalFilter {
+				style = theme.Selected
+			}
+			line += fit(style.Render(s), keyCellW)
 		}
 		legend = append(legend, strings.TrimRight(line, " "))
 	}
