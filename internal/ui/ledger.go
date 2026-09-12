@@ -93,13 +93,24 @@ func (m *Model) frontStatus(f game.Front) any {
 // short of what is in the till.
 var offerCols = []col{{"front", kText, 0}, {"cost", kMoney, 0}, {"washes/day", kMoney, 0}, {"upkeep/day", kMoney, 0}, {"audit", kPct, 0}, {"status", kText, 0}}
 
-func (m *Model) offerRows(rows []game.FrontOffer) [][]any {
+// A locked offer's status is the distance to its line (#148), `locked
+// · $18K to go`, or `$18K to go` alone where the table has no room for
+// the word (80 columns, or beside the pane).
+func (m *Model) offerRows(rows []game.FrontOffer, width int) [][]any {
+	out := m.offerRowsWith(rows, true)
+	if tableWidth(offerCols, out) > width {
+		out = m.offerRowsWith(rows, false)
+	}
+	return out
+}
+
+func (m *Model) offerRowsWith(rows []game.FrontOffer, long bool) [][]any {
 	var out [][]any
 	for _, o := range rows {
 		var status any
 		switch {
 		case o.Locked(m.w):
-			status = styled{theme.Subtle, "locked at " + cash(o.UnlockCash)}
+			status = styled{theme.Subtle, lockedStatus(m.w, o, long)}
 		case o.Cost > m.w.Player.DirtyCash:
 			status = styled{theme.Bad, "short " + money(o.Cost-m.w.Player.DirtyCash)}
 		default:
@@ -117,7 +128,7 @@ func (m *Model) viewFront() string {
 	}
 	m.frontCursor = max(0, min(m.frontCursor, len(rows)-1))
 	m.modalFollow(1 + m.frontCursor) // under the header
-	body := table(offerCols, m.offerRows(rows), m.frontCursor, m.modalInner())
+	body := table(offerCols, m.offerRows(rows, m.modalInner()), m.frontCursor, m.modalInner())
 	body = append(body, "", theme.Subtle.Render(fmt.Sprintf("Dirty cash %s. It opens tomorrow.", cash(m.w.Player.DirtyCash))))
 	return m.modal("BUY A FRONT", body, m.modalFooter())
 }
@@ -342,7 +353,7 @@ func (m *Model) viewLedger() string {
 	if len(offers) == 0 {
 		line(sub("You own every front there is."))
 	} else {
-		tableLines(ledgerOffer, offerCols, m.offerRows(offers))
+		tableLines(ledgerOffer, offerCols, m.offerRows(offers, width))
 	}
 
 	if top == first {
@@ -488,7 +499,7 @@ func (m *Model) offerSection(o game.FrontOffer) section {
 	}
 	switch {
 	case o.Locked(w):
-		lines = append(lines, theme.Subtle.Render("locked until peak cash "+cash(o.UnlockCash)))
+		lines = append(lines, theme.Subtle.Render("locked until peak cash "+cash(o.UnlockCash)), theme.Subtle.Render(cash(o.UnlockCash-w.Stats.PeakCash)+" to go"))
 	case o.Cost > w.Player.DirtyCash:
 		lines = append(lines, theme.Bad.Render("short "+money(o.Cost-w.Player.DirtyCash)))
 	default:

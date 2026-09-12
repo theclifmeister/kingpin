@@ -260,6 +260,7 @@ type CrewState struct {
 	HiredToday   []CrewMember
 	FiredToday   []CrewMember
 	PaidOffToday []Payoff
+	Offered      map[string]bool // roles announced as looking for work (#148): accountant, lieutenant; nil is none
 }
 
 // CrewMember is one person on the payroll (or in the hiring pool). Stats are
@@ -369,7 +370,8 @@ func (c CrewState) Lieutenants() int {
 
 // LaunderingState is the launder dial: a persistent setting, not scratch.
 type LaunderingState struct {
-	Dial events.Launder
+	Dial    events.Launder
+	Offered map[string]bool // fronts whose offer has opened and been announced (#148); nil is none
 }
 
 // Front is a business the player owns that washes dirty cash. Its rate,
@@ -507,6 +509,7 @@ type Headline struct {
 // DayReport is what the player reads in the morning.
 type DayReport struct {
 	Day        int
+	Unlocked   []string // gates crossed this morning (#148): first in the report
 	Prices     []string
 	Sales      []string
 	Heat       []string

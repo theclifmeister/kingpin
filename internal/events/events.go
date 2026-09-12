@@ -78,15 +78,32 @@ type PriceShock struct {
 
 func (PriceShock) Kind() string { return "PriceShock" }
 
-// ProductUnlocked reports that the supplier now offers a new product.
-type ProductUnlocked struct {
-	Day     int
-	Product string
-	Name    string
-	Price   float64
+// Unlocked is a gate crossed (#148): something the game kept behind a
+// line is open to you from this morning. Every gate is announced through
+// it, by the sim that owns the gate: the market for a product listed
+// (Gate "product", in every city at once; Price is its base price) and a
+// connect who will deal with you (Gate "connect", in their City); the
+// laundering sim for a front whose offer opens (Gate "front"); the crew
+// sim for a role that joins the hiring pool (Gate "role": the accountant
+// once a front is owned, the lieutenant once corners are held in two
+// cities). Why is the line crossed, in words the report prints (`peak
+// cash $25K`, `a front owned`, `corners in two cities`, `Cass at 60`).
+// The news sim's UNLOCKED section, the headline (`Unlocked` + the gate,
+// capitalised: `UnlockedFront`), the fast-forward stop and nothing else
+// read it: the law and reputation ignore it. (The gate is `Gate`, not
+// `Kind`: `Kind()` is the event's.)
+type Unlocked struct {
+	Day   int
+	Gate  string // product | front | connect | role
+	ID    string
+	Name  string
+	City  string // the city it opens in, or "" for everywhere
+	Why   string
+	Price float64 // a product's base price
+	Cost  int     // a front's price
 }
 
-func (ProductUnlocked) Kind() string { return "ProductUnlocked" }
+func (Unlocked) Kind() string { return "Unlocked" }
 
 // PriceMove reports a product's price in a city at the start and end of
 // the day.
@@ -776,18 +793,6 @@ type SupplierCollected struct {
 }
 
 func (SupplierCollected) Kind() string { return "SupplierCollected" }
-
-// SupplierUnlocked is a connect who will deal with you from this morning
-// (#72): the peak cash they wanted to see is moved and the street
-// connect in their city has put a word in.
-type SupplierUnlocked struct {
-	Day      int
-	City     string
-	Supplier string
-	Name     string
-}
-
-func (SupplierUnlocked) Kind() string { return "SupplierUnlocked" }
 
 // SupplyShort is report-only bookkeeping: a supply contract that could
 // not bring the stash to its level this morning, for want of cash over
