@@ -15,7 +15,10 @@ import (
 func (m *Model) showCard() {
 	m.cardCursor = 0
 	m.cardDone = false
-	if m.w.Dilemmas.Pending != nil {
+	if c := m.w.Dilemmas.Pending; c != nil {
+		if m.mode != modeCard {
+			m.cardScene(c) // #154: the card is dealt (once: a refused answer reopens it still)
+		}
 		m.mode = modeCard
 		return
 	}
@@ -89,6 +92,9 @@ func (m *Model) viewCard() string {
 	c := m.w.Dilemmas.Pending
 	if c == nil {
 		return m.modal("DILEMMA", []string{"Nothing to decide."}, m.modalFooter())
+	}
+	if m.cardOnScene() {
+		return m.viewCardScene(c)
 	}
 	m.cardCursor = max(0, min(m.cardCursor, len(c.Choices)-1))
 	body := append(m.wrapLines(c.Text), "")

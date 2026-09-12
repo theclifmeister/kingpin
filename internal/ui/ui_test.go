@@ -74,10 +74,12 @@ func key(s string) tea.KeyMsg {
 func endDay(t *testing.T, m *Model) {
 	t.Helper()
 	m.Update(key("n"))
+	skipScene(m)
 	if m.mode == modeStage {
 		// A tier entered overnight (#149) opens its stage before the card.
 		assertFits(t, m.View(), m.width, m.height, "stage")
 		m.Update(key("enter"))
+		skipScene(m)
 	}
 	if m.mode == modeCard {
 		assertFits(t, m.View(), m.width, m.height, "dilemma card")
@@ -87,6 +89,15 @@ func endDay(t *testing.T, m *Model) {
 		}
 		assertFits(t, m.View(), m.width, m.height, "dilemma outcome")
 		m.Update(key("enter"))
+	}
+}
+
+// skipScene ends the interstitial a morning opened on, if one is up (a
+// fixture with animation on: the card's scene, #154), so the keys
+// after it are the modal's; any key does, consumed, so esc it is.
+func skipScene(m *Model) {
+	if m.scene != nil && !m.scene.Idle {
+		m.Update(key("esc"))
 	}
 }
 
