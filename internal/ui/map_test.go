@@ -1,14 +1,16 @@
 package ui
 
 import (
+	"fmt"
 	"regexp"
-	"strconv"
 	"strings"
 	"testing"
 
 	tea "github.com/charmbracelet/bubbletea"
 	"github.com/charmbracelet/lipgloss"
 
+	"github.com/theclifmeister/kingpin/internal/content"
+	"github.com/theclifmeister/kingpin/internal/events"
 	"github.com/theclifmeister/kingpin/internal/game"
 	"github.com/theclifmeister/kingpin/internal/ui/theme"
 )
@@ -172,7 +174,7 @@ func TestMapRouteInPane(t *testing.T) {
 	text := paneText(m)
 	for _, s := range []string{
 		m.w.CityName(r.From) + " ", "▶ " + m.w.CityName(r.To), "dial", "[normal]", "days", "capacity", "fare", "/u", "seized",
-		"target", "120 " + m.w.ProductName(m.w.Products[0]), "on the road", "60 " + m.w.ProductName(m.w.Products[0]) + ", ",
+		"target", "120 " + m.w.ProductName(m.w.Products[0]), "on the road ▪ day 1 of 2", "60 " + m.w.ProductName(m.w.Products[0]),
 		"r  turn the dial", "R  set a target",
 	} {
 		if !strings.Contains(text, s) {
@@ -227,7 +229,7 @@ var underlined = regexp.MustCompile(`\x1b\[(\d+;)*4(;\d+)*m`)
 // route line is rendered whole, at 80 the strip names the selected
 // corner (or the route when the cursor is on the routes) and from 100
 // the pane's first section does, and a shipment in flight shows on its
-// route.
+// route's track (#160), which every line carries or none does.
 func checkMap(t *testing.T, m *Model, view, what string) {
 	t.Helper()
 	if m.mode != modePlay || m.screen != screenMap {
@@ -235,13 +237,19 @@ func checkMap(t *testing.T, m *Model, view, what string) {
 	}
 	plain := stripANSI(view)
 	rows := strings.Split(plain, "\n")
+	tracked := 0
 	for _, r := range m.mapRoutes() {
 		if !strings.Contains(plain, r.Name) {
 			t.Errorf("%dx%d %s: the route %s is not listed:\n%s", m.width, m.height, what, r.Name, plain)
 		}
-		if n := m.unitsOn(r.ID); n > 0 && !strings.Contains(plain, "▪"+strconv.Itoa(n)) {
-			t.Errorf("%dx%d %s: the shipment on %s is not shown:\n%s", m.width, m.height, what, r.Name, plain)
+		if strings.Contains(plain, modeEdge(r.Mode)+m.track(r.ID)+"▶") {
+			tracked++
+		} else if !strings.Contains(plain, edge(r.Mode)) {
+			t.Errorf("%dx%d %s: the route %s has neither its track nor its bare edge:\n%s", m.width, m.height, what, r.Name, plain)
 		}
+	}
+	if n := len(m.mapRoutes()); tracked != 0 && tracked != n {
+		t.Errorf("%dx%d %s: %d of %d routes carry the track:\n%s", m.width, m.height, what, tracked, n, plain)
 	}
 	if !strings.Contains(rows[1], "held ·") {
 		t.Errorf("%dx%d %s: row 1 is not the title line: %q", m.width, m.height, what, rows[1])
@@ -304,4 +312,93 @@ func TestMapGridScrollsRoutesNever(t *testing.T) {
 	}
 	m.Update(tea.WindowSizeMsg{Width: 120, Height: 40})
 	assertFits(t, m.View(), 120, 40, "map after a resize")
+}
+
+// The road shows where a shipment is (#160): a still marker on the
+// map's route line, placed on the track by the days elapsed over the
+// days in transit. A shipment sent with three days in transit sits at
+// the start the morning it left, a third and two thirds of the way on
+// the next two, then lands and the marker is gone; the pane's route
+// section counts the days; the line is within the width at 80 and 120.
+func TestRouteMarkerMoves(t *testing.T) {
+	for _, sz := range [][2]int{{80, 24}, {120, 40}} {
+		m := newTestModel(t, sz[0], sz[1])
+		w := m.w
+		var route *content.RouteConfig
+		for i := range m.cfg.Routes.Routes {
+			if m.cfg.Routes.Routes[i].Days == 3 {
+				route = &m.cfg.Routes.Routes[i]
+			}
+		}
+		if route == nil {
+			t.Fatal("no route with three days in transit")
+		}
+		route.Risk = 0 // the sim shares the slice: never seized
+		product := w.Products[0]
+		w.SetStock(route.From, product, 400)
+		sh := w.Send(game.Shipment{Route: route.ID, Mode: route.Mode, From: route.From, To: route.To, Product: product, Units: 400, Dial: events.ShipNormal, Sent: w.Day, Arrives: w.Day + 3})
+		m.Update(key("5"))
+		for !m.onRoutes || m.selectedRoute() == nil || m.selectedRoute().ID != route.ID {
+			m.Update(key("j"))
+		}
+		line := func() string {
+			view := m.View()
+			assertFits(t, view, sz[0], sz[1], "map with a shipment")
+			for _, l := range strings.Split(stripANSI(view), "\n") {
+				if strings.Contains(l, route.Name) {
+					return l
+				}
+			}
+			t.Fatalf("the route is not listed:\n%s", stripANSI(view))
+			return ""
+		}
+		for day, want := range []string{"▪────", "─▪───", "───▪─"} {
+			if got := m.track(route.ID); got != want {
+				t.Errorf("%dx%d day %d: the track reads %q, want %q", sz[0], sz[1], day, got, want)
+			}
+			if l := line(); !strings.Contains(l, modeEdge(route.Mode)+want+"▶") {
+				t.Errorf("%dx%d day %d: the line does not carry the marker at %q: %q", sz[0], sz[1], day, want, l)
+			}
+			if p := paneText(m); !strings.Contains(p, fmt.Sprintf("on the road ▪ day %d of 3", day+1)) || !strings.Contains(p, "400 "+w.ProductName(product)) {
+				t.Errorf("%dx%d day %d: the pane does not count the days:\n%s", sz[0], sz[1], day, p)
+			}
+			if len(w.Shipments) != 1 || w.Shipments[0].ID != sh.ID {
+				t.Fatalf("%dx%d day %d: shipments %+v", sz[0], sz[1], day, w.Shipments)
+			}
+			endDay(t, m)
+			closeMorning(t, m)
+		}
+		if len(w.Shipments) != 0 {
+			t.Fatalf("%dx%d: the shipment did not land: %+v", sz[0], sz[1], w.Shipments)
+		}
+		if got := m.track(route.ID); got != "─────" {
+			t.Errorf("%dx%d: the track still carries a marker after the landing: %q", sz[0], sz[1], got)
+		}
+		if l := line(); strings.Contains(l, "▪") {
+			t.Errorf("%dx%d: the line still carries a marker after the landing: %q", sz[0], sz[1], l)
+		}
+		if p := paneText(m); strings.Contains(p, "on the road") {
+			t.Errorf("%dx%d: the pane still has a shipment on the road:\n%s", sz[0], sz[1], p)
+		}
+	}
+	// Two on one cell share it with the count; a shipment landing today
+	// sits at the arrowhead's end, and a count there is kept inside.
+	m := newTestModel(t, 80, 24)
+	w := m.w
+	r := m.cfg.Routes.Routes[0]
+	w.SetStock(r.From, w.Products[0], 500)
+	for i := 0; i < 2; i++ {
+		w.Send(game.Shipment{Route: r.ID, From: r.From, To: r.To, Product: w.Products[0], Units: 10, Sent: w.Day, Arrives: w.Day + 3})
+	}
+	if got := m.track(r.ID); got != "▪2───" {
+		t.Errorf("two shipments on one cell: %q", got)
+	}
+	w.Send(game.Shipment{Route: r.ID, From: r.From, To: r.To, Product: w.Products[0], Units: 10, Sent: w.Day - 3, Arrives: w.Day})
+	if got := m.track(r.ID); got != "▪2──▪" {
+		t.Errorf("one landing today: %q", got)
+	}
+	w.Send(game.Shipment{Route: r.ID, From: r.From, To: r.To, Product: w.Products[0], Units: 10, Sent: w.Day - 3, Arrives: w.Day})
+	if got := m.track(r.ID); got != "▪2─▪2" {
+		t.Errorf("two landing today: %q", got)
+	}
 }

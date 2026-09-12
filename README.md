@@ -114,7 +114,9 @@ dashboard and fronts on the ledger. A misplaced key points you back:
    shows loyalty, wages, posts and the cost of hiring or asking questions.
 5. **Map** — your corners in blue, theirs in purple, free ones plain.
    `?` marks the corner the rival is eyeing; `$` marks your undercut tonight.
-   Routes sit below the grid. Details gives the corner or route its numbers.
+   Routes sit below the grid, each with a `▪` on its road for every
+   shipment in flight, placed by the days it has been out (`▪2` where two
+   share a day). Details gives the corner or route its numbers.
 6. **Upgrades** — seven branches; `←`/`→` changes branch. Each node sits
    under the one it needs. Details tells you the cost and what you get.
 7. **Ledger** — dirty and clean cash, fronts, route costs and fronts for
@@ -171,9 +173,9 @@ MAP · Eastside  [ ◉ Eastside ]  Bayport  3/10 held · 3 worked · ~1828/day f
                        ~357/day warm       ~249/day average    ~254/day warm        │             Pills ~44            │
                                                                                     │             Heroin ~37           │
 ROUTES                                                                              │             Coke ~17 · Meth ~5   │
-▸ Coast Road   Bayport  ──car──▶ Eastside  normal  2d · 60 units · $8/u · ~0%  ▪60  │ runner      nobody               │
-  Interstate   Bayport  ─truck─▶ Eastside  off     3d · 400 units · $3/u · ~9%      │ enforcer    nobody               │
-  The Channel  Bayport  ─boat──▶ Eastside  off     5d · 2000 units · $1/u · ~7%     │ w  push takes it ~10%, hit ~24%  │
+▸ Coast Road   Bayport  ──car──▪────▶ Eastside  normal  2d · 60 units · $8/u · ~0%  │ runner      nobody               │
+  Interstate   Bayport  ─truck──────▶ Eastside  off     3d · 400 units · $3/u · ~9% │ enforcer    nobody               │
+  The Channel  Bayport  ─boat───────▶ Eastside  off     5d · 2000 units · $1/u · ~7%│ w  push takes it ~10%, hit ~24%  │
                                                                                     │ w  boost: the till, ~$24K        │
                                                                                     │ t  tip the police: at 0 of 60    │
                                                                                     │                                  │
@@ -410,7 +412,9 @@ Bayport's wholesaler once your peak cash says you can move weight,
 spending only what is over the float the fronts leave in the till.
 
 A shipment rides the route for its days (the dial trades days against the
-chance of a seizure on each) and lands in the other stash unless the
+chance of a seizure on each; the map's route line shows where it is,
+`Bayport ─truck──▪───▶ Eastside`, and the route's details say `day 2 of
+3`) and lands in the other stash unless the
 police take it, in which case every unit is gone, heat rises in both
 cities, the street that was waiting for it spikes, the route sends it
 again tomorrow, and, if it was sent fast, the DA gets a page. The

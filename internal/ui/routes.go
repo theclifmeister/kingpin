@@ -387,9 +387,13 @@ func dialStyle(d events.RouteDial) lipgloss.Style {
 // as an edge between the cities with the dial, the route's terms at that
 // dial (`3d · 60 units · $8/u · ~3%`; `60u` where the long form would
 // not fit the width, and no terms at all where that would not either:
-// the pane has them) and what is on it (`▪60`); the routes cursor's row
-// is marked ▸ and drawn Selected across while the cursor is on the
-// routes. The selected route's targets are the pane's (routeSection).
+// the pane has them) and, on the edge, where each shipment in flight is
+// (#160: `Bayport ─truck──▪───▶ Eastside`, the track's cells being the
+// days in transit; the track goes last, where even the bare line would
+// not fit, and the pane keeps the marker whatever the width); the
+// routes cursor's row is marked ▸ and drawn Selected across while the
+// cursor is on the routes. The selected route's targets are the pane's
+// (routeSection).
 func (m *Model) routeLines(width int) []string {
 	w := m.w
 	lg := m.set.Logistics
@@ -399,21 +403,22 @@ func (m *Model) routeLines(width int) []string {
 		nameW = max(nameW, lipgloss.Width(r.Name))
 		cityW = max(cityW, lipgloss.Width(w.CityName(r.From)), lipgloss.Width(w.CityName(r.To)))
 	}
-	draw := func(units string) (lines []string, widest int) {
+	draw := func(units string, track bool) (lines []string, widest int) {
 		for i, r := range routes {
 			d := w.Route(r.ID).Dial
 			name := fit(r.Name, nameW)
-			edge := fmt.Sprintf("%s %s %s", fit(w.CityName(r.From), cityW), edge(r.Mode), fit(w.CityName(r.To), cityW))
+			road := ""
+			if track {
+				road = m.track(r.ID)
+			}
+			from := fit(w.CityName(r.From), cityW) + " " + modeEdge(r.Mode)
+			to := "▶ " + fit(w.CityName(r.To), cityW)
 			dial := fit(d.String(), 6)
 			terms := ""
 			if units != "" {
 				terms = fmt.Sprintf("  %dd · %d%s · %s/u · ~%.0f%%", lg.Days(w, r, d.Ship()), lg.Capacity(w, r), units, fare(lg.Fare(w, r)), lg.Risk(w, r, d.Ship())*100)
 			}
-			road := ""
-			if n := m.unitsOn(r.ID); n > 0 {
-				road = fmt.Sprintf("  ▪%d", n)
-			}
-			plain := name + "  " + edge + "  " + dial + terms + road
+			plain := name + "  " + from + road + to + "  " + dial + terms
 			widest = max(widest, 2+lipgloss.Width(plain))
 			mark := "  "
 			if i == m.routeCursor {
@@ -423,16 +428,19 @@ func (m *Model) routeLines(width int) []string {
 					continue
 				}
 			}
-			lines = append(lines, mark+name+"  "+theme.Subtle.Render(edge)+"  "+dialStyle(d).Render(dial)+theme.Subtle.Render(terms)+theme.RoadText.Render(road))
+			lines = append(lines, mark+name+"  "+theme.Subtle.Render(from)+markTrack(road)+theme.Subtle.Render(to)+"  "+dialStyle(d).Render(dial)+theme.Subtle.Render(terms))
 		}
 		return lines, widest
 	}
-	lines, widest := draw(" units")
+	lines, widest := draw(" units", true)
 	if widest > width {
-		lines, widest = draw("u")
+		lines, widest = draw("u", true)
 	}
 	if widest > width {
-		lines, _ = draw("")
+		lines, widest = draw("", true)
+	}
+	if widest > width {
+		lines, _ = draw("", false)
 	}
 	for i, l := range lines {
 		lines[i] = truncate(l, width)
@@ -440,15 +448,96 @@ func (m *Model) routeLines(width int) []string {
 	return lines
 }
 
-// unitsOn is how many units are on the road on a route.
-func (m *Model) unitsOn(route string) int {
-	units := 0
+// trackW is the cells of road between the mode and the arrowhead on the
+// map's route line, where a shipment's marker sits by the days it has
+// been on the road (#160): `─truck──▪───▶`.
+const trackW = 5
+
+// track is the road a route's shipments are on: trackW cells of `─`
+// with a `▪` on each cell a shipment in flight has reached (the days
+// elapsed over the days in transit, floored onto the track and clamped
+// inside it, so one landing today sits at the arrowhead's end) and the
+// count after it where two share a cell (`▪2`), plain, for the map's
+// route line. Read off World.Shipments and the day like every other
+// cell: no tick, redrawn on key.
+func (m *Model) track(route string) string {
+	counts := make([]int, trackW)
 	for _, sh := range m.w.Shipments {
 		if sh.Route == route {
-			units += sh.Units
+			counts[trackCell(sh, m.w.Day)]++
 		}
 	}
-	return units
+	cells := []rune(strings.Repeat("─", trackW))
+	for i, n := range counts {
+		if n == 0 {
+			continue
+		}
+		label := []rune("▪")
+		if n > 1 {
+			label = []rune("▪" + strconv.Itoa(n))
+		}
+		label = label[:min(len(label), trackW)]
+		at := min(i, trackW-len(label))
+		copy(cells[at:], label)
+	}
+	return string(cells)
+}
+
+// trackCell is the cell of the track a shipment has reached on day:
+// floor(elapsed / days × trackW), clamped inside the track.
+func trackCell(sh game.Shipment, day int) int {
+	days := max(1, sh.Arrives-sh.Sent)
+	elapsed := max(0, day-sh.Sent)
+	return min(trackW-1, elapsed*trackW/days)
+}
+
+// markTrack colours a track: the road in Subtle, the markers and their
+// counts in the road's colour.
+func markTrack(track string) string {
+	var b strings.Builder
+	for _, run := range splitRuns(track, '─') {
+		if strings.HasPrefix(run, "─") {
+			b.WriteString(theme.Subtle.Render(run))
+		} else {
+			b.WriteString(theme.RoadText.Render(run))
+		}
+	}
+	return b.String()
+}
+
+// splitRuns breaks s into runs of sep and runs of everything else, in
+// order, so each can be styled once.
+func splitRuns(s string, sep rune) []string {
+	var runs []string
+	var run []rune
+	for _, r := range s {
+		if len(run) > 0 && (run[0] == sep) != (r == sep) {
+			runs = append(runs, string(run))
+			run = run[:0]
+		}
+		run = append(run, r)
+	}
+	if len(run) > 0 {
+		runs = append(runs, string(run))
+	}
+	return runs
+}
+
+// shipmentLines are the pane's `on the road` rows, one per shipment in
+// flight on the route in the order sent, each in two parts the row
+// joins with ` · `: `▪ day 2 of 3`, the day it is on over the days in
+// transit, the marker the map's, and `400 Weed`.
+func (m *Model) shipmentLines(route string) [][]string {
+	var lines [][]string
+	for _, sh := range m.w.Shipments {
+		if sh.Route != route {
+			continue
+		}
+		days := max(1, sh.Arrives-sh.Sent)
+		day := min(days, max(0, m.w.Day-sh.Sent)+1)
+		lines = append(lines, []string{fmt.Sprintf("▪ day %d of %d", day, days), fmt.Sprintf("%d %s", sh.Units, m.w.ProductName(sh.Product))})
+	}
+	return lines
 }
 
 // routeSection is the route's detail for the pane: the edge, the dial
@@ -476,9 +565,15 @@ func (m *Model) routeSection(r content.RouteConfig) section {
 			label = ""
 		}
 	}
-	if road := m.roadOn(r.ID); road != "" {
-		label := "on the road"
-		for _, l := range wrap(road, paneTextW-paneLabelW-1) {
+	label := "on the road"
+	for _, sh := range m.shipmentLines(r.ID) {
+		// One row a shipment where the value column holds it, else the
+		// day on one row and the units under it.
+		rows := []string{strings.Join(sh, " · ")}
+		if lipgloss.Width(rows[0]) > paneTextW-paneLabelW-1 {
+			rows = sh
+		}
+		for _, l := range rows {
 			lines = append(lines, row(label, theme.RoadText.Render(l)))
 			label = ""
 		}
@@ -489,11 +584,15 @@ func (m *Model) routeSection(r content.RouteConfig) section {
 
 // edge draws a route's mode as an arrow of fixed width, so the routes
 // line up: ──car──▶, ─truck─▶.
-func edge(mode string) string {
+func edge(mode string) string { return modeEdge(mode) + "▶" }
+
+// modeEdge is the edge without its arrowhead, ──car──, so the map's
+// route line can lay the track between the mode and the arrowhead.
+func modeEdge(mode string) string {
 	mode = fit(mode, 5)
 	pad := 5 - lipgloss.Width(strings.TrimRight(mode, " "))
 	mode = strings.TrimRight(mode, " ")
-	return strings.Repeat("─", 1+pad/2) + mode + strings.Repeat("─", 1+pad-pad/2) + "▶"
+	return strings.Repeat("─", 1+pad/2) + mode + strings.Repeat("─", 1+pad-pad/2)
 }
 
 // askTravel asks before moving you to the other city.
