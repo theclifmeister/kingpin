@@ -232,6 +232,13 @@ func richFixture(t *testing.T, sz [2]int, check func(m *Model, view, what string
 	m.w.Rival.Arrived, m.w.Rival.Muscle, m.w.Rival.War, m.w.Rival.Observed = 1, 4, 47, true
 	m.w.Crew.Members = append(m.w.Crew.Members, game.CrewMember{ID: 900, Name: "Moose", Role: "enforcer", Skill: 70, Loyalty: 70, Nerve: 60, Wage: 65})
 	m.w.Crew.NextID = 900
+	// The tell (#69): the last corner is freed and eyed, so the map's
+	// mark, the inspector's row and the panel lines are drawn.
+	eyed := &m.w.Home().Corners[len(m.w.Home().Corners)-1]
+	m.w.Recall(eyed.Runner)
+	m.w.Recall(eyed.Enforcer)
+	eyed.Owner = game.OwnerNone
+	m.w.Rival.Eyeing, m.w.Rival.EyeingDay = eyed.ID, m.w.Day
 	m.mapCursor = 0
 	m.Update(key("w"))
 	see(m, "strike picker")

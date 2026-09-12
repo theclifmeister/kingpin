@@ -280,18 +280,26 @@ func (m *Model) viewMap() string {
 				continue
 			}
 			st := ownerStyle(c.Owner)
+			eyed := m.eyed(c)
 			mark := "·"
-			if c.Held() {
+			switch {
+			case c.Held():
 				mark = "▪"
-			} else if c.Owner == game.OwnerRival {
+			case c.Owner == game.OwnerRival:
 				mark = "▴"
+			case eyed:
+				mark = "?" // the tell (#69): the rival sets up here tomorrow
 			}
 			// The chosen corner's name cell is Selected, and stays so
-			// while the cursor is on the routes.
+			// while the cursor is on the routes; the tell's mark is the
+			// rival's colour on any other row.
 			name := fit(mark+" "+strings.ToUpper(c.Name), cellW-1)
-			if sel != nil && c.ID == sel.ID {
+			switch {
+			case sel != nil && c.ID == sel.ID:
 				name = theme.Selected.Render(name)
-			} else {
+			case eyed:
+				name = theme.RivalText.Render(mark) + st.Render(name[len(mark):])
+			default:
 				name = st.Render(name)
 			}
 			var who string
@@ -310,6 +318,8 @@ func (m *Model) viewMap() string {
 				} else {
 					who = st.Render(fit("  theirs", cellW-1))
 				}
+			case eyed:
+				who = theme.RivalText.Render(fit("  theirs tomorrow", cellW-1))
 			default:
 				who = theme.Subtle.Render(fit("  free", cellW-1))
 			}
@@ -331,6 +341,12 @@ func (m *Model) viewMap() string {
 		lines = append(lines, routes...)
 	}
 	return strings.Join(lines, "\n") + "\n"
+}
+
+// eyed reports whether the corner is the one the rival telegraphed
+// (#69): free today, theirs tomorrow unless somebody is posted on it.
+func (m *Model) eyed(c *game.Corner) bool {
+	return c.Owner == game.OwnerNone && c.ID == m.w.Rival.Eyeing
 }
 
 // driftLeft is the days a held corner nobody works has before it goes
@@ -375,6 +391,8 @@ func (m *Model) cornerSection(sel *game.Corner) section {
 			lines = append(lines, theme.Warning.Render(fmt.Sprintf("⚔ %s tonight", s.Force)))
 		}
 		lines = append(lines, row("holds", theme.RivalText.Render(plural(w.RivalHeld(), "corner"))))
+	case m.eyed(sel):
+		lines = append(lines, theme.RivalText.Render("free · they set up here tomorrow"))
 	default:
 		lines = append(lines, theme.Subtle.Render("free"))
 	}
@@ -445,7 +463,11 @@ func (m *Model) cornerSection(sel *game.Corner) section {
 			lines = append(lines, wrapped(theme.Subtle, "Taking it is a matter for the enforcers. Hire some "+screenPointer(screenCrew)+".")...)
 		}
 	default:
-		lines = append(lines, keyRow("c", "post a runner to claim it"))
+		if m.eyed(sel) {
+			lines = append(lines, keyRow("c", "post a runner to keep them off"))
+		} else {
+			lines = append(lines, keyRow("c", "post a runner to claim it"))
+		}
 		if city.ID != w.Player.Location {
 			lines = append(lines, keyRow("g", "go there to stand on it"))
 		}

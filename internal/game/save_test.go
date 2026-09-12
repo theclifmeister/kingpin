@@ -556,7 +556,7 @@ func TestSendEnforcersAndBorders(t *testing.T) {
 func TestSaveKeepsRival(t *testing.T) {
 	t.Setenv("KINGPIN_HOME", t.TempDir())
 	w := testWorld()
-	w.Rival = RivalState{Leader: "Big Sal", Personality: "chaotic", Supplier: 0.8, Cash: 1234, Muscle: 3, Arrived: 2, Observed: true, Grudge: 1, War: 33.5, Claims: 2, Flips: 1, Tips: 1}
+	w.Rival = RivalState{Leader: "Big Sal", Personality: "chaotic", Supplier: 0.8, Cash: 1234, Muscle: 3, Arrived: 2, Observed: true, Grudge: 1, War: 33.5, Claims: 2, Flips: 1, Tips: 1, Eyeing: "railyard", EyeingDay: 4}
 	w.Corner("docks").Owner = OwnerRival
 	w.Corner("home").Squeeze = 0.2
 	w.Stats.Strikes, w.Stats.CornersWon, w.Stats.CornersLost = 3, 1, 2

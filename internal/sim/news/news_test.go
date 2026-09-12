@@ -30,7 +30,7 @@ func TestEveryEmittedEventHasTemplate(t *testing.T) {
 		"CrewHired", "CrewFired", "CrewFiredInformant", "CrewQuit", "CrewSkimmed",
 		"CrewDefected", "InvestigationRun", "LieutenantWalked", "LieutenantWalkedRival",
 		"CornerClaimed", "CornerLost", "CornerRobbed", "CornerCrackdown",
-		"RivalMovedIn", "RivalClaimed", "CornerTaken", "CornerHanded", "RivalPushed",
+		"RivalMovedIn", "RivalEyeing", "RivalOutbid", "RivalClaimed", "CornerTaken", "CornerHanded", "RivalPushed",
 		"CornerStruckTaken", "CornerStruckHeld", "RivalRouted",
 		"RivalTippedPolice", "WarOpen", "WarCrackdown",
 		"DealOffered", "DealAccepted", "DealRefused", "DealBroken", // DealEnded and TributePaid are report-only

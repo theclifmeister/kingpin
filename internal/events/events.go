@@ -352,6 +352,28 @@ type CornerTaken struct {
 
 func (CornerTaken) Kind() string { return "CornerTaken" }
 
+// RivalEyeing is the tell (#69): the rival has picked the free corner it
+// sets up on tomorrow. Post somebody on it tonight and the claim fails.
+type RivalEyeing struct {
+	Day    int
+	Rival  string
+	Corner string
+	Name   string
+}
+
+func (RivalEyeing) Kind() string { return "RivalEyeing" }
+
+// RivalOutbid is a claim that failed: somebody was on the corner it
+// eyed when it came. No cash spent; a grudge held.
+type RivalOutbid struct {
+	Day    int
+	Rival  string
+	Corner string
+	Name   string
+}
+
+func (RivalOutbid) Kind() string { return "RivalOutbid" }
+
 // RivalPushed is a push on a player corner that was held off.
 type RivalPushed struct {
 	Day    int

@@ -390,7 +390,7 @@ func (m *Model) lawLines(innerW int, narrow bool) []string {
 	}
 	last := ""
 	if narrow {
-		last = m.rivalShort()
+		last = m.rivalShort(innerW)
 	} else {
 		var others []string
 		for _, cid := range w.CityOrder {
@@ -405,12 +405,17 @@ func (m *Model) lawLines(innerW int, narrow bool) []string {
 
 // rivalShort is the rival in one line for the narrow layout's LAW
 // panel: who they are and what they hold.
-func (m *Model) rivalShort() string {
+func (m *Model) rivalShort(innerW int) string {
 	w := m.w
 	if w.Rival.Arrived == 0 {
 		return theme.Subtle.Render("no rival yet")
 	}
-	return theme.RivalText.Render(w.Rival.Leader) + sep + theme.Subtle.Render(plural(w.RivalHeld(), "corner"))
+	leader := theme.RivalText.Render(w.Rival.Leader)
+	short := leader + sep + theme.Subtle.Render(plural(w.RivalHeld(), "corner"))
+	if eye := m.eyeingWord(); eye != "" {
+		return firstFit(innerW, short+sep+eye, leader+sep+eye, eye, short)
+	}
+	return short
 }
 
 // rivalLines is the RIVALS panel's content, four lines: who they are,
@@ -428,8 +433,16 @@ func (m *Model) rivalLines(innerW int) []string {
 		}
 		return ls
 	}
-	who := theme.RivalText.Render(r.Leader) + sep + theme.Subtle.Render(plural(w.RivalHeld(), "corner"))
-	who = firstFit(innerW, who+sep+theme.Subtle.Render(m.personalityWord()), who)
+	leader := theme.RivalText.Render(r.Leader)
+	who := leader + sep + theme.Subtle.Render(plural(w.RivalHeld(), "corner"))
+	temper := who + sep + theme.Subtle.Render(m.personalityWord())
+	if eye := m.eyeingWord(); eye != "" {
+		// The tell (#69) outranks the temper, the count and the name
+		// where the line has room for one of them: it needs you.
+		who = firstFit(innerW, temper+sep+eye, who+sep+eye, leader+sep+eye, eye, temper, who)
+	} else {
+		who = firstFit(innerW, temper, who)
+	}
 	war := bar("war", r.War/tun.CrackdownThreshold, fmt.Sprintf("%.0f/%.0f", r.War, tun.CrackdownThreshold))
 	switch {
 	case r.War >= tun.WarThreshold:

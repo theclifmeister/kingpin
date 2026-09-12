@@ -282,7 +282,11 @@ func (m *Model) viewRivals() string {
 		line(sub("Nobody is contesting the city yet."))
 		return strings.Join(ls, "\n")
 	}
-	line(theme.RivalText.Render(m.rivalName()) + sub(fmt.Sprintf(" · %s · %s · muscle %d", m.personalityWord(), m.rivalCorners(), r.Muscle)))
+	leader := theme.RivalText.Render(m.rivalName()) + sub(fmt.Sprintf(" · %s · %s · muscle %d", m.personalityWord(), m.rivalCorners(), r.Muscle))
+	if eye := m.eyeingWord(); eye != "" {
+		leader += sub(" · ") + eye
+	}
+	line(leader)
 	barW := max(6, min(12, width/6))
 	line(sub("trust ") + m.trustBar(barW) + "   " + sub("war ") + m.warBar(barW))
 	ls = append(ls, "")

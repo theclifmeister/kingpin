@@ -28,6 +28,16 @@ func (m *Model) personalityWord() string {
 	return m.w.Rival.Personality
 }
 
+// eyeingWord is the tell (#69) for a panel line, `eyeing Riverside` in
+// the rival's colour, or "" while no corner is spoken for.
+func (m *Model) eyeingWord() string {
+	c := m.set.Rivals.Eyeing(m.w)
+	if c == nil || c.Owner != game.OwnerNone {
+		return ""
+	}
+	return theme.RivalText.Render("eyeing " + c.Name)
+}
+
 // strikeRows are the picker's choices: the three forces, plus calling off
 // a strike already queued.
 func (m *Model) strikeRows() []string {

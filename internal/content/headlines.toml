@@ -143,6 +143,16 @@ RivalMovedIn = [
   "{{.Rival}}'s people seen on {{.Corner}}; 'they are not from here', say residents",
   "Strangers working {{.Corner}} overnight; word is {{.Rival}} sent them",
 ]
+RivalEyeing = [
+  "Word is {{.Rival}}'s people are setting up on {{.Corner}}",
+  "{{.Corner}} 'spoken for', say corner boys; {{.Rival}}'s crew expected",
+  "Strangers pacing {{.Corner}}; 'they are back tomorrow', says a neighbour",
+]
+RivalOutbid = [
+  "{{.Rival}}'s crew turn up on {{.Corner}} and find it taken",
+  "{{.Corner}} was somebody else's by the time {{.Rival}}'s people arrived",
+  "Stand-off on {{.Corner}}: {{.Rival}}'s crew leave without a word",
+]
 RivalClaimed = [
   "{{.Rival}}'s crew now working {{.Corner}}",
   "{{.Corner}} has new faces on it and they answer to {{.Rival}}",
