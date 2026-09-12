@@ -29,10 +29,23 @@ PriceShock = [
   "Dealers scramble as {{.Product}} shipment goes missing",
   "Word on the street: {{.Product}} is scarce and getting scarcer",
 ]
-ProductUnlocked = [
+# A gate crossed (#148): one key a kind of gate, `Unlocked` + the gate.
+# The news sim writes the indefinite article before a field for the
+# value (`a {{.City}}` reads `an Eastside outfit`).
+UnlockedProduct = [
   "New product turning up on {{.City}} corners: {{.Product}}",
   "{{.Product}} arrives in {{.City}}; 'somebody upstairs is connected', says source",
   "Rumour: a {{.City}} outfit has a line on {{.Product}}",
+]
+UnlockedFront = [
+  "{{.Front}} up for sale; 'cash buyers welcome', says the agent",
+  "For sale in {{.City}}: {{.Front}}, 'any reasonable offer'; the books look clean",
+  "{{.Front}} to change hands, say {{.City}} traders; 'somebody with cash is looking'",
+]
+UnlockedRole = [
+  "Word in {{.City}}: an outfit with money is hiring {{.Role}}s",
+  "{{.Name}} asking around {{.City}} for work; 'the right outfit', says one",
+  "{{.Name}} for hire in {{.City}}; 'we go where the money is'",
 ]
 PriceShockSeized = [
   "{{.Product}} scarce in {{.City}} after seizure on the road",
@@ -352,7 +365,7 @@ SupplierCollected = [
   "Beating in {{.City}} linked to money owed to {{.Name}}",
   "{{.City}} stash raided by {{.Name}}'s crew over an unpaid bill",
 ]
-SupplierUnlocked = [
+UnlockedConnect = [
   "{{.Name}} 'open for business' with a {{.City}} outfit",
   "New face in {{.City}} supply: {{.Name}} is taking orders",
 ]

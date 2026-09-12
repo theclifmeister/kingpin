@@ -141,7 +141,7 @@ what your enforcers' chances look like:
 
 <!-- capture:map-120x40 -->
 ```text
- KINGPIN  1 Dash  2 Market  3 Journal 13  4 Crew  5 Map  6 Upgr  7 Ledger  8 Rivals       Day 4 · dirty $464K · heat 12
+ KINGPIN  1 Dash  2 Market  3 Journal 17  4 Crew  5 Map  6 Upgr  7 Ledger  8 Rivals       Day 4 · dirty $464K · heat 12
 MAP · Eastside  [ ◉ Eastside ]  Bayport  3/10 held · 3 worked · ~1828/day free      ╭─ DETAILS ────────────────────────╮
  ▴ THE DOCKS         ▪ RAIL YARD         ▪ OLD MILL                                 │ THE DOCKS                        │
    theirs              Dre                 Gato ⚔ Moose                             │ Mona's since day 0               │
@@ -231,8 +231,22 @@ a supply contract will bring in.
 `F` fast-forwards until something needs you, up to a cap you choose
 (7 days by default, 30 at most). Cards, new alerts, police action, rival
 moves or offers, crew departures, audits, seizures, buyers, changes at
-the courthouse and short orders stop it. The report tells you why:
-`Stopped after 3 days: contract due today.`
+the courthouse, short orders and doors opening stop it. The report tells
+you why: `Stopped after 3 days: contract due today.`
+
+### Doors open on the way up
+
+Everything the game keeps behind a line is announced the morning it
+opens: a product listing, a front for sale, a connect who will deal with
+you, accountants or lieutenants looking for work. The report opens with
+an **UNLOCKED** section, the journal has a headline under the `unlock`
+source (`f` filters to them: every door you have opened, in order) and
+`F` stops. The next door is named before it opens: the dashboard alerts
+once you are within half its line (`The Laundromat opens at $25K peak:
+$18K to go.`), the market's notes name the next product on the ladder
+and what it takes, the ledger's fronts for sale read the distance
+(`locked · $18K to go`) and the crew screen says what the lieutenants
+wait on.
 
 ## Keys
 

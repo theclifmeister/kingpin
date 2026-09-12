@@ -302,8 +302,7 @@ func (m *Model) heatLines(innerW int, narrow bool) []string {
 // the clean cash with the day's wash, the peak, and the other city's
 // heat (the layout keeps HEAT to four lines by putting it here).
 // Narrow has the pools alone, the wash as a total, and the warning as
-// the last line, where the other city's heat and the note on a front
-// go without it.
+// the last line, where the other city's heat goes without it.
 func (m *Model) cashLines(innerW int, narrow bool) []string {
 	w := m.w
 	over := ""
@@ -319,10 +318,6 @@ func (m *Model) cashLines(innerW int, narrow bool) []string {
 		clean = firstFit(innerW, clean+theme.Subtle.Render(fmt.Sprintf("  +%s/day %s", wash, w.Laundering.Dial)), clean+theme.Subtle.Render(" +"+wash))
 	}
 	peak := theme.Subtle.Render("peak   " + cash(w.Stats.PeakCash))
-	front := ""
-	if rows := m.frontRows(); len(w.Fronts) == 0 && len(rows) > 0 && !rows[0].Locked(w) {
-		front = theme.Subtle.Render("a front is on offer")
-	}
 	last := m.otherHeat()
 	// The warning rides the dirty row where the row has the room, and
 	// is the last line where it does not (narrow, or a middling width).
@@ -330,11 +325,8 @@ func (m *Model) cashLines(innerW int, narrow bool) []string {
 		dirty = fit(dirty, lipgloss.Width(dirty)+2) + over
 		over = ""
 	}
-	switch {
-	case over != "":
+	if over != "" {
 		last = over
-	case last == "":
-		last = front
 	}
 	return []string{dirty, clean, peak, last}
 }
@@ -500,10 +492,11 @@ func newAlert(text, why string) alert { return alert{text, why, why} }
 // alerts is what needs you this morning, loudest first: somebody
 // talking, a contract due today or tomorrow, the heat where you are at
 // or over the patrol line, the dirty cash under the float while a front
-// or a route waits on it, and the wages the dirty cash cannot pay
-// tonight. The dashboard's ALERTS carry them and a fast-forward stops
-// on one the morning before did not have; the list is the one source
-// for both.
+// or a route waits on it, the wages the dirty cash cannot pay tonight,
+// and, last, the nearest gate ahead while it is within reach (#148,
+// unlockAlerts). The dashboard's ALERTS carry them and a fast-forward
+// stops on one the morning before did not have; the list is the one
+// source for both.
 func (m *Model) alerts() []alert {
 	w := m.w
 	here := w.Here()
@@ -524,6 +517,7 @@ func (m *Model) alerts() []alert {
 	if wages := m.set.Crew.Wages(w, w.Crew.Pay); wages > w.Player.DirtyCash {
 		out = append(out, newAlert(theme.Warning.Render(fmt.Sprintf("Wages %s due tonight, %s dirty in hand.", money(wages), money(w.Player.DirtyCash))), "wages short"))
 	}
+	out = append(out, m.unlockAlerts()...)
 	return out
 }
 

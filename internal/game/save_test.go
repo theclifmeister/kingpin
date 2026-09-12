@@ -604,7 +604,7 @@ func TestSaveKeepsFronts(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	if !reflect.DeepEqual(got.Fronts, w.Fronts) || got.Laundering != w.Laundering || got.Player.CleanCash != 9_000 {
+	if !reflect.DeepEqual(got.Fronts, w.Fronts) || !reflect.DeepEqual(got.Laundering, w.Laundering) || got.Player.CleanCash != 9_000 {
 		t.Fatalf("laundering did not round-trip:\n%+v %+v\n%+v %+v", got.Fronts, got.Laundering, w.Fronts, w.Laundering)
 	}
 	if !got.Fronts[0].Frozen(19) || got.Fronts[0].Frozen(20) {

@@ -7,6 +7,7 @@ import (
 
 	"github.com/theclifmeister/kingpin/internal/content"
 	"github.com/theclifmeister/kingpin/internal/events"
+	"github.com/theclifmeister/kingpin/internal/format"
 	"github.com/theclifmeister/kingpin/internal/game"
 	"github.com/theclifmeister/kingpin/internal/sim/laundering"
 )
@@ -404,5 +405,46 @@ func TestLaunderingNodesPullTheirWay(t *testing.T) {
 	}
 	if got := s.Washable(w); got != 1_000_000-cfg.Laundering.Laundering.Float/2 {
 		t.Fatalf("washable %d over a float of %d", got, s.Float(w))
+	}
+}
+
+// A front's offer is announced the morning the ledger says it is open
+// (#148): the laundering sim reads the line against the peak the clock
+// is about to stamp, so the Unlocked fires in the tick the cash crosses
+// it, once, with the offer's cost and line; a front already owned when
+// its line is first read is stamped silently; and a run under every
+// line fires none.
+func TestFrontOpensTheMorningTheLedgerSays(t *testing.T) {
+	cfg := content.MustLoad()
+	s := laundering.New(cfg.Laundering, cfg.Crew, cfg.Upgrades)
+	first := s.Offers()[0]
+	w := world(first.UnlockCash - 100)
+	if evs := step(w, s); kinds(evs)["Unlocked"] != 0 || len(w.Laundering.Offered) != 0 {
+		t.Fatalf("under the line: %v %v", kinds(evs), w.Laundering.Offered)
+	}
+	w.Player.DirtyCash = first.UnlockCash + 100 // the peak is stamped at the end of the day: not yet
+	var got []events.Unlocked
+	for _, e := range step(w, s) {
+		if ev, ok := e.(events.Unlocked); ok {
+			got = append(got, ev)
+		}
+	}
+	if len(got) != 1 || got[0].Gate != "front" || got[0].ID != first.ID || got[0].Name != first.Name || got[0].Cost != first.Cost || got[0].Why != "peak cash "+format.Cash(first.UnlockCash) || got[0].City != "" {
+		t.Fatalf("on the line: %+v", got)
+	}
+	if !w.Laundering.Offered[first.ID] {
+		t.Fatalf("not stamped: %v", w.Laundering.Offered)
+	}
+	w.Stats.PeakCash = w.Player.DirtyCash
+	if evs := step(w, s); kinds(evs)["Unlocked"] != 0 {
+		t.Fatalf("announced twice: %v", kinds(evs))
+	}
+	// An old save: the front owned before the field existed.
+	w = world(first.UnlockCash * 2)
+	if _, err := s.Buy(w, first.ID); err != nil {
+		t.Fatal(err)
+	}
+	if evs := step(w, s); kinds(evs)["Unlocked"] != 0 || !w.Laundering.Offered[first.ID] {
+		t.Fatalf("an owned front: %v %v", kinds(evs), w.Laundering.Offered)
 	}
 }

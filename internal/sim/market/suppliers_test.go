@@ -1,11 +1,13 @@
 package market_test
 
 import (
+	"fmt"
 	"math"
 	"testing"
 
 	"github.com/theclifmeister/kingpin/internal/content"
 	"github.com/theclifmeister/kingpin/internal/events"
+	"github.com/theclifmeister/kingpin/internal/format"
 	"github.com/theclifmeister/kingpin/internal/game"
 	"github.com/theclifmeister/kingpin/internal/sim"
 	"github.com/theclifmeister/kingpin/internal/sim/market"
@@ -370,8 +372,11 @@ func TestLotsBuildRel(t *testing.T) {
 	evs := clock.EndDay(w)
 	opened := false
 	for _, e := range evs {
-		if ev, ok := e.(events.SupplierUnlocked); ok && ev.Supplier == pool.ID {
+		if ev, ok := e.(events.Unlocked); ok && ev.Gate == "connect" && ev.ID == pool.ID {
 			opened = true
+			if ev.Why != fmt.Sprintf("peak cash %s and %s at %.0f", format.Cash(pool.UnlockCash), st.Name, pool.UnlockRel) {
+				t.Errorf("why %q", ev.Why)
+			}
 		}
 	}
 	if pool.Locked(w) || !pool.Opened || !opened {
