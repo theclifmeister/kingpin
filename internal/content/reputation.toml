@@ -17,6 +17,7 @@ band = 25                   # ReputationShifted fires when an axis crosses a mul
 strike_taken = 8            # a rival corner your enforcers took
 strike_held = 4             # a strike the rival held off; the neighbourhood saw it anyway
 push_held = 2               # a rival push on your corner that you held
+boost = 3                   # a rival corner's takings your enforcers took (#70): robbing them is fear, not respect
 
 # Respect: what you do for your people.
 [respect]
@@ -46,3 +47,4 @@ notoriety_heat = 0.5        # heat: extra on the heat of every unit you move you
 fear_deal = 0.25            # rivals: added to the chance it accepts a proposal; they would rather deal than fight you
 rival_claim_cut = 0.4       # rivals: fraction cut from the chance it sets up on a free corner; a feared name is left the city
 respect_trust = 0.5         # rivals: extra on the trust a kept deal-day earns
+poach_price_cut = 0.3       # rivals: fraction cut from the price of buying off a head of the rival's muscle (#70)

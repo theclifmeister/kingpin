@@ -1456,7 +1456,9 @@ func TestStrikeKeys(t *testing.T) {
 	m.w.Crew.Members = append(m.w.Crew.Members, game.CrewMember{ID: 102, Name: "Tank", Role: "enforcer", Skill: 50, Loyalty: 70, Nerve: 60, Wage: 55})
 	m.w.Crew.NextID = 102
 	m.Update(key("w"))
-	if m.mode != modeStrike || len(m.strikeRows()) != 3 {
+	// The picker's rows: the three forces for the corner and the three
+	// for its till (#70).
+	if m.mode != modeStrike || len(m.strikeRows()) != 6 {
 		t.Fatalf("w with an enforcer: mode %v rows %v", m.mode, m.strikeRows())
 	}
 	m.Update(key("3")) // hit
@@ -1473,17 +1475,16 @@ func TestStrikeKeys(t *testing.T) {
 	m.Update(key("5"))
 	m.Update(key("w"))
 	rows := m.strikeRows()
-	if len(rows) != 4 {
+	if len(rows) != 7 {
 		t.Fatalf("picker with a strike queued: %v", rows)
 	}
-	m.Update(key("4")) // stop
+	m.Update(key("7")) // stop
 	if m.w.Strike != nil {
 		t.Fatalf("stop did not call it off: %+v", m.w.Strike)
 	}
 	m.Update(key("w"))
 	m.Update(key("j"))
-	m.Update(key("j"))
-	m.Update(key("enter")) // hit again
+	m.Update(key("enter")) // hit again (the picker opens on push; the boost rows follow the forces, #70)
 	m.Update(key("n"))
 	if m.mode != modeReport || m.w.Strike != nil || m.w.Stats.Strikes != 1 {
 		t.Fatalf("after the night: mode %v strike %+v stats %+v", m.mode, m.w.Strike, m.w.Stats)
@@ -1708,9 +1709,11 @@ func TestRouteAndTravelKeys(t *testing.T) {
 	if m.mode != modePlay || w.PostOf(game.You).City != home || !strings.Contains(m.status, "go there first") {
 		t.Fatalf("posting yourself elsewhere: mode %v status %q", m.mode, m.status)
 	}
-	// t ships nothing by hand any more: it points at the crew screen.
+	// t on the map tips the police (#70), on a rival corner only: on
+	// this one it is refused, and the crew screen's assign is not
+	// pointed at.
 	m.Update(key("t"))
-	if m.mode != modePlay || m.status != "Assign on the crew screen (4)." {
+	if m.mode != modePlay || !strings.HasPrefix(m.status, "Can't tip the police there") {
 		t.Fatalf("t: mode %v status %q", m.mode, m.status)
 	}
 
@@ -2517,6 +2520,18 @@ func TestModalsFit(t *testing.T) {
 		{"guard", modeGuard, func(t *testing.T, m *Model) { onHouse(t, m); m.Update(key("e")) }},
 		{"confirm drop", modeConfirmDrop, func(t *testing.T, m *Model) { onHouse(t, m); m.Update(key("x")) }},
 		{"confirm investigate", modeConfirmInvestigate, func(t *testing.T, m *Model) { m.Update(key("4")); m.Update(key("i")) }},
+		// The books (#70): the scout and the buy-off from the rivals
+		// screen, the boost from the strike picker's fourth row and the
+		// tip from the map, on the fixture's rival corner.
+		{"confirm scout", modeConfirmScout, func(t *testing.T, m *Model) { m.Update(key("8")); m.Update(key("i")) }},
+		{"confirm buy off", modeConfirmBuyOff, func(t *testing.T, m *Model) { m.Update(key("8")); m.Update(key("$")) }},
+		{"confirm boost", modeConfirmBoost, func(t *testing.T, m *Model) {
+			m.Update(key("5"))
+			m.mapCursor = 0
+			m.Update(key("w"))
+			m.Update(key("4"))
+		}},
+		{"confirm tip", modeConfirmTip, func(t *testing.T, m *Model) { m.Update(key("5")); m.mapCursor = 0; m.Update(key("t")) }},
 		{"confirm pay off", modeConfirmPayOff, func(t *testing.T, m *Model) { m.Update(key("4")); m.Update(key("$")) }},
 		{"card", modeCard, func(t *testing.T, m *Model) { m.w.Dilemmas.Pending = testCard(m.w.Day); m.showCard() }},
 		{"card outcome", modeCard, func(t *testing.T, m *Model) {

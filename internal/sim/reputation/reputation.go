@@ -51,6 +51,11 @@ func (s *Sim) Step(w *game.World, t *game.Tick) {
 			}
 		case events.RivalPushed:
 			fear += s.cfg.Fear.PushHeld
+		case events.RivalBoosted:
+			// Robbing a rival corner's takings (#70) is fear, not respect.
+			if ev.Taken {
+				fear += s.cfg.Fear.Boost
+			}
 		case events.CrewPaid:
 			switch {
 			case ev.Short > 0:

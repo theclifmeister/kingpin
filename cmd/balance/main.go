@@ -19,7 +19,7 @@ import (
 func main() {
 	runs := flag.Int("runs", 20, "number of seeded runs")
 	days := flag.Int("days", harness.Horizon, "days to play each run for; a measuring horizon, the game itself has no cap")
-	policy := flag.String("policy", "normal", "idle | hide | quiet | normal | aggressive | careful | managed | upgraded | crewed | vigilant | territory | war | diplomat | laundered | funded | distributor | delegated | dealer | stocked | routine | leveraged | boss | pricewar | stashed")
+	policy := flag.String("policy", "normal", "idle | hide | quiet | normal | aggressive | careful | managed | upgraded | crewed | vigilant | territory | war | diplomat | laundered | funded | distributor | delegated | dealer | stocked | routine | leveraged | boss | pricewar | stashed | saboteur | tipster")
 	lt := flag.String("lt", "", "force the delegated policy's lieutenant temper: violent | greedy | careful | steady (default as generated)")
 	corners := flag.Int("corners", 3, "corners the territory and war policies work, counting yours")
 	force := flag.String("force", "push", "warn | push | hit: how hard the war policy strikes")
@@ -122,6 +122,10 @@ func main() {
 		p = harness.Boss(cfg, at(40), *lt)
 	case "stashed":
 		p = harness.Stashed(cfg, at(40), *houses, *fronts != "off")
+	case "saboteur":
+		p = harness.Saboteur(cfg, at(40))
+	case "tipster":
+		p = harness.Tipster(cfg, at(40))
 	default:
 		p = harness.Trader(cfg, events.DialNormal)
 	}
@@ -158,6 +162,9 @@ func main() {
 		wagesAt[d] = append(wagesAt[d], wages)
 	}
 	won, strikes, tips, crackdowns := 0, 0, 0, 0
+	// The books (#70): what the moves against the rival did per run.
+	scouts, reads, boosts, boostsLanded, boosted, yourTips, raids, poached := 0, 0, 0, 0, 0, 0, 0, 0
+	var rivalHeat, evidence []int
 	undercuts, undercutUnits, abandons := 0, 0, 0
 	var muscle []int
 	informants, leaks, investigations, named, defections := 0, 0, 0, 0, 0
@@ -263,6 +270,23 @@ func main() {
 				robberies++
 			case events.RivalTippedPolice:
 				tips++
+			case events.RivalScouted:
+				scouts++
+				if ev.Read {
+					reads++
+				}
+			case events.RivalBoosted:
+				boosts++
+				if ev.Taken {
+					boostsLanded++
+					boosted += ev.Cash
+				}
+			case events.PoliceTipped:
+				yourTips++
+			case events.RivalRaided:
+				raids++
+			case events.RivalMusclePoached:
+				poached += ev.Got
 			case events.PlayerUndercut:
 				undercuts++
 				undercutUnits += ev.Units
@@ -312,6 +336,8 @@ func main() {
 		}
 		rivalHeld = append(rivalHeld, res.World.RivalHeld())
 		muscle = append(muscle, res.World.Rival.Muscle)
+		rivalHeat = append(rivalHeat, int(res.World.Rival.Heat))
+		evidence = append(evidence, res.World.Heat.Evidence)
 		takens = append(takens, res.World.Stats.CornersLost)
 		won += res.World.Stats.CornersWon
 		strikes += res.World.Stats.Strikes
@@ -421,6 +447,13 @@ func main() {
 		sort.Ints(muscle)
 		fmt.Printf("price war:     %.1f undercuts per run moving %d units, %d corners abandoned (totals over %d runs), rival muscle %d at the end (median)\n",
 			float64(undercuts)/float64(*runs), undercutUnits / *runs, abandons, *runs, muscle[len(muscle)/2])
+	}
+	if scouts+boosts+yourTips+poached > 0 {
+		sort.Ints(muscle)
+		sort.Ints(rivalHeat)
+		sort.Ints(evidence)
+		fmt.Printf("books:         %.1f scouts per run (%d read), %.1f boosts (%d landed, $%d taken) per run, %.1f tips per run bringing %d raids, %d heads bought off (totals over %d runs); rival muscle %d, rival heat %d, file %d at the end (medians)\n",
+			float64(scouts)/float64(*runs), reads, float64(boosts)/float64(*runs), boostsLanded, boosted / *runs, float64(yourTips)/float64(*runs), raids, poached, *runs, muscle[len(muscle)/2], rivalHeat[len(rivalHeat)/2], evidence[len(evidence)/2])
 	}
 	if informants+leaks+investigations+defections > 0 || *snitch {
 		fmt.Printf("snitching:     %d turned, %d pages leaked, %d investigations named %d, %d defections (totals over %d runs)\n", informants, leaks, investigations, named, defections, *runs)

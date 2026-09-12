@@ -199,10 +199,20 @@ func (s *Sim) crossed(w *game.World, t *game.Tick, o *game.StrikeOrder) bool {
 	if c == nil || c.Owner != game.OwnerRival {
 		return false
 	}
+	why := fmt.Sprintf("your enforcers %s %s", pastTense(o.Force), c.Name)
+	if o.Boost {
+		why = "your enforcers robbed " + c.Name
+	}
+	return s.breakAll(w, t, why)
+}
+
+// breakAll is the player breaking every live deal at once, for the
+// reason given; it reports whether there was one to break.
+func (s *Sim) breakAll(w *game.World, t *game.Tick, why string) bool {
 	betrayed := false
 	for _, kind := range []string{game.DealTruce, game.DealTribute, game.DealSplit} {
 		if d := w.Deal(kind); d != nil {
-			s.betray(w, t, *d, fmt.Sprintf("your enforcers %s %s", pastTense(o.Force), c.Name))
+			s.betray(w, t, *d, why)
 			betrayed = true
 		}
 	}

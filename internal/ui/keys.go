@@ -111,7 +111,7 @@ func pastFirstStep(m *Model) bool { return m.modalStep() > 0 }
 // The field's shortcuts are listed there and nowhere else.
 func numberStep(m *Model) bool {
 	switch m.mode {
-	case modeFund, modeConfirmFast:
+	case modeFund, modeConfirmFast, modeConfirmBuyOff:
 		return true
 	case modeBuy:
 		return buyAt(1)(m)
@@ -235,6 +235,8 @@ var bindings = []binding{
 		do: func(m *Model, _ string) { m.askStrike() }},
 	{key: "u", label: "undercut", help: "sell cheap on the rival's corner next door", screens: on(screenMap),
 		do: func(m *Model, _ string) { m.askUndercut() }},
+	{key: "t", label: "tip police", help: "tip the police on the selected rival corner", screens: on(screenMap),
+		do: func(m *Model, _ string) { m.askTip() }},
 	{key: "r", label: "route dial", help: "the selected route: off, slow, normal, fast", screens: on(screenMap),
 		do: func(m *Model, _ string) { m.cycleRoute() }},
 	{key: "R", label: "route target", help: "what the selected route keeps the far end at", screens: on(screenMap),
@@ -262,6 +264,10 @@ var bindings = []binding{
 		do: func(m *Model, _ string) { m.answerOffer(true) }},
 	{key: "x", label: "decline", help: "turn the selected offer down", screens: on(screenRivals),
 		do: func(m *Model, _ string) { m.answerOffer(false) }},
+	{key: "i", label: "scout", help: "buy a look at the rival's books", screens: on(screenRivals),
+		do: func(m *Model, _ string) { m.askScout() }},
+	{key: "$", label: "buy off", help: "pay the rival's muscle to go home", screens: on(screenRivals),
+		do: func(m *Model, _ string) { m.askBuyOff() }},
 	// Everywhere, listed where it is used.
 	{key: "b", label: "buy", help: "buy from the supplier where you stand", screens: on(screenDashboard, screenMarket), global: true,
 		do: func(m *Model, _ string) { m.openDialog(modeBuy) }},
@@ -342,10 +348,10 @@ var modeBindings = []binding{
 	{key: "1-2", label: "repeat", modes: in(modeSell), when: step(3)},
 	{key: "1-3", label: "dial", modes: in(modeCart), when: cartOnSell},
 	{key: "1-3", label: "choose", modes: in(modeCard), when: step(0)},
-	{key: "m", label: "max", modes: in(modeBuy, modeSell, modeTarget, modeCart, modeFund, modeConfirmFast, modeMove), when: numberStep},
-	{key: "h", label: "half", modes: in(modeBuy, modeSell, modeTarget, modeCart, modeFund, modeConfirmFast, modeMove), when: numberStep},
-	{key: "↑↓", label: "±1", modes: in(modeBuy, modeSell, modeTarget, modeCart, modeFund, modeConfirmFast, modeMove), when: numberStep},
-	{key: "pgup pgdn", label: "±10", modes: in(modeBuy, modeSell, modeTarget, modeCart, modeFund, modeConfirmFast, modeMove), when: numberStep},
+	{key: "m", label: "max", modes: in(modeBuy, modeSell, modeTarget, modeCart, modeFund, modeConfirmFast, modeMove, modeConfirmBuyOff), when: numberStep},
+	{key: "h", label: "half", modes: in(modeBuy, modeSell, modeTarget, modeCart, modeFund, modeConfirmFast, modeMove, modeConfirmBuyOff), when: numberStep},
+	{key: "↑↓", label: "±1", modes: in(modeBuy, modeSell, modeTarget, modeCart, modeFund, modeConfirmFast, modeMove, modeConfirmBuyOff), when: numberStep},
+	{key: "pgup pgdn", label: "±10", modes: in(modeBuy, modeSell, modeTarget, modeCart, modeFund, modeConfirmFast, modeMove, modeConfirmBuyOff), when: numberStep},
 	{key: "enter", label: "next", modes: in(modeSell, modeTarget, modePropose, modeFront), when: step(0)},
 	{key: "enter", label: "next", modes: in(modeMove), when: moveList},
 	{key: "enter", label: "next", modes: in(modeSell, modeTarget), when: step(1)},
@@ -383,6 +389,10 @@ var modeBindings = []binding{
 	{key: "y", label: "ask", modes: in(modeConfirmInvestigate)},
 	{key: "y", label: "pay", modes: in(modeConfirmPayOff)},
 	{key: "y", label: "go", modes: in(modeConfirmTravel)},
+	{key: "y", label: "scout", modes: in(modeConfirmScout)},
+	{key: "y", label: "boost", modes: in(modeConfirmBoost)},
+	{key: "y", label: "tip", modes: in(modeConfirmTip)},
+	{key: "y enter", label: "pay", modes: in(modeConfirmBuyOff)},
 	{key: "q", label: "quit", modes: in(modeStart, modeOver)},
 	// The trade's other side (#168): listed on the product step (and a
 	// buy's connect step) alone, where the toggle is live.
@@ -390,7 +400,8 @@ var modeBindings = []binding{
 	{key: "b", label: "buy", modes: in(modeSell), when: step(0)},
 	{key: "⇧tab", label: "back", keys: []string{"shift+tab"}, modes: in(modeBuy, modeSell, modeTarget, modeCart, modePropose, modeFront, modeMove), when: pastFirstStep},
 	{key: "esc", label: "close", modes: in(modeBuy, modeSell, modeTarget, modePropose, modePost, modeStrike, modeUndercut, modeFront, modeAssign, modeFund, modeCart, modeMove, modeGuard,
-		modeConfirmNew, modeConfirmDelete, modeConfirmFire, modeConfirmEnd, modeConfirmUpgrade, modeConfirmInvestigate, modeConfirmPayOff, modeConfirmTravel, modeConfirmFast, modeConfirmDrop)},
+		modeConfirmNew, modeConfirmDelete, modeConfirmFire, modeConfirmEnd, modeConfirmUpgrade, modeConfirmInvestigate, modeConfirmPayOff, modeConfirmTravel, modeConfirmFast, modeConfirmDrop,
+		modeConfirmScout, modeConfirmBoost, modeConfirmTip, modeConfirmBuyOff)},
 	{key: "enter esc", label: "close", modes: in(modeReport, modeHelp)},
 	{key: "enter esc", label: "close", modes: in(modeCard), when: step(1)},
 	{key: "␣ esc", label: "close", modes: in(modeDetails)},
@@ -614,6 +625,8 @@ var words = [][2]string{
 	{"pane", "the details beside MAIN from 100 columns, always open"},
 	{"strip", "the pane's one line under 100 columns; ␣ opens it over MAIN"},
 	{"tier", "the stage a run is in: Corner, Crew, Territory, Distribution"},
+	{"scout", "a paid look at the rival's books: a snapshot that goes stale"},
+	{"boost", "the enforcers rob a rival corner's till, not the corner"},
 }
 
 // helpLines is the help modal's body: every binding, grouped, one a

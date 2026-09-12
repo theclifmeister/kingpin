@@ -129,6 +129,10 @@ func (s *Sim) Step(w *game.World, t *game.Tick) {
 		switch ev := e.(type) {
 		case events.CornerStruck:
 			gain[home] += src.Strike
+		case events.RivalBoosted:
+			gain[home] += src.Boost
+		case events.RivalRaided:
+			gain[home] += src.RivalRaid
 		case events.RivalPushed:
 			gain[home] += src.Push
 		case events.CornerTaken:

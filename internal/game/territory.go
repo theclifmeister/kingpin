@@ -343,7 +343,19 @@ func (w *World) SendEnforcers(corner string, force events.Force) error {
 	return nil
 }
 
-// CallOff cancels tonight's strike.
+// Boost queues the crew's enforcers against a rival corner for its
+// takings rather than the ground (#70), at a force: the same odds as a
+// strike and the same one order a night, so a boost queued replaces a
+// strike and a strike a boost. The rivals sim resolves it.
+func (w *World) Boost(corner string, force events.Force) error {
+	if err := w.SendEnforcers(corner, force); err != nil {
+		return err
+	}
+	w.Strike.Boost = true
+	return nil
+}
+
+// CallOff cancels tonight's strike, or boost.
 func (w *World) CallOff() { w.Strike = nil }
 
 // NextDoor is the worked share you cut a rival corner from (#68): the

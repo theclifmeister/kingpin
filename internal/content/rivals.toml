@@ -226,3 +226,99 @@ heat = 18
 war = 25
 loyalty = 6
 trust = 12
+
+# The books (#70): the player's fourth answer to the rival, beside the
+# enforcers, the table and the price war. The rival is a machine with a
+# weak point: its muscle is what the take pays for and its chest is what
+# a hire or a claim needs (#139), so a drain is felt. Four moves, each a
+# decision with a price. Scouting buys a snapshot of its books (Known:
+# cash, income, muscle, the wage bill, and the day they were read) at
+# scout_cost, with the odds of crew.toml's investigation (base, plus
+# scout_skill at the best enforcer's skill 100, plus scout_learn per
+# empty night since the last read); the snapshot goes stale after
+# stale_days and the panel says how old it is. A failed scout costs the
+# money and reads nothing. The scout roll comes off the books side stream
+# (Tick.Sub("books")), so a run that never scouts is the old run.
+[books]
+scout_cost = 2000
+scout_base = 0.25
+scout_skill = 0.6
+scout_learn = 0.2
+stale_days = 10
+
+# Boosting (#70): the enforcers go in on a rival corner for the day's
+# takings, not the ground. One strike order a night, so a boost is sent
+# where a strike is, at a force, with the strike's odds (rivals.Sim.Odds:
+# the picker shows one number and the dice use it) and the roll the strike
+# makes; it never flips the corner. A boost that lands takes take of the
+# corner's day of takings (the till: the street value it moved today, a
+# price war's squeeze off, which is its income over margin) off the
+# rival's chest and into your dirty cash (at half the margin a boost
+# took $530 and the chest grew regardless); it draws heat (times the corner's heat) and adds war, both
+# between warn's and push's, and costs the enforcers loyalty (the toll,
+# by nerve, as a strike's). One that fails costs fail_loss instead and,
+# against a rival with more than fail_muscle heads, one enforcer is hurt
+# (fail_hurt skill, the one with the least nerve). A boost at push or hit
+# under a live deal is a betrayal as a strike is; at warn it is not. It
+# is fear, not respect (reputation.toml [fear] boost), and it holds no
+# grudge: the war and the force's trust are its price at the table (a
+# grudge a landed boost brought the saboteur 24 calls in 65 days, a hit
+# war's noise).
+[boost]
+take = 1.0
+heat = 3
+war = 6
+loyalty = 2
+fail_loss = 4
+fail_muscle = 4
+fail_hurt = 5
+
+# Tipping the police on a rival corner (#70): free in cash, expensive in
+# everything else. Rival.Heat (0..100) rises by heat per tip, and while
+# it is over zero by push_heat per push the rival makes (a rival already
+# under police attention draws more with every push; at zero its own
+# violence draws none, so a run that never tips is the old run), and
+# fades by decay of itself a day. Over police_notice the police take the
+# corner last tipped (RivalRaided: the corner to the street, raid_muscle
+# of its muscle gone, its heat down by police_notice), the mirror of the
+# rival's own calls, and not twice within raid_days: a tip a night is a
+# corner every raid_days, not a rival routed in a month for nothing (a
+# tipster with no cooldown had every rival at zero corners by day 30 on
+# five seeds). A raid is not a rout: the police take a corner, not a
+# faction, so a rival raided off its last corner is not sent to regroup
+# and sets up again at its own pace. A tip costs trust off Rival.Trust, a raid adds grudge to
+# its grudge (a grudge a tip made an expansionist push at full pace past
+# its cap); under a truce or a tribute a tip is a betrayal (the truce
+# binds the rival to no tips, so it binds you); and heat.toml's
+# tip_evidence is the chance the DA's file gains a page anyway: talking
+# to the police is talking to the police. A raid is news on a home block:
+# law.toml [pressure] rival_raid.
+[tip]
+heat = 15
+push_heat = 5
+decay = 0.05
+police_notice = 60
+raid_muscle = 0.25
+raid_days = 15
+trust = 8
+grudge = 1
+
+# Buying off muscle (#70): dirty cash to send the rival's people home.
+# They leave the rival and never join you. A head costs muscle_price
+# corner-days plus cash_share of the rival's chest per head it keeps (a
+# well-paid crew costs more), cut by your respect (reputation.toml
+# [effects] poach_price_cut). One order a night, resolved by the rivals
+# sim off the books side stream: at odds it lands, the heads walk
+# (never more than the rival has; what you paid for men who were not
+# there comes back) and the rival never finds out; failing, the money is
+# gone and it holds a grudge (grudge). A head sent home is out of the
+# pool the rival hires from (Rival.Away: it wants that many fewer), and
+# so is one a raid put in the van; they come back one every away_days
+# days. Without it a head bought off was hired back in the morning out
+# of the day's take, and a saboteur bought 58 on one seed for nothing.
+[poach]
+muscle_price = 3.0
+cash_share = 0.5
+odds = 0.7
+grudge = 1
+away_days = 5

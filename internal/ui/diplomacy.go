@@ -340,14 +340,19 @@ func (m *Model) viewRivals() string {
 	line(sectionTitle("OFFERS", theme.Rivals))
 	if len(w.Offers) == 0 {
 		line(sub("Nothing on the table."))
-		return strings.Join(ls, "\n")
+	} else {
+		m.dealCursor = max(0, min(m.dealCursor, len(w.Offers)-1))
+		var rows [][]any
+		for _, o := range w.Offers {
+			rows = append(rows, []any{o.Deal.Kind, m.dealTerms(o.Deal), day(o.Expires)})
+		}
+		ls = append(ls, table(rivalOfferCols, rows, m.dealCursor, width)...)
 	}
-	m.dealCursor = max(0, min(m.dealCursor, len(w.Offers)-1))
-	var rows [][]any
-	for _, o := range w.Offers {
-		rows = append(rows, []any{o.Deal.Kind, m.dealTerms(o.Deal), day(o.Expires)})
-	}
-	ls = append(ls, table(rivalOfferCols, rows, m.dealCursor, width)...)
+	ls = append(ls, "")
+
+	// The books (#70): what a scout last read, and the police's
+	// attention on them.
+	ls = append(ls, m.booksLines(width)...)
 	return strings.Join(ls, "\n")
 }
 
