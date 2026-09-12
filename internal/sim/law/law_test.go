@@ -268,18 +268,21 @@ func TestCampaigns(t *testing.T) {
 	w.Player.CleanCash = 100_000_000
 
 	// The window: shut the day before it opens, open from open_days out
-	// to the day of the vote, shut the day after.
+	// (the tick of that day stamps it for the world's day, which is the
+	// tick's once the clock has stepped) to the day before the vote, and
+	// shut on the day of it, the election's tick having resolved the
+	// day before.
 	opens := tun.TermDays - cmp.OpenDays
-	s.Step(w, tick(w, opens-2))
+	s.Step(w, tick(w, opens-1))
 	if w.Law.CampaignOpen || s.CampaignOpen(w, opens-1) {
 		t.Fatalf("campaign open %d days out", tun.TermDays-(opens-1))
 	}
 	if err := w.Back(home, "reform", 1); err != game.ErrCampaignClosed {
 		t.Fatalf("backed before the window: %v", err)
 	}
-	s.Step(w, tick(w, opens-1))
-	if !w.Law.CampaignOpen || !s.CampaignOpen(w, opens) || !s.CampaignOpen(w, tun.TermDays) || s.CampaignOpen(w, tun.TermDays+1) {
-		t.Fatalf("window: stamped %v, %d %v, %d %v, %d %v", w.Law.CampaignOpen, opens, s.CampaignOpen(w, opens), tun.TermDays, s.CampaignOpen(w, tun.TermDays), tun.TermDays+1, s.CampaignOpen(w, tun.TermDays+1))
+	s.Step(w, tick(w, opens))
+	if !w.Law.CampaignOpen || !s.CampaignOpen(w, opens) || !s.CampaignOpen(w, tun.TermDays-1) || s.CampaignOpen(w, tun.TermDays) {
+		t.Fatalf("window: stamped %v, %d %v, %d %v, %d %v", w.Law.CampaignOpen, opens, s.CampaignOpen(w, opens), tun.TermDays-1, s.CampaignOpen(w, tun.TermDays-1), tun.TermDays, s.CampaignOpen(w, tun.TermDays))
 	}
 
 	// Money in: the campaign holds it, the report has it, the city talks.
@@ -289,7 +292,7 @@ func TestCampaigns(t *testing.T) {
 	for _, c := range w.Cities {
 		c.Pressure = 20
 	}
-	tk := tick(w, opens)
+	tk := tick(w, opens+1)
 	s.Step(w, tk)
 	camp := w.Home().Campaign
 	if camp.Ticket != "reform" || camp.Cash != 2*cmp.Cash || camp.Hedged || kinds(tk)["CampaignBacked"] != 1 || w.Stats.Campaigns != 1 {

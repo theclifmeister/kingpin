@@ -132,10 +132,11 @@ func (s *Sim) Swing(w *game.World) float64 {
 
 // CampaignOpen says whether the next election is within open_days of
 // day, so the tickets take money (#193). It is what the sim stamps on
-// w.Law.CampaignOpen for the day to come.
+// w.Law.CampaignOpen for the day to come: open while the dashboard's
+// countdown reads open_days or less, shut once the vote is counted.
 func (s *Sim) CampaignOpen(w *game.World, day int) bool {
 	next := s.NextElection(w)
-	return next > 0 && day <= next && next-day <= s.cfg.Campaign.OpenDays
+	return next > 0 && day < next && next-day <= s.cfg.Campaign.OpenDays
 }
 
 // Step turns today's funding into goodwill, moves every city's pressure
@@ -329,9 +330,10 @@ func (s *Sim) Step(w *game.World, t *game.Tick) {
 		}
 	}
 
-	// Tomorrow's campaign window (#193): the tickets take money from
-	// open_days before the election to the day of it.
-	w.Law.CampaignOpen = s.CampaignOpen(w, t.Day+1)
+	// Tomorrow's campaign window (#193): after this step the world's day
+	// is the tick's, and the tickets take money from open_days out to
+	// the day before the vote (the election's tick resolves that day).
+	w.Law.CampaignOpen = s.CampaignOpen(w, t.Day)
 }
 
 // replaceChief puts a new chief in office: a new name and a personality
