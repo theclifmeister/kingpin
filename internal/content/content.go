@@ -422,6 +422,7 @@ type RoleConfig struct {
 type RivalsConfig struct {
 	Rivals      RivalsTuning                 `toml:"rivals"`
 	Pace        PaceTuning                   `toml:"pace"`
+	Pricewar    PricewarTuning               `toml:"pricewar"`
 	Diplomacy   DiplomacyTuning              `toml:"diplomacy"`
 	Deal        map[string]DealConfig        `toml:"deal"`
 	Personality map[string]PersonalityConfig `toml:"personality"`
@@ -463,6 +464,20 @@ type PaceTuning struct {
 	ClaimScaleMax float64 `toml:"claim_scale_max"`
 	ClaimCooldown int     `toml:"claim_cooldown"`
 	ArriveGrace   int     `toml:"arrive_grace"`
+}
+
+// PricewarTuning is the price war (#68): what working a corner cheap next
+// to a rival's takes off it, what it costs the player, and how the rival
+// answers. The market sim reads the first three (steal, price_cut, glut)
+// when it resolves the night's orders at home; the rivals sim the rest.
+type PricewarTuning struct {
+	Steal        float64 `toml:"steal"`         // share of the rival corner's demand taken at normal by a player holding all its neighbours
+	PriceCut     float64 `toml:"price_cut"`     // discount off street price the undercut units sell at
+	Glut         float64 `toml:"glut"`          // multiplier on the undercut units' price impact
+	War          float64 `toml:"war"`           // war heat per undercut day
+	Grudge       bool    `toml:"grudge"`        // a corner starved to the line adds to the rival's grudge
+	PricewarDays int     `toml:"pricewar_days"` // days squeezed running before the rival answers
+	PricewarPush float64 `toml:"pricewar_push"` // multiplier on push_chance for the answer
 }
 
 type PersonalityConfig struct {

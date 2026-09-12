@@ -220,6 +220,8 @@ var bindings = []binding{
 		do: func(m *Model, _ string) { m.abandonSelected() }},
 	{key: "w", label: "send enforcers", help: "send the enforcers at the selected corner", screens: on(screenMap),
 		do: func(m *Model, _ string) { m.askStrike() }},
+	{key: "u", label: "undercut", help: "sell cheap on the rival's corner next door", screens: on(screenMap),
+		do: func(m *Model, _ string) { m.askUndercut() }},
 	{key: "r", label: "route dial", help: "the selected route: off, slow, normal, fast", screens: on(screenMap),
 		do: func(m *Model, _ string) { m.cycleRoute() }},
 	{key: "R", label: "route target", help: "what the selected route keeps the far end at", screens: on(screenMap),
@@ -303,7 +305,7 @@ var bindings = []binding{
 // alias). The keys themselves are handled by handleKey; the table is
 // what the footer and the status bar say.
 var modeBindings = []binding{
-	{key: "↑↓", label: "pick", modes: in(modeStart, modePost, modeStrike, modeFront, modeAssign, modePropose)},
+	{key: "↑↓", label: "pick", modes: in(modeStart, modePost, modeStrike, modeUndercut, modeFront, modeAssign, modePropose)},
 	{key: "↑↓", label: "pick", modes: in(modeSell, modeTarget), when: step(0)},
 	{key: "↑↓", label: "pick", modes: in(modeBuy), when: buyList},
 	{key: "↑↓", label: "pick", modes: in(modeCart), when: cartHasLines},
@@ -341,6 +343,7 @@ var modeBindings = []binding{
 	{key: "enter", label: "propose", modes: in(modePropose), when: step(1)},
 	{key: "enter", label: "post", modes: in(modePost)},
 	{key: "enter", label: "send", modes: in(modeStrike)},
+	{key: "enter", label: "undercut", modes: in(modeUndercut)},
 	{key: "enter", label: "assign", modes: in(modeAssign)},
 	{key: "enter", label: "give", modes: in(modeFund)},
 	{key: "enter", label: "decide", modes: in(modeCard), when: step(0)},
@@ -357,7 +360,7 @@ var modeBindings = []binding{
 	{key: "y", label: "go", modes: in(modeConfirmTravel)},
 	{key: "q", label: "quit", modes: in(modeStart, modeOver)},
 	{key: "⇧tab", label: "back", keys: []string{"shift+tab"}, modes: in(modeBuy, modeSell, modeTarget, modeCart, modePropose), when: pastFirstStep},
-	{key: "esc", label: "close", modes: in(modeBuy, modeSell, modeTarget, modePropose, modePost, modeStrike, modeFront, modeAssign, modeFund, modeCart,
+	{key: "esc", label: "close", modes: in(modeBuy, modeSell, modeTarget, modePropose, modePost, modeStrike, modeUndercut, modeFront, modeAssign, modeFund, modeCart,
 		modeConfirmNew, modeConfirmDelete, modeConfirmFire, modeConfirmEnd, modeConfirmUpgrade, modeConfirmInvestigate, modeConfirmPayOff, modeConfirmTravel, modeConfirmFast)},
 	{key: "enter esc", label: "close", modes: in(modeReport, modeHelp)},
 	{key: "enter esc", label: "close", modes: in(modeCard), when: step(1)},
@@ -568,6 +571,7 @@ var words = [][2]string{
 	{"target", "what a route keeps the far end at: units or days of demand"},
 	{"file", "the DA's evidence: stings and raids add pages, enough indicts"},
 	{"drift", "a held corner nobody works goes back to the street in days"},
+	{"undercut", "sell cheap on a rival corner next door: they lose, no heat"},
 	{"keep at", "a supply contract: the stash bought back to a level daily"},
 	{"standing", "a sell order that stands nightly until cancelled, at a cut"},
 	{"connect", "who sells you product: a price, a lot, a temper, a rel"},

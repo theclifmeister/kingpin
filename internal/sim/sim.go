@@ -51,7 +51,7 @@ func Default(cfg *content.Config) (*Set, []game.Simulation, error) {
 	if err != nil {
 		return nil, nil, err
 	}
-	mk, err := market.New(cfg.Market, cfg.City, cfg.Routes.Shipping, cfg.Upgrades, cfg.Reputation.Effects, cfg.Buyers, cfg.Suppliers)
+	mk, err := market.New(cfg.Market, cfg.City, cfg.Routes.Shipping, cfg.Upgrades, cfg.Reputation.Effects, cfg.Buyers, cfg.Suppliers, cfg.Rivals.Pricewar)
 	if err != nil {
 		return nil, nil, err
 	}
@@ -105,7 +105,7 @@ func NewWorld(cfg *content.Config, seed uint64) *game.World {
 	rivals.New(cfg.Rivals, cfg.Names, cfg.Reputation.Effects, cfg.Law.Effects, cfg.Upgrades).Seed(w, rng)
 	laundering.New(cfg.Laundering, cfg.Crew, cfg.Upgrades).Seed(w)
 	law.New(cfg.Law, cfg.Names).Seed(w, rng)
-	if mk, err := market.New(cfg.Market, cfg.City, cfg.Routes.Shipping, cfg.Upgrades, cfg.Reputation.Effects, cfg.Buyers, cfg.Suppliers); err == nil {
+	if mk, err := market.New(cfg.Market, cfg.City, cfg.Routes.Shipping, cfg.Upgrades, cfg.Reputation.Effects, cfg.Buyers, cfg.Suppliers, cfg.Rivals.Pricewar); err == nil {
 		mk.Seed(w, rng)
 	}
 	return w

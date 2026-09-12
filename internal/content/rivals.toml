@@ -45,6 +45,33 @@ claim_scale_max = 1.5
 claim_cooldown = 12
 arrive_grace = 5
 
+# The price war (#68): the player's third answer to a rival corner, money.
+# Working a corner next to one of the rival's cheap takes a share of its
+# demand: steal of the rival corner's demand at the normal dial, scaled by
+# the dial's impact and by the worked share of its neighbours you hold
+# (two of your corners bordering it cut deeper than one; all of them cut
+# the full share), served on top of your own corners' demand by tonight's
+# orders at price_cut off the street price, and with glut on those units'
+# price impact, so a long price war crashes the product you fight it
+# with. The rival corner's squeeze carries the share taken that day, so
+# its income there falls without it knowing who did it. Each undercut day
+# adds war to the war, and no public pressure: it is business, not
+# violence. A corner squeezed pricewar_days days (a rest that long
+# forgets them) gets an answer by personality, and, if grudge, a grudge
+# held with it (so tip_chance applies; a grudge every undercut day made
+# the price war hotter than a hit war): a defensive or expansionist rival
+# pushes on the player corner doing the cutting at push_chance times
+# pricewar_push, an opportunist abandons the corner (RivalAbandoned) and
+# claims elsewhere, a chaotic one rolls between the two.
+[pricewar]
+steal = 0.20
+price_cut = 0.10
+glut = 1.4
+war = 2
+grudge = true
+pricewar_days = 5
+pricewar_push = 2.0
+
 # Diplomacy (#32): the table. A proposal is answered the next morning with
 # a chance built from the deal kind's base, the terms asked (the easy
 # option adds `terms`, the hard one takes it away), accept_trust at full

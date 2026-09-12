@@ -606,6 +606,34 @@ func Warlike(cfg *content.Config, lieLowAt float64, corners int, force events.Fo
 	}
 }
 
+// RivalBooks is the rival's day as the rivals sim keeps it: what its
+// corners earn it today (rivals.Sim.Income, a price war's squeeze off)
+// and what its muscle costs it (muscle times muscle_wage). It is what
+// says whether money can hurt it: since #60 the income is hundreds of
+// times the wage bill (#139 rescales it), so a price war (#68) cuts what
+// a corner earns and never what it can pay.
+func RivalBooks(cfg *content.Config, w *game.World) (income, wages int) {
+	rv := rivals.New(cfg.Rivals, cfg.Names, cfg.Reputation.Effects, cfg.Law.Effects, cfg.Upgrades)
+	return rv.Income(w), w.Rival.Muscle * cfg.Rivals.Rivals.MuscleWage
+}
+
+// Pricewar plays like Territory and fights with money (#68): every day
+// it can, it undercuts the biggest rival corner next to one it works,
+// at the dial, instead of sending the enforcers in; it never strikes.
+// It is the baseline for "a player who starves the rival out".
+func Pricewar(cfg *content.Config, lieLowAt float64, corners int, dial events.Dial) Policy {
+	territory := Territory(cfg, lieLowAt, corners)
+	return func(w *game.World) {
+		territory(w)
+		if w.LieLow {
+			return
+		}
+		if c := pickCorner(w, func(c game.Corner) bool { return w.CanUndercut(c.ID) == nil }, size); c != nil {
+			_ = w.Undercut(c.ID, dial)
+		}
+	}
+}
+
 // Outbidder plays like Territory and answers the tell (#69): the
 // morning the rival is eyeing a free corner it posts a runner there,
 // an idle one if it has one, else the one on its smallest worked

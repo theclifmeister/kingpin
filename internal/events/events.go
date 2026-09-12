@@ -105,19 +105,21 @@ func (PriceMove) Kind() string { return "PriceMove" }
 // sim their temper. Standing says the order stood rather than being
 // placed that day, Delegated that it was theirs and not the player's.
 type PlayerSold struct {
-	Day            int
-	City           string
-	Product        string
-	Wanted         int
-	Sold           int
-	Dial           Dial
-	AvgPrice       float64
-	Revenue        int
-	Lieutenant     int
-	LieutenantName string
-	Standing       bool // a standing order, yours (#114) or the lieutenant's, not one placed today
-	Delegated      bool // the standing order was the lieutenant's (World.Delegated), not one you set
-	Cut            int  // dirty cash the crew kept off a standing order of yours ([standing] cut); zero otherwise
+	Day             int
+	City            string
+	Product         string
+	Wanted          int
+	Sold            int
+	Dial            Dial
+	AvgPrice        float64
+	Revenue         int
+	Lieutenant      int
+	LieutenantName  string
+	Standing        bool // a standing order, yours (#114) or the lieutenant's, not one placed today
+	Delegated       bool // the standing order was the lieutenant's (World.Delegated), not one you set
+	Cut             int  // dirty cash the crew kept off a standing order of yours ([standing] cut); zero otherwise
+	Undercut        int  // of Sold, the units served off the rival's corners by a price war (#68); PlayerUndercut has them per corner
+	UndercutRevenue int  // of Revenue, what those units made at price_cut off
 }
 
 func (PlayerSold) Kind() string { return "PlayerSold" }
@@ -342,12 +344,13 @@ func (RivalMovedIn) Kind() string { return "RivalMovedIn" }
 // flipped from the player (From player), whose people walked back. Handed
 // names the defector who walked the rival onto it, if that is how.
 type CornerTaken struct {
-	Day    int
-	Corner string
-	Name   string
-	Rival  string
-	From   string // none, player
-	Handed string
+	Day      int
+	Corner   string
+	Name     string
+	Rival    string
+	From     string // none, player
+	Handed   string
+	Pricewar bool // the push was its answer to a price war on a corner next door (#68)
 }
 
 func (CornerTaken) Kind() string { return "CornerTaken" }
@@ -376,10 +379,11 @@ func (RivalOutbid) Kind() string { return "RivalOutbid" }
 
 // RivalPushed is a push on a player corner that was held off.
 type RivalPushed struct {
-	Day    int
-	Corner string
-	Name   string
-	Rival  string
+	Day      int
+	Corner   string
+	Name     string
+	Rival    string
+	Pricewar bool // the push was its answer to a price war on a corner next door (#68)
 }
 
 func (RivalPushed) Kind() string { return "RivalPushed" }
@@ -1118,3 +1122,35 @@ type ContractExpired struct {
 }
 
 func (ContractExpired) Kind() string { return "ContractExpired" }
+
+// PlayerUndercut is report-only bookkeeping (#68): the units of a product
+// tonight's order moved off one of the rival's corners at price_cut off,
+// the share of that corner's demand for the product they were, and what
+// they made. The units are part of the night's PlayerSold, which every
+// sim counts them in; this is the breakdown per corner.
+type PlayerUndercut struct {
+	Day     int
+	Corner  string // corner id
+	Name    string
+	Product string
+	Units   int
+	Share   float64 // of the corner's demand for the product
+	Revenue int
+	Dial    Dial // the undercut's dial
+}
+
+func (PlayerUndercut) Kind() string { return "PlayerUndercut" }
+
+// RivalAbandoned is the rival giving a corner back to the street of its
+// own accord: a price war (#68, Reason pricewar) made it not worth
+// holding. The corner is free: post a runner before it drifts to
+// somebody else.
+type RivalAbandoned struct {
+	Day    int
+	Rival  string
+	Corner string
+	Name   string
+	Reason string // pricewar
+}
+
+func (RivalAbandoned) Kind() string { return "RivalAbandoned" }

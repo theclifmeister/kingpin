@@ -456,6 +456,9 @@ func (s *Sim) Step(w *game.World, t *game.Tick) {
 				d.Name = ev.Handed
 				add("rivals", "CornerHanded", d)
 				rep.Territory = append(rep.Territory, fmt.Sprintf("%s walked %s's crew onto %s. It is theirs now.", ev.Handed, ev.Rival, ev.Name))
+			case ev.From == game.OwnerPlayer && ev.Pricewar:
+				add("rivals", "CornerTaken", d)
+				rep.Territory = append(rep.Territory, fmt.Sprintf("%s's crew TOOK %s from you: the price war's answer. Your people walked home.", ev.Rival, ev.Name))
 			case ev.From == game.OwnerPlayer:
 				add("rivals", "CornerTaken", d)
 				rep.Territory = append(rep.Territory, fmt.Sprintf("%s's crew TOOK %s from you. Your people walked home.", ev.Rival, ev.Name))
@@ -477,7 +480,11 @@ func (s *Sim) Step(w *game.World, t *game.Tick) {
 			d := base
 			d.Corner, d.Rival = ev.Name, ev.Rival
 			add("rivals", "RivalPushed", d)
-			rep.Territory = append(rep.Territory, fmt.Sprintf("%s's crew pushed on %s. You held it.", ev.Rival, ev.Name))
+			if ev.Pricewar {
+				rep.Territory = append(rep.Territory, fmt.Sprintf("%s's crew pushed on %s over the price war. You held it.", ev.Rival, ev.Name))
+			} else {
+				rep.Territory = append(rep.Territory, fmt.Sprintf("%s's crew pushed on %s. You held it.", ev.Rival, ev.Name))
+			}
 		case events.CornerStruck:
 			d := base
 			d.Corner, d.Rival = ev.Name, ev.Rival
@@ -499,6 +506,15 @@ func (s *Sim) Step(w *game.World, t *game.Tick) {
 			rep.Territory = append(rep.Territory, fmt.Sprintf("Somebody tipped the police about you. It was %s. Heat +%.0f.", ev.Rival, ev.Heat))
 		case events.RivalUndercut:
 			rep.Territory = append(rep.Territory, fmt.Sprintf("%s's crew are undercutting you on %s: -%.0f%% demand there.", ev.Rival, strings.Join(ev.Corners, ", "), ev.Share*100))
+		case events.PlayerUndercut:
+			// The price war (#68): one line per corner and product, in
+			// SALES, since the units are part of the night's sale.
+			rep.Sales = append(rep.Sales, fmt.Sprintf("Undercut %s on %s: %d %s cheap = +%s, %.0f%% of their trade there", w.Rival.Leader, ev.Name, ev.Units, w.ProductName(ev.Product), format.Money(ev.Revenue), ev.Share*100))
+		case events.RivalAbandoned:
+			d := base
+			d.Corner, d.Rival = ev.Name, ev.Rival
+			add("rivals", "RivalAbandoned", d)
+			rep.Territory = append(rep.Territory, fmt.Sprintf("%s's crew GAVE UP %s: the price war made it not worth holding. It is free; post a runner before somebody else does.", ev.Rival, ev.Name))
 		case events.DealOffered:
 			d := base
 			d.Rival, d.Deal = ev.Rival, ev.Deal

@@ -2,6 +2,7 @@ package ui
 
 import (
 	"fmt"
+	"math"
 	"strings"
 
 	"github.com/theclifmeister/kingpin/internal/events"
@@ -114,6 +115,113 @@ func (m *Model) viewStrike() string {
 		body = append(body, theme.Subtle.Render(l))
 	}
 	return m.modal("SEND ENFORCERS", body, m.modalFooter())
+}
+
+// dials are the undercut picker's rows, in dial order (#68).
+var dials = []events.Dial{events.DialQuiet, events.DialNormal, events.DialAggressive}
+
+// undercutRows are the picker's choices: the three dials, plus calling
+// off an undercut already queued on the corner.
+func (m *Model) undercutRows() []string {
+	rows := []string{"quiet", "normal", "aggressive"}
+	if c := m.mapSelected(); c != nil {
+		if _, ok := m.w.Undercutting(c.ID); ok {
+			rows = append(rows, "stop")
+		}
+	}
+	return rows
+}
+
+// askUndercut opens the dial picker for a price war on the selected
+// corner, or says why there is none to fight there.
+func (m *Model) askUndercut() {
+	c := m.mapSelected()
+	if c == nil {
+		return
+	}
+	if c.Owner != game.OwnerRival {
+		m.refuse("Can't undercut there: a price war is fought on a corner the rival holds.")
+		return
+	}
+	if err := m.w.CanUndercut(c.ID); err != nil {
+		m.refuse("Can't undercut: " + err.Error())
+		return
+	}
+	m.undercutCursor = 1
+	if d, ok := m.w.Undercutting(c.ID); ok {
+		m.undercutCursor = int(d)
+	}
+	m.mode = modeUndercut
+}
+
+func (m *Model) confirmUndercut() {
+	c := m.mapSelected()
+	rows := m.undercutRows()
+	m.mode = modePlay
+	if c == nil {
+		return
+	}
+	i := max(0, min(m.undercutCursor, len(rows)-1))
+	if i >= len(dials) {
+		m.w.CancelUndercut(c.ID)
+		m.say("Called off. " + c.Name + " sells at their price tonight.")
+		return
+	}
+	d := dials[i]
+	if err := m.w.Undercut(c.ID, d); err != nil {
+		m.refuse("Can't undercut: " + err.Error())
+		return
+	}
+	m.say(fmt.Sprintf("Undercutting %s tonight at %s: ~%.0f units a day at %.0f%% off, %s loses ~%s a day.",
+		c.Name, d, m.set.Market.UndercutUnits(m.w, *c, d), m.set.Market.PriceCut()*100, m.w.Rival.Leader, cash(m.undercutLoss(*c, d))))
+}
+
+// undercutLoss is what a price war on a corner at the dial costs the
+// rival a day: the share taken of what the corner earns it.
+func (m *Model) undercutLoss(c game.Corner, d events.Dial) int {
+	return int(math.Round(m.set.Market.Steal(m.w, c, d) * float64(m.set.Rivals.CornerIncome(m.w, c))))
+}
+
+// undercutPriceCut is what a unit moved off the rival's corner at the
+// dial makes against the street price, as a signed share: the dial's
+// price less price_cut.
+func (m *Model) undercutPriceCut(d events.Dial) float64 {
+	return (m.set.Market.Dial(d).Price*(1-m.set.Market.PriceCut()) - 1) * 100
+}
+
+func (m *Model) viewUndercut() string {
+	c := m.mapSelected()
+	if c == nil {
+		return m.modal("UNDERCUT", []string{"Nothing to undercut."}, m.modalFooter())
+	}
+	rows := m.undercutRows()
+	m.undercutCursor = max(0, min(m.undercutCursor, len(rows)-1))
+	body := []string{
+		theme.Subtle.Render(fmt.Sprintf("%s on %s: worth ~%s a day to them", m.rivalName(), c.Name, cash(m.set.Rivals.CornerIncome(m.w, *c)))),
+		theme.Subtle.Render(fmt.Sprintf("your corners next door ×%.1f: the share taken scales with them", m.w.NextDoor(*c))),
+		"",
+	}
+	var cells [][]any
+	for i, r := range rows {
+		if i < len(dials) {
+			d := dials[i]
+			cells = append(cells, []any{r, approx{m.set.Market.Steal(m.w, *c, d) * 100}, approx{m.set.Market.UndercutUnits(m.w, *c, d)}, signed{m.undercutPriceCut(d)}, m.undercutLoss(*c, d)})
+		} else {
+			cells = append(cells, []any{r, nil, nil, nil, nil})
+		}
+	}
+	m.modalFollow(len(body) + 1 + m.undercutCursor) // under the header
+	body = append(body, table([]col{{"dial", kText, 0}, {"takes", kPct, 0}, {"units/day", kInt, 0}, {"price", kPct, 0}, {"they lose", kCash, 0}}, cells, m.undercutCursor, m.modalInner())...)
+	body = append(body, "")
+	for _, l := range []string{
+		"Tonight's orders here serve their customers too, cheap, on top",
+		"of your own corners; the extra volume gluts the product. No",
+		"heat, a little war and a grudge; starve a corner long enough",
+		"and they push back or give it up, by temper.",
+	} {
+		body = append(body, theme.Subtle.Render(l))
+	}
+	return m.modal("UNDERCUT", body, m.modalFooter())
 }
 
 // dealRules are the three lines on what a deal does and what breaks it,

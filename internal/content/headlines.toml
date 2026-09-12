@@ -167,6 +167,11 @@ CornerHanded = [
   "{{.Rival}}'s crew walk onto {{.Corner}} without a shot; {{.Name}} showed them in",
   "{{.Corner}} changes hands quietly; 'the runner brought them', says a neighbour",
 ]
+RivalAbandoned = [
+  "{{.Rival}}'s crew pull out of {{.Corner}}; 'no money in it', says one",
+  "{{.Corner}} empties out overnight as {{.Rival}}'s people move on",
+  "Price war on {{.Corner}} ends with {{.Rival}}'s crew walking away",
+]
 RivalPushed = [
   "Trouble on {{.Corner}} overnight; the crew on it held their ground",
   "Shots fired on {{.Corner}}; nobody moved, nobody talking",

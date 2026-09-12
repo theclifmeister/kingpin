@@ -374,7 +374,7 @@ func TestSaveMigratesTheSuppliers(t *testing.T) {
 // newMarket is the market sim on its own, for reading what a connect
 // charges.
 func newMarket(cfg *content.Config) *market.Sim {
-	mk, err := market.New(cfg.Market, cfg.City, cfg.Routes.Shipping, cfg.Upgrades, cfg.Reputation.Effects, cfg.Buyers, cfg.Suppliers)
+	mk, err := market.New(cfg.Market, cfg.City, cfg.Routes.Shipping, cfg.Upgrades, cfg.Reputation.Effects, cfg.Buyers, cfg.Suppliers, cfg.Rivals.Pricewar)
 	if err != nil {
 		panic(err)
 	}

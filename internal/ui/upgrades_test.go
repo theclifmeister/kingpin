@@ -202,7 +202,7 @@ func TestUpgradesScreenKeys(t *testing.T) {
 	m := newTestModel(t, 100, 30)
 	m.w.Player.DirtyCash = 8000
 	m.Update(key("u"))
-	if m.mode != modePlay || m.status != "Buy upgrade on the upgrades screen (6)." {
+	if m.mode != modePlay || m.status != "Undercut on the map screen (5). Buy upgrade on the upgrades screen (6)." {
 		t.Fatalf("u on the dashboard: mode %v status %q", m.mode, m.status)
 	}
 	m.Update(key("6"))

@@ -67,6 +67,7 @@ const (
 	modeDetails       // the details pane as an overlay, where the terminal is too narrow to hold it beside MAIN
 	modeCart          // the day's cart: its buys and orders, editable until the day ends
 	modeConfirmFast   // run days until something needs you (#116): the cap, then y or enter
+	modeUndercut      // pick the dial to undercut the selected rival corner at (#68)
 	modeCount
 )
 
@@ -107,6 +108,7 @@ type Model struct {
 	postRole       string // runner or enforcer, while the post picker is open
 	postCursor     int
 	strikeCursor   int    // row in the strike picker
+	undercutCursor int    // row in the undercut picker (#68)
 	branch         int    // branch shown on the upgrades screen, an index into content.Branches: a view cursor like city
 	upgradeCursor  []int  // node selected in each branch, one an entry of content.Branches, so a branch left and returned to is where it was
 	upgradeID      string // node awaiting the buy confirmation
@@ -505,6 +507,29 @@ func (m *Model) handleKey(k tea.KeyMsg) (tea.Model, tea.Cmd) {
 			}
 		}
 		return m, nil
+	case modeUndercut:
+		switch key {
+		case "esc", "q":
+			m.mode = modePlay
+		case "up", "k":
+			if m.undercutCursor > 0 {
+				m.undercutCursor--
+			}
+		case "down", "j":
+			if m.undercutCursor < len(m.undercutRows())-1 {
+				m.undercutCursor++
+			}
+		case "enter":
+			m.confirmUndercut()
+		default:
+			if len(key) == 1 && key[0] >= '1' && key[0] <= '9' {
+				if i := int(key[0] - '1'); i < len(m.undercutRows()) {
+					m.undercutCursor = i
+					m.confirmUndercut()
+				}
+			}
+		}
+		return m, nil
 	case modeAssign:
 		switch key {
 		case "esc", "q":
@@ -851,6 +876,8 @@ func (m *Model) View() string {
 		body = m.viewPost()
 	case modeStrike:
 		body = m.viewStrike()
+	case modeUndercut:
+		body = m.viewUndercut()
 	case modeConfirmUpgrade:
 		body = m.upgradeConfirm()
 	case modeFront:
