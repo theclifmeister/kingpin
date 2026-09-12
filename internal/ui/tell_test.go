@@ -85,7 +85,7 @@ func TestFastForwardStopsOnTheTell(t *testing.T) {
 	}
 	cfg.Rivals.Pace.ClaimScaleMin, cfg.Rivals.Pace.ClaimScaleMax = 1, 1
 	t.Setenv("KINGPIN_HOME", t.TempDir())
-	m, err := New(cfg)
+	m, err := New(cfg, Options{Anim: false})
 	if err != nil {
 		t.Fatal(err)
 	}

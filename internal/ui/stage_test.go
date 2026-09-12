@@ -133,7 +133,7 @@ func TestStageOnce(t *testing.T) {
 // m's slot the way a fresh start of the game would.
 func newModelIn(t *testing.T, m *Model, w, h int) *Model {
 	t.Helper()
-	c, err := New(m.cfg)
+	c, err := New(m.cfg, Options{Anim: false})
 	if err != nil {
 		t.Fatal(err)
 	}

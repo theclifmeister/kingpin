@@ -79,11 +79,20 @@ func TestNoPluralHacks(t *testing.T) {
 }
 
 // TestThemeIsTheOnlyStylist: no view file builds a style of its own;
-// every lipgloss.NewStyle() in internal/ui is in theme/.
+// every lipgloss.NewStyle() in internal/ui is in theme/, the scenes in
+// anim/ included (#152).
 func TestThemeIsTheOnlyStylist(t *testing.T) {
 	files, err := filepath.Glob("*.go")
 	if err != nil {
 		t.Fatal(err)
+	}
+	scenes, err := filepath.Glob("anim/*.go")
+	if err != nil {
+		t.Fatal(err)
+	}
+	files = append(files, scenes...)
+	if len(scenes) == 0 {
+		t.Fatal("no scene files under anim/")
 	}
 	for _, f := range files {
 		src, err := os.ReadFile(f)
