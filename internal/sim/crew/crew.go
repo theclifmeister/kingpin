@@ -32,6 +32,31 @@ func rolesFor(w *game.World) []string {
 	return roles
 }
 
+// announce reports a role that joins the hiring pool this morning
+// (#148): the accountant the first morning rolesFor holds a front, the
+// lieutenant the first morning LieutenantsWanted holds. Each is stamped
+// in Offered and announced once with an Unlocked{Gate: "role"}; a save
+// from before the field catches up the first morning. No dice, and the
+// pool itself is untouched: the face comes when it next rotates.
+func (s *Sim) announce(w *game.World, t *game.Tick) {
+	offer := func(role, name, why string) {
+		if w.Crew.Offered[role] {
+			return
+		}
+		if w.Crew.Offered == nil {
+			w.Crew.Offered = map[string]bool{}
+		}
+		w.Crew.Offered[role] = true
+		t.Emit(events.Unlocked{Day: t.Day, Gate: "role", ID: role, Name: name, Why: why})
+	}
+	if len(w.Fronts) > 0 {
+		offer("accountant", "Accountants", "a front owned")
+	}
+	if LieutenantsWanted(w) {
+		offer(game.RoleLieutenant, "Lieutenants", "corners in two cities")
+	}
+}
+
 // Sim is the crew simulation.
 type Sim struct {
 	cfg   content.CrewConfig
@@ -191,6 +216,7 @@ func (s *Sim) Step(w *game.World, t *game.Tick) {
 	tun := s.cfg.Crew
 	fx := game.FoldEffects(w, s.tree)
 	c := &w.Crew
+	s.announce(w, t)
 
 	for _, m := range c.HiredToday {
 		t.Emit(events.CrewHired{Day: t.Day, Name: m.Name, Role: m.Role, Fee: m.Fee})

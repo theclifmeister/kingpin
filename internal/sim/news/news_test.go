@@ -23,7 +23,8 @@ func TestEveryEmittedEventHasTemplate(t *testing.T) {
 		t.Fatal(err)
 	}
 	required := []string{
-		"PriceShock", "PriceShockSeized", "PriceSlump", "ProductUnlocked", "ShipmentSeized",
+		"PriceShock", "PriceShockSeized", "PriceSlump", "ShipmentSeized",
+		"UnlockedProduct", "UnlockedFront", "UnlockedConnect", "UnlockedRole", // Unlocked, by its Gate (#148)
 		"PlayerSoldBig", "PlayerSoldZero",
 		"EnforcementPatrol", "EnforcementSting", "EnforcementRaid", "EnforcementArrest",
 		"LaidLow", "HeatWarning",
@@ -42,8 +43,9 @@ func TestEveryEmittedEventHasTemplate(t *testing.T) {
 		"ReputationNotorietyUp", "ReputationNotorietyDown",
 		"DAElected", "DAReElected", "ChiefReplaced", "ChiefReplacedDA", "PressureShiftedUp", "PressureShiftedDown", // CityFunded is report-only
 		"ContractOffered", "ContractDelivered", "ContractFailed", // ContractAccepted and ContractExpired are report-only
-		"DebtLate", "SupplierFrozen", "SupplierWarned", "SupplierCollected", "SupplierUnlocked", // SupplierBought, CreditTaken and DebtPaid are report-only (#72)
-		"TierReached", // #147
+		"DebtLate", "SupplierFrozen", "SupplierWarned", "SupplierCollected", // SupplierBought, CreditTaken and DebtPaid are report-only (#72)
+		"TierReached",                                            // #147
+		"HouseBought", "HouseRobbed", "HouseRaided", "HouseLost", // HouseCompromised, StockMoved and RentPaid are report-only (#73)
 	}
 	for _, r := range cfg.Heat.Responses {
 		required = append(required, "Enforcement"+capital(r.Level))

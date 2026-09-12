@@ -16,14 +16,18 @@ import (
 
 // Sim is the territory simulation.
 type Sim struct {
-	cfg  content.CityConfig
-	tree content.UpgradesConfig
+	cfg    content.CityConfig
+	tree   content.UpgradesConfig
+	houses content.HousesTuning
 }
 
-// New builds a territory sim from the city config and the upgrade tree,
+// New builds a territory sim from the city config, the upgrade tree,
 // which it folds for the two Street effects it reads (#119): the drift
-// days and the robbery chance.
-func New(cfg content.CityConfig, tree content.UpgradesConfig) *Sim { return &Sim{cfg: cfg, tree: tree} }
+// days and the robbery chance, and the houses' tuning (#73): the house
+// robbery and the rent are its.
+func New(cfg content.CityConfig, tree content.UpgradesConfig, houses content.HousesTuning) *Sim {
+	return &Sim{cfg: cfg, tree: tree, houses: houses}
+}
 
 func (s *Sim) Name() string { return "territory" }
 
@@ -105,11 +109,39 @@ func (s *Sim) RobberyChance(w *game.World, c *game.Corner) float64 {
 func (s *Sim) robberyChance(fx game.Effects, w *game.World, c *game.Corner) float64 {
 	tun := s.cfg.Territory
 	p := tun.RobberyChance * c.Risk * fx.RobberyMul
-	if m := w.Crew.Member(c.Enforcer); m != nil && c.Enforcer != 0 {
-		p *= 1 - tun.EnforcerCut*(0.5+float64(m.Skill)/200)
-	}
-	return math.Max(0, math.Min(1, p))
+	return math.Max(0, math.Min(1, s.guardCut(w, c.Enforcer, p)))
 }
+
+// guardCut is what the enforcer with id takes off a robbery chance: the
+// full enforcer_cut at skill 100, half of it at skill 0, nothing for
+// nobody.
+func (s *Sim) guardCut(w *game.World, id int, p float64) float64 {
+	if m := w.Crew.Member(id); m != nil && id != 0 {
+		p *= 1 - s.cfg.Territory.EnforcerCut*(0.5+float64(m.Skill)/200)
+	}
+	return p
+}
+
+// HouseRobberyChance is the chance a stash house is stuck up today
+// (#73): the city's robbery_chance, the block's risk, house_risk and the
+// tree's robbery_mul, less what the guard inside takes off, exactly as
+// an enforcer cuts a corner's.
+func (s *Sim) HouseRobberyChance(w *game.World, h *game.House) float64 {
+	return s.houseRobberyChance(s.Effects(w), w, h)
+}
+
+func (s *Sim) houseRobberyChance(fx game.Effects, w *game.World, h *game.House) float64 {
+	risk := 1.0
+	if c := w.Corner(h.Corner); c != nil {
+		risk = c.Risk
+	}
+	p := s.cfg.Territory.RobberyChance * risk * s.houses.HouseRisk * fx.RobberyMul
+	return math.Max(0, math.Min(1, s.guardCut(w, h.Guard, p)))
+}
+
+// RentDays is how long a house's rent can go unpaid before the landlord
+// throws you out.
+func (s *Sim) RentDays() int { return s.houses.RentDays }
 
 // Step reports today's claims, drops corners nobody has worked for a
 // while, and rolls for robberies on the corners that are worked, city by
@@ -130,6 +162,88 @@ func (s *Sim) Step(w *game.World, t *game.Tick) {
 			rng = t.Sub("territory:" + cid)
 		}
 		s.step(w, t, rng, fx, w.Cities[cid], revenue)
+	}
+	s.houseStep(w, t, fx)
+}
+
+// houseStep is the stash houses' day (#73): the leases taken today
+// reported, a guard who left the payroll taken off, a robbery rolled per
+// house off the houses' own stream for its city (so a run with no house
+// draws nothing the old run did not), and then the rent, clean cash,
+// house by house in the order bought; a house whose rent has gone
+// unpaid rent_days running is lost with everything in it.
+func (s *Sim) houseStep(w *game.World, t *game.Tick, fx game.Effects) {
+	tun := s.cfg.Territory
+	for _, id := range w.HousesBought {
+		if h := w.House(id); h != nil {
+			t.Emit(events.HouseBought{Day: t.Day, House: h.ID, Name: h.Name, City: h.City, Price: h.Price, Rent: h.Rent})
+		}
+	}
+	for i := range w.Houses {
+		h := &w.Houses[i]
+		if h.Guard != 0 && w.Crew.Member(h.Guard) == nil {
+			h.Guard = 0
+		}
+		if t.Sub("houses:"+h.City).Float64() >= s.houseRobberyChance(fx, w, h) {
+			continue
+		}
+		ev := events.HouseRobbed{Day: t.Day, House: h.ID, Name: h.Name, City: h.City, Guarded: h.Guarded(), StockLost: map[string]int{}}
+		if c := w.Corner(h.Corner); c != nil {
+			ev.Corner = c.Name
+		}
+		ids := append([]string(nil), w.Products...)
+		sort.Strings(ids)
+		for _, id := range ids {
+			if lost := w.TakeFromHouse(h.ID, id, int(math.Round(float64(h.Stock[id])*tun.RobberyStock))); lost > 0 {
+				ev.StockLost[id] = lost
+				w.Stats.HouseUnits += lost
+			}
+		}
+		if len(ev.StockLost) == 0 {
+			continue // nothing there worth taking
+		}
+		h.Robbed++
+		t.Emit(ev)
+		if !h.Known {
+			h.Known = true
+			t.Emit(events.HouseCompromised{Day: t.Day, House: h.ID, Name: h.Name, City: h.City, Why: "robbery"})
+		}
+	}
+	if len(w.Houses) == 0 {
+		return
+	}
+	rent := events.RentPaid{Day: t.Day}
+	var lost []string
+	for i := range w.Houses {
+		h := &w.Houses[i]
+		if h.Bought >= t.Day-1 {
+			continue // the day of the lease: its rent is in the price
+		}
+		switch {
+		case h.Rent <= 0:
+			// The starter house an old save's stash went into pays nothing.
+		case h.Rent <= w.Player.CleanCash:
+			w.Player.CleanCash -= h.Rent
+			w.Stats.Rent += h.Rent
+			rent.Amount += h.Rent
+			rent.Houses++
+			h.Unpaid = 0
+		default:
+			h.Unpaid++
+			rent.Unpaid = append(rent.Unpaid, h.Name)
+			if h.Unpaid >= s.houses.RentDays {
+				lost = append(lost, h.ID)
+			}
+		}
+	}
+	if rent.Amount > 0 || len(rent.Unpaid) > 0 {
+		t.Emit(rent)
+	}
+	for _, id := range lost {
+		gone := w.LoseHouse(id)
+		w.Stats.HousesLost++
+		w.Stats.HouseUnits += gone.Units()
+		t.Emit(events.HouseLost{Day: t.Day, House: gone.ID, Name: gone.Name, City: gone.City, Units: gone.Units()})
 	}
 }
 

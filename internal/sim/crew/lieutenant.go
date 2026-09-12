@@ -20,6 +20,9 @@ import (
 // LieutenantsWanted reports whether lieutenants come looking for work:
 // once the player holds corners in two cities there is a city to hand
 // over.
+// The crew screen's pool title reads it through the sim (#148).
+func (s *Sim) LieutenantsWanted(w *game.World) bool { return LieutenantsWanted(w) }
+
 func LieutenantsWanted(w *game.World) bool {
 	cities := 0
 	for _, cid := range w.CityOrder {

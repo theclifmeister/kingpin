@@ -80,63 +80,92 @@ func TestStockIsConservedAcrossShipments(t *testing.T) {
 	home, hub, route := twoCities(t, cfg)
 	product := cfg.Market.Products[0].ID
 	lg := newLogistics(cfg)
-	for _, seized := range []bool{false, true} {
-		safe := *cfg
-		safe.Routes.Routes = append([]content.RouteConfig(nil), cfg.Routes.Routes...)
-		for i := range safe.Routes.Routes {
-			safe.Routes.Routes[i].Risk = 0
-			if seized {
-				safe.Routes.Routes[i].Risk = 1
-			}
-		}
-		w := quiet(&safe, 1)
-		w.SetStock(hub, product, 500)
-		units := min(200, route.Capacity)
-		run := runRoute(route, product, units, events.RouteNormal)
-		res, err := RunFrom(&safe, w, route.Days*2+3, func(w *game.World) {
-			run(w)
-			if w.Day == 1 {
-				if len(w.Shipments) != 1 || w.Stock(hub, product) != 500-units || w.InTransit(product) != units || w.Bound(home, product) != units {
-					t.Fatalf("the morning after the dial: %+v stash %d road %d", w.Shipments, w.Stock(hub, product), w.InTransit(product))
+	for _, housed := range []bool{false, true} {
+		for _, seized := range []bool{false, true} {
+			safe := *cfg
+			safe.Routes.Routes = append([]content.RouteConfig(nil), cfg.Routes.Routes...)
+			for i := range safe.Routes.Routes {
+				safe.Routes.Routes[i].Risk = 0
+				if seized {
+					safe.Routes.Routes[i].Risk = 1
 				}
 			}
-			if total := w.Stock(home, product) + w.Stock(hub, product) + w.InTransit(product); total != 500 && !seized {
-				t.Fatalf("day %d: %d + %d + %d on the road = %d, not 500", w.Day, w.Stock(home, product), w.Stock(hub, product), w.InTransit(product), total)
-			}
-		})
-		if err != nil {
-			t.Fatal(err)
-		}
-		sent, arrived, lost, bought := 0, 0, 0, 0
-		for _, e := range res.Events {
-			switch ev := e.(type) {
-			case events.ShipmentSent:
-				sent++
-				if ev.Day != 1 || ev.Units != units || ev.From != hub || ev.To != home || ev.Dial != events.ShipNormal {
-					t.Fatalf("sent %+v, want day 1 %d units %s to %s", ev, units, hub, home)
+			w := quiet(&safe, 1)
+			w.SetStock(hub, product, 500)
+			units := min(200, route.Capacity)
+			// With houses at both ends (#73) the shipment leaves the hub's
+			// street first and lands in the emptiest house at home with
+			// room, the rest on the street, never over a capacity.
+			if housed {
+				safe.City.Territory.RobberyChance = 0 // the houses' robbers are TestGuardIsWorthItsWage's
+				w.Player.CleanCash = 100_000
+				for _, o := range []game.HouseOffer{
+					{ID: "hubhouse", Name: "Hub house", City: hub, Corner: cfg.City.City(hub).Corners[0].ID, Capacity: 300, Price: 1, Rent: 1},
+					{ID: "homehouse", Name: "Home house", City: home, Corner: cfg.City.Home().Corners[0].ID, Capacity: units / 2, Price: 1, Rent: 1},
+				} {
+					if _, err := w.BuyHouse(o); err != nil {
+						t.Fatal(err)
+					}
 				}
-			case events.ShipmentArrived:
-				arrived++
-				if ev.Day != 1+lg.Days(res.World, route, events.ShipNormal) || ev.Units != units || ev.To != home {
-					t.Fatalf("arrival %+v, want day %d %d units in %s", ev, 1+lg.Days(res.World, route, events.ShipNormal), units, home)
-				}
-			case events.ShipmentSeized:
-				lost++
-			case events.WholesaleBought:
-				bought++
+				w.MoveStock(hub, game.Street, "hubhouse", product, 300)
 			}
-		}
-		if sent != 1 || bought != 0 {
-			t.Fatalf("%d sent, %d lots bought: the stash covered the target", sent, bought)
-		}
-		switch {
-		case !seized && (arrived != 1 || lost != 0 || res.World.Stock(home, product) != units || res.World.InTransit(product) != 0):
-			t.Fatalf("safe road: %d arrived %d seized, home holds %d, %d on the road", arrived, lost, res.World.Stock(home, product), res.World.InTransit(product))
-		case seized && (arrived != 0 || lost != 1 || res.World.Stock(home, product) != 0 || res.World.InTransit(product) != 0 || res.World.Stock(hub, product) != 500-units):
-			t.Fatalf("seized: %d arrived %d seized, home holds %d, hub %d, %d on the road", arrived, lost, res.World.Stock(home, product), res.World.Stock(hub, product), res.World.InTransit(product))
-		}
-		if seized && (res.World.Stats.Seizures != 1 || res.World.Stats.SeizedOnRoad != units) {
-			t.Fatalf("stats: %+v", res.World.Stats)
+			run := runRoute(route, product, units, events.RouteNormal)
+			res, err := RunFrom(&safe, w, route.Days*2+3, func(w *game.World) {
+				run(w)
+				if w.Day == 1 {
+					if len(w.Shipments) != 1 || w.Stock(hub, product) != 500-units || w.InTransit(product) != units || w.Bound(home, product) != units {
+						t.Fatalf("the morning after the dial: %+v stash %d road %d", w.Shipments, w.Stock(hub, product), w.InTransit(product))
+					}
+					if housed && w.Street(hub, product) != 0 && w.House("hubhouse").Units() != 300 {
+						t.Fatalf("housed: the shipment did not leave the street first: street %d house %d", w.Street(hub, product), w.House("hubhouse").Units())
+					}
+				}
+				if total := w.Stock(home, product) + w.Stock(hub, product) + w.InTransit(product); total != 500 && !seized {
+					t.Fatalf("day %d: %d + %d + %d on the road = %d, not 500", w.Day, w.Stock(home, product), w.Stock(hub, product), w.InTransit(product), total)
+				}
+				for _, h := range w.Houses {
+					if h.Units() > h.Capacity {
+						t.Fatalf("day %d: %s holds %d of %d", w.Day, h.Name, h.Units(), h.Capacity)
+					}
+				}
+				if housed && !seized && w.Stock(home, product) == units && (w.House("homehouse").Units() != units/2 || w.Street(home, product) != units-units/2) {
+					t.Fatalf("housed: the landing was not house-first: house %d street %d", w.House("homehouse").Units(), w.Street(home, product))
+				}
+			})
+			if err != nil {
+				t.Fatal(err)
+			}
+			sent, arrived, lost, bought := 0, 0, 0, 0
+			for _, e := range res.Events {
+				switch ev := e.(type) {
+				case events.ShipmentSent:
+					sent++
+					if ev.Day != 1 || ev.Units != units || ev.From != hub || ev.To != home || ev.Dial != events.ShipNormal {
+						t.Fatalf("sent %+v, want day 1 %d units %s to %s", ev, units, hub, home)
+					}
+				case events.ShipmentArrived:
+					arrived++
+					if ev.Day != 1+lg.Days(res.World, route, events.ShipNormal) || ev.Units != units || ev.To != home {
+						t.Fatalf("arrival %+v, want day %d %d units in %s", ev, 1+lg.Days(res.World, route, events.ShipNormal), units, home)
+					}
+				case events.ShipmentSeized:
+					lost++
+				case events.WholesaleBought:
+					bought++
+				}
+			}
+			if sent != 1 || bought != 0 {
+				t.Fatalf("%d sent, %d lots bought: the stash covered the target", sent, bought)
+			}
+			switch {
+			case !seized && (arrived != 1 || lost != 0 || res.World.Stock(home, product) != units || res.World.InTransit(product) != 0):
+				t.Fatalf("safe road: %d arrived %d seized, home holds %d, %d on the road", arrived, lost, res.World.Stock(home, product), res.World.InTransit(product))
+			case seized && (arrived != 0 || lost != 1 || res.World.Stock(home, product) != 0 || res.World.InTransit(product) != 0 || res.World.Stock(hub, product) != 500-units):
+				t.Fatalf("seized: %d arrived %d seized, home holds %d, hub %d, %d on the road", arrived, lost, res.World.Stock(home, product), res.World.Stock(hub, product), res.World.InTransit(product))
+			}
+			if seized && (res.World.Stats.Seizures != 1 || res.World.Stats.SeizedOnRoad != units) {
+				t.Fatalf("stats: %+v", res.World.Stats)
+			}
 		}
 	}
 }

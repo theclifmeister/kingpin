@@ -51,6 +51,18 @@ func TestLedgerCursor(t *testing.T) {
 			t.Fatalf("front %d: %q, want %q", i, got, want)
 		}
 	}
+	// Onto the houses (#73): enter is the frame's there too.
+	for i := range w.Houses {
+		m.Update(key("down"))
+		if got, want := first(), strings.ToUpper(w.Houses[i].Name); got != want {
+			t.Fatalf("house %d: %q, want %q", i, got, want)
+		}
+	}
+	m.Update(key("enter"))
+	if m.mode != modeConfirmEnd || w.Day != day {
+		t.Fatalf("enter on a house: mode %v day %d -> %d", m.mode, day, w.Day)
+	}
+	m.Update(key("esc"))
 	// Onto the routes: enter turns the selected route's dial a notch.
 	for i := range routes {
 		m.Update(key("j"))
@@ -106,8 +118,9 @@ func TestLedgerCursor(t *testing.T) {
 }
 
 // The ledger fits 80x24 with three fronts, three routes and three
-// offers, and the strip names the selected front; a shorter terminal
-// scrolls it with the cursor so every ON OFFER row is reachable, the
+// offers and no house, and the strip names the selected front; with the
+// fixture's house (#73: a fourth table) and on a shorter terminal it
+// scrolls with the cursor so every ON OFFER row is reachable, the
 // cursor's table heading kept in view, and never clamps.
 func TestLedgerScrolls(t *testing.T) {
 	m := richModel(t, 80, 24)
@@ -117,12 +130,15 @@ func TestLedgerScrolls(t *testing.T) {
 	if got := stripLine(m); !strings.HasPrefix(got, "▸ "+strings.ToUpper(w.Fronts[0].Name)) {
 		t.Fatalf("the strip does not name the first front: %q", got)
 	}
+	houses := w.Houses
+	w.Houses = nil
 	view := stripANSI(m.View())
 	for _, o := range m.frontRows() {
 		if !strings.Contains(view, o.Name) {
 			t.Fatalf("the ledger at 80x24 lacks the offer %s:\n%s", o.Name, view)
 		}
 	}
+	w.Houses = houses
 	// Too short for the whole ledger: MAIN is 15 rows here.
 	m.Update(tea.WindowSizeMsg{Width: 80, Height: 19})
 	rows := m.ledgerRows()
@@ -130,12 +146,14 @@ func TestLedgerScrolls(t *testing.T) {
 		switch r.kind {
 		case ledgerFront:
 			return w.Fronts[r.i].Name
+		case ledgerHouse:
+			return w.Houses[r.i].Name
 		case ledgerRoute:
 			return m.ledgerRoutes()[r.i].Name
 		}
 		return m.frontRows()[r.i].Name
 	}
-	heading := func(r ledgerRow) string { return [...]string{"FRONTS", "LOGISTICS", "ON OFFER"}[r.kind] }
+	heading := func(r ledgerRow) string { return [...]string{"FRONTS", "STASH", "LOGISTICS", "ON OFFER"}[r.kind] }
 	for i, r := range rows {
 		assertFrame(t, m, "short ledger row "+name(r))
 		view := stripANSI(m.View())

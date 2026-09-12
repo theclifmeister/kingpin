@@ -111,8 +111,8 @@ func (m *Model) viewFast() string {
 		"",
 		"Days      " + days.View(),
 		"",
-		theme.Subtle.Render("Stops for a card, the police, the rival, the crew, the road,"),
-		theme.Subtle.Render("a buyer, the law, a routine that ran short or a new alert."),
+		theme.Subtle.Render("Stops for a card, the police, the rival, the crew, the road, a buyer,"),
+		theme.Subtle.Render("the law, a routine that ran short, a gate crossed or a new alert."),
 	}
 	if m.fst.err != "" {
 		body = append(body, "", theme.Bad.Render(m.fst.err))
@@ -187,8 +187,11 @@ func (m *Model) stopReason(evs []events.Event, before []alert) string {
 // kind of stop, a corner to post on), the police raiding a rival corner
 // on your tip (free too) or a boost that failed (#70), a buyer asking,
 // pressure or a
-// reputation axis up a band, a new chief or an election, and a contract
-// or a standing order that ran short (the routine broke).
+// reputation axis up a band, a new chief or an election, a contract
+// or a standing order that ran short (the routine broke), a gate crossed
+// (#148: the Laundromat open to you, Heroin on offer, the Dutchman
+// dealing, lieutenants wanting work), the rival moving in, and a stash
+// house robbed, hit or lost (#73).
 func (m *Model) stopEvent(e events.Event) string {
 	w := m.w
 	switch ev := e.(type) {
@@ -196,6 +199,10 @@ func (m *Model) stopEvent(e events.Event) string {
 		if ev.Level != "patrol" {
 			return format.A(ev.Level) + " in " + w.CityName(ev.City)
 		}
+	case events.Unlocked:
+		return unlockStop(ev)
+	case events.RivalMovedIn:
+		return ev.Rival + " moved in on " + ev.Name
 	case events.RivalEyeing:
 		return ev.Rival + " is eyeing " + ev.Name
 	case events.CornerStruck:
@@ -247,9 +254,33 @@ func (m *Model) stopEvent(e events.Event) string {
 		return fmt.Sprintf("the %s contract in %s short of %s", w.ProductName(ev.Product), w.CityName(ev.City), ev.Why)
 	case events.StandingShort:
 		return fmt.Sprintf("the standing order for %s in %s short of stock", w.ProductName(ev.Product), w.CityName(ev.City))
+	// The stash houses (#73).
+	case events.HouseRobbed:
+		return ev.Name + " robbed"
+	case events.HouseRaided:
+		return format.A(ev.Level) + " at " + ev.Name
+	case events.HouseLost:
+		return "the landlord threw you out of " + ev.Name
 	}
 	return ""
 }
 
 // stopLine is the report's first line after a fast-forward, or "".
 func (m *Model) stopLine() string { return m.fastStop }
+
+// unlockStop is why a gate crossed stops a fast-forward, by its gate:
+// `the Laundromat is open to you`, `Heroin is on offer`, `the Dutchman
+// deals with you`, `lieutenants want work`.
+func unlockStop(ev events.Unlocked) string {
+	switch ev.Gate {
+	case "front":
+		return "the " + ev.Name + " is open to you"
+	case "product":
+		return ev.Name + " is on offer"
+	case "connect":
+		return ev.Name + " deals with you"
+	case "role":
+		return strings.ToLower(ev.Name) + " want work"
+	}
+	return ev.Name + " is open to you"
+}

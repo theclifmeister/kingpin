@@ -391,6 +391,11 @@ func (m *Model) marketDetails() []section {
 			notes = append(notes, wrapped(theme.Good, fmt.Sprintf("Wholesale: %s's lots of %d feed the routes out of here, run %s.", o.Name, o.Lot, screenPointer(screenMap)))...)
 		}
 	}
+	// The next product on the ladder and what it takes (#148): the
+	// line named before it fires.
+	if next := m.nextProductNote(city.ID); next != "" {
+		notes = append(notes, wrapped(theme.Subtle, next)...)
+	}
 	if len(notes) > 0 {
 		secs = append(secs, section{"NOTES", notes})
 	}

@@ -61,15 +61,16 @@ func TestStockAccessors(t *testing.T) {
 	}
 }
 
-// TestStashHasNoWriters: no source file outside game/world.go writes into
-// a stash map (#144). The map is Player.Stash (exported for gob, its name
-// and type kept so no schema bump); the only way in or out of it is
-// AddStock, TakeStock and SetStock in world.go, so #73 and #47 can change
-// what it means or holds in one place. The check is a grep over every
-// non-test Go file under cmd/ and internal/: no element assignment
-// through Player.Stash or a Stash-derived map (`[...] =`, `+=`, `-=`,
-// `++`, `--`, `delete(`), whether written straight or through a local
-// bound from one.
+// TestStashHasNoWriters: no source file outside game/world.go and
+// game/houses.go writes into a stash map (#144). The map is Player.Stash
+// (exported for gob, its name and type kept so no schema bump) and, since
+// #73, a house's Stock; the only way in or out of them is AddStock,
+// TakeStock, TakeStreet, TakeFromHouse, MoveStock and SetStock, so #47
+// can change what they mean or hold in one place. The check is a grep
+// over every non-test Go file under cmd/ and internal/: no element
+// assignment through Player.Stash, a Stash-derived map or a house's
+// Stock (`[...] =`, `+=`, `-=`, `++`, `--`, `delete(`), whether written
+// straight or through a local bound from one.
 func TestStashHasNoWriters(t *testing.T) {
 	root := filepath.Join("..", "..")
 	var (
@@ -77,8 +78,8 @@ func TestStashHasNoWriters(t *testing.T) {
 		// `s = w.Player.Stash[c]`, `for _, stash := range w.Player.Stash`
 		bind = regexp.MustCompile(`(?:(\w+)\s*:?=\s*|for\s+\w+\s*,\s*(\w+)\s*:?=\s*range\s+)[\w.]*(?:Player\.Stash|StashOf\(|stash\()`)
 		// a direct element write: `Player.Stash[c][p] = n`, `StashOf(c)[p] += n`
-		direct = regexp.MustCompile(`(?:Player\.Stash|StashOf\([^)]*\)|\.stash\([^)]*\))(?:\[[^\]]*\])+\s*(?:\+\+|--|[+\-*/]?=[^=])`)
-		del    = regexp.MustCompile(`delete\(\s*[\w.]*(?:Player\.Stash|StashOf\([^)]*\)|\.stash\([^)]*\))`)
+		direct = regexp.MustCompile(`(?:Player\.Stash|StashOf\([^)]*\)|StreetOf\([^)]*\)|\.stash\([^)]*\)|\.Stock)(?:\[[^\]]*\])+\s*(?:\+\+|--|[+\-*/]?=[^=])`)
+		del    = regexp.MustCompile(`delete\(\s*[\w.]*(?:Player\.Stash|StashOf\([^)]*\)|StreetOf\([^)]*\)|\.stash\([^)]*\)|\.Stock)`)
 	)
 	var offenders []string
 	err := filepath.WalkDir(root, func(path string, d fs.DirEntry, err error) error {
@@ -92,7 +93,7 @@ func TestStashHasNoWriters(t *testing.T) {
 			}
 			return nil
 		}
-		if !strings.HasSuffix(path, ".go") || strings.HasSuffix(path, "_test.go") || rel == filepath.Join("internal", "game", "world.go") {
+		if !strings.HasSuffix(path, ".go") || strings.HasSuffix(path, "_test.go") || rel == filepath.Join("internal", "game", "world.go") || rel == filepath.Join("internal", "game", "houses.go") {
 			return nil
 		}
 		src, err := os.ReadFile(path)

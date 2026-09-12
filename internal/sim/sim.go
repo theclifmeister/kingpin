@@ -58,10 +58,10 @@ func Default(cfg *content.Config) (*Set, []game.Simulation, error) {
 	set := &Set{
 		Market:     mk,
 		Logistics:  logistics.New(cfg.Routes, cfg.City, cfg.Market, cfg.Upgrades, cfg.Laundering.Laundering.Float),
-		Territory:  territory.New(cfg.City, cfg.Upgrades),
+		Territory:  territory.New(cfg.City, cfg.Upgrades, cfg.Houses.Houses),
 		Rivals:     rivals.New(cfg.Rivals, cfg.Names, cfg.Reputation.Effects, cfg.Law.Effects, cfg.Upgrades),
 		Crew:       crew.New(cfg.Crew, cfg.Names, cfg.Reputation.Effects, cfg.Upgrades),
-		Heat:       heat.New(cfg.Heat, cfg.Market, cfg.Routes.Shipping, cfg.Upgrades, cfg.Reputation.Effects, cfg.Crew.Lieutenant, cfg.Law),
+		Heat:       heat.New(cfg.Heat, cfg.Market, cfg.Routes.Shipping, cfg.Upgrades, cfg.Reputation.Effects, cfg.Crew.Lieutenant, cfg.Law, cfg.Houses.Houses),
 		Law:        law.New(cfg.Law, cfg.Names),
 		Laundering: laundering.New(cfg.Laundering, cfg.Crew, cfg.Upgrades),
 		Reputation: reputation.New(cfg.Reputation),
@@ -89,6 +89,7 @@ func (s *Set) Migrations() []game.Migration {
 		{From: 8, Apply: s.Law.Migrate},             // 8 -> 9: a chief and a DA took office
 		{From: 9, Apply: game.MigrateFallGuys},      // 9 -> 10: the fall guy became a count (#117)
 		{From: 10, Apply: s.Market.Migrate},         // 10 -> 11: the connects (#72), one a city at today's price
+		{From: 11, Apply: game.MigrateHouses},       // 11 -> 12: the stash houses (#73), the old pile in a starter house
 	}
 }
 
@@ -99,7 +100,7 @@ func (s *Set) Migrations() []game.Migration {
 func NewWorld(cfg *content.Config, seed uint64) *game.World {
 	t := cfg.Market.Market
 	w := game.NewWorld(seed, logistics.StartingCities(cfg.City, cfg.Market), t.StartCash, t.CarryLimit)
-	territory.New(cfg.City, cfg.Upgrades).Seed(w)
+	territory.New(cfg.City, cfg.Upgrades, cfg.Houses.Houses).Seed(w)
 	rng := game.RNGFor(seed, 0)
 	crew.New(cfg.Crew, cfg.Names, cfg.Reputation.Effects, cfg.Upgrades).Seed(w, rng)
 	rivals.New(cfg.Rivals, cfg.Names, cfg.Reputation.Effects, cfg.Law.Effects, cfg.Upgrades).Seed(w, rng)

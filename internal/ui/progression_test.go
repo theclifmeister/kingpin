@@ -26,8 +26,15 @@ func TestTierIsNamed(t *testing.T) {
 		m.mode = modePlay
 		m.w.Report.Tier = []string{"TERRITORY, tier 3 of 4. Ground to hold and a front to wash the take.", "Opens: the first front and the wash", "Next: move $500K"}
 		m.mode = modeReport
+		// TIER is the first section, before UNLOCKED (#148: the rich
+		// fixture's peak opens every gate at once, so PRICES is below
+		// the fold at 80x24) and PRICES.
 		view := stripANSI(m.View())
-		if !strings.Contains(view, "TIER") || strings.Index(view, "TIER") > strings.Index(view, "PRICES") {
+		next := strings.Index(view, "UNLOCKED")
+		if next < 0 {
+			next = strings.Index(view, "PRICES")
+		}
+		if !strings.Contains(view, "TIER") || strings.Index(view, "TIER") > next {
 			t.Errorf("%dx%d: the report does not open with the TIER section:\n%s", size[0], size[1], view)
 		}
 	}

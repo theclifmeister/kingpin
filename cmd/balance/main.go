@@ -19,7 +19,7 @@ import (
 func main() {
 	runs := flag.Int("runs", 20, "number of seeded runs")
 	days := flag.Int("days", harness.Horizon, "days to play each run for; a measuring horizon, the game itself has no cap")
-	policy := flag.String("policy", "normal", "idle | hide | quiet | normal | aggressive | careful | managed | upgraded | crewed | vigilant | territory | war | diplomat | laundered | funded | distributor | delegated | dealer | stocked | routine | leveraged | boss | pricewar | saboteur | tipster")
+	policy := flag.String("policy", "normal", "idle | hide | quiet | normal | aggressive | careful | managed | upgraded | crewed | vigilant | territory | war | diplomat | laundered | funded | distributor | delegated | dealer | stocked | routine | leveraged | boss | pricewar | stashed | saboteur | tipster")
 	lt := flag.String("lt", "", "force the delegated policy's lieutenant temper: violent | greedy | careful | steady (default as generated)")
 	corners := flag.Int("corners", 3, "corners the territory and war policies work, counting yours")
 	force := flag.String("force", "push", "warn | push | hit: how hard the war policy strikes")
@@ -28,6 +28,8 @@ func main() {
 	heatFlag := flag.String("heat", "on", "on | off: off switches heat off, nothing adds any and the police never answer (harness.NoHeat)")
 	pace := flag.String("pace", "on", "on | off: off has the rival claim at the flat pace it had before #60 (harness.FlatPace)")
 	credit := flag.String("credit", "on", "on | off: off withdraws every connect's credit (harness.NoCredit)")
+	houses := flag.Int("houses", 0, "houses the stashed policy keeps a city (0 = harness.StashHouses); 1 keeps everything in one")
+	fronts := flag.String("fronts", "on", "on | off: off has the stashed policy buy no fronts, so nothing pays the rent")
 	chief := flag.String("chief", "", "force the police chief's personality for the whole run: corrupt | zealous | lazy (default by seed, replaced on schedule)")
 	da := flag.String("da", "", "force the DA's stance for the whole run: law_and_order | moderate | reform (default by seed, elections every term)")
 	trace := flag.Bool("trace", false, "print a per-day trace of the run with -seed")
@@ -118,6 +120,8 @@ func main() {
 		p = harness.Leveraged(cfg, at(40))
 	case "boss":
 		p = harness.Boss(cfg, at(40), *lt)
+	case "stashed":
+		p = harness.Stashed(cfg, at(40), *houses, *fronts != "off")
 	case "saboteur":
 		p = harness.Saboteur(cfg, at(40))
 	case "tipster":
@@ -180,6 +184,7 @@ func main() {
 	tempersOfChief := map[string]int{}
 	var rels []int
 	debtDays, late, frozen, collected, creditTaken := 0, 0, 0, 0, 0
+	housesHeld, housesLost, houseUnits, rent, raidUnits, raids := 0, 0, 0, 0, 0, 0
 	for seed := *seed0; seed < *seed0+uint64(*runs); seed++ {
 		// The rival's corners at the pace days, read the morning after.
 		pol := func(w *game.World) {
@@ -203,7 +208,7 @@ func main() {
 				for _, cid := range w.CityOrder {
 					fmt.Printf(" %.0f", w.Cities[cid].Pressure)
 				}
-				fmt.Printf(" file %d stock %3d/%3d +%d road orders %d crew %d corners %d/%d rival %d war %3.0f upgrades %d fronts %d %s rep %.0f/%.0f/%.0f", w.Heat.Evidence, w.Player.TotalStock(), w.Capacity(w.Player.Location), w.TotalStock()-w.Player.TotalStock(), len(w.Orders), len(w.Crew.Members), w.Worked(), w.Held(), w.RivalHeld(), w.Rival.War, len(w.Upgrades), len(w.Fronts), w.Laundering.Dial, w.Player.Reputation.Fear, w.Player.Reputation.Respect, w.Player.Reputation.Notoriety)
+				fmt.Printf(" file %d stock %3d/%3d +%d road orders %d crew %d corners %d/%d rival %d war %3.0f upgrades %d fronts %d %s rep %.0f/%.0f/%.0f", w.Heat.Evidence, w.Stashed(), w.Capacity(w.Player.Location), w.TotalStock()-w.Stashed(), len(w.Orders), len(w.Crew.Members), w.Worked(), w.Held(), w.RivalHeld(), w.Rival.War, len(w.Upgrades), len(w.Fronts), w.Laundering.Dial, w.Player.Reputation.Fear, w.Player.Reputation.Respect, w.Player.Reputation.Notoriety)
 				for _, id := range w.Products {
 					fmt.Printf("  %s", id)
 					for _, cid := range w.CityOrder {
@@ -364,6 +369,18 @@ func main() {
 		debtDays += st.DebtDays
 		late += st.LatePayments
 		creditTaken += st.Credit
+		housesHeld += len(res.World.Houses)
+		housesLost += st.HousesLost
+		houseUnits += st.HouseUnits
+		rent += st.Rent
+		for _, e := range res.Events {
+			if ev, ok := e.(events.Enforcement); ok && (ev.Level == "raid" || ev.Level == "sting") {
+				raids++
+				for _, n := range ev.StockLost {
+					raidUnits += n
+				}
+			}
+		}
 	}
 	sort.Ints(played)
 	sort.Ints(peaks)
@@ -476,6 +493,10 @@ func main() {
 		sort.Ints(rels)
 		fmt.Printf("suppliers:     rel %d with the street connect at the end (median), %d days in debt per run, %d late payments, %d freezes, %d collections, $%d taken on credit per run (credit %s)\n",
 			rels[len(rels)/2], debtDays / *runs, late, frozen, collected, creditTaken / *runs, *credit)
+	}
+	if housesHeld > 0 || housesLost > 0 {
+		fmt.Printf("houses:        %d held at the end per run, %d lost to the landlord, $%d rent per run, %d units lost out of the houses per run; %d stings and raids took %d units per run\n",
+			housesHeld / *runs, housesLost, rent / *runs, houseUnits / *runs, raids, raidUnits / *runs)
 	}
 	if pick != nil {
 		total := 0
