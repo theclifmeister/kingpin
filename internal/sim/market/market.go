@@ -127,22 +127,34 @@ func (s *Sim) Plan(w *game.World) []SupplyPlan {
 				continue
 			}
 			// The connect: the cheapest in the city that sells the
-			// product today, for cash, never on credit, and only as
-			// far as their day goes (#72); with none, nothing.
-			sup := w.BestSupplier(cid, id)
+			// product today for the shortfall, their small-lot premium
+			// counted where the shortfall is under their lot, for cash,
+			// never on credit, and only as far as their day goes (#72);
+			// with none, nothing.
+			sup := s.cheapest(w, cid, id, short, bought)
 			if sup == nil {
 				plan = append(plan, SupplyPlan{Contract: c, Short: short, Why: "supplier"})
 				continue
 			}
-			afford := short
-			unit := sup.Price[id] * s.Markup()
-			if unit > 0 {
-				afford = int(float64(budget) / unit)
-				for afford > 0 && int(math.Ceil(unit*float64(afford))) > budget {
-					afford-- // a cent of rounding never takes the till under the float
+			unit := s.unitFor(sup, id, short) * s.Markup()
+			affords := func(unit float64) int {
+				n := short
+				if unit > 0 {
+					n = int(float64(budget) / unit)
+					for n > 0 && int(math.Ceil(unit*float64(n))) > budget {
+						n-- // a cent of rounding never takes the till under the float
+					}
 				}
+				return n
 			}
+			afford := affords(unit)
 			qty := max(0, min(short, room[cid], afford, sup.Left()-bought[sup.ID]))
+			if qty < sup.Lot && short >= sup.Lot && sup.SmallLot > 1 {
+				// Cut under the lot, the premium is on it after all.
+				unit = sup.Price[id] * sup.SmallLot * s.Markup()
+				afford = affords(unit)
+				qty = max(0, min(qty, afford))
+			}
 			p := SupplyPlan{Contract: c, Supplier: sup.ID, Short: short, Units: qty, Cost: int(math.Ceil(unit * float64(qty)))}
 			if qty < short {
 				p.Why = "cash"
@@ -160,6 +172,33 @@ func (s *Sim) Plan(w *game.World) []SupplyPlan {
 		}
 	}
 	return plan
+}
+
+// unitFor is what a connect charges a unit for qty units of a product:
+// their price, with the small-lot premium under the lot.
+func (s *Sim) unitFor(sup *game.Supplier, id string, qty int) float64 {
+	unit := sup.Price[id]
+	if qty < sup.Lot && sup.SmallLot > 1 {
+		unit *= sup.SmallLot
+	}
+	return unit
+}
+
+// cheapest is the connect in a city that sells a product today at the
+// lowest price a unit for qty units, with units left after what the
+// plan has already put on each (bought), or nil.
+func (s *Sim) cheapest(w *game.World, city, id string, qty int, bought map[string]int) *game.Supplier {
+	var best *game.Supplier
+	bestUnit := 0.0
+	for _, sup := range w.SuppliersIn(city) {
+		if !w.Available(sup, id) || sup.Left()-bought[sup.ID] <= 0 {
+			continue
+		}
+		if unit := s.unitFor(sup, id, qty); best == nil || unit < bestUnit {
+			best, bestUnit = sup, unit
+		}
+	}
+	return best
 }
 
 // Due is what the supply contract for a product in a city will buy this

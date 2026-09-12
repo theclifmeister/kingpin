@@ -4,6 +4,8 @@ import (
 	"fmt"
 	"strings"
 
+	"github.com/charmbracelet/lipgloss"
+
 	"github.com/theclifmeister/kingpin/internal/game"
 	"github.com/theclifmeister/kingpin/internal/ui/sparkline"
 	"github.com/theclifmeister/kingpin/internal/ui/theme"
@@ -60,8 +62,12 @@ func (m *Model) suppliersLines() []string {
 	if m.cursor < len(w.Products) {
 		id = w.Products[m.cursor]
 	}
-	out := []string{title}
+	// The long form carries what they have left today and the
+	// relationship as a bar; where MAIN is too narrow for every row
+	// whole (64 columns beside the pane at 100), the short form drops
+	// both, the number standing for the bar (firstFit).
 	width := m.mainWidth()
+	var long, short []string
 	for i, sup := range rows {
 		cur := "  "
 		name := fit(sup.Name, 14)
@@ -73,9 +79,24 @@ func (m *Model) suppliersLines() []string {
 		if id != "" && w.Available(sup, id) {
 			unit = fmt.Sprintf("%8s", price(sup.Price[id]))
 		}
-		rel := relStyle(m.set.Market.Band(sup.Rel), m.set.Market.Bands()).Render(sparkline.Bar(sup.Rel/100, 5, nil) + fmt.Sprintf(" %3.0f", sup.Rel))
-		line := fmt.Sprintf("%s%s %s  lot %-4d %5d left  rel %s  %s", cur, name, unit, sup.Lot, sup.Left(), rel, m.supplierNote(sup))
-		out = append(out, truncate(line, width))
+		style := relStyle(m.set.Market.Band(sup.Rel), m.set.Market.Bands())
+		bar := style.Render(sparkline.Bar(sup.Rel/100, 5, nil) + fmt.Sprintf(" %3.0f", sup.Rel))
+		note := m.supplierNote(sup)
+		long = append(long, fmt.Sprintf("%s%s %s  lot %-4d %5d left  rel %s  %s", cur, name, unit, sup.Lot, sup.Left(), bar, note))
+		short = append(short, fmt.Sprintf("%s%s %s  lot %-4d rel %s  %s", cur, name, unit, sup.Lot, style.Render(fmt.Sprintf("%3.0f", sup.Rel)), note))
+	}
+	out := []string{title}
+	for _, form := range [][]string{long, short} {
+		fits := true
+		for _, l := range form {
+			fits = fits && lipgloss.Width(l) <= width
+		}
+		if fits {
+			return append(out, form...)
+		}
+	}
+	for _, l := range short {
+		out = append(out, truncate(l, width))
 	}
 	return out
 }
@@ -118,7 +139,7 @@ func (m *Model) supplierSections(sup *game.Supplier) []section {
 	sel := []string{
 		row("temper", sup.Temper),
 		row("", theme.Subtle.Render(temperShort(sup.Temper))),
-		row("rel", relStyle(band, bands).Render(sparkline.Bar(sup.Rel/100, 8, nil)+fmt.Sprintf(" %.0f", sup.Rel))+sep+bandWord(band, bands)),
+		row("rel", relStyle(band, bands).Render(sparkline.Bar(sup.Rel/100, 6, nil)+fmt.Sprintf(" %.0f", sup.Rel))+sep+bandWord(band, bands)),
 		row("price", fmt.Sprintf("~%.0f%% of street", mk.SupplierRatio(w, sup)*100)),
 	}
 	if band < bands-1 {
@@ -141,7 +162,7 @@ func (m *Model) supplierSections(sup *game.Supplier) []section {
 		sel = append(sel, row("credit", theme.Subtle.Render("none")))
 	default:
 		sel = append(sel, row("credit", fmt.Sprintf("%s of %s", cash(sup.Credit()), cash(sup.Limit))),
-			row("", theme.Subtle.Render(fmt.Sprintf("×%.2f a unit · %dd to pay", sup.CreditRatio, sup.CreditDays))))
+			row("", theme.Subtle.Render(fmt.Sprintf("×%.2f/u, %dd to pay", sup.CreditRatio, sup.CreditDays))))
 	}
 	if sup.Debt > 0 {
 		style := theme.Warning
@@ -184,9 +205,9 @@ func (m *Model) supplierSections(sup *game.Supplier) []section {
 func temperShort(temper string) string {
 	switch temper {
 	case "patient":
-		return "extends a late debt once"
+		return "extends once"
 	case "sharp":
-		return "freezes you out, adds a fee"
+		return "freezes, fees"
 	case "connected":
 		return "sends somebody"
 	}
@@ -246,9 +267,10 @@ func (m *Model) suppliersMove(d int) {
 }
 
 // debtAlerts are the connects' lines for the dashboard's ALERTS: a debt
-// due today or tomorrow, or late, keyed by the connect and the day, so
-// a fast-forward (#116) stops once when it is due tomorrow and again
-// when it is due today.
+// due tomorrow, the last morning to raise the cash (the market sim
+// collects it at the top of the day it is due, so the morning it is
+// due it is paid, or late and re-dated), keyed by the connect and the
+// day, so a fast-forward (#116) stops on it once.
 func (m *Model) debtAlerts() []alert {
 	w := m.w
 	var out []alert
@@ -257,15 +279,14 @@ func (m *Model) debtAlerts() []alert {
 		if sup.Debt <= 0 || sup.DebtDue > w.Day+1 {
 			continue
 		}
-		when := "tomorrow"
 		style := theme.Warning
-		if sup.DebtDue <= w.Day {
-			when, style = "today", theme.Bad
+		if w.Cash() < sup.Debt {
+			style = theme.Bad
 		}
 		out = append(out, alert{
-			text: style.Render(fmt.Sprintf("%s: %s due %s, %s in hand.", sup.Name, money(sup.Debt), when, cash(w.Cash()))),
-			why:  "debt due " + when,
-			key:  fmt.Sprintf("debt %s due %s", sup.ID, when),
+			text: style.Render(fmt.Sprintf("%s: %s due tomorrow, %s in hand.", sup.Name, money(sup.Debt), cash(w.Cash()))),
+			why:  "debt due tomorrow",
+			key:  fmt.Sprintf("debt %s due %d", sup.ID, sup.DebtDue),
 		})
 	}
 	return out

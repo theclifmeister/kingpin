@@ -487,7 +487,7 @@ func (m *Model) setCartQty() {
 			d.err = "A contract's line only goes back: the supplier sells you more by hand."
 			return
 		case qty > l.qty && l.credit:
-			d.err = "A credit line only goes back: more on the book is a buy (b)."
+			d.err = "A credit line only goes back: more on the book is a new buy."
 			return
 		case qty > l.qty && !here:
 			d.err = fmt.Sprintf("You are in %s: it was bought in %s.", m.w.CityName(m.w.Player.Location), m.w.CityName(l.city))

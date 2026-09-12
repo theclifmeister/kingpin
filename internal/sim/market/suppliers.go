@@ -234,6 +234,9 @@ func (s *Sim) book(w *game.World, t *game.Tick) {
 			t.Emit(events.CreditTaken{Day: t.Day, City: sup.City, Supplier: sup.ID, Name: sup.Name, Amount: credit[sup.ID], Debt: sup.Debt, Due: sup.DebtDue})
 		}
 	}
+	if w.Owed() > 0 {
+		w.Stats.DebtDays++ // a day ended owing somebody
+	}
 	for i := range w.Suppliers {
 		sup := &w.Suppliers[i]
 		// A bust or a seizure costs by the lot lost, up to seize_rel:
@@ -258,9 +261,6 @@ func (s *Sim) book(w *game.World, t *game.Tick) {
 			sup.Rel += (base - sup.Rel) * tun.QuietDecay
 		}
 		sup.Rel = math.Max(0, math.Min(100, sup.Rel))
-		if sup.Debt > 0 {
-			w.Stats.DebtDays++
-		}
 		if sup.Debt > 0 && sup.DebtDue <= t.Day {
 			s.collect(w, t, sup)
 		}
