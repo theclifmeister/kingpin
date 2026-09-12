@@ -55,21 +55,43 @@ func (s *Sim) DA(w *game.World) content.DAConfig { return s.law.DAFor(w.Law.DA.S
 
 // CooldownDays is how long a response level waits before it can fire
 // again: the base, plus the Security branch, and for a sting or a raid
-// times the chief, never under one day. The patrol keeps its cadence
-// under every chief: it fires as often as its cap lifts, and a chief who
-// sent it back sooner would never lift it.
+// times the chief, plus bribe_cooldown at the bought chief's share
+// (#42), never under one day. The patrol keeps its cadence under every
+// chief: it fires as often as its cap lifts, and a chief who sent it
+// back sooner would never lift it.
 func (s *Sim) CooldownDays(w *game.World, level string) int {
 	days := float64(s.cfg.Heat.CooldownDays + s.Effects(w).CooldownBonus)
 	if level != content.Patrol {
 		days *= s.Chief(w).Cooldown
+		days += float64(s.law.Effects.BribeCooldown) * s.Bought(w)
 	}
 	return max(1, int(math.Round(days)))
 }
 
+// BribeDecayMul and BribeCooldown are what a bought chief is worth at
+// full share (#42), for the UI to explain itself.
+func (s *Sim) BribeDecayMul() float64 { return math.Max(1, s.law.Effects.BribeDecayMul) }
+func (s *Sim) BribeCooldown() int     { return s.law.Effects.BribeCooldown }
+
+// Bought is the sitting chief's share of a bribe's effect today (#42):
+// 1 for a corrupt one who took it, lazy_effect for a lazy one, 0 for
+// nobody bought or a deal the cold ended.
+func (s *Sim) Bought(w *game.World) float64 {
+	if !w.Law.ChiefBoughtOn(w.Day) {
+		return 0
+	}
+	return math.Max(0, math.Min(1, w.Law.ChiefShare))
+}
+
 // Decay is the fraction of heat above the floor that fades in a day: the
-// base or the cold contacts, times the chief.
+// base or the cold contacts, times the chief, times bribe_decay_mul at
+// the bought chief's share (#42).
 func (s *Sim) Decay(w *game.World) float64 {
-	return math.Min(1, math.Max(s.cfg.Heat.Decay, s.Effects(w).Decay)*s.Chief(w).Decay)
+	d := math.Max(s.cfg.Heat.Decay, s.Effects(w).Decay) * s.Chief(w).Decay
+	if mul := s.law.Effects.BribeDecayMul; mul > 0 {
+		d *= 1 + (mul-1)*s.Bought(w)
+	}
+	return math.Min(1, d)
 }
 
 // PatrolCap is the share of demand a patrol in a city lets through: the
@@ -164,13 +186,19 @@ func (s *Sim) Effects(w *game.World) game.Effects { return game.FoldEffects(w, s
 
 // EvidenceArrest is how thick the DA's file has to be for an indictment,
 // after a retained lawyer has had his say and for the DA in office: a
-// law-and-order DA needs fewer pages, a reformer more, never under one.
+// law-and-order DA needs fewer pages, a reformer more, a bought one
+// (#42) more again, never under one.
 func (s *Sim) EvidenceArrest(w *game.World) int {
 	base := max(s.cfg.Heat.EvidenceArrest, s.Effects(w).EvidenceArrest)
 	if base <= 0 {
 		return 0
 	}
-	return max(1, int(math.Round(float64(base)*s.DA(w).EvidenceArrest)))
+	v := float64(base) * s.DA(w).EvidenceArrest
+	// A bought DA sits on the file (#42): more pages before it is a case.
+	if mul := s.law.Effects.BribedDAEvidenceMul; mul > 0 && w.Law.DABoughtOn(w.Day) {
+		v *= mul
+	}
+	return max(1, int(math.Round(v)))
 }
 
 func (s *Sim) Name() string { return "heat" }
@@ -486,6 +514,25 @@ func (s *Sim) Step(w *game.World, t *game.Tick) {
 			h.EvidenceDay = t.Day
 			reasons[here] = append(reasons[here], fmt.Sprintf("the DA's file on you grows (%d)", h.Evidence))
 		}
+	}
+
+	// An envelope that blew up last night (#42, w.Law.Backfired: the law
+	// sim steps after this one, so its night is our morning) is heat
+	// where you are and pages in the file whatever was sold: bribing is
+	// something you did, the second bend in #27 besides the informant's.
+	// The DA's file on your envelopes (w.Law.Filed) is pages the same way.
+	if b := s.law.Bribes; w.Law.Backfired > 0 && w.Law.Backfired == t.Day-1 {
+		add(here, b.BackfireHeat, "the envelope came back")
+		if b.BackfireEvidence > 0 {
+			h.Evidence += b.BackfireEvidence
+			h.EvidenceDay = t.Day
+			reasons[here] = append(reasons[here], fmt.Sprintf("the bribe backfired: the DA's file on you grows (%d)", h.Evidence))
+		}
+	}
+	if b := s.law.Bribes; w.Law.Filed > 0 && w.Law.Filed == t.Day-1 && b.LeadEvidence > 0 {
+		h.Evidence += b.LeadEvidence
+		h.EvidenceDay = t.Day
+		reasons[here] = append(reasons[here], fmt.Sprintf("the DA opened a file on your envelopes: the DA's file on you grows (%d)", h.Evidence))
 	}
 
 	// Sitting on a pile of dirty cash is its own tell, wherever you sit,

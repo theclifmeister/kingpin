@@ -25,7 +25,7 @@ func TestBooksKeys(t *testing.T) {
 		t.Fatalf("i on the dashboard: mode %v status %q", m.mode, m.status)
 	}
 	m.Update(key("$"))
-	if m.mode != modePlay || m.status != "Pay off on the crew screen (4). Buy off on the rivals screen (8)." {
+	if m.mode != modePlay || m.status != "Pay off on the crew screen (4). Buy checkpoint on the map screen (5). Bribe on the ledger screen (7). Buy off on the rivals screen (8)." {
 		t.Fatalf("$ on the dashboard: mode %v status %q", m.mode, m.status)
 	}
 	m.Update(key("t"))

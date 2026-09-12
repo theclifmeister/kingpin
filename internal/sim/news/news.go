@@ -238,6 +238,7 @@ func (s *Sim) Step(w *game.World, t *game.Tick) {
 	// Money before we look at events: sales are already applied by market.
 	var soldRevenue, lostCash, spent, wages, skimmed, robbed, upgrades, upkeep, seized, paidOff, investigated, shipping, tribute, cuts, standingCut, funded, backed, contracts, forfeits, repaid, rent, cutting, cooking int
 	var scouted, poached, boosted int // the books (#70): what a scout and a buy-off cost, less the refund, and what a boost took
+	var bribed, checkpoints int       // the bought law (#42): the envelopes and the deals on the road, paid up front
 	routeCost := map[string]int{}     // what each route cost today, lots and fares, by name in the order first seen
 	var routeOrder []string
 	charge := func(route string, cost int) {
@@ -848,6 +849,76 @@ func (s *Sim) Step(w *game.World, t *game.Tick) {
 		case events.CampaignHedged:
 			add("law", "CampaignHedged", at(ev.City))
 			rep.Law = append(rep.Law, fmt.Sprintf("%s in %s went to both tickets: nobody owes you, and everybody knows it.", format.Money(ev.Cash), w.CityName(ev.City)))
+		// The bought law (#42): the envelopes, the leads, the deals on
+		// the road, and the day it all stops.
+		case events.BribeAccepted:
+			bribed += ev.Amount
+			leadsCase := 0
+			for _, e2 := range t.Events() {
+				if lf, ok := e2.(events.LeadFound); ok {
+					leadsCase = lf.Case
+				}
+			}
+			who := "Chief " + w.Law.Chief.Name
+			effect := fmt.Sprintf("heat fades faster and the stings and raids come slower until day %d", ev.Until)
+			if ev.Target == game.BribeDA {
+				who = "DA " + w.Law.DA.Name
+				effect = fmt.Sprintf("it takes a thicker file to indict until day %d", ev.Until)
+			} else if ev.Share < 1 {
+				effect = fmt.Sprintf("a lazy chief, half the good: %s", effect)
+			}
+			rep.Law = append(rep.Law, fmt.Sprintf("%s took the %s: %s. Somebody at the DA's office heard (lead %d of %d).", who, format.Money(ev.Amount), effect, ev.Leads, leadsCase))
+			rep.Money = append(rep.Money, fmt.Sprintf("Envelope for %s -%s", who, format.Money(ev.Amount)))
+		case events.BribeRefused:
+			bribed += ev.Amount
+			who := "Chief " + w.Law.Chief.Name
+			if ev.Target == game.BribeDA {
+				who = "DA " + w.Law.DA.Name
+			}
+			why := "pocketed it and did nothing: it was under the price."
+			switch ev.Why {
+			case "quiet":
+				why = "sent it back with no note. A reformer; nothing came of it."
+			case "odds":
+				why = fmt.Sprintf("kept it and did nothing this time (~%.0f%% it would land).", ev.Odds*100)
+			}
+			rep.Law = append(rep.Law, fmt.Sprintf("%s %s", who, why))
+			rep.Money = append(rep.Money, fmt.Sprintf("Envelope for %s -%s", who, format.Money(ev.Amount)))
+		case events.BribeBackfired:
+			bribed += ev.Amount
+			who := "Chief " + w.Law.Chief.Name
+			if ev.Target == game.BribeDA {
+				who = "DA " + w.Law.DA.Name
+			}
+			d := at(here.ID)
+			d.Name = who
+			add("heat", "BribeBackfired", d) // the blotter's, about you: notoriety and pressure count it
+			rep.Law = append(rep.Law, fmt.Sprintf("%s does not take envelopes: the %s is in an evidence bag. Tomorrow the file grows by %d and the heat by %.0f.", who, format.Money(ev.Amount), ev.Evidence, ev.Heat))
+			rep.Money = append(rep.Money, fmt.Sprintf("Envelope for %s, backfired -%s", who, format.Money(ev.Amount)))
+		case events.LeadsFiled:
+			add("heat", "LeadsFiled", at(here.ID))
+			rep.Law = append(rep.Law, fmt.Sprintf("The DA's office has heard about enough envelopes to open a file: tomorrow it grows by %d.", ev.Evidence))
+		case events.OfficialsCold:
+			add("law", "OfficialsCold", at(w.Home().ID))
+			var ended []string
+			if ev.Chief {
+				ended = append(ended, "the chief")
+			}
+			if ev.Bought {
+				ended = append(ended, "the DA")
+			}
+			if n := len(ev.Routes); n > 0 {
+				ended = append(ended, format.Plural(n, "deal")+" on the road")
+			}
+			rep.Law = append([]string{fmt.Sprintf("Under DA %s nobody takes calls any more: %s stopped being yours today, and nothing is for sale while they sit.", ev.DA, strings.Join(ended, ", "))}, rep.Law...)
+		case events.CheckpointBought:
+			checkpoints += ev.Cost
+			what := "checkpoint"
+			if ev.Mode == "boat" || ev.Mode == "plane" {
+				what = "customs agent"
+			}
+			rep.Shipments = append(rep.Shipments, fmt.Sprintf("The %s on the %s is yours until day %d: the risk on that edge is cut while it holds.", what, ev.Name, ev.Until))
+			rep.Money = append(rep.Money, fmt.Sprintf("The %s on the %s -%s", what, ev.Name, format.Money(ev.Cost)))
 		case events.PressureShifted:
 			key := "PressureShiftedDown"
 			if ev.Up() {
@@ -976,7 +1047,7 @@ func (s *Sim) Step(w *game.World, t *game.Tick) {
 		spent += m.Fee
 		rep.Money = append(rep.Money, fmt.Sprintf("Signing fee for %s -%s", m.Name, format.Money(m.Fee)))
 	}
-	rep.CashBefore = w.Cash() - soldRevenue - contracts + forfeits + lostCash + spent + wages + skimmed + robbed + upgrades + upkeep + seized + paidOff + investigated + shipping + tribute + cuts + funded + backed + repaid + rent + scouted + poached - boosted + cutting + cooking
+	rep.CashBefore = w.Cash() - soldRevenue - contracts + forfeits + lostCash + spent + wages + skimmed + robbed + upgrades + upkeep + seized + paidOff + investigated + shipping + tribute + cuts + funded + backed + repaid + rent + scouted + poached + bribed + checkpoints - boosted + cutting + cooking
 	if soldRevenue > 0 {
 		rep.Money = append(rep.Money, fmt.Sprintf("Street sales +%s", format.Money(soldRevenue)))
 	}

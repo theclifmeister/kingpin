@@ -1138,6 +1138,96 @@ type CampaignHedged struct {
 
 func (CampaignHedged) Kind() string { return "CampaignHedged" }
 
+// BribeAccepted is report-only bookkeeping (#42): the chief or the DA
+// took the envelope. Until is the day the deal runs out, Share the
+// bought chief's share of the effect (a lazy one takes half), Odds what
+// the DA's were, Lead that the DA's office heard about it.
+type BribeAccepted struct {
+	Day    int
+	Target string // chief, da
+	Amount int
+	Until  int
+	Share  float64
+	Odds   float64
+	Leads  int
+}
+
+func (BribeAccepted) Kind() string { return "BribeAccepted" }
+
+// BribeRefused is report-only bookkeeping (#42): the envelope was
+// pocketed and nothing changed. Why is short (under the price), quiet
+// (a reform DA) or odds (a moderate who did not bite this time).
+type BribeRefused struct {
+	Day    int
+	Target string
+	Amount int
+	Why    string
+	Odds   float64
+}
+
+func (BribeRefused) Kind() string { return "BribeRefused" }
+
+// BribeBackfired is an envelope handed to somebody who does not take
+// them (#42): a zealous chief, a law-and-order DA. The heat sim adds
+// Evidence pages and Heat the next morning; a headline names it.
+type BribeBackfired struct {
+	Day      int
+	Target   string
+	Amount   int
+	Evidence int
+	Heat     float64
+}
+
+func (BribeBackfired) Kind() string { return "BribeBackfired" }
+
+// LeadFound is report-only bookkeeping (#42): the DA's office heard
+// about an envelope. Leads is the count after it; at Case the office
+// opens a file.
+type LeadFound struct {
+	Day   int
+	Leads int
+	Case  int
+}
+
+func (LeadFound) Kind() string { return "LeadFound" }
+
+// LeadsFiled is the DA opening a file on the envelopes (#42): the leads
+// spent, Evidence pages the next morning, and a headline.
+type LeadsFiled struct {
+	Day      int
+	Leads    int
+	Evidence int
+}
+
+func (LeadsFiled) Kind() string { return "LeadsFiled" }
+
+// OfficialsCold is every live deal ending under a law-and-order DA
+// (#42), calls_stop_days after they took office: the bought chief, the
+// bought DA and the bought routes, whichever were live.
+type OfficialsCold struct {
+	Day    int
+	DA     string
+	Chief  bool
+	Bought bool // the DA themself was bought
+	Routes []string
+}
+
+func (OfficialsCold) Kind() string { return "OfficialsCold" }
+
+// CheckpointBought is report-only bookkeeping (#42): a checkpoint (car
+// or truck) or a customs agent (boat) bought on a route, what it cost,
+// and the day it now runs to.
+type CheckpointBought struct {
+	Day   int
+	Route string
+	Name  string
+	Mode  string
+	Cost  int
+	Until int
+}
+
+func (CheckpointBought) Kind() string { return "CheckpointBought" }
+
 // ContractOffered is a buyer putting an order on the table (#71): so
 // many units of a product in a city, by a day, at Premium times that
 // city's street price on the day it is handed over. It sits in

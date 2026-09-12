@@ -402,6 +402,7 @@ type RouteSetting struct {
 	Target      map[string]int // product id -> units the route's destination is kept stocked to
 	Days        map[string]int // product id -> days of the destination's demand it is kept stocked to
 	ClosedUntil int            // the route is shut on every tick before this day (#44, an incident): nothing moves on it and nothing new is sent; 0 is open
+	Bought      int            // the day the edge's checkpoint or customs deal runs out (#42; 0: none); World.Checkpoint says whether it is live
 }
 
 // Closed reports whether the route is shut on the tick that brings day:

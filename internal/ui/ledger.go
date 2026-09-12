@@ -158,6 +158,7 @@ const (
 	ledgerFront = iota
 	ledgerHouse
 	ledgerRoute
+	ledgerPayoff // the bought law (#42)
 	ledgerOffer
 )
 
@@ -190,6 +191,9 @@ func (m *Model) ledgerRows() []ledgerRow {
 	}
 	for i := range m.ledgerRoutes() {
 		rows = append(rows, ledgerRow{ledgerRoute, i})
+	}
+	for i := range m.payoffRows() {
+		rows = append(rows, ledgerRow{ledgerPayoff, i})
 	}
 	for i := range m.frontRows() {
 		rows = append(rows, ledgerRow{ledgerOffer, i})
@@ -224,7 +228,7 @@ func (m *Model) ledgerMove(dy int) {
 // frame's, and asks to end the day as it does everywhere.
 func ledgerActable(m *Model) bool {
 	kind := m.ledgerSelected().kind
-	return m.screen == screenLedger && kind != ledgerFront && kind != ledgerHouse
+	return m.screen == screenLedger && kind != ledgerFront && kind != ledgerHouse && kind != ledgerPayoff
 }
 
 // ledgerEnter is enter on the ledger: the selected offer goes to the
@@ -391,6 +395,15 @@ func (m *Model) viewLedger() string {
 		tableLines(ledgerRoute, cols, rows)
 	}
 
+	// The bought law (#42): every live deal, and what the DA has heard
+	// if somebody on the payroll knows.
+	heading("PAYOFFS", m.payoffNote())
+	if payoffs := m.payoffRows(); len(payoffs) == 0 {
+		line(emptyState("Nobody at city hall is on the payroll. Press ", "$", " to change that; checkpoints are on the map."))
+	} else {
+		tableLines(ledgerPayoff, payoffCols, m.payoffTable(payoffs))
+	}
+
 	offers := m.frontRows()
 	heading("ON OFFER", "")
 	if len(offers) == 0 {
@@ -451,6 +464,10 @@ func (m *Model) ledgerDetails() []section {
 		secs = append(secs, m.houseSection(m.w.Houses[sel.i]))
 	case ledgerRoute:
 		secs = append(secs, m.ledgerRouteSection(m.ledgerRoutes()[sel.i]))
+	case ledgerPayoff:
+		if rows := m.payoffRows(); sel.i < len(rows) {
+			secs = append(secs, m.payoffSection(rows[sel.i]))
+		}
 	case ledgerOffer:
 		secs = append(secs, m.offerSection(m.frontRows()[sel.i]))
 	}

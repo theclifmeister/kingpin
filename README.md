@@ -379,12 +379,14 @@ The full table is below; `?` brings it up in the game.
 | `t` | tip police | tip the police on the selected rival corner | map |
 | `r` | route dial | the selected route: off, slow, normal, fast | map |
 | `R` | route target | what the selected route keeps the far end at | map |
+| `$` | buy checkpoint | buy the checkpoint or customs on the route | map |
 | `←→` | branch | turn the tree to the next branch | upgrades |
 | `u` | buy upgrade | buy the node under the cursor (enter too) | upgrades |
 | `b` | buy front | buy a front or rent a house | ledger |
 | `m` | move stock | move stock between the street and the houses | ledger |
 | `e` | guard house | post an enforcer inside the selected house | ledger |
 | `x` | drop house | drop the selected house, after asking | ledger |
+| `$` | bribe | an envelope for the chief or the DA | ledger |
 | `f` | fund city | give a city clean cash for goodwill | ledger |
 | `enter` | buy / dial | buy the offer or turn the route selected | ledger |
 | `d` | propose | offer the rival a truce, tribute or a split | rivals |

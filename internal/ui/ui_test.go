@@ -2756,6 +2756,16 @@ func TestModalsFit(t *testing.T) {
 		}},
 		{"confirm tip", modeConfirmTip, func(t *testing.T, m *Model) { m.Update(key("5")); m.mapCursor = 0; m.Update(key("t")) }},
 		{"confirm pay off", modeConfirmPayOff, func(t *testing.T, m *Model) { m.Update(key("4")); m.Update(key("$")) }},
+		// The bought law (#42): the bribe dialog's two pages from the
+		// ledger and the checkpoint confirmation from the map's routes.
+		{"bribe target", modeBribe, func(t *testing.T, m *Model) { m.Update(key("7")); m.Update(key("$")) }},
+		{"bribe amount", modeBribe, func(t *testing.T, m *Model) { m.Update(key("7")); m.Update(key("$")); m.Update(key("enter")) }},
+		{"confirm checkpoint", modeConfirmCheckpoint, func(t *testing.T, m *Model) {
+			m.Update(key("5"))
+			m.Update(key("]"))
+			m.onRoutes = true
+			m.Update(key("$"))
+		}},
 		{"stage", modeStage, func(t *testing.T, m *Model) { delete(m.w.Progression.Seen, 4); m.showStage() }},
 		{"card", modeCard, func(t *testing.T, m *Model) { m.w.Dilemmas.Pending = testCard(m.w.Day); m.showCard() }},
 		{"card outcome", modeCard, func(t *testing.T, m *Model) {

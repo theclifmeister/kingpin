@@ -33,7 +33,7 @@ go test ./internal/ui -run TestReadmeCaptures -update      # README captures fro
 go run ./cmd/anim                                          # review every scene (-list, -scene, -seed)
 ```
 
-`cmd/balance` policies: `idle | hide | quiet | normal | aggressive | careful | managed | upgraded | crewed | territory | war | diplomat | laundered | funded | distributor | delegated | dealer | stocked | routine | leveraged | boss | pricewar | saboteur | tipster | cook` (an unknown one falls back to `normal`). What each plays, its flags (`-lielow -corners -force -rival -cash -own -cards -incidents -lt -chief -da -undercut -credit -houses -fronts -heat -pace -cut`) and what the output lines mean are in `docs/harness.md`. Day counts (`harness.Horizon`, `TierDays`, `-days`) are where the tooling *looks*, never a run length: the game has no day cap and a run ends only through an ending (#27). Do not add mechanics that end a run for playing on.
+`cmd/balance` policies: `idle | hide | quiet | normal | aggressive | careful | managed | upgraded | crewed | territory | war | diplomat | laundered | funded | corrupt | distributor | delegated | dealer | stocked | routine | leveraged | boss | pricewar | saboteur | tipster | cook` (an unknown one falls back to `normal`). What each plays, its flags (`-lielow -corners -force -rival -cash -own -cards -incidents -lt -chief -da -undercut -credit -houses -fronts -heat -pace -cut`) and what the output lines mean are in `docs/harness.md`. Day counts (`harness.Horizon`, `TierDays`, `-days`) are where the tooling *looks*, never a run length: the game has no day cap and a run ends only through an ending (#27). Do not add mechanics that end a run for playing on.
 
 Set `KINGPIN_HOME` to keep test saves out of your real config dir (tests do this with `t.TempDir()`). To drive the TUI headlessly, run it under `tmux` and use `send-keys` / `capture-pane`; `internal/ui/ui_test.go` has a `key()` helper for feeding `tea.KeyMsg`s to the model directly. `KINGPIN_NO_ANIM=1` turns the animation off; `KINGPIN_ANIM_EFFECT=name` pins the title effect.
 
@@ -67,7 +67,7 @@ Package layout: `cmd/kingpin` (the game), `cmd/balance` (headless runs), `cmd/ke
 | Standing orders (sell routine) | `World.Standing`, `market.Sim.standing` | `market.toml [standing]` | `docs/standing-orders.md` | `TestStandingSellsLikeTheHand`, `TestRoutineIsWithinFifteenPercentOfCrewed` |
 | Buyers (contracts) | `game/buyers.go`, `sim/market/buyers.go`, `ui/buyers.go` | `buyers.toml` | `docs/buyers.md` | `buyers_test.go`, `TestDealerBeatsCrewed` |
 | Heat, evidence, the police response | `sim/heat`, levels `content.Patrol..Arrest` | `heat.toml` | `docs/corners.md`, `docs/snitching.md` | `heat_test.go`, `TestRichHiderIsNeverIndicted` (#27), `balance_test.go` |
-| The law: chief, DA, pressure, goodwill, campaigns (#193) | `sim/law`, `game/law.go`, `ui/law.go` | `law.toml`, `names.toml` | `docs/law.md` | `law_test.go`, `TestQuietDayRuleHoldsUnderEveryLaw`, `TestNoCampaignIsTheOldRun` |
+| The law: chief, DA, pressure, goodwill, campaigns (#193), bribes and checkpoints (#42) | `sim/law`, `game/law.go`, `ui/law.go`, `ui/bribes.go` | `law.toml`, `names.toml` | `docs/law.md` | `law_test.go`, `TestQuietDayRuleHoldsUnderEveryLaw`, `TestNoCampaignIsTheOldRun`, `TestNoBribeIsTheOldRun` |
 | Logistics: routes, targets, shipments | `sim/logistics`, `ui/routes.go` | `routes.toml` | `docs/logistics.md` | `TestStockIsConservedAcrossShipments`, `TestDistributorBeatsLaundered` |
 | Laundering: fronts, the float, audits | `sim/laundering`, `ui/ledger.go` | `laundering.toml` | `docs/laundering.md` | `laundering_test.go`, `TestLaunderingNodesPullTheirWay` |
 | Stash houses | `game/houses.go`, `ui/houses.go`, raid in `sim/heat`, rent in `sim/territory` | `houses.toml` | `docs/houses.md` | `houses_test.go`, `TestDecoyHouseNeverShieldsTheStreet` |
@@ -91,7 +91,7 @@ Package layout: `cmd/kingpin` (the game), `cmd/balance` (headless runs), `cmd/ke
 ### Rules of thumb that took a PR to learn
 
 - A new alert goes in `alerts()`, a new fast-forward stop in `stopEvent`; key them so `F` stops once.
-- Sale heat is per unit moved, weighted by the corner and the city; only dealing builds a case (a sting on a quiet day adds no evidence). The one exception is an informant (`docs/snitching.md`).
+- Sale heat is per unit moved, weighted by the corner and the city; only dealing builds a case (a sting on a quiet day adds no evidence). The two exceptions are an informant (`docs/snitching.md`) and a bribe that backfires (#42, `docs/law.md`): both something you did.
 - The rival's costs are in corner-days and its muscle is what its take pays for (`docs/rival.md`, #139); its claim is telegraphed a day ahead (#69), so a pinned seed that reads one day can shift by one.
 - A cut off the take weighs ~2.5x on net worth at the crewed margin (`docs/standing-orders.md`): price a routine's cost against that.
 - The laundering float is one number on the world (`World.Float`) that the wash and the road share; supply contracts have their own.

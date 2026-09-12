@@ -1,6 +1,7 @@
 package law_test
 
 import (
+	"math"
 	"testing"
 
 	"github.com/theclifmeister/kingpin/internal/content"
@@ -423,4 +424,222 @@ func TestCampaigns(t *testing.T) {
 	if len(seen) < 3 {
 		t.Fatalf("60 seeds at pressure 50 did not show every outcome: %v", seen)
 	}
+}
+
+// Bribes (#42): the chief's answer by personality (corrupt takes it for
+// bribe_days, lazy at half, zealous files it; under the price it is
+// pocketed), the DA's by ticket (a reformer refuses quietly, law and
+// order files it, a moderate takes it at the odds of the amount against
+// the price, a DA you backed likewise at half the price), every taken
+// envelope a lead and leads_case of them a file, leads fading, and the
+// cold: a law-and-order DA elected ends every live deal calls_stop_days
+// on, once, and nothing is for sale while they sit.
+func TestBribes(t *testing.T) {
+	cfg := content.MustLoad()
+	s := law.New(cfg)
+	tun := cfg.Law.Bribes
+	fresh := func(chief, da string) *game.World {
+		w := sim.NewWorld(cfg, 8)
+		w.Player.DirtyCash = 10_000_000
+		w.Law.Chief.Personality, w.Law.DA.Stance = chief, da
+		return w
+	}
+	pay := func(w *game.World, target string, amount int) *game.Tick {
+		if err := w.Bribe(target, amount); err != nil {
+			t.Fatal(err)
+		}
+		tk := tick(w, w.Day+1)
+		s.Step(w, tk)
+		w.Day++
+		w.ClearToday(w.Day)
+		return tk
+	}
+
+	// The chief.
+	w := fresh("corrupt", "moderate")
+	tk := pay(w, game.BribeChief, tun.ChiefPrice-1)
+	if k := kinds(tk); k["BribeRefused"] != 1 || k["BribeAccepted"] != 0 || w.Law.ChiefBought != 0 || w.Law.Leads != 0 {
+		t.Fatalf("under the price: %v %+v", k, w.Law)
+	}
+	tk = pay(w, game.BribeChief, tun.ChiefPrice)
+	if k := kinds(tk); k["BribeAccepted"] != 1 || k["LeadFound"] != 1 || w.Law.ChiefBought != w.Day+tun.BribeDays || w.Law.ChiefShare != 1 || w.Law.Leads != 1 || w.Law.LeadDay != w.Day || w.Stats.Leads != 1 {
+		t.Fatalf("a corrupt chief: %v %+v", k, w.Law)
+	}
+	if !w.Law.ChiefBoughtOn(w.Day) || w.Law.ChiefBoughtOn(w.Law.ChiefBought) {
+		t.Fatalf("bought on %d until %d: %v %v", w.Day, w.Law.ChiefBought, w.Law.ChiefBoughtOn(w.Day), w.Law.ChiefBoughtOn(w.Law.ChiefBought))
+	}
+	until := w.Law.ChiefBought
+	pay(w, game.BribeChief, tun.ChiefPrice) // renewing adds to what is left
+	if w.Law.ChiefBought != until+tun.BribeDays {
+		t.Fatalf("renewed until %d, want %d", w.Law.ChiefBought, until+tun.BribeDays)
+	}
+	w = fresh("lazy", "moderate")
+	pay(w, game.BribeChief, tun.ChiefPrice)
+	if w.Law.ChiefShare != tun.LazyEffect || !w.Law.ChiefBoughtOn(w.Day) {
+		t.Fatalf("a lazy chief: %+v", w.Law)
+	}
+	w = fresh("zealous", "moderate")
+	tk = pay(w, game.BribeChief, tun.ChiefPrice)
+	if k := kinds(tk); k["BribeBackfired"] != 1 || k["BribeAccepted"]+k["LeadFound"] != 0 || w.Law.ChiefBought != 0 || w.Law.Backfired != w.Day || w.Stats.Backfires != 1 || w.Law.Leads != 0 {
+		t.Fatalf("a zealous chief: %v %+v", k, w.Law)
+	}
+	for _, e := range tk.Events() {
+		if ev, ok := e.(events.BribeBackfired); ok && (ev.Target != game.BribeChief || ev.Evidence != tun.BackfireEvidence || ev.Heat != tun.BackfireHeat) {
+			t.Fatalf("%+v", ev)
+		}
+	}
+
+	// The DA.
+	w = fresh("corrupt", "reform")
+	tk = pay(w, game.BribeDA, tun.DAPrice)
+	if k := kinds(tk); k["BribeRefused"] != 1 || w.Law.DABought != 0 || w.Law.Backfired != 0 || w.Law.Leads != 0 {
+		t.Fatalf("a reformer: %v %+v", k, w.Law)
+	}
+	w = fresh("corrupt", "law_and_order")
+	tk = pay(w, game.BribeDA, tun.DAPrice)
+	if k := kinds(tk); k["BribeBackfired"] != 1 || w.Law.DABought != 0 || w.Law.Backfired != w.Day {
+		t.Fatalf("law and order: %v %+v", k, w.Law)
+	}
+	if err := w.Bribe(game.BribeChief, tun.ChiefPrice); err != game.ErrOfficialsCold {
+		t.Fatalf("the chief under a law-and-order DA: %v", err)
+	}
+	if err := w.BuyCheckpoint("coast", 1, 1); err != game.ErrOfficialsCold {
+		t.Fatalf("a checkpoint under a law-and-order DA: %v", err)
+	}
+	w = fresh("corrupt", "moderate")
+	if got, want := s.DAOdds(w, tun.DAPrice), 0.5; abs(got-want) > 1e-9 {
+		t.Fatalf("odds at the price %.3f, want %.3f", got, want)
+	}
+	if got := s.DAOdds(w, 10*tun.DAPrice); got != tun.DAOddsCap {
+		t.Fatalf("odds at ten times the price %.3f, want the cap %.3f", got, tun.DAOddsCap)
+	}
+	w.Law.DA.Backed = true
+	if got, want := s.DAPrice(w), int(float64(tun.DAPrice)*cfg.Law.Campaign.BackedDAPriceMul); got != want {
+		t.Fatalf("a backed DA's price %d, want %d", got, want)
+	}
+	w.Law.DA.Stance = "reform"
+	if s.DAOdds(w, tun.DAPrice) <= 0 {
+		t.Fatal("a backed reformer should take an envelope")
+	}
+	w.Law.DA.Backed = false
+	w.Law.DA.Stance = "moderate"
+	w.Crew.Members = append(w.Crew.Members, game.CrewMember{ID: 900, Name: "Fix", Role: game.RoleFixer, Skill: 100, Loyalty: 80})
+	if got, want := s.DAPrice(w), int(math.Round(float64(tun.DAPrice)*(1-tun.FixerDiscount))); got != want {
+		t.Fatalf("with a skill-100 fixer the price is %d, want %d", got, want)
+	}
+	if got, want := s.DAOdds(w, s.DAPrice(w)), math.Min(tun.DAOddsCap, 0.5+tun.FixerOdds); abs(got-want) > 1e-9 {
+		t.Fatalf("with a fixer the odds at the price are %.3f, want %.3f", got, want)
+	}
+	// Over 40 seeds a moderate takes the envelope at the cap sometimes
+	// and not always, and every taken one is a lead; three leads are a
+	// file.
+	taken, refused := 0, 0
+	for seed := uint64(1); seed <= 40; seed++ {
+		w := fresh("corrupt", "moderate")
+		w.Seed = seed
+		tk := pay(w, game.BribeDA, 10*tun.DAPrice)
+		k := kinds(tk)
+		switch {
+		case k["BribeAccepted"] == 1:
+			taken++
+			if !w.Law.DABoughtOn(w.Day) || w.Law.Leads != 1 || k["LeadFound"] != 1 {
+				t.Fatalf("seed %d: taken but %+v %v", seed, w.Law, k)
+			}
+		case k["BribeRefused"] == 1:
+			refused++
+			if w.Law.DABought != 0 || w.Law.Leads != 0 {
+				t.Fatalf("seed %d: refused but %+v", seed, w.Law)
+			}
+		default:
+			t.Fatalf("seed %d: %v", seed, k)
+		}
+	}
+	t.Logf("a moderate at the cap: took %d of 40, refused %d", taken, refused)
+	if taken == 0 || refused == 0 {
+		t.Fatalf("the moderate's odds are not odds: %d taken, %d refused", taken, refused)
+	}
+
+	// Leads: the third opens a file, and they fade.
+	w = fresh("corrupt", "moderate")
+	var filed *events.LeadsFiled
+	for i := 0; i < tun.LeadsCase; i++ {
+		w.Law.ChiefBought = 0 // a fresh envelope each day, not a renewal that would not add a lead
+		tk = pay(w, game.BribeChief, tun.ChiefPrice)
+		for _, e := range tk.Events() {
+			if ev, ok := e.(events.LeadsFiled); ok {
+				filed = &ev
+			}
+		}
+	}
+	if filed == nil || filed.Leads != tun.LeadsCase || filed.Evidence != tun.LeadEvidence || w.Law.Leads != 0 || w.Law.Filed != w.Day || w.Stats.Leads != tun.LeadsCase {
+		t.Fatalf("after %d envelopes: filed %+v law %+v stats %+v", tun.LeadsCase, filed, w.Law, w.Stats)
+	}
+	w.Law.Leads, w.Law.LeadDay = 2, w.Day
+	for d := 0; d < tun.LeadDecayDays; d++ {
+		s.Step(w, tick(w, w.Day+1))
+		w.Day++
+	}
+	if w.Law.Leads != 1 || w.Law.LeadDay != w.Day {
+		t.Fatalf("leads after %d quiet days: %d (last %d, day %d)", tun.LeadDecayDays, w.Law.Leads, w.Law.LeadDay, w.Day)
+	}
+
+	// The cold: a law-and-order DA elected with a bought chief, a bought
+	// DA and a bought route; calls_stop_days on, every deal ends at once
+	// with one OfficialsCold; a re-elected one brings no second; a
+	// moderate elected next opens the phones again.
+	for seed := uint64(1); seed <= 60; seed++ {
+		w := fresh("corrupt", "moderate")
+		w.Seed = seed
+		for _, c := range w.Cities {
+			c.Pressure = 100
+		}
+		pay(w, game.BribeChief, tun.ChiefPrice)
+		if err := w.BuyCheckpoint("coast", tun.CheckpointPrice, tun.CheckpointDays); err != nil {
+			t.Fatal(err)
+		}
+		w.Law.DABought = w.Day + tun.BribeDays
+		w.Law.DA.ElectedDay = w.Day - cfg.Law.Law.TermDays + 1
+		tk := tick(w, w.Day+1)
+		s.Step(w, tk)
+		w.Day++
+		if w.Law.DA.Stance != "law_and_order" {
+			continue
+		}
+		if w.Law.Cold != w.Day+tun.CallsStopDays {
+			t.Fatalf("seed %d: cold on %d, want %d", seed, w.Law.Cold, w.Day+tun.CallsStopDays)
+		}
+		cold := 0
+		for w.Day < w.Law.Cold+2 {
+			live := w.Law.ChiefBoughtOn(w.Day) && w.Law.DABoughtOn(w.Day) && w.CheckpointLive("coast", w.Day)
+			if before := w.Day < w.Law.Cold; live != before {
+				t.Fatalf("seed %d day %d (cold %d): live %v", seed, w.Day, w.Law.Cold, live)
+			}
+			tk := tick(w, w.Day+1)
+			s.Step(w, tk)
+			w.Day++
+			for _, e := range tk.Events() {
+				if ev, ok := e.(events.OfficialsCold); ok {
+					cold++
+					if !ev.Chief || !ev.Bought || len(ev.Routes) != 1 || ev.Routes[0] != "coast" || ev.Day != w.Law.Cold {
+						t.Fatalf("seed %d: %+v", seed, ev)
+					}
+				}
+			}
+		}
+		if cold != 1 || w.Law.ChiefBought != 0 || w.Law.DABought != 0 {
+			t.Fatalf("seed %d: OfficialsCold fired %d times; law %+v", seed, cold, w.Law)
+		}
+		if err := w.Bribe(game.BribeChief, tun.ChiefPrice); err != game.ErrOfficialsCold {
+			t.Fatalf("seed %d: the chief while the cold stands: %v", seed, err)
+		}
+		// The next election: a moderate winner resets the cold.
+		w.Law.DA.Stance = "moderate"
+		w.Law.DA.ElectedDay = w.Day - cfg.Law.Law.TermDays
+		s.Step(w, tick(w, w.Day+1))
+		if w.Law.DA.Stance != "law_and_order" && w.Law.Cold != 0 {
+			t.Fatalf("seed %d: the cold outlived the law-and-order DA: %+v", seed, w.Law)
+		}
+		return
+	}
+	t.Fatal("60 elections at pressure 100 and no law-and-order winner")
 }

@@ -257,6 +257,14 @@ func (m *Model) stopEvent(e events.Event) string {
 		return "a new chief"
 	case events.DAElected:
 		return "the election"
+	// The bought law (#42): an envelope that came back, the DA's file on
+	// the envelopes, and the day the phones stop.
+	case events.BribeBackfired:
+		return "the envelope came back"
+	case events.LeadsFiled:
+		return "the DA's file on your envelopes"
+	case events.OfficialsCold:
+		return "the officials going cold"
 	case events.SupplyShort:
 		return fmt.Sprintf("the %s contract in %s short of %s", w.ProductName(ev.Product), w.CityName(ev.City), ev.Why)
 	case events.StandingShort:

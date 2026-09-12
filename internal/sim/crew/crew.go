@@ -58,7 +58,18 @@ func (s *Sim) announce(w *game.World, t *game.Tick) {
 	if s.ChemistsWanted(w) {
 		offer(game.RoleChemist, "Chemists", w.ProductName(s.cfg.Role[game.RoleChemist].UnlockProduct)+" on the ladder")
 	}
+	if FixersWanted(w) {
+		offer(game.RoleFixer, "Fixers", "an envelope paid")
+	}
 }
+
+// FixersWanted is whether fixers come looking for work (#42): once an
+// envelope has gone to the chief or the DA, or a checkpoint or a customs
+// agent has been paid. Word gets round that you pay. (The issue gated
+// them on a front or a route; that would put a face in the pool of
+// every run with a front, displacing a runner in runs that never bribe,
+// so the gate is the first payment and the roll is a side stream's.)
+func FixersWanted(w *game.World) bool { return w.Stats.Bribes > 0 || w.Stats.Checkpoints > 0 }
 
 // Sim is the crew simulation.
 type Sim struct {
@@ -195,7 +206,7 @@ func (s *Sim) wages(w *game.World, p events.Pay, fx game.Effects) int {
 // day 0. It draws from rng, which the caller derives from the seed.
 func (s *Sim) Seed(w *game.World, rng rand) {
 	w.Crew.Pay = events.PayFair
-	s.refill(w, rng, nil, game.FoldEffects(w, s.tree))
+	s.refill(w, rng, nil, nil, game.FoldEffects(w, s.tree))
 }
 
 // Migrate brings a save from before the crew existed up to date: an empty
@@ -291,8 +302,21 @@ func (s *Sim) Step(w *game.World, t *game.Tick) {
 	// Turning, on the same morning loyalty: the disloyal and nervous start
 	// talking. Nothing is shown; the heat sim starts its clock on the event.
 	// A lieutenant turns under a higher line and without dice: they know
-	// where everything is, and the DA knows it.
+	// where everything is, and the DA knows it. A fixer whose envelope
+	// blew up last night (#42, w.Law.Backfired) loses backfire_loyalty
+	// and, under the line, turns the way an audit turns an accountant
+	// (#29): no dice, they were the one holding the bag.
 	inf := s.cfg.Informant
+	if w.Law.Backfired > 0 && w.Law.Backfired == t.Day-1 {
+		if f := c.Fixer(); f != nil {
+			f.Loyalty = math.Max(0, f.Loyalty-s.cfg.Role[game.RoleFixer].BackfireLoyalty)
+			if !f.Informant && f.Loyalty < inf.Loyalty {
+				f.Informant = true
+				w.Stats.Informants++
+				t.Emit(events.CrewTurnedInformant{Day: t.Day, ID: f.ID, Name: f.Name})
+			}
+		}
+	}
 	for i := range c.Members {
 		m := &c.Members[i]
 		if m.Informant {
@@ -485,15 +509,20 @@ func (s *Sim) Step(w *game.World, t *game.Tick) {
 		c.Candidates = nil
 		c.PoolDay = t.Day
 	}
-	s.refill(w, t.RNG, t.Sub("chemist"), fx)
+	var side rand
+	if FixersWanted(w) {
+		side = t.Sub("fixer")
+	}
+	s.refill(w, t.RNG, t.Sub("chemist"), side, fx)
 }
 
 // refill tops the candidate pool up to size with fresh faces, and, once
 // meth is on the ladder, adds the one chemist looking for work beside
 // them (#47), drawn off the chemist's own stream (nil at seed: the
 // ladder has no meth on day 0) with a name from their own list, so the
-// faces the home stream draws are the faces it always drew.
-func (s *Sim) refill(w *game.World, rng, chem rand, fx game.Effects) {
+// faces the home stream draws are the faces it always drew. side is the
+// fixers' stream (#42), nil while nobody has paid an envelope.
+func (s *Sim) refill(w *game.World, rng, chem, side rand, fx game.Effects) {
 	faces := 0
 	for _, c := range w.Crew.Candidates {
 		if c.Role != game.RoleChemist {
@@ -501,7 +530,7 @@ func (s *Sim) refill(w *game.World, rng, chem rand, fx game.Effects) {
 		}
 	}
 	for ; faces < s.candidates(fx); faces++ {
-		w.Crew.Candidates = append(w.Crew.Candidates, s.generate(w, rng, fx))
+		w.Crew.Candidates = append(w.Crew.Candidates, s.generate(w, rng, side, fx))
 	}
 	if chem != nil && s.ChemistsWanted(w) && !s.chemistLooking(w) {
 		w.Crew.Candidates = append(w.Crew.Candidates, s.chemist(w, chem, fx))
@@ -652,7 +681,7 @@ func (s *Sim) land(w *game.World, t *game.Tick) {
 // over 100, and the fee is priced on the skill they arrive with; none
 // of it adds a draw, so a run owning nothing rolls the pool it always
 // did.
-func (s *Sim) generate(w *game.World, rng rand, fx game.Effects) game.CrewMember {
+func (s *Sim) generate(w *game.World, rng, side rand, fx game.Effects) game.CrewMember {
 	tun := s.cfg.Crew
 	used := map[string]bool{}
 	for _, m := range w.Crew.Members {
@@ -681,6 +710,12 @@ func (s *Sim) generate(w *game.World, rng rand, fx game.Effects) game.CrewMember
 	if lt := s.cfg.Lieutenant; LieutenantsWanted(w) && rng.Float64() < lt.Chance {
 		role = game.RoleLieutenant
 		personality = content.LieutenantPersonalities[rng.IntN(len(content.LieutenantPersonalities))]
+	}
+	// Fixers (#42) come looking once you have paid somebody, on their
+	// own stream, so a run that pays nobody draws the pool it always
+	// did; they never displace a lieutenant.
+	if side != nil && role != game.RoleLieutenant && side.Float64() < s.cfg.Role[game.RoleFixer].Chance {
+		role = game.RoleFixer
 	}
 	rc := s.cfg.Role[role]
 	skill := min(100, 15+rng.IntN(71)+fx.SkillBonus)
