@@ -539,6 +539,49 @@ func Warlike(cfg *content.Config, lieLowAt float64, corners int, force events.Fo
 	}
 }
 
+// Outbidder plays like Territory and answers the tell (#69): the
+// morning the rival is eyeing a free corner it posts a runner there,
+// an idle one if it has one, else the one on its smallest worked
+// corner, so the claim finds somebody on it. It never sends the
+// enforcers in. It is the scripted player the tell is for.
+func Outbidder(cfg *content.Config, lieLowAt float64, corners int) Policy {
+	territory := Territory(cfg, lieLowAt, corners)
+	return func(w *game.World) {
+		territory(w)
+		Outbid(w)
+	}
+}
+
+// Outbid posts a runner on the corner the rival is eyeing, if it is
+// still free and there is a runner to post: an idle one, else the one
+// on the smallest worked corner. It reports whether somebody was put
+// there.
+func Outbid(w *game.World) bool {
+	eyed := w.Corner(w.Rival.Eyeing)
+	if eyed == nil || eyed.Owner != game.OwnerNone {
+		return false
+	}
+	who := 0
+	worst := 0.0
+	for _, m := range w.Crew.Members {
+		if m.Role != "runner" {
+			continue
+		}
+		p := w.PostOf(m.ID)
+		if p == nil {
+			who = m.ID
+			break
+		}
+		if who == 0 || p.Demand < worst {
+			who, worst = m.ID, p.Demand
+		}
+	}
+	if who == 0 {
+		return false
+	}
+	return w.Post(eyed.ID, who) == nil
+}
+
 // Diplomat plays like Territory and talks: whenever the rival has taken a
 // corner off it in the last DiplomatDays it proposes a truce, and once
 // the truce has been refused twice it offers tribute at the fair cut

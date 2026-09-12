@@ -24,6 +24,7 @@ crackdown_threshold = 80    # past this the police clear the front line on both 
 crackdown_corners = 2       # corners each side loses in a crackdown, contested ones first
 crackdown_heat = 12         # heat the player draws from a crackdown
 crackdown_muscle = 0.5      # fraction of the rival's muscle a crackdown takes
+outbid_grudge = 1           # grudge it holds when a claim it telegraphed finds somebody on the corner (#69: the tell)
 
 # Pace (#60): how fast it takes the city. Its claim chance is scaled by
 # your share of home's corners, from claim_scale_min with nothing held to
