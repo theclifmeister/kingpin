@@ -20,6 +20,7 @@ One file a subsystem, the detail CLAUDE.md points at (#175). Each is the contrac
 - [Lieutenants run a city for you](lieutenants.md)
 - [All tuning is data](tuning.md)
 - [Dilemma cards](dilemmas.md)
+- [World incidents are the weather](incidents.md)
 - [Progression tiers are a name for what has opened](progression.md)
 - [The stage is the interstitial](stage.md)
 - [Buyers are the market screen's reason to exist](buyers.md)
@@ -38,3 +39,4 @@ One file a subsystem, the detail CLAUDE.md points at (#175). Each is the contrac
 - [The cart is the day's shopping](cart.md)
 - [Stash houses are where you keep it, and which one the raid finds](houses.md)
 - [Animation](animation.md)
+- [Quality is the last dial](quality.md)

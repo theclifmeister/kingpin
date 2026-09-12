@@ -55,14 +55,18 @@ func (s *Sim) announce(w *game.World, t *game.Tick) {
 	if LieutenantsWanted(w) {
 		offer(game.RoleLieutenant, "Lieutenants", "corners in two cities")
 	}
+	if s.ChemistsWanted(w) {
+		offer(game.RoleChemist, "Chemists", w.ProductName(s.cfg.Role[game.RoleChemist].UnlockProduct)+" on the ladder")
+	}
 }
 
 // Sim is the crew simulation.
 type Sim struct {
-	cfg   content.CrewConfig
-	names []string
-	rep   content.ReputationFX
-	tree  content.UpgradesConfig
+	cfg      content.CrewConfig
+	names    []string
+	chemists []string // the chemist's names (#47), a pool of their own
+	rep      content.ReputationFX
+	tree     content.UpgradesConfig
 }
 
 // New builds a crew sim from the config, copying what it reads (#144):
@@ -77,7 +81,7 @@ type Sim struct {
 // and start_loyalty_bonus on a generated candidate and hire_fee_mul on
 // their fee, both fixed when they are generated.
 func New(cfg *content.Config) *Sim {
-	return &Sim{cfg: cfg.Crew, names: cfg.Names.Crew, rep: cfg.Reputation.Effects, tree: cfg.Upgrades}
+	return &Sim{cfg: cfg.Crew, names: cfg.Names.Crew, chemists: cfg.Names.Chemists, rep: cfg.Reputation.Effects, tree: cfg.Upgrades}
 }
 
 // LoyaltyLoss is what the player's respect and the tree leave of a day's
@@ -191,7 +195,7 @@ func (s *Sim) wages(w *game.World, p events.Pay, fx game.Effects) int {
 // day 0. It draws from rng, which the caller derives from the seed.
 func (s *Sim) Seed(w *game.World, rng rand) {
 	w.Crew.Pay = events.PayFair
-	s.refill(w, rng, game.FoldEffects(w, s.tree))
+	s.refill(w, rng, nil, game.FoldEffects(w, s.tree))
 }
 
 // Migrate brings a save from before the crew existed up to date: an empty
@@ -218,6 +222,7 @@ func (s *Sim) Step(w *game.World, t *game.Tick) {
 	fx := game.FoldEffects(w, s.tree)
 	c := &w.Crew
 	s.announce(w, t)
+	s.land(w, t)
 
 	for _, m := range c.HiredToday {
 		t.Emit(events.CrewHired{Day: t.Day, Name: m.Name, Role: m.Role, Fee: m.Fee})
@@ -480,13 +485,165 @@ func (s *Sim) Step(w *game.World, t *game.Tick) {
 		c.Candidates = nil
 		c.PoolDay = t.Day
 	}
-	s.refill(w, t.RNG, fx)
+	s.refill(w, t.RNG, t.Sub("chemist"), fx)
 }
 
-// refill tops the candidate pool up to size with fresh faces.
-func (s *Sim) refill(w *game.World, rng rand, fx game.Effects) {
-	for len(w.Crew.Candidates) < s.candidates(fx) {
+// refill tops the candidate pool up to size with fresh faces, and, once
+// meth is on the ladder, adds the one chemist looking for work beside
+// them (#47), drawn off the chemist's own stream (nil at seed: the
+// ladder has no meth on day 0) with a name from their own list, so the
+// faces the home stream draws are the faces it always drew.
+func (s *Sim) refill(w *game.World, rng, chem rand, fx game.Effects) {
+	faces := 0
+	for _, c := range w.Crew.Candidates {
+		if c.Role != game.RoleChemist {
+			faces++
+		}
+	}
+	for ; faces < s.candidates(fx); faces++ {
 		w.Crew.Candidates = append(w.Crew.Candidates, s.generate(w, rng, fx))
+	}
+	if chem != nil && s.ChemistsWanted(w) && !s.chemistLooking(w) {
+		w.Crew.Candidates = append(w.Crew.Candidates, s.chemist(w, chem, fx))
+	}
+}
+
+// chemistLooking reports whether the pool holds a chemist.
+func (s *Sim) chemistLooking(w *game.World) bool {
+	for _, c := range w.Crew.Candidates {
+		if c.Role == game.RoleChemist {
+			return true
+		}
+	}
+	return false
+}
+
+// ChemistsWanted reports whether a chemist comes looking for work: the
+// role's unlock_product (meth) is on the ladder.
+func (s *Sim) ChemistsWanted(w *game.World) bool {
+	id := s.cfg.Role[game.RoleChemist].UnlockProduct
+	if id == "" || w.Home() == nil {
+		return false
+	}
+	return w.Home().Market[id] != nil
+}
+
+// chemist rolls the chemist looking for work (#47): the generate roll
+// off the chemist's stream, with a name from the chemists' list.
+func (s *Sim) chemist(w *game.World, rng rand, fx game.Effects) game.CrewMember {
+	used := map[string]bool{}
+	for _, m := range w.Crew.Members {
+		used[m.Name] = true
+	}
+	for _, m := range w.Crew.Candidates {
+		used[m.Name] = true
+	}
+	var free []string
+	for _, n := range s.chemists {
+		if !used[n] {
+			free = append(free, n)
+		}
+	}
+	sort.Strings(free)
+	name := "The Chemist"
+	if len(free) > 0 {
+		name = free[rng.IntN(len(free))]
+	}
+	tun := s.cfg.Crew
+	rc := s.cfg.Role[game.RoleChemist]
+	skill := min(100, 15+rng.IntN(71)+fx.SkillBonus)
+	m := game.CrewMember{
+		ID:      w.Crew.NextID + 1,
+		Name:    name,
+		Role:    game.RoleChemist,
+		Skill:   skill,
+		Loyalty: float64(min(100, tun.StartLoyaltyMin+rng.IntN(max(1, tun.StartLoyaltyMax-tun.StartLoyaltyMin+1))+fx.StartLoyaltyBonus)),
+		Greed:   5 + rng.IntN(91),
+		Nerve:   5 + rng.IntN(91),
+		Wage:    int(math.Round(rc.WageBase + rc.WagePerSkill*float64(skill))),
+		Fee:     s.hireFee(w, skill, fx),
+	}
+	w.Crew.NextID = m.ID
+	return m
+}
+
+// ChemistQuality is the quality the best chemist on the payroll makes
+// (#47): quality_base + quality_per_skill x skill, what a cook lands
+// at; 0 with none.
+func (s *Sim) ChemistQuality(w *game.World) float64 {
+	m := w.Crew.Chemist()
+	if m == nil {
+		return 0
+	}
+	return s.QualityOf(m.Skill)
+}
+
+// QualityOf is the quality a chemist of a skill makes: what a candidate
+// would cook at.
+func (s *Sim) QualityOf(skill int) float64 {
+	rc := s.cfg.Role[game.RoleChemist]
+	return math.Max(0, math.Min(100, rc.QualityBase+rc.QualityPerSkill*float64(skill)))
+}
+
+// BatchOf is the most units a chemist of a skill cooks an order.
+func (s *Sim) BatchOf(skill int) int {
+	return int(math.Round(s.cfg.Role[game.RoleChemist].BatchPerSkill * float64(skill)))
+}
+
+// CutBonus is the quality points a cut keeps with the best chemist's
+// hand on it: cut_bonus x skill; 0 with none.
+func (s *Sim) CutBonus(w *game.World) float64 {
+	m := w.Crew.Chemist()
+	if m == nil {
+		return 0
+	}
+	return s.cfg.Role[game.RoleChemist].CutBonus * float64(m.Skill)
+}
+
+// Batch is the most units the best chemist cooks an order:
+// batch_per_skill x skill; 0 with none.
+func (s *Sim) Batch(w *game.World) int {
+	m := w.Crew.Chemist()
+	if m == nil {
+		return 0
+	}
+	return s.BatchOf(m.Skill)
+}
+
+// CookDays is how long a cook takes.
+func (s *Sim) CookDays() int { return max(1, s.cfg.Role[game.RoleChemist].CookDays) }
+
+// ChemistName is the best chemist's name, "" with none: what a cook
+// order is signed with.
+func (s *Sim) ChemistName(w *game.World) string {
+	if m := w.Crew.Chemist(); m != nil {
+		return m.Name
+	}
+	return ""
+}
+
+// land puts every cook that is ready into its city's stash at the
+// quality it was ordered at (#47) and reports it; the chemist need not
+// still be on the payroll (the precursors were bought), the lot is.
+func (s *Sim) land(w *game.World, t *game.Tick) {
+	if len(w.Crew.Cooks) == 0 {
+		return
+	}
+	kept := w.Crew.Cooks[:0]
+	for _, k := range w.Crew.Cooks {
+		if k.Ordered == t.Day-1 {
+			t.Emit(events.CookOrdered{Day: t.Day, City: k.City, Product: k.Product, Units: k.Units, Quality: k.Quality, Cost: k.Cost, Days: k.Ready - k.Ordered, Chemist: k.Chemist})
+		}
+		if k.Ready > t.Day {
+			kept = append(kept, k)
+			continue
+		}
+		w.AddStock(k.City, k.Product, k.Units, k.Quality)
+		t.Emit(events.Cooked{Day: t.Day, City: k.City, Product: k.Product, Units: k.Units, Quality: k.Quality, Cost: k.Cost, Chemist: k.Chemist})
+	}
+	w.Crew.Cooks = kept
+	if len(w.Crew.Cooks) == 0 {
+		w.Crew.Cooks = nil
 	}
 }
 

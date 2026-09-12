@@ -26,19 +26,27 @@ type Sim struct {
 	tmpl map[string][]*template.Template
 	flav []*template.Template
 	deck []card
+	inc  map[string]*template.Template // the incidents' report lines by id (#44)
 }
 
 // New parses the headline and card templates once, copying what it
-// reads of the config (#144): the headlines, the dilemma deck and the
-// progression. It refuses a deck whose choices use an effect key the
-// world does not apply. The progression (#147) is the tiers the sim
-// stamps every morning.
+// reads of the config (#144): the headlines, the dilemma deck, the
+// progression and the incidents' report lines (#44). It refuses a deck
+// whose choices use an effect key the world does not apply. The
+// progression (#147) is the tiers the sim stamps every morning.
 func New(cfg *content.Config) (*Sim, error) {
 	deck, err := parseDeck(cfg.Dilemmas)
 	if err != nil {
 		return nil, fmt.Errorf("dilemmas: %w", err)
 	}
-	s := &Sim{cfg: cfg.Headlines, dcfg: cfg.Dilemmas, pcfg: cfg.Progression, tmpl: map[string][]*template.Template{}, deck: deck}
+	s := &Sim{cfg: cfg.Headlines, dcfg: cfg.Dilemmas, pcfg: cfg.Progression, tmpl: map[string][]*template.Template{}, deck: deck, inc: map[string]*template.Template{}}
+	for _, inc := range cfg.Incidents.Table {
+		t, err := template.New(inc.ID + ".report").Funcs(articles).Parse(article(inc.Report))
+		if err != nil {
+			return nil, fmt.Errorf("incident %s report: %w", inc.ID, err)
+		}
+		s.inc[inc.ID] = t
+	}
 	for key, list := range s.cfg.Templates {
 		for i, src := range list {
 			t, err := template.New(fmt.Sprintf("%s#%d", key, i)).Funcs(articles).Parse(article(src))
@@ -96,6 +104,10 @@ func (s *Sim) Keys() []string {
 	return out
 }
 
+// data is what a template can name. The paper's regulars (#44: the DA,
+// the chief, the rival's leader and faction) are filled on every line
+// from the world, so any headline can read like a paper (`as DA Ramirez
+// promises a crackdown`); the rest come from the event.
 type data struct {
 	City    string
 	Product string
@@ -111,6 +123,12 @@ type data struct {
 	To      string
 	Deal    string
 	Stance  string // a DA's ticket or a chief's personality, in words
+	Route   string // a route by name (#44)
+	Days    int    // how long an incident's effect runs (#44)
+	DA      string // the sitting DA's surname (#44)
+	Chief   string // the chief's surname (#44)
+	Leader  string // the rival's leader (#44)
+	Faction string // the rival's faction, `Big Sal's crew` (#44)
 }
 
 // Step writes headlines into the journal and assembles the morning report.
@@ -146,7 +164,10 @@ func (s *Sim) Step(w *game.World, t *game.Tick) {
 	// with no house is the run it was.
 	addHouses := func(source, key string, d data) { addOff("houses:news", source, key, d) }
 	here := w.Here()
-	base := data{City: here.Name}
+	base := data{City: here.Name, DA: w.Law.DA.Name, Chief: w.Law.Chief.Name, Leader: w.Rival.Leader}
+	if w.Rival.Leader != "" {
+		base.Faction = w.Rival.Leader + "'s crew"
+	}
 	// in names a city for a line about somewhere other than where you are.
 	in := func(city string) string {
 		if city == here.ID || w.Cities[city] == nil {
@@ -181,8 +202,41 @@ func (s *Sim) Step(w *game.World, t *game.Tick) {
 		addOff("progression", "news", "TierReached", base)
 	}
 
+	// The world's incident (#44), dealt first thing this tick: a
+	// headline under the world source, its template picked off the
+	// incidents' own side stream (the home city's dice never move for
+	// it), and the report opens with the row's line, before the tier.
+	for _, e := range t.Events() {
+		ev, ok := e.(events.Incident)
+		if !ok {
+			continue
+		}
+		d := at(ev.City)
+		d.Name, d.Route, d.Days = ev.Person, ev.Route, ev.Days
+		if ev.Chief != "" {
+			d.Chief = ev.Chief // the chief it named, not the one the law sim seated since
+		}
+		if ev.DA != "" {
+			d.DA = ev.DA
+		}
+		if ev.Product != "" {
+			d.Product = w.ProductName(ev.Product)
+		}
+		key := content.IncidentConfig{ID: ev.ID}.Key()
+		if !s.HasTemplate(key) {
+			key = "Incident"
+			d.Name = ev.Name
+		}
+		addOff("incidents:news", "world", key, d)
+		if tm := s.inc[ev.ID]; tm != nil {
+			rep.Incident = append(rep.Incident, render(tm, d))
+		} else {
+			rep.Incident = append(rep.Incident, ev.Name+".")
+		}
+	}
+
 	// Money before we look at events: sales are already applied by market.
-	var soldRevenue, lostCash, spent, wages, skimmed, robbed, upgrades, upkeep, seized, paidOff, investigated, shipping, tribute, cuts, standingCut, funded, backed, contracts, forfeits, repaid, rent, earned, invested, reserved int
+	var soldRevenue, lostCash, spent, wages, skimmed, robbed, upgrades, upkeep, seized, paidOff, investigated, shipping, tribute, cuts, standingCut, funded, backed, contracts, forfeits, repaid, rent, earned, invested, cutting, cooking, reserved int
 	var scouted, poached, boosted int // the books (#70): what a scout and a buy-off cost, less the refund, and what a boost took
 	routeCost := map[string]int{}     // what each route cost today, lots and fares, by name in the order first seen
 	var routeOrder []string
@@ -860,6 +914,36 @@ func (s *Sim) Step(w *game.World, t *game.Tick) {
 			d.Name = ev.Name
 			addHouses("territory", "HouseLost", d)
 			rep.Territory = append(rep.Territory, fmt.Sprintf("The landlord threw you out of %s%s: %s gone with it. The rent went unpaid.", ev.Name, in(ev.City), format.Plural(ev.Units, "unit")))
+		case events.Overdose:
+			// The city's story (#47): a headline naming the corner, off
+			// the overdoses' own stream, and a LAW line, since the
+			// pressure is what it costs you; never a page.
+			d := at(ev.City)
+			d.Product = w.ProductName(ev.Product)
+			d.Corner = ev.CornerName
+			if d.Corner == "" {
+				d.Corner = "a " + d.City + " corner"
+			}
+			addOff("overdose:news", "overdose", "Overdose", d)
+			where := ev.CornerName
+			if where == "" {
+				where = "your corners"
+			}
+			rep.Law = append(rep.Law, fmt.Sprintf("OVERDOSE on %s%s: somebody went down on your %s (quality %.0f). The city is talking, the DA is listening.", where, in(ev.City), w.ProductName(ev.Product), ev.Quality))
+		case events.StockCut:
+			cutting += ev.Cost
+			hand := ""
+			if ev.Chemist != "" {
+				hand = ", " + ev.Chemist + "'s hand on it"
+			}
+			rep.Sales = append(rep.Sales, fmt.Sprintf("Cut %d %s into %d%s: quality %.0f → %.0f%s = -%s", ev.Units, w.ProductName(ev.Product), ev.Units+ev.Added, in(ev.City), ev.From, ev.To, hand, format.Money(ev.Cost)))
+			rep.Money = append(rep.Money, fmt.Sprintf("Cutting %s -%s", w.ProductName(ev.Product), format.Money(ev.Cost)))
+		case events.CookOrdered:
+			cooking += ev.Cost
+			rep.Crew = append(rep.Crew, fmt.Sprintf("%s is cooking %d %s%s: quality %.0f, ready in %s = -%s", ev.Chemist, ev.Units, w.ProductName(ev.Product), in(ev.City), ev.Quality, format.Plural(ev.Days, "day"), format.Money(ev.Cost)))
+			rep.Money = append(rep.Money, fmt.Sprintf("Precursors for %s -%s", w.ProductName(ev.Product), format.Money(ev.Cost)))
+		case events.Cooked:
+			rep.Crew = append(rep.Crew, fmt.Sprintf("%s's batch landed%s: %d %s at quality %.0f, paid %s on the order.", ev.Chemist, in(ev.City), ev.Units, w.ProductName(ev.Product), ev.Quality, format.Money(ev.Cost)))
 		case events.RentPaid:
 			rent += ev.Amount
 			if ev.Amount > 0 {
@@ -915,7 +999,7 @@ func (s *Sim) Step(w *game.World, t *game.Tick) {
 		spent += m.Fee
 		rep.Money = append(rep.Money, fmt.Sprintf("Signing fee for %s -%s", m.Name, format.Money(m.Fee)))
 	}
-	rep.CashBefore = w.Cash() - soldRevenue - contracts + forfeits + lostCash + spent + wages + skimmed + robbed + upgrades + upkeep + seized + paidOff + investigated + shipping + tribute + cuts + funded + backed + repaid + rent + scouted + poached - boosted - earned + invested + reserved
+	rep.CashBefore = w.Cash() - soldRevenue - contracts + forfeits + lostCash + spent + wages + skimmed + robbed + upgrades + upkeep + seized + paidOff + investigated + shipping + tribute + cuts + funded + backed + repaid + rent + scouted + poached - boosted - earned + invested + cutting + cooking + reserved
 	if soldRevenue > 0 {
 		rep.Money = append(rep.Money, fmt.Sprintf("Street sales +%s", format.Money(soldRevenue)))
 	}
@@ -1006,6 +1090,9 @@ func chiefLine(ev events.ChiefReplaced) string {
 	if ev.Why == "da" {
 		return fmt.Sprintf("The new DA wanted a new chief: %s is out, %s is in. You will learn what they are like.", ev.Old, ev.Name)
 	}
+	if ev.Why == "resigned" {
+		return fmt.Sprintf("Chief %s resigned; %s takes over. You will learn what they are like.", ev.Old, ev.Name)
+	}
 	return fmt.Sprintf("Chief %s's term is up; %s takes over. You will learn what they are like.", ev.Old, ev.Name)
 }
 
@@ -1088,6 +1175,10 @@ func saleLine(w *game.World, ev events.PlayerSold) string {
 	}
 	if ev.Sold == 0 {
 		return fmt.Sprintf("%-8s wanted %d, sold none (%s%s)", w.ProductName(ev.Product), ev.Wanted, ev.Dial, who)
+	}
+	// The quality's mark on the price (#47), only where it left one.
+	if ev.QualityMul > 0 && math.Abs(ev.QualityMul-1) >= 0.005 {
+		who += fmt.Sprintf(", quality %.0f ×%.2f", ev.Quality, ev.QualityMul)
 	}
 	return fmt.Sprintf("%-8s sold %d/%d at %s avg = +%s (%s%s)", w.ProductName(ev.Product), ev.Sold, ev.Wanted, format.Price(ev.AvgPrice), format.Money(ev.Revenue), ev.Dial, who)
 }

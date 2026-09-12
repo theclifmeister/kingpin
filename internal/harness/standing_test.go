@@ -246,7 +246,7 @@ func TestStandingNeverOutsellsTheStash(t *testing.T) {
 					}
 				}
 			}}
-			order := append([]game.Simulation{probeBefore{pr}, sims[0], probeAfter{pr}}, sims[1:]...)
+			order := probed(sims, pr) // the probes bracket the market
 			clock := game.NewClock(nil, order...)
 			for d := 0; d < 100 && w.Over == nil; d++ {
 				policy(w)

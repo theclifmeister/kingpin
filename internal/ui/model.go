@@ -77,6 +77,8 @@ const (
 	modeConfirmBoost  // send the enforcers for the till on the selected corner? (#70)
 	modeConfirmTip    // tip the police on the selected corner? (#70)
 	modeConfirmBuyOff // pay the rival's muscle to go home: the heads, then y or enter (#70)
+	modeCut           // cut a product where you stand (#47): the product, then the percent added
+	modeCook          // a chemist's cook order (#47): the product, then the units
 	modeInvest        // clean cash into the selected front's levels (#192): the levels, then enter
 	modeReserve       // clean cash into the offshore account (#195): the amount, then enter
 	modeCount
@@ -136,14 +138,15 @@ type Model struct {
 	frontStep      int    // the buy picker's page: 0 the kind, 1 the offers
 	guardCursor    int    // row in the guard picker (#73)
 	mv             moveDialog
-	ledgerCursor   int  // row on the ledger: fronts, then routes, then offers
-	ledgerScroll   int  // first line of the ledger MAIN shows, following the cursor
-	stage          int  // the tier whose stage is showing (#149)
-	cardCursor     int  // choice highlighted on the dilemma card
-	cardDone       bool // the card is answered; the outcome is showing
-	dealCursor     int  // offer selected on the rivals screen
-	proposeStep    int  // 0: pick the kind, 1: pick the terms
-	proposeKind    int  // index into proposeKinds while on the terms page
+	lab            labDialog // the cut and the cook dialogs (#47)
+	ledgerCursor   int       // row on the ledger: fronts, then routes, then offers
+	ledgerScroll   int       // first line of the ledger MAIN shows, following the cursor
+	stage          int       // the tier whose stage is showing (#149)
+	cardCursor     int       // choice highlighted on the dilemma card
+	cardDone       bool      // the card is answered; the outcome is showing
+	dealCursor     int       // offer selected on the rivals screen
+	proposeStep    int       // 0: pick the kind, 1: pick the terms
+	proposeKind    int       // index into proposeKinds while on the terms page
 	proposeCursor  int
 	assignCursor   int    // row in the assign picker
 	modalScroll    int    // first body line the open modal shows
@@ -639,6 +642,8 @@ func (m *Model) handleKey(k tea.KeyMsg) (tea.Model, tea.Cmd) {
 		return m, nil
 	case modeMove:
 		return m.keyMove(k)
+	case modeCut, modeCook:
+		return m.keyLab(k)
 	case modeGuard:
 		m.keyGuard(key)
 		return m, nil
@@ -720,7 +725,7 @@ func (m *Model) handleKey(k tea.KeyMsg) (tea.Model, tea.Cmd) {
 // campaign, only while one is open (#193).
 func (m *Model) hasPages(md mode) bool {
 	switch md {
-	case modeBuy, modeSell, modeTarget, modeCart, modePropose, modeFront, modeMove:
+	case modeBuy, modeSell, modeTarget, modeCart, modePropose, modeFront, modeMove, modeCut, modeCook:
 		return true
 	case modeFund:
 		return m.campaignOpen()
@@ -964,6 +969,8 @@ func (m *Model) View() string {
 		body = m.viewFront()
 	case modeMove:
 		body = m.viewMove()
+	case modeCut, modeCook:
+		body = m.viewLab()
 	case modeGuard:
 		body = m.viewGuard()
 	case modeConfirmDrop:
@@ -1434,8 +1441,9 @@ func (m *Model) reportLines() []string {
 		}
 		body = append(body, "")
 	}
-	section("TIER", r.Tier, theme.Warning)      // the tier entered this morning (#147), first
-	section("UNLOCKED", r.Unlocked, theme.Gold) // a gate crossed (#148): next, it is what the morning is about
+	section("INCIDENT", r.Incident, theme.Fg(theme.World)) // the world's incident this morning (#44): first, the day is about it
+	section("TIER", r.Tier, theme.Warning)                 // the tier entered this morning (#147)
+	section("UNLOCKED", r.Unlocked, theme.Gold)            // a gate crossed (#148): next, it is what the morning is about
 	section("PRICES", r.Prices, theme.Good)
 	section("SALES", r.Sales, theme.Gold)
 	section("SHIPMENTS", r.Shipments, theme.RoadText)

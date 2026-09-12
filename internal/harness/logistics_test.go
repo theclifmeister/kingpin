@@ -168,6 +168,65 @@ func TestStockIsConservedAcrossShipments(t *testing.T) {
 			}
 		}
 	}
+
+	// A closed route (#44): the shipment on it sits out every night the
+	// route is shut, its days left intact, and lands that many days
+	// late; a shortfall that opens while it is shut waits for the road
+	// to reopen; stock is conserved throughout.
+	safe := *cfg
+	safe.Routes.Routes = append([]content.RouteConfig(nil), cfg.Routes.Routes...)
+	for i := range safe.Routes.Routes {
+		safe.Routes.Routes[i].Risk = 0
+	}
+	w := quiet(&safe, 1)
+	w.SetStock(hub, product, 500)
+	units := min(200, route.Capacity)
+	const shut = 3
+	days := lg.Days(w, route, events.ShipNormal)
+	res, err := RunFrom(&safe, w, days+shut+4, func(w *game.World) {
+		switch w.Day {
+		case 0:
+			_ = w.SetRouteTarget(route.ID, product, units)
+			_ = w.SetRoute(route.ID, events.RouteNormal)
+		case 2:
+			// Shut for the ticks 3, 4 and 5, the way the world sim applies it.
+			w.ApplyIncident(w.Day+1, content.IncidentEffects{RouteClosed: shut}, game.IncidentTarget{Routes: []string{route.ID}})
+			if !w.RouteClosed(route.ID) {
+				t.Fatal("the route is not closed for tonight")
+			}
+		case 3:
+			_ = w.SetRouteTarget(route.ID, product, 2*units) // a shortfall that opens while it is shut
+		}
+		if total := w.Stock(home, product) + w.Stock(hub, product) + w.InTransit(product); total != 500 {
+			t.Fatalf("day %d: %d + %d + %d on the road = %d, not 500", w.Day, w.Stock(home, product), w.Stock(hub, product), w.InTransit(product), total)
+		}
+	})
+	if err != nil {
+		t.Fatal(err)
+	}
+	var sent, arrived []int
+	for _, e := range res.Events {
+		switch ev := e.(type) {
+		case events.ShipmentSent:
+			sent = append(sent, ev.Day)
+		case events.ShipmentArrived:
+			arrived = append(arrived, ev.Day)
+		case events.ShipmentSeized:
+			t.Fatalf("seized on a safe road: %+v", ev)
+		}
+	}
+	// The first shipment left on day 1 and would have landed on 1+days;
+	// shut for three nights it lands three days later. The second could
+	// not leave on day 4 or 5 and left the morning the road reopened.
+	if len(sent) != 2 || sent[0] != 1 || sent[1] != 3+shut {
+		t.Fatalf("sent on days %v, want [1 %d]: a shut route refuses new shipments", sent, 3+shut)
+	}
+	if len(arrived) != 2 || arrived[0] != 1+days+shut || arrived[1] != 3+shut+days {
+		t.Fatalf("arrived on days %v, want [%d %d]: a shipment sits out the closure with its days intact", arrived, 1+days+shut, 3+shut+days)
+	}
+	if res.World.Stock(home, product) != 2*units || res.World.InTransit(product) != 0 {
+		t.Fatalf("home holds %d, %d on the road; want %d and none", res.World.Stock(home, product), res.World.InTransit(product), 2*units)
+	}
 }
 
 // No shipment ever exceeds its route's capacity, over a whole run of the

@@ -28,7 +28,8 @@ type Sim struct {
 	buyers []buyer
 	scfg   content.SuppliersConfig
 	war    content.PricewarTuning
-	ledger *warBook // the price war's books for the step in hand (#68); nil outside Step
+	ledger *warBook     // the price war's books for the step in hand (#68); nil outside Step
+	sold   *soldQuality // what the city in hand's corners were sold tonight (#47); nil outside Step
 }
 
 // New builds a market sim from the config, copying what it reads (#144):
@@ -301,6 +302,7 @@ func (s *Sim) BuyPressure(w *game.World) float64 {
 func (s *Sim) Step(w *game.World, t *game.Tick) {
 	tun := s.cfg.Market
 	w.Markup = s.Markup() // what a buy through a lieutenant pays (#174), stamped as the connects' prices are
+	s.stampQuality(w)     // the default quality and the corners' repeat_start (#47), the same way
 	fx := game.FoldEffects(w, s.tree)
 	for _, id := range w.Today.UpgradesToday {
 		if u := s.tree.Upgrade(id); u != nil {
@@ -308,6 +310,9 @@ func (s *Sim) Step(w *game.World, t *game.Tick) {
 		}
 	}
 	s.book(w, t)
+	for _, c := range w.Today.Cuts { // the day's cuts (#47), for the report
+		t.Emit(events.StockCut{Day: t.Day, City: c.City, Product: c.Product, Units: c.Units, Added: c.Added, From: c.From, To: c.To, Cost: c.Cost, Chemist: c.Chemist})
+	}
 	s.supply(w, t, fx)
 	s.credit(w)
 	s.unlock(w, t)
@@ -328,6 +333,7 @@ func (s *Sim) Step(w *game.World, t *game.Tick) {
 		// day unsqueezed and the night's orders squeeze the ones they
 		// undercut; the books close after the last product.
 		s.ledger = s.openWar(w, t, city)
+		s.sold = &soldQuality{}
 		for _, id := range ids {
 			m := city.Market[id]
 			pc := s.cfg.Product(id)
@@ -437,6 +443,8 @@ func (s *Sim) Step(w *game.World, t *game.Tick) {
 		}
 		s.closeWar(city)
 		s.ledger = nil
+		s.repeat(w, city, *s.sold)
+		s.sold = nil
 	}
 	s.settle(w, t)
 	s.deal(w, t)
@@ -553,12 +561,16 @@ func (s *Sim) resolveAt(w *game.World, t *game.Tick, city string, m *game.Produc
 		impact = s.cfg.Market.SaleImpact * game.FoldEffects(w, s.tree).SaleImpactMul * d.Impact * ratio * ratio
 	}
 	impact = math.Min(impact, 0.6)
-	avg := m.Price * d.Price * (1 - impact/2)
+	// The lot's quality prices every unit (#47): the multiplier is 1
+	// at the default, so a stash that was never cut sells as it did.
+	quality := w.Quality(city, o.Product)
+	qmul := s.QualityMul(quality)
+	avg := m.Price * d.Price * (1 - impact/2) * qmul
 	revenue := int(math.Round(avg * float64(sold)))
 	cutRevenue := 0
 	for i := range cuts {
 		u := &cuts[i]
-		u.Revenue = int(math.Round(m.Price * s.Dial(u.Dial).Price * (1 - s.war.PriceCut) * (1 - impact/2) * float64(u.Units)))
+		u.Revenue = int(math.Round(m.Price * s.Dial(u.Dial).Price * (1 - s.war.PriceCut) * (1 - impact/2) * qmul * float64(u.Units)))
 		cutRevenue += u.Revenue
 		s.ledger.take(u.Corner, float64(u.Units)*m.Price)
 		t.Emit(events.PlayerUndercut{Day: t.Day, Corner: u.Corner, Name: u.Name, Product: o.Product, Units: u.Units, Share: u.Share, Revenue: u.Revenue, Dial: u.Dial})
@@ -587,12 +599,19 @@ func (s *Sim) resolveAt(w *game.World, t *game.Tick, city string, m *game.Produc
 	ev := events.PlayerSold{
 		Day: t.Day, City: city, Product: o.Product, Wanted: o.Qty, Sold: sold,
 		Dial: o.Dial, AvgPrice: avg, Revenue: revenue, Standing: standing, Delegated: delegated, Cut: kept,
-		Undercut: undercut, UndercutRevenue: cutRevenue,
+		Undercut: undercut, UndercutRevenue: cutRevenue, Quality: quality, QualityMul: qmul,
 	}
 	if lt := w.Crew.Lieutenant(city); lt != nil {
 		ev.Lieutenant, ev.LieutenantName = lt.ID, lt.Name
 	}
 	t.Emit(ev)
+	// What your own corners were sold (#47): the units off your corners
+	// weigh the night's quality for their repeat business, and bad hard
+	// product rolls for an overdose on one of them.
+	if own := sold - undercut; own > 0 && s.sold != nil {
+		s.sold.add(own, quality)
+		s.overdoses(w, t, city, o.Product, own, quality)
+	}
 }
 
 func clamp(v, lo, hi float64) float64 {

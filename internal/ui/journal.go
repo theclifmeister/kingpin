@@ -18,7 +18,7 @@ import (
 
 // journalSources are the sources a headline can have, in the order the
 // journal's legend lists them.
-var journalSources = []string{"market", "buyers", "heat", "law", "crew", "territory", "rivals", "laundering", "logistics", "reputation", "dilemma", "unlock", "flavour"}
+var journalSources = []string{"world", "market", "buyers", "heat", "law", "crew", "territory", "rivals", "laundering", "logistics", "reputation", "dilemma", "unlock", "flavour"}
 
 // sourceName is a headline's source as the legend names it: the news
 // sim's own colour is the flavour of the city.

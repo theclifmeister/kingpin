@@ -78,6 +78,20 @@ func (p probeBefore) Step(w *game.World, t *game.Tick) {
 
 func (p probeAfter) Step(w *game.World, t *game.Tick) { p.check(t, p.stash, p.cash, w) }
 
+// probed is the sims with the probe bracketing the market: the world
+// sim goes first since #44, so the market is found by name, not index.
+func probed(sims []game.Simulation, pr *probe) []game.Simulation {
+	var order []game.Simulation
+	for _, s := range sims {
+		if s.Name() == "market" {
+			order = append(order, probeBefore{pr}, s, probeAfter{pr})
+			continue
+		}
+		order = append(order, s)
+	}
+	return order
+}
+
 // Every day of every policy that deals: a handoff never exceeds the stash
 // it came from; the stash and the cash move by exactly what was handed
 // over and sold and paid; a contract is resolved once; nothing is taken
@@ -141,7 +155,7 @@ func TestContractInvariants(t *testing.T) {
 				}
 				checked++
 			}}
-			order := append([]game.Simulation{probeBefore{pr}, sims[0], probeAfter{pr}}, sims[1:]...)
+			order := probed(sims, pr) // the probes bracket the market
 			clock := game.NewClock(nil, order...)
 			var all []events.Event
 			for d := 0; d < 120 && w.Over == nil; d++ {
@@ -736,7 +750,7 @@ func TestSaveKeepsContracts(t *testing.T) {
 	if err := b.AcceptContract(c.ID); err != nil {
 		t.Fatal(err)
 	}
-	b.AddStock(home, b.Products[0], 5)
+	b.AddStock(home, b.Products[0], 5, 0)
 	if err := b.Deliver(c.ID, 5); err != nil {
 		t.Fatal(err)
 	}
@@ -744,7 +758,7 @@ func TestSaveKeepsContracts(t *testing.T) {
 	if err := a.AcceptContract(b.Contract(c.ID).ID); err != nil {
 		t.Fatal(err)
 	}
-	a.AddStock(home, a.Products[0], 5)
+	a.AddStock(home, a.Products[0], 5, 0)
 	if err := a.Deliver(c.ID, 5); err != nil {
 		t.Fatal(err)
 	}

@@ -62,7 +62,8 @@ func TestSimsNeverImportEachOther(t *testing.T) {
 // state is the field the map in CLAUDE.md gives it (the heat sim
 // w.Heat and a city's Heat, the law w.Law and a city's Pressure and
 // Goodwill, the market the markets, the connects, the contracts and the
-// buyers, ...); what every sim shares is the till (w.Player.DirtyCash,
+// buyers, the default quality and a corner's Repeat, #47, its field on
+// the territory's corner, ...); what every sim shares is the till (w.Player.DirtyCash,
 // CleanCash), w.Stats, and w.Over for a sim that owns an ending. Stock
 // moves only through the accessors (TestStashHasNoWriters). The check
 // is a grep over every non-test file: a direct assignment through w
@@ -79,7 +80,8 @@ func TestSimsNeverImportEachOther(t *testing.T) {
 // #72).
 func TestSimsWriteOnlyTheirOwnState(t *testing.T) {
 	owned := map[string][]string{
-		"market":     {"Cities.Market", "Contracts", "Buyers", "Suppliers", "Markup", "Supply", "Standing"},
+		"world":      {"Incidents"}, // its effects apply in game.ApplyIncident, the one place that knows the keys (#44)
+		"market":     {"Cities.Market", "Contracts", "Buyers", "Suppliers", "Markup", "Supply", "Standing", "BaseQuality", "Cities.Corners.Repeat"},
 		"logistics":  {"Shipments", "Logistics", "Routes"},
 		"territory":  {"Cities.Corners", "Houses"},
 		"rivals":     {"Rival", "Offers"},

@@ -14,6 +14,7 @@ import (
 	"github.com/theclifmeister/kingpin/internal/sim/reputation"
 	"github.com/theclifmeister/kingpin/internal/sim/rivals"
 	"github.com/theclifmeister/kingpin/internal/sim/territory"
+	"github.com/theclifmeister/kingpin/internal/sim/world"
 )
 
 // Simulation is re-exported so callers can refer to it from this package.
@@ -21,6 +22,7 @@ type Simulation = game.Simulation
 
 // Set is the constructed simulations plus handles the UI needs.
 type Set struct {
+	World      *world.Sim
 	Market     *market.Sim
 	Logistics  *logistics.Sim
 	Territory  *territory.Sim
@@ -37,8 +39,11 @@ type Set struct {
 // one *content.Config (a constructor copies the slices it reads and no
 // more, #144):
 //
-//	market -> logistics -> territory -> rivals -> crew -> heat -> law -> laundering -> reputation -> news
+//	world -> market -> logistics -> territory -> rivals -> crew -> heat -> law -> laundering -> reputation -> news
 //
+// The world goes first (#44): an incident lands on the world before
+// anything reads it, so every sim reacts the same day (the market prices
+// the shock, the road finds the route shut, the law seats the chief).
 // Logistics lands shipments after the day's sales, so what arrives sells
 // tomorrow, and before heat, so a seizure is today's heat (the market
 // reads it off the world tomorrow); territory settles who stands where
@@ -58,6 +63,7 @@ func Default(cfg *content.Config) (*Set, []game.Simulation, error) {
 		return nil, nil, err
 	}
 	set := &Set{
+		World:      world.New(cfg),
 		Market:     mk,
 		Logistics:  logistics.New(cfg),
 		Territory:  territory.New(cfg),
@@ -69,7 +75,7 @@ func Default(cfg *content.Config) (*Set, []game.Simulation, error) {
 		Reputation: reputation.New(cfg),
 		News:       n,
 	}
-	return set, []game.Simulation{set.Market, set.Logistics, set.Territory, set.Rivals, set.Crew, set.Heat, set.Law, set.Laundering, set.Reputation, set.News}, nil
+	return set, []game.Simulation{set.World, set.Market, set.Logistics, set.Territory, set.Rivals, set.Crew, set.Heat, set.Law, set.Laundering, set.Reputation, set.News}, nil
 }
 
 // Migrations is the chain that upgrades older saves to the current schema.
@@ -92,6 +98,7 @@ func (s *Set) Migrations() []game.Migration {
 		{From: 9, Apply: game.MigrateFallGuys},      // 9 -> 10: the fall guy became a count (#117)
 		{From: 10, Apply: s.Market.Migrate},         // 10 -> 11: the connects (#72), one a city at today's price
 		{From: 11, Apply: game.MigrateHouses},       // 11 -> 12: the stash houses (#73), the old pile in a starter house
+		{From: 12, Apply: s.Market.MigrateLots},     // 12 -> 13: quality (#47), the old stock at the default and every corner's customers coming back
 	}
 }
 

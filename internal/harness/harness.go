@@ -50,30 +50,51 @@ func (r Result) NetWorthAt(d int) int {
 }
 
 // Run plays up to days days from a fresh world with the given seed. The
-// dilemma deck stays in the box: cards are choices, a scripted player has
-// none to make, and the invariants the harness pins belong to the other
-// sims. RunWith deals them.
+// dilemma deck and the incident table stay in the box: cards are
+// choices, a scripted player has none to make, incidents are weather
+// (#44), and the invariants the harness pins belong to the other sims.
+// RunWith deals the cards; Play deals either.
 func Run(cfg *content.Config, seed uint64, days int, policy Policy) (Result, error) {
 	return RunFrom(cfg, sim.NewWorld(cfg, seed), days, policy)
 }
 
 // RunFrom plays up to days days on from w, which the caller may have set
 // up (a cash pile, a crew) to test a situation a fresh run takes a while
-// to reach. No cards are dealt; see Run.
+// to reach. No cards are dealt and no incidents; see Run.
 func RunFrom(cfg *content.Config, w *game.World, days int, policy Policy) (Result, error) {
-	boxed := *cfg
-	boxed.Dilemmas.Cards = nil
-	return run(&boxed, w, days, policy, nil)
+	return Play(cfg, w, days, policy, Options{})
 }
 
 // RunWith plays like RunFrom with the deck in play: every card is answered
 // with pick before the policy acts, the way the UI shows the card before
-// the day starts.
+// the day starts. The incident table stays boxed.
 func RunWith(cfg *content.Config, w *game.World, days int, policy Policy, pick Chooser) (Result, error) {
 	if pick == nil {
 		pick = Decline
 	}
-	return run(cfg, w, days, policy, pick)
+	return Play(cfg, w, days, policy, Options{Cards: pick})
+}
+
+// Options is what a run deals beyond the sims' invariants: the dilemma
+// deck, answered by Cards (nil boxes it), and the incident table (#44),
+// dealt when Incidents is set. Both are off by default so a pinned
+// number reads the sims alone; cmd/balance turns either on.
+type Options struct {
+	Cards     Chooser
+	Incidents bool
+}
+
+// Play plays up to days days on from w with what opts deals in play and
+// the rest boxed: the general form of Run, RunFrom and RunWith.
+func Play(cfg *content.Config, w *game.World, days int, policy Policy, opts Options) (Result, error) {
+	boxed := *cfg
+	if opts.Cards == nil {
+		boxed.Dilemmas.Cards = nil
+	}
+	if !opts.Incidents {
+		boxed.Incidents.Table = nil
+	}
+	return run(&boxed, w, days, policy, opts.Cards)
 }
 
 func run(cfg *content.Config, w *game.World, days int, policy Policy, pick Chooser) (Result, error) {

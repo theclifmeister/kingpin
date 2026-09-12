@@ -1,0 +1,169 @@
+# World incidents (#44). The world sim, first in the order, deals at most
+# one a day: none for min_gap days after the last, then a rising chance
+# until one is certain at max_gap (one roll a day whatever happens, off
+# the incidents side stream, so the stream is fixed for the seed and a
+# run with the table boxed is the run before it existed), then a
+# weighted pick over the eligible rows. Incidents are weather: they
+# perturb the world, not the player, and every sim reacts the same day.
+#
+# Each [[incident]] has:
+#   weight       its share of the pick (0 reads as 1)
+#   min_day      the first day it can fire
+#   min_gap      its own cooldown, days since it last fired
+#   once         at most once a run
+#   route_mode   the routes a route_closed shuts (boat | truck | car);
+#                the first of them is {{.Route}}
+#   names        the pool {{.Name}} is drawn from (celebrities, reporters)
+#   report       the morning report's line (a template over the slots)
+#   [incident.trigger]  content.CardTrigger, every set field must hold;
+#                city is the city it lands in (default: home)
+#   [incident.effects]  the fixed key set (content.IncidentEffects):
+#     route_closed = N                         nights the routes are shut
+#     market_shock = { product, mul, days }    price target × mul in the city
+#     demand_shift = { product, mul, days }    demand × mul in the city
+#     pressure = ±N   heat = ±N                on the city, 0..100
+#     notoriety = ±N                           on you, 0..100
+#     heat_decay = { mul, days }               the heat sim's decay × mul
+#     chief_replaced = true                    a new chief this morning
+#     election_called = N                      the DA faces the voters in N days
+#   A key not in the set fails at start-up. rival_leader_killed waits
+#   for #43.
+# The headline is headlines.toml's under `Incident` + the id in camel
+# case (IncidentPortStrike), with variants like every other event's.
+#
+# Slots: {{.City}} {{.Route}} {{.Product}} {{.Name}} {{.Days}} (the first timed
+# effect's, in the order above) and the
+# paper's regulars {{.DA}} {{.Chief}} {{.Leader}} {{.Faction}}.
+
+[incidents]
+min_gap = 8
+max_gap = 26
+
+[[incident]]
+id = "port_strike"
+name = "Port strike"
+weight = 3
+min_day = 10
+min_gap = 30
+route_mode = "boat"
+report = "The dockers are out: {{.Route}} is shut for {{.Days}} days and nothing lands by boat. {{.Product}} in {{.City}} is going to cost while the ships wait."
+[incident.trigger]
+city = "bayport"
+[incident.effects]
+route_closed = 6
+market_shock = { product = "coke", mul = 1.6, days = 10 }
+
+[[incident]]
+id = "hurricane"
+name = "Hurricane"
+weight = 2
+min_day = 5
+min_gap = 40
+route_mode = "boat"
+report = "A hurricane has closed the coast: {{.Route}} is shut for {{.Days}} days. Shipments already at sea sit it out and land when it reopens."
+[incident.trigger]
+city = "bayport"
+[incident.effects]
+route_closed = 4
+
+[[incident]]
+id = "snowstorm"
+name = "Snowstorm"
+weight = 3
+min_day = 3
+min_gap = 20
+route_mode = "car"
+report = "Snow has shut {{.Route}} for {{.Days}} days: nothing moves by car until it is ploughed. The trucks and the boats still run."
+[incident.effects]
+route_closed = 2
+
+[[incident]]
+id = "harvest_glut"
+name = "Harvest glut"
+weight = 2
+min_day = 20
+min_gap = 45
+report = "A record harvest has landed at the port: {{.Product}} is cheap in {{.City}} for {{.Days}} days. Buy it there while it lasts."
+[incident.trigger]
+city = "bayport"
+[incident.effects]
+market_shock = { product = "coke", mul = 0.6, days = 12 }
+
+[[incident]]
+id = "new_synthetic"
+name = "New synthetic"
+weight = 1
+min_day = 40
+once = true
+report = "A new synthetic has hit {{.City}} and the {{.Product}} crowd has gone over to it: demand for {{.Product}} is halved for {{.Days}} days."
+[incident.effects]
+demand_shift = { product = "pills", mul = 0.5, days = 60 }
+
+[[incident]]
+id = "celebrity_overdose"
+name = "Celebrity overdose"
+weight = 2
+min_day = 15
+min_gap = 40
+names = "celebrities"
+report = "{{.Name}} was found dead of an overdose and {{.City}} wants somebody to answer for it: pressure is up across the city."
+[incident.effects]
+pressure = 15
+
+[[incident]]
+id = "documentary"
+name = "Documentary"
+weight = 1
+min_day = 60
+once = true
+report = "A documentary about the {{.City}} drug trade aired last night and the city did not like what it saw: pressure is up, and so is your name."
+[incident.trigger]
+peak_cash_min = 100000
+[incident.effects]
+pressure = 10
+notoriety = 10
+
+[[incident]]
+id = "journalist_profile"
+name = "Journalist profile"
+weight = 1
+min_day = 45
+min_gap = 120
+names = "reporters"
+report = "{{.Name}} ran a profile of a {{.City}} operation that reads a lot like yours. Nobody is named, but everybody knows."
+[incident.trigger]
+peak_cash_min = 250000
+[incident.effects]
+notoriety = 15
+
+[[incident]]
+id = "election_called"
+name = "Snap election"
+weight = 1
+min_day = 30
+min_gap = 120
+report = "DA {{.DA}} has called a snap election: the voters decide in {{.Days}} days, on the mood the city is in now."
+[incident.effects]
+election_called = 7
+
+[[incident]]
+id = "chief_resigns"
+name = "Chief resigns"
+weight = 1
+min_day = 20
+min_gap = 90
+report = "Chief {{.Chief}} has resigned. The mayor named a replacement this morning; you will learn what they are like."
+[incident.effects]
+chief_replaced = true
+
+[[incident]]
+id = "federal_attention"
+name = "Federal attention"
+weight = 2
+min_day = 50
+min_gap = 60
+report = "The feds have opened an office in {{.City}}. For {{.Days}} days heat cools at half its pace everywhere: what you draw, you keep."
+[incident.trigger]
+peak_cash_min = 200000
+[incident.effects]
+heat_decay = { mul = 0.5, days = 20 }

@@ -59,22 +59,32 @@ var Tempers = []string{"patient", "sharp", "connected"}
 // street connect in their city at UnlockRel. Wholesale marks the
 // connect the routes buy from; Pool marks one drawn by seed.
 type SupplierConfig struct {
-	ID          string    `toml:"id"`
-	Name        string    `toml:"name"`
-	City        string    `toml:"city"`
-	Products    []string  `toml:"products"`
-	Ratio       []float64 `toml:"ratio"`
-	Lot         int       `toml:"lot"`
-	SmallLot    float64   `toml:"small_lot"`
-	Capacity    int       `toml:"capacity"`
-	Temper      string    `toml:"temper"`
-	CreditDays  int       `toml:"credit_days"`
-	CreditLimit int       `toml:"credit_limit"`
-	CreditRatio float64   `toml:"credit_ratio"`
-	UnlockCash  int       `toml:"unlock_cash"`
-	UnlockRel   float64   `toml:"unlock_rel"`
-	Wholesale   bool      `toml:"wholesale"`
-	Pool        bool      `toml:"pool"`
+	ID          string             `toml:"id"`
+	Name        string             `toml:"name"`
+	City        string             `toml:"city"`
+	Products    []string           `toml:"products"`
+	Ratio       []float64          `toml:"ratio"`
+	Lot         int                `toml:"lot"`
+	SmallLot    float64            `toml:"small_lot"`
+	Capacity    int                `toml:"capacity"`
+	Temper      string             `toml:"temper"`
+	CreditDays  int                `toml:"credit_days"`
+	CreditLimit int                `toml:"credit_limit"`
+	CreditRatio float64            `toml:"credit_ratio"`
+	UnlockCash  int                `toml:"unlock_cash"`
+	UnlockRel   float64            `toml:"unlock_rel"`
+	Wholesale   bool               `toml:"wholesale"`
+	Pool        bool               `toml:"pool"`
+	Quality     map[string]float64 `toml:"quality"` // their quality per product (#47); a product not here sells at [quality] default
+}
+
+// QualityOf is the connect's quality for a product: the file's figure,
+// else the default given.
+func (s SupplierConfig) QualityOf(product string, def float64) float64 {
+	if q, ok := s.Quality[product]; ok && q > 0 {
+		return q
+	}
+	return def
 }
 
 // Supplier returns the connect with id, or nil.

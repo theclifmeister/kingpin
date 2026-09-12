@@ -5,6 +5,7 @@ package main
 import (
 	"flag"
 	"fmt"
+	"math"
 	"os"
 	"sort"
 	"strings"
@@ -20,7 +21,7 @@ import (
 func main() {
 	runs := flag.Int("runs", 20, "number of seeded runs")
 	days := flag.Int("days", harness.Horizon, "days to play each run for; a measuring horizon, the game itself has no cap")
-	policy := flag.String("policy", "normal", "idle | hide | quiet | normal | aggressive | careful | managed | upgraded | crewed | vigilant | territory | war | diplomat | laundered | funded | distributor | delegated | dealer | stocked | routine | leveraged | boss | pricewar | stashed | saboteur | tipster | retiree")
+	policy := flag.String("policy", "normal", "idle | hide | quiet | normal | aggressive | careful | managed | upgraded | crewed | vigilant | territory | war | diplomat | laundered | funded | distributor | delegated | dealer | stocked | routine | leveraged | boss | pricewar | stashed | saboteur | tipster | cook | retiree")
 	lt := flag.String("lt", "", "force the delegated policy's lieutenant temper: violent | greedy | careful | steady (default as generated)")
 	corners := flag.Int("corners", 3, "corners the territory and war policies work, counting yours")
 	force := flag.String("force", "push", "warn | push | hit: how hard the war policy strikes")
@@ -41,6 +42,8 @@ func main() {
 	snitch := flag.Bool("snitch", false, "start every run with an informant on the payroll (harness.Plant)")
 	cards := flag.String("cards", "", "deal the dilemma cards and answer every one with: decline (the last choice) | first (default: no cards)")
 	margin := flag.Float64("margin", harness.BossMargin, "how many times the next level's price the boss holds in clean cash before it invests (harness.BossMargin); 1 invests everything")
+	incidents := flag.String("incidents", "on", "on | off: off boxes the world's incident table (#44); the harness tests run with it boxed, so a pinned number reads with off")
+	cut := flag.Float64("cut", 0, "cut everything the policy buys by this ratio (#47, harness.Cutter): 0.5 adds half again at nothing")
 	flag.Parse()
 	at := func(def float64) float64 {
 		if *lieLow > 0 {
@@ -130,8 +133,13 @@ func main() {
 		p = harness.Saboteur(cfg, at(40))
 	case "tipster":
 		p = harness.Tipster(cfg, at(40))
+	case "cook":
+		p = harness.Cook(cfg, at(40))
 	default:
 		p = harness.Trader(cfg, events.DialNormal)
+	}
+	if *cut > 0 {
+		p = harness.Cutter(cfg, *cut, p)
 	}
 
 	var owned []string
@@ -149,8 +157,16 @@ func main() {
 		fmt.Fprintf(os.Stderr, "unknown -cards %q\n", *cards)
 		os.Exit(2)
 	}
+	switch *incidents {
+	case "on", "off":
+	default:
+		fmt.Fprintf(os.Stderr, "unknown -incidents %q\n", *incidents)
+		os.Exit(2)
+	}
 	var played, peaks []int
 	worth := map[int][]int{}
+	fired := map[string]int{} // incident id -> times it fired across the runs (#44)
+	firedRuns := 0
 	reached := map[int][]int{} // tier -> the day each run entered it, or never (#147)
 	endings := map[string]int{}
 	robberies, robbed := 0, 0
@@ -194,6 +210,11 @@ func main() {
 	var rels []int
 	debtDays, late, frozen, collected, creditTaken := 0, 0, 0, 0, 0
 	housesHeld, housesLost, houseUnits, rent, raidUnits, raids := 0, 0, 0, 0, 0, 0
+	// Quality (#47): what the cuts and the cooks did, the overdoses, the
+	// quality of what sold and the corners' repeat business at the end.
+	cutUnits, cutCost, cooked, cookCost, overdoses, chemists := 0, 0, 0, 0, 0, 0
+	soldUnits, soldWeighed := 0.0, 0.0
+	var repeats []int
 	for seed := *seed0; seed < *seed0+uint64(*runs); seed++ {
 		// The rival's corners at the pace days, read the morning after.
 		pol := func(w *game.World) {
@@ -239,13 +260,7 @@ func main() {
 			harness.Plant(cfg, w)
 		}
 		runCfg := harness.Appoint(cfg, w, *chief, *da)
-		var res harness.Result
-		var err error
-		if pick != nil {
-			res, err = harness.RunWith(runCfg, w, *days, pol, pick)
-		} else {
-			res, err = harness.RunFrom(runCfg, w, *days, pol)
-		}
+		res, err := harness.Play(runCfg, w, *days, pol, harness.Options{Cards: pick, Incidents: *incidents == "on"})
 		if err != nil {
 			fmt.Fprintln(os.Stderr, err)
 			os.Exit(1)
@@ -275,6 +290,22 @@ func main() {
 		}
 		for _, e := range res.Events {
 			switch ev := e.(type) {
+			case events.Incident:
+				fired[ev.ID]++
+				firedRuns++
+				if *trace && seed == *seed0 {
+					fmt.Printf("day %3d incident %s in %s", ev.Day, ev.ID, ev.City)
+					if ev.Route != "" {
+						fmt.Printf(" route %s", ev.Route)
+					}
+					if ev.Product != "" {
+						fmt.Printf(" product %s", ev.Product)
+					}
+					if ev.Days > 0 {
+						fmt.Printf(" %dd", ev.Days)
+					}
+					fmt.Println()
+				}
 			case events.CornerRobbed:
 				robberies++
 			case events.RivalTippedPolice:
@@ -336,6 +367,22 @@ func main() {
 						leaks++
 					}
 				}
+			case events.PlayerSold:
+				soldUnits += float64(ev.Sold)
+				soldWeighed += float64(ev.Sold) * ev.Quality
+			}
+		}
+		cutUnits += res.World.Stats.Cut
+		cutCost += res.World.Stats.CutCost
+		cooked += res.World.Stats.Cooked
+		cookCost += res.World.Stats.CookCost
+		overdoses += res.World.Stats.Overdoses
+		if res.World.Crew.Chemist() != nil {
+			chemists++
+		}
+		for _, c := range res.World.Home().Corners {
+			if c.Held() {
+				repeats = append(repeats, int(math.Round(c.Repeats()*100)))
 			}
 		}
 		robbed += res.World.Stats.Robbed
@@ -483,6 +530,19 @@ func main() {
 		fmt.Printf("books:         %.1f scouts per run (%d read), %.1f boosts (%d landed, $%d taken) per run, %.1f tips per run bringing %d raids, %d heads bought off (totals over %d runs); rival muscle %d, rival heat %d, file %d at the end (medians)\n",
 			float64(scouts)/float64(*runs), reads, float64(boosts)/float64(*runs), boostsLanded, boosted / *runs, float64(yourTips)/float64(*runs), raids, poached, *runs, muscle[len(muscle)/2], rivalHeat[len(rivalHeat)/2], evidence[len(evidence)/2])
 	}
+	if cutUnits+cooked+overdoses > 0 || *cut > 0 || *policy == "cook" {
+		meanQ := 0.0
+		if soldUnits > 0 {
+			meanQ = soldWeighed / soldUnits
+		}
+		rep := 100
+		if len(repeats) > 0 {
+			sort.Ints(repeats)
+			rep = repeats[len(repeats)/2]
+		}
+		fmt.Printf("quality:       %d units cut in for $%d, %d cooked for $%d (per run), %d overdoses over %d runs, %d runs end with a chemist; sold at quality %.0f (mean), held corners keep %d%% of their customers at the end (median)\n",
+			cutUnits / *runs, cutCost / *runs, cooked / *runs, cookCost / *runs, overdoses, *runs, chemists, meanQ, rep)
+	}
 	if informants+leaks+investigations+defections > 0 || *snitch {
 		fmt.Printf("snitching:     %d turned, %d pages leaked, %d investigations named %d, %d defections (totals over %d runs)\n", informants, leaks, investigations, named, defections, *runs)
 	}
@@ -548,6 +608,15 @@ func main() {
 			}
 		}
 		fmt.Printf("cards:         %.1f per run answered %s, %d of %d in the deck seen: %s\n", float64(total)/float64(*runs), *cards, len(ids), len(cfg.Dilemmas.Cards), strings.Join(ids, ", "))
+	}
+	if *incidents == "on" {
+		var ids []string
+		for _, inc := range cfg.Incidents.Table {
+			if fired[inc.ID] > 0 {
+				ids = append(ids, fmt.Sprintf("%s %d", inc.ID, fired[inc.ID]))
+			}
+		}
+		fmt.Printf("incidents:     %.1f per run, %d of %d in the table seen: %s\n", float64(firedRuns)/float64(*runs), len(ids), len(cfg.Incidents.Table), strings.Join(ids, ", "))
 	}
 	fmt.Printf("endings: %v\n", endings)
 }

@@ -13,6 +13,12 @@ var (
 	ErrGameOver       = errors.New("the run is over")
 	ErrUnknownProduct = errors.New("unknown product")
 	ErrBadQuantity    = errors.New("quantity must be positive")
+	ErrBadRatio       = errors.New("the cut is more than the product takes") // #47: a ratio out of 0..cut_max, or one that adds nothing
+	ErrNothingToCut   = errors.New("nothing here to cut")                    // #47: the stash here holds none of it
+	ErrNoChemist      = errors.New("nobody on the payroll can cook")         // #47: a cook needs a chemist
+	ErrNotCooked      = errors.New("that is not cooked, it is bought")       // #47: the product has no cook_cost
+	ErrBatch          = errors.New("more than a batch")                      // #47: a cook order past the chemist's batch
+	ErrCooking        = errors.New("a batch of that is already on today")    // #47: one cook order a product a city a day
 	ErrNoCandidate    = errors.New("nobody by that name is looking for work")
 	ErrNoMember       = errors.New("nobody by that name works for you")
 	ErrCrewFull       = errors.New("the crew is as big as you can manage")
@@ -394,10 +400,15 @@ func (w *World) Travel(city string) error {
 // off, so a save from before the dial replays as it did, and a save from
 // before the days target loads with Days nil, no schema bump.
 type RouteSetting struct {
-	Dial   events.RouteDial
-	Target map[string]int // product id -> units the route's destination is kept stocked to
-	Days   map[string]int // product id -> days of the destination's demand it is kept stocked to
+	Dial        events.RouteDial
+	Target      map[string]int // product id -> units the route's destination is kept stocked to
+	Days        map[string]int // product id -> days of the destination's demand it is kept stocked to
+	ClosedUntil int            // the route is shut on every tick before this day (#44, an incident): nothing moves on it and nothing new is sent; 0 is open
 }
+
+// Closed reports whether the route is shut on the tick that brings day:
+// the logistics sim asks with the tick's day, the UI with tomorrow's.
+func (rs RouteSetting) Closed(day int) bool { return day < rs.ClosedUntil }
 
 // HasTargets is whether the route keeps anything anywhere: a route with
 // none sends nothing however its dial stands.
@@ -503,6 +514,9 @@ func (w *World) setRouteTarget(id, product string, n int, days bool) error {
 // it an id and keeps the count.
 func (w *World) Send(s Shipment) Shipment {
 	w.Player.DirtyCash -= s.Cost
+	if s.Quality <= 0 {
+		s.Quality = w.Quality(s.From, s.Product) // the lot carries the stash's quality (#47)
+	}
 	w.TakeStock(s.From, s.Product, s.Units)
 	w.Logistics.NextID++
 	s.ID = w.Logistics.NextID

@@ -32,6 +32,7 @@ import (
 // and CI while a real change to any number does.
 func TestSeedDigest(t *testing.T) {
 	cfg := content.MustLoad()
+	cfg.Incidents.Table = nil // the weather stays boxed (#44), as it is in every harness run: the digest pins the sims
 	w := sim.NewWorld(cfg, seedDigestSeed)
 	_, sims, err := sim.Default(cfg)
 	if err != nil {
@@ -144,28 +145,40 @@ const (
 // DA.Backed, Law.CampaignOpen, Today.Backed and three Stats added to
 // the walk; no number moved: the digest with the new fields skipped was
 // the old one on every day, the boss having no clean cash to back a
-// ticket with by day 60), again for #192 (Front.Level, Invested and
-// Grew, Stats.Earned and Invested, Today.Invested; no number moved: the
-// boss's first level comes after day 60 on this seed), and again for
-// #195 (World.Offshore and QuietDays, Today.Reserved,
-// Laundering.Structured, Stats.Reserved and Fees; one number moves
-// from day 1: QuietDays, the count of quiet days in a row, which every
-// run keeps and nothing but Retire reads; the boss reserves nothing by
-// day 60 on this seed, holding under a campaign's worth).
+// ticket with by day 60), and again for #44 (the world's incidents,
+// table boxed: day 1 moved by shape alone, five zero fields added,
+// World.Incidents, RouteSetting.ClosedUntil, HeatState.FederalUntil and
+// FederalDecay, LawState.SnapElection and DayReport.Incident; day 25 by
+// the wording of a headline that now names the chief, PressureShiftedUp's
+// third; no number moved, checked field by field against d51abd1), and
+// again for #47 (Player.Quality, World.BaseQuality, Corner.Repeat,
+// Shipment.Quality, Supplier.Quality, Crew.Cooks and NextCook,
+// Today.Cuts and five Stats added to the walk, the chemist beside the
+// pool's faces once meth lists; the move is on day 1, the day the
+// default quality and repeat_start are stamped, and no money number
+// moved: t1 and t2 stand to the dollar and the boss's rows stand under
+// #193's figures), and again for #192 (Front.Level, Invested and Grew,
+// Stats.Earned and Invested, Today.Invested; no number moved: the boss's
+// first level comes after day 60 on this seed), and again for #195
+// (World.Offshore and QuietDays, Today.Reserved, Laundering.Structured,
+// Stats.Reserved and Fees; one number moves from day 1: QuietDays, the
+// count of quiet days in a row, which every run keeps and nothing but
+// Retire reads; the boss reserves nothing by day 60 on this seed,
+// holding under a campaign's worth).
 var seedDigest = []string{
-	"c37aa5813e26fb45", "4c7ae28d8664812f", "24e7d581125a75dd", "24957b066365a732",
-	"93077bbeed4abab7", "7e08754ec15dfdb2", "3d869efe8b4ce69e", "11f9f9d1fd033abc",
-	"b64cd38070adede3", "e59144dc6d5f0770", "499399402ab266d0", "42f52ded23e6a285",
-	"4fae3c16180982e9", "fe44e9ac14340d30", "df47404a307b9db2", "6dbae93935de623f",
-	"2b8a5c97bfb69d5e", "5d096c4497cced17", "49e3449db950d36c", "ff577fb8bb7f279b",
-	"fa6c297e560709e6", "0c255bd8c4aa3f21", "2a4aeb1d9827e4c5", "b8afed6392a8af44",
-	"11f8e07ce8acb58c", "ac9d11cb63b91dc4", "b58d1849f530dc5f", "0cffef6902ff83d8",
-	"32def690fabf15df", "07d41ad173b94f9d", "cd2144d4ad1c0191", "4f8c0416c164dc50",
-	"73dea43da22152ec", "1c8c6d688068cb46", "706a11fb5b8c434c", "df9584e1efd13a9d",
-	"909948d09c54dd68", "8f4501863938c8a4", "ea66ebaccceb26c6", "4df38abf07238043",
-	"596267eec6e6d9e0", "7ed400733b859a31", "6cef077a5bb3dffe", "3858b1a8b1398bff",
-	"1588c787f19a6614", "97760d3a257de248", "0af94567b4bf2da9", "f3aedea5eecb12a2",
-	"69b596e75c2a378c", "d7cfe79f01a602c9", "0aaf5ae3ecd9ecd9", "500a1266fb56c183",
-	"eef0786138d9e570", "0fe60a781ccf06d0", "fe8ab3de97af03f4", "4f83d60646152608",
-	"9c310e23b49db989", "be96813115edd72b", "e5453a1ac93445b4", "3ac10555511aad25",
+	"87025284dbabb456", "0c8a4fb69164bdca", "95fd39e1cafe48c6", "7a7871f05116dc91",
+	"f3985a0bdccac68f", "b657ab3879c0c4ba", "c05f1f3c774d06df", "1d0eeab16f6fa89a",
+	"ee228e036200149a", "b2cc68d8a3333862", "f6559d972bee06c8", "ea9b5f136d770db5",
+	"62d0216a22ef8731", "c748e5a7e7d8e4fc", "3f0c2ce9f1dfd9b5", "532fdd1968eec7fe",
+	"39c1d360405ddb8f", "c80ecbfb71ae35a2", "ba7210c3747bbc73", "91190ff84bb040ab",
+	"fa3343eb1b9e46f5", "cfb800f5353c8982", "87c36c8b78a86754", "4968badacd647263",
+	"a79f7aef0c63fb0b", "89efbf3ef46a670a", "b9c6a7822a8e440b", "91e95227b227a699",
+	"feef23a57bfcae04", "a08c3c97c0825321", "3d8e903b34fb990b", "0dfb6b7d43a83eb8",
+	"72842b0ad1d92374", "2af1028ff1f138f7", "2fdb8cfe8f7d78e7", "434348a1ab339d37",
+	"113ee55fc5957c10", "8d9f1c5374abb9bb", "24f91d9926e89b19", "cf3b0bab6ccc211d",
+	"8590b9398bcd56b5", "3d205a24c3c9ca50", "048b28cab673ada1", "37d697f4e4954480",
+	"5850e30819110f5f", "52b013dc495f8a5b", "cefc7a161af51baa", "a6912e2bebf194f9",
+	"87e59fe4d8cd637f", "9711e48a89cba153", "965885a71d4aceb7", "c2265eb8c35d0b81",
+	"3db1b543a847061a", "a9d4605cdd697f20", "f1371a11afadf5f6", "2c31886a4e1404de",
+	"d01ba98410ced711", "55bb5e9a618940d7", "8719e7656c9ccf08", "3f26b94b871693c9",
 }

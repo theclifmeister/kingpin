@@ -3,6 +3,8 @@
 package game
 
 import (
+	"fmt"
+	"math"
 	"math/rand/v2"
 	"time"
 
@@ -10,7 +12,7 @@ import (
 )
 
 // SchemaVersion is bumped whenever World changes shape incompatibly.
-const SchemaVersion = 12
+const SchemaVersion = 13
 
 // World is the complete state of a run. Every field is a plain value so the
 // whole struct can be serialised with encoding/gob.
@@ -45,6 +47,7 @@ type World struct {
 	Suppliers   []Supplier                // the connects (#72), in the order seeded: the street one in every city, the wholesaler, one more by seed
 	Progression Progression               // the tiers reached (#147), stamped by the news sim; nothing gates on it
 	Houses      []House                   // the stash houses (#73), in the order bought: where the stock sits beyond the street, and which one the raid finds
+	Incidents   IncidentState             // the world's incidents (#44): what has fired and the table's pacing; the world sim's, first in the order
 
 	// The lieutenants' supply contracts (#174), keyed like Supply: the
 	// crew step refreshes them nightly by the temper's stock_days and
@@ -56,6 +59,13 @@ type World struct {
 	// the pre-#174 state.
 	DelegatedSupply map[string]SupplyContract
 	Markup          float64
+
+	// BaseQuality is the file's default quality (#47, market.toml
+	// [quality] default): what the connects sell at, what a lot with no
+	// figure reads, and where the price multiplier is 1. The market sim
+	// stamps it at seed and every morning as it does Markup; zero reads
+	// as StreetQuality, so a world built by hand prices as it did.
+	BaseQuality float64
 
 	// The offshore account (#195): clean cash reserved out of the pile
 	// (Reserve), moved by the laundering sim at the end of its step
@@ -114,6 +124,7 @@ type Today struct {
 	Tipoff        *TipOrder              // the rival corner you tipped the police on tonight (#70); the rivals sim resolves it
 	Poach         *PoachOrder            // the rival's muscle you are paying to go home tonight (#70); the rivals sim resolves it
 	Invested      []Investment           // levels bought at the fronts today (#192), applied at once; the laundering sim reports them
+	Cuts          []CutRecord            // the cuts made today (#47), applied at once; the market sim reports them
 	Reserved      int                    // clean cash on its way offshore tonight (#195), out of the pile already; the laundering sim moves it and takes the fee
 }
 
@@ -150,11 +161,58 @@ type City struct {
 type Player struct {
 	DirtyCash  int
 	CleanCash  int
-	Stash      map[string]map[string]int // city id -> product id -> units on the street there (#73: the houses are World.Houses)
-	Location   string                    // city id the player is in
+	Stash      map[string]map[string]int     // city id -> product id -> units on the street there (#73: the houses are World.Houses)
+	Quality    map[string]map[string]float64 // city id -> product id -> the quality of everything held there (#47), the street and the houses as one lot; missing or zero reads as the default
+	Location   string                        // city id the player is in
 	CarryLimit int
 	Reputation Reputation
 }
+
+// StreetQuality is what a lot reads before the market sim has stamped
+// the file's default onto the world (World.BaseQuality): the middle of
+// the scale, where the price multiplier is 1.
+const StreetQuality = 50
+
+// Lot is what a stash holds of a product in a city (#47): the units,
+// street and houses together, and their quality, 0..100, one number for
+// the lot. Nothing holds a Lot; the accessors read and write both halves.
+type Lot struct {
+	Units   int
+	Quality float64
+}
+
+// CutRecord is a cut made today (#47), for the report: what was there,
+// what the cut added, the quality before and after, what it cost and
+// whose hand was on it.
+type CutRecord struct {
+	City    string
+	Product string
+	Units   int
+	Added   int
+	From    float64
+	To      float64
+	Cost    int
+	Chemist string
+}
+
+// Cook is a chemist's lot on its way (#47): ordered on Ordered, landing
+// in City's stash on Ready at Quality, the chemist's the day it was
+// ordered. The crew sim lands it; the precursors were paid for on the
+// order.
+type Cook struct {
+	ID      int
+	City    string
+	Product string
+	Units   int
+	Quality float64
+	Ordered int
+	Ready   int
+	Cost    int
+	Chemist string
+}
+
+// DaysLeft is how many days the cook still has to go on day.
+func (c Cook) DaysLeft(day int) int { return max(0, c.Ready-day) }
 
 // Reputation is the player's public face on three axes, 0..100, that the
 // reputation sim drifts from what happens and the other sims read. Its
@@ -216,6 +274,7 @@ type Shipment struct {
 	To      string
 	Product string
 	Units   int
+	Quality float64 // the quality of the lot (#47): the source stash's when it left; zero reads as the default
 	Dial    events.Ship
 	Sent    int // day it left
 	Arrives int // day it lands
@@ -296,6 +355,8 @@ type HeatState struct {
 	LeakDay      int            // day an informant last fed the file (or turned); the next leak is due informant_days later
 	Leaks        int            // pages an informant has fed the DA since one was last on the payroll; the tell shows at two
 	Peak         float64        // the hottest any city has been
+	FederalUntil int            // the feds are in town until this day (#44, an incident): the heat sim's decay is FederalDecay of itself on every tick before it
+	FederalDecay float64        // ... by this much; 0 reads as no change
 	Busts        []Bust         // stings and raids that took stock, kept a while: the market sim reads yesterday's for the connect there (#72)
 }
 
@@ -323,8 +384,36 @@ type CrewState struct {
 	HiredToday   []CrewMember
 	FiredToday   []CrewMember
 	PaidOffToday []Payoff
-	Offered      map[string]bool // roles announced as looking for work (#148): accountant, lieutenant; nil is none
+	Offered      map[string]bool // roles announced as looking for work (#148): accountant, lieutenant, chemist; nil is none
 	Leads        []Lead          // who went over to the rival last night, for the rivals sim to act on next step (#144); the crew sim writes it fresh every step and nothing else writes it
+	Cooks        []Cook          // the chemist's lots on their way (#47), in the order ordered; Cook queues them, the crew sim lands them
+	NextCook     int             // the last cook's id
+}
+
+// RoleChemist is the role of the crew member who makes quality (#47):
+// cuts keep more with one on the payroll, and only they cook.
+const RoleChemist = "chemist"
+
+// Chemist is the best chemist on the payroll, or nil.
+func (c *CrewState) Chemist() *CrewMember {
+	var best *CrewMember
+	for i := range c.Members {
+		if m := &c.Members[i]; m.Role == RoleChemist && (best == nil || m.Skill > best.Skill) {
+			best = m
+		}
+	}
+	return best
+}
+
+// Cooking is what is on its way to a city's stash of a product (#47).
+func (c CrewState) Cooking(city, product string) int {
+	n := 0
+	for _, k := range c.Cooks {
+		if k.City == city && k.Product == product {
+			n += k.Units
+		}
+	}
+	return n
 }
 
 // CrewMember is one person on the payroll (or in the hiring pool). Stats are
@@ -337,7 +426,7 @@ type CrewState struct {
 type CrewMember struct {
 	ID          int
 	Name        string
-	Role        string // runner, enforcer, accountant, lieutenant
+	Role        string // runner, enforcer, accountant, lieutenant, chemist
 	Skill       int
 	Loyalty     float64
 	Greed       int
@@ -655,6 +744,7 @@ type Headline struct {
 // DayReport is what the player reads in the morning.
 type DayReport struct {
 	Day        int
+	Incident   []string // the world's incident this morning (#44): first in the report, before the tier
 	Unlocked   []string // gates crossed this morning (#148): first in the report
 	Prices     []string
 	Sales      []string
@@ -733,6 +823,11 @@ type Stats struct {
 	HouseUnits     int // units lost out of the houses to raids and robberies
 	Earned         int // clean cash the levelled fronts earned on their own (#192)
 	Invested       int // clean cash put into the fronts' levels
+	Cut            int // units the cuts added (#47)
+	CutCost        int // dirty cash the cuts cost
+	Cooked         int // units the chemist cooked
+	CookCost       int // dirty cash the precursors cost
+	Overdoses      int // overdoses on your corners
 	Reserved       int // clean cash moved offshore, after the fee (#195)
 	Fees           int // what the account kept of it
 }
@@ -770,6 +865,7 @@ func NewWorld(seed uint64, cities []StartingCity, startCash, carryLimit int) *Wo
 		Player: Player{
 			DirtyCash:  startCash,
 			Stash:      map[string]map[string]int{},
+			Quality:    map[string]map[string]float64{},
 			CarryLimit: carryLimit,
 		},
 		Heat:     HeatState{LastResponse: map[string]int{}, Responses: map[string]int{}},
@@ -884,6 +980,54 @@ func (w *World) stash(city string) map[string]int {
 	return s
 }
 
+// quality is the quality map of a city's stash, created empty on first
+// use: the one handle on it, as stash is on the units.
+func (w *World) quality(city string) map[string]float64 {
+	if w.Player.Quality == nil {
+		w.Player.Quality = map[string]map[string]float64{}
+	}
+	q := w.Player.Quality[city]
+	if q == nil {
+		q = map[string]float64{}
+		w.Player.Quality[city] = q
+	}
+	return q
+}
+
+// StreetQuality is the file's default quality (#47): what the connects
+// sell at and what a lot with no figure of its own reads. The market
+// sim stamps it (BaseQuality); before it has, the scale's middle.
+func (w *World) StreetQuality() float64 {
+	if w.BaseQuality > 0 {
+		return w.BaseQuality
+	}
+	return StreetQuality
+}
+
+// Quality is the quality of what the player holds of a product in a
+// city (#47), one number for the street and the houses there; the
+// default where the lot has never been given one (an empty stash, a
+// stash set by hand).
+func (w *World) Quality(city, product string) float64 {
+	if q := w.Player.Quality[city][product]; q > 0 {
+		return q
+	}
+	return w.StreetQuality()
+}
+
+// Lot is what the player holds of a product in a city and its quality.
+func (w *World) Lot(city, product string) Lot {
+	return Lot{Units: w.Stock(city, product), Quality: w.Quality(city, product)}
+}
+
+// SetQuality puts a city's stash of a product at exactly a quality,
+// clamped to 0..100 (a zero reads as the default). It is the tests' and
+// the migration's; in play a lot's quality moves only by what comes in
+// (AddStock) and the cut (Cut).
+func (w *World) SetQuality(city, product string, quality float64) {
+	w.quality(city)[product] = math.Max(0, math.Min(100, quality))
+}
+
 // StashOf is a copy of the player's stock in a city, product by product,
 // the street and the houses there together, for a reader that walks it
 // (the UI, the harness, the cart). Writing to the copy changes nothing;
@@ -927,17 +1071,40 @@ func (w *World) Stock(city, product string) int {
 // Street is how many units of a product are on a city's street.
 func (w *World) Street(city, product string) int { return w.Player.Stash[city][product] }
 
-// AddStock puts units of a product into a city: a buy, a contract's
-// morning lot, a shipment landing, the road's lots, a card. It is put
-// away (#73): into the emptiest house there with room, the next once
-// that is full, and onto the street when the houses are full or there
-// are none (the road's rule stands: a lot that fits nowhere sits on the
-// street until the shipment takes it). A negative count is a TakeStock.
-func (w *World) AddStock(city, product string, units int) {
+// AddStock puts units of a product into a city at a quality (#47): a
+// buy at the connect's, a contract's morning lot, a shipment landing
+// at what it carried, the road's lots, a card at the default, a cook at
+// the chemist's, a cut at nothing. The lot's quality becomes the mean
+// by units of what was there and what came (a lot with nothing in it
+// takes the incoming figure), clamped to 0..100; a quality of zero or
+// under reads as the default. It is put away (#73): into the emptiest
+// house there with room, the next once that is full, and onto the
+// street when the houses are full or there are none (the road's rule
+// stands: a lot that fits nowhere sits on the street until the shipment
+// takes it). A negative count is a TakeStock.
+func (w *World) AddStock(city, product string, units int, quality float64) {
 	if units < 0 {
 		w.TakeStock(city, product, -units)
 		return
 	}
+	if units == 0 {
+		return
+	}
+	if quality <= 0 {
+		quality = w.StreetQuality()
+	}
+	have := w.Stock(city, product)
+	q := quality
+	if have > 0 {
+		q = (w.Quality(city, product)*float64(have) + quality*float64(units)) / float64(have+units)
+	}
+	w.SetQuality(city, product, q)
+	w.put(city, product, units)
+}
+
+// put is the placement half of AddStock: the units into the houses and
+// onto the street, the lot's quality left as it is.
+func (w *World) put(city, product string, units int) {
 	for units > 0 {
 		h := w.emptiest(city)
 		if h == nil {
@@ -1083,6 +1250,137 @@ func (w *World) Bound(to, product string) int {
 		}
 	}
 	return n
+}
+
+// Cut steps on a city's stash of a product (#47): ratio of the units are
+// added at nothing, so the lot's quality drops by the same ratio (the
+// pure weight is conserved: units x (1 + ratio) at quality / (1 +
+// ratio)), and a chemist's hand puts bonus points of it back, never
+// over what it was. It is instant, paid at cost a unit added in dirty
+// cash, refused past the room the city has (the units have to be held)
+// and past the ratio given as the most (the product's cut_max), and
+// recorded on the day's scratch for the report. It returns what it did.
+func (w *World) Cut(city, product string, ratio, most float64, cost int, bonus float64, chemist string) (CutRecord, error) {
+	if w.Over != nil {
+		return CutRecord{}, ErrGameOver
+	}
+	if w.Product(city, product) == nil {
+		return CutRecord{}, ErrUnknownProduct
+	}
+	if ratio <= 0 || most <= 0 || ratio > most+1e-9 {
+		return CutRecord{}, ErrBadRatio
+	}
+	units := w.Stock(city, product)
+	if units <= 0 {
+		return CutRecord{}, ErrNothingToCut
+	}
+	added := int(math.Round(float64(units) * ratio))
+	if added <= 0 {
+		return CutRecord{}, ErrBadRatio
+	}
+	if free := w.Free(city); added > free {
+		return CutRecord{}, fmt.Errorf("can only hold %d more units in %s", free, w.CityName(city))
+	}
+	price := cost * added
+	if price > w.Player.DirtyCash {
+		return CutRecord{}, fmt.Errorf("need $%d, only have $%d dirty", price, w.Player.DirtyCash)
+	}
+	from := w.Quality(city, product)
+	w.Player.DirtyCash -= price
+	w.put(city, product, added)
+	to := math.Min(from, from*float64(units)/float64(units+added)+math.Max(0, bonus))
+	w.SetQuality(city, product, to)
+	rec := CutRecord{City: city, Product: product, Units: units, Added: added, From: from, To: w.Quality(city, product), Cost: price, Chemist: chemist}
+	w.Today.Cuts = append(w.Today.Cuts, rec)
+	w.Stats.Cut += added
+	w.Stats.CutCost += price
+	return rec, nil
+}
+
+// CookOrder queues a chemist's lot (#47): units of a product cooked from
+// precursors at cost a unit, dirty, paid now, landing in a city's stash
+// days from now at the quality given (the chemist's today), at most
+// batch units an order and one order a product a city a day. It is
+// refused with no chemist (the caller says who), for a product the
+// file gives no cook_cost, past the room the city has with what is
+// already on its way there counted, and past the till. The crew sim
+// lands it (crew.Sim.Step) and reports it.
+func (w *World) CookOrder(city, product string, units, cost, days int, quality float64, batch int, chemist string) (Cook, error) {
+	if w.Over != nil {
+		return Cook{}, ErrGameOver
+	}
+	if w.Product(city, product) == nil {
+		return Cook{}, ErrUnknownProduct
+	}
+	if chemist == "" {
+		return Cook{}, ErrNoChemist
+	}
+	if cost <= 0 {
+		return Cook{}, ErrNotCooked
+	}
+	if units <= 0 {
+		return Cook{}, ErrBadQuantity
+	}
+	if units > batch {
+		return Cook{}, fmt.Errorf("%w: %s cooks %d a batch", ErrBatch, chemist, batch)
+	}
+	for _, k := range w.Crew.Cooks {
+		if k.City == city && k.Product == product && k.Ordered == w.Day {
+			return Cook{}, ErrCooking
+		}
+	}
+	if free := w.Free(city) - w.Crew.Cooking(city, product); units > free {
+		return Cook{}, fmt.Errorf("can only hold %d more units in %s", max(0, free), w.CityName(city))
+	}
+	price := cost * units
+	if price > w.Player.DirtyCash {
+		return Cook{}, fmt.Errorf("need $%d, only have $%d dirty", price, w.Player.DirtyCash)
+	}
+	w.Player.DirtyCash -= price
+	w.Crew.NextCook++
+	k := Cook{ID: w.Crew.NextCook, City: city, Product: product, Units: units, Quality: math.Max(0, math.Min(100, quality)), Ordered: w.Day, Ready: w.Day + max(1, days), Cost: price, Chemist: chemist}
+	w.Crew.Cooks = append(w.Crew.Cooks, k)
+	w.Stats.Cooked += units
+	w.Stats.CookCost += price
+	return k, nil
+}
+
+// MigrateLots is the 12 -> 13 step (#47): a save from before quality
+// carried units alone, so every lot holding anything, every shipment on
+// the road and every connect's product is given the default quality,
+// and every corner starts with all its customers coming back
+// (repeat_start). The old save plays on as it did: the multipliers
+// read 1 and no corner moves until something under the floor is sold.
+func (w *World) MigrateLots(quality, repeat float64) {
+	w.BaseQuality = quality
+	for _, cid := range w.CityOrder {
+		for id, q := range w.StashOf(cid) {
+			if q > 0 && w.Player.Quality[cid][id] == 0 {
+				w.SetQuality(cid, id, quality)
+			}
+		}
+		for i := range w.Cities[cid].Corners {
+			if c := &w.Cities[cid].Corners[i]; c.Repeat == 0 {
+				c.Repeat = repeat
+			}
+		}
+	}
+	for i := range w.Shipments {
+		if w.Shipments[i].Quality == 0 {
+			w.Shipments[i].Quality = quality
+		}
+	}
+	for i := range w.Suppliers {
+		sup := &w.Suppliers[i]
+		if sup.Quality == nil {
+			sup.Quality = map[string]float64{}
+		}
+		for id := range sup.Price {
+			if sup.Quality[id] == 0 {
+				sup.Quality[id] = quality
+			}
+		}
+	}
 }
 
 // TotalStock is every unit the operation holds: every street, every

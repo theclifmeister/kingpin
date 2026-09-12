@@ -94,6 +94,10 @@ var everywhere = on(screenDashboard, screenMarket, screenJournal, screenCrew, sc
 // branch is a list, and its arrows turn the branch (#120).
 var listScreens = on(screenDashboard, screenMarket, screenJournal, screenCrew, screenUpgrades, screenLedger, screenRivals)
 
+// hasChemist is a chemist being on the payroll (#47): the cook is
+// listed, and live, only then.
+func hasChemist(m *Model) bool { return m.w.Crew.Chemist() != nil }
+
 // onBuyers is the market's cursor being on the buyers under the table.
 func onBuyers(m *Model) bool { return m.screen == screenMarket && m.onBuyers }
 
@@ -121,6 +125,8 @@ func numberStep(m *Model) bool {
 		return m.modalStep() == 2
 	case modeMove:
 		return m.mv.step == 3
+	case modeCut, modeCook:
+		return m.lab.step == 1
 	}
 	return false
 }
@@ -214,6 +220,10 @@ var bindings = []binding{
 		do: func(m *Model, _ string) { m.answerContract(true) }},
 	{key: "x", label: "decline", help: "turn the buyer's offer down", screens: on(screenMarket), when: onBuyers,
 		do: func(m *Model, _ string) { m.answerContract(false) }},
+	{key: "t", label: "cut", help: "cut a product in the stash where you stand", screens: on(screenMarket),
+		do: func(m *Model, _ string) { m.askCut() }},
+	{key: "o", label: "cook", help: "the chemist cooks a batch where you stand", screens: on(screenMarket), when: hasChemist,
+		do: func(m *Model, _ string) { m.askCook() }},
 	{key: "d", label: "deliver", help: "hand the buyer what the stash here holds", screens: on(screenMarket), when: onBuyers,
 		do: func(m *Model, _ string) { m.deliverSelected() }},
 	// The journal: one source at a time.
@@ -342,6 +352,7 @@ var bindings = []binding{
 var modeBindings = []binding{
 	{key: "↑↓", label: "pick", modes: in(modeStart, modePost, modeStrike, modeUndercut, modeFront, modeAssign, modePropose, modeGuard)},
 	{key: "↑↓", label: "pick", modes: in(modeMove), when: moveList},
+	{key: "↑↓", label: "pick", modes: in(modeCut, modeCook), when: labList},
 	{key: "↑↓", label: "pick", modes: in(modeSell, modeTarget), when: step(0)},
 	{key: "↑↓", label: "pick", modes: in(modeBuy), when: buyList},
 	{key: "↑↓", label: "pick", modes: in(modeCart), when: cartHasLines},
@@ -359,12 +370,15 @@ var modeBindings = []binding{
 	{key: "1-2", label: "repeat", modes: in(modeSell), when: step(3)},
 	{key: "1-3", label: "dial", modes: in(modeCart), when: cartOnSell},
 	{key: "1-3", label: "choose", modes: in(modeCard), when: step(0)},
-	{key: "m", label: "max", modes: in(modeBuy, modeSell, modeTarget, modeCart, modeFund, modeConfirmFast, modeMove, modeConfirmBuyOff, modeInvest, modeReserve), when: numberStep},
-	{key: "h", label: "half", modes: in(modeBuy, modeSell, modeTarget, modeCart, modeFund, modeConfirmFast, modeMove, modeConfirmBuyOff, modeInvest, modeReserve), when: numberStep},
-	{key: "↑↓", label: "±1", modes: in(modeBuy, modeSell, modeTarget, modeCart, modeFund, modeConfirmFast, modeMove, modeConfirmBuyOff, modeInvest, modeReserve), when: numberStep},
-	{key: "pgup pgdn", label: "±10", modes: in(modeBuy, modeSell, modeTarget, modeCart, modeFund, modeConfirmFast, modeMove, modeConfirmBuyOff, modeInvest, modeReserve), when: numberStep},
+	{key: "m", label: "max", modes: in(modeBuy, modeSell, modeTarget, modeCart, modeFund, modeConfirmFast, modeMove, modeConfirmBuyOff, modeCut, modeCook, modeInvest, modeReserve), when: numberStep},
+	{key: "h", label: "half", modes: in(modeBuy, modeSell, modeTarget, modeCart, modeFund, modeConfirmFast, modeMove, modeConfirmBuyOff, modeCut, modeCook, modeInvest, modeReserve), when: numberStep},
+	{key: "↑↓", label: "±1", modes: in(modeBuy, modeSell, modeTarget, modeCart, modeFund, modeConfirmFast, modeMove, modeConfirmBuyOff, modeCut, modeCook, modeInvest, modeReserve), when: numberStep},
+	{key: "pgup pgdn", label: "±10", modes: in(modeBuy, modeSell, modeTarget, modeCart, modeFund, modeConfirmFast, modeMove, modeConfirmBuyOff, modeCut, modeCook, modeInvest, modeReserve), when: numberStep},
 	{key: "enter", label: "next", modes: in(modeSell, modeTarget, modePropose, modeFront), when: step(0)},
 	{key: "enter", label: "next", modes: in(modeMove), when: moveList},
+	{key: "enter", label: "next", modes: in(modeCut, modeCook), when: labList},
+	{key: "enter", label: "cut", modes: in(modeCut), when: labNumber},
+	{key: "enter", label: "cook", modes: in(modeCook), when: labNumber},
 	{key: "enter", label: "next", modes: in(modeSell, modeTarget), when: step(1)},
 	{key: "enter", label: "next", modes: in(modeBuy), when: buyNext},
 	{key: "enter", label: "next", modes: in(modeSell), when: step(2)},
@@ -412,10 +426,10 @@ var modeBindings = []binding{
 	// buy's connect step) alone, where the toggle is live.
 	{key: "s", label: "sell", modes: in(modeBuy), when: buyList},
 	{key: "b", label: "buy", modes: in(modeSell), when: step(0)},
-	{key: "⇧tab", label: "back", keys: []string{"shift+tab"}, modes: in(modeBuy, modeSell, modeTarget, modeCart, modePropose, modeFront, modeMove, modeFund), when: pastFirstStep},
+	{key: "⇧tab", label: "back", keys: []string{"shift+tab"}, modes: in(modeBuy, modeSell, modeTarget, modeCart, modePropose, modeFront, modeMove, modeFund, modeCut, modeCook), when: pastFirstStep},
 	{key: "esc", label: "close", modes: in(modeBuy, modeSell, modeTarget, modePropose, modePost, modeStrike, modeUndercut, modeFront, modeAssign, modeFund, modeCart, modeMove, modeGuard,
 		modeConfirmNew, modeConfirmDelete, modeConfirmFire, modeConfirmEnd, modeConfirmUpgrade, modeConfirmInvestigate, modeConfirmPayOff, modeConfirmTravel, modeConfirmFast, modeConfirmDrop,
-		modeConfirmScout, modeConfirmBoost, modeConfirmTip, modeConfirmBuyOff, modeInvest, modeReserve)},
+		modeConfirmScout, modeConfirmBoost, modeConfirmTip, modeConfirmBuyOff, modeCut, modeCook, modeInvest, modeReserve)},
 	{key: "enter esc", label: "close", modes: in(modeReport, modeHelp, modeStage)},
 	{key: "enter esc", label: "close", modes: in(modeCard), when: step(1)},
 	{key: "␣ esc", label: "close", modes: in(modeDetails)},
@@ -444,6 +458,8 @@ func (m *Model) modalStep() int {
 		return m.frontStep
 	case modeMove:
 		return m.mv.step
+	case modeCut, modeCook:
+		return m.lab.step
 	case modeCart:
 		return m.crt.step
 	case modePropose:
@@ -645,6 +661,12 @@ var words = [][2]string{
 	{"scout", "a paid look at the rival's books: a snapshot that goes stale"},
 	{"boost", "the enforcers rob a rival corner's till, not the corner"},
 	{"scene", "a short animation on a morning that matters; any key skips it"},
+	{"world", "the weather: an incident that lands on the world, not on you"},
+	{"quality", "a lot's grade, 0-100: the price pays it, corners remember it"},
+	{"cut", "add units at nothing: more today, fewer customers tomorrow"},
+	{"cook", "a chemist's batch of meth or designer, from precursors"},
+	{"repeat", "the share of a corner's customers who come back"},
+	{"overdose", "bad hard product on your corner: pressure and news, no page"},
 }
 
 // helpLines is the help modal's body: every binding, grouped, one a

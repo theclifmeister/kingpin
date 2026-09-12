@@ -164,7 +164,7 @@ func (w *World) applyEffect(c *Card, key string, v float64) error {
 					d = min(d, free)
 					free -= d
 				}
-				w.AddStock(cid, id, d) // a negative share is a take, clamped at nothing
+				w.AddStock(cid, id, d, w.StreetQuality()) // a negative share is a take, clamped at nothing; a windfall is street product
 			}
 		}
 	case "fear", "respect", "notoriety":
@@ -196,6 +196,7 @@ type CardSlots struct {
 	Amount   string // the sum the card is about, formatted
 	MemberID int    // crew id the card is about; 0 nobody
 	CornerID string // corner id the card is about; "" none
+	CityID   string // the city the trigger named (#44); "" is where you are
 	Sum      int    // the sum the card is about, unformatted; 0 none
 }
 
@@ -211,6 +212,18 @@ type CardSlots struct {
 func Eligible(w *World, c content.CardConfig) (CardSlots, bool) {
 	t := c.Trigger
 	s := CardSlots{City: w.Here().Name, Rival: w.Rival.Leader}
+	// A card or an incident about a city (#44): it must exist, and it
+	// is the city the slot names.
+	if t.City != "" {
+		c := w.Cities[t.City]
+		if c == nil {
+			return s, false
+		}
+		s.City, s.CityID = c.Name, c.ID
+	}
+	if t.DAStance != "" && w.Law.DA.Stance != t.DAStance {
+		return s, false
+	}
 	if t.DayMin > 0 && w.Day < t.DayMin {
 		return s, false
 	}
