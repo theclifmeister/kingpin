@@ -63,7 +63,7 @@ then end as `n` ends them, stopping before the report of the first
 morning that needs you — a card, an alert the dashboard did not carry
 the morning before (a contract due, heat over the patrol line, somebody
 talking, dirty cash under the float, wages short), a sting or worse, the
-rival taking a corner or offering a deal, the crew walking, an audit, a
+rival eyeing a corner, taking one or offering a deal, the crew walking, an audit, a
 seizure, a buyer asking, the law changing hands or a contract or standing
 order that ran short — and that report opens with `Stopped after 3 days:
 contract due today.` A buy's last step is `once` or `keep
@@ -119,9 +119,9 @@ every screen and are in the KEYS of the screens they belong to.
    and in the pane the person: loyalty against the lines, wage, post,
    temper, and what hiring, firing, paying off and asking around cost.
 5. **Map** — the shown city's corners as a grid (yours in blue, the
-   rival's in purple, free ones plain) and the routes between the cities
-   under it, each with its dial; the pane is the corner's inspector or
-   the route's detail.
+   rival's in purple, free ones plain, the one the rival is eyeing marked
+   `?`) and the routes between the cities under it, each with its dial;
+   the pane is the corner's inspector or the route's detail.
 6. **Upgrades** — the tree one branch at a time under branch tabs, left
    and right turning it, each node indented under the one it needs; the
    pane is the node, its cost, what it needs and what it does, and what
@@ -375,7 +375,11 @@ never leaves the first city plays the same as it always did.
 - **Rivals** is the other crew in the city: one per run, with a leader and
   a temperament drawn from the seed. It moves in on a free corner, claims
   more, pushes on the corners of yours it borders, undercuts you there and
-  calls the police when you hurt it. Enforcers on the war dial (warn /
+  calls the police when you hurt it. A claim is **telegraphed**: the day
+  it picks a corner the report says so, the map marks it `?` and the
+  RIVALS panel reads `eyeing Riverside`; it sets up there the next night
+  unless somebody of yours is posted on it by then, in which case it
+  leaves, keeps its money and holds a grudge. Enforcers on the war dial (warn /
   push / hit) are one answer; the table is the other. It keeps a **trust**
   in you, seeded by its temperament, and you can propose a **truce** (a
   term of peace: no pushes, no undercutting, no tips), **tribute** (you pay

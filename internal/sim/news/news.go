@@ -401,6 +401,16 @@ func (s *Sim) Step(w *game.World, t *game.Tick) {
 				add("rivals", "RivalClaimed", d)
 				rep.Territory = append(rep.Territory, fmt.Sprintf("%s's crew set up on %s.", ev.Rival, ev.Name))
 			}
+		case events.RivalEyeing:
+			d := base
+			d.Corner, d.Rival = ev.Name, ev.Rival
+			add("rivals", "RivalEyeing", d)
+			rep.Territory = append(rep.Territory, fmt.Sprintf("Word is %s's crew are setting up on %s tomorrow%s. Post somebody on it tonight and it stays off them.", ev.Rival, ev.Name, eyeingWhy(w.Rival)))
+		case events.RivalOutbid:
+			d := base
+			d.Corner, d.Rival = ev.Name, ev.Rival
+			add("rivals", "RivalOutbid", d)
+			rep.Territory = append(rep.Territory, fmt.Sprintf("%s's crew came for %s and found your people on it. They left; they will not forget it.", ev.Rival, ev.Name))
 		case events.RivalPushed:
 			d := base
 			d.Corner, d.Rival = ev.Name, ev.Rival
@@ -692,6 +702,26 @@ func render(t *template.Template, d data) string {
 }
 
 // pastTense is what the enforcers did, for the report.
+// eyeingWhy is the reason behind the tell (#69), once the rival's
+// temper has shown: until then the tell names the corner and the early
+// game reads as rumour.
+func eyeingWhy(r game.RivalState) string {
+	if !r.Observed {
+		return ""
+	}
+	switch r.Personality {
+	case "expansionist":
+		return ", an expansionist wanting the city"
+	case "defensive":
+		return ", a defensive outfit filling in next to its own"
+	case "opportunist":
+		return ", an opportunist taking the best block going"
+	case "chaotic":
+		return ", chaotic as ever, on a whim"
+	}
+	return ""
+}
+
 func pastTense(f events.Force) string {
 	switch f {
 	case events.ForceWarn:

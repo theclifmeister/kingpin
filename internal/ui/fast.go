@@ -193,6 +193,8 @@ func (m *Model) stopEvent(e events.Event) string {
 		if ev.Level != "patrol" {
 			return format.A(ev.Level) + " in " + w.CityName(ev.City)
 		}
+	case events.RivalEyeing:
+		return ev.Rival + " is eyeing " + ev.Name
 	case events.CornerStruck:
 		return "the strike on " + ev.Name
 	case events.CornerTaken:

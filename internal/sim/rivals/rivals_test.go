@@ -454,3 +454,153 @@ func TestRivalNodesMoveTheirNumbers(t *testing.T) {
 		t.Log("the front line's push on seed 5 landed; the roll was made either way")
 	}
 }
+
+// eager is a config in which the rival claims every day it can: the
+// claim roll is certain, the pace flat and the cooldown gone, so a
+// test reads the tell and its answer on a known day.
+func eager(cfg *content.Config) *content.Config {
+	boxed := *cfg
+	boxed.Rivals.Personality = map[string]content.PersonalityConfig{}
+	for k, p := range cfg.Rivals.Personality {
+		p.ClaimChance = 1
+		boxed.Rivals.Personality[k] = p
+	}
+	boxed.Rivals.Pace = content.PaceTuning{}
+	return &boxed
+}
+
+// settled is a world with the rival in town on the last corner, rich
+// enough to claim and with muscle enough that it recruits nobody, so
+// its cash moves by income and wages alone.
+func settled(t *testing.T, cfg *content.Config, seed uint64, personality string) (*game.World, *rivals.Sim) {
+	t.Helper()
+	w, s := world(t, cfg, seed)
+	w.Rival.Personality = personality
+	w.Rival.Arrived, w.Rival.Cash, w.Rival.Muscle, w.Rival.Observed = 1, 200_000, 30, true
+	c := &w.Home().Corners[len(w.Home().Corners)-1]
+	c.Owner, c.Since = game.OwnerRival, 1
+	w.Day = 1
+	return w, s
+}
+
+// The claim is telegraphed (#69): the day the roll succeeds the rival
+// eyes a free corner and says so, spending nothing, the cooldown
+// running from that day; the next step it sets up on it, claim_cost
+// spent and the claim counted, and the tell is cleared.
+func TestTellPrecedesTheClaim(t *testing.T) {
+	cfg := eager(content.MustLoad())
+	tun := cfg.Rivals.Rivals
+	for _, p := range content.Personalities {
+		w, s := settled(t, cfg, 3, p)
+		held, claims := w.RivalHeld(), w.Rival.Claims
+		evs := step(w, s)
+		k := kinds(evs)
+		if k["RivalEyeing"] != 1 || k["CornerTaken"] != 0 {
+			t.Fatalf("%s: the first step: %v", p, k)
+		}
+		if w.Rival.Eyeing == "" || w.Rival.EyeingDay != w.Day || w.Rival.LastClaim != w.Day || w.RivalHeld() != held || w.Rival.Claims != claims {
+			t.Fatalf("%s: after the tell: %+v holds %d", p, w.Rival, w.RivalHeld())
+		}
+		eyed := w.Corner(w.Rival.Eyeing)
+		if eyed == nil || eyed.Owner != game.OwnerNone {
+			t.Fatalf("%s: eyeing %q, owner %q", p, w.Rival.Eyeing, eyed.Owner)
+		}
+		for _, e := range evs {
+			if ev, ok := e.(events.RivalEyeing); ok && (ev.Corner != eyed.ID || ev.Name != eyed.Name || ev.Rival != w.Rival.Leader) {
+				t.Fatalf("%s: the tell names %+v, eyeing %s", p, ev, eyed.ID)
+			}
+		}
+		cash := w.Rival.Cash + s.Income(w) - w.Rival.Muscle*tun.MuscleWage
+		k = kinds(step(w, s))
+		if k["CornerTaken"] != 1 || k["RivalOutbid"] != 0 {
+			t.Fatalf("%s: the second step: %v", p, k)
+		}
+		if eyed.Owner != game.OwnerRival || w.RivalHeld() != held+1 || w.Rival.Claims != claims+1 {
+			t.Fatalf("%s: after the claim: %s is %s's, %+v", p, eyed.ID, eyed.Owner, w.Rival)
+		}
+		if w.Rival.Cash != cash-tun.ClaimCost {
+			t.Fatalf("%s: cash %d after the claim, want %d", p, w.Rival.Cash, cash-tun.ClaimCost)
+		}
+		// The next tell is given the same step the claim lands only if
+		// the pace lets it: with none, the eager rival eyes again at once.
+		if w.Rival.Eyeing == "" {
+			t.Fatalf("%s: the eager rival did not eye the next corner", p)
+		}
+	}
+}
+
+// The tell is answerable (#69): somebody posted on the eyed corner
+// before the rival comes makes the claim fail, no cash spent, no claim
+// counted, the grudge up by outbid_grudge (or a call made on it that
+// night), the corner still yours; and
+// the next tell names another corner. An enforcer on it counts: the
+// corner is held, and the rival never walks onto held ground.
+func TestPostingOnTheEyedCornerOutbidsTheClaim(t *testing.T) {
+	cfg := eager(content.MustLoad())
+	tun := cfg.Rivals.Rivals
+	for _, who := range []int{game.You, 1, 2} {
+		w, s := settled(t, cfg, 5, "expansionist")
+		step(w, s)
+		eyed := w.Corner(w.Rival.Eyeing)
+		if eyed == nil {
+			t.Fatal("no tell")
+		}
+		if err := w.Post(eyed.ID, who); err != nil {
+			t.Fatal(err)
+		}
+		held, claims, grudge := w.RivalHeld(), w.Rival.Claims, w.Rival.Grudge
+		cash := w.Rival.Cash + s.Income(w) - w.Rival.Muscle*tun.MuscleWage
+		evs := step(w, s)
+		k := kinds(evs)
+		if k["RivalOutbid"] != 1 || k["CornerTaken"] != 0 {
+			t.Fatalf("posting %d: %v", who, k)
+		}
+		if eyed.Owner != game.OwnerPlayer || w.RivalHeld() != held || w.Rival.Claims != claims {
+			t.Fatalf("posting %d: %s is %s's, rival holds %d, claims %d", who, eyed.ID, eyed.Owner, w.RivalHeld(), w.Rival.Claims)
+		}
+		if w.Rival.Cash != cash {
+			t.Fatalf("posting %d: cash %d, want %d unspent", who, w.Rival.Cash, cash)
+		}
+		// The grudge is held, or paid back the same night with a call.
+		if paid := k["RivalTippedPolice"]; w.Rival.Grudge+paid != grudge+tun.OutbidGrudge || paid > 1 {
+			t.Fatalf("posting %d: grudge %d, was %d, %d calls", who, w.Rival.Grudge, grudge, paid)
+		}
+		if w.Rival.Eyeing == "" || w.Rival.Eyeing == eyed.ID {
+			t.Fatalf("posting %d: the next tell is %q", who, w.Rival.Eyeing)
+		}
+	}
+}
+
+// A tell the rival can no longer act on is dropped without a word: a
+// split sealed overnight that covers the corner, or its share reached.
+func TestStaleTellIsDropped(t *testing.T) {
+	cfg := eager(content.MustLoad())
+	w, s := settled(t, cfg, 7, "expansionist")
+	step(w, s)
+	eyed := w.Rival.Eyeing
+	w.Rival.Deals = []game.Deal{{Kind: game.DealSplit, Terms: game.Terms{Corners: []string{eyed}}, Since: w.Day}}
+	held, cash := w.RivalHeld(), w.Rival.Cash
+	k := kinds(step(w, s))
+	if k["CornerTaken"] != 0 || k["RivalOutbid"] != 0 {
+		t.Fatalf("under the split: %v", k)
+	}
+	if w.Corner(eyed).Owner != game.OwnerNone || w.RivalHeld() != held || w.Rival.Cash < cash-w.Rival.Muscle*cfg.Rivals.Rivals.MuscleWage {
+		t.Fatalf("under the split: %s is %s's, holds %d, cash %d -> %d", eyed, w.Corner(eyed).Owner, w.RivalHeld(), cash, w.Rival.Cash)
+	}
+	if w.Rival.Eyeing == eyed {
+		t.Fatalf("the split corner is eyed again")
+	}
+
+	w, s = settled(t, cfg, 7, "defensive")
+	step(w, s)
+	eyed = w.Rival.Eyeing
+	for i := range w.Home().Corners {
+		if c := &w.Home().Corners[i]; c.Owner == game.OwnerNone && c.ID != eyed && w.RivalHeld() < s.MaxCorners(w) {
+			c.Owner = game.OwnerRival
+		}
+	}
+	k = kinds(step(w, s))
+	if k["CornerTaken"] != 0 || w.Corner(eyed).Owner != game.OwnerNone || w.RivalHeld() > s.MaxCorners(w) {
+		t.Fatalf("at its share: %v, %s is %s's, holds %d of %d", k, eyed, w.Corner(eyed).Owner, w.RivalHeld(), s.MaxCorners(w))
+	}
+}

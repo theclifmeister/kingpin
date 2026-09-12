@@ -71,11 +71,11 @@ func (s *Sim) ClaimScale(w *game.World) float64 {
 }
 
 // Rested reports whether the rival may set up on a free corner today
-// (#60): its last claim was claim_cooldown days ago or more, or your
-// enforcers have been in within those days, when it grows as fast as it
-// can. Resting, it pushes on your corners at push_past_cap like a rival
-// held at its cap: a slower spread must not be a longer fight at full
-// pace.
+// (#60): its last claim (the day it chose the corner: the tell, #69)
+// was claim_cooldown days ago or more, or your enforcers have been in
+// within those days, when it grows as fast as it can. Resting, it
+// pushes on your corners at push_past_cap like a rival held at its cap:
+// a slower spread must not be a longer fight at full pace.
 func (s *Sim) Rested(w *game.World, day int) bool {
 	r := w.Rival
 	cooldown := s.cfg.Pace.ClaimCooldown
@@ -333,15 +333,19 @@ func (s *Sim) Step(w *game.World, t *game.Tick) {
 	// unless your enforcers have been in within those days, when it
 	// grows as fast as it can (the roll is made either way, so the
 	// seed's dice stay put; its arrival is not a claim, so the second
-	// corner comes as it likes).
+	// corner comes as it likes). The claim is telegraphed (#69): the
+	// corner it eyed yesterday is resolved first, then today's roll
+	// picks the next one and gives the tell. No new dice: the roll is
+	// the one made before, its corner taken a day later; and the
+	// cooldown runs from the tell, the day it chose, so the pace #60
+	// set is the pace it keeps (a claim a day later is not a claim
+	// cycle a day longer), and a claim kept off a corner rests it too.
+	s.resolveEyeing(w, t)
 	if w.RivalHeld() < s.MaxCorners(w) && r.Cash >= tun.ClaimCost && (r.Routed == 0 || t.Day-r.Routed >= tun.RegroupDays) && t.RNG.Float64() < pc.ClaimChance*s.ClaimScale(w)*s.ClaimPace(w) {
 		if s.Rested(w, t.Day) {
 			if c := s.pickFree(w, t.RNG, t.Day, w.RivalHeld() == 0); c != nil {
-				r.Cash -= tun.ClaimCost
-				r.Claims++
-				r.LastClaim = t.Day
-				s.take(c, t.Day)
-				t.Emit(events.CornerTaken{Day: t.Day, Corner: c.ID, Name: c.Name, Rival: r.Leader, From: game.OwnerNone})
+				r.Eyeing, r.EyeingDay, r.LastClaim = c.ID, t.Day, t.Day
+				t.Emit(events.RivalEyeing{Day: t.Day, Rival: r.Leader, Corner: c.ID, Name: c.Name})
 			}
 		}
 	}
@@ -422,6 +426,53 @@ func (s *Sim) Step(w *game.World, t *game.Tick) {
 	if r.Muscle < 0 {
 		r.Muscle = 0
 	}
+}
+
+// resolveEyeing is the claim the rival telegraphed yesterday (#69): it
+// sets up on the corner it eyed, claim_cost spent, unless somebody got
+// there first, when the claim fails, no cash is spent and it holds a
+// grudge (RivalOutbid). A body on the corner is what a Post puts there:
+// you, a runner or an enforcer, since a corner with an enforcer on it
+// is held and it never walks onto held ground without a push. A corner
+// it can no longer set up on for its own reasons (a split now covers
+// it, it holds its share, it was routed, the corner is no longer free
+// and not yours either) is dropped without a word.
+func (s *Sim) resolveEyeing(w *game.World, t *game.Tick) {
+	tun := s.cfg.Rivals
+	r := &w.Rival
+	if r.Eyeing == "" {
+		return
+	}
+	id := r.Eyeing
+	r.Eyeing, r.EyeingDay = "", 0
+	c := w.Corner(id)
+	if c == nil || c.City != w.Home().ID || c.Owner == game.OwnerRival {
+		return
+	}
+	if split := w.Deal(game.DealSplit); split != nil && split.Covers(c.ID) {
+		return
+	}
+	if w.RivalHeld() >= s.MaxCorners(w) || (r.Routed > 0 && t.Day-r.Routed < tun.RegroupDays) {
+		return
+	}
+	if c.Held() {
+		r.Grudge += tun.OutbidGrudge
+		t.Emit(events.RivalOutbid{Day: t.Day, Rival: r.Leader, Corner: c.ID, Name: c.Name})
+		return
+	}
+	r.Cash -= tun.ClaimCost
+	r.Claims++
+	s.take(c, t.Day)
+	t.Emit(events.CornerTaken{Day: t.Day, Corner: c.ID, Name: c.Name, Rival: r.Leader, From: game.OwnerNone})
+}
+
+// Eyeing is the corner the rival sets up on next step, or nil: the tell
+// (#69) the map marks and the panels name.
+func (s *Sim) Eyeing(w *game.World) *game.Corner {
+	if w.Rival.Eyeing == "" {
+		return nil
+	}
+	return w.Corner(w.Rival.Eyeing)
 }
 
 // strike resolves the player's enforcers going in on a rival corner.

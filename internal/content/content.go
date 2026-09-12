@@ -458,6 +458,7 @@ type RivalsTuning struct {
 	CrackdownCorners   int     `toml:"crackdown_corners"`
 	CrackdownHeat      float64 `toml:"crackdown_heat"`
 	CrackdownMuscle    float64 `toml:"crackdown_muscle"`
+	OutbidGrudge       int     `toml:"outbid_grudge"` // grudge a claim it telegraphed and lost to a body on the corner adds (#69)
 }
 
 // PaceTuning is how fast the rival takes the city (#60): its claim chance

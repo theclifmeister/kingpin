@@ -425,8 +425,10 @@ type RivalState struct {
 	Flips       int     // corners it took from the player
 	Tips        int
 	Leads       []Lead // what defectors brought it, to act on next step
-	LastClaim   int    // day it last set up on a free corner; 0 never (#60: the pace's cooldown)
+	LastClaim   int    // day it last chose a free corner to set up on (the tell, #69); 0 never (#60: the pace's cooldown)
 	LastStruck  int    // day the player's enforcers last went in; 0 never (#60: under attack it grows as fast as it can)
+	Eyeing      string // corner id it sets up on next step, the tell (#69); "" none. Post somebody on it first and the claim fails.
+	EyeingDay   int    // day the tell was given
 
 	// Diplomacy (#32): what it thinks of you and what you have agreed.
 	Trust     float64 // 0..100; seeded by personality, earned by kept deals, spent by force

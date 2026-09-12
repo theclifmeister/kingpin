@@ -212,3 +212,88 @@ func daysToHeat(r Result, v float64) int {
 	}
 	return 0
 }
+
+// The tell is answerable (#69): a player who posts a runner on the
+// corner the rival is eyeing, the morning the tell is given, makes
+// every claim fail on every seed. The rival keeps its cash (no claim
+// is counted past its arrival, so it holds nothing it did not take by
+// force), its grudge rises on every outbid (held, or paid back with a
+// call that night), and the corner it eyes next is never the one it
+// was just kept off.
+func TestTellIsAnswerable(t *testing.T) {
+	cfg := content.MustLoad()
+	tun := cfg.Rivals.Rivals
+	for seed := uint64(1); seed <= 5; seed++ {
+		w := sim.NewWorld(cfg, seed)
+		w.Rival.Personality = "expansionist"
+		w.Player.DirtyCash = 20_000
+		for i := 0; i < 3; i++ {
+			w.Crew.Members = append(w.Crew.Members, game.CrewMember{ID: 100 + i, Name: fmt.Sprintf("R%d", i), Role: "runner", Skill: 50, Units: 100, Loyalty: 90, Nerve: 60, Wage: 50})
+		}
+		w.Crew.NextID = 103
+		grudge, calls := 0, 0
+		policy := Outbidder(cfg, 40, 10)
+		res, err := RunFrom(cfg, w, 120, func(w *game.World) {
+			policy(w)
+			if w.Rival.Eyeing != "" && w.Corner(w.Rival.Eyeing).Owner == game.OwnerNone {
+				t.Fatalf("seed %d day %d: the tell on %s went unanswered", seed, w.Day, w.Rival.Eyeing)
+			}
+		})
+		if err != nil {
+			t.Fatal(err)
+		}
+		if res.World.Stats.Strikes != 0 {
+			t.Fatalf("seed %d: the outbidder sent enforcers", seed)
+		}
+		tells, outbids := 0, 0
+		last := ""
+		byDay := map[int][]events.Event{}
+		for _, e := range res.Events {
+			switch ev := e.(type) {
+			case events.RivalEyeing:
+				tells++
+				if ev.Corner == last {
+					t.Fatalf("seed %d day %d: eyeing %s again, the corner it was just kept off", seed, ev.Day, ev.Name)
+				}
+				last = ev.Corner
+				byDay[ev.Day] = append(byDay[ev.Day], ev)
+			case events.RivalOutbid:
+				outbids++
+				grudge += tun.OutbidGrudge
+				byDay[ev.Day] = append(byDay[ev.Day], ev)
+			case events.RivalTippedPolice:
+				calls++
+			case events.CornerTaken:
+				if ev.From == game.OwnerNone {
+					t.Fatalf("seed %d day %d: the rival set up on %s past the tell", seed, ev.Day, ev.Name)
+				}
+			}
+		}
+		if tells == 0 {
+			t.Fatalf("seed %d: no tell in 120 days against an expansionist", seed)
+		}
+		for day, evs := range byDay {
+			for _, e := range evs {
+				if ev, ok := e.(events.RivalEyeing); ok {
+					answered := false
+					for _, n := range byDay[day+1] {
+						if o, ok := n.(events.RivalOutbid); ok && o.Corner == ev.Corner {
+							answered = true
+						}
+					}
+					if !answered {
+						t.Fatalf("seed %d: the tell on %s on day %d was not outbid on day %d: %v", seed, ev.Name, day, day+1, byDay[day+1])
+					}
+				}
+			}
+		}
+		r := res.World.Rival
+		if r.Claims != 1 || res.World.RivalHeld() > 1+r.Flips {
+			t.Fatalf("seed %d: the rival claimed %d times and holds %d corners (%d flipped)", seed, r.Claims, res.World.RivalHeld(), r.Flips)
+		}
+		if grudge == 0 || r.Grudge+calls < grudge {
+			t.Fatalf("seed %d: %d outbids, grudge %d and %d calls", seed, outbids, r.Grudge, calls)
+		}
+		t.Logf("seed %d: %d tells, %d outbids, rival holds %d, grudge %d, %d calls", seed, tells, outbids, res.World.RivalHeld(), r.Grudge, calls)
+	}
+}
