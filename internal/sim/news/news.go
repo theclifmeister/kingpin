@@ -7,6 +7,7 @@ import (
 	"bytes"
 	"fmt"
 	"math"
+	"regexp"
 	"sort"
 	"strings"
 	"text/template"
@@ -38,7 +39,7 @@ func New(cfg content.HeadlinesConfig, dilemmas content.DilemmasConfig, progressi
 	s := &Sim{cfg: cfg, dcfg: dilemmas, pcfg: progression, tmpl: map[string][]*template.Template{}, deck: deck}
 	for key, list := range cfg.Templates {
 		for i, src := range list {
-			t, err := template.New(fmt.Sprintf("%s#%d", key, i)).Parse(src)
+			t, err := template.New(fmt.Sprintf("%s#%d", key, i)).Funcs(articles).Parse(article(src))
 			if err != nil {
 				return nil, fmt.Errorf("headline %s[%d]: %w", key, i, err)
 			}
@@ -56,6 +57,29 @@ func New(cfg content.HeadlinesConfig, dilemmas content.DilemmasConfig, progressi
 }
 
 func (s *Sim) Name() string { return "news" }
+
+// articles are the template functions the article rewrite calls: `a`
+// is format.A, `A` the same at the head of a sentence.
+var articles = template.FuncMap{
+	"a": format.A,
+	"A": func(noun string) string {
+		s := format.A(noun)
+		return strings.ToUpper(s[:1]) + s[1:]
+	},
+}
+
+// articleRE is an indefinite article written before a field in a
+// template source: `a {{.City}}`, `An {{.Product}}`.
+var articleRE = regexp.MustCompile(`\b([Aa])n? \{\{(\.\w+)\}\}`)
+
+// article rewrites every `a {{.X}}` in a template source to `{{a .X}}`,
+// so the article agrees with the value (`an Eastside outfit`, `a
+// Bayport outfit`; #148: the file wrote `a {{.City}}` and Eastside
+// read `a Eastside`). The value alone is what decides it, so a
+// template's own words are left as written.
+func article(src string) string {
+	return articleRE.ReplaceAllString(src, "{{$1 $2}}")
+}
 
 // HasTemplate reports whether a template key exists; tests use it to make
 // sure every event kind the sims emit can be reported.
@@ -187,11 +211,29 @@ func (s *Sim) Step(w *game.World, t *game.Tick) {
 			if ev.City == here.ID {
 				rep.Prices = append(rep.Prices, priceLine(w, ev))
 			}
-		case events.ProductUnlocked:
-			d := base
-			d.Product = ev.Name
-			add("market", "ProductUnlocked", d)
-			rep.Prices = append(rep.Prices, fmt.Sprintf("%-8s now on offer from the supplier, around %s a unit", ev.Name, format.Price(ev.Price)))
+		case events.Unlocked:
+			// A gate crossed (#148): one UNLOCKED line, first in the
+			// report, and a headline under the unlock source, which
+			// neither notoriety nor the law counts. A product's pick
+			// stays on the home stream and a connect's on the
+			// connects', where they were, so no pinned run moves; a
+			// front's and a role's come off their own side stream.
+			rep.Unlocked = append(rep.Unlocked, unlockLine(w, ev))
+			d := at(ev.City)
+			d.Name = ev.Name
+			switch ev.Gate {
+			case "product":
+				d.Product = ev.Name
+				add("unlock", "UnlockedProduct", d)
+			case "connect":
+				addOff("suppliers", "unlock", "UnlockedConnect", d)
+			case "front":
+				d.Front = ev.Name
+				addOff("unlocks", "unlock", "UnlockedFront", d)
+			case "role":
+				d.Role = ev.ID
+				addOff("unlocks", "unlock", "UnlockedRole", d)
+			}
 		case events.PriceShock:
 			d := at(ev.City)
 			d.Product = w.ProductName(ev.Product)
@@ -295,11 +337,6 @@ func (s *Sim) Step(w *game.World, t *game.Tick) {
 			default:
 				rep.Money = append(rep.Money, fmt.Sprintf("%s's people came for the %s you owe and found nothing to take. They will be back.", ev.Name, format.Money(ev.Owed)))
 			}
-		case events.SupplierUnlocked:
-			d := at(ev.City)
-			d.Name = ev.Name
-			addSuppliers("SupplierUnlocked", d)
-			rep.Sales = append(rep.Sales, fmt.Sprintf("%s will deal with you now%s. Their prices are on the market (2).", ev.Name, in(ev.City)))
 		case events.ContractDelivered:
 			contracts += ev.Revenue
 			line := fmt.Sprintf("Handed %d %s to %s at %s (×%.3g street) = +%s%s", ev.Units, w.ProductName(ev.Product), ev.Name, format.Price(ev.Price), ev.Price/math.Max(ev.Street, 1e-9), format.Money(ev.Revenue), in(ev.City))
@@ -1032,4 +1069,39 @@ func enforcementLine(w *game.World, ev events.Enforcement) string {
 		s += " nothing; they found an empty stash"
 	}
 	return s
+}
+
+// unlockLine is the report's UNLOCKED line for a gate crossed (#148), in
+// the voice of the sections' lines and short enough for the modal at 80
+// columns: what opened, where to find it and the line it opened on.
+func unlockLine(w *game.World, ev events.Unlocked) string {
+	switch ev.Gate {
+	case "product":
+		// The line is honest where the supplier does not sell it: the
+		// port's product reaches home by the road, never through b.
+		if p := w.Product(w.Here().ID, ev.ID); p != nil && p.NoSupply {
+			var where []string
+			for _, cid := range w.CityOrder {
+				if cp := w.Product(cid, ev.ID); cp != nil && !cp.NoSupply {
+					where = append(where, w.CityName(cid))
+				}
+			}
+			if len(where) > 0 {
+				return fmt.Sprintf("%s is on offer in %s only: the road brings it here.", ev.Name, strings.Join(where, " and "))
+			}
+			return fmt.Sprintf("%s is on the ladder, but no supplier sells it.", ev.Name)
+		}
+		return fmt.Sprintf("%s is on offer, around %s a unit: %s.", ev.Name, format.Price(ev.Price), ev.Why)
+	case "front":
+		return fmt.Sprintf("The %s is open to you on the ledger screen (7): %s.", ev.Name, format.Cash(ev.Cost))
+	case "connect":
+		where := ""
+		if ev.City != w.Here().ID && w.Cities[ev.City] != nil {
+			where = " in " + w.CityName(ev.City)
+		}
+		return fmt.Sprintf("%s will deal with you now%s: %s.", ev.Name, where, ev.Why)
+	case "role":
+		return fmt.Sprintf("%s want work on the crew screen (4): %s.", ev.Name, ev.Why)
+	}
+	return fmt.Sprintf("%s is open to you: %s.", ev.Name, ev.Why)
 }

@@ -13,6 +13,7 @@ import (
 
 	"github.com/theclifmeister/kingpin/internal/content"
 	"github.com/theclifmeister/kingpin/internal/events"
+	"github.com/theclifmeister/kingpin/internal/format"
 	"github.com/theclifmeister/kingpin/internal/game"
 )
 
@@ -51,6 +52,33 @@ func (s *Sim) Seed(w *game.World) { w.Laundering.Dial = events.LaunderNormal }
 func (s *Sim) Migrate(w *game.World) {
 	if len(w.Fronts) == 0 {
 		s.Seed(w)
+	}
+}
+
+// announce reports a front whose offer opens this morning (#148): an
+// offer is stamped in Offered the tick its line is crossed and an
+// Unlocked{Gate: "front"} goes out, once. The line is read against the
+// peak the clock is about to stamp, max(Stats.PeakCash, Cash()), and
+// announce runs last in the step, after the wash and the upkeep, because
+// nothing after the laundering sim moves cash: so the report line, the
+// headline and the ledger's `open to you` are the same morning, and a
+// front bought that morning was announced (TestFrontOpensTheMorningThe
+// LedgerSays). A front already owned when its line is first read is
+// stamped silently (a save from before the field catches up the first
+// morning it is stepped), as is one with no line at all. No dice.
+func (s *Sim) announce(w *game.World, t *game.Tick) {
+	peak := max(w.Stats.PeakCash, w.Cash())
+	for _, o := range s.Offers() {
+		if w.Laundering.Offered[o.ID] || o.UnlockCash > peak {
+			continue
+		}
+		if w.Laundering.Offered == nil {
+			w.Laundering.Offered = map[string]bool{}
+		}
+		w.Laundering.Offered[o.ID] = true
+		if o.UnlockCash > 0 && w.Front(o.ID) == nil {
+			t.Emit(events.Unlocked{Day: t.Day, Gate: "front", ID: o.ID, Name: o.Name, Why: "peak cash " + format.Cash(o.UnlockCash), Cost: o.Cost})
+		}
 	}
 }
 
@@ -302,4 +330,5 @@ func (s *Sim) Step(w *game.World, t *game.Tick) {
 	if total > 0 || paid > 0 {
 		t.Emit(events.CashLaundered{Day: t.Day, Amount: total, Upkeep: paid, Fronts: washing})
 	}
+	s.announce(w, t)
 }

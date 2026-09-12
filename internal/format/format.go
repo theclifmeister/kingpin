@@ -84,9 +84,10 @@ func Ago(d time.Duration) string {
 	return fmt.Sprintf("%dd ago", int(d/(24*time.Hour)))
 }
 
-// A is a noun with its indefinite article: `a runner`, `an enforcer`.
+// A is a noun with its indefinite article: `a runner`, `an enforcer`,
+// `an Eastside outfit` (a name's capital counts, #148).
 func A(noun string) string {
-	if noun != "" && strings.ContainsRune("aeiou", rune(noun[0])) {
+	if noun != "" && strings.ContainsRune("aeiouAEIOU", rune(noun[0])) {
 		return "an " + noun
 	}
 	return "a " + noun

@@ -311,7 +311,16 @@ func (m *Model) viewCrew() string {
 	b.WriteString("\n")
 
 	next := max(1, m.set.Crew.PoolDays(w)-(w.Day-w.Crew.PoolDay))
-	b.WriteString(truncate(sectionTitle("LOOKING FOR WORK", theme.Crew)+theme.Subtle.Render(" · new faces in "+plural(next, "day")), width) + "\n")
+	title := sectionTitle("LOOKING FOR WORK", theme.Crew) + theme.Subtle.Render(" · new faces in "+plural(next, "day"))
+	if !m.set.Crew.LieutenantsWanted(w) {
+		// The line named before it fires (#148): what the lieutenants
+		// wait on, in the form the width has room for.
+		title = firstFit(width,
+			title+theme.Subtle.Render(" · lieutenants come looking once you hold corners in two cities"),
+			title+theme.Subtle.Render(" · lieutenants once you hold two cities"),
+			title)
+	}
+	b.WriteString(truncate(title, width) + "\n")
 	if len(w.Crew.Candidates) == 0 {
 		b.WriteString(theme.Subtle.Render("Nobody right now.") + "\n")
 	} else {

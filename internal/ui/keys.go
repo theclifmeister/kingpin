@@ -605,6 +605,7 @@ var words = [][2]string{
 	{"standing", "a sell order that stands nightly until cancelled, at a cut"},
 	{"connect", "who sells you product: a price, a lot, a temper, a rel"},
 	{"credit", "a connect's book: take now, pay in days, or they answer"},
+	{"unlock", "a line crossed: a product, front, connect or role opens"},
 	{"house", "a rented stash off the street: rent in clean; a raid hits one"},
 	{"pane", "the details beside MAIN from 100 columns, always open"},
 	{"strip", "the pane's one line under 100 columns; ␣ opens it over MAIN"},
