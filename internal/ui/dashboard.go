@@ -110,7 +110,7 @@ func (m *Model) streetLines(innerW, maxLines int, narrow, withRoad bool) []strin
 
 	var topics [][]fact
 	topic := func(facts ...fact) { topics = append(topics, facts) }
-	stash := fact{theme.Subtle.Render(fmt.Sprintf("stash %d/%d", w.Player.StockIn(here.ID), w.Capacity(here.ID))), priStash}
+	stash := fact{theme.Subtle.Render(m.stashedLine(here.ID)), priStash}
 	if narrow {
 		topic(stash)
 	} else {
@@ -234,7 +234,7 @@ func (m *Model) elsewhereFacts() []fact {
 		if cid == w.Player.Location {
 			continue
 		}
-		if n := w.Player.StockIn(cid); n > 0 {
+		if n := w.StockIn(cid); n > 0 {
 			facts = append(facts, fact{theme.RoadText.Render(fmt.Sprintf("%s in %s", plural(n, "unit"), w.CityName(cid))), priRoad})
 		}
 	}
@@ -513,6 +513,7 @@ func (m *Model) alerts() []alert {
 	}
 	out = append(out, m.contractAlerts()...)
 	out = append(out, m.debtAlerts()...)
+	out = append(out, m.houseAlerts()...)
 	for _, r := range m.set.Heat.ThresholdsIn(w, here) {
 		if r.Level == "patrol" && here.Heat >= r.Threshold {
 			out = append(out, newAlert(theme.Bad.Render(fmt.Sprintf("Heat %.0f in %s is over the patrol line (%.0f).", here.Heat, here.Name, r.Threshold)), "heat in "+here.Name+" over the patrol line"))

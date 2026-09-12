@@ -139,7 +139,7 @@ above the status bar stands in for the pane):
 
 <!-- capture:dashboard-80x24 -->
 ```text
- KINGPIN  1  2  3  4  5  6  7  8                  Day 4 · dirty $464K · heat 12
+ KINGPIN  1  2  3  4  5  6  7  8                  Day 4 · dirty $452K · heat 12
 ╭─ STREET · Eastside ──────────────────────────────────────────────────────────╮
 │   product     price     Δ  5d       stock  order                             │
 │ ▸ Weed       $19.23   -6%  ▄▇▁█▁       40  -                                 │
@@ -148,15 +148,15 @@ above the status bar stands in for the pane):
 │   Heroin    $375.84   -5%  █▁           0  -                                 │
 │   Meth      $701.73  -12%  █▁           0  -                                 │
 │   Designer   $2,740  +11%  ▁█           0  -                                 │
-│ stash 70/310 · corners 3 worked, 3 held of 10, 1 theirs                      │
-│ 240 units in Bayport · 60 units on the road, next in 2d                      │
-│ crew 5 · fair pay $440/day · skimming suspected                              │
-│ supply 1 contract · $895 this morning · 1 offer on the market screen (2)     │
-│ no upgrades yet: buy on the upgrades screen (6)                              │
+│ carrying 46/310 · stashed 24 in 1 house                                      │
+│ corners 3 worked, 3 held of 10, 1 theirs · 240 units in Bayport              │
+│ 60 units on the road, next in 2d · crew 5 · fair pay $440/day                │
+│ skimming suspected · supply 1 contract · $895 this morning                   │
+│ 1 offer on the market screen (2)                                             │
 │ Standing orders sell tonight; the crew keep 5%.                              │
 ╰──────────────────────────────────────────────────────────────────────────────╯
 ╭─ HEAT ───────────────────╮╭─ CASH ──────────────╮╭─ LAW ─────────────────────╮
-│ ███░░░░░░┆░░░┆░░░┆░░░░┆░ ││ dirty  $464K        ││ Chief Whitfield · new     │
+│ ███░░░░░░┆░░░┆░░░┆░░░░┆░ ││ dirty  $452K        ││ Chief Whitfield · new     │
 │ 12/100 peak 12 file 0/7  ││ clean  $50K +$19K   ││ DA Bell · reform          │
 │ patrol 40 · sting 58     ││ peak   $700K        ││ pressure ░░░░░░░░ 2       │
 │ raid 75 · arrest 95      ││ Bayport heat 0      ││ Mona · 1 corner           │
@@ -171,7 +171,7 @@ corner; the pane says what the enforcers' odds are):
 
 <!-- capture:map-120x40 -->
 ```text
- KINGPIN  1 Dash  2 Market  3 Journal 13  4 Crew  5 Map  6 Upgr  7 Ledger  8 Rivals       Day 4 · dirty $464K · heat 12
+ KINGPIN  1 Dash  2 Market  3 Journal 13  4 Crew  5 Map  6 Upgr  7 Ledger  8 Rivals       Day 4 · dirty $452K · heat 12
 MAP · Eastside  [ ◉ Eastside ]  Bayport  3/10 held · 3 worked · ~1828/day free      ╭─ DETAILS ────────────────────────╮
  ▴ THE DOCKS         ▪ RAIL YARD         ▪ OLD MILL                                 │ THE DOCKS                        │
    theirs              Dre                 Gato ⚔ Moose                             │ Mona's since day 0               │
@@ -273,7 +273,10 @@ each.
 | `R` | route target | what the selected route keeps the far end at | map |
 | `←→` | branch | turn the tree to the next branch | upgrades |
 | `u` | buy upgrade | buy the node under the cursor (enter too) | upgrades |
-| `b` | buy front | buy a front through the picker | ledger |
+| `b` | buy front | buy a front or rent a house | ledger |
+| `m` | move stock | move stock between the street and the houses | ledger |
+| `e` | guard house | post an enforcer inside the selected house | ledger |
+| `x` | drop house | drop the selected house, after asking | ledger |
 | `f` | fund city | give a city clean cash for goodwill | ledger |
 | `enter` | buy / dial | buy the offer or turn the route selected | ledger |
 | `d` | propose | offer the rival a truce, tribute or a split | rivals |

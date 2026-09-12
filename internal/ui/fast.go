@@ -185,8 +185,9 @@ func (m *Model) stopReason(evs []events.Event, before []alert) string {
 // the crew walking, an audit, a seizure, the rival's offer or a deal
 // broken, a corner the rival gave up to a price war (free: the tell's
 // kind of stop, a corner to post on), a buyer asking, pressure or a
-// reputation axis up a band, a new chief or an election, and a contract
-// or a standing order that ran short (the routine broke).
+// reputation axis up a band, a new chief or an election, a contract
+// or a standing order that ran short (the routine broke), and a stash
+// house robbed, hit or lost (#73).
 func (m *Model) stopEvent(e events.Event) string {
 	w := m.w
 	switch ev := e.(type) {
@@ -239,6 +240,13 @@ func (m *Model) stopEvent(e events.Event) string {
 		return fmt.Sprintf("the %s contract in %s short of %s", w.ProductName(ev.Product), w.CityName(ev.City), ev.Why)
 	case events.StandingShort:
 		return fmt.Sprintf("the standing order for %s in %s short of stock", w.ProductName(ev.Product), w.CityName(ev.City))
+	// The stash houses (#73).
+	case events.HouseRobbed:
+		return ev.Name + " robbed"
+	case events.HouseRaided:
+		return format.A(ev.Level) + " at " + ev.Name
+	case events.HouseLost:
+		return "the landlord threw you out of " + ev.Name
 	}
 	return ""
 }

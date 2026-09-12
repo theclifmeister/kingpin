@@ -301,10 +301,8 @@ func TestRobberyMakesTheHouseKnown(t *testing.T) {
 	cfg := content.MustLoad()
 	product := cfg.Market.Products[0].ID
 	w := rented(t, cfg, 3, 400, 200, 200)
-	// Mark one robbed the way the territory sim would.
-	var e *events.HouseRobbed
+	// The second house is known, as a robbery there would leave it.
 	w.Houses[1].Known = true
-	_ = e
 	raidTonight(w)
 	res, err := RunFrom(cfg, w, 1, Idle)
 	if err != nil {
@@ -361,7 +359,6 @@ func TestHouseInvariants(t *testing.T) {
 		w := sim.NewWorld(cfg, 4)
 		pol := Stashed(cfg, 40, houses, true)
 		known := map[string]bool{}
-		var held map[string]int
 		check := func(w *game.World) {
 			street, housed, road := 0, 0, 0
 			for _, cid := range w.CityOrder {
@@ -395,10 +392,6 @@ func TestHouseInvariants(t *testing.T) {
 			check(w)
 			pol(w)
 			check(w)
-			held = map[string]int{}
-			for _, h := range w.Houses {
-				held[h.ID] = h.Units()
-			}
 		})
 		if err != nil {
 			t.Fatal(err)
@@ -416,7 +409,6 @@ func TestHouseInvariants(t *testing.T) {
 				}
 			}
 		}
-		_ = held
 	}
 }
 

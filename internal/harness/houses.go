@@ -45,10 +45,10 @@ const (
 
 // house buys the stashed policy's houses in the city the player stands
 // in: the first once it can, the next once one is over HouseFull.
-func house(cfg *content.Config, w *game.World, max int) {
+func house(cfg *content.Config, w *game.World, limit int) {
 	city := w.Player.Location
 	have := w.HousesIn(city)
-	if len(have) >= max {
+	if len(have) >= limit {
 		return
 	}
 	if len(have) > 0 {
@@ -97,7 +97,7 @@ func spread(w *game.World) {
 	if total == 0 {
 		return
 	}
-	for guard := 0; guard < 8; guard++ {
+	for pass := 0; pass < 8; pass++ {
 		var fullest, roomiest *game.House
 		for i := range w.Houses {
 			h := &w.Houses[i]
