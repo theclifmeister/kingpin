@@ -32,6 +32,7 @@ import (
 // and CI while a real change to any number does.
 func TestSeedDigest(t *testing.T) {
 	cfg := content.MustLoad()
+	cfg.Incidents.Table = nil // the weather stays boxed (#44), as it is in every harness run: the digest pins the sims
 	w := sim.NewWorld(cfg, seedDigestSeed)
 	_, sims, err := sim.Default(cfg)
 	if err != nil {
@@ -144,23 +145,29 @@ const (
 // DA.Backed, Law.CampaignOpen, Today.Backed and three Stats added to
 // the walk; no number moved: the digest with the new fields skipped was
 // the old one on every day, the boss having no clean cash to back a
-// ticket with by day 60), and again for #192 (Front.Level, Invested and
-// Grew, Stats.Earned and Invested, Today.Invested; no number moved: the
-// boss's first level comes after day 60 on this seed).
+// ticket with by day 60), and again for #44 (the world's incidents,
+// table boxed: day 1 moved by shape alone, five zero fields added,
+// World.Incidents, RouteSetting.ClosedUntil, HeatState.FederalUntil and
+// FederalDecay, LawState.SnapElection and DayReport.Incident; day 25 by
+// the wording of a headline that now names the chief, PressureShiftedUp's
+// third; no number moved, checked field by field against d51abd1), and
+// again for #192 (Front.Level, Invested and Grew, Stats.Earned and
+// Invested, Today.Invested; no number moved: the boss's first level
+// comes after day 60 on this seed).
 var seedDigest = []string{
-	"7396ef59a6b897a3", "f2e7012a0c9b32ec", "667108c059a598cf", "960c2237f4548d3f",
-	"329234e710ee37df", "49f8e1d433105d4d", "def74edae8acf1ac", "5b25297e0d68c085",
-	"3db2bfd56ba9fd3e", "fa64a529eda4d41e", "608492a6d6d2f2bd", "9b63a91b3d363024",
-	"4c1dde00f60283b2", "e20a91b700a78167", "197afc3370942a3c", "b19aa8e0b3f610ee",
-	"05cedd5d4b17b127", "f5e5bec839062310", "2f435f71435f1a2b", "fea9a1c49b8c22b3",
-	"be8a7560a8becb87", "98caf98d1e66b8e4", "eec9fbee9796ed46", "de63c0293af51ad7",
-	"e1f1844681d39d61", "39080d3dd586be31", "54cb595ddd50ba85", "333b262fd4ac348d",
-	"e825f12d8e00e225", "233f6d69d23ca3e6", "dcb677564dc128b5", "9f80aaa819620621",
-	"476049d7bf480537", "116adc8121afde20", "5c0ceaf952fe812d", "0657e1d1cf7f2f2d",
-	"ff08242d97bdfe73", "c9b6401aea81955a", "56aede6b1e2f77af", "2931dc8e832f1f51",
-	"19d3e557bf08617b", "3e3c866ab6dc39ec", "269caf2e9997c0a9", "82b742de80d26f28",
-	"a00a8244913068cf", "e4ab57dcc09c4599", "26b4011a09e9d61f", "fcdcc4e66751f2e5",
-	"d3de1ab13405b2db", "9c919736bad8724a", "969fcc48153b8224", "1aaf367b0cb62226",
-	"808c9e387e86a1d3", "dbd6cf57780c3a67", "4e8135a787a6e11f", "8be4ac434531139b",
-	"270ff99f3d00c164", "f991c196a5804b80", "40d6b74f1c5c6d07", "4c4913b0f283d6e2",
+	"513980eedfdb4795", "0edac90856f6a298", "a814483df3d3ce0f", "ab8f06f5904f0655",
+	"1011755f53262511", "cdedccfae2244c25", "ae181f3e31684138", "91c1641c58876e99",
+	"f9144b11c536728c", "60d39990eee20bd2", "b4a1d4aae6341f15", "d58c30c9a25a0364",
+	"c67a14f96b3da80a", "54f2150cb20f0fa7", "011531248d1438be", "5714ff32a1c06c70",
+	"51f2efba0f784295", "123640affb038984", "91d884b6ef36a52d", "0d89548557ae92ad",
+	"aa33ee79e28c962b", "321a715435573b34", "3f04dea791c02aca", "b8353aa2aab57187",
+	"949c40df2efec76f", "a077a94d8d39ded6", "7c558edaeb543c7a", "bcbf490e37a85cb7",
+	"17ec6571cbdc20ab", "2fe0dda3ee5574ba", "c6b12bb51150ebcf", "7a1823db3c3946eb",
+	"55bad4078868a1d5", "8809e4177e604312", "59f1f9ee75de12f3", "28e439828660908d",
+	"4d81f6f156d12e63", "3916a8f686110b3e", "24eca783b783c063", "688f56624adb0657",
+	"a36de5db7552d4c7", "c35b3d8eeaa3cf7c", "d210a86a4ff36667", "2c0789706bbec0a8",
+	"6f9da3ff9b15c823", "292b5e0316a310af", "63b4e9264a4603df", "9b6b2371a8cf532f",
+	"1a087e995fe9fe01", "e8c0a5ff82c8e318", "2855543dec1b30ce", "6b56f3cb2fae849c",
+	"d89931926eeb938f", "29679833210f18e5", "0d16199f9e58b565", "3b27d8c2e9ef034b",
+	"98d814b4115a1d56", "63b2829efaca3fc2", "445b321ee82a81d9", "7db7c98249d6c6dc",
 }

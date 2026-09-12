@@ -26,19 +26,27 @@ type Sim struct {
 	tmpl map[string][]*template.Template
 	flav []*template.Template
 	deck []card
+	inc  map[string]*template.Template // the incidents' report lines by id (#44)
 }
 
 // New parses the headline and card templates once, copying what it
-// reads of the config (#144): the headlines, the dilemma deck and the
-// progression. It refuses a deck whose choices use an effect key the
-// world does not apply. The progression (#147) is the tiers the sim
-// stamps every morning.
+// reads of the config (#144): the headlines, the dilemma deck, the
+// progression and the incidents' report lines (#44). It refuses a deck
+// whose choices use an effect key the world does not apply. The
+// progression (#147) is the tiers the sim stamps every morning.
 func New(cfg *content.Config) (*Sim, error) {
 	deck, err := parseDeck(cfg.Dilemmas)
 	if err != nil {
 		return nil, fmt.Errorf("dilemmas: %w", err)
 	}
-	s := &Sim{cfg: cfg.Headlines, dcfg: cfg.Dilemmas, pcfg: cfg.Progression, tmpl: map[string][]*template.Template{}, deck: deck}
+	s := &Sim{cfg: cfg.Headlines, dcfg: cfg.Dilemmas, pcfg: cfg.Progression, tmpl: map[string][]*template.Template{}, deck: deck, inc: map[string]*template.Template{}}
+	for _, inc := range cfg.Incidents.Table {
+		t, err := template.New(inc.ID + ".report").Funcs(articles).Parse(article(inc.Report))
+		if err != nil {
+			return nil, fmt.Errorf("incident %s report: %w", inc.ID, err)
+		}
+		s.inc[inc.ID] = t
+	}
 	for key, list := range s.cfg.Templates {
 		for i, src := range list {
 			t, err := template.New(fmt.Sprintf("%s#%d", key, i)).Funcs(articles).Parse(article(src))
@@ -96,6 +104,10 @@ func (s *Sim) Keys() []string {
 	return out
 }
 
+// data is what a template can name. The paper's regulars (#44: the DA,
+// the chief, the rival's leader and faction) are filled on every line
+// from the world, so any headline can read like a paper (`as DA Ramirez
+// promises a crackdown`); the rest come from the event.
 type data struct {
 	City    string
 	Product string
@@ -111,6 +123,12 @@ type data struct {
 	To      string
 	Deal    string
 	Stance  string // a DA's ticket or a chief's personality, in words
+	Route   string // a route by name (#44)
+	Days    int    // how long an incident's effect runs (#44)
+	DA      string // the sitting DA's surname (#44)
+	Chief   string // the chief's surname (#44)
+	Leader  string // the rival's leader (#44)
+	Faction string // the rival's faction, `Big Sal's crew` (#44)
 }
 
 // Step writes headlines into the journal and assembles the morning report.
@@ -146,7 +164,10 @@ func (s *Sim) Step(w *game.World, t *game.Tick) {
 	// with no house is the run it was.
 	addHouses := func(source, key string, d data) { addOff("houses:news", source, key, d) }
 	here := w.Here()
-	base := data{City: here.Name}
+	base := data{City: here.Name, DA: w.Law.DA.Name, Chief: w.Law.Chief.Name, Leader: w.Rival.Leader}
+	if w.Rival.Leader != "" {
+		base.Faction = w.Rival.Leader + "'s crew"
+	}
 	// in names a city for a line about somewhere other than where you are.
 	in := func(city string) string {
 		if city == here.ID || w.Cities[city] == nil {
@@ -179,6 +200,39 @@ func (s *Sim) Step(w *game.World, t *game.Tick) {
 		tier := s.pcfg.Tier(n)
 		rep.Tier = tierLines(n, len(s.pcfg.Tiers), *tier)
 		addOff("progression", "news", "TierReached", base)
+	}
+
+	// The world's incident (#44), dealt first thing this tick: a
+	// headline under the world source, its template picked off the
+	// incidents' own side stream (the home city's dice never move for
+	// it), and the report opens with the row's line, before the tier.
+	for _, e := range t.Events() {
+		ev, ok := e.(events.Incident)
+		if !ok {
+			continue
+		}
+		d := at(ev.City)
+		d.Name, d.Route, d.Days = ev.Person, ev.Route, ev.Days
+		if ev.Chief != "" {
+			d.Chief = ev.Chief // the chief it named, not the one the law sim seated since
+		}
+		if ev.DA != "" {
+			d.DA = ev.DA
+		}
+		if ev.Product != "" {
+			d.Product = w.ProductName(ev.Product)
+		}
+		key := content.IncidentConfig{ID: ev.ID}.Key()
+		if !s.HasTemplate(key) {
+			key = "Incident"
+			d.Name = ev.Name
+		}
+		addOff("incidents:news", "world", key, d)
+		if tm := s.inc[ev.ID]; tm != nil {
+			rep.Incident = append(rep.Incident, render(tm, d))
+		} else {
+			rep.Incident = append(rep.Incident, ev.Name+".")
+		}
 	}
 
 	// Money before we look at events: sales are already applied by market.
@@ -996,6 +1050,9 @@ func chiefLine(ev events.ChiefReplaced) string {
 	}
 	if ev.Why == "da" {
 		return fmt.Sprintf("The new DA wanted a new chief: %s is out, %s is in. You will learn what they are like.", ev.Old, ev.Name)
+	}
+	if ev.Why == "resigned" {
+		return fmt.Sprintf("Chief %s resigned; %s takes over. You will learn what they are like.", ev.Old, ev.Name)
 	}
 	return fmt.Sprintf("Chief %s's term is up; %s takes over. You will learn what they are like.", ev.Old, ev.Name)
 }

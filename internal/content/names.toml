@@ -29,3 +29,14 @@ das = [
   "Ramirez", "Okafor", "Lindqvist", "Thornton", "Abernathy", "Vance", "Moreau",
   "Haddad", "Pettigrew", "Nakamura", "Sloane", "Fitzgerald", "Ostrowski", "Bell",
 ]
+
+# Who an incident names (#44): the star the overdose headline is about and
+# the byline on the profile. Full names: they read as strangers.
+celebrities = [
+  "Jimmy Vale", "Cara Monroe", "Rex Aldana", "Sasha Bright", "Donnie Fair",
+  "Lola Reyes", "Tommy Flint", "Nadia Kane", "Rocco Dane", "Bibi Lane",
+]
+reporters = [
+  "Ana Castellanos", "Ruth Amberley", "Pete Volkov", "Dana Okoro",
+  "Miles Hartigan", "Ines Marchetti", "Tobias Reinholt", "Jo Whitlock",
+]

@@ -78,7 +78,7 @@ EnforcementSting = [
 EnforcementRaid = [
   "Dawn raid in {{.City}}: cash and product seized",
   "SWAT storms {{.City}} stash house",
-  "Police hail 'major blow' to {{.City}} drug trade",
+  "Chief {{.Chief}} hails 'major blow' to {{.City}} drug trade as DA {{.DA}} promises a crackdown",
 ]
 EnforcementArrest = [
   "{{.City}} dealer arrested in early-morning operation",
@@ -89,7 +89,7 @@ LaidLow = [
 ]
 HeatWarning = [
   "Residents of {{.City}} demand action on street dealing",
-  "Councillor calls {{.City}} 'an open-air drug market'",
+  "Councillor calls {{.City}} 'an open-air drug market'; DA {{.DA}} says the office is 'watching'",
 ]
 CrewHired = [
   "New face running for somebody on the {{.City}} corners",
@@ -360,7 +360,7 @@ ChiefReplacedCampaign = [
 PressureShiftedUp = [
   "{{.City}} residents march on city hall over street crime",
   "Talk radio in {{.City}} has one topic: the corners",
-  "Editorial: how much longer will {{.City}} put up with this?",
+  "Editorial: how much longer will {{.City}} put up with this, Chief {{.Chief}}?",
 ]
 PressureShiftedDown = [
   "{{.City}} calm returns; council moves on to potholes",
@@ -442,4 +442,68 @@ HouseLost = [
   "Landlord changes the locks at {{.Name}}: 'rent was never paid'",
   "Eviction at {{.Name}}; bailiffs 'surprised by what was inside'",
   "{{.Name}} cleared out by the landlord after weeks of unpaid rent",
+]
+
+# The world's incidents (#44): one key a row of incidents.toml, `Incident`
+# and the id in camel case, and `Incident` itself for a row without one
+# (it names the row). The slots are the event's ({{.City}} where it
+# landed, {{.Route}} the route it shut, {{.Product}} the product it
+# moved, {{.Name}} who it named, {{.Days}}) and the paper's regulars
+# ({{.DA}}, {{.Chief}}, {{.Leader}}, {{.Faction}}), which every template
+# in this file can name.
+Incident = [
+  "{{.Name}} in {{.City}}",
+]
+IncidentPortStrike = [
+  "Dockers walk out at {{.City}} port; {{.Route}} shut for {{.Days}} days",
+  "Port strike: nothing lands at {{.City}} until the union and the shippers talk",
+  "{{.City}} port idle as dockers strike; {{.Product}} 'already short', say traders",
+]
+IncidentHurricane = [
+  "Hurricane closes the coast: {{.Route}} shut, {{.City}} port battened down",
+  "Storm surge floods {{.City}} waterfront; coast guard halts all traffic",
+  "Hurricane warning: {{.Route}} closed for {{.Days}} days",
+]
+IncidentSnowstorm = [
+  "Snowstorm shuts {{.Route}}; ploughs 'days away', says the county",
+  "Whiteout: {{.Route}} impassable, drivers told to stay home",
+]
+IncidentHarvestGlut = [
+  "Record harvest floods {{.City}}: {{.Product}} 'never been cheaper', say the corners",
+  "Bumper crop lands at {{.City}} port; {{.Product}} prices tumble",
+  "Glut of {{.Product}} in {{.City}} as the growers' good year comes ashore",
+]
+IncidentNewSynthetic = [
+  "New synthetic sweeps {{.City}}; {{.Product}} 'yesterday's high', says a user",
+  "Lab-made high hits {{.City}} clubs; {{.Product}} dealers feel the pinch",
+]
+IncidentCelebrityOverdose = [
+  "{{.Name}} found dead of overdose; {{.City}} mourns, DA {{.DA}} promises answers",
+  "Star {{.Name}} dies of overdose in {{.City}} hotel; Chief {{.Chief}} vows 'no stone unturned'",
+  "{{.Name}}, dead at the height of fame: {{.City}} asks where the drugs came from",
+]
+IncidentDocumentary = [
+  "Documentary on the {{.City}} drug trade airs; DA {{.DA}} calls it 'a wake-up call'",
+  "'Corners': the film that put {{.City}}'s street trade on every screen",
+  "{{.City}} on television for the wrong reasons; Chief {{.Chief}} 'reviewing the footage'",
+]
+IncidentJournalistProfile = [
+  "{{.Name}} profiles the {{.City}} outfit 'nobody will name'; DA {{.DA}} declines to comment",
+  "'The quiet kingpin': {{.Name}}'s long read on a {{.City}} operation goes viral",
+  "Feature by {{.Name}}: who really runs the {{.City}} corners?",
+]
+IncidentElectionCalled = [
+  "DA {{.DA}} calls snap election: {{.City}} votes in {{.Days}} days",
+  "Snap election: DA {{.DA}} goes to the voters early on the mood in {{.City}}",
+  "{{.City}} to the polls in {{.Days}} days as DA {{.DA}} calls an early election",
+]
+IncidentChiefResigns = [
+  "Chief {{.Chief}} resigns; mayor promises a new name by the morning",
+  "{{.City}} police chief {{.Chief}} steps down 'for personal reasons'",
+  "Chief {{.Chief}} out: resignation letter on the mayor's desk overnight",
+]
+IncidentFederalAttention = [
+  "Feds open {{.City}} field office; task force 'here for the long haul'",
+  "Federal agents in {{.City}}: DA {{.DA}} welcomes 'the extra eyes'",
+  "Task force sets up in {{.City}}; Chief {{.Chief}} 'happy to share the files'",
 ]

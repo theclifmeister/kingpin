@@ -16,12 +16,14 @@ var (
 	Text      = lipgloss.Color("#e4e4e4")
 	Bg        = lipgloss.Color("#1c1c1c")
 	Warn      = lipgloss.Color("#ffaf5f") // orange
+	World     = lipgloss.Color("#d7af87") // tan: the world's weather (#44), what happens without you
 
 	// One meaning each (#88): Market green is the market and good, Heat
 	// red is heat, the law and danger, Rival purple is theirs only, Crew
 	// blue is yours, Money gold is money, the cursor, keys and titles,
 	// Logistics teal is the road, Warn orange is a warning line and the
-	// reputation and dilemma accent.
+	// reputation and dilemma accent, World tan is the weather: an
+	// incident nobody caused.
 	Title      = lipgloss.NewStyle().Bold(true).Foreground(Money)
 	Subtle     = lipgloss.NewStyle().Foreground(Dim)
 	Body       = lipgloss.NewStyle().Foreground(Text)
@@ -90,6 +92,8 @@ func Source(name string) lipgloss.Color {
 		return Logistics
 	case "reputation", "dilemma":
 		return Warn
+	case "world":
+		return World
 	default:
 		return News
 	}

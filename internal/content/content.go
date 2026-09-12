@@ -37,6 +37,7 @@ type Config struct {
 	Suppliers   SuppliersConfig
 	Progression ProgressionConfig
 	Houses      HousesConfig
+	Incidents   IncidentsConfig
 }
 
 // MarketConfig mirrors market.toml.
@@ -839,10 +840,31 @@ func clamp01(v float64) float64 {
 
 // NamesConfig mirrors names.toml.
 type NamesConfig struct {
-	Crew   []string `toml:"crew"`
-	Rivals []string `toml:"rivals"`
-	Chiefs []string `toml:"chiefs"`
-	DAs    []string `toml:"das"`
+	Crew        []string `toml:"crew"`
+	Rivals      []string `toml:"rivals"`
+	Chiefs      []string `toml:"chiefs"`
+	DAs         []string `toml:"das"`
+	Celebrities []string `toml:"celebrities"` // who an incident names (#44): the star who overdosed
+	Reporters   []string `toml:"reporters"`   // ... and the byline on the profile
+}
+
+// Pool is a name pool by the name an incident's `names` field gives it
+// (#44): celebrities, reporters, chiefs, das, rivals; nil for one the
+// file does not have.
+func (n NamesConfig) Pool(name string) []string {
+	switch name {
+	case "celebrities":
+		return n.Celebrities
+	case "reporters":
+		return n.Reporters
+	case "chiefs":
+		return n.Chiefs
+	case "das":
+		return n.DAs
+	case "rivals":
+		return n.Rivals
+	}
+	return nil
 }
 
 // LawConfig mirrors law.toml (#41): the chief's term and the election
@@ -1151,6 +1173,8 @@ type CardTrigger struct {
 	Fronts       bool    `toml:"fronts"`
 	PeakCashMin  int     `toml:"peak_cash_min"` // Stats.PeakCash, the high-water mark; cash_min is today's pile (#147)
 	CitiesHeld   int     `toml:"cities_held"`   // cities with a held corner, the lieutenant gate's count (#147)
+	City         string  `toml:"city"`          // the city the card or incident is about (#44): it must exist, and it fills the City slot
+	DAStance     string  `toml:"da_stance"`     // the sitting DA's ticket (#44)
 }
 
 // Set reports whether the trigger checks anything at all.
@@ -1263,6 +1287,12 @@ func Load() (*Config, error) {
 	}
 	if err := decode("houses.toml", &c.Houses); err != nil {
 		return nil, err
+	}
+	if err := decode("incidents.toml", &c.Incidents); err != nil {
+		return nil, err
+	}
+	if err := c.Incidents.validate(c.City, c.Market, c.Routes, c.Names); err != nil {
+		return nil, fmt.Errorf("incidents.toml: %w", err)
 	}
 	if len(c.Market.Products) == 0 {
 		return nil, fmt.Errorf("market.toml: no products defined")
@@ -1424,7 +1454,7 @@ func decodeBytes(name string, b []byte, v any) error {
 	}
 	// An effect name nobody reads, or a trigger field nobody checks, would
 	// silently do nothing.
-	if name == "upgrades.toml" || name == "reputation.toml" || name == "dilemmas.toml" || name == "routes.toml" || name == "law.toml" || name == "buyers.toml" || name == "progression.toml" || name == "houses.toml" {
+	if name == "upgrades.toml" || name == "reputation.toml" || name == "dilemmas.toml" || name == "routes.toml" || name == "law.toml" || name == "buyers.toml" || name == "progression.toml" || name == "houses.toml" || name == "incidents.toml" {
 		if keys := md.Undecoded(); len(keys) > 0 {
 			return fmt.Errorf("%s: unknown key %s", name, keys[0])
 		}
