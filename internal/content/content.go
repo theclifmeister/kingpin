@@ -525,7 +525,7 @@ type DiplomacyTuning struct {
 	BetrayalSpread float64   `toml:"betrayal_spread"` // trust every other faction loses (Phase 4)
 	JointTrust     float64   `toml:"joint_trust"`     // trust a joint shipment needs (#30)
 	TruceDays      []int     `toml:"truce_days"`      // the three lengths a truce can be proposed at
-	TributeCuts    []float64 `toml:"tribute_cuts"`    // the three cuts of the player's daily street value a tribute can be
+	TributeCuts    []float64 `toml:"tribute_cuts"`    // the three cuts of the player's daily street value in what the rival sells (rivals.Sim.TributeBase) a tribute can be
 	TributeMin     int       `toml:"tribute_min"`     // a tribute is never under this a day
 	LowCashDays    int       `toml:"low_cash_days"`   // an expansionist that cannot pay its muscle this long offers a truce
 	UpperHand      float64   `toml:"upper_hand"`      // an opportunist with this many times the muscle on the front line demands tribute

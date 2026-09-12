@@ -280,6 +280,27 @@ func (s *Sim) Standard(w *game.World) float64 {
 	return v
 }
 
+// TributeBase is what a tribute is a cut of (#162): the street value the
+// corners the player works at home move in a day in the products the
+// rival deals in, the port's product (no_supply at home) left out as
+// Income leaves it out of the rival's own take, so a cut of it and the
+// take are in one unit. The rival lives at home, so that is the street
+// it is talking about. Favour, the opportunist's demand, the propose
+// dialog and the rivals pane all read it.
+func (s *Sim) TributeBase(w *game.World) float64 {
+	h := w.Home()
+	if h == nil {
+		return 0
+	}
+	v := 0.0
+	for _, id := range w.Products {
+		if m := h.Market[id]; m != nil && !m.NoSupply {
+			v += w.Demand(h.ID, id) * m.Price
+		}
+	}
+	return v
+}
+
 // CornerDay is the unit the rival's money is priced in (#139): what a
 // standard corner at home earns it in a day, margin of Standard. Its
 // wage, its fee, its claim and the chest it arrives with are so many

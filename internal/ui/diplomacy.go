@@ -2,6 +2,7 @@ package ui
 
 import (
 	"fmt"
+	"math"
 	"strings"
 
 	"github.com/theclifmeister/kingpin/internal/game"
@@ -33,7 +34,7 @@ func (m *Model) termRows(kind string) ([]game.Deal, []string) {
 	case game.DealTribute:
 		for i, c := range dip.TributeCuts {
 			deals = append(deals, game.Deal{Kind: kind, Terms: game.Terms{PerDay: m.set.Rivals.Cut(w, c)}})
-			words = append(words, fmt.Sprintf("%.0f%% of your take", c*100)+[]string{" (thin)", "", " (fat)"}[i])
+			words = append(words, fmt.Sprintf("%.0f%% of your street", c*100)+[]string{" (thin)", "", " (fat)"}[i])
 		}
 	case game.DealSplit:
 		for i, line := range w.SplitLines() {
@@ -143,7 +144,7 @@ func (m *Model) viewPropose() string {
 			case game.DealTruce:
 				line = fmt.Sprintf("%3d days  %-9s", d.Terms.Days, words[i])
 			case game.DealTribute:
-				line = fmt.Sprintf("%9s/day  %-22s", money(d.Terms.PerDay), words[i])
+				line = fmt.Sprintf("%9s/day  %-24s", money(d.Terms.PerDay), words[i])
 			case game.DealSplit:
 				line = fmt.Sprintf("%-10s %-36s", plural(len(d.Terms.Corners), "corner"), words[i])
 			}
@@ -153,7 +154,10 @@ func (m *Model) viewPropose() string {
 			}
 			body = m.proposeLine(body, i, line, note)
 		}
-		if kind == game.DealSplit {
+		switch kind {
+		case game.DealTribute:
+			body = append(body, "", theme.Subtle.Render(m.tributeBaseLine()))
+		case game.DealSplit:
 			body = append(body, "", theme.Subtle.Render("Your side: "+w.Side(deals[m.proposeCursor])))
 		}
 		if m.set.Rivals.Distrusted(w, w.Day+1) {
@@ -232,6 +236,25 @@ func (m *Model) rivalCorners() string {
 		return plural(n, "corner")
 	}
 	return "run out of town"
+}
+
+// tributeBaseLine is what a tribute is a cut of today, the number the
+// dice use (#162): the street value the corners you work at home move
+// in the products the rival deals in, the port's product left out.
+func (m *Model) tributeBaseLine() string {
+	return fmt.Sprintf("Your street: %s a day on your corners here in what they sell.", cash(int(math.Round(m.set.Rivals.TributeBase(m.w)))))
+}
+
+// tributeRows are the pane's lines on a tribute: the cut it is of your
+// street today, and what your street is, so the pane and the dice agree.
+func (m *Model) tributeRows(d game.Deal) []string {
+	base := m.set.Rivals.TributeBase(m.w)
+	cut := "-"
+	if base > 0 {
+		cut = fmt.Sprintf("~%.0f%% of your street", 100*float64(d.Terms.PerDay)/base)
+	}
+	lines := []string{row("cut", cut)}
+	return append(lines, wrapped(theme.Subtle, fmt.Sprintf("Your street is %s a day: what your corners here move in what they sell.", cash(int(math.Round(base)))))...)
 }
 
 // dealTerms is a deal's terms for a table cell: the description less

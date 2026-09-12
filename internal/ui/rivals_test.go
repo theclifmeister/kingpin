@@ -1,10 +1,12 @@
 package ui
 
 import (
+	"math"
 	"strings"
 	"testing"
 
 	tea "github.com/charmbracelet/bubbletea"
+	"github.com/charmbracelet/lipgloss"
 
 	"github.com/theclifmeister/kingpin/internal/game"
 )
@@ -166,4 +168,60 @@ func TestRivalsEmptyStates(t *testing.T) {
 	}
 	m.Update(tea.WindowSizeMsg{Width: 120, Height: 40})
 	assertFrame(t, m, "rivals with the empty states")
+}
+
+// A tribute is a cut of the street the rival is in (#162): the propose
+// dialog's tribute page and the pane, on a tribute offer or a tribute
+// that holds, read the base the dice use, rivals.Sim.TributeBase, as
+// your street a day in what they sell, and the pane says what cut of it
+// the terms are. Designer on your corners at home, which the rival does
+// not deal in, moves none of it.
+func TestTributeReadsTheRivalsStreet(t *testing.T) {
+	m := richModel(t, 120, 40)
+	w := m.w
+	base := cash(int(math.Round(m.set.Rivals.TributeBase(w))))
+	m.Update(key("8"))
+	m.Update(key("d"))
+	m.Update(key("2"))
+	if m.mode != modePropose || m.proposeStep != 1 {
+		t.Fatalf("the tribute page: mode %v step %d", m.mode, m.proposeStep)
+	}
+	body := stripANSI(m.View())
+	for _, want := range []string{"of your street", "Your street: " + base + " a day on your corners here in what they sell."} {
+		if !strings.Contains(body, want) {
+			t.Errorf("the tribute page lacks %q:\n%s", want, body)
+		}
+	}
+	if strings.Contains(body, "of your take") {
+		t.Errorf("the tribute page still reads `of your take`:\n%s", body)
+	}
+	m.Update(key("esc"))
+	mid := m.set.Rivals.Cut(w, m.set.Rivals.Diplomacy().TributeCuts[1])
+	w.Rival.Deals = nil
+	w.Offers = []game.Offer{{ID: 1, Deal: game.Deal{Kind: game.DealTribute, Terms: game.Terms{PerDay: mid}, Offered: true}, Expires: w.Day + 3}}
+	pane := stripANSI(paneRender(m))
+	for _, want := range []string{"TRIBUTE · " + strings.ToUpper(money(mid)) + "/DAY", "cut", "~10% of your street", "Your street is " + base + " a day"} {
+		if !strings.Contains(pane, want) {
+			t.Errorf("the pane on a tribute offer lacks %q:\n%s", want, pane)
+		}
+	}
+	w.Offers = nil
+	w.Rival.Deals = []game.Deal{{Kind: game.DealTribute, Terms: game.Terms{PerDay: mid}, Since: w.Day}}
+	if pane := stripANSI(paneRender(m)); !strings.Contains(pane, "~10% of your street") || !strings.Contains(pane, "until broken") {
+		t.Errorf("the pane on a tribute that holds lacks the cut:\n%s", pane)
+	}
+	for _, l := range m.tributeRows(w.Rival.Deals[0]) {
+		if lipgloss.Width(l) > paneTextW {
+			t.Errorf("a tribute row is %d wide, over %d: %q", lipgloss.Width(l), paneTextW, stripANSI(l))
+		}
+	}
+	// The port's product on your corners at home is not the rival's
+	// trade: it moves neither the base nor the cut.
+	h := w.Home()
+	h.Market["designer"] = &game.ProductMarket{Price: 2500, Demand: 40, NoSupply: true}
+	w.Products = append(w.Products, "designer")
+	if got := cash(int(math.Round(m.set.Rivals.TributeBase(w)))); got != base || m.set.Rivals.Cut(w, m.set.Rivals.Diplomacy().TributeCuts[1]) != mid {
+		t.Errorf("designer at home moved the base %s -> %s, the middle cut %d -> %d", base, got, mid, m.set.Rivals.Cut(w, m.set.Rivals.Diplomacy().TributeCuts[1]))
+	}
+	assertFrame(t, m, "rivals with a tribute")
 }

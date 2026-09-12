@@ -2046,6 +2046,9 @@ func TestRivalsScreenKeys(t *testing.T) {
 	// A rival dug in next door, with a grudge.
 	w.Home().Corners[1].Owner, w.Home().Corners[1].Since = game.OwnerRival, 1
 	w.Rival.Arrived, w.Rival.Muscle, w.Rival.Cash, w.Rival.Observed = 1, 4, 30_000, true
+	// A defensive rival: a chaotic one breaks a deal at personality.betrayal
+	// per deal-night, which on an unlucky seed is the first night.
+	w.Rival.Personality = "defensive"
 	// Full trust, a feared player and a war that is not yet loud: a short
 	// truce is a certainty whatever the seed's personality.
 	w.Rival.Trust, w.Rival.War, w.Player.Reputation.Fear = 100, 30, 100
