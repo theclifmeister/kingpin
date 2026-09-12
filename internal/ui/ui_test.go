@@ -916,7 +916,8 @@ func TestEnterDoesNotEndDay(t *testing.T) {
 		t.Fatalf("the target was not set: %+v", m.w.Route(route.ID))
 	}
 	// The stage (#149): the morning after the first hire opens it, enter
-	// closes it onto the report, and neither is a day.
+	// closes it onto the card the seed may have dealt (day 5 is the
+	// deck's first) or the report, and none of it is a day.
 	m.Update(key("1"))
 	hireOne(m)
 	m.Update(key("n"))
@@ -924,6 +925,10 @@ func TestEnterDoesNotEndDay(t *testing.T) {
 		t.Fatalf("n after the hire: day %d -> %d, mode %v", day+3, m.w.Day, m.mode)
 	}
 	m.Update(key("enter"))
+	if m.mode == modeCard {
+		m.Update(key("enter")) // decide
+		m.Update(key("enter")) // the outcome
+	}
 	if m.w.Day != day+4 || m.mode != modeReport {
 		t.Fatalf("enter on the stage: day %d -> %d, mode %v", day+4, m.w.Day, m.mode)
 	}
