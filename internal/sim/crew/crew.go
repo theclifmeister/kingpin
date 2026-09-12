@@ -424,9 +424,12 @@ func (s *Sim) Step(w *game.World, t *game.Tick) {
 	// 5. Quitting, or defecting: whoever walks leaves their corner
 	// unworked, and while the rival holds ground in the city they go to
 	// it instead, and walk it onto that corner (the rival sim acts on
-	// the lead next step) if it is one the rival fights over: the rival
-	// lives at home, so a corner in another city is just a corner left.
-	// A lieutenant running a city walks with it.
+	// the lead next step, off c.Leads: last night's are consumed by now,
+	// the rival steps first, so tonight's start the queue afresh; #144)
+	// if it is one the rival fights over: the rival lives at home, so a
+	// corner in another city is just a corner left. A lieutenant running
+	// a city walks with it.
+	c.Leads = nil
 	kept := c.Members[:0]
 	for _, m := range c.Members {
 		if m.Loyalty > tun.QuitThreshold {
@@ -444,13 +447,13 @@ func (s *Sim) Step(w *game.World, t *game.Tick) {
 			t.Emit(events.CrewQuit{Day: t.Day, Name: m.Name, Role: m.Role})
 			continue
 		}
-		ev := events.CrewDefected{Day: t.Day, Name: m.Name, Role: m.Role, Rival: w.Rival.Leader}
+		ev := events.CrewDefected{Day: t.Day, Name: m.Name, Role: m.Role, Rival: w.Rival.Leader, Faction: w.Rival.Faction()}
 		lead := game.Lead{Name: m.Name}
 		if post != nil && post.City == w.Home().ID {
 			ev.Corner, ev.CornerName = post.ID, post.Name
 			lead.Corner = post.ID
 		}
-		w.Rival.Leads = append(w.Rival.Leads, lead)
+		c.Leads = append(c.Leads, lead)
 		w.Stats.Defections++
 		t.Emit(ev)
 	}

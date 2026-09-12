@@ -15,6 +15,12 @@ const (
 	OwnerRival  = "rival"
 )
 
+// FactionRival is the id of the one faction there is until #43: the
+// rival. RivalState.ID is seeded with it and a zero id (a save from
+// before ids) resolves to it through RivalState.Faction, so an old save
+// needs no migration.
+const FactionRival = "rival"
+
 // You is the worker id for the player standing on a corner in person.
 const You = -1
 
@@ -41,6 +47,7 @@ type Corner struct {
 	Heat       float64            // sale-heat multiplier for units moved here
 	Risk       float64            // robbery-chance multiplier
 	Owner      string             // OwnerNone, OwnerPlayer, OwnerRival
+	Faction    string             // which faction holds it while Owner is OwnerRival (RivalState.Faction, #144); "" otherwise. Every hand-over to the rival stamps it and every hand-over off it clears it.
 	Runner     int                // crew id working it, You for the player, 0 nobody
 	Enforcer   int                // crew id guarding it, 0 nobody
 	Since      int                // day the current owner took it
@@ -273,7 +280,7 @@ func (w *World) Post(corner string, id int) error {
 	}
 	w.Recall(id)
 	if c.Owner != OwnerPlayer {
-		c.Owner = OwnerPlayer
+		c.Owner, c.Faction = OwnerPlayer, ""
 		c.Since = w.Day
 	}
 	if role == "enforcer" {
@@ -316,7 +323,7 @@ func (w *World) Abandon(corner string) error {
 	if c.Owner != OwnerPlayer {
 		return fmt.Errorf("you do not hold %s", c.Name)
 	}
-	c.Owner = OwnerNone
+	c.Owner, c.Faction = OwnerNone, ""
 	c.Runner, c.Enforcer, c.Idle, c.Since = 0, 0, 0, w.Day
 	w.Abandoned = append(w.Abandoned, c.ID)
 	return nil

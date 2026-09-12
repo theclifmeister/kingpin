@@ -88,6 +88,14 @@ func (s *Sim) take(w *game.World, t *game.Tick, acted map[int]*events.Lieutenant
 // player holds there (bar the one the player stands on) goes to the
 // rival if it holds ground in that city, else back to the street, and
 // the stash there is gone. The caller drops them from the roster.
+//
+// The hand-over is the one write into w.Rival outside the rivals sim
+// (#144, the exception TestRivalStateHasOneWriter lists): the corners
+// change hands tonight, since the news sim's card triggers read the
+// rival's ground this same tick and the morning's map shows it, and
+// the flip's bookkeeping (Flips, LastFlip, Observed) goes with them,
+// since the boss and the diplomat read LastFlip in the morning, before
+// the rivals sim could stamp it off the event a step later.
 func (s *Sim) walk(w *game.World, t *game.Tick, lt game.CrewMember) {
 	city := w.Cities[lt.City]
 	ev := events.LieutenantWalked{Day: t.Day, ID: lt.ID, Name: lt.Name, City: lt.City, CityName: w.CityName(lt.City)}
@@ -101,16 +109,16 @@ func (s *Sim) walk(w *game.World, t *game.Tick, lt game.CrewMember) {
 			ev.Corners = append(ev.Corners, c.Name)
 			c.Runner, c.Enforcer, c.Idle, c.Squeeze, c.Robbed, c.Since = 0, 0, 0, 0, 0, t.Day
 			if toRival {
-				c.Owner = game.OwnerRival
+				c.Owner, c.Faction = game.OwnerRival, w.Rival.Faction()
 				w.Rival.Flips++
 				w.Rival.LastFlip = t.Day
 				w.Stats.CornersLost++
 			} else {
-				c.Owner = game.OwnerNone
+				c.Owner, c.Faction = game.OwnerNone, ""
 			}
 		}
 		if toRival {
-			ev.Rival = w.Rival.Leader
+			ev.Rival, ev.Faction = w.Rival.Leader, w.Rival.Faction()
 			w.Rival.Observed = true
 		}
 		for id, q := range w.StashOf(lt.City) {

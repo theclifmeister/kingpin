@@ -227,6 +227,15 @@ func Load(slot int, migrations ...Migration) (*World, error) {
 	if w.Upgrades == nil {
 		w.Upgrades = map[string]bool{}
 	}
+	// A save from before faction ids (#144): the one rival's corners
+	// carry no id, so name it; no migration, the zero id resolves to it.
+	for _, c := range w.Cities {
+		for i := range c.Corners {
+			if c.Corners[i].Owner == OwnerRival && c.Corners[i].Faction == "" {
+				c.Corners[i].Faction = w.Rival.Faction()
+			}
+		}
+	}
 	w.legacy = nil
 	return &w, nil
 }

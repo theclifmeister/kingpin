@@ -116,7 +116,7 @@ func (s *Sim) boost(w *game.World, t *game.Tick, o *game.StrikeOrder, c *game.Co
 	fc := s.cfg.ForceFor(o.Force)
 	r := &w.Rival
 	ev := events.RivalBoosted{
-		Day: t.Day, Corner: c.ID, Name: c.Name, Rival: r.Leader, Force: o.Force,
+		Day: t.Day, Corner: c.ID, Name: c.Name, Rival: r.Leader, Faction: r.Faction(), Force: o.Force,
 		Heat: s.BoostHeat(c), Toll: b.Loyalty,
 	}
 	w.Stats.Boosts++
@@ -148,7 +148,7 @@ func (s *Sim) poach(w *game.World, t *game.Tick) {
 		return
 	}
 	r := &w.Rival
-	ev := events.RivalMusclePoached{Day: t.Day, Rival: r.Leader, Wanted: o.Units, Cost: o.Cost}
+	ev := events.RivalMusclePoached{Day: t.Day, Rival: r.Leader, Faction: r.Faction(), Wanted: o.Units, Cost: o.Cost}
 	if t.Sub("books").Float64() < s.cfg.Poach.Odds {
 		ev.Got = min(o.Units, r.Muscle)
 		r.Muscle -= ev.Got
@@ -190,7 +190,7 @@ func (s *Sim) tip(w *game.World, t *game.Tick) bool {
 	r.Heat = math.Min(100, r.Heat+tp.Heat)
 	r.Trust = math.Max(0, r.Trust-tp.Trust)
 	r.Observed = true
-	ev := events.PoliceTipped{Day: t.Day, Corner: c.ID, Name: c.Name, Rival: r.Leader, RivalHeat: r.Heat}
+	ev := events.PoliceTipped{Day: t.Day, Corner: c.ID, Name: c.Name, Rival: r.Leader, Faction: r.Faction(), RivalHeat: r.Heat}
 	if w.AtPeace() {
 		ev.Betrayal = s.breakAll(w, t, "you tipped the police on "+c.Name)
 	}
@@ -224,10 +224,10 @@ func (s *Sim) raid(w *game.World, t *game.Tick, c *game.Corner) {
 	r.Heat = math.Max(0, r.Heat-tp.PoliceNotice)
 	r.LastRaid = t.Day
 	r.Grudge += tp.Grudge
-	c.Owner, c.Runner, c.Enforcer, c.Idle, c.Squeeze, c.Since = game.OwnerNone, 0, 0, 0, 0, t.Day
+	c.Owner, c.Faction, c.Runner, c.Enforcer, c.Idle, c.Squeeze, c.Since = game.OwnerNone, "", 0, 0, 0, 0, t.Day
 	c.Starved, c.StarvedDay = 0, 0
 	w.Stats.RivalRaids++
-	t.Emit(events.RivalRaided{Day: t.Day, Corner: c.ID, Name: c.Name, Rival: r.Leader, Muscle: lost})
+	t.Emit(events.RivalRaided{Day: t.Day, Corner: c.ID, Name: c.Name, Rival: r.Leader, Faction: r.Faction(), Muscle: lost})
 }
 
 // scout resolves the player's look at the rival's books (#70), off the
