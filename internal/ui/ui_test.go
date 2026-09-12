@@ -2223,6 +2223,11 @@ func richModelSeeded(t *testing.T, w, h int, seed uint64) *Model {
 	}
 	world.Player.DirtyCash = 700_000
 	world.Stats.PeakCash = 700_000
+	// The tiers (#147): the run is in Distribution, entered by hand the
+	// way the pile and the crew are, so the morning after stamps none.
+	for n := 2; n <= 4; n++ {
+		world.Reach(n, world.Day)
+	}
 	world.Crew.Members = append(world.Crew.Members,
 		game.CrewMember{ID: 1, Name: "Dre", Role: "runner", Skill: 60, Units: 120, Loyalty: 80, Nerve: 50, Wage: 50},
 		game.CrewMember{ID: 2, Name: "Gato", Role: "runner", Skill: 40, Units: 90, Loyalty: 40, Nerve: 30, Wage: 45},

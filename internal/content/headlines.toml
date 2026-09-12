@@ -356,3 +356,12 @@ SupplierUnlocked = [
   "{{.Name}} 'open for business' with a {{.City}} outfit",
   "New face in {{.City}} supply: {{.Name}} is taking orders",
 ]
+
+# The progression (#147): the morning a tier is entered. Source flavour,
+# which neither notoriety nor the law counts; the template is picked off
+# the progression's own side stream, so a run's dice never move for it.
+TierReached = [
+  "Talk of the town: a {{.City}} outfit is coming up in the world",
+  "'Bigger than they were': {{.City}} street watches an operation grow",
+  "Somebody in {{.City}} is moving up; the corners have noticed",
+]

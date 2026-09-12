@@ -22,27 +22,28 @@ type World struct {
 	Cities    map[string]*City // keyed by city id; CityCityOrder fixes their sequence
 	CityOrder []string         // city ids in a fixed order, home first
 
-	Player     Player
-	Products   []string // ordered product ids, the same in every city
-	Heat       HeatState
-	Crew       CrewState
-	Rival      RivalState
-	Upgrades   map[string]bool // upgrade ids owned; effects fold from these (FoldEffects)
-	FallsTaken int             // fall guys who have taken their fall (#117: fall_guys is a count; each takes one)
-	Fronts     []Front         // businesses the player owns, in the order bought
-	Laundering LaunderingState
-	Dilemmas   DilemmaState              // the card waiting for an answer, and the deck's pacing
-	Shipments  []Shipment                // product on the road, in the order sent
-	Logistics  LogisticsState            // the shipment counter, the seizure record and the routes' books
-	Routes     map[string]RouteSetting   // the route dials, keyed by route id; a route not here is off
-	Offers     []Offer                   // deals the rival has put on the table, oldest first
-	Delegated  map[string]SellOrder      // the lieutenants' standing sell orders, keyed like Orders; the crew step refreshes them
-	Law        LawState                  // the chief and the DA (#41); pressure and goodwill are per city
-	Contracts  []Contract                // the buyers' orders (#71), oldest first; the market sim deals and resolves them
-	Buyers     BuyersState               // the buyer deck's pacing and blacklist
-	Supply     map[string]SupplyContract // the supply contracts (#113), keyed like Orders; the market sim fills them every morning
-	Standing   map[string]SellOrder      // your standing sell orders (#114), keyed like Orders; the market sim resolves them every night at a cut
-	Suppliers  []Supplier                // the connects (#72), in the order seeded: the street one in every city, the wholesaler, one more by seed
+	Player      Player
+	Products    []string // ordered product ids, the same in every city
+	Heat        HeatState
+	Crew        CrewState
+	Rival       RivalState
+	Upgrades    map[string]bool // upgrade ids owned; effects fold from these (FoldEffects)
+	FallsTaken  int             // fall guys who have taken their fall (#117: fall_guys is a count; each takes one)
+	Fronts      []Front         // businesses the player owns, in the order bought
+	Laundering  LaunderingState
+	Dilemmas    DilemmaState              // the card waiting for an answer, and the deck's pacing
+	Shipments   []Shipment                // product on the road, in the order sent
+	Logistics   LogisticsState            // the shipment counter, the seizure record and the routes' books
+	Routes      map[string]RouteSetting   // the route dials, keyed by route id; a route not here is off
+	Offers      []Offer                   // deals the rival has put on the table, oldest first
+	Delegated   map[string]SellOrder      // the lieutenants' standing sell orders, keyed like Orders; the crew step refreshes them
+	Law         LawState                  // the chief and the DA (#41); pressure and goodwill are per city
+	Contracts   []Contract                // the buyers' orders (#71), oldest first; the market sim deals and resolves them
+	Buyers      BuyersState               // the buyer deck's pacing and blacklist
+	Supply      map[string]SupplyContract // the supply contracts (#113), keyed like Orders; the market sim fills them every morning
+	Standing    map[string]SellOrder      // your standing sell orders (#114), keyed like Orders; the market sim resolves them every night at a cut
+	Suppliers   []Supplier                // the connects (#72), in the order seeded: the street one in every city, the wholesaler, one more by seed
+	Progression Progression               // the tiers reached (#147), stamped by the news sim; nothing gates on it
 
 	// Per-day scratch, cleared by the clock after every EndDay.
 	Orders        map[string]SellOrder   // pending sell orders keyed by product id
@@ -515,6 +516,7 @@ type DayReport struct {
 	Law        []string // elections, a new chief, pressure bands crossed, what you gave a city
 	Money      []string
 	Upgrades   []string
+	Tier       []string // the tier entered this morning (#147), first in the report
 	News       []string
 	CashBefore int
 	CashAfter  int

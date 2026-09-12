@@ -198,6 +198,14 @@ func Eligible(w *game.World, c content.CardConfig) (Slots, bool) {
 		}
 		s.Front = w.Fronts[0].Name
 	}
+	// The progression's two (#147): the high-water mark every unlock
+	// reads, and the lieutenant gate's count of cities with a held corner.
+	if w.Stats.PeakCash < t.PeakCashMin {
+		return s, false
+	}
+	if t.CitiesHeld > 0 && w.CitiesHeld() < t.CitiesHeld {
+		return s, false
+	}
 	most := -1
 	for _, id := range w.Products {
 		q := 0
