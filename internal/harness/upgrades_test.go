@@ -18,7 +18,7 @@ func buying(cfg *content.Config, p Policy, on map[int]string) Policy {
 	return func(w *game.World) {
 		if id, ok := on[w.Day]; ok {
 			Own(cfg, w, id)
-			w.UpgradesToday = []string{id} // a real purchase, reported
+			w.Today.UpgradesToday = []string{id} // a real purchase, reported
 		}
 		p(w)
 	}
@@ -300,7 +300,7 @@ func TestLawyerThinsTheFile(t *testing.T) {
 			t.Fatalf("seed %d: with a lawyer %d days (over=%v), without %d", seed, res.Days, res.Over, plain.Days)
 		}
 		for _, e := range res.Events {
-			if ev, ok := e.(events.Enforcement); ok && ev.Level == "sting" && ev.Evidence != 0 {
+			if ev, ok := e.(events.Enforcement); ok && ev.Level == content.Sting && ev.Evidence != 0 {
 				t.Fatalf("seed %d day %d: a sting added %d evidence past the lawyer", seed, ev.Day, ev.Evidence)
 			}
 		}

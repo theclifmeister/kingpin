@@ -180,12 +180,12 @@ func (w *World) Propose(kind string, terms Terms) error {
 			return ErrOfferLive
 		}
 	}
-	w.Proposal = &Deal{Kind: kind, Terms: terms}
+	w.Today.Proposal = &Deal{Kind: kind, Terms: terms}
 	return nil
 }
 
 // Withdraw takes back today's proposal.
-func (w *World) Withdraw() { w.Proposal = nil }
+func (w *World) Withdraw() { w.Today.Proposal = nil }
 
 // Accept takes the rival's offer with id. The deal is sealed at end of
 // day by the rival sim, on exactly the terms offered, and runs from
@@ -206,7 +206,7 @@ func (w *World) Accept(id int) (Offer, error) {
 	}
 	taken := *o
 	w.dropOffer(id)
-	w.Accepted = append(w.Accepted, taken)
+	w.Today.Accepted = append(w.Today.Accepted, taken)
 	return taken, nil
 }
 

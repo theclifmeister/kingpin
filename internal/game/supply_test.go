@@ -73,8 +73,8 @@ func TestFillSupplyIsBuysPath(t *testing.T) {
 	if a, b := tally(hand, "test", "a"), tally(contract, "test", "a"); a != b {
 		t.Fatalf("a contract's buy moved %+v, a buy by hand %+v", b, a)
 	}
-	if !p.Contract || p.Day != 1 || p.Cost != hand.Buys[0].Cost || p.UnitPrice != hand.Buys[0].UnitPrice {
-		t.Fatalf("the receipt: %+v against the hand's %+v", p, hand.Buys[0])
+	if !p.Contract || p.Day != 1 || p.Cost != hand.Today.Buys[0].Cost || p.UnitPrice != hand.Today.Buys[0].UnitPrice {
+		t.Fatalf("the receipt: %+v against the hand's %+v", p, hand.Today.Buys[0])
 	}
 	// The markup: a fifth more a unit, the rest the same.
 	marked := testWorld()
@@ -122,8 +122,8 @@ func TestClockKeepsTheContractReceipts(t *testing.T) {
 	}
 	c := NewClock(nil, &counter{})
 	c.EndDay(w)
-	if w.Buys != nil {
-		t.Fatalf("the buys by hand survived the day: %+v", w.Buys)
+	if w.Today.Buys != nil {
+		t.Fatalf("the buys by hand survived the day: %+v", w.Today.Buys)
 	}
 	// A contract's receipt made in the tick: the market sim's FillSupply
 	// stands in for by a sim that fills it.
@@ -133,13 +133,13 @@ func TestClockKeepsTheContractReceipts(t *testing.T) {
 		}
 	}))
 	c.EndDay(w)
-	if len(w.Buys) != 1 || !w.Buys[0].Contract || w.Buys[0].Day != w.Day || w.Buys[0].Prior != 0 || w.Buys[0].Qty != 8 {
-		t.Fatalf("the morning's receipts: %+v (day %d)", w.Buys, w.Day)
+	if len(w.Today.Buys) != 1 || !w.Today.Buys[0].Contract || w.Today.Buys[0].Day != w.Day || w.Today.Buys[0].Prior != 0 || w.Today.Buys[0].Qty != 8 {
+		t.Fatalf("the morning's receipts: %+v (day %d)", w.Today.Buys, w.Day)
 	}
 	if w.SuppliedIn("test", "a") != 8 || w.Bought("test", "a") != 0 {
 		t.Fatalf("supplied %d, bought by hand %d", w.SuppliedIn("test", "a"), w.Bought("test", "a"))
 	}
-	if units, cost := w.SuppliedToday(); units != 8 || cost != w.Buys[0].Cost {
+	if units, cost := w.SuppliedToday(); units != 8 || cost != w.Today.Buys[0].Cost {
 		t.Fatalf("supplied today: %d for %d", units, cost)
 	}
 	// A buy by hand beside it: Return takes the hand's, ReturnSupplied
@@ -156,8 +156,8 @@ func TestClockKeepsTheContractReceipts(t *testing.T) {
 	if err != nil || refund != 120 {
 		t.Fatalf("returning the contract's 8 at $15: %d %v", refund, err)
 	}
-	if w.Player.DirtyCash != cash+120 || w.Stock("test", "a") != 5+3 || len(w.Buys) != 1 || w.Buys[0].Contract {
-		t.Fatalf("after the return: cash %d stock %d buys %+v", w.Player.DirtyCash, w.Stock("test", "a"), w.Buys)
+	if w.Player.DirtyCash != cash+120 || w.Stock("test", "a") != 5+3 || len(w.Today.Buys) != 1 || w.Today.Buys[0].Contract {
+		t.Fatalf("after the return: cash %d stock %d buys %+v", w.Player.DirtyCash, w.Stock("test", "a"), w.Today.Buys)
 	}
 	if w.Home().Market["a"].SupplierPrice != price {
 		t.Fatalf("the return walked the price to %v from %v", w.Home().Market["a"].SupplierPrice, price)
@@ -168,8 +168,8 @@ func TestClockKeepsTheContractReceipts(t *testing.T) {
 	// Yesterday's contract receipts go with the day.
 	c = NewClock(nil, &counter{})
 	c.EndDay(w)
-	if w.Buys != nil {
-		t.Fatalf("yesterday's receipts survived: %+v", w.Buys)
+	if w.Today.Buys != nil {
+		t.Fatalf("yesterday's receipts survived: %+v", w.Today.Buys)
 	}
 }
 

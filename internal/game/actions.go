@@ -145,7 +145,7 @@ func (w *World) DelegateSupply(city, product string, units int) {
 // SuppliedToday is what the supply contracts bought this morning, all
 // products and cities: the receipts and what they cost.
 func (w *World) SuppliedToday() (units, cost int) {
-	for _, b := range w.Buys {
+	for _, b := range w.Today.Buys {
 		if b.Contract {
 			units += b.Qty
 			cost += b.Cost
@@ -172,7 +172,7 @@ func (w *World) SuppliedIn(city, product string) int { return w.receipts(city, p
 
 func (w *World) receipts(city, product string, contract, credit bool) int {
 	n := 0
-	for _, b := range w.Buys {
+	for _, b := range w.Today.Buys {
 		if b.City == city && b.Product == product && b.Contract == contract && b.Credit == credit {
 			n += b.Qty
 		}
@@ -229,8 +229,8 @@ func (w *World) giveBack(city, product string, qty int, contract, credit bool) (
 	}
 	refund := 0
 	left := qty
-	for i := len(w.Buys) - 1; i >= 0 && left > 0; i-- {
-		b := &w.Buys[i]
+	for i := len(w.Today.Buys) - 1; i >= 0 && left > 0; i-- {
+		b := &w.Today.Buys[i]
 		if b.City != city || b.Product != product || b.Contract != contract || b.Credit != credit {
 			continue
 		}
@@ -265,15 +265,15 @@ func (w *World) giveBack(city, product string, qty int, contract, credit bool) (
 		b.Qty, b.Cost = keep, cost
 		left -= back
 	}
-	kept := w.Buys[:0]
-	for _, b := range w.Buys {
+	kept := w.Today.Buys[:0]
+	for _, b := range w.Today.Buys {
 		if b.Qty > 0 {
 			kept = append(kept, b)
 		}
 	}
-	w.Buys = kept
-	if len(w.Buys) == 0 {
-		w.Buys = nil
+	w.Today.Buys = kept
+	if len(w.Today.Buys) == 0 {
+		w.Today.Buys = nil
 	}
 	w.Player.DirtyCash += refund
 	w.TakeStock(city, product, qty)
@@ -304,18 +304,18 @@ func (w *World) PlaceSell(city, product string, qty int, dial events.Dial) error
 	if have := w.Stock(city, product) + w.SupplyDue(city, product); qty > have {
 		return fmt.Errorf("only %d %s in %s", have, w.ProductName(product), w.CityName(city))
 	}
-	w.Orders[OrderKey(city, product)] = SellOrder{City: city, Product: product, Qty: qty, Dial: dial}
+	w.Today.Orders[OrderKey(city, product)] = SellOrder{City: city, Product: product, Qty: qty, Dial: dial}
 	return nil
 }
 
 // Order returns the pending order for a product in a city.
 func (w *World) Order(city, product string) (SellOrder, bool) {
-	o, ok := w.Orders[OrderKey(city, product)]
+	o, ok := w.Today.Orders[OrderKey(city, product)]
 	return o, ok
 }
 
 // CancelSell removes a pending order.
-func (w *World) CancelSell(city, product string) { delete(w.Orders, OrderKey(city, product)) }
+func (w *World) CancelSell(city, product string) { delete(w.Today.Orders, OrderKey(city, product)) }
 
 // PlaceStanding sets a standing sell order (#114): the same units at
 // the same dial every night until it is cancelled, resolved by the
@@ -517,10 +517,10 @@ func (w *World) Send(s Shipment) Shipment {
 // and the handoffs queued against the buyers' contracts (#71): it is
 // everyone's day off.
 func (w *World) SetLieLow(on bool) {
-	w.LieLow = on
+	w.Today.LieLow = on
 	if on {
-		w.Orders = map[string]SellOrder{}
-		w.Deliveries = nil
+		w.Today.Orders = map[string]SellOrder{}
+		w.Today.Deliveries = nil
 	}
 }
 
@@ -630,13 +630,13 @@ func (w *World) Investigate(cost int) error {
 	if len(w.Crew.Members) == 0 {
 		return ErrNoCrew
 	}
-	if w.Investigation != nil {
+	if w.Today.Investigation != nil {
 		return ErrInvestigating
 	}
 	if !w.spend(cost) {
 		return fmt.Errorf("need $%d, only have $%d", cost, w.Cash())
 	}
-	w.Investigation = &InvestigationOrder{Cost: cost}
+	w.Today.Investigation = &InvestigationOrder{Cost: cost}
 	return nil
 }
 

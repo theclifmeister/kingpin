@@ -34,11 +34,11 @@ func TestPropose(t *testing.T) {
 	if err := w.Propose(DealTruce, Terms{Days: 15}); err != nil {
 		t.Fatal(err)
 	}
-	if err := w.Propose(DealTribute, Terms{PerDay: 500}); err != nil || w.Proposal.Kind != DealTribute {
-		t.Fatalf("proposing again should replace: %v %+v", err, w.Proposal)
+	if err := w.Propose(DealTribute, Terms{PerDay: 500}); err != nil || w.Today.Proposal.Kind != DealTribute {
+		t.Fatalf("proposing again should replace: %v %+v", err, w.Today.Proposal)
 	}
 	w.Withdraw()
-	if w.Proposal != nil {
+	if w.Today.Proposal != nil {
 		t.Fatal("withdraw left the proposal")
 	}
 	w.Rival.Deals = []Deal{{Kind: DealTruce, Terms: Terms{Days: 15}, Since: 10, Until: 25}}
@@ -74,8 +74,8 @@ func TestAcceptAndDecline(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	if o.Deal.Terms.Days != 30 || len(w.Accepted) != 1 || w.Accepted[0].ID != 1 || len(w.Offers) != 1 || w.Offers[0].ID != 2 {
-		t.Fatalf("after accepting: %+v accepted %+v offers %+v", o, w.Accepted, w.Offers)
+	if o.Deal.Terms.Days != 30 || len(w.Today.Accepted) != 1 || w.Today.Accepted[0].ID != 1 || len(w.Offers) != 1 || w.Offers[0].ID != 2 {
+		t.Fatalf("after accepting: %+v accepted %+v offers %+v", o, w.Today.Accepted, w.Offers)
 	}
 	if _, err := w.Decline(2); err != nil || len(w.Offers) != 0 {
 		t.Fatalf("declining: %v offers %+v", err, w.Offers)
@@ -154,7 +154,7 @@ func TestSplitLinesAndTheLine(t *testing.T) {
 	if err := w.Post("home", 1); err != nil {
 		t.Fatalf("posting on your own side: %v", err)
 	}
-	if err := w.Abandon("home"); err != nil || len(w.Abandoned) != 1 || w.Abandoned[0] != "home" {
-		t.Fatalf("abandon: %v %v", err, w.Abandoned)
+	if err := w.Abandon("home"); err != nil || len(w.Today.Abandoned) != 1 || w.Today.Abandoned[0] != "home" {
+		t.Fatalf("abandon: %v %v", err, w.Today.Abandoned)
 	}
 }

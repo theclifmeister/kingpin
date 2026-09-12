@@ -882,8 +882,8 @@ func (m *Model) cancelSelected() {
 
 // toggleLieLow turns lying low on and off for today.
 func (m *Model) toggleLieLow() {
-	m.w.SetLieLow(!m.w.LieLow)
-	if m.w.LieLow {
+	m.w.SetLieLow(!m.w.Today.LieLow)
+	if m.w.Today.LieLow {
 		m.say("Lying low today: no sales, heat fades faster.")
 	} else {
 		m.say("Back on the corner.")

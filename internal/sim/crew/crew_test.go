@@ -301,7 +301,7 @@ func TestTurningAndInvestigation(t *testing.T) {
 	}
 	evs := step(w, zero)
 	step(&control, zero)
-	w.Investigation = nil
+	w.Today.Investigation = nil
 	var run events.InvestigationRun
 	for _, e := range evs {
 		if ev, ok := e.(events.InvestigationRun); ok {
@@ -333,7 +333,7 @@ func TestTurningAndInvestigation(t *testing.T) {
 		t.Fatal(err)
 	}
 	evs = step(w, sure)
-	w.Investigation = nil
+	w.Today.Investigation = nil
 	for _, e := range evs {
 		if ev, ok := e.(events.InvestigationRun); ok {
 			run = ev
@@ -409,7 +409,7 @@ func crewProbe(t *testing.T, cfg *content.Config, ids ...string) map[string]floa
 	// nobody to shield them; what fair pay's drift leaves of the loss.
 	w, s = fresh()
 	w.Crew.Members = []game.CrewMember{{ID: 1, Name: "Probe", Role: "runner", Skill: 50, Loyalty: 50, Wage: 50, Greed: 0, Nerve: 0}}
-	w.Heat.LastResponse = map[string]int{"sting": w.Day}
+	w.Heat.LastResponse = map[string]int{content.Sting: w.Day}
 	step(w, s)
 	p["danger_drop"] = 50 - w.Crew.Members[0].Loyalty
 

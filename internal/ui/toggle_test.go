@@ -36,8 +36,8 @@ func TestDialogTogglesSide(t *testing.T) {
 	for _, k := range []string{"enter", "5", "enter", "enter"} {
 		m.Update(key(k))
 	}
-	if len(w.Buys) != 1 || m.dlg.step != 0 {
-		t.Fatalf("the buy did not complete: %d buys, step %d, err %q", len(w.Buys), m.dlg.step, m.dlg.err)
+	if len(w.Today.Buys) != 1 || m.dlg.step != 0 {
+		t.Fatalf("the buy did not complete: %d buys, step %d, err %q", len(w.Today.Buys), m.dlg.step, m.dlg.err)
 	}
 	if f := footerKeys(m); !strings.Contains(f, "s sell") || strings.Contains(f, "b buy") {
 		t.Fatalf("the buy dialog's product step lists %q", f)

@@ -48,17 +48,17 @@ func TestBetrayalFloorAndDistrust(t *testing.T) {
 		t.Fatalf("after the betrayal: %+v stats %+v", w.Rival, w.Stats)
 	}
 	betrayed := w.Day
-	w.Strike = nil
+	w.Today.Strike = nil
 	accepted := 0
 	for w.Day < betrayed+dip.DistrustDays+40 && accepted == 0 {
 		if err := w.Propose(game.DealTruce, game.Terms{Days: dip.TruceDays[0]}); err != nil {
 			t.Fatal(err)
 		}
-		if c := s.Chance(w, *w.Proposal); (w.Day+1-betrayed < dip.DistrustDays) != (c == 0) {
+		if c := s.Chance(w, *w.Today.Proposal); (w.Day+1-betrayed < dip.DistrustDays) != (c == 0) {
 			t.Fatalf("day %d: chance %.2f, betrayed on day %d, distrust %d days", w.Day, c, betrayed, dip.DistrustDays)
 		}
 		k := kinds(step(w, s))
-		w.Proposal = nil
+		w.Today.Proposal = nil
 		if k["DealAccepted"] > 0 {
 			accepted = w.Day
 		}
@@ -159,8 +159,8 @@ func TestOffersExpireAndSealAsOffered(t *testing.T) {
 	if _, err := w.Accept(offer.ID); err != nil {
 		t.Fatal(err)
 	}
-	if len(w.Offers) != 0 || len(w.Accepted) != 1 {
-		t.Fatalf("after accepting: offers %+v accepted %+v", w.Offers, w.Accepted)
+	if len(w.Offers) != 0 || len(w.Today.Accepted) != 1 {
+		t.Fatalf("after accepting: offers %+v accepted %+v", w.Offers, w.Today.Accepted)
 	}
 	cash := w.Player.DirtyCash
 	evs := step(w, s)
@@ -175,7 +175,7 @@ func TestOffersExpireAndSealAsOffered(t *testing.T) {
 	if w.Player.DirtyCash != cash-d.Terms.PerDay || w.Stats.Tribute != d.Terms.PerDay {
 		t.Fatalf("cash %d -> %d with tribute %d", cash, w.Player.DirtyCash, d.Terms.PerDay)
 	}
-	w.Accepted = nil
+	w.Today.Accepted = nil
 	// Under tribute nothing of the player's is pushed on or undercut.
 	for i := 0; i < 30; i++ {
 		stand()

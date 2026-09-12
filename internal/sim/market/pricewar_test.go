@@ -113,8 +113,8 @@ func TestUndercutServesTheShareCheap(t *testing.T) {
 	if war.Product(home, "weed").Glut <= plain.Product(home, "weed").Glut {
 		t.Fatalf("glut %.3f with the price war, %.3f without", war.Product(home, "weed").Glut, plain.Product(home, "weed").Glut)
 	}
-	if war.Undercuts != nil {
-		t.Fatalf("the clock left the undercuts: %v", war.Undercuts)
+	if war.Today.Undercuts != nil {
+		t.Fatalf("the clock left the undercuts: %v", war.Today.Undercuts)
 	}
 	// Your own corners' demand is the corners': the squeeze on theirs
 	// moves nothing of yours.
@@ -253,8 +253,8 @@ func TestUndercutIsRefusedUnderADeal(t *testing.T) {
 		t.Fatalf("queued: %v %v", d, ok)
 	}
 	w.CancelUndercut("docks")
-	if _, ok := w.Undercutting("docks"); ok || w.Undercuts != nil {
-		t.Fatalf("after calling off: %v", w.Undercuts)
+	if _, ok := w.Undercutting("docks"); ok || w.Today.Undercuts != nil {
+		t.Fatalf("after calling off: %v", w.Today.Undercuts)
 	}
 }
 
@@ -266,7 +266,7 @@ func TestNoUndercutIsTheOldNight(t *testing.T) {
 	cfg := content.MustLoad()
 	a, _, ac := warWorld(t, cfg, 9)
 	b, _, bc := warWorld(t, cfg, 9)
-	b.Undercuts = map[string]events.Dial{} // an empty map is nothing queued
+	b.Today.Undercuts = map[string]events.Dial{} // an empty map is nothing queued
 	home := a.Home().ID
 	for day := 0; day < 5; day++ {
 		for _, w := range []*game.World{a, b} {

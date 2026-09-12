@@ -208,7 +208,7 @@ func main() {
 				for _, cid := range w.CityOrder {
 					fmt.Printf(" %.0f", w.Cities[cid].Pressure)
 				}
-				fmt.Printf(" file %d stock %3d/%3d +%d road orders %d crew %d corners %d/%d rival %d war %3.0f upgrades %d fronts %d %s rep %.0f/%.0f/%.0f", w.Heat.Evidence, w.Stashed(), w.Capacity(w.Player.Location), w.TotalStock()-w.Stashed(), len(w.Orders), len(w.Crew.Members), w.Worked(), w.Held(), w.RivalHeld(), w.Rival.War, len(w.Upgrades), len(w.Fronts), w.Laundering.Dial, w.Player.Reputation.Fear, w.Player.Reputation.Respect, w.Player.Reputation.Notoriety)
+				fmt.Printf(" file %d stock %3d/%3d +%d road orders %d crew %d corners %d/%d rival %d war %3.0f upgrades %d fronts %d %s rep %.0f/%.0f/%.0f", w.Heat.Evidence, w.Stashed(), w.Capacity(w.Player.Location), w.TotalStock()-w.Stashed(), len(w.Today.Orders), len(w.Crew.Members), w.Worked(), w.Held(), w.RivalHeld(), w.Rival.War, len(w.Upgrades), len(w.Fronts), w.Laundering.Dial, w.Player.Reputation.Fear, w.Player.Reputation.Respect, w.Player.Reputation.Notoriety)
 				for _, id := range w.Products {
 					fmt.Printf("  %s", id)
 					for _, cid := range w.CityOrder {
@@ -374,7 +374,7 @@ func main() {
 		houseUnits += st.HouseUnits
 		rent += st.Rent
 		for _, e := range res.Events {
-			if ev, ok := e.(events.Enforcement); ok && (ev.Level == "raid" || ev.Level == "sting") {
+			if ev, ok := e.(events.Enforcement); ok && (ev.Level == content.Raid || ev.Level == content.Sting) {
 				raids++
 				for _, n := range ev.StockLost {
 					raidUnits += n

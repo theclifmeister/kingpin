@@ -143,7 +143,7 @@ func (s *Sim) boost(w *game.World, t *game.Tick, o *game.StrikeOrder, c *game.Co
 // than it has (what was paid for the rest comes back) and it never
 // finds out; failing, the money is gone and it holds a grudge.
 func (s *Sim) poach(w *game.World, t *game.Tick) {
-	o := w.Poach
+	o := w.Today.Poach
 	if o == nil {
 		return
 	}
@@ -176,7 +176,7 @@ func (s *Sim) poach(w *game.World, t *game.Tick) {
 // by the time the night comes is dropped. It returns whether a deal was
 // broken, for the caller's phone call.
 func (s *Sim) tip(w *game.World, t *game.Tick) bool {
-	o := w.Tipoff
+	o := w.Today.Tipoff
 	if o == nil {
 		return false
 	}
@@ -236,7 +236,7 @@ func (s *Sim) raid(w *game.World, t *game.Tick, c *game.Corner) {
 // wage bill as today read them), else it reads nothing and the next
 // look is a little likelier.
 func (s *Sim) scout(w *game.World, t *game.Tick) {
-	o := w.Scouting
+	o := w.Today.Scouting
 	if o == nil {
 		return
 	}

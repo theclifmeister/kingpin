@@ -3,6 +3,7 @@ package ui
 import (
 	"strings"
 
+	"github.com/theclifmeister/kingpin/internal/content"
 	"github.com/theclifmeister/kingpin/internal/events"
 	"github.com/theclifmeister/kingpin/internal/ui/anim"
 	"github.com/theclifmeister/kingpin/internal/ui/theme"
@@ -27,9 +28,10 @@ import (
 // consumed; enter then closes the report and never ends the day. The
 // heat gauge is not animated: the dashboard is play mode.
 
-// bustRank orders the levels a bust's scene plays: the highest wins
-// the morning.
-var bustRank = map[string]int{"sting": 1, "raid": 2, "arrest": 3}
+// bustRank orders the levels a bust's scene plays: the ladder's rank
+// past a patrol (content.Rank, #144), so the highest wins the morning
+// and a patrol, or no level at all, is 0.
+func bustRank(level string) int { return max(0, content.Rank(level)-content.Rank(content.Patrol)) }
 
 // bust is the enforcement the morning's scene is for: the highest
 // level past a patrol among the tick's events, the first of a tie, or
@@ -38,7 +40,7 @@ func (m *Model) bust() (events.Enforcement, bool) {
 	var top events.Enforcement
 	found := false
 	for _, ev := range m.flash {
-		if bustRank[ev.Level] > bustRank[top.Level] || (bustRank[ev.Level] > 0 && !found) {
+		if bustRank(ev.Level) > bustRank(top.Level) || (bustRank(ev.Level) > 0 && !found) {
 			top, found = ev, true
 		}
 	}
@@ -48,7 +50,7 @@ func (m *Model) bust() (events.Enforcement, bool) {
 // bustLevel is the word the tape glitches in: the level in caps, an
 // arrest as the report writes it.
 func bustLevel(level string) string {
-	if level == "arrest" {
+	if level == content.Arrest {
 		return "ARRESTED"
 	}
 	return strings.ToUpper(level)

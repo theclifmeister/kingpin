@@ -99,7 +99,7 @@ func (s *Sim) Chance(w *game.World, d game.Deal) float64 {
 	if math.IsInf(favour, -1) {
 		return 0
 	}
-	if o := w.Strike; o != nil && o.Force != events.ForceWarn {
+	if o := w.Today.Strike; o != nil && o.Force != events.ForceWarn {
 		return 0 // you sent the enforcers in the same night
 	}
 	dc := s.cfg.Deal[d.Kind]
@@ -153,7 +153,7 @@ func (s *Sim) table(w *game.World, t *game.Tick) bool {
 		return false
 	}
 	w.Offers = slices.DeleteFunc(w.Offers, func(o game.Offer) bool { return t.Day > o.Expires })
-	for _, o := range w.Accepted {
+	for _, o := range w.Today.Accepted {
 		if w.Deal(o.Deal.Kind) != nil {
 			continue
 		}
@@ -174,7 +174,7 @@ func (s *Sim) table(w *game.World, t *game.Tick) bool {
 		}
 	}
 	if d := w.Deal(game.DealSplit); d != nil {
-		for _, id := range w.Abandoned {
+		for _, id := range w.Today.Abandoned {
 			if d.Covers(id) {
 				name := id
 				if c := w.Corner(id); c != nil {
@@ -230,7 +230,7 @@ func pastTense(f events.Force) string {
 
 // answer is the rival's reply to tonight's proposal.
 func (s *Sim) answer(w *game.World, t *game.Tick) {
-	p := w.Proposal
+	p := w.Today.Proposal
 	if p == nil || w.Rival.Arrived == 0 {
 		return
 	}
@@ -344,7 +344,7 @@ func (s *Sim) offer(w *game.World, t *game.Tick) {
 	default:
 		return
 	}
-	if w.Deal(d.Kind) != nil || (w.Proposal != nil && w.Proposal.Kind == d.Kind) || t.RNG.Float64() >= pc.OfferChance {
+	if w.Deal(d.Kind) != nil || (w.Today.Proposal != nil && w.Today.Proposal.Kind == d.Kind) || t.RNG.Float64() >= pc.OfferChance {
 		return
 	}
 	d.Offered = true

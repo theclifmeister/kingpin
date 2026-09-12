@@ -130,7 +130,7 @@ func (s *Sim) Plan(w *game.World) []SupplyPlan {
 			}
 			lieutenant := ""
 			if _, own := w.Supplied(cid, id); !own {
-				if w.LieLow {
+				if w.Today.LieLow {
 					continue
 				}
 				lieutenant = w.Crew.Lieutenant(cid).Name
@@ -302,7 +302,7 @@ func (s *Sim) Step(w *game.World, t *game.Tick) {
 	tun := s.cfg.Market
 	w.Markup = s.Markup() // what a buy through a lieutenant pays (#174), stamped as the connects' prices are
 	fx := game.FoldEffects(w, s.tree)
-	for _, id := range w.UpgradesToday {
+	for _, id := range w.Today.UpgradesToday {
 		if u := s.tree.Upgrade(id); u != nil {
 			t.Emit(events.UpgradeBought{Day: t.Day, ID: u.ID, Name: u.Name, Branch: u.Branch, Cost: u.Cost, Clean: u.Clean})
 		}
@@ -347,7 +347,7 @@ func (s *Sim) Step(w *game.World, t *game.Tick) {
 			// player's own, #114, before the lieutenant's): the order
 			// placed today wins the day. Lying low is everyone's day
 			// off.
-			if !w.LieLow {
+			if !w.Today.LieLow {
 				if o, ok := w.Order(cid, id); ok {
 					s.resolve(w, t, cid, m, o, false)
 				} else if o, ok := w.YourStanding(cid, id); ok {

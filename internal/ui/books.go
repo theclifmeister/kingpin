@@ -106,7 +106,7 @@ func (m *Model) askScout() {
 		m.refuse("Nothing to scout: nobody is contesting the city yet.")
 		return
 	}
-	if m.w.Scouting != nil {
+	if m.w.Today.Scouting != nil {
 		m.refuse("Can't scout twice: somebody is already reading their books tonight.")
 		return
 	}
@@ -206,7 +206,7 @@ func (m *Model) askTip() {
 		m.refuse("Can't tip the police there: a tip is on a corner the rival holds.")
 		return
 	}
-	if m.w.Tipoff != nil {
+	if m.w.Today.Tipoff != nil {
 		m.refuse("Can't tip twice: you have already tipped the police tonight.")
 		return
 	}
@@ -282,7 +282,7 @@ func (m *Model) askBuyOff() {
 		m.refuse("Nobody to buy off: nobody is contesting the city yet.")
 		return
 	}
-	if m.w.Poach != nil {
+	if m.w.Today.Poach != nil {
 		m.refuse("Can't buy off twice: you are already paying their people tonight.")
 		return
 	}

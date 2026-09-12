@@ -91,13 +91,13 @@ func TestInvestigateAndPayOffKeys(t *testing.T) {
 	}
 	assertFits(t, m.View(), 80, 24, "investigate confirmation")
 	m.Update(key("esc"))
-	if m.mode != modePlay || m.w.Investigation != nil || m.w.Player.DirtyCash != cash {
+	if m.mode != modePlay || m.w.Today.Investigation != nil || m.w.Player.DirtyCash != cash {
 		t.Fatal("esc queued an investigation")
 	}
 	m.Update(key("i"))
 	m.Update(key("y"))
-	if m.w.Investigation == nil || m.w.Player.DirtyCash != cash-m.set.Crew.InvestigateCost() {
-		t.Fatalf("y did not queue: %+v cash %d status %q", m.w.Investigation, m.w.Player.DirtyCash, m.status)
+	if m.w.Today.Investigation == nil || m.w.Player.DirtyCash != cash-m.set.Crew.InvestigateCost() {
+		t.Fatalf("y did not queue: %+v cash %d status %q", m.w.Today.Investigation, m.w.Player.DirtyCash, m.status)
 	}
 	m.Update(key("i"))
 	if m.mode != modePlay || !strings.Contains(m.status, "already") {

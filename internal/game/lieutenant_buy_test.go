@@ -85,7 +85,7 @@ func TestBuyThroughTheLieutenant(t *testing.T) {
 	if err != nil || refund != p.Cost {
 		t.Fatalf("returned: %v, %d back, want %d", err, refund, p.Cost)
 	}
-	if got := tally(w, "port", "a"); got.cash != 10_000 || got.stock != 0 || got.bought != 0 || got.price != 4 || len(w.Buys) != 0 {
+	if got := tally(w, "port", "a"); got.cash != 10_000 || got.stock != 0 || got.bought != 0 || got.price != 4 || len(w.Today.Buys) != 0 {
 		t.Fatalf("after the return: %+v (before %+v)", got, before)
 	}
 	// On credit: on the connect's book as yours, at the markup under

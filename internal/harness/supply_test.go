@@ -41,8 +41,8 @@ func TestSupplyIsDeterministicAndSaves(t *testing.T) {
 		t.Fatalf("the stocked player bought %d by contract and holds %d contracts", bought, len(a.World.Supply))
 	}
 	c, _ := Run(cfg, 4, 40, Stocked(cfg, 40))
-	if len(c.World.Supply) == 0 || len(c.World.Buys) == 0 {
-		t.Fatalf("on day 40: %d contracts, %d receipts", len(c.World.Supply), len(c.World.Buys))
+	if len(c.World.Supply) == 0 || len(c.World.Today.Buys) == 0 {
+		t.Fatalf("on day 40: %d contracts, %d receipts", len(c.World.Supply), len(c.World.Today.Buys))
 	}
 	if err := game.Save(1, c.World); err != nil {
 		t.Fatal(err)
@@ -55,8 +55,8 @@ func TestSupplyIsDeterministicAndSaves(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	if fmt.Sprint(loaded.Supply) != fmt.Sprint(c.World.Supply) || fmt.Sprint(loaded.Buys) != fmt.Sprint(c.World.Buys) {
-		t.Fatalf("loaded %v %v, saved %v %v", loaded.Supply, loaded.Buys, c.World.Supply, c.World.Buys)
+	if fmt.Sprint(loaded.Supply) != fmt.Sprint(c.World.Supply) || fmt.Sprint(loaded.Today.Buys) != fmt.Sprint(c.World.Today.Buys) {
+		t.Fatalf("loaded %v %v, saved %v %v", loaded.Supply, loaded.Today.Buys, c.World.Supply, c.World.Today.Buys)
 	}
 	d, _ := RunFrom(cfg, loaded, 30, Stocked(cfg, 40))
 	rest := a.Events[len(c.Events):]

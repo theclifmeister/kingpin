@@ -492,7 +492,7 @@ func TestHandoffHeat(t *testing.T) {
 			t.Fatal(err)
 		}
 		for _, e := range r.Events {
-			if ev, ok := e.(events.Enforcement); ok && ev.Level == "sting" {
+			if ev, ok := e.(events.Enforcement); ok && ev.Level == content.Sting {
 				return ev
 			}
 		}

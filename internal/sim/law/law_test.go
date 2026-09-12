@@ -111,7 +111,7 @@ func TestPressureSources(t *testing.T) {
 	if w.Home().Goodwill >= g {
 		t.Fatal("goodwill did not fade")
 	}
-	w.Funded = nil
+	w.Today.Funded = nil
 	if err := w.Fund(hub, 1); err != nil {
 		t.Fatal(err)
 	}
@@ -150,7 +150,7 @@ func TestTermsAndElections(t *testing.T) {
 
 	// A chief is observed after observe_days, or on the first sting.
 	w = sim.NewWorld(cfg, 2)
-	tk = tick(w, 1, events.Enforcement{Day: 1, Level: "sting"})
+	tk = tick(w, 1, events.Enforcement{Day: 1, Level: content.Sting})
 	s.Step(w, tk)
 	if !w.Law.Chief.Observed {
 		t.Fatal("a sting did not show the chief's hand")

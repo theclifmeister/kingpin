@@ -111,7 +111,7 @@ func (s *Sim) Step(w *game.World, t *game.Tick) {
 	here := w.Player.Location
 
 	// Funding: clean cash given today buys goodwill where it was given.
-	for _, f := range w.Funded {
+	for _, f := range w.Today.Funded {
 		c := w.Cities[f.City]
 		if c == nil {
 			continue
@@ -190,7 +190,7 @@ func (s *Sim) Step(w *game.World, t *game.Tick) {
 			chief.Observed = true
 		}
 		for _, e := range t.Events() {
-			if ev, ok := e.(events.Enforcement); ok && ev.Level != "arrest" {
+			if ev, ok := e.(events.Enforcement); ok && ev.Level != content.Arrest {
 				chief.Observed = true
 			}
 		}

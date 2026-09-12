@@ -17,7 +17,7 @@ import (
 // when it fails".
 func snapshot(w *World) string {
 	var b strings.Builder
-	fmt.Fprintf(&b, "%+v %v %v %v", w.Player, w.Upgrades, w.UpgradesToday, w.FallsTaken)
+	fmt.Fprintf(&b, "%+v %v %v %v", w.Player, w.Upgrades, w.Today.UpgradesToday, w.FallsTaken)
 	for id, m := range w.Home().Market {
 		fmt.Fprintf(&b, " %s=%.4f", id, m.SupplierPrice)
 	}
@@ -82,8 +82,8 @@ func TestBuyUpgradeTable(t *testing.T) {
 			if err != nil || got.ID != u.ID {
 				t.Fatalf("buy: %v %+v", err, got)
 			}
-			if *pool() != 0 || !w.Owns(u.ID) || len(w.UpgradesToday) != 1 || w.UpgradesToday[0] != u.ID {
-				t.Fatalf("after buy: cash %d/%d owns %v today %v", w.Player.DirtyCash, w.Player.CleanCash, w.Owns(u.ID), w.UpgradesToday)
+			if *pool() != 0 || !w.Owns(u.ID) || len(w.Today.UpgradesToday) != 1 || w.Today.UpgradesToday[0] != u.ID {
+				t.Fatalf("after buy: cash %d/%d owns %v today %v", w.Player.DirtyCash, w.Player.CleanCash, w.Owns(u.ID), w.Today.UpgradesToday)
 			}
 			if w.Player.CarryLimit != carry+u.Effects.CarryBonus {
 				t.Fatalf("carry %d -> %d, node adds %d", carry, w.Player.CarryLimit, u.Effects.CarryBonus)

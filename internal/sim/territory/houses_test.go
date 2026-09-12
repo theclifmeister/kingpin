@@ -64,7 +64,7 @@ func TestRentAndTheLandlord(t *testing.T) {
 	if kinds(evs)["HouseBought"] != 1 || kinds(evs)["RentPaid"] != 0 || w.Player.CleanCash != 25 {
 		t.Fatalf("the day of the lease: %v clean %d", kinds(evs), w.Player.CleanCash)
 	}
-	w.HousesBought = nil
+	w.Today.HousesBought = nil
 	for day := 1; day <= 2; day++ {
 		evs = step(w, s)
 		if kinds(evs)["RentPaid"] != 1 || w.Player.CleanCash != 25-10*day || w.House("h").Unpaid != 0 {
@@ -108,7 +108,7 @@ func TestHouseRobberyTakesTheHouseAndTellsTheStreet(t *testing.T) {
 	if _, err := w.BuyHouse(game.HouseOffer{ID: "h", Name: "H", City: w.Home().ID, Corner: "docks", Capacity: 100, Price: 1, Rent: 1}); err != nil {
 		t.Fatal(err)
 	}
-	w.HousesBought = nil
+	w.Today.HousesBought = nil
 	if k := kinds(step(w, s)); k["HouseRobbed"] != 0 {
 		t.Fatalf("an empty house was robbed: %v", k)
 	}

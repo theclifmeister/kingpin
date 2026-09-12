@@ -215,7 +215,7 @@ func (w *World) Deliver(id, units int) error {
 	if w.Player.Location != c.City {
 		return ErrElsewhere
 	}
-	if w.LieLow {
+	if w.Today.LieLow {
 		return ErrLyingLow
 	}
 	if units <= 0 {
@@ -227,15 +227,15 @@ func (w *World) Deliver(id, units int) error {
 	if have := w.Stock(c.City, c.Product); units > have {
 		return fmt.Errorf("only %d %s in %s", have, w.ProductName(c.Product), w.CityName(c.City))
 	}
-	if w.Deliveries == nil {
-		w.Deliveries = map[int]int{}
+	if w.Today.Deliveries == nil {
+		w.Today.Deliveries = map[int]int{}
 	}
-	w.Deliveries[id] = units
+	w.Today.Deliveries[id] = units
 	return nil
 }
 
 // QueuedDelivery is what is queued against a contract tonight.
-func (w *World) QueuedDelivery(id int) int { return w.Deliveries[id] }
+func (w *World) QueuedDelivery(id int) int { return w.Today.Deliveries[id] }
 
 // Deliverable is how many units you could hand over against a contract
 // right now: what it still wants, capped by the stash in its city.

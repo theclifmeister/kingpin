@@ -317,7 +317,7 @@ func TestActions(t *testing.T) {
 		t.Fatalf("order: %+v %v", o, ok)
 	}
 	w.SetLieLow(true)
-	if len(w.Orders) != 0 {
+	if len(w.Today.Orders) != 0 {
 		t.Fatal("lying low should cancel orders")
 	}
 }
@@ -382,8 +382,8 @@ func TestInvestigateAndPayOff(t *testing.T) {
 	if err := w.Investigate(1000); err == nil {
 		t.Fatal("investigated with too little cash")
 	}
-	if err := w.Investigate(400); err != nil || w.Investigation == nil || w.Investigation.Cost != 400 {
-		t.Fatalf("investigate: %v %+v", err, w.Investigation)
+	if err := w.Investigate(400); err != nil || w.Today.Investigation == nil || w.Today.Investigation.Cost != 400 {
+		t.Fatalf("investigate: %v %+v", err, w.Today.Investigation)
 	}
 	if w.Player.DirtyCash != 0 || w.Player.CleanCash != 200 {
 		t.Fatalf("investigation took the wrong cash: dirty %d clean %d", w.Player.DirtyCash, w.Player.CleanCash)
@@ -405,8 +405,8 @@ func TestInvestigateAndPayOff(t *testing.T) {
 		t.Fatalf("pay off not recorded: %+v", w.Crew.PaidOffToday)
 	}
 	NewClock(nil, &counter{}).EndDay(w)
-	if w.Investigation != nil || len(w.Crew.PaidOffToday) != 0 {
-		t.Fatalf("scratch not cleared: %+v %+v", w.Investigation, w.Crew.PaidOffToday)
+	if w.Today.Investigation != nil || len(w.Crew.PaidOffToday) != 0 {
+		t.Fatalf("scratch not cleared: %+v %+v", w.Today.Investigation, w.Crew.PaidOffToday)
 	}
 }
 
@@ -527,21 +527,21 @@ func TestSendEnforcersAndBorders(t *testing.T) {
 	if err := w.SendEnforcers("nowhere", events.ForcePush); err != ErrNoCorner {
 		t.Fatalf("sent enforcers nowhere: %v", err)
 	}
-	if err := w.SendEnforcers("docks", events.ForceWarn); err != nil || w.Strike == nil || w.Strike.Force != events.ForceWarn {
-		t.Fatalf("send: %v %+v", err, w.Strike)
+	if err := w.SendEnforcers("docks", events.ForceWarn); err != nil || w.Today.Strike == nil || w.Today.Strike.Force != events.ForceWarn {
+		t.Fatalf("send: %v %+v", err, w.Today.Strike)
 	}
-	if err := w.SendEnforcers("docks", events.ForceHit); err != nil || w.Strike.Force != events.ForceHit {
-		t.Fatalf("sending again should replace: %v %+v", err, w.Strike)
+	if err := w.SendEnforcers("docks", events.ForceHit); err != nil || w.Today.Strike.Force != events.ForceHit {
+		t.Fatalf("sending again should replace: %v %+v", err, w.Today.Strike)
 	}
 	w.CallOff()
-	if w.Strike != nil {
+	if w.Today.Strike != nil {
 		t.Fatal("call off")
 	}
 	if err := w.SendEnforcers("docks", events.ForcePush); err != nil {
 		t.Fatal(err)
 	}
 	NewClock(nil, &counter{}).EndDay(w)
-	if w.Strike != nil {
+	if w.Today.Strike != nil {
 		t.Fatal("the clock did not clear the strike")
 	}
 	home.Squeeze = 0.25
@@ -692,8 +692,8 @@ func TestFund(t *testing.T) {
 	if err := w.Fund("test", 100); err != nil {
 		t.Fatal(err)
 	}
-	if w.Player.CleanCash != 100 || w.Player.DirtyCash != 1_000_000 || w.Stats.Funded != 400 || w.FundedToday("test") != 400 || len(w.Funded) != 2 {
-		t.Fatalf("after funding: clean %d dirty %d stats %d today %d %+v", w.Player.CleanCash, w.Player.DirtyCash, w.Stats.Funded, w.FundedToday("test"), w.Funded)
+	if w.Player.CleanCash != 100 || w.Player.DirtyCash != 1_000_000 || w.Stats.Funded != 400 || w.FundedToday("test") != 400 || len(w.Today.Funded) != 2 {
+		t.Fatalf("after funding: clean %d dirty %d stats %d today %d %+v", w.Player.CleanCash, w.Player.DirtyCash, w.Stats.Funded, w.FundedToday("test"), w.Today.Funded)
 	}
 	w.Over = &Ending{Day: 1, Cause: "test"}
 	if err := w.Fund("test", 1); err != ErrGameOver {

@@ -435,7 +435,7 @@ func (m *Model) contractRows(city, id string) []string {
 		rows = []string{row("contract", theme.CrewText.Render(fmt.Sprintf("keep at %d (lt)", c.Units)))}
 	}
 	bought, cost := 0, 0
-	for _, b := range w.Buys {
+	for _, b := range w.Today.Buys {
 		if b.Contract && b.City == city && b.Product == id {
 			bought += b.Qty
 			cost += b.Cost

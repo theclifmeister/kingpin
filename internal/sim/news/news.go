@@ -406,7 +406,7 @@ func (s *Sim) Step(w *game.World, t *game.Tick) {
 			} else if ev.Stash {
 				rep.Heat = append(rep.Heat, "  they went straight to the stash. Somebody told them where.")
 			}
-			if ev.Level == "sting" || ev.Level == "raid" {
+			if ev.Level == content.Sting || ev.Level == content.Raid {
 				if ev.Evidence > 0 {
 					rep.Heat = append(rep.Heat, fmt.Sprintf("  the DA's file on you grows (%d)", w.Heat.Evidence))
 				} else {
@@ -838,7 +838,7 @@ func (s *Sim) Step(w *game.World, t *game.Tick) {
 	// player woke up with: undo today's buys, fees, sales, wages, skims,
 	// upkeep and seizures from the current total (the wash itself moves
 	// money between pools and changes nothing).
-	for _, b := range w.Buys {
+	for _, b := range w.Today.Buys {
 		if b.Contract && b.Day != t.Day {
 			continue // yesterday's contract receipts, kept for the cart, were paid for yesterday
 		}
@@ -1126,9 +1126,9 @@ func houseRobbedLine(w *game.World, ev events.HouseRobbed) string {
 
 func enforcementLine(w *game.World, ev events.Enforcement) string {
 	switch ev.Level {
-	case "patrol":
+	case content.Patrol:
 		return "PATROLS: street sales capped for a few days"
-	case "arrest":
+	case content.Arrest:
 		return "ARRESTED."
 	}
 	parts := []string{}

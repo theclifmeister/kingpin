@@ -76,7 +76,7 @@ func (m *Model) askInvestigate() {
 		m.refuse("Nothing to ask: nobody on the payroll.")
 		return
 	}
-	if m.w.Investigation != nil {
+	if m.w.Today.Investigation != nil {
 		m.refuse("Can't ask twice: somebody is already asking around tonight.")
 		return
 	}
@@ -466,7 +466,7 @@ func (m *Model) askAroundRow() string {
 	if len(m.w.Crew.Members) == 0 {
 		return keyRow("i", theme.Subtle.Render("ask around: nobody to ask"))
 	}
-	if m.w.Investigation != nil {
+	if m.w.Today.Investigation != nil {
 		return keyRow("i", theme.Subtle.Render("ask around: already asking"))
 	}
 	return keyRow("i", fmt.Sprintf("ask around %s, names ~%.0f%%", money(m.set.Crew.InvestigateCost()), m.set.Crew.InvestigateOdds(m.w)*100))
@@ -566,7 +566,7 @@ func (m *Model) crewSection() section {
 	}
 	if c := w.Crew.Member(w.Crew.Exposed); c != nil {
 		lines = append(lines, row("snitch", theme.Bad.Render(c.Name+", fire them")))
-	} else if w.Investigation != nil {
+	} else if w.Today.Investigation != nil {
 		lines = append(lines, row("tonight", "questions get asked"))
 	}
 	if sl := m.set.Heat.Sloppiness(w, here.ID); sl > 0 {

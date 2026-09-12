@@ -30,7 +30,7 @@ func rented(t *testing.T, cfg *content.Config, seed uint64, units int, capacitie
 			t.Fatal(err)
 		}
 	}
-	w.HousesBought = nil
+	w.Today.HousesBought = nil
 	w.AddStock(w.Home().ID, cfg.Market.Products[0].ID, units)
 	return w
 }
@@ -43,7 +43,7 @@ func raidTonight(w *game.World) { w.Home().Heat = 100 }
 // enforcement is the sting or raid the run fired, or nil.
 func enforcement(res Result) *events.Enforcement {
 	for _, e := range res.Events {
-		if ev, ok := e.(events.Enforcement); ok && (ev.Level == "raid" || ev.Level == "sting") {
+		if ev, ok := e.(events.Enforcement); ok && (ev.Level == content.Raid || ev.Level == content.Sting) {
 			return &ev
 		}
 	}
@@ -78,7 +78,7 @@ func TestRaidHitsOnePlaceSoSpreadingLosesLess(t *testing.T) {
 				t.Fatal(err)
 			}
 			ev := enforcement(res)
-			if ev == nil || ev.Level != "raid" || ev.House == "" {
+			if ev == nil || ev.Level != content.Raid || ev.House == "" {
 				t.Fatalf("seed %d spread %v: no raid on a house: %+v", seed, spread, ev)
 			}
 			lost := ev.StockLost[product]
@@ -142,7 +142,7 @@ func TestInformantRaidTakesTheWholeKnownHouse(t *testing.T) {
 			t.Fatal(err)
 		}
 		ev := enforcement(res)
-		if ev == nil || ev.Level != "raid" || !ev.Stash || ev.House != full.ID || ev.StockLost[product] != before[full.ID] {
+		if ev == nil || ev.Level != content.Raid || !ev.Stash || ev.House != full.ID || ev.StockLost[product] != before[full.ID] {
 			t.Fatalf("seed %d: the informant's raid: %+v, the fullest house %s held %d", seed, ev, full.ID, before[full.ID])
 		}
 		told := false

@@ -301,6 +301,38 @@ type HeatTuning struct {
 	AuditEvidence      int     `toml:"audit_evidence"` // evidence an audit adds when the front was run greedy
 }
 
+// The response ladder's levels (#144): the names heat.toml's
+// [[response]] tables carry, the heat sim dispatches on, an
+// Enforcement event reports and every reader compares against. They
+// are constants so that no copy of the ladder is a string literal;
+// Levels is the ladder in order, for a check that the file has every
+// rung and a walk that wants them ranked. A patrol caps the street; a
+// sting and a raid take stock and cash and, on a day you dealt, file a
+// page; an arrest ends the run unless a fall guy takes it.
+const (
+	Patrol = "patrol"
+	Sting  = "sting"
+	Raid   = "raid"
+	Arrest = "arrest"
+)
+
+// Levels is the response ladder from the lightest touch to the end of
+// the run, in the order the thresholds climb.
+var Levels = []string{Patrol, Sting, Raid, Arrest}
+
+// Rank is a level's place on the ladder, 1 for a patrol to 4 for an
+// arrest; 0 for a name that is not a level.
+func Rank(level string) int {
+	for i, l := range Levels {
+		if l == level {
+			return i + 1
+		}
+	}
+	return 0
+}
+
+// ResponseConfig is one rung of the ladder: the heat a city reaches for
+// its police to answer at this level, and what the answer does.
 type ResponseConfig struct {
 	Level     string  `toml:"level"`
 	Threshold float64 `toml:"threshold"`
@@ -310,6 +342,31 @@ type ResponseConfig struct {
 	CashLoss  float64 `toml:"cash_loss"`
 	HeatDrop  float64 `toml:"heat_drop"`
 	Evidence  int     `toml:"evidence"`
+}
+
+// validate checks the ladder reads as one: every rung named once, no
+// rung the code does not know, and the thresholds climbing in the
+// ladder's order.
+func (h HeatConfig) validate() error {
+	at := map[string]float64{}
+	for _, r := range h.Responses {
+		if Rank(r.Level) == 0 {
+			return fmt.Errorf("response %q is not a level %v", r.Level, Levels)
+		}
+		if _, dup := at[r.Level]; dup {
+			return fmt.Errorf("response %q listed twice", r.Level)
+		}
+		at[r.Level] = r.Threshold
+	}
+	for i, l := range Levels {
+		if _, ok := at[l]; !ok {
+			return fmt.Errorf("no [[response]] for %s", l)
+		}
+		if i > 0 && at[l] <= at[Levels[i-1]] {
+			return fmt.Errorf("%s fires at %.0f, not above %s at %.0f", l, at[l], Levels[i-1], at[Levels[i-1]])
+		}
+	}
+	return nil
 }
 
 // CrewConfig mirrors crew.toml.
@@ -1231,6 +1288,9 @@ func Load() (*Config, error) {
 	}
 	if err := c.Law.validate(); err != nil {
 		return nil, fmt.Errorf("law.toml: %w", err)
+	}
+	if err := c.Heat.validate(); err != nil {
+		return nil, fmt.Errorf("heat.toml: %w", err)
 	}
 	if err := c.Houses.validate(c.City); err != nil {
 		return nil, fmt.Errorf("houses.toml: %w", err)

@@ -298,7 +298,7 @@ func TooHot(cfg *content.Config, line float64) func(w *game.World) bool {
 	hs := heat.New(cfg)
 	var sting *content.ResponseConfig
 	for i := range cfg.Heat.Responses {
-		if cfg.Heat.Responses[i].Level == "sting" {
+		if cfg.Heat.Responses[i].Level == content.Sting {
 			sting = &cfg.Heat.Responses[i]
 		}
 	}
@@ -417,7 +417,7 @@ func Own(cfg *content.Config, w *game.World, ids ...string) {
 			panic("harness.Own: " + err.Error())
 		}
 	}
-	w.UpgradesToday = nil // a grant is not a purchase to report
+	w.Today.UpgradesToday = nil // a grant is not a purchase to report
 }
 
 // Crewed plays like Managed but builds a crew: it pays fair, signs the most
@@ -558,7 +558,7 @@ func Vigilant(cfg *content.Config, lieLowAt float64) Policy {
 			_, _ = w.Fire(m.ID)
 		}
 		crewed(w)
-		if w.Heat.Leaks >= 2 && w.Investigation == nil && len(w.Crew.FiredToday) == 0 {
+		if w.Heat.Leaks >= 2 && w.Today.Investigation == nil && len(w.Crew.FiredToday) == 0 {
 			_ = w.Investigate(inf.InvestigateCost)
 		}
 	}
@@ -630,7 +630,7 @@ func Pricewar(cfg *content.Config, lieLowAt float64, corners int, dial events.Di
 	territory := Territory(cfg, lieLowAt, corners)
 	return func(w *game.World) {
 		territory(w)
-		if w.LieLow {
+		if w.Today.LieLow {
 			return
 		}
 		if c := pickCorner(w, func(c game.Corner) bool { return w.CanUndercut(c.ID) == nil }, size); c != nil {
@@ -705,7 +705,7 @@ func Diplomat(cfg *content.Config, lieLowAt float64, corners int) Policy {
 				}
 			}
 		}
-		if w.AtPeace() || w.Proposal != nil || w.Rival.LastFlip == 0 || w.Day-w.Rival.LastFlip > DiplomatDays {
+		if w.AtPeace() || w.Today.Proposal != nil || w.Rival.LastFlip == 0 || w.Day-w.Rival.LastFlip > DiplomatDays {
 			return
 		}
 		if humbled {
@@ -1172,7 +1172,7 @@ func war(w *game.World, rv *rivals.Sim, dip content.DiplomacyTuning, hot func(*g
 			return
 		}
 	}
-	if w.AtPeace() || w.Proposal != nil || w.Rival.LastFlip == 0 || w.Day-w.Rival.LastFlip > DiplomatDays {
+	if w.AtPeace() || w.Today.Proposal != nil || w.Rival.LastFlip == 0 || w.Day-w.Rival.LastFlip > DiplomatDays {
 		return
 	}
 	_ = w.Propose(game.DealTruce, game.Terms{Days: dip.TruceDays[1]})

@@ -174,7 +174,7 @@ func (s *Sim) Step(w *game.World, t *game.Tick) {
 // unpaid rent_days running is lost with everything in it.
 func (s *Sim) houseStep(w *game.World, t *game.Tick, fx game.Effects) {
 	tun := s.cfg.Territory
-	for _, id := range w.HousesBought {
+	for _, id := range w.Today.HousesBought {
 		if h := w.House(id); h != nil {
 			t.Emit(events.HouseBought{Day: t.Day, House: h.ID, Name: h.Name, City: h.City, Price: h.Price, Rent: h.Rent})
 		}

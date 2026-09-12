@@ -34,19 +34,19 @@ func (w *World) Scout(cost int) error {
 	if w.Rival.Arrived == 0 {
 		return ErrNoRival
 	}
-	if w.Scouting != nil {
+	if w.Today.Scouting != nil {
 		return ErrScouting
 	}
 	if !w.spend(cost) {
 		return fmt.Errorf("need $%d, only have $%d", cost, w.Cash())
 	}
-	w.Scouting = &ScoutOrder{Cost: cost}
+	w.Today.Scouting = &ScoutOrder{Cost: cost}
 	return nil
 }
 
 // CancelScout calls tonight's look off; the money stays spent, as an
 // investigation's does.
-func (w *World) CancelScout() { w.Scouting = nil }
+func (w *World) CancelScout() { w.Today.Scouting = nil }
 
 // Tip queues a tip to the police on a rival corner tonight (#70): free
 // in cash. The rivals sim raises the rival's heat, costs its trust, holds
@@ -66,15 +66,15 @@ func (w *World) Tip(corner string) error {
 	if c.Owner != OwnerRival {
 		return ErrNotRivals
 	}
-	if w.Tipoff != nil {
+	if w.Today.Tipoff != nil {
 		return ErrTipped
 	}
-	w.Tipoff = &TipOrder{Corner: corner}
+	w.Today.Tipoff = &TipOrder{Corner: corner}
 	return nil
 }
 
 // CancelTip calls tonight's tip off.
-func (w *World) CancelTip() { w.Tipoff = nil }
+func (w *World) CancelTip() { w.Today.Tipoff = nil }
 
 // BuyOff pays cost to send units heads of the rival's muscle home
 // tonight (#70), dirty cash only (the money changes hands on the
@@ -92,21 +92,21 @@ func (w *World) BuyOff(units, cost int) error {
 	if units <= 0 {
 		return ErrBadUnits
 	}
-	if w.Poach != nil {
+	if w.Today.Poach != nil {
 		return ErrPoaching
 	}
 	if cost > w.Player.DirtyCash {
 		return fmt.Errorf("need $%d dirty, only have $%d", cost, w.Player.DirtyCash)
 	}
 	w.Player.DirtyCash -= cost
-	w.Poach = &PoachOrder{Units: units, Cost: cost}
+	w.Today.Poach = &PoachOrder{Units: units, Cost: cost}
 	return nil
 }
 
 // CancelBuyOff calls tonight's order off and returns the money.
 func (w *World) CancelBuyOff() {
-	if w.Poach != nil {
-		w.Player.DirtyCash += w.Poach.Cost
+	if w.Today.Poach != nil {
+		w.Player.DirtyCash += w.Today.Poach.Cost
 	}
-	w.Poach = nil
+	w.Today.Poach = nil
 }

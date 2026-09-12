@@ -91,8 +91,8 @@ func TestMoveIsFreeInstantAndCounted(t *testing.T) {
 	if n, err := w.Move("test", "h1", Street, "a", 5); err != nil || n != 5 {
 		t.Fatalf("back to the street: %d %v", n, err)
 	}
-	if len(w.Moved) != 2 || w.Moved[0].Units != 20 || w.Moved[1].Units != 5 || w.Moved[0].To != "h1" || w.Moved[1].From != "h1" {
-		t.Fatalf("moved: %+v", w.Moved)
+	if len(w.Today.Moved) != 2 || w.Today.Moved[0].Units != 20 || w.Today.Moved[1].Units != 5 || w.Today.Moved[0].To != "h1" || w.Today.Moved[1].From != "h1" {
+		t.Fatalf("moved: %+v", w.Today.Moved)
 	}
 	if w.Player.DirtyCash != 9_000 || w.Stock("test", "a") != 50 {
 		t.Fatalf("a move cost something or lost something: cash %d stock %d", w.Player.DirtyCash, w.Stock("test", "a"))
@@ -102,7 +102,7 @@ func TestMoveIsFreeInstantAndCounted(t *testing.T) {
 	}
 	c := NewClock(nil, &counter{})
 	c.EndDay(w)
-	if w.Moved != nil {
+	if w.Today.Moved != nil {
 		t.Fatal("the clock kept the moves")
 	}
 }
@@ -120,8 +120,8 @@ func TestBuyDropAndGuard(t *testing.T) {
 	if _, err := w.BuyHouse(locked); !errors.Is(err, ErrHouseLocked) {
 		t.Fatalf("a locked house: %v", err)
 	}
-	if _, err := w.BuyHouse(testHouse("h1", 30)); err != nil || w.Player.DirtyCash != 500 || len(w.Houses) != 1 || w.HousesBought[0] != "h1" {
-		t.Fatalf("buy: %v cash %d houses %d bought %v", err, w.Player.DirtyCash, len(w.Houses), w.HousesBought)
+	if _, err := w.BuyHouse(testHouse("h1", 30)); err != nil || w.Player.DirtyCash != 500 || len(w.Houses) != 1 || w.Today.HousesBought[0] != "h1" {
+		t.Fatalf("buy: %v cash %d houses %d bought %v", err, w.Player.DirtyCash, len(w.Houses), w.Today.HousesBought)
 	}
 	if _, err := w.BuyHouse(testHouse("h1", 30)); !errors.Is(err, ErrHouseOwned) {
 		t.Fatalf("owned twice: %v", err)

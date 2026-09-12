@@ -33,7 +33,7 @@ func TestReturnIsTheInverseOfBuy(t *testing.T) {
 	if after.cash != before.cash-100 || after.stock != 10 || after.bought != 10 || after.price <= before.price {
 		t.Fatalf("the buy: %+v -> %+v", before, after)
 	}
-	if got := w.Buys[0].Prior; got != before.price {
+	if got := w.Today.Buys[0].Prior; got != before.price {
 		t.Fatalf("the receipt records a prior price of %v, not %v", got, before.price)
 	}
 	if w.Bought("test", "a") != 10 {
@@ -49,8 +49,8 @@ func TestReturnIsTheInverseOfBuy(t *testing.T) {
 	if half.cash != before.cash-50 || half.stock != 5 || half.bought != 5 || math.Abs(half.price-wantPrice) > 1e-9 {
 		t.Fatalf("after half back: %+v, want price %v", half, wantPrice)
 	}
-	if len(w.Buys) != 1 || w.Buys[0].Qty != 5 || w.Buys[0].Cost != 50 {
-		t.Fatalf("the receipt: %+v", w.Buys)
+	if len(w.Today.Buys) != 1 || w.Today.Buys[0].Qty != 5 || w.Today.Buys[0].Cost != 50 {
+		t.Fatalf("the receipt: %+v", w.Today.Buys)
 	}
 	// The rest back: exactly as before, and no receipt.
 	refund, err = w.Return("test", "a", 5)
@@ -60,8 +60,8 @@ func TestReturnIsTheInverseOfBuy(t *testing.T) {
 	if got := tally(w, "test", "a"); got != before {
 		t.Fatalf("after a full return: %+v, want %+v", got, before)
 	}
-	if w.Buys != nil || w.Bought("test", "a") != 0 {
-		t.Fatalf("receipts left: %+v", w.Buys)
+	if w.Today.Buys != nil || w.Bought("test", "a") != 0 {
+		t.Fatalf("receipts left: %+v", w.Today.Buys)
 	}
 
 	// Two buys: the second is undone first, then the first, and the
@@ -76,13 +76,13 @@ func TestReturnIsTheInverseOfBuy(t *testing.T) {
 	if _, err := w.Return("test", "a", 6); err != nil {
 		t.Fatal(err)
 	}
-	if got := tally(w, "test", "a"); got != mid || len(w.Buys) != 1 || w.Buys[0].Qty != 4 {
-		t.Fatalf("after undoing the second buy: %+v, want %+v; receipts %+v", got, mid, w.Buys)
+	if got := tally(w, "test", "a"); got != mid || len(w.Today.Buys) != 1 || w.Today.Buys[0].Qty != 4 {
+		t.Fatalf("after undoing the second buy: %+v, want %+v; receipts %+v", got, mid, w.Today.Buys)
 	}
 	if _, err := w.Return("test", "a", 4); err != nil {
 		t.Fatal(err)
 	}
-	if got := tally(w, "test", "a"); got != before || w.Buys != nil {
+	if got := tally(w, "test", "a"); got != before || w.Today.Buys != nil {
 		t.Fatalf("after undoing both: %+v, want %+v", got, before)
 	}
 }
@@ -117,8 +117,8 @@ func TestReturnRefusals(t *testing.T) {
 	w.SetStock("test", "a", 7)
 	// The day ends: the receipts are gone with it.
 	NewClock(nil, &counter{}).EndDay(w)
-	if w.Buys != nil {
-		t.Fatalf("receipts survived the night: %+v", w.Buys)
+	if w.Today.Buys != nil {
+		t.Fatalf("receipts survived the night: %+v", w.Today.Buys)
 	}
 	if _, err := w.Return("test", "a", 1); err != ErrNothingBought {
 		t.Fatalf("the day after: %v", err)
