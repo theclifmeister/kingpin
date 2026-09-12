@@ -116,6 +116,7 @@ func (s *Sim) Seed(w *game.World, rng *rand.Rand) {
 	for i := range w.Suppliers {
 		w.Suppliers[i].Opened = !w.Suppliers[i].Locked(w)
 	}
+	w.Markup = s.Markup()
 }
 
 // Migrate is the 10 -> 11 step: a save from before the connects gets

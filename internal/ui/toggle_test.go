@@ -115,8 +115,11 @@ func TestDialogToggleRefusalStays(t *testing.T) {
 
 // A turn that changes the city says so (#168): on the market screen
 // turned to the other city a sale is there and a buy is where you
-// stand, so the first body line reads `Selling in Bayport.` and then
-// `Buying in Eastside.`; at home on the dashboard nothing is said.
+// stand, so the sell dialog turned to its buy side reads `Buying in
+// Eastside.` and turned back `Selling in Bayport.`; at home on the
+// dashboard nothing is said. (A fresh b on the market turned to a city
+// nobody runs for you is the pointer, #174, TestBuyDialogFollowsTheLieutenant;
+// the turn inside the dialog still goes where a buy can be.)
 func TestDialogToggleNamesTheCity(t *testing.T) {
 	m := richModelSeeded(t, 100, 30, 11)
 	w := m.w
@@ -127,24 +130,24 @@ func TestDialogToggleNamesTheCity(t *testing.T) {
 	if m.shown().ID != hub {
 		t.Fatalf("the market is turned to %s", m.shown().ID)
 	}
-	m.Update(key("b"))
-	if m.mode != modeBuy || m.dlg.turned {
-		t.Fatalf("b: mode %v turned %v: %q", m.mode, m.dlg.turned, m.status)
+	m.Update(key("s"))
+	if m.mode != modeSell || m.dlg.turned || m.dialogCity() != hub {
+		t.Fatalf("s: mode %v turned %v city %s: %q", m.mode, m.dlg.turned, m.dialogCity(), m.status)
 	}
 	if v := stripANSI(m.View()); strings.Contains(v, "Buying in") || strings.Contains(v, "Selling in") {
 		t.Fatalf("a dialog opened fresh names its city:\n%s", v)
 	}
-	m.Update(key("s"))
-	if m.mode != modeSell || m.dialogCity() != hub {
-		t.Fatalf("s: mode %v city %s err %q", m.mode, m.dialogCity(), m.dlg.err)
+	m.Update(key("b"))
+	if m.mode != modeBuy || m.dialogCity() != w.Player.Location {
+		t.Fatalf("b: mode %v city %s err %q", m.mode, m.dialogCity(), m.dlg.err)
 	}
 	rows := strings.Split(stripANSI(m.View()), "\n")
-	if want := "Selling in " + w.CityName(hub) + "."; !strings.Contains(rows[5], want) {
+	if want := "Buying in " + w.CityName(w.Player.Location) + "."; !strings.Contains(rows[5], want) {
 		t.Fatalf("the first body line is not %q:\n%s", want, strings.Join(rows, "\n"))
 	}
-	m.Update(key("b"))
+	m.Update(key("s"))
 	rows = strings.Split(stripANSI(m.View()), "\n")
-	if want := "Buying in " + w.CityName(w.Player.Location) + "."; m.mode != modeBuy || !strings.Contains(rows[5], want) {
+	if want := "Selling in " + w.CityName(hub) + "."; m.mode != modeSell || !strings.Contains(rows[5], want) {
 		t.Fatalf("the first body line is not %q:\n%s", want, strings.Join(rows, "\n"))
 	}
 	m.Update(key("esc"))

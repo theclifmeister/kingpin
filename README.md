@@ -293,7 +293,7 @@ The full table is below; `?` brings it up in the game.
 | `F` | fast-forward | run days until something needs you | everywhere |
 | `↑↓` | pick | move the cursor (j and k move it too) | everywhere |
 | `[ ]` | city | turn the market or the map to the other city | everywhere |
-| `b` | buy | buy from the supplier where you stand | everywhere |
+| `b` | buy | buy where you stand or a lieutenant runs | everywhere |
 | `s` | sell | queue a street sale in the city shown | everywhere |
 | `x` | cancel order | cancel order, else standing, else contract | everywhere |
 | `l` | lie low | lie low today: no sales, heat fades faster | everywhere |

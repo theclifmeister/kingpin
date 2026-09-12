@@ -89,13 +89,52 @@ func stepRepeat(key string, on *repeat, n int) bool {
 }
 
 // dialogCity is the city a buy or sell dialog is about: a buy is where
-// you are; a sale is in the city the market or map is turned to, and
-// where you are from any other screen.
+// you are, or the city a lieutenant runs for you when the market is
+// turned to it (buyCity, #174); a sale is in the city the market or
+// map is turned to, and where you are from any other screen.
 func (m *Model) dialogCity() string {
 	if m.mode == modeBuy {
-		return m.w.Player.Location
+		return m.buyCity()
 	}
 	return m.actionCity()
+}
+
+// buyCity is the city a buy is in: where you stand, or, on the market
+// turned to a city a lieutenant runs for you (#174), that city, the
+// buy going through them at the contract markup. The dashboard's b is
+// always where you stand.
+func (m *Model) buyCity() string {
+	if m.screen == screenMarket {
+		if city := m.shown().ID; m.w.CanBuyIn(city) {
+			return city
+		}
+	}
+	return m.w.Player.Location
+}
+
+// buyThrough is the lieutenant a buy in the dialog's city goes through
+// (#174): the one running it, where it is not where you stand; nil
+// where you stand.
+func (m *Model) buyThrough() *game.CrewMember {
+	if city := m.buyCity(); city != m.w.Player.Location {
+		return m.w.Crew.Lieutenant(city)
+	}
+	return nil
+}
+
+// buyPointer is b refused on the market turned to a city you are not
+// in and nobody runs for you (#174): where a buy there would come
+// from, as the status bar says it; blank where the buy can open.
+func (m *Model) buyPointer() string {
+	if m.screen != screenMarket {
+		return ""
+	}
+	city := m.shown().ID
+	if m.w.CanBuyIn(city) {
+		return ""
+	}
+	return fmt.Sprintf("Can't buy in %s: you are in %s and nobody runs it for you. Go there %s, or give a lieutenant the city %s.",
+		m.w.CityName(city), m.w.CityName(m.w.Player.Location), screenPointer(screenMap), screenPointer(screenCrew))
 }
 
 // actionCity is the city a sale or a cancelled order is about: the one
@@ -110,6 +149,12 @@ func (m *Model) actionCity() string {
 func (m *Model) openDialog(mode mode) {
 	if m.w.Over != nil {
 		return
+	}
+	if mode == modeBuy {
+		if why := m.buyPointer(); why != "" {
+			m.refuse(why)
+			return
+		}
 	}
 	if why := m.cannotOpen(mode); why != "" {
 		m.refuse(why)
@@ -172,7 +217,7 @@ func (m *Model) openConnects() (open []int, land int) {
 		return nil, 0
 	}
 	land = open[0]
-	if best := m.w.BestSupplier(m.w.Player.Location, m.w.Products[m.cursor]); best != nil {
+	if best := m.w.BestSupplier(m.buyCity(), m.w.Products[m.cursor]); best != nil {
 		for _, i := range open {
 			if m.connectsHere()[i].ID == best.ID {
 				land = i
@@ -441,10 +486,11 @@ func (m *Model) productErr() string {
 	return ""
 }
 
-// connectsHere is every connect in the city you stand in, in the order
+// connectsHere is every connect in the buy's city (buyCity: where you
+// stand, or the city a lieutenant runs for you, #174), in the order
 // seeded: the buy dialog's connect step and what the picked index
 // counts into.
-func (m *Model) connectsHere() []*game.Supplier { return m.w.SuppliersIn(m.w.Player.Location) }
+func (m *Model) connectsHere() []*game.Supplier { return m.w.SuppliersIn(m.buyCity()) }
 
 // dealing reports whether a connect is open for business with you
 // today: unlocked, taking calls, with something left and a product to
@@ -475,7 +521,7 @@ func (m *Model) sellsYou(sup *game.Supplier) bool {
 // locked.
 func (m *Model) whyNobodySells() string {
 	w := m.w
-	city := w.Player.Location
+	city := m.buyCity()
 	cs := m.connectsHere()
 	if len(cs) == 0 {
 		return "nobody sells in " + w.CityName(city)
@@ -501,7 +547,7 @@ func (m *Model) buySupplier(id string) *game.Supplier {
 	if cs := m.connectsHere(); m.mode == modeBuy && m.dlg.supplier >= 0 && m.dlg.supplier < len(cs) {
 		return cs[m.dlg.supplier]
 	}
-	return m.w.BestSupplier(m.w.Player.Location, id)
+	return m.w.BestSupplier(m.buyCity(), id)
 }
 
 // creditOffered reports whether the buy dialog's connect will run you
@@ -649,10 +695,11 @@ func (m *Model) maxBuyFrom(sup *game.Supplier, id string, credit bool) int {
 }
 
 // affordFrom is how many units of a product the cash, or the connect's
-// book, covers at their quote: the plain price first, then the
-// small-lot premium once the buy is under the lot.
+// book, covers at their quote (World.Quote: the markup on it where the
+// buy goes through a lieutenant, #174): the plain price first, then
+// the small-lot premium once the buy is under the lot.
 func (m *Model) affordFrom(sup *game.Supplier, id string, credit bool) int {
-	unit := sup.Price[id]
+	unit := sup.Price[id] * m.w.BuyMarkup(sup.City)
 	if unit <= 0 {
 		return 0
 	}
@@ -665,7 +712,7 @@ func (m *Model) affordFrom(sup *game.Supplier, id string, credit bool) int {
 	if n < sup.Lot && sup.SmallLot > 1 {
 		n = int(math.Floor(float64(cash) / (unit * sup.SmallLot)))
 	}
-	for n > 0 && sup.Quote(id, n, credit) > cash {
+	for n > 0 && m.w.Quote(sup, id, n, credit) > cash {
 		n--
 	}
 	return n
@@ -689,10 +736,14 @@ func (m *Model) confirmBuy() (tea.Model, tea.Cmd) {
 	if err != nil {
 		return m.quantityAgain(err)
 	}
+	from := sup.Name
+	if p.Lieutenant != "" {
+		from += " through " + p.Lieutenant
+	}
 	if p.Credit {
-		m.say(fmt.Sprintf("Bought %d %s from %s on credit: %s on the book, due day %d.", p.Qty, m.w.ProductName(id), sup.Name, money(p.Cost), sup.DebtDue))
+		m.say(fmt.Sprintf("Bought %d %s from %s on credit: %s on the book, due day %d.", p.Qty, m.w.ProductName(id), from, money(p.Cost), sup.DebtDue))
 	} else {
-		m.say(fmt.Sprintf("Bought %d %s from %s for %s.", p.Qty, m.w.ProductName(id), sup.Name, money(p.Cost)))
+		m.say(fmt.Sprintf("Bought %d %s from %s for %s.", p.Qty, m.w.ProductName(id), from, money(p.Cost)))
 	}
 	m.nextLine()
 	return m, nil
@@ -801,6 +852,9 @@ func (m *Model) viewDialog() string {
 		if sup != nil && !d.pick {
 			title += " · " + sup.Name
 		}
+		if lt := m.buyThrough(); lt != nil {
+			title += " · through " + lt.Name // the buy goes through the lieutenant who runs the city (#174)
+		}
 	}
 
 	// The dialog turned to this side from the other city (#168): the
@@ -847,7 +901,7 @@ func (m *Model) viewDialog() string {
 		body = append(body, m.priceRows(city, id, buy)...)
 		if buy && sup != nil {
 			if qty, err := m.parseQty(m.maxBuyBy(id, d.credit)); err == nil {
-				cost := sup.Quote(id, qty, d.credit)
+				cost := w.Quote(sup, id, qty, d.credit)
 				style := theme.Gold
 				have := w.Player.DirtyCash
 				pool := "dirty cash " + cash(have)
@@ -900,7 +954,7 @@ func (m *Model) viewDialog() string {
 			if sup.Debt > 0 {
 				due = sup.DebtDue
 			}
-			body = append(body, fmt.Sprintf("credit     %s at ×%.2f · due day %d · %s of the book left", money(sup.Quote(id, qty, true)), sup.CreditRatio, due, cash(sup.Credit())))
+			body = append(body, fmt.Sprintf("credit     %s at ×%.2f · due day %d · %s of the book left", money(w.Quote(sup, id, qty, true)), sup.CreditRatio, due, cash(sup.Credit())))
 			if sup.Debt > 0 {
 				body = append(body, theme.Warning.Render(fmt.Sprintf("You owe them %s already, due day %d.", money(sup.Debt), sup.DebtDue)))
 			} else {
@@ -1123,7 +1177,13 @@ func (m *Model) connectFacts(city, id string) priceFacts {
 	if sup := m.buySupplier(id); sup != nil && m.w.Available(sup, id) {
 		unit = sup.Price[id]
 	}
-	return factsAt(pm, unit)
+	// Through a lieutenant (#174) the buy pays the markup: the facts
+	// are read against that, the connect's own price kept for the line.
+	f := factsAt(pm, unit*m.w.BuyMarkup(city))
+	if lt := m.buyThrough(); lt != nil && unit > 0 {
+		f.base, f.markup, f.through = unit, m.w.BuyMarkup(city), lt.Name
+	}
+	return f
 }
 
 // priceRows is the line under the quantity on the dialogs' later steps

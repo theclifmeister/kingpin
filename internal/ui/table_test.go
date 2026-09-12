@@ -13,7 +13,7 @@ import (
 // kindPatterns is what a cell of each kind reads as once rendered: a
 // number column may also hold `-` for none.
 var kindPatterns = map[colKind]*regexp.Regexp{
-	kInt:   regexp.MustCompile(`^(-|~?[+-]?\d+)$`),
+	kInt:   regexp.MustCompile(`^(-|~?[+-]?\d+( \(lt\))?)$`),
 	kCash:  regexp.MustCompile(`^(-|-?\$(\d{1,3}(,\d{3})*|\d+\.\d[KMBT]|\d{2,3}[KMBT]))$`),
 	kMoney: regexp.MustCompile(`^(-|-?\$\d{1,3}(,\d{3})*)$`),
 	kPrice: regexp.MustCompile(`^(-|\$\d{1,3}(,\d{3})*(\.\d\d)?)$`),

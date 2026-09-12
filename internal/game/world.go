@@ -46,6 +46,17 @@ type World struct {
 	Progression Progression               // the tiers reached (#147), stamped by the news sim; nothing gates on it
 	Houses      []House                   // the stash houses (#73), in the order bought: where the stock sits beyond the street, and which one the raid finds
 
+	// The lieutenants' supply contracts (#174), keyed like Supply: the
+	// crew step refreshes them nightly by the temper's stock_days and
+	// the market sim fills them where the player has set none of their
+	// own. Markup is the supplier's price for a standing order or a buy
+	// through a lieutenant as a multiple of the price by hand
+	// (market.toml [supply] markup), stamped by the market sim at seed
+	// and every morning as the connects' prices are; zero reads as one,
+	// the pre-#174 state.
+	DelegatedSupply map[string]SupplyContract
+	Markup          float64
+
 	// Per-day scratch, cleared by the clock after every EndDay.
 	Orders        map[string]SellOrder   // pending sell orders keyed by product id
 	Buys          []Purchase             // purchases made today, and what the supply contracts bought this morning (#113)
@@ -548,19 +559,23 @@ type Lead struct {
 // so the cart can show and return them, and drops them the next.
 // Supplier names the connect (#72), Credit says it went on their book
 // rather than out of the till, SmallLot that it was under their lot
-// and paid their premium.
+// and paid their premium. Lieutenant names the lieutenant a buy went
+// through (#174): a buy by hand into a city they run from elsewhere,
+// or their own contract's; empty for a buy where you stand and the
+// player's own contract.
 type Purchase struct {
-	City      string
-	Product   string
-	Qty       int
-	UnitPrice float64
-	Cost      int
-	Prior     float64
-	Contract  bool
-	Day       int
-	Supplier  string
-	Credit    bool
-	SmallLot  bool
+	City       string
+	Product    string
+	Qty        int
+	UnitPrice  float64
+	Cost       int
+	Prior      float64
+	Contract   bool
+	Day        int
+	Supplier   string
+	Credit     bool
+	SmallLot   bool
+	Lieutenant string
 }
 
 // SupplyContract is a standing buy (#113): keep the stash in City at

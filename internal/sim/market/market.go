@@ -100,17 +100,21 @@ func (s *Sim) Shortfall(w *game.World, c game.SupplyContract) int {
 // for tonight (a sell order may be for the stash plus what the contract
 // brings).
 type SupplyPlan struct {
-	Contract game.SupplyContract
-	Supplier string // the connect it buys from (#72): the cheapest available in the city; empty when none is
-	Short    int    // the shortfall
-	Units    int    // what it buys
-	Cost     int    // what that costs
-	Why      string // "cash", "room" or "supplier" when Units is under Short, else empty
+	Contract   game.SupplyContract
+	Supplier   string // the connect it buys from (#72): the cheapest available in the city; empty when none is
+	Short      int    // the shortfall
+	Units      int    // what it buys
+	Cost       int    // what that costs
+	Why        string // "cash", "room" or "supplier" when Units is under Short, else empty
+	Lieutenant string // the lieutenant whose contract it is (#174); empty for the player's own
 }
 
-// Plan lays out the morning's supply buys (SupplyPlan) with no dice.
+// Plan lays out the morning's supply buys (SupplyPlan) with no dice:
+// the player's contracts and, where they set none for a product in a
+// city a lieutenant runs, the lieutenant's (World.StandingSupply,
+// #174), which buys nothing on a lie-low day (everyone's day off).
 func (s *Sim) Plan(w *game.World) []SupplyPlan {
-	if len(w.Supply) == 0 {
+	if len(w.Supply) == 0 && len(w.DelegatedSupply) == 0 {
 		return nil
 	}
 	var plan []SupplyPlan
@@ -120,9 +124,16 @@ func (s *Sim) Plan(w *game.World) []SupplyPlan {
 	for _, cid := range w.CityOrder {
 		room[cid] = w.Free(cid)
 		for _, id := range w.Products {
-			c, ok := w.Supplied(cid, id)
+			c, ok := w.StandingSupply(cid, id)
 			if !ok {
 				continue
+			}
+			lieutenant := ""
+			if _, own := w.Supplied(cid, id); !own {
+				if w.LieLow {
+					continue
+				}
+				lieutenant = w.Crew.Lieutenant(cid).Name
 			}
 			m := w.Product(cid, id)
 			if m == nil || m.NoSupply {
@@ -139,7 +150,7 @@ func (s *Sim) Plan(w *game.World) []SupplyPlan {
 			// with none, nothing.
 			sup := s.cheapest(w, cid, id, short, bought)
 			if sup == nil {
-				plan = append(plan, SupplyPlan{Contract: c, Short: short, Why: "supplier"})
+				plan = append(plan, SupplyPlan{Contract: c, Short: short, Why: "supplier", Lieutenant: lieutenant})
 				continue
 			}
 			unit := s.unitFor(sup, id, short) * s.Markup()
@@ -161,7 +172,7 @@ func (s *Sim) Plan(w *game.World) []SupplyPlan {
 				afford = affords(unit)
 				qty = max(0, min(qty, afford))
 			}
-			p := SupplyPlan{Contract: c, Supplier: sup.ID, Short: short, Units: qty, Cost: int(math.Ceil(unit * float64(qty)))}
+			p := SupplyPlan{Contract: c, Supplier: sup.ID, Short: short, Units: qty, Cost: int(math.Ceil(unit * float64(qty))), Lieutenant: lieutenant}
 			if qty < short {
 				p.Why = "cash"
 				if room[cid] < short && room[cid] <= afford {
@@ -207,9 +218,10 @@ func (s *Sim) cheapest(w *game.World, city, id string, qty int, bought map[strin
 	return best
 }
 
-// Due is what the supply contract for a product in a city will buy this
-// morning by the plan: what a sell order there may count on over the
-// stash. Zero with no contract or nothing to buy.
+// Due is what the supply contract standing for a product in a city
+// (yours, else the lieutenant's, #174) will buy this morning by the
+// plan: what a sell order there may count on over the stash. Zero with
+// no contract or nothing to buy.
 func (s *Sim) Due(w *game.World, city, product string) int {
 	for _, p := range s.Plan(w) {
 		if p.Contract.City == city && p.Contract.Product == product {
@@ -219,11 +231,11 @@ func (s *Sim) Due(w *game.World, city, product string) int {
 	return 0
 }
 
-// supply fills the supply contracts (#113): the plan, bought in its
-// order and with no dice, through the same path as a buy by hand
-// (World.FillSupply: the price pressure and BoughtToday move as they do
-// for you) at the contract markup; it reports what each bought and,
-// once, what it could not.
+// supply fills the supply contracts (#113), yours and the lieutenants'
+// (#174): the plan, bought in its order and with no dice, through the
+// same path as a buy by hand (World.FillSupply: the price pressure and
+// BoughtToday move as they do for you) at the contract markup; it
+// reports what each bought and, once, what it could not.
 func (s *Sim) supply(w *game.World, t *game.Tick, fx game.Effects) {
 	pressure := s.cfg.Market.BuyPricePressure * fx.BuyPressureMul
 	for _, p := range s.Plan(w) {
@@ -233,10 +245,10 @@ func (s *Sim) supply(w *game.World, t *game.Tick, fx game.Effects) {
 			if err != nil {
 				continue
 			}
-			t.Emit(events.SupplyBought{Day: t.Day, City: c.City, Product: c.Product, Units: b.Qty, Level: c.Units, Price: b.UnitPrice, Cost: b.Cost, Supplier: b.Supplier})
+			t.Emit(events.SupplyBought{Day: t.Day, City: c.City, Product: c.Product, Units: b.Qty, Level: c.Units, Price: b.UnitPrice, Cost: b.Cost, Supplier: b.Supplier, Lieutenant: p.Lieutenant})
 		}
 		if p.Units < p.Short {
-			t.Emit(events.SupplyShort{Day: t.Day, City: c.City, Product: c.Product, Units: p.Units, Short: p.Short - p.Units, Why: p.Why})
+			t.Emit(events.SupplyShort{Day: t.Day, City: c.City, Product: c.Product, Units: p.Units, Short: p.Short - p.Units, Why: p.Why, Lieutenant: p.Lieutenant})
 		}
 	}
 }
@@ -288,6 +300,7 @@ func (s *Sim) BuyPressure(w *game.World) float64 {
 // supply shock this morning on the street that was waiting for it.
 func (s *Sim) Step(w *game.World, t *game.Tick) {
 	tun := s.cfg.Market
+	w.Markup = s.Markup() // what a buy through a lieutenant pays (#174), stamped as the connects' prices are
 	fx := game.FoldEffects(w, s.tree)
 	for _, id := range w.UpgradesToday {
 		if u := s.tree.Upgrade(id); u != nil {

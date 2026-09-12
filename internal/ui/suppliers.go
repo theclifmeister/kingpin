@@ -189,9 +189,13 @@ func (m *Model) supplierSections(sup *game.Supplier) []section {
 	if sup.Late > 0 {
 		sel = append(sel, row("late", plural(sup.Late, "payment")+" missed"))
 	}
-	if here && sup.Open(w) {
+	lt := w.Crew.Lieutenant(sup.City)
+	switch {
+	case here && sup.Open(w):
 		sel = append(sel, keyRow("b", "buy from them"))
-	} else if !here {
+	case !here && lt != nil && sup.Open(w):
+		sel = append(sel, keyRow("b", "buy through "+lt.Name+" at ×"+fmt.Sprintf("%.2f", mk.Markup()))) // the lieutenant runs the city (#174)
+	case !here:
 		sel = append(sel, keyRow("g", "go to "+w.CityName(sup.City)+" to buy"))
 	}
 	secs := []section{{strings.ToUpper(sup.Name) + " · " + strings.ToUpper(w.CityName(sup.City)), sel}}
