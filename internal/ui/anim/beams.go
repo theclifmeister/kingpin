@@ -82,10 +82,13 @@ func (b *beam) head(t time.Duration, span int) float64 {
 	return float64(span+len(rowBeam)) * at(t, b.start, b.run)
 }
 
-func (b *beams) Frame(t time.Duration, w, h int) []string {
-	cv := NewCanvas(w, h)
+func (b *beams) Frame(t time.Duration, w, h int) []string { return frame(b, t, w, h) }
+
+func (b *beams) paint(cv *Canvas, t time.Duration) {
+	w, h := cv.W, cv.H
 	if t >= b.over {
-		return drawText(cv, b.text, b.accent).Lines()
+		drawText(cv, b.text, b.accent)
+		return
 	}
 	W, H := b.text.Width(), b.text.Height()
 	ox, oy := b.text.Origin(w, h)
@@ -149,5 +152,4 @@ func (b *beams) Frame(t time.Duration, w, h int) []string {
 			cv.Set(x, y, sheen[int(math.Floor(d))], theme.Text)
 		}
 	}
-	return cv.Lines()
 }
