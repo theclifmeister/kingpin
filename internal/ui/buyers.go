@@ -234,10 +234,12 @@ func (m *Model) contractsLine() string {
 }
 
 // contractAlerts are the buyers' lines for the dashboard's ALERTS panel:
-// a contract due today or tomorrow.
-func (m *Model) contractAlerts() []string {
+// a contract due today or tomorrow, keyed by the contract and the day,
+// so a fast-forward (#116) stops once when it is due tomorrow and again
+// when it is due today.
+func (m *Model) contractAlerts() []alert {
 	w := m.w
-	var out []string
+	var out []alert
 	for _, c := range w.Contracts {
 		if c.Status != game.ContractAccepted || c.Due > w.Day+1 {
 			continue
@@ -247,7 +249,11 @@ func (m *Model) contractAlerts() []string {
 		if c.Due <= w.Day {
 			when, style = "today", theme.Bad
 		}
-		out = append(out, style.Render(fmt.Sprintf("%s: %d %s due %s in %s", c.Name, c.Owed(), w.ProductName(c.Product), when, w.CityName(c.City))))
+		out = append(out, alert{
+			text: style.Render(fmt.Sprintf("%s: %d %s due %s in %s", c.Name, c.Owed(), w.ProductName(c.Product), when, w.CityName(c.City))),
+			why:  "contract due " + when,
+			key:  fmt.Sprintf("contract %d due %s", c.ID, when),
+		})
 	}
 	return out
 }

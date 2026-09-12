@@ -20,6 +20,11 @@ func TestSupplyContractInTheGrammar(t *testing.T) {
 	w := m.w
 	home, weed := w.Player.Location, w.Products[0]
 	w.Player.DirtyCash = 100_000
+	// The run's seed is random and a robbery overnight would take half
+	// of what the contract brought: no corner here can be robbed.
+	for i := range w.Here().Corners {
+		w.Here().Corners[i].Risk = 0
+	}
 	// b: product, quantity, then once / keep at; right turns it, enter
 	// at keep at sets the contract and the dialog stays open on the
 	// product step for the next line.

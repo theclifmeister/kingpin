@@ -66,6 +66,7 @@ const (
 	modeFund          // give a city clean cash for goodwill
 	modeDetails       // the details pane as an overlay, where the terminal is too narrow to hold it beside MAIN
 	modeCart          // the day's cart: its buys and orders, editable until the day ends
+	modeConfirmFast   // run days until something needs you (#116): the cap, then y or enter
 	modeCount
 )
 
@@ -127,8 +128,10 @@ type Model struct {
 	tgt           targetDialog
 	crt           cartDialog
 	fnd           fundDialog
-	slot          int // the save slot this run lives in: where ctrl+s, the end of the day and quitting save
-	startChoice   int // row on the start menu: the slots, then Quit
+	fst           fastDialog
+	fastStop      string // the report's first line after a fast-forward (`Stopped after 3 days: …`), until the next day ends
+	slot          int    // the save slot this run lives in: where ctrl+s, the end of the day and quitting save
+	startChoice   int    // row on the start menu: the slots, then Quit
 	status        string
 	statusKind    statusKind // how the status bar colours the message; set where the status is
 	flash         []string   // enforcement lines from the last tick, via the bus
@@ -216,6 +219,7 @@ func (m *Model) startRun(seed uint64) {
 	m.city = m.w.Player.Location
 	m.mapCursor = m.yourCorner()
 	m.flash = nil
+	m.fastStop = ""
 	m.say(fmt.Sprintf("New run. %s, %s in your pocket. Seed %d.", m.w.Here().Name, money(m.w.Player.DirtyCash), m.w.Seed))
 	_ = game.Save(m.slot, m.w)
 	m.journalFilter = "" // a new run's journal is read whole
@@ -266,6 +270,7 @@ func (m *Model) continueRun(slot int) error {
 	}
 	m.city = w.Player.Location
 	m.mapCursor = m.yourCorner()
+	m.fastStop = ""
 	m.say(fmt.Sprintf("Continued day %d.", w.Day))
 	m.journalFilter = ""
 	m.refreshJournal()
@@ -284,21 +289,37 @@ func (m *Model) yourCorner() int {
 	return 0
 }
 
+// endDay ends one day, n's and the confirmation's: the day steps and
+// the morning opens. A fast-forward (#116) ends several the same way.
 func (m *Model) endDay() {
 	if m.w.Over != nil {
 		m.mode = modeOver
 		return
 	}
+	m.stepDay()
+	m.morning()
+}
+
+// stepDay ends a day through the clock, saves and follows the journal;
+// it returns the tick's events, which a fast-forward reads its stops
+// off. The last fast-forward's stop line goes with the day it was for.
+func (m *Model) stepDay() []events.Event {
 	m.flash = nil
-	m.clock.EndDay(m.w)
+	m.fastStop = ""
+	evs := m.clock.EndDay(m.w)
 	m.save()
 	m.refreshJournal()
+	return evs
+}
+
+// morning opens the day that has just begun: the run over, else the
+// card or the report, with the danger winning the status bar: the tell
+// that somebody on the payroll is talking, in red, over the save.
+func (m *Model) morning() {
 	if m.w.Over != nil {
 		m.mode = modeOver
 		return
 	}
-	// The danger wins the morning's status bar: the tell that somebody
-	// on the payroll is talking, in red, over the save.
 	if m.talking() {
 		m.alarm("Somebody is talking. Investigate " + screenPointer(screenCrew) + ".")
 	}
@@ -418,6 +439,8 @@ func (m *Model) handleKey(k tea.KeyMsg) (tea.Model, tea.Cmd) {
 		return m.keyTarget(k)
 	case modeFund:
 		return m.keyFund(k)
+	case modeConfirmFast:
+		return m.keyFast(k)
 	case modeCart:
 		return m.keyCart(k)
 	case modeHelp:
@@ -836,6 +859,8 @@ func (m *Model) View() string {
 		body = m.viewTarget()
 	case modeFund:
 		body = m.viewFund()
+	case modeConfirmFast:
+		body = m.viewFast()
 	case modeCart:
 		body = m.viewCart()
 	case modeCard:
@@ -1206,6 +1231,10 @@ func (m *Model) viewReport() string {
 		return m.modal("MORNING REPORT", []string{"Nothing happened yet."}, m.modalFooter())
 	}
 	var body []string // the modal cuts a long line to its width, never wraps it
+	if stop := m.stopLine(); stop != "" {
+		// A fast-forward's report opens with why it stopped (#116).
+		body = append(body, theme.Warning.Render(stop), "")
+	}
 	section := func(title string, ls []string, style lipgloss.Style) {
 		if len(ls) == 0 {
 			return

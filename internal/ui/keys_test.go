@@ -13,10 +13,11 @@ import (
 )
 
 // handledKeys are the keys keyPlay's switch handled the day the key
-// table replaced it (#80): what the table must list, and all it may.
+// table replaced it (#80), and F since (#116): what the table must
+// list, and all it may.
 var handledKeys = []string{
 	"q", " ", "ctrl+s", "?", "1", "2", "3", "4", "5", "6", "7", "8", "tab", "shift+tab",
-	"n", "enter", "u", "r", "R", "b", "s", "t", "g", "[", "]", "x", "y", "l", "N",
+	"n", "F", "enter", "u", "r", "R", "b", "s", "t", "g", "[", "]", "x", "y", "l", "N",
 	"h", "f", "p", "d", "i", "$", "c", "e", "a", "w",
 	"up", "k", "down", "j", "left", "right", "pgup", "pgdown",
 }
@@ -170,6 +171,7 @@ func TestLegendMatchesTable(t *testing.T) {
 func TestGlobalsAreListedWhereUsed(t *testing.T) {
 	want := map[string][]screen{
 		"n":   everywhere,
+		"F":   on(screenDashboard),
 		"↑↓":  listScreens,
 		"[ ]": on(screenMarket, screenMap),
 		"b":   on(screenDashboard, screenMarket),

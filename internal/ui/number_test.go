@@ -72,6 +72,8 @@ func TestNumberField(t *testing.T) {
 			m.Update(key("f"))
 		}, func(m *Model) *numberField { return &m.fnd.amt }, func(m *Model) int { return m.maxFund(m.fundCity()) },
 			func(m *Model) string { return m.fnd.err }, true, true},
+		{"fast", func(m *Model) { m.Update(key("F")) }, func(m *Model) *numberField { return &m.fst.days }, func(m *Model) int { return fastDaysMax },
+			func(m *Model) string { return m.fst.err }, false, true},
 	}
 	shortcuts := "m max  h half  ↑↓ ±1  pgup pgdn ±10"
 	for _, f := range fields {
@@ -90,7 +92,7 @@ func TestNumberField(t *testing.T) {
 		if f.money {
 			suffix = "/ " + money(mx) + " max"
 		}
-		if v := fld.Value(); v != "" && (f.name == "sell" || f.name == "buy" || f.name == "fund") {
+		if v := fld.Value(); v != "" && (f.name == "sell" || f.name == "buy" || f.name == "fund" || f.name == "fast") {
 			t.Fatalf("%s: the field opens with %q", f.name, v)
 		}
 		// The cart opens on the line's quantity and the target on the
