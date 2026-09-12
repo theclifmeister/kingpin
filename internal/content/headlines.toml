@@ -356,3 +356,26 @@ SupplierUnlocked = [
   "{{.Name}} 'open for business' with a {{.City}} outfit",
   "New face in {{.City}} supply: {{.Name}} is taking orders",
 ]
+
+# The stash houses (#73). HouseCompromised, StockMoved and RentPaid are
+# report-only.
+HouseBought = [
+  "Lease signed on {{.Name}}; 'cash buyer', says the agent",
+  "{{.Name}} let overnight to a tenant nobody in {{.City}} has met",
+  "New tenant at {{.Name}} keeps odd hours, say neighbours",
+]
+HouseRobbed = [
+  "Break-in at {{.Name}}: 'they knew what they were looking for'",
+  "Masked men empty a {{.City}} flat near {{.Corner}} in ten minutes",
+  "Stick-up crew hits {{.Name}}; police 'aware of the address'",
+]
+HouseRaided = [
+  "Police search {{.Name}}; bags carried out, nobody charged yet",
+  "{{.City}} {{.Level}} turns up a stash at {{.Name}}",
+  "Officers seen leaving {{.Name}} with evidence boxes",
+]
+HouseLost = [
+  "Landlord changes the locks at {{.Name}}: 'rent was never paid'",
+  "Eviction at {{.Name}}; bailiffs 'surprised by what was inside'",
+  "{{.Name}} cleared out by the landlord after weeks of unpaid rent",
+]

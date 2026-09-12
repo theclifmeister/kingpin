@@ -1,0 +1,133 @@
+# Stash houses (#73): where you keep it, and which one the raid finds. A
+# house is a place in a city, on a block, with a capacity, a price in
+# dirty cash and a rent in clean cash. Everything that arrives in a city
+# (a buy, a contract's morning lot, a shipment landing, the road's lots)
+# goes into the emptiest house there with room, else onto the street;
+# everything that leaves (a sale, a shipment, a handoff) comes off the
+# street first, then the houses in the order bought. A raid hits one
+# place, not the operation: a house the police know about (Known: an
+# informant, a robbery, a bust there), else one house or the street by
+# the heat of its block. Move is free within a city but the units moved
+# are exposure for the day.
+
+[houses]
+house_risk = 0.25  # multiplier on city.toml's robbery_chance x the block's risk, per house per day (a house is behind a door; a corner is on the street); a guard cuts it as an enforcer cuts a corner's
+rent_days = 5      # days the rent can go unpaid before the landlord throws you out, the stock with you
+move_heat = 0.3    # heat a unit moved between places draws, relative to one sold on a standard corner (heat.toml sale_heat / street_units)
+
+# The offers, priced against the block: the quiet block, low heat and
+# low risk, is dear; the one on Precinct Row is cheap because the police
+# walk past it every day (heat 1.6: the raid finds it) and the robbers do
+# not (risk 0.4). capacity is units; price is dirty cash, once; rent is
+# clean cash a day; unlock_cash gates the offer on peak cash like a
+# product or a front.
+
+[[house]]
+id = "precinct_room"
+name = "Rooms over Precinct Row"
+city = "eastside"
+corner = "precinct"
+capacity = 400
+price = 12000
+rent = 60
+unlock_cash = 15000
+
+[[house]]
+id = "docks_lockup"
+name = "Lock-up at the Docks"
+city = "eastside"
+corner = "docks"
+capacity = 600
+price = 30000
+rent = 120
+unlock_cash = 25000
+
+[[house]]
+id = "strip_flat"
+name = "Flat on the Strip"
+city = "eastside"
+corner = "strip"
+capacity = 500
+price = 45000
+rent = 250
+unlock_cash = 40000
+
+[[house]]
+id = "heights_garage"
+name = "Garage in the Heights"
+city = "eastside"
+corner = "heights"
+capacity = 800
+price = 120000
+rent = 600
+unlock_cash = 100000
+
+[[house]]
+id = "riverside_house"
+name = "House on Riverside"
+city = "eastside"
+corner = "riverside"
+capacity = 1200
+price = 300000
+rent = 1500
+unlock_cash = 250000
+
+[[house]]
+id = "mill_warehouse"
+name = "Old Mill warehouse"
+city = "eastside"
+corner = "oldmill"
+capacity = 3000
+price = 500000
+rent = 2000
+unlock_cash = 400000
+
+[[house]]
+id = "customs_rooms"
+name = "Rooms by Customs House"
+city = "bayport"
+corner = "customs"
+capacity = 600
+price = 20000
+rent = 100
+unlock_cash = 60000
+
+[[house]]
+id = "cannery_loft"
+name = "Loft on Cannery Row"
+city = "bayport"
+corner = "cannery"
+capacity = 800
+price = 40000
+rent = 200
+unlock_cash = 60000
+
+[[house]]
+id = "shipyard_shed"
+name = "Shipyard shed"
+city = "bayport"
+corner = "shipyard"
+capacity = 2500
+price = 250000
+rent = 1200
+unlock_cash = 300000
+
+[[house]]
+id = "boardwalk_flat"
+name = "Boardwalk apartment"
+city = "bayport"
+corner = "boardwalk"
+capacity = 1500
+price = 400000
+rent = 2000
+unlock_cash = 400000
+
+[[house]]
+id = "wharf_warehouse"
+name = "Wharf warehouse"
+city = "bayport"
+corner = "wharf"
+capacity = 6000
+price = 900000
+rent = 3500
+unlock_cash = 1000000

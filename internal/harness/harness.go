@@ -166,7 +166,11 @@ func restockOnly(cfg *content.Config, w *game.World, ok func(product string) boo
 			continue
 		}
 		m := city.Market[id]
-		target := int(float64(w.Capacity(city.ID)) * m.Demand / total)
+		// The bag is the street's (#73): a house is where the bag is
+		// kept, not a bigger bag, so a policy with houses holds what
+		// the same policy without them holds and keeps it off the
+		// street. With no house StreetCapacity is Capacity.
+		target := int(float64(w.StreetCapacity(city.ID)) * m.Demand / total)
 		buyHere(w, id, target-w.Stock(city.ID, id), reserve, pressure, false)
 	}
 }
@@ -291,7 +295,7 @@ func Managed(cfg *content.Config, lieLowAt float64) Policy {
 // The hottest city is the one whose police answer, so its line is the
 // one read.
 func TooHot(cfg *content.Config, line float64) func(w *game.World) bool {
-	hs := heat.New(cfg.Heat, cfg.Market, cfg.Routes.Shipping, cfg.Upgrades, cfg.Reputation.Effects, cfg.Crew.Lieutenant, cfg.Law)
+	hs := heat.New(cfg.Heat, cfg.Market, cfg.Routes.Shipping, cfg.Upgrades, cfg.Reputation.Effects, cfg.Crew.Lieutenant, cfg.Law, cfg.Houses.Houses)
 	var sting *content.ResponseConfig
 	for i := range cfg.Heat.Responses {
 		if cfg.Heat.Responses[i].Level == "sting" {

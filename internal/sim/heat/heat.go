@@ -24,6 +24,7 @@ type Sim struct {
 	rep    content.ReputationFX
 	lt     content.LieutenantTuning
 	law    content.LawConfig
+	houses content.HousesTuning
 }
 
 // New builds a heat sim. It needs the market config for per-product and
@@ -34,9 +35,11 @@ type Sim struct {
 // lieutenant tuning for what a temper does to a city's heat and what a
 // flipped one feeds the DA, and the law tables (#41) for what the chief,
 // the DA and a city's pressure do to its own thresholds, cooldown and
-// decay; it reads who they are off w.Law and never adds a page for them.
-func New(cfg content.HeatConfig, market content.MarketConfig, ship content.ShippingTuning, tree content.UpgradesConfig, rep content.ReputationFX, lt content.LieutenantTuning, law content.LawConfig) *Sim {
-	return &Sim{cfg: cfg, market: market, ship: ship, tree: tree, rep: rep, lt: lt, law: law}
+// decay; it reads who they are off w.Law and never adds a page for them;
+// and the houses' tuning (#73) for what a unit moved between places
+// draws.
+func New(cfg content.HeatConfig, market content.MarketConfig, ship content.ShippingTuning, tree content.UpgradesConfig, rep content.ReputationFX, lt content.LieutenantTuning, law content.LawConfig, houses content.HousesTuning) *Sim {
+	return &Sim{cfg: cfg, market: market, ship: ship, tree: tree, rep: rep, lt: lt, law: law, houses: houses}
 }
 
 // Chief is what the sitting police chief does to the tuning: multipliers
@@ -240,6 +243,14 @@ func (s *Sim) ContractHeat(w *game.World, city, product string, units int, mul f
 	return tun.SaleHeat * fx.SaleHeatMul * float64(units) * c.HeatMul * pc.Heat / tun.StreetUnits * mul
 }
 
+// MoveHeat is the heat moving units of a product between two places in
+// a city draws (#73): a unit sold on a standard corner's weight (the
+// tuning, the Security branch, the product and the city) at move_heat,
+// on no corner and at no dial. It is not dealing: no page (#27).
+func (s *Sim) MoveHeat(w *game.World, city, product string, units int) float64 {
+	return s.ContractHeat(w, city, product, units, s.houses.MoveHeat)
+}
+
 // CornerWeight is the heat one unit of a product draws on average across
 // the corners it moves on in a city, relative to a unit a nobody moves
 // themselves on a standard corner. A sale spreads over the worked corners
@@ -397,6 +408,15 @@ func (s *Sim) Step(w *game.World, t *game.Tick) {
 		}
 		attempted[cd.City] = true
 		add(cd.City, s.ContractHeat(w, cd.City, cd.Product, cd.Units, cd.HeatMul), fmt.Sprintf("handed %d %s to %s", cd.Units, w.ProductName(cd.Product), cd.Name))
+	}
+
+	// Stock driven between places today (#73): a car ride is exposure,
+	// not dealing, so it is heat and never a page.
+	for _, mv := range w.Moved {
+		if v := s.MoveHeat(w, mv.City, mv.Product, mv.Units); v > 0 {
+			add(mv.City, v, fmt.Sprintf("moved %d %s between places", mv.Units, w.ProductName(mv.Product)))
+		}
+		t.Emit(events.StockMoved{Day: t.Day, City: mv.City, From: placeName(w, mv.From), To: placeName(w, mv.To), Product: mv.Product, Units: mv.Units})
 	}
 
 	// Sloppy runners get noticed: every unit moved with a low-skill crew
@@ -567,9 +587,12 @@ func (s *Sim) hottest(w *game.World) *game.City {
 // nothing moved still costs stock and cash and cools heat, but finds
 // nothing worth a file. Dirty cash draws attention; only dealing builds a
 // case. The Security branch softens what a response takes; a lawyer thins
-// what goes in the file. A raid while an informant is on the payroll goes
-// straight to the stash: every unit, whatever the safehouse would have
-// saved.
+// what goes in the file. A sting or a raid hits one place (#73, place):
+// a house the police know about, else one house or the street by the
+// heat of its block, else the street. A raid while an informant is on
+// the payroll goes straight to the fullest house, which they know, and
+// takes every unit in it, whatever the safehouse would have saved; with
+// no house it is the whole street, as it always was.
 func (s *Sim) fire(w *game.World, t *game.Tick, city *game.City, r content.ResponseConfig, attempted bool, fx game.Effects) {
 	ev := events.Enforcement{Day: t.Day, City: city.ID, Level: r.Level, StockLost: map[string]int{}}
 	switch r.Level {
@@ -586,18 +609,35 @@ func (s *Sim) fire(w *game.World, t *game.Tick, city *game.City, r content.Respo
 		return
 	default: // sting, raid
 		stockLoss, cashLoss := r.StockLoss, r.CashLoss
+		told := r.Level == "raid" && w.Crew.Informants() > 0
 		if r.Level == "raid" {
 			stockLoss *= fx.RaidLossMul
 			cashLoss *= fx.RaidLossMul
-			if w.Crew.Informants() > 0 {
+			if told {
 				stockLoss, ev.Stash = 1, true
 			}
 		} else {
 			stockLoss *= fx.StingStockMul
 		}
-		for id, q := range w.StashOf(city.ID) {
-			if lost := w.TakeStock(city.ID, id, int(math.Round(float64(q)*stockLoss))); lost > 0 {
-				ev.StockLost[id] = lost
+		if house := s.place(w, t, city.ID, told); house != nil {
+			ev.House, ev.HouseName = house.ID, house.Name
+			for _, id := range sortedProducts(w) {
+				if lost := w.TakeFromHouse(house.ID, id, int(math.Round(float64(house.Stock[id])*stockLoss))); lost > 0 {
+					ev.StockLost[id] = lost
+					w.Stats.HouseUnits += lost
+				}
+			}
+			house.Raided++
+			t.Emit(events.HouseRaided{Day: t.Day, House: house.ID, Name: house.Name, City: city.ID, Level: r.Level, Whole: told, StockLost: ev.StockLost})
+			if !house.Known && len(ev.StockLost) > 0 {
+				house.Known = true
+				t.Emit(events.HouseCompromised{Day: t.Day, House: house.ID, Name: house.Name, City: city.ID, Why: "bust"})
+			}
+		} else {
+			for id, q := range w.StreetOf(city.ID) {
+				if lost := w.TakeStreet(city.ID, id, int(math.Round(float64(q)*stockLoss))); lost > 0 {
+					ev.StockLost[id] = lost
+				}
 			}
 		}
 		ev.CashLost = int(math.Round(float64(w.Player.DirtyCash) * cashLoss))
@@ -637,6 +677,79 @@ func (s *Sim) fire(w *game.World, t *game.Tick, city *game.City, r content.Respo
 	n := float64(max(1, w.Heat.Responses[r.Level]))
 	city.Heat -= r.HeatDrop / n
 	t.Emit(ev)
+}
+
+// place is the one place a sting or a raid in a city hits (#73): nil for
+// the street. An informant on the payroll (told) points the police at
+// the fullest house, which becomes Known; then the fullest house they
+// know about; then, with houses there holding anything, one roll off the
+// houses' side stream over every place holding stock, each house
+// weighted by the heat of its block and the street by a standard
+// corner's, so a cheap empty house on a quiet block never shields the
+// street. With no house holding anything the street it is, no roll: a
+// run with no house draws nothing the old run did not.
+func (s *Sim) place(w *game.World, t *game.Tick, city string, told bool) *game.House {
+	if told {
+		if h := w.Fullest(city, false); h != nil && !h.Known {
+			h.Known = true
+			t.Emit(events.HouseCompromised{Day: t.Day, House: h.ID, Name: h.Name, City: city, Why: "informant"})
+		}
+	}
+	if h := w.Fullest(city, true); h != nil {
+		return h
+	}
+	type candidate struct {
+		house  *game.House
+		weight float64
+	}
+	var cands []candidate
+	total := 0.0
+	for i := range w.Houses {
+		h := &w.Houses[i]
+		if h.City != city || h.Units() == 0 {
+			continue
+		}
+		weight := 1.0
+		if c := w.Corner(h.Corner); c != nil {
+			weight = c.Heat
+		}
+		cands = append(cands, candidate{h, weight})
+		total += weight
+	}
+	if len(cands) == 0 {
+		return nil
+	}
+	if w.Player.StockIn(city) > 0 {
+		cands = append(cands, candidate{nil, 1})
+		total++
+	}
+	if len(cands) == 1 {
+		return cands[0].house
+	}
+	roll := t.Sub("houses").Float64() * total
+	for _, c := range cands {
+		roll -= c.weight
+		if roll < 0 {
+			return c.house
+		}
+	}
+	return cands[len(cands)-1].house
+}
+
+// placeName names a place a move joined: the house, or the street.
+func placeName(w *game.World, id string) string {
+	if h := w.House(id); h != nil {
+		return h.Name
+	}
+	return "the street"
+}
+
+// sortedProducts is the ladder in a fixed order, for a walk over a
+// house's stock whose order is reported.
+func sortedProducts(w *game.World) []string {
+	ids := append([]string(nil), w.Products...)
+	sort.Strings(ids)
+	return ids
 }
 
 // bustDays is how long a bust stays on the record for the connects.
