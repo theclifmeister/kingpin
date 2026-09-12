@@ -186,7 +186,7 @@ MAP · Eastside  [ ◉ Eastside ]  Bayport  3/10 held · 3 worked · ~1828/day f
 ROUTES                                                                              │             Coke ~17 · Meth ~5   │
 ▸ Coast Road   Bayport  ──car──▶ Eastside  normal  2d · 60 units · $8/u · ~0%  ▪60  │ runner      nobody               │
   Interstate   Bayport  ─truck─▶ Eastside  off     3d · 400 units · $3/u · ~9%      │ enforcer    nobody               │
-  The Channel  Bayport  ─boat──▶ Eastside  off     5d · 2000 units · $1/u · ~7%     │ w  push takes it ~8%, hit ~19%   │
+  The Channel  Bayport  ─boat──▶ Eastside  off     5d · 2000 units · $1/u · ~7%     │ w  push takes it ~10%, hit ~24%  │
                                                                                     │                                  │
                                                                                     │                                  │
                                                                                     │                                  │

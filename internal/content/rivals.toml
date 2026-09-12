@@ -1,15 +1,36 @@
 # The rival faction: one per run, picked by seed. It earns off the corners
 # it holds, spends on muscle and claims, pushes on the corners of yours it
 # borders, undercuts you there, and calls the cops when you hurt it.
+#
+# Its money is priced in the ladder's unit (#139), the corner-day: what a
+# standard corner at home earns it in a day, margin of the street value
+# the corner moves in the products the street there sells (the port's
+# product comes by the road, which it does not run, so designer at home
+# is not its trade). Its take is margin of what its corners move; its
+# muscle, its hires and its claims cost corner-days, so they climb the
+# ladder with the take and a price war (#68) or a drain is felt at every
+# tier. It keeps the muscle its take pays for, up to muscle_per_corner
+# per corner held plus one and never under the start_muscle it came with:
+# a head the day's take does not cover walks, at once, so a corner
+# squeezed next door is a head fewer on the front line. What the take
+# leaves is its war chest, the pile that pays for a hire (muscle_fee) or
+# a claim (claim_cost) while it covers both, and what a drain takes.
+# Left alone it holds a chest of ten to thirty days of wages at day 120
+# (territory, five seeds: 17 defensive, 24 expansionist, 27 opportunist,
+# 18 chaotic) and never runs dry; muscle_wage is the dial: a corner's
+# guard at 0.9 of a corner's take leaves a defensive rival on three
+# corners a tenth over its wages a day and an expansionist on eight a
+# third, and the chest it arrives with carries the two heads its first
+# corner does not pay for until the second.
 
 [rivals]
 arrive_day = 10             # it moves in on the first day from this one with a free corner
-start_cash = 6000
-start_muscle = 2
+start_cash = 80             # corner-days in hand when it arrives
+start_muscle = 2            # heads it arrives with, and never lets go
 margin = 0.30               # of the street value its corners move, as daily income
-muscle_wage = 120           # per muscle per day; unpaid muscle walks
-muscle_fee = 1500           # to recruit one
-claim_cost = 2500           # to set up on a free corner
+muscle_wage = 0.9           # what a corner's guard (muscle_per_corner heads) costs it a day, in corner-days; a head earns that over muscle_per_corner
+muscle_fee = 0.5            # corner-days to recruit a head
+claim_cost = 1.0            # corner-days to set up on a free corner
 supplier_min = 0.75         # its supplier price as a fraction of street, drawn between these:
 supplier_max = 0.95         # a better connect than yours (0.55 is what you pay) is what lets it undercut
 push_flip = 0.4             # chance a push flips a corner at even odds; scales by attack/(attack+defence)

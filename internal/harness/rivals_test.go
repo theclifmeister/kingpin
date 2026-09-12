@@ -273,6 +273,9 @@ func TestTellIsAnswerable(t *testing.T) {
 			t.Fatalf("seed %d: no tell in 120 days against an expansionist", seed)
 		}
 		for day, evs := range byDay {
+			if day == res.World.Day {
+				continue // a tell on the last morning has no tomorrow to be answered on
+			}
 			for _, e := range evs {
 				if ev, ok := e.(events.RivalEyeing); ok {
 					answered := false

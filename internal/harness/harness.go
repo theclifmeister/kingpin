@@ -608,13 +608,14 @@ func Warlike(cfg *content.Config, lieLowAt float64, corners int, force events.Fo
 
 // RivalBooks is the rival's day as the rivals sim keeps it: what its
 // corners earn it today (rivals.Sim.Income, a price war's squeeze off)
-// and what its muscle costs it (muscle times muscle_wage). It is what
-// says whether money can hurt it: since #60 the income is hundreds of
-// times the wage bill (#139 rescales it), so a price war (#68) cuts what
-// a corner earns and never what it can pay.
+// and what its muscle costs it (rivals.Sim.Wages, the wage in the
+// ladder's unit since #139). It is what says whether money can hurt it:
+// the muscle is what the take pays for, so a price war (#68) that cuts
+// the take is a head fewer, and the chest (Rival.Cash) is what a drain
+// takes and what a hire or a claim needs.
 func RivalBooks(cfg *content.Config, w *game.World) (income, wages int) {
 	rv := rivals.New(cfg.Rivals, cfg.Names, cfg.Reputation.Effects, cfg.Law.Effects, cfg.Upgrades)
-	return rv.Income(w), w.Rival.Muscle * cfg.Rivals.Rivals.MuscleWage
+	return rv.Income(w), rv.Wages(w)
 }
 
 // Pricewar plays like Territory and fights with money (#68): every day

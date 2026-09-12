@@ -305,7 +305,7 @@ func (s *Sim) offer(w *game.World, t *game.Tick) {
 	var d game.Deal
 	switch r.Personality {
 	case "expansionist":
-		if r.Cash >= r.Muscle*tun.MuscleWage*dip.LowCashDays {
+		if r.Cash >= s.Wages(w)*dip.LowCashDays {
 			return
 		}
 		d = game.Deal{Kind: game.DealTruce, Terms: game.Terms{Days: dip.TruceDays[1]}}

@@ -449,6 +449,11 @@ type RivalState struct {
 	Betrayed  int     // day the player last broke a deal; 0 never. It takes nothing for a while after.
 	LastFlip  int     // day it last took a corner from the player; 0 never
 	NextOffer int     // id of the next offer it makes
+
+	// The books (#139): wages the day's take did not cover, carried
+	// forward; a surplus day pays them down and at a full wage a head
+	// walks. Zero is a payroll the take covers, the pre-#139 state.
+	Arrears float64
 }
 
 // Lead is a crew member who went over to the rival: their name and the
