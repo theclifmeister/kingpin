@@ -38,8 +38,8 @@ func TestHelpScrollsToTheLastRow(t *testing.T) {
 			t.Errorf("a help line is %d wide, over the modal's %d: %q", w, m.modalInner(), stripANSI(l))
 		}
 	}
-	if len(words) != 17 {
-		t.Errorf("WORDS has %d terms, want the dial, the float, the target, the file, drift, undercut, keep at, standing, connect, credit, unlock, house, the pane, the strip, the tier, scout and boost", len(words))
+	if len(words) != 18 {
+		t.Errorf("WORDS has %d terms, want the dial, the float, the target, the file, drift, undercut, keep at, through, standing, connect, credit, unlock, house, the pane, the strip, the tier, scout and boost", len(words))
 	}
 	m.Update(key("?"))
 	if m.mode != modeHelp {

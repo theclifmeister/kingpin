@@ -271,8 +271,11 @@ func (s *Sim) Step(w *game.World, t *game.Tick) {
 			rep.Sales = append(rep.Sales, fmt.Sprintf("You took %s's order: %d %s by day %d%s. Deliver it there (2, d).", ev.Name, ev.Units, w.ProductName(ev.Product), ev.Due, in(ev.City)))
 		case events.SupplyBought:
 			// The contract's buy this morning (#113): the money line is
-			// the receipt's, below, and this is the sales section's.
-			rep.Sales = append(rep.Sales, fmt.Sprintf("Supply contract bought %d %s at %s to keep %d%s = -%s", ev.Units, w.ProductName(ev.Product), format.Price(ev.Price), ev.Level, in(ev.City), format.Money(ev.Cost)))
+			// the receipt's, below, and this is the sales section's. A
+			// lieutenant's contract (#174) is the CREW line's instead.
+			if ev.Lieutenant == "" {
+				rep.Sales = append(rep.Sales, fmt.Sprintf("Supply contract bought %d %s at %s to keep %d%s = -%s", ev.Units, w.ProductName(ev.Product), format.Price(ev.Price), ev.Level, in(ev.City), format.Money(ev.Cost)))
+			}
 		case events.StandingShort:
 			if ev.Stock == 0 {
 				rep.Sales = append(rep.Sales, fmt.Sprintf("Standing order for %d %s%s: nothing stashed, nothing sold. Restock, or cancel it.", ev.Units, w.ProductName(ev.Product), in(ev.City)))
@@ -284,7 +287,14 @@ func (s *Sim) Step(w *game.World, t *game.Tick) {
 			if ev.Why == "room" {
 				why = "the stash there has no room for the rest"
 			}
-			rep.Sales = append(rep.Sales, fmt.Sprintf("Supply contract short: %d %s under the level%s, %s.", ev.Short, w.ProductName(ev.Product), in(ev.City), why))
+			if ev.Why == "supplier" {
+				why = "nobody there sells it today"
+			}
+			if ev.Lieutenant != "" {
+				rep.Crew = append(rep.Crew, fmt.Sprintf("%s could not keep %s stocked%s: %d under the level, %s.", ev.Lieutenant, w.ProductName(ev.Product), in(ev.City), ev.Short, why))
+			} else {
+				rep.Sales = append(rep.Sales, fmt.Sprintf("Supply contract short: %d %s under the level%s, %s.", ev.Short, w.ProductName(ev.Product), in(ev.City), why))
+			}
 		case events.CreditTaken:
 			rep.Money = append(rep.Money, fmt.Sprintf("%s put %s on your book%s: you owe them %s, due day %d.", ev.Name, format.Money(ev.Amount), in(ev.City), format.Money(ev.Debt), ev.Due))
 		case events.DebtPaid:
@@ -458,7 +468,7 @@ func (s *Sim) Step(w *game.World, t *game.Tick) {
 		case events.LieutenantActed:
 			cuts += ev.Cut
 			skimmed += ev.Skimmed
-			rep.Crew = append(rep.Crew, lieutenantLines(ev)...)
+			rep.Crew = append(rep.Crew, lieutenantLines(w, ev)...)
 			if ev.Cut > 0 {
 				rep.Money = append(rep.Money, fmt.Sprintf("%s's cut of %s -%s", ev.Name, ev.CityName, format.Money(ev.Cut)))
 			}
@@ -834,11 +844,17 @@ func (s *Sim) Step(w *game.World, t *game.Tick) {
 		if sup := w.Supplier(b.Supplier); sup != nil {
 			from = " from " + sup.Name
 		}
+		if b.Lieutenant != "" && !b.Contract {
+			from += " through " + b.Lieutenant // a buy into their city from elsewhere (#174)
+		}
 		line := fmt.Sprintf("Bought %d %s at %s%s = -%s", b.Qty, w.ProductName(b.Product), format.Price(b.UnitPrice), from, format.Money(b.Cost))
 		switch {
 		case b.Credit:
 			// On the book, not out of the till (#72).
 			line = fmt.Sprintf("Bought %d %s at %s%s on credit = %s on the book", b.Qty, w.ProductName(b.Product), format.Price(b.UnitPrice), from, format.Money(b.Cost))
+		case b.Contract && b.Lieutenant != "":
+			spent += b.Cost
+			line = fmt.Sprintf("%s's restock: %d %s at %s%s = -%s", b.Lieutenant, b.Qty, w.ProductName(b.Product), format.Price(b.UnitPrice), from, format.Money(b.Cost))
 		case b.Contract:
 			spent += b.Cost
 			line = fmt.Sprintf("Supply contract: %d %s at %s%s = -%s", b.Qty, w.ProductName(b.Product), format.Price(b.UnitPrice), from, format.Money(b.Cost))
@@ -1014,11 +1030,15 @@ func saleLine(w *game.World, ev events.PlayerSold) string {
 }
 
 // lieutenantLines is what a lieutenant's night reads like in the report:
-// what they did with the crew and the corners, and, once you know them,
-// what they are like. A greedy one's skim is missing money like anyone
-// else's; the line never says so.
-func lieutenantLines(ev events.LieutenantActed) []string {
+// what they did with the crew and the corners, what their contracts
+// bought this morning (#174, `bought 120 Weed for $2,500`), and, once
+// you know them, what they are like. A greedy one's skim is missing
+// money like anyone else's; the line never says so.
+func lieutenantLines(w *game.World, ev events.LieutenantActed) []string {
 	var did []string
+	for _, b := range ev.Bought {
+		did = append(did, fmt.Sprintf("bought %d %s for %s", b.Units, w.ProductName(b.Product), format.Money(b.Cost)))
+	}
 	if n := len(ev.Posted); n > 0 {
 		did = append(did, fmt.Sprintf("posted %s on %s", count(n, "runner"), strings.Join(ev.Posted, ", ")))
 	}
