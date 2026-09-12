@@ -48,7 +48,7 @@ checkpoint = 70
 opens = [
   "runners on corners, enforcers on guard",
   "the rival, from day 10",
-  "a second connect once $25K has moved and the street connect vouches",
+  "a second connect at $25K moved, if the street connect vouches",
 ]
 next = "Move $25K: the laundromat opens, and the fronts begin."
 [tier.enter]
@@ -73,7 +73,7 @@ peak_cash_min = 25000
 [[tier]]
 id = "distribution"
 name = "Distribution"
-blurb = "Two cities, a road and a lieutenant to run the far one."
+blurb = "A second city, a road and a lieutenant."
 checkpoint = 200
 opens = [
   "the wholesaler's lots for the road",
