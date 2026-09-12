@@ -184,15 +184,13 @@ func (s *Sim) step(w *game.World, t *game.Tick, rng rand, fx game.Effects, city 
 		ev := events.CornerRobbed{Day: t.Day, Corner: c.ID, Name: c.Name, StockLost: map[string]int{}}
 		ids := append([]string(nil), w.Products...)
 		sort.Strings(ids)
-		stash := w.Stash(city.ID)
 		for _, id := range ids {
 			frac := 0.0
 			if held := w.HeldShare(city.ID, id); held > 0 {
 				frac = c.Share(id) / held
 			}
 			ev.Cash += int(math.Round(float64(revenue[game.OrderKey(city.ID, id)]) * tun.RobberyCash * frac))
-			if lost := int(math.Round(float64(stash[id]) * tun.RobberyStock * frac)); lost > 0 {
-				stash[id] -= lost
+			if lost := w.TakeStock(city.ID, id, int(math.Round(float64(w.Stock(city.ID, id))*tun.RobberyStock*frac))); lost > 0 {
 				ev.StockLost[id] = lost
 			}
 		}

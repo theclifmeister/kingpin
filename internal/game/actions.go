@@ -242,7 +242,7 @@ func (w *World) giveBack(city, product string, qty int, contract, credit bool) (
 		w.Buys = nil
 	}
 	w.Player.DirtyCash += refund
-	w.Stash(city)[product] -= qty
+	w.TakeStock(city, product, qty)
 	m.BoughtToday -= qty
 	w.refreshSupplierPrice(city, product)
 	return refund, nil
@@ -467,7 +467,7 @@ func (w *World) setRouteTarget(id, product string, n int, days bool) error {
 // it an id and keeps the count.
 func (w *World) Send(s Shipment) Shipment {
 	w.Player.DirtyCash -= s.Cost
-	w.Stash(s.From)[s.Product] -= s.Units
+	w.TakeStock(s.From, s.Product, s.Units)
 	w.Logistics.NextID++
 	s.ID = w.Logistics.NextID
 	if s.Arrives <= s.Sent {

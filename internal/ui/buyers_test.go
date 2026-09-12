@@ -39,7 +39,7 @@ func TestMarketBuyersKeys(t *testing.T) {
 	m := newTestModel(t, 120, 40)
 	w := m.w
 	here := w.Player.Location
-	w.Stash(here)[w.Products[0]] = 60
+	w.SetStock(here, w.Products[0], 60)
 	c := offer(m, 40, here)
 	elsewhere := offer(m, 10, w.CityOrder[1])
 	m.Update(key("2"))
@@ -109,7 +109,7 @@ func TestBuyersRenderAtCommonSizes(t *testing.T) {
 		m := newTestModel(t, sz[0], sz[1])
 		w := m.w
 		here := w.Player.Location
-		w.Stash(here)[w.Products[0]] = 60
+		w.SetStock(here, w.Products[0], 60)
 		c := offer(m, 40, here)
 		offer(m, 25, here)
 		m.Update(key("2"))
@@ -136,7 +136,7 @@ func TestDeliverElsewhereIsRefused(t *testing.T) {
 	m := newTestModel(t, 120, 40)
 	w := m.w
 	other := w.CityOrder[1]
-	w.Stash(other)[w.Products[0]] = 60
+	w.SetStock(other, w.Products[0], 60)
 	c := offer(m, 40, other)
 	if err := w.AcceptContract(c.ID); err != nil {
 		t.Fatal(err)

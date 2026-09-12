@@ -390,14 +390,12 @@ func (s *Sim) sendSomebody(w *game.World, t *game.Tick, sup *game.Supplier) {
 		t.Emit(ev)
 		return
 	}
-	stash := w.Stash(sup.City)
 	for _, id := range w.Products {
 		price := sup.Price[id]
-		if !sup.Sells(id) || price <= 0 || stash[id] <= 0 || sup.Debt <= 0 {
+		if !sup.Sells(id) || price <= 0 || w.Stock(sup.City, id) <= 0 || sup.Debt <= 0 {
 			continue
 		}
-		units := min(stash[id], int(math.Ceil(float64(sup.Debt)/price)))
-		stash[id] -= units
+		units := w.TakeStock(sup.City, id, int(math.Ceil(float64(sup.Debt)/price)))
 		sup.Debt = max(0, sup.Debt-int(math.Round(float64(units)*price)))
 		w.Stats.Collected += units
 		ev.Units += units

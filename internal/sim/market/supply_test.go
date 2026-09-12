@@ -144,7 +144,7 @@ func TestSupplyPlan(t *testing.T) {
 	}
 	// At the level, or with the shortfall on the road: nothing.
 	w.Player.DirtyCash = 1_000_000
-	w.Stash(home)[weed] = 100
+	w.SetStock(home, weed, 100)
 	w.Shipments = append(w.Shipments, game.Shipment{To: home, Product: pills, Units: 50, Arrives: 5})
 	if plan := mk.Plan(w); len(plan) != 0 {
 		t.Fatalf("at the level and on the road: %+v", plan)

@@ -263,7 +263,7 @@ func (s *Sim) move(w *game.World, t *game.Tick, fx game.Effects) {
 			continue
 		}
 		if t.Day >= sh.Arrives {
-			w.Stash(sh.To)[sh.Product] += sh.Units
+			w.AddStock(sh.To, sh.Product, sh.Units)
 			t.Emit(events.ShipmentArrived{
 				Day: t.Day, ID: sh.ID, Route: sh.Route, Mode: sh.Mode, From: sh.From, To: sh.To,
 				Product: sh.Product, Units: sh.Units,

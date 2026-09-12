@@ -97,7 +97,7 @@ func TestAggressiveSellingCrashesPrice(t *testing.T) {
 	res, err := Run(cfg, 7, 3, func(w *game.World) {
 		if w.Day == 0 {
 			start = w.Home().Market["weed"].Price
-			w.Stash(w.Home().ID)["weed"] = 500
+			w.SetStock(w.Home().ID, "weed", 500)
 		}
 		if err := w.PlaceSell(w.Home().ID, "weed", w.Stock(w.Home().ID, "weed"), events.DialAggressive); err != nil {
 			t.Fatalf("day %d: %v", w.Day, err)

@@ -69,7 +69,7 @@ func (p probeBefore) Step(w *game.World, t *game.Tick) {
 	p.stash = map[string]map[string]int{}
 	for _, cid := range w.CityOrder {
 		p.stash[cid] = map[string]int{}
-		for id, q := range w.Player.Stash[cid] {
+		for id, q := range w.StashOf(cid) {
 			p.stash[cid][id] = q
 		}
 	}
@@ -124,7 +124,7 @@ func TestContractInvariants(t *testing.T) {
 				}
 				for cid, products := range stash {
 					for id, q := range products {
-						if got, want := w.Player.Stash[cid][id], q-sold[cid][id]-delivered[cid][id]; got != want {
+						if got, want := w.Stock(cid, id), q-sold[cid][id]-delivered[cid][id]; got != want {
 							t.Fatalf("seed %d %s day %d: %s in %s went %d -> %d with %d sold and %d handed over", seed, p.name, tk.Day, id, cid, q, got, sold[cid][id], delivered[cid][id])
 						}
 					}
@@ -219,7 +219,7 @@ func TestCornerlessPlayerCanWorkAContract(t *testing.T) {
 	if err := w.AcceptContract(c.ID); err != nil {
 		t.Fatal(err)
 	}
-	w.Stash(home)[w.Products[0]] = 30
+	w.SetStock(home, w.Products[0], 30)
 	if err := w.Deliver(c.ID, 30); err != nil {
 		t.Fatal(err)
 	}
@@ -480,7 +480,7 @@ func TestHandoffHeat(t *testing.T) {
 			if err := w.AcceptContract(c.ID); err != nil {
 				t.Fatal(err)
 			}
-			w.Stash(home)[w.Products[0]] = 20
+			w.SetStock(home, w.Products[0], 20)
 			if err := w.Deliver(c.ID, 20); err != nil {
 				t.Fatal(err)
 			}
@@ -520,7 +520,7 @@ func TestHandoffHeat(t *testing.T) {
 			if err := w.AcceptContract(c.ID); err != nil {
 				t.Fatal(err)
 			}
-			w.Stash(home)[hard] = 100
+			w.SetStock(home, hard, 100)
 			if err := w.Deliver(c.ID, 100); err != nil {
 				t.Fatal(err)
 			}
@@ -736,7 +736,7 @@ func TestSaveKeepsContracts(t *testing.T) {
 	if err := b.AcceptContract(c.ID); err != nil {
 		t.Fatal(err)
 	}
-	b.Stash(home)[b.Products[0]] += 5
+	b.AddStock(home, b.Products[0], 5)
 	if err := b.Deliver(c.ID, 5); err != nil {
 		t.Fatal(err)
 	}
@@ -744,7 +744,7 @@ func TestSaveKeepsContracts(t *testing.T) {
 	if err := a.AcceptContract(b.Contract(c.ID).ID); err != nil {
 		t.Fatal(err)
 	}
-	a.Stash(home)[a.Products[0]] += 5
+	a.AddStock(home, a.Products[0], 5)
 	if err := a.Deliver(c.ID, 5); err != nil {
 		t.Fatal(err)
 	}

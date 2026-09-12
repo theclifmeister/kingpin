@@ -11,7 +11,7 @@ import (
 func cardWorld() *World {
 	w := testWorld()
 	w.Player.DirtyCash, w.Player.CleanCash = 1000, 500
-	w.Stash("test")["a"] = 40
+	w.SetStock("test", "a", 40)
 	w.Home().Heat = 50
 	w.Crew.Members = []CrewMember{{ID: 1, Name: "Dre", Role: "runner", Loyalty: 50}, {ID: 2, Name: "Tank", Role: "enforcer", Loyalty: 50}}
 	w.Rival = RivalState{Leader: "Ghost", War: 50, Grudge: 1, Muscle: 3, Cash: 5000, Arrived: 1}

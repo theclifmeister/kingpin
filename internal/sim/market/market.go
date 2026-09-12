@@ -555,7 +555,7 @@ func (s *Sim) resolveAt(w *game.World, t *game.Tick, city string, m *game.Produc
 		avg = float64(revenue) / float64(sold) // the event's average is over every unit moved
 	}
 
-	w.Stash(city)[o.Product] -= sold
+	w.TakeStock(city, o.Product, sold)
 	w.Player.DirtyCash += revenue
 	w.Stats.TotalRevenue += revenue
 	w.Stats.UnitsSold += sold

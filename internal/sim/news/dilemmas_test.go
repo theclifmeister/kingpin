@@ -103,7 +103,7 @@ func TestTriggersHold(t *testing.T) {
 		{"heat_max", content.CardTrigger{HeatMax: 40}, func(w *game.World) { w.Home().Heat = 41 }, func(w *game.World) { w.Home().Heat = 40 }, nil},
 		{"cash_min", content.CardTrigger{CashMin: 5000}, func(w *game.World) { w.Player.DirtyCash, w.Player.CleanCash = 4000, 999 }, func(w *game.World) { w.Player.CleanCash = 1000 },
 			func(s news.Slots) bool { return s.Amount != "" }},
-		{"stock_min", content.CardTrigger{StockMin: 30}, func(w *game.World) { w.Stash(w.Home().ID)[w.Products[0]] = 29 }, func(w *game.World) { w.Stash(w.Home().ID)[w.Products[1]] = 1 },
+		{"stock_min", content.CardTrigger{StockMin: 30}, func(w *game.World) { w.SetStock(w.Home().ID, w.Products[0], 29) }, func(w *game.World) { w.SetStock(w.Home().ID, w.Products[1], 1) },
 			func(s news.Slots) bool { return s.Product != "" }},
 		{"crew_min", content.CardTrigger{CrewMin: 2}, func(w *game.World) { w.Crew.Members = w.Crew.Members[:1] }, func(w *game.World) {
 			w.Crew.Members = append(w.Crew.Members, game.CrewMember{ID: 9, Name: "Boo", Role: "runner", Loyalty: 50})

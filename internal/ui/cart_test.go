@@ -202,13 +202,13 @@ func TestCartListsAndEdits(t *testing.T) {
 	}
 	// The pills' units have left the stash (on the road): the return is
 	// refused, in the modal and the status bar, and the line stays.
-	w.Stash(home)[pills] = 1
+	w.SetStock(home, pills, 1)
 	m.crt.cursor = 0
 	m.Update(key("x"))
 	if w.Bought(home, pills) != 4 || m.crt.err == "" || m.statusKind != statusWarning || !strings.HasPrefix(m.status, "Can't return") {
 		t.Fatalf("returning shipped units: bought %d err %q status %q kind %v", w.Bought(home, pills), m.crt.err, m.status, m.statusKind)
 	}
-	w.Stash(home)[pills] = 4
+	w.SetStock(home, pills, 4)
 	m.Update(key("x"))
 	if w.Bought(home, pills) != 0 || w.Player.DirtyCash != cash {
 		t.Fatalf("after returning everything: bought %d cash %d, had %d", w.Bought(home, pills), w.Player.DirtyCash, cash)

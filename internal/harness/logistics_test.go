@@ -90,7 +90,7 @@ func TestStockIsConservedAcrossShipments(t *testing.T) {
 			}
 		}
 		w := quiet(&safe, 1)
-		w.Stash(hub)[product] = 500
+		w.SetStock(hub, product, 500)
 		units := min(200, route.Capacity)
 		run := runRoute(route, product, units, events.RouteNormal)
 		res, err := RunFrom(&safe, w, route.Days*2+3, func(w *game.World) {
@@ -197,8 +197,8 @@ func TestFastIsSeizedMoreThanSlow(t *testing.T) {
 				// the target units past what is on the road, so units
 				// go every day.
 				w.Player.DirtyCash = cfg.Heat.Heat.DirtyCashThreshold
-				w.Stash(hub)[product] = 10_000
-				w.Stash(home)[product] = 0
+				w.SetStock(hub, product, 10_000)
+				w.SetStock(home, product, 0)
 				_ = w.SetRouteTarget(route.ID, product, w.Bound(home, product)+units)
 				_ = w.SetRoute(route.ID, d)
 			})
@@ -244,7 +244,7 @@ func TestSeizureIsShockNotEvidence(t *testing.T) {
 	}
 	for _, d := range []events.RouteDial{events.RouteNormal, events.RouteFast} {
 		w := quiet(&risky, 2)
-		w.Stash(hub)[product] = 100
+		w.SetStock(hub, product, 100)
 		// Sent on the first morning, rolled and seized on the second,
 		// the shock on the third.
 		res, err := RunFrom(&risky, w, 4, runRoute(route, product, 50, d))
@@ -330,7 +330,7 @@ func TestSalesElsewhereAreRunnersOnly(t *testing.T) {
 		if w.Day == 3 {
 			w.Recall(1)
 		}
-		w.Stash(hub)[product] = 1000
+		w.SetStock(hub, product, 1000)
 		if err := w.PlaceSell(hub, product, 1000, events.DialNormal); err != nil {
 			t.Fatal(err)
 		}
@@ -446,7 +446,7 @@ func TestRouteDaysTargetFollowsDemand(t *testing.T) {
 	// bought by the lot: only the target moves.
 	held := func(corners int) (*game.World, int) {
 		w := quiet(&safe, 5)
-		w.Stash(hub)[product] = 100_000
+		w.SetStock(hub, product, 100_000)
 		w.Player.DirtyCash = cfg.Heat.Heat.DirtyCashThreshold
 		for i, c := range w.Home().Corners[:corners] {
 			id := 900 + i
@@ -551,7 +551,7 @@ func TestRouteDialKeepsTheTarget(t *testing.T) {
 		case w.Day == 20:
 			// Drained and broke: the road must not touch the float.
 			phase = "broke"
-			w.Stash(home)[product] = 0
+			w.SetStock(home, product, 0)
 			w.Player.DirtyCash = lg.Float() - 1
 		case w.Day == 30:
 			// Rich again, but off.

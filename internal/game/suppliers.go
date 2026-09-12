@@ -327,7 +327,7 @@ func (w *World) buy(s *Supplier, product string, qty int, markup float64, credit
 	} else {
 		w.Player.DirtyCash -= cost
 	}
-	w.Stash(s.City)[product] += qty
+	w.AddStock(s.City, product, qty)
 	m.BoughtToday += qty
 	s.took(w, product, qty)
 	if demand := w.Demand(s.City, product); demand > 0 {
@@ -432,7 +432,7 @@ func (w *World) Restock(city, product string, lots int, pricePressure float64) (
 		return Purchase{}, fmt.Errorf("need $%d, only have $%d dirty", cost, w.Player.DirtyCash)
 	}
 	w.Player.DirtyCash -= cost
-	w.Stash(city)[product] += qty
+	w.AddStock(city, product, qty)
 	m.BoughtToday += qty
 	s.took(w, product, qty)
 	if demand := w.Demand(city, product); demand > 0 {

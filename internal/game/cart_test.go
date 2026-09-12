@@ -107,14 +107,14 @@ func TestReturnRefusals(t *testing.T) {
 		t.Fatal("more than was bought")
 	}
 	// On the road: the stash no longer holds them.
-	w.Stash("test")["a"] = 3
+	w.SetStock("test", "a", 3)
 	if _, err := w.Return("test", "a", 5); !errors.Is(err, ErrReturnGone) {
 		t.Fatalf("gone: %v", err)
 	}
 	if _, err := w.Return("test", "a", 3); err != nil {
 		t.Fatalf("what is left: %v", err)
 	}
-	w.Stash("test")["a"] = 7
+	w.SetStock("test", "a", 7)
 	// The day ends: the receipts are gone with it.
 	NewClock(nil, &counter{}).EndDay(w)
 	if w.Buys != nil {

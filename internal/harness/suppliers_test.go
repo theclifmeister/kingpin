@@ -132,7 +132,7 @@ func TestDebtNeverEndsTheRun(t *testing.T) {
 			// old ending, for a player with nothing at all), and every
 			// connect owed more than a day brings.
 			w.Player.DirtyCash, w.Player.CleanCash = 0, 0
-			w.Stash(w.Home().ID)[w.Products[0]] = 100_000
+			w.SetStock(w.Home().ID, w.Products[0], 100_000)
 			for i := range w.Suppliers {
 				s := &w.Suppliers[i]
 				s.Temper = temper
@@ -241,7 +241,7 @@ func TestBustsAndSeizuresHurtTheConnects(t *testing.T) {
 	home, hub := w.CityOrder[0], w.CityOrder[1]
 	street := w.StreetSupplier(home)
 	w.Player.DirtyCash, w.Stats.PeakCash = 5_000_000, 5_000_000
-	w.Stash(home)[w.Products[0]] = 500
+	w.SetStock(home, w.Products[0], 500)
 	// A raid tomorrow: the heat sim fires one at heat over the line on a
 	// day something sold; force it by the record instead, which is what
 	// the market reads.

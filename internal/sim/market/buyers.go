@@ -248,7 +248,7 @@ func (s *Sim) deliver(w *game.World, t *game.Tick, city string) {
 		}
 		price := m.Price * c.Premium
 		revenue := int(math.Round(price * float64(units)))
-		w.Stash(city)[c.Product] -= units
+		w.TakeStock(city, c.Product, units)
 		w.Player.DirtyCash += revenue
 		w.Stats.TotalRevenue += revenue
 		w.Stats.ContractUnits += units

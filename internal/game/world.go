@@ -632,7 +632,7 @@ func (w *World) AddCity(c StartingCity) *City {
 	for _, p := range c.Products {
 		w.AddProduct(c.ID, p)
 	}
-	w.Stash(c.ID)
+	w.stash(c.ID)
 	return city
 }
 
@@ -662,7 +662,7 @@ func (w *World) AddProduct(city string, p StartingProduct) {
 		History:       []float64{p.Price},
 		NoSupply:      p.NoSupply,
 	}
-	w.Stash(city)[p.ID] += 0
+	w.stash(city)[p.ID] += 0 // the key is there, so a walk over the stash sees every product
 }
 
 // City returns the city with id, or nil.
@@ -692,9 +692,12 @@ func (w *World) CityName(id string) string {
 	return id
 }
 
-// Stash is the player's stock in a city, created empty on first use so
-// callers can index it.
-func (w *World) Stash(city string) map[string]int {
+// stash is the player's stock in a city, created empty on first use. It
+// is the one handle on the map: every unit that enters or leaves a stash
+// goes through AddStock, TakeStock or SetStock below (#144), so #73 and
+// #47 can change what the map means or holds by changing these and
+// nothing else. TestStashHasNoWriters holds the rest of the code to it.
+func (w *World) stash(city string) map[string]int {
 	if w.Player.Stash == nil {
 		w.Player.Stash = map[string]map[string]int{}
 	}
@@ -706,8 +709,49 @@ func (w *World) Stash(city string) map[string]int {
 	return s
 }
 
+// StashOf is a copy of the player's stock in a city, product by product,
+// for a reader that walks it (the UI, the harness, the cart). Writing to
+// the copy changes nothing; the writers are AddStock and TakeStock.
+func (w *World) StashOf(city string) map[string]int {
+	s := w.Player.Stash[city]
+	out := make(map[string]int, len(s))
+	for id, q := range s {
+		out[id] = q
+	}
+	return out
+}
+
 // Stock is how many units of a product the player holds in a city.
 func (w *World) Stock(city, product string) int { return w.Player.Stash[city][product] }
+
+// AddStock puts units of a product into a city's stash: a buy, a
+// shipment landing, a card. A negative count is a TakeStock.
+func (w *World) AddStock(city, product string, units int) {
+	if units < 0 {
+		w.TakeStock(city, product, -units)
+		return
+	}
+	w.stash(city)[product] += units
+}
+
+// TakeStock takes up to units of a product out of a city's stash (a
+// sale, a shipment leaving, a bust, a robbery, a collection) and returns
+// what it took, so the stash never goes under zero and a caller that
+// asked for more than was there learns what it got.
+func (w *World) TakeStock(city, product string, units int) int {
+	s := w.stash(city)
+	taken := max(0, min(units, s[product]))
+	s[product] -= taken
+	return taken
+}
+
+// SetStock puts a city's stock of a product at exactly units, whatever
+// it was. It is the tests' and the migration's (a save from before the
+// cities carried its stock on the player); nothing in play sets a stash
+// to a figure, it adds to it or takes from it.
+func (w *World) SetStock(city, product string, units int) {
+	w.stash(city)[product] = max(0, units)
+}
 
 // InTransit is how many units of a product are on the road, bound
 // anywhere.

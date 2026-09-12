@@ -595,11 +595,8 @@ func (s *Sim) fire(w *game.World, t *game.Tick, city *game.City, r content.Respo
 		} else {
 			stockLoss *= fx.StingStockMul
 		}
-		stash := w.Stash(city.ID)
-		for id, q := range stash {
-			lost := int(math.Round(float64(q) * stockLoss))
-			if lost > 0 {
-				stash[id] -= lost
+		for id, q := range w.StashOf(city.ID) {
+			if lost := w.TakeStock(city.ID, id, int(math.Round(float64(q)*stockLoss))); lost > 0 {
 				ev.StockLost[id] = lost
 			}
 		}

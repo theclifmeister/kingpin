@@ -100,7 +100,7 @@ func TestReputationCannotMaxAllThree(t *testing.T) {
 			break
 		}
 		for _, id := range w.Products {
-			w.Stash(w.Home().ID)[id] = 500
+			w.SetStock(w.Home().ID, id, 500)
 			_ = w.PlaceSell(w.Home().ID, id, 500, events.DialAggressive)
 		}
 	})
@@ -123,7 +123,7 @@ func TestReputationCannotMaxAllThree(t *testing.T) {
 func pinned(rep game.Reputation, qty int) Policy {
 	return func(w *game.World) {
 		w.Player.Reputation = rep
-		w.Stash(w.Home().ID)["weed"] = qty
+		w.SetStock(w.Home().ID, "weed", qty)
 		_ = w.PlaceSell(w.Home().ID, "weed", qty, events.DialNormal)
 	}
 }
@@ -314,7 +314,7 @@ func TestReputationSourcesAndHeadlines(t *testing.T) {
 		}
 		_, _ = w.PayOff(900, 1, 0)
 		for _, id := range w.Products {
-			w.Stash(w.Home().ID)[id] = 300
+			w.SetStock(w.Home().ID, id, 300)
 			_ = w.PlaceSell(w.Home().ID, id, 300, events.DialNormal)
 		}
 	})

@@ -140,7 +140,7 @@ func TestRobberies(t *testing.T) {
 			t.Fatal(err)
 		}
 		for day := 0; day < 400; day++ {
-			w.Stash(w.Home().ID)["weed"] = 100
+			w.SetStock(w.Home().ID, "weed", 100)
 			w.Player.DirtyCash = 10_000
 			for _, e := range step(w, s, events.PlayerSold{Day: w.Day + 1, City: w.Home().ID, Product: "weed", Sold: 60, Revenue: 1200}) {
 				r, ok := e.(events.CornerRobbed)

@@ -203,7 +203,7 @@ func TestDashboardEstimateMatchesDialog(t *testing.T) {
 	m := newTestModel(t, 120, 40)
 	w := m.w
 	id := w.Products[0]
-	w.Stash(w.Player.Location)[id] = 80
+	w.SetStock(w.Player.Location, id, 80)
 	expect := regexp.MustCompile(`expect\s+~(\d+) of \d+ at ~\S+ = ~(\S+)`)
 	sell := regexp.MustCompile(`s\s+sell ~(\d+) at (\S+) = ~(\S+)`)
 	for _, dial := range []events.Dial{events.DialNormal, events.DialAggressive} {
