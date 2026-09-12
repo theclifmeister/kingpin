@@ -243,6 +243,14 @@ func (s *Sim) move(w *game.World, t *game.Tick, fx game.Effects) {
 	sort.SliceStable(w.Shipments, func(i, j int) bool { return w.Shipments[i].ID < w.Shipments[j].ID })
 	kept := w.Shipments[:0]
 	for _, sh := range w.Shipments {
+		// A route shut by an incident (#44) moves nothing: the shipment
+		// sits where it is, its days left intact (it lands a day later
+		// for every night shut) and nothing on it is seized.
+		if w.Route(sh.Route).Closed(t.Day) {
+			sh.Arrives++
+			kept = append(kept, sh)
+			continue
+		}
 		risk := 0.0
 		if r := s.cfg.Route(sh.Route); r != nil {
 			risk = s.dayRisk(fx, *r, sh.Dial)
@@ -313,8 +321,8 @@ func (s *Sim) run(w *game.World, t *game.Tick, fx game.Effects) {
 	pressure := s.market.Market.BuyPricePressure * fx.BuyPressureMul
 	for _, r := range s.cfg.Routes {
 		rs := w.Route(r.ID)
-		if !rs.Dial.On() || w.Cities[r.From] == nil || w.Cities[r.To] == nil {
-			continue
+		if !rs.Dial.On() || rs.Closed(t.Day) || w.Cities[r.From] == nil || w.Cities[r.To] == nil {
+			continue // a shut route (#44) refuses new shipments until it reopens
 		}
 		dial := rs.Dial.Ship()
 		var day game.RouteDay

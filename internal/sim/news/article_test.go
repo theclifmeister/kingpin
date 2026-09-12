@@ -18,8 +18,8 @@ func TestArticlesAgreeWithTheValue(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	vowel := data{City: "Eastside", Product: "Acid", Name: "Auntie Mai", Role: "accountant", Corner: "Old Mill", Rival: "Ash", Front: "Arcade", Mode: "airship", From: "Eastside", To: "Ashport", Deal: "alliance", Stance: "anti-crime", Level: content.Arrest}
-	consonant := data{City: "Bayport", Product: "Weed", Name: "Cass", Role: "runner", Corner: "Rail Yard", Rival: "Mother", Front: "Laundromat", Mode: "car", From: "Bayport", To: "Bayport", Deal: "truce", Stance: "reform", Level: content.Sting}
+	vowel := data{City: "Eastside", Product: "Acid", Name: "Auntie Mai", Role: "accountant", Corner: "Old Mill", Rival: "Ash", Front: "Arcade", Mode: "airship", From: "Eastside", To: "Ashport", Deal: "alliance", Stance: "anti-crime", Level: content.Arrest, Route: "Ocean Road", DA: "Abernathy", Chief: "Ambrose", Leader: "Ivory", Faction: "Ivory's crew", Days: 8}
+	consonant := data{City: "Bayport", Product: "Weed", Name: "Cass", Role: "runner", Corner: "Rail Yard", Rival: "Mother", Front: "Laundromat", Mode: "car", From: "Bayport", To: "Bayport", Deal: "truce", Stance: "reform", Level: content.Sting, Route: "Coast Road", DA: "Ramirez", Chief: "Halloran", Leader: "Big Sal", Faction: "Big Sal's crew", Days: 3}
 	wrongA := regexp.MustCompile(`\b[Aa] [AEIOU]`)
 	wrongAn := regexp.MustCompile(`\b[Aa]n [BCDFGHJKLMNPQRSTVWXYZ]`)
 	rendered := 0

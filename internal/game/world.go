@@ -45,6 +45,7 @@ type World struct {
 	Suppliers   []Supplier                // the connects (#72), in the order seeded: the street one in every city, the wholesaler, one more by seed
 	Progression Progression               // the tiers reached (#147), stamped by the news sim; nothing gates on it
 	Houses      []House                   // the stash houses (#73), in the order bought: where the stock sits beyond the street, and which one the raid finds
+	Incidents   IncidentState             // the world's incidents (#44): what has fired and the table's pacing; the world sim's, first in the order
 
 	// The lieutenants' supply contracts (#174), keyed like Supply: the
 	// crew step refreshes them nightly by the temper's stock_days and
@@ -275,6 +276,8 @@ type HeatState struct {
 	LeakDay      int            // day an informant last fed the file (or turned); the next leak is due informant_days later
 	Leaks        int            // pages an informant has fed the DA since one was last on the payroll; the tell shows at two
 	Peak         float64        // the hottest any city has been
+	FederalUntil int            // the feds are in town until this day (#44, an incident): the heat sim's decay is FederalDecay of itself on every tick before it
+	FederalDecay float64        // ... by this much; 0 reads as no change
 	Busts        []Bust         // stings and raids that took stock, kept a while: the market sim reads yesterday's for the connect there (#72)
 }
 
@@ -619,6 +622,7 @@ type Headline struct {
 // DayReport is what the player reads in the morning.
 type DayReport struct {
 	Day        int
+	Incident   []string // the world's incident this morning (#44): first in the report, before the tier
 	Unlocked   []string // gates crossed this morning (#148): first in the report
 	Prices     []string
 	Sales      []string

@@ -20,6 +20,11 @@ type LawState struct {
 	// refuse without the law's tuning. It is off between campaigns and
 	// where there are no elections.
 	CampaignOpen bool
+
+	// SnapElection is the day of a snap election an incident called
+	// (#44); 0 none. The law sim holds it when it comes before the
+	// term's end and clears it after.
+	SnapElection int
 }
 
 // Chief is the police chief: a name, a personality (corrupt, zealous,

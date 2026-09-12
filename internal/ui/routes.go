@@ -550,9 +550,15 @@ func (m *Model) routeSection(r content.RouteConfig) section {
 	lines := []string{
 		theme.Subtle.Render(fmt.Sprintf("%s %s %s", w.CityName(r.From), edge(r.Mode), w.CityName(r.To))),
 		row("dial", dialStyle(d).Render("["+d.String()+"]")),
+	}
+	if rs := w.Route(r.ID); w.RouteClosed(r.ID) {
+		// Shut by an incident (#44): tonight and the nights after it before it reopens.
+		lines = append(lines, row("closed", theme.Warning.Render(plural(rs.ClosedUntil-w.Day-1, "night")+" to go")))
+	}
+	lines = append(lines,
 		row("days", fmt.Sprintf("%d · capacity %d", lg.Days(w, r, d.Ship()), lg.Capacity(w, r))),
 		row("fare", fmt.Sprintf("%s/u · seized ~%.0f%%", fare(lg.Fare(w, r)), lg.Risk(w, r, d.Ship())*100)),
-	}
+	)
 	switch t := m.targetLine(r.ID); {
 	case t == "" && d.On():
 		lines = append(lines, row("target", theme.Warning.Render("none: it sends nothing")))

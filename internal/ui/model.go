@@ -1416,8 +1416,9 @@ func (m *Model) reportLines() []string {
 		}
 		body = append(body, "")
 	}
-	section("TIER", r.Tier, theme.Warning)      // the tier entered this morning (#147), first
-	section("UNLOCKED", r.Unlocked, theme.Gold) // a gate crossed (#148): next, it is what the morning is about
+	section("INCIDENT", r.Incident, theme.Fg(theme.World)) // the world's incident this morning (#44): first, the day is about it
+	section("TIER", r.Tier, theme.Warning)                 // the tier entered this morning (#147)
+	section("UNLOCKED", r.Unlocked, theme.Gold)            // a gate crossed (#148): next, it is what the morning is about
 	section("PRICES", r.Prices, theme.Good)
 	section("SALES", r.Sales, theme.Gold)
 	section("SHIPMENTS", r.Shipments, theme.RoadText)

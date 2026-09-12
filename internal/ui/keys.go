@@ -639,6 +639,7 @@ var words = [][2]string{
 	{"scout", "a paid look at the rival's books: a snapshot that goes stale"},
 	{"boost", "the enforcers rob a rival corner's till, not the corner"},
 	{"scene", "a short animation on a morning that matters; any key skips it"},
+	{"world", "the weather: an incident that lands on the world, not on you"},
 }
 
 // helpLines is the help modal's body: every binding, grouped, one a
