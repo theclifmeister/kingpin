@@ -83,7 +83,7 @@ Package layout: `cmd/kingpin` (the game), `cmd/balance` (headless runs), `cmd/ke
 | Fast-forward, alerts, stop events | `ui/fast.go`, `dashboard.go` `alerts()` | | `docs/ui.md` | `TestFastForwardIsTheSameDays`, `TestFastForwardStopsOnACard` |
 | The cart, the dialogs, the delta | `ui/cart.go`, `ui/dialogs.go`, `ui/market.go` `priceFacts` | | `docs/cart.md` | `cart_test.go`, `delta_test.go`, `toggle_test.go` |
 | Dashboard, map, ledger, rivals screens | `ui/dashboard.go`, `map.go`, `routes.go`, `ledger.go`, `rivals.go` | | `docs/frame-and-pane.md`, `docs/ui.md` | `dashboard_test.go`, `TestRouteMarkerMoves`, `TestTablesAreConsistent` |
-| Animation: scenes, effects, the title loop | `ui/anim`, `ui/scene.go` | | `docs/animation.md` | `TestNoTickInPlayMode`, `TestSceneStopsTicking`, `TestScenesFit` |
+| Animation: scenes, effects, the title loop, the map's strike | `ui/anim`, `ui/scene.go`, `ui/scene_map.go` | | `docs/animation.md` | `TestNoTickInPlayMode`, `TestSceneStopsTicking`, `TestScenesFit`, `TestStrikeSceneOnTheMap` |
 
 ### Rules of thumb that took a PR to learn
 

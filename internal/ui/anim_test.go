@@ -53,8 +53,9 @@ func (s stub) Frame(t time.Duration, w, h int) []string { return []string{"scene
 func (s stub) Done(t time.Duration) bool                { return t >= s.over }
 
 // TestNoTickInPlayMode: Update returns no command in play mode, on
-// every screen for every key the table has, with animation on; and
-// with animation off in every mode, so the fixtures and the README's
+// every screen for every key the table has, with animation on; the
+// map after its scene (#158) the same, for every key; and with
+// animation off in every mode, so the fixtures and the README's
 // captures never hold a scene.
 func TestNoTickInPlayMode(t *testing.T) {
 	m := newAnimModel(t, 120, 40)
@@ -78,6 +79,27 @@ func TestNoTickInPlayMode(t *testing.T) {
 		m.mode = modePlay
 		if _, cmd := m.Update(tea.WindowSizeMsg{Width: 120, Height: 40}); cmd != nil {
 			t.Errorf("screen %d: a resize returned a command in play mode", s)
+		}
+	}
+	// The map after the strike's scene: the one scene on a play screen
+	// played, and the map is play mode again.
+	struck := richModel(t, 120, 40)
+	struck.opts.Anim = true
+	strikeMorning(t, struck)
+	if _, cmd := struck.Update(key("5")); cmd == nil || struck.scene == nil {
+		t.Fatalf("the map after a strike: cmd %v scene %v", cmd, struck.scene)
+	}
+	tickAt(struck, time.Unix(1_700_000_000, 0))
+	if _, cmd := struck.Update(key("esc")); cmd != nil || struck.scene != nil {
+		t.Fatalf("esc on the map's scene: cmd %v scene %v", cmd, struck.scene)
+	}
+	for _, k := range handledKeys {
+		if k == "q" || k == "ctrl+c" || k == "n" {
+			continue // n ends the day, and the morning's card has a scene of its own
+		}
+		struck.mode, struck.screen = modePlay, screenMap
+		if _, cmd := struck.Update(key(k)); cmd != nil || struck.scene != nil {
+			t.Errorf("the map after the scene, key %q: cmd %v scene %v", k, cmd, struck.scene)
 		}
 	}
 	off := richModel(t, 80, 24)

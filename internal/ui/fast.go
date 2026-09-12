@@ -133,9 +133,10 @@ func (m *Model) fastForward(days int) {
 	}
 	ran := 0
 	var reason string
+	var evs []events.Event
 	for ran < days {
 		before := m.alerts()
-		evs := m.stepDay()
+		evs = m.stepDay()
 		ran++
 		if m.w.Over != nil {
 			break
@@ -151,7 +152,7 @@ func (m *Model) fastForward(days int) {
 		m.fastStop = fmt.Sprintf("Stopped after %s: %s.", plural(ran, "day"), reason)
 	}
 	m.say(fmt.Sprintf("Ran %s.", plural(ran, "day")))
-	m.morning()
+	m.morning(evs) // the stopping day's events: an earlier day's strike is the journal's
 }
 
 // stopReason is why the day that just ended needs you, or "" when it

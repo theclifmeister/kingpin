@@ -87,9 +87,17 @@ func wrapped(style lipgloss.Style, s string) []string {
 }
 
 // sectionTitle is how a section is headed in the pane and the overlay.
+// A title already rendered (it carries an escape) is drawn as it is:
+// the strike scene's name sliding into the corner inspector (#158).
 func sectionTitle(title string, accent lipgloss.Color) string {
+	if rendered(title) {
+		return title
+	}
 	return theme.Heading(accent).Render(truncate(title, paneTextW))
 }
+
+// rendered reports whether a title carries styling of its own.
+func rendered(s string) bool { return strings.Contains(s, "\x1b") }
 
 // keyCellW is a KEYS cell: `key  label` in the pane's half-width.
 const keyCellW = paneTextW / 2
@@ -202,6 +210,9 @@ func strip(sections []section, w int, accent lipgloss.Color) string {
 	if len(sections) > 0 {
 		s := sections[0]
 		parts := []string{theme.Heading(accent).Render(s.title)}
+		if rendered(s.title) {
+			parts[0] = s.title
+		}
 		for _, l := range s.lines {
 			if l = strings.TrimSpace(spaces.ReplaceAllString(l, " ")); l != "" {
 				parts = append(parts, l)
