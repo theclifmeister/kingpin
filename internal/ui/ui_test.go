@@ -2528,12 +2528,14 @@ func TestReportScrolls(t *testing.T) {
 			t.Fatalf("%s at 80x24 does not scroll:\n%s", c.name, view)
 		}
 		assertFits(t, m.View(), 80, 24, c.name)
-		for i := 0; i < 60; i++ {
-			m.Update(key("down"))
+		// Help is longer than sixty rows now that every screen lists its
+		// own keys and WORDS has nine terms; page to the end instead.
+		for i := 0; i < 30; i++ {
+			m.Update(key("pgdown"))
 		}
 		view = stripANSI(m.View())
 		if strings.Contains(view, "↓ more") || !strings.Contains(view, "↑ more") || !strings.Contains(view, c.last) {
-			t.Fatalf("%s after sixty ↓ does not show its last line:\n%s", c.name, view)
+			t.Fatalf("%s after thirty pgdn does not show its last line:\n%s", c.name, view)
 		}
 		assertFits(t, m.View(), 80, 24, c.name+" scrolled")
 		day := m.w.Day
