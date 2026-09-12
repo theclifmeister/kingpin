@@ -735,8 +735,9 @@ func (m *Model) subtle(s string) []string {
 
 // stashedLine is the dashboard's street fact where you have houses in
 // the city: what is on the street of what it holds, and what is in the
-// houses (#73).
-func (m *Model) stashedLine(city string) string {
+// houses (#73); short is the 80-column form, which leaves the corners
+// room on the same line.
+func (m *Model) stashedLine(city string, short bool) string {
 	w := m.w
 	houses := w.HousesIn(city)
 	if len(houses) == 0 {
@@ -745,6 +746,9 @@ func (m *Model) stashedLine(city string) string {
 	housed := 0
 	for _, h := range houses {
 		housed += h.Units()
+	}
+	if short {
+		return fmt.Sprintf("carrying %d/%d · %d in %s", w.Player.StockIn(city), w.StreetCapacity(city), housed, plural(len(houses), "house"))
 	}
 	return fmt.Sprintf("carrying %d/%d · stashed %d in %s", w.Player.StockIn(city), w.StreetCapacity(city), housed, plural(len(houses), "house"))
 }

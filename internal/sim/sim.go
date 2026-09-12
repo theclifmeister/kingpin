@@ -47,7 +47,7 @@ type Set struct {
 // wash works on what the day's stings left; reputation reads the whole
 // day and goes before news so a band it crosses is a headline.
 func Default(cfg *content.Config) (*Set, []game.Simulation, error) {
-	n, err := news.New(cfg.Headlines, cfg.Dilemmas)
+	n, err := news.New(cfg.Headlines, cfg.Dilemmas, cfg.Progression)
 	if err != nil {
 		return nil, nil, err
 	}

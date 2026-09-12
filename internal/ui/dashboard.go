@@ -41,7 +41,8 @@ type fact struct {
 // What a street fact is worth when the panel is out of room, lowest
 // dropped first.
 const (
-	priSupplier = iota
+	priTier = iota // the tier the run is in (#147): the first to go
+	priSupplier
 	priUpgrades
 	priStash
 	priSupply
@@ -110,7 +111,7 @@ func (m *Model) streetLines(innerW, maxLines int, narrow, withRoad bool) []strin
 
 	var topics [][]fact
 	topic := func(facts ...fact) { topics = append(topics, facts) }
-	stash := fact{theme.Subtle.Render(m.stashedLine(here.ID)), priStash}
+	stash := fact{theme.Subtle.Render(m.stashedLine(here.ID, narrow)), priStash}
 	if narrow {
 		topic(stash)
 	} else {
@@ -120,10 +121,11 @@ func (m *Model) streetLines(innerW, maxLines int, narrow, withRoad bool) []strin
 	if w.Worked() == 0 {
 		corners.s = theme.Bad.Render("You hold no corner, so nothing sells. Claim one " + screenPointer(screenMap) + ".")
 	}
+	tier := fact{theme.Subtle.Render("tier " + w.TierName(m.cfg.Progression)), priTier}
 	if withRoad {
-		topic(append([]fact{corners}, m.elsewhereFacts()...)...)
+		topic(append([]fact{corners, tier}, m.elsewhereFacts()...)...)
 	} else {
-		topic(corners)
+		topic(corners, tier)
 	}
 	if n := len(w.Crew.Members); n > 0 {
 		crew := fact{theme.CrewText.Render(fmt.Sprintf("crew %d · %s pay %s/day", n, w.Crew.Pay, money(m.set.Crew.Wages(w, w.Crew.Pay)))), priCrew}

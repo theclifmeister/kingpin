@@ -118,11 +118,11 @@ The dashboard at 80x24, with the details strip above the status bar:
 │   Heroin    $375.84   -5%  █▁           0  -                                 │
 │   Meth      $701.73  -12%  █▁           0  -                                 │
 │   Designer   $2,740  +11%  ▁█           0  -                                 │
-│ carrying 46/310 · stashed 24 in 1 house                                      │
-│ corners 3 worked, 3 held of 10, 1 theirs · 240 units in Bayport              │
-│ 60 units on the road, next in 2d · crew 5 · fair pay $440/day                │
-│ skimming suspected · supply 1 contract · $895 this morning                   │
-│ 1 offer on the market screen (2)                                             │
+│ carrying 46/310 · 24 in 1 house · corners 3 worked, 3 held of 10, 1 theirs   │
+│ tier Distribution · 240 units in Bayport · 60 units on the road, next in 2d  │
+│ crew 5 · fair pay $440/day · skimming suspected                              │
+│ supply 1 contract · $895 this morning · 1 offer on the market screen (2)     │
+│ no upgrades yet: buy on the upgrades screen (6)                              │
 │ Standing orders sell tonight; the crew keep 5%.                              │
 ╰──────────────────────────────────────────────────────────────────────────────╯
 ╭─ HEAT ───────────────────╮╭─ CASH ──────────────╮╭─ LAW ─────────────────────╮
@@ -213,6 +213,14 @@ business yourself. Your stock stays put. Set a route and a target to keep
 Eastside supplied, then watch the road in the report. Once you hold
 corners in both cities, a lieutenant can turn up to run one for you.
 They take a cut. They also take loyalty rather seriously.
+
+The game names these stages. A run starts as a **Corner** trader, becomes
+a **Crew** with the first hire, **Territory** once $25K has moved and
+the laundromat opens, and **Distribution** at $500K, when the wholesaler
+sells lots to the road. The morning a stage is entered the report opens
+with it and the dashboard reads `tier Territory`; the run summary says
+which you reached and when. A stage once reached stays reached, and it
+changes nothing by itself: it is a name for what has opened.
 
 ### Let the routine run
 
@@ -546,6 +554,15 @@ before the report, `1`–`3` or `enter` decide, the effects land at once
 and the outcome goes in the journal. Quit on a card and it is waiting
 when you come back. The deck is `internal/content/dilemmas.toml`.
 
+### Progression
+
+The tier a run is in (Corner, Crew, Territory, Distribution) lives in
+`internal/content/progression.toml`: a name, a line on the stage, what it
+opens and the trigger that enters it. A tier describes the gates it names
+and is never one itself: nothing in the sims reads it. The news sim stamps
+it the first morning its trigger holds, one tier a morning, and emits the
+headline; the harness reads each tier's checkpoint day from the same file.
+
 ## Balance harness
 
 ```sh
@@ -601,7 +618,9 @@ quiet survives, aggression gets indicted, and managing heat, crew, upgrades
 and fronts pays better than ignoring them. They also check conservation of
 stock and cash, reproducible runs, save/load, deals, delegation, the law,
 buyers, supply contracts and standing orders. `TestMoneyCurve` pins the
-scale per tier. See [CLAUDE.md](CLAUDE.md) for the detailed expectations.
+scale per tier at each tier's checkpoint in `progression.toml` (days 30,
+70, 120, 200), and `cmd/balance` prints the median day a policy enters
+each tier. See [CLAUDE.md](CLAUDE.md) for the detailed expectations.
 
 ## Source
 

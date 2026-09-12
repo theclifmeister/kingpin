@@ -187,29 +187,32 @@ func TestAlwaysQuietStaysFreeAndEarnsLess(t *testing.T) {
 }
 
 // moneyCurve is the net-worth target per progression tier (#24): the
-// median of the best harness policy at that tier, at the day the tier ends.
-// Each phase adds its row when its multiplier ships. A pending row is
-// measured and logged but not enforced: its band is the target, and the
-// multiplier that reaches it has not shipped yet.
+// median of the best harness policy at that tier, at the day the tier ends
+// (the tier's checkpoint in progression.toml, TierDays, #147). Each phase
+// adds its row when its multiplier ships. A pending row is measured and
+// logged but not enforced: its band is the target, and the multiplier
+// that reaches it has not shipped yet.
 var moneyCurve = []struct {
 	tier    int
 	name    string
 	policy  func(cfg *content.Config) Policy
-	day     int
 	lo, hi  int
 	pending bool
 }{
-	{1, "managed", func(cfg *content.Config) Policy { return Managed(cfg, 50) }, 30, 50_000, 200_000, false},
-	{2, "crewed", func(cfg *content.Config) Policy { return Crewed(cfg, 40) }, 70, 500_000, 2_000_000, false},
+	{1, "managed", func(cfg *content.Config) Policy { return Managed(cfg, 50) }, 50_000, 200_000, false},
+	{2, "crewed", func(cfg *content.Config) Policy { return Crewed(cfg, 40) }, 500_000, 2_000_000, false},
 	// Tiers 3 and 4 (#60) are the boss: the player who uses every screen.
 	// Designer is the port's product, so it reaches home by the road and
 	// never through a tier-2 crew's supplier; the Security branch's ghost
 	// nodes are how a crew's volume outgrows the street's notice; the
 	// fronts cover the pile the wash cannot keep up with. TestMoneyCeilings
 	// logs what each row would make with the rival kept out and heat off.
-	{3, "boss", func(cfg *content.Config) Policy { return Boss(cfg, 40, "") }, 120, 5_000_000, 20_000_000, false},
-	{4, "boss", func(cfg *content.Config) Policy { return Boss(cfg, 40, "") }, Horizon, 50_000_000, 200_000_000, false},
+	{3, "boss", func(cfg *content.Config) Policy { return Boss(cfg, 40, "") }, 5_000_000, 20_000_000, false},
+	{4, "boss", func(cfg *content.Config) Policy { return Boss(cfg, 40, "") }, 50_000_000, 200_000_000, false},
 }
+
+// tierDay is the day a money-curve row is read at: its tier's checkpoint.
+func tierDay(tier int) int { return TierDays[tier-1] }
 
 func medianNetWorth(t *testing.T, cfg *content.Config, policy func(*content.Config) Policy, day int) int {
 	t.Helper()
@@ -231,14 +234,15 @@ func medianNetWorth(t *testing.T, cfg *content.Config, policy func(*content.Conf
 func TestMoneyCurve(t *testing.T) {
 	cfg := content.MustLoad()
 	for _, row := range moneyCurve {
-		med := medianNetWorth(t, cfg, row.policy, row.day)
-		t.Logf("tier %d: %s median net worth on day %d is %d (want %d..%d)", row.tier, row.name, row.day, med, row.lo, row.hi)
+		day := tierDay(row.tier)
+		med := medianNetWorth(t, cfg, row.policy, day)
+		t.Logf("tier %d: %s median net worth on day %d is %d (want %d..%d)", row.tier, row.name, day, med, row.lo, row.hi)
 		if med < row.lo || med > row.hi {
 			if row.pending {
-				t.Logf("tier %d: %s median net worth on day %d is %d, target %d..%d not yet pinned", row.tier, row.name, row.day, med, row.lo, row.hi)
+				t.Logf("tier %d: %s median net worth on day %d is %d, target %d..%d not yet pinned", row.tier, row.name, day, med, row.lo, row.hi)
 				continue
 			}
-			t.Errorf("tier %d: %s median net worth on day %d is %d, want %d..%d", row.tier, row.name, row.day, med, row.lo, row.hi)
+			t.Errorf("tier %d: %s median net worth on day %d is %d, want %d..%d", row.tier, row.name, day, med, row.lo, row.hi)
 		}
 	}
 
@@ -248,10 +252,10 @@ func TestMoneyCurve(t *testing.T) {
 		half.Market.Products[i].Demand /= 2
 	}
 	row := moneyCurve[0]
-	med := medianNetWorth(t, &half, row.policy, row.day)
+	med := medianNetWorth(t, &half, row.policy, tierDay(row.tier))
 	t.Logf("tier %d with demand halved: %d", row.tier, med)
 	if med >= row.lo {
-		t.Errorf("tier %d with demand halved still reaches %d on day %d; the curve test does not bite", row.tier, med, row.day)
+		t.Errorf("tier %d with demand halved still reaches %d on day %d; the curve test does not bite", row.tier, med, tierDay(row.tier))
 	}
 }
 
@@ -311,8 +315,8 @@ func TestMoneyCeilings(t *testing.T) {
 	}
 	for _, row := range moneyCurve {
 		for _, b := range boxes {
-			med := medianNetWorth(t, b.box(cfg), row.policy, row.day)
-			t.Logf("tier %d: %s on day %d, %s: %d", row.tier, row.name, row.day, b.name, med)
+			med := medianNetWorth(t, b.box(cfg), row.policy, tierDay(row.tier))
+			t.Logf("tier %d: %s on day %d, %s: %d", row.tier, row.name, tierDay(row.tier), b.name, med)
 		}
 	}
 }

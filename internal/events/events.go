@@ -1157,6 +1157,19 @@ type RivalAbandoned struct {
 
 func (RivalAbandoned) Kind() string { return "RivalAbandoned" }
 
+// TierReached is the run entering a progression tier (#147): the news
+// sim stamps it the first morning the tier's trigger holds, one tier a
+// morning, so a night that crosses two lines is two mornings. Tier is
+// the tier's number (1 the first, never emitted: it is day 0), Name the
+// file's name for it. Nothing gates on it: the tier describes the gates.
+type TierReached struct {
+	Day  int
+	Tier int
+	Name string
+}
+
+func (TierReached) Kind() string { return "TierReached" }
+
 // The stash houses (#73).
 
 // HouseBought is a lease taken on a stash house: dirty cash once, clean

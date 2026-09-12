@@ -143,6 +143,7 @@ func main() {
 	}
 	var played, peaks []int
 	worth := map[int][]int{}
+	reached := map[int][]int{} // tier -> the day each run entered it, or never (#147)
 	endings := map[string]int{}
 	robberies, robbed := 0, 0
 	var rivalHeld, takens []int
@@ -243,6 +244,9 @@ func main() {
 		}
 		played = append(played, res.Days)
 		peaks = append(peaks, res.PeakCash)
+		for n := 2; n <= len(cfg.Progression.Tiers); n++ {
+			reached[n] = append(reached[n], res.World.ReachedOn(n))
+		}
 		for _, d := range harness.TierDays {
 			if d <= *days {
 				worth[d] = append(worth[d], res.NetWorthAt(d))
@@ -365,6 +369,28 @@ func main() {
 		}
 	}
 	fmt.Println()
+	// The median day each tier is entered: a run that never entered it
+	// sorts last, so a tier half the runs never reach reads as never.
+	fmt.Printf("tiers:        ")
+	for n := 2; n <= len(cfg.Progression.Tiers); n++ {
+		days := reached[n]
+		sort.Slice(days, func(i, j int) bool {
+			if days[i] < 0 || days[j] < 0 {
+				return days[j] < 0 && days[i] >= 0
+			}
+			return days[i] < days[j]
+		})
+		med := days[len(days)/2]
+		if med < 0 {
+			fmt.Printf(" %d %s never", n, cfg.Progression.Tiers[n-1].Name)
+		} else {
+			fmt.Printf(" %d %s d%d", n, cfg.Progression.Tiers[n-1].Name, med)
+		}
+		if n < len(cfg.Progression.Tiers) {
+			fmt.Printf(" ·")
+		}
+	}
+	fmt.Println(" (median day entered)")
 	fmt.Printf("robberies:     %d per run, $%d lost per run\n", robberies / *runs, robbed / *runs)
 	sort.Ints(rivalHeld)
 	sort.Ints(takens)
