@@ -142,7 +142,7 @@ func (m *Model) openDialog(mode mode) {
 	if mode == modeSell {
 		city := m.actionCity()
 		if m.sellableIn(city) == 0 {
-			if m.w.Player.TotalStock() == 0 {
+			if m.w.Stashed() == 0 {
 				m.refuse("Nothing to sell: buy from the supplier first.")
 			} else {
 				m.refuse(fmt.Sprintf("Nothing to sell in %s: turn to the other city, or run a route into it %s.", m.w.CityName(city), screenPointer(screenMap)))

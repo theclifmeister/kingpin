@@ -190,6 +190,17 @@ func TestLieutenantWalks(t *testing.T) {
 		t.Fatalf("after three nights the lieutenant works %d corners, want 3", n)
 	}
 	res.World.Crew.Member(lt.ID).Loyalty = 0
+	// A house in the hub (#73): the walk empties it as it empties the
+	// street.
+	res.World.Player.CleanCash += 10_000
+	if _, err := res.World.BuyHouse(game.HouseOffer{ID: "hubhouse", Name: "Hub house", City: hub, Corner: cfg.City.City(hub).Corners[0].ID, Capacity: 200, Price: 1, Rent: 1}); err != nil {
+		t.Fatal(err)
+	}
+	res.World.HousesBought = nil
+	res.World.AddStock(hub, cfg.Market.Products[0].ID, 150)
+	if res.World.House("hubhouse").Units() != 150 {
+		t.Fatal("the stock did not go into the house")
+	}
 	res, err = RunFrom(cfg, res.World, cfg.City.Territory.DriftDays, func(w *game.World) {
 		pol(w)
 		if w.Day == 3 {
@@ -227,6 +238,9 @@ func TestLieutenantWalks(t *testing.T) {
 	}
 	if len(w.Crew.Members) != 3 {
 		t.Fatalf("%d on the payroll after the walk, want the three runners", len(w.Crew.Members))
+	}
+	if h := w.House("hubhouse"); h == nil || h.Units() != 0 {
+		t.Fatalf("the house in the hub after the walk: %+v", h)
 	}
 	for _, m := range w.Crew.Members {
 		if w.PostOf(m.ID) != nil {

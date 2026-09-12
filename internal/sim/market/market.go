@@ -13,6 +13,7 @@ import (
 
 	"github.com/theclifmeister/kingpin/internal/content"
 	"github.com/theclifmeister/kingpin/internal/events"
+	"github.com/theclifmeister/kingpin/internal/format"
 	"github.com/theclifmeister/kingpin/internal/game"
 )
 
@@ -447,7 +448,7 @@ func (s *Sim) unlock(w *game.World, t *game.Tick) {
 			w.AddProduct(cid, game.StartingProduct{ID: p.ID, Name: p.Name, Price: p.BasePrice * cp.Price, Demand: p.Demand * cp.Demand, NoSupply: cp.NoSupply})
 		}
 		if fresh {
-			t.Emit(events.ProductUnlocked{Day: t.Day, Product: p.ID, Name: p.Name, Price: p.BasePrice})
+			t.Emit(events.Unlocked{Day: t.Day, Gate: "product", ID: p.ID, Name: p.Name, Why: "peak cash " + format.Cash(p.UnlockCash), Price: p.BasePrice})
 		}
 	}
 }

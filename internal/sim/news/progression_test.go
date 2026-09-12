@@ -33,7 +33,7 @@ func reachedDays(res harness.Result) map[int]int {
 // keep the crew in them). The days are the gates': the tier-3 morning is
 // the first the news sim reads the laundromat's line off the peak, the
 // morning after the ledger first reads `open to you`, and the tier-4
-// morning is the wholesaler's SupplierUnlocked, on the same seeds.
+// morning is the wholesaler's Unlocked (#148), on the same seeds.
 func TestTiersAreOrdered(t *testing.T) {
 	cfg := content.MustLoad()
 	if len(cfg.Progression.Tiers) != 4 {
@@ -73,7 +73,7 @@ func TestTiersAreOrdered(t *testing.T) {
 		}
 		unlocked := -1
 		for _, e := range res.Events {
-			if ev, ok := e.(events.SupplierUnlocked); ok && ev.Supplier == "dutchman" {
+			if ev, ok := e.(events.Unlocked); ok && ev.Gate == "connect" && ev.ID == "dutchman" {
 				unlocked = ev.Day
 			}
 		}

@@ -1,12 +1,15 @@
 package market
 
 import (
+	"fmt"
 	"math"
 	"math/rand/v2"
 	"sort"
+	"strings"
 
 	"github.com/theclifmeister/kingpin/internal/content"
 	"github.com/theclifmeister/kingpin/internal/events"
+	"github.com/theclifmeister/kingpin/internal/format"
 	"github.com/theclifmeister/kingpin/internal/game"
 )
 
@@ -277,7 +280,7 @@ func (s *Sim) book(w *game.World, t *game.Tick) {
 		if !sup.Opened && !sup.Locked(w) {
 			sup.Opened = true
 			if sup.UnlockCash > 0 || sup.UnlockRel > 0 {
-				t.Emit(events.SupplierUnlocked{Day: t.Day, City: sup.City, Supplier: sup.ID, Name: sup.Name})
+				t.Emit(events.Unlocked{Day: t.Day, Gate: "connect", ID: sup.ID, Name: sup.Name, City: sup.City, Why: unlockWhy(w, sup)})
 			}
 		}
 	}
@@ -481,4 +484,20 @@ func (s *Sim) peek(w *game.World, t *game.Tick) []shock {
 		}
 	}
 	return out
+}
+
+// unlockWhy is the line a connect's door opened on, in words: the peak
+// cash they wanted to see and, for a pool connect, the street connect in
+// their city vouching (`peak cash $25K and Cass at 60`).
+func unlockWhy(w *game.World, sup *game.Supplier) string {
+	var parts []string
+	if sup.UnlockCash > 0 {
+		parts = append(parts, "peak cash "+format.Cash(sup.UnlockCash))
+	}
+	if sup.UnlockRel > 0 {
+		if st := w.StreetSupplier(sup.City); st != nil {
+			parts = append(parts, fmt.Sprintf("%s at %.0f", st.Name, sup.UnlockRel))
+		}
+	}
+	return strings.Join(parts, " and ")
 }

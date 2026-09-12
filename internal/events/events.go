@@ -78,15 +78,32 @@ type PriceShock struct {
 
 func (PriceShock) Kind() string { return "PriceShock" }
 
-// ProductUnlocked reports that the supplier now offers a new product.
-type ProductUnlocked struct {
-	Day     int
-	Product string
-	Name    string
-	Price   float64
+// Unlocked is a gate crossed (#148): something the game kept behind a
+// line is open to you from this morning. Every gate is announced through
+// it, by the sim that owns the gate: the market for a product listed
+// (Gate "product", in every city at once; Price is its base price) and a
+// connect who will deal with you (Gate "connect", in their City); the
+// laundering sim for a front whose offer opens (Gate "front"); the crew
+// sim for a role that joins the hiring pool (Gate "role": the accountant
+// once a front is owned, the lieutenant once corners are held in two
+// cities). Why is the line crossed, in words the report prints (`peak
+// cash $25K`, `a front owned`, `corners in two cities`, `Cass at 60`).
+// The news sim's UNLOCKED section, the headline (`Unlocked` + the gate,
+// capitalised: `UnlockedFront`), the fast-forward stop and nothing else
+// read it: the law and reputation ignore it. (The gate is `Gate`, not
+// `Kind`: `Kind()` is the event's.)
+type Unlocked struct {
+	Day   int
+	Gate  string // product | front | connect | role
+	ID    string
+	Name  string
+	City  string // the city it opens in, or "" for everywhere
+	Why   string
+	Price float64 // a product's base price
+	Cost  int     // a front's price
 }
 
-func (ProductUnlocked) Kind() string { return "ProductUnlocked" }
+func (Unlocked) Kind() string { return "Unlocked" }
 
 // PriceMove reports a product's price in a city at the start and end of
 // the day.
@@ -156,8 +173,10 @@ type Enforcement struct {
 	Level     string // patrol, sting, raid, arrest
 	StockLost map[string]int
 	CashLost  int
-	Evidence  int  // what went in the DA's file; 0 when a sting or raid found nothing to build a case on
-	Stash     bool // a raid that went straight to the stash: somebody told them where
+	Evidence  int    // what went in the DA's file; 0 when a sting or raid found nothing to build a case on
+	Stash     bool   // a raid that went straight to the stash: somebody told them where
+	House     string // the house the stock came out of (#73), "" for the street
+	HouseName string
 }
 
 func (Enforcement) Kind() string { return "Enforcement" }
@@ -777,18 +796,6 @@ type SupplierCollected struct {
 
 func (SupplierCollected) Kind() string { return "SupplierCollected" }
 
-// SupplierUnlocked is a connect who will deal with you from this morning
-// (#72): the peak cash they wanted to see is moved and the street
-// connect in their city has put a word in.
-type SupplierUnlocked struct {
-	Day      int
-	City     string
-	Supplier string
-	Name     string
-}
-
-func (SupplierUnlocked) Kind() string { return "SupplierUnlocked" }
-
 // SupplyShort is report-only bookkeeping: a supply contract that could
 // not bring the stash to its level this morning, for want of cash over
 // the float or of room in the stash, and what it bought instead.
@@ -1167,3 +1174,97 @@ type TierReached struct {
 }
 
 func (TierReached) Kind() string { return "TierReached" }
+
+// The stash houses (#73).
+
+// HouseBought is a lease taken on a stash house: dirty cash once, clean
+// cash a day from tomorrow.
+type HouseBought struct {
+	Day   int
+	House string // house id
+	Name  string
+	City  string
+	Price int
+	Rent  int
+}
+
+func (HouseBought) Kind() string { return "HouseBought" }
+
+// HouseRobbed is a stash house stuck up: robbery_stock of what it held,
+// and now the street knows where it is (Known).
+type HouseRobbed struct {
+	Day       int
+	House     string
+	Name      string
+	City      string
+	Corner    string // the block's name
+	Guarded   bool
+	StockLost map[string]int
+}
+
+func (HouseRobbed) Kind() string { return "HouseRobbed" }
+
+// HouseRaided is the police hitting one stash house in a sting or a
+// raid: what came out of it, and whether they took the lot (Whole: an
+// informant told them where). The Enforcement for the same night names
+// the house too; this is the house's own record and headline.
+type HouseRaided struct {
+	Day       int
+	House     string
+	Name      string
+	City      string
+	Level     string // sting or raid
+	Whole     bool
+	StockLost map[string]int
+}
+
+func (HouseRaided) Kind() string { return "HouseRaided" }
+
+// HouseLost is the landlord throwing you out: the rent went unpaid
+// rent_days running, and the stock went with the house.
+type HouseLost struct {
+	Day   int
+	House string
+	Name  string
+	City  string
+	Units int // what was in it
+}
+
+func (HouseLost) Kind() string { return "HouseLost" }
+
+// HouseCompromised is a house the police now know about (Known): an
+// informant on the payroll, a robbery (word gets out) or a bust there.
+// It is the one the raid finds until it is dropped.
+type HouseCompromised struct {
+	Day   int
+	House string
+	Name  string
+	City  string
+	Why   string // informant, robbery, bust
+}
+
+func (HouseCompromised) Kind() string { return "HouseCompromised" }
+
+// StockMoved is report-only bookkeeping (#73): units moved between two
+// places in a city today, and the heat the drive drew.
+type StockMoved struct {
+	Day     int
+	City    string
+	From    string // house name, or "the street"
+	To      string
+	Product string
+	Units   int
+}
+
+func (StockMoved) Kind() string { return "StockMoved" }
+
+// RentPaid is report-only bookkeeping (#73): the day's rent on the
+// houses, clean cash, and the houses it could not be paid for.
+type RentPaid struct {
+	Day    int
+	Amount int
+	Houses int
+	Unpaid []string // names of the houses whose rent went unpaid today
+}
+
+func (RentPaid) Kind() string { return "RentPaid" }

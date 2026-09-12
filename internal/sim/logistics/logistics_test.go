@@ -24,7 +24,7 @@ func world(t *testing.T, cfg *content.Config, risk float64) (*game.World, *logis
 	}
 	s := logistics.New(routes, cfg.City, cfg.Market, cfg.Upgrades, cfg.Laundering.Laundering.Float)
 	w := game.NewWorld(7, logistics.StartingCities(cfg.City, cfg.Market), 100_000, 100)
-	territory.New(cfg.City, cfg.Upgrades).Seed(w)
+	territory.New(cfg.City, cfg.Upgrades, cfg.Houses.Houses).Seed(w)
 	// The connects (#72): the road buys from the wholesaler.
 	mk, err := market.New(cfg.Market, cfg.City, cfg.Routes.Shipping, cfg.Upgrades, cfg.Reputation.Effects, cfg.Buyers, cfg.Suppliers, cfg.Rivals.Pricewar)
 	if err != nil {
