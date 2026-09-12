@@ -106,10 +106,13 @@ type decrypt struct {
 
 func (d *decrypt) Done(t time.Duration) bool { return t >= d.over }
 
-func (d *decrypt) Frame(t time.Duration, w, h int) []string {
-	cv := NewCanvas(w, h)
+func (d *decrypt) Frame(t time.Duration, w, h int) []string { return frame(d, t, w, h) }
+
+func (d *decrypt) paint(cv *Canvas, t time.Duration) {
+	w, h := cv.W, cv.H
 	if t >= d.over {
-		return drawText(cv, d.text, d.accent).Lines()
+		drawText(cv, d.text, d.accent)
+		return
 	}
 	ox, oy := d.text.Origin(w, h)
 	for _, c := range d.cells {
@@ -132,5 +135,4 @@ func (d *decrypt) Frame(t time.Duration, w, h int) []string {
 		}
 		cv.Set(ox+c.X, oy+c.Y, r, col)
 	}
-	return cv.Lines()
 }

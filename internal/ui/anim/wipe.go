@@ -101,13 +101,17 @@ func (s *wipe) groups(w, h int) int {
 	return w + h - 1
 }
 
-func (s *wipe) Frame(t time.Duration, w, h int) []string {
-	cv := NewCanvas(w, h)
+func (s *wipe) Frame(t time.Duration, w, h int) []string { return frame(s, t, w, h) }
+
+func (s *wipe) paint(cv *Canvas, t time.Duration) {
+	w, h := cv.W, cv.H
 	if s.curtain {
-		return s.curtainFrame(cv, t)
+		s.curtainFrame(cv, t)
+		return
 	}
 	if t >= s.over {
-		return drawText(cv, s.text, s.accent).Lines()
+		drawText(cv, s.text, s.accent)
+		return
 	}
 	W, H := s.text.Width(), s.text.Height()
 	n := s.groups(W, H)
@@ -127,7 +131,6 @@ func (s *wipe) Frame(t time.Duration, w, h int) []string {
 		}
 		cv.Set(ox+c.X, oy+c.Y, c.R, col)
 	}
-	return cv.Lines()
 }
 
 // revealedAt is when group g of n was first shown: the inverse of the
@@ -142,7 +145,7 @@ func (s *wipe) revealedAt(g, n int) time.Duration {
 
 // curtainFrame fills the canvas group by group in the colour: eased
 // in, the fall of a curtain; every cell by the end, and held.
-func (s *wipe) curtainFrame(cv *Canvas, t time.Duration) []string {
+func (s *wipe) curtainFrame(cv *Canvas, t time.Duration) {
 	n := s.groups(cv.W, cv.H)
 	shown := n
 	if t < s.over {
@@ -155,5 +158,4 @@ func (s *wipe) curtainFrame(cv *Canvas, t time.Duration) []string {
 			}
 		}
 	}
-	return cv.Lines()
 }

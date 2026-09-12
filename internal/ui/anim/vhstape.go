@@ -82,10 +82,13 @@ func snowCell(cv *Canvas, x, y, f int) {
 	cv.Set(x, y, pick(snowGlyphs, h), snowColours[(h>>8)%uint64(len(snowColours))])
 }
 
-func (v *vhstape) Frame(t time.Duration, w, h int) []string {
-	cv := NewCanvas(w, h)
+func (v *vhstape) Frame(t time.Duration, w, h int) []string { return frame(v, t, w, h) }
+
+func (v *vhstape) paint(cv *Canvas, t time.Duration) {
+	w, h := cv.W, cv.H
 	if t >= v.over {
-		return drawText(cv, v.text, v.accent).Lines()
+		drawText(cv, v.text, v.accent)
+		return
 	}
 	f := frames(t)
 	ox, oy := v.text.Origin(w, h)
@@ -113,7 +116,7 @@ func (v *vhstape) Frame(t time.Duration, w, h int) []string {
 				for _, c := range v.text.Cells() {
 					snowCell(cv, ox+c.X, oy+c.Y, f)
 				}
-				return cv.Lines()
+				return
 			}
 		}
 		for _, c := range v.text.Cells() {
@@ -161,5 +164,4 @@ func (v *vhstape) Frame(t time.Duration, w, h int) []string {
 			}
 		}
 	}
-	return cv.Lines()
 }
