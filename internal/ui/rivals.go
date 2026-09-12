@@ -39,10 +39,11 @@ func (m *Model) eyeingWord() string {
 	return theme.RivalText.Render("eyeing " + c.Name)
 }
 
-// strikeRows are the picker's choices: the three forces, plus calling off
-// a strike already queued.
+// strikeRows are the picker's choices: the three forces for the corner,
+// the three for its till (a boost, #70), plus calling off a strike or a
+// boost already queued.
 func (m *Model) strikeRows() []string {
-	rows := []string{"warn", "push", "hit"}
+	rows := []string{"warn", "push", "hit", "boost warn", "boost push", "boost hit"}
 	if m.w.Strike != nil {
 		rows = append(rows, "stop")
 	}
@@ -75,9 +76,15 @@ func (m *Model) confirmStrike() {
 		return
 	}
 	i := max(0, min(m.strikeCursor, len(rows)-1))
-	if i >= len(forces) {
+	if i >= 2*len(forces) {
 		m.w.CallOff()
 		m.say("Called off. The enforcers stay home tonight.")
+		return
+	}
+	if i >= len(forces) {
+		// A boost confirms first (#70): the picker's cursor carries the
+		// force into the confirmation.
+		m.mode = modeConfirmBoost
 		return
 	}
 	if err := m.w.SendEnforcers(c.ID, forces[i]); err != nil {
@@ -96,21 +103,27 @@ func (m *Model) viewStrike() string {
 	m.strikeCursor = max(0, min(m.strikeCursor, len(rows)-1))
 	body := []string{theme.Subtle.Render(fmt.Sprintf("%s vs %s on %s, muscle ~%.1f", plural(m.w.Crew.Role("enforcer"), "enforcer"), m.rivalName(), c.Name, m.set.Rivals.Defence(m.w))), ""}
 	var cells [][]any
+	b := m.set.Rivals.BoostTuning()
 	for i, r := range rows {
-		if i < len(forces) {
+		switch {
+		case i < len(forces):
 			f := forces[i]
-			cells = append(cells, []any{r, approx{m.set.Rivals.Odds(m.w, f) * 100}, signed{m.set.Rivals.StrikeHeat(c, f)}, signed{m.cfg.Rivals.ForceFor(f).War}})
-		} else {
-			cells = append(cells, []any{r, nil, nil, nil})
+			cells = append(cells, []any{r, approx{m.set.Rivals.Odds(m.w, f) * 100}, signed{m.set.Rivals.StrikeHeat(c, f)}, signed{m.cfg.Rivals.ForceFor(f).War}, "the corner"})
+		case i < 2*len(forces):
+			// A boost (#70): the same odds at the force, for the till.
+			f := forces[i-len(forces)]
+			cells = append(cells, []any{r, approx{m.set.Rivals.Odds(m.w, f) * 100}, signed{m.set.Rivals.BoostHeat(c)}, signed{b.War}, "~" + cash(m.set.Rivals.BoostTake(m.w, *c))})
+		default:
+			cells = append(cells, []any{r, nil, nil, nil, nil})
 		}
 	}
 	m.modalFollow(len(body) + 1 + m.strikeCursor) // under the header
-	body = append(body, table([]col{{"force", kText, 0}, {"takes it", kPct, 0}, {"heat", kInt, 0}, {"war", kInt, 0}}, cells, m.strikeCursor, m.modalInner())...)
+	body = append(body, table([]col{{"force", kText, 0}, {"lands", kPct, 0}, {"heat", kInt, 0}, {"war", kInt, 0}, {"for", kText, 0}}, cells, m.strikeCursor, m.modalInner())...)
 	body = append(body, "")
 	for _, l := range []string{
 		"Harder flips faster, draws more heat on you, adds to the war",
 		"and costs the enforcers' nerve. A loud enough war brings a",
-		"crackdown on both sides.",
+		"crackdown on both sides. A boost takes the till, not the corner.",
 	} {
 		body = append(body, theme.Subtle.Render(l))
 	}
@@ -333,5 +346,5 @@ func (m *Model) rivalsDetails() []section {
 		row("broken", fmt.Sprintf("by you %d, by them %d", s.Betrayals, s.BetrayedBy)),
 		row("tribute", cash(s.Tribute)+" paid"),
 	}
-	return []section{sel, {"RULES", rules}, {"LIFETIME", life}}
+	return []section{sel, {"RULES", rules}, m.booksSection(), {"LIFETIME", life}}
 }

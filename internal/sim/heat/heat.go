@@ -364,6 +364,21 @@ func (s *Sim) Step(w *game.World, t *game.Tick) {
 		switch ev := e.(type) {
 		case events.CornerStruck:
 			add(home, ev.Heat, fmt.Sprintf("enforcers %s %s", pastTense(ev.Force), ev.Name))
+		case events.RivalBoosted:
+			add(home, ev.Heat, "enforcers robbed "+ev.Name)
+		case events.PoliceTipped:
+			// Your tip on a rival corner (#70): no heat, but talking to
+			// the police is talking to the police, and tip_evidence is
+			// the chance the DA's file gains a page anyway. #27's rule
+			// bends only because you did something; the roll is the
+			// books side stream's, so a run that never tips keeps its
+			// dice. It does not reset the retainer's clock unless it
+			// files.
+			if tun.TipEvidence > 0 && t.Sub("books").Float64() < tun.TipEvidence {
+				h.Evidence++
+				h.EvidenceDay = t.Day
+				reasons[home] = append(reasons[home], fmt.Sprintf("your tip: the DA's file on you grows (%d)", h.Evidence))
+			}
 		case events.RivalTippedPolice:
 			add(home, ev.Heat, "somebody tipped the police")
 		case events.WarEscalated:

@@ -476,8 +476,16 @@ func (m *Model) cornerSection(sel *game.Corner) section {
 		if n := w.Crew.Role("enforcer"); n > 0 {
 			lines = append(lines, keyRow("w", fmt.Sprintf("push takes it ~%.0f%%, hit ~%.0f%%",
 				m.set.Rivals.Odds(w, events.ForcePush)*100, m.set.Rivals.Odds(w, events.ForceHit)*100)))
+			lines = append(lines, keyRow("w", fmt.Sprintf("boost: the till, ~%s", cash(m.set.Rivals.BoostTake(w, *sel)))))
 		} else {
 			lines = append(lines, wrapped(theme.Subtle, "Taking it is a matter for the enforcers. Hire some "+screenPointer(screenCrew)+".")...)
+		}
+		// The books (#70): the police, tipped off, take the corner.
+		tp := m.set.Rivals.TipTuning()
+		if s := w.Tipoff; s != nil && s.Corner == sel.ID {
+			lines = append(lines, keyRow("t", fmt.Sprintf("tipped tonight: police %.0f → %.0f", w.Rival.Heat, min(100, w.Rival.Heat+tp.Heat))))
+		} else {
+			lines = append(lines, keyRow("t", fmt.Sprintf("tip the police: at %.0f of %.0f", w.Rival.Heat, tp.PoliceNotice)))
 		}
 		// The price war (#68): the third answer, from next door.
 		switch err := w.CanUndercut(sel.ID); {

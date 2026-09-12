@@ -22,6 +22,8 @@ crew_heat = 0.2             # heat a unit a runner moves on their corner draws, 
 informant_days = 5          # an informant on the payroll (crew.toml [informant]) feeds the DA a page every this many days,
 informant_evidence = 1      # this many pages, whatever you sold and whatever your lawyer says: a witness is not a bust;
 informant_heat = 3          # and this much heat the report cannot explain. While one is on the payroll a raid takes the whole stash.
+tip_evidence = 0.2          # chance a tip you give the police on a rival corner (#70) puts a page in the DA's file
+                            # anyway: talking to police is talking to police, and #27 bends only because you did something
 sloppy_skill = 40           # runners below this skill are sloppy
 sloppy_heat = 0.03          # heat per unit sold through a fully sloppy (skill 0) runner's corner
 audit_heat = 6.0            # heat an audited front adds the morning after

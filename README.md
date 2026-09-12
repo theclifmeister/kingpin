@@ -157,8 +157,8 @@ ROUTES                                                                          
 ▸ Coast Road   Bayport  ──car──▶ Eastside  normal  2d · 60 units · $8/u · ~0%  ▪60  │ runner      nobody               │
   Interstate   Bayport  ─truck─▶ Eastside  off     3d · 400 units · $3/u · ~9%      │ enforcer    nobody               │
   The Channel  Bayport  ─boat──▶ Eastside  off     5d · 2000 units · $1/u · ~7%     │ w  push takes it ~10%, hit ~24%  │
-                                                                                    │                                  │
-                                                                                    │                                  │
+                                                                                    │ w  boost: the till, ~$24K        │
+                                                                                    │ t  tip the police: at 0 of 60    │
                                                                                     │                                  │
                                                                                     │                                  │
                                                                                     │                                  │
@@ -175,8 +175,8 @@ ROUTES                                                                          
                                                                                     │ e  post enforcer                 │
                                                                                     │ a  abandon                       │
                                                                                     │ w  send enforcers                │
-                                                                                    │ u  undercut     r  route dial    │
-                                                                                    │ R  route target                  │
+                                                                                    │ u  undercut     t  tip police    │
+                                                                                    │ r  route dial   R  route target  │
                                                                                     │ g  go to Bayport                 │
                                                                                     │ ?  help                          │
                                                                                     ╰──────────────────────────────────╯
@@ -287,6 +287,7 @@ The full table is below; `?` brings it up in the game.
 | `a` | abandon | give the selected corner up | map |
 | `w` | send enforcers | send the enforcers at the selected corner | map |
 | `u` | undercut | sell cheap on the rival's corner next door | map |
+| `t` | tip police | tip the police on the selected rival corner | map |
 | `r` | route dial | the selected route: off, slow, normal, fast | map |
 | `R` | route target | what the selected route keeps the far end at | map |
 | `←→` | branch | turn the tree to the next branch | upgrades |
@@ -297,6 +298,8 @@ The full table is below; `?` brings it up in the game.
 | `d` | propose | offer the rival a truce, tribute or a split | rivals |
 | `y` | accept | take the selected offer | rivals |
 | `x` | decline | turn the selected offer down | rivals |
+| `i` | scout | buy a look at the rival's books | rivals |
+| `$` | buy off | pay the rival's muscle to go home | rivals |
 <!-- keys:end -->
 
 ## How it works

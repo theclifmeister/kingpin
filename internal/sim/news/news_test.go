@@ -34,6 +34,7 @@ func TestEveryEmittedEventHasTemplate(t *testing.T) {
 		"RivalAbandoned", // PlayerUndercut is report-only
 		"CornerStruckTaken", "CornerStruckHeld", "RivalRouted",
 		"RivalTippedPolice", "WarOpen", "WarCrackdown",
+		"RivalBoosted", "RivalBoostedHeld", "RivalRaided", "RivalMusclePoached", // RivalScouted and PoliceTipped are report-only (#70)
 		"DealOffered", "DealAccepted", "DealRefused", "DealBroken", // DealEnded and TributePaid are report-only
 		"UpgradeBought", "FallGuyBurned",
 		"FrontBought", "FrontAudited", "FrontFrozen",

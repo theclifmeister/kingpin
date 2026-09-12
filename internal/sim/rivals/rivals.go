@@ -338,9 +338,10 @@ func (s *Sim) ClaimCost(w *game.World) int { return s.cost(w, s.cfg.Rivals.Claim
 func (s *Sim) Afford(w *game.World) int { return s.Income(w) / s.Wage(w) }
 
 // Want is the muscle its personality keeps for the corners it holds:
-// muscle_per_corner per corner plus one, rounded.
+// muscle_per_corner per corner plus one, rounded, less the heads bought
+// off or arrested and not yet back (#70, Rival.Away).
 func (s *Sim) Want(w *game.World) int {
-	return int(math.Round(s.personality(w).MusclePerCorner * float64(w.RivalHeld()+1)))
+	return max(0, int(math.Round(s.personality(w).MusclePerCorner*float64(w.RivalHeld()+1)))-w.Rival.Away)
 }
 
 // Pricewar exposes the price war's tuning for the UI and the harness.
@@ -409,6 +410,12 @@ func (s *Sim) Step(w *game.World, t *game.Tick) {
 	// is paid or missed, a split corner you walked off is noticed.
 	betrayed := s.table(w, t)
 
+	// 2c. The heads you paid to go home (#70) leave before the night's
+	// fighting, off the books side stream; and of the heads away, one
+	// finds its way back every away_days.
+	s.poach(w, t)
+	s.comeBack(w, t)
+
 	// 3. The player's strike resolves before the rival moves; a push or a
 	// hit under a deal is a betrayal of every deal, and a betrayal is
 	// paid back with one phone call tonight, whatever else the night
@@ -418,6 +425,10 @@ func (s *Sim) Step(w *game.World, t *game.Tick) {
 		s.strike(w, t, o)
 		betrayed = s.crossed(w, t, o) || betrayed
 	}
+	// Your tip to the police (#70) lands after the enforcers: under a
+	// peace it is a betrayal too, and past the notice line the police
+	// raid the corner tonight.
+	betrayed = s.tip(w, t) || betrayed
 	if betrayed {
 		r.Tips++
 		t.Emit(events.RivalTippedPolice{Day: t.Day, Rival: r.Leader, Heat: tun.TipHeat})
@@ -530,6 +541,22 @@ func (s *Sim) Step(w *game.World, t *game.Tick) {
 		t.Emit(events.RivalTippedPolice{Day: t.Day, Rival: r.Leader, Heat: tun.TipHeat})
 	}
 
+	// 6b. The police's attention on it (#70): fading, and up with every
+	// push it made tonight (a lead's, a price war's or its own: the
+	// events say) while there was any.
+	pushes := 0
+	for _, e := range t.Events() {
+		switch ev := e.(type) {
+		case events.RivalPushed:
+			pushes++
+		case events.CornerTaken:
+			if ev.From == game.OwnerPlayer && ev.Handed == "" {
+				pushes++
+			}
+		}
+	}
+	s.heat(w, pushes)
+
 	// 7. The war: crossing the line makes headlines; loud enough and the
 	// police clear both sides; otherwise it fades a little.
 	if warBefore < tun.WarThreshold && r.War >= tun.WarThreshold {
@@ -557,6 +584,10 @@ func (s *Sim) Step(w *game.World, t *game.Tick) {
 	if r.Muscle < 0 {
 		r.Muscle = 0
 	}
+
+	// 9. The scout (#70) reads the books as the night leaves them, off
+	// the books side stream.
+	s.scout(w, t)
 }
 
 // resolveEyeing is the claim the rival telegraphed yesterday (#69): it
@@ -607,11 +638,16 @@ func (s *Sim) Eyeing(w *game.World) *game.Corner {
 	return w.Corner(w.Rival.Eyeing)
 }
 
-// strike resolves the player's enforcers going in on a rival corner.
+// strike resolves the player's enforcers going in on a rival corner, or
+// for its takings (#70, boost).
 func (s *Sim) strike(w *game.World, t *game.Tick, o *game.StrikeOrder) {
 	r := &w.Rival
 	c := w.Corner(o.Corner)
 	if c == nil || c.Owner != game.OwnerRival || w.Crew.Role("enforcer") == 0 {
+		return
+	}
+	if o.Boost {
+		s.boost(w, t, o, c)
 		return
 	}
 	fc := s.cfg.ForceFor(o.Force)

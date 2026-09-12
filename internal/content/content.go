@@ -293,6 +293,7 @@ type HeatTuning struct {
 	InformantDays      int     `toml:"informant_days"`
 	InformantEvidence  int     `toml:"informant_evidence"`
 	InformantHeat      float64 `toml:"informant_heat"`
+	TipEvidence        float64 `toml:"tip_evidence"` // chance a tip on a rival corner (#70) files a page anyway
 	SloppySkill        int     `toml:"sloppy_skill"`
 	SloppyHeat         float64 `toml:"sloppy_heat"`
 	AuditHeat          float64 `toml:"audit_heat"`     // heat an audited front adds the morning after
@@ -425,6 +426,10 @@ type RivalsConfig struct {
 	Pace        PaceTuning                   `toml:"pace"`
 	Pricewar    PricewarTuning               `toml:"pricewar"`
 	Diplomacy   DiplomacyTuning              `toml:"diplomacy"`
+	Books       BooksTuning                  `toml:"books"`
+	Boost       BoostTuning                  `toml:"boost"`
+	Tip         TipTuning                    `toml:"tip"`
+	Poach       PoachTuning                  `toml:"poach"`
 	Deal        map[string]DealConfig        `toml:"deal"`
 	Personality map[string]PersonalityConfig `toml:"personality"`
 	Force       map[string]ForceConfig       `toml:"force"`
@@ -484,6 +489,54 @@ type PricewarTuning struct {
 	Grudge       bool    `toml:"grudge"`        // a corner starved to the line adds to the rival's grudge
 	PricewarDays int     `toml:"pricewar_days"` // days squeezed running before the rival answers
 	PricewarPush float64 `toml:"pricewar_push"` // multiplier on push_chance for the answer
+}
+
+// BooksTuning is scouting the rival's books (#70): what a look costs and
+// the odds it reads them, in the shape of crew.toml's investigation, and
+// how long the snapshot stays fresh.
+type BooksTuning struct {
+	ScoutCost  int     `toml:"scout_cost"`  // dirty cash, then clean
+	ScoutBase  float64 `toml:"scout_base"`  // chance a scout reads the books with no enforcer on the payroll
+	ScoutSkill float64 `toml:"scout_skill"` // added at enforcer skill 100; scales by the best enforcer's skill
+	ScoutLearn float64 `toml:"scout_learn"` // added per scout that read nothing since the last that did
+	StaleDays  int     `toml:"stale_days"`  // days after which the snapshot is stale
+}
+
+// BoostTuning is the enforcers robbing a rival corner's takings (#70):
+// what it takes, what it draws and what it costs the enforcers, at any
+// force; the odds are the force's, as a strike's.
+type BoostTuning struct {
+	Take       float64 `toml:"take"`        // share of the corner's day of income taken
+	Heat       float64 `toml:"heat"`        // heat drawn, times the corner's heat
+	War        float64 `toml:"war"`         // what it adds to the war
+	Loyalty    float64 `toml:"loyalty"`     // the toll on an enforcer with no nerve when it lands
+	FailLoss   float64 `toml:"fail_loss"`   // the toll when it fails
+	FailMuscle int     `toml:"fail_muscle"` // a failed boost against more muscle than this hurts an enforcer ...
+	FailHurt   int     `toml:"fail_hurt"`   // ... by this much skill
+}
+
+// TipTuning is tipping the police on a rival corner (#70): what it does
+// to the rival's own heat, when the police act on it, and what it costs
+// at the table.
+type TipTuning struct {
+	Heat         float64 `toml:"heat"`          // Rival.Heat per tip
+	PushHeat     float64 `toml:"push_heat"`     // Rival.Heat per push it makes while its heat is over zero
+	Decay        float64 `toml:"decay"`         // fraction of Rival.Heat that fades a day
+	PoliceNotice float64 `toml:"police_notice"` // over this the police take the corner last tipped
+	RaidMuscle   float64 `toml:"raid_muscle"`   // fraction of its muscle a raid takes
+	RaidDays     int     `toml:"raid_days"`     // days between raids: the heat builds meanwhile
+	Trust        float64 `toml:"trust"`         // off Rival.Trust per tip
+	Grudge       int     `toml:"grudge"`        // grudge a tip adds
+}
+
+// PoachTuning is buying off the rival's muscle (#70): the price of a head
+// and the odds the money sends them home.
+type PoachTuning struct {
+	MusclePrice float64 `toml:"muscle_price"` // corner-days a head costs ...
+	CashShare   float64 `toml:"cash_share"`   // ... plus this share of the rival's chest per head it keeps
+	Odds        float64 `toml:"odds"`         // chance the order lands
+	Grudge      int     `toml:"grudge"`       // grudge a failed order adds
+	AwayDays    int     `toml:"away_days"`    // days before a head bought off or arrested is back in the pool it hires from, one head at a time
 }
 
 type PersonalityConfig struct {
@@ -575,6 +628,20 @@ func (r RivalsConfig) validate() error {
 			return fmt.Errorf("[personality.%s] muscle_per_corner %.2f must be positive: the wage per head is muscle_wage over it", name, p.MusclePerCorner)
 		}
 	}
+	// The books (#70): a boost takes a share, a tip's notice line is
+	// reachable, a head has a price and the snapshot goes stale.
+	if b := r.Boost; b.Take < 0 || b.Take > 1 {
+		return fmt.Errorf("[boost] take %.2f must be in 0..1", b.Take)
+	}
+	if tp := r.Tip; tp.PoliceNotice <= 0 || tp.PoliceNotice > 100 || tp.Heat <= 0 || tp.RaidMuscle < 0 || tp.RaidMuscle > 1 {
+		return fmt.Errorf("[tip] police_notice %.0f must be in 1..100, heat %.0f positive and raid_muscle %.2f in 0..1", tp.PoliceNotice, tp.Heat, tp.RaidMuscle)
+	}
+	if p := r.Poach; p.MusclePrice <= 0 || p.Odds < 0 || p.Odds > 1 {
+		return fmt.Errorf("[poach] muscle_price %.2f must be positive and odds %.2f in 0..1", p.MusclePrice, p.Odds)
+	}
+	if r.Books.StaleDays < 1 || r.Books.ScoutCost < 0 {
+		return fmt.Errorf("[books] stale_days %d must be positive and scout_cost %d not negative", r.Books.StaleDays, r.Books.ScoutCost)
+	}
 	return nil
 }
 
@@ -636,6 +703,7 @@ type FearSources struct {
 	StrikeTaken float64 `toml:"strike_taken"`
 	StrikeHeld  float64 `toml:"strike_held"`
 	PushHeld    float64 `toml:"push_held"`
+	Boost       float64 `toml:"boost"` // a rival corner's takings your enforcers took (#70)
 }
 
 type RespectSources struct {
@@ -665,6 +733,7 @@ type ReputationFX struct {
 	FearDeal           float64 `toml:"fear_deal"`       // rivals: added to the chance a proposal is accepted
 	RespectTrust       float64 `toml:"respect_trust"`   // rivals: extra on the trust a kept deal-day earns
 	RivalClaimCut      float64 `toml:"rival_claim_cut"` // rivals: fraction cut from the chance it claims a corner
+	PoachPriceCut      float64 `toml:"poach_price_cut"` // rivals: fraction cut from the price of buying off a head of its muscle (#70)
 }
 
 // Scale is v at axis 0 and v times (1 + full) at axis 100: how an effect
@@ -725,6 +794,8 @@ type PressureSources struct {
 	Strike    float64  `toml:"strike"`
 	Push      float64  `toml:"push"`
 	Crackdown float64  `toml:"crackdown"`
+	Boost     float64  `toml:"boost"`         // your enforcers robbing a rival corner (#70), landed or not
+	RivalRaid float64  `toml:"rival_raid"`    // the police taking a rival corner on your tip (#70)
 	HardUnits float64  `toml:"hard_units"`    // a point per this many units of a hard product sold in a day
 	Hard      []string `toml:"hard_products"` // the products that count
 	Headline  float64  `toml:"headline"`

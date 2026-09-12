@@ -335,13 +335,33 @@ func (s *Sim) Step(w *game.World, t *game.Tick) {
 	// they went on today: a toll from the rivals sim that the nervous feel
 	// most and a win halves. A respected boss's crew feel every loss less.
 	toll := 0.0
+	hurt := 0
 	for _, e := range t.Events() {
-		if cs, ok := e.(events.CornerStruck); ok {
-			if cs.Taken {
-				toll += cs.Toll / 2
+		switch ev := e.(type) {
+		case events.CornerStruck:
+			if ev.Taken {
+				toll += ev.Toll / 2
 			} else {
-				toll += cs.Toll
+				toll += ev.Toll
 			}
+		case events.RivalBoosted:
+			// A boost (#70) is the enforcers going in too: its toll by
+			// nerve as a strike's, and a failure against real muscle
+			// hurts the one with the least nerve.
+			toll += ev.Toll
+			hurt += ev.Hurt
+		}
+	}
+	if hurt > 0 {
+		var worst *game.CrewMember
+		for i := range c.Members {
+			m := &c.Members[i]
+			if m.Role == "enforcer" && (worst == nil || m.Nerve < worst.Nerve) {
+				worst = m
+			}
+		}
+		if worst != nil {
+			worst.Skill = max(1, worst.Skill-hurt)
 		}
 	}
 	danger := false
