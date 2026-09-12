@@ -21,7 +21,7 @@ func TestBooksKeys(t *testing.T) {
 	w := m.w
 	// i and $ on the dashboard point at both screens that take them.
 	m.Update(key("i"))
-	if m.mode != modePlay || m.status != "Investigate on the crew screen (4). Scout on the rivals screen (8)." {
+	if m.mode != modePlay || m.status != "Investigate on the crew screen (4). Invest on the ledger screen (7). Scout on the rivals screen (8)." {
 		t.Fatalf("i on the dashboard: mode %v status %q", m.mode, m.status)
 	}
 	m.Update(key("$"))

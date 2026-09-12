@@ -79,6 +79,7 @@ const (
 	modeConfirmBuyOff     // pay the rival's muscle to go home: the heads, then y or enter (#70)
 	modeCut               // cut a product where you stand (#47): the product, then the percent added
 	modeCook              // a chemist's cook order (#47): the product, then the units
+	modeInvest            // clean cash into the selected front's levels (#192): the levels, then enter
 	modeBribe             // an envelope for the chief or the DA (#42): the target, then the amount
 	modeConfirmCheckpoint // buy the checkpoint or customs agent on the selected route? (#42)
 	modeCount
@@ -162,6 +163,7 @@ type Model struct {
 	fst            fastDialog
 	bo             buyOffDialog
 	br             bribeDialog
+	inv            investDialog
 	fastStop       string // the report's first line after a fast-forward (`Stopped after 3 days: …`), until the next day ends
 	slot           int    // the save slot this run lives in: where ctrl+s, the end of the day and quitting save
 	startChoice    int    // row on the start menu: the slots, then Quit
@@ -529,6 +531,8 @@ func (m *Model) handleKey(k tea.KeyMsg) (tea.Model, tea.Cmd) {
 			m.mode = modePlay
 		}
 		return m, nil
+	case modeInvest:
+		return m.keyInvest(k)
 	case modeTarget:
 		return m.keyTarget(k)
 	case modeFund:
@@ -1000,6 +1004,8 @@ func (m *Model) View() string {
 		body = m.viewBribe()
 	case modeConfirmCheckpoint:
 		body = m.modal("BUY THE "+strings.ToUpper(m.checkpointWord())+"?", m.checkpointConfirm(), m.modalFooter())
+	case modeInvest:
+		body = m.viewInvest()
 	case modeTarget:
 		body = m.viewTarget()
 	case modeFund:

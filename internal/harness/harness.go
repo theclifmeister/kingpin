@@ -863,7 +863,7 @@ func Elect(cfg *content.Config, w *game.World, day int) events.DAElected {
 // sells everything that lands at home and everything stashed where it
 // is. It is the baseline for "a player who runs a route".
 func Distributor(cfg *content.Config, lieLowAt float64) Policy {
-	return distribute(cfg, lieLowAt, false, false, "")
+	return distribute(cfg, lieLowAt, false, false, "", BossMargin)
 }
 
 // DistributorDays is how many days of home's demand the distributor keeps
@@ -929,7 +929,7 @@ const (
 // temper; "" takes them as they come. It is the tier-4 policy: the
 // second city staffed by somebody who is not you.
 func Delegated(cfg *content.Config, lieLowAt float64, personality string) Policy {
-	return distribute(cfg, lieLowAt, true, false, personality)
+	return distribute(cfg, lieLowAt, true, false, personality, BossMargin)
 }
 
 // Boss plays the whole game (#60): Delegated, and it holds home as well
@@ -942,10 +942,23 @@ func Delegated(cfg *content.Config, lieLowAt float64, personality string) Policy
 // table. It sells only what is worth the heat (BossWorth), spends at
 // BossMargin, pays generous, fires a lieutenant who turns out violent and
 // works every corner in the hub. It launders and buys the tree as
-// Delegated does. It is the tier-3 and tier-4 policy: the player who
-// uses every screen.
+// Delegated does, and it invests its clean cash in the fronts' levels
+// (#192): the cheapest next level of any front it owns, one a day, when
+// clean cash is BossMargin times the price. It is the tier-3 and tier-4
+// policy: the player who uses every screen.
 func Boss(cfg *content.Config, lieLowAt float64, personality string) Policy {
-	return distribute(cfg, lieLowAt, true, true, personality)
+	return BossAt(cfg, lieLowAt, personality, BossMargin)
+}
+
+// BossAt is Boss with the levels' margin given: how many times the next
+// level's price it holds in clean cash before it buys one; the fronts
+// and the nodes stay at BossMargin, so the road is not starved of the
+// dirty they cost. cmd/balance's -margin; the greed curve (#192,
+// TestInvestingEverythingFreezesTheFronts) reads it at 1: every clean
+// dollar into levels, and one thin morning shuts the places that were
+// paying.
+func BossAt(cfg *content.Config, lieLowAt float64, personality string, margin float64) Policy {
+	return distribute(cfg, lieLowAt, true, true, personality, margin)
 }
 
 // BossOdds is the strike odds under which the boss talks instead.
@@ -984,8 +997,9 @@ func worth(cfg *content.Config, w *game.World, id string) bool {
 // lieutenant's to post.
 const HubCorners = 2
 
-func distribute(cfg *content.Config, lieLowAt float64, delegate, fight bool, personality string) Policy {
+func distribute(cfg *content.Config, lieLowAt float64, delegate, fight bool, personality string, margin float64) Policy {
 	laundered := Laundered(cfg, lieLowAt)
+	ld := laundering.New(cfg)
 	crewSim := crew.New(cfg)
 	rv := rivals.New(cfg)
 	dip := cfg.Rivals.Diplomacy
@@ -1073,6 +1087,10 @@ func distribute(cfg *content.Config, lieLowAt float64, delegate, fight bool, per
 			for _, cid := range w.CityOrder {
 				payTown(cfg, w, w.Cities[cid])
 			}
+			// Then the businesses (#192): the levels take what the town
+			// left, over a campaign's worth kept in hand for the next
+			// election, so the boss's civic spending is what it was.
+			InvestOver(ld, w, margin, cfg.Law.Campaign.Fill())
 		} else {
 			washUp(cfg, w)
 			BuyUpgrades(cfg, w, 3) // the stash spots are what a lot needs room for
@@ -1316,6 +1334,35 @@ func Delegate(cfg *content.Config, w *game.World, city, personality string) game
 // a while after an audit.
 func washUp(cfg *content.Config, w *game.World) {
 	washUpAt(cfg, w, 3)
+}
+
+// Invest buys the cheapest next level of any front owned (#192), one a
+// day, when clean cash is margin times its price: the boss's way of
+// putting the pile to work. A front at its top is skipped. It reports
+// whether a level was bought.
+func Invest(ld *laundering.Sim, w *game.World, margin float64) bool {
+	return InvestOver(ld, w, margin, 0)
+}
+
+// InvestOver is Invest with a reserve: only the clean cash over it
+// counts toward the margin. The boss keeps a campaign's worth (#193,
+// law.toml [campaign] Fill) for the next election.
+func InvestOver(ld *laundering.Sim, w *game.World, margin float64, reserve int) bool {
+	var pick *game.Front
+	best := 0
+	for i := range w.Fronts {
+		f := &w.Fronts[i]
+		if f.Level >= ld.MaxLevel(*f) {
+			continue
+		}
+		if cost := ld.LevelCost(*f, 1); pick == nil || cost < best {
+			pick, best = f, cost
+		}
+	}
+	if pick == nil || float64(w.Player.CleanCash-reserve) < margin*float64(best) {
+		return false
+	}
+	return ld.Invest(w, pick.ID, 1) == nil
 }
 
 // washUpAt is washUp with the margin given: the front is bought when

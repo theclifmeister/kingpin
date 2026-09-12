@@ -28,6 +28,8 @@ push = 2                    # a rival push on your corner, held or not (a flip c
 crackdown = 15              # the police clearing the front line
 boost = 3                   # your enforcers robbing a rival corner's takings (#70), landed or not
 rival_raid = 3              # the police taking a rival corner on your tip (#70): a raid on a home block
+front_grew = 5              # a front whose growth made the paper (#192, headline_level in laundering.toml), the
+                            # morning after, where you are: where did a laundromat owner get the money for a hotel?
 hard_units = 25             # a point per this many units of a hard product sold in the city in a day
 hard_products = ["heroin", "meth", "designer"]
 overdose = 6                # an overdose on your corner (#47): bad product is the city's story, never the DA's page
