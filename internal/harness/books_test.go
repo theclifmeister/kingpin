@@ -17,7 +17,7 @@ import (
 // price war.
 
 func booksSim(cfg *content.Config) *rivals.Sim {
-	return rivals.New(cfg.Rivals, cfg.Names, cfg.Reputation.Effects, cfg.Law.Effects, cfg.Upgrades)
+	return rivals.New(cfg)
 }
 
 // Invariants under the saboteur and the tipster, every day of five seeds

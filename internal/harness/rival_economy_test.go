@@ -184,7 +184,7 @@ func TestPricewarStarvesTheMuscle(t *testing.T) {
 // did not, and the middle cut read 6.1x the take (2.9x to 13.5x by seed).
 func TestTributeShareOfTheTake(t *testing.T) {
 	cfg := content.MustLoad()
-	rv := rivals.New(cfg.Rivals, cfg.Names, cfg.Reputation.Effects, cfg.Law.Effects, cfg.Upgrades)
+	rv := rivals.New(cfg)
 	var shares []float64
 	for seed := uint64(1); seed <= 5; seed++ {
 		w := sim.NewWorld(cfg, seed)

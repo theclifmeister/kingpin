@@ -340,7 +340,7 @@ func TestLotsBuildRel(t *testing.T) {
 	if err := w.SetSupply(home, weed, w.Stock(home, weed)+500); err != nil {
 		t.Fatal(err)
 	}
-	mk, _ := market.New(cfg.Market, cfg.City, cfg.Routes.Shipping, cfg.Upgrades, cfg.Reputation.Effects, cfg.Buyers, cfg.Suppliers, cfg.Rivals.Pricewar)
+	mk, _ := market.New(cfg)
 	plan := mk.Plan(w)
 	if len(plan) != 1 || plan[0].Units != 10 || plan[0].Why != "supplier" || plan[0].Supplier != street.ID {
 		t.Fatalf("the plan against a connect with 10 left: %+v", plan)

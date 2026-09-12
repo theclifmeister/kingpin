@@ -27,9 +27,10 @@ type Sim struct {
 	das    []string
 }
 
-// New builds a law sim from config and the name pools.
-func New(cfg content.LawConfig, names content.NamesConfig) *Sim {
-	return &Sim{cfg: cfg, chiefs: names.Chiefs, das: names.DAs}
+// New builds a law sim from the config, copying what it reads (#144):
+// its own law.toml and the chiefs' and DAs' name pools.
+func New(cfg *content.Config) *Sim {
+	return &Sim{cfg: cfg.Law, chiefs: cfg.Names.Chiefs, das: cfg.Names.DAs}
 }
 
 func (s *Sim) Name() string { return "law" }

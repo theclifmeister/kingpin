@@ -41,7 +41,7 @@ func TestSeedAndMigrate(t *testing.T) {
 	}
 	w.Law = game.LawState{}
 	w.Day = 40
-	law.New(cfg.Law, cfg.Names).Migrate(w)
+	law.New(cfg).Migrate(w)
 	if w.Law.Chief.Name == "" || w.Law.DA.Name == "" || w.Law.Chief.Since != 40 || w.Law.DA.ElectedDay != 40 {
 		t.Fatalf("migrated law: %+v", w.Law)
 	}
@@ -52,7 +52,7 @@ func TestSeedAndMigrate(t *testing.T) {
 // fades too; a band crossed is an event.
 func TestPressureSources(t *testing.T) {
 	cfg := content.MustLoad()
-	s := law.New(cfg.Law, cfg.Names)
+	s := law.New(cfg)
 	src := cfg.Law.Pressure
 	tun := cfg.Law.Law
 	w := sim.NewWorld(cfg, 1)
@@ -130,7 +130,7 @@ func TestPressureSources(t *testing.T) {
 // election is on its day and a moderate's win keeps a moderate.
 func TestTermsAndElections(t *testing.T) {
 	cfg := content.MustLoad()
-	s := law.New(cfg.Law, cfg.Names)
+	s := law.New(cfg)
 	tun := cfg.Law.Law
 	w := sim.NewWorld(cfg, 2)
 	old := w.Law.Chief
@@ -212,9 +212,9 @@ func TestTermsAndElections(t *testing.T) {
 	}
 
 	// Terms of zero stop the clock.
-	forever := cfg.Law
-	forever.Law.ChiefTerm, forever.Law.TermDays = 0, 0
-	f := law.New(forever, cfg.Names)
+	forever := *cfg
+	forever.Law.Law.ChiefTerm, forever.Law.Law.TermDays = 0, 0
+	f := law.New(&forever)
 	w = sim.NewWorld(cfg, 4)
 	if f.NextElection(w) != 0 || f.ChiefTermEnds(w) != 0 {
 		t.Fatal("a zero term still schedules")
@@ -232,7 +232,7 @@ func TestTermsAndElections(t *testing.T) {
 // top of the swing, nothing at the bottom.
 func TestLawAndOrderShare(t *testing.T) {
 	cfg := content.MustLoad()
-	s := law.New(cfg.Law, cfg.Names)
+	s := law.New(cfg)
 	if v := s.LawAndOrderShare(50); abs(v-0.5) > 1e-9 {
 		t.Fatalf("share at 50: %.3f", v)
 	}

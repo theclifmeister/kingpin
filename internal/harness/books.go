@@ -68,7 +68,7 @@ const (
 
 func saboteur(cfg *content.Config, lieLowAt float64, tips tipping) Policy {
 	crewed := Crewed(cfg, lieLowAt)
-	rv := rivals.New(cfg.Rivals, cfg.Names, cfg.Reputation.Effects, cfg.Law.Effects, cfg.Upgrades)
+	rv := rivals.New(cfg)
 	hot := TooHot(cfg, lieLowAt)
 	tun := cfg.Rivals.Rivals
 	forces := []events.Force{events.ForceWarn, events.ForcePush, events.ForceHit}
