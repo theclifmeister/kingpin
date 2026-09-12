@@ -21,10 +21,15 @@ func main() {
 	noAnim := flag.Bool("no-anim", false, "play without the animated scenes (KINGPIN_NO_ANIM=1 does the same)")
 	flag.Parse()
 	// The scenes are on unless the flag or the environment says
-	// otherwise (#152): any value in KINGPIN_NO_ANIM turns them off.
-	// KINGPIN_ANIM_EFFECT pins the title loop's effect by name (#153),
-	// for review; an unknown name is refused with the set.
-	opts := ui.Options{Anim: !*noAnim && os.Getenv("KINGPIN_NO_ANIM") == "", Effect: os.Getenv("KINGPIN_ANIM_EFFECT")}
+	// otherwise (#152): any value in KINGPIN_NO_ANIM turns them off, and
+	// any value in KINGPIN_NO_MORNING_ANIM turns the morning's off alone
+	// (#159). KINGPIN_ANIM_EFFECT pins the title loop's effect by name
+	// (#153), for review; an unknown name is refused with the set.
+	opts := ui.Options{
+		Anim:        !*noAnim && os.Getenv("KINGPIN_NO_ANIM") == "",
+		MorningAnim: os.Getenv("KINGPIN_NO_MORNING_ANIM") == "",
+		Effect:      os.Getenv("KINGPIN_ANIM_EFFECT"),
+	}
 	if e, ok := anim.Effects[opts.Effect]; opts.Effect != "" && (!ok || !e.Needs.Text) {
 		fmt.Fprintf(os.Stderr, "kingpin: KINGPIN_ANIM_EFFECT=%q is not one of %s\n", opts.Effect, strings.Join(anim.TitleEffects(), ", "))
 		os.Exit(1)
