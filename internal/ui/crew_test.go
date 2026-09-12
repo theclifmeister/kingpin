@@ -134,7 +134,7 @@ func TestInvestigateAndPayOffKeys(t *testing.T) {
 	if pane := paneText(m); !strings.Contains(pane, "SNITCH") || !strings.Contains(pane, "snitch      "+hired.Name) {
 		t.Fatalf("the pane does not mark the named informant:\n%s", pane)
 	}
-	m.Update(key("n"))
+	endDay(t, m) // the first hire's stage (#149) opens before the report
 	if m.mode != modeReport {
 		t.Fatalf("mode after n: %v", m.mode)
 	}

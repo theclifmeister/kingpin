@@ -44,6 +44,7 @@ const (
 	priTier = iota // the tier the run is in (#147): the first to go
 	priSupplier
 	priUpgrades
+	priStage // the tier while its stage is new (#149): news, so it outranks the counts
 	priStash
 	priSupply
 	priRuns
@@ -122,6 +123,12 @@ func (m *Model) streetLines(innerW, maxLines int, narrow, withRoad bool) []strin
 		corners.s = theme.Bad.Render("You hold no corner, so nothing sells. Claim one " + screenPointer(screenMap) + ".")
 	}
 	tier := fact{theme.Subtle.Render("tier " + w.TierName(m.cfg.Progression)), priTier}
+	if w.StagePending() > 0 {
+		// The stage not yet seen (#149) is marked the way the Journal tab
+		// counts the unread, and the fact is worth a line while it is.
+		tier.s += theme.NewsText.Render(" · new")
+		tier.pri = priStage
+	}
 	if withRoad {
 		topic(append([]fact{corners, tier}, m.elsewhereFacts()...)...)
 	} else {

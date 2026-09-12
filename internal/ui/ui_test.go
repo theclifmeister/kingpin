@@ -65,6 +65,11 @@ func key(s string) tea.KeyMsg {
 func endDay(t *testing.T, m *Model) {
 	t.Helper()
 	m.Update(key("n"))
+	if m.mode == modeStage {
+		// A tier entered overnight (#149) opens its stage before the card.
+		assertFits(t, m.View(), m.width, m.height, "stage")
+		m.Update(key("enter"))
+	}
 	if m.mode == modeCard {
 		assertFits(t, m.View(), m.width, m.height, "dilemma card")
 		m.Update(key("enter"))
@@ -411,6 +416,24 @@ func richFixture(t *testing.T, sz [2]int, check func(m *Model, view, what string
 		t.Fatalf("%dx%d: bought %d fronts: %q", sz[0], sz[1], len(m.w.Fronts), m.status)
 	}
 	m.w.Crew.Members = append(m.w.Crew.Members, game.CrewMember{ID: 901, Name: "Books", Role: "accountant", Skill: 60, Loyalty: 60, Wage: 130})
+	// A tier-4 world with a stage pending (#149): the dashboard's fact
+	// marked new, then the stage modal, closed before the day ends.
+	for n := 2; n <= 4; n++ {
+		m.w.Reach(n, m.w.Day)
+	}
+	m.Update(key("1"))
+	see(m, "dashboard with a stage pending")
+	m.showStage()
+	if m.mode != modeStage {
+		t.Fatalf("%dx%d: showStage left mode %v", sz[0], sz[1], m.mode)
+	}
+	see(m, "stage")
+	m.Update(key("enter")) // closes onto the morning's report
+	if m.mode != modeReport {
+		t.Fatalf("%dx%d: closing the stage left mode %v", sz[0], sz[1], m.mode)
+	}
+	m.Update(key("enter"))
+	m.Update(key("7"))
 	endDay(t, m)
 	see(m, "report with fronts")
 	if !strings.Contains(strings.Join(m.w.Report.Money, "\n"), "Washed") {
@@ -891,6 +914,22 @@ func TestEnterDoesNotEndDay(t *testing.T) {
 	route := m.set.Logistics.Routes(m.w.Player.Location)[0]
 	if m.w.Route(route.ID).Target[m.w.Products[0]] != 7 {
 		t.Fatalf("the target was not set: %+v", m.w.Route(route.ID))
+	}
+	// The stage (#149): the morning after the first hire opens it, enter
+	// closes it onto the report, and neither is a day.
+	m.Update(key("1"))
+	hireOne(m)
+	m.Update(key("n"))
+	if m.w.Day != day+4 || m.mode != modeStage {
+		t.Fatalf("n after the hire: day %d -> %d, mode %v", day+3, m.w.Day, m.mode)
+	}
+	m.Update(key("enter"))
+	if m.w.Day != day+4 || m.mode != modeReport {
+		t.Fatalf("enter on the stage: day %d -> %d, mode %v", day+4, m.w.Day, m.mode)
+	}
+	m.Update(key("enter"))
+	if m.w.Day != day+4 || m.mode != modePlay {
+		t.Fatalf("enter on the report after the stage: day %d -> %d, mode %v", day+4, m.w.Day, m.mode)
 	}
 }
 
@@ -1453,7 +1492,7 @@ func TestStrikeKeys(t *testing.T) {
 	m.Update(key("j"))
 	m.Update(key("j"))
 	m.Update(key("enter")) // hit again
-	m.Update(key("n"))
+	endDay(t, m)           // the first hire's stage (#149) opens before the report
 	if m.mode != modeReport || m.w.Strike != nil || m.w.Stats.Strikes != 1 {
 		t.Fatalf("after the night: mode %v strike %+v stats %+v", m.mode, m.w.Strike, m.w.Stats)
 	}
@@ -2224,10 +2263,14 @@ func richModelSeeded(t *testing.T, w, h int, seed uint64) *Model {
 	world.Player.DirtyCash = 700_000
 	world.Stats.PeakCash = 700_000
 	// The tiers (#147): the run is in Distribution, entered by hand the
-	// way the pile and the crew are, so the morning after stamps none.
+	// way the pile and the crew are, so the morning after stamps none;
+	// its stage is seen (#149), so the days a test ends from here open
+	// on the report as they did, and a test that wants the stage
+	// pending deletes it from Seen.
 	for n := 2; n <= 4; n++ {
 		world.Reach(n, world.Day)
 	}
+	world.SeeStage(4)
 	world.Crew.Members = append(world.Crew.Members,
 		game.CrewMember{ID: 1, Name: "Dre", Role: "runner", Skill: 60, Units: 120, Loyalty: 80, Nerve: 50, Wage: 50},
 		game.CrewMember{ID: 2, Name: "Gato", Role: "runner", Skill: 40, Units: 90, Loyalty: 40, Nerve: 30, Wage: 45},
@@ -2437,6 +2480,7 @@ func TestModalsFit(t *testing.T) {
 		{"front", modeFront, func(t *testing.T, m *Model) { m.Update(key("7")); m.Update(key("b")) }},
 		{"confirm investigate", modeConfirmInvestigate, func(t *testing.T, m *Model) { m.Update(key("4")); m.Update(key("i")) }},
 		{"confirm pay off", modeConfirmPayOff, func(t *testing.T, m *Model) { m.Update(key("4")); m.Update(key("$")) }},
+		{"stage", modeStage, func(t *testing.T, m *Model) { delete(m.w.Progression.Seen, 4); m.showStage() }},
 		{"card", modeCard, func(t *testing.T, m *Model) { m.w.Dilemmas.Pending = testCard(m.w.Day); m.showCard() }},
 		{"card outcome", modeCard, func(t *testing.T, m *Model) {
 			m.w.Dilemmas.Pending = testCard(m.w.Day)

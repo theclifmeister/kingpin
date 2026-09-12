@@ -15,6 +15,13 @@
 #   opens           short lines on what the stage opens (the interstitial's
 #                   and the summary's, #149)
 #   next            free text on what the next stage takes
+#   text            the stage modal's prose (#149): three to six lines in
+#                   the game's voice, wrapped as one paragraph; every
+#                   tier past the first (the first is day 0, no stage
+#                   opens on it). TestStageFits holds the copy to 80x24
+#                   whole with the blurb, opens and next.
+#   closing         the last tier only: what the modal's NEXT says where
+#                   there is no next tier
 #   [tier.enter]    the trigger that must hold to enter it, a CardTrigger;
 #                   tier 1 has none (it is day 0), every later tier must
 # The lines, measured in #147's PR: tier 2 is the first hire (the day-1
@@ -51,6 +58,12 @@ opens = [
   "a second connect at $25K moved, if the street connect vouches",
 ]
 next = "Move $25K: the laundromat opens, and the fronts begin."
+text = [
+  "Somebody else stands on the corner now and you count the take.",
+  "A runner sells what you hand them and draws heat of their own; an enforcer keeps the stick-ups off.",
+  "Pay them or they skim, and a skimmer under enough pressure talks.",
+  "The rival is on the way and does not ask.",
+]
 [tier.enter]
 crew_min = 1
 
@@ -66,6 +79,12 @@ opens = [
   "the pool connect: a range, a book, credit",
 ]
 next = "Move $500K: the Dutchman sells to the road, designer comes home."
+text = [
+  "The corners are a neighbourhood now, and a neighbourhood has a price.",
+  "The laundromat takes dirty cash in and hands clean cash out, less the upkeep and what an audit seizes.",
+  "The lawyers take clean money only.",
+  "Fight the rival, undercut it or buy it off. It is choosing too.",
+]
 [tier.enter]
 crew_min = 1
 peak_cash_min = 25000
@@ -82,6 +101,13 @@ opens = [
   "the big fronts at $1.2M and $3M",
 ]
 next = "The cartel: assets bought with clean money."
+text = [
+  "Bayport is down the coast, and the Dutchman sells to the road, not to you.",
+  "Set a route and a target and let the trucks keep Eastside supplied.",
+  "Designer comes home that way and no other.",
+  "Hold corners in two cities and somebody will offer to run one for you, for a cut.",
+]
+closing = "No stage lies past this one yet. The cartel, bought with clean money, is still on the drawing board."
 [tier.enter]
 crew_min = 1
 peak_cash_min = 500000

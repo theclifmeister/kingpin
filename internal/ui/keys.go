@@ -362,7 +362,7 @@ var modeBindings = []binding{
 	{key: "⇧tab", label: "back", keys: []string{"shift+tab"}, modes: in(modeBuy, modeSell, modeTarget, modeCart, modePropose), when: pastFirstStep},
 	{key: "esc", label: "close", modes: in(modeBuy, modeSell, modeTarget, modePropose, modePost, modeStrike, modeUndercut, modeFront, modeAssign, modeFund, modeCart,
 		modeConfirmNew, modeConfirmDelete, modeConfirmFire, modeConfirmEnd, modeConfirmUpgrade, modeConfirmInvestigate, modeConfirmPayOff, modeConfirmTravel, modeConfirmFast)},
-	{key: "enter esc", label: "close", modes: in(modeReport, modeHelp)},
+	{key: "enter esc", label: "close", modes: in(modeReport, modeHelp, modeStage)},
 	{key: "enter esc", label: "close", modes: in(modeCard), when: step(1)},
 	{key: "␣ esc", label: "close", modes: in(modeDetails)},
 }
@@ -578,7 +578,7 @@ var words = [][2]string{
 	{"credit", "a connect's book: take now, pay in days, or they answer"},
 	{"pane", "the details beside MAIN from 100 columns, always open"},
 	{"strip", "the pane's one line under 100 columns; ␣ opens it over MAIN"},
-	{"tier", "the stage a run is in: Corner, Crew, Territory, Distribution"},
+	{"tier", "the stage a run is in, shown once: Corner to Distribution"},
 }
 
 // helpLines is the help modal's body: every binding, grouped, one a

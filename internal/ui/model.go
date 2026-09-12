@@ -58,6 +58,7 @@ const (
 	modeFront          // pick a front to buy
 	modeConfirmInvestigate
 	modeConfirmPayOff
+	modeStage         // the stage entered this morning (#149), before the card and the report
 	modeCard          // a dilemma card, before the morning report
 	modeTarget        // the route target dialog: product -> units or days -> the number
 	modeConfirmTravel // move to the other city?
@@ -115,6 +116,7 @@ type Model struct {
 	frontCursor    int    // offer selected in the buy-a-front picker
 	ledgerCursor   int    // row on the ledger: fronts, then routes, then offers
 	ledgerScroll   int    // first line of the ledger MAIN shows, following the cursor
+	stage          int    // the tier whose stage is showing (#149)
 	cardCursor     int    // choice highlighted on the dilemma card
 	cardDone       bool   // the card is answered; the outcome is showing
 	dealCursor     int    // offer selected on the rivals screen
@@ -270,8 +272,8 @@ func (m *Model) continueRun(slot int) error {
 	m.mode = modePlay
 	if w.Over != nil {
 		m.mode = modeOver
-	} else if w.Dilemmas.Pending != nil {
-		m.showCard() // saved on a card: it is still waiting
+	} else if w.StagePending() > 0 || w.Dilemmas.Pending != nil {
+		m.showStage() // saved on a stage or a card: it is still waiting
 	}
 	m.city = w.Player.Location
 	m.mapCursor = m.yourCorner()
@@ -318,8 +320,9 @@ func (m *Model) stepDay() []events.Event {
 }
 
 // morning opens the day that has just begun: the run over, else the
-// card or the report, with the danger winning the status bar: the tell
-// that somebody on the payroll is talking, in red, over the save.
+// stage (#149), the card or the report, with the danger winning the
+// status bar: the tell that somebody on the payroll is talking, in red,
+// over the save.
 func (m *Model) morning() {
 	if m.w.Over != nil {
 		m.mode = modeOver
@@ -328,7 +331,7 @@ func (m *Model) morning() {
 	if m.talking() {
 		m.alarm("Somebody is talking. Investigate " + screenPointer(screenCrew) + ".")
 	}
-	m.showCard()
+	m.showStage()
 }
 
 func (m *Model) save() {
@@ -584,6 +587,8 @@ func (m *Model) handleKey(k tea.KeyMsg) (tea.Model, tea.Cmd) {
 			m.scrollModal(key)
 		}
 		return m, nil
+	case modeStage:
+		return m.keyStage(key)
 	case modeCard:
 		return m.keyCard(key)
 	case modePropose:
@@ -898,6 +903,8 @@ func (m *Model) View() string {
 		body = m.viewFast()
 	case modeCart:
 		body = m.viewCart()
+	case modeStage:
+		body = m.viewStage()
 	case modeCard:
 		body = m.viewCard()
 	case modePropose:

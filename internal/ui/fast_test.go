@@ -26,6 +26,9 @@ func fast(t *testing.T, m *Model, days int) {
 // outcome and the report, so the next key lands on the play screen.
 func closeMorning(t *testing.T, m *Model) {
 	t.Helper()
+	if m.mode == modeStage {
+		m.Update(key("enter"))
+	}
 	if m.mode == modeCard {
 		m.Update(key("enter"))
 		m.Update(key("enter"))

@@ -19,7 +19,8 @@ import (
 // goroutine, inside the one Update (no timer, no command: Init still
 // starts nothing), each an ordinary endDay (the same clock, the same
 // save, the same dice), and stops before the report of the first day on
-// which something fires: the run over, a card dealt (it is answered
+// which something fires: the run over, a stage entered (#149: the modal
+// opens before the card and the report), a card dealt (it is answered
 // before the report, as always), an event of the kinds stopEvent names,
 // an alert the dashboard did not carry the morning before (alerts: a
 // contract due, heat over the patrol line, somebody talking, dirty cash
@@ -154,12 +155,16 @@ func (m *Model) fastForward(days int) {
 }
 
 // stopReason is why the day that just ended needs you, or "" when it
-// does not: a card dealt, then an alert that was not on the dashboard
+// does not: a new stage (#149, first: the tier entered this morning),
+// a card dealt, then an alert that was not on the dashboard
 // the morning before (by its key, so a contract due tomorrow stops once
 // and again when it is due today, and heat over the patrol line once
 // until it drops under and comes back), then the first of the day's
 // events that stopEvent names.
 func (m *Model) stopReason(evs []events.Event, before []alert) string {
+	if m.w.StagePending() > 0 {
+		return "a new stage"
+	}
 	if m.w.Dilemmas.Pending != nil {
 		return "a card to answer"
 	}
