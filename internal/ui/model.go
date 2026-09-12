@@ -16,6 +16,7 @@ import (
 	"github.com/theclifmeister/kingpin/internal/format"
 	"github.com/theclifmeister/kingpin/internal/game"
 	"github.com/theclifmeister/kingpin/internal/sim"
+	"github.com/theclifmeister/kingpin/internal/ui/anim"
 	"github.com/theclifmeister/kingpin/internal/ui/theme"
 )
 
@@ -97,6 +98,11 @@ type Model struct {
 	set   *sim.Set
 	clock *game.Clock
 	w     *game.World
+	opts  Options
+
+	scene    *anim.Player // the scene on screen (#152), nil while none is: the tick chain runs on it
+	sceneGen int          // which scene the outstanding tick was issued for
+	ticking  bool         // a tick is on its way
 
 	width, height  int
 	screen         screen
@@ -159,8 +165,8 @@ type Model struct {
 // New wires config, simulations, clock and bus together. With a run in
 // any slot the start menu offers the slots; on a fresh install a run
 // starts in slot 1.
-func New(cfg *content.Config) (*Model, error) {
-	m, err := wire(cfg)
+func New(cfg *content.Config, opts Options) (*Model, error) {
+	m, err := wire(cfg, opts)
 	if err != nil {
 		return nil, err
 	}
@@ -178,11 +184,11 @@ func New(cfg *content.Config) (*Model, error) {
 // in it continues, or a new one starts in it if it is empty. A run that
 // does not load leaves the player on the start menu with the error, the
 // cursor on the slot.
-func NewSlot(cfg *content.Config, slot int) (*Model, error) {
+func NewSlot(cfg *content.Config, slot int, opts Options) (*Model, error) {
 	if slot < 1 || slot > game.SlotCount {
 		return nil, fmt.Errorf("%w: %d (1 to %d)", game.ErrBadSlot, slot, game.SlotCount)
 	}
-	m, err := wire(cfg)
+	m, err := wire(cfg, opts)
 	if err != nil {
 		return nil, err
 	}
@@ -191,7 +197,7 @@ func NewSlot(cfg *content.Config, slot int) (*Model, error) {
 	return m, nil
 }
 
-func wire(cfg *content.Config) (*Model, error) {
+func wire(cfg *content.Config, opts Options) (*Model, error) {
 	set, sims, err := sim.Default(cfg)
 	if err != nil {
 		return nil, err
@@ -202,6 +208,7 @@ func wire(cfg *content.Config) (*Model, error) {
 		bus:   bus,
 		set:   set,
 		clock: game.NewClock(bus, sims...),
+		opts:  opts,
 	}
 	bus.Subscribe(m.onEvent)
 	return m, nil
@@ -227,6 +234,7 @@ func (m *Model) newRun(slot int) {
 // the dashboard and the cursors at their start. A test that wants a run
 // it can replay (the README's captures) passes the seed.
 func (m *Model) startRun(seed uint64) {
+	m.stop() // the title's loop ends with the menu
 	m.w = sim.NewWorld(m.cfg, seed)
 	m.mode = modePlay
 	m.screen = screenDashboard
@@ -279,6 +287,7 @@ func (m *Model) continueRun(slot int) error {
 	if err != nil {
 		return err
 	}
+	m.stop() // the title's loop ends with the menu
 	m.slot = slot
 	m.w = w
 	m.mode = modePlay
@@ -354,21 +363,31 @@ func (m *Model) save() {
 	m.say(fmt.Sprintf("Day %d saved.", m.w.Day))
 }
 
-// Init starts nothing: the UI redraws only on a key or a resize.
+// Init starts nothing: the UI redraws only on a key or a resize, and on
+// a tick while a scene is up (#152), which the first WindowSizeMsg
+// starts for the start menu's loop, inside Update.
 func (m *Model) Init() tea.Cmd { return nil }
 
-// Update is the Bubble Tea update loop.
+// Update is the Bubble Tea update loop. Every branch ends in tick(): the
+// next frame's tick while a scene is up, nil otherwise, so no command
+// leaves here in play mode.
 func (m *Model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 	switch msg := msg.(type) {
 	case tea.WindowSizeMsg:
 		m.width, m.height = msg.Width, msg.Height
 		m.resize()
-		return m, nil
+		m.titleLoop()
+		return m, m.tick()
+	case frameMsg:
+		return m, m.onFrame(msg)
 	case tea.KeyMsg:
 		before := m.mode
 		r, cmd := m.handleKey(msg)
 		if m.mode != before {
 			m.modalScroll = 0 // a new modal opens at its top
+		}
+		if cmd == nil {
+			cmd = m.tick()
 		}
 		return r, cmd
 	}
@@ -379,6 +398,9 @@ func (m *Model) handleKey(k tea.KeyMsg) (tea.Model, tea.Cmd) {
 	key := k.String()
 	if key == "ctrl+c" {
 		return m.quit()
+	}
+	if m.skip() {
+		return m, nil // any key ends an interstitial and is consumed (#152)
 	}
 	switch m.mode {
 	case modeStart:
@@ -872,6 +894,7 @@ func (m *Model) quit() (tea.Model, tea.Cmd) {
 	if m.w != nil {
 		_ = game.Save(m.slot, m.w)
 	}
+	m.stop()
 	m.quitting = true
 	return m, tea.Quit
 }
@@ -1187,7 +1210,9 @@ func heatStyle(v float64) lipgloss.Style {
 
 // viewStart is the start menu: the three slots and Quit under one
 // cursor, and the delete confirmation over it. There is no run behind
-// it, so no frame: the box sits where it does on every other screen.
+// it, so no frame: the box sits where it does on every other screen,
+// or under the title's art while its loop runs (#152: from 80x24 with
+// animation on; otherwise the menu is as it always was).
 func (m *Model) viewStart() string {
 	var box string
 	if m.mode == modeConfirmDelete {
@@ -1209,6 +1234,9 @@ func (m *Model) viewStart() string {
 			}
 		}
 		box = m.modal("KINGPIN", body, m.modalFooter())
+	}
+	if art := m.titleArt(); art != nil {
+		box = strings.Join(art, "\n") + "\n" + box
 	}
 	return theme.Plain.Width(m.width).Height(m.height).MaxHeight(m.height).Render("\n" + box)
 }

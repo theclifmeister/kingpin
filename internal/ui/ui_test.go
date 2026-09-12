@@ -22,10 +22,19 @@ import (
 	"github.com/theclifmeister/kingpin/internal/ui/theme"
 )
 
+// newTestModel is a fresh install at w by h with animation off (#152):
+// no test and no README capture holds a scene unless it asks for one
+// (newAnimModel).
 func newTestModel(t *testing.T, w, h int) *Model {
 	t.Helper()
+	return newModelWith(t, w, h, Options{Anim: false})
+}
+
+// newModelWith is newTestModel with the options given.
+func newModelWith(t *testing.T, w, h int, opts Options) *Model {
+	t.Helper()
 	t.Setenv("KINGPIN_HOME", t.TempDir())
-	m, err := New(content.MustLoad())
+	m, err := New(content.MustLoad(), opts)
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -1009,7 +1018,7 @@ func TestOldSaveIsMigrated(t *testing.T) {
 	if err := os.WriteFile(filepath.Join(dir, "save.gob"), buf.Bytes(), 0o644); err != nil {
 		t.Fatal(err)
 	}
-	m, err := New(content.MustLoad())
+	m, err := New(content.MustLoad(), Options{Anim: false})
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -1075,7 +1084,7 @@ func TestUnreadableSaveIsRefused(t *testing.T) {
 	if err := game.Save(2, w); err != nil {
 		t.Fatal(err)
 	}
-	m, err := New(content.MustLoad())
+	m, err := New(content.MustLoad(), Options{Anim: false})
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -1215,15 +1224,15 @@ func TestNewSlot(t *testing.T) {
 	if err := game.Save(1, w); err != nil {
 		t.Fatal(err)
 	}
-	m, err := NewSlot(cfg, 1)
+	m, err := NewSlot(cfg, 1, Options{Anim: false})
 	if err != nil || m.mode != modePlay || m.slot != 1 || m.w.Day != 5 {
 		t.Fatalf("slot 1: %v mode %v slot %d", err, m.mode, m.slot)
 	}
-	m, err = NewSlot(cfg, 3)
+	m, err = NewSlot(cfg, 3, Options{Anim: false})
 	if err != nil || m.mode != modePlay || m.slot != 3 || m.w.Day != 0 || game.Slots()[2].Empty {
 		t.Fatalf("slot 3: %v mode %v slot %d", err, m.mode, m.slot)
 	}
-	if _, err := NewSlot(cfg, 4); err == nil {
+	if _, err := NewSlot(cfg, 4, Options{Anim: false}); err == nil {
 		t.Fatal("opened slot 4")
 	}
 }
@@ -1691,7 +1700,7 @@ func TestCardBeforeReport(t *testing.T) {
 		t.Fatalf("mode %v", m.mode)
 	}
 	m.Update(key("ctrl+c")) // quit saves
-	m2, err := New(m.cfg)
+	m2, err := New(m.cfg, Options{Anim: false})
 	if err != nil {
 		t.Fatal(err)
 	}

@@ -50,6 +50,23 @@ go run ./cmd/kingpin -slot 2
 
 Older saves upgrade on load. A save from a newer build is refused.
 
+### Animation
+
+The title screen resolves its block art from noise, rests and plays
+again, the way Omarchy's screensaver loops effects over its logo. Scenes
+are short, any key skips one, and nothing animates while you play: the
+screen redraws only when you press a key. To turn them off, for a slow
+terminal, a capture, or because they wear:
+
+```sh
+go run ./cmd/kingpin -no-anim
+KINGPIN_NO_ANIM=1 go run ./cmd/kingpin
+```
+
+Under 80x24 the title plays no scene either. The effects are ports of
+[TerminalTextEffects](https://github.com/ChrisBuilds/terminaltexteffects)
+(MIT; see `internal/ui/anim/NOTICE`).
+
 ## Layout
 
 The top bar tells you the day, dirty cash and local heat, with clean cash
@@ -662,6 +679,7 @@ internal/content/   embedded TOML tuning, names and headline templates
 internal/harness/   headless runner and balance tests
 internal/format/    the one place a number is written: cash, money, price, arrows, plurals
 internal/ui/        Bubble Tea: the frame, the pane, the key table, the modal, the tables, the screens, the theme
+internal/ui/anim/   the scenes: the effects, the canvas, the player, the title's art
 ```
 
 The key table comes from `internal/ui/keys.go`, shared with the pane, help
