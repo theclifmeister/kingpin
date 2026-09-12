@@ -91,10 +91,14 @@ func (m *Model) productRows(city string, selected int, market bool) (cols []col,
 		}
 		row = append(row, ord)
 		if market {
-			// The supply contract's level (#113), `-` with none.
+			// The supply contract's level (#113), `-` with none; the
+			// lieutenant's where you set none (#174), `120 (lt)` in
+			// CrewText as the order column reads theirs.
 			var keep any
 			if c, ok := w.Supplied(city, id); ok {
-				keep = styled{theme.Gold, c.Units}
+				keep = styled{theme.Gold, level{units: c.Units}}
+			} else if c, ok := w.DelegatedSupplied(city, id); ok {
+				keep = styled{theme.CrewText, level{units: c.Units, lt: true}}
 			}
 			row = append(row, keep)
 		}
@@ -111,11 +115,14 @@ func (m *Model) productRows(city string, selected int, market bool) (cols []col,
 // today's off History), the range of the history, the supplier's price
 // and the margin over it, and the shock or slump while one runs.
 type priceFacts struct {
-	p      *game.ProductMarket
-	unit   float64 // the supplier price the facts are read against: the market's (the best available connect's), or the chosen connect's (#72); 0 where nobody sells it
-	delta  float64 // yesterday → today, in percent
-	lo, hi float64 // the range of the history
-	margin float64 // the street over the supplier, in percent
+	p       *game.ProductMarket
+	unit    float64 // the supplier price the facts are read against: the market's (the best available connect's), or the chosen connect's (#72); 0 where nobody sells it
+	delta   float64 // yesterday → today, in percent
+	lo, hi  float64 // the range of the history
+	margin  float64 // the street over the supplier, in percent
+	base    float64 // the connect's own price where unit carries a markup (#174); 0 otherwise
+	markup  float64 // the markup a buy through a lieutenant pays (#174); 0 where none
+	through string  // the lieutenant the buy goes through (#174); empty where none
 }
 
 // facts reads a product market's price facts against the market's
@@ -245,6 +252,10 @@ func (m *Model) priceLine(city, id string, buy bool) string {
 			parts = append(parts, theme.Warning.Render("not sold here"), sub("street "+price(f.p.Price)))
 		case f.unit <= 0:
 			parts = append(parts, theme.Warning.Render("not from them"), sub("street "+price(f.p.Price)))
+		case f.through != "":
+			// Through a lieutenant (#174): the connect's price, the
+			// markup in words, and the margin over what the buy pays.
+			parts = append(parts, sub(price(f.base)), sub(fmt.Sprintf("+%.0f%% through %s", (f.markup-1)*100, f.through)), sub("street "+price(f.p.Price)), sub("margin "+f.marginText()))
 		default:
 			parts = append(parts, sub(price(f.unit)), sub("street "+price(f.p.Price)), sub("margin "+f.marginText()))
 		}
@@ -381,7 +392,9 @@ func (m *Model) marketDetails() []section {
 	if p.NoSupply {
 		notes = append(notes, wrapped(theme.Warning, "Not sold here: it comes in by the road (the map's routes) or in your pockets.")...)
 	}
-	if !here {
+	if lt := w.Crew.Lieutenant(city.ID); !here && lt != nil {
+		notes = append(notes, wrapped(theme.Subtle, fmt.Sprintf("You are in %s: %s buys here for you at ×%.2f the connect's price, and keeps the stash stocked where you set no contract. Runners sell what is stashed here.", w.Here().Name, lt.Name, m.set.Market.Markup()))...)
+	} else if !here {
 		notes = append(notes, wrapped(theme.Subtle, fmt.Sprintf("You are in %s: the supplier here sells to you there, not here. Runners sell what is stashed here.", w.Here().Name))...)
 	}
 	if o := w.WholesaleSupplier(city.ID); o != nil {
@@ -409,10 +422,18 @@ func (m *Model) marketDetails() []section {
 func (m *Model) contractRows(city, id string) []string {
 	w := m.w
 	c, ok := w.Supplied(city, id)
+	own := ok
 	if !ok {
-		return nil
+		// The lieutenant's contract (#174) where you set none: theirs
+		// to keep, so x does nothing to it.
+		if c, ok = w.DelegatedSupplied(city, id); !ok {
+			return nil
+		}
 	}
 	rows := []string{row("contract", theme.Gold.Render(fmt.Sprintf("keep at %d", c.Units)))}
+	if !own {
+		rows = []string{row("contract", theme.CrewText.Render(fmt.Sprintf("keep at %d (lt)", c.Units)))}
+	}
 	bought, cost := 0, 0
 	for _, b := range w.Buys {
 		if b.Contract && b.City == city && b.Product == id {
@@ -426,7 +447,7 @@ func (m *Model) contractRows(city, id string) []string {
 	if due := m.set.Market.Due(w, city, id); due > 0 {
 		rows = append(rows, row("", theme.Subtle.Render(fmt.Sprintf("brings %d in the morning at %s", due, price(m.set.Market.SupplyPrice(w, city, id))))))
 	}
-	if _, ok := w.Order(city, id); ok {
+	if _, ok := w.Order(city, id); ok || !own {
 		return rows
 	}
 	if _, ok := w.YourStanding(city, id); !ok {

@@ -62,30 +62,45 @@ reveal_days = 10            # days on the job before the report names their temp
 
 # What each temperament does with the city: the sell dial it favours, a
 # multiplier on the city's sale heat, what it skims on top of the cut at
-# any loyalty, and whether it bothers posting enforcers on its corners.
+# any loyalty, whether it bothers posting enforcers on its corners, and
+# how many days of the demand its worked corners serve it keeps the
+# stash at (#174: a supply contract per product the connects there
+# sell, bought each morning at market.toml's [supply] markup where you
+# have set no contract of your own; 0 buys nothing). The contract fills
+# before the night's sale, and the dial sets what the night sells
+# (market.toml [dial.*] fill of demand, up to x1.25 with the tree's
+# fill_mul), so the stock days are read against that: the violent one
+# pushes up to two days a night and keeps three, the steady one sells
+# up to a day and a quarter and keeps two, the careful one moves half a
+# day and keeps one, and the greedy one keeps the least that covers the
+# night, a day and a half, and the money.
 [lieutenant.personality.violent]
 dial = "aggressive"
 heat = 1.25
 skim = 0
 guard = true
+stock_days = 3
 
 [lieutenant.personality.greedy]
 dial = "normal"
 heat = 1.0
 skim = 0.08
 guard = false
+stock_days = 1.5
 
 [lieutenant.personality.careful]
 dial = "quiet"
 heat = 0.8
 skim = 0
 guard = true
+stock_days = 1
 
 [lieutenant.personality.steady]
 dial = "normal"
 heat = 1.0
 skim = 0
 guard = true
+stock_days = 2
 
 # The pay dial: wage is a multiplier on each member's fair wage, loyalty the
 # daily drift it buys.

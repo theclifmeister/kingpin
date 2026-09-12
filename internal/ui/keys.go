@@ -269,7 +269,7 @@ var bindings = []binding{
 	{key: "$", label: "buy off", help: "pay the rival's muscle to go home", screens: on(screenRivals),
 		do: func(m *Model, _ string) { m.askBuyOff() }},
 	// Everywhere, listed where it is used.
-	{key: "b", label: "buy", help: "buy from the supplier where you stand", screens: on(screenDashboard, screenMarket), global: true,
+	{key: "b", label: "buy", help: "buy where you stand or a lieutenant runs", screens: on(screenDashboard, screenMarket), global: true,
 		do: func(m *Model, _ string) { m.openDialog(modeBuy) }},
 	{key: "s", label: "sell", help: "queue a street sale in the city shown", screens: on(screenDashboard, screenMarket), global: true,
 		do: func(m *Model, _ string) { m.openDialog(modeSell) }},
@@ -617,6 +617,7 @@ var words = [][2]string{
 	{"drift", "a held corner nobody works goes back to the street in days"},
 	{"undercut", "sell cheap on a rival corner next door: they lose, no heat"},
 	{"keep at", "a supply contract: the stash bought back to a level daily"},
+	{"through", "a buy into a city a lieutenant runs for you, at a markup"},
 	{"standing", "a sell order that stands nightly until cancelled, at a cut"},
 	{"connect", "who sells you product: a price, a lot, a temper, a rel"},
 	{"credit", "a connect's book: take now, pay in days, or they answer"},

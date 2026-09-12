@@ -749,10 +749,21 @@ func (m *Model) dashboardDetails() []section {
 // contracts · $3,400 this morning`). Empty with none.
 func (m *Model) supplyLine() string {
 	n := len(m.w.Supply)
-	if n == 0 {
+	lt := 0 // the lieutenants' contracts (#174), counted apart
+	for _, c := range m.w.DelegatedSupply {
+		if _, own := m.w.Supplied(c.City, c.Product); !own && m.w.Crew.Lieutenant(c.City) != nil {
+			lt++
+		}
+	}
+	if n+lt == 0 {
 		return ""
 	}
 	line := theme.Gold.Render("supply " + plural(n, "contract"))
+	if n == 0 {
+		line = theme.CrewText.Render("supply " + plural(lt, "contract") + " (lt)")
+	} else if lt > 0 {
+		line += theme.CrewText.Render(fmt.Sprintf(" +%d (lt)", lt))
+	}
 	if _, cost := m.w.SuppliedToday(); cost > 0 {
 		line += sep + money(cost) + " this morning"
 	}

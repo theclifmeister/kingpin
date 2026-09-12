@@ -232,9 +232,16 @@ func (w *World) RefreshSupplierPrices() {
 // Quote is what qty units of a product would cost from the connect right
 // now, cash or on credit, before the pressure the buy itself adds: their
 // price, the small-lot premium under the lot and the credit premium on
-// credit, rounded up to the dollar. It is what buy charges.
+// credit, rounded up to the dollar. It is what buy charges where you
+// stand; World.Quote folds the markup a buy through a lieutenant pays.
 func (s Supplier) Quote(product string, qty int, credit bool) int {
-	unit := s.Price[product]
+	return s.QuoteAt(product, qty, credit, 1)
+}
+
+// QuoteAt is Quote at a markup on the connect's price: the contract's
+// (#113) or a buy through a lieutenant's (#174), the premiums on top.
+func (s Supplier) QuoteAt(product string, qty int, credit bool, markup float64) int {
+	unit := s.Price[product] * max(markup, 1)
 	if qty < s.Lot && s.SmallLot > 1 {
 		unit *= s.SmallLot
 	}
@@ -242,6 +249,31 @@ func (s Supplier) Quote(product string, qty int, credit bool) int {
 		unit *= s.CreditRatio
 	}
 	return int(math.Ceil(unit * float64(qty)))
+}
+
+// Quote is what Buy would charge for qty units of a product from a
+// connect: their quote, at the markup where the buy goes through a
+// lieutenant (BuyMarkup).
+func (w *World) Quote(s *Supplier, product string, qty int, credit bool) int {
+	return s.QuoteAt(product, qty, credit, w.BuyMarkup(s.City))
+}
+
+// BuyMarkup is what a buy by hand into a city pays over the connect's
+// price: nothing where you stand; the contract markup (Markup, the
+// market's [supply] markup) into a city a lieutenant runs for you from
+// anywhere else (#174), the errand costing what the routine costs so a
+// buy where you stand keeps its point.
+func (w *World) BuyMarkup(city string) float64 {
+	if city == w.Player.Location || w.Crew.Lieutenant(city) == nil {
+		return 1
+	}
+	return max(w.Markup, 1)
+}
+
+// CanBuyIn reports whether a buy by hand into a city is allowed from
+// where you stand: there, or through the lieutenant who runs it.
+func (w *World) CanBuyIn(city string) bool {
+	return city == w.Player.Location || w.Crew.Lieutenant(city) != nil
 }
 
 // Owed is what you owe every connect together.
@@ -318,6 +350,14 @@ func (w *World) buy(s *Supplier, product string, qty int, markup float64, credit
 	if contract {
 		p.Day = w.Day + 1 // the morning the tick brings
 	}
+	// Whose buy it was (#174): a buy by hand from elsewhere went
+	// through the lieutenant who runs the city; a contract's, where the
+	// player set none of their own there, is the lieutenant's.
+	if lt := w.Crew.Lieutenant(s.City); lt != nil {
+		if _, own := w.Supplied(s.City, product); (contract && !own) || (!contract && s.City != w.Player.Location) {
+			p.Lieutenant = lt.Name
+		}
+	}
 	if credit {
 		if s.Debt == 0 {
 			s.DebtDue = w.Day + s.CreditDays
@@ -350,10 +390,16 @@ func (s *Supplier) took(w *World, product string, qty int) {
 }
 
 // Buy purchases qty units of a product from a connect in the city the
-// player is in (ErrElsewhere from any other), into the stash there,
-// with dirty cash or, on credit, against what they will run you
-// (Supplier.Credit), due CreditDays on. It applies immediately and
-// nudges the connect's price up for the rest of the day.
+// player is in, or in a city a lieutenant runs for them (#174;
+// ErrElsewhere from any other), into the stash there, with dirty cash
+// or, on credit, against what they will run you (Supplier.Credit), due
+// CreditDays on. It applies immediately and nudges the connect's price
+// up for the rest of the day. Through a lieutenant it is the same
+// path at the contract markup (BuyMarkup): the connect's book, the
+// pressure, the cap and the credit rules move exactly as for a buy by
+// hand, a credit buy is on the book as yours, and the receipt names
+// them (Purchase.Lieutenant); Return refunds what was charged, the
+// markup included.
 func (w *World) Buy(supplier, product string, qty int, credit bool, pricePressure float64) (Purchase, error) {
 	if w.Over != nil {
 		return Purchase{}, ErrGameOver
@@ -362,10 +408,10 @@ func (w *World) Buy(supplier, product string, qty int, credit bool, pricePressur
 	if s == nil {
 		return Purchase{}, ErrNoSupplier
 	}
-	if s.City != w.Player.Location {
+	if !w.CanBuyIn(s.City) {
 		return Purchase{}, ErrElsewhere
 	}
-	return w.buy(s, product, qty, 1, credit, pricePressure, false)
+	return w.buy(s, product, qty, w.BuyMarkup(s.City), credit, pricePressure, false)
 }
 
 // FillSupply is the market sim buying against a supply contract (#113):

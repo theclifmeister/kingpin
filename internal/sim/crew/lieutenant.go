@@ -4,6 +4,7 @@ import (
 	"math"
 	"sort"
 
+	"github.com/theclifmeister/kingpin/internal/content"
 	"github.com/theclifmeister/kingpin/internal/events"
 	"github.com/theclifmeister/kingpin/internal/game"
 )
@@ -257,6 +258,86 @@ func (s *Sim) delegate(w *game.World, t *game.Tick, lt *game.CrewMember, ev *eve
 	if lt.Observed {
 		ev.Personality = lt.Personality
 	}
+
+	// 6. The buy side (#174): a supply contract for every product a
+	// connect here sells, at the temper's stock_days of the demand the
+	// worked corners serve, shared out by demand where the levels
+	// together would overfill the stash (the way the stocked player
+	// shares the bag). The market sim fills it in the morning at the
+	// contract markup, for cash, where the player has set no contract
+	// of their own and never on a lie-low day; the standing orders count
+	// on what it brings (World.SupplyDue, cut to the room), as a sell
+	// order may. What this morning's contracts bought is the report's.
+	s.restock(w, t, lt, city, tp, ev)
+}
+
+// restock is the lieutenant's buy side (#174): see delegate, step 6.
+func (s *Sim) restock(w *game.World, t *game.Tick, lt *game.CrewMember, city *game.City, tp content.LieutenantPersonality, ev *events.LieutenantActed) {
+	for _, key := range delegatedSupplyKeys(w, lt.City) {
+		delete(w.DelegatedSupply, key)
+	}
+	sold := func(id string) bool { // a connect here deals in it, and the door is open
+		for _, sup := range w.SuppliersIn(lt.City) {
+			if sup.Sells(id) && !sup.Locked(w) {
+				return true
+			}
+		}
+		return false
+	}
+	levels := map[string]float64{}
+	total, want := 0.0, 0.0
+	served := game.FoldEffects(w, s.tree).DemandMul // what the corners serve under the tree, as the market serves an order
+	for _, id := range w.Products {
+		m := city.Market[id]
+		if m == nil || m.NoSupply || tp.StockDays <= 0 || !sold(id) {
+			continue
+		}
+		levels[id] = tp.StockDays * w.Demand(lt.City, id) * served
+		total += m.Demand
+		want += levels[id]
+	}
+	room := float64(w.Capacity(lt.City))
+	for _, id := range w.Products {
+		level, ok := levels[id]
+		if !ok {
+			continue
+		}
+		if want > room && total > 0 {
+			level = math.Min(level, room*city.Market[id].Demand/total)
+		}
+		if units := int(level); units > 0 {
+			w.DelegateSupply(lt.City, id, units)
+			ev.Contracts++
+		}
+	}
+	for _, id := range w.Products {
+		due := min(w.SupplyDue(lt.City, id), w.Free(lt.City))
+		if due <= 0 {
+			continue
+		}
+		if q := w.Stock(lt.City, id); q == 0 {
+			ev.Orders++ // nothing stashed tonight, so step 5 placed none
+		}
+		w.Delegate(lt.City, id, w.Stock(lt.City, id)+due, ev.Dial)
+	}
+	for _, e := range t.Events() {
+		if sb, ok := e.(events.SupplyBought); ok && sb.City == lt.City && sb.Lieutenant == lt.Name {
+			ev.Bought = append(ev.Bought, events.Bought{Product: sb.Product, Units: sb.Units, Cost: sb.Cost})
+		}
+	}
+}
+
+// delegatedSupplyKeys lists the lieutenant's supply contracts in a
+// city, in a fixed order.
+func delegatedSupplyKeys(w *game.World, city string) []string {
+	var keys []string
+	for k, c := range w.DelegatedSupply {
+		if c.City == city {
+			keys = append(keys, k)
+		}
+	}
+	sort.Strings(keys)
+	return keys
 }
 
 // delegatedKeys lists the standing orders in a city, in a fixed order.

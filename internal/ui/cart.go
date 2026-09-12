@@ -438,8 +438,10 @@ func (m *Model) cartMax() int {
 		return 0
 	case !l.buy:
 		return m.sellable(l.city, l.product)
-	case l.city == m.w.Player.Location && !l.contract:
-		return l.qty + m.maxBuy(l.product)
+	case m.w.CanBuyIn(l.city) && !l.contract:
+		// More where you stand, or through the lieutenant who runs
+		// the city (#174), from the cheapest connect selling it.
+		return l.qty + m.maxBuyFrom(m.w.BestSupplier(l.city, l.product), l.product, false)
 	}
 	return l.qty
 }
@@ -476,7 +478,7 @@ func (m *Model) setCartQty() {
 		return
 	}
 	if l.buy {
-		here := l.city == m.w.Player.Location
+		here := m.w.CanBuyIn(l.city) // where you stand, or through a lieutenant (#174)
 		qty, err := parseQtyInput(d.qty.Value(), m.cartMax())
 		if err != nil {
 			d.err = dialogError(err)
@@ -498,7 +500,7 @@ func (m *Model) setCartQty() {
 			d.err = "A credit line only goes back: more on the book is a new buy."
 			return
 		case qty > l.qty && !here:
-			d.err = fmt.Sprintf("You are in %s: it was bought in %s.", m.w.CityName(m.w.Player.Location), m.w.CityName(l.city))
+			d.err = fmt.Sprintf("You are in %s: it was bought in %s, and nobody runs it for you.", m.w.CityName(m.w.Player.Location), m.w.CityName(l.city))
 			return
 		case qty > l.qty:
 			// More by hand: from the cheapest connect that sells it
@@ -513,7 +515,11 @@ func (m *Model) setCartQty() {
 				d.err = dialogError(err)
 				return
 			}
-			m.say(fmt.Sprintf("Bought %d more %s from %s for %s.", p.Qty, m.w.ProductName(l.product), sup.Name, money(p.Cost)))
+			from := sup.Name
+			if p.Lieutenant != "" {
+				from += " through " + p.Lieutenant
+			}
+			m.say(fmt.Sprintf("Bought %d more %s from %s for %s.", p.Qty, m.w.ProductName(l.product), from, money(p.Cost)))
 		}
 	} else {
 		qty, err := parseQtyInput(d.qty.Value(), m.cartMax())
