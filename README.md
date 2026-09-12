@@ -57,7 +57,16 @@ it. Dialogs, pickers, confirmations, the morning report, the dilemma card
 and help are one **modal** box, 76 columns at most, with the keys it takes
 in its footer; a body taller than the box scrolls. Inside a modal `enter`
 confirms and closes and never ends the day; on the play screen `enter`
-asks first and `n` ends it at once. A buy's last step is `once` or `keep
+asks first and `n` ends it at once. `F` is **fast-forward**: a
+confirmation takes a cap (7 days by default, 30 at most) and the days
+then end as `n` ends them, stopping before the report of the first
+morning that needs you — a card, an alert the dashboard did not carry
+the morning before (a contract due, heat over the patrol line, somebody
+talking, dirty cash under the float, wages short), a sting or worse, the
+rival taking a corner or offering a deal, the crew walking, an audit, a
+seizure, a buyer asking, the law changing hands or a contract or standing
+order that ran short — and that report opens with `Stopped after 3 days:
+contract due today.` A buy's last step is `once` or `keep
 at`: keep at is a **supply contract**, the stash where you stand bought
 back to that level each morning from the supplier there, at a small
 markup, until `x` on the product clears it; the morning's buy is a line
@@ -221,6 +230,7 @@ the float, the file, drift, the pane and the strip in a line each.
 | Key | Legend | What it does | Where |
 |---|---|---|---|
 | `n` | end day | end the day: the sims step and the run saves | everywhere |
+| `F` | fast-forward | run days until something needs you | everywhere |
 | `↑↓` | pick | move the cursor (j and k move it too) | everywhere |
 | `[ ]` | city | turn the market or the map to the other city | everywhere |
 | `b` | buy | buy from the supplier where you stand | everywhere |

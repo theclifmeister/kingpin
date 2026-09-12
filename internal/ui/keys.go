@@ -110,7 +110,7 @@ func pastFirstStep(m *Model) bool { return m.modalStep() > 0 }
 // The field's shortcuts are listed there and nowhere else.
 func numberStep(m *Model) bool {
 	switch m.mode {
-	case modeFund:
+	case modeFund, modeConfirmFast:
 		return true
 	case modeBuy, modeSell, modeCart:
 		return m.modalStep() == 1
@@ -139,6 +139,8 @@ func stripShown(m *Model) bool { return m.width < paneMinWidth }
 var bindings = []binding{
 	{key: "n", label: "end day", help: "end the day: the sims step and the run saves", screens: everywhere, global: true,
 		do: func(m *Model, _ string) { m.endDay() }},
+	{key: "F", label: "fast-forward", help: "run days until something needs you", screens: on(screenDashboard), global: true,
+		do: func(m *Model, _ string) { m.askFast() }},
 	// The cursor keys. The map is walked in two dimensions, the market's
 	// arrows turn it to the other city, the tree's turn it to the next
 	// branch, the journal pages.
@@ -297,10 +299,10 @@ var modeBindings = []binding{
 	{key: "1-2", label: "repeat", modes: in(modeSell), when: step(3)},
 	{key: "1-3", label: "dial", modes: in(modeCart), when: cartOnSell},
 	{key: "1-3", label: "choose", modes: in(modeCard), when: step(0)},
-	{key: "m", label: "max", modes: in(modeBuy, modeSell, modeTarget, modeCart, modeFund), when: numberStep},
-	{key: "h", label: "half", modes: in(modeBuy, modeSell, modeTarget, modeCart, modeFund), when: numberStep},
-	{key: "↑↓", label: "±1", modes: in(modeBuy, modeSell, modeTarget, modeCart, modeFund), when: numberStep},
-	{key: "pgup pgdn", label: "±10", modes: in(modeBuy, modeSell, modeTarget, modeCart, modeFund), when: numberStep},
+	{key: "m", label: "max", modes: in(modeBuy, modeSell, modeTarget, modeCart, modeFund, modeConfirmFast), when: numberStep},
+	{key: "h", label: "half", modes: in(modeBuy, modeSell, modeTarget, modeCart, modeFund, modeConfirmFast), when: numberStep},
+	{key: "↑↓", label: "±1", modes: in(modeBuy, modeSell, modeTarget, modeCart, modeFund, modeConfirmFast), when: numberStep},
+	{key: "pgup pgdn", label: "±10", modes: in(modeBuy, modeSell, modeTarget, modeCart, modeFund, modeConfirmFast), when: numberStep},
 	{key: "enter", label: "next", modes: in(modeBuy, modeSell, modeTarget, modePropose), when: step(0)},
 	{key: "enter", label: "next", modes: in(modeBuy, modeSell, modeTarget), when: step(1)},
 	{key: "enter", label: "next", modes: in(modeSell), when: step(2)},
@@ -326,6 +328,7 @@ var modeBindings = []binding{
 	{key: "y", label: "delete", modes: in(modeConfirmDelete)},
 	{key: "y", label: "fire", modes: in(modeConfirmFire)},
 	{key: "y enter", label: "end day", modes: in(modeConfirmEnd)},
+	{key: "y enter", label: "run", modes: in(modeConfirmFast)},
 	{key: "y", label: "buy", modes: in(modeConfirmUpgrade)},
 	{key: "y", label: "ask", modes: in(modeConfirmInvestigate)},
 	{key: "y", label: "pay", modes: in(modeConfirmPayOff)},
@@ -333,7 +336,7 @@ var modeBindings = []binding{
 	{key: "q", label: "quit", modes: in(modeStart, modeOver)},
 	{key: "⇧tab", label: "back", keys: []string{"shift+tab"}, modes: in(modeBuy, modeSell, modeTarget, modeCart, modePropose), when: pastFirstStep},
 	{key: "esc", label: "close", modes: in(modeBuy, modeSell, modeTarget, modePropose, modePost, modeStrike, modeFront, modeAssign, modeFund, modeCart,
-		modeConfirmNew, modeConfirmDelete, modeConfirmFire, modeConfirmEnd, modeConfirmUpgrade, modeConfirmInvestigate, modeConfirmPayOff, modeConfirmTravel)},
+		modeConfirmNew, modeConfirmDelete, modeConfirmFire, modeConfirmEnd, modeConfirmUpgrade, modeConfirmInvestigate, modeConfirmPayOff, modeConfirmTravel, modeConfirmFast)},
 	{key: "enter esc", label: "close", modes: in(modeReport, modeHelp)},
 	{key: "enter esc", label: "close", modes: in(modeCard), when: step(1)},
 	{key: "␣ esc", label: "close", modes: in(modeDetails)},

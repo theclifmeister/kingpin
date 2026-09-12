@@ -836,9 +836,26 @@ func TestEnterDoesNotEndDay(t *testing.T) {
 	if m.w.Day != day+3 {
 		t.Fatalf("n did not advance the day: %d -> %d", day+2, m.w.Day)
 	}
+	// The fast-forward confirmation (#116): F opens it and no day passes,
+	// esc closes it with none, and inside it a key that is not y or
+	// enter (a digit into the cap) ends none either.
+	m.Update(key("enter"))
+	m.Update(key("F"))
+	if m.w.Day != day+3 || m.mode != modeConfirmFast {
+		t.Fatalf("F: day %d -> %d, mode %v", day+3, m.w.Day, m.mode)
+	}
+	m.Update(key("2"))
+	m.Update(key("tab"))
+	m.Update(key("m"))
+	if m.w.Day != day+3 || m.mode != modeConfirmFast {
+		t.Fatalf("keys inside the fast confirm: day %d -> %d, mode %v", day+3, m.w.Day, m.mode)
+	}
+	m.Update(key("esc"))
+	if m.w.Day != day+3 || m.mode != modePlay {
+		t.Fatalf("esc on the fast confirm: day %d -> %d, mode %v", day+3, m.w.Day, m.mode)
+	}
 	// The target dialog: enter picks the product, enter the kind, enter
 	// sets the target, and none is a day.
-	m.Update(key("enter"))
 	m.Update(key("5"))
 	m.Update(key("R"))
 	if m.mode != modeTarget {
@@ -2360,6 +2377,7 @@ func TestModalsFit(t *testing.T) {
 		{"confirm new", modeConfirmNew, func(t *testing.T, m *Model) { m.Update(key("N")) }},
 		{"confirm fire", modeConfirmFire, func(t *testing.T, m *Model) { m.Update(key("4")); m.Update(key("f")) }},
 		{"confirm end", modeConfirmEnd, func(t *testing.T, m *Model) { m.Update(key("enter")) }},
+		{"confirm fast", modeConfirmFast, func(t *testing.T, m *Model) { m.Update(key("F")) }},
 		{"help", modeHelp, func(t *testing.T, m *Model) { m.Update(key("?")) }},
 		{"post", modePost, func(t *testing.T, m *Model) { m.Update(key("5")); m.mapCursor = 1; m.Update(key("c")) }},
 		{"strike", modeStrike, func(t *testing.T, m *Model) { m.Update(key("5")); m.mapCursor = 0; m.Update(key("w")) }},

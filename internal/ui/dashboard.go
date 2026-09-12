@@ -462,17 +462,75 @@ func (m *Model) rivalLines(innerW int) []string {
 	return []string{who, war, trust, table}
 }
 
-// alertLines are the ALERTS: somebody talking, a contract due, then the
-// recent heat, rival and law headlines, at most n lines width cells
+// alert is one thing that needs you this morning, on the dashboard's
+// ALERTS and, when it is new, a fast-forward's stop (#116): the line as
+// the panel draws it, the reason as the report's stop line names it
+// (`contract due today`) and the key a fast-forward compares morning
+// to morning, the alert's identity: a contract's is the contract and
+// the day, so each stops once when it is due tomorrow and once when it
+// is due today whatever the others; the rest are the reason, which
+// carries no number that moves.
+type alert struct {
+	text string
+	why  string
+	key  string
+}
+
+// newAlert is an alert whose key is its reason.
+func newAlert(text, why string) alert { return alert{text, why, why} }
+
+// alerts is what needs you this morning, loudest first: somebody
+// talking, a contract due today or tomorrow, the heat where you are at
+// or over the patrol line, the dirty cash under the float while a front
+// or a route waits on it, and the wages the dirty cash cannot pay
+// tonight. The dashboard's ALERTS carry them and a fast-forward stops
+// on one the morning before did not have; the list is the one source
+// for both.
+func (m *Model) alerts() []alert {
+	w := m.w
+	here := w.Here()
+	var out []alert
+	if m.talking() {
+		out = append(out, newAlert(theme.Bad.Bold(true).Render("Somebody is talking.")+theme.Bad.Render(" Investigate "+screenPointer(screenCrew)+"."), "somebody is talking"))
+	}
+	out = append(out, m.contractAlerts()...)
+	for _, r := range m.set.Heat.ThresholdsIn(w, here) {
+		if r.Level == "patrol" && here.Heat >= r.Threshold {
+			out = append(out, newAlert(theme.Bad.Render(fmt.Sprintf("Heat %.0f in %s is over the patrol line (%.0f).", here.Heat, here.Name, r.Threshold)), "heat in "+here.Name+" over the patrol line"))
+		}
+	}
+	if fl := m.set.Laundering.Float(w); w.Player.DirtyCash < fl && m.floatMatters() {
+		out = append(out, newAlert(theme.Warning.Render(fmt.Sprintf("Dirty cash %s is under the float (%s): the wash and the road wait.", cash(w.Player.DirtyCash), cash(fl))), "dirty cash under the float"))
+	}
+	if wages := m.set.Crew.Wages(w, w.Crew.Pay); wages > w.Player.DirtyCash {
+		out = append(out, newAlert(theme.Warning.Render(fmt.Sprintf("Wages %s due tonight, %s dirty in hand.", money(wages), money(w.Player.DirtyCash))), "wages short"))
+	}
+	return out
+}
+
+// floatMatters is whether anything reads the laundering float: a front
+// to wash with or a route with its dial on. A new run's $500 against a
+// $50,000 float is nobody's business until then.
+func (m *Model) floatMatters() bool {
+	if len(m.w.Fronts) > 0 {
+		return true
+	}
+	for _, r := range m.w.Routes {
+		if r.Dial != events.RouteOff {
+			return true
+		}
+	}
+	return false
+}
+
+// alertLines are the ALERTS: what needs you this morning (alerts), then
+// the recent heat, rival and law headlines, at most n lines width cells
 // wide.
 func (m *Model) alertLines(width, n int) []string {
 	w := m.w
 	var out []string
-	if m.talking() {
-		out = append(out, theme.Bad.Bold(true).Render("Somebody is talking.")+theme.Bad.Render(" Investigate "+screenPointer(screenCrew)+"."))
-	}
-	for _, a := range m.contractAlerts() {
-		out = append(out, truncate(a, max(10, width)))
+	for _, a := range m.alerts() {
+		out = append(out, truncate(a.text, max(10, width)))
 	}
 	for i := len(w.Journal) - 1; i >= 0 && len(out) < max(1, n); i-- {
 		if src := w.Journal[i].Source; src != "heat" && src != "rivals" && src != "law" {
