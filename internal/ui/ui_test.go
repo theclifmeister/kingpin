@@ -1927,10 +1927,11 @@ func TestRouteAndTravelKeys(t *testing.T) {
 	}
 }
 
-// The wholesaler is the routes' supplier, not yours: in the city that
-// sells by the lot, once the door is open, the buy dialog still sells
-// single units held to the stash and says where the lots go, and the
-// market says so too.
+// The wholesaler is a connect (#72): in the city that sells by the lot,
+// once the door is open, the market says the lots feed the routes and
+// the buy dialog opens on the connect step, where the wholesaler sells
+// you by the lot at their price and the street connect by the unit;
+// the units are held to the stash either way.
 func TestWholesaleFeedsTheRoutes(t *testing.T) {
 	m := newTestModel(t, 100, 30)
 	w := m.w
@@ -1943,29 +1944,44 @@ func TestWholesaleFeedsTheRoutes(t *testing.T) {
 	if hub == "" {
 		t.Skip("no city sells by the lot")
 	}
-	offer := m.set.Logistics.Wholesale(w)
 	w.Player.DirtyCash = 1_000_000
 	product := w.Products[0]
 	if err := w.Travel(hub); err != nil {
 		t.Fatal(err)
 	}
 	m.city = hub
+	offer := w.WholesaleSupplier(hub)
 	w.Stats.PeakCash = offer.UnlockCash
+	endDay(t, m) // the door opens in the morning
+	m.Update(key("enter"))
 	m.Update(key("2"))
 	if v := stripANSI(m.View()); !strings.Contains(v, "Wholesale") || !strings.Contains(v, "routes") {
 		t.Fatalf("the market does not say the lots feed the routes:\n%s", v)
 	}
 	m.Update(key("b"))
+	if m.mode != modeBuy || !m.dlg.pick || !m.dlg.paged {
+		t.Fatalf("the buy dialog did not open on the connect step with two connects: mode %v pick %v", m.mode, m.dlg.pick)
+	}
+	assertFits(t, m.View(), 100, 30, "the connect step where the wholesaler deals")
+	if v := stripANSI(m.View()); !strings.Contains(v, offer.Name) || !strings.Contains(v, w.StreetSupplier(hub).Name) {
+		t.Fatalf("the connect step does not list both connects:\n%s", v)
+	}
+	// The street connect: single units held to the stash.
+	for i, sup := range m.connectsHere() {
+		if sup.ID == w.StreetSupplier(hub).ID {
+			m.dlg.supplier = i
+		}
+	}
+	m.Update(key("enter"))
+	if m.dlg.pick || m.dlg.step != 0 {
+		t.Fatalf("after picking a connect: pick %v step %d err %q", m.dlg.pick, m.dlg.step, m.dlg.err)
+	}
 	m.Update(key("enter"))
 	if mx := m.maxBuy(product); mx != w.Free(hub) {
-		t.Fatalf("max %d units, free %d: the lots are not yours to buy", mx, w.Free(hub))
-	}
-	assertFits(t, m.View(), 100, 30, "buy where the wholesaler deals")
-	if !strings.Contains(stripANSI(m.View()), "wholesaler") {
-		t.Fatal("the buy dialog does not say where the lots go")
+		t.Fatalf("max %d units, free %d: the street connect sells to the stash", mx, w.Free(hub))
 	}
 	m.Update(key("enter"))
-	m.Update(key("enter")) // once
+	m.Update(key("enter")) // once, cash
 	m.Update(key("esc"))
 	if m.mode != modePlay || w.Stock(hub, product) != w.Capacity(hub) || w.Free(hub) != 0 {
 		t.Fatalf("a buy at the hub: mode %v err %q stash %d capacity %d", m.mode, m.dlg.err, w.Stock(hub, product), w.Capacity(hub))

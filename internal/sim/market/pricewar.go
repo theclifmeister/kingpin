@@ -128,7 +128,7 @@ func (s *Sim) openWar(w *game.World, t *game.Tick, city *game.City) *warBook {
 // gets today (a patrol cap holds here as on any sale). Nil with nothing
 // booked.
 func (s *Sim) undercut(w *game.World, product string, m *game.ProductMarket) []cut {
-	b := s.book
+	b := s.ledger
 	if b == nil {
 		return nil
 	}
@@ -188,7 +188,7 @@ func (s *Sim) share(w *game.World, city, product string, m *game.ProductMarket, 
 // share of its trade the orders took, which the rivals sim reads as
 // less income there. Nothing booked, nothing written.
 func (s *Sim) closeWar(city *game.City) {
-	b := s.book
+	b := s.ledger
 	if b == nil {
 		return
 	}

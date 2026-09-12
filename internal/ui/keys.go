@@ -112,7 +112,9 @@ func numberStep(m *Model) bool {
 	switch m.mode {
 	case modeFund, modeConfirmFast:
 		return true
-	case modeBuy, modeSell, modeCart:
+	case modeBuy:
+		return buyAt(1)(m)
+	case modeSell, modeCart:
 		return m.modalStep() == 1
 	case modeTarget:
 		return m.modalStep() == 2
@@ -120,11 +122,28 @@ func numberStep(m *Model) bool {
 	return false
 }
 
+// buyAt is the buy dialog being on its nth step past the connect step
+// (#72): 0 the product, 1 the quantity, 2 the repeat and the pay. The
+// connect step, where there is one, is a page before them; buyList is
+// a list step, the connect's or the product's, and buyNext any step
+// enter moves on from.
+func buyAt(n int) func(*Model) bool {
+	return func(m *Model) bool { return !m.dlg.pick && m.dlg.step == n }
+}
+
+func buyList(m *Model) bool { return m.dlg.pick || m.dlg.step == 0 }
+
+func buyNext(m *Model) bool { return m.dlg.pick || m.dlg.step < 2 }
+
 // buyOnce and buyKeep are the buy dialog's last step at once and at keep
 // at (#113): enter buys, or sets the supply contract.
-func buyOnce(m *Model) bool { return m.modalStep() == 2 && m.dlg.repeat == repeatOnce }
+func buyOnce(m *Model) bool { return buyAt(2)(m) && m.dlg.repeat == repeatOnce }
 
-func buyKeep(m *Model) bool { return m.modalStep() == 2 && m.dlg.repeat == repeatKeep }
+func buyKeep(m *Model) bool { return buyAt(2)(m) && m.dlg.repeat == repeatKeep }
+
+// buyPay is the buy dialog's last step at once with a connect who gives
+// credit (#72): c turns the pay notch.
+func buyPay(m *Model) bool { return buyOnce(m) && m.creditOffered() }
 
 // sellOnce and sellStanding are the sell dialog's last step at once and
 // at standing (#114): enter queues the order, or sets it standing.
@@ -287,17 +306,19 @@ var bindings = []binding{
 // what the footer and the status bar say.
 var modeBindings = []binding{
 	{key: "↑↓", label: "pick", modes: in(modeStart, modePost, modeStrike, modeUndercut, modeFront, modeAssign, modePropose)},
-	{key: "↑↓", label: "pick", modes: in(modeBuy, modeSell, modeTarget), when: step(0)},
+	{key: "↑↓", label: "pick", modes: in(modeSell, modeTarget), when: step(0)},
+	{key: "↑↓", label: "pick", modes: in(modeBuy), when: buyList},
 	{key: "↑↓", label: "pick", modes: in(modeCart), when: cartHasLines},
 	{key: "↑↓", label: "pick", modes: in(modeCard), when: step(0)},
 	{key: "←→", label: "dial", modes: in(modeSell), when: step(2)},
-	{key: "←→", label: "repeat", modes: in(modeBuy), when: step(2)},
+	{key: "←→", label: "repeat", modes: in(modeBuy), when: buyAt(2)},
 	{key: "←→", label: "repeat", modes: in(modeSell), when: step(3)},
 	{key: "←→", label: "dial", modes: in(modeCart), when: cartOnSell},
 	{key: "←→", label: "city", modes: in(modeFund)},
 	{key: "←→", label: "units/days", modes: in(modeTarget), when: step(1)},
 	{key: "1-3", label: "dial", modes: in(modeSell), when: step(2)},
-	{key: "1-2", label: "repeat", modes: in(modeBuy), when: step(2)},
+	{key: "1-2", label: "repeat", modes: in(modeBuy), when: buyAt(2)},
+	{key: "c", label: "pay", modes: in(modeBuy), when: buyPay},
 	{key: "1-2", label: "repeat", modes: in(modeSell), when: step(3)},
 	{key: "1-3", label: "dial", modes: in(modeCart), when: cartOnSell},
 	{key: "1-3", label: "choose", modes: in(modeCard), when: step(0)},
@@ -305,8 +326,9 @@ var modeBindings = []binding{
 	{key: "h", label: "half", modes: in(modeBuy, modeSell, modeTarget, modeCart, modeFund, modeConfirmFast), when: numberStep},
 	{key: "↑↓", label: "±1", modes: in(modeBuy, modeSell, modeTarget, modeCart, modeFund, modeConfirmFast), when: numberStep},
 	{key: "pgup pgdn", label: "±10", modes: in(modeBuy, modeSell, modeTarget, modeCart, modeFund, modeConfirmFast), when: numberStep},
-	{key: "enter", label: "next", modes: in(modeBuy, modeSell, modeTarget, modePropose), when: step(0)},
-	{key: "enter", label: "next", modes: in(modeBuy, modeSell, modeTarget), when: step(1)},
+	{key: "enter", label: "next", modes: in(modeSell, modeTarget, modePropose), when: step(0)},
+	{key: "enter", label: "next", modes: in(modeSell, modeTarget), when: step(1)},
+	{key: "enter", label: "next", modes: in(modeBuy), when: buyNext},
 	{key: "enter", label: "next", modes: in(modeSell), when: step(2)},
 	{key: "enter", label: "select", modes: in(modeStart)},
 	{key: "enter", label: "buy", modes: in(modeBuy), when: buyOnce},
@@ -350,7 +372,17 @@ var modeBindings = []binding{
 // its second.
 func (m *Model) modalStep() int {
 	switch m.mode {
-	case modeBuy, modeSell:
+	case modeBuy:
+		// The connect step (#72) is a page before the product where
+		// the dialog has one, so back has it to go to.
+		if m.dlg.pick {
+			return 0
+		}
+		if m.dlg.paged {
+			return m.dlg.step + 1
+		}
+		return m.dlg.step
+	case modeSell:
 		return m.dlg.step
 	case modeTarget:
 		return m.tgt.step
@@ -542,6 +574,8 @@ var words = [][2]string{
 	{"undercut", "sell cheap on a rival corner next door: they lose, no heat"},
 	{"keep at", "a supply contract: the stash bought back to a level daily"},
 	{"standing", "a sell order that stands nightly until cancelled, at a cut"},
+	{"connect", "who sells you product: a price, a lot, a temper, a rel"},
+	{"credit", "a connect's book: take now, pay in days, or they answer"},
 	{"pane", "the details beside MAIN from 100 columns, always open"},
 	{"strip", "the pane's one line under 100 columns; ␣ opens it over MAIN"},
 }

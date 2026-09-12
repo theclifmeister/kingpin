@@ -61,12 +61,12 @@ func TestSetSupply(t *testing.T) {
 // dated for the morning; the markup is on the unit price alone.
 func TestFillSupplyIsBuysPath(t *testing.T) {
 	hand, contract := testWorld(), testWorld()
-	hand.Home().Market["a"].SupplierPrice = 10
-	contract.Home().Market["a"].SupplierPrice = 10
-	if _, err := hand.Buy("a", 20, 0.5); err != nil {
+	priceAt(hand, "test", "a", 10)
+	priceAt(contract, "test", "a", 10)
+	if _, err := hand.Buy("street", "a", 20, false, 0.5); err != nil {
 		t.Fatal(err)
 	}
-	p, err := contract.FillSupply("test", "a", 20, 1, 0.5)
+	p, err := contract.FillSupply("street", "a", 20, 1, 0.5)
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -78,8 +78,8 @@ func TestFillSupplyIsBuysPath(t *testing.T) {
 	}
 	// The markup: a fifth more a unit, the rest the same.
 	marked := testWorld()
-	marked.Home().Market["a"].SupplierPrice = 10
-	q, err := marked.FillSupply("test", "a", 20, 1.2, 0.5)
+	priceAt(marked, "test", "a", 10)
+	q, err := marked.FillSupply("street", "a", 20, 1.2, 0.5)
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -89,22 +89,22 @@ func TestFillSupplyIsBuysPath(t *testing.T) {
 	if marked.Home().Market["a"].SupplierPrice != contract.Home().Market["a"].SupplierPrice {
 		t.Fatalf("the markup moved the pressure: %v against %v", marked.Home().Market["a"].SupplierPrice, contract.Home().Market["a"].SupplierPrice)
 	}
-	// Refused as a buy is: no such city, none of that here, no units,
+	// Refused as a buy is: no such connect, none of that here, no units,
 	// the supplier not selling it, more than the stash can hold.
-	if _, err := marked.FillSupply("nowhere", "a", 1, 1, 0); !errors.Is(err, ErrNoCity) {
-		t.Errorf("no such city: %v", err)
+	if _, err := marked.FillSupply("nowhere", "a", 1, 1, 0); !errors.Is(err, ErrNoSupplier) {
+		t.Errorf("no such connect: %v", err)
 	}
-	if _, err := marked.FillSupply("test", "zzz", 1, 1, 0); !errors.Is(err, ErrUnknownProduct) {
+	if _, err := marked.FillSupply("street", "zzz", 1, 1, 0); !errors.Is(err, ErrUnknownProduct) {
 		t.Errorf("no such product: %v", err)
 	}
-	if _, err := marked.FillSupply("test", "a", 0, 1, 0); !errors.Is(err, ErrBadQuantity) {
+	if _, err := marked.FillSupply("street", "a", 0, 1, 0); !errors.Is(err, ErrBadQuantity) {
 		t.Errorf("no units: %v", err)
 	}
-	if _, err := marked.FillSupply("test", "a", 1000, 1, 0); err == nil {
+	if _, err := marked.FillSupply("street", "a", 1000, 1, 0); err == nil {
 		t.Error("more than the stash holds was allowed")
 	}
 	marked.Home().Market["a"].NoSupply = true
-	if _, err := marked.FillSupply("test", "a", 1, 1, 0); !errors.Is(err, ErrNotSupplied) {
+	if _, err := marked.FillSupply("street", "a", 1, 1, 0); !errors.Is(err, ErrNotSupplied) {
 		t.Errorf("a product the supplier does not sell: %v", err)
 	}
 }
@@ -116,8 +116,8 @@ func TestFillSupplyIsBuysPath(t *testing.T) {
 // since); a run with no contract keeps the scratch nil as before.
 func TestClockKeepsTheContractReceipts(t *testing.T) {
 	w := testWorld()
-	w.Home().Market["a"].SupplierPrice = 10
-	if _, err := w.Buy("a", 5, 0); err != nil {
+	priceAt(w, "test", "a", 10)
+	if _, err := w.Buy("street", "a", 5, false, 0); err != nil {
 		t.Fatal(err)
 	}
 	c := NewClock(nil, &counter{})
@@ -128,7 +128,7 @@ func TestClockKeepsTheContractReceipts(t *testing.T) {
 	// A contract's receipt made in the tick: the market sim's FillSupply
 	// stands in for by a sim that fills it.
 	c = NewClock(nil, simFunc(func(w *World, t *Tick) {
-		if _, err := w.FillSupply("test", "a", 8, 1.5, 0.5); err != nil {
+		if _, err := w.FillSupply("street", "a", 8, 1.5, 0.5); err != nil {
 			panic(err)
 		}
 	}))
@@ -145,7 +145,7 @@ func TestClockKeepsTheContractReceipts(t *testing.T) {
 	// A buy by hand beside it: Return takes the hand's, ReturnSupplied
 	// the contract's, and neither the other's.
 	price := w.Home().Market["a"].SupplierPrice
-	if _, err := w.Buy("a", 3, 0); err != nil {
+	if _, err := w.Buy("street", "a", 3, false, 0); err != nil {
 		t.Fatal(err)
 	}
 	if _, err := w.Return("test", "a", 4); err == nil {

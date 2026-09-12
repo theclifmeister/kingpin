@@ -51,7 +51,7 @@ func pricewarRun(t *testing.T, cfg *content.Config, seed uint64, days int, perso
 // squeezed; and nothing moves under a truce or a tribute.
 func TestPricewarInvariants(t *testing.T) {
 	cfg := content.MustLoad()
-	mk, err := market.New(cfg.Market, cfg.City, cfg.Routes.Shipping, cfg.Upgrades, cfg.Reputation.Effects, cfg.Buyers, cfg.Rivals.Pricewar)
+	mk, err := market.New(cfg.Market, cfg.City, cfg.Routes.Shipping, cfg.Upgrades, cfg.Reputation.Effects, cfg.Buyers, cfg.Suppliers, cfg.Rivals.Pricewar)
 	if err != nil {
 		t.Fatal(err)
 	}

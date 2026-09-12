@@ -31,7 +31,7 @@ func TestStandingSellsLikeTheHand(t *testing.T) {
 	}
 	buy := func(w *game.World) {
 		standSomewhere(w)
-		_, _ = w.Buy(w.Products[0], 40, cfg.Market.Market.BuyPricePressure)
+		_, _ = w.Buy(w.StreetSupplier(w.Player.Location).ID, w.Products[0], 40, false, cfg.Market.Market.BuyPricePressure)
 	}
 	hand := func(w *game.World) {
 		buy(w)
@@ -142,7 +142,7 @@ func TestStandingYieldsToTheHand(t *testing.T) {
 	w.Player.DirtyCash = 30_000
 	home, weed := w.Player.Location, w.Products[0]
 	standSomewhere(w)
-	if _, err := w.Buy(weed, 60, 0); err != nil {
+	if _, err := w.Buy(w.StreetSupplier(home).ID, weed, 60, false, 0); err != nil {
 		t.Fatal(err)
 	}
 	if err := w.PlaceStanding(home, weed, 20, events.DialNormal); err != nil {

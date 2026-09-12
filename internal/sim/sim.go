@@ -51,7 +51,7 @@ func Default(cfg *content.Config) (*Set, []game.Simulation, error) {
 	if err != nil {
 		return nil, nil, err
 	}
-	mk, err := market.New(cfg.Market, cfg.City, cfg.Routes.Shipping, cfg.Upgrades, cfg.Reputation.Effects, cfg.Buyers, cfg.Rivals.Pricewar)
+	mk, err := market.New(cfg.Market, cfg.City, cfg.Routes.Shipping, cfg.Upgrades, cfg.Reputation.Effects, cfg.Buyers, cfg.Suppliers, cfg.Rivals.Pricewar)
 	if err != nil {
 		return nil, nil, err
 	}
@@ -88,13 +88,14 @@ func (s *Set) Migrations() []game.Migration {
 		{From: 7, Apply: s.Rivals.MigrateDiplomacy}, // 7 -> 8: the rival's trust, deals and offers
 		{From: 8, Apply: s.Law.Migrate},             // 8 -> 9: a chief and a DA took office
 		{From: 9, Apply: game.MigrateFallGuys},      // 9 -> 10: the fall guy became a count (#117)
+		{From: 10, Apply: s.Market.Migrate},         // 10 -> 11: the connects (#72), one a city at today's price
 	}
 }
 
 // NewWorld starts a fresh run from config: every city's corners with the
 // player on the starting one at home, a hiring pool, a rival, a chief and
-// a DA drawn from the day-0 RNG so they are part of the seed like
-// everything else, and the launder dial at normal.
+// a DA and the connects (#72) drawn from the day-0 RNG so they are part
+// of the seed like everything else, and the launder dial at normal.
 func NewWorld(cfg *content.Config, seed uint64) *game.World {
 	t := cfg.Market.Market
 	w := game.NewWorld(seed, logistics.StartingCities(cfg.City, cfg.Market), t.StartCash, t.CarryLimit)
@@ -104,5 +105,8 @@ func NewWorld(cfg *content.Config, seed uint64) *game.World {
 	rivals.New(cfg.Rivals, cfg.Names, cfg.Reputation.Effects, cfg.Law.Effects, cfg.Upgrades).Seed(w, rng)
 	laundering.New(cfg.Laundering, cfg.Crew, cfg.Upgrades).Seed(w)
 	law.New(cfg.Law, cfg.Names).Seed(w, rng)
+	if mk, err := market.New(cfg.Market, cfg.City, cfg.Routes.Shipping, cfg.Upgrades, cfg.Reputation.Effects, cfg.Buyers, cfg.Suppliers, cfg.Rivals.Pricewar); err == nil {
+		mk.Seed(w, rng)
+	}
 	return w
 }

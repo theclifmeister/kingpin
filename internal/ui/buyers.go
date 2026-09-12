@@ -141,6 +141,13 @@ func (m *Model) buyersMove(d int) {
 		m.onBuyers = false
 		m.buyerCursor = 0
 	case next >= len(rows):
+		// Off the bottom of the buyers the arrows reach the connects
+		// (#72).
+		if len(m.supplierRows()) > 0 {
+			m.onBuyers, m.buyerCursor = false, 0
+			m.onSuppliers, m.supplierCursor = true, 0
+			return
+		}
 		m.buyerCursor = len(rows) - 1
 	default:
 		m.buyerCursor = next

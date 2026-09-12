@@ -10,7 +10,7 @@ import (
 )
 
 // SchemaVersion is bumped whenever World changes shape incompatibly.
-const SchemaVersion = 10
+const SchemaVersion = 11
 
 // World is the complete state of a run. Every field is a plain value so the
 // whole struct can be serialised with encoding/gob.
@@ -42,6 +42,7 @@ type World struct {
 	Buyers     BuyersState               // the buyer deck's pacing and blacklist
 	Supply     map[string]SupplyContract // the supply contracts (#113), keyed like Orders; the market sim fills them every morning
 	Standing   map[string]SellOrder      // your standing sell orders (#114), keyed like Orders; the market sim resolves them every night at a cut
+	Suppliers  []Supplier                // the connects (#72), in the order seeded: the street one in every city, the wholesaler, one more by seed
 
 	// Per-day scratch, cleared by the clock after every EndDay.
 	Orders        map[string]SellOrder   // pending sell orders keyed by product id
@@ -207,7 +208,7 @@ type Seizure struct {
 type ProductMarket struct {
 	Name          string
 	Price         float64   // street price per unit
-	SupplierPrice float64   // what the player pays per unit today
+	SupplierPrice float64   // what the best available connect charges per unit today (World.SupplierPrice, #72)
 	Demand        float64   // units one standard corner absorbs per day; see World.Demand
 	Glut          float64   // oversupply from recent selling; pushes price down
 	ShockFactor   float64   // multiplier on equilibrium while ShockDays > 0
@@ -231,6 +232,16 @@ type HeatState struct {
 	LeakDay      int            // day an informant last fed the file (or turned); the next leak is due informant_days later
 	Leaks        int            // pages an informant has fed the DA since one was last on the payroll; the tell shows at two
 	Peak         float64        // the hottest any city has been
+	Busts        []Bust         // stings and raids that took stock, kept a while: the market sim reads yesterday's for the connect there (#72)
+}
+
+// Bust is a sting or raid that took stock in a city: what the connect
+// there holds against you the next morning.
+type Bust struct {
+	Day   int
+	City  string
+	Level string
+	Units int
 }
 
 // CrewState is the player's crew: the roster, the hiring pool and the pay
@@ -446,12 +457,15 @@ type Lead struct {
 	Corner string
 }
 
-// Purchase is a buy from the supplier, applied immediately. Prior is the
-// supplier price before the buy nudged it, so a Return the same day can
+// Purchase is a buy from a connect, applied immediately. Prior is the
+// connect's price before the buy nudged it, so a Return the same day can
 // put it back (#103). Contract marks a buy a supply contract made in the
 // morning (#113) rather than one made by hand, Day the morning it was
 // made: the clock keeps the morning's contract receipts through the day
 // so the cart can show and return them, and drops them the next.
+// Supplier names the connect (#72), Credit says it went on their book
+// rather than out of the till, SmallLot that it was under their lot
+// and paid their premium.
 type Purchase struct {
 	City      string
 	Product   string
@@ -461,6 +475,9 @@ type Purchase struct {
 	Prior     float64
 	Contract  bool
 	Day       int
+	Supplier  string
+	Credit    bool
+	SmallLot  bool
 }
 
 // SupplyContract is a standing buy (#113): keep the stash in City at
@@ -541,6 +558,11 @@ type Stats struct {
 	ContractUnits  int // units handed over to buyers
 	ContractCash   int // dirty cash the buyers paid
 	ContractsShort int // contracts short at the due day
+	Credit         int // dirty cash's worth of product taken on credit from the connects (#72)
+	Repaid         int // what has been paid back
+	LatePayments   int // debts that were short on their day
+	DebtDays       int // days ended owing a connect something
+	Collected      int // units a connect took from the stash for a debt
 }
 
 // StartingProduct describes a product as it exists at the start of a run,

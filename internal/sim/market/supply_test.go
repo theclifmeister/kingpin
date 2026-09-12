@@ -20,7 +20,7 @@ func marketOnly(t *testing.T, cfg *content.Config, seed uint64) (*game.World, *m
 	if err := w.Post(w.Home().Corners[0].ID, game.You); err != nil {
 		t.Fatal(err)
 	}
-	mk, err := market.New(cfg.Market, cfg.City, cfg.Routes.Shipping, cfg.Upgrades, cfg.Reputation.Effects, cfg.Buyers, cfg.Rivals.Pricewar)
+	mk, err := market.New(cfg.Market, cfg.City, cfg.Routes.Shipping, cfg.Upgrades, cfg.Reputation.Effects, cfg.Buyers, cfg.Suppliers, cfg.Rivals.Pricewar)
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -51,7 +51,7 @@ func TestSupplyMatchesTheHand(t *testing.T) {
 		// The hand buys in the morning what the contract will buy at the
 		// top of the tick, out of the same stash and the same price.
 		need := 200 - hand.Stock(home, weed)
-		if _, err := hand.Buy(weed, need, pressure); err != nil {
+		if _, err := hand.Buy(hand.StreetSupplier(home).ID, weed, need, false, pressure); err != nil {
 			t.Fatal(err)
 		}
 		if err := hand.PlaceSell(home, weed, 200, events.DialNormal); err != nil {

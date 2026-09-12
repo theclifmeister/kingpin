@@ -19,7 +19,7 @@ import (
 // routine costs against the hand.
 func Stocked(cfg *content.Config, lieLowAt float64) Policy {
 	hot := TooHot(cfg, lieLowAt)
-	mk, err := market.New(cfg.Market, cfg.City, cfg.Routes.Shipping, cfg.Upgrades, cfg.Reputation.Effects, cfg.Buyers, cfg.Rivals.Pricewar)
+	mk, err := market.New(cfg.Market, cfg.City, cfg.Routes.Shipping, cfg.Upgrades, cfg.Reputation.Effects, cfg.Buyers, cfg.Suppliers, cfg.Rivals.Pricewar)
 	if err != nil {
 		panic(err)
 	}

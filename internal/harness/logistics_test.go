@@ -534,7 +534,10 @@ func TestRouteDialKeepsTheTarget(t *testing.T) {
 		safe.Routes.Routes[i].Risk = 0
 	}
 	w := quiet(&safe, 5)
-	offer := lg.Wholesale(w)
+	offer := w.WholesaleSupplier(route.From)
+	if offer == nil {
+		t.Fatalf("no wholesaler in %s", route.From)
+	}
 	target := 2*route.Capacity + offer.Lot/2
 	days := lg.Days(w, route, events.ShipNormal)
 	w.Player.DirtyCash = cfg.Heat.Heat.DirtyCashThreshold // enough for the lots, never a pile that draws a sting on the stash
