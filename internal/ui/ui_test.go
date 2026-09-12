@@ -777,6 +777,26 @@ func TestJournalUnreadCount(t *testing.T) {
 	if got := stripANSI(m.viewTitle()); !strings.Contains(got, "Journal 1 ") {
 		t.Fatalf("a new headline does not count: %q", got)
 	}
+	// A filter hides nothing from the count (#122): the journal shown
+	// on the heat reads the crew's headline too, and what lands after
+	// counts whatever the filter shows.
+	m.Update(key("3"))
+	m.Update(key("f"))
+	if m.journalFilter != "heat" {
+		t.Fatalf("f: filter %q", m.journalFilter)
+	}
+	m.Update(key("1"))
+	if got := stripANSI(m.viewTitle()); strings.Contains(got, "Journal 1") {
+		t.Fatalf("the crew's headline is unread under the heat filter: %q", got)
+	}
+	m.w.Journal = append(m.w.Journal, game.Headline{Day: m.w.Day, Source: "crew", Text: "five"}, game.Headline{Day: m.w.Day, Source: "heat", Text: "six"})
+	if got := stripANSI(m.viewTitle()); !strings.Contains(got, "Journal 2 ") {
+		t.Fatalf("two new headlines under a filter do not count as two: %q", got)
+	}
+	m.Update(key("3"))
+	if len(m.headlines()) != 4 || m.journalUnread() != 0 {
+		t.Fatalf("the filtered journal shows %d and leaves %d unread", len(m.headlines()), m.journalUnread())
+	}
 	m.newRun(1)
 	if m.journalUnread() != 0 {
 		t.Fatalf("a new run starts with %d unread", m.journalUnread())

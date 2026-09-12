@@ -176,6 +176,9 @@ var bindings = []binding{
 		do: func(m *Model, _ string) { m.answerContract(false) }},
 	{key: "d", label: "deliver", help: "hand the buyer what the stash here holds", screens: on(screenMarket), when: onBuyers,
 		do: func(m *Model, _ string) { m.deliverSelected() }},
+	// The journal: one source at a time.
+	{key: "f", label: "filter", help: "show one source's headlines, then all again", screens: on(screenJournal),
+		do: func(m *Model, _ string) { m.cycleFilter() }},
 	// The crew.
 	{key: "h", label: "hire", help: "hire the selected candidate", screens: on(screenCrew),
 		do: func(m *Model, _ string) { m.hireSelected() }},
