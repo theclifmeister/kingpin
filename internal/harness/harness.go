@@ -3,6 +3,8 @@
 package harness
 
 import (
+	"math"
+
 	"github.com/theclifmeister/kingpin/internal/content"
 	"github.com/theclifmeister/kingpin/internal/events"
 	"github.com/theclifmeister/kingpin/internal/game"
@@ -916,6 +918,53 @@ func Distributor(cfg *content.Config, lieLowAt float64) Policy {
 // DistributorDays is how many days of home's demand the distributor keeps
 // the route's target at.
 const DistributorDays = 4
+
+// Corrupt plays like Distributor and buys the law (#42): whenever the
+// heat where it stands or at home is over CorruptHeat and the chief is
+// not already bought, it hands the chief chief_price (it knows a
+// corrupt chief from a zealous one only the way the player does: once
+// Observed, or once an envelope has come back, it leaves a zealous
+// chief alone), and it keeps the
+// checkpoint or customs agent on its route bought, renewing the day the
+// deal runs out. Every envelope is dirty cash, and CorruptMargin times
+// the price stays in hand. It is the baseline for "a player who pays
+// the police".
+func Corrupt(cfg *content.Config, lieLowAt float64) Policy {
+	distributor := Distributor(cfg, lieLowAt)
+	lg := logistics.New(cfg)
+	tun := cfg.Law.Bribes
+	home := cfg.City.Home().ID
+	return func(w *game.World) {
+		distributor(w)
+		if w.Over != nil || w.Cold() {
+			return
+		}
+		hot := math.Max(w.Here().Heat, w.Home().Heat)
+		burned := w.Law.Backfired > 0 && w.Law.Chief.Since <= w.Law.Backfired // this chief sent one back already
+		if hot > CorruptHeat && !w.Law.ChiefBoughtOn(w.Day) && w.BribedToday(game.BribeChief) == 0 && !burned && !(w.Law.Chief.Observed && w.Law.Chief.Personality == "zealous") && w.Player.DirtyCash >= CorruptMargin*tun.ChiefPrice {
+			_ = w.Bribe(game.BribeChief, tun.ChiefPrice)
+		}
+		for _, r := range lg.Routes(home) {
+			if !w.Route(r.ID).Dial.On() {
+				continue
+			}
+			price := tun.CheckpointPrice
+			if logistics.Customs(r) {
+				price = tun.CustomsPrice
+			}
+			if _, live := w.Checkpoint(r.ID); !live && w.Player.DirtyCash >= CorruptMargin*price {
+				_ = w.BuyCheckpoint(r.ID, price, tun.CheckpointDays)
+			}
+		}
+	}
+}
+
+// CorruptHeat is the heat over which the corrupt player pays the chief,
+// and CorruptMargin how many times the price it keeps in hand.
+const (
+	CorruptHeat   = 50.0
+	CorruptMargin = 3
+)
 
 // Delegated plays like Distributor and hands home over: the first
 // lieutenant who comes looking for work is hired ahead of anyone else and

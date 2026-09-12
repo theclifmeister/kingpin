@@ -357,6 +357,24 @@ ChiefReplacedCampaign = [
   "New DA's first call: {{.Rival}} out as chief, hard-liner {{.Name}} in",
   "{{.Name}} named police chief; the new DA 'wanted somebody who does not take calls'",
 ]
+# The bought law (#42): an envelope that came back and the DA's file on
+# the envelopes run under the heat source (they are about you: notoriety
+# and pressure count them); the day the phones stop is the law's.
+# BribeAccepted, BribeRefused, LeadFound and CheckpointBought are
+# report-only: nobody prints a bribe that worked.
+BribeBackfired = [
+  "{{.Name}} turns over 'an attempted inducement' to the DA; {{.City}} outfit named in the complaint",
+  "{{.City}}: envelope handed to {{.Name}} ends up in an evidence bag, and a name with it",
+  "'We do not take gifts', says {{.Name}}; {{.City}} dealer's cash logged as evidence",
+]
+LeadsFiled = [
+  "{{.City}} DA opens a public-corruption file; 'the money has a name on it', says an aide",
+  "Grand jury to hear how {{.City}} officials came by their envelopes",
+]
+OfficialsCold = [
+  "{{.City}} officials 'not taking calls' since the new DA moved in, say people who used to make them",
+  "New DA's first week: checkpoints back up, envelopes come back unopened in {{.City}}",
+]
 PressureShiftedUp = [
   "{{.City}} residents march on city hall over street crime",
   "Talk radio in {{.City}} has one topic: the corners",

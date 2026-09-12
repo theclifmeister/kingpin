@@ -119,7 +119,7 @@ func numberStep(m *Model) bool {
 		return true
 	case modeBuy:
 		return buyAt(1)(m)
-	case modeSell, modeCart:
+	case modeSell, modeCart, modeBribe:
 		return m.modalStep() == 1
 	case modeTarget:
 		return m.modalStep() == 2
@@ -134,6 +134,12 @@ func numberStep(m *Model) bool {
 // moveList is the move dialog (#73) being on a list page: from, to or
 // the product; its fourth page is the quantity.
 func moveList(m *Model) bool { return m.mv.step < 3 }
+
+// mapOnRoutes is the map's routes cursor being on an edge (#42): where
+// the checkpoint is for sale.
+func mapOnRoutes(m *Model) bool {
+	return m.screen == screenMap && m.onRoutes && m.selectedRoute() != nil
+}
 
 // fundLast and fundNext are the fund dialog's last page and the page
 // before it: the goodwill page is the last unless a campaign is open
@@ -257,6 +263,8 @@ var bindings = []binding{
 		do: func(m *Model, _ string) { m.cycleRoute() }},
 	{key: "R", label: "route target", help: "what the selected route keeps the far end at", screens: on(screenMap),
 		do: func(m *Model, _ string) { m.openTarget() }},
+	{key: "$", label: "buy checkpoint", help: "buy the checkpoint or customs on the route", screens: on(screenMap), when: mapOnRoutes,
+		do: func(m *Model, _ string) { m.askCheckpoint() }},
 	// The tree.
 	{key: "u", label: "buy upgrade", help: "buy the node under the cursor (enter too)", keys: []string{"u", "enter"}, screens: on(screenUpgrades),
 		do: func(m *Model, _ string) { m.askUpgrade() }},
@@ -269,6 +277,8 @@ var bindings = []binding{
 		do: func(m *Model, _ string) { m.askGuard() }},
 	{key: "x", label: "drop house", help: "drop the selected house, after asking", screens: on(screenLedger), when: ledgerOnHouse,
 		do: func(m *Model, _ string) { m.askDrop() }},
+	{key: "$", label: "bribe", help: "an envelope for the chief or the DA", screens: on(screenLedger),
+		do: func(m *Model, _ string) { m.askBribe() }},
 	{key: "f", label: "fund city", help: "give a city clean cash for goodwill", screens: on(screenLedger),
 		do: func(m *Model, _ string) { m.askFund() }},
 	{key: "i", label: "invest", help: "clean cash into the selected front's levels", screens: on(screenLedger), when: ledgerOnFront,
@@ -357,6 +367,8 @@ var modeBindings = []binding{
 	{key: "↑↓", label: "pick", modes: in(modeBuy), when: buyList},
 	{key: "↑↓", label: "pick", modes: in(modeCart), when: cartHasLines},
 	{key: "↑↓", label: "pick", modes: in(modeCard), when: step(0)},
+	{key: "↑↓", label: "pick", modes: in(modeBribe), when: step(0)},
+	{key: "1-2", label: "choose", modes: in(modeBribe), when: step(0)},
 	{key: "←→", label: "dial", modes: in(modeSell), when: step(2)},
 	{key: "←→", label: "repeat", modes: in(modeBuy), when: buyAt(2)},
 	{key: "←→", label: "repeat", modes: in(modeSell), when: step(3)},
@@ -370,10 +382,10 @@ var modeBindings = []binding{
 	{key: "1-2", label: "repeat", modes: in(modeSell), when: step(3)},
 	{key: "1-3", label: "dial", modes: in(modeCart), when: cartOnSell},
 	{key: "1-3", label: "choose", modes: in(modeCard), when: step(0)},
-	{key: "m", label: "max", modes: in(modeBuy, modeSell, modeTarget, modeCart, modeFund, modeConfirmFast, modeMove, modeConfirmBuyOff, modeCut, modeCook, modeInvest, modeReserve), when: numberStep},
-	{key: "h", label: "half", modes: in(modeBuy, modeSell, modeTarget, modeCart, modeFund, modeConfirmFast, modeMove, modeConfirmBuyOff, modeCut, modeCook, modeInvest, modeReserve), when: numberStep},
-	{key: "↑↓", label: "±1", modes: in(modeBuy, modeSell, modeTarget, modeCart, modeFund, modeConfirmFast, modeMove, modeConfirmBuyOff, modeCut, modeCook, modeInvest, modeReserve), when: numberStep},
-	{key: "pgup pgdn", label: "±10", modes: in(modeBuy, modeSell, modeTarget, modeCart, modeFund, modeConfirmFast, modeMove, modeConfirmBuyOff, modeCut, modeCook, modeInvest, modeReserve), when: numberStep},
+	{key: "m", label: "max", modes: in(modeBuy, modeSell, modeTarget, modeCart, modeFund, modeConfirmFast, modeMove, modeConfirmBuyOff, modeCut, modeCook, modeInvest, modeBribe, modeReserve), when: numberStep},
+	{key: "h", label: "half", modes: in(modeBuy, modeSell, modeTarget, modeCart, modeFund, modeConfirmFast, modeMove, modeConfirmBuyOff, modeCut, modeCook, modeInvest, modeBribe, modeReserve), when: numberStep},
+	{key: "↑↓", label: "±1", modes: in(modeBuy, modeSell, modeTarget, modeCart, modeFund, modeConfirmFast, modeMove, modeConfirmBuyOff, modeCut, modeCook, modeInvest, modeBribe, modeReserve), when: numberStep},
+	{key: "pgup pgdn", label: "±10", modes: in(modeBuy, modeSell, modeTarget, modeCart, modeFund, modeConfirmFast, modeMove, modeConfirmBuyOff, modeCut, modeCook, modeInvest, modeBribe, modeReserve), when: numberStep},
 	{key: "enter", label: "next", modes: in(modeSell, modeTarget, modePropose, modeFront), when: step(0)},
 	{key: "enter", label: "next", modes: in(modeMove), when: moveList},
 	{key: "enter", label: "next", modes: in(modeCut, modeCook), when: labList},
@@ -402,6 +414,9 @@ var modeBindings = []binding{
 	{key: "enter", label: "undercut", modes: in(modeUndercut)},
 	{key: "enter", label: "assign", modes: in(modeAssign)},
 	{key: "enter", label: "next", modes: in(modeFund), when: fundNext},
+	{key: "enter", label: "next", modes: in(modeBribe), when: step(0)},
+	{key: "enter", label: "pay", modes: in(modeBribe), when: step(1)},
+	{key: "y", label: "buy", modes: in(modeConfirmCheckpoint)},
 	{key: "enter", label: "give", modes: in(modeFund), when: fundLast},
 	{key: "enter", label: "decide", modes: in(modeCard), when: step(0)},
 	{key: "enter", label: "new run", modes: in(modeOver)},
@@ -426,10 +441,10 @@ var modeBindings = []binding{
 	// buy's connect step) alone, where the toggle is live.
 	{key: "s", label: "sell", modes: in(modeBuy), when: buyList},
 	{key: "b", label: "buy", modes: in(modeSell), when: step(0)},
-	{key: "⇧tab", label: "back", keys: []string{"shift+tab"}, modes: in(modeBuy, modeSell, modeTarget, modeCart, modePropose, modeFront, modeMove, modeFund, modeCut, modeCook), when: pastFirstStep},
+	{key: "⇧tab", label: "back", keys: []string{"shift+tab"}, modes: in(modeBuy, modeSell, modeTarget, modeCart, modePropose, modeFront, modeMove, modeFund, modeCut, modeCook, modeBribe), when: pastFirstStep},
 	{key: "esc", label: "close", modes: in(modeBuy, modeSell, modeTarget, modePropose, modePost, modeStrike, modeUndercut, modeFront, modeAssign, modeFund, modeCart, modeMove, modeGuard,
 		modeConfirmNew, modeConfirmDelete, modeConfirmFire, modeConfirmEnd, modeConfirmUpgrade, modeConfirmInvestigate, modeConfirmPayOff, modeConfirmTravel, modeConfirmFast, modeConfirmDrop,
-		modeConfirmScout, modeConfirmBoost, modeConfirmTip, modeConfirmBuyOff, modeCut, modeCook, modeInvest, modeReserve)},
+		modeConfirmScout, modeConfirmBoost, modeConfirmTip, modeConfirmBuyOff, modeCut, modeCook, modeInvest, modeBribe, modeConfirmCheckpoint, modeReserve)},
 	{key: "enter esc", label: "close", modes: in(modeReport, modeHelp, modeStage)},
 	{key: "enter esc", label: "close", modes: in(modeCard), when: step(1)},
 	{key: "␣ esc", label: "close", modes: in(modeDetails)},
@@ -466,6 +481,8 @@ func (m *Model) modalStep() int {
 		return m.proposeStep
 	case modeFund:
 		return m.fnd.step
+	case modeBribe:
+		return m.br.step
 	case modeCard:
 		if m.cardDone {
 			return 1
