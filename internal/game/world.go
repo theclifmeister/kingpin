@@ -10,7 +10,7 @@ import (
 )
 
 // SchemaVersion is bumped whenever World changes shape incompatibly.
-const SchemaVersion = 11
+const SchemaVersion = 12
 
 // World is the complete state of a run. Every field is a plain value so the
 // whole struct can be serialised with encoding/gob.
@@ -44,6 +44,7 @@ type World struct {
 	Standing    map[string]SellOrder      // your standing sell orders (#114), keyed like Orders; the market sim resolves them every night at a cut
 	Suppliers   []Supplier                // the connects (#72), in the order seeded: the street one in every city, the wholesaler, one more by seed
 	Progression Progression               // the tiers reached (#147), stamped by the news sim; nothing gates on it
+	Houses      []House                   // the stash houses (#73), in the order bought: where the stock sits beyond the street, and which one the raid finds
 
 	// Per-day scratch, cleared by the clock after every EndDay.
 	Orders        map[string]SellOrder   // pending sell orders keyed by product id
@@ -58,6 +59,8 @@ type World struct {
 	Funded        []Funding              // clean cash given to a city today; the law sim turns it into goodwill
 	Deliveries    map[int]int            // contract id -> units handed over tonight; the market sim resolves them
 	Undercuts     map[string]events.Dial // rival corner id -> the dial tonight's orders undercut it at (#68); the market sim resolves them
+	Moved         []Move                 // stock moved between places today (#73); the heat sim counts the units as exposure
+	HousesBought  []string               // house ids bought today; the territory sim reports them
 
 	Journal []Headline // full headline history, oldest first
 	Report  *DayReport // morning report for the current day
@@ -85,11 +88,14 @@ type City struct {
 
 // Player is the human's cash, where they are and what they keep where,
 // and the face the city sees. Stock lives in a stash per city: it moves
-// between them only by shipment.
+// between them only by shipment. Since #73 the stash is the street of
+// the city: what you carry if you stand there and what the runners
+// posted there hold; the houses (World.Houses) are the rest, and the
+// accessors on World read and write both.
 type Player struct {
 	DirtyCash  int
 	CleanCash  int
-	Stash      map[string]map[string]int // city id -> product id -> units
+	Stash      map[string]map[string]int // city id -> product id -> units on the street there (#73: the houses are World.Houses)
 	Location   string                    // city id the player is in
 	CarryLimit int
 	Reputation Reputation
@@ -121,8 +127,9 @@ func (r *Reputation) Axis(name string) *float64 {
 	return nil
 }
 
-// TotalStock is the number of units in every stash, all products. What
-// is on the road is not counted; World.TotalStock is.
+// TotalStock is the number of units on every street, all products. The
+// houses and the road are not counted; World.Stashed and World.TotalStock
+// are.
 func (p Player) TotalStock() int {
 	n := 0
 	for _, s := range p.Stash {
@@ -133,7 +140,8 @@ func (p Player) TotalStock() int {
 	return n
 }
 
-// StockIn is the number of units in one city's stash, all products.
+// StockIn is the number of units on one city's street, all products;
+// World.StockIn counts the houses too.
 func (p Player) StockIn(city string) int {
 	n := 0
 	for _, q := range p.Stash[city] {
@@ -573,6 +581,9 @@ type Stats struct {
 	LatePayments   int // debts that were short on their day
 	DebtDays       int // days ended owing a connect something
 	Collected      int // units a connect took from the stash for a debt
+	Rent           int // clean cash paid the landlords (#73)
+	HousesLost     int // houses the landlord threw you out of
+	HouseUnits     int // units lost out of the houses to raids and robberies
 }
 
 // StartingProduct describes a product as it exists at the start of a run,
@@ -702,11 +713,14 @@ func (w *World) CityName(id string) string {
 	return id
 }
 
-// stash is the player's stock in a city, created empty on first use. It
-// is the one handle on the map: every unit that enters or leaves a stash
-// goes through AddStock, TakeStock or SetStock below (#144), so #73 and
-// #47 can change what the map means or holds by changing these and
-// nothing else. TestStashHasNoWriters holds the rest of the code to it.
+// stash is the player's stock on a city's street, created empty on
+// first use. It is the one handle on the map: every unit that enters or
+// leaves a stash goes through AddStock, TakeStock or SetStock below
+// (#144), so #73 and #47 can change what the map means or holds by
+// changing these and nothing else. TestStashHasNoWriters holds the rest
+// of the code to it. Since #73 the map is the street and the houses
+// (World.Houses) are the rest: the accessors below read and write both,
+// and a house's Stock map is written only here and in houses.go.
 func (w *World) stash(city string) map[string]int {
 	if w.Player.Stash == nil {
 		w.Player.Stash = map[string]map[string]int{}
@@ -720,9 +734,25 @@ func (w *World) stash(city string) map[string]int {
 }
 
 // StashOf is a copy of the player's stock in a city, product by product,
-// for a reader that walks it (the UI, the harness, the cart). Writing to
-// the copy changes nothing; the writers are AddStock and TakeStock.
+// the street and the houses there together, for a reader that walks it
+// (the UI, the harness, the cart). Writing to the copy changes nothing;
+// the writers are AddStock and TakeStock.
 func (w *World) StashOf(city string) map[string]int {
+	out := w.StreetOf(city)
+	for _, h := range w.Houses {
+		if h.City != city {
+			continue
+		}
+		for id, q := range h.Stock {
+			out[id] += q
+		}
+	}
+	return out
+}
+
+// StreetOf is a copy of what is on a city's street, product by product:
+// what you carry there and what the runners posted there hold.
+func (w *World) StreetOf(city string) map[string]int {
 	s := w.Player.Stash[city]
 	out := make(map[string]int, len(s))
 	for id, q := range s {
@@ -731,36 +761,154 @@ func (w *World) StashOf(city string) map[string]int {
 	return out
 }
 
-// Stock is how many units of a product the player holds in a city.
-func (w *World) Stock(city, product string) int { return w.Player.Stash[city][product] }
+// Stock is how many units of a product the player holds in a city: the
+// street and the houses there.
+func (w *World) Stock(city, product string) int {
+	n := w.Player.Stash[city][product]
+	for _, h := range w.Houses {
+		if h.City == city {
+			n += h.Stock[product]
+		}
+	}
+	return n
+}
 
-// AddStock puts units of a product into a city's stash: a buy, a
-// shipment landing, a card. A negative count is a TakeStock.
+// Street is how many units of a product are on a city's street.
+func (w *World) Street(city, product string) int { return w.Player.Stash[city][product] }
+
+// AddStock puts units of a product into a city: a buy, a contract's
+// morning lot, a shipment landing, the road's lots, a card. It is put
+// away (#73): into the emptiest house there with room, the next once
+// that is full, and onto the street when the houses are full or there
+// are none (the road's rule stands: a lot that fits nowhere sits on the
+// street until the shipment takes it). A negative count is a TakeStock.
 func (w *World) AddStock(city, product string, units int) {
 	if units < 0 {
 		w.TakeStock(city, product, -units)
 		return
 	}
-	w.stash(city)[product] += units
+	for units > 0 {
+		h := w.emptiest(city)
+		if h == nil {
+			break
+		}
+		n := min(units, h.Room())
+		w.putInHouse(h, product, n)
+		units -= n
+	}
+	if units > 0 {
+		w.stash(city)[product] += units
+	}
 }
 
-// TakeStock takes up to units of a product out of a city's stash (a
-// sale, a shipment leaving, a bust, a robbery, a collection) and returns
-// what it took, so the stash never goes under zero and a caller that
-// asked for more than was there learns what it got.
+// emptiest is the house in a city with the most room, the earlier
+// bought between two with the same, or nil when none has any.
+func (w *World) emptiest(city string) *House {
+	var best *House
+	for i := range w.Houses {
+		h := &w.Houses[i]
+		if h.City != city || h.Room() <= 0 {
+			continue
+		}
+		if best == nil || h.Room() > best.Room() {
+			best = h
+		}
+	}
+	return best
+}
+
+// putInHouse is the one write into a house's stock going up.
+func (w *World) putInHouse(h *House, product string, units int) {
+	if units <= 0 {
+		return
+	}
+	if h.Stock == nil {
+		h.Stock = map[string]int{}
+	}
+	h.Stock[product] += units
+}
+
+// takeFromHouse is the one write into a house's stock going down: up to
+// units, clamped at what is there, and what it took.
+func (w *World) takeFromHouse(h *House, product string, units int) int {
+	taken := max(0, min(units, h.Stock[product]))
+	if taken > 0 {
+		h.Stock[product] -= taken
+		if h.Stock[product] == 0 {
+			delete(h.Stock, product)
+		}
+	}
+	return taken
+}
+
+// TakeStock takes up to units of a product out of a city (a sale, a
+// shipment leaving, a handoff, a collection, a card) and returns what it
+// took, so the stash never goes under zero and a caller that asked for
+// more than was there learns what it got. The street goes first, then
+// the houses in the order bought (#73), so a sale or a shipment never
+// depends on iteration order.
 func (w *World) TakeStock(city, product string, units int) int {
+	taken := w.TakeStreet(city, product, units)
+	for i := range w.Houses {
+		if taken >= units {
+			break
+		}
+		if h := &w.Houses[i]; h.City == city {
+			taken += w.takeFromHouse(h, product, units-taken)
+		}
+	}
+	return taken
+}
+
+// TakeStreet takes up to units of a product off a city's street alone
+// (a corner robbery: what the runner was carrying) and returns what it
+// took.
+func (w *World) TakeStreet(city, product string, units int) int {
 	s := w.stash(city)
 	taken := max(0, min(units, s[product]))
 	s[product] -= taken
 	return taken
 }
 
-// SetStock puts a city's stock of a product at exactly units, whatever
-// it was. It is the tests' and the migration's (a save from before the
-// cities carried its stock on the player); nothing in play sets a stash
-// to a figure, it adds to it or takes from it.
+// TakeFromHouse takes up to units of a product out of one house (a
+// raid, a robbery there) and returns what it took; 0 for a house that
+// is not there.
+func (w *World) TakeFromHouse(house, product string, units int) int {
+	h := w.House(house)
+	if h == nil {
+		return 0
+	}
+	return w.takeFromHouse(h, product, units)
+}
+
+// SetStock puts a city's street stock of a product at exactly units,
+// whatever it was. It is the tests' and the migration's (a save from
+// before the cities carried its stock on the player); nothing in play
+// sets a stash to a figure, it adds to it or takes from it.
 func (w *World) SetStock(city, product string, units int) {
 	w.stash(city)[product] = max(0, units)
+}
+
+// StockIn is the number of units the player holds in a city, all
+// products: the street and the houses there.
+func (w *World) StockIn(city string) int {
+	n := w.Player.StockIn(city)
+	for _, h := range w.Houses {
+		if h.City == city {
+			n += h.Units()
+		}
+	}
+	return n
+}
+
+// Stashed is every unit in every city, street and houses, the road left
+// out.
+func (w *World) Stashed() int {
+	n := w.Player.TotalStock()
+	for _, h := range w.Houses {
+		n += h.Units()
+	}
+	return n
 }
 
 // InTransit is how many units of a product are on the road, bound
@@ -786,10 +934,10 @@ func (w *World) Bound(to, product string) int {
 	return n
 }
 
-// TotalStock is every unit the operation holds: every stash plus
-// everything on the road.
+// TotalStock is every unit the operation holds: every street, every
+// house and everything on the road.
 func (w *World) TotalStock() int {
-	n := w.Player.TotalStock()
+	n := w.Stashed()
 	for _, s := range w.Shipments {
 		n += s.Units
 	}
@@ -833,7 +981,7 @@ func (w *World) Cash() int { return w.Player.DirtyCash + w.Player.CleanCash }
 func (w *World) NetWorth() int {
 	n := w.Cash()
 	for _, cid := range w.CityOrder {
-		for id, q := range w.Player.Stash[cid] {
+		for id, q := range w.StashOf(cid) {
 			if m := w.Product(cid, id); m != nil {
 				n += int(float64(q) * m.SupplierPrice)
 			}
@@ -847,14 +995,29 @@ func (w *World) NetWorth() int {
 	for _, f := range w.Fronts {
 		n += f.Cost
 	}
+	for _, h := range w.Houses {
+		n += h.Price
+	}
 	return n
 }
 
 // Capacity is how many units the operation can hold in a city: the
-// player's own carry limit if they are there, plus the runners posted on
-// corners there, plus the ones on nobody's corner wherever the player is.
-// Shipments land regardless; capacity is what the supplier will sell to.
+// street (StreetCapacity) plus the houses there (#73). Shipments land
+// regardless; capacity is what the supplier will sell to.
 func (w *World) Capacity(city string) int {
+	n := w.StreetCapacity(city)
+	for _, h := range w.Houses {
+		if h.City == city {
+			n += h.Capacity
+		}
+	}
+	return n
+}
+
+// StreetCapacity is what a city's street holds: the player's own carry
+// limit if they are there, plus the runners posted on corners there,
+// plus the ones on nobody's corner wherever the player is.
+func (w *World) StreetCapacity(city string) int {
 	n := 0
 	here := city == w.Player.Location
 	if here {

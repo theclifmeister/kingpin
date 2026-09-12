@@ -111,7 +111,7 @@ func (m *Model) streetLines(innerW, maxLines int, narrow, withRoad bool) []strin
 
 	var topics [][]fact
 	topic := func(facts ...fact) { topics = append(topics, facts) }
-	stash := fact{theme.Subtle.Render(fmt.Sprintf("stash %d/%d", w.Player.StockIn(here.ID), w.Capacity(here.ID))), priStash}
+	stash := fact{theme.Subtle.Render(m.stashedLine(here.ID, narrow)), priStash}
 	if narrow {
 		topic(stash)
 	} else {
@@ -236,7 +236,7 @@ func (m *Model) elsewhereFacts() []fact {
 		if cid == w.Player.Location {
 			continue
 		}
-		if n := w.Player.StockIn(cid); n > 0 {
+		if n := w.StockIn(cid); n > 0 {
 			facts = append(facts, fact{theme.RoadText.Render(fmt.Sprintf("%s in %s", plural(n, "unit"), w.CityName(cid))), priRoad})
 		}
 	}
@@ -520,6 +520,7 @@ func (m *Model) alerts() []alert {
 		out = append(out, newAlert(theme.Warning.Render(fmt.Sprintf("Wages %s due tonight, %s dirty in hand.", money(wages), money(w.Player.DirtyCash))), "wages short"))
 	}
 	out = append(out, m.unlockAlerts()...)
+	out = append(out, m.houseAlerts()...)
 	return out
 }
 

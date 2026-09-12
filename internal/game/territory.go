@@ -288,6 +288,9 @@ func (w *World) Post(corner string, id int) error {
 // Recall takes a crew member, or You, off whatever corner they are on. The
 // corner stays held until nobody has worked it for a few days.
 func (w *World) Recall(id int) {
+	if h := w.GuardOf(id); h != nil {
+		h.Guard = 0 // one enforcer, one job (#73)
+	}
 	c := w.PostOf(id)
 	if c == nil {
 		return

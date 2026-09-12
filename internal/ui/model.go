@@ -68,6 +68,9 @@ const (
 	modeCart          // the day's cart: its buys and orders, editable until the day ends
 	modeConfirmFast   // run days until something needs you (#116): the cap, then y or enter
 	modeUndercut      // pick the dial to undercut the selected rival corner at (#68)
+	modeMove          // move stock between the street and the houses in a city (#73): from, to, product, quantity
+	modeGuard         // pick the enforcer who guards the selected house (#73)
+	modeConfirmDrop   // walk away from the selected house? (#73)
 	modeCount
 )
 
@@ -112,14 +115,18 @@ type Model struct {
 	branch         int    // branch shown on the upgrades screen, an index into content.Branches: a view cursor like city
 	upgradeCursor  []int  // node selected in each branch, one an entry of content.Branches, so a branch left and returned to is where it was
 	upgradeID      string // node awaiting the buy confirmation
-	frontCursor    int    // offer selected in the buy-a-front picker
-	ledgerCursor   int    // row on the ledger: fronts, then routes, then offers
-	ledgerScroll   int    // first line of the ledger MAIN shows, following the cursor
-	cardCursor     int    // choice highlighted on the dilemma card
-	cardDone       bool   // the card is answered; the outcome is showing
-	dealCursor     int    // offer selected on the rivals screen
-	proposeStep    int    // 0: pick the kind, 1: pick the terms
-	proposeKind    int    // index into proposeKinds while on the terms page
+	frontCursor    int    // offer selected in the buy picker's second page
+	frontKind      int    // the buy picker's first page: a front or a house (#73)
+	frontStep      int    // the buy picker's page: 0 the kind, 1 the offers
+	guardCursor    int    // row in the guard picker (#73)
+	mv             moveDialog
+	ledgerCursor   int  // row on the ledger: fronts, then routes, then offers
+	ledgerScroll   int  // first line of the ledger MAIN shows, following the cursor
+	cardCursor     int  // choice highlighted on the dilemma card
+	cardDone       bool // the card is answered; the outcome is showing
+	dealCursor     int  // offer selected on the rivals screen
+	proposeStep    int  // 0: pick the kind, 1: pick the terms
+	proposeKind    int  // index into proposeKinds while on the terms page
 	proposeCursor  int
 	assignCursor   int    // row in the assign picker
 	modalScroll    int    // first body line the open modal shows
@@ -554,26 +561,19 @@ func (m *Model) handleKey(k tea.KeyMsg) (tea.Model, tea.Cmd) {
 		}
 		return m, nil
 	case modeFront:
+		m.keyFront(key)
+		return m, nil
+	case modeMove:
+		return m.keyMove(k)
+	case modeGuard:
+		m.keyGuard(key)
+		return m, nil
+	case modeConfirmDrop:
 		switch key {
-		case "esc", "q":
-			m.mode = modePlay
-		case "up", "k":
-			if m.frontCursor > 0 {
-				m.frontCursor--
-			}
-		case "down", "j":
-			if m.frontCursor < len(m.frontRows())-1 {
-				m.frontCursor++
-			}
-		case "enter":
-			m.confirmFront()
+		case "y", "Y":
+			m.confirmDrop()
 		default:
-			if len(key) == 1 && key[0] >= '1' && key[0] <= '9' {
-				if i := int(key[0] - '1'); i < len(m.frontRows()) {
-					m.frontCursor = i
-					m.confirmFront()
-				}
-			}
+			m.mode = modePlay
 		}
 		return m, nil
 	case modeReport:
@@ -643,7 +643,7 @@ func (m *Model) handleKey(k tea.KeyMsg) (tea.Model, tea.Cmd) {
 // shift+tab move through.
 func hasPages(md mode) bool {
 	switch md {
-	case modeBuy, modeSell, modeTarget, modeCart, modePropose:
+	case modeBuy, modeSell, modeTarget, modeCart, modePropose, modeFront, modeMove:
 		return true
 	}
 	return false
@@ -882,6 +882,12 @@ func (m *Model) View() string {
 		body = m.upgradeConfirm()
 	case modeFront:
 		body = m.viewFront()
+	case modeMove:
+		body = m.viewMove()
+	case modeGuard:
+		body = m.viewGuard()
+	case modeConfirmDrop:
+		body = m.dropConfirm()
 	case modeAssign:
 		body = m.viewAssign()
 	case modeConfirmInvestigate:

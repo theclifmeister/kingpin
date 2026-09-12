@@ -231,6 +231,9 @@ func (m *Model) post(c game.CrewMember) any {
 	if p := w.PostOf(c.ID); p != nil {
 		return p.Name
 	}
+	if h := w.GuardOf(c.ID); h != nil {
+		return styled{theme.CrewText, "guards " + h.Name}
+	}
 	if c.Role == "enforcer" {
 		return styled{theme.Warning, "unposted"}
 	}

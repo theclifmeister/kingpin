@@ -202,6 +202,8 @@ func (m *Model) viewPost() string {
 			} else {
 				where = styled{theme.Warning, "on " + p.Name + ", will move"}
 			}
+		} else if h := m.w.GuardOf(r.ID); h != nil {
+			where = styled{theme.Warning, "in " + h.Name + ", will move"}
 		}
 		var skill any = r.Skill
 		if r.ID == game.You {

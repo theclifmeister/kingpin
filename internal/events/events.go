@@ -173,8 +173,10 @@ type Enforcement struct {
 	Level     string // patrol, sting, raid, arrest
 	StockLost map[string]int
 	CashLost  int
-	Evidence  int  // what went in the DA's file; 0 when a sting or raid found nothing to build a case on
-	Stash     bool // a raid that went straight to the stash: somebody told them where
+	Evidence  int    // what went in the DA's file; 0 when a sting or raid found nothing to build a case on
+	Stash     bool   // a raid that went straight to the stash: somebody told them where
+	House     string // the house the stock came out of (#73), "" for the street
+	HouseName string
 }
 
 func (Enforcement) Kind() string { return "Enforcement" }
@@ -1172,3 +1174,97 @@ type TierReached struct {
 }
 
 func (TierReached) Kind() string { return "TierReached" }
+
+// The stash houses (#73).
+
+// HouseBought is a lease taken on a stash house: dirty cash once, clean
+// cash a day from tomorrow.
+type HouseBought struct {
+	Day   int
+	House string // house id
+	Name  string
+	City  string
+	Price int
+	Rent  int
+}
+
+func (HouseBought) Kind() string { return "HouseBought" }
+
+// HouseRobbed is a stash house stuck up: robbery_stock of what it held,
+// and now the street knows where it is (Known).
+type HouseRobbed struct {
+	Day       int
+	House     string
+	Name      string
+	City      string
+	Corner    string // the block's name
+	Guarded   bool
+	StockLost map[string]int
+}
+
+func (HouseRobbed) Kind() string { return "HouseRobbed" }
+
+// HouseRaided is the police hitting one stash house in a sting or a
+// raid: what came out of it, and whether they took the lot (Whole: an
+// informant told them where). The Enforcement for the same night names
+// the house too; this is the house's own record and headline.
+type HouseRaided struct {
+	Day       int
+	House     string
+	Name      string
+	City      string
+	Level     string // sting or raid
+	Whole     bool
+	StockLost map[string]int
+}
+
+func (HouseRaided) Kind() string { return "HouseRaided" }
+
+// HouseLost is the landlord throwing you out: the rent went unpaid
+// rent_days running, and the stock went with the house.
+type HouseLost struct {
+	Day   int
+	House string
+	Name  string
+	City  string
+	Units int // what was in it
+}
+
+func (HouseLost) Kind() string { return "HouseLost" }
+
+// HouseCompromised is a house the police now know about (Known): an
+// informant on the payroll, a robbery (word gets out) or a bust there.
+// It is the one the raid finds until it is dropped.
+type HouseCompromised struct {
+	Day   int
+	House string
+	Name  string
+	City  string
+	Why   string // informant, robbery, bust
+}
+
+func (HouseCompromised) Kind() string { return "HouseCompromised" }
+
+// StockMoved is report-only bookkeeping (#73): units moved between two
+// places in a city today, and the heat the drive drew.
+type StockMoved struct {
+	Day     int
+	City    string
+	From    string // house name, or "the street"
+	To      string
+	Product string
+	Units   int
+}
+
+func (StockMoved) Kind() string { return "StockMoved" }
+
+// RentPaid is report-only bookkeeping (#73): the day's rent on the
+// houses, clean cash, and the houses it could not be paid for.
+type RentPaid struct {
+	Day    int
+	Amount int
+	Houses int
+	Unpaid []string // names of the houses whose rent went unpaid today
+}
+
+func (RentPaid) Kind() string { return "RentPaid" }

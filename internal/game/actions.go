@@ -42,9 +42,9 @@ type FrontOffer struct {
 // Locked reports whether the offer is still gated behind peak cash.
 func (o FrontOffer) Locked(w *World) bool { return w.Stats.PeakCash < o.UnlockCash }
 
-// Free is how many more units the stash in a city can take from the
-// supplier.
-func (w *World) Free(city string) int { return w.Capacity(city) - w.Player.StockIn(city) }
+// Free is how many more units the stash in a city, the street and the
+// houses, can take from the supplier.
+func (w *World) Free(city string) int { return w.Capacity(city) - w.StockIn(city) }
 
 // SupplyKey is how Supply is keyed: one contract per product per city,
 // like Orders.
