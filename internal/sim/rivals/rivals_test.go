@@ -53,8 +53,8 @@ func TestSeedAndArrival(t *testing.T) {
 	if r.Leader == "" || r.Personality == "" || r.Supplier < cfg.Rivals.Rivals.SupplierMin || r.Supplier > cfg.Rivals.Rivals.SupplierMax {
 		t.Fatalf("seeded rival %+v", r)
 	}
-	if r.Cash != cfg.Rivals.Rivals.StartCash || r.Muscle != cfg.Rivals.Rivals.StartMuscle || r.Arrived != 0 {
-		t.Fatalf("seeded rival %+v", r)
+	if r.Cash != int(math.Round(cfg.Rivals.Rivals.StartCash*s.CornerDay(w))) || r.Muscle != cfg.Rivals.Rivals.StartMuscle || r.Arrived != 0 {
+		t.Fatalf("seeded rival %+v (a corner-day is %.0f)", r, s.CornerDay(w))
 	}
 	for w.Day < cfg.Rivals.Rivals.ArriveDay-1 {
 		if k := kinds(step(w, s)); k["RivalMovedIn"] != 0 {
@@ -275,6 +275,7 @@ func TestTipsAndCrackdown(t *testing.T) {
 		t.Fatal(err)
 	}
 	w.Rival.War = cfg.Rivals.Rivals.CrackdownThreshold
+	w.Rival.Muscle = 8 // dug in for the war (#139: on one corner its take kept two)
 	muscle := w.Rival.Muscle
 	evs := step(w, s)
 	var we *events.WarEscalated
@@ -489,7 +490,6 @@ func settled(t *testing.T, cfg *content.Config, seed uint64, personality string)
 // spent and the claim counted, and the tell is cleared.
 func TestTellPrecedesTheClaim(t *testing.T) {
 	cfg := eager(content.MustLoad())
-	tun := cfg.Rivals.Rivals
 	for _, p := range content.Personalities {
 		w, s := settled(t, cfg, 3, p)
 		held, claims := w.RivalHeld(), w.Rival.Claims
@@ -510,7 +510,7 @@ func TestTellPrecedesTheClaim(t *testing.T) {
 				t.Fatalf("%s: the tell names %+v, eyeing %s", p, ev, eyed.ID)
 			}
 		}
-		cash := w.Rival.Cash + s.Income(w) - w.Rival.Muscle*tun.MuscleWage
+		cash := w.Rival.Cash + s.Income(w) - s.Wages(w)
 		k = kinds(step(w, s))
 		if k["CornerTaken"] != 1 || k["RivalOutbid"] != 0 {
 			t.Fatalf("%s: the second step: %v", p, k)
@@ -518,8 +518,8 @@ func TestTellPrecedesTheClaim(t *testing.T) {
 		if eyed.Owner != game.OwnerRival || w.RivalHeld() != held+1 || w.Rival.Claims != claims+1 {
 			t.Fatalf("%s: after the claim: %s is %s's, %+v", p, eyed.ID, eyed.Owner, w.Rival)
 		}
-		if w.Rival.Cash != cash-tun.ClaimCost {
-			t.Fatalf("%s: cash %d after the claim, want %d", p, w.Rival.Cash, cash-tun.ClaimCost)
+		if w.Rival.Cash != cash-s.ClaimCost(w) {
+			t.Fatalf("%s: cash %d after the claim, want %d", p, w.Rival.Cash, cash-s.ClaimCost(w))
 		}
 		// The next tell is given the same step the claim lands only if
 		// the pace lets it: with none, the eager rival eyes again at once.
@@ -549,7 +549,7 @@ func TestPostingOnTheEyedCornerOutbidsTheClaim(t *testing.T) {
 			t.Fatal(err)
 		}
 		held, claims, grudge := w.RivalHeld(), w.Rival.Claims, w.Rival.Grudge
-		cash := w.Rival.Cash + s.Income(w) - w.Rival.Muscle*tun.MuscleWage
+		cash := w.Rival.Cash + s.Income(w) - s.Wages(w)
 		evs := step(w, s)
 		k := kinds(evs)
 		if k["RivalOutbid"] != 1 || k["CornerTaken"] != 0 {
@@ -579,12 +579,12 @@ func TestStaleTellIsDropped(t *testing.T) {
 	step(w, s)
 	eyed := w.Rival.Eyeing
 	w.Rival.Deals = []game.Deal{{Kind: game.DealSplit, Terms: game.Terms{Corners: []string{eyed}}, Since: w.Day}}
-	held, cash := w.RivalHeld(), w.Rival.Cash
+	held, cash, wages := w.RivalHeld(), w.Rival.Cash, s.Wages(w)
 	k := kinds(step(w, s))
 	if k["CornerTaken"] != 0 || k["RivalOutbid"] != 0 {
 		t.Fatalf("under the split: %v", k)
 	}
-	if w.Corner(eyed).Owner != game.OwnerNone || w.RivalHeld() != held || w.Rival.Cash < cash-w.Rival.Muscle*cfg.Rivals.Rivals.MuscleWage {
+	if w.Corner(eyed).Owner != game.OwnerNone || w.RivalHeld() != held || w.Rival.Cash < cash-wages {
 		t.Fatalf("under the split: %s is %s's, holds %d, cash %d -> %d", eyed, w.Corner(eyed).Owner, w.RivalHeld(), cash, w.Rival.Cash)
 	}
 	if w.Rival.Eyeing == eyed {

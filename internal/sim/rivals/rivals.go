@@ -117,7 +117,7 @@ func (s *Sim) Seed(w *game.World, rng rand) {
 	}
 	r.Personality = content.Personalities[rng.IntN(len(content.Personalities))]
 	r.Supplier = tun.SupplierMin + rng.Float64()*(tun.SupplierMax-tun.SupplierMin)
-	r.Cash = tun.StartCash
+	r.Cash = s.cost(w, tun.StartCash)
 	r.Muscle = tun.StartMuscle
 	r.Trust = s.cfg.Personality[r.Personality].Trust
 }
@@ -236,11 +236,13 @@ func (s *Sim) Income(w *game.World) int {
 	return int(math.Round(v * s.cfg.Rivals.Margin))
 }
 
-// trade is the street value a rival corner moves in a day, squeeze off.
+// trade is the street value a rival corner moves in a day, squeeze off,
+// in the products the street sells there (#139): the port's product
+// (no_supply at home) comes by the road, which the rival does not run.
 func (s *Sim) trade(w *game.World, c game.Corner) float64 {
 	v := 0.0
 	for _, id := range w.Products {
-		if m := w.Product(c.City, id); m != nil {
+		if m := w.Product(c.City, id); m != nil && !m.NoSupply {
 			v += m.Demand * c.Share(id) * m.Price
 		}
 	}
@@ -253,11 +255,71 @@ func (s *Sim) trade(w *game.World, c game.Corner) float64 {
 func (s *Sim) CornerIncome(w *game.World, c game.Corner) int {
 	v := 0.0
 	for _, id := range w.Products {
-		if m := w.Product(c.City, id); m != nil {
+		if m := w.Product(c.City, id); m != nil && !m.NoSupply {
 			v += m.Demand * c.Full(id) * m.Price
 		}
 	}
 	return int(math.Round(v * s.cfg.Rivals.Margin))
+}
+
+// Standard is the street value a standard corner at home moves in a day
+// in the products the street there sells (#139): demand per standard
+// corner times price, summed over the ladder as unlocked, the port's
+// product left out. It is what a corner-day is a margin of.
+func (s *Sim) Standard(w *game.World) float64 {
+	h := w.Home()
+	if h == nil {
+		return 0
+	}
+	v := 0.0
+	for _, id := range w.Products {
+		if m := h.Market[id]; m != nil && !m.NoSupply {
+			v += m.Demand * m.Price
+		}
+	}
+	return v
+}
+
+// CornerDay is the unit the rival's money is priced in (#139): what a
+// standard corner at home earns it in a day, margin of Standard. Its
+// wage, its fee, its claim and the chest it arrives with are so many
+// corner-days, so they climb the ladder with its take.
+func (s *Sim) CornerDay(w *game.World) float64 { return s.Standard(w) * s.cfg.Rivals.Margin }
+
+// cost is a price in corner-days as today's dollars, rounded.
+func (s *Sim) cost(w *game.World, days float64) int {
+	return int(math.Round(days * s.CornerDay(w)))
+}
+
+// Wage is what one head of the rival's muscle costs it a day: the
+// corner's guard (muscle_wage corner-days) over the heads its
+// personality puts on a corner, never under a dollar.
+func (s *Sim) Wage(w *game.World) int {
+	heads := s.personality(w).MusclePerCorner
+	if heads <= 0 {
+		heads = 1 // no personality yet: a head a corner
+	}
+	return max(1, s.cost(w, s.cfg.Rivals.MuscleWage/heads))
+}
+
+// Wages is the rival's wage bill for the day: its muscle at the wage.
+func (s *Sim) Wages(w *game.World) int { return w.Rival.Muscle * s.Wage(w) }
+
+// Fee is what recruiting a head costs it today.
+func (s *Sim) Fee(w *game.World) int { return s.cost(w, s.cfg.Rivals.MuscleFee) }
+
+// ClaimCost is what setting up on a free corner costs it today.
+func (s *Sim) ClaimCost(w *game.World) int { return s.cost(w, s.cfg.Rivals.ClaimCost) }
+
+// Afford is the muscle the day's take pays for: its income over the
+// wage. It recruits no further than it, and a payroll over it runs up
+// arrears until a head walks (#139).
+func (s *Sim) Afford(w *game.World) int { return s.Income(w) / s.Wage(w) }
+
+// Want is the muscle its personality keeps for the corners it holds:
+// muscle_per_corner per corner plus one, rounded.
+func (s *Sim) Want(w *game.World) int {
+	return int(math.Round(s.personality(w).MusclePerCorner * float64(w.RivalHeld()+1)))
 }
 
 // Pricewar exposes the price war's tuning for the UI and the harness.
@@ -293,17 +355,32 @@ func (s *Sim) Step(w *game.World, t *game.Tick) {
 
 	warBefore := r.War
 
-	// 2. Money: income, wages, recruiting. Muscle it cannot pay walks.
-	r.Cash += s.Income(w)
-	wages := r.Muscle * tun.MuscleWage
+	// 2. Money (#139): the take, and the muscle it pays for. The wages
+	// come out of the chest; what the day's take did not cover of them
+	// is owed (Arrears), a surplus day pays the owing down, and once a
+	// full wage is owed a head walks, one a day, never one of the
+	// start_muscle it came with (those the chest carries). A chest that
+	// cannot meet the payroll is the last resort, muscle down to what it
+	// holds. Then it recruits up to what it wants and what the take pays
+	// for, while the chest covers a fee and a claim besides. No dice:
+	// income and expenses are arithmetic.
+	income := s.Income(w)
+	r.Cash += income
+	wage := s.Wage(w)
+	wages := r.Muscle * wage
 	if wages > r.Cash {
-		r.Muscle = r.Cash / max(1, tun.MuscleWage)
-		wages = r.Muscle * tun.MuscleWage
+		r.Muscle = r.Cash / wage
+		wages = r.Muscle * wage
 	}
 	r.Cash -= wages
-	want := int(math.Round(pc.MusclePerCorner * float64(w.RivalHeld()+1)))
-	for r.Muscle < want && r.Cash >= tun.MuscleFee+tun.ClaimCost {
-		r.Cash -= tun.MuscleFee
+	r.Arrears = math.Max(0, r.Arrears+float64(wages-income))
+	if r.Arrears >= float64(wage) && r.Muscle > tun.StartMuscle {
+		r.Muscle--
+		r.Arrears -= float64(wage)
+	}
+	fee, claim := s.Fee(w), s.ClaimCost(w)
+	for r.Muscle < min(s.Want(w), s.Afford(w)) && r.Cash >= fee+claim {
+		r.Cash -= fee
 		r.Muscle++
 	}
 
@@ -371,8 +448,11 @@ func (s *Sim) Step(w *game.World, t *game.Tick) {
 	// set is the pace it keeps (a claim a day later is not a claim
 	// cycle a day longer), and a claim kept off a corner rests it too.
 	s.resolveEyeing(w, t)
-	if w.RivalHeld() < s.MaxCorners(w) && r.Cash >= tun.ClaimCost && (r.Routed == 0 || t.Day-r.Routed >= tun.RegroupDays) && t.RNG.Float64() < pc.ClaimChance*s.ClaimScale(w)*s.ClaimPace(w) {
-		if s.Rested(w, t.Day) {
+	if w.RivalHeld() < s.MaxCorners(w) && (r.Routed == 0 || t.Day-r.Routed >= tun.RegroupDays) && t.RNG.Float64() < pc.ClaimChance*s.ClaimScale(w)*s.ClaimPace(w) {
+		// The chest is asked after the roll (#139): a rival that cannot
+		// pay for a corner today rolls all the same, so the seed's dice
+		// do not move when its money binds.
+		if s.Rested(w, t.Day) && r.Cash >= s.ClaimCost(w) {
 			if c := s.pickFree(w, t.RNG, t.Day, w.RivalHeld() == 0); c != nil {
 				r.Eyeing, r.EyeingDay, r.LastClaim = c.ID, t.Day, t.Day
 				t.Emit(events.RivalEyeing{Day: t.Day, Rival: r.Leader, Corner: c.ID, Name: c.Name})
@@ -466,7 +546,8 @@ func (s *Sim) Step(w *game.World, t *game.Tick) {
 // is held and it never walks onto held ground without a push. A corner
 // it can no longer set up on for its own reasons (a split now covers
 // it, it holds its share, it was routed, the corner is no longer free
-// and not yours either) is dropped without a word.
+// and not yours either, or its chest no longer covers the claim at
+// today's prices, #139) is dropped without a word.
 func (s *Sim) resolveEyeing(w *game.World, t *game.Tick) {
 	tun := s.cfg.Rivals
 	r := &w.Rival
@@ -482,7 +563,7 @@ func (s *Sim) resolveEyeing(w *game.World, t *game.Tick) {
 	if split := w.Deal(game.DealSplit); split != nil && split.Covers(c.ID) {
 		return
 	}
-	if w.RivalHeld() >= s.MaxCorners(w) || (r.Routed > 0 && t.Day-r.Routed < tun.RegroupDays) {
+	if w.RivalHeld() >= s.MaxCorners(w) || (r.Routed > 0 && t.Day-r.Routed < tun.RegroupDays) || r.Cash < s.ClaimCost(w) {
 		return
 	}
 	if c.Held() {
@@ -490,7 +571,7 @@ func (s *Sim) resolveEyeing(w *game.World, t *game.Tick) {
 		t.Emit(events.RivalOutbid{Day: t.Day, Rival: r.Leader, Corner: c.ID, Name: c.Name})
 		return
 	}
-	r.Cash -= tun.ClaimCost
+	r.Cash -= s.ClaimCost(w)
 	r.Claims++
 	s.take(c, t.Day)
 	t.Emit(events.CornerTaken{Day: t.Day, Corner: c.ID, Name: c.Name, Rival: r.Leader, From: game.OwnerNone})

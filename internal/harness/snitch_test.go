@@ -350,12 +350,19 @@ func TestInformantPagesIgnoreTheLawyer(t *testing.T) {
 // and the corner is merely left unworked.
 func TestDefectionElsewhereHandsNoCorner(t *testing.T) {
 	cfg := content.MustLoad()
+	// The rival hires nobody of its own (a fee it can never meet) and
+	// is dug in on the top row, a take that keeps the two heads the
+	// leads add (#139: on one corner it would let them go within days),
+	// so the count at the end is the defectors' and nothing else.
+	cfg.Rivals.Rivals.MuscleFee = 1e6
 	_, hub, _ := twoCities(t, cfg)
 	for seed := uint64(1); seed <= 5; seed++ {
 		w := sim.NewWorld(cfg, seed)
 		w.Player.DirtyCash = 100_000
 		w.Rival.Arrived = 1
-		w.Corner("docks").Owner, w.Corner("docks").Since = game.OwnerRival, 1
+		for _, id := range []string{"docks", "railyard", "oldmill"} {
+			w.Corner(id).Owner, w.Corner(id).Since = game.OwnerRival, 1
+		}
 		w.Crew.Members = []game.CrewMember{
 			{ID: 901, Name: "Vee", Role: "runner", Skill: 50, Loyalty: cfg.Crew.Crew.QuitThreshold, Greed: 90, Nerve: 50, Units: 100, Wage: 50},
 		}

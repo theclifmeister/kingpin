@@ -429,14 +429,19 @@ type RivalsConfig struct {
 	Force       map[string]ForceConfig       `toml:"force"`
 }
 
+// RivalsTuning is the rival's economy and its fight. The money is priced
+// in the ladder's unit (#139): a corner-day, what a standard corner at
+// home earns it in a day (margin of the street value the corner moves in
+// the products the street there sells), so its costs climb the ladder
+// with its take and a price war or a drain is felt whatever the tier.
 type RivalsTuning struct {
 	ArriveDay          int     `toml:"arrive_day"`
-	StartCash          int     `toml:"start_cash"`
-	StartMuscle        int     `toml:"start_muscle"`
-	Margin             float64 `toml:"margin"`
-	MuscleWage         int     `toml:"muscle_wage"`
-	MuscleFee          int     `toml:"muscle_fee"`
-	ClaimCost          int     `toml:"claim_cost"`
+	StartCash          float64 `toml:"start_cash"`   // corner-days it arrives with
+	StartMuscle        int     `toml:"start_muscle"` // the heads it arrives with, and never lets go
+	Margin             float64 `toml:"margin"`       // of the street value its corners move, as daily income
+	MuscleWage         float64 `toml:"muscle_wage"`  // what a corner's guard (muscle_per_corner heads) costs it a day, in corner-days; a head earns that over muscle_per_corner
+	MuscleFee          float64 `toml:"muscle_fee"`   // corner-days to recruit a head
+	ClaimCost          float64 `toml:"claim_cost"`   // corner-days to set up on a free corner
 	SupplierMin        float64 `toml:"supplier_min"`
 	SupplierMax        float64 `toml:"supplier_max"`
 	PushFlip           float64 `toml:"push_flip"`
@@ -560,6 +565,14 @@ func (r RivalsConfig) validate() error {
 	}
 	if d.OfferDays < 1 || d.DistrustDays < 1 {
 		return fmt.Errorf("offer_days %d and distrust_days %d must be positive", d.OfferDays, d.DistrustDays)
+	}
+	if t := r.Rivals; t.Margin <= 0 || t.MuscleWage <= 0 {
+		return fmt.Errorf("margin %.2f and muscle_wage %.2f must be positive", t.Margin, t.MuscleWage)
+	}
+	for name, p := range r.Personality {
+		if p.MusclePerCorner <= 0 {
+			return fmt.Errorf("[personality.%s] muscle_per_corner %.2f must be positive: the wage per head is muscle_wage over it", name, p.MusclePerCorner)
+		}
 	}
 	return nil
 }
