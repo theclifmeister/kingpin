@@ -86,13 +86,19 @@ func (s *Sim) PatrolCap(w *game.World, r content.ResponseConfig, city *game.City
 // Threshold is the heat at which a response fires in a city today: the
 // ladder's line, moved by the law (#41). The sting line is the DA's: it
 // is where a case starts, and a law-and-order DA wants it lower, a
-// reformer higher. Every other line (the patrols, the raid, the arrest)
-// is the police's, and drops the louder the city is: yesterday's
-// pressure, since the law sim steps after this one.
+// reformer higher, and one whose ticket ran on your money (#193,
+// DA.Backed) higher again by law.toml's backed_sting. Every other line
+// (the patrols, the raid, the arrest) is the police's, and drops the
+// louder the city is: yesterday's pressure, since the law sim steps
+// after this one.
 func (s *Sim) Threshold(w *game.World, r content.ResponseConfig, city *game.City) float64 {
 	v := r.Threshold
 	if r.Level == content.Sting {
-		return v * s.DA(w).Sting
+		v *= s.DA(w).Sting
+		if w.Law.DA.Backed && s.law.Effects.BackedSting > 0 {
+			v *= s.law.Effects.BackedSting
+		}
+		return v
 	}
 	if city != nil {
 		v *= content.Cut(city.Pressure, s.law.Effects.PressureThresholdCut)

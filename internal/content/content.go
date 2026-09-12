@@ -7,6 +7,7 @@ package content
 import (
 	"embed"
 	"fmt"
+	"math"
 	"slices"
 
 	"github.com/BurntSushi/toml"
@@ -852,7 +853,22 @@ type LawConfig struct {
 	Pressure PressureSources        `toml:"pressure"`
 	Chief    map[string]ChiefConfig `toml:"chief"`
 	DA       map[string]DAConfig    `toml:"da"`
+	Campaign CampaignTuning         `toml:"campaign"`
 	Effects  LawFX                  `toml:"effects"`
+}
+
+// CampaignTuning is law.toml's [campaign] (#193): what clean cash behind
+// a DA ticket does to the vote, when a campaign takes money, what it
+// costs in pressure while it runs, and what a backed winner and a
+// backed loser are worth.
+type CampaignTuning struct {
+	Cash             int     `toml:"cash"`                // clean cash per point (0.01) of a city's vote share moved
+	SwingMax         float64 `toml:"swing_max"`           // the most a city's campaign moves its share
+	OpenDays         int     `toml:"open_days"`           // days before the election that tickets take money
+	Pressure         float64 `toml:"pressure"`            // pressure a day in a city whose campaign holds money
+	BackedDAPriceMul float64 `toml:"backed_da_price_mul"` // #42: the DA's price under one you backed
+	LoserPressure    float64 `toml:"loser_pressure"`      // pressure at once in a city that backed the loser
+	LoserChief       bool    `toml:"loser_chief"`         // a zealous chief for a city that backed the loser of a law-and-order win
 }
 
 type LawTuning struct {
@@ -905,6 +921,7 @@ type LawFX struct {
 	PressureThresholdCut float64 `toml:"pressure_threshold_cut"` // heat: fraction cut from every response threshold
 	PressureCapCut       float64 `toml:"pressure_cap_cut"`       // heat: fraction cut from what a patrol lets through
 	PressureTip          float64 `toml:"pressure_tip"`           // rivals: extra on the chance of a police tip
+	BackedSting          float64 `toml:"backed_sting"`           // heat: the sting line under a DA you backed (#193); 0 reads as 1
 }
 
 // ChiefPersonalities are the personalities a chief can have, in a fixed
@@ -958,11 +975,26 @@ func (l LawConfig) validate() error {
 	if t.ChiefTerm < 0 || t.TermDays < 0 || t.ObserveDays < 0 || t.Band <= 0 || t.Decay < 0 || t.Decay > 1 || t.GoodwillCash <= 0 || t.GoodwillDecay < 0 || t.GoodwillDecay > 1 || t.Moderate < 0 || t.Moderate >= 1 {
 		return fmt.Errorf("bad [law] table %+v", t)
 	}
-	if fx := l.Effects; fx.PressureThresholdCut < 0 || fx.PressureThresholdCut >= 1 || fx.PressureCapCut < 0 || fx.PressureCapCut > 1 || fx.PressureTip < 0 {
+	if fx := l.Effects; fx.PressureThresholdCut < 0 || fx.PressureThresholdCut >= 1 || fx.PressureCapCut < 0 || fx.PressureCapCut > 1 || fx.PressureTip < 0 || fx.BackedSting < 0 {
 		return fmt.Errorf("bad [effects] table %+v", fx)
+	}
+	if c := l.Campaign; c.Cash < 0 || c.SwingMax < 0 || c.SwingMax > 0.5 || c.OpenDays < 0 || c.Pressure < 0 || c.BackedDAPriceMul < 0 || c.LoserPressure < 0 || (t.TermDays > 0 && c.OpenDays >= t.TermDays) {
+		return fmt.Errorf("bad [campaign] table %+v", c)
 	}
 	return nil
 }
+
+// Swing is the share of a city's vote that cash behind a ticket moves
+// (#193): a point per Cash, at most SwingMax. No price, no swing.
+func (c CampaignTuning) Swing(cash int) float64 {
+	if c.Cash <= 0 || cash <= 0 {
+		return 0
+	}
+	return math.Min(c.SwingMax, float64(cash)/float64(c.Cash)/100)
+}
+
+// Fill is the clean cash that buys a city's campaign the whole swing.
+func (c CampaignTuning) Fill() int { return int(math.Round(c.SwingMax * 100 * float64(c.Cash))) }
 
 // UpgradesConfig mirrors upgrades.toml: the upgrade tree.
 type UpgradesConfig struct {

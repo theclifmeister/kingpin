@@ -67,7 +67,7 @@ Package layout: `cmd/kingpin` (the game), `cmd/balance` (headless runs), `cmd/ke
 | Standing orders (sell routine) | `World.Standing`, `market.Sim.standing` | `market.toml [standing]` | `docs/standing-orders.md` | `TestStandingSellsLikeTheHand`, `TestRoutineIsWithinFifteenPercentOfCrewed` |
 | Buyers (contracts) | `game/buyers.go`, `sim/market/buyers.go`, `ui/buyers.go` | `buyers.toml` | `docs/buyers.md` | `buyers_test.go`, `TestDealerBeatsCrewed` |
 | Heat, evidence, the police response | `sim/heat`, levels `content.Patrol..Arrest` | `heat.toml` | `docs/corners.md`, `docs/snitching.md` | `heat_test.go`, `TestRichHiderIsNeverIndicted` (#27), `balance_test.go` |
-| The law: chief, DA, pressure, goodwill | `sim/law`, `game/law.go`, `ui/law.go` | `law.toml`, `names.toml` | `docs/law.md` | `law_test.go`, `TestQuietDayRuleHoldsUnderEveryLaw` |
+| The law: chief, DA, pressure, goodwill, campaigns (#193) | `sim/law`, `game/law.go`, `ui/law.go` | `law.toml`, `names.toml` | `docs/law.md` | `law_test.go`, `TestQuietDayRuleHoldsUnderEveryLaw`, `TestNoCampaignIsTheOldRun` |
 | Logistics: routes, targets, shipments | `sim/logistics`, `ui/routes.go` | `routes.toml` | `docs/logistics.md` | `TestStockIsConservedAcrossShipments`, `TestDistributorBeatsLaundered` |
 | Laundering: fronts, the float, audits | `sim/laundering`, `ui/ledger.go` | `laundering.toml` | `docs/laundering.md` | `laundering_test.go`, `TestLaunderingNodesPullTheirWay` |
 | Stash houses | `game/houses.go`, `ui/houses.go`, raid in `sim/heat`, rent in `sim/territory` | `houses.toml` | `docs/houses.md` | `houses_test.go`, `TestDecoyHouseNeverShieldsTheStreet` |

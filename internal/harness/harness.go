@@ -760,19 +760,50 @@ const LaunderCarefulDays = 30
 // Funded plays like Laundered and buys the city off (#41): whenever the
 // pressure where it is has passed FundPressure it gives the city
 // FundShare of its clean cash, up to what takes goodwill to 100, never a
-// dollar of dirty. It is the baseline for "a player who pays the town".
+// dollar of dirty; and it backs the reform ticket (#193) in every city
+// when a campaign opens, with FundShare of its clean cash up to what
+// buys the whole swing. It is the baseline for "a player who pays the
+// town".
 func Funded(cfg *content.Config, lieLowAt float64) Policy {
 	laundered := Laundered(cfg, lieLowAt)
-	tun := cfg.Law.Law
 	return func(w *game.World) {
 		laundered(w)
-		here := w.Here()
-		if here.Pressure <= FundPressure || w.FundedToday(here.ID) > 0 {
-			return
+		backReform(cfg, w)
+		payTown(cfg, w, w.Here())
+	}
+}
+
+// payTown gives a city FundShare of the clean cash in hand, up to what
+// takes its goodwill to 100, once a day and only while its pressure is
+// over FundPressure.
+func payTown(cfg *content.Config, w *game.World, c *game.City) {
+	if c.Pressure <= FundPressure || w.FundedToday(c.ID) > 0 {
+		return
+	}
+	need := int((100 - c.Goodwill) * float64(cfg.Law.Law.GoodwillCash))
+	if amt := min(int(float64(w.Player.CleanCash)*FundShare), need); amt > 0 {
+		_ = w.Fund(c.ID, amt)
+	}
+}
+
+// backReform puts FundShare of the clean cash in hand behind the reform
+// ticket in every city whose campaign is open and has none of its money
+// yet (#193), up to what buys the whole swing: one donation a city an
+// election, the day the campaign opens or the first day after with
+// clean cash to give.
+func backReform(cfg *content.Config, w *game.World) {
+	if !w.Law.CampaignOpen {
+		return
+	}
+	for _, cid := range w.CityOrder {
+		if w.Cities[cid].Campaign.Cash > 0 {
+			continue
 		}
-		need := int((100 - here.Goodwill) * float64(tun.GoodwillCash))
-		if amt := min(int(float64(w.Player.CleanCash)*FundShare), need); amt > 0 {
-			_ = w.Fund(here.ID, amt)
+		if _, today := w.BackedToday(cid); today > 0 {
+			continue
+		}
+		if amt := min(int(float64(w.Player.CleanCash)*FundShare), cfg.Law.Campaign.Fill()); amt > 0 {
+			_ = w.Back(cid, "reform", amt)
 		}
 	}
 }
@@ -986,6 +1017,13 @@ func distribute(cfg *content.Config, lieLowAt float64, delegate, fight bool, per
 			washUpAt(cfg, w, BossMargin)
 			BuyUpgrades(cfg, w, BossMargin)
 			w.SetPay(events.PayGenerous)
+			// The boss pays the town (#193): the reform ticket in every
+			// city when a campaign opens, and goodwill wherever the
+			// pressure is up, as Funded does where it stands.
+			backReform(cfg, w)
+			for _, cid := range w.CityOrder {
+				payTown(cfg, w, w.Cities[cid])
+			}
 		} else {
 			washUp(cfg, w)
 			BuyUpgrades(cfg, w, 3) // the stash spots are what a lot needs room for

@@ -86,7 +86,7 @@ func TestSimsWriteOnlyTheirOwnState(t *testing.T) {
 		"rivals":     {"Rival", "Offers"},
 		"crew":       {"Crew", "Delegated", "DelegatedSupply"},
 		"heat":       {"Heat", "Cities.Heat", "Houses", "FallsTaken"},
-		"law":        {"Law", "Cities.Pressure", "Cities.Goodwill"},
+		"law":        {"Law", "Cities.Pressure", "Cities.Goodwill", "Cities.Campaign"},
 		"laundering": {"Laundering", "Fronts"},
 		"reputation": {"Player.Reputation"},
 		"news":       {"Journal", "Report", "Dilemmas", "Progression"},
