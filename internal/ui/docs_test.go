@@ -5,10 +5,13 @@ import (
 	"os"
 	"strings"
 	"testing"
+	"time"
 
 	"github.com/charmbracelet/lipgloss"
 
 	tea "github.com/charmbracelet/bubbletea"
+
+	"github.com/theclifmeister/kingpin/internal/content"
 )
 
 // The help modal at 80x24 (#89): GLOBAL first, then a group per screen
@@ -38,8 +41,8 @@ func TestHelpScrollsToTheLastRow(t *testing.T) {
 			t.Errorf("a help line is %d wide, over the modal's %d: %q", w, m.modalInner(), stripANSI(l))
 		}
 	}
-	if len(words) != 18 {
-		t.Errorf("WORDS has %d terms, want the dial, the float, the target, the file, drift, undercut, keep at, through, standing, connect, credit, unlock, house, the pane, the strip, the tier, scout and boost", len(words))
+	if len(words) != 19 {
+		t.Errorf("WORDS has %d terms, want the dial, the float, the target, the file, drift, undercut, keep at, through, standing, connect, credit, unlock, house, the pane, the strip, the tier, scout, boost and scene", len(words))
 	}
 	m.Update(key("?"))
 	if m.mode != modeHelp {
@@ -80,25 +83,65 @@ var update = flag.Bool("update", false, "rewrite README.md's captures from the f
 const captureSeed = 89
 
 // readmeCaptures are the README's captures: the fixture on captureSeed
-// at a size, turned to a screen, rendered plain. `go test ./internal/ui
-// -run TestReadmeCaptures -update` writes them into README.md between
-// their markers; without the flag the test diffs the README against
-// them, so a screen change fails until the README is regenerated.
+// at a size, turned to a screen, rendered plain, and the title's still
+// (#161). `go test ./internal/ui -run TestReadmeCaptures -update`
+// writes them into README.md between their markers; without the flag
+// the test diffs the README against them, so a screen change fails
+// until the README is regenerated.
 var readmeCaptures = []struct {
 	name   string
 	w, h   int
-	screen screen
+	render func(t *testing.T, w, h int) *Model
 }{
-	{"dashboard-80x24", 80, 24, screenDashboard},
-	{"map-120x40", 120, 40, screenMap},
+	{"title-80x24", 80, 24, titleStill},
+	{"dashboard-80x24", 80, 24, screenAt(screenDashboard)},
+	{"map-120x40", 120, 40, screenAt(screenMap)},
+}
+
+// screenAt is the fixture on captureSeed turned to the screen.
+func screenAt(s screen) func(t *testing.T, w, h int) *Model {
+	return func(t *testing.T, w, h int) *Model {
+		t.Helper()
+		m := richModelSeeded(t, w, h, captureSeed)
+		m.switchScreen(s)
+		return m
+	}
+}
+
+// titleStillAt is the moment the README's title still is taken at:
+// mid-decrypt, a second into the pass, KING settled from the left and
+// PIN still churning.
+const titleStillAt = time.Second
+
+// titleStill is a fresh install's start menu (three empty slots, no
+// run) with the loop's first pass pinned to decrypt at titleStillAt: a
+// scene is a pure function of its time and its dice, and the loop's
+// dice are the menu's own (anim.Seed(0, pass, "title"): there is no
+// run yet), so the still is the same every time, whatever the seed of
+// the run the other captures are of.
+func titleStill(t *testing.T, w, h int) *Model {
+	t.Helper()
+	t.Setenv("KINGPIN_HOME", t.TempDir())
+	m, err := wire(content.MustLoad(), Options{Anim: true, Effect: "decrypt"})
+	if err != nil {
+		t.Fatal(err)
+	}
+	m.width, m.height = w, h
+	onMenu(t, m)
+	now := time.Unix(1_700_000_000, 0)
+	tickAt(m, now)
+	tickAt(m, now.Add(titleStillAt))
+	if m.scene == nil || !m.scene.Idle || m.scene.T() != titleStillAt {
+		t.Fatalf("the loop is not at %v: %+v", titleStillAt, m.scene)
+	}
+	return m
 }
 
 // capture renders one README capture: every line's trailing blanks
 // dropped, so the README is stable under an editor that strips them.
-func capture(t *testing.T, name string, w, h int, s screen) string {
+func capture(t *testing.T, name string, w, h int, render func(t *testing.T, w, h int) *Model) string {
 	t.Helper()
-	m := richModelSeeded(t, w, h, captureSeed)
-	m.switchScreen(s)
+	m := render(t, w, h)
 	m.status = ""
 	view := stripANSI(m.View())
 	assertFits(t, m.View(), w, h, name)
@@ -117,7 +160,7 @@ func TestReadmeCaptures(t *testing.T) {
 	}
 	readme := string(b)
 	for _, c := range readmeCaptures {
-		want := capture(t, c.name, c.w, c.h, c.screen)
+		want := capture(t, c.name, c.w, c.h, c.render)
 		begin := ReadmeCaptureBegin(c.name)
 		if *update {
 			out, ok := SpliceReadme(readme, begin, ReadmeCaptureEnd, want)
@@ -146,8 +189,8 @@ func TestReadmeCaptures(t *testing.T) {
 // every render: what the README's captures rely on.
 func TestCaptureFixtureIsDeterministic(t *testing.T) {
 	for _, c := range readmeCaptures {
-		a := capture(t, c.name, c.w, c.h, c.screen)
-		b := capture(t, c.name, c.w, c.h, c.screen)
+		a := capture(t, c.name, c.w, c.h, c.render)
+		b := capture(t, c.name, c.w, c.h, c.render)
 		if a != b {
 			t.Errorf("%s: two renders of the fixture on seed %d differ:\n%s\n%s", c.name, captureSeed, a, b)
 		}

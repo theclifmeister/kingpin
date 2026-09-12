@@ -170,7 +170,10 @@ func TestPlayerLoops(t *testing.T) {
 	}
 }
 
-// The registry names every scene once and each makes on a seed.
+// The registry names every scene once and each makes on a seed; every
+// entry says what starts it, which effects it draws with (each in the
+// set) and how long it runs, the moment Done turns true (#161); and
+// With, the title's, makes the scene on the effect named.
 func TestScenesRegistry(t *testing.T) {
 	names := map[string]bool{}
 	for _, sc := range Scenes() {
@@ -178,6 +181,29 @@ func TestScenesRegistry(t *testing.T) {
 			t.Errorf("registry entry %q is bad or repeated", sc.Name)
 		}
 		names[sc.Name] = true
+		if sc.Starts == "" || len(sc.Effects) == 0 {
+			t.Errorf("%s: no Starts (%q) or no Effects (%v)", sc.Name, sc.Starts, sc.Effects)
+		}
+		for _, e := range sc.Effects {
+			if _, ok := Effects[e]; !ok {
+				t.Errorf("%s: effect %q is not in the set", sc.Name, e)
+			}
+		}
+		s := sc.New(1)
+		if sc.Length <= 0 || s.Done(sc.Length-Frame) || !s.Done(sc.Length) {
+			t.Errorf("%s: Length %v is not the moment Done turns true", sc.Name, sc.Length)
+		}
+		if (sc.With != nil) != (sc.Name == "title") {
+			t.Errorf("%s: With %v; the title alone takes an effect", sc.Name, sc.With != nil)
+		}
+		if sc.With != nil {
+			for _, e := range sc.Effects {
+				a, b := sc.With(1, e), Effects[e].New(NewText(Kingpin), theme.Money, sc.Length, Seed(1, 0, "title"))
+				if plain(a.Frame(sc.Length/2, 80, 24)) != plain(b.Frame(sc.Length/2, 80, 24)) {
+					t.Errorf("%s with %s: not the effect on the title's stream", sc.Name, e)
+				}
+			}
+		}
 	}
 	if !names["title"] {
 		t.Error("the title is not registered")

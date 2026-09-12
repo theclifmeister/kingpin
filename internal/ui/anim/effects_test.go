@@ -164,6 +164,22 @@ func TestEffectsReadInSixteenColours(t *testing.T) {
 			}
 		}
 	}
+	// And every registered scene (#161): no truecolor sequence in any
+	// frame, and the frame at the half is not the first.
+	for _, sc := range Scenes() {
+		s := sc.New(2)
+		first := plain(s.Frame(0, 80, 24))
+		for at := time.Duration(0); at <= sc.Length; at += Frame {
+			for _, l := range s.Frame(at, 80, 24) {
+				if strings.Contains(l, "38;2;") {
+					t.Fatalf("%s: a truecolor sequence under the ANSI profile at %v: %q", sc.Name, at, l)
+				}
+			}
+		}
+		if plain(s.Frame(sc.Length/2, 80, 24)) == first {
+			t.Errorf("%s: the frame at the half is the first", sc.Name)
+		}
+	}
 }
 
 // Still is the text at once and done; Reverse plays an effect from its
