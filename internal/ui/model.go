@@ -72,6 +72,10 @@ const (
 	modeMove          // move stock between the street and the houses in a city (#73): from, to, product, quantity
 	modeGuard         // pick the enforcer who guards the selected house (#73)
 	modeConfirmDrop   // walk away from the selected house? (#73)
+	modeConfirmScout  // read the rival's books tonight? (#70)
+	modeConfirmBoost  // send the enforcers for the till on the selected corner? (#70)
+	modeConfirmTip    // tip the police on the selected corner? (#70)
+	modeConfirmBuyOff // pay the rival's muscle to go home: the heads, then y or enter (#70)
 	modeCount
 )
 
@@ -142,6 +146,7 @@ type Model struct {
 	crt            cartDialog
 	fnd            fundDialog
 	fst            fastDialog
+	bo             buyOffDialog
 	fastStop       string // the report's first line after a fast-forward (`Stopped after 3 days: …`), until the next day ends
 	slot           int    // the save slot this run lives in: where ctrl+s, the end of the day and quitting save
 	startChoice    int    // row on the start menu: the slots, then Quit
@@ -450,6 +455,32 @@ func (m *Model) handleKey(k tea.KeyMsg) (tea.Model, tea.Cmd) {
 			m.mode = modePlay
 		}
 		return m, nil
+	case modeConfirmScout:
+		switch key {
+		case "y", "Y":
+			m.confirmScout()
+		default:
+			m.mode = modePlay
+		}
+		return m, nil
+	case modeConfirmBoost:
+		switch key {
+		case "y", "Y":
+			m.confirmBoost()
+		default:
+			m.mode = modePlay
+		}
+		return m, nil
+	case modeConfirmTip:
+		switch key {
+		case "y", "Y":
+			m.confirmTip()
+		default:
+			m.mode = modePlay
+		}
+		return m, nil
+	case modeConfirmBuyOff:
+		return m.keyBuyOff(k)
 	case modeTarget:
 		return m.keyTarget(k)
 	case modeFund:
@@ -901,6 +932,14 @@ func (m *Model) View() string {
 		body = m.payOffConfirm()
 	case modeConfirmTravel:
 		body = m.travelConfirm()
+	case modeConfirmScout:
+		body = m.scoutConfirm()
+	case modeConfirmBoost:
+		body = m.boostConfirm()
+	case modeConfirmTip:
+		body = m.tipConfirm()
+	case modeConfirmBuyOff:
+		body = m.viewBuyOff()
 	case modeTarget:
 		body = m.viewTarget()
 	case modeFund:

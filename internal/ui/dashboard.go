@@ -441,12 +441,18 @@ func (m *Model) rivalLines(innerW int) []string {
 	leader := theme.RivalText.Render(r.Leader)
 	who := leader + sep + theme.Subtle.Render(plural(w.RivalHeld(), "corner"))
 	temper := who + sep + theme.Subtle.Render(m.personalityWord())
+	// The books (#70): the muscle as last read, where the line has room
+	// for it after the rest.
+	books := temper
+	if r.Known.Read() {
+		books = temper + sep + theme.Subtle.Render(fmt.Sprintf("muscle %d (%dd)", r.Known.Muscle, r.Known.Age(w.Day)))
+	}
 	if eye := m.eyeingWord(); eye != "" {
 		// The tell (#69) outranks the temper, the count and the name
 		// where the line has room for one of them: it needs you.
 		who = firstFit(innerW, temper+sep+eye, who+sep+eye, leader+sep+eye, eye, temper, who)
 	} else {
-		who = firstFit(innerW, temper, who)
+		who = firstFit(innerW, books, temper, who)
 	}
 	war := bar("war", r.War/tun.CrackdownThreshold, fmt.Sprintf("%.0f/%.0f", r.War, tun.CrackdownThreshold))
 	switch {

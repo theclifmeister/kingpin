@@ -181,7 +181,8 @@ func (s *Sim) Step(w *game.World, t *game.Tick) {
 
 	// Money before we look at events: sales are already applied by market.
 	var soldRevenue, lostCash, spent, wages, skimmed, robbed, upgrades, upkeep, seized, paidOff, investigated, shipping, tribute, cuts, standingCut, funded, contracts, forfeits, repaid, rent int
-	routeCost := map[string]int{} // what each route cost today, lots and fares, by name in the order first seen
+	var scouted, poached, boosted int // the books (#70): what a scout and a buy-off cost, less the refund, and what a boost took
+	routeCost := map[string]int{}     // what each route cost today, lots and fares, by name in the order first seen
 	var routeOrder []string
 	charge := func(route string, cost int) {
 		if _, ok := routeCost[route]; !ok {
@@ -560,6 +561,64 @@ func (s *Sim) Step(w *game.World, t *game.Tick) {
 			d.Rival = ev.Rival
 			add("rivals", "RivalTippedPolice", d)
 			rep.Territory = append(rep.Territory, fmt.Sprintf("Somebody tipped the police about you. It was %s. Heat +%.0f.", ev.Rival, ev.Heat))
+		// The books (#70): the scout, the boost, the tip, the raid and
+		// the buy-off. The scout, the tip and the buy-off are report-only;
+		// the boost and the raid are news.
+		case events.RivalScouted:
+			scouted += ev.Cost
+			k := w.Rival.Known
+			if ev.Read {
+				rep.Territory = append(rep.Territory, fmt.Sprintf("Your scout read %s's books: %s in the chest, %s a day coming in, %s on the payroll costing %s a day. It goes stale; the rivals screen (8) says how old it is.", w.Rival.Leader, format.Cash(k.Cash), format.Cash(k.Income), format.Plural(k.Muscle, "head"), format.Cash(k.Wages)))
+			} else {
+				rep.Territory = append(rep.Territory, fmt.Sprintf("Your scout got nowhere near %s's books. Next time is likelier.", w.Rival.Leader))
+			}
+			rep.Money = append(rep.Money, fmt.Sprintf("Scouting %s's books -%s", w.Rival.Leader, format.Money(ev.Cost)))
+		case events.RivalBoosted:
+			d := base
+			d.Corner, d.Rival = ev.Name, ev.Rival
+			if ev.Taken {
+				boosted += ev.Cash
+				add("rivals", "RivalBoosted", d)
+				rep.Territory = append(rep.Territory, fmt.Sprintf("Your enforcers robbed %s on %s: %s off their day's take, into your pocket. The corner is still theirs.", ev.Rival, ev.Name, format.Money(ev.Cash)))
+				rep.Money = append(rep.Money, fmt.Sprintf("Robbed %s on %s +%s", ev.Rival, ev.Name, format.Money(ev.Cash)))
+			} else {
+				add("rivals", "RivalBoostedHeld", d)
+				line := fmt.Sprintf("Your enforcers went for %s's takings on %s and came back with nothing.", ev.Rival, ev.Name)
+				if ev.Hurt > 0 {
+					line += " One of them got hurt."
+				}
+				rep.Territory = append(rep.Territory, line)
+			}
+		case events.PoliceTipped:
+			line := fmt.Sprintf("You tipped the police on %s. Their attention on %s is at %.0f.", ev.Name, ev.Rival, ev.RivalHeat)
+			if ev.Betrayal {
+				line += " That broke the peace."
+			}
+			rep.Territory = append(rep.Territory, line)
+		case events.RivalRaided:
+			d := base
+			d.Corner, d.Rival = ev.Name, ev.Rival
+			add("rivals", "RivalRaided", d)
+			rep.Territory = append(rep.Territory, fmt.Sprintf("The police RAIDED %s on %s: it is free, and %s of theirs went in the van. Post a runner before somebody else does.", ev.Rival, ev.Name, format.Plural(ev.Muscle, "head")))
+		case events.RivalMusclePoached:
+			d := base
+			d.Rival = ev.Rival
+			poached += ev.Cost - ev.Refund
+			switch {
+			case ev.Failed:
+				rep.Territory = append(rep.Territory, fmt.Sprintf("Your money never reached %s's people, or they took it and stayed. %s knows you tried.", ev.Rival, ev.Rival))
+				rep.Money = append(rep.Money, fmt.Sprintf("Buying off %s's muscle, lost -%s", ev.Rival, format.Money(ev.Cost)))
+			case ev.Got == 0:
+				rep.Territory = append(rep.Territory, fmt.Sprintf("%s had nobody left to buy off. Your money came back.", ev.Rival))
+			default:
+				add("rivals", "RivalMusclePoached", d)
+				line := fmt.Sprintf("%s of %s's muscle took your money and went home. They are nobody's now.", format.Plural(ev.Got, "head"), ev.Rival)
+				if ev.Refund > 0 {
+					line += fmt.Sprintf(" They only had %d; %s came back.", ev.Got, format.Money(ev.Refund))
+				}
+				rep.Territory = append(rep.Territory, line)
+				rep.Money = append(rep.Money, fmt.Sprintf("Bought off %s of %s's muscle -%s", format.Plural(ev.Got, "head"), ev.Rival, format.Money(ev.Cost-ev.Refund)))
+			}
 		case events.RivalUndercut:
 			rep.Territory = append(rep.Territory, fmt.Sprintf("%s's crew are undercutting you on %s: -%.0f%% demand there.", ev.Rival, strings.Join(ev.Corners, ", "), ev.Share*100))
 		case events.PlayerUndercut:
@@ -792,7 +851,7 @@ func (s *Sim) Step(w *game.World, t *game.Tick) {
 		spent += m.Fee
 		rep.Money = append(rep.Money, fmt.Sprintf("Signing fee for %s -%s", m.Name, format.Money(m.Fee)))
 	}
-	rep.CashBefore = w.Cash() - soldRevenue - contracts + forfeits + lostCash + spent + wages + skimmed + robbed + upgrades + upkeep + seized + paidOff + investigated + shipping + tribute + cuts + funded + repaid + rent
+	rep.CashBefore = w.Cash() - soldRevenue - contracts + forfeits + lostCash + spent + wages + skimmed + robbed + upgrades + upkeep + seized + paidOff + investigated + shipping + tribute + cuts + funded + repaid + rent + scouted + poached - boosted
 	if soldRevenue > 0 {
 		rep.Money = append(rep.Money, fmt.Sprintf("Street sales +%s", format.Money(soldRevenue)))
 	}

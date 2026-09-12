@@ -204,6 +204,24 @@ RivalRouted = [
   "{{.Rival}}'s crew run out of {{.City}}; 'it is over', says police source",
   "End of the road for {{.Rival}}: last corner lost on {{.Corner}}",
 ]
+RivalBoosted = [
+  "{{.Rival}}'s people robbed on {{.Corner}}; 'they took the night's money and left'",
+  "Stick-up on {{.Corner}}: {{.Rival}}'s crew lose a day's takings",
+  "Masked men clear the till on {{.Corner}}; {{.Rival}} 'wants names'",
+]
+RivalBoostedHeld = [
+  "Attempted robbery on {{.Corner}} goes wrong; {{.Rival}}'s people 'were ready'",
+  "Scuffle on {{.Corner}}; {{.Rival}}'s crew chase off would-be robbers",
+]
+RivalRaided = [
+  "Police raid {{.Corner}}; {{.Rival}}'s people led away in cuffs",
+  "Dawn raid on {{.Corner}}: arrests, and {{.Rival}}'s crew gone from it",
+  "Acting on a tip, police clear {{.Corner}} of {{.Rival}}'s outfit",
+]
+RivalMusclePoached = [
+  "{{.Rival}}'s crew thinner overnight; 'some of the boys went home', says one",
+  "Faces missing from {{.Rival}}'s corners; nobody is saying where they went",
+]
 RivalTippedPolice = [
   "Anonymous tip sends police to {{.City}} corners",
   "Police 'acting on information' in {{.City}}",

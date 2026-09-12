@@ -61,6 +61,9 @@ type World struct {
 	Undercuts     map[string]events.Dial // rival corner id -> the dial tonight's orders undercut it at (#68); the market sim resolves them
 	Moved         []Move                 // stock moved between places today (#73); the heat sim counts the units as exposure
 	HousesBought  []string               // house ids bought today; the territory sim reports them
+	Scouting      *ScoutOrder            // somebody reading the rival's books tonight (#70); the rivals sim resolves it
+	Tipoff        *TipOrder              // the rival corner you tipped the police on tonight (#70); the rivals sim resolves it
+	Poach         *PoachOrder            // the rival's muscle you are paying to go home tonight (#70); the rivals sim resolves it
 
 	Journal []Headline // full headline history, oldest first
 	Report  *DayReport // morning report for the current day
@@ -423,11 +426,51 @@ type SellOrder struct {
 func OrderKey(city, product string) string { return city + "/" + product }
 
 // StrikeOrder is the player's enforcers sent against a rival corner at a
-// force, resolved by the rival sim at end of day.
+// force, resolved by the rival sim at end of day. Boost sends them for
+// the corner's takings rather than the ground (#70): one order a night
+// either way, at the force's odds.
 type StrikeOrder struct {
 	Corner string
 	Force  events.Force
+	Boost  bool
 }
+
+// ScoutOrder is the player paying for a look at the rival's books
+// tonight (#70), paid up front and resolved by the rivals sim.
+type ScoutOrder struct {
+	Cost int
+}
+
+// TipOrder is the player tipping the police on a rival corner tonight
+// (#70): free in cash, resolved by the rivals sim.
+type TipOrder struct {
+	Corner string
+}
+
+// PoachOrder is the player paying Units heads of the rival's muscle to
+// go home tonight (#70), Cost paid up front, resolved by the rivals sim.
+type PoachOrder struct {
+	Units int
+	Cost  int
+}
+
+// Known is the rival's books as last read by a scout (#70): a snapshot,
+// never a live feed. Day is the day it was read, 0 for never; the
+// numbers are the rival's cash, its income and its wage bill that day
+// and its muscle that night. Nothing but a successful scout writes it.
+type Known struct {
+	Day    int
+	Cash   int
+	Income int
+	Muscle int
+	Wages  int
+}
+
+// Read reports whether the books have ever been read.
+func (k Known) Read() bool { return k.Day > 0 }
+
+// Age is how many days old the snapshot is on day.
+func (k Known) Age(day int) int { return day - k.Day }
 
 // RivalState is the faction competing for the city's corners. Leader is
 // empty until the sim seeds it; Arrived is 0 until it holds its first
@@ -464,6 +507,18 @@ type RivalState struct {
 	// forward; a surplus day pays them down and at a full wage a head
 	// walks. Zero is a payroll the take covers, the pre-#139 state.
 	Arrears float64
+
+	// The player's moves against it (#70). Heat is the police's
+	// attention on it, 0..100: your tips, and its own pushes while it is
+	// over zero; past the notice line they take a corner off it. Known
+	// is its books as last scouted; Scouted counts the scouts that read
+	// nothing since the last that did. Zero values are the pre-#70 state.
+	Heat     float64
+	Known    Known
+	Scouted  int
+	LastRaid int // day the police last took a corner off it on your tip; 0 never
+	Away     int // heads bought off or arrested and not yet back: what it wants less, for a while
+	AwayDay  int // day the last of them came back, or was sent away; the next returns away_days later
 }
 
 // Lead is a crew member who went over to the rival: their name and the
@@ -551,6 +606,12 @@ type Stats struct {
 	Skimmed        int
 	Robbed         int
 	Strikes        int // enforcers sent against a rival corner
+	Boosts         int // enforcers sent for a rival corner's takings (#70)
+	Boosted        int // dirty cash they took off it
+	Scouts         int // looks bought at the rival's books
+	Tips           int // tips you gave the police on a rival corner
+	RivalRaids     int // rival corners the police took on your tips
+	Poached        int // heads of the rival's muscle you paid to go home
 	CornersWon     int // rival corners taken by force
 	CornersLost    int // corners the rival took from you
 	Laundered      int // dirty cash washed clean

@@ -1162,6 +1162,83 @@ type RivalAbandoned struct {
 
 func (RivalAbandoned) Kind() string { return "RivalAbandoned" }
 
+// The books (#70): the player's moves against the rival's machine.
+
+// RivalScouted is report-only bookkeeping: the night's look at the
+// rival's books. Read says whether it read them; the snapshot itself is
+// Rival.Known.
+type RivalScouted struct {
+	Day  int
+	Cost int
+	Read bool
+}
+
+func (RivalScouted) Kind() string { return "RivalScouted" }
+
+// RivalBoosted is the resolution of the player's enforcers going in on a
+// rival corner for its takings rather than the ground. Taken says the
+// boost landed and Cash what it took (into dirty cash, off the rival's
+// chest); Heat is what it drew; Toll the loyalty an enforcer with no
+// nerve loses over it (the crew sim scales it by nerve); Hurt the skill
+// one enforcer loses on a failure against real muscle, 0 for none.
+type RivalBoosted struct {
+	Day    int
+	Corner string
+	Name   string
+	Rival  string
+	Force  Force
+	Taken  bool
+	Cash   int
+	Heat   float64
+	Toll   float64
+	Hurt   int
+}
+
+func (RivalBoosted) Kind() string { return "RivalBoosted" }
+
+// PoliceTipped is report-only bookkeeping: your tip on a rival corner
+// landed. RivalHeat is where their heat stands after it; Betrayal says
+// it broke a deal.
+type PoliceTipped struct {
+	Day       int
+	Corner    string
+	Name      string
+	Rival     string
+	RivalHeat float64
+	Betrayal  bool
+}
+
+func (PoliceTipped) Kind() string { return "PoliceTipped" }
+
+// RivalRaided is the police taking a rival corner on your tips: the
+// corner goes back to the street and Muscle heads are gone. The mirror
+// of RivalTippedPolice.
+type RivalRaided struct {
+	Day    int
+	Corner string
+	Name   string
+	Rival  string
+	Muscle int
+}
+
+func (RivalRaided) Kind() string { return "RivalRaided" }
+
+// RivalMusclePoached is the resolution of the player buying off the
+// rival's muscle: Wanted heads paid for, Got sent home (never more than
+// it had; Refund is what came back for the rest), or none when the order
+// failed (Got 0, the money gone, a grudge held). They never join you.
+type RivalMusclePoached struct {
+	Day    int
+	Rival  string
+	Wanted int
+	Got    int
+	Cost   int
+	Refund int
+	Failed bool
+}
+
+func (RivalMusclePoached) Kind() string { return "RivalMusclePoached" }
+
 // TierReached is the run entering a progression tier (#147): the news
 // sim stamps it the first morning the tier's trigger holds, one tier a
 // morning, so a night that crosses two lines is two mornings. Tier is
