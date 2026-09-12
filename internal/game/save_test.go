@@ -556,8 +556,8 @@ func TestSendEnforcersAndBorders(t *testing.T) {
 func TestSaveKeepsRival(t *testing.T) {
 	t.Setenv("KINGPIN_HOME", t.TempDir())
 	w := testWorld()
-	w.Rival = RivalState{Leader: "Big Sal", Personality: "chaotic", Supplier: 0.8, Cash: 1234, Muscle: 3, Arrived: 2, Observed: true, Grudge: 1, War: 33.5, Claims: 2, Flips: 1, Tips: 1, Eyeing: "railyard", EyeingDay: 4}
-	w.Corner("docks").Owner = OwnerRival
+	w.Rival = RivalState{ID: FactionRival, Leader: "Big Sal", Personality: "chaotic", Supplier: 0.8, Cash: 1234, Muscle: 3, Arrived: 2, Observed: true, Grudge: 1, War: 33.5, Claims: 2, Flips: 1, Tips: 1, Eyeing: "railyard", EyeingDay: 4}
+	w.Corner("docks").Owner, w.Corner("docks").Faction = OwnerRival, FactionRival
 	w.Corner("home").Squeeze = 0.2
 	w.Stats.Strikes, w.Stats.CornersWon, w.Stats.CornersLost = 3, 1, 2
 	if err := Save(1, w); err != nil {
@@ -569,6 +569,37 @@ func TestSaveKeepsRival(t *testing.T) {
 	}
 	if !reflect.DeepEqual(got.Rival, w.Rival) || !reflect.DeepEqual(got.Home().Corners, w.Home().Corners) || got.Stats != w.Stats {
 		t.Fatalf("rival did not round-trip:\n%+v\n%+v", got.Rival, w.Rival)
+	}
+}
+
+// A save from before faction ids (#144) loads with no migration and no
+// schema bump: the rival's zero id resolves to the one faction there
+// is, and its corners, which carried no id, are stamped with it on the
+// way in; nothing else about them moves.
+func TestOldSaveNamesTheFaction(t *testing.T) {
+	t.Setenv("KINGPIN_HOME", t.TempDir())
+	w := testWorld()
+	w.Rival = RivalState{Leader: "Big Sal", Personality: "chaotic", Cash: 1234, Muscle: 3, Arrived: 2}
+	w.Corner("docks").Owner, w.Corner("docks").Since = OwnerRival, 2
+	if err := Save(1, w); err != nil {
+		t.Fatal(err)
+	}
+	got, err := Load(1)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if got.SchemaVersion != SchemaVersion || got.Rival.ID != "" || got.Rival.Faction() != FactionRival {
+		t.Fatalf("schema %d rival id %q faction %q, want the zero id resolving to %q", got.SchemaVersion, got.Rival.ID, got.Rival.Faction(), FactionRival)
+	}
+	if c := got.Corner("docks"); c.Owner != OwnerRival || c.Faction != FactionRival {
+		t.Fatalf("the rival's corner loaded as %+v, want it named %q", *c, FactionRival)
+	}
+	if c := got.Corner("home"); c.Owner != OwnerPlayer || c.Faction != "" {
+		t.Fatalf("the player's corner loaded as %+v, want no faction on it", *c)
+	}
+	w.Corner("docks").Faction = FactionRival
+	if !reflect.DeepEqual(got.Home().Corners, w.Home().Corners) {
+		t.Fatalf("corners moved beyond the stamp:\n%+v\n%+v", got.Home().Corners, w.Home().Corners)
 	}
 }
 

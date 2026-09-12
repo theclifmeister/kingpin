@@ -372,7 +372,7 @@ func TestDefectionElsewhereHandsNoCorner(t *testing.T) {
 			t.Fatal(err)
 		}
 		// A lead the rival should not act on even if it were handed one.
-		w.Rival.Leads = append(w.Rival.Leads, game.Lead{Name: "Ghost", Corner: corner})
+		w.Crew.Leads = append(w.Crew.Leads, game.Lead{Name: "Ghost", Corner: corner})
 		muscle := w.Rival.Muscle
 		res, err := RunFrom(cfg, w, 3, Idle)
 		if err != nil {

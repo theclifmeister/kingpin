@@ -121,7 +121,7 @@ func (s *Sim) seal(w *game.World, t *game.Tick, d game.Deal) {
 	w.Rival.Deals = append(w.Rival.Deals, d)
 	w.Rival.Observed = true
 	w.Stats.Deals++
-	t.Emit(events.DealAccepted{Day: t.Day, Rival: w.Rival.Leader, Deal: d.Kind, Terms: w.Describe(d), Until: d.Until, Offered: d.Offered})
+	t.Emit(events.DealAccepted{Day: t.Day, Rival: w.Rival.Leader, Faction: w.Rival.Faction(), Deal: d.Kind, Terms: w.Describe(d), Until: d.Until, Offered: d.Offered})
 }
 
 // betray is the player breaking a deal: it is gone, trust falls to the
@@ -134,7 +134,7 @@ func (s *Sim) betray(w *game.World, t *game.Tick, d game.Deal, why string) {
 	r.Betrayed = t.Day
 	r.Observed = true
 	w.Stats.Betrayals++
-	t.Emit(events.DealBroken{Day: t.Day, Rival: r.Leader, Deal: d.Kind, By: "you", Why: why})
+	t.Emit(events.DealBroken{Day: t.Day, Rival: r.Leader, Faction: r.Faction(), Deal: d.Kind, By: "you", Why: why})
 }
 
 // table runs the morning's business: a routed rival's deals end, offers
@@ -146,7 +146,7 @@ func (s *Sim) table(w *game.World, t *game.Tick) bool {
 	// A rival run out of town has nothing to deal about: what stood ends.
 	if w.RivalHeld() == 0 {
 		for _, d := range r.Deals {
-			t.Emit(events.DealEnded{Day: t.Day, Rival: r.Leader, Deal: d.Kind})
+			t.Emit(events.DealEnded{Day: t.Day, Rival: r.Leader, Faction: r.Faction(), Deal: d.Kind})
 		}
 		r.Deals = nil
 		w.Offers = nil
@@ -170,7 +170,7 @@ func (s *Sim) table(w *game.World, t *game.Tick) bool {
 			w.Player.DirtyCash -= d.Terms.PerDay
 			r.Cash += d.Terms.PerDay
 			w.Stats.Tribute += d.Terms.PerDay
-			t.Emit(events.TributePaid{Day: t.Day, Rival: r.Leader, Amount: d.Terms.PerDay})
+			t.Emit(events.TributePaid{Day: t.Day, Rival: r.Leader, Faction: r.Faction(), Amount: d.Terms.PerDay})
 		}
 	}
 	if d := w.Deal(game.DealSplit); d != nil {
@@ -243,7 +243,7 @@ func (s *Sim) answer(w *game.World, t *game.Tick) {
 		return
 	}
 	w.Stats.DealsRefused++
-	t.Emit(events.DealRefused{Day: t.Day, Rival: r.Leader, Deal: d.Kind, Terms: w.Describe(d)})
+	t.Emit(events.DealRefused{Day: t.Day, Rival: r.Leader, Faction: r.Faction(), Deal: d.Kind, Terms: w.Describe(d)})
 }
 
 // whim is the rival breaking a deal of its own accord: a chaotic one does,
@@ -263,7 +263,7 @@ func (s *Sim) whim(w *game.World, t *game.Tick) {
 		i--
 		r.Observed = true
 		w.Stats.BetrayedBy++
-		t.Emit(events.DealBroken{Day: t.Day, Rival: r.Leader, Deal: d.Kind, By: "rival", Why: "they felt like it"})
+		t.Emit(events.DealBroken{Day: t.Day, Rival: r.Leader, Faction: r.Faction(), Deal: d.Kind, By: "rival", Why: "they felt like it"})
 	}
 }
 
@@ -291,7 +291,7 @@ func (s *Sim) keep(w *game.World, t *game.Tick) {
 		if d.Until > 0 && t.Day+1 >= d.Until {
 			r.Deals = append(r.Deals[:i], r.Deals[i+1:]...)
 			i--
-			t.Emit(events.DealEnded{Day: t.Day, Rival: r.Leader, Deal: d.Kind})
+			t.Emit(events.DealEnded{Day: t.Day, Rival: r.Leader, Faction: r.Faction(), Deal: d.Kind})
 			continue
 		}
 		r.Trust = math.Min(100, r.Trust+earn)
@@ -352,7 +352,7 @@ func (s *Sim) offer(w *game.World, t *game.Tick) {
 	o := game.Offer{ID: r.NextOffer, Deal: d, Expires: t.Day + dip.OfferDays - 1}
 	w.Offers = append(w.Offers, o)
 	r.Observed = true
-	t.Emit(events.DealOffered{Day: t.Day, ID: o.ID, Rival: r.Leader, Deal: d.Kind, Terms: w.Describe(d), Expires: o.Expires})
+	t.Emit(events.DealOffered{Day: t.Day, ID: o.ID, Rival: r.Leader, Faction: r.Faction(), Deal: d.Kind, Terms: w.Describe(d), Expires: o.Expires})
 }
 
 // cut is a tribute at a cut of TributeBase, the player's daily street

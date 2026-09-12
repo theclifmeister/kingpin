@@ -283,7 +283,7 @@ func (s *Sim) step(w *game.World, t *game.Tick, rng rand, fx game.Effects, city 
 		if c.Runner == 0 {
 			c.Idle++
 			if drift > 0 && c.Idle >= drift {
-				c.Owner, c.Runner, c.Enforcer, c.Idle, c.Since = game.OwnerNone, 0, 0, 0, t.Day
+				c.Owner, c.Faction, c.Runner, c.Enforcer, c.Idle, c.Since = game.OwnerNone, "", 0, 0, 0, t.Day
 				t.Emit(events.CornerLost{Day: t.Day, Corner: c.ID, Name: c.Name, Reason: "idle", Owner: game.OwnerPlayer})
 			}
 			continue

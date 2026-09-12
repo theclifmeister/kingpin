@@ -52,20 +52,24 @@ Older saves upgrade on load. A save from a newer build is refused.
 
 ### Animation
 
-The title screen resolves its block art from noise, rests and plays
-again, the way Omarchy's screensaver loops effects over its logo. Scenes
-are short, any key skips one, and nothing animates while you play: the
-screen redraws only when you press a key. To turn them off, for a slow
-terminal, a capture, or because they wear:
+The title screen resolves its block art, rests and plays again with
+another effect, the way Omarchy's screensaver loops effects over its
+logo: `decrypt`, `print`, `wipe`, `slide`, `pour`, `rain`, `beams`,
+`burn`, `vhstape` and `matrix`, never the same one twice running.
+Scenes are short, any key skips one, and nothing animates while you
+play: the screen redraws only when you press a key. To turn them off,
+for a slow terminal, a capture, or because they wear, or to pin the
+title's effect to one of the set:
 
 ```sh
 go run ./cmd/kingpin -no-anim
 KINGPIN_NO_ANIM=1 go run ./cmd/kingpin
+KINGPIN_ANIM_EFFECT=matrix go run ./cmd/kingpin
 ```
 
 Under 80x24 the title plays no scene either. The effects are ports of
 [TerminalTextEffects](https://github.com/ChrisBuilds/terminaltexteffects)
-(MIT; see `internal/ui/anim/NOTICE`).
+(MIT; see `internal/ui/anim/NOTICE`), each readable in sixteen colours.
 
 ## Layout
 

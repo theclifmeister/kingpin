@@ -439,7 +439,7 @@ func TestRivalNodesMoveTheirNumbers(t *testing.T) {
 	// unopposed, so the rival rolls the odds the map shows.
 	took := func(nodes ...string) bool {
 		w, s := own(nodes...)
-		w.Rival.Leads = []game.Lead{{Corner: "railyard", Name: "Dre"}}
+		w.Crew.Leads = []game.Lead{{Corner: "railyard", Name: "Dre"}}
 		evs := step(w, s)
 		for _, e := range evs {
 			if ct, ok := e.(events.CornerTaken); ok && ct.Corner == "railyard" && ct.Handed == "Dre" {

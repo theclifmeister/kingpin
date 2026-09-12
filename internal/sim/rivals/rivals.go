@@ -115,6 +115,7 @@ func (s *Sim) Seed(w *game.World, rng rand) {
 	if len(s.names) > 0 {
 		r.Leader = s.names[rng.IntN(len(s.names))]
 	}
+	r.ID = game.FactionRival
 	r.Personality = content.Personalities[rng.IntN(len(content.Personalities))]
 	r.Supplier = tun.SupplierMin + rng.Float64()*(tun.SupplierMax-tun.SupplierMin)
 	r.Cash = s.cost(w, tun.StartCash)
@@ -366,10 +367,10 @@ func (s *Sim) Step(w *game.World, t *game.Tick) {
 			return
 		}
 		if c := s.pickFree(w, t.RNG, t.Day, true); c != nil {
-			s.take(c, t.Day)
+			s.take(w, c, t.Day)
 			r.Arrived = t.Day
 			r.Claims++
-			t.Emit(events.RivalMovedIn{Day: t.Day, Rival: r.Leader, Corner: c.ID, Name: c.Name})
+			t.Emit(events.RivalMovedIn{Day: t.Day, Rival: r.Leader, Faction: r.Faction(), Corner: c.ID, Name: c.Name})
 		}
 		s.undercut(w, t)
 		return
@@ -431,16 +432,17 @@ func (s *Sim) Step(w *game.World, t *game.Tick) {
 	betrayed = s.tip(w, t) || betrayed
 	if betrayed {
 		r.Tips++
-		t.Emit(events.RivalTippedPolice{Day: t.Day, Rival: r.Leader, Heat: tun.TipHeat})
+		t.Emit(events.RivalTippedPolice{Day: t.Day, Rival: r.Leader, Faction: r.Faction(), Heat: tun.TipHeat})
 	}
 	s.answer(w, t)
 	s.whim(w, t)
 
-	// 3b. Defectors: each one joins its muscle, and walks it onto the
-	// corner they ran if nobody stands there; if somebody does, it is a
-	// push like any other, with the defector's help counted in. Only a
-	// corner of the city it fights over: it never sets up elsewhere.
-	for _, l := range r.Leads {
+	// 3b. Defectors (last night's, off the crew sim's queue, #144): each
+	// one joins its muscle, and walks it onto the corner they ran if
+	// nobody stands there; if somebody does, it is a push like any
+	// other, with the defector's help counted in. Only a corner of the
+	// city it fights over: it never sets up elsewhere.
+	for _, l := range w.Crew.Leads {
 		r.Muscle++
 		r.Observed = true
 		c := w.Corner(l.Corner)
@@ -448,17 +450,16 @@ func (s *Sim) Step(w *game.World, t *game.Tick) {
 			continue
 		}
 		if s.Guard(w, c) == 0 || t.RNG.Float64() < s.PushOdds(w, c) {
-			s.take(c, t.Day)
+			s.take(w, c, t.Day)
 			r.Flips++
 			r.LastFlip = t.Day
 			w.Stats.CornersLost++
-			t.Emit(events.CornerTaken{Day: t.Day, Corner: c.ID, Name: c.Name, Rival: r.Leader, From: game.OwnerPlayer, Handed: l.Name})
+			t.Emit(events.CornerTaken{Day: t.Day, Corner: c.ID, Name: c.Name, Rival: r.Leader, Faction: r.Faction(), From: game.OwnerPlayer, Handed: l.Name})
 			continue
 		}
 		r.War += tun.PushWar
-		t.Emit(events.RivalPushed{Day: t.Day, Corner: c.ID, Name: c.Name, Rival: r.Leader})
+		t.Emit(events.RivalPushed{Day: t.Day, Corner: c.ID, Name: c.Name, Rival: r.Leader, Faction: r.Faction()})
 	}
-	r.Leads = nil
 
 	// 3c. The price war (#68): a corner the market squeezed today (the
 	// player's orders next door took a share of its trade) is a day
@@ -487,7 +488,7 @@ func (s *Sim) Step(w *game.World, t *game.Tick) {
 		if s.Rested(w, t.Day) && r.Cash >= s.ClaimCost(w) {
 			if c := s.pickFree(w, t.RNG, t.Day, w.RivalHeld() == 0); c != nil {
 				r.Eyeing, r.EyeingDay, r.LastClaim = c.ID, t.Day, t.Day
-				t.Emit(events.RivalEyeing{Day: t.Day, Rival: r.Leader, Corner: c.ID, Name: c.Name})
+				t.Emit(events.RivalEyeing{Day: t.Day, Rival: r.Leader, Faction: r.Faction(), Corner: c.ID, Name: c.Name})
 			}
 		}
 	}
@@ -519,17 +520,17 @@ func (s *Sim) Step(w *game.World, t *game.Tick) {
 		r.Observed = true
 		r.War += tun.PushWar
 		if t.RNG.Float64() < s.PushOdds(w, c) {
-			s.take(c, t.Day)
+			s.take(w, c, t.Day)
 			r.Flips++
 			r.LastFlip = t.Day
 			w.Stats.CornersLost++
-			t.Emit(events.CornerTaken{Day: t.Day, Corner: c.ID, Name: c.Name, Rival: r.Leader, From: game.OwnerPlayer})
+			t.Emit(events.CornerTaken{Day: t.Day, Corner: c.ID, Name: c.Name, Rival: r.Leader, Faction: r.Faction(), From: game.OwnerPlayer})
 			continue
 		}
 		if c.Enforcer != 0 && t.RNG.Float64() < 0.5 {
 			r.Muscle-- // held off, and it cost them
 		}
-		t.Emit(events.RivalPushed{Day: t.Day, Corner: c.ID, Name: c.Name, Rival: r.Leader})
+		t.Emit(events.RivalPushed{Day: t.Day, Corner: c.ID, Name: c.Name, Rival: r.Leader, Faction: r.Faction()})
 	}
 
 	// 6. A grudge is paid back with a phone call, unless there is a peace;
@@ -538,7 +539,7 @@ func (s *Sim) Step(w *game.World, t *game.Tick) {
 		r.Grudge--
 		r.Tips++
 		r.Observed = true
-		t.Emit(events.RivalTippedPolice{Day: t.Day, Rival: r.Leader, Heat: tun.TipHeat})
+		t.Emit(events.RivalTippedPolice{Day: t.Day, Rival: r.Leader, Faction: r.Faction(), Heat: tun.TipHeat})
 	}
 
 	// 6b. The police's attention on it (#70): fading, and up with every
@@ -620,13 +621,13 @@ func (s *Sim) resolveEyeing(w *game.World, t *game.Tick) {
 	}
 	if c.Held() {
 		r.Grudge += tun.OutbidGrudge
-		t.Emit(events.RivalOutbid{Day: t.Day, Rival: r.Leader, Corner: c.ID, Name: c.Name})
+		t.Emit(events.RivalOutbid{Day: t.Day, Rival: r.Leader, Faction: r.Faction(), Corner: c.ID, Name: c.Name})
 		return
 	}
 	r.Cash -= s.ClaimCost(w)
 	r.Claims++
-	s.take(c, t.Day)
-	t.Emit(events.CornerTaken{Day: t.Day, Corner: c.ID, Name: c.Name, Rival: r.Leader, From: game.OwnerNone})
+	s.take(w, c, t.Day)
+	t.Emit(events.CornerTaken{Day: t.Day, Corner: c.ID, Name: c.Name, Rival: r.Leader, Faction: r.Faction(), From: game.OwnerNone})
 }
 
 // Eyeing is the corner the rival sets up on next step, or nil: the tell
@@ -652,7 +653,7 @@ func (s *Sim) strike(w *game.World, t *game.Tick, o *game.StrikeOrder) {
 	}
 	fc := s.cfg.ForceFor(o.Force)
 	ev := events.CornerStruck{
-		Day: t.Day, Corner: c.ID, Name: c.Name, Rival: r.Leader, Force: o.Force,
+		Day: t.Day, Corner: c.ID, Name: c.Name, Rival: r.Leader, Faction: r.Faction(), Force: o.Force,
 		Heat: s.StrikeHeat(c, o.Force), Toll: fc.Loyalty,
 	}
 	w.Stats.Strikes++
@@ -662,7 +663,7 @@ func (s *Sim) strike(w *game.World, t *game.Tick, o *game.StrikeOrder) {
 	r.Trust = math.Max(0, r.Trust-fc.Trust)
 	if t.RNG.Float64() < s.Odds(w, o.Force) {
 		ev.Taken = true
-		c.Owner, c.Runner, c.Enforcer, c.Idle, c.Squeeze, c.Since = game.OwnerPlayer, 0, 0, 0, 0, t.Day
+		c.Owner, c.Faction, c.Runner, c.Enforcer, c.Idle, c.Squeeze, c.Since = game.OwnerPlayer, "", 0, 0, 0, 0, t.Day
 		c.Starved, c.StarvedDay = 0, 0
 		r.Grudge++
 		w.Stats.CornersWon++
@@ -677,9 +678,10 @@ func (s *Sim) strike(w *game.World, t *game.Tick, o *game.StrikeOrder) {
 	t.Emit(ev)
 }
 
-// take hands a corner to the rival, sending whoever was on it home.
-func (s *Sim) take(c *game.Corner, day int) {
-	c.Owner, c.Runner, c.Enforcer, c.Idle, c.Squeeze, c.Since = game.OwnerRival, 0, 0, 0, 0, day
+// take hands a corner to the rival, naming its faction on it (#144),
+// sending whoever was on it home.
+func (s *Sim) take(w *game.World, c *game.Corner, day int) {
+	c.Owner, c.Faction, c.Runner, c.Enforcer, c.Idle, c.Squeeze, c.Since = game.OwnerRival, w.Rival.Faction(), 0, 0, 0, 0, day
 	c.Starved, c.StarvedDay = 0, 0
 }
 
@@ -778,7 +780,7 @@ func (s *Sim) undercut(w *game.World, t *game.Tick) {
 			m.Price *= 1 - drag
 		}
 	}
-	t.Emit(events.RivalUndercut{Day: t.Day, Rival: r.Leader, Corners: names, Share: share})
+	t.Emit(events.RivalUndercut{Day: t.Day, Rival: r.Leader, Faction: r.Faction(), Corners: names, Share: share})
 }
 
 // pricewar is the rival's side of the player's price war (#68). Every
@@ -838,9 +840,9 @@ func (s *Sim) pricewar(w *game.World, t *game.Tick) {
 			if tun.Grudge {
 				r.Grudge++
 			}
-			c.Owner, c.Runner, c.Enforcer, c.Idle, c.Squeeze, c.Since = game.OwnerNone, 0, 0, 0, 0, t.Day
+			c.Owner, c.Faction, c.Runner, c.Enforcer, c.Idle, c.Squeeze, c.Since = game.OwnerNone, "", 0, 0, 0, 0, t.Day
 			c.Starved, c.StarvedDay = 0, 0
-			t.Emit(events.RivalAbandoned{Day: t.Day, Rival: r.Leader, Corner: c.ID, Name: c.Name, Reason: "pricewar"})
+			t.Emit(events.RivalAbandoned{Day: t.Day, Rival: r.Leader, Faction: r.Faction(), Corner: c.ID, Name: c.Name, Reason: "pricewar"})
 			if w.RivalHeld() == 0 && r.Routed < t.Day {
 				r.Routed = t.Day
 			}
@@ -860,17 +862,17 @@ func (s *Sim) pricewar(w *game.World, t *game.Tick) {
 		c.Starved = 0
 		r.War += s.cfg.Rivals.PushWar
 		if t.RNG.Float64() < s.PushOdds(w, target) {
-			s.take(target, t.Day)
+			s.take(w, target, t.Day)
 			r.Flips++
 			r.LastFlip = t.Day
 			w.Stats.CornersLost++
-			t.Emit(events.CornerTaken{Day: t.Day, Corner: target.ID, Name: target.Name, Rival: r.Leader, From: game.OwnerPlayer, Pricewar: true})
+			t.Emit(events.CornerTaken{Day: t.Day, Corner: target.ID, Name: target.Name, Rival: r.Leader, Faction: r.Faction(), From: game.OwnerPlayer, Pricewar: true})
 			continue
 		}
 		if target.Enforcer != 0 && t.RNG.Float64() < 0.5 {
 			r.Muscle--
 		}
-		t.Emit(events.RivalPushed{Day: t.Day, Corner: target.ID, Name: target.Name, Rival: r.Leader, Pricewar: true})
+		t.Emit(events.RivalPushed{Day: t.Day, Corner: target.ID, Name: target.Name, Rival: r.Leader, Faction: r.Faction(), Pricewar: true})
 	}
 }
 
@@ -918,11 +920,11 @@ func (s *Sim) crackdown(w *game.World, t *game.Tick) {
 		cleared = append(cleared, held[:min(len(held), tun.CrackdownCorners)]...)
 	}
 	for _, c := range cleared {
-		owner := c.Owner
-		c.Owner, c.Runner, c.Enforcer, c.Idle, c.Squeeze, c.Since = game.OwnerNone, 0, 0, 0, 0, t.Day
+		owner, faction := c.Owner, c.Faction
+		c.Owner, c.Faction, c.Runner, c.Enforcer, c.Idle, c.Squeeze, c.Since = game.OwnerNone, "", 0, 0, 0, 0, t.Day
 		c.Starved, c.StarvedDay = 0, 0
 		ev.Lost = append(ev.Lost, c.Name)
-		t.Emit(events.CornerLost{Day: t.Day, Corner: c.ID, Name: c.Name, Reason: "crackdown", Owner: owner})
+		t.Emit(events.CornerLost{Day: t.Day, Corner: c.ID, Name: c.Name, Reason: "crackdown", Owner: owner, Faction: faction})
 	}
 	r.Muscle = int(math.Round(float64(r.Muscle) * (1 - tun.CrackdownMuscle)))
 	r.War = 0

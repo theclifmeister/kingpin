@@ -108,6 +108,9 @@ func (d *decrypt) Done(t time.Duration) bool { return t >= d.over }
 
 func (d *decrypt) Frame(t time.Duration, w, h int) []string {
 	cv := NewCanvas(w, h)
+	if t >= d.over {
+		return drawText(cv, d.text, d.accent).Lines()
+	}
 	ox, oy := d.text.Origin(w, h)
 	for _, c := range d.cells {
 		if len(c.steps) == 0 || t < c.steps[0].at {
