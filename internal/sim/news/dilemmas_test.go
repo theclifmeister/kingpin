@@ -71,12 +71,12 @@ func TestDeckRefusesUnknownEffectKey(t *testing.T) {
 		{Label: "a", Outcome: "a", Effects: map[string]float64{"heat": 1}},
 		{Label: "b", Outcome: "b", Effects: map[string]float64{"evidnce": 1}},
 	}}}
-	if _, err := news.New(cfg.Headlines, bad); err == nil || !strings.Contains(err.Error(), `unknown effect "evidnce"`) {
+	if _, err := news.New(cfg.Headlines, bad, cfg.Progression); err == nil || !strings.Contains(err.Error(), `unknown effect "evidnce"`) {
 		t.Fatalf("err = %v", err)
 	}
 	// And a loyalty effect on a card that names nobody.
 	bad.Cards[0].Choices[1].Effects = map[string]float64{"loyalty": 1}
-	if _, err := news.New(cfg.Headlines, bad); err == nil || !strings.Contains(err.Error(), "names a member") {
+	if _, err := news.New(cfg.Headlines, bad, cfg.Progression); err == nil || !strings.Contains(err.Error(), "names a member") {
 		t.Fatalf("err = %v", err)
 	}
 }
@@ -141,6 +141,12 @@ func TestTriggersHold(t *testing.T) {
 		{"war_min", content.CardTrigger{WarMin: 30}, func(w *game.World) { w.Home().Corners[1].Owner = game.OwnerRival; w.Rival.War = 29 }, func(w *game.World) { w.Rival.War = 30 }, nil},
 		{"fronts", content.CardTrigger{Fronts: true}, func(w *game.World) {}, func(w *game.World) { w.Fronts = []game.Front{{ID: "laundromat", Name: "Suds"}} },
 			func(s news.Slots) bool { return s.Front == "Suds" }},
+		// The progression's two (#147): the peak is the high-water mark,
+		// not today's pile, and the cities are those with a held corner.
+		{"peak_cash_min", content.CardTrigger{PeakCashMin: 25_000}, func(w *game.World) { w.Player.DirtyCash, w.Stats.PeakCash = 30_000, 24_999 },
+			func(w *game.World) { w.Player.DirtyCash, w.Stats.PeakCash = 100, 25_000 }, nil},
+		{"cities_held", content.CardTrigger{CitiesHeld: 2}, func(w *game.World) {},
+			func(w *game.World) { w.Cities[w.CityOrder[1]].Corners[0].Owner = game.OwnerPlayer }, nil},
 	}
 	for _, row := range rows {
 		w := base()
@@ -171,7 +177,7 @@ func TestTriggersHold(t *testing.T) {
 func TestDrawPacing(t *testing.T) {
 	cfg := content.MustLoad()
 	pace := cfg.Dilemmas.Dilemmas
-	s, err := news.New(cfg.Headlines, cfg.Dilemmas)
+	s, err := news.New(cfg.Headlines, cfg.Dilemmas, cfg.Progression)
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -214,7 +220,7 @@ func TestDrawPacing(t *testing.T) {
 	once := cfg.Dilemmas
 	once.Cards = []content.CardConfig{{ID: "one", Title: "One", Text: "Once.", Once: true, Trigger: content.CardTrigger{CrewMin: 1},
 		Choices: []content.ChoiceConfig{{Label: "a", Outcome: "a"}, {Label: "b", Outcome: "b"}}}}
-	s1, err := news.New(cfg.Headlines, once)
+	s1, err := news.New(cfg.Headlines, once, cfg.Progression)
 	if err != nil {
 		t.Fatal(err)
 	}

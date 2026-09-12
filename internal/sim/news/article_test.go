@@ -14,7 +14,7 @@ import (
 // `a Eastside`.
 func TestArticlesAgreeWithTheValue(t *testing.T) {
 	cfg := content.MustLoad()
-	s, err := New(cfg.Headlines, cfg.Dilemmas)
+	s, err := New(cfg.Headlines, cfg.Dilemmas, cfg.Progression)
 	if err != nil {
 		t.Fatal(err)
 	}

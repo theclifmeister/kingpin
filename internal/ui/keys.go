@@ -579,6 +579,7 @@ var words = [][2]string{
 	{"unlock", "a line crossed: a product, front, connect or role opens"},
 	{"pane", "the details beside MAIN from 100 columns, always open"},
 	{"strip", "the pane's one line under 100 columns; ␣ opens it over MAIN"},
+	{"tier", "the stage a run is in: Corner, Crew, Territory, Distribution"},
 }
 
 // helpLines is the help modal's body: every binding, grouped, one a

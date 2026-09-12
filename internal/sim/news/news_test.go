@@ -18,7 +18,7 @@ import (
 // text, the card's.
 func TestEveryEmittedEventHasTemplate(t *testing.T) {
 	cfg := content.MustLoad()
-	n, err := news.New(cfg.Headlines, cfg.Dilemmas)
+	n, err := news.New(cfg.Headlines, cfg.Dilemmas, cfg.Progression)
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -43,6 +43,7 @@ func TestEveryEmittedEventHasTemplate(t *testing.T) {
 		"DAElected", "DAReElected", "ChiefReplaced", "ChiefReplacedDA", "PressureShiftedUp", "PressureShiftedDown", // CityFunded is report-only
 		"ContractOffered", "ContractDelivered", "ContractFailed", // ContractAccepted and ContractExpired are report-only
 		"DebtLate", "SupplierFrozen", "SupplierWarned", "SupplierCollected", // SupplierBought, CreditTaken and DebtPaid are report-only (#72)
+		"TierReached", // #147
 	}
 	for _, r := range cfg.Heat.Responses {
 		required = append(required, "Enforcement"+capital(r.Level))
