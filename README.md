@@ -384,6 +384,7 @@ The full table is below; `?` brings it up in the game.
 | `e` | guard house | post an enforcer inside the selected house | ledger |
 | `x` | drop house | drop the selected house, after asking | ledger |
 | `f` | fund city | give a city clean cash for goodwill | ledger |
+| `i` | invest | clean cash into the selected front's levels | ledger |
 | `enter` | buy / dial | buy the offer or turn the route selected | ledger |
 | `d` | propose | offer the rival a truce, tribute or a split | rivals |
 | `y` | accept | take the selected offer | rivals |
@@ -635,6 +636,12 @@ audited more, and an audit of a front run greedy goes in the DA's file.
 The wash always leaves a float in the till for the street. Dirty cash
 over the threshold is heat every day it sits there; clean cash is what
 the retainer, and the endgame, ask for.
+
+A front grows by levels: clean cash invested in it (`i` on the ledger)
+earns clean income of its own every day, dirty or no dirty, and pays
+itself back in a hundred days. Each level washes more, costs more, and is
+looked at more; a front whose wash outruns what its income explains is
+the one the auditors find, and one that grows big enough makes the paper.
 
 ### News
 

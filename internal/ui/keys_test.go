@@ -252,7 +252,7 @@ func TestHelpMatchesKeys(t *testing.T) {
 			t.Errorf("the help row for %s is %d wide, over the modal's %d: %q", b.key, lipgloss.Width(want), m.modalInner(), want)
 		}
 	}
-	m.Update(tea.WindowSizeMsg{Width: 120, Height: 80})
+	m.Update(tea.WindowSizeMsg{Width: 120, Height: 100})
 	m.Update(key("?"))
 	view := stripANSI(m.View())
 	for _, r := range rows {

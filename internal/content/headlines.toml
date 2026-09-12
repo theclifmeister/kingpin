@@ -278,6 +278,11 @@ FrontAudited = [
   "{{.Front}} shut pending audit; staff sent home",
   "Revenue agents 'taking an interest' in a {{.City}} {{.Front}}",
 ]
+FrontGrew = [
+  "Where did the owner of a {{.Front}} get that kind of money? {{.City}} wonders",
+  "{{.City}} {{.Front}} expands again; council asks who is behind it",
+  "Rags to riches at the {{.Front}}: 'a local success story', says nobody at the DA's office",
+]
 ShipmentSeized = [
   "Police seize {{.Qty}} units of {{.Product}} bound for {{.City}}",
   "{{.Mode}} stopped on the {{.From}} road: {{.Product}} shipment seized",

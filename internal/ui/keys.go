@@ -106,12 +106,12 @@ func pastFirstStep(m *Model) bool { return m.modalStep() > 0 }
 
 // numberStep is the open modal being on a number field (#112): the buy,
 // sell and cart dialogs' quantity page, the target dialog's number (its
-// third page, after units or days, #115), the fund dialog's amount and
-// the move dialog's quantity (#73).
+// third page, after units or days, #115), the fund dialog's amount, the
+// move dialog's quantity (#73) and the invest dialog's levels (#192).
 // The field's shortcuts are listed there and nowhere else.
 func numberStep(m *Model) bool {
 	switch m.mode {
-	case modeFund, modeConfirmFast, modeConfirmBuyOff:
+	case modeFund, modeConfirmFast, modeConfirmBuyOff, modeInvest:
 		return true
 	case modeBuy:
 		return buyAt(1)(m)
@@ -255,6 +255,8 @@ var bindings = []binding{
 		do: func(m *Model, _ string) { m.askDrop() }},
 	{key: "f", label: "fund city", help: "give a city clean cash for goodwill", screens: on(screenLedger),
 		do: func(m *Model, _ string) { m.askFund() }},
+	{key: "i", label: "invest", help: "clean cash into the selected front's levels", screens: on(screenLedger), when: ledgerOnFront,
+		do: func(m *Model, _ string) { m.askInvest() }},
 	{key: "enter", label: "buy / dial", help: "buy the offer or turn the route selected", screens: on(screenLedger), when: ledgerActable,
 		do: func(m *Model, _ string) { m.ledgerEnter() }},
 	// The rivals.
@@ -348,10 +350,10 @@ var modeBindings = []binding{
 	{key: "1-2", label: "repeat", modes: in(modeSell), when: step(3)},
 	{key: "1-3", label: "dial", modes: in(modeCart), when: cartOnSell},
 	{key: "1-3", label: "choose", modes: in(modeCard), when: step(0)},
-	{key: "m", label: "max", modes: in(modeBuy, modeSell, modeTarget, modeCart, modeFund, modeConfirmFast, modeMove, modeConfirmBuyOff), when: numberStep},
-	{key: "h", label: "half", modes: in(modeBuy, modeSell, modeTarget, modeCart, modeFund, modeConfirmFast, modeMove, modeConfirmBuyOff), when: numberStep},
-	{key: "↑↓", label: "±1", modes: in(modeBuy, modeSell, modeTarget, modeCart, modeFund, modeConfirmFast, modeMove, modeConfirmBuyOff), when: numberStep},
-	{key: "pgup pgdn", label: "±10", modes: in(modeBuy, modeSell, modeTarget, modeCart, modeFund, modeConfirmFast, modeMove, modeConfirmBuyOff), when: numberStep},
+	{key: "m", label: "max", modes: in(modeBuy, modeSell, modeTarget, modeCart, modeFund, modeConfirmFast, modeMove, modeConfirmBuyOff, modeInvest), when: numberStep},
+	{key: "h", label: "half", modes: in(modeBuy, modeSell, modeTarget, modeCart, modeFund, modeConfirmFast, modeMove, modeConfirmBuyOff, modeInvest), when: numberStep},
+	{key: "↑↓", label: "±1", modes: in(modeBuy, modeSell, modeTarget, modeCart, modeFund, modeConfirmFast, modeMove, modeConfirmBuyOff, modeInvest), when: numberStep},
+	{key: "pgup pgdn", label: "±10", modes: in(modeBuy, modeSell, modeTarget, modeCart, modeFund, modeConfirmFast, modeMove, modeConfirmBuyOff, modeInvest), when: numberStep},
 	{key: "enter", label: "next", modes: in(modeSell, modeTarget, modePropose, modeFront), when: step(0)},
 	{key: "enter", label: "next", modes: in(modeMove), when: moveList},
 	{key: "enter", label: "next", modes: in(modeSell, modeTarget), when: step(1)},
@@ -393,6 +395,7 @@ var modeBindings = []binding{
 	{key: "y", label: "boost", modes: in(modeConfirmBoost)},
 	{key: "y", label: "tip", modes: in(modeConfirmTip)},
 	{key: "y enter", label: "pay", modes: in(modeConfirmBuyOff)},
+	{key: "enter", label: "invest", modes: in(modeInvest)},
 	{key: "q", label: "quit", modes: in(modeStart, modeOver)},
 	// The trade's other side (#168): listed on the product step (and a
 	// buy's connect step) alone, where the toggle is live.
@@ -401,7 +404,7 @@ var modeBindings = []binding{
 	{key: "⇧tab", label: "back", keys: []string{"shift+tab"}, modes: in(modeBuy, modeSell, modeTarget, modeCart, modePropose, modeFront, modeMove), when: pastFirstStep},
 	{key: "esc", label: "close", modes: in(modeBuy, modeSell, modeTarget, modePropose, modePost, modeStrike, modeUndercut, modeFront, modeAssign, modeFund, modeCart, modeMove, modeGuard,
 		modeConfirmNew, modeConfirmDelete, modeConfirmFire, modeConfirmEnd, modeConfirmUpgrade, modeConfirmInvestigate, modeConfirmPayOff, modeConfirmTravel, modeConfirmFast, modeConfirmDrop,
-		modeConfirmScout, modeConfirmBoost, modeConfirmTip, modeConfirmBuyOff)},
+		modeConfirmScout, modeConfirmBoost, modeConfirmTip, modeConfirmBuyOff, modeInvest)},
 	{key: "enter esc", label: "close", modes: in(modeReport, modeHelp, modeStage)},
 	{key: "enter esc", label: "close", modes: in(modeCard), when: step(1)},
 	{key: "␣ esc", label: "close", modes: in(modeDetails)},

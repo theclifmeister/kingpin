@@ -101,6 +101,15 @@ type Today struct {
 	Scouting      *ScoutOrder            // somebody reading the rival's books tonight (#70); the rivals sim resolves it
 	Tipoff        *TipOrder              // the rival corner you tipped the police on tonight (#70); the rivals sim resolves it
 	Poach         *PoachOrder            // the rival's muscle you are paying to go home tonight (#70); the rivals sim resolves it
+	Invested      []Investment           // levels bought at the fronts today (#192), applied at once; the laundering sim reports them
+}
+
+// Investment is clean cash put into a front's levels today (#192):
+// which front, how many levels and what they cost between them.
+type Investment struct {
+	Front  string
+	Levels int
+	Cost   int
 }
 
 // City is one city of the run: its own street prices and demand, its own
@@ -428,6 +437,9 @@ type Front struct {
 	WashedToday int            // what it washed on the last day stepped
 	Audited     int            // day of the last audit; 0 means never
 	AuditDial   events.Launder // the dial it was run at when that audit hit
+	Level       int            // the levels bought (#192); 0 is the front as bought, washing and costing what the file says
+	Invested    int            // clean cash put into its levels, lifetime
+	Grew        int            // the day its growth made the paper (#192); 0 means it has not
 }
 
 // Frozen reports whether the front is shut on day.
@@ -690,6 +702,8 @@ type Stats struct {
 	Rent           int // clean cash paid the landlords (#73)
 	HousesLost     int // houses the landlord threw you out of
 	HouseUnits     int // units lost out of the houses to raids and robberies
+	Earned         int // clean cash the levelled fronts earned on their own (#192)
+	Invested       int // clean cash put into the fronts' levels
 }
 
 // StartingProduct describes a product as it exists at the start of a run,
@@ -1099,7 +1113,7 @@ func (w *World) NetWorth() int {
 		}
 	}
 	for _, f := range w.Fronts {
-		n += f.Cost
+		n += f.Cost + f.Invested
 	}
 	for _, h := range w.Houses {
 		n += h.Price

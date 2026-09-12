@@ -6,6 +6,7 @@ import (
 	"math"
 
 	"github.com/theclifmeister/kingpin/internal/events"
+	"github.com/theclifmeister/kingpin/internal/format"
 )
 
 var (
@@ -17,6 +18,7 @@ var (
 	ErrCrewFull       = errors.New("the crew is as big as you can manage")
 	ErrNoFront        = errors.New("no such front")
 	ErrFrontOwned     = errors.New("you already own that front")
+	ErrFrontMaxed     = errors.New("the place is as big as it gets")
 	ErrNoCrew         = errors.New("nobody on the payroll to ask")
 	ErrInvestigating  = errors.New("somebody is already asking around tonight")
 	ErrNoCity         = errors.New("no such city")
@@ -601,6 +603,63 @@ func (w *World) BuyFront(o FrontOffer) (Front, error) {
 	f := Front{ID: o.ID, Name: o.Name, Cost: o.Cost, Bought: w.Day}
 	w.Fronts = append(w.Fronts, f)
 	return f, nil
+}
+
+// LevelOffer is a front's next levels as the laundering config prices
+// them (#192), handed to Invest: which front, how many levels, what they
+// cost between them in clean cash, and the level the front tops out at.
+type LevelOffer struct {
+	Front  string
+	Levels int
+	Cost   int // clean cash
+	Max    int
+}
+
+// Invest buys a front's next levels with clean cash, whole levels at a
+// time and at once: the front earns from tomorrow. Only clean cash pays
+// (Fund's rule: dirty cash is refused however much of it there is), a
+// front at its top takes no more, and the laundering sim reports the
+// investment in the morning.
+func (w *World) Invest(o LevelOffer) error {
+	if w.Over != nil {
+		return ErrGameOver
+	}
+	f := w.Front(o.Front)
+	if f == nil {
+		return ErrNoFront
+	}
+	if o.Levels <= 0 {
+		return ErrBadQuantity
+	}
+	if o.Max <= 0 || f.Level >= o.Max {
+		return ErrFrontMaxed
+	}
+	if f.Level+o.Levels > o.Max {
+		return fmt.Errorf("%s takes %s more at most", f.Name, format.Plural(o.Max-f.Level, "level"))
+	}
+	if o.Cost > w.Player.CleanCash {
+		if w.Player.CleanCash <= 0 {
+			return ErrNoCleanCash
+		}
+		return fmt.Errorf("need $%d clean, only have $%d clean", o.Cost, w.Player.CleanCash)
+	}
+	w.Player.CleanCash -= o.Cost
+	f.Level += o.Levels
+	f.Invested += o.Cost
+	w.Stats.Invested += o.Cost
+	w.Today.Invested = append(w.Today.Invested, Investment{Front: o.Front, Levels: o.Levels, Cost: o.Cost})
+	return nil
+}
+
+// InvestedToday is what the player has put into a front's levels today.
+func (w *World) InvestedToday(id string) int {
+	n := 0
+	for _, inv := range w.Today.Invested {
+		if inv.Front == id {
+			n += inv.Cost
+		}
+	}
+	return n
 }
 
 // SetLaunderDial sets the launder dial for every front. It persists until

@@ -139,22 +139,24 @@ const (
 )
 
 // seedDigest is the world after each of the boss's first sixty days on
-// seedDigestSeed, pinned at 75bd4d0 (#144 PR 4: the shape changes of
-// the issue, no number moved).
+// seedDigestSeed, pinned at 0d7a1d3 for #192 (three zero fields on the
+// world, Front.Level, Invested and Grew, Stats.Earned and Invested,
+// Today.Invested, move the hash from day 1; no number moved in the
+// sixty days, the boss's first level comes later).
 var seedDigest = []string{
-	"e90fbd1fbbf62c22", "19df1355b08f9597", "9154d884c0da1ea0", "db154f3e5342aeca",
-	"420c9b23568cd03e", "94e8497eee162a42", "4336738d6ff6aefd", "d1f1cebb131f5552",
-	"b2dd15097d1b4293", "e2de70949848be75", "2aa5736f4b0062ec", "6709c6a31686580d",
-	"ec9cb299a2028226", "841a8860285021b5", "42a21726b95cea22", "98dd699eabeba272",
-	"d8c2e0a32701e6a3", "0a783eebea47c706", "81191270c8cc1817", "ec3c00947e4c22bf",
-	"19e5f568f87cab99", "097990e7da8d1b12", "6d09f6b97e1d4418", "7d01372c6ada777f",
-	"818d542c72d35cfd", "b1e55301d3fbfe6c", "8d291524c4c7d2ce", "5a6bac84b4fcaf94",
-	"7622c215e2ccfc6e", "2598371449fb3c29", "2755ec2f0e7293c0", "175269f6366b56c4",
-	"0ecf26f8087baf00", "42b949c5697d5a25", "8dcf881903c4b942", "db9300d420a99bc2",
-	"57a5ec311e82b788", "dc4f439b6d44d987", "2796bc69f732716c", "7c41e7f2c762ae1e",
-	"ca15906ccae3b9d0", "d44479fd39157961", "4d3279705dadcd72", "f29a45504f275af3",
-	"b3a85b37f00db54e", "51b07fc6f15e9ca8", "57ba18fa5c54a8fc", "9d9287f7d079a326",
-	"aff3a4088f35834a", "0c17ed94c9436c0d", "3ca4825460d4fd8f", "1939204831e99937",
-	"a20a49fe81f2cd64", "9ae63a0a1aba7620", "8d8318718984b864", "ad3a3422e437be20",
-	"2cf633a0ea3f9187", "568df82e4cf17487", "fc671b51589200a3", "420afd827558d624",
+	"ccc89093ccc2dba4", "ffba6d21eb4fde95", "d2ed882cc1cbe1a4", "00a3329199f91862",
+	"c79d9975d41720ca", "80ad7b764b965088", "a88a242c9466bf7b", "efd2240fb7d2cb72",
+	"6bb0454dc7aab9c1", "ff19651313dd2cf5", "d76c2211d5c79dd8", "003953313aead8bd",
+	"4691b504f6f3aba7", "ab0fff92f16ec836", "9a222110c984a36b", "a98536ee0b84b503",
+	"c35478c7ad9d912e", "ba62e65a25a6b95b", "6d0ff05893c40856", "3a97f81914f978f6",
+	"e016fe2181c0f1f8", "45105f57d5b1eae3", "ba80bc9e4539f5d1", "ed3c47c57fd527da",
+	"443fffb01850a82c", "be6177dcc71fe91e", "f875f939afe200b0", "17bc32a7899a8862",
+	"1a1684e2dd2d6978", "32424aef8179a43d", "7e2774dbabd63906", "e1e1729da262a3d6",
+	"47d06eaf2499139a", "a573320b95329de9", "220a4e3b6bf4b254", "85890f85c75775d8",
+	"8abb0dbf79413d08", "dec5cf20f7903c99", "d453e0c74290bc26", "310e17421899752a",
+	"8b4b09f2d59a5012", "2f3bd5db2da1d757", "36d6ad7e952a4196", "9e763d09b0214ce5",
+	"c543a7b0ea7ab9fc", "8d71a99d0bb497b0", "b0879f37e22c278c", "6d051c11c9c3f2c2",
+	"e8d4ff8f987e805a", "0ca4a1e72a8d69b3", "332a438a128a75bf", "0bfe90e81dc1e195",
+	"c6081861294f52e2", "22a703aa4edcd928", "90a7b3707147c800", "d9e9870a5249dc72",
+	"2ba543228a77a5b5", "e9f03fdc359dafe1", "1d928299ff9d78ab", "4eee3e24ca61db08",
 }

@@ -561,6 +561,33 @@ type FrontFrozen struct {
 
 func (FrontFrozen) Kind() string { return "FrontFrozen" }
 
+// FrontInvested records levels bought at a front during the day (#192):
+// clean cash into the place for clean income of its own. Report-only
+// bookkeeping: the growth is news when it crosses a line, FrontGrew.
+type FrontInvested struct {
+	Day    int
+	Front  string
+	Name   string
+	Levels int // bought today
+	Level  int // where it stands now
+	Cost   int // clean cash, today
+	Income int // what it earns a day now, clean
+}
+
+func (FrontInvested) Kind() string { return "FrontInvested" }
+
+// FrontGrew is a front whose growth made the paper (#192): it reached
+// the level the growth table names, and the town wonders where the money
+// came from. Pressure and notoriety the morning after, never evidence.
+type FrontGrew struct {
+	Day   int
+	Front string
+	Name  string
+	Level int
+}
+
+func (FrontGrew) Kind() string { return "FrontGrew" }
+
 // CashLaundered is the day's wash: dirty cash turned clean across every
 // open front, and the upkeep paid for it. Report-only bookkeeping.
 type CashLaundered struct {
@@ -568,6 +595,7 @@ type CashLaundered struct {
 	Amount int
 	Upkeep int
 	Fronts int // fronts that washed something
+	Earned int // what the levelled fronts earned on their own (#192), clean
 }
 
 func (CashLaundered) Kind() string { return "CashLaundered" }

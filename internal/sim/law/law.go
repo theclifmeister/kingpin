@@ -166,6 +166,14 @@ func (s *Sim) Step(w *game.World, t *game.Tick) {
 			gain[here] += src.Headline
 		}
 	}
+	// A front whose growth made the paper yesterday (#192): the
+	// laundering sim steps after this one, so its Grew stamp is how the
+	// story reaches today's pressure, where you are, as a headline does.
+	for _, f := range w.Fronts {
+		if f.Grew != 0 && f.Grew == t.Day-1 {
+			gain[here] += src.FrontGrew
+		}
+	}
 
 	// Fade toward the baseline, goodwill takes its cut and fades itself,
 	// and a band crossed is news.

@@ -42,9 +42,10 @@ type Funding struct {
 }
 
 var (
-	// ErrNoCleanCash means the player tried to fund a city with money the
-	// fronts have not washed yet: goodwill is only ever bought clean.
-	ErrNoCleanCash = errors.New("goodwill is bought with clean cash only")
+	// ErrNoCleanCash means the player tried to pay for something clean
+	// money buys (goodwill, a front's level) with money the fronts have
+	// not washed yet: it is only ever bought clean.
+	ErrNoCleanCash = errors.New("clean cash only, and the fronts have washed none")
 )
 
 // Fund gives a city amount in clean cash, at once: a community centre, a

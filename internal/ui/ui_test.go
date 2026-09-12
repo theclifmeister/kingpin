@@ -2609,6 +2609,7 @@ func TestModalsFit(t *testing.T) {
 		// tip from the map, on the fixture's rival corner.
 		{"confirm scout", modeConfirmScout, func(t *testing.T, m *Model) { m.Update(key("8")); m.Update(key("i")) }},
 		{"confirm buy off", modeConfirmBuyOff, func(t *testing.T, m *Model) { m.Update(key("8")); m.Update(key("$")) }},
+		{"invest", modeInvest, func(t *testing.T, m *Model) { m.w.Player.CleanCash = 200_000; m.Update(key("7")); m.Update(key("i")) }},
 		{"confirm boost", modeConfirmBoost, func(t *testing.T, m *Model) {
 			m.Update(key("5"))
 			m.mapCursor = 0

@@ -264,7 +264,10 @@ func launderRow(d events.Launder) string {
 	return dialCells(notches, int(d-events.LaunderCareful))
 }
 
-var frontCols = []col{{"front", kText, 0}, {"washes/day", kMoney, 0}, {"today", kMoney, 0}, {"lifetime", kMoney, 0}, {"audit", kPct, 0}, {"status", kText, 0}}
+// frontCols are the FRONTS table's columns: the level and what the
+// front earns a day on its own (#192) beside what it washes; where MAIN
+// is too narrow for the row whole the lifetime wash goes, then today's.
+var frontCols = []col{{"front", kText, 0}, {"lvl", kInt, 0}, {"earns/day", kMoney, 0}, {"washes/day", kMoney, 0}, {"today", kMoney, 0}, {"lifetime", kMoney, 0}, {"audit", kPct, 0}, {"status", kText, 0}}
 
 var routeCols = []col{{"route", kText, 0}, {"mode", kText, 0}, {"dial", kDial, 0}, {"target", kText, 0}, {"on the road", kText, 0}, {"lots/wk", kCash, 0}, {"fares/wk", kCash, 0}, {"lost", kInt, 0}}
 
@@ -298,7 +301,7 @@ func (m *Model) viewLedger() string {
 
 	line(theme.PanelTitle.Render("LEDGER"))
 	line(theme.Gold.Render("dirty "+cash(w.Player.DirtyCash)) + sub(" · ") + theme.Good.Render("clean "+cash(w.Player.CleanCash)) + sub(fmt.Sprintf(" · seized %s lifetime", cash(w.Stats.Seized))))
-	line(sub("launder  ") + launderRow(w.Laundering.Dial) + sub(fmt.Sprintf("   audit %.1f%%/day · up to %s/day", l.AnyAuditRisk(w)*100, money(l.Capacity(w)))))
+	line(sub("launder  ") + launderRow(w.Laundering.Dial) + sub(fmt.Sprintf("   audit %.1f%%/day · up to %s/day · legit %s/day", l.AnyAuditRisk(w)*100, money(l.Capacity(w)), money(l.LegitIncome(w)))))
 	if thr := m.set.Heat.DirtyCashThreshold(w); thr > 0 && w.Player.DirtyCash > thr {
 		line(theme.Warning.Render(fmt.Sprintf("▲ Dirty cash over %s draws heat every day it sits there.", cash(thr))))
 	}
@@ -333,9 +336,19 @@ func (m *Model) viewLedger() string {
 	} else {
 		var rows [][]any
 		for _, f := range w.Fronts {
-			rows = append(rows, []any{f.Name, l.Throughput(w, f), f.WashedToday, f.Washed, l.AuditRisk(w, f) * 100, m.frontStatus(f)})
+			rows = append(rows, []any{f.Name, f.Level, l.Income(f), l.Throughput(w, f), f.WashedToday, f.Washed, l.AuditRisk(w, f) * 100, m.frontStatus(f)})
 		}
-		tableLines(ledgerFront, frontCols, rows)
+		cols := append([]col(nil), frontCols...)
+		for _, drop := range []int{5, 4} {
+			if tableWidth(cols, rows) <= width {
+				break
+			}
+			cols = append(cols[:drop:drop], cols[drop+1:]...)
+			for i := range rows {
+				rows[i] = append(rows[i][:drop:drop], rows[i][drop+1:]...)
+			}
+		}
+		tableLines(ledgerFront, cols, rows)
 	}
 
 	if len(w.Houses) > 0 {
@@ -479,6 +492,17 @@ func (m *Model) frontSection(f game.Front) section {
 		lines = append(lines, row("upkeep", money(l.FrontUpkeep(w, f))+"/day clean"))
 	}
 	lines = append(lines, row("bought", fmt.Sprintf("day %d · %s", f.Bought, money(f.Cost))))
+	// The levels (#192): where the front stands, what it earns on its
+	// own, and what the next level costs and adds.
+	if top := l.MaxLevel(f); top > 0 {
+		lines = append(lines, row("level", fmt.Sprintf("%d of %d · earns %s/day", f.Level, top, money(l.Income(f)))))
+		if f.Level < top {
+			next := f
+			next.Level++
+			lines = append(lines, row("next", fmt.Sprintf("%s clean → +%s/day", money(l.LevelCost(f, 1)), money(l.Income(next)-l.Income(f)))))
+			lines = append(lines, keyRow("i", "invest"))
+		}
+	}
 	return section{strings.ToUpper(f.Name), lines}
 }
 
@@ -565,6 +589,7 @@ func (m *Model) washSection() section {
 		row("washing", fmt.Sprintf("up to %s/day", money(l.Capacity(w)))),
 		row("upkeep", fmt.Sprintf("%s/day", money(l.Upkeep(w)))),
 		row("audit", fmt.Sprintf("%.1f%%/day", l.AnyAuditRisk(w)*100)),
+		row("legit", fmt.Sprintf("%s/day net of upkeep", money(l.LegitIncome(w)))),
 		row("fronts", fmt.Sprintf("%d · washed %s", len(w.Fronts), cash(w.Stats.Laundered))),
 	}
 	lines = append(lines, wrapped(theme.Subtle, fmt.Sprintf("The till keeps %s dirty for the street; the wash and the road spend only what is over it.", cash(tun.Float)))...)

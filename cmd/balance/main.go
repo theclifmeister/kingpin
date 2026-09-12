@@ -14,6 +14,7 @@ import (
 	"github.com/theclifmeister/kingpin/internal/game"
 	"github.com/theclifmeister/kingpin/internal/harness"
 	"github.com/theclifmeister/kingpin/internal/sim"
+	"github.com/theclifmeister/kingpin/internal/sim/laundering"
 )
 
 func main() {
@@ -39,6 +40,7 @@ func main() {
 	own := flag.String("own", "", "comma-separated upgrade ids every run owns from day 0, free (prerequisites first)")
 	snitch := flag.Bool("snitch", false, "start every run with an informant on the payroll (harness.Plant)")
 	cards := flag.String("cards", "", "deal the dilemma cards and answer every one with: decline (the last choice) | first (default: no cards)")
+	margin := flag.Float64("margin", harness.BossMargin, "how many times the next level's price the boss holds in clean cash before it invests (harness.BossMargin); 1 invests everything")
 	flag.Parse()
 	at := func(def float64) float64 {
 		if *lieLow > 0 {
@@ -119,7 +121,7 @@ func main() {
 	case "leveraged":
 		p = harness.Leveraged(cfg, at(40))
 	case "boss":
-		p = harness.Boss(cfg, at(40), *lt)
+		p = harness.BossAt(cfg, at(40), *lt, *margin)
 	case "stashed":
 		p = harness.Stashed(cfg, at(40), *houses, *fronts != "off")
 	case "saboteur":
@@ -173,6 +175,8 @@ func main() {
 	personalities := map[string]int{}
 	bought := map[string]int{}
 	audits, laundered, clean := 0, 0, 0
+	earned, invested, levels, legit, frozen := 0, 0, 0, 0, 0
+	ld := laundering.New(cfg)
 	shipments, shipped, seizures, seizedUnits := 0, 0, 0, 0
 	var fear, respect, notoriety []int
 	dealt := map[string]int{}
@@ -298,6 +302,8 @@ func main() {
 				}
 			case events.FrontAudited:
 				audits++
+			case events.FrontFrozen:
+				frozen++
 			case events.CrewTurnedInformant:
 				informants++
 			case events.InvestigationRun:
@@ -347,6 +353,12 @@ func main() {
 		}
 		laundered += res.World.Stats.Laundered
 		clean += res.World.Player.CleanCash
+		earned += res.World.Stats.Earned
+		invested += res.World.Stats.Invested
+		for _, f := range res.World.Fronts {
+			levels += f.Level
+		}
+		legit += ld.LegitIncome(res.World)
 		shipments += res.World.Stats.Shipments
 		shipped += res.World.Stats.Shipped
 		seizures += res.World.Stats.Seizures
@@ -471,6 +483,9 @@ func main() {
 		fmt.Printf("upgrades:      %s (runs owning each)\n", strings.Join(ids, ", "))
 	}
 	fmt.Printf("laundering:    $%d washed per run, %d audits per run, $%d clean at the end\n", laundered / *runs, audits / *runs, clean / *runs)
+	if invested > 0 {
+		fmt.Printf("fronts:        %d levels owned at the end, $%d invested, $%d earned per run, %d shut for upkeep per run; legit income $%d/day at the end (means)\n", levels / *runs, invested / *runs, earned / *runs, frozen / *runs, legit / *runs)
+	}
 	if shipments > 0 {
 		fmt.Printf("logistics:     %.1f shipments per run carrying %d units, %.1f seized per run taking %d units (%.0f%% of shipments)\n",
 			float64(shipments)/float64(*runs), shipped / *runs, float64(seizures)/float64(*runs), seizedUnits / *runs, 100*float64(seizures)/float64(shipments))
