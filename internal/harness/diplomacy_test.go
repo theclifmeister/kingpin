@@ -131,7 +131,7 @@ func talker(cfg *content.Config) Policy {
 		for _, o := range w.Offers {
 			_, _ = w.Accept(o.ID)
 		}
-		if w.Rival.Arrived > 0 && w.Deal(game.DealTruce) == nil && w.Proposal == nil {
+		if w.Rival.Arrived > 0 && w.Deal(game.DealTruce) == nil && w.Today.Proposal == nil {
 			_ = w.Propose(game.DealTruce, game.Terms{Days: dip.TruceDays[0]})
 		}
 	}
@@ -249,7 +249,7 @@ func TestSplitKeepsTheLine(t *testing.T) {
 		res, err := Run(cfg, seed, Horizon, func(w *game.World) {
 			territory(w)
 			d := w.Deal(game.DealSplit)
-			if d == nil && w.Rival.Arrived > 0 && w.Proposal == nil {
+			if d == nil && w.Rival.Arrived > 0 && w.Today.Proposal == nil {
 				_ = w.Propose(game.DealSplit, game.Terms{Corners: w.SplitLines()[1]})
 			}
 			if d == nil {

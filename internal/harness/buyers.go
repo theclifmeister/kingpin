@@ -28,7 +28,7 @@ func Dealer(cfg *content.Config, lieLowAt float64) Policy {
 	hs := heat.New(cfg)
 	var sting *content.ResponseConfig
 	for i := range cfg.Heat.Responses {
-		if cfg.Heat.Responses[i].Level == "sting" {
+		if cfg.Heat.Responses[i].Level == content.Sting {
 			sting = &cfg.Heat.Responses[i]
 		}
 	}
@@ -93,7 +93,7 @@ func Welsher(cfg *content.Config, lieLowAt float64, welshed *int) Policy {
 			}
 		}
 		if *welshed != 0 {
-			delete(w.Deliveries, *welshed)
+			delete(w.Today.Deliveries, *welshed)
 		}
 	}
 }
@@ -135,7 +135,7 @@ func answer(cfg *content.Config, w *game.World) {
 func handOver(hs *heat.Sim, w *game.World, line float64) {
 	here := w.Here()
 	street := 0.0
-	for _, o := range w.Orders {
+	for _, o := range w.Today.Orders {
 		if o.City == here.ID {
 			street += hs.SaleHeat(w, o.City, o.Product, o.Qty, o.Dial)
 		}

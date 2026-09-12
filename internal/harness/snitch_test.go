@@ -277,7 +277,7 @@ func TestInformantRaidAndFiring(t *testing.T) {
 		}
 		var raid *events.Enforcement
 		for _, e := range res.Events {
-			if ev, ok := e.(events.Enforcement); ok && ev.Level == "raid" {
+			if ev, ok := e.(events.Enforcement); ok && ev.Level == content.Raid {
 				raid = &ev
 			}
 		}

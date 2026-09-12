@@ -54,7 +54,7 @@ func TestStrikeSceneOnTheMap(t *testing.T) {
 	lipgloss.SetColorProfile(0) // termenv.TrueColor: the colours are the point
 	defer lipgloss.SetColorProfile(profile)
 	for _, sz := range [][2]int{{80, 24}, {120, 40}} {
-		m := richModel(t, sz[0], sz[1])
+		m := richModelSeeded(t, sz[0], sz[1], 5) // a seed the rival takes nothing on overnight: one flip
 		m.opts.Anim = true
 		c := strikeMorning(t, m)
 		gen := m.sceneGen
@@ -110,7 +110,7 @@ func TestStrikeSceneOnTheMap(t *testing.T) {
 		}
 	}
 	// A key mid-scene ends it and is consumed: the cursor stays.
-	m := richModel(t, 80, 24)
+	m := richModelSeeded(t, 80, 24, 5)
 	m.opts.Anim = true
 	c := strikeMorning(t, m)
 	m.Update(key("5"))

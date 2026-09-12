@@ -62,7 +62,7 @@ func (m *Model) askPropose() {
 func (m *Model) proposeRows() int {
 	if m.proposeStep == 0 {
 		n := len(proposeKinds)
-		if m.w.Proposal != nil {
+		if m.w.Today.Proposal != nil {
 			n++ // withdraw
 		}
 		return n
@@ -130,8 +130,8 @@ func (m *Model) viewPropose() string {
 			}
 			body = m.proposeLine(body, i, line, note)
 		}
-		if w.Proposal != nil {
-			body = m.proposeLine(body, len(proposeKinds), "withdraw", "take back tonight's proposal, "+w.Describe(*w.Proposal))
+		if w.Today.Proposal != nil {
+			body = m.proposeLine(body, len(proposeKinds), "withdraw", "take back tonight's proposal, "+w.Describe(*w.Today.Proposal))
 		}
 	} else {
 		kind := proposeKinds[m.proposeKind]
@@ -332,7 +332,7 @@ func (m *Model) viewRivals() string {
 		}
 		ls = append(ls, table(dealCols, rows, -1, width)...)
 	}
-	if p := w.Proposal; p != nil {
+	if p := w.Today.Proposal; p != nil {
 		line(theme.Gold.Render(fmt.Sprintf("Tonight  you propose %s; they answer in the morning, ~%.0f%%", w.Describe(*p), m.set.Rivals.Chance(w, *p)*100)))
 	}
 	ls = append(ls, "")

@@ -60,7 +60,7 @@ func (s *Sim) DA(w *game.World) content.DAConfig { return s.law.DAFor(w.Law.DA.S
 // sent it back sooner would never lift it.
 func (s *Sim) CooldownDays(w *game.World, level string) int {
 	days := float64(s.cfg.Heat.CooldownDays + s.Effects(w).CooldownBonus)
-	if level != "patrol" {
+	if level != content.Patrol {
 		days *= s.Chief(w).Cooldown
 	}
 	return max(1, int(math.Round(days)))
@@ -91,7 +91,7 @@ func (s *Sim) PatrolCap(w *game.World, r content.ResponseConfig, city *game.City
 // pressure, since the law sim steps after this one.
 func (s *Sim) Threshold(w *game.World, r content.ResponseConfig, city *game.City) float64 {
 	v := r.Threshold
-	if r.Level == "sting" {
+	if r.Level == content.Sting {
 		return v * s.DA(w).Sting
 	}
 	if city != nil {
@@ -428,7 +428,7 @@ func (s *Sim) Step(w *game.World, t *game.Tick) {
 
 	// Stock driven between places today (#73): a car ride is exposure,
 	// not dealing, so it is heat and never a page.
-	for _, mv := range w.Moved {
+	for _, mv := range w.Today.Moved {
 		if v := s.MoveHeat(w, mv.City, mv.Product, mv.Units); v > 0 {
 			add(mv.City, v, fmt.Sprintf("moved %d %s between places", mv.Units, w.ProductName(mv.Product)))
 		}
@@ -511,7 +511,7 @@ func (s *Sim) Step(w *game.World, t *game.Tick) {
 	// never quite cools: decay works on what is above the floor, and
 	// nothing takes heat under it.
 	decay := s.Decay(w)
-	if w.LieLow {
+	if w.Today.LieLow {
 		decay *= math.Max(tun.LieLowMultiplier, fx.LieLowMultiplier)
 		t.Emit(events.LaidLow{Day: t.Day})
 		for _, cid := range w.CityOrder {
@@ -549,7 +549,7 @@ func (s *Sim) Step(w *game.World, t *game.Tick) {
 		if hot.Heat < s.Threshold(w, r, hot) {
 			continue
 		}
-		if last, ok := h.LastResponse[r.Level]; ok && t.Day-last < s.CooldownDays(w, r.Level) && r.Level != "arrest" {
+		if last, ok := h.LastResponse[r.Level]; ok && t.Day-last < s.CooldownDays(w, r.Level) && r.Level != content.Arrest {
 			continue
 		}
 		h.Responses[r.Level]++
@@ -571,7 +571,7 @@ func (s *Sim) Step(w *game.World, t *game.Tick) {
 	if arrest := s.EvidenceArrest(w); w.Over == nil && arrest > 0 && h.Evidence >= arrest {
 		if !s.takeFall(w, t, fx) {
 			w.Over = &game.Ending{Day: t.Day, Cause: "indicted", PeakCash: w.Stats.PeakCash}
-			t.Emit(events.Enforcement{Day: t.Day, City: hot.ID, Level: "arrest", StockLost: map[string]int{}})
+			t.Emit(events.Enforcement{Day: t.Day, City: hot.ID, Level: content.Arrest, StockLost: map[string]int{}})
 			t.Emit(events.GameOver{Day: t.Day, Cause: "indicted"})
 		}
 	}
@@ -612,10 +612,10 @@ func (s *Sim) hottest(w *game.World) *game.City {
 func (s *Sim) fire(w *game.World, t *game.Tick, city *game.City, r content.ResponseConfig, attempted bool, fx game.Effects) {
 	ev := events.Enforcement{Day: t.Day, City: city.ID, Level: r.Level, StockLost: map[string]int{}}
 	switch r.Level {
-	case "patrol":
+	case content.Patrol:
 		w.Heat.SellCapDays = r.CapDays
 		w.Heat.SellCap = s.PatrolCap(w, r, city)
-	case "arrest":
+	case content.Arrest:
 		if s.takeFall(w, t, fx) {
 			return
 		}
@@ -625,8 +625,8 @@ func (s *Sim) fire(w *game.World, t *game.Tick, city *game.City, r content.Respo
 		return
 	default: // sting, raid
 		stockLoss, cashLoss := r.StockLoss, r.CashLoss
-		told := r.Level == "raid" && w.Crew.Informants() > 0
-		if r.Level == "raid" {
+		told := r.Level == content.Raid && w.Crew.Informants() > 0
+		if r.Level == content.Raid {
 			stockLoss *= fx.RaidLossMul
 			cashLoss *= fx.RaidLossMul
 			if told {
@@ -658,7 +658,7 @@ func (s *Sim) fire(w *game.World, t *game.Tick, city *game.City, r content.Respo
 		}
 		ev.CashLost = int(math.Round(float64(w.Player.DirtyCash) * cashLoss))
 		w.Player.DirtyCash -= ev.CashLost
-		if r.Level == "raid" {
+		if r.Level == content.Raid {
 			w.Stats.Raids++
 		} else {
 			w.Stats.Stings++

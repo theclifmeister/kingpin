@@ -69,7 +69,7 @@ func (w *World) BuyUpgrade(tree content.UpgradesConfig, id string) (content.Upgr
 		w.Upgrades = map[string]bool{}
 	}
 	w.Upgrades[id] = true
-	w.UpgradesToday = append(w.UpgradesToday, id)
+	w.Today.UpgradesToday = append(w.Today.UpgradesToday, id)
 	after := FoldEffects(w, tree)
 
 	// Deltas to the player's own state land now; multipliers the sims

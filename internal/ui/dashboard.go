@@ -6,6 +6,7 @@ import (
 
 	"github.com/charmbracelet/lipgloss"
 
+	"github.com/theclifmeister/kingpin/internal/content"
 	"github.com/theclifmeister/kingpin/internal/events"
 	"github.com/theclifmeister/kingpin/internal/game"
 	"github.com/theclifmeister/kingpin/internal/ui/sparkline"
@@ -161,7 +162,7 @@ func (m *Model) streetLines(innerW, maxLines int, narrow, withRoad bool) []strin
 	if w.Heat.SellCapDays > 0 {
 		topic(fact{theme.Bad.Render(fmt.Sprintf("Patrols: sales capped at %.0f%% of demand for %s more.", w.Heat.SellCap*100, plural(w.Heat.SellCapDays, "day"))), priPatrol})
 	}
-	if s := w.Strike; s != nil {
+	if s := w.Today.Strike; s != nil {
 		if c := w.Corner(s.Corner); c != nil {
 			topic(fact{theme.Warning.Render(fmt.Sprintf("Enforcers go to %s tonight: %s.", c.Name, s.Force)), priStrike})
 		}
@@ -169,9 +170,9 @@ func (m *Model) streetLines(innerW, maxLines int, narrow, withRoad bool) []strin
 
 	var last string
 	switch {
-	case w.LieLow:
+	case w.Today.LieLow:
 		last = theme.Warning.Render("Lying low today. No sales, heat fades faster.")
-	case len(w.Orders) > 0:
+	case len(w.Today.Orders) > 0:
 		last = theme.Gold.Render("Orders queued for tonight.")
 	case len(w.Standing) > 0:
 		last = theme.Gold.Render(fmt.Sprintf("Standing orders sell tonight; the crew keep %.0f%%.", m.set.Market.Cut()*100))
@@ -479,7 +480,7 @@ func (m *Model) rivalLines(innerW int) []string {
 			}
 		}
 		table = theme.Good.Render(strings.Join(ds, ", "))
-	case w.Proposal != nil:
+	case w.Today.Proposal != nil:
 		table = theme.Gold.Render("proposal tonight")
 	default:
 		table = theme.Subtle.Render("Nothing on the table.")
@@ -522,7 +523,7 @@ func (m *Model) alerts() []alert {
 	out = append(out, m.contractAlerts()...)
 	out = append(out, m.debtAlerts()...)
 	for _, r := range m.set.Heat.ThresholdsIn(w, here) {
-		if r.Level == "patrol" && here.Heat >= r.Threshold {
+		if r.Level == content.Patrol && here.Heat >= r.Threshold {
 			out = append(out, newAlert(theme.Bad.Render(fmt.Sprintf("Heat %.0f in %s is over the patrol line (%.0f).", here.Heat, here.Name, r.Threshold)), "heat in "+here.Name+" over the patrol line"))
 		}
 	}
@@ -725,7 +726,7 @@ func (m *Model) dashboardDetails() []section {
 				}
 			}
 			switch units, take := m.sellEstimate(here.ID, id, dial); {
-			case w.LieLow:
+			case w.Today.LieLow:
 				lines = append(lines, keyRow("s", theme.Subtle.Render("nothing sells today: lying low")))
 			case w.Stock(here.ID, id) == 0:
 				lines = append(lines, keyRow("s", theme.Subtle.Render("nothing stashed here to sell")))

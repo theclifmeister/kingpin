@@ -8,6 +8,7 @@ import (
 
 	"github.com/charmbracelet/lipgloss"
 
+	"github.com/theclifmeister/kingpin/internal/content"
 	"github.com/theclifmeister/kingpin/internal/events"
 	"github.com/theclifmeister/kingpin/internal/ui/anim"
 	"github.com/theclifmeister/kingpin/internal/ui/theme"
@@ -69,26 +70,26 @@ func TestBustSceneOnAnEnforcement(t *testing.T) {
 	// report writes it.
 	m := bustMorning(t, 80, 24, animOn, 70, false)
 	ev, ok := m.bust()
-	if !ok || ev.Level != "sting" || ev.Stash {
+	if !ok || ev.Level != content.Sting || ev.Stash {
 		t.Fatalf("the sting: %+v ok %v", ev, ok)
 	}
 	if loss := m.bustLoss("STING"); !strings.HasPrefix(loss, ": lost ") {
 		t.Errorf("the sting's loss reads %q", loss)
 	}
-	if bustLevel("arrest") != "ARRESTED" || bustLevel("raid") != "RAID" {
+	if bustLevel(content.Arrest) != "ARRESTED" || bustLevel(content.Raid) != "RAID" {
 		t.Error("the levels' words")
 	}
 	// Somebody talked: the raid went to the stash.
 	m = bustMorning(t, 80, 24, animOn, 85, true)
-	if ev, ok := m.bust(); !ok || ev.Level != "raid" || !ev.Stash || !m.onReportScene(reportBust) {
+	if ev, ok := m.bust(); !ok || ev.Level != content.Raid || !ev.Stash || !m.onReportScene(reportBust) {
 		t.Fatalf("the informant's raid: %+v ok %v scene %v", ev, ok, m.reportScene)
 	}
 	// Two in a morning: the highest level, then the first.
-	m.flash = []events.Enforcement{{Level: "patrol"}, {Level: "sting", City: "a"}, {Level: "raid", City: "b"}, {Level: "raid", City: "c"}, {Level: "sting", City: "d"}}
-	if ev, ok := m.bust(); !ok || ev.Level != "raid" || ev.City != "b" {
+	m.flash = []events.Enforcement{{Level: content.Patrol}, {Level: content.Sting, City: "a"}, {Level: content.Raid, City: "b"}, {Level: content.Raid, City: "c"}, {Level: content.Sting, City: "d"}}
+	if ev, ok := m.bust(); !ok || ev.Level != content.Raid || ev.City != "b" {
 		t.Errorf("the pick of the morning: %+v ok %v", ev, ok)
 	}
-	m.flash = []events.Enforcement{{Level: "patrol"}}
+	m.flash = []events.Enforcement{{Level: content.Patrol}}
 	if _, ok := m.bust(); ok {
 		t.Error("a patrol is a bust")
 	}
@@ -201,7 +202,7 @@ func TestBustSceneYieldsToTheEnding(t *testing.T) {
 	endIndicted(t, m)
 	arrested := false
 	for _, ev := range m.flash {
-		arrested = arrested || ev.Level == "arrest"
+		arrested = arrested || ev.Level == content.Arrest
 	}
 	if !arrested || m.scene == nil || m.reportScene != reportNone {
 		t.Fatalf("the arrest: flash %+v scene %v kind %v", m.flash, m.scene, m.reportScene)
@@ -234,7 +235,7 @@ func TestModalsFitBust(t *testing.T) {
 		m := richModel(t, sz[0], sz[1])
 		m.opts.Anim = true
 		m.mode, m.fastStop = modePlay, ""
-		m.flash = []events.Enforcement{{Day: m.w.Day, City: m.w.Player.Location, Level: "raid", Stash: true}}
+		m.flash = []events.Enforcement{{Day: m.w.Day, City: m.w.Player.Location, Level: content.Raid, Stash: true}}
 		m.w.Report.Heat = append([]string{"RAID: lost 40 Weed and $2,000"}, m.w.Report.Heat...)
 		m.openReport()
 		if !m.onReportScene(reportBust) {

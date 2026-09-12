@@ -49,7 +49,7 @@ func TestSupplierInvariants(t *testing.T) {
 						t.Fatalf("%s seed %d day %d: %s sold %d while frozen", name, seed, w.Day, s.Name, s.BoughtToday)
 					}
 				}
-				for _, b := range w.Buys {
+				for _, b := range w.Today.Buys {
 					if b.Credit && (b.Contract || w.Supplier(b.Supplier) == nil) {
 						t.Fatalf("%s seed %d day %d: a credit receipt from nowhere: %+v", name, seed, w.Day, b)
 					}
@@ -247,7 +247,7 @@ func TestBustsAndSeizuresHurtTheConnects(t *testing.T) {
 	// the market reads.
 	rel := street.Rel
 	res, _ := RunFrom(cfg, w, 1, func(w *game.World) {
-		w.Heat.Busts = append(w.Heat.Busts, game.Bust{Day: w.Day, City: home, Level: "raid", Units: 10 * street.Lot})
+		w.Heat.Busts = append(w.Heat.Busts, game.Bust{Day: w.Day, City: home, Level: content.Raid, Units: 10 * street.Lot})
 	})
 	if street = res.World.StreetSupplier(home); street.Rel >= rel {
 		t.Fatalf("a raid that took ten lots left %s at rel %.1f (was %.1f)", street.Name, street.Rel, rel)

@@ -253,7 +253,7 @@ func TestBustsSeizuresAndQuietMoveRel(t *testing.T) {
 	home, hub := w.CityOrder[0], w.CityOrder[1]
 	street, whole := w.StreetSupplier(home), w.WholesaleSupplier(hub)
 	street.Rel, whole.Rel = 60, 60
-	w.Heat.Busts = []game.Bust{{Day: w.Day + 1, City: home, Level: "sting", Units: street.Lot / 2}}
+	w.Heat.Busts = []game.Bust{{Day: w.Day + 1, City: home, Level: content.Sting, Units: street.Lot / 2}}
 	w.Logistics.Seizures = []game.Seizure{{Day: w.Day + 1, From: hub, To: home, Product: w.Products[0], Units: 10 * whole.Lot}}
 	street.LastBought, whole.LastBought, street.Bought, whole.Bought = w.Day, w.Day, 1, 1
 	// The record is yesterday's on the morning the tick brings: day+1

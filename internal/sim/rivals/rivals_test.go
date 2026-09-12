@@ -154,7 +154,7 @@ func TestStrikes(t *testing.T) {
 		}
 		warBefore := w.Rival.War
 		evs := step(w, s)
-		w.Strike = nil // the clock clears it
+		w.Today.Strike = nil // the clock clears it
 		tries++
 		var cs *events.CornerStruck
 		for _, e := range evs {

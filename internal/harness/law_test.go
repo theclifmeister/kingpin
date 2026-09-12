@@ -227,7 +227,7 @@ func TestQuietDayRuleHoldsUnderEveryLaw(t *testing.T) {
 				}
 				stings := 0
 				for _, e := range res.Events {
-					if ev, ok := e.(events.Enforcement); ok && (ev.Level == "sting" || ev.Level == "raid") {
+					if ev, ok := e.(events.Enforcement); ok && (ev.Level == content.Sting || ev.Level == content.Raid) {
 						stings++
 						if ev.Evidence != 0 {
 							t.Fatalf("%s/%s seed %d day %d: %s on a quiet day added %d evidence", chief, da, seed, ev.Day, ev.Level, ev.Evidence)

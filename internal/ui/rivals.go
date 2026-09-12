@@ -44,7 +44,7 @@ func (m *Model) eyeingWord() string {
 // boost already queued.
 func (m *Model) strikeRows() []string {
 	rows := []string{"warn", "push", "hit", "boost warn", "boost push", "boost hit"}
-	if m.w.Strike != nil {
+	if m.w.Today.Strike != nil {
 		rows = append(rows, "stop")
 	}
 	return rows

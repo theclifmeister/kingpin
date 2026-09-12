@@ -38,12 +38,12 @@ func TestBoostTakesTheTakingsNotTheGround(t *testing.T) {
 	if err := w.Boost("docks", events.ForceHit); err != nil {
 		t.Fatal(err)
 	}
-	if w.Strike == nil || !w.Strike.Boost || w.Strike.Force != events.ForceHit {
-		t.Fatalf("the boost is not the night's strike order: %+v", w.Strike)
+	if w.Today.Strike == nil || !w.Today.Strike.Boost || w.Today.Strike.Force != events.ForceHit {
+		t.Fatalf("the boost is not the night's strike order: %+v", w.Today.Strike)
 	}
 	// A strike queued after it replaces it: one order a night.
-	if err := w.SendEnforcers("docks", events.ForceWarn); err != nil || w.Strike.Boost {
-		t.Fatalf("a strike did not replace the boost: %v %+v", err, w.Strike)
+	if err := w.SendEnforcers("docks", events.ForceWarn); err != nil || w.Today.Strike.Boost {
+		t.Fatalf("a strike did not replace the boost: %v %+v", err, w.Today.Strike)
 	}
 	taken, tries := false, 0
 	for !taken && tries < 50 {
@@ -56,7 +56,7 @@ func TestBoostTakesTheTakingsNotTheGround(t *testing.T) {
 		}
 		cash, war, trust := w.Player.DirtyCash, w.Rival.War, w.Rival.Trust
 		evs := step(w, s)
-		w.Strike = nil
+		w.Today.Strike = nil
 		tries++
 		ev := find[events.RivalBoosted](evs)
 		if ev == nil {
@@ -165,7 +165,7 @@ func TestTipsBringARaid(t *testing.T) {
 		}
 		heat, trust := w.Rival.Heat, w.Rival.Trust
 		evs := step(w, s)
-		w.Tipoff = nil
+		w.Today.Tipoff = nil
 		ev := find[events.PoliceTipped](evs)
 		if ev == nil || ev.Betrayal {
 			t.Fatalf("night %d: %+v %v", night, ev, kinds(evs))
@@ -298,7 +298,7 @@ func TestBuyOffSendsHeadsHome(t *testing.T) {
 	}
 	grudge := w.Rival.Grudge
 	evs := step(w, s)
-	w.Poach = nil
+	w.Today.Poach = nil
 	ev := find[events.RivalMusclePoached](evs)
 	if ev == nil || ev.Failed || ev.Got != 2 || ev.Wanted != 6 || ev.Refund != 6*price*4/6 {
 		t.Fatalf("landed: %+v", ev)
@@ -332,7 +332,7 @@ func TestBuyOffSendsHeadsHome(t *testing.T) {
 	}
 	grudge = w.Rival.Grudge
 	evs = step(w, s)
-	w.Poach = nil
+	w.Today.Poach = nil
 	ev = find[events.RivalMusclePoached](evs)
 	if ev == nil || !ev.Failed || ev.Got != 0 || ev.Refund != 0 {
 		t.Fatalf("failed: %+v", ev)
@@ -345,8 +345,8 @@ func TestBuyOffSendsHeadsHome(t *testing.T) {
 		t.Fatal(err)
 	}
 	w.CancelBuyOff()
-	if w.Poach != nil || w.Player.DirtyCash != cash-2*price {
-		t.Fatalf("called off: %+v cash %d", w.Poach, w.Player.DirtyCash)
+	if w.Today.Poach != nil || w.Player.DirtyCash != cash-2*price {
+		t.Fatalf("called off: %+v cash %d", w.Today.Poach, w.Player.DirtyCash)
 	}
 }
 
@@ -386,7 +386,7 @@ func TestScoutReadsASnapshot(t *testing.T) {
 		t.Fatalf("paid %d", cash-w.Cash())
 	}
 	evs := step(w, s)
-	w.Scouting = nil
+	w.Today.Scouting = nil
 	if ev := find[events.RivalScouted](evs); ev == nil || ev.Read || ev.Cost != bk.ScoutCost {
 		t.Fatalf("read nothing: %+v", ev)
 	}
@@ -405,7 +405,7 @@ func TestScoutReadsASnapshot(t *testing.T) {
 		t.Fatal(err)
 	}
 	evs = step(w, s)
-	w.Scouting = nil
+	w.Today.Scouting = nil
 	if ev := find[events.RivalScouted](evs); ev == nil || !ev.Read {
 		t.Fatalf("read: %+v", ev)
 	}

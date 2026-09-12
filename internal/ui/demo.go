@@ -102,7 +102,7 @@ func (m *Model) DemoScene(name, effect string) tea.Cmd {
 		m.mode = modeReport
 		m.morningScene()
 	case "bust":
-		ev := events.Enforcement{Day: w.Day, City: w.Player.Location, Level: "raid", StockLost: map[string]int{w.Products[0]: 40}, CashLost: 2000}
+		ev := events.Enforcement{Day: w.Day, City: w.Player.Location, Level: content.Raid, StockLost: map[string]int{w.Products[0]: 40}, CashLost: 2000}
 		// The report's line, as the news writes it, so the loss has
 		// something to burn along; once.
 		line := fmt.Sprintf("RAID: lost 40 %s and %s in %s", w.ProductName(w.Products[0]), money(ev.CashLost), w.CityName(ev.City))

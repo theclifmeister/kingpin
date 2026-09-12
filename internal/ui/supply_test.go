@@ -47,8 +47,8 @@ func TestSupplyContractInTheGrammar(t *testing.T) {
 	}
 	m.Update(key("enter"))
 	c, ok := w.Supplied(home, weed)
-	if !ok || c.Units != 30 || m.mode != modeBuy || m.dlg.step != 0 || w.Stock(home, weed) != 0 || len(w.Buys) != 0 {
-		t.Fatalf("keep at: contract %+v %v, mode %v step %d, stock %d, buys %d, err %q", c, ok, m.mode, m.dlg.step, w.Stock(home, weed), len(w.Buys), m.dlg.err)
+	if !ok || c.Units != 30 || m.mode != modeBuy || m.dlg.step != 0 || w.Stock(home, weed) != 0 || len(w.Today.Buys) != 0 {
+		t.Fatalf("keep at: contract %+v %v, mode %v step %d, stock %d, buys %d, err %q", c, ok, m.mode, m.dlg.step, w.Stock(home, weed), len(w.Today.Buys), m.dlg.err)
 	}
 	if !strings.HasPrefix(m.status, "Keeping 30 Weed in Eastside") {
 		t.Fatalf("status %q", m.status)
@@ -128,8 +128,8 @@ func TestSupplyContractInTheGrammar(t *testing.T) {
 		t.Fatalf("the cart modal:\n%s", stripANSI(m.View()))
 	}
 	m.Update(key("x"))
-	if w.Stock(home, weed) != 0 || w.Player.DirtyCash != cash+tot.spent || len(w.Buys) != 0 {
-		t.Fatalf("returning the contract's line: stock %d cash %d (was %d, spent %d) buys %d status %q", w.Stock(home, weed), w.Player.DirtyCash, cash, tot.spent, len(w.Buys), m.status)
+	if w.Stock(home, weed) != 0 || w.Player.DirtyCash != cash+tot.spent || len(w.Today.Buys) != 0 {
+		t.Fatalf("returning the contract's line: stock %d cash %d (was %d, spent %d) buys %d status %q", w.Stock(home, weed), w.Player.DirtyCash, cash, tot.spent, len(w.Today.Buys), m.status)
 	}
 	m.Update(key("esc"))
 	// The dial keys on the buy's repeat step do not shadow the sell

@@ -192,7 +192,7 @@ func (m *Model) cannotOpen(mode mode) string {
 		}
 		return ""
 	}
-	if m.w.LieLow {
+	if m.w.Today.LieLow {
 		return "Can't sell: you are lying low today, nothing sells."
 	}
 	if city := m.actionCity(); m.sellableIn(city) == 0 {
@@ -925,7 +925,7 @@ func (m *Model) viewDialog() string {
 		} else if due := m.set.Market.Due(w, city, id); due > 0 {
 			body = append(body, theme.Subtle.Render(fmt.Sprintf("%d stashed and %d the contract brings in the morning.", w.Stock(city, id), due)))
 		}
-	} else if len(w.Buys)+len(w.Orders) == 0 {
+	} else if len(w.Today.Buys)+len(w.Today.Orders) == 0 {
 		body = append(body, theme.Subtle.Render("Pick a product."))
 	}
 

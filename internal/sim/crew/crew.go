@@ -334,7 +334,7 @@ func (s *Sim) Step(w *game.World, t *game.Tick) {
 	// showed, or nobody, and being asked costs everyone a little loyalty
 	// either way when it comes up empty.
 	asked := false
-	if o := w.Investigation; o != nil {
+	if o := w.Today.Investigation; o != nil {
 		ev := events.InvestigationRun{Day: t.Day, Cost: o.Cost}
 		w.Stats.Investigations++
 		if c.Informants() > 0 && t.RNG.Float64() < s.InvestigateOdds(w) {
@@ -392,7 +392,7 @@ func (s *Sim) Step(w *game.World, t *game.Tick) {
 		}
 	}
 	danger := false
-	for _, level := range []string{"sting", "raid"} {
+	for _, level := range []string{content.Sting, content.Raid} {
 		if d, ok := w.Heat.LastResponse[level]; ok && t.Day-d <= tun.DangerDays {
 			danger = true
 		}

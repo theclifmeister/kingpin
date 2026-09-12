@@ -78,14 +78,14 @@ func saboteur(cfg *content.Config, lieLowAt float64, tips tipping) Policy {
 		if r.Arrived == 0 || w.RivalHeld() == 0 {
 			return
 		}
-		if (!r.Known.Read() || rv.Stale(w, w.Day)) && w.Scouting == nil {
+		if (!r.Known.Read() || rv.Stale(w, w.Day)) && w.Today.Scouting == nil {
 			_ = w.Scout(rv.ScoutCost())
 		}
 		target := pickCorner(w, func(c game.Corner) bool { return c.Owner == game.OwnerRival }, size)
 		if target == nil {
 			return
 		}
-		if !hot(w) && w.Crew.Role("enforcer") > 0 && w.Strike == nil && r.War < SaboteurWar*tun.CrackdownThreshold {
+		if !hot(w) && w.Crew.Role("enforcer") > 0 && w.Today.Strike == nil && r.War < SaboteurWar*tun.CrackdownThreshold {
 			for _, f := range forces {
 				if f != events.ForceWarn && len(r.Deals) > 0 {
 					break
@@ -97,12 +97,12 @@ func saboteur(cfg *content.Config, lieLowAt float64, tips tipping) Policy {
 			}
 		}
 		if k := r.Known; k.Read() && k.Muscle > 0 && k.Cash < SaboteurThin*k.Wages {
-			if price := rv.MusclePrice(w); w.Poach == nil && w.Player.DirtyCash > SaboteurMargin*price {
+			if price := rv.MusclePrice(w); w.Today.Poach == nil && w.Player.DirtyCash > SaboteurMargin*price {
 				_ = w.BuyOff(1, price)
 			}
 		}
 		ahead := w.RivalHeld() > w.HeldIn(w.Home().ID) && len(r.Deals) == 0 && rv.RaidReady(w, w.Day+1)
-		if w.Tipoff == nil && (tips == tipsAlways || (tips == tipsAhead && ahead && (r.Heat > 0 || !hot(w)))) {
+		if w.Today.Tipoff == nil && (tips == tipsAlways || (tips == tipsAhead && ahead && (r.Heat > 0 || !hot(w)))) {
 			_ = w.Tip(target.ID)
 		}
 	}

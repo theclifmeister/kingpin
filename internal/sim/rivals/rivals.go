@@ -423,7 +423,7 @@ func (s *Sim) Step(w *game.World, t *game.Tick) {
 	// paid back with one phone call tonight, whatever else the night
 	// brings. Then it answers what you proposed, and a chaotic one may
 	// tear something up on a whim.
-	if o := w.Strike; o != nil {
+	if o := w.Today.Strike; o != nil {
 		s.strike(w, t, o)
 		betrayed = s.crossed(w, t, o) || betrayed
 	}

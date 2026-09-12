@@ -201,8 +201,8 @@ func TestRestock(t *testing.T) {
 	if err != nil || p.Qty != 300 || p.Cost != 600 || p.UnitPrice != 2 || p.Supplier != "wholesaler" || w.Stock("port", "a") != 300 || w.Player.DirtyCash != 9_400 || w.Player.Location != "test" {
 		t.Fatalf("lots: %v %+v cash %d stash %d", err, p, w.Player.DirtyCash, w.Stock("port", "a"))
 	}
-	if len(w.Buys) != 0 {
-		t.Fatalf("a lot is not the player's buy: %+v", w.Buys)
+	if len(w.Today.Buys) != 0 {
+		t.Fatalf("a lot is not the player's buy: %+v", w.Today.Buys)
 	}
 	if w.Free("port") >= 0 {
 		t.Fatalf("the lots should be past capacity: free %d", w.Free("port"))

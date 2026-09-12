@@ -220,7 +220,7 @@ func (s *Sim) book(w *game.World, t *game.Tick) {
 	tun := s.scfg.Suppliers
 	// The day's receipts by hand, and what went on each book.
 	credit := map[string]int{}
-	for _, b := range w.Buys {
+	for _, b := range w.Today.Buys {
 		if b.Contract {
 			continue
 		}

@@ -313,7 +313,7 @@ func (m *Model) viewMap() string {
 			case c.Held():
 				who = theme.Warning.Render(fit(fmt.Sprintf("  nobody, %dd left", m.driftLeft(c)), cellW-1))
 			case c.Owner == game.OwnerRival:
-				if s := w.Strike; s != nil && s.Corner == c.ID {
+				if s := w.Today.Strike; s != nil && s.Corner == c.ID {
 					who = theme.Warning.Render(fit(fmt.Sprintf("  ⚔ %s tonight", s.Force), cellW-1))
 				} else {
 					who = st.Render(fit("  theirs", cellW-1))
@@ -328,7 +328,7 @@ func (m *Model) viewMap() string {
 				facts = fmt.Sprintf("  ~%.0f/day undercut", m.cornerUnits(*c))
 			}
 			if undercut {
-				facts = fmt.Sprintf("  $ undercut %s", dialShort(m.w.Undercuts[c.ID]))
+				facts = fmt.Sprintf("  $ undercut %s", dialShort(m.w.Today.Undercuts[c.ID]))
 			}
 			l1 = append(l1, name+" ")
 			l2 = append(l2, who+" ")
@@ -435,7 +435,7 @@ func (m *Model) cornerSection(sel *game.Corner) section {
 		lines = append(lines, theme.Subtle.Render(owner))
 	case sel.Owner == game.OwnerRival:
 		lines = append(lines, theme.RivalText.Render(fmt.Sprintf("%s's since day %d", w.Rival.Leader, sel.Since)))
-		if s := w.Strike; s != nil && s.Corner == sel.ID {
+		if s := w.Today.Strike; s != nil && s.Corner == sel.ID {
 			lines = append(lines, theme.Warning.Render(fmt.Sprintf("⚔ %s tonight", s.Force)))
 		}
 		lines = append(lines, row("holds", theme.RivalText.Render(plural(w.RivalHeld(), "corner"))))
@@ -520,7 +520,7 @@ func (m *Model) cornerSection(sel *game.Corner) section {
 		}
 		// The books (#70): the police, tipped off, take the corner.
 		tp := m.set.Rivals.TipTuning()
-		if s := w.Tipoff; s != nil && s.Corner == sel.ID {
+		if s := w.Today.Tipoff; s != nil && s.Corner == sel.ID {
 			lines = append(lines, keyRow("t", fmt.Sprintf("tipped tonight: police %.0f → %.0f", w.Rival.Heat, min(100, w.Rival.Heat+tp.Heat))))
 		} else {
 			lines = append(lines, keyRow("t", fmt.Sprintf("tip the police: at %.0f of %.0f", w.Rival.Heat, tp.PoliceNotice)))

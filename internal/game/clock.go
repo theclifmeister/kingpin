@@ -88,23 +88,7 @@ func (c *Clock) EndDay(w *World) []events.Event {
 		}
 	}
 	w.Day = day
-	w.Orders = map[string]SellOrder{}
-	w.Buys = supplied(w.Buys, day)
-	w.LieLow = false
-	w.Strike = nil
-	w.Investigation = nil
-	w.UpgradesToday = nil
-	w.Proposal = nil
-	w.Accepted = nil
-	w.Abandoned = nil
-	w.Funded = nil
-	w.Deliveries = nil
-	w.Undercuts = nil
-	w.Moved = nil
-	w.HousesBought = nil
-	w.Scouting = nil
-	w.Tipoff = nil
-	w.Poach = nil
+	w.ClearToday(day)
 	w.Dilemmas.Answered = nil
 	w.Crew.HiredToday = nil
 	w.Crew.FiredToday = nil
@@ -124,6 +108,20 @@ func (c *Clock) EndDay(w *World) []events.Event {
 		}
 	}
 	return t.events
+}
+
+// ClearToday zeroes the player's per-day scratch (World.Today) as one
+// unit, the way the clock does after every EndDay: every order, choice
+// and errand queued since the morning is gone, and the sell orders' map
+// is fresh for the next day's. The one exception is #113's kept
+// contract receipts: of Buys it keeps what the supply contracts bought
+// in the tick that brings day, so the cart can show and return them
+// through the day (supplied). Nothing else on World is per-day: the
+// sims' own tallies (Dilemmas.Answered, Crew.HiredToday, FiredToday and
+// PaidOffToday, a market's BoughtToday) stay on their sims' state and
+// the clock clears them beside it.
+func (w *World) ClearToday(day int) {
+	w.Today = Today{Orders: map[string]SellOrder{}, Buys: supplied(w.Today.Buys, day)}
 }
 
 // supplied is the receipts the clock keeps into the morning of day: the

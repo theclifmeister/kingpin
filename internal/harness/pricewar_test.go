@@ -78,7 +78,7 @@ func TestPricewarInvariants(t *testing.T) {
 					}
 				}
 				caps, undercutDay = map[string]int{}, w.Day+1
-				for id, d := range w.Undercuts {
+				for id, d := range w.Today.Undercuts {
 					c := w.Corner(id)
 					for _, pid := range w.Products {
 						if m := w.Product(home.ID, pid); m != nil {
@@ -287,7 +287,7 @@ func TestPricewarIsQuieterThanAHitWar(t *testing.T) {
 			peak, low := 0.0, 0
 			res := pricewarRun(t, cfg, seed, 120, "defensive", policy, func(w *game.World) {
 				peak = math.Max(peak, w.Rival.War)
-				if w.LieLow {
+				if w.Today.LieLow {
 					low++
 				}
 			})
@@ -360,11 +360,11 @@ func TestPricewarIsDeterministicAndSaves(t *testing.T) {
 	// days, not the queue.
 	c := play(40)
 	policy()(c.World)
-	for len(c.World.Undercuts) == 0 && c.World.Day < 100 {
+	for len(c.World.Today.Undercuts) == 0 && c.World.Day < 100 {
 		c = play(c.World.Day + 1)
 		policy()(c.World)
 	}
-	if len(c.World.Undercuts) == 0 {
+	if len(c.World.Today.Undercuts) == 0 {
 		t.Fatal("between day 40 and 100 of seed 6 there was never anything to undercut")
 	}
 	if err := game.Save(1, c.World); err != nil {

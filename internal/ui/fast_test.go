@@ -8,6 +8,7 @@ import (
 	"strings"
 	"testing"
 
+	"github.com/theclifmeister/kingpin/internal/content"
 	"github.com/theclifmeister/kingpin/internal/game"
 )
 
@@ -108,7 +109,7 @@ func TestFastForwardStopsOnAnAlert(t *testing.T) {
 	m := richModelSeeded(t, 80, 24, 1)
 	patrol := 0.0
 	for _, r := range m.set.Heat.ThresholdsIn(m.w, m.w.Here()) {
-		if r.Level == "patrol" {
+		if r.Level == content.Patrol {
 			patrol = r.Threshold
 		}
 	}

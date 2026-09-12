@@ -325,7 +325,7 @@ func (w *World) Abandon(corner string) error {
 	}
 	c.Owner, c.Faction = OwnerNone, ""
 	c.Runner, c.Enforcer, c.Idle, c.Since = 0, 0, 0, w.Day
-	w.Abandoned = append(w.Abandoned, c.ID)
+	w.Today.Abandoned = append(w.Today.Abandoned, c.ID)
 	return nil
 }
 
@@ -346,7 +346,7 @@ func (w *World) SendEnforcers(corner string, force events.Force) error {
 	if w.Crew.Role("enforcer") == 0 {
 		return ErrNoEnforcers
 	}
-	w.Strike = &StrikeOrder{Corner: corner, Force: force}
+	w.Today.Strike = &StrikeOrder{Corner: corner, Force: force}
 	return nil
 }
 
@@ -358,12 +358,12 @@ func (w *World) Boost(corner string, force events.Force) error {
 	if err := w.SendEnforcers(corner, force); err != nil {
 		return err
 	}
-	w.Strike.Boost = true
+	w.Today.Strike.Boost = true
 	return nil
 }
 
 // CallOff cancels tonight's strike, or boost.
-func (w *World) CallOff() { w.Strike = nil }
+func (w *World) CallOff() { w.Today.Strike = nil }
 
 // NextDoor is the worked share you cut a rival corner from (#68): the
 // demand, in standard corners, of your worked corners bordering it,
@@ -433,24 +433,24 @@ func (w *World) Undercut(corner string, dial events.Dial) error {
 	if err := w.CanUndercut(corner); err != nil {
 		return err
 	}
-	if w.Undercuts == nil {
-		w.Undercuts = map[string]events.Dial{}
+	if w.Today.Undercuts == nil {
+		w.Today.Undercuts = map[string]events.Dial{}
 	}
-	w.Undercuts[corner] = dial
+	w.Today.Undercuts[corner] = dial
 	return nil
 }
 
 // CancelUndercut calls off tonight's price war on a corner.
 func (w *World) CancelUndercut(corner string) {
-	delete(w.Undercuts, corner)
-	if len(w.Undercuts) == 0 {
-		w.Undercuts = nil
+	delete(w.Today.Undercuts, corner)
+	if len(w.Today.Undercuts) == 0 {
+		w.Today.Undercuts = nil
 	}
 }
 
 // Undercutting reports the dial a rival corner is undercut at tonight,
 // and whether it is.
 func (w *World) Undercutting(corner string) (events.Dial, bool) {
-	d, ok := w.Undercuts[corner]
+	d, ok := w.Today.Undercuts[corner]
 	return d, ok
 }

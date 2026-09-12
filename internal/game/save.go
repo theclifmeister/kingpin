@@ -215,8 +215,8 @@ func Load(slot int, migrations ...Migration) (*World, error) {
 		step.Apply(&w)
 		w.SchemaVersion++
 	}
-	if w.Orders == nil {
-		w.Orders = map[string]SellOrder{}
+	if w.Today.Orders == nil {
+		w.Today.Orders = map[string]SellOrder{}
 	}
 	if w.Heat.LastResponse == nil {
 		w.Heat.LastResponse = map[string]int{}

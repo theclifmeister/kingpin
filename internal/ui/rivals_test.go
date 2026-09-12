@@ -86,7 +86,7 @@ func TestRivalsPane(t *testing.T) {
 	if main := mainText(m); !strings.Contains(main, "Tonight  you propose tribute of $500 a day") {
 		t.Errorf("MAIN lacks the proposal:\n%s", main)
 	}
-	w.Proposal = nil
+	w.Today.Proposal = nil
 	// With no offer the pane shows the deal that holds; with none of
 	// either, the mood.
 	w.Offers = nil

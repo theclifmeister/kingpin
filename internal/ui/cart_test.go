@@ -39,8 +39,8 @@ func TestDialogStaysOpenForTheNextLine(t *testing.T) {
 	m.Update(key("4"))
 	m.Update(key("enter"))
 	m.Update(key("enter")) // once
-	if w.Stock(home, pills) != 4 || len(w.Buys) != 2 {
-		t.Fatalf("after the second buy: pills %d, %d buys, err %q", w.Stock(home, pills), len(w.Buys), m.dlg.err)
+	if w.Stock(home, pills) != 4 || len(w.Today.Buys) != 2 {
+		t.Fatalf("after the second buy: pills %d, %d buys, err %q", w.Stock(home, pills), len(w.Today.Buys), m.dlg.err)
 	}
 	m.Update(key("esc"))
 	if m.mode != modePlay {
@@ -56,8 +56,8 @@ func TestDialogStaysOpenForTheNextLine(t *testing.T) {
 	for _, k := range []string{"2", "enter", "enter", "1", "enter", "enter", "esc"} {
 		m.Update(key(k))
 	}
-	if m.mode != modePlay || len(w.Orders) != 2 || w.Day != day {
-		t.Fatalf("after the second order: mode %v, %d orders, day %d", m.mode, len(w.Orders), w.Day)
+	if m.mode != modePlay || len(w.Today.Orders) != 2 || w.Day != day {
+		t.Fatalf("after the second order: mode %v, %d orders, day %d", m.mode, len(w.Today.Orders), w.Day)
 	}
 	if o, _ := w.Order(home, weed); o.Qty != 10 || o.Dial != events.DialAggressive {
 		t.Fatalf("the weed order: %+v", o)
@@ -100,8 +100,8 @@ func TestCartListsAndEdits(t *testing.T) {
 	for _, k := range []string{"1", "enter", "enter", "3", "enter", "enter", "2", "enter", "enter", "1", "enter", "enter", "esc"} {
 		m.Update(key(k))
 	}
-	if len(w.Buys) != 2 || len(w.Orders) != 2 {
-		t.Fatalf("%d buys, %d orders", len(w.Buys), len(w.Orders))
+	if len(w.Today.Buys) != 2 || len(w.Today.Orders) != 2 {
+		t.Fatalf("%d buys, %d orders", len(w.Today.Buys), len(w.Today.Orders))
 	}
 	// The pane, on the dashboard and the market.
 	for _, s := range []string{"1", "2"} {
@@ -169,8 +169,8 @@ func TestCartListsAndEdits(t *testing.T) {
 	}
 	// Removing the order cancels it.
 	m.Update(key("x"))
-	if _, ok := w.Order(home, pills); ok || len(w.Orders) != 1 {
-		t.Fatalf("x did not cancel the order: %+v", w.Orders)
+	if _, ok := w.Order(home, pills); ok || len(w.Today.Orders) != 1 {
+		t.Fatalf("x did not cancel the order: %+v", w.Today.Orders)
 	}
 	// Shrinking a buy is a partial return; removing it a full one, which
 	// leaves cash, stash, BoughtToday and the supplier price as before.
@@ -218,7 +218,7 @@ func TestCartListsAndEdits(t *testing.T) {
 		t.Fatalf("esc: mode %v", m.mode)
 	}
 	// An empty cart: no section in the pane, the modal says so.
-	w.Orders = map[string]game.SellOrder{}
+	w.Today.Orders = map[string]game.SellOrder{}
 	if secs := m.cartSection(home); secs != nil {
 		t.Errorf("an empty cart has a pane section: %+v", secs)
 	}

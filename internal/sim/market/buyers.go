@@ -232,7 +232,7 @@ func (s *Sim) deal(w *game.World, t *game.Tick) {
 // everyone's day off. It runs before the street sales so a contract has
 // first call on the stash.
 func (s *Sim) deliver(w *game.World, t *game.Tick, city string) {
-	if w.LieLow || len(w.Deliveries) == 0 {
+	if w.Today.LieLow || len(w.Today.Deliveries) == 0 {
 		return
 	}
 	for i := range w.Contracts {
@@ -241,7 +241,7 @@ func (s *Sim) deliver(w *game.World, t *game.Tick, city string) {
 			continue
 		}
 		m := w.Product(city, c.Product)
-		units := min(w.Deliveries[c.ID], c.Owed(), w.Stock(city, c.Product))
+		units := min(w.Today.Deliveries[c.ID], c.Owed(), w.Stock(city, c.Product))
 		if m == nil || units <= 0 {
 			continue
 		}

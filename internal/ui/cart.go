@@ -61,7 +61,7 @@ func (m *Model) cartLines() []cartLine {
 	w := m.w
 	var lines []cartLine
 	at := map[string]int{}
-	for _, b := range w.Buys {
+	for _, b := range w.Today.Buys {
 		k := game.OrderKey(b.City, b.Product)
 		switch {
 		case b.Contract:
@@ -86,7 +86,7 @@ func (m *Model) cartLines() []cartLine {
 		for _, pid := range w.Products {
 			o, ok := w.Order(cid, pid)
 			standing := false
-			if !ok && !w.LieLow {
+			if !ok && !w.Today.LieLow {
 				o, ok = w.YourStanding(cid, pid)
 				standing = true
 			}
@@ -607,7 +607,7 @@ func (m *Model) viewCart() string {
 // cart in a sentence, or nothing queued.
 func (m *Model) endDayLine() string {
 	switch {
-	case m.w.LieLow:
+	case m.w.Today.LieLow:
 		return "Lying low today."
 	case len(m.cartLines()) > 0:
 		return m.cartSummary()

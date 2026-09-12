@@ -97,10 +97,10 @@ func TestBuyDialogFollowsTheLieutenant(t *testing.T) {
 	m.dlg.qty.SetValue("5")
 	m.Update(key("enter"))
 	m.Update(key("enter"))
-	if w.Stock(hub, weed) != before+5 || len(w.Buys) == 0 || w.Buys[len(w.Buys)-1].Lieutenant != lt.Name {
-		t.Fatalf("the buy: stock %d (was %d), receipts %+v, err %q", w.Stock(hub, weed), before, w.Buys, m.dlg.err)
+	if w.Stock(hub, weed) != before+5 || len(w.Today.Buys) == 0 || w.Today.Buys[len(w.Today.Buys)-1].Lieutenant != lt.Name {
+		t.Fatalf("the buy: stock %d (was %d), receipts %+v, err %q", w.Stock(hub, weed), before, w.Today.Buys, m.dlg.err)
 	}
-	p := w.Buys[len(w.Buys)-1]
+	p := w.Today.Buys[len(w.Today.Buys)-1]
 	if p.Cost != w.Quote(w.Supplier(p.Supplier), weed, 5, false) || float64(p.Cost) < 5*w.Supplier(p.Supplier).Price[weed] || cash-w.Player.DirtyCash != p.Cost {
 		t.Fatalf("the receipt %+v against the quote %d, cash moved %d", p, w.Quote(w.Supplier(p.Supplier), weed, 5, false), cash-w.Player.DirtyCash)
 	}

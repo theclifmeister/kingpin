@@ -250,7 +250,7 @@ func TestStandingNeverOutsellsTheStash(t *testing.T) {
 			clock := game.NewClock(nil, order...)
 			for d := 0; d < 100 && w.Over == nil; d++ {
 				policy(w)
-				lieLow = w.LieLow
+				lieLow = w.Today.LieLow
 				standing = map[string]game.SellOrder{}
 				for k, o := range w.Standing {
 					standing[k] = o

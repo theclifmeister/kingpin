@@ -61,7 +61,7 @@ func TestLieutenantSellsWhileYouAreAway(t *testing.T) {
 				hired = w.Day
 			}
 			if hired > 0 {
-				for _, o := range w.Orders {
+				for _, o := range w.Today.Orders {
 					if o.City == home {
 						t.Fatalf("seed %d day %d: the delegated player placed an order at home", seed, w.Day)
 					}
@@ -196,7 +196,7 @@ func TestLieutenantWalks(t *testing.T) {
 	if _, err := res.World.BuyHouse(game.HouseOffer{ID: "hubhouse", Name: "Hub house", City: hub, Corner: cfg.City.City(hub).Corners[0].ID, Capacity: 200, Price: 1, Rent: 1}); err != nil {
 		t.Fatal(err)
 	}
-	res.World.HousesBought = nil
+	res.World.Today.HousesBought = nil
 	res.World.AddStock(hub, cfg.Market.Products[0].ID, 150)
 	if res.World.House("hubhouse").Units() != 150 {
 		t.Fatal("the stock did not go into the house")

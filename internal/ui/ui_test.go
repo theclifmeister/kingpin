@@ -268,7 +268,7 @@ func richFixture(t *testing.T, sz [2]int, check func(m *Model, view, what string
 	m.Update(key("w"))
 	see(m, "strike picker")
 	m.Update(key("enter"))
-	if m.w.Strike == nil {
+	if m.w.Today.Strike == nil {
 		t.Fatalf("%dx%d: no strike queued: %q", sz[0], sz[1], m.status)
 	}
 	// A price war on the same corner (#68): you next door on Rail Yard
@@ -374,13 +374,13 @@ func richFixture(t *testing.T, sz [2]int, check func(m *Model, view, what string
 	m.Update(key("2"))
 	see(m, "propose terms")
 	m.Update(key("enter"))
-	if m.w.Proposal == nil || m.w.Proposal.Kind != game.DealTribute {
+	if m.w.Today.Proposal == nil || m.w.Today.Proposal.Kind != game.DealTribute {
 		t.Fatalf("%dx%d: no tribute proposed: %q", sz[0], sz[1], m.status)
 	}
 	see(m, "rivals screen with a proposal")
 	m.Update(key("1"))
 	see(m, "dashboard with the table")
-	m.w.Rival.Deals, m.w.Offers, m.w.Proposal = nil, nil, nil
+	m.w.Rival.Deals, m.w.Offers, m.w.Today.Proposal = nil, nil, nil
 	// Every node state on the tree: owned, available, short, locked,
 	// and the buy confirmation; every branch, every node.
 	m.Update(key("6"))
@@ -644,7 +644,7 @@ func TestBuyThenSellFlow(t *testing.T) {
 	m.Update(key("enter"))
 	m.Update(key("esc"))
 	if o, ok := m.w.Order(m.w.Player.Location, id); !ok || o.Qty != 10 {
-		t.Fatalf("order not placed: %+v", m.w.Orders)
+		t.Fatalf("order not placed: %+v", m.w.Today.Orders)
 	}
 	m.Update(key("n"))
 	if m.mode != modeReport || m.w.Day != 1 {
@@ -1526,8 +1526,8 @@ func TestStrikeKeys(t *testing.T) {
 		t.Fatalf("w with an enforcer: mode %v rows %v", m.mode, m.strikeRows())
 	}
 	m.Update(key("3")) // hit
-	if m.mode != modePlay || m.w.Strike == nil || m.w.Strike.Corner != "docks" || m.w.Strike.Force != events.ForceHit {
-		t.Fatalf("after picking hit: mode %v strike %+v status %q", m.mode, m.w.Strike, m.status)
+	if m.mode != modePlay || m.w.Today.Strike == nil || m.w.Today.Strike.Corner != "docks" || m.w.Today.Strike.Force != events.ForceHit {
+		t.Fatalf("after picking hit: mode %v strike %+v status %q", m.mode, m.w.Today.Strike, m.status)
 	}
 	if !strings.Contains(stripANSI(m.View()), "hit tonight") {
 		t.Fatal("the map does not show where the enforcers go")
@@ -1543,15 +1543,15 @@ func TestStrikeKeys(t *testing.T) {
 		t.Fatalf("picker with a strike queued: %v", rows)
 	}
 	m.Update(key("7")) // stop
-	if m.w.Strike != nil {
-		t.Fatalf("stop did not call it off: %+v", m.w.Strike)
+	if m.w.Today.Strike != nil {
+		t.Fatalf("stop did not call it off: %+v", m.w.Today.Strike)
 	}
 	m.Update(key("w"))
 	m.Update(key("j"))
 	m.Update(key("enter")) // hit again (the picker opens on push; the boost rows follow the forces, #70)
 	endDay(t, m)           // the first hire's stage (#149) opens before the report
-	if m.mode != modeReport || m.w.Strike != nil || m.w.Stats.Strikes != 1 {
-		t.Fatalf("after the night: mode %v strike %+v stats %+v", m.mode, m.w.Strike, m.w.Stats)
+	if m.mode != modeReport || m.w.Today.Strike != nil || m.w.Stats.Strikes != 1 {
+		t.Fatalf("after the night: mode %v strike %+v stats %+v", m.mode, m.w.Today.Strike, m.w.Stats)
 	}
 	if !strings.Contains(strings.Join(m.w.Report.Territory, "\n"), "The Docks") {
 		t.Fatalf("report does not mention the strike: %v", m.w.Report.Territory)
@@ -2153,8 +2153,8 @@ func TestRivalsScreenKeys(t *testing.T) {
 	}
 	m.Update(key("enter")) // truce again
 	m.Update(key("enter")) // the standard term
-	if m.mode != modePlay || w.Proposal == nil || w.Proposal.Kind != game.DealTruce || w.Proposal.Terms.Days != m.cfg.Rivals.Diplomacy.TruceDays[1] {
-		t.Fatalf("proposing: mode %v proposal %+v status %q", m.mode, w.Proposal, m.status)
+	if m.mode != modePlay || w.Today.Proposal == nil || w.Today.Proposal.Kind != game.DealTruce || w.Today.Proposal.Terms.Days != m.cfg.Rivals.Diplomacy.TruceDays[1] {
+		t.Fatalf("proposing: mode %v proposal %+v status %q", m.mode, w.Today.Proposal, m.status)
 	}
 	if w.Day != day {
 		t.Fatal("enter in the dialog ended the day")
@@ -2164,14 +2164,14 @@ func TestRivalsScreenKeys(t *testing.T) {
 		t.Fatalf("no withdraw row with a proposal queued: %d rows", rows)
 	}
 	m.Update(key("5")) // withdraw
-	if w.Proposal != nil || m.mode != modePlay {
-		t.Fatalf("withdraw: %+v mode %v", w.Proposal, m.mode)
+	if w.Today.Proposal != nil || m.mode != modePlay {
+		t.Fatalf("withdraw: %+v mode %v", w.Today.Proposal, m.mode)
 	}
 	m.Update(key("d"))
 	m.Update(key("1"))
 	m.Update(key("1")) // the short truce
-	if w.Proposal == nil || m.set.Rivals.Chance(w, *w.Proposal) < 1 {
-		t.Fatalf("propose: %+v status %q", w.Proposal, m.status)
+	if w.Today.Proposal == nil || m.set.Rivals.Chance(w, *w.Today.Proposal) < 1 {
+		t.Fatalf("propose: %+v status %q", w.Today.Proposal, m.status)
 	}
 	endDay(t, m)
 	m.Update(key("enter"))
@@ -2201,16 +2201,16 @@ func TestRivalsScreenKeys(t *testing.T) {
 	}
 	m.Update(key("down"))
 	m.Update(key("y"))
-	if len(w.Accepted) != 0 || !strings.Contains(m.status, "lapsed") {
-		t.Fatalf("accepting a lapsed offer: accepted %+v status %q", w.Accepted, m.status)
+	if len(w.Today.Accepted) != 0 || !strings.Contains(m.status, "lapsed") {
+		t.Fatalf("accepting a lapsed offer: accepted %+v status %q", w.Today.Accepted, m.status)
 	}
 	m.Update(key("x"))
 	if len(w.Offers) != 1 || w.Offers[0].ID != 7 {
 		t.Fatalf("declining: offers %+v", w.Offers)
 	}
 	m.Update(key("y"))
-	if len(w.Offers) != 0 || len(w.Accepted) != 1 || w.Accepted[0].ID != 7 {
-		t.Fatalf("accepting: offers %+v accepted %+v status %q", w.Offers, w.Accepted, m.status)
+	if len(w.Offers) != 0 || len(w.Today.Accepted) != 1 || w.Today.Accepted[0].ID != 7 {
+		t.Fatalf("accepting: offers %+v accepted %+v status %q", w.Offers, w.Today.Accepted, m.status)
 	}
 	w.Player.DirtyCash += 10_000
 	endDay(t, m)
@@ -2278,7 +2278,7 @@ func TestFundKeys(t *testing.T) {
 		t.Fatalf("left did not turn back: %s", c.ID)
 	}
 	m.Update(key("esc"))
-	if m.mode != modePlay || len(w.Funded) != 0 {
+	if m.mode != modePlay || len(w.Today.Funded) != 0 {
 		t.Fatal("esc funded")
 	}
 	m.Update(key("f"))
@@ -2465,8 +2465,8 @@ func fillCart(t *testing.T, m *Model) {
 	for _, k := range []string{"1", "enter", "enter", "3", "enter", "enter", "2", "enter", "enter", "1", "enter", "1", "enter", "esc"} {
 		m.Update(key(k))
 	}
-	if m.mode != modePlay || len(w.Buys) != 2 || len(w.Orders) != 2 {
-		t.Fatalf("filling the cart: mode %v, %d buys, %d orders, %q %q", m.mode, len(w.Buys), len(w.Orders), m.dlg.err, m.status)
+	if m.mode != modePlay || len(w.Today.Buys) != 2 || len(w.Today.Orders) != 2 {
+		t.Fatalf("filling the cart: mode %v, %d buys, %d orders, %q %q", m.mode, len(w.Today.Buys), len(w.Today.Orders), m.dlg.err, m.status)
 	}
 }
 

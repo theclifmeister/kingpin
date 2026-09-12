@@ -374,7 +374,7 @@ func (w *World) buy(s *Supplier, product string, qty int, markup float64, credit
 		s.Price[product] *= 1 + pricePressure*float64(qty)/demand
 	}
 	w.refreshSupplierPrice(s.City, product)
-	w.Buys = append(w.Buys, p)
+	w.Today.Buys = append(w.Today.Buys, p)
 	return p, nil
 }
 

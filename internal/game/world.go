@@ -57,7 +57,33 @@ type World struct {
 	DelegatedSupply map[string]SupplyContract
 	Markup          float64
 
-	// Per-day scratch, cleared by the clock after every EndDay.
+	// Today is the player's per-day scratch (#144): what the actions
+	// queued since the morning, for the sims to resolve tonight. The
+	// clock zeroes it as a unit after every EndDay (ClearToday), bar the
+	// morning's supply-contract receipts, which it keeps in Buys through
+	// the day for the cart (#113).
+	Today Today
+
+	Journal []Headline // full headline history, oldest first
+	Report  *DayReport // morning report for the current day
+	Over    *Ending    // non-nil once the run has ended
+	Stats   Stats
+
+	legacy *v6  // what a pre-7 save carried for its one city; Load sets it, MigrateCities consumes it
+	fell   bool // what a pre-10 save carried as FallGuyUsed; Load sets it, MigrateFallGuys consumes it
+}
+
+// Today is the player's per-day scratch on the World (#144): what the
+// actions (Buy, PlaceSell, SetLieLow, SendEnforcers, Boost, Investigate,
+// BuyUpgrade, Propose, Accept, Abandon, Fund, Deliver, Undercut,
+// MoveStock, BuyHouse, Scout, Tip, BuyOff) queue by day and the sims
+// resolve at EndDay, then the clock zeroes as a unit (ClearToday). A
+// field here is never read across a day; the one receipt kept into the
+// morning is named on the clock. The fields keep the names they had on
+// World before #144, so a save written since reads the same at each
+// level; a save from before it loads with Today zero, which is what its
+// clock would have left after the day it was saved on.
+type Today struct {
 	Orders        map[string]SellOrder   // pending sell orders keyed by product id
 	Buys          []Purchase             // purchases made today, and what the supply contracts bought this morning (#113)
 	LieLow        bool                   // player chose to lie low today
@@ -75,14 +101,6 @@ type World struct {
 	Scouting      *ScoutOrder            // somebody reading the rival's books tonight (#70); the rivals sim resolves it
 	Tipoff        *TipOrder              // the rival corner you tipped the police on tonight (#70); the rivals sim resolves it
 	Poach         *PoachOrder            // the rival's muscle you are paying to go home tonight (#70); the rivals sim resolves it
-
-	Journal []Headline // full headline history, oldest first
-	Report  *DayReport // morning report for the current day
-	Over    *Ending    // non-nil once the run has ended
-	Stats   Stats
-
-	legacy *v6  // what a pre-7 save carried for its one city; Load sets it, MigrateCities consumes it
-	fell   bool // what a pre-10 save carried as FallGuyUsed; Load sets it, MigrateFallGuys consumes it
 }
 
 // City is one city of the run: its own street prices and demand, its own
@@ -711,7 +729,7 @@ func NewWorld(seed uint64, cities []StartingCity, startCash, carryLimit int) *Wo
 		},
 		Heat:     HeatState{LastResponse: map[string]int{}, Responses: map[string]int{}},
 		Upgrades: map[string]bool{},
-		Orders:   map[string]SellOrder{},
+		Today:    Today{Orders: map[string]SellOrder{}},
 	}
 	for _, c := range cities {
 		w.AddCity(c)

@@ -283,7 +283,7 @@ func TestRichHiderIsNeverIndicted(t *testing.T) {
 			}
 			stings := 0
 			for _, e := range res.Events {
-				if ev, ok := e.(events.Enforcement); ok && (ev.Level == "sting" || ev.Level == "raid") {
+				if ev, ok := e.(events.Enforcement); ok && (ev.Level == content.Sting || ev.Level == content.Raid) {
 					stings++
 					if ev.Evidence != 0 {
 						t.Fatalf("seed %d day %d: %s on a quiet day added %d evidence", seed, ev.Day, ev.Level, ev.Evidence)
@@ -369,7 +369,7 @@ func TestDesignerComesByRoad(t *testing.T) {
 	boss := Boss(cfg, 40, "steady")
 	res, _ := Run(cfg, 1, TierDays[2], func(w *game.World) {
 		boss(w)
-		for _, b := range w.Buys {
+		for _, b := range w.Today.Buys {
 			if b.City == home && b.Product == "designer" {
 				t.Fatalf("day %d: designer bought at home: %+v", w.Day, b)
 			}

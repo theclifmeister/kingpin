@@ -54,8 +54,8 @@ func TestStandingOrderInTheGrammar(t *testing.T) {
 	m.Update(key("tab"))
 	m.Update(key("enter"))
 	o, ok := w.YourStanding(home, weed)
-	if !ok || o.Qty != 30 || o.Dial != events.DialAggressive || m.mode != modeSell || m.dlg.step != 0 || len(w.Orders) != 0 {
-		t.Fatalf("standing: order %+v %v, mode %v step %d, orders %d, err %q", o, ok, m.mode, m.dlg.step, len(w.Orders), m.dlg.err)
+	if !ok || o.Qty != 30 || o.Dial != events.DialAggressive || m.mode != modeSell || m.dlg.step != 0 || len(w.Today.Orders) != 0 {
+		t.Fatalf("standing: order %+v %v, mode %v step %d, orders %d, err %q", o, ok, m.mode, m.dlg.step, len(w.Today.Orders), m.dlg.err)
 	}
 	if !strings.HasPrefix(m.status, "Standing: 30 Weed in Eastside, aggressive") {
 		t.Fatalf("status %q", m.status)

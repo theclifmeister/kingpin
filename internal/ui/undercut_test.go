@@ -63,7 +63,7 @@ func TestUndercutKeys(t *testing.T) {
 	}
 	m.Update(key("3")) // aggressive
 	if d, ok := m.w.Undercutting("docks"); m.mode != modePlay || !ok || d != events.DialAggressive {
-		t.Fatalf("after picking aggressive: mode %v undercuts %v status %q", m.mode, m.w.Undercuts, m.status)
+		t.Fatalf("after picking aggressive: mode %v undercuts %v status %q", m.mode, m.w.Today.Undercuts, m.status)
 	}
 	if !strings.Contains(m.status, "Undercutting The Docks tonight at aggressive") {
 		t.Fatalf("status: %q", m.status)
@@ -82,7 +82,7 @@ func TestUndercutKeys(t *testing.T) {
 	}
 	m.Update(key("4")) // stop
 	if _, ok := m.w.Undercutting("docks"); ok || !strings.Contains(m.status, "Called off") {
-		t.Fatalf("stop did not call it off: %v %q", m.w.Undercuts, m.status)
+		t.Fatalf("stop did not call it off: %v %q", m.w.Today.Undercuts, m.status)
 	}
 	// Under a truce it is refused, and the market moves nothing.
 	m.w.Rival.Deals = []game.Deal{{Kind: game.DealTruce, Terms: game.Terms{Days: 10}, Since: m.w.Day, Until: m.w.Day + 10}}
@@ -111,8 +111,8 @@ func TestUndercutKeys(t *testing.T) {
 	if docks.Squeeze <= 0 || docks.Starved != 1 {
 		t.Fatalf("the rival corner is not squeezed the morning after: squeeze %.2f starved %d", docks.Squeeze, docks.Starved)
 	}
-	if m.w.Undercuts != nil {
-		t.Fatalf("the clock did not clear the undercuts: %v", m.w.Undercuts)
+	if m.w.Today.Undercuts != nil {
+		t.Fatalf("the clock did not clear the undercuts: %v", m.w.Today.Undercuts)
 	}
 	m.Update(key("enter"))
 	m.Update(key("5"))

@@ -53,8 +53,8 @@ func TestBooksKeys(t *testing.T) {
 	}
 	cash := w.Cash()
 	m.Update(key("y"))
-	if m.mode != modePlay || w.Scouting == nil || w.Scouting.Cost != m.set.Rivals.ScoutCost() || w.Cash() != cash-m.set.Rivals.ScoutCost() {
-		t.Fatalf("y on the scout: mode %v scouting %+v cash %d -> %d", m.mode, w.Scouting, cash, w.Cash())
+	if m.mode != modePlay || w.Today.Scouting == nil || w.Today.Scouting.Cost != m.set.Rivals.ScoutCost() || w.Cash() != cash-m.set.Rivals.ScoutCost() {
+		t.Fatalf("y on the scout: mode %v scouting %+v cash %d -> %d", m.mode, w.Today.Scouting, cash, w.Cash())
 	}
 	m.Update(key("i"))
 	if m.mode != modePlay || !strings.HasPrefix(m.status, "Can't scout twice") {
@@ -75,8 +75,8 @@ func TestBooksKeys(t *testing.T) {
 	price := m.set.Rivals.MusclePrice(w)
 	dirty := w.Player.DirtyCash
 	m.Update(key("enter"))
-	if m.mode != modePlay || w.Poach == nil || w.Poach.Units != 1 || w.Poach.Cost != price || w.Player.DirtyCash != dirty-price {
-		t.Fatalf("enter on the buy-off: mode %v poach %+v dirty %d -> %d", m.mode, w.Poach, dirty, w.Player.DirtyCash)
+	if m.mode != modePlay || w.Today.Poach == nil || w.Today.Poach.Units != 1 || w.Today.Poach.Cost != price || w.Player.DirtyCash != dirty-price {
+		t.Fatalf("enter on the buy-off: mode %v poach %+v dirty %d -> %d", m.mode, w.Today.Poach, dirty, w.Player.DirtyCash)
 	}
 	m.Update(key("$"))
 	if m.mode != modePlay || !strings.HasPrefix(m.status, "Can't buy off twice") {
@@ -84,7 +84,7 @@ func TestBooksKeys(t *testing.T) {
 	}
 	// With the books read the field's max is the muscle as read and the
 	// block carries the snapshot with its age.
-	w.Poach = nil
+	w.Today.Poach = nil
 	w.Rival.Known = game.Known{Day: w.Day - 3, Cash: 48_000, Income: 12_000, Muscle: 5, Wages: 9_000}
 	main = mainText(m)
 	for _, want := range []string{"BOOKS · read 3 days ago", "cash    $48K", "muscle  5 heads", "3d"} {
@@ -98,8 +98,8 @@ func TestBooksKeys(t *testing.T) {
 	}
 	m.Update(key("3"))
 	m.Update(key("y"))
-	if w.Poach == nil || w.Poach.Units != 3 || w.Poach.Cost != 3*price {
-		t.Fatalf("three heads: %+v", w.Poach)
+	if w.Today.Poach == nil || w.Today.Poach.Units != 3 || w.Today.Poach.Cost != 3*price {
+		t.Fatalf("three heads: %+v", w.Today.Poach)
 	}
 	day := w.Day
 	w.Day = w.Rival.Known.Day + m.set.Rivals.Books().StaleDays // the fixture is on day 4: stale is read on a later morning
@@ -123,8 +123,8 @@ func TestBooksKeys(t *testing.T) {
 		}
 	}
 	m.Update(key("y"))
-	if m.mode != modePlay || w.Strike == nil || !w.Strike.Boost || w.Strike.Force != events.ForceWarn || w.Strike.Corner != w.Home().Corners[0].ID {
-		t.Fatalf("y on the boost: mode %v strike %+v status %q", m.mode, w.Strike, m.status)
+	if m.mode != modePlay || w.Today.Strike == nil || !w.Today.Strike.Boost || w.Today.Strike.Force != events.ForceWarn || w.Today.Strike.Corner != w.Home().Corners[0].ID {
+		t.Fatalf("y on the boost: mode %v strike %+v status %q", m.mode, w.Today.Strike, m.status)
 	}
 	if pane := paneRender(m); !strings.Contains(pane, "boost: the till, ~") || !strings.Contains(pane, "t  tip the police") {
 		t.Errorf("the inspector lacks the boost and the tip rows:\n%s", pane)
@@ -142,8 +142,8 @@ func TestBooksKeys(t *testing.T) {
 		}
 	}
 	m.Update(key("y"))
-	if m.mode != modePlay || w.Tipoff == nil || w.Tipoff.Corner != w.Home().Corners[0].ID {
-		t.Fatalf("y on the tip: mode %v tip %+v status %q", m.mode, w.Tipoff, m.status)
+	if m.mode != modePlay || w.Today.Tipoff == nil || w.Today.Tipoff.Corner != w.Home().Corners[0].ID {
+		t.Fatalf("y on the tip: mode %v tip %+v status %q", m.mode, w.Today.Tipoff, m.status)
 	}
 	m.Update(key("t"))
 	if m.mode != modePlay || !strings.HasPrefix(m.status, "Can't tip twice") {
@@ -159,8 +159,8 @@ func TestBooksKeys(t *testing.T) {
 		t.Fatalf("t on your corner: mode %v status %q", m.mode, m.status)
 	}
 	// The night resolves every move and the report carries them.
-	w.Tipoff = nil
-	w.Poach = nil
+	w.Today.Tipoff = nil
+	w.Today.Poach = nil
 	endDay(t, m)
 	rep := strings.Join(w.Report.Territory, "\n")
 	if !strings.Contains(rep, "books") && !strings.Contains(rep, "scout") {

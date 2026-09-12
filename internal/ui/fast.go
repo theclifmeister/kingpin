@@ -6,6 +6,7 @@ import (
 
 	tea "github.com/charmbracelet/bubbletea"
 
+	"github.com/theclifmeister/kingpin/internal/content"
 	"github.com/theclifmeister/kingpin/internal/events"
 	"github.com/theclifmeister/kingpin/internal/format"
 	"github.com/theclifmeister/kingpin/internal/game"
@@ -202,7 +203,7 @@ func (m *Model) stopEvent(e events.Event) string {
 	w := m.w
 	switch ev := e.(type) {
 	case events.Enforcement:
-		if ev.Level != "patrol" {
+		if ev.Level != content.Patrol {
 			return format.A(ev.Level) + " in " + w.CityName(ev.City)
 		}
 	case events.Unlocked:

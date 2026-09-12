@@ -372,12 +372,12 @@ func TestBooksAreDeterministicAndSave(t *testing.T) {
 	// count.
 	c := play(40)
 	policy()(c.World)
-	for (c.World.Strike == nil || c.World.Scouting == nil && c.World.Tipoff == nil) && c.World.Day < 110 {
+	for (c.World.Today.Strike == nil || c.World.Today.Scouting == nil && c.World.Today.Tipoff == nil) && c.World.Day < 110 {
 		c = play(c.World.Day + 1)
 		policy()(c.World)
 	}
-	if c.World.Strike == nil || !c.World.Strike.Boost {
-		t.Fatalf("between day 40 and 110 of seed 4 there was never a boost queued with another move: %+v", c.World.Strike)
+	if c.World.Today.Strike == nil || !c.World.Today.Strike.Boost {
+		t.Fatalf("between day 40 and 110 of seed 4 there was never a boost queued with another move: %+v", c.World.Today.Strike)
 	}
 	if err := game.Save(1, c.World); err != nil {
 		t.Fatal(err)

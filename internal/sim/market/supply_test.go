@@ -175,7 +175,7 @@ func TestSupplyIsDiceless(t *testing.T) {
 	}
 	w, _, c := marketOnly(t, cfg, 5)
 	c.EndDay(w)
-	if w.Buys != nil {
-		t.Fatalf("the receipts scratch of a run with no contract: %+v", w.Buys)
+	if w.Today.Buys != nil {
+		t.Fatalf("the receipts scratch of a run with no contract: %+v", w.Today.Buys)
 	}
 }

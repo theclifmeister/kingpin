@@ -69,14 +69,14 @@ func (w *World) Fund(city string, amount int) error {
 	}
 	w.Player.CleanCash -= amount
 	w.Stats.Funded += amount
-	w.Funded = append(w.Funded, Funding{City: city, Amount: amount})
+	w.Today.Funded = append(w.Today.Funded, Funding{City: city, Amount: amount})
 	return nil
 }
 
 // FundedToday is what the player has given a city today, in clean cash.
 func (w *World) FundedToday(city string) int {
 	n := 0
-	for _, f := range w.Funded {
+	for _, f := range w.Today.Funded {
 		if f.City == city {
 			n += f.Amount
 		}

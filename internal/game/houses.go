@@ -135,7 +135,7 @@ func (w *World) BuyHouse(o HouseOffer) (House, error) {
 	w.Player.DirtyCash -= o.Price
 	h := House{ID: o.ID, Name: o.Name, City: o.City, Corner: o.Corner, Capacity: o.Capacity, Price: o.Price, Rent: o.Rent, Bought: w.Day}
 	w.Houses = append(w.Houses, h)
-	w.HousesBought = append(w.HousesBought, h.ID)
+	w.Today.HousesBought = append(w.Today.HousesBought, h.ID)
 	return h, nil
 }
 
@@ -221,7 +221,7 @@ func (w *World) Move(city, from, to, product string, units int) (int, error) {
 		return 0, fmt.Errorf("%w: %s has room for %d", ErrHouseFull, dst.Name, dst.Room())
 	}
 	moved := w.MoveStock(city, from, to, product, units)
-	w.Moved = append(w.Moved, Move{City: city, From: from, To: to, Product: product, Units: moved})
+	w.Today.Moved = append(w.Today.Moved, Move{City: city, From: from, To: to, Product: product, Units: moved})
 	return moved, nil
 }
 
