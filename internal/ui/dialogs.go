@@ -478,27 +478,11 @@ func (m *Model) viewDialog() string {
 	buy := m.mode == modeBuy
 	var body []string
 
-	// Step 0: product list.
-	cols := []col{{"product", kText, 0}, {"price/unit", kPrice, 0}, {"have", kInt, 0}}
-	if !buy {
-		cols = append(cols, col{"demand/day", kInt, 0})
-	}
-	var rows [][]any
-	cursor := -1
-	for i, pid := range w.Products {
-		pm := w.Product(city, pid)
-		if pm == nil {
-			continue
-		}
-		if i == m.cursor {
-			cursor = len(rows)
-		}
-		if buy {
-			rows = append(rows, []any{pm.Name, pm.SupplierPrice, w.Stock(city, pid)})
-		} else {
-			rows = append(rows, []any{pm.Name, pm.Price, w.Stock(city, pid), approx{w.Demand(city, pid)}})
-		}
-	}
+	// Step 0: product list, with the market table's Δ and spark after
+	// the price (#138): a buy reads the supplier's price, the street's
+	// and the margin over the supplier; a sale the street price and
+	// the demand your corners there serve.
+	cols, rows, cursor := m.dialogRows(city, buy)
 	if cursor >= 0 {
 		m.modalFollow(len(body) + 1 + cursor) // under the header
 	}
@@ -509,6 +493,7 @@ func (m *Model) viewDialog() string {
 	if d.step >= 1 {
 		d.qty.max = m.qtyMax()
 		body = append(body, "quantity   "+d.qty.View())
+		body = append(body, m.priceRows(city, id, buy)...)
 		if buy {
 			if qty, err := m.parseQty(d.qty.max); err == nil {
 				cost, _ := w.SupplierQuote(id, qty)
@@ -590,6 +575,82 @@ func (m *Model) viewDialog() string {
 	}
 	return m.modal(title, body, m.modalFooter())
 }
+
+// dialogRows is the product step's table (#138): a buy's `product
+// price/unit street margin Δ Nd have`, a sale's `product price/unit Δ
+// Nd have demand/day`, the Δ and the spark the market table's cells
+// (priceFacts) and the spark sized to what the modal leaves, as the
+// market sizes it. A column the modal has no room for is dropped from
+// the right (`have`, then the spark), never wrapped; at 80 columns
+// every one fits. The cursor is the row of the product selected.
+func (m *Model) dialogRows(city string, buy bool) (cols []col, rows [][]any, cursor int) {
+	w := m.w
+	cols = []col{{"product", kText, 0}, {"price/unit", kPrice, 0}}
+	if buy {
+		cols = append(cols, col{"street", kPrice, 0}, col{"margin", kPct, 0})
+	}
+	cols = append(cols, col{"Δ", kPct, 0}, col{"", kBar, 0}, col{"have", kInt, 0})
+	if !buy {
+		cols = append(cols, col{"demand/day", kInt, 0})
+	}
+	cursor = -1
+	for i, pid := range w.Products {
+		pm := w.Product(city, pid)
+		if pm == nil {
+			continue
+		}
+		if i == m.cursor {
+			cursor = len(rows)
+		}
+		f := facts(pm)
+		var row []any
+		if buy {
+			row = []any{pm.Name, pm.SupplierPrice, pm.Price, f.marginCell()}
+		} else {
+			row = []any{pm.Name, pm.Price}
+		}
+		row = append(row, f.deltaCell(), f.sparkCell(), w.Stock(city, pid))
+		if !buy {
+			row = append(row, approx{w.Demand(city, pid)})
+		}
+		rows = append(rows, row)
+	}
+	width := m.modalInner()
+	for len(cols) > 3 && tableWidth(cols, rows) > width {
+		cols = cols[:len(cols)-1]
+		for i := range rows {
+			rows[i] = rows[i][:len(cols)]
+		}
+	}
+	sparkCol(cols, rows, max(3, min(30, width-tableWidth(cols, rows))))
+	return cols, rows, cursor
+}
+
+// priceRows is the line under the quantity on the dialogs' later steps
+// and the cart's for its selected line (#138): `price      $38 · +6%
+// today · range 30d $30 – $45` for a sale, `supplier   $21 · street
+// $38 · margin +82%` for a buy, the pane's numbers through priceLine,
+// in Subtle so the number is under the eye while the quantity is
+// typed; and, while one runs, the shock or slump on a row of its own,
+// named as the pane names it (`shock      ×1.40, 3 days more`).
+func (m *Model) priceRows(city, id string, buy bool) []string {
+	f := m.priceFacts(city, id)
+	if f == nil {
+		return nil
+	}
+	label := "price"
+	if buy {
+		label = "supplier"
+	}
+	rows := []string{theme.Subtle.Render(fit(label, dialogLabelW)) + m.priceLine(city, id, buy)}
+	if l, v := f.shockRow(); l != "" {
+		rows = append(rows, theme.Subtle.Render(fit(l, dialogLabelW))+v)
+	}
+	return rows
+}
+
+// dialogLabelW is the label column of the dialogs' rows (`quantity   `).
+const dialogLabelW = 11
 
 // dialRow draws the sell dial as `quiet  normal  [aggressive]`.
 func dialRow(d events.Dial) string {

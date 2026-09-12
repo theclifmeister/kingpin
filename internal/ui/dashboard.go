@@ -667,25 +667,12 @@ func (m *Model) dashboardDetails() []section {
 	if m.cursor < len(w.Products) {
 		id := w.Products[m.cursor]
 		if p := here.Market[id]; p != nil {
-			delta := 0.0
-			if n := len(p.History); n >= 2 {
-				delta = pct(p.History[n-2], p.History[n-1])
-			}
-			ds := theme.Subtle.Render(fmt.Sprintf("%+.0f%%", delta))
-			if delta > 1 {
-				ds = theme.Good.Render(fmt.Sprintf("%+.0f%%", delta))
-			} else if delta < -1 {
-				ds = theme.Bad.Render(fmt.Sprintf("%+.0f%%", delta))
-			}
-			lines := []string{row("price", price(p.Price)+"  "+ds)}
+			f := facts(p)
+			lines := []string{row("price", price(p.Price)+"  "+f.deltaText())}
 			if p.NoSupply {
 				lines = append(lines, row("supplier", theme.Subtle.Render("not sold here")))
 			} else {
-				margin := 0.0
-				if p.SupplierPrice > 0 {
-					margin = (p.Price - p.SupplierPrice) / p.SupplierPrice * 100
-				}
-				lines = append(lines, row("supplier", price(p.SupplierPrice)+sep+fmt.Sprintf("margin %.0f%%", margin)))
+				lines = append(lines, row("supplier", price(p.SupplierPrice)+sep+"margin "+f.marginText()))
 			}
 			stock := []string{fmt.Sprintf("%d here", w.Stock(here.ID, id))}
 			for _, cid := range w.CityOrder {
