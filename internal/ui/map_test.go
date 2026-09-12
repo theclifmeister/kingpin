@@ -188,9 +188,10 @@ func TestMapRouteInPane(t *testing.T) {
 		t.Fatal("Selected renders plain")
 	}
 	// selected reports whether s opens a Selected cell: the route's name
-	// at the start of its row, a corner's after its mark.
+	// at the start of its row, a corner's after its mark (the tell's `?`
+	// too: the seed may have the rival eyeing the corner, #69).
 	selected := func(s string) bool {
-		for _, mark := range []string{"", "· ", "▪ ", "▴ "} {
+		for _, mark := range []string{"", "· ", "▪ ", "▴ ", "? ", "$ "} {
 			if strings.Contains(view, selectedOpen+mark+s) {
 				return true
 			}
