@@ -418,6 +418,10 @@ func (m *Model) personLines(c game.CrewMember, onPayroll bool) []string {
 	}
 	if !onPayroll {
 		lines = append(lines, row("would", hireBlurb(c.Role)))
+		if c.Role == game.RoleChemist {
+			// What their hand would be worth (#47).
+			lines = append(lines, row("cooks", fmt.Sprintf("q %.0f · %d a batch", m.set.Crew.QualityOf(c.Skill), m.set.Crew.BatchOf(c.Skill))))
+		}
 		hire := fmt.Sprintf("hire for %s", money(c.Fee))
 		if c.Fee > w.Player.DirtyCash {
 			hire = theme.Bad.Render(hire + " · can't afford")
@@ -439,7 +443,7 @@ func (m *Model) personLines(c game.CrewMember, onPayroll bool) []string {
 		// What their hand is worth (#47): the quality a cook lands at
 		// and what a cut keeps, the best chemist's; a lesser one waits.
 		if best := w.Crew.Chemist(); best != nil && best.ID == c.ID {
-			lines = append(lines, row("cooks at", fmt.Sprintf("quality %.0f, %d a batch", m.set.Crew.ChemistQuality(w), m.set.Crew.Batch(w))))
+			lines = append(lines, row("cooks", fmt.Sprintf("q %.0f · %d a batch", m.set.Crew.ChemistQuality(w), m.set.Crew.Batch(w))))
 			lines = append(lines, row("cuts", fmt.Sprintf("keep %.0f points", m.set.Crew.CutBonus(w))))
 		} else {
 			lines = append(lines, row("post", theme.Subtle.Render("second to the best chemist")))

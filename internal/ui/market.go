@@ -284,8 +284,8 @@ func (m *Model) priceLine(city, id string, buy bool) string {
 		default:
 			parts = append(parts, sub(price(f.unit)), sub("street "+price(f.p.Price)), sub("margin "+f.marginText()))
 		}
-		// The connect's quality (#47), where it is not the default.
-		if sup := m.buySupplier(id); sup != nil && sup.QualityOf(m.w, id) != m.w.StreetQuality() {
+		// The connect's quality (#47): what this buy blends into the lot.
+		if sup := m.buySupplier(id); sup != nil && sup.Sells(id) && !f.p.NoSupply {
 			parts = append(parts, sub(fmt.Sprintf("quality %.0f", sup.QualityOf(m.w, id))))
 		}
 	} else {

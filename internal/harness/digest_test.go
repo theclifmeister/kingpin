@@ -144,21 +144,27 @@ const (
 // DA.Backed, Law.CampaignOpen, Today.Backed and three Stats added to
 // the walk; no number moved: the digest with the new fields skipped was
 // the old one on every day, the boss having no clean cash to back a
-// ticket with by day 60).
+// ticket with by day 60) and again for #47 (Player.Quality, World.
+// BaseQuality, Corner.Repeat, Shipment.Quality, Supplier.Quality,
+// Crew.Cooks and NextCook, Today.Cuts and five Stats added to the walk,
+// the chemist beside the pool's faces once meth lists; the move is on
+// day 1, the day the default quality and repeat_start are stamped, and
+// no money number moved: t1 and t2 stand to the dollar and the boss's
+// rows stand under #193's figures).
 var seedDigest = []string{
-	"578e9710c447ef35", "962a304f2f8722ae", "37e16605d8789223", "a4ce4bb0b201af5b",
-	"8ff1a3c31160855f", "71ac43c42475cd07", "32cea2fb7b4fed1a", "d4f37cf09355de3d",
-	"ee403951f6193b34", "01381b9659be863e", "359688c4cfe73865", "f84cd9faae7a8c00",
-	"8516bfb4c4782457", "5d6953274eadb90c", "e1da359a6aab56c5", "504c128d1a40b703",
-	"a6437d291c9c7a4a", "c12417c8dedcd901", "7cd19c74ffabfb8a", "74cd136e3ba81c8e",
-	"685af52f63caa43a", "54de463afa65d3ad", "36c7b9092261af6b", "512e4583e55bab3a",
-	"f5883843645a7768", "b0388ea579e1c097", "03054d9ac42caa8b", "83e745b8e213ac5b",
-	"3e2ed5f08ac8ce5b", "ff4792638b901ec2", "3e2d73f53ad635b3", "46e3e8ba19d43063",
-	"449a4d19eecdb405", "310cf15271684270", "1a2192a15e7ff5bb", "23495e810a867e3f",
-	"da128a5fb666f66b", "fd9cec71e89842e4", "1e7ec5cd3c6ae005", "1f4a68ddf2e39d55",
-	"19b7556d22543ac9", "95ae9977a3bff69a", "445cd1fc228d4d25", "3da27d1864554cb6",
-	"225cf67c300f9e81", "3d56b9e39db2d9f9", "575402d8c6ae7543", "2a7a457c64230445",
-	"cd354b089dbf55e3", "b81584ce0cb2fec8", "9998195711b8d9d8", "b32f07cb297a3530",
-	"37e32db95cd23521", "17ebdfea6f465cb3", "6ec06f369c443f3f", "688eaeb19aaab405",
-	"92b3dc44ac932502", "84c7887458c09d2a", "73f940a8a4f8cdcb", "7b42636c68779986",
+	"bd97411885cf06ee", "ced86f2ac8c3998d", "270166cd90753086", "cd0b1b2ae6509acc",
+	"5f19ad38744778f5", "b681fe7dbf1bd503", "60445d0b105f74b3", "5494e3a2609997fb",
+	"cb970dd418bcc539", "df5cf7ff7c6ccdde", "7cd9077e5e30e5af", "f78ac87e96d59bce",
+	"87d87a27df79c5ab", "d02173a7e0c0014c", "393b682e2c8581ba", "d402e3f551672c7e",
+	"ecf3bdb22d4ccf6d", "3ce0aa1fa00aade4", "dea69e0bda7da667", "0ef8909ac95a4bb6",
+	"934c678c012729b3", "14357dd1e8461810", "7e3aeda5184c5ea4", "fca61e6802302b1f",
+	"7f0bb354a692fdcf", "505d9e29628c3226", "397ac9df48df6a00", "a35d754f766b3f78",
+	"51467a64e6059702", "287c86616a2147c4", "674dfb79067b0179", "727ec47dd241bb7d",
+	"bb6309722e25a61b", "c223c14cdab7e6cf", "d098ee92dd6cf35c", "11a26c86d30eeca3",
+	"cc2c6819da949061", "1a2160b516b14a55", "a2e341d0813d2bfc", "c75485707fbb5b69",
+	"9004ad5e93d0fa68", "270230a93a9ed7ff", "5a18849cf02ec968", "a17d696abe9c2651",
+	"766bacd5ed6187ee", "ff3e1edad6859158", "366196f6510d6068", "309e9761addc9f8c",
+	"b741d88c8664063a", "ee9a625e5b40bd82", "8ffc8dab57430c1e", "aa3ab2c01279d5b6",
+	"cafc99dd0f67bcd1", "cd5e0990334b60ef", "c50d816cff621ccd", "c7f5c390f4ed0935",
+	"c67dff13a1495f3e", "e3b6d122a79267da", "03c4fe677a76d6ff", "61505db5f68c9026",
 }

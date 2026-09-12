@@ -575,8 +575,19 @@ func (s *Sim) ChemistQuality(w *game.World) float64 {
 	if m == nil {
 		return 0
 	}
+	return s.QualityOf(m.Skill)
+}
+
+// QualityOf is the quality a chemist of a skill makes: what a candidate
+// would cook at.
+func (s *Sim) QualityOf(skill int) float64 {
 	rc := s.cfg.Role[game.RoleChemist]
-	return math.Max(0, math.Min(100, rc.QualityBase+rc.QualityPerSkill*float64(m.Skill)))
+	return math.Max(0, math.Min(100, rc.QualityBase+rc.QualityPerSkill*float64(skill)))
+}
+
+// BatchOf is the most units a chemist of a skill cooks an order.
+func (s *Sim) BatchOf(skill int) int {
+	return int(math.Round(s.cfg.Role[game.RoleChemist].BatchPerSkill * float64(skill)))
 }
 
 // CutBonus is the quality points a cut keeps with the best chemist's
@@ -596,7 +607,7 @@ func (s *Sim) Batch(w *game.World) int {
 	if m == nil {
 		return 0
 	}
-	return int(math.Round(s.cfg.Role[game.RoleChemist].BatchPerSkill * float64(m.Skill)))
+	return s.BatchOf(m.Skill)
 }
 
 // CookDays is how long a cook takes.

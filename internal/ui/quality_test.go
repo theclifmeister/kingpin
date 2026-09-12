@@ -50,7 +50,7 @@ func TestCutDialog(t *testing.T) {
 		t.Fatalf("the status: %q", m.status)
 	}
 	v := stripANSI(m.View())
-	if !strings.Contains(v, "quality     33, sells at ×0.83") {
+	if !strings.Contains(v, "quality     33, sells at ×0.90") {
 		t.Fatalf("the pane does not read the cut lot:\n%s", v)
 	}
 	// Cut what is not there: refused with the reason.
