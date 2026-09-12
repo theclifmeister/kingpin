@@ -56,18 +56,65 @@ The title screen resolves its block art, rests and plays again with
 another effect, the way Omarchy's screensaver loops effects over its
 logo: `decrypt`, `print`, `wipe`, `slide`, `pour`, `rain`, `beams`,
 `burn`, `vhstape` and `matrix`, never the same one twice running.
-Scenes are short, any key skips one, and nothing animates while you
-play: the screen redraws only when you press a key. To turn them off,
-for a slow terminal, a capture, or because they wear, or to pin the
-title's effect to one of the set:
+Halfway through a `decrypt`:
+
+<!-- capture:title-80x24 -->
+```text
+
+               ██  ██  ████  ██  ██   ████╏  ┬qy²Û   Ƅä╚ķ  â╋  ┑┵
+               ██ ██    ██   ███ ██  ██      ┋Ʊ  ƫ┺   łF   ŔĂñ ē┕
+               ████     ██   ██████  ██ ██╤  ┇ŽNŅř    ┹▟   ƴ╻ĜĹƦ╺
+               ██ ██    ██   ██ ███  ██  █à  ÷╌       Ɖ<   Ć± ▖±┋
+               ██  ██   ██   ██  ██  ██  ┇a  ▉Ļ       Ĉù   ŏ¾  Ɖź
+               ██  ██  ████  ██  ██   ███Śĕ  ¿ƌ      "İ╹ŷ  ┽ě  îY
+
+  ╔══════════════════════════════════════════════════════════════════════════╗
+  ║ KINGPIN                                                                  ║
+  ║                                                                          ║
+  ║ a drug empire, one day at a time                                         ║
+  ║                                                                          ║
+  ║ ▸  Slot 1 · empty                                                        ║
+  ║    Slot 2 · empty                                                        ║
+  ║    Slot 3 · empty                                                        ║
+  ║    Quit                                                                  ║
+  ║                                                                          ║
+  ║ ↑↓ pick  enter select  D delete  q quit                                  ║
+  ╚══════════════════════════════════════════════════════════════════════════╝
+
+
+
+
+```
+<!-- capture:end -->
+
+In play, a **scene** marks a morning that matters: the day rolls over
+in the title bar as the report opens; a dilemma card is dealt, its title
+decrypting and its prose wiping in; a sting or a raid strobes the
+report's title and glitches its level in on a bad tape; a new stage
+prints in and is swept by light; a corner that changed hands overnight
+burns on the map from one colour to the other and its name slides into
+the pane; and a run's ending plays the DA's file, the arrest or the
+empty till before the summary. Scenes are short (250 ms to 1.5 s), any
+key skips one, and nothing animates while you play: the screen redraws
+only when you press a key. To turn them off, for a slow terminal, a
+capture, or because they wear, to turn off only the morning's (the most
+frequent), or to pin the title's effect to one of the set:
 
 ```sh
 go run ./cmd/kingpin -no-anim
 KINGPIN_NO_ANIM=1 go run ./cmd/kingpin
+KINGPIN_NO_MORNING_ANIM=1 go run ./cmd/kingpin
 KINGPIN_ANIM_EFFECT=matrix go run ./cmd/kingpin
 ```
 
-Under 80x24 the title plays no scene either. The effects are ports of
+Under 80x24 no scene plays. To watch every scene without playing to it:
+
+```sh
+go run ./cmd/anim          # ←→ scene · r replay · e effect · 1-9 seed · q quit
+go run ./cmd/anim -list    # the registry: name, length, effects, what starts it
+```
+
+The effects are ports of
 [TerminalTextEffects](https://github.com/ChrisBuilds/terminaltexteffects)
 (MIT; see `internal/ui/anim/NOTICE`), each readable in sixteen colours.
 
@@ -680,6 +727,7 @@ The full design is in [issue #1](https://github.com/theclifmeister/kingpin/issue
 cmd/kingpin/        the game
 cmd/balance/        headless balance tool
 cmd/keys/           prints the key table above from the UI's bindings (-w writes it here)
+cmd/anim/           plays every scene on a demo run, for review
 internal/events/    event types and bus
 internal/game/      world state, clock, player actions, save/load
 internal/sim/       simulations: market, logistics, territory, rivals, crew, heat, law, laundering, reputation, news
@@ -691,7 +739,8 @@ internal/ui/anim/   the scenes: the effects, the canvas, the player, the title's
 ```
 
 The key table comes from `internal/ui/keys.go`, shared with the pane, help
-and modal footers. Both screen captures use a fixed-seed test fixture.
+and modal footers. The screen captures use a fixed-seed test fixture and
+the title's still is the loop's first pass at a fixed moment.
 Regenerate these blocks after changing the UI:
 
 ```sh
