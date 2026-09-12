@@ -28,7 +28,7 @@ func TestNumberField(t *testing.T) {
 	}
 	fields := []field{
 		{"sell", func(m *Model) {
-			m.w.Stash(m.w.Player.Location)[m.w.Products[0]] = 37
+			m.w.SetStock(m.w.Player.Location, m.w.Products[0], 37)
 			m.Update(key("s"))
 			m.Update(key("enter"))
 		}, func(m *Model) *numberField { return &m.dlg.qty }, func(m *Model) int { return m.w.Stock(m.w.Player.Location, m.w.Products[0]) },

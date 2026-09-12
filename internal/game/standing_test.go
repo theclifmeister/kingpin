@@ -14,7 +14,7 @@ import (
 // the pre-standing world.
 func TestPlaceStanding(t *testing.T) {
 	w := lieutenantWorld()
-	w.Player.Stash["home"]["weed"] = 30
+	w.SetStock("home", "weed", 30)
 	for _, tc := range []struct {
 		city, product string
 		qty           int
@@ -58,7 +58,7 @@ func TestPlaceStanding(t *testing.T) {
 // cancel it and theirs is back; DelegatedOrder is theirs alone.
 func TestStandingOrderIsYoursFirst(t *testing.T) {
 	w := lieutenantWorld()
-	w.Player.Stash["hub"]["weed"] = 40
+	w.SetStock("hub", "weed", 40)
 	if err := w.Assign(2, "hub"); err != nil {
 		t.Fatal(err)
 	}
@@ -89,7 +89,7 @@ func TestStandingOrderIsYoursFirst(t *testing.T) {
 // nothing that day.
 func TestClockKeepsTheStandingOrders(t *testing.T) {
 	w := lieutenantWorld()
-	w.Player.Stash["home"]["weed"] = 30
+	w.SetStock("home", "weed", 30)
 	if err := w.PlaceStanding("home", "weed", 20, events.DialNormal); err != nil {
 		t.Fatal(err)
 	}

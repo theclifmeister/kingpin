@@ -269,7 +269,7 @@ func TestInformantRaidAndFiring(t *testing.T) {
 		snitch := Plant(cfg, w)
 		w.Home().Heat = 90 // a raid tonight, after the day's decay
 		for _, id := range w.Products {
-			w.Stash(w.Home().ID)[id] = 20
+			w.SetStock(w.Home().ID, id, 20)
 		}
 		res, err := RunFrom(cfg, w, 1, Idle)
 		if err != nil {

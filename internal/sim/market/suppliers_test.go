@@ -169,7 +169,7 @@ func TestTempersAnswerALatePayment(t *testing.T) {
 		sup.Rel = 60
 		w.Player.DirtyCash, w.Player.CleanCash = 100, 0
 		w.Crew.Members = append(w.Crew.Members, game.CrewMember{ID: 900, Name: "Tank", Role: "enforcer", Skill: 60, Loyalty: 80, Nerve: 0, Wage: 55})
-		w.Stash(home)[w.Products[0]] = 50
+		w.SetStock(home, w.Products[0], 50)
 		debt(w, sup, 1_000)
 		evs := clock.EndDay(w)
 		ev, ok := late(evs)
@@ -223,7 +223,7 @@ func TestTempersAnswerALatePayment(t *testing.T) {
 	sup.Temper = "connected"
 	w.Player.DirtyCash = 0
 	weed := w.Products[0]
-	w.Stash(home)[weed] = 1_000
+	w.SetStock(home, weed, 1_000)
 	price := sup.Price[weed]
 	debt(w, sup, 500)
 	evs = clock.EndDay(w)

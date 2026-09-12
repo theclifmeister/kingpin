@@ -44,7 +44,7 @@ func TestContractActions(t *testing.T) {
 	if err := w.Deliver(c.ID, 10); err == nil {
 		t.Fatal("delivered from an empty stash")
 	}
-	w.Stash("a")["weed"] = 40
+	w.SetStock("a", "weed", 40)
 	if err := w.Deliver(c.ID, 31); err == nil {
 		t.Fatal("delivered more than the contract wants")
 	}

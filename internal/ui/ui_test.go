@@ -194,7 +194,7 @@ func richFixture(t *testing.T, sz [2]int, check func(m *Model, view, what string
 	m := newTestModel(t, sz[0], sz[1])
 	// Play a few days with some trading so every panel has content.
 	for i := 0; i < 5; i++ {
-		m.w.Stash(m.w.Player.Location)[m.w.Products[0]] = 40
+		m.w.SetStock(m.w.Player.Location, m.w.Products[0], 40)
 		m.Update(key("s"))
 		m.Update(key("enter")) // product
 		m.Update(key("enter")) // qty (blank = all)
@@ -274,7 +274,7 @@ func richFixture(t *testing.T, sz [2]int, check func(m *Model, view, what string
 	// under the grid with the cursor on them, the target dialog and
 	// every screen that reports the road.
 	route := m.set.Logistics.Routes(m.w.CityOrder[1])[0]
-	m.w.Stash(route.From)[m.w.Products[0]] = 300
+	m.w.SetStock(route.From, m.w.Products[0], 300)
 	m.w.Player.DirtyCash += m.set.Logistics.Float()
 	m.Update(key("]"))
 	for len(m.shown().Corners) > 0 && !m.onRoutes {
@@ -374,7 +374,7 @@ func richFixture(t *testing.T, sz [2]int, check func(m *Model, view, what string
 	m.Update(key("f"))
 	see(m, "fire confirm")
 	m.Update(key("y"))
-	m.w.Stash(m.w.Player.Location)[m.w.Products[0]] = 200
+	m.w.SetStock(m.w.Player.Location, m.w.Products[0], 200)
 	m.Update(key("s"))
 	m.Update(key("enter"))
 	m.Update(key("enter"))
@@ -471,7 +471,7 @@ func richFixture(t *testing.T, sz [2]int, check func(m *Model, view, what string
 		t.Fatalf("%d of %d products unlocked with a billion in the bank", got, len(m.cfg.Market.Products))
 	}
 	last := m.w.Products[len(m.w.Products)-1]
-	m.w.Stash(m.w.Player.Location)[last] = 20
+	m.w.SetStock(m.w.Player.Location, last, 20)
 	for _, s := range []string{"1", "2", "5"} {
 		m.Update(key(s))
 		see(m, "ladder screen "+s)
@@ -1182,7 +1182,7 @@ func TestArrowsStayOnScreen(t *testing.T) {
 		t.Fatalf("shift+tab from the first tab went to %v", m.screen)
 	}
 	m.Update(key("1"))
-	m.w.Stash(m.w.Player.Location)[m.w.Products[0]] = 5
+	m.w.SetStock(m.w.Player.Location, m.w.Products[0], 5)
 	m.Update(key("s"))
 	m.Update(key("enter"))
 	m.Update(key("enter"))
@@ -1382,7 +1382,7 @@ func TestMapScreenKeys(t *testing.T) {
 	if !strings.Contains(stripANSI(m.View()), "hold no corner") {
 		t.Fatal("dashboard does not say why nothing sells")
 	}
-	m.w.Stash(m.w.Player.Location)[m.w.Products[0]] = 10
+	m.w.SetStock(m.w.Player.Location, m.w.Products[0], 10)
 	m.Update(key("s"))
 	m.Update(key("enter"))
 	m.Update(key("enter"))
@@ -1799,7 +1799,7 @@ func TestRouteAndTravelKeys(t *testing.T) {
 	// A target with nothing at the source and no wholesaler open sends
 	// nothing; stocked, the route sends the shortfall the night the day
 	// ends and the report says so, with the fare in the money.
-	w.Stash(route.From)[product] = 50
+	w.SetStock(route.From, product, 50)
 	m.cfg.Routes.Routes[1].Risk = 0 // the sim shares the slice it was built with
 	// The seed is wall-clock and the corner you stand on rolls for a
 	// stick-up every day: one on the day the shipment lands would take
@@ -2099,7 +2099,7 @@ func TestRivalsScreenKeys(t *testing.T) {
 	// x elsewhere still cancels an order.
 	m.Update(key("1"))
 	home := w.Home().ID
-	w.Stash(home)[w.Products[0]] = 5
+	w.SetStock(home, w.Products[0], 5)
 	if err := w.PlaceSell(home, w.Products[0], 5, events.DialNormal); err != nil {
 		t.Fatal(err)
 	}
@@ -2207,7 +2207,7 @@ func richModelSeeded(t *testing.T, w, h int, seed uint64) *Model {
 	m.startRun(seed)
 	world := m.w
 	for i := 0; i < 3; i++ {
-		world.Stash(world.Player.Location)[world.Products[0]] = 40
+		world.SetStock(world.Player.Location, world.Products[0], 40)
 		m.Update(key("s"))
 		m.Update(key("enter")) // product
 		m.Update(key("enter")) // qty (blank = all)
@@ -2246,14 +2246,14 @@ func richModelSeeded(t *testing.T, w, h int, seed uint64) *Model {
 	// A route on with a target, and a day for it to send a shipment.
 	route := m.set.Logistics.Routes(world.CityOrder[1])[0]
 	m.cfg.Routes.Routes[0].Risk = 0
-	world.Stash(route.From)[world.Products[0]] = 300
+	world.SetStock(route.From, world.Products[0], 300)
 	if err := world.SetRoute(route.ID, events.RouteNormal); err != nil {
 		t.Fatal(err)
 	}
 	if err := world.SetRouteTarget(route.ID, world.Products[0], 120); err != nil {
 		t.Fatal(err)
 	}
-	world.Stash(world.Player.Location)[world.Products[0]] = 60
+	world.SetStock(world.Player.Location, world.Products[0], 60)
 	m.Update(key("s"))
 	m.Update(key("enter"))
 	m.Update(key("enter"))
@@ -2285,7 +2285,7 @@ func richModelSeeded(t *testing.T, w, h int, seed uint64) *Model {
 	world.Fronts[1].Audited = world.Day
 	world.Fronts[1].FrozenUntil = world.Day + m.cfg.Laundering.Laundering.AuditFreezeDays
 	world.Player.CleanCash = 50_000
-	world.Stash(world.Player.Location)[world.Products[0]] = 40 // something to sell
+	world.SetStock(world.Player.Location, world.Products[0], 40) // something to sell
 	// A standing order (#114) on the contract's product, for what the
 	// contract keeps there, so the order column carries ↻, the pane a
 	// standing row and the cart a standing line.
@@ -2306,7 +2306,7 @@ func richModelSeeded(t *testing.T, w, h int, seed uint64) *Model {
 func fillCart(t *testing.T, m *Model) {
 	t.Helper()
 	w := m.w
-	w.Stash(w.Player.Location)[w.Products[1]] = 20
+	w.SetStock(w.Player.Location, w.Products[1], 20)
 	m.Update(key("1"))
 	m.Update(key("b"))
 	for _, k := range []string{"enter", "5", "enter", "enter", "j", "enter", "3", "enter", "enter", "esc"} {

@@ -37,7 +37,7 @@ func runCity(t *testing.T, cfg *content.Config, seed uint64, personality string)
 	w.Crew.Member(lt.ID).Nerve = 90
 	return w, func(w *game.World) {
 		for _, id := range cfg.Market.Products[:3] {
-			w.Stash(hub)[id.ID] = 300
+			w.SetStock(hub, id.ID, 300)
 		}
 		if w.MaxHeat() >= 50 {
 			w.SetLieLow(true)

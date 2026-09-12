@@ -35,7 +35,7 @@ func world(t *testing.T, cfg *content.Config, risk float64) (*game.World, *logis
 		t.Fatal("no routes")
 	}
 	r := routes.Routes[0]
-	w.Stash(r.From)[w.Products[0]] = 500
+	w.SetStock(r.From, w.Products[0], 500)
 	return w, s, r
 }
 
@@ -184,7 +184,7 @@ func TestRunKeepsTheTarget(t *testing.T) {
 	target := 3*r.Capacity + 25
 	_ = w.SetRouteTarget(r.ID, product, target)
 	_ = w.SetRoute(r.ID, events.RouteNormal)
-	w.Stash(r.From)[product] = 0
+	w.SetStock(r.From, product, 0)
 	w.Player.DirtyCash = s.Float() // nothing over the float: nothing moves
 	w.Stats.PeakCash = offer.UnlockCash
 	if step(w, s); len(w.Shipments) != 0 || w.Stock(r.From, product) != 0 {
@@ -242,7 +242,7 @@ func TestRunKeepsTheTarget(t *testing.T) {
 	}
 	rem := w.Stock(r.From, product)
 	short := min(7, rem)
-	w.Stash(r.To)[product] -= short
+	w.TakeStock(r.To, product, short)
 	before := w.Player.DirtyCash
 	bought = nil
 	for _, e := range step(w, s) {
@@ -260,7 +260,7 @@ func TestRunKeepsTheTarget(t *testing.T) {
 	// goes if the fare fits; with a lot's price and its fare over the
 	// float, one lot is bought and the capacity goes.
 	rem = w.Stock(r.From, product)
-	w.Stash(r.To)[product] -= 2 * r.Capacity
+	w.TakeStock(r.To, product, 2*r.Capacity)
 	unit := offer.Price[product]
 	lotCost := int(unit * float64(offer.Lot))
 	w.Player.DirtyCash = s.Float() + lotCost - 1
@@ -424,7 +424,7 @@ func TestRunReadsTheTree(t *testing.T) {
 		for _, id := range ids {
 			w.Upgrades[id] = true
 		}
-		w.Stash(r.From)[product] = 10 * r.Capacity
+		w.SetStock(r.From, product, 10*r.Capacity)
 		_ = w.SetRouteTarget(r.ID, product, 10*r.Capacity)
 		_ = w.SetRoute(r.ID, events.RouteNormal)
 		w.Player.DirtyCash = s.Float() + 1_000_000
@@ -467,7 +467,7 @@ func TestRunReadsTheTree(t *testing.T) {
 	}
 	product := w.Products[0]
 	w.Upgrades = map[string]bool{"trucks": true, "drivers": true, "forwarder": true}
-	w.Stash(boat.From)[product] = 400
+	w.SetStock(boat.From, product, 400)
 	_ = w.SetRouteTarget(boat.ID, product, 400)
 	_ = w.SetRoute(boat.ID, events.RouteNormal)
 	w.Player.DirtyCash = s.Float() + 3

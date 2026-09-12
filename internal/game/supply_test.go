@@ -183,7 +183,7 @@ func (f simFunc) Step(w *World, t *Tick) { f(w, t) }
 // (#113): the stash plus the shortfall, no more.
 func TestPlaceSellCountsOnTheContract(t *testing.T) {
 	w := testWorld()
-	w.Stash("test")["a"] = 10
+	w.SetStock("test", "a", 10)
 	if err := w.PlaceSell("test", "a", 11, 1); err == nil {
 		t.Fatal("an order over the stash with no contract was allowed")
 	}

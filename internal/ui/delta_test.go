@@ -199,7 +199,7 @@ func TestDialogPriceMatchesPane(t *testing.T) {
 	m.Update(key("2"))
 	for i, id := range w.Products {
 		if w.Stock(home, id) == 0 {
-			w.Stash(home)[id] = 10
+			w.SetStock(home, id, 10)
 		}
 		m.cursor = i
 		pane := stripANSI(m.View())

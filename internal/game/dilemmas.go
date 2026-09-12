@@ -154,15 +154,14 @@ func (w *World) applyEffect(c *Card, key string, v float64) error {
 		w.Rival.Cash = max(0, w.Rival.Cash+int(v))
 	case "stock_share":
 		for _, cid := range w.CityOrder {
-			stash := w.Stash(cid)
 			free := w.Free(cid)
 			for _, id := range w.Products {
-				d := int(math.Round(float64(stash[id]) * v))
+				d := int(math.Round(float64(w.Stock(cid, id)) * v))
 				if d > 0 {
 					d = min(d, free)
 					free -= d
 				}
-				stash[id] = max(0, stash[id]+d)
+				w.AddStock(cid, id, d) // a negative share is a take, clamped at nothing
 			}
 		}
 	case "fear", "respect", "notoriety":

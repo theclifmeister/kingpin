@@ -110,10 +110,8 @@ func (s *Sim) walk(w *game.World, t *game.Tick, lt game.CrewMember) {
 			ev.Rival = w.Rival.Leader
 			w.Rival.Observed = true
 		}
-		stash := w.Stash(lt.City)
-		for id, q := range stash {
-			ev.Units += q
-			stash[id] = 0
+		for id, q := range w.StashOf(lt.City) {
+			ev.Units += w.TakeStock(lt.City, id, q)
 		}
 	}
 	w.Stats.Walked++

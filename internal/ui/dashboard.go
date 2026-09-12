@@ -767,7 +767,7 @@ func (m *Model) citiesLines(width int) []string {
 			name, nameStyle = "◉ "+c.Name, theme.Gold
 		}
 		value := 0
-		for id, q := range w.Player.Stash[cid] {
+		for id, q := range w.StashOf(cid) {
 			if p := c.Market[id]; p != nil {
 				value += int(float64(q) * p.SupplierPrice)
 			}

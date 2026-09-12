@@ -120,7 +120,7 @@ func TestWagesFiringAndQuitting(t *testing.T) {
 
 	// Unpaid wages hurt, and a member at the floor walks.
 	w.Player.DirtyCash = 0
-	w.Stash("test")["a"] = 10
+	w.SetStock("test", "a", 10)
 	w.Crew.Members[0].Loyalty = cfg.Crew.Crew.QuitThreshold + 1
 	evs = step(w, s)
 	k = kinds(evs)

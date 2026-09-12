@@ -227,9 +227,6 @@ func Load(slot int, migrations ...Migration) (*World, error) {
 	if w.Upgrades == nil {
 		w.Upgrades = map[string]bool{}
 	}
-	if w.Player.Stash == nil {
-		w.Player.Stash = map[string]map[string]int{}
-	}
 	w.legacy = nil
 	return &w, nil
 }
@@ -283,9 +280,8 @@ func (w *World) MigrateCities(home StartingCity) {
 		c.Corners[i].City = home.ID
 	}
 	c.Heat = old.Heat.Value
-	stash := w.Stash(home.ID)
 	for id, q := range old.Player.Stock {
-		stash[id] = q
+		w.SetStock(home.ID, id, q)
 	}
 	w.legacy = nil
 }

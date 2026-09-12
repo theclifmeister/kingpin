@@ -40,8 +40,8 @@ func TestMarketDetailInPane(t *testing.T) {
 	m := newTestModel(t, 120, 40)
 	home, other := m.w.CityOrder[0], m.w.CityOrder[1]
 	weed := m.w.Products[0]
-	m.w.Stash(home)[weed] = 40
-	m.w.Stash(other)[weed] = 240
+	m.w.SetStock(home, weed, 40)
+	m.w.SetStock(other, weed, 240)
 	m.Update(key("2"))
 	facts := []string{"range 30d", "glut", "margin", "/day on", "per standard", "ELSEWHERE", m.w.CityName(other), "240 in " + m.w.CityName(other)}
 	main, pane := bodyRows(m)

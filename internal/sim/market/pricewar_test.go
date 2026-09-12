@@ -24,7 +24,7 @@ func warWorld(t *testing.T, cfg *content.Config, seed uint64) (*game.World, *mar
 	w.Corner("heights").Owner = game.OwnerRival // far from you
 	w.Rival.Arrived, w.Rival.Leader = 1, "Vasquez"
 	w.Player.CarryLimit = 10_000
-	w.Player.Stash[w.Home().ID]["weed"] = 5000
+	w.SetStock(w.Home().ID, "weed", 5000)
 	return w, mk, clock
 }
 
@@ -151,7 +151,7 @@ func TestUndercutSharesAShortOrder(t *testing.T) {
 		t.Fatalf("a short order of %d: sold %d undercut %d, want %d undercut and the order filled", short, ps.Sold, ps.Undercut, wantCut)
 	}
 	// Pills: stashed, undercut queued, no order: nothing moves.
-	w.Player.Stash[home]["pills"] = 500
+	w.SetStock(home, "pills", 500)
 	if err := w.Undercut("docks", events.DialNormal); err != nil {
 		t.Fatal(err)
 	}

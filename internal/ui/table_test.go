@@ -194,7 +194,7 @@ func TestReportNumbers(t *testing.T) {
 	m.Update(key("6"))
 	m.Update(key("enter"))
 	m.Update(key("y"))
-	m.w.Stash(m.w.Player.Location)[m.w.Products[0]] = 200
+	m.w.SetStock(m.w.Player.Location, m.w.Products[0], 200)
 	m.Update(key("1"))
 	m.Update(key("s"))
 	m.Update(key("enter"))

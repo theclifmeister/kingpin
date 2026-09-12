@@ -23,7 +23,7 @@ func TestStandingOrderInTheGrammar(t *testing.T) {
 	w := m.w
 	home, weed := w.Player.Location, w.Products[0]
 	w.Player.DirtyCash = 100_000
-	w.Stash(home)[weed] = 50
+	w.SetStock(home, weed, 50)
 	m.Update(key("s"))
 	m.Update(key("enter"))
 	for _, k := range []string{"3", "0", "enter"} {

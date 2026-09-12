@@ -201,8 +201,8 @@ func Eligible(w *game.World, c content.CardConfig) (Slots, bool) {
 	most := -1
 	for _, id := range w.Products {
 		q := 0
-		for _, stash := range w.Player.Stash {
-			q += stash[id]
+		for _, cid := range w.CityOrder {
+			q += w.Stock(cid, id)
 		}
 		if q > most {
 			most, s.Product = q, w.ProductName(id)

@@ -130,7 +130,7 @@ func TestNoCornersSellsNothing(t *testing.T) {
 				}
 			}
 		}
-		w.Stash(w.Home().ID)[w.Products[0]] = 100
+		w.SetStock(w.Home().ID, w.Products[0], 100)
 		if err := w.PlaceSell(w.Home().ID, w.Products[0], 100, events.DialAggressive); err != nil {
 			t.Fatal(err)
 		}

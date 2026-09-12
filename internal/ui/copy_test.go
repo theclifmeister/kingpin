@@ -231,7 +231,7 @@ func TestEmptyStates(t *testing.T) {
 			m := newTestModel(t, sz[0], sz[1])
 			m.w.Crew.Members, m.w.Crew.Candidates = nil, nil
 			for _, id := range m.w.Products {
-				m.w.Stash(m.w.Player.Location)[id] = 0
+				m.w.SetStock(m.w.Player.Location, id, 0)
 			}
 			if rival {
 				m.w.Rival.Arrived = 1

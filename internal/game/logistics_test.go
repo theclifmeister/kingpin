@@ -94,7 +94,7 @@ func TestRouteSettings(t *testing.T) {
 // values the road at the far end's supplier price.
 func TestSend(t *testing.T) {
 	w := twoCityWorld()
-	w.Stash("test")["a"] = 80
+	w.SetStock("test", "a", 80)
 	w.Player.DirtyCash = 100
 	s := w.Send(testShipment(40))
 	if s.ID != 1 || s.Units != 40 || s.Cost != 80 || s.Sent != 3 || s.Arrives != 5 || s.From != "test" || s.To != "port" || s.Dial != events.ShipNormal {
@@ -227,8 +227,8 @@ func TestRestock(t *testing.T) {
 func TestSaveKeepsLogistics(t *testing.T) {
 	t.Setenv("KINGPIN_HOME", t.TempDir())
 	w := twoCityWorld()
-	w.Stash("test")["a"] = 30
-	w.Stash("port")["a"] = 7
+	w.SetStock("test", "a", 30)
+	w.SetStock("port", "a", 7)
 	w.Player.DirtyCash = 1000
 	w.Send(testShipment(20))
 	_ = w.Travel("port")
@@ -305,7 +305,7 @@ func TestSaveMigratesTheOneCity(t *testing.T) {
 	fresh := testWorld()
 	fresh.Day = 3
 	fresh.Player.DirtyCash = 777
-	fresh.Stash("test")["a"] = 12
+	fresh.SetStock("test", "a", 12)
 	fresh.Home().Heat = 21.5
 	fresh.Home().Market["a"].Price = 11
 	fresh.Home().Market["a"].History = []float64{10, 11}
@@ -358,7 +358,7 @@ func TestSaveMigratesTheOneCity(t *testing.T) {
 	}
 	// A save that already has cities is left alone by the same step.
 	again := twoCityWorld()
-	again.Stash("test")["a"] = 3
+	again.SetStock("test", "a", 3)
 	again.MigrateCities(home)
 	if len(again.CityOrder) != 2 || again.Stock("test", "a") != 3 || again.Player.Location != "test" {
 		t.Fatalf("migrating a world with cities: %v %+v", again.CityOrder, again.Player)
