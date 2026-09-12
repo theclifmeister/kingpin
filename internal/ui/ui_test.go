@@ -13,6 +13,7 @@ import (
 
 	tea "github.com/charmbracelet/bubbletea"
 	"github.com/charmbracelet/lipgloss"
+	"github.com/charmbracelet/x/ansi"
 
 	"github.com/theclifmeister/kingpin/internal/content"
 	"github.com/theclifmeister/kingpin/internal/events"
@@ -545,6 +546,7 @@ func TestBuyThenSellFlow(t *testing.T) {
 	m.Update(key("enter"))
 	m.Update(key("enter")) // blank = all
 	m.Update(key("1"))     // quiet
+	m.Update(key("enter")) // once (#114)
 	m.Update(key("enter"))
 	m.Update(key("esc"))
 	if o, ok := m.w.Order(m.w.Player.Location, id); !ok || o.Qty != 10 {
@@ -1841,6 +1843,7 @@ func TestRouteAndTravelKeys(t *testing.T) {
 	m.Update(key("enter"))
 	m.Update(key("enter"))
 	m.Update(key("enter"))
+	m.Update(key("enter"))
 	m.Update(key("esc"))
 	if o, ok := w.Order(hub, product); !ok || o.City != hub {
 		t.Fatalf("sell elsewhere: %+v %v status %q", o, ok, m.status)
@@ -2136,6 +2139,7 @@ func richModelSeeded(t *testing.T, w, h int, seed uint64) *Model {
 		m.Update(key("enter")) // product
 		m.Update(key("enter")) // qty (blank = all)
 		m.Update(key("3"))     // aggressive
+		m.Update(key("enter")) // once or standing (#114)
 		m.Update(key("enter")) // confirm
 		m.Update(key("esc"))   // the dialog stays open for the next line (#103)
 		endDay(t, m)
@@ -2181,6 +2185,7 @@ func richModelSeeded(t *testing.T, w, h int, seed uint64) *Model {
 	m.Update(key("enter"))
 	m.Update(key("enter"))
 	m.Update(key("enter"))
+	m.Update(key("enter"))
 	m.Update(key("esc"))
 	// A supply contract (#113), so the morning brings a contract line
 	// to the cart, the keep column a level and the street its fact.
@@ -2208,6 +2213,12 @@ func richModelSeeded(t *testing.T, w, h int, seed uint64) *Model {
 	world.Fronts[1].FrozenUntil = world.Day + m.cfg.Laundering.Laundering.AuditFreezeDays
 	world.Player.CleanCash = 50_000
 	world.Stash(world.Player.Location)[world.Products[0]] = 40 // something to sell
+	// A standing order (#114) on the contract's product, for what the
+	// contract keeps there, so the order column carries ↻, the pane a
+	// standing row and the cart a standing line.
+	if err := world.PlaceStanding(world.Player.Location, world.Products[1], 30, events.DialNormal); err != nil {
+		t.Fatal(err)
+	}
 	m.Update(key("1"))
 	m.cursor, m.crewCursor, m.mapCursor, m.branch, m.upgradeCursor = 0, 0, 0, 0, nil
 	m.status = ""
@@ -2215,7 +2226,10 @@ func richModelSeeded(t *testing.T, w, h int, seed uint64) *Model {
 }
 
 // fillCart lines up two buys and two orders in one visit each (#103),
-// so the cart, the dialogs and the panes have a full cart to show.
+// so the cart, the dialogs and the panes have a full cart to show. The
+// second product has a standing order in the rich fixture (#114), so
+// its dialog opens at standing and the order of the day takes `1` for
+// once.
 func fillCart(t *testing.T, m *Model) {
 	t.Helper()
 	w := m.w
@@ -2226,7 +2240,7 @@ func fillCart(t *testing.T, m *Model) {
 		m.Update(key(k))
 	}
 	m.Update(key("s"))
-	for _, k := range []string{"1", "enter", "enter", "3", "enter", "2", "enter", "enter", "1", "enter", "esc"} {
+	for _, k := range []string{"1", "enter", "enter", "3", "enter", "enter", "2", "enter", "enter", "1", "enter", "1", "enter", "esc"} {
 		m.Update(key(k))
 	}
 	if m.mode != modePlay || len(w.Buys) != 2 || len(w.Orders) != 2 {
@@ -2305,6 +2319,19 @@ func TestModalsFit(t *testing.T) {
 			m.Update(key("enter"))
 			m.Update(key("enter"))
 			m.Update(key("3"))
+		}},
+		{"sell once", modeSell, func(t *testing.T, m *Model) {
+			m.Update(key("s"))
+			m.Update(key("enter"))
+			m.Update(key("enter"))
+			m.Update(key("enter"))
+		}},
+		{"sell standing", modeSell, func(t *testing.T, m *Model) {
+			m.Update(key("s"))
+			m.Update(key("enter"))
+			m.Update(key("enter"))
+			m.Update(key("enter"))
+			m.Update(key("right"))
 		}},
 		{"game over", modeOver, func(t *testing.T, m *Model) {
 			m.w.Over = &game.Ending{Day: m.w.Day, Cause: "indicted", PeakCash: m.w.Stats.PeakCash}
@@ -2421,7 +2448,9 @@ func TestModalsFit(t *testing.T) {
 			}
 			foot := strings.TrimSpace(stripANSI(legend(m.modalFooter())))
 			got := inner(len(box) - 2)
-			if got != foot && got != foot+"  ↓ more" {
+			// A footer too long for the scroll mark gives way to it.
+			cut := strings.TrimSpace(ansi.Truncate(foot, m.modalInner()-lipgloss.Width("  ↓ more"), "…"))
+			if got != foot && got != foot+"  ↓ more" && got != cut+" ↓ more" {
 				t.Errorf("%s: the footer is %q, not %q", what, got, foot)
 			}
 			if c.mode != modeHelp && c.mode != modeReport && c.mode != modeDetails { // the overlay's KEYS section lists keys on purpose

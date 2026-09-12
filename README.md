@@ -62,7 +62,14 @@ at`: keep at is a **supply contract**, the stash where you stand bought
 back to that level each morning from the supplier there, at a small
 markup, until `x` on the product clears it; the morning's buy is a line
 marked `contract` in the cart, and a sell order may count on what the
-contract brings. Back is one key and close is one
+contract brings. A sale's last step, after the dial, is `once` or
+`standing`: a **standing order** is the same units at the same dial
+every night until `x` on the product cancels it, sold exactly as an
+order of the day would be but for the crew's cut (5% of the take: the
+runners are working the night without you); an order you place by hand
+wins its day and the standing one is back the next; the order column
+reads `120 aggr. ↻` for one, and the cart lists it as a line marked
+`standing`, edited like an order. Back is one key and close is one
 key: `esc` closes any modal whole, from whatever step a dialog is on,
 and `shift+tab` goes back a step in a dialog with steps (the buy, sell,
 target, cart and propose dialogs; the target dialog is the product,
@@ -92,7 +99,7 @@ every screen and are in the KEYS of the screens they belong to.
    RIVALS (the leader, their corners, the war and the trust); the pane has
    the alerts and the selected product with what `s` would sell.
 2. **Market** — the shown city's prices, supplier, stash, demand, your
-   orders and the level a supply contract keeps; `←→` turns it to the
+   orders (standing ones marked `↻`) and the level a supply contract keeps; `←→` turns it to the
    other city; the BUYERS under the table are the people who want product
    off-corner, with their own cursor.
 3. **Journal** — every headline, newest first, in the colour of the sim
@@ -124,7 +131,7 @@ above the status bar stands in for the pane):
 ╭─ STREET · Eastside ──────────────────────────────────────────────────────────╮
 │   product     price     Δ  5d       stock  order                             │
 │ ▸ Weed       $19.23   -6%  ▄▇▁█▁       40  -                                 │
-│   Pills      $44.21  -14%  ▁▂▆█▁       30  -                                 │
+│   Pills      $44.21  -14%  ▁▂▆█▁       30  30 normal ↻                       │
 │   Coke      $153.32   -1%  ▁▂▂█▇ ▲      0  -                                 │
 │   Heroin    $375.84   -5%  █▁           0  -                                 │
 │   Meth      $701.73  -12%  █▁           0  -                                 │
@@ -134,7 +141,7 @@ above the status bar stands in for the pane):
 │ crew 5 · fair pay $440/day · skimming suspected                              │
 │ supply 1 contract · $895 this morning · 1 offer on the market screen (2)     │
 │ no upgrades yet: buy on the upgrades screen (6)                              │
-│ No sales queued. Press s to sell, n to end the day.                          │
+│ Standing orders sell tonight; the crew keep 5%.                              │
 ╰──────────────────────────────────────────────────────────────────────────────╯
 ╭─ HEAT ───────────────────╮╭─ CASH ──────────────╮╭─ LAW ─────────────────────╮
 │ ███░░░░░░┆░░░┆░░░┆░░░░┆░ ││ dirty  $464K        ││ Chief Whitfield · new     │
@@ -142,7 +149,7 @@ above the status bar stands in for the pane):
 │ patrol 40 · sting 58     ││ peak   $700K        ││ pressure ░░░░░░░░ 2       │
 │ raid 75 · arrest 95      ││ Bayport heat 0      ││ Mona · 1 corner           │
 ╰──────────────────────────╯╰─────────────────────╯╰───────────────────────────╯
-▸ CART · buying 1 line, $895 · 1 by contract · contract 30 Pills $895 ·…  ␣ more
+▸ CART · buying 1 line, $895 · 1 by contract · selling 1 line, ~$1,260 …  ␣ more
                                                                          ? help
 ```
 <!-- capture:end -->
@@ -216,7 +223,7 @@ the float, the file, drift, the pane and the strip in a line each.
 | `[ ]` | city | turn the market or the map to the other city | everywhere |
 | `b` | buy | buy from the supplier where you stand | everywhere |
 | `s` | sell | queue a street sale in the city shown | everywhere |
-| `x` | cancel order | cancel the order, else the supply contract | everywhere |
+| `x` | cancel order | cancel order, else standing, else contract | everywhere |
 | `l` | lie low | lie low today: no sales, heat fades faster | everywhere |
 | `p` | pay dial | the pay dial: stingy, fair, generous | everywhere |
 | `d` | launder dial | the launder dial: careful, normal, greedy | everywhere |
@@ -295,7 +302,12 @@ never leaves the first city plays the same as it always did.
   contract keeps the stash in a city at a level, bought from the
   supplier there at a small markup, out of dirty cash, through the same
   path as a buy by hand, so the supplier reacts to it exactly as to you;
-  short of cash or room it buys what it can and the report says so.
+  short of cash or room it buys what it can and the report says so. And
+  it resolves the **standing orders** every night where you placed no
+  order of the day: the same units at the same dial, through the same
+  path as an order by hand, for at most what is stashed, at the crew's
+  cut of the take (`[standing] cut` in `market.toml`); one short of stock
+  says so in the report.
 - **Logistics** is the road between the cities: a car, a truck and a boat,
   each a different point on the speed / cost / risk triangle, and each a
   **dial** you set once on the map: off, slow, normal or fast, with a
@@ -458,7 +470,10 @@ laundered player who pays the town whenever the pressure is up), `dealer`
 (the crewed player who works the buyers where it stands: takes every offer
 it can cover, keeps the stock aside and hands it over when the heat
 allows), `stocked` (the crewed player who never buys by hand: a supply
-contract per product at a day of its corners' demand), `boss` (the delegated player who plays the whole game: every
+contract per product at a day of its corners' demand), `routine` (the
+crewed player who, once its peak cash clears $20k, never sells by hand: a
+standing order per product for the stash at normal, raised as the stash
+grows), `boss` (the delegated player who plays the whole game: every
 corner in the hub, enforcers sent in only when the odds clear a line,
 fronts and the tree bought at a margin, a lieutenant fired the morning
 their orders turn aggressive). `-rival none` keeps the rival out of a run,
@@ -502,7 +517,14 @@ but the contracts. `supply_test.go` pins the supply contracts: a run with
 them replays and survives a save, the level is kept every morning with
 cash and room and what the float or the room leaves without, and the
 `stocked` player ends day 70 within 10% of `crewed` (the routine is
-convenience, not money).
+convenience, not money). `standing_test.go` pins the standing orders: a
+standing order sells the same units and draws the same heat as the same
+order placed by hand every day and takes exactly the cut less cash, an
+order of the day wins its night and the standing one is back the next,
+no order ever outsells the stash or sells on a lie-low day under any
+policy, the clock never touches one, a run with them replays and
+survives a save, and the `routine` player ends day 70 between 85% and
+100% of `crewed`.
 
 ## Source
 

@@ -13,22 +13,26 @@ import (
 
 // The cart (#103) is the day's shopping in one place: every buy made
 // today, what the supply contracts bought this morning (#113, lines
-// marked contract, returnable like a buy) and every sell order queued,
-// with the totals, readable in the
+// marked contract, returnable like a buy), every sell order queued and
+// every standing order that sells tonight (#114, lines marked standing,
+// edited like an order), with the totals, readable in the
 // buy and sell dialogs and the dashboard's and the market's pane and
 // editable in the cart modal (modeCart, one modal like every other):
 // a line's quantity, its dial, or the line itself. Removing or
 // shrinking a buy is a return (World.Return, the exact inverse of Buy);
-// removing an order is CancelSell. The cart is UI over the world's
-// per-day scratch (w.Buys, w.Orders): nothing new is saved.
+// removing an order is CancelSell, a standing one CancelStanding. The
+// cart is UI over the world's per-day scratch (w.Buys, w.Orders) and
+// its standing orders (w.Standing): nothing new is saved.
 
 // cartLine is one line of the cart: a buy made today, merged per city
 // and product, what a supply contract bought this morning (#113: a buy
 // marked contract, merged the same way and kept apart from the buys by
-// hand), or a sell order queued.
+// hand), a sell order queued, or a standing order that sells tonight
+// (#114: one you placed no order of the day over).
 type cartLine struct {
 	buy      bool
 	contract bool // a buy the supply contract made this morning
+	standing bool // a standing order of yours, selling tonight
 	city     string
 	product  string
 	qty      int
@@ -50,7 +54,8 @@ type cartDialog struct {
 
 // cartLines is the cart: the buys in the order they were made, the
 // contracts' first since they were made first, then the orders in city
-// and ladder order.
+// and ladder order, a standing order standing in for the order of the
+// day where you placed none (and never on a lie-low day: nothing sells).
 func (m *Model) cartLines() []cartLine {
 	w := m.w
 	var lines []cartLine
@@ -76,35 +81,50 @@ func (m *Model) cartLines() []cartLine {
 	for _, cid := range w.CityOrder {
 		for _, pid := range w.Products {
 			o, ok := w.Order(cid, pid)
+			standing := false
+			if !ok && !w.LieLow {
+				o, ok = w.YourStanding(cid, pid)
+				standing = true
+			}
 			if !ok {
 				continue
 			}
-			_, take, heat := m.orderEstimate(o)
-			lines = append(lines, cartLine{city: cid, product: pid, qty: o.Qty, dial: o.Dial, take: take, heat: heat})
+			_, take, heat := m.orderEstimate(o, standing)
+			lines = append(lines, cartLine{standing: standing, city: cid, product: pid, qty: o.Qty, dial: o.Dial, take: take, heat: heat})
 		}
 	}
 	return lines
 }
 
 // orderEstimate is what an order is expected to move, take and cost in
-// heat: the sell dialog's expect and heat rows for it.
-func (m *Model) orderEstimate(o game.SellOrder) (units, take int, heat float64) {
+// heat: the sell dialog's expect and heat rows for it. A standing order
+// (#114) sells at most what is stashed (and what the contract brings),
+// and its take is after the crew's cut.
+func (m *Model) orderEstimate(o game.SellOrder, standing bool) (units, take int, heat float64) {
 	p := m.w.Product(o.City, o.Product)
 	if p == nil {
 		return 0, 0, 0
 	}
-	units = min(o.Qty, m.set.Market.Capacity(m.w, o.City, o.Product, o.Dial))
-	take = int(float64(units) * p.Price * m.set.Market.Dial(o.Dial).Price)
-	return units, take, m.estHeat(o.City, o.Product, o.Qty, o.Dial)
+	qty := o.Qty
+	cut := 0.0
+	if standing {
+		qty = min(qty, m.sellable(o.City, o.Product))
+		cut = m.set.Market.Cut()
+	}
+	units = min(qty, m.set.Market.Capacity(m.w, o.City, o.Product, o.Dial))
+	take = int(float64(units) * p.Price * m.set.Market.Dial(o.Dial).Price * (1 - cut))
+	return units, take, m.estHeat(o.City, o.Product, qty, o.Dial)
 }
 
 // cartTotals is the bottom line: the lines bought and what they cost
 // (the contracts' among them, counted again on their own), the lines
-// queued, what they are expected to take and the heat.
+// queued (the standing among them, counted again), what they are
+// expected to take and the heat.
 type cartTotals struct {
 	buys, sells         int
 	spent, take         int
 	contracts, supplied int // the contract lines and what they cost, part of buys and spent
+	standing            int // the standing lines, part of sells
 	heat                float64
 }
 
@@ -122,14 +142,17 @@ func totals(lines []cartLine) cartTotals {
 			t.sells++
 			t.take += l.take
 			t.heat += l.heat
+			if l.standing {
+				t.standing++
+			}
 		}
 	}
 	return t
 }
 
 // cartSummary is the cart in a sentence, the END THE DAY? modal's:
-// `Buying 3 lines for $12K (2 by contract), selling 2 lines, ~$30K,
-// +4.2 heat.`; empty for an empty cart.
+// `Buying 3 lines for $12K (2 by contract), selling 2 lines (1
+// standing), ~$30K, +4.2 heat.`; empty for an empty cart.
 func (m *Model) cartSummary() string {
 	t := totals(m.cartLines())
 	var parts []string
@@ -141,7 +164,11 @@ func (m *Model) cartSummary() string {
 		parts = append(parts, line)
 	}
 	if t.sells > 0 {
-		parts = append(parts, fmt.Sprintf("selling %s, ~%s, %+.1f heat", plural(t.sells, "line"), cash(t.take), t.heat))
+		line := fmt.Sprintf("selling %s", plural(t.sells, "line"))
+		if t.standing > 0 {
+			line += fmt.Sprintf(" (%d standing)", t.standing)
+		}
+		parts = append(parts, line+fmt.Sprintf(", ~%s, %+.1f heat", cash(t.take), t.heat))
 	}
 	if len(parts) == 0 {
 		return ""
@@ -164,6 +191,8 @@ func (m *Model) cartRows(lines []cartLine) [][]any {
 			rows = append(rows, []any{"contract", name, city, l.qty, l.unit, nil, styled{theme.Bad, -l.cost}, nil})
 		case l.buy:
 			rows = append(rows, []any{"buy", name, city, l.qty, l.unit, nil, styled{theme.Bad, -l.cost}, nil})
+		case l.standing:
+			rows = append(rows, []any{"standing", name, city, l.qty, nil, dialShort(l.dial), styled{theme.Gold, l.take}, styled{heatStyle(m.w.City(l.city).Heat + l.heat*4), fmt.Sprintf("%+.1f", l.heat)}})
 		default:
 			rows = append(rows, []any{"sell", name, city, l.qty, nil, dialShort(l.dial), styled{theme.Gold, l.take}, styled{heatStyle(m.w.City(l.city).Heat + l.heat*4), fmt.Sprintf("%+.1f", l.heat)}})
 		}
@@ -221,7 +250,11 @@ func (m *Model) cartSection(city string) []section {
 		ls = append(ls, row("buying", line))
 	}
 	if t.sells > 0 {
-		ls = append(ls, row("selling", fmt.Sprintf("%s, ~%s", plural(t.sells, "line"), cash(t.take))), row("heat", fmt.Sprintf("%+.1f expected", t.heat)))
+		line := fmt.Sprintf("%s, ~%s", plural(t.sells, "line"), cash(t.take))
+		if t.standing > 0 {
+			line += sep + fmt.Sprintf("%d standing", t.standing)
+		}
+		ls = append(ls, row("selling", line), row("heat", fmt.Sprintf("%+.1f expected", t.heat)))
 	}
 	for _, l := range lines {
 		what := fmt.Sprintf("%d %s", l.qty, m.w.ProductName(l.product))
@@ -230,6 +263,8 @@ func (m *Model) cartSection(city string) []section {
 			ls = append(ls, row("contract", what+" "+money(l.cost)))
 		case l.buy:
 			ls = append(ls, row("buy", what+" "+money(l.cost)))
+		case l.standing:
+			ls = append(ls, row("standing", what+" "+dialShort(l.dial)+" ~"+cash(l.take)))
 		default:
 			ls = append(ls, row("sell", what+" "+dialShort(l.dial)+" ~"+cash(l.take)))
 		}
@@ -345,7 +380,7 @@ func (m *Model) keyCart(k tea.KeyMsg) (tea.Model, tea.Cmd) {
 			dial = events.Dial(key[0] - '1')
 		}
 		if dial != l.dial {
-			if err := m.w.PlaceSell(l.city, l.product, l.qty, dial); err != nil {
+			if err := m.placeLine(*l, l.qty, dial); err != nil {
 				d.err = dialogError(err)
 			}
 		}
@@ -353,8 +388,18 @@ func (m *Model) keyCart(k tea.KeyMsg) (tea.Model, tea.Cmd) {
 	return m, nil
 }
 
+// placeLine places an order line again at a quantity and a dial: a
+// standing line through PlaceStanding, an order of the day through
+// PlaceSell.
+func (m *Model) placeLine(l cartLine, qty int, dial events.Dial) error {
+	if l.standing {
+		return m.w.PlaceStanding(l.city, l.product, qty, dial)
+	}
+	return m.w.PlaceSell(l.city, l.product, qty, dial)
+}
+
 // cartMax is what the cart's quantity can take for the line under the
-// cursor: an order, the stash of the product in its city; a buy, what
+// cursor: an order, standing or of the day, the stash of the product in its city; a buy, what
 // was bought today plus what the supplier would sell you more where you
 // stand (a return down to nothing is x). Blank has always meant it.
 func (m *Model) cartMax() int {
@@ -363,7 +408,7 @@ func (m *Model) cartMax() int {
 	case l == nil:
 		return 0
 	case !l.buy:
-		return m.w.Stock(l.city, l.product)
+		return m.sellable(l.city, l.product)
 	case l.city == m.w.Player.Location && !l.contract:
 		return l.qty + m.maxBuy(l.product)
 	}
@@ -379,9 +424,9 @@ func (m *Model) giveBack(l cartLine, qty int) (int, error) {
 	return m.w.Return(l.city, l.product, qty)
 }
 
-// setCartQty is enter on the cart's quantity step: an order is placed
-// again at the new quantity; a buy is returned down to it, or added to
-// from the supplier where you stand.
+// setCartQty is enter on the cart's quantity step: an order, standing
+// or of the day, is placed again at the new quantity; a buy is returned
+// down to it, or added to from the supplier where you stand.
 func (m *Model) setCartQty() {
 	d := &m.crt
 	l := m.cartSelected()
@@ -425,20 +470,29 @@ func (m *Model) setCartQty() {
 			d.err = dialogError(err)
 			return
 		}
-		if err := m.w.PlaceSell(l.city, l.product, qty, l.dial); err != nil {
+		if err := m.placeLine(*l, qty, l.dial); err != nil {
 			d.err = dialogError(err)
 			return
 		}
-		m.say(fmt.Sprintf("Queued %d %s in %s, %s.", qty, m.w.ProductName(l.product), m.w.CityName(l.city), l.dial))
+		if l.standing {
+			m.say(fmt.Sprintf("Standing: %d %s in %s, %s, every night.", qty, m.w.ProductName(l.product), m.w.CityName(l.city), l.dial))
+		} else {
+			m.say(fmt.Sprintf("Queued %d %s in %s, %s.", qty, m.w.ProductName(l.product), m.w.CityName(l.city), l.dial))
+		}
 	}
 	d.step = 0
 	d.qty.Blur()
 }
 
-// removeCartLine is x on a line: an order is cancelled, a buy returned
-// whole. A buy whose units have left the stash stays, with the refusal
-// in the modal and the status bar.
+// removeCartLine is x on a line: an order is cancelled (a standing one
+// for good, #114), a buy returned whole. A buy whose units have left
+// the stash stays, with the refusal in the modal and the status bar.
 func (m *Model) removeCartLine(l cartLine) {
+	if l.standing {
+		m.w.CancelStanding(l.city, l.product)
+		m.say("Standing order cancelled.")
+		return
+	}
 	if !l.buy {
 		m.w.CancelSell(l.city, l.product)
 		m.say("Order cancelled.")

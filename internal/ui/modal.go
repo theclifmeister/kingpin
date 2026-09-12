@@ -50,13 +50,19 @@ func (m *Model) modal(title string, body []string, footer []binding) string {
 		b.WriteString(ansi.Truncate(l, inner, "…") + "\n")
 	}
 	foot := strings.TrimPrefix(legend(footer), " ") // flush with the body
+	more := ""
 	if m.modalScroll > 0 {
-		foot += k("↑", "more")
+		more += k("↑", "more")
 	}
 	if m.modalScroll < last {
-		foot += k("↓", "more")
+		more += k("↓", "more")
 	}
-	b.WriteString("\n" + ansi.Truncate(foot, inner, "…"))
+	// The scroll marks are never cut: a long footer (a number field's)
+	// gives way to them, as the status bar carries the footer whole.
+	if more != "" && lipgloss.Width(foot)+lipgloss.Width(more) > inner {
+		foot = ansi.Truncate(foot, inner-lipgloss.Width(more), "…")
+	}
+	b.WriteString("\n" + ansi.Truncate(foot+more, inner, "…"))
 	box := theme.Modal.Width(m.modalWidth() - 2).Render(b.String())
 	return strings.Repeat("\n", modalTop) + lipgloss.PlaceHorizontal(m.width, lipgloss.Center, box)
 }

@@ -130,7 +130,7 @@ func (m *Model) runsLine() string {
 func (m *Model) standingHere() int {
 	n := 0
 	for _, id := range m.w.Products {
-		if _, ok := m.w.StandingOrder(m.w.Player.Location, id); ok {
+		if _, ok := m.w.DelegatedOrder(m.w.Player.Location, id); ok {
 			n++
 		}
 	}

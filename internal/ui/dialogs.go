@@ -14,30 +14,38 @@ import (
 
 // dialog is the state of the buy or sell modal. A buy is from the
 // supplier where you are, into the stash there; a sale is in the city
-// shown, out of the stash there, by whoever works corners there. A
-// buy's last step is whether it is for today or stands (#113: `once` /
-// `keep at`, a supply contract at the quantity); a sale's is the dial.
+// shown, out of the stash there, by whoever works corners there. The
+// last step of either is whether the line is for today or stands: a
+// buy's `once` / `keep at` (#113, a supply contract at the quantity),
+// after the quantity; a sale's `once` / `standing` (#114, a standing
+// order at the quantity and the dial), after the dial.
 type dialog struct {
-	step   int // 0 product, 1 quantity, 2 the buy's repeat or the sale's dial
+	step   int // 0 product, 1 quantity, 2 the buy's repeat or the sale's dial, 3 the sale's repeat
 	qty    numberField
 	dial   events.Dial
 	repeat repeat
 	err    string
 }
 
-// repeat is the last step of the buy dialog (#113), and the shape the
-// sell dialog's standing orders (#114) mirror: whether the line is for
-// today (once) or stands (keep at: a supply contract at the quantity).
+// repeat is the last step of the buy dialog (#113) and of the sell
+// dialog (#114): whether the line is for today (once) or stands (keep
+// at: a supply contract at the quantity; standing: a standing order at
+// the quantity and the dial). The second notch is one value under two
+// names, one dialog reading it at a time.
 type repeat int
 
 const (
 	repeatOnce repeat = iota
 	repeatKeep
+	repeatStanding = repeatKeep
 )
 
-// repeatNames are the notches as the dialog draws them, through the
-// dial convention (dialCells).
-var repeatNames = []string{"once", "keep at"}
+// repeatNames and sellRepeatNames are the notches as the buy and the
+// sell dialog draw them, through the dial convention (dialCells).
+var (
+	repeatNames     = []string{"once", "keep at"}
+	sellRepeatNames = []string{"once", "standing"}
+)
 
 // stepRepeat is the key handling of a repeat step: ←→ (h, l) turn it, a
 // digit picks a notch. It reports whether the key was one of those.
@@ -111,6 +119,8 @@ func (m *Model) openDialog(mode mode) {
 		}
 		if o, ok := m.w.Order(city, m.w.Products[m.cursor]); ok {
 			m.dlg.dial = o.Dial
+		} else if o, ok := m.w.YourStanding(city, m.w.Products[m.cursor]); ok {
+			m.dlg.dial = o.Dial
 		}
 	}
 	m.mode = mode
@@ -125,10 +135,11 @@ func (m *Model) openDialog(mode mode) {
 // product you can buy or sell, a quantity that reads) and is silent
 // otherwise; enter is next until the last step, where it commits: a
 // buy's `once` / `keep at` (#113, ←→ or 1-2; enter buys, or sets the
-// contract), a sale's dial. The quantity step is a numberField (#112):
-// m, h, ↑↓ and pgup pgdn move the number within what the field can
-// take, the stash here (and what the contract brings) for a sale and
-// maxBuy for a buy.
+// contract), a sale's `once` / `standing` after its dial (#114; enter
+// queues the order, or sets it standing). The quantity step is a
+// numberField (#112): m, h, ↑↓ and pgup pgdn move the number within
+// what the field can take, the stash here (and what the contract
+// brings) for a sale and maxBuy for a buy.
 func (m *Model) keyDialog(k tea.KeyMsg) (tea.Model, tea.Cmd) {
 	key := k.String()
 	d := &m.dlg
@@ -206,8 +217,16 @@ func (m *Model) keyDialog(k tea.KeyMsg) (tea.Model, tea.Cmd) {
 		case "3":
 			d.dial = events.DialAggressive
 		case "enter":
+			d.step = 3
+		}
+	case 3:
+		if key == "enter" {
+			if d.repeat == repeatStanding {
+				return m.confirmStanding()
+			}
 			return m.confirmSell()
 		}
+		stepRepeat(key, &d.repeat, len(sellRepeatNames))
 	}
 	return m, nil
 }
@@ -268,10 +287,16 @@ func (m *Model) dialogForward() (tea.Model, tea.Cmd) {
 		}
 		d.step = 1
 		// A product kept by contract opens on its level, at keep at,
-		// the way the target dialog opens on the target (#113).
-		if c, ok := m.w.Supplied(m.dialogCity(), m.w.Products[m.cursor]); ok && m.mode == modeBuy {
-			d.qty.Set(c.Units)
-			d.repeat = repeatKeep
+		// the way the target dialog opens on the target (#113); one
+		// with a standing order opens on its units, at standing (#114).
+		if m.mode == modeBuy {
+			if c, ok := m.w.Supplied(m.dialogCity(), m.w.Products[m.cursor]); ok {
+				d.qty.Set(c.Units)
+				d.repeat = repeatKeep
+			}
+		} else if o, ok := m.w.YourStanding(m.dialogCity(), m.w.Products[m.cursor]); ok {
+			d.qty.Set(o.Qty)
+			d.repeat = repeatStanding
 		}
 		return m, d.qty.Focus()
 	case 1:
@@ -280,6 +305,11 @@ func (m *Model) dialogForward() (tea.Model, tea.Cmd) {
 		}
 		d.step = 2
 		d.qty.Blur()
+	case 2:
+		// The dial is always complete; the sale has one more step.
+		if m.mode == modeSell {
+			d.step = 3
+		}
 	}
 	return m, nil
 }
@@ -296,6 +326,8 @@ func (m *Model) dialogBack() (tea.Model, tea.Cmd) {
 	case 2:
 		d.step = 1
 		return m, d.qty.Focus()
+	case 3:
+		d.step = 2
 	}
 	return m, nil
 }
@@ -391,6 +423,8 @@ func (m *Model) nextLine() {
 	m.dlg.repeat = repeatOnce
 }
 
+// confirmSell is enter on the sell dialog's last step at once: the
+// order for tonight.
 func (m *Model) confirmSell() (tea.Model, tea.Cmd) {
 	id := m.w.Products[m.cursor]
 	city := m.dialogCity()
@@ -402,6 +436,25 @@ func (m *Model) confirmSell() (tea.Model, tea.Cmd) {
 		return m.quantityAgain(err)
 	}
 	m.say(fmt.Sprintf("Queued %d %s in %s, %s. It sells at the end of the day.", qty, m.w.ProductName(id), m.w.CityName(city), m.dlg.dial))
+	m.nextLine()
+	return m, nil
+}
+
+// confirmStanding is enter on the sell dialog's last step at standing
+// (#114): a standing order for the product in the dialog's city at the
+// quantity and the dial, sold every night until cancelled at the crew's
+// cut, wherever you place no order of your own that day.
+func (m *Model) confirmStanding() (tea.Model, tea.Cmd) {
+	id := m.w.Products[m.cursor]
+	city := m.dialogCity()
+	qty, err := m.parseQty(m.sellable(city, id))
+	if err != nil {
+		return m.quantityAgain(err)
+	}
+	if err := m.w.PlaceStanding(city, id, qty, m.dlg.dial); err != nil {
+		return m.quantityAgain(err)
+	}
+	m.say(fmt.Sprintf("Standing: %d %s in %s, %s, every night until you cancel it; the crew keep %.0f%%.", qty, m.w.ProductName(id), m.w.CityName(city), m.dlg.dial, m.set.Market.Cut()*100))
 	m.nextLine()
 	return m, nil
 }
@@ -502,6 +555,23 @@ func (m *Model) viewDialog() string {
 		body = append(body, fmt.Sprintf("heat       %s   %s", heatStyle(w.City(city).Heat+h*4).Render(fmt.Sprintf("+%.1f", h)), theme.Subtle.Render(dialBlurb(d.dial))))
 		if w.WorkedIn(city) == 0 {
 			body = append(body, theme.Bad.Render(fmt.Sprintf("You work no corner in %s: nothing will sell.", w.CityName(city))), theme.Bad.Render("Post somebody "+screenPointer(screenMap)+"."))
+		}
+	}
+
+	// Step 3 of a sale: once or standing (#114), in the dial convention,
+	// and what a standing order means.
+	if !buy && d.step >= 3 {
+		qty, _ := m.parseQty(m.sellable(city, id))
+		body = append(body, "", "repeat     "+dialCells(sellRepeatNames, int(d.repeat)))
+		if d.repeat == repeatStanding {
+			body = append(body, fmt.Sprintf("standing   %d at %s nightly until cancelled; the crew keep %.0f%%", qty, d.dial, m.set.Market.Cut()*100))
+			if o, ok := w.YourStanding(city, id); ok {
+				body = append(body, theme.Subtle.Render(fmt.Sprintf("Standing at %d %s now; this replaces it.", o.Qty, o.Dial)))
+			} else {
+				body = append(body, theme.Subtle.Render("An order by hand wins its day; the standing one is back the next."))
+			}
+		} else {
+			body = append(body, theme.Subtle.Render("Tonight, once. Standing is the same order every night, at a cut."))
 		}
 	}
 

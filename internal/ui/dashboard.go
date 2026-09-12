@@ -159,6 +159,8 @@ func (m *Model) streetLines(innerW, maxLines int, narrow, withRoad bool) []strin
 		last = theme.Warning.Render("Lying low today. No sales, heat fades faster.")
 	case len(w.Orders) > 0:
 		last = theme.Gold.Render("Orders queued for tonight.")
+	case len(w.Standing) > 0:
+		last = theme.Gold.Render(fmt.Sprintf("Standing orders sell tonight; the crew keep %.0f%%.", m.set.Market.Cut()*100))
 	default:
 		if lt := w.Crew.Lieutenant(here.ID); lt != nil && m.standingHere() > 0 {
 			last = theme.Gold.Render(fmt.Sprintf("%s sells the stash here at %s; an order of yours overrides it.", lt.Name, m.set.Crew.Dial(*lt)))
@@ -640,7 +642,9 @@ func (m *Model) dashboardDetails() []section {
 				dial = o.Dial
 				lines = append(lines, row("order", theme.Gold.Render(fmt.Sprintf("%d %s", o.Qty, o.Dial))))
 			default:
-				if so, ok := w.StandingOrder(here.ID, id); ok {
+				if so, ok := w.YourStanding(here.ID, id); ok {
+					dial = so.Dial
+				} else if so, ok := w.DelegatedOrder(here.ID, id); ok {
 					lines = append(lines, row("order", theme.CrewText.Render(fmt.Sprintf("%d %s (lt)", so.Qty, so.Dial))))
 				} else {
 					lines = append(lines, row("order", theme.Subtle.Render("none")))
@@ -657,6 +661,7 @@ func (m *Model) dashboardDetails() []section {
 			if o, ok := w.Order(here.ID, id); ok {
 				lines = append(lines, keyRow("x", fmt.Sprintf("cancel the %d %s", o.Qty, o.Dial)))
 			}
+			lines = append(lines, m.standingRows(here.ID, id)...)
 			lines = append(lines, m.contractRows(here.ID, id)...)
 			secs = append(secs, section{strings.ToUpper(p.Name) + " · " + strings.ToUpper(here.Name), lines})
 		}

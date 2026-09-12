@@ -36,8 +36,8 @@ func (m *Model) screenTitle(name string) string {
 // productRows is the product table the dashboard and the market share:
 // the price, its change on the day, the sparkline (sized by sparkCol
 // once the caller knows what the width leaves), the stock in the city
-// and the order queued there, which is the lieutenant's standing order
-// where you placed none; the market adds the supplier's price, the
+// and the order queued there, which is your standing order (#114, ↻)
+// or the lieutenant's where you placed none; the market adds the supplier's price, the
 // demand your corners there serve and the level a supply contract
 // keeps the stash at (#113), and calls the stock the stash it is
 // (`product price Δ Nd supplier stash demand/day order keep`). The
@@ -85,9 +85,11 @@ func (m *Model) productRows(city string, selected int, market bool) (cols []col,
 		}
 		var ord any
 		if o, ok := w.Order(city, id); ok {
-			ord = styled{theme.Gold, order{o.Qty, dialShort(o.Dial), false}}
-		} else if o, ok := w.StandingOrder(city, id); ok {
-			ord = styled{theme.CrewText, order{o.Qty, dialShort(o.Dial), true}}
+			ord = styled{theme.Gold, order{qty: o.Qty, dial: dialShort(o.Dial)}}
+		} else if o, ok := w.YourStanding(city, id); ok {
+			ord = styled{theme.Gold, order{qty: o.Qty, dial: dialShort(o.Dial), standing: true}}
+		} else if o, ok := w.DelegatedOrder(city, id); ok {
+			ord = styled{theme.CrewText, order{qty: o.Qty, dial: dialShort(o.Dial), lt: true}}
 		}
 		row := []any{p.Name, p.Price, ds, styled{theme.Good, sp}}
 		if market {
@@ -210,6 +212,7 @@ func (m *Model) marketDetails() []section {
 			sel = append(sel, row("shock", theme.Good.Render(fmt.Sprintf("×%.2f, %s more", p.ShockFactor, plural(p.ShockDays, "day")))))
 		}
 	}
+	sel = append(sel, m.standingRows(city.ID, id)...)
 	sel = append(sel, m.contractRows(city.ID, id)...)
 	if len(m.buyerRows()) > 0 {
 		sel = append(sel, keyRow("↓", "past the table reaches the buyers"))
@@ -281,8 +284,28 @@ func (m *Model) contractRows(city, id string) []string {
 	if due := m.set.Market.Due(w, city, id); due > 0 {
 		rows = append(rows, row("", theme.Subtle.Render(fmt.Sprintf("brings %d in the morning at %s", due, price(m.set.Market.SupplyPrice(w, city, id))))))
 	}
-	if _, ok := w.Order(city, id); !ok {
+	if _, ok := w.Order(city, id); ok {
+		return rows
+	}
+	if _, ok := w.YourStanding(city, id); !ok {
 		rows = append(rows, keyRow("x", "clear the contract"))
+	}
+	return rows
+}
+
+// standingRows is the pane's rows on a product's standing order (#114):
+// `standing  120 aggr. · cut 5%` (the dial short, so the row fits the
+// pane) and, with no order of the day to cancel first, what x does to
+// it; nothing with none.
+func (m *Model) standingRows(city, id string) []string {
+	w := m.w
+	o, ok := w.YourStanding(city, id)
+	if !ok {
+		return nil
+	}
+	rows := []string{row("standing", theme.Gold.Render(fmt.Sprintf("%d %s", o.Qty, dialShort(o.Dial)))+sep+fmt.Sprintf("cut %.0f%%", m.set.Market.Cut()*100))}
+	if _, ok := w.Order(city, id); !ok {
+		rows = append(rows, keyRow("x", "cancel the standing order"))
 	}
 	return rows
 }

@@ -24,7 +24,7 @@ func TestBackIsOneKey(t *testing.T) {
 		enter []string           // enter and what to type to reach the last step
 	}
 	dialogs := []dialog{
-		{"sell", modeSell, func(m *Model) { m.Update(key("s")) }, func(m *Model) int { return m.dlg.step }, func(m *Model) int { return m.cursor }, 2, []string{"enter", "5", "enter"}},
+		{"sell", modeSell, func(m *Model) { m.Update(key("s")) }, func(m *Model) int { return m.dlg.step }, func(m *Model) int { return m.cursor }, 3, []string{"enter", "5", "enter", "enter"}},
 		{"buy", modeBuy, func(m *Model) { m.Update(key("b")) }, func(m *Model) int { return m.dlg.step }, func(m *Model) int { return m.cursor }, 2, []string{"enter", "5", "enter"}},
 		{"target", modeTarget, func(m *Model) {
 			m.Update(key("5"))
@@ -61,8 +61,13 @@ func TestBackIsOneKey(t *testing.T) {
 			t.Fatalf("%s: tab on the last step: mode %v step %d screen %v", d.name, m.mode, d.step(m), m.screen)
 		}
 		if d.name == "sell" {
-			// Back from the dial keeps the quantity; back from the quantity
+			// Back from the repeat keeps the dial and the quantity, back
+			// from the dial keeps the quantity; back from the quantity
 			// clears it, as leaving the step does.
+			m.Update(key("shift+tab"))
+			if d.step(m) != 2 || m.dlg.qty.Value() != "5" {
+				t.Fatalf("sell: shift+tab from the repeat: step %d quantity %q", d.step(m), m.dlg.qty.Value())
+			}
 			m.Update(key("shift+tab"))
 			if d.step(m) != 1 || m.dlg.qty.Value() != "5" {
 				t.Fatalf("sell: shift+tab from the dial: step %d quantity %q", d.step(m), m.dlg.qty.Value())

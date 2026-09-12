@@ -145,6 +145,9 @@ func TestNumberField(t *testing.T) {
 		if f.name == "sell" || f.name == "buy" {
 			m.Update(key("enter")) // the dial step, or the buy's once, commits
 		}
+		if f.name == "sell" {
+			m.Update(key("enter")) // the sale's once (#114) commits
+		}
 		switch {
 		case f.refused && (m.mode != mode || f.err(m) == ""):
 			t.Errorf("%s: %d over a max of %d was not refused: mode %v err %q status %q", f.name, mx+1, mx, m.mode, f.err(m), m.status)

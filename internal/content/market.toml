@@ -92,6 +92,17 @@ unlock_cash = 500000
 markup = 1.05
 float = 0
 
+# Standing orders (#114): a sell order that stands, the same units at the
+# same dial every night until cancelled, resolved exactly as a fresh order
+# would be. The cut is the share of the take the crew keep for working the
+# night without you: the penalty is the point, the hand still pays better.
+# It comes off the take, not the profit, so it weighs about two and a half
+# times what it reads at the crewed player's margin: 0.05 of the take is
+# an eighth of the profit, and the routine player ends day 70 at 88% of
+# the hand (TestRoutineIsWithinFifteenPercentOfCrewed); 0.10 was 77%.
+[standing]
+cut = 0.05
+
 # The dial: how much of demand you can move, the price you get, how hard you
 # push the market, and how much heat you attract.
 [dial.quiet]

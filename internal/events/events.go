@@ -102,7 +102,8 @@ func (PriceMove) Kind() string { return "PriceMove" }
 // PlayerSold is the resolution of a sell order at end of day, in the city
 // whose corners moved it. Lieutenant names the crew member running that
 // city, if one does (0 otherwise): the crew sim takes their cut, the heat
-// sim their temper. Standing says the order was theirs, not the player's.
+// sim their temper. Standing says the order stood rather than being
+// placed that day, Delegated that it was theirs and not the player's.
 type PlayerSold struct {
 	Day            int
 	City           string
@@ -114,10 +115,26 @@ type PlayerSold struct {
 	Revenue        int
 	Lieutenant     int
 	LieutenantName string
-	Standing       bool
+	Standing       bool // a standing order, yours (#114) or the lieutenant's, not one placed today
+	Delegated      bool // the standing order was the lieutenant's (World.Delegated), not one you set
+	Cut            int  // dirty cash the crew kept off a standing order of yours ([standing] cut); zero otherwise
 }
 
 func (PlayerSold) Kind() string { return "PlayerSold" }
+
+// StandingShort is report-only bookkeeping (#114): a standing order of
+// yours found less in the stash than it is for tonight, and sold what
+// was there (nothing, with nothing stashed). It is the cue to restock,
+// and the stop a fast-forward reads (#116).
+type StandingShort struct {
+	Day     int
+	City    string
+	Product string
+	Units   int // the order
+	Stock   int // what the stash held
+}
+
+func (StandingShort) Kind() string { return "StandingShort" }
 
 // HeatChanged reports the day's heat delta in a city and why.
 type HeatChanged struct {

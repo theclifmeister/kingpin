@@ -41,6 +41,13 @@ type MarketConfig struct {
 	Products []ProductConfig `toml:"product"`
 	Dial     DialTable       `toml:"dial"`
 	Supply   SupplyTuning    `toml:"supply"`
+	Standing StandingTuning  `toml:"standing"`
+}
+
+// StandingTuning is the standing orders (#114): Cut is the share of a
+// standing order's take the crew keep, the penalty the routine costs.
+type StandingTuning struct {
+	Cut float64 `toml:"cut"`
 }
 
 // SupplyTuning is the supply contracts (#113): Markup is the supplier's
@@ -1040,6 +1047,9 @@ func Load() (*Config, error) {
 	}
 	if c.Market.Supply.Markup < 1 || c.Market.Supply.Float < 0 {
 		return nil, fmt.Errorf("market.toml: [supply] markup %v (at least 1) float %d (not negative)", c.Market.Supply.Markup, c.Market.Supply.Float)
+	}
+	if c.Market.Standing.Cut < 0 || c.Market.Standing.Cut >= 1 {
+		return nil, fmt.Errorf("market.toml: [standing] cut %v (0 up to 1)", c.Market.Standing.Cut)
 	}
 	if err := c.City.validate(); err != nil {
 		return nil, fmt.Errorf("city.toml: %w", err)

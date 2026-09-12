@@ -41,6 +41,7 @@ type World struct {
 	Contracts  []Contract                // the buyers' orders (#71), oldest first; the market sim deals and resolves them
 	Buyers     BuyersState               // the buyer deck's pacing and blacklist
 	Supply     map[string]SupplyContract // the supply contracts (#113), keyed like Orders; the market sim fills them every morning
+	Standing   map[string]SellOrder      // your standing sell orders (#114), keyed like Orders; the market sim resolves them every night at a cut
 
 	// Per-day scratch, cleared by the clock after every EndDay.
 	Orders        map[string]SellOrder // pending sell orders keyed by product id
@@ -528,7 +529,7 @@ type Stats struct {
 	Betrayals      int // deals you broke
 	BetrayedBy     int // deals it broke
 	Tribute        int // dirty cash paid the rival in tribute
-	Cuts           int // dirty cash the lieutenants kept as their cut
+	Cuts           int // dirty cash the lieutenants kept as their cut, and the crew's cut on your standing orders (#114)
 	Walked         int // lieutenants who walked with their city
 	Funded         int // clean cash given to the cities (#41)
 	Elections      int // DA elections held
