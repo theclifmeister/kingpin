@@ -27,27 +27,34 @@ type Scene interface {
 
 // Named is a scene in the registry: its name and how to make it on a
 // seed, so a review tool and TestScenesFit can walk every scene the
-// game has without knowing what each needs.
+// game has without knowing what each needs; Dice says the scene throws
+// them, so another seed renders other frames (TestSceneIsDeterministic
+// wants it of every scene that does; the morning's slide and wipe
+// throw none, #159).
 type Named struct {
 	Name string
 	New  func(seed uint64) Scene
+	Dice bool
 }
 
 // Scenes is the registry, every scene the game plays: the title, its
 // first pass on the seed, whichever effect the pass picks, and the
 // interstitials as they land (#161): the stage (#157), the card (#154)
-// over a sample card, the ending's three (#156), one a cause, and the
-// strike (#158) over two sample cells.
+// over a sample card, the ending's three (#156), one a cause, the
+// morning (#159) and the bust (#155) over a sample raid, and the strike
+// (#158) over two sample cells.
 func Scenes() []Named {
 	return []Named{
-		{Name: "title", New: func(seed uint64) Scene { s, _ := TitlePass(seed, 0, "", ""); return s }},
-		{Name: "stage", New: stageScene},
-		{Name: "card", New: func(seed uint64) Scene { return Card(sampleTitle, sampleText, Seed(seed, 0, "card")) }},
+		{Name: "title", New: func(seed uint64) Scene { s, _ := TitlePass(seed, 0, "", ""); return s }, Dice: true},
+		{Name: "stage", New: stageScene, Dice: true},
+		{Name: "card", New: func(seed uint64) Scene { return Card(sampleTitle, sampleText, Seed(seed, 0, "card")) }, Dice: true},
 		// The ending's three (#156), over the samples: seven pages and
 		// a headline, the word, the figures.
-		{Name: "over:indicted", New: func(seed uint64) Scene { return Indicted(7, sampleHeadline, Seed(seed, 1, "over")) }},
-		{Name: "over:arrested", New: func(seed uint64) Scene { return Arrested(Seed(seed, 1, "over")) }},
-		{Name: "over:broke", New: func(seed uint64) Scene { return Broke(sampleFigures, Seed(seed, 1, "over")) }},
-		{Name: "strike", New: strikeScene},
+		{Name: "over:indicted", New: func(seed uint64) Scene { return Indicted(7, sampleHeadline, Seed(seed, 1, "over")) }, Dice: true},
+		{Name: "over:arrested", New: func(seed uint64) Scene { return Arrested(Seed(seed, 1, "over")) }, Dice: true},
+		{Name: "over:broke", New: func(seed uint64) Scene { return Broke(sampleFigures, Seed(seed, 1, "over")) }, Dice: true},
+		{Name: "morning", New: morningScene},
+		{Name: "bust", New: bustScene, Dice: true},
+		{Name: "strike", New: strikeScene, Dice: true}, // the burns' fronts; the slide throws none
 	}
 }

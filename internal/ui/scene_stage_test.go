@@ -42,11 +42,12 @@ func TestStageSceneOnAStage(t *testing.T) {
 	if saved, err := game.Load(m.slot); err != nil || saved.Day != m.w.Day || saved.StagePending() != 2 {
 		t.Fatalf("the save before the first frame: day %d pending %d err %v", saved.Day, saved.StagePending(), err)
 	}
-	// Closed, the next morning is a plain one: no scene, no tick.
+	// Closed, the next morning is a plain one: the report on the
+	// morning's scene (#159), not the stage's.
 	m.Update(key("x")) // the skip
 	m.Update(key("enter"))
 	closeMorning(t, m)
-	if _, cmd := m.Update(key("n")); cmd != nil || m.scene != nil || m.mode == modeStage {
+	if _, cmd := m.Update(key("n")); cmd == nil || m.mode != modeReport || !m.onReportScene(reportMorning) {
 		t.Fatalf("a plain morning: cmd %v scene %v mode %v", cmd, m.scene, m.mode)
 	}
 	// Animation off: the modal alone.

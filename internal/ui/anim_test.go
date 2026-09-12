@@ -21,11 +21,12 @@ import (
 // scene is on screen: never in play mode, never with animation off, and
 // the chain ends by itself when the scene does or a key ends it.
 
-// newAnimModel is a fresh install with animation on: the one fixture
-// that holds a scene, for the guards.
+// newAnimModel is a fresh install with animation on, the morning's
+// included (#159; the options cmd/kingpin builds by default): the one
+// fixture that holds a scene, for the guards.
 func newAnimModel(t *testing.T, w, h int) *Model {
 	t.Helper()
-	return newModelWith(t, w, h, Options{Anim: true})
+	return newModelWith(t, w, h, Options{Anim: true, MorningAnim: true})
 }
 
 // onMenu puts a fresh model on the start menu with the loop running:
@@ -53,10 +54,12 @@ func (s stub) Frame(t time.Duration, w, h int) []string { return []string{"scene
 func (s stub) Done(t time.Duration) bool                { return t >= s.over }
 
 // TestNoTickInPlayMode: Update returns no command in play mode, on
-// every screen for every key the table has, with animation on; the
-// map after its scene (#158) the same, for every key; and with
-// animation off in every mode, so the fixtures and the README's
-// captures never hold a scene.
+// every screen for every key the table has, with animation on (n
+// leaves play mode for the report, which opens on the morning's scene,
+// #159: that tick is the modal's, and any key ends it before the next
+// key is play mode's); the map after its scene (#158) the same, for
+// every key; and with animation off in every mode, so the fixtures and
+// the README's captures never hold a scene.
 func TestNoTickInPlayMode(t *testing.T) {
 	m := newAnimModel(t, 120, 40)
 	if m.mode != modePlay {
@@ -69,7 +72,12 @@ func TestNoTickInPlayMode(t *testing.T) {
 				continue // quitting is a command of its own
 			}
 			m.mode = modePlay
-			if _, cmd := m.Update(key(k)); cmd != nil {
+			_, cmd := m.Update(key(k))
+			if k == "n" && m.mode == modeReport && m.scene != nil {
+				skipScene(m)
+				continue
+			}
+			if cmd != nil {
 				t.Errorf("screen %d key %q: Update returned a command in play mode", s, k)
 			}
 			if m.scene != nil {
@@ -95,7 +103,7 @@ func TestNoTickInPlayMode(t *testing.T) {
 	}
 	for _, k := range handledKeys {
 		if k == "q" || k == "ctrl+c" || k == "n" {
-			continue // n ends the day, and the morning's card has a scene of its own
+			continue // n ends the day: the morning's own scene (#159) is the report's
 		}
 		struck.mode, struck.screen = modePlay, screenMap
 		if _, cmd := struck.Update(key(k)); cmd != nil || struck.scene != nil {
@@ -125,9 +133,10 @@ func TestNoTickInPlayMode(t *testing.T) {
 
 // TestSceneStopsTicking: with animation on the start menu's Update
 // returns a tick, from the resize that starts the loop and from every
-// frame; a run started, it returns nil from then on; an interstitial
-// ends on any key, which is consumed, and on Done, and the command
-// after either is nil.
+// frame; a run started, it returns nil from then on in play mode (n
+// opens the report on the morning's scene, #159, whose tick is the
+// modal's and ends with it); an interstitial ends on any key, which is
+// consumed, and on Done, and the command after either is nil.
 func TestSceneStopsTicking(t *testing.T) {
 	m := newAnimModel(t, 80, 24)
 	if cmd := m.Init(); cmd != nil {
@@ -158,10 +167,19 @@ func TestSceneStopsTicking(t *testing.T) {
 	if _, cmd := m.Update(frameMsg{at: now.Add(time.Second), gen: m.sceneGen - 1}); cmd != nil {
 		t.Fatal("a straggling tick issued another")
 	}
-	for _, k := range []string{"2", "n", "enter", "esc"} {
+	for _, k := range []string{"2", "enter", "esc"} {
 		if _, cmd := m.Update(key(k)); cmd != nil {
 			t.Fatalf("key %q after the run started returned a command", k)
 		}
+	}
+	// n opens the report on the morning's scene: the tick is the
+	// modal's, and the report closed the play screen is quiet again.
+	if _, cmd := m.Update(key("n")); cmd == nil || m.mode != modeReport || m.scene == nil {
+		t.Fatalf("n after the run started: cmd %v mode %v scene %v", cmd, m.mode, m.scene)
+	}
+	skipScene(m)
+	if _, cmd := m.Update(key("enter")); cmd != nil || m.mode != modePlay || m.scene != nil {
+		t.Fatalf("closing the report: cmd %v mode %v scene %v", cmd, m.mode, m.scene)
 	}
 	// An interstitial: any key ends it and is consumed.
 	m.mode = modePlay
@@ -170,9 +188,11 @@ func TestSceneStopsTicking(t *testing.T) {
 	if _, cmd := m.Update(key("n")); cmd != nil || m.scene != nil || m.w.Day != day {
 		t.Fatalf("n on an interstitial: cmd %v scene %v day %d → %d", cmd, m.scene, day, m.w.Day)
 	}
-	if _, cmd := m.Update(key("n")); cmd != nil || m.w.Day != day+1 {
-		t.Fatalf("the key after the scene ended: cmd %v day %d → %d", cmd, day, m.w.Day)
+	if _, cmd := m.Update(key("n")); cmd == nil || m.w.Day != day+1 || m.mode != modeReport {
+		t.Fatalf("the key after the scene ended: cmd %v day %d → %d mode %v", cmd, day, m.w.Day, m.mode)
 	}
+	skipScene(m)
+	m.Update(key("enter"))
 	// And on Done: the tick chain runs it out and ends.
 	m.mode = modePlay
 	m.play(&anim.Player{Scene: stub{100 * time.Millisecond}, Accent: theme.Heat})
@@ -236,7 +256,7 @@ func TestSceneNeverTouchesTheWorld(t *testing.T) {
 		}
 		return &out
 	}
-	on, off := play(Options{Anim: true}), play(Options{Anim: false})
+	on, off := play(Options{Anim: true, MorningAnim: true}), play(Options{Anim: false})
 	if !reflect.DeepEqual(on, off) {
 		t.Fatal("the run with animation on differs from the run with it off at day 10")
 	}
@@ -295,7 +315,9 @@ func TestScenesFit(t *testing.T) {
 }
 
 // TestSceneIsDeterministic: the same seed renders the same frames
-// twice, and another seed renders others.
+// twice, and another seed renders others for every scene that throws
+// dice (Named.Dice; the morning's slide and wipe throw none, #159, and
+// render the same on every seed).
 func TestSceneIsDeterministic(t *testing.T) {
 	for _, sc := range anim.Scenes() {
 		a, b, c := sc.New(3), sc.New(3), sc.New(4)
@@ -308,8 +330,8 @@ func TestSceneIsDeterministic(t *testing.T) {
 		if !same {
 			t.Errorf("%s: the same seed rendered different frames", sc.Name)
 		}
-		if !differ {
-			t.Errorf("%s: two seeds rendered the same frames", sc.Name)
+		if differ != sc.Dice {
+			t.Errorf("%s: two seeds rendered %v frames, dice %v", sc.Name, map[bool]string{true: "different", false: "the same"}[differ], sc.Dice)
 		}
 	}
 }

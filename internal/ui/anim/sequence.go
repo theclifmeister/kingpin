@@ -30,12 +30,31 @@ type sequence struct {
 func (s *sequence) Done(t time.Duration) bool { return t >= s.over }
 
 func (s *sequence) Frame(t time.Duration, w, h int) []string {
+	if st, at := s.step(t); st != nil {
+		return st.Scene.Frame(at, w, h)
+	}
+	return NewCanvas(w, h).Lines()
+}
+
+// paint draws the step's scene at its own clock onto the canvas given,
+// so a sequence composes under a Layer or a blit (#155's strobe) as an
+// effect does.
+func (s *sequence) paint(cv *Canvas, t time.Duration) {
+	if st, at := s.step(t); st != nil {
+		paint(st.Scene, cv, at)
+	}
+}
+
+// step is the step whose span holds t, on its own clock, the last one
+// held past its end; nil for no steps.
+func (s *sequence) step(t time.Duration) (*Step, time.Duration) {
 	at := time.Duration(0)
-	for i, st := range s.steps {
+	for i := range s.steps {
+		st := &s.steps[i]
 		if t < at+st.Over || i == len(s.steps)-1 {
-			return st.Scene.Frame(min(t-at, st.Over), w, h)
+			return st, min(t-at, st.Over)
 		}
 		at += st.Over
 	}
-	return NewCanvas(w, h).Lines()
+	return nil, 0
 }
