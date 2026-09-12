@@ -38,12 +38,13 @@ func (m *Model) morningScene() {
 }
 
 // reportScene is which scene the report opened on, while m.scene is up
-// in modeReport: the morning's (#159).
+// in modeReport: the morning's (#159) or the bust's (#155).
 type reportSceneKind int
 
 const (
 	reportNone    reportSceneKind = iota
 	reportMorning                 // the day rolls over (#159)
+	reportBust                    // a sting, a raid or an arrest hits (#155)
 )
 
 // onReportScene reports whether the report's scene of the kind is up:
