@@ -34,6 +34,10 @@ func TestBackIsOneKey(t *testing.T) {
 		}, func(m *Model) int { return m.tgt.step }, func(m *Model) int { return m.cursor }, 2, []string{"enter", "enter"}},
 		{"cart", modeCart, func(m *Model) { fillCart(t, m); m.Update(key("c")); m.Update(key("down")) }, func(m *Model) int { return m.crt.step }, func(m *Model) int { return m.crt.cursor }, 1, []string{"enter"}},
 		{"propose", modePropose, func(m *Model) { m.Update(key("8")); m.Update(key("d")); m.Update(key("down")) }, func(m *Model) int { return m.proposeStep }, func(m *Model) int { return m.proposeCursor }, 1, []string{"enter"}},
+		// The buy picker (#73: the kind, then the offers) and the move
+		// dialog (from, to, product, quantity).
+		{"front", modeFront, func(m *Model) { m.Update(key("7")); m.Update(key("b")); m.Update(key("down")) }, func(m *Model) int { return m.frontStep }, func(m *Model) int { return m.frontKind }, 1, []string{"enter"}},
+		{"move", modeMove, func(m *Model) { onHouse(t, m); m.Update(key("m")); m.Update(key("down")) }, func(m *Model) int { return m.mv.step }, func(m *Model) int { return m.mv.cursor }, 3, []string{"enter", "enter", "enter"}},
 	}
 	for _, d := range dialogs {
 		m := richModel(t, 100, 30)
@@ -169,7 +173,8 @@ func TestTabIsSilentWhereThereIsNoPage(t *testing.T) {
 		{"confirm fire", modeConfirmFire, func(m *Model) { m.Update(key("4")); m.Update(key("f")) }},
 		{"confirm travel", modeConfirmTravel, func(m *Model) { m.Update(key("g")) }},
 		{"post", modePost, func(m *Model) { m.Update(key("5")); m.mapCursor = 1; m.Update(key("c")) }},
-		{"front", modeFront, func(m *Model) { m.Update(key("7")); m.Update(key("b")) }},
+		{"guard", modeGuard, func(m *Model) { onHouse(nil, m); m.Update(key("e")) }},
+		{"confirm drop", modeConfirmDrop, func(m *Model) { onHouse(nil, m); m.Update(key("x")) }},
 		{"fund", modeFund, func(m *Model) { m.Update(key("7")); m.Update(key("f")) }},
 		{"report", modeReport, func(m *Model) { m.mode = modeReport }},
 		{"help", modeHelp, func(m *Model) { m.Update(key("?")) }},

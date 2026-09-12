@@ -22,20 +22,27 @@ func (m *Model) frontRows() []game.FrontOffer {
 	return rows
 }
 
-// askFront opens the picker for buying a front.
+// askFront opens the buy picker on its first page, the kind (#73: a
+// front or a house).
 func (m *Model) askFront() {
 	if m.w.Over != nil {
 		return
 	}
-	if len(m.frontRows()) == 0 {
-		m.refuse("Nothing to buy: you own every front there is.")
+	if len(m.frontRows()) == 0 && len(m.houseRows()) == 0 {
+		m.refuse("Nothing to buy: you own every front and every house there is.")
 		return
 	}
-	m.frontCursor = 0
+	m.frontCursor, m.frontStep = 0, 0
 	m.mode = modeFront
 }
 
+// confirmFront buys the offer under the cursor: a front, or a house on
+// the picker's house page.
 func (m *Model) confirmFront() {
+	if m.frontKind == pickHouse {
+		m.confirmHouse()
+		return
+	}
 	rows := m.frontRows()
 	m.mode = modePlay
 	if len(rows) == 0 {
@@ -122,6 +129,12 @@ func (m *Model) offerRowsWith(rows []game.FrontOffer, long bool) [][]any {
 }
 
 func (m *Model) viewFront() string {
+	if m.frontStep == 0 {
+		return m.viewKind()
+	}
+	if m.frontKind == pickHouse {
+		return m.viewHouses()
+	}
 	rows := m.frontRows()
 	if len(rows) == 0 {
 		return m.modal("BUY A FRONT", []string{"Nothing for sale."}, m.modalFooter())
@@ -133,9 +146,9 @@ func (m *Model) viewFront() string {
 	return m.modal("BUY A FRONT", body, m.modalFooter())
 }
 
-// The ledger (#87) is the till, the fronts, the road and what is on
-// offer, under one cursor: ledgerRows lists every row of the three
-// tables in order, ledgerCursor walks them with the arrows, and the
+// The ledger (#87) is the till, the fronts, the houses (#73), the road
+// and what is on offer, under one cursor: ledgerRows lists every row of
+// the four tables in order, ledgerCursor walks them with the arrows, and the
 // pane shows the selected front, route or offer. A ledger taller than
 // MAIN scrolls with the cursor, its table kept in view, and never
 // clamps.
@@ -143,6 +156,7 @@ func (m *Model) viewFront() string {
 // The kinds of row the ledger's cursor walks, in table order.
 const (
 	ledgerFront = iota
+	ledgerHouse
 	ledgerRoute
 	ledgerOffer
 )
@@ -164,12 +178,15 @@ func (m *Model) ledgerRoutes() []content.RouteConfig {
 	return routes
 }
 
-// ledgerRows are the rows the cursor walks: the fronts, the routes,
-// then the offers.
+// ledgerRows are the rows the cursor walks: the fronts, the houses
+// (#73), the routes, then the offers.
 func (m *Model) ledgerRows() []ledgerRow {
 	var rows []ledgerRow
 	for i := range m.w.Fronts {
 		rows = append(rows, ledgerRow{ledgerFront, i})
+	}
+	for i := range m.w.Houses {
+		rows = append(rows, ledgerRow{ledgerHouse, i})
 	}
 	for i := range m.ledgerRoutes() {
 		rows = append(rows, ledgerRow{ledgerRoute, i})
@@ -206,7 +223,8 @@ func (m *Model) ledgerMove(dy int) {
 // row: it buys an offer or turns a route's dial; on a front it is the
 // frame's, and asks to end the day as it does everywhere.
 func ledgerActable(m *Model) bool {
-	return m.screen == screenLedger && m.ledgerSelected().kind != ledgerFront
+	kind := m.ledgerSelected().kind
+	return m.screen == screenLedger && kind != ledgerFront && kind != ledgerHouse
 }
 
 // ledgerEnter is enter on the ledger: the selected offer goes to the
@@ -219,7 +237,7 @@ func (m *Model) ledgerEnter() {
 	sel := m.ledgerSelected()
 	switch sel.kind {
 	case ledgerOffer:
-		m.frontCursor = sel.i
+		m.frontKind, m.frontStep, m.frontCursor = pickFront, 1, sel.i
 		m.mode = modeFront
 	case ledgerRoute:
 		m.cycleLedgerRoute(m.ledgerRoutes()[sel.i])
@@ -320,6 +338,31 @@ func (m *Model) viewLedger() string {
 		tableLines(ledgerFront, frontCols, rows)
 	}
 
+	if len(w.Houses) > 0 {
+		housed := 0
+		for _, h := range w.Houses {
+			housed += h.Units()
+		}
+		heading("STASH", fmt.Sprintf(" · %s · %s stashed", plural(len(w.Houses), "house"), plural(housed, "unit")))
+		var rows [][]any
+		for _, h := range w.Houses {
+			rows = append(rows, m.houseRow(h))
+		}
+		cols := append([]col(nil), houseCols...)
+		// Where MAIN is too narrow for the row whole the pane's columns
+		// go: the guard, then the block.
+		for _, drop := range []int{5, 2} {
+			if tableWidth(cols, rows) <= width {
+				break
+			}
+			cols = append(cols[:drop:drop], cols[drop+1:]...)
+			for i := range rows {
+				rows[i] = append(rows[i][:drop:drop], rows[i][drop+1:]...)
+			}
+		}
+		tableLines(ledgerHouse, cols, rows)
+	}
+
 	routes := m.ledgerRoutes()
 	if len(routes) > 0 {
 		lost := 0
@@ -395,8 +438,8 @@ func emptyState(before, key, after string) string {
 	return theme.Subtle.Render(before) + theme.Key.Render(key) + theme.Subtle.Render(after)
 }
 
-// ledgerDetails is the ledger's pane: the selected front, route or
-// offer, then WASH (the float, what the fronts wash and cost, the
+// ledgerDetails is the ledger's pane: the selected front, house, route
+// or offer, then WASH (the float, what the fronts wash and cost, the
 // accountants) and the keys.
 func (m *Model) ledgerDetails() []section {
 	var secs []section
@@ -404,6 +447,8 @@ func (m *Model) ledgerDetails() []section {
 	switch sel.kind {
 	case ledgerFront:
 		secs = append(secs, m.frontSection(m.w.Fronts[sel.i]))
+	case ledgerHouse:
+		secs = append(secs, m.houseSection(m.w.Houses[sel.i]))
 	case ledgerRoute:
 		secs = append(secs, m.ledgerRouteSection(m.ledgerRoutes()[sel.i]))
 	case ledgerOffer:

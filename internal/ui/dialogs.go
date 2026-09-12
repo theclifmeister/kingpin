@@ -151,7 +151,7 @@ func (m *Model) cannotOpen(mode mode) string {
 		return "Can't sell: you are lying low today, nothing sells."
 	}
 	if city := m.actionCity(); m.sellableIn(city) == 0 {
-		if m.w.Player.TotalStock() == 0 {
+		if m.w.Stashed() == 0 {
 			return "Nothing to sell: buy from the supplier first."
 		}
 		return fmt.Sprintf("Nothing to sell in %s: turn to the other city, or run a route into it %s.", m.w.CityName(city), screenPointer(screenMap))

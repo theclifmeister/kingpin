@@ -106,7 +106,8 @@ func pastFirstStep(m *Model) bool { return m.modalStep() > 0 }
 
 // numberStep is the open modal being on a number field (#112): the buy,
 // sell and cart dialogs' quantity page, the target dialog's number (its
-// third page, after units or days, #115) and the fund dialog's amount.
+// third page, after units or days, #115), the fund dialog's amount and
+// the move dialog's quantity (#73).
 // The field's shortcuts are listed there and nowhere else.
 func numberStep(m *Model) bool {
 	switch m.mode {
@@ -118,9 +119,21 @@ func numberStep(m *Model) bool {
 		return m.modalStep() == 1
 	case modeTarget:
 		return m.modalStep() == 2
+	case modeMove:
+		return m.mv.step == 3
 	}
 	return false
 }
+
+// moveList is the move dialog (#73) being on a list page: from, to or
+// the product; its fourth page is the quantity.
+func moveList(m *Model) bool { return m.mv.step < 3 }
+
+// frontBuy and houseRent are the buy picker's second page, on the
+// fronts and on the houses (#73).
+func frontBuy(m *Model) bool { return m.frontStep == 1 && m.frontKind == pickFront }
+
+func houseRent(m *Model) bool { return m.frontStep == 1 && m.frontKind == pickHouse }
 
 // buyAt is the buy dialog being on its nth step past the connect step
 // (#72): 0 the product, 1 the quantity, 2 the repeat and the pay. The
@@ -230,8 +243,14 @@ var bindings = []binding{
 	{key: "u", label: "buy upgrade", help: "buy the node under the cursor (enter too)", keys: []string{"u", "enter"}, screens: on(screenUpgrades),
 		do: func(m *Model, _ string) { m.askUpgrade() }},
 	// The ledger.
-	{key: "b", label: "buy front", help: "buy a front through the picker", screens: on(screenLedger),
+	{key: "b", label: "buy front", help: "buy a front or rent a house", screens: on(screenLedger),
 		do: func(m *Model, _ string) { m.askFront() }},
+	{key: "m", label: "move stock", help: "move stock between the street and the houses", screens: on(screenLedger),
+		do: func(m *Model, _ string) { m.askMove() }},
+	{key: "e", label: "guard house", help: "post an enforcer inside the selected house", screens: on(screenLedger), when: ledgerOnHouse,
+		do: func(m *Model, _ string) { m.askGuard() }},
+	{key: "x", label: "drop house", help: "drop the selected house, after asking", screens: on(screenLedger), when: ledgerOnHouse,
+		do: func(m *Model, _ string) { m.askDrop() }},
 	{key: "f", label: "fund city", help: "give a city clean cash for goodwill", screens: on(screenLedger),
 		do: func(m *Model, _ string) { m.askFund() }},
 	{key: "enter", label: "buy / dial", help: "buy the offer or turn the route selected", screens: on(screenLedger), when: ledgerActable,
@@ -305,7 +324,8 @@ var bindings = []binding{
 // alias). The keys themselves are handled by handleKey; the table is
 // what the footer and the status bar say.
 var modeBindings = []binding{
-	{key: "↑↓", label: "pick", modes: in(modeStart, modePost, modeStrike, modeUndercut, modeFront, modeAssign, modePropose)},
+	{key: "↑↓", label: "pick", modes: in(modeStart, modePost, modeStrike, modeUndercut, modeFront, modeAssign, modePropose, modeGuard)},
+	{key: "↑↓", label: "pick", modes: in(modeMove), when: moveList},
 	{key: "↑↓", label: "pick", modes: in(modeSell, modeTarget), when: step(0)},
 	{key: "↑↓", label: "pick", modes: in(modeBuy), when: buyList},
 	{key: "↑↓", label: "pick", modes: in(modeCart), when: cartHasLines},
@@ -322,18 +342,23 @@ var modeBindings = []binding{
 	{key: "1-2", label: "repeat", modes: in(modeSell), when: step(3)},
 	{key: "1-3", label: "dial", modes: in(modeCart), when: cartOnSell},
 	{key: "1-3", label: "choose", modes: in(modeCard), when: step(0)},
-	{key: "m", label: "max", modes: in(modeBuy, modeSell, modeTarget, modeCart, modeFund, modeConfirmFast), when: numberStep},
-	{key: "h", label: "half", modes: in(modeBuy, modeSell, modeTarget, modeCart, modeFund, modeConfirmFast), when: numberStep},
-	{key: "↑↓", label: "±1", modes: in(modeBuy, modeSell, modeTarget, modeCart, modeFund, modeConfirmFast), when: numberStep},
-	{key: "pgup pgdn", label: "±10", modes: in(modeBuy, modeSell, modeTarget, modeCart, modeFund, modeConfirmFast), when: numberStep},
-	{key: "enter", label: "next", modes: in(modeSell, modeTarget, modePropose), when: step(0)},
+	{key: "m", label: "max", modes: in(modeBuy, modeSell, modeTarget, modeCart, modeFund, modeConfirmFast, modeMove), when: numberStep},
+	{key: "h", label: "half", modes: in(modeBuy, modeSell, modeTarget, modeCart, modeFund, modeConfirmFast, modeMove), when: numberStep},
+	{key: "↑↓", label: "±1", modes: in(modeBuy, modeSell, modeTarget, modeCart, modeFund, modeConfirmFast, modeMove), when: numberStep},
+	{key: "pgup pgdn", label: "±10", modes: in(modeBuy, modeSell, modeTarget, modeCart, modeFund, modeConfirmFast, modeMove), when: numberStep},
+	{key: "enter", label: "next", modes: in(modeSell, modeTarget, modePropose, modeFront), when: step(0)},
+	{key: "enter", label: "next", modes: in(modeMove), when: moveList},
 	{key: "enter", label: "next", modes: in(modeSell, modeTarget), when: step(1)},
 	{key: "enter", label: "next", modes: in(modeBuy), when: buyNext},
 	{key: "enter", label: "next", modes: in(modeSell), when: step(2)},
 	{key: "enter", label: "select", modes: in(modeStart)},
 	{key: "enter", label: "buy", modes: in(modeBuy), when: buyOnce},
 	{key: "enter", label: "keep at", modes: in(modeBuy), when: buyKeep},
-	{key: "enter", label: "buy", modes: in(modeFront)},
+	{key: "enter", label: "buy", modes: in(modeFront), when: frontBuy},
+	{key: "enter", label: "rent", modes: in(modeFront), when: houseRent},
+	{key: "enter", label: "move", modes: in(modeMove), when: step(3)},
+	{key: "enter", label: "post", modes: in(modeGuard)},
+	{key: "y", label: "drop", modes: in(modeConfirmDrop)},
 	{key: "enter", label: "sell", modes: in(modeSell), when: sellOnce},
 	{key: "enter", label: "sell nightly", modes: in(modeSell), when: sellStanding},
 	{key: "enter", label: "set", modes: in(modeTarget), when: step(2)},
@@ -358,13 +383,14 @@ var modeBindings = []binding{
 	{key: "y", label: "ask", modes: in(modeConfirmInvestigate)},
 	{key: "y", label: "pay", modes: in(modeConfirmPayOff)},
 	{key: "y", label: "go", modes: in(modeConfirmTravel)},
+	{key: "q", label: "quit", modes: in(modeStart, modeOver)},
 	// The trade's other side (#168): listed on the product step (and a
 	// buy's connect step) alone, where the toggle is live.
 	{key: "s", label: "sell", modes: in(modeBuy), when: buyList},
 	{key: "b", label: "buy", modes: in(modeSell), when: step(0)},
-	{key: "⇧tab", label: "back", keys: []string{"shift+tab"}, modes: in(modeBuy, modeSell, modeTarget, modeCart, modePropose), when: pastFirstStep},
-	{key: "esc", label: "close", modes: in(modeBuy, modeSell, modeTarget, modePropose, modePost, modeStrike, modeUndercut, modeFront, modeAssign, modeFund, modeCart,
-		modeConfirmNew, modeConfirmDelete, modeConfirmFire, modeConfirmEnd, modeConfirmUpgrade, modeConfirmInvestigate, modeConfirmPayOff, modeConfirmTravel, modeConfirmFast)},
+	{key: "⇧tab", label: "back", keys: []string{"shift+tab"}, modes: in(modeBuy, modeSell, modeTarget, modeCart, modePropose, modeFront, modeMove), when: pastFirstStep},
+	{key: "esc", label: "close", modes: in(modeBuy, modeSell, modeTarget, modePropose, modePost, modeStrike, modeUndercut, modeFront, modeAssign, modeFund, modeCart, modeMove, modeGuard,
+		modeConfirmNew, modeConfirmDelete, modeConfirmFire, modeConfirmEnd, modeConfirmUpgrade, modeConfirmInvestigate, modeConfirmPayOff, modeConfirmTravel, modeConfirmFast, modeConfirmDrop)},
 	{key: "enter esc", label: "close", modes: in(modeReport, modeHelp)},
 	{key: "enter esc", label: "close", modes: in(modeCard), when: step(1)},
 	{key: "␣ esc", label: "close", modes: in(modeDetails)},
@@ -389,6 +415,10 @@ func (m *Model) modalStep() int {
 		return m.dlg.step
 	case modeTarget:
 		return m.tgt.step
+	case modeFront:
+		return m.frontStep
+	case modeMove:
+		return m.mv.step
 	case modeCart:
 		return m.crt.step
 	case modePropose:
@@ -580,6 +610,7 @@ var words = [][2]string{
 	{"connect", "who sells you product: a price, a lot, a temper, a rel"},
 	{"credit", "a connect's book: take now, pay in days, or they answer"},
 	{"unlock", "a line crossed: a product, front, connect or role opens"},
+	{"house", "a rented stash off the street: rent in clean; a raid hits one"},
 	{"pane", "the details beside MAIN from 100 columns, always open"},
 	{"strip", "the pane's one line under 100 columns; ␣ opens it over MAIN"},
 	{"tier", "the stage a run is in: Corner, Crew, Territory, Distribution"},

@@ -80,7 +80,7 @@ func (m *Model) viewAssign() string {
 		case other != nil:
 			runs = styled{theme.Warning, other.Name}
 		}
-		cells = append(cells, []any{m.w.CityName(cid), heldIn(m.w, cid), m.w.Player.StockIn(cid), runs})
+		cells = append(cells, []any{m.w.CityName(cid), heldIn(m.w, cid), m.w.StockIn(cid), runs})
 	}
 	m.modalFollow(1 + m.assignCursor) // under the header
 	body := table([]col{{"city", kText, 0}, {"corners", kInt, 0}, {"units", kInt, 0}, {"runs", kText, 0}}, cells, m.assignCursor, m.modalInner())

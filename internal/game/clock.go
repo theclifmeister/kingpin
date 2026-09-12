@@ -100,6 +100,8 @@ func (c *Clock) EndDay(w *World) []events.Event {
 	w.Funded = nil
 	w.Deliveries = nil
 	w.Undercuts = nil
+	w.Moved = nil
+	w.HousesBought = nil
 	w.Dilemmas.Answered = nil
 	w.Crew.HiredToday = nil
 	w.Crew.FiredToday = nil

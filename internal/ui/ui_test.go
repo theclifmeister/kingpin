@@ -402,14 +402,46 @@ func richFixture(t *testing.T, sz [2]int, check func(m *Model, view, what string
 	m.w.Player.DirtyCash = 700_000
 	m.w.Stats.PeakCash = 700_000
 	m.Update(key("b"))
+	see(m, "buy picker: the kind")
+	m.Update(key("enter"))
 	see(m, "front picker")
-	for i := 0; i < 3; i++ {
+	m.Update(key("enter"))
+	for i := 0; i < 2; i++ {
 		m.Update(key("b"))
+		m.Update(key("enter"))
 		m.Update(key("enter"))
 	}
 	if len(m.w.Fronts) != 3 {
 		t.Fatalf("%dx%d: bought %d fronts: %q", sz[0], sz[1], len(m.w.Fronts), m.status)
 	}
+	// A stash house (#73) with stock in it: the STASH table, the house
+	// picker, the move dialog, the guard picker and the drop confirmation.
+	m.Update(key("b"))
+	m.Update(key("j"))
+	see(m, "buy picker: house")
+	m.Update(key("enter"))
+	see(m, "house picker")
+	m.Update(key("enter"))
+	if len(m.w.Houses) != 1 {
+		t.Fatalf("%dx%d: rented %d houses: %q", sz[0], sz[1], len(m.w.Houses), m.status)
+	}
+	m.w.AddStock(m.w.Player.Location, m.w.Products[0], 30)
+	m.ledgerCursor = len(m.w.Fronts) // the house's row
+	m.Update(key("m"))
+	see(m, "move dialog: from")
+	m.Update(key("enter"))
+	see(m, "move dialog: to")
+	m.Update(key("enter"))
+	see(m, "move dialog: product")
+	m.Update(key("enter"))
+	see(m, "move dialog: quantity")
+	m.Update(key("esc"))
+	m.Update(key("e"))
+	see(m, "guard picker")
+	m.Update(key("esc"))
+	m.Update(key("x"))
+	see(m, "drop confirmation")
+	m.Update(key("esc"))
 	m.w.Crew.Members = append(m.w.Crew.Members, game.CrewMember{ID: 901, Name: "Books", Role: "accountant", Skill: 60, Loyalty: 60, Wage: 130})
 	endDay(t, m)
 	see(m, "report with fronts")
@@ -1489,10 +1521,15 @@ func TestLedgerScreenKeys(t *testing.T) {
 	if m.screen != screenLedger {
 		t.Fatalf("screen %v", m.screen)
 	}
-	// Too poor, then unlocked but short, then bought.
+	// Too poor, then unlocked but short, then bought. The picker opens
+	// on the kind (#73: a front or a house); enter takes the fronts.
 	m.Update(key("b"))
-	if m.mode != modeFront {
-		t.Fatalf("b on the ledger: mode %v", m.mode)
+	if m.mode != modeFront || m.frontStep != 0 {
+		t.Fatalf("b on the ledger: mode %v step %d", m.mode, m.frontStep)
+	}
+	m.Update(key("enter"))
+	if m.mode != modeFront || m.frontStep != 1 || m.frontKind != pickFront {
+		t.Fatalf("enter on the kind: mode %v step %d kind %d", m.mode, m.frontStep, m.frontKind)
 	}
 	m.Update(key("enter"))
 	if m.mode != modePlay || len(m.w.Fronts) != 0 || !strings.Contains(m.status, "Can't buy") {
@@ -1502,16 +1539,19 @@ func TestLedgerScreenKeys(t *testing.T) {
 	m.w.Player.DirtyCash = cheapest.Cost - 1
 	m.Update(key("b"))
 	m.Update(key("enter"))
+	m.Update(key("enter"))
 	if len(m.w.Fronts) != 0 || !strings.Contains(m.status, "only have") {
 		t.Fatalf("bought short: fronts %d status %q", len(m.w.Fronts), m.status)
 	}
 	m.w.Player.DirtyCash = cheapest.Cost + m.cfg.Laundering.Laundering.Float + 10_000
 	m.Update(key("b"))
 	m.Update(key("enter"))
+	m.Update(key("enter"))
 	if len(m.w.Fronts) != 1 || m.w.Fronts[0].ID != cheapest.ID || m.w.Player.DirtyCash != m.cfg.Laundering.Laundering.Float+10_000 {
 		t.Fatalf("buy: fronts %+v cash %d status %q", m.w.Fronts, m.w.Player.DirtyCash, m.status)
 	}
 	m.Update(key("b"))
+	m.Update(key("enter"))
 	if rows := m.frontRows(); len(rows) != len(m.set.Laundering.Offers())-1 || rows[0].ID == cheapest.ID {
 		t.Fatalf("picker still offers what you own: %+v", rows)
 	}
@@ -2285,6 +2325,7 @@ func richModelSeeded(t *testing.T, w, h int, seed uint64) *Model {
 	for i := 0; i < 3; i++ {
 		m.Update(key("b"))
 		m.Update(key("enter"))
+		m.Update(key("enter"))
 	}
 	if len(world.Fronts) != 3 {
 		t.Fatalf("bought %d fronts: %q", len(world.Fronts), m.status)
@@ -2293,6 +2334,20 @@ func richModelSeeded(t *testing.T, w, h int, seed uint64) *Model {
 	world.Fronts[1].FrozenUntil = world.Day + m.cfg.Laundering.Laundering.AuditFreezeDays
 	world.Player.CleanCash = 50_000
 	world.SetStock(world.Player.Location, world.Products[0], 40) // something to sell
+	// A stash house (#73) with something in it, so the ledger has its
+	// STASH table and the street its carrying fact.
+	m.Update(key("b"))
+	m.Update(key("j"))
+	m.Update(key("enter"))
+	m.Update(key("enter"))
+	if len(world.Houses) != 1 {
+		t.Fatalf("rented %d houses: %q", len(world.Houses), m.status)
+	}
+	// An even count: the number field test wants the stash odd, and
+	// the stash is the street and the house together.
+	if n := world.MoveStock(world.Player.Location, game.Street, world.Houses[0].ID, world.Products[0], 24); n != 24 {
+		t.Fatalf("moved %d into the house", n)
+	}
 	// A standing order (#114) on the contract's product, for what the
 	// contract keeps there, so the order column carries ↻, the pane a
 	// standing row and the cart a standing line.
@@ -2433,7 +2488,34 @@ func TestModalsFit(t *testing.T) {
 			m.Update(key("u"))
 		}},
 		{"confirm upgrade", modeConfirmUpgrade, func(t *testing.T, m *Model) { m.Update(key("6")); m.Update(key("enter")) }},
-		{"front", modeFront, func(t *testing.T, m *Model) { m.Update(key("7")); m.Update(key("b")) }},
+		{"buy picker: kind", modeFront, func(t *testing.T, m *Model) { m.Update(key("7")); m.Update(key("b")) }},
+		{"front", modeFront, func(t *testing.T, m *Model) { m.Update(key("7")); m.Update(key("b")); m.Update(key("enter")) }},
+		{"house", modeFront, func(t *testing.T, m *Model) {
+			m.Update(key("7"))
+			m.Update(key("b"))
+			m.Update(key("j"))
+			m.Update(key("enter"))
+		}},
+		// The stash house's dialogs (#73): the move dialog's four pages,
+		// the guard picker and the drop confirmation, on the fixture's
+		// house.
+		{"move from", modeMove, func(t *testing.T, m *Model) { onHouse(t, m); m.Update(key("m")) }},
+		{"move to", modeMove, func(t *testing.T, m *Model) { onHouse(t, m); m.Update(key("m")); m.Update(key("enter")) }},
+		{"move product", modeMove, func(t *testing.T, m *Model) {
+			onHouse(t, m)
+			m.Update(key("m"))
+			m.Update(key("enter"))
+			m.Update(key("enter"))
+		}},
+		{"move quantity", modeMove, func(t *testing.T, m *Model) {
+			onHouse(t, m)
+			m.Update(key("m"))
+			m.Update(key("enter"))
+			m.Update(key("enter"))
+			m.Update(key("enter"))
+		}},
+		{"guard", modeGuard, func(t *testing.T, m *Model) { onHouse(t, m); m.Update(key("e")) }},
+		{"confirm drop", modeConfirmDrop, func(t *testing.T, m *Model) { onHouse(t, m); m.Update(key("x")) }},
 		{"confirm investigate", modeConfirmInvestigate, func(t *testing.T, m *Model) { m.Update(key("4")); m.Update(key("i")) }},
 		{"confirm pay off", modeConfirmPayOff, func(t *testing.T, m *Model) { m.Update(key("4")); m.Update(key("$")) }},
 		{"card", modeCard, func(t *testing.T, m *Model) { m.w.Dilemmas.Pending = testCard(m.w.Day); m.showCard() }},
@@ -2630,4 +2712,20 @@ func stripANSI(s string) string {
 		}
 	}
 	return b.String()
+}
+
+// onHouse puts the ledger's cursor on the fixture's house (#73); t may
+// be nil where the caller has none.
+func onHouse(t *testing.T, m *Model) {
+	if t != nil {
+		t.Helper()
+	}
+	m.Update(key("7"))
+	for i, r := range m.ledgerRows() {
+		if r.kind == ledgerHouse {
+			m.ledgerCursor = i
+			return
+		}
+	}
+	panic("the fixture has no house")
 }

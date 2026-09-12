@@ -190,6 +190,7 @@ func TestReportNumbers(t *testing.T) {
 	for i := 0; i < 3; i++ {
 		m.Update(key("b"))
 		m.Update(key("enter"))
+		m.Update(key("enter"))
 	}
 	m.Update(key("6"))
 	m.Update(key("enter"))
