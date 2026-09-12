@@ -578,6 +578,7 @@ var words = [][2]string{
 	{"credit", "a connect's book: take now, pay in days, or they answer"},
 	{"pane", "the details beside MAIN from 100 columns, always open"},
 	{"strip", "the pane's one line under 100 columns; ␣ opens it over MAIN"},
+	{"tier", "the stage a run is in: Corner, Crew, Territory, Distribution"},
 }
 
 // helpLines is the help modal's body: every binding, grouped, one a

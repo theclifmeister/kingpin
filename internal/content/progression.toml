@@ -1,0 +1,87 @@
+# Progression (#147): the tiers of §6.1, one [[tier]] a stage, in order.
+# A tier is read, never written by a sim: nothing gates on it. Its entry
+# condition DESCRIBES the gates that open the stage (the gates stay in
+# their own files: market.toml, laundering.toml, suppliers.toml), in the
+# one trigger vocabulary the game has (content.CardTrigger, checked by
+# news.Eligible as the buyer deck's triggers are). The news sim, last in
+# the order, stamps the tier the first morning its trigger holds
+# (World.Progression.Reached, sticky) and emits one TierReached; one a
+# morning at most, so a night that crosses two lines is two mornings.
+#
+# Each [[tier]]:
+#   id, name        the tier; name is what the summary and the dashboard say
+#   blurb           one line on the stage, the summary's and the dashboard's
+#   checkpoint      the day the harness reads the money curve at (TierDays)
+#   opens           short lines on what the stage opens (the interstitial's
+#                   and the summary's, #149)
+#   next            free text on what the next stage takes
+#   [tier.enter]    the trigger that must hold to enter it, a CardTrigger;
+#                   tier 1 has none (it is day 0), every later tier must
+# The lines, measured in #147's PR: tier 2 is the first hire (the day-1
+# morning for a policy that hires; never for the lone trader), tier 3 the
+# laundromat's line ($25K peak: the first front, the pool connect, the
+# last buyer), tier 4 the wholesaler's ($500K peak: the road's lots and
+# designer, the port's product). Every line past the first keeps the
+# crew in it, so the ladder is strict by description: the lone trader
+# who never hires stays a Corner trader whatever the pile (the money
+# curve's tier-1 row is that player at $85K), and a tier is never
+# skipped. The walk is the code's: every tier past the highest reached,
+# in order, the first that holds. Tier 5 arrives with #48.
+
+[[tier]]
+id = "corner"
+name = "Corner"
+blurb = "One corner, a bag and a connect."
+checkpoint = 30
+opens = [
+  "weed, pills and coke from the street connect",
+  "heroin once $3K has moved, meth at $10K",
+  "the first buyers, off-corner",
+]
+next = "Hire a runner: a crew works the corners you cannot stand on."
+
+[[tier]]
+id = "crew"
+name = "Crew"
+blurb = "Runners on the corners and a rival on the way."
+checkpoint = 70
+opens = [
+  "runners on corners, enforcers on guard",
+  "the rival, from day 10",
+  "a second connect once $25K has moved and the street connect vouches",
+]
+next = "Move $25K: the laundromat opens, and the fronts begin."
+[tier.enter]
+crew_min = 1
+
+[[tier]]
+id = "territory"
+name = "Territory"
+blurb = "Ground to hold and a front to wash the take."
+checkpoint = 120
+opens = [
+  "the first front and the wash",
+  "accountants for hire",
+  "the clean-cash nodes of the Legal branch",
+  "the pool connect: a range, a book, credit",
+]
+next = "Move $500K: the Dutchman sells to the road, designer comes home."
+[tier.enter]
+crew_min = 1
+peak_cash_min = 25000
+
+[[tier]]
+id = "distribution"
+name = "Distribution"
+blurb = "Two cities, a road and a lieutenant to run the far one."
+checkpoint = 200
+opens = [
+  "the wholesaler's lots for the road",
+  "designer, the port's product",
+  "lieutenants, once you hold corners in two cities",
+  "the big fronts at $1.2M and $3M",
+]
+next = "The cartel: assets bought with clean money."
+[tier.enter]
+crew_min = 1
+peak_cash_min = 500000

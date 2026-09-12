@@ -19,21 +19,22 @@ var files embed.FS
 
 // Config is everything the simulations need to be constructed.
 type Config struct {
-	Market     MarketConfig
-	City       CityConfig
-	Routes     RoutesConfig
-	Heat       HeatConfig
-	Crew       CrewConfig
-	Rivals     RivalsConfig
-	Laundering LaunderingConfig
-	Names      NamesConfig
-	Upgrades   UpgradesConfig
-	Reputation ReputationConfig
-	Law        LawConfig
-	Headlines  HeadlinesConfig
-	Dilemmas   DilemmasConfig
-	Buyers     BuyersConfig
-	Suppliers  SuppliersConfig
+	Market      MarketConfig
+	City        CityConfig
+	Routes      RoutesConfig
+	Heat        HeatConfig
+	Crew        CrewConfig
+	Rivals      RivalsConfig
+	Laundering  LaunderingConfig
+	Names       NamesConfig
+	Upgrades    UpgradesConfig
+	Reputation  ReputationConfig
+	Law         LawConfig
+	Headlines   HeadlinesConfig
+	Dilemmas    DilemmasConfig
+	Buyers      BuyersConfig
+	Suppliers   SuppliersConfig
+	Progression ProgressionConfig
 }
 
 // MarketConfig mirrors market.toml.
@@ -949,6 +950,8 @@ type CardTrigger struct {
 	Personality  string  `toml:"personality"`
 	WarMin       float64 `toml:"war_min"`
 	Fronts       bool    `toml:"fronts"`
+	PeakCashMin  int     `toml:"peak_cash_min"` // Stats.PeakCash, the high-water mark; cash_min is today's pile (#147)
+	CitiesHeld   int     `toml:"cities_held"`   // cities with a held corner, the lieutenant gate's count (#147)
 }
 
 // Set reports whether the trigger checks anything at all.
@@ -1052,6 +1055,12 @@ func Load() (*Config, error) {
 	}
 	if err := decode("suppliers.toml", &c.Suppliers); err != nil {
 		return nil, err
+	}
+	if err := decode("progression.toml", &c.Progression); err != nil {
+		return nil, err
+	}
+	if err := c.Progression.validate(); err != nil {
+		return nil, fmt.Errorf("progression.toml: %w", err)
 	}
 	if len(c.Market.Products) == 0 {
 		return nil, fmt.Errorf("market.toml: no products defined")
@@ -1201,7 +1210,7 @@ func decodeBytes(name string, b []byte, v any) error {
 	}
 	// An effect name nobody reads, or a trigger field nobody checks, would
 	// silently do nothing.
-	if name == "upgrades.toml" || name == "reputation.toml" || name == "dilemmas.toml" || name == "routes.toml" || name == "law.toml" || name == "buyers.toml" {
+	if name == "upgrades.toml" || name == "reputation.toml" || name == "dilemmas.toml" || name == "routes.toml" || name == "law.toml" || name == "buyers.toml" || name == "progression.toml" {
 		if keys := md.Undecoded(); len(keys) > 0 {
 			return fmt.Errorf("%s: unknown key %s", name, keys[0])
 		}

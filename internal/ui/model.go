@@ -1212,6 +1212,7 @@ func (m *Model) viewOver() string {
 	// the screens write them.
 	facts := [][]any{
 		{"days survived", fmt.Sprint(e.Day)},
+		{"reached", m.reachedLine()},
 		{"peak cash", cash(w.Stats.PeakCash)},
 		{"total revenue", cash(w.Stats.TotalRevenue)},
 		{"units moved", fmt.Sprint(w.Stats.UnitsSold)},
@@ -1260,6 +1261,18 @@ func (m *Model) viewOver() string {
 	return m.modal("GAME OVER", strings.Split(strings.TrimRight(b.String(), "\n"), "\n"), m.modalFooter())
 }
 
+// reachedLine is the summary's tier row (#147): the highest tier
+// reached and the day it was entered; the first tier is day 0 and
+// reads as the name alone.
+func (m *Model) reachedLine() string {
+	w := m.w
+	name := w.TierName(m.cfg.Progression)
+	if d := w.ReachedOn(w.Tier()); d > 0 {
+		return fmt.Sprintf("%s on day %d", name, d)
+	}
+	return name
+}
+
 func (m *Model) viewReport() string {
 	r := m.w.Report
 	if r == nil {
@@ -1280,6 +1293,7 @@ func (m *Model) viewReport() string {
 		}
 		body = append(body, "")
 	}
+	section("TIER", r.Tier, theme.Warning) // the tier entered this morning (#147), first
 	section("PRICES", r.Prices, theme.Good)
 	section("SALES", r.Sales, theme.Gold)
 	section("SHIPMENTS", r.Shipments, theme.RoadText)

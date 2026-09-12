@@ -148,7 +148,7 @@ above the status bar stands in for the pane):
 │   Heroin    $375.84   -5%  █▁           0  -                                 │
 │   Meth      $701.73  -12%  █▁           0  -                                 │
 │   Designer   $2,740  +11%  ▁█           0  -                                 │
-│ stash 70/310 · corners 3 worked, 3 held of 10, 1 theirs                      │
+│ stash 70/310 · corners 3 worked, 3 held of 10, 1 theirs · tier Distribution  │
 │ 240 units in Bayport · 60 units on the road, next in 2d                      │
 │ crew 5 · fair pay $440/day · skimming suspected                              │
 │ supply 1 contract · $895 this morning · 1 offer on the market screen (2)     │
@@ -474,6 +474,15 @@ never leaves the first city plays the same as it always did.
   before the report, `1`–`3` or `enter` decide, the effects land at once
   and the outcome goes in the journal. Quit on a card and it is waiting
   when you come back. The deck is `internal/content/dilemmas.toml`.
+- **Progression** is the tier the run is in: Corner, Crew, Territory,
+  Distribution (`internal/content/progression.toml`). A tier is a name
+  for what has opened, never a gate: you enter Crew with the first hire,
+  Territory once $25K has moved (the laundromat, the second connect) and
+  Distribution at $500K (the wholesaler's lots for the road, designer).
+  The morning a tier is entered the report opens with it, the journal
+  carries a line, the dashboard's street facts read `tier Territory`
+  and the run summary says which tier you reached and when. A tier once
+  reached stays reached, and nothing in the sims reads it.
 
 Tuning lives in `internal/content/*.toml`, not in code.
 
@@ -519,7 +528,9 @@ never indicted for sitting on the pile, the Security branch buys an
 aggressive player time without buying them out of the indictment, and an
 informant nobody looks for indicts the always-quiet player within
 `harness.SnitchDays` while one who reads the report (`vigilant`) survives.
-`TestMoneyCurve` pins the scale per tier. `diplomacy_test.go` pins the
+`TestMoneyCurve` pins the scale per tier, read at each tier's checkpoint in
+`progression.toml` (days 30, 70, 120, 200), and `cmd/balance` prints the
+median day a policy enters each tier. `diplomacy_test.go` pins the
 table: a truce holds and then lapses, the `diplomat` keeps more ground than
 the passive player and runs cooler than a war, a defensive rival never
 breaks a deal and a chaotic one does, and the table survives a save.

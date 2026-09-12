@@ -1249,9 +1249,11 @@ func pickCorner(w *game.World, ok func(game.Corner) bool, score func(game.Corner
 const Horizon = 200
 
 // TierDays are the checkpoints the money curve is read at (#24): the day
-// each progression tier is expected to have paid off by. Like Horizon they
-// are where the harness looks, not where the game stops.
-var TierDays = []int{30, 70, 120, Horizon}
+// each progression tier is expected to have paid off by, read from
+// progression.toml (#147: 30, 70, 120, 200) so the harness and the game
+// name the same tiers. Like Horizon they are where the harness looks,
+// not where the game stops.
+var TierDays = content.MustLoad().Progression.Checkpoints()
 
 // NoRival returns a copy of cfg in which the rival never arrives, so a
 // run measures what the corners are worth with nobody contesting them

@@ -21,19 +21,21 @@ import (
 type Sim struct {
 	cfg  content.HeadlinesConfig
 	dcfg content.DilemmasConfig
+	pcfg content.ProgressionConfig
 	tmpl map[string][]*template.Template
 	flav []*template.Template
 	deck []card
 }
 
 // New parses the headline and card templates once. It refuses a deck
-// whose choices use an effect key the world does not apply.
-func New(cfg content.HeadlinesConfig, dilemmas content.DilemmasConfig) (*Sim, error) {
+// whose choices use an effect key the world does not apply. The
+// progression (#147) is the tiers the sim stamps every morning.
+func New(cfg content.HeadlinesConfig, dilemmas content.DilemmasConfig, progression content.ProgressionConfig) (*Sim, error) {
 	deck, err := parseDeck(dilemmas)
 	if err != nil {
 		return nil, fmt.Errorf("dilemmas: %w", err)
 	}
-	s := &Sim{cfg: cfg, dcfg: dilemmas, tmpl: map[string][]*template.Template{}, deck: deck}
+	s := &Sim{cfg: cfg, dcfg: dilemmas, pcfg: progression, tmpl: map[string][]*template.Template{}, deck: deck}
 	for key, list := range cfg.Templates {
 		for i, src := range list {
 			t, err := template.New(fmt.Sprintf("%s#%d", key, i)).Parse(src)
@@ -136,6 +138,18 @@ func (s *Sim) Step(w *game.World, t *game.Tick) {
 			return c.City
 		}
 		return here.ID
+	}
+
+	// The tier (#147), first: the run enters the first tier past the
+	// highest reached whose trigger holds this morning, one a morning,
+	// so a night that crosses two lines is two mornings and each has
+	// one thing to say. The headline picks its template off the
+	// progression's own stream: the home city's dice never move for
+	// it, and a run before #147 replays as it did.
+	if n := s.tier(w, t); n > 0 {
+		tier := s.pcfg.Tier(n)
+		rep.Tier = tierLines(n, len(s.pcfg.Tiers), *tier)
+		addOff("progression", "news", "TierReached", base)
 	}
 
 	// Money before we look at events: sales are already applied by market.
