@@ -246,12 +246,11 @@ func (m *Model) marketDetails() []section {
 	if !here {
 		notes = append(notes, wrapped(theme.Subtle, fmt.Sprintf("You are in %s: the supplier here sells to you there, not here. Runners sell what is stashed here.", w.Here().Name))...)
 	}
-	if city.Wholesale {
-		o := m.set.Logistics.Wholesale(w)
+	if o := w.WholesaleSupplier(city.ID); o != nil {
 		if o.Locked(w) {
-			notes = append(notes, wrapped(theme.Subtle, fmt.Sprintf("The supplier here sells lots of %d at %.0f%% to the routes once you have moved %s.", o.Lot, o.Mul*100, cash(o.UnlockCash)))...)
+			notes = append(notes, wrapped(theme.Subtle, fmt.Sprintf("%s sells lots of %d to the routes once you have moved %s.", o.Name, o.Lot, cash(o.UnlockCash)))...)
 		} else {
-			notes = append(notes, wrapped(theme.Good, fmt.Sprintf("Wholesale: lots of %d at %.0f%% of the supplier price feed the routes out of here, run %s.", o.Lot, o.Mul*100, screenPointer(screenMap)))...)
+			notes = append(notes, wrapped(theme.Good, fmt.Sprintf("Wholesale: %s's lots of %d feed the routes out of here, run %s.", o.Name, o.Lot, screenPointer(screenMap)))...)
 		}
 	}
 	if len(notes) > 0 {

@@ -87,16 +87,17 @@ func TestUpgradeEffectsAreMonotone(t *testing.T) {
 		}
 
 		w = sim.NewWorld(cfg, seed)
-		before, _ := w.SupplierQuote("weed", 10)
+		quote := func(w *game.World) int { return w.BestSupplier(w.Player.Location, "weed").Quote("weed", 10, false) }
+		before := quote(w)
 		Own(cfg, w, "supplier")
-		after, _ := w.SupplierQuote("weed", 10)
+		after := quote(w)
 		if after >= before {
 			t.Fatalf("seed %d: supplier contact quote %d -> %d on the day", seed, before, after)
 		}
 		day1, _ := RunFrom(cfg, w, 1, Idle)
 		plain1, _ := Run(cfg, seed, 1, Idle)
-		a, _ := day1.World.SupplierQuote("weed", 10)
-		b, _ := plain1.World.SupplierQuote("weed", 10)
+		a := quote(day1.World)
+		b := quote(plain1.World)
 		if a >= b {
 			t.Fatalf("seed %d: day-1 quote %d with a supplier contact, %d without", seed, a, b)
 		}

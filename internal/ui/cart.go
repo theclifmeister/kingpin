@@ -457,12 +457,19 @@ func (m *Model) setCartQty() {
 			d.err = fmt.Sprintf("You are in %s: it was bought in %s.", m.w.CityName(m.w.Player.Location), m.w.CityName(l.city))
 			return
 		case qty > l.qty:
-			p, err := m.w.Buy(l.product, qty-l.qty, m.set.Market.BuyPressure(m.w))
+			// More by hand: from the cheapest connect that sells it
+			// today, for cash (#72).
+			sup := m.w.BestSupplier(l.city, l.product)
+			if sup == nil {
+				d.err = fmt.Sprintf("Nobody in %s sells %s today.", m.w.CityName(l.city), m.w.ProductName(l.product))
+				return
+			}
+			p, err := m.w.Buy(sup.ID, l.product, qty-l.qty, false, m.set.Market.BuyPressure(m.w))
 			if err != nil {
 				d.err = dialogError(err)
 				return
 			}
-			m.say(fmt.Sprintf("Bought %d more %s for %s.", p.Qty, m.w.ProductName(l.product), money(p.Cost)))
+			m.say(fmt.Sprintf("Bought %d more %s from %s for %s.", p.Qty, m.w.ProductName(l.product), sup.Name, money(p.Cost)))
 		}
 	} else {
 		qty, err := parseQtyInput(d.qty.Value(), m.cartMax())

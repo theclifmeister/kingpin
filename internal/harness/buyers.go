@@ -173,19 +173,12 @@ func canCover(w *game.World, c game.Contract) bool {
 	if float64(short) > float64(w.Free(c.City))+w.Demand(c.City, c.Product) {
 		return false
 	}
-	cost, err := w.SupplierQuote(c.Product, short)
-	return err == nil && cost <= w.Player.DirtyCash
+	sup := retail(w, c.City, c.Product)
+	return sup != nil && short <= sup.Left() && sup.Quote(c.Product, short, false) <= w.Player.DirtyCash
 }
 
 // affordable buys up to qty units of a product here, as many as the cash
-// and the room allow.
+// and the room allow, from the cheapest connect that sells it today.
 func affordable(w *game.World, product string, qty int, pressure float64) {
-	m := w.Product(w.Player.Location, product)
-	if m == nil || m.SupplierPrice <= 0 {
-		return
-	}
-	n := min(qty, w.Free(w.Player.Location), int(float64(w.Player.DirtyCash)/m.SupplierPrice))
-	if n > 0 {
-		_, _ = w.Buy(product, n, pressure)
-	}
+	buyHere(w, product, qty, 0, pressure, false)
 }

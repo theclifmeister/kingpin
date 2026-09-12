@@ -52,17 +52,6 @@ func (s *Sim) Float() int { return s.float }
 // the ones the dice use.
 func (s *Sim) Effects(w *game.World) game.Effects { return game.FoldEffects(w, s.tree) }
 
-// Wholesale is the wholesale supplier's offer: what the routes buy by,
-// at [wholesale] mul times the tree's wholesale_mul (the ticket).
-func (s *Sim) Wholesale(w *game.World) game.WholesaleOffer {
-	return s.wholesale(s.Effects(w))
-}
-
-func (s *Sim) wholesale(fx game.Effects) game.WholesaleOffer {
-	t := s.cfg.Wholesale
-	return game.WholesaleOffer{Lot: t.Lot, Mul: t.Mul * fx.WholesaleMul, UnlockCash: t.UnlockCash}
-}
-
 // Dial returns the tuning for a ship dial position.
 func (s *Sim) Dial(d events.Ship) content.ShipDialConfig { return s.cfg.DialFor(d) }
 
@@ -311,13 +300,15 @@ func (s *Sim) move(w *game.World, t *game.Tick, fx game.Effects) {
 // fares, and a lot it cannot then afford to send waits in the stash. The
 // shipment leaves this morning (the tick's day) with the lots bought for
 // it, rolls from tomorrow and is in the morning report today. No dice.
-// The tree (#119) scales the capacity, the days, the fare and the
-// wholesaler's price the road runs at.
+// The tree (#119) scales the capacity, the days and the fare the road
+// runs at; the wholesaler's price is the connect's (#72: the market sim
+// stamps it, the ticket folded in), and the road buys from them only
+// while they take calls and only as many lots as their day has left,
+// the rest a shortfall it sends again tomorrow.
 func (s *Sim) run(w *game.World, t *game.Tick, fx game.Effects) {
 	if w.Over != nil {
 		return
 	}
-	offer := s.wholesale(fx)
 	pressure := s.market.Market.BuyPricePressure * fx.BuyPressureMul
 	for _, r := range s.cfg.Routes {
 		rs := w.Route(r.ID)
@@ -335,22 +326,23 @@ func (s *Sim) run(w *game.World, t *game.Tick, fx game.Effects) {
 				continue
 			}
 			have := w.Stock(r.From, id)
-			if need := units - have; need > 0 && w.Cities[r.From].Wholesale && !offer.Locked(w) && offer.Lot > 0 {
-				lots := (need + offer.Lot - 1) / offer.Lot
-				unit := w.Product(r.From, id).SupplierPrice * offer.Mul
+			sup := w.WholesaleSupplier(r.From)
+			if need := units - have; need > 0 && sup != nil && sup.Open(w) && sup.Sells(id) && sup.Lot > 0 && sup.Price[id] > 0 {
+				lots := min((need+sup.Lot-1)/sup.Lot, sup.Left()/sup.Lot)
+				unit := sup.Price[id]
 				// Lots the budget covers with the fare for what they
 				// make up: never a lot the road then cannot move.
 				for lots > 0 {
-					cost := int(math.Ceil(unit * float64(lots*offer.Lot)))
-					if cost+fareFor(fx, r, min(units, have+lots*offer.Lot)) <= s.Budget(w) {
+					cost := int(math.Ceil(unit * float64(lots*sup.Lot)))
+					if cost+fareFor(fx, r, min(units, have+lots*sup.Lot)) <= s.Budget(w) {
 						break
 					}
 					lots--
 				}
 				if lots > 0 {
-					if p, err := w.Restock(r.From, id, lots, offer, pressure); err == nil {
+					if p, err := w.Restock(r.From, id, lots, pressure); err == nil {
 						day.Wholesale += p.Cost
-						t.Emit(events.WholesaleBought{Day: t.Day, City: r.From, Route: r.ID, Name: r.Name, Product: id, Lots: lots, Units: p.Qty, Cost: p.Cost})
+						t.Emit(events.WholesaleBought{Day: t.Day, City: r.From, Route: r.ID, Name: r.Name, Product: id, Lots: lots, Units: p.Qty, Cost: p.Cost, Supplier: sup.ID})
 					}
 				}
 				have = w.Stock(r.From, id)

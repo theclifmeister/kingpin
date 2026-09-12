@@ -610,6 +610,23 @@ func (s *Sim) fire(w *game.World, t *game.Tick, city *game.City, r content.Respo
 		} else {
 			w.Stats.Stings++
 		}
+		// The record the market sim reads the next morning (#72): a
+		// bust that took product is held against you by the connect
+		// in that city. Kept a month, like the seizures.
+		units := 0
+		for _, n := range ev.StockLost {
+			units += n
+		}
+		if units > 0 {
+			w.Heat.Busts = append(w.Heat.Busts, game.Bust{Day: t.Day, City: city.ID, Level: r.Level, Units: units})
+			kept := w.Heat.Busts[:0]
+			for _, b := range w.Heat.Busts {
+				if t.Day-b.Day <= bustDays {
+					kept = append(kept, b)
+				}
+			}
+			w.Heat.Busts = kept
+		}
 	}
 	if attempted {
 		ev.Evidence = max(0, r.Evidence-fx.EvidenceCut)
@@ -624,6 +641,9 @@ func (s *Sim) fire(w *game.World, t *game.Tick, city *game.City, r content.Respo
 	city.Heat -= r.HeatDrop / n
 	t.Emit(ev)
 }
+
+// bustDays is how long a bust stays on the record for the connects.
+const bustDays = 30
 
 // pastTense is what the enforcers did, for the heat report.
 func pastTense(f events.Force) string {

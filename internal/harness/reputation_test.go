@@ -2,6 +2,7 @@ package harness
 
 import (
 	"fmt"
+	"math"
 	"sort"
 	"testing"
 
@@ -238,11 +239,12 @@ func TestReputationEffects(t *testing.T) {
 	// Respect: the same crew on stingy pay keeps more loyalty, and the
 	// supplier's quote is lower, and both are what the sims report.
 	w := sim.NewWorld(cfg, 1)
-	if set.Market.SupplierRatio(w) != cfg.Market.Market.SupplierRatio {
-		t.Fatalf("a nobody pays %.3f of street, want %.3f", set.Market.SupplierRatio(w), cfg.Market.Market.SupplierRatio)
+	street := w.StreetSupplier(w.Home().ID)
+	if ratio := set.Market.SupplierRatio(w, street); math.Abs(ratio-cfg.Market.Market.SupplierRatio) > 1e-9 {
+		t.Fatalf("a nobody pays %.3f of street, want %.3f", ratio, cfg.Market.Market.SupplierRatio)
 	}
 	w.Player.Reputation.Respect = 100
-	if ratio := set.Market.SupplierRatio(w); ratio >= cfg.Market.Market.SupplierRatio {
+	if ratio := set.Market.SupplierRatio(w, street); ratio >= cfg.Market.Market.SupplierRatio {
 		t.Fatalf("respected and still paying %.3f of street", ratio)
 	}
 	loyalty := map[float64]float64{}

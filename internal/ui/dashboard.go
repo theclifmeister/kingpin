@@ -7,6 +7,7 @@ import (
 	"github.com/charmbracelet/lipgloss"
 
 	"github.com/theclifmeister/kingpin/internal/events"
+	"github.com/theclifmeister/kingpin/internal/game"
 	"github.com/theclifmeister/kingpin/internal/ui/sparkline"
 	"github.com/theclifmeister/kingpin/internal/ui/theme"
 )
@@ -112,7 +113,7 @@ func (m *Model) streetLines(innerW, maxLines int, narrow, withRoad bool) []strin
 	if narrow {
 		topic(stash)
 	} else {
-		topic(stash, fact{theme.Subtle.Render(fmt.Sprintf("supplier at ~%.0f%% of street", m.set.Market.SupplierRatio(w)*100)), priSupplier})
+		topic(stash, fact{theme.Subtle.Render(m.supplierLine()), priSupplier})
 	}
 	corners := fact{theme.CrewText.Render(m.cornersLine(here.ID)), priCorners}
 	if w.Worked() == 0 {
@@ -864,4 +865,33 @@ func (m *Model) roadUnits(id string) (units, soonest int) {
 		}
 	}
 	return units, soonest
+}
+
+// supplierLine is the street's fact on the supply side (#72): the best
+// available connect where you stand and their price as a share of
+// street, `Cass sells at ~55% of street`, or that nobody is selling to
+// you today.
+func (m *Model) supplierLine() string {
+	w := m.w
+	here := w.Player.Location
+	var best *game.Supplier
+	ratio := 0.0
+	for _, sup := range w.SuppliersIn(here) {
+		for _, id := range w.Products {
+			p := w.Product(here, id)
+			if p == nil || p.Price <= 0 || !w.Available(sup, id) {
+				continue
+			}
+			if r := sup.Price[id] / p.Price; best == nil || r < ratio {
+				best, ratio = sup, r
+			}
+		}
+	}
+	if best == nil {
+		if len(w.SuppliersIn(here)) == 0 {
+			return fmt.Sprintf("supplier at ~%.0f%% of street", m.set.Market.BaseRatio(w)*100)
+		}
+		return "nobody is selling to you today"
+	}
+	return fmt.Sprintf("%s sells at ~%.0f%% of street", best.Name, ratio*100)
 }

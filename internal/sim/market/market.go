@@ -25,6 +25,7 @@ type Sim struct {
 	rep    content.ReputationFX
 	bcfg   content.BuyersConfig
 	buyers []buyer
+	scfg   content.SuppliersConfig
 }
 
 // New builds a market sim from config. The cities say how each one
@@ -34,13 +35,15 @@ type Sim struct {
 // the reputation effects it reads one: respect makes the supplier
 // generous. The buyers (#71) are the deck of off-corner contracts it
 // deals and resolves; it refuses one whose pitch does not parse. The
-// supply contracts (#113) are its own [supply] table.
-func New(cfg content.MarketConfig, cities content.CityConfig, ship content.ShippingTuning, tree content.UpgradesConfig, rep content.ReputationFX, buyers content.BuyersConfig) (*Sim, error) {
+// supply contracts (#113) are its own [supply] table. The connects
+// (#72) are the suppliers file: who sells where, and how the
+// relationship moves.
+func New(cfg content.MarketConfig, cities content.CityConfig, ship content.ShippingTuning, tree content.UpgradesConfig, rep content.ReputationFX, buyers content.BuyersConfig, suppliers content.SuppliersConfig) (*Sim, error) {
 	deck, err := parseBuyers(buyers)
 	if err != nil {
 		return nil, fmt.Errorf("buyers: %w", err)
 	}
-	return &Sim{cfg: cfg, cities: cities, ship: ship, tree: tree, rep: rep, bcfg: buyers, buyers: deck}, nil
+	return &Sim{cfg: cfg, cities: cities, ship: ship, tree: tree, rep: rep, bcfg: buyers, buyers: deck, scfg: suppliers}, nil
 }
 
 // Markup is the supplier's price for a standing order as a multiple of
@@ -54,13 +57,13 @@ func (s *Sim) Markup() float64 {
 }
 
 // SupplyPrice is what a supply contract would pay a unit of a product
-// in a city this morning: the supplier's price at the markup.
+// in a city this morning: the cheapest available connect's price
+// (World.SupplierPrice) at the markup.
 func (s *Sim) SupplyPrice(w *game.World, city, product string) float64 {
-	m := w.Product(city, product)
-	if m == nil {
+	if w.Product(city, product) == nil {
 		return 0
 	}
-	return m.SupplierPrice * s.Markup()
+	return w.SupplierPrice(city, product) * s.Markup()
 }
 
 // Float is the dirty cash the supply contracts leave in the till:
@@ -92,10 +95,11 @@ func (s *Sim) Shortfall(w *game.World, c game.SupplyContract) int {
 // brings).
 type SupplyPlan struct {
 	Contract game.SupplyContract
+	Supplier string // the connect it buys from (#72): the cheapest available in the city; empty when none is
 	Short    int    // the shortfall
 	Units    int    // what it buys
 	Cost     int    // what that costs
-	Why      string // "cash" or "room" when Units is under Short, else empty
+	Why      string // "cash", "room" or "supplier" when Units is under Short, else empty
 }
 
 // Plan lays out the morning's supply buys (SupplyPlan) with no dice.
@@ -106,6 +110,7 @@ func (s *Sim) Plan(w *game.World) []SupplyPlan {
 	var plan []SupplyPlan
 	budget := s.Budget(w)
 	room := map[string]int{}
+	bought := map[string]int{} // what the plan has already put on each connect's day
 	for _, cid := range w.CityOrder {
 		room[cid] = w.Free(cid)
 		for _, id := range w.Products {
@@ -121,24 +126,36 @@ func (s *Sim) Plan(w *game.World) []SupplyPlan {
 			if short <= 0 {
 				continue
 			}
+			// The connect: the cheapest in the city that sells the
+			// product today, for cash, never on credit, and only as
+			// far as their day goes (#72); with none, nothing.
+			sup := w.BestSupplier(cid, id)
+			if sup == nil {
+				plan = append(plan, SupplyPlan{Contract: c, Short: short, Why: "supplier"})
+				continue
+			}
 			afford := short
-			unit := m.SupplierPrice * s.Markup()
+			unit := sup.Price[id] * s.Markup()
 			if unit > 0 {
 				afford = int(float64(budget) / unit)
 				for afford > 0 && int(math.Ceil(unit*float64(afford))) > budget {
 					afford-- // a cent of rounding never takes the till under the float
 				}
 			}
-			qty := max(0, min(short, room[cid], afford))
-			p := SupplyPlan{Contract: c, Short: short, Units: qty, Cost: int(math.Ceil(unit * float64(qty)))}
+			qty := max(0, min(short, room[cid], afford, sup.Left()-bought[sup.ID]))
+			p := SupplyPlan{Contract: c, Supplier: sup.ID, Short: short, Units: qty, Cost: int(math.Ceil(unit * float64(qty)))}
 			if qty < short {
 				p.Why = "cash"
 				if room[cid] < short && room[cid] <= afford {
 					p.Why = "room"
 				}
+				if left := sup.Left() - bought[sup.ID]; left < short && left <= afford && left <= room[cid] {
+					p.Why = "supplier"
+				}
 			}
 			budget -= p.Cost
 			room[cid] -= qty
+			bought[sup.ID] += qty
 			plan = append(plan, p)
 		}
 	}
@@ -167,11 +184,11 @@ func (s *Sim) supply(w *game.World, t *game.Tick, fx game.Effects) {
 	for _, p := range s.Plan(w) {
 		c := p.Contract
 		if p.Units > 0 {
-			b, err := w.FillSupply(c.City, c.Product, p.Units, s.Markup(), pressure)
+			b, err := w.FillSupply(p.Supplier, c.Product, p.Units, s.Markup(), pressure)
 			if err != nil {
 				continue
 			}
-			t.Emit(events.SupplyBought{Day: t.Day, City: c.City, Product: c.Product, Units: b.Qty, Level: c.Units, Price: b.UnitPrice, Cost: b.Cost})
+			t.Emit(events.SupplyBought{Day: t.Day, City: c.City, Product: c.Product, Units: b.Qty, Level: c.Units, Price: b.UnitPrice, Cost: b.Cost, Supplier: b.Supplier})
 		}
 		if p.Units < p.Short {
 			t.Emit(events.SupplyShort{Day: t.Day, City: c.City, Product: c.Product, Units: p.Units, Short: p.Short - p.Units, Why: p.Why})
@@ -191,13 +208,6 @@ func (s *Sim) cityProduct(city, product string) content.CityProduct {
 // BasePrice is what a product's price reverts toward in a city.
 func (s *Sim) BasePrice(city string, pc content.ProductConfig) float64 {
 	return pc.BasePrice * s.cityProduct(city, pc.ID).Price
-}
-
-// SupplierRatio is the supplier's price as a fraction of street today:
-// the tuning, less what a supplier contact and the player's respect
-// take off.
-func (s *Sim) SupplierRatio(w *game.World) float64 {
-	return s.cfg.Market.SupplierRatio * game.FoldEffects(w, s.tree).SupplierMul * content.Cut(w.Player.Reputation.Respect, s.rep.RespectSupplierCut)
 }
 
 func (s *Sim) Name() string { return "market" }
@@ -220,8 +230,10 @@ func (s *Sim) BuyPressure(w *game.World) float64 {
 	return s.cfg.Market.BuyPricePressure * game.FoldEffects(w, s.tree).BuyPressureMul
 }
 
-// Step reports upgrades bought, fills the supply contracts (#113: the
-// morning's buys, before anything sells), then in every city hands over
+// Step reports upgrades bought, closes the connects' book (#72: the
+// relationship moves, a debt due is collected, the day's capacity and
+// credit are stamped), fills the supply contracts (#113: the morning's
+// buys, before anything sells), then in every city hands over
 // what was queued against the buyers' contracts, resolves sell orders,
 // drifts prices and demand, and rolls for shocks; then it settles the
 // contracts that ran out and deals the next offer. Sales resolve first
@@ -237,7 +249,9 @@ func (s *Sim) Step(w *game.World, t *game.Tick) {
 			t.Emit(events.UpgradeBought{Day: t.Day, ID: u.ID, Name: u.Name, Branch: u.Branch, Cost: u.Cost, Clean: u.Clean})
 		}
 	}
+	s.book(w, t)
 	s.supply(w, t, fx)
+	s.credit(w)
 	s.unlock(w, t)
 	ids := append([]string(nil), w.Products...)
 	sort.Strings(ids) // deterministic regardless of map order
@@ -339,9 +353,19 @@ func (s *Sim) Step(w *game.World, t *game.Tick) {
 			m.Demand = base * (1 + rng.NormFloat64()*pc.DemandNoise)
 			m.Demand = math.Max(1, m.Demand)
 
-			// 5. Supplier resets to a fraction of street price, less what
-			// your contact there, and your name, take off.
-			m.SupplierPrice = m.Price * s.SupplierRatio(w)
+			// 5. The connects reset to their fraction of street price
+			// (#72: the band the relationship sits in, less what your
+			// contact and your name take off), and the market's supplier
+			// price is the best of them; a city with no connect reads
+			// the file's flat ratio.
+			if sups := w.SuppliersIn(cid); len(sups) > 0 {
+				for _, sup := range sups {
+					s.stampPrice(w, sup, id, m, fx)
+				}
+				m.SupplierPrice = w.SupplierPrice(cid, id)
+			} else {
+				m.SupplierPrice = m.Price * s.BaseRatio(w)
+			}
 
 			m.History = append(m.History, m.Price)
 			if n := tun.HistoryDays; n > 0 && len(m.History) > n {
@@ -352,6 +376,7 @@ func (s *Sim) Step(w *game.World, t *game.Tick) {
 	}
 	s.settle(w, t)
 	s.deal(w, t)
+	s.warn(w, t)
 }
 
 // unlock lists every product the player's peak cash has earned, in every

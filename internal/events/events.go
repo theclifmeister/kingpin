@@ -604,14 +604,15 @@ func (r RouteDial) Ship() Ship {
 // WholesaleBought is report-only bookkeeping: lots the logistics sim
 // bought at the source of a route to cover the far city's shortfall.
 type WholesaleBought struct {
-	Day     int
-	City    string // city id the lots were bought in
-	Route   string // route id they were bought for
-	Name    string // the route's name, for the report
-	Product string
-	Lots    int
-	Units   int
-	Cost    int // dirty cash
+	Day      int
+	City     string // city id the lots were bought in
+	Route    string // route id they were bought for
+	Name     string // the route's name, for the report
+	Product  string
+	Lots     int
+	Units    int
+	Cost     int    // dirty cash
+	Supplier string // the wholesale connect they came from (#72)
 }
 
 func (WholesaleBought) Kind() string { return "WholesaleBought" }
@@ -620,16 +621,147 @@ func (WholesaleBought) Kind() string { return "WholesaleBought" }
 // bought from the supplier in its city this morning, at the contract
 // markup, to bring the stash there back to its level.
 type SupplyBought struct {
-	Day     int
-	City    string
-	Product string
-	Units   int
-	Level   int     // the contract's level
-	Price   float64 // per unit paid, the markup included
-	Cost    int     // dirty cash
+	Day      int
+	City     string
+	Product  string
+	Units    int
+	Level    int     // the contract's level
+	Price    float64 // per unit paid, the markup included
+	Cost     int     // dirty cash
+	Supplier string  // the connect it bought from (#72)
 }
 
 func (SupplyBought) Kind() string { return "SupplyBought" }
+
+// SupplierBought is report-only bookkeeping (#72): a buy by hand from a
+// connect, as the market sim reads it off the day's receipts the next
+// morning, with whether it went on credit and whether it was under the
+// lot.
+type SupplierBought struct {
+	Day      int
+	City     string
+	Supplier string // connect id
+	Name     string
+	Product  string
+	Units    int
+	Price    float64 // per unit paid
+	Cost     int
+	Credit   bool
+	SmallLot bool
+}
+
+func (SupplierBought) Kind() string { return "SupplierBought" }
+
+// CreditTaken is report-only bookkeeping (#72): what a connect put on
+// your book yesterday, all of it, what you owe them now and when it is
+// due.
+type CreditTaken struct {
+	Day      int
+	City     string
+	Supplier string
+	Name     string
+	Amount   int // taken yesterday
+	Debt     int // owed now
+	Due      int // the day
+}
+
+func (CreditTaken) Kind() string { return "CreditTaken" }
+
+// DebtPaid is report-only bookkeeping (#72): a debt cleared on its day,
+// dirty cash first, then clean.
+type DebtPaid struct {
+	Day      int
+	City     string
+	Supplier string
+	Name     string
+	Amount   int
+}
+
+func (DebtPaid) Kind() string { return "DebtPaid" }
+
+// DebtLate is a debt short on its day (#72): what was owed, what could
+// be paid, and what the temper did about it (What: "extended" for the
+// patient one the first time, "frozen" for the sharp one and the
+// patient one the second, "collected" for the connected one, who sent
+// somebody), the fee a sharp one added, and what is left and when it
+// is due again.
+type DebtLate struct {
+	Day      int
+	City     string
+	Supplier string
+	Name     string
+	Temper   string
+	Owed     int
+	Paid     int
+	Fee      int
+	Left     int
+	Due      int
+	What     string
+}
+
+func (DebtLate) Kind() string { return "DebtLate" }
+
+// SupplierFrozen is a connect that has stopped taking your calls (#72),
+// for Days: after a late payment (Why "late") or with the relationship
+// at the floor ("floor"). Nothing sells from them, to you or to the
+// road, until it lifts.
+type SupplierFrozen struct {
+	Day      int
+	City     string
+	Supplier string
+	Name     string
+	Days     int
+	Why      string
+}
+
+func (SupplierFrozen) Kind() string { return "SupplierFrozen" }
+
+// SupplierWarned is a connect at the top of the ladder tipping you off
+// (#72): a shock, or a slump, on a product they sell in their city,
+// tomorrow.
+type SupplierWarned struct {
+	Day      int
+	City     string
+	Supplier string
+	Name     string
+	Product  string
+	Slump    bool
+}
+
+func (SupplierWarned) Kind() string { return "SupplierWarned" }
+
+// SupplierCollected is the connected temper sending somebody for a
+// short payment (#72): your best enforcer lost Loyalty and, Hurt, took
+// a beating (skill lost, off their corner); with no enforcer on the
+// payroll they took Units of Product from the stash in their city
+// against what was Owed.
+type SupplierCollected struct {
+	Day        int
+	City       string
+	Supplier   string
+	Name       string
+	Owed       int
+	Member     int
+	MemberName string
+	Loyalty    float64
+	Hurt       bool
+	Units      int
+	Product    string
+}
+
+func (SupplierCollected) Kind() string { return "SupplierCollected" }
+
+// SupplierUnlocked is a connect who will deal with you from this morning
+// (#72): the peak cash they wanted to see is moved and the street
+// connect in their city has put a word in.
+type SupplierUnlocked struct {
+	Day      int
+	City     string
+	Supplier string
+	Name     string
+}
+
+func (SupplierUnlocked) Kind() string { return "SupplierUnlocked" }
 
 // SupplyShort is report-only bookkeeping: a supply contract that could
 // not bring the stash to its level this morning, for want of cash over
@@ -640,7 +772,7 @@ type SupplyShort struct {
 	Product string
 	Units   int    // bought
 	Short   int    // still under the level
-	Why     string // "cash" or "room"
+	Why     string // "cash", "room", or "supplier" when no connect there sells it today (#72)
 }
 
 func (SupplyShort) Kind() string { return "SupplyShort" }

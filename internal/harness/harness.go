@@ -167,12 +167,79 @@ func restockOnly(cfg *content.Config, w *game.World, ok func(product string) boo
 		}
 		m := city.Market[id]
 		target := int(float64(w.Capacity(city.ID)) * m.Demand / total)
-		afford := int(float64(w.Player.DirtyCash-reserve) / m.SupplierPrice)
-		qty := min(target-w.Stock(city.ID, id), afford, w.Free(city.ID))
-		if qty > 0 {
-			_, _ = w.Buy(id, qty, pressure)
+		buyHere(w, id, target-w.Stock(city.ID, id), reserve, pressure, false)
+	}
+}
+
+// buyHere buys up to qty units of a product where you stand from the
+// cheapest connect that sells it today (#72): as many as the cash over
+// reserve (at the connect's quote, small-lot premium and all), the
+// stash's room and the connect's day allow. On credit it takes what
+// the connect will run first, at their credit price, and pays cash for
+// the rest. It reports how many it bought.
+func buyHere(w *game.World, product string, qty, reserve int, pressure float64, credit bool) int {
+	city := w.Player.Location
+	sup := retail(w, city, product)
+	if sup == nil || qty <= 0 {
+		return 0
+	}
+	bought := 0
+	if credit && sup.Credit() > 0 {
+		n := min(qty, w.Free(city), sup.Left())
+		n = afford(sup, product, n, sup.Credit(), true)
+		if n > 0 {
+			if p, err := w.Buy(sup.ID, product, n, true, pressure); err == nil {
+				bought += p.Qty
+			}
 		}
 	}
+	n := min(qty-bought, w.Free(city), sup.Left())
+	n = afford(sup, product, n, w.Player.DirtyCash-reserve, false)
+	if n > 0 {
+		if p, err := w.Buy(sup.ID, product, n, false, pressure); err == nil {
+			bought += p.Qty
+		}
+	}
+	return bought
+}
+
+// retail is the cheapest connect in a city that sells you a product
+// today by the unit: the wholesaler's lots are the road's (#61), and a
+// scripted player who bought them by hand for the corners there would
+// be measuring a second road, not the street; the tier rows are the
+// road's.
+func retail(w *game.World, city, product string) *game.Supplier {
+	var best *game.Supplier
+	for _, s := range w.SuppliersIn(city) {
+		if s.Wholesale || !w.Available(s, product) {
+			continue
+		}
+		if best == nil || s.Price[product] < best.Price[product] {
+			best = s
+		}
+	}
+	return best
+}
+
+// afford is the most of n units of a product a connect's quote lets
+// cash cover, cash or on credit: the plain price first, and the
+// small-lot premium once the buy is under the lot.
+func afford(sup *game.Supplier, product string, n, cash int, credit bool) int {
+	unit := sup.Price[product]
+	if unit <= 0 || n <= 0 || cash <= 0 {
+		return 0
+	}
+	if credit {
+		unit *= sup.CreditRatio
+	}
+	n = min(n, int(float64(cash)/unit))
+	if n < sup.Lot && sup.SmallLot > 1 {
+		n = min(n, int(float64(cash)/(unit*sup.SmallLot)))
+	}
+	for n > 0 && sup.Quote(product, n, credit) > cash {
+		n--
+	}
+	return n
 }
 
 // sellEverything queues every stash for sale at the dial: the runners sell
@@ -797,16 +864,16 @@ func distribute(cfg *content.Config, lieLowAt float64, delegate, fight bool, per
 		if fight {
 			days = max(days, float64(lg.Days(w, *route, w.Route(route.ID).Dial.Ship())+2))
 		}
-		wholesale := lg.Wholesale(w)
+		wholesale := w.WholesaleSupplier(hub)
 		for _, id := range w.Products {
-			hubP, homeP := w.Product(hub, id), w.Product(home, id)
+			homeP := w.Product(home, id)
 			target := 0
-			if hubP != nil && homeP != nil && hubP.SupplierPrice*wholesale.Mul <= homeP.Price*DistributorMargin && (!fight || worth(cfg, w, id)) {
+			if wholesale != nil && homeP != nil && wholesale.Price[id] > 0 && wholesale.Price[id] <= homeP.Price*DistributorMargin && (!fight || worth(cfg, w, id)) {
 				target = int(days * w.Demand(home, id))
 			}
 			_ = w.SetRouteTarget(route.ID, id, target)
 		}
-		if wholesale.Locked(w) {
+		if wholesale == nil || wholesale.Locked(w) {
 			laundered(w)
 			return
 		}

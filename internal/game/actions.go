@@ -27,19 +27,6 @@ var (
 	ErrReturnGone     = errors.New("the units are no longer in the stash")
 )
 
-// WholesaleOffer is how the wholesale supplier sells, handed to Restock
-// by the logistics sim from routes.toml so the world never needs the
-// config: lots of Lot units at Mul of the street supplier's price, once
-// peak cash has reached UnlockCash.
-type WholesaleOffer struct {
-	Lot        int
-	Mul        float64
-	UnlockCash int
-}
-
-// Locked reports whether the offer is still gated behind peak cash.
-func (o WholesaleOffer) Locked(w *World) bool { return w.Stats.PeakCash < o.UnlockCash }
-
 // FrontOffer is a front as the laundering config prices it, handed to
 // BuyFront by the caller so the world never needs the config.
 type FrontOffer struct {
@@ -55,86 +42,9 @@ type FrontOffer struct {
 // Locked reports whether the offer is still gated behind peak cash.
 func (o FrontOffer) Locked(w *World) bool { return w.Stats.PeakCash < o.UnlockCash }
 
-// SupplierQuote is what qty units would cost right now from the supplier
-// where the player is, before any pressure the purchase itself adds to the
-// supplier price.
-func (w *World) SupplierQuote(product string, qty int) (int, error) {
-	m := w.Product(w.Player.Location, product)
-	if m == nil {
-		return 0, ErrUnknownProduct
-	}
-	return int(math.Ceil(m.SupplierPrice * float64(qty))), nil
-}
-
 // Free is how many more units the stash in a city can take from the
 // supplier.
 func (w *World) Free(city string) int { return w.Capacity(city) - w.Player.StockIn(city) }
-
-// Buy purchases qty units from the supplier in the city the player is in,
-// with dirty cash, into the stash there. It applies immediately and nudges
-// the supplier price up for the rest of the day.
-func (w *World) Buy(product string, qty int, pricePressure float64) (Purchase, error) {
-	if w.Over != nil {
-		return Purchase{}, ErrGameOver
-	}
-	return w.buy(w.Player.Location, product, qty, 1, pricePressure, false)
-}
-
-// FillSupply is the market sim buying against a supply contract (#113):
-// qty units of a product from the supplier in a city, wherever the
-// player is, at markup times the supplier's price, into the stash there.
-// It is the same path as Buy (the price pressure and BoughtToday move
-// exactly as they do for a buy by hand, so the supplier reacts to a
-// contract as it does to you) with the receipt marked a contract's and
-// dated, so the clock keeps it through the day for the cart. The sim
-// sizes qty to the shortfall, the room and the budget; the world holds
-// it to the stash's room and the cash as it holds a buy.
-func (w *World) FillSupply(city, product string, qty int, markup, pricePressure float64) (Purchase, error) {
-	if w.Cities[city] == nil {
-		return Purchase{}, ErrNoCity
-	}
-	if markup <= 0 {
-		markup = 1
-	}
-	return w.buy(city, product, qty, markup, pricePressure, true)
-}
-
-// buy is the one path a unit takes from a supplier into a stash: Buy's,
-// where the player stands at the supplier's price, and a supply
-// contract's, in its city at the contract markup. Cost is the unit
-// price times the units, rounded up to the dollar.
-func (w *World) buy(city, product string, qty int, markup, pricePressure float64, contract bool) (Purchase, error) {
-	m := w.Product(city, product)
-	if m == nil {
-		return Purchase{}, ErrUnknownProduct
-	}
-	if qty <= 0 {
-		return Purchase{}, ErrBadQuantity
-	}
-	if m.NoSupply {
-		return Purchase{}, ErrNotSupplied
-	}
-	unit := m.SupplierPrice * markup
-	cost := int(math.Ceil(unit * float64(qty)))
-	if cost > w.Player.DirtyCash {
-		return Purchase{}, fmt.Errorf("need $%d, only have $%d dirty", cost, w.Player.DirtyCash)
-	}
-	if free := w.Free(city); qty > free {
-		return Purchase{}, fmt.Errorf("can only hold %d more units in %s", free, w.CityName(city))
-	}
-	p := Purchase{City: city, Product: product, Qty: qty, UnitPrice: unit, Cost: cost, Prior: m.SupplierPrice, Contract: contract}
-	if contract {
-		p.Day = w.Day + 1 // the morning the tick brings
-	}
-	w.Player.DirtyCash -= cost
-	w.Stash(city)[product] += qty
-	m.BoughtToday += qty
-	if demand := w.Demand(city, product); demand > 0 {
-		m.SupplierPrice *= 1 + pricePressure*float64(qty)/demand
-	}
-	w.Buys = append(w.Buys, p)
-	return p, nil
-}
 
 // SupplyKey is how Supply is keyed: one contract per product per city,
 // like Orders.
@@ -281,13 +191,30 @@ func (w *World) giveBack(city, product string, qty int, contract bool) (int, err
 		keep := b.Qty - back
 		// What Buy would have charged and nudged for the units kept, so
 		// a part of a buy is returned in proportion and the whole of one
-		// exactly. The nudge is read back off the price rather than the
-		// pressure, which the world does not hold.
+		// exactly. The nudge is read back off the connect's price rather
+		// than the pressure, which the world does not hold; a credit
+		// buy's refund comes off the debt, never into the till.
 		cost := int(math.Ceil(b.UnitPrice * float64(keep)))
-		if b.Prior > 0 {
-			m.SupplierPrice = b.Prior * (1 + (m.SupplierPrice/b.Prior-1)*float64(keep)/float64(b.Qty))
+		s := w.Supplier(b.Supplier)
+		if s != nil {
+			if b.Prior > 0 {
+				s.Price[product] = b.Prior * (1 + (s.Price[product]/b.Prior-1)*float64(keep)/float64(b.Qty))
+			}
+			s.BoughtToday -= back
+			s.Bought -= back
+			if s.Lot > 0 {
+				s.Lots -= float64(back) / float64(s.Lot)
+			}
 		}
-		refund += b.Cost - cost
+		if b.Credit && s != nil {
+			s.Debt -= b.Cost - cost
+			if s.Debt <= 0 {
+				s.Debt, s.DebtDue, s.Extended = 0, 0, false
+			}
+			w.Stats.Credit -= b.Cost - cost
+		} else {
+			refund += b.Cost - cost
+		}
 		b.Qty, b.Cost = keep, cost
 		left -= back
 	}
@@ -304,44 +231,8 @@ func (w *World) giveBack(city, product string, qty int, contract bool) (int, err
 	w.Player.DirtyCash += refund
 	w.Stash(city)[product] -= qty
 	m.BoughtToday -= qty
+	w.refreshSupplierPrice(city, product)
 	return refund, nil
-}
-
-// Restock is the logistics sim buying lots from the wholesale supplier in
-// a city, wherever the player is, to feed a route (#61): it is not a
-// player action and not reported through Buys (the sim reports it as
-// WholesaleBought). The city must sell by the lot and the offer must be
-// open. The lots go into the stash there regardless of its capacity: the
-// road takes them, and the odd lot's remainder waits for tomorrow's
-// shipment.
-func (w *World) Restock(city, product string, lots int, o WholesaleOffer, pricePressure float64) (Purchase, error) {
-	c := w.Cities[city]
-	if c == nil {
-		return Purchase{}, ErrNoCity
-	}
-	if !c.Wholesale || o.Locked(w) {
-		return Purchase{}, ErrNoRoute
-	}
-	m := c.Market[product]
-	if m == nil {
-		return Purchase{}, ErrUnknownProduct
-	}
-	if lots <= 0 || o.Lot <= 0 {
-		return Purchase{}, ErrBadQuantity
-	}
-	qty := lots * o.Lot
-	unit := m.SupplierPrice * o.Mul
-	cost := int(math.Ceil(unit * float64(qty)))
-	if cost > w.Player.DirtyCash {
-		return Purchase{}, fmt.Errorf("need $%d, only have $%d dirty", cost, w.Player.DirtyCash)
-	}
-	w.Player.DirtyCash -= cost
-	w.Stash(city)[product] += qty
-	m.BoughtToday += qty
-	if demand := w.Demand(city, product); demand > 0 {
-		m.SupplierPrice *= 1 + pricePressure*float64(qty)/demand
-	}
-	return Purchase{City: city, Product: product, Qty: qty, UnitPrice: unit, Cost: cost}, nil
 }
 
 // PlaceSell queues a sell order in a city for resolution at end of day by

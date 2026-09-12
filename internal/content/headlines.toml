@@ -315,3 +315,29 @@ ContractFailed = [
   "Word gets round {{.City}}: a {{.Product}} order went unfilled",
   "'Don't front them the cash': {{.City}} {{.Product}} buyer burned",
 ]
+
+# The connects (#72). Their names are the paper's only when the street
+# talks: a late payment, a freeze, a collection and a door opening. The
+# warning is theirs alone, and a report line.
+DebtLate = [
+  "Word in {{.City}}: somebody's late paying {{.Name}}",
+  "{{.Name}} 'not happy', say {{.City}} corner boys; a debt has gone unpaid",
+  "{{.City}} connect owed money; 'he doesn't forget', says source",
+]
+SupplierFrozen = [
+  "{{.Name}} not taking calls from a {{.City}} outfit",
+  "{{.City}} dealers cut off: {{.Name}} 'done with them'",
+  "Supply tightens in {{.City}} as {{.Name}} closes a door",
+]
+SupplierWarned = [
+  "{{.Name}} tips off a {{.City}} outfit: {{.Product}} about to move",
+]
+SupplierCollected = [
+  "{{.Name}}'s people pay a visit in {{.City}}; a debt collected the hard way",
+  "Beating in {{.City}} linked to money owed to {{.Name}}",
+  "{{.City}} stash raided by {{.Name}}'s crew over an unpaid bill",
+]
+SupplierUnlocked = [
+  "{{.Name}} 'open for business' with a {{.City}} outfit",
+  "New face in {{.City}} supply: {{.Name}} is taking orders",
+]

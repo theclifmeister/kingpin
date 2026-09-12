@@ -1,0 +1,145 @@
+# The connects (#72): the people you buy from. Every run has the street
+# connect in each city and the wholesaler in the port, and draws one more
+# from the pool by seed. Each has a price band (ratio: their price as a
+# fraction of that city's street price, the city's [city.market]
+# multiplier still underneath), a lot they deal in, a capacity a day, a
+# temper that decides what a missed payment does, and credit terms. The
+# relationship (Rel, 0..100) moves in bands of `band`: a fresh run sits
+# in the middle band on every connect, where the price is the middle of
+# the ratio band (0.55 on the street, 0.385 for the wholesaler: today's
+# numbers), and buying lots moves it up a band at a time, where the
+# price drops toward the bottom of the band, the capacity and the
+# credit limit rise, and at the top band they warn you the day before
+# a shock they know about. A late payment, a bust that takes their
+# product and a seizure on the road move it down; under freeze_rel they
+# stop taking calls.
+
+[suppliers]
+band = 20             # width of a relationship band: five bands over 0..100, the third neutral
+rel_per_lot = 0.05    # Rel per lot bought, by you or by the road (a part of a lot counts in proportion)
+rel_paid = 5          # Rel for clearing a debt on its day
+rel_late = 15         # Rel lost on a late payment
+seize_rel = 10        # Rel lost per lot of their product a bust takes in their city, or a seizure on the road out of it (the wholesaler's), at most this per bust
+quiet_days = 14       # days without a buy before the connect starts to forget you
+quiet_decay = 0.05    # of the gap to the temper's baseline closed a day, once quiet
+freeze_rel = 20       # under this Rel the connect stops taking calls
+freeze_days = 7       # days a freeze lasts: a sharp temper's after a late payment, and the floor's
+late_fee = 0.10       # sharp: of what is owed, added to the debt
+extend_days = 5       # the new deadline after a late payment, for what is still owed
+collect_loyalty = 20  # connected: loyalty the enforcer they come for loses
+collect_hurt = 15     # connected: skill that enforcer loses when their nerve fails them
+capacity = [0.5, 0.75, 1.0, 1.25, 1.5]  # per band, on the connect's capacity a day
+credit = [0.0, 0.5, 1.0, 1.5, 2.0]      # per band, on the connect's credit limit
+
+# What a temper starts you at: the patient one is nearer the good band,
+# the sharp one nearer the bad, and all three in the neutral one.
+[temper.patient]
+rel = 55
+[temper.sharp]
+rel = 45
+[temper.connected]
+rel = 50
+
+# The street connect at home: everything the city's supplier sells, by
+# the fifty, patient about money.
+[[supplier]]
+id = "cass"
+name = "Cass"
+city = "eastside"
+products = []
+ratio = [0.52, 0.58]
+lot = 50
+capacity = 1500
+temper = "patient"
+credit_days = 7
+credit_limit = 3000
+credit_ratio = 1.15
+
+# The street connect in the port: dearer weed, cheap coke, and no
+# patience at all.
+[[supplier]]
+id = "marisol"
+name = "Marisol"
+city = "bayport"
+products = []
+ratio = [0.52, 0.58]
+lot = 50
+capacity = 1500
+temper = "sharp"
+credit_days = 7
+credit_limit = 3000
+credit_ratio = 1.15
+
+# The wholesaler: the connect the routes buy from, by the hundred, at a
+# fraction of the street connect's price (0.385 of street is 0.7 of
+# 0.55). Under a lot by hand costs street (small_lot). He is connected:
+# miss a payment and somebody comes round.
+[[supplier]]
+id = "dutchman"
+name = "The Dutchman"
+city = "bayport"
+products = []
+ratio = [0.365, 0.405]
+lot = 100
+small_lot = 1.43
+capacity = 6000
+temper = "connected"
+credit_days = 10
+credit_limit = 250000
+credit_ratio = 1.10
+unlock_cash = 500000
+wholesale = true
+
+# The pool: one of these is in every run, drawn by seed. Each wants to
+# see money moved and a word from the street connect in their city
+# (unlock_rel) before they deal.
+[[supplier]]
+id = "ricky"
+name = "Ricky Two-Tone"
+city = "eastside"
+products = ["coke", "heroin", "meth"]
+ratio = [0.50, 0.62]
+lot = 5
+small_lot = 1.2
+capacity = 150
+temper = "sharp"
+credit_days = 7
+credit_limit = 20000
+credit_ratio = 1.10
+unlock_cash = 25000
+unlock_rel = 60
+pool = true
+
+[[supplier]]
+id = "mai"
+name = "Auntie Mai"
+city = "bayport"
+products = ["weed", "pills"]
+ratio = [0.44, 0.54]
+lot = 50
+small_lot = 1.15
+capacity = 500
+temper = "patient"
+credit_days = 10
+credit_limit = 15000
+credit_ratio = 1.10
+unlock_cash = 25000
+unlock_rel = 60
+pool = true
+
+[[supplier]]
+id = "silva"
+name = "Silva"
+city = "eastside"
+products = ["pills", "coke"]
+ratio = [0.48, 0.58]
+lot = 20
+small_lot = 1.15
+capacity = 300
+temper = "connected"
+credit_days = 5
+credit_limit = 30000
+credit_ratio = 1.08
+unlock_cash = 25000
+unlock_rel = 60
+pool = true
