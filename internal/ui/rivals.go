@@ -293,6 +293,9 @@ func (m *Model) rivalsDetails() []section {
 	case len(w.Offers) > 0:
 		o := w.Offers[max(0, min(m.dealCursor, len(w.Offers)-1))]
 		lines := []string{theme.Subtle.Render(fmt.Sprintf("theirs · %s to answer", plural(o.Expires-w.Day+1, "day")))}
+		if o.Deal.Kind == game.DealTribute {
+			lines = append(lines, m.tributeRows(o.Deal)...)
+		}
 		lines = append(lines, wrapped(theme.Body, dealDoes(o.Deal.Kind))...)
 		lines = append(lines, wrapped(theme.Subtle, dealBreaks(o.Deal.Kind))...)
 		lines = append(lines, keyRow("y", "accept it"), keyRow("x", "turn it down"))
@@ -307,6 +310,9 @@ func (m *Model) rivalsDetails() []section {
 			term = plural(d.Left(w.Day), "day") + " left"
 		}
 		lines := []string{row("who", fmt.Sprintf("%s, since day %d", who, d.Since)), row("holds", term)}
+		if d.Kind == game.DealTribute {
+			lines = append(lines, m.tributeRows(d)...)
+		}
 		lines = append(lines, wrapped(theme.Body, dealDoes(d.Kind))...)
 		lines = append(lines, wrapped(theme.Subtle, dealBreaks(d.Kind))...)
 		sel = section{m.dealTitle(d), lines}

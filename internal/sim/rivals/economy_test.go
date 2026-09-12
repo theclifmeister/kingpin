@@ -121,3 +121,50 @@ func TestArrearsWalkAHead(t *testing.T) {
 		t.Fatalf("with no chest: muscle %d, cash %d", w.Rival.Muscle, w.Rival.Cash)
 	}
 }
+
+// A tribute is a cut of the street the rival is in (#162): TributeBase
+// is what the corners the player works at home move in a day in the
+// products the rival deals in, so the port's product on the player's
+// corners moves neither the base, the cut the terms come to nor how the
+// terms sit with the rival; where the street sells it, it counts. The
+// cut at every band and the favour of a proposal read the one number.
+func TestTributeIsACutOfTheRivalsStreet(t *testing.T) {
+	cfg := content.MustLoad()
+	dip := cfg.Rivals.Diplomacy
+	w, s := arrived(t, cfg, 3, "defensive")
+	if err := w.Post("docks", game.You); err != nil {
+		t.Fatal(err)
+	}
+	h := w.Home()
+	m := w.Product(h.ID, "weed")
+	want := w.Demand(h.ID, "weed") * m.Price
+	if got := s.TributeBase(w); want <= 0 || math.Abs(got-want) > 1e-9 {
+		t.Fatalf("tribute base %.2f, want %.2f (demand %.2f at %.0f)", got, want, w.Demand(h.ID, "weed"), m.Price)
+	}
+	var cuts []int
+	for _, c := range dip.TributeCuts {
+		cuts = append(cuts, s.Cut(w, c))
+	}
+	mid := game.Deal{Kind: game.DealTribute, Terms: game.Terms{PerDay: cuts[1]}}
+	favour := s.Favour(w, mid)
+	h.Market["designer"] = &game.ProductMarket{Price: 2500, Demand: 40, NoSupply: true}
+	w.Products = append(w.Products, "designer")
+	if got := s.TributeBase(w); math.Abs(got-want) > 1e-9 {
+		t.Fatalf("designer at home moved the tribute base %.2f -> %.2f", want, got)
+	}
+	for i, c := range dip.TributeCuts {
+		if got := s.Cut(w, c); got != cuts[i] {
+			t.Fatalf("designer at home moved the cut at %.2f: %d -> %d", c, cuts[i], got)
+		}
+	}
+	if got := s.Favour(w, mid); got != favour {
+		t.Fatalf("designer at home moved the favour of the middle cut %.2f -> %.2f", favour, got)
+	}
+	h.Market["designer"].NoSupply = false
+	if got := s.TributeBase(w); got <= want {
+		t.Fatalf("designer the street sells is not in the base: %.2f", got)
+	}
+	if got := s.Cut(w, dip.TributeCuts[1]); got <= cuts[1] {
+		t.Fatalf("designer the street sells did not raise the middle cut: %d -> %d", cuts[1], got)
+	}
+}
