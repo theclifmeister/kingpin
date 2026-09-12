@@ -96,16 +96,50 @@ func (w *World) ClearSupply(city, product string) {
 	}
 }
 
-// SupplyDue is what the supply contract for a product in a city will
-// try to buy in the morning: the level less the stash there and what is
-// on the road to it; zero with no contract. A sell order may count on
-// it (PlaceSell), since the contract fills before the orders resolve.
+// SupplyDue is what the supply contract standing for a product in a
+// city (StandingSupply: yours, else the lieutenant's) will try to buy
+// in the morning: the level less the stash there and what is on the
+// road to it; zero with no contract. A sell order may count on it
+// (PlaceSell), since the contract fills before the orders resolve.
 func (w *World) SupplyDue(city, product string) int {
-	c, ok := w.Supplied(city, product)
+	c, ok := w.StandingSupply(city, product)
 	if !ok {
 		return 0
 	}
 	return max(0, c.Units-w.Stock(city, product)-w.Bound(city, product))
+}
+
+// StandingSupply returns the supply contract standing for a product in
+// a city: yours first (Supplied, #113), then the one the lieutenant
+// who runs the city keeps (DelegatedSupply, #174). A contract you set
+// wins in a delegated city, as your standing order does.
+func (w *World) StandingSupply(city, product string) (SupplyContract, bool) {
+	if c, ok := w.Supplied(city, product); ok {
+		return c, true
+	}
+	return w.DelegatedSupplied(city, product)
+}
+
+// DelegatedSupplied returns the supply contract a lieutenant keeps for
+// a product in a city, if the city is run and the contract stands. It
+// mirrors DelegatedOrder.
+func (w *World) DelegatedSupplied(city, product string) (SupplyContract, bool) {
+	if w.Crew.Lieutenant(city) == nil {
+		return SupplyContract{}, false
+	}
+	c, ok := w.DelegatedSupply[SupplyKey(city, product)]
+	return c, ok
+}
+
+// DelegateSupply records a lieutenant's supply contract for a product
+// in a city (#174): keep the stash there at units, bought each morning
+// by the market sim where the player has set no contract of their own.
+// It is the crew sim's to set, nightly, by the temper's stock_days.
+func (w *World) DelegateSupply(city, product string, units int) {
+	if w.DelegatedSupply == nil {
+		w.DelegatedSupply = map[string]SupplyContract{}
+	}
+	w.DelegatedSupply[SupplyKey(city, product)] = SupplyContract{City: city, Product: product, Units: units, Since: w.Day}
 }
 
 // SuppliedToday is what the supply contracts bought this morning, all
@@ -709,12 +743,21 @@ func (w *World) Delegate(city, product string, qty int, dial events.Dial) {
 	w.Delegated[OrderKey(city, product)] = SellOrder{City: city, Product: product, Qty: qty, Dial: dial}
 }
 
-// DropStanding forgets every standing order in a city: the crew sim's,
-// when the lieutenant who placed them is gone.
+// DropStanding forgets every standing order and supply contract of the
+// lieutenant's in a city: the crew sim's, when the lieutenant who
+// placed them is gone (Unassign, Fire, a move to another city, a walk).
 func (w *World) DropStanding(city string) {
 	for k, o := range w.Delegated {
 		if o.City == city {
 			delete(w.Delegated, k)
 		}
+	}
+	for k, c := range w.DelegatedSupply {
+		if c.City == city {
+			delete(w.DelegatedSupply, k)
+		}
+	}
+	if len(w.DelegatedSupply) == 0 {
+		w.DelegatedSupply = nil
 	}
 }

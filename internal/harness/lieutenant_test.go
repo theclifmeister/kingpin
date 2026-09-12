@@ -446,3 +446,112 @@ func TestDelegatedNearDistributor(t *testing.T) {
 		t.Fatalf("delegated %d is more than 20%% under the distributor's %d", medDel, medDist)
 	}
 }
+
+// The lieutenant keeps their city stocked (#174): the delegated player
+// with the route off never sees the delegated city dry, nothing stashed
+// and nothing the contracts bring in the morning (what the sell dialog
+// counts, the stash plus World.SupplyDue), on two mornings running for
+// sixty days from the hire, on five seeds, and the lieutenant's
+// contracts are what fills it; the player's own contract for a product
+// wins over the lieutenant's; a lie-low day buys nothing; unassigned,
+// the contract is gone the next morning. (The stash the morning shows
+// is what the night left: a stash smaller than what the corners move
+// in a night is sold whole, and is not dry. A morning the lieutenant
+// works no corner there is nobody's to stock and is not counted.)
+func TestLieutenantKeepsTheCityStocked(t *testing.T) {
+	cfg := content.MustLoad()
+	home := cfg.City.Home().ID
+	weed := cfg.Market.Products[0].ID
+	for seed := uint64(1); seed <= 5; seed++ {
+		pol := Delegated(cfg, 40, "steady")
+		hired, dry, worst := 0, 0, 0
+		var ltID int
+		res, err := Run(cfg, seed, Horizon, func(w *game.World) {
+			pol(w)
+			for id := range w.Routes {
+				_ = w.SetRoute(id, events.RouteOff) // the road never feeds home
+			}
+			lt := w.Crew.Lieutenant(home)
+			if lt != nil && hired == 0 {
+				hired, ltID = w.Day, lt.ID
+			}
+			if hired == 0 {
+				return
+			}
+			if day := w.Day - hired; day > 1 && day <= 61 && w.WorkedIn(home) > 0 {
+				tonight := w.StockIn(home)
+				for _, id := range w.Products {
+					tonight += w.SupplyDue(home, id)
+				}
+				if tonight == 0 {
+					dry++
+				} else {
+					dry = 0
+				}
+				worst = max(worst, dry)
+			}
+			switch w.Day - hired {
+			case 10:
+				if err := w.SetSupply(home, weed, 1); err != nil {
+					t.Fatal(err)
+				}
+			case 12:
+				w.ClearSupply(home, weed)
+			case 20:
+				w.SetLieLow(true)
+			case 30:
+				if lt != nil {
+					if err := w.Unassign(lt.ID); err != nil {
+						t.Fatal(err)
+					}
+				}
+			case 31:
+				for _, c := range w.DelegatedSupply {
+					if c.City == home {
+						t.Fatalf("seed %d: the lieutenant's contract for %s survived being unassigned", seed, c.Product)
+					}
+				}
+			}
+		})
+		if err != nil {
+			t.Fatal(err)
+		}
+		if hired == 0 || hired > Horizon-62 {
+			t.Fatalf("seed %d: a lieutenant was hired on day %d", seed, hired)
+		}
+		if worst > 1 {
+			t.Fatalf("seed %d: home was dry on %d mornings running after %s took it on day %d", seed, worst, res.World.Crew.Member(ltID).Name, hired)
+		}
+		theirs, yours := 0, 0
+		for _, e := range res.Events {
+			sb, ok := e.(events.SupplyBought)
+			if !ok || sb.City != home {
+				continue
+			}
+			switch {
+			case sb.Lieutenant != "":
+				theirs++
+			default:
+				yours++
+			}
+			switch sb.Day - hired {
+			case 11:
+				if sb.Product == weed && sb.Lieutenant != "" {
+					t.Fatalf("seed %d day %d: the lieutenant bought weed over your own contract: %+v", seed, sb.Day, sb)
+				}
+			case 21:
+				if sb.Lieutenant != "" {
+					t.Fatalf("seed %d day %d: the lieutenant bought on a lie-low day: %+v", seed, sb.Day, sb)
+				}
+			case 31:
+				if sb.Lieutenant != "" {
+					t.Fatalf("seed %d day %d: the lieutenant bought the morning after being unassigned: %+v", seed, sb.Day, sb)
+				}
+			}
+		}
+		t.Logf("seed %d: hired day %d; the lieutenant's contracts bought %d times at home, yours %d; longest run of dry mornings %d", seed, hired, theirs, yours, worst)
+		if theirs < 30 {
+			t.Fatalf("seed %d: the lieutenant's contracts bought only %d times at home", seed, theirs)
+		}
+	}
+}

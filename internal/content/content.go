@@ -334,10 +334,11 @@ type LieutenantTuning struct {
 
 // LieutenantPersonality is what a temperament does to the city it runs.
 type LieutenantPersonality struct {
-	Dial  string  `toml:"dial"`  // the sell dial they favour: quiet, normal, aggressive
-	Heat  float64 `toml:"heat"`  // multiplier on the sale heat of their city
-	Skim  float64 `toml:"skim"`  // share of their city's takings they take on top of the cut, at any loyalty
-	Guard bool    `toml:"guard"` // they post idle enforcers on their corners
+	Dial      string  `toml:"dial"`       // the sell dial they favour: quiet, normal, aggressive
+	Heat      float64 `toml:"heat"`       // multiplier on the sale heat of their city
+	Skim      float64 `toml:"skim"`       // share of their city's takings they take on top of the cut, at any loyalty
+	Guard     bool    `toml:"guard"`      // they post idle enforcers on their corners
+	StockDays float64 `toml:"stock_days"` // days of the worked corners' demand they keep the stash at by supply contract (#174); 0 buys nothing
 }
 
 // LieutenantPersonalities are the temperaments a lieutenant can have, in
@@ -1178,7 +1179,7 @@ func Load() (*Config, error) {
 		if d := lp.Dial; d != "quiet" && d != "normal" && d != "aggressive" {
 			return nil, fmt.Errorf("crew.toml: [lieutenant.personality.%s] dial %q", p, d)
 		}
-		if lp.Heat <= 0 || lp.Skim < 0 || lp.Skim >= 1 {
+		if lp.Heat <= 0 || lp.Skim < 0 || lp.Skim >= 1 || lp.StockDays < 0 {
 			return nil, fmt.Errorf("crew.toml: bad [lieutenant.personality.%s] table %+v", p, lp)
 		}
 	}

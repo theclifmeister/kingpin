@@ -51,6 +51,14 @@ type approx struct{ v any }
 // signed writes a change with its sign: +8%, -3.
 type signed struct{ v any }
 
+// level is a supply contract's level in an int column: 120, or `120
+// (lt)` where the contract is the lieutenant's (#174), as an order
+// cell reads the lieutenant's order.
+type level struct {
+	units int
+	lt    bool
+}
+
 // gauge is a bar cell: the fraction filled, the tick marks, and the
 // number written after the bar.
 type gauge struct {
@@ -100,7 +108,7 @@ func dialShort(d fmt.Stringer) string {
 // markers, and returns the style the value carried.
 func cellText(k colKind, width int, v any) (string, *lipgloss.Style) {
 	var st *lipgloss.Style
-	prefix := ""
+	prefix, suffix := "", ""
 	sign := false
 	for {
 		switch x := v.(type) {
@@ -112,6 +120,12 @@ func cellText(k colKind, width int, v any) (string, *lipgloss.Style) {
 			continue
 		case signed:
 			sign, v = true, x.v
+			continue
+		case level:
+			if x.lt {
+				suffix = " (lt)"
+			}
+			v = x.units
 			continue
 		}
 		break
@@ -191,7 +205,7 @@ func cellText(k colKind, width int, v any) (string, *lipgloss.Style) {
 			s = fmt.Sprint(v)
 		}
 	}
-	return prefix + s, st
+	return prefix + s + suffix, st
 }
 
 // isNumber says whether a number column can read v.

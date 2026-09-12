@@ -71,7 +71,7 @@ Package layout: `cmd/kingpin` (the game), `cmd/balance` (headless runs), `cmd/ke
 | Laundering: fronts, the float, audits | `sim/laundering`, `ui/ledger.go` | `laundering.toml` | `docs/laundering.md` | `laundering_test.go`, `TestLaunderingNodesPullTheirWay` |
 | Stash houses | `game/houses.go`, `ui/houses.go`, raid in `sim/heat`, rent in `sim/territory` | `houses.toml` | `docs/houses.md` | `houses_test.go`, `TestDecoyHouseNeverShieldsTheStreet` |
 | Crew, pay, snitching, investigation | `sim/crew`, `ui/crew.go` | `crew.toml` | `docs/snitching.md`, `docs/crew-and-upgrades-screens.md` | `crew_test.go`, `snitch_test.go` |
-| Lieutenants | `sim/crew/lieutenant.go`, `ui/lieutenant.go` | `crew.toml [lieutenant]` | `docs/lieutenants.md` | `lieutenant_test.go` |
+| Lieutenants, buying through them | `sim/crew/lieutenant.go`, `ui/lieutenant.go`, `Buy` in `game/suppliers.go` | `crew.toml [lieutenant]` | `docs/lieutenants.md` | `lieutenant_test.go`, `TestBuyThroughTheLieutenant` |
 | The rival: pace, tell, price war, economy, books | `sim/rivals`, `game/territory.go`, `game/rivals.go`, `ui/rivals.go` | `rivals.toml` | `docs/rival.md` | `rivals_test.go`, `pricewar_test.go`, `TestRivalEconomyBinds`, `TestNoBooksIsTheOldRun` |
 | Diplomacy: truce, tribute, split | `game/diplomacy.go`, `sim/rivals/diplomacy.go`, `ui/diplomacy.go` | `rivals.toml [diplomacy]`, `[deal.*]` | `docs/diplomacy.md` | `diplomacy_test.go`, `TestTributeShareOfTheTake` |
 | Reputation: fear, respect, notoriety | `sim/reputation` | `reputation.toml` | `docs/reputation.md` | `reputation_test.go`, `TestReputationCannotMaxAllThree` |

@@ -664,16 +664,19 @@ func (WholesaleBought) Kind() string { return "WholesaleBought" }
 
 // SupplyBought is report-only bookkeeping: what a supply contract (#113)
 // bought from the supplier in its city this morning, at the contract
-// markup, to bring the stash there back to its level.
+// markup, to bring the stash there back to its level. Lieutenant names
+// the lieutenant whose contract it was (#174), empty for your own; the
+// crew sim reads it for the report's CREW line.
 type SupplyBought struct {
-	Day      int
-	City     string
-	Product  string
-	Units    int
-	Level    int     // the contract's level
-	Price    float64 // per unit paid, the markup included
-	Cost     int     // dirty cash
-	Supplier string  // the connect it bought from (#72)
+	Day        int
+	City       string
+	Product    string
+	Units      int
+	Level      int     // the contract's level
+	Price      float64 // per unit paid, the markup included
+	Cost       int     // dirty cash
+	Supplier   string  // the connect it bought from (#72)
+	Lieutenant string  // the lieutenant whose contract it was (#174); empty for yours
 }
 
 func (SupplyBought) Kind() string { return "SupplyBought" }
@@ -800,12 +803,13 @@ func (SupplierCollected) Kind() string { return "SupplierCollected" }
 // not bring the stash to its level this morning, for want of cash over
 // the float or of room in the stash, and what it bought instead.
 type SupplyShort struct {
-	Day     int
-	City    string
-	Product string
-	Units   int    // bought
-	Short   int    // still under the level
-	Why     string // "cash", "room", or "supplier" when no connect there sells it today (#72)
+	Day        int
+	City       string
+	Product    string
+	Units      int    // bought
+	Short      int    // still under the level
+	Why        string // "cash", "room", or "supplier" when no connect there sells it today (#72)
+	Lieutenant string // the lieutenant whose contract it was (#174); empty for yours
 }
 
 func (SupplyShort) Kind() string { return "SupplyShort" }
@@ -979,9 +983,19 @@ type LieutenantActed struct {
 	Revenue     int      // what their city took today
 	Cut         int      // what they kept of it
 	Skimmed     int      // what a greedy one took on top; the report never says so
+	Bought      []Bought // what their supply contracts bought this morning (#174), in ladder order
+	Contracts   int      // supply contracts kept for tomorrow (#174)
 }
 
 func (LieutenantActed) Kind() string { return "LieutenantActed" }
+
+// Bought is one product a lieutenant's contract bought this morning:
+// the units and what they cost, for the report's CREW line.
+type Bought struct {
+	Product string
+	Units   int
+	Cost    int
+}
 
 // DAElected is the district attorney's race decided (#41): who won and
 // on what ticket (law_and_order, moderate, reform). Incumbent says the
