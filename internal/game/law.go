@@ -314,6 +314,34 @@ func (w *World) Back(city, ticket string, amount int) error {
 	return nil
 }
 
+// Reserve moves amount of clean cash toward the offshore account (#195):
+// out of the pile at once, into the account tonight, when the
+// laundering sim moves it and takes the account's fee. Only clean cash
+// goes, as for Fund; nothing comes back (an account is an exit, not a
+// bank). Over the lot in a day is structuring, and the DA reads it the
+// morning after.
+func (w *World) Reserve(amount int) error {
+	if w.Over != nil {
+		return ErrGameOver
+	}
+	if amount <= 0 {
+		return ErrBadQuantity
+	}
+	if amount > w.Player.CleanCash {
+		if w.Player.CleanCash <= 0 {
+			return ErrNoCleanCash
+		}
+		return fmt.Errorf("need $%d clean, only have $%d clean", amount, w.Player.CleanCash)
+	}
+	w.Player.CleanCash -= amount
+	w.Today.Reserved += amount
+	return nil
+}
+
+// ReservedToday is what the player has sent offshore today, before the
+// fee: out of the pile, not yet in the account.
+func (w *World) ReservedToday() int { return w.Today.Reserved }
+
 // BackedToday is what the player has put behind a ticket in a city
 // today, in clean cash, and which ticket got the last of it.
 func (w *World) BackedToday(city string) (ticket string, amount int) {

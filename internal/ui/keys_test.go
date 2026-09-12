@@ -13,7 +13,7 @@ import (
 )
 
 // handledKeys are the keys keyPlay's switch handled the day the key
-// table replaced it (#80), F since (#116), m (#73) and o (#47): what
+// table replaced it (#80), F since (#116), m (#73) and o (#47, #195): what
 // the table must list, and all it may.
 var handledKeys = []string{
 	"q", " ", "ctrl+s", "?", "1", "2", "3", "4", "5", "6", "7", "8", "tab", "shift+tab",

@@ -759,6 +759,55 @@ func Laundered(cfg *content.Config, lieLowAt float64) Policy {
 // careful after an audit.
 const LaunderCarefulDays = 30
 
+// ReserveLot sends a lot of clean cash offshore (#195), or what there
+// is under it over keep, once a day: the move the DA never reads. Keep
+// is what stays in the pile (a day's upkeep for the retiree, a
+// campaign's worth for the boss): a front's upkeep comes out of the
+// pile before its income lands, so a player who moves every clean
+// dollar shuts its own fronts on a thin morning. It reports whether
+// anything went.
+func ReserveLot(ld *laundering.Sim, w *game.World, keep int) bool {
+	if w.Today.Reserved > 0 {
+		return false
+	}
+	amt := min(ld.Offshore().Lot, w.Player.CleanCash-keep)
+	if amt <= 0 {
+		return false
+	}
+	return w.Reserve(amt) == nil
+}
+
+// Retiree plays like Laundered and leaves (#195, #49's policy): a lot
+// a day offshore from the first front, keeping a day's upkeep in the
+// pile; once the account holds what retiring takes and RetireAfter has
+// passed it lies low, every corner recalled, until the days are quiet
+// enough, and retires the first day it can. It is the baseline for "a
+// player who gets out": its score is the account at exit.
+func Retiree(cfg *content.Config, lieLowAt float64) Policy {
+	laundered := Laundered(cfg, lieLowAt)
+	ld := laundering.New(cfg)
+	off := cfg.Laundering.Offshore
+	return func(w *game.World) {
+		if w.Day >= RetireAfter && w.Offshore >= off.RetireCash {
+			if ld.CanRetire(w) {
+				_ = ld.Retire(w)
+				return
+			}
+			for _, m := range w.Crew.Members {
+				w.Recall(m.ID)
+			}
+			w.SetLieLow(true)
+			return
+		}
+		laundered(w)
+		ReserveLot(ld, w, ld.Upkeep(w))
+	}
+}
+
+// RetireAfter is the day from which the retiree retires as soon as it
+// can: tier 3's checkpoint, so the exit is measured as a tier-4 one.
+var RetireAfter = TierDays[2]
+
 // Funded plays like Laundered and buys the city off (#41): whenever the
 // pressure where it is has passed FundPressure it gives the city
 // FundShare of its clean cash, up to what takes goodwill to 100, never a
@@ -1091,6 +1140,10 @@ func distribute(cfg *content.Config, lieLowAt float64, delegate, fight bool, per
 			// left, over a campaign's worth kept in hand for the next
 			// election, so the boss's civic spending is what it was.
 			InvestOver(ld, w, margin, cfg.Law.Campaign.Fill())
+			// And a lot a day offshore (#195) over the same reserve,
+			// never over the line and never retiring: its numbers are
+			// the horizon's.
+			ReserveLot(ld, w, cfg.Law.Campaign.Fill())
 		} else {
 			washUp(cfg, w)
 			BuyUpgrades(cfg, w, 3) // the stash spots are what a lot needs room for

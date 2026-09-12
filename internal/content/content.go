@@ -387,8 +387,9 @@ type HeatTuning struct {
 	TipEvidence        float64 `toml:"tip_evidence"` // chance a tip on a rival corner (#70) files a page anyway
 	SloppySkill        int     `toml:"sloppy_skill"`
 	SloppyHeat         float64 `toml:"sloppy_heat"`
-	AuditHeat          float64 `toml:"audit_heat"`     // heat an audited front adds the morning after
-	AuditEvidence      int     `toml:"audit_evidence"` // evidence an audit adds when the front was run greedy
+	AuditHeat          float64 `toml:"audit_heat"`         // heat an audited front adds the morning after
+	AuditEvidence      int     `toml:"audit_evidence"`     // evidence an audit adds when the front was run greedy
+	StructureEvidence  int     `toml:"structure_evidence"` // pages per lot of clean cash moved offshore over the lot in a day (#195)
 }
 
 // The response ladder's levels (#144): the names heat.toml's
@@ -815,7 +816,23 @@ type LaunderingConfig struct {
 	Laundering LaunderingTuning `toml:"laundering"`
 	Dial       LaunderTable     `toml:"dial"`
 	Growth     GrowthConfig     `toml:"growth"`
+	Offshore   OffshoreConfig   `toml:"offshore"`
 	Fronts     []FrontConfig    `toml:"front"`
+}
+
+// OffshoreConfig is the [offshore] table (#195): the account clean cash
+// is reserved into, which survives every ending and is the score. Lot
+// is the clean cash a day that moves unnoticed (over it, the heat sim
+// files structure_evidence a lot the morning after), Fee the share of
+// what moves that the account keeps, RetireCash what the account needs
+// and RetireDays how many quiet days (every city under RetireHeat, no
+// strike, no patrol or worse, no live contract) before Retire is open.
+type OffshoreConfig struct {
+	Lot        int     `toml:"lot"`
+	Fee        float64 `toml:"fee"`
+	RetireCash int     `toml:"retire_cash"`
+	RetireDays int     `toml:"retire_days"`
+	RetireHeat float64 `toml:"retire_heat"`
 }
 
 type LaunderingTuning struct {
@@ -1547,6 +1564,9 @@ func Load() (*Config, error) {
 	}
 	if g := c.Laundering.Growth; g.AuditLevel < 0 || g.LegitRatio < 0 || g.HeadlineLevel < 0 {
 		return nil, fmt.Errorf("laundering.toml: bad [growth] table %+v", g)
+	}
+	if o := c.Laundering.Offshore; o.Lot < 0 || o.Fee < 0 || o.Fee >= 1 || o.RetireCash < 0 || o.RetireDays < 0 || o.RetireHeat < 0 {
+		return nil, fmt.Errorf("laundering.toml: bad [offshore] table %+v", o)
 	}
 	return &c, nil
 }

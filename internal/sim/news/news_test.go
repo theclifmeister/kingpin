@@ -10,7 +10,7 @@ import (
 // Every event the market, logistics, territory, rivals, crew, heat, law
 // and laundering sims can emit must have a headline template, otherwise
 // the ticker goes silent on something that matters. RivalUndercut,
-// CashLaundered, FrontInvested, CrewPaidOff, WholesaleBought, SupplyBought,
+// CashLaundered, FrontInvested, Reserved, CrewPaidOff, WholesaleBought, SupplyBought,
 // SupplyShort, StandingShort, ShipmentSent, ShipmentArrived and CityFunded are
 // report-only bookkeeping, like PriceMove, CrewPaid and LieutenantActed;
 // CrewTurnedInformant and LieutenantFlipped are deliberately silent, the
@@ -38,7 +38,7 @@ func TestEveryEmittedEventHasTemplate(t *testing.T) {
 		"RivalBoosted", "RivalBoostedHeld", "RivalRaided", "RivalMusclePoached", // RivalScouted and PoliceTipped are report-only (#70)
 		"DealOffered", "DealAccepted", "DealRefused", "DealBroken", // DealEnded and TributePaid are report-only
 		"UpgradeBought", "FallGuyBurned",
-		"FrontBought", "FrontAudited", "FrontFrozen", "FrontGrew", // FrontInvested is report-only (#192)
+		"FrontBought", "FrontAudited", "FrontFrozen", "FrontGrew", // FrontInvested (#192) and Reserved (#195) are report-only
 		"ReputationFearUp", "ReputationFearDown", "ReputationRespectUp", "ReputationRespectDown",
 		"ReputationNotorietyUp", "ReputationNotorietyDown",
 		"DAElected", "DAReElected", "ChiefReplaced", "ChiefReplacedDA", "PressureShiftedUp", "PressureShiftedDown", // CityFunded is report-only

@@ -21,7 +21,7 @@ import (
 func main() {
 	runs := flag.Int("runs", 20, "number of seeded runs")
 	days := flag.Int("days", harness.Horizon, "days to play each run for; a measuring horizon, the game itself has no cap")
-	policy := flag.String("policy", "normal", "idle | hide | quiet | normal | aggressive | careful | managed | upgraded | crewed | vigilant | territory | war | diplomat | laundered | funded | corrupt | distributor | delegated | dealer | stocked | routine | leveraged | boss | pricewar | stashed | saboteur | tipster | cook")
+	policy := flag.String("policy", "normal", "idle | hide | quiet | normal | aggressive | careful | managed | upgraded | crewed | vigilant | territory | war | diplomat | laundered | funded | corrupt | distributor | delegated | dealer | stocked | routine | leveraged | boss | pricewar | stashed | saboteur | tipster | cook | retiree")
 	lt := flag.String("lt", "", "force the delegated policy's lieutenant temper: violent | greedy | careful | steady (default as generated)")
 	corners := flag.Int("corners", 3, "corners the territory and war policies work, counting yours")
 	force := flag.String("force", "push", "warn | push | hit: how hard the war policy strikes")
@@ -127,6 +127,8 @@ func main() {
 		p = harness.Leveraged(cfg, at(40))
 	case "boss":
 		p = harness.BossAt(cfg, at(40), *lt, *margin)
+	case "retiree":
+		p = harness.Retiree(cfg, at(40))
 	case "stashed":
 		p = harness.Stashed(cfg, at(40), *houses, *fronts != "off")
 	case "saboteur":
@@ -194,6 +196,8 @@ func main() {
 	bought := map[string]int{}
 	audits, laundered, clean := 0, 0, 0
 	earned, invested, levels, legit, frozen := 0, 0, 0, 0, 0
+	offshore, fees, offshoreRuns, structured := 0, 0, 0, 0
+	var retired []int
 	ld := laundering.New(cfg)
 	shipments, shipped, seizures, seizedUnits := 0, 0, 0, 0
 	var fear, respect, notoriety []int
@@ -339,6 +343,8 @@ func main() {
 				audits++
 			case events.FrontFrozen:
 				frozen++
+			case events.Reserved:
+				structured += ev.Lots
 			case events.CrewTurnedInformant:
 				informants++
 			case events.InvestigationRun:
@@ -404,6 +410,14 @@ func main() {
 		}
 		laundered += res.World.Stats.Laundered
 		clean += res.World.Player.CleanCash
+		offshore += res.World.Offshore
+		fees += res.World.Stats.Fees
+		if res.World.Offshore > 0 {
+			offshoreRuns++
+		}
+		if res.Over != nil && res.Over.Cause == "retired" {
+			retired = append(retired, res.World.Offshore)
+		}
 		earned += res.World.Stats.Earned
 		invested += res.World.Stats.Invested
 		for _, f := range res.World.Fronts {
@@ -551,6 +565,14 @@ func main() {
 	fmt.Printf("laundering:    $%d washed per run, %d audits per run, $%d clean at the end\n", laundered / *runs, audits / *runs, clean / *runs)
 	if invested > 0 {
 		fmt.Printf("fronts:        %d levels owned at the end, $%d invested, $%d earned per run, %d shut for upkeep per run; legit income $%d/day at the end (means)\n", levels / *runs, invested / *runs, earned / *runs, frozen / *runs, legit / *runs)
+	}
+	if offshoreRuns > 0 {
+		sort.Ints(retired)
+		score := 0
+		if len(retired) > 0 {
+			score = retired[len(retired)/2]
+		}
+		fmt.Printf("offshore:      $%d in the account at the end, $%d in fees per run, %d lots over the line (totals over %d runs); %d retired, scoring $%d (median)\n", offshore / *runs, fees / *runs, structured, *runs, len(retired), score)
 	}
 	if shipments > 0 {
 		fmt.Printf("logistics:     %.1f shipments per run carrying %d units, %.1f seized per run taking %d units (%.0f%% of shipments)\n",

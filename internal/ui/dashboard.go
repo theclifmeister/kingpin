@@ -179,6 +179,8 @@ func (m *Model) streetLines(innerW, maxLines int, narrow, withRoad bool) []strin
 	default:
 		if lt := w.Crew.Lieutenant(here.ID); lt != nil && m.standingHere() > 0 {
 			last = theme.Gold.Render(fmt.Sprintf("%s sells the stash here at %s; an order of yours overrides it.", lt.Name, m.set.Crew.Dial(*lt)))
+		} else if line := m.retireLine(); line != "" {
+			last = line // how far off the exit is (#195)
 		} else {
 			last = tutorialLine()
 		}
@@ -551,7 +553,33 @@ func (m *Model) alerts() []alert {
 	if next := m.set.Law.NextElection(w); w.Law.CampaignOpen && w.Player.CleanCash > 0 && w.Campaigning(here.ID).Cash == 0 && next > 0 {
 		out = append(out, newAlert(theme.Warning.Render(fmt.Sprintf("The DA race is %s off and the tickets are taking money %s.", plural(max(0, next-w.Day), "day"), screenPointer(screenLedger))), "the DA race is taking money"))
 	}
+	if line := m.retireLine(); line != "" {
+		out = append(out, newAlert(line, "retirement"))
+	}
 	return out
+}
+
+// retireLine is how far off retiring is (#195), once the account has
+// something in it: `retire in 12 quiet days · $2.4M short`, or that
+// it is open. Blank before the first dollar goes offshore, and with no
+// exit in the file.
+func (m *Model) retireLine() string {
+	w := m.w
+	off := m.set.Laundering.Offshore()
+	if w.Offshore <= 0 || off.RetireCash <= 0 {
+		return ""
+	}
+	if m.set.Laundering.CanRetire(w) {
+		return theme.Good.Render(fmt.Sprintf("You could retire: %s offshore, %s quiet.", cash(w.Offshore), plural(w.QuietDays, "day")))
+	}
+	var parts []string
+	if d := off.RetireDays - w.QuietDays; d > 0 {
+		parts = append(parts, fmt.Sprintf("retire in %s", plural(d, "quiet day")))
+	}
+	if s := off.RetireCash - w.Offshore; s > 0 {
+		parts = append(parts, cash(s)+" short")
+	}
+	return theme.Subtle.Render(strings.Join(parts, " · "))
 }
 
 // floatMatters is whether anything reads the laundering float: a front

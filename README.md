@@ -389,6 +389,7 @@ The full table is below; `?` brings it up in the game.
 | `$` | bribe | an envelope for the chief or the DA | ledger |
 | `f` | fund city | give a city clean cash for goodwill | ledger |
 | `i` | invest | clean cash into the selected front's levels | ledger |
+| `o` | reserve | clean cash into the offshore account | ledger |
 | `enter` | buy / dial | buy the offer or turn the route selected | ledger |
 | `d` | propose | offer the rival a truce, tribute or a split | rivals |
 | `y` | accept | take the selected offer | rivals |
@@ -646,6 +647,12 @@ earns clean income of its own every day, dirty or no dirty, and pays
 itself back in a hundred days. Each level washes more, costs more, and is
 looked at more; a front whose wash outruns what its income explains is
 the one the auditors find, and one that grows big enough makes the paper.
+
+Clean cash can go offshore (`o` on the ledger): the account survives every
+ending, cannot be spent, and is safe from the fall guy and the auditors;
+it is the score. Up to a lot a day moves unnoticed; every lot over it is
+a page in the DA's file the morning after. Enough offshore and enough
+quiet days in a row, and you can retire.
 
 ### News
 
