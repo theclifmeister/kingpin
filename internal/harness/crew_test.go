@@ -190,7 +190,7 @@ func TestCrewedIsDeterministic(t *testing.T) {
 // crew_slots).
 func TestCrewInvariantsUnderTheBranch(t *testing.T) {
 	cfg := content.MustLoad()
-	crewSim := crew.New(cfg.Crew, cfg.Names, cfg.Reputation.Effects, cfg.Upgrades)
+	crewSim := crew.New(cfg)
 	branch := func(w *game.World) {
 		for _, n := range cfg.Upgrades.Branch("crew") {
 			grant(w, n.ID)

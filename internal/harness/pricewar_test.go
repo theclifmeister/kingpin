@@ -52,7 +52,7 @@ func pricewarRun(t *testing.T, cfg *content.Config, seed uint64, days int, perso
 // squeezed; and nothing moves under a truce or a tribute.
 func TestPricewarInvariants(t *testing.T) {
 	cfg := content.MustLoad()
-	mk, err := market.New(cfg.Market, cfg.City, cfg.Routes.Shipping, cfg.Upgrades, cfg.Reputation.Effects, cfg.Buyers, cfg.Suppliers, cfg.Rivals.Pricewar)
+	mk, err := market.New(cfg)
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -160,7 +160,7 @@ func TestPricewarKeepsThePeace(t *testing.T) {
 // the take against the wage bill (#139: a head is a tenth of it).
 func TestPricewarCutsTheRivalsIncome(t *testing.T) {
 	cfg := content.MustLoad()
-	rv := rivals.New(cfg.Rivals, cfg.Names, cfg.Reputation.Effects, cfg.Law.Effects, cfg.Upgrades)
+	rv := rivals.New(cfg)
 	for seed := uint64(1); seed <= 5; seed++ {
 		income, early := map[string]int{}, map[string]int{}
 		corners := map[string]int{}
@@ -404,7 +404,7 @@ func TestPricewarIsDeterministicAndSaves(t *testing.T) {
 // war, so every pinned number stands (TestMoneyCurve is the guard).
 func TestNoUndercutIsTheOldRun(t *testing.T) {
 	cfg := content.MustLoad()
-	rv := rivals.New(cfg.Rivals, cfg.Names, cfg.Reputation.Effects, cfg.Law.Effects, cfg.Upgrades)
+	rv := rivals.New(cfg)
 	res := pricewarRun(t, cfg, 1, 120, "", Territory(cfg, 40, 3), func(w *game.World) {
 		for _, c := range w.Home().Corners {
 			if c.Owner == game.OwnerRival && (c.Squeeze != 0 || c.Starved != 0) {

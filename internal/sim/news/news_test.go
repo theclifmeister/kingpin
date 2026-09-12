@@ -18,7 +18,7 @@ import (
 // text, the card's.
 func TestEveryEmittedEventHasTemplate(t *testing.T) {
 	cfg := content.MustLoad()
-	n, err := news.New(cfg.Headlines, cfg.Dilemmas, cfg.Progression)
+	n, err := news.New(cfg)
 	if err != nil {
 		t.Fatal(err)
 	}

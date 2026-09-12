@@ -5,6 +5,9 @@ import (
 	"fmt"
 	"math"
 	"sort"
+
+	"github.com/theclifmeister/kingpin/internal/content"
+	"github.com/theclifmeister/kingpin/internal/format"
 )
 
 var (
@@ -177,3 +180,168 @@ func (w *World) applyEffect(c *Card, key string, v float64) error {
 }
 
 func clamp(v float64) float64 { return math.Max(0, math.Min(100, v)) }
+
+// CardSlots are what a card's templates can name, filled from the world
+// when it is drawn (Slots is the save slots' list). The three ids are
+// what the drawn Card keeps beside its rendered text.
+type CardSlots struct {
+	Name     string // the crew member the card is about
+	Role     string
+	Corner   string // a corner of yours
+	Theirs   string // the rival corner it borders, when contested
+	Rival    string // the rival's leader
+	City     string
+	Front    string
+	Product  string // the product you hold most of
+	Amount   string // the sum the card is about, formatted
+	MemberID int    // crew id the card is about; 0 nobody
+	CornerID string // corner id the card is about; "" none
+	Sum      int    // the sum the card is about, unformatted; 0 none
+}
+
+// Eligible reports whether a card's trigger holds in w and, if so, the
+// slots it names: the one checker for the trigger vocabulary a dilemma
+// card, a buyer (sim/market) and a progression tier (sim/news) share,
+// a query over the world and content with no sim behind it, which is
+// why it lives here beside FoldEffects and not in a sim (#144). Every
+// set field must hold. Who fills a slot is fixed by the world, not the
+// dice: the least loyal member under a loyalty line, the most loyal over
+// one, the biggest corner, so the same world always names the same
+// people.
+func Eligible(w *World, c content.CardConfig) (CardSlots, bool) {
+	t := c.Trigger
+	s := CardSlots{City: w.Here().Name, Rival: w.Rival.Leader}
+	if t.DayMin > 0 && w.Day < t.DayMin {
+		return s, false
+	}
+	if t.DayMax > 0 && w.Day > t.DayMax {
+		return s, false
+	}
+	// Heat where you are: the card finds you there.
+	if w.HeatHere() < t.HeatMin {
+		return s, false
+	}
+	if t.HeatMax > 0 && w.HeatHere() > t.HeatMax {
+		return s, false
+	}
+	if w.Cash() < t.CashMin {
+		return s, false
+	}
+	if t.StockMin > 0 {
+		if w.Player.TotalStock() < t.StockMin {
+			return s, false
+		}
+	}
+	if len(w.Crew.Members) < t.CrewMin {
+		return s, false
+	}
+	if t.Role != "" || t.LoyaltyBelow > 0 || t.LoyaltyAbove > 0 {
+		var pick *CrewMember
+		for i := range w.Crew.Members {
+			m := &w.Crew.Members[i]
+			if t.Role != "" && m.Role != t.Role {
+				continue
+			}
+			if t.LoyaltyBelow > 0 && m.Loyalty >= t.LoyaltyBelow {
+				continue
+			}
+			if t.LoyaltyAbove > 0 && m.Loyalty <= t.LoyaltyAbove {
+				continue
+			}
+			switch {
+			case pick == nil:
+				pick = m
+			case t.LoyaltyBelow > 0 && m.Loyalty < pick.Loyalty:
+				pick = m
+			case t.LoyaltyBelow == 0 && m.Loyalty > pick.Loyalty:
+				pick = m
+			}
+		}
+		if pick == nil {
+			return s, false
+		}
+		s.Name, s.Role, s.MemberID = pick.Name, pick.Role, pick.ID
+	}
+	if t.Corners > 0 || t.Contested {
+		var mine, theirs *Corner
+		corners := w.Corners()
+		for i := range corners {
+			c := &corners[i]
+			if !c.Worked() {
+				continue
+			}
+			if t.Contested {
+				var o *Corner
+				for j := range corners {
+					r := &corners[j]
+					if r.Owner == OwnerRival && r.Borders(*c) && (o == nil || r.Demand > o.Demand) {
+						o = r
+					}
+				}
+				if o == nil {
+					continue
+				}
+				if mine == nil || c.Demand > mine.Demand {
+					mine, theirs = c, o
+				}
+				continue
+			}
+			if mine == nil || c.Demand > mine.Demand {
+				mine = c
+			}
+		}
+		if mine == nil || w.Worked() < t.Corners {
+			return s, false
+		}
+		s.Corner, s.CornerID = mine.Name, mine.ID
+		if theirs != nil {
+			s.Theirs = theirs.Name
+		}
+	}
+	if t.Rival && w.RivalHeld() == 0 {
+		return s, false
+	}
+	if t.Personality != "" && (w.RivalHeld() == 0 || w.Rival.Personality != t.Personality) {
+		return s, false
+	}
+	if t.WarMin > 0 && (w.RivalHeld() == 0 || w.Rival.War < t.WarMin) {
+		return s, false
+	}
+	if t.Fronts {
+		if len(w.Fronts) == 0 {
+			return s, false
+		}
+		s.Front = w.Fronts[0].Name
+	}
+	// The progression's two (#147): the high-water mark every unlock
+	// reads, and the lieutenant gate's count of cities with a held corner.
+	if w.Stats.PeakCash < t.PeakCashMin {
+		return s, false
+	}
+	if t.CitiesHeld > 0 && w.CitiesHeld() < t.CitiesHeld {
+		return s, false
+	}
+	most := -1
+	for _, id := range w.Products {
+		q := 0
+		for _, cid := range w.CityOrder {
+			q += w.Stock(cid, id)
+		}
+		if q > most {
+			most, s.Product = q, w.ProductName(id)
+		}
+	}
+	s.Sum = nice(max(c.Amount, int(c.AmountShare*float64(w.Player.DirtyCash))))
+	s.Amount = format.Money(s.Sum)
+	return s, true
+}
+
+// nice rounds a sum to two significant figures, the way somebody names a
+// price out loud: $2,347 is "twenty-three hundred".
+func nice(n int) int {
+	if n < 100 {
+		return n
+	}
+	p := math.Pow(10, math.Floor(math.Log10(float64(n)))-1)
+	return int(math.Round(float64(n)/p) * p)
+}

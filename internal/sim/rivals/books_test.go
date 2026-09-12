@@ -351,7 +351,7 @@ func TestBuyOffSendsHeadsHome(t *testing.T) {
 }
 
 func newSim(cfg *content.Config) *rivals.Sim {
-	return rivals.New(cfg.Rivals, cfg.Names, cfg.Reputation.Effects, cfg.Law.Effects, cfg.Upgrades)
+	return rivals.New(cfg)
 }
 
 // A scout reads the books as the night leaves them into Known, a

@@ -28,16 +28,18 @@ type Sim struct {
 	deck []card
 }
 
-// New parses the headline and card templates once. It refuses a deck
-// whose choices use an effect key the world does not apply. The
-// progression (#147) is the tiers the sim stamps every morning.
-func New(cfg content.HeadlinesConfig, dilemmas content.DilemmasConfig, progression content.ProgressionConfig) (*Sim, error) {
-	deck, err := parseDeck(dilemmas)
+// New parses the headline and card templates once, copying what it
+// reads of the config (#144): the headlines, the dilemma deck and the
+// progression. It refuses a deck whose choices use an effect key the
+// world does not apply. The progression (#147) is the tiers the sim
+// stamps every morning.
+func New(cfg *content.Config) (*Sim, error) {
+	deck, err := parseDeck(cfg.Dilemmas)
 	if err != nil {
 		return nil, fmt.Errorf("dilemmas: %w", err)
 	}
-	s := &Sim{cfg: cfg, dcfg: dilemmas, pcfg: progression, tmpl: map[string][]*template.Template{}, deck: deck}
-	for key, list := range cfg.Templates {
+	s := &Sim{cfg: cfg.Headlines, dcfg: cfg.Dilemmas, pcfg: cfg.Progression, tmpl: map[string][]*template.Template{}, deck: deck}
+	for key, list := range s.cfg.Templates {
 		for i, src := range list {
 			t, err := template.New(fmt.Sprintf("%s#%d", key, i)).Funcs(articles).Parse(article(src))
 			if err != nil {
@@ -46,7 +48,7 @@ func New(cfg content.HeadlinesConfig, dilemmas content.DilemmasConfig, progressi
 			s.tmpl[key] = append(s.tmpl[key], t)
 		}
 	}
-	for i, src := range cfg.Flavour {
+	for i, src := range s.cfg.Flavour {
 		t, err := template.New(fmt.Sprintf("flavour#%d", i)).Parse(src)
 		if err != nil {
 			return nil, fmt.Errorf("flavour[%d]: %w", i, err)

@@ -28,14 +28,15 @@ type Sim struct {
 	float  int // dirty cash the road never spends below: the laundering float
 }
 
-// New builds a logistics sim from the routes, the cities they join, the
-// market (for what a fresh city's ladder starts at when a save is
-// migrated, and the pressure a lot puts on the supplier), the upgrade
-// tree (which scales that pressure) and the float the road leaves in the
-// till, which is the laundering float: the road never starves the street
-// any more than the wash does.
-func New(cfg content.RoutesConfig, cities content.CityConfig, market content.MarketConfig, tree content.UpgradesConfig, float int) *Sim {
-	return &Sim{cfg: cfg, cities: cities, market: market, tree: tree, float: float}
+// New builds a logistics sim from the config, copying what it reads
+// (#144): the routes, the cities they join, the market (for what a
+// fresh city's ladder starts at when a save is migrated, and the
+// pressure a lot puts on the supplier), the upgrade tree (which scales
+// that pressure) and the float the road leaves in the till, which is
+// the laundering float: the road never starves the street any more than
+// the wash does.
+func New(cfg *content.Config) *Sim {
+	return &Sim{cfg: cfg.Routes, cities: cfg.City, market: cfg.Market, tree: cfg.Upgrades, float: cfg.Laundering.Laundering.Float}
 }
 
 func (s *Sim) Name() string { return "logistics" }
