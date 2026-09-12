@@ -228,23 +228,6 @@ func (w *World) dropOffer(id int) {
 	w.Offers = slices.DeleteFunc(w.Offers, func(o Offer) bool { return o.ID == id })
 }
 
-// StreetValue is what the corners the player works at home move in a day
-// at today's prices: the base a tribute is a cut of. The rival lives at
-// home, so that is the street it is talking about.
-func (w *World) StreetValue() float64 {
-	h := w.Home()
-	if h == nil {
-		return 0
-	}
-	v := 0.0
-	for _, id := range w.Products {
-		if m := h.Market[id]; m != nil {
-			v += w.Demand(h.ID, id) * m.Price
-		}
-	}
-	return v
-}
-
 // HomeCorners are the corners of the home city, the ground the rival and
 // its deals are about.
 func (w *World) HomeCorners() []Corner {

@@ -59,7 +59,7 @@ func (s *Sim) Favour(w *game.World, d game.Deal) float64 {
 	case game.DealTribute:
 		cuts := dip.TributeCuts
 		cut := 0.0
-		if v := w.StreetValue(); v > 0 {
+		if v := s.TributeBase(w); v > 0 {
 			cut = float64(d.Terms.PerDay) / v
 		}
 		// A fat cut is the easy ask: the ramp runs the other way.
@@ -345,10 +345,11 @@ func (s *Sim) offer(w *game.World, t *game.Tick) {
 	t.Emit(events.DealOffered{Day: t.Day, ID: o.ID, Rival: r.Leader, Deal: d.Kind, Terms: w.Describe(d), Expires: o.Expires})
 }
 
-// cut is a tribute at a cut of the player's daily street value, rounded
-// to two figures and never under the minimum.
+// cut is a tribute at a cut of TributeBase, the player's daily street
+// value in the products the rival deals in, rounded to two figures and
+// never under the minimum.
 func (s *Sim) cut(w *game.World, share float64) int {
-	v := share * w.StreetValue()
+	v := share * s.TributeBase(w)
 	if v < 100 {
 		return max(s.cfg.Diplomacy.TributeMin, int(math.Round(v)))
 	}
@@ -356,6 +357,6 @@ func (s *Sim) cut(w *game.World, share float64) int {
 	return max(s.cfg.Diplomacy.TributeMin, int(math.Round(v/mag)*mag))
 }
 
-// Cut is the tribute a cut of today's street value comes to, for the
+// Cut is the tribute a cut of today's TributeBase comes to, for the
 // propose dialog and the diplomat policy.
 func (s *Sim) Cut(w *game.World, share float64) int { return s.cut(w, share) }

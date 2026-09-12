@@ -174,11 +174,14 @@ func TestPricewarStarvesTheMuscle(t *testing.T) {
 	}
 }
 
-// The tribute at the middle cut (tribute_cuts[1] of the player's daily
-// street value) as a share of the rival's take, logged per seed under
-// territory at day 120: it reads several times the take, because
-// World.StreetValue counts the port's product on the player's corners
-// once the wholesaler's line is crossed and the rival's take does not.
+// The tribute at the middle cut (tribute_cuts[1] of rivals.Sim.TributeBase,
+// the player's daily street value in the products the rival deals in,
+// #162) as a share of the rival's take under territory at day 120: the
+// median over five seeds lands between 0.3x and 1x. At equal ground the
+// ratio is the cut over the rival's margin, 0.10 / 0.30; before #162 the
+// base was World.StreetValue, which counted the port's product on the
+// player's corners once the wholesaler's line was crossed while the take
+// did not, and the middle cut read 6.1x the take (2.9x to 13.5x by seed).
 func TestTributeShareOfTheTake(t *testing.T) {
 	cfg := content.MustLoad()
 	rv := rivals.New(cfg.Rivals, cfg.Names, cfg.Reputation.Effects, cfg.Law.Effects, cfg.Upgrades)
@@ -194,11 +197,11 @@ func TestTributeShareOfTheTake(t *testing.T) {
 		income, _ := RivalBooks(cfg, fw)
 		cut := rv.Cut(fw, cfg.Rivals.Diplomacy.TributeCuts[1])
 		shares = append(shares, float64(cut)/float64(max(1, income)))
-		t.Logf("seed %d: a tribute at the middle cut is %d a day against a take of %d (%.1fx)", seed, cut, income, float64(cut)/float64(max(1, income)))
+		t.Logf("seed %d: a tribute at the middle cut is %d a day against a take of %d (%.2fx)", seed, cut, income, float64(cut)/float64(max(1, income)))
 	}
 	sort.Float64s(shares)
-	t.Logf("median: the middle cut is %.1fx the rival's take at day 120", shares[2])
-	if shares[2] <= 0 {
-		t.Fatal("no tribute")
+	t.Logf("median: the middle cut is %.2fx the rival's take at day 120", shares[2])
+	if shares[2] < 0.3 || shares[2] > 1 {
+		t.Fatalf("the middle cut is %.2fx the rival's take at day 120, want 0.3x to 1x", shares[2])
 	}
 }
