@@ -3,7 +3,10 @@ package ui
 import (
 	"bytes"
 	"encoding/gob"
+	"os"
+	"path/filepath"
 	"reflect"
+	"regexp"
 	"strings"
 	"testing"
 	"time"
@@ -11,6 +14,7 @@ import (
 	tea "github.com/charmbracelet/bubbletea"
 	"github.com/charmbracelet/lipgloss"
 
+	"github.com/theclifmeister/kingpin/internal/content"
 	"github.com/theclifmeister/kingpin/internal/game"
 	"github.com/theclifmeister/kingpin/internal/ui/anim"
 	"github.com/theclifmeister/kingpin/internal/ui/theme"
@@ -27,6 +31,31 @@ import (
 func newAnimModel(t *testing.T, w, h int) *Model {
 	t.Helper()
 	return newModelWith(t, w, h, Options{Anim: true, MorningAnim: true})
+}
+
+// demoModel is cmd/anim's model (#161, demo.go): the run every
+// registered scene is put up on, through DemoScene, for the guards
+// that walk the registry inside the game's own modes.
+func demoModel(t *testing.T, w, h int) *Model {
+	t.Helper()
+	t.Setenv("KINGPIN_HOME", t.TempDir())
+	m, err := DemoModel(content.MustLoad(), 3, w, h)
+	if err != nil {
+		t.Fatal(err)
+	}
+	return m
+}
+
+// runOut ticks the scene up on the model to its end and returns the
+// commands' count, so a caller can want the chain to have ended.
+func runOut(m *Model, from time.Time, over time.Duration) (ticks int, last tea.Cmd) {
+	for at := time.Duration(0); at <= over+anim.Frame; at += anim.Frame {
+		last = tickAt(m, from.Add(at))
+		if last != nil {
+			ticks++
+		}
+	}
+	return ticks, last
 }
 
 // onMenu puts a fresh model on the start menu with the loop running:
@@ -216,6 +245,40 @@ func TestSceneStopsTicking(t *testing.T) {
 	if _, cmd := m.Update(key("esc")); cmd != nil {
 		t.Fatal("a key after Done returned a command")
 	}
+	// And every registered scene (#161), up in its own mode through
+	// DemoScene: the start returns a tick, every frame the next, the
+	// chain ends by itself at the length and the command after is nil;
+	// put up again, a key mid-scene ends it, consumed, the mode's own,
+	// and the command after is nil. The title idles on: a key acts on
+	// the menu, and the loop's next pass is a tick.
+	d := demoModel(t, 80, 24)
+	for _, sc := range anim.Scenes() {
+		if cmd := d.DemoScene(sc.Name, ""); cmd == nil || d.scene == nil {
+			t.Fatalf("%s: DemoScene started nothing: cmd %v scene %v", sc.Name, cmd, d.scene)
+		}
+		mode := d.mode
+		ticks, last := runOut(d, now, sc.Length)
+		if sc.Name == "title" {
+			if last == nil || d.scene == nil || !d.scene.Idle {
+				t.Errorf("title: the loop ended: cmd %v scene %v", last, d.scene)
+			}
+			if _, cmd := d.Update(key("down")); cmd != nil || d.startChoice != 1 || d.scene == nil {
+				t.Errorf("title: a key on the menu: cmd %v row %d scene %v", cmd, d.startChoice, d.scene)
+			}
+			continue
+		}
+		if ticks < 2 || last != nil || d.scene != nil || d.mode != mode {
+			t.Errorf("%s: %d ticks, the chain ended with %v, scene %v, mode %v → %v", sc.Name, ticks, last, d.scene, mode, d.mode)
+		}
+		if _, cmd := d.Update(key("esc")); cmd != nil {
+			t.Errorf("%s: a key after Done returned a command", sc.Name)
+		}
+		d.DemoScene(sc.Name, "")
+		tickAt(d, now)
+		if _, cmd := d.Update(key("x")); cmd != nil || d.scene != nil || d.mode != mode {
+			t.Errorf("%s: x mid-scene: cmd %v scene %v mode %v → %v", sc.Name, cmd, d.scene, mode, d.mode)
+		}
+	}
 }
 
 // TestSceneNeverTouchesTheWorld: a run played through the UI with
@@ -260,6 +323,39 @@ func TestSceneNeverTouchesTheWorld(t *testing.T) {
 	if !reflect.DeepEqual(on, off) {
 		t.Fatal("the run with animation on differs from the run with it off at day 10")
 	}
+	// And every registered scene (#161), up in its own mode through
+	// DemoScene: the world after the scene has run out, and after one
+	// ended by a key, is the world before its first frame, gob-equal
+	// (DemoScene's own setup, an ending or a card put on the world for
+	// the scene to read, is before the first frame).
+	decoded := func(w *game.World) *game.World {
+		var buf bytes.Buffer
+		if err := gob.NewEncoder(&buf).Encode(w); err != nil {
+			t.Fatal(err)
+		}
+		var out game.World
+		if err := gob.NewDecoder(&buf).Decode(&out); err != nil {
+			t.Fatal(err)
+		}
+		return &out
+	}
+	d := demoModel(t, 120, 40)
+	now := time.Unix(1_700_000_000, 0)
+	for _, sc := range anim.Scenes() {
+		d.DemoScene(sc.Name, "")
+		before := decoded(d.w)
+		runOut(d, now, sc.Length)
+		if !reflect.DeepEqual(before, decoded(d.w)) {
+			t.Errorf("%s: the world moved while the scene ran", sc.Name)
+		}
+		d.DemoScene(sc.Name, "")
+		before = decoded(d.w)
+		tickAt(d, now)
+		d.Update(key("x"))
+		if !reflect.DeepEqual(before, decoded(d.w)) {
+			t.Errorf("%s: the world moved on the key that ended the scene", sc.Name)
+		}
+	}
 }
 
 // TestScenesFit: every registered scene's frames at t = 0, half and
@@ -284,6 +380,29 @@ func TestScenesFit(t *testing.T) {
 				}
 				assertFits(t, strings.Join(frame, "\n"), sz[0], sz[1], what)
 			}
+		}
+	}
+	// And every registered scene inside its own mode (#161), through
+	// DemoScene at the three sizes, at t = 0, half and the end, and the
+	// render after Done: the frame holds, and the map's scene keeps the
+	// three-part frame.
+	now := time.Unix(1_700_000_000, 0)
+	for _, sz := range [][2]int{{80, 24}, {100, 30}, {120, 40}} {
+		d := demoModel(t, sz[0], sz[1])
+		for _, sc := range anim.Scenes() {
+			d.DemoScene(sc.Name, "")
+			for _, at := range []time.Duration{0, sc.Length / 2, sc.Length} {
+				tickAt(d, now.Add(at))
+				what := sc.Name + " in its mode at " + at.String()
+				assertFits(t, d.View(), sz[0], sz[1], what)
+				if sc.Name == "strike" {
+					assertFrame(t, d, what)
+				}
+			}
+			if d.scene != nil && !d.scene.Idle {
+				t.Errorf("%s: still up at %v", sc.Name, sc.Length)
+			}
+			assertFits(t, d.View(), sz[0], sz[1], sc.Name+" after Done")
 		}
 	}
 	// The title over the menu: the art's six rows, the box under them,
@@ -425,5 +544,99 @@ func TestTitleLoopCyclesTheEffects(t *testing.T) {
 		if n != "matrix" {
 			t.Errorf("pinned to matrix, pass %d played %s", i, n)
 		}
+	}
+}
+
+// TestSceneLengths (#161): every registered scene's Length is the
+// moment Done turns true (the package's TestScenesRegistry reads it
+// too), every interstitial runs 1.5 s at most and the morning's, the
+// most frequent, 250 ms; the title's pass, an idle loop behind the
+// menu, is held to the same 1.5 s. The per-scene pins
+// (TestMorningSceneIsShort, TestBustSceneOnAnEnforcement) stay beside
+// it.
+func TestSceneLengths(t *testing.T) {
+	for _, sc := range anim.Scenes() {
+		s := sc.New(1)
+		if s.Done(sc.Length-anim.Frame) || !s.Done(sc.Length) {
+			t.Errorf("%s: Done is not at its Length, %v", sc.Name, sc.Length)
+		}
+		limit := 1500 * time.Millisecond
+		if sc.Name == "morning" {
+			limit = 250 * time.Millisecond
+		}
+		if sc.Length > limit {
+			t.Errorf("%s runs %v, over %v", sc.Name, sc.Length, limit)
+		}
+	}
+}
+
+// TestEveryModeWithASceneIsListed (#161): the registry is held to the
+// code both ways, by a grep over ui/scene*.go. Every site that starts a
+// scene seeds it on its own stream, anim.Seed(seed, day, "<name>")
+// (the rule of docs/animation.md), or, the title's loop, through
+// anim.TitlePass, whose stream is "title"; every such name is a
+// registered scene's stream (its Name before any `:`), and every
+// registered scene's stream is seeded at a site. Then, through
+// DemoScene, every registered scene comes up on its name, in the mode
+// (or the screen) its Starts names.
+func TestEveryModeWithASceneIsListed(t *testing.T) {
+	files, err := filepath.Glob("scene*.go")
+	if err != nil || len(files) == 0 {
+		t.Fatalf("no scene files: %v", err)
+	}
+	seeds := regexp.MustCompile(`anim\.Seed\([^)]*"([a-z]+)"\)`)
+	seeded := map[string][]string{}
+	for _, f := range files {
+		if strings.HasSuffix(f, "_test.go") {
+			continue
+		}
+		src, err := os.ReadFile(f)
+		if err != nil {
+			t.Fatal(err)
+		}
+		var names []string
+		for _, m := range seeds.FindAllStringSubmatch(string(src), -1) {
+			names = append(names, m[1])
+		}
+		if strings.Contains(string(src), "anim.TitlePass(") {
+			names = append(names, "title")
+		}
+		if strings.Contains(string(src), "m.play(") && len(names) == 0 {
+			t.Errorf("%s starts a scene on no stream of its own", f)
+		}
+		for _, n := range names {
+			seeded[n] = append(seeded[n], f)
+		}
+	}
+	registered := map[string]bool{}
+	for _, sc := range anim.Scenes() {
+		stream, _, _ := strings.Cut(sc.Name, ":")
+		registered[stream] = true
+		if len(seeded[stream]) == 0 {
+			t.Errorf("%s is registered and no site in ui/scene*.go seeds %q", sc.Name, stream)
+		}
+	}
+	for name, fs := range seeded {
+		if !registered[name] {
+			t.Errorf("%v seeds %q, which no registered scene is", fs, name)
+		}
+	}
+	// The demo puts every registered scene up in the mode Starts names.
+	modes := map[string]mode{"modeStart": modeStart, "modeStage": modeStage, "modeCard": modeCard, "modeOver": modeOver, "modeReport": modeReport, "screenMap": modePlay}
+	where := regexp.MustCompile(`\((\w+)\)$`)
+	d := demoModel(t, 80, 24)
+	for _, sc := range anim.Scenes() {
+		if cmd := d.DemoScene(sc.Name, ""); cmd == nil || d.scene == nil {
+			t.Errorf("%s: DemoScene started nothing: cmd %v scene %v", sc.Name, cmd, d.scene)
+			continue
+		}
+		m := where.FindStringSubmatch(sc.Starts)
+		want, ok := modes[m[1]]
+		if m == nil || !ok || d.mode != want || (m[1] == "screenMap" && d.screen != screenMap) {
+			t.Errorf("%s: Starts %q; the demo put it up in mode %v screen %v", sc.Name, sc.Starts, d.mode, d.screen)
+		}
+	}
+	if cmd := d.DemoScene("no such scene", ""); cmd != nil || d.scene != nil {
+		t.Errorf("an unknown name: cmd %v scene %v", cmd, d.scene)
 	}
 }

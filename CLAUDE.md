@@ -30,6 +30,7 @@ go run ./cmd/balance -policy managed -runs 50 -days 200   # headless balance num
 go run ./cmd/balance -policy aggressive -seed 7 -trace    # per-day trace of one run
 go run ./cmd/keys -w                                       # README key table from ui/keys.go
 go test ./internal/ui -run TestReadmeCaptures -update      # README captures from the rich fixture
+go run ./cmd/anim                                          # review every scene (-list, -scene, -seed)
 ```
 
 `cmd/balance` policies: `idle | hide | quiet | normal | aggressive | careful | managed | upgraded | crewed | territory | war | diplomat | laundered | funded | distributor | delegated | dealer | stocked | routine | leveraged | boss | pricewar | saboteur | tipster` (an unknown one falls back to `normal`). What each plays, its flags (`-lielow -corners -force -rival -cash -own -cards -lt -chief -da -undercut -credit -houses -fronts -heat -pace`) and what the output lines mean are in `docs/harness.md`. Day counts (`harness.Horizon`, `TierDays`, `-days`) are where the tooling *looks*, never a run length: the game has no day cap and a run ends only through an ending (#27). Do not add mechanics that end a run for playing on.
@@ -54,7 +55,7 @@ The game is a set of independent, deterministic simulations stepped once per in-
 
 ### The map
 
-Package layout: `cmd/kingpin` (the game), `cmd/balance` (headless runs), `cmd/keys` (the README's table); `internal/game` (`World`, actions, clock, saves), `internal/sim/<name>` (one sim each), `internal/events`, `internal/content` (TOML and decode), `internal/format`, `internal/harness` (scripted policies and the acceptance tests), `internal/ui` (screens, dialogs, `theme`, `anim`).
+Package layout: `cmd/kingpin` (the game), `cmd/balance` (headless runs), `cmd/keys` (the README's table), `cmd/anim` (the scenes, for review); `internal/game` (`World`, actions, clock, saves), `internal/sim/<name>` (one sim each), `internal/events`, `internal/content` (TOML and decode), `internal/format`, `internal/harness` (scripted policies and the acceptance tests), `internal/ui` (screens, dialogs, `theme`, `anim`).
 
 | Subsystem | Code | Tuning | Doc | Pins it |
 |---|---|---|---|---|
@@ -83,7 +84,7 @@ Package layout: `cmd/kingpin` (the game), `cmd/balance` (headless runs), `cmd/ke
 | Fast-forward, alerts, stop events | `ui/fast.go`, `dashboard.go` `alerts()` | | `docs/ui.md` | `TestFastForwardIsTheSameDays`, `TestFastForwardStopsOnACard` |
 | The cart, the dialogs, the delta | `ui/cart.go`, `ui/dialogs.go`, `ui/market.go` `priceFacts` | | `docs/cart.md` | `cart_test.go`, `delta_test.go`, `toggle_test.go` |
 | Dashboard, map, ledger, rivals screens | `ui/dashboard.go`, `map.go`, `routes.go`, `ledger.go`, `rivals.go` | | `docs/frame-and-pane.md`, `docs/ui.md` | `dashboard_test.go`, `TestRouteMarkerMoves`, `TestTablesAreConsistent` |
-| Animation: scenes, effects, the title loop, the map's strike | `ui/anim`, `ui/scene.go`, `ui/scene_map.go` | | `docs/animation.md` | `TestNoTickInPlayMode`, `TestSceneStopsTicking`, `TestScenesFit`, `TestStrikeSceneOnTheMap` |
+| Animation: scenes, effects, the title loop, the registry, `cmd/anim` | `ui/anim` (`Scenes()`), `ui/scene*.go`, `ui/demo.go`, `cmd/anim` | | `docs/animation.md` | `TestEveryModeWithASceneIsListed`, `TestNoTickInPlayMode`, `TestSceneStopsTicking`, `TestScenesFit`, `TestSceneLengths` |
 
 ### Rules of thumb that took a PR to learn
 
