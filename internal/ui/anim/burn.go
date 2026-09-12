@@ -22,8 +22,21 @@ import (
 //
 // The dice: the front's jitter; Frame reads it.
 func Burn(text Text, accent lipgloss.Color, over time.Duration, rng *rand.Rand) Scene {
+	return BurnFrom(theme.Dim)(text, accent, over, rng)
+}
+
+// BurnFrom is the burn with the text standing in a colour of its own
+// before the fire reaches it, rather than theme.Dim: a corner's cell
+// burning from the colour it was to the colour it is (#158).
+func BurnFrom(from lipgloss.Color) Maker {
+	return func(text Text, accent lipgloss.Color, over time.Duration, rng *rand.Rand) Scene {
+		return newBurn(text, from, accent, over, rng)
+	}
+}
+
+func newBurn(text Text, from, accent lipgloss.Color, over time.Duration, rng *rand.Rand) *burn {
 	over = length(over)
-	b := &burn{text: text, accent: accent, over: over, each: over / 4}
+	b := &burn{text: text, from: from, accent: accent, over: over, each: over / 4}
 	W, H := text.Width(), text.Height()
 	front := over * 7 / 10
 	cols := make([]float64, W)
@@ -64,6 +77,7 @@ type ember struct {
 
 type burn struct {
 	text   Text
+	from   lipgloss.Color // what the text stands in before it burns
 	accent lipgloss.Color
 	over   time.Duration
 	each   time.Duration // how long a cell burns
@@ -96,7 +110,7 @@ func (b *burn) paint(cv *Canvas, t time.Duration) {
 		x, y := ox+c.X, oy+c.Y
 		switch {
 		case t < c.ignite:
-			cv.Set(x, y, c.R, theme.Dim)
+			cv.Set(x, y, c.R, b.from)
 		case t >= c.ignite+b.each:
 			cv.Set(x, y, c.R, b.accent)
 		default:

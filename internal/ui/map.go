@@ -251,11 +251,7 @@ func (m *Model) viewMap() string {
 	// route) and scrolls by row to keep the corner under the cursor in
 	// view: a city with more corners than fit scrolls, the routes never
 	// clamp.
-	cols, rows := 0, 0
-	for _, c := range cs {
-		cols = max(cols, c.X+1)
-		rows = max(rows, c.Y+1)
-	}
+	cols, rows := m.mapGrid()
 	routes := m.routeLines(width)
 	room := m.mainHeight() - 1
 	if len(routes) > 0 {
@@ -266,7 +262,8 @@ func (m *Model) viewMap() string {
 		m.mapTop = max(min(m.mapTop, sel.Y), sel.Y-visible+1)
 	}
 	m.mapTop = max(0, min(m.mapTop, rows-visible))
-	cellW := max(12, min(24, (width-2)/max(1, cols)))
+	cellW := m.mapCellW()
+	burning := m.mapBurning() // #158: the cells the scene is over, by corner
 	grid := map[[2]int]*game.Corner{}
 	for i := range cs {
 		grid[[2]int{cs[i].X, cs[i].Y}] = &cs[i]
@@ -285,23 +282,17 @@ func (m *Model) viewMap() string {
 			eyed := m.eyed(c)
 			_, undercut := w.Undercutting(c.ID)
 			undercut = undercut && c.Owner == game.OwnerRival
-			mark := "·"
-			switch {
-			case c.Held():
-				mark = "▪"
-			case undercut:
-				mark = "$" // the price war (#68): tonight's orders sell cheap here
-			case c.Owner == game.OwnerRival:
-				mark = "▴"
-			case eyed:
-				mark = "?" // the tell (#69): the rival sets up here tomorrow
-			}
+			mark := m.cellMark(c)
 			// The chosen corner's name cell is Selected, and stays so
 			// while the cursor is on the routes; the tell's mark is the
 			// rival's colour on any other row, the price war's the
-			// market's.
-			name := fit(mark+" "+strings.ToUpper(c.Name), cellW-1)
+			// market's. A cell the strike scene is over (#158) is the
+			// scene's row, the cell burning from the colour it was to
+			// the colour it is, until the scene ends.
+			name := m.cellName(c, cellW)
 			switch {
+			case burning[c.ID] != "":
+				name = fit(burning[c.ID], cellW-1)
 			case sel != nil && c.ID == sel.ID:
 				name = theme.Selected.Render(name)
 			case eyed:
@@ -355,6 +346,47 @@ func (m *Model) viewMap() string {
 	return strings.Join(lines, "\n") + "\n"
 }
 
+// mapGrid is the shown city's grid: how many columns and rows its
+// corners lay out on.
+func (m *Model) mapGrid() (cols, rows int) {
+	for _, c := range m.shown().Corners {
+		cols = max(cols, c.X+1)
+		rows = max(rows, c.Y+1)
+	}
+	return cols, rows
+}
+
+// mapCellW is how wide a cell of the grid is: the body width shared
+// among the columns, 12 at least and 24 at most.
+func (m *Model) mapCellW() int {
+	cols, _ := m.mapGrid()
+	return max(12, min(24, (m.mainWidth()-2)/max(1, cols)))
+}
+
+// cellMark is the glyph before a corner's name: ▪ held, ▴ the rival's,
+// $ the price war's (#68: tonight's orders sell cheap here), ? the
+// tell's (#69: the rival sets up here tomorrow), · free.
+func (m *Model) cellMark(c *game.Corner) string {
+	_, undercut := m.w.Undercutting(c.ID)
+	switch {
+	case c.Held():
+		return "▪"
+	case undercut && c.Owner == game.OwnerRival:
+		return "$"
+	case c.Owner == game.OwnerRival:
+		return "▴"
+	case m.eyed(c):
+		return "?"
+	}
+	return "·"
+}
+
+// cellName is a corner's name cell, plain: the mark and the name in
+// caps, fit to the cell.
+func (m *Model) cellName(c *game.Corner, cellW int) string {
+	return fit(m.cellMark(c)+" "+strings.ToUpper(c.Name), cellW-1)
+}
+
 // eyed reports whether the corner is the one the rival telegraphed
 // (#69): free today, theirs tomorrow unless somebody is posted on it.
 func (m *Model) eyed(c *game.Corner) bool {
@@ -380,7 +412,11 @@ func (m *Model) mapDetails() []section {
 	if sel == nil {
 		return nil
 	}
-	return []section{m.cornerSection(sel)}
+	sec := m.cornerSection(sel)
+	if head, ok := m.mapHead(sel); ok {
+		sec.title = head // #158: the name sliding in, rendered
+	}
+	return []section{sec}
 }
 
 // cornerSection is the corner inspector: whose it is and since when,

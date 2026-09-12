@@ -104,6 +104,8 @@ type Model struct {
 	titleEffect string       // the effect the title loop's current pass plays (#153), the next pass avoids it
 	sceneGen    int          // which scene the outstanding tick was issued for
 	ticking     bool         // a tick is on its way
+	mapScene    []mapFlip    // the corners that changed hands this morning, for the map's scene (#158): until their map is shown or the next morning
+	mapPlaying  []string     // the corners the map's scene up now burns, in its frame's order
 
 	width, height  int
 	screen         screen
@@ -248,6 +250,7 @@ func (m *Model) startRun(seed uint64) {
 	m.mapCursor = m.yourCorner()
 	m.flash = nil
 	m.fastStop = ""
+	m.mapScene = nil
 	m.say(fmt.Sprintf("New run. %s, %s in your pocket. Seed %d.", m.w.Here().Name, money(m.w.Player.DirtyCash), m.w.Seed))
 	_ = game.Save(m.slot, m.w)
 	m.journalFilter = "" // a new run's journal is read whole
@@ -301,6 +304,7 @@ func (m *Model) continueRun(slot int) error {
 	m.city = w.Player.Location
 	m.mapCursor = m.yourCorner()
 	m.fastStop = ""
+	m.mapScene = nil
 	m.say(fmt.Sprintf("Continued day %d.", w.Day))
 	m.journalFilter = ""
 	m.refreshJournal()
@@ -326,8 +330,7 @@ func (m *Model) endDay() {
 		m.mode = modeOver
 		return
 	}
-	m.stepDay()
-	m.morning()
+	m.morning(m.stepDay())
 }
 
 // stepDay ends a day through the clock, saves and follows the journal;
@@ -345,8 +348,11 @@ func (m *Model) stepDay() []events.Event {
 // morning opens the day that has just begun: the run over, else the
 // stage (#149), the card or the report, with the danger winning the
 // status bar: the tell that somebody on the payroll is talking, in red,
-// over the save.
-func (m *Model) morning() {
+// over the save. evs are the tick's events, the day's that just ended
+// (a fast-forward's the stopping day's): the corners that changed
+// hands in them are kept for the map's scene (#158).
+func (m *Model) morning(evs []events.Event) {
+	m.mapScene = mapFlips(evs)
 	if m.w.Over != nil {
 		m.mode = modeOver
 		m.playOver() // the ending's scene (#156), then the summary
@@ -390,6 +396,7 @@ func (m *Model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 			m.modalScroll = 0 // a new modal opens at its top
 		}
 		if cmd == nil {
+			m.mapSceneStart() // #158: the map's scene, on the key that shows it
 			cmd = m.tick()
 		}
 		return r, cmd

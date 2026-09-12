@@ -40,7 +40,7 @@ func TestEndingSceneByCause(t *testing.T) {
 	for _, cause := range overCauses {
 		m := newAnimModel(t, 80, 24)
 		m.w.Over = &game.Ending{Day: m.w.Day, Cause: cause, PeakCash: m.w.Stats.PeakCash}
-		m.morning()
+		m.morning(nil)
 		if m.mode != modeOver || m.scene == nil || m.scene.Idle {
 			t.Fatalf("%s: mode %v scene %v", cause, m.mode, m.scene)
 		}
@@ -177,7 +177,7 @@ func TestModalsFitOver(t *testing.T) {
 			m := richModel(t, sz[0], sz[1])
 			m.opts.Anim = true
 			m.w.Over = &game.Ending{Day: m.w.Day, Cause: cause, PeakCash: m.w.Stats.PeakCash}
-			m.morning()
+			m.morning(nil)
 			if m.mode != modeOver || m.scene == nil {
 				t.Fatalf("%s: mode %v scene %v", cause, m.mode, m.scene)
 			}
