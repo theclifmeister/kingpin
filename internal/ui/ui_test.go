@@ -1906,8 +1906,12 @@ func TestRouteAndTravelKeys(t *testing.T) {
 	}
 	assertFits(t, m.View(), 80, 24, "report with a shipment")
 	m.Update(key("enter"))
-	if !strings.Contains(stripANSI(m.View()), "30 ") {
-		t.Fatal("the map does not show what is on the road")
+	// The map shows where it is (#160), the pane what it is.
+	if v := stripANSI(m.View()); !strings.Contains(v, modeEdge(route.Mode)+"▪────▶") {
+		t.Fatalf("the map does not show the shipment on the road:\n%s", v)
+	}
+	if p := paneText(m); !strings.Contains(p, "on the road ▪ day 1 of "+fmt.Sprint(days)) || !strings.Contains(p, "30 "+w.ProductName(product)) {
+		t.Fatalf("the pane does not show what is on the road:\n%s", p)
 	}
 	// The dashboard says so: in a line at 80x24, in the CITIES panel
 	// once the terminal is tall enough for one under the law.
