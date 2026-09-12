@@ -76,12 +76,18 @@ func (s *Sim) Goodwill(amount int) float64 {
 	return float64(amount) / float64(s.cfg.Law.GoodwillCash)
 }
 
-// NextElection is the day the DA next faces the voters, or 0 if never.
+// NextElection is the day the DA next faces the voters, or 0 if never:
+// the end of the term, or a snap election called by an incident (#44)
+// if it comes sooner.
 func (s *Sim) NextElection(w *game.World) int {
 	if s.cfg.Law.TermDays <= 0 {
 		return 0
 	}
-	return w.Law.DA.ElectedDay + s.cfg.Law.TermDays
+	next := w.Law.DA.ElectedDay + s.cfg.Law.TermDays
+	if snap := w.Law.SnapElection; snap > 0 && snap < next {
+		return snap
+	}
+	return next
 }
 
 // ChiefTermEnds is the day the chief's term is up, or 0 if they serve
@@ -200,6 +206,22 @@ func (s *Sim) Step(w *game.World, t *game.Tick) {
 		s.replaceChief(w, t, "term")
 		replaced = true
 	}
+	// The world's incidents (#44), dealt first thing this tick: a chief
+	// who resigned is replaced this morning, on the law's own dice, and
+	// a snap election is held that many days out (the term resets when
+	// it is), on the mood the city is in then. An actor whose clock is
+	// stopped (a term of 0, harness.Appoint) is held through both.
+	for _, e := range t.Events() {
+		if ev, ok := e.(events.Incident); ok {
+			if ev.NewChief && !replaced && tun.ChiefTerm > 0 {
+				s.replaceChief(w, t, "resigned")
+				replaced = true
+			}
+			if ev.Election > 0 && tun.TermDays > 0 {
+				w.Law.SnapElection = t.Day + ev.Election
+			}
+		}
+	}
 
 	// The election: the cities' mean pressure swings the vote, a moderate
 	// takes their share whatever the mood, and one draw decides it. A
@@ -225,6 +247,7 @@ func (s *Sim) Step(w *game.World, t *game.Tick) {
 			da.Stance = stance
 		}
 		da.ElectedDay = t.Day
+		w.Law.SnapElection = 0
 		w.Stats.Elections++
 		t.Emit(events.DAElected{Day: t.Day, Name: da.Name, Stance: stance, Incumbent: incumbent, Pressure: mean})
 		if stance == "law_and_order" && mean > tun.ReplacePressure && !replaced {
@@ -234,7 +257,8 @@ func (s *Sim) Step(w *game.World, t *game.Tick) {
 }
 
 // replaceChief puts a new chief in office: a new name and a personality
-// drawn from the law's side stream, hidden until observed.
+// drawn from the law's side stream, hidden until observed. why is term,
+// da or resigned (#44).
 func (s *Sim) replaceChief(w *game.World, t *game.Tick, why string) {
 	rng := t.Sub(s.Name())
 	old := w.Law.Chief.Name

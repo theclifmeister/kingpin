@@ -572,6 +572,33 @@ type CashLaundered struct {
 
 func (CashLaundered) Kind() string { return "CashLaundered" }
 
+// Incident is a world incident dealt this morning (#44): the row's id
+// and name, the city it landed in, the route it shut (a name, "" none),
+// the product it moved (an id, "" none), who it named ("" nobody), the
+// days its first timed effect runs, and the chief and the DA as they
+// were when it fired (the law may have replaced the chief by the time
+// the paper prints). The news sim prints it under the world source (the
+// template is `Incident` + the id in camel case) and opens the report
+// with it; the law sim, later in the same tick, honours the two effects
+// that need its dice: NewChief is a new chief this morning, Election the
+// days until a snap election (0 none).
+type Incident struct {
+	Day      int
+	ID       string
+	Name     string
+	City     string
+	Route    string
+	Product  string
+	Person   string
+	Days     int
+	Chief    string
+	DA       string
+	NewChief bool
+	Election int
+}
+
+func (Incident) Kind() string { return "Incident" }
+
 // DilemmaDrawn is a card put in front of the player overnight, to be
 // answered before the morning report. Report-only bookkeeping: the card is
 // the player's business, not the paper's.

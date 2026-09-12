@@ -15,7 +15,7 @@ import (
 // report-only bookkeeping, like PriceMove, CrewPaid and LieutenantActed;
 // CrewTurnedInformant and LieutenantFlipped are deliberately silent, the
 // informant is hidden; DilemmaDrawn and DilemmaAnswered carry their own
-// text, the card's.
+// text, the card's; an Incident's key is the row's (#44).
 func TestEveryEmittedEventHasTemplate(t *testing.T) {
 	cfg := content.MustLoad()
 	n, err := news.New(cfg)
@@ -49,6 +49,12 @@ func TestEveryEmittedEventHasTemplate(t *testing.T) {
 	}
 	for _, r := range cfg.Heat.Responses {
 		required = append(required, "Enforcement"+capital(r.Level))
+	}
+	// The world's incidents (#44): Incident for a row without its own,
+	// and every row's key beside it.
+	required = append(required, "Incident")
+	for _, inc := range cfg.Incidents.Table {
+		required = append(required, inc.Key())
 	}
 	for _, k := range required {
 		if !n.HasTemplate(k) {

@@ -511,6 +511,9 @@ func (s *Sim) Step(w *game.World, t *game.Tick) {
 	// never quite cools: decay works on what is above the floor, and
 	// nothing takes heat under it.
 	decay := s.Decay(w)
+	if t.Day < w.Heat.FederalUntil && w.Heat.FederalDecay > 0 {
+		decay *= w.Heat.FederalDecay // the feds are in town (#44): what you draw, you keep
+	}
 	if w.Today.LieLow {
 		decay *= math.Max(tun.LieLowMultiplier, fx.LieLowMultiplier)
 		t.Emit(events.LaidLow{Day: t.Day})

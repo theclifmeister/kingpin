@@ -10,8 +10,9 @@ import (
 // City.Goodwill). The law sim owns all of it; the heat sim and the rival
 // sim read it through their own tuning.
 type LawState struct {
-	Chief Chief
-	DA    DA
+	Chief        Chief
+	DA           DA
+	SnapElection int // the day of a snap election an incident called (#44); 0 none. The law sim holds it when it comes before the term's end and clears it after
 }
 
 // Chief is the police chief: a name, a personality (corrupt, zealous,
