@@ -160,10 +160,13 @@ func (f *fall) schedule() {
 
 func (f *fall) Done(t time.Duration) bool { return t >= f.over }
 
-func (f *fall) Frame(t time.Duration, w, h int) []string {
-	cv := NewCanvas(w, h)
+func (f *fall) Frame(t time.Duration, w, h int) []string { return frame(f, t, w, h) }
+
+func (f *fall) paint(cv *Canvas, t time.Duration) {
+	w, h := cv.W, cv.H
 	if t >= f.over {
-		return drawText(cv, f.text, f.accent).Lines()
+		drawText(cv, f.text, f.accent)
+		return
 	}
 	ox, oy := f.text.Origin(w, h)
 	for _, d := range f.drops {
@@ -209,5 +212,4 @@ func (f *fall) Frame(t time.Duration, w, h int) []string {
 		}
 		cv.Set(cx, cy, d.glyph, col)
 	}
-	return cv.Lines()
 }

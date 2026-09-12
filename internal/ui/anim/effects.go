@@ -6,6 +6,7 @@ import (
 	"time"
 
 	"github.com/charmbracelet/lipgloss"
+	"github.com/charmbracelet/x/ansi"
 )
 
 // The effect set (#153): the ports of TerminalTextEffects a scene draws
@@ -88,9 +89,24 @@ type still struct {
 	accent lipgloss.Color
 }
 
-func (s still) Done(time.Duration) bool { return true }
-func (s still) Frame(_ time.Duration, w, h int) []string {
-	return drawText(NewCanvas(w, h), s.text, s.accent).Lines()
+func (s still) Done(time.Duration) bool                  { return true }
+func (s still) Frame(t time.Duration, w, h int) []string { return frame(s, t, w, h) }
+func (s still) paint(cv *Canvas, _ time.Duration)        { drawText(cv, s.text, s.accent) }
+
+// painter is what every effect is underneath: a scene that draws its
+// frame at t onto a canvas it is given, so Layer (#156) can put one
+// effect's cells over another's on one canvas. Frame is paint on a
+// fresh canvas rendered to lines.
+type painter interface {
+	Scene
+	paint(cv *Canvas, t time.Duration)
+}
+
+// frame is an effect's Frame: a fresh canvas painted and rendered.
+func frame(p painter, t time.Duration, w, h int) []string {
+	cv := NewCanvas(w, h)
+	p.paint(cv, t)
+	return cv.Lines()
 }
 
 // drawText puts the whole text on the canvas in one colour, centred.
@@ -118,9 +134,26 @@ type reversed struct {
 	over time.Duration
 }
 
-func (r reversed) Done(t time.Duration) bool { return t >= r.over }
-func (r reversed) Frame(t time.Duration, w, h int) []string {
-	return r.s.Frame(max(0, r.over-t), w, h)
+func (r reversed) Done(t time.Duration) bool                { return t >= r.over }
+func (r reversed) Frame(t time.Duration, w, h int) []string { return frame(r, t, w, h) }
+func (r reversed) paint(cv *Canvas, t time.Duration)        { paint(r.s, cv, max(0, r.over-t)) }
+
+// paint draws a scene at t onto the canvas: a painter's cells, or, for
+// a scene from outside the package, its rendered rows in plain text
+// where they have any (its colours are its own lines', which a canvas
+// cannot hold; every scene of the game's is a painter).
+func paint(s Scene, cv *Canvas, t time.Duration) {
+	if p, ok := s.(painter); ok {
+		p.paint(cv, t)
+		return
+	}
+	for y, l := range s.Frame(t, cv.W, cv.H) {
+		for x, r := range []rune(ansi.Strip(l)) {
+			if r != ' ' {
+				cv.Set(x, y, r, "")
+			}
+		}
+	}
 }
 
 // length is the effect's clock: never under a frame, so a scene asked
