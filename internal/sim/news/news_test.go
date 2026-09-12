@@ -11,7 +11,7 @@ import (
 // and laundering sims can emit must have a headline template, otherwise
 // the ticker goes silent on something that matters. RivalUndercut,
 // CashLaundered, CrewPaidOff, WholesaleBought, SupplyBought,
-// SupplyShort, ShipmentSent, ShipmentArrived and CityFunded are
+// SupplyShort, StandingShort, ShipmentSent, ShipmentArrived and CityFunded are
 // report-only bookkeeping, like PriceMove, CrewPaid and LieutenantActed;
 // CrewTurnedInformant and LieutenantFlipped are deliberately silent, the
 // informant is hidden; DilemmaDrawn and DilemmaAnswered carry their own

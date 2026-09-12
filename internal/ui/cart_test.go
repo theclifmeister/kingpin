@@ -47,13 +47,13 @@ func TestDialogStaysOpenForTheNextLine(t *testing.T) {
 		t.Fatalf("esc on the product step: mode %v", m.mode)
 	}
 	m.Update(key("s"))
-	for _, k := range []string{"1", "enter", "enter", "3", "enter"} {
+	for _, k := range []string{"1", "enter", "enter", "3", "enter", "enter"} {
 		m.Update(key(k))
 	}
 	if m.mode != modeSell || m.dlg.step != 0 {
 		t.Fatalf("after the first order: mode %v step %d err %q", m.mode, m.dlg.step, m.dlg.err)
 	}
-	for _, k := range []string{"2", "enter", "enter", "1", "enter", "esc"} {
+	for _, k := range []string{"2", "enter", "enter", "1", "enter", "enter", "esc"} {
 		m.Update(key(k))
 	}
 	if m.mode != modePlay || len(w.Orders) != 2 || w.Day != day {
@@ -97,7 +97,7 @@ func TestCartListsAndEdits(t *testing.T) {
 		m.Update(key(k))
 	}
 	m.Update(key("s"))
-	for _, k := range []string{"1", "enter", "enter", "3", "enter", "2", "enter", "enter", "1", "enter", "esc"} {
+	for _, k := range []string{"1", "enter", "enter", "3", "enter", "enter", "2", "enter", "enter", "1", "enter", "enter", "esc"} {
 		m.Update(key(k))
 	}
 	if len(w.Buys) != 2 || len(w.Orders) != 2 {

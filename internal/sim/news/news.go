@@ -135,7 +135,7 @@ func (s *Sim) Step(w *game.World, t *game.Tick) {
 	}
 
 	// Money before we look at events: sales are already applied by market.
-	var soldRevenue, lostCash, spent, wages, skimmed, robbed, upgrades, upkeep, seized, paidOff, investigated, shipping, tribute, cuts, funded, contracts, forfeits int
+	var soldRevenue, lostCash, spent, wages, skimmed, robbed, upgrades, upkeep, seized, paidOff, investigated, shipping, tribute, cuts, standingCut, funded, contracts, forfeits int
 	routeCost := map[string]int{} // what each route cost today, lots and fares, by name in the order first seen
 	var routeOrder []string
 	charge := func(route string, cost int) {
@@ -185,6 +185,8 @@ func (s *Sim) Step(w *game.World, t *game.Tick) {
 			}
 		case events.PlayerSold:
 			soldRevenue += ev.Revenue
+			cuts += ev.Cut
+			standingCut += ev.Cut
 			rep.Sales = append(rep.Sales, saleLine(w, ev)+in(ev.City))
 			d := at(ev.City)
 			d.Product = w.ProductName(ev.Product)
@@ -207,6 +209,12 @@ func (s *Sim) Step(w *game.World, t *game.Tick) {
 			// The contract's buy this morning (#113): the money line is
 			// the receipt's, below, and this is the sales section's.
 			rep.Sales = append(rep.Sales, fmt.Sprintf("Supply contract bought %d %s at %s to keep %d%s = -%s", ev.Units, w.ProductName(ev.Product), format.Price(ev.Price), ev.Level, in(ev.City), format.Money(ev.Cost)))
+		case events.StandingShort:
+			if ev.Stock == 0 {
+				rep.Sales = append(rep.Sales, fmt.Sprintf("Standing order for %d %s%s: nothing stashed, nothing sold. Restock, or cancel it.", ev.Units, w.ProductName(ev.Product), in(ev.City)))
+			} else {
+				rep.Sales = append(rep.Sales, fmt.Sprintf("Standing order for %d %s%s: only %d stashed.", ev.Units, w.ProductName(ev.Product), in(ev.City), ev.Stock))
+			}
 		case events.SupplyShort:
 			why := "there was no cash over the float for the rest"
 			if ev.Why == "room" {
@@ -600,6 +608,9 @@ func (s *Sim) Step(w *game.World, t *game.Tick) {
 	if soldRevenue > 0 {
 		rep.Money = append(rep.Money, fmt.Sprintf("Street sales +%s", format.Money(soldRevenue)))
 	}
+	if standingCut > 0 {
+		rep.Money = append(rep.Money, fmt.Sprintf("The crew's cut on the standing orders -%s", format.Money(standingCut)))
+	}
 	if robbed > 0 {
 		rep.Money = append(rep.Money, fmt.Sprintf("Robbed on the corner -%s", format.Money(robbed)))
 	}
@@ -714,10 +725,20 @@ func priceLine(w *game.World, ev events.PriceMove) string {
 	return fmt.Sprintf("%-8s %8s %s %8s (%+.0f%%)", w.ProductName(ev.Product), format.Price(ev.From), arrow, format.Price(ev.To), pct)
 }
 
+// saleLine is a sale in the report: the units and the take at the dial,
+// then whose the order was where it was not placed that day (the
+// lieutenant's by name; `standing` and what the crew kept off one of
+// yours, #114).
 func saleLine(w *game.World, ev events.PlayerSold) string {
 	who := ""
-	if ev.Standing {
+	switch {
+	case ev.Delegated:
 		who = ", " + ev.LieutenantName
+	case ev.Standing:
+		who = ", standing"
+		if ev.Cut > 0 {
+			who += ", cut " + format.Money(ev.Cut)
+		}
 	}
 	if ev.Sold == 0 {
 		return fmt.Sprintf("%-8s wanted %d, sold none (%s%s)", w.ProductName(ev.Product), ev.Wanted, ev.Dial, who)

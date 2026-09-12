@@ -347,8 +347,10 @@ func (s *Sim) Step(w *game.World, t *game.Tick) {
 		}
 		attempted[ps.City] = true
 		why := fmt.Sprintf("moved %d %s %s", ps.Sold, w.ProductName(ps.Product), ps.Dial)
-		if ps.Standing {
+		if ps.Delegated {
 			why = fmt.Sprintf("%s moved %d %s %s", ps.LieutenantName, ps.Sold, w.ProductName(ps.Product), ps.Dial)
+		} else if ps.Standing {
+			why = fmt.Sprintf("standing order moved %d %s %s", ps.Sold, w.ProductName(ps.Product), ps.Dial)
 		}
 		add(ps.City, s.SaleHeat(w, ps.City, ps.Product, ps.Wanted, ps.Dial), why)
 		units[ps.City] += ps.Sold

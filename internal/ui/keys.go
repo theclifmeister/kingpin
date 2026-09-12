@@ -126,6 +126,12 @@ func buyOnce(m *Model) bool { return m.modalStep() == 2 && m.dlg.repeat == repea
 
 func buyKeep(m *Model) bool { return m.modalStep() == 2 && m.dlg.repeat == repeatKeep }
 
+// sellOnce and sellStanding are the sell dialog's last step at once and
+// at standing (#114): enter queues the order, or sets it standing.
+func sellOnce(m *Model) bool { return m.modalStep() == 3 && m.dlg.repeat == repeatOnce }
+
+func sellStanding(m *Model) bool { return m.modalStep() == 3 && m.dlg.repeat == repeatStanding }
+
 // stripShown is the terminal being too narrow for the pane beside MAIN,
 // so the strip stands in for it and ␣ opens it whole (#111).
 func stripShown(m *Model) bool { return m.width < paneMinWidth }
@@ -219,7 +225,7 @@ var bindings = []binding{
 		do: func(m *Model, _ string) { m.openDialog(modeBuy) }},
 	{key: "s", label: "sell", help: "queue a street sale in the city shown", screens: on(screenDashboard, screenMarket), global: true,
 		do: func(m *Model, _ string) { m.openDialog(modeSell) }},
-	{key: "x", label: "cancel order", help: "cancel the order, else the supply contract", screens: on(screenDashboard, screenMarket), global: true,
+	{key: "x", label: "cancel order", help: "cancel order, else standing, else contract", screens: on(screenDashboard, screenMarket), global: true,
 		do: func(m *Model, _ string) { m.cancelSelected() }},
 	{key: "l", label: "lie low", help: "lie low today: no sales, heat fades faster", screens: on(screenDashboard), global: true,
 		do: func(m *Model, _ string) { m.toggleLieLow() }},
@@ -282,11 +288,13 @@ var modeBindings = []binding{
 	{key: "↑↓", label: "pick", modes: in(modeCard), when: step(0)},
 	{key: "←→", label: "dial", modes: in(modeSell), when: step(2)},
 	{key: "←→", label: "repeat", modes: in(modeBuy), when: step(2)},
+	{key: "←→", label: "repeat", modes: in(modeSell), when: step(3)},
 	{key: "←→", label: "dial", modes: in(modeCart), when: cartOnSell},
 	{key: "←→", label: "city", modes: in(modeFund)},
 	{key: "←→", label: "units/days", modes: in(modeTarget), when: step(1)},
 	{key: "1-3", label: "dial", modes: in(modeSell), when: step(2)},
 	{key: "1-2", label: "repeat", modes: in(modeBuy), when: step(2)},
+	{key: "1-2", label: "repeat", modes: in(modeSell), when: step(3)},
 	{key: "1-3", label: "dial", modes: in(modeCart), when: cartOnSell},
 	{key: "1-3", label: "choose", modes: in(modeCard), when: step(0)},
 	{key: "m", label: "max", modes: in(modeBuy, modeSell, modeTarget, modeCart, modeFund), when: numberStep},
@@ -295,11 +303,13 @@ var modeBindings = []binding{
 	{key: "pgup pgdn", label: "±10", modes: in(modeBuy, modeSell, modeTarget, modeCart, modeFund), when: numberStep},
 	{key: "enter", label: "next", modes: in(modeBuy, modeSell, modeTarget, modePropose), when: step(0)},
 	{key: "enter", label: "next", modes: in(modeBuy, modeSell, modeTarget), when: step(1)},
+	{key: "enter", label: "next", modes: in(modeSell), when: step(2)},
 	{key: "enter", label: "select", modes: in(modeStart)},
 	{key: "enter", label: "buy", modes: in(modeBuy), when: buyOnce},
 	{key: "enter", label: "keep at", modes: in(modeBuy), when: buyKeep},
 	{key: "enter", label: "buy", modes: in(modeFront)},
-	{key: "enter", label: "sell", modes: in(modeSell), when: step(2)},
+	{key: "enter", label: "sell", modes: in(modeSell), when: sellOnce},
+	{key: "enter", label: "sell nightly", modes: in(modeSell), when: sellStanding},
 	{key: "enter", label: "set", modes: in(modeTarget), when: step(2)},
 	{key: "enter", label: "quantity", modes: in(modeCart), when: cartHasLines},
 	{key: "x", label: "remove", modes: in(modeCart), when: cartHasLines},
@@ -524,6 +534,7 @@ var words = [][2]string{
 	{"file", "the DA's evidence: stings and raids add pages, enough indicts"},
 	{"drift", "a held corner nobody works goes back to the street in days"},
 	{"keep at", "a supply contract: the stash bought back to a level daily"},
+	{"standing", "a sell order that stands nightly until cancelled, at a cut"},
 	{"pane", "the details beside MAIN from 100 columns, always open"},
 	{"strip", "the pane's one line under 100 columns; ␣ opens it over MAIN"},
 }

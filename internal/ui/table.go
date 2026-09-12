@@ -66,12 +66,13 @@ type spark struct {
 	mark string
 }
 
-// order is a dial cell: units queued at a dial, (lt) when it is a
-// lieutenant's standing order.
+// order is a dial cell: units queued at a dial, ↻ when it is a standing
+// order of yours (#114), (lt) when it is the lieutenant's.
 type order struct {
-	qty  int
-	dial string
-	lt   bool
+	qty      int
+	dial     string
+	lt       bool
+	standing bool
 }
 
 // day is a day of the run in a days column: d0.
@@ -178,8 +179,11 @@ func cellText(k colKind, width int, v any) (string, *lipgloss.Style) {
 		switch x := v.(type) {
 		case order:
 			s = fmt.Sprintf("%d %s", x.qty, x.dial)
-			if x.lt {
+			switch {
+			case x.lt:
 				s += " (lt)"
+			case x.standing:
+				s += " ↻"
 			}
 		case fmt.Stringer:
 			s = x.String()

@@ -267,12 +267,16 @@ func (s *Sim) Step(w *game.World, t *game.Tick) {
 			m.NoSupply = cp.NoSupply
 
 			// 1. Resolve the player's order for this product here, or
-			// the standing order of the lieutenant who runs the city:
-			// the player's wins the day. Lying low is everyone's day off.
+			// the order standing for it (World.StandingOrder: the
+			// player's own, #114, before the lieutenant's): the order
+			// placed today wins the day. Lying low is everyone's day
+			// off.
 			if !w.LieLow {
 				if o, ok := w.Order(cid, id); ok {
 					s.resolve(w, t, cid, m, o, false)
-				} else if o, ok := w.StandingOrder(cid, id); ok {
+				} else if o, ok := w.YourStanding(cid, id); ok {
+					s.standing(w, t, cid, m, o)
+				} else if o, ok := w.DelegatedOrder(cid, id); ok {
 					s.resolve(w, t, cid, m, o, true)
 				}
 			}
@@ -402,11 +406,41 @@ func (s *Sim) Capacity(w *game.World, city, product string, d events.Dial) int {
 	return int(math.Round(s.Demand(w, city, product) * s.Fill(w, d)))
 }
 
+// Cut is the share of a standing order's take the crew keep ([standing]
+// cut, #114): the penalty the routine costs against the hand.
+func (s *Sim) Cut() float64 { return s.cfg.Standing.Cut }
+
+// standing resolves a standing order of the player's (#114) through the
+// same path as a fresh one, for at most what the stash holds (the hand
+// could place no more), at the crew's cut; with less stashed than the
+// order is for it says so (StandingShort, report-only), and with
+// nothing stashed nothing is attempted, as no order could be placed.
+func (s *Sim) standing(w *game.World, t *game.Tick, city string, m *game.ProductMarket, o game.SellOrder) {
+	stock := w.Stock(city, o.Product)
+	if stock < o.Qty {
+		t.Emit(events.StandingShort{Day: t.Day, City: city, Product: o.Product, Units: o.Qty, Stock: stock})
+		o.Qty = stock
+	}
+	if o.Qty <= 0 {
+		return
+	}
+	s.resolveAt(w, t, city, m, o, true, false, s.Cut())
+}
+
 // resolve turns a sell order into cash, price impact and a PlayerSold
-// event, out of the city's stash. standing says the order was the
+// event, out of the city's stash. delegated says the order was the
 // lieutenant's; either way the event names whoever runs the city, for
 // the crew sim's cut and the heat sim's temper.
-func (s *Sim) resolve(w *game.World, t *game.Tick, city string, m *game.ProductMarket, o game.SellOrder, standing bool) {
+func (s *Sim) resolve(w *game.World, t *game.Tick, city string, m *game.ProductMarket, o game.SellOrder, delegated bool) {
+	s.resolveAt(w, t, city, m, o, delegated, delegated, 0)
+}
+
+// resolveAt is resolve with the order's standing said in full: whether
+// it stood rather than being placed today, whether it was the
+// lieutenant's, and the share of the take the crew keep off it (the
+// player's standing order, #114; nothing off a fresh order or the
+// lieutenant's, whose cut the crew sim takes).
+func (s *Sim) resolveAt(w *game.World, t *game.Tick, city string, m *game.ProductMarket, o game.SellOrder, standing, delegated bool, cut float64) {
 	d := s.Dial(o.Dial)
 	demand := s.Demand(w, city, o.Product)
 	sold := min(o.Qty, s.Capacity(w, city, o.Product, o.Dial), w.Stock(city, o.Product))
@@ -431,10 +465,18 @@ func (s *Sim) resolve(w *game.World, t *game.Tick, city string, m *game.ProductM
 	w.Stats.UnitsSold += sold
 	m.Price *= 1 - impact
 	m.Glut += impact
+	// The crew's cut off a standing order of yours, as the lieutenant's
+	// comes off the city's takings.
+	kept := 0
+	if cut > 0 {
+		kept = min(int(math.Round(float64(revenue)*cut)), w.Player.DirtyCash)
+		w.Player.DirtyCash -= kept
+		w.Stats.Cuts += kept
+	}
 
 	ev := events.PlayerSold{
 		Day: t.Day, City: city, Product: o.Product, Wanted: o.Qty, Sold: sold,
-		Dial: o.Dial, AvgPrice: avg, Revenue: revenue, Standing: standing,
+		Dial: o.Dial, AvgPrice: avg, Revenue: revenue, Standing: standing, Delegated: delegated, Cut: kept,
 	}
 	if lt := w.Crew.Lieutenant(city); lt != nil {
 		ev.Lieutenant, ev.LieutenantName = lt.ID, lt.Name

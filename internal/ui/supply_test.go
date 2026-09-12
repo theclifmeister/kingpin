@@ -72,6 +72,7 @@ func TestSupplyContractInTheGrammar(t *testing.T) {
 	}
 	m.Update(key("enter"))
 	m.Update(key("enter"))
+	m.Update(key("enter"))
 	m.Update(key("esc"))
 	if o, ok := w.Order(home, weed); !ok || o.Qty != 30 {
 		t.Fatalf("the order: %+v %v, status %q", o, ok, m.status)

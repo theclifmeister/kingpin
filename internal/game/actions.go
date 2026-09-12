@@ -379,6 +379,53 @@ func (w *World) Order(city, product string) (SellOrder, bool) {
 // CancelSell removes a pending order.
 func (w *World) CancelSell(city, product string) { delete(w.Orders, OrderKey(city, product)) }
 
+// PlaceStanding sets a standing sell order (#114): the same units at
+// the same dial every night until it is cancelled, resolved by the
+// market sim exactly as a fresh order would be, at the crew's cut,
+// wherever you placed no order of your own that day. It is checked as
+// PlaceSell checks an order (a city, a product, a quantity the stash
+// and the contract can cover) and is a persistent setting like a supply
+// contract: the clock never clears it. One per product per city;
+// placing again replaces the previous one.
+func (w *World) PlaceStanding(city, product string, qty int, dial events.Dial) error {
+	if w.Over != nil {
+		return ErrGameOver
+	}
+	if w.Cities[city] == nil {
+		return ErrNoCity
+	}
+	if w.Product(city, product) == nil {
+		return ErrUnknownProduct
+	}
+	if qty <= 0 {
+		return ErrBadQuantity
+	}
+	if have := w.Stock(city, product) + w.SupplyDue(city, product); qty > have {
+		return fmt.Errorf("only %d %s in %s", have, w.ProductName(product), w.CityName(city))
+	}
+	if w.Standing == nil {
+		w.Standing = map[string]SellOrder{}
+	}
+	w.Standing[OrderKey(city, product)] = SellOrder{City: city, Product: product, Qty: qty, Dial: dial}
+	return nil
+}
+
+// CancelStanding removes your standing order for a product in a city,
+// if one stands.
+func (w *World) CancelStanding(city, product string) {
+	delete(w.Standing, OrderKey(city, product))
+	if len(w.Standing) == 0 {
+		w.Standing = nil
+	}
+}
+
+// YourStanding returns your standing order for a product in a city
+// (#114), if one stands: the one you set, never the lieutenant's.
+func (w *World) YourStanding(city, product string) (SellOrder, bool) {
+	o, ok := w.Standing[OrderKey(city, product)]
+	return o, ok
+}
+
 // Travel moves the player to another city at once. Product stays where it
 // is: only the road moves it. Whatever corner you stood on is left with
 // nobody on it and drifts unless a runner takes it.
@@ -726,9 +773,21 @@ func (w *World) Unassign(id int) error {
 	return nil
 }
 
-// StandingOrder returns the order a lieutenant has standing for a product
-// in a city, if the city is run and the order stands.
+// StandingOrder returns the order standing for a product in a city
+// where you placed none today: yours first (#114, YourStanding), then
+// the one the lieutenant who runs the city has standing (DelegatedOrder).
+// A standing order you set wins in a delegated city, as your fresh
+// order does.
 func (w *World) StandingOrder(city, product string) (SellOrder, bool) {
+	if o, ok := w.YourStanding(city, product); ok {
+		return o, true
+	}
+	return w.DelegatedOrder(city, product)
+}
+
+// DelegatedOrder returns the order a lieutenant has standing for a
+// product in a city, if the city is run and the order stands.
+func (w *World) DelegatedOrder(city, product string) (SellOrder, bool) {
 	if w.Crew.Lieutenant(city) == nil {
 		return SellOrder{}, false
 	}
