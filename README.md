@@ -120,8 +120,9 @@ every screen and are in the KEYS of the screens they belong to.
    temper, and what hiring, firing, paying off and asking around cost.
 5. **Map** — the shown city's corners as a grid (yours in blue, the
    rival's in purple, free ones plain, the one the rival is eyeing marked
-   `?`) and the routes between the cities under it, each with its dial;
-   the pane is the corner's inspector or the route's detail.
+   `?`, one you are undercutting tonight `$`) and the routes between the
+   cities under it, each with its dial; the pane is the corner's
+   inspector or the route's detail.
 6. **Upgrades** — the tree one branch at a time under branch tabs, left
    and right turning it, each node indented under the one it needs; the
    pane is the node, its cost, what it needs and what it does, and what
@@ -198,14 +199,14 @@ ROUTES                                                                          
                                                                                     │                                  │
                                                                                     │                                  │
                                                                                     │                                  │
-                                                                                    │                                  │
                                                                                     │ KEYS                             │
                                                                                     │ n  end day      ↑↓←→ pick        │
                                                                                     │ [ ] city        c  post runner   │
                                                                                     │ e  post enforcer                 │
                                                                                     │ a  abandon                       │
                                                                                     │ w  send enforcers                │
-                                                                                    │ r  route dial   R  route target  │
+                                                                                    │ u  undercut     r  route dial    │
+                                                                                    │ R  route target                  │
                                                                                     │ g  go to Bayport                 │
                                                                                     │ ?  help                          │
                                                                                     ╰──────────────────────────────────╯
@@ -224,7 +225,8 @@ The keys are one table, `internal/ui/keys.go`: the details pane's KEYS
 section, the modal footers, the help modal (`?`) and this table are
 rendered from it (`go run ./cmd/keys -w` rewrites this section; the test
 holds it to the code). The help modal has a `WORDS` group too: the dial,
-the float, the file, drift, the pane and the strip in a line each.
+the float, the file, drift, undercut, the pane and the strip in a line
+each.
 
 <!-- keys:begin -->
 | Key | Legend | What it does | Where |
@@ -266,6 +268,7 @@ the float, the file, drift, the pane and the strip in a line each.
 | `e` | post enforcer | post an enforcer on the selected corner | map |
 | `a` | abandon | give the selected corner up | map |
 | `w` | send enforcers | send the enforcers at the selected corner | map |
+| `u` | undercut | sell cheap on the rival's corner next door | map |
 | `r` | route dial | the selected route: off, slow, normal, fast | map |
 | `R` | route target | what the selected route keeps the far end at | map |
 | `←→` | branch | turn the tree to the next branch | upgrades |
@@ -380,7 +383,12 @@ never leaves the first city plays the same as it always did.
   RIVALS panel reads `eyeing Riverside`; it sets up there the next night
   unless somebody of yours is posted on it by then, in which case it
   leaves, keeps its money and holds a grudge. Enforcers on the war dial (warn /
-  push / hit) are one answer; the table is the other. It keeps a **trust**
+  push / hit) are one answer; the table is another; money is the third:
+  work a corner next to one of theirs and `u` on the map **undercuts** it,
+  tonight's orders serving a share of its customers cheap on top of your
+  own, which costs you margin and gluts the product, draws no heat, and
+  cuts what the corner earns them; starve a corner for days and they push
+  back or, by temper, give it up. It keeps a **trust**
   in you, seeded by its temperament, and you can propose a **truce** (a
   term of peace: no pushes, no undercutting, no tips), **tribute** (you pay
   a cut a day and it leaves your corners alone) or a **territory split** (a

@@ -44,17 +44,18 @@ type World struct {
 	Standing   map[string]SellOrder      // your standing sell orders (#114), keyed like Orders; the market sim resolves them every night at a cut
 
 	// Per-day scratch, cleared by the clock after every EndDay.
-	Orders        map[string]SellOrder // pending sell orders keyed by product id
-	Buys          []Purchase           // purchases made today, and what the supply contracts bought this morning (#113)
-	LieLow        bool                 // player chose to lie low today
-	Strike        *StrikeOrder         // enforcers sent against a rival corner tonight
-	Investigation *InvestigationOrder  // somebody asking the crew questions tonight
-	UpgradesToday []string             // upgrade ids bought today, for the report
-	Proposal      *Deal                // the deal put to the rival today; it answers in the morning
-	Accepted      []Offer              // rival offers the player took today; the rival sim seals them
-	Abandoned     []string             // corner ids given back to the street today
-	Funded        []Funding            // clean cash given to a city today; the law sim turns it into goodwill
-	Deliveries    map[int]int          // contract id -> units handed over tonight; the market sim resolves them
+	Orders        map[string]SellOrder   // pending sell orders keyed by product id
+	Buys          []Purchase             // purchases made today, and what the supply contracts bought this morning (#113)
+	LieLow        bool                   // player chose to lie low today
+	Strike        *StrikeOrder           // enforcers sent against a rival corner tonight
+	Investigation *InvestigationOrder    // somebody asking the crew questions tonight
+	UpgradesToday []string               // upgrade ids bought today, for the report
+	Proposal      *Deal                  // the deal put to the rival today; it answers in the morning
+	Accepted      []Offer                // rival offers the player took today; the rival sim seals them
+	Abandoned     []string               // corner ids given back to the street today
+	Funded        []Funding              // clean cash given to a city today; the law sim turns it into goodwill
+	Deliveries    map[int]int            // contract id -> units handed over tonight; the market sim resolves them
+	Undercuts     map[string]events.Dial // rival corner id -> the dial tonight's orders undercut it at (#68); the market sim resolves them
 
 	Journal []Headline // full headline history, oldest first
 	Report  *DayReport // morning report for the current day

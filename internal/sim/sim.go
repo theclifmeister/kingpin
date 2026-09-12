@@ -51,7 +51,7 @@ func Default(cfg *content.Config) (*Set, []game.Simulation, error) {
 	if err != nil {
 		return nil, nil, err
 	}
-	mk, err := market.New(cfg.Market, cfg.City, cfg.Routes.Shipping, cfg.Upgrades, cfg.Reputation.Effects, cfg.Buyers)
+	mk, err := market.New(cfg.Market, cfg.City, cfg.Routes.Shipping, cfg.Upgrades, cfg.Reputation.Effects, cfg.Buyers, cfg.Rivals.Pricewar)
 	if err != nil {
 		return nil, nil, err
 	}

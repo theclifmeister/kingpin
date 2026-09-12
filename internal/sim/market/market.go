@@ -25,6 +25,8 @@ type Sim struct {
 	rep    content.ReputationFX
 	bcfg   content.BuyersConfig
 	buyers []buyer
+	war    content.PricewarTuning
+	book   *warBook // the price war's books for the step in hand (#68); nil outside Step
 }
 
 // New builds a market sim from config. The cities say how each one
@@ -34,13 +36,16 @@ type Sim struct {
 // the reputation effects it reads one: respect makes the supplier
 // generous. The buyers (#71) are the deck of off-corner contracts it
 // deals and resolves; it refuses one whose pitch does not parse. The
-// supply contracts (#113) are its own [supply] table.
-func New(cfg content.MarketConfig, cities content.CityConfig, ship content.ShippingTuning, tree content.UpgradesConfig, rep content.ReputationFX, buyers content.BuyersConfig) (*Sim, error) {
+// supply contracts (#113) are its own [supply] table. The price war
+// (#68, rivals.toml [pricewar]) is what an order at home takes off a
+// rival corner next door and at what price: the market resolves it, the
+// rivals sim reads the squeeze it leaves.
+func New(cfg content.MarketConfig, cities content.CityConfig, ship content.ShippingTuning, tree content.UpgradesConfig, rep content.ReputationFX, buyers content.BuyersConfig, war content.PricewarTuning) (*Sim, error) {
 	deck, err := parseBuyers(buyers)
 	if err != nil {
 		return nil, fmt.Errorf("buyers: %w", err)
 	}
-	return &Sim{cfg: cfg, cities: cities, ship: ship, tree: tree, rep: rep, bcfg: buyers, buyers: deck}, nil
+	return &Sim{cfg: cfg, cities: cities, ship: ship, tree: tree, rep: rep, bcfg: buyers, buyers: deck, war: war}, nil
 }
 
 // Markup is the supplier's price for a standing order as a multiple of
@@ -252,6 +257,10 @@ func (s *Sim) Step(w *game.World, t *game.Tick) {
 			rng = t.Sub("market:" + cid)
 		}
 		s.deliver(w, t, cid)
+		// The price war (#68): the rival's corners at home start the
+		// day unsqueezed and the night's orders squeeze the ones they
+		// undercut; the books close after the last product.
+		s.book = s.openWar(w, t, city)
 		for _, id := range ids {
 			m := city.Market[id]
 			pc := s.cfg.Product(id)
@@ -349,6 +358,8 @@ func (s *Sim) Step(w *game.World, t *game.Tick) {
 			}
 			t.Emit(events.PriceMove{Day: t.Day, City: cid, Product: id, From: open, To: m.Price})
 		}
+		s.closeWar(city)
+		s.book = nil
 	}
 	s.settle(w, t)
 	s.deal(w, t)
@@ -447,17 +458,38 @@ func (s *Sim) resolveAt(w *game.World, t *game.Tick, city string, m *game.Produc
 	if sold < 0 {
 		sold = 0
 	}
+	// The price war (#68): the rival's corners next door take their
+	// share on top of your own corners' demand, cheap; an order too
+	// small for both is shared out pro rata, so a price war always
+	// bites when you sell at all, and the bite is units sold for less.
+	cuts, undercut, sold := s.share(w, city, o.Product, m, o, sold)
 	// Impact grows with the square of volume over demand: moving what the
 	// street absorbs barely dents the price, flooding it craters it. A
-	// set of scales (sale_impact_mul) dents it less.
+	// set of scales (sale_impact_mul) dents it less. The undercut units
+	// are volume pushed through your street over what it absorbs, and
+	// weigh glut each: a long price war crashes the product it is fought
+	// with.
 	impact := 0.0
 	if demand > 0 {
-		ratio := float64(sold) / demand
+		ratio := (float64(sold) + s.war.Glut*float64(undercut)) / demand
 		impact = s.cfg.Market.SaleImpact * game.FoldEffects(w, s.tree).SaleImpactMul * d.Impact * ratio * ratio
 	}
 	impact = math.Min(impact, 0.6)
 	avg := m.Price * d.Price * (1 - impact/2)
 	revenue := int(math.Round(avg * float64(sold)))
+	cutRevenue := 0
+	for i := range cuts {
+		u := &cuts[i]
+		u.Revenue = int(math.Round(m.Price * s.Dial(u.Dial).Price * (1 - s.war.PriceCut) * (1 - impact/2) * float64(u.Units)))
+		cutRevenue += u.Revenue
+		s.book.take(u.Corner, float64(u.Units)*m.Price)
+		t.Emit(events.PlayerUndercut{Day: t.Day, Corner: u.Corner, Name: u.Name, Product: o.Product, Units: u.Units, Share: u.Share, Revenue: u.Revenue, Dial: u.Dial})
+	}
+	if undercut > 0 {
+		sold += undercut
+		revenue += cutRevenue
+		avg = float64(revenue) / float64(sold) // the event's average is over every unit moved
+	}
 
 	w.Stash(city)[o.Product] -= sold
 	w.Player.DirtyCash += revenue
@@ -477,6 +509,7 @@ func (s *Sim) resolveAt(w *game.World, t *game.Tick, city string, m *game.Produc
 	ev := events.PlayerSold{
 		Day: t.Day, City: city, Product: o.Product, Wanted: o.Qty, Sold: sold,
 		Dial: o.Dial, AvgPrice: avg, Revenue: revenue, Standing: standing, Delegated: delegated, Cut: kept,
+		Undercut: undercut, UndercutRevenue: cutRevenue,
 	}
 	if lt := w.Crew.Lieutenant(city); lt != nil {
 		ev.Lieutenant, ev.LieutenantName = lt.ID, lt.Name

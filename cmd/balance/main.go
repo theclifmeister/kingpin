@@ -19,10 +19,11 @@ import (
 func main() {
 	runs := flag.Int("runs", 20, "number of seeded runs")
 	days := flag.Int("days", harness.Horizon, "days to play each run for; a measuring horizon, the game itself has no cap")
-	policy := flag.String("policy", "normal", "idle | hide | quiet | normal | aggressive | careful | managed | upgraded | crewed | vigilant | territory | war | diplomat | laundered | funded | distributor | delegated | dealer | stocked | routine | boss")
+	policy := flag.String("policy", "normal", "idle | hide | quiet | normal | aggressive | careful | managed | upgraded | crewed | vigilant | territory | war | diplomat | laundered | funded | distributor | delegated | dealer | stocked | routine | boss | pricewar")
 	lt := flag.String("lt", "", "force the delegated policy's lieutenant temper: violent | greedy | careful | steady (default as generated)")
 	corners := flag.Int("corners", 3, "corners the territory and war policies work, counting yours")
 	force := flag.String("force", "push", "warn | push | hit: how hard the war policy strikes")
+	undercut := flag.String("undercut", "normal", "quiet | normal | aggressive: the dial the pricewar policy undercuts at")
 	rival := flag.String("rival", "", "force the rival's personality: expansionist | defensive | opportunist | chaotic (default by seed); none keeps the rival out of the run (harness.NoRival)")
 	heatFlag := flag.String("heat", "on", "on | off: off switches heat off, nothing adds any and the police never answer (harness.NoHeat)")
 	pace := flag.String("pace", "on", "on | off: off has the rival claim at the flat pace it had before #60 (harness.FlatPace)")
@@ -86,6 +87,15 @@ func main() {
 		p = harness.Warlike(cfg, at(40), *corners, f)
 	case "diplomat":
 		p = harness.Diplomat(cfg, at(40), *corners)
+	case "pricewar":
+		d := events.DialNormal
+		switch *undercut {
+		case "quiet":
+			d = events.DialQuiet
+		case "aggressive":
+			d = events.DialAggressive
+		}
+		p = harness.Pricewar(cfg, at(40), *corners, d)
 	case "laundered":
 		p = harness.Laundered(cfg, at(40))
 	case "funded":
@@ -128,6 +138,8 @@ func main() {
 	var rivalHeld, takens []int
 	rivalAt := map[int][]int{}
 	won, strikes, tips, crackdowns := 0, 0, 0, 0
+	undercuts, undercutUnits, abandons := 0, 0, 0
+	var muscle []int
 	informants, leaks, investigations, named, defections := 0, 0, 0, 0, 0
 	lieutenants, cuts, walked, flipped := 0, 0, 0, 0
 	tempers := map[string]int{}
@@ -223,6 +235,11 @@ func main() {
 				robberies++
 			case events.RivalTippedPolice:
 				tips++
+			case events.PlayerUndercut:
+				undercuts++
+				undercutUnits += ev.Units
+			case events.RivalAbandoned:
+				abandons++
 			case events.WarEscalated:
 				if ev.Stage == "crackdown" {
 					crackdowns++
@@ -262,6 +279,7 @@ func main() {
 			}
 		}
 		rivalHeld = append(rivalHeld, res.World.RivalHeld())
+		muscle = append(muscle, res.World.Rival.Muscle)
 		takens = append(takens, res.World.Stats.CornersLost)
 		won += res.World.Stats.CornersWon
 		strikes += res.World.Stats.Strikes
@@ -314,6 +332,11 @@ func main() {
 	fmt.Printf(" (pace %s)\n", *pace)
 	if strikes > 0 {
 		fmt.Printf("war:           %.1f strikes per run, %.1f corners won per run\n", float64(strikes)/float64(*runs), float64(won)/float64(*runs))
+	}
+	if undercuts+abandons > 0 {
+		sort.Ints(muscle)
+		fmt.Printf("price war:     %.1f undercuts per run moving %d units, %d corners abandoned (totals over %d runs), rival muscle %d at the end (median)\n",
+			float64(undercuts)/float64(*runs), undercutUnits / *runs, abandons, *runs, muscle[len(muscle)/2])
 	}
 	if informants+leaks+investigations+defections > 0 || *snitch {
 		fmt.Printf("snitching:     %d turned, %d pages leaked, %d investigations named %d, %d defections (totals over %d runs)\n", informants, leaks, investigations, named, defections, *runs)

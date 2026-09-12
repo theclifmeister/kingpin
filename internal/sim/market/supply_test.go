@@ -20,7 +20,7 @@ func marketOnly(t *testing.T, cfg *content.Config, seed uint64) (*game.World, *m
 	if err := w.Post(w.Home().Corners[0].ID, game.You); err != nil {
 		t.Fatal(err)
 	}
-	mk, err := market.New(cfg.Market, cfg.City, cfg.Routes.Shipping, cfg.Upgrades, cfg.Reputation.Effects, cfg.Buyers)
+	mk, err := market.New(cfg.Market, cfg.City, cfg.Routes.Shipping, cfg.Upgrades, cfg.Reputation.Effects, cfg.Buyers, cfg.Rivals.Pricewar)
 	if err != nil {
 		t.Fatal(err)
 	}

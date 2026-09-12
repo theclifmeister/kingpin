@@ -67,6 +67,7 @@ const (
 	modeDetails       // the details pane as an overlay, where the terminal is too narrow to hold it beside MAIN
 	modeCart          // the day's cart: its buys and orders, editable until the day ends
 	modeConfirmFast   // run days until something needs you (#116): the cap, then y or enter
+	modeUndercut      // pick the dial to undercut the selected rival corner at (#68)
 	modeCount
 )
 
@@ -89,53 +90,54 @@ type Model struct {
 	clock *game.Clock
 	w     *game.World
 
-	width, height int
-	screen        screen
-	mode          mode
-	city          string // city the market and map screens show; follows you when you travel
-	cursor        int    // product cursor shared by market screen and dialogs
-	crewCursor    int    // row on the crew screen: roster first, then candidates
-	fireID        int    // member awaiting the fire confirmation
-	mapCursor     int    // corner selected on the map
-	mapTop        int    // the first row of the map's grid drawn, scrolled to keep the cursor in view
-	routeCursor   int    // route selected under the map's grid
-	onRoutes      bool   // the map's arrows are on the routes, past the bottom row
-	buyerCursor   int    // contract selected under the market's product table
-	onBuyers      bool   // the market's arrows are on the buyers, past the bottom row
-	postRole      string // runner or enforcer, while the post picker is open
-	postCursor    int
-	strikeCursor  int    // row in the strike picker
-	branch        int    // branch shown on the upgrades screen, an index into content.Branches: a view cursor like city
-	upgradeCursor []int  // node selected in each branch, one an entry of content.Branches, so a branch left and returned to is where it was
-	upgradeID     string // node awaiting the buy confirmation
-	frontCursor   int    // offer selected in the buy-a-front picker
-	ledgerCursor  int    // row on the ledger: fronts, then routes, then offers
-	ledgerScroll  int    // first line of the ledger MAIN shows, following the cursor
-	cardCursor    int    // choice highlighted on the dilemma card
-	cardDone      bool   // the card is answered; the outcome is showing
-	dealCursor    int    // offer selected on the rivals screen
-	proposeStep   int    // 0: pick the kind, 1: pick the terms
-	proposeKind   int    // index into proposeKinds while on the terms page
-	proposeCursor int
-	assignCursor  int    // row in the assign picker
-	modalScroll   int    // first body line the open modal shows
-	outcome       string // what the last answer did, while it shows
-	journalCursor int    // headline selected on the journal screen, newest first
-	journalTop    int    // first headline the journal screen shows
-	journalSeen   int    // the journal's length when the journal screen was last shown; not saved, a view cursor like city
-	journalFilter string // the source the journal screen shows, or every one when empty (#122); a view cursor like journalSeen
-	dlg           dialog
-	tgt           targetDialog
-	crt           cartDialog
-	fnd           fundDialog
-	fst           fastDialog
-	fastStop      string // the report's first line after a fast-forward (`Stopped after 3 days: …`), until the next day ends
-	slot          int    // the save slot this run lives in: where ctrl+s, the end of the day and quitting save
-	startChoice   int    // row on the start menu: the slots, then Quit
-	status        string
-	statusKind    statusKind // how the status bar colours the message; set where the status is
-	flash         []string   // enforcement lines from the last tick, via the bus
-	quitting      bool
+	width, height  int
+	screen         screen
+	mode           mode
+	city           string // city the market and map screens show; follows you when you travel
+	cursor         int    // product cursor shared by market screen and dialogs
+	crewCursor     int    // row on the crew screen: roster first, then candidates
+	fireID         int    // member awaiting the fire confirmation
+	mapCursor      int    // corner selected on the map
+	mapTop         int    // the first row of the map's grid drawn, scrolled to keep the cursor in view
+	routeCursor    int    // route selected under the map's grid
+	onRoutes       bool   // the map's arrows are on the routes, past the bottom row
+	buyerCursor    int    // contract selected under the market's product table
+	onBuyers       bool   // the market's arrows are on the buyers, past the bottom row
+	postRole       string // runner or enforcer, while the post picker is open
+	postCursor     int
+	strikeCursor   int    // row in the strike picker
+	undercutCursor int    // row in the undercut picker (#68)
+	branch         int    // branch shown on the upgrades screen, an index into content.Branches: a view cursor like city
+	upgradeCursor  []int  // node selected in each branch, one an entry of content.Branches, so a branch left and returned to is where it was
+	upgradeID      string // node awaiting the buy confirmation
+	frontCursor    int    // offer selected in the buy-a-front picker
+	ledgerCursor   int    // row on the ledger: fronts, then routes, then offers
+	ledgerScroll   int    // first line of the ledger MAIN shows, following the cursor
+	cardCursor     int    // choice highlighted on the dilemma card
+	cardDone       bool   // the card is answered; the outcome is showing
+	dealCursor     int    // offer selected on the rivals screen
+	proposeStep    int    // 0: pick the kind, 1: pick the terms
+	proposeKind    int    // index into proposeKinds while on the terms page
+	proposeCursor  int
+	assignCursor   int    // row in the assign picker
+	modalScroll    int    // first body line the open modal shows
+	outcome        string // what the last answer did, while it shows
+	journalCursor  int    // headline selected on the journal screen, newest first
+	journalTop     int    // first headline the journal screen shows
+	journalSeen    int    // the journal's length when the journal screen was last shown; not saved, a view cursor like city
+	journalFilter  string // the source the journal screen shows, or every one when empty (#122); a view cursor like journalSeen
+	dlg            dialog
+	tgt            targetDialog
+	crt            cartDialog
+	fnd            fundDialog
+	fst            fastDialog
+	fastStop       string // the report's first line after a fast-forward (`Stopped after 3 days: …`), until the next day ends
+	slot           int    // the save slot this run lives in: where ctrl+s, the end of the day and quitting save
+	startChoice    int    // row on the start menu: the slots, then Quit
+	status         string
+	statusKind     statusKind // how the status bar colours the message; set where the status is
+	flash          []string   // enforcement lines from the last tick, via the bus
+	quitting       bool
 }
 
 // New wires config, simulations, clock and bus together. With a run in
@@ -502,6 +504,29 @@ func (m *Model) handleKey(k tea.KeyMsg) (tea.Model, tea.Cmd) {
 			}
 		}
 		return m, nil
+	case modeUndercut:
+		switch key {
+		case "esc", "q":
+			m.mode = modePlay
+		case "up", "k":
+			if m.undercutCursor > 0 {
+				m.undercutCursor--
+			}
+		case "down", "j":
+			if m.undercutCursor < len(m.undercutRows())-1 {
+				m.undercutCursor++
+			}
+		case "enter":
+			m.confirmUndercut()
+		default:
+			if len(key) == 1 && key[0] >= '1' && key[0] <= '9' {
+				if i := int(key[0] - '1'); i < len(m.undercutRows()) {
+					m.undercutCursor = i
+					m.confirmUndercut()
+				}
+			}
+		}
+		return m, nil
 	case modeAssign:
 		switch key {
 		case "esc", "q":
@@ -843,6 +868,8 @@ func (m *Model) View() string {
 		body = m.viewPost()
 	case modeStrike:
 		body = m.viewStrike()
+	case modeUndercut:
+		body = m.viewUndercut()
 	case modeConfirmUpgrade:
 		body = m.upgradeConfirm()
 	case modeFront:

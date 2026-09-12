@@ -223,21 +223,45 @@ func (s *Sim) PushOdds(w *game.World, c *game.Corner) float64 {
 	return s.cfg.Rivals.PushFlip * attack / (attack + defence)
 }
 
-// Income is what the rival's corners earn it in a day.
+// Income is what the rival's corners earn it in a day: margin of the
+// street value each moves, less what a price war (#68) is taking off it
+// (Corner.Squeeze, which the market sim writes on the rival's corners).
 func (s *Sim) Income(w *game.World) int {
 	v := 0.0
 	for _, c := range s.corners(w) {
-		if c.Owner != game.OwnerRival {
-			continue
-		}
-		for _, id := range w.Products {
-			if m := w.Product(c.City, id); m != nil {
-				v += m.Demand * c.Share(id) * m.Price
-			}
+		if c.Owner == game.OwnerRival {
+			v += s.trade(w, c)
 		}
 	}
 	return int(math.Round(v * s.cfg.Rivals.Margin))
 }
+
+// trade is the street value a rival corner moves in a day, squeeze off.
+func (s *Sim) trade(w *game.World, c game.Corner) float64 {
+	v := 0.0
+	for _, id := range w.Products {
+		if m := w.Product(c.City, id); m != nil {
+			v += m.Demand * c.Share(id) * m.Price
+		}
+	}
+	return v
+}
+
+// CornerIncome is what one of the rival's corners earns it in a day
+// with no price war on it: what an undercut's share is a share of. The
+// undercut picker shows the rival's loss off it.
+func (s *Sim) CornerIncome(w *game.World, c game.Corner) int {
+	v := 0.0
+	for _, id := range w.Products {
+		if m := w.Product(c.City, id); m != nil {
+			v += m.Demand * c.Full(id) * m.Price
+		}
+	}
+	return int(math.Round(v * s.cfg.Rivals.Margin))
+}
+
+// Pricewar exposes the price war's tuning for the UI and the harness.
+func (s *Sim) Pricewar() content.PricewarTuning { return s.cfg.Pricewar }
 
 // Step runs the rival's day: arrival, money, the table (offers taken,
 // tribute paid, deals broken), the player's strike, its answer to the
@@ -326,6 +350,12 @@ func (s *Sim) Step(w *game.World, t *game.Tick) {
 		t.Emit(events.RivalPushed{Day: t.Day, Corner: c.ID, Name: c.Name, Rival: r.Leader})
 	}
 	r.Leads = nil
+
+	// 3c. The price war (#68): a corner the market squeezed today (the
+	// player's orders next door took a share of its trade) is a day
+	// starved; enough days running and it answers by temper. Business
+	// costs a little war and a grudge, never public pressure.
+	s.pricewar(w, t)
 
 	// 4. Claims: a free corner, by personality, up to what it wants, at
 	// the pace (#60): faster the more of the city you hold, slower the
@@ -495,6 +525,7 @@ func (s *Sim) strike(w *game.World, t *game.Tick, o *game.StrikeOrder) {
 	if t.RNG.Float64() < s.Odds(w, o.Force) {
 		ev.Taken = true
 		c.Owner, c.Runner, c.Enforcer, c.Idle, c.Squeeze, c.Since = game.OwnerPlayer, 0, 0, 0, 0, t.Day
+		c.Starved, c.StarvedDay = 0, 0
 		r.Grudge++
 		w.Stats.CornersWon++
 		if r.Muscle > 0 {
@@ -511,6 +542,7 @@ func (s *Sim) strike(w *game.World, t *game.Tick, o *game.StrikeOrder) {
 // take hands a corner to the rival, sending whoever was on it home.
 func (s *Sim) take(c *game.Corner, day int) {
 	c.Owner, c.Runner, c.Enforcer, c.Idle, c.Squeeze, c.Since = game.OwnerRival, 0, 0, 0, 0, day
+	c.Starved, c.StarvedDay = 0, 0
 }
 
 // pickFree chooses the free corner the rival sets up on. Arriving (or
@@ -568,7 +600,9 @@ func (s *Sim) pickFree(w *game.World, rng rand, day int, arriving bool) *game.Co
 }
 
 // undercut marks the player's contested corners as squeezed and drags the
-// street price by the share of worked demand that is contested.
+// street price by the share of worked demand that is contested. The
+// squeeze on the rival's own corners is the market sim's (#68, the
+// player's price war) and is left alone.
 func (s *Sim) undercut(w *game.World, t *game.Tick) {
 	tun := s.cfg.Rivals
 	r := &w.Rival
@@ -578,6 +612,9 @@ func (s *Sim) undercut(w *game.World, t *game.Tick) {
 	ground := s.corners(w)
 	for i := range ground {
 		c := &ground[i]
+		if c.Owner == game.OwnerRival {
+			continue
+		}
 		c.Squeeze = 0
 		if !c.Held() || !w.Contested(*c) || s.offLimits(w, c) {
 			continue
@@ -604,6 +641,116 @@ func (s *Sim) undercut(w *game.World, t *game.Tick) {
 		}
 	}
 	t.Emit(events.RivalUndercut{Day: t.Day, Rival: r.Leader, Corners: names, Share: share})
+}
+
+// pricewar is the rival's side of the player's price war (#68). Every
+// corner of its the market squeezed today (Corner.Squeeze, the share of
+// its trade the player's orders next door took) is a day starved
+// (Corner.Starved, StarvedDay); a rest of more than pricewar_days days
+// forgets the count, so a war fought every other day still bites, only
+// later. An undercut day costs war, once for the day whatever the
+// corners. A corner starved pricewar_days days gets an answer by
+// personality, and the answer, when it comes, holds a grudge if the
+// tuning says (so tip_chance applies: a grudge a day made the price war
+// hotter than a hit war, fourteen calls in 120 days): a defensive or an
+// expansionist
+// rival pushes on the player corner doing the cutting (the biggest
+// worked one next door) at push_chance times pricewar_push, the usual
+// push odds deciding whether it takes it; an opportunist abandons the
+// corner (RivalAbandoned) and sets up elsewhere as the claim step lets
+// it; a chaotic one rolls between the two. The count starts over after
+// an answer. Nothing here rolls dice on a corner nobody undercut, so a
+// run that never does is the old run.
+func (s *Sim) pricewar(w *game.World, t *game.Tick) {
+	tun := s.cfg.Pricewar
+	r := &w.Rival
+	ground := s.corners(w)
+	starved := false
+	for i := range ground {
+		c := &ground[i]
+		if c.Owner != game.OwnerRival || c.Squeeze <= 0 {
+			continue
+		}
+		if t.Day-c.StarvedDay > tun.PricewarDays {
+			c.Starved = 0
+		}
+		c.Starved++
+		c.StarvedDay = t.Day
+		starved = true
+	}
+	if !starved {
+		return
+	}
+	r.Observed = true
+	r.War += tun.War
+	pc := s.personality(w)
+	for i := range ground {
+		c := &ground[i]
+		if c.Owner != game.OwnerRival || tun.PricewarDays <= 0 || c.Starved < tun.PricewarDays {
+			continue
+		}
+		abandon := false
+		switch r.Personality {
+		case "opportunist":
+			abandon = true
+		case "chaotic":
+			abandon = t.RNG.Float64() < 0.5
+		}
+		if abandon {
+			if tun.Grudge {
+				r.Grudge++
+			}
+			c.Owner, c.Runner, c.Enforcer, c.Idle, c.Squeeze, c.Since = game.OwnerNone, 0, 0, 0, 0, t.Day
+			c.Starved, c.StarvedDay = 0, 0
+			t.Emit(events.RivalAbandoned{Day: t.Day, Rival: r.Leader, Corner: c.ID, Name: c.Name, Reason: "pricewar"})
+			if w.RivalHeld() == 0 && r.Routed < t.Day {
+				r.Routed = t.Day
+			}
+			continue
+		}
+		// The push: on the biggest corner of yours working it cheap.
+		target := s.cutter(w, *c)
+		if target == nil || r.Muscle == 0 || s.offLimits(w, target) {
+			continue
+		}
+		if t.RNG.Float64() >= pc.PushChance*tun.PricewarPush*s.PushPace(w) {
+			continue
+		}
+		if tun.Grudge {
+			r.Grudge++
+		}
+		c.Starved = 0
+		r.War += s.cfg.Rivals.PushWar
+		if t.RNG.Float64() < s.PushOdds(w, target) {
+			s.take(target, t.Day)
+			r.Flips++
+			r.LastFlip = t.Day
+			w.Stats.CornersLost++
+			t.Emit(events.CornerTaken{Day: t.Day, Corner: target.ID, Name: target.Name, Rival: r.Leader, From: game.OwnerPlayer, Pricewar: true})
+			continue
+		}
+		if target.Enforcer != 0 && t.RNG.Float64() < 0.5 {
+			r.Muscle--
+		}
+		t.Emit(events.RivalPushed{Day: t.Day, Corner: target.ID, Name: target.Name, Rival: r.Leader, Pricewar: true})
+	}
+}
+
+// cutter is the player's corner doing the cutting on a rival corner: the
+// biggest worked one next door, or nil.
+func (s *Sim) cutter(w *game.World, c game.Corner) *game.Corner {
+	ground := s.corners(w)
+	var best *game.Corner
+	for i := range ground {
+		o := &ground[i]
+		if !o.Worked() || !c.Borders(*o) {
+			continue
+		}
+		if best == nil || o.Demand > best.Demand {
+			best = o
+		}
+	}
+	return best
 }
 
 // crackdown is the police ending a loud war: each side loses corners,
@@ -635,6 +782,7 @@ func (s *Sim) crackdown(w *game.World, t *game.Tick) {
 	for _, c := range cleared {
 		owner := c.Owner
 		c.Owner, c.Runner, c.Enforcer, c.Idle, c.Squeeze, c.Since = game.OwnerNone, 0, 0, 0, 0, t.Day
+		c.Starved, c.StarvedDay = 0, 0
 		ev.Lost = append(ev.Lost, c.Name)
 		t.Emit(events.CornerLost{Day: t.Day, Corner: c.ID, Name: c.Name, Reason: "crackdown", Owner: owner})
 	}

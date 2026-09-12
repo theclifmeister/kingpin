@@ -3,6 +3,7 @@ package game
 import (
 	"errors"
 	"fmt"
+	"math"
 
 	"github.com/theclifmeister/kingpin/internal/events"
 )
@@ -23,28 +24,32 @@ var (
 	ErrNotPostable = errors.New("only runners and enforcers work corners")
 	ErrNoEnforcers = errors.New("no enforcers on the payroll")
 	ErrElsewhere   = errors.New("you are not in that city")
+	ErrAtPeace     = errors.New("a truce or a tribute holds; a price war is not on while the peace is")
+	ErrNotNextDoor = errors.New("you work no corner next to it")
 )
 
 // Corner is one block of a city: a demand pool the player has to hold to
 // serve. Static tuning is copied in from content so the world never needs
 // the city config to step. Corner ids are unique across cities.
 type Corner struct {
-	ID       string
-	City     string // city id
-	Name     string
-	X, Y     int                // map cell
-	Demand   float64            // size relative to one standard corner
-	Taste    map[string]float64 // per-product demand multiplier; missing = 1
-	Heat     float64            // sale-heat multiplier for units moved here
-	Risk     float64            // robbery-chance multiplier
-	Owner    string             // OwnerNone, OwnerPlayer, OwnerRival
-	Runner   int                // crew id working it, You for the player, 0 nobody
-	Enforcer int                // crew id guarding it, 0 nobody
-	Since    int                // day the current owner took it
-	Idle     int                // consecutive days held with nobody working it
-	Squeeze  float64            // share of its demand a rival is undercutting away today, 0..1
-	Robbed   int                // stick-ups since it was last claimed; a lieutenant gives up on a corner at two
-	Yours    bool               // you have held it at some time; the rival's grace period leaves those alone (#60)
+	ID         string
+	City       string // city id
+	Name       string
+	X, Y       int                // map cell
+	Demand     float64            // size relative to one standard corner
+	Taste      map[string]float64 // per-product demand multiplier; missing = 1
+	Heat       float64            // sale-heat multiplier for units moved here
+	Risk       float64            // robbery-chance multiplier
+	Owner      string             // OwnerNone, OwnerPlayer, OwnerRival
+	Runner     int                // crew id working it, You for the player, 0 nobody
+	Enforcer   int                // crew id guarding it, 0 nobody
+	Since      int                // day the current owner took it
+	Idle       int                // consecutive days held with nobody working it
+	Squeeze    float64            // share of its demand a rival is undercutting away today, 0..1
+	Robbed     int                // stick-ups since it was last claimed; a lieutenant gives up on a corner at two
+	Yours      bool               // you have held it at some time; the rival's grace period leaves those alone (#60)
+	Starved    int                // days a price war has cut the rival's trade here (#68), counted off Squeeze by the rivals sim, which answers at pricewar_days; a rest that long forgets them
+	StarvedDay int                // the last day it was cut; 0 never
 }
 
 // Share is the corner's share of the city's demand for a product, in
@@ -55,6 +60,16 @@ func (c Corner) Share(product string) float64 {
 		s *= t
 	}
 	return s * (1 - c.Squeeze)
+}
+
+// Full is the corner's share of the city's demand for a product with no
+// squeeze on it: what a price war (#68) takes its cut of.
+func (c Corner) Full(product string) float64 {
+	s := c.Demand
+	if t, ok := c.Taste[product]; ok {
+		s *= t
+	}
+	return s
 }
 
 // Borders reports whether two corners are neighbours on the same map.
@@ -327,3 +342,93 @@ func (w *World) SendEnforcers(corner string, force events.Force) error {
 
 // CallOff cancels tonight's strike.
 func (w *World) CallOff() { w.Strike = nil }
+
+// NextDoor is the worked share you cut a rival corner from (#68): the
+// demand, in standard corners, of your worked corners bordering it,
+// capped at NextDoorMax. It is what scales the share a price war takes
+// off it: one standard corner next door takes the full steal, two of
+// your corners next to it cut deeper than one, and a corner surrounded
+// is cut no deeper than the cap. Zero on a corner that is not the
+// rival's or that none of your worked corners borders.
+func (w *World) NextDoor(c Corner) float64 {
+	city := w.Cities[c.City]
+	if city == nil || c.Owner != OwnerRival {
+		return 0
+	}
+	yours := 0.0
+	for _, o := range city.Corners {
+		if o.Worked() && c.Borders(o) {
+			yours += o.Demand
+		}
+	}
+	return math.Min(NextDoorMax, yours)
+}
+
+// NextDoorMax is the most standard corners' worth of your trade a price
+// war counts next door to a rival corner: at the file's steal and the
+// aggressive dial it keeps the share taken well under the whole.
+const NextDoorMax = 2
+
+// CanUndercut reports why a price war cannot be fought on a corner
+// tonight, or nil: it must be the rival's and border a corner you work
+// (you have to be next door to cut in on it, the mirror of Contested),
+// and no deal may cover it: a truce or a tribute keeps you off every
+// corner of theirs, a split off their side of the line, the way the
+// rival's own undercutting stays off yours under a deal. The market sim
+// asks again when it resolves the night, so an undercut queued in the
+// morning and made illegal by the day (the runner recalled, an offer
+// taken) moves nothing.
+func (w *World) CanUndercut(corner string) error {
+	c := w.Corner(corner)
+	if c == nil {
+		return ErrNoCorner
+	}
+	if c.Owner != OwnerRival {
+		return fmt.Errorf("%s is not the rival's", c.Name)
+	}
+	if w.AtPeace() {
+		return ErrAtPeace
+	}
+	if d := w.Deal(DealSplit); d != nil && !d.Covers(c.ID) {
+		return fmt.Errorf("the split gives %s to %s; break it first", c.Name, w.Rival.Leader)
+	}
+	if w.NextDoor(*c) <= 0 {
+		return ErrNotNextDoor
+	}
+	return nil
+}
+
+// Undercut queues a price war on a rival corner for tonight (#68): the
+// orders you place at home serve a share of its demand on top of your
+// own corners', cheap, at the dial. The market sim resolves it; queuing
+// again replaces the dial. It is business, not a betrayal: refused
+// under a deal that covers the corner (CanUndercut) rather than
+// breaking it.
+func (w *World) Undercut(corner string, dial events.Dial) error {
+	if w.Over != nil {
+		return ErrGameOver
+	}
+	if err := w.CanUndercut(corner); err != nil {
+		return err
+	}
+	if w.Undercuts == nil {
+		w.Undercuts = map[string]events.Dial{}
+	}
+	w.Undercuts[corner] = dial
+	return nil
+}
+
+// CancelUndercut calls off tonight's price war on a corner.
+func (w *World) CancelUndercut(corner string) {
+	delete(w.Undercuts, corner)
+	if len(w.Undercuts) == 0 {
+		w.Undercuts = nil
+	}
+}
+
+// Undercutting reports the dial a rival corner is undercut at tonight,
+// and whether it is.
+func (w *World) Undercutting(corner string) (events.Dial, bool) {
+	d, ok := w.Undercuts[corner]
+	return d, ok
+}

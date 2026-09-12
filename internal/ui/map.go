@@ -281,10 +281,14 @@ func (m *Model) viewMap() string {
 			}
 			st := ownerStyle(c.Owner)
 			eyed := m.eyed(c)
+			_, undercut := w.Undercutting(c.ID)
+			undercut = undercut && c.Owner == game.OwnerRival
 			mark := "·"
 			switch {
 			case c.Held():
 				mark = "▪"
+			case undercut:
+				mark = "$" // the price war (#68): tonight's orders sell cheap here
 			case c.Owner == game.OwnerRival:
 				mark = "▴"
 			case eyed:
@@ -292,13 +296,16 @@ func (m *Model) viewMap() string {
 			}
 			// The chosen corner's name cell is Selected, and stays so
 			// while the cursor is on the routes; the tell's mark is the
-			// rival's colour on any other row.
+			// rival's colour on any other row, the price war's the
+			// market's.
 			name := fit(mark+" "+strings.ToUpper(c.Name), cellW-1)
 			switch {
 			case sel != nil && c.ID == sel.ID:
 				name = theme.Selected.Render(name)
 			case eyed:
 				name = theme.RivalText.Render(mark) + st.Render(name[len(mark):])
+			case undercut:
+				name = theme.MarketText.Render(mark) + st.Render(name[len(mark):])
 			default:
 				name = st.Render(name)
 			}
@@ -326,6 +333,9 @@ func (m *Model) viewMap() string {
 			facts := fmt.Sprintf("  ~%.0f/day %s", m.cornerUnits(*c), heatWord(c.Heat))
 			if c.Squeeze > 0 {
 				facts = fmt.Sprintf("  ~%.0f/day undercut", m.cornerUnits(*c))
+			}
+			if undercut {
+				facts = fmt.Sprintf("  $ undercut %s", dialShort(m.w.Undercuts[c.ID]))
 			}
 			l1 = append(l1, name+" ")
 			l2 = append(l2, who+" ")
@@ -403,8 +413,15 @@ func (m *Model) cornerSection(sel *game.Corner) section {
 	if sel.Held() {
 		lines = append(lines, row("robbery", fmt.Sprintf("%.1f%%/day", m.set.Territory.RobberyChance(w, sel)*100)))
 	}
-	if sel.Squeeze > 0 {
+	switch {
+	case sel.Squeeze > 0 && sel.Owner == game.OwnerRival:
+		// The price war (#68): what last night's orders took off it.
+		lines = append(lines, row("squeezed", theme.MarketText.Render(fmt.Sprintf("-%.0f%% by you, %s", sel.Squeeze*100, plural(sel.Starved, "day")))))
+	case sel.Squeeze > 0:
 		lines = append(lines, row("undercut", theme.RivalText.Render(fmt.Sprintf("-%.0f%% (%s)", sel.Squeeze*100, w.Rival.Leader))))
+	}
+	if d, ok := w.Undercutting(sel.ID); ok && sel.Owner == game.OwnerRival {
+		lines = append(lines, row("undercut", theme.MarketText.Render(fmt.Sprintf("%s · takes ~%.0f/day", d, m.set.Market.UndercutUnits(w, *sel, d)))))
 	}
 	if sel.Held() && w.Contested(*sel) {
 		lines = append(lines, row("push flips", theme.RivalText.Render(fmt.Sprintf("~%.0f%%", m.set.Rivals.PushOdds(w, sel)*100))))
@@ -461,6 +478,13 @@ func (m *Model) cornerSection(sel *game.Corner) section {
 				m.set.Rivals.Odds(w, events.ForcePush)*100, m.set.Rivals.Odds(w, events.ForceHit)*100)))
 		} else {
 			lines = append(lines, wrapped(theme.Subtle, "Taking it is a matter for the enforcers. Hire some "+screenPointer(screenCrew)+".")...)
+		}
+		// The price war (#68): the third answer, from next door.
+		switch err := w.CanUndercut(sel.ID); {
+		case err == nil:
+			lines = append(lines, keyRow("u", fmt.Sprintf("undercut: takes ~%.0f%% at normal, no heat", m.set.Market.Steal(w, *sel, events.DialNormal)*100)))
+		case err == game.ErrNotNextDoor:
+			lines = append(lines, wrapped(theme.Subtle, "Work a corner next door and you can undercut it.")...)
 		}
 	default:
 		if m.eyed(sel) {

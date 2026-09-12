@@ -48,6 +48,10 @@ func mapFacts(t *testing.T, m *Model, c *game.Corner, text, where string) {
 		}
 	case c.Owner == game.OwnerRival:
 		want = append(want, w.Rival.Leader+"'s since day", "holds", "push takes it", "hit ~")
+	case m.eyed(c):
+		// The tell (#69): the rival may be eyeing the fixture's free
+		// corner on some seeds; the hint is then to keep them off.
+		want = append(want, "free", "post a runner to keep them off")
 	default:
 		want = append(want, "free", "post a runner to claim it")
 	}

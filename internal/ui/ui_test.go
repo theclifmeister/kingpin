@@ -246,6 +246,19 @@ func richFixture(t *testing.T, sz [2]int, check func(m *Model, view, what string
 	if m.w.Strike == nil {
 		t.Fatalf("%dx%d: no strike queued: %q", sz[0], sz[1], m.status)
 	}
+	// A price war on the same corner (#68): you next door on Rail Yard
+	// (the crew hired above may hold no runner), then the picker, the $
+	// cell, the inspector's row, and after the day ends the report's
+	// line and the squeezed row.
+	if err := m.w.Post(m.w.Home().Corners[1].ID, game.You); err != nil {
+		t.Fatal(err)
+	}
+	m.Update(key("u"))
+	see(m, "undercut picker")
+	m.Update(key("enter"))
+	if _, ok := m.w.Undercutting(m.w.Home().Corners[0].ID); !ok {
+		t.Fatalf("%dx%d: no undercut queued: %q", sz[0], sz[1], m.status)
+	}
 	for i := range m.shown().Corners {
 		m.mapCursor = i
 		see(m, "map")
@@ -2388,6 +2401,14 @@ func TestModalsFit(t *testing.T) {
 		{"help", modeHelp, func(t *testing.T, m *Model) { m.Update(key("?")) }},
 		{"post", modePost, func(t *testing.T, m *Model) { m.Update(key("5")); m.mapCursor = 1; m.Update(key("c")) }},
 		{"strike", modeStrike, func(t *testing.T, m *Model) { m.Update(key("5")); m.mapCursor = 0; m.Update(key("w")) }},
+		// The undercut picker (#68): the fixture's rival corner borders
+		// a worked one, once the split that covers the line is gone.
+		{"undercut", modeUndercut, func(t *testing.T, m *Model) {
+			m.w.Rival.Deals = nil
+			m.Update(key("5"))
+			m.mapCursor = 0
+			m.Update(key("u"))
+		}},
 		{"confirm upgrade", modeConfirmUpgrade, func(t *testing.T, m *Model) { m.Update(key("6")); m.Update(key("enter")) }},
 		{"front", modeFront, func(t *testing.T, m *Model) { m.Update(key("7")); m.Update(key("b")) }},
 		{"confirm investigate", modeConfirmInvestigate, func(t *testing.T, m *Model) { m.Update(key("4")); m.Update(key("i")) }},

@@ -183,9 +183,10 @@ func (m *Model) stopReason(evs []events.Event, before []alert) string {
 // stopEvent is the reason an event stops the run, or "" for one that
 // does not: the police past a patrol, a corner struck or taken off you,
 // the crew walking, an audit, a seizure, the rival's offer or a deal
-// broken, a buyer asking, pressure or a reputation axis up a band, a
-// new chief or an election, and a contract or a standing order that ran
-// short (the routine broke).
+// broken, a corner the rival gave up to a price war (free: the tell's
+// kind of stop, a corner to post on), a buyer asking, pressure or a
+// reputation axis up a band, a new chief or an election, and a contract
+// or a standing order that ran short (the routine broke).
 func (m *Model) stopEvent(e events.Event) string {
 	w := m.w
 	switch ev := e.(type) {
@@ -201,6 +202,8 @@ func (m *Model) stopEvent(e events.Event) string {
 		if ev.From == game.OwnerPlayer {
 			return ev.Rival + " took " + ev.Name
 		}
+	case events.RivalAbandoned:
+		return ev.Rival + " gave up " + ev.Name
 	case events.CrewQuit:
 		return ev.Name + " quit"
 	case events.CrewDefected:
