@@ -16,10 +16,11 @@ import (
 
 // The price war (#68): the player's third answer to a rival corner,
 // money. These pin the mechanic's invariants and what it buys and costs
-// against the other two answers. The issue's "starve the muscle" bullets
-// are not here: since #60 the rival's income is hundreds of times its
-// wage bill (RivalBooks logs it), so a price war cuts what a corner
-// earns and never what the rival can pay; #139 rescales its economy.
+// against the other two answers. The issue's "starve the muscle" bullet
+// is in rival_economy_test.go (#139, TestPricewarStarvesTheMuscle): the
+// rival's muscle is what its take pays for, so a war fought in earnest
+// costs it heads; the pricewar policy's one corner on the nights it
+// sells takes one to four points of the take, under a head.
 
 // pricewarRun plays a policy on a seed with the rival's temper forced,
 // calling check every morning after the policy acts.
@@ -149,15 +150,14 @@ func TestPricewarKeepsThePeace(t *testing.T) {
 // A price war cuts what the rival's corners earn: against a defensive
 // rival, which never gives a corner up, what the squeeze takes off the
 // rival's income (the corners' full income less what it books, summed
-// over 120 days) is positive on every seed. It is a fraction of a
-// point of what the rival books: the squeeze is a share of the corner's
-// trade, and once the wholesaler's line is crossed the rival's trade is
-// mostly the port's product, which you never sell at home; and the
+// over 120 days) is positive on every seed. It is a point or so of
+// what the rival books: the squeeze is a share of the corner's trade
+// on the nights the bag-limited player sells into the pool, and the
 // rival is seldom next door before day 60. The territory player's
 // rival's income is logged beside it, not pinned: the two runs diverge
 // on the rival's answer and the day's prices by more than the squeeze
-// (seed 2 reads 13% over at the same corner count). RivalBooks logs why
-// none of it starves the rival (#139).
+// (seed 2 reads 13% over at the same corner count). RivalBooks logs
+// the take against the wage bill (#139: a head is a tenth of it).
 func TestPricewarCutsTheRivalsIncome(t *testing.T) {
 	cfg := content.MustLoad()
 	rv := rivals.New(cfg.Rivals, cfg.Names, cfg.Reputation.Effects, cfg.Law.Effects, cfg.Upgrades)

@@ -143,6 +143,15 @@ func main() {
 	robberies, robbed := 0, 0
 	var rivalHeld, takens []int
 	rivalAt := map[int][]int{}
+	// The rival's books at the pace days (#139): cash, income and the
+	// wage bill, so whether money can hurt it is a number in the output.
+	cashAt, incomeAt, wagesAt := map[int][]int{}, map[int][]int{}, map[int][]int{}
+	books := func(w *game.World, d int) {
+		income, wages := harness.RivalBooks(cfg, w)
+		cashAt[d] = append(cashAt[d], w.Rival.Cash)
+		incomeAt[d] = append(incomeAt[d], income)
+		wagesAt[d] = append(wagesAt[d], wages)
+	}
 	won, strikes, tips, crackdowns := 0, 0, 0, 0
 	undercuts, undercutUnits, abandons := 0, 0, 0
 	var muscle []int
@@ -169,6 +178,7 @@ func main() {
 			for _, d := range harness.PaceDays {
 				if w.Day == d {
 					rivalAt[d] = append(rivalAt[d], w.RivalHeld())
+					books(w, d)
 				}
 			}
 			p(w)
@@ -222,6 +232,7 @@ func main() {
 			for _, d := range harness.PaceDays {
 				if d == *days {
 					rivalAt[d] = append(rivalAt[d], res.World.RivalHeld())
+					books(res.World, d)
 				}
 			}
 		}
@@ -350,6 +361,16 @@ func main() {
 		}
 	}
 	fmt.Printf(" (pace %s)\n", *pace)
+	fmt.Printf("rival books:  ")
+	for _, d := range harness.PaceDays {
+		if cs := cashAt[d]; len(cs) > 0 {
+			sort.Ints(cs)
+			sort.Ints(incomeAt[d])
+			sort.Ints(wagesAt[d])
+			fmt.Printf(" day %d cash %d income %d/day wages %d/day", d, cs[len(cs)/2], incomeAt[d][len(cs)/2], wagesAt[d][len(cs)/2])
+		}
+	}
+	fmt.Println(" (medians)")
 	if strikes > 0 {
 		fmt.Printf("war:           %.1f strikes per run, %.1f corners won per run\n", float64(strikes)/float64(*runs), float64(won)/float64(*runs))
 	}
