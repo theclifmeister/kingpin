@@ -80,6 +80,7 @@ func TestSimsNeverImportEachOther(t *testing.T) {
 // #72).
 func TestSimsWriteOnlyTheirOwnState(t *testing.T) {
 	owned := map[string][]string{
+		"world":      {"Incidents"}, // its effects apply in game.ApplyIncident, the one place that knows the keys (#44)
 		"market":     {"Cities.Market", "Contracts", "Buyers", "Suppliers", "Markup", "Supply", "Standing", "BaseQuality", "Cities.Corners.Repeat"},
 		"logistics":  {"Shipments", "Logistics", "Routes"},
 		"territory":  {"Cities.Corners", "Houses"},

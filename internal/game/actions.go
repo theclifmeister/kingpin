@@ -398,10 +398,15 @@ func (w *World) Travel(city string) error {
 // off, so a save from before the dial replays as it did, and a save from
 // before the days target loads with Days nil, no schema bump.
 type RouteSetting struct {
-	Dial   events.RouteDial
-	Target map[string]int // product id -> units the route's destination is kept stocked to
-	Days   map[string]int // product id -> days of the destination's demand it is kept stocked to
+	Dial        events.RouteDial
+	Target      map[string]int // product id -> units the route's destination is kept stocked to
+	Days        map[string]int // product id -> days of the destination's demand it is kept stocked to
+	ClosedUntil int            // the route is shut on every tick before this day (#44, an incident): nothing moves on it and nothing new is sent; 0 is open
 }
+
+// Closed reports whether the route is shut on the tick that brings day:
+// the logistics sim asks with the tick's day, the UI with tomorrow's.
+func (rs RouteSetting) Closed(day int) bool { return day < rs.ClosedUntil }
 
 // HasTargets is whether the route keeps anything anywhere: a route with
 // none sends nothing however its dial stands.

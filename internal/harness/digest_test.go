@@ -32,6 +32,7 @@ import (
 // and CI while a real change to any number does.
 func TestSeedDigest(t *testing.T) {
 	cfg := content.MustLoad()
+	cfg.Incidents.Table = nil // the weather stays boxed (#44), as it is in every harness run: the digest pins the sims
 	w := sim.NewWorld(cfg, seedDigestSeed)
 	_, sims, err := sim.Default(cfg)
 	if err != nil {
@@ -144,27 +145,33 @@ const (
 // DA.Backed, Law.CampaignOpen, Today.Backed and three Stats added to
 // the walk; no number moved: the digest with the new fields skipped was
 // the old one on every day, the boss having no clean cash to back a
-// ticket with by day 60) and again for #47 (Player.Quality, World.
-// BaseQuality, Corner.Repeat, Shipment.Quality, Supplier.Quality,
-// Crew.Cooks and NextCook, Today.Cuts and five Stats added to the walk,
-// the chemist beside the pool's faces once meth lists; the move is on
-// day 1, the day the default quality and repeat_start are stamped, and
-// no money number moved: t1 and t2 stand to the dollar and the boss's
-// rows stand under #193's figures).
+// ticket with by day 60), and again for #44 (the world's incidents,
+// table boxed: day 1 moved by shape alone, five zero fields added,
+// World.Incidents, RouteSetting.ClosedUntil, HeatState.FederalUntil and
+// FederalDecay, LawState.SnapElection and DayReport.Incident; day 25 by
+// the wording of a headline that now names the chief, PressureShiftedUp's
+// third; no number moved, checked field by field against d51abd1), and
+// again for #47 (Player.Quality, World.BaseQuality, Corner.Repeat,
+// Shipment.Quality, Supplier.Quality, Crew.Cooks and NextCook,
+// Today.Cuts and five Stats added to the walk, the chemist beside the
+// pool's faces once meth lists; the move is on day 1, the day the
+// default quality and repeat_start are stamped, and no money number
+// moved: t1 and t2 stand to the dollar and the boss's rows stand under
+// #193's figures).
 var seedDigest = []string{
-	"bd97411885cf06ee", "ced86f2ac8c3998d", "270166cd90753086", "cd0b1b2ae6509acc",
-	"5f19ad38744778f5", "b681fe7dbf1bd503", "60445d0b105f74b3", "5494e3a2609997fb",
-	"cb970dd418bcc539", "df5cf7ff7c6ccdde", "7cd9077e5e30e5af", "f78ac87e96d59bce",
-	"87d87a27df79c5ab", "d02173a7e0c0014c", "393b682e2c8581ba", "d402e3f551672c7e",
-	"ecf3bdb22d4ccf6d", "3ce0aa1fa00aade4", "dea69e0bda7da667", "0ef8909ac95a4bb6",
-	"934c678c012729b3", "14357dd1e8461810", "7e3aeda5184c5ea4", "fca61e6802302b1f",
-	"7f0bb354a692fdcf", "505d9e29628c3226", "397ac9df48df6a00", "a35d754f766b3f78",
-	"51467a64e6059702", "287c86616a2147c4", "674dfb79067b0179", "727ec47dd241bb7d",
-	"bb6309722e25a61b", "c223c14cdab7e6cf", "d098ee92dd6cf35c", "11a26c86d30eeca3",
-	"cc2c6819da949061", "1a2160b516b14a55", "a2e341d0813d2bfc", "c75485707fbb5b69",
-	"9004ad5e93d0fa68", "270230a93a9ed7ff", "5a18849cf02ec968", "a17d696abe9c2651",
-	"766bacd5ed6187ee", "ff3e1edad6859158", "366196f6510d6068", "309e9761addc9f8c",
-	"b741d88c8664063a", "ee9a625e5b40bd82", "8ffc8dab57430c1e", "aa3ab2c01279d5b6",
-	"cafc99dd0f67bcd1", "cd5e0990334b60ef", "c50d816cff621ccd", "c7f5c390f4ed0935",
-	"c67dff13a1495f3e", "e3b6d122a79267da", "03c4fe677a76d6ff", "61505db5f68c9026",
+	"c0b8624ce447734a", "a348a1680caa427f", "054c1419f12bb4fc", "daaa5344678988ac",
+	"441f8e9f8e434a39", "cd700166c4186e69", "77cc6abdf296af77", "6c2f8fb855c52a75",
+	"59069d222c121f75", "37cb57a61f05ceaa", "d4a2bc430636fc57", "48cee142cd84da8e",
+	"3cc93537dd67092b", "428efd983e5b2304", "b4a1514cd355de98", "5cb9e76976de97a4",
+	"544a49e4eb4d3fd9", "b4c0028bd9333aa2", "1dfa817f40c1a6e3", "2b5ea39a48cc658a",
+	"6958ddffc9a6a46f", "65decd17c06f764c", "9d1cfb484ad6095c", "a22bd61c51aa9fe3",
+	"89b15aa68e62c9cd", "fa853fcc4f638eb1", "64221a8b235fc9f7", "bb99f0b75e509dea",
+	"cc7c904bac422734", "eddccd62bb6d2b94", "b225938632fe0fc7", "f93c12b26f7f32a1",
+	"33c9a0b88456321f", "4fcb901f1e8a1c47", "c016d85d445a65f0", "812957d4843ae8b7",
+	"6d799b08efef47cf", "df7ca21f8763c1f7", "6026965c23b9b66a", "81b7633245bb4a59",
+	"d9bfdca9bc7048b4", "24603706a56a2717", "fe613bcb3a36a552", "30531e82ef7769f1",
+	"fd54e8aa26917f7e", "52b503a2c7d74e06", "9e3916a8579a1798", "65e330161fcddd7e",
+	"44b8f739131e205c", "7a2f63a95c46d64c", "46b915ea8d8fde34", "7472eb2f800f1fbc",
+	"3a32292a6f17be61", "489fd168e377fb25", "f8b4cd57697090ef", "8c8bb3db78a8f8a9",
+	"68eb3c218c309684", "84eb226f8d13189c", "5f7b26e915ee00cd", "670d37c53d70803c",
 }

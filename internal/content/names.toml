@@ -30,6 +30,17 @@ das = [
   "Haddad", "Pettigrew", "Nakamura", "Sloane", "Fitzgerald", "Ostrowski", "Bell",
 ]
 
+# Who an incident names (#44): the star the overdose headline is about and
+# the byline on the profile. Full names: they read as strangers.
+celebrities = [
+  "Jimmy Vale", "Cara Monroe", "Rex Aldana", "Sasha Bright", "Donnie Fair",
+  "Lola Reyes", "Tommy Flint", "Nadia Kane", "Rocco Dane", "Bibi Lane",
+]
+reporters = [
+  "Ana Castellanos", "Ruth Amberley", "Pete Volkov", "Dana Okoro",
+  "Miles Hartigan", "Ines Marchetti", "Tobias Reinholt", "Jo Whitlock",
+]
+
 # Chemists (#47): the one face the pool carries beside its usual ones
 # once meth is on the ladder. Drawn off the chemist's own stream from
 # this list, never the crew list, so the crew names roll as they did.

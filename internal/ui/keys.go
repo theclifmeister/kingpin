@@ -655,6 +655,7 @@ var words = [][2]string{
 	{"scout", "a paid look at the rival's books: a snapshot that goes stale"},
 	{"boost", "the enforcers rob a rival corner's till, not the corner"},
 	{"scene", "a short animation on a morning that matters; any key skips it"},
+	{"world", "the weather: an incident that lands on the world, not on you"},
 	{"quality", "a lot's grade, 0-100: the price pays it, corners remember it"},
 	{"cut", "add units at nothing: more today, fewer customers tomorrow"},
 	{"cook", "a chemist's batch of meth or designer, from precursors"},

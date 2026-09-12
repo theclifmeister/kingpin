@@ -40,6 +40,7 @@ func main() {
 	own := flag.String("own", "", "comma-separated upgrade ids every run owns from day 0, free (prerequisites first)")
 	snitch := flag.Bool("snitch", false, "start every run with an informant on the payroll (harness.Plant)")
 	cards := flag.String("cards", "", "deal the dilemma cards and answer every one with: decline (the last choice) | first (default: no cards)")
+	incidents := flag.String("incidents", "on", "on | off: off boxes the world's incident table (#44); the harness tests run with it boxed, so a pinned number reads with off")
 	cut := flag.Float64("cut", 0, "cut everything the policy buys by this ratio (#47, harness.Cutter): 0.5 adds half again at nothing")
 	flag.Parse()
 	at := func(def float64) float64 {
@@ -152,8 +153,16 @@ func main() {
 		fmt.Fprintf(os.Stderr, "unknown -cards %q\n", *cards)
 		os.Exit(2)
 	}
+	switch *incidents {
+	case "on", "off":
+	default:
+		fmt.Fprintf(os.Stderr, "unknown -incidents %q\n", *incidents)
+		os.Exit(2)
+	}
 	var played, peaks []int
 	worth := map[int][]int{}
+	fired := map[string]int{} // incident id -> times it fired across the runs (#44)
+	firedRuns := 0
 	reached := map[int][]int{} // tier -> the day each run entered it, or never (#147)
 	endings := map[string]int{}
 	robberies, robbed := 0, 0
@@ -243,13 +252,7 @@ func main() {
 			harness.Plant(cfg, w)
 		}
 		runCfg := harness.Appoint(cfg, w, *chief, *da)
-		var res harness.Result
-		var err error
-		if pick != nil {
-			res, err = harness.RunWith(runCfg, w, *days, pol, pick)
-		} else {
-			res, err = harness.RunFrom(runCfg, w, *days, pol)
-		}
+		res, err := harness.Play(runCfg, w, *days, pol, harness.Options{Cards: pick, Incidents: *incidents == "on"})
 		if err != nil {
 			fmt.Fprintln(os.Stderr, err)
 			os.Exit(1)
@@ -279,6 +282,22 @@ func main() {
 		}
 		for _, e := range res.Events {
 			switch ev := e.(type) {
+			case events.Incident:
+				fired[ev.ID]++
+				firedRuns++
+				if *trace && seed == *seed0 {
+					fmt.Printf("day %3d incident %s in %s", ev.Day, ev.ID, ev.City)
+					if ev.Route != "" {
+						fmt.Printf(" route %s", ev.Route)
+					}
+					if ev.Product != "" {
+						fmt.Printf(" product %s", ev.Product)
+					}
+					if ev.Days > 0 {
+						fmt.Printf(" %dd", ev.Days)
+					}
+					fmt.Println()
+				}
 			case events.CornerRobbed:
 				robberies++
 			case events.RivalTippedPolice:
@@ -552,6 +571,15 @@ func main() {
 			}
 		}
 		fmt.Printf("cards:         %.1f per run answered %s, %d of %d in the deck seen: %s\n", float64(total)/float64(*runs), *cards, len(ids), len(cfg.Dilemmas.Cards), strings.Join(ids, ", "))
+	}
+	if *incidents == "on" {
+		var ids []string
+		for _, inc := range cfg.Incidents.Table {
+			if fired[inc.ID] > 0 {
+				ids = append(ids, fmt.Sprintf("%s %d", inc.ID, fired[inc.ID]))
+			}
+		}
+		fmt.Printf("incidents:     %.1f per run, %d of %d in the table seen: %s\n", float64(firedRuns)/float64(*runs), len(ids), len(cfg.Incidents.Table), strings.Join(ids, ", "))
 	}
 	fmt.Printf("endings: %v\n", endings)
 }

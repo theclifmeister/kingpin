@@ -399,7 +399,7 @@ The full table is below; `?` brings it up in the game.
 For implementation details, invariants and test coverage, see [CLAUDE.md](CLAUDE.md).
 Tuning lives in `internal/content/*.toml`. These are the systems behind a run.
 
-Every day the simulations step in a fixed order (`market -> logistics -> territory -> rivals -> crew -> heat -> law -> laundering -> reputation -> news`),
+Every day the simulations step in a fixed order (`world -> market -> logistics -> territory -> rivals -> crew -> heat -> law -> laundering -> reputation -> news`),
 each reading the world and emitting typed events that later sims and the UI
 consume. Randomness is derived from the run seed and the day number, so a
 run is fully reproducible and nothing about the RNG needs saving; what
@@ -648,6 +648,23 @@ before the report, `1`–`3` or `enter` decide, the effects land at once
 and the outcome goes in the journal. Quit on a card and it is waiting
 when you come back. The deck is `internal/content/dilemmas.toml`.
 
+### World incidents
+
+The world changes without you. First thing every day the world sim deals
+at most one **incident** from a weighted table, paced like the cards (a
+gap, then rising odds, fixed for the seed): a port strike shuts the boat
+routes and spikes coke at the port, a hurricane or a snowstorm closes a
+road, a harvest glut makes coke cheap, a new synthetic halves the pills
+crowd for two months, a celebrity overdose or a documentary turns the
+pressure up, a reporter puts your name about, the DA calls a snap
+election, the chief resigns, the feds open an office and heat cools at
+half its pace. An incident lands on the world, never on you: a route's
+closure, a market shock, a city's pressure, the law's actors. The
+headline comes under the `world` source, in its own colour, and the
+report opens with it; a shut route says so on the map's pane and holds
+what is on it until it reopens. Headlines name names: the DA, the chief,
+the rival's crew. The table is `internal/content/incidents.toml`.
+
 ### Progression
 
 The tier a run is in (Corner, Crew, Territory, Distribution) lives in
@@ -701,8 +718,11 @@ Use these flags to compare runs with the same conditions:
 | `-own stash,burners` | Starts with those upgrades. |
 | `-snitch` | Starts with an informant on the payroll. |
 | `-cards decline\|first` | Answers cards with the last (do-nothing) or first choice. |
+| `-incidents off` | Boxes the world's incident table (on by default). |
 
-Cards are off by default, so the harness measures the sims without the deck.
+Cards are off by default, and the harness tests box the incidents too, so
+they measure the sims without the deck or the weather; `-incidents off`
+reads a pinned number.
 For all policies and flags, run:
 
 ```sh
