@@ -19,7 +19,7 @@ func TestPreview(t *testing.T) {
 	}
 	m := newTestModel(t, 100, 30)
 	for i := 0; i < 12; i++ {
-		m.w.AddStock(m.w.Player.Location, m.w.Products[i%3], 30)
+		m.w.AddStock(m.w.Player.Location, m.w.Products[i%3], 30, 0)
 		m.Update(key("s"))
 		m.Update(key("enter"))
 		m.Update(key("enter"))

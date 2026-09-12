@@ -29,7 +29,7 @@ func TestBooksKeys(t *testing.T) {
 		t.Fatalf("$ on the dashboard: mode %v status %q", m.mode, m.status)
 	}
 	m.Update(key("t"))
-	if m.mode != modePlay || m.status != "Assign on the crew screen (4). Tip police on the map screen (5)." {
+	if m.mode != modePlay || m.status != "Cut on the market screen (2). Assign on the crew screen (4). Tip police on the map screen (5)." {
 		t.Fatalf("t on the dashboard: mode %v status %q", m.mode, m.status)
 	}
 	// The scout: the confirmation names the cost and the odds; y queues it,

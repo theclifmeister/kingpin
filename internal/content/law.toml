@@ -30,6 +30,7 @@ boost = 3                   # your enforcers robbing a rival corner's takings (#
 rival_raid = 3              # the police taking a rival corner on your tip (#70): a raid on a home block
 hard_units = 25             # a point per this many units of a hard product sold in the city in a day
 hard_products = ["heroin", "meth", "designer"]
+overdose = 6                # an overdose on your corner (#47): bad product is the city's story, never the DA's page
 headline = 0.8              # per headline about you the day before, ...
 headline_sources = ["heat", "crew", "territory", "laundering"] # ... from these sims
 

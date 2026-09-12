@@ -117,6 +117,7 @@ func (s *Sim) Seed(w *game.World, rng *rand.Rand) {
 		w.Suppliers[i].Opened = !w.Suppliers[i].Locked(w)
 	}
 	w.Markup = s.Markup()
+	s.stampQuality(w)
 }
 
 // Migrate is the 10 -> 11 step: a save from before the connects gets
@@ -200,9 +201,19 @@ func (s *Sim) stampBand(w *game.World, sup *game.Supplier) {
 func (s *Sim) stampPrice(w *game.World, sup *game.Supplier, id string, m *game.ProductMarket, fx game.Effects) {
 	if m.NoSupply || !sup.Sells(id) {
 		delete(sup.Price, id)
+		delete(sup.Quality, id)
 		return
 	}
 	sup.Price[id] = m.Price * s.supplierRatio(w, sup, fx)
+	// What they sell is as good as the file says (#47): their own
+	// figure for the product, else the default.
+	if sup.Quality == nil {
+		sup.Quality = map[string]float64{}
+	}
+	sup.Quality[id] = s.Default()
+	if sc := s.scfg.Supplier(sup.ID); sc != nil {
+		sup.Quality[id] = sc.QualityOf(id, s.Default())
+	}
 }
 
 // book closes yesterday's book on every connect at the top of the step:

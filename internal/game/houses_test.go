@@ -32,12 +32,12 @@ func TestStockGoesHouseFirstAndComesStreetFirst(t *testing.T) {
 	if w.Capacity("test") != 100+30+50 || w.StreetCapacity("test") != 100 {
 		t.Fatalf("capacity %d street %d", w.Capacity("test"), w.StreetCapacity("test"))
 	}
-	w.AddStock("test", "a", 40)
+	w.AddStock("test", "a", 40, 0)
 	// h2 has the most room (50): it takes the 40.
 	if h1, h2 := w.House("h1").Stock["a"], w.House("h2").Stock["a"]; h1 != 0 || h2 != 40 || w.Street("test", "a") != 0 {
 		t.Fatalf("40 landed h1 %d h2 %d street %d", h1, h2, w.Street("test", "a"))
 	}
-	w.AddStock("test", "a", 50)
+	w.AddStock("test", "a", 50, 0)
 	// h1 now has the most room (30 to h2's 10): 30 into h1, 10 into h2, 10 onto the street.
 	if h1, h2, st := w.House("h1").Stock["a"], w.House("h2").Stock["a"], w.Street("test", "a"); h1 != 30 || h2 != 50 || st != 10 {
 		t.Fatalf("after 90: h1 %d h2 %d street %d", h1, h2, st)
@@ -53,7 +53,7 @@ func TestStockGoesHouseFirstAndComesStreetFirst(t *testing.T) {
 		t.Fatalf("over-take took %d, left %d", took, w.Stock("test", "a"))
 	}
 	// TakeStreet and TakeFromHouse reach one place only.
-	w.AddStock("test", "a", 100) // h1 30 (most room? h1 30, h2 50: h2 first 50, then h1 30, then 20 street)
+	w.AddStock("test", "a", 100, 0) // h1 30 (most room? h1 30, h2 50: h2 first 50, then h1 30, then 20 street)
 	if w.TakeStreet("test", "a", 99) != 20 || w.TakeFromHouse("h1", "a", 99) != 30 || w.TakeFromHouse("nope", "a", 1) != 0 || w.Stock("test", "a") != 50 {
 		t.Fatalf("one-place takes: %v %v %d", w.StreetOf("test"), w.House("h2").Stock, w.Stock("test", "a"))
 	}
@@ -147,7 +147,7 @@ func TestBuyDropAndGuard(t *testing.T) {
 	if err := w.Guard("h1", 1); err != nil {
 		t.Fatal(err)
 	}
-	w.AddStock("test", "a", 20)
+	w.AddStock("test", "a", 20, 0)
 	gone, err := w.Drop("h1")
 	if err != nil || gone.ID != "h1" || len(w.Houses) != 0 || w.Stock("test", "a") != 0 || w.GuardOf(1) != nil {
 		t.Fatalf("drop: %v %+v houses %d stock %d guard %v", err, gone, len(w.Houses), w.Stock("test", "a"), w.GuardOf(1))
@@ -198,7 +198,7 @@ func TestSaveMigratesTheStashIntoAStarterHouse(t *testing.T) {
 	if _, err := Load(1); err == nil {
 		t.Fatal("a schema-11 save loaded without a migration")
 	}
-	got, err := Load(1, Migration{From: 11, Apply: MigrateHouses})
+	got, err := Load(1, Migration{From: 11, Apply: MigrateHouses}, Migration{From: 12, Apply: func(w *World) { w.MigrateLots(50, 1) }})
 	if err != nil {
 		t.Fatal(err)
 	}

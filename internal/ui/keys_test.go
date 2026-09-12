@@ -13,12 +13,12 @@ import (
 )
 
 // handledKeys are the keys keyPlay's switch handled the day the key
-// table replaced it (#80), F since (#116) and m (#73): what the table
-// must list, and all it may.
+// table replaced it (#80), F since (#116), m (#73) and o (#47): what
+// the table must list, and all it may.
 var handledKeys = []string{
 	"q", " ", "ctrl+s", "?", "1", "2", "3", "4", "5", "6", "7", "8", "tab", "shift+tab",
 	"n", "F", "enter", "u", "r", "R", "b", "s", "t", "g", "[", "]", "x", "y", "l", "N",
-	"h", "f", "p", "d", "i", "$", "c", "e", "a", "w", "m",
+	"h", "f", "p", "d", "i", "$", "c", "e", "a", "w", "m", "o",
 	"up", "k", "down", "j", "left", "right", "pgup", "pgdown",
 }
 
@@ -252,7 +252,7 @@ func TestHelpMatchesKeys(t *testing.T) {
 			t.Errorf("the help row for %s is %d wide, over the modal's %d: %q", b.key, lipgloss.Width(want), m.modalInner(), want)
 		}
 	}
-	m.Update(tea.WindowSizeMsg{Width: 120, Height: 80})
+	m.Update(tea.WindowSizeMsg{Width: 120, Height: 90}) // tall enough for every row at once (the modal scrolls at 80x24: TestHelpScrollsToTheLastRow)
 	m.Update(key("?"))
 	view := stripANSI(m.View())
 	for _, r := range rows {

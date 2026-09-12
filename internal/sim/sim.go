@@ -98,6 +98,7 @@ func (s *Set) Migrations() []game.Migration {
 		{From: 9, Apply: game.MigrateFallGuys},      // 9 -> 10: the fall guy became a count (#117)
 		{From: 10, Apply: s.Market.Migrate},         // 10 -> 11: the connects (#72), one a city at today's price
 		{From: 11, Apply: game.MigrateHouses},       // 11 -> 12: the stash houses (#73), the old pile in a starter house
+		{From: 12, Apply: s.Market.MigrateLots},     // 12 -> 13: quality (#47), the old stock at the default and every corner's customers coming back
 	}
 }
 

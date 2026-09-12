@@ -31,7 +31,7 @@ func rented(t *testing.T, cfg *content.Config, seed uint64, units int, capacitie
 		}
 	}
 	w.Today.HousesBought = nil
-	w.AddStock(w.Home().ID, cfg.Market.Products[0].ID, units)
+	w.AddStock(w.Home().ID, cfg.Market.Products[0].ID, units, 0)
 	return w
 }
 
@@ -255,7 +255,7 @@ func TestGuardIsWorthItsWage(t *testing.T) {
 				w.SetStock(w.Home().ID, product, 0)
 				if h := w.House("ha"); h != nil && h.Units() < 300 {
 					w.MoveStock(w.Home().ID, game.Street, "ha", product, 0)
-					w.AddStock(w.Home().ID, product, 300-h.Units())
+					w.AddStock(w.Home().ID, product, 300-h.Units(), 0)
 				}
 			})
 			if err != nil {

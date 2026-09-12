@@ -138,3 +138,26 @@ wage_base = 80
 wage_per_skill = 1.5
 cut = 0.08                  # share of their city's takings they keep, every day
 crew = 8                    # roster slots an assigned lieutenant adds: their own people
+
+# The chemist (#47) is who makes quality. One comes looking for work
+# once meth is on the ladder (the pool carries a chemist beside its
+# usual faces, drawn off the chemist's own stream with a name from
+# names.toml's chemists, so the faces you always drew are the faces you
+# draw). Their quality is quality_base + quality_per_skill x skill: what
+# a cook lands at. A cut with a chemist on the payroll keeps cut_bonus x
+# the best chemist's skill points of quality the cut would have lost
+# (cutting with a good chemist is nearly free). Cook(product, units)
+# needs one: precursors cost market.toml's cook_cost a unit, dirty, up
+# to batch_per_skill x skill units an order, one order a product a day,
+# and the crew sim lands the lot cook_days later at the chemist's
+# quality as it was the day it was ordered. Without a chemist nothing
+# cooks and a cut is what the ratio says. The lab raid is #46's.
+[role.chemist]
+wage_base = 70
+wage_per_skill = 1.4
+unlock_product = "meth"     # the rung whose listing brings one looking
+quality_base = 30           # a chemist's quality is this ...
+quality_per_skill = 0.6     # ... plus this per skill point: 39 at skill 15, 81 at 85
+cut_bonus = 0.2             # quality points a cut keeps per point of the best chemist's skill
+cook_days = 3               # days from the order to the lot
+batch_per_skill = 2.0       # units a cook order can be for, per skill point

@@ -245,7 +245,10 @@ func (s *Sim) deliver(w *game.World, t *game.Tick, city string) {
 		if m == nil || units <= 0 {
 			continue
 		}
-		price := m.Price * c.Premium
+		// The lot goes at the stash's quality and the premium pays its
+		// multiplier (#47): a buyer is a customer like the street.
+		quality := w.Quality(city, c.Product)
+		price := m.Price * c.Premium * s.QualityMul(quality)
 		revenue := int(math.Round(price * float64(units)))
 		w.TakeStock(city, c.Product, units)
 		w.Player.DirtyCash += revenue
@@ -257,7 +260,7 @@ func (s *Sim) deliver(w *game.World, t *game.Tick, city string) {
 		ev := events.ContractDelivered{
 			Day: t.Day, ID: c.ID, Buyer: c.Buyer, Name: c.Name, City: city, Product: c.Product,
 			Units: units, Owed: c.Owed(), Total: c.Units, Price: price, Street: m.Price, Signed: c.Street,
-			Revenue: revenue, HeatMul: c.HeatMul,
+			Revenue: revenue, HeatMul: c.HeatMul, Quality: quality,
 		}
 		if c.Owed() == 0 {
 			c.Status = game.ContractDelivered
