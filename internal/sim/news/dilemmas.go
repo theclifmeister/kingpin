@@ -2,7 +2,6 @@ package news
 
 import (
 	"fmt"
-	"math"
 	"strings"
 	"text/template"
 
@@ -21,23 +20,6 @@ type card struct {
 
 type choiceTmpl struct {
 	label, outcome, headline *template.Template
-}
-
-// Slots are what a card's templates can name, filled from the world when
-// it is drawn.
-type Slots struct {
-	Name    string // the crew member the card is about
-	Role    string
-	Corner  string // a corner of yours
-	Theirs  string // the rival corner it borders, when contested
-	Rival   string // the rival's leader
-	City    string
-	Front   string
-	Product string // the product you hold most of
-	Amount  string // the sum the card is about, formatted
-	member  int
-	corner  string // corner id
-	amount  int
 }
 
 // parseDeck parses every card's templates and checks each effect key is
@@ -88,139 +70,6 @@ func (s *Sim) Deck() []content.CardConfig {
 	return out
 }
 
-// Eligible reports whether a card's trigger holds in w and, if so, the
-// slots it names. Every set field must hold. Who fills a slot is fixed by
-// the world, not the dice: the least loyal member under a loyalty line,
-// the most loyal over one, the biggest corner, so the same world always
-// names the same people.
-func Eligible(w *game.World, c content.CardConfig) (Slots, bool) {
-	t := c.Trigger
-	s := Slots{City: w.Here().Name, Rival: w.Rival.Leader}
-	if t.DayMin > 0 && w.Day < t.DayMin {
-		return s, false
-	}
-	if t.DayMax > 0 && w.Day > t.DayMax {
-		return s, false
-	}
-	// Heat where you are: the card finds you there.
-	if w.HeatHere() < t.HeatMin {
-		return s, false
-	}
-	if t.HeatMax > 0 && w.HeatHere() > t.HeatMax {
-		return s, false
-	}
-	if w.Cash() < t.CashMin {
-		return s, false
-	}
-	if t.StockMin > 0 {
-		if w.Player.TotalStock() < t.StockMin {
-			return s, false
-		}
-	}
-	if len(w.Crew.Members) < t.CrewMin {
-		return s, false
-	}
-	if t.Role != "" || t.LoyaltyBelow > 0 || t.LoyaltyAbove > 0 {
-		var pick *game.CrewMember
-		for i := range w.Crew.Members {
-			m := &w.Crew.Members[i]
-			if t.Role != "" && m.Role != t.Role {
-				continue
-			}
-			if t.LoyaltyBelow > 0 && m.Loyalty >= t.LoyaltyBelow {
-				continue
-			}
-			if t.LoyaltyAbove > 0 && m.Loyalty <= t.LoyaltyAbove {
-				continue
-			}
-			switch {
-			case pick == nil:
-				pick = m
-			case t.LoyaltyBelow > 0 && m.Loyalty < pick.Loyalty:
-				pick = m
-			case t.LoyaltyBelow == 0 && m.Loyalty > pick.Loyalty:
-				pick = m
-			}
-		}
-		if pick == nil {
-			return s, false
-		}
-		s.Name, s.Role, s.member = pick.Name, pick.Role, pick.ID
-	}
-	if t.Corners > 0 || t.Contested {
-		var mine, theirs *game.Corner
-		corners := w.Corners()
-		for i := range corners {
-			c := &corners[i]
-			if !c.Worked() {
-				continue
-			}
-			if t.Contested {
-				var o *game.Corner
-				for j := range corners {
-					r := &corners[j]
-					if r.Owner == game.OwnerRival && r.Borders(*c) && (o == nil || r.Demand > o.Demand) {
-						o = r
-					}
-				}
-				if o == nil {
-					continue
-				}
-				if mine == nil || c.Demand > mine.Demand {
-					mine, theirs = c, o
-				}
-				continue
-			}
-			if mine == nil || c.Demand > mine.Demand {
-				mine = c
-			}
-		}
-		if mine == nil || w.Worked() < t.Corners {
-			return s, false
-		}
-		s.Corner, s.corner = mine.Name, mine.ID
-		if theirs != nil {
-			s.Theirs = theirs.Name
-		}
-	}
-	if t.Rival && w.RivalHeld() == 0 {
-		return s, false
-	}
-	if t.Personality != "" && (w.RivalHeld() == 0 || w.Rival.Personality != t.Personality) {
-		return s, false
-	}
-	if t.WarMin > 0 && (w.RivalHeld() == 0 || w.Rival.War < t.WarMin) {
-		return s, false
-	}
-	if t.Fronts {
-		if len(w.Fronts) == 0 {
-			return s, false
-		}
-		s.Front = w.Fronts[0].Name
-	}
-	// The progression's two (#147): the high-water mark every unlock
-	// reads, and the lieutenant gate's count of cities with a held corner.
-	if w.Stats.PeakCash < t.PeakCashMin {
-		return s, false
-	}
-	if t.CitiesHeld > 0 && w.CitiesHeld() < t.CitiesHeld {
-		return s, false
-	}
-	most := -1
-	for _, id := range w.Products {
-		q := 0
-		for _, cid := range w.CityOrder {
-			q += w.Stock(cid, id)
-		}
-		if q > most {
-			most, s.Product = q, w.ProductName(id)
-		}
-	}
-	s.amount = nice(max(c.Amount, int(c.AmountShare*float64(w.Player.DirtyCash))))
-	s.Amount = dollarsInt(s.amount)
-	return s, true
-}
-
 // drawCard puts at most one eligible card in front of the player: none
 // while one waits for an answer or for MinGap days after the last, then a
 // chance rising each day so one is certain by MaxGap, if any is eligible.
@@ -242,7 +91,7 @@ func (s *Sim) drawCard(w *game.World, t *game.Tick) {
 	// the deck does not repeat while it still has fresh ones.
 	type pick struct {
 		card  *card
-		slots Slots
+		slots game.CardSlots
 		w     float64
 	}
 	var picks []pick
@@ -253,7 +102,7 @@ func (s *Sim) drawCard(w *game.World, t *game.Tick) {
 		if c.cfg.Once && n > 0 {
 			continue
 		}
-		sl, ok := Eligible(w, c.cfg)
+		sl, ok := game.Eligible(w, c.cfg)
 		if !ok {
 			continue
 		}
@@ -283,9 +132,9 @@ func (s *Sim) drawCard(w *game.World, t *game.Tick) {
 		Day:    t.Day,
 		Title:  renderSlots(c.title, sl),
 		Text:   renderSlots(c.text, sl),
-		Member: sl.member,
-		Corner: sl.corner,
-		Amount: sl.amount,
+		Member: sl.MemberID,
+		Corner: sl.CornerID,
+		Amount: sl.Sum,
 	}
 	for i, ch := range c.choices {
 		pending.Choices = append(pending.Choices, game.Choice{
@@ -301,33 +150,10 @@ func (s *Sim) drawCard(w *game.World, t *game.Tick) {
 	t.Emit(events.DilemmaDrawn{Day: t.Day, Card: c.cfg.ID, Title: pending.Title})
 }
 
-func renderSlots(t *template.Template, s Slots) string {
+func renderSlots(t *template.Template, s game.CardSlots) string {
 	var b strings.Builder
 	if err := t.Execute(&b, s); err != nil {
 		return t.Name()
 	}
 	return b.String()
-}
-
-// nice rounds a sum to two significant figures, the way somebody names a
-// price out loud: $2,347 is "twenty-three hundred".
-func nice(n int) int {
-	if n < 100 {
-		return n
-	}
-	p := math.Pow(10, math.Floor(math.Log10(float64(n)))-1)
-	return int(math.Round(float64(n)/p) * p)
-}
-
-// dollarsInt formats a whole-dollar sum with separators.
-func dollarsInt(n int) string {
-	s := fmt.Sprintf("%d", n)
-	var b strings.Builder
-	for i, r := range s {
-		if i > 0 && (len(s)-i)%3 == 0 {
-			b.WriteByte(',')
-		}
-		b.WriteRune(r)
-	}
-	return "$" + b.String()
 }

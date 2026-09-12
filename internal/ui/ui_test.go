@@ -1638,8 +1638,20 @@ func TestLedgerScreenKeys(t *testing.T) {
 	}
 	m.Update(key("enter"))
 	m.Update(key("7"))
-	if !strings.Contains(stripANSI(m.View()), "open") {
-		t.Fatalf("ledger does not show the front open: mode %v\n%s", m.mode, stripANSI(m.View()))
+	// The front rolls an audit on that first night at audit_risk (0.4%
+	// a day) off the day's RNG, and UI test seeds are wall-clock, so
+	// about one run in 200 the front reads `audit, back in 14d` and the
+	// word `open` is nowhere on the screen (#107). The wash still
+	// happened (an audit seizes a share of it, it does not undo it), so
+	// the status asserted is picked by the front's Audited field: it is
+	// only the vocabulary of frontStatus that is under test here. (The
+	// bare word `audit` is also a column header, so the phrase.)
+	want := "open"
+	if m.w.Fronts[0].Audited == m.w.Day {
+		want = "audit, back in"
+	}
+	if !strings.Contains(stripANSI(m.View()), want) {
+		t.Fatalf("ledger does not show the front %q: mode %v\n%s", want, m.mode, stripANSI(m.View()))
 	}
 }
 

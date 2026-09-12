@@ -9,7 +9,6 @@ import (
 
 	"github.com/theclifmeister/kingpin/internal/game"
 	"github.com/theclifmeister/kingpin/internal/sim"
-	"github.com/theclifmeister/kingpin/internal/sim/news"
 )
 
 // TestPreview prints screens to stdout when KINGPIN_PREVIEW is set. It is a
@@ -85,7 +84,7 @@ func TestPreview(t *testing.T) {
 	set, _, _ := sim.Default(m.cfg)
 	m.w.Crew.Members[0].Role = "enforcer"
 	m.w.Home().Corners[1].Owner, m.w.Rival.Arrived = game.OwnerRival, 1
-	if _, ok := news.Eligible(m.w, m.cfg.Dilemmas.Cards[0]); ok {
+	if _, ok := game.Eligible(m.w, m.cfg.Dilemmas.Cards[0]); ok {
 		w := m.w
 		w.Dilemmas.LastCard = 0
 		tick := &game.Tick{Day: w.Day + 1, RNG: game.RNGFor(w.Seed, w.Day+1)}

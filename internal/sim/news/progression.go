@@ -18,7 +18,7 @@ import (
 func (s *Sim) tier(w *game.World, t *game.Tick) int {
 	for n := w.Tier() + 1; n <= len(s.pcfg.Tiers); n++ {
 		tier := s.pcfg.Tiers[n-1]
-		if _, ok := Eligible(w, content.CardConfig{Trigger: tier.Enter}); !ok {
+		if _, ok := game.Eligible(w, content.CardConfig{Trigger: tier.Enter}); !ok {
 			continue
 		}
 		w.Reach(n, t.Day)

@@ -33,7 +33,9 @@ type Set struct {
 	News       *news.Sim
 }
 
-// Default builds every simulation in the canonical order:
+// Default builds every simulation in the canonical order, each from the
+// one *content.Config (a constructor copies the slices it reads and no
+// more, #144):
 //
 //	market -> logistics -> territory -> rivals -> crew -> heat -> law -> laundering -> reputation -> news
 //
@@ -47,24 +49,24 @@ type Set struct {
 // wash works on what the day's stings left; reputation reads the whole
 // day and goes before news so a band it crosses is a headline.
 func Default(cfg *content.Config) (*Set, []game.Simulation, error) {
-	n, err := news.New(cfg.Headlines, cfg.Dilemmas, cfg.Progression)
+	n, err := news.New(cfg)
 	if err != nil {
 		return nil, nil, err
 	}
-	mk, err := market.New(cfg.Market, cfg.City, cfg.Routes.Shipping, cfg.Upgrades, cfg.Reputation.Effects, cfg.Buyers, cfg.Suppliers, cfg.Rivals.Pricewar)
+	mk, err := market.New(cfg)
 	if err != nil {
 		return nil, nil, err
 	}
 	set := &Set{
 		Market:     mk,
-		Logistics:  logistics.New(cfg.Routes, cfg.City, cfg.Market, cfg.Upgrades, cfg.Laundering.Laundering.Float),
-		Territory:  territory.New(cfg.City, cfg.Upgrades, cfg.Houses.Houses),
-		Rivals:     rivals.New(cfg.Rivals, cfg.Names, cfg.Reputation.Effects, cfg.Law.Effects, cfg.Upgrades),
-		Crew:       crew.New(cfg.Crew, cfg.Names, cfg.Reputation.Effects, cfg.Upgrades),
-		Heat:       heat.New(cfg.Heat, cfg.Market, cfg.Routes.Shipping, cfg.Upgrades, cfg.Reputation.Effects, cfg.Crew.Lieutenant, cfg.Law, cfg.Houses.Houses),
-		Law:        law.New(cfg.Law, cfg.Names),
-		Laundering: laundering.New(cfg.Laundering, cfg.Crew, cfg.Upgrades),
-		Reputation: reputation.New(cfg.Reputation),
+		Logistics:  logistics.New(cfg),
+		Territory:  territory.New(cfg),
+		Rivals:     rivals.New(cfg),
+		Crew:       crew.New(cfg),
+		Heat:       heat.New(cfg),
+		Law:        law.New(cfg),
+		Laundering: laundering.New(cfg),
+		Reputation: reputation.New(cfg),
 		News:       n,
 	}
 	return set, []game.Simulation{set.Market, set.Logistics, set.Territory, set.Rivals, set.Crew, set.Heat, set.Law, set.Laundering, set.Reputation, set.News}, nil
@@ -100,13 +102,13 @@ func (s *Set) Migrations() []game.Migration {
 func NewWorld(cfg *content.Config, seed uint64) *game.World {
 	t := cfg.Market.Market
 	w := game.NewWorld(seed, logistics.StartingCities(cfg.City, cfg.Market), t.StartCash, t.CarryLimit)
-	territory.New(cfg.City, cfg.Upgrades, cfg.Houses.Houses).Seed(w)
+	territory.New(cfg).Seed(w)
 	rng := game.RNGFor(seed, 0)
-	crew.New(cfg.Crew, cfg.Names, cfg.Reputation.Effects, cfg.Upgrades).Seed(w, rng)
-	rivals.New(cfg.Rivals, cfg.Names, cfg.Reputation.Effects, cfg.Law.Effects, cfg.Upgrades).Seed(w, rng)
-	laundering.New(cfg.Laundering, cfg.Crew, cfg.Upgrades).Seed(w)
-	law.New(cfg.Law, cfg.Names).Seed(w, rng)
-	if mk, err := market.New(cfg.Market, cfg.City, cfg.Routes.Shipping, cfg.Upgrades, cfg.Reputation.Effects, cfg.Buyers, cfg.Suppliers, cfg.Rivals.Pricewar); err == nil {
+	crew.New(cfg).Seed(w, rng)
+	rivals.New(cfg).Seed(w, rng)
+	laundering.New(cfg).Seed(w)
+	law.New(cfg).Seed(w, rng)
+	if mk, err := market.New(cfg); err == nil {
 		mk.Seed(w, rng)
 	}
 	return w

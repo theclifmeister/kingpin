@@ -17,24 +17,24 @@ import (
 // the routes with the risk set as asked. The float is the config's.
 func world(t *testing.T, cfg *content.Config, risk float64) (*game.World, *logistics.Sim, content.RouteConfig) {
 	t.Helper()
-	routes := cfg.Routes
-	routes.Routes = append([]content.RouteConfig(nil), cfg.Routes.Routes...)
-	for i := range routes.Routes {
-		routes.Routes[i].Risk = risk
+	risky := *cfg
+	risky.Routes.Routes = append([]content.RouteConfig(nil), cfg.Routes.Routes...)
+	for i := range risky.Routes.Routes {
+		risky.Routes.Routes[i].Risk = risk
 	}
-	s := logistics.New(routes, cfg.City, cfg.Market, cfg.Upgrades, cfg.Laundering.Laundering.Float)
+	s := logistics.New(&risky)
 	w := game.NewWorld(7, logistics.StartingCities(cfg.City, cfg.Market), 100_000, 100)
-	territory.New(cfg.City, cfg.Upgrades, cfg.Houses.Houses).Seed(w)
+	territory.New(cfg).Seed(w)
 	// The connects (#72): the road buys from the wholesaler.
-	mk, err := market.New(cfg.Market, cfg.City, cfg.Routes.Shipping, cfg.Upgrades, cfg.Reputation.Effects, cfg.Buyers, cfg.Suppliers, cfg.Rivals.Pricewar)
+	mk, err := market.New(cfg)
 	if err != nil {
 		t.Fatal(err)
 	}
 	mk.Seed(w, game.RNGFor(7, 0))
-	if len(routes.Routes) == 0 {
+	if len(risky.Routes.Routes) == 0 {
 		t.Fatal("no routes")
 	}
-	r := routes.Routes[0]
+	r := risky.Routes.Routes[0]
 	w.SetStock(r.From, w.Products[0], 500)
 	return w, s, r
 }
@@ -51,7 +51,7 @@ func step(w *game.World, s *logistics.Sim) []events.Event {
 // days add up to.
 func TestDialsAndOffers(t *testing.T) {
 	cfg := content.MustLoad()
-	s := logistics.New(cfg.Routes, cfg.City, cfg.Market, cfg.Upgrades, cfg.Laundering.Laundering.Float)
+	s := logistics.New(cfg)
 	w := game.NewWorld(7, logistics.StartingCities(cfg.City, cfg.Market), 100_000, 100)
 	for _, r := range cfg.Routes.Routes {
 		slow, normal, fast := s.Days(w, r, events.ShipSlow), s.Days(w, r, events.ShipNormal), s.Days(w, r, events.ShipFast)
@@ -310,7 +310,7 @@ func TestStartingCitiesAndMigrate(t *testing.T) {
 	w := game.NewWorld(3, []game.StartingCity{home}, 500, 100)
 	top := cfg.Market.Products[len(cfg.Market.Products)-1]
 	w.AddProduct(home.ID, game.StartingProduct{ID: top.ID, Name: top.Name, Price: top.BasePrice, Demand: top.Demand})
-	s := logistics.New(cfg.Routes, cfg.City, cfg.Market, cfg.Upgrades, cfg.Laundering.Laundering.Float)
+	s := logistics.New(cfg)
 	s.Migrate(w)
 	if len(w.CityOrder) != len(cfg.City.Cities) || w.Player.Location != home.ID {
 		t.Fatalf("migrated: %v in %s", w.CityOrder, w.Player.Location)
@@ -338,7 +338,7 @@ func TestStartingCitiesAndMigrate(t *testing.T) {
 // to fifty cents.
 func TestLogisticsNodesMoveTheirNumbers(t *testing.T) {
 	cfg := content.MustLoad()
-	s := logistics.New(cfg.Routes, cfg.City, cfg.Market, cfg.Upgrades, cfg.Laundering.Laundering.Float)
+	s := logistics.New(cfg)
 	type numbers struct {
 		days, capacity int
 		risk, fare     float64

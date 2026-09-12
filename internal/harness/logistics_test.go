@@ -38,7 +38,7 @@ func twoCities(t *testing.T, cfg *content.Config) (home, hub string, route conte
 
 // newLogistics is the logistics sim as sim.Default builds it.
 func newLogistics(cfg *content.Config) *logistics.Sim {
-	return logistics.New(cfg.Routes, cfg.City, cfg.Market, cfg.Upgrades, cfg.Laundering.Laundering.Float)
+	return logistics.New(cfg)
 }
 
 // runRoute is a policy that turns the route on at the dial with a target
