@@ -4,6 +4,9 @@ import (
 	"fmt"
 	"strings"
 
+	"github.com/charmbracelet/lipgloss"
+
+	"github.com/theclifmeister/kingpin/internal/game"
 	"github.com/theclifmeister/kingpin/internal/ui/theme"
 )
 
@@ -65,24 +68,7 @@ func (m *Model) productRows(city string, selected int, market bool) (cols []col,
 		if i == selected {
 			cursor = len(rows)
 		}
-		delta := 0.0
-		if n := len(p.History); n >= 2 {
-			delta = pct(p.History[n-2], p.History[n-1])
-		}
-		var ds any = styled{theme.Subtle, signed{delta}}
-		if delta > 1 {
-			ds = styled{theme.Good, signed{delta}}
-		} else if delta < -1 {
-			ds = styled{theme.Bad, signed{delta}}
-		}
-		sp := spark{vs: p.History}
-		if p.ShockDays > 0 {
-			if p.ShockSlump {
-				sp.mark = theme.Warning.Render("▼")
-			} else {
-				sp.mark = theme.Good.Render("▲")
-			}
-		}
+		f := facts(p)
 		var ord any
 		if o, ok := w.Order(city, id); ok {
 			ord = styled{theme.Gold, order{qty: o.Qty, dial: dialShort(o.Dial)}}
@@ -91,7 +77,7 @@ func (m *Model) productRows(city string, selected int, market bool) (cols []col,
 		} else if o, ok := w.DelegatedOrder(city, id); ok {
 			ord = styled{theme.CrewText, order{qty: o.Qty, dial: dialShort(o.Dial), lt: true}}
 		}
-		row := []any{p.Name, p.Price, ds, styled{theme.Good, sp}}
+		row := []any{p.Name, p.Price, f.deltaCell(), f.sparkCell()}
 		if market {
 			var supplier any = p.SupplierPrice
 			if p.NoSupply {
@@ -115,6 +101,157 @@ func (m *Model) productRows(city string, selected int, market bool) (cols []col,
 		rows = append(rows, row)
 	}
 	return cols, rows, cursor
+}
+
+// priceFacts is what a product's price is doing in a city, the numbers
+// the market table, the dashboard's and the market's pane, the buy and
+// sell dialogs and the cart all read (#138), so the decision made in a
+// dialog is made on the number the market shows and the two cannot
+// disagree: the price, its change on the day (yesterday's close to
+// today's off History), the range of the history, the supplier's price
+// and the margin over it, and the shock or slump while one runs.
+type priceFacts struct {
+	p      *game.ProductMarket
+	unit   float64 // the supplier price the facts are read against: the market's (the best available connect's), or the chosen connect's (#72); 0 where nobody sells it
+	delta  float64 // yesterday → today, in percent
+	lo, hi float64 // the range of the history
+	margin float64 // the street over the supplier, in percent
+}
+
+// facts reads a product market's price facts against the market's
+// supplier price.
+func facts(p *game.ProductMarket) priceFacts { return factsAt(p, p.SupplierPrice) }
+
+// factsAt reads a product market's price facts against a supplier
+// price of the caller's: the buy dialog's connect (#72), whose price
+// and margin are what the buy pays and makes, or 0 where they do not
+// deal in it.
+func factsAt(p *game.ProductMarket, unit float64) priceFacts {
+	f := priceFacts{p: p, unit: unit, lo: p.Price, hi: p.Price}
+	if n := len(p.History); n >= 2 {
+		f.delta = pct(p.History[n-2], p.History[n-1])
+	}
+	for _, v := range p.History {
+		f.lo = min(f.lo, v)
+		f.hi = min(max(f.hi, v), 1e9)
+	}
+	if p.NoSupply {
+		f.unit = 0
+	}
+	if f.unit > 0 {
+		f.margin = (p.Price - f.unit) / f.unit * 100
+	}
+	return f
+}
+
+// priceFacts is facts for a product in a city; nil where the city has
+// no market for it.
+func (m *Model) priceFacts(city, id string) *priceFacts {
+	p := m.w.Product(city, id)
+	if p == nil {
+		return nil
+	}
+	f := facts(p)
+	return &f
+}
+
+// deltaStyle is the colour of the day's change: Good past +1%, Bad
+// past -1%, Subtle between.
+func (f priceFacts) deltaStyle() lipgloss.Style {
+	switch {
+	case f.delta > 1:
+		return theme.Good
+	case f.delta < -1:
+		return theme.Bad
+	}
+	return theme.Subtle
+}
+
+// deltaCell is the Δ cell of a table: the change signed, in its colour.
+func (f priceFacts) deltaCell() any { return styled{f.deltaStyle(), signed{f.delta}} }
+
+// deltaText is the change as prose, `+6%`, in its colour.
+func (f priceFacts) deltaText() string {
+	return f.deltaStyle().Render(fmt.Sprintf("%+.0f%%", f.delta))
+}
+
+// sparkCell is the sparkline cell of a table over the history, marked
+// ▲ or ▼ while a shock or a slump runs.
+func (f priceFacts) sparkCell() any {
+	sp := spark{vs: f.p.History}
+	if f.p.ShockDays > 0 {
+		if f.p.ShockSlump {
+			sp.mark = theme.Warning.Render("▼")
+		} else {
+			sp.mark = theme.Good.Render("▲")
+		}
+	}
+	return styled{theme.Good, sp}
+}
+
+// rangeText is the range of the history, `$30 – $45`.
+func (f priceFacts) rangeText() string { return price(f.lo) + " – " + price(f.hi) }
+
+// marginCell is the margin cell of a table: the street over the
+// supplier, signed; nil where the supplier does not sell it.
+func (f priceFacts) marginCell() any {
+	if f.unit <= 0 {
+		return nil
+	}
+	return signed{f.margin}
+}
+
+// marginText is the margin as prose, `+82%`.
+func (f priceFacts) marginText() string { return fmt.Sprintf("%+.0f%%", f.margin) }
+
+// shockRow is the shock or slump while one runs, as the pane names it:
+// the label (`shock` / `slump`) and the value (`×1.40, 3 days more`) in
+// its colour; empty with none.
+func (f priceFacts) shockRow() (label, value string) {
+	if f.p.ShockDays <= 0 {
+		return "", ""
+	}
+	v := fmt.Sprintf("×%.2f, %s more", f.p.ShockFactor, plural(f.p.ShockDays, "day"))
+	if f.p.ShockSlump {
+		return "slump", theme.Warning.Render(v)
+	}
+	return "shock", theme.Good.Render(v)
+}
+
+// priceLine is the sentence under the product in the buy and sell
+// dialogs' later steps and the cart's for its selected line (#138): a
+// sale's `$38 · +6% today · range 30d $30 – $45`, a buy's `$21 · street
+// $38 · margin +82%` (`not sold here · street $38` where the supplier
+// does not sell it), in Subtle but for the change, which keeps its
+// colour; empty where the city has no market for the product. The
+// shock or slump while one runs is a row of its own (priceRows): with
+// it on the line a heroin range runs past the modal.
+func (m *Model) priceLine(city, id string, buy bool) string {
+	f := m.priceFacts(city, id)
+	if f == nil {
+		return ""
+	}
+	if buy && m.mode == modeBuy {
+		// The buy dialog's line is its connect's (#72): what this buy
+		// pays and makes, not the best price in town.
+		cf := m.connectFacts(city, id)
+		f = &cf
+	}
+	sub := theme.Subtle.Render
+	var parts []string
+	if buy {
+		switch {
+		case f.p.NoSupply:
+			parts = append(parts, theme.Warning.Render("not sold here"), sub("street "+price(f.p.Price)))
+		case f.unit <= 0:
+			parts = append(parts, theme.Warning.Render("not from them"), sub("street "+price(f.p.Price)))
+		default:
+			parts = append(parts, sub(price(f.unit)), sub("street "+price(f.p.Price)), sub("margin "+f.marginText()))
+		}
+	} else {
+		parts = append(parts, sub(price(f.p.Price)), f.deltaText()+sub(" today"), sub("range 30d "+f.rangeText()))
+	}
+	return strings.Join(parts, sep)
 }
 
 // sparkCol sizes the product table's sparkline to width cells, or the
@@ -194,33 +331,21 @@ func (m *Model) marketDetails() []section {
 	if p == nil {
 		return nil
 	}
-	lo, hi := p.Price, p.Price
-	for _, v := range p.History {
-		lo = min(lo, v)
-		hi = min(max(hi, v), 1e9)
-	}
+	f := facts(p)
 	sel := []string{
-		row("range 30d", fmt.Sprintf("%s – %s", price(lo), price(hi))),
+		row("range 30d", f.rangeText()),
 		row("glut", fmt.Sprintf("%.0f%%", p.Glut*100)),
-	}
-	margin := 0.0
-	if p.SupplierPrice > 0 {
-		margin = (p.Price - p.SupplierPrice) / p.SupplierPrice * 100
 	}
 	if p.NoSupply {
 		sel = append(sel, row("supplier", theme.Warning.Render("not sold here")))
 	} else {
-		sel = append(sel, row("margin", fmt.Sprintf("%.0f%% over supplier", margin)))
+		sel = append(sel, row("margin", f.marginText()+" over supplier"))
 	}
 	sel = append(sel,
 		row("demand", fmt.Sprintf("~%.0f/day on %s", w.Demand(city.ID, id), plural(w.WorkedIn(city.ID), "corner"))),
 		row("", theme.Subtle.Render(fmt.Sprintf("~%.0f per standard", p.Demand))))
-	if p.ShockDays > 0 {
-		if p.ShockSlump {
-			sel = append(sel, row("slump", theme.Warning.Render(fmt.Sprintf("×%.2f, %s more", p.ShockFactor, plural(p.ShockDays, "day")))))
-		} else {
-			sel = append(sel, row("shock", theme.Good.Render(fmt.Sprintf("×%.2f, %s more", p.ShockFactor, plural(p.ShockDays, "day")))))
-		}
+	if label, v := f.shockRow(); label != "" {
+		sel = append(sel, row(label, v))
 	}
 	sel = append(sel, m.standingRows(city.ID, id)...)
 	sel = append(sel, m.contractRows(city.ID, id)...)

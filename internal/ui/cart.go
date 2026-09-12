@@ -193,9 +193,11 @@ func (m *Model) cartSummary() string {
 }
 
 // cartCols is the CART table: what the line is, the product, the city,
-// the units, a buy's price a unit, an order's dial, the cash (a buy's
-// cost, an order's expected take) and an order's heat.
-var cartCols = []col{{"line", kText, 0}, {"product", kText, 0}, {"city", kText, 0}, {"units", kInt, 0}, {"price", kPrice, 0}, {"dial", kDial, 0}, {"cash", kMoney, 0}, {"heat", kText, 0}}
+// the units, a buy's price a unit, an order's street price change on
+// the day (#138, the market table's Δ; a buy's is blank, as its dial
+// and heat are), an order's dial, the cash (a buy's cost, an order's
+// expected take) and an order's heat.
+var cartCols = []col{{"line", kText, 0}, {"product", kText, 0}, {"city", kText, 0}, {"units", kInt, 0}, {"price", kPrice, 0}, {"Δ", kPct, 0}, {"dial", kDial, 0}, {"cash", kMoney, 0}, {"heat", kText, 0}}
 
 // cartRows are the cart's lines as CART table rows.
 func (m *Model) cartRows(lines []cartLine) [][]any {
@@ -204,15 +206,21 @@ func (m *Model) cartRows(lines []cartLine) [][]any {
 		name, city := m.w.ProductName(l.product), m.w.CityName(l.city)
 		switch {
 		case l.contract:
-			rows = append(rows, []any{"contract", name, city, l.qty, l.unit, nil, styled{theme.Bad, -l.cost}, nil})
+			rows = append(rows, []any{"contract", name, city, l.qty, l.unit, nil, nil, styled{theme.Bad, -l.cost}, nil})
 		case l.credit:
-			rows = append(rows, []any{"credit", name, city, l.qty, l.unit, nil, styled{theme.Warning, -l.cost}, nil})
+			rows = append(rows, []any{"credit", name, city, l.qty, l.unit, nil, nil, styled{theme.Warning, -l.cost}, nil})
 		case l.buy:
-			rows = append(rows, []any{"buy", name, city, l.qty, l.unit, nil, styled{theme.Bad, -l.cost}, nil})
-		case l.standing:
-			rows = append(rows, []any{"standing", name, city, l.qty, nil, dialShort(l.dial), styled{theme.Gold, l.take}, styled{heatStyle(m.w.City(l.city).Heat + l.heat*4), fmt.Sprintf("%+.1f", l.heat)}})
+			rows = append(rows, []any{"buy", name, city, l.qty, l.unit, nil, nil, styled{theme.Bad, -l.cost}, nil})
 		default:
-			rows = append(rows, []any{"sell", name, city, l.qty, nil, dialShort(l.dial), styled{theme.Gold, l.take}, styled{heatStyle(m.w.City(l.city).Heat + l.heat*4), fmt.Sprintf("%+.1f", l.heat)}})
+			kind := "sell"
+			if l.standing {
+				kind = "standing"
+			}
+			var delta any
+			if f := m.priceFacts(l.city, l.product); f != nil {
+				delta = f.deltaCell()
+			}
+			rows = append(rows, []any{kind, name, city, l.qty, nil, delta, dialShort(l.dial), styled{theme.Gold, l.take}, styled{heatStyle(m.w.City(l.city).Heat + l.heat*4), fmt.Sprintf("%+.1f", l.heat)}})
 		}
 	}
 	return rows
@@ -551,7 +559,8 @@ func (m *Model) removeCartLine(l cartLine) {
 }
 
 // viewCart is the cart modal: the CART table under the cursor, the
-// totals, and on the second step the quantity for the selected line.
+// totals, the selected line's price sentence (#138) and on the second
+// step the quantity for it.
 func (m *Model) viewCart() string {
 	d := m.crt
 	lines := m.cartLines()
@@ -563,9 +572,9 @@ func (m *Model) viewCart() string {
 	cursor := max(0, min(d.cursor, len(lines)-1))
 	m.modalFollow(1 + cursor) // under the header
 	body = append(body, table(cartCols, m.cartRows(lines), cursor, m.modalInner())...)
-	body = append(body, "", m.cartTotalLine(totals(lines)))
+	body = append(body, "", m.cartTotalLine(totals(lines)), "")
+	l := lines[cursor]
 	if d.step == 1 {
-		l := lines[cursor]
 		d.qty.max = m.cartMax()
 		line := "quantity   " + d.qty.View()
 		if l.buy {
@@ -577,8 +586,11 @@ func (m *Model) viewCart() string {
 			}
 			line += "   " + theme.Subtle.Render(note)
 		}
-		body = append(body, "", line)
+		body = append(body, line)
 	}
+	// The selected line's price sentence, the dialog's (#138): the
+	// number the line was decided on, under the eye while it is edited.
+	body = append(body, m.priceRows(l.city, l.product, l.buy)...)
 	if d.err != "" {
 		body = append(body, "", theme.Bad.Render(d.err))
 	}
