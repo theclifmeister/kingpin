@@ -578,6 +578,11 @@ type RoleConfig struct {
 	CookDays        int     `toml:"cook_days"`
 	BatchPerSkill   float64 `toml:"batch_per_skill"`
 	UnlockProduct   string  `toml:"unlock_product"` // the product whose listing brings a chemist looking for work
+
+	// The fixer (#42): the chance a candidate is one once fixers are
+	// wanted, and what a backfire costs their loyalty.
+	Chance          float64 `toml:"chance"`
+	BackfireLoyalty float64 `toml:"backfire_loyalty"`
 }
 
 // RivalsConfig mirrors rivals.toml.
@@ -978,7 +983,31 @@ type LawConfig struct {
 	Chief    map[string]ChiefConfig `toml:"chief"`
 	DA       map[string]DAConfig    `toml:"da"`
 	Campaign CampaignTuning         `toml:"campaign"`
+	Bribes   BribeTuning            `toml:"bribes"`
 	Effects  LawFX                  `toml:"effects"`
+}
+
+// BribeTuning is law.toml's [bribes] (#42): what the chief and the DA
+// cost and take, what a backfire and a lead cost, what a checkpoint and
+// a customs agent cost and hold, when a law-and-order DA ends it all,
+// and what a fixer is worth.
+type BribeTuning struct {
+	ChiefPrice       int     `toml:"chief_price"`
+	DAPrice          int     `toml:"da_price"`
+	DAOddsCap        float64 `toml:"da_odds_cap"`
+	BribeDays        int     `toml:"bribe_days"`
+	LazyEffect       float64 `toml:"lazy_effect"`
+	BackfireEvidence int     `toml:"backfire_evidence"`
+	BackfireHeat     float64 `toml:"backfire_heat"`
+	LeadsCase        int     `toml:"leads_case"`
+	LeadEvidence     int     `toml:"lead_evidence"`
+	LeadDecayDays    int     `toml:"lead_decay_days"`
+	CheckpointPrice  int     `toml:"checkpoint_price"`
+	CustomsPrice     int     `toml:"customs_price"`
+	CheckpointDays   int     `toml:"checkpoint_days"`
+	CallsStopDays    int     `toml:"calls_stop_days"`
+	FixerOdds        float64 `toml:"fixer_odds"`
+	FixerDiscount    float64 `toml:"fixer_discount"`
 }
 
 // CampaignTuning is law.toml's [campaign] (#193): what clean cash behind
@@ -1048,6 +1077,11 @@ type LawFX struct {
 	PressureCapCut       float64 `toml:"pressure_cap_cut"`       // heat: fraction cut from what a patrol lets through
 	PressureTip          float64 `toml:"pressure_tip"`           // rivals: extra on the chance of a police tip
 	BackedSting          float64 `toml:"backed_sting"`           // heat: the sting line under a DA you backed (#193); 0 reads as 1
+	BribeDecayMul        float64 `toml:"bribe_decay_mul"`        // heat: the decay under a bought chief (#42); 0 reads as 1
+	BribeCooldown        int     `toml:"bribe_cooldown"`         // heat: days on the sting and raid cooldown under a bought chief
+	BribedDAEvidenceMul  float64 `toml:"bribed_da_evidence_mul"` // heat: the pages an indictment needs under a bought DA; 0 reads as 1
+	CheckpointCut        float64 `toml:"checkpoint_cut"`         // logistics: the cut from a bought car or truck edge's day risk
+	CustomsCut           float64 `toml:"customs_cut"`            // logistics: the cut from a bought boat edge's day risk
 }
 
 // ChiefPersonalities are the personalities a chief can have, in a fixed
@@ -1101,8 +1135,14 @@ func (l LawConfig) validate() error {
 	if t.ChiefTerm < 0 || t.TermDays < 0 || t.ObserveDays < 0 || t.Band <= 0 || t.Decay < 0 || t.Decay > 1 || t.GoodwillCash <= 0 || t.GoodwillDecay < 0 || t.GoodwillDecay > 1 || t.Moderate < 0 || t.Moderate >= 1 {
 		return fmt.Errorf("bad [law] table %+v", t)
 	}
-	if fx := l.Effects; fx.PressureThresholdCut < 0 || fx.PressureThresholdCut >= 1 || fx.PressureCapCut < 0 || fx.PressureCapCut > 1 || fx.PressureTip < 0 || fx.BackedSting < 0 {
+	if fx := l.Effects; fx.PressureThresholdCut < 0 || fx.PressureThresholdCut >= 1 || fx.PressureCapCut < 0 || fx.PressureCapCut > 1 || fx.PressureTip < 0 || fx.BackedSting < 0 ||
+		fx.BribeDecayMul < 0 || fx.BribeCooldown < 0 || fx.BribedDAEvidenceMul < 0 || fx.CheckpointCut < 0 || fx.CheckpointCut > 1 || fx.CustomsCut < 0 || fx.CustomsCut > 1 {
 		return fmt.Errorf("bad [effects] table %+v", fx)
+	}
+	if b := l.Bribes; b.ChiefPrice < 0 || b.DAPrice < 0 || b.DAOddsCap < 0 || b.DAOddsCap > 1 || b.BribeDays < 0 || b.LazyEffect < 0 || b.LazyEffect > 1 || b.BackfireEvidence < 0 || b.BackfireHeat < 0 ||
+		b.LeadsCase < 0 || b.LeadEvidence < 0 || b.LeadDecayDays < 0 || b.CheckpointPrice < 0 || b.CustomsPrice < 0 || b.CheckpointDays < 0 || b.CallsStopDays < 0 || (t.TermDays > 0 && b.CallsStopDays >= t.TermDays) ||
+		b.FixerOdds < 0 || b.FixerDiscount < 0 || b.FixerDiscount >= 1 {
+		return fmt.Errorf("bad [bribes] table %+v", b)
 	}
 	if c := l.Campaign; c.Cash < 0 || c.SwingMax < 0 || c.SwingMax > 0.5 || c.OpenDays < 0 || c.Pressure < 0 || c.BackedDAPriceMul < 0 || c.LoserPressure < 0 || (t.TermDays > 0 && c.OpenDays >= t.TermDays) {
 		return fmt.Errorf("bad [campaign] table %+v", c)

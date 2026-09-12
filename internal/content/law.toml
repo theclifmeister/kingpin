@@ -90,6 +90,40 @@ backed_da_price_mul = 0.5   # #42: the DA's price under one you backed
 loser_pressure = 10         # pressure at once in a city that backed the loser
 loser_chief = true          # a city that backed the loser of a law-and-order win gets a zealous chief at once
 
+# Bribes (#42): buying the law, in dirty cash (World.Bribe, BuyCheckpoint,
+# BribeCustoms), resolved by the law sim the night they are paid on
+# Tick.Sub("bribes"). The chief: corrupt takes chief_price for bribe_days,
+# lazy at lazy_effect of the effect, zealous backfires. The DA: a backed
+# one (#193) or a moderate takes it at odds of the amount against
+# da_price (x backed_da_price_mul under one you backed, less the fixer's
+# cut), reform refuses quietly, law-and-order backfires. A backfire is
+# pages and heat the next morning (the heat sim reads Law.Backfired; the
+# second documented bend in #27 besides the informant: bribing is
+# something you did) and a headline. Every accepted bribe is a lead
+# (Law.Leads); at leads_case the DA opens a file: lead_evidence pages the
+# next morning and a headline; leads fade one every lead_decay_days.
+# Checkpoints (car and truck edges) and customs (boat) take the risk off
+# one edge for checkpoint_days. A law-and-order DA taking office ends
+# every live deal calls_stop_days later (OfficialsCold) and nobody takes a
+# call while they sit.
+[bribes]
+chief_price = 60000         # dirty cash the chief's people want
+da_price = 300000           # dirty cash at which a moderate DA takes it at even odds (da_odds_cap at most)
+da_odds_cap = 0.9           # the most a bribe to the DA can ever be sure of
+bribe_days = 30             # days a bought chief or DA stays bought
+lazy_effect = 0.5           # the lazy chief's share of a bought chief's effect
+backfire_evidence = 1       # pages the morning after a bribe backfires
+backfire_heat = 10          # heat where you are the morning after
+leads_case = 3              # accepted bribes that open a file at the DA's office
+lead_evidence = 2           # pages the morning after the file opens
+lead_decay_days = 20        # a lead fades this long after the last one
+checkpoint_price = 40000    # dirty cash for a car or truck edge's checkpoint
+customs_price = 80000       # dirty cash for a boat edge's customs agent
+checkpoint_days = 30        # days a bought checkpoint or customs agent holds
+calls_stop_days = 5         # days after a law-and-order DA takes office that every live deal ends
+fixer_odds = 0.25           # a skill-100 fixer adds this to the DA's odds
+fixer_discount = 0.4        # ... and takes this off da_price (what a backfire costs them is crew.toml's)
+
 # What the other sims read off the law, each from its own step. The
 # pressure knobs are the effect at pressure 100 and scale linearly from
 # nothing at 0.
@@ -99,3 +133,8 @@ pressure_threshold_cut = 0.10   # heat: fraction cut from the patrol, raid and a
 pressure_cap_cut = 0.25         # heat: fraction cut from what a patrol there lets through
 pressure_tip = 1.0              # rivals: extra on the chance a grudge becomes a phone call
 backed_sting = 1.10             # heat: the sting line under a DA whose ticket you backed (#193), on top of the DA's own
+bribe_decay_mul = 1.5           # heat: the daily decay under a bought chief (#42; the lazy chief's share of the gain)
+bribe_cooldown = 5              # heat: days added to the sting and raid cooldown under a bought chief
+bribed_da_evidence_mul = 1.25   # heat: the pages an indictment needs under a bought DA
+checkpoint_cut = 0.6            # logistics: fraction cut from a bought car or truck edge's risk per day
+customs_cut = 0.6               # logistics: fraction cut from a bought boat edge's risk per day

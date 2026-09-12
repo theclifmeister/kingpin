@@ -144,6 +144,157 @@ func (s *Sim) CampaignOpen(w *game.World, day int) bool {
 	return next > 0 && day <= next && next-day <= s.cfg.Campaign.OpenDays
 }
 
+// Bribes exposes the bribe tuning (#42): the prices and the days.
+func (s *Sim) Bribes() content.BribeTuning { return s.cfg.Bribes }
+
+// DAPrice is what the DA's office wants today (#42): da_price, halved
+// (backed_da_price_mul) under a DA whose ticket ran on your money
+// (#193), less the fixer's cut by their skill. It is the amount at which
+// a moderate takes it at even odds.
+func (s *Sim) DAPrice(w *game.World) int {
+	price := float64(s.cfg.Bribes.DAPrice)
+	if w.Law.DA.Backed && s.cfg.Campaign.BackedDAPriceMul > 0 {
+		price *= s.cfg.Campaign.BackedDAPriceMul
+	}
+	if f := w.Crew.Fixer(); f != nil {
+		price *= 1 - s.cfg.Bribes.FixerDiscount*float64(f.Skill)/100
+	}
+	return max(1, int(math.Round(price)))
+}
+
+// DAOdds is the chance the DA takes an envelope of amount (#42): the
+// amount against DAPrice, plus the fixer's word, capped at da_odds_cap;
+// nothing for a reformer, and a law-and-order DA does not take, they
+// file. A DA you backed takes it at a moderate's odds whatever their
+// ticket: they owe you.
+func (s *Sim) DAOdds(w *game.World, amount int) float64 {
+	da := w.Law.DA
+	if !da.Backed && da.Stance != "moderate" {
+		return 0
+	}
+	odds := float64(amount) / float64(s.DAPrice(w)) / 2
+	if f := w.Crew.Fixer(); f != nil {
+		odds += s.cfg.Bribes.FixerOdds * float64(f.Skill) / 100
+	}
+	return math.Max(0, math.Min(s.cfg.Bribes.DAOddsCap, odds))
+}
+
+// ChiefTakes is what the chief does with an envelope (#42): a corrupt
+// one takes it whole, a lazy one at lazy_effect, a zealous one files it
+// (share 0, backfire true). Under the price it is pocketed either way.
+func (s *Sim) ChiefTakes(w *game.World, amount int) (share float64, backfire bool) {
+	switch w.Law.Chief.Personality {
+	case "zealous":
+		return 0, true
+	case "lazy":
+		share = s.cfg.Bribes.LazyEffect
+	default:
+		share = 1
+	}
+	if amount < s.cfg.Bribes.ChiefPrice {
+		return 0, false
+	}
+	return share, false
+}
+
+// ColdDay is the day every deal ends under the sitting DA (#42): 0
+// unless they are law-and-order.
+func (s *Sim) ColdDay(w *game.World) int { return w.Law.Cold }
+
+// bribes resolves today's envelopes (#42) on the bribes side stream,
+// fades the leads, and on the cold day ends every live deal.
+func (s *Sim) bribes(w *game.World, t *game.Tick) {
+	tun := s.cfg.Bribes
+	l := &w.Law
+	if l.Leads > 0 && tun.LeadDecayDays > 0 && t.Day-l.LeadDay >= tun.LeadDecayDays {
+		l.Leads--
+		l.LeadDay = t.Day
+	}
+	lead := func() {
+		l.Leads++
+		l.LeadDay = t.Day
+		w.Stats.Leads++
+		t.Emit(events.LeadFound{Day: t.Day, Leads: l.Leads, Case: tun.LeadsCase})
+		if tun.LeadsCase > 0 && l.Leads >= tun.LeadsCase {
+			t.Emit(events.LeadsFiled{Day: t.Day, Leads: l.Leads, Evidence: tun.LeadEvidence})
+			l.Leads = 0
+			l.Filed = t.Day
+		}
+	}
+	backfire := func(target string, amount int) {
+		l.Backfired = t.Day
+		w.Stats.Backfires++
+		t.Emit(events.BribeBackfired{Day: t.Day, Target: target, Amount: amount, Evidence: tun.BackfireEvidence, Heat: tun.BackfireHeat})
+	}
+	for _, b := range w.Today.Bribes {
+		switch b.Target {
+		case game.BribeChief:
+			share, bad := s.ChiefTakes(w, b.Amount)
+			switch {
+			case bad:
+				backfire(b.Target, b.Amount)
+			case share <= 0:
+				t.Emit(events.BribeRefused{Day: t.Day, Target: b.Target, Amount: b.Amount, Why: "short"})
+			default:
+				from := t.Day
+				if l.ChiefBoughtOn(t.Day) {
+					from = l.ChiefBought
+				}
+				l.ChiefBought = from + tun.BribeDays
+				l.ChiefShare = share
+				t.Emit(events.BribeAccepted{Day: t.Day, Target: b.Target, Amount: b.Amount, Until: l.ChiefBought, Share: share, Leads: l.Leads + 1})
+				lead()
+			}
+		case game.BribeDA:
+			switch {
+			case l.DA.Stance == "law_and_order" && !l.DA.Backed:
+				backfire(b.Target, b.Amount)
+			case l.DA.Stance == "reform" && !l.DA.Backed:
+				t.Emit(events.BribeRefused{Day: t.Day, Target: b.Target, Amount: b.Amount, Why: "quiet"})
+			default:
+				odds := s.DAOdds(w, b.Amount)
+				if t.Sub("bribes").Float64() >= odds {
+					t.Emit(events.BribeRefused{Day: t.Day, Target: b.Target, Amount: b.Amount, Why: "odds", Odds: odds})
+					continue
+				}
+				from := t.Day
+				if l.DABoughtOn(t.Day) {
+					from = l.DABought
+				}
+				l.DABought = from + tun.BribeDays
+				t.Emit(events.BribeAccepted{Day: t.Day, Target: b.Target, Amount: b.Amount, Until: l.DABought, Odds: odds, Leads: l.Leads + 1})
+				lead()
+			}
+		}
+	}
+	// The cold day: a law-and-order DA took office calls_stop_days ago
+	// and the word has got round. Whatever was live ends; the routes'
+	// deals are dead from today by the same rule (World.CheckpointLive)
+	// and the logistics sim clears them tomorrow.
+	if l.Cold > 0 && t.Day == l.Cold {
+		ev := events.OfficialsCold{Day: t.Day, DA: l.DA.Name, Chief: l.ChiefBought > t.Day, Bought: l.DABought > t.Day}
+		for _, id := range sortedRoutes(w) {
+			if w.Routes[id].Bought > t.Day {
+				ev.Routes = append(ev.Routes, id)
+			}
+		}
+		l.ChiefBought, l.ChiefShare, l.DABought = 0, 0, 0
+		if ev.Chief || ev.Bought || len(ev.Routes) > 0 {
+			t.Emit(ev)
+		}
+	}
+}
+
+// sortedRoutes is the route ids with a setting, in a fixed order.
+func sortedRoutes(w *game.World) []string {
+	var ids []string
+	for id := range w.Routes {
+		ids = append(ids, id)
+	}
+	slices.Sort(ids)
+	return ids
+}
+
 // Step turns today's funding into goodwill, moves every city's pressure
 // from the day's violence, hard product and headlines, lets the chief's
 // term run out, and holds the election when it is due.
@@ -152,6 +303,10 @@ func (s *Sim) Step(w *game.World, t *game.Tick) {
 	src := s.cfg.Pressure
 	home := w.Home().ID
 	here := w.Player.Location
+
+	// The envelopes (#42), before the vote: a bribe on election day goes
+	// to the sitting DA.
+	s.bribes(w, t)
 
 	// Funding: clean cash given today buys goodwill where it was given.
 	for _, f := range w.Today.Funded {
@@ -330,6 +485,15 @@ func (s *Sim) Step(w *game.World, t *game.Tick) {
 		}
 		da.ElectedDay = t.Day
 		w.Law.SnapElection = 0
+		// A law-and-order DA taking office (#42): every live deal ends
+		// calls_stop_days on, and nobody takes a call while they sit; any
+		// other winner opens the phones again.
+		if !incumbent {
+			w.Law.Cold = 0
+			if stance == "law_and_order" {
+				w.Law.Cold = t.Day + s.cfg.Bribes.CallsStopDays
+			}
+		}
 		// The campaigns are spent (#193): a city whose ticket won has a
 		// DA who owes you; one whose ticket lost has a DA who knows who
 		// paid for the other side, and under a law-and-order winner a

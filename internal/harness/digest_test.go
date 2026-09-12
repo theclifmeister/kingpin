@@ -160,20 +160,24 @@ const (
 // #193's figures), and again for #192 (Front.Level, Invested and Grew,
 // Stats.Earned and Invested, Today.Invested; no number moved: the boss's
 // first level comes after day 60 on this seed).
+// Again for #42 (the bought law on LawState, Route.Bought, Today.Bribes
+// and Checkpoints, six Stats added to the walk; no number moved: with
+// those fields skipped the digest is 0ab8bc7's on all sixty days, the
+// boss paying nobody).
 var seedDigest = []string{
-	"755395170f9d0e70", "0848a3d5be23b8f5", "c7a4a4c1ba4cde90", "2624dcbabdcf6c38",
-	"6a8293ae1ba5f295", "8a42370578faa303", "4498477a5be32a99", "627708d7969abd41",
-	"ce12fb88a4b669b7", "5f6ee39a89328fb2", "c315a0f4b26f479f", "6ca3ff15480a31da",
-	"2bc44fabbbad54fc", "915d5116fc19327d", "0c75ee67a2e119e3", "4bc4082d9974108f",
-	"4a255bdd8b73e236", "90e6069ed81b2a55", "b84efd24b3d183e0", "e8cc8a2ba6270239",
-	"d4b4781906fd1d20", "1231f31f8648c77b", "abfcf51badecfa9f", "a3dd7d5061cb2540",
-	"5d4dd6e26f67e12a", "83f0e2e98c672ecb", "c12aeafd08f8582d", "91aa43bff5c29e7c",
-	"2b1330be9dac2382", "931e0e69bb1e9280", "fc61ef7220470401", "79d6bb349781de27",
-	"3989791c6a14e789", "fd2bfba9984e939f", "ff81425616bcbf4a", "4da183884e827719",
-	"a6f1213b1031542b", "330aea9789bbe769", "6f6240b6af4916f8", "eb9977936cc93c55",
-	"cdb471ab94a80fd2", "8946c17505172211", "795cb6f076c4082e", "78d33f20b33ffde7",
-	"535036e794b6e6c4", "80ae8136c676c0f6", "cb6d5cc79077be94", "10015f48f3de44ae",
-	"1f18aee6f0c70c3c", "ebf977f0da6c0e2a", "cc693caeff60e180", "ffa3c9444cf0ea62",
-	"ad3281baaf94131b", "45579332237961cd", "b4740f3bd489d683", "13f0ffef888054ab",
-	"c2a6b88f6ac2ccde", "ef7d3ea948397342", "8adb9c5575f90bbd", "45e29aa2cd509e48",
+	"2b8e2eba3a1ef457", "89102b63af6d1774", "33c438f1e3a34a3f", "800bb2fc806c28f9",
+	"eeae624bec480192", "8679eef4ac37a716", "cad2f557ba92d5b8", "fd806df388d7fc94",
+	"04eca491636183d4", "7c1e94b7ebf81c25", "ee08faee67e821ec", "00fce9c0ad862d8b",
+	"aaba87efc1a8ea79", "d59d2389ef54bcac", "3c671a9f7f5cd8e8", "f8b29b5287b31f3c",
+	"3a7e3f94793bbc9d", "7f3e8d98965bcaa6", "770f3bc1b048be01", "d26519fbb9c1e0a2",
+	"4cfdd874c9f6a94d", "ca78a5e8d393330c", "d1d519932fcdc0b2", "6cf7cf7f4a7690eb",
+	"edbb440fed9023c3", "7a440a04a87f8502", "8bf385480e96d662", "58fdb314e1ea165f",
+	"00940e8e0a3fce3f", "01348a21a63081ef", "0d250440f570260c", "0141e94d16b3207c",
+	"e9ff4957a4f3fc86", "669662d2890b50c8", "03157508f2e377db", "8715598bb6e39a40",
+	"a49a1193f0087a78", "40fb113df462d764", "a8b434b94adc3b97", "25e361323bbe3f8e",
+	"81685b0d8bd4153d", "ed7908fe3f9751b2", "f8f93ae42fc78d0f", "81a4a1d1d2283478",
+	"41aea680682e1615", "2ce7561b4a44be51", "4f0c5216fa9519d9", "3cfc895e2b0005ed",
+	"7f7a9119bc3f531b", "d7275e567f07302b", "15d6784fb13078cf", "72f1cf0751ccfc53",
+	"5986703816680794", "5112e3031e220364", "a53cd23ec0794fc0", "1326af029f514102",
+	"3223ccd15875d3db", "ea99adadf8032463", "f3cce95c07657f78", "5778128162d74e29",
 }

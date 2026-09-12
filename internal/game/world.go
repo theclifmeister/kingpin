@@ -85,7 +85,8 @@ type World struct {
 
 // Today is the player's per-day scratch on the World (#144): what the
 // actions (Buy, PlaceSell, SetLieLow, SendEnforcers, Boost, Investigate,
-// BuyUpgrade, Propose, Accept, Abandon, Fund, Back, Deliver, Undercut,
+// BuyUpgrade, Propose, Accept, Abandon, Fund, Back, Bribe, BuyCheckpoint,
+// Deliver, Undercut,
 // MoveStock, BuyHouse, Scout, Tip, BuyOff) queue by day and the sims
 // resolve at EndDay, then the clock zeroes as a unit (ClearToday). A
 // field here is never read across a day; the one receipt kept into the
@@ -105,6 +106,8 @@ type Today struct {
 	Abandoned     []string               // corner ids given back to the street today
 	Funded        []Funding              // clean cash given to a city today; the law sim turns it into goodwill
 	Backed        []Backing              // clean cash put behind a DA ticket in a city today (#193); the law sim adds it to the city's campaign
+	Bribes        []BribeOrder           // envelopes paid today (#42); the law sim resolves them
+	Checkpoints   []CheckpointOrder      // checkpoints and customs deals paid today (#42); the logistics sim reports them
 	Deliveries    map[int]int            // contract id -> units handed over tonight; the market sim resolves them
 	Undercuts     map[string]events.Dial // rival corner id -> the dial tonight's orders undercut it at (#68); the market sim resolves them
 	Moved         []Move                 // stock moved between places today (#73); the heat sim counts the units as exposure
@@ -498,6 +501,21 @@ func (c *CrewState) Lieutenant(city string) *CrewMember {
 	return nil
 }
 
+// RoleFixer is the crew member who knows who takes an envelope (#42).
+const RoleFixer = "fixer"
+
+// Fixer returns the most skilled fixer on the payroll, or nil: the one
+// whose word the law sim weighs on a bribe.
+func (c *CrewState) Fixer() *CrewMember {
+	var best *CrewMember
+	for i := range c.Members {
+		if m := &c.Members[i]; m.Role == RoleFixer && (best == nil || m.Skill > best.Skill) {
+			best = m
+		}
+	}
+	return best
+}
+
 // Lieutenants counts the members running a city.
 func (c CrewState) Lieutenants() int {
 	n := 0
@@ -783,6 +801,12 @@ type Stats struct {
 	Backed         int // clean cash put behind DA campaigns (#193)
 	Campaigns      int // campaigns backed, one a city an election
 	CampaignsWon   int // of those, the ticket that won
+	Bribes         int // envelopes paid to the chief and the DA (#42)
+	Bribed         int // dirty cash in them
+	Backfires      int // of those, the ones that blew up
+	Checkpoints    int // checkpoints and customs deals bought
+	CheckpointCash int // dirty cash they cost
+	Leads          int // leads the DA's office picked up from your envelopes
 	Elections      int // DA elections held
 	Chiefs         int // police chiefs replaced
 	Contracts      int // buyers' contracts delivered in full (#71)

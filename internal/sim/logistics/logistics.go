@@ -25,7 +25,8 @@ type Sim struct {
 	cities content.CityConfig
 	market content.MarketConfig
 	tree   content.UpgradesConfig
-	float  int // dirty cash the road never spends below: the laundering float
+	law    content.LawFX // #42: what a bought checkpoint or customs agent takes off an edge's risk
+	float  int           // dirty cash the road never spends below: the laundering float
 }
 
 // New builds a logistics sim from the config, copying what it reads
@@ -36,7 +37,7 @@ type Sim struct {
 // the laundering float: the road never starves the street any more than
 // the wash does.
 func New(cfg *content.Config) *Sim {
-	return &Sim{cfg: cfg.Routes, cities: cfg.City, market: cfg.Market, tree: cfg.Upgrades, float: cfg.Laundering.Laundering.Float}
+	return &Sim{cfg: cfg.Routes, cities: cfg.City, market: cfg.Market, tree: cfg.Upgrades, law: cfg.Law.Effects, float: cfg.Laundering.Laundering.Float}
 }
 
 func (s *Sim) Name() string { return "logistics" }
@@ -84,22 +85,45 @@ func (s *Sim) days(fx game.Effects, r content.RouteConfig, d events.Ship) int {
 // any one day in transit: the route's risk times the dial's and the
 // tree's route_risk_mul (the tyres, the compartments).
 func (s *Sim) DayRisk(w *game.World, r content.RouteConfig, d events.Ship) float64 {
-	return s.dayRisk(s.Effects(w), r, d)
+	return s.dayRisk(s.Effects(w), r, d, s.Cut(w, r, w.Day))
 }
 
-func (s *Sim) dayRisk(fx game.Effects, r content.RouteConfig, d events.Ship) float64 {
-	return math.Max(0, math.Min(1, r.Risk*s.Dial(d).Risk*fx.RouteRiskMul))
+func (s *Sim) dayRisk(fx game.Effects, r content.RouteConfig, d events.Ship, cut float64) float64 {
+	return math.Max(0, math.Min(1, r.Risk*s.Dial(d).Risk*fx.RouteRiskMul*(1-cut)))
 }
+
+// Cut is what a bought checkpoint (a car or truck edge) or customs
+// agent (a boat edge) takes off an edge's risk per day (#42, law.toml's
+// checkpoint_cut / customs_cut) while the deal is live on day; nothing
+// otherwise. The odds the map shows are the ones the dice use.
+func (s *Sim) Cut(w *game.World, r content.RouteConfig, day int) float64 {
+	if !w.CheckpointLive(r.ID, day) {
+		return 0
+	}
+	return math.Max(0, math.Min(1, s.DealCut(r)))
+}
+
+// DealCut is the cut a bought deal on the route would take, live or not.
+func (s *Sim) DealCut(r content.RouteConfig) float64 {
+	if r.Mode == "boat" || r.Mode == "plane" {
+		return s.law.CustomsCut
+	}
+	return s.law.CheckpointCut
+}
+
+// Customs reports whether the route's deal is a customs agent (a boat
+// or plane edge) rather than a checkpoint (car, truck).
+func Customs(r content.RouteConfig) bool { return r.Mode == "boat" || r.Mode == "plane" }
 
 // Risk is the chance a shipment on a route at a dial is seized at all
 // before it lands: what the map shows against the dial, and what the dice
 // add up to over the days.
 func (s *Sim) Risk(w *game.World, r content.RouteConfig, d events.Ship) float64 {
-	return s.risk(s.Effects(w), r, d)
+	return s.risk(s.Effects(w), r, d, s.Cut(w, r, w.Day))
 }
 
-func (s *Sim) risk(fx game.Effects, r content.RouteConfig, d events.Ship) float64 {
-	return 1 - math.Pow(1-s.dayRisk(fx, r, d), float64(s.days(fx, r, d)))
+func (s *Sim) risk(fx game.Effects, r content.RouteConfig, d events.Ship, cut float64) float64 {
+	return 1 - math.Pow(1-s.dayRisk(fx, r, d, cut), float64(s.days(fx, r, d)))
 }
 
 // Capacity is the most one shipment on a route carries: the route's
@@ -232,8 +256,31 @@ func (s *Sim) Migrate(w *game.World) {
 // did before the dial.
 func (s *Sim) Step(w *game.World, t *game.Tick) {
 	fx := s.Effects(w)
+	s.deals(w, t)
 	s.move(w, t, fx)
 	s.run(w, t, fx)
+}
+
+// deals reports today's checkpoints and customs agents bought (#42) and,
+// the day after the cold (w.Law.Cold: a law-and-order DA's calls_stop_days
+// up), clears the dead deals off the routes: nothing can be bought while
+// the cold stands, so every deal on the books then is one from before.
+func (s *Sim) deals(w *game.World, t *game.Tick) {
+	for _, o := range w.Today.Checkpoints {
+		name, mode := o.Route, ""
+		if r := s.cfg.Route(o.Route); r != nil {
+			name, mode = r.Name, r.Mode
+		}
+		t.Emit(events.CheckpointBought{Day: t.Day, Route: o.Route, Name: name, Mode: mode, Cost: o.Cost, Until: w.Route(o.Route).Bought})
+	}
+	if w.Law.Cold > 0 && t.Day > w.Law.Cold {
+		for id, rs := range w.Routes {
+			if rs.Bought > 0 {
+				rs.Bought = 0
+				w.Routes[id] = rs
+			}
+		}
+	}
 }
 
 // move is the road: today's rolls, and the arrivals landed.
@@ -253,7 +300,7 @@ func (s *Sim) move(w *game.World, t *game.Tick, fx game.Effects) {
 		}
 		risk := 0.0
 		if r := s.cfg.Route(sh.Route); r != nil {
-			risk = s.dayRisk(fx, *r, sh.Dial)
+			risk = s.dayRisk(fx, *r, sh.Dial, s.Cut(w, *r, t.Day))
 		}
 		if rng.Float64() < risk {
 			w.Stats.Seizures++

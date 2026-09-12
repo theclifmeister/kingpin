@@ -2,6 +2,7 @@ package heat_test
 
 import (
 	"math"
+	"strings"
 	"testing"
 
 	"github.com/theclifmeister/kingpin/internal/content"
@@ -732,5 +733,86 @@ func TestRaidPlace(t *testing.T) {
 	}
 	if len(seen) != 3 {
 		t.Fatalf("over 40 seeds the raid hit %v; the roll should reach the street and both houses", seen)
+	}
+}
+
+// The bought law (#42): a bought chief speeds the decay by
+// bribe_decay_mul and adds bribe_cooldown to the sting and raid
+// cooldowns at their share (a lazy chief's half), never the patrol's; a
+// bought DA needs bribed_da_evidence_mul the pages; the cold ends both;
+// and the morning after an envelope came back the file gains
+// backfire_evidence and the city backfire_heat whatever was sold, as
+// the morning after the DA files the leads gains lead_evidence: the
+// second bend in #27 besides the informant's.
+func TestBoughtLaw(t *testing.T) {
+	cfg := content.MustLoad()
+	s := heat.New(cfg)
+	fx := cfg.Law.Effects
+	b := cfg.Law.Bribes
+	w := world(t, cfg)
+	w.Day = 5 // the cold is a day, and day 0 is none
+	w.Law.Chief.Personality = "lazy"
+	decay, cool, patrol, arrest := s.Decay(w), s.CooldownDays(w, content.Sting), s.CooldownDays(w, content.Patrol), s.EvidenceArrest(w)
+	w.Law.ChiefBought, w.Law.ChiefShare = w.Day+10, 1
+	if got := s.Decay(w); !near(got, math.Min(1, decay*fx.BribeDecayMul)) {
+		t.Fatalf("decay under a bought chief %.4f, want %.4f", got, decay*fx.BribeDecayMul)
+	}
+	if got := s.CooldownDays(w, content.Sting); got != cool+fx.BribeCooldown {
+		t.Fatalf("sting cooldown under a bought chief %d, want %d", got, cool+fx.BribeCooldown)
+	}
+	if got := s.CooldownDays(w, content.Patrol); got != patrol {
+		t.Fatalf("the patrol's cadence moved under a bought chief: %d, want %d", got, patrol)
+	}
+	w.Law.ChiefShare = b.LazyEffect
+	if got := s.Decay(w); !near(got, math.Min(1, decay*(1+(fx.BribeDecayMul-1)*b.LazyEffect))) {
+		t.Fatalf("decay under a lazy bought chief %.4f", got)
+	}
+	if got := s.CooldownDays(w, content.Sting); got != cool+int(math.Round(float64(fx.BribeCooldown)*b.LazyEffect)) {
+		t.Fatalf("sting cooldown under a lazy bought chief %d", got)
+	}
+	w.Law.DABought = w.Day + 10
+	if got := s.EvidenceArrest(w); got != max(1, int(math.Round(float64(arrest)*fx.BribedDAEvidenceMul))) {
+		t.Fatalf("pages under a bought DA %d, want %d x %.2f", got, arrest, fx.BribedDAEvidenceMul)
+	}
+	w.Law.Cold = w.Day
+	if s.Decay(w) != decay || s.CooldownDays(w, content.Sting) != cool || s.EvidenceArrest(w) != arrest {
+		t.Fatalf("the cold did not end the deals: decay %.4f cooldown %d pages %d", s.Decay(w), s.CooldownDays(w, content.Sting), s.EvidenceArrest(w))
+	}
+
+	// The morning after: no sale anywhere, and the file grows.
+	w = world(t, cfg)
+	w.Law.Backfired = w.Day + 1 // the law's night is our morning: the tick that follows reads Backfired == t.Day-1
+	heat := w.Here().Heat
+	step(w, s)
+	if w.Heat.Evidence != 0 || w.Here().Heat > heat {
+		t.Fatalf("the morning of the backfire itself: evidence %d heat %.2f (was %.2f)", w.Heat.Evidence, w.Here().Heat, heat)
+	}
+	heat = w.Here().Heat
+	tk := step(w, s)
+	if w.Heat.Evidence != b.BackfireEvidence || w.Heat.EvidenceDay != w.Day || w.Here().Heat <= heat {
+		t.Fatalf("the morning after a backfire: evidence %d (want %d) heat %.2f (was %.2f)", w.Heat.Evidence, b.BackfireEvidence, w.Here().Heat, heat)
+	}
+	for _, e := range tk.Events() {
+		if ev, ok := e.(events.HeatChanged); ok && ev.City == w.Player.Location {
+			found := false
+			for _, r := range ev.Reasons {
+				if strings.Contains(r, "backfired") {
+					found = true
+				}
+			}
+			if !found {
+				t.Fatalf("the reasons do not name the backfire: %v", ev.Reasons)
+			}
+		}
+	}
+	step(w, s)
+	if w.Heat.Evidence != b.BackfireEvidence {
+		t.Fatalf("a backfire filed twice: %d", w.Heat.Evidence)
+	}
+	w.Law.Filed = w.Day + 1
+	step(w, s)
+	step(w, s)
+	if w.Heat.Evidence != b.BackfireEvidence+b.LeadEvidence {
+		t.Fatalf("the morning after the file opened: evidence %d, want %d", w.Heat.Evidence, b.BackfireEvidence+b.LeadEvidence)
 	}
 }

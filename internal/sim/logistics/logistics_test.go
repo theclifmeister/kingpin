@@ -547,3 +547,129 @@ func TestDaysTargetIsDemand(t *testing.T) {
 		t.Fatalf("units after days: target %d, setting %+v", got, w.Route(r.ID))
 	}
 }
+
+// A bought checkpoint (#42) takes checkpoint_cut off a car or truck
+// edge's risk per day while it is live, a customs agent customs_cut off
+// a boat's; an unbought route is unchanged; the cold (w.Law.Cold) ends
+// it by the day and the day after the sim clears the dead deal off the
+// route; the purchase is reported. Over 200 days of the same dice a
+// bought edge is seized less than the same edge unbought.
+func TestCheckpointCutsRisk(t *testing.T) {
+	cfg := content.MustLoad()
+	w, s, r := world(t, cfg, 0.05)
+	fx := cfg.Law.Effects
+	base := s.DayRisk(w, r, events.ShipNormal)
+	if base <= 0 {
+		t.Fatal("no risk to cut")
+	}
+	other := cfg.Routes.Routes[1]
+	otherBase := s.DayRisk(w, other, events.ShipNormal)
+	w.Player.DirtyCash = 1_000_000
+	if err := w.BuyCheckpoint(r.ID, 40_000, 10); err != nil {
+		t.Fatal(err)
+	}
+	if until, live := w.Checkpoint(r.ID); !live || until != w.Day+10 || w.Player.DirtyCash != 960_000 || w.Stats.Checkpoints != 1 || w.Stats.CheckpointCash != 40_000 {
+		t.Fatalf("after buying: until %d live %v cash %d stats %+v", until, live, w.Player.DirtyCash, w.Stats)
+	}
+	want := fx.CheckpointCut
+	if logistics.Customs(r) {
+		want = fx.CustomsCut
+	}
+	if got := s.DayRisk(w, r, events.ShipNormal); !near(got, base*(1-want)) {
+		t.Fatalf("bought day risk %.4f, want %.4f", got, base*(1-want))
+	}
+	if got := s.DayRisk(w, other, events.ShipNormal); got != otherBase {
+		t.Fatalf("the unbought route moved: %.4f vs %.4f", got, otherBase)
+	}
+	evs := step(w, s)
+	bought := 0
+	for _, e := range evs {
+		if ev, ok := e.(events.CheckpointBought); ok {
+			bought++
+			if ev.Route != r.ID || ev.Cost != 40_000 || ev.Until != w.Day-1+10 || ev.Mode != r.Mode {
+				t.Fatalf("%+v", ev)
+			}
+		}
+	}
+	if bought != 1 {
+		t.Fatalf("%d CheckpointBought, want one", bought)
+	}
+	// Renewing adds to the days left; the deal dies on its day.
+	if err := w.BuyCheckpoint(r.ID, 40_000, 10); err != nil {
+		t.Fatal(err)
+	}
+	until, _ := w.Checkpoint(r.ID)
+	if until != w.Day-1+20 {
+		t.Fatalf("renewed until %d, want %d", until, w.Day-1+20)
+	}
+	w.Day = until
+	if _, live := w.Checkpoint(r.ID); live || s.Cut(w, r, w.Day) != 0 {
+		t.Fatal("live on the day it runs out")
+	}
+	w.Day = until - 1
+	if !w.CheckpointLive(r.ID, w.Day) {
+		t.Fatal("dead the day before it runs out")
+	}
+	// The cold: dead from the day, cleared the tick after (the cold
+	// day's own tick leaves the routes for the law sim to count).
+	w.Law.Cold = w.Day + 1
+	if _, live := w.Checkpoint(r.ID); !live {
+		t.Fatal("dead the day before the cold")
+	}
+	if s.Cut(w, r, w.Law.Cold) != 0 {
+		t.Fatal("live under the cold")
+	}
+	step(w, s) // the cold day's tick
+	if w.Route(r.ID).Bought == 0 {
+		t.Fatal("cleared on the cold day, before the law could count it")
+	}
+	step(w, s)
+	if w.Route(r.ID).Bought != 0 {
+		t.Fatalf("not cleared the day after the cold: %+v", w.Route(r.ID))
+	}
+	// Buying under a law-and-order DA is refused; a moderate's world
+	// with the cold reset takes it again.
+	w.Law.DA.Stance = "law_and_order"
+	if err := w.BuyCheckpoint(r.ID, 1, 1); err != game.ErrOfficialsCold {
+		t.Fatalf("under a law-and-order DA: %v", err)
+	}
+	w.Law.DA.Stance, w.Law.Cold = "moderate", 0
+	if err := w.BuyCheckpoint(r.ID, 1, 1); err != nil {
+		t.Fatal(err)
+	}
+
+	// The dice: 200 days of one shipment a day on the route, bought
+	// throughout against unbought, the same seed.
+	seized := func(buy bool) int {
+		w, s, r := world(t, cfg, 0.05)
+		w.Player.DirtyCash = 100_000_000
+		w.SetStock(r.From, w.Products[0], 100_000)
+		if err := w.SetRoute(r.ID, events.RouteNormal); err != nil {
+			t.Fatal(err)
+		}
+		if err := w.SetRouteTarget(r.ID, w.Products[0], 100_000); err != nil {
+			t.Fatal(err)
+		}
+		n := 0
+		for day := 0; day < 200; day++ {
+			if buy {
+				if _, live := w.Checkpoint(r.ID); !live {
+					_ = w.BuyCheckpoint(r.ID, 0, 30)
+				}
+			}
+			for _, e := range step(w, s) {
+				if _, ok := e.(events.ShipmentSeized); ok {
+					n++
+				}
+			}
+		}
+		return n
+	}
+	with, without := seized(true), seized(false)
+	t.Logf("seizures over 200 days: %d bought, %d unbought", with, without)
+	if with >= without {
+		t.Fatalf("a bought checkpoint should cut seizures: %d bought vs %d unbought", with, without)
+	}
+}
+
+func near(a, b float64) bool { return math.Abs(a-b) < 1e-9 }

@@ -133,6 +133,19 @@ wage_per_skill = 1.2
 # Accountants only show up looking for work once you own a front. What they
 # add to every front, and cut from its audit risk, is in laundering.toml.
 
+# Fixers (#42) know who takes an envelope: a skill-100 fixer adds
+# law.toml's fixer_odds to a bribe's odds at the DA's office and takes
+# fixer_discount off the price. They come looking for work once you have
+# paid somebody (a bribe, a checkpoint or a customs agent), on their own
+# side stream, so a run that pays nobody draws the pool it always did.
+# A backfire costs them backfire_loyalty and, under the flip line, turns
+# them the way an audit turns an accountant.
+[role.fixer]
+wage_base = 70
+wage_per_skill = 1.3
+chance = 0.15               # chance a candidate is a fixer once one is wanted
+backfire_loyalty = 25       # what a backfire costs the fixer's loyalty; under the informant line they turn
+
 [role.lieutenant]
 wage_base = 80
 wage_per_skill = 1.5

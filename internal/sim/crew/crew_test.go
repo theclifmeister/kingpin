@@ -2,6 +2,7 @@ package crew_test
 
 import (
 	"reflect"
+	"strings"
 	"testing"
 
 	"github.com/theclifmeister/kingpin/internal/content"
@@ -588,5 +589,83 @@ func TestWalkHandsTheRivalTheCornersTonight(t *testing.T) {
 	}
 	if len(w.Crew.Leads) != 0 {
 		t.Fatalf("leads %+v after a walk, want none: the corners are already the rival's", w.Crew.Leads)
+	}
+}
+
+// Fixers (#42) come looking for work only once an envelope, a
+// checkpoint or a customs agent has been paid, rolled on the fixer side
+// stream, so a run that pays nobody draws the pool it always did; a
+// fixer's envelope that came back last night (w.Law.Backfired) costs
+// them backfire_loyalty and, under the informant line, turns them with
+// no dice, the way an audit turns an accountant.
+func TestFixers(t *testing.T) {
+	cfg := content.MustLoad()
+	pool := func(paid bool, days int) (roles []string, out *game.World) {
+		w, s := world(t, cfg, 100_000)
+		w.Fronts = append(w.Fronts, game.Front{ID: "x", Name: "X", Cost: 1}) // the accountant's gate: the fullest pool
+		if paid {
+			w.Stats.Checkpoints = 1
+		}
+		for d := 0; d < days; d++ {
+			step(w, s)
+			for _, c := range w.Crew.Candidates {
+				roles = append(roles, c.Role)
+			}
+		}
+		return roles, w
+	}
+	_ = strings.Join
+	quiet, _ := pool(false, 120)
+	for _, r := range quiet {
+		if r == game.RoleFixer {
+			t.Fatal("a fixer came looking with nobody paid")
+		}
+	}
+	again, _ := pool(false, 120)
+	if strings.Join(quiet, ",") != strings.Join(again, ",") {
+		t.Fatal("the pool is not deterministic")
+	}
+	paid, w := pool(true, 120)
+	fixers := 0
+	for i, r := range paid {
+		if r == game.RoleFixer {
+			fixers++
+			if i < len(quiet) && quiet[i] == game.RoleLieutenant {
+				t.Fatal("a fixer displaced a lieutenant")
+			}
+		}
+	}
+	if fixers == 0 {
+		t.Fatal("120 days with an envelope paid and no fixer came looking")
+	}
+	if !w.Crew.Offered[game.RoleFixer] {
+		t.Fatal("the fixers were not announced")
+	}
+	t.Logf("fixers in the pool over 120 days once paid: %d of %d faces", fixers, len(paid))
+
+	// The backfire's cost and the flip, against a quiet day's loyalty
+	// from the same state (loyalty fades a little every day besides).
+	inf := cfg.Crew.Informant
+	loss := cfg.Crew.Role[game.RoleFixer].BackfireLoyalty
+	fixer := func(loyalty float64, backfired bool) (*game.CrewMember, []events.Event, *game.World) {
+		w, s := world(t, cfg, 100_000)
+		w.Day = 5 // a backfire on day 0 is none
+		w.Crew.Members = []game.CrewMember{{ID: 901, Name: "Fix", Role: game.RoleFixer, Skill: 70, Loyalty: loyalty, Greed: 10, Nerve: 90, Wage: 50}}
+		w.Crew.NextID = 901
+		if backfired {
+			w.Law.Backfired = w.Day // last night: the tick to come reads Backfired == t.Day-1
+		}
+		evs := step(w, s)
+		return w.Crew.Member(901), evs, w
+	}
+	quietF, _, _ := fixer(inf.Loyalty+loss+5, false)
+	burned, evs, w := fixer(inf.Loyalty+loss+5, true)
+	if burned.Loyalty != quietF.Loyalty-loss || burned.Informant || kinds(evs)["CrewTurnedInformant"] != 0 {
+		t.Fatalf("after a backfire over the line: %+v (quiet day %.2f)", burned, quietF.Loyalty)
+	}
+	_ = w
+	turned, evs, w := fixer(inf.Loyalty+loss-1, true)
+	if turned.Loyalty >= inf.Loyalty || !turned.Informant || kinds(evs)["CrewTurnedInformant"] != 1 || w.Stats.Informants != 1 {
+		t.Fatalf("after a backfire under the line: %+v %v", turned, kinds(evs))
 	}
 }

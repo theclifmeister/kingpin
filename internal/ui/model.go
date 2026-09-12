@@ -59,27 +59,29 @@ const (
 	modeFront          // pick a front to buy
 	modeConfirmInvestigate
 	modeConfirmPayOff
-	modeStage         // the stage entered this morning (#149), before the card and the report
-	modeCard          // a dilemma card, before the morning report
-	modeTarget        // the route target dialog: product -> units or days -> the number
-	modeConfirmTravel // move to the other city?
-	modePropose       // pick a deal to put to the rival: kind, then terms
-	modeAssign        // pick the city a lieutenant runs
-	modeFund          // give a city clean cash for goodwill
-	modeDetails       // the details pane as an overlay, where the terminal is too narrow to hold it beside MAIN
-	modeCart          // the day's cart: its buys and orders, editable until the day ends
-	modeConfirmFast   // run days until something needs you (#116): the cap, then y or enter
-	modeUndercut      // pick the dial to undercut the selected rival corner at (#68)
-	modeMove          // move stock between the street and the houses in a city (#73): from, to, product, quantity
-	modeGuard         // pick the enforcer who guards the selected house (#73)
-	modeConfirmDrop   // walk away from the selected house? (#73)
-	modeConfirmScout  // read the rival's books tonight? (#70)
-	modeConfirmBoost  // send the enforcers for the till on the selected corner? (#70)
-	modeConfirmTip    // tip the police on the selected corner? (#70)
-	modeConfirmBuyOff // pay the rival's muscle to go home: the heads, then y or enter (#70)
-	modeCut           // cut a product where you stand (#47): the product, then the percent added
-	modeCook          // a chemist's cook order (#47): the product, then the units
-	modeInvest        // clean cash into the selected front's levels (#192): the levels, then enter
+	modeStage             // the stage entered this morning (#149), before the card and the report
+	modeCard              // a dilemma card, before the morning report
+	modeTarget            // the route target dialog: product -> units or days -> the number
+	modeConfirmTravel     // move to the other city?
+	modePropose           // pick a deal to put to the rival: kind, then terms
+	modeAssign            // pick the city a lieutenant runs
+	modeFund              // give a city clean cash for goodwill
+	modeDetails           // the details pane as an overlay, where the terminal is too narrow to hold it beside MAIN
+	modeCart              // the day's cart: its buys and orders, editable until the day ends
+	modeConfirmFast       // run days until something needs you (#116): the cap, then y or enter
+	modeUndercut          // pick the dial to undercut the selected rival corner at (#68)
+	modeMove              // move stock between the street and the houses in a city (#73): from, to, product, quantity
+	modeGuard             // pick the enforcer who guards the selected house (#73)
+	modeConfirmDrop       // walk away from the selected house? (#73)
+	modeConfirmScout      // read the rival's books tonight? (#70)
+	modeConfirmBoost      // send the enforcers for the till on the selected corner? (#70)
+	modeConfirmTip        // tip the police on the selected corner? (#70)
+	modeConfirmBuyOff     // pay the rival's muscle to go home: the heads, then y or enter (#70)
+	modeCut               // cut a product where you stand (#47): the product, then the percent added
+	modeCook              // a chemist's cook order (#47): the product, then the units
+	modeInvest            // clean cash into the selected front's levels (#192): the levels, then enter
+	modeBribe             // an envelope for the chief or the DA (#42): the target, then the amount
+	modeConfirmCheckpoint // buy the checkpoint or customs agent on the selected route? (#42)
 	modeCount
 )
 
@@ -160,6 +162,7 @@ type Model struct {
 	fnd            fundDialog
 	fst            fastDialog
 	bo             buyOffDialog
+	br             bribeDialog
 	inv            investDialog
 	fastStop       string // the report's first line after a fast-forward (`Stopped after 3 days: …`), until the next day ends
 	slot           int    // the save slot this run lives in: where ctrl+s, the end of the day and quitting save
@@ -518,6 +521,16 @@ func (m *Model) handleKey(k tea.KeyMsg) (tea.Model, tea.Cmd) {
 		return m, nil
 	case modeConfirmBuyOff:
 		return m.keyBuyOff(k)
+	case modeBribe:
+		return m.keyBribe(k)
+	case modeConfirmCheckpoint:
+		switch key {
+		case "y", "Y":
+			m.confirmCheckpoint()
+		default:
+			m.mode = modePlay
+		}
+		return m, nil
 	case modeInvest:
 		return m.keyInvest(k)
 	case modeTarget:
@@ -721,7 +734,7 @@ func (m *Model) handleKey(k tea.KeyMsg) (tea.Model, tea.Cmd) {
 // campaign, only while one is open (#193).
 func (m *Model) hasPages(md mode) bool {
 	switch md {
-	case modeBuy, modeSell, modeTarget, modeCart, modePropose, modeFront, modeMove, modeCut, modeCook:
+	case modeBuy, modeSell, modeTarget, modeCart, modePropose, modeFront, modeMove, modeCut, modeCook, modeBribe:
 		return true
 	case modeFund:
 		return m.campaignOpen()
@@ -987,6 +1000,10 @@ func (m *Model) View() string {
 		body = m.tipConfirm()
 	case modeConfirmBuyOff:
 		body = m.viewBuyOff()
+	case modeBribe:
+		body = m.viewBribe()
+	case modeConfirmCheckpoint:
+		body = m.modal("BUY THE "+strings.ToUpper(m.checkpointWord())+"?", m.checkpointConfirm(), m.modalFooter())
 	case modeInvest:
 		body = m.viewInvest()
 	case modeTarget:
@@ -1362,6 +1379,8 @@ func (m *Model) viewOver() string {
 		[]any{"elections", fmt.Sprint(w.Stats.Elections)},
 		[]any{"given to the cities", cash(w.Stats.Funded)},
 		[]any{"behind the DA tickets", fmt.Sprintf("%s, %d of %d won", cash(w.Stats.Backed), w.Stats.CampaignsWon, w.Stats.Campaigns)},
+		[]any{"envelopes", fmt.Sprintf("%s in %d, %d came back", cash(w.Stats.Bribed), w.Stats.Bribes, w.Stats.Backfires)},
+		[]any{"checkpoints bought", fmt.Sprintf("%d for %s", w.Stats.Checkpoints, cash(w.Stats.CheckpointCash))},
 		[]any{"reputation", fmt.Sprintf("fear %.0f · respect %.0f · notoriety %.0f", rep.Fear, rep.Respect, rep.Notoriety)})
 	for _, l := range table([]col{{"stat", kText, 0}, {"value", kText, 0}}, facts, -1, m.modalInner()) {
 		b.WriteString(l + "\n")
