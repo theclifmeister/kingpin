@@ -9,9 +9,13 @@ import "github.com/theclifmeister/kingpin/internal/content"
 // sim reads it to change what it does (a tier describes the gates, it
 // is not one). The zero value is the pre-#147 world, so a save from
 // before it loads with nothing reached and catches up on its first
-// mornings; no schema bump.
+// mornings; no schema bump. Seen is the tiers whose stage the player
+// has been shown (#149, the interstitial): UI state kept on the world
+// so a save on the modal reopens it, as a save on a card does; nil is
+// nothing seen, so no schema bump either.
 type Progression struct {
 	Reached map[int]int
+	Seen    map[int]bool
 }
 
 // Tier is the highest tier reached, 1 while none is stamped: the first
@@ -42,6 +46,36 @@ func (w *World) Reach(n, day int) {
 		w.Progression.Reached = map[int]int{}
 	}
 	w.Progression.Reached[n] = day
+}
+
+// StagePending is the highest tier reached whose stage has not been
+// shown, or 0: what the interstitial (#149) opens on. The highest only,
+// so a save from before the stage, with three tiers reached and none
+// seen, is shown one modal and not walked through them; SeeStage marks
+// the lower ones seen with it. Tier 1 is never pending: it is day 0,
+// never stamped, and a run does not open on a stage.
+func (w *World) StagePending() int {
+	n := 0
+	for t := range w.Progression.Reached {
+		if t > n && !w.Progression.Seen[t] {
+			n = t
+		}
+	}
+	return n
+}
+
+// SeeStage marks tier n's stage seen, and every tier under it: the
+// stage shown is the highest reached, and the ones it passed are not
+// shown after it.
+func (w *World) SeeStage(n int) {
+	if w.Progression.Seen == nil {
+		w.Progression.Seen = map[int]bool{}
+	}
+	for t := range w.Progression.Reached {
+		if t <= n {
+			w.Progression.Seen[t] = true
+		}
+	}
 }
 
 // TierName is the name of the tier the run is in, as the file spells it.

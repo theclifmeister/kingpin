@@ -217,10 +217,13 @@ They take a cut. They also take loyalty rather seriously.
 The game names these stages. A run starts as a **Corner** trader, becomes
 a **Crew** with the first hire, **Territory** once $25K has moved and
 the laundromat opens, and **Distribution** at $500K, when the wholesaler
-sells lots to the road. The morning a stage is entered the report opens
-with it and the dashboard reads `tier Territory`; the run summary says
-which you reached and when. A stage once reached stays reached, and it
-changes nothing by itself: it is a name for what has opened.
+sells lots to the road. The morning a stage is entered the game stops
+and says so: one screen before the card and the report that names the
+stage, what just opened and what the next one takes, once per stage per
+run. The report opens with it too, the dashboard reads `tier Territory`
+(`· new` until you have seen the stage) and the run summary says which
+you reached and when. A stage once reached stays reached, and it changes
+nothing by itself: it is a name for what has opened.
 
 ### Let the routine run
 
@@ -575,10 +578,14 @@ when you come back. The deck is `internal/content/dilemmas.toml`.
 
 The tier a run is in (Corner, Crew, Territory, Distribution) lives in
 `internal/content/progression.toml`: a name, a line on the stage, what it
-opens and the trigger that enters it. A tier describes the gates it names
-and is never one itself: nothing in the sims reads it. The news sim stamps
-it the first morning its trigger holds, one tier a morning, and emits the
-headline; the harness reads each tier's checkpoint day from the same file.
+opens, the trigger that enters it and the prose of the stage screen shown
+the morning it is entered (`text`, a few lines; `closing` on the last
+tier, what its screen says where there is no next). A tier describes the
+gates it names and is never one itself: nothing in the sims reads it. The
+news sim stamps it the first morning its trigger holds, one tier a
+morning, and emits the headline; the harness reads each tier's checkpoint
+day from the same file. What the player has been shown is on the world
+(`Progression.Seen`), so a save on the stage screen reopens it.
 
 ## Balance harness
 

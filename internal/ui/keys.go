@@ -402,7 +402,7 @@ var modeBindings = []binding{
 	{key: "esc", label: "close", modes: in(modeBuy, modeSell, modeTarget, modePropose, modePost, modeStrike, modeUndercut, modeFront, modeAssign, modeFund, modeCart, modeMove, modeGuard,
 		modeConfirmNew, modeConfirmDelete, modeConfirmFire, modeConfirmEnd, modeConfirmUpgrade, modeConfirmInvestigate, modeConfirmPayOff, modeConfirmTravel, modeConfirmFast, modeConfirmDrop,
 		modeConfirmScout, modeConfirmBoost, modeConfirmTip, modeConfirmBuyOff)},
-	{key: "enter esc", label: "close", modes: in(modeReport, modeHelp)},
+	{key: "enter esc", label: "close", modes: in(modeReport, modeHelp, modeStage)},
 	{key: "enter esc", label: "close", modes: in(modeCard), when: step(1)},
 	{key: "␣ esc", label: "close", modes: in(modeDetails)},
 }
@@ -624,7 +624,7 @@ var words = [][2]string{
 	{"house", "a rented stash off the street: rent in clean; a raid hits one"},
 	{"pane", "the details beside MAIN from 100 columns, always open"},
 	{"strip", "the pane's one line under 100 columns; ␣ opens it over MAIN"},
-	{"tier", "the stage a run is in: Corner, Crew, Territory, Distribution"},
+	{"tier", "the stage a run is in, shown once: Corner to Distribution"},
 	{"scout", "a paid look at the rival's books: a snapshot that goes stale"},
 	{"boost", "the enforcers rob a rival corner's till, not the corner"},
 }
