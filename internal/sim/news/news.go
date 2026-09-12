@@ -182,7 +182,7 @@ func (s *Sim) Step(w *game.World, t *game.Tick) {
 	}
 
 	// Money before we look at events: sales are already applied by market.
-	var soldRevenue, lostCash, spent, wages, skimmed, robbed, upgrades, upkeep, seized, paidOff, investigated, shipping, tribute, cuts, standingCut, funded, backed, contracts, forfeits, repaid, rent, earned, invested int
+	var soldRevenue, lostCash, spent, wages, skimmed, robbed, upgrades, upkeep, seized, paidOff, investigated, shipping, tribute, cuts, standingCut, funded, backed, contracts, forfeits, repaid, rent, earned, invested, reserved int
 	var scouted, poached, boosted int // the books (#70): what a scout and a buy-off cost, less the refund, and what a boost took
 	routeCost := map[string]int{}     // what each route cost today, lots and fares, by name in the order first seen
 	var routeOrder []string
@@ -712,6 +712,15 @@ func (s *Sim) Step(w *game.World, t *game.Tick) {
 			// growth is news only when it crosses the line (FrontGrew).
 			invested += ev.Cost
 			rep.Money = append(rep.Money, fmt.Sprintf("Invested %s clean in %s: level %d, earning %s/day clean", format.Money(ev.Cost), ev.Name, ev.Level, format.Money(ev.Income)))
+		case events.Reserved:
+			// Clean cash into the offshore account (#195): bookkeeping,
+			// and a warning where the move was over the lot.
+			reserved += ev.Amount + ev.Fee
+			line := fmt.Sprintf("Moved %s clean offshore, fee -%s; the account holds %s", format.Money(ev.Amount), format.Money(ev.Fee), format.Money(w.Offshore))
+			if ev.Lots > 0 {
+				line += fmt.Sprintf(". Over the lot by %s: the DA will read it.", format.Plural(ev.Lots, "lot"))
+			}
+			rep.Money = append(rep.Money, line)
 		case events.FrontGrew:
 			d := base
 			d.Front = ev.Name
@@ -906,7 +915,7 @@ func (s *Sim) Step(w *game.World, t *game.Tick) {
 		spent += m.Fee
 		rep.Money = append(rep.Money, fmt.Sprintf("Signing fee for %s -%s", m.Name, format.Money(m.Fee)))
 	}
-	rep.CashBefore = w.Cash() - soldRevenue - contracts + forfeits + lostCash + spent + wages + skimmed + robbed + upgrades + upkeep + seized + paidOff + investigated + shipping + tribute + cuts + funded + backed + repaid + rent + scouted + poached - boosted - earned + invested
+	rep.CashBefore = w.Cash() - soldRevenue - contracts + forfeits + lostCash + spent + wages + skimmed + robbed + upgrades + upkeep + seized + paidOff + investigated + shipping + tribute + cuts + funded + backed + repaid + rent + scouted + poached - boosted - earned + invested + reserved
 	if soldRevenue > 0 {
 		rep.Money = append(rep.Money, fmt.Sprintf("Street sales +%s", format.Money(soldRevenue)))
 	}

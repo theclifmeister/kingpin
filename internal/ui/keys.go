@@ -111,7 +111,7 @@ func pastFirstStep(m *Model) bool { return m.modalStep() > 0 }
 // The field's shortcuts are listed there and nowhere else.
 func numberStep(m *Model) bool {
 	switch m.mode {
-	case modeFund, modeConfirmFast, modeConfirmBuyOff, modeInvest:
+	case modeFund, modeConfirmFast, modeConfirmBuyOff, modeInvest, modeReserve:
 		return true
 	case modeBuy:
 		return buyAt(1)(m)
@@ -263,6 +263,8 @@ var bindings = []binding{
 		do: func(m *Model, _ string) { m.askFund() }},
 	{key: "i", label: "invest", help: "clean cash into the selected front's levels", screens: on(screenLedger), when: ledgerOnFront,
 		do: func(m *Model, _ string) { m.askInvest() }},
+	{key: "o", label: "reserve", help: "clean cash into the offshore account", screens: on(screenLedger),
+		do: func(m *Model, _ string) { m.askReserve() }},
 	{key: "enter", label: "buy / dial", help: "buy the offer or turn the route selected", screens: on(screenLedger), when: ledgerActable,
 		do: func(m *Model, _ string) { m.ledgerEnter() }},
 	// The rivals.
@@ -357,10 +359,10 @@ var modeBindings = []binding{
 	{key: "1-2", label: "repeat", modes: in(modeSell), when: step(3)},
 	{key: "1-3", label: "dial", modes: in(modeCart), when: cartOnSell},
 	{key: "1-3", label: "choose", modes: in(modeCard), when: step(0)},
-	{key: "m", label: "max", modes: in(modeBuy, modeSell, modeTarget, modeCart, modeFund, modeConfirmFast, modeMove, modeConfirmBuyOff, modeInvest), when: numberStep},
-	{key: "h", label: "half", modes: in(modeBuy, modeSell, modeTarget, modeCart, modeFund, modeConfirmFast, modeMove, modeConfirmBuyOff, modeInvest), when: numberStep},
-	{key: "↑↓", label: "±1", modes: in(modeBuy, modeSell, modeTarget, modeCart, modeFund, modeConfirmFast, modeMove, modeConfirmBuyOff, modeInvest), when: numberStep},
-	{key: "pgup pgdn", label: "±10", modes: in(modeBuy, modeSell, modeTarget, modeCart, modeFund, modeConfirmFast, modeMove, modeConfirmBuyOff, modeInvest), when: numberStep},
+	{key: "m", label: "max", modes: in(modeBuy, modeSell, modeTarget, modeCart, modeFund, modeConfirmFast, modeMove, modeConfirmBuyOff, modeInvest, modeReserve), when: numberStep},
+	{key: "h", label: "half", modes: in(modeBuy, modeSell, modeTarget, modeCart, modeFund, modeConfirmFast, modeMove, modeConfirmBuyOff, modeInvest, modeReserve), when: numberStep},
+	{key: "↑↓", label: "±1", modes: in(modeBuy, modeSell, modeTarget, modeCart, modeFund, modeConfirmFast, modeMove, modeConfirmBuyOff, modeInvest, modeReserve), when: numberStep},
+	{key: "pgup pgdn", label: "±10", modes: in(modeBuy, modeSell, modeTarget, modeCart, modeFund, modeConfirmFast, modeMove, modeConfirmBuyOff, modeInvest, modeReserve), when: numberStep},
 	{key: "enter", label: "next", modes: in(modeSell, modeTarget, modePropose, modeFront), when: step(0)},
 	{key: "enter", label: "next", modes: in(modeMove), when: moveList},
 	{key: "enter", label: "next", modes: in(modeSell, modeTarget), when: step(1)},
@@ -404,6 +406,7 @@ var modeBindings = []binding{
 	{key: "y", label: "tip", modes: in(modeConfirmTip)},
 	{key: "y enter", label: "pay", modes: in(modeConfirmBuyOff)},
 	{key: "enter", label: "invest", modes: in(modeInvest)},
+	{key: "enter", label: "reserve", modes: in(modeReserve)},
 	{key: "q", label: "quit", modes: in(modeStart, modeOver)},
 	// The trade's other side (#168): listed on the product step (and a
 	// buy's connect step) alone, where the toggle is live.
@@ -412,7 +415,7 @@ var modeBindings = []binding{
 	{key: "⇧tab", label: "back", keys: []string{"shift+tab"}, modes: in(modeBuy, modeSell, modeTarget, modeCart, modePropose, modeFront, modeMove, modeFund), when: pastFirstStep},
 	{key: "esc", label: "close", modes: in(modeBuy, modeSell, modeTarget, modePropose, modePost, modeStrike, modeUndercut, modeFront, modeAssign, modeFund, modeCart, modeMove, modeGuard,
 		modeConfirmNew, modeConfirmDelete, modeConfirmFire, modeConfirmEnd, modeConfirmUpgrade, modeConfirmInvestigate, modeConfirmPayOff, modeConfirmTravel, modeConfirmFast, modeConfirmDrop,
-		modeConfirmScout, modeConfirmBoost, modeConfirmTip, modeConfirmBuyOff, modeInvest)},
+		modeConfirmScout, modeConfirmBoost, modeConfirmTip, modeConfirmBuyOff, modeInvest, modeReserve)},
 	{key: "enter esc", label: "close", modes: in(modeReport, modeHelp, modeStage)},
 	{key: "enter esc", label: "close", modes: in(modeCard), when: step(1)},
 	{key: "␣ esc", label: "close", modes: in(modeDetails)},

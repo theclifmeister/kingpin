@@ -41,6 +41,26 @@ audit_level = 0.2
 legit_ratio = 3.0
 headline_level = 3
 
+# The offshore account (#195): clean cash reserved into it (o on the
+# ledger) survives every ending, cannot be spent and is the score; the
+# fall guy, an audit and a forfeiture take from the pile and never from
+# it. lot is the clean cash a day that moves unnoticed: over it the DA
+# files heat.toml structure_evidence a lot the morning after, so the
+# account is filled slowly or at a price (#27: moving it is something
+# you did). fee is the share of what moves that the account keeps.
+# retire_cash is what the account needs and retire_days the quiet days
+# (every city under retire_heat, no strike, no patrol or worse, no live
+# contract) before Retire is open. Sized so laundered reaches retire_cash
+# by tier 4's day and not tier 3's (TestRetireIsATierFourExit), and the
+# boss moving a lot a day holds under a third of its old $30M pile at
+# day 200 (TestBossPileDrains).
+[offshore]
+lot = 50000
+fee = 0.05
+retire_cash = 750000
+retire_days = 14
+retire_heat = 40
+
 # The fronts. cost is paid in dirty cash, once. throughput is dirty cash
 # washed per day at the normal dial. upkeep is clean cash per day; unpaid,
 # the place shuts. audit_risk is the chance per day of an audit at the

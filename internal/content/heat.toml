@@ -29,6 +29,8 @@ sloppy_heat = 0.03          # heat per unit sold through a fully sloppy (skill 0
 audit_heat = 6.0            # heat an audited front adds the morning after
 audit_evidence = 1          # evidence an audit adds when the front was being run greedy; run normal
                             # or careful it is city heat only (#27: a case is built from what you do)
+structure_evidence = 1      # pages per lot of clean cash moved offshore over laundering.toml [offshore] lot in
+                            # a day (#195): structuring is something you did; a quiet day moves nothing and files nothing
 
 [[response]]
 level = "patrol"

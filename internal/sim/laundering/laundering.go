@@ -50,6 +50,37 @@ func (s *Sim) Tuning() content.LaunderingTuning { return s.cfg.Laundering }
 // that makes the paper.
 func (s *Sim) Growth() content.GrowthConfig { return s.cfg.Growth }
 
+// Offshore exposes the [offshore] table (#195): the lot, the fee and
+// what retiring takes.
+func (s *Sim) Offshore() content.OffshoreConfig { return s.cfg.Offshore }
+
+// Lots is how many lots over the unnoticed line a day's move offshore
+// of amount is: the pages the heat sim files a lot the morning after.
+// Nothing at or under the lot, and nothing at all with no lot in the
+// file.
+func (s *Sim) Lots(amount int) int {
+	lot := s.cfg.Offshore.Lot
+	if lot <= 0 || amount <= lot {
+		return 0
+	}
+	return (amount - lot + lot - 1) / lot
+}
+
+// Fee is what the account keeps of a move of amount.
+func (s *Sim) Fee(amount int) int {
+	return int(math.Round(float64(amount) * s.cfg.Offshore.Fee))
+}
+
+// Retire is World.Retire at the file's terms.
+func (s *Sim) Retire(w *game.World) error {
+	return w.Retire(s.cfg.Offshore.RetireCash, s.cfg.Offshore.RetireDays)
+}
+
+// CanRetire is World.CanRetire at the file's terms.
+func (s *Sim) CanRetire(w *game.World) bool {
+	return w.CanRetire(s.cfg.Offshore.RetireCash, s.cfg.Offshore.RetireDays)
+}
+
 // Dial returns the tuning for a launder dial position.
 func (s *Sim) Dial(d events.Launder) content.LaunderConfig { return s.cfg.DialFor(d) }
 
@@ -466,7 +497,64 @@ func (s *Sim) Step(w *game.World, t *game.Tick) {
 	if total > 0 || paid > 0 || earned > 0 {
 		t.Emit(events.CashLaundered{Day: t.Day, Amount: total, Upkeep: paid, Fronts: washing, Earned: earned})
 	}
+	s.reserve(w, t)
+	s.quiet(w, t)
 	s.announce(w, t)
+}
+
+// reserve moves what the player sent offshore today (#195) into the
+// account, less the fee, and records the move (Structured) for the
+// heat sim, which files the lots over the line the morning after:
+// laundering steps after heat, so the record is how tonight's move
+// reaches tomorrow's file. Nothing moved records nothing, so a run
+// that never reserves is the run before. No dice.
+func (s *Sim) reserve(w *game.World, t *game.Tick) {
+	amt := w.Today.Reserved
+	if amt <= 0 {
+		return
+	}
+	fee := s.Fee(amt)
+	w.Offshore += amt - fee
+	w.Stats.Reserved += amt - fee
+	w.Stats.Fees += fee
+	lots := s.Lots(amt)
+	w.Laundering.Structured = game.Structuring{Day: t.Day, Amount: amt, Lots: lots}
+	t.Emit(events.Reserved{Day: t.Day, Amount: amt - fee, Fee: fee, Lots: lots})
+}
+
+// quiet counts the quiet days retiring needs (#195): a day is quiet
+// when every city's heat is under retire_heat, nobody struck or pushed
+// a corner and the police answered nowhere (the tick's events: the
+// rivals and heat sims step before this one), and no buyer's contract
+// is live. A loud day zeroes the count. With no retire_days in the
+// file nothing is counted, and a save from before the count starts at
+// zero, which is what a loud day would have left.
+func (s *Sim) quiet(w *game.World, t *game.Tick) {
+	if s.cfg.Offshore.RetireDays <= 0 {
+		return
+	}
+	loud := false
+	for _, cid := range w.CityOrder {
+		if w.Cities[cid].Heat >= s.cfg.Offshore.RetireHeat {
+			loud = true
+		}
+	}
+	for _, e := range t.Events() {
+		switch e.(type) {
+		case events.Enforcement, events.CornerStruck, events.RivalPushed, events.WarEscalated:
+			loud = true
+		}
+	}
+	for _, c := range w.Contracts {
+		if c.Live(t.Day) {
+			loud = true
+		}
+	}
+	if loud {
+		w.QuietDays = 0
+		return
+	}
+	w.QuietDays++
 }
 
 // reportGrowth reports the levels bought at a front today (#192,

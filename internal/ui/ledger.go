@@ -300,7 +300,7 @@ func (m *Model) viewLedger() string {
 	sub := theme.Subtle.Render
 
 	line(theme.PanelTitle.Render("LEDGER"))
-	line(theme.Gold.Render("dirty "+cash(w.Player.DirtyCash)) + sub(" · ") + theme.Good.Render("clean "+cash(w.Player.CleanCash)) + sub(fmt.Sprintf(" · seized %s lifetime", cash(w.Stats.Seized))))
+	line(theme.Gold.Render("dirty "+cash(w.Player.DirtyCash)) + sub(" · ") + theme.Good.Render("clean "+cash(w.Player.CleanCash)) + sub(" · ") + theme.Gold.Render("offshore "+cash(w.Offshore)) + sub(fmt.Sprintf(" · seized %s lifetime", cash(w.Stats.Seized))))
 	line(sub("launder  ") + launderRow(w.Laundering.Dial) + sub(fmt.Sprintf("   audit %.1f%%/day · up to %s/day · legit %s/day", l.AnyAuditRisk(w)*100, money(l.Capacity(w)), money(l.LegitIncome(w)))))
 	if thr := m.set.Heat.DirtyCashThreshold(w); thr > 0 && w.Player.DirtyCash > thr {
 		line(theme.Warning.Render(fmt.Sprintf("▲ Dirty cash over %s draws heat every day it sits there.", cash(thr))))

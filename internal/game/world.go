@@ -57,6 +57,17 @@ type World struct {
 	DelegatedSupply map[string]SupplyContract
 	Markup          float64
 
+	// The offshore account (#195): clean cash reserved out of the pile
+	// (Reserve), moved by the laundering sim at the end of its step
+	// less the fee. It survives every ending, cannot be spent, and is
+	// safe from the fall guy, an audit and a forfeiture: the score.
+	// QuietDays is how many days in a row have been quiet enough to
+	// retire on (the laundering sim counts them off the tick's events
+	// and the cities' heat, and zeroes them on a loud one); Retire
+	// needs enough of both. Zero is the run before either existed.
+	Offshore  int
+	QuietDays int
+
 	// Today is the player's per-day scratch (#144): what the actions
 	// queued since the morning, for the sims to resolve tonight. The
 	// clock zeroes it as a unit after every EndDay (ClearToday), bar the
@@ -103,6 +114,7 @@ type Today struct {
 	Tipoff        *TipOrder              // the rival corner you tipped the police on tonight (#70); the rivals sim resolves it
 	Poach         *PoachOrder            // the rival's muscle you are paying to go home tonight (#70); the rivals sim resolves it
 	Invested      []Investment           // levels bought at the fronts today (#192), applied at once; the laundering sim reports them
+	Reserved      int                    // clean cash on its way offshore tonight (#195), out of the pile already; the laundering sim moves it and takes the fee
 }
 
 // Investment is clean cash put into a front's levels today (#192):
@@ -422,8 +434,20 @@ func (c CrewState) Lieutenants() int {
 
 // LaunderingState is the launder dial: a persistent setting, not scratch.
 type LaunderingState struct {
-	Dial    events.Launder
-	Offered map[string]bool // fronts whose offer has opened and been announced (#148); nil is none
+	Dial       events.Launder
+	Offered    map[string]bool // fronts whose offer has opened and been announced (#148); nil is none
+	Structured Structuring     // the last move offshore (#195): what the heat sim reads the morning after
+}
+
+// Structuring is a day's move offshore as the laundering sim records
+// it (#195): the day, what moved (before the fee) and how many lots
+// over the line it was, the pages the heat sim files the morning after.
+// Laundering steps after heat, so the record is how tonight's move
+// reaches tomorrow's file, as a front's Audited stamp does an audit.
+type Structuring struct {
+	Day    int
+	Amount int
+	Lots   int
 }
 
 // Front is a business the player owns that washes dirty cash. Its rate,
@@ -709,6 +733,8 @@ type Stats struct {
 	HouseUnits     int // units lost out of the houses to raids and robberies
 	Earned         int // clean cash the levelled fronts earned on their own (#192)
 	Invested       int // clean cash put into the fronts' levels
+	Reserved       int // clean cash moved offshore, after the fee (#195)
+	Fees           int // what the account kept of it
 }
 
 // StartingProduct describes a product as it exists at the start of a run,
@@ -1100,11 +1126,12 @@ func RNGFor(seed uint64, day int) *rand.Rand {
 // Cash is the player's total cash, dirty plus clean.
 func (w *World) Cash() int { return w.Player.DirtyCash + w.Player.CleanCash }
 
-// NetWorth is cash, dirty and clean, plus stock and fronts valued at what
-// they cost to replace: every stash at its city's supplier price, what is
-// on the road at its destination's.
+// NetWorth is cash, dirty and clean, the offshore account and what is
+// on its way there (#195), plus stock and fronts valued at what they
+// cost to replace: every stash at its city's supplier price, what is on
+// the road at its destination's, a front at its price and its levels.
 func (w *World) NetWorth() int {
-	n := w.Cash()
+	n := w.Cash() + w.Offshore + w.Today.Reserved
 	for _, cid := range w.CityOrder {
 		for id, q := range w.StashOf(cid) {
 			if m := w.Product(cid, id); m != nil {

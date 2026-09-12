@@ -588,6 +588,19 @@ type FrontGrew struct {
 
 func (FrontGrew) Kind() string { return "FrontGrew" }
 
+// Reserved is clean cash moved into the offshore account tonight (#195):
+// what went in after the fee, the fee, and how many lots over the
+// unnoticed line the day's move was, the pages the DA files in the
+// morning. Report-only bookkeeping: the paper never sees the account.
+type Reserved struct {
+	Day    int
+	Amount int // into the account
+	Fee    int
+	Lots   int // lots over the line; zero is a quiet move
+}
+
+func (Reserved) Kind() string { return "Reserved" }
+
 // CashLaundered is the day's wash: dirty cash turned clean across every
 // open front, and the upkeep paid for it. Report-only bookkeeping.
 type CashLaundered struct {

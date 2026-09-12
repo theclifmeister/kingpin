@@ -43,6 +43,11 @@ func New(cfg *content.Config) *Sim {
 	return &Sim{cfg: cfg.Heat, market: cfg.Market, ship: cfg.Routes.Shipping, tree: cfg.Upgrades, rep: cfg.Reputation.Effects, lt: cfg.Crew.Lieutenant, law: cfg.Law, houses: cfg.Houses.Houses}
 }
 
+// StructureEvidence is the pages a lot of clean cash moved offshore
+// over the line files the morning after (#195): what the reserve dialog
+// warns with.
+func (s *Sim) StructureEvidence() int { return s.cfg.Heat.StructureEvidence }
+
 // Chief is what the sitting police chief does to the tuning: multipliers
 // on the response cooldown, what a patrol lets through and the decay.
 func (s *Sim) Chief(w *game.World) content.ChiefConfig {
@@ -510,6 +515,18 @@ func (s *Sim) Step(w *game.World, t *game.Tick) {
 		} else {
 			add(here, tun.AuditHeat, fmt.Sprintf("audit at %s", f.Name))
 		}
+	}
+
+	// Clean cash moved offshore yesterday over the lot (#195): the DA
+	// reads the transfers, a page a lot over the line, wherever you
+	// are (structuring is something you did, #27; a move under the
+	// lot, or none, files nothing). Laundering steps after heat, so
+	// its record is how last night's move reaches today's file.
+	if st := w.Laundering.Structured; st.Day != 0 && st.Day == t.Day-1 && st.Lots > 0 && tun.StructureEvidence > 0 {
+		pages := st.Lots * tun.StructureEvidence
+		h.Evidence += pages
+		h.EvidenceDay = t.Day
+		reasons[here] = append(reasons[here], fmt.Sprintf("money moved offshore in lumps: the DA's file grows (%d)", h.Evidence))
 	}
 
 	// Decay, in every city. Cold contacts make both the base rate and

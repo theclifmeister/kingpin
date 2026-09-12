@@ -78,6 +78,7 @@ const (
 	modeConfirmTip    // tip the police on the selected corner? (#70)
 	modeConfirmBuyOff // pay the rival's muscle to go home: the heads, then y or enter (#70)
 	modeInvest        // clean cash into the selected front's levels (#192): the levels, then enter
+	modeReserve       // clean cash into the offshore account (#195): the amount, then enter
 	modeCount
 )
 
@@ -158,6 +159,7 @@ type Model struct {
 	fst            fastDialog
 	bo             buyOffDialog
 	inv            investDialog
+	rsv            reserveDialog
 	fastStop       string // the report's first line after a fast-forward (`Stopped after 3 days: …`), until the next day ends
 	slot           int    // the save slot this run lives in: where ctrl+s, the end of the day and quitting save
 	startChoice    int    // row on the start menu: the slots, then Quit
@@ -517,6 +519,8 @@ func (m *Model) handleKey(k tea.KeyMsg) (tea.Model, tea.Cmd) {
 		return m.keyBuyOff(k)
 	case modeInvest:
 		return m.keyInvest(k)
+	case modeReserve:
+		return m.keyReserve(k)
 	case modeTarget:
 		return m.keyTarget(k)
 	case modeFund:
@@ -982,6 +986,8 @@ func (m *Model) View() string {
 		body = m.viewBuyOff()
 	case modeInvest:
 		body = m.viewInvest()
+	case modeReserve:
+		body = m.viewReserve()
 	case modeTarget:
 		body = m.viewTarget()
 	case modeFund:
@@ -1313,7 +1319,13 @@ func (m *Model) viewOver() string {
 	b.WriteString(theme.Bad.Bold(true).Render(strings.ToUpper(e.Cause)) + fmt.Sprintf(" on day %d\n\n", e.Day))
 	// One fact a row: the label and its value, values written the way
 	// the screens write them.
-	facts := [][]any{
+	var facts [][]any
+	if w.Offshore > 0 {
+		// The account (#195) first: what survives the ending and is
+		// the score; the pile it left behind beside it.
+		facts = append(facts, []any{"offshore", cash(w.Offshore)}, []any{"left behind", cash(w.Cash())})
+	}
+	facts = append(facts, [][]any{
 		{"days survived", fmt.Sprint(e.Day)},
 		{"reached", m.reachedLine()},
 		{"peak cash", cash(w.Stats.PeakCash)},
@@ -1325,7 +1337,7 @@ func (m *Model) viewOver() string {
 		{"skimmed", cash(w.Stats.Skimmed)},
 		{"corners held", fmt.Sprint(w.Held())},
 		{"robbed", cash(w.Stats.Robbed)},
-	}
+	}...)
 	if w.Rival.Arrived > 0 {
 		facts = append(facts,
 			[]any{"corners won", fmt.Sprint(w.Stats.CornersWon)},
