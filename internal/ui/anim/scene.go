@@ -33,11 +33,12 @@ type Named struct {
 	New  func(seed uint64) Scene
 }
 
-// Scenes is the registry, every scene the game plays: the title for now
-// (#161 grows it with the interstitials as they land), its first pass
-// on the seed, whichever effect the pass picks.
+// Scenes is the registry, every scene the game plays: the title, its
+// first pass on the seed, whichever effect the pass picks, and the
+// interstitials as they land (#161): the stage (#157).
 func Scenes() []Named {
 	return []Named{
 		{Name: "title", New: func(seed uint64) Scene { s, _ := TitlePass(seed, 0, "", ""); return s }},
+		{Name: "stage", New: stageScene},
 	}
 }
