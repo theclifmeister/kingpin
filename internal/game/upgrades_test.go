@@ -376,7 +376,7 @@ func TestSaveMigratesTheFallGuy(t *testing.T) {
 		if _, err := Load(1); err == nil {
 			t.Fatal("a schema-9 save loaded without a migration")
 		}
-		got, err := Load(1, Migration{From: 9, Apply: MigrateFallGuys})
+		got, err := Load(1, Migration{From: 9, Apply: MigrateFallGuys}, Migration{From: 10, Apply: func(*World) {}})
 		if err != nil {
 			t.Fatal(err)
 		}

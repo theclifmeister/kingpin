@@ -3,6 +3,7 @@ package game
 import (
 	"bytes"
 	"encoding/gob"
+	"errors"
 	"os"
 	"reflect"
 	"testing"
@@ -121,9 +122,9 @@ func TestSend(t *testing.T) {
 // and you buy where you are, into the stash there.
 func TestTravelAndBuyWhereYouAre(t *testing.T) {
 	w := twoCityWorld()
-	w.Home().Market["a"].SupplierPrice = 5
-	w.Cities["port"].Market["a"].SupplierPrice = 2
-	if _, err := w.Buy("a", 10, 0); err != nil || w.Stock("test", "a") != 10 || w.Stock("port", "a") != 0 || w.Player.DirtyCash != 450 {
+	priceAt(w, "test", "a", 5)
+	priceAt(w, "port", "a", 2)
+	if _, err := w.Buy("street", "a", 10, false, 0); err != nil || w.Stock("test", "a") != 10 || w.Stock("port", "a") != 0 || w.Player.DirtyCash != 450 {
 		t.Fatalf("buy at home: %v %+v", err, w.Player)
 	}
 	if err := w.Post("wharf", You); err != ErrElsewhere {
@@ -144,7 +145,10 @@ func TestTravelAndBuyWhereYouAre(t *testing.T) {
 	if w.Capacity("test") != 0 || w.Capacity("port") != 100 || w.Free("test") != -10 {
 		t.Fatalf("capacity follows you: test %d port %d", w.Capacity("test"), w.Capacity("port"))
 	}
-	if _, err := w.Buy("a", 20, 0); err != nil || w.Stock("port", "a") != 20 || w.Player.DirtyCash != 410 {
+	if _, err := w.Buy("street", "a", 1, false, 0); err != ErrElsewhere {
+		t.Fatalf("bought from the connect at home while in the port: %v", err)
+	}
+	if _, err := w.Buy("portstreet", "a", 20, false, 0); err != nil || w.Stock("port", "a") != 20 || w.Player.DirtyCash != 410 {
 		t.Fatalf("buy at the port: %v %+v", err, w.Player)
 	}
 	if err := w.Post("wharf", You); err != nil || w.Corner("wharf").Runner != You {
@@ -167,33 +171,34 @@ func TestTravelAndBuyWhereYouAre(t *testing.T) {
 	}
 }
 
-// The wholesaler sells by the lot, cheaper, only where it deals and only
-// once the door is open, wherever the player is, and a lot is not held
-// to the stash's capacity: the road takes it.
+// The wholesaler sells by the lot, cheaper, only where one deals and
+// only once the door is open, wherever the player is, and a lot is not
+// held to the stash's capacity: the road takes it. Frozen they sell
+// nothing (#72), and never more than their day has left.
 func TestRestock(t *testing.T) {
 	w := twoCityWorld()
-	w.Home().Market["a"].SupplierPrice = 10
-	w.Cities["port"].Market["a"].SupplierPrice = 4
+	priceAt(w, "test", "a", 10)
+	priceAt(w, "port", "a", 4)
+	w.Supplier("wholesaler").Price["a"] = 2
 	w.Player.DirtyCash = 10_000
-	offer := WholesaleOffer{Lot: 100, Mul: 0.5, UnlockCash: 5_000}
-	if _, err := w.Restock("test", "a", 1, offer, 0); err != ErrNoRoute {
+	if _, err := w.Restock("test", "a", 1, 0); err != ErrNoRoute {
 		t.Fatalf("bought by the lot at home: %v", err)
 	}
-	if _, err := w.Restock("nowhere", "a", 1, offer, 0); err != ErrNoCity {
+	if _, err := w.Restock("nowhere", "a", 1, 0); err != ErrNoCity {
 		t.Fatalf("bought by the lot nowhere: %v", err)
 	}
-	if _, err := w.Restock("port", "a", 1, offer, 0); err == nil || !offer.Locked(w) {
+	if _, err := w.Restock("port", "a", 1, 0); err != ErrNoRoute || !w.Supplier("wholesaler").Locked(w) {
 		t.Fatalf("bought by the lot before the unlock: %v", err)
 	}
 	w.Stats.PeakCash = 5_000
-	if _, err := w.Restock("port", "b", 1, offer, 0); err != ErrUnknownProduct {
+	if _, err := w.Restock("port", "b", 1, 0); err != ErrUnknownProduct {
 		t.Fatalf("bought nothing: %v", err)
 	}
-	if _, err := w.Restock("port", "a", 0, offer, 0); err != ErrBadQuantity {
+	if _, err := w.Restock("port", "a", 0, 0); err != ErrBadQuantity {
 		t.Fatalf("bought no lots: %v", err)
 	}
-	p, err := w.Restock("port", "a", 3, offer, 0)
-	if err != nil || p.Qty != 300 || p.Cost != 600 || p.UnitPrice != 2 || w.Stock("port", "a") != 300 || w.Player.DirtyCash != 9_400 || w.Player.Location != "test" {
+	p, err := w.Restock("port", "a", 3, 0)
+	if err != nil || p.Qty != 300 || p.Cost != 600 || p.UnitPrice != 2 || p.Supplier != "wholesaler" || w.Stock("port", "a") != 300 || w.Player.DirtyCash != 9_400 || w.Player.Location != "test" {
 		t.Fatalf("lots: %v %+v cash %d stash %d", err, p, w.Player.DirtyCash, w.Stock("port", "a"))
 	}
 	if len(w.Buys) != 0 {
@@ -202,8 +207,19 @@ func TestRestock(t *testing.T) {
 	if w.Free("port") >= 0 {
 		t.Fatalf("the lots should be past capacity: free %d", w.Free("port"))
 	}
-	if _, err := w.Restock("port", "a", 100, offer, 0); err == nil {
+	if sup := w.Supplier("wholesaler"); sup.BoughtToday != 300 || sup.Bought != 300 || sup.Lots != 3 {
+		t.Fatalf("the lots were not booked against the connect: %+v", sup)
+	}
+	if _, err := w.Restock("port", "a", 100, 0); err == nil {
 		t.Fatal("bought lots without the cash")
+	}
+	w.Supplier("wholesaler").Cap = 400
+	if _, err := w.Restock("port", "a", 2, 0); !errors.Is(err, ErrSupplierCapacity) {
+		t.Fatalf("bought past the day's capacity: %v", err)
+	}
+	w.Supplier("wholesaler").FrozenUntil = w.Day + 3
+	if _, err := w.Restock("port", "a", 1, 0); !errors.Is(err, ErrSupplierFrozen) {
+		t.Fatalf("bought from a frozen connect: %v", err)
 	}
 }
 
@@ -319,7 +335,7 @@ func TestSaveMigratesTheOneCity(t *testing.T) {
 	// The steps past 7 are other packages' (the rival's trust, #32; the
 	// chief and the DA, #41) or the fall guy's count (#117); the chain
 	// only needs to reach the current schema.
-	got, err := Load(1, Migration{From: 6, Apply: func(w *World) { w.MigrateCities(home) }}, Migration{From: 7, Apply: func(*World) {}}, Migration{From: 8, Apply: func(*World) {}}, Migration{From: 9, Apply: MigrateFallGuys})
+	got, err := Load(1, Migration{From: 6, Apply: func(w *World) { w.MigrateCities(home) }}, Migration{From: 7, Apply: func(*World) {}}, Migration{From: 8, Apply: func(*World) {}}, Migration{From: 9, Apply: MigrateFallGuys}, Migration{From: 10, Apply: func(*World) {}})
 	if err != nil {
 		t.Fatal(err)
 	}

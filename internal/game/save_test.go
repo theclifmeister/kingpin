@@ -36,7 +36,24 @@ func testWorld() *World {
 	if err := w.Post("home", You); err != nil {
 		panic(err)
 	}
+	// The street connect (#72), open from day one, dealing in
+	// everything by the unit, at the market's supplier price.
+	w.AddSupplier(Supplier{ID: "street", Name: "Street", City: "test", Temper: "patient", Lot: 1, SmallLot: 1, CreditDays: 7, CreditRatio: 1.1, Rel: 50, Cap: 1_000_000, Limit: 1_000})
+	priceAt(w, "test", "a", w.Home().Market["a"].SupplierPrice)
 	return w
+}
+
+// priceAt sets every connect's price for a product in a city, and the
+// market's supplier price with it: what a test means by "the supplier
+// price is X".
+func priceAt(w *World, city, product string, price float64) {
+	for _, sup := range w.SuppliersIn(city) {
+		sup.Price[product] = price
+	}
+	if m := w.Product(city, product); m != nil {
+		m.SupplierPrice = price
+	}
+	w.RefreshSupplierPrices()
 }
 
 // twoCityWorld is testWorld with a second city, Port, where a is cheap,
@@ -45,6 +62,13 @@ func twoCityWorld() *World {
 	w := testWorld()
 	w.AddCity(StartingCity{ID: "port", Name: "Port", HeatMul: 0.5, Wholesale: true, Products: []StartingProduct{{ID: "a", Name: "A", Price: 4, Demand: 2}}})
 	w.Cities["port"].Corners = []Corner{{ID: "wharf", City: "port", Name: "Wharf", Demand: 1, Heat: 1, Risk: 1, Owner: OwnerNone}}
+	// The port's street connect and its wholesaler (#72): lots of a
+	// hundred at half the street connect's price, once $5,000 has been
+	// moved.
+	w.AddSupplier(Supplier{ID: "portstreet", Name: "Port Street", City: "port", Temper: "sharp", Lot: 1, SmallLot: 1, Rel: 50, Cap: 1_000_000})
+	w.AddSupplier(Supplier{ID: "wholesaler", Name: "Wholesaler", City: "port", Temper: "connected", Lot: 100, SmallLot: 2, UnlockCash: 5_000, Wholesale: true, Rel: 50, Cap: 1_000_000})
+	priceAt(w, "port", "a", w.Cities["port"].Market["a"].SupplierPrice)
+	w.Supplier("wholesaler").Price["a"] = w.Cities["port"].Market["a"].SupplierPrice / 2
 	return w
 }
 
@@ -266,14 +290,14 @@ func TestLoadErrors(t *testing.T) {
 
 func TestActions(t *testing.T) {
 	w := testWorld()
-	w.Home().Market["a"].SupplierPrice = 5
-	if _, err := w.Buy("a", 200, 0.25); err == nil {
+	priceAt(w, "test", "a", 5)
+	if _, err := w.Buy("street", "a", 200, false, 0.25); err == nil {
 		t.Fatal("bought more than affordable")
 	}
-	if _, err := w.Buy("a", 101, 0); err == nil {
+	if _, err := w.Buy("street", "a", 101, false, 0); err == nil {
 		t.Fatal("bought more than carry limit")
 	}
-	p, err := w.Buy("a", 20, 0.25)
+	p, err := w.Buy("street", "a", 20, false, 0.25)
 	if err != nil || p.Cost != 100 || w.Player.DirtyCash != 400 || w.Stock("test", "a") != 20 {
 		t.Fatalf("buy: %v %+v cash=%d stock=%d", err, p, w.Player.DirtyCash, w.Stock("test", "a"))
 	}

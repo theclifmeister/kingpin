@@ -349,14 +349,14 @@ func TestDesignerComesByRoad(t *testing.T) {
 	if w.Product(home, "designer") == nil || w.Product(hub, "designer") == nil {
 		t.Fatal("designer is not on the ladder with a fortune in the bank")
 	}
-	if _, err := w.Buy("designer", 1, 0); err != game.ErrNotSupplied {
+	if _, err := w.Buy(w.StreetSupplier(home).ID, "designer", 1, false, 0); err != game.ErrNotSupplied {
 		t.Fatalf("bought designer from the home supplier: %v", err)
 	}
-	if _, err := w.Buy("heroin", 1, 0); err != nil {
+	if _, err := w.Buy(w.StreetSupplier(home).ID, "heroin", 1, false, 0); err != nil {
 		t.Fatalf("the home supplier stopped selling heroin: %v", err)
 	}
 	_ = w.Travel(hub)
-	if _, err := w.Buy("designer", 1, 0); err != nil {
+	if _, err := w.Buy(w.StreetSupplier(hub).ID, "designer", 1, false, 0); err != nil {
 		t.Fatalf("the port's supplier does not sell designer: %v", err)
 	}
 	// The boss's home sells designer, and every unit of it landed off a

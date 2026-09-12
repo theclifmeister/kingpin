@@ -311,12 +311,11 @@ func (m *Model) viewTarget() string {
 					body = append(body, theme.Subtle.Render(fmt.Sprintf("Today     %sd ≈ %s: ~%.0f/day on your corners in %s", s, plural(n, "unit"), w.Demand(r.To, id), w.CityName(r.To))))
 				}
 				if src := w.Product(r.From, id); src != nil {
-					o := m.set.Logistics.Wholesale(w)
 					unit := src.SupplierPrice
 					how := "at retail in " + w.CityName(r.From)
-					if w.City(r.From).Wholesale && !o.Locked(w) {
-						unit *= o.Mul
-						how = "by the lot in " + w.CityName(r.From)
+					if sup := w.WholesaleSupplier(r.From); sup != nil && sup.Open(w) && sup.Price[id] > 0 {
+						unit = sup.Price[id]
+						how = "by the lot from " + sup.Name
 					}
 					short := max(0, n-w.Stock(r.To, id)-w.Bound(r.To, id))
 					body = append(body, theme.Subtle.Render(fmt.Sprintf("Short     %d: ~%s %s + %s fares", short, money(int(float64(short)*unit)), how, money(int(math.Ceil(float64(short)*m.set.Logistics.Fare(w, *r)))))))

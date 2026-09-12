@@ -7,6 +7,7 @@ import (
 	"github.com/charmbracelet/lipgloss"
 
 	"github.com/theclifmeister/kingpin/internal/events"
+	"github.com/theclifmeister/kingpin/internal/game"
 	"github.com/theclifmeister/kingpin/internal/ui/sparkline"
 	"github.com/theclifmeister/kingpin/internal/ui/theme"
 )
@@ -47,6 +48,7 @@ const (
 	priRuns
 	priRoad
 	priContracts
+	priDebt
 	priCrew
 	priStrike
 	priPatrol
@@ -112,7 +114,7 @@ func (m *Model) streetLines(innerW, maxLines int, narrow, withRoad bool) []strin
 	if narrow {
 		topic(stash)
 	} else {
-		topic(stash, fact{theme.Subtle.Render(fmt.Sprintf("supplier at ~%.0f%% of street", m.set.Market.SupplierRatio(w)*100)), priSupplier})
+		topic(stash, fact{theme.Subtle.Render(m.supplierLine()), priSupplier})
 	}
 	corners := fact{theme.CrewText.Render(m.cornersLine(here.ID)), priCorners}
 	if w.Worked() == 0 {
@@ -133,6 +135,9 @@ func (m *Model) streetLines(innerW, maxLines int, narrow, withRoad bool) []strin
 	}
 	if line := m.supplyLine(); line != "" {
 		topic(fact{line, priSupply})
+	}
+	if line := m.debtLine(); line != "" {
+		topic(fact{line, priDebt})
 	}
 	if line := m.runsLine(); line != "" {
 		topic(fact{theme.CrewText.Render(line), priRuns})
@@ -507,6 +512,7 @@ func (m *Model) alerts() []alert {
 		out = append(out, newAlert(theme.Bad.Bold(true).Render("Somebody is talking.")+theme.Bad.Render(" Investigate "+screenPointer(screenCrew)+"."), "somebody is talking"))
 	}
 	out = append(out, m.contractAlerts()...)
+	out = append(out, m.debtAlerts()...)
 	for _, r := range m.set.Heat.ThresholdsIn(w, here) {
 		if r.Level == "patrol" && here.Heat >= r.Threshold {
 			out = append(out, newAlert(theme.Bad.Render(fmt.Sprintf("Heat %.0f in %s is over the patrol line (%.0f).", here.Heat, here.Name, r.Threshold)), "heat in "+here.Name+" over the patrol line"))
@@ -864,4 +870,33 @@ func (m *Model) roadUnits(id string) (units, soonest int) {
 		}
 	}
 	return units, soonest
+}
+
+// supplierLine is the street's fact on the supply side (#72): the best
+// available connect where you stand and their price as a share of
+// street, `Cass sells at ~55% of street`, or that nobody is selling to
+// you today.
+func (m *Model) supplierLine() string {
+	w := m.w
+	here := w.Player.Location
+	var best *game.Supplier
+	ratio := 0.0
+	for _, sup := range w.SuppliersIn(here) {
+		for _, id := range w.Products {
+			p := w.Product(here, id)
+			if p == nil || p.Price <= 0 || !w.Available(sup, id) {
+				continue
+			}
+			if r := sup.Price[id] / p.Price; best == nil || r < ratio {
+				best, ratio = sup, r
+			}
+		}
+	}
+	if best == nil {
+		if len(w.SuppliersIn(here)) == 0 {
+			return fmt.Sprintf("supplier at ~%.0f%% of street", m.set.Market.BaseRatio(w)*100)
+		}
+		return "nobody is selling to you today"
+	}
+	return fmt.Sprintf("%s sells at ~%.0f%% of street", best.Name, ratio*100)
 }

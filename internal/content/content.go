@@ -33,6 +33,7 @@ type Config struct {
 	Headlines  HeadlinesConfig
 	Dilemmas   DilemmasConfig
 	Buyers     BuyersConfig
+	Suppliers  SuppliersConfig
 }
 
 // MarketConfig mirrors market.toml.
@@ -110,7 +111,7 @@ type CityConfig struct {
 
 // CityEntry is one city. Heat multiplies the sale heat of every unit
 // moved there (a port town's police have other things to look at);
-// Wholesale says its supplier sells by the lot (routes.toml [wholesale]);
+// Wholesale says a connect there sells by the lot (suppliers.toml);
 // Market is how its street differs from the product ladder, per product.
 type CityEntry struct {
 	ID        string                 `toml:"id"`
@@ -165,12 +166,12 @@ func (c CityEntry) Corner(id string) *CornerConfig {
 }
 
 // RoutesConfig mirrors routes.toml: the edges between cities, the ship
-// dial, what a seizure does and how the wholesale supplier sells.
+// dial and what a seizure does. How the wholesaler sells is the
+// connect's row in suppliers.toml (#72).
 type RoutesConfig struct {
-	Shipping  ShippingTuning  `toml:"shipping"`
-	Wholesale WholesaleTuning `toml:"wholesale"`
-	Dial      ShipDialTable   `toml:"dial"`
-	Routes    []RouteConfig   `toml:"route"`
+	Shipping ShippingTuning `toml:"shipping"`
+	Dial     ShipDialTable  `toml:"dial"`
+	Routes   []RouteConfig  `toml:"route"`
 }
 
 // ShippingTuning is what a seizure does to the world: heat in both cities
@@ -182,15 +183,6 @@ type ShippingTuning struct {
 	ShockFactor     float64 `toml:"shock_factor"`
 	ShockDays       int     `toml:"shock_days"`
 	RecordDays      int     `toml:"record_days"` // how long a seizure stays on the ledger
-}
-
-// WholesaleTuning is the lot the wholesale supplier sells by, at what
-// fraction of the street supplier's price, and the peak cash that opens
-// the door.
-type WholesaleTuning struct {
-	Lot        int     `toml:"lot"`
-	Mul        float64 `toml:"mul"`
-	UnlockCash int     `toml:"unlock_cash"`
 }
 
 type ShipDialTable struct {
@@ -1043,6 +1035,9 @@ func Load() (*Config, error) {
 	if err := decode("buyers.toml", &c.Buyers); err != nil {
 		return nil, err
 	}
+	if err := decode("suppliers.toml", &c.Suppliers); err != nil {
+		return nil, err
+	}
 	if len(c.Market.Products) == 0 {
 		return nil, fmt.Errorf("market.toml: no products defined")
 	}
@@ -1117,6 +1112,9 @@ func Load() (*Config, error) {
 	}
 	if err := c.Buyers.validate(c.Market, c.City); err != nil {
 		return nil, fmt.Errorf("buyers.toml: %w", err)
+	}
+	if err := c.Suppliers.validate(c.Market, c.City); err != nil {
+		return nil, fmt.Errorf("suppliers.toml: %w", err)
 	}
 	if err := c.Law.validate(); err != nil {
 		return nil, fmt.Errorf("law.toml: %w", err)
@@ -1293,7 +1291,7 @@ func (c CityConfig) validate() error {
 }
 
 // validate checks the routes join cities that exist, the numbers make
-// sense, and the wholesale lot and the dials are usable.
+// sense, and the dials are usable.
 func (r RoutesConfig) validate(cities CityConfig) error {
 	seen := map[string]bool{}
 	for _, rt := range r.Routes {
@@ -1307,9 +1305,6 @@ func (r RoutesConfig) validate(cities CityConfig) error {
 		if rt.Days < 1 || rt.Capacity < 1 || rt.Cost < 0 || rt.Risk < 0 || rt.Risk > 1 || rt.Mode == "" {
 			return fmt.Errorf("bad route %+v", rt)
 		}
-	}
-	if r.Wholesale.Lot < 1 || r.Wholesale.Mul <= 0 {
-		return fmt.Errorf("bad [wholesale] table %+v", r.Wholesale)
 	}
 	for _, d := range []ShipDialConfig{r.Dial.Slow, r.Dial.Normal, r.Dial.Fast} {
 		if d.Days <= 0 || d.Risk < 0 {

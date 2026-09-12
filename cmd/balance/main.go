@@ -19,13 +19,14 @@ import (
 func main() {
 	runs := flag.Int("runs", 20, "number of seeded runs")
 	days := flag.Int("days", harness.Horizon, "days to play each run for; a measuring horizon, the game itself has no cap")
-	policy := flag.String("policy", "normal", "idle | hide | quiet | normal | aggressive | careful | managed | upgraded | crewed | vigilant | territory | war | diplomat | laundered | funded | distributor | delegated | dealer | stocked | routine | boss")
+	policy := flag.String("policy", "normal", "idle | hide | quiet | normal | aggressive | careful | managed | upgraded | crewed | vigilant | territory | war | diplomat | laundered | funded | distributor | delegated | dealer | stocked | routine | leveraged | boss")
 	lt := flag.String("lt", "", "force the delegated policy's lieutenant temper: violent | greedy | careful | steady (default as generated)")
 	corners := flag.Int("corners", 3, "corners the territory and war policies work, counting yours")
 	force := flag.String("force", "push", "warn | push | hit: how hard the war policy strikes")
 	rival := flag.String("rival", "", "force the rival's personality: expansionist | defensive | opportunist | chaotic (default by seed); none keeps the rival out of the run (harness.NoRival)")
 	heatFlag := flag.String("heat", "on", "on | off: off switches heat off, nothing adds any and the police never answer (harness.NoHeat)")
 	pace := flag.String("pace", "on", "on | off: off has the rival claim at the flat pace it had before #60 (harness.FlatPace)")
+	credit := flag.String("credit", "on", "on | off: off withdraws every connect's credit (harness.NoCredit)")
 	chief := flag.String("chief", "", "force the police chief's personality for the whole run: corrupt | zealous | lazy (default by seed, replaced on schedule)")
 	da := flag.String("da", "", "force the DA's stance for the whole run: law_and_order | moderate | reform (default by seed, elections every term)")
 	trace := flag.Bool("trace", false, "print a per-day trace of the run with -seed")
@@ -52,6 +53,9 @@ func main() {
 	}
 	if *pace == "off" {
 		cfg = harness.FlatPace(cfg)
+	}
+	if *credit == "off" {
+		cfg = harness.NoCredit(cfg)
 	}
 	var p harness.Policy
 	switch *policy {
@@ -100,6 +104,8 @@ func main() {
 		p = harness.Stocked(cfg, at(40))
 	case "routine":
 		p = harness.Routine(cfg, at(40))
+	case "leveraged":
+		p = harness.Leveraged(cfg, at(40))
 	case "boss":
 		p = harness.Boss(cfg, at(40), *lt)
 	default:
@@ -143,6 +149,8 @@ func main() {
 	elections, chiefs, funded := 0, 0, 0
 	stances := map[string]int{}
 	tempersOfChief := map[string]int{}
+	var rels []int
+	debtDays, late, frozen, collected, creditTaken := 0, 0, 0, 0, 0
 	for seed := *seed0; seed < *seed0+uint64(*runs); seed++ {
 		// The rival's corners at the pace days, read the morning after.
 		pol := func(w *game.World) {
@@ -244,6 +252,10 @@ func main() {
 				dealt[ev.Card]++
 			case events.DealOffered:
 				offers++
+			case events.SupplierFrozen:
+				frozen++
+			case events.SupplierCollected:
+				collected++
 			case events.HeatChanged:
 				for _, r := range ev.Reasons {
 					if strings.HasPrefix(r, "the DA's file") {
@@ -285,6 +297,14 @@ func main() {
 		elections, chiefs, funded = elections+st.Elections, chiefs+st.Chiefs, funded+st.Funded
 		stances[res.World.Law.DA.Stance]++
 		tempersOfChief[res.World.Law.Chief.Personality]++
+		// The street connect where the run ended: the relationship the
+		// policy built.
+		if sup := res.World.StreetSupplier(res.World.Player.Location); sup != nil {
+			rels = append(rels, int(sup.Rel))
+		}
+		debtDays += st.DebtDays
+		late += st.LatePayments
+		creditTaken += st.Credit
 	}
 	sort.Ints(played)
 	sort.Ints(peaks)
@@ -349,6 +369,11 @@ func main() {
 	sort.Ints(goodwill)
 	fmt.Printf("law:           pressure %d goodwill %d at the end (medians), pressure max %d, %d elections, %d chiefs replaced, $%d given per run; DA %v chief %v\n",
 		pressure[len(pressure)/2], goodwill[len(goodwill)/2], pressure[len(pressure)-1], elections, chiefs, funded / *runs, stances, tempersOfChief)
+	if len(rels) > 0 {
+		sort.Ints(rels)
+		fmt.Printf("suppliers:     rel %d with the street connect at the end (median), %d days in debt per run, %d late payments, %d freezes, %d collections, $%d taken on credit per run (credit %s)\n",
+			rels[len(rels)/2], debtDays / *runs, late, frozen, collected, creditTaken / *runs, *credit)
+	}
 	if pick != nil {
 		total := 0
 		var ids []string

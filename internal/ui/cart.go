@@ -32,6 +32,7 @@ import (
 type cartLine struct {
 	buy      bool
 	contract bool // a buy the supply contract made this morning
+	credit   bool // a buy on a connect's book (#72), kept apart from the cash ones
 	standing bool // a standing order of yours, selling tonight
 	city     string
 	product  string
@@ -62,8 +63,11 @@ func (m *Model) cartLines() []cartLine {
 	at := map[string]int{}
 	for _, b := range w.Buys {
 		k := game.OrderKey(b.City, b.Product)
-		if b.Contract {
+		switch {
+		case b.Contract:
 			k = "contract " + k
+		case b.Credit:
+			k = "credit " + k
 		}
 		if i, ok := at[k]; ok {
 			lines[i].qty += b.Qty
@@ -71,7 +75,7 @@ func (m *Model) cartLines() []cartLine {
 			continue
 		}
 		at[k] = len(lines)
-		lines = append(lines, cartLine{buy: true, contract: b.Contract, city: b.City, product: b.Product, qty: b.Qty, cost: b.Cost})
+		lines = append(lines, cartLine{buy: true, contract: b.Contract, credit: b.Credit, city: b.City, product: b.Product, qty: b.Qty, cost: b.Cost})
 	}
 	for i := range lines {
 		if lines[i].qty > 0 {
@@ -124,6 +128,7 @@ type cartTotals struct {
 	buys, sells         int
 	spent, take         int
 	contracts, supplied int // the contract lines and what they cost, part of buys and spent
+	credits, booked     int // the credit lines (#72) and what went on the book, part of buys and not of spent
 	standing            int // the standing lines, part of sells
 	heat                float64
 }
@@ -133,10 +138,16 @@ func totals(lines []cartLine) cartTotals {
 	for _, l := range lines {
 		if l.buy {
 			t.buys++
-			t.spent += l.cost
-			if l.contract {
+			switch {
+			case l.credit:
+				t.credits++
+				t.booked += l.cost
+			case l.contract:
+				t.spent += l.cost
 				t.contracts++
 				t.supplied += l.cost
+			default:
+				t.spent += l.cost
 			}
 		} else {
 			t.sells++
@@ -157,9 +168,14 @@ func (m *Model) cartSummary() string {
 	t := totals(m.cartLines())
 	var parts []string
 	if t.buys > 0 {
-		line := fmt.Sprintf("buying %s for %s", plural(t.buys, "line"), cash(t.spent))
-		if t.contracts > 0 {
+		line := fmt.Sprintf("buying %s for %s", plural(t.buys, "line"), cash(t.spent+t.booked))
+		switch {
+		case t.contracts > 0 && t.credits > 0:
+			line += fmt.Sprintf(" (%d by contract, %d on credit)", t.contracts, t.credits)
+		case t.contracts > 0:
 			line += fmt.Sprintf(" (%d by contract)", t.contracts)
+		case t.credits > 0:
+			line += fmt.Sprintf(" (%d on credit)", t.credits)
 		}
 		parts = append(parts, line)
 	}
@@ -191,6 +207,8 @@ func (m *Model) cartRows(lines []cartLine) [][]any {
 		switch {
 		case l.contract:
 			rows = append(rows, []any{"contract", name, city, l.qty, l.unit, nil, nil, styled{theme.Bad, -l.cost}, nil})
+		case l.credit:
+			rows = append(rows, []any{"credit", name, city, l.qty, l.unit, nil, nil, styled{theme.Warning, -l.cost}, nil})
 		case l.buy:
 			rows = append(rows, []any{"buy", name, city, l.qty, l.unit, nil, nil, styled{theme.Bad, -l.cost}, nil})
 		default:
@@ -218,6 +236,9 @@ func (m *Model) cartTotalLine(t cartTotals) string {
 	}
 	if t.contracts > 0 {
 		parts = append(parts, sub("by contract ")+money(t.supplied))
+	}
+	if t.credits > 0 {
+		parts = append(parts, sub("on credit ")+money(t.booked))
 	}
 	if t.sells > 0 {
 		parts = append(parts, sub("expect ")+theme.Gold.Render("~"+money(t.take)), sub("heat ")+fmt.Sprintf("%+.1f", t.heat))
@@ -426,10 +447,22 @@ func (m *Model) cartMax() int {
 // giveBack is the cart returning units of a buy line: a contract's
 // through ReturnSupplied, a buy by hand's through Return.
 func (m *Model) giveBack(l cartLine, qty int) (int, error) {
-	if l.contract {
+	switch {
+	case l.contract:
 		return m.w.ReturnSupplied(l.city, l.product, qty)
+	case l.credit:
+		return m.w.ReturnCredit(l.city, l.product, qty)
 	}
 	return m.w.Return(l.city, l.product, qty)
+}
+
+// returned is the status after a return: what came back to the till,
+// or, for a credit line, what came off the book (#72).
+func (m *Model) returned(l cartLine, qty, refund int) string {
+	if l.credit {
+		return fmt.Sprintf("Returned %d %s: off the book.", qty, m.w.ProductName(l.product))
+	}
+	return fmt.Sprintf("Returned %d %s, %s back.", qty, m.w.ProductName(l.product), money(refund))
 }
 
 // setCartQty is enter on the cart's quantity step: an order, standing
@@ -457,20 +490,30 @@ func (m *Model) setCartQty() {
 				m.refuse("Can't return: " + err.Error())
 				return
 			}
-			m.say(fmt.Sprintf("Returned %d %s, %s back.", l.qty-qty, m.w.ProductName(l.product), money(refund)))
+			m.say(m.returned(*l, l.qty-qty, refund))
 		case qty > l.qty && l.contract:
 			d.err = "A contract's line only goes back: the supplier sells you more by hand."
+			return
+		case qty > l.qty && l.credit:
+			d.err = "A credit line only goes back: more on the book is a new buy."
 			return
 		case qty > l.qty && !here:
 			d.err = fmt.Sprintf("You are in %s: it was bought in %s.", m.w.CityName(m.w.Player.Location), m.w.CityName(l.city))
 			return
 		case qty > l.qty:
-			p, err := m.w.Buy(l.product, qty-l.qty, m.set.Market.BuyPressure(m.w))
+			// More by hand: from the cheapest connect that sells it
+			// today, for cash (#72).
+			sup := m.w.BestSupplier(l.city, l.product)
+			if sup == nil {
+				d.err = fmt.Sprintf("Nobody in %s sells %s today.", m.w.CityName(l.city), m.w.ProductName(l.product))
+				return
+			}
+			p, err := m.w.Buy(sup.ID, l.product, qty-l.qty, false, m.set.Market.BuyPressure(m.w))
 			if err != nil {
 				d.err = dialogError(err)
 				return
 			}
-			m.say(fmt.Sprintf("Bought %d more %s for %s.", p.Qty, m.w.ProductName(l.product), money(p.Cost)))
+			m.say(fmt.Sprintf("Bought %d more %s from %s for %s.", p.Qty, m.w.ProductName(l.product), sup.Name, money(p.Cost)))
 		}
 	} else {
 		qty, err := parseQtyInput(d.qty.Value(), m.cartMax())
@@ -512,7 +555,7 @@ func (m *Model) removeCartLine(l cartLine) {
 		m.refuse("Can't return: " + err.Error())
 		return
 	}
-	m.say(fmt.Sprintf("Returned %d %s, %s back.", l.qty, m.w.ProductName(l.product), money(refund)))
+	m.say(m.returned(l, l.qty, refund))
 }
 
 // viewCart is the cart modal: the CART table under the cursor, the

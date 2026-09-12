@@ -183,6 +183,9 @@ func TestStatusKinds(t *testing.T) {
 	}
 	m.Update(key("esc"))
 	m.w.Player.DirtyCash = 0
+	for _, sup := range m.w.SuppliersIn(m.w.Player.Location) {
+		sup.Limit = 0 // no book to run either (#72): with one open, no cash is no refusal
+	}
 	m.Update(key("b"))
 	m.Update(key("enter"))
 	if m.dlg.err != "Can't afford or hold any." {

@@ -7,25 +7,38 @@ import (
 	"strings"
 
 	tea "github.com/charmbracelet/bubbletea"
+	"github.com/charmbracelet/lipgloss"
 
 	"github.com/theclifmeister/kingpin/internal/events"
+	"github.com/theclifmeister/kingpin/internal/game"
 	"github.com/theclifmeister/kingpin/internal/ui/theme"
 )
 
-// dialog is the state of the buy or sell modal. A buy is from the
-// supplier where you are, into the stash there; a sale is in the city
+// dialog is the state of the buy or sell modal. A buy is from a connect
+// where you are (#72), into the stash there; a sale is in the city
 // shown, out of the stash there, by whoever works corners there. The
 // last step of either is whether the line is for today or stands: a
 // buy's `once` / `keep at` (#113, a supply contract at the quantity),
-// after the quantity; a sale's `once` / `standing` (#114, a standing
-// order at the quantity and the dial), after the dial.
+// after the quantity, with `cash` / `credit` beside it; a sale's `once`
+// / `standing` (#114, a standing order at the quantity and the dial),
+// after the dial. A buy opens on a connect step before the product
+// where more than one connect where you stand sells you something
+// (paged); with one, that connect is the buy's and the step is skipped.
 type dialog struct {
-	step   int // 0 product, 1 quantity, 2 the buy's repeat or the sale's dial, 3 the sale's repeat
-	qty    numberField
-	dial   events.Dial
-	repeat repeat
-	err    string
+	step     int // 0 product, 1 quantity, 2 the buy's repeat or the sale's dial, 3 the sale's repeat
+	pick     bool
+	paged    bool // the buy has a connect step before the product
+	supplier int  // the connect picked, an index into connectsHere, while paged
+	credit   bool // the buy goes on the connect's book
+	qty      numberField
+	dial     events.Dial
+	repeat   repeat
+	err      string
 }
+
+// payNames are the buy's last-step notches for how it is paid, in the
+// dial convention.
+var payNames = []string{"cash", "credit"}
 
 // repeat is the last step of the buy dialog (#113) and of the sell
 // dialog (#114): whether the line is for today (once) or stands (keep
@@ -97,6 +110,35 @@ func (m *Model) openDialog(mode mode) {
 		return
 	}
 	m.dlg = dialog{qty: newNumberField("blank = max"), dial: events.DialNormal}
+	if mode == modeBuy {
+		// The connects where you stand that are dealing today (#72):
+		// none, and there is nothing to open on; one, and it is the
+		// buy's, the product step saying what you cannot afford; more,
+		// and the first step picks.
+		var open []int
+		for i, sup := range m.connectsHere() {
+			if m.dealing(sup) {
+				open = append(open, i)
+			}
+		}
+		switch len(open) {
+		case 0:
+			m.refuse("Can't buy: " + m.whyNobodySells() + ".")
+			return
+		case 1:
+			m.dlg.supplier = open[0]
+		default:
+			m.dlg.paged, m.dlg.pick, m.dlg.supplier = true, true, open[0]
+			// Land on the cheapest for the product under the cursor.
+			if best := m.w.BestSupplier(m.w.Player.Location, m.w.Products[m.cursor]); best != nil {
+				for _, i := range open {
+					if m.connectsHere()[i].ID == best.ID {
+						m.dlg.supplier = i
+					}
+				}
+			}
+		}
+	}
 	if mode == modeSell {
 		city := m.actionCity()
 		if m.sellableIn(city) == 0 {
@@ -153,10 +195,32 @@ func (m *Model) keyDialog(k tea.KeyMsg) (tea.Model, tea.Cmd) {
 	case "tab":
 		return m.dialogForward()
 	case "q":
-		if d.step != 1 {
+		if d.step != 1 || d.pick {
 			m.mode = modePlay
 			return m, nil
 		}
+	}
+	if d.pick {
+		// The connect step (#72): a list of the connects where you
+		// stand; enter takes one that sells you something.
+		n := len(m.connectsHere())
+		switch key {
+		case "up", "k":
+			if d.supplier > 0 {
+				d.supplier--
+			}
+		case "down", "j":
+			if d.supplier < n-1 {
+				d.supplier++
+			}
+		case "1", "2", "3", "4", "5", "6", "7", "8", "9":
+			if i := int(key[0] - '1'); i < n {
+				d.supplier = i
+			}
+		case "enter", "right", "l":
+			return m.dialogForward()
+		}
+		return m, nil
 	}
 	switch d.step {
 	case 0:
@@ -192,13 +256,24 @@ func (m *Model) keyDialog(k tea.KeyMsg) (tea.Model, tea.Cmd) {
 		return m, d.qty.Update(k)
 	case 2:
 		if m.mode == modeBuy {
-			if key == "enter" {
+			switch key {
+			case "enter":
 				if d.repeat == repeatKeep {
 					return m.confirmKeep()
 				}
 				return m.confirmBuy()
+			case "c":
+				// The pay notch (#72): credit where the connect gives
+				// it and a contract is not what is being set.
+				if d.repeat == repeatOnce && m.creditOffered() {
+					d.credit = !d.credit
+				}
+				return m, nil
 			}
 			stepRepeat(key, &d.repeat, len(repeatNames))
+			if d.repeat == repeatKeep {
+				d.credit = false
+			}
 			return m, nil
 		}
 		switch key {
@@ -269,10 +344,89 @@ func (m *Model) productErr() string {
 	if m.mode == modeSell && m.sellable(m.dialogCity(), id) == 0 {
 		return "You have none of that here."
 	}
-	if m.mode == modeBuy && m.maxBuy(id) == 0 {
+	if m.mode == modeBuy && m.maxBuy(id) == 0 && m.maxBuyBy(id, true) == 0 {
+		sup := m.buySupplier(id)
+		switch {
+		case sup == nil:
+			return "Nobody sells that here today."
+		case !sup.Sells(id) || sup.Price[id] <= 0:
+			return sup.Name + " does not deal in that."
+		case sup.Left() == 0:
+			return sup.Name + " has nothing left today."
+		}
 		return "Can't afford or hold any."
 	}
 	return ""
+}
+
+// connectsHere is every connect in the city you stand in, in the order
+// seeded: the buy dialog's connect step and what the picked index
+// counts into.
+func (m *Model) connectsHere() []*game.Supplier { return m.w.SuppliersIn(m.w.Player.Location) }
+
+// dealing reports whether a connect is open for business with you
+// today: unlocked, taking calls, with something left and a product to
+// sell here.
+func (m *Model) dealing(sup *game.Supplier) bool {
+	for _, id := range m.w.Products {
+		if m.w.Available(sup, id) {
+			return true
+		}
+	}
+	return false
+}
+
+// sellsYou reports whether a connect sells you anything today: some
+// product is available from them and you could take at least a unit of
+// it, for cash or on their book.
+func (m *Model) sellsYou(sup *game.Supplier) bool {
+	for _, id := range m.w.Products {
+		if m.maxBuyFrom(sup, id, false) > 0 || m.maxBuyFrom(sup, id, true) > 0 {
+			return true
+		}
+	}
+	return false
+}
+
+// whyNobodySells is the refusal when no connect where you stand is
+// dealing today: nobody here, frozen, out of stock for the day, or
+// locked.
+func (m *Model) whyNobodySells() string {
+	w := m.w
+	city := w.Player.Location
+	cs := m.connectsHere()
+	if len(cs) == 0 {
+		return "nobody sells in " + w.CityName(city)
+	}
+	for _, sup := range cs {
+		if sup.Frozen(w.Day) {
+			return sup.Name + " is not taking your calls for " + plural(sup.FrozenUntil-w.Day, "day")
+		}
+	}
+	for _, sup := range cs {
+		if sup.Open(w) && sup.Left() == 0 {
+			return sup.Name + " has nothing left today"
+		}
+	}
+	return "nobody in " + w.CityName(city) + " will deal with you yet"
+}
+
+// buySupplier is the connect the buy dialog buys a product from: the
+// one picked on the connect step where there was one, else the one
+// connect that sells you something, else the cheapest that sells the
+// product today.
+func (m *Model) buySupplier(id string) *game.Supplier {
+	if cs := m.connectsHere(); m.mode == modeBuy && m.dlg.supplier >= 0 && m.dlg.supplier < len(cs) {
+		return cs[m.dlg.supplier]
+	}
+	return m.w.BestSupplier(m.w.Player.Location, id)
+}
+
+// creditOffered reports whether the buy dialog's connect will run you
+// anything today.
+func (m *Model) creditOffered() bool {
+	sup := m.buySupplier(m.w.Products[m.cursor])
+	return sup != nil && sup.Credit() > 0
 }
 
 // dialogForward is tab on the buy or sell dialog: the next step once
@@ -280,6 +434,36 @@ func (m *Model) productErr() string {
 // is what buys or sells).
 func (m *Model) dialogForward() (tea.Model, tea.Cmd) {
 	d := &m.dlg
+	if d.pick {
+		cs := m.connectsHere()
+		if d.supplier < 0 || d.supplier >= len(cs) {
+			return m, nil
+		}
+		if sup := cs[d.supplier]; !m.sellsYou(sup) {
+			switch {
+			case sup.Frozen(m.w.Day):
+				d.err = sup.Name + " is not taking your calls."
+			case sup.Locked(m.w):
+				d.err = sup.Name + " will not deal with you yet."
+			case sup.Left() == 0:
+				d.err = sup.Name + " has nothing left today."
+			default:
+				d.err = "Can't afford or hold anything " + sup.Name + " sells."
+			}
+			return m, nil
+		}
+		d.pick = false
+		// Land on something they sell you.
+		if m.productErr() != "" {
+			for i, id := range m.w.Products {
+				if m.maxBuy(id) > 0 || m.maxBuyBy(id, true) > 0 {
+					m.cursor = i
+					break
+				}
+			}
+		}
+		return m, nil
+	}
 	switch d.step {
 	case 0:
 		if m.productErr() != "" {
@@ -318,7 +502,14 @@ func (m *Model) dialogForward() (tea.Model, tea.Cmd) {
 // silent on the first.
 func (m *Model) dialogBack() (tea.Model, tea.Cmd) {
 	d := &m.dlg
+	if d.pick {
+		return m, nil
+	}
 	switch d.step {
+	case 0:
+		if d.paged {
+			d.pick = true
+		}
 	case 1:
 		d.step = 0
 		d.qty.SetValue("")
@@ -355,32 +546,72 @@ func parseQtyInput(v string, maxQty int) (int, error) {
 	return n, nil
 }
 
-// maxBuy is the most of a product the supplier where you are will sell
-// you: what you can pay for and what the stash there can hold.
-func (m *Model) maxBuy(id string) int {
-	city := m.w.Player.Location
-	p := m.w.Product(city, id)
-	if p == nil || p.SupplierPrice <= 0 {
+// maxBuy is the most of a product the buy dialog's connect will sell
+// you today for cash (#72): what you can pay for, what the stash here
+// can hold and what they have left. It is the quantity field's max;
+// what their book covers instead is maxBuyBy with credit, which is
+// what a blank quantity means once the pay notch is on credit.
+func (m *Model) maxBuy(id string) int { return m.maxBuyBy(id, false) }
+
+// maxBuyBy is maxBuy paid one way: cash, or the connect's credit.
+func (m *Model) maxBuyBy(id string, credit bool) int {
+	return m.maxBuyFrom(m.buySupplier(id), id, credit)
+}
+
+// maxBuyFrom is maxBuyBy from a named connect.
+func (m *Model) maxBuyFrom(sup *game.Supplier, id string, credit bool) int {
+	if sup == nil || !m.w.Available(sup, id) {
 		return 0
 	}
-	afford := int(math.Floor(float64(m.w.Player.DirtyCash) / p.SupplierPrice))
-	return max(0, min(afford, m.w.Free(city)))
+	return max(0, min(m.affordFrom(sup, id, credit), m.w.Free(sup.City), sup.Left()))
+}
+
+// affordFrom is how many units of a product the cash, or the connect's
+// book, covers at their quote: the plain price first, then the
+// small-lot premium once the buy is under the lot.
+func (m *Model) affordFrom(sup *game.Supplier, id string, credit bool) int {
+	unit := sup.Price[id]
+	if unit <= 0 {
+		return 0
+	}
+	cash := m.w.Player.DirtyCash
+	if credit {
+		cash = sup.Credit()
+		unit *= sup.CreditRatio
+	}
+	n := int(math.Floor(float64(cash) / unit))
+	if n < sup.Lot && sup.SmallLot > 1 {
+		n = int(math.Floor(float64(cash) / (unit * sup.SmallLot)))
+	}
+	for n > 0 && sup.Quote(id, n, credit) > cash {
+		n--
+	}
+	return n
 }
 
 // confirmBuy is enter on the buy dialog's last step at once: the buy
-// itself. A quantity that does not read, or that the supplier refuses,
-// puts the dialog back on the quantity step with the reason.
+// itself, from the dialog's connect, for cash or on their book. A
+// quantity that does not read, or that the connect refuses, puts the
+// dialog back on the quantity step with the reason.
 func (m *Model) confirmBuy() (tea.Model, tea.Cmd) {
 	id := m.w.Products[m.cursor]
-	qty, err := m.parseQty(m.maxBuy(id))
+	qty, err := m.parseQty(m.maxBuyBy(id, m.dlg.credit))
 	if err != nil {
 		return m.quantityAgain(err)
 	}
-	p, err := m.w.Buy(id, qty, m.set.Market.BuyPressure(m.w))
+	sup := m.buySupplier(id)
+	if sup == nil {
+		return m.quantityAgain(fmt.Errorf("nobody sells %s here today", m.w.ProductName(id)))
+	}
+	p, err := m.w.Buy(sup.ID, id, qty, m.dlg.credit, m.set.Market.BuyPressure(m.w))
 	if err != nil {
 		return m.quantityAgain(err)
 	}
-	m.say(fmt.Sprintf("Bought %d %s for %s.", p.Qty, m.w.ProductName(id), money(p.Cost)))
+	if p.Credit {
+		m.say(fmt.Sprintf("Bought %d %s from %s on credit: %s on the book, due day %d.", p.Qty, m.w.ProductName(id), sup.Name, money(p.Cost), sup.DebtDue))
+	} else {
+		m.say(fmt.Sprintf("Bought %d %s from %s for %s.", p.Qty, m.w.ProductName(id), sup.Name, money(p.Cost)))
+	}
 	m.nextLine()
 	return m, nil
 }
@@ -421,6 +652,7 @@ func (m *Model) nextLine() {
 	m.dlg.qty.SetValue("")
 	m.dlg.qty.Blur()
 	m.dlg.repeat = repeatOnce
+	m.dlg.credit = false
 }
 
 // confirmSell is enter on the sell dialog's last step at once: the
@@ -477,11 +709,41 @@ func (m *Model) viewDialog() string {
 	p := w.Product(city, id)
 	buy := m.mode == modeBuy
 	var body []string
+	var sup *game.Supplier
+	if buy {
+		sup = m.buySupplier(id)
+	}
+	title := "SELL · " + w.CityName(city)
+	if buy {
+		title = "BUY · " + w.CityName(city)
+		if sup != nil && !d.pick {
+			title += " · " + sup.Name
+		}
+	}
+
+	// The connect step of a buy (#72): the connects where you stand,
+	// the price of the product under the cursor, the lot, what they
+	// have left today, the relationship and the credit they give.
+	if d.pick {
+		body = append(body, m.connectTable(id, d.supplier)...)
+		body = append(body, "")
+		if cs := m.connectsHere(); d.supplier >= 0 && d.supplier < len(cs) {
+			body = append(body, m.connectBlurb(cs[d.supplier], id)...)
+		}
+		if d.err != "" {
+			body = append(body, "", theme.Bad.Render(d.err))
+		}
+		if cb := m.cartBlock(); cb != nil {
+			body = append(body, "")
+			body = append(body, cb...)
+		}
+		return m.modal(title, body, m.modalFooter())
+	}
 
 	// Step 0: product list, with the market table's Δ and spark after
-	// the price (#138): a buy reads the supplier's price, the street's
-	// and the margin over the supplier; a sale the street price and
-	// the demand your corners there serve.
+	// the price (#138): a buy reads the connect's price (#72), the
+	// street's and the margin over it; a sale the street price and the
+	// demand your corners there serve.
 	cols, rows, cursor := m.dialogRows(city, buy)
 	if cursor >= 0 {
 		m.modalFollow(len(body) + 1 + cursor) // under the header
@@ -494,18 +756,29 @@ func (m *Model) viewDialog() string {
 		d.qty.max = m.qtyMax()
 		body = append(body, "quantity   "+d.qty.View())
 		body = append(body, m.priceRows(city, id, buy)...)
-		if buy {
-			if qty, err := m.parseQty(d.qty.max); err == nil {
-				cost, _ := w.SupplierQuote(id, qty)
+		if buy && sup != nil {
+			if qty, err := m.parseQty(m.maxBuyBy(id, d.credit)); err == nil {
+				cost := sup.Quote(id, qty, d.credit)
 				style := theme.Gold
-				if cost > w.Player.DirtyCash {
+				have := w.Player.DirtyCash
+				pool := "dirty cash " + cash(have)
+				if d.credit {
+					have = sup.Credit()
+					pool = "credit " + cash(have)
+				}
+				if cost > have {
 					style = theme.Bad
 				}
-				body = append(body, fmt.Sprintf("total      %s   %s", style.Render(money(cost)), theme.Subtle.Render("dirty cash "+cash(w.Player.DirtyCash))))
+				body = append(body, fmt.Sprintf("total      %s   %s", style.Render(money(cost)), theme.Subtle.Render(pool)))
+				if qty < sup.Lot && sup.SmallLot > 1 {
+					body = append(body, theme.Warning.Render(fmt.Sprintf("Under %s's lot of %d: ×%.2g a unit.", sup.Name, sup.Lot, sup.SmallLot)))
+				}
 			}
-			if o := m.set.Logistics.Wholesale(w); w.Here().Wholesale && !o.Locked(w) {
-				body = append(body, theme.Subtle.Render(fmt.Sprintf("The wholesaler's lots of %d at %s/unit go to the routes %s.", o.Lot, price(p.SupplierPrice*o.Mul), screenPointer(screenMap))))
+			note := fmt.Sprintf("%s has %d left today", sup.Name, sup.Left())
+			if n := m.maxBuyBy(id, true); n > 0 {
+				note += fmt.Sprintf("; their book covers %d", n)
 			}
+			body = append(body, theme.Subtle.Render(note+"."))
 		} else if due := m.set.Market.Due(w, city, id); due > 0 {
 			body = append(body, theme.Subtle.Render(fmt.Sprintf("%d stashed and %d the contract brings in the morning.", w.Stock(city, id), due)))
 		}
@@ -513,17 +786,38 @@ func (m *Model) viewDialog() string {
 		body = append(body, theme.Subtle.Render("Pick a product."))
 	}
 
-	// Step 2 of a buy: once or keep at (#113), in the dial convention,
-	// and what keeping the quantity means.
-	if buy && d.step >= 2 {
-		qty, _ := m.parseQty(m.maxBuy(id))
+	// Step 2 of a buy: once or keep at (#113) and cash or credit (#72),
+	// in the dial convention, and what the notches mean.
+	if buy && d.step >= 2 && sup != nil {
+		qty, _ := m.parseQty(m.maxBuyBy(id, d.credit))
 		body = append(body, "", "repeat     "+dialCells(repeatNames, int(d.repeat)))
-		if d.repeat == repeatKeep {
+		pay := dialCells(payNames, 0)
+		if d.credit {
+			pay = dialCells(payNames, 1)
+		} else if !m.creditOffered() || d.repeat == repeatKeep {
+			pay = theme.Dial(true).Render("[cash]") + "  " + theme.Subtle.Render("credit")
+		}
+		body = append(body, "pay        "+pay)
+		switch {
+		case d.repeat == repeatKeep:
 			body = append(body, fmt.Sprintf("contract   keep %d here, the shortfall bought each morning at %s (×%.2f)", qty, price(m.set.Market.SupplyPrice(w, city, id)), m.set.Market.Markup()))
 			if c, ok := w.Supplied(city, id); ok {
 				body = append(body, theme.Subtle.Render(fmt.Sprintf("Kept at %d since day %d; this replaces it.", c.Units, c.Since)))
+			} else {
+				body = append(body, theme.Subtle.Render("A contract buys for cash from the cheapest connect here."))
 			}
-		} else {
+		case d.credit:
+			due := w.Day + sup.CreditDays
+			if sup.Debt > 0 {
+				due = sup.DebtDue
+			}
+			body = append(body, fmt.Sprintf("credit     %s at ×%.2f · due day %d · %s of the book left", money(sup.Quote(id, qty, true)), sup.CreditRatio, due, cash(sup.Credit())))
+			if sup.Debt > 0 {
+				body = append(body, theme.Warning.Render(fmt.Sprintf("You owe them %s already, due day %d.", money(sup.Debt), sup.DebtDue)))
+			} else {
+				body = append(body, theme.Subtle.Render("Miss the day and "+temperWords(sup.Temper)+"."))
+			}
+		default:
 			body = append(body, theme.Subtle.Render("Bought now, once. Keep at is a supply contract: the same each morning."))
 		}
 	}
@@ -569,11 +863,97 @@ func (m *Model) viewDialog() string {
 		}
 		body = append(body, cb...)
 	}
-	title := "SELL · " + w.CityName(city)
-	if buy {
-		title = "BUY · " + w.CityName(city)
-	}
 	return m.modal(title, body, m.modalFooter())
+}
+
+// temperWords is what a connect's temper does about a missed payment,
+// for the credit note and the pane.
+func temperWords(temper string) string {
+	switch temper {
+	case "patient":
+		return "they let it ride once, then stop taking your calls"
+	case "sharp":
+		return "they stop taking your calls and add a fee"
+	case "connected":
+		return "they send somebody for your muscle"
+	}
+	return "they remember"
+}
+
+// connectTable is the buy dialog's connect step (#72): one row a
+// connect where you stand, their price for the product, the lot, what
+// they have left today, the relationship and the credit they give, or
+// why they sell you nothing.
+func (m *Model) connectTable(id string, cursor int) []string {
+	w := m.w
+	cols := []col{{"connect", kText, 0}, {"price/unit", kPrice, 0}, {"lot", kInt, 0}, {"left", kInt, 0}, {"rel", kBar, 8}, {"credit", kCash, 0}, {"", kText, 0}}
+	var rows [][]any
+	for _, sup := range m.connectsHere() {
+		var unit any
+		if w.Available(sup, id) {
+			unit = sup.Price[id]
+		}
+		rows = append(rows, []any{sup.Name, unit, sup.Lot, sup.Left(), styled{relStyle(m.set.Market.Band(sup.Rel), m.set.Market.Bands()), gauge{frac: sup.Rel / 100, n: sup.Rel}}, sup.Credit(), m.connectStatus(sup)})
+	}
+	return table(cols, rows, cursor, m.modalInner())
+}
+
+// connectStatus is a connect's state in a word or two: frozen, locked,
+// sold out for the day, owing, or nothing.
+func (m *Model) connectStatus(sup *game.Supplier) string {
+	w := m.w
+	switch {
+	case sup.Frozen(w.Day):
+		return theme.Bad.Render(fmt.Sprintf("frozen %dd", sup.FrozenUntil-w.Day))
+	case sup.Locked(w):
+		return theme.Subtle.Render("won't deal yet")
+	case sup.Left() == 0:
+		return theme.Warning.Render("nothing left today")
+	case sup.Debt > 0:
+		return theme.Warning.Render(fmt.Sprintf("owe %s by d%d", cash(sup.Debt), sup.DebtDue))
+	}
+	return ""
+}
+
+// connectBlurb is the connect step's note on the connect under the
+// cursor: their temper, what they deal in, and the door if it is shut.
+func (m *Model) connectBlurb(sup *game.Supplier, id string) []string {
+	w := m.w
+	deals := "everything sold here"
+	if len(sup.Products) > 0 {
+		var names []string
+		for _, pid := range sup.Products {
+			names = append(names, w.ProductName(pid))
+		}
+		deals = strings.Join(names, ", ")
+	}
+	lines := []string{theme.Subtle.Render(fmt.Sprintf("%s: %s, deals in %s by the %d.", sup.Name, sup.Temper, deals, sup.Lot))}
+	switch {
+	case sup.Locked(w) && w.Stats.PeakCash < sup.UnlockCash:
+		lines = append(lines, theme.Warning.Render(fmt.Sprintf("They deal with people who have moved %s.", cash(sup.UnlockCash))))
+	case sup.Locked(w):
+		if st := w.StreetSupplier(sup.City); st != nil {
+			lines = append(lines, theme.Warning.Render(fmt.Sprintf("They want a word from %s first: rel %.0f, they need %.0f.", st.Name, st.Rel, sup.UnlockRel)))
+		}
+	case sup.Frozen(w.Day):
+		lines = append(lines, theme.Bad.Render(fmt.Sprintf("Not taking your calls for %s.", plural(sup.FrozenUntil-w.Day, "day"))))
+	}
+	return lines
+}
+
+// relStyle colours a relationship by its band: the floor red, under
+// neutral a warning, neutral plain, over it good.
+func relStyle(band, bands int) lipgloss.Style {
+	n := bands / 2
+	switch {
+	case band == 0:
+		return theme.Bad
+	case band < n:
+		return theme.Warning
+	case band > n:
+		return theme.Good
+	}
+	return theme.Subtle
 }
 
 // dialogRows is the product step's table (#138): a buy's `product
@@ -605,7 +985,14 @@ func (m *Model) dialogRows(city string, buy bool) (cols []col, rows [][]any, cur
 		f := facts(pm)
 		var row []any
 		if buy {
-			row = []any{pm.Name, pm.SupplierPrice, pm.Price, f.marginCell()}
+			// The connect's price and margin (#72), `-` for what they
+			// do not deal in.
+			f = m.connectFacts(city, pid)
+			var unit any
+			if f.unit > 0 {
+				unit = f.unit
+			}
+			row = []any{pm.Name, unit, pm.Price, f.marginCell()}
 		} else {
 			row = []any{pm.Name, pm.Price}
 		}
@@ -624,6 +1011,21 @@ func (m *Model) dialogRows(city string, buy bool) (cols []col, rows [][]any, cur
 	}
 	sparkCol(cols, rows, max(3, min(30, width-tableWidth(cols, rows))))
 	return cols, rows, cursor
+}
+
+// connectFacts is a product's price facts read against the buy
+// dialog's connect (#72): their price where they sell it to you today,
+// none where they do not; the market's facts outside the buy dialog.
+func (m *Model) connectFacts(city, id string) priceFacts {
+	pm := m.w.Product(city, id)
+	if m.mode != modeBuy {
+		return facts(pm)
+	}
+	unit := 0.0
+	if sup := m.buySupplier(id); sup != nil && m.w.Available(sup, id) {
+		unit = sup.Price[id]
+	}
+	return factsAt(pm, unit)
 }
 
 // priceRows is the line under the quantity on the dialogs' later steps

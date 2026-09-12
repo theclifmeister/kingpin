@@ -112,14 +112,22 @@ func (m *Model) productRows(city string, selected int, market bool) (cols []col,
 // and the margin over it, and the shock or slump while one runs.
 type priceFacts struct {
 	p      *game.ProductMarket
+	unit   float64 // the supplier price the facts are read against: the market's (the best available connect's), or the chosen connect's (#72); 0 where nobody sells it
 	delta  float64 // yesterday → today, in percent
 	lo, hi float64 // the range of the history
 	margin float64 // the street over the supplier, in percent
 }
 
-// facts reads a product market's price facts.
-func facts(p *game.ProductMarket) priceFacts {
-	f := priceFacts{p: p, lo: p.Price, hi: p.Price}
+// facts reads a product market's price facts against the market's
+// supplier price.
+func facts(p *game.ProductMarket) priceFacts { return factsAt(p, p.SupplierPrice) }
+
+// factsAt reads a product market's price facts against a supplier
+// price of the caller's: the buy dialog's connect (#72), whose price
+// and margin are what the buy pays and makes, or 0 where they do not
+// deal in it.
+func factsAt(p *game.ProductMarket, unit float64) priceFacts {
+	f := priceFacts{p: p, unit: unit, lo: p.Price, hi: p.Price}
 	if n := len(p.History); n >= 2 {
 		f.delta = pct(p.History[n-2], p.History[n-1])
 	}
@@ -127,8 +135,11 @@ func facts(p *game.ProductMarket) priceFacts {
 		f.lo = min(f.lo, v)
 		f.hi = min(max(f.hi, v), 1e9)
 	}
-	if p.SupplierPrice > 0 {
-		f.margin = (p.Price - p.SupplierPrice) / p.SupplierPrice * 100
+	if p.NoSupply {
+		f.unit = 0
+	}
+	if f.unit > 0 {
+		f.margin = (p.Price - f.unit) / f.unit * 100
 	}
 	return f
 }
@@ -184,7 +195,7 @@ func (f priceFacts) rangeText() string { return price(f.lo) + " – " + price(f.
 // marginCell is the margin cell of a table: the street over the
 // supplier, signed; nil where the supplier does not sell it.
 func (f priceFacts) marginCell() any {
-	if f.p.NoSupply {
+	if f.unit <= 0 {
 		return nil
 	}
 	return signed{f.margin}
@@ -220,13 +231,22 @@ func (m *Model) priceLine(city, id string, buy bool) string {
 	if f == nil {
 		return ""
 	}
+	if buy && m.mode == modeBuy {
+		// The buy dialog's line is its connect's (#72): what this buy
+		// pays and makes, not the best price in town.
+		cf := m.connectFacts(city, id)
+		f = &cf
+	}
 	sub := theme.Subtle.Render
 	var parts []string
 	if buy {
-		if f.p.NoSupply {
+		switch {
+		case f.p.NoSupply:
 			parts = append(parts, theme.Warning.Render("not sold here"), sub("street "+price(f.p.Price)))
-		} else {
-			parts = append(parts, sub(price(f.p.SupplierPrice)), sub("street "+price(f.p.Price)), sub("margin "+f.marginText()))
+		case f.unit <= 0:
+			parts = append(parts, theme.Warning.Render("not from them"), sub("street "+price(f.p.Price)))
+		default:
+			parts = append(parts, sub(price(f.unit)), sub("street "+price(f.p.Price)), sub("margin "+f.marginText()))
 		}
 	} else {
 		parts = append(parts, sub(price(f.p.Price)), f.deltaText()+sub(" today"), sub("range 30d "+f.rangeText()))
@@ -257,8 +277,9 @@ func sparkCol(cols []col, rows [][]any, width int) {
 }
 
 // viewMarket is the market's MAIN (#84): the title with the city tabs,
-// the product table for the city shown, a blank, and the buyers there.
-// Nothing else: the product's detail and the notes are the pane's.
+// the product table for the city shown, a blank, the buyers there, a
+// blank, and the connects there (#72). Nothing else: the product's
+// detail and the notes are the pane's.
 func (m *Model) viewMarket() string {
 	city := m.shown()
 	width := m.mainWidth()
@@ -274,6 +295,12 @@ func (m *Model) viewMarket() string {
 	// table; the detail of the product or the contract under the cursor
 	// is the pane's.
 	for _, l := range m.buyersLines() {
+		b.WriteString(l + "\n")
+	}
+	b.WriteString("\n")
+	// The connects (#72): who sells here, at what, and where you stand
+	// with them; the detail is the pane's.
+	for _, l := range m.suppliersLines() {
 		b.WriteString(l + "\n")
 	}
 	return b.String()
@@ -292,6 +319,9 @@ func (m *Model) marketDetails() []section {
 	here := city.ID == w.Player.Location
 	if c := m.selectedContract(); c != nil {
 		return m.contractSections(*c)
+	}
+	if sup := m.selectedSupplier(); sup != nil {
+		return m.supplierSections(sup)
 	}
 	if m.cursor >= len(w.Products) {
 		return nil
@@ -319,8 +349,11 @@ func (m *Model) marketDetails() []section {
 	}
 	sel = append(sel, m.standingRows(city.ID, id)...)
 	sel = append(sel, m.contractRows(city.ID, id)...)
-	if len(m.buyerRows()) > 0 {
+	switch {
+	case len(m.buyerRows()) > 0:
 		sel = append(sel, keyRow("↓", "past the table reaches the buyers"))
+	case len(m.supplierRows()) > 0:
+		sel = append(sel, keyRow("↓", "past the table reaches the connects"))
 	}
 	secs := append(m.cartSection(city.ID), section{strings.ToUpper(p.Name) + " · " + strings.ToUpper(city.Name), sel}) // the cart first, so the strip carries its totals (#103)
 	// The other city's price is what a route is worth.
@@ -351,12 +384,11 @@ func (m *Model) marketDetails() []section {
 	if !here {
 		notes = append(notes, wrapped(theme.Subtle, fmt.Sprintf("You are in %s: the supplier here sells to you there, not here. Runners sell what is stashed here.", w.Here().Name))...)
 	}
-	if city.Wholesale {
-		o := m.set.Logistics.Wholesale(w)
+	if o := w.WholesaleSupplier(city.ID); o != nil {
 		if o.Locked(w) {
-			notes = append(notes, wrapped(theme.Subtle, fmt.Sprintf("The supplier here sells lots of %d at %.0f%% to the routes once you have moved %s.", o.Lot, o.Mul*100, cash(o.UnlockCash)))...)
+			notes = append(notes, wrapped(theme.Subtle, fmt.Sprintf("%s sells lots of %d to the routes once you have moved %s.", o.Name, o.Lot, cash(o.UnlockCash)))...)
 		} else {
-			notes = append(notes, wrapped(theme.Good, fmt.Sprintf("Wholesale: lots of %d at %.0f%% of the supplier price feed the routes out of here, run %s.", o.Lot, o.Mul*100, screenPointer(screenMap)))...)
+			notes = append(notes, wrapped(theme.Good, fmt.Sprintf("Wholesale: %s's lots of %d feed the routes out of here, run %s.", o.Name, o.Lot, screenPointer(screenMap)))...)
 		}
 	}
 	if len(notes) > 0 {

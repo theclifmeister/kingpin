@@ -24,9 +24,9 @@ func tally(w *World, city, product string) receipt {
 // what is kept; the last buy is undone first.
 func TestReturnIsTheInverseOfBuy(t *testing.T) {
 	w := testWorld()
-	w.Home().Market["a"].SupplierPrice = 10
+	priceAt(w, "test", "a", 10)
 	before := tally(w, "test", "a")
-	if _, err := w.Buy("a", 10, 0.5); err != nil {
+	if _, err := w.Buy("street", "a", 10, false, 0.5); err != nil {
 		t.Fatal(err)
 	}
 	after := tally(w, "test", "a")
@@ -66,11 +66,11 @@ func TestReturnIsTheInverseOfBuy(t *testing.T) {
 
 	// Two buys: the second is undone first, then the first, and the
 	// price walks back through both prior prices.
-	if _, err := w.Buy("a", 4, 0.5); err != nil {
+	if _, err := w.Buy("street", "a", 4, false, 0.5); err != nil {
 		t.Fatal(err)
 	}
 	mid := tally(w, "test", "a")
-	if _, err := w.Buy("a", 6, 0.5); err != nil {
+	if _, err := w.Buy("street", "a", 6, false, 0.5); err != nil {
 		t.Fatal(err)
 	}
 	if _, err := w.Return("test", "a", 6); err != nil {
@@ -94,7 +94,7 @@ func TestReturnRefusals(t *testing.T) {
 	if _, err := w.Return("test", "a", 1); err != ErrNothingBought {
 		t.Fatalf("nothing bought: %v", err)
 	}
-	if _, err := w.Buy("a", 10, 0.5); err != nil {
+	if _, err := w.Buy("street", "a", 10, false, 0.5); err != nil {
 		t.Fatal(err)
 	}
 	if _, err := w.Return("test", "a", 0); err != ErrBadQuantity {

@@ -8,6 +8,7 @@ import (
 	"github.com/theclifmeister/kingpin/internal/events"
 	"github.com/theclifmeister/kingpin/internal/game"
 	"github.com/theclifmeister/kingpin/internal/sim/logistics"
+	"github.com/theclifmeister/kingpin/internal/sim/market"
 	"github.com/theclifmeister/kingpin/internal/sim/territory"
 )
 
@@ -24,6 +25,12 @@ func world(t *testing.T, cfg *content.Config, risk float64) (*game.World, *logis
 	s := logistics.New(routes, cfg.City, cfg.Market, cfg.Upgrades, cfg.Laundering.Laundering.Float)
 	w := game.NewWorld(7, logistics.StartingCities(cfg.City, cfg.Market), 100_000, 100)
 	territory.New(cfg.City, cfg.Upgrades).Seed(w)
+	// The connects (#72): the road buys from the wholesaler.
+	mk, err := market.New(cfg.Market, cfg.City, cfg.Routes.Shipping, cfg.Upgrades, cfg.Reputation.Effects, cfg.Buyers, cfg.Suppliers)
+	if err != nil {
+		t.Fatal(err)
+	}
+	mk.Seed(w, game.RNGFor(7, 0))
 	if len(routes.Routes) == 0 {
 		t.Fatal("no routes")
 	}
@@ -63,9 +70,6 @@ func TestDialsAndOffers(t *testing.T) {
 		if !r.Connects(r.From, r.To) || r.Other(r.From) != r.To {
 			t.Fatalf("%s: joins %s and %s", r.ID, r.From, r.To)
 		}
-	}
-	if o := s.Wholesale(w); o.Lot != cfg.Routes.Wholesale.Lot || o.Mul != cfg.Routes.Wholesale.Mul || o.UnlockCash != cfg.Routes.Wholesale.UnlockCash {
-		t.Fatalf("wholesale offer %+v", o)
 	}
 	if s.Float() != cfg.Laundering.Laundering.Float {
 		t.Fatalf("float %d", s.Float())
@@ -173,8 +177,8 @@ func TestRunKeepsTheTarget(t *testing.T) {
 	cfg := content.MustLoad()
 	w, s, r := world(t, cfg, 0)
 	product := w.Products[0]
-	offer := s.Wholesale(w)
-	if !w.Cities[r.From].Wholesale {
+	offer := w.WholesaleSupplier(r.From)
+	if offer == nil {
 		t.Skipf("%s does not sell by the lot", r.From)
 	}
 	target := 3*r.Capacity + 25
@@ -257,7 +261,7 @@ func TestRunKeepsTheTarget(t *testing.T) {
 	// float, one lot is bought and the capacity goes.
 	rem = w.Stock(r.From, product)
 	w.Stash(r.To)[product] -= 2 * r.Capacity
-	unit := w.Product(r.From, product).SupplierPrice * offer.Mul
+	unit := offer.Price[product]
 	lotCost := int(unit * float64(offer.Lot))
 	w.Player.DirtyCash = s.Float() + lotCost - 1
 	bought = nil
@@ -338,10 +342,9 @@ func TestLogisticsNodesMoveTheirNumbers(t *testing.T) {
 	type numbers struct {
 		days, capacity int
 		risk, fare     float64
-		wholesale      float64
 	}
 	read := func(w *game.World, r content.RouteConfig, d events.Ship) numbers {
-		return numbers{s.Days(w, r, d), s.Capacity(w, r), s.DayRisk(w, r, d), s.Fare(w, r), s.Wholesale(w).Mul}
+		return numbers{s.Days(w, r, d), s.Capacity(w, r), s.DayRisk(w, r, d), s.Fare(w, r)}
 	}
 	own := func(ids ...string) *game.World {
 		w := game.NewWorld(7, logistics.StartingCities(cfg.City, cfg.Market), 100_000, 100)
@@ -369,11 +372,11 @@ func TestLogisticsNodesMoveTheirNumbers(t *testing.T) {
 			b.days = max(1, int(math.Round(float64(r.Days)*s.Dial(d).Days*0.75)))
 			return b
 		}},
-		{"ticket", func(b numbers, r content.RouteConfig, d events.Ship) numbers { b.wholesale *= 0.9; return b }},
+		{"ticket", func(b numbers, r content.RouteConfig, d events.Ship) numbers { return b }}, // the wholesaler's price is the market sim's (#72): TestTicketFoldsOnTheWholesaler
 		{"forwarder", func(b numbers, r content.RouteConfig, d events.Ship) numbers { b.fare *= 0.5; return b }},
 	}
 	near := func(a, b numbers) bool {
-		return a.days == b.days && a.capacity == b.capacity && math.Abs(a.risk-b.risk) < 1e-12 && math.Abs(a.fare-b.fare) < 1e-12 && math.Abs(a.wholesale-b.wholesale) < 1e-12
+		return a.days == b.days && a.capacity == b.capacity && math.Abs(a.risk-b.risk) < 1e-12 && math.Abs(a.fare-b.fare) < 1e-12
 	}
 	for _, tc := range cases {
 		w := own(tc.node)

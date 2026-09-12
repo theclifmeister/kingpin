@@ -14,14 +14,9 @@ shock_factor = 1.8          # price multiplier on the product in the city the sh
 shock_days = 5              # ... for this many days: the street was counting on it
 record_days = 30            # seizures stay on the ledger this long
 
-# The wholesale supplier: a city marked wholesale in city.toml sells by the
-# lot at a fraction of its street supplier's price, once your peak cash
-# says you can move that kind of weight. The routes buy from it; you do
-# not. The road spends only what is over the laundering float.
-[wholesale]
-lot = 100
-mul = 0.7
-unlock_cash = 500000
+# The wholesaler the routes buy from is a connect (#72): suppliers.toml
+# has the lot, the price band and the peak cash that opens the door. The
+# road spends only what is over the laundering float.
 
 # The route dial's speeds: fast halves the days and multiplies the risk on
 # each (off is the fourth position, and the zero value).

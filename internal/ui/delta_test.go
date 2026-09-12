@@ -54,6 +54,9 @@ func TestDialogShowsTheDelta(t *testing.T) {
 	p.History = []float64{18, 19, 20, 22}
 	p.Price = 22
 	p.SupplierPrice = 12
+	for _, sup := range w.SuppliersIn(home) {
+		sup.Price[weed] = 12 // the connects' price is what the market's supplier price reads (#72)
+	}
 	name := w.ProductName(weed)
 
 	m.Update(key("2"))
