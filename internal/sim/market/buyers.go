@@ -9,7 +9,6 @@ import (
 	"github.com/theclifmeister/kingpin/internal/content"
 	"github.com/theclifmeister/kingpin/internal/events"
 	"github.com/theclifmeister/kingpin/internal/game"
-	"github.com/theclifmeister/kingpin/internal/sim/news"
 )
 
 // buyer is a deck entry with its pitch parsed once.
@@ -58,7 +57,7 @@ func (s *Sim) ContractPrice(w *game.World, c game.Contract) float64 {
 // BuyerEligible reports whether a buyer could come looking today: not
 // blacklisted, not spent if they come once, past their unlock, and their
 // trigger, if they have one, holding. It is the dilemma deck's check
-// (news.Eligible) over the same trigger vocabulary, so a buyer who wants
+// (game.Eligible, #144) over the same trigger vocabulary, so a buyer who wants
 // three corners or a front is gated the way a card is.
 func (s *Sim) BuyerEligible(w *game.World, b content.BuyerConfig, day int) bool {
 	if w.Stats.PeakCash < b.UnlockCash {
@@ -71,7 +70,7 @@ func (s *Sim) BuyerEligible(w *game.World, b content.BuyerConfig, day int) bool 
 		return false
 	}
 	if b.Trigger.Set() {
-		if _, ok := news.Eligible(w, content.CardConfig{Trigger: b.Trigger}); !ok {
+		if _, ok := game.Eligible(w, content.CardConfig{Trigger: b.Trigger}); !ok {
 			return false
 		}
 	}

@@ -25,7 +25,7 @@ import (
 func Dealer(cfg *content.Config, lieLowAt float64) Policy {
 	crewed := Crewed(cfg, lieLowAt)
 	hot := TooHot(cfg, lieLowAt)
-	hs := heat.New(cfg.Heat, cfg.Market, cfg.Routes.Shipping, cfg.Upgrades, cfg.Reputation.Effects, cfg.Crew.Lieutenant, cfg.Law, cfg.Houses.Houses)
+	hs := heat.New(cfg)
 	var sting *content.ResponseConfig
 	for i := range cfg.Heat.Responses {
 		if cfg.Heat.Responses[i].Level == "sting" {

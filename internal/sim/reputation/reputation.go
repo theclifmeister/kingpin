@@ -22,8 +22,9 @@ type Sim struct {
 	cfg content.ReputationConfig
 }
 
-// New builds a reputation sim from config.
-func New(cfg content.ReputationConfig) *Sim { return &Sim{cfg: cfg} }
+// New builds a reputation sim from the config, copying what it reads
+// (#144): its own reputation.toml.
+func New(cfg *content.Config) *Sim { return &Sim{cfg: cfg.Reputation} }
 
 func (s *Sim) Name() string { return "reputation" }
 

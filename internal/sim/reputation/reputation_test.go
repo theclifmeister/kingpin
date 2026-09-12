@@ -28,8 +28,9 @@ func step(s *reputation.Sim, w *game.World, day int, before ...events.Event) []e
 // Every source lands on the axis the config says, at the amount it says,
 // less the day's fade.
 func TestSourcesAddUp(t *testing.T) {
-	cfg := content.MustLoad().Reputation
-	s := reputation.New(cfg)
+	all := content.MustLoad()
+	cfg := all.Reputation
+	s := reputation.New(all)
 	w := world()
 	w.Journal = []game.Headline{
 		{Day: 0, Source: "heat", Text: "about you"},
@@ -78,8 +79,9 @@ func TestSourcesAddUp(t *testing.T) {
 // Nothing happening fades every axis toward the baseline and never past
 // it, and the axes stay in 0..100 however much is fed in.
 func TestFadeAndBounds(t *testing.T) {
-	cfg := content.MustLoad().Reputation
-	s := reputation.New(cfg)
+	all := content.MustLoad()
+	cfg := all.Reputation
+	s := reputation.New(all)
 	w := world()
 	w.Player.Reputation = game.Reputation{Fear: 100, Respect: 50, Notoriety: 1}
 	for d := 1; d <= 500; d++ {
@@ -102,8 +104,9 @@ func TestFadeAndBounds(t *testing.T) {
 
 // Past the street's attention the three shrink to fit, in proportion.
 func TestCrowding(t *testing.T) {
-	cfg := content.MustLoad().Reputation
-	s := reputation.New(cfg)
+	all := content.MustLoad()
+	cfg := all.Reputation
+	s := reputation.New(all)
 	w := world()
 	w.Player.Reputation = game.Reputation{Fear: 100, Respect: 100, Notoriety: 100}
 	step(s, w, 1)
@@ -122,8 +125,9 @@ func TestCrowding(t *testing.T) {
 // Crossing a band line either way is an event with the axis on it, and
 // only crossing is: a day inside a band is quiet.
 func TestBandCrossings(t *testing.T) {
-	cfg := content.MustLoad().Reputation
-	s := reputation.New(cfg)
+	all := content.MustLoad()
+	cfg := all.Reputation
+	s := reputation.New(all)
 	band := cfg.Reputation.Band
 	w := world()
 	w.Player.Reputation.Fear = band - 1

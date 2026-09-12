@@ -16,14 +16,14 @@ import (
 func world(t *testing.T, cfg *content.Config, seed uint64) (*game.World, *rivals.Sim) {
 	t.Helper()
 	w := game.NewWorld(seed, []game.StartingCity{{ID: cfg.City.Home().ID, Name: "Testville", Products: []game.StartingProduct{{ID: "weed", Name: "Weed", Price: 20, Demand: 60}}}}, 10_000, 100)
-	territory.New(cfg.City, cfg.Upgrades, cfg.Houses.Houses).Seed(w)
+	territory.New(cfg).Seed(w)
 	w.Crew.Members = []game.CrewMember{
 		{ID: 1, Name: "Dre", Role: "runner", Skill: 60, Units: 120, Loyalty: 70, Nerve: 50},
 		{ID: 2, Name: "Tank", Role: "enforcer", Skill: 50, Loyalty: 70, Nerve: 50},
 		{ID: 3, Name: "Moose", Role: "enforcer", Skill: 80, Loyalty: 70, Nerve: 90},
 	}
 	w.Crew.NextID = 3
-	s := rivals.New(cfg.Rivals, cfg.Names, cfg.Reputation.Effects, cfg.Law.Effects, cfg.Upgrades)
+	s := rivals.New(cfg)
 	s.Seed(w, game.RNGFor(seed, 0))
 	return w, s
 }

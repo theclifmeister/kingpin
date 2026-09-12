@@ -295,7 +295,7 @@ func Managed(cfg *content.Config, lieLowAt float64) Policy {
 // The hottest city is the one whose police answer, so its line is the
 // one read.
 func TooHot(cfg *content.Config, line float64) func(w *game.World) bool {
-	hs := heat.New(cfg.Heat, cfg.Market, cfg.Routes.Shipping, cfg.Upgrades, cfg.Reputation.Effects, cfg.Crew.Lieutenant, cfg.Law, cfg.Houses.Houses)
+	hs := heat.New(cfg)
 	var sting *content.ResponseConfig
 	for i := range cfg.Heat.Responses {
 		if cfg.Heat.Responses[i].Level == "sting" {
@@ -456,7 +456,7 @@ func staff(cfg *content.Config, w *game.World, city string, corners int) {
 		corners = len(cfg.City.City(city).Corners)
 	}
 	guards := max(1, tun.MaxCrew/3)
-	maxCrew := crew.New(cfg.Crew, cfg.Names, cfg.Reputation.Effects, cfg.Upgrades).MaxCrew(w)
+	maxCrew := crew.New(cfg).MaxCrew(w)
 	w.SetPay(events.PayFair)
 	for _, m := range w.Crew.Members {
 		if m.Loyalty < tun.SkimThreshold {
@@ -618,7 +618,7 @@ func Warlike(cfg *content.Config, lieLowAt float64, corners int, force events.Fo
 // the take is a head fewer, and the chest (Rival.Cash) is what a drain
 // takes and what a hire or a claim needs.
 func RivalBooks(cfg *content.Config, w *game.World) (income, wages int) {
-	rv := rivals.New(cfg.Rivals, cfg.Names, cfg.Reputation.Effects, cfg.Law.Effects, cfg.Upgrades)
+	rv := rivals.New(cfg)
 	return rv.Income(w), rv.Wages(w)
 }
 
@@ -690,7 +690,7 @@ func Outbid(w *game.World) bool {
 // baseline for "a player who buys peace".
 func Diplomat(cfg *content.Config, lieLowAt float64, corners int) Policy {
 	territory := Territory(cfg, lieLowAt, corners)
-	rv := rivals.New(cfg.Rivals, cfg.Names, cfg.Reputation.Effects, cfg.Law.Effects, cfg.Upgrades)
+	rv := rivals.New(cfg)
 	dip := cfg.Rivals.Diplomacy
 	return func(w *game.World) {
 		territory(w)
@@ -789,7 +789,7 @@ func Elect(cfg *content.Config, w *game.World, day int) events.DAElected {
 	forced.Law.Law.TermDays = 1
 	w.Law.DA.ElectedDay = day - 1
 	t := &game.Tick{Day: day, RNG: game.RNGFor(w.Seed, day), Seed: w.Seed}
-	law.New(forced.Law, forced.Names).Step(w, t)
+	law.New(&forced).Step(w, t)
 	for _, e := range t.Events() {
 		if ev, ok := e.(events.DAElected); ok {
 			return ev
@@ -885,10 +885,10 @@ const HubCorners = 2
 
 func distribute(cfg *content.Config, lieLowAt float64, delegate, fight bool, personality string) Policy {
 	laundered := Laundered(cfg, lieLowAt)
-	crewSim := crew.New(cfg.Crew, cfg.Names, cfg.Reputation.Effects, cfg.Upgrades)
-	rv := rivals.New(cfg.Rivals, cfg.Names, cfg.Reputation.Effects, cfg.Law.Effects, cfg.Upgrades)
+	crewSim := crew.New(cfg)
+	rv := rivals.New(cfg)
 	dip := cfg.Rivals.Diplomacy
-	lg := logistics.New(cfg.Routes, cfg.City, cfg.Market, cfg.Upgrades, cfg.Laundering.Laundering.Float)
+	lg := logistics.New(cfg)
 	home := cfg.City.Home().ID
 	// The route into home with the most room, from the city that sells
 	// by the lot; the hub is where it starts.
@@ -1213,7 +1213,7 @@ func washUp(cfg *content.Config, w *game.World) {
 // washUpAt is washUp with the margin given: the front is bought when
 // dirty cash is margin times its price.
 func washUpAt(cfg *content.Config, w *game.World, margin float64) {
-	for _, o := range laundering.New(cfg.Laundering, cfg.Crew, cfg.Upgrades).Offers() {
+	for _, o := range laundering.New(cfg).Offers() {
 		if w.Front(o.ID) != nil {
 			continue
 		}

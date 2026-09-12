@@ -24,16 +24,17 @@ type Sim struct {
 	tree content.UpgradesConfig
 }
 
-// New builds a laundering sim from config. It takes the crew config for
-// the loyalty line under which an audited front's accountant talks, and
-// the upgrade tree, whose Laundering branch it folds at the top of its
+// New builds a laundering sim from the config, copying what it reads
+// (#144): its own laundering.toml, the crew's [informant] line for the
+// loyalty under which an audited front's accountant talks, and the
+// upgrade tree, whose Laundering branch it folds at the top of its
 // step (#118): wash_mul on every front's throughput, audit_risk_mul on
 // its audit risk, audit_seize_mul on what an audit takes, upkeep_mul on
 // what a front costs, audit_freeze_cut on how long an audit shuts it and
 // float_mul on the float, through World.Float, the one number the wash,
 // the road and a supply contract read.
-func New(cfg content.LaunderingConfig, crew content.CrewConfig, tree content.UpgradesConfig) *Sim {
-	return &Sim{cfg: cfg, inf: crew.Informant, tree: tree}
+func New(cfg *content.Config) *Sim {
+	return &Sim{cfg: cfg.Laundering, inf: cfg.Crew.Informant, tree: cfg.Upgrades}
 }
 
 func (s *Sim) Name() string { return "laundering" }

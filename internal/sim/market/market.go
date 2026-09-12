@@ -31,8 +31,8 @@ type Sim struct {
 	ledger *warBook // the price war's books for the step in hand (#68); nil outside Step
 }
 
-// New builds a market sim from config. The cities say how each one
-// prices the ladder; the shipping tuning is what a seizure on the road
+// New builds a market sim from the config, copying what it reads (#144):
+// its own market.toml; the cities say how each one prices the ladder; the shipping tuning is what a seizure on the road
 // does to the street that was waiting for it; the upgrade tree is what
 // the Operations branch multiplies: carry, supplier price and fill. Of
 // the reputation effects it reads one: respect makes the supplier
@@ -44,12 +44,12 @@ type Sim struct {
 // what an order at home takes off a rival corner next door and at what
 // price: the market resolves it, the rivals sim reads the squeeze it
 // leaves.
-func New(cfg content.MarketConfig, cities content.CityConfig, ship content.ShippingTuning, tree content.UpgradesConfig, rep content.ReputationFX, buyers content.BuyersConfig, suppliers content.SuppliersConfig, war content.PricewarTuning) (*Sim, error) {
-	deck, err := parseBuyers(buyers)
+func New(cfg *content.Config) (*Sim, error) {
+	deck, err := parseBuyers(cfg.Buyers)
 	if err != nil {
 		return nil, fmt.Errorf("buyers: %w", err)
 	}
-	return &Sim{cfg: cfg, cities: cities, ship: ship, tree: tree, rep: rep, bcfg: buyers, buyers: deck, scfg: suppliers, war: war}, nil
+	return &Sim{cfg: cfg.Market, cities: cfg.City, ship: cfg.Routes.Shipping, tree: cfg.Upgrades, rep: cfg.Reputation.Effects, bcfg: cfg.Buyers, buyers: deck, scfg: cfg.Suppliers, war: cfg.Rivals.Pricewar}, nil
 }
 
 // Markup is the supplier's price for a standing order as a multiple of

@@ -27,8 +27,9 @@ type Sim struct {
 	houses content.HousesTuning
 }
 
-// New builds a heat sim. It needs the market config for per-product and
-// per-dial heat multipliers, the shipping tuning for what a seizure on
+// New builds a heat sim from the config, copying what it reads (#144):
+// its own heat.toml; the market config for per-product and per-dial
+// heat multipliers, the shipping tuning for what a seizure on
 // the road adds, the upgrade tree for what the Security and Legal
 // branches take off, of the reputation effects the two that are its
 // (fear puts a floor under heat, notoriety makes you the target), the
@@ -38,8 +39,8 @@ type Sim struct {
 // decay; it reads who they are off w.Law and never adds a page for them;
 // and the houses' tuning (#73) for what a unit moved between places
 // draws.
-func New(cfg content.HeatConfig, market content.MarketConfig, ship content.ShippingTuning, tree content.UpgradesConfig, rep content.ReputationFX, lt content.LieutenantTuning, law content.LawConfig, houses content.HousesTuning) *Sim {
-	return &Sim{cfg: cfg, market: market, ship: ship, tree: tree, rep: rep, lt: lt, law: law, houses: houses}
+func New(cfg *content.Config) *Sim {
+	return &Sim{cfg: cfg.Heat, market: cfg.Market, ship: cfg.Routes.Shipping, tree: cfg.Upgrades, rep: cfg.Reputation.Effects, lt: cfg.Crew.Lieutenant, law: cfg.Law, houses: cfg.Houses.Houses}
 }
 
 // Chief is what the sitting police chief does to the tuning: multipliers
