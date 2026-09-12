@@ -42,6 +42,7 @@ func TestEveryEmittedEventHasTemplate(t *testing.T) {
 		"ReputationFearUp", "ReputationFearDown", "ReputationRespectUp", "ReputationRespectDown",
 		"ReputationNotorietyUp", "ReputationNotorietyDown",
 		"DAElected", "DAReElected", "ChiefReplaced", "ChiefReplacedDA", "PressureShiftedUp", "PressureShiftedDown", // CityFunded is report-only
+		"DABought", "CampaignLost", "CampaignHedged", "ChiefReplacedCampaign", // CampaignBacked is report-only (#193)
 		"ContractOffered", "ContractDelivered", "ContractFailed", // ContractAccepted and ContractExpired are report-only
 		"DebtLate", "SupplierFrozen", "SupplierWarned", "SupplierCollected", // SupplierBought, CreditTaken and DebtPaid are report-only (#72)
 		"TierReached",                                            // #147

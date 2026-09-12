@@ -135,6 +135,12 @@ func numberStep(m *Model) bool {
 // the product; its fourth page is the quantity.
 func moveList(m *Model) bool { return m.mv.step < 3 }
 
+// fundLast and fundNext are the fund dialog's last page and the page
+// before it: the goodwill page is the last unless a campaign is open
+// (#193), when the campaign page is.
+func fundLast(m *Model) bool { return !m.campaignOpen() || m.fnd.step == 1 }
+func fundNext(m *Model) bool { return !fundLast(m) }
+
 // frontBuy and houseRent are the buy picker's second page, on the
 // fronts and on the houses (#73).
 func frontBuy(m *Model) bool { return m.frontStep == 1 && m.frontKind == pickFront }
@@ -351,7 +357,8 @@ var modeBindings = []binding{
 	{key: "←→", label: "repeat", modes: in(modeBuy), when: buyAt(2)},
 	{key: "←→", label: "repeat", modes: in(modeSell), when: step(3)},
 	{key: "←→", label: "dial", modes: in(modeCart), when: cartOnSell},
-	{key: "←→", label: "city", modes: in(modeFund)},
+	{key: "←→", label: "city", modes: in(modeFund), when: step(0)},
+	{key: "←→", label: "ticket", modes: in(modeFund), when: step(1)},
 	{key: "←→", label: "units/days", modes: in(modeTarget), when: step(1)},
 	{key: "1-3", label: "dial", modes: in(modeSell), when: step(2)},
 	{key: "1-2", label: "repeat", modes: in(modeBuy), when: buyAt(2)},
@@ -390,7 +397,8 @@ var modeBindings = []binding{
 	{key: "enter", label: "send", modes: in(modeStrike)},
 	{key: "enter", label: "undercut", modes: in(modeUndercut)},
 	{key: "enter", label: "assign", modes: in(modeAssign)},
-	{key: "enter", label: "give", modes: in(modeFund)},
+	{key: "enter", label: "next", modes: in(modeFund), when: fundNext},
+	{key: "enter", label: "give", modes: in(modeFund), when: fundLast},
 	{key: "enter", label: "decide", modes: in(modeCard), when: step(0)},
 	{key: "enter", label: "new run", modes: in(modeOver)},
 	{key: "D", label: "delete", modes: in(modeStart)},
@@ -412,7 +420,7 @@ var modeBindings = []binding{
 	// buy's connect step) alone, where the toggle is live.
 	{key: "s", label: "sell", modes: in(modeBuy), when: buyList},
 	{key: "b", label: "buy", modes: in(modeSell), when: step(0)},
-	{key: "⇧tab", label: "back", keys: []string{"shift+tab"}, modes: in(modeBuy, modeSell, modeTarget, modeCart, modePropose, modeFront, modeMove, modeCut, modeCook), when: pastFirstStep},
+	{key: "⇧tab", label: "back", keys: []string{"shift+tab"}, modes: in(modeBuy, modeSell, modeTarget, modeCart, modePropose, modeFront, modeMove, modeFund, modeCut, modeCook), when: pastFirstStep},
 	{key: "esc", label: "close", modes: in(modeBuy, modeSell, modeTarget, modePropose, modePost, modeStrike, modeUndercut, modeFront, modeAssign, modeFund, modeCart, modeMove, modeGuard,
 		modeConfirmNew, modeConfirmDelete, modeConfirmFire, modeConfirmEnd, modeConfirmUpgrade, modeConfirmInvestigate, modeConfirmPayOff, modeConfirmTravel, modeConfirmFast, modeConfirmDrop,
 		modeConfirmScout, modeConfirmBoost, modeConfirmTip, modeConfirmBuyOff, modeCut, modeCook)},
@@ -450,6 +458,8 @@ func (m *Model) modalStep() int {
 		return m.crt.step
 	case modePropose:
 		return m.proposeStep
+	case modeFund:
+		return m.fnd.step
 	case modeCard:
 		if m.cardDone {
 			return 1
