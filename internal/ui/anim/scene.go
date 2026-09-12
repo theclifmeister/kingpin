@@ -36,12 +36,18 @@ type Named struct {
 // Scenes is the registry, every scene the game plays: the title, its
 // first pass on the seed, whichever effect the pass picks, and the
 // interstitials as they land (#161): the stage (#157), the card (#154)
-// over a sample card, and the strike (#158) over two sample cells.
+// over a sample card, the ending's three (#156), one a cause, and the
+// strike (#158) over two sample cells.
 func Scenes() []Named {
 	return []Named{
 		{Name: "title", New: func(seed uint64) Scene { s, _ := TitlePass(seed, 0, "", ""); return s }},
 		{Name: "stage", New: stageScene},
 		{Name: "card", New: func(seed uint64) Scene { return Card(sampleTitle, sampleText, Seed(seed, 0, "card")) }},
+		// The ending's three (#156), over the samples: seven pages and
+		// a headline, the word, the figures.
+		{Name: "over:indicted", New: func(seed uint64) Scene { return Indicted(7, sampleHeadline, Seed(seed, 1, "over")) }},
+		{Name: "over:arrested", New: func(seed uint64) Scene { return Arrested(Seed(seed, 1, "over")) }},
+		{Name: "over:broke", New: func(seed uint64) Scene { return Broke(sampleFigures, Seed(seed, 1, "over")) }},
 		{Name: "strike", New: strikeScene},
 	}
 }

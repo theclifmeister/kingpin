@@ -93,10 +93,13 @@ type slide struct {
 func (s *slide) vertical() bool            { return s.dir == Down || s.dir == Up }
 func (s *slide) Done(t time.Duration) bool { return t >= s.over }
 
-func (s *slide) Frame(t time.Duration, w, h int) []string {
-	cv := NewCanvas(w, h)
+func (s *slide) Frame(t time.Duration, w, h int) []string { return frame(s, t, w, h) }
+
+func (s *slide) paint(cv *Canvas, t time.Duration) {
+	w, h := cv.W, cv.H
 	if t >= s.over {
-		return drawText(cv, s.text, s.accent).Lines()
+		drawText(cv, s.text, s.accent)
+		return
 	}
 	ox, oy := s.text.Origin(w, h)
 	for _, c := range s.cells {
@@ -123,5 +126,4 @@ func (s *slide) Frame(t time.Duration, w, h int) []string {
 		}
 		cv.Set(int(math.Round(x)), int(math.Round(y)), c.R, theme.Text)
 	}
-	return cv.Lines()
 }

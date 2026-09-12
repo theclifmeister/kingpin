@@ -86,10 +86,13 @@ type burn struct {
 
 func (b *burn) Done(t time.Duration) bool { return t >= b.over }
 
-func (b *burn) Frame(t time.Duration, w, h int) []string {
-	cv := NewCanvas(w, h)
+func (b *burn) Frame(t time.Duration, w, h int) []string { return frame(b, t, w, h) }
+
+func (b *burn) paint(cv *Canvas, t time.Duration) {
+	w, h := cv.W, cv.H
 	if t >= b.over {
-		return drawText(cv, b.text, b.accent).Lines()
+		drawText(cv, b.text, b.accent)
+		return
 	}
 	ox, oy := b.text.Origin(w, h)
 	f := frames(t)
@@ -116,5 +119,4 @@ func (b *burn) Frame(t time.Duration, w, h int) []string {
 			cv.Set(x, y, burnGlyphs[step], burnColour(step))
 		}
 	}
-	return cv.Lines()
 }

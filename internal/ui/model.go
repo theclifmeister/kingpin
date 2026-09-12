@@ -354,6 +354,7 @@ func (m *Model) morning(evs []events.Event) {
 	m.mapScene = mapFlips(evs)
 	if m.w.Over != nil {
 		m.mode = modeOver
+		m.playOver() // the ending's scene (#156), then the summary
 		return
 	}
 	if m.talking() {
@@ -1292,6 +1293,10 @@ func (m *Model) viewHelp() string {
 }
 
 func (m *Model) viewOver() string {
+	if m.scene != nil && !m.scene.Idle {
+		// The ending's scene (#156): the summary follows when it is done.
+		return m.modal("GAME OVER", m.overFrame(), m.modalFooter())
+	}
 	w := m.w
 	e := w.Over
 	var b strings.Builder

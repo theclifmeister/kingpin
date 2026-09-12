@@ -13,7 +13,7 @@ import (
 func world(t *testing.T, cfg *content.Config, cash int) (*game.World, *crew.Sim) {
 	t.Helper()
 	w := game.NewWorld(7, []game.StartingCity{{ID: "test", Name: "Testville", Products: []game.StartingProduct{{ID: "a", Name: "A", Price: 10, Demand: 5}}}}, cash, 100)
-	s := crew.New(cfg.Crew, cfg.Names, cfg.Reputation.Effects, cfg.Upgrades)
+	s := crew.New(cfg)
 	s.Seed(w, game.RNGFor(7, 0))
 	return w, s
 }
@@ -285,7 +285,7 @@ func TestTurningAndInvestigation(t *testing.T) {
 	// An investigation that cannot succeed.
 	cfgZero := *cfg
 	cfgZero.Crew.Informant.InvestigateBase, cfgZero.Crew.Informant.InvestigateSkill, cfgZero.Crew.Informant.InvestigateLearn = 0, 0, 0
-	zero := crew.New(cfgZero.Crew, cfgZero.Names, cfgZero.Reputation.Effects, cfgZero.Upgrades)
+	zero := crew.New(&cfgZero)
 	if got := zero.InvestigateOdds(w); got != 0 {
 		t.Fatalf("odds with nothing to go on: %v", got)
 	}
@@ -328,7 +328,7 @@ func TestTurningAndInvestigation(t *testing.T) {
 	// And one that cannot fail.
 	cfgSure := *cfg
 	cfgSure.Crew.Informant.InvestigateBase = 1
-	sure := crew.New(cfgSure.Crew, cfgSure.Names, cfgSure.Reputation.Effects, cfgSure.Upgrades)
+	sure := crew.New(&cfgSure)
 	if err := w.Investigate(inf.InvestigateCost); err != nil {
 		t.Fatal(err)
 	}
@@ -381,7 +381,7 @@ func crewProbe(t *testing.T, cfg *content.Config, ids ...string) map[string]floa
 		for _, id := range ids {
 			w.Upgrades[id] = true
 		}
-		s := crew.New(cfg.Crew, cfg.Names, cfg.Reputation.Effects, cfg.Upgrades)
+		s := crew.New(cfg)
 		s.Seed(w, game.RNGFor(7, 0))
 		return w, s
 	}

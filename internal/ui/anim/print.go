@@ -115,10 +115,13 @@ func (p *print) current(t time.Duration) int {
 	return cur
 }
 
-func (p *print) Frame(t time.Duration, w, h int) []string {
-	cv := NewCanvas(w, h)
+func (p *print) Frame(t time.Duration, w, h int) []string { return frame(p, t, w, h) }
+
+func (p *print) paint(cv *Canvas, t time.Duration) {
+	w, h := cv.W, cv.H
 	if t >= p.over {
-		return drawText(cv, p.text, p.accent).Lines()
+		drawText(cv, p.text, p.accent)
+		return
 	}
 	ox, oy := p.text.Origin(w, h)
 	H := len(p.rows)
@@ -164,5 +167,4 @@ func (p *print) Frame(t time.Duration, w, h int) []string {
 			cv.Set(ox+x, bottom, '█', theme.Text)
 		}
 	}
-	return cv.Lines()
 }

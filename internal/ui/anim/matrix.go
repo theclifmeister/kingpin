@@ -80,10 +80,13 @@ func (m *matrix) streams(x, h int) [matrixStreams + 1]stream {
 // glyph is the rain glyph a cell shows: swapped every few frames.
 func (m *matrix) glyph(x, y, f int) rune { return pick(matrixGlyphs, hash(m.seed, x, y, f/6)) }
 
-func (m *matrix) Frame(t time.Duration, w, h int) []string {
-	cv := NewCanvas(w, h)
+func (m *matrix) Frame(t time.Duration, w, h int) []string { return frame(m, t, w, h) }
+
+func (m *matrix) paint(cv *Canvas, t time.Duration) {
+	w, h := cv.W, cv.H
 	if t >= m.over {
-		return drawText(cv, m.text, m.accent).Lines()
+		drawText(cv, m.text, m.accent)
+		return
 	}
 	f := frames(t)
 	ox, oy := m.text.Origin(w, h)
@@ -136,5 +139,4 @@ func (m *matrix) Frame(t time.Duration, w, h int) []string {
 			}
 		}
 	}
-	return cv.Lines()
 }

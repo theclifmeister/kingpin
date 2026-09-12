@@ -25,13 +25,14 @@ type Sim struct {
 	tree  content.UpgradesConfig
 }
 
-// New builds a rival sim from config and the leader name pool. Of the
-// reputation effects it reads one: fear slows its pushes. Of the law's
+// New builds a rival sim from the config, copying what it reads (#144):
+// its own rivals.toml and the leader name pool. Of the reputation
+// effects it reads one: fear slows its pushes. Of the law's
 // (#41) it reads one: a loud city makes its phone calls land. Of the
 // upgrade tree (#119) it reads two: the guard on every contested corner
 // and the pace of its pushes.
-func New(cfg content.RivalsConfig, names content.NamesConfig, rep content.ReputationFX, law content.LawFX, tree content.UpgradesConfig) *Sim {
-	return &Sim{cfg: cfg, names: names.Rivals, rep: rep, law: law, tree: tree}
+func New(cfg *content.Config) *Sim {
+	return &Sim{cfg: cfg.Rivals, names: cfg.Names.Rivals, rep: cfg.Reputation.Effects, law: cfg.Law.Effects, tree: cfg.Upgrades}
 }
 
 // Effects is what the owned upgrades do to the rival's fight (#119),

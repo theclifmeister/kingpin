@@ -21,12 +21,12 @@ type Sim struct {
 	houses content.HousesTuning
 }
 
-// New builds a territory sim from the city config, the upgrade tree,
-// which it folds for the two Street effects it reads (#119): the drift
-// days and the robbery chance, and the houses' tuning (#73): the house
-// robbery and the rent are its.
-func New(cfg content.CityConfig, tree content.UpgradesConfig, houses content.HousesTuning) *Sim {
-	return &Sim{cfg: cfg, tree: tree, houses: houses}
+// New builds a territory sim from the config, copying what it reads
+// (#144): the city config, the upgrade tree, which it folds for the two
+// Street effects it reads (#119): the drift days and the robbery chance,
+// and the houses' tuning (#73): the house robbery and the rent are its.
+func New(cfg *content.Config) *Sim {
+	return &Sim{cfg: cfg.City, tree: cfg.Upgrades, houses: cfg.Houses.Houses}
 }
 
 func (s *Sim) Name() string { return "territory" }

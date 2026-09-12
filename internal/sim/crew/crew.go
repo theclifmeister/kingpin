@@ -65,8 +65,9 @@ type Sim struct {
 	tree  content.UpgradesConfig
 }
 
-// New builds a crew sim from config, the name pool and the upgrade tree.
-// Of the reputation effects it reads two: respect slows loyalty's decay,
+// New builds a crew sim from the config, copying what it reads (#144):
+// its own crew.toml, the crew name pool and the upgrade tree. Of the
+// reputation effects it reads two: respect slows loyalty's decay,
 // notoriety cuts what a candidate asks to sign. Of the tree it folds the
 // Crew branch at the top of its step (#118): wage_mul on the bill,
 // loyalty_loss_mul on a day's loss (the way respect scales it),
@@ -75,8 +76,8 @@ type Sim struct {
 // MaxCrew, candidates_bonus and pool_days_cut on the pool, skill_bonus
 // and start_loyalty_bonus on a generated candidate and hire_fee_mul on
 // their fee, both fixed when they are generated.
-func New(cfg content.CrewConfig, names content.NamesConfig, rep content.ReputationFX, tree content.UpgradesConfig) *Sim {
-	return &Sim{cfg: cfg, names: names.Crew, rep: rep, tree: tree}
+func New(cfg *content.Config) *Sim {
+	return &Sim{cfg: cfg.Crew, names: cfg.Names.Crew, rep: cfg.Reputation.Effects, tree: cfg.Upgrades}
 }
 
 // LoyaltyLoss is what the player's respect and the tree leave of a day's

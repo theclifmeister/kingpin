@@ -39,7 +39,7 @@ func kinds(evs []events.Event) map[string]int {
 // id is refused the same way.
 func TestBuyFrontRefusals(t *testing.T) {
 	cfg := content.MustLoad()
-	s := laundering.New(cfg.Laundering, cfg.Crew, cfg.Upgrades)
+	s := laundering.New(cfg)
 	if _, err := s.Buy(world(1_000_000_000), "casino"); err != game.ErrNoFront {
 		t.Fatalf("unknown front: %v", err)
 	}
@@ -94,7 +94,7 @@ func TestBuyFrontRefusals(t *testing.T) {
 func TestWashAndFloat(t *testing.T) {
 	cfg := content.MustLoad()
 	cfg.Laundering.Fronts[0].AuditRisk = 0
-	s := laundering.New(cfg.Laundering, cfg.Crew, cfg.Upgrades)
+	s := laundering.New(cfg)
 	tun := cfg.Laundering.Laundering
 	fc := cfg.Laundering.Fronts[0]
 	w := world(fc.Cost + tun.Float + fc.Throughput*3)
@@ -142,7 +142,7 @@ func TestWashAndFloat(t *testing.T) {
 // Upkeep the clean cash cannot cover shuts the front for a while.
 func TestUnpaidUpkeepFreezes(t *testing.T) {
 	cfg := content.MustLoad()
-	s := laundering.New(cfg.Laundering, cfg.Crew, cfg.Upgrades)
+	s := laundering.New(cfg)
 	tun := cfg.Laundering.Laundering
 	fc := cfg.Laundering.Fronts[0]
 	w := world(fc.Cost + tun.Float) // nothing over the float to wash
@@ -165,7 +165,7 @@ func TestAuditAndDial(t *testing.T) {
 	fc := cfg.Laundering.Fronts[0]
 	cfg.Laundering.Fronts[0].AuditRisk = 1 // certain, at every dial
 	cfg.Laundering.Dial.Careful.Risk = 1
-	s := laundering.New(cfg.Laundering, cfg.Crew, cfg.Upgrades)
+	s := laundering.New(cfg)
 	tun := cfg.Laundering.Laundering
 	for _, d := range []events.Launder{events.LaunderCareful, events.LaunderNormal, events.LaunderGreedy} {
 		w := world(fc.Cost + tun.Float + fc.Throughput*10)
@@ -199,7 +199,7 @@ func TestAuditAndDial(t *testing.T) {
 	// Risk follows the dial.
 	w := world(fc.Cost * 2)
 	fresh := content.MustLoad()
-	s = laundering.New(fresh.Laundering, fresh.Crew, fresh.Upgrades)
+	s = laundering.New(fresh)
 	if _, err := s.Buy(w, fc.ID); err != nil {
 		t.Fatal(err)
 	}
@@ -217,7 +217,7 @@ func TestAuditAndDial(t *testing.T) {
 // audit risk, both by skill; two of them stack.
 func TestAccountants(t *testing.T) {
 	cfg := content.MustLoad()
-	s := laundering.New(cfg.Laundering, cfg.Crew, cfg.Upgrades)
+	s := laundering.New(cfg)
 	tun := cfg.Laundering.Laundering
 	fc := cfg.Laundering.Fronts[0]
 	w := world(fc.Cost * 2)
@@ -250,7 +250,7 @@ func TestAccountants(t *testing.T) {
 // no longer lists is inert rather than a crash.
 func TestOffers(t *testing.T) {
 	cfg := content.MustLoad()
-	s := laundering.New(cfg.Laundering, cfg.Crew, cfg.Upgrades)
+	s := laundering.New(cfg)
 	offers := s.Offers()
 	if len(offers) != len(cfg.Laundering.Fronts) {
 		t.Fatalf("%d offers for %d fronts", len(offers), len(cfg.Laundering.Fronts))
@@ -276,7 +276,7 @@ func TestAuditFlipsTheAccountant(t *testing.T) {
 	fc := cfg.Laundering.Fronts[0]
 	cfg.Laundering.Fronts[0].AuditRisk = 1
 	cfg.Laundering.Laundering.AccountantRiskCut = 0 // still certain with accountants about
-	s := laundering.New(cfg.Laundering, cfg.Crew, cfg.Upgrades)
+	s := laundering.New(cfg)
 	tun := cfg.Laundering.Laundering
 	line := cfg.Crew.Informant.Loyalty
 	w := world(fc.Cost + tun.Float + fc.Throughput*10)
@@ -331,7 +331,7 @@ func launderProbe(t *testing.T, cfg *content.Config, ids ...string) map[string]f
 	for _, id := range ids {
 		w.Upgrades[id] = true
 	}
-	s := laundering.New(cfg.Laundering, cfg.Crew, cfg.Upgrades)
+	s := laundering.New(cfg)
 	if _, err := s.Buy(w, fc.ID); err != nil {
 		t.Fatal(err)
 	}
@@ -343,7 +343,7 @@ func launderProbe(t *testing.T, cfg *content.Config, ids ...string) map[string]f
 	p["float"] = float64(s.Float(w))
 	p["freeze"] = float64(s.AuditFreezeDays(w))
 	// One night with the audit certain: what it seizes of the wash.
-	s = laundering.New(certain.Laundering, certain.Crew, certain.Upgrades)
+	s = laundering.New(&certain)
 	var audit events.FrontAudited
 	for _, e := range step(w, s) {
 		if a, ok := e.(events.FrontAudited); ok {
@@ -399,7 +399,7 @@ func TestLaunderingNodesPullTheirWay(t *testing.T) {
 	// one number off the world.
 	w := world(1_000_000)
 	w.Upgrades["float"] = true
-	s := laundering.New(cfg.Laundering, cfg.Crew, cfg.Upgrades)
+	s := laundering.New(cfg)
 	if got, want := s.Float(w), w.Float(cfg.Upgrades, cfg.Laundering.Laundering.Float); got != want || got != cfg.Laundering.Laundering.Float/2 {
 		t.Fatalf("float %d, world %d, want half of %d", got, want, cfg.Laundering.Laundering.Float)
 	}
@@ -416,7 +416,7 @@ func TestLaunderingNodesPullTheirWay(t *testing.T) {
 // line fires none.
 func TestFrontOpensTheMorningTheLedgerSays(t *testing.T) {
 	cfg := content.MustLoad()
-	s := laundering.New(cfg.Laundering, cfg.Crew, cfg.Upgrades)
+	s := laundering.New(cfg)
 	first := s.Offers()[0]
 	w := world(first.UnlockCash - 100)
 	if evs := step(w, s); kinds(evs)["Unlocked"] != 0 || len(w.Laundering.Offered) != 0 {
