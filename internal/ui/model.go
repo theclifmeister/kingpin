@@ -421,7 +421,7 @@ func (m *Model) handleKey(k tea.KeyMsg) (tea.Model, tea.Cmd) {
 	// Tab and shift+tab are the screens' keys and a dialog's pages
 	// (#110): a modal with no pages, a confirmation included, leaves them
 	// alone rather than closing on them.
-	if m.mode != modePlay && (key == "tab" || key == "shift+tab") && !hasPages(m.mode) {
+	if m.mode != modePlay && (key == "tab" || key == "shift+tab") && !m.hasPages(m.mode) {
 		return m, nil
 	}
 	switch m.mode {
@@ -712,11 +712,14 @@ func (m *Model) handleKey(k tea.KeyMsg) (tea.Model, tea.Cmd) {
 }
 
 // hasPages is a modal whose keys walk pages: the dialogs tab and
-// shift+tab move through.
-func hasPages(md mode) bool {
+// shift+tab move through. The fund dialog has a second page, the
+// campaign, only while one is open (#193).
+func (m *Model) hasPages(md mode) bool {
 	switch md {
 	case modeBuy, modeSell, modeTarget, modeCart, modePropose, modeFront, modeMove:
 		return true
+	case modeFund:
+		return m.campaignOpen()
 	}
 	return false
 }
@@ -1351,6 +1354,7 @@ func (m *Model) viewOver() string {
 		[]any{"pressure", fmt.Sprintf("%.0f", w.Here().Pressure)},
 		[]any{"elections", fmt.Sprint(w.Stats.Elections)},
 		[]any{"given to the cities", cash(w.Stats.Funded)},
+		[]any{"behind the DA tickets", fmt.Sprintf("%s, %d of %d won", cash(w.Stats.Backed), w.Stats.CampaignsWon, w.Stats.Campaigns)},
 		[]any{"reputation", fmt.Sprintf("fear %.0f · respect %.0f · notoriety %.0f", rep.Fear, rep.Respect, rep.Notoriety)})
 	for _, l := range table([]col{{"stat", kText, 0}, {"value", kText, 0}}, facts, -1, m.modalInner()) {
 		b.WriteString(l + "\n")

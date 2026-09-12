@@ -700,3 +700,52 @@ func TestFund(t *testing.T) {
 		t.Fatalf("funded after the end: %v", err)
 	}
 }
+
+// Back (#193) is Fund's rules for a campaign: clean cash only, only
+// while a campaign is open, only a ticket the vote moves between; the
+// money leaves at once and queues for the law sim, and Campaigning
+// reads today's on top of the city's.
+func TestBack(t *testing.T) {
+	w := testWorld()
+	w.Player.DirtyCash, w.Player.CleanCash = 1_000_000, 500
+	if err := w.Back("test", "reform", 100); err != ErrCampaignClosed {
+		t.Fatalf("backed with no campaign open: %v", err)
+	}
+	w.Law.CampaignOpen = true
+	if err := w.Back("test", "moderate", 100); err != ErrNoTicket {
+		t.Fatalf("backed the moderate: %v", err)
+	}
+	if err := w.Back("nowhere", "reform", 100); err != ErrNoCity {
+		t.Fatalf("backed in a city that does not exist: %v", err)
+	}
+	if err := w.Back("test", "reform", 0); err != ErrBadQuantity {
+		t.Fatalf("backed nothing: %v", err)
+	}
+	if err := w.Back("test", "reform", 600); err == nil || err == ErrNoCleanCash {
+		t.Fatalf("backed more than the clean cash: %v", err)
+	}
+	if err := w.Back("test", "reform", 300); err != nil {
+		t.Fatal(err)
+	}
+	if camp := w.Campaigning("test"); camp.Ticket != "reform" || camp.Cash != 300 || camp.Hedged {
+		t.Fatalf("campaigning: %+v", camp)
+	}
+	if err := w.Back("test", "law_and_order", 100); err != nil {
+		t.Fatal(err)
+	}
+	ticket, today := w.BackedToday("test")
+	if w.Player.CleanCash != 100 || w.Player.DirtyCash != 1_000_000 || w.Stats.Backed != 400 || today != 400 || ticket != "law_and_order" || len(w.Today.Backed) != 2 {
+		t.Fatalf("after backing: clean %d dirty %d stats %d today %d %s %+v", w.Player.CleanCash, w.Player.DirtyCash, w.Stats.Backed, today, ticket, w.Today.Backed)
+	}
+	if camp := w.Campaigning("test"); !camp.Hedged || camp.Cash != 400 {
+		t.Fatalf("money on both tickets reads %+v", camp)
+	}
+	w.Player.CleanCash = 0
+	if err := w.Back("test", "reform", 1); err != ErrNoCleanCash {
+		t.Fatalf("backed from dirty cash: %v", err)
+	}
+	w.Over = &Ending{Day: 1, Cause: "test"}
+	if err := w.Back("test", "reform", 1); err != ErrGameOver {
+		t.Fatalf("backed after the end: %v", err)
+	}
+}

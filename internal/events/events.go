@@ -1045,25 +1045,31 @@ type Bought struct {
 // DAElected is the district attorney's race decided (#41): who won and
 // on what ticket (law_and_order, moderate, reform). Incumbent says the
 // sitting DA kept the seat. Pressure is the mean public pressure the
-// vote swung on.
+// vote swung on, Swing what the campaigns moved the law-and-order share
+// by (#193, signed) and Backed that the winner's ticket ran on your
+// money (the DABought headline).
 type DAElected struct {
 	Day       int
 	Name      string
 	Stance    string
 	Incumbent bool
 	Pressure  float64
+	Swing     float64
+	Backed    bool
 }
 
 func (DAElected) Kind() string { return "DAElected" }
 
 // ChiefReplaced is a new police chief taking office (#41): on schedule
-// (Why "term") or because a law-and-order DA wanted one (Why "da"). The
-// personality stays hidden until the player has seen them work.
+// (Why "term"), because a law-and-order DA wanted one (Why "da"), or
+// because a law-and-order DA won against your money (Why "campaign",
+// #193: a zealous one). The personality stays hidden until the player
+// has seen them work.
 type ChiefReplaced struct {
 	Day  int
 	Name string
 	Old  string
-	Why  string // term, da
+	Why  string // term, da, campaign
 }
 
 func (ChiefReplaced) Kind() string { return "ChiefReplaced" }
@@ -1091,6 +1097,45 @@ type CityFunded struct {
 }
 
 func (CityFunded) Kind() string { return "CityFunded" }
+
+// CampaignBacked is report-only bookkeeping (#193): clean cash the
+// player put behind a DA ticket in a city today, the campaign's total
+// after it, and the share of the city's vote that total moves.
+type CampaignBacked struct {
+	Day    int
+	City   string
+	Ticket string
+	Amount int
+	Total  int
+	Swing  float64
+}
+
+func (CampaignBacked) Kind() string { return "CampaignBacked" }
+
+// CampaignLost is a city's campaign on the losing ticket (#193): the
+// new DA knows who paid for the other side. Pressure is what the city
+// gained at once; Chief says a zealous chief was appointed over it.
+type CampaignLost struct {
+	Day      int
+	City     string
+	Ticket   string
+	Cash     int
+	Winner   string
+	Pressure float64
+	Chief    bool
+}
+
+func (CampaignLost) Kind() string { return "CampaignLost" }
+
+// CampaignHedged is a city's campaign that paid both tickets (#193):
+// a headline, and the money bought nothing.
+type CampaignHedged struct {
+	Day  int
+	City string
+	Cash int
+}
+
+func (CampaignHedged) Kind() string { return "CampaignHedged" }
 
 // ContractOffered is a buyer putting an order on the table (#71): so
 // many units of a product in a city, by a day, at Premium times that

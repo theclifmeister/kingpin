@@ -26,9 +26,9 @@ risk = 3.0
 
 # Growth (#192): a front's levels are clean cash invested in it for clean
 # income of its own. audit_level is added to a front's audit-risk
-# multiplier per level (0.2: the boss that levels is audited 52 times
-# over ten seeds against 39 without levels, never fewer on a seed,
-# TestLevelsDrawTheAuditors; 0.1 read 47); legit_ratio is how many times
+# multiplier per level (0.2: the boss that levels is audited 44 times
+# over ten seeds against 36 without levels, never fewer on a seed,
+# TestLevelsDrawTheAuditors; 0.1 read 47 against 39); legit_ratio is how many times
 # its own income a front's day's wash may be before the books stop
 # explaining it (the risk is scaled by the excess: a levelled front whose
 # income covers the wash reads the file, a big washer with a token level
@@ -57,8 +57,9 @@ headline_level = 3
 # The ladder is eight levels a front, $260M in all, far more than the
 # boss can buy by day 200 with the cheapest next level always under a
 # few million, so the pile drains at the rate it grows (#191): the boss
-# ends day 200 with a quarter of the $30M clean it held before ($7.6M,
-# the median of ten seeds), $42M in levels earning $373k/day net, the
+# ends day 200 with a quarter of the $30M clean it held before ($8.2M,
+# the median of ten seeds, a campaign's worth of it kept for the town),
+# $37M in levels earning $327k/day net, the
 # wash ladder's own scale (TestBossPileDrains).
 [[front]]
 id = "laundromat"

@@ -2314,6 +2314,128 @@ func TestFundKeys(t *testing.T) {
 	}
 }
 
+// While a campaign is open (#193) the fund dialog has a second page:
+// enter on the first goes to it, left and right turn the ticket, the
+// amount is a number field whose m is what fills the swing after the
+// goodwill, shift+tab goes back, esc closes from either page, and enter
+// gives both: the goodwill and the campaign money, clean. The dashboard
+// carries the alert and, once money is in, the LAW panel's backing
+// line; the report names the money.
+func TestCampaignKeys(t *testing.T) {
+	m := newTestModel(t, 80, 24)
+	w := m.w
+	w.Player.CleanCash = 5_000_000
+	w.Law.CampaignOpen = true
+	if view := stripANSI(m.View()); !strings.Contains(view, "taking money") {
+		t.Fatalf("no alert for the open campaign:\n%s", view)
+	}
+	m.Update(key("7"))
+	m.Update(key("f"))
+	if m.mode != modeFund || m.modalStep() != 0 {
+		t.Fatalf("f on the ledger: mode %v step %d", m.mode, m.modalStep())
+	}
+	view := stripANSI(m.View())
+	if !strings.Contains(view, "enter next") || !strings.Contains(view, "taking money on the next page") {
+		t.Fatalf("the first page does not lead to the campaign:\n%s", view)
+	}
+	// tab and shift+tab: forward once the amount reads, back from the
+	// campaign page, silent on the first.
+	m.Update(key("shift+tab"))
+	if m.modalStep() != 0 || m.mode != modeFund {
+		t.Fatalf("shift+tab on the first page: step %d mode %v", m.modalStep(), m.mode)
+	}
+	m.Update(key("tab"))
+	if m.modalStep() != 1 {
+		t.Fatalf("tab did not turn the page: step %d", m.modalStep())
+	}
+	m.Update(key("shift+tab"))
+	if m.modalStep() != 0 {
+		t.Fatalf("shift+tab did not go back: step %d", m.modalStep())
+	}
+	for _, r := range "1000" {
+		m.Update(key(string(r)))
+	}
+	m.Update(key("enter"))
+	if m.modalStep() != 1 || m.mode != modeFund {
+		t.Fatalf("enter on the first page: step %d mode %v", m.modalStep(), m.mode)
+	}
+	assertFits(t, m.View(), 80, 24, "campaign page")
+	view = stripANSI(m.View())
+	for _, want := range []string{"campaign", "Ticket", "reform", "law-and-order", "enter give", "⇧tab back", "←→ ticket"} {
+		if !strings.Contains(view, want) {
+			t.Fatalf("campaign page lacks %q:\n%s", want, view)
+		}
+	}
+	if m.fundTicket() != "reform" {
+		t.Fatalf("the ticket starts on %s", m.fundTicket())
+	}
+	m.Update(key("right"))
+	if m.fundTicket() != "law_and_order" {
+		t.Fatalf("right did not turn the ticket: %s", m.fundTicket())
+	}
+	m.Update(key("left"))
+	// m fills the swing, less the goodwill on the first page.
+	fill := m.set.Law.Campaign().Fill()
+	m.Update(key("m"))
+	if got, _ := m.fnd.camp.Number(); got != fill {
+		t.Fatalf("m filled %d, want the swing's %d", got, fill)
+	}
+	m.Update(key("esc"))
+	if m.mode != modePlay || len(w.Today.Backed) != 0 || len(w.Today.Funded) != 0 {
+		t.Fatal("esc gave something")
+	}
+	// Enter on the campaign page gives both.
+	m.Update(key("f"))
+	for _, r := range "1000" {
+		m.Update(key(string(r)))
+	}
+	m.Update(key("enter"))
+	for _, r := range "250000" {
+		m.Update(key(string(r)))
+	}
+	m.Update(key("enter"))
+	_, backed := w.BackedToday(w.Player.Location)
+	if m.mode != modePlay || w.Player.CleanCash != 5_000_000-251_000 || w.FundedToday(w.Player.Location) != 1_000 || backed != 250_000 || !strings.Contains(m.status, "reform") {
+		t.Fatalf("enter: mode %v clean %d funded %d backed %d status %q", m.mode, w.Player.CleanCash, w.FundedToday(w.Player.Location), backed, m.status)
+	}
+	m.Update(key("1"))
+	m.Update(tea.WindowSizeMsg{Width: 120, Height: 40})
+	if view := stripANSI(m.View()); !strings.Contains(view, "backing reform $250K") {
+		t.Fatalf("LAW panel lacks the backing line:\n%s", view)
+	}
+	m.Update(tea.WindowSizeMsg{Width: 80, Height: 24})
+	m.Update(key("7"))
+	// A blank campaign amount gives the goodwill alone; both blank with
+	// goodwill full is refused.
+	m.Update(key("f"))
+	m.Update(key("enter"))
+	m.Update(key("enter"))
+	if m.mode != modePlay || w.FundedToday(w.Player.Location) <= 1_000 {
+		t.Fatalf("blank campaign: mode %v funded %d status %q", m.mode, w.FundedToday(w.Player.Location), m.status)
+	}
+	endDay(t, m)
+	if m.mode != modeReport {
+		t.Fatalf("mode %v", m.mode)
+	}
+	law := strings.Join(w.Report.Law, "\n")
+	if !strings.Contains(law, "reform") || w.Here().Campaign.Cash != 250_000 || w.Stats.Backed != 250_000 || w.Stats.Campaigns != 1 {
+		t.Fatalf("report %v campaign %+v stats %+v", w.Report.Law, w.Here().Campaign, w.Stats)
+	}
+	if !strings.Contains(strings.Join(w.Report.Money, "\n"), "Campaign") {
+		t.Fatalf("money: %v", w.Report.Money)
+	}
+	assertFits(t, m.View(), 80, 24, "report with a campaign")
+	// With the window shut the dialog is one page again, and tab is silent.
+	m.Update(key("enter"))
+	w.Law.CampaignOpen = false
+	m.Update(key("f"))
+	m.Update(key("tab"))
+	if m.mode != modeFund || m.modalStep() != 0 || !strings.Contains(stripANSI(m.View()), "enter give") {
+		t.Fatalf("with no campaign: mode %v step %d", m.mode, m.modalStep())
+	}
+	m.Update(key("esc"))
+}
+
 // richModel is a run with something behind every modal: a report with
 // sales, a crew posted across the map with a lieutenant and an
 // accountant, the rival in town at war, a route on with a shipment in

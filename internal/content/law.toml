@@ -72,11 +72,29 @@ sting = 1.0
 evidence_arrest = 1.2
 sting = 1.05
 
-# What the other sims read off a city's pressure, each from its own step.
-# Every knob is the effect at pressure 100; it scales linearly from
+# Campaigns (#193): clean cash put behind a DA ticket before the election
+# (World.Back). A city's campaign moves that city's vote by a point per
+# `cash`, at most swing_max either way, and the election reads the mean
+# over the cities, as it reads the mean pressure: money moves the vote
+# and never decides it. The money is public: a campaign adds `pressure`
+# a day in the city where it runs. A backed winner owes you (DA.Backed:
+# the sting line and #42's price); a backed loser knows who paid for the
+# other side.
+[campaign]
+cash = 200000               # clean cash per point (one hundredth) of a city's vote share moved
+swing_max = 0.15            # the most a city's campaign can move its share, either way
+open_days = 30              # days before the election that the tickets take money
+pressure = 0.5              # pressure a day in a city while its campaign holds money
+backed_da_price_mul = 0.5   # #42: the DA's price under one you backed
+loser_pressure = 10         # pressure at once in a city that backed the loser
+loser_chief = true          # a city that backed the loser of a law-and-order win gets a zealous chief at once
+
+# What the other sims read off the law, each from its own step. The
+# pressure knobs are the effect at pressure 100 and scale linearly from
 # nothing at 0.
 [effects]
 pressure_threshold_cut = 0.10   # heat: fraction cut from the patrol, raid and arrest thresholds in the city whose
                                 # police answer (the sting line is the DA's, above: it is where a case starts)
 pressure_cap_cut = 0.25         # heat: fraction cut from what a patrol there lets through
 pressure_tip = 1.0              # rivals: extra on the chance a grudge becomes a phone call
+backed_sting = 1.10             # heat: the sting line under a DA whose ticket you backed (#193), on top of the DA's own
