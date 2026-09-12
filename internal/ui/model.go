@@ -100,9 +100,10 @@ type Model struct {
 	w     *game.World
 	opts  Options
 
-	scene    *anim.Player // the scene on screen (#152), nil while none is: the tick chain runs on it
-	sceneGen int          // which scene the outstanding tick was issued for
-	ticking  bool         // a tick is on its way
+	scene       *anim.Player // the scene on screen (#152), nil while none is: the tick chain runs on it
+	titleEffect string       // the effect the title loop's current pass plays (#153), the next pass avoids it
+	sceneGen    int          // which scene the outstanding tick was issued for
+	ticking     bool         // a tick is on its way
 
 	width, height  int
 	screen         screen

@@ -23,9 +23,12 @@ import (
 
 // Options is how the front end is set up: Anim plays the scenes;
 // cmd/kingpin turns it off for -no-anim and KINGPIN_NO_ANIM, and every
-// test fixture constructs with it off.
+// test fixture constructs with it off. Effect pins the title loop's
+// effect by name (#153; KINGPIN_ANIM_EFFECT, for review); empty cycles
+// the set.
 type Options struct {
-	Anim bool
+	Anim   bool
+	Effect string
 }
 
 // frameMsg is a frame's tick: when it fired and which scene it was
@@ -85,19 +88,30 @@ func (m *Model) skip() bool {
 
 // titleLoop starts or stops the start menu's idle loop for the frame:
 // on while animation is on, the menu is up and the terminal is 80x24
-// or more, the art resolved by decrypt over anim.TitleLength, resting
-// anim.TitleRest, then again on a new seed; off otherwise, so under
-// 80x24 or with animation off the menu draws as it always did.
+// or more, the art resolved over anim.TitleLength by an effect of the
+// set picked off the pass's seed, never the one before's (#153;
+// Options.Effect pins one), resting anim.TitleRest, then the next
+// pass; off otherwise, so under 80x24 or with animation off the menu
+// draws as it always did.
 func (m *Model) titleLoop() {
 	on := m.opts.Anim && m.onStart() && m.titleFits()
 	switch {
 	case on && m.scene == nil:
+		// The first pass avoids the effect a stopped loop last played
+		// (a resize across the floor restarts it), so no effect plays
+		// twice running even then.
+		var first anim.Scene
+		first, m.titleEffect = anim.TitlePass(0, 0, m.titleEffect, m.opts.Effect)
 		m.play(&anim.Player{
-			Scene:  anim.Title(anim.Seed(0, 0, "title")),
+			Scene:  first,
 			Accent: theme.Money,
 			Idle:   true,
 			Rest:   anim.TitleRest,
-			Next:   func(pass int) anim.Scene { return anim.Title(anim.Seed(0, pass, "title")) },
+			Next: func(pass int) anim.Scene {
+				var s anim.Scene
+				s, m.titleEffect = anim.TitlePass(0, pass, m.titleEffect, m.opts.Effect)
+				return s
+			},
 		})
 	case !on && m.scene != nil && m.scene.Idle:
 		m.stop()
