@@ -831,7 +831,7 @@ func (m *Model) viewDialog() string {
 			if sup.Debt > 0 {
 				due = sup.DebtDue
 			}
-			body = append(body, fmt.Sprintf("credit     %s at ×%.2f, due day %d; %s will run you %s", money(sup.Quote(id, qty, true)), sup.CreditRatio, due, sup.Name, money(sup.Credit())))
+			body = append(body, fmt.Sprintf("credit     %s at ×%.2f · due day %d · %s of the book left", money(sup.Quote(id, qty, true)), sup.CreditRatio, due, cash(sup.Credit())))
 			if sup.Debt > 0 {
 				body = append(body, theme.Warning.Render(fmt.Sprintf("You owe them %s already, due day %d.", money(sup.Debt), sup.DebtDue)))
 			} else {
