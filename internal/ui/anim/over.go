@@ -11,7 +11,7 @@ import (
 
 // The ending's scenes (#156): one a cause of game.Ending, each
 // OverLength long, played inside the GAME OVER modal before the run's
-// summary. Each is a Sequence of the set's effects over a text the
+// summary. Each is a Sequence (#157's) of the set's effects over a text the
 // model reads off the world (the file's page count, the last headline,
 // the run's cash lines) and dice off Seed(seed, day, "over"); the
 // summary that follows is read off the world, never off the scene. The
@@ -71,8 +71,8 @@ func Indicted(pages int, headline string, rng *rand.Rand) Scene {
 	under := append([]string(nil), file...)
 	under[row] = " "
 	return Sequence(
-		Print(text, theme.Dim, overPrint, rng),
-		Layer(Still(NewText(strings.Join(under, "\n")), theme.Dim), stamp),
+		Step{Print(text, theme.Dim, overPrint, rng), overPrint},
+		Step{Layer(Still(NewText(strings.Join(under, "\n")), theme.Dim), stamp), overStamp},
 	)
 }
 
@@ -84,9 +84,9 @@ func Arrested(rng *rand.Rand) Scene {
 	bars := Curtain(Text{}, theme.Heat, overFall, rng)
 	word := NewText(Arrest)
 	return Sequence(
-		bars,
-		Layer(Held(bars, overFall), Vhstape(word, theme.Text, overWord, rng)),
-		Layer(Reverse(Curtain)(Text{}, theme.Heat, overFall, rng), Still(word, theme.Text)),
+		Step{bars, overFall},
+		Step{Layer(Held(bars, overFall), Vhstape(word, theme.Text, overWord, rng)), overWord},
+		Step{Layer(Reverse(Curtain)(Text{}, theme.Heat, overFall, rng), Still(word, theme.Text)), overFall},
 	)
 }
 
@@ -96,8 +96,8 @@ func Arrested(rng *rand.Rand) Scene {
 // settles in theme.Heat. figures is the lines, one a row.
 func Broke(figures string, rng *rand.Rand) Scene {
 	return Sequence(
-		Reverse(PourFrom(Up))(NewText(figures), theme.Money, overLoss, rng),
-		Rain(NewText(Zero), theme.Heat, overZero, rng),
+		Step{Reverse(PourFrom(Up))(NewText(figures), theme.Money, overLoss, rng), overLoss},
+		Step{Rain(NewText(Zero), theme.Heat, overZero, rng), overZero},
 	)
 }
 

@@ -25,10 +25,10 @@ import (
 // falls through to showCard: the stage, then the card, then the report.
 func (m *Model) showStage() {
 	if n := m.w.StagePending(); n > 0 {
-		// #157 (Animations): the stage's scene plays here, before the modal.
 		m.stage = n
 		m.modalScroll = 0
 		m.mode = modeStage
+		m.stageScene(n) // #157: the scene plays over the modal's rows
 		return
 	}
 	m.showCard()
@@ -55,8 +55,12 @@ func (m *Model) keyStage(key string) (tea.Model, tea.Cmd) {
 // wrapped as one paragraph, OPENED with the file's lines on what the
 // stage opens, and NEXT with what the next stage takes, or the closing
 // line at the top of the ladder. The copy is the file's (TestStageFits
-// holds every tier's to 80x24 whole).
+// holds every tier's to 80x24 whole). While the scene runs (#157) the
+// title row and the body are its frame, in the same box.
 func (m *Model) viewStage() string {
+	if frame := m.stageFrame(); frame != nil {
+		return m.modalTitled(frame[0], frame[1:], m.modalFooter())
+	}
 	return m.modal(m.stageTitle(m.stage), m.stageLines(m.stage), m.modalFooter())
 }
 

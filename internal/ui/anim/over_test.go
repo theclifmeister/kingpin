@@ -8,30 +8,10 @@ import (
 	"github.com/theclifmeister/kingpin/internal/ui/theme"
 )
 
-// TestSequenceLayerHeld (#156): a sequence plays its steps one after
-// another, each on its own clock, and holds the last; a layer paints
-// later scenes over earlier ones cell by cell and is done when all
-// are; Held is a scene's frame at one moment, done at once.
-func TestSequenceLayerHeld(t *testing.T) {
-	a, b := NewText("AAAA"), NewText("BB")
-	first := Wipe(a, theme.Money, time.Second, Seed(1, 0, "s"))
-	second := SlideFrom(Left)(b, theme.Heat, 500*time.Millisecond, Seed(1, 0, "s"))
-	seq := Sequence(first, second)
-	if seq.Done(1500*time.Millisecond-Frame) || !seq.Done(1500*time.Millisecond) {
-		t.Error("the sequence is not done at the sum of its steps")
-	}
-	if got, want := plain(seq.Frame(300*time.Millisecond, 8, 1)), plain(first.Frame(300*time.Millisecond, 8, 1)); got != want {
-		t.Errorf("at 300ms the sequence shows %q, not the first step's %q", got, want)
-	}
-	if got, want := plain(seq.Frame(1200*time.Millisecond, 8, 1)), plain(second.Frame(200*time.Millisecond, 8, 1)); got != want {
-		t.Errorf("at 1.2s the sequence shows %q, not the second step at 200ms %q", got, want)
-	}
-	if got, want := plain(seq.Frame(5*time.Second, 8, 1)), plain(second.Frame(time.Second, 8, 1)); got != want {
-		t.Errorf("past the end the sequence shows %q, not the last step's last frame %q", got, want)
-	}
-	if plain(Sequence().Frame(0, 4, 1)) != "\n" || !Sequence().Done(0) {
-		t.Error("an empty sequence is a blank, done")
-	}
+// TestLayerHeld (#156): a layer paints later scenes over earlier ones
+// cell by cell and is done when all are; Held is a scene's frame at
+// one moment, done at once. (Sequence is #157's, TestSequence.)
+func TestLayerHeld(t *testing.T) {
 	// A layer: the text over the curtain, the text's cells winning.
 	bars := Curtain(Text{}, theme.Heat, time.Second, nil)
 	word := Still(NewText("XY"), theme.Text)
