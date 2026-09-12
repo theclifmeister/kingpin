@@ -79,6 +79,7 @@ const (
 	modeConfirmBuyOff // pay the rival's muscle to go home: the heads, then y or enter (#70)
 	modeCut           // cut a product where you stand (#47): the product, then the percent added
 	modeCook          // a chemist's cook order (#47): the product, then the units
+	modeInvest        // clean cash into the selected front's levels (#192): the levels, then enter
 	modeCount
 )
 
@@ -159,6 +160,7 @@ type Model struct {
 	fnd            fundDialog
 	fst            fastDialog
 	bo             buyOffDialog
+	inv            investDialog
 	fastStop       string // the report's first line after a fast-forward (`Stopped after 3 days: …`), until the next day ends
 	slot           int    // the save slot this run lives in: where ctrl+s, the end of the day and quitting save
 	startChoice    int    // row on the start menu: the slots, then Quit
@@ -516,6 +518,8 @@ func (m *Model) handleKey(k tea.KeyMsg) (tea.Model, tea.Cmd) {
 		return m, nil
 	case modeConfirmBuyOff:
 		return m.keyBuyOff(k)
+	case modeInvest:
+		return m.keyInvest(k)
 	case modeTarget:
 		return m.keyTarget(k)
 	case modeFund:
@@ -983,6 +987,8 @@ func (m *Model) View() string {
 		body = m.tipConfirm()
 	case modeConfirmBuyOff:
 		body = m.viewBuyOff()
+	case modeInvest:
+		body = m.viewInvest()
 	case modeTarget:
 		body = m.viewTarget()
 	case modeFund:

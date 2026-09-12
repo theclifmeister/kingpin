@@ -809,6 +809,7 @@ func (r RivalsConfig) validate() error {
 type LaunderingConfig struct {
 	Laundering LaunderingTuning `toml:"laundering"`
 	Dial       LaunderTable     `toml:"dial"`
+	Growth     GrowthConfig     `toml:"growth"`
 	Fronts     []FrontConfig    `toml:"front"`
 }
 
@@ -840,6 +841,28 @@ type FrontConfig struct {
 	Upkeep     int     `toml:"upkeep"`     // clean cash per day
 	AuditRisk  float64 `toml:"audit_risk"` // chance per day of an audit at the normal dial
 	UnlockCash int     `toml:"unlock_cash"`
+
+	// The levels (#192): clean cash invested in the front for clean
+	// income of its own. Income is what the first level earns a day,
+	// LevelCost what it costs, LevelMul what each level's cost, income,
+	// throughput and upkeep are over the last, MaxLevel how far it goes.
+	// A front with none of these has no levels to buy.
+	Income    int     `toml:"income"`
+	LevelCost int     `toml:"level_cost"`
+	LevelMul  float64 `toml:"level_mul"`
+	MaxLevel  int     `toml:"max_level"`
+}
+
+// GrowthConfig is the [growth] table (#192): what a levelled front adds
+// to its audit risk (AuditLevel per level), the wash a front's own
+// income has to explain (a day's wash over LegitRatio times its income
+// scales the risk by the excess), and the level whose reaching makes the
+// paper (HeadlineLevel; the pressure and notoriety it draws are the law's
+// and the reputation sim's, off the headline and the front's Grew stamp).
+type GrowthConfig struct {
+	AuditLevel    float64 `toml:"audit_level"`
+	LegitRatio    float64 `toml:"legit_ratio"`
+	HeadlineLevel int     `toml:"headline_level"`
 }
 
 // ReputationConfig mirrors reputation.toml: where the three axes come
@@ -994,6 +1017,7 @@ type PressureSources struct {
 	Crackdown float64  `toml:"crackdown"`
 	Boost     float64  `toml:"boost"`         // your enforcers robbing a rival corner (#70), landed or not
 	RivalRaid float64  `toml:"rival_raid"`    // the police taking a rival corner on your tip (#70)
+	FrontGrew float64  `toml:"front_grew"`    // a front whose growth made the paper (#192), where you are, the morning after
 	HardUnits float64  `toml:"hard_units"`    // a point per this many units of a hard product sold in a day
 	Hard      []string `toml:"hard_products"` // the products that count
 	Overdose  float64  `toml:"overdose"`      // an overdose on your corner (#47), in its city
@@ -1476,7 +1500,13 @@ func Load() (*Config, error) {
 		if f.ID == "" || seen[f.ID] || f.Cost <= 0 || f.Throughput <= 0 {
 			return nil, fmt.Errorf("laundering.toml: bad front %+v", f)
 		}
+		if f.MaxLevel > 0 && (f.Income <= 0 || f.LevelCost <= 0 || f.LevelMul < 1) {
+			return nil, fmt.Errorf("laundering.toml: front %s has levels but no income, level_cost or level_mul", f.ID)
+		}
 		seen[f.ID] = true
+	}
+	if g := c.Laundering.Growth; g.AuditLevel < 0 || g.LegitRatio < 0 || g.HeadlineLevel < 0 {
+		return nil, fmt.Errorf("laundering.toml: bad [growth] table %+v", g)
 	}
 	return &c, nil
 }

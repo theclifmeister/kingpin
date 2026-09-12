@@ -24,12 +24,43 @@ risk = 1.0
 mul = 1.6
 risk = 3.0
 
+# Growth (#192): a front's levels are clean cash invested in it for clean
+# income of its own. audit_level is added to a front's audit-risk
+# multiplier per level (0.2: the boss that levels is audited 44 times
+# over ten seeds against 36 without levels, never fewer on a seed,
+# TestLevelsDrawTheAuditors; 0.1 read 47 against 39); legit_ratio is how many times
+# its own income a front's day's wash may be before the books stop
+# explaining it (the risk is scaled by the excess: a levelled front whose
+# income covers the wash reads the file, a big washer with a token level
+# is the one the audit finds; a front with no level reads the file
+# exactly, the pre-#192 front); headline_level is the level whose
+# reaching makes the paper (FrontGrew: pressure in law.toml [pressure]
+# front_grew, notoriety off the headline).
+[growth]
+audit_level = 0.2
+legit_ratio = 3.0
+headline_level = 3
+
 # The fronts. cost is paid in dirty cash, once. throughput is dirty cash
 # washed per day at the normal dial. upkeep is clean cash per day; unpaid,
 # the place shuts. audit_risk is the chance per day of an audit at the
 # normal dial. unlock_cash gates the offer on peak cash, like products.
 # Sized so the whole ladder washes ~$380k/day: a tier-3 operation wants the
 # first four, a tier-4 one the rest.
+#
+# The levels (#192): level_cost is the first level's price in clean cash,
+# income what it earns a day in clean cash, dirty or no dirty; each level
+# after it costs and earns level_mul times the one before, and the
+# front's throughput and upkeep are level_mul times per level. Income
+# is level_cost / 100: a level pays itself back in 100 days at any level
+# of any front, inside tier 3's 120 (TestLevelledLaundromatPaysBack).
+# The ladder is eight levels a front, $260M in all, far more than the
+# boss can buy by day 200 with the cheapest next level always under a
+# few million, so the pile drains at the rate it grows (#191): the boss
+# ends day 200 with a quarter of the $30M clean it held before ($8.2M,
+# the median of ten seeds, a campaign's worth of it kept for the town),
+# $37M in levels earning $327k/day net, the
+# wash ladder's own scale (TestBossPileDrains).
 [[front]]
 id = "laundromat"
 name = "Laundromat"
@@ -38,6 +69,10 @@ throughput = 2000
 upkeep = 150
 audit_risk = 0.004
 unlock_cash = 25000
+income = 1000
+level_cost = 100000
+level_mul = 1.2
+max_level = 8
 
 [[front]]
 id = "carwash"
@@ -47,6 +82,10 @@ throughput = 5000
 upkeep = 400
 audit_risk = 0.006
 unlock_cash = 60000
+income = 2000
+level_cost = 200000
+level_mul = 1.2
+max_level = 8
 
 [[front]]
 id = "restaurant"
@@ -56,6 +95,10 @@ throughput = 12000
 upkeep = 1000
 audit_risk = 0.008
 unlock_cash = 150000
+income = 5000
+level_cost = 500000
+level_mul = 1.2
+max_level = 8
 
 [[front]]
 id = "nightclub"
@@ -65,6 +108,10 @@ throughput = 30000
 upkeep = 3000
 audit_risk = 0.02
 unlock_cash = 400000
+income = 12000
+level_cost = 1200000
+level_mul = 1.2
+max_level = 8
 
 [[front]]
 id = "construction"
@@ -74,6 +121,10 @@ throughput = 80000
 upkeep = 8000
 audit_risk = 0.012
 unlock_cash = 1200000
+income = 40000
+level_cost = 4000000
+level_mul = 1.2
+max_level = 8
 
 [[front]]
 id = "exchange"
@@ -83,3 +134,7 @@ throughput = 250000
 upkeep = 25000
 audit_risk = 0.03
 unlock_cash = 3000000
+income = 100000
+level_cost = 10000000
+level_mul = 1.2
+max_level = 8

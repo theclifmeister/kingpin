@@ -81,9 +81,10 @@ type Funding struct {
 }
 
 var (
-	// ErrNoCleanCash means the player tried to fund a city with money the
-	// fronts have not washed yet: goodwill is only ever bought clean.
-	ErrNoCleanCash = errors.New("goodwill is bought with clean cash only")
+	// ErrNoCleanCash means the player tried to pay for something clean
+	// money buys (goodwill, a campaign, a front's level) with money the
+	// fronts have not washed yet: it is only ever bought clean.
+	ErrNoCleanCash = errors.New("clean cash only, and the fronts have washed none")
 	// ErrCampaignClosed means the next election is too far off for a
 	// ticket to take money (#193): campaigns open open_days before it.
 	ErrCampaignClosed = errors.New("no campaign is taking money yet")
