@@ -219,6 +219,10 @@ func (s *Sim) Step(w *game.World, t *game.Tick) {
 			if slices.Contains(src.Hard, ev.Product) {
 				units[ev.City] += ev.Units
 			}
+		case events.Overdose:
+			// Bad product on your corner (#47) is the city's story: it
+			// is pressure where it happened and never a page (#27).
+			gain[ev.City] += src.Overdose
 		}
 	}
 	if src.HardUnits > 0 {

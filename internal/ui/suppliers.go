@@ -150,6 +150,17 @@ func (m *Model) supplierSections(sup *game.Supplier) []section {
 		sel = append(sel, row("", theme.Subtle.Render(fmt.Sprintf("under it ×%.2g a unit", sup.SmallLot))))
 	}
 	sel = append(sel, row("today", fmt.Sprintf("%d of %d left", sup.Left(), sup.Cap)))
+	// What they sell is as good as the file says (#47): named where it
+	// is not the default for a product they deal in.
+	var graded []string
+	for _, id := range w.Products {
+		if q := sup.QualityOf(w, id); sup.Sells(id) && q != w.StreetQuality() {
+			graded = append(graded, fmt.Sprintf("%s %.0f", w.ProductName(id), q))
+		}
+	}
+	if len(graded) > 0 {
+		sel = append(sel, row("quality", strings.Join(graded, ", ")))
+	}
 	if len(sup.Products) > 0 {
 		var names []string
 		for _, id := range sup.Products {

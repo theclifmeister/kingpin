@@ -79,6 +79,9 @@ func (s *Sim) Step(w *game.World, t *game.Tick) {
 			// Word gets round that you did not deliver.
 			respect -= ev.Respect
 			notoriety += ev.Notoriety
+		case events.Overdose:
+			// The paper names the block, the block names you (#47).
+			notoriety += s.cfg.Notoriety.Overdose
 		}
 	}
 	if s.cfg.Notoriety.Units > 0 {

@@ -335,13 +335,14 @@ func TestSaveMigratesTheOneCity(t *testing.T) {
 	// The steps past 7 are other packages' (the rival's trust, #32; the
 	// chief and the DA, #41) or the fall guy's count (#117); the chain
 	// only needs to reach the current schema.
-	got, err := Load(1, Migration{From: 6, Apply: func(w *World) { w.MigrateCities(home) }}, Migration{From: 7, Apply: func(*World) {}}, Migration{From: 8, Apply: func(*World) {}}, Migration{From: 9, Apply: MigrateFallGuys}, Migration{From: 10, Apply: func(*World) {}}, Migration{From: 11, Apply: MigrateHouses})
+	got, err := Load(1, Migration{From: 6, Apply: func(w *World) { w.MigrateCities(home) }}, Migration{From: 7, Apply: func(*World) {}}, Migration{From: 8, Apply: func(*World) {}}, Migration{From: 9, Apply: MigrateFallGuys}, Migration{From: 10, Apply: func(*World) {}}, Migration{From: 11, Apply: MigrateHouses}, Migration{From: 12, Apply: func(w *World) { w.MigrateLots(50, 1) }})
 	if err != nil {
 		t.Fatal(err)
 	}
 	if got.SchemaVersion != SchemaVersion || got.Day != 3 || got.Player.Location != "test" || len(got.CityOrder) != 1 || got.CityOrder[0] != "test" {
 		t.Fatalf("migrated: schema %d day %d location %q order %v", got.SchemaVersion, got.Day, got.Player.Location, got.CityOrder)
 	}
+	fresh.MigrateLots(50, 1) // the 12 -> 13 stamp the fresh world would get from its market sim (#47)
 	if !reflect.DeepEqual(got.Home().Market, fresh.Home().Market) || !reflect.DeepEqual(got.Home().Corners, fresh.Home().Corners) || got.Home().Heat != 21.5 {
 		t.Fatalf("home city:\n%+v\n%+v", got.Home(), fresh.Home())
 	}

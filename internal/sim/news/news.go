@@ -236,7 +236,7 @@ func (s *Sim) Step(w *game.World, t *game.Tick) {
 	}
 
 	// Money before we look at events: sales are already applied by market.
-	var soldRevenue, lostCash, spent, wages, skimmed, robbed, upgrades, upkeep, seized, paidOff, investigated, shipping, tribute, cuts, standingCut, funded, backed, contracts, forfeits, repaid, rent, earned, invested int
+	var soldRevenue, lostCash, spent, wages, skimmed, robbed, upgrades, upkeep, seized, paidOff, investigated, shipping, tribute, cuts, standingCut, funded, backed, contracts, forfeits, repaid, rent, earned, invested, cutting, cooking int
 	var scouted, poached, boosted int // the books (#70): what a scout and a buy-off cost, less the refund, and what a boost took
 	routeCost := map[string]int{}     // what each route cost today, lots and fares, by name in the order first seen
 	var routeOrder []string
@@ -905,6 +905,36 @@ func (s *Sim) Step(w *game.World, t *game.Tick) {
 			d.Name = ev.Name
 			addHouses("territory", "HouseLost", d)
 			rep.Territory = append(rep.Territory, fmt.Sprintf("The landlord threw you out of %s%s: %s gone with it. The rent went unpaid.", ev.Name, in(ev.City), format.Plural(ev.Units, "unit")))
+		case events.Overdose:
+			// The city's story (#47): a headline naming the corner, off
+			// the overdoses' own stream, and a LAW line, since the
+			// pressure is what it costs you; never a page.
+			d := at(ev.City)
+			d.Product = w.ProductName(ev.Product)
+			d.Corner = ev.CornerName
+			if d.Corner == "" {
+				d.Corner = "a " + d.City + " corner"
+			}
+			addOff("overdose:news", "overdose", "Overdose", d)
+			where := ev.CornerName
+			if where == "" {
+				where = "your corners"
+			}
+			rep.Law = append(rep.Law, fmt.Sprintf("OVERDOSE on %s%s: somebody went down on your %s (quality %.0f). The city is talking, the DA is listening.", where, in(ev.City), w.ProductName(ev.Product), ev.Quality))
+		case events.StockCut:
+			cutting += ev.Cost
+			hand := ""
+			if ev.Chemist != "" {
+				hand = ", " + ev.Chemist + "'s hand on it"
+			}
+			rep.Sales = append(rep.Sales, fmt.Sprintf("Cut %d %s into %d%s: quality %.0f → %.0f%s = -%s", ev.Units, w.ProductName(ev.Product), ev.Units+ev.Added, in(ev.City), ev.From, ev.To, hand, format.Money(ev.Cost)))
+			rep.Money = append(rep.Money, fmt.Sprintf("Cutting %s -%s", w.ProductName(ev.Product), format.Money(ev.Cost)))
+		case events.CookOrdered:
+			cooking += ev.Cost
+			rep.Crew = append(rep.Crew, fmt.Sprintf("%s is cooking %d %s%s: quality %.0f, ready in %s = -%s", ev.Chemist, ev.Units, w.ProductName(ev.Product), in(ev.City), ev.Quality, format.Plural(ev.Days, "day"), format.Money(ev.Cost)))
+			rep.Money = append(rep.Money, fmt.Sprintf("Precursors for %s -%s", w.ProductName(ev.Product), format.Money(ev.Cost)))
+		case events.Cooked:
+			rep.Crew = append(rep.Crew, fmt.Sprintf("%s's batch landed%s: %d %s at quality %.0f, paid %s on the order.", ev.Chemist, in(ev.City), ev.Units, w.ProductName(ev.Product), ev.Quality, format.Money(ev.Cost)))
 		case events.RentPaid:
 			rent += ev.Amount
 			if ev.Amount > 0 {
@@ -960,7 +990,7 @@ func (s *Sim) Step(w *game.World, t *game.Tick) {
 		spent += m.Fee
 		rep.Money = append(rep.Money, fmt.Sprintf("Signing fee for %s -%s", m.Name, format.Money(m.Fee)))
 	}
-	rep.CashBefore = w.Cash() - soldRevenue - contracts + forfeits + lostCash + spent + wages + skimmed + robbed + upgrades + upkeep + seized + paidOff + investigated + shipping + tribute + cuts + funded + backed + repaid + rent + scouted + poached - boosted - earned + invested
+	rep.CashBefore = w.Cash() - soldRevenue - contracts + forfeits + lostCash + spent + wages + skimmed + robbed + upgrades + upkeep + seized + paidOff + investigated + shipping + tribute + cuts + funded + backed + repaid + rent + scouted + poached - boosted - earned + invested + cutting + cooking
 	if soldRevenue > 0 {
 		rep.Money = append(rep.Money, fmt.Sprintf("Street sales +%s", format.Money(soldRevenue)))
 	}
@@ -1136,6 +1166,10 @@ func saleLine(w *game.World, ev events.PlayerSold) string {
 	}
 	if ev.Sold == 0 {
 		return fmt.Sprintf("%-8s wanted %d, sold none (%s%s)", w.ProductName(ev.Product), ev.Wanted, ev.Dial, who)
+	}
+	// The quality's mark on the price (#47), only where it left one.
+	if ev.QualityMul > 0 && math.Abs(ev.QualityMul-1) >= 0.005 {
+		who += fmt.Sprintf(", quality %.0f ×%.2f", ev.Quality, ev.QualityMul)
 	}
 	return fmt.Sprintf("%-8s sold %d/%d at %s avg = +%s (%s%s)", w.ProductName(ev.Product), ev.Sold, ev.Wanted, format.Price(ev.AvgPrice), format.Money(ev.Revenue), ev.Dial, who)
 }

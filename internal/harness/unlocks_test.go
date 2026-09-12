@@ -48,12 +48,16 @@ func gatesOpen(cfg *content.Config, set *sim.Set, w *game.World) gates {
 	if crew.LieutenantsWanted(w) {
 		g["role:lieutenant"] = true
 	}
+	if set.Crew.ChemistsWanted(w) {
+		g["role:chemist"] = true // #47: meth on the ladder
+	}
 	return g
 }
 
 // TestEveryGateIsAnnounced runs the boss over five seeds and pins that
 // every morning a product lists, a connect opens, a front's Locked
-// flips, or the accountant or the lieutenant joins the pool, the tick's
+// flips, or the accountant, the lieutenant or the chemist (#47) joins
+// the pool, the tick's
 // events carry exactly one Unlocked for it, the report's UNLOCKED
 // section names it and the journal has one headline for it under the
 // unlock source; and that no other morning carries one.

@@ -197,7 +197,7 @@ func TestLieutenantWalks(t *testing.T) {
 		t.Fatal(err)
 	}
 	res.World.Today.HousesBought = nil
-	res.World.AddStock(hub, cfg.Market.Products[0].ID, 150)
+	res.World.AddStock(hub, cfg.Market.Products[0].ID, 150, 0)
 	if res.World.House("hubhouse").Units() != 150 {
 		t.Fatal("the stock did not go into the house")
 	}

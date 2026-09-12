@@ -34,6 +34,7 @@ headline_sources = ["heat", "crew", "territory", "laundering"] # ... which is on
                             # are the city's news, the rival's story is its own; strikes are counted above)
 strike_taken = 4            # violence is news
 strike_held = 2
+overdose = 3                # an overdose on your corner (#47): the paper names the block, the block names you
 
 # What the other sims read, each from its own step. Every knob is the
 # effect at the axis's full 100; it scales linearly from nothing at 0.

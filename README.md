@@ -211,7 +211,7 @@ what your enforcers' chances look like:
 
 <!-- capture:map-120x40 -->
 ```text
- KINGPIN  1 Dash  2 Market  3 Journal 17  4 Crew  5 Map  6 Upgr  7 Ledger  8 Rivals       Day 4 · dirty $452K · heat 12
+ KINGPIN  1 Dash  2 Market  3 Journal 18  4 Crew  5 Map  6 Upgr  7 Ledger  8 Rivals       Day 4 · dirty $452K · heat 12
 MAP · Eastside  [ ◉ Eastside ]  Bayport  3/10 held · 3 worked · ~1828/day free      ╭─ DETAILS ────────────────────────╮
  ▴ THE DOCKS         ▪ RAIL YARD         ▪ OLD MILL                                 │ THE DOCKS                        │
    theirs              Dre                 Gato ⚔ Moose                             │ Mona's since day 0               │
@@ -360,6 +360,8 @@ The full table is below; `?` brings it up in the game.
 | `←→` | city | turn the market to the other city | market |
 | `a` | accept | take the buyer's offer | market |
 | `x` | decline | turn the buyer's offer down | market |
+| `t` | cut | cut a product in the stash where you stand | market |
+| `o` | cook | the chemist cooks a batch where you stand | market |
 | `d` | deliver | hand the buyer what the stash here holds | market |
 | `pgup pgdn` | page | page through the journal | journal |
 | `f` | filter | show one source's headlines, then all again | journal |
