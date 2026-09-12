@@ -121,19 +121,25 @@ func (w *World) SuppliedToday() (units, cost int) {
 }
 
 // Bought is how many units of a product the player has bought in a city
-// today and still holds the receipt for: what Return can take back. It
-// counts the buys made by hand; SuppliedIn counts a contract's.
-func (w *World) Bought(city, product string) int { return w.receipts(city, product, false) }
+// today for cash and still holds the receipt for: what Return can take
+// back. SuppliedIn counts a contract's, Booked what went on a connect's
+// book.
+func (w *World) Bought(city, product string) int { return w.receipts(city, product, false, false) }
+
+// Booked is how many units of a product the player has taken on credit
+// in a city today and still holds the receipt for (#72): what
+// ReturnCredit can take back.
+func (w *World) Booked(city, product string) int { return w.receipts(city, product, false, true) }
 
 // SuppliedIn is how many units of a product the supply contract bought
 // in a city this morning and still holds the receipt for: what
 // ReturnSupplied can take back.
-func (w *World) SuppliedIn(city, product string) int { return w.receipts(city, product, true) }
+func (w *World) SuppliedIn(city, product string) int { return w.receipts(city, product, true, false) }
 
-func (w *World) receipts(city, product string, contract bool) int {
+func (w *World) receipts(city, product string, contract, credit bool) int {
 	n := 0
 	for _, b := range w.Buys {
-		if b.City == city && b.Product == product && b.Contract == contract {
+		if b.City == city && b.Product == product && b.Contract == contract && b.Credit == credit {
 			n += b.Qty
 		}
 	}
@@ -151,17 +157,24 @@ func (w *World) receipts(city, product string, contract bool) int {
 // to return. It reports what was refunded. It takes back the buys made
 // by hand; ReturnSupplied takes back a contract's.
 func (w *World) Return(city, product string, qty int) (int, error) {
-	return w.giveBack(city, product, qty, false)
+	return w.giveBack(city, product, qty, false, false)
+}
+
+// ReturnCredit is Return for what went on a connect's book today (#72):
+// the units go back and the debt comes down by what they were put on
+// it for; nothing comes into the till, so it reports zero.
+func (w *World) ReturnCredit(city, product string, qty int) (int, error) {
+	return w.giveBack(city, product, qty, false, true)
 }
 
 // ReturnSupplied is Return for what the supply contract bought this
 // morning (#113): the units go back at the price the contract paid.
 // The supplier price is left alone, the market having reset it since.
 func (w *World) ReturnSupplied(city, product string, qty int) (int, error) {
-	return w.giveBack(city, product, qty, true)
+	return w.giveBack(city, product, qty, true, false)
 }
 
-func (w *World) giveBack(city, product string, qty int, contract bool) (int, error) {
+func (w *World) giveBack(city, product string, qty int, contract, credit bool) (int, error) {
 	if w.Over != nil {
 		return 0, ErrGameOver
 	}
@@ -172,7 +185,7 @@ func (w *World) giveBack(city, product string, qty int, contract bool) (int, err
 	if m == nil {
 		return 0, ErrUnknownProduct
 	}
-	if bought := w.receipts(city, product, contract); bought == 0 {
+	if bought := w.receipts(city, product, contract, credit); bought == 0 {
 		return 0, ErrNothingBought
 	} else if qty > bought {
 		return 0, fmt.Errorf("only %d %s bought in %s today", bought, w.ProductName(product), w.CityName(city))
@@ -184,7 +197,7 @@ func (w *World) giveBack(city, product string, qty int, contract bool) (int, err
 	left := qty
 	for i := len(w.Buys) - 1; i >= 0 && left > 0; i-- {
 		b := &w.Buys[i]
-		if b.City != city || b.Product != product || b.Contract != contract {
+		if b.City != city || b.Product != product || b.Contract != contract || b.Credit != credit {
 			continue
 		}
 		back := min(left, b.Qty)

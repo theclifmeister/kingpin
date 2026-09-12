@@ -446,12 +446,34 @@ func (m *Model) ledgerRouteSection(r content.RouteConfig) section {
 	// The map's key rows come off: the ledger's keys are its own.
 	lines := sec.lines[:len(sec.lines)-2]
 	lots, fares := w.Logistics.RouteSpend(r.ID, w.Day, 7)
+	lines = append(lines, m.buysFromRow(r)...)
 	lines = append(lines,
 		row("this week", fmt.Sprintf("lots %s · fares %s", cash(lots), cash(fares))),
 		row("lost", plural(w.Logistics.Lost[r.ID], "unit")+" on the road"))
 	lines = append(lines, wrapped(theme.Subtle, fmt.Sprintf("The road spends what is over %s dirty.", cash(m.set.Laundering.Float(w))))...)
 	lines = append(lines, keyRow("enter", "turn the dial"))
 	return section{sec.title, lines}
+}
+
+// buysFromRow names the connect a route buys its lots from (#72): the
+// wholesaler at its source, with the lot and where they stand, or that
+// nobody there sells by the lot.
+func (m *Model) buysFromRow(r content.RouteConfig) []string {
+	w := m.w
+	sup := w.WholesaleSupplier(r.From)
+	if sup == nil {
+		return []string{row("buys from", theme.Subtle.Render("nobody: the stash there"))}
+	}
+	state := fmt.Sprintf("lots of %d", sup.Lot)
+	switch {
+	case sup.Frozen(w.Day):
+		state = theme.Bad.Render(fmt.Sprintf("not taking calls, %dd", sup.FrozenUntil-w.Day))
+	case sup.Locked(w):
+		state = theme.Subtle.Render("once " + cash(sup.UnlockCash) + " is moved")
+	case sup.Left() == 0:
+		state = theme.Warning.Render("nothing left today")
+	}
+	return []string{row("buys from", sup.Name+sep+state)}
 }
 
 // offerSection is an offer's detail: what it costs, washes and keeps,

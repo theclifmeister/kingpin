@@ -111,12 +111,13 @@ func (m *Model) openDialog(mode mode) {
 	}
 	m.dlg = dialog{qty: newNumberField("blank = max"), dial: events.DialNormal}
 	if mode == modeBuy {
-		// The connects where you stand that sell you something today
-		// (#72): none, and there is nothing to open on; one, and it is
-		// the buy's; more, and the first step picks.
+		// The connects where you stand that are dealing today (#72):
+		// none, and there is nothing to open on; one, and it is the
+		// buy's, the product step saying what you cannot afford; more,
+		// and the first step picks.
 		var open []int
 		for i, sup := range m.connectsHere() {
-			if m.sellsYou(sup) {
+			if m.dealing(sup) {
 				open = append(open, i)
 			}
 		}
@@ -363,6 +364,18 @@ func (m *Model) productErr() string {
 // counts into.
 func (m *Model) connectsHere() []*game.Supplier { return m.w.SuppliersIn(m.w.Player.Location) }
 
+// dealing reports whether a connect is open for business with you
+// today: unlocked, taking calls, with something left and a product to
+// sell here.
+func (m *Model) dealing(sup *game.Supplier) bool {
+	for _, id := range m.w.Products {
+		if m.w.Available(sup, id) {
+			return true
+		}
+	}
+	return false
+}
+
 // sellsYou reports whether a connect sells you anything today: some
 // product is available from them and you could take at least a unit of
 // it, for cash or on their book.
@@ -375,18 +388,15 @@ func (m *Model) sellsYou(sup *game.Supplier) bool {
 	return false
 }
 
-// whyNobodySells is the refusal when no connect where you stand sells
-// you anything today: frozen, locked, out of stock for the day, or the
-// bag and the stash.
+// whyNobodySells is the refusal when no connect where you stand is
+// dealing today: nobody here, frozen, out of stock for the day, or
+// locked.
 func (m *Model) whyNobodySells() string {
 	w := m.w
 	city := w.Player.Location
 	cs := m.connectsHere()
 	if len(cs) == 0 {
 		return "nobody sells in " + w.CityName(city)
-	}
-	if w.Free(city) <= 0 {
-		return "the stash in " + w.CityName(city) + " is full"
 	}
 	for _, sup := range cs {
 		if sup.Frozen(w.Day) {
@@ -398,7 +408,7 @@ func (m *Model) whyNobodySells() string {
 			return sup.Name + " has nothing left today"
 		}
 	}
-	return "you can't afford a unit from anyone in " + w.CityName(city)
+	return "nobody in " + w.CityName(city) + " will deal with you yet"
 }
 
 // buySupplier is the connect the buy dialog buys a product from: the

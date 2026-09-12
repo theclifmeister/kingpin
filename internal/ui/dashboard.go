@@ -48,6 +48,7 @@ const (
 	priRuns
 	priRoad
 	priContracts
+	priDebt
 	priCrew
 	priStrike
 	priPatrol
@@ -134,6 +135,9 @@ func (m *Model) streetLines(innerW, maxLines int, narrow, withRoad bool) []strin
 	}
 	if line := m.supplyLine(); line != "" {
 		topic(fact{line, priSupply})
+	}
+	if line := m.debtLine(); line != "" {
+		topic(fact{line, priDebt})
 	}
 	if line := m.runsLine(); line != "" {
 		topic(fact{theme.CrewText.Render(line), priRuns})
@@ -508,6 +512,7 @@ func (m *Model) alerts() []alert {
 		out = append(out, newAlert(theme.Bad.Bold(true).Render("Somebody is talking.")+theme.Bad.Render(" Investigate "+screenPointer(screenCrew)+"."), "somebody is talking"))
 	}
 	out = append(out, m.contractAlerts()...)
+	out = append(out, m.debtAlerts()...)
 	for _, r := range m.set.Heat.ThresholdsIn(w, here) {
 		if r.Level == "patrol" && here.Heat >= r.Threshold {
 			out = append(out, newAlert(theme.Bad.Render(fmt.Sprintf("Heat %.0f in %s is over the patrol line (%.0f).", here.Heat, here.Name, r.Threshold)), "heat in "+here.Name+" over the patrol line"))

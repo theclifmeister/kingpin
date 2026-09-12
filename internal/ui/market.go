@@ -140,8 +140,9 @@ func sparkCol(cols []col, rows [][]any, width int) {
 }
 
 // viewMarket is the market's MAIN (#84): the title with the city tabs,
-// the product table for the city shown, a blank, and the buyers there.
-// Nothing else: the product's detail and the notes are the pane's.
+// the product table for the city shown, a blank, the buyers there, a
+// blank, and the connects there (#72). Nothing else: the product's
+// detail and the notes are the pane's.
 func (m *Model) viewMarket() string {
 	city := m.shown()
 	width := m.mainWidth()
@@ -157,6 +158,12 @@ func (m *Model) viewMarket() string {
 	// table; the detail of the product or the contract under the cursor
 	// is the pane's.
 	for _, l := range m.buyersLines() {
+		b.WriteString(l + "\n")
+	}
+	b.WriteString("\n")
+	// The connects (#72): who sells here, at what, and where you stand
+	// with them; the detail is the pane's.
+	for _, l := range m.suppliersLines() {
 		b.WriteString(l + "\n")
 	}
 	return b.String()
@@ -175,6 +182,9 @@ func (m *Model) marketDetails() []section {
 	here := city.ID == w.Player.Location
 	if c := m.selectedContract(); c != nil {
 		return m.contractSections(*c)
+	}
+	if sup := m.selectedSupplier(); sup != nil {
+		return m.supplierSections(sup)
 	}
 	if m.cursor >= len(w.Products) {
 		return nil
@@ -214,8 +224,11 @@ func (m *Model) marketDetails() []section {
 	}
 	sel = append(sel, m.standingRows(city.ID, id)...)
 	sel = append(sel, m.contractRows(city.ID, id)...)
-	if len(m.buyerRows()) > 0 {
+	switch {
+	case len(m.buyerRows()) > 0:
 		sel = append(sel, keyRow("↓", "past the table reaches the buyers"))
+	case len(m.supplierRows()) > 0:
+		sel = append(sel, keyRow("↓", "past the table reaches the connects"))
 	}
 	secs := append(m.cartSection(city.ID), section{strings.ToUpper(p.Name) + " · " + strings.ToUpper(city.Name), sel}) // the cart first, so the strip carries its totals (#103)
 	// The other city's price is what a route is worth.
