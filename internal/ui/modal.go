@@ -40,12 +40,19 @@ func (m *Model) modalRoom() int { return max(1, m.bodyHeight()-modalTop-6) }
 // modal draws the box. The body is shown from m.modalScroll, clamped so
 // the last line is never scrolled past the room.
 func (m *Model) modal(title string, body []string, footer []binding) string {
+	return m.modalTitled(theme.Title.Render(ansi.Truncate(strings.ToUpper(title), m.modalInner(), "…")), body, footer)
+}
+
+// modalTitled is the modal with its title row already rendered: a
+// scene's animated title (#157's stage prints it in) where modal's is
+// the caps in theme.Title. Everything else is modal's.
+func (m *Model) modalTitled(title string, body []string, footer []binding) string {
 	inner := m.modalInner()
 	room := m.modalRoom()
 	last := max(0, len(body)-room)
 	m.modalScroll = max(0, min(m.modalScroll, last))
 	var b strings.Builder
-	b.WriteString(theme.Title.Render(ansi.Truncate(strings.ToUpper(title), inner, "…")) + "\n\n")
+	b.WriteString(ansi.Truncate(title, inner, "…") + "\n\n")
 	for _, l := range body[m.modalScroll:min(len(body), m.modalScroll+room)] {
 		b.WriteString(ansi.Truncate(l, inner, "…") + "\n")
 	}
