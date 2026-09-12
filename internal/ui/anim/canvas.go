@@ -2,8 +2,10 @@ package anim
 
 import (
 	"strings"
+	"sync"
 
 	"github.com/charmbracelet/lipgloss"
+	"github.com/muesli/termenv"
 
 	"github.com/theclifmeister/kingpin/internal/ui/theme"
 )
@@ -54,7 +56,10 @@ func (c *Canvas) Lines() []string {
 			if col == "" {
 				b.WriteString(string(run))
 			} else {
-				b.WriteString(theme.Fg(col).Render(string(run)))
+				open, close := styleOf(col)
+				b.WriteString(open)
+				b.WriteString(string(run))
+				b.WriteString(close)
 			}
 			run = run[:0]
 		}
@@ -73,4 +78,39 @@ func (c *Canvas) Lines() []string {
 		out[y] = b.String()
 	}
 	return out
+}
+
+// styles caches what theme.Fg(colour).Render wraps a run in, per colour
+// and colour profile, so a frame with thousands of runs (the matrix's
+// rain at 120x40) costs a map lookup a run rather than a lipgloss
+// render each. The cache is behaviour for behaviour what Render does
+// to a single line with no tabs: the profile's escape before the run
+// and the reset after it, or nothing under an ASCII profile.
+var styles struct {
+	sync.Mutex
+	profile termenv.Profile
+	m       map[lipgloss.Color][2]string
+}
+
+// styleOf is the open and close sequence of a colour under the current
+// profile, rendered once through theme.Fg and split round a marker.
+func styleOf(col lipgloss.Color) (open, close string) {
+	styles.Lock()
+	defer styles.Unlock()
+	if p := lipgloss.ColorProfile(); styles.m == nil || styles.profile != p {
+		styles.m = map[lipgloss.Color][2]string{}
+		styles.profile = p
+	}
+	if s, ok := styles.m[col]; ok {
+		return s[0], s[1]
+	}
+	const marker = "\x00"
+	rendered := theme.Fg(col).Render(marker)
+	i := strings.Index(rendered, marker)
+	if i < 0 {
+		return "", ""
+	}
+	s := [2]string{rendered[:i], rendered[i+len(marker):]}
+	styles.m[col] = s
+	return s[0], s[1]
 }

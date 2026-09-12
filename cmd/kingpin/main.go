@@ -6,12 +6,14 @@ import (
 	"flag"
 	"fmt"
 	"os"
+	"strings"
 
 	tea "github.com/charmbracelet/bubbletea"
 
 	"github.com/theclifmeister/kingpin/internal/content"
 	"github.com/theclifmeister/kingpin/internal/game"
 	"github.com/theclifmeister/kingpin/internal/ui"
+	"github.com/theclifmeister/kingpin/internal/ui/anim"
 )
 
 func main() {
@@ -20,7 +22,13 @@ func main() {
 	flag.Parse()
 	// The scenes are on unless the flag or the environment says
 	// otherwise (#152): any value in KINGPIN_NO_ANIM turns them off.
-	opts := ui.Options{Anim: !*noAnim && os.Getenv("KINGPIN_NO_ANIM") == ""}
+	// KINGPIN_ANIM_EFFECT pins the title loop's effect by name (#153),
+	// for review; an unknown name is refused with the set.
+	opts := ui.Options{Anim: !*noAnim && os.Getenv("KINGPIN_NO_ANIM") == "", Effect: os.Getenv("KINGPIN_ANIM_EFFECT")}
+	if e, ok := anim.Effects[opts.Effect]; opts.Effect != "" && (!ok || !e.Needs.Text) {
+		fmt.Fprintf(os.Stderr, "kingpin: KINGPIN_ANIM_EFFECT=%q is not one of %s\n", opts.Effect, strings.Join(anim.TitleEffects(), ", "))
+		os.Exit(1)
+	}
 	cfg, err := content.Load()
 	if err != nil {
 		fmt.Fprintln(os.Stderr, "kingpin: bad content:", err)

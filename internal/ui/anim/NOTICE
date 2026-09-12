@@ -16,6 +16,21 @@ function of time over the game's palette and scales the timing to the
 scene, and originates none of the art.
 
     decrypt    effects/effect_decrypt.py, src/effects/decrypt.rs
+    print      effects/effect_print.py,   src/effects/print_effect.rs
+    wipe       effects/effect_wipe.py,    src/effects/wipe.rs
+    slide      effects/effect_slide.py,   src/effects/slide.rs
+    pour       effects/effect_pour.py,    src/effects/pour.rs
+    rain       effects/effect_rain.py,    src/effects/rain.rs
+    beams      effects/effect_beams.py,   src/effects/beams.rs
+    burn       effects/effect_burn.py,    src/effects/burn.rs
+    vhstape    effects/effect_vhstape.py, src/effects/vhstape.rs
+    matrix     effects/effect_matrix.py,  src/effects/matrix.rs
+    easing     utils/easing.py,           src/utils/easing.rs
+
+The curtain is wipe's colour-only mode, and the beams' closing sheen
+follows the band of light in Omarchy's About animation
+(bin/omarchy-branding-about-animation in basecamp/omarchy, MIT License,
+Copyright (c) David Heinemeier Hansson), written fresh here.
 
 MIT License
 

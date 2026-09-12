@@ -331,3 +331,55 @@ func TestTitleLoopIsTheMenuOtherwise(t *testing.T) {
 		t.Fatalf("continuing slot 2: cmd %v scene %v mode %v slot %d", cmd, on.scene, on.mode, on.slot)
 	}
 }
+
+// TestTitleLoopCyclesTheEffects (#153): the start menu's loop plays a
+// different effect each pass, never the one before, every pass
+// resolving the art in gold; Options.Effect pins one for every pass;
+// and under 80x24 or with animation off nothing changes (the loop's
+// own test above).
+func TestTitleLoopCyclesTheEffects(t *testing.T) {
+	profile := lipgloss.ColorProfile()
+	lipgloss.SetColorProfile(0)
+	defer lipgloss.SetColorProfile(profile)
+	run := func(opts Options, passes int) []string {
+		m := newModelWith(t, 80, 24, opts)
+		onMenu(t, m)
+		now := time.Unix(1_700_000_000, 0)
+		var names []string
+		for pass := 0; pass < passes; pass++ {
+			names = append(names, m.titleEffect)
+			if m.scene == nil || m.scene.Pass() != pass {
+				t.Fatalf("pass %d: scene %v", pass, m.scene)
+			}
+			// The pass's clock starts on its first tick; at its length
+			// the art has settled; a tick past the rest is the next pass.
+			tickAt(m, now)
+			tickAt(m, now.Add(anim.TitleLength))
+			if !strings.Contains(m.View(), theme.Fg(theme.Money).Render("██")) {
+				t.Errorf("pass %d (%s): the art did not settle in gold", pass, m.titleEffect)
+			}
+			now = now.Add(anim.TitleLength + anim.TitleRest + anim.Frame)
+			tickAt(m, now)
+		}
+		return names
+	}
+	names := run(Options{Anim: true}, 8)
+	distinct := map[string]bool{}
+	for i, n := range names {
+		if _, ok := anim.Effects[n]; !ok || !anim.Effects[n].Needs.Text {
+			t.Errorf("pass %d played %q", i, n)
+		}
+		if i > 0 && n == names[i-1] {
+			t.Errorf("pass %d repeats %s", i, n)
+		}
+		distinct[n] = true
+	}
+	if len(distinct) < 3 {
+		t.Errorf("eight passes played only %v", names)
+	}
+	for i, n := range run(Options{Anim: true, Effect: "matrix"}, 3) {
+		if n != "matrix" {
+			t.Errorf("pinned to matrix, pass %d played %s", i, n)
+		}
+	}
+}
