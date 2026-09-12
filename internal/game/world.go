@@ -272,6 +272,7 @@ type CrewState struct {
 	FiredToday   []CrewMember
 	PaidOffToday []Payoff
 	Offered      map[string]bool // roles announced as looking for work (#148): accountant, lieutenant; nil is none
+	Leads        []Lead          // who went over to the rival last night, for the rivals sim to act on next step (#144); the crew sim writes it fresh every step and nothing else writes it
 }
 
 // CrewMember is one person on the payroll (or in the hiring pool). Stats are
@@ -477,6 +478,7 @@ func (k Known) Age(day int) int { return day - k.Day }
 // corner. War is how loud the fight has got, 0..100: past the crackdown
 // line the police clear both sides.
 type RivalState struct {
+	ID          string // faction id (#144): FactionRival today, seeded with the rival; read it through Faction, which resolves the zero id of an older save
 	Leader      string
 	Personality string  // expansionist, defensive, opportunist, chaotic
 	Supplier    float64 // its supplier price as a fraction of street; a better connect undercuts harder
@@ -490,7 +492,6 @@ type RivalState struct {
 	Claims      int     // lifetime counters for the run summary
 	Flips       int     // corners it took from the player
 	Tips        int
-	Leads       []Lead // what defectors brought it, to act on next step
 	LastClaim   int    // day it last chose a free corner to set up on (the tell, #69); 0 never (#60: the pace's cooldown)
 	LastStruck  int    // day the player's enforcers last went in; 0 never (#60: under attack it grows as fast as it can)
 	Eyeing      string // corner id it sets up on next step, the tell (#69); "" none. Post somebody on it first and the claim fails.
@@ -521,8 +522,19 @@ type RivalState struct {
 	AwayDay  int // day the last of them came back, or was sent away; the next returns away_days later
 }
 
+// Faction is the rival's faction id (#144): ID, or FactionRival for a
+// save from before ids carried one (the zero value), so no migration.
+func (r RivalState) Faction() string {
+	if r.ID == "" {
+		return FactionRival
+	}
+	return r.ID
+}
+
 // Lead is a crew member who went over to the rival: their name and the
-// corner they ran (empty if none), which they walk the rival onto.
+// corner they ran (empty if none), which they walk the rival onto. The
+// crew sim queues them on CrewState.Leads; the rivals sim acts on them
+// next step.
 type Lead struct {
 	Name   string
 	Corner string

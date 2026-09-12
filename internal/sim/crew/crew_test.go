@@ -1,6 +1,7 @@
 package crew_test
 
 import (
+	"reflect"
 	"testing"
 
 	"github.com/theclifmeister/kingpin/internal/content"
@@ -492,4 +493,100 @@ func abs(x float64) float64 {
 		return -x
 	}
 	return x
+}
+
+// factionWorld is the crew's test world with three corners at home, the
+// player on the first and the rival on the second (#144).
+func factionWorld(t *testing.T, cfg *content.Config) (*game.World, *crew.Sim) {
+	t.Helper()
+	w, s := world(t, cfg, 100_000)
+	w.Home().Corners = []game.Corner{
+		{ID: "home", City: "test", Name: "Home", Demand: 1, Heat: 1, Risk: 1, Owner: game.OwnerNone},
+		{ID: "docks", City: "test", Name: "Docks", X: 1, Demand: 1, Heat: 1, Risk: 1, Owner: game.OwnerRival, Faction: game.FactionRival, Since: 1},
+		{ID: "oldmill", City: "test", Name: "Old Mill", X: 2, Demand: 1, Heat: 1, Risk: 1, Owner: game.OwnerNone},
+	}
+	w.Rival = game.RivalState{ID: game.FactionRival, Leader: "Big Sal", Personality: "defensive", Cash: 1000, Muscle: 3, Arrived: 1}
+	if err := w.Post("home", game.You); err != nil {
+		t.Fatal(err)
+	}
+	return w, s
+}
+
+// A defector is a lead on the crew's own queue (#144): the crew sim
+// names the faction on the event, writes nothing into the rival, and
+// starts the queue afresh every step, so the rivals sim (which steps
+// first) reads last night's and only last night's.
+func TestDefectionQueuesALeadForTheRival(t *testing.T) {
+	cfg := content.MustLoad()
+	w, s := factionWorld(t, cfg)
+	w.Crew.Members = []game.CrewMember{{ID: 901, Name: "Vee", Role: "runner", Skill: 50, Loyalty: cfg.Crew.Crew.QuitThreshold, Greed: 90, Nerve: 50, Units: 100, Wage: 50}}
+	w.Crew.NextID = 901
+	if err := w.Post("oldmill", 901); err != nil {
+		t.Fatal(err)
+	}
+	rival := w.Rival
+	evs := step(w, s)
+	var defected *events.CrewDefected
+	for _, e := range evs {
+		if ev, ok := e.(events.CrewDefected); ok {
+			defected = &ev
+		}
+	}
+	if defected == nil || defected.Rival != "Big Sal" || defected.Faction != game.FactionRival || defected.Corner != "oldmill" {
+		t.Fatalf("defection %+v, want one naming the faction and the corner", defected)
+	}
+	if len(w.Crew.Leads) != 1 || w.Crew.Leads[0] != (game.Lead{Name: "Vee", Corner: "oldmill"}) {
+		t.Fatalf("leads %+v, want Vee's", w.Crew.Leads)
+	}
+	if !reflect.DeepEqual(w.Rival, rival) {
+		t.Fatalf("the crew sim wrote into the rival:\n%+v\n%+v", w.Rival, rival)
+	}
+	if c := w.Corner("oldmill"); !c.Held() || c.Runner != 0 {
+		t.Fatalf("the corner the night of the defection: %+v, want it held and unworked until the rival acts", c)
+	}
+	if step(w, s); w.Crew.Leads != nil {
+		t.Fatalf("leads %+v the step after, want the queue empty", w.Crew.Leads)
+	}
+}
+
+// A lieutenant's walk at home hands the corners to the rival tonight,
+// naming the faction on the corners and the event, and books the flip
+// with them: the one write into the rival outside its own sim, which
+// TestRivalStateHasOneWriter lists (lieutenant.go says why).
+func TestWalkHandsTheRivalTheCornersTonight(t *testing.T) {
+	cfg := content.MustLoad()
+	w, s := factionWorld(t, cfg)
+	w.Crew.Members = []game.CrewMember{
+		{ID: 901, Name: "Vee", Role: "runner", Skill: 50, Loyalty: 95, Greed: 5, Nerve: 90, Units: 100, Wage: 50},
+		{ID: 902, Name: "Mo", Role: "lieutenant", Personality: "steady", Skill: 50, Loyalty: 0, Greed: 5, Nerve: 50, Wage: 50},
+	}
+	w.Crew.NextID = 902
+	if err := w.Post("oldmill", 901); err != nil {
+		t.Fatal(err)
+	}
+	if err := w.Assign(902, "test"); err != nil {
+		t.Fatal(err)
+	}
+	evs := step(w, s)
+	var walked *events.LieutenantWalked
+	for _, e := range evs {
+		if ev, ok := e.(events.LieutenantWalked); ok {
+			walked = &ev
+		}
+	}
+	if walked == nil || walked.Rival != "Big Sal" || walked.Faction != game.FactionRival || len(walked.Corners) != 1 || walked.Corners[0] != "Old Mill" {
+		t.Fatalf("walk %+v, want Old Mill going to the rival, named", walked)
+	}
+	if c := w.Corner("oldmill"); c.Owner != game.OwnerRival || c.Faction != game.FactionRival || c.Runner != 0 || c.Since != w.Day {
+		t.Fatalf("the corner the night of the walk: %+v", c)
+	}
+	if c := w.Corner("home"); c.Owner != game.OwnerPlayer || c.Faction != "" || c.Runner != game.You {
+		t.Fatalf("the corner you stand on: %+v", c)
+	}
+	if r := w.Rival; r.Flips != 1 || r.LastFlip != w.Day || !r.Observed {
+		t.Fatalf("the flip was not booked the night of the walk: %+v", r)
+	}
+	if len(w.Crew.Leads) != 0 {
+		t.Fatalf("leads %+v after a walk, want none: the corners are already the rival's", w.Crew.Leads)
+	}
 }

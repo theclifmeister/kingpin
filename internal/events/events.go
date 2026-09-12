@@ -245,6 +245,7 @@ type CrewDefected struct {
 	Name       string
 	Role       string
 	Rival      string
+	Faction    string // faction id (#144); Rival is its leader's name, for the headline
 	Corner     string
 	CornerName string
 }
@@ -308,11 +309,12 @@ func (CornerClaimed) Kind() string { return "CornerClaimed" }
 // CornerLost records a corner going back to the street: nobody worked it
 // (idle) or the police cleared it in a crackdown, from either side.
 type CornerLost struct {
-	Day    int
-	Corner string
-	Name   string
-	Reason string // idle, crackdown
-	Owner  string // who lost it: player, rival
+	Day     int
+	Corner  string
+	Name    string
+	Reason  string // idle, crackdown
+	Owner   string // who lost it: player, rival
+	Faction string // which faction, when Owner is rival (#144); "" for the player
 }
 
 func (CornerLost) Kind() string { return "CornerLost" }
@@ -351,10 +353,11 @@ func (f Force) String() string {
 
 // RivalMovedIn is the rival faction's arrival: its first corner.
 type RivalMovedIn struct {
-	Day    int
-	Rival  string // leader's name
-	Corner string
-	Name   string
+	Day     int
+	Rival   string // leader's name
+	Faction string // faction id (#144)
+	Corner  string
+	Name    string
 }
 
 func (RivalMovedIn) Kind() string { return "RivalMovedIn" }
@@ -367,6 +370,7 @@ type CornerTaken struct {
 	Corner   string
 	Name     string
 	Rival    string
+	Faction  string // faction id (#144)
 	From     string // none, player
 	Handed   string
 	Pricewar bool // the push was its answer to a price war on a corner next door (#68)
@@ -377,10 +381,11 @@ func (CornerTaken) Kind() string { return "CornerTaken" }
 // RivalEyeing is the tell (#69): the rival has picked the free corner it
 // sets up on tomorrow. Post somebody on it tonight and the claim fails.
 type RivalEyeing struct {
-	Day    int
-	Rival  string
-	Corner string
-	Name   string
+	Day     int
+	Rival   string
+	Faction string // faction id (#144)
+	Corner  string
+	Name    string
 }
 
 func (RivalEyeing) Kind() string { return "RivalEyeing" }
@@ -388,10 +393,11 @@ func (RivalEyeing) Kind() string { return "RivalEyeing" }
 // RivalOutbid is a claim that failed: somebody was on the corner it
 // eyed when it came. No cash spent; a grudge held.
 type RivalOutbid struct {
-	Day    int
-	Rival  string
-	Corner string
-	Name   string
+	Day     int
+	Rival   string
+	Faction string // faction id (#144)
+	Corner  string
+	Name    string
 }
 
 func (RivalOutbid) Kind() string { return "RivalOutbid" }
@@ -402,7 +408,8 @@ type RivalPushed struct {
 	Corner   string
 	Name     string
 	Rival    string
-	Pricewar bool // the push was its answer to a price war on a corner next door (#68)
+	Faction  string // faction id (#144)
+	Pricewar bool   // the push was its answer to a price war on a corner next door (#68)
 }
 
 func (RivalPushed) Kind() string { return "RivalPushed" }
@@ -412,24 +419,26 @@ func (RivalPushed) Kind() string { return "RivalPushed" }
 // nerve loses over it (the crew sim scales it by nerve); Routed means it
 // was the rival's last corner.
 type CornerStruck struct {
-	Day    int
-	Corner string
-	Name   string
-	Rival  string
-	Force  Force
-	Taken  bool
-	Routed bool
-	Heat   float64
-	Toll   float64
+	Day     int
+	Corner  string
+	Name    string
+	Rival   string
+	Faction string // faction id (#144)
+	Force   Force
+	Taken   bool
+	Routed  bool
+	Heat    float64
+	Toll    float64
 }
 
 func (CornerStruck) Kind() string { return "CornerStruck" }
 
 // RivalTippedPolice is the rival calling the cops on the player: heat.
 type RivalTippedPolice struct {
-	Day   int
-	Rival string
-	Heat  float64
+	Day     int
+	Rival   string
+	Faction string // faction id (#144)
+	Heat    float64
 }
 
 func (RivalTippedPolice) Kind() string { return "RivalTippedPolice" }
@@ -439,6 +448,7 @@ func (RivalTippedPolice) Kind() string { return "RivalTippedPolice" }
 type RivalUndercut struct {
 	Day     int
 	Rival   string
+	Faction string   // faction id (#144)
 	Corners []string // corner names
 	Share   float64
 }
@@ -870,6 +880,7 @@ type DealOffered struct {
 	Day     int
 	ID      int
 	Rival   string
+	Faction string // faction id (#144)
 	Deal    string // truce, tribute, split
 	Terms   string
 	Expires int // last day it can be accepted
@@ -882,6 +893,7 @@ func (DealOffered) Kind() string { return "DealOffered" }
 type DealAccepted struct {
 	Day     int
 	Rival   string
+	Faction string // faction id (#144)
 	Deal    string
 	Terms   string
 	Until   int // last day it runs; 0 for a deal with no end
@@ -892,10 +904,11 @@ func (DealAccepted) Kind() string { return "DealAccepted" }
 
 // DealRefused is the rival turning the player's proposal down.
 type DealRefused struct {
-	Day   int
-	Rival string
-	Deal  string
-	Terms string
+	Day     int
+	Rival   string
+	Faction string // faction id (#144)
+	Deal    string
+	Terms   string
 }
 
 func (DealRefused) Kind() string { return "DealRefused" }
@@ -904,29 +917,32 @@ func (DealRefused) Kind() string { return "DealRefused" }
 // hit, a missed tribute, a split corner abandoned) or by the rival (By
 // "rival"). Why says how.
 type DealBroken struct {
-	Day   int
-	Rival string
-	Deal  string
-	By    string // you, rival
-	Why   string
+	Day     int
+	Rival   string
+	Faction string // faction id (#144)
+	Deal    string
+	By      string // you, rival
+	Why     string
 }
 
 func (DealBroken) Kind() string { return "DealBroken" }
 
 // DealEnded is report-only bookkeeping: a deal that ran its course.
 type DealEnded struct {
-	Day   int
-	Rival string
-	Deal  string
+	Day     int
+	Rival   string
+	Faction string // faction id (#144)
+	Deal    string
 }
 
 func (DealEnded) Kind() string { return "DealEnded" }
 
 // TributePaid is report-only bookkeeping: the day's tribute handed over.
 type TributePaid struct {
-	Day    int
-	Rival  string
-	Amount int
+	Day     int
+	Rival   string
+	Faction string // faction id (#144)
+	Amount  int
 }
 
 func (TributePaid) Kind() string { return "TributePaid" }
@@ -956,6 +972,7 @@ type LieutenantWalked struct {
 	Corners  []string // names of the corners that went with them
 	Units    int      // stock lost with the stash
 	Rival    string   // who the corners went to, "" for the street
+	Faction  string   // its faction id (#144), "" for the street
 }
 
 func (LieutenantWalked) Kind() string { return "LieutenantWalked" }
@@ -1153,11 +1170,12 @@ func (PlayerUndercut) Kind() string { return "PlayerUndercut" }
 // holding. The corner is free: post a runner before it drifts to
 // somebody else.
 type RivalAbandoned struct {
-	Day    int
-	Rival  string
-	Corner string
-	Name   string
-	Reason string // pricewar
+	Day     int
+	Rival   string
+	Faction string // faction id (#144)
+	Corner  string
+	Name    string
+	Reason  string // pricewar
 }
 
 func (RivalAbandoned) Kind() string { return "RivalAbandoned" }
@@ -1182,16 +1200,17 @@ func (RivalScouted) Kind() string { return "RivalScouted" }
 // nerve loses over it (the crew sim scales it by nerve); Hurt the skill
 // one enforcer loses on a failure against real muscle, 0 for none.
 type RivalBoosted struct {
-	Day    int
-	Corner string
-	Name   string
-	Rival  string
-	Force  Force
-	Taken  bool
-	Cash   int
-	Heat   float64
-	Toll   float64
-	Hurt   int
+	Day     int
+	Corner  string
+	Name    string
+	Rival   string
+	Faction string // faction id (#144)
+	Force   Force
+	Taken   bool
+	Cash    int
+	Heat    float64
+	Toll    float64
+	Hurt    int
 }
 
 func (RivalBoosted) Kind() string { return "RivalBoosted" }
@@ -1204,6 +1223,7 @@ type PoliceTipped struct {
 	Corner    string
 	Name      string
 	Rival     string
+	Faction   string // faction id (#144)
 	RivalHeat float64
 	Betrayal  bool
 }
@@ -1214,11 +1234,12 @@ func (PoliceTipped) Kind() string { return "PoliceTipped" }
 // corner goes back to the street and Muscle heads are gone. The mirror
 // of RivalTippedPolice.
 type RivalRaided struct {
-	Day    int
-	Corner string
-	Name   string
-	Rival  string
-	Muscle int
+	Day     int
+	Corner  string
+	Name    string
+	Rival   string
+	Faction string // faction id (#144)
+	Muscle  int
 }
 
 func (RivalRaided) Kind() string { return "RivalRaided" }
@@ -1228,13 +1249,14 @@ func (RivalRaided) Kind() string { return "RivalRaided" }
 // it had; Refund is what came back for the rest), or none when the order
 // failed (Got 0, the money gone, a grudge held). They never join you.
 type RivalMusclePoached struct {
-	Day    int
-	Rival  string
-	Wanted int
-	Got    int
-	Cost   int
-	Refund int
-	Failed bool
+	Day     int
+	Rival   string
+	Faction string // faction id (#144)
+	Wanted  int
+	Got     int
+	Cost    int
+	Refund  int
+	Failed  bool
 }
 
 func (RivalMusclePoached) Kind() string { return "RivalMusclePoached" }

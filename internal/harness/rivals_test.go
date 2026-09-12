@@ -2,6 +2,7 @@ package harness
 
 import (
 	"fmt"
+	"reflect"
 	"testing"
 
 	"github.com/theclifmeister/kingpin/internal/content"
@@ -125,6 +126,14 @@ func TestRivalInvariants(t *testing.T) {
 					if c.Owner != game.OwnerPlayer && (c.Runner != 0 || c.Enforcer != 0) {
 						t.Fatalf("%s seed %d day %d: %s is %s's but %d/%d stand on it", name, seed, w.Day, c.ID, c.Owner, c.Runner, c.Enforcer)
 					}
+					// A rival corner names its faction and no other does (#144).
+					want := ""
+					if c.Owner == game.OwnerRival {
+						want = w.Rival.Faction()
+					}
+					if c.Faction != want {
+						t.Fatalf("%s seed %d day %d: %s is %s's but names faction %q, want %q", name, seed, w.Day, c.ID, c.Owner, c.Faction, want)
+					}
 					if c.Squeeze < 0 || c.Squeeze >= 1 {
 						t.Fatalf("%s seed %d day %d: %s squeeze %.2f", name, seed, w.Day, c.ID, c.Squeeze)
 					}
@@ -144,8 +153,39 @@ func TestRivalInvariants(t *testing.T) {
 			if res.World.Rival.Leader == "" || res.World.Rival.Arrived == 0 {
 				t.Fatalf("%s seed %d: rival %+v never arrived", name, seed, res.World.Rival)
 			}
+			if res.World.Rival.ID != game.FactionRival || res.World.Rival.Faction() != game.FactionRival {
+				t.Fatalf("%s seed %d: rival id %q faction %q", name, seed, res.World.Rival.ID, res.World.Rival.Faction())
+			}
+			// Every event that names the rival names its faction too
+			// (#144): the name is for the headline, the id for whoever
+			// asks which.
+			for _, e := range res.Events {
+				if rival, faction, ok := factionOf(e); ok && rival != "" && faction != game.FactionRival {
+					t.Fatalf("%s seed %d: %s names %q with faction %q: %+v", name, seed, e.Kind(), rival, faction, e)
+				}
+			}
 		}
 	}
+}
+
+// factionOf reads the Rival (or Owner, on a CornerLost) and Faction
+// fields off an event that has them, so a test need not list the kinds.
+func factionOf(e events.Event) (rival, faction string, ok bool) {
+	v := reflect.ValueOf(e)
+	if v.Kind() != reflect.Struct {
+		return "", "", false
+	}
+	f := v.FieldByName("Faction")
+	if !f.IsValid() {
+		return "", "", false
+	}
+	r := v.FieldByName("Rival")
+	if !r.IsValid() {
+		if r = v.FieldByName("Owner"); !r.IsValid() || r.String() != game.OwnerRival {
+			return "", f.String(), true
+		}
+	}
+	return r.String(), f.String(), true
 }
 
 // The rival steps from the tick RNG: a run at war must replay exactly.
