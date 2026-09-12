@@ -736,7 +736,7 @@ func TestSaveKeepsContracts(t *testing.T) {
 	if err := b.AcceptContract(c.ID); err != nil {
 		t.Fatal(err)
 	}
-	b.AddStock(home, b.Products[0], 5)
+	b.AddStock(home, b.Products[0], 5, 0)
 	if err := b.Deliver(c.ID, 5); err != nil {
 		t.Fatal(err)
 	}
@@ -744,7 +744,7 @@ func TestSaveKeepsContracts(t *testing.T) {
 	if err := a.AcceptContract(b.Contract(c.ID).ID); err != nil {
 		t.Fatal(err)
 	}
-	a.AddStock(home, a.Products[0], 5)
+	a.AddStock(home, a.Products[0], 5, 0)
 	if err := a.Deliver(c.ID, 5); err != nil {
 		t.Fatal(err)
 	}

@@ -23,6 +23,8 @@ volatility = 0.04
 demand = 60
 demand_noise = 0.20
 heat = 0.6
+cut_max = 1.0
+cut_cost = 1
 
 [[product]]
 id = "pills"
@@ -32,6 +34,8 @@ volatility = 0.06
 demand = 30
 demand_noise = 0.25
 heat = 1.0
+cut_max = 1.0
+cut_cost = 2
 
 [[product]]
 id = "coke"
@@ -41,6 +45,8 @@ volatility = 0.09
 demand = 12
 demand_noise = 0.30
 heat = 1.5
+cut_max = 1.0
+cut_cost = 6
 
 # The ladder. Each rung is offered by the supplier once your peak cash shows
 # you can move that kind of money: bigger numbers, bigger heat per unit,
@@ -49,7 +55,11 @@ heat = 1.5
 # designer is the port's product (#60): it unlocks at the wholesaler's
 # line, only Bayport's supplier sells it (city.toml), and it reaches home
 # by the road. Its demand is tier-3 sized because only a tier-3 player
-# can reach it: a standard corner moves forty a day.
+# can reach it: a standard corner moves forty a day. Every product can be
+# cut up to cut_max (1.0: doubled) at cut_cost a unit added ([quality],
+# #47); meth and designer can be cooked from precursors by a chemist at
+# cook_cost a unit, dirty, under what a connect asks (crew.toml
+# [role.chemist] has the days and the batch).
 [[product]]
 id = "heroin"
 name = "Heroin"
@@ -59,6 +69,8 @@ demand = 14
 demand_noise = 0.35
 heat = 1.8
 unlock_cash = 3000
+cut_max = 1.0
+cut_cost = 20
 
 [[product]]
 id = "meth"
@@ -69,6 +81,9 @@ demand = 3
 demand_noise = 0.40
 heat = 2.2
 unlock_cash = 10000
+cut_max = 1.0
+cut_cost = 40
+cook_cost = 300
 
 [[product]]
 id = "designer"
@@ -79,6 +94,44 @@ demand = 40
 demand_noise = 0.50
 heat = 2.5
 unlock_cash = 500000
+cut_max = 1.0
+cut_cost = 120
+cook_cost = 900
+
+# Quality (#47). Every stash carries a quality, 0..100, one number per
+# product per city (the street and the houses there as one lot: a buy
+# blends the connect's figure in by units, a cut adds units at nothing).
+# default is what the connects sell at (suppliers.toml may give a connect
+# its own figure per product), what an old save's stock reads and where
+# the price multiplier is 1: the multiplier runs linearly from low_mul at
+# quality 0 to 1 at default, and from there to high_mul at 100, on every
+# street sale and on a buyer's premium. Corners remember what you sold
+# them: Repeat (repeat_start to begin with) is the share of a corner's
+# demand that comes back; a day the product sold there is under
+# repeat_floor it falls by repeat_loss, any other day it recovers
+# repeat_gain, never under repeat_min, and the corner's served demand is
+# its share times it. Hard product under od_quality overdoses: one roll
+# per od_units sold in a city in a day at od_chance, off its own side
+# stream; an overdose is pressure (law.toml), notoriety (reputation.toml)
+# and a headline naming the corner, never evidence (#27). A cut adds
+# units x ratio units, up to the product's cut_max, at cut_cost a unit
+# added in dirty cash, and the quality drops by the same ratio (the pure
+# weight is conserved); a chemist raises it back (crew.toml). A run that
+# never cuts, cooks or hires a chemist sells at default everywhere, so
+# every multiplier is 1 and no corner moves (TestNoCutIsTheOldRun).
+[quality]
+default = 50
+low_mul = 0.7
+high_mul = 1.25
+repeat_start = 1.0
+repeat_floor = 40
+repeat_loss = 0.0075
+repeat_gain = 0.005
+repeat_min = 0.2
+od_quality = 30
+od_units = 20
+od_chance = 0.15
+od_products = ["heroin", "meth", "designer"]
 
 # Supply contracts (#113): keep the stash in a city at a level, bought
 # each morning from the supplier there. The markup is the supplier's price

@@ -56,7 +56,7 @@ func TestRentAndTheLandlord(t *testing.T) {
 	if _, err := w.BuyHouse(game.HouseOffer{ID: "h", Name: "H", City: w.Home().ID, Corner: "precinct", Capacity: 100, Price: 1, Rent: 10}); err != nil {
 		t.Fatal(err)
 	}
-	w.AddStock(w.Home().ID, "weed", 40)
+	w.AddStock(w.Home().ID, "weed", 40, 0)
 	if err := w.Guard("h", 2); err != nil {
 		t.Fatal(err)
 	}
@@ -112,7 +112,7 @@ func TestHouseRobberyTakesTheHouseAndTellsTheStreet(t *testing.T) {
 	if k := kinds(step(w, s)); k["HouseRobbed"] != 0 {
 		t.Fatalf("an empty house was robbed: %v", k)
 	}
-	w.AddStock(w.Home().ID, "weed", 60)
+	w.AddStock(w.Home().ID, "weed", 60, 0)
 	w.MoveStock(w.Home().ID, "h", game.Street, "weed", 20)
 	evs := step(w, s)
 	var robbed *events.HouseRobbed

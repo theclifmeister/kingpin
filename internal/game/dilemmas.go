@@ -164,7 +164,7 @@ func (w *World) applyEffect(c *Card, key string, v float64) error {
 					d = min(d, free)
 					free -= d
 				}
-				w.AddStock(cid, id, d) // a negative share is a take, clamped at nothing
+				w.AddStock(cid, id, d, w.StreetQuality()) // a negative share is a take, clamped at nothing; a windfall is street product
 			}
 		}
 	case "fear", "respect", "notoriety":

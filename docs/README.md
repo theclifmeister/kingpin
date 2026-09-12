@@ -38,3 +38,4 @@ One file a subsystem, the detail CLAUDE.md points at (#175). Each is the contrac
 - [The cart is the day's shopping](cart.md)
 - [Stash houses are where you keep it, and which one the raid finds](houses.md)
 - [Animation](animation.md)
+- [Quality is the last dial](quality.md)

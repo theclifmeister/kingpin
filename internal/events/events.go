@@ -132,11 +132,13 @@ type PlayerSold struct {
 	Revenue         int
 	Lieutenant      int
 	LieutenantName  string
-	Standing        bool // a standing order, yours (#114) or the lieutenant's, not one placed today
-	Delegated       bool // the standing order was the lieutenant's (World.Delegated), not one you set
-	Cut             int  // dirty cash the crew kept off a standing order of yours ([standing] cut); zero otherwise
-	Undercut        int  // of Sold, the units served off the rival's corners by a price war (#68); PlayerUndercut has them per corner
-	UndercutRevenue int  // of Revenue, what those units made at price_cut off
+	Standing        bool    // a standing order, yours (#114) or the lieutenant's, not one placed today
+	Delegated       bool    // the standing order was the lieutenant's (World.Delegated), not one you set
+	Cut             int     // dirty cash the crew kept off a standing order of yours ([standing] cut); zero otherwise
+	Undercut        int     // of Sold, the units served off the rival's corners by a price war (#68); PlayerUndercut has them per corner
+	UndercutRevenue int     // of Revenue, what those units made at price_cut off
+	Quality         float64 // the quality of what sold (#47): the stash's mean there that night
+	QualityMul      float64 // what it did to the price: 1 at the default
 }
 
 func (PlayerSold) Kind() string { return "PlayerSold" }
@@ -1124,6 +1126,7 @@ type ContractDelivered struct {
 	Complete bool
 	HeatMul  float64
 	Respect  float64
+	Quality  float64 // the quality handed over (#47): the stash's; the premium paid its multiplier
 }
 
 func (ContractDelivered) Kind() string { return "ContractDelivered" }
@@ -1381,3 +1384,67 @@ type RentPaid struct {
 }
 
 func (RentPaid) Kind() string { return "RentPaid" }
+
+// Overdose is somebody on one of your corners going down on bad hard
+// product (#47): the market sim rolls it, per od_units of a hard product
+// sold under od_quality in a city in a day, off its own side stream.
+// It is pressure in the city (the law sim), notoriety (the reputation
+// sim) and a headline naming the corner (the news sim), and never
+// evidence (#27: the DA's file is about you dealing; an overdose is the
+// news).
+type Overdose struct {
+	Day        int
+	City       string
+	Corner     string // the corner it happened on, of the ones you work there; "" with none worked
+	CornerName string
+	Product    string
+	Quality    float64 // what you sold there
+}
+
+func (Overdose) Kind() string { return "Overdose" }
+
+// StockCut is report-only bookkeeping (#47): a cut you made today, the
+// units it added, what the quality went from and to, and what it cost.
+type StockCut struct {
+	Day     int
+	City    string
+	Product string
+	Units   int     // what was there before the cut
+	Added   int     // what the cut added
+	From    float64 // the quality before ...
+	To      float64 // ... and after, the chemist's bonus counted
+	Cost    int
+	Chemist string // the chemist whose hand was on it; "" with none
+}
+
+func (StockCut) Kind() string { return "StockCut" }
+
+// CookOrdered is report-only bookkeeping (#47): a cook you ordered
+// today, the precursors paid for, the lot due in Days.
+type CookOrdered struct {
+	Day     int
+	City    string
+	Product string
+	Units   int
+	Quality float64
+	Cost    int
+	Days    int
+	Chemist string
+}
+
+func (CookOrdered) Kind() string { return "CookOrdered" }
+
+// Cooked is report-only bookkeeping (#47): a chemist's lot landed in
+// the stash this morning, at the quality they had the day it was
+// ordered.
+type Cooked struct {
+	Day     int
+	City    string
+	Product string
+	Units   int
+	Quality float64
+	Cost    int
+	Chemist string
+}
+
+func (Cooked) Kind() string { return "Cooked" }

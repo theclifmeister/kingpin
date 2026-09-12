@@ -451,6 +451,13 @@ func (m *Model) cornerSection(sel *game.Corner) section {
 	if sel.Held() {
 		lines = append(lines, row("robbery", fmt.Sprintf("%.1f%%/day", m.set.Territory.RobberyChance(w, sel)*100)))
 	}
+	// The corner's repeat business (#47): the share of its customers
+	// still coming back, once bad product has cost it some; a row the
+	// corner that was never sold under the floor does without, so the
+	// pane reads as it did.
+	if sel.Repeats() < 1 {
+		lines = append(lines, row("repeat", theme.Warning.Render(repeatText(*sel))))
+	}
 	switch {
 	case sel.Squeeze > 0 && sel.Owner == game.OwnerRival:
 		// The price war (#68): what last night's orders took off it.

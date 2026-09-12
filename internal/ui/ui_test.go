@@ -450,7 +450,7 @@ func richFixture(t *testing.T, sz [2]int, check func(m *Model, view, what string
 	if len(m.w.Houses) != 1 {
 		t.Fatalf("%dx%d: rented %d houses: %q", sz[0], sz[1], len(m.w.Houses), m.status)
 	}
-	m.w.AddStock(m.w.Player.Location, m.w.Products[0], 30)
+	m.w.AddStock(m.w.Player.Location, m.w.Products[0], 30, 0)
 	m.ledgerCursor = len(m.w.Fronts) // the house's row
 	m.Update(key("m"))
 	see(m, "move dialog: from")
@@ -2601,6 +2601,23 @@ func TestModalsFit(t *testing.T) {
 			m.Update(key("enter"))
 			m.Update(key("enter"))
 		}},
+		// The lab dialogs (#47): the cut on the fixture's stash, the cook
+		// with a chemist put on the payroll.
+		{"cut product", modeCut, func(t *testing.T, m *Model) { m.Update(key("2")); m.Update(key("t")) }},
+		{"cut percent", modeCut, func(t *testing.T, m *Model) {
+			m.Update(key("2"))
+			m.Update(key("t"))
+			m.Update(key("enter"))
+			m.Update(key("5"))
+		}},
+		{"cook product", modeCook, func(t *testing.T, m *Model) { withChemist(m); m.Update(key("2")); m.Update(key("o")) }},
+		{"cook units", modeCook, func(t *testing.T, m *Model) {
+			withChemist(m)
+			m.Update(key("2"))
+			m.Update(key("o"))
+			m.Update(key("enter"))
+			m.Update(key("4"))
+		}},
 		{"guard", modeGuard, func(t *testing.T, m *Model) { onHouse(t, m); m.Update(key("e")) }},
 		{"confirm drop", modeConfirmDrop, func(t *testing.T, m *Model) { onHouse(t, m); m.Update(key("x")) }},
 		{"confirm investigate", modeConfirmInvestigate, func(t *testing.T, m *Model) { m.Update(key("4")); m.Update(key("i")) }},
@@ -2816,6 +2833,13 @@ func stripANSI(s string) string {
 
 // onHouse puts the ledger's cursor on the fixture's house (#73); t may
 // be nil where the caller has none.
+// withChemist puts a skill-80 chemist on the fixture's payroll (#47),
+// so the cook dialog opens.
+func withChemist(m *Model) {
+	m.w.Crew.NextID++
+	m.w.Crew.Members = append(m.w.Crew.Members, game.CrewMember{ID: m.w.Crew.NextID, Name: "Doc", Role: game.RoleChemist, Skill: 80, Loyalty: 60, Greed: 20, Nerve: 60, Wage: 182, Hired: m.w.Day})
+}
+
 func onHouse(t *testing.T, m *Model) {
 	if t != nil {
 		t.Helper()

@@ -46,6 +46,7 @@ func TestEveryEmittedEventHasTemplate(t *testing.T) {
 		"DebtLate", "SupplierFrozen", "SupplierWarned", "SupplierCollected", // SupplierBought, CreditTaken and DebtPaid are report-only (#72)
 		"TierReached",                                            // #147
 		"HouseBought", "HouseRobbed", "HouseRaided", "HouseLost", // HouseCompromised, StockMoved and RentPaid are report-only (#73)
+		"Overdose", // StockCut and Cooked are report-only (#47)
 	}
 	for _, r := range cfg.Heat.Responses {
 		required = append(required, "Enforcement"+capital(r.Level))

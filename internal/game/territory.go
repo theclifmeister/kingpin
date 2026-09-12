@@ -57,16 +57,33 @@ type Corner struct {
 	Yours      bool               // you have held it at some time; the rival's grace period leaves those alone (#60)
 	Starved    int                // days a price war has cut the rival's trade here (#68), counted off Squeeze by the rivals sim, which answers at pricewar_days; a rest that long forgets them
 	StarvedDay int                // the last day it was cut; 0 never
+	Repeat     float64            // the share of its customers who come back (#47), 0..1: the market sim's, off what you sold here; zero reads as all of them, the pre-#47 corner
+}
+
+// Repeats is the corner's repeat business (#47), 0..1: Repeat, or all of
+// it for a corner that has never been stamped.
+func (c Corner) Repeats() float64 {
+	if c.Repeat > 0 {
+		return c.Repeat
+	}
+	return 1
 }
 
 // Share is the corner's share of the city's demand for a product, in
-// standard corners, less what a rival is undercutting away.
+// standard corners, less what a rival is undercutting away and less
+// the customers bad product has cost it (#47: Repeat; a corner that
+// was never sold anything under the floor serves its whole share, so
+// the number is what it was).
 func (c Corner) Share(product string) float64 {
 	s := c.Demand
 	if t, ok := c.Taste[product]; ok {
 		s *= t
 	}
-	return s * (1 - c.Squeeze)
+	s *= 1 - c.Squeeze
+	if c.Repeat > 0 && c.Repeat < 1 {
+		s *= c.Repeat
+	}
+	return s
 }
 
 // Full is the corner's share of the city's demand for a product with no

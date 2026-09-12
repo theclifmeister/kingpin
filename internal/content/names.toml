@@ -29,3 +29,11 @@ das = [
   "Ramirez", "Okafor", "Lindqvist", "Thornton", "Abernathy", "Vance", "Moreau",
   "Haddad", "Pettigrew", "Nakamura", "Sloane", "Fitzgerald", "Ostrowski", "Bell",
 ]
+
+# Chemists (#47): the one face the pool carries beside its usual ones
+# once meth is on the ladder. Drawn off the chemist's own stream from
+# this list, never the crew list, so the crew names roll as they did.
+chemists = [
+  "Doc", "Beaker", "Walt", "Prof", "Lab Rat", "Chem", "Sunny", "Gale",
+  "Flask", "Ozone", "Petra", "Tesla", "Molly", "Bunsen", "Pinky", "Igor",
+]

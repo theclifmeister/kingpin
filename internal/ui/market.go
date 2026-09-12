@@ -42,8 +42,10 @@ func (m *Model) screenTitle(name string) string {
 // and the order queued there, which is your standing order (#114, ↻)
 // or the lieutenant's where you placed none; the market adds the supplier's price, the
 // demand your corners there serve and the level a supply contract
-// keeps the stash at (#113), and calls the stock the stash it is
-// (`product price Δ Nd supplier stash demand/day order keep`). The
+// keeps the stash at (#113), and calls the stock the stash it is,
+// with the lot's quality beside it (#47, `qual`: blank with nothing
+// held, Warning under the default)
+// (`product price Δ Nd supplier stash qual demand/day order keep`). The
 // cursor is the row of the product selected, or -1 when it is not in
 // the city.
 func (m *Model) productRows(city string, selected int, market bool) (cols []col, rows [][]any, cursor int) {
@@ -51,7 +53,7 @@ func (m *Model) productRows(city string, selected int, market bool) (cols []col,
 	c := w.City(city)
 	cols = []col{{"product", kText, 0}, {"price", kPrice, 0}, {"Δ", kPct, 0}, {"", kBar, 0}}
 	if market {
-		cols = append(cols, col{"supplier", kPrice, 0}, col{"stash", kInt, 0}, col{"demand/day", kInt, 0})
+		cols = append(cols, col{"supplier", kPrice, 0}, col{"stash", kInt, 0}, col{"qual", kInt, 0}, col{"demand/day", kInt, 0})
 	} else {
 		cols = append(cols, col{"stock", kInt, 0})
 	}
@@ -87,7 +89,7 @@ func (m *Model) productRows(city string, selected int, market bool) (cols []col,
 		}
 		row = append(row, w.Stock(city, id))
 		if market {
-			row = append(row, approx{w.Demand(city, id)})
+			row = append(row, qualityCell(w, city, id), approx{w.Demand(city, id)})
 		}
 		row = append(row, ord)
 		if market {
@@ -105,6 +107,29 @@ func (m *Model) productRows(city string, selected int, market bool) (cols []col,
 		rows = append(rows, row)
 	}
 	return cols, rows, cursor
+}
+
+// dropCol takes the named column out of a table's columns and rows.
+func dropCol(cols []col, rows [][]any, title string) ([]col, [][]any) {
+	at := -1
+	for i, c := range cols {
+		if c.title == title {
+			at = i
+		}
+	}
+	if at < 0 {
+		return cols, rows
+	}
+	cols = append(append([]col(nil), cols[:at]...), cols[at+1:]...)
+	out := make([][]any, len(rows))
+	for r, row := range rows {
+		if at < len(row) {
+			out[r] = append(append([]any(nil), row[:at]...), row[at+1:]...)
+		} else {
+			out[r] = row
+		}
+	}
+	return cols, out
 }
 
 // priceFacts is what a product's price is doing in a city, the numbers
@@ -259,6 +284,10 @@ func (m *Model) priceLine(city, id string, buy bool) string {
 		default:
 			parts = append(parts, sub(price(f.unit)), sub("street "+price(f.p.Price)), sub("margin "+f.marginText()))
 		}
+		// The connect's quality (#47), where it is not the default.
+		if sup := m.buySupplier(id); sup != nil && sup.QualityOf(m.w, id) != m.w.StreetQuality() {
+			parts = append(parts, sub(fmt.Sprintf("quality %.0f", sup.QualityOf(m.w, id))))
+		}
 	} else {
 		parts = append(parts, sub(price(f.p.Price)), f.deltaText()+sub(" today"), sub("range 30d "+f.rangeText()))
 	}
@@ -297,6 +326,11 @@ func (m *Model) viewMarket() string {
 	var b strings.Builder
 	b.WriteString(truncate(m.screenTitle("MARKET"), width) + "\n\n")
 	cols, rows, cursor := m.productRows(city.ID, m.cursor, true)
+	// The quality column (#47) goes where MAIN is too narrow for the
+	// table whole: the pane beside it carries the lot's quality then.
+	if tableWidth(cols, rows) > width {
+		cols, rows = dropCol(cols, rows, "qual")
+	}
 	sparkCol(cols, rows, max(3, min(30, width-tableWidth(cols, rows))))
 	for _, l := range table(cols, rows, cursor, width) {
 		b.WriteString(l + "\n")
@@ -355,6 +389,22 @@ func (m *Model) marketDetails() []section {
 	sel = append(sel,
 		row("demand", fmt.Sprintf("~%.0f/day on %s", w.Demand(city.ID, id), plural(w.WorkedIn(city.ID), "corner"))),
 		row("", theme.Subtle.Render(fmt.Sprintf("~%.0f per standard", p.Demand))))
+	// The lot's quality (#47) and what it does to the price, where it
+	// is not the default (the table's column has the figure; the pane
+	// keeps its rows for what has changed); the connect's likewise.
+	if l := w.Lot(city.ID, id); l.Units > 0 && l.Quality != w.StreetQuality() {
+		v := fmt.Sprintf("%.0f, sells at ×%.2f", l.Quality, m.set.Market.QualityMul(l.Quality))
+		if l.Quality < w.StreetQuality() {
+			v = theme.Warning.Render(v)
+		}
+		sel = append(sel, row("quality", v))
+	}
+	if sup := w.BestSupplier(city.ID, id); sup != nil && sup.QualityOf(w, id) != w.StreetQuality() {
+		sel = append(sel, row("", theme.Subtle.Render(fmt.Sprintf("%s sells it at %.0f", sup.Name, sup.QualityOf(w, id)))))
+	}
+	if n := w.Crew.Cooking(city.ID, id); n > 0 {
+		sel = append(sel, row("cooking", fmt.Sprintf("%d on the way", n)))
+	}
 	if label, v := f.shockRow(); label != "" {
 		sel = append(sel, row(label, v))
 	}

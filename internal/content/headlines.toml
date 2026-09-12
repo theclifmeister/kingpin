@@ -419,3 +419,12 @@ HouseLost = [
   "Eviction at {{.Name}}; bailiffs 'surprised by what was inside'",
   "{{.Name}} cleared out by the landlord after weeks of unpaid rent",
 ]
+# An overdose on one of your corners (#47): the city's story, the DA's
+# favourite, never a page in the file. Source `overdose`, which the law
+# and notoriety count as the event, not as a headline.
+Overdose = [
+  "Overdose on {{.Corner}}: 'the {{.Product}} out there is poison', says a neighbour",
+  "{{.City}} paramedics called to {{.Corner}} again; bad {{.Product}} blamed",
+  "Death on {{.Corner}}: council demands the police 'clear the dealers out'",
+  "'Somebody is cutting the {{.Product}}': overdose on {{.Corner}} the third this month, says clinic",
+]

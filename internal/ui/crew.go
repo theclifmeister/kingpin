@@ -227,6 +227,12 @@ func (m *Model) post(c game.CrewMember) any {
 			return styled{theme.CrewText, plural(n, "front")}
 		}
 		return styled{theme.Warning, "no front"}
+	case c.Role == game.RoleChemist:
+		// The chemist (#47): the lab, or the batch on the way.
+		if n := len(w.Crew.Cooks); n > 0 {
+			return styled{theme.CrewText, "cooking"}
+		}
+		return styled{theme.CrewText, "the lab"}
 	}
 	if p := w.PostOf(c.ID); p != nil {
 		return p.Name
@@ -429,6 +435,15 @@ func (m *Model) personLines(c game.CrewMember, onPayroll bool) []string {
 		} else {
 			lines = append(lines, row("post", "the books"))
 		}
+	case c.Role == game.RoleChemist:
+		// What their hand is worth (#47): the quality a cook lands at
+		// and what a cut keeps, the best chemist's; a lesser one waits.
+		if best := w.Crew.Chemist(); best != nil && best.ID == c.ID {
+			lines = append(lines, row("cooks at", fmt.Sprintf("quality %.0f, %d a batch", m.set.Crew.ChemistQuality(w), m.set.Crew.Batch(w))))
+			lines = append(lines, row("cuts", fmt.Sprintf("keep %.0f points", m.set.Crew.CutBonus(w))))
+		} else {
+			lines = append(lines, row("post", theme.Subtle.Render("second to the best chemist")))
+		}
 	default:
 		if p := w.PostOf(c.ID); p != nil {
 			lines = append(lines, row("post", p.Name))
@@ -497,6 +512,8 @@ func hireBlurb(role string) string {
 		return "guard a corner"
 	case game.RoleLieutenant:
 		return "run a city"
+	case game.RoleChemist:
+		return "cook and cut"
 	default:
 		return "hold a corner"
 	}

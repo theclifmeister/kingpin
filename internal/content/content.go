@@ -45,6 +45,91 @@ type MarketConfig struct {
 	Dial     DialTable       `toml:"dial"`
 	Supply   SupplyTuning    `toml:"supply"`
 	Standing StandingTuning  `toml:"standing"`
+	Quality  QualityTuning   `toml:"quality"`
+}
+
+// QualityTuning is product quality (#47): where the connects sell and
+// the price multiplier is 1 (Default), the multiplier at quality 0
+// (LowMul) and 100 (HighMul), linear either side of Default; the
+// corners' repeat business (RepeatStart to begin with, RepeatLoss off
+// it a day the product sold there is under RepeatFloor, RepeatGain back
+// any other day, never under RepeatMin); and the overdoses: hard product
+// (OdProducts) under OdQuality rolls once per OdUnits sold in a city in
+// a day at OdChance. A zero table is the feature in its box: Default 0
+// reads as game.StreetQuality and every multiplier as 1.
+type QualityTuning struct {
+	Default     float64  `toml:"default"`
+	LowMul      float64  `toml:"low_mul"`
+	HighMul     float64  `toml:"high_mul"`
+	RepeatStart float64  `toml:"repeat_start"`
+	RepeatFloor float64  `toml:"repeat_floor"`
+	RepeatLoss  float64  `toml:"repeat_loss"`
+	RepeatGain  float64  `toml:"repeat_gain"`
+	RepeatMin   float64  `toml:"repeat_min"`
+	OdQuality   float64  `toml:"od_quality"`
+	OdUnits     float64  `toml:"od_units"`
+	OdChance    float64  `toml:"od_chance"`
+	OdProducts  []string `toml:"od_products"`
+}
+
+// Mul is the price multiplier at a quality: LowMul at 0, 1 at Default,
+// HighMul at 100, linear between; 1 everywhere with the table zero.
+func (q QualityTuning) Mul(quality float64) float64 {
+	d := q.Default
+	if d <= 0 || d >= 100 {
+		return 1
+	}
+	quality = clamp01(quality/100) * 100
+	if quality < d {
+		low := q.LowMul
+		if low <= 0 {
+			low = 1
+		}
+		return low + (1-low)*quality/d
+	}
+	high := q.HighMul
+	if high <= 0 {
+		high = 1
+	}
+	return 1 + (high-1)*(quality-d)/(100-d)
+}
+
+// validate refuses a [quality] table the sims cannot read: a default
+// off the scale, a multiplier under zero, a repeat band outside 0..1
+// or a product the ladder does not list; a zero table is the box.
+func (q QualityTuning) validate(m MarketConfig) error {
+	if q.Default < 0 || q.Default > 100 || q.LowMul < 0 || q.HighMul < 0 || q.OdQuality < 0 || q.OdUnits < 0 || q.OdChance < 0 || q.OdChance > 1 {
+		return fmt.Errorf("bad [quality] table %+v", q)
+	}
+	for _, v := range []float64{q.RepeatStart, q.RepeatLoss, q.RepeatGain, q.RepeatMin} {
+		if v < 0 || v > 1 {
+			return fmt.Errorf("[quality] repeat_* %v (0..1)", v)
+		}
+	}
+	if q.RepeatMin > q.RepeatStart && q.RepeatStart > 0 {
+		return fmt.Errorf("[quality] repeat_min %v over repeat_start %v", q.RepeatMin, q.RepeatStart)
+	}
+	for _, id := range q.OdProducts {
+		if m.Product(id) == nil {
+			return fmt.Errorf("[quality] od_products names %q, not a product", id)
+		}
+	}
+	for _, p := range m.Products {
+		if p.CutMax < 0 || p.CutCost < 0 || p.CookCost < 0 {
+			return fmt.Errorf("[[product]] %s: cut_max %v cut_cost %d cook_cost %d (not negative)", p.ID, p.CutMax, p.CutCost, p.CookCost)
+		}
+	}
+	return nil
+}
+
+// Hard reports whether a product is one that overdoses.
+func (q QualityTuning) Hard(product string) bool {
+	for _, p := range q.OdProducts {
+		if p == product {
+			return true
+		}
+	}
+	return false
 }
 
 // StandingTuning is the standing orders (#114): Cut is the share of a
@@ -88,6 +173,9 @@ type ProductConfig struct {
 	DemandNoise float64 `toml:"demand_noise"`
 	Heat        float64 `toml:"heat"`
 	UnlockCash  int     `toml:"unlock_cash"` // supplier offers it once peak cash reaches this; 0 = from day one
+	CutMax      float64 `toml:"cut_max"`     // the most a cut can add, as a ratio of the units (#47); 0 cannot be cut
+	CutCost     int     `toml:"cut_cost"`    // dirty cash a unit the cut adds
+	CookCost    int     `toml:"cook_cost"`   // dirty cash a unit a chemist cooks it for; 0 cannot be cooked
 }
 
 type DialTable struct {
@@ -477,6 +565,17 @@ type RoleConfig struct {
 	Deterrence   float64 `toml:"deterrence"` // fraction of skim chance each one removes
 	Cut          float64 `toml:"cut"`        // share of their city's takings a lieutenant keeps
 	Crew         int     `toml:"crew"`       // roster slots an assigned lieutenant adds
+
+	// The chemist (#47): their quality is QualityBase + QualityPerSkill
+	// x skill, what a cook lands at; a cut keeps CutBonus x skill points
+	// of what it would have lost; a cook takes CookDays and is for at
+	// most BatchPerSkill x skill units.
+	QualityBase     float64 `toml:"quality_base"`
+	QualityPerSkill float64 `toml:"quality_per_skill"`
+	CutBonus        float64 `toml:"cut_bonus"`
+	CookDays        int     `toml:"cook_days"`
+	BatchPerSkill   float64 `toml:"batch_per_skill"`
+	UnlockProduct   string  `toml:"unlock_product"` // the product whose listing brings a chemist looking for work
 }
 
 // RivalsConfig mirrors rivals.toml.
@@ -778,6 +877,7 @@ type NotorietySources struct {
 	Sources     []string `toml:"headline_sources"` // journal sources whose headlines are about you
 	StrikeTaken float64  `toml:"strike_taken"`
 	StrikeHeld  float64  `toml:"strike_held"`
+	Overdose    float64  `toml:"overdose"` // an overdose on your corner (#47)
 }
 
 // ReputationFX is what each axis does at 100; each sim scales the knob it
@@ -815,10 +915,11 @@ func clamp01(v float64) float64 {
 
 // NamesConfig mirrors names.toml.
 type NamesConfig struct {
-	Crew   []string `toml:"crew"`
-	Rivals []string `toml:"rivals"`
-	Chiefs []string `toml:"chiefs"`
-	DAs    []string `toml:"das"`
+	Crew     []string `toml:"crew"`
+	Rivals   []string `toml:"rivals"`
+	Chiefs   []string `toml:"chiefs"`
+	DAs      []string `toml:"das"`
+	Chemists []string `toml:"chemists"` // the chemist's names (#47), a pool of their own so the crew's roll as it did
 }
 
 // LawConfig mirrors law.toml (#41): the chief's term and the election
@@ -857,6 +958,7 @@ type PressureSources struct {
 	RivalRaid float64  `toml:"rival_raid"`    // the police taking a rival corner on your tip (#70)
 	HardUnits float64  `toml:"hard_units"`    // a point per this many units of a hard product sold in a day
 	Hard      []string `toml:"hard_products"` // the products that count
+	Overdose  float64  `toml:"overdose"`      // an overdose on your corner (#47), in its city
 	Headline  float64  `toml:"headline"`
 	Sources   []string `toml:"headline_sources"` // journal sources whose headlines are about you
 }
@@ -1223,7 +1325,7 @@ func Load() (*Config, error) {
 	if err := c.Routes.validate(c.City); err != nil {
 		return nil, fmt.Errorf("routes.toml: %w", err)
 	}
-	for _, role := range []string{"runner", "enforcer", "accountant", "lieutenant"} {
+	for _, role := range []string{"runner", "enforcer", "accountant", "lieutenant", "chemist"} {
 		if _, ok := c.Crew.Role[role]; !ok {
 			return nil, fmt.Errorf("crew.toml: no [role.%s] table", role)
 		}
@@ -1297,6 +1399,15 @@ func Load() (*Config, error) {
 	}
 	if len(c.Names.Chiefs) == 0 || len(c.Names.DAs) == 0 {
 		return nil, fmt.Errorf("names.toml: no chief or DA names")
+	}
+	if len(c.Names.Chemists) == 0 {
+		return nil, fmt.Errorf("names.toml: no chemist names")
+	}
+	if err := c.Market.Quality.validate(c.Market); err != nil {
+		return nil, fmt.Errorf("market.toml: %w", err)
+	}
+	if r := c.Crew.Role["chemist"]; r.QualityBase < 0 || r.QualityPerSkill < 0 || r.CutBonus < 0 || r.CookDays < 1 || r.BatchPerSkill <= 0 || c.Market.Product(r.UnlockProduct) == nil {
+		return nil, fmt.Errorf("crew.toml: bad [role.chemist] table %+v", r)
 	}
 	seen := map[string]bool{}
 	for _, f := range c.Laundering.Fronts {

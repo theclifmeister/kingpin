@@ -36,10 +36,11 @@ type Supplier struct {
 	Wholesale   bool     // the connect the routes buy from
 
 	// Stamped by the market sim each morning from the band Rel is in.
-	Price map[string]float64 // per unit today, by product; a buy nudges it up for the day
-	Cap   int                // units they can get you today
-	Limit int                // credit they will run you to today
-	Band  int                // the band Rel was in when they were stamped
+	Price   map[string]float64 // per unit today, by product; a buy nudges it up for the day
+	Cap     int                // units they can get you today
+	Limit   int                // credit they will run you to today
+	Band    int                // the band Rel was in when they were stamped
+	Quality map[string]float64 // the quality of what they sell (#47), by product, stamped from the file; missing reads as the default
 
 	// The relationship.
 	Rel         float64 // 0..100
@@ -58,6 +59,15 @@ type Supplier struct {
 
 // Frozen reports whether the connect is not taking calls on day.
 func (s Supplier) Frozen(day int) bool { return s.FrozenUntil > day }
+
+// QualityOf is the quality of what the connect sells of a product
+// (#47): the stamped figure, else the world's default.
+func (s Supplier) QualityOf(w *World, product string) float64 {
+	if q := s.Quality[product]; q > 0 {
+		return q
+	}
+	return w.StreetQuality()
+}
 
 // Sells reports whether the connect deals in a product, by their list;
 // whether the city's supplier sells it at all is the market's flag.
@@ -367,7 +377,7 @@ func (w *World) buy(s *Supplier, product string, qty int, markup float64, credit
 	} else {
 		w.Player.DirtyCash -= cost
 	}
-	w.AddStock(s.City, product, qty)
+	w.AddStock(s.City, product, qty, s.QualityOf(w, product))
 	m.BoughtToday += qty
 	s.took(w, product, qty)
 	if demand := w.Demand(s.City, product); demand > 0 {
@@ -478,7 +488,7 @@ func (w *World) Restock(city, product string, lots int, pricePressure float64) (
 		return Purchase{}, fmt.Errorf("need $%d, only have $%d dirty", cost, w.Player.DirtyCash)
 	}
 	w.Player.DirtyCash -= cost
-	w.AddStock(city, product, qty)
+	w.AddStock(city, product, qty, s.QualityOf(w, product))
 	m.BoughtToday += qty
 	s.took(w, product, qty)
 	if demand := w.Demand(city, product); demand > 0 {
