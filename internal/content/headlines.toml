@@ -325,6 +325,21 @@ DAReElected = [
   "DA {{.Name}} re-elected; {{.Stance}} platform holds",
   "Voters keep DA {{.Name}} in office for another term",
 ]
+# Campaigns (#193): the money behind a ticket, and what the count made of it.
+DABought = [
+  "{{.Name}} takes the DA's office on a {{.Stance}} ticket; opponents ask where the campaign money came from",
+  "DA race: {{.Name}} wins; the best-funded {{.Stance}} campaign {{.City}} has seen",
+  "{{.Name}} is DA; a {{.City}} columnist counts the billboards and wonders who paid",
+]
+CampaignLost = [
+  "{{.City}} donors on the losing side of the DA race 'will be remembered', says an aide to the winner",
+  "New {{.Stance}} DA asks who bankrolled the other ticket in {{.City}}",
+  "{{.City}} campaign finance: the losing side's biggest donor is a name nobody at city hall will say",
+]
+CampaignHedged = [
+  "{{.City}} donor gave to both DA tickets; 'buying a friend either way', says a rival aide",
+  "Both DA campaigns in {{.City}} cashed cheques from the same hand, filings show",
+]
 ChiefReplaced = [
   "Mayor names {{.Name}} police chief as {{.Rival}} steps down",
   "{{.Name}} sworn in as chief of police; {{.Rival}} out after long term",
@@ -332,6 +347,10 @@ ChiefReplaced = [
 ChiefReplacedDA = [
   "New DA {{.Rival}} demanded it: {{.Name}} is the new police chief",
   "Chief out, {{.Name}} in: DA's office says {{.City}} 'wanted a change'",
+]
+ChiefReplacedCampaign = [
+  "New DA's first call: {{.Rival}} out as chief, hard-liner {{.Name}} in",
+  "{{.Name}} named police chief; the new DA 'wanted somebody who does not take calls'",
 ]
 PressureShiftedUp = [
   "{{.City}} residents march on city hall over street crime",

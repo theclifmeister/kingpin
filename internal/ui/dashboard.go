@@ -388,11 +388,22 @@ func (m *Model) lawLines(innerW int, narrow bool) []string {
 	// you have bought the city is always shown once you have bought
 	// some, the bar giving way to the number where the room is short.
 	pressure := theme.Bad.Render(bar("pressure", here.Pressure/100, fmt.Sprintf("%.0f", here.Pressure)))
+	number := theme.Bad.Render(fmt.Sprintf("pressure %.0f", here.Pressure))
 	switch goodwill := theme.Good.Render(fmt.Sprintf("goodwill %.0f", here.Goodwill)); {
 	case here.Goodwill > 0:
-		pressure = firstFit(innerW, pressure+sep+goodwill, theme.Bad.Render(fmt.Sprintf("pressure %.0f", here.Pressure))+sep+goodwill, pressure)
+		pressure = firstFit(innerW, pressure+sep+goodwill, number+sep+goodwill, pressure)
 	case !narrow:
 		pressure = firstFit(innerW, pressure+sep+theme.Subtle.Render("goodwill 0"), pressure)
+	}
+	// A campaign you have money in (#193) sits under the election
+	// countdown while the tickets take it: the ticket and the total,
+	// today's included, the bar giving way to the number for it.
+	if camp := w.Campaigning(here.ID); l.CampaignOpen && camp.Cash > 0 {
+		backing := theme.Gold.Render("backing " + stanceWord(camp.Ticket) + " " + cash(camp.Cash))
+		if camp.Hedged {
+			backing = theme.Bad.Render("backing both " + cash(camp.Cash))
+		}
+		pressure = firstFit(innerW, pressure+sep+backing, number+sep+backing, pressure)
 	}
 	last := ""
 	if narrow {
@@ -535,6 +546,11 @@ func (m *Model) alerts() []alert {
 	}
 	out = append(out, m.unlockAlerts()...)
 	out = append(out, m.houseAlerts()...)
+	// A DA race taking money (#193), while you have clean cash to put in
+	// and none in this city's campaign yet.
+	if next := m.set.Law.NextElection(w); w.Law.CampaignOpen && w.Player.CleanCash > 0 && w.Campaigning(here.ID).Cash == 0 && next > 0 {
+		out = append(out, newAlert(theme.Warning.Render(fmt.Sprintf("The DA race is %s off and the tickets are taking money %s.", plural(max(0, next-w.Day), "day"), screenPointer(screenLedger))), "the DA race is taking money"))
+	}
 	return out
 }
 
