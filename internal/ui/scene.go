@@ -23,12 +23,16 @@ import (
 
 // Options is how the front end is set up: Anim plays the scenes;
 // cmd/kingpin turns it off for -no-anim and KINGPIN_NO_ANIM, and every
-// test fixture constructs with it off. Effect pins the title loop's
-// effect by name (#153; KINGPIN_ANIM_EFFECT, for review); empty cycles
-// the set.
+// test fixture constructs with it off. MorningAnim plays the morning's
+// scene (#159), the most frequent and the first to turn off if it
+// wears: cmd/kingpin turns it off alone for KINGPIN_NO_MORNING_ANIM,
+// and Anim off turns it off with the rest. Effect pins the title
+// loop's effect by name (#153; KINGPIN_ANIM_EFFECT, for review); empty
+// cycles the set.
 type Options struct {
-	Anim   bool
-	Effect string
+	Anim        bool
+	MorningAnim bool
+	Effect      string
 }
 
 // frameMsg is a frame's tick: when it fired and which scene it was

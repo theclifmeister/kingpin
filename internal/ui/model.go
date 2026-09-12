@@ -158,8 +158,9 @@ type Model struct {
 	slot           int    // the save slot this run lives in: where ctrl+s, the end of the day and quitting save
 	startChoice    int    // row on the start menu: the slots, then Quit
 	status         string
-	statusKind     statusKind // how the status bar colours the message; set where the status is
-	flash          []string   // enforcement lines from the last tick, via the bus
+	statusKind     statusKind      // how the status bar colours the message; set where the status is
+	flash          []string        // enforcement lines from the last tick, via the bus
+	reportScene    reportSceneKind // which scene the report opened on (#159), while m.scene is up in modeReport
 	quitting       bool
 }
 
@@ -1119,7 +1120,7 @@ func (m *Model) viewTitle() string {
 		if city {
 			parts = append(parts, theme.Subtle.Render(here.Name))
 		}
-		parts = append(parts, fmt.Sprintf("Day %d", w.Day), theme.Gold.Render("dirty "+cash(w.Player.DirtyCash)))
+		parts = append(parts, m.dayLabel(), theme.Gold.Render("dirty "+cash(w.Player.DirtyCash)))
 		if clean {
 			parts = append(parts, theme.Subtle.Render("clean "+cash(w.Player.CleanCash)))
 		}
@@ -1359,11 +1360,29 @@ func (m *Model) reachedLine() string {
 	return name
 }
 
+// viewReport is the report: the modal titled `MORNING REPORT · DAY 42`
+// over the day's sections. While the morning's scene runs (#159) the
+// title row is its frame's, in the same box, the body as it is.
 func (m *Model) viewReport() string {
-	r := m.w.Report
-	if r == nil {
+	if m.w.Report == nil {
 		return m.modal("MORNING REPORT", []string{"Nothing happened yet."}, m.modalFooter())
 	}
+	if frame := m.morningFrame(); frame != nil {
+		return m.modalTitled(frame[1], m.reportLines(), m.modalFooter())
+	}
+	return m.modal(m.reportTitle(), m.reportLines(), m.modalFooter())
+}
+
+// reportTitle is the report's title row: `MORNING REPORT · DAY 42`.
+func (m *Model) reportTitle() string {
+	return fmt.Sprintf("MORNING REPORT · DAY %d", m.w.Report.Day)
+}
+
+// reportLines is the report's body: a fast-forward's stop line first
+// (#116), then the day's sections, each a heading in its sim's colour
+// over its lines.
+func (m *Model) reportLines() []string {
+	r := m.w.Report
 	var body []string // the modal cuts a long line to its width, never wraps it
 	if stop := m.stopLine(); stop != "" {
 		// A fast-forward's report opens with why it stopped (#116).
@@ -1394,5 +1413,5 @@ func (m *Model) viewReport() string {
 	for len(body) > 0 && body[len(body)-1] == "" {
 		body = body[:len(body)-1]
 	}
-	return m.modal(fmt.Sprintf("MORNING REPORT · DAY %d", r.Day), body, m.modalFooter())
+	return body
 }

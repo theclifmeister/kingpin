@@ -22,11 +22,28 @@ func (m *Model) showCard() {
 		m.mode = modeCard
 		return
 	}
-	if m.w.Report != nil {
-		m.mode = modeReport
+	m.openReport()
+}
+
+// openReport opens the morning report, or the play screen when there
+// is none: the one way a morning reaches the report (showCard with no
+// card pending, the card's outcome closed), so the report's scene
+// starts here and nowhere else. The morning's scene (#159) plays when
+// the report is the first thing the morning shows: the mode it opens
+// from is play or the end-day confirmation, never the stage's or the
+// card's, whose scenes outrank it, and never after a fast-forward
+// (fastStop). r's reopen (keys.go) sets the mode itself: a reopen is
+// no morning.
+func (m *Model) openReport() {
+	if m.w.Report == nil {
+		m.mode = modePlay
 		return
 	}
-	m.mode = modePlay
+	first := m.mode != modeStage && m.mode != modeCard
+	m.mode = modeReport
+	if first && m.fastStop == "" {
+		m.morningScene()
+	}
 }
 
 func (m *Model) keyCard(key string) (tea.Model, tea.Cmd) {
@@ -35,11 +52,7 @@ func (m *Model) keyCard(key string) (tea.Model, tea.Cmd) {
 		switch key {
 		case "enter", "esc", " ", "q":
 			m.cardDone = false
-			if m.w.Report != nil {
-				m.mode = modeReport
-			} else {
-				m.mode = modePlay
-			}
+			m.openReport()
 		default:
 			m.scrollModal(key)
 		}
