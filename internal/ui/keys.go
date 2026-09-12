@@ -384,6 +384,10 @@ var modeBindings = []binding{
 	{key: "y", label: "pay", modes: in(modeConfirmPayOff)},
 	{key: "y", label: "go", modes: in(modeConfirmTravel)},
 	{key: "q", label: "quit", modes: in(modeStart, modeOver)},
+	// The trade's other side (#168): listed on the product step (and a
+	// buy's connect step) alone, where the toggle is live.
+	{key: "s", label: "sell", modes: in(modeBuy), when: buyList},
+	{key: "b", label: "buy", modes: in(modeSell), when: step(0)},
 	{key: "⇧tab", label: "back", keys: []string{"shift+tab"}, modes: in(modeBuy, modeSell, modeTarget, modeCart, modePropose, modeFront, modeMove), when: pastFirstStep},
 	{key: "esc", label: "close", modes: in(modeBuy, modeSell, modeTarget, modePropose, modePost, modeStrike, modeUndercut, modeFront, modeAssign, modeFund, modeCart, modeMove, modeGuard,
 		modeConfirmNew, modeConfirmDelete, modeConfirmFire, modeConfirmEnd, modeConfirmUpgrade, modeConfirmInvestigate, modeConfirmPayOff, modeConfirmTravel, modeConfirmFast, modeConfirmDrop)},

@@ -609,15 +609,14 @@ func TestBuyThenSellFlow(t *testing.T) {
 	if m.mode != modeBuy || m.dlg.step != 0 || m.dlg.err != "" {
 		t.Fatalf("buy did not complete: mode=%v step=%d err=%q", m.mode, m.dlg.step, m.dlg.err)
 	}
-	m.Update(key("esc")) // the dialog stays open for the next line (#103)
-	if m.mode != modePlay {
-		t.Fatalf("esc did not close the dialog: mode=%v", m.mode)
-	}
 	id := m.w.Products[0]
 	if m.w.Stock(m.w.Player.Location, id) != 10 {
 		t.Fatalf("stock after buy = %d", m.w.Stock(m.w.Player.Location, id))
 	}
-	m.Update(key("s"))
+	m.Update(key("s")) // the dialog turns to selling without closing (#168)
+	if m.mode != modeSell || m.cursor != 0 {
+		t.Fatalf("s did not turn the dialog: mode=%v cursor=%d", m.mode, m.cursor)
+	}
 	m.Update(key("enter"))
 	m.Update(key("enter")) // blank = all
 	m.Update(key("1"))     // quiet

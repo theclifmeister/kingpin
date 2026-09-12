@@ -24,6 +24,11 @@ import (
 // after the dial. A buy opens on a connect step before the product
 // where more than one connect where you stand sells you something
 // (paged); with one, that connect is the buy's and the step is skipped.
+// The dialog turns from one side to the other in place (#168): b and s
+// on the product step (or the connect step) switch it, the product
+// under the cursor kept, and where the turn changed the city the dialog
+// is about (a buy is where you stand, a sale in the shown city) the
+// first body line says so.
 type dialog struct {
 	step     int // 0 product, 1 quantity, 2 the buy's repeat or the sale's dial, 3 the sale's repeat
 	pick     bool
@@ -34,6 +39,7 @@ type dialog struct {
 	dial     events.Dial
 	repeat   repeat
 	err      string
+	turned   bool // the dialog was turned to this side from a city other than this one (#168)
 }
 
 // payNames are the buy's last-step notches for how it is paid, in the
@@ -105,50 +111,16 @@ func (m *Model) openDialog(mode mode) {
 	if m.w.Over != nil {
 		return
 	}
-	if m.w.LieLow && mode == modeSell {
-		m.refuse("Can't sell: you are lying low today, nothing sells.")
+	if why := m.cannotOpen(mode); why != "" {
+		m.refuse(why)
 		return
 	}
 	m.dlg = dialog{qty: newNumberField("blank = max"), dial: events.DialNormal}
 	if mode == modeBuy {
-		// The connects where you stand that are dealing today (#72):
-		// none, and there is nothing to open on; one, and it is the
-		// buy's, the product step saying what you cannot afford; more,
-		// and the first step picks.
-		var open []int
-		for i, sup := range m.connectsHere() {
-			if m.dealing(sup) {
-				open = append(open, i)
-			}
-		}
-		switch len(open) {
-		case 0:
-			m.refuse("Can't buy: " + m.whyNobodySells() + ".")
-			return
-		case 1:
-			m.dlg.supplier = open[0]
-		default:
-			m.dlg.paged, m.dlg.pick, m.dlg.supplier = true, true, open[0]
-			// Land on the cheapest for the product under the cursor.
-			if best := m.w.BestSupplier(m.w.Player.Location, m.w.Products[m.cursor]); best != nil {
-				for _, i := range open {
-					if m.connectsHere()[i].ID == best.ID {
-						m.dlg.supplier = i
-					}
-				}
-			}
-		}
+		m.seedBuy()
 	}
 	if mode == modeSell {
 		city := m.actionCity()
-		if m.sellableIn(city) == 0 {
-			if m.w.Stashed() == 0 {
-				m.refuse("Nothing to sell: buy from the supplier first.")
-			} else {
-				m.refuse(fmt.Sprintf("Nothing to sell in %s: turn to the other city, or run a route into it %s.", m.w.CityName(city), screenPointer(screenMap)))
-			}
-			return
-		}
 		// Land on something you actually hold there, or that the
 		// contract brings.
 		if m.sellable(city, m.w.Products[m.cursor]) == 0 {
@@ -159,13 +131,115 @@ func (m *Model) openDialog(mode mode) {
 				}
 			}
 		}
-		if o, ok := m.w.Order(city, m.w.Products[m.cursor]); ok {
-			m.dlg.dial = o.Dial
-		} else if o, ok := m.w.YourStanding(city, m.w.Products[m.cursor]); ok {
-			m.dlg.dial = o.Dial
-		}
+		m.seedSell()
 	}
 	m.mode = mode
+}
+
+// cannotOpen is why the buy or sell dialog cannot open on its side
+// today, as the status bar and the other side's error line say it, or
+// blank: a buy needs a connect where you stand that is dealing, a sale
+// a day you are not lying low and something to sell in its city.
+func (m *Model) cannotOpen(mode mode) string {
+	if mode == modeBuy {
+		if open, _ := m.openConnects(); len(open) == 0 {
+			return "Can't buy: " + m.whyNobodySells() + "."
+		}
+		return ""
+	}
+	if m.w.LieLow {
+		return "Can't sell: you are lying low today, nothing sells."
+	}
+	if city := m.actionCity(); m.sellableIn(city) == 0 {
+		if m.w.Stashed() == 0 {
+			return "Nothing to sell: buy from the supplier first."
+		}
+		return fmt.Sprintf("Nothing to sell in %s: turn to the other city, or run a route into it %s.", m.w.CityName(city), screenPointer(screenMap))
+	}
+	return ""
+}
+
+// openConnects is the connects where you stand that are dealing today
+// (#72), as indexes into connectsHere, and the one the connect step
+// lands on: the cheapest for the product under the cursor.
+func (m *Model) openConnects() (open []int, land int) {
+	for i, sup := range m.connectsHere() {
+		if m.dealing(sup) {
+			open = append(open, i)
+		}
+	}
+	if len(open) == 0 {
+		return nil, 0
+	}
+	land = open[0]
+	if best := m.w.BestSupplier(m.w.Player.Location, m.w.Products[m.cursor]); best != nil {
+		for _, i := range open {
+			if m.connectsHere()[i].ID == best.ID {
+				land = i
+			}
+		}
+	}
+	return open, land
+}
+
+// seedBuy sets the buy dialog's connect (#72): none dealing, and there
+// is nothing to open on (cannotOpen says so first); one, and it is the
+// buy's, the product step saying what you cannot afford; more, and the
+// first step picks.
+func (m *Model) seedBuy() {
+	open, land := m.openConnects()
+	switch len(open) {
+	case 0:
+	case 1:
+		m.dlg.supplier = open[0]
+	default:
+		m.dlg.paged, m.dlg.pick, m.dlg.supplier = true, true, land
+	}
+}
+
+// seedSell opens the sell dialog's dial on the order's or the standing
+// order's for the product under the cursor, where one stands.
+func (m *Model) seedSell() {
+	city := m.actionCity()
+	if o, ok := m.w.Order(city, m.w.Products[m.cursor]); ok {
+		m.dlg.dial = o.Dial
+	} else if o, ok := m.w.YourStanding(city, m.w.Products[m.cursor]); ok {
+		m.dlg.dial = o.Dial
+	}
+}
+
+// switchSide is b on the sell dialog or s on the buy dialog (#168): the
+// dialog turned to the other side in place, on the product step, the
+// product under the cursor kept and the cart on screen. What the
+// earlier side held is cleared as shift+tab clears it (the quantity,
+// the repeat, the pay), a buy's connect step is re-entered only where
+// it has one, and the sale's dial is seeded as opening it would seed
+// it. The other side refusing to open is the error line, not a close.
+// Where the turn changes the city (a buy is where you stand, a sale in
+// the shown city) the first body line says so.
+func (m *Model) switchSide() {
+	d := &m.dlg
+	to := modeSell
+	if m.mode == modeSell {
+		to = modeBuy
+	}
+	if why := m.cannotOpen(to); why != "" {
+		d.err = why
+		return
+	}
+	from := m.dialogCity()
+	m.mode = to
+	d.step, d.pick, d.paged, d.supplier, d.credit = 0, false, false, 0, false
+	d.qty.SetValue("")
+	d.qty.Blur()
+	d.repeat = repeatOnce
+	d.dial = events.DialNormal
+	d.turned = m.dialogCity() != from
+	if to == modeBuy {
+		m.seedBuy()
+	} else {
+		m.seedSell()
+	}
 }
 
 // keyDialog is the buy and sell dialogs' key handler. Back is one key
@@ -219,12 +293,20 @@ func (m *Model) keyDialog(k tea.KeyMsg) (tea.Model, tea.Cmd) {
 			}
 		case "enter", "right", "l":
 			return m.dialogForward()
+		case "s":
+			m.switchSide()
 		}
 		return m, nil
 	}
 	switch d.step {
 	case 0:
 		switch key {
+		case "b", "s":
+			// The other side, in place (#168); the key of the side
+			// the dialog is on does nothing.
+			if (key == "b") == (m.mode == modeSell) {
+				m.switchSide()
+			}
 		case "up", "k":
 			if m.cursor > 0 {
 				m.cursor--
@@ -721,6 +803,13 @@ func (m *Model) viewDialog() string {
 		}
 	}
 
+	// The dialog turned to this side from the other city (#168): the
+	// first line says where this side is, the way the pane's NOTES say
+	// where you are.
+	if d.turned {
+		body = append(body, theme.Subtle.Render(m.sideLine()), "")
+	}
+
 	// The connect step of a buy (#72): the connects where you stand,
 	// the price of the product under the cursor, the lot, what they
 	// have left today, the relationship and the credit they give.
@@ -864,6 +953,15 @@ func (m *Model) viewDialog() string {
 		body = append(body, cb...)
 	}
 	return m.modal(title, body, m.modalFooter())
+}
+
+// sideLine is the first body line of a dialog turned to a side in
+// another city (#168): `Selling in Bayport.` / `Buying in Eastside.`.
+func (m *Model) sideLine() string {
+	if m.mode == modeBuy {
+		return "Buying in " + m.w.CityName(m.dialogCity()) + "."
+	}
+	return "Selling in " + m.w.CityName(m.dialogCity()) + "."
 }
 
 // temperWords is what a connect's temper does about a missed payment,
