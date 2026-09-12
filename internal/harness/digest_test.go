@@ -140,21 +140,25 @@ const (
 
 // seedDigest is the world after each of the boss's first sixty days on
 // seedDigestSeed, pinned at 75bd4d0 (#144 PR 4: the shape changes of
-// the issue, no number moved).
+// the issue, no number moved) and again for #193 (City.Campaign,
+// DA.Backed, Law.CampaignOpen, Today.Backed and three Stats added to
+// the walk; no number moved: the digest with the new fields skipped was
+// the old one on every day, the boss having no clean cash to back a
+// ticket with by day 60).
 var seedDigest = []string{
-	"e90fbd1fbbf62c22", "19df1355b08f9597", "9154d884c0da1ea0", "db154f3e5342aeca",
-	"420c9b23568cd03e", "94e8497eee162a42", "4336738d6ff6aefd", "d1f1cebb131f5552",
-	"b2dd15097d1b4293", "e2de70949848be75", "2aa5736f4b0062ec", "6709c6a31686580d",
-	"ec9cb299a2028226", "841a8860285021b5", "42a21726b95cea22", "98dd699eabeba272",
-	"d8c2e0a32701e6a3", "0a783eebea47c706", "81191270c8cc1817", "ec3c00947e4c22bf",
-	"19e5f568f87cab99", "097990e7da8d1b12", "6d09f6b97e1d4418", "7d01372c6ada777f",
-	"818d542c72d35cfd", "b1e55301d3fbfe6c", "8d291524c4c7d2ce", "5a6bac84b4fcaf94",
-	"7622c215e2ccfc6e", "2598371449fb3c29", "2755ec2f0e7293c0", "175269f6366b56c4",
-	"0ecf26f8087baf00", "42b949c5697d5a25", "8dcf881903c4b942", "db9300d420a99bc2",
-	"57a5ec311e82b788", "dc4f439b6d44d987", "2796bc69f732716c", "7c41e7f2c762ae1e",
-	"ca15906ccae3b9d0", "d44479fd39157961", "4d3279705dadcd72", "f29a45504f275af3",
-	"b3a85b37f00db54e", "51b07fc6f15e9ca8", "57ba18fa5c54a8fc", "9d9287f7d079a326",
-	"aff3a4088f35834a", "0c17ed94c9436c0d", "3ca4825460d4fd8f", "1939204831e99937",
-	"a20a49fe81f2cd64", "9ae63a0a1aba7620", "8d8318718984b864", "ad3a3422e437be20",
-	"2cf633a0ea3f9187", "568df82e4cf17487", "fc671b51589200a3", "420afd827558d624",
+	"578e9710c447ef35", "962a304f2f8722ae", "37e16605d8789223", "a4ce4bb0b201af5b",
+	"8ff1a3c31160855f", "71ac43c42475cd07", "32cea2fb7b4fed1a", "d4f37cf09355de3d",
+	"ee403951f6193b34", "01381b9659be863e", "359688c4cfe73865", "f84cd9faae7a8c00",
+	"8516bfb4c4782457", "5d6953274eadb90c", "e1da359a6aab56c5", "504c128d1a40b703",
+	"a6437d291c9c7a4a", "c12417c8dedcd901", "7cd19c74ffabfb8a", "74cd136e3ba81c8e",
+	"685af52f63caa43a", "54de463afa65d3ad", "36c7b9092261af6b", "512e4583e55bab3a",
+	"f5883843645a7768", "b0388ea579e1c097", "03054d9ac42caa8b", "83e745b8e213ac5b",
+	"3e2ed5f08ac8ce5b", "ff4792638b901ec2", "3e2d73f53ad635b3", "46e3e8ba19d43063",
+	"449a4d19eecdb405", "310cf15271684270", "1a2192a15e7ff5bb", "23495e810a867e3f",
+	"da128a5fb666f66b", "fd9cec71e89842e4", "1e7ec5cd3c6ae005", "1f4a68ddf2e39d55",
+	"19b7556d22543ac9", "95ae9977a3bff69a", "445cd1fc228d4d25", "3da27d1864554cb6",
+	"225cf67c300f9e81", "3d56b9e39db2d9f9", "575402d8c6ae7543", "2a7a457c64230445",
+	"cd354b089dbf55e3", "b81584ce0cb2fec8", "9998195711b8d9d8", "b32f07cb297a3530",
+	"37e32db95cd23521", "17ebdfea6f465cb3", "6ec06f369c443f3f", "688eaeb19aaab405",
+	"92b3dc44ac932502", "84c7887458c09d2a", "73f940a8a4f8cdcb", "7b42636c68779986",
 }

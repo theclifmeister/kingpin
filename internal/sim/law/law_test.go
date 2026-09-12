@@ -250,3 +250,177 @@ func abs(v float64) float64 {
 	}
 	return v
 }
+
+// Campaigns (#193): the money joins the city's campaign the night it is
+// given and the campaign talks; the window opens open_days before the
+// election and shuts after it; at the count a full campaign moves the
+// law-and-order share by exactly swing_max and no more, a backed
+// winner is Backed, a backed loser costs the city loser_pressure and,
+// under a law-and-order winner, a zealous chief, and money on both
+// tickets buys nothing but a headline.
+func TestCampaigns(t *testing.T) {
+	cfg := content.MustLoad()
+	s := law.New(cfg)
+	tun := cfg.Law.Law
+	cmp := cfg.Law.Campaign
+	w := sim.NewWorld(cfg, 6)
+	home, hub := w.CityOrder[0], w.CityOrder[1]
+	w.Player.CleanCash = 100_000_000
+
+	// The window: shut the day before it opens, open from open_days out
+	// to the day of the vote, shut the day after.
+	opens := tun.TermDays - cmp.OpenDays
+	s.Step(w, tick(w, opens-2))
+	if w.Law.CampaignOpen || s.CampaignOpen(w, opens-1) {
+		t.Fatalf("campaign open %d days out", tun.TermDays-(opens-1))
+	}
+	if err := w.Back(home, "reform", 1); err != game.ErrCampaignClosed {
+		t.Fatalf("backed before the window: %v", err)
+	}
+	s.Step(w, tick(w, opens-1))
+	if !w.Law.CampaignOpen || !s.CampaignOpen(w, opens) || !s.CampaignOpen(w, tun.TermDays) || s.CampaignOpen(w, tun.TermDays+1) {
+		t.Fatalf("window: stamped %v, %d %v, %d %v, %d %v", w.Law.CampaignOpen, opens, s.CampaignOpen(w, opens), tun.TermDays, s.CampaignOpen(w, tun.TermDays), tun.TermDays+1, s.CampaignOpen(w, tun.TermDays+1))
+	}
+
+	// Money in: the campaign holds it, the report has it, the city talks.
+	if err := w.Back(home, "reform", 2*cmp.Cash); err != nil {
+		t.Fatal(err)
+	}
+	for _, c := range w.Cities {
+		c.Pressure = 20
+	}
+	tk := tick(w, opens)
+	s.Step(w, tk)
+	camp := w.Home().Campaign
+	if camp.Ticket != "reform" || camp.Cash != 2*cmp.Cash || camp.Hedged || kinds(tk)["CampaignBacked"] != 1 || w.Stats.Campaigns != 1 {
+		t.Fatalf("after backing: %+v %v stats %+v", camp, kinds(tk), w.Stats)
+	}
+	if abs(cmp.Swing(camp.Cash)-0.02) > 1e-9 {
+		t.Fatalf("$%d buys %.4f of the vote, want two points", camp.Cash, cmp.Swing(camp.Cash))
+	}
+	quiet := 20 - (20-tun.Baseline)*tun.Decay
+	loud := 20 + cmp.Pressure - (20+cmp.Pressure-tun.Baseline)*tun.Decay
+	if p := w.Home().Pressure; abs(p-loud) > 1e-9 {
+		t.Fatalf("home pressure with a campaign %.4f, want %.4f", p, loud)
+	}
+	if p := w.Cities[hub].Pressure; abs(p-quiet) > 1e-9 {
+		t.Fatalf("hub pressure with no campaign %.4f, want %.4f", p, quiet)
+	}
+
+	// The swing: a point per cash, capped at swing_max, the mean over
+	// the cities, toward the ticket.
+	w.Home().Campaign = game.Campaign{Ticket: "reform", Cash: 100 * cmp.Fill()}
+	w.Cities[hub].Campaign = game.Campaign{}
+	if got := s.Swing(w); abs(got+cmp.SwingMax/2) > 1e-9 {
+		t.Fatalf("a full reform campaign in one of two cities swings %.4f, want %.4f", got, -cmp.SwingMax/2)
+	}
+	w.Cities[hub].Campaign = game.Campaign{Ticket: "law_and_order", Cash: cmp.Fill()}
+	if got := s.Swing(w); abs(got) > 1e-9 {
+		t.Fatalf("full campaigns both ways swing %.4f", got)
+	}
+	w.Cities[hub].Campaign.Hedged = true
+	if got := s.Swing(w); abs(got+cmp.SwingMax/2) > 1e-9 {
+		t.Fatalf("a hedged campaign moved the vote: %.4f", got)
+	}
+
+	// The count, over 50 seeds with the cities at 80: full reform
+	// campaigns in both cities return law-and-order less often than no
+	// money, and still return it (money never decides). The dice are the
+	// same draw either way, so the difference is the seeds whose draw
+	// fell inside the swing.
+	count := func(back bool) (n int) {
+		for seed := uint64(1); seed <= 50; seed++ {
+			w := sim.NewWorld(cfg, seed)
+			for _, c := range w.Cities {
+				c.Pressure = 80
+				if back {
+					c.Campaign = game.Campaign{Ticket: "reform", Cash: cmp.Fill()}
+				}
+			}
+			w.Law.DA.Stance = "moderate"
+			tk := tick(w, tun.TermDays)
+			s.Step(w, tk)
+			for _, e := range tk.Events() {
+				if ev, ok := e.(events.DAElected); ok {
+					if back && abs(ev.Swing+cmp.SwingMax) > 1e-9 {
+						t.Fatalf("seed %d: swing %.4f on full campaigns, want %.4f", seed, ev.Swing, -cmp.SwingMax)
+					}
+					if ev.Stance == "law_and_order" {
+						n++
+					}
+				}
+			}
+		}
+		return n
+	}
+	unbacked, backed := count(false), count(true)
+	t.Logf("law-and-order won %d of 50 at pressure 80 unbacked, %d with full reform campaigns", unbacked, backed)
+	if backed >= unbacked || backed == 0 {
+		t.Fatalf("money should move the vote and never decide it: %d unbacked, %d backed", unbacked, backed)
+	}
+	if lost := unbacked - backed; float64(lost) > 50*cmp.SwingMax*(1-tun.Moderate)*3 {
+		t.Fatalf("money moved %d of 50 elections, more than swing_max %.2f allows", lost, cmp.SwingMax)
+	}
+
+	// A backed winner: the DA is Backed, the campaign spent, the win
+	// counted; a backed loser: pressure at once in that city and, under
+	// a law-and-order winner, a zealous chief named for it; a hedge: the
+	// headline and nothing else. Seeds are walked until each outcome
+	// has been seen.
+	seen := map[string]bool{}
+	for seed := uint64(1); seed <= 60 && len(seen) < 3; seed++ {
+		w := sim.NewWorld(cfg, seed)
+		for _, c := range w.Cities {
+			c.Pressure = 50
+		}
+		w.Law.DA.Stance = "moderate"
+		w.Home().Campaign = game.Campaign{Ticket: "reform", Cash: cmp.Fill()}
+		w.Cities[hub].Campaign = game.Campaign{Ticket: "law_and_order", Cash: cmp.Fill(), Hedged: true}
+		chief := w.Law.Chief
+		hubP := w.Cities[hub].Pressure
+		tk := tick(w, tun.TermDays)
+		s.Step(w, tk)
+		k := kinds(tk)
+		if k["CampaignHedged"] != 1 || w.Cities[hub].Campaign != (game.Campaign{}) || w.Home().Campaign != (game.Campaign{}) {
+			t.Fatalf("seed %d: hedged campaign: %v %+v", seed, k, w.Cities[hub].Campaign)
+		}
+		if got := w.Cities[hub].Pressure; got > hubP {
+			t.Fatalf("seed %d: the hedged city's pressure rose %.2f -> %.2f", seed, hubP, got)
+		}
+		switch w.Law.DA.Stance {
+		case "reform":
+			seen["won"] = true
+			if !w.Law.DA.Backed || k["CampaignLost"] != 0 || w.Stats.CampaignsWon != 1 {
+				t.Fatalf("seed %d: backed winner: %+v %v stats %+v", seed, w.Law.DA, k, w.Stats)
+			}
+		case "law_and_order":
+			seen["lost-law"] = true
+			if w.Law.DA.Backed || k["CampaignLost"] != 1 || k["ChiefReplaced"] != 1 || w.Law.Chief.Personality != "zealous" || w.Law.Chief.Name == chief.Name {
+				t.Fatalf("seed %d: backed loser under law and order: %+v %v chief %+v", seed, w.Law.DA, k, w.Law.Chief)
+			}
+			for _, e := range tk.Events() {
+				if ev, ok := e.(events.ChiefReplaced); ok && ev.Why != "campaign" {
+					t.Fatalf("seed %d: chief replaced for %q, want campaign", seed, ev.Why)
+				}
+				if ev, ok := e.(events.CampaignLost); ok && (!ev.Chief || ev.City != home || ev.Pressure != cmp.LoserPressure) {
+					t.Fatalf("seed %d: %+v", seed, ev)
+				}
+			}
+		default:
+			seen["lost-moderate"] = true
+			if w.Law.DA.Backed || k["CampaignLost"] != 1 || k["ChiefReplaced"] != 0 || w.Law.Chief.Name != chief.Name || w.Law.Chief.Personality != chief.Personality {
+				t.Fatalf("seed %d: backed loser under a moderate: %+v %v chief %+v", seed, w.Law.DA, k, w.Law.Chief)
+			}
+		}
+		if w.Law.DA.Stance != "reform" {
+			// The loser's pressure lands before the fade of the same step:
+			// the city ends above where 50 alone would have left it.
+			if p := w.Home().Pressure; p <= 50-(50-tun.Baseline)*tun.Decay {
+				t.Fatalf("seed %d: the losing city's pressure %.2f did not rise", seed, p)
+			}
+		}
+	}
+	if len(seen) < 3 {
+		t.Fatalf("60 seeds at pressure 50 did not show every outcome: %v", seen)
+	}
+}

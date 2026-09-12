@@ -182,7 +182,7 @@ func (s *Sim) Step(w *game.World, t *game.Tick) {
 	}
 
 	// Money before we look at events: sales are already applied by market.
-	var soldRevenue, lostCash, spent, wages, skimmed, robbed, upgrades, upkeep, seized, paidOff, investigated, shipping, tribute, cuts, standingCut, funded, contracts, forfeits, repaid, rent int
+	var soldRevenue, lostCash, spent, wages, skimmed, robbed, upgrades, upkeep, seized, paidOff, investigated, shipping, tribute, cuts, standingCut, funded, backed, contracts, forfeits, repaid, rent int
 	var scouted, poached, boosted int // the books (#70): what a scout and a buy-off cost, less the refund, and what a boost took
 	routeCost := map[string]int{}     // what each route cost today, lots and fares, by name in the order first seen
 	var routeOrder []string
@@ -757,7 +757,10 @@ func (s *Sim) Step(w *game.World, t *game.Tick) {
 			d := at(w.Home().ID)
 			d.Name, d.Stance = ev.Name, stanceWords(ev.Stance)
 			key := "DAElected"
-			if ev.Incumbent {
+			switch {
+			case ev.Backed:
+				key = "DABought" // #193: the paper knows whose money it was
+			case ev.Incumbent:
 				key = "DAReElected"
 			}
 			add("law", key, d)
@@ -766,11 +769,31 @@ func (s *Sim) Step(w *game.World, t *game.Tick) {
 			d := at(w.Home().ID)
 			d.Name, d.Rival = ev.Name, ev.Old
 			key := "ChiefReplaced"
-			if ev.Why == "da" {
+			switch ev.Why {
+			case "da":
 				key = "ChiefReplacedDA"
+			case "campaign":
+				key = "ChiefReplacedCampaign"
 			}
 			add("law", key, d)
 			rep.Law = append([]string{chiefLine(ev)}, rep.Law...)
+		// Campaigns (#193): the money in, and what it bought at the count.
+		case events.CampaignBacked:
+			backed += ev.Amount
+			rep.Law = append(rep.Law, fmt.Sprintf("Put %s clean behind the %s ticket in %s: the campaign holds %s, %s of the city's vote", format.Money(ev.Amount), stanceWords(ev.Ticket), w.CityName(ev.City), format.Money(ev.Total), swingWords(ev.Swing)))
+			rep.Money = append(rep.Money, fmt.Sprintf("Campaign in %s -%s clean", w.CityName(ev.City), format.Money(ev.Amount)))
+		case events.CampaignLost:
+			d := at(ev.City)
+			d.Stance = stanceWords(ev.Winner)
+			add("law", "CampaignLost", d)
+			line := fmt.Sprintf("The %s you paid for in %s lost: DA %s knows who backed the other side. Pressure +%.0f there", format.Money(ev.Cash), w.CityName(ev.City), w.Law.DA.Name, ev.Pressure)
+			if ev.Chief {
+				line += ", and the mayor named a zealous chief before the count was cold"
+			}
+			rep.Law = append(rep.Law, line+".")
+		case events.CampaignHedged:
+			add("law", "CampaignHedged", at(ev.City))
+			rep.Law = append(rep.Law, fmt.Sprintf("%s in %s went to both tickets: nobody owes you, and everybody knows it.", format.Money(ev.Cash), w.CityName(ev.City)))
 		case events.PressureShifted:
 			key := "PressureShiftedDown"
 			if ev.Up() {
@@ -869,7 +892,7 @@ func (s *Sim) Step(w *game.World, t *game.Tick) {
 		spent += m.Fee
 		rep.Money = append(rep.Money, fmt.Sprintf("Signing fee for %s -%s", m.Name, format.Money(m.Fee)))
 	}
-	rep.CashBefore = w.Cash() - soldRevenue - contracts + forfeits + lostCash + spent + wages + skimmed + robbed + upgrades + upkeep + seized + paidOff + investigated + shipping + tribute + cuts + funded + repaid + rent + scouted + poached - boosted
+	rep.CashBefore = w.Cash() - soldRevenue - contracts + forfeits + lostCash + spent + wages + skimmed + robbed + upgrades + upkeep + seized + paidOff + investigated + shipping + tribute + cuts + funded + backed + repaid + rent + scouted + poached - boosted
 	if soldRevenue > 0 {
 		rep.Money = append(rep.Money, fmt.Sprintf("Street sales +%s", format.Money(soldRevenue)))
 	}
@@ -925,8 +948,20 @@ func stanceWords(stance string) string {
 	}
 }
 
+// swingWords is a campaign's pull on a city's vote (#193), in points.
+func swingWords(swing float64) string {
+	return fmt.Sprintf("%.1f points", swing*100)
+}
+
 // electionLine is the report's line on a DA election.
 func electionLine(ev events.DAElected) string {
+	if ev.Backed {
+		// #193: the ticket you paid for won.
+		if ev.Incumbent {
+			return fmt.Sprintf("DA %s re-elected on the %s ticket, on your money: the sting line sits higher while they owe you.", ev.Name, stanceWords(ev.Stance))
+		}
+		return fmt.Sprintf("DA %s elected on the %s ticket, on your money: the sting line sits higher while they owe you.", ev.Name, stanceWords(ev.Stance))
+	}
 	if ev.Incumbent {
 		return fmt.Sprintf("DA %s re-elected on the %s ticket; nothing changes at the courthouse.", ev.Name, stanceWords(ev.Stance))
 	}
@@ -942,6 +977,9 @@ func electionLine(ev events.DAElected) string {
 
 // chiefLine is the report's line on a new police chief.
 func chiefLine(ev events.ChiefReplaced) string {
+	if ev.Why == "campaign" {
+		return fmt.Sprintf("The new DA remembers who paid for the other side: %s is out, %s is in, and the word is zealous.", ev.Old, ev.Name)
+	}
 	if ev.Why == "da" {
 		return fmt.Sprintf("The new DA wanted a new chief: %s is out, %s is in. You will learn what they are like.", ev.Old, ev.Name)
 	}

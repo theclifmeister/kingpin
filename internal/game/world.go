@@ -75,7 +75,7 @@ type World struct {
 
 // Today is the player's per-day scratch on the World (#144): what the
 // actions (Buy, PlaceSell, SetLieLow, SendEnforcers, Boost, Investigate,
-// BuyUpgrade, Propose, Accept, Abandon, Fund, Deliver, Undercut,
+// BuyUpgrade, Propose, Accept, Abandon, Fund, Back, Deliver, Undercut,
 // MoveStock, BuyHouse, Scout, Tip, BuyOff) queue by day and the sims
 // resolve at EndDay, then the clock zeroes as a unit (ClearToday). A
 // field here is never read across a day; the one receipt kept into the
@@ -94,6 +94,7 @@ type Today struct {
 	Accepted      []Offer                // rival offers the player took today; the rival sim seals them
 	Abandoned     []string               // corner ids given back to the street today
 	Funded        []Funding              // clean cash given to a city today; the law sim turns it into goodwill
+	Backed        []Backing              // clean cash put behind a DA ticket in a city today (#193); the law sim adds it to the city's campaign
 	Deliveries    map[int]int            // contract id -> units handed over tonight; the market sim resolves them
 	Undercuts     map[string]events.Dial // rival corner id -> the dial tonight's orders undercut it at (#68); the market sim resolves them
 	Moved         []Move                 // stock moved between places today (#73); the heat sim counts the units as exposure
@@ -113,9 +114,10 @@ type City struct {
 	Wholesale bool                      // the supplier here sells by the lot
 	Market    map[string]*ProductMarket // keyed by product id
 	Corners   []Corner
-	Heat      float64 // city heat, 0..100: how hard the police here are looking
-	Pressure  float64 // public pressure, 0..100: how loudly the city wants something done (#41)
-	Goodwill  float64 // what the player has bought the city, 0..100: it takes pressure off a little every day
+	Heat      float64  // city heat, 0..100: how hard the police here are looking
+	Pressure  float64  // public pressure, 0..100: how loudly the city wants something done (#41)
+	Goodwill  float64  // what the player has bought the city, 0..100: it takes pressure off a little every day
+	Campaign  Campaign // the money you have put behind a DA ticket here before the next election (#193); the law sim owns it
 }
 
 // Player is the human's cash, where they are and what they keep where,
@@ -676,6 +678,9 @@ type Stats struct {
 	Cuts           int // dirty cash the lieutenants kept as their cut, and the crew's cut on your standing orders (#114)
 	Walked         int // lieutenants who walked with their city
 	Funded         int // clean cash given to the cities (#41)
+	Backed         int // clean cash put behind DA campaigns (#193)
+	Campaigns      int // campaigns backed, one a city an election
+	CampaignsWon   int // of those, the ticket that won
 	Elections      int // DA elections held
 	Chiefs         int // police chiefs replaced
 	Contracts      int // buyers' contracts delivered in full (#71)

@@ -180,6 +180,7 @@ func main() {
 	var trust []int
 	var pressure, goodwill []int
 	elections, chiefs, funded := 0, 0, 0
+	campaigns, campaignsWon, backed := 0, 0, 0 // #193
 	stances := map[string]int{}
 	tempersOfChief := map[string]int{}
 	var rels []int
@@ -359,6 +360,7 @@ func main() {
 		pressure = append(pressure, int(res.World.Here().Pressure))
 		goodwill = append(goodwill, int(res.World.Here().Goodwill))
 		elections, chiefs, funded = elections+st.Elections, chiefs+st.Chiefs, funded+st.Funded
+		campaigns, campaignsWon, backed = campaigns+st.Campaigns, campaignsWon+st.CampaignsWon, backed+st.Backed
 		stances[res.World.Law.DA.Stance]++
 		tempersOfChief[res.World.Law.Chief.Personality]++
 		// The street connect where the run ended: the relationship the
@@ -489,6 +491,7 @@ func main() {
 	sort.Ints(goodwill)
 	fmt.Printf("law:           pressure %d goodwill %d at the end (medians), pressure max %d, %d elections, %d chiefs replaced, $%d given per run; DA %v chief %v\n",
 		pressure[len(pressure)/2], goodwill[len(goodwill)/2], pressure[len(pressure)-1], elections, chiefs, funded / *runs, stances, tempersOfChief)
+	fmt.Printf("campaigns:     %d backed, %d won, $%d put behind a ticket per run\n", campaigns, campaignsWon, backed / *runs)
 	if len(rels) > 0 {
 		sort.Ints(rels)
 		fmt.Printf("suppliers:     rel %d with the street connect at the end (median), %d days in debt per run, %d late payments, %d freezes, %d collections, $%d taken on credit per run (credit %s)\n",

@@ -299,3 +299,161 @@ func TestLawSurvivesSave(t *testing.T) {
 		t.Fatalf("replay differs: %+v vs %+v", b.World.Law, a.World.Law)
 	}
 }
+
+// A run that never backs a ticket is the run before campaigns (#193):
+// no campaign holds money, no campaign event fires, no DA is Backed and
+// the sting line is the DA's alone, under the policies that pay nobody.
+// TestSeedDigest pins the boss's sixty days byte for byte.
+func TestNoCampaignIsTheOldRun(t *testing.T) {
+	cfg := content.MustLoad()
+	for name, policy := range map[string]Policy{"crewed": Crewed(cfg, 40), "laundered": Laundered(cfg, 40), "distributor": Distributor(cfg, 40)} {
+		res, err := Run(cfg, 1, 2*Horizon, func(w *game.World) {
+			for _, cid := range w.CityOrder {
+				if w.Cities[cid].Campaign != (game.Campaign{}) {
+					t.Fatalf("%s day %d: %s holds a campaign %+v with nobody backing", name, w.Day, cid, w.Cities[cid].Campaign)
+				}
+			}
+			if w.Law.DA.Backed || w.Stats.Backed != 0 || w.Stats.Campaigns != 0 {
+				t.Fatalf("%s day %d: backed with nobody backing: %+v %+v", name, w.Day, w.Law.DA, w.Stats)
+			}
+			policy(w)
+		})
+		if err != nil {
+			t.Fatal(err)
+		}
+		for _, e := range res.Events {
+			switch ev := e.(type) {
+			case events.CampaignBacked, events.CampaignLost, events.CampaignHedged:
+				t.Fatalf("%s: %+v in a run that never backed", name, ev)
+			case events.DAElected:
+				if ev.Backed || ev.Swing != 0 {
+					t.Fatalf("%s: %+v in a run that never backed", name, ev)
+				}
+			case events.ChiefReplaced:
+				if ev.Why == "campaign" {
+					t.Fatalf("%s: %+v in a run that never backed", name, ev)
+				}
+			}
+		}
+	}
+}
+
+// A campaign survives a save (#193): the money in it, the window and
+// the DA it bought, and a run that backs replays from its seed.
+func TestCampaignSurvivesSave(t *testing.T) {
+	t.Setenv("KINGPIN_HOME", t.TempDir())
+	cfg := content.MustLoad()
+	set, _, err := sim.Default(cfg)
+	if err != nil {
+		t.Fatal(err)
+	}
+	opens := cfg.Law.Law.TermDays - cfg.Law.Campaign.OpenDays
+	play := func(seed uint64, days int) (Result, error) {
+		w := sim.NewWorld(cfg, seed)
+		w.Player.CleanCash = 2_000_000
+		return RunFrom(cfg, w, days, func(w *game.World) {
+			Funded(cfg, 40)(w)
+			if w.Day == opens+2 {
+				_ = w.Back(w.Home().ID, "law_and_order", 1_000) // a hedge at home, to save
+			}
+		})
+	}
+	a, err := play(3, opens+5)
+	if err != nil {
+		t.Fatal(err)
+	}
+	home := a.World.Home()
+	if !a.World.Law.CampaignOpen || home.Campaign.Cash <= 0 || !home.Campaign.Hedged || a.World.Stats.Campaigns != 2 {
+		t.Fatalf("nothing to save: open %v %+v stats %+v", a.World.Law.CampaignOpen, home.Campaign, a.World.Stats)
+	}
+	if err := game.Save(1, a.World); err != nil {
+		t.Fatal(err)
+	}
+	got, err := game.Load(1, set.Migrations()...)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if got.Law != a.World.Law {
+		t.Fatalf("law after load %+v, want %+v", got.Law, a.World.Law)
+	}
+	for _, cid := range a.World.CityOrder {
+		if got.Cities[cid].Campaign != a.World.Cities[cid].Campaign {
+			t.Fatalf("%s after load: campaign %+v, want %+v", cid, got.Cities[cid].Campaign, a.World.Cities[cid].Campaign)
+		}
+	}
+	if got.Stats.Backed != a.World.Stats.Backed || got.Stats.Campaigns != a.World.Stats.Campaigns {
+		t.Fatalf("stats after load %+v", got.Stats)
+	}
+	// Through the election: the DA it elected, Backed or not, is what a
+	// replay elects.
+	b, _ := play(3, cfg.Law.Law.TermDays+1)
+	c, _ := play(3, cfg.Law.Law.TermDays+1)
+	if b.World.Law != c.World.Law || len(b.Events) != len(c.Events) || b.World.Stats != c.World.Stats {
+		t.Fatalf("replay differs: %+v vs %+v", b.World.Law, c.World.Law)
+	}
+	if b.World.Stats.Elections != 1 || b.World.Home().Campaign != (game.Campaign{}) {
+		t.Fatalf("after the election: %+v %+v", b.World.Stats, b.World.Home().Campaign)
+	}
+}
+
+// Sizing (#193): at tier 4 the boss puts $1M-$10M a city into each
+// election's campaigns and ends with goodwill over 50 where it stands;
+// at tier 3 the funded player gives under $500k a campaign. Every
+// dollar either gave was clean.
+func TestCampaignSizing(t *testing.T) {
+	cfg := content.MustLoad()
+	var late []int
+	var goodwill []float64
+	for seed := uint64(1); seed <= 5; seed++ {
+		res, err := Run(cfg, seed, TierDays[3], Boss(cfg, 40, ""))
+		if err != nil {
+			t.Fatal(err)
+		}
+		if res.Over != nil {
+			continue
+		}
+		w := res.World
+		if w.Stats.Backed+w.Stats.Funded > w.Stats.Laundered {
+			t.Fatalf("seed %d: gave $%d but only washed $%d", seed, w.Stats.Backed+w.Stats.Funded, w.Stats.Laundered)
+		}
+		goodwill = append(goodwill, w.Here().Goodwill)
+		for _, e := range res.Events {
+			if ev, ok := e.(events.CampaignBacked); ok && ev.Day >= TierDays[2] {
+				late = append(late, ev.Amount)
+			}
+		}
+	}
+	if len(late) == 0 || len(goodwill) == 0 {
+		t.Fatal("the boss backed nobody at tier 4")
+	}
+	sort.Ints(late)
+	sort.Float64s(goodwill)
+	t.Logf("boss at tier 4: $%d a city an election (median of %d), goodwill %.0f at day %d (median)", late[len(late)/2], len(late), goodwill[len(goodwill)/2], TierDays[3])
+	if med := late[len(late)/2]; med < 1_000_000 || med > 10_000_000 {
+		t.Errorf("the boss should put $1M-$10M a city into an election at tier 4, not $%d", med)
+	}
+	if med := goodwill[len(goodwill)/2]; med <= 50 {
+		t.Errorf("the boss should end with goodwill over 50, not %.0f", med)
+	}
+
+	var amounts []int
+	for seed := uint64(1); seed <= 5; seed++ {
+		res, err := Run(cfg, seed, TierDays[2], Funded(cfg, 40))
+		if err != nil {
+			t.Fatal(err)
+		}
+		for _, e := range res.Events {
+			if ev, ok := e.(events.CampaignBacked); ok {
+				amounts = append(amounts, ev.Amount)
+			}
+		}
+	}
+	if len(amounts) == 0 {
+		t.Fatal("the funded player backed nobody")
+	}
+	sort.Ints(amounts)
+	t.Logf("funded at tier 3: $%d a city an election (median of %d), $%d at most", amounts[len(amounts)/2], len(amounts), amounts[len(amounts)-1])
+	if most := amounts[len(amounts)-1]; most >= 500_000 {
+		t.Errorf("the funded player should give under $500k a campaign at tier 3, not $%d", most)
+	}
+}

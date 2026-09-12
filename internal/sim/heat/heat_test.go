@@ -157,6 +157,19 @@ func TestLadderUnderTheLaw(t *testing.T) {
 			if got := s.Decay(w); !near(got, math.Min(1, tun.Decay*cc.Decay)) {
 				t.Fatalf("%s/%s: decay %.4f, want %.4f", chief, da, got, tun.Decay*cc.Decay)
 			}
+			// A DA whose ticket ran on your money (#193) lifts the sting
+			// line by backed_sting, and nothing else on the ladder.
+			w.Law.DA.Backed = true
+			for _, r := range s.Thresholds() {
+				want := r.Threshold * content.Cut(w.Here().Pressure, cfg.Law.Effects.PressureThresholdCut)
+				if r.Level == content.Sting {
+					want = r.Threshold * dc.Sting * cfg.Law.Effects.BackedSting
+				}
+				if got := s.Threshold(w, r, w.Here()); !near(got, want) {
+					t.Fatalf("%s/%s backed: %s fires at %.2f, want %.2f", chief, da, r.Level, got, want)
+				}
+			}
+			w.Law.DA.Backed = false
 			if got, want := s.EvidenceArrest(w), max(1, int(math.Round(float64(tun.EvidenceArrest)*dc.EvidenceArrest))); got != want {
 				t.Fatalf("%s/%s: indictment at %d pages, want %d", chief, da, got, want)
 			}
