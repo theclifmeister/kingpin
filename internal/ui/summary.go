@@ -39,7 +39,7 @@ func (m *Model) summaryLines() []string {
 		style = theme.Good
 	}
 	var out []string
-	out = append(out, style.Bold(true).Render(m.cfg.Endings.Title(e.Cause))+theme.Subtle.Render(fmt.Sprintf("  day %d · reached %s", e.Day, m.reachedLine())))
+	out = append(out, cut(style.Bold(true).Render(m.cfg.Endings.Title(e.Cause))+theme.Subtle.Render(fmt.Sprintf("  day %d · reached %s", e.Day, m.reachedLine())+m.unlockedLine()), m.modalInner()))
 	if epilogue := m.epilogue(); epilogue != "" {
 		out = append(out, m.wrapLines(epilogue)...)
 	}
@@ -95,7 +95,11 @@ func (m *Model) summaryLines() []string {
 
 	// The score: the account over one plus the bodies, and the days,
 	// shown and never scored.
-	out = append(out, "", theme.Gold.Bold(true).Render("SCORE  "+cash(w.Stats.Score))+theme.Subtle.Render(fmt.Sprintf("  %s over 1 + %s · %s survived", cash(w.Offshore), plural(w.Stats.Bodies, "body"), plural(e.Day, "day"))))
+	// The score's line ends with where the run stands against your own
+	// history (#50, rankLine); the daily's date and what the run
+	// unlocked are on the first line (unlockedLine). A line, not a
+	// table.
+	out = append(out, "", cut(theme.Gold.Bold(true).Render("SCORE  "+cash(w.Stats.Score))+theme.Subtle.Render(fmt.Sprintf("  %s over 1 + %s · %s · %s", cash(w.Offshore), plural(w.Stats.Bodies, "body"), plural(e.Day, "day"), m.rankLine())), m.modalInner()))
 	return out
 }
 

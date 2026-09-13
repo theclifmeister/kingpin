@@ -45,3 +45,4 @@ One file a subsystem, the detail CLAUDE.md points at (#175). Each is the contrac
 - [Assets are the supply side bought with clean money](assets.md)
 - [Intel: what you know against what is true](intel.md)
 - [The endings, the exit plans and the run summary](endings.md)
+- [The profile: characters, unlocks and the daily](profile.md)

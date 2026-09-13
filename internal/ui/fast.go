@@ -129,7 +129,7 @@ func (m *Model) viewFast() string {
 func (m *Model) fastForward(days int) {
 	m.mode = modePlay
 	if m.w.Over != nil {
-		m.mode = modeOver
+		m.finish(false)
 		return
 	}
 	ran := 0

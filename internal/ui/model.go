@@ -90,6 +90,7 @@ const (
 	modeSpy               // plant a spy (#45): the faction, then who goes under
 	modeConfirmDeed       // buy the block the selected corner is on? (#194)
 	modeExit              // walk away (#49): retire on the account or vanish on a new identity, then the confirmation
+	modeNewRun            // a new run from the start menu (#50): the character, the seed, the hard DA
 	modeCount
 )
 
@@ -175,13 +176,18 @@ type Model struct {
 	br             bribeDialog
 	inv            investDialog
 	rsv            reserveDialog
-	cop            copDialog  // the cop dialog (#45)
-	spy            spyDialog  // the spy dialog (#45)
-	exit           exitDialog // the walk-away dialog (#49)
-	intelCursor    int        // row on the intel screen (#45)
-	fastStop       string     // the report's first line after a fast-forward (`Stopped after 3 days: …`), until the next day ends
-	slot           int        // the save slot this run lives in: where ctrl+s, the end of the day and quitting save
-	startChoice    int        // row on the start menu: the slots, then Quit
+	cop            copDialog        // the cop dialog (#45)
+	spy            spyDialog        // the spy dialog (#45)
+	exit           exitDialog       // the walk-away dialog (#49)
+	nr             newRunDialog     // the new-run dialog (#50)
+	intelCursor    int              // row on the intel screen (#45)
+	fastStop       string           // the report's first line after a fast-forward (`Stopped after 3 days: …`), until the next day ends
+	slot           int              // the save slot this run lives in: where ctrl+s, the end of the day and quitting save
+	profile        *game.Profile    // the game around the runs (#50): loaded with the model, written when a run ends and when a daily starts
+	profileErr     string           // what loading it said, for the start menu: a corrupt one set aside, a newer one left alone
+	unlocked       []string         // what the run that just ended unlocked, for the summary
+	now            func() time.Time // the wall clock, read here alone (#50): the daily's date, the profile's; a test sets it
+	startChoice    int              // row on the start menu: the slots, then Quit
 	status         string
 	statusKind     statusKind           // how the status bar colours the message; set where the status is
 	flash          []events.Enforcement // the enforcements of the last tick, via the bus: the bust's scene reads the level (#155)
@@ -238,6 +244,8 @@ func wire(cfg *content.Config, opts Options) (*Model, error) {
 		opts:  opts,
 	}
 	bus.Subscribe(m.onEvent)
+	m.now = time.Now
+	m.loadProfile()
 	return m, nil
 }
 
@@ -254,15 +262,37 @@ func (m *Model) onEvent(e events.Event) {
 // now on.
 func (m *Model) newRun(slot int) {
 	m.slot = slot
-	m.startRun(game.NewSeed())
+	m.startRun(newSeed())
+}
+
+// newSeed is a fresh random seed off the wall clock: the UI's alone
+// (#50: time.Now is read here and never in game, sim or the harness,
+// TestNoWallClockInTheSims).
+func newSeed() uint64 { return uint64(time.Now().UnixNano()) }
+
+// restart begins a new run in the current slot as the run that is up
+// began (#50: the same character and the hard DA; a daily's is a run
+// as its character, not the daily again), on a fresh seed: N's
+// confirmation and n on the summary.
+func (m *Model) restart() {
+	start := game.Start{}
+	if m.w != nil {
+		start = game.Start{Character: m.w.Start.Character, HardDA: m.w.Start.HardDA}
+	}
+	m.startRunWith(newSeed(), start)
 }
 
 // startRun begins a run from a seed in the current slot: a new world,
 // the dashboard and the cursors at their start. A test that wants a run
 // it can replay (the README's captures) passes the seed.
-func (m *Model) startRun(seed uint64) {
+func (m *Model) startRun(seed uint64) { m.startRunWith(seed, game.Start{}) }
+
+// startRunWith is startRun as a start (#50): the character, the hard
+// DA and the daily the run begins as, sim.NewWorldWith's.
+func (m *Model) startRunWith(seed uint64, start game.Start) {
 	m.stop() // the title's loop ends with the menu
-	m.w = sim.NewWorld(m.cfg, seed)
+	m.w = sim.NewWorldWith(m.cfg, seed, start)
+	m.unlocked = nil
 	m.mode = modePlay
 	m.screen = screenDashboard
 	m.cursor = 0
@@ -274,7 +304,11 @@ func (m *Model) startRun(seed uint64) {
 	m.flash = nil
 	m.fastStop = ""
 	m.mapScene = nil
-	m.say(fmt.Sprintf("New run. %s, %s in your pocket. Seed %d.", m.w.Here().Name, money(m.w.Player.DirtyCash), m.w.Seed))
+	who := ""
+	if ch := m.cfg.Characters.Character(m.w.Start.Character); ch != nil && m.w.Start.Character != "" {
+		who = " " + ch.Name + "."
+	}
+	m.say(fmt.Sprintf("New run.%s %s, %s in your pocket. Seed %d.", who, m.w.Here().Name, money(m.w.Player.DirtyCash), m.w.Seed))
 	_ = game.Save(m.slot, m.w)
 	m.journalFilter = "" // a new run's journal is read whole
 	m.refreshJournal()
@@ -356,8 +390,9 @@ func (m *Model) continueRun(slot int) error {
 	m.slot = slot
 	m.w = w
 	m.mode = modePlay
+	m.unlocked = nil
 	if w.Over != nil {
-		m.mode = modeOver
+		m.finish(false) // the scene has been seen
 	} else if w.StagePending() > 0 || w.Dilemmas.Pending != nil {
 		m.showStage() // saved on a stage or a card: it is still waiting
 	}
@@ -387,7 +422,7 @@ func (m *Model) yourCorner() int {
 // the morning opens. A fast-forward (#116) ends several the same way.
 func (m *Model) endDay() {
 	if m.w.Over != nil {
-		m.mode = modeOver
+		m.finish(false)
 		return
 	}
 	m.morning(m.stepDay())
@@ -414,8 +449,7 @@ func (m *Model) stepDay() []events.Event {
 func (m *Model) morning(evs []events.Event) {
 	m.mapScene = mapFlips(evs)
 	if m.w.Over != nil {
-		m.mode = modeOver
-		m.playOver() // the ending's scene (#156), then the summary
+		m.finish(true) // the ending's scene (#156), then the summary
 		return
 	}
 	if m.talking() {
@@ -476,6 +510,8 @@ func (m *Model) handleKey(k tea.KeyMsg) (tea.Model, tea.Cmd) {
 	switch m.mode {
 	case modeStart:
 		return m.keyStart(key)
+	case modeNewRun:
+		return m.keyNewRun(k)
 	}
 	// Tab and shift+tab are the screens' keys and a dialog's pages
 	// (#110): a modal with no pages, a confirmation included, leaves them
@@ -487,7 +523,7 @@ func (m *Model) handleKey(k tea.KeyMsg) (tea.Model, tea.Cmd) {
 	case modeConfirmNew:
 		switch key {
 		case "y", "Y":
-			m.newRun(m.slot)
+			m.restart()
 		default:
 			m.mode = modePlay
 		}
@@ -796,9 +832,13 @@ func (m *Model) handleKey(k tea.KeyMsg) (tea.Model, tea.Cmd) {
 		return m, nil
 	case modeOver:
 		switch key {
-		case "enter", "n":
+		case "n":
 			_ = game.DeleteSave(m.slot)
-			m.newRun(m.slot)
+			m.restart()
+		case "esc":
+			m.mode = modeStart
+			m.startChoice = m.slot - 1
+			m.status = ""
 		case "q":
 			return m.quit()
 		default:
@@ -816,7 +856,7 @@ func (m *Model) handleKey(k tea.KeyMsg) (tea.Model, tea.Cmd) {
 // campaign, only while one is open (#193).
 func (m *Model) hasPages(md mode) bool {
 	switch md {
-	case modeBuy, modeSell, modeTarget, modeCart, modePropose, modeFront, modeMove, modeCut, modeCook, modeBribe, modeExit:
+	case modeBuy, modeSell, modeTarget, modeCart, modePropose, modeFront, modeMove, modeCut, modeCook, modeBribe, modeExit, modeNewRun:
 		return true
 	case modeFund:
 		return m.campaignOpen()
@@ -856,7 +896,7 @@ func (m *Model) pickStart() (tea.Model, tea.Cmd) {
 	}
 	slot := m.startChoice + 1
 	if game.Slots()[m.startChoice].Empty {
-		m.newRun(slot)
+		m.openNewRun(slot)
 		return m, nil
 	}
 	if err := m.continueRun(slot); err != nil {
@@ -1029,7 +1069,7 @@ func (m *Model) View() string {
 	if m.width == 0 {
 		return "loading…"
 	}
-	if m.mode == modeStart || m.mode == modeConfirmDelete || m.w == nil {
+	if m.onStart() {
 		return m.viewStart()
 	}
 	var body string
@@ -1365,15 +1405,27 @@ func heatStyle(v float64) lipgloss.Style {
 // animation on; otherwise the menu is as it always was).
 func (m *Model) viewStart() string {
 	var box string
-	if m.mode == modeConfirmDelete {
+	switch {
+	case m.mode == modeConfirmDelete:
 		box = m.deleteConfirm()
-	} else {
+	case m.mode == modeNewRun:
+		box = m.viewNewRun()
+	default:
 		body := []string{theme.Subtle.Render("a drug empire, one day at a time"), ""}
 		for i, o := range m.startRows() {
 			if i == m.startChoice {
 				body = append(body, theme.Gold.Render("▸ ")+theme.Selected.Render(" "+o+" "))
 			} else {
 				body = append(body, "   "+o)
+			}
+		}
+		if h := m.historyLine(); h != "" {
+			body = append(body, "", theme.Subtle.Render(cut(h, m.modalInner())))
+		}
+		if m.profileErr != "" {
+			body = append(body, "")
+			for _, l := range m.wrapLines(m.profileErr) {
+				body = append(body, theme.Warning.Render(l))
 			}
 		}
 		if m.status != "" {
@@ -1395,7 +1447,7 @@ func (m *Model) viewStart() string {
 func (m *Model) startRows() []string {
 	rows := make([]string, 0, game.SlotCount+1)
 	for _, s := range game.Slots() {
-		rows = append(rows, slotLine(s, time.Now()))
+		rows = append(rows, slotLine(s, m.now()))
 	}
 	return append(rows, "Quit")
 }
@@ -1417,7 +1469,7 @@ func slotLine(s game.SlotInfo, now time.Time) string {
 // deleteConfirm asks before a slot is emptied, naming the run in it.
 func (m *Model) deleteConfirm() string {
 	s := game.Slots()[m.startChoice]
-	line := slotLine(s, time.Now())
+	line := slotLine(s, m.now())
 	if i := strings.Index(line, " · "); i >= 0 {
 		line = line[i+len(" · "):]
 	}

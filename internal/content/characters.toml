@@ -1,0 +1,78 @@
+# The characters (#50): the starts a run can be given. A character is a
+# start and nothing more: what is on the world on day 0 before the first
+# day steps (a crew member on the payroll by role, a node of the tree
+# owned, a product on the ladder, where you stand, the reputation you
+# arrive with, a fact in the file), applied once by sim.NewWorldWith and
+# read by no sim, so a run with the first character on a seed is the
+# run the seed always was (TestProfileNeverTouchesTheRun) and a
+# character moves the world on day 0 alone (TestCharacterIsDayZero).
+# Every character passes the four difficulty tests under the harness's
+# policies as the default does (TestCharactersAreStartsNotCheats).
+#
+# unlock is the rule the profile evaluates when a run ends (docs/
+# profile.md): `always = true`, `ending = "<cause>"` (a cause of
+# endings.toml reached) or `stage = "<id>"` (a stage of progression.toml
+# reached, or one past it). The first row is the default character: the
+# run as it is, unlocked from the first run; the profile, the daily and
+# `sim.NewWorld` all start as it.
+
+[[character]]
+id = "dealer"
+name = "The Dealer"
+blurb = "One corner, a bag and a connect. The run as it always was."
+[character.unlock]
+always = true
+
+[[character]]
+id = "cook"
+name = "The Cook"
+blurb = "A chemist on the payroll and meth on the ladder from the first morning."
+[character.unlock]
+always = true
+[character.start]
+crew = ["chemist"]
+products = ["meth"]
+
+[[character]]
+id = "bookkeeper"
+name = "The Bookkeeper"
+blurb = "An accountant on the payroll before there is a front to keep, and a little respect."
+[character.unlock]
+ending = "businessman"
+[character.start]
+crew = ["accountant"]
+[character.start.reputation]
+respect = 15
+
+[[character]]
+id = "excop"
+name = "The Ex-Cop"
+blurb = "A police scanner and the chief's temper known: you were on the force."
+[character.unlock]
+ending = "vanished"
+[character.start]
+upgrades = ["scanner"]
+know_chief = true
+
+[[character]]
+id = "dockhand"
+name = "The Dockhand"
+blurb = "You start on the Fish Market in Bayport, where the coke is cheap, with a name on the docks."
+[character.unlock]
+stage = "distribution"
+[character.start]
+city = "bayport"
+corner = "fishmarket"
+[character.start.reputation]
+fear = 15
+
+# The toggles (#50): a start that is not a character, opt-in beside
+# one on the start menu once its rule has been met. Hard DA seats a
+# law-and-order DA and a zealous chief at NewWorld, the personalities
+# the law sim would have drawn, never pinned: the elections and the
+# chief's term run as they always do (harness.Appoint is the pin).
+[hard_da]
+name = "Hard DA"
+blurb = "The run starts with a law-and-order DA and a zealous chief."
+[hard_da.unlock]
+ending = "kingpin"

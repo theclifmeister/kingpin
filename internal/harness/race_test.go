@@ -106,3 +106,53 @@ func TestNoGoroutineInTheTree(t *testing.T) {
 		t.Errorf("the tree starts a goroutine, or looks like it (#211):\n  %s", strings.Join(offenders, "\n  "))
 	}
 }
+
+// TestNoWallClockInTheSims (#50): time.Now is read in the UI alone
+// (the start menu's daily and the profile's date) and passed in, so a
+// run is a function of its seed and its inputs and every test passes
+// a date. The guard parses every non-test .go file under
+// internal/game, internal/sim, internal/content and internal/harness
+// and fails on a call of time.Now (or time.Since, time.Until, which
+// read it), cmd/balance walked with them.
+func TestNoWallClockInTheSims(t *testing.T) {
+	t.Parallel()
+	roots := []string{filepath.Join("..", "game"), filepath.Join("..", "sim"), filepath.Join("..", "content"), filepath.Join("..", "harness"), filepath.Join("..", "..", "cmd", "balance")}
+	fset := token.NewFileSet()
+	var offenders []string
+	walked := 0
+	for _, root := range roots {
+		err := filepath.WalkDir(root, func(path string, d fs.DirEntry, err error) error {
+			if err != nil {
+				return err
+			}
+			if d.IsDir() || !strings.HasSuffix(path, ".go") || strings.HasSuffix(path, "_test.go") {
+				return nil
+			}
+			walked++
+			f, err := parser.ParseFile(fset, path, nil, 0)
+			if err != nil {
+				return err
+			}
+			ast.Inspect(f, func(n ast.Node) bool {
+				sel, ok := n.(*ast.SelectorExpr)
+				if !ok {
+					return true
+				}
+				if id, ok := sel.X.(*ast.Ident); ok && id.Name == "time" && (sel.Sel.Name == "Now" || sel.Sel.Name == "Since" || sel.Sel.Name == "Until") {
+					offenders = append(offenders, fset.Position(sel.Pos()).String()+": time."+sel.Sel.Name+"; the wall clock is the UI's alone (#50)")
+				}
+				return true
+			})
+			return nil
+		})
+		if err != nil {
+			t.Fatal(err)
+		}
+	}
+	if walked < 50 {
+		t.Fatalf("only %d files walked; the roots are wrong", walked)
+	}
+	if len(offenders) > 0 {
+		t.Errorf("the sims read the wall clock:\n  %s", strings.Join(offenders, "\n  "))
+	}
+}

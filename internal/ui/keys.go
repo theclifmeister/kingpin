@@ -128,8 +128,24 @@ func numberStep(m *Model) bool {
 		return m.mv.step == 3
 	case modeCut, modeCook:
 		return m.lab.step == 1
+	case modeNewRun:
+		return m.nr.step == 1
 	}
 	return false
+}
+
+// newRunNext is the new-run dialog (#50) having a page after this one:
+// enter goes forward. newRunStart is its last page, or the daily's row
+// on the first: enter starts the run.
+func newRunNext(m *Model) bool {
+	return m.mode == modeNewRun && !newRunStart(m)
+}
+
+func newRunStart(m *Model) bool {
+	if m.mode != modeNewRun {
+		return false
+	}
+	return m.nr.step == m.lastStep() || (m.nr.step == 0 && m.nr.cursor == m.dailyRow())
 }
 
 // moveList is the move dialog (#73) being on a list page: from, to or
@@ -403,7 +419,9 @@ var bindings = []binding{
 // what the footer and the status bar say.
 var modeBindings = []binding{
 	{key: "↑↓", label: "pick", modes: in(modeStart, modePost, modeStrike, modeUndercut, modeFront, modeAssign, modePropose, modeGuard, modeDriver, modeSpy)},
-	{key: "↑↓", label: "pick", modes: in(modeExit), when: step(0)},
+	{key: "↑↓", label: "pick", modes: in(modeExit, modeNewRun), when: step(0)},
+	{key: "1-6", label: "choose", modes: in(modeNewRun), when: step(0)},
+	{key: "←→", label: "toggle", modes: in(modeNewRun), when: step(2)},
 	{key: "↑↓", label: "pick", modes: in(modeMove), when: moveList},
 	{key: "↑↓", label: "pick", modes: in(modeCut, modeCook), when: labList},
 	{key: "↑↓", label: "pick", modes: in(modeSell, modeTarget), when: step(0)},
@@ -425,10 +443,10 @@ var modeBindings = []binding{
 	{key: "1-2", label: "repeat", modes: in(modeSell), when: step(3)},
 	{key: "1-3", label: "dial", modes: in(modeCart), when: cartOnSell},
 	{key: "1-3", label: "choose", modes: in(modeCard), when: step(0)},
-	{key: "m", label: "max", modes: in(modeBuy, modeSell, modeTarget, modeCart, modeFund, modeConfirmFast, modeMove, modeConfirmBuyOff, modeCut, modeCook, modeInvest, modeBribe, modeReserve, modePayCop), when: numberStep},
-	{key: "h", label: "half", modes: in(modeBuy, modeSell, modeTarget, modeCart, modeFund, modeConfirmFast, modeMove, modeConfirmBuyOff, modeCut, modeCook, modeInvest, modeBribe, modeReserve, modePayCop), when: numberStep},
-	{key: "↑↓", label: "±1", modes: in(modeBuy, modeSell, modeTarget, modeCart, modeFund, modeConfirmFast, modeMove, modeConfirmBuyOff, modeCut, modeCook, modeInvest, modeBribe, modeReserve, modePayCop), when: numberStep},
-	{key: "pgup pgdn", label: "±10", modes: in(modeBuy, modeSell, modeTarget, modeCart, modeFund, modeConfirmFast, modeMove, modeConfirmBuyOff, modeCut, modeCook, modeInvest, modeBribe, modeReserve, modePayCop), when: numberStep},
+	{key: "m", label: "max", modes: in(modeBuy, modeSell, modeTarget, modeCart, modeFund, modeConfirmFast, modeMove, modeConfirmBuyOff, modeCut, modeCook, modeInvest, modeBribe, modeReserve, modePayCop, modeNewRun), when: numberStep},
+	{key: "h", label: "half", modes: in(modeBuy, modeSell, modeTarget, modeCart, modeFund, modeConfirmFast, modeMove, modeConfirmBuyOff, modeCut, modeCook, modeInvest, modeBribe, modeReserve, modePayCop, modeNewRun), when: numberStep},
+	{key: "↑↓", label: "±1", modes: in(modeBuy, modeSell, modeTarget, modeCart, modeFund, modeConfirmFast, modeMove, modeConfirmBuyOff, modeCut, modeCook, modeInvest, modeBribe, modeReserve, modePayCop, modeNewRun), when: numberStep},
+	{key: "pgup pgdn", label: "±10", modes: in(modeBuy, modeSell, modeTarget, modeCart, modeFund, modeConfirmFast, modeMove, modeConfirmBuyOff, modeCut, modeCook, modeInvest, modeBribe, modeReserve, modePayCop, modeNewRun), when: numberStep},
 	{key: "enter", label: "next", modes: in(modeSell, modeTarget, modePropose, modeFront), when: step(0)},
 	{key: "enter", label: "next", modes: in(modeMove), when: moveList},
 	{key: "enter", label: "next", modes: in(modeCut, modeCook), when: labList},
@@ -465,7 +483,10 @@ var modeBindings = []binding{
 	{key: "y", label: "buy", modes: in(modeConfirmDeed)},
 	{key: "enter", label: "give", modes: in(modeFund), when: fundLast},
 	{key: "enter", label: "decide", modes: in(modeCard), when: step(0)},
-	{key: "enter", label: "new run", modes: in(modeOver)},
+	{key: "n", label: "new run", modes: in(modeOver)},
+	{key: "esc", label: "close", modes: in(modeOver)},
+	{key: "enter", label: "next", modes: in(modeNewRun), when: newRunNext},
+	{key: "enter", label: "start", modes: in(modeNewRun), when: newRunStart},
 	{key: "D", label: "delete", modes: in(modeStart)},
 	{key: "y", label: "new run", modes: in(modeConfirmNew)},
 	{key: "y", label: "delete", modes: in(modeConfirmDelete)},
@@ -494,10 +515,10 @@ var modeBindings = []binding{
 	// buy's connect step) alone, where the toggle is live.
 	{key: "s", label: "sell", modes: in(modeBuy), when: buyList},
 	{key: "b", label: "buy", modes: in(modeSell), when: step(0)},
-	{key: "⇧tab", label: "back", keys: []string{"shift+tab"}, modes: in(modeBuy, modeSell, modeTarget, modeCart, modePropose, modeFront, modeMove, modeFund, modeCut, modeCook, modeBribe, modeSpy, modeExit), when: pastFirstStep},
+	{key: "⇧tab", label: "back", keys: []string{"shift+tab"}, modes: in(modeBuy, modeSell, modeTarget, modeCart, modePropose, modeFront, modeMove, modeFund, modeCut, modeCook, modeBribe, modeSpy, modeExit, modeNewRun), when: pastFirstStep},
 	{key: "esc", label: "close", modes: in(modeBuy, modeSell, modeTarget, modePropose, modePost, modeStrike, modeUndercut, modeFront, modeAssign, modeFund, modeCart, modeMove, modeGuard,
 		modeConfirmNew, modeConfirmDelete, modeConfirmFire, modeConfirmEnd, modeConfirmUpgrade, modeConfirmInvestigate, modeConfirmPayOff, modeConfirmTravel, modeConfirmFast, modeConfirmDrop,
-		modeConfirmScout, modeConfirmBoost, modeConfirmTip, modeConfirmBuyOff, modeCut, modeCook, modeInvest, modeBribe, modeConfirmCheckpoint, modeReserve, modeConfirmBail, modeDriver, modeConfirmDeed, modePayCop, modeSpy, modeExit)},
+		modeConfirmScout, modeConfirmBoost, modeConfirmTip, modeConfirmBuyOff, modeCut, modeCook, modeInvest, modeBribe, modeConfirmCheckpoint, modeReserve, modeConfirmBail, modeDriver, modeConfirmDeed, modePayCop, modeSpy, modeExit, modeNewRun)},
 	{key: "enter esc", label: "close", modes: in(modeReport, modeHelp, modeStage)},
 	{key: "enter esc", label: "close", modes: in(modeCard), when: step(1)},
 	{key: "␣ esc", label: "close", modes: in(modeDetails)},
@@ -542,6 +563,8 @@ func (m *Model) modalStep() int {
 		}
 	case modeExit:
 		return m.exit.step
+	case modeNewRun:
+		return m.nr.step
 	case modeCard:
 		if m.cardDone {
 			return 1
@@ -754,6 +777,9 @@ var words = [][2]string{
 	{"ending", "how a run ends: nine ways, each a summary and a score"},
 	{"score", "the offshore account over one plus the bodies; days shown"},
 	{"walk away", "retire on the account, or vanish on an identity: asked twice"},
+	{"character", "a start and nothing more: what is on the world on day 0"},
+	{"daily", "the date's seed, the default character; the first go scores"},
+	{"profile", "the runs, the unlocks and the dailies; a second file, no sim"},
 }
 
 // helpLines is the help modal's body: every binding, grouped, one a

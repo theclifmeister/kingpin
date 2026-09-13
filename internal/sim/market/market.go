@@ -645,3 +645,18 @@ func (s *Sim) fragmented(w *game.World, t *game.Tick, city string) bool {
 	}
 	return false
 }
+
+// List puts a product on the ladder in every city on day 0 (#50, a
+// character's start): what unlock does the morning the peak cash earns
+// it, without the morning. Nothing about it is random; a product
+// already listed is left alone.
+func (s *Sim) List(w *game.World, id string) {
+	p := s.cfg.Product(id)
+	if p == nil {
+		return
+	}
+	for _, cid := range w.CityOrder {
+		cp := s.cityProduct(cid, p.ID)
+		w.AddProduct(cid, game.StartingProduct{ID: p.ID, Name: p.Name, Price: p.BasePrice * cp.Price, Demand: p.Demand * cp.Demand, NoSupply: cp.NoSupply})
+	}
+}

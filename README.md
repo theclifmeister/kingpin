@@ -18,8 +18,12 @@ cd kingpin
 go run ./cmd/kingpin
 ```
 
-Choose a save slot with `enter`. An empty slot starts a run; an occupied
-one takes you back to work.
+Choose a save slot with `enter`. An empty slot opens the new-run dialog:
+pick a character (a start and nothing more; a locked one shows the run
+that opens it), type a seed or leave it blank, and go. `Daily` at the foot
+of the list plays today's date as a seed: the first attempt of a day is
+scored against your own history, a second is practice. An occupied slot
+takes you back to work.
 
 Your first day needs four keys: **`b` buy, `s` sell, `n` end day, `?` help**.
 On the dashboard, buy a little Weed. Pick the product, enter a quantity
@@ -49,6 +53,23 @@ go run ./cmd/kingpin -slot 2
 ```
 
 Older saves upgrade on load. A save from a newer build is refused.
+
+### Characters and the profile
+
+Beside the saves sits `profile.json`: every run that ended, with its
+character, ending, score and days; what those endings unlocked; and the
+dailies. A character is a start: the Dealer is the run as it always was,
+the Cook begins with a chemist and meth on the ladder, the Bookkeeper
+(unlocked by ending as a businessman) with an accountant, the Ex-Cop
+(unlocked by vanishing) with a police scanner and the chief's temper
+known, the Dockhand (unlocked by reaching Distribution) on Bayport's Fish
+Market. Ending a run as kingpin unlocks the Hard DA toggle: a
+law-and-order DA and a zealous chief on the first morning, never pinned.
+No simulation reads the profile or the character: the same seed and the
+same start play the same run whatever the profile says. A corrupt
+profile is set aside as `profile.json.corrupt-<date>` and a fresh one
+written beside it. The summary says where the run ranks among yours, and
+`n` there starts again as the same character.
 
 ### Animation
 
@@ -773,6 +794,8 @@ Use these flags to compare runs with the same conditions:
 | `-snitch` | Starts with an informant on the payroll. |
 | `-cards decline\|first` | Answers cards with the last (do-nothing) or first choice. |
 | `-incidents off` | Boxes the world's incident table (on by default). |
+| `-character cook` | Starts every run as that character (`dealer`, `cook`, `bookkeeper`, `excop`, `dockhand`). |
+| `-hardda` | Seats a law-and-order DA and a zealous chief on day 0, never pinned. |
 
 Cards are off by default, and the harness tests box the incidents too, so
 they measure the sims without the deck or the weather; `-incidents off`

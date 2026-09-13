@@ -130,9 +130,7 @@ func (m *Model) confirmExit() {
 		return
 	}
 	m.save()
-	m.mode = modeOver
-	m.modalScroll = 0
-	m.playOver()
+	m.finish(true)
 }
 
 // viewExit is the dialog: the ways out, then the confirmation.
