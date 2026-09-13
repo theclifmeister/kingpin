@@ -446,6 +446,7 @@ func (m *Model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 		if m.mode != before {
 			m.modalScroll = 0 // a new modal opens at its top
 		}
+		m.holdEnds() // #203: a held report's loop ends with the report
 		if cmd == nil {
 			m.mapSceneStart() // #158: the map's scene, on the key that shows it
 			cmd = m.tick()
@@ -1492,7 +1493,9 @@ func (m *Model) reachedLine() string {
 // over the day's sections. While the morning's scene runs (#159) the
 // title row is its frame's, in the same box, the body as it is; while
 // the bust's runs (#155) the title row and a line at the head of the
-// body are its.
+// body are its; while the incident's runs (#203) the INCIDENT
+// section's first line is its. Each holds until the report closes
+// (#203), so "runs" is the whole of the report's time up.
 func (m *Model) viewReport() string {
 	if m.w.Report == nil {
 		return m.modal("MORNING REPORT", []string{"Nothing happened yet."}, m.modalFooter())
@@ -1504,6 +1507,13 @@ func (m *Model) viewReport() string {
 		// The bust's line heads the body while it plays (#155), its own
 		// section over the report's.
 		return m.modalTitled(frame[0], append([]string{frame[1], ""}, m.reportLines()...), m.modalFooter())
+	}
+	if frame := m.incidentFrame(); frame != nil {
+		body := m.reportLines()
+		if i := incidentRow(body, m.w.Report); i >= 0 {
+			body[i] = frame[0]
+		}
+		return m.modal(m.reportTitle(), body, m.modalFooter())
 	}
 	return m.modal(m.reportTitle(), m.reportLines(), m.modalFooter())
 }

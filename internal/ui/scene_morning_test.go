@@ -14,9 +14,10 @@ import (
 
 // The morning's scene (#159): the report opening on a plain morning
 // rolls the title bar's day over and wipes the report's title in, a
-// quarter of a second; any key skips to the report; never after F; a
-// card's, a stage's or an ending's scene replaces it; and with the
-// morning's animation off the report is today's, byte for byte.
+// quarter of a second, then holds until the report closes (#203); any
+// key skips to the resolved report, holding; never after F; a card's,
+// a stage's or an ending's scene replaces it; and with the morning's
+// animation off the report is today's, byte for byte.
 
 // plainMorning is a model on seed 7 with the options given, n pressed
 // on day 1: the report is the first thing the morning shows.
@@ -34,9 +35,11 @@ func plainMorning(t *testing.T, w, h int, opts Options) *Model {
 
 // TestMorningSceneIsShort: n opens the report on the scene, the day
 // saved before its first frame; the ticks run it out within
-// anim.MorningLength (250 ms) and the chain ends there on the report
-// animation off draws, byte for byte; a key mid-scene lands on the
-// report, consumed, and enter then closes it without ending the day.
+// anim.MorningLength (250 ms) into its hold (#203), which enter ends
+// with the report, the reopened report the one animation off draws,
+// byte for byte; a key mid-scene lands on the resolved report,
+// consumed and holding, and enter then closes it without ending the
+// day.
 func TestMorningSceneIsShort(t *testing.T) {
 	if anim.MorningLength > 250*time.Millisecond {
 		t.Fatalf("the morning's scene is %v long, over 250 ms", anim.MorningLength)
@@ -62,27 +65,36 @@ func TestMorningSceneIsShort(t *testing.T) {
 	if len(frames) < 5 {
 		t.Errorf("%d distinct frames over the scene", len(frames))
 	}
-	if cmd := tickAt(on, now.Add(anim.MorningLength)); cmd != nil || on.scene != nil || on.mode != modeReport {
+	if cmd := tickAt(on, now.Add(anim.MorningLength)); cmd == nil || on.scene == nil || !on.scene.Holding() || on.mode != modeReport {
 		t.Fatalf("Done: cmd %v scene %v mode %v", cmd, on.scene, on.mode)
 	}
-	if on.View() != off.View() {
-		t.Fatalf("after Done the report is not today's:\n%s\n%s", stripANSI(on.View()), stripANSI(off.View()))
+	if got, want := stripANSI(on.View()), stripANSI(off.View()); got != want {
+		t.Fatalf("after Done the report does not read as today's:\n%s\n%s", got, want)
 	}
-	// Skipped: a key mid-scene is consumed and lands on the same report.
+	if _, cmd := on.Update(key("enter")); cmd != nil || on.scene != nil || on.mode != modePlay {
+		t.Fatalf("enter on the hold: cmd %v scene %v mode %v", cmd, on.scene, on.mode)
+	}
+	on.Update(key("r"))
+	if on.View() != off.View() {
+		t.Fatalf("reopened, the report is not today's:\n%s\n%s", stripANSI(on.View()), stripANSI(off.View()))
+	}
+	on.Update(key("esc"))
+	// Skipped: a key mid-scene is consumed and lands on the resolved
+	// report, holding.
 	on = plainMorning(t, 80, 24, Options{Anim: true, MorningAnim: true})
 	tickAt(on, now)
 	if on.View() == off.View() {
 		t.Fatal("the scene's first frame is the finished report")
 	}
 	day := on.w.Day
-	if _, cmd := on.Update(key("x")); cmd != nil || on.scene != nil || on.mode != modeReport {
+	if _, cmd := on.Update(key("x")); cmd != nil || on.scene == nil || !on.scene.Holding() || on.mode != modeReport {
 		t.Fatalf("the skip: cmd %v scene %v mode %v", cmd, on.scene, on.mode)
 	}
-	if on.View() != off.View() {
-		t.Fatalf("after the skip the report is not today's:\n%s\n%s", stripANSI(on.View()), stripANSI(off.View()))
+	if got, want := stripANSI(on.View()), stripANSI(off.View()); got != want {
+		t.Fatalf("after the skip the report does not read as today's:\n%s\n%s", got, want)
 	}
-	if _, cmd := on.Update(key("enter")); cmd != nil || on.mode != modePlay || on.w.Day != day {
-		t.Fatalf("enter after the skip: cmd %v mode %v day %d → %d", cmd, on.mode, day, on.w.Day)
+	if _, cmd := on.Update(key("enter")); cmd != nil || on.scene != nil || on.mode != modePlay || on.w.Day != day {
+		t.Fatalf("enter after the skip: cmd %v scene %v mode %v day %d → %d", cmd, on.scene, on.mode, day, on.w.Day)
 	}
 	// r reopens the report with no scene: a reopen is no morning.
 	if _, cmd := on.Update(key("r")); cmd != nil || on.mode != modeReport || on.scene != nil {
