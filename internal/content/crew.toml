@@ -59,6 +59,8 @@ chance = 0.3                # chance a candidate is a lieutenant, once you hold 
 flip = 30                   # under this loyalty a lieutenant turns informant, no dice
 evidence = 2                # pages a flipped lieutenant feeds the DA per leak (informant_days apart)
 reveal_days = 10            # days on the job before the report names their temperament
+betray_share = 0.5          # a lieutenant who flips running a city that holds this share of your corners ends the run betrayed (#49); 0 never
+betray_corners = 3          # ... and at least this many corners there: a flip over one corner is a leak, not a betrayal (the boss's seed 6 collapsed to one)
 
 # What each temperament does with the city: the sell dial it favours, a
 # multiplier on the city's sale heat, what it skims on top of the cut at

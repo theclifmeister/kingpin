@@ -7,13 +7,36 @@ import (
 	"github.com/theclifmeister/kingpin/internal/format"
 )
 
-// The exits (#49). Retire is the first of them (#195): the run ends on
-// the player's terms, with the offshore account as the score.
+// The exits (#49, #195): how a run ends on the player's terms, and the
+// one shape every ending is written in. Retire is the offshore
+// account's exit (#195), Vanish the new identity's. Every other cause is
+// detected by the sim that owns it, in its step, as a threshold on state
+// it already reads, and written to Over through End the way these are
+// (docs/endings.md).
 
 var (
 	// ErrNotQuiet means the retirement needs more quiet days first.
 	ErrNotQuiet = errors.New("it is not quiet enough to walk away yet")
+	// ErrNoIdentity means vanishing takes a new identity from the tree.
+	ErrNoIdentity = errors.New("vanishing takes a new identity")
 )
+
+// End is the ending written for a cause on day: the day, the cause, the
+// peak cash as it stands and who, and the score stamped on Stats as it
+// stands the morning the run ends (Score). Every writer of Over goes
+// through it, so the summary reads one shape whatever the cause.
+func (w *World) End(cause string, day int, who string) *Ending {
+	w.Stats.Score = w.Score()
+	return &Ending{Day: day, Cause: cause, PeakCash: w.Stats.PeakCash, Who: who}
+}
+
+// Score is the run's score (#49, #195's ruling): the offshore account
+// over one plus the bodies, and nothing else. The pile left behind is
+// printed, never scored, so lying low k more days before an exit can
+// never raise it (TestRetireeRetires); days are shown, never scored.
+func (w *World) Score() int {
+	return w.Offshore / (1 + w.Stats.Bodies)
+}
 
 // Retire ends the run as "retired": the player walks away on the
 // account. It needs at least cash offshore (laundering.toml [offshore]
@@ -21,8 +44,6 @@ var (
 // QuietDays by the laundering sim), which the caller passes from the
 // tuning as BuyFront takes its offer priced. The pile, the stock, the
 // crew and the fronts are left behind; the account is what is scored.
-// #156's over scene plays its default for the cause until #49 gives
-// retirement its own; #49's summary reads Offshore.
 func (w *World) Retire(cash, days int) error {
 	if w.Over != nil {
 		return ErrGameOver
@@ -33,7 +54,7 @@ func (w *World) Retire(cash, days int) error {
 	if w.QuietDays < days {
 		return fmt.Errorf("%w: %s quiet, %s needed", ErrNotQuiet, format.Plural(w.QuietDays, "day"), format.Plural(days, "day"))
 	}
-	w.Over = &Ending{Day: w.Day, Cause: "retired", PeakCash: w.Stats.PeakCash}
+	w.Over = w.End("retired", w.Day, "")
 	return nil
 }
 
@@ -42,3 +63,23 @@ func (w *World) Retire(cash, days int) error {
 func (w *World) CanRetire(cash, days int) bool {
 	return w.Over == nil && w.Offshore >= cash && w.QuietDays >= days
 }
+
+// Vanish ends the run as "vanished" (#49): the player leaves on the new
+// identity the tree gave them (upgrades.toml identity, fx.Identities),
+// on any morning, with whatever the account holds. It takes the
+// identity and nothing else: the pile, the stock, the crew and the
+// fronts are left behind as Retire leaves them.
+func (w *World) Vanish(fx Effects) error {
+	if w.Over != nil {
+		return ErrGameOver
+	}
+	if fx.Identities <= 0 {
+		return ErrNoIdentity
+	}
+	w.Over = w.End("vanished", w.Day, "")
+	return nil
+}
+
+// CanVanish reports whether Vanish would take: an identity owned and
+// the run not over.
+func (w *World) CanVanish(fx Effects) bool { return w.Over == nil && fx.Identities > 0 }

@@ -266,7 +266,15 @@ func richFixture(t *testing.T, sz [2]int, check func(m *Model, view, what string
 	m.Update(key("esc")) // a stray enter above may be asking to end the day
 	m.w.Home().Corners[0].Owner, m.w.Home().Corners[0].Runner, m.w.Home().Corners[0].Enforcer = game.OwnerRival, 0, 0
 	m.w.Rival().Arrived, m.w.Rival().Muscle, m.w.Rival().War, m.w.Rival().Observed = 1, 4, 47, true
-	m.w.Crew.Members = append(m.w.Crew.Members, game.CrewMember{ID: 900, Name: "Moose", Role: "enforcer", Skill: 70, Loyalty: 70, Nerve: 60, Wage: 65})
+	m.w.Crew.Members = append(m.w.Crew.Members,
+		game.CrewMember{ID: 900, Name: "Moose", Role: "enforcer", Skill: 70, Loyalty: 70, Nerve: 60, Wage: 65},
+		// Two more heads of muscle, laid up: a war lost with fewer than
+		// two on the payroll is the taken-out ending (#49), which a
+		// rendering fixture is not for (one head can die or quit over
+		// the days it plays), and one not at work leaves the strike's
+		// odds as they were.
+		game.CrewMember{ID: 899, Name: "Bear", Role: "enforcer", Skill: 55, Loyalty: 70, Nerve: 60, Wage: 60, WoundedUntil: m.w.Day + 60},
+		game.CrewMember{ID: 898, Name: "Tank", Role: "enforcer", Skill: 50, Loyalty: 70, Nerve: 60, Wage: 60, WoundedUntil: m.w.Day + 60})
 	m.w.Crew.NextID = 900
 	// The tell (#69): the last corner is freed and eyed, so the map's
 	// mark, the inspector's row and the panel lines are drawn.
@@ -581,9 +589,14 @@ func richFixture(t *testing.T, sz [2]int, check func(m *Model, view, what string
 	endDay(t, m)
 	see(m, "ladder report")
 	m.Update(key("enter"))
-	m.w.Over = &game.Ending{Day: m.w.Day, Cause: "indicted", PeakCash: m.w.Stats.PeakCash}
-	endDay(t, m)
-	see(m, "rich game over")
+	// The endings (#49): the summary for every cause, on the same run,
+	// each the fixture the size tests and the key-hint guard walk.
+	for _, cause := range content.Causes {
+		m.mode = modePlay
+		m.w.Over = m.w.End(cause, m.w.Day, m.w.Rival().Leader)
+		endDay(t, m)
+		see(m, "rich game over "+cause)
+	}
 }
 
 func TestRendersAtCommonSizes(t *testing.T) {
@@ -2712,6 +2725,28 @@ func TestModalsFit(t *testing.T) {
 		{"game over", modeOver, func(t *testing.T, m *Model) {
 			m.w.Over = &game.Ending{Day: m.w.Day, Cause: "indicted", PeakCash: m.w.Stats.PeakCash}
 			m.mode = modeOver
+		}},
+		// The exits (#49): the walk-away dialog's two pages, on a run
+		// that can retire and one that can vanish.
+		{"walk away", modeExit, func(t *testing.T, m *Model) { m.Update(key("7")); m.Update(key("w")) }},
+		{"walk away: retire?", modeExit, func(t *testing.T, m *Model) {
+			m.w.Offshore, m.w.QuietDays = 2_000_000, 30
+			m.Update(key("7"))
+			m.Update(key("w"))
+			m.Update(key("enter"))
+			if m.exit.step != 1 {
+				t.Fatalf("the confirmation did not open: %q", m.status)
+			}
+		}},
+		{"walk away: vanish?", modeExit, func(t *testing.T, m *Model) {
+			m.w.Upgrades["lawyer"], m.w.Upgrades["retainer"], m.w.Upgrades["identity"] = true, true, true
+			m.Update(key("7"))
+			m.Update(key("w"))
+			m.Update(key("j"))
+			m.Update(key("enter"))
+			if m.exit.step != 1 || m.exit.cursor != 1 {
+				t.Fatalf("the confirmation did not open on vanish: %q", m.status)
+			}
 		}},
 		{"confirm new", modeConfirmNew, func(t *testing.T, m *Model) { m.Update(key("N")) }},
 		{"confirm fire", modeConfirmFire, func(t *testing.T, m *Model) { m.Update(key("4")); m.Update(key("f")) }},

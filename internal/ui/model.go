@@ -89,6 +89,7 @@ const (
 	modePayCop            // pay a cop for a word on the police (#45): the amount, then enter
 	modeSpy               // plant a spy (#45): the faction, then who goes under
 	modeConfirmDeed       // buy the block the selected corner is on? (#194)
+	modeExit              // walk away (#49): retire on the account or vanish on a new identity, then the confirmation
 	modeCount
 )
 
@@ -174,12 +175,13 @@ type Model struct {
 	br             bribeDialog
 	inv            investDialog
 	rsv            reserveDialog
-	cop            copDialog // the cop dialog (#45)
-	spy            spyDialog // the spy dialog (#45)
-	intelCursor    int       // row on the intel screen (#45)
-	fastStop       string    // the report's first line after a fast-forward (`Stopped after 3 days: …`), until the next day ends
-	slot           int       // the save slot this run lives in: where ctrl+s, the end of the day and quitting save
-	startChoice    int       // row on the start menu: the slots, then Quit
+	cop            copDialog  // the cop dialog (#45)
+	spy            spyDialog  // the spy dialog (#45)
+	exit           exitDialog // the walk-away dialog (#49)
+	intelCursor    int        // row on the intel screen (#45)
+	fastStop       string     // the report's first line after a fast-forward (`Stopped after 3 days: …`), until the next day ends
+	slot           int        // the save slot this run lives in: where ctrl+s, the end of the day and quitting save
+	startChoice    int        // row on the start menu: the slots, then Quit
 	status         string
 	statusKind     statusKind           // how the status bar colours the message; set where the status is
 	flash          []events.Enforcement // the enforcements of the last tick, via the bus: the bust's scene reads the level (#155)
@@ -554,6 +556,9 @@ func (m *Model) handleKey(k tea.KeyMsg) (tea.Model, tea.Cmd) {
 	case modeSpy:
 		m.keySpy(key)
 		return m, nil
+	case modeExit:
+		m.keyExit(key)
+		return m, nil
 	case modeConfirmTravel:
 		switch key {
 		case "y", "Y":
@@ -811,7 +816,7 @@ func (m *Model) handleKey(k tea.KeyMsg) (tea.Model, tea.Cmd) {
 // campaign, only while one is open (#193).
 func (m *Model) hasPages(md mode) bool {
 	switch md {
-	case modeBuy, modeSell, modeTarget, modeCart, modePropose, modeFront, modeMove, modeCut, modeCook, modeBribe:
+	case modeBuy, modeSell, modeTarget, modeCart, modePropose, modeFront, modeMove, modeCut, modeCook, modeBribe, modeExit:
 		return true
 	case modeFund:
 		return m.campaignOpen()
@@ -1080,6 +1085,8 @@ func (m *Model) View() string {
 		body = m.viewPayCop()
 	case modeSpy:
 		body = m.viewSpy()
+	case modeExit:
+		body = m.viewExit()
 	case modeConfirmTravel:
 		body = m.travelConfirm()
 	case modeConfirmScout:
@@ -1424,103 +1431,6 @@ func (m *Model) deleteConfirm() string {
 func (m *Model) viewHelp() string {
 	body := append(m.helpLines(), "", theme.Subtle.Render("Heat is the antagonist. Greed is always available."))
 	return m.modal("HELP", body, m.modalFooter())
-}
-
-func (m *Model) viewOver() string {
-	if m.scene != nil && !m.scene.Idle {
-		// The ending's scene (#156): the summary follows when it is done.
-		return m.modal("GAME OVER", m.overFrame(), m.modalFooter())
-	}
-	w := m.w
-	e := w.Over
-	var b strings.Builder
-	b.WriteString(theme.Bad.Bold(true).Render(strings.ToUpper(e.Cause)) + fmt.Sprintf(" on day %d\n\n", e.Day))
-	// One fact a row: the label and its value, values written the way
-	// the screens write them.
-	var facts [][]any
-	if w.Offshore > 0 {
-		// The account (#195) first: what survives the ending and is
-		// the score; the pile it left behind beside it.
-		facts = append(facts, []any{"offshore", cash(w.Offshore)}, []any{"left behind", cash(w.Cash())})
-	}
-	facts = append(facts, [][]any{
-		{"days survived", fmt.Sprint(e.Day)},
-		{"reached", m.reachedLine()},
-		{"peak cash", cash(w.Stats.PeakCash)},
-		{"total revenue", cash(w.Stats.TotalRevenue)},
-		{"units moved", fmt.Sprint(w.Stats.UnitsSold)},
-		{"stings", fmt.Sprint(w.Stats.Stings)},
-		{"raids", fmt.Sprint(w.Stats.Raids)},
-		{"wages", cash(w.Stats.Wages)},
-		{"skimmed", cash(w.Stats.Skimmed)},
-		{"corners held", fmt.Sprint(w.Held())},
-		{"robbed", cash(w.Stats.Robbed)},
-	}...)
-	if w.Rival().Arrived > 0 {
-		facts = append(facts,
-			[]any{"corners won", fmt.Sprint(w.Stats.CornersWon)},
-			[]any{"lost to " + truncate(w.Rival().Leader, 12), fmt.Sprint(w.Stats.CornersLost)})
-	}
-	if s := w.Stats; s.Deals+s.Betrayals+s.BetrayedBy > 0 {
-		facts = append(facts,
-			[]any{"deals", fmt.Sprint(s.Deals)},
-			[]any{"broken by you", fmt.Sprint(s.Betrayals)},
-			[]any{"broken by them", fmt.Sprint(s.BetrayedBy)})
-	}
-	facts = append(facts, []any{"washed", cash(w.Stats.Laundered)}, []any{"seized", cash(w.Stats.Seized)})
-	if w.Stats.Shipments > 0 {
-		facts = append(facts,
-			[]any{"shipped", fmt.Sprintf("%s in %s", plural(w.Stats.Shipped, "unit"), plural(w.Stats.Shipments, "run"))},
-			[]any{"lost on the road", fmt.Sprintf("%s in %s", plural(w.Stats.SeizedOnRoad, "unit"), plural(w.Stats.Seizures, "run"))})
-	}
-	facts = append(facts, []any{"clean cash", cash(w.Player.CleanCash)})
-	if w.Stats.Informants+w.Stats.Defections > 0 {
-		facts = append(facts, []any{"snitches", fmt.Sprint(w.Stats.Informants)}, []any{"defectors", fmt.Sprint(w.Stats.Defections)})
-	}
-	// Crew life (#46): the bodies on both sides and who of yours fell,
-	// the cells and the bails.
-	if s := w.Stats; s.Bodies+s.Arrests > 0 {
-		facts = append(facts,
-			[]any{"bodies", fmt.Sprintf("%d, %d of them yours", s.Bodies, s.Fallen)},
-			[]any{"arrests", fmt.Sprintf("%d, %d bailed for %s", s.Arrests, s.Bails, cash(s.BailCash))})
-	}
-	if n := len(w.Crew.Fallen); n > 0 {
-		var names []string
-		for _, f := range w.Crew.Fallen {
-			names = append(names, fmt.Sprintf("%s (%s · day %d)", f.Name, f.Role, f.Day)) // `(role, dN)` read as a key hint to TestNoKeyHintsOutsideTheLegend
-		}
-		facts = append(facts, []any{"fallen", truncate(strings.Join(names, ", "), 60)})
-	}
-	rep := w.Player.Reputation
-	facts = append(facts,
-		[]any{"peak heat", fmt.Sprintf("%.0f", w.Heat.Peak)},
-		[]any{"the law", fmt.Sprintf("Chief %s (%s) · DA %s (%s)", truncate(w.Law.Chief.Name, 10), m.chiefWord(), truncate(w.Law.DA.Name, 10), stanceWord(w.Law.DA.Stance))},
-		[]any{"pressure", fmt.Sprintf("%.0f", w.Here().Pressure)},
-		[]any{"elections", fmt.Sprint(w.Stats.Elections)},
-		[]any{"given to the cities", cash(w.Stats.Funded)},
-		[]any{"behind the DA tickets", fmt.Sprintf("%s, %d of %d won", cash(w.Stats.Backed), w.Stats.CampaignsWon, w.Stats.Campaigns)},
-		[]any{"envelopes", fmt.Sprintf("%s in %d, %d came back", cash(w.Stats.Bribed), w.Stats.Bribes, w.Stats.Backfires)},
-		[]any{"checkpoints bought", fmt.Sprintf("%d for %s", w.Stats.Checkpoints, cash(w.Stats.CheckpointCash))},
-		[]any{"reputation", fmt.Sprintf("fear %.0f · respect %.0f · notoriety %.0f", rep.Fear, rep.Respect, rep.Notoriety)})
-	for _, l := range table([]col{{"stat", kText, 0}, {"value", kText, 0}}, facts, -1, m.modalInner()) {
-		b.WriteString(l + "\n")
-	}
-	if n := len(w.Journal); n > 0 {
-		b.WriteString("\nLast headline:\n  " + theme.Subtle.Render(w.Journal[n-1].Text) + "\n")
-	}
-	return m.modal("GAME OVER", strings.Split(strings.TrimRight(b.String(), "\n"), "\n"), m.modalFooter())
-}
-
-// reachedLine is the summary's tier row (#147): the highest tier
-// reached and the day it was entered; the first tier is day 0 and
-// reads as the name alone.
-func (m *Model) reachedLine() string {
-	w := m.w
-	name := w.TierName(m.cfg.Progression)
-	if d := w.ReachedOn(w.Tier()); d > 0 {
-		return fmt.Sprintf("%s on day %d", name, d)
-	}
-	return name
 }
 
 // viewReport is the report: the modal titled `MORNING REPORT · DAY 42`

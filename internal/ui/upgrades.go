@@ -252,6 +252,9 @@ func effectWords(e content.UpgradeEffects) []string {
 	if e.FallGuys > 0 {
 		add("survive " + plural(e.FallGuys, "indictment"))
 	}
+	if e.Identities > 0 {
+		add("vanish, indicted or not")
+	}
 	// The crew.
 	mul(e.WageMul, "wages ×%s")
 	mul(e.LoyaltyLossMul, "loyalty loss ×%s")

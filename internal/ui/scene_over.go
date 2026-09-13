@@ -4,12 +4,16 @@ import (
 	"fmt"
 	"strings"
 
+	"github.com/charmbracelet/lipgloss"
+
+	"github.com/theclifmeister/kingpin/internal/content"
 	"github.com/theclifmeister/kingpin/internal/ui/anim"
 	"github.com/theclifmeister/kingpin/internal/ui/theme"
 )
 
 // The ending's scene (#156): the morning a run ends, modeOver opens on
-// a scene for the cause (anim.Indicted, Arrested, Broke), drawn inside
+// a scene for the cause (anim.Indicted, Arrested, Broke, and #49's Exit
+// for the six endings after them), drawn inside
 // the GAME OVER modal, and the summary follows on the same modal when
 // it is done or a key ends it. The day has stepped and saved before
 // the first frame (stepDay, then morning); the scene reads the world
@@ -24,21 +28,35 @@ func (m *Model) playOver() {
 	if !m.opts.Anim || m.w.Over == nil {
 		return
 	}
-	m.play(&anim.Player{Scene: m.causeScene(m.w.Over.Cause), Accent: theme.Heat})
+	m.play(&anim.Player{Scene: m.causeScene(m.w.Over.Cause), Accent: m.overAccent(m.w.Over.Cause)})
+}
+
+// overAccent is the ending's colour: theme.Money for a run won (the
+// endings file's won), theme.Heat for one lost.
+func (m *Model) overAccent(cause string) lipgloss.Color {
+	if m.cfg.Endings.Won(cause) {
+		return theme.Money
+	}
+	return theme.Heat
 }
 
 // causeScene is the switch: one scene a cause of game.Ending, on dice
 // of the ending's own (anim.Seed on the run's seed, the day and "over",
-// never the sims' stream), and the arrested scene for a cause without
-// one, so #49's exits plug in a case each and play the default until
-// they do.
+// never the sims' stream): the three of #156, the exit scene (#49) over
+// the cause's title and line from endings.toml for the six after them,
+// and the arrested scene for a cause the file does not know.
 func (m *Model) causeScene(cause string) anim.Scene {
 	rng := anim.Seed(m.w.Seed, m.w.Day, "over")
 	switch cause {
-	case "indicted":
+	case content.CauseIndicted:
 		return anim.Indicted(m.w.Heat.Evidence, m.overHeadline(), rng)
-	case "broke":
+	case content.CauseBroke:
 		return anim.Broke(m.overFigures(), rng)
+	case content.CauseArrested:
+		return anim.Arrested(rng)
+	}
+	if row := m.cfg.Endings.Ending(cause); row != nil {
+		return anim.Exit(row.Title, truncate(row.Scene, m.modalInner()), m.overAccent(cause), rng)
 	}
 	return anim.Arrested(rng)
 }

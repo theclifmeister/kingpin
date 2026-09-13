@@ -10,7 +10,11 @@
 // The package imports theme and nothing else of ui; the model imports it.
 package anim
 
-import "time"
+import (
+	"time"
+
+	"github.com/theclifmeister/kingpin/internal/ui/theme"
+)
 
 // Frame is the tick between two frames: 30 a second.
 const Frame = time.Second / 30
@@ -60,7 +64,8 @@ type Named struct {
 // Scenes is the registry, every scene the game plays: the title, its
 // first pass on the seed, whichever effect the pass picks, and the
 // interstitials as they landed: the stage (#157), the card (#154) over
-// a sample card, the ending's three (#156), one a cause, the morning
+// a sample card, the ending's three (#156), one a cause, and the exit
+// the rest share (#49), the morning
 // (#159) and the bust (#155) over a sample raid, the incident (#203)
 // over a sample hurricane, and the strike (#158) over two sample cells.
 func Scenes() []Named {
@@ -115,6 +120,18 @@ func Scenes() []Named {
 			Length:  OverLength,
 			New:     func(seed uint64) Scene { return Broke(sampleFigures, Seed(seed, 1, "over")) },
 			Dice:    true,
+		},
+		// The exit (#49): the one shape the six endings after them
+		// share, over the retiree's title and line.
+		{
+			Name:    "over:exit",
+			Starts:  "the morning the run ends retired, a businessman, kingpin, betrayed, taken out or vanished (modeOver)",
+			Effects: []string{"decrypt", "print"},
+			Length:  OverLength,
+			New: func(seed uint64) Scene {
+				return Exit(sampleExitTitle, sampleExitLine, theme.Money, Seed(seed, 1, "over"))
+			},
+			Dice: true,
 		},
 		{
 			Name:    "morning",

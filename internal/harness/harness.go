@@ -383,7 +383,10 @@ var TreeOrder = []string{"security", "operations", "legal", "crew", "laundering"
 // crewed player buying it paid $300k for nothing), and the policies that
 // launder buy it as soon as they own one. The Logistics branch (#119)
 // waits for a route to be on the same way: its nodes do nothing for a
-// player who never runs the road, and the crewed player never does.
+// player who never runs the road, and the crewed player never does. The
+// exit plan (#49, the identity node) is never the pick: leaving is a
+// decision a policy makes, not the cheapest node left in Legal, so the
+// boss's run is the run it was and a test that wants it owns it.
 func BuyUpgrades(cfg *content.Config, w *game.World, margin float64) {
 	for _, branch := range TreeOrder {
 		if (branch == "laundering" && len(w.Fronts) == 0) || (branch == "logistics" && !routeOn(w)) {
@@ -391,8 +394,8 @@ func BuyUpgrades(cfg *content.Config, w *game.World, margin float64) {
 		}
 		var pick *content.UpgradeConfig
 		for _, n := range cfg.Upgrades.Branch(branch) {
-			if w.Owns(n.ID) || len(w.Missing(n)) > 0 {
-				continue
+			if w.Owns(n.ID) || len(w.Missing(n)) > 0 || n.Effects.Identities > 0 {
+				continue // an exit plan (#49, identity) is a decision, not the next node: a policy that means to vanish owns it (Own)
 			}
 			if pick == nil || n.Cost < pick.Cost {
 				u := n
@@ -1638,6 +1641,19 @@ func NoLife(cfg *content.Config) *content.Config {
 func NoDeeds(cfg *content.Config) *content.Config {
 	boxed := *cfg
 	boxed.City.Deed = content.DeedTuning{}
+	return &boxed
+}
+
+// NoEndings returns a copy of cfg with the endings' detectors boxed
+// (#49): no businessman, kingpin, taken out or betrayed, so a run reads
+// the sims as they were before the endings, byte for byte
+// (TestNoEndingIsTheOldRun). The three the run had, the account's
+// retirement and the identity's vanishing stay as they are.
+func NoEndings(cfg *content.Config) *content.Config {
+	boxed := *cfg
+	boxed.Laundering.Businessman = content.BusinessmanConfig{}
+	boxed.Rivals.Endings = content.RivalEndingsTuning{}
+	boxed.Crew.Lieutenant.BetrayShare = 0
 	return &boxed
 }
 

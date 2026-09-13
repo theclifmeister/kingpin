@@ -90,6 +90,13 @@ type World struct {
 	// panels through Known. Nil is a run that has learnt nothing.
 	Intel []Fact
 
+	// LegitDays (#49) is how many days in a row the fronts' own income
+	// has out-earned the street with home's goodwill over its pressure:
+	// the laundering sim counts them at the end of its step and zeroes
+	// them on a day that fails, and at laundering.toml [businessman]
+	// legit_days the run ends a businessman. Zero is the run before.
+	LegitDays int
+
 	// Today is the player's per-day scratch (#144): what the actions
 	// queued since the morning, for the sims to resolve tonight. The
 	// clock zeroes it as a unit after every EndDay (ClearToday), bar the
@@ -938,11 +945,18 @@ type DayReport struct {
 	CashAfter  int
 }
 
-// Ending records how a run finished.
+// Ending records how a run finished: the day, the cause (one of
+// content.Causes: indicted, arrested, broke, retired, businessman,
+// kingpin, betrayed, taken_out, vanished; #49, docs/endings.md), the
+// peak cash, and Who for a cause with a name in it (the lieutenant who
+// flipped, the faction's leader who took the last corner or broke the
+// deal). The sim that owns a cause writes it through World.End in its
+// step; the summary reads it and the score off Stats.
 type Ending struct {
 	Day      int
 	Cause    string
 	PeakCash int
+	Who      string
 }
 
 // Stats are lifetime counters for the run summary.
@@ -1044,6 +1058,7 @@ type Stats struct {
 	AssetsLost  int // assets the task force seized or the police found
 	AssetUpkeep int // clean cash the assets' upkeep took
 	TaskForces  int // task forces that came
+	Score       int // the run's score (#49), stamped by End: the offshore account over one plus the bodies; the pile left behind is printed, never scored
 }
 
 // StartingProduct describes a product as it exists at the start of a run,

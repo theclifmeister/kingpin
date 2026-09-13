@@ -64,7 +64,9 @@ func TestSimsNeverImportEachOther(t *testing.T) {
 // Goodwill, the market the markets, the connects, the contracts and the
 // buyers, the default quality and a corner's Repeat, #47, its field on
 // the territory's corner, ...); what every sim shares is the till (w.Player.DirtyCash,
-// CleanCash), w.Stats, and w.Over for a sim that owns an ending. Stock
+// CleanCash) and w.Stats; w.Over is listed for the sims that own an
+// ending (#49, docs/endings.md: heat, crew, rivals, laundering), each
+// written through World.End in the owner's step. Stock
 // moves only through the accessors (TestStashHasNoWriters). The check
 // is a grep over every non-test file: a direct assignment through w
 // (`w.Rival().Cash -= n`, `w.Offers = nil`, `w.Cities[c].Heat = v`) or an
@@ -88,15 +90,15 @@ func TestSimsWriteOnlyTheirOwnState(t *testing.T) {
 		"market":     {"Cities.Market", "Contracts", "Buyers", "Suppliers", "Markup", "Supply", "Standing", "BaseQuality", "Cities.Corners.Repeat"},
 		"logistics":  {"Shipments", "Logistics", "Routes"},
 		"territory":  {"Cities.Corners", "Houses"},
-		"rivals":     {"Rivals", "Rival", "Faction", "Offers"},
-		"crew":       {"Crew", "Delegated", "DelegatedSupply"},
-		"heat":       {"Heat", "Cities.Heat", "Houses", "FallsTaken"},
-		"law":        {"Law", "Cities.Pressure", "Cities.Goodwill", "Cities.Campaign", "Cities.Corners.Deed"}, // the forfeiture takes a deed through w.SeizeDeed (#194)
-		"laundering": {"Laundering", "Fronts", "Offshore", "QuietDays", "Assets", "AssetsLost"},               // the assets are clean money (#48): the task force names what it takes, this sim books it
+		"rivals":     {"Rivals", "Rival", "Faction", "Offers", "Over"},                                               // the endings it owns (#49): kingpin, taken_out, the table's betrayed
+		"crew":       {"Crew", "Delegated", "DelegatedSupply", "Over"},                                               // broke, and the lieutenant's betrayed (#49)
+		"heat":       {"Heat", "Cities.Heat", "Houses", "FallsTaken", "Over"},                                        // indicted, arrested, and vanished through the exit plans (#49)
+		"law":        {"Law", "Cities.Pressure", "Cities.Goodwill", "Cities.Campaign", "Cities.Corners.Deed"},        // the forfeiture takes a deed through w.SeizeDeed (#194)
+		"laundering": {"Laundering", "Fronts", "Offshore", "QuietDays", "Assets", "AssetsLost", "LegitDays", "Over"}, // the assets are clean money (#48): the task force names what it takes, this sim books it; businessman (#49)
 		"reputation": {"Player.Reputation"},
 		"news":       {"Journal", "Report", "Dilemmas", "Progression"},
 	}
-	shared := []string{"Player.DirtyCash", "Player.CleanCash", "Stats", "Over"}
+	shared := []string{"Player.DirtyCash", "Player.CleanCash", "Stats"}
 	allowed := map[string]bool{
 		"crew/lieutenant.go: w.Faction(to.ID).Flips++":          true,
 		"crew/lieutenant.go: w.Faction(to.ID).LastFlip = t.Day": true,

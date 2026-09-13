@@ -40,6 +40,7 @@ type Config struct {
 	Incidents   IncidentsConfig
 	Assets      AssetsConfig
 	Intel       IntelConfig
+	Endings     EndingsConfig
 }
 
 // MarketConfig mirrors market.toml.
@@ -592,11 +593,13 @@ func (l LifeTuning) validate() error {
 // for work, when they turn and what they feed the DA, how long before
 // you know what they are like, and the four temperaments.
 type LieutenantTuning struct {
-	Chance      float64                          `toml:"chance"`      // chance a candidate is a lieutenant, once corners are held in two cities
-	Flip        float64                          `toml:"flip"`        // under this loyalty a lieutenant turns informant, no dice
-	Evidence    int                              `toml:"evidence"`    // pages a flipped lieutenant feeds the DA per leak
-	RevealDays  int                              `toml:"reveal_days"` // days on the job before the report names their personality
-	Personality map[string]LieutenantPersonality `toml:"personality"`
+	Chance        float64                          `toml:"chance"`         // chance a candidate is a lieutenant, once corners are held in two cities
+	Flip          float64                          `toml:"flip"`           // under this loyalty a lieutenant turns informant, no dice
+	Evidence      int                              `toml:"evidence"`       // pages a flipped lieutenant feeds the DA per leak
+	RevealDays    int                              `toml:"reveal_days"`    // days on the job before the report names their personality
+	BetrayShare   float64                          `toml:"betray_share"`   // a lieutenant who flips running a city that holds this share of your corners ends the run betrayed (#49); 0 never
+	BetrayCorners int                              `toml:"betray_corners"` // ... and at least this many of them: a flip over one corner is a leak, not a betrayal
+	Personality   map[string]LieutenantPersonality `toml:"personality"`
 }
 
 // LieutenantPersonality is what a temperament does to the city it runs.
@@ -722,9 +725,26 @@ type RivalsConfig struct {
 	Tip         TipTuning                    `toml:"tip"`
 	Poach       PoachTuning                  `toml:"poach"`
 	Factions    FactionsTuning               `toml:"factions"`
+	Endings     RivalEndingsTuning           `toml:"endings"`
 	Deal        map[string]DealConfig        `toml:"deal"`
 	Personality map[string]PersonalityConfig `toml:"personality"`
 	Force       map[string]ForceConfig       `toml:"force"`
+}
+
+// RivalEndingsTuning is the endings the rivals sim owns (#49, [endings]):
+// the run ends kingpin once World.Dominant has held for DominantDays
+// days (the day the last faction fell or bowed, read off the table's
+// stamps: no counter) with more than KingpinShare of home's corners
+// held, taken out the night a faction's push takes the
+// last corner you hold anywhere while its war with you is open and the
+// enforcers at work are under TakenOutMuscle, and betrayed the night a
+// faction breaks a deal with you of its own accord while another's war
+// with you is open (BetrayWar, the war line). Zero boxes each.
+type RivalEndingsTuning struct {
+	DominantDays   int     `toml:"dominant_days"`
+	KingpinShare   float64 `toml:"kingpin_share"` // ... holding more than this share of home's corners: the weather can empty a table, a city nobody holds has no kingpin
+	TakenOutMuscle int     `toml:"taken_out_muscle"`
+	BetrayWar      float64 `toml:"betray_war"`
 }
 
 // RivalsTuning is the rival's economy and its fight. The money is priced
@@ -995,11 +1015,21 @@ func (r RivalsConfig) validate() error {
 
 // LaunderingConfig mirrors laundering.toml.
 type LaunderingConfig struct {
-	Laundering LaunderingTuning `toml:"laundering"`
-	Dial       LaunderTable     `toml:"dial"`
-	Growth     GrowthConfig     `toml:"growth"`
-	Offshore   OffshoreConfig   `toml:"offshore"`
-	Fronts     []FrontConfig    `toml:"front"`
+	Laundering  LaunderingTuning  `toml:"laundering"`
+	Dial        LaunderTable      `toml:"dial"`
+	Growth      GrowthConfig      `toml:"growth"`
+	Offshore    OffshoreConfig    `toml:"offshore"`
+	Businessman BusinessmanConfig `toml:"businessman"`
+	Fronts      []FrontConfig     `toml:"front"`
+}
+
+// BusinessmanConfig is the [businessman] table (#49): the run ends a
+// businessman once the fronts' own income net of their upkeep
+// (Sim.LegitIncome) has out-earned the street's revenue for LegitDays
+// days in a row with home's goodwill over its pressure (World.LegitDays
+// counts them, this sim's). Zero boxes it.
+type BusinessmanConfig struct {
+	LegitDays int `toml:"legit_days"`
 }
 
 // OffshoreConfig is the [offshore] table (#195): the account clean cash
@@ -1420,6 +1450,7 @@ type UpgradeEffects struct {
 	EvidenceDecayDays     int     `toml:"evidence_decay_days"`
 	EvidenceArrest        int     `toml:"evidence_arrest"`
 	FallGuys              int     `toml:"fall_guys"`
+	Identities            int     `toml:"identities"` // new identities (#49): with one, an indictment past the fall guys is the vanished ending, and Vanish is open
 
 	// The crew sim (#118).
 	WageMul            float64 `toml:"wage_mul"`
@@ -1655,6 +1686,12 @@ func Load() (*Config, error) {
 	if err := c.Routes.validateAssets(c.Assets); err != nil {
 		return nil, fmt.Errorf("routes.toml: %w", err)
 	}
+	if err := decode("endings.toml", &c.Endings); err != nil {
+		return nil, err
+	}
+	if err := c.Endings.validate(); err != nil {
+		return nil, fmt.Errorf("endings.toml: %w", err)
+	}
 	if len(c.Market.Products) == 0 {
 		return nil, fmt.Errorf("market.toml: no products defined")
 	}
@@ -1833,7 +1870,7 @@ func decodeBytes(name string, b []byte, v any) error {
 	}
 	// An effect name nobody reads, or a trigger field nobody checks, would
 	// silently do nothing.
-	if name == "upgrades.toml" || name == "reputation.toml" || name == "dilemmas.toml" || name == "routes.toml" || name == "law.toml" || name == "buyers.toml" || name == "progression.toml" || name == "houses.toml" || name == "incidents.toml" || name == "assets.toml" || name == "intel.toml" {
+	if name == "upgrades.toml" || name == "reputation.toml" || name == "dilemmas.toml" || name == "routes.toml" || name == "law.toml" || name == "buyers.toml" || name == "progression.toml" || name == "houses.toml" || name == "incidents.toml" || name == "assets.toml" || name == "intel.toml" || name == "endings.toml" {
 		if keys := md.Undecoded(); len(keys) > 0 {
 			return fmt.Errorf("%s: unknown key %s", name, keys[0])
 		}

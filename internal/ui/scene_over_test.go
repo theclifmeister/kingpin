@@ -2,6 +2,7 @@ package ui
 
 import (
 	"fmt"
+	"github.com/theclifmeister/kingpin/internal/content"
 	"strings"
 	"testing"
 	"time"
@@ -10,6 +11,7 @@ import (
 
 	"github.com/theclifmeister/kingpin/internal/game"
 	"github.com/theclifmeister/kingpin/internal/ui/anim"
+	"github.com/theclifmeister/kingpin/internal/ui/theme"
 )
 
 // The ending's scene (#156): modeOver opens on a scene for the cause,
@@ -28,14 +30,15 @@ func endIndicted(t *testing.T, m *Model) {
 	}
 }
 
-// overCauses is every cause today, and one nobody has, which plays the
-// default.
-var overCauses = []string{"indicted", "arrested", "broke", "retired"}
+// overCauses is every cause the game has (content.Causes, #49), and one
+// nobody has, which plays the default.
+var overCauses = append(append([]string(nil), content.Causes...), "struck_by_lightning")
 
-// TestEndingSceneByCause: each cause starts its scene, an unknown one
-// the default (the arrested scene), the day has stepped and saved
-// before the first frame, and with animation off no scene starts and
-// the summary is what is up.
+// TestEndingSceneByCause: each cause starts its scene (the three of
+// #156, the exit scene over the cause's title and line for the six of
+// #49), an unknown one the default (the arrested scene), the day has
+// stepped and saved before the first frame, and with animation off no
+// scene starts and the summary is what is up.
 func TestEndingSceneByCause(t *testing.T) {
 	for _, cause := range overCauses {
 		m := newAnimModel(t, 80, 24)
@@ -50,8 +53,18 @@ func TestEndingSceneByCause(t *testing.T) {
 			want = anim.Indicted(m.w.Heat.Evidence, m.overHeadline(), anim.Seed(m.w.Seed, m.w.Day, "over"))
 		case "broke":
 			want = anim.Broke(m.overFigures(), anim.Seed(m.w.Seed, m.w.Day, "over"))
-		default:
+		case "arrested", "struck_by_lightning":
 			want = anim.Arrested(anim.Seed(m.w.Seed, m.w.Day, "over"))
+		default:
+			row := m.cfg.Endings.Ending(cause)
+			want = anim.Exit(row.Title, row.Scene, m.overAccent(cause), anim.Seed(m.w.Seed, m.w.Day, "over"))
+			accent := theme.Heat
+			if m.cfg.Endings.Won(cause) {
+				accent = theme.Money
+			}
+			if m.scene.Accent != accent {
+				t.Errorf("%s: the player's accent is %v, not the ending's %v", cause, m.scene.Accent, accent)
+			}
 		}
 		for _, at := range []time.Duration{0, anim.OverLength / 2, anim.OverLength} {
 			if got, w := strings.Join(m.scene.Scene.Frame(at, 72, 15), "\n"), strings.Join(want.Frame(at, 72, 15), "\n"); got != w {
@@ -74,7 +87,7 @@ func TestEndingSceneByCause(t *testing.T) {
 	if saved, err := game.Load(m.slot, m.set.Migrations()...); err != nil || saved.Over == nil || saved.Over.Cause != "indicted" {
 		t.Fatalf("the ending was not saved before the scene: %v %+v", err, saved.Over)
 	}
-	if !strings.Contains(m.View(), "GAME OVER") || strings.Contains(m.View(), "days survived") {
+	if !strings.Contains(m.View(), "GAME OVER") || strings.Contains(m.View(), "SCORE") {
 		t.Errorf("mid-scene the modal is not the scene's:\n%s", stripANSI(m.View()))
 	}
 	// Animation off: no scene, the summary at once.
@@ -84,7 +97,7 @@ func TestEndingSceneByCause(t *testing.T) {
 	if off.scene != nil {
 		t.Fatal("animation off: a scene started")
 	}
-	if v := stripANSI(off.View()); !strings.Contains(v, "INDICTED on day") || !strings.Contains(v, "days survived") {
+	if v := stripANSI(off.View()); !strings.Contains(v, "INDICTED · DAY") || !strings.Contains(v, "THE MONEY") {
 		t.Errorf("animation off: the summary is not up:\n%s", v)
 	}
 	// A finished run continued from its save shows the summary alone.
@@ -98,7 +111,7 @@ func TestEndingSceneByCause(t *testing.T) {
 	if on.mode != modeOver || on.scene != nil {
 		t.Fatalf("continuing a finished run: mode %v scene %v", on.mode, on.scene)
 	}
-	if !strings.Contains(stripANSI(on.View()), "days survived") {
+	if !strings.Contains(stripANSI(on.View()), "THE MONEY") {
 		t.Error("continuing a finished run: the summary is not up")
 	}
 }

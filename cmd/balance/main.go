@@ -245,6 +245,7 @@ func main() {
 	assetsBought, assetCash, assetsLost, taskForces, tunnelsFound, assetRuns, assetUpkeep := 0, 0, 0, 0, 0, 0, 0 // #48
 	assetsOwned := map[string]int{}
 	var retired []int
+	var scores []int // the score of every run that ended (#49): the account over one plus the bodies
 	ld := laundering.New(cfg)
 	tr := territory.New(cfg) // the deeds' rent (#194)
 	shipments, shipped, seizures, seizedUnits := 0, 0, 0, 0
@@ -350,6 +351,7 @@ func main() {
 		}
 		if res.Over != nil {
 			endings[res.Over.Cause]++
+			scores = append(scores, res.World.Stats.Score)
 		} else {
 			endings["still free"]++
 		}
@@ -797,5 +799,13 @@ func main() {
 		}
 		fmt.Printf("incidents:     %.1f per run, %d of %d in the table seen: %s\n", float64(firedRuns)/float64(*runs), len(ids), len(cfg.Incidents.Table), strings.Join(ids, ", "))
 	}
-	fmt.Printf("endings: %v\n", endings)
+	// The endings (#49): how every run ended, and the median score of
+	// the ones that did (the offshore account over one plus the bodies,
+	// docs/endings.md); a run still going on the horizon has no score.
+	sort.Ints(scores)
+	median := 0
+	if len(scores) > 0 {
+		median = scores[len(scores)/2]
+	}
+	fmt.Printf("endings:       %v; %d of %d ended, scoring $%d (median)\n", endings, len(scores), *runs, median)
 }

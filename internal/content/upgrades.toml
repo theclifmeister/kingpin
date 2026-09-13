@@ -390,6 +390,22 @@ desc = "There is always somebody who owes you. One more indictment with the wron
 [upgrade.effects]
 fall_guys = 1
 
+# The exit plan (#49): a new identity, clean and expensive. With one, the
+# indictment the fall guys do not take is the vanished ending rather than
+# the indicted one, and Vanish (the walk-away dialog on the ledger) ends
+# the run vanished on any morning. The offshore account (#195) is the
+# other exit plan and needs no node: what is in it survives every ending.
+[[upgrade]]
+id = "identity"
+name = "A new identity"
+branch = "legal"
+cost = 4000000
+clean = true
+requires = ["retainer"]
+desc = "Papers, a passport, a face nobody in this city has seen. When it ends, it ends somewhere else."
+[upgrade.effects]
+identities = 1
+
 # Crew: cheaper, steadier, more of them (#118). The crew sim reads
 # these; a lone trader gets nothing from any of them.
 
