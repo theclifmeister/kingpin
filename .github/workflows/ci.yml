@@ -1,7 +1,11 @@
 name: CI
 
 # Runs on pull requests only: main changes solely through merged PRs whose
-# checks already passed, so a second run there would be redundant.
+# checks already passed, so a second run there would be redundant. A push
+# to main runs cache.yml instead, which repeats the same build, vet and
+# tests only to save a warm cache under main; a PR restores it below
+# (#213) and never saves one of its own (nothing could read it: a cache
+# saved under a PR's ref is visible to that PR alone).
 on:
   pull_request:
 
@@ -24,7 +28,19 @@ jobs:
       - uses: actions/setup-go@v7
         with:
           go-version: stable
-          cache: true
+          cache: false
+
+      # The newest entry cache.yml saved from main for this go.sum. The
+      # key ends in the commit so no PR ever matches it exactly and the
+      # prefix picks the latest push; the paths are what cache.yml saves.
+      - uses: actions/cache/restore@v6
+        with:
+          path: |
+            ~/.cache/go-build
+            ~/go/pkg/mod
+            ~/.cache/staticcheck
+          key: go-lint-${{ runner.os }}-${{ hashFiles('go.sum') }}-${{ github.sha }}
+          restore-keys: go-lint-${{ runner.os }}-${{ hashFiles('go.sum') }}-
 
       - name: gofmt
         run: |
@@ -57,13 +73,30 @@ jobs:
       - uses: actions/setup-go@v7
         with:
           go-version-file: go.mod
-          cache: true
+          cache: false
+
+      # The newest entry cache.yml saved from main for this go.sum (see
+      # the Lint job). Go's test cache lives in GOCACHE too, so a package
+      # this PR's change does not reach reports its pass as (cached).
+      - uses: actions/cache/restore@v6
+        with:
+          path: |
+            ~/.cache/go-build
+            ~/go/pkg/mod
+          key: go-test-${{ runner.os }}-${{ hashFiles('go.sum') }}-${{ github.sha }}
+          restore-keys: go-test-${{ runner.os }}-${{ hashFiles('go.sum') }}-
 
       - name: build
         run: go build ./...
 
+      # No -count=1 (#213): Go keys a cached pass on the test binary, the
+      # flags and every file and environment variable the tests read, so
+      # only a package none of this PR's changes reach is skipped, and the
+      # suite is deterministic by design. cache.yml must run this exact
+      # line (the flags are part of the key) or nothing is ever cached;
+      # race.yml keeps -count=1 so the weekly sweep runs everything.
       - name: test
-        run: go test -race -count=1 -timeout 30m ./...
+        run: go test -race -timeout 30m ./...
 
       - name: balance smoke
         run: go run ./cmd/balance -runs 3 -days 50

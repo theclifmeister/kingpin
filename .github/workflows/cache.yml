@@ -1,0 +1,101 @@
+name: Cache
+
+# Warms the cache a pull request restores (#213). CI runs on pull requests
+# only, and a cache saved during a PR's run is visible to that PR alone, so
+# with setup-go's own cache every PR built and compiled cold (11 s of
+# go build, ~18 s to compile the harness test binary) and then saved two
+# ~90 MB entries nobody read. This workflow runs on every push to main
+# (and by hand), repeats ci.yml's build, vet and tests with the same
+# flags, and saves GOCACHE and GOMODCACHE under a key that ends in the
+# commit; ci.yml restores the newest entry for the same go.sum by prefix.
+# Go's test cache rides in GOCACHE, so a PR whose change reaches none of a
+# package's inputs reports that package's pass as (cached); the test
+# lines must stay byte for byte ci.yml's, since the flags are part of
+# Go's key. It gates nothing: a red run here is a failure on main to look
+# at, never a check. The entry is saved on failure too (the build cache
+# is still good; Go never caches a failed test), never on a cancel.
+on:
+  push:
+    branches: [main]
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: cache-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  lint:
+    # What ci.yml's Lint job compiles, on the same stable Go: vet, and
+    # staticcheck's install (most of that step is building it) and facts.
+    name: Lint cache
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v7
+
+      - uses: actions/setup-go@v7
+        with:
+          go-version: stable
+          cache: false
+
+      - uses: actions/cache/restore@v6
+        with:
+          path: |
+            ~/.cache/go-build
+            ~/go/pkg/mod
+            ~/.cache/staticcheck
+          key: go-lint-${{ runner.os }}-${{ hashFiles('go.sum') }}-${{ github.sha }}
+          restore-keys: go-lint-${{ runner.os }}-${{ hashFiles('go.sum') }}-
+
+      - name: go vet
+        run: go vet ./...
+
+      - name: staticcheck
+        run: |
+          go install honnef.co/go/tools/cmd/staticcheck@latest
+          "$(go env GOPATH)/bin/staticcheck" ./...
+
+      - uses: actions/cache/save@v6
+        if: ${{ !cancelled() }}
+        with:
+          path: |
+            ~/.cache/go-build
+            ~/go/pkg/mod
+            ~/.cache/staticcheck
+          key: go-lint-${{ runner.os }}-${{ hashFiles('go.sum') }}-${{ github.sha }}
+
+  test:
+    # What ci.yml's Test job runs, on go.mod's toolchain, flag for flag.
+    name: Test cache
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v7
+
+      - uses: actions/setup-go@v7
+        with:
+          go-version-file: go.mod
+          cache: false
+
+      - uses: actions/cache/restore@v6
+        with:
+          path: |
+            ~/.cache/go-build
+            ~/go/pkg/mod
+          key: go-test-${{ runner.os }}-${{ hashFiles('go.sum') }}-${{ github.sha }}
+          restore-keys: go-test-${{ runner.os }}-${{ hashFiles('go.sum') }}-
+
+      - name: build
+        run: go build ./...
+
+      - name: test
+        run: go test -race -timeout 30m ./...
+
+      - uses: actions/cache/save@v6
+        if: ${{ !cancelled() }}
+        with:
+          path: |
+            ~/.cache/go-build
+            ~/go/pkg/mod
+          key: go-test-${{ runner.os }}-${{ hashFiles('go.sum') }}-${{ github.sha }}
