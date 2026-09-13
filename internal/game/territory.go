@@ -286,6 +286,14 @@ func (w *World) Post(corner string, id int) error {
 			return ErrNoMember
 		}
 		role = m.Role
+		// A member in a cell or laid up (#46) works nothing until
+		// they are back.
+		if m.Jailed(w.Day) {
+			return ErrJailed
+		}
+		if m.Wounded(w.Day) {
+			return ErrWounded
+		}
 	}
 	if role != "runner" && role != "enforcer" {
 		return ErrNotPostable

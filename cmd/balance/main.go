@@ -21,7 +21,7 @@ import (
 func main() {
 	runs := flag.Int("runs", 20, "number of seeded runs")
 	days := flag.Int("days", harness.Horizon, "days to play each run for; a measuring horizon, the game itself has no cap")
-	policy := flag.String("policy", "normal", "idle | hide | quiet | normal | aggressive | careful | managed | upgraded | crewed | vigilant | territory | war | diplomat | laundered | funded | corrupt | distributor | delegated | dealer | stocked | routine | leveraged | boss | pricewar | stashed | saboteur | tipster | cook | retiree")
+	policy := flag.String("policy", "normal", "idle | hide | quiet | normal | aggressive | careful | managed | upgraded | crewed | vigilant | territory | war | diplomat | laundered | funded | corrupt | distributor | driven | delegated | dealer | stocked | routine | leveraged | boss | pricewar | stashed | saboteur | tipster | cook | retiree")
 	lt := flag.String("lt", "", "force the delegated policy's lieutenant temper: violent | greedy | careful | steady (default as generated)")
 	corners := flag.Int("corners", 3, "corners the territory and war policies work, counting yours")
 	force := flag.String("force", "push", "warn | push | hit: how hard the war policy strikes")
@@ -44,6 +44,7 @@ func main() {
 	margin := flag.Float64("margin", harness.BossMargin, "how many times the next level's price the boss holds in clean cash before it invests (harness.BossMargin); 1 invests everything")
 	incidents := flag.String("incidents", "on", "on | off: off boxes the world's incident table (#44); the harness tests run with it boxed, so a pinned number reads with off")
 	cut := flag.Float64("cut", 0, "cut everything the policy buys by this ratio (#47, harness.Cutter): 0.5 adds half again at nothing")
+	life := flag.String("life", "on", "on | off: off boxes crew.toml's [life] table (#46, harness.NoLife): nobody ages, is arrested, wounded or killed; a run with it off is the run before the feature")
 	flag.Parse()
 	at := func(def float64) float64 {
 		if *lieLow > 0 {
@@ -64,6 +65,14 @@ func main() {
 	}
 	if *credit == "off" {
 		cfg = harness.NoCredit(cfg)
+	}
+	switch *life {
+	case "on":
+	case "off":
+		cfg = harness.NoLife(cfg)
+	default:
+		fmt.Fprintf(os.Stderr, "unknown -life %q\n", *life)
+		os.Exit(2)
 	}
 	var p harness.Policy
 	switch *policy {
@@ -115,6 +124,8 @@ func main() {
 		p = harness.Corrupt(cfg, at(40))
 	case "distributor":
 		p = harness.Distributor(cfg, at(40))
+	case "driven":
+		p = harness.Driven(cfg, at(40))
 	case "delegated":
 		p = harness.Delegated(cfg, at(40), *lt)
 	case "dealer":
@@ -216,6 +227,9 @@ func main() {
 	// Quality (#47): what the cuts and the cooks did, the overdoses, the
 	// quality of what sold and the corners' repeat business at the end.
 	cutUnits, cutCost, cooked, cookCost, overdoses, chemists := 0, 0, 0, 0, 0, 0
+	// Crew life (#46): the bodies on both sides, the cells, the bails,
+	// the wounds and the retirements, and what the driver did.
+	bodies, fallen, arrests, bails, bailCash, wounded, pensioned, driven, drivenSeized := 0, 0, 0, 0, 0, 0, 0, 0, 0
 	soldUnits, soldWeighed := 0.0, 0.0
 	var repeats []int
 	for seed := *seed0; seed < *seed0+uint64(*runs); seed++ {
@@ -383,6 +397,25 @@ func main() {
 		if res.World.Crew.Chemist() != nil {
 			chemists++
 		}
+		bodies += res.World.Stats.Bodies
+		fallen += res.World.Stats.Fallen
+		arrests += res.World.Stats.Arrests
+		bails += res.World.Stats.Bails
+		bailCash += res.World.Stats.BailCash
+		wounded += res.World.Stats.Wounded
+		pensioned += res.World.Stats.Retired
+		for _, e := range res.Events {
+			switch ev := e.(type) {
+			case events.ShipmentSent:
+				if ev.Driver != 0 {
+					driven++
+				}
+			case events.ShipmentSeized:
+				if ev.Driver != 0 {
+					drivenSeized++
+				}
+			}
+		}
 		for _, c := range res.World.Home().Corners {
 			if c.Held() {
 				repeats = append(repeats, int(math.Round(c.Repeats()*100)))
@@ -546,6 +579,10 @@ func main() {
 		}
 		fmt.Printf("quality:       %d units cut in for $%d, %d cooked for $%d (per run), %d overdoses over %d runs, %d runs end with a chemist; sold at quality %.0f (mean), held corners keep %d%% of their customers at the end (median)\n",
 			cutUnits / *runs, cutCost / *runs, cooked / *runs, cookCost / *runs, overdoses, *runs, chemists, meanQ, rep)
+	}
+	if bodies+arrests+wounded+pensioned+driven > 0 {
+		fmt.Printf("crew life:     %.1f bodies per run (%.1f yours), %.1f arrests, %.1f bails for $%d, %.1f wounded, %.1f retired; %d shipments driven, %d of them seized (totals over %d runs)\n",
+			float64(bodies)/float64(*runs), float64(fallen)/float64(*runs), float64(arrests)/float64(*runs), float64(bails)/float64(*runs), bailCash / *runs, float64(wounded)/float64(*runs), float64(pensioned)/float64(*runs), driven, drivenSeized, *runs)
 	}
 	if informants+leaks+investigations+defections > 0 || *snitch {
 		fmt.Printf("snitching:     %d turned, %d pages leaked, %d investigations named %d, %d defections (totals over %d runs)\n", informants, leaks, investigations, named, defections, *runs)

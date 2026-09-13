@@ -51,6 +51,12 @@ func gatesOpen(cfg *content.Config, set *sim.Set, w *game.World) gates {
 	if set.Crew.ChemistsWanted(w) {
 		g["role:chemist"] = true // #47: meth on the ladder
 	}
+	if crew.FixersWanted(w) {
+		g["role:fixer"] = true // #42: an envelope paid
+	}
+	if crew.DriversWanted(w) {
+		g["role:driver"] = true // #46: a route run
+	}
 	return g
 }
 

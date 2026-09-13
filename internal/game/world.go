@@ -12,7 +12,7 @@ import (
 )
 
 // SchemaVersion is bumped whenever World changes shape incompatibly.
-const SchemaVersion = 13
+const SchemaVersion = 14
 
 // World is the complete state of a run. Every field is a plain value so the
 // whole struct can be serialised with encoding/gob.
@@ -282,6 +282,7 @@ type Shipment struct {
 	Sent    int // day it left
 	Arrives int // day it lands
 	Cost    int // what sending it cost, dirty cash
+	Driver  int // the crew member riding it (#46), 0 for nobody: jailed with it if it is seized
 }
 
 // DaysLeft is how many days the shipment still has to go on day.
@@ -361,6 +362,22 @@ type HeatState struct {
 	FederalUntil int            // the feds are in town until this day (#44, an incident): the heat sim's decay is FederalDecay of itself on every tick before it
 	FederalDecay float64        // ... by this much; 0 reads as no change
 	Busts        []Bust         // stings and raids that took stock, kept a while: the market sim reads yesterday's for the connect there (#72)
+	Sweep        Sweep          // the last sting or raid and who stood where when it came (#46): the crew sim reads yesterday's for the arrests
+}
+
+// Sweep is a sting or raid as the crew remember it (#46): the city, the
+// rung, the corners your crew stood on there and the crew who did when
+// the police came, and whether it took stock (a raid that did is the
+// lab's too). The heat sim stamps it; the crew sim, stepping before
+// heat, reads yesterday's the next morning and rolls the arrests. The
+// zero value is no sweep ever.
+type Sweep struct {
+	Day     int
+	City    string
+	Level   string
+	Corners []string
+	Crew    []int
+	Units   int
 }
 
 // Bust is a sting or raid that took stock in a city: what the connect
@@ -391,6 +408,20 @@ type CrewState struct {
 	Leads        []Lead          // who went over to the rival last night, for the rivals sim to act on next step (#144); the crew sim writes it fresh every step and nothing else writes it
 	Cooks        []Cook          // the chemist's lots on their way (#47), in the order ordered; Cook queues them, the crew sim lands them
 	NextCook     int             // the last cook's id
+	BailedToday  []Payoff        // bail put down today (#46), per-day scratch the clock clears; the crew sim reports it
+	Fallen       []Fallen        // the crew shot dead on your corners (#46), oldest first: the run summary reads it
+}
+
+// Fallen is a member of the crew shot dead on a corner (#46): who, and
+// where and when they fell.
+type Fallen struct {
+	ID         int
+	Name       string
+	Role       string
+	Age        int
+	Day        int
+	Corner     string
+	CornerName string
 }
 
 // RoleChemist is the role of the crew member who makes quality (#47):
@@ -401,7 +432,7 @@ const RoleChemist = "chemist"
 func (c *CrewState) Chemist() *CrewMember {
 	var best *CrewMember
 	for i := range c.Members {
-		if m := &c.Members[i]; m.Role == RoleChemist && (best == nil || m.Skill > best.Skill) {
+		if m := &c.Members[i]; m.Role == RoleChemist && m.Working() && (best == nil || m.Skill > best.Skill) {
 			best = m
 		}
 	}
@@ -443,6 +474,59 @@ type CrewMember struct {
 	City        string // the city a lieutenant runs; empty when unassigned
 	Assigned    int    // day the lieutenant was last given a city
 	Observed    bool   // the lieutenant has been on the job long enough for the report to name their personality
+
+	// Crew life (#46). Age is years, seeded at generation (MigrateAges
+	// for a save from before it); Growth is the skill on its way, the
+	// fraction under a point. Kin are the ids of the cousin, partner or
+	// friend on the payroll or in the pool who remembers what you do to
+	// this one. JailedUntil and WoundedUntil are the day they are back:
+	// jailed or wounded on every day before it, off the corner and
+	// selling and guarding nothing. Bailed says the release tomorrow is
+	// one you paid for. Zero values are the pre-#46 member.
+	Age          int
+	Growth       float64
+	Kin          []int
+	JailedUntil  int
+	WoundedUntil int
+	Bailed       bool
+}
+
+// Jailed reports whether the member is in a cell on day.
+func (m CrewMember) Jailed(day int) bool { return m.JailedUntil > day }
+
+// Wounded reports whether the member is laid up on day.
+func (m CrewMember) Wounded(day int) bool { return m.WoundedUntil > day }
+
+// Fit reports whether the member can work on day: neither jailed nor
+// wounded.
+func (m CrewMember) Fit(day int) bool { return !m.Jailed(day) && !m.Wounded(day) }
+
+// Working reports whether the member is at work at all: the crew sim
+// clears JailedUntil and WoundedUntil the morning they are back, so
+// either set is a member in a cell or laid up whatever the day, which
+// is how the best chemist or fixer is chosen without one.
+func (m CrewMember) Working() bool { return m.JailedUntil == 0 && m.WoundedUntil == 0 }
+
+// IsKin reports whether the two are kin (#46).
+func (m CrewMember) IsKin(id int) bool {
+	for _, k := range m.Kin {
+		if k == id {
+			return true
+		}
+	}
+	return false
+}
+
+// RoleDriver is the crew member who rides a route's shipments (#46).
+const RoleDriver = "driver"
+
+// Driver returns the member with id if they are a driver on the
+// payroll, or nil.
+func (c *CrewState) Driver(id int) *CrewMember {
+	if m := c.Member(id); m != nil && m.Role == RoleDriver {
+		return m
+	}
+	return nil
 }
 
 // Lieutenant reports whether the member is a lieutenant.
@@ -479,11 +563,25 @@ type InvestigationOrder struct {
 	Cost int
 }
 
-// Runners counts members in the runner role.
+// Runners counts the runners at work.
 func (c CrewState) Runners() int { return c.Role("runner") }
 
-// Role counts members in a role.
+// Role counts the members of a role at work: on the payroll and neither
+// in a cell nor laid up (#46, Working), so an enforcer in a cell
+// deters nobody, goes on no strike and guards nothing. OnPayroll
+// counts them all.
 func (c CrewState) Role(role string) int {
+	n := 0
+	for _, m := range c.Members {
+		if m.Role == role && m.Working() {
+			n++
+		}
+	}
+	return n
+}
+
+// OnPayroll counts the members of a role, at work or not.
+func (c CrewState) OnPayroll(role string) int {
 	n := 0
 	for _, m := range c.Members {
 		if m.Role == role {
@@ -521,7 +619,7 @@ const RoleFixer = "fixer"
 func (c *CrewState) Fixer() *CrewMember {
 	var best *CrewMember
 	for i := range c.Members {
-		if m := &c.Members[i]; m.Role == RoleFixer && (best == nil || m.Skill > best.Skill) {
+		if m := &c.Members[i]; m.Role == RoleFixer && m.Working() && (best == nil || m.Skill > best.Skill) {
 			best = m
 		}
 	}
@@ -854,6 +952,13 @@ type Stats struct {
 	Overdoses      int // overdoses on your corners
 	Reserved       int // clean cash moved offshore, after the fee (#195)
 	Fees           int // what the account kept of it
+	Bodies         int // the dead on your corners, both sides (#46): the score's divisor (#49); never decreases
+	Fallen         int // of those, yours
+	Arrests        int // crew put in a cell
+	Bails          int // ... and walked out of it on your clean cash
+	BailCash       int // what that cost
+	Wounded        int // crew shot and laid up
+	Retired        int // crew who retired
 }
 
 // StartingProduct describes a product as it exists at the start of a run,

@@ -499,6 +499,15 @@ func (s *Sim) Step(w *game.World, t *game.Tick) {
 			h.LeakDay = ev.Day
 		case events.LieutenantFlipped:
 			h.LeakDay = ev.Day
+		case events.CrewRetired:
+			// A sour retiree talks on the way out (#46): one page, the
+			// informant's, whatever was sold, the exception applied
+			// once. Somebody on your payroll did something.
+			if ev.Sour && tun.InformantEvidence > 0 {
+				h.Evidence += tun.InformantEvidence
+				h.EvidenceDay = t.Day
+				reasons[here] = append(reasons[here], fmt.Sprintf("%s talked on the way out: the DA's file on you grows (%d)", ev.Name, h.Evidence))
+			}
 		}
 	}
 	if w.Crew.Informants() == 0 {
@@ -736,6 +745,28 @@ func (s *Sim) fire(w *game.World, t *game.Tick, city *game.City, r content.Respo
 		} else {
 			w.Stats.Stings++
 		}
+		// Who stood where when the police came (#46): the corners in
+		// the city your crew worked or guarded and the crew on them,
+		// stamped for the crew sim to roll the arrests over in the
+		// morning (it steps before this one). You are never on the list:
+		// your own arrest is the ladder's top rung.
+		sweep := game.Sweep{Day: t.Day, City: city.ID, Level: r.Level}
+		for _, c := range city.Corners {
+			if !c.Held() || (c.Runner <= 0 && c.Enforcer <= 0) {
+				continue
+			}
+			sweep.Corners = append(sweep.Corners, c.ID)
+			for _, id := range []int{c.Runner, c.Enforcer} {
+				if id > 0 {
+					sweep.Crew = append(sweep.Crew, id)
+				}
+			}
+		}
+		for _, n := range ev.StockLost {
+			sweep.Units += n
+		}
+		ev.Corners = sweep.Corners
+		w.Heat.Sweep = sweep
 		// The record the market sim reads the next morning (#72): a
 		// bust that took product is held against you by the connect
 		// in that city. Kept a month, like the seizures.

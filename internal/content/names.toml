@@ -48,3 +48,11 @@ chemists = [
   "Doc", "Beaker", "Walt", "Prof", "Lab Rat", "Chem", "Sunny", "Gale",
   "Flask", "Ozone", "Petra", "Tesla", "Molly", "Bunsen", "Pinky", "Igor",
 ]
+
+# Drivers (#46): the one face the pool carries beside its usual ones
+# once a route has run, drawn off the driver's own stream from this
+# list so the crew names roll as they did.
+drivers = [
+  "Wheels", "Dash", "Speedy", "Slick", "Rocket", "Nitro", "Vinnie the Van", "Mac",
+  "Turbo", "Cruise", "Jax", "Hauler", "Shifty", "Gears", "Diesel", "Flo",
+]
