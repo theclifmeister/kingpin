@@ -19,6 +19,7 @@ import (
 // and on the file with the [deed] table boxed (harness.NoDeeds), 120
 // days, three seeds, and nothing of the kind is emitted or counted.
 func TestNoDeedIsTheOldRun(t *testing.T) {
+	t.Parallel()
 	cfg := content.MustLoad()
 	off := NoDeeds(cfg)
 	for name, policy := range map[string]func(*content.Config) Policy{
@@ -84,6 +85,7 @@ func landlord(cfg *content.Config, seed uint64, deeds bool) *game.World {
 // no deed: push_mul slows the rival and never stops it, the Street
 // branch's rule.
 func TestDeedSlowsTheRivalNeverStopsIt(t *testing.T) {
+	t.Parallel()
 	// The duel (#43, harness.OneFaction): this pins a mechanism on a seed, and the table moves the seed's dice.
 	cfg := OneFaction(content.MustLoad())
 	const days = 60
@@ -145,6 +147,7 @@ func TestDeedSlowsTheRivalNeverStopsIt(t *testing.T) {
 // after each; the boss as played keeps under the line and never loses
 // one, over the same seeds.
 func TestForfeiture(t *testing.T) {
+	t.Parallel()
 	cfg := content.MustLoad()
 	seized, pages := 0, 0
 	for seed := uint64(1); seed <= 3; seed++ {
@@ -200,6 +203,7 @@ func TestForfeiture(t *testing.T) {
 // rent a day is under a tenth of what its fronts wash a day (rent is
 // cover, not income; the levels are the income), and it holds deeds.
 func TestDeedSizing(t *testing.T) {
+	t.Parallel()
 	cfg := content.MustLoad()
 	tr := territory.New(cfg)
 	ld := laundering.New(cfg)
