@@ -27,7 +27,7 @@ var booksCols = []col{{"books", kText, 0}, {"as read", kText, 0}, {"age", kDays,
 // booksAge is how old the snapshot is in words: `read 3 days ago`,
 // `read today`, with `stale` once it is.
 func (m *Model) booksAge(r *game.RivalState) string {
-	k := r.Known
+	k := m.known().Books(r.Faction())
 	if !k.Read() {
 		return "never read"
 	}
@@ -36,7 +36,7 @@ func (m *Model) booksAge(r *game.RivalState) string {
 	if age > 0 {
 		s = "read " + plural(age, "day") + " ago"
 	}
-	if m.set.Rivals.Stale(r, m.w.Day) {
+	if m.set.Rivals.Stale(m.w, r, m.w.Day) {
 		s += " · stale"
 	}
 	return s
@@ -45,7 +45,7 @@ func (m *Model) booksAge(r *game.RivalState) string {
 // booksRows are the BOOKS table's rows: the chest, the take, the
 // muscle and the wage bill as last read, `?` while never read.
 func (m *Model) booksRows(r *game.RivalState) [][]any {
-	k := r.Known
+	k := m.known().Books(r.Faction())
 	if !k.Read() {
 		return [][]any{{"cash", "?", nil}, {"income", "?", nil}, {"muscle", "?", nil}, {"wages", "?", nil}}
 	}
@@ -171,7 +171,7 @@ func (m *Model) confirmBoost() {
 		m.refuse("Can't send them: " + err.Error())
 		return
 	}
-	m.say(fmt.Sprintf("Enforcers go for the till on %s tonight at %s: ~%s, odds ~%.0f%%, heat +%.0f.", c.Name, f, cash(m.set.Rivals.BoostTake(m.w, *c)), m.set.Rivals.OddsOn(m.w, m.factionOf(c), c, f)*100, m.set.Rivals.BoostHeat(c)))
+	m.say(fmt.Sprintf("Enforcers go for the till on %s tonight at %s: ~%s, odds %s, heat +%.0f.", c.Name, f, cash(m.set.Rivals.BoostTake(m.w, *c)), m.oddsWord(m.factionOf(c), c, f), m.set.Rivals.BoostHeat(c)))
 }
 
 // boostConfirm is the confirmation's body: the till, the odds, the heat
@@ -185,10 +185,10 @@ func (m *Model) boostConfirm() string {
 	b := m.set.Rivals.BoostTuning()
 	r := m.factionOf(c)
 	body := m.wrapLines(fmt.Sprintf("The enforcers go in at %s for the till on %s, not the corner.", f, c.Name))
-	body = append(body, m.wrapLines(fmt.Sprintf("~%.0f%% they come back with ~%s of %s's takings.", m.set.Rivals.OddsOn(m.w, r, c, f)*100, cash(m.set.Rivals.BoostTake(m.w, *c)), r.Leader))...)
+	body = append(body, m.wrapLines(fmt.Sprintf("%s they come back with ~%s of %s's takings.", m.oddsWord(r, c, f), cash(m.set.Rivals.BoostTake(m.w, *c)), r.Leader))...)
 	body = append(body, fmt.Sprintf("Heat +%.0f and war +%.0f either way; trust -%.0f.", m.set.Rivals.BoostHeat(c), b.War, m.cfg.Rivals.ForceFor(f).Trust))
 	fail := fmt.Sprintf("Failing, the enforcers lose %.0f nerve-weighted loyalty", b.FailLoss)
-	if r.Muscle > b.FailMuscle {
+	if lo, _, _, ok := m.known().Muscle(r.Faction()); ok && lo > b.FailMuscle {
 		fail += " and one gets hurt"
 	}
 	body = append(body, theme.Warning.Render(fail+"."))
@@ -280,7 +280,7 @@ type buyOffDialog struct {
 // read, or one while the books are unread (you do not know how many
 // there are).
 func (m *Model) buyOffMax() int {
-	if k := m.faction().Known; k.Read() {
+	if k := m.known().Books(m.faction().Faction()); k.Read() && k.Muscle > 0 {
 		return k.Muscle
 	}
 	return 1
@@ -365,7 +365,7 @@ func (m *Model) viewBuyOff() string {
 	units := m.bo.units
 	units.max = m.buyOffMax()
 	known := "You have not read their books: buy blind, a head at a time."
-	if k := r.Known; k.Read() {
+	if k := m.known().Books(r.Faction()); k.Read() {
 		known = fmt.Sprintf("As last read (%s): %s.", strings.TrimPrefix(m.booksAge(r), "read "), plural(k.Muscle, "head"))
 	}
 	body := m.wrapLines(fmt.Sprintf("Pay %s's people to go home: %s a head, %s for %s.", r.Leader, money(price), money(n*price), plural(n, "head")))

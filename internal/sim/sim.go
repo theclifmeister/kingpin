@@ -101,6 +101,7 @@ func (s *Set) Migrations() []game.Migration {
 		{From: 12, Apply: s.Market.MigrateLots},     // 12 -> 13: quality (#47), the old stock at the default and every corner's customers coming back
 		{From: 13, Apply: s.Crew.MigrateAges},       // 13 -> 14: crew life (#46), every member and candidate given an age off the seed
 		{From: 14, Apply: s.Rivals.MigrateFactions}, // 14 -> 15: the table (#43), the one rival seated first and the rest seeded off the seed
+		{From: 15, Apply: game.MigrateBooks},        // 15 -> 16: intel (#45), the books a scout read filed as facts
 	}
 }
 

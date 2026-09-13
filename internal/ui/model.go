@@ -31,12 +31,13 @@ const (
 	screenUpgrades
 	screenLedger
 	screenRivals
+	screenIntel // what you know against what is true (#45)
 	screenCount
 )
 
 var (
-	screenNames = []string{"Dashboard", "Market", "Journal", "Crew", "Map", "Upgrades", "Ledger", "Rivals"}
-	screenShort = []string{"Dash", "Market", "Journal", "Crew", "Map", "Upgr", "Ledger", "Rivals"} // when the title bar is tight
+	screenNames = []string{"Dashboard", "Market", "Journal", "Crew", "Map", "Upgrades", "Ledger", "Rivals", "Intel"}
+	screenShort = []string{"Dash", "Mkt", "Journal", "Crew", "Map", "Upgr", "Ledger", "Rivals", "Intel"} // when the title bar is tight (Mkt since the ninth tab, #45: nine short names and the news count fit 120 columns)
 )
 
 type mode int
@@ -85,6 +86,8 @@ const (
 	modeReserve           // clean cash into the offshore account (#195): the amount, then enter
 	modeConfirmBail       // put bail down for the selected member in a cell? (#46)
 	modeDriver            // pick the driver who rides the selected route (#46)
+	modePayCop            // pay a cop for a word on the police (#45): the amount, then enter
+	modeSpy               // plant a spy (#45): the faction, then who goes under
 	modeConfirmDeed       // buy the block the selected corner is on? (#194)
 	modeCount
 )
@@ -171,9 +174,12 @@ type Model struct {
 	br             bribeDialog
 	inv            investDialog
 	rsv            reserveDialog
-	fastStop       string // the report's first line after a fast-forward (`Stopped after 3 days: …`), until the next day ends
-	slot           int    // the save slot this run lives in: where ctrl+s, the end of the day and quitting save
-	startChoice    int    // row on the start menu: the slots, then Quit
+	cop            copDialog // the cop dialog (#45)
+	spy            spyDialog // the spy dialog (#45)
+	intelCursor    int       // row on the intel screen (#45)
+	fastStop       string    // the report's first line after a fast-forward (`Stopped after 3 days: …`), until the next day ends
+	slot           int       // the save slot this run lives in: where ctrl+s, the end of the day and quitting save
+	startChoice    int       // row on the start menu: the slots, then Quit
 	status         string
 	statusKind     statusKind           // how the status bar colours the message; set where the status is
 	flash          []events.Enforcement // the enforcements of the last tick, via the bus: the bust's scene reads the level (#155)
@@ -542,6 +548,11 @@ func (m *Model) handleKey(k tea.KeyMsg) (tea.Model, tea.Cmd) {
 		return m, nil
 	case modeDriver:
 		m.keyDriver(key)
+		return m, nil
+	case modePayCop:
+		return m.keyPayCop(k)
+	case modeSpy:
+		m.keySpy(key)
 		return m, nil
 	case modeConfirmTravel:
 		switch key {
@@ -921,6 +932,8 @@ func (m *Model) moveCursor(dx, dy int) {
 		}
 	case screenLedger:
 		m.ledgerMove(dy)
+	case screenIntel:
+		m.intelMove(dy)
 	case screenMarket:
 		switch {
 		case dx != 0:
@@ -1063,6 +1076,10 @@ func (m *Model) View() string {
 		body = m.bailConfirm()
 	case modeDriver:
 		body = m.viewDriver()
+	case modePayCop:
+		body = m.viewPayCop()
+	case modeSpy:
+		body = m.viewSpy()
 	case modeConfirmTravel:
 		body = m.travelConfirm()
 	case modeConfirmScout:
@@ -1123,6 +1140,8 @@ func (m *Model) viewScreen() string {
 		return m.viewLedger()
 	case screenRivals:
 		return m.viewRivals()
+	case screenIntel:
+		return m.viewIntel()
 	default:
 		return m.viewDashboard()
 	}
@@ -1146,6 +1165,8 @@ func (m *Model) details() []section {
 		return m.ledgerDetails()
 	case screenRivals:
 		return m.rivalsDetails()
+	case screenIntel:
+		return m.intelDetails()
 	default:
 		return m.dashboardDetails()
 	}
@@ -1163,6 +1184,8 @@ func (m *Model) accent() lipgloss.Color {
 		return theme.Crew
 	case screenMap, screenRivals:
 		return theme.Rivals
+	case screenIntel:
+		return theme.Intel
 	default:
 		return theme.Money
 	}
@@ -1471,7 +1494,7 @@ func (m *Model) viewOver() string {
 	rep := w.Player.Reputation
 	facts = append(facts,
 		[]any{"peak heat", fmt.Sprintf("%.0f", w.Heat.Peak)},
-		[]any{"the law", fmt.Sprintf("Chief %s (%s) · DA %s (%s)", truncate(w.Law.Chief.Name, 10), w.Law.Chief.Personality, truncate(w.Law.DA.Name, 10), stanceWord(w.Law.DA.Stance))},
+		[]any{"the law", fmt.Sprintf("Chief %s (%s) · DA %s (%s)", truncate(w.Law.Chief.Name, 10), m.chiefWord(), truncate(w.Law.DA.Name, 10), stanceWord(w.Law.DA.Stance))},
 		[]any{"pressure", fmt.Sprintf("%.0f", w.Here().Pressure)},
 		[]any{"elections", fmt.Sprint(w.Stats.Elections)},
 		[]any{"given to the cities", cash(w.Stats.Funded)},
@@ -1562,6 +1585,7 @@ func (m *Model) reportLines() []string {
 	section("SHIPMENTS", r.Shipments, theme.RoadText)
 	section("HEAT", r.Heat, theme.Bad)
 	section("LAW", r.Law, lawReportStyle)
+	section("INTEL", r.Intel, theme.IntelText) // what was learnt tonight (#45)
 	section("CREW", r.Crew, theme.CrewText)
 	section("TERRITORY", r.Territory, theme.RivalText)
 	section("MONEY", append(r.Money, fmt.Sprintf("Cash %s %s %s", cash(r.CashBefore), format.Arrow, cash(r.CashAfter))), theme.Gold)

@@ -39,6 +39,7 @@ type Config struct {
 	Houses      HousesConfig
 	Incidents   IncidentsConfig
 	Assets      AssetsConfig
+	Intel       IntelConfig
 }
 
 // MarketConfig mirrors market.toml.
@@ -1636,6 +1637,12 @@ func Load() (*Config, error) {
 	if err := decode("incidents.toml", &c.Incidents); err != nil {
 		return nil, err
 	}
+	if err := decode("intel.toml", &c.Intel); err != nil {
+		return nil, err
+	}
+	if err := c.Intel.validate(); err != nil {
+		return nil, fmt.Errorf("intel.toml: %w", err)
+	}
 	if err := c.Incidents.validate(c.City, c.Market, c.Routes, c.Names); err != nil {
 		return nil, fmt.Errorf("incidents.toml: %w", err)
 	}
@@ -1826,7 +1833,7 @@ func decodeBytes(name string, b []byte, v any) error {
 	}
 	// An effect name nobody reads, or a trigger field nobody checks, would
 	// silently do nothing.
-	if name == "upgrades.toml" || name == "reputation.toml" || name == "dilemmas.toml" || name == "routes.toml" || name == "law.toml" || name == "buyers.toml" || name == "progression.toml" || name == "houses.toml" || name == "incidents.toml" || name == "assets.toml" {
+	if name == "upgrades.toml" || name == "reputation.toml" || name == "dilemmas.toml" || name == "routes.toml" || name == "law.toml" || name == "buyers.toml" || name == "progression.toml" || name == "houses.toml" || name == "incidents.toml" || name == "assets.toml" || name == "intel.toml" {
 		if keys := md.Undecoded(); len(keys) > 0 {
 			return fmt.Errorf("%s: unknown key %s", name, keys[0])
 		}

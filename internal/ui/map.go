@@ -495,7 +495,7 @@ func (m *Model) cornerSection(sel *game.Corner) section {
 		lines = append(lines, row("undercut", theme.MarketText.Render(fmt.Sprintf("%s · takes ~%.0f/day", d, m.set.Market.UndercutUnits(w, *sel, d)))))
 	}
 	if sel.Held() && w.Contested(*sel) {
-		lines = append(lines, row("push flips", theme.RivalText.Render(fmt.Sprintf("~%.0f%%", m.set.Rivals.PushOdds(w, m.pusher(sel), sel)*100))))
+		lines = append(lines, row("push flips", theme.RivalText.Render(m.pushWord(m.pusher(sel), sel)))) // at the muscle the file holds (#45)
 	}
 	// The deed's key (#194), on any corner whose block is not yet
 	// yours, once there is clean cash to buy with (the row a street
@@ -555,8 +555,7 @@ func (m *Model) cornerSection(sel *game.Corner) section {
 	case sel.Owner == game.OwnerRival:
 		f := m.factionOf(sel)
 		if n := w.Crew.Role("enforcer"); n > 0 {
-			lines = append(lines, keyRow("w", fmt.Sprintf("push takes it ~%.0f%%, hit ~%.0f%%",
-				m.set.Rivals.OddsOn(w, f, sel, events.ForcePush)*100, m.set.Rivals.OddsOn(w, f, sel, events.ForceHit)*100)))
+			lines = append(lines, keyRow("w", fmt.Sprintf("push takes it %s, hit %s", m.oddsWord(f, sel, events.ForcePush), m.oddsWord(f, sel, events.ForceHit))))
 			lines = append(lines, keyRow("w", fmt.Sprintf("boost: the till, ~%s", cash(m.set.Rivals.BoostTake(w, *sel)))))
 		} else {
 			lines = append(lines, wrapped(theme.Subtle, "Taking it is a matter for the enforcers. Hire some "+screenPointer(screenCrew)+".")...)
@@ -631,12 +630,19 @@ func (m *Model) squeezers(c *game.Corner) string {
 
 // pusher is the faction whose push the map's odds read on a corner of
 // yours (#43): of the factions bordering it, the one with the most
-// muscle; the rival at home for none.
+// muscle as the file holds it (#45: a band reads at its middle, an
+// unknown count as its corners); the rival at home for none.
 func (m *Model) pusher(c *game.Corner) *game.RivalState {
+	weight := func(r *game.RivalState) float64 {
+		if lo, hi, _, ok := m.known().Muscle(r.Faction()); ok {
+			return 1000 + float64(lo+hi)/2
+		}
+		return float64(m.w.RivalHeldBy(r.Faction()))
+	}
 	best := m.w.Rival()
 	found := false
 	for _, r := range m.w.Rivals {
-		if r.Alive() && m.w.ContestedBy(*c, r.Faction()) && (!found || r.Muscle > best.Muscle) {
+		if r.Alive() && m.w.ContestedBy(*c, r.Faction()) && (!found || weight(r) > weight(best)) {
 			best, found = r, true
 		}
 	}

@@ -19,15 +19,18 @@ import (
 func TestBooksKeys(t *testing.T) {
 	m := richModel(t, 120, 40)
 	w := m.w
-	// i and $ on the dashboard point at both screens that take them.
+	// i and $ on the journal point at every screen that takes them (i on
+	// the dashboard is the intel jump since #45).
+	m.Update(key("3"))
 	m.Update(key("i"))
-	if m.mode != modePlay || m.status != "Investigate on the crew screen (4). Invest on the ledger screen (7). Scout on the rivals screen (8)." {
-		t.Fatalf("i on the dashboard: mode %v status %q", m.mode, m.status)
+	if m.mode != modePlay || m.status != "Investigate on the crew screen (4). Intel on the map screen (5). Invest on the ledger screen (7). Scout on the rivals screen (8). Intel on the dashboard screen (1)." {
+		t.Fatalf("i on the journal: mode %v status %q", m.mode, m.status)
 	}
 	m.Update(key("$"))
-	if m.mode != modePlay || m.status != "Pay off on the crew screen (4). Buy checkpoint on the map screen (5). Bribe on the ledger screen (7). Buy off on the rivals screen (8)." {
-		t.Fatalf("$ on the dashboard: mode %v status %q", m.mode, m.status)
+	if m.mode != modePlay || m.status != "Pay off on the crew screen (4). Buy checkpoint on the map screen (5). Bribe on the ledger screen (7). Buy off on the rivals screen (8). Pay cop on the intel screen (9)." {
+		t.Fatalf("$ on the journal: mode %v status %q", m.mode, m.status)
 	}
+	m.Update(key("1"))
 	m.Update(key("t"))
 	if m.mode != modePlay || m.status != "Cut on the market screen (2). Assign on the crew screen (4). Tip police on the map screen (5)." {
 		t.Fatalf("t on the dashboard: mode %v status %q", m.mode, m.status)
@@ -85,7 +88,7 @@ func TestBooksKeys(t *testing.T) {
 	// With the books read the field's max is the muscle as read and the
 	// block carries the snapshot with its age.
 	w.Today.Poach = nil
-	w.Rival().Known = game.Known{Day: w.Day - 3, Cash: 48_000, Income: 12_000, Muscle: 5, Wages: 9_000}
+	w.LearnBooks(w.Rival().Faction(), game.Books{Day: w.Day - 3, Cash: 48_000, Income: 12_000, Muscle: 5, Wages: 9_000}, 0.05, 0.2)
 	main = mainText(m)
 	for _, want := range []string{"BOOKS · read 3 days ago", "cash    $48K", "muscle  5 heads", "3d"} {
 		if !strings.Contains(main, want) {
@@ -102,7 +105,7 @@ func TestBooksKeys(t *testing.T) {
 		t.Fatalf("three heads: %+v", w.Today.Poach)
 	}
 	day := w.Day
-	w.Day = w.Rival().Known.Day + m.set.Rivals.Books().StaleDays // the fixture is on day 4: stale is read on a later morning
+	w.Day = game.Known(w).Books(w.Rival().Faction()).Day + m.set.Rivals.Books().StaleDays // the fixture is on day 4: stale is read on a later morning
 	if main := mainText(m); !strings.Contains(main, "stale") {
 		t.Errorf("MAIN does not say the books are stale:\n%s", main)
 	}

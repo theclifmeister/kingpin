@@ -4,6 +4,7 @@ import (
 	"fmt"
 	"strings"
 
+	"github.com/theclifmeister/kingpin/internal/game"
 	"github.com/theclifmeister/kingpin/internal/ui/theme"
 )
 
@@ -79,7 +80,7 @@ var (
 
 var screenOf = map[screen]string{
 	screenDashboard: "dashboard", screenMarket: "market", screenJournal: "journal", screenCrew: "crew",
-	screenMap: "map", screenUpgrades: "upgrades", screenLedger: "ledger", screenRivals: "rivals",
+	screenMap: "map", screenUpgrades: "upgrades", screenLedger: "ledger", screenRivals: "rivals", screenIntel: "intel",
 }
 
 func on(ss ...screen) []screen { return ss }
@@ -87,12 +88,12 @@ func in(ms ...mode) []mode     { return ms }
 
 // everywhere lists a binding on every screen: `n end day`, `? help`
 // and, under paneMinWidth, `␣ more`.
-var everywhere = on(screenDashboard, screenMarket, screenJournal, screenCrew, screenMap, screenUpgrades, screenLedger, screenRivals)
+var everywhere = on(screenDashboard, screenMarket, screenJournal, screenCrew, screenMap, screenUpgrades, screenLedger, screenRivals, screenIntel)
 
 // listScreens are the screens whose cursor is the plain up-and-down
 // one: the map walks two dimensions and lists its own; the tree's
 // branch is a list, and its arrows turn the branch (#120).
-var listScreens = on(screenDashboard, screenMarket, screenJournal, screenCrew, screenUpgrades, screenLedger, screenRivals)
+var listScreens = on(screenDashboard, screenMarket, screenJournal, screenCrew, screenUpgrades, screenLedger, screenRivals, screenIntel)
 
 // hasChemist is a chemist being on the payroll (#47): the cook is
 // listed, and live, only then.
@@ -115,7 +116,7 @@ func pastFirstStep(m *Model) bool { return m.modalStep() > 0 }
 // The field's shortcuts are listed there and nowhere else.
 func numberStep(m *Model) bool {
 	switch m.mode {
-	case modeFund, modeConfirmFast, modeConfirmBuyOff, modeInvest, modeReserve:
+	case modeFund, modeConfirmFast, modeConfirmBuyOff, modeInvest, modeReserve, modePayCop:
 		return true
 	case modeBuy:
 		return buyAt(1)(m)
@@ -139,6 +140,17 @@ func moveList(m *Model) bool { return m.mv.step < 3 }
 // the checkpoint is for sale.
 func mapOnRoutes(m *Model) bool {
 	return m.screen == screenMap && m.onRoutes && m.selectedRoute() != nil
+}
+
+// spyOnFactions and spyOnCrew are the spy dialog's two pages (#45).
+func spyOnFactions(m *Model) bool { return m.spy.step == 0 }
+func spyOnCrew(m *Model) bool     { return m.spy.step == 1 }
+
+// mapOnRivalCorner is the map's cursor being on a corner a faction
+// holds (#45): where `i` has a subject to jump to.
+func mapOnRivalCorner(m *Model) bool {
+	c := m.mapSelected()
+	return m.screen == screenMap && !m.onRoutes && c != nil && c.Owner == game.OwnerRival
 }
 
 // fundLast and fundNext are the fund dialog's last page and the page
@@ -280,6 +292,12 @@ var bindings = []binding{
 		do: func(m *Model, _ string) { m.askCheckpoint() }},
 	{key: "v", label: "driver", help: "put a driver on the selected route", screens: on(screenMap), when: mapOnRoutes,
 		do: func(m *Model, _ string) { m.askDriver() }},
+	{key: "i", label: "intel", help: "the file on the faction holding the corner", screens: on(screenMap), when: mapOnRivalCorner,
+		do: func(m *Model, _ string) {
+			c := m.mapSelected()
+			r := m.factionOf(c)
+			m.jumpIntel(r.Faction(), m.rivalName(r))
+		}},
 	// The tree.
 	{key: "u", label: "buy upgrade", help: "buy the node under the cursor (enter too)", keys: []string{"u", "enter"}, screens: on(screenUpgrades),
 		do: func(m *Model, _ string) { m.askUpgrade() }},
@@ -313,6 +331,13 @@ var bindings = []binding{
 		do: func(m *Model, _ string) { m.askScout() }},
 	{key: "$", label: "buy off", help: "pay the rival's muscle to go home", screens: on(screenRivals),
 		do: func(m *Model, _ string) { m.askBuyOff() }},
+	// Intel (#45).
+	{key: "$", label: "pay cop", help: "a cop's word on the chief and the police", screens: on(screenIntel),
+		do: func(m *Model, _ string) { m.askPayCop() }},
+	{key: "p", label: "plant spy", help: "send a crew member under with a faction", screens: on(screenIntel),
+		do: func(m *Model, _ string) { m.askSpy() }},
+	{key: "i", label: "intel", help: "the file on the chief and the police here", screens: on(screenDashboard),
+		do: func(m *Model, _ string) { m.jumpIntel(game.SubjectChief, "the chief") }},
 	// Everywhere, listed where it is used.
 	{key: "b", label: "buy", help: "buy where you stand or a lieutenant runs", screens: on(screenDashboard, screenMarket), global: true,
 		do: func(m *Model, _ string) { m.openDialog(modeBuy) }},
@@ -341,7 +366,7 @@ var bindings = []binding{
 	// The frame's keys: the title bar carries the screens, help the rest.
 	{key: "enter", label: "end day", help: "end the day, after a confirmation", global: true, quiet: true,
 		do: func(m *Model, _ string) { m.mode = modeConfirmEnd }},
-	{key: "1-8", label: "switch screen", help: "the screens in the title bar's order", keys: []string{"1", "2", "3", "4", "5", "6", "7", "8"}, global: true, quiet: true,
+	{key: "1-9", label: "switch screen", help: "the screens in the title bar's order", keys: []string{"1", "2", "3", "4", "5", "6", "7", "8", "9"}, global: true, quiet: true,
 		do: func(m *Model, key string) { m.switchScreen(screen(key[0] - '1')) }},
 	{key: "tab", label: "next screen", help: "next screen; shift+tab back, in dialogs too", keys: []string{"tab", "shift+tab"}, global: true, quiet: true,
 		do: func(m *Model, key string) {
@@ -375,7 +400,7 @@ var bindings = []binding{
 // alias). The keys themselves are handled by handleKey; the table is
 // what the footer and the status bar say.
 var modeBindings = []binding{
-	{key: "↑↓", label: "pick", modes: in(modeStart, modePost, modeStrike, modeUndercut, modeFront, modeAssign, modePropose, modeGuard, modeDriver)},
+	{key: "↑↓", label: "pick", modes: in(modeStart, modePost, modeStrike, modeUndercut, modeFront, modeAssign, modePropose, modeGuard, modeDriver, modeSpy)},
 	{key: "↑↓", label: "pick", modes: in(modeMove), when: moveList},
 	{key: "↑↓", label: "pick", modes: in(modeCut, modeCook), when: labList},
 	{key: "↑↓", label: "pick", modes: in(modeSell, modeTarget), when: step(0)},
@@ -397,10 +422,10 @@ var modeBindings = []binding{
 	{key: "1-2", label: "repeat", modes: in(modeSell), when: step(3)},
 	{key: "1-3", label: "dial", modes: in(modeCart), when: cartOnSell},
 	{key: "1-3", label: "choose", modes: in(modeCard), when: step(0)},
-	{key: "m", label: "max", modes: in(modeBuy, modeSell, modeTarget, modeCart, modeFund, modeConfirmFast, modeMove, modeConfirmBuyOff, modeCut, modeCook, modeInvest, modeBribe, modeReserve), when: numberStep},
-	{key: "h", label: "half", modes: in(modeBuy, modeSell, modeTarget, modeCart, modeFund, modeConfirmFast, modeMove, modeConfirmBuyOff, modeCut, modeCook, modeInvest, modeBribe, modeReserve), when: numberStep},
-	{key: "↑↓", label: "±1", modes: in(modeBuy, modeSell, modeTarget, modeCart, modeFund, modeConfirmFast, modeMove, modeConfirmBuyOff, modeCut, modeCook, modeInvest, modeBribe, modeReserve), when: numberStep},
-	{key: "pgup pgdn", label: "±10", modes: in(modeBuy, modeSell, modeTarget, modeCart, modeFund, modeConfirmFast, modeMove, modeConfirmBuyOff, modeCut, modeCook, modeInvest, modeBribe, modeReserve), when: numberStep},
+	{key: "m", label: "max", modes: in(modeBuy, modeSell, modeTarget, modeCart, modeFund, modeConfirmFast, modeMove, modeConfirmBuyOff, modeCut, modeCook, modeInvest, modeBribe, modeReserve, modePayCop), when: numberStep},
+	{key: "h", label: "half", modes: in(modeBuy, modeSell, modeTarget, modeCart, modeFund, modeConfirmFast, modeMove, modeConfirmBuyOff, modeCut, modeCook, modeInvest, modeBribe, modeReserve, modePayCop), when: numberStep},
+	{key: "↑↓", label: "±1", modes: in(modeBuy, modeSell, modeTarget, modeCart, modeFund, modeConfirmFast, modeMove, modeConfirmBuyOff, modeCut, modeCook, modeInvest, modeBribe, modeReserve, modePayCop), when: numberStep},
+	{key: "pgup pgdn", label: "±10", modes: in(modeBuy, modeSell, modeTarget, modeCart, modeFund, modeConfirmFast, modeMove, modeConfirmBuyOff, modeCut, modeCook, modeInvest, modeBribe, modeReserve, modePayCop), when: numberStep},
 	{key: "enter", label: "next", modes: in(modeSell, modeTarget, modePropose, modeFront), when: step(0)},
 	{key: "enter", label: "next", modes: in(modeMove), when: moveList},
 	{key: "enter", label: "next", modes: in(modeCut, modeCook), when: labList},
@@ -455,15 +480,18 @@ var modeBindings = []binding{
 	{key: "y enter", label: "pay", modes: in(modeConfirmBuyOff)},
 	{key: "enter", label: "invest", modes: in(modeInvest)},
 	{key: "enter", label: "reserve", modes: in(modeReserve)},
+	{key: "enter", label: "pay", modes: in(modePayCop)},
+	{key: "enter", label: "next", modes: in(modeSpy), when: spyOnFactions},
+	{key: "enter", label: "plant", modes: in(modeSpy), when: spyOnCrew},
 	{key: "q", label: "quit", modes: in(modeStart, modeOver)},
 	// The trade's other side (#168): listed on the product step (and a
 	// buy's connect step) alone, where the toggle is live.
 	{key: "s", label: "sell", modes: in(modeBuy), when: buyList},
 	{key: "b", label: "buy", modes: in(modeSell), when: step(0)},
-	{key: "⇧tab", label: "back", keys: []string{"shift+tab"}, modes: in(modeBuy, modeSell, modeTarget, modeCart, modePropose, modeFront, modeMove, modeFund, modeCut, modeCook, modeBribe), when: pastFirstStep},
+	{key: "⇧tab", label: "back", keys: []string{"shift+tab"}, modes: in(modeBuy, modeSell, modeTarget, modeCart, modePropose, modeFront, modeMove, modeFund, modeCut, modeCook, modeBribe, modeSpy), when: pastFirstStep},
 	{key: "esc", label: "close", modes: in(modeBuy, modeSell, modeTarget, modePropose, modePost, modeStrike, modeUndercut, modeFront, modeAssign, modeFund, modeCart, modeMove, modeGuard,
 		modeConfirmNew, modeConfirmDelete, modeConfirmFire, modeConfirmEnd, modeConfirmUpgrade, modeConfirmInvestigate, modeConfirmPayOff, modeConfirmTravel, modeConfirmFast, modeConfirmDrop,
-		modeConfirmScout, modeConfirmBoost, modeConfirmTip, modeConfirmBuyOff, modeCut, modeCook, modeInvest, modeBribe, modeConfirmCheckpoint, modeReserve, modeConfirmBail, modeDriver, modeConfirmDeed)},
+		modeConfirmScout, modeConfirmBoost, modeConfirmTip, modeConfirmBuyOff, modeCut, modeCook, modeInvest, modeBribe, modeConfirmCheckpoint, modeReserve, modeConfirmBail, modeDriver, modeConfirmDeed, modePayCop, modeSpy)},
 	{key: "enter esc", label: "close", modes: in(modeReport, modeHelp, modeStage)},
 	{key: "enter esc", label: "close", modes: in(modeCard), when: step(1)},
 	{key: "␣ esc", label: "close", modes: in(modeDetails)},
@@ -502,6 +530,10 @@ func (m *Model) modalStep() int {
 		return m.fnd.step
 	case modeBribe:
 		return m.br.step
+	case modeSpy:
+		if len(m.spyFactions()) > 1 {
+			return m.spy.step // with one faction the dialog is its one page
+		}
 	case modeCard:
 		if m.cardDone {
 			return 1
@@ -709,6 +741,8 @@ var words = [][2]string{
 	{"driver", "rides a route's shipments and cuts the risk; seized, jailed"},
 	{"asset", "the supply side bought clean: a connect, port, plane, lab"},
 	{"feds", "the task force above the raid: a day's notice, takes an asset"},
+	{"intel", "what you know, with how sure: seen, bought, sent out, or fed"},
+	{"spy", "a crew member under with a faction: reports, sells nothing"},
 }
 
 // helpLines is the help modal's body: every binding, grouped, one a

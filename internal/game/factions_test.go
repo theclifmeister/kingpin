@@ -41,7 +41,7 @@ func TestSaveSeatsTheOneRival(t *testing.T) {
 	if _, err := Load(1); err == nil {
 		t.Fatal("a schema-14 save loaded without a migration")
 	}
-	got, err := Load(1, Migration{From: 14, Apply: (*World).SeatRival})
+	got, err := Load(1, Migration{From: 14, Apply: (*World).SeatRival}, Migration{From: 15, Apply: MigrateBooks})
 	if err != nil {
 		t.Fatal(err)
 	}

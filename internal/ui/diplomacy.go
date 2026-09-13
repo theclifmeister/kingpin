@@ -336,7 +336,7 @@ func (m *Model) viewRivals() string {
 		return strings.Join(ls, "\n")
 	}
 	style := m.factionStyle(r.Faction())
-	leader := style.Render(m.rivalName(r)) + sub(fmt.Sprintf(" · %s · %s · muscle %d", m.personalityWord(r), m.rivalCorners(r), r.Muscle))
+	leader := style.Render(m.rivalName(r)) + sub(fmt.Sprintf(" · %s · %s · muscle %s", m.personalityWord(r), m.rivalCorners(r), m.muscleWord(r)))
 	if r.Gone() {
 		leader = style.Render(m.rivalName(r)) + sub(" · "+w.Stance(r, m.set.Rivals.Tuning().WarThreshold))
 	}

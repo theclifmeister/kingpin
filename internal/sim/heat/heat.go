@@ -26,6 +26,7 @@ type Sim struct {
 	law    content.LawConfig
 	houses content.HousesTuning
 	deed   content.DeedTuning   // #194: raid_mul on a house on a deeded block, forfeit_evidence the morning after a forfeiture
+	intel  content.IntelTuning  // #45: what a cop's word is worth
 	assets content.AssetsConfig // #48: the floor an owned asset puts under every city, and which asset the task force takes
 }
 
@@ -44,7 +45,7 @@ type Sim struct {
 // under every city, since the task force that takes one is this sim's
 // rung.
 func New(cfg *content.Config) *Sim {
-	return &Sim{cfg: cfg.Heat, market: cfg.Market, ship: cfg.Routes.Shipping, tree: cfg.Upgrades, rep: cfg.Reputation.Effects, lt: cfg.Crew.Lieutenant, law: cfg.Law, houses: cfg.Houses.Houses, deed: cfg.City.Deed, assets: cfg.Assets}
+	return &Sim{cfg: cfg.Heat, market: cfg.Market, ship: cfg.Routes.Shipping, tree: cfg.Upgrades, rep: cfg.Reputation.Effects, lt: cfg.Crew.Lieutenant, law: cfg.Law, houses: cfg.Houses.Houses, deed: cfg.City.Deed, assets: cfg.Assets, intel: cfg.Intel.Intel}
 }
 
 // RaidWeight is a house's weight in the raid's roll over the places
@@ -797,6 +798,11 @@ func (s *Sim) Step(w *game.World, t *game.Tick) {
 		}
 		t.Emit(events.HeatChanged{Day: t.Day, City: cid, From: from[cid], To: c.Heat, Reasons: reasons[cid]})
 	}
+
+	// A cop paid today (#45) says what the police here do next: the
+	// rung the ladder stands at and the first night it can fire, as the
+	// night leaves them, at the cop's accuracy off the intel stream.
+	s.cop(w, t)
 }
 
 // hottest is the city whose police answer today: the hottest, and where
@@ -1070,4 +1076,70 @@ func (s *Sim) takeFall(w *game.World, t *game.Tick, fx game.Effects) bool {
 	w.Player.CleanCash -= w.Player.CleanCash / 2
 	t.Emit(events.FallGuyBurned{Day: t.Day, CashLost: lost})
 	return true
+}
+
+// Next is the police's next move in a city as the ladder stands (#45):
+// the highest rung whose line the city's heat is at or over (the lowest
+// rung, the patrol, under every line) and the first day it can fire,
+// tomorrow or the day its cooldown lifts (the arrest has none). It is
+// the truth a cop's word is right about; the file never reads it.
+func (s *Sim) Next(w *game.World, city *game.City, day int) (level string, from int) {
+	resp := s.Thresholds()
+	if len(resp) == 0 {
+		return "", day + 1
+	}
+	level = resp[0].Level
+	for _, r := range resp {
+		if city.Heat >= s.Threshold(w, r, city) {
+			level = r.Level
+		}
+	}
+	from = day + 1
+	if last, ok := w.Heat.LastResponse[level]; ok && level != content.Arrest {
+		from = max(from, last+s.CooldownDays(w, level))
+	}
+	return level, from
+}
+
+// cop files the police's next move where the player stands off a cop
+// paid today (World.Today.Cop): right at cop_accuracy for the price
+// (less money, less often), else off by a rung or up to cop_slip days,
+// rolled on Tick.Sub("intel"). The law sim, stepping after, files the
+// chief's temper off the same envelope.
+func (s *Sim) cop(w *game.World, t *game.Tick) {
+	o := w.Today.Cop
+	if o == nil {
+		return
+	}
+	tun := s.intel
+	city := w.Here()
+	level, from := s.Next(w, city, t.Day)
+	p := tun.Accuracy(o.Amount)
+	rng := t.Sub("intel")
+	if rng.Float64() >= p {
+		// A wrong word: the rung beside it, or a few days out.
+		resp := s.Thresholds()
+		if rng.IntN(2) == 0 && len(resp) > 1 {
+			i := content.Rank(level) - 1 // its place on the ladder, 0-based
+			switch {
+			case i <= 0:
+				i = 1
+			case i >= len(resp)-1:
+				i = len(resp) - 2
+			case rng.IntN(2) == 0:
+				i++
+			default:
+				i--
+			}
+			level = resp[i].Level
+		} else {
+			from += 1 + rng.IntN(max(1, tun.CopSlip))
+		}
+	}
+	f := game.Fact{
+		Subject: city.ID, Kind: game.FactResponse, Value: level, Number: float64(from),
+		Confidence: p, Day: t.Day, Source: game.SourceCop, Stale: tun.StaleRate, Forget: tun.Forget,
+	}
+	w.Learn(f)
+	t.Emit(events.IntelGained{Day: t.Day, Subject: city.ID, FactKind: game.FactResponse, Value: level, Confidence: p, Source: game.SourceCop, Name: city.Name})
 }

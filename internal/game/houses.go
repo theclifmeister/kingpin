@@ -294,6 +294,9 @@ func (w *World) Guard(house string, id int) error {
 	if m.Wounded(w.Day) {
 		return ErrWounded
 	}
+	if m.Undercover != "" {
+		return ErrUndercover
+	}
 	w.Recall(id)
 	h.Guard = id
 	return nil

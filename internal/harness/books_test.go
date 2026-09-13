@@ -26,8 +26,9 @@ func booksSim(cfg *content.Config) *rivals.Sim {
 // crackdown or a price war the same night can, and each says so); the heads bought off never join the
 // crew (the roster changes only by the hires, quits, firings and
 // defections the night reported); a boost that landed put its cash in
-// your pocket (the stats add up); Known is written by nothing but a
-// scout that read the books and its day is never past today.
+// your pocket (the stats add up); the books as the file holds them
+// (#45, game.Known(w).Books) are written by nothing but a scout that
+// read them, fade out whole and their day is never past today.
 func TestBooksInvariants(t *testing.T) {
 	t.Parallel()
 	// The duel (#43, harness.OneFaction): this pins a mechanism on a seed, and the table moves the seed's dice.
@@ -37,17 +38,18 @@ func TestBooksInvariants(t *testing.T) {
 		"tipster":  func() Policy { return Tipster(cfg, 40) },
 	} {
 		for seed := uint64(1); seed <= 5; seed++ {
-			known := game.Known{}
+			known := game.Books{}
 			crew := 0
 			var last []events.Event
 			boosted := 0
 			check := func(w *game.World) {
 				r := *w.Rival()
+				books := game.Known(w).Books(r.Faction()) // the read as the file holds it (#45)
 				if r.Cash < 0 || r.Muscle < 0 || r.Heat < 0 || r.Heat > 100 {
 					t.Fatalf("%s seed %d day %d: rival cash %d muscle %d heat %.1f", name, seed, w.Day, r.Cash, r.Muscle, r.Heat)
 				}
-				if r.Known.Day > w.Day {
-					t.Fatalf("%s seed %d day %d: the books read on day %d", name, seed, w.Day, r.Known.Day)
+				if books.Day > w.Day {
+					t.Fatalf("%s seed %d day %d: the books read on day %d", name, seed, w.Day, books.Day)
 				}
 				read, hired, gone := false, 0, 0
 				cleared := map[string]bool{} // corners the night put back on the street: a raid, a crackdown, a price war
@@ -87,13 +89,13 @@ func TestBooksInvariants(t *testing.T) {
 						}
 					}
 				}
-				if r.Known != known && !read {
-					t.Fatalf("%s seed %d day %d: the books moved %+v -> %+v with no scout reading them", name, seed, w.Day, known, r.Known)
+				if books != known && !read && books.Read() {
+					t.Fatalf("%s seed %d day %d: the books moved %+v -> %+v with no scout reading them (a read fades out whole, #45; it never moves)", name, seed, w.Day, known, books)
 				}
-				if read && r.Known.Day != w.Day {
-					t.Fatalf("%s seed %d day %d: read last night, stamped day %d", name, seed, w.Day, r.Known.Day)
+				if read && books.Day != w.Day {
+					t.Fatalf("%s seed %d day %d: read last night, stamped day %d", name, seed, w.Day, books.Day)
 				}
-				known = r.Known
+				known = books
 				if w.Day > 0 && len(w.Crew.Members) != crew+hired-gone {
 					t.Fatalf("%s seed %d day %d: the roster went %d -> %d with %d hired and %d gone", name, seed, w.Day, crew, len(w.Crew.Members), hired, gone)
 				}
@@ -400,8 +402,8 @@ func TestBooksAreDeterministicAndSave(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	if loaded.Rival().Known != c.World.Rival().Known || loaded.Rival().Heat != c.World.Rival().Heat || loaded.Rival().Scouted != c.World.Rival().Scouted || loaded.Rival().LastRaid != c.World.Rival().LastRaid {
-		t.Fatalf("the books loaded as %+v/%.1f/%d/%d, saved %+v/%.1f/%d/%d", loaded.Rival().Known, loaded.Rival().Heat, loaded.Rival().Scouted, loaded.Rival().LastRaid, c.World.Rival().Known, c.World.Rival().Heat, c.World.Rival().Scouted, c.World.Rival().LastRaid)
+	if game.Known(loaded).Books(game.FactionRival) != game.Known(c.World).Books(game.FactionRival) || loaded.Rival().Heat != c.World.Rival().Heat || loaded.Rival().Scouted != c.World.Rival().Scouted || loaded.Rival().LastRaid != c.World.Rival().LastRaid {
+		t.Fatalf("the books loaded as %+v/%.1f/%d/%d, saved %+v/%.1f/%d/%d", game.Known(loaded).Books(game.FactionRival), loaded.Rival().Heat, loaded.Rival().Scouted, loaded.Rival().LastRaid, game.Known(c.World).Books(game.FactionRival), c.World.Rival().Heat, c.World.Rival().Scouted, c.World.Rival().LastRaid)
 	}
 	d, _ := RunFrom(cfg, loaded, 120-c.World.Day, policy())
 	// The unsaved run the save must replay: the same morning with the
@@ -430,7 +432,7 @@ func TestNoBooksIsTheOldRun(t *testing.T) {
 	t.Parallel()
 	cfg := content.MustLoad()
 	res := pricewarRun(t, cfg, 1, 120, "", Territory(cfg, 40, 3), func(w *game.World) {
-		if w.Rival().Heat != 0 || w.Rival().Known.Read() || w.Rival().Scouted != 0 || w.Rival().LastRaid != 0 {
+		if w.Rival().Heat != 0 || game.Known(w).Books(game.FactionRival).Read() || w.Rival().Scouted != 0 || w.Rival().LastRaid != 0 {
 			t.Fatalf("day %d: the rival's books moved with nobody at them: %+v", w.Day, *w.Rival())
 		}
 	})

@@ -78,7 +78,8 @@ func saboteur(cfg *content.Config, lieLowAt float64, tips tipping) Policy {
 		if r.Arrived == 0 || w.RivalHeldBy(r.Faction()) == 0 {
 			return
 		}
-		if (!r.Known.Read() || rv.Stale(r, w.Day)) && w.Today.Scouting == nil {
+		known := game.Known(w).Books(r.Faction()) // the books as the file holds them (#45)
+		if (!known.Read() || rv.Stale(w, r, w.Day)) && w.Today.Scouting == nil {
 			_ = w.ScoutFaction(r.Faction(), rv.ScoutCost())
 		}
 		target := pickCorner(w, func(c game.Corner) bool { return c.FactionID() == r.Faction() }, size)
@@ -96,7 +97,7 @@ func saboteur(cfg *content.Config, lieLowAt float64, tips tipping) Policy {
 				}
 			}
 		}
-		if k := r.Known; k.Read() && k.Muscle > 0 && k.Cash < SaboteurThin*k.Wages {
+		if k := known; k.Read() && k.Muscle > 0 && k.Cash < SaboteurThin*k.Wages {
 			if price := rv.MusclePrice(w, r); w.Today.Poach == nil && w.Player.DirtyCash > SaboteurMargin*price {
 				_ = w.BuyOffFrom(r.Faction(), 1, price)
 			}
