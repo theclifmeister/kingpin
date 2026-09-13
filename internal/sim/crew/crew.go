@@ -82,6 +82,7 @@ type Sim struct {
 	drivers  []string // the driver's names (#46), the same
 	rep      content.ReputationFX
 	tree     content.UpgradesConfig
+	fac      content.FactionsTuning // the table (#43): the discount a fragmented faction's muscle sign for
 }
 
 // New builds a crew sim from the config, copying what it reads (#144):
@@ -96,7 +97,7 @@ type Sim struct {
 // and start_loyalty_bonus on a generated candidate and hire_fee_mul on
 // their fee, both fixed when they are generated.
 func New(cfg *content.Config) *Sim {
-	return &Sim{cfg: cfg.Crew, names: cfg.Names.Crew, chemists: cfg.Names.Chemists, drivers: cfg.Names.Drivers, rep: cfg.Reputation.Effects, tree: cfg.Upgrades}
+	return &Sim{cfg: cfg.Crew, names: cfg.Names.Crew, chemists: cfg.Names.Chemists, drivers: cfg.Names.Drivers, rep: cfg.Reputation.Effects, tree: cfg.Upgrades, fac: cfg.Rivals.Factions}
 }
 
 // LoyaltyLoss is what the player's respect and the tree leave of a day's
@@ -480,9 +481,13 @@ func (s *Sim) Step(w *game.World, t *game.Tick) {
 	// corner in another city is just a corner left. A lieutenant running
 	// a city walks with it.
 	c.Leads = nil
+	poached := s.factions(w, t, c, fx)
 	kept := c.Members[:0]
 	var gone []game.CrewMember // whoever walked or defected: their kin remember it (#46)
 	for _, m := range c.Members {
+		if poached[m.ID] {
+			continue // gone to a faction tonight (#43)
+		}
 		if m.Loyalty > tun.QuitThreshold {
 			kept = append(kept, m)
 			continue
@@ -495,13 +500,24 @@ func (s *Sim) Step(w *game.World, t *game.Tick) {
 		}
 		post := w.PostOf(m.ID)
 		w.Recall(m.ID)
-		if w.RivalHeld() == 0 {
+		// The faction they go to (#43): the one holding most of the
+		// city they stood in, or of home with no post; none holding
+		// ground and they just quit.
+		city := w.Home().ID
+		if post != nil {
+			city = post.City
+		}
+		to := w.StrongestFaction(city)
+		if to == nil && city != w.Home().ID {
+			to = w.StrongestFaction(w.Home().ID)
+		}
+		if to == nil {
 			t.Emit(events.CrewQuit{Day: t.Day, Name: m.Name, Role: m.Role})
 			continue
 		}
-		ev := events.CrewDefected{Day: t.Day, Name: m.Name, Role: m.Role, Rival: w.Rival.Leader, Faction: w.Rival.Faction()}
-		lead := game.Lead{Name: m.Name}
-		if post != nil && post.City == w.Home().ID {
+		ev := events.CrewDefected{Day: t.Day, Name: m.Name, Role: m.Role, Rival: to.Leader, Faction: to.Faction()}
+		lead := game.Lead{Name: m.Name, Faction: to.Faction()}
+		if post != nil && post.City == w.CityOf(to).ID {
 			ev.Corner, ev.CornerName = post.ID, post.Name
 			lead.Corner = post.ID
 		}
@@ -552,7 +568,7 @@ func (s *Sim) Step(w *game.World, t *game.Tick) {
 func (s *Sim) refill(w *game.World, rng, chem, side, drv, life rand, fx game.Effects) {
 	faces := 0
 	for _, c := range w.Crew.Candidates {
-		if !extra(c) {
+		if !extra(c) && !former(c) {
 			faces++
 		}
 	}

@@ -67,8 +67,8 @@ func TestSimsNeverImportEachOther(t *testing.T) {
 // CleanCash), w.Stats, and w.Over for a sim that owns an ending. Stock
 // moves only through the accessors (TestStashHasNoWriters). The check
 // is a grep over every non-test file: a direct assignment through w
-// (`w.Rival.Cash -= n`, `w.Offers = nil`, `w.Cities[c].Heat = v`) or an
-// alias taken into it (`r := &w.Rival`, `m := &w.Crew.Members[i]`);
+// (`w.Rival().Cash -= n`, `w.Offers = nil`, `w.Cities[c].Heat = v`) or an
+// alias taken into it (`r := w.Rival()`, `m := &w.Crew.Members[i]`);
 // what a sim writes through a pointer it was handed (a *City from
 // w.Cities, a *House from w.Fullest) is the same rule by convention,
 // and the docs say which sim writes which. The exceptions are the
@@ -84,7 +84,7 @@ func TestSimsWriteOnlyTheirOwnState(t *testing.T) {
 		"market":     {"Cities.Market", "Contracts", "Buyers", "Suppliers", "Markup", "Supply", "Standing", "BaseQuality", "Cities.Corners.Repeat"},
 		"logistics":  {"Shipments", "Logistics", "Routes"},
 		"territory":  {"Cities.Corners", "Houses"},
-		"rivals":     {"Rival", "Offers"},
+		"rivals":     {"Rivals", "Rival", "Faction", "Offers"},
 		"crew":       {"Crew", "Delegated", "DelegatedSupply"},
 		"heat":       {"Heat", "Cities.Heat", "Houses", "FallsTaken"},
 		"law":        {"Law", "Cities.Pressure", "Cities.Goodwill", "Cities.Campaign"},
@@ -94,17 +94,19 @@ func TestSimsWriteOnlyTheirOwnState(t *testing.T) {
 	}
 	shared := []string{"Player.DirtyCash", "Player.CleanCash", "Stats", "Over"}
 	allowed := map[string]bool{
-		"crew/lieutenant.go: w.Rival.Flips++":               true,
-		"crew/lieutenant.go: w.Rival.LastFlip = t.Day":      true,
-		"crew/lieutenant.go: w.Rival.Observed = true":       true,
-		"laundering/laundering.go: m := &w.Crew.Members[i]": true,
-		"market/suppliers.go: m := &w.Crew.Members[i]":      true,
+		"crew/lieutenant.go: w.Faction(to.ID).Flips++":          true,
+		"crew/lieutenant.go: w.Faction(to.ID).LastFlip = t.Day": true,
+		"crew/lieutenant.go: w.Faction(to.ID).Observed = true":  true,
+		"laundering/laundering.go: m := &w.Crew.Members[i]":     true,
+		"market/suppliers.go: m := &w.Crew.Members[i]":          true,
 	}
 	var (
-		// `w.Field[...].Sub... op= ` and `&w.Field[...].Sub`
-		write = regexp.MustCompile(`\bw(\.[A-Z]\w*(?:\[[^\]]*\])?(?:\.\w+(?:\[[^\]]*\])?)*)\s*(?:\+\+|--|[-+*/]?=[^=])`)
-		alias = regexp.MustCompile(`&w(\.[A-Z]\w*(?:\[[^\]]*\])?(?:\.\w+(?:\[[^\]]*\])?)*)`)
-		index = regexp.MustCompile(`\[[^\]]*\]`)
+		// `w.Field[...].Sub... op= ` and `&w.Field[...].Sub`; a call in
+		// the path (`w.Rival().X`, `w.Faction(id).X`, #43) is a
+		// selector like any other
+		write = regexp.MustCompile(`\bw(\.[A-Z]\w*(?:\([^)]*\))?(?:\[[^\]]*\])?(?:\.\w+(?:\([^)]*\))?(?:\[[^\]]*\])?)*)\s*(?:\+\+|--|[-+*/]?=[^=])`)
+		alias = regexp.MustCompile(`&w(\.[A-Z]\w*(?:\([^)]*\))?(?:\[[^\]]*\])?(?:\.\w+(?:\([^)]*\))?(?:\[[^\]]*\])?)*)`)
+		index = regexp.MustCompile(`\[[^\]]*\]|\([^)]*\)`)
 	)
 	path := func(sel string) string {
 		return strings.TrimPrefix(index.ReplaceAllString(sel, ""), ".")

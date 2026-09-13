@@ -72,7 +72,7 @@ func TestBooksKeys(t *testing.T) {
 			t.Errorf("the buy-off confirmation lacks %q:\n%s", want, view)
 		}
 	}
-	price := m.set.Rivals.MusclePrice(w)
+	price := m.set.Rivals.MusclePrice(w, w.Rival())
 	dirty := w.Player.DirtyCash
 	m.Update(key("enter"))
 	if m.mode != modePlay || w.Today.Poach == nil || w.Today.Poach.Units != 1 || w.Today.Poach.Cost != price || w.Player.DirtyCash != dirty-price {
@@ -85,7 +85,7 @@ func TestBooksKeys(t *testing.T) {
 	// With the books read the field's max is the muscle as read and the
 	// block carries the snapshot with its age.
 	w.Today.Poach = nil
-	w.Rival.Known = game.Known{Day: w.Day - 3, Cash: 48_000, Income: 12_000, Muscle: 5, Wages: 9_000}
+	w.Rival().Known = game.Known{Day: w.Day - 3, Cash: 48_000, Income: 12_000, Muscle: 5, Wages: 9_000}
 	main = mainText(m)
 	for _, want := range []string{"BOOKS · read 3 days ago", "cash    $48K", "muscle  5 heads", "3d"} {
 		if !strings.Contains(main, want) {
@@ -102,7 +102,7 @@ func TestBooksKeys(t *testing.T) {
 		t.Fatalf("three heads: %+v", w.Today.Poach)
 	}
 	day := w.Day
-	w.Day = w.Rival.Known.Day + m.set.Rivals.Books().StaleDays // the fixture is on day 4: stale is read on a later morning
+	w.Day = w.Rival().Known.Day + m.set.Rivals.Books().StaleDays // the fixture is on day 4: stale is read on a later morning
 	if main := mainText(m); !strings.Contains(main, "stale") {
 		t.Errorf("MAIN does not say the books are stale:\n%s", main)
 	}

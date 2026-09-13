@@ -58,7 +58,7 @@ func DemoModel(cfg *content.Config, seed uint64, w, h int) (*Model, error) {
 	world.Crew.NextID = 2
 	home := world.Home()
 	home.Corners[0].Owner, home.Corners[0].Runner, home.Corners[0].Enforcer = game.OwnerRival, 0, 0
-	world.Rival.Arrived, world.Rival.Muscle, world.Rival.Observed = 1, 3, true
+	world.Rival().Arrived, world.Rival().Muscle, world.Rival().Observed = 1, 3, true
 	m.save()
 	m.status = ""
 	return m, nil

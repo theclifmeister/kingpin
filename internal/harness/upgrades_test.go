@@ -319,11 +319,12 @@ func TestLawyerThinsTheFile(t *testing.T) {
 // 60 days would need rival_push_mul at 0.95, a $400k node that does
 // nothing, so the window here is the checkpoint's.
 func TestStreetBranchSlowsTheRivalNeverStopsIt(t *testing.T) {
-	cfg := content.MustLoad()
+	// The duel (#43, harness.OneFaction): this pins a mechanism on a seed, and the table moves the seed's dice.
+	cfg := OneFaction(content.MustLoad())
 	street := []string{"boys", "watch", "dogs", "frontline", "ground"}
 	firstLoss := func(seed uint64, own bool) (day, lost int) {
 		w := sim.NewWorld(cfg, seed)
-		w.Rival.Personality = "expansionist"
+		w.Rival().Personality = "expansionist"
 		if own {
 			Own(cfg, w, street...)
 		}
@@ -367,7 +368,8 @@ func TestStreetBranchSlowsTheRivalNeverStopsIt(t *testing.T) {
 // count over five runs, never a promise on one), and the branch pays at
 // the horizon on median peak cash.
 func TestLogisticsBranchMovesMoreForLess(t *testing.T) {
-	cfg := content.MustLoad()
+	// The duel (#43, harness.OneFaction): this pins a mechanism on a seed, and the table moves the seed's dice.
+	cfg := OneFaction(content.MustLoad())
 	road := []string{"tyres", "compartments", "trucks", "drivers", "supplier", "supplier2", "ticket", "forwarder"}
 	type tally struct {
 		shipped, shipments, seized, fares int

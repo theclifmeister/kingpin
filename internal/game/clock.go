@@ -31,11 +31,18 @@ func (t *Tick) Sub(name string) *rand.Rand {
 	if t.subs == nil {
 		t.subs = map[string]*rand.Rand{}
 	}
-	h := fnv.New64a()
-	_, _ = h.Write([]byte(name))
-	r := rand.New(rand.NewPCG(t.Seed^h.Sum64(), uint64(t.Day)*0x9E3779B97F4A7C15+1))
+	r := SubRNG(t.Seed, t.Day, name)
 	t.subs[name] = r
 	return r
+}
+
+// SubRNG is the side stream Tick.Sub hands out for a name on a day,
+// for a seeding step with no tick (the table's factions on day 0, #43):
+// the same stream a tick that day would give the name.
+func SubRNG(seed uint64, day int, name string) *rand.Rand {
+	h := fnv.New64a()
+	_, _ = h.Write([]byte(name))
+	return rand.New(rand.NewPCG(seed^h.Sum64(), uint64(day)*0x9E3779B97F4A7C15+1))
 }
 
 // Emit records an event for this tick.

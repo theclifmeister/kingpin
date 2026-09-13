@@ -127,18 +127,18 @@ func TestTriggersHold(t *testing.T) {
 				for i := range w.Home().Corners {
 					if w.Home().Corners[i].Borders(*mine) {
 						w.Home().Corners[i].Owner = game.OwnerRival
-						w.Rival.Arrived = 1
+						w.Rival().Arrived = 1
 						return
 					}
 				}
 				t.Fatal("no corner borders yours")
 			},
 			func(s game.CardSlots) bool { return s.Corner != "" && s.Theirs != "" && s.Corner != s.Theirs }},
-		{"rival", content.CardTrigger{Rival: true}, func(w *game.World) {}, func(w *game.World) { w.Home().Corners[1].Owner = game.OwnerRival; w.Rival.Arrived = 1 },
+		{"rival", content.CardTrigger{Rival: true}, func(w *game.World) {}, func(w *game.World) { w.Home().Corners[1].Owner = game.OwnerRival; w.Rival().Arrived = 1 },
 			func(s game.CardSlots) bool { return s.Rival != "" }},
-		{"personality", content.CardTrigger{Personality: "chaotic"}, func(w *game.World) { w.Home().Corners[1].Owner = game.OwnerRival; w.Rival.Personality = "defensive" },
-			func(w *game.World) { w.Rival.Personality = "chaotic" }, nil},
-		{"war_min", content.CardTrigger{WarMin: 30}, func(w *game.World) { w.Home().Corners[1].Owner = game.OwnerRival; w.Rival.War = 29 }, func(w *game.World) { w.Rival.War = 30 }, nil},
+		{"personality", content.CardTrigger{Personality: "chaotic"}, func(w *game.World) { w.Home().Corners[1].Owner = game.OwnerRival; w.Rival().Personality = "defensive" },
+			func(w *game.World) { w.Rival().Personality = "chaotic" }, nil},
+		{"war_min", content.CardTrigger{WarMin: 30}, func(w *game.World) { w.Home().Corners[1].Owner = game.OwnerRival; w.Rival().War = 29 }, func(w *game.World) { w.Rival().War = 30 }, nil},
 		{"fronts", content.CardTrigger{Fronts: true}, func(w *game.World) {}, func(w *game.World) { w.Fronts = []game.Front{{ID: "laundromat", Name: "Suds"}} },
 			func(s game.CardSlots) bool { return s.Front == "Suds" }},
 		// The progression's two (#147): the peak is the high-water mark,

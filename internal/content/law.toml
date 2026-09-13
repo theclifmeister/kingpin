@@ -34,6 +34,7 @@ hard_units = 25             # a point per this many units of a hard product sold
 hard_products = ["heroin", "meth", "designer"]
 overdose = 6                # an overdose on your corner (#47): bad product is the city's story, never the DA's page
 body = 10                   # a death on your corner, either side (#46): the city's story, never the DA's page
+factions = 0.5              # two factions fighting over a corner (#43), in its city: their war is the city's story too, at a quarter of a push on you
 headline = 0.8              # per headline about you the day before, ...
 headline_sources = ["heat", "crew", "territory", "laundering"] # ... from these sims
 

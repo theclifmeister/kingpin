@@ -49,7 +49,7 @@ func mapFacts(t *testing.T, m *Model, c *game.Corner, text, where string) {
 			want = append(want, "push flips")
 		}
 	case c.Owner == game.OwnerRival:
-		want = append(want, w.Rival.Leader+"'s since day", "holds", "push takes it", "hit ~")
+		want = append(want, w.Rival().Leader+"'s since day", "holds", "push takes it", "hit ~")
 	case m.eyed(c):
 		// The tell (#69): the rival may be eyeing the fixture's free
 		// corner on some seeds; the hint is then to keep them off.
@@ -58,7 +58,7 @@ func mapFacts(t *testing.T, m *Model, c *game.Corner, text, where string) {
 		want = append(want, "free", "post a runner to claim it")
 	}
 	if c.Squeeze > 0 {
-		want = append(want, "undercut", w.Rival.Leader)
+		want = append(want, "undercut", w.Rival().Leader)
 	}
 	want = append(want, "size", "heat", "risk", "demand")
 	for _, id := range w.Products {
@@ -143,7 +143,7 @@ func TestMapInspectorInPane(t *testing.T) {
 		if text := paneText(m); !strings.Contains(text, plural(m.w.RivalHeld(), "corner")) {
 			t.Errorf("the rival's corner does not say how many they hold:\n%s", text)
 		}
-		if title := strings.Split(stripANSI(m.View()), "\n")[1]; !strings.Contains(title, "held ·") || !strings.Contains(title, "/day free") || strings.Contains(title, m.w.Rival.Leader) {
+		if title := strings.Split(stripANSI(m.View()), "\n")[1]; !strings.Contains(title, "held ·") || !strings.Contains(title, "/day free") || strings.Contains(title, m.w.Rival().Leader) {
 			t.Errorf("%dx%d: the title line: %q", sz[0], sz[1], title)
 		}
 	}

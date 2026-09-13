@@ -13,30 +13,53 @@ import (
 // forces are the strike picker's rows, in dial order.
 var forces = []events.Force{events.ForceWarn, events.ForcePush, events.ForceHit}
 
-// rivalName is how the faction is referred to everywhere.
-func (m *Model) rivalName() string {
-	if m.w.Rival.Leader == "" {
+// rivalName is how a faction is referred to everywhere: `Big Sal's
+// crew`, or "the rival" for one with no leader yet.
+func (m *Model) rivalName(r *game.RivalState) string {
+	if r == nil || r.Leader == "" {
 		return "the rival"
 	}
-	return m.w.Rival.Leader + "'s crew"
+	return r.Leader + "'s crew"
 }
 
-// personalityWord is what the player knows about the rival's temperament.
-func (m *Model) personalityWord() string {
-	if !m.w.Rival.Observed {
+// personalityWord is what the player knows about a faction's
+// temperament.
+func (m *Model) personalityWord(r *game.RivalState) string {
+	if !r.Observed {
 		return "unknown"
 	}
-	return m.w.Rival.Personality
+	return r.Personality
 }
 
 // eyeingWord is the tell (#69) for a panel line, `eyeing Riverside` in
-// the rival's colour, or "" while no corner is spoken for.
-func (m *Model) eyeingWord() string {
-	c := m.set.Rivals.Eyeing(m.w)
+// the faction's colour, or "" while no corner is spoken for.
+func (m *Model) eyeingWord(r *game.RivalState) string {
+	c := m.set.Rivals.EyeingBy(m.w, r)
 	if c == nil || c.Owner != game.OwnerNone {
 		return ""
 	}
-	return theme.RivalText.Render("eyeing " + c.Name)
+	return m.factionStyle(r.Faction()).Render("eyeing " + c.Name)
+}
+
+// factionCols are the rivals screen's FACTIONS table: who, where, what
+// they hold, their muscle and where you stand.
+var factionCols = []col{{"faction", kText, 0}, {"home", kText, 0}, {"corners", kInt, 0}, {"muscle", kInt, 0}, {"stance", kText, 0}, {"trust", kInt, 0}}
+
+// factionRows are the FACTIONS table's rows, one a faction in the order
+// of the table, the leader in the faction's colour.
+func (m *Model) factionRows() [][]any {
+	w := m.w
+	tun := m.set.Rivals.Tuning()
+	var rows [][]any
+	for _, r := range w.Rivals {
+		name := m.factionStyle(r.Faction()).Render(truncate(r.Leader, 14))
+		var corners, muscle, trust any
+		if r.Arrived > 0 && !r.Gone() {
+			corners, muscle, trust = w.RivalHeldBy(r.Faction()), r.Muscle, int(r.Trust)
+		}
+		rows = append(rows, []any{name, w.CityOf(r).Name, corners, muscle, w.Stance(r, tun.WarThreshold), trust})
+	}
+	return rows
 }
 
 // strikeRows are the picker's choices: the three forces for the corner,
@@ -57,7 +80,7 @@ func (m *Model) askStrike() {
 		return
 	}
 	if c.Owner != game.OwnerRival {
-		m.refuse("Can't send them there: enforcers go against a corner the rival holds.")
+		m.refuse("Can't send them there: enforcers go against a corner a rival holds.")
 		return
 	}
 	if m.w.Crew.Role("enforcer") == 0 {
@@ -91,7 +114,7 @@ func (m *Model) confirmStrike() {
 		m.refuse("Can't send them: " + err.Error())
 		return
 	}
-	m.say(fmt.Sprintf("Enforcers go to %s tonight: %s. Odds ~%.0f%%, heat +%.0f.", c.Name, forces[i], m.set.Rivals.Odds(m.w, forces[i])*100, m.set.Rivals.StrikeHeat(c, forces[i])))
+	m.say(fmt.Sprintf("Enforcers go to %s tonight: %s. Odds ~%.0f%%, heat +%.0f.", c.Name, forces[i], m.set.Rivals.Odds(m.w, m.factionOf(c), forces[i])*100, m.set.Rivals.StrikeHeat(c, forces[i])))
 }
 
 func (m *Model) viewStrike() string {
@@ -101,18 +124,19 @@ func (m *Model) viewStrike() string {
 	}
 	rows := m.strikeRows()
 	m.strikeCursor = max(0, min(m.strikeCursor, len(rows)-1))
-	body := []string{theme.Subtle.Render(fmt.Sprintf("%s vs %s on %s, muscle ~%.1f", plural(m.w.Crew.Role("enforcer"), "enforcer"), m.rivalName(), c.Name, m.set.Rivals.Defence(m.w))), ""}
+	fac := m.factionOf(c)
+	body := []string{theme.Subtle.Render(fmt.Sprintf("%s vs %s on %s, muscle ~%.1f", plural(m.w.Crew.Role("enforcer"), "enforcer"), m.rivalName(fac), c.Name, m.set.Rivals.Defence(m.w, fac))), ""}
 	var cells [][]any
 	b := m.set.Rivals.BoostTuning()
 	for i, r := range rows {
 		switch {
 		case i < len(forces):
 			f := forces[i]
-			cells = append(cells, []any{r, approx{m.set.Rivals.Odds(m.w, f) * 100}, signed{m.set.Rivals.StrikeHeat(c, f)}, signed{m.cfg.Rivals.ForceFor(f).War}, "the corner"})
+			cells = append(cells, []any{r, approx{m.set.Rivals.Odds(m.w, fac, f) * 100}, signed{m.set.Rivals.StrikeHeat(c, f)}, signed{m.cfg.Rivals.ForceFor(f).War}, "the corner"})
 		case i < 2*len(forces):
 			// A boost (#70): the same odds at the force, for the till.
 			f := forces[i-len(forces)]
-			cells = append(cells, []any{r, approx{m.set.Rivals.Odds(m.w, f) * 100}, signed{m.set.Rivals.BoostHeat(c)}, signed{b.War}, "~" + cash(m.set.Rivals.BoostTake(m.w, *c))})
+			cells = append(cells, []any{r, approx{m.set.Rivals.Odds(m.w, fac, f) * 100}, signed{m.set.Rivals.BoostHeat(c)}, signed{b.War}, "~" + cash(m.set.Rivals.BoostTake(m.w, *c))})
 		default:
 			cells = append(cells, []any{r, nil, nil, nil, nil})
 		}
@@ -153,7 +177,7 @@ func (m *Model) askUndercut() {
 		return
 	}
 	if c.Owner != game.OwnerRival {
-		m.refuse("Can't undercut there: a price war is fought on a corner the rival holds.")
+		m.refuse("Can't undercut there: a price war is fought on a corner a rival holds.")
 		return
 	}
 	if err := m.w.CanUndercut(c.ID); err != nil {
@@ -186,7 +210,7 @@ func (m *Model) confirmUndercut() {
 		return
 	}
 	m.say(fmt.Sprintf("Undercutting %s tonight at %s: ~%.0f units a day at %.0f%% off, %s loses ~%s a day.",
-		c.Name, d, m.set.Market.UndercutUnits(m.w, *c, d), m.set.Market.PriceCut()*100, m.w.Rival.Leader, cash(m.undercutLoss(*c, d))))
+		c.Name, d, m.set.Market.UndercutUnits(m.w, *c, d), m.set.Market.PriceCut()*100, m.factionOf(c).Leader, cash(m.undercutLoss(*c, d))))
 }
 
 // undercutLoss is what a price war on a corner at the dial costs the
@@ -210,7 +234,7 @@ func (m *Model) viewUndercut() string {
 	rows := m.undercutRows()
 	m.undercutCursor = max(0, min(m.undercutCursor, len(rows)-1))
 	body := []string{
-		theme.Subtle.Render(fmt.Sprintf("%s on %s: worth ~%s a day to them", m.rivalName(), c.Name, cash(m.set.Rivals.CornerIncome(m.w, *c)))),
+		theme.Subtle.Render(fmt.Sprintf("%s on %s: worth ~%s a day to them", m.rivalName(m.factionOf(c)), c.Name, cash(m.set.Rivals.CornerIncome(m.w, *c)))),
 		theme.Subtle.Render(fmt.Sprintf("your corners next door ×%.1f: the share taken scales with them", m.w.NextDoor(*c))),
 		"",
 	}
@@ -240,9 +264,9 @@ func (m *Model) viewUndercut() string {
 // dealRules are the three lines on what a deal does and what breaks it,
 // the rivals pane's RULES section.
 var dealRules = []string{
-	"Truce or tribute: they stay off your corners. Split: off your side of the line.",
+	"Truce, tribute: off your corners. Split: off your side.",
 	"A push or a hit under a deal breaks it: trust hits the floor and they make a call.",
-	"So does a missed tribute, or walking off a split corner. A warning does not.",
+	"So does a missed tribute, or walking off a split corner; the others hear of it.",
 }
 
 // dealDoes is what a deal of the kind does while it holds.
@@ -254,6 +278,8 @@ func dealDoes(kind string) string {
 		return "You pay the cut each night; they leave every corner of yours alone until you stop."
 	case game.DealSplit:
 		return "They neither claim nor push on your side of the line, and you post nobody past it."
+	case game.DealHomage:
+		return "They pay you the cut each night out of their chest and stay off your corners; it ends when they cannot pay."
 	}
 	return "Half the cost of a run, half the loss."
 }
@@ -272,11 +298,14 @@ func dealBreaks(kind string) string {
 
 // moodLine is where you stand with the rival: what trust buys you, or,
 // after a betrayal, how long they are not taking your calls (bad).
-func (m *Model) moodLine() (line string, bad bool) {
+func (m *Model) moodLine(r *game.RivalState) (line string, bad bool) {
 	w := m.w
-	r := w.Rival
 	switch {
-	case m.set.Rivals.Distrusted(w, w.Day+1):
+	case r.Absorbed > 0:
+		return fmt.Sprintf("Absorbed on day %d. There is nobody left to talk to.", r.Absorbed), false
+	case r.Fragmented > 0:
+		return fmt.Sprintf("Leaderless since day %d. What is left of them is drifting.", r.Fragmented), false
+	case m.set.Rivals.Distrusted(r, w.Day+1):
 		return fmt.Sprintf("You broke a deal. They take nothing for %s.", plural(r.Betrayed+m.set.Rivals.Diplomacy().DistrustDays-w.Day-1, "more day")), true
 	case r.Trust >= 60:
 		return "They take you at your word. A deal is cheap to strike.", false
@@ -292,11 +321,11 @@ func (m *Model) moodLine() (line string, bad bool) {
 // then RULES, LIFETIME and the keys.
 func (m *Model) rivalsDetails() []section {
 	w := m.w
-	r := w.Rival
+	r := m.faction()
 	if r.Arrived == 0 {
 		return []section{{"NO RIVAL", wrapped(theme.Subtle, "Nobody is contesting the city yet. When somebody does, this is where you talk to them.")}}
 	}
-	mood, bad := m.moodLine()
+	mood, bad := m.moodLine(r)
 	moodStyle := theme.Subtle
 	if bad {
 		moodStyle = theme.Bad
@@ -305,9 +334,13 @@ func (m *Model) rivalsDetails() []section {
 	switch {
 	case len(w.Offers) > 0:
 		o := w.Offers[max(0, min(m.dealCursor, len(w.Offers)-1))]
-		lines := []string{theme.Subtle.Render(fmt.Sprintf("theirs · %s to answer", plural(o.Expires-w.Day+1, "day")))}
+		who := "theirs"
+		if f := w.Faction(o.With()); f != nil && f != r {
+			who = f.Leader + "'s"
+		}
+		lines := []string{theme.Subtle.Render(fmt.Sprintf("%s · %s to answer", who, plural(o.Expires-w.Day+1, "day")))}
 		if o.Deal.Kind == game.DealTribute {
-			lines = append(lines, m.tributeRows(o.Deal)...)
+			lines = append(lines, m.tributeRows(w.Faction(o.With()), o.Deal)...)
 		}
 		lines = append(lines, wrapped(theme.Body, dealDoes(o.Deal.Kind))...)
 		lines = append(lines, wrapped(theme.Subtle, dealBreaks(o.Deal.Kind))...)
@@ -324,13 +357,22 @@ func (m *Model) rivalsDetails() []section {
 		}
 		lines := []string{row("who", fmt.Sprintf("%s, since day %d", who, d.Since)), row("holds", term)}
 		if d.Kind == game.DealTribute {
-			lines = append(lines, m.tributeRows(d)...)
+			lines = append(lines, m.tributeRows(r, d)...)
 		}
 		lines = append(lines, wrapped(theme.Body, dealDoes(d.Kind))...)
 		lines = append(lines, wrapped(theme.Subtle, dealBreaks(d.Kind))...)
 		sel = section{m.dealTitle(d), lines}
 	default:
-		sel = section{strings.ToUpper(m.rivalName()), wrapped(moodStyle, mood)}
+		sel = section{strings.ToUpper(m.rivalName(r)), wrapped(moodStyle, mood)}
+	}
+	// Who stands with you (#43): the defensive factions the expansionist
+	// pushed toward you.
+	if allies := m.set.Rivals.Allies(w); len(allies) > 0 {
+		var names []string
+		for _, a := range allies {
+			names = append(names, m.factionStyle(a.Faction()).Render(a.Leader))
+		}
+		sel.lines = append(sel.lines, row("allies", strings.Join(names, ", ")))
 	}
 	// A betrayal's clock is worth a line whatever is selected.
 	if bad && len(w.Offers)+len(r.Deals) > 0 {
@@ -345,6 +387,9 @@ func (m *Model) rivalsDetails() []section {
 		row("struck", fmt.Sprintf("%d · refused %d", s.Deals, s.DealsRefused)),
 		row("broken", fmt.Sprintf("by you %d, by them %d", s.Betrayals, s.BetrayedBy)),
 		row("tribute", cash(s.Tribute)+" paid"),
+	}
+	if s.Homage > 0 {
+		life = append(life, row("homage", cash(s.Homage)+" to you"))
 	}
 	return []section{sel, {"RULES", rules}, m.booksSection(), {"LIFETIME", life}}
 }

@@ -243,7 +243,7 @@ func TestEmptyStates(t *testing.T) {
 				m.w.SetStock(m.w.Player.Location, id, 0)
 			}
 			if rival {
-				m.w.Rival.Arrived = 1
+				m.w.Rival().Arrived = 1
 			}
 			seen := map[string]bool{}
 			for _, s := range []string{"1", "2", "3", "4", "5", "6", "7", "8"} {

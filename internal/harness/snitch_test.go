@@ -193,7 +193,7 @@ func TestDefectionHandsTheRivalACorner(t *testing.T) {
 	for seed := uint64(1); seed <= 5; seed++ {
 		w := sim.NewWorld(cfg, seed)
 		w.Player.DirtyCash = 100_000
-		w.Rival.Arrived = 1
+		w.Rival().Arrived = 1
 		w.Corner("docks").Owner, w.Corner("docks").Since = game.OwnerRival, 1
 		// A runner at the floor on a corner of their own, and a loyal one
 		// elsewhere who stays.
@@ -237,7 +237,7 @@ func TestDefectionHandsTheRivalACorner(t *testing.T) {
 				t.Fatalf("seed %d: %s quit instead of defecting", seed, ev.Name)
 			}
 		}
-		if defected == nil || defected.Day != 1 || defected.Name != "Vee" || defected.Corner != walked.ID || defected.Rival != w.Rival.Leader {
+		if defected == nil || defected.Day != 1 || defected.Name != "Vee" || defected.Corner != walked.ID || defected.Rival != w.Rival().Leader {
 			t.Fatalf("seed %d: no defection on day 1: %+v", seed, defected)
 		}
 		if taken == nil || taken.Day != 2 || taken.Corner != walked.ID || taken.Handed != "Vee" {
@@ -246,8 +246,8 @@ func TestDefectionHandsTheRivalACorner(t *testing.T) {
 		if got := res.World.Corner(walked.ID); got.Owner != game.OwnerRival {
 			t.Fatalf("seed %d: %s is %s's, want the rival's", seed, walked.Name, got.Owner)
 		}
-		if res.World.Corner(kept.ID).Runner != 902 || len(res.World.Crew.Members) != 1 || res.World.Rival.Muscle < cfg.Rivals.Rivals.StartMuscle+1 {
-			t.Fatalf("seed %d: after the defection roster %+v, %s runner %d, rival muscle %d", seed, res.World.Crew.Members, kept.Name, res.World.Corner(kept.ID).Runner, res.World.Rival.Muscle)
+		if res.World.Corner(kept.ID).Runner != 902 || len(res.World.Crew.Members) != 1 || res.World.Rival().Muscle < cfg.Rivals.Rivals.StartMuscle+1 {
+			t.Fatalf("seed %d: after the defection roster %+v, %s runner %d, rival muscle %d", seed, res.World.Crew.Members, kept.Name, res.World.Corner(kept.ID).Runner, res.World.Rival().Muscle)
 		}
 		if res.World.Stats.Defections != 1 || res.World.Stats.CornersLost != 1 {
 			t.Fatalf("seed %d: stats %+v", seed, res.World.Stats)
@@ -359,7 +359,7 @@ func TestDefectionElsewhereHandsNoCorner(t *testing.T) {
 	for seed := uint64(1); seed <= 5; seed++ {
 		w := sim.NewWorld(cfg, seed)
 		w.Player.DirtyCash = 100_000
-		w.Rival.Arrived = 1
+		w.Rival().Arrived = 1
 		for _, id := range []string{"docks", "railyard", "oldmill"} {
 			w.Corner(id).Owner, w.Corner(id).Since = game.OwnerRival, 1
 		}
@@ -373,7 +373,7 @@ func TestDefectionElsewhereHandsNoCorner(t *testing.T) {
 		}
 		// A lead the rival should not act on even if it were handed one.
 		w.Crew.Leads = append(w.Crew.Leads, game.Lead{Name: "Ghost", Corner: corner})
-		muscle := w.Rival.Muscle
+		muscle := w.Rival().Muscle
 		res, err := RunFrom(cfg, w, 3, Idle)
 		if err != nil {
 			t.Fatal(err)
@@ -399,8 +399,8 @@ func TestDefectionElsewhereHandsNoCorner(t *testing.T) {
 				t.Fatalf("seed %d: the rival holds %s in %s", seed, c.Name, hub)
 			}
 		}
-		if res.World.Rival.Muscle != muscle+2 || res.World.Stats.Defections != 1 || res.World.Stats.CornersLost != 0 {
-			t.Fatalf("seed %d: muscle %d (was %d), stats %+v", seed, res.World.Rival.Muscle, muscle, res.World.Stats)
+		if res.World.Rival().Muscle != muscle+2 || res.World.Stats.Defections != 1 || res.World.Stats.CornersLost != 0 {
+			t.Fatalf("seed %d: muscle %d (was %d), stats %+v", seed, res.World.Rival().Muscle, muscle, res.World.Stats)
 		}
 	}
 }

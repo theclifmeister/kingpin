@@ -511,7 +511,7 @@ func factionWorld(t *testing.T, cfg *content.Config) (*game.World, *crew.Sim) {
 		{ID: "docks", City: "test", Name: "Docks", X: 1, Demand: 1, Heat: 1, Risk: 1, Owner: game.OwnerRival, Faction: game.FactionRival, Since: 1},
 		{ID: "oldmill", City: "test", Name: "Old Mill", X: 2, Demand: 1, Heat: 1, Risk: 1, Owner: game.OwnerNone},
 	}
-	w.Rival = game.RivalState{ID: game.FactionRival, Leader: "Big Sal", Personality: "defensive", Cash: 1000, Muscle: 3, Arrived: 1}
+	*w.Rival() = game.RivalState{ID: game.FactionRival, Leader: "Big Sal", Personality: "defensive", Cash: 1000, Muscle: 3, Arrived: 1}
 	if err := w.Post("home", game.You); err != nil {
 		t.Fatal(err)
 	}
@@ -530,7 +530,7 @@ func TestDefectionQueuesALeadForTheRival(t *testing.T) {
 	if err := w.Post("oldmill", 901); err != nil {
 		t.Fatal(err)
 	}
-	rival := w.Rival
+	rival := *w.Rival()
 	evs := step(w, s)
 	var defected *events.CrewDefected
 	for _, e := range evs {
@@ -541,11 +541,11 @@ func TestDefectionQueuesALeadForTheRival(t *testing.T) {
 	if defected == nil || defected.Rival != "Big Sal" || defected.Faction != game.FactionRival || defected.Corner != "oldmill" {
 		t.Fatalf("defection %+v, want one naming the faction and the corner", defected)
 	}
-	if len(w.Crew.Leads) != 1 || w.Crew.Leads[0] != (game.Lead{Name: "Vee", Corner: "oldmill"}) {
+	if len(w.Crew.Leads) != 1 || w.Crew.Leads[0] != (game.Lead{Name: "Vee", Corner: "oldmill", Faction: game.FactionRival}) {
 		t.Fatalf("leads %+v, want Vee's", w.Crew.Leads)
 	}
-	if !reflect.DeepEqual(w.Rival, rival) {
-		t.Fatalf("the crew sim wrote into the rival:\n%+v\n%+v", w.Rival, rival)
+	if !reflect.DeepEqual(*w.Rival(), rival) {
+		t.Fatalf("the crew sim wrote into the rival:\n%+v\n%+v", *w.Rival(), rival)
 	}
 	if c := w.Corner("oldmill"); !c.Held() || c.Runner != 0 {
 		t.Fatalf("the corner the night of the defection: %+v, want it held and unworked until the rival acts", c)
@@ -589,7 +589,7 @@ func TestWalkHandsTheRivalTheCornersTonight(t *testing.T) {
 	if c := w.Corner("home"); c.Owner != game.OwnerPlayer || c.Faction != "" || c.Runner != game.You {
 		t.Fatalf("the corner you stand on: %+v", c)
 	}
-	if r := w.Rival; r.Flips != 1 || r.LastFlip != w.Day || !r.Observed {
+	if r := *w.Rival(); r.Flips != 1 || r.LastFlip != w.Day || !r.Observed {
 		t.Fatalf("the flip was not booked the night of the walk: %+v", r)
 	}
 	if len(w.Crew.Leads) != 0 {

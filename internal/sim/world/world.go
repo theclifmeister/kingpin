@@ -125,7 +125,7 @@ func (s *Sim) Step(w *game.World, t *game.Tick) {
 	w.RecordIncident(rec)
 	t.Emit(events.Incident{
 		Day: t.Day, ID: inc.ID, Name: inc.Name, City: at.City, Route: at.Route, Product: product, Person: person, Days: rec.Days,
-		Chief: w.Law.Chief.Name, DA: w.Law.DA.Name, NewChief: inc.Effects.ChiefReplaced, Election: inc.Effects.ElectionCalled,
+		Chief: w.Law.Chief.Name, DA: w.Law.DA.Name, NewChief: inc.Effects.ChiefReplaced, Election: inc.Effects.ElectionCalled, LeaderKilled: inc.Effects.LeaderKilled,
 	})
 }
 

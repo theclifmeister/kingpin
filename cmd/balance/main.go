@@ -26,7 +26,8 @@ func main() {
 	corners := flag.Int("corners", 3, "corners the territory and war policies work, counting yours")
 	force := flag.String("force", "push", "warn | push | hit: how hard the war policy strikes")
 	undercut := flag.String("undercut", "normal", "quiet | normal | aggressive: the dial the pricewar policy undercuts at")
-	rival := flag.String("rival", "", "force the rival's personality: expansionist | defensive | opportunist | chaotic (default by seed); none keeps the rival out of the run (harness.NoRival)")
+	rival := flag.String("rival", "", "force the first faction's personality: expansionist | defensive | opportunist | chaotic (default by seed); none keeps the rivals out of the run (harness.NoRival)")
+	factions := flag.Int("factions", 0, "factions in the run (#43): 1 is the duel the game was before the table, 0 the file's count by seed (rivals.toml [factions] min..max)")
 	heatFlag := flag.String("heat", "on", "on | off: off switches heat off, nothing adds any and the police never answer (harness.NoHeat)")
 	pace := flag.String("pace", "on", "on | off: off has the rival claim at the flat pace it had before #60 (harness.FlatPace)")
 	credit := flag.String("credit", "on", "on | off: off withdraws every connect's credit (harness.NoCredit)")
@@ -62,6 +63,9 @@ func main() {
 	}
 	if *pace == "off" {
 		cfg = harness.FlatPace(cfg)
+	}
+	if *factions > 0 {
+		cfg = harness.Factions(cfg, *factions)
 	}
 	if *credit == "off" {
 		cfg = harness.NoCredit(cfg)
@@ -185,12 +189,26 @@ func main() {
 	robberies, robbed := 0, 0
 	var rivalHeld, takens []int
 	rivalAt := map[int][]int{}
+	// The table (#43): corners per faction at the pace days (by seat,
+	// medians), the pushes between factions, the absorptions, the
+	// leaders taken, the crew poached, the homage paid, and whether any
+	// day of any run read Dominant.
+	factionAt := map[int][][]int{}
+	factionPushes, factionTakes, absorbed, arrested, poachedCrew, poachOffers, homagePaid, homageDays, dominantDays, counts := 0, 0, 0, 0, 0, 0, 0, 0, 0, map[int]int{}
+	factionsAt := func(w *game.World, d int) {
+		for i, r := range w.Rivals {
+			for len(factionAt[d]) <= i {
+				factionAt[d] = append(factionAt[d], nil)
+			}
+			factionAt[d][i] = append(factionAt[d][i], w.RivalHeldBy(r.Faction()))
+		}
+	}
 	// The rival's books at the pace days (#139): cash, income and the
 	// wage bill, so whether money can hurt it is a number in the output.
 	cashAt, incomeAt, wagesAt := map[int][]int{}, map[int][]int{}, map[int][]int{}
 	books := func(w *game.World, d int) {
 		income, wages := harness.RivalBooks(cfg, w)
-		cashAt[d] = append(cashAt[d], w.Rival.Cash)
+		cashAt[d] = append(cashAt[d], w.Rival().Cash)
 		incomeAt[d] = append(incomeAt[d], income)
 		wagesAt[d] = append(wagesAt[d], wages)
 	}
@@ -239,7 +257,11 @@ func main() {
 				if w.Day == d {
 					rivalAt[d] = append(rivalAt[d], w.RivalHeld())
 					books(w, d)
+					factionsAt(w, d)
 				}
+			}
+			if w.Dominant() {
+				dominantDays++
 			}
 			p(w)
 		}
@@ -255,7 +277,7 @@ func main() {
 				for _, cid := range w.CityOrder {
 					fmt.Printf(" %.0f", w.Cities[cid].Pressure)
 				}
-				fmt.Printf(" file %d stock %3d/%3d +%d road orders %d crew %d corners %d/%d rival %d war %3.0f upgrades %d fronts %d %s rep %.0f/%.0f/%.0f", w.Heat.Evidence, w.Stashed(), w.Capacity(w.Player.Location), w.TotalStock()-w.Stashed(), len(w.Today.Orders), len(w.Crew.Members), w.Worked(), w.Held(), w.RivalHeld(), w.Rival.War, len(w.Upgrades), len(w.Fronts), w.Laundering.Dial, w.Player.Reputation.Fear, w.Player.Reputation.Respect, w.Player.Reputation.Notoriety)
+				fmt.Printf(" file %d stock %3d/%3d +%d road orders %d crew %d corners %d/%d rival %d war %3.0f upgrades %d fronts %d %s rep %.0f/%.0f/%.0f", w.Heat.Evidence, w.Stashed(), w.Capacity(w.Player.Location), w.TotalStock()-w.Stashed(), len(w.Today.Orders), len(w.Crew.Members), w.Worked(), w.Held(), w.RivalHeld(), w.Rival().War, len(w.Upgrades), len(w.Fronts), w.Laundering.Dial, w.Player.Reputation.Fear, w.Player.Reputation.Respect, w.Player.Reputation.Notoriety)
 				for _, id := range w.Products {
 					fmt.Printf("  %s", id)
 					for _, cid := range w.CityOrder {
@@ -270,8 +292,9 @@ func main() {
 			w.Player.DirtyCash = *cash
 		}
 		if *rival != "" && *rival != "none" {
-			w.Rival.Personality = *rival
+			w.Rival().Personality = *rival
 		}
+		counts[len(w.Rivals)]++
 		harness.Own(cfg, w, owned...)
 		if *snitch {
 			harness.Plant(cfg, w)
@@ -287,6 +310,7 @@ func main() {
 				if d == *days {
 					rivalAt[d] = append(rivalAt[d], res.World.RivalHeld())
 					books(res.World, d)
+					factionsAt(res.World, d)
 				}
 			}
 		}
@@ -325,6 +349,17 @@ func main() {
 				}
 			case events.CornerRobbed:
 				robberies++
+			case events.FactionPushed:
+				factionPushes++
+				if ev.Taken {
+					factionTakes++
+				}
+			case events.CrewPoached:
+				poachOffers++
+			case events.TributePaid:
+				if ev.ToYou {
+					homageDays++
+				}
 			case events.RivalTippedPolice:
 				tips++
 			case events.RivalScouted:
@@ -431,13 +466,17 @@ func main() {
 			}
 		}
 		rivalHeld = append(rivalHeld, res.World.RivalHeld())
-		muscle = append(muscle, res.World.Rival.Muscle)
-		rivalHeat = append(rivalHeat, int(res.World.Rival.Heat))
+		muscle = append(muscle, res.World.Rival().Muscle)
+		rivalHeat = append(rivalHeat, int(res.World.Rival().Heat))
 		evidence = append(evidence, res.World.Heat.Evidence)
 		takens = append(takens, res.World.Stats.CornersLost)
 		won += res.World.Stats.CornersWon
 		strikes += res.World.Stats.Strikes
-		personalities[res.World.Rival.Personality]++
+		personalities[res.World.Rival().Personality]++
+		homagePaid += res.World.Stats.Homage
+		poachedCrew += res.World.Stats.CrewPoached
+		absorbed += res.World.Stats.Absorbed
+		arrested += res.World.Stats.Fragmented
 		for id := range res.World.Upgrades {
 			bought[id]++
 		}
@@ -465,7 +504,7 @@ func main() {
 		fear, respect, notoriety = append(fear, int(rep.Fear)), append(respect, int(rep.Respect)), append(notoriety, int(rep.Notoriety))
 		st := res.World.Stats
 		deals, refused, betrayals, betrayedBy, tribute = deals+st.Deals, refused+st.DealsRefused, betrayals+st.Betrayals, betrayedBy+st.BetrayedBy, tribute+st.Tribute
-		trust = append(trust, int(res.World.Rival.Trust))
+		trust = append(trust, int(res.World.Rival().Trust))
 		pressure = append(pressure, int(res.World.Here().Pressure))
 		goodwill = append(goodwill, int(res.World.Here().Goodwill))
 		elections, chiefs, funded = elections+st.Elections, chiefs+st.Chiefs, funded+st.Funded
@@ -542,6 +581,24 @@ func main() {
 		}
 	}
 	fmt.Printf(" (pace %s)\n", *pace)
+	if len(counts) > 1 || counts[1] == 0 {
+		fmt.Printf("factions:      %v per run (count: runs);", counts)
+		for _, d := range harness.PaceDays {
+			if fs := factionAt[d]; len(fs) > 0 {
+				fmt.Printf(" day %d corners", d)
+				for i, ws := range fs {
+					if len(ws) == 0 {
+						continue
+					}
+					sort.Ints(ws)
+					fmt.Printf(" f%d %d", i+1, ws[len(ws)/2])
+				}
+				fmt.Printf(";")
+			}
+		}
+		fmt.Printf(" %d pushes between factions (%d corners changed hands), %d absorbed, %d leaders taken, %d of your crew poached (%d offers), $%d homage over %d days (totals over %d runs); dominant on %d days\n",
+			factionPushes, factionTakes, absorbed, arrested, poachedCrew, poachOffers, homagePaid, homageDays, *runs, dominantDays)
+	}
 	fmt.Printf("rival books:  ")
 	for _, d := range harness.PaceDays {
 		if cs := cashAt[d]; len(cs) > 0 {

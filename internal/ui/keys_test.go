@@ -173,7 +173,7 @@ func TestGlobalsAreListedWhereUsed(t *testing.T) {
 		"n":   everywhere,
 		"F":   on(screenDashboard),
 		"↑↓":  listScreens,
-		"[ ]": on(screenMarket, screenMap),
+		"[ ]": on(screenMarket, screenMap, screenRivals),
 		"b":   on(screenDashboard, screenMarket),
 		"s":   on(screenDashboard, screenMarket),
 		"x":   on(screenDashboard, screenMarket),

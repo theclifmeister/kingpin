@@ -150,6 +150,7 @@ type Model struct {
 	cardCursor     int       // choice highlighted on the dilemma card
 	cardDone       bool      // the card is answered; the outcome is showing
 	dealCursor     int       // offer selected on the rivals screen
+	factionCursor  int       // faction the rivals screen is turned to (#43): an index into World.Rivals
 	proposeStep    int       // 0: pick the kind, 1: pick the terms
 	proposeKind    int       // index into proposeKinds while on the terms page
 	proposeCursor  int
@@ -277,6 +278,43 @@ func (m *Model) shown() *game.City {
 	}
 	m.city = m.w.Player.Location
 	return m.w.Here()
+}
+
+// cycleFaction turns the rivals screen to the next faction (#43), round
+// the table.
+func (m *Model) cycleFaction(d int) {
+	n := len(m.w.Rivals)
+	if n == 0 {
+		return
+	}
+	m.factionCursor = ((m.factionCursor+d)%n + n) % n
+}
+
+// faction is the faction the rivals screen is turned to (#43): the one
+// under the cursor, the rival at home by default.
+func (m *Model) faction() *game.RivalState {
+	rs := m.w.Rivals
+	if len(rs) == 0 {
+		return m.w.Rival()
+	}
+	m.factionCursor = max(0, min(m.factionCursor, len(rs)-1))
+	return rs[m.factionCursor]
+}
+
+// factionOf is the faction holding a corner, or the rival at home for
+// a corner nobody's.
+func (m *Model) factionOf(c *game.Corner) *game.RivalState {
+	if c != nil && c.Owner == game.OwnerRival {
+		if r := m.w.Faction(c.Faction); r != nil {
+			return r
+		}
+	}
+	return m.w.Rival()
+}
+
+// factionStyle is a faction's colour (#43), by its seat at the table.
+func (m *Model) factionStyle(id string) lipgloss.Style {
+	return theme.FactionText(m.w.FactionIndex(id))
 }
 
 // cycleCity turns the market and map screens to the next city.
@@ -864,9 +902,12 @@ func (m *Model) moveCursor(dx, dy int) {
 	case screenUpgrades:
 		m.upgradeMove(dx, dy)
 	case screenRivals:
-		if dy < 0 && m.dealCursor > 0 {
+		switch {
+		case dx != 0:
+			m.cycleFaction(dx)
+		case dy < 0 && m.dealCursor > 0:
 			m.dealCursor--
-		} else if dy > 0 && m.dealCursor < len(m.w.Offers)-1 {
+		case dy > 0 && m.dealCursor < len(m.w.Offers)-1:
 			m.dealCursor++
 		}
 	case screenLedger:
@@ -1381,10 +1422,10 @@ func (m *Model) viewOver() string {
 		{"corners held", fmt.Sprint(w.Held())},
 		{"robbed", cash(w.Stats.Robbed)},
 	}...)
-	if w.Rival.Arrived > 0 {
+	if w.Rival().Arrived > 0 {
 		facts = append(facts,
 			[]any{"corners won", fmt.Sprint(w.Stats.CornersWon)},
-			[]any{"lost to " + truncate(w.Rival.Leader, 12), fmt.Sprint(w.Stats.CornersLost)})
+			[]any{"lost to " + truncate(w.Rival().Leader, 12), fmt.Sprint(w.Stats.CornersLost)})
 	}
 	if s := w.Stats; s.Deals+s.Betrayals+s.BetrayedBy > 0 {
 		facts = append(facts,
@@ -1412,7 +1453,7 @@ func (m *Model) viewOver() string {
 	if n := len(w.Crew.Fallen); n > 0 {
 		var names []string
 		for _, f := range w.Crew.Fallen {
-			names = append(names, fmt.Sprintf("%s (%s, d%d)", f.Name, f.Role, f.Day))
+			names = append(names, fmt.Sprintf("%s (%s · day %d)", f.Name, f.Role, f.Day)) // `(role, dN)` read as a key hint to TestNoKeyHintsOutsideTheLegend
 		}
 		facts = append(facts, []any{"fallen", truncate(strings.Join(names, ", "), 60)})
 	}

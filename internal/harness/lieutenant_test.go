@@ -465,7 +465,8 @@ func TestDelegatedNearDistributor(t *testing.T) {
 // works no corner there is nobody's to stock and is not counted.)
 func TestLieutenantKeepsTheCityStocked(t *testing.T) {
 	// Crew life boxed (#46): seed 2, as TestLieutenantSellsWhileYouAreAway.
-	cfg := NoLife(content.MustLoad())
+	// The duel (#43, harness.OneFaction): this pins a mechanism on a seed, and the table moves the seed's dice.
+	cfg := OneFaction(NoLife(content.MustLoad()))
 	home := cfg.City.Home().ID
 	weed := cfg.Market.Products[0].ID
 	for seed := uint64(1); seed <= 5; seed++ {

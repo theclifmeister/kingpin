@@ -77,13 +77,14 @@ func (m *Model) mapMove(dx, dy int) {
 }
 
 // ownerStyle is the colour a corner is drawn in: crew blue for yours,
-// rivals purple for theirs, dim for nobody's.
-func ownerStyle(owner string) lipgloss.Style {
-	switch owner {
+// the faction's colour for theirs (#43: rivals purple for the rival at
+// home, a colour each for the rest), dim for nobody's.
+func (m *Model) ownerStyle(c *game.Corner) lipgloss.Style {
+	switch c.Owner {
 	case game.OwnerPlayer:
 		return theme.CrewText
 	case game.OwnerRival:
-		return theme.RivalText
+		return m.factionStyle(c.Faction)
 	default:
 		return theme.Subtle
 	}
@@ -278,7 +279,7 @@ func (m *Model) viewMap() string {
 				l3 = append(l3, strings.Repeat(" ", cellW))
 				continue
 			}
-			st := ownerStyle(c.Owner)
+			st := m.ownerStyle(c)
 			eyed := m.eyed(c)
 			_, undercut := w.Undercutting(c.ID)
 			undercut = undercut && c.Owner == game.OwnerRival
@@ -296,7 +297,7 @@ func (m *Model) viewMap() string {
 			case sel != nil && c.ID == sel.ID:
 				name = theme.Selected.Render(name)
 			case eyed:
-				name = theme.RivalText.Render(mark) + st.Render(name[len(mark):])
+				name = m.factionStyle(m.eyedBy(c)).Render(mark) + st.Render(name[len(mark):])
 			case undercut:
 				name = theme.MarketText.Render(mark) + st.Render(name[len(mark):])
 			default:
@@ -319,7 +320,7 @@ func (m *Model) viewMap() string {
 					who = st.Render(fit("  theirs", cellW-1))
 				}
 			case eyed:
-				who = theme.RivalText.Render(fit("  theirs tomorrow", cellW-1))
+				who = m.factionStyle(m.eyedBy(c)).Render(fit("  theirs tomorrow", cellW-1))
 			default:
 				who = theme.Subtle.Render(fit("  free", cellW-1))
 			}
@@ -387,10 +388,21 @@ func (m *Model) cellName(c *game.Corner, cellW int) string {
 	return fit(m.cellMark(c)+" "+strings.ToUpper(c.Name), cellW-1)
 }
 
-// eyed reports whether the corner is the one the rival telegraphed
-// (#69): free today, theirs tomorrow unless somebody is posted on it.
-func (m *Model) eyed(c *game.Corner) bool {
-	return c.Owner == game.OwnerNone && c.ID == m.w.Rival.Eyeing
+// eyed reports whether the corner is one a faction telegraphed (#69):
+// free today, theirs tomorrow unless somebody is posted on it.
+func (m *Model) eyed(c *game.Corner) bool { return m.eyedBy(c) != "" }
+
+// eyedBy is the faction eyeing a free corner (#43), or "" for none.
+func (m *Model) eyedBy(c *game.Corner) string {
+	if c.Owner != game.OwnerNone {
+		return ""
+	}
+	for _, r := range m.w.Rivals {
+		if r.Eyeing == c.ID && !r.Gone() {
+			return r.Faction()
+		}
+	}
+	return ""
 }
 
 // driftLeft is the days a held corner nobody works has before it goes
@@ -434,13 +446,18 @@ func (m *Model) cornerSection(sel *game.Corner) section {
 		}
 		lines = append(lines, theme.Subtle.Render(owner))
 	case sel.Owner == game.OwnerRival:
-		lines = append(lines, theme.RivalText.Render(fmt.Sprintf("%s's since day %d", w.Rival.Leader, sel.Since)))
+		f := m.factionOf(sel)
+		st := m.factionStyle(f.Faction())
+		lines = append(lines, st.Render(fmt.Sprintf("%s's since day %d", f.Leader, sel.Since)))
 		if s := w.Today.Strike; s != nil && s.Corner == sel.ID {
 			lines = append(lines, theme.Warning.Render(fmt.Sprintf("⚔ %s tonight", s.Force)))
 		}
-		lines = append(lines, row("holds", theme.RivalText.Render(plural(w.RivalHeld(), "corner"))))
+		lines = append(lines, row("holds", st.Render(plural(w.RivalHeldBy(f.Faction()), "corner"))))
+		if f.Fragmented > 0 {
+			lines = append(lines, theme.Warning.Render("leaderless: drifting back to the street"))
+		}
 	case m.eyed(sel):
-		lines = append(lines, theme.RivalText.Render("free · they set up here tomorrow"))
+		lines = append(lines, m.factionStyle(m.eyedBy(sel)).Render(fmt.Sprintf("free · %s set up here tomorrow", w.FactionName(m.eyedBy(sel)))))
 	default:
 		lines = append(lines, theme.Subtle.Render("free"))
 	}
@@ -463,13 +480,13 @@ func (m *Model) cornerSection(sel *game.Corner) section {
 		// The price war (#68): what last night's orders took off it.
 		lines = append(lines, row("squeezed", theme.MarketText.Render(fmt.Sprintf("-%.0f%% by you, %s", sel.Squeeze*100, plural(sel.Starved, "day")))))
 	case sel.Squeeze > 0:
-		lines = append(lines, row("undercut", theme.RivalText.Render(fmt.Sprintf("-%.0f%% (%s)", sel.Squeeze*100, w.Rival.Leader))))
+		lines = append(lines, row("undercut", theme.RivalText.Render(fmt.Sprintf("-%.0f%% (%s)", sel.Squeeze*100, m.squeezers(sel)))))
 	}
 	if d, ok := w.Undercutting(sel.ID); ok && sel.Owner == game.OwnerRival {
 		lines = append(lines, row("undercut", theme.MarketText.Render(fmt.Sprintf("%s · takes ~%.0f/day", d, m.set.Market.UndercutUnits(w, *sel, d)))))
 	}
 	if sel.Held() && w.Contested(*sel) {
-		lines = append(lines, row("push flips", theme.RivalText.Render(fmt.Sprintf("~%.0f%%", m.set.Rivals.PushOdds(w, sel)*100))))
+		lines = append(lines, row("push flips", theme.RivalText.Render(fmt.Sprintf("~%.0f%%", m.set.Rivals.PushOdds(w, m.pusher(sel), sel)*100))))
 	}
 	// Demand per product, biggest first, as many to a line as the value
 	// column holds whole (two, mostly).
@@ -518,9 +535,10 @@ func (m *Model) cornerSection(sel *game.Corner) section {
 			theme.Warning.Render(fmt.Sprintf("back to the street in %s", plural(m.driftLeft(sel), "day"))),
 			keyRow("c", "post a runner here"), keyRow("e", "post an enforcer"), keyRow("a", "abandon the corner"))
 	case sel.Owner == game.OwnerRival:
+		f := m.factionOf(sel)
 		if n := w.Crew.Role("enforcer"); n > 0 {
 			lines = append(lines, keyRow("w", fmt.Sprintf("push takes it ~%.0f%%, hit ~%.0f%%",
-				m.set.Rivals.Odds(w, events.ForcePush)*100, m.set.Rivals.Odds(w, events.ForceHit)*100)))
+				m.set.Rivals.Odds(w, f, events.ForcePush)*100, m.set.Rivals.Odds(w, f, events.ForceHit)*100)))
 			lines = append(lines, keyRow("w", fmt.Sprintf("boost: the till, ~%s", cash(m.set.Rivals.BoostTake(w, *sel)))))
 		} else {
 			lines = append(lines, wrapped(theme.Subtle, "Taking it is a matter for the enforcers. Hire some "+screenPointer(screenCrew)+".")...)
@@ -528,9 +546,9 @@ func (m *Model) cornerSection(sel *game.Corner) section {
 		// The books (#70): the police, tipped off, take the corner.
 		tp := m.set.Rivals.TipTuning()
 		if s := w.Today.Tipoff; s != nil && s.Corner == sel.ID {
-			lines = append(lines, keyRow("t", fmt.Sprintf("tipped tonight: police %.0f → %.0f", w.Rival.Heat, min(100, w.Rival.Heat+tp.Heat))))
+			lines = append(lines, keyRow("t", fmt.Sprintf("tipped tonight: police %.0f → %.0f", f.Heat, min(100, f.Heat+tp.Heat))))
 		} else {
-			lines = append(lines, keyRow("t", fmt.Sprintf("tip the police: at %.0f of %.0f", w.Rival.Heat, tp.PoliceNotice)))
+			lines = append(lines, keyRow("t", fmt.Sprintf("tip the police: at %.0f of %.0f", f.Heat, tp.PoliceNotice)))
 		}
 		// The price war (#68): the third answer, from next door.
 		switch err := w.CanUndercut(sel.ID); {
@@ -576,4 +594,33 @@ func riskWord(r float64) string {
 	default:
 		return "average"
 	}
+}
+
+// squeezers names the factions undercutting a corner of yours (#43):
+// the ones whose corners border it, the rival at home for none.
+func (m *Model) squeezers(c *game.Corner) string {
+	var names []string
+	for _, r := range m.w.Rivals {
+		if r.Alive() && m.w.ContestedBy(*c, r.Faction()) {
+			names = append(names, r.Leader)
+		}
+	}
+	if len(names) == 0 {
+		return m.w.Rival().Leader
+	}
+	return strings.Join(names, ", ")
+}
+
+// pusher is the faction whose push the map's odds read on a corner of
+// yours (#43): of the factions bordering it, the one with the most
+// muscle; the rival at home for none.
+func (m *Model) pusher(c *game.Corner) *game.RivalState {
+	best := m.w.Rival()
+	found := false
+	for _, r := range m.w.Rivals {
+		if r.Alive() && m.w.ContestedBy(*c, r.Faction()) && (!found || r.Muscle > best.Muscle) {
+			best, found = r, true
+		}
+	}
+	return best
 }

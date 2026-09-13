@@ -33,8 +33,8 @@ func strikeMorning(t *testing.T, m *Model) *game.Corner {
 		t.Fatalf("the fixture's second corner is not worked by you: %+v", c)
 	}
 	evs := m.stepDay()
-	c.Owner, c.Faction, c.Runner, c.Enforcer, c.Since = game.OwnerRival, m.w.Rival.Faction(), 0, 0, m.w.Day
-	evs = append(evs, events.CornerTaken{Day: m.w.Day, Corner: c.ID, Name: c.Name, Rival: m.w.Rival.Leader, From: game.OwnerPlayer})
+	c.Owner, c.Faction, c.Runner, c.Enforcer, c.Since = game.OwnerRival, m.w.Rival().Faction(), 0, 0, m.w.Day
+	evs = append(evs, events.CornerTaken{Day: m.w.Day, Corner: c.ID, Name: c.Name, Rival: m.w.Rival().Leader, From: game.OwnerPlayer})
 	m.morning(evs)
 	skipScene(m) // a card's scene, if the seed dealt one (#154)
 	closeMorning(t, m)
@@ -221,8 +221,8 @@ func TestStrikeSceneInTheOtherCity(t *testing.T) {
 func TestStrikeSceneOnFastForward(t *testing.T) {
 	m := richModelSeeded(t, 80, 24, fastStrikeSeed)
 	m.opts.Anim = true
-	m.w.Rival.Deals = nil // no split to keep it off your corners
-	m.w.Rival.Muscle = 8
+	m.w.Rival().Deals = nil // no split to keep it off your corners
+	m.w.Rival().Muscle = 8
 	for m.w.Day < 60 && !strings.Contains(m.fastStop, " took ") {
 		fast(t, m, 30)
 		skipScene(m)
@@ -241,7 +241,7 @@ func TestStrikeSceneOnFastForward(t *testing.T) {
 	m.Update(key("esc"))
 	// The next morning, nothing waits: the flip is the journal's.
 	m.Update(key("1"))
-	m.w.Rival.Muscle = 0 // nothing pushes tonight
+	m.w.Rival().Muscle = 0 // nothing pushes tonight
 	endDay(t, m)
 	closeMorning(t, m)
 	if len(m.mapScene) != 0 {

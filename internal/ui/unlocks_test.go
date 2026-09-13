@@ -82,13 +82,13 @@ func TestFastForwardStopsOnAnUnlock(t *testing.T) {
 	m.startRun(5)
 	arrived := 0
 	for m.w.Day < 40 && arrived == 0 {
-		before := m.w.Rival.Arrived
+		before := m.w.Rival().Arrived
 		fast(t, m, 30)
-		if before == 0 && m.w.Rival.Arrived != 0 {
+		if before == 0 && m.w.Rival().Arrived != 0 {
 			arrived = m.w.Day
-			want := fmt.Sprintf(": %s moved in on ", m.w.Rival.Leader)
-			if !strings.Contains(m.fastStop, want) || m.w.Rival.Arrived != m.w.Day {
-				t.Fatalf("the rival moved in on day %d and F stopped with %q", m.w.Rival.Arrived, m.fastStop)
+			want := fmt.Sprintf(": %s moved in on ", m.w.Rival().Leader)
+			if !strings.Contains(m.fastStop, want) || m.w.Rival().Arrived != m.w.Day {
+				t.Fatalf("the rival moved in on day %d and F stopped with %q", m.w.Rival().Arrived, m.fastStop)
 			}
 		}
 		closeMorning(t, m)

@@ -379,7 +379,7 @@ func TestShotOnTheCorner(t *testing.T) {
 	kill.Crew.Life.KillChance = 1
 	w, s := lifeWorld(t, &kill, 100_000)
 	w.Player.DirtyCash = 100_000
-	w.Rival.Leader, w.Rival.Personality, w.Rival.Muscle = "Dutch", "chaotic", 5
+	w.Rival().Leader, w.Rival().Personality, w.Rival().Muscle = "Dutch", "chaotic", 5
 	g := hire(w, "enforcer", 30)
 	k := hire(w, "runner", 30)
 	g = w.Crew.Member(g.ID) // the roster grew under the pointer
@@ -419,7 +419,7 @@ func TestShotOnTheCorner(t *testing.T) {
 	wound.Crew.Life.KillChance, wound.Crew.Life.WoundChance = 0, 1
 	w, s = lifeWorld(t, &wound, 100_000)
 	w.Player.DirtyCash = 100_000
-	w.Rival.Leader, w.Rival.Personality = "Dutch", "defensive"
+	w.Rival().Leader, w.Rival().Personality = "Dutch", "defensive"
 	g = hire(w, "enforcer", 30)
 	w.Crew.HiredToday = nil
 	_ = w.Post("c1", g.ID)

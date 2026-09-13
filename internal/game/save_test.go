@@ -556,7 +556,7 @@ func TestSendEnforcersAndBorders(t *testing.T) {
 func TestSaveKeepsRival(t *testing.T) {
 	t.Setenv("KINGPIN_HOME", t.TempDir())
 	w := testWorld()
-	w.Rival = RivalState{ID: FactionRival, Leader: "Big Sal", Personality: "chaotic", Supplier: 0.8, Cash: 1234, Muscle: 3, Arrived: 2, Observed: true, Grudge: 1, War: 33.5, Claims: 2, Flips: 1, Tips: 1, Eyeing: "railyard", EyeingDay: 4}
+	*w.Rival() = RivalState{ID: FactionRival, Leader: "Big Sal", Personality: "chaotic", Supplier: 0.8, Cash: 1234, Muscle: 3, Arrived: 2, Observed: true, Grudge: 1, War: 33.5, Claims: 2, Flips: 1, Tips: 1, Eyeing: "railyard", EyeingDay: 4}
 	w.Corner("docks").Owner, w.Corner("docks").Faction = OwnerRival, FactionRival
 	w.Corner("home").Squeeze = 0.2
 	w.Stats.Strikes, w.Stats.CornersWon, w.Stats.CornersLost = 3, 1, 2
@@ -567,8 +567,8 @@ func TestSaveKeepsRival(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	if !reflect.DeepEqual(got.Rival, w.Rival) || !reflect.DeepEqual(got.Home().Corners, w.Home().Corners) || got.Stats != w.Stats {
-		t.Fatalf("rival did not round-trip:\n%+v\n%+v", got.Rival, w.Rival)
+	if !reflect.DeepEqual(*got.Rival(), *w.Rival()) || !reflect.DeepEqual(got.Home().Corners, w.Home().Corners) || got.Stats != w.Stats {
+		t.Fatalf("rival did not round-trip:\n%+v\n%+v", *got.Rival(), *w.Rival())
 	}
 }
 
@@ -579,7 +579,7 @@ func TestSaveKeepsRival(t *testing.T) {
 func TestOldSaveNamesTheFaction(t *testing.T) {
 	t.Setenv("KINGPIN_HOME", t.TempDir())
 	w := testWorld()
-	w.Rival = RivalState{Leader: "Big Sal", Personality: "chaotic", Cash: 1234, Muscle: 3, Arrived: 2}
+	*w.Rival() = RivalState{Leader: "Big Sal", Personality: "chaotic", Cash: 1234, Muscle: 3, Arrived: 2}
 	w.Corner("docks").Owner, w.Corner("docks").Since = OwnerRival, 2
 	if err := Save(1, w); err != nil {
 		t.Fatal(err)
@@ -588,8 +588,8 @@ func TestOldSaveNamesTheFaction(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	if got.SchemaVersion != SchemaVersion || got.Rival.ID != "" || got.Rival.Faction() != FactionRival {
-		t.Fatalf("schema %d rival id %q faction %q, want the zero id resolving to %q", got.SchemaVersion, got.Rival.ID, got.Rival.Faction(), FactionRival)
+	if got.SchemaVersion != SchemaVersion || got.Rival().ID != "" || got.Rival().Faction() != FactionRival {
+		t.Fatalf("schema %d rival id %q faction %q, want the zero id resolving to %q", got.SchemaVersion, got.Rival().ID, got.Rival().Faction(), FactionRival)
 	}
 	if c := got.Corner("docks"); c.Owner != OwnerRival || c.Faction != FactionRival {
 		t.Fatalf("the rival's corner loaded as %+v, want it named %q", *c, FactionRival)

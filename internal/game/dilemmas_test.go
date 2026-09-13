@@ -14,7 +14,7 @@ func cardWorld() *World {
 	w.SetStock("test", "a", 40)
 	w.Home().Heat = 50
 	w.Crew.Members = []CrewMember{{ID: 1, Name: "Dre", Role: "runner", Loyalty: 50}, {ID: 2, Name: "Tank", Role: "enforcer", Loyalty: 50}}
-	w.Rival = RivalState{Leader: "Ghost", War: 50, Grudge: 1, Muscle: 3, Cash: 5000, Arrived: 1}
+	*w.Rival() = RivalState{Leader: "Ghost", War: 50, Grudge: 1, Muscle: 3, Cash: 5000, Arrived: 1}
 	w.Player.Reputation = Reputation{Fear: 10, Respect: 20, Notoriety: 30}
 	return w
 }
@@ -44,10 +44,10 @@ func TestChooseAppliesEveryEffectKey(t *testing.T) {
 		"heat":                        w.Home().Heat == 49,
 		"loyalty":                     w.Crew.Members[0].Loyalty == 48, // -1 named, -1 crew
 		"crew_loyalty":                w.Crew.Members[1].Loyalty == 49,
-		"war":                         w.Rival.War == 49,
-		"grudge":                      w.Rival.Grudge == 0,
-		"rival_muscle":                w.Rival.Muscle == 2,
-		"rival_cash":                  w.Rival.Cash == 4999,
+		"war":                         w.Rival().War == 49,
+		"grudge":                      w.Rival().Grudge == 0,
+		"rival_muscle":                w.Rival().Muscle == 2,
+		"rival_cash":                  w.Rival().Cash == 4999,
 		"stock_share":                 w.Stock("test", "a") == 20,
 		"fear":                        w.Player.Reputation.Fear == 9,
 		"respect":                     w.Player.Reputation.Respect == 19,
@@ -55,7 +55,7 @@ func TestChooseAppliesEveryEffectKey(t *testing.T) {
 	}
 	for what, ok := range checks {
 		if !ok {
-			t.Errorf("%s did not apply: %+v %+v %+v", what, w.Player, w.Home().Heat, w.Rival)
+			t.Errorf("%s did not apply: %+v %+v %+v", what, w.Player, w.Home().Heat, w.Rival())
 		}
 	}
 	last := w.Journal[len(w.Journal)-1]
@@ -101,8 +101,8 @@ func TestChooseClamps(t *testing.T) {
 	if _, err := w.Choose(0); err != nil {
 		t.Fatal(err)
 	}
-	if w.Player.DirtyCash != 0 || w.Player.CleanCash != 0 || w.Home().Heat != 100 || w.Crew.Members[1].Loyalty != 100 || w.Rival.War != 0 {
-		t.Fatalf("clamps: %+v heat %v loyalty %v war %v", w.Player, w.Home().Heat, w.Crew.Members[1].Loyalty, w.Rival.War)
+	if w.Player.DirtyCash != 0 || w.Player.CleanCash != 0 || w.Home().Heat != 100 || w.Crew.Members[1].Loyalty != 100 || w.Rival().War != 0 {
+		t.Fatalf("clamps: %+v heat %v loyalty %v war %v", w.Player, w.Home().Heat, w.Crew.Members[1].Loyalty, w.Rival().War)
 	}
 	if w.Stock("test", "a") != 50 {
 		t.Fatalf("found stock past capacity: %d", w.Stock("test", "a"))

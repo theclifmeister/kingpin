@@ -14,30 +14,34 @@ import (
 // either side, answered and kept or broken inside the rival's step. The
 // rival's answer is a chance built from what it thinks of the deal, the
 // terms, its trust in the player, its personality, the war and the
-// player's standing; the dice are the tick's.
+// player's standing; the dice are the tick's. Since #43 every faction
+// has a table of its own and a betrayal of one is remembered by all
+// (betrayal_spread).
 
 // MigrateDiplomacy brings a save from before the table up to date: the
 // rival's trust starts where its personality puts it.
 func (s *Sim) MigrateDiplomacy(w *game.World) {
-	if w.Rival.Leader != "" && w.Rival.Trust == 0 {
-		w.Rival.Trust = s.personality(w).Trust
+	r := w.Rival()
+	if r.Leader != "" && r.Trust == 0 {
+		r.Trust = s.personality(r).Trust
 	}
 }
 
 // Diplomacy exposes the table's constants for the UI.
 func (s *Sim) Diplomacy() content.DiplomacyTuning { return s.cfg.Diplomacy }
 
-// Distrusted reports whether the rival is still refusing everything
+// Distrusted reports whether a faction is still refusing everything
 // after a betrayal, as of the tick of day.
-func (s *Sim) Distrusted(w *game.World, day int) bool {
-	return w.Rival.Betrayed > 0 && day-w.Rival.Betrayed < s.cfg.Diplomacy.DistrustDays
+func (s *Sim) Distrusted(r *game.RivalState, day int) bool {
+	return r.Betrayed > 0 && day-r.Betrayed < s.cfg.Diplomacy.DistrustDays
 }
 
-// Favour is how the terms of a deal sit with the rival, -1 (the hardest
-// ask) to 1 (the easiest): a short truce, a fat tribute, a modest line.
-// A split that asks for more of the city than the rival's trust allows,
-// or for a corner it holds, is refused outright: Favour returns -inf.
-func (s *Sim) Favour(w *game.World, d game.Deal) float64 {
+// Favour is how the terms of a deal sit with the faction, -1 (the
+// hardest ask) to 1 (the easiest): a short truce, a fat tribute, a
+// modest line. A split that asks for more of the city than the
+// faction's trust allows, or for a corner it holds, is refused
+// outright: Favour returns -inf.
+func (s *Sim) Favour(w *game.World, r *game.RivalState, d game.Deal) float64 {
 	dip := s.cfg.Diplomacy
 	ramp := func(v, lo, mid, hi float64) float64 {
 		// 1 at lo, 0 at mid, -1 at hi, clamped.
@@ -59,14 +63,14 @@ func (s *Sim) Favour(w *game.World, d game.Deal) float64 {
 	case game.DealTribute:
 		cuts := dip.TributeCuts
 		cut := 0.0
-		if v := s.TributeBase(w); v > 0 {
+		if v := s.TributeBase(w, r); v > 0 {
 			cut = float64(d.Terms.PerDay) / v
 		}
 		// A fat cut is the easy ask: the ramp runs the other way.
 		return -ramp(cut, cuts[0], cuts[1], cuts[2])
 	case game.DealSplit:
 		total, ask := 0.0, 0.0
-		for _, c := range s.corners(w) {
+		for _, c := range s.corners(w, r) {
 			total += c.Demand
 			if slices.Contains(d.Terms.Corners, c.ID) {
 				if c.Owner == game.OwnerRival {
@@ -75,7 +79,7 @@ func (s *Sim) Favour(w *game.World, d game.Deal) float64 {
 				ask += c.Demand
 			}
 		}
-		fair := dip.SplitFair + dip.SplitTrust*w.Rival.Trust/100
+		fair := dip.SplitFair + dip.SplitTrust*r.Trust/100
 		if total > 0 {
 			ask /= total
 		}
@@ -87,100 +91,148 @@ func (s *Sim) Favour(w *game.World, d game.Deal) float64 {
 	return math.Inf(-1)
 }
 
-// Chance is the chance the rival accepts a deal put to it tonight. The
+// Chance is the chance a faction accepts a deal put to it tonight. The
 // UI's propose dialog shows it, so the estimate is what the dice use.
-func (s *Sim) Chance(w *game.World, d game.Deal) float64 {
+func (s *Sim) Chance(w *game.World, r *game.RivalState, d game.Deal) float64 {
 	dip := s.cfg.Diplomacy
-	r := w.Rival
-	if r.Arrived == 0 || s.Distrusted(w, w.Day+1) {
+	if !r.Alive() || s.Distrusted(r, w.Day+1) {
 		return 0
 	}
-	favour := s.Favour(w, d)
+	favour := s.Favour(w, r, d)
 	if math.IsInf(favour, -1) {
 		return 0
 	}
 	if o := w.Today.Strike; o != nil && o.Force != events.ForceWarn {
-		return 0 // you sent the enforcers in the same night
+		if c := w.Corner(o.Corner); c != nil && owns(*c, r) {
+			return 0 // you sent the enforcers in the same night
+		}
 	}
 	dc := s.cfg.Deal[d.Kind]
 	p := dc.Base + dc.Terms*favour +
 		dip.AcceptTrust*r.Trust/100 +
-		s.personality(w).DealBias +
+		s.personality(r).DealBias +
 		dip.AcceptWar*r.War/100 +
 		s.rep.FearDeal*math.Max(0, math.Min(1, w.Player.Reputation.Fear/100))
 	return math.Max(0, math.Min(1, p))
 }
 
 // seal makes a deal live from tonight, on exactly the terms given.
-func (s *Sim) seal(w *game.World, t *game.Tick, d game.Deal) {
+func (s *Sim) seal(w *game.World, t *game.Tick, r *game.RivalState, d game.Deal) {
 	d.Since = t.Day
 	d.Until = 0
+	if r != w.Rival() {
+		d.Faction = r.Faction() // the rival at home's deals read as they always did
+	}
 	if d.Kind == game.DealTruce {
 		d.Until = t.Day + d.Terms.Days
 	}
-	w.Rival.Deals = append(w.Rival.Deals, d)
-	w.Rival.Observed = true
+	r.Deals = append(r.Deals, d)
+	r.Observed = true
 	w.Stats.Deals++
-	t.Emit(events.DealAccepted{Day: t.Day, Rival: w.Rival.Leader, Faction: w.Rival.Faction(), Deal: d.Kind, Terms: w.Describe(d), Until: d.Until, Offered: d.Offered})
+	t.Emit(events.DealAccepted{Day: t.Day, Rival: r.Leader, Faction: r.Faction(), Deal: d.Kind, Terms: w.Describe(d), Until: d.Until, Offered: d.Offered})
 }
 
 // betray is the player breaking a deal: it is gone, trust falls to the
-// floor and the rival takes nothing for a while. The phone call is made
-// once per night, by the caller.
-func (s *Sim) betray(w *game.World, t *game.Tick, d game.Deal, why string) {
-	r := &w.Rival
+// floor and the faction takes nothing for a while. The phone call is
+// made once per night, by the caller. Every other faction remembers it
+// (#43, betrayal_spread): their trust in you falls by the spread the
+// same step, once a night however many deals broke.
+func (s *Sim) betray(w *game.World, t *game.Tick, r *game.RivalState, d game.Deal, why string) {
 	r.Deals = slices.DeleteFunc(r.Deals, func(x game.Deal) bool { return x.Kind == d.Kind })
 	r.Trust = math.Min(r.Trust, s.cfg.Diplomacy.BetrayalFloor)
 	r.Betrayed = t.Day
 	r.Observed = true
 	w.Stats.Betrayals++
 	t.Emit(events.DealBroken{Day: t.Day, Rival: r.Leader, Faction: r.Faction(), Deal: d.Kind, By: "you", Why: why})
+	s.spread(w, t, r)
 }
 
-// table runs the morning's business: a routed rival's deals end, offers
-// lapse, the offers the player took are sealed, tribute is paid or
-// missed, a split corner given up is noticed. It returns whether the
-// player betrayed anything, for the strike to add to.
-func (s *Sim) table(w *game.World, t *game.Tick) bool {
-	r := &w.Rival
-	// A rival run out of town has nothing to deal about: what stood ends.
-	if w.RivalHeld() == 0 {
+// spread is a betrayal remembered by the table (#43): every other
+// faction alive loses betrayal_spread of its trust in you, once a step
+// per faction betrayed.
+func (s *Sim) spread(w *game.World, t *game.Tick, r *game.RivalState) {
+	spread := s.cfg.Diplomacy.BetrayalSpread
+	if spread <= 0 {
+		return
+	}
+	for _, e := range t.Events() {
+		if ev, ok := e.(events.TrustSpread); ok && ev.Faction == r.Faction() {
+			return
+		}
+	}
+	n := 0
+	for _, o := range w.Rivals {
+		if o == nil || o == r || o.Gone() || o.Leader == "" {
+			continue
+		}
+		o.Trust = math.Max(0, o.Trust-spread)
+		n++
+	}
+	if n > 0 {
+		t.Emit(events.TrustSpread{Day: t.Day, Rival: r.Leader, Faction: r.Faction(), Spread: spread, Others: n})
+	}
+}
+
+// table runs the morning's business: a routed faction's deals end,
+// offers lapse, the offers the player took are sealed, tribute is paid
+// or missed, a homage is paid or given up, a split corner given up is
+// noticed. It returns whether the player betrayed anything, for the
+// strike to add to.
+func (s *Sim) table(w *game.World, t *game.Tick, r *game.RivalState) bool {
+	id := r.Faction()
+	// A faction run out of town has nothing to deal about: what stood
+	// ends.
+	if w.RivalHeldBy(id) == 0 {
 		for _, d := range r.Deals {
-			t.Emit(events.DealEnded{Day: t.Day, Rival: r.Leader, Faction: r.Faction(), Deal: d.Kind})
+			t.Emit(events.DealEnded{Day: t.Day, Rival: r.Leader, Faction: id, Deal: d.Kind})
 		}
 		r.Deals = nil
-		w.Offers = nil
+		w.Offers = slices.DeleteFunc(w.Offers, func(o game.Offer) bool { return o.With() == id })
 		return false
 	}
-	w.Offers = slices.DeleteFunc(w.Offers, func(o game.Offer) bool { return t.Day > o.Expires })
+	w.Offers = slices.DeleteFunc(w.Offers, func(o game.Offer) bool { return o.With() == id && t.Day > o.Expires })
 	for _, o := range w.Today.Accepted {
-		if w.Deal(o.Deal.Kind) != nil {
+		if o.With() != id || w.DealWith(id, o.Deal.Kind) != nil {
 			continue
 		}
 		d := o.Deal
 		d.Offered = true
-		s.seal(w, t, d)
+		s.seal(w, t, r, d)
 	}
 	betrayed := false
-	if d := w.Deal(game.DealTribute); d != nil {
+	if d := w.DealWith(id, game.DealTribute); d != nil {
 		if w.Player.DirtyCash < d.Terms.PerDay {
-			s.betray(w, t, *d, "the tribute went unpaid")
+			s.betray(w, t, r, *d, "the tribute went unpaid")
 			betrayed = true
 		} else {
 			w.Player.DirtyCash -= d.Terms.PerDay
 			r.Cash += d.Terms.PerDay
 			w.Stats.Tribute += d.Terms.PerDay
-			t.Emit(events.TributePaid{Day: t.Day, Rival: r.Leader, Faction: r.Faction(), Amount: d.Terms.PerDay})
+			t.Emit(events.TributePaid{Day: t.Day, Rival: r.Leader, Faction: id, Amount: d.Terms.PerDay})
 		}
 	}
-	if d := w.Deal(game.DealSplit); d != nil {
-		for _, id := range w.Today.Abandoned {
-			if d.Covers(id) {
-				name := id
-				if c := w.Corner(id); c != nil {
+	// A homage (#43) runs the other way: it pays you out of its chest,
+	// and a night it cannot pay ends it (they stopped bowing; nothing
+	// you did).
+	if d := w.DealWith(id, game.DealHomage); d != nil {
+		if r.Cash < d.Terms.PerDay {
+			r.Deals = slices.DeleteFunc(r.Deals, func(x game.Deal) bool { return x.Kind == game.DealHomage })
+			t.Emit(events.DealEnded{Day: t.Day, Rival: r.Leader, Faction: id, Deal: game.DealHomage})
+		} else {
+			r.Cash -= d.Terms.PerDay
+			w.Player.DirtyCash += d.Terms.PerDay
+			w.Stats.Homage += d.Terms.PerDay
+			t.Emit(events.TributePaid{Day: t.Day, Rival: r.Leader, Faction: id, Amount: d.Terms.PerDay, ToYou: true})
+		}
+	}
+	if d := w.DealWith(id, game.DealSplit); d != nil {
+		for _, cid := range w.Today.Abandoned {
+			if d.Covers(cid) {
+				name := cid
+				if c := w.Corner(cid); c != nil {
 					name = c.Name
 				}
-				s.betray(w, t, *d, fmt.Sprintf("you walked off %s", name))
+				s.betray(w, t, r, *d, fmt.Sprintf("you walked off %s", name))
 				betrayed = true
 				break
 			}
@@ -189,30 +241,32 @@ func (s *Sim) table(w *game.World, t *game.Tick) bool {
 	return betrayed
 }
 
-// crossed is the player's strike tonight breaking every peace: a push or
-// a hit under a live deal is a betrayal of all of them. A warning is not.
-func (s *Sim) crossed(w *game.World, t *game.Tick, o *game.StrikeOrder) bool {
+// crossed is the player's strike tonight breaking every peace with the
+// faction struck: a push or a hit under a live deal is a betrayal of
+// all of them. A warning is not.
+func (s *Sim) crossed(w *game.World, t *game.Tick, r *game.RivalState, o *game.StrikeOrder) bool {
 	if o == nil || o.Force == events.ForceWarn {
 		return false
 	}
 	c := w.Corner(o.Corner)
-	if c == nil || c.Owner != game.OwnerRival {
+	if c == nil || !owns(*c, r) {
 		return false
 	}
 	why := fmt.Sprintf("your enforcers %s %s", pastTense(o.Force), c.Name)
 	if o.Boost {
 		why = "your enforcers robbed " + c.Name
 	}
-	return s.breakAll(w, t, why)
+	return s.breakAll(w, t, r, why)
 }
 
-// breakAll is the player breaking every live deal at once, for the
-// reason given; it reports whether there was one to break.
-func (s *Sim) breakAll(w *game.World, t *game.Tick, why string) bool {
+// breakAll is the player breaking every live deal with a faction at
+// once, for the reason given; it reports whether there was one to
+// break.
+func (s *Sim) breakAll(w *game.World, t *game.Tick, r *game.RivalState, why string) bool {
 	betrayed := false
-	for _, kind := range []string{game.DealTruce, game.DealTribute, game.DealSplit} {
-		if d := w.Deal(kind); d != nil {
-			s.betray(w, t, *d, why)
+	for _, kind := range []string{game.DealTruce, game.DealTribute, game.DealSplit, game.DealHomage} {
+		if d := w.DealWith(r.Faction(), kind); d != nil {
+			s.betray(w, t, r, *d, why)
 			betrayed = true
 		}
 	}
@@ -228,35 +282,34 @@ func pastTense(f events.Force) string {
 	}
 }
 
-// answer is the rival's reply to tonight's proposal.
-func (s *Sim) answer(w *game.World, t *game.Tick) {
+// answer is the faction's reply to tonight's proposal, if it was put to
+// it.
+func (s *Sim) answer(w *game.World, t *game.Tick, r *game.RivalState, rng rand) {
 	p := w.Today.Proposal
-	if p == nil || w.Rival.Arrived == 0 {
+	if p == nil || r.Arrived == 0 || w.Faction(p.Faction) != r {
 		return
 	}
-	r := &w.Rival
 	r.Observed = true
 	d := *p
 	d.Offered = false
-	if w.Deal(d.Kind) == nil && t.RNG.Float64() < s.Chance(w, d) {
-		s.seal(w, t, d)
+	if w.DealWith(r.Faction(), d.Kind) == nil && rng.Float64() < s.Chance(w, r, d) {
+		s.seal(w, t, r, d)
 		return
 	}
 	w.Stats.DealsRefused++
 	t.Emit(events.DealRefused{Day: t.Day, Rival: r.Leader, Faction: r.Faction(), Deal: d.Kind, Terms: w.Describe(d)})
 }
 
-// whim is the rival breaking a deal of its own accord: a chaotic one does,
-// by personality; the others never.
-func (s *Sim) whim(w *game.World, t *game.Tick) {
-	pc := s.personality(w)
+// whim is the faction breaking a deal of its own accord: a chaotic one
+// does, by personality; the others never.
+func (s *Sim) whim(w *game.World, t *game.Tick, r *game.RivalState, rng rand) {
+	pc := s.personality(r)
 	if pc.Betrayal <= 0 {
 		return
 	}
-	r := &w.Rival
 	for i := 0; i < len(r.Deals); i++ {
 		d := r.Deals[i]
-		if !d.Live(t.Day) || t.RNG.Float64() >= pc.Betrayal {
+		if !d.Live(t.Day) || rng.Float64() >= pc.Betrayal {
 			continue
 		}
 		r.Deals = append(r.Deals[:i], r.Deals[i+1:]...)
@@ -267,14 +320,14 @@ func (s *Sim) whim(w *game.World, t *game.Tick) {
 	}
 }
 
-// offLimits reports whether a deal keeps the rival off a corner tonight:
-// a truce or a tribute keeps it off every corner of yours, a split off
-// every corner on your side of the line.
-func (s *Sim) offLimits(w *game.World, c *game.Corner) bool {
-	if w.AtPeace() {
+// offLimits reports whether a deal keeps the faction off a corner
+// tonight: a truce, a tribute or a homage keeps it off every corner of
+// yours, a split off every corner on your side of the line.
+func (s *Sim) offLimits(w *game.World, r *game.RivalState, c *game.Corner) bool {
+	if w.AtPeaceWith(r.Faction()) {
 		return true
 	}
-	if d := w.Deal(game.DealSplit); d != nil && d.Covers(c.ID) {
+	if d := w.DealWith(r.Faction(), game.DealSplit); d != nil && d.Covers(c.ID) {
 		return true
 	}
 	return false
@@ -282,9 +335,8 @@ func (s *Sim) offLimits(w *game.World, c *game.Corner) bool {
 
 // keep closes the night's books on the deals: the ones that ran out end,
 // the rest earn trust, faster for a respected player.
-func (s *Sim) keep(w *game.World, t *game.Tick) {
+func (s *Sim) keep(w *game.World, t *game.Tick, r *game.RivalState) {
 	dip := s.cfg.Diplomacy
-	r := &w.Rival
 	earn := dip.TrustKept * content.Scale(w.Player.Reputation.Respect, s.rep.RespectTrust)
 	for i := 0; i < len(r.Deals); i++ {
 		d := r.Deals[i]
@@ -298,31 +350,31 @@ func (s *Sim) keep(w *game.World, t *game.Tick) {
 	}
 }
 
-// offer is the rival putting a deal on the table when its situation calls
-// for one: an expansionist that cannot pay its muscle asks for a truce, an
-// opportunist with the upper hand on the front line demands tribute, a
-// defensive one asks for a long truce once the war is loud, a chaotic one
-// with a front line asks for a short one on a whim. One offer on the
-// table at a time.
-func (s *Sim) offer(w *game.World, t *game.Tick) {
+// offer is the faction putting a deal on the table when its situation
+// calls for one: an expansionist that cannot pay its muscle asks for a
+// truce, an opportunist with the upper hand on the front line demands
+// tribute, a defensive one asks for a long truce once the war is loud,
+// a chaotic one with a front line asks for a short one on a whim. One
+// offer of its own on the table at a time.
+func (s *Sim) offer(w *game.World, t *game.Tick, r *game.RivalState, rng rand) {
 	tun := s.cfg.Rivals
 	dip := s.cfg.Diplomacy
-	pc := s.personality(w)
-	r := &w.Rival
-	if r.Arrived == 0 || w.RivalHeld() == 0 || w.Held() == 0 || len(w.Offers) > 0 || pc.OfferChance <= 0 || s.Distrusted(w, t.Day) {
+	pc := s.personality(r)
+	id := r.Faction()
+	if r.Arrived == 0 || w.RivalHeldBy(id) == 0 || w.Held() == 0 || s.offering(w, id) || pc.OfferChance <= 0 || s.Distrusted(r, t.Day) {
 		return
 	}
 	var d game.Deal
 	switch r.Personality {
 	case "expansionist":
-		if r.Cash >= s.Wages(w)*dip.LowCashDays {
+		if r.Cash >= s.Wages(w, r)*dip.LowCashDays {
 			return
 		}
 		d = game.Deal{Kind: game.DealTruce, Terms: game.Terms{Days: dip.TruceDays[1]}}
 	case "opportunist":
 		front, guard := 0, 0.0
-		for _, c := range s.corners(w) {
-			if c.Held() && w.Contested(c) {
+		for _, c := range s.corners(w, r) {
+			if c.Held() && w.ContestedBy(c, id) {
 				front++
 				guard += s.Guard(w, &c)
 			}
@@ -330,36 +382,61 @@ func (s *Sim) offer(w *game.World, t *game.Tick) {
 		if front == 0 || float64(r.Muscle) < dip.UpperHand*math.Max(1, guard) {
 			return
 		}
-		d = game.Deal{Kind: game.DealTribute, Terms: game.Terms{PerDay: s.cut(w, dip.TributeCuts[1])}}
+		d = game.Deal{Kind: game.DealTribute, Terms: game.Terms{PerDay: s.cut(w, r, dip.TributeCuts[1])}}
 	case "defensive":
 		if r.War < tun.WarThreshold {
 			return
 		}
 		d = game.Deal{Kind: game.DealTruce, Terms: game.Terms{Days: dip.TruceDays[2]}}
 	case "chaotic":
-		if s.frontline(w) == 0 {
+		if s.frontline(w, r) == 0 {
 			return
 		}
 		d = game.Deal{Kind: game.DealTruce, Terms: game.Terms{Days: dip.TruceDays[0]}}
 	default:
 		return
 	}
-	if w.Deal(d.Kind) != nil || (w.Today.Proposal != nil && w.Today.Proposal.Kind == d.Kind) || t.RNG.Float64() >= pc.OfferChance {
+	if w.DealWith(id, d.Kind) != nil || (w.Today.Proposal != nil && w.Today.Proposal.Kind == d.Kind && w.Faction(w.Today.Proposal.Faction) == r) || rng.Float64() >= pc.OfferChance {
 		return
 	}
+	s.putOffer(w, t, r, d)
+}
+
+// offering reports whether a faction has an offer on the table.
+func (s *Sim) offering(w *game.World, id string) bool {
+	for _, o := range w.Offers {
+		if o.With() == id {
+			return true
+		}
+	}
+	return false
+}
+
+// putOffer puts a faction's deal on the table for offer_days.
+func (s *Sim) putOffer(w *game.World, t *game.Tick, r *game.RivalState, d game.Deal) {
+	dip := s.cfg.Diplomacy
 	d.Offered = true
 	r.NextOffer++
 	o := game.Offer{ID: r.NextOffer, Deal: d, Expires: t.Day + dip.OfferDays - 1}
+	if r != w.Rival() {
+		d.Faction = r.Faction() // the rival at home's offers read as they always did
+		o.Deal.Faction = r.Faction()
+		o.Faction = r.Faction()
+	}
 	w.Offers = append(w.Offers, o)
 	r.Observed = true
 	t.Emit(events.DealOffered{Day: t.Day, ID: o.ID, Rival: r.Leader, Faction: r.Faction(), Deal: d.Kind, Terms: w.Describe(d), Expires: o.Expires})
 }
 
 // cut is a tribute at a cut of TributeBase, the player's daily street
-// value in the products the rival deals in, rounded to two figures and
-// never under the minimum.
-func (s *Sim) cut(w *game.World, share float64) int {
-	v := share * s.TributeBase(w)
+// value in the products the faction deals in, rounded to two figures
+// and never under the minimum.
+func (s *Sim) cut(w *game.World, r *game.RivalState, share float64) int {
+	return s.round(share * s.TributeBase(w, r))
+}
+
+// round is a sum to two figures, never under the tribute minimum.
+func (s *Sim) round(v float64) int {
 	if v < 100 {
 		return max(s.cfg.Diplomacy.TributeMin, int(math.Round(v)))
 	}
@@ -369,4 +446,4 @@ func (s *Sim) cut(w *game.World, share float64) int {
 
 // Cut is the tribute a cut of today's TributeBase comes to, for the
 // propose dialog and the diplomat policy.
-func (s *Sim) Cut(w *game.World, share float64) int { return s.cut(w, share) }
+func (s *Sim) Cut(w *game.World, r *game.RivalState, share float64) int { return s.cut(w, r, share) }

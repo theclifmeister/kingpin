@@ -505,7 +505,7 @@ func staff(cfg *content.Config, w *game.World, city string, corners int) {
 	if n := w.Crew.Role("enforcer"); want == "enforcer" && n >= min(corners, worked) {
 		want = ""
 	}
-	if w.Rival.Arrived > 0 && w.Crew.Runners() >= 1 && w.Crew.Role("enforcer") < guards {
+	if w.Rival().Arrived > 0 && w.Crew.Runners() >= 1 && w.Crew.Role("enforcer") < guards {
 		want = "enforcer"
 		// A full roster of runners makes room: the least skilled goes.
 		if len(w.Crew.Members) >= maxCrew && len(w.Crew.FiredToday) == 0 {
@@ -642,7 +642,25 @@ func Warlike(cfg *content.Config, lieLowAt float64, corners int, force events.Fo
 // takes and what a hire or a claim needs.
 func RivalBooks(cfg *content.Config, w *game.World) (income, wages int) {
 	rv := rivals.New(cfg)
-	return rv.Income(w), rv.Wages(w)
+	return rv.Income(w, w.Rival()), rv.Wages(w, w.Rival())
+}
+
+// Nearest is the faction the home policies deal with (#43): of the
+// factions alive at home, the one that took a corner off the player
+// most recently, else the one holding the most corners there, else the
+// rival at home. In a duel it is the rival at home, always.
+func Nearest(w *game.World) *game.RivalState {
+	home := w.Home().ID
+	best := w.Rival()
+	for _, r := range w.Rivals {
+		if r == nil || !r.Alive() || w.CityOf(r).ID != home {
+			continue
+		}
+		if best.Gone() || r.LastFlip > best.LastFlip || (r.LastFlip == best.LastFlip && w.RivalHeldBy(r.Faction()) > w.RivalHeldBy(best.Faction())) {
+			best = r
+		}
+	}
+	return best
 }
 
 // Pricewar plays like Territory and fights with money (#68): every day
@@ -680,7 +698,7 @@ func Outbidder(cfg *content.Config, lieLowAt float64, corners int) Policy {
 // on the smallest worked corner. It reports whether somebody was put
 // there.
 func Outbid(w *game.World) bool {
-	eyed := w.Corner(w.Rival.Eyeing)
+	eyed := w.Corner(w.Rival().Eyeing)
 	if eyed == nil || eyed.Owner != game.OwnerNone {
 		return false
 	}
@@ -728,14 +746,15 @@ func Diplomat(cfg *content.Config, lieLowAt float64, corners int) Policy {
 				}
 			}
 		}
-		if w.AtPeace() || w.Today.Proposal != nil || w.Rival.LastFlip == 0 || w.Day-w.Rival.LastFlip > DiplomatDays {
+		r := Nearest(w)
+		if w.AtPeaceWith(r.Faction()) || w.Today.Proposal != nil || r.LastFlip == 0 || w.Day-r.LastFlip > DiplomatDays {
 			return
 		}
 		if humbled {
-			_ = w.Propose(game.DealTribute, game.Terms{PerDay: rv.Cut(w, dip.TributeCuts[1])})
+			_ = w.ProposeTo(r.Faction(), game.DealTribute, game.Terms{PerDay: rv.Cut(w, r, dip.TributeCuts[1])})
 			return
 		}
-		_ = w.Propose(game.DealTruce, game.Terms{Days: dip.TruceDays[1]})
+		_ = w.ProposeTo(r.Faction(), game.DealTruce, game.Terms{Days: dip.TruceDays[1]})
 	}
 }
 
@@ -1242,10 +1261,10 @@ func distribute(cfg *content.Config, lieLowAt float64, delegate, fight bool, per
 			}
 		}
 		want := "runner"
-		if w.Rival.Arrived > 0 && w.Crew.Role("enforcer") == 0 && w.Crew.Runners() >= 2 {
+		if w.Rival().Arrived > 0 && w.Crew.Role("enforcer") == 0 && w.Crew.Runners() >= 2 {
 			want = "enforcer"
 		}
-		if fight && w.Rival.Arrived > 0 && w.Crew.Role("enforcer") < guards && w.Crew.Runners() >= 2 {
+		if fight && w.Rival().Arrived > 0 && w.Crew.Role("enforcer") < guards && w.Crew.Runners() >= 2 {
 			want = "enforcer"
 		}
 		if delegate && lt == nil {
@@ -1384,7 +1403,8 @@ const DistributorMargin = 0.7
 // BossOdds; else the diplomat's table, a truce proposed whenever a
 // corner was lost in the last DiplomatDays and any truce offered taken.
 func war(w *game.World, rv *rivals.Sim, dip content.DiplomacyTuning, hot func(*game.World) bool) {
-	if w.Rival.Arrived == 0 {
+	r := Nearest(w)
+	if r.Arrived == 0 {
 		return
 	}
 	for _, o := range w.Offers {
@@ -1403,16 +1423,16 @@ func war(w *game.World, rv *rivals.Sim, dip content.DiplomacyTuning, hot func(*g
 	// same line wins corners and loses the run: 6.6 strikes a run took 4
 	// corners, brought 23 crackdowns over 20 seeds and indicted 4 of
 	// them, for a lower median at the horizon than talking.)
-	if contested && !w.AtPeace() && !hot(w) && rv.Odds(w, events.ForcePush) >= BossOdds {
-		if c := pickCorner(w, func(c game.Corner) bool { return c.Owner == game.OwnerRival }, size); c != nil {
+	if contested && !w.AtPeaceWith(r.Faction()) && !hot(w) && rv.Odds(w, r, events.ForcePush) >= BossOdds {
+		if c := pickCorner(w, func(c game.Corner) bool { return c.FactionID() == r.Faction() }, size); c != nil {
 			_ = w.SendEnforcers(c.ID, events.ForcePush)
 			return
 		}
 	}
-	if w.AtPeace() || w.Today.Proposal != nil || w.Rival.LastFlip == 0 || w.Day-w.Rival.LastFlip > DiplomatDays {
+	if w.AtPeaceWith(r.Faction()) || w.Today.Proposal != nil || r.LastFlip == 0 || w.Day-r.LastFlip > DiplomatDays {
 		return
 	}
-	_ = w.Propose(game.DealTruce, game.Terms{Days: dip.TruceDays[1]})
+	_ = w.ProposeTo(r.Faction(), game.DealTruce, game.Terms{Days: dip.TruceDays[1]})
 }
 
 // Delegate puts a lieutenant on the payroll, free, running city with the
@@ -1532,6 +1552,19 @@ var TierDays = content.MustLoad().Progression.Checkpoints()
 func NoRival(cfg *content.Config) *content.Config {
 	boxed := *cfg
 	boxed.Rivals.Rivals.ArriveDay = 1 << 30
+	return &boxed
+}
+
+// OneFaction returns a copy of cfg with one faction in the run (#43):
+// the rival at home alone, the duel the game was before the table,
+// byte-for-byte (TestOneFactionIsTheOldRun). The tests that pin the
+// duel run on it; the ones that pin the table run on the file's count.
+func OneFaction(cfg *content.Config) *content.Config { return Factions(cfg, 1) }
+
+// Factions returns a copy of cfg with exactly n factions in the run.
+func Factions(cfg *content.Config, n int) *content.Config {
+	boxed := *cfg
+	boxed.Rivals.Factions.Min, boxed.Rivals.Factions.Max = n, n
 	return &boxed
 }
 

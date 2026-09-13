@@ -59,7 +59,9 @@ func mapFlips(evs []events.Event) []mapFlip {
 	return flips
 }
 
-// ownerColour is the colour a corner's owner draws it in: ownerStyle's.
+// ownerColour is the colour a corner's owner draws it in: ownerStyle's,
+// the rival at home's purple for any faction (a flip is a colour
+// change, and a scene needs two).
 func ownerColour(owner string) lipgloss.Color {
 	switch owner {
 	case game.OwnerPlayer:

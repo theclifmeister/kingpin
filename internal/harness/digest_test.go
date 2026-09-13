@@ -31,7 +31,11 @@ import (
 // permits it; amd64 does not) cannot move the hash between a laptop
 // and CI while a real change to any number does.
 func TestSeedDigest(t *testing.T) {
-	cfg := content.MustLoad()
+	// The duel (#43, harness.OneFaction): the digest pins the sims on the
+	// one rival's dice, the run every number before #43 was pinned on;
+	// TestOneFactionIsTheOldRun says the duel is byte-for-byte the old
+	// run, and this is where a moved number names its day.
+	cfg := OneFaction(content.MustLoad())
 	cfg.Incidents.Table = nil // the weather stays boxed (#44), as it is in every harness run: the digest pins the sims
 	w := sim.NewWorld(cfg, seedDigestSeed)
 	_, sims, err := sim.Default(cfg)
@@ -168,20 +172,28 @@ const (
 // number moves from day 1: QuietDays, the count of quiet days in a row,
 // which every run keeps and nothing but Retire reads; the boss reserves
 // nothing by day 60 on this seed, holding under a campaign's worth).
+// Again for #43 (the table, on the duel's dice, harness.OneFaction:
+// World.Rival became the slice World.Rivals of one, RivalState gained
+// Home, Grudges, Trusts, Ally, Against, LostToYou, LastTakenBy,
+// Absorbed, AbsorbedBy, Fragmented and Fragments, Deal, Offer,
+// ScoutOrder, PoachOrder and Lead a Faction, CrewMember a Former and
+// four Stats; the move is on day 1 by shape alone and no number moved:
+// cmd/balance -factions 1 prints main's trace to the dollar on every
+// day of five policies over three seeds, TestOneFactionIsTheOldRun).
 var seedDigest = []string{
-	"039175d3b483a140", "fc46d36cec2ee8e5", "fe46b9bdae9bfb9d", "53e05e04d006e3a9",
-	"8d2e7baa58042923", "255669caa3876307", "5d9f81e9f2886a0f", "3c84821130994e14",
-	"b97d3737da12f76b", "cdb70c8044569655", "68a15ac5c26d86f6", "0a3d2b68f7213c77",
-	"69e0f3b4f805d8ed", "e37cb7067282af60", "22e9192c3997dff8", "53b835ed64231591",
-	"05a35b8893c734f7", "9ddd0138e2c26fdb", "c54f0f37f628f104", "a67aad79fb5380e7",
-	"ce93db38fcff48c2", "07bf236ec6a41913", "650d00750501ad8f", "599c07142485146c",
-	"30f61951c016eaf4", "311322e1da953918", "f71c7db0d91a69d8", "5934b0268ea7c75c",
-	"ba08f7ff466cec54", "0b8dfc238b7e151c", "991ee1cbb230e423", "7bed89a20af443dc",
-	"83b7e75d250b6fa9", "c7380b39f51c10f2", "96ec3c15484aa986", "1b32c49e2a8cb9d2",
-	"67eb26832eba20a3", "bbd9cb6bc0218e3f", "68e7d7e1c60ae4d7", "2e4a907e491d0a84",
-	"5d289818d629387c", "11a4e9c94b74de7d", "5c2132fbba26cacd", "dc751d3cdb96a21c",
-	"15bc0b8e79e3f497", "f775e0b7ebd836c0", "41b3b364e3de4dd8", "80c1963c932c90d4",
-	"1cb6d0b9257cc08a", "433ef3c7af3da9a1", "7001204c71bbfebf", "a5ca02e650b12415",
-	"4f8b1cdea76c6df8", "b41883a6166f8b30", "6fafe90669eb03fd", "fd59d570810223bf",
-	"dfa110ad96ca6a70", "b4a6b8fb38d3f9c1", "c2976d7e8aa9bb22", "e30642d9734421cc",
+	"306c2ff7648c944e", "e95972a9ae11da71", "661751acbc4e806a", "fd4a101b0a904fee",
+	"58dcd6e8a4aef89b", "1bf8decd57e81c7b", "ac03e719a0ffbbcd", "da5021f4de11a31d",
+	"eea778dc432a5626", "8f5fa4591e7fd448", "2ce1b3253e5b2ca9", "4e7ff7dea4a4c17a",
+	"527008a8a892cc8a", "5c90e3c920f1e13f", "8a64f1cf969b47cf", "0310e49b09f7975d",
+	"5c59f97c76ca8525", "af77dec326fb13c4", "f2700ac72c101221", "a6874e449ef025fe",
+	"393a08675467a741", "d722a6bfabc46dce", "0840976ea09522f6", "a15b0540571d2c21",
+	"0cde7a1c75b31bd7", "9e65db6ce17c27a7", "9f97c410dd7b3fd7", "10fe80520d94d82f",
+	"84ba3df874ff4d67", "7cb8880ed1dcf9b1", "18dd3d3234ff8224", "ba492e5e8d8d8b2d",
+	"e70f4f19e8a81766", "1b948cc13589cb2d", "3f280f4d3f691c27", "773411b6aa95cfbd",
+	"41cafa8a6dbd6060", "004265f82618d830", "0667445e5fe699a2", "b61b6e85bae43713",
+	"754520aaecb2fad5", "0b64a55c03c14566", "aff3bdaa891d82b6", "b7c6a6eb258f73bb",
+	"fcdc815219df3ccc", "b2776a6801e4ae17", "1222d04977314499", "d25b25adbbfdc081",
+	"a478fafdd9ec9297", "68a803d6628f29c6", "9b16e0e375364f04", "a089308e10dbecd4",
+	"3a06c971f0d6f871", "7aa97c489db5d4f4", "cc5bcc14182363bb", "1844210ce5364693",
+	"77fc6c977651482e", "4d7a7e3f75423a2b", "9f97f154283d9494", "9d382c7a38639cfa",
 }
