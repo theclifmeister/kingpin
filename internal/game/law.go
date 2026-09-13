@@ -44,6 +44,12 @@ type LawState struct {
 	Backfired   int
 	Filed       int
 	Cold        int
+
+	// Forfeited is the day the DA last seized a deed (#194): the deeds
+	// held cost more than city.toml [deed] forfeit_ratio times what the
+	// fronts had washed. The heat sim reads it the next morning, as it
+	// reads Backfired, and files forfeit_evidence pages. 0: never.
+	Forfeited int
 }
 
 // Bribe targets (#42): the chief and the DA.

@@ -25,6 +25,7 @@ type Sim struct {
 	lt     content.LieutenantTuning
 	law    content.LawConfig
 	houses content.HousesTuning
+	deed   content.DeedTuning   // #194: raid_mul on a house on a deeded block, forfeit_evidence the morning after a forfeiture
 	assets content.AssetsConfig // #48: the floor an owned asset puts under every city, and which asset the task force takes
 }
 
@@ -43,8 +44,27 @@ type Sim struct {
 // under every city, since the task force that takes one is this sim's
 // rung.
 func New(cfg *content.Config) *Sim {
-	return &Sim{cfg: cfg.Heat, market: cfg.Market, ship: cfg.Routes.Shipping, tree: cfg.Upgrades, rep: cfg.Reputation.Effects, lt: cfg.Crew.Lieutenant, law: cfg.Law, houses: cfg.Houses.Houses, assets: cfg.Assets}
+	return &Sim{cfg: cfg.Heat, market: cfg.Market, ship: cfg.Routes.Shipping, tree: cfg.Upgrades, rep: cfg.Reputation.Effects, lt: cfg.Crew.Lieutenant, law: cfg.Law, houses: cfg.Houses.Houses, deed: cfg.City.Deed, assets: cfg.Assets}
 }
+
+// RaidWeight is a house's weight in the raid's roll over the places
+// holding stock (#73): the heat of its block, times city.toml [deed]
+// raid_mul where the block is yours (#194: a house on a deeded block
+// is not known from the street). A house on no block weighs 1.
+func (s *Sim) RaidWeight(w *game.World, h *game.House) float64 {
+	weight := 1.0
+	if c := w.Corner(h.Corner); c != nil {
+		weight = c.Heat
+		if c.Deed != nil && s.deed.On() {
+			weight *= s.deed.RaidMul
+		}
+	}
+	return weight
+}
+
+// ForfeitEvidence is the pages a deed the DA seized files the morning
+// after (#194): what the property dialog warns with.
+func (s *Sim) ForfeitEvidence() int { return s.deed.ForfeitEvidence }
 
 // StructureEvidence is the pages a lot of clean cash moved offshore
 // over the line files the morning after (#195): what the reserve dialog
@@ -629,6 +649,14 @@ func (s *Sim) Step(w *game.World, t *game.Tick) {
 		h.EvidenceDay = t.Day
 		reasons[here] = append(reasons[here], fmt.Sprintf("the DA opened a file on your envelopes: the DA's file on you grows (%d)", h.Evidence))
 	}
+	// A deed the DA seized last night (#194, w.Law.Forfeited, the same
+	// way): the money had no story, and buying the block was something
+	// you did. Pages where you are, whatever was sold.
+	if w.Law.Forfeited > 0 && w.Law.Forfeited == t.Day-1 && s.deed.ForfeitEvidence > 0 {
+		h.Evidence += s.deed.ForfeitEvidence
+		h.EvidenceDay = t.Day
+		reasons[here] = append(reasons[here], fmt.Sprintf("the forfeiture: the DA's file on you grows (%d)", h.Evidence))
+	}
 
 	// Sitting on a pile of dirty cash is its own tell, wherever you sit,
 	// past what your fronts give a story to (Cover).
@@ -967,10 +995,7 @@ func (s *Sim) place(w *game.World, t *game.Tick, city string, told bool) *game.H
 		if h.City != city || h.Units() == 0 {
 			continue
 		}
-		weight := 1.0
-		if c := w.Corner(h.Corner); c != nil {
-			weight = c.Heat
-		}
+		weight := s.RaidWeight(w, h)
 		cands = append(cands, candidate{h, weight})
 		total += weight
 	}

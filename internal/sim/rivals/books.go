@@ -120,7 +120,7 @@ func (s *Sim) boost(w *game.World, t *game.Tick, r *game.RivalState, rng rand, o
 	r.Observed = true
 	r.War += b.War
 	r.Trust = math.Max(0, r.Trust-fc.Trust)
-	if rng.Float64() < s.Odds(w, r, o.Force) {
+	if rng.Float64() < s.OddsOn(w, r, c, o.Force) {
 		ev.Taken = true
 		ev.Cash = s.BoostTake(w, *c)
 		r.Cash -= ev.Cash

@@ -21,8 +21,10 @@ import (
 func TestNoLifeIsTheOldRun(t *testing.T) {
 	t.Parallel()
 	// The duel too (#43, harness.OneFaction): main's pre-#46 figures are
-	// the one rival's, so the table is boxed beside the life.
-	cfg := OneFaction(NoLife(content.MustLoad()))
+	// the one rival's, so the table is boxed beside the life; and the
+	// property (#194, harness.NoDeeds): the boss buys deeds since, and
+	// main's figures are its runs without them.
+	cfg := NoDeeds(OneFaction(NoLife(content.MustLoad())))
 	for _, row := range []struct {
 		tier   int
 		policy func(*content.Config) Policy

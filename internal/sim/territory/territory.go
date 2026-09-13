@@ -22,11 +22,43 @@ type Sim struct {
 }
 
 // New builds a territory sim from the config, copying what it reads
-// (#144): the city config, the upgrade tree, which it folds for the two
-// Street effects it reads (#119): the drift days and the robbery chance,
-// and the houses' tuning (#73): the house robbery and the rent are its.
+// (#144): the city config (its [deed] table with it, #194: the price,
+// the rent and robbery_mul are this sim's), the upgrade tree, which it
+// folds for the two Street effects it reads (#119): the drift days and
+// the robbery chance, and the houses' tuning (#73): the house robbery
+// and the rent are its.
 func New(cfg *content.Config) *Sim {
 	return &Sim{cfg: cfg.City, tree: cfg.Upgrades, houses: cfg.Houses.Houses}
+}
+
+// Deeds exposes the deed tuning (#194) the UI explains itself with.
+func (s *Sim) Deeds() content.DeedTuning { return s.cfg.Deed }
+
+// DeedPrice is what the block a corner is on costs today (#194): days
+// of its street trade at today's prices, rounded to the dollar; 0 where
+// the file puts none on sale.
+func (s *Sim) DeedPrice(w *game.World, c game.Corner) int {
+	if !s.cfg.Deed.On() {
+		return 0
+	}
+	return int(math.Round(s.cfg.Deed.Days * w.CornerTrade(c)))
+}
+
+// DeedRent is what a deed pays back a day, clean: rent of its price.
+func (s *Sim) DeedRent(d *game.Deed) int {
+	if d == nil {
+		return 0
+	}
+	return int(math.Round(s.cfg.Deed.Rent * float64(d.Price)))
+}
+
+// deedMul is what a deed does to the robbery chance on its block:
+// robbery_mul, or 1 for a block that is nobody's.
+func (s *Sim) deedMul(c *game.Corner) float64 {
+	if c == nil || c.Deed == nil {
+		return 1
+	}
+	return s.cfg.Deed.RobberyMul
 }
 
 func (s *Sim) Name() string { return "territory" }
@@ -108,7 +140,7 @@ func (s *Sim) RobberyChance(w *game.World, c *game.Corner) float64 {
 
 func (s *Sim) robberyChance(fx game.Effects, w *game.World, c *game.Corner) float64 {
 	tun := s.cfg.Territory
-	p := tun.RobberyChance * c.Risk * fx.RobberyMul
+	p := tun.RobberyChance * c.Risk * fx.RobberyMul * s.deedMul(c)
 	return math.Max(0, math.Min(1, s.guardCut(w, c.Enforcer, p)))
 }
 
@@ -124,18 +156,20 @@ func (s *Sim) guardCut(w *game.World, id int, p float64) float64 {
 
 // HouseRobberyChance is the chance a stash house is stuck up today
 // (#73): the city's robbery_chance, the block's risk, house_risk and the
-// tree's robbery_mul, less what the guard inside takes off, exactly as
-// an enforcer cuts a corner's.
+// tree's robbery_mul (and the deed's, #194, where the block is yours),
+// less what the guard inside takes off, exactly as an enforcer cuts a
+// corner's.
 func (s *Sim) HouseRobberyChance(w *game.World, h *game.House) float64 {
 	return s.houseRobberyChance(s.Effects(w), w, h)
 }
 
 func (s *Sim) houseRobberyChance(fx game.Effects, w *game.World, h *game.House) float64 {
 	risk := 1.0
-	if c := w.Corner(h.Corner); c != nil {
+	c := w.Corner(h.Corner)
+	if c != nil {
 		risk = c.Risk
 	}
-	p := s.cfg.Territory.RobberyChance * risk * s.houses.HouseRisk * fx.RobberyMul
+	p := s.cfg.Territory.RobberyChance * risk * s.houses.HouseRisk * fx.RobberyMul * s.deedMul(c)
 	return math.Max(0, math.Min(1, s.guardCut(w, h.Guard, p)))
 }
 
@@ -148,6 +182,7 @@ func (s *Sim) RentDays() int { return s.houses.RentDays }
 // city.
 func (s *Sim) Step(w *game.World, t *game.Tick) {
 	fx := s.Effects(w)
+	s.deedStep(w, t)
 	// Today's takings per city and product, for the robbers.
 	revenue := map[string]int{}
 	for _, e := range t.Events() {
@@ -164,6 +199,37 @@ func (s *Sim) Step(w *game.World, t *game.Tick) {
 		s.step(w, t, rng, fx, w.Cities[cid], revenue)
 	}
 	s.houseStep(w, t, fx)
+}
+
+// deedStep is the property's day (#194), at the top of the step: the
+// blocks bought today reported (the one that brings a city's count to
+// headline_deeds, or past it, makes the paper), then the rent, clean
+// cash, deed by deed in city order, from the night of the purchase. No
+// dice: a run with no deed emits nothing and pays nothing.
+func (s *Sim) deedStep(w *game.World, t *game.Tick) {
+	for _, id := range w.Today.DeedsBought {
+		c := w.Corner(id)
+		if c == nil || c.Deed == nil {
+			continue
+		}
+		n := w.DeedsIn(c.City)
+		t.Emit(events.DeedBought{Day: t.Day, Corner: c.ID, Name: c.Name, City: c.City, Price: c.Deed.Price, Rent: s.DeedRent(c.Deed), Count: n})
+		if s.cfg.Deed.HeadlineDeeds > 0 && n >= s.cfg.Deed.HeadlineDeeds {
+			t.Emit(events.DeedsBought{Day: t.Day, Corner: c.ID, Name: c.Name, City: c.City, Count: n})
+		}
+	}
+	rent := events.DeedRent{Day: t.Day}
+	for _, c := range w.Deeds() {
+		if r := s.DeedRent(c.Deed); r > 0 {
+			w.Player.CleanCash += r
+			w.Stats.DeedRent += r
+			rent.Amount += r
+			rent.Deeds++
+		}
+	}
+	if rent.Deeds > 0 {
+		t.Emit(rent)
+	}
 }
 
 // houseStep is the stash houses' day (#73): the leases taken today

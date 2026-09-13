@@ -366,18 +366,22 @@ func (m *Model) mapCellW() int {
 
 // cellMark is the glyph before a corner's name: ▪ held, ▴ the rival's,
 // $ the price war's (#68: tonight's orders sell cheap here), ? the
-// tell's (#69: the rival sets up here tomorrow), · free.
+// tell's (#69: the rival sets up here tomorrow), · free; ⌂ a block
+// whose deed is yours (#194), whoever holds the corner (the colour says
+// whose), unless the price war or the tell has the cell tonight.
 func (m *Model) cellMark(c *game.Corner) string {
 	_, undercut := m.w.Undercutting(c.ID)
 	switch {
-	case c.Held():
-		return "▪"
 	case undercut && c.Owner == game.OwnerRival:
 		return "$"
-	case c.Owner == game.OwnerRival:
-		return "▴"
 	case m.eyed(c):
 		return "?"
+	case c.Deed != nil:
+		return deedGlyph
+	case c.Held():
+		return "▪"
+	case c.Owner == game.OwnerRival:
+		return "▴"
 	}
 	return "·"
 }
@@ -468,6 +472,11 @@ func (m *Model) cornerSection(sel *game.Corner) section {
 	if sel.Held() {
 		lines = append(lines, row("robbery", fmt.Sprintf("%.1f%%/day", m.set.Territory.RobberyChance(w, sel)*100)))
 	}
+	// The deed to the block (#194): yours since when and what it pays,
+	// or what it would cost.
+	if d := sel.Deed; d != nil {
+		lines = append(lines, row("DEED", theme.Gold.Render(fmt.Sprintf("yours since day %d · %s/day", d.Bought, money(m.set.Territory.DeedRent(d))))))
+	}
 	// The corner's repeat business (#47): the share of its customers
 	// still coming back, once bad product has cost it some; a row the
 	// corner that was never sold under the floor does without, so the
@@ -487,6 +496,15 @@ func (m *Model) cornerSection(sel *game.Corner) section {
 	}
 	if sel.Held() && w.Contested(*sel) {
 		lines = append(lines, row("push flips", theme.RivalText.Render(fmt.Sprintf("~%.0f%%", m.set.Rivals.PushOdds(w, m.pusher(sel), sel)*100))))
+	}
+	// The deed's key (#194), on any corner whose block is not yet
+	// yours, once there is clean cash to buy with (the row a street
+	// operation with nothing washed does without, so the pane reads as
+	// it did): the price today, and the rent.
+	if sel.Deed == nil && w.Player.CleanCash > 0 {
+		if price := m.set.Territory.DeedPrice(w, *sel); price > 0 {
+			lines = append(lines, keyRow("d", fmt.Sprintf("buy the block: %s clean, +%s/day", cash(price), cash(m.set.Territory.DeedRent(&game.Deed{Price: price})))))
+		}
 	}
 	// Demand per product, biggest first, as many to a line as the value
 	// column holds whole (two, mostly).
@@ -538,7 +556,7 @@ func (m *Model) cornerSection(sel *game.Corner) section {
 		f := m.factionOf(sel)
 		if n := w.Crew.Role("enforcer"); n > 0 {
 			lines = append(lines, keyRow("w", fmt.Sprintf("push takes it ~%.0f%%, hit ~%.0f%%",
-				m.set.Rivals.Odds(w, f, events.ForcePush)*100, m.set.Rivals.Odds(w, f, events.ForceHit)*100)))
+				m.set.Rivals.OddsOn(w, f, sel, events.ForcePush)*100, m.set.Rivals.OddsOn(w, f, sel, events.ForceHit)*100)))
 			lines = append(lines, keyRow("w", fmt.Sprintf("boost: the till, ~%s", cash(m.set.Rivals.BoostTake(w, *sel)))))
 		} else {
 			lines = append(lines, wrapped(theme.Subtle, "Taking it is a matter for the enforcers. Hire some "+screenPointer(screenCrew)+".")...)
