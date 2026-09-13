@@ -14,6 +14,7 @@ import (
 // player works, product by product, on every day of a run that takes
 // ground: nothing sells on a corner nobody is standing on.
 func TestHeldDemandIsServed(t *testing.T) {
+	t.Parallel()
 	cfg := content.MustLoad()
 	set, _, err := sim.Default(cfg)
 	if err != nil {
@@ -65,6 +66,7 @@ func TestHeldDemandIsServed(t *testing.T) {
 // corner is only yours while somebody works it. The rival is kept
 // defensive so the corners are lost to the street, not to it.
 func TestLosingRunnersLosesCorners(t *testing.T) {
+	t.Parallel()
 	// The duel (#43, harness.OneFaction): this pins a mechanism on a seed, and the table moves the seed's dice.
 	cfg := OneFaction(content.MustLoad())
 	drift := cfg.City.Territory.DriftDays
@@ -120,6 +122,7 @@ func TestLosingRunnersLosesCorners(t *testing.T) {
 
 // A player with no corners sells nothing, however much they queue.
 func TestNoCornersSellsNothing(t *testing.T) {
+	t.Parallel()
 	cfg := content.MustLoad()
 	res, err := Run(cfg, 2, 5, func(w *game.World) {
 		if w.Day == 0 {
@@ -159,6 +162,7 @@ func TestNoCornersSellsNothing(t *testing.T) {
 // corner can go 70 days unrobbed, so that they happen at all is checked
 // across the seeds.
 func TestTerritoryPaysAndRobberiesCost(t *testing.T) {
+	t.Parallel()
 	cfg := content.MustLoad()
 	robberies := 0
 	for seed := uint64(1); seed <= 5; seed++ {

@@ -68,6 +68,7 @@ func gatesOpen(cfg *content.Config, set *sim.Set, w *game.World) gates {
 // section names it and the journal has one headline for it under the
 // unlock source; and that no other morning carries one.
 func TestEveryGateIsAnnounced(t *testing.T) {
+	t.Parallel()
 	cfg := content.MustLoad()
 	set, _, err := sim.Default(cfg)
 	if err != nil {
@@ -184,6 +185,7 @@ func oldRunPrint(t *testing.T, cfg *content.Config, seed uint64, days int, polic
 // main played before #148, with the deck dealt: the prints are main's
 // (4df71be) over three seeds and 120 days, and no Unlocked fires.
 func TestNoUnlockIsTheOldRun(t *testing.T) {
+	t.Parallel()
 	// The duel (#43, harness.OneFaction): this pins a mechanism on a seed, and the table moves the seed's dice.
 	cfg := OneFaction(content.MustLoad())
 	want := map[string]string{

@@ -33,6 +33,7 @@ func noLevels(cfg *content.Config) *content.Config {
 // income appear anywhere on it, and no FrontInvested or FrontGrew goes
 // out.
 func TestNoInvestIsTheOldRun(t *testing.T) {
+	t.Parallel()
 	cfg := content.MustLoad()
 	off := noLevels(cfg)
 	for seed := uint64(1); seed <= 3; seed++ {
@@ -84,6 +85,7 @@ func TestNoInvestIsTheOldRun(t *testing.T) {
 // day is within an order of magnitude of the wash ladder's $380k. The
 // numbers are logged for the PR.
 func TestBossPileDrains(t *testing.T) {
+	t.Parallel()
 	cfg := content.MustLoad()
 	ld := laundering.New(cfg)
 	var clean, legit, levels, invested []int
@@ -119,6 +121,7 @@ func TestBossPileDrains(t *testing.T) {
 // laundromat levelled to its top earns its levels' price back within
 // tier 3's checkpoint, on its income alone.
 func TestLevelledLaundromatPaysBack(t *testing.T) {
+	t.Parallel()
 	cfg := content.MustLoad()
 	fc := cfg.Laundering.Fronts[0]
 	if fc.ID != "laundromat" || fc.MaxLevel == 0 {
@@ -148,6 +151,7 @@ func TestLevelledLaundromatPaysBack(t *testing.T) {
 // city's pressure and the player's notoriety are up on the same run
 // without the level; the DA's file is not (#27).
 func TestFrontGrowthIsNewsNotEvidence(t *testing.T) {
+	t.Parallel()
 	cfg := content.MustLoad()
 	fc := cfg.Laundering.Fronts[0]
 	hl := cfg.Laundering.Growth.HeadlineLevel
@@ -267,6 +271,7 @@ func TestLevelsSurviveASave(t *testing.T) {
 // audits, income and worth are logged, and the greed curve is pinned
 // where it exists, on the levels: TestLevelsDrawTheAuditors.
 func TestInvestingEverything(t *testing.T) {
+	t.Parallel()
 	cfg := content.MustLoad()
 	type row struct{ clean, worth, earned, levels, audits, frozen int }
 	var greedy, careful []row
@@ -317,6 +322,7 @@ func TestInvestingEverything(t *testing.T) {
 // the clean pin of the headline's effect on the same dice is
 // TestFrontGrowthIsNewsNotEvidence).
 func TestLevelsDrawTheAuditors(t *testing.T) {
+	t.Parallel()
 	// Crew life boxed (#46): the levels' signal (a couple of audits over
 	// ten seeds) drowns in the crew's noise with it on (36 audits against
 	// 34, notoriety 997 against 996 the morning after the paper); the

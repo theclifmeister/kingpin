@@ -15,6 +15,7 @@ import (
 // ground to an expansionist rival within 60 days: the rival is pressure,
 // not scenery.
 func TestPassivePlayerLosesCornersToExpansionist(t *testing.T) {
+	t.Parallel()
 	cfg := content.MustLoad()
 	for seed := uint64(1); seed <= 5; seed++ {
 		w := sim.NewWorld(cfg, seed)
@@ -43,6 +44,7 @@ func TestPassivePlayerLosesCornersToExpansionist(t *testing.T) {
 // three enforcers and a rival dug in on four corners, and never sells;
 // the seller never strikes.
 func TestHitWarHeatsFasterThanAggressiveSelling(t *testing.T) {
+	t.Parallel()
 	cfg := content.MustLoad()
 	const days = 10
 	for seed := uint64(1); seed <= 5; seed++ {
@@ -97,6 +99,7 @@ func TestHitWarHeatsFasterThanAggressiveSelling(t *testing.T) {
 // every corner has exactly one owner, and nobody stands on ground that is
 // not the player's.
 func TestRivalInvariants(t *testing.T) {
+	t.Parallel()
 	cfg := content.MustLoad()
 	policies := map[string]func(*content.Config) Policy{
 		"territory": func(cfg *content.Config) Policy { return Territory(cfg, 40, 4) },
@@ -199,6 +202,7 @@ func factionOf(e events.Event) (rival, faction string, ok bool) {
 
 // The rival steps from the tick RNG: a run at war must replay exactly.
 func TestRivalIsDeterministic(t *testing.T) {
+	t.Parallel()
 	cfg := content.MustLoad()
 	a, _ := Run(cfg, 9, 150, Warlike(cfg, 40, 4, events.ForcePush))
 	b, _ := Run(cfg, 9, 150, Warlike(cfg, 40, 4, events.ForcePush))
@@ -222,6 +226,7 @@ func TestRivalIsDeterministic(t *testing.T) {
 // push war the player wins corners, gets tipped to the police, and a loud
 // enough war ends in a crackdown that clears both sides.
 func TestWarTakesGroundAndTheRivalTipsPolice(t *testing.T) {
+	t.Parallel()
 	// Crew life boxed (#46): the ten push wars had exactly one crackdown
 	// on main and none with the wounded off the strikes; the test pins
 	// the war's pieces, not the crew's lives.
@@ -273,6 +278,7 @@ func daysToHeat(r Result, v float64) int {
 // call that night), and the corner it eyes next is never the one it
 // was just kept off.
 func TestTellIsAnswerable(t *testing.T) {
+	t.Parallel()
 	// Crew life boxed (#46): seed 4's tell on day 42 went unanswered with
 	// the outbidder's runner in a cell; the test pins the tell.
 	// The duel (#43, harness.OneFaction): this pins a mechanism on a seed, and the table moves the seed's dice.

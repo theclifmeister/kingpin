@@ -28,6 +28,7 @@ func contestedWorld(t *testing.T, cfg *content.Config, seed uint64, days int) *g
 // Under a live truce the rival contests no corner and tips no police for
 // its duration; the day after it runs out, contesting resumes.
 func TestTruceHoldsThenLapses(t *testing.T) {
+	t.Parallel()
 	cfg := content.MustLoad()
 	const truce = 20
 	resumed := 0
@@ -76,6 +77,7 @@ func TestTruceHoldsThenLapses(t *testing.T) {
 // at day 120 than the passive player, wins fewer corners than a hit war
 // and runs cooler than it.
 func TestDiplomatHoldsMoreThanPassive(t *testing.T) {
+	t.Parallel()
 	cfg := content.MustLoad()
 	const days = 120
 	held := map[string]int{}
@@ -140,6 +142,7 @@ func talker(cfg *content.Config) Policy {
 // A defensive rival never breaks a deal, on any seed, however long the
 // peace runs; a chaotic one does.
 func TestDefensiveNeverBetrays(t *testing.T) {
+	t.Parallel()
 	// The duel (#43, harness.OneFaction): this pins a mechanism on a seed, and the table moves the seed's dice.
 	cfg := OneFaction(content.MustLoad())
 	broken := map[string]int{}
@@ -242,6 +245,7 @@ func TestDiplomacyIsDeterministicAndSaves(t *testing.T) {
 // never claims or pushes on the player's side of the line while the
 // split holds, and the player is never posted past it.
 func TestSplitKeepsTheLine(t *testing.T) {
+	t.Parallel()
 	// The duel (#43, harness.OneFaction): this pins a mechanism on a seed, and the table moves the seed's dice.
 	cfg := OneFaction(content.MustLoad())
 	splits := 0

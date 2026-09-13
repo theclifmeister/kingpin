@@ -26,6 +26,7 @@ import (
 // it ends owing its muscle less than a day's wages (the books are a
 // running account, so a tail under a wage is a payroll the take covers).
 func TestRivalEconomyBinds(t *testing.T) {
+	t.Parallel()
 	// The duel (#43, harness.OneFaction): this pins a mechanism on a seed, and the table moves the seed's dice.
 	cfg := OneFaction(content.MustLoad())
 	for _, p := range content.Personalities {
@@ -145,6 +146,7 @@ func pricewarFixture(t *testing.T, seed uint64, days int, war bool) (take, muscl
 // median reads level (2.67 against 2.67), so what is pinned is that it
 // is never above: the number is in the log.
 func TestPricewarStarvesTheMuscle(t *testing.T) {
+	t.Parallel()
 	const days = 60
 	for seed := uint64(1); seed <= 5; seed++ {
 		quietTake, quietMuscle, quietLow := pricewarFixture(t, seed, days, false)
@@ -185,6 +187,7 @@ func TestPricewarStarvesTheMuscle(t *testing.T) {
 // player's corners once the wholesaler's line was crossed while the take
 // did not, and the middle cut read 6.1x the take (2.9x to 13.5x by seed).
 func TestTributeShareOfTheTake(t *testing.T) {
+	t.Parallel()
 	// The duel (#43, harness.OneFaction): this pins a mechanism on a seed, and the table moves the seed's dice.
 	cfg := OneFaction(content.MustLoad())
 	rv := rivals.New(cfg)

@@ -79,6 +79,7 @@ func TestSupplyIsDeterministicAndSaves(t *testing.T) {
 // filled before the orders resolved); short of cash it buys what the
 // float leaves; short of room it buys Free(city).
 func TestSupplyKeepsTheLevel(t *testing.T) {
+	t.Parallel()
 	cfg := content.MustLoad()
 	keep := func(w *game.World) {
 		if err := w.SetSupply(w.Player.Location, w.Products[0], 80); err != nil {
@@ -181,6 +182,7 @@ func TestSupplyKeepsTheLevel(t *testing.T) {
 // player's median seed kept a corner more of it than the routine did
 // (10.5% under; the gap on the same seed, the median ratio, is 11%).
 func TestStockedIsWithinFifteenPercentOfCrewed(t *testing.T) {
+	t.Parallel()
 	cfg := content.MustLoad()
 	var stocked, crewed []int
 	for seed := uint64(1); seed <= 10; seed++ {

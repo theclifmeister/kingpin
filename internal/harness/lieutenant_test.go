@@ -50,6 +50,7 @@ func runCity(t *testing.T, cfg *content.Config, seed uint64, personality string)
 // lieutenant has it, and home sells anyway, on their standing orders;
 // unassigned every day, they place none and home sells nothing.
 func TestLieutenantSellsWhileYouAreAway(t *testing.T) {
+	t.Parallel()
 	// Crew life boxed (#46): on seed 2 the expansionist wipes the
 	// delegated player before it holds a second city (delegated gets a
 	// lieutenant on 8 of 10 seeds with life on, 9 of 10 without); the
@@ -125,6 +126,7 @@ func TestLieutenantSellsWhileYouAreAway(t *testing.T) {
 // one's takings are no more than a steady one's (the skim), and a careful
 // one earns less than a steady one (the quiet dial).
 func TestLieutenantPersonalities(t *testing.T) {
+	t.Parallel()
 	cfg := content.MustLoad()
 	_, hub, _ := twoCities(t, cfg)
 	type outcome struct {
@@ -182,6 +184,7 @@ func TestLieutenantPersonalities(t *testing.T) {
 // every corner they ran is unheld the next morning with the stash gone;
 // the runners they posted are still on the payroll, idle.
 func TestLieutenantWalks(t *testing.T) {
+	t.Parallel()
 	cfg := content.MustLoad()
 	_, hub, _ := twoCities(t, cfg)
 	w, pol := runCity(t, cfg, 2, "steady")
@@ -266,6 +269,7 @@ func TestLieutenantWalks(t *testing.T) {
 // The player's order for a product wins the day over the lieutenant's
 // standing one; the other products still sell on theirs.
 func TestPlayerOrdersWinOverLieutenant(t *testing.T) {
+	t.Parallel()
 	cfg := content.MustLoad()
 	_, hub, _ := twoCities(t, cfg)
 	weed, pills := cfg.Market.Products[0].ID, cfg.Market.Products[1].ID
@@ -308,6 +312,7 @@ func TestPlayerOrdersWinOverLieutenant(t *testing.T) {
 // happens, and from then on feeds the DA thicker pages than an ordinary
 // informant, on the informant clock.
 func TestLieutenantFlipsAndFeedsTheFile(t *testing.T) {
+	t.Parallel()
 	cfg := content.MustLoad()
 	_, hub, _ := twoCities(t, cfg)
 	w, pol := runCity(t, cfg, 4, "steady")
@@ -350,6 +355,7 @@ func TestLieutenantFlipsAndFeedsTheFile(t *testing.T) {
 // Lieutenants only come looking once corners are held in two cities: a
 // run that stays home never sees one, the delegated run does.
 func TestLieutenantsWantTwoCities(t *testing.T) {
+	t.Parallel()
 	// Crew life boxed (#46): seed 2, as TestLieutenantSellsWhileYouAreAway.
 	cfg := NoLife(content.MustLoad())
 	seen := func(res Result) bool {
@@ -429,6 +435,7 @@ func TestLieutenantSurvivesSave(t *testing.T) {
 // delegated player is within 20% of the distributor on median net worth
 // at the horizon, and is never indicted.
 func TestDelegatedNearDistributor(t *testing.T) {
+	t.Parallel()
 	cfg := content.MustLoad()
 	var del, dist []int
 	for seed := uint64(1); seed <= 10; seed++ {
@@ -464,6 +471,7 @@ func TestDelegatedNearDistributor(t *testing.T) {
 // in a night is sold whole, and is not dry. A morning the lieutenant
 // works no corner there is nobody's to stock and is not counted.)
 func TestLieutenantKeepsTheCityStocked(t *testing.T) {
+	t.Parallel()
 	// Crew life boxed (#46): seed 2, as TestLieutenantSellsWhileYouAreAway.
 	// The duel (#43, harness.OneFaction): this pins a mechanism on a seed, and the table moves the seed's dice.
 	cfg := OneFaction(NoLife(content.MustLoad()))

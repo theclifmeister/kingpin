@@ -19,6 +19,7 @@ import (
 // the same 40 a day, so the only thing between them is who placed the
 // order.
 func TestStandingSellsLikeTheHand(t *testing.T) {
+	t.Parallel()
 	cfg := content.MustLoad()
 	cut := cfg.Market.Standing.Cut
 	if cut <= 0 {
@@ -137,6 +138,7 @@ func sumSold(r Result) int {
 // normal, an order placed by hand for 5 at quiet is what sells that
 // night, at no cut; the standing order resumes the next night.
 func TestStandingYieldsToTheHand(t *testing.T) {
+	t.Parallel()
 	cfg := content.MustLoad()
 	w := sim.NewWorld(cfg, 3)
 	w.Player.DirtyCash = 30_000
@@ -187,6 +189,7 @@ func TestStandingYieldsToTheHand(t *testing.T) {
 // its take and a fresh order's or the lieutenant's is nothing; nothing
 // sells on a lie-low day; and a standing order stands until cancelled.
 func TestStandingNeverOutsellsTheStash(t *testing.T) {
+	t.Parallel()
 	cfg := content.MustLoad()
 	cut := cfg.Market.Standing.Cut
 	pols := policies(cfg)
@@ -274,6 +277,7 @@ func TestStandingNeverOutsellsTheStash(t *testing.T) {
 // leaves the selling to standing orders at the crew's cut, ends day 70
 // between 85% and 100% of the crewed player over ten seeds.
 func TestRoutineIsWithinFifteenPercentOfCrewed(t *testing.T) {
+	t.Parallel()
 	cfg := content.MustLoad()
 	var routine, crewed []int
 	for seed := uint64(1); seed <= 10; seed++ {

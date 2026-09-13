@@ -19,6 +19,7 @@ import (
 // under the box that emits nothing of #46's and carries none of its
 // state.
 func TestNoLifeIsTheOldRun(t *testing.T) {
+	t.Parallel()
 	// The duel too (#43, harness.OneFaction): main's pre-#46 figures are
 	// the one rival's, so the table is boxed beside the life.
 	cfg := OneFaction(NoLife(content.MustLoad()))
@@ -65,6 +66,7 @@ func TestNoLifeIsTheOldRun(t *testing.T) {
 // corners' as TestHeldDemandIsServed pins it; and the arrests land
 // where the sweep was.
 func TestJailedMembersWorkNothing(t *testing.T) {
+	t.Parallel()
 	cfg := *content.MustLoad()
 	cfg.Crew.Life.ArrestChance = 1
 	arrests := 0
@@ -120,6 +122,7 @@ func contains(xs []string, x string) bool {
 // law.toml's body knobs zeroed reads lower on the morning of the first
 // death and nowhere before it.
 func TestWarHasBodies(t *testing.T) {
+	t.Parallel()
 	cfg := content.MustLoad()
 	warBodies, quietBodies := 0, 0
 	for seed := uint64(1); seed <= 5; seed++ {
@@ -204,6 +207,7 @@ func TestWarHasBodies(t *testing.T) {
 // shipment the route sends once assigned and fit, and a seized
 // shipment jails its driver the same night.
 func TestDriverCutsSeizures(t *testing.T) {
+	t.Parallel()
 	// The duel (#43, harness.OneFaction): this pins a mechanism on a seed, and the table moves the seed's dice.
 	cfg := OneFaction(content.MustLoad())
 	with, without, driven, jailed := 0, 0, 0, 0
