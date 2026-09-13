@@ -46,6 +46,7 @@ func leakDays(res Result) []int {
 // only quiet sales and no bust, which is the tell the report shows.
 // Without one the same policy survives (TestAlwaysQuietStaysFreeAndEarnsLess).
 func TestPlantedInformantIndictsQuietPlayer(t *testing.T) {
+	t.Parallel()
 	cfg := content.MustLoad()
 	for seed := uint64(1); seed <= 10; seed++ {
 		w := sim.NewWorld(cfg, seed)
@@ -81,6 +82,7 @@ func TestPlantedInformantIndictsQuietPlayer(t *testing.T) {
 // under 40 to the sting line, and the notoriety a big operation earns
 // (#14) makes a line of 40 one sting too many on seed 1.
 func TestVigilantSurvivesInformant(t *testing.T) {
+	t.Parallel()
 	cfg := content.MustLoad()
 	const seeds = 10
 	indicted := 0
@@ -151,6 +153,7 @@ func investigateUntilNamed(t *testing.T, cfg *content.Config, seed uint64, skill
 // Investigating with a skill-90 enforcer names the informant within three
 // nights on every seed; with a skill-10 one it takes materially longer.
 func TestInvestigationSkillTable(t *testing.T) {
+	t.Parallel()
 	cfg := content.MustLoad()
 	cfg.Heat.Heat.DirtyCashHeat = 0 // the cash pile that pays for the questions is not the subject
 	const seeds = 20
@@ -189,6 +192,7 @@ func TestInvestigationSkillTable(t *testing.T) {
 // over to it, and walks it onto the corner they ran: the day after the
 // defection that corner is the rival's, and the roster is one shorter.
 func TestDefectionHandsTheRivalACorner(t *testing.T) {
+	t.Parallel()
 	cfg := content.MustLoad()
 	for seed := uint64(1); seed <= 5; seed++ {
 		w := sim.NewWorld(cfg, seed)
@@ -260,6 +264,7 @@ func TestDefectionHandsTheRivalACorner(t *testing.T) {
 // informant is what stops the file, and the crew do not hold that firing
 // against you.
 func TestInformantRaidAndFiring(t *testing.T) {
+	t.Parallel()
 	cfg := content.MustLoad()
 	cfg.Market.Market.ShockChance, cfg.Market.Market.SlumpChance = 0, 0
 	for seed := uint64(1); seed <= 3; seed++ {
@@ -325,6 +330,7 @@ func TestInformantRaidAndFiring(t *testing.T) {
 // witness's pages land in full and date the file, so a retained lawyer's
 // clock never starts while one is on the payroll.
 func TestInformantPagesIgnoreTheLawyer(t *testing.T) {
+	t.Parallel()
 	cfg := content.MustLoad()
 	cfg.Heat.Heat.DirtyCashHeat = 0
 	for seed := uint64(1); seed <= 3; seed++ {
@@ -349,6 +355,7 @@ func TestInformantPagesIgnoreTheLawyer(t *testing.T) {
 // without a corner, the rival gains muscle but no ground away from home,
 // and the corner is merely left unworked.
 func TestDefectionElsewhereHandsNoCorner(t *testing.T) {
+	t.Parallel()
 	cfg := content.MustLoad()
 	// The rival hires nobody of its own (a fee it can never meet) and
 	// is dug in on the top row, a take that keeps the two heads the

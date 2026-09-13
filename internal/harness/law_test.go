@@ -35,6 +35,7 @@ func medianDays(t *testing.T, cfg *content.Config, n int, days int, chief, da st
 // indicted sooner under a law-and-order DA (a thinner file will do, and
 // the sting line is lower) than under a reformer.
 func TestChiefAndDATable(t *testing.T) {
+	t.Parallel()
 	cfg := content.MustLoad()
 	aggressive := func(c *content.Config) Policy { return Trader(c, events.DialAggressive) }
 	zealous := medianDays(t, cfg, 20, Horizon, "zealous", "moderate", aggressive)
@@ -58,6 +59,7 @@ func TestChiefAndDATable(t *testing.T) {
 // lowers it: the funded player ends quieter than the laundered one, and
 // every dollar it gave was clean.
 func TestPressureInvariantsAndSources(t *testing.T) {
+	t.Parallel()
 	cfg := content.MustLoad()
 	all := policies(cfg)
 	all["funded"] = Funded(cfg, 40)
@@ -141,6 +143,7 @@ func TestPressureInvariantsAndSources(t *testing.T) {
 // scheduled election fires on its day with a headline that names the
 // winner.
 func TestElectionsFollowPressure(t *testing.T) {
+	t.Parallel()
 	cfg := content.MustLoad()
 	count := func(pressure float64) int {
 		n := 0
@@ -211,6 +214,7 @@ func TestElectionsFollowPressure(t *testing.T) {
 // raided for the pile and never indicted, and no sting or raid on a day
 // with no attempted sale adds a page.
 func TestQuietDayRuleHoldsUnderEveryLaw(t *testing.T) {
+	t.Parallel()
 	cfg := content.MustLoad()
 	for _, chief := range content.ChiefPersonalities {
 		for _, da := range content.DAStances {
@@ -305,6 +309,7 @@ func TestLawSurvivesSave(t *testing.T) {
 // the sting line is the DA's alone, under the policies that pay nobody.
 // TestSeedDigest pins the boss's sixty days byte for byte.
 func TestNoCampaignIsTheOldRun(t *testing.T) {
+	t.Parallel()
 	cfg := content.MustLoad()
 	for name, policy := range map[string]Policy{"crewed": Crewed(cfg, 40), "laundered": Laundered(cfg, 40), "distributor": Distributor(cfg, 40)} {
 		res, err := Run(cfg, 1, 2*Horizon, func(w *game.World) {
@@ -401,6 +406,7 @@ func TestCampaignSurvivesSave(t *testing.T) {
 // at tier 3 the funded player gives under $500k a campaign. Every
 // dollar either gave was clean.
 func TestCampaignSizing(t *testing.T) {
+	t.Parallel()
 	cfg := content.MustLoad()
 	var late []int
 	var goodwill []float64

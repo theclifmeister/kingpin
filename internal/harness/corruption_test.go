@@ -20,34 +20,52 @@ import (
 // at 2*Horizon) with the survivors counted beside it: at this heat a
 // median saturates at the cap on one side or the other.
 func TestCorruptChiefTable(t *testing.T) {
+	t.Parallel()
 	cfg := content.MustLoad()
-	days := func(chief string, policy func(*content.Config, float64) Policy) (mean, alive int) {
-		for seed := uint64(1); seed <= CorruptTableSeeds; seed++ {
-			w := sim.NewWorld(cfg, seed)
-			w.Player.DirtyCash = CorruptTableCash
-			run := Appoint(cfg, w, chief, "moderate")
-			res, err := RunFrom(run, w, 2*Horizon, policy(run, CorruptTableHeat))
-			if err != nil {
-				t.Fatal(err)
-			}
-			mean += res.Days
-			if res.Over == nil {
-				alive++
-			}
+	// The four cells run beside each other (#212), each on its own worlds
+	// and the shared, unwritten cfg; the two comparisons read them once
+	// the group has joined.
+	cells := []struct {
+		chief, name string
+		policy      func(*content.Config, float64) Policy
+		mean, alive int
+	}{
+		{"corrupt", "corrupt", Corrupt, 0, 0},
+		{"corrupt", "distributor", Distributor, 0, 0},
+		{"zealous", "corrupt", Corrupt, 0, 0},
+		{"zealous", "distributor", Distributor, 0, 0},
+	}
+	t.Run("cells", func(t *testing.T) {
+		for i := range cells {
+			cell := &cells[i]
+			t.Run(cell.chief+"/"+cell.name, func(t *testing.T) {
+				t.Parallel()
+				for seed := uint64(1); seed <= CorruptTableSeeds; seed++ {
+					w := sim.NewWorld(cfg, seed)
+					w.Player.DirtyCash = CorruptTableCash
+					run := Appoint(cfg, w, cell.chief, "moderate")
+					res, err := RunFrom(run, w, 2*Horizon, cell.policy(run, CorruptTableHeat))
+					if err != nil {
+						t.Fatal(err)
+					}
+					cell.mean += res.Days
+					if res.Over == nil {
+						cell.alive++
+					}
+				}
+				cell.mean /= CorruptTableSeeds
+			})
 		}
-		return mean / CorruptTableSeeds, alive
+	})
+	paid, straight := cells[0], cells[1]
+	t.Logf("under a corrupt chief: corrupt lasts %d days (%d of %d survive), distributor %d (%d survive)", paid.mean, paid.alive, CorruptTableSeeds, straight.mean, straight.alive)
+	if paid.mean <= straight.mean {
+		t.Errorf("paying a corrupt chief should buy days: corrupt %d vs distributor %d", paid.mean, straight.mean)
 	}
-	paid, paidAlive := days("corrupt", Corrupt)
-	straight, straightAlive := days("corrupt", Distributor)
-	t.Logf("under a corrupt chief: corrupt lasts %d days (%d of %d survive), distributor %d (%d survive)", paid, paidAlive, CorruptTableSeeds, straight, straightAlive)
-	if paid <= straight {
-		t.Errorf("paying a corrupt chief should buy days: corrupt %d vs distributor %d", paid, straight)
-	}
-	paid, paidAlive = days("zealous", Corrupt)
-	straight, straightAlive = days("zealous", Distributor)
-	t.Logf("under a zealous chief: corrupt lasts %d days (%d survive), distributor %d (%d survive)", paid, paidAlive, straight, straightAlive)
-	if paid >= straight {
-		t.Errorf("paying a zealous chief should cost days: corrupt %d vs distributor %d", paid, straight)
+	paid, straight = cells[2], cells[3]
+	t.Logf("under a zealous chief: corrupt lasts %d days (%d survive), distributor %d (%d survive)", paid.mean, paid.alive, straight.mean, straight.alive)
+	if paid.mean >= straight.mean {
+		t.Errorf("paying a zealous chief should cost days: corrupt %d vs distributor %d", paid.mean, straight.mean)
 	}
 }
 
@@ -65,6 +83,7 @@ const (
 // in the pool and no bribe event, under the policies that pay nobody.
 // TestSeedDigest pins the boss's sixty days byte for byte.
 func TestNoBribeIsTheOldRun(t *testing.T) {
+	t.Parallel()
 	cfg := content.MustLoad()
 	for name, policy := range map[string]Policy{"laundered": Laundered(cfg, 40), "distributor": Distributor(cfg, 40), "boss": Boss(cfg, 40, "")} {
 		res, err := Run(cfg, 2, 2*Horizon, func(w *game.World) {
@@ -104,6 +123,7 @@ func TestNoBribeIsTheOldRun(t *testing.T) {
 // chief an envelope gains exactly backfire_evidence pages and
 // backfire_heat, and nothing else on their quiet days, under every DA.
 func TestBackfireOnAQuietDayIsEvidence(t *testing.T) {
+	t.Parallel()
 	cfg := content.MustLoad()
 	b := cfg.Law.Bribes
 	for _, da := range content.DAStances {
@@ -211,6 +231,7 @@ func TestBribesSurviveSave(t *testing.T) {
 // to live (#42): played through, none is live the day after that,
 // OfficialsCold fires once, and nothing is for sale while they sit.
 func TestOfficialsColdEndsTheDeals(t *testing.T) {
+	t.Parallel()
 	cfg := content.MustLoad()
 	b := cfg.Law.Bribes
 	term := cfg.Law.Law.TermDays

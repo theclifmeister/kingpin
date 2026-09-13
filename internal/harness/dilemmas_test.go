@@ -25,6 +25,7 @@ func drawn(res Result) []string {
 // Two runs with the same seed and the same choices see the same cards on
 // the same days, whatever the choices are; different choices may not.
 func TestCardsAreDeterministic(t *testing.T) {
+	t.Parallel()
 	cfg := content.MustLoad()
 	for _, pick := range []struct {
 		name string
@@ -106,6 +107,7 @@ func TestCardSurvivesSave(t *testing.T) {
 // Every card in the deck comes up somewhere across the personalities and a
 // few seeds, and none of them renders with a hole in it.
 func TestEveryCardIsDealtAndReadsClean(t *testing.T) {
+	t.Parallel()
 	cfg := content.MustLoad()
 	seen := map[string]int{}
 	check := func(t *testing.T, w *game.World) {

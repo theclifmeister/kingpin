@@ -35,6 +35,7 @@ func grant(w *game.World, ids ...string) {
 
 // A run that buys upgrades on fixed days replays identically from its seed.
 func TestUpgradesAreDeterministic(t *testing.T) {
+	t.Parallel()
 	cfg := content.MustLoad()
 	on := map[int]string{3: "stash", 6: "burners", 9: "lawyer", 12: "supplier", 20: "lookouts"}
 	run := func() Result {
@@ -69,6 +70,7 @@ func TestUpgradesAreDeterministic(t *testing.T) {
 // play, a stash is fifty more units, a supplier contact is a cheaper
 // quote the next morning.
 func TestUpgradeEffectsAreMonotone(t *testing.T) {
+	t.Parallel()
 	cfg := content.MustLoad()
 	for seed := uint64(1); seed <= 5; seed++ {
 		plain, _ := Run(cfg, seed, 30, Trader(cfg, events.DialNormal))
@@ -116,6 +118,7 @@ func TestUpgradeEffectsAreMonotone(t *testing.T) {
 // draw), so a handful of seeds can land the upgraded player next to an
 // expansionist the crewed one never met.
 func TestUpgradedBeatsCrewed(t *testing.T) {
+	t.Parallel()
 	cfg := content.MustLoad()
 	var up, crew []int
 	for seed := uint64(1); seed <= 20; seed++ {
@@ -142,6 +145,7 @@ func TestUpgradedBeatsCrewed(t *testing.T) {
 // part 4's screen and parts 2 and 3's nodes are laid against: the
 // median count over twenty seeds and seed 1's list, logged.
 func TestUpgradedOwns(t *testing.T) {
+	t.Parallel()
 	cfg := content.MustLoad()
 	for _, day := range []int{70, 120, Horizon} {
 		var counts []int
@@ -166,6 +170,7 @@ func TestUpgradedOwns(t *testing.T) {
 // always-aggressive trader who owns all of it from day 1 lasts materially
 // longer than one who owns none of it, and is still indicted.
 func TestSecurityBranchSoftensAggressive(t *testing.T) {
+	t.Parallel()
 	cfg := content.MustLoad()
 	var plainDays, secDays []int
 	for seed := uint64(1); seed <= 10; seed++ {
@@ -196,6 +201,7 @@ func TestSecurityBranchSoftensAggressive(t *testing.T) {
 // aggressive trader who has one survives his first case, keeps trading,
 // and is indicted for real later.
 func TestFallGuyFiresOnce(t *testing.T) {
+	t.Parallel()
 	cfg := content.MustLoad()
 	for seed := uint64(1); seed <= 5; seed++ {
 		plain, _ := Run(cfg, seed, Horizon, Trader(cfg, events.DialAggressive))
@@ -231,6 +237,7 @@ func TestFallGuyFiresOnce(t *testing.T) {
 // indictments close on somebody else, one each, and the third is the
 // player's.
 func TestSecondFallGuyTakesTheSecondFall(t *testing.T) {
+	t.Parallel()
 	cfg := content.MustLoad()
 	for seed := uint64(1); seed <= 5; seed++ {
 		w := sim.NewWorld(cfg, seed)
@@ -256,6 +263,7 @@ func TestSecondFallGuyTakesTheSecondFall(t *testing.T) {
 // it never moves. Neither touches #27: the rich hider is stung and never
 // charged either way.
 func TestRetainerLetsTheCaseGoCold(t *testing.T) {
+	t.Parallel()
 	cfg := content.MustLoad()
 	days := cfg.Upgrades.Upgrade("retainer").Effects.EvidenceDecayDays
 	for seed := uint64(1); seed <= 3; seed++ {
@@ -290,6 +298,7 @@ func TestRetainerLetsTheCaseGoCold(t *testing.T) {
 // A lawyer on call thins the file: stings add nothing, raids one page, so
 // the aggressive trader lasts longer and is still indicted.
 func TestLawyerThinsTheFile(t *testing.T) {
+	t.Parallel()
 	cfg := content.MustLoad()
 	for seed := uint64(1); seed <= 5; seed++ {
 		plain, _ := Run(cfg, seed, Horizon, Trader(cfg, events.DialAggressive))
@@ -319,6 +328,7 @@ func TestLawyerThinsTheFile(t *testing.T) {
 // 60 days would need rival_push_mul at 0.95, a $400k node that does
 // nothing, so the window here is the checkpoint's.
 func TestStreetBranchSlowsTheRivalNeverStopsIt(t *testing.T) {
+	t.Parallel()
 	// The duel (#43, harness.OneFaction): this pins a mechanism on a seed, and the table moves the seed's dice.
 	cfg := OneFaction(content.MustLoad())
 	street := []string{"boys", "watch", "dogs", "frontline", "ground"}
@@ -368,6 +378,7 @@ func TestStreetBranchSlowsTheRivalNeverStopsIt(t *testing.T) {
 // count over five runs, never a promise on one), and the branch pays at
 // the horizon on median peak cash.
 func TestLogisticsBranchMovesMoreForLess(t *testing.T) {
+	t.Parallel()
 	// The duel (#43, harness.OneFaction): this pins a mechanism on a seed, and the table moves the seed's dice.
 	cfg := OneFaction(content.MustLoad())
 	road := []string{"tyres", "compartments", "trucks", "drivers", "supplier", "supplier2", "ticket", "forwarder"}

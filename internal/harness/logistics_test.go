@@ -76,6 +76,7 @@ func quiet(cfg *content.Config, seed uint64) *game.World {
 // the same number on every day of the trip. A seized shipment never
 // arrives: it comes off the road and lands nowhere.
 func TestStockIsConservedAcrossShipments(t *testing.T) {
+	t.Parallel()
 	cfg := content.MustLoad()
 	home, hub, route := twoCities(t, cfg)
 	product := cfg.Market.Products[0].ID
@@ -233,6 +234,7 @@ func TestStockIsConservedAcrossShipments(t *testing.T) {
 // policy that ships the most; and every one that leaves either lands or
 // is seized, never both.
 func TestNoShipmentExceedsCapacity(t *testing.T) {
+	t.Parallel()
 	cfg := content.MustLoad()
 	sent := 0
 	for seed := uint64(1); seed <= 3; seed++ {
@@ -270,6 +272,7 @@ func TestNoShipmentExceedsCapacity(t *testing.T) {
 // Sent fast, a shipment is seized more often than sent slow, over 200
 // days of shipping every day on the same seed.
 func TestFastIsSeizedMoreThanSlow(t *testing.T) {
+	t.Parallel()
 	cfg := content.MustLoad()
 	cfg.Heat.Heat.EvidenceArrest = 0 // a fast seizure is a page in the file; this measures the road, not the case
 	home, hub, route := twoCities(t, cfg)
@@ -322,6 +325,7 @@ func TestFastIsSeizedMoreThanSlow(t *testing.T) {
 // cities and the street it was bound for spikes the next morning, but
 // the DA's file only grows when the shipment was sent fast.
 func TestSeizureIsShockNotEvidence(t *testing.T) {
+	t.Parallel()
 	cfg := content.MustLoad()
 	home, hub, route := twoCities(t, cfg)
 	product := cfg.Market.Products[0].ID
@@ -392,6 +396,7 @@ func TestSeizureIsShockNotEvidence(t *testing.T) {
 // with nobody it sells nothing, and you cannot stand on a corner there
 // yourself.
 func TestSalesElsewhereAreRunnersOnly(t *testing.T) {
+	t.Parallel()
 	cfg := content.MustLoad()
 	home, hub, _ := twoCities(t, cfg)
 	product := cfg.Market.Products[0].ID
@@ -612,6 +617,7 @@ func TestRouteDaysTargetFollowsDemand(t *testing.T) {
 // while dirty cash is under the float; with the dial off nothing is
 // bought or sent.
 func TestRouteDialKeepsTheTarget(t *testing.T) {
+	t.Parallel()
 	cfg := content.MustLoad()
 	home, hub, route := twoCities(t, cfg)
 	product := cfg.Market.Products[0].ID
@@ -695,6 +701,7 @@ func TestRouteDialKeepsTheTarget(t *testing.T) {
 // The route is the tier-4 multiplier: the distributor out-earns the
 // launderer on median net worth at the horizon, and is never indicted.
 func TestDistributorBeatsLaundered(t *testing.T) {
+	t.Parallel()
 	cfg := content.MustLoad()
 	var dist, laun []int
 	for seed := uint64(1); seed <= 10; seed++ {

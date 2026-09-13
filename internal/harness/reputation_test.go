@@ -37,6 +37,7 @@ func policies(cfg *content.Config) map[string]Policy {
 // never add up to more than the street's attention, and no run ends, or
 // passes a day, with all three above 70: you cannot max all three.
 func TestReputationInvariants(t *testing.T) {
+	t.Parallel()
 	cfg := content.MustLoad()
 	total := cfg.Reputation.Reputation.Total
 	for name, policy := range policies(cfg) {
@@ -71,6 +72,7 @@ func TestReputationInvariants(t *testing.T) {
 // would push the three past it shrink them all to fit, so a player fed
 // every source at once cannot end above 70 on all three.
 func TestReputationCannotMaxAllThree(t *testing.T) {
+	t.Parallel()
 	// Crew life boxed (#46): the three hand-built enforcers would be
 	// shot dead over 200 nightly hits and the feed would stop; the test
 	// pins the cap.
@@ -149,6 +151,7 @@ func heatCarried(r Result) (heat float64, wanted int) {
 // heat over the horizon than a respected one, because their heat never
 // cools past the floor fear puts under it.
 func TestFearPaysMoreHeatThanRespect(t *testing.T) {
+	t.Parallel()
 	cfg := content.MustLoad()
 	for seed := uint64(1); seed <= 5; seed++ {
 		feared, err := Run(cfg, seed, Horizon, pinned(game.Reputation{Fear: 100}, 30))
@@ -176,6 +179,7 @@ func TestFearPaysMoreHeatThanRespect(t *testing.T) {
 // decay and cheapens the supplier, notoriety cheapens hiring and heats
 // the units you move yourself.
 func TestReputationEffects(t *testing.T) {
+	t.Parallel()
 	cfg := content.MustLoad()
 	set, _, err := sim.Default(cfg)
 	if err != nil {
@@ -300,6 +304,7 @@ func TestReputationEffects(t *testing.T) {
 // generous pay and a pay-off are respect, volume is notoriety, and a
 // crossed band is a headline.
 func TestReputationSourcesAndHeadlines(t *testing.T) {
+	t.Parallel()
 	// The duel (#43, harness.OneFaction): this pins a mechanism on a seed, and the table moves the seed's dice.
 	cfg := OneFaction(content.MustLoad())
 	w := sim.NewWorld(cfg, 1)

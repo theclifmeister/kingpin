@@ -14,6 +14,7 @@ import (
 // never exceeds what the open fronts could do that morning, and a frozen
 // front washes nothing.
 func TestLaunderingInvariants(t *testing.T) {
+	t.Parallel()
 	cfg := content.MustLoad()
 	set, _, err := sim.Default(cfg)
 	if err != nil {
@@ -82,6 +83,7 @@ func dialed(cfg *content.Config, d events.Launder) Policy {
 // seed's cash flow can put the two dials within a few percent of each
 // other (seed 5 does), and a change elsewhere in the day can flip it.
 func TestGreedyWashesMoreAndIsAuditedMore(t *testing.T) {
+	t.Parallel()
 	cfg := content.MustLoad()
 	cfg.Heat.Heat.AuditEvidence = 0 // measure the wash, not how fast greedy is indicted
 	audits := map[events.Launder]int{}
@@ -120,6 +122,7 @@ func TestGreedyWashesMoreAndIsAuditedMore(t *testing.T) {
 // An audit is heat the morning after; only an audit of a front being run
 // greedy is evidence (#27: the case is what you did, not what you have).
 func TestAuditEvidenceOnlyWhenGreedy(t *testing.T) {
+	t.Parallel()
 	cfg := content.MustLoad()
 	cfg.Heat.Heat.DirtyCashHeat = 0 // the pile is not what is measured here
 	cfg.Laundering.Fronts[0].AuditRisk = 1
@@ -172,6 +175,7 @@ func TestAuditEvidenceOnlyWhenGreedy(t *testing.T) {
 // for sitting on what it earned. Medians, not seed by seed: whether the
 // rival happens to crush a run is the bigger roll of the dice.
 func TestLaunderedBeatsCrewed(t *testing.T) {
+	t.Parallel()
 	cfg := content.MustLoad()
 	var laundered, crewed []int
 	for seed := uint64(1); seed <= 20; seed++ {
@@ -195,6 +199,7 @@ func TestLaunderedBeatsCrewed(t *testing.T) {
 // The laundering sim draws from the tick RNG; a laundered run must replay
 // exactly, fronts and all.
 func TestLaunderedIsDeterministic(t *testing.T) {
+	t.Parallel()
 	cfg := content.MustLoad()
 	a, _ := Run(cfg, 5, 150, Laundered(cfg, 40))
 	b, _ := Run(cfg, 5, 150, Laundered(cfg, 40))
@@ -218,6 +223,7 @@ func TestLaunderedIsDeterministic(t *testing.T) {
 // every wash leaves the till at or over the folded float (half the
 // file's) and the road's budget is what is over that same float.
 func TestLaunderingInvariantsUnderTheBranch(t *testing.T) {
+	t.Parallel()
 	cfg := content.MustLoad()
 	set, _, err := sim.Default(cfg)
 	if err != nil {
