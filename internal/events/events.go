@@ -1907,3 +1907,68 @@ type DeedSeized struct {
 }
 
 func (DeedSeized) Kind() string { return "DeedSeized" }
+
+// The assets (#48). AssetBought is the laundering sim's report of a
+// clean-cash purchase made today, the morning after, as FrontBought is;
+// AssetFrozen is report-only bookkeeping, an asset standing idle for
+// unpaid upkeep.
+type AssetBought struct {
+	Day    int
+	Asset  string // asset id
+	Name   string
+	City   string
+	Cost   int
+	Upkeep int
+}
+
+func (AssetBought) Kind() string { return "AssetBought" }
+
+// AssetFrozen is report-only bookkeeping (#48): an asset's upkeep went
+// unpaid and it stands idle for Days.
+type AssetFrozen struct {
+	Day    int
+	Asset  string
+	Name   string
+	Upkeep int
+	Days   int
+}
+
+func (AssetFrozen) Kind() string { return "AssetFrozen" }
+
+// TaskForceFormed is the heat sim's tell (#48): a task force forms in
+// City this morning and comes tomorrow night. Assets is how many it
+// could take.
+type TaskForceFormed struct {
+	Day    int
+	City   string
+	Assets int
+}
+
+func (TaskForceFormed) Kind() string { return "TaskForceFormed" }
+
+// AssetSeized is the task force taking an asset (#48): gone, not
+// frozen. It rides beside the Enforcement of level taskforce.
+type AssetSeized struct {
+	Day   int
+	City  string
+	Asset string
+	Name  string
+	Cost  int
+}
+
+func (AssetSeized) Kind() string { return "AssetSeized" }
+
+// TunnelFound is the police finding the tunnel (#48): a shipment on it
+// was taken, the route is shut for good and the asset is gone with it.
+// The logistics sim emits it; the heat sim, stepping after, takes the
+// asset off the books.
+type TunnelFound struct {
+	Day     int
+	Route   string
+	Name    string
+	Asset   string
+	Product string
+	Units   int
+}
+
+func (TunnelFound) Kind() string { return "TunnelFound" }

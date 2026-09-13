@@ -25,7 +25,8 @@ type Sim struct {
 	lt     content.LieutenantTuning
 	law    content.LawConfig
 	houses content.HousesTuning
-	deed   content.DeedTuning
+	deed   content.DeedTuning   // #194: raid_mul on a house on a deeded block, forfeit_evidence the morning after a forfeiture
+	assets content.AssetsConfig // #48: the floor an owned asset puts under every city, and which asset the task force takes
 }
 
 // New builds a heat sim from the config, copying what it reads (#144):
@@ -39,9 +40,11 @@ type Sim struct {
 // the DA and a city's pressure do to its own thresholds, cooldown and
 // decay; it reads who they are off w.Law and never adds a page for them;
 // and the houses' tuning (#73) for what a unit moved between places
-// draws.
+// draws; and the assets (#48) for the heat floor an owned one puts
+// under every city, since the task force that takes one is this sim's
+// rung.
 func New(cfg *content.Config) *Sim {
-	return &Sim{cfg: cfg.Heat, market: cfg.Market, ship: cfg.Routes.Shipping, tree: cfg.Upgrades, rep: cfg.Reputation.Effects, lt: cfg.Crew.Lieutenant, law: cfg.Law, houses: cfg.Houses.Houses, deed: cfg.City.Deed}
+	return &Sim{cfg: cfg.Heat, market: cfg.Market, ship: cfg.Routes.Shipping, tree: cfg.Upgrades, rep: cfg.Reputation.Effects, lt: cfg.Crew.Lieutenant, law: cfg.Law, houses: cfg.Houses.Houses, deed: cfg.City.Deed, assets: cfg.Assets}
 }
 
 // RaidWeight is a house's weight in the raid's roll over the places
@@ -83,8 +86,12 @@ func (s *Sim) DA(w *game.World) content.DAConfig { return s.law.DAFor(w.Law.DA.S
 // times the chief, plus bribe_cooldown at the bought chief's share
 // (#42), never under one day. The patrol keeps its cadence under every
 // chief: it fires as often as its cap lifts, and a chief who sent it
-// back sooner would never lift it.
+// back sooner would never lift it. A rung with cooldown_days of its own
+// (#48, the task force: federal, and long) waits that, flat.
 func (s *Sim) CooldownDays(w *game.World, level string) int {
+	if r := s.rung(level); r != nil && r.Cooldown > 0 {
+		return r.Cooldown
+	}
 	days := float64(s.cfg.Heat.CooldownDays + s.Effects(w).CooldownBonus)
 	if level != content.Patrol {
 		days *= s.Chief(w).Cooldown
@@ -135,9 +142,11 @@ func (s *Sim) PatrolCap(w *game.World, r content.ResponseConfig, city *game.City
 // is where a case starts, and a law-and-order DA wants it lower, a
 // reformer higher, and one whose ticket ran on your money (#193,
 // DA.Backed) higher again by law.toml's backed_sting. Every other line
-// (the patrols, the raid, the arrest) is the police's, and drops the
-// louder the city is: yesterday's pressure, since the law sim steps
-// after this one.
+// (the patrols, the raid, the task force, the arrest) is the police's,
+// and drops the louder the city is: yesterday's pressure, since the
+// law sim steps after this one. The task force's (#48) drops again
+// under an extradition treaty (an incident's window on the heat state,
+// LineUntil / LineMul), read for tonight's tick.
 func (s *Sim) Threshold(w *game.World, r content.ResponseConfig, city *game.City) float64 {
 	v := r.Threshold
 	if r.Level == content.Sting {
@@ -150,17 +159,84 @@ func (s *Sim) Threshold(w *game.World, r content.ResponseConfig, city *game.City
 	if city != nil {
 		v *= content.Cut(city.Pressure, s.law.Effects.PressureThresholdCut)
 	}
+	if r.Level == content.TaskForce && w.Day+1 < w.Heat.LineUntil && w.Heat.LineMul > 0 {
+		v *= w.Heat.LineMul
+	}
 	return v
 }
 
 // ThresholdsIn is the response ladder as it stands in a city today, for
-// the UI: the same lines the dice use.
+// the UI: the same lines the dice use, every rung.
 func (s *Sim) ThresholdsIn(w *game.World, city *game.City) []content.ResponseConfig {
 	out := s.Thresholds()
 	for i := range out {
 		out[i].Threshold = s.Threshold(w, out[i], city)
 	}
 	return out
+}
+
+// Ladder is the ladder the player faces in a city today (#48): the
+// lines as they stand, without the task force's rung while it cannot
+// form (TaskForceEligible). The dashboard's gauge marks it, so the
+// task force's line shows only once an asset is owned or the pile is
+// over taskforce_cash.
+func (s *Sim) Ladder(w *game.World, city *game.City) []content.ResponseConfig {
+	all := s.ThresholdsIn(w, city)
+	if s.TaskForceEligible(w) {
+		return all
+	}
+	out := all[:0:0]
+	for _, r := range all {
+		if r.Level != content.TaskForce {
+			out = append(out, r)
+		}
+	}
+	return out
+}
+
+// TaskForceEligible reports whether a task force can form against the
+// player (#48): an asset owned, or dirty cash over taskforce_cash. A
+// player with neither plays the four-rung ladder as it always was; the
+// rung is skipped, so nothing about their run moves.
+func (s *Sim) TaskForceEligible(w *game.World) bool {
+	if len(w.Assets) > 0 {
+		return true
+	}
+	line := s.cfg.Heat.TaskforceCash
+	return line > 0 && w.Player.DirtyCash > line
+}
+
+// TaskForceCash is the dirty cash over which a task force can form with
+// no asset owned, for the UI.
+func (s *Sim) TaskForceCash() int { return s.cfg.Heat.TaskforceCash }
+
+// TaskForceForming reports whether a task force was announced this
+// morning and comes tonight (#48): the day to lie low.
+func (s *Sim) TaskForceForming(w *game.World) bool {
+	return w.Heat.TaskForceDay > 0 && w.Heat.TaskForceDay == w.Day
+}
+
+// rung is the file's row for a level, or nil.
+func (s *Sim) rung(level string) *content.ResponseConfig {
+	for i := range s.cfg.Responses {
+		if s.cfg.Responses[i].Level == level {
+			return &s.cfg.Responses[i]
+		}
+	}
+	return nil
+}
+
+// AssetFloor is the heat floor the assets owned and standing put under
+// every city (#48): the highest heat_floor among them, federal
+// attention that decay never takes a city under. Nothing with none.
+func (s *Sim) AssetFloor(w *game.World) float64 {
+	floor := 0.0
+	for _, a := range s.assets.Offers {
+		if w.AssetLive(a.ID) {
+			floor = math.Max(floor, a.HeatFloor)
+		}
+	}
+	return floor
 }
 
 // LieutenantHeat is what the temper of whoever runs a city does to the
@@ -195,9 +271,10 @@ func (s *Sim) DirtyCashThreshold(w *game.World) int {
 }
 
 // Floor is the heat a feared player never cools below: decay works on
-// what is above it. A nobody's floor is zero.
+// what is above it. A nobody's floor is zero. An asset owned (#48) puts
+// its own floor under every city, and the higher of the two holds.
 func (s *Sim) Floor(w *game.World) float64 {
-	return s.rep.FearHeatFloor * math.Max(0, math.Min(1, w.Player.Reputation.Fear/100))
+	return math.Max(s.rep.FearHeatFloor*math.Max(0, math.Min(1, w.Player.Reputation.Fear/100)), s.AssetFloor(w))
 }
 
 // PersonalHeat is the weight of a unit you move yourself, relative to a
@@ -658,13 +735,35 @@ func (s *Sim) Step(w *game.World, t *game.Tick) {
 	}
 	hot := s.hottest(w)
 	resp := s.Thresholds()
+	// A task force announced yesterday comes tonight (#48), whatever the
+	// heat: it formed, and it acts. The day's one response is its.
+	if h.TaskForceDay > 0 && h.TaskForceDay < t.Day {
+		h.TaskForceDay = 0
+		if r := s.rung(content.TaskForce); r != nil {
+			h.Responses[r.Level]++
+			s.fire(w, t, hot, *r, attempted[hot.ID], fx)
+			h.LastResponse[r.Level] = t.Day
+			h.WatchUntil = t.Day + s.CooldownDays(w, r.Level)
+		}
+		resp = nil
+	}
 	for i := len(resp) - 1; i >= 0; i-- {
 		r := resp[i]
 		if hot.Heat < s.Threshold(w, r, hot) {
 			continue
 		}
+		if r.Level == content.TaskForce && !s.TaskForceEligible(w) {
+			continue // nobody without an asset or the pile meets the feds (#48): the ladder is the four rungs it was
+		}
 		if last, ok := h.LastResponse[r.Level]; ok && t.Day-last < s.CooldownDays(w, r.Level) && r.Level != content.Arrest {
 			continue
+		}
+		if r.Level == content.TaskForce {
+			// Announced a day ahead (#48): the morning's news, and the
+			// day's response. It comes tomorrow night.
+			h.TaskForceDay = t.Day
+			t.Emit(events.TaskForceFormed{Day: t.Day, City: hot.ID, Assets: len(w.Assets)})
+			break
 		}
 		h.Responses[r.Level]++
 		s.fire(w, t, hot, r, attempted[hot.ID], fx)
@@ -737,16 +836,20 @@ func (s *Sim) fire(w *game.World, t *game.Tick, city *game.City, r content.Respo
 		t.Emit(ev)
 		t.Emit(events.GameOver{Day: t.Day, Cause: "arrested"})
 		return
-	default: // sting, raid
+	default: // sting, raid, task force
 		stockLoss, cashLoss := r.StockLoss, r.CashLoss
 		told := r.Level == content.Raid && w.Crew.Informants() > 0
-		if r.Level == content.Raid {
+		switch r.Level {
+		case content.Raid:
 			stockLoss *= fx.RaidLossMul
 			cashLoss *= fx.RaidLossMul
 			if told {
 				stockLoss, ev.Stash = 1, true
 			}
-		} else {
+		case content.TaskForce:
+			// The feds take the file's numbers (#48): no node softens
+			// them, and they take an asset besides (seize, below).
+		default:
 			stockLoss *= fx.StingStockMul
 		}
 		if house := s.place(w, t, city.ID, told); house != nil {
@@ -772,9 +875,13 @@ func (s *Sim) fire(w *game.World, t *game.Tick, city *game.City, r content.Respo
 		}
 		ev.CashLost = int(math.Round(float64(w.Player.DirtyCash) * cashLoss))
 		w.Player.DirtyCash -= ev.CashLost
-		if r.Level == content.Raid {
+		switch r.Level {
+		case content.Raid:
 			w.Stats.Raids++
-		} else {
+		case content.TaskForce:
+			w.Stats.TaskForces++
+			s.seize(w, t, city)
+		default:
 			w.Stats.Stings++
 		}
 		// Who stood where when the police came (#46): the corners in
@@ -829,6 +936,33 @@ func (s *Sim) fire(w *game.World, t *game.Tick, city *game.City, r content.Respo
 	n := float64(max(1, w.Heat.Responses[r.Level]))
 	city.Heat -= r.HeatDrop / n
 	t.Emit(ev)
+}
+
+// seize is the task force taking an asset (#48): one a firing, the one
+// in the city it came to if any, else the costliest owned; gone, not
+// frozen. AssetSeized goes out beside the Enforcement and the
+// laundering sim, which owns the assets and steps after this one,
+// takes it off the books on the event (as it does the tunnel the
+// police found, TunnelFound). Nothing with nothing owned: a task force
+// formed on the pile alone takes the stock and the cash a raid does.
+// No dice.
+func (s *Sim) seize(w *game.World, t *game.Tick, city *game.City) {
+	pick := -1
+	for i, a := range w.Assets {
+		switch {
+		case pick < 0:
+			pick = i
+		case a.City == city.ID && w.Assets[pick].City != city.ID:
+			pick = i
+		case (a.City == city.ID) == (w.Assets[pick].City == city.ID) && a.Cost > w.Assets[pick].Cost:
+			pick = i
+		}
+	}
+	if pick < 0 {
+		return
+	}
+	a := w.Assets[pick]
+	t.Emit(events.AssetSeized{Day: t.Day, City: city.ID, Asset: a.ID, Name: a.Name, Cost: a.Cost})
 }
 
 // place is the one place a sting or a raid in a city hits (#73): nil for

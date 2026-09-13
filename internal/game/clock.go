@@ -109,6 +109,9 @@ func (c *Clock) EndDay(w *World) []events.Event {
 	if w.Cash() > w.Stats.PeakCash {
 		w.Stats.PeakCash = w.Cash()
 	}
+	if w.Player.CleanCash > w.Stats.PeakClean {
+		w.Stats.PeakClean = w.Player.CleanCash // the assets' line (#48): the wash is the clock
+	}
 	t.Emit(events.DayEnded{Day: day})
 	if c.bus != nil {
 		for _, e := range t.events {

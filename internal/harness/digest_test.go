@@ -180,20 +180,37 @@ const (
 // four Stats; the move is on day 1 by shape alone and no number moved:
 // cmd/balance -factions 1 prints main's trace to the dollar on every
 // day of five policies over three seeds, TestOneFactionIsTheOldRun).
+// Again for #48 (World.Assets and AssetsLost, Today.AssetsBought,
+// HeatState.TaskForceDay, WatchUntil, LineUntil and LineMul,
+// Supplier.Owned, ShockUntil and ShockMul, six Stats added to the walk;
+// one number moves from day 1: Stats.PeakClean, the clean high-water
+// mark the assets unlock on, a copy of a maximum every run already
+// held; and the report's tier lines reword twice, `tier 2 of 5` on day
+// 2 and tier 4's `Next` on day 54, the day this seed enters
+// Distribution; with those set aside the digest is aea739e's on all
+// sixty days before #43 and 8b22ab1's after it, so no money number
+// moved: TestNoAssetIsTheOldRun reads the same day by day to the
+// tier-4 checkpoint; re-pinned on the merged tree).
+// Again for #194 (Corner.Deed, Today.DeedsBought, Law.Forfeited and
+// four Stats; the move is on day 1 by shape alone and no number moved:
+// the boss buys its first deed after day 100 on this seed, and
+// cmd/balance -deeds off prints 74a0b60's trace to the dollar on boss,
+// cartel and distributor over three seeds to day 200, with deeds on
+// the boss's trace holding to day 125 at the earliest).
 var seedDigest = []string{
-	"306c2ff7648c944e", "e95972a9ae11da71", "661751acbc4e806a", "fd4a101b0a904fee",
-	"58dcd6e8a4aef89b", "1bf8decd57e81c7b", "ac03e719a0ffbbcd", "da5021f4de11a31d",
-	"eea778dc432a5626", "8f5fa4591e7fd448", "2ce1b3253e5b2ca9", "4e7ff7dea4a4c17a",
-	"527008a8a892cc8a", "5c90e3c920f1e13f", "8a64f1cf969b47cf", "0310e49b09f7975d",
-	"5c59f97c76ca8525", "af77dec326fb13c4", "f2700ac72c101221", "a6874e449ef025fe",
-	"393a08675467a741", "d722a6bfabc46dce", "0840976ea09522f6", "a15b0540571d2c21",
-	"0cde7a1c75b31bd7", "9e65db6ce17c27a7", "9f97c410dd7b3fd7", "10fe80520d94d82f",
-	"84ba3df874ff4d67", "7cb8880ed1dcf9b1", "18dd3d3234ff8224", "ba492e5e8d8d8b2d",
-	"e70f4f19e8a81766", "1b948cc13589cb2d", "3f280f4d3f691c27", "773411b6aa95cfbd",
-	"41cafa8a6dbd6060", "004265f82618d830", "0667445e5fe699a2", "b61b6e85bae43713",
-	"754520aaecb2fad5", "0b64a55c03c14566", "aff3bdaa891d82b6", "b7c6a6eb258f73bb",
-	"fcdc815219df3ccc", "b2776a6801e4ae17", "1222d04977314499", "d25b25adbbfdc081",
-	"a478fafdd9ec9297", "68a803d6628f29c6", "9b16e0e375364f04", "a089308e10dbecd4",
-	"3a06c971f0d6f871", "7aa97c489db5d4f4", "cc5bcc14182363bb", "1844210ce5364693",
-	"77fc6c977651482e", "4d7a7e3f75423a2b", "9f97f154283d9494", "9d382c7a38639cfa",
+	"9a7a9c413db18549", "f07f6a053dfb7c2d", "e2fd2ca40aa57a17", "2987af096a9f5951",
+	"cbc143fbe6ec998c", "5ea69e344dbf633c", "265595d379849abc", "c7d1260a345711fa",
+	"b6104c3dc8ee7a3a", "fd99f9963c8980d1", "faeaeb70a4f24fbc", "891eb96d45463a61",
+	"e66de7256427426d", "b9cb8b4a0e1132c4", "219455e7143941c4", "5b71f9c0688db330",
+	"9377ff4431147954", "49bb49e1aa5d2222", "c7bd200c884b0f4f", "9ab37cfbb8de248d",
+	"f872ccb20779052f", "8f51c38575f526f2", "eaf6b277c1244d66", "088a21d1221a9eaa",
+	"a7691be7305cef24", "2297b370efe42e72", "e329ed49fb75821a", "ecbbb0deec25db99",
+	"8be369240eed3244", "bcbab1a0f56a7f71", "7f2268fdd72f1dae", "3d0e214b7522b0e2",
+	"5722ba61a3eb08b9", "3cb1ab79490ab642", "aa4f05fd3acdffcd", "a56e1d31c4b29969",
+	"227c0e3a8d4cbd9a", "863fe791f397afab", "5832912138fe907f", "8a67ec4c6fe44637",
+	"c15d14842e3a1e3a", "1ab98224f7370bd7", "fd6f24eb5223bc4f", "d85b0d62bdd6c833",
+	"44e1f214bbe38f8f", "8f37f03ab21e54df", "895a046632344a78", "62f6eac64d5bbd20",
+	"c9eddcde43bac80d", "dbdbc38a22e3cfd1", "4c18e15e3fa4aaa4", "15e1df571d8f1001",
+	"ac77d8a2fab4edcd", "856dcacc14bd97d1", "760279a85938733d", "3cdc0ff2411802e1",
+	"b16278f921d6e10a", "b6af7c906493cef1", "c0ce34a630fd51a6", "50f6e628d1009592",
 }

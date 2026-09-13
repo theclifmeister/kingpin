@@ -42,3 +42,4 @@ One file a subsystem, the detail CLAUDE.md points at (#175). Each is the contrac
 - [Quality is the last dial](quality.md)
 - [Crew life: kin, ageing, arrests and getting shot](crew-life.md)
 - [Property is the block a corner is on, bought with clean cash](property.md)
+- [Assets are the supply side bought with clean money](assets.md)

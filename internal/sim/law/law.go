@@ -25,16 +25,18 @@ type Sim struct {
 	cfg    content.LawConfig
 	chiefs []string
 	das    []string
-	deed   content.DeedTuning
+	deed   content.DeedTuning   // #194: the pressure a deed adds in its city a day, and the forfeiture's line
+	assets content.AssetsConfig // #48: the pressure an owned asset adds in its city every day
 }
 
 // New builds a law sim from the config, copying what it reads (#144):
-// its own law.toml, the chiefs' and DAs' name pools, and of the deeds
+// its own law.toml, the chiefs' and DAs' name pools, of the deeds
 // (#194, city.toml [deed]) two numbers: pressure, a deed's a day in its
 // city, and forfeit_ratio, the multiple of what the fronts have washed
-// the deeds held may cost before the DA takes one back.
+// the deeds held may cost before the DA takes one back, and the assets
+// (#48) for the pressure each adds in its city while owned.
 func New(cfg *content.Config) *Sim {
-	return &Sim{cfg: cfg.Law, chiefs: cfg.Names.Chiefs, das: cfg.Names.DAs, deed: cfg.City.Deed}
+	return &Sim{cfg: cfg.Law, chiefs: cfg.Names.Chiefs, das: cfg.Names.DAs, deed: cfg.City.Deed, assets: cfg.Assets}
 }
 
 // DeedLimit is what the deeds held may cost between them before the DA
@@ -439,6 +441,13 @@ func (s *Sim) Step(w *game.World, t *game.Tick) {
 	if s.deed.On() && s.deed.Pressure > 0 {
 		for _, cid := range w.CityOrder {
 			gain[cid] += s.deed.Pressure * float64(w.DeedsIn(cid))
+		}
+	}
+	// An asset (#48) is a thing the whole city can see: its pressure
+	// lands in its city every day it stands.
+	for _, a := range s.assets.Offers {
+		if a.Pressure > 0 && w.AssetLive(a.ID) {
+			gain[a.City] += a.Pressure
 		}
 	}
 

@@ -47,6 +47,9 @@ func (s *Sim) SupplierRatio(w *game.World, sup *game.Supplier) float64 {
 }
 
 func (s *Sim) supplierRatio(w *game.World, sup *game.Supplier, fx game.Effects) float64 {
+	if row := s.owned(w, sup); row != nil {
+		return row.OwnRatio // the book is yours (#48): the price is what you set, whatever the band
+	}
 	ratio := s.cfg.Market.SupplierRatio
 	if sc := s.scfg.Supplier(sup.ID); sc != nil {
 		ratio = s.scfg.Suppliers.Ratio(*sc, s.Band(sup.Rel))
@@ -57,6 +60,21 @@ func (s *Sim) supplierRatio(w *game.World, sup *game.Supplier, fx game.Effects) 
 	}
 	return ratio
 }
+
+// owned is the supplier asset's row when it is owned and standing and
+// the connect is the wholesaler in its city (#48), else nil: the one
+// connect whose book is yours. Its price is own_ratio of street flat,
+// its capacity is without limit and a buy nudges nothing.
+func (s *Sim) owned(w *game.World, sup *game.Supplier) *content.AssetConfig {
+	row := s.assets.ByEffect(content.AssetSupplier)
+	if row == nil || !sup.Wholesale || sup.City != row.City || !w.AssetLive(row.ID) {
+		return nil
+	}
+	return row
+}
+
+// Owned reports whether the connect's book is yours (#48), for the UI.
+func (s *Sim) Owned(w *game.World, sup *game.Supplier) bool { return s.owned(w, sup) != nil }
 
 // BaseRatio is the file's flat supplier ratio less what the contact and
 // respect take off: what a city with no connect charges, and what the
@@ -194,6 +212,13 @@ func (s *Sim) stampBand(w *game.World, sup *game.Supplier) {
 	sup.Band = tun.Band(sup.Rel)
 	sup.Cap = max(1, int(math.Round(float64(sc.Capacity)*tun.CapacityMul(sup.Band))))
 	sup.Limit = int(math.Round(float64(sc.CreditLimit) * tun.CreditMul(sup.Band)))
+	// A connect whose book you own (#48) has no cap: stamped each
+	// morning, so the day after the asset is bought or taken the book
+	// reads as it should.
+	sup.Owned = s.owned(w, sup) != nil
+	if sup.Owned {
+		sup.Cap = game.OwnedCap
+	}
 }
 
 // stampPrice resets a connect's price for a product to their fraction
@@ -205,6 +230,11 @@ func (s *Sim) stampPrice(w *game.World, sup *game.Supplier, id string, m *game.P
 		return
 	}
 	sup.Price[id] = m.Price * s.supplierRatio(w, sup, fx)
+	// A cartel war abroad (#48, an incident): every connect pays more
+	// upstream and so do you, for the window World.ApplyIncident set.
+	if w.Day+1 < sup.ShockUntil && sup.ShockMul > 0 {
+		sup.Price[id] *= sup.ShockMul
+	}
 	// What they sell is as good as the file says (#47): their own
 	// figure for the product, else the default.
 	if sup.Quality == nil {

@@ -82,6 +82,7 @@ type Sim struct {
 	drivers  []string // the driver's names (#46), the same
 	rep      content.ReputationFX
 	tree     content.UpgradesConfig
+	lab      *content.AssetConfig   // #48: the lab asset's row, what it does to a cook in its city; nil with none in the file
 	fac      content.FactionsTuning // the table (#43): the discount a fragmented faction's muscle sign for
 }
 
@@ -97,7 +98,52 @@ type Sim struct {
 // and start_loyalty_bonus on a generated candidate and hire_fee_mul on
 // their fee, both fixed when they are generated.
 func New(cfg *content.Config) *Sim {
-	return &Sim{cfg: cfg.Crew, names: cfg.Names.Crew, chemists: cfg.Names.Chemists, drivers: cfg.Names.Drivers, rep: cfg.Reputation.Effects, tree: cfg.Upgrades, fac: cfg.Rivals.Factions}
+	s := &Sim{cfg: cfg.Crew, names: cfg.Names.Crew, chemists: cfg.Names.Chemists, drivers: cfg.Names.Drivers, rep: cfg.Reputation.Effects, tree: cfg.Upgrades, fac: cfg.Rivals.Factions}
+	if lab := cfg.Assets.ByEffect(content.AssetLab); lab != nil {
+		row := *lab
+		s.lab = &row
+	}
+	return s
+}
+
+// Lab is the lab asset's row while it is owned, standing and in city
+// (#48), or nil: what multiplies a cook there.
+func (s *Sim) Lab(w *game.World, city string) *content.AssetConfig {
+	if s.lab == nil || s.lab.City != city || !w.AssetLive(s.lab.ID) {
+		return nil
+	}
+	return s.lab
+}
+
+// BatchIn is the most units the best chemist cooks an order in a city:
+// Batch, times the lab's lab_mul where the lab stands (#48).
+func (s *Sim) BatchIn(w *game.World, city string) int {
+	b := s.Batch(w)
+	if lab := s.Lab(w, city); lab != nil && b > 0 {
+		b = int(math.Round(float64(b) * lab.LabMul))
+	}
+	return b
+}
+
+// QualityIn is what a cook in a city lands at: the best chemist's
+// quality, or the lab's lab_quality where the lab stands and that is
+// higher (#48); 0 with no chemist.
+func (s *Sim) QualityIn(w *game.World, city string) float64 {
+	q := s.ChemistQuality(w)
+	if lab := s.Lab(w, city); lab != nil && q > 0 {
+		q = math.Max(q, lab.LabQuality)
+	}
+	return q
+}
+
+// CookCostIn is what a unit's precursors cost in a city: the product's
+// cook_cost as the caller prices it, at the lab's lab_cost_mul where the
+// lab stands (#48).
+func (s *Sim) CookCostIn(w *game.World, city string, cost int) int {
+	if lab := s.Lab(w, city); lab != nil && cost > 0 {
+		return max(1, int(math.Round(float64(cost)*lab.LabCostMul)))
+	}
+	return cost
 }
 
 // LoyaltyLoss is what the player's respect and the tree leave of a day's
@@ -442,7 +488,7 @@ func (s *Sim) Step(w *game.World, t *game.Tick) {
 		}
 	}
 	danger := false
-	for _, level := range []string{content.Sting, content.Raid} {
+	for _, level := range []string{content.Sting, content.Raid, content.TaskForce} {
 		if d, ok := w.Heat.LastResponse[level]; ok && t.Day-d <= tun.DangerDays {
 			danger = true
 		}

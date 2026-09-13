@@ -49,6 +49,13 @@ type World struct {
 	Houses      []House                   // the stash houses (#73), in the order bought: where the stock sits beyond the street, and which one the raid finds
 	Incidents   IncidentState             // the world's incidents (#44): what has fired and the table's pacing; the world sim's, first in the order
 
+	// The assets (#48, game/assets.go): what is owned, in the order
+	// bought, and what the task force took or the police found, for the
+	// record. Bought by BuyAsset with clean cash; the heat sim is the
+	// one that takes one away. Zero is the run before: no bump.
+	Assets     []Asset
+	AssetsLost []Asset
+
 	// The lieutenants' supply contracts (#174), keyed like Supply: the
 	// crew step refreshes them nightly by the temper's stock_days and
 	// the market sim fills them where the player has set none of their
@@ -131,6 +138,7 @@ type Today struct {
 	Cuts          []CutRecord            // the cuts made today (#47), applied at once; the market sim reports them
 	Reserved      int                    // clean cash on its way offshore tonight (#195), out of the pile already; the laundering sim moves it and takes the fee
 	DeedsBought   []string               // corner ids whose block was bought today (#194), paid at once; the territory sim reports them
+	AssetsBought  []string               // asset ids bought today (#48), applied at once; the laundering sim reports them
 }
 
 // Investment is clean cash put into a front's levels today (#192):
@@ -363,6 +371,10 @@ type HeatState struct {
 	Peak         float64        // the hottest any city has been
 	FederalUntil int            // the feds are in town until this day (#44, an incident): the heat sim's decay is FederalDecay of itself on every tick before it
 	FederalDecay float64        // ... by this much; 0 reads as no change
+	TaskForceDay int            // the day a task force was announced (#48, TaskForceFormed); it fires the next tick, and 0 is none forming
+	WatchUntil   int            // the feds watch the skies until this day (#48): the plane route's risk is the file's before it and zero after; stamped when a task force fires
+	LineUntil    int            // the task force's threshold is LineMul of itself on every tick before this day (#48, an incident: the extradition treaty)
+	LineMul      float64        // ... by this much; 0 reads as no change
 	Busts        []Bust         // stings and raids that took stock, kept a while: the market sim reads yesterday's for the connect there (#72)
 	Sweep        Sweep          // the last sting or raid and who stood where when it came (#46): the crew sim reads yesterday's for the arrests
 }
@@ -1016,6 +1028,12 @@ type Stats struct {
 	DeedsSeized    int // deeds the DA took (the forfeiture)
 	Wounded        int // crew shot and laid up
 	Retired        int // crew who retired
+	PeakClean      int // the most clean cash held at once (#48): the high-water mark the assets unlock on, stamped by the clock beside PeakCash
+	Assets         int // assets bought (#48)
+	AssetCash      int // clean cash they cost
+	AssetsLost     int // assets the task force seized or the police found
+	AssetUpkeep    int // clean cash the assets' upkeep took
+	TaskForces     int // task forces that came
 }
 
 // StartingProduct describes a product as it exists at the start of a run,
@@ -1636,6 +1654,9 @@ func (w *World) NetWorth() int {
 	}
 	for _, c := range w.Deeds() {
 		n += c.Deed.Price
+	}
+	for _, a := range w.Assets {
+		n += a.Cost // at cost (#48): what was paid, while it stands
 	}
 	return n
 }
