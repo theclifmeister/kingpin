@@ -25,12 +25,14 @@ type Sim struct {
 	cfg    content.LawConfig
 	chiefs []string
 	das    []string
+	assets content.AssetsConfig // #48: the pressure an owned asset adds in its city every day
 }
 
 // New builds a law sim from the config, copying what it reads (#144):
-// its own law.toml and the chiefs' and DAs' name pools.
+// its own law.toml, the chiefs' and DAs' name pools, and the assets
+// (#48) for the pressure each adds in its city while owned.
 func New(cfg *content.Config) *Sim {
-	return &Sim{cfg: cfg.Law, chiefs: cfg.Names.Chiefs, das: cfg.Names.DAs}
+	return &Sim{cfg: cfg.Law, chiefs: cfg.Names.Chiefs, das: cfg.Names.DAs, assets: cfg.Assets}
 }
 
 func (s *Sim) Name() string { return "law" }
@@ -413,6 +415,13 @@ func (s *Sim) Step(w *game.World, t *game.Tick) {
 	for _, cid := range w.CityOrder {
 		if w.Cities[cid].Campaign.Cash > 0 {
 			gain[cid] += s.cfg.Campaign.Pressure
+		}
+	}
+	// An asset (#48) is a thing the whole city can see: its pressure
+	// lands in its city every day it stands.
+	for _, a := range s.assets.Offers {
+		if a.Pressure > 0 && w.AssetLive(a.ID) {
+			gain[a.City] += a.Pressure
 		}
 	}
 

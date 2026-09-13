@@ -145,7 +145,7 @@ func (s *Sim) life(w *game.World, t *game.Tick, fx game.Effects) {
 				s.jail(w, t, m, sw.City, w.PostOf(m.ID), "")
 			}
 		}
-		if sw.Level == content.Raid && sw.Units > 0 {
+		if content.Rank(sw.Level) >= content.Rank(content.Raid) && sw.Units > 0 { // a raid, or the task force (#48)
 			if m := c.Chemist(); m != nil && !m.Jailed(t.Day) && rng.Float64() < life.ArrestChance {
 				s.jail(w, t, m, sw.City, nil, "")
 			}

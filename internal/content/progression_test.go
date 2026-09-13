@@ -5,16 +5,17 @@ import (
 	"testing"
 )
 
-// The file in the box is a ladder (#147): four tiers, named, the
+// The file in the box is a ladder (#147): five tiers (#48's Cartel the
+// last), named, the
 // checkpoints rising, a trigger on every tier past the first and none on
 // the first; and the decode refuses a ladder that is not.
 func TestProgressionReadsAsALadder(t *testing.T) {
 	cfg := MustLoad()
 	p := cfg.Progression
-	if len(p.Tiers) != 4 {
-		t.Fatalf("%d tiers, want 4", len(p.Tiers))
+	if len(p.Tiers) != 5 {
+		t.Fatalf("%d tiers, want 5", len(p.Tiers))
 	}
-	want := []string{"Corner", "Crew", "Territory", "Distribution"}
+	want := []string{"Corner", "Crew", "Territory", "Distribution", "Cartel"}
 	for i, tier := range p.Tiers {
 		if tier.Name != want[i] {
 			t.Errorf("tier %d is %q, want %q", i+1, tier.Name, want[i])
@@ -31,10 +32,10 @@ func TestProgressionReadsAsALadder(t *testing.T) {
 			t.Errorf("tier %q: closing %q", tier.ID, tier.Closing)
 		}
 	}
-	if days := p.Checkpoints(); len(days) != 4 || days[0] != 30 || days[1] != 70 || days[2] != 120 || days[3] != 200 {
-		t.Errorf("checkpoints %v, want 30, 70, 120, 200", days)
+	if days := p.Checkpoints(); len(days) != 5 || days[0] != 30 || days[1] != 70 || days[2] != 120 || days[3] != 200 || days[4] != 300 {
+		t.Errorf("checkpoints %v, want 30, 70, 120, 200, 300", days)
 	}
-	if p.Tier(0) != nil || p.Tier(5) != nil || p.Tier(1).ID != "corner" {
+	if p.Tier(0) != nil || p.Tier(6) != nil || p.Tier(1).ID != "corner" || p.Tier(5).ID != "cartel" {
 		t.Errorf("Tier(n) does not count from 1")
 	}
 

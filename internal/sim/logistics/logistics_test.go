@@ -53,6 +53,9 @@ func TestDialsAndOffers(t *testing.T) {
 	cfg := content.MustLoad()
 	s := logistics.New(cfg)
 	w := game.NewWorld(7, logistics.StartingCities(cfg.City, cfg.Market), 100_000, 100)
+	// The plane's risk (#48) is the file's only while the feds watch the
+	// skies: with the watch on, every route reads as one.
+	w.Heat.WatchUntil = 1 << 30
 	for _, r := range cfg.Routes.Routes {
 		slow, normal, fast := s.Days(w, r, events.ShipSlow), s.Days(w, r, events.ShipNormal), s.Days(w, r, events.ShipFast)
 		if normal != r.Days || fast > normal || slow < normal || fast < 1 {

@@ -36,8 +36,8 @@ func reachedDays(res harness.Result) map[int]int {
 // morning is the wholesaler's Unlocked (#148), on the same seeds.
 func TestTiersAreOrdered(t *testing.T) {
 	cfg := content.MustLoad()
-	if len(cfg.Progression.Tiers) != 4 {
-		t.Fatalf("%d tiers in the file, want 4 (tier 5 arrives with #48)", len(cfg.Progression.Tiers))
+	if len(cfg.Progression.Tiers) != 5 {
+		t.Fatalf("%d tiers in the file, want 5 (tier 5 is #48's, the assets' line on peak clean cash)", len(cfg.Progression.Tiers))
 	}
 	laundromat := cfg.Laundering.Front("laundromat")
 	if laundromat == nil {
@@ -57,8 +57,10 @@ func TestTiersAreOrdered(t *testing.T) {
 		}
 		w := res.World
 		days := reachedDays(res)
+		// Tier 5 (#48) is the assets' line, $3M peak clean: past day
+		// 120 for the boss, which invests its clean in the levels.
 		if w.Tier() != 4 || len(days) != 3 {
-			t.Fatalf("seed %d: boss at tier %d on day %d, reached %v; want every tier entered", seed, w.Tier(), w.Day, days)
+			t.Fatalf("seed %d: boss at tier %d on day %d, reached %v; want every tier to Distribution entered by day 120 and not the Cartel", seed, w.Tier(), w.Day, days)
 		}
 		for n := 2; n <= 4; n++ {
 			if days[n] != w.ReachedOn(n) {

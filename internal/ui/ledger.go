@@ -28,8 +28,8 @@ func (m *Model) askFront() {
 	if m.w.Over != nil {
 		return
 	}
-	if len(m.frontRows()) == 0 && len(m.houseRows()) == 0 {
-		m.refuse("Nothing to buy: you own every front and every house there is.")
+	if len(m.frontRows()) == 0 && len(m.houseRows()) == 0 && len(m.assetRows()) == 0 {
+		m.refuse("Nothing to buy: you own every front, every house and every asset there is.")
 		return
 	}
 	m.frontCursor, m.frontStep = 0, 0
@@ -39,8 +39,12 @@ func (m *Model) askFront() {
 // confirmFront buys the offer under the cursor: a front, or a house on
 // the picker's house page.
 func (m *Model) confirmFront() {
-	if m.frontKind == pickHouse {
+	switch m.frontKind {
+	case pickHouse:
 		m.confirmHouse()
+		return
+	case pickAsset:
+		m.confirmAsset()
 		return
 	}
 	rows := m.frontRows()
@@ -132,8 +136,11 @@ func (m *Model) viewFront() string {
 	if m.frontStep == 0 {
 		return m.viewKind()
 	}
-	if m.frontKind == pickHouse {
+	switch m.frontKind {
+	case pickHouse:
 		return m.viewHouses()
+	case pickAsset:
+		return m.viewAssets()
 	}
 	rows := m.frontRows()
 	if len(rows) == 0 {
@@ -157,6 +164,8 @@ func (m *Model) viewFront() string {
 const (
 	ledgerFront = iota
 	ledgerHouse
+	ledgerAsset      // an asset owned (#48)
+	ledgerAssetOffer // one on offer
 	ledgerRoute
 	ledgerPayoff // the bought law (#42)
 	ledgerOffer
@@ -165,12 +174,13 @@ const (
 // ledgerRow is one row of the ledger: which table and the index in it.
 type ledgerRow struct{ kind, i int }
 
-// ledgerRoutes are every route in the file, in city order: the
-// LOGISTICS table's rows.
+// ledgerRoutes are every open route in the file (#48: the plane and
+// the tunnel once their asset stands), in city order: the LOGISTICS
+// table's rows.
 func (m *Model) ledgerRoutes() []content.RouteConfig {
 	var routes []content.RouteConfig
 	for _, cid := range m.w.CityOrder {
-		for _, r := range m.set.Logistics.Routes(cid) {
+		for _, r := range m.set.Logistics.RoutesOpen(m.w, cid) {
 			if r.From == cid {
 				routes = append(routes, r)
 			}
@@ -188,6 +198,14 @@ func (m *Model) ledgerRows() []ledgerRow {
 	}
 	for i := range m.w.Houses {
 		rows = append(rows, ledgerRow{ledgerHouse, i})
+	}
+	if m.assetsShown() {
+		for i := range m.w.Assets {
+			rows = append(rows, ledgerRow{ledgerAsset, i})
+		}
+		for i := range m.assetRows() {
+			rows = append(rows, ledgerRow{ledgerAssetOffer, i})
+		}
 	}
 	for i := range m.ledgerRoutes() {
 		rows = append(rows, ledgerRow{ledgerRoute, i})
@@ -228,7 +246,7 @@ func (m *Model) ledgerMove(dy int) {
 // frame's, and asks to end the day as it does everywhere.
 func ledgerActable(m *Model) bool {
 	kind := m.ledgerSelected().kind
-	return m.screen == screenLedger && kind != ledgerFront && kind != ledgerHouse && kind != ledgerPayoff
+	return m.screen == screenLedger && kind != ledgerFront && kind != ledgerHouse && kind != ledgerPayoff && kind != ledgerAsset
 }
 
 // ledgerEnter is enter on the ledger: the selected offer goes to the
@@ -242,6 +260,9 @@ func (m *Model) ledgerEnter() {
 	switch sel.kind {
 	case ledgerOffer:
 		m.frontKind, m.frontStep, m.frontCursor = pickFront, 1, sel.i
+		m.mode = modeFront
+	case ledgerAssetOffer:
+		m.frontKind, m.frontStep, m.frontCursor = pickAsset, 1, sel.i
 		m.mode = modeFront
 	case ledgerRoute:
 		m.cycleLedgerRoute(m.ledgerRoutes()[sel.i])
@@ -380,6 +401,48 @@ func (m *Model) viewLedger() string {
 		tableLines(ledgerHouse, cols, rows)
 	}
 
+	// The assets (#48): owned, then on offer, once the cartel is in
+	// view; the offers are bought on the picker's asset page.
+	if m.assetsShown() {
+		owned, offers := w.Assets, m.assetRows()
+		note := fmt.Sprintf(" · %s owned · %s/day clean", plural(len(owned), "asset"), money(m.set.Laundering.AssetUpkeep(w)))
+		if len(w.AssetsLost) > 0 {
+			note += fmt.Sprintf(" · %d lost", len(w.AssetsLost))
+		}
+		heading("ASSETS", note)
+		if m.set.Heat.TaskForceForming(w) {
+			line(theme.Bad.Render("▲ A task force formed this morning and comes tonight. Lie low."))
+		}
+		if len(owned)+len(offers) == 0 {
+			line(sub("Every asset there was is gone."))
+		} else {
+			cols := append([]col(nil), assetCols...)
+			rows := m.assetTable(owned, offers, true)
+			if tableWidth(cols, rows) > width {
+				rows = m.assetTable(owned, offers, false)
+			}
+			for _, drop := range []int{2, 1} {
+				if tableWidth(cols, rows) <= width {
+					break
+				}
+				cols = append(cols[:drop:drop], cols[drop+1:]...)
+				for i := range rows {
+					rows[i] = append(rows[i][:drop:drop], rows[i][drop+1:]...)
+				}
+			}
+			c := -1
+			if sel.kind == ledgerAsset {
+				c = sel.i
+			} else if sel.kind == ledgerAssetOffer {
+				c = len(owned) + sel.i
+			}
+			if c >= 0 {
+				top, at = len(ls)-1, len(ls)+1+c
+			}
+			ls = append(ls, table(cols, rows, c, width)...)
+		}
+	}
+
 	routes := m.ledgerRoutes()
 	if len(routes) > 0 {
 		lost := 0
@@ -475,6 +538,10 @@ func (m *Model) ledgerDetails() []section {
 		secs = append(secs, m.frontSection(m.w.Fronts[sel.i]))
 	case ledgerHouse:
 		secs = append(secs, m.houseSection(m.w.Houses[sel.i]))
+	case ledgerAsset:
+		secs = append(secs, m.assetSection(m.w.Assets[sel.i]))
+	case ledgerAssetOffer:
+		secs = append(secs, m.assetOfferSection(m.assetRows()[sel.i]))
 	case ledgerRoute:
 		secs = append(secs, m.ledgerRouteSection(m.ledgerRoutes()[sel.i]))
 	case ledgerPayoff:

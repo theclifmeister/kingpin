@@ -33,7 +33,9 @@
 # who never hires stays a Corner trader whatever the pile (the money
 # curve's tier-1 row is that player at $85K), and a tier is never
 # skipped. The walk is the code's: every tier past the highest reached,
-# in order, the first that holds. Tier 5 arrives with #48.
+# in order, the first that holds. Tier 5 (#48) is the assets' line:
+# peak_clean_min at the first asset's unlock_cash (assets.toml), since
+# an asset is bought with clean cash and the wash is the clock.
 
 [[tier]]
 id = "corner"
@@ -100,14 +102,34 @@ opens = [
   "lieutenants, once you hold corners in two cities",
   "the big fronts at $1.2M and $3M",
 ]
-next = "The cartel: assets bought with clean money."
+next = "Hold $8M clean: the assets go on sale, and the feds take an interest."
 text = [
   "Bayport is down the coast, and the Dutchman sells to the road, not to you.",
   "Set a route and a target and let the trucks keep Eastside supplied.",
   "Designer comes home that way and no other.",
   "Hold corners in two cities and somebody will offer to run one for you, for a cut.",
 ]
-closing = "No stage lies past this one yet. The cartel, bought with clean money, is still on the drawing board."
 [tier.enter]
 crew_min = 1
 peak_cash_min = 500000
+
+[[tier]]
+id = "cartel"
+name = "Cartel"
+blurb = "The supply side is yours to buy, and the feds know your name."
+checkpoint = 300
+opens = [
+  "the assets: the connect, the port, the airstrip, the lab, a tunnel",
+  "the plane and the tunnel on the map",
+  "the task force, above the raid",
+]
+next = "There is no next stage. Retire on the account, or see how long it lasts."
+text = [
+  "Clean money buys the Dutchman's book, the port, an airstrip, a lab.",
+  "Each one is throughput, cheaper or faster; each is a reason for a task force.",
+  "It is announced the morning before it comes, and it takes an asset with it.",
+]
+closing = "No stage lies past this one. Retire on the account, or see how long it lasts."
+[tier.enter]
+crew_min = 1
+peak_clean_min = 8000000

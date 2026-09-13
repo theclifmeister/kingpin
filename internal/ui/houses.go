@@ -28,14 +28,15 @@ func (m *Model) houseRows() []game.HouseOffer {
 	return rows
 }
 
-// The picker's kinds: a front, then a house.
+// The picker's kinds: a front, then a house, then an asset (#48).
 const (
 	pickFront = iota
 	pickHouse
+	pickAsset
 )
 
 // pickNames are the picker's first page, in the dial convention.
-var pickNames = []string{"front", "house"}
+var pickNames = []string{"front", "house", "asset"}
 
 // houseOfferCols and houseOfferRows are the houses on offer in the
 // picker: where, how much it holds, what it costs and keeps, the block's
@@ -118,8 +119,11 @@ func (m *Model) keyFront(key string) {
 // offerCount is one entry an offer of the kind the picker is on, for
 // the cursor's range.
 func (m *Model) offerCount() []struct{} {
-	if m.frontKind == pickHouse {
+	switch m.frontKind {
+	case pickHouse:
 		return make([]struct{}, len(m.houseRows()))
+	case pickAsset:
+		return make([]struct{}, len(m.assetRows()))
 	}
 	return make([]struct{}, len(m.frontRows()))
 }
@@ -129,9 +133,12 @@ func (m *Model) offerCount() []struct{} {
 func (m *Model) openOffers() {
 	if len(m.offerCount()) == 0 {
 		m.mode = modePlay
-		if m.frontKind == pickHouse {
+		switch m.frontKind {
+		case pickHouse:
 			m.refuse("Nothing to rent: you have every house there is.")
-		} else {
+		case pickAsset:
+			m.refuse("Nothing to buy: you own every asset there is.")
+		default:
 			m.refuse("Nothing to buy: you own every front there is.")
 		}
 		return
@@ -161,10 +168,11 @@ func (m *Model) viewKind() string {
 	rows := [][]any{
 		{"front", fmt.Sprintf("washes dirty cash clean · %d on offer", len(m.frontRows()))},
 		{"house", fmt.Sprintf("keeps stock off the street · %d on offer", len(m.houseRows()))},
+		{"asset", fmt.Sprintf("the supply side, clean cash · %d on offer", len(m.assetRows()))},
 	}
 	body := table([]col{{"buy", kText, 0}, {"what", kText, 0}}, rows, m.frontKind, m.modalInner())
 	body = append(body, "")
-	body = append(body, m.subtle(fmt.Sprintf("Dirty cash %s. A house takes what arrives in its city first, and a raid hits one place, not the operation.", cash(m.w.Player.DirtyCash)))...)
+	body = append(body, m.subtle(fmt.Sprintf("Dirty cash %s, clean %s. A house takes what arrives in its city first, and a raid hits one place, not the operation. An asset is bought clean and the feds take an interest.", cash(m.w.Player.DirtyCash), cash(m.w.Player.CleanCash)))...)
 	return m.modal("BUY", body, m.modalFooter())
 }
 

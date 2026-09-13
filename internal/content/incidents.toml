@@ -26,6 +26,8 @@
 #     heat_decay = { mul, days }               the heat sim's decay × mul
 #     chief_replaced = true                    a new chief this morning
 #     election_called = N                      the DA faces the voters in N days
+#     supplier_shock = { mul, days }           every connect's price × mul (#48)
+#     taskforce_line = { mul, days }           the task force's threshold × mul (#48)
 #   A key not in the set fails at start-up. rival_leader_killed waits
 #   for #43.
 # The headline is headlines.toml's under `Incident` + the id in camel
@@ -167,3 +169,31 @@ report = "The feds have opened an office in {{.City}}. For {{.Days}} days heat c
 peak_cash_min = 200000
 [incident.effects]
 heat_decay = { mul = 0.5, days = 20 }
+
+# Tier 5 (#48): the two rows a cartel meets. Both wait for day 150 and a
+# peak of $5M, so a run still at tier 3 (under the wholesaler's $500K
+# line) never sees them; the harness boxes the table anyway.
+
+[[incident]]
+id = "cartel_war"
+name = "Cartel war"
+weight = 2
+min_day = 150
+min_gap = 60
+report = "There is a war upriver and the connects are paying for it: every supplier's price is doubled for {{.Days}} days. The lots cost what they cost."
+[incident.trigger]
+peak_cash_min = 5000000
+[incident.effects]
+supplier_shock = { mul = 2.0, days = 12 }
+
+[[incident]]
+id = "extradition"
+name = "Extradition treaty"
+weight = 1
+min_day = 150
+min_gap = 90
+report = "The state has signed an extradition treaty and the feds are hiring: the task force forms at lower heat for {{.Days}} days. Anything they seize now does not come back."
+[incident.trigger]
+peak_cash_min = 5000000
+[incident.effects]
+taskforce_line = { mul = 0.85, days = 30 }

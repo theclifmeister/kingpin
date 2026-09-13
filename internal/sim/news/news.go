@@ -129,6 +129,7 @@ type data struct {
 	Chief   string // the chief's surname (#44)
 	Leader  string // the rival's leader (#44)
 	Faction string // the rival's faction, `Big Sal's crew` (#44)
+	Asset   string // an asset by name (#48)
 }
 
 // Step writes headlines into the journal and assembles the morning report.
@@ -291,6 +292,9 @@ func (s *Sim) Step(w *game.World, t *game.Tick) {
 			case "role":
 				d.Role = ev.ID
 				addOff("unlocks", "unlock", "UnlockedRole", d)
+			case "asset":
+				d.Asset = ev.Name
+				addOff("assets:news", "unlock", "UnlockedAsset", d)
 			}
 		case events.PriceShock:
 			d := at(ev.City)
@@ -461,7 +465,7 @@ func (s *Sim) Step(w *game.World, t *game.Tick) {
 			} else if ev.Stash {
 				rep.Heat = append(rep.Heat, "  they went straight to the stash. Somebody told them where.")
 			}
-			if ev.Level == content.Sting || ev.Level == content.Raid {
+			if ev.Level == content.Sting || ev.Level == content.Raid || ev.Level == content.TaskForce {
 				if ev.Evidence > 0 {
 					rep.Heat = append(rep.Heat, fmt.Sprintf("  the DA's file on you grows (%d)", w.Heat.Evidence))
 				} else {
@@ -1078,6 +1082,34 @@ func (s *Sim) Step(w *game.World, t *game.Tick) {
 			rep.Money = append(rep.Money, fmt.Sprintf("Precursors for %s -%s", w.ProductName(ev.Product), format.Money(ev.Cost)))
 		case events.Cooked:
 			rep.Crew = append(rep.Crew, fmt.Sprintf("%s's batch landed%s: %d %s at quality %.0f, paid %s on the order.", ev.Chemist, in(ev.City), ev.Units, w.ProductName(ev.Product), ev.Quality, format.Money(ev.Cost)))
+		case events.AssetBought:
+			// The assets (#48): a clean-cash purchase the paper notices,
+			// off the assets' own stream, so no pinned run moves.
+			d := at(ev.City)
+			d.Asset = ev.Name
+			addOff("assets:news", "laundering", "AssetBought", d)
+			spent += ev.Cost
+			rep.Money = append(rep.Money, fmt.Sprintf("Bought %s -%s clean. It stands from today, %s/day clean to keep.", ev.Name, format.Money(ev.Cost), format.Money(ev.Upkeep)))
+		case events.AssetFrozen:
+			rep.Money = append(rep.Money, fmt.Sprintf("%s stands idle for %s: %s upkeep unpaid. Wash something.", ev.Name, format.Plural(ev.Days, "day"), format.Money(ev.Upkeep)))
+		case events.TaskForceFormed:
+			d := at(ev.City)
+			addOff("assets:news", "heat", "TaskForceFormed", d)
+			line := fmt.Sprintf("A TASK FORCE has formed%s. It comes tomorrow night", in(ev.City))
+			if ev.Assets > 0 {
+				line += " and it will take an asset with it"
+			}
+			rep.Heat = append(rep.Heat, line+". Lie low: what they find on a quiet night is not a case.")
+		case events.AssetSeized:
+			d := at(ev.City)
+			d.Asset = ev.Name
+			addOff("assets:news", "heat", "AssetSeized", d)
+			rep.Heat = append(rep.Heat, fmt.Sprintf("  they took %s: %s of yours, gone.", ev.Name, format.Money(ev.Cost)))
+		case events.TunnelFound:
+			d := base
+			d.Asset, d.Route, d.Product = ev.Name, ev.Name, w.ProductName(ev.Product)
+			addOff("assets:news", "heat", "TunnelFound", d)
+			rep.Shipments = append(rep.Shipments, fmt.Sprintf("THE TUNNEL IS FOUND: %d %s taken in it, and it is shut for good.", ev.Units, w.ProductName(ev.Product)))
 		case events.RentPaid:
 			rent += ev.Amount
 			if ev.Amount > 0 {
@@ -1422,9 +1454,13 @@ func enforcementLine(w *game.World, ev events.Enforcement) string {
 		parts = append(parts, fmt.Sprintf("%d %s", q, w.ProductName(id)))
 	}
 	sort.Strings(parts)
-	s := strings.ToUpper(ev.Level) + ": lost"
+	word := strings.ToUpper(ev.Level)
+	if ev.Level == content.TaskForce {
+		word = "TASK FORCE" // #48: the level's id is one word, the paper's two
+	}
+	s := word + ": lost"
 	if ev.House != "" {
-		s = strings.ToUpper(ev.Level) + " at " + ev.HouseName + ": lost"
+		s = word + " at " + ev.HouseName + ": lost"
 	}
 	if len(parts) > 0 {
 		s += " " + strings.Join(parts, ", ")
@@ -1469,6 +1505,8 @@ func unlockLine(w *game.World, ev events.Unlocked) string {
 		return fmt.Sprintf("%s will deal with you now%s: %s.", ev.Name, where, ev.Why)
 	case "role":
 		return fmt.Sprintf("%s want work on the crew screen (4): %s.", ev.Name, ev.Why)
+	case "asset":
+		return fmt.Sprintf("%s is for sale on the ledger screen (7), clean cash: %s.", ev.Name, format.Cash(ev.Cost))
 	}
 	return fmt.Sprintf("%s is open to you: %s.", ev.Name, ev.Why)
 }

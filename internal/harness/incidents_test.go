@@ -29,14 +29,15 @@ func incidents(res Result) []string {
 // (peak_cash_min) are eligible and nothing ends the run.
 func TestEveryIncidentFires(t *testing.T) {
 	cfg := content.MustLoad()
-	if len(cfg.Incidents.Table) < 11 {
-		t.Fatalf("the table has %d rows; the issue asks for the starter eleven (rival_leader_killed waits for #43)", len(cfg.Incidents.Table))
+	if len(cfg.Incidents.Table) < 13 {
+		t.Fatalf("the table has %d rows; the issue asks for the starter eleven (rival_leader_killed waits for #43) and #48's two", len(cfg.Incidents.Table))
 	}
 	seen := map[string]int{}
 	holes := 0
 	for seed := uint64(1); seed <= 200; seed++ {
 		w := sim.NewWorld(cfg, seed)
 		w.Player.DirtyCash = 300_000
+		w.Stats.PeakCash = 5_000_000 // the tier-5 rows (#48) wait for a $5M peak and day 150
 		res, err := Play(cfg, w, 300, Idle, Options{Incidents: true})
 		if err != nil {
 			t.Fatal(err)

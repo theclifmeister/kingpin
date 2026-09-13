@@ -331,6 +331,9 @@ func Eligible(w *World, c content.CardConfig) (CardSlots, bool) {
 	if w.Stats.PeakCash < t.PeakCashMin {
 		return s, false
 	}
+	if w.Stats.PeakClean < t.PeakCleanMin { // the assets' line (#48)
+		return s, false
+	}
 	if t.CitiesHeld > 0 && w.CitiesHeld() < t.CitiesHeld {
 		return s, false
 	}

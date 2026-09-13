@@ -94,14 +94,29 @@ func (w *World) ApplyIncident(day int, e content.IncidentEffects, at IncidentTar
 		w.Heat.FederalUntil = day + d.Days
 		w.Heat.FederalDecay = d.Mul
 	}
+	// Tier 5's two (#48): a cartel war abroad marks every connect's
+	// price up for a while (the market's own state, read when it stamps
+	// their prices), and an extradition treaty drops the task force's
+	// line (the heat sim's window, read where it reads the ladder).
+	if sh := e.SupplierShock; sh.Set() {
+		for i := range w.Suppliers {
+			w.Suppliers[i].ShockUntil = day + sh.Days
+			w.Suppliers[i].ShockMul = sh.Mul
+		}
+	}
+	if l := e.TaskForceLine; l.Set() {
+		w.Heat.LineUntil = day + l.Days
+		w.Heat.LineMul = l.Mul
+	}
 }
 
 // IncidentDays is what the Days slot reads: the days of the row's first
 // timed effect in a fixed order, the closure, then the price shock, the
-// demand shift, the federal window and the snap election, so a row's
-// text knows which it names.
+// demand shift, the federal window, the snap election, the supplier
+// shock and the task force's line (#48), so a row's text knows which it
+// names.
 func IncidentDays(e content.IncidentEffects) int {
-	for _, d := range []int{e.RouteClosed, e.MarketShock.Days, e.DemandShift.Days, e.HeatDecay.Days, e.ElectionCalled} {
+	for _, d := range []int{e.RouteClosed, e.MarketShock.Days, e.DemandShift.Days, e.HeatDecay.Days, e.ElectionCalled, e.SupplierShock.Days, e.TaskForceLine.Days} {
 		if d > 0 {
 			return d
 		}

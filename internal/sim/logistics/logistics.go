@@ -25,9 +25,10 @@ type Sim struct {
 	cities content.CityConfig
 	market content.MarketConfig
 	tree   content.UpgradesConfig
-	law    content.LawFX // #42: what a bought checkpoint or customs agent takes off an edge's risk
-	driver float64       // #46: what a skill-100 driver takes off a shipment's risk per day (crew.toml [role.driver] driver_cut)
-	float  int           // dirty cash the road never spends below: the laundering float
+	law    content.LawFX        // #42: what a bought checkpoint or customs agent takes off an edge's risk
+	driver float64              // #46: what a skill-100 driver takes off a shipment's risk per day (crew.toml [role.driver] driver_cut)
+	float  int                  // dirty cash the road never spends below: the laundering float
+	assets content.AssetsConfig // #48: the port (capacity and customs on the boats into its city) and the routes an asset opens
 }
 
 // New builds a logistics sim from the config, copying what it reads
@@ -38,8 +39,48 @@ type Sim struct {
 // the laundering float: the road never starves the street any more than
 // the wash does.
 func New(cfg *content.Config) *Sim {
-	return &Sim{cfg: cfg.Routes, cities: cfg.City, market: cfg.Market, tree: cfg.Upgrades, law: cfg.Law.Effects, driver: cfg.Crew.Role[game.RoleDriver].DriverCut, float: cfg.Laundering.Laundering.Float}
+	return &Sim{cfg: cfg.Routes, cities: cfg.City, market: cfg.Market, tree: cfg.Upgrades, law: cfg.Law.Effects, driver: cfg.Crew.Role[game.RoleDriver].DriverCut, float: cfg.Laundering.Laundering.Float, assets: cfg.Assets}
 }
+
+// Open reports whether a route is there to run (#48): every route in
+// the file that names no asset, and one that does while the asset is
+// owned and standing. A route that is not open is not on the map, the
+// ledger or the road, so a run without the asset is the run before the
+// route existed.
+func (s *Sim) Open(w *game.World, r content.RouteConfig) bool {
+	return r.Asset == "" || w.AssetLive(r.Asset)
+}
+
+// RoutesOpen lists the routes touching a city that are open (#48), in
+// file order: what the map and the ledger show.
+func (s *Sim) RoutesOpen(w *game.World, city string) []content.RouteConfig {
+	var out []content.RouteConfig
+	for _, r := range s.Routes(city) {
+		if s.Open(w, r) {
+			out = append(out, r)
+		}
+	}
+	return out
+}
+
+// port is the port asset's row while it is owned and standing and the
+// route is a boat touching its city (#48; the file's one boat sails
+// out of Bayport, the port city, so the issue's "into" reads either
+// way), else nil: the boats through your own port carry capacity_mul
+// the capacity and clear customs for nothing.
+func (s *Sim) port(w *game.World, r content.RouteConfig) *content.AssetConfig {
+	row := s.assets.ByEffect(content.AssetPort)
+	if row == nil || r.Mode != "boat" || r.Other(row.City) == "" || !w.AssetLive(row.ID) {
+		return nil
+	}
+	return row
+}
+
+// Watched reports whether the feds are watching the skies on day (#48,
+// HeatState.WatchUntil, stamped when a task force fires): the plane
+// route's risk is the file's while they are and zero otherwise, the one
+// edge only the task force touches.
+func Watched(w *game.World, day int) bool { return day < w.Heat.WatchUntil }
 
 func (s *Sim) Name() string { return "logistics" }
 
@@ -86,10 +127,15 @@ func (s *Sim) days(fx game.Effects, r content.RouteConfig, d events.Ship) int {
 // any one day in transit: the route's risk times the dial's and the
 // tree's route_risk_mul (the tyres, the compartments).
 func (s *Sim) DayRisk(w *game.World, r content.RouteConfig, d events.Ship) float64 {
-	return s.dayRisk(s.Effects(w), r, d, s.Cut(w, r, w.Day))
+	return s.dayRisk(s.Effects(w), r, d, s.Cut(w, r, w.Day), Watched(w, w.Day+1))
 }
 
-func (s *Sim) dayRisk(fx game.Effects, r content.RouteConfig, d events.Ship, cut float64) float64 {
+// dayRisk is DayRisk with the fold, the cut and the watch given: a
+// plane's risk is nothing unless the feds are watching (#48).
+func (s *Sim) dayRisk(fx game.Effects, r content.RouteConfig, d events.Ship, cut float64, watched bool) float64 {
+	if r.Mode == "plane" && !watched {
+		return 0
+	}
 	return math.Max(0, math.Min(1, r.Risk*s.Dial(d).Risk*fx.RouteRiskMul*(1-cut)))
 }
 
@@ -110,6 +156,9 @@ func (s *Sim) cut(w *game.World, r content.RouteConfig, day int, m *game.CrewMem
 	deal := 0.0
 	if w.CheckpointLive(r.ID, day) {
 		deal = math.Max(0, math.Min(1, s.DealCut(r)))
+	}
+	if s.port(w, r) != nil {
+		deal = 1 // your own port clears customs (#48): the agent's envelope is redundant
 	}
 	drv := 0.0
 	if m != nil {
@@ -150,18 +199,27 @@ func Customs(r content.RouteConfig) bool { return r.Mode == "boat" || r.Mode == 
 // before it lands: what the map shows against the dial, and what the dice
 // add up to over the days.
 func (s *Sim) Risk(w *game.World, r content.RouteConfig, d events.Ship) float64 {
-	return s.risk(s.Effects(w), r, d, s.Cut(w, r, w.Day))
+	return s.risk(s.Effects(w), r, d, s.Cut(w, r, w.Day), Watched(w, w.Day+1))
 }
 
-func (s *Sim) risk(fx game.Effects, r content.RouteConfig, d events.Ship, cut float64) float64 {
-	return 1 - math.Pow(1-s.dayRisk(fx, r, d, cut), float64(s.days(fx, r, d)))
+func (s *Sim) risk(fx game.Effects, r content.RouteConfig, d events.Ship, cut float64, watched bool) float64 {
+	return 1 - math.Pow(1-s.dayRisk(fx, r, d, cut, watched), float64(s.days(fx, r, d)))
 }
 
 // Capacity is the most one shipment on a route carries: the route's
 // capacity times the tree's route_capacity_mul (the trucks), at least a
-// unit.
+// unit, and times the port's capacity_mul on a boat into your own port
+// (#48).
 func (s *Sim) Capacity(w *game.World, r content.RouteConfig) int {
-	return capacity(s.Effects(w), r)
+	return s.capacity(w, s.Effects(w), r)
+}
+
+func (s *Sim) capacity(w *game.World, fx game.Effects, r content.RouteConfig) int {
+	n := capacity(fx, r)
+	if port := s.port(w, r); port != nil {
+		n = max(1, int(math.Round(float64(n)*port.CapacityMul)))
+	}
+	return n
 }
 
 func capacity(fx game.Effects, r content.RouteConfig) int {
@@ -330,8 +388,9 @@ func (s *Sim) move(w *game.World, t *game.Tick, fx game.Effects) {
 			continue
 		}
 		risk := 0.0
-		if r := s.cfg.Route(sh.Route); r != nil {
-			risk = s.dayRisk(fx, *r, sh.Dial, s.cut(w, *r, t.Day, riding(w, sh, t.Day)))
+		r := s.cfg.Route(sh.Route)
+		if r != nil {
+			risk = s.dayRisk(fx, *r, sh.Dial, s.cut(w, *r, t.Day, riding(w, sh, t.Day)), Watched(w, t.Day))
 		}
 		if rng.Float64() < risk {
 			w.Stats.Seizures++
@@ -351,6 +410,13 @@ func (s *Sim) move(w *game.World, t *game.Tick, fx game.Effects) {
 				ev.DriverName = m.Name // the crew sim jails them with it (#46)
 			}
 			t.Emit(ev)
+			// The tunnel is found once (#48): a seizure on it is the
+			// police finding the way in, the route is shut for good and
+			// the asset goes with it (the heat sim, stepping after,
+			// takes it off the books on this event).
+			if r != nil && r.Mode == "tunnel" && r.Asset != "" && w.HasAsset(r.Asset) {
+				t.Emit(events.TunnelFound{Day: t.Day, Route: r.ID, Name: r.Name, Asset: r.Asset, Product: sh.Product, Units: sh.Units})
+			}
 			continue
 		}
 		if t.Day >= sh.Arrives {
@@ -403,8 +469,8 @@ func (s *Sim) run(w *game.World, t *game.Tick, fx game.Effects) {
 	pressure := s.market.Market.BuyPricePressure * fx.BuyPressureMul
 	for _, r := range s.cfg.Routes {
 		rs := w.Route(r.ID)
-		if !rs.Dial.On() || rs.Closed(t.Day) || w.Cities[r.From] == nil || w.Cities[r.To] == nil {
-			continue // a shut route (#44) refuses new shipments until it reopens
+		if !rs.Dial.On() || rs.Closed(t.Day) || w.Cities[r.From] == nil || w.Cities[r.To] == nil || !s.Open(w, r) {
+			continue // a shut route (#44) refuses new shipments until it reopens; one whose asset is gone (#48) is not there
 		}
 		dial := rs.Dial.Ship()
 		var day game.RouteDay
@@ -412,7 +478,7 @@ func (s *Sim) run(w *game.World, t *game.Tick, fx game.Effects) {
 			if w.Product(r.From, id) == nil || w.Product(r.To, id) == nil {
 				continue
 			}
-			units := min(s.Shortfall(w, r, id), capacity(fx, r))
+			units := min(s.Shortfall(w, r, id), s.capacity(w, fx, r))
 			if units <= 0 {
 				continue
 			}

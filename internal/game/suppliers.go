@@ -41,6 +41,13 @@ type Supplier struct {
 	Limit   int                // credit they will run you to today
 	Band    int                // the band Rel was in when they were stamped
 	Quality map[string]float64 // the quality of what they sell (#47), by product, stamped from the file; missing reads as the default
+	Owned   bool               // the connect is yours (#48, the supplier asset): stamped by the market sim each morning; a buy nudges nothing and Left is unlimited
+
+	// A cartel war abroad (#48, an incident): every connect's price is
+	// ShockMul of itself on every morning before ShockUntil. Written by
+	// World.ApplyIncident, read by the market sim when it stamps.
+	ShockUntil int
+	ShockMul   float64
 
 	// The relationship.
 	Rel         float64 // 0..100
@@ -83,8 +90,18 @@ func (s Supplier) Sells(product string) bool {
 	return false
 }
 
-// Left is how many more units the connect can get you today.
-func (s Supplier) Left() int { return max(0, s.Cap-s.BoughtToday) }
+// Left is how many more units the connect can get you today: without
+// limit for a connect that is yours (#48).
+func (s Supplier) Left() int {
+	if s.Owned {
+		return OwnedCap
+	}
+	return max(0, s.Cap-s.BoughtToday)
+}
+
+// OwnedCap is what a connect you own has left every day (#48): as good
+// as unlimited, and a number the UI can print.
+const OwnedCap = 1 << 30
 
 // Credit is how much more credit the connect will run you today: the
 // limit less what you owe; nothing where they give none.
@@ -380,7 +397,7 @@ func (w *World) buy(s *Supplier, product string, qty int, markup float64, credit
 	w.AddStock(s.City, product, qty, s.QualityOf(w, product))
 	m.BoughtToday += qty
 	s.took(w, product, qty)
-	if demand := w.Demand(s.City, product); demand > 0 {
+	if demand := w.Demand(s.City, product); demand > 0 && !s.Owned { // your own book takes no pressure (#48)
 		s.Price[product] *= 1 + pricePressure*float64(qty)/demand
 	}
 	w.refreshSupplierPrice(s.City, product)
@@ -491,7 +508,7 @@ func (w *World) Restock(city, product string, lots int, pricePressure float64) (
 	w.AddStock(city, product, qty, s.QualityOf(w, product))
 	m.BoughtToday += qty
 	s.took(w, product, qty)
-	if demand := w.Demand(city, product); demand > 0 {
+	if demand := w.Demand(city, product); demand > 0 && !s.Owned { // your own book takes no pressure (#48)
 		s.Price[product] *= 1 + pricePressure*float64(qty)/demand
 	}
 	w.refreshSupplierPrice(city, product)

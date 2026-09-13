@@ -209,6 +209,20 @@ var moneyCurve = []struct {
 	// logs what each row would make with the rival kept out and heat off.
 	{3, "boss", func(cfg *content.Config) Policy { return Boss(cfg, 40, "") }, 5_000_000, 20_000_000, false},
 	{4, "boss", func(cfg *content.Config) Policy { return Boss(cfg, 40, "") }, 50_000_000, 200_000_000, false},
+	// Tier 5 (#48) is the cartel: the boss with the assets. The row is
+	// pending: measured and logged, never enforced. The band is the
+	// issue's ($500M to $5B at day 300) and the cartel reads a quarter
+	// of its floor ($202M on the median of ten seeds at day 300; the
+	// boss $219M), because the tier-4 operation is demand- and
+	// wash-bound, not supply-bound: revenue ~$0.94M a day off two
+	// cities' corners, the wash $0.5M and the levels $0.6M a day, so
+	// net worth grows ~$1.2M a day and the dirty pile sits at the
+	// cover line; cheaper lots, a bigger boat, a plane and a tunnel
+	// move nothing while demand is the bind, and $500M by day 300 needs
+	// ~$4M a day more. The band waits on a demand-side multiplier (#43
+	// factions, #194 property; the follow-up issue is linked from
+	// docs/progression.md) and the row is re-measured when one lands.
+	{5, "cartel", func(cfg *content.Config) Policy { return Cartel(cfg, 40) }, 500_000_000, 5_000_000_000, true},
 }
 
 // tierDay is the day a money-curve row is read at: its tier's checkpoint.

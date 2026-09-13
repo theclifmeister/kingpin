@@ -153,6 +153,9 @@ func frontBuy(m *Model) bool { return m.frontStep == 1 && m.frontKind == pickFro
 
 func houseRent(m *Model) bool { return m.frontStep == 1 && m.frontKind == pickHouse }
 
+// assetBuy is the picker's second page on the assets (#48).
+func assetBuy(m *Model) bool { return m.frontStep == 1 && m.frontKind == pickAsset }
+
 // buyAt is the buy dialog being on its nth step past the connect step
 // (#72): 0 the product, 1 the quantity, 2 the repeat and the pay. The
 // connect step, where there is one, is a page before them; buyList is
@@ -273,7 +276,7 @@ var bindings = []binding{
 	{key: "u", label: "buy upgrade", help: "buy the node under the cursor (enter too)", keys: []string{"u", "enter"}, screens: on(screenUpgrades),
 		do: func(m *Model, _ string) { m.askUpgrade() }},
 	// The ledger.
-	{key: "b", label: "buy front", help: "buy a front or rent a house", screens: on(screenLedger),
+	{key: "b", label: "buy front", help: "buy a front or an asset, rent a house", screens: on(screenLedger),
 		do: func(m *Model, _ string) { m.askFront() }},
 	{key: "m", label: "move stock", help: "move stock between the street and the houses", screens: on(screenLedger),
 		do: func(m *Model, _ string) { m.askMove() }},
@@ -403,6 +406,7 @@ var modeBindings = []binding{
 	{key: "enter", label: "keep at", modes: in(modeBuy), when: buyKeep},
 	{key: "enter", label: "buy", modes: in(modeFront), when: frontBuy},
 	{key: "enter", label: "rent", modes: in(modeFront), when: houseRent},
+	{key: "enter", label: "buy", modes: in(modeFront), when: assetBuy},
 	{key: "enter", label: "move", modes: in(modeMove), when: step(3)},
 	{key: "enter", label: "post", modes: in(modeGuard)},
 	{key: "enter", label: "drive", modes: in(modeDriver)},
@@ -680,7 +684,7 @@ var words = [][2]string{
 	{"house", "a rented stash off the street: rent in clean; a raid hits one"},
 	{"pane", "the details beside MAIN from 100 columns, always open"},
 	{"strip", "the pane's one line under 100 columns; ␣ opens it over MAIN"},
-	{"tier", "the stage a run is in, shown once: Corner to Distribution"},
+	{"tier", "the stage a run is in, shown once: Corner to Cartel"},
 	{"scout", "a paid look at the rival's books: a snapshot that goes stale"},
 	{"boost", "the enforcers rob a rival corner's till, not the corner"},
 	{"scene", "a short animation on a morning that matters; any key skips it"},
@@ -693,6 +697,8 @@ var words = [][2]string{
 	{"jailed", "in a cell after a bust, working nothing; bail is clean cash"},
 	{"kin", "a cousin, partner or friend on the payroll: they remember"},
 	{"driver", "rides a route's shipments and cuts the risk; seized, jailed"},
+	{"asset", "the supply side bought clean: a connect, port, plane, lab"},
+	{"feds", "the task force above the raid: a day's notice, takes an asset"},
 }
 
 // helpLines is the help modal's body: every binding, grouped, one a

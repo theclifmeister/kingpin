@@ -278,9 +278,16 @@ func (m *Model) heatLines(innerW int, narrow bool) []string {
 	here := w.Here()
 	var marks []float64
 	var thr []string
-	for _, r := range m.set.Heat.ThresholdsIn(w, here) {
+	// The ladder as the player faces it (#48, heat.Sim.Ladder): the
+	// task force's line is marked only once one can form, so a run
+	// with no asset and a small pile reads the four rungs it always did.
+	for _, r := range m.set.Heat.Ladder(w, here) {
 		marks = append(marks, r.Threshold/100)
-		thr = append(thr, fmt.Sprintf("%s %.0f", r.Level, r.Threshold))
+		name := r.Level
+		if r.Level == content.TaskForce {
+			name = "task force"
+		}
+		thr = append(thr, fmt.Sprintf("%s %.0f", name, r.Threshold))
 	}
 	lines := []string{heatStyle(here.Heat).Render(sparkline.Bar(here.Heat/100, innerW, marks))}
 	numbers := []string{heatStyle(here.Heat).Render(fmt.Sprintf("%.0f", here.Heat)) + theme.Subtle.Render("/100"), theme.Subtle.Render(fmt.Sprintf("peak %.0f", w.Heat.Peak))}
@@ -296,17 +303,64 @@ func (m *Model) heatLines(innerW int, narrow bool) []string {
 	} else {
 		lines = append(lines, strings.Join(numbers, " "))
 	}
-	if all := strings.Join(thr, " · "); lipgloss.Width(all) <= innerW {
-		lines = append(lines, theme.Subtle.Render(all))
-	} else {
-		for i := 0; i < len(thr); i += 2 {
-			lines = append(lines, theme.Subtle.Render(strings.Join(thr[i:min(i+2, len(thr))], " · ")))
-		}
-	}
+	lines = append(lines, thresholdLines(thr, innerW)...)
 	if !narrow {
 		lines = append(lines, m.reputationLine(innerW))
 	}
 	return lines
+}
+
+// thresholdLines lays the ladder's lines out under the gauge: on one
+// line where they fit, else two a line. With the task force on the
+// ladder (#48, five rungs) the two lines take three and two, or two and
+// three, whichever fits the panel; where neither does the four rungs
+// the panel always had are listed and the gauge's mark alone carries
+// the fifth, so HEAT keeps its four lines at 80x24.
+func thresholdLines(thr []string, innerW int) []string {
+	fits := func(ls []string) bool {
+		for _, l := range ls {
+			if lipgloss.Width(l) > innerW {
+				return false
+			}
+		}
+		return true
+	}
+	join := func(parts []string) string { return strings.Join(parts, " · ") }
+	if all := join(thr); lipgloss.Width(all) <= innerW {
+		return []string{theme.Subtle.Render(all)}
+	}
+	var splits [][]string
+	if len(thr) > 4 {
+		for _, cut := range []int{3, 2} {
+			splits = append(splits, []string{join(thr[:cut]), join(thr[cut:])})
+		}
+		var four []string
+		for _, l := range thr {
+			if !strings.HasPrefix(l, "task force") {
+				four = append(four, l)
+			}
+		}
+		thr = four
+	}
+	var pairs []string
+	for i := 0; i < len(thr); i += 2 {
+		pairs = append(pairs, join(thr[i:min(i+2, len(thr))]))
+	}
+	splits = append(splits, pairs)
+	for _, ls := range splits {
+		if fits(ls) {
+			var out []string
+			for _, l := range ls {
+				out = append(out, theme.Subtle.Render(l))
+			}
+			return out
+		}
+	}
+	var out []string
+	for _, l := range pairs {
+		out = append(out, theme.Subtle.Render(l))
+	}
+	return out
 }
 
 // cashLines is the CASH panel's content, four lines: the dirty pile
@@ -539,6 +593,11 @@ func (m *Model) alerts() []alert {
 		if r.Level == content.Patrol && here.Heat >= r.Threshold {
 			out = append(out, newAlert(theme.Bad.Render(fmt.Sprintf("Heat %.0f in %s is over the patrol line (%.0f).", here.Heat, here.Name, r.Threshold)), "heat in "+here.Name+" over the patrol line"))
 		}
+	}
+	// A task force announced this morning (#48): it comes tonight and
+	// takes an asset; a fast-forward stops on it.
+	if m.set.Heat.TaskForceForming(w) {
+		out = append(out, newAlert(theme.Bad.Bold(true).Render("A task force formed this morning.")+theme.Bad.Render(" It comes tonight: lie low."), "a task force formed"))
 	}
 	if fl := m.set.Laundering.Float(w); w.Player.DirtyCash < fl && m.floatMatters() {
 		out = append(out, newAlert(theme.Warning.Render(fmt.Sprintf("Dirty cash %s is under the float (%s): the wash and the road wait.", cash(w.Player.DirtyCash), cash(fl))), "dirty cash under the float"))
