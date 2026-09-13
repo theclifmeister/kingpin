@@ -25,11 +25,20 @@ const unlockNear = 0.5
 // gate is one door ahead: what it opens, the line it opens at and, for
 // a connect, who must vouch besides.
 type gate struct {
-	kind  string // product | front | connect
+	kind  string // product | front | connect | asset
 	id    string
 	name  string
-	line  int    // peak cash it opens at
+	line  int    // peak cash it opens at (peak clean cash for an asset, #48)
 	vouch string // a connect's second condition, `Cass at 60`, or ""
+	clean bool   // the line is on peak clean cash (an asset's)
+}
+
+// at is the peak the gate reads against: clean for an asset, else cash.
+func (g gate) at(w *game.World) int {
+	if g.clean {
+		return w.Stats.PeakClean
+	}
+	return w.Stats.PeakCash
 }
 
 // gatesAhead is every cash gate above the peak, nearest first (file
@@ -59,6 +68,13 @@ func (m *Model) gatesAhead() []gate {
 			g.vouch = fmt.Sprintf("%s at %.0f", st.Name, sup.UnlockRel)
 		}
 		out = append(out, g)
+	}
+	// The assets (#48) open on peak clean cash: the same door, the
+	// other pile.
+	for _, o := range m.assetRows() {
+		if o.UnlockCash > w.Stats.PeakClean {
+			out = append(out, gate{kind: "asset", id: o.ID, name: o.Name, line: o.UnlockCash, clean: true})
+		}
 	}
 	sort.SliceStable(out, func(i, j int) bool { return out[i].line < out[j].line })
 	return out
@@ -106,8 +122,13 @@ func (g gate) text(peak int) string {
 		verb = "deals"
 	case "front":
 		name = "The " + g.name
+	case "asset":
+		verb = "is for sale"
 	}
 	line := fmt.Sprintf("%s %s at %s peak", name, verb, cash(g.line))
+	if g.clean {
+		line += " clean"
+	}
 	if g.vouch != "" {
 		line += " and " + g.vouch
 	}
@@ -117,9 +138,9 @@ func (g gate) text(peak int) string {
 // unlockAlerts is the alert for each gate at the nearest line while it
 // is within reach, keyed per gate.
 func (m *Model) unlockAlerts() []alert {
-	peak := m.w.Stats.PeakCash
 	var out []alert
 	for _, g := range m.nextGates() {
+		peak := g.at(m.w)
 		if !g.near(peak) {
 			continue
 		}

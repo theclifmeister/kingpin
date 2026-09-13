@@ -12,6 +12,7 @@ import (
 	"github.com/theclifmeister/kingpin/internal/content"
 	"github.com/theclifmeister/kingpin/internal/events"
 	"github.com/theclifmeister/kingpin/internal/game"
+	"github.com/theclifmeister/kingpin/internal/sim/logistics"
 	"github.com/theclifmeister/kingpin/internal/ui/theme"
 )
 
@@ -36,7 +37,9 @@ type targetDialog struct {
 
 // mapRoutes are the routes touching the city the map shows, in file
 // order: what the routes cursor walks.
-func (m *Model) mapRoutes() []content.RouteConfig { return m.set.Logistics.Routes(m.shown().ID) }
+func (m *Model) mapRoutes() []content.RouteConfig {
+	return m.set.Logistics.RoutesOpen(m.w, m.shown().ID) // the plane and the tunnel once their asset stands (#48)
+}
 
 // selectedRoute is the route under the routes cursor, or nil when the
 // city shown has none.
@@ -398,10 +401,11 @@ func (m *Model) routeLines(width int) []string {
 	w := m.w
 	lg := m.set.Logistics
 	routes := m.mapRoutes()
-	nameW, cityW := 0, 0
+	nameW, cityW, modeW := 0, 0, edgeW
 	for _, r := range routes {
 		nameW = max(nameW, lipgloss.Width(r.Name))
 		cityW = max(cityW, lipgloss.Width(w.CityName(r.From)), lipgloss.Width(w.CityName(r.To)))
+		modeW = max(modeW, lipgloss.Width(r.Mode))
 	}
 	draw := func(units string, track bool) (lines []string, widest int) {
 		for i, r := range routes {
@@ -411,7 +415,7 @@ func (m *Model) routeLines(width int) []string {
 			if track {
 				road = m.track(r.ID)
 			}
-			from := fit(w.CityName(r.From), cityW) + " " + modeEdge(r.Mode)
+			from := fit(w.CityName(r.From), cityW) + " " + modeEdgeW(r.Mode, modeW)
 			to := "▶ " + fit(w.CityName(r.To), cityW)
 			dial := fit(d.String(), 6)
 			terms := ""
@@ -555,6 +559,15 @@ func (m *Model) routeSection(r content.RouteConfig) section {
 		// Shut by an incident (#44): tonight and the nights after it before it reopens.
 		lines = append(lines, row("closed", theme.Warning.Render(plural(rs.ClosedUntil-w.Day-1, "night")+" to go")))
 	}
+	if r.Mode == "plane" {
+		// The plane's risk is the task force's alone (#48): the file's
+		// while the feds watch the skies, nothing otherwise.
+		if logistics.Watched(w, w.Day+1) {
+			lines = append(lines, row("watched", theme.Warning.Render(fmt.Sprintf("the feds, %s to go", plural(w.Heat.WatchUntil-w.Day-1, "night")))))
+		} else {
+			lines = append(lines, row("watched", theme.Subtle.Render("nobody: the sky is clear")))
+		}
+	}
 	lines = append(lines,
 		row("days", fmt.Sprintf("%d · capacity %d", lg.Days(w, r, d.Ship()), lg.Capacity(w, r))),
 		row("fare", fmt.Sprintf("%s/u · seized ~%.0f%%", fare(lg.Fare(w, r)), lg.Risk(w, r, d.Ship())*100)),
@@ -590,14 +603,23 @@ func (m *Model) routeSection(r content.RouteConfig) section {
 }
 
 // edge draws a route's mode as an arrow of fixed width, so the routes
-// line up: ──car──▶, ─truck─▶.
+// line up: ──car──▶, ─truck─▶; a mode longer than the width (#48, the
+// tunnel) widens its own edge.
 func edge(mode string) string { return modeEdge(mode) + "▶" }
+
+// edgeW is the cells a mode's name has in the edge: five, `truck`.
+const edgeW = 5
 
 // modeEdge is the edge without its arrowhead, ──car──, so the map's
 // route line can lay the track between the mode and the arrowhead.
-func modeEdge(mode string) string {
-	mode = fit(mode, 5)
-	pad := 5 - lipgloss.Width(strings.TrimRight(mode, " "))
+func modeEdge(mode string) string { return modeEdgeW(mode, edgeW) }
+
+// modeEdgeW is modeEdge at a width: the routes list's, the widest mode
+// shown, so every edge in the list lines up.
+func modeEdgeW(mode string, width int) string {
+	width = max(width, lipgloss.Width(mode))
+	mode = fit(mode, width)
+	pad := width - lipgloss.Width(strings.TrimRight(mode, " "))
 	mode = strings.TrimRight(mode, " ")
 	return strings.Repeat("─", 1+pad/2) + mode + strings.Repeat("─", 1+pad-pad/2)
 }

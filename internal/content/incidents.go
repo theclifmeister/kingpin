@@ -71,6 +71,8 @@ type IncidentEffects struct {
 	HeatDecay      TimedMul     `toml:"heat_decay"`
 	ChiefReplaced  bool         `toml:"chief_replaced"`
 	ElectionCalled int          `toml:"election_called"`
+	SupplierShock  TimedMul     `toml:"supplier_shock"` // every connect's price × mul for days (#48: a cartel war abroad)
+	TaskForceLine  TimedMul     `toml:"taskforce_line"` // the task force's threshold × mul for days (#48: an extradition treaty)
 	LeaderKilled   bool         `toml:"rival_leader_killed"`
 }
 
@@ -175,8 +177,13 @@ func (c IncidentsConfig) validate(city CityConfig, market MarketConfig, routes R
 				return fmt.Errorf("incident %q: unknown product %q", inc.ID, sh.Product)
 			}
 		}
-		if (e.HeatDecay.Days != 0 || e.HeatDecay.Mul != 0) && !e.HeatDecay.Set() {
-			return fmt.Errorf("incident %q: heat_decay needs a mul over 0 and days", inc.ID)
+		for _, tm := range []struct {
+			key string
+			m   TimedMul
+		}{{"heat_decay", e.HeatDecay}, {"supplier_shock", e.SupplierShock}, {"taskforce_line", e.TaskForceLine}} {
+			if (tm.m.Days != 0 || tm.m.Mul != 0) && !tm.m.Set() {
+				return fmt.Errorf("incident %q: %s needs a mul over 0 and days", inc.ID, tm.key)
+			}
 		}
 		if e.RouteClosed < 0 || e.ElectionCalled < 0 {
 			return fmt.Errorf("incident %q: days cannot be negative", inc.ID)

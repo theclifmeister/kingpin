@@ -284,10 +284,22 @@ Eastside supplied, then watch the road in the report. Once you hold
 corners in both cities, a lieutenant can turn up to run one for you.
 They take a cut. They also take loyalty rather seriously.
 
+Clean money, once there is enough of it, buys the supply side. Hold $8M
+clean and the **assets** go on sale on the ledger: a tunnel under the
+county line, the Dutchman's book (his lots at a tenth of street, without
+limit), the lab (a chemist's batch eight times over at quality 90), the
+port (the boats through it carry double and clear customs), an airstrip
+(a day's flight). Each costs clean cash and clean upkeep, puts a floor
+under the heat in every city, and is a reason for the feds to form a
+**task force**: the rung above the raid, announced the morning before it
+comes, and it takes an asset with it. Lie low that day; what they find
+on a quiet night is not a case.
+
 The game names these stages. A run starts as a **Corner** trader, becomes
 a **Crew** with the first hire, **Territory** once $25K has moved and
-the laundromat opens, and **Distribution** at $500K, when the wholesaler
-sells lots to the road. The morning a stage is entered the game stops
+the laundromat opens, **Distribution** at $500K, when the wholesaler
+sells lots to the road, and **Cartel** at $8M clean, when the assets go
+on sale. The morning a stage is entered the game stops
 and says so: one screen before the card and the report that names the
 stage, what just opened and what the next one takes, once per stage per
 run. The report opens with it too, the dashboard reads `tier Territory`
@@ -384,7 +396,7 @@ The full table is below; `?` brings it up in the game.
 | `v` | driver | put a driver on the selected route | map |
 | `←→` | branch | turn the tree to the next branch | upgrades |
 | `u` | buy upgrade | buy the node under the cursor (enter too) | upgrades |
-| `b` | buy front | buy a front or rent a house | ledger |
+| `b` | buy front | buy a front or an asset, rent a house | ledger |
 | `m` | move stock | move stock between the street and the houses | ledger |
 | `e` | guard house | post an enforcer inside the selected house | ledger |
 | `x` | drop house | drop the selected house, after asking | ledger |
@@ -574,7 +586,11 @@ low-skill runners add a premium. It decays slowly, faster if you lie low.
 The hottest city's police answer at the thresholds: patrols, stings,
 raids and finally arrest, and what they take comes out of the stash
 there. Every sting and raid goes in the DA's file, which is yours
-wherever you are; a thick enough file is an indictment.
+wherever you are; a thick enough file is an indictment. Between the raid
+and the arrest is the **task force**, which forms only against an asset
+you own or a dirty pile over $25M: announced the morning before it
+comes, it takes stock, cash and one asset, and no chief shortens its
+wait. The gauge marks its line once it can form.
 
 ### Reputation
 
@@ -685,7 +701,7 @@ the rival's crew. The table is `internal/content/incidents.toml`.
 
 ### Progression
 
-The tier a run is in (Corner, Crew, Territory, Distribution) lives in
+The tier a run is in (Corner, Crew, Territory, Distribution, Cartel) lives in
 `internal/content/progression.toml`: a name, a line on the stage, what it
 opens, the trigger that enters it and the prose of the stage screen shown
 the morning it is entered (`text`, a few lines; `closing` on the last

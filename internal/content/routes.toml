@@ -64,3 +64,37 @@ days = 5
 capacity = 2000
 cost = 1
 risk = 0.015
+
+# The routes an asset opens (#48, assets.toml): a route with an `asset`
+# is not on the map, the ledger or the road until that asset is owned
+# and standing, so a run without it is the run before the route existed.
+# The plane is the fastest and the priciest, and its risk is only the
+# task force's: the file's number applies while the feds are watching
+# the skies (HeatState.WatchUntil, stamped when a task force fires) and
+# is zero otherwise. The tunnel is cheap, slow and near-zero risk, and
+# is found once: a seizure on it is TunnelFound, the route shut for good
+# and the asset gone.
+
+[[route]]
+id = "airstrip"
+name = "The Airstrip"
+mode = "plane"
+from = "bayport"
+to = "eastside"
+days = 1
+capacity = 600
+cost = 25
+risk = 0.05
+asset = "airstrip"
+
+[[route]]
+id = "tunnel"
+name = "The Tunnel"
+mode = "tunnel"
+from = "bayport"
+to = "eastside"
+days = 4
+capacity = 300
+cost = 0
+risk = 0.003
+asset = "tunnel"

@@ -88,7 +88,7 @@ func TestSimsWriteOnlyTheirOwnState(t *testing.T) {
 		"crew":       {"Crew", "Delegated", "DelegatedSupply"},
 		"heat":       {"Heat", "Cities.Heat", "Houses", "FallsTaken"},
 		"law":        {"Law", "Cities.Pressure", "Cities.Goodwill", "Cities.Campaign"},
-		"laundering": {"Laundering", "Fronts", "Offshore", "QuietDays"},
+		"laundering": {"Laundering", "Fronts", "Offshore", "QuietDays", "Assets", "AssetsLost"}, // the assets are clean money (#48): the task force names what it takes, this sim books it
 		"reputation": {"Player.Reputation"},
 		"news":       {"Journal", "Report", "Dilemmas", "Progression"},
 	}

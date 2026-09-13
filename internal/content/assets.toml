@@ -1,0 +1,103 @@
+# Assets (#48): the tier-5 purchases, on the supply side the way the
+# fronts are on the money side. Each is bought with clean cash once its
+# unlock_cash of peak CLEAN cash has been held (Stats.PeakClean: the
+# wash is the clock, whatever the street earns), costs clean upkeep
+# every day (unpaid, it stands idle upkeep_freeze_days, a front's rule),
+# puts a floor under every city's heat while owned (federal attention:
+# the heat sim takes the highest owned, and decay works on what is
+# above it), adds pressure a day in its city, and has ONE effect the sim
+# that owns the number reads through its own copy of this file:
+#
+#   supplier   the wholesale connect in its city sells at own_ratio of
+#              street whatever the band, without limit, and a buy no
+#              longer nudges their price (the market sim)
+#   port       every boat route through its city carries capacity_mul
+#              the capacity at zero customs risk (the logistics sim)
+#   airstrip   the plane route in routes.toml (asset = "airstrip") is
+#              open: a day's flight, the priciest fare, a risk only the
+#              task force touches (the logistics sim)
+#   lab        the chemist's cook in its city is lab_mul the batch, lands
+#              at lab_quality if that is over the chemist's, and the
+#              precursors cost lab_cost_mul of the product's cook_cost
+#              (the crew sim; designer cheap at scale)
+#   tunnel     the tunnel route in routes.toml (asset = "tunnel") is
+#              open: cheap, slow, near-zero risk, until it is found once,
+#              and then it is closed for good (the logistics sim)
+#
+# The task force (heat.toml [[response]] taskforce) forms only with an
+# asset owned or dirty cash over taskforce_cash, and seizes one asset a
+# firing: gone, not frozen, though a seized asset can be bought again.
+# NetWorth counts an asset at cost. The ledger's ASSETS block is where
+# they are read; the buy picker's asset page is where they are bought.
+#
+# Pricing (#191): the wash caps clean income at a few hundred thousand a
+# day and the levels (#192) earn about as much again, so an asset is a
+# clock, not a size. The boss's peak clean is $9.6M at the tier-4
+# checkpoint (day 200, median of ten seeds; $3.4M at 120, $18M at 250,
+# $25M at 300) and the corrupt player's, which never invests, $22M at
+# 200 and $53M at 300: the ladder opens at $8M so the tier-4 checkpoint
+# buys the first and the rest are earned, and the cartel policy buys
+# the last of them in the last weeks before day 300.
+
+[assets]
+upkeep_freeze_days = 3
+
+[[asset]]
+id = "tunnel"
+name = "The Tunnel"
+city = "eastside"
+unlock_cash = 8000000
+cost = 1500000
+upkeep = 2000
+heat_floor = 3
+pressure = 0
+effect = "tunnel"
+
+[[asset]]
+id = "supplier"
+name = "The Dutchman's Book"
+city = "bayport"
+unlock_cash = 10000000
+cost = 3000000
+upkeep = 8000
+heat_floor = 5
+pressure = 0.5
+effect = "supplier"
+own_ratio = 0.1
+
+[[asset]]
+id = "port"
+name = "The Port"
+city = "bayport"
+unlock_cash = 20000000
+cost = 2500000
+upkeep = 5000
+heat_floor = 6
+pressure = 1.0
+effect = "port"
+capacity_mul = 2.0
+
+[[asset]]
+id = "airstrip"
+name = "The Airstrip"
+city = "eastside"
+unlock_cash = 28000000
+cost = 4000000
+upkeep = 8000
+heat_floor = 8
+pressure = 1.0
+effect = "airstrip"
+
+[[asset]]
+id = "lab"
+name = "The Lab"
+city = "eastside"
+unlock_cash = 14000000
+cost = 4000000
+upkeep = 12000
+heat_floor = 8
+pressure = 1.0
+effect = "lab"
+lab_mul = 8.0
+lab_quality = 90
+lab_cost_mul = 0.5

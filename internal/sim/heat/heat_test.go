@@ -151,6 +151,9 @@ func TestLadderUnderTheLaw(t *testing.T) {
 				if level != content.Patrol {
 					want *= cc.Cooldown
 				}
+				if r := rung(cfg, level); r.Cooldown > 0 {
+					want = float64(r.Cooldown) // the task force's own, flat (#48): no chief shortens the feds
+				}
 				if got := s.CooldownDays(w, level); got != max(1, int(math.Round(want))) {
 					t.Fatalf("%s/%s: %s cooldown %d days, want %d", chief, da, level, got, max(1, int(math.Round(want))))
 				}

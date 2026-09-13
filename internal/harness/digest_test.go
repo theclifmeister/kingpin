@@ -181,20 +181,31 @@ const (
 // four Stats; the move is on day 1 by shape alone and no number moved:
 // cmd/balance -factions 1 prints main's trace to the dollar on every
 // day of five policies over three seeds, TestOneFactionIsTheOldRun).
+// Again for #48 (World.Assets and AssetsLost, Today.AssetsBought,
+// HeatState.TaskForceDay, WatchUntil, LineUntil and LineMul,
+// Supplier.Owned, ShockUntil and ShockMul, six Stats added to the walk;
+// one number moves from day 1: Stats.PeakClean, the clean high-water
+// mark the assets unlock on, a copy of a maximum every run already
+// held; and the report's tier lines reword twice, `tier 2 of 5` on day
+// 2 and tier 4's `Next` on day 54, the day this seed enters
+// Distribution; with those set aside the digest is aea739e's on all
+// sixty days before #43 and 8b22ab1's after it, so no money number
+// moved: TestNoAssetIsTheOldRun reads the same day by day to the
+// tier-4 checkpoint; re-pinned on the merged tree).
 var seedDigest = []string{
-	"306c2ff7648c944e", "e95972a9ae11da71", "661751acbc4e806a", "fd4a101b0a904fee",
-	"58dcd6e8a4aef89b", "1bf8decd57e81c7b", "ac03e719a0ffbbcd", "da5021f4de11a31d",
-	"eea778dc432a5626", "8f5fa4591e7fd448", "2ce1b3253e5b2ca9", "4e7ff7dea4a4c17a",
-	"527008a8a892cc8a", "5c90e3c920f1e13f", "8a64f1cf969b47cf", "0310e49b09f7975d",
-	"5c59f97c76ca8525", "af77dec326fb13c4", "f2700ac72c101221", "a6874e449ef025fe",
-	"393a08675467a741", "d722a6bfabc46dce", "0840976ea09522f6", "a15b0540571d2c21",
-	"0cde7a1c75b31bd7", "9e65db6ce17c27a7", "9f97c410dd7b3fd7", "10fe80520d94d82f",
-	"84ba3df874ff4d67", "7cb8880ed1dcf9b1", "18dd3d3234ff8224", "ba492e5e8d8d8b2d",
-	"e70f4f19e8a81766", "1b948cc13589cb2d", "3f280f4d3f691c27", "773411b6aa95cfbd",
-	"41cafa8a6dbd6060", "004265f82618d830", "0667445e5fe699a2", "b61b6e85bae43713",
-	"754520aaecb2fad5", "0b64a55c03c14566", "aff3bdaa891d82b6", "b7c6a6eb258f73bb",
-	"fcdc815219df3ccc", "b2776a6801e4ae17", "1222d04977314499", "d25b25adbbfdc081",
-	"a478fafdd9ec9297", "68a803d6628f29c6", "9b16e0e375364f04", "a089308e10dbecd4",
-	"3a06c971f0d6f871", "7aa97c489db5d4f4", "cc5bcc14182363bb", "1844210ce5364693",
-	"77fc6c977651482e", "4d7a7e3f75423a2b", "9f97f154283d9494", "9d382c7a38639cfa",
+	"a6e75b9e0da6dcf8", "1e41c009511c8fc2", "0a14eafe9db50564", "388fb16c42443648",
+	"f7bc755db405cf3f", "e8719cc2e9db5099", "baa05f31d8ff067d", "74f27c9f61f18bef",
+	"62129ff11477ad77", "3f972b2f1b49b9e4", "f7d3c4a427cbd0d9", "b4cbc4256eb8762c",
+	"eccc126e37d71648", "446688d9b6251103", "c97d38f0f94580ef", "54a1e746e09bcf97",
+	"4d44d45ff8b462cf", "73ef0a59ebbe18a5", "78e56fa4ad9a0d70", "77f3a0acf7a6cb2c",
+	"345297ef1795cf96", "aa1ad05ba144a50d", "8ae735c2f0bb21df", "4438f56787e223bf",
+	"ad2bc244c6c9fa5b", "d6f235ed20dbcb5b", "bce97fbe77f71beb", "79a081ce0ceedf76",
+	"0363a5e54bd6dbcf", "3030be84edbea482", "6df4088fd2e30baf", "b4518e6685b10b73",
+	"9c8d74858df5a2a0", "2a9382576c7d4721", "4f8de6639a6f3910", "4db47ec260c560c4",
+	"426cf1d2e95b414f", "2fa24f40a2629eee", "69076bc803c7831a", "c1a74b158907649c",
+	"53060d0d6bf5872d", "74a889e1ec9832de", "38329a8203cd9522", "92fe274cf821745a",
+	"9573c7a361e17416", "27a34acd95b4827c", "f03b8549ddd1eedd", "657553fab186e661",
+	"f7705230e1499ae4", "c21b10e92b4d9804", "50b89877b98c2575", "7c2d08d9c2766ebe",
+	"28f8ccb3f612a5f2", "27bbc900f451e6fa", "e77a10454dd7353c", "ce9237e71e1684ec",
+	"5b00660d9b7069ad", "71676854904bb55a", "47758e2bd52c1f39", "78a6116eeb723601",
 }
