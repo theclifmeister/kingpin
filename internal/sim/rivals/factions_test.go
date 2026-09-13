@@ -431,6 +431,10 @@ func TestHomageAndDominant(t *testing.T) {
 	// Dominant once the others are gone.
 	f2.Absorbed, f2.Muscle = 1, 0
 	f3.Fragmented = 1
+	if w.Dominant() {
+		t.Fatal("dominant with a faction still in the wings")
+	}
+	f3.Arrived = 1
 	if !w.Dominant() {
 		t.Fatal("not dominant with one paying and two gone")
 	}

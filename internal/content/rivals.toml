@@ -307,30 +307,42 @@ grudge = 1
 # The table (#43): a run has min to max factions by seed, at most one of
 # them chaotic. The first is the rival at home on the dice it always
 # rolled (min = max = 1 is the duel, byte-for-byte the run before #43);
-# the rest live in a city by seed and roll on their own streams. They
+# the rest arrive arrive_gap days apart (the second arrive_gap days
+# after arrive_day: every faction on day 10 broke three money bands),
+# live at home unless away says otherwise (the chance a seat lives in
+# the other city, at most away_max of them; 0 by ruling: a faction in
+# the hub took the boss's road), and roll on their own streams. With
+# shared_pace the factions on the ground in a city claim and push on
+# you at the duel's pace between them (each at its chance over their
+# number), and the table holds at most table_share of a city's corners
+# between them before it stops claiming free ones and pushes on you at
+# push_past_cap: past it factions grow only off each other or off you,
+# so the ground the duel left you is the ground the table leaves. They
 # contest each other's bordering corners at the push odds, muscle
-# against muscle, and every such push draws push_heat on the city (the
-# heat sim adds it, the law counts the violence); a faction that took a
-# corner off another is held a grudge (grudge_trust off the loser's
-# trust in it, a grudge that makes it push back harder), and a
-# defensive faction sides with whoever the expansionist in its city is
-# pushing on: ally_trust per push, and at ally_line ally_share of its
-# front-line muscle joins their pushes on it (yours too). A faction with
-# no corners for absorb_days is absorbed by the one that took its last
-# (its muscle joins them); routed by you or the police it scatters. A
-# faction with poach_cash corner-days in the chest offers your least
-# loyal member poach_mul their wages at poach_chance a day: under
-# poach_line they go, over it they stay a little less loyal (poach_dip).
-# Its heat past leader_arrest_heat (your tips, #70) costs it its leader:
-# it fragments, its corners drift to the street over fragment_days in
-# random order, its city's products spike shock_mul for shock_days and
-# its muscle turn up in your hiring pool at fragment_discount of the
-# fee; the rival_leader_killed incident (#44) fragments the biggest
-# faction in its city the same way. A faction your enforcers have taken
+# against muscle; a push draws push_heat on the city (0: at 2 a quiet
+# trader was indicted on other people's war) and law.toml's factions
+# pressure; a faction that took a corner off another is held a grudge
+# (grudge_trust off the loser's trust in it, a grudge that makes it push
+# back harder); and a defensive faction sides with whoever the
+# expansionist in its city is pushing on: ally_trust per push, and at
+# ally_line ally_share of its front-line muscle joins their pushes on it
+# (yours too). A faction with no corners for absorb_days since another
+# took its last is absorbed by it (its muscle joins them); routed by you
+# or the police it regroups as it always did. The richest faction with
+# poach_cash corner-days in the chest offers your least loyal member
+# poach_mul their wages at poach_chance a night: under poach_line they
+# go, over it they stay a little less loyal (poach_dip). Its heat past
+# leader_arrest_heat (your tips, #70) costs it its leader: it fragments,
+# its corners drift to the street over fragment_days in random order,
+# its city's products spike shock_mul for shock_days and its muscle turn
+# up in your hiring pool at fragment_discount of the fee; the
+# rival_leader_killed incident (#44) fragments the biggest faction in
+# its city the same way. A faction your enforcers have taken
 # tribute_corners off offers homage, homage_cut of its take a day, at
-# homage_chance a day; Dominant() is every faction absorbed, fragmented
-# or paying it. Poaching and homage need a table: with one faction in
-# the run nobody poaches and nobody bows, so the duel stays the duel.
+# homage_chance a night; Dominant() is every faction arrived and
+# absorbed, fragmented or paying it. Poaching and homage need a table:
+# with one faction in the run nobody poaches and nobody bows, so the
+# duel stays the duel.
 [factions]
 min = 3
 max = 6
