@@ -1,4 +1,5 @@
-# The rival faction: one per run, picked by seed. It earns off the corners
+# The rival factions: three to six per run, picked by seed ([factions],
+# #43); the first is the rival at home. Each earns off the corners
 # it holds, spends on muscle and claims, pushes on the corners of yours it
 # borders, undercuts you there, and calls the cops when you hurt it.
 #
@@ -302,6 +303,60 @@ raid_muscle = 0.25
 raid_days = 15
 trust = 8
 grudge = 1
+
+# The table (#43): a run has min to max factions by seed, at most one of
+# them chaotic. The first is the rival at home on the dice it always
+# rolled (min = max = 1 is the duel, byte-for-byte the run before #43);
+# the rest live in a city by seed and roll on their own streams. They
+# contest each other's bordering corners at the push odds, muscle
+# against muscle, and every such push draws push_heat on the city (the
+# heat sim adds it, the law counts the violence); a faction that took a
+# corner off another is held a grudge (grudge_trust off the loser's
+# trust in it, a grudge that makes it push back harder), and a
+# defensive faction sides with whoever the expansionist in its city is
+# pushing on: ally_trust per push, and at ally_line ally_share of its
+# front-line muscle joins their pushes on it (yours too). A faction with
+# no corners for absorb_days is absorbed by the one that took its last
+# (its muscle joins them); routed by you or the police it scatters. A
+# faction with poach_cash corner-days in the chest offers your least
+# loyal member poach_mul their wages at poach_chance a day: under
+# poach_line they go, over it they stay a little less loyal (poach_dip).
+# Its heat past leader_arrest_heat (your tips, #70) costs it its leader:
+# it fragments, its corners drift to the street over fragment_days in
+# random order, its city's products spike shock_mul for shock_days and
+# its muscle turn up in your hiring pool at fragment_discount of the
+# fee; the rival_leader_killed incident (#44) fragments the biggest
+# faction in its city the same way. A faction your enforcers have taken
+# tribute_corners off offers homage, homage_cut of its take a day, at
+# homage_chance a day; Dominant() is every faction absorbed, fragmented
+# or paying it. Poaching and homage need a table: with one faction in
+# the run nobody poaches and nobody bows, so the duel stays the duel.
+[factions]
+min = 3
+max = 6
+away = 0.5
+away_max = 1
+arrive_gap = 15
+shared_pace = true
+absorb_days = 30
+ally_trust = 3
+ally_line = 70
+ally_share = 0.5
+grudge_trust = 6
+push_heat = 2
+poach_cash = 30
+poach_mul = 1.5
+poach_chance = 0.10
+poach_line = 25
+poach_dip = 4
+leader_arrest_heat = 90
+fragment_days = 10
+shock_mul = 1.5
+shock_days = 7
+fragment_discount = 0.5
+tribute_corners = 3
+homage_cut = 0.20
+homage_chance = 0.25
 
 # Buying off muscle (#70): dirty cash to send the rival's people home.
 # They leave the rival and never join you. A head costs muscle_price

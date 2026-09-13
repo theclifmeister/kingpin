@@ -426,12 +426,16 @@ func (m *Model) lawLines(innerW int, narrow bool) []string {
 // panel: who they are and what they hold.
 func (m *Model) rivalShort(innerW int) string {
 	w := m.w
-	if w.Rival.Arrived == 0 {
+	r := w.Rival()
+	if r.Arrived == 0 && w.RivalHeld() == 0 {
 		return theme.Subtle.Render("no rival yet")
 	}
-	leader := theme.RivalText.Render(w.Rival.Leader)
-	short := leader + sep + theme.Subtle.Render(plural(w.RivalHeld(), "corner"))
-	if eye := m.eyeingWord(); eye != "" {
+	leader := theme.RivalText.Render(r.Leader)
+	short := leader + sep + theme.Subtle.Render(plural(w.RivalHeldBy(r.Faction()), "corner"))
+	if n := len(w.Rivals); n > 1 {
+		short += sep + theme.Subtle.Render(fmt.Sprintf("+%d more", n-1))
+	}
+	if eye := m.eyeingWord(r); eye != "" {
 		return firstFit(innerW, short+sep+eye, leader+sep+eye, eye, short)
 	}
 	return short
@@ -443,9 +447,9 @@ func (m *Model) rivalShort(innerW int) string {
 // holds or waits at the table.
 func (m *Model) rivalLines(innerW int) []string {
 	w := m.w
-	r := w.Rival
+	r := w.Rival()
 	tun := m.set.Rivals.Tuning()
-	if r.Arrived == 0 {
+	if r.Arrived == 0 && w.RivalHeld() == 0 {
 		var ls []string
 		for _, l := range wrap("Nobody is contesting the city. Yet.", innerW) {
 			ls = append(ls, theme.Subtle.Render(l))
@@ -453,20 +457,37 @@ func (m *Model) rivalLines(innerW int) []string {
 		return ls
 	}
 	leader := theme.RivalText.Render(r.Leader)
-	who := leader + sep + theme.Subtle.Render(plural(w.RivalHeld(), "corner"))
-	temper := who + sep + theme.Subtle.Render(m.personalityWord())
+	who := leader + sep + theme.Subtle.Render(plural(w.RivalHeldBy(r.Faction()), "corner"))
+	temper := who + sep + theme.Subtle.Render(m.personalityWord(r))
 	// The books (#70): the muscle as last read, where the line has room
 	// for it after the rest.
 	books := temper
 	if r.Known.Read() {
 		books = temper + sep + theme.Subtle.Render(fmt.Sprintf("muscle %d (%dd)", r.Known.Muscle, r.Known.Age(w.Day)))
 	}
-	if eye := m.eyeingWord(); eye != "" {
+	if eye := m.eyeingWord(r); eye != "" {
 		// The tell (#69) outranks the temper, the count and the name
 		// where the line has room for one of them: it needs you.
 		who = firstFit(innerW, temper+sep+eye, who+sep+eye, leader+sep+eye, eye, temper, who)
 	} else {
 		who = firstFit(innerW, books, temper, who)
+	}
+	// The table (#43): the other factions and what they hold, each in
+	// its colour, where the panel has a line for them; the war and the
+	// trust lines are the rival at home's.
+	var others []string
+	for i, f := range w.Rivals {
+		if i == 0 {
+			continue
+		}
+		n := w.RivalHeldBy(f.Faction())
+		word := fmt.Sprint(n)
+		if f.Gone() {
+			word = "gone"
+		} else if f.Arrived == 0 {
+			word = "-"
+		}
+		others = append(others, theme.FactionText(i).Render(f.Leader)+" "+theme.Subtle.Render(word))
 	}
 	war := bar("war", r.War/tun.CrackdownThreshold, fmt.Sprintf("%.0f/%.0f", r.War, tun.CrackdownThreshold))
 	switch {
@@ -497,6 +518,11 @@ func (m *Model) rivalLines(innerW int) []string {
 		table = theme.Gold.Render("proposal tonight")
 	default:
 		table = theme.Subtle.Render("Nothing on the table.")
+	}
+	if len(others) > 0 {
+		// Four lines: the factions' line takes the trust's when there
+		// is a table, the trust reading on the rivals screen.
+		trust = truncate(strings.Join(others, sep), innerW)
 	}
 	return []string{who, war, trust, table}
 }

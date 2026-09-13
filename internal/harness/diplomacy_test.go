@@ -15,13 +15,13 @@ import (
 func contestedWorld(t *testing.T, cfg *content.Config, seed uint64, days int) *game.World {
 	t.Helper()
 	w := sim.NewWorld(cfg, seed)
-	w.Rival.Personality = "expansionist"
-	w.Rival.Arrived, w.Rival.Muscle, w.Rival.Cash, w.Rival.Grudge = 1, 8, 50_000, 3
+	w.Rival().Personality = "expansionist"
+	w.Rival().Arrived, w.Rival().Muscle, w.Rival().Cash, w.Rival().Grudge = 1, 8, 50_000, 3
 	for _, id := range []string{"railyard", "depot", "strip"} {
 		c := w.Corner(id)
 		c.Owner, c.Since = game.OwnerRival, 0
 	}
-	w.Rival.Deals = []game.Deal{{Kind: game.DealTruce, Terms: game.Terms{Days: days}, Since: 0, Until: days}}
+	w.Rival().Deals = []game.Deal{{Kind: game.DealTruce, Terms: game.Terms{Days: days}, Since: 0, Until: days}}
 	return w
 }
 
@@ -90,7 +90,7 @@ func TestDiplomatHoldsMoreThanPassive(t *testing.T) {
 	for name, mk := range policies {
 		for seed := uint64(1); seed <= 8; seed++ {
 			w := sim.NewWorld(cfg, seed)
-			w.Rival.Personality = "expansionist"
+			w.Rival().Personality = "expansionist"
 			res, err := RunFrom(cfg, w, days, mk())
 			if err != nil {
 				t.Fatal(err)
@@ -131,7 +131,7 @@ func talker(cfg *content.Config) Policy {
 		for _, o := range w.Offers {
 			_, _ = w.Accept(o.ID)
 		}
-		if w.Rival.Arrived > 0 && w.Deal(game.DealTruce) == nil && w.Today.Proposal == nil {
+		if w.Rival().Arrived > 0 && w.Deal(game.DealTruce) == nil && w.Today.Proposal == nil {
 			_ = w.Propose(game.DealTruce, game.Terms{Days: dip.TruceDays[0]})
 		}
 	}
@@ -146,7 +146,7 @@ func TestDefensiveNeverBetrays(t *testing.T) {
 	for _, p := range []string{"defensive", "chaotic"} {
 		for seed := uint64(1); seed <= 8; seed++ {
 			w := sim.NewWorld(cfg, seed)
-			w.Rival.Personality = p
+			w.Rival().Personality = p
 			res, err := RunFrom(cfg, w, Horizon, talker(cfg))
 			if err != nil {
 				t.Fatal(err)
@@ -208,7 +208,7 @@ func TestDiplomacyIsDeterministicAndSaves(t *testing.T) {
 
 	// Save mid-run, reload, and play on: the same events as the straight run.
 	c, _ := Run(cfg, 5, 60, policy())
-	if c.World.Rival.Trust == 0 {
+	if c.World.Rival().Trust == 0 {
 		t.Fatal("trust is zero at day 60")
 	}
 	if err := game.Save(1, c.World); err != nil {
@@ -222,8 +222,8 @@ func TestDiplomacyIsDeterministicAndSaves(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	if fmt.Sprintf("%+v", loaded.Rival) != fmt.Sprintf("%+v", c.World.Rival) || fmt.Sprintf("%+v", loaded.Offers) != fmt.Sprintf("%+v", c.World.Offers) {
-		t.Fatalf("the save lost the table:\n%+v %+v\n%+v %+v", c.World.Rival, c.World.Offers, loaded.Rival, loaded.Offers)
+	if fmt.Sprintf("%+v", *loaded.Rival()) != fmt.Sprintf("%+v", *c.World.Rival()) || fmt.Sprintf("%+v", loaded.Offers) != fmt.Sprintf("%+v", c.World.Offers) {
+		t.Fatalf("the save lost the table:\n%+v %+v\n%+v %+v", *c.World.Rival(), c.World.Offers, *loaded.Rival(), loaded.Offers)
 	}
 	d, _ := RunFrom(cfg, loaded, 60, policy())
 	if got, want := len(c.Events)+len(d.Events), len(a.Events); got != want {
@@ -249,7 +249,7 @@ func TestSplitKeepsTheLine(t *testing.T) {
 		res, err := Run(cfg, seed, Horizon, func(w *game.World) {
 			territory(w)
 			d := w.Deal(game.DealSplit)
-			if d == nil && w.Rival.Arrived > 0 && w.Today.Proposal == nil {
+			if d == nil && w.Rival().Arrived > 0 && w.Today.Proposal == nil {
 				_ = w.Propose(game.DealSplit, game.Terms{Corners: w.SplitLines()[1]})
 			}
 			if d == nil {

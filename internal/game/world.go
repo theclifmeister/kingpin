@@ -12,7 +12,7 @@ import (
 )
 
 // SchemaVersion is bumped whenever World changes shape incompatibly.
-const SchemaVersion = 13
+const SchemaVersion = 14
 
 // World is the complete state of a run. Every field is a plain value so the
 // whole struct can be serialised with encoding/gob.
@@ -28,7 +28,7 @@ type World struct {
 	Products    []string // ordered product ids, the same in every city
 	Heat        HeatState
 	Crew        CrewState
-	Rival       RivalState
+	Rivals      []*RivalState   // the factions (#43), in id order: Rivals[0] is the rival at home, Rival(); the rivals sim seeds the rest
 	Upgrades    map[string]bool // upgrade ids owned; effects fold from these (FoldEffects)
 	FallsTaken  int             // fall guys who have taken their fall (#117: fall_guys is a count; each takes one)
 	Fronts      []Front         // businesses the player owns, in the order bought
@@ -37,7 +37,7 @@ type World struct {
 	Shipments   []Shipment                // product on the road, in the order sent
 	Logistics   LogisticsState            // the shipment counter, the seizure record and the routes' books
 	Routes      map[string]RouteSetting   // the route dials, keyed by route id; a route not here is off
-	Offers      []Offer                   // deals the rival has put on the table, oldest first
+	Offers      []Offer                   // deals the factions have put on the table, oldest first (Offer.Faction says which)
 	Delegated   map[string]SellOrder      // the lieutenants' standing sell orders, keyed like Orders; the crew step refreshes them
 	Law         LawState                  // the chief and the DA (#41); pressure and goodwill are per city
 	Contracts   []Contract                // the buyers' orders (#71), oldest first; the market sim deals and resolves them
@@ -92,6 +92,7 @@ type World struct {
 
 	legacy *v6  // what a pre-7 save carried for its one city; Load sets it, MigrateCities consumes it
 	fell   bool // what a pre-10 save carried as FallGuyUsed; Load sets it, MigrateFallGuys consumes it
+	old    *v13 // what a pre-14 save carried for its one rival; Load sets it, SeatRival consumes it (#43)
 }
 
 // Today is the player's per-day scratch on the World (#144): what the
@@ -443,6 +444,7 @@ type CrewMember struct {
 	City        string // the city a lieutenant runs; empty when unassigned
 	Assigned    int    // day the lieutenant was last given a city
 	Observed    bool   // the lieutenant has been on the job long enough for the report to name their personality
+	Former      string // the faction a candidate in the pool used to run with (#43): a fragmented faction's muscle, at a discount; "" for anyone else
 }
 
 // Lieutenant reports whether the member is a lieutenant.
@@ -613,7 +615,8 @@ type StrikeOrder struct {
 // ScoutOrder is the player paying for a look at the rival's books
 // tonight (#70), paid up front and resolved by the rivals sim.
 type ScoutOrder struct {
-	Cost int
+	Cost    int
+	Faction string // whose books (#43); "" is the rival at home
 }
 
 // TipOrder is the player tipping the police on a rival corner tonight
@@ -625,8 +628,9 @@ type TipOrder struct {
 // PoachOrder is the player paying Units heads of the rival's muscle to
 // go home tonight (#70), Cost paid up front, resolved by the rivals sim.
 type PoachOrder struct {
-	Units int
-	Cost  int
+	Units   int
+	Cost    int
+	Faction string // whose muscle (#43); "" is the rival at home
 }
 
 // Known is the rival's books as last read by a scout (#70): a snapshot,
@@ -694,6 +698,49 @@ type RivalState struct {
 	LastRaid int // day the police last took a corner off it on your tip; 0 never
 	Away     int // heads bought off or arrested and not yet back: what it wants less, for a while
 	AwayDay  int // day the last of them came back, or was sent away; the next returns away_days later
+
+	// The table (#43): a faction among factions. Home is the city it
+	// lives in ("" reads as home, the one rival's city before #43);
+	// Grudges and Trusts are what it holds against and thinks of the
+	// other factions, by id (Trust above is its trust in you); Ally and
+	// Against name the faction it stands with and the one it stands
+	// against (a defensive faction sides with whoever the expansionist
+	// is pushing on; "you" is the player); LostToYou counts the corners
+	// your enforcers took off it, what a homage offer waits for;
+	// LastTakenBy is the faction that took its last corner ("" you or
+	// the police), who absorbs it after absorb_days with none; Absorbed
+	// and Fragmented are the day it stopped being a faction (absorbed
+	// into AbsorbedBy, or its leader taken: Fragments are the corners
+	// still to drift). Zero values are the duel, the pre-#43 state.
+	Home        string
+	Grudges     map[string]int
+	Trusts      map[string]float64
+	Ally        string
+	Against     string
+	LostToYou   int
+	LastTakenBy string
+	Absorbed    int
+	AbsorbedBy  string
+	Fragmented  int
+	Fragments   []string
+}
+
+// Gone reports whether the faction is out of the game: absorbed by
+// another or fragmented after its leader was taken (#43). A gone faction
+// steps no more; its corners drift and its deals are over.
+func (r RivalState) Gone() bool { return r.Absorbed > 0 || r.Fragmented > 0 }
+
+// Alive reports whether the faction is in the game and on the ground:
+// arrived and not gone.
+func (r RivalState) Alive() bool { return r.Arrived > 0 && !r.Gone() }
+
+// TrustIn is the faction's trust in another faction, by id (#43): what
+// Trusts holds, or a neutral 50 for one it has never dealt with.
+func (r RivalState) TrustIn(id string) float64 {
+	if v, ok := r.Trusts[id]; ok {
+		return v
+	}
+	return 50
 }
 
 // Faction is the rival's faction id (#144): ID, or FactionRival for a
@@ -710,8 +757,9 @@ func (r RivalState) Faction() string {
 // crew sim queues them on CrewState.Leads; the rivals sim acts on them
 // next step.
 type Lead struct {
-	Name   string
-	Corner string
+	Name    string
+	Corner  string
+	Faction string // the faction they went to (#43); "" is the rival at home
 }
 
 // Purchase is a buy from a connect, applied immediately. Prior is the
@@ -819,6 +867,10 @@ type Stats struct {
 	Betrayals      int // deals you broke
 	BetrayedBy     int // deals it broke
 	Tribute        int // dirty cash paid the rival in tribute
+	Homage         int // dirty cash the factions paid you in homage (#43)
+	CrewPoached    int // your crew poached by a faction (#43)
+	Absorbed       int // factions absorbed by another (#43)
+	Fragmented     int // factions that lost their leader (#43)
 	Cuts           int // dirty cash the lieutenants kept as their cut, and the crew's cut on your standing orders (#114)
 	Walked         int // lieutenants who walked with their city
 	Funded         int // clean cash given to the cities (#41)

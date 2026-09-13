@@ -4,7 +4,6 @@ import (
 	"math"
 	"testing"
 
-	"github.com/theclifmeister/kingpin/internal/content"
 	"github.com/theclifmeister/kingpin/internal/game"
 )
 
@@ -14,42 +13,42 @@ import (
 // doubles every one of them, and the port's product (no_supply at
 // home) is in none of them, nor in its take.
 func TestCostsAreCornerDays(t *testing.T) {
-	cfg := content.MustLoad()
+	cfg := duel()
 	tun := cfg.Rivals.Rivals
 	w, s := world(t, cfg, 3)
-	w.Rival.Personality = "defensive"
+	w.Rival().Personality = "defensive"
 	m := w.Product(w.Home().ID, "weed")
 	std := m.Demand * m.Price
 	day := std * tun.Margin
-	if got := s.Standard(w); math.Abs(got-std) > 1e-9 {
+	if got := s.Standard(w, w.Rival()); math.Abs(got-std) > 1e-9 {
 		t.Fatalf("standard corner %.2f, want %.2f", got, std)
 	}
-	if got := s.CornerDay(w); math.Abs(got-day) > 1e-9 {
+	if got := s.CornerDay(w, w.Rival()); math.Abs(got-day) > 1e-9 {
 		t.Fatalf("corner-day %.2f, want %.2f", got, day)
 	}
 	heads := cfg.Rivals.Personality["defensive"].MusclePerCorner
-	if s.Wage(w) != int(math.Round(tun.MuscleWage/heads*day)) || s.Fee(w) != int(math.Round(tun.MuscleFee*day)) || s.ClaimCost(w) != int(math.Round(tun.ClaimCost*day)) {
-		t.Fatalf("wage %d fee %d claim %d on a corner-day of %.0f", s.Wage(w), s.Fee(w), s.ClaimCost(w), day)
+	if s.Wage(w, w.Rival()) != int(math.Round(tun.MuscleWage/heads*day)) || s.Fee(w, w.Rival()) != int(math.Round(tun.MuscleFee*day)) || s.ClaimCost(w, w.Rival()) != int(math.Round(tun.ClaimCost*day)) {
+		t.Fatalf("wage %d fee %d claim %d on a corner-day of %.0f", s.Wage(w, w.Rival()), s.Fee(w, w.Rival()), s.ClaimCost(w, w.Rival()), day)
 	}
-	if w.Rival.Cash != int(math.Round(tun.StartCash*day)) {
-		t.Fatalf("arrived with %d, want %.0f corner-days of %.0f", w.Rival.Cash, tun.StartCash, day)
+	if w.Rival().Cash != int(math.Round(tun.StartCash*day)) {
+		t.Fatalf("arrived with %d, want %.0f corner-days of %.0f", w.Rival().Cash, tun.StartCash, day)
 	}
-	wage, fee, claim := s.Wage(w), s.Fee(w), s.ClaimCost(w)
+	wage, fee, claim := s.Wage(w, w.Rival()), s.Fee(w, w.Rival()), s.ClaimCost(w, w.Rival())
 	m.Price *= 2
-	if s.Wage(w) != 2*wage || s.Fee(w) != 2*fee || s.ClaimCost(w) != 2*claim {
-		t.Fatalf("the price doubled and the costs went %d/%d/%d -> %d/%d/%d", wage, fee, claim, s.Wage(w), s.Fee(w), s.ClaimCost(w))
+	if s.Wage(w, w.Rival()) != 2*wage || s.Fee(w, w.Rival()) != 2*fee || s.ClaimCost(w, w.Rival()) != 2*claim {
+		t.Fatalf("the price doubled and the costs went %d/%d/%d -> %d/%d/%d", wage, fee, claim, s.Wage(w, w.Rival()), s.Fee(w, w.Rival()), s.ClaimCost(w, w.Rival()))
 	}
 	// The port's product is not the rival's trade.
 	w.Corner("docks").Owner = game.OwnerRival
-	income := s.Income(w)
+	income := s.Income(w, w.Rival())
 	w.Home().Market["designer"] = &game.ProductMarket{Price: 2500, Demand: 40, NoSupply: true}
 	w.Products = append(w.Products, "designer")
-	if s.Income(w) != income || s.Standard(w) != 2*std || s.CornerIncome(w, *w.Corner("docks")) != income {
-		t.Fatalf("designer at home moved the rival's take %d -> %d, the standard corner %.0f -> %.0f, the corner's %d", income, s.Income(w), 2*std, s.Standard(w), s.CornerIncome(w, *w.Corner("docks")))
+	if s.Income(w, w.Rival()) != income || s.Standard(w, w.Rival()) != 2*std || s.CornerIncome(w, *w.Corner("docks")) != income {
+		t.Fatalf("designer at home moved the rival's take %d -> %d, the standard corner %.0f -> %.0f, the corner's %d", income, s.Income(w, w.Rival()), 2*std, s.Standard(w, w.Rival()), s.CornerIncome(w, *w.Corner("docks")))
 	}
 	w.Home().Market["designer"].NoSupply = false
-	if s.Income(w) <= income {
-		t.Fatalf("designer the street sells is not the rival's take: %d", s.Income(w))
+	if s.Income(w, w.Rival()) <= income {
+		t.Fatalf("designer the street sells is not the rival's take: %d", s.Income(w, w.Rival()))
 	}
 }
 
@@ -61,64 +60,64 @@ func TestCostsAreCornerDays(t *testing.T) {
 // of the chest. A rival that could not pay its muscle from the chest
 // either is down to what the chest holds.
 func TestArrearsWalkAHead(t *testing.T) {
-	cfg := content.MustLoad()
+	cfg := duel()
 	w, s := warWorld(t, cfg, 4, "defensive")
 	// Two more corners, and the muscle its take pays for exactly.
 	for _, id := range []string{"railyard", "oldmill"} {
 		w.Corner(id).Owner, w.Corner(id).Since = game.OwnerRival, 1
 	}
-	afford := s.Afford(w)
+	afford := s.Afford(w, w.Rival())
 	if afford < 3 {
 		t.Fatalf("three corners pay for %d heads", afford)
 	}
-	w.Rival.Muscle = afford
+	w.Rival().Muscle = afford
 	step(w, s)
-	if w.Rival.Muscle != afford || w.Rival.Arrears != 0 {
-		t.Fatalf("in peace: muscle %d (afford %d), arrears %.0f", w.Rival.Muscle, afford, w.Rival.Arrears)
+	if w.Rival().Muscle != afford || w.Rival().Arrears != 0 {
+		t.Fatalf("in peace: muscle %d (afford %d), arrears %.0f", w.Rival().Muscle, afford, w.Rival().Arrears)
 	}
 	// The war: a third off the biggest corner, every morning, as the
 	// market would leave it. The take no longer covers the payroll.
 	days := 0
-	for w.Rival.Muscle == afford && days < 30 {
+	for w.Rival().Muscle == afford && days < 30 {
 		squeeze(w, "docks", 0.34)
-		short := float64(s.Wages(w) - s.Income(w)) // at today's price: its own undercutting drags it a little each night
+		short := float64(s.Wages(w, w.Rival()) - s.Income(w, w.Rival())) // at today's price: its own undercutting drags it a little each night
 		if short <= 0 {
-			t.Fatalf("a third off the docks and the take still covers %d heads", w.Rival.Muscle)
+			t.Fatalf("a third off the docks and the take still covers %d heads", w.Rival().Muscle)
 		}
-		before := w.Rival.Arrears
+		before := w.Rival().Arrears
 		step(w, s)
 		days++
-		if w.Rival.Muscle == afford && math.Abs(w.Rival.Arrears-(before+short)) > 1 {
-			t.Fatalf("day %d: arrears %.0f, want %.0f + %.0f", days, w.Rival.Arrears, before, short)
+		if w.Rival().Muscle == afford && math.Abs(w.Rival().Arrears-(before+short)) > 1 {
+			t.Fatalf("day %d: arrears %.0f, want %.0f + %.0f", days, w.Rival().Arrears, before, short)
 		}
 	}
-	if w.Rival.Muscle != afford-1 || days == 0 || days > 30 {
-		t.Fatalf("under the war: muscle %d after %d days (was %d)", w.Rival.Muscle, days, afford)
+	if w.Rival().Muscle != afford-1 || days == 0 || days > 30 {
+		t.Fatalf("under the war: muscle %d after %d days (was %d)", w.Rival().Muscle, days, afford)
 	}
-	if wage := s.Wage(w); w.Rival.Arrears >= float64(wage) {
-		t.Fatalf("a head walked and %.0f is still owed against a wage of %d", w.Rival.Arrears, wage)
+	if wage := s.Wage(w, w.Rival()); w.Rival().Arrears >= float64(wage) {
+		t.Fatalf("a head walked and %.0f is still owed against a wage of %d", w.Rival().Arrears, wage)
 	}
 	// Peace (the market leaves no squeeze): the surplus pays the arrears
 	// down and the head is hired back.
 	squeeze(w, "docks", 0)
-	for i := 0; i < 30 && (w.Rival.Arrears > 0 || w.Rival.Muscle < afford); i++ {
+	for i := 0; i < 30 && (w.Rival().Arrears > 0 || w.Rival().Muscle < afford); i++ {
 		step(w, s)
 	}
-	if w.Rival.Arrears != 0 || w.Rival.Muscle != afford {
-		t.Fatalf("after the war: muscle %d (afford %d), arrears %.0f", w.Rival.Muscle, afford, w.Rival.Arrears)
+	if w.Rival().Arrears != 0 || w.Rival().Muscle != afford {
+		t.Fatalf("after the war: muscle %d (afford %d), arrears %.0f", w.Rival().Muscle, afford, w.Rival().Arrears)
 	}
 	// Never under the two it came with, whatever it owes.
-	w.Rival.Muscle = cfg.Rivals.Rivals.StartMuscle
-	w.Rival.Arrears = float64(10 * s.Wage(w))
+	w.Rival().Muscle = cfg.Rivals.Rivals.StartMuscle
+	w.Rival().Arrears = float64(10 * s.Wage(w, w.Rival()))
 	step(w, s)
-	if w.Rival.Muscle < cfg.Rivals.Rivals.StartMuscle {
-		t.Fatalf("owing ten wages it let one of the first %d go: %d", cfg.Rivals.Rivals.StartMuscle, w.Rival.Muscle)
+	if w.Rival().Muscle < cfg.Rivals.Rivals.StartMuscle {
+		t.Fatalf("owing ten wages it let one of the first %d go: %d", cfg.Rivals.Rivals.StartMuscle, w.Rival().Muscle)
 	}
 	// An empty chest is the last resort: down to what it holds.
-	w.Rival.Muscle, w.Rival.Cash, w.Rival.Arrears = 20, 0, 0
+	w.Rival().Muscle, w.Rival().Cash, w.Rival().Arrears = 20, 0, 0
 	step(w, s)
-	if w.Rival.Muscle >= 20 || w.Rival.Cash < 0 {
-		t.Fatalf("with no chest: muscle %d, cash %d", w.Rival.Muscle, w.Rival.Cash)
+	if w.Rival().Muscle >= 20 || w.Rival().Cash < 0 {
+		t.Fatalf("with no chest: muscle %d, cash %d", w.Rival().Muscle, w.Rival().Cash)
 	}
 }
 
@@ -129,7 +128,7 @@ func TestArrearsWalkAHead(t *testing.T) {
 // terms sit with the rival; where the street sells it, it counts. The
 // cut at every band and the favour of a proposal read the one number.
 func TestTributeIsACutOfTheRivalsStreet(t *testing.T) {
-	cfg := content.MustLoad()
+	cfg := duel()
 	dip := cfg.Rivals.Diplomacy
 	w, s := arrived(t, cfg, 3, "defensive")
 	if err := w.Post("docks", game.You); err != nil {
@@ -138,33 +137,33 @@ func TestTributeIsACutOfTheRivalsStreet(t *testing.T) {
 	h := w.Home()
 	m := w.Product(h.ID, "weed")
 	want := w.Demand(h.ID, "weed") * m.Price
-	if got := s.TributeBase(w); want <= 0 || math.Abs(got-want) > 1e-9 {
+	if got := s.TributeBase(w, w.Rival()); want <= 0 || math.Abs(got-want) > 1e-9 {
 		t.Fatalf("tribute base %.2f, want %.2f (demand %.2f at %.0f)", got, want, w.Demand(h.ID, "weed"), m.Price)
 	}
 	var cuts []int
 	for _, c := range dip.TributeCuts {
-		cuts = append(cuts, s.Cut(w, c))
+		cuts = append(cuts, s.Cut(w, w.Rival(), c))
 	}
 	mid := game.Deal{Kind: game.DealTribute, Terms: game.Terms{PerDay: cuts[1]}}
-	favour := s.Favour(w, mid)
+	favour := s.Favour(w, w.Rival(), mid)
 	h.Market["designer"] = &game.ProductMarket{Price: 2500, Demand: 40, NoSupply: true}
 	w.Products = append(w.Products, "designer")
-	if got := s.TributeBase(w); math.Abs(got-want) > 1e-9 {
+	if got := s.TributeBase(w, w.Rival()); math.Abs(got-want) > 1e-9 {
 		t.Fatalf("designer at home moved the tribute base %.2f -> %.2f", want, got)
 	}
 	for i, c := range dip.TributeCuts {
-		if got := s.Cut(w, c); got != cuts[i] {
+		if got := s.Cut(w, w.Rival(), c); got != cuts[i] {
 			t.Fatalf("designer at home moved the cut at %.2f: %d -> %d", c, cuts[i], got)
 		}
 	}
-	if got := s.Favour(w, mid); got != favour {
+	if got := s.Favour(w, w.Rival(), mid); got != favour {
 		t.Fatalf("designer at home moved the favour of the middle cut %.2f -> %.2f", favour, got)
 	}
 	h.Market["designer"].NoSupply = false
-	if got := s.TributeBase(w); got <= want {
+	if got := s.TributeBase(w, w.Rival()); got <= want {
 		t.Fatalf("designer the street sells is not in the base: %.2f", got)
 	}
-	if got := s.Cut(w, dip.TributeCuts[1]); got <= cuts[1] {
+	if got := s.Cut(w, w.Rival(), dip.TributeCuts[1]); got <= cuts[1] {
 		t.Fatalf("designer the street sells did not raise the middle cut: %d -> %d", cuts[1], got)
 	}
 }

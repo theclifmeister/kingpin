@@ -79,13 +79,13 @@ func TestReputationCannotMaxAllThree(t *testing.T) {
 		w.Crew.Members = append(w.Crew.Members, game.CrewMember{ID: 100 + i, Name: fmt.Sprintf("E%d", i), Role: "enforcer", Skill: 90, Loyalty: 90, Nerve: 90, Wage: 55})
 	}
 	w.Crew.NextID = 103
-	w.Rival.Arrived, w.Rival.Cash = 1, 1_000_000
+	w.Rival().Arrived, w.Rival().Cash = 1, 1_000_000
 	res, err := RunFrom(cfg, w, Horizon, func(w *game.World) {
 		w.Player.DirtyCash = 1_000_000 // whatever it costs (a bigger pile is its own heat, and the day's sales are already an aggressive dump)
 		w.Home().Heat, w.Heat.Evidence = 0, 0
 		// A rival that is always there to be hit, a war that never
 		// brings the crackdown that would rout it.
-		w.Rival.Muscle, w.Rival.War, w.Rival.Routed = 5, 0, 0
+		w.Rival().Muscle, w.Rival().War, w.Rival().Routed = 5, 0, 0
 		for _, id := range []string{"docks", "railyard"} {
 			if c := w.Corner(id); c.Owner != game.OwnerRival {
 				c.Owner, c.Runner, c.Enforcer, c.Since = game.OwnerRival, 0, 0, w.Day
@@ -184,7 +184,7 @@ func TestReputationEffects(t *testing.T) {
 	for _, fear := range []float64{0, 100} {
 		for seed := uint64(1); seed <= 5; seed++ {
 			w := sim.NewWorld(cfg, seed)
-			w.Rival.Personality = "expansionist"
+			w.Rival().Personality = "expansionist"
 			res, _ := RunFrom(cfg, w, 100, func(w *game.World) {
 				w.Player.Reputation.Fear = fear
 				Territory(cfg, 40, 3)(w)
@@ -213,7 +213,7 @@ func TestReputationEffects(t *testing.T) {
 	for _, fear := range []float64{0, 100} {
 		for seed := uint64(1); seed <= 10; seed++ {
 			w := sim.NewWorld(cfg, seed)
-			w.Rival.Personality = "expansionist"
+			w.Rival().Personality = "expansionist"
 			res, _ := RunFrom(cfg, w, Horizon, func(w *game.World) {
 				w.Player.Reputation.Fear = fear
 				Territory(cfg, 40, 3)(w)
@@ -303,7 +303,7 @@ func TestReputationSourcesAndHeadlines(t *testing.T) {
 	w.SetPay(events.PayGenerous)
 	w.Crew.Members = append(w.Crew.Members, game.CrewMember{ID: 900, Name: "Tank", Role: "enforcer", Skill: 90, Loyalty: 80, Nerve: 90, Wage: 55})
 	w.Crew.NextID = 900
-	w.Rival.Arrived, w.Rival.Muscle = 1, 1
+	w.Rival().Arrived, w.Rival().Muscle = 1, 1
 	c := w.Corner("docks")
 	c.Owner, c.Since = game.OwnerRival, 0
 	res, err := RunFrom(cfg, w, 40, func(w *game.World) {

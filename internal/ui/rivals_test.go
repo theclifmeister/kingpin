@@ -47,7 +47,7 @@ func TestRivalsPane(t *testing.T) {
 	w := m.w
 	// The fixture's deal and offer, set again: a chaotic rival can break
 	// the split on the day the fixture plays, and seeds are wall-clock.
-	w.Rival.Deals = []game.Deal{{Kind: game.DealSplit, Terms: game.Terms{Corners: []string{w.Home().Corners[1].ID}}, Since: w.Day}}
+	w.Rival().Deals = []game.Deal{{Kind: game.DealSplit, Terms: game.Terms{Corners: []string{w.Home().Corners[1].ID}}, Since: w.Day}}
 	w.Offers = []game.Offer{{ID: 1, Deal: game.Deal{Kind: game.DealTruce, Terms: game.Terms{Days: 30}, Offered: true}, Expires: w.Day + 3}}
 	m.Update(key("8"))
 	assertFrame(t, m, "rivals at 120x40")
@@ -93,8 +93,8 @@ func TestRivalsPane(t *testing.T) {
 	if secs := m.details(); secs[0].title != "SPLIT · 1 CORNER" || !strings.Contains(stripANSI(strings.Join(secs[0].lines, "\n")), "until broken") {
 		t.Errorf("with no offer the first section is %q: %v", secs[0].title, secs[0].lines)
 	}
-	w.Rival.Deals = nil
-	if secs := m.details(); secs[0].title != strings.ToUpper(m.rivalName()) || !strings.Contains(strings.Join(secs[0].lines, " "), "Trust grows") {
+	w.Rival().Deals = nil
+	if secs := m.details(); secs[0].title != strings.ToUpper(m.rivalName(m.w.Rival())) || !strings.Contains(strings.Join(secs[0].lines, " "), "Trust grows") {
 		t.Errorf("with nothing on the table the first section is %q: %v", secs[0].title, secs[0].lines)
 	}
 	assertFrame(t, m, "rivals with nothing on the table")
@@ -116,7 +116,7 @@ func TestRivalsOverlayScrolls(t *testing.T) {
 	if m.mode != modeDetails {
 		t.Fatalf("space: mode %v", m.mode)
 	}
-	last := "warning does not."
+	last := "others hear of it."
 	seen := strings.Contains(stripANSI(m.View()), last)
 	for i := 0; i < 40 && !seen; i++ {
 		assertFits(t, m.View(), 80, 24, "rivals overlay")
@@ -154,7 +154,7 @@ func TestRivalsEmptyStates(t *testing.T) {
 	if view := stripANSI(m.View()); !strings.Contains(view, "Nobody is contesting the city yet.") {
 		t.Errorf("no rival:\n%s", view)
 	}
-	w.Rival.Arrived, w.Rival.Muscle, w.Rival.War = 1, 3, 0
+	w.Rival().Arrived, w.Rival().Muscle, w.Rival().War = 1, 3, 0
 	view := stripANSI(m.View())
 	for _, want := range []string{"No deals. Press d to propose one.", "Nothing on the table.", "no war", "run out of town"} {
 		if !strings.Contains(view, want) {
@@ -179,7 +179,7 @@ func TestRivalsEmptyStates(t *testing.T) {
 func TestTributeReadsTheRivalsStreet(t *testing.T) {
 	m := richModel(t, 120, 40)
 	w := m.w
-	base := cash(int(math.Round(m.set.Rivals.TributeBase(w))))
+	base := cash(int(math.Round(m.set.Rivals.TributeBase(w, w.Rival()))))
 	m.Update(key("8"))
 	m.Update(key("d"))
 	m.Update(key("2"))
@@ -196,8 +196,8 @@ func TestTributeReadsTheRivalsStreet(t *testing.T) {
 		t.Errorf("the tribute page still reads `of your take`:\n%s", body)
 	}
 	m.Update(key("esc"))
-	mid := m.set.Rivals.Cut(w, m.set.Rivals.Diplomacy().TributeCuts[1])
-	w.Rival.Deals = nil
+	mid := m.set.Rivals.Cut(w, w.Rival(), m.set.Rivals.Diplomacy().TributeCuts[1])
+	w.Rival().Deals = nil
 	w.Offers = []game.Offer{{ID: 1, Deal: game.Deal{Kind: game.DealTribute, Terms: game.Terms{PerDay: mid}, Offered: true}, Expires: w.Day + 3}}
 	pane := stripANSI(paneRender(m))
 	for _, want := range []string{"TRIBUTE · " + strings.ToUpper(money(mid)) + "/DAY", "cut", "~10% of your street", "Your street is " + base + " a day"} {
@@ -206,11 +206,11 @@ func TestTributeReadsTheRivalsStreet(t *testing.T) {
 		}
 	}
 	w.Offers = nil
-	w.Rival.Deals = []game.Deal{{Kind: game.DealTribute, Terms: game.Terms{PerDay: mid}, Since: w.Day}}
+	w.Rival().Deals = []game.Deal{{Kind: game.DealTribute, Terms: game.Terms{PerDay: mid}, Since: w.Day}}
 	if pane := stripANSI(paneRender(m)); !strings.Contains(pane, "~10% of your street") || !strings.Contains(pane, "until broken") {
 		t.Errorf("the pane on a tribute that holds lacks the cut:\n%s", pane)
 	}
-	for _, l := range m.tributeRows(w.Rival.Deals[0]) {
+	for _, l := range m.tributeRows(w.Rival(), w.Rival().Deals[0]) {
 		if lipgloss.Width(l) > paneTextW {
 			t.Errorf("a tribute row is %d wide, over %d: %q", lipgloss.Width(l), paneTextW, stripANSI(l))
 		}
@@ -220,8 +220,8 @@ func TestTributeReadsTheRivalsStreet(t *testing.T) {
 	h := w.Home()
 	h.Market["designer"] = &game.ProductMarket{Price: 2500, Demand: 40, NoSupply: true}
 	w.Products = append(w.Products, "designer")
-	if got := cash(int(math.Round(m.set.Rivals.TributeBase(w)))); got != base || m.set.Rivals.Cut(w, m.set.Rivals.Diplomacy().TributeCuts[1]) != mid {
-		t.Errorf("designer at home moved the base %s -> %s, the middle cut %d -> %d", base, got, mid, m.set.Rivals.Cut(w, m.set.Rivals.Diplomacy().TributeCuts[1]))
+	if got := cash(int(math.Round(m.set.Rivals.TributeBase(w, w.Rival())))); got != base || m.set.Rivals.Cut(w, w.Rival(), m.set.Rivals.Diplomacy().TributeCuts[1]) != mid {
+		t.Errorf("designer at home moved the base %s -> %s, the middle cut %d -> %d", base, got, mid, m.set.Rivals.Cut(w, w.Rival(), m.set.Rivals.Diplomacy().TributeCuts[1]))
 	}
 	assertFrame(t, m, "rivals with a tribute")
 }

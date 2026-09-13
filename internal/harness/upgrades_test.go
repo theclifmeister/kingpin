@@ -323,7 +323,7 @@ func TestStreetBranchSlowsTheRivalNeverStopsIt(t *testing.T) {
 	street := []string{"boys", "watch", "dogs", "frontline", "ground"}
 	firstLoss := func(seed uint64, own bool) (day, lost int) {
 		w := sim.NewWorld(cfg, seed)
-		w.Rival.Personality = "expansionist"
+		w.Rival().Personality = "expansionist"
 		if own {
 			Own(cfg, w, street...)
 		}

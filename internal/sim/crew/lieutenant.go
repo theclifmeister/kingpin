@@ -90,8 +90,10 @@ func (s *Sim) take(w *game.World, t *game.Tick, acted map[int]*events.Lieutenant
 // rival if it holds ground in that city, else back to the street, and
 // the stash there is gone. The caller drops them from the roster.
 //
-// The hand-over is the one write into w.Rival outside the rivals sim
-// (#144, the exception TestRivalStateHasOneWriter lists): the corners
+// The hand-over is the one write into a faction's state outside the
+// rivals sim (#144, the exception TestRivalStateHasOneWriter lists;
+// since #43 the faction holding most of the city, through w.Faction):
+// the corners
 // change hands tonight, since the news sim's card triggers read the
 // rival's ground this same tick and the morning's map shows it, and
 // the flip's bookkeeping (Flips, LastFlip, Observed) goes with them,
@@ -101,7 +103,13 @@ func (s *Sim) walk(w *game.World, t *game.Tick, lt game.CrewMember) {
 	city := w.Cities[lt.City]
 	ev := events.LieutenantWalked{Day: t.Day, ID: lt.ID, Name: lt.Name, City: lt.City, CityName: w.CityName(lt.City)}
 	if city != nil {
-		toRival := city == w.Home() && w.RivalHeld() > 0
+		// The faction holding most of the city (#43), or nobody: the
+		// rival at home before the table, any faction on that ground
+		// since.
+		var to *game.RivalState
+		if r := w.StrongestFaction(city.ID); r != nil {
+			to = w.Faction(r.Faction())
+		}
 		for i := range city.Corners {
 			c := &city.Corners[i]
 			if !c.Held() || c.Runner == game.You {
@@ -109,18 +117,18 @@ func (s *Sim) walk(w *game.World, t *game.Tick, lt game.CrewMember) {
 			}
 			ev.Corners = append(ev.Corners, c.Name)
 			c.Runner, c.Enforcer, c.Idle, c.Squeeze, c.Robbed, c.Since = 0, 0, 0, 0, 0, t.Day
-			if toRival {
-				c.Owner, c.Faction = game.OwnerRival, w.Rival.Faction()
-				w.Rival.Flips++
-				w.Rival.LastFlip = t.Day
+			if to != nil {
+				c.Owner, c.Faction = game.OwnerRival, to.Faction()
+				w.Faction(to.ID).Flips++
+				w.Faction(to.ID).LastFlip = t.Day
 				w.Stats.CornersLost++
 			} else {
 				c.Owner, c.Faction = game.OwnerNone, ""
 			}
 		}
-		if toRival {
-			ev.Rival, ev.Faction = w.Rival.Leader, w.Rival.Faction()
-			w.Rival.Observed = true
+		if to != nil {
+			ev.Rival, ev.Faction = to.Leader, to.Faction()
+			w.Faction(to.ID).Observed = true
 		}
 		for id, q := range w.StashOf(lt.City) {
 			ev.Units += w.TakeStock(lt.City, id, q)

@@ -131,7 +131,7 @@ func TestEveryCardIsDealtAndReadsClean(t *testing.T) {
 		for seed := uint64(1); seed <= 4; seed++ {
 			for i, policy := range []Policy{Laundered(cfg, 40), Warlike(cfg, 40, 3, events.ForceHit)} {
 				w := sim.NewWorld(cfg, seed)
-				w.Rival.Personality = p
+				w.Rival().Personality = p
 				if i == 0 {
 					w.Player.DirtyCash = 30_000
 				}

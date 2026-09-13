@@ -10,7 +10,7 @@ func dealWorld() *World {
 	w := testWorld()
 	h := w.Home()
 	h.Corners = append(h.Corners, Corner{ID: "strip", City: h.ID, Name: "Strip", X: 2, Demand: 1, Heat: 1, Risk: 1, Owner: OwnerRival})
-	w.Rival.Leader, w.Rival.Arrived, w.Rival.Trust = "Rico", 1, 40
+	w.Rival().Leader, w.Rival().Arrived, w.Rival().Trust = "Rico", 1, 40
 	w.Day = 10
 	return w
 }
@@ -41,7 +41,7 @@ func TestPropose(t *testing.T) {
 	if w.Today.Proposal != nil {
 		t.Fatal("withdraw left the proposal")
 	}
-	w.Rival.Deals = []Deal{{Kind: DealTruce, Terms: Terms{Days: 15}, Since: 10, Until: 25}}
+	w.Rival().Deals = []Deal{{Kind: DealTruce, Terms: Terms{Days: 15}, Since: 10, Until: 25}}
 	if err := w.Propose(DealTruce, Terms{Days: 15}); !errors.Is(err, ErrDealLive) {
 		t.Fatalf("a truce over a truce: %v", err)
 	}
@@ -49,7 +49,7 @@ func TestPropose(t *testing.T) {
 	if err := w.Propose(DealTribute, Terms{PerDay: 500}); !errors.Is(err, ErrOfferLive) {
 		t.Fatalf("a tribute over a tribute offer: %v", err)
 	}
-	w.Rival.Arrived = 0
+	w.Rival().Arrived = 0
 	if err := w.Propose(DealSplit, Terms{Corners: []string{"home"}}); !errors.Is(err, ErrNoRival) {
 		t.Fatalf("a proposal before the rival is in town: %v", err)
 	}
@@ -93,7 +93,7 @@ func TestDealLifetime(t *testing.T) {
 		t.Fatalf("days left: %d on 11, %d on 25", d.Left(11), d.Left(25))
 	}
 	w := dealWorld()
-	w.Rival.Deals = []Deal{d}
+	w.Rival().Deals = []Deal{d}
 	w.Day = 24
 	if w.Deal(DealTruce) == nil {
 		t.Fatal("morning 24: tonight is 25, the truce holds")
@@ -146,7 +146,7 @@ func TestSplitLinesAndTheLine(t *testing.T) {
 			}
 		}
 	}
-	w.Rival.Deals = []Deal{{Kind: DealSplit, Terms: Terms{Corners: []string{"home"}}, Since: 10}}
+	w.Rival().Deals = []Deal{{Kind: DealSplit, Terms: Terms{Corners: []string{"home"}}, Since: 10}}
 	w.Crew.Members = []CrewMember{{ID: 1, Name: "Dre", Role: "runner"}}
 	if err := w.Post("docks", 1); err == nil {
 		t.Fatal("posted past the line")

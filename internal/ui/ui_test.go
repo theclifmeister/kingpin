@@ -30,11 +30,20 @@ func newTestModel(t *testing.T, w, h int) *Model {
 	return newModelWith(t, w, h, Options{Anim: false})
 }
 
+// duel is the file with one faction in the run (#43): the rival at
+// home alone, the run every fixture here was pinned on. The table's
+// screens are tested on tableModel.
+func duel() *content.Config {
+	cfg := content.MustLoad()
+	cfg.Rivals.Factions.Min, cfg.Rivals.Factions.Max = 1, 1
+	return cfg
+}
+
 // newModelWith is newTestModel with the options given.
 func newModelWith(t *testing.T, w, h int, opts Options) *Model {
 	t.Helper()
 	t.Setenv("KINGPIN_HOME", t.TempDir())
-	m, err := New(content.MustLoad(), opts)
+	m, err := New(duel(), opts)
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -254,7 +263,7 @@ func richFixture(t *testing.T, sz [2]int, check func(m *Model, view, what string
 	// exercises the rival cells, the picker and the dashboard panel.
 	m.Update(key("esc")) // a stray enter above may be asking to end the day
 	m.w.Home().Corners[0].Owner, m.w.Home().Corners[0].Runner, m.w.Home().Corners[0].Enforcer = game.OwnerRival, 0, 0
-	m.w.Rival.Arrived, m.w.Rival.Muscle, m.w.Rival.War, m.w.Rival.Observed = 1, 4, 47, true
+	m.w.Rival().Arrived, m.w.Rival().Muscle, m.w.Rival().War, m.w.Rival().Observed = 1, 4, 47, true
 	m.w.Crew.Members = append(m.w.Crew.Members, game.CrewMember{ID: 900, Name: "Moose", Role: "enforcer", Skill: 70, Loyalty: 70, Nerve: 60, Wage: 65})
 	m.w.Crew.NextID = 900
 	// The tell (#69): the last corner is freed and eyed, so the map's
@@ -263,7 +272,7 @@ func richFixture(t *testing.T, sz [2]int, check func(m *Model, view, what string
 	m.w.Recall(eyed.Runner)
 	m.w.Recall(eyed.Enforcer)
 	eyed.Owner = game.OwnerNone
-	m.w.Rival.Eyeing, m.w.Rival.EyeingDay = eyed.ID, m.w.Day
+	m.w.Rival().Eyeing, m.w.Rival().EyeingDay = eyed.ID, m.w.Day
 	m.mapCursor = 0
 	m.Update(key("w"))
 	see(m, "strike picker")
@@ -366,7 +375,7 @@ func richFixture(t *testing.T, sz [2]int, check func(m *Model, view, what string
 	// The table: a deal that holds, an offer waiting, a proposal for
 	// tonight, and both pages of the propose dialog.
 	m.Update(key("8"))
-	m.w.Rival.Deals = []game.Deal{{Kind: game.DealSplit, Terms: game.Terms{Corners: []string{m.w.Home().Corners[1].ID}}, Since: m.w.Day}}
+	m.w.Rival().Deals = []game.Deal{{Kind: game.DealSplit, Terms: game.Terms{Corners: []string{m.w.Home().Corners[1].ID}}, Since: m.w.Day}}
 	m.w.Offers = []game.Offer{{ID: 1, Deal: game.Deal{Kind: game.DealTruce, Terms: game.Terms{Days: 30}, Offered: true}, Expires: m.w.Day + 4}}
 	see(m, "rivals screen")
 	m.Update(key("d"))
@@ -380,7 +389,7 @@ func richFixture(t *testing.T, sz [2]int, check func(m *Model, view, what string
 	see(m, "rivals screen with a proposal")
 	m.Update(key("1"))
 	see(m, "dashboard with the table")
-	m.w.Rival.Deals, m.w.Offers, m.w.Today.Proposal = nil, nil, nil
+	m.w.Rival().Deals, m.w.Offers, m.w.Today.Proposal = nil, nil, nil
 	// Every node state on the tree: owned, available, short, locked,
 	// and the buy confirmation; every branch, every node.
 	m.Update(key("6"))
@@ -1047,8 +1056,8 @@ func TestOldSaveIsMigrated(t *testing.T) {
 	if m.w.Worked() != 1 || m.w.Corner(m.cfg.City.Territory.Start).Runner != game.You {
 		t.Fatalf("migrated territory: %d worked, corners %+v", m.w.Worked(), m.w.Home().Corners)
 	}
-	if m.w.Rival.Leader == "" || m.w.Rival.Personality == "" || m.w.Rival.Arrived != 0 {
-		t.Fatalf("migrated rival: %+v", m.w.Rival)
+	if m.w.Rival().Leader == "" || m.w.Rival().Personality == "" || m.w.Rival().Arrived != 0 {
+		t.Fatalf("migrated rival: %+v", *m.w.Rival())
 	}
 	if len(m.w.Fronts) != 0 || m.w.Laundering.Dial != events.LaunderNormal {
 		t.Fatalf("migrated laundering: fronts %+v dial %v", m.w.Fronts, m.w.Laundering.Dial)
@@ -1507,7 +1516,7 @@ func TestStrikeKeys(t *testing.T) {
 	}
 	docks := m.w.Corner("docks")
 	docks.Owner = game.OwnerRival
-	m.w.Rival.Arrived, m.w.Rival.Muscle = 1, 3
+	m.w.Rival().Arrived, m.w.Rival().Muscle = 1, 3
 	for i, c := range m.shown().Corners {
 		if c.ID == "docks" {
 			m.mapCursor = i
@@ -2127,13 +2136,13 @@ func TestRivalsScreenKeys(t *testing.T) {
 	}
 	// A rival dug in next door, with a grudge.
 	w.Home().Corners[1].Owner, w.Home().Corners[1].Since = game.OwnerRival, 1
-	w.Rival.Arrived, w.Rival.Muscle, w.Rival.Cash, w.Rival.Observed = 1, 4, 30_000, true
+	w.Rival().Arrived, w.Rival().Muscle, w.Rival().Cash, w.Rival().Observed = 1, 4, 30_000, true
 	// A defensive rival: a chaotic one breaks a deal at personality.betrayal
 	// per deal-night, which on an unlucky seed is the first night.
-	w.Rival.Personality = "defensive"
+	w.Rival().Personality = "defensive"
 	// Full trust, a feared player and a war that is not yet loud: a short
 	// truce is a certainty whatever the seed's personality.
-	w.Rival.Trust, w.Rival.War, w.Player.Reputation.Fear = 100, 30, 100
+	w.Rival().Trust, w.Rival().War, w.Player.Reputation.Fear = 100, 30, 100
 	day := w.Day
 	m.Update(key("d"))
 	if m.mode != modePropose || m.proposeStep != 0 {
@@ -2170,13 +2179,13 @@ func TestRivalsScreenKeys(t *testing.T) {
 	m.Update(key("d"))
 	m.Update(key("1"))
 	m.Update(key("1")) // the short truce
-	if w.Today.Proposal == nil || m.set.Rivals.Chance(w, *w.Today.Proposal) < 1 {
+	if w.Today.Proposal == nil || m.set.Rivals.Chance(w, w.Rival(), *w.Today.Proposal) < 1 {
 		t.Fatalf("propose: %+v status %q", w.Today.Proposal, m.status)
 	}
 	endDay(t, m)
 	m.Update(key("enter"))
 	if d := w.Deal(game.DealTruce); d == nil || d.Terms.Days != m.cfg.Rivals.Diplomacy.TruceDays[0] {
-		t.Fatalf("the morning after: deals %+v report %v", w.Rival.Deals, w.Report.Territory)
+		t.Fatalf("the morning after: deals %+v report %v", w.Rival().Deals, w.Report.Territory)
 	}
 	if !strings.Contains(strings.Join(w.Report.Territory, "\n"), "ACCEPTED") {
 		t.Fatalf("report: %v", w.Report.Territory)
@@ -2215,7 +2224,7 @@ func TestRivalsScreenKeys(t *testing.T) {
 	w.Player.DirtyCash += 10_000
 	endDay(t, m)
 	if d := w.Deal(game.DealTribute); d == nil || d.Terms.PerDay != 400 || !d.Offered {
-		t.Fatalf("the morning after accepting: %+v", w.Rival.Deals)
+		t.Fatalf("the morning after accepting: %+v", w.Rival().Deals)
 	}
 	if !strings.Contains(strings.Join(w.Report.Money, "\n"), "Tribute") {
 		t.Fatalf("report money: %v", w.Report.Money)
@@ -2496,8 +2505,8 @@ func richModelSeeded(t *testing.T, w, h int, seed uint64) *Model {
 		t.Fatal(err)
 	}
 	home.Corners[0].Owner, home.Corners[0].Runner, home.Corners[0].Enforcer = game.OwnerRival, 0, 0
-	world.Rival.Arrived, world.Rival.Muscle, world.Rival.War, world.Rival.Observed = 1, 4, 47, true
-	world.Rival.Deals = []game.Deal{{Kind: game.DealSplit, Terms: game.Terms{Corners: []string{home.Corners[1].ID}}, Since: world.Day}}
+	world.Rival().Arrived, world.Rival().Muscle, world.Rival().War, world.Rival().Observed = 1, 4, 47, true
+	world.Rival().Deals = []game.Deal{{Kind: game.DealSplit, Terms: game.Terms{Corners: []string{home.Corners[1].ID}}, Since: world.Day}}
 	world.Offers = []game.Offer{{ID: 1, Deal: game.Deal{Kind: game.DealTruce, Terms: game.Terms{Days: 30}, Offered: true}, Expires: world.Day + 4}}
 	// A route on with a target, and a day for it to send a shipment.
 	route := m.set.Logistics.Routes(world.CityOrder[1])[0]
@@ -2691,7 +2700,7 @@ func TestModalsFit(t *testing.T) {
 		// The undercut picker (#68): the fixture's rival corner borders
 		// a worked one, once the split that covers the line is gone.
 		{"undercut", modeUndercut, func(t *testing.T, m *Model) {
-			m.w.Rival.Deals = nil
+			m.w.Rival().Deals = nil
 			m.Update(key("5"))
 			m.mapCursor = 0
 			m.Update(key("u"))

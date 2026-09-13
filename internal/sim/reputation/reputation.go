@@ -90,10 +90,12 @@ func (s *Sim) Step(w *game.World, t *game.Tick) {
 	// A peace kept is respect: every truce or split that held tonight,
 	// counted from the night after it was struck. Tribute is not respect.
 	// The rival sim has already ended the ones that ran out, so what is
-	// left held.
-	for _, d := range w.Rival.Deals {
-		if (d.Kind == game.DealTruce || d.Kind == game.DealSplit) && d.Since < t.Day {
-			respect += s.cfg.Respect.DealKept
+	// left held. Every faction's (#43): a peace kept with each is respect.
+	for _, r := range w.Rivals {
+		for _, d := range r.Deals {
+			if (d.Kind == game.DealTruce || d.Kind == game.DealSplit) && d.Since < t.Day {
+				respect += s.cfg.Respect.DealKept
+			}
 		}
 	}
 	// Yesterday's headlines about you: the news sim steps after this one,

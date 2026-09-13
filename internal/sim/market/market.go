@@ -28,8 +28,9 @@ type Sim struct {
 	buyers []buyer
 	scfg   content.SuppliersConfig
 	war    content.PricewarTuning
-	ledger *warBook     // the price war's books for the step in hand (#68); nil outside Step
-	sold   *soldQuality // what the city in hand's corners were sold tonight (#47); nil outside Step
+	fac    content.FactionsTuning // the table (#43): the price spike a fragmenting faction's city takes
+	ledger *warBook               // the price war's books for the step in hand (#68); nil outside Step
+	sold   *soldQuality           // what the city in hand's corners were sold tonight (#47); nil outside Step
 }
 
 // New builds a market sim from the config, copying what it reads (#144):
@@ -50,7 +51,7 @@ func New(cfg *content.Config) (*Sim, error) {
 	if err != nil {
 		return nil, fmt.Errorf("buyers: %w", err)
 	}
-	return &Sim{cfg: cfg.Market, cities: cfg.City, ship: cfg.Routes.Shipping, tree: cfg.Upgrades, rep: cfg.Reputation.Effects, bcfg: cfg.Buyers, buyers: deck, scfg: cfg.Suppliers, war: cfg.Rivals.Pricewar}, nil
+	return &Sim{cfg: cfg.Market, cities: cfg.City, ship: cfg.Routes.Shipping, tree: cfg.Upgrades, rep: cfg.Reputation.Effects, bcfg: cfg.Buyers, buyers: deck, scfg: cfg.Suppliers, war: cfg.Rivals.Pricewar, fac: cfg.Rivals.Factions}, nil
 }
 
 // Markup is the supplier's price for a standing order as a multiple of
@@ -372,6 +373,14 @@ func (s *Sim) Step(w *game.World, t *game.Tick) {
 				}
 			}
 			switch {
+			case s.fragmented(w, t, cid) && !m.NoSupply && s.fac.ShockDays > 0 && s.fac.ShockMul > 1:
+				// A faction lost its leader here last night (#43): the
+				// street it dealt on scrambles for product, and every
+				// product it sold spikes.
+				m.ShockFactor = s.fac.ShockMul
+				m.ShockDays = s.fac.ShockDays
+				m.ShockSlump = false
+				t.Emit(events.PriceShock{Day: t.Day, City: cid, Product: id, Factor: m.ShockFactor, Days: m.ShockDays})
 			case seized > 0 && s.ship.ShockDays > 0 && s.ship.ShockFactor > 1:
 				m.ShockFactor = s.ship.ShockFactor
 				m.ShockDays = s.ship.ShockDays
@@ -622,4 +631,16 @@ func clamp(v, lo, hi float64) float64 {
 		return hi
 	}
 	return v
+}
+
+// fragmented reports whether a faction living in the city lost its
+// leader last night (#43): the rivals sim steps after the market, so
+// the morning after is the first the street knows.
+func (s *Sim) fragmented(w *game.World, t *game.Tick, city string) bool {
+	for _, r := range w.Rivals {
+		if r != nil && r.Fragmented > 0 && r.Fragmented == t.Day-1 && w.CityOf(r).ID == city {
+			return true
+		}
+	}
+	return false
 }

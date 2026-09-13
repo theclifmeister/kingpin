@@ -28,7 +28,7 @@ func TestUndercutKeys(t *testing.T) {
 	// The rival on The Heights, far from you on Fourth & Main.
 	heights := m.w.Corner("heights")
 	heights.Owner = game.OwnerRival
-	m.w.Rival.Arrived, m.w.Rival.Muscle, m.w.Rival.Leader = 1, 3, "Vasquez"
+	m.w.Rival().Arrived, m.w.Rival().Muscle, m.w.Rival().Leader = 1, 3, "Vasquez"
 	at := func(id string) {
 		for i, c := range m.shown().Corners {
 			if c.ID == id {
@@ -85,12 +85,12 @@ func TestUndercutKeys(t *testing.T) {
 		t.Fatalf("stop did not call it off: %v %q", m.w.Today.Undercuts, m.status)
 	}
 	// Under a truce it is refused, and the market moves nothing.
-	m.w.Rival.Deals = []game.Deal{{Kind: game.DealTruce, Terms: game.Terms{Days: 10}, Since: m.w.Day, Until: m.w.Day + 10}}
+	m.w.Rival().Deals = []game.Deal{{Kind: game.DealTruce, Terms: game.Terms{Days: 10}, Since: m.w.Day, Until: m.w.Day + 10}}
 	m.Update(key("u"))
-	if m.mode != modePlay || !strings.Contains(m.status, "Can't undercut: a truce or a tribute holds") {
+	if m.mode != modePlay || !strings.Contains(m.status, "Can't undercut: a truce, a tribute or a homage holds") {
 		t.Fatalf("u under a truce: mode %v status %q", m.mode, m.status)
 	}
-	m.w.Rival.Deals = nil
+	m.w.Rival().Deals = nil
 	// Queued, sold and reported: the SALES section carries the corner
 	// and the rival corner wakes up squeezed.
 	m.Update(key("u"))

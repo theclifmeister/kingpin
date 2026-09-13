@@ -167,3 +167,21 @@ report = "The feds have opened an office in {{.City}}. For {{.Days}} days heat c
 peak_cash_min = 200000
 [incident.effects]
 heat_decay = { mul = 0.5, days = 20 }
+
+# A faction's leader is killed (#43): the biggest faction in the city
+# fragments as an arrest fragments it (rivals.Sim.fragment, Killed): its
+# corners drift to the street over fragment_days, its city's products
+# spike and its muscle turn up in your pool. The rivals sim honours the
+# key off the Incident event the same tick, as the law honours the
+# chief's and the election's.
+[[incident]]
+id = "rival_leader_killed"
+name = "Rival leader killed"
+weight = 1
+min_day = 40
+min_gap = 90
+report = "Somebody shot the biggest name on the other side of {{.City}}'s corners. Their crew is coming apart: watch the corners drift and the prices jump."
+[incident.trigger]
+rival = true
+[incident.effects]
+rival_leader_killed = true

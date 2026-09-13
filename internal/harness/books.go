@@ -74,14 +74,14 @@ func saboteur(cfg *content.Config, lieLowAt float64, tips tipping) Policy {
 	forces := []events.Force{events.ForceWarn, events.ForcePush, events.ForceHit}
 	return func(w *game.World) {
 		crewed(w)
-		r := w.Rival
-		if r.Arrived == 0 || w.RivalHeld() == 0 {
+		r := Nearest(w)
+		if r.Arrived == 0 || w.RivalHeldBy(r.Faction()) == 0 {
 			return
 		}
-		if (!r.Known.Read() || rv.Stale(w, w.Day)) && w.Today.Scouting == nil {
-			_ = w.Scout(rv.ScoutCost())
+		if (!r.Known.Read() || rv.Stale(r, w.Day)) && w.Today.Scouting == nil {
+			_ = w.ScoutFaction(r.Faction(), rv.ScoutCost())
 		}
-		target := pickCorner(w, func(c game.Corner) bool { return c.Owner == game.OwnerRival }, size)
+		target := pickCorner(w, func(c game.Corner) bool { return c.FactionID() == r.Faction() }, size)
 		if target == nil {
 			return
 		}
@@ -90,18 +90,18 @@ func saboteur(cfg *content.Config, lieLowAt float64, tips tipping) Policy {
 				if f != events.ForceWarn && len(r.Deals) > 0 {
 					break
 				}
-				if rv.Odds(w, f) > SaboteurOdds {
+				if rv.Odds(w, r, f) > SaboteurOdds {
 					_ = w.Boost(target.ID, f)
 					break
 				}
 			}
 		}
 		if k := r.Known; k.Read() && k.Muscle > 0 && k.Cash < SaboteurThin*k.Wages {
-			if price := rv.MusclePrice(w); w.Today.Poach == nil && w.Player.DirtyCash > SaboteurMargin*price {
-				_ = w.BuyOff(1, price)
+			if price := rv.MusclePrice(w, r); w.Today.Poach == nil && w.Player.DirtyCash > SaboteurMargin*price {
+				_ = w.BuyOffFrom(r.Faction(), 1, price)
 			}
 		}
-		ahead := w.RivalHeld() > w.HeldIn(w.Home().ID) && len(r.Deals) == 0 && rv.RaidReady(w, w.Day+1)
+		ahead := w.RivalHeldBy(r.Faction()) > w.HeldIn(w.Home().ID) && len(r.Deals) == 0 && rv.RaidReady(r, w.Day+1)
 		if w.Today.Tipoff == nil && (tips == tipsAlways || (tips == tipsAhead && ahead && (r.Heat > 0 || !hot(w)))) {
 			_ = w.Tip(target.ID)
 		}

@@ -19,7 +19,7 @@ var (
 	ErrScouting  = errors.New("somebody is already reading their books tonight")
 	ErrTipped    = errors.New("you have already tipped the police tonight")
 	ErrPoaching  = errors.New("you are already paying their people tonight")
-	ErrNotRivals = errors.New("that corner is not the rival's")
+	ErrNotRivals = errors.New("that corner is not a rival's")
 	ErrBadUnits  = errors.New("units must be positive")
 )
 
@@ -27,11 +27,18 @@ var (
 // rivals sim rolls whether it reads them, and a success stamps Known
 // with today's numbers. One a day; paid up front, dirty then clean; the
 // money is spent whatever the roll.
-func (w *World) Scout(cost int) error {
+func (w *World) Scout(cost int) error { return w.ScoutFaction("", cost) }
+
+// ScoutFaction is Scout with the faction named (#43).
+func (w *World) ScoutFaction(faction string, cost int) error {
 	if w.Over != nil {
 		return ErrGameOver
 	}
-	if w.Rival.Arrived == 0 {
+	r := w.Faction(faction)
+	if r == nil {
+		return ErrNoFaction
+	}
+	if !r.Alive() {
 		return ErrNoRival
 	}
 	if w.Today.Scouting != nil {
@@ -40,7 +47,7 @@ func (w *World) Scout(cost int) error {
 	if !w.spend(cost) {
 		return fmt.Errorf("need $%d, only have $%d", cost, w.Cash())
 	}
-	w.Today.Scouting = &ScoutOrder{Cost: cost}
+	w.Today.Scouting = &ScoutOrder{Cost: cost, Faction: faction}
 	return nil
 }
 
@@ -56,15 +63,15 @@ func (w *World) Tip(corner string) error {
 	if w.Over != nil {
 		return ErrGameOver
 	}
-	if w.Rival.Arrived == 0 {
-		return ErrNoRival
-	}
 	c := w.Corner(corner)
 	if c == nil {
 		return ErrNoCorner
 	}
 	if c.Owner != OwnerRival {
 		return ErrNotRivals
+	}
+	if r := w.Faction(c.Faction); r == nil || r.Arrived == 0 {
+		return ErrNoRival
 	}
 	if w.Today.Tipoff != nil {
 		return ErrTipped
@@ -82,11 +89,18 @@ func (w *World) CancelTip() { w.Today.Tipoff = nil }
 // heads leave the rival and never join you, what was paid for heads it
 // did not have comes back; failing, the money is gone and the rival
 // holds a grudge. One order a night.
-func (w *World) BuyOff(units, cost int) error {
+func (w *World) BuyOff(units, cost int) error { return w.BuyOffFrom("", units, cost) }
+
+// BuyOffFrom is BuyOff with the faction named (#43).
+func (w *World) BuyOffFrom(faction string, units, cost int) error {
 	if w.Over != nil {
 		return ErrGameOver
 	}
-	if w.Rival.Arrived == 0 {
+	r := w.Faction(faction)
+	if r == nil {
+		return ErrNoFaction
+	}
+	if !r.Alive() {
 		return ErrNoRival
 	}
 	if units <= 0 {
@@ -99,7 +113,7 @@ func (w *World) BuyOff(units, cost int) error {
 		return fmt.Errorf("need $%d dirty, only have $%d", cost, w.Player.DirtyCash)
 	}
 	w.Player.DirtyCash -= cost
-	w.Today.Poach = &PoachOrder{Units: units, Cost: cost}
+	w.Today.Poach = &PoachOrder{Units: units, Cost: cost, Faction: faction}
 	return nil
 }
 

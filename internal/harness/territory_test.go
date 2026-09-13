@@ -71,7 +71,7 @@ func TestLosingRunnersLosesCorners(t *testing.T) {
 	fired := 0
 	var heldBefore int
 	start := sim.NewWorld(cfg, 5)
-	start.Rival.Personality = "defensive"
+	start.Rival().Personality = "defensive"
 	res, err := RunFrom(cfg, start, 80, func(w *game.World) {
 		switch {
 		case w.Day < 40:

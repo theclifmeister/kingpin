@@ -596,6 +596,7 @@ type RivalsConfig struct {
 	Boost       BoostTuning                  `toml:"boost"`
 	Tip         TipTuning                    `toml:"tip"`
 	Poach       PoachTuning                  `toml:"poach"`
+	Factions    FactionsTuning               `toml:"factions"`
 	Deal        map[string]DealConfig        `toml:"deal"`
 	Personality map[string]PersonalityConfig `toml:"personality"`
 	Force       map[string]ForceConfig       `toml:"force"`
@@ -705,6 +706,54 @@ type PoachTuning struct {
 	AwayDays    int     `toml:"away_days"`    // days before a head bought off or arrested is back in the pool it hires from, one head at a time
 }
 
+// FactionsTuning is the table (#43): how many factions a run has and
+// how they deal with each other and with your crew. Min and Max bound
+// the count by seed (1 and 1 is the duel, byte-for-byte the run before
+// #43); AbsorbDays is how long a faction stands with no corners before
+// the one that took its last absorbs it; AllyTrust is the trust a
+// defensive faction gains in whoever the expansionist pushed on, per
+// push, AllyLine where it stands with them and AllyShare the share of
+// its front-line muscle it lends their pushes; GrudgeTrust is what a
+// faction loses in one that took a corner off it; PushHeat is the heat
+// on the city a faction-on-faction push draws. PoachCash is the chest,
+// in corner-days, over which a faction poaches your crew, PoachMul the
+// wages it offers as a multiple of theirs, PoachChance per day it can,
+// PoachLine the loyalty under which the member goes and PoachDip what
+// one who stayed loses. LeaderArrestHeat is the faction's heat at which
+// the police take its leader, FragmentDays how long its corners take
+// to drift, ShockMul and ShockDays the price spike on its city's
+// products, FragmentDiscount the cut on the fee of its muscle in your
+// pool. TributeCorners is what your enforcers take off a faction before
+// it offers homage, HomageCut the share of its take it offers and
+// HomageChance per day it qualifies.
+type FactionsTuning struct {
+	Min              int     `toml:"min"`
+	Max              int     `toml:"max"`
+	Away             float64 `toml:"away"`        // chance a faction after the first lives in the other city (0: the whole table at home)
+	AwayMax          int     `toml:"away_max"`    // the most factions that live away from home
+	ArriveGap        int     `toml:"arrive_gap"`  // days between one faction's arrival and the next's: the second comes arrive_gap days after arrive_day
+	SharedPace       bool    `toml:"shared_pace"` // the factions in a city claim at the duel's pace between them: each at its chance over their number
+	AbsorbDays       int     `toml:"absorb_days"`
+	AllyTrust        float64 `toml:"ally_trust"`
+	AllyLine         float64 `toml:"ally_line"`
+	AllyShare        float64 `toml:"ally_share"`
+	GrudgeTrust      float64 `toml:"grudge_trust"`
+	PushHeat         float64 `toml:"push_heat"`
+	PoachCash        float64 `toml:"poach_cash"`
+	PoachMul         float64 `toml:"poach_mul"`
+	PoachChance      float64 `toml:"poach_chance"`
+	PoachLine        float64 `toml:"poach_line"`
+	PoachDip         float64 `toml:"poach_dip"`
+	LeaderArrestHeat float64 `toml:"leader_arrest_heat"`
+	FragmentDays     int     `toml:"fragment_days"`
+	ShockMul         float64 `toml:"shock_mul"`
+	ShockDays        int     `toml:"shock_days"`
+	FragmentDiscount float64 `toml:"fragment_discount"`
+	TributeCorners   int     `toml:"tribute_corners"`
+	HomageCut        float64 `toml:"homage_cut"`
+	HomageChance     float64 `toml:"homage_chance"`
+}
+
 type PersonalityConfig struct {
 	Trust           float64 `toml:"trust"`        // trust in the player at the start of a run
 	DealBias        float64 `toml:"deal_bias"`    // added to the chance it accepts any proposal
@@ -807,6 +856,13 @@ func (r RivalsConfig) validate() error {
 	}
 	if r.Books.StaleDays < 1 || r.Books.ScoutCost < 0 {
 		return fmt.Errorf("[books] stale_days %d must be positive and scout_cost %d not negative", r.Books.StaleDays, r.Books.ScoutCost)
+	}
+	// The table (#43): a count, a line the police act at, a drift.
+	if f := r.Factions; f.Min < 1 || f.Max < f.Min {
+		return fmt.Errorf("[factions] min %d must be positive and max %d at least min", f.Min, f.Max)
+	}
+	if f := r.Factions; f.LeaderArrestHeat <= 0 || f.LeaderArrestHeat > 100 || f.FragmentDays < 1 || f.AbsorbDays < 1 {
+		return fmt.Errorf("[factions] leader_arrest_heat %.0f must be in 1..100, fragment_days %d and absorb_days %d positive", f.LeaderArrestHeat, f.FragmentDays, f.AbsorbDays)
 	}
 	return nil
 }

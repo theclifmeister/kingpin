@@ -18,7 +18,7 @@ func TestPassivePlayerLosesCornersToExpansionist(t *testing.T) {
 	cfg := content.MustLoad()
 	for seed := uint64(1); seed <= 5; seed++ {
 		w := sim.NewWorld(cfg, seed)
-		w.Rival.Personality = "expansionist"
+		w.Rival().Personality = "expansionist"
 		res, err := RunFrom(cfg, w, 60, Territory(cfg, 40, 3))
 		if err != nil {
 			t.Fatal(err)
@@ -52,8 +52,8 @@ func TestHitWarHeatsFasterThanAggressiveSelling(t *testing.T) {
 			w.Crew.Members = append(w.Crew.Members, game.CrewMember{ID: 100 + i, Name: fmt.Sprintf("E%d", i), Role: "enforcer", Skill: 50, Loyalty: 80, Nerve: 80, Wage: 55})
 		}
 		w.Crew.NextID = 103
-		w.Rival.Arrived = 1
-		w.Rival.Muscle = 6
+		w.Rival().Arrived = 1
+		w.Rival().Muscle = 6
 		for _, id := range []string{"docks", "railyard", "oldmill", "depot"} {
 			c := w.Corner(id)
 			c.Owner, c.Since = game.OwnerRival, 0
@@ -107,7 +107,7 @@ func TestRivalInvariants(t *testing.T) {
 		for seed := uint64(1); seed <= 5; seed++ {
 			policy := mk(cfg)
 			check := func(w *game.World) {
-				r := w.Rival
+				r := *w.Rival()
 				if r.Cash < 0 || r.Muscle < 0 {
 					t.Fatalf("%s seed %d day %d: rival cash %d muscle %d", name, seed, w.Day, r.Cash, r.Muscle)
 				}
@@ -129,7 +129,7 @@ func TestRivalInvariants(t *testing.T) {
 					// A rival corner names its faction and no other does (#144).
 					want := ""
 					if c.Owner == game.OwnerRival {
-						want = w.Rival.Faction()
+						want = w.Rival().Faction()
 					}
 					if c.Faction != want {
 						t.Fatalf("%s seed %d day %d: %s is %s's but names faction %q, want %q", name, seed, w.Day, c.ID, c.Owner, c.Faction, want)
@@ -150,11 +150,11 @@ func TestRivalInvariants(t *testing.T) {
 				t.Fatal(err)
 			}
 			check(res.World)
-			if res.World.Rival.Leader == "" || res.World.Rival.Arrived == 0 {
-				t.Fatalf("%s seed %d: rival %+v never arrived", name, seed, res.World.Rival)
+			if res.World.Rival().Leader == "" || res.World.Rival().Arrived == 0 {
+				t.Fatalf("%s seed %d: rival %+v never arrived", name, seed, *res.World.Rival())
 			}
-			if res.World.Rival.ID != game.FactionRival || res.World.Rival.Faction() != game.FactionRival {
-				t.Fatalf("%s seed %d: rival id %q faction %q", name, seed, res.World.Rival.ID, res.World.Rival.Faction())
+			if res.World.Rival().ID != game.FactionRival || res.World.Rival().Faction() != game.FactionRival {
+				t.Fatalf("%s seed %d: rival id %q faction %q", name, seed, res.World.Rival().ID, res.World.Rival().Faction())
 			}
 			// Every event that names the rival names its faction too
 			// (#144): the name is for the headline, the id for whoever
@@ -201,8 +201,8 @@ func TestRivalIsDeterministic(t *testing.T) {
 			t.Fatalf("event %d differs:\n%#v\n%#v", i, a.Events[i], b.Events[i])
 		}
 	}
-	if fmt.Sprintf("%+v", a.World.Rival) != fmt.Sprintf("%+v", b.World.Rival) {
-		t.Fatalf("rival state differs: %+v vs %+v", a.World.Rival, b.World.Rival)
+	if fmt.Sprintf("%+v", *a.World.Rival()) != fmt.Sprintf("%+v", *b.World.Rival()) {
+		t.Fatalf("rival state differs: %+v vs %+v", *a.World.Rival(), *b.World.Rival())
 	}
 	if a.World.Stats.Strikes == 0 {
 		t.Fatal("the warlike player never struck")
@@ -265,7 +265,7 @@ func TestTellIsAnswerable(t *testing.T) {
 	tun := cfg.Rivals.Rivals
 	for seed := uint64(1); seed <= 5; seed++ {
 		w := sim.NewWorld(cfg, seed)
-		w.Rival.Personality = "expansionist"
+		w.Rival().Personality = "expansionist"
 		w.Player.DirtyCash = 20_000
 		for i := 0; i < 3; i++ {
 			w.Crew.Members = append(w.Crew.Members, game.CrewMember{ID: 100 + i, Name: fmt.Sprintf("R%d", i), Role: "runner", Skill: 50, Units: 100, Loyalty: 90, Nerve: 60, Wage: 50})
@@ -275,8 +275,8 @@ func TestTellIsAnswerable(t *testing.T) {
 		policy := Outbidder(cfg, 40, 10)
 		res, err := RunFrom(cfg, w, 120, func(w *game.World) {
 			policy(w)
-			if w.Rival.Eyeing != "" && w.Corner(w.Rival.Eyeing).Owner == game.OwnerNone {
-				t.Fatalf("seed %d day %d: the tell on %s went unanswered", seed, w.Day, w.Rival.Eyeing)
+			if w.Rival().Eyeing != "" && w.Corner(w.Rival().Eyeing).Owner == game.OwnerNone {
+				t.Fatalf("seed %d day %d: the tell on %s went unanswered", seed, w.Day, w.Rival().Eyeing)
 			}
 		})
 		if err != nil {
@@ -330,7 +330,7 @@ func TestTellIsAnswerable(t *testing.T) {
 				}
 			}
 		}
-		r := res.World.Rival
+		r := *res.World.Rival()
 		if r.Claims != 1 || res.World.RivalHeld() > 1+r.Flips {
 			t.Fatalf("seed %d: the rival claimed %d times and holds %d corners (%d flipped)", seed, r.Claims, res.World.RivalHeld(), r.Flips)
 		}

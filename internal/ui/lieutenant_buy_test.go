@@ -25,7 +25,7 @@ func TestBuyDialogFollowsTheLieutenant(t *testing.T) {
 	}
 	// A runner of theirs on a hub corner, so the stash there has room
 	// (the fixture's split with the rival keeps every other corner).
-	w.Rival.Deals = nil
+	w.Rival().Deals = nil
 	w.Crew.Members = append(w.Crew.Members, game.CrewMember{ID: 6, Name: "Sly", Role: "runner", Skill: 50, Units: 500, Loyalty: 80, Nerve: 50, Wage: 50}) // room over the route stash the fixture leaves there
 	posted := false
 	for _, c := range w.City(hub).Corners {

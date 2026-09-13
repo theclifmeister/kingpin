@@ -57,8 +57,10 @@ type IncidentConfig struct {
 // axis; HeatDecay multiplies the heat sim's decay for Days
 // (HeatState.FederalUntil); ChiefReplaced and ElectionCalled ride the
 // Incident event, which the law sim honours the same tick (a new chief
-// at once, the election ElectionCalled days out). rival_leader_killed
-// waits for #43's fragmentation and is not in the set.
+// at once, the election ElectionCalled days out). LeaderKilled
+// (rival_leader_killed, #43) rides the event too: the rivals sim
+// fragments the faction holding most of the row's city as an arrest
+// would, the leader dead instead of in a cell.
 type IncidentEffects struct {
 	RouteClosed    int          `toml:"route_closed"`
 	MarketShock    ProductShock `toml:"market_shock"`
@@ -69,6 +71,7 @@ type IncidentEffects struct {
 	HeatDecay      TimedMul     `toml:"heat_decay"`
 	ChiefReplaced  bool         `toml:"chief_replaced"`
 	ElectionCalled int          `toml:"election_called"`
+	LeaderKilled   bool         `toml:"rival_leader_killed"`
 }
 
 // ProductShock is a product's price target (market_shock) or demand

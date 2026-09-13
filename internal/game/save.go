@@ -199,6 +199,16 @@ func Load(slot int, migrations ...Migration) (*World, error) {
 		}
 		w.fell = old.FallGuyUsed
 	}
+	if w.SchemaVersion < 14 {
+		// The one rival lived on World.Rival before the table (#43);
+		// read it off the stream a second time for MigrateFactions to
+		// seat as the first faction.
+		var old v13
+		if err := gob.NewDecoder(bytes.NewReader(b)).Decode(&old); err != nil {
+			return nil, fmt.Errorf("save file is corrupt: %w", err)
+		}
+		w.old = &old
+	}
 	if len(w.Cities) == 0 && (w.legacy == nil || w.legacy.Market == nil) {
 		return nil, fmt.Errorf("save file is corrupt: missing world state")
 	}
@@ -232,11 +242,12 @@ func Load(slot int, migrations ...Migration) (*World, error) {
 	for _, c := range w.Cities {
 		for i := range c.Corners {
 			if c.Corners[i].Owner == OwnerRival && c.Corners[i].Faction == "" {
-				c.Corners[i].Faction = w.Rival.Faction()
+				c.Corners[i].Faction = w.Rival().Faction()
 			}
 		}
 	}
 	w.legacy = nil
+	w.old = nil
 	return &w, nil
 }
 
@@ -248,6 +259,31 @@ type v6 struct {
 	Territory struct{ Corners []Corner }
 	Player    struct{ Stock map[string]int }
 	Heat      struct{ Value float64 }
+}
+
+// v13 is what a pre-14 save carried for the one rival there was: the
+// faction on World itself (#43 made it the first of a slice).
+type v13 struct {
+	SchemaVersion int
+	Rival         RivalState
+}
+
+// SeatRival is the 13 -> 14 step's first half (#43): the one rival a
+// pre-14 save carried becomes the first faction, at home, so the table
+// the rivals sim seeds beside it (Rivals.MigrateFactions) has the rival
+// the save had on its dice. A save with factions already is left alone.
+func (w *World) SeatRival() {
+	if len(w.Rivals) == 0 {
+		r := RivalState{ID: FactionRival}
+		if w.old != nil {
+			r = w.old.Rival
+			if r.ID == "" {
+				r.ID = FactionRival
+			}
+		}
+		w.Rivals = []*RivalState{&r}
+	}
+	w.old = nil
 }
 
 // v9 is what a pre-10 save carried for the fall guy: one flag on World.

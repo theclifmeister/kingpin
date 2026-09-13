@@ -32,12 +32,12 @@ func TestRivalEconomyBinds(t *testing.T) {
 		var chests, wages, incomes []int
 		for seed := uint64(1); seed <= 5; seed++ {
 			w := sim.NewWorld(cfg, seed)
-			w.Rival.Personality = p
+			w.Rival().Personality = p
 			minCash := 1 << 40
 			res, err := RunFrom(cfg, w, 120, func(w *game.World) {
 				Territory(cfg, 40, 3)(w)
-				if w.Rival.Arrived > 0 {
-					minCash = min(minCash, w.Rival.Cash)
+				if w.Rival().Arrived > 0 {
+					minCash = min(minCash, w.Rival().Cash)
 				}
 			})
 			if err != nil {
@@ -48,11 +48,11 @@ func TestRivalEconomyBinds(t *testing.T) {
 			if minCash <= 0 || bill <= 0 {
 				t.Fatalf("%s seed %d: the rival's chest fell to %d (wage bill %d a day at the end)", p, seed, minCash, bill)
 			}
-			if fw.Rival.Arrears >= float64(bill) {
-				t.Fatalf("%s seed %d: %.0f owed at day 120, over a day's wages (%d), with %d a day coming in", p, seed, fw.Rival.Arrears, bill, income)
+			if fw.Rival().Arrears >= float64(bill) {
+				t.Fatalf("%s seed %d: %.0f owed at day 120, over a day's wages (%d), with %d a day coming in", p, seed, fw.Rival().Arrears, bill, income)
 			}
-			days = append(days, float64(fw.Rival.Cash)/float64(bill))
-			chests, wages, incomes = append(chests, fw.Rival.Cash), append(wages, bill), append(incomes, income)
+			days = append(days, float64(fw.Rival().Cash)/float64(bill))
+			chests, wages, incomes = append(chests, fw.Rival().Cash), append(wages, bill), append(incomes, income)
 		}
 		sort.Float64s(days)
 		t.Logf("%s: chest at day 120 %.0f days of wages (median; %.0f..%.0f), chests %v, wages %v, take %v a day", p, days[2], days[0], days[4], chests, wages, incomes)
@@ -79,7 +79,7 @@ func pricewarFixture(t *testing.T, seed uint64, days int, war bool) (take, muscl
 	cfg.Rivals.Rivals.PushFlip = 0
 	w := sim.NewWorld(cfg, seed)
 	home := w.Home().ID
-	w.Rival.Personality, w.Rival.Arrived, w.Rival.Muscle = "defensive", 1, 8
+	w.Rival().Personality, w.Rival().Arrived, w.Rival().Muscle = "defensive", 1, 8
 	for _, id := range []string{"docks", "railyard", "oldmill"} {
 		c := w.Corner(id)
 		c.Owner, c.Since = game.OwnerRival, 0
@@ -121,13 +121,13 @@ func pricewarFixture(t *testing.T, seed uint64, days int, war bool) (take, muscl
 			take += in
 		}
 		if w.Day > 10 {
-			low = min(low, w.Rival.Muscle)
+			low = min(low, w.Rival().Muscle)
 		}
 	})
 	if err != nil {
 		t.Fatal(err)
 	}
-	return take, res.World.Rival.Muscle, low
+	return take, res.World.Rival().Muscle, low
 }
 
 // A price war fought in earnest starves the muscle (#139, the bullet
@@ -159,12 +159,12 @@ func TestPricewarStarvesTheMuscle(t *testing.T) {
 	for i, policy := range []Policy{Territory(cfg, 40, 3), Pricewar(cfg, 40, 3, events.DialNormal)} {
 		for seed := uint64(1); seed <= 5; seed++ {
 			w := sim.NewWorld(cfg, seed)
-			w.Rival.Personality = "defensive"
+			w.Rival().Personality = "defensive"
 			res, err := RunFrom(cfg, w, 120, policy)
 			if err != nil {
 				t.Fatal(err)
 			}
-			perCorner[i] = append(perCorner[i], float64(res.World.Rival.Muscle)/float64(max(1, res.World.RivalHeld())))
+			perCorner[i] = append(perCorner[i], float64(res.World.Rival().Muscle)/float64(max(1, res.World.RivalHeld())))
 		}
 		sort.Float64s(perCorner[i])
 	}
@@ -188,14 +188,14 @@ func TestTributeShareOfTheTake(t *testing.T) {
 	var shares []float64
 	for seed := uint64(1); seed <= 5; seed++ {
 		w := sim.NewWorld(cfg, seed)
-		w.Rival.Personality = "defensive"
+		w.Rival().Personality = "defensive"
 		res, err := RunFrom(cfg, w, 120, Territory(cfg, 40, 3))
 		if err != nil {
 			t.Fatal(err)
 		}
 		fw := res.World
 		income, _ := RivalBooks(cfg, fw)
-		cut := rv.Cut(fw, cfg.Rivals.Diplomacy.TributeCuts[1])
+		cut := rv.Cut(fw, fw.Rival(), cfg.Rivals.Diplomacy.TributeCuts[1])
 		shares = append(shares, float64(cut)/float64(max(1, income)))
 		t.Logf("seed %d: a tribute at the middle cut is %d a day against a take of %d (%.2fx)", seed, cut, income, float64(cut)/float64(max(1, income)))
 	}

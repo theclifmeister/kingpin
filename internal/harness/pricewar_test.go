@@ -28,7 +28,7 @@ func pricewarRun(t *testing.T, cfg *content.Config, seed uint64, days int, perso
 	t.Helper()
 	w := sim.NewWorld(cfg, seed)
 	if personality != "" {
-		w.Rival.Personality = personality
+		w.Rival().Personality = personality
 	}
 	res, err := RunFrom(cfg, w, days, func(w *game.World) {
 		policy(w)
@@ -125,7 +125,7 @@ func TestPricewarKeepsThePeace(t *testing.T) {
 		refused := 0
 		res := pricewarRun(t, cfg, seed, 80, "defensive", policy, func(w *game.World) {
 			if w.Day == 20 {
-				w.Rival.Deals = append(w.Rival.Deals, game.Deal{Kind: game.DealTruce, Terms: game.Terms{Days: 30}, Since: w.Day, Until: w.Day + 30})
+				w.Rival().Deals = append(w.Rival().Deals, game.Deal{Kind: game.DealTruce, Terms: game.Terms{Days: 30}, Since: w.Day, Until: w.Day + 30})
 			}
 			if w.AtPeace() {
 				for _, c := range w.Home().Corners {
@@ -286,7 +286,7 @@ func TestPricewarIsQuieterThanAHitWar(t *testing.T) {
 		for seed := uint64(1); seed <= 5; seed++ {
 			peak, low := 0.0, 0
 			res := pricewarRun(t, cfg, seed, 120, "defensive", policy, func(w *game.World) {
-				peak = math.Max(peak, w.Rival.War)
+				peak = math.Max(peak, w.Rival().War)
 				if w.Today.LieLow {
 					low++
 				}
@@ -326,7 +326,7 @@ func TestPricewarIsDeterministicAndSaves(t *testing.T) {
 	t.Setenv("KINGPIN_HOME", t.TempDir())
 	cfg := content.MustLoad()
 	policy := func() Policy { return Pricewar(cfg, 40, 3, events.DialNormal) }
-	rivalSet := func(w *game.World) { w.Rival.Personality = "opportunist" }
+	rivalSet := func(w *game.World) { w.Rival().Personality = "opportunist" }
 	play := func(days int) Result {
 		w := sim.NewWorld(cfg, 6)
 		rivalSet(w)

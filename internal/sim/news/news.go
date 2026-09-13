@@ -164,9 +164,18 @@ func (s *Sim) Step(w *game.World, t *game.Tick) {
 	// with no house is the run it was.
 	addHouses := func(source, key string, d data) { addOff("houses:news", source, key, d) }
 	here := w.Here()
-	base := data{City: here.Name, DA: w.Law.DA.Name, Chief: w.Law.Chief.Name, Leader: w.Rival.Leader}
-	if w.Rival.Leader != "" {
-		base.Faction = w.Rival.Leader + "'s crew"
+	base := data{City: here.Name, DA: w.Law.DA.Name, Chief: w.Law.Chief.Name, Leader: w.Rival().Leader}
+	if w.Rival().Leader != "" {
+		base.Faction = w.Rival().Leader + "'s crew"
+	}
+	// crew names the faction a rival event is about (#43): the event's
+	// leader and their crew in the Leader and Faction slots, so a line
+	// about the second faction names the second faction.
+	crew := func(d data, leader string) data {
+		if leader != "" {
+			d.Leader, d.Faction = leader, leader+"'s crew"
+		}
+		return d
 	}
 	// in names a city for a line about somewhere other than where you are.
 	in := func(city string) string {
@@ -221,6 +230,15 @@ func (s *Sim) Step(w *game.World, t *game.Tick) {
 		}
 		if ev.Product != "" {
 			d.Product = w.ProductName(ev.Product)
+		}
+		if ev.LeaderKilled {
+			// The leader the rivals sim took this tick (#43), not the
+			// rival at home's.
+			for _, e := range t.Events() {
+				if k, ok := e.(events.RivalLeaderArrested); ok && k.Killed {
+					d = crew(d, k.Rival)
+				}
+			}
 		}
 		key := content.IncidentConfig{ID: ev.ID}.Key()
 		if !s.HasTemplate(key) {
@@ -489,6 +507,7 @@ func (s *Sim) Step(w *game.World, t *game.Tick) {
 		case events.CrewDefected:
 			d := base
 			d.Name, d.Role, d.Rival, d.Corner = ev.Name, ev.Role, ev.Rival, ev.CornerName
+			d = crew(d, ev.Rival)
 			add("crew", "CrewDefected", d)
 			if ev.Corner != "" {
 				rep.Crew = append(rep.Crew, fmt.Sprintf("%s went over to %s, and they know %s. Expect trouble there.", ev.Name, ev.Rival, ev.CornerName))
@@ -516,6 +535,7 @@ func (s *Sim) Step(w *game.World, t *game.Tick) {
 		case events.LieutenantWalked:
 			d := at(ev.City)
 			d.Name, d.Rival = ev.Name, ev.Rival
+			d = crew(d, ev.Rival)
 			if ev.Rival != "" {
 				add("crew", "LieutenantWalkedRival", d)
 			} else {
@@ -559,7 +579,8 @@ func (s *Sim) Step(w *game.World, t *game.Tick) {
 			case "crackdown":
 				add("rivals", "CornerCrackdown", d)
 				if ev.Owner == game.OwnerRival {
-					rep.Territory = append(rep.Territory, fmt.Sprintf("Police cleared %s: %s's crew lost it.", ev.Name, w.Rival.Leader))
+					d = crew(d, w.FactionName(ev.Faction))
+					rep.Territory = append(rep.Territory, fmt.Sprintf("Police cleared %s: %s lost it.", ev.Name, w.FactionName(ev.Faction)))
 				} else {
 					rep.Territory = append(rep.Territory, fmt.Sprintf("Police cleared %s: you lost it.", ev.Name))
 				}
@@ -570,11 +591,13 @@ func (s *Sim) Step(w *game.World, t *game.Tick) {
 		case events.RivalMovedIn:
 			d := base
 			d.Corner, d.Rival = ev.Name, ev.Rival
+			d = crew(d, ev.Rival)
 			add("rivals", "RivalMovedIn", d)
 			rep.Territory = append(rep.Territory, fmt.Sprintf("%s's crew moved in on %s. Somebody new wants the city.", ev.Rival, ev.Name))
 		case events.CornerTaken:
 			d := base
 			d.Corner, d.Rival = ev.Name, ev.Rival
+			d = crew(d, ev.Rival)
 			switch {
 			case ev.Handed != "":
 				d.Name = ev.Handed
@@ -593,16 +616,19 @@ func (s *Sim) Step(w *game.World, t *game.Tick) {
 		case events.RivalEyeing:
 			d := base
 			d.Corner, d.Rival = ev.Name, ev.Rival
+			d = crew(d, ev.Rival)
 			add("rivals", "RivalEyeing", d)
-			rep.Territory = append(rep.Territory, fmt.Sprintf("Word is %s's crew are setting up on %s tomorrow%s. Post somebody on it tonight and it stays off them.", ev.Rival, ev.Name, eyeingWhy(w.Rival)))
+			rep.Territory = append(rep.Territory, fmt.Sprintf("Word is %s's crew are setting up on %s tomorrow%s. Post somebody on it tonight and it stays off them.", ev.Rival, ev.Name, eyeingWhy(w.Faction(ev.Faction))))
 		case events.RivalOutbid:
 			d := base
 			d.Corner, d.Rival = ev.Name, ev.Rival
+			d = crew(d, ev.Rival)
 			add("rivals", "RivalOutbid", d)
 			rep.Territory = append(rep.Territory, fmt.Sprintf("%s's crew came for %s and found your people on it. They left; they will not forget it.", ev.Rival, ev.Name))
 		case events.RivalPushed:
 			d := base
 			d.Corner, d.Rival = ev.Name, ev.Rival
+			d = crew(d, ev.Rival)
 			add("rivals", "RivalPushed", d)
 			if ev.Pricewar {
 				rep.Territory = append(rep.Territory, fmt.Sprintf("%s's crew pushed on %s over the price war. You held it.", ev.Rival, ev.Name))
@@ -612,6 +638,7 @@ func (s *Sim) Step(w *game.World, t *game.Tick) {
 		case events.CornerStruck:
 			d := base
 			d.Corner, d.Rival = ev.Name, ev.Rival
+			d = crew(d, ev.Rival)
 			switch {
 			case ev.Routed:
 				add("rivals", "RivalRouted", d)
@@ -626,6 +653,7 @@ func (s *Sim) Step(w *game.World, t *game.Tick) {
 		case events.RivalTippedPolice:
 			d := base
 			d.Rival = ev.Rival
+			d = crew(d, ev.Rival)
 			add("rivals", "RivalTippedPolice", d)
 			rep.Territory = append(rep.Territory, fmt.Sprintf("Somebody tipped the police about you. It was %s. Heat +%.0f.", ev.Rival, ev.Heat))
 		// The books (#70): the scout, the boost, the tip, the raid and
@@ -633,16 +661,21 @@ func (s *Sim) Step(w *game.World, t *game.Tick) {
 		// the boost and the raid are news.
 		case events.RivalScouted:
 			scouted += ev.Cost
-			k := w.Rival.Known
-			if ev.Read {
-				rep.Territory = append(rep.Territory, fmt.Sprintf("Your scout read %s's books: %s in the chest, %s a day coming in, %s on the payroll costing %s a day. It goes stale; the rivals screen (8) says how old it is.", w.Rival.Leader, format.Cash(k.Cash), format.Cash(k.Income), format.Plural(k.Muscle, "head"), format.Cash(k.Wages)))
-			} else {
-				rep.Territory = append(rep.Territory, fmt.Sprintf("Your scout got nowhere near %s's books. Next time is likelier.", w.Rival.Leader))
+			who := w.Faction(ev.Faction)
+			if who == nil {
+				who = w.Rival()
 			}
-			rep.Money = append(rep.Money, fmt.Sprintf("Scouting %s's books -%s", w.Rival.Leader, format.Money(ev.Cost)))
+			k := who.Known
+			if ev.Read {
+				rep.Territory = append(rep.Territory, fmt.Sprintf("Your scout read %s's books: %s in the chest, %s a day coming in, %s on the payroll costing %s a day. It goes stale; the rivals screen (8) says how old it is.", who.Leader, format.Cash(k.Cash), format.Cash(k.Income), format.Plural(k.Muscle, "head"), format.Cash(k.Wages)))
+			} else {
+				rep.Territory = append(rep.Territory, fmt.Sprintf("Your scout got nowhere near %s's books. Next time is likelier.", who.Leader))
+			}
+			rep.Money = append(rep.Money, fmt.Sprintf("Scouting %s's books -%s", who.Leader, format.Money(ev.Cost)))
 		case events.RivalBoosted:
 			d := base
 			d.Corner, d.Rival = ev.Name, ev.Rival
+			d = crew(d, ev.Rival)
 			if ev.Taken {
 				boosted += ev.Cash
 				add("rivals", "RivalBoosted", d)
@@ -665,11 +698,13 @@ func (s *Sim) Step(w *game.World, t *game.Tick) {
 		case events.RivalRaided:
 			d := base
 			d.Corner, d.Rival = ev.Name, ev.Rival
+			d = crew(d, ev.Rival)
 			add("rivals", "RivalRaided", d)
 			rep.Territory = append(rep.Territory, fmt.Sprintf("The police RAIDED %s on %s: it is free, and %s of theirs went in the van. Post a runner before somebody else does.", ev.Rival, ev.Name, format.Plural(ev.Muscle, "head")))
 		case events.RivalMusclePoached:
 			d := base
 			d.Rival = ev.Rival
+			d = crew(d, ev.Rival)
 			poached += ev.Cost - ev.Refund
 			switch {
 			case ev.Failed:
@@ -691,20 +726,23 @@ func (s *Sim) Step(w *game.World, t *game.Tick) {
 		case events.PlayerUndercut:
 			// The price war (#68): one line per corner and product, in
 			// SALES, since the units are part of the night's sale.
-			rep.Sales = append(rep.Sales, fmt.Sprintf("Undercut %s on %s: %d %s cheap = +%s, %.0f%% of their trade there", w.Rival.Leader, ev.Name, ev.Units, w.ProductName(ev.Product), format.Money(ev.Revenue), ev.Share*100))
+			rep.Sales = append(rep.Sales, fmt.Sprintf("Undercut %s on %s: %d %s cheap = +%s, %.0f%% of their trade there", cornerHolder(w, ev.Corner), ev.Name, ev.Units, w.ProductName(ev.Product), format.Money(ev.Revenue), ev.Share*100))
 		case events.RivalAbandoned:
 			d := base
 			d.Corner, d.Rival = ev.Name, ev.Rival
+			d = crew(d, ev.Rival)
 			add("rivals", "RivalAbandoned", d)
 			rep.Territory = append(rep.Territory, fmt.Sprintf("%s's crew GAVE UP %s: the price war made it not worth holding. It is free; post a runner before somebody else does.", ev.Rival, ev.Name))
 		case events.DealOffered:
 			d := base
 			d.Rival, d.Deal = ev.Rival, ev.Deal
+			d = crew(d, ev.Rival)
 			add("rivals", "DealOffered", d)
 			rep.Territory = append(rep.Territory, fmt.Sprintf("%s offers %s. It stands %s: answer it on the rivals screen (8).", ev.Rival, ev.Terms, format.Plural(ev.Expires-t.Day+1, "day")))
 		case events.DealAccepted:
 			d := base
 			d.Rival, d.Deal = ev.Rival, ev.Deal
+			d = crew(d, ev.Rival)
 			add("rivals", "DealAccepted", d)
 			if ev.Offered {
 				rep.Territory = append(rep.Territory, fmt.Sprintf("You took %s's offer: %s. It holds from tonight.", ev.Rival, ev.Terms))
@@ -714,11 +752,13 @@ func (s *Sim) Step(w *game.World, t *game.Tick) {
 		case events.DealRefused:
 			d := base
 			d.Rival, d.Deal = ev.Rival, ev.Deal
+			d = crew(d, ev.Rival)
 			add("rivals", "DealRefused", d)
 			rep.Territory = append(rep.Territory, fmt.Sprintf("%s refused %s.", ev.Rival, ev.Terms))
 		case events.DealBroken:
 			d := base
 			d.Rival, d.Deal = ev.Rival, ev.Deal
+			d = crew(d, ev.Rival)
 			add("rivals", "DealBroken", d)
 			if ev.By == "rival" {
 				rep.Territory = append(rep.Territory, fmt.Sprintf("%s BROKE the %s: %s. So much for that.", ev.Rival, ev.Deal, ev.Why))
@@ -726,10 +766,68 @@ func (s *Sim) Step(w *game.World, t *game.Tick) {
 				rep.Territory = append(rep.Territory, fmt.Sprintf("You BROKE the %s with %s: %s. Trust is gone, and they made a call.", ev.Deal, ev.Rival, ev.Why))
 			}
 		case events.DealEnded:
-			rep.Territory = append(rep.Territory, fmt.Sprintf("The %s with %s has run out. Expect them back on your corners.", ev.Deal, ev.Rival))
+			if ev.Deal == game.DealHomage {
+				rep.Territory = append(rep.Territory, fmt.Sprintf("%s can no longer pay you homage. The money stops; they are nobody's now.", ev.Rival))
+			} else {
+				rep.Territory = append(rep.Territory, fmt.Sprintf("The %s with %s has run out. Expect them back on your corners.", ev.Deal, ev.Rival))
+			}
 		case events.TributePaid:
+			if ev.ToYou {
+				rep.Money = append(rep.Money, fmt.Sprintf("Homage from %s +%s", ev.Rival, format.Money(ev.Amount)))
+				break
+			}
 			tribute += ev.Amount
 			rep.Money = append(rep.Money, fmt.Sprintf("Tribute to %s -%s", ev.Rival, format.Money(ev.Amount)))
+		// The table (#43): factions fighting each other, one absorbing
+		// another, a leader taken, your crew poached, a betrayal
+		// remembered by everyone.
+		case events.FactionPushed:
+			d := at(ev.City)
+			d.Corner, d.Rival = ev.Name, ev.Rival
+			d = crew(d, ev.Rival)
+			d.Name = ev.AgainstRival
+			if ev.Taken {
+				add("rivals", "FactionTook", d)
+				rep.Territory = append(rep.Territory, fmt.Sprintf("%s's crew TOOK %s off %s's%s.", ev.Rival, ev.Name, ev.AgainstRival, in(ev.City)))
+			} else {
+				add("rivals", "FactionPushed", d)
+				rep.Territory = append(rep.Territory, fmt.Sprintf("%s's crew pushed on %s's people on %s%s and were held off.", ev.Rival, ev.AgainstRival, ev.Name, in(ev.City)))
+			}
+		case events.RivalAbsorbed:
+			d := base
+			d.Rival = ev.Rival
+			d = crew(d, ev.Rival)
+			d.Name = ev.By
+			if ev.By != "" {
+				add("rivals", "RivalAbsorbed", d)
+				rep.Territory = append(rep.Territory, fmt.Sprintf("%s's crew is no more: what was left of it went over to %s. One faction fewer.", ev.Rival, ev.By))
+			} else {
+				add("rivals", "RivalScattered", d)
+				rep.Territory = append(rep.Territory, fmt.Sprintf("%s's crew scattered: nobody left to run with. One faction fewer.", ev.Rival))
+			}
+		case events.RivalLeaderArrested:
+			d := at(ev.City)
+			d.Rival = ev.Rival
+			d = crew(d, ev.Rival)
+			if ev.Killed {
+				add("rivals", "RivalLeaderKilled", d)
+				rep.Territory = append(rep.Territory, fmt.Sprintf("%s is DEAD. Their crew is coming apart: %s go back to the street over the coming days, prices%s spike, and their people are looking for work%s.", ev.Rival, format.Plural(ev.Corners, "corner"), in(ev.City), pointer(ev.Muscle)))
+			} else {
+				add("rivals", "RivalLeaderArrested", d)
+				rep.Territory = append(rep.Territory, fmt.Sprintf("The police took %s. Their crew is coming apart: %s go back to the street over the coming days, prices%s spike, and their people are looking for work%s.", ev.Rival, format.Plural(ev.Corners, "corner"), in(ev.City), pointer(ev.Muscle)))
+			}
+		case events.CrewPoached:
+			d := base
+			d.Name, d.Role, d.Rival = ev.Name, ev.Role, ev.Rival
+			d = crew(d, ev.Rival)
+			if ev.Stayed {
+				rep.Crew = append(rep.Crew, fmt.Sprintf("%s offered %s %s a day to come over. They stayed, and they know they are wanted.", ev.Rival, ev.Name, format.Money(ev.Wages)))
+			} else {
+				add("crew", "CrewPoached", d)
+				rep.Crew = append(rep.Crew, fmt.Sprintf("%s offered %s %s a day and they TOOK it. They are %s's now.", ev.Rival, ev.Name, format.Money(ev.Wages), ev.Rival))
+			}
+		case events.TrustSpread:
+			rep.Territory = append(rep.Territory, fmt.Sprintf("Word of the broken deal got round: %s trust you %.0f less.", format.Plural(ev.Others, "other faction"), ev.Spread))
 		case events.WarEscalated:
 			d := base
 			if ev.Stage == "crackdown" {
@@ -1179,8 +1277,8 @@ func render(t *template.Template, d data) string {
 // eyeingWhy is the reason behind the tell (#69), once the rival's
 // temper has shown: until then the tell names the corner and the early
 // game reads as rumour.
-func eyeingWhy(r game.RivalState) string {
-	if !r.Observed {
+func eyeingWhy(r *game.RivalState) string {
+	if r == nil || !r.Observed {
 		return ""
 	}
 	switch r.Personality {
@@ -1408,4 +1506,24 @@ func unlockLine(w *game.World, ev events.Unlocked) string {
 		return fmt.Sprintf("%s want work on the crew screen (4): %s.", ev.Name, ev.Why)
 	}
 	return fmt.Sprintf("%s is open to you: %s.", ev.Name, ev.Why)
+}
+
+// cornerHolder names the leader whose crew holds a corner, for a line
+// about it (#43); "the rival" for a corner nobody's.
+func cornerHolder(w *game.World, id string) string {
+	if c := w.Corner(id); c != nil && c.Owner == game.OwnerRival {
+		if r := w.Faction(c.Faction); r != nil && r.Leader != "" {
+			return r.Leader
+		}
+	}
+	return "the rival"
+}
+
+// pointer is the crew screen pointer for the muscle a fragmented
+// faction left in the hiring pool (#43), or nothing for none.
+func pointer(muscle int) string {
+	if muscle <= 0 {
+		return ""
+	}
+	return fmt.Sprintf(" (%s in the pool, cheap)", format.Plural(muscle, "enforcer"))
 }
