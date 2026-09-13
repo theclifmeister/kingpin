@@ -354,17 +354,19 @@ func newSim(cfg *content.Config) *rivals.Sim {
 	return rivals.New(cfg)
 }
 
-// A scout reads the books as the night leaves them into Known, a
-// snapshot nothing else writes: it stays put while the rival moves on,
-// goes stale after stale_days, and a scout that reads nothing costs the
-// money, stamps nothing and makes the next look likelier. A second look
-// the same night is refused.
+// A scout reads the books as the night leaves them into the file
+// (#45: four facts, game.Known(w).Books reads them back as the
+// snapshot), which stays put while the rival moves on, goes stale after
+// stale_days, and a scout that reads nothing costs the money, files
+// nothing and makes the next look likelier. A second look the same
+// night is refused.
 func TestScoutReadsASnapshot(t *testing.T) {
 	cfg := duel()
 	bk := cfg.Rivals.Books
 	w, s := warWorld(t, cfg, 19, "expansionist")
 	w.Rival().Muscle = 5
-	if w.Rival().Known.Read() {
+	books := func() game.Books { return game.Known(w).Books(w.Rival().Faction()) }
+	if books().Read() {
 		t.Fatal("the books are read before any scout")
 	}
 	if got, want := s.ScoutOdds(w, w.Rival()), bk.ScoutBase+bk.ScoutSkill*0.8; math.Abs(got-want) > 1e-9 {
@@ -390,8 +392,8 @@ func TestScoutReadsASnapshot(t *testing.T) {
 	if ev := find[events.RivalScouted](evs); ev == nil || ev.Read || ev.Cost != bk.ScoutCost {
 		t.Fatalf("read nothing: %+v", ev)
 	}
-	if w.Rival().Known.Read() || w.Rival().Scouted != 1 || w.Stats.Scouts != 1 {
-		t.Fatalf("after an empty night: %+v scouted %d", w.Rival().Known, w.Rival().Scouted)
+	if books().Read() || w.Rival().Scouted != 1 || w.Stats.Scouts != 1 {
+		t.Fatalf("after an empty night: %+v scouted %d", books(), w.Rival().Scouted)
 	}
 	s = newSim(cfg)
 	if got, want := s.ScoutOdds(w, w.Rival()), bk.ScoutBase+bk.ScoutSkill*0.8+bk.ScoutLearn; math.Abs(got-want) > 1e-9 {
@@ -409,22 +411,25 @@ func TestScoutReadsASnapshot(t *testing.T) {
 	if ev := find[events.RivalScouted](evs); ev == nil || !ev.Read {
 		t.Fatalf("read: %+v", ev)
 	}
-	k := w.Rival().Known
+	k := books()
 	if !k.Read() || k.Day != w.Day || k.Cash != w.Rival().Cash || k.Muscle != w.Rival().Muscle || k.Income != s.Income(w, w.Rival()) || k.Wages != s.Wages(w, w.Rival()) || w.Rival().Scouted != 0 {
 		t.Fatalf("the snapshot %+v against cash %d muscle %d income %d wages %d", k, w.Rival().Cash, w.Rival().Muscle, s.Income(w, w.Rival()), s.Wages(w, w.Rival()))
 	}
-	if s.Stale(w.Rival(), w.Day) {
+	if ev := find[events.RivalScouted](evs); ev.Cash != k.Cash || ev.Muscle != k.Muscle || ev.Income != k.Income || ev.Wages != k.Wages {
+		t.Fatalf("the event carries %+v, the file %+v", ev, k)
+	}
+	if s.Stale(w, w.Rival(), w.Day) {
 		t.Fatal("stale the night it was read")
 	}
 	// It stays put while the rival moves on, and goes stale.
 	w.Rival().Cash += 12345
 	for i := 0; i < bk.StaleDays; i++ {
 		step(w, s)
-		if w.Rival().Known != k {
-			t.Fatalf("day %d: the snapshot moved: %+v", w.Day, w.Rival().Known)
+		if books() != k {
+			t.Fatalf("day %d: the snapshot moved: %+v", w.Day, books())
 		}
 	}
-	if !s.Stale(w.Rival(), w.Day) || k.Age(w.Day) != bk.StaleDays {
+	if !s.Stale(w, w.Rival(), w.Day) || k.Age(w.Day) != bk.StaleDays {
 		t.Fatalf("not stale after %d days: age %d", bk.StaleDays, k.Age(w.Day))
 	}
 }

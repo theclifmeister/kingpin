@@ -27,16 +27,18 @@ type Sim struct {
 	das    []string
 	deed   content.DeedTuning   // #194: the pressure a deed adds in its city a day, and the forfeiture's line
 	assets content.AssetsConfig // #48: the pressure an owned asset adds in its city every day
+	intel  content.IntelTuning  // #45: what a cop's word on the chief is worth
 }
 
 // New builds a law sim from the config, copying what it reads (#144):
 // its own law.toml, the chiefs' and DAs' name pools, of the deeds
 // (#194, city.toml [deed]) two numbers: pressure, a deed's a day in its
 // city, and forfeit_ratio, the multiple of what the fronts have washed
-// the deeds held may cost before the DA takes one back, and the assets
-// (#48) for the pressure each adds in its city while owned.
+// the deeds held may cost before the DA takes one back, the assets
+// (#48) for the pressure each adds in its city while owned, and the
+// intel tuning (#45) for the chief's fact.
 func New(cfg *content.Config) *Sim {
-	return &Sim{cfg: cfg.Law, chiefs: cfg.Names.Chiefs, das: cfg.Names.DAs, deed: cfg.City.Deed, assets: cfg.Assets}
+	return &Sim{cfg: cfg.Law, chiefs: cfg.Names.Chiefs, das: cfg.Names.DAs, deed: cfg.City.Deed, assets: cfg.Assets, intel: cfg.Intel.Intel}
 }
 
 // DeedLimit is what the deeds held may cost between them before the DA
@@ -479,6 +481,7 @@ func (s *Sim) Step(w *game.World, t *game.Tick) {
 			}
 		}
 	}
+	s.intelChief(w, t)
 	replaced := false
 	if end := s.ChiefTermEnds(w); end > 0 && t.Day >= end {
 		s.replaceChief(w, t, "term", "")
@@ -606,6 +609,7 @@ func (s *Sim) replaceChief(w *game.World, t *game.Tick, why, personality string)
 	}
 	w.Law.Chief = game.Chief{Name: name, Personality: personality, Since: t.Day}
 	w.Stats.Chiefs++
+	w.Unlearn(game.SubjectChief, game.FactPersonality) // a new chief is one you know nothing about (#45)
 	t.Emit(events.ChiefReplaced{Day: t.Day, Name: name, Old: old, Why: why})
 }
 
@@ -629,3 +633,36 @@ func band(v, w float64) int {
 }
 
 func clamp01(v float64) float64 { return math.Max(0, math.Min(1, v)) }
+
+// intelChief files what you know of the chief (#45): their temper at
+// full confidence once Observed (the days in office, or their people
+// through the door; no dice), and off a cop paid today (World.Today.Cop)
+// at the cop's accuracy for the price, a wrong word naming one of the
+// other tempers, rolled on Tick.Sub("intel") after the heat sim's roll
+// on the same envelope. The observed fact never fades, the cop's does
+// (you see for yourself soon enough); a chief replaced takes either
+// with them (replaceChief).
+func (s *Sim) intelChief(w *game.World, t *game.Tick) {
+	chief := w.Law.Chief
+	known, _ := game.Known(w).Fact(game.SubjectChief, game.FactPersonality)
+	if chief.Observed && chief.Personality != "" && known.Confidence < 1 {
+		f := game.Fact{Subject: game.SubjectChief, Kind: game.FactPersonality, Value: chief.Personality, Confidence: 1, Day: t.Day, Source: game.SourceSeen}
+		w.Learn(f)
+		t.Emit(events.IntelGained{Day: t.Day, Subject: f.Subject, FactKind: f.Kind, Value: f.Value, Confidence: 1, Source: f.Source, Name: chief.Name})
+		return
+	}
+	o := w.Today.Cop
+	if o == nil || chief.Personality == "" || known.Confidence >= 1 {
+		return
+	}
+	p := s.intel.Accuracy(o.Amount)
+	rng := t.Sub("intel")
+	word := chief.Personality
+	if rng.Float64() >= p {
+		others := without(content.ChiefPersonalities, chief.Personality)
+		word = others[rng.IntN(len(others))]
+	}
+	f := game.Fact{Subject: game.SubjectChief, Kind: game.FactPersonality, Value: word, Confidence: p, Day: t.Day, Source: game.SourceCop, Stale: s.intel.StaleRate, Forget: s.intel.Forget}
+	w.Learn(f)
+	t.Emit(events.IntelGained{Day: t.Day, Subject: f.Subject, FactKind: f.Kind, Value: word, Confidence: p, Source: f.Source, Name: chief.Name})
+}

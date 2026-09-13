@@ -164,6 +164,9 @@ func (s *Sim) Step(w *game.World, t *game.Tick) {
 	// The houses' lines (#73) pick theirs off a side stream too: a run
 	// with no house is the run it was.
 	addHouses := func(source, key string, d data) { addOff("houses:news", source, key, d) }
+	// The intel lines (#45) pick theirs off the intel side stream: a run
+	// with no spy under and nobody feeding it is the run it was.
+	addIntel := func(source, key string, d data) { addOff("intel:news", source, key, d) }
 	here := w.Here()
 	base := data{City: here.Name, DA: w.Law.DA.Name, Chief: w.Law.Chief.Name, Leader: w.Rival().Leader}
 	if w.Rival().Leader != "" {
@@ -729,9 +732,8 @@ func (s *Sim) Step(w *game.World, t *game.Tick) {
 			if who == nil {
 				who = w.Rival()
 			}
-			k := who.Known
 			if ev.Read {
-				rep.Territory = append(rep.Territory, fmt.Sprintf("Your scout read %s's books: %s in the chest, %s a day coming in, %s on the payroll costing %s a day. It goes stale; the rivals screen (8) says how old it is.", who.Leader, format.Cash(k.Cash), format.Cash(k.Income), format.Plural(k.Muscle, "head"), format.Cash(k.Wages)))
+				rep.Territory = append(rep.Territory, fmt.Sprintf("Your scout read %s's books: %s in the chest, %s a day coming in, %s on the payroll costing %s a day. It goes stale; the rivals screen (8) says how old it is.", who.Leader, format.Cash(ev.Cash), format.Cash(ev.Income), format.Plural(ev.Muscle, "head"), format.Cash(ev.Wages)))
 			} else {
 				rep.Territory = append(rep.Territory, fmt.Sprintf("Your scout got nowhere near %s's books. Next time is likelier.", who.Leader))
 			}
@@ -1240,6 +1242,44 @@ func (s *Sim) Step(w *game.World, t *game.Tick) {
 			d.Corner = ev.Name
 			addOff("deeds:news", "laundering", "DeedSeized", d)
 			rep.Law = append(rep.Law, fmt.Sprintf("FORFEITURE: the DA seized the block %s is on%s (%s). %s in deeds against %s washed; the money has no story, and the file will grow in the morning.", ev.Name, in(ev.City), format.Money(ev.Price), format.Money(ev.Spent), format.Money(ev.Washed)))
+		// Intel (#45): the facts filed tonight are the report's INTEL
+		// section; a spy going under, one found and a lie that bit are
+		// news, their templates picked off the intel side stream.
+		case events.IntelGained:
+			rep.Intel = append(rep.Intel, intelLine(w, ev))
+		case events.SpyPlanted:
+			d := base
+			d.Name, d.Role = ev.Name, ev.Role
+			d = crew(d, ev.Rival)
+			addIntel("crew", "SpyPlanted", d)
+			rep.Intel = append(rep.Intel, fmt.Sprintf("%s went under with %s's crew tonight. They sell nothing for you now and report every few days; the intel screen (9) keeps what they send.", ev.Name, ev.Rival))
+		case events.SpyFound:
+			d := base
+			d.Name, d.Role = ev.Name, ev.Role
+			d = crew(d, ev.Rival)
+			switch {
+			case ev.Dead:
+				addIntel("crew", "SpyShot", d)
+				rep.Intel = append(rep.Intel, fmt.Sprintf("%s's people made %s. They were found shot. %s.", ev.Rival, ev.Name, format.Plural(ev.Reports, "report")+" came back before it"))
+			case ev.Why == "gone":
+				rep.Intel = append(rep.Intel, fmt.Sprintf("%s's crew is no more; %s came home with nothing to add.", ev.Rival, ev.Name))
+			default:
+				addIntel("crew", "SpyFound", d)
+				rep.Intel = append(rep.Intel, fmt.Sprintf("%s's people made %s and sent them home. They are back on the payroll, %s to their name.", ev.Rival, ev.Name, format.Plural(ev.Reports, "report")))
+			}
+		case events.IntelFalse:
+			d := base
+			d = crew(d, ev.Rival)
+			switch ev.FactKind {
+			case game.FactRisk:
+				d.Route = ev.Name
+				addIntel("rivals", "IntelFalseRoute", d)
+				rep.Intel = append(rep.Intel, fmt.Sprintf("The word on %s was %s's: they had customs waiting. The intel screen (9) names them now.", ev.Name, ev.Rival))
+			default:
+				d.Corner = ev.Name
+				addIntel("rivals", "IntelFalseStash", d)
+				rep.Intel = append(rep.Intel, fmt.Sprintf("The till on %s was empty: the word was %s's. The intel screen (9) names them now.", ev.Name, ev.Rival))
+			}
 		}
 	}
 
@@ -1649,4 +1689,43 @@ func pointer(muscle int) string {
 		return ""
 	}
 	return fmt.Sprintf(" (%s in the pool, cheap)", format.Plural(muscle, "enforcer"))
+}
+
+// intelLine is a filed fact as the report says it (#45): what was
+// learnt, of whom, how and how sure.
+func intelLine(w *game.World, ev events.IntelGained) string {
+	sure := fmt.Sprintf("%.0f%% sure", ev.Confidence*100)
+	how := map[string]string{
+		game.SourceSeen: "Seen", game.SourceBooks: "The books say", game.SourceCop: "The cop says",
+		game.SourceSpy: "Your spy says", game.SourceContact: "A contact says",
+	}[ev.Source]
+	if how == "" {
+		how = "Word is"
+	}
+	name := ev.Name
+	if name == "" {
+		name = ev.Subject
+	}
+	switch ev.FactKind {
+	case game.FactPersonality:
+		if ev.Subject == game.SubjectChief {
+			return fmt.Sprintf("%s: Chief %s is %s (%s).", how, name, ev.Value, sure)
+		}
+		return fmt.Sprintf("%s: %s is %s (%s).", how, name, ev.Value, sure)
+	case game.FactMuscle:
+		return fmt.Sprintf("%s: %s has %s heads (%s).", how, name, ev.Value, sure)
+	case game.FactMove:
+		if c := w.Corner(ev.Value); c != nil {
+			return fmt.Sprintf("%s: %s moves on %s next (%s).", how, name, c.Name, sure)
+		}
+	case game.FactStash:
+		if c := w.Corner(ev.Value); c != nil {
+			return fmt.Sprintf("%s: %s's till is fattest on %s (%s).", how, name, c.Name, sure)
+		}
+	case game.FactResponse:
+		return fmt.Sprintf("%s: the next thing coming in %s is a %s (%s).", how, name, ev.Value, sure)
+	case game.FactRisk:
+		return fmt.Sprintf("%s: %s is seized %s in transit (%s).", how, name, ev.Value, sure)
+	}
+	return fmt.Sprintf("%s: %s %s %s (%s).", how, name, ev.FactKind, ev.Value, sure)
 }

@@ -413,8 +413,8 @@ func (m *Model) lawLines(innerW int, narrow bool) []string {
 	l := w.Law
 	here := w.Here()
 	chief := "Chief " + l.Chief.Name + sep
-	if l.Chief.Observed {
-		chief += theme.Subtle.Render(l.Chief.Personality)
+	if word := m.chiefWord(); word != game.Unknown {
+		chief += theme.Subtle.Render(word)
 	} else {
 		chief += theme.Subtle.Render("new")
 	}
@@ -518,8 +518,8 @@ func (m *Model) rivalLines(innerW int) []string {
 	// The books (#70): the muscle as last read, where the line has room
 	// for it after the rest.
 	books := temper
-	if r.Known.Read() {
-		books = temper + sep + theme.Subtle.Render(fmt.Sprintf("muscle %d (%dd)", r.Known.Muscle, r.Known.Age(w.Day)))
+	if word := m.muscleWord(r); word != game.Unknown {
+		books = temper + sep + theme.Subtle.Render("muscle "+word+" "+m.muscleAge(r))
 	}
 	if eye := m.eyeingWord(r); eye != "" {
 		// The tell (#69) outranks the temper, the count and the name

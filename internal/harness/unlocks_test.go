@@ -155,6 +155,10 @@ func TestEveryGateIsAnnounced(t *testing.T) {
 // the print has to be the same on a laptop and on CI. The one copy
 // change #148 made to a headline, the article agreeing with the value
 // (`an Eastside crew`), is folded: the print reads every `an` as `a`.
+// IntelGained (#45) is left out the same way: it is report-only
+// bookkeeping the night writes off its own events with no dice (a push
+// on you files the muscle you met), so a run that never used the file
+// carries it and made the same draws and took the same turns.
 func oldRunPrint(t *testing.T, cfg *content.Config, seed uint64, days int, policy Policy) (string, []events.Event) {
 	t.Helper()
 	w := sim.NewWorld(cfg, seed)
@@ -168,6 +172,9 @@ func oldRunPrint(t *testing.T, cfg *content.Config, seed uint64, days int, polic
 	}
 	fold := strings.NewReplacer(" an ", " a ", "An ", "A ", "0", "", "1", "", "2", "", "3", "", "4", "", "5", "", "6", "", "7", "", "8", "", "9", "")
 	for _, e := range res.Events {
+		if _, ok := e.(events.IntelGained); ok {
+			continue
+		}
 		day := 0
 		if f := reflect.ValueOf(e).FieldByName("Day"); f.IsValid() && f.Kind() == reflect.Int {
 			day = int(f.Int())

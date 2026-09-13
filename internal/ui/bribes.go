@@ -214,8 +214,8 @@ func (m *Model) officialWord(target string) string {
 		return word
 	}
 	word := "new"
-	if l.Chief.Observed {
-		word = l.Chief.Personality
+	if known := m.chiefWord(); known != game.Unknown {
+		word = known
 	}
 	if l.ChiefBoughtOn(m.w.Day) {
 		word = "bought"
@@ -243,8 +243,8 @@ func (m *Model) bribeOdds(target string, amt int) string {
 	if amt < tun.ChiefPrice {
 		return theme.Warning.Render(fmt.Sprintf("Under the price (%s): the chief's people pocket it and nothing changes.", money(tun.ChiefPrice)))
 	}
-	if l.Chief.Observed {
-		switch l.Chief.Personality {
+	if known := m.chiefWord(); known != game.Unknown {
+		switch known {
 		case "zealous":
 			return theme.Bad.Render("Chief " + l.Chief.Name + " is zealous: this goes in an evidence bag, a page in the file and heat in the morning.")
 		case "lazy":
@@ -329,7 +329,7 @@ func (m *Model) checkpointConfirm() []string {
 		body = append(body, theme.Subtle.Render(fmt.Sprintf("Yours until day %d already; this adds to it.", until)))
 	}
 	if d.On() {
-		body = append(body, "", row("seized now", fmt.Sprintf("~%.0f%% a run at %s", lg.Risk(w, *r, d.Ship())*100, d)))
+		body = append(body, "", row("seized now", fmt.Sprintf("%s a run at %s", m.riskWord(*r, d.Ship()), d)))
 	}
 	body = append(body, "")
 	for _, l := range m.wrapLines(fmt.Sprintf("A law-and-order DA taking office ends it within %s, and nothing is for sale while they sit.", plural(tun.CallsStopDays, "day"))) {
@@ -407,9 +407,8 @@ func (m *Model) payoffSection(p payoff) section {
 	}
 	if p.Route != nil {
 		r := *p.Route
-		lg := m.set.Logistics
 		d := w.Route(r.ID).Dial
-		lines = append(lines, row("edge", fmt.Sprintf("%s %s %s", w.CityName(r.From), edge(r.Mode), w.CityName(r.To))), row("seized", fmt.Sprintf("~%.0f%% a run at %s", lg.Risk(w, r, d.Ship())*100, d)))
+		lines = append(lines, row("edge", fmt.Sprintf("%s %s %s", w.CityName(r.From), edge(r.Mode), w.CityName(r.To))), row("seized", fmt.Sprintf("%s a run at %s", m.riskWord(r, d.Ship()), d)))
 	}
 	if w.Cold() {
 		lines = append(lines, theme.Bad.Render("A law-and-order DA sits: it ends within the week."))

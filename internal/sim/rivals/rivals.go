@@ -19,12 +19,16 @@ import (
 
 // Sim is the rival simulation.
 type Sim struct {
-	cfg   content.RivalsConfig
-	names []string
-	rep   content.ReputationFX
-	law   content.LawFX
-	tree  content.UpgradesConfig
-	deed  content.DeedTuning
+	cfg        content.RivalsConfig
+	names      []string
+	rep        content.ReputationFX
+	law        content.LawFX
+	tree       content.UpgradesConfig
+	deed       content.DeedTuning
+	intel      content.IntelTuning // #45: what a push shows, the feed
+	routes     []string            // the route ids, in file order, for a lie about a road (#45)
+	routeNames map[string]string
+	routeAsset map[string]string // the asset a route needs to be open (#48), "" for none
 }
 
 // New builds a rival sim from the config, copying what it reads (#144):
@@ -36,7 +40,13 @@ type Sim struct {
 // reads one: push_mul, on its push at a block of yours and on its
 // defence of a block that is yours.
 func New(cfg *content.Config) *Sim {
-	return &Sim{cfg: cfg.Rivals, names: cfg.Names.Rivals, rep: cfg.Reputation.Effects, law: cfg.Law.Effects, tree: cfg.Upgrades, deed: cfg.City.Deed}
+	s := &Sim{cfg: cfg.Rivals, names: cfg.Names.Rivals, rep: cfg.Reputation.Effects, law: cfg.Law.Effects, tree: cfg.Upgrades, deed: cfg.City.Deed, intel: cfg.Intel.Intel, routeNames: map[string]string{}, routeAsset: map[string]string{}}
+	for _, r := range cfg.Routes.Routes {
+		s.routes = append(s.routes, r.ID)
+		s.routeNames[r.ID] = r.Name
+		s.routeAsset[r.ID] = r.Asset
+	}
+	return s
 }
 
 // Effects is what the owned upgrades do to the rival's fight (#119),
@@ -211,7 +221,13 @@ func (s *Sim) frontline(w *game.World, r *game.RivalState) int {
 // Defence is the muscle a faction puts on one corner when struck: its
 // muscle spread over the front line, times its personality's defence.
 func (s *Sim) Defence(w *game.World, r *game.RivalState) float64 {
-	return float64(r.Muscle) / float64(max(1, s.frontline(w, r))) * s.personality(r).Defence
+	return s.DefenceAt(w, r, r.Muscle)
+}
+
+// DefenceAt is Defence with the muscle given (#45): the strike picker
+// reads it at the band the file holds, the dice at the truth.
+func (s *Sim) DefenceAt(w *game.World, r *game.RivalState, muscle int) float64 {
+	return float64(muscle) / float64(max(1, s.frontline(w, r))) * s.personality(r).Defence
 }
 
 // Odds is the chance a strike at a force takes a corner of the faction
@@ -227,12 +243,19 @@ func (s *Sim) Odds(w *game.World, r *game.RivalState, force events.Force) float6
 // businessman's way to a corner. The strike and the boost roll on it
 // and the picker shows it; nil is Odds.
 func (s *Sim) OddsOn(w *game.World, r *game.RivalState, c *game.Corner, force events.Force) float64 {
+	return s.OddsOnAt(w, r, c, force, r.Muscle)
+}
+
+// OddsOnAt is OddsOn with the faction's muscle given (#45): what the
+// strike picker shows for the band the file holds, the dice's shape on
+// what you know.
+func (s *Sim) OddsOnAt(w *game.World, r *game.RivalState, c *game.Corner, force events.Force, muscle int) float64 {
 	fc := s.cfg.ForceFor(force)
 	attack := (s.Strength(w) + s.AllyMuscle(w, game.FactionYou, r.Faction())) * fc.Attack
 	if attack <= 0 {
 		return 0
 	}
-	return fc.Flip * attack / (attack + s.Defence(w, r)*s.DeedMul(c))
+	return fc.Flip * attack / (attack + s.DefenceAt(w, r, muscle)*s.DeedMul(c))
 }
 
 // StrikeHeat is what a strike on a corner at a force draws.
@@ -262,7 +285,13 @@ func (s *Sim) Guard(w *game.World, c *game.Corner) float64 {
 // corner: its muscle on the front line against whoever is standing
 // there.
 func (s *Sim) PushOdds(w *game.World, r *game.RivalState, c *game.Corner) float64 {
-	attack := float64(r.Muscle) / float64(max(1, s.frontline(w, r)))
+	return s.PushOddsAt(w, r, c, r.Muscle)
+}
+
+// PushOddsAt is PushOdds with the faction's muscle given (#45), for the
+// map's inspector at the band the file holds.
+func (s *Sim) PushOddsAt(w *game.World, r *game.RivalState, c *game.Corner, muscle int) float64 {
+	attack := float64(muscle) / float64(max(1, s.frontline(w, r)))
 	defence := s.Guard(w, c)
 	if attack <= 0 {
 		return 0
@@ -286,15 +315,7 @@ func (s *Sim) Income(w *game.World, r *game.RivalState) int {
 // trade is the street value a rival corner moves in a day, squeeze off,
 // in the products the street sells there (#139): the port's product
 // (no_supply at home) comes by the road, which the rival does not run.
-func (s *Sim) trade(w *game.World, c game.Corner) float64 {
-	v := 0.0
-	for _, id := range w.Products {
-		if m := w.Product(c.City, id); m != nil && !m.NoSupply {
-			v += m.Demand * c.Share(id) * m.Price
-		}
-	}
-	return v
-}
+func (s *Sim) trade(w *game.World, c game.Corner) float64 { return w.Trade(c) }
 
 // CornerIncome is what one of a faction's corners earns it in a day
 // with no price war on it: what an undercut's share is a share of. The
@@ -430,6 +451,14 @@ func (s *Sim) Step(w *game.World, t *game.Tick) {
 		s.step(w, t, r, rng)
 	}
 	s.table43(w, t)
+	// Intel (#45): what the night showed you of the factions, no dice,
+	// and what the ones that distrust you feed you, off the intel stream.
+	s.observe(w, t)
+	for _, r := range w.Rivals {
+		if r != nil {
+			s.feed(w, t, r)
+		}
+	}
 }
 
 // step runs one faction's day: arrival, money, the table (offers taken,

@@ -17,9 +17,10 @@ func TestInvestDialog(t *testing.T) {
 	m := richModel(t, 80, 24)
 	w := m.w
 	l := m.set.Laundering
+	m.Update(key("3")) // i on the dashboard is the intel jump since #45; the pointer is read off the journal
 	m.Update(key("i"))
 	if m.mode != modePlay || !strings.Contains(m.status, "ledger") {
-		t.Fatalf("i on the dashboard: mode %v status %q", m.mode, m.status)
+		t.Fatalf("i on the journal: mode %v status %q", m.mode, m.status)
 	}
 	m.Update(key("7"))
 	w.Player.CleanCash = 0

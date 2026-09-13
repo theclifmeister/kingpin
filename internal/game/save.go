@@ -209,6 +209,16 @@ func Load(slot int, migrations ...Migration) (*World, error) {
 		}
 		w.old = &old
 	}
+	if w.SchemaVersion < 16 {
+		// The books a scout read lived on Rival.Known before intel
+		// (#45); read them off the stream a second time for
+		// MigrateBooks to file as facts.
+		var old v15
+		if err := gob.NewDecoder(bytes.NewReader(b)).Decode(&old); err != nil {
+			return nil, fmt.Errorf("save file is corrupt: %w", err)
+		}
+		w.books = &old
+	}
 	if len(w.Cities) == 0 && (w.legacy == nil || w.legacy.Market == nil) {
 		return nil, fmt.Errorf("save file is corrupt: missing world state")
 	}
@@ -248,6 +258,7 @@ func Load(slot int, migrations ...Migration) (*World, error) {
 	}
 	w.legacy = nil
 	w.old = nil
+	w.books = nil
 	return &w, nil
 }
 

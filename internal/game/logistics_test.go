@@ -335,7 +335,7 @@ func TestSaveMigratesTheOneCity(t *testing.T) {
 	// The steps past 7 are other packages' (the rival's trust, #32; the
 	// chief and the DA, #41) or the fall guy's count (#117); the chain
 	// only needs to reach the current schema.
-	got, err := Load(1, Migration{From: 6, Apply: func(w *World) { w.MigrateCities(home) }}, Migration{From: 7, Apply: func(*World) {}}, Migration{From: 8, Apply: func(*World) {}}, Migration{From: 9, Apply: MigrateFallGuys}, Migration{From: 10, Apply: func(*World) {}}, Migration{From: 11, Apply: MigrateHouses}, Migration{From: 12, Apply: func(w *World) { w.MigrateLots(50, 1) }}, Migration{From: 13, Apply: func(*World) {}}, Migration{From: 14, Apply: (*World).SeatRival})
+	got, err := Load(1, Migration{From: 6, Apply: func(w *World) { w.MigrateCities(home) }}, Migration{From: 7, Apply: func(*World) {}}, Migration{From: 8, Apply: func(*World) {}}, Migration{From: 9, Apply: MigrateFallGuys}, Migration{From: 10, Apply: func(*World) {}}, Migration{From: 11, Apply: MigrateHouses}, Migration{From: 12, Apply: func(w *World) { w.MigrateLots(50, 1) }}, Migration{From: 13, Apply: func(*World) {}}, Migration{From: 14, Apply: (*World).SeatRival}, Migration{From: 15, Apply: MigrateBooks})
 	if err != nil {
 		t.Fatal(err)
 	}

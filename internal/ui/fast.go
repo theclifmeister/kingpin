@@ -197,8 +197,9 @@ func (m *Model) stopReason(evs []events.Event, before []alert) string {
 // reputation axis up a band, a new chief or an election, a contract
 // or a standing order that ran short (the routine broke), a gate crossed
 // (#148: the Laundromat open to you, Heroin on offer, the Dutchman
-// dealing, lieutenants wanting work), the rival moving in, and a stash
-// house robbed, hit or lost (#73).
+// dealing, lieutenants wanting work), the rival moving in, a stash
+// house robbed, hit or lost (#73), and a spy found or a lie that bit
+// (#45).
 func (m *Model) stopEvent(e events.Event) string {
 	w := m.w
 	switch ev := e.(type) {
@@ -247,6 +248,13 @@ func (m *Model) stopEvent(e events.Event) string {
 		}
 	case events.CrewRetired:
 		return ev.Name + " retired"
+	case events.SpyFound: // #45: a spy found, shot or home, and a lie that bit
+		if ev.Dead {
+			return ev.Name + " was found and shot"
+		}
+		return ev.Name + " came home"
+	case events.IntelFalse:
+		return "the word on " + ev.Name + " was " + ev.Rival + "'s"
 	case events.LieutenantWalked:
 		return ev.Name + " walked with " + ev.CityName
 	case events.FrontAudited:

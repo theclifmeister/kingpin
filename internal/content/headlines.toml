@@ -664,3 +664,26 @@ Overdose = [
   "Death on {{.Corner}}: council demands the police 'clear the dealers out'",
   "'Somebody is cutting the {{.Product}}': overdose on {{.Corner}} the third this month, says clinic",
 ]
+
+# Intel (#45): a spy going under, one found, and a lie that bit. Source
+# `crew` for the spy, `rivals` for the lie; IntelGained is report-only.
+SpyPlanted = [
+  "{{.Name}} 'not seen around' the usual {{.City}} corners; friends say they took new work",
+  "A {{.Role}} changes sides in {{.City}}, or seems to: {{.Faction}} has a new face",
+]
+SpyFound = [
+  "{{.Faction}} 'shows a rat the door' in {{.City}}; {{.Name}} home with a black eye",
+  "{{.Name}} back on the old {{.City}} corners after a spell away; nobody is asking where",
+]
+SpyShot = [
+  "{{.Name}} found shot in {{.City}}; police 'not ruling out' {{.Faction}}",
+  "Body in {{.City}} named as {{.Name}}; 'they talked to the wrong people', says a source",
+]
+IntelFalseRoute = [
+  "Customs waiting on {{.Route}}: 'somebody knew', says a {{.City}} officer",
+  "A tip-off and a seizure on {{.Route}}; {{.Faction}} 'delighted', says a rival",
+]
+IntelFalseStash = [
+  "Masked men find an empty till on {{.Corner}}; {{.Faction}} 'saw them coming'",
+  "Nothing to take on {{.Corner}}: {{.Leader}}'s people 'moved it the night before'",
+]

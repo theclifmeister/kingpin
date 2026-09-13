@@ -77,7 +77,11 @@ func TestSimsNeverImportEachOther(t *testing.T) {
 // the corners change hands (crew/lieutenant.go, #144 PR 2), the audit
 // flips an accountant without an event (laundering.go, #29), the
 // connect's collector hurts your best enforcer (market/suppliers.go,
-// #72).
+// #72). The file (World.Intel, #45) is nobody's row on purpose: a fact
+// is written through World.Learn (LearnBooks, Unlearn, Expose) by
+// whichever sim owns the truth it states, a call like AddStock that
+// the grep does not see, and an assignment into w.Intel from any sim
+// is an offender here.
 func TestSimsWriteOnlyTheirOwnState(t *testing.T) {
 	owned := map[string][]string{
 		"world":      {"Incidents"}, // its effects apply in game.ApplyIncident, the one place that knows the keys (#44)

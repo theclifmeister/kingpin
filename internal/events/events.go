@@ -1602,14 +1602,18 @@ func (RivalAbandoned) Kind() string { return "RivalAbandoned" }
 // The books (#70): the player's moves against the rival's machine.
 
 // RivalScouted is report-only bookkeeping: the night's look at the
-// rival's books. Read says whether it read them; the snapshot itself is
-// Rival.Known.
+// rival's books. Read says whether it read them, and what it read is
+// on the event (#45: the file, World.Intel, keeps it as facts).
 type RivalScouted struct {
 	Day     int
 	Cost    int
 	Read    bool
 	Rival   string // whose books (#43)
 	Faction string // faction id
+	Cash    int
+	Income  int
+	Muscle  int
+	Wages   int
 }
 
 func (RivalScouted) Kind() string { return "RivalScouted" }
@@ -1972,3 +1976,69 @@ type TunnelFound struct {
 }
 
 func (TunnelFound) Kind() string { return "TunnelFound" }
+
+// Intel (#45): what you know against what is true.
+
+// IntelGained is report-only bookkeeping: a fact filed tonight, by
+// whoever owns the truth. Subject and FactKind key it (game.Fact); Value
+// is the fact in words, Confidence what it was filed at, Source how it was
+// learnt (game.SourceSeen, SourceBooks, SourceCop, SourceSpy,
+// SourceContact); Name is the subject's name for the line (a leader,
+// the chief, a city, a route).
+type IntelGained struct {
+	Day        int
+	Subject    string
+	FactKind   string
+	Value      string
+	Confidence float64
+	Source     string
+	Name       string
+}
+
+func (IntelGained) Kind() string { return "IntelGained" }
+
+// SpyPlanted is a crew member going under with a faction tonight.
+type SpyPlanted struct {
+	Day     int
+	ID      int
+	Name    string
+	Role    string
+	Rival   string // the leader whose crew they join
+	Faction string // faction id
+}
+
+func (SpyPlanted) Kind() string { return "SpyPlanted" }
+
+// SpyFound is a spy coming out from under: found and shot (Dead), found
+// and sent home (Why "made"; whether they came home turned is nobody's
+// business but the DA's), or home because the faction is gone (Why
+// "gone", report-only). Reports is what they filed while under.
+type SpyFound struct {
+	Day     int
+	ID      int
+	Name    string
+	Role    string
+	Rival   string
+	Faction string
+	Dead    bool
+	Why     string
+	Reports int
+}
+
+func (SpyFound) Kind() string { return "SpyFound" }
+
+// IntelFalse is a planted fact biting: the road a faction fed you was
+// watched and the shipment on it is gone, or the till it named was
+// empty when the enforcers went in. Subject and FactKind key the fact
+// (game.FactRisk, FactStash); Name is the road's or the corner's name;
+// Rival and Faction the faction that fed it, named now.
+type IntelFalse struct {
+	Day      int
+	Subject  string
+	FactKind string
+	Name     string
+	Rival    string
+	Faction  string
+}
+
+func (IntelFalse) Kind() string { return "IntelFalse" }

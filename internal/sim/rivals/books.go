@@ -14,7 +14,7 @@ import (
 // take pays for and its chest is what a hire or a claim needs (#139).
 // Four moves make it legible and let the player drain it, each queued
 // on the world as intent and resolved here: a scout reads the books
-// (Rival.Known, a snapshot that goes stale), a boost sends the enforcers
+// (facts in World.Intel since #45, a read that goes stale), a boost sends the enforcers
 // in for a corner's takings rather than the ground (the strike's order,
 // the strike's odds, the strike's roll), a tip sends the police to one
 // of its corners (Rival.Heat, and past the notice line a raid), and a
@@ -57,9 +57,9 @@ func (s *Sim) ScoutOdds(w *game.World, r *game.RivalState) float64 {
 
 // Stale reports whether the books as last read are stale_days old or
 // more on day; false while they have never been read (there is nothing
-// to be stale).
-func (s *Sim) Stale(r *game.RivalState, day int) bool {
-	k := r.Known
+// to be stale). The read is the file's (#45, game.Known(w).Books).
+func (s *Sim) Stale(w *game.World, r *game.RivalState, day int) bool {
+	k := game.Known(w).Books(r.Faction())
 	return k.Read() && k.Age(day) >= s.cfg.Books.StaleDays
 }
 
@@ -120,7 +120,10 @@ func (s *Sim) boost(w *game.World, t *game.Tick, r *game.RivalState, rng rand, o
 	r.Observed = true
 	r.War += b.War
 	r.Trust = math.Max(0, r.Trust-fc.Trust)
-	if rng.Float64() < s.OddsOn(w, r, c, o.Force) {
+	// A lie about where the till is (#45) bites here: the roll is made
+	// (the dice do not move for it) and the till is empty either way.
+	lured := s.lured(w, t, r, c)
+	if rng.Float64() < s.OddsOn(w, r, c, o.Force) && !lured {
 		ev.Taken = true
 		ev.Cash = s.BoostTake(w, *c)
 		r.Cash -= ev.Cash
@@ -232,10 +235,10 @@ func (s *Sim) raid(w *game.World, t *game.Tick, r *game.RivalState, c *game.Corn
 }
 
 // scout resolves the player's look at the rival's books (#70), off the
-// books side stream: at the odds it stamps Known with tonight's numbers
-// (the chest and the muscle as the night leaves them, the take and the
-// wage bill as today read them), else it reads nothing and the next
-// look is a little likelier.
+// books side stream: at the odds it files tonight's numbers (the chest
+// and the muscle as the night leaves them, the take and the wage bill
+// as today read them) as facts in World.Intel (#45, file), else it
+// reads nothing and the next look is a little likelier.
 func (s *Sim) scout(w *game.World, t *game.Tick, r *game.RivalState) {
 	o := w.Today.Scouting
 	if o == nil || w.Faction(o.Faction) != r {
@@ -245,7 +248,8 @@ func (s *Sim) scout(w *game.World, t *game.Tick, r *game.RivalState) {
 	ev := events.RivalScouted{Day: t.Day, Cost: o.Cost, Rival: r.Leader, Faction: r.Faction()}
 	if t.Sub("books").Float64() < s.ScoutOdds(w, r) {
 		ev.Read = true
-		r.Known = game.Known{Day: t.Day, Cash: r.Cash, Income: s.Income(w, r), Muscle: r.Muscle, Wages: s.Wages(w, r)}
+		ev.Cash, ev.Income, ev.Muscle, ev.Wages = r.Cash, s.Income(w, r), r.Muscle, s.Wages(w, r)
+		s.file(w, t, r, game.Books{Day: t.Day, Cash: ev.Cash, Income: ev.Income, Muscle: ev.Muscle, Wages: ev.Wages})
 		r.Scouted = 0
 	} else {
 		r.Scouted++
