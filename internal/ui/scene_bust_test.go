@@ -16,9 +16,10 @@ import (
 
 // The bust's scene (#155): a morning with an Enforcement past a patrol
 // opens the report on it instead of the morning's scene, any key skips
-// it, it ends by itself, either way on today's report byte for byte,
-// an arrest that ends the run hands over to the ending's, and the
-// fast-forward's stopping morning plays it.
+// it, it resolves by itself, either way onto its hold (#203), which
+// the report's close ends on today's report byte for byte, an arrest
+// that ends the run hands over to the ending's, and the fast-forward's
+// stopping morning plays it.
 
 // bustMorning is a model on seed 7 with the options given, a little
 // stock on the street and the city's heat set, n pressed on day 1: the
@@ -115,14 +116,20 @@ func TestBustSceneOnAnEnforcement(t *testing.T) {
 		t.Fatalf("after F: mode %v day %d → %d scene %v stop %q", m.mode, day, m.w.Day, m.reportScene, m.fastStop)
 	}
 	skipScene(m)
-	if line := reportLine(t, m); !strings.HasPrefix(line, "Stopped after 1 day") {
-		t.Errorf("the report's first line is %q", line)
+	if _, _, box := modalBox(t, m.View()); !strings.HasPrefix(strings.TrimSpace(strings.Trim(strings.TrimSpace(stripANSI(box[5])), "║")), "Stopped after 1 day") {
+		t.Errorf("the report's line under the bust's is %q", stripANSI(box[5]))
+	}
+	m.Update(key("enter")) // the hold ends with the report (#203)
+	m.Update(key("r"))
+	if line := reportLine(t, m); !strings.HasPrefix(line, "Stopped after 1 day") || m.scene != nil {
+		t.Errorf("the reopened report's first line is %q, scene %v", line, m.scene)
 	}
 }
 
 // TestBustSceneIsSkippable: a key mid-scene is consumed and lands on
-// today's report, byte for byte the one animation off draws; enter
-// then closes it and never ends the day.
+// the resolved scene, holding (#203), the report under it today's row
+// for row; enter then closes it, the hold with it, on today's report
+// byte for byte, and never ends the day.
 func TestBustSceneIsSkippable(t *testing.T) {
 	off := bustMorning(t, 80, 24, Options{Anim: false}, 70, false)
 	on := bustMorning(t, 80, 24, animOn, 70, false)
@@ -136,21 +143,34 @@ func TestBustSceneIsSkippable(t *testing.T) {
 		t.Errorf("mid-scene the level is not up:\n%s", stripANSI(mid))
 	}
 	day := on.w.Day
-	if _, cmd := on.Update(key("x")); cmd != nil || on.scene != nil || on.mode != modeReport {
+	if _, cmd := on.Update(key("x")); cmd != nil || on.scene == nil || !on.scene.Holding() || on.mode != modeReport {
 		t.Fatalf("the skip: cmd %v scene %v mode %v", cmd, on.scene, on.mode)
 	}
-	if on.View() != off.View() {
-		t.Fatalf("after the skip the report is not today's:\n%s\n%s", stripANSI(on.View()), stripANSI(off.View()))
+	tickAt(on, now.Add(anim.BustLength/2+anim.Frame))
+	_, _, held := modalBox(t, on.View())
+	_, _, plain := modalBox(t, off.View())
+	if !strings.HasPrefix(strings.TrimSpace(strings.Trim(strings.TrimSpace(stripANSI(held[3])), "║")), "STING: lost") {
+		t.Errorf("after the skip the bust's line is not resolved: %q", stripANSI(held[3]))
 	}
-	if _, cmd := on.Update(key("enter")); cmd != nil || on.mode != modePlay || on.w.Day != day {
-		t.Fatalf("enter after the skip: cmd %v mode %v day %d → %d", cmd, on.mode, day, on.w.Day)
+	for i := 5; i < len(held)-3; i++ { // the body's rows between the bust's line and the footer's blank
+		if held[i] != plain[i-2] {
+			t.Errorf("after the skip row %d under the bust's line is not today's:\n%s\n%s", i, stripANSI(held[i]), stripANSI(plain[i-2]))
+		}
+	}
+	if _, cmd := on.Update(key("enter")); cmd != nil || on.scene != nil || on.mode != modePlay || on.w.Day != day {
+		t.Fatalf("enter after the skip: cmd %v scene %v mode %v day %d → %d", cmd, on.scene, on.mode, day, on.w.Day)
+	}
+	on.Update(key("r"))
+	if on.View() != off.View() {
+		t.Fatalf("reopened, the report is not today's:\n%s\n%s", stripANSI(on.View()), stripANSI(off.View()))
 	}
 }
 
 // TestBustSceneEndsItself: the ticks run the scene out at BustLength,
-// every frame fitting, the chain ends there on today's report byte for
-// byte, and a key after is the report's; the stash raid shows the
-// rival's purple for exactly one frame, the plain raid never.
+// every frame fitting, the chain runs on into the hold (#203), a key
+// after is the report's, and the close ends the hold on today's report
+// byte for byte; the stash raid shows the rival's purple for exactly
+// one frame, the plain raid never.
 func TestBustSceneEndsItself(t *testing.T) {
 	profile := lipgloss.ColorProfile()
 	lipgloss.SetColorProfile(0)
@@ -180,14 +200,18 @@ func TestBustSceneEndsItself(t *testing.T) {
 		if want := map[bool]int{false: 0, true: 1}[informant]; purples != want {
 			t.Errorf("informant %v: %d frames in purple, want %d", informant, purples, want)
 		}
-		if cmd := tickAt(on, now.Add(anim.BustLength)); cmd != nil || on.scene != nil || on.mode != modeReport {
+		if cmd := tickAt(on, now.Add(anim.BustLength)); cmd == nil || on.scene == nil || !on.scene.Holding() || on.mode != modeReport {
 			t.Fatalf("Done: cmd %v scene %v mode %v", cmd, on.scene, on.mode)
 		}
-		if on.View() != off.View() {
-			t.Fatalf("informant %v: after Done the report is not today's:\n%s\n%s", informant, stripANSI(on.View()), stripANSI(off.View()))
+		if _, cmd := on.Update(key("down")); cmd != nil || on.mode != modeReport || on.scene == nil {
+			t.Fatalf("a key after Done: cmd %v mode %v scene %v", cmd, on.mode, on.scene)
 		}
-		if _, cmd := on.Update(key("down")); cmd != nil || on.mode != modeReport {
-			t.Fatalf("a key after Done: cmd %v mode %v", cmd, on.mode)
+		if _, cmd := on.Update(key("esc")); cmd != nil || on.scene != nil || on.mode != modePlay {
+			t.Fatalf("esc on the hold: cmd %v scene %v mode %v", cmd, on.scene, on.mode)
+		}
+		on.Update(key("r"))
+		if on.View() != off.View() {
+			t.Fatalf("informant %v: after the close the report is not today's:\n%s\n%s", informant, stripANSI(on.View()), stripANSI(off.View()))
 		}
 	}
 }

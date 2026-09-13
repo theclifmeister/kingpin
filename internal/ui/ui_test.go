@@ -94,9 +94,11 @@ func endDay(t *testing.T, m *Model) {
 
 // skipScene ends the interstitial a morning opened on, if one is up (a
 // fixture with animation on: the card's scene, #154), so the keys
-// after it are the modal's; any key does, consumed, so esc it is.
+// after it are the modal's; any key does, consumed, so esc it is. A
+// report's scene resolves and holds instead (#203): the keys after it
+// are the report's too, and its close ends the hold.
 func skipScene(m *Model) {
-	if m.scene != nil && !m.scene.Idle {
+	if m.scene != nil && !m.scene.Idle && !m.scene.Holding() {
 		m.Update(key("esc"))
 	}
 }

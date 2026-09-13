@@ -33,9 +33,11 @@ func (m *Model) showCard() {
 // end-day confirmation, never the stage's or the card's, whose scenes
 // outrank it. The bust's (#155) when the tick's events hold an
 // enforcement past a patrol, a fast-forward's stopping morning
-// included (the enforcement is what stopped it); else the morning's
-// (#159), never after a fast-forward (fastStop). r's reopen (keys.go)
-// sets the mode itself: a reopen is no morning.
+// included (the enforcement is what stopped it); else the incident's
+// (#203) when the report opens on one, after a fast-forward too (the
+// line is the report's own); else the morning's (#159), never after a
+// fast-forward (fastStop). Each holds until the report closes (#203).
+// r's reopen (keys.go) sets the mode itself: a reopen is no morning.
 func (m *Model) openReport() {
 	if m.w.Report == nil {
 		m.mode = modePlay
@@ -46,9 +48,12 @@ func (m *Model) openReport() {
 	if !first {
 		return
 	}
-	if ev, ok := m.bust(); ok {
+	switch ev, ok := m.bust(); {
+	case ok:
 		m.bustScene(ev)
-	} else if m.fastStop == "" {
+	case len(m.w.Report.Incident) > 0:
+		m.incidentScene()
+	case m.fastStop == "":
 		m.morningScene()
 	}
 }

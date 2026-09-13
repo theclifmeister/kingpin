@@ -17,15 +17,18 @@ import (
 // report. Never after F: a fast-forward's stopping report opens still,
 // with its `Stopped after 3 days: …` line, and no scene. Any key skips
 // it and is consumed; enter then closes the report and never ends the
-// day. KINGPIN_NO_MORNING_ANIM turns this one scene off on its own
+// day. Rolled, it holds (#203): the day sits and the title's wipe
+// replays every anim.HoldRest until the report closes.
+// KINGPIN_NO_MORNING_ANIM turns this one scene off on its own
 // (Options.MorningAnim), a player who likes the card's reveal not
 // wanting one every morning; with it off, with animation off or under
 // 80x24 the report is today's, byte for byte.
 
 // morningScene starts the scene: animation and the morning's on, the
 // terminal at least 80x24, on anim.Seed(seed, day, "morning"), which
-// the slide and the wipe leave unthrown. reportScene names it, so the
-// views know whose frame the report's scene is.
+// the slide and the wipe leave unthrown, held until the report closes.
+// reportScene names it, so the views know whose frame the report's
+// scene is.
 func (m *Model) morningScene() {
 	if !m.opts.Anim || !m.opts.MorningAnim || !m.titleFits() || m.w.Report == nil {
 		return
@@ -34,17 +37,20 @@ func (m *Model) morningScene() {
 	m.play(&anim.Player{
 		Scene:  anim.Morning(m.w.Day-1, m.w.Day, m.reportTitle(), anim.Seed(m.w.Seed, m.w.Day, "morning")),
 		Accent: theme.Money,
+		Hold:   true,
 	})
 }
 
 // reportScene is which scene the report opened on, while m.scene is up
-// in modeReport: the morning's (#159) or the bust's (#155).
+// in modeReport: the morning's (#159), the bust's (#155) or the
+// incident's (#203).
 type reportSceneKind int
 
 const (
-	reportNone    reportSceneKind = iota
-	reportMorning                 // the day rolls over (#159)
-	reportBust                    // a sting, a raid or an arrest hits (#155)
+	reportNone     reportSceneKind = iota
+	reportMorning                  // the day rolls over (#159)
+	reportBust                     // a sting, a raid or an arrest hits (#155)
+	reportIncident                 // the weather (#203)
 )
 
 // onReportScene reports whether the report's scene of the kind is up:
@@ -53,9 +59,9 @@ func (m *Model) onReportScene(kind reportSceneKind) bool {
 	return m.scene != nil && !m.scene.Idle && m.mode == modeReport && m.reportScene == kind
 }
 
-// morningFrame is the scene's frame while it runs: row 0 the day
-// counter, row 1 the report's title row at the modal's inner width;
-// nil once it is over (or never was).
+// morningFrame is the scene's frame while it runs or holds: row 0 the
+// day counter, row 1 the report's title row at the modal's inner
+// width; nil once the report has closed (or it never was).
 func (m *Model) morningFrame() []string {
 	if !m.onReportScene(reportMorning) {
 		return nil
