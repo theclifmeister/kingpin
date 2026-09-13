@@ -16,6 +16,7 @@ import (
 	"github.com/theclifmeister/kingpin/internal/harness"
 	"github.com/theclifmeister/kingpin/internal/sim"
 	"github.com/theclifmeister/kingpin/internal/sim/laundering"
+	"github.com/theclifmeister/kingpin/internal/sim/territory"
 )
 
 func main() {
@@ -46,6 +47,7 @@ func main() {
 	incidents := flag.String("incidents", "on", "on | off: off boxes the world's incident table (#44); the harness tests run with it boxed, so a pinned number reads with off")
 	cut := flag.Float64("cut", 0, "cut everything the policy buys by this ratio (#47, harness.Cutter): 0.5 adds half again at nothing")
 	life := flag.String("life", "on", "on | off: off boxes crew.toml's [life] table (#46, harness.NoLife): nobody ages, is arrested, wounded or killed; a run with it off is the run before the feature")
+	deeds := flag.String("deeds", "on", "on | off: off boxes city.toml's [deed] table (#194, harness.NoDeeds): no block is on sale, so boss buys none; a run with it off is the run before the feature")
 	flag.Parse()
 	at := func(def float64) float64 {
 		if *lieLow > 0 {
@@ -76,6 +78,14 @@ func main() {
 		cfg = harness.NoLife(cfg)
 	default:
 		fmt.Fprintf(os.Stderr, "unknown -life %q\n", *life)
+		os.Exit(2)
+	}
+	switch *deeds {
+	case "on":
+	case "off":
+		cfg = harness.NoDeeds(cfg)
+	default:
+		fmt.Fprintf(os.Stderr, "unknown -deeds %q\n", *deeds)
 		os.Exit(2)
 	}
 	var p harness.Policy
@@ -234,6 +244,7 @@ func main() {
 	assetsOwned := map[string]int{}
 	var retired []int
 	ld := laundering.New(cfg)
+	tr := territory.New(cfg) // the deeds' rent (#194)
 	shipments, shipped, seizures, seizedUnits := 0, 0, 0, 0
 	var fear, respect, notoriety []int
 	dealt := map[string]int{}
@@ -248,6 +259,7 @@ func main() {
 	var rels []int
 	debtDays, late, frozen, collected, creditTaken := 0, 0, 0, 0, 0
 	housesHeld, housesLost, houseUnits, rent, raidUnits, raids := 0, 0, 0, 0, 0, 0
+	deedsHeld, deedsBought, deedCash, deedRent, deedsSeized, deedRentDay := 0, 0, 0, 0, 0, 0
 	// Quality (#47): what the cuts and the cooks did, the overdoses, the
 	// quality of what sold and the corners' repeat business at the end.
 	cutUnits, cutCost, cooked, cookCost, overdoses, chemists := 0, 0, 0, 0, 0, 0
@@ -283,7 +295,7 @@ func main() {
 				for _, cid := range w.CityOrder {
 					fmt.Printf(" %.0f", w.Cities[cid].Pressure)
 				}
-				fmt.Printf(" file %d stock %3d/%3d +%d road orders %d crew %d corners %d/%d rival %d war %3.0f upgrades %d fronts %d %s rep %.0f/%.0f/%.0f", w.Heat.Evidence, w.Stashed(), w.Capacity(w.Player.Location), w.TotalStock()-w.Stashed(), len(w.Today.Orders), len(w.Crew.Members), w.Worked(), w.Held(), w.RivalHeld(), w.Rival().War, len(w.Upgrades), len(w.Fronts), w.Laundering.Dial, w.Player.Reputation.Fear, w.Player.Reputation.Respect, w.Player.Reputation.Notoriety)
+				fmt.Printf(" file %d stock %3d/%3d +%d road orders %d crew %d corners %d/%d rival %d war %3.0f upgrades %d fronts %d %s deeds %d rep %.0f/%.0f/%.0f", w.Heat.Evidence, w.Stashed(), w.Capacity(w.Player.Location), w.TotalStock()-w.Stashed(), len(w.Today.Orders), len(w.Crew.Members), w.Worked(), w.Held(), w.RivalHeld(), w.Rival().War, len(w.Upgrades), len(w.Fronts), w.Laundering.Dial, len(w.Deeds()), w.Player.Reputation.Fear, w.Player.Reputation.Respect, w.Player.Reputation.Notoriety)
 				for _, id := range w.Products {
 					fmt.Printf("  %s", id)
 					for _, cid := range w.CityOrder {
@@ -352,6 +364,14 @@ func main() {
 						fmt.Printf(" %dd", ev.Days)
 					}
 					fmt.Println()
+				}
+			case events.DeedBought:
+				if *trace && seed == *seed0 {
+					fmt.Printf("day %3d deed %s in %s $%d, rent $%d/day\n", ev.Day, ev.Corner, ev.City, ev.Price, ev.Rent)
+				}
+			case events.DeedSeized:
+				if *trace && seed == *seed0 {
+					fmt.Printf("day %3d forfeiture %s in %s $%d: $%d in deeds against $%d washed\n", ev.Day, ev.Corner, ev.City, ev.Price, ev.Spent, ev.Washed)
 				}
 			case events.CornerRobbed:
 				robberies++
@@ -544,6 +564,17 @@ func main() {
 		creditTaken += st.Credit
 		housesHeld += len(res.World.Houses)
 		housesLost += st.HousesLost
+		// The property (#194): the deeds held at the end, what they
+		// cost and paid back, the DA's seizures, and the rent a day at
+		// the end.
+		deedsHeld += len(res.World.Deeds())
+		deedsBought += st.Deeds
+		deedCash += st.DeedCash
+		deedRent += st.DeedRent
+		deedsSeized += st.DeedsSeized
+		for _, c := range res.World.Deeds() {
+			deedRentDay += tr.DeedRent(c.Deed)
+		}
 		houseUnits += st.HouseUnits
 		rent += st.Rent
 		for _, e := range res.Events {
@@ -728,6 +759,10 @@ func main() {
 	if housesHeld > 0 || housesLost > 0 {
 		fmt.Printf("houses:        %d held at the end per run, %d lost to the landlord, $%d rent per run, %d units lost out of the houses per run; %d stings and raids took %d units per run\n",
 			housesHeld / *runs, housesLost, rent / *runs, houseUnits / *runs, raids, raidUnits / *runs)
+	}
+	if deedsBought > 0 {
+		fmt.Printf("property:      %d deeds held at the end per run (%d bought, %d seized by the DA), $%d spent and $%d paid back per run, $%d/day rent at the end (means)\n",
+			deedsHeld / *runs, deedsBought, deedsSeized, deedCash / *runs, deedRent / *runs, deedRentDay / *runs)
 	}
 	if pick != nil {
 		total := 0

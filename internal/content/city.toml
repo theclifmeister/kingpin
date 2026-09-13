@@ -19,6 +19,32 @@ robbery_stock = 0.50        # of the stock that corner's share of the operation 
 robbery_cash = 0.50         # of the day's takings on that corner
 enforcer_cut = 0.80         # fraction of the robbery chance a skill-100 enforcer removes; half that at skill 0
 
+# Property (#194): clean cash buys the block a corner is on, yours or
+# not. The price is days of the block's street trade at purchase (every
+# product the city sells, at its price and the corner's taste that day:
+# a rich block costs more); the block then pays rent a day, clean, a
+# share of the price: cover, not income. A deed cuts the robbery chance
+# on the block by robbery_mul, the rival's chance of pushing on your
+# corner there by push_mul (and their defence of the corner where the
+# block is theirs: the businessman's way to a corner; never 0, a deed
+# slows the rival and never stops it), and a stash house on it weighs
+# raid_mul in the raid's roll. Deeds are public record: each adds
+# pressure to its city a day, the purchase that brings a city's count to
+# headline_deeds or past it makes the paper, and when the deeds you hold
+# cost more than forfeit_ratio times what the fronts have washed the
+# money has no story: the DA seizes the newest, and forfeit_evidence
+# pages file the morning after. days = 0 puts no deed on sale.
+[deed]
+days = 90
+rent = 0.002
+robbery_mul = 0.5
+push_mul = 0.5
+raid_mul = 0.5
+pressure = 0.5
+headline_deeds = 4
+forfeit_ratio = 0.5
+forfeit_evidence = 2
+
 [[city]]
 id = "eastside"
 name = "Eastside"

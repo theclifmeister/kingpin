@@ -114,7 +114,7 @@ func (m *Model) confirmStrike() {
 		m.refuse("Can't send them: " + err.Error())
 		return
 	}
-	m.say(fmt.Sprintf("Enforcers go to %s tonight: %s. Odds ~%.0f%%, heat +%.0f.", c.Name, forces[i], m.set.Rivals.Odds(m.w, m.factionOf(c), forces[i])*100, m.set.Rivals.StrikeHeat(c, forces[i])))
+	m.say(fmt.Sprintf("Enforcers go to %s tonight: %s. Odds ~%.0f%%, heat +%.0f.", c.Name, forces[i], m.set.Rivals.OddsOn(m.w, m.factionOf(c), c, forces[i])*100, m.set.Rivals.StrikeHeat(c, forces[i])))
 }
 
 func (m *Model) viewStrike() string {
@@ -132,11 +132,11 @@ func (m *Model) viewStrike() string {
 		switch {
 		case i < len(forces):
 			f := forces[i]
-			cells = append(cells, []any{r, approx{m.set.Rivals.Odds(m.w, fac, f) * 100}, signed{m.set.Rivals.StrikeHeat(c, f)}, signed{m.cfg.Rivals.ForceFor(f).War}, "the corner"})
+			cells = append(cells, []any{r, approx{m.set.Rivals.OddsOn(m.w, fac, c, f) * 100}, signed{m.set.Rivals.StrikeHeat(c, f)}, signed{m.cfg.Rivals.ForceFor(f).War}, "the corner"})
 		case i < 2*len(forces):
 			// A boost (#70): the same odds at the force, for the till.
 			f := forces[i-len(forces)]
-			cells = append(cells, []any{r, approx{m.set.Rivals.Odds(m.w, fac, f) * 100}, signed{m.set.Rivals.BoostHeat(c)}, signed{b.War}, "~" + cash(m.set.Rivals.BoostTake(m.w, *c))})
+			cells = append(cells, []any{r, approx{m.set.Rivals.OddsOn(m.w, fac, c, f) * 100}, signed{m.set.Rivals.BoostHeat(c)}, signed{b.War}, "~" + cash(m.set.Rivals.BoostTake(m.w, *c))})
 		default:
 			cells = append(cells, []any{r, nil, nil, nil, nil})
 		}

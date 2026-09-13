@@ -2799,6 +2799,19 @@ func TestModalsFit(t *testing.T) {
 			m.onRoutes = true
 			m.Update(key("$"))
 		}},
+		// The property (#194): the block under the corner the map cursor
+		// is on, with the DA's line drawn both sides of the price.
+		{"confirm deed", modeConfirmDeed, func(t *testing.T, m *Model) {
+			m.w.Player.CleanCash = 5_000_000
+			m.w.Stats.Laundered = 20_000_000
+			m.Update(key("5"))
+			m.Update(key("d"))
+		}},
+		{"confirm deed over the line", modeConfirmDeed, func(t *testing.T, m *Model) {
+			m.w.Player.CleanCash = 5_000_000
+			m.Update(key("5"))
+			m.Update(key("d"))
+		}},
 		{"stage", modeStage, func(t *testing.T, m *Model) { delete(m.w.Progression.Seen, 4); m.showStage() }},
 		{"card", modeCard, func(t *testing.T, m *Model) { m.w.Dilemmas.Pending = testCard(m.w.Day); m.showCard() }},
 		{"card outcome", modeCard, func(t *testing.T, m *Model) {

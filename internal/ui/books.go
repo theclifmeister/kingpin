@@ -171,7 +171,7 @@ func (m *Model) confirmBoost() {
 		m.refuse("Can't send them: " + err.Error())
 		return
 	}
-	m.say(fmt.Sprintf("Enforcers go for the till on %s tonight at %s: ~%s, odds ~%.0f%%, heat +%.0f.", c.Name, f, cash(m.set.Rivals.BoostTake(m.w, *c)), m.set.Rivals.Odds(m.w, m.factionOf(c), f)*100, m.set.Rivals.BoostHeat(c)))
+	m.say(fmt.Sprintf("Enforcers go for the till on %s tonight at %s: ~%s, odds ~%.0f%%, heat +%.0f.", c.Name, f, cash(m.set.Rivals.BoostTake(m.w, *c)), m.set.Rivals.OddsOn(m.w, m.factionOf(c), c, f)*100, m.set.Rivals.BoostHeat(c)))
 }
 
 // boostConfirm is the confirmation's body: the till, the odds, the heat
@@ -185,7 +185,7 @@ func (m *Model) boostConfirm() string {
 	b := m.set.Rivals.BoostTuning()
 	r := m.factionOf(c)
 	body := m.wrapLines(fmt.Sprintf("The enforcers go in at %s for the till on %s, not the corner.", f, c.Name))
-	body = append(body, m.wrapLines(fmt.Sprintf("~%.0f%% they come back with ~%s of %s's takings.", m.set.Rivals.Odds(m.w, r, f)*100, cash(m.set.Rivals.BoostTake(m.w, *c)), r.Leader))...)
+	body = append(body, m.wrapLines(fmt.Sprintf("~%.0f%% they come back with ~%s of %s's takings.", m.set.Rivals.OddsOn(m.w, r, c, f)*100, cash(m.set.Rivals.BoostTake(m.w, *c)), r.Leader))...)
 	body = append(body, fmt.Sprintf("Heat +%.0f and war +%.0f either way; trust -%.0f.", m.set.Rivals.BoostHeat(c), b.War, m.cfg.Rivals.ForceFor(f).Trust))
 	fail := fmt.Sprintf("Failing, the enforcers lose %.0f nerve-weighted loyalty", b.FailLoss)
 	if r.Muscle > b.FailMuscle {

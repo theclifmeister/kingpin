@@ -192,20 +192,26 @@ const (
 // sixty days before #43 and 8b22ab1's after it, so no money number
 // moved: TestNoAssetIsTheOldRun reads the same day by day to the
 // tier-4 checkpoint; re-pinned on the merged tree).
+// Again for #194 (Corner.Deed, Today.DeedsBought, Law.Forfeited and
+// four Stats; the move is on day 1 by shape alone and no number moved:
+// the boss buys its first deed after day 100 on this seed, and
+// cmd/balance -deeds off prints 74a0b60's trace to the dollar on boss,
+// cartel and distributor over three seeds to day 200, with deeds on
+// the boss's trace holding to day 125 at the earliest).
 var seedDigest = []string{
-	"a6e75b9e0da6dcf8", "1e41c009511c8fc2", "0a14eafe9db50564", "388fb16c42443648",
-	"f7bc755db405cf3f", "e8719cc2e9db5099", "baa05f31d8ff067d", "74f27c9f61f18bef",
-	"62129ff11477ad77", "3f972b2f1b49b9e4", "f7d3c4a427cbd0d9", "b4cbc4256eb8762c",
-	"eccc126e37d71648", "446688d9b6251103", "c97d38f0f94580ef", "54a1e746e09bcf97",
-	"4d44d45ff8b462cf", "73ef0a59ebbe18a5", "78e56fa4ad9a0d70", "77f3a0acf7a6cb2c",
-	"345297ef1795cf96", "aa1ad05ba144a50d", "8ae735c2f0bb21df", "4438f56787e223bf",
-	"ad2bc244c6c9fa5b", "d6f235ed20dbcb5b", "bce97fbe77f71beb", "79a081ce0ceedf76",
-	"0363a5e54bd6dbcf", "3030be84edbea482", "6df4088fd2e30baf", "b4518e6685b10b73",
-	"9c8d74858df5a2a0", "2a9382576c7d4721", "4f8de6639a6f3910", "4db47ec260c560c4",
-	"426cf1d2e95b414f", "2fa24f40a2629eee", "69076bc803c7831a", "c1a74b158907649c",
-	"53060d0d6bf5872d", "74a889e1ec9832de", "38329a8203cd9522", "92fe274cf821745a",
-	"9573c7a361e17416", "27a34acd95b4827c", "f03b8549ddd1eedd", "657553fab186e661",
-	"f7705230e1499ae4", "c21b10e92b4d9804", "50b89877b98c2575", "7c2d08d9c2766ebe",
-	"28f8ccb3f612a5f2", "27bbc900f451e6fa", "e77a10454dd7353c", "ce9237e71e1684ec",
-	"5b00660d9b7069ad", "71676854904bb55a", "47758e2bd52c1f39", "78a6116eeb723601",
+	"9a7a9c413db18549", "f07f6a053dfb7c2d", "e2fd2ca40aa57a17", "2987af096a9f5951",
+	"cbc143fbe6ec998c", "5ea69e344dbf633c", "265595d379849abc", "c7d1260a345711fa",
+	"b6104c3dc8ee7a3a", "fd99f9963c8980d1", "faeaeb70a4f24fbc", "891eb96d45463a61",
+	"e66de7256427426d", "b9cb8b4a0e1132c4", "219455e7143941c4", "5b71f9c0688db330",
+	"9377ff4431147954", "49bb49e1aa5d2222", "c7bd200c884b0f4f", "9ab37cfbb8de248d",
+	"f872ccb20779052f", "8f51c38575f526f2", "eaf6b277c1244d66", "088a21d1221a9eaa",
+	"a7691be7305cef24", "2297b370efe42e72", "e329ed49fb75821a", "ecbbb0deec25db99",
+	"8be369240eed3244", "bcbab1a0f56a7f71", "7f2268fdd72f1dae", "3d0e214b7522b0e2",
+	"5722ba61a3eb08b9", "3cb1ab79490ab642", "aa4f05fd3acdffcd", "a56e1d31c4b29969",
+	"227c0e3a8d4cbd9a", "863fe791f397afab", "5832912138fe907f", "8a67ec4c6fe44637",
+	"c15d14842e3a1e3a", "1ab98224f7370bd7", "fd6f24eb5223bc4f", "d85b0d62bdd6c833",
+	"44e1f214bbe38f8f", "8f37f03ab21e54df", "895a046632344a78", "62f6eac64d5bbd20",
+	"c9eddcde43bac80d", "dbdbc38a22e3cfd1", "4c18e15e3fa4aaa4", "15e1df571d8f1001",
+	"ac77d8a2fab4edcd", "856dcacc14bd97d1", "760279a85938733d", "3cdc0ff2411802e1",
+	"b16278f921d6e10a", "b6af7c906493cef1", "c0ce34a630fd51a6", "50f6e628d1009592",
 }

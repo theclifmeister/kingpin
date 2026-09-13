@@ -85,6 +85,7 @@ const (
 	modeReserve           // clean cash into the offshore account (#195): the amount, then enter
 	modeConfirmBail       // put bail down for the selected member in a cell? (#46)
 	modeDriver            // pick the driver who rides the selected route (#46)
+	modeConfirmDeed       // buy the block the selected corner is on? (#194)
 	modeCount
 )
 
@@ -586,6 +587,14 @@ func (m *Model) handleKey(k tea.KeyMsg) (tea.Model, tea.Cmd) {
 			m.mode = modePlay
 		}
 		return m, nil
+	case modeConfirmDeed:
+		switch key {
+		case "y", "Y":
+			m.confirmDeed()
+		default:
+			m.mode = modePlay
+		}
+		return m, nil
 	case modeInvest:
 		return m.keyInvest(k)
 	case modeReserve:
@@ -1068,6 +1077,8 @@ func (m *Model) View() string {
 		body = m.viewBribe()
 	case modeConfirmCheckpoint:
 		body = m.modal("BUY THE "+strings.ToUpper(m.checkpointWord())+"?", m.checkpointConfirm(), m.modalFooter())
+	case modeConfirmDeed:
+		body = m.modal("BUY THE BLOCK?", m.deedConfirm(), m.modalFooter())
 	case modeInvest:
 		body = m.viewInvest()
 	case modeReserve:

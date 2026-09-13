@@ -105,7 +105,9 @@ jobs:
         run: go build ./...
 
       - name: test
-        run: go test -race -timeout 30m ./...
+        run: |
+          go test -timeout 30m ./internal/harness ./internal/ui
+          go test -race -timeout 30m $(go list ./... | grep -v -e /internal/harness$ -e /internal/ui$)
 
       - uses: actions/cache/save@v6
         if: ${{ !cancelled() }}

@@ -219,18 +219,17 @@ MAP · Eastside  [ ◉ Eastside ]  Bayport  3/10 held · 3 worked · ~1828/day f
  ▪ FOURTH & MAIN     · BUS DEPOT         · THE PROJECTS      · PRECINCT ROW         │ size        ×1.2                 │
    you                 free                free                free                 │ heat        ×0.6 quiet           │
    ~142/day undercut   ~142/day warm       ~326/day average    ~269/day hot         │ risk        ×1.6 rough           │
-                     · THE STRIP         · RIVERSIDE         · THE HEIGHTS          │ demand      Weed ~75             │
-                       free                free                free                 │             Designer ~52         │
-                       ~357/day warm       ~249/day average    ~254/day warm        │             Pills ~44            │
-                                                                                    │             Heroin ~37           │
-ROUTES                                                                              │             Coke ~17 · Meth ~5   │
-▸ Coast Road   Bayport  ──car──▪────▶ Eastside  normal  2d · 60 units · $8/u · ~0%  │ runner      nobody               │
-  Interstate   Bayport  ─truck──────▶ Eastside  off     3d · 400 units · $3/u · ~9% │ enforcer    nobody               │
-  The Channel  Bayport  ─boat───────▶ Eastside  off     5d · 2000 units · $1/u · ~7%│ w  push takes it ~10%, hit ~24%  │
+                     · THE STRIP         · RIVERSIDE         · THE HEIGHTS          │ d  buy the block: $15M clean, +… │
+                       free                free                free                 │ demand      Weed ~75             │
+                       ~357/day warm       ~249/day average    ~254/day warm        │             Designer ~52         │
+                                                                                    │             Pills ~44            │
+ROUTES                                                                              │             Heroin ~37           │
+▸ Coast Road   Bayport  ──car──▪────▶ Eastside  normal  2d · 60 units · $8/u · ~0%  │             Coke ~17 · Meth ~5   │
+  Interstate   Bayport  ─truck──────▶ Eastside  off     3d · 400 units · $3/u · ~9% │ runner      nobody               │
+  The Channel  Bayport  ─boat───────▶ Eastside  off     5d · 2000 units · $1/u · ~7%│ enforcer    nobody               │
+                                                                                    │ w  push takes it ~10%, hit ~24%  │
                                                                                     │ w  boost: the till, ~$24K        │
                                                                                     │ t  tip the police: at 0 of 60    │
-                                                                                    │                                  │
-                                                                                    │                                  │
                                                                                     │                                  │
                                                                                     │                                  │
                                                                                     │                                  │
@@ -246,7 +245,8 @@ ROUTES                                                                          
                                                                                     │ a  abandon                       │
                                                                                     │ w  send enforcers                │
                                                                                     │ u  undercut     t  tip police    │
-                                                                                    │ r  route dial   R  route target  │
+                                                                                    │ d  buy block    r  route dial    │
+                                                                                    │ R  route target                  │
                                                                                     │ g  go to Bayport                 │
                                                                                     │ ?  help                          │
                                                                                     ╰──────────────────────────────────╯
@@ -390,6 +390,7 @@ The full table is below; `?` brings it up in the game.
 | `w` | send enforcers | send the enforcers at the selected corner | map |
 | `u` | undercut | sell cheap on the rival's corner next door | map |
 | `t` | tip police | tip the police on the selected rival corner | map |
+| `d` | buy block | buy the block the selected corner is on | map |
 | `r` | route dial | the selected route: off, slow, normal, fast | map |
 | `R` | route target | what the selected route keeps the far end at | map |
 | `$` | buy checkpoint | buy the checkpoint or customs on the route | map |

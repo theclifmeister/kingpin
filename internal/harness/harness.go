@@ -15,6 +15,7 @@ import (
 	"github.com/theclifmeister/kingpin/internal/sim/law"
 	"github.com/theclifmeister/kingpin/internal/sim/logistics"
 	"github.com/theclifmeister/kingpin/internal/sim/rivals"
+	"github.com/theclifmeister/kingpin/internal/sim/territory"
 )
 
 // Policy decides the player's actions for the coming day.
@@ -1126,6 +1127,8 @@ const HubCorners = 2
 func distribute(cfg *content.Config, lieLowAt float64, delegate, fight bool, personality string, margin float64) Policy {
 	laundered := Laundered(cfg, lieLowAt)
 	ld := laundering.New(cfg)
+	tr := territory.New(cfg)
+	lw := law.New(cfg)
 	crewSim := crew.New(cfg)
 	rv := rivals.New(cfg)
 	dip := cfg.Rivals.Diplomacy
@@ -1213,9 +1216,15 @@ func distribute(cfg *content.Config, lieLowAt float64, delegate, fight bool, per
 			for _, cid := range w.CityOrder {
 				payTown(cfg, w, w.Cities[cid])
 			}
+			// Then the property (#194): the block under a corner of its
+			// own, cheapest first, one a day, over the same campaign's
+			// worth, and never past what the DA lets the washed figure
+			// explain (the forfeiture's line, DeedLimit).
+			BuyDeed(tr, w, BossMargin, cfg.Law.Campaign.Fill(), lw.DeedLimit(w))
 			// Then the businesses (#192): the levels take what the town
-			// left, over a campaign's worth kept in hand for the next
-			// election, so the boss's civic spending is what it was.
+			// and the property left, over a campaign's worth kept in
+			// hand for the next election, so the boss's civic spending
+			// is what it was.
 			InvestOver(ld, w, margin, cfg.Law.Campaign.Fill())
 			// And a lot a day offshore (#195) over the same reserve,
 			// never over the line and never retiring: its numbers are
@@ -1496,6 +1505,48 @@ func InvestOver(ld *laundering.Sim, w *game.World, margin float64, reserve int) 
 	return ld.Invest(w, pick.ID, 1) == nil
 }
 
+// BuyDeed buys the deed to the block under a corner the player holds
+// (#194): the cheapest one not yet theirs, one a day, when the clean
+// cash over reserve is margin times its price and the deeds held would
+// stay at or under limit (the DA's line, law.Sim.DeedLimit; a limit
+// under 0 is no line). It reports whether a deed was bought.
+func BuyDeed(tr *territory.Sim, w *game.World, margin float64, reserve, limit int) bool {
+	var pick *game.Corner
+	best := 0
+	for _, cid := range w.CityOrder {
+		cs := w.Cities[cid].Corners
+		for i := range cs {
+			c := &cs[i]
+			if !c.Held() || c.Deed != nil {
+				continue
+			}
+			if price := tr.DeedPrice(w, *c); price > 0 && (pick == nil || price < best) {
+				pick, best = c, price
+			}
+		}
+	}
+	if pick == nil || float64(w.Player.CleanCash-reserve) < margin*float64(best) {
+		return false
+	}
+	if limit >= 0 && w.DeedValue()+best > limit {
+		return false
+	}
+	return w.BuyDeed(pick.ID, best) == nil
+}
+
+// Landlord wraps a policy with the property bought past the DA's line
+// (#194): before the policy plays, the block under a corner it holds,
+// cheapest first, one a day, with the clean cash in hand at margin 1
+// and no limit, whatever the fronts have washed. The forfeiture is
+// measured on it; the boss keeps under the line.
+func Landlord(cfg *content.Config, policy Policy) Policy {
+	tr := territory.New(cfg)
+	return func(w *game.World) {
+		BuyDeed(tr, w, 1, 0, -1)
+		policy(w)
+	}
+}
+
 // washUpAt is washUp with the margin given: the front is bought when
 // dirty cash is margin times its price.
 func washUpAt(cfg *content.Config, w *game.World, margin float64) {
@@ -1577,6 +1628,16 @@ func Factions(cfg *content.Config, n int) *content.Config {
 func NoLife(cfg *content.Config) *content.Config {
 	boxed := *cfg
 	boxed.Crew.Life = content.LifeTuning{}
+	return &boxed
+}
+
+// NoDeeds returns a copy of cfg with city.toml's [deed] table boxed
+// (#194): no block is on sale (BuyDeed refuses with ErrNoDeeds) and
+// nothing reads the table. A run that never bought a deed is
+// byte-for-byte the same on the file and under it (TestNoDeedIsTheOldRun).
+func NoDeeds(cfg *content.Config) *content.Config {
+	boxed := *cfg
+	boxed.City.Deed = content.DeedTuning{}
 	return &boxed
 }
 

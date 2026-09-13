@@ -104,14 +104,23 @@ jobs:
       - name: build
         run: go build ./...
 
+      # The race detector runs everywhere a goroutine could exist and is
+      # skipped on the two packages that pay for it and cannot use it
+      # (#211): internal/harness (7.4x slower under -race) and internal/ui
+      # (5.7x) start no goroutine, and TestNoGoroutineInTheTree keeps it
+      # so. race.yml sweeps the whole tree under -race weekly. The PR
+      # that first adds a goroutine to either package puts -race back on
+      # it here in the same PR.
       # No -count=1 (#213): Go keys a cached pass on the test binary, the
       # flags and every file and environment variable the tests read, so
       # only a package none of this PR's changes reach is skipped, and the
-      # suite is deterministic by design. cache.yml must run this exact
-      # line (the flags are part of the key) or nothing is ever cached;
+      # suite is deterministic by design. cache.yml must run these exact
+      # lines (the flags are part of the key) or nothing is ever cached;
       # race.yml keeps -count=1 so the weekly sweep runs everything.
       - name: test
-        run: go test -race -timeout 30m ./...
+        run: |
+          go test -timeout 30m ./internal/harness ./internal/ui
+          go test -race -timeout 30m $(go list ./... | grep -v -e /internal/harness$ -e /internal/ui$)
 
       - name: balance smoke
         run: go run ./cmd/balance -runs 3 -days 50

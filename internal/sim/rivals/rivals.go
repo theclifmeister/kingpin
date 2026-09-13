@@ -24,6 +24,7 @@ type Sim struct {
 	rep   content.ReputationFX
 	law   content.LawFX
 	tree  content.UpgradesConfig
+	deed  content.DeedTuning
 }
 
 // New builds a rival sim from the config, copying what it reads (#144):
@@ -31,9 +32,11 @@ type Sim struct {
 // effects it reads one: fear slows its pushes. Of the law's
 // (#41) it reads one: a loud city makes its phone calls land. Of the
 // upgrade tree (#119) it reads two: the guard on every contested corner
-// and the pace of its pushes.
+// and the pace of its pushes. Of the deeds (#194, city.toml [deed]) it
+// reads one: push_mul, on its push at a block of yours and on its
+// defence of a block that is yours.
 func New(cfg *content.Config) *Sim {
-	return &Sim{cfg: cfg.Rivals, names: cfg.Names.Rivals, rep: cfg.Reputation.Effects, law: cfg.Law.Effects, tree: cfg.Upgrades}
+	return &Sim{cfg: cfg.Rivals, names: cfg.Names.Rivals, rep: cfg.Reputation.Effects, law: cfg.Law.Effects, tree: cfg.Upgrades, deed: cfg.City.Deed}
 }
 
 // Effects is what the owned upgrades do to the rival's fight (#119),
@@ -46,6 +49,23 @@ func (s *Sim) Effects(w *game.World) game.Effects { return game.FoldEffects(w, s
 // pushed on less, and held ground (rival_push_mul) less again.
 func (s *Sim) PushPace(w *game.World) float64 {
 	return content.Cut(w.Player.Reputation.Fear, s.rep.FearPushCut) * s.Effects(w).RivalPushMul
+}
+
+// DeedMul is what the deed to a block does to the rival's fight for it
+// (#194): push_mul on a corner whose block is yours, 1 on any other. It
+// is never zero (content.DeedTuning.validate): a deed slows the rival
+// and never stops it, the Street branch's rule.
+func (s *Sim) DeedMul(c *game.Corner) float64 {
+	if c == nil || c.Deed == nil || !s.deed.On() {
+		return 1
+	}
+	return s.deed.PushMul
+}
+
+// PushPaceOn is PushPace on one corner of yours: the deed to its block
+// (#194) slows the rival's push on it by push_mul.
+func (s *Sim) PushPaceOn(w *game.World, c *game.Corner) float64 {
+	return s.PushPace(w) * s.DeedMul(c)
 }
 
 // ClaimPace is what the player's fear does to the rival's chance of
@@ -199,12 +219,20 @@ func (s *Sim) Defence(w *game.World, r *game.RivalState) float64 {
 // dice use. A defensive faction standing with you against this one
 // (#43) lends its muscle to the attack.
 func (s *Sim) Odds(w *game.World, r *game.RivalState, force events.Force) float64 {
+	return s.OddsOn(w, r, nil, force)
+}
+
+// OddsOn is Odds on one corner of the faction's: where you hold the
+// deed to its block (#194) their defence of it is cut by push_mul, the
+// businessman's way to a corner. The strike and the boost roll on it
+// and the picker shows it; nil is Odds.
+func (s *Sim) OddsOn(w *game.World, r *game.RivalState, c *game.Corner, force events.Force) float64 {
 	fc := s.cfg.ForceFor(force)
 	attack := (s.Strength(w) + s.AllyMuscle(w, game.FactionYou, r.Faction())) * fc.Attack
 	if attack <= 0 {
 		return 0
 	}
-	return fc.Flip * attack / (attack + s.Defence(w, r))
+	return fc.Flip * attack / (attack + s.Defence(w, r)*s.DeedMul(c))
 }
 
 // StrikeHeat is what a strike on a corner at a force draws.
@@ -573,7 +601,7 @@ func (s *Sim) step(w *game.World, t *game.Tick, r *game.RivalState, rng rand) {
 		if !c.Held() || !w.ContestedBy(*c, r.Faction()) || r.Muscle == 0 || s.offLimits(w, r, c) {
 			continue
 		}
-		chance := pc.PushChance * pace / float64(s.Crowd(w, r))
+		chance := pc.PushChance * pace * s.DeedMul(c) / float64(s.Crowd(w, r)) // the deed to the block (#194) slows it here
 		if (w.RivalHeldBy(r.Faction()) >= s.MaxCorners(w, r) || !s.Rested(r, t.Day) || s.TableFull(w, r)) && r.Grudge == 0 {
 			chance *= pc.PushPastCap // held at its cap, the table at its share (#43), or resting after a claim (#60): the slow pace, not a pause
 		}
@@ -735,7 +763,7 @@ func (s *Sim) strike(w *game.World, t *game.Tick, r *game.RivalState, rng rand, 
 	r.LastStruck = t.Day
 	r.War += fc.War
 	r.Trust = math.Max(0, r.Trust-fc.Trust)
-	if rng.Float64() < s.Odds(w, r, o.Force) {
+	if rng.Float64() < s.OddsOn(w, r, c, o.Force) {
 		ev.Taken = true
 		c.Owner, c.Faction, c.Runner, c.Enforcer, c.Idle, c.Squeeze, c.Since = game.OwnerPlayer, "", 0, 0, 0, 0, t.Day
 		c.Starved, c.StarvedDay = 0, 0
@@ -929,7 +957,7 @@ func (s *Sim) pricewar(w *game.World, t *game.Tick, r *game.RivalState, rng rand
 		if target == nil || r.Muscle == 0 || s.offLimits(w, r, target) {
 			continue
 		}
-		if rng.Float64() >= pc.PushChance*tun.PricewarPush*s.PushPace(w) {
+		if rng.Float64() >= pc.PushChance*tun.PricewarPush*s.PushPaceOn(w, target) {
 			continue
 		}
 		if tun.Grudge {
