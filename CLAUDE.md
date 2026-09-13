@@ -11,7 +11,7 @@ Every change follows the same path. Do not skip steps.
 3. **Link the PR to its issue.** The PR body must contain `Closes #N` for the issue it implements, so merging closes it. If a PR deliberately deviates from the issue's spec, say so in the PR.
 4. **Docs travel with the code.** A PR that changes a subsystem updates its `docs/<topic>.md` (verbatim detail: the names, the numbers, the guard tests, the rulings and why) and adds at most a line to the map in this file. **CLAUDE.md stays under 20 KB** (#175): a paragraph that grows past a screen belongs in `docs/`.
 
-CI (`.github/workflows/ci.yml`) runs on pull requests only (never on `main`; it changes only through merged PRs) and checks gofmt, `go mod tidy` drift, `go vet`, staticcheck, `go build`, `go test` (`-race` on every package but `internal/harness` and `internal/ui`, which start no goroutine, `TestNoGoroutineInTheTree`; `race.yml` sweeps the whole tree under `-race` weekly, #211), and a short balance smoke run. Make the same checks pass locally before pushing.
+CI (`.github/workflows/ci.yml`) runs on pull requests only (never on `main`; it changes only through merged PRs) and checks gofmt, `go mod tidy` drift, `go vet`, staticcheck, `go build`, `go test` (`-race` on every package but `internal/harness` and `internal/ui`, which start no goroutine, `TestNoGoroutineInTheTree`; `race.yml` sweeps the whole tree under `-race` weekly, #211), and a short balance smoke run; a push to `main` runs only `cache.yml`, which repeats the build and the tests to warm the cache a PR restores and gates nothing (#213, `docs/harness.md`). Make the same checks pass locally before pushing.
 
 ## Commands
 
