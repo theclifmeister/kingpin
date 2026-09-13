@@ -16,7 +16,7 @@ name: Cache
 # is still good; Go never caches a failed test), never on a cancel.
 on:
   push:
-    branches: [main]
+    branches: [main, theclifmeister/issue-213] # TEMPORARY: measure #213 on its own branch
   workflow_dispatch:
 
 permissions:
