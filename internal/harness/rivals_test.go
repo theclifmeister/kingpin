@@ -107,12 +107,18 @@ func TestRivalInvariants(t *testing.T) {
 		for seed := uint64(1); seed <= 5; seed++ {
 			policy := mk(cfg)
 			check := func(w *game.World) {
-				r := *w.Rival()
-				if r.Cash < 0 || r.Muscle < 0 {
-					t.Fatalf("%s seed %d day %d: rival cash %d muscle %d", name, seed, w.Day, r.Cash, r.Muscle)
-				}
-				if r.War < 0 || r.War > 100 {
-					t.Fatalf("%s seed %d day %d: war %.1f", name, seed, w.Day, r.War)
+				// Every faction's books (#43): the invariants of #12 hold
+				// per faction on every day.
+				for _, r := range w.Rivals {
+					if r.Cash < 0 || r.Muscle < 0 {
+						t.Fatalf("%s seed %d day %d: %s cash %d muscle %d", name, seed, w.Day, r.Faction(), r.Cash, r.Muscle)
+					}
+					if r.War < 0 || r.War > 100 || r.Heat < 0 || r.Heat > 100 || r.Trust < 0 || r.Trust > 100 {
+						t.Fatalf("%s seed %d day %d: %s war %.1f heat %.1f trust %.1f", name, seed, w.Day, r.Faction(), r.War, r.Heat, r.Trust)
+					}
+					if r.Gone() && (r.Muscle != 0 || len(r.Deals) != 0) {
+						t.Fatalf("%s seed %d day %d: %s is gone with %d muscle and %d deals", name, seed, w.Day, r.Faction(), r.Muscle, len(r.Deals))
+					}
 				}
 				if n := w.RivalHeld(); n > len(w.Home().Corners) || n+w.Held() > len(w.Home().Corners) {
 					t.Fatalf("%s seed %d day %d: rival holds %d, you %d of %d corners", name, seed, w.Day, n, w.Held(), len(w.Home().Corners))
@@ -126,13 +132,13 @@ func TestRivalInvariants(t *testing.T) {
 					if c.Owner != game.OwnerPlayer && (c.Runner != 0 || c.Enforcer != 0) {
 						t.Fatalf("%s seed %d day %d: %s is %s's but %d/%d stand on it", name, seed, w.Day, c.ID, c.Owner, c.Runner, c.Enforcer)
 					}
-					// A rival corner names its faction and no other does (#144).
-					want := ""
-					if c.Owner == game.OwnerRival {
-						want = w.Rival().Faction()
+					// A rival corner names a faction at the table and no
+					// other does (#144, #43).
+					if c.Owner == game.OwnerRival && w.Faction(c.Faction) == nil {
+						t.Fatalf("%s seed %d day %d: %s is a rival's but names faction %q, which nobody has", name, seed, w.Day, c.ID, c.Faction)
 					}
-					if c.Faction != want {
-						t.Fatalf("%s seed %d day %d: %s is %s's but names faction %q, want %q", name, seed, w.Day, c.ID, c.Owner, c.Faction, want)
+					if c.Owner != game.OwnerRival && c.Faction != "" {
+						t.Fatalf("%s seed %d day %d: %s is %s's but names faction %q", name, seed, w.Day, c.ID, c.Owner, c.Faction)
 					}
 					if c.Squeeze < 0 || c.Squeeze >= 1 {
 						t.Fatalf("%s seed %d day %d: %s squeeze %.2f", name, seed, w.Day, c.ID, c.Squeeze)
@@ -160,8 +166,11 @@ func TestRivalInvariants(t *testing.T) {
 			// (#144): the name is for the headline, the id for whoever
 			// asks which.
 			for _, e := range res.Events {
-				if rival, faction, ok := factionOf(e); ok && rival != "" && faction != game.FactionRival {
-					t.Fatalf("%s seed %d: %s names %q with faction %q: %+v", name, seed, e.Kind(), rival, faction, e)
+				if rival, faction, ok := factionOf(e); ok && rival != "" {
+					r := res.World.Faction(faction)
+					if r == nil || (r.Leader != rival && rival != game.OwnerRival) { // a CornerLost's Owner is the side, not the leader
+						t.Fatalf("%s seed %d: %s names %q with faction %q, which is not theirs: %+v", name, seed, e.Kind(), rival, faction, e)
+					}
 				}
 			}
 		}
@@ -266,7 +275,8 @@ func daysToHeat(r Result, v float64) int {
 func TestTellIsAnswerable(t *testing.T) {
 	// Crew life boxed (#46): seed 4's tell on day 42 went unanswered with
 	// the outbidder's runner in a cell; the test pins the tell.
-	cfg := NoLife(content.MustLoad())
+	// The duel (#43, harness.OneFaction): this pins a mechanism on a seed, and the table moves the seed's dice.
+	cfg := OneFaction(NoLife(content.MustLoad()))
 	tun := cfg.Rivals.Rivals
 	for seed := uint64(1); seed <= 5; seed++ {
 		w := sim.NewWorld(cfg, seed)

@@ -440,16 +440,18 @@ func (s *Sim) homage(w *game.World, t *game.Tick, r *game.RivalState) {
 	s.putOffer(w, t, r, game.Deal{Kind: game.DealHomage, Terms: game.Terms{PerDay: per}})
 }
 
-// Crowd is the number of factions alive in a faction's city, itself
-// included, at least one: with shared_pace the table claims at the
-// duel's pace between them, each at its chance over the crowd.
+// Crowd is the number of factions on the ground in a faction's city,
+// itself included, at least one: with shared_pace the table claims at
+// the duel's pace between them, each at its chance over the crowd. A
+// faction that has not arrived is not on the ground, so the rival at
+// home claims at the duel's pace until the second faction moves in.
 func (s *Sim) Crowd(w *game.World, r *game.RivalState) int {
 	if !s.cfg.Factions.SharedPace {
 		return 1
 	}
 	n := 0
 	for _, o := range w.Rivals {
-		if o != nil && !o.Gone() && s.city(w, o) == s.city(w, r) {
+		if o != nil && o.Alive() && s.city(w, o) == s.city(w, r) {
 			n++
 		}
 	}
@@ -462,4 +464,27 @@ func (s *Sim) Crowd(w *game.World, r *game.RivalState) int {
 func (s *Sim) ArriveDay(w *game.World, r *game.RivalState) int {
 	i := max(0, w.FactionIndex(r.Faction()))
 	return s.cfg.Rivals.ArriveDay + i*s.cfg.Factions.ArriveGap
+}
+
+// TableFull reports whether the table holds table_share of a faction's
+// city between them (#43): past it no faction sets up on a free corner
+// there, and the table grows only by taking from each other or from
+// you, so the ground the duel left the player is the ground the table
+// leaves. Zero tuning is no cap.
+func (s *Sim) TableFull(w *game.World, r *game.RivalState) bool {
+	share := s.cfg.Factions.TableShare
+	if share <= 0 {
+		return false
+	}
+	city := s.city(w, r)
+	if city == nil {
+		return false
+	}
+	held := 0
+	for _, c := range city.Corners {
+		if c.Owner == game.OwnerRival {
+			held++
+		}
+	}
+	return held >= int(math.Round(share*float64(len(city.Corners))))
 }

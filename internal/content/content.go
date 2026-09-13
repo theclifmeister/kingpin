@@ -806,7 +806,8 @@ type FactionsTuning struct {
 	Away             float64 `toml:"away"`        // chance a faction after the first lives in the other city (0: the whole table at home)
 	AwayMax          int     `toml:"away_max"`    // the most factions that live away from home
 	ArriveGap        int     `toml:"arrive_gap"`  // days between one faction's arrival and the next's: the second comes arrive_gap days after arrive_day
-	SharedPace       bool    `toml:"shared_pace"` // the factions in a city claim at the duel's pace between them: each at its chance over their number
+	SharedPace       bool    `toml:"shared_pace"` // the factions in a city claim and push on you at the duel's pace between them: each at its chance over their number
+	TableShare       float64 `toml:"table_share"` // the most of a city's corners the table holds between them before it stops claiming free ones (0: no cap); past it factions grow only off each other
 	AbsorbDays       int     `toml:"absorb_days"`
 	AllyTrust        float64 `toml:"ally_trust"`
 	AllyLine         float64 `toml:"ally_line"`
@@ -1200,6 +1201,7 @@ type PressureSources struct {
 	Hard      []string `toml:"hard_products"` // the products that count
 	Overdose  float64  `toml:"overdose"`      // an overdose on your corner (#47), in its city
 	Body      float64  `toml:"body"`          // a death on your corner, either side (#46), in its city
+	Factions  float64  `toml:"factions"`      // two factions fighting over a corner (#43), in its city: their war, the city's story
 	Headline  float64  `toml:"headline"`
 	Sources   []string `toml:"headline_sources"` // journal sources whose headlines are about you
 }

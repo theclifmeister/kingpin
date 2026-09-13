@@ -92,7 +92,7 @@ type World struct {
 
 	legacy *v6  // what a pre-7 save carried for its one city; Load sets it, MigrateCities consumes it
 	fell   bool // what a pre-10 save carried as FallGuyUsed; Load sets it, MigrateFallGuys consumes it
-	old    *v13 // what a pre-14 save carried for its one rival; Load sets it, SeatRival consumes it (#43)
+	old    *v14 // what a pre-15 save carried for its one rival; Load sets it, SeatRival consumes it (#43)
 }
 
 // Today is the player's per-day scratch on the World (#144): what the

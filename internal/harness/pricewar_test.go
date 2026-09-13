@@ -119,7 +119,8 @@ func TestPricewarInvariants(t *testing.T) {
 // from day 20 for 30 days undercuts before and after it and never
 // during, and the action is refused on every morning of it.
 func TestPricewarKeepsThePeace(t *testing.T) {
-	cfg := content.MustLoad()
+	// The duel (#43, harness.OneFaction): this pins a mechanism on a seed, and the table moves the seed's dice.
+	cfg := OneFaction(content.MustLoad())
 	policy := Pricewar(cfg, 40, 3, events.DialNormal)
 	for seed := uint64(1); seed <= 3; seed++ {
 		refused := 0
@@ -203,7 +204,8 @@ func TestPricewarCutsTheRivalsIncome(t *testing.T) {
 // corners up to the price war and an expansionist pushes back on the
 // corner doing the cutting; a defensive rival never gives one up.
 func TestPricewarIsAnswered(t *testing.T) {
-	cfg := content.MustLoad()
+	// The duel (#43, harness.OneFaction): this pins a mechanism on a seed, and the table moves the seed's dice.
+	cfg := OneFaction(content.MustLoad())
 	policy := Pricewar(cfg, 40, 3, events.DialNormal)
 	count := func(p string) (abandons, pushes, taken int) {
 		for seed := uint64(1); seed <= 5; seed++ {
@@ -252,7 +254,8 @@ func TestPricewarIsAnswered(t *testing.T) {
 // corners is logged (the ground an opportunist gives up is worth more
 // to the price war than the discount costs it).
 func TestPricewarCostsMargin(t *testing.T) {
-	cfg := content.MustLoad()
+	// The duel (#43, harness.OneFaction): this pins a mechanism on a seed, and the table moves the seed's dice.
+	cfg := OneFaction(content.MustLoad())
 	median := func(policy Policy) int {
 		var worths []int
 		for seed := uint64(1); seed <= 5; seed++ {

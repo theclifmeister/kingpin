@@ -432,11 +432,13 @@ func (m *Model) rivalShort(innerW int) string {
 	}
 	leader := theme.RivalText.Render(r.Leader)
 	short := leader + sep + theme.Subtle.Render(plural(w.RivalHeldBy(r.Faction()), "corner"))
-	if n := len(w.Rivals); n > 1 {
-		short += sep + theme.Subtle.Render(fmt.Sprintf("+%d more", n-1))
-	}
 	if eye := m.eyeingWord(r); eye != "" {
 		return firstFit(innerW, short+sep+eye, leader+sep+eye, eye, short)
+	}
+	// The table (#43): how many more sit at it, where the line has room.
+	if n := len(w.Rivals); n > 1 {
+		more := theme.Subtle.Render(fmt.Sprintf("+%d more", n-1))
+		return firstFit(innerW, short+sep+more, leader+sep+more, short)
 	}
 	return short
 }

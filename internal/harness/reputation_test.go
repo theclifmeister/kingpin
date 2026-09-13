@@ -300,7 +300,8 @@ func TestReputationEffects(t *testing.T) {
 // generous pay and a pay-off are respect, volume is notoriety, and a
 // crossed band is a headline.
 func TestReputationSourcesAndHeadlines(t *testing.T) {
-	cfg := content.MustLoad()
+	// The duel (#43, harness.OneFaction): this pins a mechanism on a seed, and the table moves the seed's dice.
+	cfg := OneFaction(content.MustLoad())
 	w := sim.NewWorld(cfg, 1)
 	w.Player.DirtyCash = 1_000_000
 	w.SetPay(events.PayGenerous)

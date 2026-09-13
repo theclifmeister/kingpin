@@ -421,7 +421,7 @@ func (s *Sim) step(w *game.World, t *game.Tick, r *game.RivalState, rng rand) {
 			s.undercut(w, t, r)
 			return
 		}
-		if c := s.pickFree(w, r, rng, t.Day, true); c != nil {
+		if c := s.pickFree(w, r, rng, t.Day, true); c != nil && !s.TableFull(w, r) {
 			s.take(w, r, c, t.Day)
 			r.Arrived = t.Day
 			r.Claims++
@@ -549,8 +549,10 @@ func (s *Sim) step(w *game.World, t *game.Tick, r *game.RivalState, rng rand) {
 	if held < s.MaxCorners(w, r) && (r.Routed == 0 || t.Day-r.Routed >= tun.RegroupDays) && rng.Float64() < pc.ClaimChance*s.ClaimScale(w, r)*s.ClaimPace(w)/float64(s.Crowd(w, r)) {
 		// The chest is asked after the roll (#139): a rival that cannot
 		// pay for a corner today rolls all the same, so the seed's dice
-		// do not move when its money binds.
-		if s.Rested(r, t.Day) && r.Cash >= s.ClaimCost(w, r) {
+		// do not move when its money binds. Nor does the table's cap
+		// (#43): a table that holds its share of the city rolls and
+		// sets up nowhere.
+		if s.Rested(r, t.Day) && r.Cash >= s.ClaimCost(w, r) && !s.TableFull(w, r) {
 			if c := s.pickFree(w, r, rng, t.Day, held == 0); c != nil {
 				r.Eyeing, r.EyeingDay, r.LastClaim = c.ID, t.Day, t.Day
 				t.Emit(events.RivalEyeing{Day: t.Day, Rival: r.Leader, Faction: r.Faction(), Corner: c.ID, Name: c.Name})
@@ -571,9 +573,9 @@ func (s *Sim) step(w *game.World, t *game.Tick, r *game.RivalState, rng rand) {
 		if !c.Held() || !w.ContestedBy(*c, r.Faction()) || r.Muscle == 0 || s.offLimits(w, r, c) {
 			continue
 		}
-		chance := pc.PushChance * pace
-		if (w.RivalHeldBy(r.Faction()) >= s.MaxCorners(w, r) || !s.Rested(r, t.Day)) && r.Grudge == 0 {
-			chance *= pc.PushPastCap // held at its cap, or resting after a claim (#60): the slow pace, not a pause
+		chance := pc.PushChance * pace / float64(s.Crowd(w, r))
+		if (w.RivalHeldBy(r.Faction()) >= s.MaxCorners(w, r) || !s.Rested(r, t.Day) || s.TableFull(w, r)) && r.Grudge == 0 {
+			chance *= pc.PushPastCap // held at its cap, the table at its share (#43), or resting after a claim (#60): the slow pace, not a pause
 		}
 		if r.Personality == "opportunist" && (c.Enforcer == 0 || s.city(w, r).Heat > 50) {
 			chance *= 2
@@ -687,7 +689,7 @@ func (s *Sim) resolveEyeing(w *game.World, t *game.Tick, r *game.RivalState) {
 	if split := w.DealWith(r.Faction(), game.DealSplit); split != nil && split.Covers(c.ID) {
 		return
 	}
-	if w.RivalHeldBy(r.Faction()) >= s.MaxCorners(w, r) || (r.Routed > 0 && t.Day-r.Routed < tun.RegroupDays) || r.Cash < s.ClaimCost(w, r) {
+	if w.RivalHeldBy(r.Faction()) >= s.MaxCorners(w, r) || (r.Routed > 0 && t.Day-r.Routed < tun.RegroupDays) || r.Cash < s.ClaimCost(w, r) || s.TableFull(w, r) {
 		return
 	}
 	if c.Held() {

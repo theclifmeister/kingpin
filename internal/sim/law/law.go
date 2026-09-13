@@ -357,7 +357,7 @@ func (s *Sim) Step(w *game.World, t *game.Tick) {
 		case events.RivalPushed:
 			gain[home] += src.Push
 		case events.FactionPushed:
-			gain[ev.City] += src.Push // two factions fighting (#43): violence in its city
+			gain[ev.City] += src.Factions // two factions fighting (#43): violence in its city
 		case events.CornerTaken:
 			if ev.From == game.OwnerPlayer {
 				gain[home] += src.Push

@@ -168,19 +168,23 @@ func (w *World) ContestedBy(c Corner, faction string) bool {
 }
 
 // Dominant reports whether the city is yours (#43, the ending's read):
-// every faction is absorbed, fragmented or paying you homage. A faction
-// that has not arrived is not beaten, and with no factions there is
-// nobody to have beaten, so a run nobody fought is never dominant by
-// accident.
+// every faction at the table has arrived and is absorbed, fragmented or
+// paying you homage. A faction still in the wings is a faction to come
+// (the table empties as the others fall, so it will), and with no
+// factions there is nobody to have beaten, so a run nobody fought is
+// never dominant by accident.
 func (w *World) Dominant() bool {
 	if len(w.Rivals) == 0 {
 		return false
 	}
 	for _, r := range w.Rivals {
-		if r == nil || r.Gone() {
+		if r == nil || r.Arrived == 0 {
+			return false
+		}
+		if r.Gone() {
 			continue
 		}
-		if r.Arrived == 0 || w.DealWith(r.Faction(), DealHomage) == nil {
+		if w.DealWith(r.Faction(), DealHomage) == nil {
 			return false
 		}
 	}

@@ -140,7 +140,8 @@ func talker(cfg *content.Config) Policy {
 // A defensive rival never breaks a deal, on any seed, however long the
 // peace runs; a chaotic one does.
 func TestDefensiveNeverBetrays(t *testing.T) {
-	cfg := content.MustLoad()
+	// The duel (#43, harness.OneFaction): this pins a mechanism on a seed, and the table moves the seed's dice.
+	cfg := OneFaction(content.MustLoad())
 	broken := map[string]int{}
 	struck := map[string]int{}
 	for _, p := range []string{"defensive", "chaotic"} {
@@ -241,7 +242,8 @@ func TestDiplomacyIsDeterministicAndSaves(t *testing.T) {
 // never claims or pushes on the player's side of the line while the
 // split holds, and the player is never posted past it.
 func TestSplitKeepsTheLine(t *testing.T) {
-	cfg := content.MustLoad()
+	// The duel (#43, harness.OneFaction): this pins a mechanism on a seed, and the table moves the seed's dice.
+	cfg := OneFaction(content.MustLoad())
 	splits := 0
 	for seed := uint64(1); seed <= 6; seed++ {
 		territory := Territory(cfg, 40, 5)

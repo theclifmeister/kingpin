@@ -29,7 +29,8 @@ func booksSim(cfg *content.Config) *rivals.Sim {
 // your pocket (the stats add up); Known is written by nothing but a
 // scout that read the books and its day is never past today.
 func TestBooksInvariants(t *testing.T) {
-	cfg := content.MustLoad()
+	// The duel (#43, harness.OneFaction): this pins a mechanism on a seed, and the table moves the seed's dice.
+	cfg := OneFaction(content.MustLoad())
 	for name, mk := range map[string]func() Policy{
 		"saboteur": func() Policy { return Saboteur(cfg, 40) },
 		"tipster":  func() Policy { return Tipster(cfg, 40) },
@@ -340,7 +341,8 @@ func TestTipsHaveTeethBothWays(t *testing.T) {
 // exactly.
 func TestBooksAreDeterministicAndSave(t *testing.T) {
 	t.Setenv("KINGPIN_HOME", t.TempDir())
-	cfg := content.MustLoad()
+	// The duel (#43, harness.OneFaction): this pins a mechanism on a seed, and the table moves the seed's dice.
+	cfg := OneFaction(content.MustLoad())
 	policy := func() Policy { return Saboteur(cfg, 40) }
 	play := func(days int) Result {
 		w := sim.NewWorld(cfg, 4)

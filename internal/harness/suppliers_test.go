@@ -189,7 +189,8 @@ func TestDebtNeverEndsTheRun(t *testing.T) {
 // price the crewed player pays a unit against street on every seed, and
 // respect (#14) still pulls its way on top of it.
 func TestRelationshipPays(t *testing.T) {
-	cfg := content.MustLoad()
+	// The duel (#43, harness.OneFaction): this pins a mechanism on a seed, and the table moves the seed's dice.
+	cfg := OneFaction(content.MustLoad())
 	for seed := uint64(1); seed <= 5; seed++ {
 		// What the street connect charges against street each morning,
 		// before the day's buys nudge it: the price paid a unit.

@@ -26,7 +26,8 @@ import (
 // it ends owing its muscle less than a day's wages (the books are a
 // running account, so a tail under a wage is a payroll the take covers).
 func TestRivalEconomyBinds(t *testing.T) {
-	cfg := content.MustLoad()
+	// The duel (#43, harness.OneFaction): this pins a mechanism on a seed, and the table moves the seed's dice.
+	cfg := OneFaction(content.MustLoad())
 	for _, p := range content.Personalities {
 		var days []float64
 		var chests, wages, incomes []int
@@ -154,7 +155,8 @@ func TestPricewarStarvesTheMuscle(t *testing.T) {
 			t.Fatalf("seed %d: the price war left the rival %d a day and %d muscle against %d and %d in peace", seed, warTake, warMuscle, quietTake, quietMuscle)
 		}
 	}
-	cfg := content.MustLoad()
+	// The duel (#43, harness.OneFaction): this pins a mechanism on a seed, and the table moves the seed's dice.
+	cfg := OneFaction(content.MustLoad())
 	var perCorner [2][]float64
 	for i, policy := range []Policy{Territory(cfg, 40, 3), Pricewar(cfg, 40, 3, events.DialNormal)} {
 		for seed := uint64(1); seed <= 5; seed++ {
@@ -183,7 +185,8 @@ func TestPricewarStarvesTheMuscle(t *testing.T) {
 // player's corners once the wholesaler's line was crossed while the take
 // did not, and the middle cut read 6.1x the take (2.9x to 13.5x by seed).
 func TestTributeShareOfTheTake(t *testing.T) {
-	cfg := content.MustLoad()
+	// The duel (#43, harness.OneFaction): this pins a mechanism on a seed, and the table moves the seed's dice.
+	cfg := OneFaction(content.MustLoad())
 	rv := rivals.New(cfg)
 	var shares []float64
 	for seed := uint64(1); seed <= 5; seed++ {

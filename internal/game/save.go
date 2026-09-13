@@ -199,11 +199,11 @@ func Load(slot int, migrations ...Migration) (*World, error) {
 		}
 		w.fell = old.FallGuyUsed
 	}
-	if w.SchemaVersion < 14 {
+	if w.SchemaVersion < 15 {
 		// The one rival lived on World.Rival before the table (#43);
 		// read it off the stream a second time for MigrateFactions to
 		// seat as the first faction.
-		var old v13
+		var old v14
 		if err := gob.NewDecoder(bytes.NewReader(b)).Decode(&old); err != nil {
 			return nil, fmt.Errorf("save file is corrupt: %w", err)
 		}
@@ -261,15 +261,15 @@ type v6 struct {
 	Heat      struct{ Value float64 }
 }
 
-// v13 is what a pre-14 save carried for the one rival there was: the
+// v14 is what a pre-15 save carried for the one rival there was: the
 // faction on World itself (#43 made it the first of a slice).
-type v13 struct {
+type v14 struct {
 	SchemaVersion int
 	Rival         RivalState
 }
 
-// SeatRival is the 13 -> 14 step's first half (#43): the one rival a
-// pre-14 save carried becomes the first faction, at home, so the table
+// SeatRival is the 14 -> 15 step's first half (#43): the one rival a
+// pre-15 save carried becomes the first faction, at home, so the table
 // the rivals sim seeds beside it (Rivals.MigrateFactions) has the rival
 // the save had on its dice. A save with factions already is left alone.
 func (w *World) SeatRival() {
