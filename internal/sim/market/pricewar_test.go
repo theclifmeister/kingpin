@@ -22,7 +22,7 @@ func warWorld(t *testing.T, cfg *content.Config, seed uint64) (*game.World, *mar
 	}
 	w.Corner("docks").Owner = game.OwnerRival
 	w.Corner("heights").Owner = game.OwnerRival // far from you
-	w.Rival.Arrived, w.Rival.Leader = 1, "Vasquez"
+	w.Rival().Arrived, w.Rival().Leader = 1, "Vasquez"
 	w.Player.CarryLimit = 10_000
 	w.SetStock(w.Home().ID, "weed", 5000)
 	return w, mk, clock
@@ -203,19 +203,19 @@ func TestUndercutIsRefusedUnderADeal(t *testing.T) {
 	if err := w.Undercut("fourth", events.DialNormal); err == nil {
 		t.Fatal("your own corner was undercut")
 	}
-	w.Rival.Deals = []game.Deal{{Kind: game.DealTruce, Terms: game.Terms{Days: 10}, Since: w.Day, Until: w.Day + 10}}
+	w.Rival().Deals = []game.Deal{{Kind: game.DealTruce, Terms: game.Terms{Days: 10}, Since: w.Day, Until: w.Day + 10}}
 	if err := w.Undercut("docks", events.DialNormal); err != game.ErrAtPeace {
 		t.Fatalf("under a truce: %v, want %v", err, game.ErrAtPeace)
 	}
-	w.Rival.Deals = []game.Deal{{Kind: game.DealTribute, Terms: game.Terms{PerDay: 100}, Since: w.Day}}
+	w.Rival().Deals = []game.Deal{{Kind: game.DealTribute, Terms: game.Terms{PerDay: 100}, Since: w.Day}}
 	if err := w.Undercut("docks", events.DialNormal); err != game.ErrAtPeace {
 		t.Fatalf("under a tribute: %v, want %v", err, game.ErrAtPeace)
 	}
-	w.Rival.Deals = []game.Deal{{Kind: game.DealSplit, Terms: game.Terms{Corners: []string{"fourth"}}, Since: w.Day}}
+	w.Rival().Deals = []game.Deal{{Kind: game.DealSplit, Terms: game.Terms{Corners: []string{"fourth"}}, Since: w.Day}}
 	if err := w.Undercut("docks", events.DialNormal); err == nil {
 		t.Fatal("under a split the rival's side of the line was undercut")
 	}
-	w.Rival.Deals = nil
+	w.Rival().Deals = nil
 	// Legal in the morning, at peace by night: the offer taken today is
 	// not sealed until the rival step, so the truce is set by hand.
 	if err := w.Undercut("docks", events.DialNormal); err != nil {
@@ -224,12 +224,12 @@ func TestUndercutIsRefusedUnderADeal(t *testing.T) {
 	if err := w.PlaceSell(home, "weed", w.Stock(home, "weed"), events.DialNormal); err != nil {
 		t.Fatal(err)
 	}
-	w.Rival.Deals = []game.Deal{{Kind: game.DealTruce, Terms: game.Terms{Days: 10}, Since: w.Day, Until: w.Day + 10}}
+	w.Rival().Deals = []game.Deal{{Kind: game.DealTruce, Terms: game.Terms{Days: 10}, Since: w.Day, Until: w.Day + 10}}
 	evs := clock.EndDay(w)
 	if _, ok := find(evs, func(events.PlayerUndercut) bool { return true }); ok || w.Corner("docks").Squeeze != 0 {
 		t.Fatalf("an undercut resolved under a truce: squeeze %.2f", w.Corner("docks").Squeeze)
 	}
-	w.Rival.Deals = nil
+	w.Rival().Deals = nil
 	// Recalled by night: nobody of yours next door, nothing moves.
 	if err := w.Undercut("docks", events.DialNormal); err != nil {
 		t.Fatal(err)

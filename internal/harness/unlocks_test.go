@@ -184,7 +184,8 @@ func oldRunPrint(t *testing.T, cfg *content.Config, seed uint64, days int, polic
 // main played before #148, with the deck dealt: the prints are main's
 // (4df71be) over three seeds and 120 days, and no Unlocked fires.
 func TestNoUnlockIsTheOldRun(t *testing.T) {
-	cfg := content.MustLoad()
+	// The duel (#43, harness.OneFaction): this pins a mechanism on a seed, and the table moves the seed's dice.
+	cfg := OneFaction(content.MustLoad())
 	want := map[string]string{
 		"idle 1": "29f15946d5ae8dc7", "hide 1": "e485af09c510d56d",
 		"idle 2": "9b41221ee6bf183b", "hide 2": "253636dfba497f39",

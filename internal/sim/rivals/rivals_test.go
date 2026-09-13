@@ -11,6 +11,15 @@ import (
 	"github.com/theclifmeister/kingpin/internal/sim/territory"
 )
 
+// duel is the file with one faction in the run (#43): the rival at
+// home alone, the duel these tests pin. The table's own tests are in
+// factions_test.go.
+func duel() *content.Config {
+	cfg := content.MustLoad()
+	cfg.Rivals.Factions.Min, cfg.Rivals.Factions.Max = 1, 1
+	return cfg
+}
+
 // world is a city with the player on the starting corner, a runner and
 // two enforcers on the payroll, and a rival picked from the seed.
 func world(t *testing.T, cfg *content.Config, seed uint64) (*game.World, *rivals.Sim) {
@@ -47,14 +56,14 @@ func kinds(evs []events.Event) map[string]int {
 // on schedule on the biggest free corner that does not border the player,
 // and a save from before it existed gets one on load.
 func TestSeedAndArrival(t *testing.T) {
-	cfg := content.MustLoad()
+	cfg := duel()
 	w, s := world(t, cfg, 3)
-	r := w.Rival
+	r := *w.Rival()
 	if r.Leader == "" || r.Personality == "" || r.Supplier < cfg.Rivals.Rivals.SupplierMin || r.Supplier > cfg.Rivals.Rivals.SupplierMax {
 		t.Fatalf("seeded rival %+v", r)
 	}
-	if r.Cash != int(math.Round(cfg.Rivals.Rivals.StartCash*s.CornerDay(w))) || r.Muscle != cfg.Rivals.Rivals.StartMuscle || r.Arrived != 0 {
-		t.Fatalf("seeded rival %+v (a corner-day is %.0f)", r, s.CornerDay(w))
+	if r.Cash != int(math.Round(cfg.Rivals.Rivals.StartCash*s.CornerDay(w, w.Rival()))) || r.Muscle != cfg.Rivals.Rivals.StartMuscle || r.Arrived != 0 {
+		t.Fatalf("seeded rival %+v (a corner-day is %.0f)", r, s.CornerDay(w, w.Rival()))
 	}
 	for w.Day < cfg.Rivals.Rivals.ArriveDay-1 {
 		if k := kinds(step(w, s)); k["RivalMovedIn"] != 0 {
@@ -65,8 +74,8 @@ func TestSeedAndArrival(t *testing.T) {
 	if k := kinds(evs); k["RivalMovedIn"] != 1 {
 		t.Fatalf("day %d: %v", w.Day, k)
 	}
-	if w.Rival.Arrived != w.Day || w.RivalHeld() != 1 {
-		t.Fatalf("after arriving: %+v holds %d", w.Rival, w.RivalHeld())
+	if w.Rival().Arrived != w.Day || w.RivalHeld() != 1 {
+		t.Fatalf("after arriving: %+v holds %d", *w.Rival(), w.RivalHeld())
 	}
 	you := w.Corner(cfg.City.Territory.Start)
 	var got *game.Corner
@@ -86,25 +95,25 @@ func TestSeedAndArrival(t *testing.T) {
 	// Migration gives an old save a rival without moving anyone.
 	old := game.NewWorld(1, []game.StartingCity{{ID: cfg.City.Home().ID, Name: "Testville"}}, 500, 100)
 	s.Migrate(old)
-	if old.Rival.Leader == "" || old.Rival.Arrived != 0 {
-		t.Fatalf("migrated rival %+v", old.Rival)
+	if old.Rival().Leader == "" || old.Rival().Arrived != 0 {
+		t.Fatalf("migrated rival %+v", *old.Rival())
 	}
 }
 
 // Claims stop at the personality's cap, and every corner it takes has
 // nobody standing on it and exactly one owner.
 func TestClaimsRespectTheCap(t *testing.T) {
-	cfg := content.MustLoad()
+	cfg := duel()
 	for _, p := range content.Personalities {
 		w, s := world(t, cfg, 11)
-		w.Rival.Personality = p
-		w.Rival.Cash = 10_000_000
+		w.Rival().Personality = p
+		w.Rival().Cash = 10_000_000
 		for w.Day < 200 {
 			step(w, s)
-			if n := w.RivalHeld(); n > s.MaxCorners(w) {
+			if n := w.RivalHeld(); n > s.MaxCorners(w, w.Rival()) {
 				// Pushes can carry an expansionist past its cap; claims cannot.
 				if p != "expansionist" {
-					t.Fatalf("%s day %d: holds %d corners, cap %d", p, w.Day, n, s.MaxCorners(w))
+					t.Fatalf("%s day %d: holds %d corners, cap %d", p, w.Day, n, s.MaxCorners(w, w.Rival()))
 				}
 			}
 			for _, c := range w.Home().Corners {
@@ -116,8 +125,8 @@ func TestClaimsRespectTheCap(t *testing.T) {
 		if w.RivalHeld() == 0 {
 			t.Fatalf("%s: never held a corner", p)
 		}
-		if w.Rival.Cash < 0 || w.Rival.Muscle < 0 {
-			t.Fatalf("%s: cash %d muscle %d", p, w.Rival.Cash, w.Rival.Muscle)
+		if w.Rival().Cash < 0 || w.Rival().Muscle < 0 {
+			t.Fatalf("%s: cash %d muscle %d", p, w.Rival().Cash, w.Rival().Muscle)
 		}
 	}
 }
@@ -126,12 +135,12 @@ func TestClaimsRespectTheCap(t *testing.T) {
 // the harder it goes in, and when it lands the corner is yours with
 // nobody on it and the rival holds a grudge.
 func TestStrikes(t *testing.T) {
-	cfg := content.MustLoad()
+	cfg := duel()
 	w, s := world(t, cfg, 5)
 	docks := w.Corner("docks")
 	docks.Owner = game.OwnerRival
-	w.Rival.Arrived = 1
-	w.Rival.Muscle = 2
+	w.Rival().Arrived = 1
+	w.Rival().Muscle = 2
 	if err := w.SendEnforcers("fourth", events.ForceHit); err == nil {
 		t.Fatal("struck your own corner")
 	}
@@ -141,8 +150,8 @@ func TestStrikes(t *testing.T) {
 		t.Fatalf("struck with no enforcers: %v", err)
 	}
 	w.Crew.Members = append(w.Crew.Members, enforcers...)
-	if got := s.Odds(w, events.ForceWarn); !(got > 0 && got < s.Odds(w, events.ForcePush) && s.Odds(w, events.ForcePush) < s.Odds(w, events.ForceHit)) {
-		t.Fatalf("odds are not monotone in force: %.2f %.2f %.2f", got, s.Odds(w, events.ForcePush), s.Odds(w, events.ForceHit))
+	if got := s.Odds(w, w.Rival(), events.ForceWarn); !(got > 0 && got < s.Odds(w, w.Rival(), events.ForcePush) && s.Odds(w, w.Rival(), events.ForcePush) < s.Odds(w, w.Rival(), events.ForceHit)) {
+		t.Fatalf("odds are not monotone in force: %.2f %.2f %.2f", got, s.Odds(w, w.Rival(), events.ForcePush), s.Odds(w, w.Rival(), events.ForceHit))
 	}
 	if s.StrikeHeat(docks, events.ForceHit) != cfg.Rivals.Force["hit"].Heat*docks.Heat {
 		t.Fatalf("strike heat %.1f", s.StrikeHeat(docks, events.ForceHit))
@@ -152,7 +161,7 @@ func TestStrikes(t *testing.T) {
 		if err := w.SendEnforcers("docks", events.ForceHit); err != nil {
 			t.Fatal(err)
 		}
-		warBefore := w.Rival.War
+		warBefore := w.Rival().War
 		evs := step(w, s)
 		w.Today.Strike = nil // the clock clears it
 		tries++
@@ -168,8 +177,8 @@ func TestStrikes(t *testing.T) {
 		if cs.Heat <= 0 || cs.Toll != cfg.Rivals.Force["hit"].Loyalty || cs.Force != events.ForceHit {
 			t.Fatalf("strike event %+v", *cs)
 		}
-		if w.Rival.War <= warBefore && warBefore < 100 {
-			t.Fatalf("day %d: war %.1f did not rise from %.1f", w.Day, w.Rival.War, warBefore)
+		if w.Rival().War <= warBefore && warBefore < 100 {
+			t.Fatalf("day %d: war %.1f did not rise from %.1f", w.Day, w.Rival().War, warBefore)
 		}
 		taken = cs.Taken
 		if taken {
@@ -177,8 +186,8 @@ func TestStrikes(t *testing.T) {
 				t.Fatalf("taken: %+v corner %+v", *cs, *docks)
 			}
 			// The grudge may already have been paid back with a tip tonight.
-			if w.Rival.Grudge+w.Rival.Tips != 1 || w.Rival.Routed != w.Day {
-				t.Fatalf("after losing its last corner: %+v", w.Rival)
+			if w.Rival().Grudge+w.Rival().Tips != 1 || w.Rival().Routed != w.Day {
+				t.Fatalf("after losing its last corner: %+v", *w.Rival())
 			}
 		}
 	}
@@ -193,11 +202,11 @@ func TestStrikes(t *testing.T) {
 // Undercutting squeezes exactly the player corners that border the
 // rival's, drags the price, and lifts when the border goes.
 func TestUndercutFollowsTheBorder(t *testing.T) {
-	cfg := content.MustLoad()
+	cfg := duel()
 	w, s := world(t, cfg, 8)
-	w.Rival.Arrived = 1
-	w.Rival.Personality = "defensive"
-	w.Rival.Muscle = 0                           // so it cannot push in this window
+	w.Rival().Arrived = 1
+	w.Rival().Personality = "defensive"
+	w.Rival().Muscle = 0                         // so it cannot push in this window
 	w.Corner("docks").Owner = game.OwnerRival    // borders fourth, where you stand
 	if err := w.Post("heights", 1); err != nil { // far from the docks
 		t.Fatal(err)
@@ -241,25 +250,25 @@ func TestUndercutFollowsTheBorder(t *testing.T) {
 // A grudge is paid back with a tip to the police, and a war loud enough
 // ends in a crackdown that clears both sides and resets the meter.
 func TestTipsAndCrackdown(t *testing.T) {
-	cfg := content.MustLoad()
+	cfg := duel()
 	w, s := world(t, cfg, 2)
-	w.Rival.Arrived = 1
-	w.Rival.Personality = "defensive"
-	w.Rival.Grudge = 3
+	w.Rival().Arrived = 1
+	w.Rival().Personality = "defensive"
+	w.Rival().Grudge = 3
 	w.Corner("docks").Owner = game.OwnerRival
 	tips := 0
 	for w.Day < 60 && tips < 3 {
 		for _, e := range step(w, s) {
 			if tp, ok := e.(events.RivalTippedPolice); ok {
 				tips++
-				if tp.Heat != cfg.Rivals.Rivals.TipHeat || tp.Rival != w.Rival.Leader {
+				if tp.Heat != cfg.Rivals.Rivals.TipHeat || tp.Rival != w.Rival().Leader {
 					t.Fatalf("tip %+v", tp)
 				}
 			}
 		}
 	}
-	if tips != 3 || w.Rival.Grudge != 0 || w.Rival.Tips != 3 {
-		t.Fatalf("%d tips, rival %+v", tips, w.Rival)
+	if tips != 3 || w.Rival().Grudge != 0 || w.Rival().Tips != 3 {
+		t.Fatalf("%d tips, rival %+v", tips, *w.Rival())
 	}
 	if k := kinds(step(w, s)); k["RivalTippedPolice"] != 0 {
 		t.Fatal("tipped with no grudge")
@@ -274,9 +283,9 @@ func TestTipsAndCrackdown(t *testing.T) {
 	if err := w.Post("projects", 2); err != nil {
 		t.Fatal(err)
 	}
-	w.Rival.War = cfg.Rivals.Rivals.CrackdownThreshold
-	w.Rival.Muscle = 8 // dug in for the war (#139: on one corner its take kept two)
-	muscle := w.Rival.Muscle
+	w.Rival().War = cfg.Rivals.Rivals.CrackdownThreshold
+	w.Rival().Muscle = 8 // dug in for the war (#139: on one corner its take kept two)
+	muscle := w.Rival().Muscle
 	evs := step(w, s)
 	var we *events.WarEscalated
 	lost := map[string]string{}
@@ -299,8 +308,8 @@ func TestTipsAndCrackdown(t *testing.T) {
 			t.Fatalf("%s after the crackdown: %+v", id, *c)
 		}
 	}
-	if w.Rival.War != 0 || w.Rival.Muscle >= muscle {
-		t.Fatalf("after the crackdown: %+v (muscle was %d)", w.Rival, muscle)
+	if w.Rival().War != 0 || w.Rival().Muscle >= muscle {
+		t.Fatalf("after the crackdown: %+v (muscle was %d)", *w.Rival(), muscle)
 	}
 	if w.PostOf(1) != nil || w.PostOf(2) != nil || w.PostOf(game.You) != nil {
 		t.Fatal("somebody is still standing on cleared ground")
@@ -311,26 +320,26 @@ func TestTipsAndCrackdown(t *testing.T) {
 // pay back, it tips the police more often at pressure 100 than at 0, and
 // the pace it reads is the home city's, scaled by the law's knob.
 func TestTipsRiseWithPressure(t *testing.T) {
-	cfg := content.MustLoad()
+	cfg := duel()
 	w, s := world(t, cfg, 1)
-	if s.TipPace(w) != 1 {
-		t.Fatalf("tip pace at pressure 0: %.2f", s.TipPace(w))
+	if s.TipPace(w, w.Rival()) != 1 {
+		t.Fatalf("tip pace at pressure 0: %.2f", s.TipPace(w, w.Rival()))
 	}
 	w.Home().Pressure = 100
-	if want := 1 + cfg.Law.Effects.PressureTip; s.TipPace(w) != want {
-		t.Fatalf("tip pace at pressure 100: %.2f, want %.2f", s.TipPace(w), want)
+	if want := 1 + cfg.Law.Effects.PressureTip; s.TipPace(w, w.Rival()) != want {
+		t.Fatalf("tip pace at pressure 100: %.2f, want %.2f", s.TipPace(w, w.Rival()), want)
 	}
 	tips := func(pressure float64) int {
 		n := 0
 		for seed := uint64(1); seed <= 40; seed++ {
 			w, s := world(t, cfg, seed)
-			w.Rival.Arrived, w.Rival.Cash, w.Rival.Muscle = 1, 100_000, 3
-			w.Rival.Personality = "defensive"
+			w.Rival().Arrived, w.Rival().Cash, w.Rival().Muscle = 1, 100_000, 3
+			w.Rival().Personality = "defensive"
 			w.Day = 10
 			w.Home().Pressure = pressure
-			w.Rival.Grudge = 5
+			w.Rival().Grudge = 5
 			for d := 0; d < 10; d++ {
-				w.Rival.Grudge = 5
+				w.Rival().Grudge = 5
 				w.Home().Pressure = pressure
 				n += kinds(step(w, s))["RivalTippedPolice"]
 			}
@@ -348,21 +357,21 @@ func TestTipsRiseWithPressure(t *testing.T) {
 // reproduces the six, three, four and four corners the personalities
 // set up on before it was a share, and a bigger map gives them more.
 func TestMaxShareReproducesTheCaps(t *testing.T) {
-	cfg := content.MustLoad()
+	cfg := duel()
 	w, s := world(t, cfg, 1)
 	want := map[string]int{"expansionist": 6, "defensive": 3, "opportunist": 4, "chaotic": 4}
 	if n := len(w.Home().Corners); n != 10 {
 		t.Fatalf("home has %d corners; the table below is for ten", n)
 	}
 	for p, n := range want {
-		w.Rival.Personality = p
-		if got := s.MaxCorners(w); got != n {
+		w.Rival().Personality = p
+		if got := s.MaxCorners(w, w.Rival()); got != n {
 			t.Errorf("%s: max corners %d on ten, want %d", p, got, n)
 		}
 	}
 	w.Home().Corners = append(w.Home().Corners, w.Home().Corners...)
-	w.Rival.Personality = "expansionist"
-	if got := s.MaxCorners(w); got != 12 {
+	w.Rival().Personality = "expansionist"
+	if got := s.MaxCorners(w, w.Rival()); got != 12 {
 		t.Errorf("expansionist: max corners %d on twenty, want 12", got)
 	}
 }
@@ -375,7 +384,7 @@ func TestMaxShareReproducesTheCaps(t *testing.T) {
 // leaves the guard alone; neither touches the claim pace or the strike
 // odds.
 func TestRivalNodesMoveTheirNumbers(t *testing.T) {
-	cfg := content.MustLoad()
+	cfg := duel()
 	own := func(ids ...string) (*game.World, *rivals.Sim) {
 		w, s := world(t, cfg, 5)
 		w.Upgrades = map[string]bool{}
@@ -385,7 +394,7 @@ func TestRivalNodesMoveTheirNumbers(t *testing.T) {
 			}
 			w.Upgrades[id] = true
 		}
-		w.Rival.Arrived, w.Rival.Muscle = 1, 4
+		w.Rival().Arrived, w.Rival().Muscle = 1, 4
 		w.Corner("docks").Owner = game.OwnerRival
 		w.Corner("railyard").Owner = game.OwnerPlayer // bare, and borders the docks
 		if !w.Contested(*w.Corner("railyard")) {
@@ -400,7 +409,7 @@ func TestRivalNodesMoveTheirNumbers(t *testing.T) {
 	if baseBare != 0 || baseYou != 1.5 {
 		t.Fatalf("bare guard %.1f, yours %.1f", baseBare, baseYou)
 	}
-	basePace, baseClaim, baseOdds := s.PushPace(plain), s.ClaimPace(plain), s.Odds(plain, events.ForcePush)
+	basePace, baseClaim, baseOdds := s.PushPace(plain), s.ClaimPace(plain), s.Odds(plain, plain.Rival(), events.ForcePush)
 	cases := []struct {
 		nodes []string
 		guard float64 // added to every corner's guard
@@ -422,16 +431,16 @@ func TestRivalNodesMoveTheirNumbers(t *testing.T) {
 		if got, want := s.PushPace(w), basePace*tc.pace; math.Abs(got-want) > 1e-12 {
 			t.Errorf("%v: push pace %.3f, want %.3f", tc.nodes, got, want)
 		}
-		if s.ClaimPace(w) != baseClaim || s.Odds(w, events.ForcePush) != baseOdds {
-			t.Errorf("%v: claim pace %.3f (was %.3f), strike odds %.3f (was %.3f)", tc.nodes, s.ClaimPace(w), baseClaim, s.Odds(w, events.ForcePush), baseOdds)
+		if s.ClaimPace(w) != baseClaim || s.Odds(w, w.Rival(), events.ForcePush) != baseOdds {
+			t.Errorf("%v: claim pace %.3f (was %.3f), strike odds %.3f (was %.3f)", tc.nodes, s.ClaimPace(w), baseClaim, s.Odds(w, w.Rival(), events.ForcePush), baseOdds)
 		}
 		// The odds the map shows are the guard's: lower on every corner
 		// with the front line, the same without it.
-		if tc.guard > 0 && s.PushOdds(w, b) >= s.PushOdds(plain, bare) {
-			t.Errorf("%v: push odds on a bare corner %.3f, %.3f without", tc.nodes, s.PushOdds(w, b), s.PushOdds(plain, bare))
+		if tc.guard > 0 && s.PushOdds(w, w.Rival(), b) >= s.PushOdds(plain, plain.Rival(), bare) {
+			t.Errorf("%v: push odds on a bare corner %.3f, %.3f without", tc.nodes, s.PushOdds(w, w.Rival(), b), s.PushOdds(plain, plain.Rival(), bare))
 		}
-		if tc.guard == 0 && s.PushOdds(w, b) != s.PushOdds(plain, bare) {
-			t.Errorf("%v: push odds on a bare corner moved to %.3f from %.3f", tc.nodes, s.PushOdds(w, b), s.PushOdds(plain, bare))
+		if tc.guard == 0 && s.PushOdds(w, w.Rival(), b) != s.PushOdds(plain, plain.Rival(), bare) {
+			t.Errorf("%v: push odds on a bare corner moved to %.3f from %.3f", tc.nodes, s.PushOdds(w, w.Rival(), b), s.PushOdds(plain, plain.Rival(), bare))
 		}
 	}
 	// A defector's lead onto a bare corner walks straight on without the
@@ -476,8 +485,8 @@ func eager(cfg *content.Config) *content.Config {
 func settled(t *testing.T, cfg *content.Config, seed uint64, personality string) (*game.World, *rivals.Sim) {
 	t.Helper()
 	w, s := world(t, cfg, seed)
-	w.Rival.Personality = personality
-	w.Rival.Arrived, w.Rival.Cash, w.Rival.Muscle, w.Rival.Observed = 1, 200_000, 30, true
+	w.Rival().Personality = personality
+	w.Rival().Arrived, w.Rival().Cash, w.Rival().Muscle, w.Rival().Observed = 1, 200_000, 30, true
 	c := &w.Home().Corners[len(w.Home().Corners)-1]
 	c.Owner, c.Since = game.OwnerRival, 1
 	w.Day = 1
@@ -489,41 +498,41 @@ func settled(t *testing.T, cfg *content.Config, seed uint64, personality string)
 // running from that day; the next step it sets up on it, claim_cost
 // spent and the claim counted, and the tell is cleared.
 func TestTellPrecedesTheClaim(t *testing.T) {
-	cfg := eager(content.MustLoad())
+	cfg := eager(duel())
 	for _, p := range content.Personalities {
 		w, s := settled(t, cfg, 3, p)
-		held, claims := w.RivalHeld(), w.Rival.Claims
+		held, claims := w.RivalHeld(), w.Rival().Claims
 		evs := step(w, s)
 		k := kinds(evs)
 		if k["RivalEyeing"] != 1 || k["CornerTaken"] != 0 {
 			t.Fatalf("%s: the first step: %v", p, k)
 		}
-		if w.Rival.Eyeing == "" || w.Rival.EyeingDay != w.Day || w.Rival.LastClaim != w.Day || w.RivalHeld() != held || w.Rival.Claims != claims {
-			t.Fatalf("%s: after the tell: %+v holds %d", p, w.Rival, w.RivalHeld())
+		if w.Rival().Eyeing == "" || w.Rival().EyeingDay != w.Day || w.Rival().LastClaim != w.Day || w.RivalHeld() != held || w.Rival().Claims != claims {
+			t.Fatalf("%s: after the tell: %+v holds %d", p, *w.Rival(), w.RivalHeld())
 		}
-		eyed := w.Corner(w.Rival.Eyeing)
+		eyed := w.Corner(w.Rival().Eyeing)
 		if eyed == nil || eyed.Owner != game.OwnerNone {
-			t.Fatalf("%s: eyeing %q, owner %q", p, w.Rival.Eyeing, eyed.Owner)
+			t.Fatalf("%s: eyeing %q, owner %q", p, w.Rival().Eyeing, eyed.Owner)
 		}
 		for _, e := range evs {
-			if ev, ok := e.(events.RivalEyeing); ok && (ev.Corner != eyed.ID || ev.Name != eyed.Name || ev.Rival != w.Rival.Leader) {
+			if ev, ok := e.(events.RivalEyeing); ok && (ev.Corner != eyed.ID || ev.Name != eyed.Name || ev.Rival != w.Rival().Leader) {
 				t.Fatalf("%s: the tell names %+v, eyeing %s", p, ev, eyed.ID)
 			}
 		}
-		cash := w.Rival.Cash + s.Income(w) - s.Wages(w)
+		cash := w.Rival().Cash + s.Income(w, w.Rival()) - s.Wages(w, w.Rival())
 		k = kinds(step(w, s))
 		if k["CornerTaken"] != 1 || k["RivalOutbid"] != 0 {
 			t.Fatalf("%s: the second step: %v", p, k)
 		}
-		if eyed.Owner != game.OwnerRival || w.RivalHeld() != held+1 || w.Rival.Claims != claims+1 {
-			t.Fatalf("%s: after the claim: %s is %s's, %+v", p, eyed.ID, eyed.Owner, w.Rival)
+		if eyed.Owner != game.OwnerRival || w.RivalHeld() != held+1 || w.Rival().Claims != claims+1 {
+			t.Fatalf("%s: after the claim: %s is %s's, %+v", p, eyed.ID, eyed.Owner, *w.Rival())
 		}
-		if w.Rival.Cash != cash-s.ClaimCost(w) {
-			t.Fatalf("%s: cash %d after the claim, want %d", p, w.Rival.Cash, cash-s.ClaimCost(w))
+		if w.Rival().Cash != cash-s.ClaimCost(w, w.Rival()) {
+			t.Fatalf("%s: cash %d after the claim, want %d", p, w.Rival().Cash, cash-s.ClaimCost(w, w.Rival()))
 		}
 		// The next tell is given the same step the claim lands only if
 		// the pace lets it: with none, the eager rival eyes again at once.
-		if w.Rival.Eyeing == "" {
+		if w.Rival().Eyeing == "" {
 			t.Fatalf("%s: the eager rival did not eye the next corner", p)
 		}
 	}
@@ -536,37 +545,37 @@ func TestTellPrecedesTheClaim(t *testing.T) {
 // the next tell names another corner. An enforcer on it counts: the
 // corner is held, and the rival never walks onto held ground.
 func TestPostingOnTheEyedCornerOutbidsTheClaim(t *testing.T) {
-	cfg := eager(content.MustLoad())
+	cfg := eager(duel())
 	tun := cfg.Rivals.Rivals
 	for _, who := range []int{game.You, 1, 2} {
 		w, s := settled(t, cfg, 5, "expansionist")
 		step(w, s)
-		eyed := w.Corner(w.Rival.Eyeing)
+		eyed := w.Corner(w.Rival().Eyeing)
 		if eyed == nil {
 			t.Fatal("no tell")
 		}
 		if err := w.Post(eyed.ID, who); err != nil {
 			t.Fatal(err)
 		}
-		held, claims, grudge := w.RivalHeld(), w.Rival.Claims, w.Rival.Grudge
-		cash := w.Rival.Cash + s.Income(w) - s.Wages(w)
+		held, claims, grudge := w.RivalHeld(), w.Rival().Claims, w.Rival().Grudge
+		cash := w.Rival().Cash + s.Income(w, w.Rival()) - s.Wages(w, w.Rival())
 		evs := step(w, s)
 		k := kinds(evs)
 		if k["RivalOutbid"] != 1 || k["CornerTaken"] != 0 {
 			t.Fatalf("posting %d: %v", who, k)
 		}
-		if eyed.Owner != game.OwnerPlayer || w.RivalHeld() != held || w.Rival.Claims != claims {
-			t.Fatalf("posting %d: %s is %s's, rival holds %d, claims %d", who, eyed.ID, eyed.Owner, w.RivalHeld(), w.Rival.Claims)
+		if eyed.Owner != game.OwnerPlayer || w.RivalHeld() != held || w.Rival().Claims != claims {
+			t.Fatalf("posting %d: %s is %s's, rival holds %d, claims %d", who, eyed.ID, eyed.Owner, w.RivalHeld(), w.Rival().Claims)
 		}
-		if w.Rival.Cash != cash {
-			t.Fatalf("posting %d: cash %d, want %d unspent", who, w.Rival.Cash, cash)
+		if w.Rival().Cash != cash {
+			t.Fatalf("posting %d: cash %d, want %d unspent", who, w.Rival().Cash, cash)
 		}
 		// The grudge is held, or paid back the same night with a call.
-		if paid := k["RivalTippedPolice"]; w.Rival.Grudge+paid != grudge+tun.OutbidGrudge || paid > 1 {
-			t.Fatalf("posting %d: grudge %d, was %d, %d calls", who, w.Rival.Grudge, grudge, paid)
+		if paid := k["RivalTippedPolice"]; w.Rival().Grudge+paid != grudge+tun.OutbidGrudge || paid > 1 {
+			t.Fatalf("posting %d: grudge %d, was %d, %d calls", who, w.Rival().Grudge, grudge, paid)
 		}
-		if w.Rival.Eyeing == "" || w.Rival.Eyeing == eyed.ID {
-			t.Fatalf("posting %d: the next tell is %q", who, w.Rival.Eyeing)
+		if w.Rival().Eyeing == "" || w.Rival().Eyeing == eyed.ID {
+			t.Fatalf("posting %d: the next tell is %q", who, w.Rival().Eyeing)
 		}
 	}
 }
@@ -574,33 +583,33 @@ func TestPostingOnTheEyedCornerOutbidsTheClaim(t *testing.T) {
 // A tell the rival can no longer act on is dropped without a word: a
 // split sealed overnight that covers the corner, or its share reached.
 func TestStaleTellIsDropped(t *testing.T) {
-	cfg := eager(content.MustLoad())
+	cfg := eager(duel())
 	w, s := settled(t, cfg, 7, "expansionist")
 	step(w, s)
-	eyed := w.Rival.Eyeing
-	w.Rival.Deals = []game.Deal{{Kind: game.DealSplit, Terms: game.Terms{Corners: []string{eyed}}, Since: w.Day}}
-	held, cash, wages := w.RivalHeld(), w.Rival.Cash, s.Wages(w)
+	eyed := w.Rival().Eyeing
+	w.Rival().Deals = []game.Deal{{Kind: game.DealSplit, Terms: game.Terms{Corners: []string{eyed}}, Since: w.Day}}
+	held, cash, wages := w.RivalHeld(), w.Rival().Cash, s.Wages(w, w.Rival())
 	k := kinds(step(w, s))
 	if k["CornerTaken"] != 0 || k["RivalOutbid"] != 0 {
 		t.Fatalf("under the split: %v", k)
 	}
-	if w.Corner(eyed).Owner != game.OwnerNone || w.RivalHeld() != held || w.Rival.Cash < cash-wages {
-		t.Fatalf("under the split: %s is %s's, holds %d, cash %d -> %d", eyed, w.Corner(eyed).Owner, w.RivalHeld(), cash, w.Rival.Cash)
+	if w.Corner(eyed).Owner != game.OwnerNone || w.RivalHeld() != held || w.Rival().Cash < cash-wages {
+		t.Fatalf("under the split: %s is %s's, holds %d, cash %d -> %d", eyed, w.Corner(eyed).Owner, w.RivalHeld(), cash, w.Rival().Cash)
 	}
-	if w.Rival.Eyeing == eyed {
+	if w.Rival().Eyeing == eyed {
 		t.Fatalf("the split corner is eyed again")
 	}
 
 	w, s = settled(t, cfg, 7, "defensive")
 	step(w, s)
-	eyed = w.Rival.Eyeing
+	eyed = w.Rival().Eyeing
 	for i := range w.Home().Corners {
-		if c := &w.Home().Corners[i]; c.Owner == game.OwnerNone && c.ID != eyed && w.RivalHeld() < s.MaxCorners(w) {
+		if c := &w.Home().Corners[i]; c.Owner == game.OwnerNone && c.ID != eyed && w.RivalHeld() < s.MaxCorners(w, w.Rival()) {
 			c.Owner = game.OwnerRival
 		}
 	}
 	k = kinds(step(w, s))
-	if k["CornerTaken"] != 0 || w.Corner(eyed).Owner != game.OwnerNone || w.RivalHeld() > s.MaxCorners(w) {
-		t.Fatalf("at its share: %v, %s is %s's, holds %d of %d", k, eyed, w.Corner(eyed).Owner, w.RivalHeld(), s.MaxCorners(w))
+	if k["CornerTaken"] != 0 || w.Corner(eyed).Owner != game.OwnerNone || w.RivalHeld() > s.MaxCorners(w, w.Rival()) {
+		t.Fatalf("at its share: %v, %s is %s's, holds %d of %d", k, eyed, w.Corner(eyed).Owner, w.RivalHeld(), s.MaxCorners(w, w.Rival()))
 	}
 }

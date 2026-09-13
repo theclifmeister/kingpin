@@ -65,13 +65,14 @@ func TestHeldDemandIsServed(t *testing.T) {
 // corner is only yours while somebody works it. The rival is kept
 // defensive so the corners are lost to the street, not to it.
 func TestLosingRunnersLosesCorners(t *testing.T) {
-	cfg := content.MustLoad()
+	// The duel (#43, harness.OneFaction): this pins a mechanism on a seed, and the table moves the seed's dice.
+	cfg := OneFaction(content.MustLoad())
 	drift := cfg.City.Territory.DriftDays
 	crewed := Crewed(cfg, 40)
 	fired := 0
 	var heldBefore int
 	start := sim.NewWorld(cfg, 5)
-	start.Rival.Personality = "defensive"
+	start.Rival().Personality = "defensive"
 	res, err := RunFrom(cfg, start, 80, func(w *game.World) {
 		switch {
 		case w.Day < 40:

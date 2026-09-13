@@ -275,6 +275,41 @@ RivalRaided = [
   "Dawn raid on {{.Corner}}: arrests, and {{.Rival}}'s crew gone from it",
   "Acting on a tip, police clear {{.Corner}} of {{.Rival}}'s outfit",
 ]
+# The table (#43): factions on factions, absorbed, fragmented; your crew
+# poached. Name is the faction pushed on (FactionPushed) or the absorber
+# (RivalAbsorbed); Leader and Faction are the event's faction's.
+FactionPushed = [
+  "Shots on {{.Corner}} as {{.Rival}}'s and {{.Name}}'s crews clash",
+  "{{.Rival}}'s people move on {{.Name}}'s block at {{.Corner}}; held off",
+  "Turf fight on {{.Corner}}: two crews, no winner, plenty of noise",
+]
+FactionTook = [
+  "{{.Rival}}'s crew takes {{.Corner}} from {{.Name}}'s outfit",
+  "{{.Corner}} changes hands: {{.Name}} out, {{.Rival}} in",
+  "{{.City}} turf war: {{.Rival}}'s people now hold {{.Corner}}",
+]
+RivalAbsorbed = [
+  "{{.Rival}}'s outfit folds; what is left runs with {{.Name}} now",
+  "End of the line for {{.Rival}}'s crew: absorbed by {{.Name}}'s",
+]
+RivalScattered = [
+  "{{.Rival}}'s crew scatters; 'nothing left to hold', says one",
+  "{{.Rival}}'s outfit is finished: corners gone, people gone",
+]
+RivalLeaderArrested = [
+  "{{.Rival}} ARRESTED: police take the head of {{.City}}'s biggest crew",
+  "Chief {{.Chief}} hails {{.Rival}}'s arrest as 'the end of an era' in {{.City}}",
+  "{{.Rival}} in custody; DA {{.DA}} promises 'the whole organisation follows'",
+]
+RivalLeaderKilled = [
+  "{{.Rival}} shot dead; {{.City}} braces for what comes next",
+  "{{.Rival}} killed: {{.Faction}} leaderless, corners up for grabs",
+  "Gunfire ends {{.Rival}}'s run; police 'following several lines'",
+]
+CrewPoached = [
+  "{{.Name}} switches to {{.Rival}}'s crew; 'they pay better', say friends",
+  "{{.Rival}} poaches {{.City}} {{.Role}} {{.Name}} with a fat offer",
+]
 RivalMusclePoached = [
   "{{.Rival}}'s crew thinner overnight; 'some of the boys went home', says one",
   "Faces missing from {{.Rival}}'s corners; nobody is saying where they went",
@@ -576,6 +611,11 @@ IncidentElectionCalled = [
   "DA {{.DA}} calls snap election: {{.City}} votes in {{.Days}} days",
   "Snap election: DA {{.DA}} goes to the voters early on the mood in {{.City}}",
   "{{.City}} to the polls in {{.Days}} days as DA {{.DA}} calls an early election",
+]
+IncidentRivalLeaderKilled = [
+  "{{.Leader}} shot dead outside a {{.City}} club; police 'have several lines'",
+  "Gangland killing in {{.City}}: {{.Leader}} gunned down, crew in disarray",
+  "{{.City}} boss {{.Leader}} killed; Chief {{.Chief}} warns of a 'power vacuum'",
 ]
 IncidentChiefResigns = [
   "Chief {{.Chief}} resigns; mayor promises a new name by the morning",

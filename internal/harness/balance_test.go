@@ -211,9 +211,9 @@ var moneyCurve = []struct {
 	{4, "boss", func(cfg *content.Config) Policy { return Boss(cfg, 40, "") }, 50_000_000, 200_000_000, false},
 	// Tier 5 (#48) is the cartel: the boss with the assets. The row is
 	// pending: measured and logged, never enforced. The band is the
-	// issue's ($500M to $5B at day 300) and the cartel reads a quarter
-	// of its floor ($202M on the median of ten seeds at day 300; the
-	// boss $219M), because the tier-4 operation is demand- and
+	// issue's ($500M to $5B at day 300) and the cartel reads about a
+	// third of its floor ($179M on the median of twenty seeds at day
+	// 300 with #43's table, $181M on ten; the boss $187M), because the tier-4 operation is demand- and
 	// wash-bound, not supply-bound: revenue ~$0.94M a day off two
 	// cities' corners, the wash $0.5M and the levels $0.6M a day, so
 	// net worth grows ~$1.2M a day and the dirty pile sits at the

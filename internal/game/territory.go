@@ -30,7 +30,7 @@ var (
 	ErrNotPostable = errors.New("only runners and enforcers work corners")
 	ErrNoEnforcers = errors.New("no enforcers on the payroll")
 	ErrElsewhere   = errors.New("you are not in that city")
-	ErrAtPeace     = errors.New("a truce or a tribute holds; a price war is not on while the peace is")
+	ErrAtPeace     = errors.New("a truce, a tribute or a homage holds; a price war is not on while the peace is")
 	ErrNotNextDoor = errors.New("you work no corner next to it")
 )
 
@@ -108,6 +108,20 @@ func (c Corner) Borders(o Corner) bool {
 // Held reports whether the player owns the corner.
 func (c Corner) Held() bool { return c.Owner == OwnerPlayer }
 
+// FactionID is the faction holding the corner while Owner is OwnerRival
+// (#43): Faction, or FactionRival for a corner stamped before ids (a
+// save from before #144, a world built by hand), the way
+// RivalState.Faction resolves a zero id; "" for a corner nobody's.
+func (c Corner) FactionID() string {
+	if c.Owner != OwnerRival {
+		return ""
+	}
+	if c.Faction == "" {
+		return FactionRival
+	}
+	return c.Faction
+}
+
 // Worked reports whether the player owns the corner and somebody is on it
 // selling: only worked corners serve demand.
 func (c Corner) Worked() bool { return c.Held() && c.Runner != 0 }
@@ -135,39 +149,17 @@ func (w *World) Corner(id string) *Corner {
 	return nil
 }
 
-// RivalHeld counts the corners the rival owns.
+// RivalHeld counts the corners every faction owns, in every city.
 func (w *World) RivalHeld() int {
 	n := 0
-	for _, c := range w.Corners() {
-		if c.Owner == OwnerRival {
-			n++
+	for _, cid := range w.CityOrder {
+		for _, c := range w.Cities[cid].Corners {
+			if c.Owner == OwnerRival {
+				n++
+			}
 		}
 	}
 	return n
-}
-
-// Contested reports whether a corner borders one the other side holds:
-// a player corner next to a rival one, or the reverse.
-func (w *World) Contested(c Corner) bool {
-	var other string
-	switch c.Owner {
-	case OwnerPlayer:
-		other = OwnerRival
-	case OwnerRival:
-		other = OwnerPlayer
-	default:
-		return false
-	}
-	city := w.Cities[c.City]
-	if city == nil {
-		return false
-	}
-	for _, o := range city.Corners {
-		if o.Owner == other && c.Borders(o) {
-			return true
-		}
-	}
-	return false
 }
 
 // Held counts the corners the player owns, in every city.
@@ -299,8 +291,10 @@ func (w *World) Post(corner string, id int) error {
 		return ErrNotPostable
 	}
 	if c.Owner != OwnerPlayer {
-		if d := w.Deal(DealSplit); d != nil && !d.Covers(c.ID) {
-			return fmt.Errorf("the split gives %s to %s; break it first", c.Name, w.Rival.Leader)
+		for _, r := range w.Rivals {
+			if d := w.DealWith(r.Faction(), DealSplit); d != nil && !d.Covers(c.ID) && w.Cities[c.City] == w.CityOf(r) {
+				return fmt.Errorf("the split gives %s to %s; break it first", c.Name, r.Leader)
+			}
 		}
 	}
 	w.Recall(id)
@@ -366,7 +360,7 @@ func (w *World) SendEnforcers(corner string, force events.Force) error {
 		return ErrNoCorner
 	}
 	if c.Owner != OwnerRival {
-		return fmt.Errorf("%s is not the rival's", c.Name)
+		return fmt.Errorf("%s is not a rival's", c.Name)
 	}
 	if w.Crew.Role("enforcer") == 0 {
 		return ErrNoEnforcers
@@ -431,13 +425,13 @@ func (w *World) CanUndercut(corner string) error {
 		return ErrNoCorner
 	}
 	if c.Owner != OwnerRival {
-		return fmt.Errorf("%s is not the rival's", c.Name)
+		return fmt.Errorf("%s is not a rival's", c.Name)
 	}
-	if w.AtPeace() {
+	if w.AtPeaceWith(c.Faction) {
 		return ErrAtPeace
 	}
-	if d := w.Deal(DealSplit); d != nil && !d.Covers(c.ID) {
-		return fmt.Errorf("the split gives %s to %s; break it first", c.Name, w.Rival.Leader)
+	if d := w.DealWith(c.Faction, DealSplit); d != nil && !d.Covers(c.ID) {
+		return fmt.Errorf("the split gives %s to %s; break it first", c.Name, w.FactionName(c.Faction))
 	}
 	if w.NextDoor(*c) <= 0 {
 		return ErrNotNextDoor

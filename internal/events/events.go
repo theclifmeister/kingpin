@@ -627,18 +627,19 @@ func (CashLaundered) Kind() string { return "CashLaundered" }
 // that need its dice: NewChief is a new chief this morning, Election the
 // days until a snap election (0 none).
 type Incident struct {
-	Day      int
-	ID       string
-	Name     string
-	City     string
-	Route    string
-	Product  string
-	Person   string
-	Days     int
-	Chief    string
-	DA       string
-	NewChief bool
-	Election int
+	Day          int
+	ID           string
+	Name         string
+	City         string
+	Route        string
+	Product      string
+	Person       string
+	Days         int
+	Chief        string
+	DA           string
+	NewChief     bool
+	Election     int
+	LeaderKilled bool // rival_leader_killed (#43): the rivals sim fragments the faction holding most of City this tick
 }
 
 func (Incident) Kind() string { return "Incident" }
@@ -1128,9 +1129,96 @@ type TributePaid struct {
 	Rival   string
 	Faction string // faction id (#144)
 	Amount  int
+	ToYou   bool // a homage (#43): they paid you
 }
 
 func (TributePaid) Kind() string { return "TributePaid" }
+
+// The table (#43): factions fighting each other, poaching your crew,
+// being absorbed and losing their leaders.
+
+// FactionPushed is one faction pushing on another's corner: muscle
+// against muscle at the usual odds. Taken says the corner changed hands
+// (Against's to Faction's). Heat is what the fight draws on the city,
+// for the heat sim, and the law counts it as a push. Rival and Faction
+// name the pusher, Against and AgainstRival the faction pushed on.
+type FactionPushed struct {
+	Day          int
+	City         string
+	Corner       string
+	Name         string
+	Rival        string
+	Faction      string // the pusher's faction id
+	Against      string // the faction pushed on
+	AgainstRival string // its leader
+	Taken        bool
+	Heat         float64
+}
+
+func (FactionPushed) Kind() string { return "FactionPushed" }
+
+// RivalAbsorbed is a faction that stood absorb_days with no corners
+// being swallowed by the one that took its last (By, ByFaction; "" when
+// you or the police did, and it scatters): its muscle joins them.
+type RivalAbsorbed struct {
+	Day       int
+	Rival     string
+	Faction   string
+	By        string
+	ByFaction string
+	Muscle    int
+}
+
+func (RivalAbsorbed) Kind() string { return "RivalAbsorbed" }
+
+// RivalLeaderArrested is a faction's leader taken by the police (its
+// heat past leader_arrest_heat, your tips) or killed (the
+// rival_leader_killed incident, Killed): the faction fragments, its
+// Corners drift to the street over fragment_days, the city's prices
+// spike and Muscle heads turn up in your hiring pool at a discount.
+type RivalLeaderArrested struct {
+	Day     int
+	Rival   string
+	Faction string
+	City    string
+	Corners int
+	Muscle  int
+	Killed  bool
+}
+
+func (RivalLeaderArrested) Kind() string { return "RivalLeaderArrested" }
+
+// CrewPoached is a faction offering one of your crew Wages a day to
+// come over: under the loyalty line they go (the crew sim drops them
+// and hands the faction the lead, #13's defection with a faction
+// named), over it they stay and Stayed says so, their loyalty down by
+// Dip (they know they are wanted). ID is the member's.
+type CrewPoached struct {
+	Day     int
+	ID      int
+	Name    string
+	Role    string
+	Rival   string
+	Faction string
+	Wages   int
+	Stayed  bool
+	Dip     float64
+}
+
+func (CrewPoached) Kind() string { return "CrewPoached" }
+
+// TrustSpread is a betrayal remembered by everyone (#43,
+// betrayal_spread): every other faction's trust in you fell by Spread
+// the step you broke a deal with Rival. Report-only.
+type TrustSpread struct {
+	Day     int
+	Rival   string
+	Faction string
+	Spread  float64
+	Others  int
+}
+
+func (TrustSpread) Kind() string { return "TrustSpread" }
 
 // LieutenantFlipped is a lieutenant turning informant: their loyalty fell
 // under the line and they know where everything is. Like
@@ -1517,9 +1605,11 @@ func (RivalAbandoned) Kind() string { return "RivalAbandoned" }
 // rival's books. Read says whether it read them; the snapshot itself is
 // Rival.Known.
 type RivalScouted struct {
-	Day  int
-	Cost int
-	Read bool
+	Day     int
+	Cost    int
+	Read    bool
+	Rival   string // whose books (#43)
+	Faction string // faction id
 }
 
 func (RivalScouted) Kind() string { return "RivalScouted" }

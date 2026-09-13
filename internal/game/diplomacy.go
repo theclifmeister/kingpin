@@ -16,6 +16,7 @@ const (
 	DealTribute  = "tribute"  // you pay a day; it leaves your corners alone
 	DealSplit    = "split"    // a line through the city; each side keeps to its own
 	DealShipment = "shipment" // half the cost and half the loss of one shipment (#30)
+	DealHomage   = "homage"   // they pay you a day (#43, #32's tribute in reverse); a faction that has lost enough ground to you offers it
 )
 
 var (
@@ -51,13 +52,32 @@ type Deal struct {
 	Since   int
 	Until   int
 	Offered bool
+	Faction string // the faction it is with (#43); "" is the rival at home
 }
 
-// Offer is a deal the rival has put on the table, good until Expires.
+// Offer is a deal a faction has put on the table, good until Expires.
 type Offer struct {
 	ID      int
 	Deal    Deal
 	Expires int
+	Faction string // who offered it (#43); "" is the rival at home
+}
+
+// With is the faction a deal or an offer is with, resolved: its Faction,
+// or the rival at home's.
+func (d Deal) With() string {
+	if d.Faction == "" {
+		return FactionRival
+	}
+	return d.Faction
+}
+
+// With is the faction that made the offer, resolved.
+func (o Offer) With() string {
+	if o.Faction == "" {
+		return FactionRival
+	}
+	return o.Faction
 }
 
 // Live reports whether the deal holds on the tick of day.
@@ -87,6 +107,8 @@ func (d Deal) String() string {
 		return "tribute of " + format.Money(d.Terms.PerDay) + " a day"
 	case DealSplit:
 		return fmt.Sprintf("a split: %s your side of the line", format.Plural(len(d.Terms.Corners), "corner"))
+	case DealHomage:
+		return "homage of " + format.Money(d.Terms.PerDay) + " a day to you"
 	case DealShipment:
 		return fmt.Sprintf("a joint shipment of %d units", d.Terms.Units)
 	}
@@ -115,19 +137,51 @@ func (w *World) Side(d Deal) string {
 	return strings.Join(names, ", ")
 }
 
-// Deal returns the deal of a kind that holds tonight, or nil.
-func (w *World) Deal(kind string) *Deal {
-	for i := range w.Rival.Deals {
-		if d := &w.Rival.Deals[i]; d.Kind == kind && d.Live(w.Day+1) {
+// Deal returns the deal of a kind that holds tonight with the rival at
+// home, or nil.
+func (w *World) Deal(kind string) *Deal { return w.DealWith("", kind) }
+
+// DealWith returns the deal of a kind that holds tonight with a faction
+// (#43), or nil.
+func (w *World) DealWith(faction, kind string) *Deal {
+	r := w.Faction(faction)
+	if r == nil {
+		return nil
+	}
+	for i := range r.Deals {
+		if d := &r.Deals[i]; d.Kind == kind && d.Live(w.Day+1) {
 			return d
 		}
 	}
 	return nil
 }
 
-// AtPeace reports whether a live deal keeps the rival off the player's
-// corners today: a truce or a tribute.
-func (w *World) AtPeace() bool { return w.Deal(DealTruce) != nil || w.Deal(DealTribute) != nil }
+// AtPeace reports whether a live deal keeps the rival at home off the
+// player's corners today: a truce or a tribute.
+func (w *World) AtPeace() bool { return w.AtPeaceWith("") }
+
+// AtPeaceWith reports whether a truce, a tribute or a homage holds with
+// a faction tonight (#43): the peace that keeps it off your corners and
+// you off its.
+func (w *World) AtPeaceWith(faction string) bool {
+	return w.DealWith(faction, DealTruce) != nil || w.DealWith(faction, DealTribute) != nil || w.DealWith(faction, DealHomage) != nil
+}
+
+// CornerPeace reports whether a deal keeps you off a faction's corner
+// tonight: a peace with the faction that holds it, or its side of a
+// split's line. A corner nobody's is nobody's business.
+func (w *World) CornerPeace(c Corner) bool {
+	if c.Owner != OwnerRival {
+		return false
+	}
+	if w.AtPeaceWith(c.Faction) {
+		return true
+	}
+	if d := w.DealWith(c.Faction, DealSplit); d != nil && !d.Covers(c.ID) {
+		return true
+	}
+	return false
+}
 
 // Offer returns the pending offer with id, or nil.
 func (w *World) Offer(id int) *Offer {
@@ -139,14 +193,22 @@ func (w *World) Offer(id int) *Offer {
 	return nil
 }
 
-// Propose puts a deal to the rival; it answers in the morning. One a
-// day: proposing again replaces it. Terms are checked for shape here and
-// for taste by the rival.
-func (w *World) Propose(kind string, terms Terms) error {
+// Propose puts a deal to the rival at home; it answers in the morning.
+// One a day: proposing again replaces it. Terms are checked for shape
+// here and for taste by the rival.
+func (w *World) Propose(kind string, terms Terms) error { return w.ProposeTo("", kind, terms) }
+
+// ProposeTo puts a deal to a faction (#43): Propose, with the faction
+// named. A homage is theirs to offer, never yours to ask.
+func (w *World) ProposeTo(faction, kind string, terms Terms) error {
 	if w.Over != nil {
 		return ErrGameOver
 	}
-	if w.Rival.Arrived == 0 {
+	r := w.Faction(faction)
+	if r == nil {
+		return ErrNoFaction
+	}
+	if !r.Alive() {
 		return ErrNoRival
 	}
 	switch kind {
@@ -172,15 +234,15 @@ func (w *World) Propose(kind string, terms Terms) error {
 	default:
 		return ErrBadTerms
 	}
-	if w.Deal(kind) != nil {
+	if w.DealWith(r.Faction(), kind) != nil {
 		return ErrDealLive
 	}
 	for _, o := range w.Offers {
-		if o.Deal.Kind == kind {
+		if o.Deal.Kind == kind && o.With() == r.Faction() {
 			return ErrOfferLive
 		}
 	}
-	w.Today.Proposal = &Deal{Kind: kind, Terms: terms}
+	w.Today.Proposal = &Deal{Kind: kind, Terms: terms, Faction: faction}
 	return nil
 }
 
@@ -201,7 +263,7 @@ func (w *World) Accept(id int) (Offer, error) {
 	if w.Day > o.Expires {
 		return Offer{}, ErrOfferLapsed
 	}
-	if w.Deal(o.Deal.Kind) != nil {
+	if w.DealWith(o.With(), o.Deal.Kind) != nil {
 		return Offer{}, ErrDealLive
 	}
 	taken := *o
@@ -241,9 +303,18 @@ func (w *World) HomeCorners() []Corner {
 // the player's side growing with each: what you hold; that plus the free
 // corners next to yours and not next to theirs; that plus every free
 // corner. A rival corner is never on your side.
-func (w *World) SplitLines() [][]string {
+func (w *World) SplitLines() [][]string { return w.SplitLinesWith("") }
+
+// SplitLinesWith are the split lines in a faction's city (#43), theirs
+// being the corners of any faction there.
+func (w *World) SplitLinesWith(faction string) [][]string {
 	var held, near, all []string
 	corners := w.HomeCorners()
+	if r := w.Faction(faction); r != nil && r.Home != "" {
+		if city := w.Cities[r.Home]; city != nil {
+			corners = city.Corners
+		}
+	}
 	for _, c := range corners {
 		switch c.Owner {
 		case OwnerPlayer:

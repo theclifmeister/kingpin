@@ -153,8 +153,9 @@ func TestCartelBeatsCorruptAndDistributor(t *testing.T) {
 // boss operation at the tier-5 checkpoint: the cartel is the boss that
 // puts clean cash into assets instead of levels, and a level pays 1% a
 // day by #192's design while a supply-side asset on a demand-bound
-// operation cannot, so the cartel reads under the boss (-7.7% on the
-// median of ten seeds, -3.5% to -11.8% on each) and never more than
+// operation cannot, so the cartel reads under the boss (-3.0% on the
+// median of ten seeds with #43's table, -8.8% to 0% on each; -7.7%
+// and -3.5% to -11.8% on the duel before it) and never more than
 // fifteen percent under it. The ruling on #48: an ordering, not the
 // band; cartel > boss does not hold on any seed and is not pinned.
 func TestCartelIsWithinFifteenPercentOfBoss(t *testing.T) {
@@ -195,7 +196,7 @@ func TestCartelIsWithinFifteenPercentOfBoss(t *testing.T) {
 // lying low at this scale is not enough: its Security branch and its
 // lawyers hold a normal-dial operation at heat 50 and the file at
 // nothing, so the task force's line, 88 less the pressure's cut, takes
-// the loud dial to reach; 7 of 10 seeds on main.)
+// the loud dial to reach; 8 of 10 seeds on main with #43's table.)
 func TestAggressiveCartelLosesItsAssets(t *testing.T) {
 	cfg := content.MustLoad()
 	punished := 0

@@ -29,7 +29,8 @@ func booksSim(cfg *content.Config) *rivals.Sim {
 // your pocket (the stats add up); Known is written by nothing but a
 // scout that read the books and its day is never past today.
 func TestBooksInvariants(t *testing.T) {
-	cfg := content.MustLoad()
+	// The duel (#43, harness.OneFaction): this pins a mechanism on a seed, and the table moves the seed's dice.
+	cfg := OneFaction(content.MustLoad())
 	for name, mk := range map[string]func() Policy{
 		"saboteur": func() Policy { return Saboteur(cfg, 40) },
 		"tipster":  func() Policy { return Tipster(cfg, 40) },
@@ -40,7 +41,7 @@ func TestBooksInvariants(t *testing.T) {
 			var last []events.Event
 			boosted := 0
 			check := func(w *game.World) {
-				r := w.Rival
+				r := *w.Rival()
 				if r.Cash < 0 || r.Muscle < 0 || r.Heat < 0 || r.Heat > 100 {
 					t.Fatalf("%s seed %d day %d: rival cash %d muscle %d heat %.1f", name, seed, w.Day, r.Cash, r.Muscle, r.Heat)
 				}
@@ -156,7 +157,7 @@ func TestSaboteurDrainsTheMuscleQuietly(t *testing.T) {
 					added += ev.Heat
 				}
 			}
-			r.muscle = append(r.muscle, res.World.Rival.Muscle)
+			r.muscle = append(r.muscle, res.World.Rival().Muscle)
 			r.corners = append(r.corners, res.World.RivalHeld())
 			r.heat = append(r.heat, added)
 		}
@@ -202,25 +203,25 @@ func TestBuyOffRemovesMoreMuscleAtAPrice(t *testing.T) {
 	rv := booksSim(&sure)
 	fixture := func() *game.World {
 		w := sim.NewWorld(&sure, 4)
-		w.Rival.Personality = "defensive"
+		w.Rival().Personality = "defensive"
 		res, err := RunFrom(&sure, w, 40, Territory(&sure, 40, 3))
 		if err != nil {
 			t.Fatal(err)
 		}
 		w = res.World
-		if w.RivalHeld() == 0 || min(rv.Want(w), rv.Afford(w)) < 3 {
-			t.Fatalf("day 40 of seed 4: rival holds %d corners, wants %d and affords %d", w.RivalHeld(), rv.Want(w), rv.Afford(w))
+		if w.RivalHeld() == 0 || min(rv.Want(w, w.Rival()), rv.Afford(w, w.Rival())) < 3 {
+			t.Fatalf("day 40 of seed 4: rival holds %d corners, wants %d and affords %d", w.RivalHeld(), rv.Want(w, w.Rival()), rv.Afford(w, w.Rival()))
 		}
-		w.Rival.Muscle = min(rv.Want(w), rv.Afford(w)) // at strength: the morning hires nobody, so the night's move is all that moves it
-		w.Rival.Cash = rv.Wages(w)                     // a night's wages in the chest: a drain binds at once
-		w.Player.DirtyCash = 4 * rv.MusclePrice(w)
+		w.Rival().Muscle = min(rv.Want(w, w.Rival()), rv.Afford(w, w.Rival())) // at strength: the morning hires nobody, so the night's move is all that moves it
+		w.Rival().Cash = rv.Wages(w, w.Rival())                                // a night's wages in the chest: a drain binds at once
+		w.Player.DirtyCash = 4 * rv.MusclePrice(w, w.Rival())
 		w.Home().Heat, w.Heat.Evidence = 0, 0 // the night is the move's, not the police's
 		return w
 	}
 	// A night of boosting.
 	boost := fixture()
 	target := pickCorner(boost, func(c game.Corner) bool { return c.Owner == game.OwnerRival }, size)
-	muscle, cash := boost.Rival.Muscle, boost.Player.DirtyCash
+	muscle, cash := boost.Rival().Muscle, boost.Player.DirtyCash
 	if err := boost.Boost(target.ID, events.ForceHit); err != nil {
 		t.Fatal(err)
 	}
@@ -235,17 +236,17 @@ func TestBuyOffRemovesMoreMuscleAtAPrice(t *testing.T) {
 	if landed == nil {
 		t.Fatalf("the boost at hit against no defence did not land: %v", evs)
 	}
-	boostGone := muscle - boost.Rival.Muscle
+	boostGone := muscle - boost.Rival().Muscle
 	boostCost := cash - boost.Player.DirtyCash // negative: the boost paid
 	// The buy-off of three heads.
 	buy := fixture()
-	price := rv.MusclePrice(buy)
-	muscle, cash = buy.Rival.Muscle, buy.Player.DirtyCash
+	price := rv.MusclePrice(buy, buy.Rival())
+	muscle, cash = buy.Rival().Muscle, buy.Player.DirtyCash
 	if err := buy.BuyOff(3, 3*price); err != nil {
 		t.Fatal(err)
 	}
 	clock.EndDay(buy)
-	buyGone := muscle - buy.Rival.Muscle
+	buyGone := muscle - buy.Rival().Muscle
 	buyCost := cash - buy.Player.DirtyCash
 	t.Logf("a night of boosting: %d heads gone, %s to you; buying off three: %d heads gone for %s (%s a head)", boostGone, format(-boostCost), buyGone, format(buyCost), format(buyCost/max(1, buyGone)))
 	if buyGone <= boostGone {
@@ -299,7 +300,7 @@ func TestTipsHaveTeethBothWays(t *testing.T) {
 	// A tip under a truce is a betrayal, and the raid it brings is
 	// pressure at home.
 	w := sim.NewWorld(cfg, 3)
-	w.Rival.Personality = "defensive"
+	w.Rival().Personality = "defensive"
 	res, err := RunFrom(cfg, w, 40, Territory(cfg, 40, 3))
 	if err != nil {
 		t.Fatal(err)
@@ -308,8 +309,8 @@ func TestTipsHaveTeethBothWays(t *testing.T) {
 	if w.RivalHeld() == 0 {
 		t.Fatal("day 40 of seed 3: no rival corner")
 	}
-	w.Rival.Deals = []game.Deal{{Kind: game.DealTruce, Terms: game.Terms{Days: 30}, Since: w.Day, Until: w.Day + 30}}
-	w.Rival.Heat = tp.PoliceNotice - tp.Heat // one tip from the line
+	w.Rival().Deals = []game.Deal{{Kind: game.DealTruce, Terms: game.Terms{Days: 30}, Since: w.Day, Until: w.Day + 30}}
+	w.Rival().Heat = tp.PoliceNotice - tp.Heat // one tip from the line
 	target := pickCorner(w, func(c game.Corner) bool { return c.Owner == game.OwnerRival }, size)
 	betrayals, pressure := w.Stats.Betrayals, w.Home().Pressure
 	if err := w.Tip(target.ID); err != nil {
@@ -326,8 +327,8 @@ func TestTipsHaveTeethBothWays(t *testing.T) {
 	if raid == nil {
 		t.Fatalf("a tip at the line brought no raid: %v", evs)
 	}
-	if w.Stats.Betrayals != betrayals+1 || w.Rival.Trust != cfg.Rivals.Diplomacy.BetrayalFloor || len(w.Rival.Deals) != 0 {
-		t.Fatalf("a tip under a truce: betrayals %d -> %d, trust %.0f, deals %v", betrayals, w.Stats.Betrayals, w.Rival.Trust, w.Rival.Deals)
+	if w.Stats.Betrayals != betrayals+1 || w.Rival().Trust != cfg.Rivals.Diplomacy.BetrayalFloor || len(w.Rival().Deals) != 0 {
+		t.Fatalf("a tip under a truce: betrayals %d -> %d, trust %.0f, deals %v", betrayals, w.Stats.Betrayals, w.Rival().Trust, w.Rival().Deals)
 	}
 	if w.Home().Pressure <= pressure {
 		t.Fatalf("home's pressure %.1f -> %.1f on a raid", pressure, w.Home().Pressure)
@@ -340,11 +341,12 @@ func TestTipsHaveTeethBothWays(t *testing.T) {
 // exactly.
 func TestBooksAreDeterministicAndSave(t *testing.T) {
 	t.Setenv("KINGPIN_HOME", t.TempDir())
-	cfg := content.MustLoad()
+	// The duel (#43, harness.OneFaction): this pins a mechanism on a seed, and the table moves the seed's dice.
+	cfg := OneFaction(content.MustLoad())
 	policy := func() Policy { return Saboteur(cfg, 40) }
 	play := func(days int) Result {
 		w := sim.NewWorld(cfg, 4)
-		w.Rival.Personality = "opportunist"
+		w.Rival().Personality = "opportunist"
 		res, err := RunFrom(cfg, w, days, policy())
 		if err != nil {
 			t.Fatal(err)
@@ -394,8 +396,8 @@ func TestBooksAreDeterministicAndSave(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	if loaded.Rival.Known != c.World.Rival.Known || loaded.Rival.Heat != c.World.Rival.Heat || loaded.Rival.Scouted != c.World.Rival.Scouted || loaded.Rival.LastRaid != c.World.Rival.LastRaid {
-		t.Fatalf("the books loaded as %+v/%.1f/%d/%d, saved %+v/%.1f/%d/%d", loaded.Rival.Known, loaded.Rival.Heat, loaded.Rival.Scouted, loaded.Rival.LastRaid, c.World.Rival.Known, c.World.Rival.Heat, c.World.Rival.Scouted, c.World.Rival.LastRaid)
+	if loaded.Rival().Known != c.World.Rival().Known || loaded.Rival().Heat != c.World.Rival().Heat || loaded.Rival().Scouted != c.World.Rival().Scouted || loaded.Rival().LastRaid != c.World.Rival().LastRaid {
+		t.Fatalf("the books loaded as %+v/%.1f/%d/%d, saved %+v/%.1f/%d/%d", loaded.Rival().Known, loaded.Rival().Heat, loaded.Rival().Scouted, loaded.Rival().LastRaid, c.World.Rival().Known, c.World.Rival().Heat, c.World.Rival().Scouted, c.World.Rival().LastRaid)
 	}
 	d, _ := RunFrom(cfg, loaded, 120-c.World.Day, policy())
 	// The unsaved run the save must replay: the same morning with the
@@ -423,8 +425,8 @@ func TestBooksAreDeterministicAndSave(t *testing.T) {
 func TestNoBooksIsTheOldRun(t *testing.T) {
 	cfg := content.MustLoad()
 	res := pricewarRun(t, cfg, 1, 120, "", Territory(cfg, 40, 3), func(w *game.World) {
-		if w.Rival.Heat != 0 || w.Rival.Known.Read() || w.Rival.Scouted != 0 || w.Rival.LastRaid != 0 {
-			t.Fatalf("day %d: the rival's books moved with nobody at them: %+v", w.Day, w.Rival)
+		if w.Rival().Heat != 0 || w.Rival().Known.Read() || w.Rival().Scouted != 0 || w.Rival().LastRaid != 0 {
+			t.Fatalf("day %d: the rival's books moved with nobody at them: %+v", w.Day, *w.Rival())
 		}
 	})
 	for _, e := range res.Events {

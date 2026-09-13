@@ -180,7 +180,7 @@ func TestDashboardCornersAreYours(t *testing.T) {
 	for _, sz := range [][2]int{{80, 24}, {120, 40}} {
 		m := newTestModel(t, sz[0], sz[1])
 		m.w.Home().Corners[1].Owner = game.OwnerRival
-		m.w.Rival.Arrived = 1
+		m.w.Rival().Arrived = 1
 		line := m.cornersLine(m.w.Here().ID)
 		if !strings.Contains(line, "corners 1 worked, 1 held of 10, 1 theirs") {
 			t.Fatalf("the corner line reads %q", line)

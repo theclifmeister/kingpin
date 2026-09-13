@@ -56,6 +56,36 @@ var (
 			Padding(0, 1)
 )
 
+// Factions are the table's colours (#43), one a faction by its position
+// in World.Rivals: the rival at home keeps Rivals purple, the rest each
+// a colour of their own that means nothing else on the screen (pink,
+// rust, maroon, khaki, steel), so a corner's colour says whose it is
+// wherever it is drawn.
+var Factions = []lipgloss.Color{
+	Rivals,
+	lipgloss.Color("#ff87d7"), // pink
+	lipgloss.Color("#d75f00"), // rust
+	lipgloss.Color("#af005f"), // maroon
+	lipgloss.Color("#afaf5f"), // khaki
+	lipgloss.Color("#8787af"), // steel
+}
+
+// Faction is the colour of the faction at index i in World.Rivals: the
+// rival at home's purple for the first, a colour of its own for each of
+// the next five, and the last one again past that.
+func Faction(i int) lipgloss.Color {
+	if i < 0 {
+		i = 0
+	}
+	if i >= len(Factions) {
+		i = len(Factions) - 1
+	}
+	return Factions[i]
+}
+
+// FactionText is text in a faction's colour.
+func FactionText(i int) lipgloss.Style { return Fg(Faction(i)) }
+
 // Dial is the style of one notch of a dial: the chosen one in the accent
 // (DialOn, drawn `[normal]`), the rest Subtle.
 func Dial(on bool) lipgloss.Style {

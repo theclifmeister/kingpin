@@ -680,7 +680,10 @@ func (m *Model) washSection() section {
 	if n := w.Crew.Role("accountant"); n > 0 {
 		lines = append(lines, wrapped(theme.Subtle, fmt.Sprintf("%s on the payroll: more through every front, fewer audits.", plural(n, "accountant")))...)
 	} else if len(w.Fronts) > 0 {
-		lines = append(lines, wrapped(theme.Subtle, "An accountant, hired "+screenPointer(screenCrew)+", adds to every front and cuts audit risk. Keep them loyal: they skim the wash.")...)
+		// The pointer on a line of its own: wrapped mid-phrase it read
+		// `screen (4)` at a line's start, a key hint to the grammar's eye.
+		lines = append(lines, wrapped(theme.Subtle, "An accountant adds to every front and cuts audit risk. Keep them loyal: they skim the wash.")...)
+		lines = append(lines, theme.Subtle.Render("Hire one "+screenPointer(screenCrew)+"."))
 	}
 	if thr := m.set.Heat.DirtyCashThreshold(w); thr > 0 && w.Player.DirtyCash > thr {
 		lines = append(lines, wrapped(theme.Warning, fmt.Sprintf("Dirty cash over %s draws heat every day it sits there.", cash(thr)))...)

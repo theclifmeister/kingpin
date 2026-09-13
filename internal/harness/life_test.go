@@ -19,7 +19,9 @@ import (
 // under the box that emits nothing of #46's and carries none of its
 // state.
 func TestNoLifeIsTheOldRun(t *testing.T) {
-	cfg := NoLife(content.MustLoad())
+	// The duel too (#43, harness.OneFaction): main's pre-#46 figures are
+	// the one rival's, so the table is boxed beside the life.
+	cfg := OneFaction(NoLife(content.MustLoad()))
 	for _, row := range []struct {
 		tier   int
 		policy func(*content.Config) Policy
@@ -202,7 +204,8 @@ func TestWarHasBodies(t *testing.T) {
 // shipment the route sends once assigned and fit, and a seized
 // shipment jails its driver the same night.
 func TestDriverCutsSeizures(t *testing.T) {
-	cfg := content.MustLoad()
+	// The duel (#43, harness.OneFaction): this pins a mechanism on a seed, and the table moves the seed's dice.
+	cfg := OneFaction(content.MustLoad())
 	with, without, driven, jailed := 0, 0, 0, 0
 	for seed := uint64(1); seed <= 8; seed++ {
 		a, _ := Run(cfg, seed, 150, Driven(cfg, 40))

@@ -17,8 +17,8 @@ import (
 func warWorld(t *testing.T, cfg *content.Config, seed uint64, personality string) (*game.World, *rivals.Sim) {
 	t.Helper()
 	w, s := world(t, cfg, seed)
-	w.Rival.Personality = personality
-	w.Rival.Arrived, w.Rival.Cash, w.Rival.Muscle = 1, 10_000_000, 6
+	w.Rival().Personality = personality
+	w.Rival().Arrived, w.Rival().Cash, w.Rival().Muscle = 1, 10_000_000, 6
 	w.Corner("docks").Owner = game.OwnerRival
 	w.Corner("docks").Since = 1
 	w.Day = 1
@@ -33,7 +33,7 @@ func squeeze(w *game.World, id string, share float64) { w.Corner(id).Squeeze = s
 // (#68: that is the market's, the player's price war), and clears it
 // on every corner that is not its own.
 func TestRivalUndercutLeavesItsOwnSqueezeAlone(t *testing.T) {
-	cfg := content.MustLoad()
+	cfg := duel()
 	w, s := warWorld(t, cfg, 21, "defensive")
 	squeeze(w, "docks", 0.2)
 	w.Corner("oldmill").Squeeze = 0.3 // a free corner with a stale squeeze
@@ -55,11 +55,11 @@ func TestRivalUndercutLeavesItsOwnSqueezeAlone(t *testing.T) {
 // shorter one keeps it, so a war fought every other day still reaches
 // the line, later; an unsqueezed corner counts nothing.
 func TestStarvedDaysAndTheCost(t *testing.T) {
-	cfg := content.MustLoad()
+	cfg := duel()
 	tun := cfg.Rivals.Pricewar
 	w, s := warWorld(t, cfg, 22, "defensive")
 	w.Corner("heights").Owner = game.OwnerRival
-	war, grudge := w.Rival.War, w.Rival.Grudge
+	war, grudge := w.Rival().War, w.Rival().Grudge
 	squeeze(w, "docks", 0.2)
 	squeeze(w, "heights", 0.2)
 	tips := kinds(step(w, s))["RivalTippedPolice"]
@@ -68,8 +68,8 @@ func TestStarvedDaysAndTheCost(t *testing.T) {
 		t.Fatalf("after one squeezed day: %+v", *docks)
 	}
 	// The war fades by war_decay at the end of the step; no grudge yet.
-	if want := (war + tun.War) * (1 - cfg.Rivals.Rivals.WarDecay); w.Rival.War < want-1e-9 || w.Rival.Grudge+tips != grudge {
-		t.Fatalf("war %.1f -> %.1f, grudge %d -> %d with %d tips: want +%.0f and no grudge", war, w.Rival.War, grudge, w.Rival.Grudge, tips, tun.War)
+	if want := (war + tun.War) * (1 - cfg.Rivals.Rivals.WarDecay); w.Rival().War < want-1e-9 || w.Rival().Grudge+tips != grudge {
+		t.Fatalf("war %.1f -> %.1f, grudge %d -> %d with %d tips: want +%.0f and no grudge", war, w.Rival().War, grudge, w.Rival().Grudge, tips, tun.War)
 	}
 	// Every other day: the count climbs by one every two days.
 	for i := 0; i < 2*tun.PricewarDays-3; i++ {
@@ -103,19 +103,19 @@ func TestStarvedDaysAndTheCost(t *testing.T) {
 // (RivalPushed or CornerTaken, marked Pricewar), and a corner given up
 // starts the count over.
 func TestPricewarAnswerByPersonality(t *testing.T) {
-	cfg := content.MustLoad()
+	cfg := duel()
 	tun := cfg.Rivals.Pricewar
 	run := func(personality string, seed uint64, days int) map[string]int {
 		w, s := warWorld(t, cfg, seed, personality)
-		w.Rival.Grudge = 0
+		w.Rival().Grudge = 0
 		got := map[string]int{}
 		for i := 0; i < days; i++ {
 			if w.Corner("docks").Owner == game.OwnerRival {
 				squeeze(w, "docks", 0.2)
 			}
-			grudge := w.Rival.Grudge
+			grudge := w.Rival().Grudge
 			evs := step(w, s)
-			if w.Rival.Grudge+kinds(evs)["RivalTippedPolice"] > grudge {
+			if w.Rival().Grudge+kinds(evs)["RivalTippedPolice"] > grudge {
 				got["grudge"]++
 			}
 			for _, e := range evs {
@@ -181,15 +181,15 @@ func TestPricewarAnswerByPersonality(t *testing.T) {
 // and Income is that less the squeeze: what the picker shows as the
 // loss is what the books lose.
 func TestCornerIncomeAndTheSqueeze(t *testing.T) {
-	cfg := content.MustLoad()
+	cfg := duel()
 	w, s := warWorld(t, cfg, 23, "defensive")
 	docks := w.Corner("docks")
 	whole := s.CornerIncome(w, *docks)
-	if whole <= 0 || s.Income(w) != whole {
-		t.Fatalf("income %d, the one corner's %d", s.Income(w), whole)
+	if whole <= 0 || s.Income(w, w.Rival()) != whole {
+		t.Fatalf("income %d, the one corner's %d", s.Income(w, w.Rival()), whole)
 	}
 	squeeze(w, "docks", 0.25)
-	if got, want := s.Income(w), int(float64(whole)*0.75); got < want-1 || got > want+1 {
+	if got, want := s.Income(w, w.Rival()), int(float64(whole)*0.75); got < want-1 || got > want+1 {
 		t.Fatalf("income squeezed a quarter: %d, want ~%d", got, want)
 	}
 	if s.CornerIncome(w, *docks) != whole {

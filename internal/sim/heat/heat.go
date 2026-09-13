@@ -509,6 +509,10 @@ func (s *Sim) Step(w *game.World, t *game.Tick) {
 			}
 		case events.RivalTippedPolice:
 			add(home, ev.Heat, "somebody tipped the police")
+		case events.FactionPushed:
+			// Two factions fighting (#43): the heat is the city's, both
+			// sides' wars raising it.
+			add(ev.City, ev.Heat, "the factions fought over "+ev.Name)
 		case events.WarEscalated:
 			if ev.Stage == "crackdown" {
 				add(home, ev.Heat, "the crackdown")

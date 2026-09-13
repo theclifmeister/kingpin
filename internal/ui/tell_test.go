@@ -17,7 +17,7 @@ func eyeFree(t *testing.T, m *Model) *game.Corner {
 	home := m.w.Home()
 	for i := range home.Corners {
 		if c := &home.Corners[i]; c.Owner == game.OwnerNone {
-			m.w.Rival.Eyeing, m.w.Rival.EyeingDay = c.ID, m.w.Day
+			m.w.Rival().Eyeing, m.w.Rival().EyeingDay = c.ID, m.w.Day
 			return c
 		}
 	}
@@ -34,7 +34,7 @@ func eyeFree(t *testing.T, m *Model) *game.Corner {
 func TestTellIsDrawn(t *testing.T) {
 	for _, sz := range [][2]int{{120, 40}, {80, 24}} {
 		m := richModel(t, sz[0], sz[1])
-		m.w.Rival.Deals = nil // the fixture's split gives the free corners to the rival; a post there is refused
+		m.w.Rival().Deals = nil // the fixture's split gives the free corners to the rival; a post there is refused
 		eyed := eyeFree(t, m)
 		word := "eyeing " + eyed.Name
 		m.Update(key("5"))
@@ -48,7 +48,7 @@ func TestTellIsDrawn(t *testing.T) {
 		if !strings.Contains(view, "? "+strings.ToUpper(eyed.Name)) || !strings.Contains(view, "theirs tomorrow") {
 			t.Errorf("%dx%d: the map does not mark %s:\n%s", sz[0], sz[1], eyed.Name, view)
 		}
-		if text := paneText(m); !strings.Contains(text, "they set up here tomorrow") || !strings.Contains(text, "post a runner to keep them off") {
+		if text := paneText(m); !strings.Contains(text, "set up here tomorrow") || !strings.Contains(text, "post a runner to keep them off") {
 			t.Errorf("%dx%d: the inspector does not carry the tell:\n%s", sz[0], sz[1], text)
 		}
 		m.Update(key("1"))
@@ -94,17 +94,17 @@ func TestFastForwardStopsOnTheTell(t *testing.T) {
 	w := m.w
 	home := w.Home()
 	home.Corners[0].Owner, home.Corners[0].Since = game.OwnerRival, 1
-	w.Rival.Arrived, w.Rival.Cash = 1, 50_000
+	w.Rival().Arrived, w.Rival().Cash = 1, 50_000
 	day := w.Day
 	fast(t, m, 30)
-	if w.Day != day+1 || w.Rival.Eyeing == "" {
-		t.Fatalf("day %d -> %d, eyeing %q", day, w.Day, w.Rival.Eyeing)
+	if w.Day != day+1 || w.Rival().Eyeing == "" {
+		t.Fatalf("day %d -> %d, eyeing %q", day, w.Day, w.Rival().Eyeing)
 	}
 	if m.mode == modeCard {
 		m.Update(key("enter"))
 		m.Update(key("enter"))
 	}
-	want := "Stopped after 1 day: " + w.Rival.Leader + " is eyeing " + w.Corner(w.Rival.Eyeing).Name + "."
+	want := "Stopped after 1 day: " + w.Rival().Leader + " is eyeing " + w.Corner(w.Rival().Eyeing).Name + "."
 	if got := reportLine(t, m); got != want {
 		t.Fatalf("the report opens with %q, want %q", got, want)
 	}

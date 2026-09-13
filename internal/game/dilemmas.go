@@ -148,13 +148,13 @@ func (w *World) applyEffect(c *Card, key string, v float64) error {
 			w.Crew.Members[i].Loyalty = clamp(w.Crew.Members[i].Loyalty + v)
 		}
 	case "war":
-		w.Rival.War = clamp(w.Rival.War + v)
+		w.Rival().War = clamp(w.Rival().War + v)
 	case "grudge":
-		w.Rival.Grudge = max(0, w.Rival.Grudge+int(v))
+		w.Rival().Grudge = max(0, w.Rival().Grudge+int(v))
 	case "rival_muscle":
-		w.Rival.Muscle = max(0, w.Rival.Muscle+int(v))
+		w.Rival().Muscle = max(0, w.Rival().Muscle+int(v))
 	case "rival_cash":
-		w.Rival.Cash = max(0, w.Rival.Cash+int(v))
+		w.Rival().Cash = max(0, w.Rival().Cash+int(v))
 	case "stock_share":
 		for _, cid := range w.CityOrder {
 			free := w.Free(cid)
@@ -211,7 +211,7 @@ type CardSlots struct {
 // people.
 func Eligible(w *World, c content.CardConfig) (CardSlots, bool) {
 	t := c.Trigger
-	s := CardSlots{City: w.Here().Name, Rival: w.Rival.Leader}
+	s := CardSlots{City: w.Here().Name, Rival: w.Rival().Leader}
 	// A card or an incident about a city (#44): it must exist, and it
 	// is the city the slot names.
 	if t.City != "" {
@@ -314,10 +314,10 @@ func Eligible(w *World, c content.CardConfig) (CardSlots, bool) {
 	if t.Rival && w.RivalHeld() == 0 {
 		return s, false
 	}
-	if t.Personality != "" && (w.RivalHeld() == 0 || w.Rival.Personality != t.Personality) {
+	if t.Personality != "" && (w.RivalHeld() == 0 || w.Rival().Personality != t.Personality) {
 		return s, false
 	}
-	if t.WarMin > 0 && (w.RivalHeld() == 0 || w.Rival.War < t.WarMin) {
+	if t.WarMin > 0 && (w.RivalHeld() == 0 || w.Rival().War < t.WarMin) {
 		return s, false
 	}
 	if t.Fronts {

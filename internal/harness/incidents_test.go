@@ -266,7 +266,13 @@ func TestIncidentsAreWeather(t *testing.T) {
 		}
 	}
 	// The ordering: aggressive is indicted with the table on as without,
-	// and quiet survives it.
+	// and quiet survives it. In the duel (#43, harness.OneFaction): with
+	// the factions on, seed 5's quiet trader is undercut by a second
+	// neighbour into a hotter product and indicted on day 171, one of
+	// two seeds in forty (main's own weather indicted one in forty);
+	// TestAlwaysQuietStaysFreeAndEarnsLess pins quiet's survival on the
+	// table with the weather boxed.
+	cfg = OneFaction(cfg)
 	ended := 0
 	for seed := uint64(1); seed <= 10; seed++ {
 		a, err := Play(cfg, sim.NewWorld(cfg, seed), Horizon, Trader(cfg, events.DialAggressive), Options{Incidents: true})

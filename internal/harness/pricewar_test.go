@@ -28,7 +28,7 @@ func pricewarRun(t *testing.T, cfg *content.Config, seed uint64, days int, perso
 	t.Helper()
 	w := sim.NewWorld(cfg, seed)
 	if personality != "" {
-		w.Rival.Personality = personality
+		w.Rival().Personality = personality
 	}
 	res, err := RunFrom(cfg, w, days, func(w *game.World) {
 		policy(w)
@@ -119,13 +119,14 @@ func TestPricewarInvariants(t *testing.T) {
 // from day 20 for 30 days undercuts before and after it and never
 // during, and the action is refused on every morning of it.
 func TestPricewarKeepsThePeace(t *testing.T) {
-	cfg := content.MustLoad()
+	// The duel (#43, harness.OneFaction): this pins a mechanism on a seed, and the table moves the seed's dice.
+	cfg := OneFaction(content.MustLoad())
 	policy := Pricewar(cfg, 40, 3, events.DialNormal)
 	for seed := uint64(1); seed <= 3; seed++ {
 		refused := 0
 		res := pricewarRun(t, cfg, seed, 80, "defensive", policy, func(w *game.World) {
 			if w.Day == 20 {
-				w.Rival.Deals = append(w.Rival.Deals, game.Deal{Kind: game.DealTruce, Terms: game.Terms{Days: 30}, Since: w.Day, Until: w.Day + 30})
+				w.Rival().Deals = append(w.Rival().Deals, game.Deal{Kind: game.DealTruce, Terms: game.Terms{Days: 30}, Since: w.Day, Until: w.Day + 30})
 			}
 			if w.AtPeace() {
 				for _, c := range w.Home().Corners {
@@ -203,7 +204,8 @@ func TestPricewarCutsTheRivalsIncome(t *testing.T) {
 // corners up to the price war and an expansionist pushes back on the
 // corner doing the cutting; a defensive rival never gives one up.
 func TestPricewarIsAnswered(t *testing.T) {
-	cfg := content.MustLoad()
+	// The duel (#43, harness.OneFaction): this pins a mechanism on a seed, and the table moves the seed's dice.
+	cfg := OneFaction(content.MustLoad())
 	policy := Pricewar(cfg, 40, 3, events.DialNormal)
 	count := func(p string) (abandons, pushes, taken int) {
 		for seed := uint64(1); seed <= 5; seed++ {
@@ -252,7 +254,8 @@ func TestPricewarIsAnswered(t *testing.T) {
 // corners is logged (the ground an opportunist gives up is worth more
 // to the price war than the discount costs it).
 func TestPricewarCostsMargin(t *testing.T) {
-	cfg := content.MustLoad()
+	// The duel (#43, harness.OneFaction): this pins a mechanism on a seed, and the table moves the seed's dice.
+	cfg := OneFaction(content.MustLoad())
 	median := func(policy Policy) int {
 		var worths []int
 		for seed := uint64(1); seed <= 5; seed++ {
@@ -286,7 +289,7 @@ func TestPricewarIsQuieterThanAHitWar(t *testing.T) {
 		for seed := uint64(1); seed <= 5; seed++ {
 			peak, low := 0.0, 0
 			res := pricewarRun(t, cfg, seed, 120, "defensive", policy, func(w *game.World) {
-				peak = math.Max(peak, w.Rival.War)
+				peak = math.Max(peak, w.Rival().War)
 				if w.Today.LieLow {
 					low++
 				}
@@ -326,7 +329,7 @@ func TestPricewarIsDeterministicAndSaves(t *testing.T) {
 	t.Setenv("KINGPIN_HOME", t.TempDir())
 	cfg := content.MustLoad()
 	policy := func() Policy { return Pricewar(cfg, 40, 3, events.DialNormal) }
-	rivalSet := func(w *game.World) { w.Rival.Personality = "opportunist" }
+	rivalSet := func(w *game.World) { w.Rival().Personality = "opportunist" }
 	play := func(days int) Result {
 		w := sim.NewWorld(cfg, 6)
 		rivalSet(w)

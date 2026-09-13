@@ -219,8 +219,14 @@ var bindings = []binding{
 				m.journalPage(1)
 			}
 		}},
-	{key: "[ ]", label: "city", help: "turn the market or the map to the other city", keys: []string{"[", "]"}, screens: on(screenMarket, screenMap), global: true,
-		do: func(m *Model, key string) { m.cycleCity(dir(key)) }},
+	{key: "[ ]", label: "city", help: "next city, or the next faction on rivals", keys: []string{"[", "]"}, screens: on(screenMarket, screenMap, screenRivals), global: true,
+		do: func(m *Model, key string) {
+			if m.screen == screenRivals {
+				m.cycleFaction(dir(key))
+				return
+			}
+			m.cycleCity(dir(key))
+		}},
 	// The dashboard and the market: the day's cart.
 	{key: "c", label: "cart", help: "the day's cart: edit its buys and orders", screens: on(screenDashboard, screenMarket),
 		do: func(m *Model, _ string) { m.openCart() }},

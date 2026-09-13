@@ -177,17 +177,17 @@ func (s *Sim) life(w *game.World, t *game.Tick, fx game.Effects) {
 				}
 			}
 			if len(went) > 0 {
-				s.shoot(w, t, rng, went[rng.IntN(len(went))], w.Corner(ev.Corner), mul, true)
+				s.shoot(w, t, rng, went[rng.IntN(len(went))], w.Corner(ev.Corner), mul, true, ev.Faction)
 			}
-			s.theirs(w, t, rng, w.Corner(ev.Corner), mul, true)
+			s.theirs(w, t, rng, w.Corner(ev.Corner), mul, true, ev.Faction)
 		case events.RivalPushed:
 			corner := w.Corner(ev.Corner)
 			if corner == nil || corner.Enforcer <= 0 {
 				continue // nobody stood in the way, nobody was shot
 			}
-			mul := life.PersonalityMul(w.Rival.Personality)
-			s.shoot(w, t, rng, corner.Enforcer, corner, mul, false)
-			s.theirs(w, t, rng, corner, mul, false)
+			mul := life.PersonalityMul(factionOf(w, ev.Faction).Personality)
+			s.shoot(w, t, rng, corner.Enforcer, corner, mul, false, ev.Faction)
+			s.theirs(w, t, rng, corner, mul, false, ev.Faction)
 		}
 	}
 
@@ -256,13 +256,14 @@ func (s *Sim) jail(w *game.World, t *game.Tick, m *game.CrewMember, city string,
 
 // shoot rolls a death and then a wound for the member with id on a
 // corner, at mul times the table's chances.
-func (s *Sim) shoot(w *game.World, t *game.Tick, rng rand, id int, corner *game.Corner, mul float64, strike bool) {
+func (s *Sim) shoot(w *game.World, t *game.Tick, rng rand, id int, corner *game.Corner, mul float64, strike bool, faction string) {
 	life := s.cfg.Life
 	m := w.Crew.Member(id)
 	if m == nil {
 		return
 	}
-	ev := events.CrewShot{Day: t.Day, ID: m.ID, Name: m.Name, Role: m.Role, Rival: w.Rival.Leader, Faction: w.Rival.Faction(), Strike: strike}
+	r := factionOf(w, faction)
+	ev := events.CrewShot{Day: t.Day, ID: m.ID, Name: m.Name, Role: m.Role, Rival: r.Leader, Faction: r.Faction(), Strike: strike}
 	if corner != nil {
 		ev.Corner, ev.CornerName, ev.City = corner.ID, corner.Name, corner.City
 	}
@@ -284,11 +285,12 @@ func (s *Sim) shoot(w *game.World, t *game.Tick, rng rand, id int, corner *game.
 // theirs rolls a death on the rival's side of a strike or a push: a
 // body the count takes and the paper prints; the rival's headcount is
 // the rivals sim's own business.
-func (s *Sim) theirs(w *game.World, t *game.Tick, rng rand, corner *game.Corner, mul float64, strike bool) {
+func (s *Sim) theirs(w *game.World, t *game.Tick, rng rand, corner *game.Corner, mul float64, strike bool, faction string) {
 	if rng.Float64() >= s.cfg.Life.KillChance*mul {
 		return
 	}
-	ev := events.CrewShot{Day: t.Day, Rival: w.Rival.Leader, Faction: w.Rival.Faction(), Dead: true, Theirs: true, Strike: strike}
+	r := factionOf(w, faction)
+	ev := events.CrewShot{Day: t.Day, Rival: r.Leader, Faction: r.Faction(), Dead: true, Theirs: true, Strike: strike}
 	if corner != nil {
 		ev.Corner, ev.CornerName, ev.City = corner.ID, corner.Name, corner.City
 	}
@@ -422,4 +424,13 @@ func (s *Sim) driver(w *game.World, rng, life rand, fx game.Effects) game.CrewMe
 // day on the road: driver_cut x skill/100.
 func (s *Sim) DriverCut(skill int) float64 {
 	return math.Max(0, math.Min(1, s.cfg.Role[game.RoleDriver].DriverCut*float64(skill)/100))
+}
+
+// factionOf is the faction an event names (#43), the rival at home for
+// one that names none.
+func factionOf(w *game.World, id string) *game.RivalState {
+	if r := w.Faction(id); r != nil {
+		return r
+	}
+	return w.Rival()
 }

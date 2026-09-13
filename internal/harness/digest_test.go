@@ -31,7 +31,11 @@ import (
 // permits it; amd64 does not) cannot move the hash between a laptop
 // and CI while a real change to any number does.
 func TestSeedDigest(t *testing.T) {
-	cfg := content.MustLoad()
+	// The duel (#43, harness.OneFaction): the digest pins the sims on the
+	// one rival's dice, the run every number before #43 was pinned on;
+	// TestOneFactionIsTheOldRun says the duel is byte-for-byte the old
+	// run, and this is where a moved number names its day.
+	cfg := OneFaction(content.MustLoad())
 	cfg.Incidents.Table = nil // the weather stays boxed (#44), as it is in every harness run: the digest pins the sims
 	w := sim.NewWorld(cfg, seedDigestSeed)
 	_, sims, err := sim.Default(cfg)
@@ -168,6 +172,14 @@ const (
 // number moves from day 1: QuietDays, the count of quiet days in a row,
 // which every run keeps and nothing but Retire reads; the boss reserves
 // nothing by day 60 on this seed, holding under a campaign's worth).
+// Again for #43 (the table, on the duel's dice, harness.OneFaction:
+// World.Rival became the slice World.Rivals of one, RivalState gained
+// Home, Grudges, Trusts, Ally, Against, LostToYou, LastTakenBy,
+// Absorbed, AbsorbedBy, Fragmented and Fragments, Deal, Offer,
+// ScoutOrder, PoachOrder and Lead a Faction, CrewMember a Former and
+// four Stats; the move is on day 1 by shape alone and no number moved:
+// cmd/balance -factions 1 prints main's trace to the dollar on every
+// day of five policies over three seeds, TestOneFactionIsTheOldRun).
 // Again for #48 (World.Assets and AssetsLost, Today.AssetsBought,
 // HeatState.TaskForceDay, WatchUntil, LineUntil and LineMul,
 // Supplier.Owned, ShockUntil and ShockMul, six Stats added to the walk;
@@ -176,22 +188,23 @@ const (
 // held; and the report's tier lines reword twice, `tier 2 of 5` on day
 // 2 and tier 4's `Next` on day 54, the day this seed enters
 // Distribution; with those set aside the digest is aea739e's on all
-// sixty days, so no money number moved: TestNoAssetIsTheOldRun reads
-// the same day by day to the tier-4 checkpoint).
+// sixty days before #43 and 8b22ab1's after it, so no money number
+// moved: TestNoAssetIsTheOldRun reads the same day by day to the
+// tier-4 checkpoint; re-pinned on the merged tree).
 var seedDigest = []string{
-	"2fe0f9b672da204c", "cd1c86e8a005d8f2", "1655db66db988c5b", "c6ca0ccae3c80777",
-	"6383e91683a66eb1", "f31763be712a8a9f", "31867909209fcb01", "c858c777f4076f26",
-	"9476e3e8ee8c63a0", "86e55d40e8cba731", "14cd92f9c0129256", "4e41a4796c30e281",
-	"8a5f0151d51f2ccb", "bf836a349e241f2c", "008815a3d6c26700", "0bdac50f7fd0bc81",
-	"6e3ead7b220b9c17", "49e8ab889548a990", "425671bb78943107", "e19da0491940bf17",
-	"a088ecc871beb18d", "455508859203c5a8", "c5cfb9b5fa2cfeda", "6edaaf5e617002aa",
-	"9891386007d24368", "09e23ee013f92934", "cd19e14cf5242ddc", "933933367d5c0f11",
-	"8316e9fe391150bc", "e8781f5d79af92fb", "e46476e99d25e24c", "98f8459a604969fe",
-	"49ab87e43b004ee7", "3bfcfff3d5118362", "81e27ef7b4f2e189", "6878ffd4426e2a77",
-	"dad34e304b59a340", "2a6981eb5dfba9e1", "66095d534a11dd67", "d636e4488e00d6ed",
-	"c39e6763032b3fce", "9194e2d9ebf422df", "fc25eb6dc8379b0f", "c062c8be902f92ff",
-	"9ae1024000d8e997", "7f06ee7fbddbb10d", "f1972b19ecb40002", "e49003bbada29fca",
-	"68c596316d01ad1b", "41aa46135ae37fc5", "cc1dfbd7c8873328", "8307263975f5e4bd",
-	"821f57a837073bdd", "a751574813a8b35a", "c5849b9f4620f150", "265c5c349aa5fb92",
-	"b839f1c39aebfe31", "15ad4ff8cd315486", "6311dabb82967899", "caaba01b5d640d9d",
+	"a6e75b9e0da6dcf8", "1e41c009511c8fc2", "0a14eafe9db50564", "388fb16c42443648",
+	"f7bc755db405cf3f", "e8719cc2e9db5099", "baa05f31d8ff067d", "74f27c9f61f18bef",
+	"62129ff11477ad77", "3f972b2f1b49b9e4", "f7d3c4a427cbd0d9", "b4cbc4256eb8762c",
+	"eccc126e37d71648", "446688d9b6251103", "c97d38f0f94580ef", "54a1e746e09bcf97",
+	"4d44d45ff8b462cf", "73ef0a59ebbe18a5", "78e56fa4ad9a0d70", "77f3a0acf7a6cb2c",
+	"345297ef1795cf96", "aa1ad05ba144a50d", "8ae735c2f0bb21df", "4438f56787e223bf",
+	"ad2bc244c6c9fa5b", "d6f235ed20dbcb5b", "bce97fbe77f71beb", "79a081ce0ceedf76",
+	"0363a5e54bd6dbcf", "3030be84edbea482", "6df4088fd2e30baf", "b4518e6685b10b73",
+	"9c8d74858df5a2a0", "2a9382576c7d4721", "4f8de6639a6f3910", "4db47ec260c560c4",
+	"426cf1d2e95b414f", "2fa24f40a2629eee", "69076bc803c7831a", "c1a74b158907649c",
+	"53060d0d6bf5872d", "74a889e1ec9832de", "38329a8203cd9522", "92fe274cf821745a",
+	"9573c7a361e17416", "27a34acd95b4827c", "f03b8549ddd1eedd", "657553fab186e661",
+	"f7705230e1499ae4", "c21b10e92b4d9804", "50b89877b98c2575", "7c2d08d9c2766ebe",
+	"28f8ccb3f612a5f2", "27bbc900f451e6fa", "e77a10454dd7353c", "ce9237e71e1684ec",
+	"5b00660d9b7069ad", "71676854904bb55a", "47758e2bd52c1f39", "78a6116eeb723601",
 }

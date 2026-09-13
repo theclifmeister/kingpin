@@ -83,7 +83,7 @@ func TestPreview(t *testing.T) {
 	m.Update(tea.WindowSizeMsg{Width: 80, Height: 24})
 	set, _, _ := sim.Default(m.cfg)
 	m.w.Crew.Members[0].Role = "enforcer"
-	m.w.Home().Corners[1].Owner, m.w.Rival.Arrived = game.OwnerRival, 1
+	m.w.Home().Corners[1].Owner, m.w.Rival().Arrived = game.OwnerRival, 1
 	if _, ok := game.Eligible(m.w, m.cfg.Dilemmas.Cards[0]); ok {
 		w := m.w
 		w.Dilemmas.LastCard = 0

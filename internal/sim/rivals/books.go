@@ -43,7 +43,7 @@ func (s *Sim) ScoutCost() int { return s.cfg.Books.ScoutCost }
 // that read nothing since the last that did. The confirmation shows it
 // and the dice use it; it is the shape of the crew's investigation so
 // the two read the same to the player.
-func (s *Sim) ScoutOdds(w *game.World) float64 {
+func (s *Sim) ScoutOdds(w *game.World, r *game.RivalState) float64 {
 	tun := s.cfg.Books
 	best := 0
 	for _, m := range w.Crew.Members {
@@ -51,15 +51,15 @@ func (s *Sim) ScoutOdds(w *game.World) float64 {
 			best = m.Skill
 		}
 	}
-	p := tun.ScoutBase + tun.ScoutSkill*float64(best)/100 + tun.ScoutLearn*float64(w.Rival.Scouted)
+	p := tun.ScoutBase + tun.ScoutSkill*float64(best)/100 + tun.ScoutLearn*float64(r.Scouted)
 	return math.Max(0, math.Min(1, p))
 }
 
 // Stale reports whether the books as last read are stale_days old or
 // more on day; false while they have never been read (there is nothing
 // to be stale).
-func (s *Sim) Stale(w *game.World, day int) bool {
-	k := w.Rival.Known
+func (s *Sim) Stale(r *game.RivalState, day int) bool {
+	k := r.Known
 	return k.Read() && k.Age(day) >= s.cfg.Books.StaleDays
 }
 
@@ -81,10 +81,9 @@ func (s *Sim) BoostHeat(c *game.Corner) float64 { return s.cfg.Boost.Heat * c.He
 // tonight: muscle_price corner-days plus cash_share of its chest per
 // head it keeps (a well-paid crew costs more), cut by the player's
 // respect. The dialog shows it and BuyOff pays it.
-func (s *Sim) MusclePrice(w *game.World) int {
+func (s *Sim) MusclePrice(w *game.World, r *game.RivalState) int {
 	p := s.cfg.Poach
-	r := w.Rival
-	v := p.MusclePrice*s.CornerDay(w) + p.CashShare*float64(r.Cash)/float64(max(1, r.Muscle))
+	v := p.MusclePrice*s.CornerDay(w, r) + p.CashShare*float64(r.Cash)/float64(max(1, r.Muscle))
 	v *= content.Cut(w.Player.Reputation.Respect, s.rep.PoachPriceCut)
 	return max(1, int(math.Round(v)))
 }
@@ -92,8 +91,7 @@ func (s *Sim) MusclePrice(w *game.World) int {
 // RaidReady reports whether the police would act on the rival's heat
 // on the night of day: the last raid was raid_days ago or more. A tip
 // meanwhile builds heat the police sit on.
-func (s *Sim) RaidReady(w *game.World, day int) bool {
-	r := w.Rival
+func (s *Sim) RaidReady(r *game.RivalState, day int) bool {
 	return r.LastRaid == 0 || day-r.LastRaid >= s.cfg.Tip.RaidDays
 }
 
@@ -111,10 +109,9 @@ func (s *Sim) RaidReady(w *game.World, day int) bool {
 // a robbery is not a fight for ground, and a rival robbed every few
 // nights that claimed as fast as it could held more of the city than
 // one left alone.
-func (s *Sim) boost(w *game.World, t *game.Tick, o *game.StrikeOrder, c *game.Corner) {
+func (s *Sim) boost(w *game.World, t *game.Tick, r *game.RivalState, rng rand, o *game.StrikeOrder, c *game.Corner) {
 	b := s.cfg.Boost
 	fc := s.cfg.ForceFor(o.Force)
-	r := &w.Rival
 	ev := events.RivalBoosted{
 		Day: t.Day, Corner: c.ID, Name: c.Name, Rival: r.Leader, Faction: r.Faction(), Force: o.Force,
 		Heat: s.BoostHeat(c), Toll: b.Loyalty,
@@ -123,7 +120,7 @@ func (s *Sim) boost(w *game.World, t *game.Tick, o *game.StrikeOrder, c *game.Co
 	r.Observed = true
 	r.War += b.War
 	r.Trust = math.Max(0, r.Trust-fc.Trust)
-	if t.RNG.Float64() < s.Odds(w, o.Force) {
+	if rng.Float64() < s.Odds(w, r, o.Force) {
 		ev.Taken = true
 		ev.Cash = s.BoostTake(w, *c)
 		r.Cash -= ev.Cash
@@ -142,17 +139,16 @@ func (s *Sim) boost(w *game.World, t *game.Tick, o *game.StrikeOrder, c *game.Co
 // off the books side stream: at the odds the heads leave, never more
 // than it has (what was paid for the rest comes back) and it never
 // finds out; failing, the money is gone and it holds a grudge.
-func (s *Sim) poach(w *game.World, t *game.Tick) {
+func (s *Sim) poach(w *game.World, t *game.Tick, r *game.RivalState) {
 	o := w.Today.Poach
-	if o == nil {
+	if o == nil || w.Faction(o.Faction) != r {
 		return
 	}
-	r := &w.Rival
 	ev := events.RivalMusclePoached{Day: t.Day, Rival: r.Leader, Faction: r.Faction(), Wanted: o.Units, Cost: o.Cost}
 	if t.Sub("books").Float64() < s.cfg.Poach.Odds {
 		ev.Got = min(o.Units, r.Muscle)
 		r.Muscle -= ev.Got
-		s.sendAway(w, t, ev.Got)
+		s.sendAway(t, r, ev.Got)
 		w.Stats.Poached += ev.Got
 		if ev.Got < o.Units {
 			ev.Refund = o.Cost * (o.Units - ev.Got) / o.Units
@@ -175,28 +171,34 @@ func (s *Sim) poach(w *game.World, t *game.Tick) {
 // saboteur's corners faster than it took the passive player's). A tip on a corner that is no longer the rival's
 // by the time the night comes is dropped. It returns whether a deal was
 // broken, for the caller's phone call.
-func (s *Sim) tip(w *game.World, t *game.Tick) bool {
+func (s *Sim) tip(w *game.World, t *game.Tick, r *game.RivalState) bool {
 	o := w.Today.Tipoff
 	if o == nil {
 		return false
 	}
 	c := w.Corner(o.Corner)
-	if c == nil || c.Owner != game.OwnerRival {
+	if c == nil || !owns(*c, r) {
 		return false
 	}
 	tp := s.cfg.Tip
-	r := &w.Rival
 	w.Stats.Tips++
 	r.Heat = math.Min(100, r.Heat+tp.Heat)
 	r.Trust = math.Max(0, r.Trust-tp.Trust)
 	r.Observed = true
 	ev := events.PoliceTipped{Day: t.Day, Corner: c.ID, Name: c.Name, Rival: r.Leader, Faction: r.Faction(), RivalHeat: r.Heat}
-	if w.AtPeace() {
-		ev.Betrayal = s.breakAll(w, t, "you tipped the police on "+c.Name)
+	if w.AtPeaceWith(r.Faction()) {
+		ev.Betrayal = s.breakAll(w, t, r, "you tipped the police on "+c.Name)
 	}
 	t.Emit(ev)
-	if r.Heat >= tp.PoliceNotice && s.RaidReady(w, t.Day) {
-		s.raid(w, t, c)
+	// Past leader_arrest_heat the police take the leader, not a corner
+	// (#43): the faction fragments. Under it, past the notice line, a
+	// raid.
+	if r.Heat >= s.cfg.Factions.LeaderArrestHeat {
+		s.fragment(w, t, r, false)
+		return ev.Betrayal
+	}
+	if r.Heat >= tp.PoliceNotice && s.RaidReady(r, t.Day) {
+		s.raid(w, t, r, c)
 	}
 	return ev.Betrayal
 }
@@ -212,15 +214,14 @@ func (s *Sim) tip(w *game.World, t *game.Tick) bool {
 // within raid_days: the heat builds meanwhile and the raid comes when
 // the police are ready, so a tip a night is a corner every raid_days
 // at a page a tip in four, not a rival routed in a month for nothing.
-func (s *Sim) raid(w *game.World, t *game.Tick, c *game.Corner) {
+func (s *Sim) raid(w *game.World, t *game.Tick, r *game.RivalState, c *game.Corner) {
 	tp := s.cfg.Tip
-	r := &w.Rival
 	lost := int(math.Round(float64(r.Muscle) * tp.RaidMuscle))
 	if r.Muscle > 0 && lost == 0 {
 		lost = 1
 	}
 	r.Muscle -= lost
-	s.sendAway(w, t, lost)
+	s.sendAway(t, r, lost)
 	r.Heat = math.Max(0, r.Heat-tp.PoliceNotice)
 	r.LastRaid = t.Day
 	r.Grudge += tp.Grudge
@@ -235,17 +236,16 @@ func (s *Sim) raid(w *game.World, t *game.Tick, c *game.Corner) {
 // (the chest and the muscle as the night leaves them, the take and the
 // wage bill as today read them), else it reads nothing and the next
 // look is a little likelier.
-func (s *Sim) scout(w *game.World, t *game.Tick) {
+func (s *Sim) scout(w *game.World, t *game.Tick, r *game.RivalState) {
 	o := w.Today.Scouting
-	if o == nil {
+	if o == nil || w.Faction(o.Faction) != r {
 		return
 	}
-	r := &w.Rival
 	w.Stats.Scouts++
-	ev := events.RivalScouted{Day: t.Day, Cost: o.Cost}
-	if t.Sub("books").Float64() < s.ScoutOdds(w) {
+	ev := events.RivalScouted{Day: t.Day, Cost: o.Cost, Rival: r.Leader, Faction: r.Faction()}
+	if t.Sub("books").Float64() < s.ScoutOdds(w, r) {
 		ev.Read = true
-		r.Known = game.Known{Day: t.Day, Cash: r.Cash, Income: s.Income(w), Muscle: r.Muscle, Wages: s.Wages(w)}
+		r.Known = game.Known{Day: t.Day, Cash: r.Cash, Income: s.Income(w, r), Muscle: r.Muscle, Wages: s.Wages(w, r)}
 		r.Scouted = 0
 	} else {
 		r.Scouted++
@@ -255,11 +255,10 @@ func (s *Sim) scout(w *game.World, t *game.Tick) {
 
 // sendAway puts n heads out of the rival's reach (#70): bought off or
 // in the van, it wants that many fewer until they come back.
-func (s *Sim) sendAway(w *game.World, t *game.Tick, n int) {
+func (s *Sim) sendAway(t *game.Tick, r *game.RivalState, n int) {
 	if n <= 0 {
 		return
 	}
-	r := &w.Rival
 	if r.Away == 0 {
 		r.AwayDay = t.Day
 	}
@@ -268,8 +267,7 @@ func (s *Sim) sendAway(w *game.World, t *game.Tick, n int) {
 
 // comeBack is one head of those away finding its way back to the rival
 // every away_days days; none away, nothing moves.
-func (s *Sim) comeBack(w *game.World, t *game.Tick) {
-	r := &w.Rival
+func (s *Sim) comeBack(w *game.World, t *game.Tick, r *game.RivalState) {
 	if r.Away <= 0 {
 		return
 	}
@@ -283,9 +281,8 @@ func (s *Sim) comeBack(w *game.World, t *game.Tick) {
 // with every push it made tonight while it already had some (#70): a
 // rival already watched draws more with every fight; at zero its own
 // violence draws none, so a run that never tips is the old run.
-func (s *Sim) heat(w *game.World, pushes int) {
+func (s *Sim) heat(r *game.RivalState, pushes int) {
 	tp := s.cfg.Tip
-	r := &w.Rival
 	if r.Heat <= 0 {
 		return
 	}

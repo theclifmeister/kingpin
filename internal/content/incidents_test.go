@@ -6,9 +6,9 @@ import (
 )
 
 // The incident table (#44): the shipped file validates, an effect key
-// the world does not apply fails at start-up (rival_leader_killed waits
-// for #43 and is one such), and the validation names what is wrong with
-// a row.
+// the world does not apply fails at start-up (rival_leader_killed
+// landed with #43; a key nobody has is one such), and the validation
+// names what is wrong with a row.
 func TestIncidentsRefuseUnknownKey(t *testing.T) {
 	cfg := MustLoad()
 	if len(cfg.Incidents.Table) < 11 {
@@ -51,7 +51,7 @@ id = "x"
 name = "X"
 report = "."
 [incident.effects]
-rival_leader_killed = true
+rival_leader_kidnapped = true
 `, "unknown key"},
 		{"a typo", head + `
 [[incident]]
