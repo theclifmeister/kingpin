@@ -72,12 +72,15 @@ func (w *World) CityOf(r *RivalState) *City {
 	return w.Home()
 }
 
-// RivalHeldBy counts the corners a faction holds.
+// RivalHeldBy counts the corners a faction holds. It walks the cities
+// in place: the sims ask it many times a step.
 func (w *World) RivalHeldBy(id string) int {
 	n := 0
-	for _, c := range w.Corners() {
-		if c.FactionID() == id {
-			n++
+	for _, cid := range w.CityOrder {
+		for _, c := range w.Cities[cid].Corners {
+			if c.FactionID() == id {
+				n++
+			}
 		}
 	}
 	return n

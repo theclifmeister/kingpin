@@ -152,9 +152,11 @@ func (w *World) Corner(id string) *Corner {
 // RivalHeld counts the corners every faction owns, in every city.
 func (w *World) RivalHeld() int {
 	n := 0
-	for _, c := range w.Corners() {
-		if c.Owner == OwnerRival {
-			n++
+	for _, cid := range w.CityOrder {
+		for _, c := range w.Cities[cid].Corners {
+			if c.Owner == OwnerRival {
+				n++
+			}
 		}
 	}
 	return n
