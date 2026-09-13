@@ -1453,7 +1453,7 @@ func (m *Model) viewOver() string {
 	if n := len(w.Crew.Fallen); n > 0 {
 		var names []string
 		for _, f := range w.Crew.Fallen {
-			names = append(names, fmt.Sprintf("%s (%s, d%d)", f.Name, f.Role, f.Day))
+			names = append(names, fmt.Sprintf("%s (%s · day %d)", f.Name, f.Role, f.Day)) // `(role, dN)` read as a key hint to TestNoKeyHintsOutsideTheLegend
 		}
 		facts = append(facts, []any{"fallen", truncate(strings.Join(names, ", "), 60)})
 	}
