@@ -1,0 +1,28 @@
+name: Race
+
+# The weekly race sweep (#211): the whole tree under the race detector,
+# on main. CI runs the harness and the UI without -race on a pull request
+# (they start no goroutine, and pay 7.4x and 5.7x for the detector), so
+# this is where the detector still covers them. It never gates a PR.
+on:
+  schedule:
+    - cron: '0 6 * * 1'
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  race:
+    name: Race
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v7
+
+      - uses: actions/setup-go@v7
+        with:
+          go-version-file: go.mod
+          cache: true
+
+      - name: test
+        run: go test -race -count=1 -timeout 60m ./...
