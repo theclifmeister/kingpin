@@ -525,6 +525,22 @@ HouseLost = [
   "{{.Name}} cleared out by the landlord after weeks of unpaid rent",
 ]
 
+# The property (#194). DeedBought and DeedRent are report-only; the
+# purchase that brings a city's deeds to headline_deeds makes the paper
+# (Corner is the block, Qty the count), as does the forfeiture. Both are
+# stories about your money, under the laundering source as FrontGrew
+# is: notoriety, and pressure where you are.
+DeedsBought = [
+  "{{.Corner}} sold: the same buyer now holds {{.Qty}} blocks in {{.City}}",
+  "Who is buying up {{.City}}? Land registry shows {{.Qty}} blocks in one name",
+  "A laundromat owner buys the neighbourhood: {{.Corner}} the latest",
+]
+DeedSeized = [
+  "DA {{.DA}} seizes the block {{.Corner}} is on: 'the money has no story'",
+  "Forfeiture in {{.City}}: {{.Corner}} taken back by the state",
+  "'Where did it come from?' DA {{.DA}} takes {{.Corner}} under the forfeiture laws",
+]
+
 # The world's incidents (#44): one key a row of incidents.toml, `Incident`
 # and the id in camel case, and `Incident` itself for a row without one
 # (it names the row). The slots are the event's ({{.City}} where it

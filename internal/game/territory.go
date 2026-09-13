@@ -32,6 +32,8 @@ var (
 	ErrElsewhere   = errors.New("you are not in that city")
 	ErrAtPeace     = errors.New("a truce, a tribute or a homage holds; a price war is not on while the peace is")
 	ErrNotNextDoor = errors.New("you work no corner next to it")
+	ErrDeeded      = errors.New("you hold the deed to that block already")
+	ErrNoDeeds     = errors.New("nobody is selling the block")
 )
 
 // Corner is one block of a city: a demand pool the player has to hold to
@@ -58,7 +60,22 @@ type Corner struct {
 	Starved    int                // days a price war has cut the rival's trade here (#68), counted off Squeeze by the rivals sim, which answers at pricewar_days; a rest that long forgets them
 	StarvedDay int                // the last day it was cut; 0 never
 	Repeat     float64            // the share of its customers who come back (#47), 0..1: the market sim's, off what you sold here; zero reads as all of them, the pre-#47 corner
+	Deed       *Deed              // the block bought with clean cash (#194); nil is the corner as it was, whoever holds it
 }
+
+// Deed is the block a corner is on, bought (#194): the day and what it
+// cost in clean cash. Everything a deed does is read off the corner by
+// the sim that owns the number (the territory sim's rent and robbery,
+// the rival's push, the raid's weight, the law's pressure and the
+// forfeiture), each through city.toml [deed]; the deed itself is two
+// numbers.
+type Deed struct {
+	Bought int
+	Price  int
+}
+
+// Deeded reports whether the block the corner is on is yours.
+func (c Corner) Deeded() bool { return c.Deed != nil }
 
 // Repeats is the corner's repeat business (#47), 0..1: Repeat, or all of
 // it for a corner that has never been stamped.
@@ -472,4 +489,117 @@ func (w *World) CancelUndercut(corner string) {
 func (w *World) Undercutting(corner string) (events.Dial, bool) {
 	d, ok := w.Today.Undercuts[corner]
 	return d, ok
+}
+
+// CornerTrade is the street value a corner moves in a day (#194): every
+// product the city sells at its price today, the corner's full share of
+// the city's demand for it, summed over the ladder as unlocked. It is
+// what a deed is days of.
+func (w *World) CornerTrade(c Corner) float64 {
+	v := 0.0
+	for _, id := range w.Products {
+		if m := w.Product(c.City, id); m != nil {
+			v += m.Demand * c.Full(id) * m.Price
+		}
+	}
+	return v
+}
+
+// BuyDeed buys the block a corner is on (#194) for price in clean cash,
+// whoever holds the corner: a deed on a rival's block is legal, pays
+// rent and cuts their defence of it. Clean cash only (ErrNoCleanCash,
+// Fund's rule), one deed a block (ErrDeeded), and none where the file
+// puts none on sale (ErrNoDeeds: a price of 0). The money goes at once;
+// the territory sim reports the purchase tonight and pays the rent from
+// tonight on.
+func (w *World) BuyDeed(corner string, price int) error {
+	if w.Over != nil {
+		return ErrGameOver
+	}
+	c := w.Corner(corner)
+	if c == nil {
+		return ErrNoCorner
+	}
+	if c.Deed != nil {
+		return ErrDeeded
+	}
+	if price <= 0 {
+		return ErrNoDeeds
+	}
+	if price > w.Player.CleanCash {
+		if w.Player.CleanCash <= 0 {
+			return ErrNoCleanCash
+		}
+		return fmt.Errorf("need $%d clean, only have $%d clean", price, w.Player.CleanCash)
+	}
+	w.Player.CleanCash -= price
+	c.Deed = &Deed{Bought: w.Day, Price: price}
+	w.Stats.Deeds++
+	w.Stats.DeedCash += price
+	w.Today.DeedsBought = append(w.Today.DeedsBought, c.ID)
+	return nil
+}
+
+// SeizeDeed takes the deed off a corner and returns it: the forfeiture's
+// (the law sim, #194). Nil for a corner with none.
+func (w *World) SeizeDeed(corner string) *Deed {
+	c := w.Corner(corner)
+	if c == nil || c.Deed == nil {
+		return nil
+	}
+	d := c.Deed
+	c.Deed = nil
+	w.Stats.DeedsSeized++
+	return d
+}
+
+// Deeds lists every corner whose block is yours, in city order; the
+// corners are copies.
+func (w *World) Deeds() []Corner {
+	var out []Corner
+	for _, c := range w.Corners() {
+		if c.Deed != nil {
+			out = append(out, c)
+		}
+	}
+	return out
+}
+
+// DeedsIn counts the blocks you hold the deed to in a city.
+func (w *World) DeedsIn(city string) int {
+	n := 0
+	if c := w.Cities[city]; c != nil {
+		for _, k := range c.Corners {
+			if k.Deed != nil {
+				n++
+			}
+		}
+	}
+	return n
+}
+
+// DeedValue is what the deeds you hold cost between them, clean: what
+// the DA weighs against what the fronts have washed (the forfeiture).
+func (w *World) DeedValue() int {
+	v := 0
+	for _, c := range w.Deeds() {
+		v += c.Deed.Price
+	}
+	return v
+}
+
+// NewestDeed is the corner whose deed was bought last, the last in city
+// order of the ones bought that day; nil with none. It is what the
+// forfeiture takes.
+func (w *World) NewestDeed() *Corner {
+	var newest *Corner
+	for _, cid := range w.CityOrder {
+		cs := w.Cities[cid].Corners
+		for i := range cs {
+			if cs[i].Deed != nil && (newest == nil || cs[i].Deed.Bought >= newest.Deed.Bought) {
+				newest = &cs[i]
+			}
+		}
+	}
+	return newest
 }

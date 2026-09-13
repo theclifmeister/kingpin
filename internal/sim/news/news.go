@@ -254,7 +254,7 @@ func (s *Sim) Step(w *game.World, t *game.Tick) {
 	}
 
 	// Money before we look at events: sales are already applied by market.
-	var soldRevenue, lostCash, spent, wages, skimmed, robbed, upgrades, upkeep, seized, paidOff, investigated, shipping, tribute, cuts, standingCut, funded, backed, contracts, forfeits, repaid, rent, earned, invested, cutting, cooking, reserved int
+	var soldRevenue, lostCash, spent, wages, skimmed, robbed, upgrades, upkeep, seized, paidOff, investigated, shipping, tribute, cuts, standingCut, funded, backed, contracts, forfeits, repaid, rent, earned, invested, cutting, cooking, reserved, deeds, deedRent int
 	var scouted, poached, boosted int // the books (#70): what a scout and a buy-off cost, less the refund, and what a boost took
 	var bribed, checkpoints int       // the bought law (#42): the envelopes and the deals on the road, paid up front
 	routeCost := map[string]int{}     // what each route cost today, lots and fares, by name in the order first seen
@@ -1186,6 +1186,28 @@ func (s *Sim) Step(w *game.World, t *game.Tick) {
 			}
 		case events.StockMoved:
 			rep.Territory = append(rep.Territory, fmt.Sprintf("Moved %d %s from %s to %s%s.", ev.Units, w.ProductName(ev.Product), ev.From, ev.To, in(ev.City)))
+		// The property (#194). DeedBought and DeedRent are bookkeeping;
+		// the purchase past the line and the forfeiture make the paper
+		// under the laundering source (a story about your money, as a
+		// front's growth is: notoriety, and pressure where you are),
+		// off the deeds' own stream: a run with no deed is the run it
+		// was.
+		case events.DeedBought:
+			deeds += ev.Price
+			rep.Money = append(rep.Money, fmt.Sprintf("Bought the block %s is on%s -%s clean. It pays %s/day clean.", ev.Name, in(ev.City), format.Money(ev.Price), format.Money(ev.Rent)))
+		case events.DeedsBought:
+			d := at(ev.City)
+			d.Corner, d.Qty = ev.Name, ev.Count
+			addOff("deeds:news", "laundering", "DeedsBought", d)
+			rep.Law = append(rep.Law, fmt.Sprintf("%s makes the paper: %s in your name now. The town wonders where the money came from.", ev.Name, format.Plural(ev.Count, "block")))
+		case events.DeedRent:
+			deedRent += ev.Amount
+			rep.Money = append(rep.Money, fmt.Sprintf("Rent from %s +%s clean", format.Plural(ev.Deeds, "block"), format.Money(ev.Amount)))
+		case events.DeedSeized:
+			d := at(ev.City)
+			d.Corner = ev.Name
+			addOff("deeds:news", "laundering", "DeedSeized", d)
+			rep.Law = append(rep.Law, fmt.Sprintf("FORFEITURE: the DA seized the block %s is on%s (%s). %s in deeds against %s washed; the money has no story, and the file will grow in the morning.", ev.Name, in(ev.City), format.Money(ev.Price), format.Money(ev.Spent), format.Money(ev.Washed)))
 		}
 	}
 
@@ -1231,7 +1253,7 @@ func (s *Sim) Step(w *game.World, t *game.Tick) {
 		spent += m.Fee
 		rep.Money = append(rep.Money, fmt.Sprintf("Signing fee for %s -%s", m.Name, format.Money(m.Fee)))
 	}
-	rep.CashBefore = w.Cash() - soldRevenue - contracts + forfeits + lostCash + spent + wages + skimmed + robbed + upgrades + upkeep + seized + paidOff + investigated + shipping + tribute + cuts + funded + backed + repaid + rent + scouted + poached + bribed + checkpoints - boosted - earned + invested + cutting + cooking + reserved
+	rep.CashBefore = w.Cash() - soldRevenue - contracts + forfeits + lostCash + spent + wages + skimmed + robbed + upgrades + upkeep + seized + paidOff + investigated + shipping + tribute + cuts + funded + backed + repaid + rent + scouted + poached + bribed + checkpoints - boosted - earned + invested + cutting + cooking + reserved + deeds - deedRent
 	if soldRevenue > 0 {
 		rep.Money = append(rep.Money, fmt.Sprintf("Street sales +%s", format.Money(soldRevenue)))
 	}

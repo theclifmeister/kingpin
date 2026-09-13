@@ -198,7 +198,50 @@ type DialConfig struct {
 // is home: where a run starts and where the rival sets up.
 type CityConfig struct {
 	Territory TerritoryTuning `toml:"territory"`
+	Deed      DeedTuning      `toml:"deed"`
 	Cities    []CityEntry     `toml:"city"`
+}
+
+// DeedTuning mirrors city.toml [deed] (#194): what buying the block a
+// corner is on costs and does. The price is Days of the corner's street
+// trade at purchase (World.CornerTrade); Rent is the share of the price
+// the block pays back a day, clean; RobberyMul, PushMul and RaidMul are
+// what the deed does to the robbery chance on the block, the rival's
+// push on it (and its defence of it, where the block is theirs) and a
+// house's weight in the raid's roll, each read by the sim that owns the
+// number; Pressure is what a deed adds to its city's pressure a day;
+// HeadlineDeeds is the count in a city from which a purchase makes the
+// paper; ForfeitRatio is the multiple of Stats.Laundered the deeds held
+// may cost before the DA seizes the newest, and ForfeitEvidence the
+// pages that files the morning after. Days of 0 puts no deed on sale.
+type DeedTuning struct {
+	Days            float64 `toml:"days"`
+	Rent            float64 `toml:"rent"`
+	RobberyMul      float64 `toml:"robbery_mul"`
+	PushMul         float64 `toml:"push_mul"`
+	RaidMul         float64 `toml:"raid_mul"`
+	Pressure        float64 `toml:"pressure"`
+	HeadlineDeeds   int     `toml:"headline_deeds"`
+	ForfeitRatio    float64 `toml:"forfeit_ratio"`
+	ForfeitEvidence int     `toml:"forfeit_evidence"`
+}
+
+// On reports whether deeds are for sale: Days in the file.
+func (d DeedTuning) On() bool { return d.Days > 0 }
+
+// validate: a deed slows the rival and never stops it (push_mul is
+// never zero while deeds are on sale), and nothing else is negative.
+func (d DeedTuning) validate() error {
+	if !d.On() {
+		return nil
+	}
+	if d.PushMul <= 0 {
+		return fmt.Errorf("[deed] push_mul must be over 0: a deed slows the rival and never stops it")
+	}
+	if d.Rent < 0 || d.RobberyMul < 0 || d.RaidMul < 0 || d.Pressure < 0 || d.HeadlineDeeds < 0 || d.ForfeitRatio < 0 || d.ForfeitEvidence < 0 {
+		return fmt.Errorf("[deed] has a negative number")
+	}
+	return nil
 }
 
 // CityEntry is one city. Heat multiplies the sale heat of every unit
@@ -1867,7 +1910,7 @@ func (c CityConfig) validate() error {
 	if c.Home().Corner(c.Territory.Start) == nil {
 		return fmt.Errorf("start corner %q is not in %s", c.Territory.Start, c.Home().ID)
 	}
-	return nil
+	return c.Deed.validate()
 }
 
 // validate checks the routes join cities that exist, the numbers make

@@ -157,6 +157,7 @@ func (m *Model) viewFront() string {
 const (
 	ledgerFront = iota
 	ledgerHouse
+	ledgerDeed // the property (#194)
 	ledgerRoute
 	ledgerPayoff // the bought law (#42)
 	ledgerOffer
@@ -180,7 +181,7 @@ func (m *Model) ledgerRoutes() []content.RouteConfig {
 }
 
 // ledgerRows are the rows the cursor walks: the fronts, the houses
-// (#73), the routes, then the offers.
+// (#73), the deeds (#194), the routes, then the offers.
 func (m *Model) ledgerRows() []ledgerRow {
 	var rows []ledgerRow
 	for i := range m.w.Fronts {
@@ -188,6 +189,9 @@ func (m *Model) ledgerRows() []ledgerRow {
 	}
 	for i := range m.w.Houses {
 		rows = append(rows, ledgerRow{ledgerHouse, i})
+	}
+	for i := range m.w.Deeds() {
+		rows = append(rows, ledgerRow{ledgerDeed, i})
 	}
 	for i := range m.ledgerRoutes() {
 		rows = append(rows, ledgerRow{ledgerRoute, i})
@@ -228,7 +232,7 @@ func (m *Model) ledgerMove(dy int) {
 // frame's, and asks to end the day as it does everywhere.
 func ledgerActable(m *Model) bool {
 	kind := m.ledgerSelected().kind
-	return m.screen == screenLedger && kind != ledgerFront && kind != ledgerHouse && kind != ledgerPayoff
+	return m.screen == screenLedger && kind != ledgerFront && kind != ledgerHouse && kind != ledgerDeed && kind != ledgerPayoff
 }
 
 // ledgerEnter is enter on the ledger: the selected offer goes to the
@@ -380,6 +384,31 @@ func (m *Model) viewLedger() string {
 		tableLines(ledgerHouse, cols, rows)
 	}
 
+	// The property (#194): every block whose deed is yours, and the
+	// DA's line in the heading; a ledger with no deed has no table, the
+	// STASH rule, so the ledger fits as it did (the block is for sale on
+	// the map, where the corner's inspector prices it).
+	if deeds := w.Deeds(); len(deeds) > 0 {
+		heading("PROPERTY", m.deedNote())
+		var rows [][]any
+		for _, c := range deeds {
+			rows = append(rows, m.deedRow(c))
+		}
+		cols := append([]col(nil), deedCols...)
+		// Where MAIN is too narrow for the row whole the pane's columns
+		// go: since, then whose corner it is.
+		for _, drop := range []int{5, 2} {
+			if tableWidth(cols, rows) <= width {
+				break
+			}
+			cols = append(cols[:drop:drop], cols[drop+1:]...)
+			for i := range rows {
+				rows[i] = append(rows[i][:drop:drop], rows[i][drop+1:]...)
+			}
+		}
+		tableLines(ledgerDeed, cols, rows)
+	}
+
 	routes := m.ledgerRoutes()
 	if len(routes) > 0 {
 		lost := 0
@@ -475,6 +504,10 @@ func (m *Model) ledgerDetails() []section {
 		secs = append(secs, m.frontSection(m.w.Fronts[sel.i]))
 	case ledgerHouse:
 		secs = append(secs, m.houseSection(m.w.Houses[sel.i]))
+	case ledgerDeed:
+		if deeds := m.w.Deeds(); sel.i < len(deeds) {
+			secs = append(secs, m.deedSection(deeds[sel.i]))
+		}
 	case ledgerRoute:
 		secs = append(secs, m.ledgerRouteSection(m.ledgerRoutes()[sel.i]))
 	case ledgerPayoff:

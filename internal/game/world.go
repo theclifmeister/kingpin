@@ -130,6 +130,7 @@ type Today struct {
 	Invested      []Investment           // levels bought at the fronts today (#192), applied at once; the laundering sim reports them
 	Cuts          []CutRecord            // the cuts made today (#47), applied at once; the market sim reports them
 	Reserved      int                    // clean cash on its way offshore tonight (#195), out of the pile already; the laundering sim moves it and takes the fee
+	DeedsBought   []string               // corner ids whose block was bought today (#194), paid at once; the territory sim reports them
 }
 
 // Investment is clean cash put into a front's levels today (#192):
@@ -1009,6 +1010,10 @@ type Stats struct {
 	Arrests        int // crew put in a cell
 	Bails          int // ... and walked out of it on your clean cash
 	BailCash       int // what that cost
+	Deeds          int // blocks bought (#194)
+	DeedCash       int // clean cash they cost
+	DeedRent       int // clean cash the blocks paid back
+	DeedsSeized    int // deeds the DA took (the forfeiture)
 	Wounded        int // crew shot and laid up
 	Retired        int // crew who retired
 }
@@ -1628,6 +1633,9 @@ func (w *World) NetWorth() int {
 	}
 	for _, h := range w.Houses {
 		n += h.Price
+	}
+	for _, c := range w.Deeds() {
+		n += c.Deed.Price
 	}
 	return n
 }

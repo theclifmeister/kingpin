@@ -1852,3 +1852,58 @@ type Cooked struct {
 }
 
 func (Cooked) Kind() string { return "Cooked" }
+
+// DeedBought is the block a corner is on bought with clean cash (#194):
+// report-only bookkeeping (the price, the rent it pays a day). The
+// purchase that brings a city's count to the line is DeedsBought.
+type DeedBought struct {
+	Day    int
+	Corner string // corner id
+	Name   string
+	City   string
+	Price  int
+	Rent   int
+	Count  int // deeds held in the city, this one included
+}
+
+func (DeedBought) Kind() string { return "DeedBought" }
+
+// DeedsBought is a purchase that makes the paper (#194): the deeds you
+// hold in a city reached city.toml [deed] headline_deeds, or are past
+// it. A headline: notoriety, and pressure where you are.
+type DeedsBought struct {
+	Day    int
+	Corner string
+	Name   string
+	City   string
+	Count  int
+}
+
+func (DeedsBought) Kind() string { return "DeedsBought" }
+
+// DeedRent is report-only bookkeeping (#194): what the blocks paid back
+// today, clean cash, over how many deeds.
+type DeedRent struct {
+	Day    int
+	Amount int
+	Deeds  int
+}
+
+func (DeedRent) Kind() string { return "DeedRent" }
+
+// DeedSeized is the forfeiture (#194): the deeds you hold cost more than
+// forfeit_ratio times what the fronts have washed, so the DA took the
+// newest. A headline; forfeit_evidence pages file the morning after
+// (the heat sim reads Law.Forfeited).
+type DeedSeized struct {
+	Day    int
+	Corner string
+	Name   string
+	City   string
+	Price  int
+	Spent  int // what the deeds held cost before this one went
+	Washed int // Stats.Laundered
+	Limit  int // forfeit_ratio x Washed
+}
+
+func (DeedSeized) Kind() string { return "DeedSeized" }

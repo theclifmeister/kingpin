@@ -87,7 +87,7 @@ func TestSimsWriteOnlyTheirOwnState(t *testing.T) {
 		"rivals":     {"Rivals", "Rival", "Faction", "Offers"},
 		"crew":       {"Crew", "Delegated", "DelegatedSupply"},
 		"heat":       {"Heat", "Cities.Heat", "Houses", "FallsTaken"},
-		"law":        {"Law", "Cities.Pressure", "Cities.Goodwill", "Cities.Campaign"},
+		"law":        {"Law", "Cities.Pressure", "Cities.Goodwill", "Cities.Campaign", "Cities.Corners.Deed"}, // the forfeiture takes a deed through w.SeizeDeed (#194)
 		"laundering": {"Laundering", "Fronts", "Offshore", "QuietDays"},
 		"reputation": {"Player.Reputation"},
 		"news":       {"Journal", "Report", "Dilemmas", "Progression"},

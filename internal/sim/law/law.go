@@ -25,12 +25,29 @@ type Sim struct {
 	cfg    content.LawConfig
 	chiefs []string
 	das    []string
+	deed   content.DeedTuning
 }
 
 // New builds a law sim from the config, copying what it reads (#144):
-// its own law.toml and the chiefs' and DAs' name pools.
+// its own law.toml, the chiefs' and DAs' name pools, and of the deeds
+// (#194, city.toml [deed]) two numbers: pressure, a deed's a day in its
+// city, and forfeit_ratio, the multiple of what the fronts have washed
+// the deeds held may cost before the DA takes one back.
 func New(cfg *content.Config) *Sim {
-	return &Sim{cfg: cfg.Law, chiefs: cfg.Names.Chiefs, das: cfg.Names.DAs}
+	return &Sim{cfg: cfg.Law, chiefs: cfg.Names.Chiefs, das: cfg.Names.DAs, deed: cfg.City.Deed}
+}
+
+// DeedLimit is what the deeds held may cost between them before the DA
+// seizes one (#194): forfeit_ratio times Stats.Laundered. The ledger's
+// line, and what the harness's boss keeps under.
+func (s *Sim) DeedLimit(w *game.World) int {
+	return int(math.Floor(s.deed.ForfeitRatio * float64(w.Stats.Laundered)))
+}
+
+// Forfeits reports whether the deeds held have passed the limit: the
+// money has no story.
+func (s *Sim) Forfeits(w *game.World) bool {
+	return s.deed.On() && w.DeedValue() > s.DeedLimit(w)
 }
 
 func (s *Sim) Name() string { return "law" }
@@ -417,6 +434,13 @@ func (s *Sim) Step(w *game.World, t *game.Tick) {
 			gain[cid] += s.cfg.Campaign.Pressure
 		}
 	}
+	// A deed is public record (#194): every block you hold in a city is
+	// pressure there a day, over what goodwill covers.
+	if s.deed.On() && s.deed.Pressure > 0 {
+		for _, cid := range w.CityOrder {
+			gain[cid] += s.deed.Pressure * float64(w.DeedsIn(cid))
+		}
+	}
 
 	// Fade toward the baseline, goodwill takes its cut and fades itself,
 	// and a band crossed is news.
@@ -538,6 +562,20 @@ func (s *Sim) Step(w *game.World, t *game.Tick) {
 		t.Emit(events.DAElected{Day: t.Day, Name: da.Name, Stance: stance, Incumbent: incumbent, Pressure: mean, Swing: swing, Backed: backed})
 		if stance == "law_and_order" && mean > tun.ReplacePressure && !replaced {
 			s.replaceChief(w, t, "da", "")
+		}
+	}
+
+	// The forfeiture (#194): the deeds held cost more than forfeit_ratio
+	// times what the fronts have washed, so the money has no story and
+	// the DA takes the newest block back: one a night, no refund, no
+	// dice (a threshold, not a die). The heat sim reads Forfeited the
+	// next morning and files the pages: buying it was something you did.
+	if s.Forfeits(w) {
+		if c := w.NewestDeed(); c != nil {
+			spent, limit := w.DeedValue(), s.DeedLimit(w)
+			d := w.SeizeDeed(c.ID)
+			w.Law.Forfeited = t.Day
+			t.Emit(events.DeedSeized{Day: t.Day, Corner: c.ID, Name: c.Name, City: c.City, Price: d.Price, Spent: spent, Washed: w.Stats.Laundered, Limit: limit})
 		}
 	}
 
