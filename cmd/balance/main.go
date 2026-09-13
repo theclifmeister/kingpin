@@ -22,7 +22,7 @@ import (
 func main() {
 	runs := flag.Int("runs", 20, "number of seeded runs")
 	days := flag.Int("days", harness.Horizon, "days to play each run for; a measuring horizon, the game itself has no cap")
-	policy := flag.String("policy", "normal", "idle | hide | quiet | normal | aggressive | careful | managed | upgraded | crewed | vigilant | territory | war | diplomat | laundered | funded | corrupt | distributor | driven | delegated | dealer | stocked | routine | leveraged | boss | pricewar | stashed | saboteur | tipster | cook | retiree | cartel | reckless")
+	policy := flag.String("policy", "normal", "idle | hide | quiet | normal | aggressive | careful | managed | upgraded | crewed | vigilant | territory | war | diplomat | laundered | funded | corrupt | distributor | driven | delegated | dealer | stocked | routine | leveraged | boss | pricewar | stashed | saboteur | tipster | cook | retiree | cartel | reckless | informed")
 	lt := flag.String("lt", "", "force the delegated policy's lieutenant temper: violent | greedy | careful | steady (default as generated)")
 	corners := flag.Int("corners", 3, "corners the territory and war policies work, counting yours")
 	force := flag.String("force", "push", "warn | push | hit: how hard the war policy strikes")
@@ -121,6 +121,8 @@ func main() {
 		p = harness.Warlike(cfg, at(40), *corners, f)
 	case "diplomat":
 		p = harness.Diplomat(cfg, at(40), *corners)
+	case "informed":
+		p = harness.Informed(cfg, at(40), *corners)
 	case "pricewar":
 		d := events.DialNormal
 		switch *undercut {
@@ -266,6 +268,10 @@ func main() {
 	// Crew life (#46): the bodies on both sides, the cells, the bails,
 	// the wounds and the retirements, and what the driver did.
 	bodies, fallen, arrests, bails, bailCash, wounded, pensioned, driven, drivenSeized := 0, 0, 0, 0, 0, 0, 0, 0, 0
+	// Intel (#45): the cops paid and what they cost, the spies planted,
+	// found and shot with the reports they filed, the lies fed and the
+	// ones that bit, and the facts at the end.
+	copsPaid, copCash, spies, spiesFound, spiesShot, reports, lures, bitten, factsHeld := 0, 0, 0, 0, 0, 0, 0, 0, 0
 	soldUnits, soldWeighed := 0.0, 0.0
 	var repeats []int
 	for seed := *seed0; seed < *seed0+uint64(*runs); seed++ {
@@ -458,6 +464,9 @@ func main() {
 		if res.World.Crew.Chemist() != nil {
 			chemists++
 		}
+		in := res.World.Stats
+		copsPaid, copCash, spies, spiesFound, spiesShot, reports, lures, bitten = copsPaid+in.CopsPaid, copCash+in.CopCash, spies+in.Spies, spiesFound+in.SpiesFound, spiesShot+in.SpiesShot, reports+in.Reports, lures+in.Lures, bitten+in.Bitten
+		factsHeld += len(game.Known(res.World).Facts())
 		bodies += res.World.Stats.Bodies
 		fallen += res.World.Stats.Fallen
 		arrests += res.World.Stats.Arrests
@@ -693,6 +702,10 @@ func main() {
 	if bodies+arrests+wounded+pensioned+driven > 0 {
 		fmt.Printf("crew life:     %.1f bodies per run (%.1f yours), %.1f arrests, %.1f bails for $%d, %.1f wounded, %.1f retired; %d shipments driven, %d of them seized (totals over %d runs)\n",
 			float64(bodies)/float64(*runs), float64(fallen)/float64(*runs), float64(arrests)/float64(*runs), float64(bails)/float64(*runs), bailCash / *runs, float64(wounded)/float64(*runs), float64(pensioned)/float64(*runs), driven, drivenSeized, *runs)
+	}
+	if copsPaid+spies+lures > 0 || *policy == "informed" {
+		fmt.Printf("intel:         %.1f cops paid for $%d per run, %.1f spies planted (%d found, %d of them shot; %d reports), %.1f lies fed (%d bit) per run; %.1f facts held at the end (over %d runs)\n",
+			float64(copsPaid)/float64(*runs), copCash / *runs, float64(spies)/float64(*runs), spiesFound, spiesShot, reports, float64(lures)/float64(*runs), bitten, float64(factsHeld)/float64(*runs), *runs)
 	}
 	if informants+leaks+investigations+defections > 0 || *snitch {
 		fmt.Printf("snitching:     %d turned, %d pages leaked, %d investigations named %d, %d defections (totals over %d runs)\n", informants, leaks, investigations, named, defections, *runs)

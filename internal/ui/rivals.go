@@ -25,10 +25,10 @@ func (m *Model) rivalName(r *game.RivalState) string {
 // personalityWord is what the player knows about a faction's
 // temperament.
 func (m *Model) personalityWord(r *game.RivalState) string {
-	if !r.Observed {
-		return "unknown"
+	if word := m.known().Personality(r.Faction()); word != game.Unknown {
+		return word
 	}
-	return r.Personality
+	return "unknown"
 }
 
 // eyeingWord is the tell (#69) for a panel line, `eyeing Riverside` in
@@ -43,7 +43,7 @@ func (m *Model) eyeingWord(r *game.RivalState) string {
 
 // factionCols are the rivals screen's FACTIONS table: who, where, what
 // they hold, their muscle and where you stand.
-var factionCols = []col{{"faction", kText, 0}, {"home", kText, 0}, {"corners", kInt, 0}, {"muscle", kInt, 0}, {"stance", kText, 0}, {"trust", kInt, 0}}
+var factionCols = []col{{"faction", kText, 0}, {"home", kText, 0}, {"corners", kInt, 0}, {"muscle", kText, 0}, {"stance", kText, 0}, {"trust", kInt, 0}}
 
 // factionRows are the FACTIONS table's rows, one a faction in the order
 // of the table, the leader in the faction's colour.
@@ -55,7 +55,7 @@ func (m *Model) factionRows() [][]any {
 		name := m.factionStyle(r.Faction()).Render(truncate(r.Leader, 14))
 		var corners, muscle, trust any
 		if r.Arrived > 0 && !r.Gone() {
-			corners, muscle, trust = w.RivalHeldBy(r.Faction()), r.Muscle, int(r.Trust)
+			corners, muscle, trust = w.RivalHeldBy(r.Faction()), m.muscleWord(r), int(r.Trust) // the muscle as the file holds it (#45)
 		}
 		rows = append(rows, []any{name, w.CityOf(r).Name, corners, muscle, w.Stance(r, tun.WarThreshold), trust})
 	}
@@ -114,7 +114,7 @@ func (m *Model) confirmStrike() {
 		m.refuse("Can't send them: " + err.Error())
 		return
 	}
-	m.say(fmt.Sprintf("Enforcers go to %s tonight: %s. Odds ~%.0f%%, heat +%.0f.", c.Name, forces[i], m.set.Rivals.OddsOn(m.w, m.factionOf(c), c, forces[i])*100, m.set.Rivals.StrikeHeat(c, forces[i])))
+	m.say(fmt.Sprintf("Enforcers go to %s tonight: %s. Odds %s, heat +%.0f.", c.Name, forces[i], m.oddsWord(m.factionOf(c), c, forces[i]), m.set.Rivals.StrikeHeat(c, forces[i])))
 }
 
 func (m *Model) viewStrike() string {
@@ -125,30 +125,34 @@ func (m *Model) viewStrike() string {
 	rows := m.strikeRows()
 	m.strikeCursor = max(0, min(m.strikeCursor, len(rows)-1))
 	fac := m.factionOf(c)
-	body := []string{theme.Subtle.Render(fmt.Sprintf("%s vs %s on %s, muscle ~%.1f", plural(m.w.Crew.Role("enforcer"), "enforcer"), m.rivalName(fac), c.Name, m.set.Rivals.Defence(m.w, fac))), ""}
+	body := []string{theme.Subtle.Render(fmt.Sprintf("%s vs %s on %s, muscle %s", plural(m.w.Crew.Role("enforcer"), "enforcer"), m.rivalName(fac), c.Name, m.defenceWord(fac))), ""}
 	var cells [][]any
 	b := m.set.Rivals.BoostTuning()
 	for i, r := range rows {
 		switch {
 		case i < len(forces):
 			f := forces[i]
-			cells = append(cells, []any{r, approx{m.set.Rivals.OddsOn(m.w, fac, c, f) * 100}, signed{m.set.Rivals.StrikeHeat(c, f)}, signed{m.cfg.Rivals.ForceFor(f).War}, "the corner"})
+			cells = append(cells, []any{r, m.oddsCell(fac, c, f), signed{m.set.Rivals.StrikeHeat(c, f)}, signed{m.cfg.Rivals.ForceFor(f).War}, "the corner"})
 		case i < 2*len(forces):
 			// A boost (#70): the same odds at the force, for the till.
 			f := forces[i-len(forces)]
-			cells = append(cells, []any{r, approx{m.set.Rivals.OddsOn(m.w, fac, c, f) * 100}, signed{m.set.Rivals.BoostHeat(c)}, signed{b.War}, "~" + cash(m.set.Rivals.BoostTake(m.w, *c))})
+			cells = append(cells, []any{r, m.oddsCell(fac, c, f), signed{m.set.Rivals.BoostHeat(c)}, signed{b.War}, "~" + cash(m.set.Rivals.BoostTake(m.w, *c))})
 		default:
 			cells = append(cells, []any{r, nil, nil, nil, nil})
 		}
 	}
 	m.modalFollow(len(body) + 1 + m.strikeCursor) // under the header
-	body = append(body, table([]col{{"force", kText, 0}, {"lands", kPct, 0}, {"heat", kInt, 0}, {"war", kInt, 0}, {"for", kText, 0}}, cells, m.strikeCursor, m.modalInner())...)
+	body = append(body, table([]col{{"force", kText, 0}, {"lands", kText, 0}, {"heat", kInt, 0}, {"war", kInt, 0}, {"for", kText, 0}}, cells, m.strikeCursor, m.modalInner())...)
 	body = append(body, "")
-	for _, l := range []string{
+	notes := []string{
 		"Harder flips faster, draws more heat on you, adds to the war",
 		"and costs the enforcers' nerve. A loud enough war brings a",
 		"crackdown on both sides. A boost takes the till, not the corner.",
-	} {
+	}
+	if _, _, _, ok := m.known().Muscle(fac.Faction()); !ok {
+		notes = append(notes, "You do not know their muscle: the odds read blind until you do.")
+	}
+	for _, l := range notes {
 		body = append(body, theme.Subtle.Render(l))
 	}
 	return m.modal("SEND ENFORCERS", body, m.modalFooter())

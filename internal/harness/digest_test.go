@@ -198,20 +198,27 @@ const (
 // cmd/balance -deeds off prints 74a0b60's trace to the dollar on boss,
 // cartel and distributor over three seeds to day 200, with deeds on
 // the boss's trace holding to day 125 at the earliest).
+// Again for #45 (World.Intel, Today.Cop and Spy, CrewMember.Undercover
+// and UndercoverDay, DayReport.Intel and eight Stats added to the walk,
+// RivalState.Known taken out of it and SchemaVersion 16; the move is on
+// day 1 by shape alone and no number moved: with those fields set aside
+// on both sides the digest is dff4a0a's on all sixty days, the boss
+// paying no cop and planting nobody, and the facts the night writes off
+// its own events living in Intel alone).
 var seedDigest = []string{
-	"9a7a9c413db18549", "f07f6a053dfb7c2d", "e2fd2ca40aa57a17", "2987af096a9f5951",
-	"cbc143fbe6ec998c", "5ea69e344dbf633c", "265595d379849abc", "c7d1260a345711fa",
-	"b6104c3dc8ee7a3a", "fd99f9963c8980d1", "faeaeb70a4f24fbc", "891eb96d45463a61",
-	"e66de7256427426d", "b9cb8b4a0e1132c4", "219455e7143941c4", "5b71f9c0688db330",
-	"9377ff4431147954", "49bb49e1aa5d2222", "c7bd200c884b0f4f", "9ab37cfbb8de248d",
-	"f872ccb20779052f", "8f51c38575f526f2", "eaf6b277c1244d66", "088a21d1221a9eaa",
-	"a7691be7305cef24", "2297b370efe42e72", "e329ed49fb75821a", "ecbbb0deec25db99",
-	"8be369240eed3244", "bcbab1a0f56a7f71", "7f2268fdd72f1dae", "3d0e214b7522b0e2",
-	"5722ba61a3eb08b9", "3cb1ab79490ab642", "aa4f05fd3acdffcd", "a56e1d31c4b29969",
-	"227c0e3a8d4cbd9a", "863fe791f397afab", "5832912138fe907f", "8a67ec4c6fe44637",
-	"c15d14842e3a1e3a", "1ab98224f7370bd7", "fd6f24eb5223bc4f", "d85b0d62bdd6c833",
-	"44e1f214bbe38f8f", "8f37f03ab21e54df", "895a046632344a78", "62f6eac64d5bbd20",
-	"c9eddcde43bac80d", "dbdbc38a22e3cfd1", "4c18e15e3fa4aaa4", "15e1df571d8f1001",
-	"ac77d8a2fab4edcd", "856dcacc14bd97d1", "760279a85938733d", "3cdc0ff2411802e1",
-	"b16278f921d6e10a", "b6af7c906493cef1", "c0ce34a630fd51a6", "50f6e628d1009592",
+	"8f3fd5637f283009", "2e7641631daee8e3", "74d404f94f4523c1", "3b6a962d7fb6e2db",
+	"13ac34c7f9933402", "298a6b9aa9c389c0", "d5a21d8a63f14124", "9bf2406180ab378e",
+	"120b476436a759e2", "665d3c349533e335", "69806a1bce745e9e", "273db5acae20e9ec",
+	"881210255f020f76", "fc53575388a93de1", "3ae127c75e343a45", "958918d0a8dc26d9",
+	"55b78e9fbdc0ac3d", "553efea26b036022", "5c5435f710c51fee", "60cdbfb523e87000",
+	"b4c30ee21258736c", "5280c6ef05e003dd", "85aa18c39bdfc914", "4acfb08bc75e8797",
+	"0c52d2689e64f9af", "b75f390bf6ff0e65", "dbd59f77b0287687", "e4bf7bf4d67ebc20",
+	"d871a351a9abbd41", "a4e59cf2b3a5d182", "d590b207c4820f5b", "88592b7af0dbbdfb",
+	"1e06b17c39f8a9d0", "14ab8f2e84487e15", "e92271e48126ad8a", "12381ea0b7e57bbc",
+	"fdb61cbce63e404f", "de57417da98cadda", "30cd8ea5cd17d802", "8a65204c61e3892c",
+	"b8b3857eac812685", "ee5d831f51bb0a42", "bda6d2ed77bf2486", "8d202cf946a48fd0",
+	"784ab9a242e91490", "4680d1ff257e9016", "e74ce54ef757e355", "c0f8720c9f89ccb5",
+	"4cabd08ea8e3cebe", "fedbad4884f2a98a", "1e1affe84d60f969", "05d5bcf0d38aa87e",
+	"cec33c79e4c4c168", "6646bd0981524c88", "d303220ce2b43fac", "ee0b2e0ab4c7e0f6",
+	"5c2ca7fcf92d5c7c", "e70c7db6873a6b7d", "8823815b36720bb4", "18d3a750103f6814",
 }

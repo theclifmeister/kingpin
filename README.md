@@ -179,7 +179,7 @@ The dashboard at 80x24, with the details strip above the status bar:
 
 <!-- capture:dashboard-80x24 -->
 ```text
- KINGPIN  1  2  3  4  5  6  7  8                  Day 4 · dirty $452K · heat 12
+ KINGPIN  1  2  3  4  5  6  7  8  9               Day 4 · dirty $452K · heat 12
 ╭─ STREET · Eastside ──────────────────────────────────────────────────────────╮
 │   product     price     Δ  5d       stock  order                             │
 │ ▸ Weed       $19.23   -6%  ▄▇▁█▁       40  -                                 │
@@ -188,9 +188,9 @@ The dashboard at 80x24, with the details strip above the status bar:
 │   Heroin    $375.84   -5%  █▁           0  -                                 │
 │   Meth      $701.73  -12%  █▁           0  -                                 │
 │   Designer   $2,740  +11%  ▁█           0  -                                 │
-│ carrying 46/310 · 24 in 1 house · corners 3 worked, 3 held of 10, 1 theirs   │
+│ carrying 46/410 · 24 in 1 house · corners 3 worked, 3 held of 10, 1 theirs   │
 │ tier Distribution · 240 units in Bayport · 60 units on the road, next in 2d  │
-│ crew 5 · fair pay $440/day · skimming suspected                              │
+│ crew 6 · fair pay $495/day · skimming suspected                              │
 │ supply 1 contract · $895 this morning · 1 offer on the market screen (2)     │
 │ no upgrades yet: buy on the upgrades screen (6)                              │
 │ Standing orders sell tonight; the crew keep 5%.                              │
@@ -211,7 +211,7 @@ what your enforcers' chances look like:
 
 <!-- capture:map-120x40 -->
 ```text
- KINGPIN  1 Dash  2 Market  3 Journal 19  4 Crew  5 Map  6 Upgr  7 Ledger  8 Rivals       Day 4 · dirty $452K · heat 12
+ KINGPIN  1  2  3  4  5  6  7  8  9                                                       Day 4 · dirty $452K · heat 12
 MAP · Eastside  [ ◉ Eastside ]  Bayport  3/10 held · 3 worked · ~1828/day free      ╭─ DETAILS ────────────────────────╮
  ▴ THE DOCKS         ▪ RAIL YARD         ▪ OLD MILL                                 │ THE DOCKS                        │
    theirs              Dre                 Gato ⚔ Moose                             │ Mona's since day 0               │
@@ -224,10 +224,10 @@ MAP · Eastside  [ ◉ Eastside ]  Bayport  3/10 held · 3 worked · ~1828/day f
                        ~357/day warm       ~249/day average    ~254/day warm        │             Designer ~52         │
                                                                                     │             Pills ~44            │
 ROUTES                                                                              │             Heroin ~37           │
-▸ Coast Road   Bayport  ──car──▪────▶ Eastside  normal  2d · 60 units · $8/u · ~0%  │             Coke ~17 · Meth ~5   │
-  Interstate   Bayport  ─truck──────▶ Eastside  off     3d · 400 units · $3/u · ~9% │ runner      nobody               │
-  The Channel  Bayport  ─boat───────▶ Eastside  off     5d · 2000 units · $1/u · ~7%│ enforcer    nobody               │
-                                                                                    │ w  push takes it ~10%, hit ~24%  │
+▸ Coast Road   Bayport  ──car──▪────▶ Eastside  normal  2d · 60 units · $8/u · ?    │             Coke ~17 · Meth ~5   │
+  Interstate   Bayport  ─truck──────▶ Eastside  off     3d · 400 units · $3/u · ~3% │ runner      nobody               │
+  The Channel  Bayport  ─boat───────▶ Eastside  off     5d · 2000 units · $1/u · ?  │ enforcer    nobody               │
+                                                                                    │ w  push takes it ~6–10%, hit ~1… │
                                                                                     │ w  boost: the till, ~$24K        │
                                                                                     │ t  tip the police: at 0 of 60    │
                                                                                     │                                  │
@@ -246,7 +246,7 @@ ROUTES                                                                          
                                                                                     │ w  send enforcers                │
                                                                                     │ u  undercut     t  tip police    │
                                                                                     │ d  buy block    r  route dial    │
-                                                                                    │ R  route target                  │
+                                                                                    │ R  route target i  intel         │
                                                                                     │ g  go to Bayport                 │
                                                                                     │ ?  help                          │
                                                                                     ╰──────────────────────────────────╯
@@ -363,12 +363,13 @@ The full table is below; `?` brings it up in the game.
 | `␣` | more | open the details whole (under 100 columns) | everywhere |
 | `?` | help | this list | everywhere |
 | `enter` | end day | end the day, after a confirmation | everywhere |
-| `1-8` | switch screen | the screens in the title bar's order | everywhere |
+| `1-9` | switch screen | the screens in the title bar's order | everywhere |
 | `tab` | next screen | next screen; shift+tab back, in dialogs too | everywhere |
 | `ctrl+s` | save | save now; the end of the day saves too | everywhere |
 | `N` | new run | start over, after a confirmation | everywhere |
 | `q` | quit | save and quit | everywhere |
 | `c` | cart | the day's cart: edit its buys and orders | dashboard, market |
+| `i` | intel | the file on the chief and the police here | dashboard |
 | `←→` | city | turn the market to the other city | market |
 | `a` | accept | take the buyer's offer | market |
 | `x` | decline | turn the buyer's offer down | market |
@@ -395,6 +396,7 @@ The full table is below; `?` brings it up in the game.
 | `R` | route target | what the selected route keeps the far end at | map |
 | `$` | buy checkpoint | buy the checkpoint or customs on the route | map |
 | `v` | driver | put a driver on the selected route | map |
+| `i` | intel | the file on the faction holding the corner | map |
 | `←→` | branch | turn the tree to the next branch | upgrades |
 | `u` | buy upgrade | buy the node under the cursor (enter too) | upgrades |
 | `b` | buy front | buy a front or an asset, rent a house | ledger |
@@ -411,6 +413,8 @@ The full table is below; `?` brings it up in the game.
 | `x` | decline | turn the selected offer down | rivals |
 | `i` | scout | buy a look at the rival's books | rivals |
 | `$` | buy off | pay the rival's muscle to go home | rivals |
+| `$` | pay cop | a cop's word on the chief and the police | intel |
+| `p` | plant spy | send a crew member under with a faction | intel |
 <!-- keys:end -->
 
 ## How it works

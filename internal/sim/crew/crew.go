@@ -84,6 +84,7 @@ type Sim struct {
 	tree     content.UpgradesConfig
 	lab      *content.AssetConfig   // #48: the lab asset's row, what it does to a cook in its city; nil with none in the file
 	fac      content.FactionsTuning // the table (#43): the discount a fragmented faction's muscle sign for
+	intel    content.IntelTuning    // the spies (#45): their cadence, their accuracy and their odds of being found
 }
 
 // New builds a crew sim from the config, copying what it reads (#144):
@@ -98,7 +99,7 @@ type Sim struct {
 // and start_loyalty_bonus on a generated candidate and hire_fee_mul on
 // their fee, both fixed when they are generated.
 func New(cfg *content.Config) *Sim {
-	s := &Sim{cfg: cfg.Crew, names: cfg.Names.Crew, chemists: cfg.Names.Chemists, drivers: cfg.Names.Drivers, rep: cfg.Reputation.Effects, tree: cfg.Upgrades, fac: cfg.Rivals.Factions}
+	s := &Sim{cfg: cfg.Crew, names: cfg.Names.Crew, chemists: cfg.Names.Chemists, drivers: cfg.Names.Drivers, rep: cfg.Reputation.Effects, tree: cfg.Upgrades, fac: cfg.Rivals.Factions, intel: cfg.Intel.Intel}
 	if lab := cfg.Assets.ByEffect(content.AssetLab); lab != nil {
 		row := *lab
 		s.lab = &row
@@ -315,6 +316,10 @@ func (s *Sim) Step(w *game.World, t *game.Tick) {
 	// Crew life (#46): the cells, last night's sweep, tonight's
 	// shooting, the birthdays and the kin, all off the life stream.
 	s.life(w, t, fx)
+
+	// The spies (#45): tonight's plant, the reports due and who was
+	// found, off the intel stream.
+	s.spies(w, t)
 
 	// 1. Skimming, on this morning's loyalty. Street crew skim the day's
 	// takings; an accountant skims the wash, and the wash they can see is

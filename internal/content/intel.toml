@@ -1,0 +1,32 @@
+# Intel (#45): what you know against what is true. World.Intel is a file
+# of facts with a confidence; the sims that own a truth write it through
+# their own rule and the panels read the file, never the truth. A run
+# that never pays a cop, plants a spy or is fed a lie is byte-for-byte
+# the run before the feature: the observation facts are written off
+# events already emitted, with no dice, and the three moves roll on the
+# intel side stream.
+
+[intel]
+stale_rate = 0.05           # confidence a fact loses a day (a faction's temper never fades)
+forget = 0.2                # under this confidence a fact is dropped
+observe_confidence = 0.6    # what a push, a strike or a boost tells you of the muscle you met ...
+observe_band = 3            # ... within a band this many heads wide (4-6)
+cop_price = 5000            # dirty cash for a cop's word at full accuracy: the chief's temper and the police's next move
+cop_accuracy = 0.75         # ... how often the word is right at the price (less money, less often, in proportion)
+cop_slip = 3                # a wrong word is off by up to this many days, or a rung
+spy_days = 5                # a spy files a report every this many nights under
+spy_accuracy = 0.8          # ... true this often at spy_skill (a skill-90 spy is over it, a skill-10 spy well under)
+spy_skill = 80
+spy_slip = 3                # a wrong report is off by up to this many heads
+turn_share = 0.5            # of the spies found, the share turned (they come home talking); the rest are shot
+feed_trust = 25             # a faction that trusts you under this feeds you lies ...
+feed_chance = 0.05          # ... at this chance a night
+feed_confidence = 0.9       # ... at this confidence ("a contact says")
+feed_risk = 0.01            # the risk a day a fed road claims
+
+# A report's chance of the spy being found, by the faction's temper.
+[intel.spy_found]
+expansionist = 0.10
+defensive = 0.15
+opportunist = 0.10
+chaotic = 0.20

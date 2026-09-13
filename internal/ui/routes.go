@@ -79,7 +79,7 @@ func (m *Model) sayRouteDial(r content.RouteConfig, d events.RouteDial) {
 		return
 	}
 	lg := m.set.Logistics
-	line := fmt.Sprintf("%s %s: %s %s to %s, seized ~%.0f%%.", r.Name, d, plural(lg.Days(m.w, r, d.Ship()), "day"), r.Mode, m.w.CityName(r.To), lg.Risk(m.w, r, d.Ship())*100)
+	line := fmt.Sprintf("%s %s: %s %s to %s, seized %s.", r.Name, d, plural(lg.Days(m.w, r, d.Ship()), "day"), r.Mode, m.w.CityName(r.To), m.riskWord(r, d.Ship()))
 	if !m.w.Route(r.ID).HasTargets() {
 		line += " It sends nothing without a target."
 	}
@@ -420,7 +420,7 @@ func (m *Model) routeLines(width int) []string {
 			dial := fit(d.String(), 6)
 			terms := ""
 			if units != "" {
-				terms = fmt.Sprintf("  %dd · %d%s · %s/u · ~%.0f%%", lg.Days(w, r, d.Ship()), lg.Capacity(w, r), units, fare(lg.Fare(w, r)), lg.Risk(w, r, d.Ship())*100)
+				terms = fmt.Sprintf("  %dd · %d%s · %s/u · %s", lg.Days(w, r, d.Ship()), lg.Capacity(w, r), units, fare(lg.Fare(w, r)), m.riskWord(r, d.Ship()))
 			}
 			plain := name + "  " + from + road + to + "  " + dial + terms
 			widest = max(widest, 2+lipgloss.Width(plain))
@@ -570,7 +570,7 @@ func (m *Model) routeSection(r content.RouteConfig) section {
 	}
 	lines = append(lines,
 		row("days", fmt.Sprintf("%d · capacity %d", lg.Days(w, r, d.Ship()), lg.Capacity(w, r))),
-		row("fare", fmt.Sprintf("%s/u · seized ~%.0f%%", fare(lg.Fare(w, r)), lg.Risk(w, r, d.Ship())*100)),
+		row("fare", fmt.Sprintf("%s/u · seized %s", fare(lg.Fare(w, r)), m.riskWord(r, d.Ship()))),
 	)
 	switch t := m.targetLine(r.ID); {
 	case t == "" && d.On():

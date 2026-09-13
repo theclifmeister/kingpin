@@ -113,6 +113,43 @@ func (c Corner) Full(product string) float64 {
 	return s
 }
 
+// Trade is the street value a corner moves in a day, its squeeze off,
+// in the products the street of its city sells (#139: the port's
+// product, no_supply there, comes by the road): what a rival corner
+// earns before its margin, the till a boost takes from (#70) and the
+// truth a spy's stash report is right about (#45). It lives here, the
+// rivals sim's arithmetic and the crew sim's, because the two share it
+// (game.Eligible's rule).
+func (w *World) Trade(c Corner) float64 {
+	v := 0.0
+	for _, id := range w.Products {
+		if m := w.Product(c.City, id); m != nil && !m.NoSupply {
+			v += m.Demand * c.Share(id) * m.Price
+		}
+	}
+	return v
+}
+
+// Fattest is the corner where a faction's till is fattest today: the
+// one of its corners moving the most trade, nil for one holding none.
+func (w *World) Fattest(faction string) *Corner {
+	var best *Corner
+	most := -1.0
+	for _, cid := range w.CityOrder {
+		cs := w.Cities[cid].Corners
+		for i := range cs {
+			c := &cs[i]
+			if c.Owner != OwnerRival || c.FactionID() != faction {
+				continue
+			}
+			if v := w.Trade(*c); v > most {
+				most, best = v, c
+			}
+		}
+	}
+	return best
+}
+
 // Borders reports whether two corners are neighbours on the same map.
 func (c Corner) Borders(o Corner) bool {
 	if c.ID == o.ID || c.City != o.City {
@@ -302,6 +339,9 @@ func (w *World) Post(corner string, id int) error {
 		}
 		if m.Wounded(w.Day) {
 			return ErrWounded
+		}
+		if m.Undercover != "" {
+			return ErrUndercover
 		}
 	}
 	if role != "runner" && role != "enforcer" {

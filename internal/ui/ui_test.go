@@ -355,7 +355,12 @@ func richFixture(t *testing.T, sz [2]int, check func(m *Model, view, what string
 	m.Update(key("g"))
 	see(m, "travel confirm")
 	m.Update(key("esc"))
-	for _, s := range []string{"1", "2", "3", "4", "5", "6", "7", "8"} {
+	// The file (#45): thirty facts of every kind and source and a spy
+	// under, so the intel screen has a full table and a pane to show.
+	fillIntel(m.w, 30)
+	m.w.Crew.Members = append(m.w.Crew.Members, game.CrewMember{ID: 901, Name: "Lena", Role: "runner", Skill: 75, Loyalty: 70, Nerve: 60, Wage: 55, Undercover: m.w.Rival().Faction(), UndercoverDay: m.w.Day - 2})
+	m.w.Crew.NextID = 901
+	for _, s := range []string{"1", "2", "3", "4", "5", "6", "7", "8", "9"} {
 		m.Update(key(s))
 		see(m, "screen "+s)
 		// Space: the overlay where the strip is; nothing where the pane
@@ -2579,6 +2584,17 @@ func richModelSeeded(t *testing.T, w, h int, seed uint64) *Model {
 	if err := world.PlaceStanding(world.Player.Location, world.Products[1], 30, events.DialNormal); err != nil {
 		t.Fatal(err)
 	}
+	// The file (#45): a muscle band seen in a push, the cop's word on the
+	// police here, a road a contact vouched for (a lie), and a spy under
+	// with the rival, so the intel screen, its pane and the two dialogs
+	// have something to show.
+	tun := m.cfg.Intel.Intel
+	rival := world.Rival().Faction()
+	world.Learn(game.Fact{Subject: rival, Kind: game.FactMuscle, Value: "3–5", Number: 4, Confidence: tun.ObserveConfidence, Day: world.Day - 1, Source: game.SourceSeen, Stale: tun.StaleRate, Forget: tun.Forget})
+	world.Learn(game.Fact{Subject: world.Player.Location, Kind: game.FactResponse, Value: "sting", Number: float64(world.Day + 2), Confidence: tun.CopAccuracy, Day: world.Day, Source: game.SourceCop, Stale: tun.StaleRate, Forget: tun.Forget})
+	world.Learn(game.Fact{Subject: m.cfg.Routes.Routes[1].ID, Kind: game.FactRisk, Value: "~1%/day", Number: tun.FeedRisk, Confidence: tun.FeedConfidence, Day: world.Day, Source: game.SourceContact, Stale: tun.StaleRate, Forget: tun.Forget, Planted: rival})
+	world.Crew.Members = append(world.Crew.Members, game.CrewMember{ID: 9, Name: "Lena", Role: "runner", Skill: 75, Units: 100, Loyalty: 70, Nerve: 60, Wage: 55, Undercover: rival, UndercoverDay: world.Day - 2})
+	world.Crew.NextID = 9
 	m.Update(key("1"))
 	m.cursor, m.crewCursor, m.mapCursor, m.branch, m.upgradeCursor = 0, 0, 0, 0, nil
 	m.status = ""
@@ -2863,6 +2879,16 @@ func TestModalsFit(t *testing.T) {
 		// The cart (#103): the modal on its lines and on a quantity, and
 		// the dialogs with a full cart under the table.
 		{"cart", modeCart, func(t *testing.T, m *Model) { fillCart(t, m); m.Update(key("c")) }},
+		// Intel (#45): the cop dialog and the spy dialog's two pages.
+		{"pay cop", modePayCop, func(t *testing.T, m *Model) { m.Update(key("9")); m.Update(key("$")) }},
+		{"spy factions", modeSpy, func(t *testing.T, m *Model) {
+			m.Update(key("9"))
+			m.Update(key("p"))
+			if m.spy.step != 0 {
+				t.Skip("one faction on the ground: the dialog opens on the crew")
+			}
+		}},
+		{"spy crew", modeSpy, func(t *testing.T, m *Model) { m.Update(key("9")); m.Update(key("p")); m.Update(key("enter")) }},
 		{"cart quantity", modeCart, func(t *testing.T, m *Model) { fillCart(t, m); m.Update(key("c")); m.Update(key("enter")) }},
 		{"buy with cart", modeBuy, func(t *testing.T, m *Model) { fillCart(t, m); m.Update(key("b")) }},
 		{"sell with cart", modeSell, func(t *testing.T, m *Model) { fillCart(t, m); m.Update(key("s")) }},

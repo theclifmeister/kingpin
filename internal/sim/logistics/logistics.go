@@ -11,6 +11,7 @@
 package logistics
 
 import (
+	"fmt"
 	"math"
 	"sort"
 
@@ -29,6 +30,7 @@ type Sim struct {
 	driver float64              // #46: what a skill-100 driver takes off a shipment's risk per day (crew.toml [role.driver] driver_cut)
 	float  int                  // dirty cash the road never spends below: the laundering float
 	assets content.AssetsConfig // #48: the port (capacity and customs on the boats into its city) and the routes an asset opens
+	intel  content.IntelTuning  // #45: what a seizure's fact fades at
 }
 
 // New builds a logistics sim from the config, copying what it reads
@@ -39,7 +41,7 @@ type Sim struct {
 // the laundering float: the road never starves the street any more than
 // the wash does.
 func New(cfg *content.Config) *Sim {
-	return &Sim{cfg: cfg.Routes, cities: cfg.City, market: cfg.Market, tree: cfg.Upgrades, law: cfg.Law.Effects, driver: cfg.Crew.Role[game.RoleDriver].DriverCut, float: cfg.Laundering.Laundering.Float, assets: cfg.Assets}
+	return &Sim{cfg: cfg.Routes, cities: cfg.City, market: cfg.Market, tree: cfg.Upgrades, law: cfg.Law.Effects, driver: cfg.Crew.Role[game.RoleDriver].DriverCut, float: cfg.Laundering.Laundering.Float, assets: cfg.Assets, intel: cfg.Intel.Intel}
 }
 
 // Open reports whether a route is there to run (#48): every route in
@@ -204,6 +206,16 @@ func (s *Sim) Risk(w *game.World, r content.RouteConfig, d events.Ship) float64 
 
 func (s *Sim) risk(fx game.Effects, r content.RouteConfig, d events.Ship, cut float64, watched bool) float64 {
 	return 1 - math.Pow(1-s.dayRisk(fx, r, d, cut, watched), float64(s.days(fx, r, d)))
+}
+
+// RiskFrom is Risk with the route's risk a day given (#45): what the
+// map, the pane and the checkpoint dialog show for the risk the file
+// holds (game.Known(w).Risk), folded the way the dice fold the truth
+// (the dial, the tree, the checkpoint's and the driver's cuts, the
+// days). The panels never read Route.Risk.
+func (s *Sim) RiskFrom(w *game.World, r content.RouteConfig, d events.Ship, base float64) float64 {
+	r.Risk = base
+	return s.Risk(w, r, d)
 }
 
 // Capacity is the most one shipment on a route carries: the route's
@@ -392,7 +404,18 @@ func (s *Sim) move(w *game.World, t *game.Tick, fx game.Effects) {
 		if r != nil {
 			risk = s.dayRisk(fx, *r, sh.Dial, s.cut(w, *r, t.Day, riding(w, sh, t.Day)), Watched(w, t.Day))
 		}
-		if rng.Float64() < risk {
+		// A road a faction fed you as quiet (#45) is a road it has the
+		// customs watching: the first shipment on it is taken, whatever
+		// the roll (made all the same, so the road's dice do not move),
+		// and the lie names its author.
+		seized, lured := rng.Float64() < risk, false
+		if lure := w.Lure(sh.Route, game.FactRisk); lure != nil {
+			seized, lured = true, true
+			fed := w.Expose(sh.Route, game.FactRisk)
+			w.Stats.Bitten++
+			t.Emit(events.IntelFalse{Day: t.Day, Subject: sh.Route, FactKind: game.FactRisk, Name: s.name(sh.Route), Rival: w.Faction(fed).Leader, Faction: fed})
+		}
+		if seized {
 			w.Stats.Seizures++
 			w.Stats.SeizedOnRoad += sh.Units
 			if w.Logistics.Lost == nil {
@@ -416,6 +439,9 @@ func (s *Sim) move(w *game.World, t *game.Tick, fx game.Effects) {
 			// takes it off the books on this event).
 			if r != nil && r.Mode == "tunnel" && r.Asset != "" && w.HasAsset(r.Asset) {
 				t.Emit(events.TunnelFound{Day: t.Day, Route: r.ID, Name: r.Name, Asset: r.Asset, Product: sh.Product, Units: sh.Units})
+			}
+			if !lured {
+				s.learn(w, t, sh.Route) // a staged seizure says nothing about the road: the lie stands, named
 			}
 			continue
 		}
@@ -534,4 +560,28 @@ func (s *Sim) run(w *game.World, t *game.Tick, fx game.Effects) {
 			w.Logistics.Days = append(w.Logistics.Days, day)
 		}
 	}
+}
+
+// learn files a route's risk a day (#45): a seizure is the one thing
+// that shows you what a road is, at full confidence, fading at
+// stale_rate. No dice.
+func (s *Sim) learn(w *game.World, t *game.Tick, route string) {
+	r := s.cfg.Route(route)
+	if r == nil {
+		return
+	}
+	f := game.Fact{
+		Subject: route, Kind: game.FactRisk, Value: fmt.Sprintf("~%.0f%%/day", r.Risk*100), Number: r.Risk,
+		Confidence: 1, Day: t.Day, Source: game.SourceSeen, Stale: s.intel.StaleRate, Forget: s.intel.Forget,
+	}
+	w.Learn(f)
+	t.Emit(events.IntelGained{Day: t.Day, Subject: route, FactKind: game.FactRisk, Value: f.Value, Confidence: 1, Source: f.Source, Name: r.Name})
+}
+
+// name is a route's name, or its id.
+func (s *Sim) name(route string) string {
+	if r := s.cfg.Route(route); r != nil {
+		return r.Name
+	}
+	return route
 }

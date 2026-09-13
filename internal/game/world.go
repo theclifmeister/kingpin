@@ -12,7 +12,7 @@ import (
 )
 
 // SchemaVersion is bumped whenever World changes shape incompatibly.
-const SchemaVersion = 15
+const SchemaVersion = 16
 
 // World is the complete state of a run. Every field is a plain value so the
 // whole struct can be serialised with encoding/gob.
@@ -85,6 +85,11 @@ type World struct {
 	Offshore  int
 	QuietDays int
 
+	// Intel (#45, intel.go): what the player knows, a file of facts
+	// written by the sims that own the truth (Learn) and read by the
+	// panels through Known. Nil is a run that has learnt nothing.
+	Intel []Fact
+
 	// Today is the player's per-day scratch (#144): what the actions
 	// queued since the morning, for the sims to resolve tonight. The
 	// clock zeroes it as a unit after every EndDay (ClearToday), bar the
@@ -100,13 +105,14 @@ type World struct {
 	legacy *v6  // what a pre-7 save carried for its one city; Load sets it, MigrateCities consumes it
 	fell   bool // what a pre-10 save carried as FallGuyUsed; Load sets it, MigrateFallGuys consumes it
 	old    *v14 // what a pre-15 save carried for its one rival; Load sets it, SeatRival consumes it (#43)
+	books  *v15 // what a pre-16 save carried for the books read; Load sets it, MigrateBooks consumes it (#45)
 }
 
 // Today is the player's per-day scratch on the World (#144): what the
 // actions (Buy, PlaceSell, SetLieLow, SendEnforcers, Boost, Investigate,
 // BuyUpgrade, Propose, Accept, Abandon, Fund, Back, Bribe, BuyCheckpoint,
 // Deliver, Undercut,
-// MoveStock, BuyHouse, Scout, Tip, BuyOff) queue by day and the sims
+// MoveStock, BuyHouse, Scout, Tip, BuyOff, PayCop, PlantSpy) queue by day and the sims
 // resolve at EndDay, then the clock zeroes as a unit (ClearToday). A
 // field here is never read across a day; the one receipt kept into the
 // morning is named on the clock. The fields keep the names they had on
@@ -137,6 +143,8 @@ type Today struct {
 	Invested      []Investment           // levels bought at the fronts today (#192), applied at once; the laundering sim reports them
 	Cuts          []CutRecord            // the cuts made today (#47), applied at once; the market sim reports them
 	Reserved      int                    // clean cash on its way offshore tonight (#195), out of the pile already; the laundering sim moves it and takes the fee
+	Cop           *CopOrder              // a cop paid today (#45); the heat sim and the law sim each write what they know off it
+	Spy           *SpyOrder              // a crew member going under tonight (#45); the crew sim sends them
 	DeedsBought   []string               // corner ids whose block was bought today (#194), paid at once; the territory sim reports them
 	AssetsBought  []string               // asset ids bought today (#48), applied at once; the laundering sim reports them
 }
@@ -504,6 +512,13 @@ type CrewMember struct {
 	JailedUntil  int
 	WoundedUntil int
 	Bailed       bool
+
+	// Intel (#45): Undercover is the faction a spy is under with ("" is
+	// nobody, the member at work), UndercoverDay the day they went, the
+	// clock their reports run on. A spy works nothing for you and is
+	// off the roster's counts until they come back.
+	Undercover    string
+	UndercoverDay int
 }
 
 // Jailed reports whether the member is in a cell on day.
@@ -514,13 +529,15 @@ func (m CrewMember) Wounded(day int) bool { return m.WoundedUntil > day }
 
 // Fit reports whether the member can work on day: neither jailed nor
 // wounded.
-func (m CrewMember) Fit(day int) bool { return !m.Jailed(day) && !m.Wounded(day) }
+func (m CrewMember) Fit(day int) bool { return !m.Jailed(day) && !m.Wounded(day) && m.Undercover == "" }
 
 // Working reports whether the member is at work at all: the crew sim
 // clears JailedUntil and WoundedUntil the morning they are back, so
 // either set is a member in a cell or laid up whatever the day, which
 // is how the best chemist or fixer is chosen without one.
-func (m CrewMember) Working() bool { return m.JailedUntil == 0 && m.WoundedUntil == 0 }
+func (m CrewMember) Working() bool {
+	return m.JailedUntil == 0 && m.WoundedUntil == 0 && m.Undercover == ""
+}
 
 // IsKin reports whether the two are kin (#46).
 func (m CrewMember) IsKin(id int) bool {
@@ -744,24 +761,6 @@ type PoachOrder struct {
 	Faction string // whose muscle (#43); "" is the rival at home
 }
 
-// Known is the rival's books as last read by a scout (#70): a snapshot,
-// never a live feed. Day is the day it was read, 0 for never; the
-// numbers are the rival's cash, its income and its wage bill that day
-// and its muscle that night. Nothing but a successful scout writes it.
-type Known struct {
-	Day    int
-	Cash   int
-	Income int
-	Muscle int
-	Wages  int
-}
-
-// Read reports whether the books have ever been read.
-func (k Known) Read() bool { return k.Day > 0 }
-
-// Age is how many days old the snapshot is on day.
-func (k Known) Age(day int) int { return day - k.Day }
-
 // RivalState is the faction competing for the city's corners. Leader is
 // empty until the sim seeds it; Arrived is 0 until it holds its first
 // corner. War is how loud the fight has got, 0..100: past the crackdown
@@ -800,11 +799,11 @@ type RivalState struct {
 
 	// The player's moves against it (#70). Heat is the police's
 	// attention on it, 0..100: your tips, and its own pushes while it is
-	// over zero; past the notice line they take a corner off it. Known
-	// is its books as last scouted; Scouted counts the scouts that read
-	// nothing since the last that did. Zero values are the pre-#70 state.
+	// over zero; past the notice line they take a corner off it. Scouted
+	// counts the scouts that read nothing since the last that did (the
+	// books a scout read are facts in World.Intel since #45, game.Books
+	// the read as the file holds it). Zero values are the pre-#70 state.
 	Heat     float64
-	Known    Known
 	Scouted  int
 	LastRaid int // day the police last took a corner off it on your tip; 0 never
 	Away     int // heads bought off or arrested and not yet back: what it wants less, for a while
@@ -930,6 +929,7 @@ type DayReport struct {
 	Territory  []string
 	Shipments  []string
 	Law        []string // elections, a new chief, pressure bands crossed, what you gave a city
+	Intel      []string // what was learnt tonight (#45): the facts filed, a spy's night, a lie that bit
 	Money      []string
 	Upgrades   []string
 	Tier       []string // the tier entered this morning (#147), first in the report
@@ -1028,12 +1028,22 @@ type Stats struct {
 	DeedsSeized    int // deeds the DA took (the forfeiture)
 	Wounded        int // crew shot and laid up
 	Retired        int // crew who retired
-	PeakClean      int // the most clean cash held at once (#48): the high-water mark the assets unlock on, stamped by the clock beside PeakCash
-	Assets         int // assets bought (#48)
-	AssetCash      int // clean cash they cost
-	AssetsLost     int // assets the task force seized or the police found
-	AssetUpkeep    int // clean cash the assets' upkeep took
-	TaskForces     int // task forces that came
+
+	// Intel (#45).
+	CopsPaid    int // cops paid for a word
+	CopCash     int // what they were paid
+	Spies       int // crew sent under
+	SpiesFound  int // ... and found out: shot or turned
+	SpiesShot   int // ... and shot for it
+	Reports     int // what the spies filed
+	Lures       int // facts a faction fed you
+	Bitten      int // ... that you acted on
+	PeakClean   int // the most clean cash held at once (#48): the high-water mark the assets unlock on, stamped by the clock beside PeakCash
+	Assets      int // assets bought (#48)
+	AssetCash   int // clean cash they cost
+	AssetsLost  int // assets the task force seized or the police found
+	AssetUpkeep int // clean cash the assets' upkeep took
+	TaskForces  int // task forces that came
 }
 
 // StartingProduct describes a product as it exists at the start of a run,

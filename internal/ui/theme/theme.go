@@ -17,6 +17,7 @@ var (
 	Bg        = lipgloss.Color("#1c1c1c")
 	Warn      = lipgloss.Color("#ffaf5f") // orange
 	World     = lipgloss.Color("#d7af87") // tan: the world's weather (#44), what happens without you
+	Intel     = lipgloss.Color("#afd7ff") // sky: what you know (#45), against what is true
 
 	// One meaning each (#88): Market green is the market and good, Heat
 	// red is heat, the law and danger, Rival purple is theirs only, Crew
@@ -38,6 +39,7 @@ var (
 	CrewText   = lipgloss.NewStyle().Foreground(Crew)      // yours: the crew, your corners, a lieutenant's order
 	RoadText   = lipgloss.NewStyle().Foreground(Logistics) // the road
 	NewsText   = lipgloss.NewStyle().Foreground(News)      // the paper
+	IntelText  = lipgloss.NewStyle().Foreground(Intel)     // the file: a fact and its source (#45)
 	DialOn     = lipgloss.NewStyle().Foreground(Money)     // the chosen notch of a dial: `[normal]`
 	Selected   = lipgloss.NewStyle().Bold(true).Foreground(Bg).Background(Money)
 	Key        = lipgloss.NewStyle().Foreground(Money)
