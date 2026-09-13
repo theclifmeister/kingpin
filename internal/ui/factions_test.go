@@ -33,7 +33,7 @@ func tableModel(t *testing.T, w, h int) *Model {
 	home := world.Home()
 	for i, corner := range []int{1, 2, 4} { // rail yard, old mill, bus depot; you stand on fourth
 		r := world.Rivals[i]
-		r.Arrived, r.Observed, r.Muscle, r.Cash = 1, true, 3 + i, 20_000
+		r.Arrived, r.Observed, r.Muscle, r.Cash = 1, true, 3+i, 20_000
 		home.Corners[corner].Owner, home.Corners[corner].Faction = game.OwnerRival, r.Faction()
 	}
 	world.Rivals[2].Deals = []game.Deal{{Kind: game.DealTruce, Terms: game.Terms{Days: 30}, Since: world.Day, Until: world.Day + 30, Faction: world.Rivals[2].Faction()}}
