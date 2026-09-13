@@ -81,13 +81,32 @@ func (m *Model) onFrame(f frameMsg) tea.Cmd {
 
 // skip is any key while an interstitial is up: the scene ends and the
 // key is consumed, so the mode's own modal is what the next key acts
-// on. An idle loop (the title's) plays on and the key falls through.
+// on. An idle loop (the title's) plays on and the key falls through. A
+// hold (#203, the report's scenes) resolves on the key, consumed, and
+// its loop plays on from there; once it is holding the key falls
+// through to the modal, whose close is what ends it (holdEnds).
 func (m *Model) skip() bool {
-	if m.scene == nil || m.scene.Idle {
+	if m.scene == nil || m.scene.Idle || m.scene.Holding() {
 		return false
+	}
+	if m.scene.Hold {
+		m.scene.Skip()
+		return true
 	}
 	m.stop()
 	return true
+}
+
+// holdEnds takes a held scene off once the modal it holds is gone
+// (#203): the report's close (enter, esc), a key that opens another
+// mode, whatever left modeReport this Update. It runs on every key
+// after the mode's own handling, so the loop is on screen exactly
+// while the report is and no tick leaves Update once it has closed; a
+// reopen (r) is a still report, as it always was.
+func (m *Model) holdEnds() {
+	if m.scene != nil && m.scene.Hold && m.mode != modeReport {
+		m.stop()
+	}
 }
 
 // titleLoop starts or stops the start menu's idle loop for the frame:

@@ -26,7 +26,10 @@ import (
 // already (stopEvent), and the stopping morning plays it, the stop
 // line and all; nothing plays mid-loop. Any key skips it and is
 // consumed; enter then closes the report and never ends the day. The
-// heat gauge is not animated: the dashboard is play mode.
+// heat gauge is not animated: the dashboard is play mode. Resolved,
+// it holds (#203): the title pulses red once a second and the level
+// jitters on its tape every anim.HoldRest, the report scrolling under
+// it, until the report closes.
 
 // bustRank orders the levels a bust's scene plays: the ladder's rank
 // past a patrol (content.Rank, #144), so the highest wins the morning
@@ -70,7 +73,8 @@ func (m *Model) bustLoss(level string) string {
 }
 
 // bustScene starts the scene for the morning's bust: animation on, the
-// terminal at least 80x24, on anim.Seed(seed, day, "bust").
+// terminal at least 80x24, on anim.Seed(seed, day, "bust"), held
+// until the report closes.
 func (m *Model) bustScene(ev events.Enforcement) {
 	if !m.opts.Anim || !m.titleFits() || m.w.Report == nil {
 		return
@@ -80,12 +84,13 @@ func (m *Model) bustScene(ev events.Enforcement) {
 	m.play(&anim.Player{
 		Scene:  anim.Bust(m.reportTitle(), level, m.bustLoss(level), ev.Stash, anim.Seed(m.w.Seed, m.w.Day, "bust")),
 		Accent: theme.Heat,
+		Hold:   true,
 	})
 }
 
-// bustFrame is the scene's frame while it runs: row 0 the title row,
-// row 1 the bust's line, at the modal's inner width; nil once it is
-// over (or never was).
+// bustFrame is the scene's frame while it runs or holds: row 0 the
+// title row, row 1 the bust's line, at the modal's inner width; nil
+// once the report has closed (or it never was).
 func (m *Model) bustFrame() []string {
 	if !m.onReportScene(reportBust) {
 		return nil

@@ -67,8 +67,9 @@ func DemoModel(cfg *content.Config, seed uint64, w, h int) (*Model, error) {
 // DemoScene puts the registry's scene of the name up, in the mode that
 // plays it in the game and through the game's own start (titleLoop,
 // stageScene, showCard, playOver, morningScene, bustScene,
-// mapSceneStart), on the demo's world, and returns the command that
-// starts its ticks; nil for a name the registry lacks. effect pins the
+// incidentScene, mapSceneStart), on the demo's world, and returns the
+// command that starts its ticks; nil for a name the registry lacks.
+// effect pins the
 // title's effect (anim.TitleEffects; "" cycles the set as the game
 // does) and the rest ignore it. The scene up before comes down first,
 // and what the scene before put on the world for its own sake (an
@@ -111,6 +112,13 @@ func (m *Model) DemoScene(name, effect string) tea.Cmd {
 		}
 		m.mode = modeReport
 		m.bustScene(ev)
+	case "incident":
+		// The weather, as the news writes it; once.
+		if len(w.Report.Incident) == 0 {
+			w.Report.Incident = []string{"A hurricane shuts the boat routes out of " + w.CityName(w.Player.Location) + " for 4 nights."}
+		}
+		m.mode = modeReport
+		m.incidentScene()
 	case "strike":
 		// Your enforcers took the rival's corner overnight: purple to
 		// blue, and its name slides into the inspector.

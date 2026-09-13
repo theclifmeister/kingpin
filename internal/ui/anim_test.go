@@ -250,7 +250,9 @@ func TestSceneStopsTicking(t *testing.T) {
 	// chain ends by itself at the length and the command after is nil;
 	// put up again, a key mid-scene ends it, consumed, the mode's own,
 	// and the command after is nil. The title idles on: a key acts on
-	// the menu, and the loop's next pass is a tick.
+	// the menu, and the loop's next pass is a tick. A hold (#203) ticks
+	// on past the length, holding, until the report's close ends it,
+	// and a key mid-scene resolves it, consumed, the hold on from then.
 	d := demoModel(t, 80, 24)
 	for _, sc := range anim.Scenes() {
 		if cmd := d.DemoScene(sc.Name, ""); cmd == nil || d.scene == nil {
@@ -264,6 +266,26 @@ func TestSceneStopsTicking(t *testing.T) {
 			}
 			if _, cmd := d.Update(key("down")); cmd != nil || d.startChoice != 1 || d.scene == nil {
 				t.Errorf("title: a key on the menu: cmd %v row %d scene %v", cmd, d.startChoice, d.scene)
+			}
+			continue
+		}
+		if sc.Hold {
+			if ticks < 2 || last == nil || d.scene == nil || !d.scene.Holding() || d.mode != modeReport {
+				t.Errorf("%s: %d ticks, the chain ended with %v, scene %v, mode %v → %v", sc.Name, ticks, last, d.scene, mode, d.mode)
+			}
+			if _, cmd := d.Update(key("esc")); cmd != nil || d.scene != nil || d.mode != modePlay {
+				t.Errorf("%s: esc on the hold: cmd %v scene %v mode %v", sc.Name, cmd, d.scene, d.mode)
+			}
+			d.DemoScene(sc.Name, "")
+			tickAt(d, now)
+			if _, cmd := d.Update(key("x")); cmd != nil || d.scene == nil || !d.scene.Holding() || d.mode != mode {
+				t.Errorf("%s: x mid-scene: cmd %v scene %v mode %v → %v", sc.Name, cmd, d.scene, mode, d.mode)
+			}
+			if cmd := tickAt(d, now.Add(anim.Frame)); cmd == nil || d.scene == nil {
+				t.Errorf("%s: the hold after a skip: cmd %v scene %v", sc.Name, cmd, d.scene)
+			}
+			if _, cmd := d.Update(key("enter")); cmd != nil || d.scene != nil || d.mode != modePlay {
+				t.Errorf("%s: enter on the hold: cmd %v scene %v mode %v", sc.Name, cmd, d.scene, d.mode)
 			}
 			continue
 		}
@@ -385,7 +407,8 @@ func TestScenesFit(t *testing.T) {
 	// And every registered scene inside its own mode (#161), through
 	// DemoScene at the three sizes, at t = 0, half and the end, and the
 	// render after Done: the frame holds, and the map's scene keeps the
-	// three-part frame.
+	// three-part frame. A hold (#203) is still up at the end; its loop
+	// is TestHeldFramesFit's.
 	now := time.Unix(1_700_000_000, 0)
 	for _, sz := range [][2]int{{80, 24}, {100, 30}, {120, 40}} {
 		d := demoModel(t, sz[0], sz[1])
@@ -399,7 +422,7 @@ func TestScenesFit(t *testing.T) {
 					assertFrame(t, d, what)
 				}
 			}
-			if d.scene != nil && !d.scene.Idle {
+			if d.scene != nil && !d.scene.Idle && !sc.Hold {
 				t.Errorf("%s: still up at %v", sc.Name, sc.Length)
 			}
 			assertFits(t, d.View(), sz[0], sz[1], sc.Name+" after Done")
@@ -436,12 +459,18 @@ func TestScenesFit(t *testing.T) {
 // TestSceneIsDeterministic: the same seed renders the same frames
 // twice, and another seed renders others for every scene that throws
 // dice (Named.Dice; the morning's slide and wipe throw none, #159, and
-// render the same on every seed).
+// render the same on every seed); a hold's frames (#203) through its
+// loop's first pass, whose dice may be the hold's (the incident's
+// beams).
 func TestSceneIsDeterministic(t *testing.T) {
 	for _, sc := range anim.Scenes() {
 		a, b, c := sc.New(3), sc.New(3), sc.New(4)
 		same, differ := true, false
-		for at := time.Duration(0); at < 2*time.Second; at += anim.Frame {
+		until := 2 * time.Second
+		if sc.Hold {
+			until = sc.Length + anim.HoldRest + 2*time.Second
+		}
+		for at := time.Duration(0); at < until; at += anim.Frame {
 			fa, fb, fc := a.Frame(at, 80, 24), b.Frame(at, 80, 24), c.Frame(at, 80, 24)
 			same = same && strings.Join(fa, "\n") == strings.Join(fb, "\n")
 			differ = differ || strings.Join(fa, "\n") != strings.Join(fc, "\n")
@@ -576,9 +605,11 @@ func TestSceneLengths(t *testing.T) {
 // (the rule of docs/animation.md), or, the title's loop, through
 // anim.TitlePass, whose stream is "title"; every such name is a
 // registered scene's stream (its Name before any `:`), and every
-// registered scene's stream is seeded at a site. Then, through
-// DemoScene, every registered scene comes up on its name, in the mode
-// (or the screen) its Starts names.
+// registered scene's stream is seeded at a site; and a site that holds
+// its player (`Hold: true`, #203) seeds a scene the registry says
+// holds, and no other does. Then, through DemoScene, every registered
+// scene comes up on its name, in the mode (or the screen) its Starts
+// names.
 func TestEveryModeWithASceneIsListed(t *testing.T) {
 	files, err := filepath.Glob("scene*.go")
 	if err != nil || len(files) == 0 {
@@ -586,6 +617,7 @@ func TestEveryModeWithASceneIsListed(t *testing.T) {
 	}
 	seeds := regexp.MustCompile(`anim\.Seed\([^)]*"([a-z]+)"\)`)
 	seeded := map[string][]string{}
+	holds := map[string]bool{}
 	for _, f := range files {
 		if strings.HasSuffix(f, "_test.go") {
 			continue
@@ -606,6 +638,7 @@ func TestEveryModeWithASceneIsListed(t *testing.T) {
 		}
 		for _, n := range names {
 			seeded[n] = append(seeded[n], f)
+			holds[n] = holds[n] || strings.Contains(string(src), "Hold:   true")
 		}
 	}
 	registered := map[string]bool{}
@@ -614,6 +647,9 @@ func TestEveryModeWithASceneIsListed(t *testing.T) {
 		registered[stream] = true
 		if len(seeded[stream]) == 0 {
 			t.Errorf("%s is registered and no site in ui/scene*.go seeds %q", sc.Name, stream)
+		}
+		if holds[stream] != sc.Hold {
+			t.Errorf("%s: the registry says Hold %v and its site %v holds its player", sc.Name, sc.Hold, seeded[stream])
 		}
 	}
 	for name, fs := range seeded {

@@ -40,7 +40,12 @@ type Scene interface {
 // wants it of every scene that does; the morning's slide and wipe
 // throw none, #159); With makes the scene on one of its effects by
 // name, for the one scene that takes a choice (the title: its loop
-// cycles the set and KINGPIN_ANIM_EFFECT pins one), nil for the rest.
+// cycles the set and KINGPIN_ANIM_EFFECT pins one), nil for the rest;
+// Hold says the scene holds (#203): its frames past Length are a quiet
+// loop the player keeps drawing until its modal closes (the report's
+// three), where the rest end at Length, so Length is the interstitial
+// alone (TestSceneLengths) and the hold is measured by TestHeldFramesFit
+// and played by cmd/anim for its own while.
 type Named struct {
 	Name    string
 	Starts  string
@@ -49,14 +54,15 @@ type Named struct {
 	New     func(seed uint64) Scene
 	With    func(seed uint64, effect string) Scene
 	Dice    bool
+	Hold    bool
 }
 
 // Scenes is the registry, every scene the game plays: the title, its
 // first pass on the seed, whichever effect the pass picks, and the
 // interstitials as they landed: the stage (#157), the card (#154) over
 // a sample card, the ending's three (#156), one a cause, the morning
-// (#159) and the bust (#155) over a sample raid, and the strike (#158)
-// over two sample cells.
+// (#159) and the bust (#155) over a sample raid, the incident (#203)
+// over a sample hurricane, and the strike (#158) over two sample cells.
 func Scenes() []Named {
 	return []Named{
 		{
@@ -116,6 +122,7 @@ func Scenes() []Named {
 			Effects: []string{"slide", "wipe"},
 			Length:  MorningLength,
 			New:     morningScene,
+			Hold:    true,
 		},
 		{
 			Name:    "bust",
@@ -124,6 +131,16 @@ func Scenes() []Named {
 			Length:  BustLength,
 			New:     bustScene,
 			Dice:    true,
+			Hold:    true,
+		},
+		{
+			Name:    "incident",
+			Starts:  "the report on an incident (modeReport)",
+			Effects: []string{"print", "beams"},
+			Length:  IncidentLength,
+			New:     incidentScene,
+			Dice:    true, // the beams', in the hold; the print throws none
+			Hold:    true,
 		},
 		{
 			Name:    "strike",
