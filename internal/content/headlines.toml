@@ -132,6 +132,29 @@ CrewSkimmed = [
   "Talk of thin envelopes on {{.City}} corners",
   "{{.City}} boss said to be 'checking the math'",
 ]
+CrewArrested = [
+  "{{.City}} police pick up a {{.Role}} on {{.Corner}}; 'small fish', says a sergeant",
+  "{{.Name}} held after {{.City}} sweep; friends say 'they will not talk'",
+  "Arrest on {{.Corner}}: 'the boss has a lawyer, the corner boys have nothing', says a neighbour",
+]
+CrewReleased = [
+  "{{.Name}} out of the {{.City}} lockup; 'nobody came for them', says a guard",
+  "{{.City}} {{.Role}} released without charge; police 'satisfied with the conversation'",
+]
+CrewShot = [
+  "Shooting on {{.Corner}} leaves a {{.Role}} in the {{.City}} hospital",
+  "{{.Name}} shot on {{.Corner}}; police 'looking at a turf dispute'",
+  "Gunfire on {{.Corner}}; one wounded, {{.City}} residents 'not surprised'",
+]
+CrewKilled = [
+  "{{.Name}} shot dead on {{.Corner}}; {{.City}} police name a crew, and its boss",
+  "Killing on {{.Corner}}: 'the {{.City}} war has a body count now', says the DA's office",
+  "{{.Role}} gunned down on {{.Corner}}; {{.City}} council demands the boss's arrest",
+]
+CrewRetired = [
+  "{{.Name}} 'done with the {{.City}} game' and leaving town",
+  "Veteran {{.City}} {{.Role}} {{.Name}} retires; 'the streets are for the young'",
+]
 CornerClaimed = [
   "New faces working {{.Corner}}, say neighbours",
   "{{.Corner}} has a new crew on it and everybody knows whose",
@@ -256,6 +279,11 @@ CrewPoached = [
 RivalMusclePoached = [
   "{{.Rival}}'s crew thinner overnight; 'some of the boys went home', says one",
   "Faces missing from {{.Rival}}'s corners; nobody is saying where they went",
+]
+MuscleKilled = [
+  "One of {{.Rival}}'s people shot dead on {{.Corner}}; {{.City}} police 'know who to ask'",
+  "Killing on {{.Corner}}: {{.Rival}} loses a soldier, and the paper names the other side",
+  "{{.City}} body count rises on {{.Corner}}; 'this is the boss's doing', says {{.Rival}}",
 ]
 RivalTippedPolice = [
   "Anonymous tip sends police to {{.City}} corners",

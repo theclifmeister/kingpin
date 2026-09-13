@@ -380,6 +380,17 @@ func (s *Sim) Step(w *game.World, t *game.Tick) {
 			// Bad product on your corner (#47) is the city's story: it
 			// is pressure where it happened and never a page (#27).
 			gain[ev.City] += src.Overdose
+		case events.CrewShot:
+			// A body on a corner, either side (#46), is the city's
+			// story the same way, where it fell (home for a strike or
+			// a push with no corner named).
+			if ev.Dead {
+				city := ev.City
+				if city == "" {
+					city = home
+				}
+				gain[city] += src.Body
+			}
 		}
 	}
 	if src.HardUnits > 0 {

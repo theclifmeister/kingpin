@@ -61,6 +61,9 @@ func (s *Sim) announce(w *game.World, t *game.Tick) {
 	if FixersWanted(w) {
 		offer(game.RoleFixer, "Fixers", "an envelope paid")
 	}
+	if DriversWanted(w) {
+		offer(game.RoleDriver, "Drivers", "a route run")
+	}
 }
 
 // FixersWanted is whether fixers come looking for work (#42): once an
@@ -76,6 +79,7 @@ type Sim struct {
 	cfg      content.CrewConfig
 	names    []string
 	chemists []string // the chemist's names (#47), a pool of their own
+	drivers  []string // the driver's names (#46), the same
 	rep      content.ReputationFX
 	tree     content.UpgradesConfig
 	fac      content.FactionsTuning // the table (#43): the discount a fragmented faction's muscle sign for
@@ -93,7 +97,7 @@ type Sim struct {
 // and start_loyalty_bonus on a generated candidate and hire_fee_mul on
 // their fee, both fixed when they are generated.
 func New(cfg *content.Config) *Sim {
-	return &Sim{cfg: cfg.Crew, names: cfg.Names.Crew, chemists: cfg.Names.Chemists, rep: cfg.Reputation.Effects, tree: cfg.Upgrades, fac: cfg.Rivals.Factions}
+	return &Sim{cfg: cfg.Crew, names: cfg.Names.Crew, chemists: cfg.Names.Chemists, drivers: cfg.Names.Drivers, rep: cfg.Reputation.Effects, tree: cfg.Upgrades, fac: cfg.Rivals.Factions}
 }
 
 // LoyaltyLoss is what the player's respect and the tree leave of a day's
@@ -204,10 +208,13 @@ func (s *Sim) wages(w *game.World, p events.Pay, fx game.Effects) int {
 }
 
 // Seed fills the hiring pool for a fresh world so the player can hire on
-// day 0. It draws from rng, which the caller derives from the seed.
+// day 0. It draws from rng, which the caller derives from the seed; the
+// ages (#46) come off day 0's life stream, so the faces are the faces
+// the home stream always drew.
 func (s *Sim) Seed(w *game.World, rng rand) {
 	w.Crew.Pay = events.PayFair
-	s.refill(w, rng, nil, nil, game.FoldEffects(w, s.tree))
+	life := (&game.Tick{Day: 0, Seed: w.Seed}).Sub("life")
+	s.refill(w, rng, nil, nil, nil, life, game.FoldEffects(w, s.tree))
 }
 
 // Migrate brings a save from before the crew existed up to date: an empty
@@ -249,6 +256,19 @@ func (s *Sim) Step(w *game.World, t *game.Tick) {
 	for _, p := range c.PaidOffToday {
 		t.Emit(events.CrewPaidOff{Day: t.Day, Name: p.Name, Cost: p.Cost})
 	}
+
+	// The hiring pool rotates on a schedule (the refill is the last
+	// thing the step does): before crew life, so a kin recommended
+	// tonight (#46) is a face in the morning's pool and not one the
+	// rotation wiped.
+	if days := s.poolDays(fx); days > 0 && t.Day-c.PoolDay >= days {
+		c.Candidates = nil
+		c.PoolDay = t.Day
+	}
+
+	// Crew life (#46): the cells, last night's sweep, tonight's
+	// shooting, the birthdays and the kin, all off the life stream.
+	s.life(w, t, fx)
 
 	// 1. Skimming, on this morning's loyalty. Street crew skim the day's
 	// takings; an accountant skims the wash, and the wash they can see is
@@ -413,7 +433,7 @@ func (s *Sim) Step(w *game.World, t *game.Tick) {
 		var worst *game.CrewMember
 		for i := range c.Members {
 			m := &c.Members[i]
-			if m.Role == "enforcer" && (worst == nil || m.Nerve < worst.Nerve) {
+			if m.Role == "enforcer" && m.Working() && (worst == nil || m.Nerve < worst.Nerve) {
 				worst = m
 			}
 		}
@@ -463,6 +483,7 @@ func (s *Sim) Step(w *game.World, t *game.Tick) {
 	c.Leads = nil
 	poached := s.factions(w, t, c, fx)
 	kept := c.Members[:0]
+	var gone []game.CrewMember // whoever walked or defected: their kin remember it (#46)
 	for _, m := range c.Members {
 		if poached[m.ID] {
 			continue // gone to a faction tonight (#43)
@@ -471,6 +492,7 @@ func (s *Sim) Step(w *game.World, t *game.Tick) {
 			kept = append(kept, m)
 			continue
 		}
+		gone = append(gone, m)
 		if m.Runs() {
 			delete(acted, m.ID)
 			s.walk(w, t, m)
@@ -504,6 +526,9 @@ func (s *Sim) Step(w *game.World, t *game.Tick) {
 		t.Emit(ev)
 	}
 	c.Members = kept
+	for _, m := range gone {
+		s.kinLoyalty(w, m, -s.cfg.Life.KinLoyalty)
+	}
 
 	// 6. The lieutenants' night: each runs their city with whoever is
 	// left, and reports in the morning.
@@ -520,16 +545,15 @@ func (s *Sim) Step(w *game.World, t *game.Tick) {
 		t.Emit(*ev)
 	}
 
-	// 7. The hiring pool rotates on a schedule and refills after hires.
-	if days := s.poolDays(fx); days > 0 && t.Day-c.PoolDay >= days {
-		c.Candidates = nil
-		c.PoolDay = t.Day
-	}
-	var side rand
+	// 7. The hiring pool refills after hires and the rotation.
+	var side, drv rand
 	if FixersWanted(w) {
 		side = t.Sub("fixer")
 	}
-	s.refill(w, t.RNG, t.Sub("chemist"), side, fx)
+	if DriversWanted(w) {
+		drv = t.Sub("driver")
+	}
+	s.refill(w, t.RNG, t.Sub("chemist"), side, drv, t.Sub("life"), fx)
 }
 
 // refill tops the candidate pool up to size with fresh faces, and, once
@@ -537,19 +561,25 @@ func (s *Sim) Step(w *game.World, t *game.Tick) {
 // them (#47), drawn off the chemist's own stream (nil at seed: the
 // ladder has no meth on day 0) with a name from their own list, so the
 // faces the home stream draws are the faces it always drew. side is the
-// fixers' stream (#42), nil while nobody has paid an envelope.
-func (s *Sim) refill(w *game.World, rng, chem, side rand, fx game.Effects) {
+// fixers' stream (#42), nil while nobody has paid an envelope; drv the
+// drivers' (#46), nil until a route has run, the one driver looking
+// for work the chemist's pattern again; life is the life stream, the
+// ages (#46). The kin faces (#46) are extra the same way.
+func (s *Sim) refill(w *game.World, rng, chem, side, drv, life rand, fx game.Effects) {
 	faces := 0
 	for _, c := range w.Crew.Candidates {
-		if c.Role != game.RoleChemist && !former(c) {
+		if !extra(c) && !former(c) {
 			faces++
 		}
 	}
 	for ; faces < s.candidates(fx); faces++ {
-		w.Crew.Candidates = append(w.Crew.Candidates, s.generate(w, rng, side, fx))
+		w.Crew.Candidates = append(w.Crew.Candidates, s.generate(w, rng, side, life, fx))
 	}
 	if chem != nil && s.ChemistsWanted(w) && !s.chemistLooking(w) {
-		w.Crew.Candidates = append(w.Crew.Candidates, s.chemist(w, chem, fx))
+		w.Crew.Candidates = append(w.Crew.Candidates, s.chemist(w, chem, life, fx))
+	}
+	if drv != nil && DriversWanted(w) && !driverLooking(w) {
+		w.Crew.Candidates = append(w.Crew.Candidates, s.driver(w, drv, life, fx))
 	}
 }
 
@@ -575,7 +605,7 @@ func (s *Sim) ChemistsWanted(w *game.World) bool {
 
 // chemist rolls the chemist looking for work (#47): the generate roll
 // off the chemist's stream, with a name from the chemists' list.
-func (s *Sim) chemist(w *game.World, rng rand, fx game.Effects) game.CrewMember {
+func (s *Sim) chemist(w *game.World, rng, life rand, fx game.Effects) game.CrewMember {
 	used := map[string]bool{}
 	for _, m := range w.Crew.Members {
 		used[m.Name] = true
@@ -607,6 +637,7 @@ func (s *Sim) chemist(w *game.World, rng rand, fx game.Effects) game.CrewMember 
 		Nerve:   5 + rng.IntN(91),
 		Wage:    int(math.Round(rc.WageBase + rc.WagePerSkill*float64(skill))),
 		Fee:     s.hireFee(w, skill, fx),
+		Age:     s.age(life),
 	}
 	w.Crew.NextID = m.ID
 	return m
@@ -696,8 +727,8 @@ func (s *Sim) land(w *game.World, t *game.Tick) {
 // tree's skill_bonus and start_loyalty_bonus land on the roll, never
 // over 100, and the fee is priced on the skill they arrive with; none
 // of it adds a draw, so a run owning nothing rolls the pool it always
-// did.
-func (s *Sim) generate(w *game.World, rng, side rand, fx game.Effects) game.CrewMember {
+// did. The age (#46) is the life stream's draw, not the home stream's.
+func (s *Sim) generate(w *game.World, rng, side, life rand, fx game.Effects) game.CrewMember {
 	tun := s.cfg.Crew
 	used := map[string]bool{}
 	for _, m := range w.Crew.Members {
@@ -747,6 +778,7 @@ func (s *Sim) generate(w *game.World, rng, side rand, fx game.Effects) game.Crew
 		Fee:     s.hireFee(w, skill, fx),
 
 		Personality: personality, // "" for anyone but a lieutenant
+		Age:         s.age(life),
 	}
 	if role == "runner" {
 		m.Units = int(math.Round(tun.UnitsPerSkill * float64(skill)))

@@ -237,7 +237,10 @@ func TestOverdosesArePressureNeverEvidence(t *testing.T) {
 // quality: with two on the payroll the best cooks, without the best the
 // next does, and with none nothing cooks.
 func TestCookBeatsBuying(t *testing.T) {
-	cfg := content.MustLoad()
+	// Crew life boxed (#46): on seed 2 the cook fires its chemists for
+	// loyalty and ends with none; the test pins the cook against
+	// buying, not the crew's lives.
+	cfg := NoLife(content.MustLoad())
 	meth := cfg.Market.Product("meth")
 	if float64(meth.CookCost) >= meth.BasePrice*cfg.Market.Market.SupplierRatio {
 		t.Fatalf("cooking meth costs $%d a unit, buying it $%.0f", meth.CookCost, meth.BasePrice*cfg.Market.Market.SupplierRatio)
@@ -251,8 +254,9 @@ func TestCookBeatsBuying(t *testing.T) {
 			}
 			a120 = append(a120, res.NetWorthAt(120))
 			a200 = append(a200, res.NetWorthAt(200))
-			if name == "cook" && (res.World.Crew.Chemist() == nil || res.World.Stats.Cooked == 0) {
-				t.Fatalf("seed %d: the cook ends with no chemist (%v) or cooked nothing (%d)", seed, res.World.Crew.Chemist() != nil, res.World.Stats.Cooked)
+			if name == "cook" && (res.World.Crew.OnPayroll(game.RoleChemist) == 0 || res.World.Stats.Cooked == 0) {
+				// On the payroll, at work or in a cell after a lab raid (#46).
+				t.Fatalf("seed %d: the cook ends with no chemist (%d) or cooked nothing (%d)", seed, res.World.Crew.OnPayroll(game.RoleChemist), res.World.Stats.Cooked)
 			}
 		}
 		sort.Ints(a120)

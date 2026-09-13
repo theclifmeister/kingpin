@@ -164,8 +164,8 @@ func owns(c game.Corner, r *game.RivalState) bool { return c.FactionID() == r.Fa
 func (s *Sim) Strength(w *game.World) float64 {
 	n := 0.0
 	for _, m := range w.Crew.Members {
-		if m.Role != "enforcer" {
-			continue
+		if m.Role != "enforcer" || !m.Working() {
+			continue // one in a cell or laid up (#46) goes on no strike
 		}
 		v := 0.5 + float64(m.Skill)/100
 		if w.PostOf(m.ID) != nil {

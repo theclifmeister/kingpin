@@ -465,8 +465,76 @@ type CrewConfig struct {
 	Crew       CrewTuning            `toml:"crew"`
 	Informant  InformantTuning       `toml:"informant"`
 	Lieutenant LieutenantTuning      `toml:"lieutenant"`
+	Life       LifeTuning            `toml:"life"`
 	Pay        PayTable              `toml:"pay"`
 	Role       map[string]RoleConfig `toml:"role"`
+}
+
+// LifeTuning is crew life (#46): kin, ageing, arrests and getting
+// shot. The zero value is the table boxed: nothing ages, nobody is
+// arrested, wounded or killed and no kin come looking, so a run under
+// it is the run before the feature (harness.NoLife).
+type LifeTuning struct {
+	YearDays       int                `toml:"year_days"` // a crew year; 0 is nobody ageing
+	AgeMin         int                `toml:"age_min"`   // a candidate's age at generation
+	AgeMax         int                `toml:"age_max"`
+	SkillGrowth    float64            `toml:"skill_growth"` // skill a day on the payroll at fair pay, times the pay dial's wage multiplier
+	SkillCap       int                `toml:"skill_cap"`    // ... up to this
+	NerveAge       int                `toml:"nerve_age"`    // past this age every birthday takes NerveLoss
+	NerveLoss      int                `toml:"nerve_loss"`
+	RetireAge      int                `toml:"retire_age"`    // the birthday they retire on
+	RetireLoyal    float64            `toml:"retire_loyal"`  // a retiree at or over this loyalty recommends a kin
+	ArrestChance   float64            `toml:"arrest_chance"` // per runner or enforcer on a corner the police hit, and the chemist on a raid that took stock
+	JailDays       int                `toml:"jail_days"`
+	BailLoyalty    float64            `toml:"bail_loyalty"` // what a bail buys the one bailed
+	JailLoyalty    float64            `toml:"jail_loyalty"` // an unbailed release comes back this far under the informant line
+	ReleaseTurn    float64            `toml:"release_turn"` // ... and turns informant at once with this chance
+	WoundChance    float64            `toml:"wound_chance"` // the guard, per strike or failed push, before the multipliers
+	KillChance     float64            `toml:"kill_chance"`
+	WoundDays      int                `toml:"wound_days"`
+	KinChance      float64            `toml:"kin_chance"`       // a hire's kin come looking
+	KinDiscount    float64            `toml:"kin_discount"`     // ... at this much off the fee
+	KinLoyalty     float64            `toml:"kin_loyalty"`      // what a firing, a walk-out or a pay-off moves the kin's loyalty by
+	KinBodyLoyalty float64            `toml:"kin_body_loyalty"` // what a kin shot dead on your corner costs
+	KinBodyNerve   int                `toml:"kin_body_nerve"`   // ... and the nerve it gives them
+	Force          map[string]float64 `toml:"force"`            // the shot multiplier by a strike's force: warn, push, hit
+	Personality    map[string]float64 `toml:"personality"`      // ... and by the rival's personality on a push
+}
+
+// On reports whether the table is live: a year_days of zero boxes it.
+func (l LifeTuning) On() bool { return l.YearDays > 0 }
+
+// ForceMul is the shot multiplier at a force, 1 for one the table does
+// not name.
+func (l LifeTuning) ForceMul(force string) float64 {
+	if m, ok := l.Force[force]; ok {
+		return m
+	}
+	return 1
+}
+
+// PersonalityMul is the shot multiplier for a rival personality, 1 for
+// one the table does not name.
+func (l LifeTuning) PersonalityMul(p string) float64 {
+	if m, ok := l.Personality[p]; ok {
+		return m
+	}
+	return 1
+}
+
+func (l LifeTuning) validate() error {
+	if !l.On() {
+		return nil
+	}
+	if l.AgeMin <= 0 || l.AgeMax < l.AgeMin || l.RetireAge <= l.AgeMax || l.SkillCap <= 0 || l.JailDays <= 0 || l.WoundDays <= 0 {
+		return fmt.Errorf("[life]: ages %d..%d, retire %d, skill cap %d, jail %d, wound %d days do not make a life", l.AgeMin, l.AgeMax, l.RetireAge, l.SkillCap, l.JailDays, l.WoundDays)
+	}
+	for _, p := range []float64{l.ArrestChance, l.ReleaseTurn, l.WoundChance, l.KillChance, l.KinChance, l.KinDiscount} {
+		if p < 0 || p > 1 {
+			return fmt.Errorf("[life]: a chance %v is not in 0..1", p)
+		}
+	}
+	return nil
 }
 
 // LieutenantTuning is who runs a city for you: how often one is looking
@@ -584,6 +652,12 @@ type RoleConfig struct {
 	// wanted, and what a backfire costs their loyalty.
 	Chance          float64 `toml:"chance"`
 	BackfireLoyalty float64 `toml:"backfire_loyalty"`
+
+	// Crew life (#46): the clean cash that bails a member of the role
+	// out, and for the driver what a skill-100 one takes off a
+	// shipment's risk per day on the road.
+	Bail      int     `toml:"bail"`
+	DriverCut float64 `toml:"driver_cut"`
 }
 
 // RivalsConfig mirrors rivals.toml.
@@ -981,6 +1055,7 @@ type NotorietySources struct {
 	StrikeTaken float64  `toml:"strike_taken"`
 	StrikeHeld  float64  `toml:"strike_held"`
 	Overdose    float64  `toml:"overdose"` // an overdose on your corner (#47)
+	Body        float64  `toml:"body"`     // a death on your corner, either side (#46): the paper names you
 }
 
 // ReputationFX is what each axis does at 100; each sim scales the knob it
@@ -1025,6 +1100,7 @@ type NamesConfig struct {
 	Celebrities []string `toml:"celebrities"` // who an incident names (#44): the star who overdosed
 	Reporters   []string `toml:"reporters"`   // ... and the byline on the profile
 	Chemists    []string `toml:"chemists"`    // the chemist's names (#47), a pool of their own so the crew's roll as it did
+	Drivers     []string `toml:"drivers"`     // the driver's names (#46), the same pattern
 }
 
 // Pool is a name pool by the name an incident's `names` field gives it
@@ -1123,6 +1199,7 @@ type PressureSources struct {
 	HardUnits float64  `toml:"hard_units"`    // a point per this many units of a hard product sold in a day
 	Hard      []string `toml:"hard_products"` // the products that count
 	Overdose  float64  `toml:"overdose"`      // an overdose on your corner (#47), in its city
+	Body      float64  `toml:"body"`          // a death on your corner, either side (#46), in its city
 	Headline  float64  `toml:"headline"`
 	Sources   []string `toml:"headline_sources"` // journal sources whose headlines are about you
 }
@@ -1601,6 +1678,12 @@ func Load() (*Config, error) {
 	}
 	if len(c.Names.Chemists) == 0 {
 		return nil, fmt.Errorf("names.toml: no chemist names")
+	}
+	if len(c.Names.Drivers) == 0 {
+		return nil, fmt.Errorf("names.toml: no driver names")
+	}
+	if err := c.Crew.Life.validate(); err != nil {
+		return nil, fmt.Errorf("crew.toml: %w", err)
 	}
 	if err := c.Market.Quality.validate(c.Market); err != nil {
 		return nil, fmt.Errorf("market.toml: %w", err)

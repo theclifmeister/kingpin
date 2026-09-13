@@ -179,6 +179,7 @@ type Enforcement struct {
 	Stash     bool   // a raid that went straight to the stash: somebody told them where
 	House     string // the house the stock came out of (#73), "" for the street
 	HouseName string
+	Corners   []string // the corners in the city your crew stood on when the police came (#46): the ones the crew sim rolls arrests over the next morning
 }
 
 func (Enforcement) Kind() string { return "Enforcement" }
@@ -910,6 +911,7 @@ type ShipmentSent struct {
 	Cost    int
 	Dial    Ship
 	Days    int
+	Driver  int // the crew member riding it (#46), 0 for nobody
 }
 
 func (ShipmentSent) Kind() string { return "ShipmentSent" }
@@ -935,18 +937,127 @@ func (ShipmentArrived) Kind() string { return "ShipmentArrived" }
 // with a supply shock. It is a market shock, not a bust: what was seized
 // was never sold.
 type ShipmentSeized struct {
-	Day     int
-	ID      int
-	Route   string
-	Mode    string
-	From    string
-	To      string
-	Product string
-	Units   int
-	Dial    Ship
+	Day        int
+	ID         int
+	Route      string
+	Mode       string
+	From       string
+	To         string
+	Product    string
+	Units      int
+	Dial       Ship
+	Driver     int // the crew member who rode it (#46), 0 for none: the crew sim jails them with it
+	DriverName string
 }
 
 func (ShipmentSeized) Kind() string { return "ShipmentSeized" }
+
+// CrewArrested is a member of the crew put in a cell (#46): a runner or
+// enforcer who stood on a corner the police hit, the chemist after a
+// raid that took stock (Corner empty, the lab), or the driver of a
+// seized shipment (Route). Days is how long they are held; Bail what
+// walking them out costs in clean cash.
+type CrewArrested struct {
+	Day        int
+	ID         int
+	Name       string
+	Role       string
+	City       string
+	Corner     string
+	CornerName string
+	Route      string
+	RouteName  string
+	Days       int
+	Bail       int
+}
+
+func (CrewArrested) Kind() string { return "CrewArrested" }
+
+// CrewBailed is report-only bookkeeping (#46): the clean cash the
+// player put down today for a member's release tomorrow.
+type CrewBailed struct {
+	Day  int
+	ID   int
+	Name string
+	Cost int
+}
+
+func (CrewBailed) Kind() string { return "CrewBailed" }
+
+// CrewReleased is a member back on the payroll after a cell (#46):
+// bailed, with their loyalty up, or not, in which case they came back
+// sour. Whether the DA made a witness of them is not on the event: the
+// informant is hidden.
+type CrewReleased struct {
+	Day    int
+	ID     int
+	Name   string
+	Role   string
+	Bailed bool
+}
+
+func (CrewReleased) Kind() string { return "CrewReleased" }
+
+// CrewShot is somebody shot on a corner (#46): one of yours (the
+// enforcer who went in on a strike or guarded a corner the rival
+// pushed) wounded, off the corner for Days, or Dead; or with Theirs
+// one of the rival's muscle, whom Stats.Bodies counts the same.
+type CrewShot struct {
+	Day        int
+	ID         int
+	Name       string
+	Role       string
+	Corner     string
+	CornerName string
+	City       string
+	Rival      string
+	Faction    string
+	Dead       bool
+	Theirs     bool
+	Days       int
+	Strike     bool // your strike, not their push
+}
+
+func (CrewShot) Kind() string { return "CrewShot" }
+
+// CrewRecovered is report-only bookkeeping (#46): a wounded member back
+// on their feet.
+type CrewRecovered struct {
+	Day  int
+	ID   int
+	Name string
+	Role string
+}
+
+func (CrewRecovered) Kind() string { return "CrewRecovered" }
+
+// CrewRetired is a member leaving the payroll at retire_age (#46). A
+// loyal one recommends a kin (Kin, in the pool tomorrow at the
+// discount); a Sour one talks on the way out, and the heat sim files a
+// page on it.
+type CrewRetired struct {
+	Day  int
+	ID   int
+	Name string
+	Role string
+	Age  int
+	Kin  string
+	Sour bool
+}
+
+func (CrewRetired) Kind() string { return "CrewRetired" }
+
+// KinLooking is report-only bookkeeping (#46): a hire's kin turned up
+// in the pool at the discount.
+type KinLooking struct {
+	Day  int
+	Name string
+	Role string
+	Of   string // whose kin
+	Fee  int
+}
+
+func (KinLooking) Kind() string { return "KinLooking" }
 
 // DealOffered is the rival putting a deal on the table: it sits in
 // World.Offers until the player answers or it expires. Terms is the deal

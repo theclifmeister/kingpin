@@ -120,16 +120,19 @@ loyalty = 1.2
 [role.runner]
 wage_base = 20
 wage_per_skill = 0.6
+bail = 1500                 # clean cash to walk them out of a cell tomorrow (#46)
 
 [role.enforcer]
 wage_base = 30
 wage_per_skill = 0.5
+bail = 2500
 protection = 0.5            # each enforcer halves what danger costs the crew's loyalty
 deterrence = 0.5            # each enforcer halves the chance a skimmer dares
 
 [role.accountant]
 wage_base = 60
 wage_per_skill = 1.2
+bail = 4000
 # Accountants only show up looking for work once you own a front. What they
 # add to every front, and cut from its audit risk, is in laundering.toml.
 
@@ -143,12 +146,14 @@ wage_per_skill = 1.2
 [role.fixer]
 wage_base = 70
 wage_per_skill = 1.3
+bail = 5000
 chance = 0.15               # chance a candidate is a fixer once one is wanted
 backfire_loyalty = 25       # what a backfire costs the fixer's loyalty; under the informant line they turn
 
 [role.lieutenant]
 wage_base = 80
 wage_per_skill = 1.5
+bail = 10000
 cut = 0.08                  # share of their city's takings they keep, every day
 crew = 8                    # roster slots an assigned lieutenant adds: their own people
 
@@ -164,13 +169,107 @@ crew = 8                    # roster slots an assigned lieutenant adds: their ow
 # to batch_per_skill x skill units an order, one order a product a day,
 # and the crew sim lands the lot cook_days later at the chemist's
 # quality as it was the day it was ordered. Without a chemist nothing
-# cooks and a cut is what the ratio says. The lab raid is #46's.
+# cooks and a cut is what the ratio says. The lab raid (#46): a raid
+# that takes stock in a city jails the chemist by [life] arrest_chance
+# like a runner on the corner.
 [role.chemist]
 wage_base = 70
 wage_per_skill = 1.4
+bail = 6000
 unlock_product = "meth"     # the rung whose listing brings one looking
 quality_base = 30           # a chemist's quality is this ...
 quality_per_skill = 0.6     # ... plus this per skill point: 39 at skill 15, 81 at 85
 cut_bonus = 0.2             # quality points a cut keeps per point of the best chemist's skill
 cook_days = 3               # days from the order to the lot
 batch_per_skill = 2.0       # units a cook order can be for, per skill point
+
+# The driver (#46) rides every shipment on the route they are assigned
+# to (World.SetRouteDriver, persistent like the dial) and takes
+# driver_cut x skill/100 off its risk per day on the road, on top of a
+# bought checkpoint's cut; a seized shipment jails them with it, no
+# dice. One comes looking for work once a route has run (a face beside
+# the pool's usual ones, the chemist's pattern: drawn off the driver's
+# own stream with a name from names.toml's drivers, so a run that never
+# ships draws the pool it always did).
+[role.driver]
+wage_base = 40
+wage_per_skill = 0.8
+bail = 2000
+driver_cut = 0.5            # a skill-100 driver halves a shipment's risk per day; skill 60 takes 30% off
+
+# Crew life (#46): kin, ageing, arrests and getting shot. Every roll
+# here is off the life stream (Tick.Sub("life")), never the home
+# city's, so a run with this table zeroed (harness.NoLife, cmd/balance
+# -life off) is byte-for-byte the run before the feature.
+#
+# Kin: hiring somebody puts their cousin, partner or friend in the pool
+# with kin_chance, an extra face at kin_discount off the fee; kin on
+# the payroll remember what you do to each other: firing one costs the
+# other kin_loyalty (an informant's firing costs nothing, as it costs
+# the crew nothing), paying one off lifts the other by it, one walking
+# or defecting drops it, and one shot dead on your corner costs the
+# other kin_body_loyalty and gives them kin_body_nerve.
+#
+# Ageing: a member is age_min..age_max when generated, a year older
+# every year_days on the payroll; skill grows skill_growth a day, times
+# the pay dial's wage multiplier, up to skill_cap (a skill-30 runner on
+# generous pay reaches the cap inside the horizon); past nerve_age each
+# birthday takes nerve_loss; on the birthday at retire_age they retire:
+# one loyal past retire_loyal recommends a kin (a face in the pool at
+# the discount), one sour under the informant line talks on the way
+# out, one informant page in the DA's file (the exception applied once).
+#
+# Arrests: a sting or raid that hit a city arrests each runner and
+# enforcer who stood on a corner there with arrest_chance (the heat sim
+# stamps who stood where; the crew sim resolves it the next morning), a
+# raid that took stock jails the chemist the same way, and a seized
+# shipment jails its driver with no dice. A jailed member is off the
+# corner for jail_days and sells and guards nothing; Bail(id) (clean
+# cash, the role's bail) frees them tomorrow with bail_loyalty; unbailed
+# they come back jail_loyalty under the informant line and roll
+# release_turn at once, the witness the DA made of your dealing.
+#
+# Shot: your enforcers going in (CornerStruck) and a rival push that
+# fails against a guarded corner wound the enforcer with wound_chance
+# (off the corner for wound_days) or kill them with kill_chance, both
+# times the force's shot multiplier for a strike and the rival's
+# personality's for a push; the rival's muscle dies the same way and
+# Stats.Bodies counts both sides. Every death is a headline about you
+# (reputation.toml [notoriety] body) and pressure in the city (law.toml
+# [sources] body).
+[life]
+year_days = 30              # a crew year
+age_min = 19
+age_max = 44
+skill_growth = 0.2          # skill a day on the payroll at fair pay (x the pay dial's wage multiplier)
+skill_cap = 80
+nerve_age = 38              # past this age ...
+nerve_loss = 4              # ... every birthday takes this much nerve
+retire_age = 50
+retire_loyal = 60           # a retiree at or over this loyalty recommends a kin
+arrest_chance = 0.25        # per runner or enforcer on a corner of the city the police hit
+jail_days = 10
+bail_loyalty = 15           # what a bail buys the one bailed
+jail_loyalty = 10           # an unbailed release comes back this far under the informant line
+release_turn = 0.35         # ... and turns informant at once with this chance
+wound_chance = 0.15         # the guard, per strike or failed push, before the multipliers
+kill_chance = 0.04
+wound_days = 12
+kin_chance = 0.35           # a hire's kin come looking
+kin_discount = 0.5          # ... at this much off the fee
+kin_loyalty = 10
+kin_body_loyalty = 25
+kin_body_nerve = 15
+
+# What a strike's force and the rival's personality do to the odds of a
+# wound or a death.
+[life.force]
+warn = 0.5
+push = 1.5
+hit = 2.5
+
+[life.personality]
+expansionist = 0.6
+defensive = 0.4
+opportunist = 0.6
+chaotic = 1.0

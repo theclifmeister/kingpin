@@ -252,6 +252,8 @@ var bindings = []binding{
 		do: func(m *Model, _ string) { m.askInvestigate() }},
 	{key: "$", label: "pay off", help: "buy the selected member's loyalty", screens: on(screenCrew),
 		do: func(m *Model, _ string) { m.askPayOff() }},
+	{key: "b", label: "bail", help: "clean cash to walk the selected member out", screens: on(screenCrew),
+		do: func(m *Model, _ string) { m.askBail() }},
 	// The map.
 	{key: "c", label: "post runner", help: "post a runner on the selected corner", screens: on(screenMap),
 		do: func(m *Model, _ string) { m.askPost("runner") }},
@@ -271,6 +273,8 @@ var bindings = []binding{
 		do: func(m *Model, _ string) { m.openTarget() }},
 	{key: "$", label: "buy checkpoint", help: "buy the checkpoint or customs on the route", screens: on(screenMap), when: mapOnRoutes,
 		do: func(m *Model, _ string) { m.askCheckpoint() }},
+	{key: "v", label: "driver", help: "put a driver on the selected route", screens: on(screenMap), when: mapOnRoutes,
+		do: func(m *Model, _ string) { m.askDriver() }},
 	// The tree.
 	{key: "u", label: "buy upgrade", help: "buy the node under the cursor (enter too)", keys: []string{"u", "enter"}, screens: on(screenUpgrades),
 		do: func(m *Model, _ string) { m.askUpgrade() }},
@@ -366,7 +370,7 @@ var bindings = []binding{
 // alias). The keys themselves are handled by handleKey; the table is
 // what the footer and the status bar say.
 var modeBindings = []binding{
-	{key: "↑↓", label: "pick", modes: in(modeStart, modePost, modeStrike, modeUndercut, modeFront, modeAssign, modePropose, modeGuard)},
+	{key: "↑↓", label: "pick", modes: in(modeStart, modePost, modeStrike, modeUndercut, modeFront, modeAssign, modePropose, modeGuard, modeDriver)},
 	{key: "↑↓", label: "pick", modes: in(modeMove), when: moveList},
 	{key: "↑↓", label: "pick", modes: in(modeCut, modeCook), when: labList},
 	{key: "↑↓", label: "pick", modes: in(modeSell, modeTarget), when: step(0)},
@@ -407,6 +411,7 @@ var modeBindings = []binding{
 	{key: "enter", label: "rent", modes: in(modeFront), when: houseRent},
 	{key: "enter", label: "move", modes: in(modeMove), when: step(3)},
 	{key: "enter", label: "post", modes: in(modeGuard)},
+	{key: "enter", label: "drive", modes: in(modeDriver)},
 	{key: "y", label: "drop", modes: in(modeConfirmDrop)},
 	{key: "enter", label: "sell", modes: in(modeSell), when: sellOnce},
 	{key: "enter", label: "sell nightly", modes: in(modeSell), when: sellStanding},
@@ -435,6 +440,7 @@ var modeBindings = []binding{
 	{key: "y", label: "buy", modes: in(modeConfirmUpgrade)},
 	{key: "y", label: "ask", modes: in(modeConfirmInvestigate)},
 	{key: "y", label: "pay", modes: in(modeConfirmPayOff)},
+	{key: "y", label: "bail", modes: in(modeConfirmBail)},
 	{key: "y", label: "go", modes: in(modeConfirmTravel)},
 	{key: "y", label: "scout", modes: in(modeConfirmScout)},
 	{key: "y", label: "boost", modes: in(modeConfirmBoost)},
@@ -450,7 +456,7 @@ var modeBindings = []binding{
 	{key: "⇧tab", label: "back", keys: []string{"shift+tab"}, modes: in(modeBuy, modeSell, modeTarget, modeCart, modePropose, modeFront, modeMove, modeFund, modeCut, modeCook, modeBribe), when: pastFirstStep},
 	{key: "esc", label: "close", modes: in(modeBuy, modeSell, modeTarget, modePropose, modePost, modeStrike, modeUndercut, modeFront, modeAssign, modeFund, modeCart, modeMove, modeGuard,
 		modeConfirmNew, modeConfirmDelete, modeConfirmFire, modeConfirmEnd, modeConfirmUpgrade, modeConfirmInvestigate, modeConfirmPayOff, modeConfirmTravel, modeConfirmFast, modeConfirmDrop,
-		modeConfirmScout, modeConfirmBoost, modeConfirmTip, modeConfirmBuyOff, modeCut, modeCook, modeInvest, modeBribe, modeConfirmCheckpoint, modeReserve)},
+		modeConfirmScout, modeConfirmBoost, modeConfirmTip, modeConfirmBuyOff, modeCut, modeCook, modeInvest, modeBribe, modeConfirmCheckpoint, modeReserve, modeConfirmBail, modeDriver)},
 	{key: "enter esc", label: "close", modes: in(modeReport, modeHelp, modeStage)},
 	{key: "enter esc", label: "close", modes: in(modeCard), when: step(1)},
 	{key: "␣ esc", label: "close", modes: in(modeDetails)},
@@ -690,6 +696,9 @@ var words = [][2]string{
 	{"cook", "a chemist's batch of meth or designer, from precursors"},
 	{"repeat", "the share of a corner's customers who come back"},
 	{"overdose", "bad hard product on your corner: pressure and news, no page"},
+	{"jailed", "in a cell after a bust, working nothing; bail is clean cash"},
+	{"kin", "a cousin, partner or friend on the payroll: they remember"},
+	{"driver", "rides a route's shipments and cuts the risk; seized, jailed"},
 }
 
 // helpLines is the help modal's body: every binding, grouped, one a

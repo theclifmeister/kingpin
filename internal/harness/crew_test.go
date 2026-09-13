@@ -1,6 +1,7 @@
 package harness
 
 import (
+	"reflect"
 	"testing"
 
 	"github.com/theclifmeister/kingpin/internal/content"
@@ -177,7 +178,7 @@ func TestCrewedIsDeterministic(t *testing.T) {
 		t.Fatalf("rosters differ: %d vs %d", len(a.World.Crew.Members), len(b.World.Crew.Members))
 	}
 	for i := range a.World.Crew.Members {
-		if a.World.Crew.Members[i] != b.World.Crew.Members[i] {
+		if !reflect.DeepEqual(a.World.Crew.Members[i], b.World.Crew.Members[i]) {
 			t.Fatalf("member %d differs: %+v vs %+v", i, a.World.Crew.Members[i], b.World.Crew.Members[i])
 		}
 	}

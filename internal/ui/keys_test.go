@@ -18,7 +18,7 @@ import (
 var handledKeys = []string{
 	"q", " ", "ctrl+s", "?", "1", "2", "3", "4", "5", "6", "7", "8", "tab", "shift+tab",
 	"n", "F", "enter", "u", "r", "R", "b", "s", "t", "g", "[", "]", "x", "y", "l", "N",
-	"h", "f", "p", "d", "i", "$", "c", "e", "a", "w", "m", "o",
+	"h", "f", "p", "d", "i", "$", "c", "e", "a", "w", "m", "o", "v",
 	"up", "k", "down", "j", "left", "right", "pgup", "pgdown",
 }
 

@@ -20,6 +20,11 @@ var (
 	ErrBatch          = errors.New("more than a batch")                      // #47: a cook order past the chemist's batch
 	ErrCooking        = errors.New("a batch of that is already on today")    // #47: one cook order a product a city a day
 	ErrNoCandidate    = errors.New("nobody by that name is looking for work")
+	ErrJailed         = errors.New("they are in a cell")            // #46: a jailed member works nothing
+	ErrWounded        = errors.New("they are laid up")              // #46: a wounded member works nothing
+	ErrNotJailed      = errors.New("they are not in a cell")        // #46: nothing to bail
+	ErrBailed         = errors.New("bail is already down for them") // #46: they walk tomorrow
+	ErrNotDriver      = errors.New("only a driver rides a route")   // #46
 	ErrNoMember       = errors.New("nobody by that name works for you")
 	ErrCrewFull       = errors.New("the crew is as big as you can manage")
 	ErrNoFront        = errors.New("no such front")
@@ -405,6 +410,7 @@ type RouteSetting struct {
 	Days        map[string]int // product id -> days of the destination's demand it is kept stocked to
 	ClosedUntil int            // the route is shut on every tick before this day (#44, an incident): nothing moves on it and nothing new is sent; 0 is open
 	Bought      int            // the day the edge's checkpoint or customs deal runs out (#42; 0: none); World.Checkpoint says whether it is live
+	Driver      int            // the crew member who rides every shipment on it (#46), 0 for nobody; persistent like the dial. World.RouteDriver says whether they can today
 }
 
 // Closed reports whether the route is shut on the tick that brings day:
@@ -571,8 +577,9 @@ func (w *World) Hire(id, maxCrew int) (CrewMember, error) {
 	return c, nil
 }
 
-// Fire removes the member with id and pulls them off their corner. The
-// rest of the crew take it badly when the crew sim steps.
+// Fire removes the member with id and pulls them off their corner, and
+// off their route (#46). The rest of the crew take it badly when the
+// crew sim steps.
 func (w *World) Fire(id int) (CrewMember, error) {
 	if w.Over != nil {
 		return CrewMember{}, ErrGameOver
@@ -580,6 +587,7 @@ func (w *World) Fire(id int) (CrewMember, error) {
 	for i, m := range w.Crew.Members {
 		if m.ID == id {
 			w.Recall(id)
+			w.unseat(id)
 			if m.Runs() {
 				w.DropStanding(m.City)
 			}
@@ -593,6 +601,104 @@ func (w *World) Fire(id int) (CrewMember, error) {
 
 // SetPay sets the pay dial for the whole crew. It persists until changed.
 func (w *World) SetPay(p events.Pay) { w.Crew.Pay = p }
+
+// Bail puts cost in clean cash down for the jailed member with id
+// (#46): they walk tomorrow, with their loyalty up when the crew sim
+// releases them. Clean cash only, the whole of it: a bail bondsman
+// takes a cheque. The crew sim reports it tonight (Crew.BailedToday).
+func (w *World) Bail(id, cost int) (CrewMember, error) {
+	if w.Over != nil {
+		return CrewMember{}, ErrGameOver
+	}
+	m := w.Crew.Member(id)
+	if m == nil {
+		return CrewMember{}, ErrNoMember
+	}
+	if !m.Jailed(w.Day) {
+		return CrewMember{}, ErrNotJailed
+	}
+	if m.Bailed {
+		return CrewMember{}, ErrBailed
+	}
+	if cost > w.Player.CleanCash {
+		return CrewMember{}, fmt.Errorf("bail for %s is %s clean, only have %s", m.Name, dollars(cost), dollars(w.Player.CleanCash))
+	}
+	w.Player.CleanCash -= cost
+	w.Stats.Bails++
+	w.Stats.BailCash += cost
+	m.Bailed = true
+	m.JailedUntil = w.Day + 1
+	w.Crew.BailedToday = append(w.Crew.BailedToday, Payoff{ID: m.ID, Name: m.Name, Cost: cost})
+	return *m, nil
+}
+
+// dollars writes a whole-dollar figure with a $ for an error message.
+func dollars(n int) string { return fmt.Sprintf("$%d", n) }
+
+// SetRouteDriver puts the driver with id on a route (#46): they ride
+// every shipment it sends from tomorrow, taking their cut off its risk,
+// until they are moved or fired; 0 takes the route's driver off it. A
+// driver rides one route: putting them on another takes them off the
+// first. The setting persists like the dial.
+func (w *World) SetRouteDriver(route string, id int) error {
+	if w.Over != nil {
+		return ErrGameOver
+	}
+	if route == "" {
+		return ErrNoRoute
+	}
+	if id != 0 {
+		m := w.Crew.Member(id)
+		if m == nil {
+			return ErrNoMember
+		}
+		if m.Role != RoleDriver {
+			return ErrNotDriver
+		}
+		w.unseat(id)
+	}
+	if w.Routes == nil {
+		w.Routes = map[string]RouteSetting{}
+	}
+	rs := w.Routes[route]
+	rs.Driver = id
+	w.Routes[route] = rs
+	return nil
+}
+
+// unseat takes a member off whatever route they drive.
+func (w *World) unseat(id int) {
+	for rid, rs := range w.Routes {
+		if rs.Driver == id {
+			rs.Driver = 0
+			w.Routes[rid] = rs
+		}
+	}
+}
+
+// RouteDriver is the driver riding a route's shipments on day, or nil:
+// the route's driver if they are on the payroll and fit (a jailed or
+// wounded one rides nothing, and the route runs without them).
+func (w *World) RouteDriver(route string, day int) *CrewMember {
+	m := w.Crew.Driver(w.Route(route).Driver)
+	if m == nil || !m.Fit(day) {
+		return nil
+	}
+	return m
+}
+
+// DrivenRoute is the route the member drives, "" for none.
+func (w *World) DrivenRoute(id int) string {
+	if id == 0 {
+		return ""
+	}
+	for rid, rs := range w.Routes {
+		if rs.Driver == id {
+			return rid
+		}
+	}
+	return ""
+}
 
 // BuyFront buys a front with dirty cash. It applies immediately: the place
 // opens tomorrow and the laundering sim reports the purchase at end of day.

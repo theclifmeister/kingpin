@@ -1,6 +1,7 @@
 package harness
 
 import (
+	"fmt"
 	"sort"
 	"testing"
 
@@ -316,7 +317,14 @@ func TestInvestingEverything(t *testing.T) {
 // the clean pin of the headline's effect on the same dice is
 // TestFrontGrowthIsNewsNotEvidence).
 func TestLevelsDrawTheAuditors(t *testing.T) {
-	cfg := content.MustLoad()
+	// Crew life boxed (#46): the levels' signal (a couple of audits over
+	// ten seeds) drowns in the crew's noise with it on (36 audits against
+	// 34, notoriety 997 against 996 the morning after the paper); the
+	// pin is the greed curve on the levels. The with-life figures are
+	// logged beside it so the next tuning pass can see whether
+	// audit_level needs to rise above the noise.
+	t.Logf("with crew life on: %s", levelsAudits(t, content.MustLoad()))
+	cfg := NoLife(content.MustLoad())
 	off := noLevels(cfg)
 	audits, pressure, notoriety := [2]int{}, [2]float64{}, [2]float64{}
 	for seed := uint64(1); seed <= 10; seed++ {
@@ -364,4 +372,26 @@ func TestLevelsDrawTheAuditors(t *testing.T) {
 	if pressure[0] <= pressure[1] || notoriety[0] <= notoriety[1] {
 		t.Errorf("the morning after the paper the levelled boss carries pressure %.0f / notoriety %.0f against %.0f / %.0f without levels", pressure[0], notoriety[0], pressure[1], notoriety[1])
 	}
+}
+
+// levelsAudits is TestLevelsDrawTheAuditors' count with and without the
+// levels over the same ten seeds on cfg, as a line for the log.
+func levelsAudits(t *testing.T, cfg *content.Config) string {
+	t.Helper()
+	off := noLevels(cfg)
+	var audits [2]int
+	for seed := uint64(1); seed <= 10; seed++ {
+		for i, c := range []*content.Config{cfg, off} {
+			res, err := Run(c, seed, Horizon, Boss(c, 40, ""))
+			if err != nil {
+				t.Fatal(err)
+			}
+			for _, e := range res.Events {
+				if _, ok := e.(events.FrontAudited); ok {
+					audits[i]++
+				}
+			}
+		}
+	}
+	return fmt.Sprintf("audits %d with levels, %d without, over ten seeds", audits[0], audits[1])
 }

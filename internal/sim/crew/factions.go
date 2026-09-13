@@ -45,7 +45,7 @@ func (s *Sim) factions(w *game.World, t *game.Tick, c *game.CrewState, fx game.E
 		case events.RivalLeaderArrested:
 			rng := t.Sub("fragment")
 			for i := 0; i < ev.Muscle; i++ {
-				m := s.generate(w, rng, nil, fx)
+				m := s.generate(w, rng, nil, rng, fx)
 				m.Role, m.Units, m.Personality = "enforcer", 0, ""
 				m.Former = ev.Faction
 				m.Fee = int(math.Round(float64(m.Fee) * s.fac.FragmentDiscount))

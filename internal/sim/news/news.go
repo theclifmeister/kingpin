@@ -527,6 +527,66 @@ func (s *Sim) Step(w *game.World, t *game.Tick) {
 			paidOff += ev.Cost
 			rep.Crew = append(rep.Crew, fmt.Sprintf("%s took your money and stays sweet on you, for now.", ev.Name))
 			rep.Money = append(rep.Money, fmt.Sprintf("Paid off %s -%s", ev.Name, format.Money(ev.Cost)))
+		case events.CrewBailed:
+			// Crew life (#46): the cells, the cots and the funerals.
+			paidOff += ev.Cost
+			rep.Crew = append(rep.Crew, fmt.Sprintf("Bail is down for %s: they walk tomorrow.", ev.Name))
+			rep.Money = append(rep.Money, fmt.Sprintf("Bail for %s -%s clean", ev.Name, format.Money(ev.Cost)))
+		case events.CrewArrested:
+			d := at(ev.City)
+			d.Name, d.Role, d.Corner = ev.Name, ev.Role, ev.CornerName
+			add("crew", "CrewArrested", d)
+			switch {
+			case ev.Route != "":
+				rep.Crew = append(rep.Crew, fmt.Sprintf("%s was taken with the shipment: %s in a cell, %s clean to walk them out tomorrow.", ev.Name, format.Plural(ev.Days, "day"), format.Money(ev.Bail)))
+			case ev.Corner != "":
+				rep.Crew = append(rep.Crew, fmt.Sprintf("The police took %s off %s: %s in a cell, %s clean to walk them out tomorrow.", ev.Name, ev.CornerName, format.Plural(ev.Days, "day"), format.Money(ev.Bail)))
+			default:
+				rep.Crew = append(rep.Crew, fmt.Sprintf("The raid found the lab: %s in a cell for %s, %s clean to walk them out tomorrow.", ev.Name, format.Plural(ev.Days, "day"), format.Money(ev.Bail)))
+			}
+		case events.CrewReleased:
+			d := base
+			d.Name, d.Role = ev.Name, ev.Role
+			if ev.Bailed {
+				rep.Crew = append(rep.Crew, fmt.Sprintf("%s is out on your bail and knows who paid it.", ev.Name))
+			} else {
+				add("crew", "CrewReleased", d)
+				rep.Crew = append(rep.Crew, fmt.Sprintf("%s is out. Nobody came for them, and the DA had them for a while.", ev.Name))
+			}
+		case events.CrewShot:
+			d := at(ev.City)
+			d.Name, d.Role, d.Corner, d.Rival = ev.Name, ev.Role, ev.CornerName, ev.Rival
+			where := ""
+			if ev.CornerName != "" {
+				where = " on " + ev.CornerName
+			}
+			switch {
+			case ev.Theirs:
+				add("rivals", "MuscleKilled", d)
+				rep.Crew = append(rep.Crew, fmt.Sprintf("One of %s's people was shot dead%s. The paper has your name next to it.", ev.Rival, where))
+			case ev.Dead:
+				add("crew", "CrewKilled", d)
+				rep.Crew = append(rep.Crew, fmt.Sprintf("%s was shot dead%s. The paper has your name next to it.", ev.Name, where))
+			default:
+				add("crew", "CrewShot", d)
+				rep.Crew = append(rep.Crew, fmt.Sprintf("%s was shot%s: laid up for %s, off the corner.", ev.Name, where, format.Plural(ev.Days, "day")))
+			}
+		case events.CrewRecovered:
+			rep.Crew = append(rep.Crew, fmt.Sprintf("%s is back on their feet.", ev.Name))
+		case events.CrewRetired:
+			d := base
+			d.Name, d.Role = ev.Name, ev.Role
+			add("crew", "CrewRetired", d)
+			switch {
+			case ev.Kin != "":
+				rep.Crew = append(rep.Crew, fmt.Sprintf("%s retired at %d and put a word in for %s, who is looking for work.", ev.Name, ev.Age, ev.Kin))
+			case ev.Sour:
+				rep.Crew = append(rep.Crew, fmt.Sprintf("%s retired at %d, and not kindly. They had a long talk with somebody on the way out.", ev.Name, ev.Age))
+			default:
+				rep.Crew = append(rep.Crew, fmt.Sprintf("%s retired at %d.", ev.Name, ev.Age))
+			}
+		case events.KinLooking:
+			rep.Crew = append(rep.Crew, fmt.Sprintf("%s's %s %s is looking for work, and would sign for %s.", ev.Of, ev.Role, ev.Name, format.Money(ev.Fee)))
 		case events.CrewQuit:
 			d := base
 			d.Name, d.Role = ev.Name, ev.Role
@@ -918,6 +978,9 @@ func (s *Sim) Step(w *game.World, t *game.Tick) {
 			line := fmt.Sprintf("SEIZED on the road: %d %s bound for %s by %s, sent %s, every unit gone. Heat in both cities.", ev.Units, w.ProductName(ev.Product), w.CityName(ev.To), ev.Mode, ev.Dial)
 			if ev.Dial == events.ShipFast {
 				line += " Sent fast, it was asking to be looked at: the DA's file grows."
+			}
+			if ev.DriverName != "" {
+				line += " " + ev.DriverName + " was driving."
 			}
 			rep.Shipments = append(rep.Shipments, line)
 			if w.Stats.Seizures == 1 {

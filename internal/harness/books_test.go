@@ -65,8 +65,12 @@ func TestBooksInvariants(t *testing.T) {
 						read = read || ev.Read
 					case events.CrewHired:
 						hired++
-					case events.CrewQuit, events.CrewFired, events.CrewDefected:
+					case events.CrewQuit, events.CrewFired, events.CrewDefected, events.CrewRetired:
 						gone++
+					case events.CrewShot:
+						if ev.Dead && !ev.Theirs {
+							gone++ // #46
+						}
 					case events.RivalBoosted:
 						if c := w.Corner(ev.Corner); c.Owner != game.OwnerRival && !cleared[ev.Corner] {
 							t.Fatalf("%s seed %d day %d: %s is %s's the morning after a boost", name, seed, w.Day, ev.Name, c.Owner)
@@ -394,7 +398,14 @@ func TestBooksAreDeterministicAndSave(t *testing.T) {
 		t.Fatalf("the books loaded as %+v/%.1f/%d/%d, saved %+v/%.1f/%d/%d", loaded.Rival().Known, loaded.Rival().Heat, loaded.Rival().Scouted, loaded.Rival().LastRaid, c.World.Rival().Known, c.World.Rival().Heat, c.World.Rival().Scouted, c.World.Rival().LastRaid)
 	}
 	d, _ := RunFrom(cfg, loaded, 120-c.World.Day, policy())
-	rest := a.Events[len(c.Events):]
+	// The unsaved run the save must replay: the same morning with the
+	// policy's moves queued once already, played on (a hire that morning
+	// raises the room the policy's second pass then fills, #46, so the
+	// reference is the double pass and not the run that made a).
+	ref := play(c.World.Day)
+	policy()(ref.World)
+	e, _ := RunFrom(cfg, ref.World, 120-c.World.Day, policy())
+	rest := e.Events
 	if len(d.Events) != len(rest) {
 		t.Fatalf("after loading, %d events for the last %d days, want %d", len(d.Events), 120-c.World.Day, len(rest))
 	}

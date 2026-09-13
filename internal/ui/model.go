@@ -83,6 +83,8 @@ const (
 	modeBribe             // an envelope for the chief or the DA (#42): the target, then the amount
 	modeConfirmCheckpoint // buy the checkpoint or customs agent on the selected route? (#42)
 	modeReserve           // clean cash into the offshore account (#195): the amount, then enter
+	modeConfirmBail       // put bail down for the selected member in a cell? (#46)
+	modeDriver            // pick the driver who rides the selected route (#46)
 	modeCount
 )
 
@@ -139,6 +141,7 @@ type Model struct {
 	frontKind      int    // the buy picker's first page: a front or a house (#73)
 	frontStep      int    // the buy picker's page: 0 the kind, 1 the offers
 	guardCursor    int    // row in the guard picker (#73)
+	driverCursor   int    // row in the driver picker (#46)
 	mv             moveDialog
 	lab            labDialog // the cut and the cook dialogs (#47)
 	ledgerCursor   int       // row on the ledger: fronts, then routes, then offers
@@ -526,6 +529,17 @@ func (m *Model) handleKey(k tea.KeyMsg) (tea.Model, tea.Cmd) {
 		default:
 			m.mode = modePlay
 		}
+		return m, nil
+	case modeConfirmBail:
+		switch key {
+		case "y", "Y":
+			m.confirmBail()
+		default:
+			m.mode = modePlay
+		}
+		return m, nil
+	case modeDriver:
+		m.keyDriver(key)
 		return m, nil
 	case modeConfirmTravel:
 		switch key {
@@ -1035,6 +1049,10 @@ func (m *Model) View() string {
 		body = m.investigateConfirm()
 	case modeConfirmPayOff:
 		body = m.payOffConfirm()
+	case modeConfirmBail:
+		body = m.bailConfirm()
+	case modeDriver:
+		body = m.viewDriver()
 	case modeConfirmTravel:
 		body = m.travelConfirm()
 	case modeConfirmScout:
@@ -1423,6 +1441,20 @@ func (m *Model) viewOver() string {
 	facts = append(facts, []any{"clean cash", cash(w.Player.CleanCash)})
 	if w.Stats.Informants+w.Stats.Defections > 0 {
 		facts = append(facts, []any{"snitches", fmt.Sprint(w.Stats.Informants)}, []any{"defectors", fmt.Sprint(w.Stats.Defections)})
+	}
+	// Crew life (#46): the bodies on both sides and who of yours fell,
+	// the cells and the bails.
+	if s := w.Stats; s.Bodies+s.Arrests > 0 {
+		facts = append(facts,
+			[]any{"bodies", fmt.Sprintf("%d, %d of them yours", s.Bodies, s.Fallen)},
+			[]any{"arrests", fmt.Sprintf("%d, %d bailed for %s", s.Arrests, s.Bails, cash(s.BailCash))})
+	}
+	if n := len(w.Crew.Fallen); n > 0 {
+		var names []string
+		for _, f := range w.Crew.Fallen {
+			names = append(names, fmt.Sprintf("%s (%s, d%d)", f.Name, f.Role, f.Day))
+		}
+		facts = append(facts, []any{"fallen", truncate(strings.Join(names, ", "), 60)})
 	}
 	rep := w.Player.Reputation
 	facts = append(facts,

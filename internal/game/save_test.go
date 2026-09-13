@@ -352,13 +352,13 @@ func TestSaveKeepsCrew(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	if got.Crew.Pay != events.PayGenerous || len(got.Crew.Members) != 1 || got.Crew.Members[0] != w.Crew.Members[0] {
+	if got.Crew.Pay != events.PayGenerous || len(got.Crew.Members) != 1 || !reflect.DeepEqual(got.Crew.Members[0], w.Crew.Members[0]) {
 		t.Fatalf("crew did not round-trip: %+v", got.Crew)
 	}
 	if !got.Crew.Members[0].Informant || got.Crew.Informants() != 1 || got.Crew.Exposed != 1 || got.Crew.Investigated != 2 || got.Heat.LeakDay != 4 || got.Heat.Leaks != 2 {
 		t.Fatalf("informant state did not round-trip: %+v %+v", got.Crew, got.Heat)
 	}
-	if got.Crew.Candidates[0] != w.Crew.Candidates[0] || got.Crew.NextID != 2 {
+	if !reflect.DeepEqual(got.Crew.Candidates[0], w.Crew.Candidates[0]) || got.Crew.NextID != 2 {
 		t.Fatalf("pool did not round-trip: %+v", got.Crew)
 	}
 	if _, err := got.Fire(1); err != nil || len(got.Crew.Members) != 0 || len(got.Crew.FiredToday) != 1 {

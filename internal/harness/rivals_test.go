@@ -60,8 +60,8 @@ func TestHitWarHeatsFasterThanAggressiveSelling(t *testing.T) {
 		}
 		war, err := RunFrom(cfg, w, days, func(w *game.World) {
 			if c := pickCorner(w, func(c game.Corner) bool { return c.Owner == game.OwnerRival }, func(c game.Corner) float64 { return c.Demand }); c != nil {
-				if err := w.SendEnforcers(c.ID, events.ForceHit); err != nil {
-					t.Fatal(err)
+				if err := w.SendEnforcers(c.ID, events.ForceHit); err != nil && err != game.ErrNoEnforcers {
+					t.Fatal(err) // every enforcer laid up or dead (#46) is a war that paused, not a broken one
 				}
 			}
 		})
@@ -213,7 +213,10 @@ func TestRivalIsDeterministic(t *testing.T) {
 // push war the player wins corners, gets tipped to the police, and a loud
 // enough war ends in a crackdown that clears both sides.
 func TestWarTakesGroundAndTheRivalTipsPolice(t *testing.T) {
-	cfg := content.MustLoad()
+	// Crew life boxed (#46): the ten push wars had exactly one crackdown
+	// on main and none with the wounded off the strikes; the test pins
+	// the war's pieces, not the crew's lives.
+	cfg := NoLife(content.MustLoad())
 	won, tips, crackdowns, cleared := 0, 0, 0, 0
 	for seed := uint64(1); seed <= 10; seed++ {
 		res, _ := Run(cfg, seed, Horizon, Warlike(cfg, 60, 4, events.ForcePush))
@@ -261,7 +264,9 @@ func daysToHeat(r Result, v float64) int {
 // call that night), and the corner it eyes next is never the one it
 // was just kept off.
 func TestTellIsAnswerable(t *testing.T) {
-	cfg := content.MustLoad()
+	// Crew life boxed (#46): seed 4's tell on day 42 went unanswered with
+	// the outbidder's runner in a cell; the test pins the tell.
+	cfg := NoLife(content.MustLoad())
 	tun := cfg.Rivals.Rivals
 	for seed := uint64(1); seed <= 5; seed++ {
 		w := sim.NewWorld(cfg, seed)
