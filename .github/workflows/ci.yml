@@ -70,6 +70,21 @@ jobs:
     steps:
       - uses: actions/checkout@v7
 
+      # Go keys a cached test result on the mtime and size of every file a
+      # test opens inside the module (the source guards, README.md), and a
+      # fresh checkout stamps every file with the checkout's time, so
+      # without this no entry from another run could ever match. Each
+      # tracked file gets an mtime that is a function of its blob (28 bits
+      # of the sha: 2001-2010, never in the future, which Go refuses to
+      # cache) and every directory a fixed one. The same lines are in cache.yml.
+      - name: content mtimes
+        run: |
+          git ls-files -s | while IFS=$'\t' read -r meta path; do
+            sha=${meta#* }
+            touch -d "@$((0x${sha:0:7} + 1000000000))" -- "$path"
+          done
+          find . -path ./.git -prune -o -type d -exec touch -d @1000000000 {} +
+
       - uses: actions/setup-go@v7
         with:
           go-version-file: go.mod
