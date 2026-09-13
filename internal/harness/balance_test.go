@@ -217,20 +217,18 @@ var moneyCurve = []struct {
 	// logs what each row would make with the rival kept out and heat off.
 	{3, "boss", func(cfg *content.Config) Policy { return Boss(cfg, 40, "") }, 5_000_000, 20_000_000, false},
 	{4, "boss", func(cfg *content.Config) Policy { return Boss(cfg, 40, "") }, 50_000_000, 200_000_000, false},
-	// Tier 5 (#48) is the cartel: the boss with the assets. The row is
-	// pending: measured and logged, never enforced. The band is the
-	// issue's ($500M to $5B at day 300) and the cartel reads about a
-	// third of its floor ($179M on the median of twenty seeds at day
-	// 300 with #43's table, $181M on ten; the boss $187M), because the tier-4 operation is demand- and
-	// wash-bound, not supply-bound: revenue ~$0.94M a day off two
-	// cities' corners, the wash $0.5M and the levels $0.6M a day, so
-	// net worth grows ~$1.2M a day and the dirty pile sits at the
-	// cover line; cheaper lots, a bigger boat, a plane and a tunnel
-	// move nothing while demand is the bind, and $500M by day 300 needs
-	// ~$4M a day more. The band waits on a demand-side multiplier (#43
-	// factions, #194 property; the follow-up issue is linked from
-	// docs/progression.md) and the row is re-measured when one lands.
-	{5, "cartel", func(cfg *content.Config) Policy { return Cartel(cfg, 40) }, 500_000_000, 5_000_000_000, true},
+	// Tier 5 (#48) is the cartel: the boss with the assets. The band is
+	// what the operation earns (#205): the tier-4 operation is demand- and
+	// wash-bound, not supply-bound (revenue ~$0.94M a day off two cities'
+	// corners, the wash and the levels ~$1.1M a day), so a supply-side
+	// asset cannot lift it and the issue's $500M-$5B was three times what
+	// any policy reads; #43's table lowered the day-300 figure rather than
+	// raising it (the factions hold corners). The row is enforced at
+	// $100M-$1B; the boss reads $172.7M and the cartel $167.1M on ten
+	// seeds at day 300 on the ruling's main (c2d12af), $163.7M on the
+	// test's twenty. A demand-side lever (assets that earn on their own,
+	// #223) is the way past it.
+	{5, "cartel", func(cfg *content.Config) Policy { return Cartel(cfg, 40) }, 100_000_000, 1_000_000_000, false},
 }
 
 // tierDay is the day a money-curve row is read at: its tier's checkpoint.
