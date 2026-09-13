@@ -22,16 +22,20 @@ import (
 // model puts in the report's title bar. The counter settles plain, as
 // the bar draws the day, and the title in theme.Money, the modal's
 // title colour. No dice: the slide and the wipe throw none, so the
-// registry's entry says so.
+// registry's entry says so. Past MorningLength the scene holds (#203):
+// the day sits rolled and the title's wipe replays every HoldRest,
+// until the report closes.
 func Morning(from, to int, title string, rng *rand.Rand) Scene {
 	old, now, head := NewText(strconv.Itoa(from)), NewText(strconv.Itoa(to)), NewText(title)
+	wipe := WipeFrom(Right)(head, theme.Money, MorningLength, rng)
 	return &morning{
 		digits: now.Width(),
 		roll: Layer(
 			Reverse(SlideFrom(Down))(old, "", MorningLength, rng),
 			SlideFrom(Up)(now, "", MorningLength, rng),
 		),
-		title: WipeFrom(Right)(head, theme.Money, MorningLength, rng),
+		title: wipe,
+		held:  Replay(wipe, MorningLength, HoldRest),
 		width: head.Width(),
 	}
 }
@@ -48,6 +52,7 @@ type morning struct {
 	digits int   // the counter's width: today's digits
 	roll   Scene // the counter: the old number leaving over the new arriving
 	title  Scene // the report's title row
+	held   Scene // the title while held: the wipe again every HoldRest
 	width  int   // the title's width
 }
 
@@ -55,11 +60,15 @@ func (s *morning) Done(t time.Duration) bool { return t >= MorningLength }
 
 func (s *morning) Frame(t time.Duration, w, h int) []string {
 	out := make([]string, 0, h)
+	title, at := s.title, t
+	if t >= MorningLength {
+		title, at, t = s.held, t-MorningLength, MorningLength
+	}
 	if h > 0 {
 		out = append(out, s.roll.Frame(t, s.digits, rollRows)[rollRows/2])
 	}
 	if h > 1 {
-		out = append(out, s.title.Frame(t, min(w, s.width), 1)...)
+		out = append(out, title.Frame(at, min(w, s.width), 1)...)
 	}
 	for len(out) < h {
 		out = append(out, "")

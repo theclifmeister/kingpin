@@ -21,7 +21,11 @@ import (
 // a canvas of its own (the tape shoves its line into a margin either
 // side of the word, cut at the frame's edge) and blitted into place.
 // The dice are the tape's and the burn's; the strobe is a Sequence of
-// Stills, each Held its step.
+// Stills, each Held its step. Past BustLength the scene holds (#203):
+// the title pulses the strobe colour once a second (Pulse), the level
+// jitters on a short tape every HoldRest (Replay of a second Vhstape,
+// bustJitter long, on the dice after the burn's) and the loss stands
+// burnt, until the report closes.
 func Bust(title, level, loss string, stash bool, rng *rand.Rand) Scene {
 	glitch, burnAt := bustGlitch, bustBurnAt
 	if stash {
@@ -42,6 +46,8 @@ func Bust(title, level, loss string, stash bool, rng *rand.Rand) Scene {
 		lossW:  rest.Width(),
 		burnAt: burnAt,
 		purple: -1,
+		pulse:  Pulse(head, theme.Money, theme.Heat, holdPulseOn, HoldPulse),
+		jitter: Replay(Vhstape(word, theme.Heat, bustJitter, rng), bustJitter, HoldRest),
 	}
 	if stash {
 		b.purple = frames(bustGlitchStash / 3)
@@ -59,6 +65,7 @@ const (
 	bustGlitchStash = 900 * time.Millisecond // longer when somebody talked
 	bustBurnAt      = 500 * time.Millisecond // when the loss starts burning
 	bustBurnAtStash = 800 * time.Millisecond
+	bustJitter      = 350 * time.Millisecond // the level's tape while held, once a HoldRest
 )
 
 // bustIndent is the report's indent, `  `, the level's column; the
@@ -77,7 +84,9 @@ type bust struct {
 	loss   Scene // the line's rest, burning
 	lossW  int
 	burnAt time.Duration
-	purple int // the frame the level shows in theme.Rivals (a stash raid, a third into its tape), or -1
+	purple int   // the frame the level shows in theme.Rivals (a stash raid, a third into its tape), or -1
+	pulse  Scene // the title while held: the strobe colour once a second
+	jitter Scene // the level while held: a short tape every HoldRest
 }
 
 func (b *bust) Done(t time.Duration) bool { return t >= BustLength }
@@ -85,6 +94,10 @@ func (b *bust) Done(t time.Duration) bool { return t >= BustLength }
 func (b *bust) Frame(t time.Duration, w, h int) []string { return frame(b, t, w, h) }
 
 func (b *bust) paint(cv *Canvas, t time.Duration) {
+	if t >= BustLength {
+		b.paintHeld(cv, t-BustLength)
+		return
+	}
 	title := NewCanvas(min(cv.W, b.titleW), 1)
 	paint(b.title, title, t)
 	blit(cv, title, 0, 0)
@@ -103,6 +116,20 @@ func (b *bust) paint(cv *Canvas, t time.Duration) {
 		paint(b.loss, loss, t-b.burnAt)
 		blit(cv, loss, bustIndent+b.levelW, 1)
 	}
+}
+
+// paintHeld is the hold, on the hold's own clock: the title pulsing,
+// the level on its jitter, the loss as the burn left it.
+func (b *bust) paintHeld(cv *Canvas, t time.Duration) {
+	title := NewCanvas(min(cv.W, b.titleW), 1)
+	paint(b.pulse, title, t)
+	blit(cv, title, 0, 0)
+	level := NewCanvas(b.levelW+2*bustMargin, 1)
+	paint(b.jitter, level, t)
+	blit(cv, level, bustIndent-bustMargin, 1)
+	loss := NewCanvas(b.lossW, 1)
+	paint(b.loss, loss, BustLength-b.burnAt)
+	blit(cv, loss, bustIndent+b.levelW, 1)
 }
 
 // blit copies a canvas's set cells onto another at an offset; a cell

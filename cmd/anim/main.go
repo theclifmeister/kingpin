@@ -1,13 +1,15 @@
 // Command anim plays every registered scene (anim.Scenes) on a demo run
 // at the terminal's size, for review under tmux and by eye (#161): the
-// title, the stage, the card, the three endings, the morning, the bust
-// and the strike, each inside the mode that plays it in the game.
-// ← → move between scenes, r replays, e cycles the effect where a scene
-// takes one (the title), 1-9 pick the seed, q quits; -scene starts on a
-// scene, -seed on a seed, -list prints the registry and exits. A command
-// of its own rather than a flag on kingpin, which keeps the game's flags
-// clean; it never touches a real save (KINGPIN_HOME is a directory of
-// its own for the run).
+// title, the stage, the card, the three endings, the morning, the bust,
+// the incident and the strike, each inside the mode that plays it in
+// the game. ← → move between scenes, r replays, e cycles the effect
+// where a scene takes one (the title), 1-9 pick the seed, q quits;
+// -scene starts on a scene, -seed on a seed, -list prints the registry
+// and exits. A scene that holds (#203: the report's) plays its hold for
+// holdFor after its length, then the demo moves on to the next scene.
+// A command of its own rather than a flag on kingpin, which keeps the
+// game's flags clean; it never touches a real save (KINGPIN_HOME is a
+// directory of its own for the run).
 package main
 
 import (
@@ -15,6 +17,7 @@ import (
 	"fmt"
 	"os"
 	"strings"
+	"time"
 
 	tea "github.com/charmbracelet/bubbletea"
 	"github.com/charmbracelet/lipgloss"
@@ -34,7 +37,7 @@ func main() {
 	scenes := anim.Scenes()
 	if *list {
 		for _, sc := range scenes {
-			fmt.Printf("%-14s %-6s %-24s %s\n", sc.Name, length(sc), strings.Join(sc.Effects, ","), sc.Starts)
+			fmt.Printf("%-14s %-6s %-5s %-24s %s\n", sc.Name, length(sc), hold(sc), strings.Join(sc.Effects, ","), sc.Starts)
 		}
 		return
 	}
@@ -81,7 +84,16 @@ type demo struct {
 	at     int    // the scene up, an index into scenes
 	seed   uint64 // the run's seed
 	effect int    // the title's effect, an index into its Effects; -1 cycles the set as the game does
+	plays  int    // counts the scenes played, so a hold's timer lands on the play it was set for
 }
+
+// holdFor is how long the demo plays a held scene's loop past its
+// length before moving on to the next scene.
+const holdFor = 5 * time.Second
+
+// moveOn is a held scene's timer landing: the play it was set for, so
+// one that outlived its scene (← → r in the meantime) is dropped.
+type moveOn struct{ play int }
 
 func (d *demo) Init() tea.Cmd { return nil }
 
@@ -125,6 +137,12 @@ func (d *demo) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 			return d, d.rebuild()
 		}
 		return d, nil
+	case moveOn:
+		if msg.play != d.plays {
+			return d, nil
+		}
+		d.at = (d.at + 1) % len(d.scenes)
+		return d, d.play()
 	}
 	if d.m == nil {
 		return d, nil
@@ -143,14 +161,22 @@ func (d *demo) rebuild() tea.Cmd {
 	return d.play()
 }
 
-// play puts the scene up on the effect picked and starts its ticks.
+// play puts the scene up on the effect picked and starts its ticks; a
+// scene that holds gets a timer too, holdFor past its length, after
+// which the demo moves on.
 func (d *demo) play() tea.Cmd {
 	sc := d.scenes[d.at]
 	effect := ""
 	if d.effect >= 0 && sc.With != nil {
 		effect = sc.Effects[d.effect]
 	}
-	return d.m.DemoScene(sc.Name, effect)
+	d.plays++
+	cmd := d.m.DemoScene(sc.Name, effect)
+	if sc.Hold {
+		play := d.plays
+		cmd = tea.Batch(cmd, tea.Tick(sc.Length+holdFor, func(time.Time) tea.Msg { return moveOn{play} }))
+	}
+	return cmd
 }
 
 // View is the game's own render with the demo's bar on its last row:
@@ -181,6 +207,9 @@ func (d *demo) bar() string {
 	}
 	where := fmt.Sprintf("%d/%d %s", d.at+1, len(d.scenes), sc.Name)
 	rest := fmt.Sprintf("%s · seed %d", length(sc), d.seed)
+	if sc.Hold {
+		rest = fmt.Sprintf("%s, holds %s · seed %d", length(sc), length(anim.Named{Length: holdFor}), d.seed)
+	}
 	keys := []string{"←→ scene", "r replay", "1-9 seed", "q quit"}
 	if sc.With != nil {
 		keys = append(keys[:2], append([]string{"e effect"}, keys[2:]...)...)
@@ -215,6 +244,14 @@ func length(sc anim.Named) string {
 		return fmt.Sprintf("%.1f s", sc.Length.Seconds())
 	}
 	return fmt.Sprintf("%d ms", sc.Length.Milliseconds())
+}
+
+// hold is a scene's hold as the listing writes it: `holds` or nothing.
+func hold(sc anim.Named) string {
+	if sc.Hold {
+		return "holds"
+	}
+	return ""
 }
 
 func names(scenes []anim.Named) string {
