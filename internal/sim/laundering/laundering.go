@@ -22,9 +22,10 @@ import (
 
 // Sim is the laundering simulation.
 type Sim struct {
-	cfg  content.LaunderingConfig
-	inf  content.InformantTuning
-	tree content.UpgradesConfig
+	cfg    content.LaunderingConfig
+	inf    content.InformantTuning
+	tree   content.UpgradesConfig
+	assets content.AssetsConfig // #48: the assets' prices and upkeep, a clean-cash purchase this sim reports and bills
 }
 
 // New builds a laundering sim from the config, copying what it reads
@@ -37,7 +38,90 @@ type Sim struct {
 // float_mul on the float, through World.Float, the one number the wash,
 // the road and a supply contract read.
 func New(cfg *content.Config) *Sim {
-	return &Sim{cfg: cfg.Laundering, inf: cfg.Crew.Informant, tree: cfg.Upgrades}
+	return &Sim{cfg: cfg.Laundering, inf: cfg.Crew.Informant, tree: cfg.Upgrades, assets: cfg.Assets}
+}
+
+// AssetOffers lists every asset the file knows (#48), cheapest first,
+// priced for BuyAsset; locked ones are included so the UI can show what
+// is coming, as the fronts' are.
+func (s *Sim) AssetOffers() []game.AssetOffer {
+	out := make([]game.AssetOffer, 0, len(s.assets.Offers))
+	for _, a := range s.assets.Offers {
+		out = append(out, assetOffer(a))
+	}
+	sort.SliceStable(out, func(i, j int) bool { return out[i].Cost < out[j].Cost })
+	return out
+}
+
+// AssetOffer returns the priced offer for an asset id.
+func (s *Sim) AssetOffer(id string) (game.AssetOffer, bool) {
+	a := s.assets.Asset(id)
+	if a == nil {
+		return game.AssetOffer{}, false
+	}
+	return assetOffer(*a), true
+}
+
+func assetOffer(a content.AssetConfig) game.AssetOffer {
+	return game.AssetOffer{ID: a.ID, Name: a.Name, Effect: a.Effect, City: a.City, Cost: a.Cost, Upkeep: a.Upkeep, UnlockCash: a.UnlockCash, HeatFloor: a.HeatFloor}
+}
+
+// BuyAsset buys the asset with id for the player: World.BuyAsset at the
+// file's price, or ErrNoAsset for an id the file does not know.
+func (s *Sim) BuyAsset(w *game.World, id string) (game.Asset, error) {
+	o, ok := s.AssetOffer(id)
+	if !ok {
+		return game.Asset{}, game.ErrNoAsset
+	}
+	return w.BuyAsset(o)
+}
+
+// AssetUpkeep is what the assets owned cost in clean cash a day between
+// them, idle or standing: the ledger's line.
+func (s *Sim) AssetUpkeep(w *game.World) int {
+	n := 0
+	for _, a := range w.Assets {
+		n += a.Upkeep
+	}
+	return n
+}
+
+// assetsStep is the assets' books (#48): what the task force seized
+// tonight (the heat sim's AssetSeized, earlier in this tick) and the
+// tunnel the police found (the logistics sim's TunnelFound) come off
+// them, gone for good (LoseAsset); today's purchases are reported
+// (AssetBought); and every asset's upkeep is billed in clean cash,
+// after the fronts have washed and earned: unpaid, the asset stands
+// idle for upkeep_freeze_days (AssetFrozen, bookkeeping) and its effect
+// is off until then. This sim owns the assets as it owns the fronts:
+// they are clean money. No dice.
+func (s *Sim) assetsStep(w *game.World, t *game.Tick) {
+	for _, e := range t.Events() {
+		switch ev := e.(type) {
+		case events.AssetSeized:
+			w.LoseAsset(ev.Asset, t.Day, "seized")
+		case events.TunnelFound:
+			w.LoseAsset(ev.Asset, t.Day, "found")
+		}
+	}
+	for i := range w.Assets {
+		a := &w.Assets[i]
+		if a.Bought == t.Day-1 {
+			t.Emit(events.AssetBought{Day: t.Day, Asset: a.ID, Name: a.Name, City: a.City, Cost: a.Cost, Upkeep: a.Upkeep})
+		}
+		if a.Upkeep <= 0 || a.Frozen(t.Day) {
+			continue
+		}
+		if a.Upkeep > w.Player.CleanCash {
+			if days := s.assets.Assets.UpkeepFreezeDays; days > 0 {
+				a.FrozenUntil = t.Day + days
+				t.Emit(events.AssetFrozen{Day: t.Day, Asset: a.ID, Name: a.Name, Upkeep: a.Upkeep, Days: days})
+			}
+			continue
+		}
+		w.Player.CleanCash -= a.Upkeep
+		w.Stats.AssetUpkeep += a.Upkeep
+	}
 }
 
 func (s *Sim) Name() string { return "laundering" }
@@ -118,6 +202,21 @@ func (s *Sim) announce(w *game.World, t *game.Tick) {
 		w.Laundering.Offered[o.ID] = true
 		if o.UnlockCash > 0 && w.Front(o.ID) == nil {
 			t.Emit(events.Unlocked{Day: t.Day, Gate: "front", ID: o.ID, Name: o.Name, Why: "peak cash " + format.Cash(o.UnlockCash), Cost: o.Cost})
+		}
+	}
+	// The assets (#48) open on peak CLEAN cash the same way, keyed
+	// apart from the fronts in Offered.
+	clean := max(w.Stats.PeakClean, w.Player.CleanCash)
+	for _, o := range s.AssetOffers() {
+		if w.Laundering.Offered["asset:"+o.ID] || o.UnlockCash > clean {
+			continue
+		}
+		if w.Laundering.Offered == nil {
+			w.Laundering.Offered = map[string]bool{}
+		}
+		w.Laundering.Offered["asset:"+o.ID] = true
+		if o.UnlockCash > 0 && !w.HasAsset(o.ID) {
+			t.Emit(events.Unlocked{Day: t.Day, Gate: "asset", ID: o.ID, Name: o.Name, City: o.City, Why: "peak clean cash " + format.Cash(o.UnlockCash), Cost: o.Cost})
 		}
 	}
 }
@@ -497,6 +596,7 @@ func (s *Sim) Step(w *game.World, t *game.Tick) {
 	if total > 0 || paid > 0 || earned > 0 {
 		t.Emit(events.CashLaundered{Day: t.Day, Amount: total, Upkeep: paid, Fronts: washing, Earned: earned})
 	}
+	s.assetsStep(w, t)
 	s.reserve(w, t)
 	s.quiet(w, t)
 	s.announce(w, t)

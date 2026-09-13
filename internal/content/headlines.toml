@@ -80,8 +80,42 @@ EnforcementRaid = [
   "SWAT storms {{.City}} stash house",
   "Chief {{.Chief}} hails 'major blow' to {{.City}} drug trade as DA {{.DA}} promises a crackdown",
 ]
+# The task force (#48): announced the morning before it comes, and it
+# takes an asset. TaskForceFormed and AssetSeized are the heat's news,
+# AssetBought the laundering's (the paper notices a port change hands),
+# UnlockedAsset an unlock's; all pick their template off the assets'
+# own stream. AssetFrozen is report-only.
+EnforcementTaskforce = [
+  "Federal task force sweeps {{.City}}; DA {{.DA}} calls it 'the beginning of the end'",
+  "Feds and {{.City}} police move together: 'this was months in the planning', says an agent",
+  "Task force hits {{.City}}: property seized, 'a cartel's infrastructure', says the US Attorney",
+]
 EnforcementArrest = [
   "{{.City}} dealer arrested in early-morning operation",
+]
+TaskForceFormed = [
+  "Federal task force announced for {{.City}}; DA {{.DA}} 'welcomes the help'",
+  "Feds set up shop in {{.City}}: 'we know who we are looking for', says agent in charge",
+  "Task force to target 'organised trafficking' in {{.City}}, Chief {{.Chief}} confirms",
+]
+AssetSeized = [
+  "Feds seize {{.Asset}} in {{.City}}: 'the proceeds of crime', says the US Attorney",
+  "{{.Asset}} taken by the task force; 'somebody very rich just lost a lot', says a lawyer",
+  "{{.City}} watches the feds padlock {{.Asset}}",
+]
+AssetBought = [
+  "{{.Asset}} changes hands in {{.City}}; the buyer 'prefers not to be named'",
+  "Who bought {{.Asset}}? {{.City}} traders say the money 'came from nowhere'",
+  "New owner at {{.Asset}}: 'a private investor', say lawyers in {{.City}}",
+]
+TunnelFound = [
+  "Police find smugglers' tunnel under the county line; {{.Product}} recovered",
+  "A tunnel, a torch and {{.Product}}: the county's strangest bust in years",
+  "Chief {{.Chief}} shows reporters the tunnel: 'they will not dig another'",
+]
+UnlockedAsset = [
+  "{{.Asset}} is for sale in {{.City}}; 'serious money only', says the broker",
+  "{{.Asset}} on the market: {{.City}} wonders who has that kind of clean money",
 ]
 LaidLow = [
   "Quiet night in {{.City}}",
@@ -592,6 +626,17 @@ IncidentFederalAttention = [
   "Feds open {{.City}} field office; task force 'here for the long haul'",
   "Federal agents in {{.City}}: DA {{.DA}} welcomes 'the extra eyes'",
   "Task force sets up in {{.City}}; Chief {{.Chief}} 'happy to share the files'",
+]
+# Tier 5's two (#48).
+IncidentCartelWar = [
+  "War upriver: the cartels are fighting and every price on the {{.City}} street will follow",
+  "Cartel war abroad chokes supply; 'everything costs double', says a {{.City}} connect",
+  "Bodies upriver, empty warehouses in {{.City}}: the cartel war reaches the docks",
+]
+IncidentExtradition = [
+  "Extradition treaty signed; DA {{.DA}} says the feds 'now have what they need'",
+  "Treaty gives the feds reach into {{.City}}: 'nowhere to run', says the US Attorney",
+  "{{.City}} lawyers read the extradition treaty and go quiet",
 ]
 
 # An overdose on one of your corners (#47): the city's story, the DA's

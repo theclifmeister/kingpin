@@ -21,7 +21,7 @@ import (
 func main() {
 	runs := flag.Int("runs", 20, "number of seeded runs")
 	days := flag.Int("days", harness.Horizon, "days to play each run for; a measuring horizon, the game itself has no cap")
-	policy := flag.String("policy", "normal", "idle | hide | quiet | normal | aggressive | careful | managed | upgraded | crewed | vigilant | territory | war | diplomat | laundered | funded | corrupt | distributor | driven | delegated | dealer | stocked | routine | leveraged | boss | pricewar | stashed | saboteur | tipster | cook | retiree")
+	policy := flag.String("policy", "normal", "idle | hide | quiet | normal | aggressive | careful | managed | upgraded | crewed | vigilant | territory | war | diplomat | laundered | funded | corrupt | distributor | driven | delegated | dealer | stocked | routine | leveraged | boss | pricewar | stashed | saboteur | tipster | cook | retiree | cartel | reckless")
 	lt := flag.String("lt", "", "force the delegated policy's lieutenant temper: violent | greedy | careful | steady (default as generated)")
 	corners := flag.Int("corners", 3, "corners the territory and war policies work, counting yours")
 	force := flag.String("force", "push", "warn | push | hit: how hard the war policy strikes")
@@ -152,6 +152,10 @@ func main() {
 		p = harness.Tipster(cfg, at(40))
 	case "cook":
 		p = harness.Cook(cfg, at(40))
+	case "cartel":
+		p = harness.Cartel(cfg, at(40))
+	case "reckless":
+		p = harness.Reckless(cfg)
 	default:
 		p = harness.Trader(cfg, events.DialNormal)
 	}
@@ -226,6 +230,8 @@ func main() {
 	audits, laundered, clean := 0, 0, 0
 	earned, invested, levels, legit, frozen := 0, 0, 0, 0, 0
 	offshore, fees, offshoreRuns, structured := 0, 0, 0, 0
+	assetsBought, assetCash, assetsLost, taskForces, tunnelsFound, assetRuns, assetUpkeep := 0, 0, 0, 0, 0, 0, 0 // #48
+	assetsOwned := map[string]int{}
 	var retired []int
 	ld := laundering.New(cfg)
 	shipments, shipped, seizures, seizedUnits := 0, 0, 0, 0
@@ -483,6 +489,22 @@ func main() {
 		laundered += res.World.Stats.Laundered
 		clean += res.World.Player.CleanCash
 		offshore += res.World.Offshore
+		if st := res.World.Stats; st.Assets > 0 || st.TaskForces > 0 {
+			assetRuns++
+			assetsBought += st.Assets
+			assetCash += st.AssetCash
+			assetsLost += st.AssetsLost
+			taskForces += st.TaskForces
+			assetUpkeep += st.AssetUpkeep
+			for _, a := range res.World.Assets {
+				assetsOwned[a.ID]++
+			}
+			for _, a := range res.World.AssetsLost {
+				if a.Why == "found" {
+					tunnelsFound++
+				}
+			}
+		}
 		fees += res.World.Stats.Fees
 		if res.World.Offshore > 0 {
 			offshoreRuns++
@@ -667,6 +689,16 @@ func main() {
 			score = retired[len(retired)/2]
 		}
 		fmt.Printf("offshore:      $%d in the account at the end, $%d in fees per run, %d lots over the line (totals over %d runs); %d retired, scoring $%d (median)\n", offshore / *runs, fees / *runs, structured, *runs, len(retired), score)
+	}
+	if assetRuns > 0 {
+		var ids []string
+		for _, a := range cfg.Assets.Offers {
+			if assetsOwned[a.ID] > 0 {
+				ids = append(ids, fmt.Sprintf("%s %d", a.ID, assetsOwned[a.ID]))
+			}
+		}
+		fmt.Printf("assets:        %.1f bought per run for $%d, $%d upkeep per run, %.1f seized per run, %.1f task forces per run, %d tunnels found (over %d runs); owned at the end: %s\n",
+			float64(assetsBought)/float64(*runs), assetCash / *runs, assetUpkeep / *runs, float64(assetsLost)/float64(*runs), float64(taskForces)/float64(*runs), tunnelsFound, *runs, strings.Join(ids, ", "))
 	}
 	if shipments > 0 {
 		fmt.Printf("logistics:     %.1f shipments per run carrying %d units, %.1f seized per run taking %d units (%.0f%% of shipments)\n",

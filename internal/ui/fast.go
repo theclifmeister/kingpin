@@ -203,9 +203,18 @@ func (m *Model) stopEvent(e events.Event) string {
 	w := m.w
 	switch ev := e.(type) {
 	case events.Enforcement:
+		if ev.Level == content.TaskForce {
+			return "the task force in " + w.CityName(ev.City)
+		}
 		if ev.Level != content.Patrol {
 			return format.A(ev.Level) + " in " + w.CityName(ev.City)
 		}
+	case events.TaskForceFormed:
+		return "a task force formed in " + w.CityName(ev.City)
+	case events.AssetSeized:
+		return "the feds took " + ev.Name
+	case events.TunnelFound:
+		return "the tunnel was found"
 	case events.Unlocked:
 		return unlockStop(ev)
 	case events.RivalMovedIn:
@@ -304,6 +313,8 @@ func unlockStop(ev events.Unlocked) string {
 		return ev.Name + " deals with you"
 	case "role":
 		return strings.ToLower(ev.Name) + " want work"
+	case "asset":
+		return ev.Name + " is for sale"
 	}
 	return ev.Name + " is open to you"
 }

@@ -38,6 +38,7 @@ type Config struct {
 	Progression ProgressionConfig
 	Houses      HousesConfig
 	Incidents   IncidentsConfig
+	Assets      AssetsConfig
 }
 
 // MarketConfig mirrors market.toml.
@@ -297,13 +298,14 @@ type ShipDialConfig struct {
 type RouteConfig struct {
 	ID       string  `toml:"id"`
 	Name     string  `toml:"name"`
-	Mode     string  `toml:"mode"` // car, truck, boat
+	Mode     string  `toml:"mode"` // car, truck, boat, plane, tunnel
 	From     string  `toml:"from"`
 	To       string  `toml:"to"`
 	Days     int     `toml:"days"`
 	Capacity int     `toml:"capacity"`
 	Cost     int     `toml:"cost"`
 	Risk     float64 `toml:"risk"`
+	Asset    string  `toml:"asset"` // the asset that opens the route (#48: the airstrip's plane, the tunnel); "" is a route that is always there
 }
 
 // Connects reports whether the route joins the two cities, either way.
@@ -390,6 +392,7 @@ type HeatTuning struct {
 	AuditHeat          float64 `toml:"audit_heat"`         // heat an audited front adds the morning after
 	AuditEvidence      int     `toml:"audit_evidence"`     // evidence an audit adds when the front was run greedy
 	StructureEvidence  int     `toml:"structure_evidence"` // pages per lot of clean cash moved offshore over the lot in a day (#195)
+	TaskforceCash      int     `toml:"taskforce_cash"`     // dirty cash over which the task force can form with no asset owned (#48); 0 is never on cash alone
 }
 
 // The response ladder's levels (#144): the names heat.toml's
@@ -399,19 +402,22 @@ type HeatTuning struct {
 // Levels is the ladder in order, for a check that the file has every
 // rung and a walk that wants them ranked. A patrol caps the street; a
 // sting and a raid take stock and cash and, on a day you dealt, file a
-// page; an arrest ends the run unless a fall guy takes it.
+// page; a task force (#48) forms only against an asset or a pile over
+// taskforce_cash, is announced a day ahead and seizes an asset; an
+// arrest ends the run unless a fall guy takes it.
 const (
-	Patrol = "patrol"
-	Sting  = "sting"
-	Raid   = "raid"
-	Arrest = "arrest"
+	Patrol    = "patrol"
+	Sting     = "sting"
+	Raid      = "raid"
+	TaskForce = "taskforce"
+	Arrest    = "arrest"
 )
 
 // Levels is the response ladder from the lightest touch to the end of
 // the run, in the order the thresholds climb.
-var Levels = []string{Patrol, Sting, Raid, Arrest}
+var Levels = []string{Patrol, Sting, Raid, TaskForce, Arrest}
 
-// Rank is a level's place on the ladder, 1 for a patrol to 4 for an
+// Rank is a level's place on the ladder, 1 for a patrol to 5 for an
 // arrest; 0 for a name that is not a level.
 func Rank(level string) int {
 	for i, l := range Levels {
@@ -433,6 +439,7 @@ type ResponseConfig struct {
 	CashLoss  float64 `toml:"cash_loss"`
 	HeatDrop  float64 `toml:"heat_drop"`
 	Evidence  int     `toml:"evidence"`
+	Cooldown  int     `toml:"cooldown_days"` // this rung's own cooldown, flat (#48: the task force's is long and federal, no chief's to shorten); 0 is [heat] cooldown_days
 }
 
 // validate checks the ladder reads as one: every rung named once, no
@@ -1465,10 +1472,11 @@ type CardTrigger struct {
 	Personality  string  `toml:"personality"`
 	WarMin       float64 `toml:"war_min"`
 	Fronts       bool    `toml:"fronts"`
-	PeakCashMin  int     `toml:"peak_cash_min"` // Stats.PeakCash, the high-water mark; cash_min is today's pile (#147)
-	CitiesHeld   int     `toml:"cities_held"`   // cities with a held corner, the lieutenant gate's count (#147)
-	City         string  `toml:"city"`          // the city the card or incident is about (#44): it must exist, and it fills the City slot
-	DAStance     string  `toml:"da_stance"`     // the sitting DA's ticket (#44)
+	PeakCashMin  int     `toml:"peak_cash_min"`  // Stats.PeakCash, the high-water mark; cash_min is today's pile (#147)
+	CitiesHeld   int     `toml:"cities_held"`    // cities with a held corner, the lieutenant gate's count (#147)
+	City         string  `toml:"city"`           // the city the card or incident is about (#44): it must exist, and it fills the City slot
+	DAStance     string  `toml:"da_stance"`      // the sitting DA's ticket (#44)
+	PeakCleanMin int     `toml:"peak_clean_min"` // Stats.PeakClean, the clean high-water mark the assets unlock on (#48)
 }
 
 // Set reports whether the trigger checks anything at all.
@@ -1587,6 +1595,15 @@ func Load() (*Config, error) {
 	}
 	if err := c.Incidents.validate(c.City, c.Market, c.Routes, c.Names); err != nil {
 		return nil, fmt.Errorf("incidents.toml: %w", err)
+	}
+	if err := decode("assets.toml", &c.Assets); err != nil {
+		return nil, err
+	}
+	if err := c.Assets.validate(c.City); err != nil {
+		return nil, fmt.Errorf("assets.toml: %w", err)
+	}
+	if err := c.Routes.validateAssets(c.Assets); err != nil {
+		return nil, fmt.Errorf("routes.toml: %w", err)
 	}
 	if len(c.Market.Products) == 0 {
 		return nil, fmt.Errorf("market.toml: no products defined")
@@ -1766,7 +1783,7 @@ func decodeBytes(name string, b []byte, v any) error {
 	}
 	// An effect name nobody reads, or a trigger field nobody checks, would
 	// silently do nothing.
-	if name == "upgrades.toml" || name == "reputation.toml" || name == "dilemmas.toml" || name == "routes.toml" || name == "law.toml" || name == "buyers.toml" || name == "progression.toml" || name == "houses.toml" || name == "incidents.toml" {
+	if name == "upgrades.toml" || name == "reputation.toml" || name == "dilemmas.toml" || name == "routes.toml" || name == "law.toml" || name == "buyers.toml" || name == "progression.toml" || name == "houses.toml" || name == "incidents.toml" || name == "assets.toml" {
 		if keys := md.Undecoded(); len(keys) > 0 {
 			return fmt.Errorf("%s: unknown key %s", name, keys[0])
 		}
@@ -1893,6 +1910,17 @@ func (r RoutesConfig) validate(cities CityConfig) error {
 	}
 	if r.Shipping.ShockDays < 0 || r.Shipping.ShockFactor < 0 {
 		return fmt.Errorf("bad [shipping] table %+v", r.Shipping)
+	}
+	return nil
+}
+
+// validateAssets checks every route that names an asset names one the
+// assets file has (#48).
+func (r RoutesConfig) validateAssets(assets AssetsConfig) error {
+	for _, rt := range r.Routes {
+		if rt.Asset != "" && assets.Asset(rt.Asset) == nil {
+			return fmt.Errorf("route %q opens with asset %q, which assets.toml does not have", rt.ID, rt.Asset)
+		}
 	}
 	return nil
 }

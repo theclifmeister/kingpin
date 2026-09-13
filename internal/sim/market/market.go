@@ -28,6 +28,7 @@ type Sim struct {
 	buyers []buyer
 	scfg   content.SuppliersConfig
 	war    content.PricewarTuning
+	assets content.AssetsConfig   // #48: the supplier asset, the one connect that is yours
 	fac    content.FactionsTuning // the table (#43): the price spike a fragmenting faction's city takes
 	ledger *warBook               // the price war's books for the step in hand (#68); nil outside Step
 	sold   *soldQuality           // what the city in hand's corners were sold tonight (#47); nil outside Step
@@ -51,7 +52,7 @@ func New(cfg *content.Config) (*Sim, error) {
 	if err != nil {
 		return nil, fmt.Errorf("buyers: %w", err)
 	}
-	return &Sim{cfg: cfg.Market, cities: cfg.City, ship: cfg.Routes.Shipping, tree: cfg.Upgrades, rep: cfg.Reputation.Effects, bcfg: cfg.Buyers, buyers: deck, scfg: cfg.Suppliers, war: cfg.Rivals.Pricewar, fac: cfg.Rivals.Factions}, nil
+	return &Sim{cfg: cfg.Market, cities: cfg.City, ship: cfg.Routes.Shipping, tree: cfg.Upgrades, rep: cfg.Reputation.Effects, bcfg: cfg.Buyers, buyers: deck, scfg: cfg.Suppliers, war: cfg.Rivals.Pricewar, assets: cfg.Assets, fac: cfg.Rivals.Factions}, nil
 }
 
 // Markup is the supplier's price for a standing order as a multiple of
