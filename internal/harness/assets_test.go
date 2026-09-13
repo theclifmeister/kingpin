@@ -36,6 +36,7 @@ func NoAssets(cfg *content.Config) *content.Config {
 // skipped for a player with no asset and a pile under the line, so
 // nothing about those runs moves.
 func TestTaskForceNeverMeetsTierThree(t *testing.T) {
+	t.Parallel()
 	cfg := content.MustLoad()
 	rows := []struct {
 		name   string
@@ -82,6 +83,7 @@ func TestTaskForceNeverMeetsTierThree(t *testing.T) {
 // first asset's line late in the run, so the file's run carries the
 // door's announcement and the tier; nothing it plays moves.
 func TestNoAssetIsTheOldRun(t *testing.T) {
+	t.Parallel()
 	cfg := content.MustLoad()
 	boxed := NoAssets(cfg)
 	for _, seed := range []uint64{1, 2, 3} {
@@ -121,6 +123,7 @@ func TestNoAssetIsTheOldRun(t *testing.T) {
 // tier-5 checkpoint: the cartel's median net worth on day 300 over ten
 // seeds is above corrupt's and distributor's, and it owns assets.
 func TestCartelBeatsCorruptAndDistributor(t *testing.T) {
+	t.Parallel()
 	cfg := content.MustLoad()
 	day := TierDays[4]
 	var cartel, corrupt, distributor []int
@@ -159,6 +162,7 @@ func TestCartelBeatsCorruptAndDistributor(t *testing.T) {
 // fifteen percent under it. The ruling on #48: an ordering, not the
 // band; cartel > boss does not hold on any seed and is not pinned.
 func TestCartelIsWithinFifteenPercentOfBoss(t *testing.T) {
+	t.Parallel()
 	cfg := content.MustLoad()
 	day := TierDays[4]
 	var cartel, boss []int
@@ -198,6 +202,7 @@ func TestCartelIsWithinFifteenPercentOfBoss(t *testing.T) {
 // nothing, so the task force's line, 88 less the pressure's cut, takes
 // the loud dial to reach; 8 of 10 seeds on main with #43's table.)
 func TestAggressiveCartelLosesItsAssets(t *testing.T) {
+	t.Parallel()
 	cfg := content.MustLoad()
 	punished := 0
 	for seed := uint64(1); seed <= 10; seed++ {

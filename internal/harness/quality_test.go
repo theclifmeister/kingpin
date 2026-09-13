@@ -21,6 +21,7 @@ import (
 // every day and its stats at the end are what the same run makes with
 // the quality table in its box.
 func TestNoCutIsTheOldRun(t *testing.T) {
+	t.Parallel()
 	cfg := content.MustLoad()
 	boxed := *cfg
 	boxed.Market.Quality = content.QualityTuning{}
@@ -76,6 +77,7 @@ func TestNoCutIsTheOldRun(t *testing.T) {
 // the connects sell at unless a cut or a chemist's lot has touched it
 // (a buy never lowers quality below the supplier's).
 func TestQualityInvariants(t *testing.T) {
+	t.Parallel()
 	cfg := content.MustLoad()
 	q := cfg.Market.Quality
 	for _, tc := range []struct {
@@ -132,6 +134,7 @@ func TestQualityInvariants(t *testing.T) {
 // cut is a third off the bag's cost today and the corners' customers
 // tomorrow. Medians over five seeds.
 func TestGreedCurve(t *testing.T) {
+	t.Parallel()
 	cfg := content.MustLoad()
 	at := func(pol func() Policy, day int) int {
 		var ws []int
@@ -166,6 +169,7 @@ func TestGreedCurve(t *testing.T) {
 // sting or raid on a quiet day adds none (#27's shape), and the file at
 // the end is what it is with od_chance zeroed and the same dice.
 func TestOverdosesArePressureNeverEvidence(t *testing.T) {
+	t.Parallel()
 	cfg := content.MustLoad()
 	quiet := *cfg
 	quiet.Market.Quality.OdChance = 0
@@ -237,6 +241,7 @@ func TestOverdosesArePressureNeverEvidence(t *testing.T) {
 // quality: with two on the payroll the best cooks, without the best the
 // next does, and with none nothing cooks.
 func TestCookBeatsBuying(t *testing.T) {
+	t.Parallel()
 	// Crew life boxed (#46): on seed 2 the cook fires its chemists for
 	// loyalty and ends with none; the test pins the cook against
 	// buying, not the crew's lives.

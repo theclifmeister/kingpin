@@ -31,6 +31,7 @@ import (
 // permits it; amd64 does not) cannot move the hash between a laptop
 // and CI while a real change to any number does.
 func TestSeedDigest(t *testing.T) {
+	t.Parallel()
 	// The duel (#43, harness.OneFaction): the digest pins the sims on the
 	// one rival's dice, the run every number before #43 was pinned on;
 	// TestOneFactionIsTheOldRun says the duel is byte-for-byte the old

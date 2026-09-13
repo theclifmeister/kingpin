@@ -13,6 +13,7 @@ import (
 )
 
 func TestDeterministicForSeed(t *testing.T) {
+	t.Parallel()
 	cfg := content.MustLoad()
 	a, err := Run(cfg, 42, 100, Trader(cfg, events.DialNormal))
 	if err != nil {
@@ -34,6 +35,7 @@ func TestDeterministicForSeed(t *testing.T) {
 }
 
 func TestPriceInvariants(t *testing.T) {
+	t.Parallel()
 	cfg := content.MustLoad()
 	tun := cfg.Market.Market
 	for seed := uint64(1); seed <= 5; seed++ {
@@ -57,6 +59,7 @@ func TestPriceInvariants(t *testing.T) {
 }
 
 func TestIdleMarketStaysNearEquilibrium(t *testing.T) {
+	t.Parallel()
 	cfg := content.MustLoad()
 	sum := map[string]float64{}
 	n := map[string]int{}
@@ -89,6 +92,7 @@ func TestIdleMarketStaysNearEquilibrium(t *testing.T) {
 }
 
 func TestAggressiveSellingCrashesPrice(t *testing.T) {
+	t.Parallel()
 	cfg := content.MustLoad()
 	// No random shocks: this measures the player's own impact.
 	cfg.Market.Market.ShockChance = 0
@@ -126,6 +130,7 @@ func TestAggressiveSellingCrashesPrice(t *testing.T) {
 // punished for playing on, and out-earns the quiet trader: that is the
 // whole point of the dial.
 func TestManagedNormalBeatsQuiet(t *testing.T) {
+	t.Parallel()
 	cfg := content.MustLoad()
 	for seed := uint64(1); seed <= 10; seed++ {
 		managed, _ := Run(cfg, seed, Horizon, Managed(cfg, 50))
@@ -140,6 +145,7 @@ func TestManagedNormalBeatsQuiet(t *testing.T) {
 }
 
 func TestHeatBounds(t *testing.T) {
+	t.Parallel()
 	cfg := content.MustLoad()
 	for seed := uint64(1); seed <= 5; seed++ {
 		res, _ := Run(cfg, seed, 500, Trader(cfg, events.DialAggressive))
@@ -152,6 +158,7 @@ func TestHeatBounds(t *testing.T) {
 }
 
 func TestAlwaysAggressiveGetsArrestedFast(t *testing.T) {
+	t.Parallel()
 	cfg := content.MustLoad()
 	for seed := uint64(1); seed <= 10; seed++ {
 		res, _ := Run(cfg, seed, Horizon, Trader(cfg, events.DialAggressive))
@@ -167,6 +174,7 @@ func TestAlwaysAggressiveGetsArrestedFast(t *testing.T) {
 // Quiet play is always safe, however long it goes on, and it pays less:
 // the dial has to be a real trade.
 func TestAlwaysQuietStaysFreeAndEarnsLess(t *testing.T) {
+	t.Parallel()
 	cfg := content.MustLoad()
 	for seed := uint64(1); seed <= 10; seed++ {
 		quiet, _ := Run(cfg, seed, Horizon, Trader(cfg, events.DialQuiet))
@@ -246,6 +254,7 @@ func medianNetWorth(t *testing.T, cfg *content.Config, policy func(*content.Conf
 // net worth must land in its band, and the test must bite when the
 // numbers drift, so it also checks that halving demand fails tier 1.
 func TestMoneyCurve(t *testing.T) {
+	t.Parallel()
 	cfg := content.MustLoad()
 	for _, row := range moneyCurve {
 		day := tierDay(row.tier)
@@ -278,6 +287,7 @@ func TestMoneyCurve(t *testing.T) {
 // indicted however long they wait. Stings and raids on a day nothing moved
 // cost stock and cash and cool heat, but add no evidence.
 func TestRichHiderIsNeverIndicted(t *testing.T) {
+	t.Parallel()
 	cfg := content.MustLoad()
 	// With the float halved too (#118: the thinner float is a laundering
 	// node; a hider with no fronts washes nothing either way).
@@ -317,6 +327,7 @@ func TestRichHiderIsNeverIndicted(t *testing.T) {
 // change is judged against, so the log says whether a missed band is the
 // rival's, the police's or the street's.
 func TestMoneyCeilings(t *testing.T) {
+	t.Parallel()
 	cfg := content.MustLoad()
 	boxes := []struct {
 		name string
@@ -329,8 +340,11 @@ func TestMoneyCeilings(t *testing.T) {
 	}
 	for _, row := range moneyCurve {
 		for _, b := range boxes {
-			med := medianNetWorth(t, b.box(cfg), row.policy, tierDay(row.tier))
-			t.Logf("tier %d: %s on day %d, %s: %d", row.tier, row.name, tierDay(row.tier), b.name, med)
+			t.Run(fmt.Sprintf("tier %d %s", row.tier, b.name), func(t *testing.T) {
+				t.Parallel()
+				med := medianNetWorth(t, b.box(cfg), row.policy, tierDay(row.tier))
+				t.Logf("tier %d: %s on day %d, %s: %d", row.tier, row.name, tierDay(row.tier), b.name, med)
+			})
 		}
 	}
 }
@@ -339,6 +353,7 @@ func TestMoneyCeilings(t *testing.T) {
 // free ride (#60): one that never lies low is indicted before the
 // horizon on every seed.
 func TestBossWhoNeverLiesLowIsIndicted(t *testing.T) {
+	t.Parallel()
 	cfg := content.MustLoad()
 	for seed := uint64(1); seed <= 10; seed++ {
 		res, _ := Run(cfg, seed, Horizon, Boss(cfg, 100, ""))
@@ -351,6 +366,7 @@ func TestBossWhoNeverLiesLowIsIndicted(t *testing.T) {
 // Designer is the port's product (#60): the home supplier does not sell
 // it, the wholesale city's does, and it reaches home by the road.
 func TestDesignerComesByRoad(t *testing.T) {
+	t.Parallel()
 	cfg := content.MustLoad()
 	home, hub := cfg.City.Home().ID, ""
 	for _, c := range cfg.City.Cities {

@@ -98,6 +98,7 @@ func probed(sims []game.Simulation, pr *probe) []game.Simulation {
 // after its offer lapsed or delivered after its due day; and demand is
 // the corners' whatever is in flight.
 func TestContractInvariants(t *testing.T) {
+	t.Parallel()
 	cfg := content.MustLoad()
 	for seed := uint64(1); seed <= 4; seed++ {
 		var welshed int
@@ -217,6 +218,7 @@ func TestContractInvariants(t *testing.T) {
 // A player who has lost every corner can still work a contract: it needs
 // no corner, and it pays.
 func TestCornerlessPlayerCanWorkAContract(t *testing.T) {
+	t.Parallel()
 	cfg := content.MustLoad()
 	w := sim.NewWorld(cfg, 3)
 	for _, cid := range w.CityOrder {
@@ -268,6 +270,7 @@ func TestCornerlessPlayerCanWorkAContract(t *testing.T) {
 // some handoff pays less a unit than the street was the day the buyer
 // asked, and the bulk mover pays under the street on the day itself.
 func TestPremiumIsABet(t *testing.T) {
+	t.Parallel()
 	cfg := content.MustLoad()
 	underSigning, underStreet := 0, 0
 	for seed := uint64(1); seed <= 20; seed++ {
@@ -313,6 +316,7 @@ func premiumOf(w *game.World, id int) float64 {
 // deliveries after it (4 of 5 seeds under the flat rival pace, 2 of 5
 // under #60's), which is a race and not the mechanism.
 func TestFailureIsFelt(t *testing.T) {
+	t.Parallel()
 	cfg := content.MustLoad()
 	pace := cfg.Buyers.Buyers
 	rep := cfg.Reputation
@@ -415,6 +419,7 @@ func TestFailureIsFelt(t *testing.T) {
 // merely lapsed adds none, and hard product handed over is pressure
 // where it was handed over.
 func TestHandoffHeat(t *testing.T) {
+	t.Parallel()
 	cfg := content.MustLoad()
 	for _, b := range cfg.Buyers.Deck {
 		if b.Heat <= cfg.Heat.Heat.CrewHeat {
@@ -554,6 +559,7 @@ func TestHandoffHeat(t *testing.T) {
 // market screen. The tier rows in TestMoneyCurve are not touched here:
 // they are re-measured once #60 lands.
 func TestDealerBeatsCrewed(t *testing.T) {
+	t.Parallel()
 	cfg := content.MustLoad()
 	median := func(p Policy) (int, []int) {
 		var worth []int
@@ -578,6 +584,7 @@ func TestDealerBeatsCrewed(t *testing.T) {
 // Every buyer in the deck comes looking somewhere across a few seeds and
 // policies, and none of their pitches renders with a hole in it.
 func TestEveryBuyerIsDealtAndReadsClean(t *testing.T) {
+	t.Parallel()
 	cfg := content.MustLoad()
 	seen := map[string]int{}
 	for seed := uint64(1); seed <= 4; seed++ {
@@ -617,6 +624,7 @@ func TestEveryBuyerIsDealtAndReadsClean(t *testing.T) {
 // A buyer's gates hold: the unlock, the blacklist, once, and a trigger in
 // the dilemma deck's shape.
 func TestBuyerTriggersHold(t *testing.T) {
+	t.Parallel()
 	cfg := content.MustLoad()
 	set, _, err := sim.Default(cfg)
 	if err != nil {
@@ -668,6 +676,7 @@ func TestBuyerTriggersHold(t *testing.T) {
 // is the same world as one with it dealt, contracts aside: the deck
 // touches nothing else.
 func TestContractsAreDeterministicAndBoxable(t *testing.T) {
+	t.Parallel()
 	cfg := content.MustLoad()
 	days := func(res Result) []string {
 		var out []string

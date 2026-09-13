@@ -27,6 +27,7 @@ func noOffshore(cfg *content.Config) *content.Config {
 // and nothing else differs; no Reserved goes out and the account stays
 // empty.
 func TestNoReserveIsTheOldRun(t *testing.T) {
+	t.Parallel()
 	cfg := content.MustLoad()
 	off := noOffshore(cfg)
 	for seed := uint64(1); seed <= 3; seed++ {
@@ -96,6 +97,7 @@ func reservingHider(t *testing.T, cfg *content.Config, seed uint64, days int, cl
 // (TestRichHiderIsNeverIndicted's, with the account) is never indicted
 // however long they wait.
 func TestStructuringFilesPages(t *testing.T) {
+	t.Parallel()
 	cfg := content.MustLoad()
 	off := cfg.Laundering.Offshore
 	pages := cfg.Heat.Heat.StructureEvidence
@@ -150,6 +152,7 @@ func TestStructuringFilesPages(t *testing.T) {
 // halves the pile and leaves the account whole; an audit takes from
 // the pile and never the account; and the account counts in net worth.
 func TestTheAccountIsSafe(t *testing.T) {
+	t.Parallel()
 	cfg := content.MustLoad()
 	for seed := uint64(1); seed <= 3; seed++ {
 		w := sim.NewWorld(cfg, seed)
@@ -204,6 +207,7 @@ func TestTheAccountIsSafe(t *testing.T) {
 // low k more days before retiring scores the same or lower (#49's
 // no-day-cap rule: playing on is not rewarded), in a table.
 func TestRetireeRetires(t *testing.T) {
+	t.Parallel()
 	cfg := content.MustLoad()
 	ld := laundering.New(cfg)
 	retired := 0
@@ -317,6 +321,7 @@ func scoreAt(t *testing.T, cfg *content.Config, seed uint64, k int) int {
 // a lot a day holds under a third of its old $30M in the pile at day
 // 200 (TestBossPileDrains reads the pile).
 func TestRetireIsATierFourExit(t *testing.T) {
+	t.Parallel()
 	cfg := content.MustLoad()
 	off := cfg.Laundering.Offshore
 	ld := laundering.New(cfg)

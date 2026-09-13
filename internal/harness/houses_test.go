@@ -56,6 +56,7 @@ func enforcement(res Result) *events.Enforcement {
 // spreading loses a smaller fraction of the stock per raid. The
 // Enforcement names the house and its StockLost is exactly what left it.
 func TestRaidHitsOnePlaceSoSpreadingLosesLess(t *testing.T) {
+	t.Parallel()
 	cfg := content.MustLoad()
 	product := cfg.Market.Products[0].ID
 	one, three := 0.0, 0.0
@@ -121,6 +122,7 @@ func TestRaidHitsOnePlaceSoSpreadingLosesLess(t *testing.T) {
 // of it and nothing from the others. A raid on a known house is the
 // next raid's target too.
 func TestInformantRaidTakesTheWholeKnownHouse(t *testing.T) {
+	t.Parallel()
 	cfg := content.MustLoad()
 	cfg.Market.Market.ShockChance, cfg.Market.Market.SlumpChance = 0, 0
 	product := cfg.Market.Products[0].ID
@@ -191,6 +193,7 @@ func TestInformantRaidTakesTheWholeKnownHouse(t *testing.T) {
 // in the house the street is hit as if there were no house, and with a
 // unit in a house on a hot block the street is still hit on some seeds.
 func TestDecoyHouseNeverShieldsTheStreet(t *testing.T) {
+	t.Parallel()
 	cfg := content.MustLoad()
 	product := cfg.Market.Products[0].ID
 	street, house := 0, 0
@@ -237,6 +240,7 @@ func TestDecoyHouseNeverShieldsTheStreet(t *testing.T) {
 // 200 days and five seeds, and an enforcer cannot guard a house and a
 // corner at once.
 func TestGuardIsWorthItsWage(t *testing.T) {
+	t.Parallel()
 	cfg := content.MustLoad()
 	product := cfg.Market.Products[0].ID
 	robbed := map[bool]int{}
@@ -298,6 +302,7 @@ func TestGuardIsWorthItsWage(t *testing.T) {
 // A robbery makes a house known (#73): the next raid finds it whatever
 // the roll would have said.
 func TestRobberyMakesTheHouseKnown(t *testing.T) {
+	t.Parallel()
 	cfg := content.MustLoad()
 	product := cfg.Market.Products[0].ID
 	w := rented(t, cfg, 3, 400, 200, 200)
@@ -318,6 +323,7 @@ func TestRobberyMakesTheHouseKnown(t *testing.T) {
 // out within 100 days; the same player with fronts keeps every house it
 // takes. The numbers are logged for the PR.
 func TestRentIsALaunderingPull(t *testing.T) {
+	t.Parallel()
 	cfg := content.MustLoad()
 	lost := map[bool]int{}
 	held := map[bool]int{}
@@ -354,6 +360,7 @@ func TestRentIsALaunderingPull(t *testing.T) {
 // corner; a house robbery or raid took its stock from that one house
 // (the event's StockLost is at most what it held).
 func TestHouseInvariants(t *testing.T) {
+	t.Parallel()
 	cfg := content.MustLoad()
 	for _, houses := range []int{StashHouses, 1} {
 		w := sim.NewWorld(cfg, 4)
@@ -468,6 +475,7 @@ func TestStashedIsDeterministicAndSaves(t *testing.T) {
 // against laundered at the tier days, the rent each paid and what each
 // lost out of the houses, over five seeds.
 func TestStashedNumbers(t *testing.T) {
+	t.Parallel()
 	cfg := content.MustLoad()
 	type row struct {
 		name string

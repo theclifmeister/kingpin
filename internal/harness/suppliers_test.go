@@ -24,6 +24,7 @@ import (
 // read every morning, when the day's buys are on it and before the
 // market closes it.
 func TestSupplierInvariants(t *testing.T) {
+	t.Parallel()
 	cfg := content.MustLoad()
 	policies := map[string]Policy{
 		"crewed":      Crewed(cfg, 40),
@@ -83,6 +84,7 @@ func TestSupplierInvariants(t *testing.T) {
 // free money); and over twenty seeds it misses at least one payment.
 // With credit withdrawn it is the crewed player exactly.
 func TestLeveragedIsALeverNotFreeMoney(t *testing.T) {
+	t.Parallel()
 	cfg := content.MustLoad()
 	var early, late, crewEarly, crewLate []int
 	missed := 0
@@ -124,6 +126,7 @@ func TestLeveragedIsALeverNotFreeMoney(t *testing.T) {
 // hiding, is still free at the horizon whatever the tempers do, and
 // the leveraged player's endings are the police's, never the connects'.
 func TestDebtNeverEndsTheRun(t *testing.T) {
+	t.Parallel()
 	cfg := content.MustLoad()
 	for _, temper := range content.Tempers {
 		for seed := uint64(1); seed <= 3; seed++ {
@@ -189,6 +192,7 @@ func TestDebtNeverEndsTheRun(t *testing.T) {
 // price the crewed player pays a unit against street on every seed, and
 // respect (#14) still pulls its way on top of it.
 func TestRelationshipPays(t *testing.T) {
+	t.Parallel()
 	// The duel (#43, harness.OneFaction): this pins a mechanism on a seed, and the table moves the seed's dice.
 	cfg := OneFaction(content.MustLoad())
 	for seed := uint64(1); seed <= 5; seed++ {
@@ -237,6 +241,7 @@ func TestRelationshipPays(t *testing.T) {
 // and at the floor the connect freezes while the other connect in the
 // city still sells (#72).
 func TestBustsAndSeizuresHurtTheConnects(t *testing.T) {
+	t.Parallel()
 	cfg := content.MustLoad()
 	w := sim.NewWorld(cfg, 4)
 	home, hub := w.CityOrder[0], w.CityOrder[1]

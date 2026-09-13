@@ -1,8 +1,10 @@
 package harness
 
 import (
+	"fmt"
 	"reflect"
 	"strings"
+	"sync"
 	"testing"
 
 	"github.com/theclifmeister/kingpin/internal/content"
@@ -26,63 +28,97 @@ func incidents(res Result) []string {
 // 300 days with the table on, and none of them renders with a hole in
 // it: the headline under the world source and the report's line. A
 // rich idle player, so the rows that read the operation's size
-// (peak_cash_min) are eligible and nothing ends the run.
+// (peak_cash_min) are eligible and nothing ends the run. The seeds run
+// as eight parallel chunks of twenty-five (#212); what they share, the
+// tally of what fired and the hole count, sits behind incidentTally's
+// mutex, and every chunk reads the same seeds and asserts the same
+// things the one loop did.
 func TestEveryIncidentFires(t *testing.T) {
+	t.Parallel()
 	cfg := content.MustLoad()
 	if len(cfg.Incidents.Table) < 13 {
 		t.Fatalf("the table has %d rows; the issue asks for the starter eleven (rival_leader_killed waits for #43) and #48's two", len(cfg.Incidents.Table))
 	}
-	seen := map[string]int{}
-	holes := 0
-	for seed := uint64(1); seed <= 200; seed++ {
-		w := sim.NewWorld(cfg, seed)
-		w.Player.DirtyCash = 300_000
-		w.Stats.PeakCash = 5_000_000 // the tier-5 rows (#48) wait for a $5M peak and day 150
-		res, err := Play(cfg, w, 300, Idle, Options{Incidents: true})
-		if err != nil {
-			t.Fatal(err)
-		}
-		if res.Over != nil {
-			t.Fatalf("seed %d: the idle player's run ended: %+v", seed, res.Over)
-		}
-		fired := map[int]events.Incident{}
-		for _, e := range res.Events {
-			if ev, ok := e.(events.Incident); ok {
-				seen[ev.ID]++
-				if _, twice := fired[ev.Day]; twice {
-					t.Fatalf("seed %d: two incidents on day %d", seed, ev.Day)
+	tally := &incidentTally{seen: map[string]int{}}
+	t.Run("seeds", func(t *testing.T) {
+		for chunk := uint64(0); chunk < 8; chunk++ {
+			first, last := chunk*25+1, (chunk+1)*25
+			t.Run(fmt.Sprintf("%d-%d", first, last), func(t *testing.T) {
+				t.Parallel()
+				for seed := first; seed <= last; seed++ {
+					w := sim.NewWorld(cfg, seed)
+					w.Player.DirtyCash = 300_000
+					w.Stats.PeakCash = 5_000_000 // the tier-5 rows (#48) wait for a $5M peak and day 150
+					res, err := Play(cfg, w, 300, Idle, Options{Incidents: true})
+					if err != nil {
+						t.Fatal(err)
+					}
+					if res.Over != nil {
+						t.Fatalf("seed %d: the idle player's run ended: %+v", seed, res.Over)
+					}
+					fired := map[int]events.Incident{}
+					for _, e := range res.Events {
+						if ev, ok := e.(events.Incident); ok {
+							if _, twice := fired[ev.Day]; twice {
+								t.Fatalf("seed %d: two incidents on day %d", seed, ev.Day)
+							}
+							fired[ev.Day] = ev
+						}
+					}
+					if len(fired) != len(res.World.Incidents.Fired) {
+						t.Fatalf("seed %d: %d incidents fired, %d recorded", seed, len(fired), len(res.World.Incidents.Fired))
+					}
+					for _, h := range res.World.Journal {
+						if h.Source != "world" {
+							continue
+						}
+						if _, ok := fired[h.Day]; !ok {
+							t.Fatalf("seed %d: a world headline on day %d with no incident: %q", seed, h.Day, h.Text)
+						}
+					}
+					if tally.record(t, seed, fired, res.World.Journal) > 10 {
+						t.Fatal("stopping at ten holes")
+					}
 				}
-				fired[ev.Day] = ev
-			}
+			})
 		}
-		if len(fired) != len(res.World.Incidents.Fired) {
-			t.Fatalf("seed %d: %d incidents fired, %d recorded", seed, len(fired), len(res.World.Incidents.Fired))
-		}
-		for _, h := range res.World.Journal {
-			if h.Source != "world" {
-				continue
-			}
-			if _, ok := fired[h.Day]; !ok {
-				t.Fatalf("seed %d: a world headline on day %d with no incident: %q", seed, h.Day, h.Text)
-			}
-			if hole(h.Text) {
-				holes++
-				t.Errorf("seed %d day %d: headline %q has a hole", seed, h.Day, h.Text)
-			}
-		}
-		if holes > 10 {
-			t.Fatal("stopping at ten holes")
-		}
-	}
+	})
 	var missing []string
 	for _, inc := range cfg.Incidents.Table {
-		if seen[inc.ID] == 0 {
+		if tally.seen[inc.ID] == 0 {
 			missing = append(missing, inc.ID)
 		}
 	}
 	if len(missing) > 0 {
-		t.Errorf("incidents never dealt across 200 seeds x 300 days: %v (seen %v)", missing, seen)
+		t.Errorf("incidents never dealt across 200 seeds x 300 days: %v (seen %v)", missing, tally.seen)
 	}
+}
+
+// incidentTally is what TestEveryIncidentFires's chunks share: how
+// often each incident fired and how many headlines had a hole.
+type incidentTally struct {
+	mu    sync.Mutex
+	seen  map[string]int
+	holes int
+}
+
+// record counts one seed's incidents and its holed world headlines and
+// returns the hole count so far. The lock is held only here, released
+// by the defer, so a Fatal in the chunk can never leave it held.
+func (ta *incidentTally) record(t *testing.T, seed uint64, fired map[int]events.Incident, journal []game.Headline) int {
+	t.Helper()
+	ta.mu.Lock()
+	defer ta.mu.Unlock()
+	for _, ev := range fired {
+		ta.seen[ev.ID]++
+	}
+	for _, h := range journal {
+		if h.Source == "world" && hole(h.Text) {
+			ta.holes++
+			t.Errorf("seed %d day %d: headline %q has a hole", seed, h.Day, h.Text)
+		}
+	}
+	return ta.holes
 }
 
 // hole is a template slot that did not fill.
@@ -93,6 +129,7 @@ func hole(s string) bool {
 // The report opens with the incident the morning it fires, and the line
 // reads clean.
 func TestIncidentOpensTheReport(t *testing.T) {
+	t.Parallel()
 	cfg := content.MustLoad()
 	w := sim.NewWorld(cfg, 3)
 	w.Player.DirtyCash = 300_000
@@ -193,6 +230,7 @@ func TestIncidentStreamIsTheSeeds(t *testing.T) {
 // harness's default (Run, RunFrom, RunWith) boxes it. TestSeedDigest
 // pins the rest of the world for it.
 func TestNoIncidentsIsTheOldRun(t *testing.T) {
+	t.Parallel()
 	cfg := content.MustLoad()
 	for _, run := range []struct {
 		name string
@@ -225,6 +263,7 @@ func TestNoIncidentsIsTheOldRun(t *testing.T) {
 // incidents are weather, not difficulty. The medians with and without
 // are logged so the PR can name the delta.
 func TestIncidentsAreWeather(t *testing.T) {
+	t.Parallel()
 	cfg := content.MustLoad()
 	median := func(xs []int) int {
 		sortInts(xs)
@@ -299,6 +338,7 @@ func TestIncidentsAreWeather(t *testing.T) {
 // chief who resigns is replaced the same morning, and the headline names
 // the one who left.
 func TestSnapElectionAndResignation(t *testing.T) {
+	t.Parallel()
 	cfg := content.MustLoad()
 	only := func(id string) *content.Config {
 		c := *cfg

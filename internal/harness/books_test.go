@@ -29,6 +29,7 @@ func booksSim(cfg *content.Config) *rivals.Sim {
 // your pocket (the stats add up); Known is written by nothing but a
 // scout that read the books and its day is never past today.
 func TestBooksInvariants(t *testing.T) {
+	t.Parallel()
 	// The duel (#43, harness.OneFaction): this pins a mechanism on a seed, and the table moves the seed's dice.
 	cfg := OneFaction(content.MustLoad())
 	for name, mk := range map[string]func() Policy{
@@ -130,6 +131,7 @@ func mustSims(t *testing.T, cfg *content.Config) []game.Simulation {
 // The rival's corners under each are logged: the war routs it where the
 // saboteur bleeds it.
 func TestSaboteurDrainsTheMuscleQuietly(t *testing.T) {
+	t.Parallel()
 	cfg := content.MustLoad()
 	type row struct {
 		muscle, corners []int
@@ -181,6 +183,7 @@ func TestSaboteurDrainsTheMuscleQuietly(t *testing.T) {
 // more of them and costs cash for each; the buy-off removes more muscle
 // than the boost's night and costs more per head.
 func TestBuyOffRemovesMoreMuscleAtAPrice(t *testing.T) {
+	t.Parallel()
 	cfg := content.MustLoad()
 	sure := *cfg
 	sure.Rivals.Poach.Odds = 1
@@ -265,6 +268,7 @@ func format(n int) string { return fmt.Sprintf("$%d", n) }
 // tips; a tip under a truce breaks it; and a raid raises home's
 // pressure.
 func TestTipsHaveTeethBothWays(t *testing.T) {
+	t.Parallel()
 	cfg := content.MustLoad()
 	tp := cfg.Rivals.Tip
 	stale := cfg.Rivals.Books.StaleDays
@@ -423,6 +427,7 @@ func TestBooksAreDeterministicAndSave(t *testing.T) {
 // the books is reported, so every pinned number stands (TestMoneyCurve
 // is the guard).
 func TestNoBooksIsTheOldRun(t *testing.T) {
+	t.Parallel()
 	cfg := content.MustLoad()
 	res := pricewarRun(t, cfg, 1, 120, "", Territory(cfg, 40, 3), func(w *game.World) {
 		if w.Rival().Heat != 0 || w.Rival().Known.Read() || w.Rival().Scouted != 0 || w.Rival().LastRaid != 0 {

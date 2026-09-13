@@ -39,6 +39,7 @@ func hireAffordable(cfg *content.Config, w *game.World) {
 // Loyalty after 100 quiet days must be monotone in pay for every member:
 // generous >= fair >= stingy. Someone who quit counts as zero.
 func TestLoyaltyMonotoneInPay(t *testing.T) {
+	t.Parallel()
 	cfg := content.MustLoad()
 	cfg.Heat.Heat.DirtyCashHeat = 0 // a rich, idle player is not in danger
 	cfg.Market.Market.StartCash = 1_000_000
@@ -77,6 +78,7 @@ func TestLoyaltyMonotoneInPay(t *testing.T) {
 // also prove the mechanic fires at all, and that people at the bottom
 // leave, by walking or by going over to the rival.
 func TestSkimOnlyBelowThreshold(t *testing.T) {
+	t.Parallel()
 	cfg := content.MustLoad()
 	thr := cfg.Crew.Crew.SkimThreshold
 	trade := Trader(cfg, events.DialQuiet)
@@ -121,6 +123,7 @@ func TestSkimOnlyBelowThreshold(t *testing.T) {
 // Pinning loyalty above the threshold must silence skimming entirely, even
 // with a full crew on stingy pay and money on the table.
 func TestNoSkimWhenLoyal(t *testing.T) {
+	t.Parallel()
 	cfg := content.MustLoad()
 	trade := Trader(cfg, events.DialQuiet)
 	for seed := uint64(1); seed <= 5; seed++ {
@@ -150,6 +153,7 @@ func TestNoSkimWhenLoyal(t *testing.T) {
 // dirty-cash pile that is its own heat source until #27 lands; the game
 // itself has no day cap.
 func TestCrewedBeatsManaged(t *testing.T) {
+	t.Parallel()
 	cfg := content.MustLoad()
 	for seed := uint64(1); seed <= 10; seed++ {
 		crewed, _ := Run(cfg, seed, Horizon, Crewed(cfg, 40))
@@ -168,6 +172,7 @@ func TestCrewedBeatsManaged(t *testing.T) {
 
 // The crew sim draws from the tick RNG; a crewed run must replay exactly.
 func TestCrewedIsDeterministic(t *testing.T) {
+	t.Parallel()
 	cfg := content.MustLoad()
 	a, _ := Run(cfg, 5, 150, Crewed(cfg, 40))
 	b, _ := Run(cfg, 5, 150, Crewed(cfg, 40))
@@ -190,6 +195,7 @@ func TestCrewedIsDeterministic(t *testing.T) {
 // more (Hire takes the cap from crew.Sim.MaxCrew, which folds
 // crew_slots).
 func TestCrewInvariantsUnderTheBranch(t *testing.T) {
+	t.Parallel()
 	cfg := content.MustLoad()
 	crewSim := crew.New(cfg)
 	branch := func(w *game.World) {

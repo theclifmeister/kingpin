@@ -51,6 +51,7 @@ func pricewarRun(t *testing.T, cfg *content.Config, seed uint64, days int, perso
 // own corners' demand reads the same as the corners' whatever is
 // squeezed; and nothing moves under a truce or a tribute.
 func TestPricewarInvariants(t *testing.T) {
+	t.Parallel()
 	cfg := content.MustLoad()
 	mk, err := market.New(cfg)
 	if err != nil {
@@ -119,6 +120,7 @@ func TestPricewarInvariants(t *testing.T) {
 // from day 20 for 30 days undercuts before and after it and never
 // during, and the action is refused on every morning of it.
 func TestPricewarKeepsThePeace(t *testing.T) {
+	t.Parallel()
 	// The duel (#43, harness.OneFaction): this pins a mechanism on a seed, and the table moves the seed's dice.
 	cfg := OneFaction(content.MustLoad())
 	policy := Pricewar(cfg, 40, 3, events.DialNormal)
@@ -160,6 +162,7 @@ func TestPricewarKeepsThePeace(t *testing.T) {
 // (seed 2 reads 13% over at the same corner count). RivalBooks logs
 // the take against the wage bill (#139: a head is a tenth of it).
 func TestPricewarCutsTheRivalsIncome(t *testing.T) {
+	t.Parallel()
 	cfg := content.MustLoad()
 	rv := rivals.New(cfg)
 	for seed := uint64(1); seed <= 5; seed++ {
@@ -204,6 +207,7 @@ func TestPricewarCutsTheRivalsIncome(t *testing.T) {
 // corners up to the price war and an expansionist pushes back on the
 // corner doing the cutting; a defensive rival never gives one up.
 func TestPricewarIsAnswered(t *testing.T) {
+	t.Parallel()
 	// The duel (#43, harness.OneFaction): this pins a mechanism on a seed, and the table moves the seed's dice.
 	cfg := OneFaction(content.MustLoad())
 	policy := Pricewar(cfg, 40, 3, events.DialNormal)
@@ -254,6 +258,7 @@ func TestPricewarIsAnswered(t *testing.T) {
 // corners is logged (the ground an opportunist gives up is worth more
 // to the price war than the discount costs it).
 func TestPricewarCostsMargin(t *testing.T) {
+	t.Parallel()
 	// The duel (#43, harness.OneFaction): this pins a mechanism on a seed, and the table moves the seed's dice.
 	cfg := OneFaction(content.MustLoad())
 	median := func(policy Policy) int {
@@ -282,6 +287,7 @@ func TestPricewarCostsMargin(t *testing.T) {
 // war routs a defensive rival in its first weeks and the war then
 // fades, the price war simmers for the run at a few points of war.
 func TestPricewarIsQuieterThanAHitWar(t *testing.T) {
+	t.Parallel()
 	cfg := content.MustLoad()
 	var heat, war [2][]float64
 	var corners, lowDays [2][]int
@@ -406,6 +412,7 @@ func TestPricewarIsDeterministicAndSaves(t *testing.T) {
 // rival corners are never squeezed and the report never names a price
 // war, so every pinned number stands (TestMoneyCurve is the guard).
 func TestNoUndercutIsTheOldRun(t *testing.T) {
+	t.Parallel()
 	cfg := content.MustLoad()
 	rv := rivals.New(cfg)
 	res := pricewarRun(t, cfg, 1, 120, "", Territory(cfg, 40, 3), func(w *game.World) {

@@ -21,6 +21,7 @@ import (
 // under the same box, and cmd/balance -factions 1 prints main's trace)
 // and a run of every home policy emits none of the table's events.
 func TestOneFactionIsTheOldRun(t *testing.T) {
+	t.Parallel()
 	cfg := OneFaction(content.MustLoad())
 	for _, row := range []struct {
 		tier   int
@@ -70,6 +71,7 @@ func TestOneFactionIsTheOldRun(t *testing.T) {
 // absorbed on some seed within 200 days. No corner ever has two owners
 // and every faction's books stay in range, on every day.
 func TestFactionsContestBeforeDay120(t *testing.T) {
+	t.Parallel()
 	cfg := Factions(content.MustLoad(), 4)
 	pushed, absorbed := 0, 0
 	const seeds = 10
@@ -114,6 +116,7 @@ func TestFactionsContestBeforeDay120(t *testing.T) {
 // acts on next step (the corner they stood on; sim/rivals pins the head
 // it gains), one that does not leaves them on the payroll.
 func TestPoachingIsTheDefectionPath(t *testing.T) {
+	t.Parallel()
 	cfg := content.MustLoad()
 	offers, landed := 0, 0
 	for seed := uint64(1); seed <= 8; seed++ {
@@ -163,6 +166,7 @@ func TestPoachingIsTheDefectionPath(t *testing.T) {
 // fragment_days its corners are the street's, its muscle is in your
 // pool at the discount, and its city's prices spiked the morning after.
 func TestTippingFragmentsTheFaction(t *testing.T) {
+	t.Parallel()
 	cfg := content.MustLoad()
 	f := cfg.Rivals.Factions
 	fragmented := false
@@ -224,6 +228,7 @@ func TestTippingFragmentsTheFaction(t *testing.T) {
 // nobody wins the city by accident (two seeds each: the harness runs
 // under CI's ten-minute cap with -race).
 func TestNobodyIsDominantByAccident(t *testing.T) {
+	t.Parallel()
 	cfg := content.MustLoad()
 	policies := map[string]Policy{
 		"idle": Idle, "hide": Hide, "quiet": Trader(cfg, events.DialQuiet), "aggressive": Trader(cfg, events.DialAggressive),
@@ -250,6 +255,7 @@ func TestNobodyIsDominantByAccident(t *testing.T) {
 // Dominant is true in a scripted scenario (#43): two of three factions
 // gone, and the tipster taking the last one's leader.
 func TestDominantScripted(t *testing.T) {
+	t.Parallel()
 	cfg := Factions(content.MustLoad(), 3)
 	for seed := uint64(1); seed <= 6; seed++ {
 		w := sim.NewWorld(cfg, seed)
@@ -333,6 +339,7 @@ func TestSixFactionsAreDeterministicAndSave(t *testing.T) {
 // The away knob (#43): with away = 1 a seat after the first lives in
 // Bayport, and its corners are Bayport's.
 func TestAwayFactionHoldsBayport(t *testing.T) {
+	t.Parallel()
 	cfg := Factions(content.MustLoad(), 4)
 	cfg.Rivals.Factions.Away = 1
 	for seed := uint64(1); seed <= 4; seed++ {
