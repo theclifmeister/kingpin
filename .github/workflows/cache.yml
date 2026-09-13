@@ -93,6 +93,11 @@ jobs:
           find . -path ./.git -prune -o -type d -exec touch -d @1000000000 {} +
           touch -d @1000000000 .git
 
+      - name: DEBUG ls after-mtimes
+        run: |
+          ls -la --time-style=full-iso . internal cmd | head -60
+          stat -c '%n %s %Y %f' . .git internal cmd
+
       - uses: actions/setup-go@v7
         with:
           go-version-file: go.mod
@@ -109,10 +114,24 @@ jobs:
       - name: build
         run: go build ./...
 
+      - name: DEBUG ls after-build
+        run: |
+          ls -la --time-style=full-iso . internal cmd | head -60
+          stat -c '%n %s %Y %f' . .git internal cmd
+
       - name: test
         run: |
           go test -timeout 30m ./internal/harness ./internal/ui
           go test -race -timeout 30m $(go list ./... | grep -v -e /internal/harness$ -e /internal/ui$)
+
+      - name: DEBUG ls after-test
+        run: |
+          ls -la --time-style=full-iso . internal cmd | head -60
+          stat -c '%n %s %Y %f' . .git internal cmd
+      - name: DEBUG game twice
+        run: |
+          GODEBUG=gocachetest=1 go test -race -timeout 30m ./internal/game
+          GODEBUG=gocachetest=1 go test -race -timeout 30m ./internal/game
 
       - uses: actions/cache/save@v6
         if: ${{ !cancelled() }}
