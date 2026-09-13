@@ -93,6 +93,7 @@ func (c *Clock) EndDay(w *World) []events.Event {
 	w.Crew.HiredToday = nil
 	w.Crew.FiredToday = nil
 	w.Crew.PaidOffToday = nil
+	w.Crew.BailedToday = nil
 	for _, c := range w.Cities {
 		for _, m := range c.Market {
 			m.BoughtToday = 0
@@ -117,8 +118,8 @@ func (c *Clock) EndDay(w *World) []events.Event {
 // contract receipts: of Buys it keeps what the supply contracts bought
 // in the tick that brings day, so the cart can show and return them
 // through the day (supplied). Nothing else on World is per-day: the
-// sims' own tallies (Dilemmas.Answered, Crew.HiredToday, FiredToday and
-// PaidOffToday, a market's BoughtToday) stay on their sims' state and
+// sims' own tallies (Dilemmas.Answered, Crew.HiredToday, FiredToday,
+// PaidOffToday and BailedToday, a market's BoughtToday) stay on their sims' state and
 // the clock clears them beside it.
 func (w *World) ClearToday(day int) {
 	w.Today = Today{Orders: map[string]SellOrder{}, Buys: supplied(w.Today.Buys, day)}

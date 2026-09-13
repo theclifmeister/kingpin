@@ -919,6 +919,64 @@ func Distributor(cfg *content.Config, lieLowAt float64) Policy {
 // the route's target at.
 const DistributorDays = 4
 
+// Driven plays like Distributor with a driver on the road (#46): it
+// hires the driver looking for work once one is, and puts them on the
+// route it runs, so the same seeds read what the driver's cut is worth
+// in seizures. It is the baseline for "a player who staffs the road".
+func Driven(cfg *content.Config, lieLowAt float64) Policy {
+	distributor := Distributor(cfg, lieLowAt)
+	return func(w *game.World) {
+		distributor(w)
+		Drive(cfg, w)
+	}
+}
+
+// Drive hires the best driver looking for work when the roster has the
+// room and the till the fee, and keeps the driver on the payroll on
+// the route with the most on it (the one the distributor runs), so a
+// policy staffs the road with one line.
+func Drive(cfg *content.Config, w *game.World) {
+	maxCrew := crew.New(cfg).MaxCrew(w)
+	var drv *game.CrewMember
+	for i := range w.Crew.Members {
+		if m := &w.Crew.Members[i]; m.Role == game.RoleDriver && (drv == nil || m.Skill > drv.Skill) {
+			drv = m
+		}
+	}
+	if drv == nil {
+		best := -1
+		for i, c := range w.Crew.Candidates {
+			if c.Role == game.RoleDriver && (best < 0 || c.Skill > w.Crew.Candidates[best].Skill) {
+				best = i
+			}
+		}
+		if best < 0 || len(w.Crew.Members) >= maxCrew {
+			return
+		}
+		c := w.Crew.Candidates[best]
+		if w.Player.DirtyCash < c.Fee+cfg.Market.Market.StartCash {
+			return
+		}
+		m, err := w.Hire(c.ID, maxCrew)
+		if err != nil {
+			return
+		}
+		drv = w.Crew.Member(m.ID)
+	}
+	if w.DrivenRoute(drv.ID) != "" {
+		return
+	}
+	best, most := "", -1
+	for _, r := range cfg.Routes.Routes {
+		if rs := w.Route(r.ID); rs.Dial.On() && len(rs.Target)+len(rs.Days) > most {
+			best, most = r.ID, len(rs.Target)+len(rs.Days)
+		}
+	}
+	if best != "" {
+		_ = w.SetRouteDriver(best, drv.ID)
+	}
+}
+
 // Corrupt plays like Distributor and buys the law (#42): whenever the
 // heat where it stands or at home is over CorruptHeat and the chief is
 // not already bought, it hands the chief chief_price (it knows a
@@ -1474,6 +1532,18 @@ var TierDays = content.MustLoad().Progression.Checkpoints()
 func NoRival(cfg *content.Config) *content.Config {
 	boxed := *cfg
 	boxed.Rivals.Rivals.ArriveDay = 1 << 30
+	return &boxed
+}
+
+// NoLife returns a copy of cfg with crew.toml's [life] table boxed
+// (#46): nobody ages, retires, is arrested, wounded or killed, no kin
+// come looking and no driver's cut is worth anything. Every life roll
+// is off the life stream, so a run under it is byte-for-byte the run
+// before the feature (TestNoLifeIsTheOldRun); the game's default is
+// the table on, and every band and ordering is measured with it on.
+func NoLife(cfg *content.Config) *content.Config {
+	boxed := *cfg
+	boxed.Crew.Life = content.LifeTuning{}
 	return &boxed
 }
 

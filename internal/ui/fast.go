@@ -230,6 +230,14 @@ func (m *Model) stopEvent(e events.Event) string {
 		return ev.Name + " quit"
 	case events.CrewDefected:
 		return ev.Name + " defected"
+	case events.CrewArrested:
+		return ev.Name + " was arrested" // #46
+	case events.CrewShot:
+		if ev.Dead && !ev.Theirs {
+			return ev.Name + " was shot dead"
+		}
+	case events.CrewRetired:
+		return ev.Name + " retired"
 	case events.LieutenantWalked:
 		return ev.Name + " walked with " + ev.CityName
 	case events.FrontAudited:

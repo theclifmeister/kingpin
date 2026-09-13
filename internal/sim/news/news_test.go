@@ -30,6 +30,7 @@ func TestEveryEmittedEventHasTemplate(t *testing.T) {
 		"LaidLow", "HeatWarning",
 		"CrewHired", "CrewFired", "CrewFiredInformant", "CrewQuit", "CrewSkimmed",
 		"CrewDefected", "InvestigationRun", "LieutenantWalked", "LieutenantWalkedRival",
+		"CrewArrested", "CrewReleased", "CrewShot", "CrewKilled", "CrewRetired", "MuscleKilled", // CrewBailed, CrewRecovered and KinLooking are report-only (#46)
 		"CornerClaimed", "CornerLost", "CornerRobbed", "CornerCrackdown",
 		"RivalMovedIn", "RivalEyeing", "RivalOutbid", "RivalClaimed", "CornerTaken", "CornerHanded", "RivalPushed",
 		"RivalAbandoned", // PlayerUndercut is report-only

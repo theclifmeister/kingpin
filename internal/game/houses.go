@@ -288,6 +288,12 @@ func (w *World) Guard(house string, id int) error {
 	if m.Role != "enforcer" {
 		return ErrNotEnforcer
 	}
+	if m.Jailed(w.Day) {
+		return ErrJailed
+	}
+	if m.Wounded(w.Day) {
+		return ErrWounded
+	}
 	w.Recall(id)
 	h.Guard = id
 	return nil

@@ -71,7 +71,10 @@ func TestReputationInvariants(t *testing.T) {
 // would push the three past it shrink them all to fit, so a player fed
 // every source at once cannot end above 70 on all three.
 func TestReputationCannotMaxAllThree(t *testing.T) {
-	cfg := content.MustLoad()
+	// Crew life boxed (#46): the three hand-built enforcers would be
+	// shot dead over 200 nightly hits and the feed would stop; the test
+	// pins the cap.
+	cfg := NoLife(content.MustLoad())
 	w := sim.NewWorld(cfg, 1)
 	w.Player.DirtyCash = 1_000_000
 	w.SetPay(events.PayGenerous)

@@ -82,6 +82,12 @@ func (s *Sim) Step(w *game.World, t *game.Tick) {
 		case events.Overdose:
 			// The paper names the block, the block names you (#47).
 			notoriety += s.cfg.Notoriety.Overdose
+		case events.CrewShot:
+			// A body on your corner, either side (#46): the paper
+			// names you.
+			if ev.Dead {
+				notoriety += s.cfg.Notoriety.Body
+			}
 		}
 	}
 	if s.cfg.Notoriety.Units > 0 {

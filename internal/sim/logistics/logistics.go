@@ -26,6 +26,7 @@ type Sim struct {
 	market content.MarketConfig
 	tree   content.UpgradesConfig
 	law    content.LawFX // #42: what a bought checkpoint or customs agent takes off an edge's risk
+	driver float64       // #46: what a skill-100 driver takes off a shipment's risk per day (crew.toml [role.driver] driver_cut)
 	float  int           // dirty cash the road never spends below: the laundering float
 }
 
@@ -37,7 +38,7 @@ type Sim struct {
 // the laundering float: the road never starves the street any more than
 // the wash does.
 func New(cfg *content.Config) *Sim {
-	return &Sim{cfg: cfg.Routes, cities: cfg.City, market: cfg.Market, tree: cfg.Upgrades, law: cfg.Law.Effects, float: cfg.Laundering.Laundering.Float}
+	return &Sim{cfg: cfg.Routes, cities: cfg.City, market: cfg.Market, tree: cfg.Upgrades, law: cfg.Law.Effects, driver: cfg.Crew.Role[game.RoleDriver].DriverCut, float: cfg.Laundering.Laundering.Float}
 }
 
 func (s *Sim) Name() string { return "logistics" }
@@ -92,15 +93,45 @@ func (s *Sim) dayRisk(fx game.Effects, r content.RouteConfig, d events.Ship, cut
 	return math.Max(0, math.Min(1, r.Risk*s.Dial(d).Risk*fx.RouteRiskMul*(1-cut)))
 }
 
-// Cut is what a bought checkpoint (a car or truck edge) or customs
-// agent (a boat edge) takes off an edge's risk per day (#42, law.toml's
-// checkpoint_cut / customs_cut) while the deal is live on day; nothing
-// otherwise. The odds the map shows are the ones the dice use.
+// Cut is what comes off an edge's risk per day: a bought checkpoint (a
+// car or truck edge) or customs agent (a boat edge) while the deal is
+// live on day (#42, law.toml's checkpoint_cut / customs_cut), and the
+// route's driver (#46, DriverCut) while they are fit to ride, the two
+// compounding; nothing otherwise. The odds the map shows are the ones
+// the dice use.
 func (s *Sim) Cut(w *game.World, r content.RouteConfig, day int) float64 {
-	if !w.CheckpointLive(r.ID, day) {
-		return 0
+	return s.cut(w, r, day, w.RouteDriver(r.ID, day))
+}
+
+// cut is Cut with the driver given: the route's for the odds the map
+// shows and a new shipment's, the one riding it for a shipment on the
+// road (a driver moved to another route rides this one home).
+func (s *Sim) cut(w *game.World, r content.RouteConfig, day int, m *game.CrewMember) float64 {
+	deal := 0.0
+	if w.CheckpointLive(r.ID, day) {
+		deal = math.Max(0, math.Min(1, s.DealCut(r)))
 	}
-	return math.Max(0, math.Min(1, s.DealCut(r)))
+	drv := 0.0
+	if m != nil {
+		drv = s.DriverCut(m.Skill)
+	}
+	return 1 - (1-deal)*(1-drv)
+}
+
+// riding is the driver on a shipment on day, or nil: the one it left
+// with, if they are still on the payroll and fit.
+func riding(w *game.World, sh game.Shipment, day int) *game.CrewMember {
+	m := w.Crew.Driver(sh.Driver)
+	if m == nil || !m.Fit(day) {
+		return nil
+	}
+	return m
+}
+
+// DriverCut is what a driver of a skill takes off a shipment's risk per
+// day on the road (#46): driver_cut x skill/100.
+func (s *Sim) DriverCut(skill int) float64 {
+	return math.Max(0, math.Min(1, s.driver*float64(skill)/100))
 }
 
 // DealCut is the cut a bought deal on the route would take, live or not.
@@ -300,7 +331,7 @@ func (s *Sim) move(w *game.World, t *game.Tick, fx game.Effects) {
 		}
 		risk := 0.0
 		if r := s.cfg.Route(sh.Route); r != nil {
-			risk = s.dayRisk(fx, *r, sh.Dial, s.Cut(w, *r, t.Day))
+			risk = s.dayRisk(fx, *r, sh.Dial, s.cut(w, *r, t.Day, riding(w, sh, t.Day)))
 		}
 		if rng.Float64() < risk {
 			w.Stats.Seizures++
@@ -312,10 +343,14 @@ func (s *Sim) move(w *game.World, t *game.Tick, fx game.Effects) {
 			w.Logistics.Seizures = append(w.Logistics.Seizures, game.Seizure{
 				Day: t.Day, Route: sh.Route, From: sh.From, To: sh.To, Product: sh.Product, Units: sh.Units,
 			})
-			t.Emit(events.ShipmentSeized{
+			ev := events.ShipmentSeized{
 				Day: t.Day, ID: sh.ID, Route: sh.Route, Mode: sh.Mode, From: sh.From, To: sh.To,
-				Product: sh.Product, Units: sh.Units, Dial: sh.Dial,
-			})
+				Product: sh.Product, Units: sh.Units, Dial: sh.Dial, Driver: sh.Driver,
+			}
+			if m := w.Crew.Member(sh.Driver); m != nil {
+				ev.DriverName = m.Name // the crew sim jails them with it (#46)
+			}
+			t.Emit(ev)
 			continue
 		}
 		if t.Day >= sh.Arrives {
@@ -414,14 +449,18 @@ func (s *Sim) run(w *game.World, t *game.Tick, fx game.Effects) {
 				continue
 			}
 			days := s.days(fx, r, dial)
+			driver := 0
+			if m := w.RouteDriver(r.ID, t.Day); m != nil {
+				driver = m.ID // the route's driver rides it (#46)
+			}
 			sh := w.Send(game.Shipment{
 				Route: r.ID, Mode: r.Mode, From: r.From, To: r.To, Product: id, Units: units,
-				Dial: dial, Sent: t.Day, Arrives: t.Day + days, Cost: fareFor(fx, r, units),
+				Dial: dial, Sent: t.Day, Arrives: t.Day + days, Cost: fareFor(fx, r, units), Driver: driver,
 			})
 			day.Fares += sh.Cost
 			t.Emit(events.ShipmentSent{
 				Day: t.Day, ID: sh.ID, Route: sh.Route, Name: r.Name, Mode: sh.Mode, From: sh.From, To: sh.To,
-				Product: sh.Product, Units: sh.Units, Cost: sh.Cost, Dial: sh.Dial, Days: days,
+				Product: sh.Product, Units: sh.Units, Cost: sh.Cost, Dial: sh.Dial, Days: days, Driver: sh.Driver,
 			})
 		}
 		if day.Wholesale+day.Fares > 0 {

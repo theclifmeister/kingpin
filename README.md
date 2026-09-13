@@ -211,7 +211,7 @@ what your enforcers' chances look like:
 
 <!-- capture:map-120x40 -->
 ```text
- KINGPIN  1 Dash  2 Market  3 Journal 18  4 Crew  5 Map  6 Upgr  7 Ledger  8 Rivals       Day 4 · dirty $452K · heat 12
+ KINGPIN  1 Dash  2 Market  3 Journal 19  4 Crew  5 Map  6 Upgr  7 Ledger  8 Rivals       Day 4 · dirty $452K · heat 12
 MAP · Eastside  [ ◉ Eastside ]  Bayport  3/10 held · 3 worked · ~1828/day free      ╭─ DETAILS ────────────────────────╮
  ▴ THE DOCKS         ▪ RAIL YARD         ▪ OLD MILL                                 │ THE DOCKS                        │
    theirs              Dre                 Gato ⚔ Moose                             │ Mona's since day 0               │
@@ -370,6 +370,7 @@ The full table is below; `?` brings it up in the game.
 | `t` | assign | give the selected lieutenant a city to run | crew |
 | `i` | investigate | ask who is talking to the police, for a fee | crew |
 | `$` | pay off | buy the selected member's loyalty | crew |
+| `b` | bail | clean cash to walk the selected member out | crew |
 | `↑↓←→` | pick | walk the map's grid | map |
 | `c` | post runner | post a runner on the selected corner | map |
 | `e` | post enforcer | post an enforcer on the selected corner | map |
@@ -380,6 +381,7 @@ The full table is below; `?` brings it up in the game.
 | `r` | route dial | the selected route: off, slow, normal, fast | map |
 | `R` | route target | what the selected route keeps the far end at | map |
 | `$` | buy checkpoint | buy the checkpoint or customs on the route | map |
+| `v` | driver | put a driver on the selected route | map |
 | `←→` | branch | turn the tree to the next branch | upgrades |
 | `u` | buy upgrade | buy the node under the cursor (enter too) | upgrades |
 | `b` | buy front | buy a front or rent a house | ledger |

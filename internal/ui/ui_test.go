@@ -1044,6 +1044,11 @@ func TestOldSaveIsMigrated(t *testing.T) {
 	if len(m.w.Crew.Candidates) == 0 || m.w.Crew.Pay != events.PayFair {
 		t.Fatalf("migrated crew state: %+v", m.w.Crew)
 	}
+	for _, c := range m.w.Crew.Candidates {
+		if life := m.cfg.Crew.Life; c.Age < life.AgeMin || c.Age > life.AgeMax {
+			t.Fatalf("migrated candidate with no age (#46): %+v", c)
+		}
+	}
 	if m.w.Worked() != 1 || m.w.Corner(m.cfg.City.Territory.Start).Runner != game.You {
 		t.Fatalf("migrated territory: %d worked, corners %+v", m.w.Worked(), m.w.Home().Corners)
 	}
@@ -2758,6 +2763,21 @@ func TestModalsFit(t *testing.T) {
 		}},
 		{"confirm tip", modeConfirmTip, func(t *testing.T, m *Model) { m.Update(key("5")); m.mapCursor = 0; m.Update(key("t")) }},
 		{"confirm pay off", modeConfirmPayOff, func(t *testing.T, m *Model) { m.Update(key("4")); m.Update(key("$")) }},
+		// Crew life (#46): the bail on a member put in a cell, the driver
+		// picker on the map's routes with a driver on the payroll.
+		{"confirm bail", modeConfirmBail, func(t *testing.T, m *Model) {
+			m.w.Crew.Members[0].JailedUntil = m.w.Day + 5
+			m.Update(key("4"))
+			m.crewCursor = 0
+			m.Update(key("b"))
+		}},
+		{"driver", modeDriver, func(t *testing.T, m *Model) {
+			withDriver(m)
+			m.Update(key("5"))
+			m.Update(key("]"))
+			m.onRoutes = true
+			m.Update(key("v"))
+		}},
 		// The bought law (#42): the bribe dialog's two pages from the
 		// ledger and the checkpoint confirmation from the map's routes.
 		{"bribe target", modeBribe, func(t *testing.T, m *Model) { m.Update(key("7")); m.Update(key("$")) }},
@@ -2969,6 +2989,12 @@ func stripANSI(s string) string {
 // be nil where the caller has none.
 // withChemist puts a skill-80 chemist on the fixture's payroll (#47),
 // so the cook dialog opens.
+// withDriver puts a driver on the payroll (#46).
+func withDriver(m *Model) {
+	m.w.Crew.NextID++
+	m.w.Crew.Members = append(m.w.Crew.Members, game.CrewMember{ID: m.w.Crew.NextID, Name: "Wheels", Role: game.RoleDriver, Skill: 70, Loyalty: 60, Greed: 20, Nerve: 60, Wage: 96, Hired: m.w.Day, Age: 31})
+}
+
 func withChemist(m *Model) {
 	m.w.Crew.NextID++
 	m.w.Crew.Members = append(m.w.Crew.Members, game.CrewMember{ID: m.w.Crew.NextID, Name: "Doc", Role: game.RoleChemist, Skill: 80, Loyalty: 60, Greed: 20, Nerve: 60, Wage: 182, Hired: m.w.Day})

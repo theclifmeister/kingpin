@@ -40,3 +40,4 @@ One file a subsystem, the detail CLAUDE.md points at (#175). Each is the contrac
 - [Stash houses are where you keep it, and which one the raid finds](houses.md)
 - [Animation](animation.md)
 - [Quality is the last dial](quality.md)
+- [Crew life: kin, ageing, arrests and getting shot](crew-life.md)

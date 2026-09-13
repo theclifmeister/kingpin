@@ -50,7 +50,11 @@ func runCity(t *testing.T, cfg *content.Config, seed uint64, personality string)
 // lieutenant has it, and home sells anyway, on their standing orders;
 // unassigned every day, they place none and home sells nothing.
 func TestLieutenantSellsWhileYouAreAway(t *testing.T) {
-	cfg := content.MustLoad()
+	// Crew life boxed (#46): on seed 2 the expansionist wipes the
+	// delegated player before it holds a second city (delegated gets a
+	// lieutenant on 8 of 10 seeds with life on, 9 of 10 without); the
+	// test pins the lieutenant, not the crew's lives.
+	cfg := NoLife(content.MustLoad())
 	home := cfg.City.Home().ID
 	pol := Delegated(cfg, 40, "steady")
 	for seed := uint64(1); seed <= 3; seed++ {
@@ -346,7 +350,8 @@ func TestLieutenantFlipsAndFeedsTheFile(t *testing.T) {
 // Lieutenants only come looking once corners are held in two cities: a
 // run that stays home never sees one, the delegated run does.
 func TestLieutenantsWantTwoCities(t *testing.T) {
-	cfg := content.MustLoad()
+	// Crew life boxed (#46): seed 2, as TestLieutenantSellsWhileYouAreAway.
+	cfg := NoLife(content.MustLoad())
 	seen := func(res Result) bool {
 		for _, e := range res.Events {
 			if h, ok := e.(events.CrewHired); ok && h.Role == game.RoleLieutenant {
@@ -459,7 +464,8 @@ func TestDelegatedNearDistributor(t *testing.T) {
 // in a night is sold whole, and is not dry. A morning the lieutenant
 // works no corner there is nobody's to stock and is not counted.)
 func TestLieutenantKeepsTheCityStocked(t *testing.T) {
-	cfg := content.MustLoad()
+	// Crew life boxed (#46): seed 2, as TestLieutenantSellsWhileYouAreAway.
+	cfg := NoLife(content.MustLoad())
 	home := cfg.City.Home().ID
 	weed := cfg.Market.Products[0].ID
 	for seed := uint64(1); seed <= 5; seed++ {

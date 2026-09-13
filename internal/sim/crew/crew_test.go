@@ -11,10 +11,15 @@ import (
 	"github.com/theclifmeister/kingpin/internal/sim/crew"
 )
 
+// world is a one-city world with the crew sim seeded and crew life
+// (#46) boxed: the roster tests read skills and nerves as they were
+// signed. life_test.go's helper leaves the table in.
 func world(t *testing.T, cfg *content.Config, cash int) (*game.World, *crew.Sim) {
 	t.Helper()
+	boxed := *cfg
+	boxed.Crew.Life = content.LifeTuning{}
 	w := game.NewWorld(7, []game.StartingCity{{ID: "test", Name: "Testville", Products: []game.StartingProduct{{ID: "a", Name: "A", Price: 10, Demand: 5}}}}, cash, 100)
-	s := crew.New(cfg)
+	s := crew.New(&boxed)
 	s.Seed(w, game.RNGFor(7, 0))
 	return w, s
 }

@@ -584,7 +584,8 @@ func (m *Model) routeSection(r content.RouteConfig) section {
 			label = ""
 		}
 	}
-	lines = append(lines, keyRow("r", "turn the dial"), keyRow("R", "set a target"))
+	lines = append(lines, row("driver", m.driverLine(r.ID)))
+	lines = append(lines, keyRow("r", "turn the dial"), keyRow("R", "set a target"), keyRow("v", "put a driver on it"))
 	return section{strings.ToUpper(r.Name), lines}
 }
 

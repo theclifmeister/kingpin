@@ -198,7 +198,7 @@ func TestSaveMigratesTheStashIntoAStarterHouse(t *testing.T) {
 	if _, err := Load(1); err == nil {
 		t.Fatal("a schema-11 save loaded without a migration")
 	}
-	got, err := Load(1, Migration{From: 11, Apply: MigrateHouses}, Migration{From: 12, Apply: func(w *World) { w.MigrateLots(50, 1) }})
+	got, err := Load(1, Migration{From: 11, Apply: MigrateHouses}, Migration{From: 12, Apply: func(w *World) { w.MigrateLots(50, 1) }}, Migration{From: 13, Apply: func(*World) {}})
 	if err != nil {
 		t.Fatal(err)
 	}

@@ -216,7 +216,16 @@ func payRow(p events.Pay) string {
 // guards nothing; a runner without one is idle.
 func (m *Model) post(c game.CrewMember) any {
 	w := m.w
+	if tag := m.crewTag(c); tag != "" && tag != "RETIRING" {
+		return styled{theme.Bad, tag} // in a cell or laid up (#46): nowhere
+	}
 	switch {
+	case c.Role == game.RoleDriver:
+		// The driver (#46): the route they ride, or none.
+		if rid := w.DrivenRoute(c.ID); rid != "" {
+			return styled{theme.CrewText, "drives " + m.routeName(rid)}
+		}
+		return styled{theme.Warning, "no route"}
 	case c.Lieutenant():
 		if c.City != "" {
 			return styled{theme.CrewText, "runs " + w.CityName(c.City)}
@@ -281,13 +290,21 @@ func (m *Model) viewCrew() string {
 		if c.Units > 0 {
 			carry = c.Units
 		}
-		var name any = c.Name
-		if c.ID == w.Crew.Exposed {
-			name = styled{theme.Bad.Bold(true), c.Name}
+		text := c.Name
+		if len(c.Kin) > 0 {
+			text += " " + kinGlyph // kin on the payroll or in the pool (#46)
 		}
-		return []any{name, c.Role, c.Skill, styled{loyaltyStyle(c.Loyalty, m.crewLine(c)), gauge{c.Loyalty / 100, marks, c.Loyalty}}, m.set.Crew.WageAt(w, c, pay), carry}
+		var name any = text
+		if c.ID == w.Crew.Exposed {
+			name = styled{theme.Bad.Bold(true), text}
+		}
+		var age any
+		if c.Age > 0 {
+			age = c.Age
+		}
+		return []any{name, c.Role, c.Skill, age, styled{loyaltyStyle(c.Loyalty, m.crewLine(c)), gauge{c.Loyalty / 100, marks, c.Loyalty}}, m.set.Crew.WageAt(w, c, pay), carry}
 	}
-	shared := []col{{"name", kText, 0}, {"role", kText, 0}, {"skill", kInt, 0}, {"loyalty", kBar, 10}, {"wage", kMoney, 0}, {"carry", kInt, 0}}
+	shared := []col{{"name", kText, 0}, {"role", kText, 0}, {"skill", kInt, 0}, {"age", kInt, 0}, {"loyalty", kBar, 10}, {"wage", kMoney, 0}, {"carry", kInt, 0}}
 
 	b.WriteString(sectionTitle("ON THE PAYROLL", theme.Crew) + "\n")
 	if len(w.Crew.Members) == 0 {
@@ -300,8 +317,8 @@ func (m *Model) viewCrew() string {
 		cols := append(shared, col{"post", kText, 0}, col{"hired", kDays, 0})
 		// Where MAIN is too narrow for the post to read whole (64
 		// columns beside the pane at 100), the columns the pane carries
-		// go first: carry, then the hire day.
-		for _, drop := range []int{5, 6} {
+		// go first: carry, then the hire day, then the age (#46).
+		for _, drop := range []int{6, 7, 3} {
 			if tableWidth(cols, rows) <= width {
 				break
 			}
@@ -338,7 +355,17 @@ func (m *Model) viewCrew() string {
 			}
 			rows = append(rows, append(row(c), fee))
 		}
-		for _, l := range table(append(shared, col{"fee", kMoney, 0}), rows, m.crewCursor-len(w.Crew.Members), width) {
+		cols := append(shared, col{"fee", kMoney, 0})
+		for _, drop := range []int{6, 3} {
+			if tableWidth(cols, rows) <= width {
+				break
+			}
+			cols = append(cols[:drop:drop], cols[drop+1:]...)
+			for i := range rows {
+				rows[i] = append(rows[i][:drop:drop], rows[i][drop+1:]...)
+			}
+		}
+		for _, l := range table(cols, rows, m.crewCursor-len(w.Crew.Members), width) {
 			b.WriteString(l + "\n")
 		}
 	}
@@ -416,7 +443,16 @@ func (m *Model) personLines(c game.CrewMember, onPayroll bool) []string {
 	if c.Units > 0 {
 		lines = append(lines, row("carries", "+"+plural(c.Units, "unit")))
 	}
+	if a := m.ageLine(c); a != "" {
+		lines = append(lines, row("age", a))
+	}
+	if kin := m.kinNames(c); len(kin) > 0 {
+		lines = append(lines, row("kin", strings.Join(kin, ", ")))
+	}
 	if !onPayroll {
+		if len(c.Kin) > 0 {
+			lines = append(lines, row("", sub("came with the kin: fee at the discount")))
+		}
 		lines = append(lines, row("would", hireBlurb(c.Role)))
 		if c.Role == game.RoleChemist {
 			// What their hand would be worth (#47).
@@ -429,6 +465,16 @@ func (m *Model) personLines(c game.CrewMember, onPayroll bool) []string {
 		return append(lines, keyRow("h", hire), m.askAroundRow())
 	}
 	switch {
+	case c.Jailed(w.Day) && c.Bailed:
+		lines = append(lines, row("post", theme.Warning.Render("a cell · out tomorrow")))
+	case c.Jailed(w.Day):
+		lines = append(lines, row("post", theme.Bad.Render(fmt.Sprintf("a cell · %dd to go", c.JailedUntil-w.Day))))
+	case c.Wounded(w.Day):
+		lines = append(lines, row("post", theme.Bad.Render(fmt.Sprintf("laid up · %dd to go", c.WoundedUntil-w.Day))))
+	case c.Role == game.RoleDriver && w.DrivenRoute(c.ID) != "":
+		lines = append(lines, row("drives", m.routeName(w.DrivenRoute(c.ID))))
+	case c.Role == game.RoleDriver:
+		lines = append(lines, row("drives", theme.Warning.Render("no route yet")))
 	case c.Lieutenant() && c.City != "":
 		lines = append(lines, row("runs", w.CityName(c.City)))
 	case c.Lieutenant():
@@ -475,6 +521,13 @@ func (m *Model) personLines(c game.CrewMember, onPayroll bool) []string {
 	} else if c.Lieutenant() {
 		lines = append(lines, keyRow("t", "move them or take the city"))
 	}
+	if c.Jailed(w.Day) && !c.Bailed {
+		bail := fmt.Sprintf("bail for %s clean", money(m.set.Crew.BailCost(c)))
+		if m.set.Crew.BailCost(c) > w.Player.CleanCash {
+			bail = theme.Bad.Render(bail + " · can't")
+		}
+		lines = append(lines, keyRow("b", bail))
+	}
 	lines = append(lines, keyRow("$", fmt.Sprintf("pay off for %s: %.0f → %.0f", money(m.set.Crew.PayoffCost(c)), c.Loyalty, min(100, c.Loyalty+m.set.Crew.PayoffLoyalty()))))
 	return append(lines, m.askAroundRow())
 }
@@ -518,6 +571,8 @@ func hireBlurb(role string) string {
 		return "run a city"
 	case game.RoleChemist:
 		return "cook and cut"
+	case game.RoleDriver:
+		return "drive a route"
 	default:
 		return "hold a corner"
 	}
@@ -541,8 +596,8 @@ func (m *Model) crewSection() section {
 	)
 	idle, unposted := 0, 0
 	for _, c := range w.Crew.Members {
-		if w.PostOf(c.ID) != nil {
-			continue
+		if w.PostOf(c.ID) != nil || !c.Fit(w.Day) {
+			continue // one in a cell or laid up (#46) is not idle, they are nowhere
 		}
 		switch c.Role {
 		case "runner":
@@ -556,6 +611,12 @@ func (m *Model) crewSection() section {
 	}
 	if unposted > 0 {
 		lines = append(lines, row("unposted", theme.Warning.Render(plural(unposted, "enforcer"))))
+	}
+	if n := m.jailed(); n > 0 {
+		lines = append(lines, row("jailed", theme.Bad.Render(plural(n, "member"))))
+	}
+	if n := m.wounded(); n > 0 {
+		lines = append(lines, row("laid up", theme.Bad.Render(plural(n, "member"))))
 	}
 	if idle+unposted > 0 {
 		// The pointer is wrapped on its own so it never breaks.
@@ -595,4 +656,25 @@ func (m *Model) crewSection() section {
 		lines = append(lines, row("sloppy", theme.Warning.Render(fmt.Sprintf("+%.1f heat/100 units", per))), row("", sub(fmt.Sprintf("runners under skill %d", m.cfg.Heat.Heat.SloppySkill))))
 	}
 	return section{"CREW", lines}
+}
+
+// jailed and wounded count the crew in a cell and laid up (#46).
+func (m *Model) jailed() int {
+	n := 0
+	for _, c := range m.w.Crew.Members {
+		if c.Jailed(m.w.Day) {
+			n++
+		}
+	}
+	return n
+}
+
+func (m *Model) wounded() int {
+	n := 0
+	for _, c := range m.w.Crew.Members {
+		if c.Wounded(m.w.Day) {
+			n++
+		}
+	}
+	return n
 }
