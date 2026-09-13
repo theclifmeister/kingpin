@@ -317,6 +317,7 @@ func (s *Sim) whim(w *game.World, t *game.Tick, r *game.RivalState, rng rand) {
 		r.Observed = true
 		w.Stats.BetrayedBy++
 		t.Emit(events.DealBroken{Day: t.Day, Rival: r.Leader, Faction: r.Faction(), Deal: d.Kind, By: "rival", Why: "they felt like it"})
+		s.betrayed(w, t, r)
 	}
 }
 

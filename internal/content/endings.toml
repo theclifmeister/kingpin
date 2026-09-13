@@ -1,0 +1,102 @@
+# The endings (#49, §7): one row a cause of game.Ending, with the title
+# the summary prints, the epilogue it opens on and the line the ending's
+# scene plays for the causes that share the exit scene (docs/endings.md).
+# The thresholds that detect an ending live in the file of the sim that
+# owns it (laundering.toml [businessman], rivals.toml [endings],
+# crew.toml [lieutenant] betray_share); this file is the summary's, read
+# by the UI alone, so no sim's dice move for anything in it.
+#
+# An epilogue is a text/template over content.Epilogue: .Days, .City
+# (home), .Here (where you stood), .Offshore and .Left (money, formatted),
+# .Bodies, .Fronts, .Corners, .Name (the lieutenant who flipped), .Leader
+# (the faction that took you or broke the deal), .DA, .Chief, .Pages (the
+# DA's file), .Years (the kingpin's reign, in words) and .Hot (the heat
+# over the pressure at the end).
+
+# The kingpin's reign is a function of the heat and the pressure at home
+# the morning it ends, nothing else: reign_years x (1 - (heat + pressure)
+# / 200), rounded, a year at least. At heat 0 and pressure 0 it is the
+# whole span; at 100 and 100 the year it takes them to come.
+[kingpin]
+reign_years = 12
+
+# The summary's timeline: the top `lines` headlines of the run by the
+# weight of their source (the paper's notoriety, in the reputation sim's
+# sense: the stories about you), the most recent first among equals,
+# shown in the order they happened. A source not listed weighs nothing
+# and is left out.
+[summary]
+lines = 5
+[summary.weight]
+heat = 4
+crew = 3
+rivals = 3
+territory = 2
+laundering = 2
+law = 2
+overdose = 2
+dilemma = 1
+news = 1
+
+[[ending]]
+cause = "indicted"
+title = "INDICTED"
+won = false
+epilogue = "The DA's file was {{.Pages}} pages thick by the end. {{.DA}} read the charges on the courthouse steps and the paper ran it above the fold. The lawyers say years. The pile is the state's; the account is not."
+scene = "the file closes"
+
+[[ending]]
+cause = "arrested"
+title = "ARRESTED"
+won = false
+epilogue = "They came at dawn, the way they do. {{.Chief}}'s people put you in the back of a car in {{.Here}} with the whole street watching. What the court makes of it takes years; what the account holds takes a phone call."
+scene = "the car door shuts"
+
+[[ending]]
+cause = "broke"
+title = "BROKE"
+won = false
+epilogue = "The till is empty and the stash is bare. Nobody in {{.City}} will front you a lot, and the crew has heard. You walk out with the clothes you stand in."
+scene = "the till is empty"
+
+[[ending]]
+cause = "retired"
+title = "RETIRED CLEAN"
+won = true
+epilogue = "You left {{.City}} on a quiet morning with {{.Offshore}} in an account nobody can name. The corners went to whoever wanted them. Nobody came looking; nobody knew where to look."
+scene = "the account clears. nobody comes looking."
+
+[[ending]]
+cause = "businessman"
+title = "A BUSINESSMAN"
+won = true
+epilogue = "The mayor cut the ribbon. {{.Fronts}} in {{.City}} with your name over the door, earning more than the street ever did, and a city that would rather have you than not. The DA's file went to the archive."
+scene = "the mayor cuts the ribbon"
+
+[[ending]]
+cause = "kingpin"
+title = "KINGPIN"
+won = true
+epilogue = "Every crew in {{.City}} is yours or gone. It lasted {{.Years}}. {{if .Hot}}Then {{.Chief}}'s successor finished what the file started.{{else}}Then the city elected somebody who meant it.{{end}}"
+scene = "the city is yours"
+
+[[ending]]
+cause = "betrayed"
+title = "BETRAYED"
+won = false
+epilogue = "{{.Name}} knew where everything was, and told them. By the time you heard, the corners were somebody else's and the DA had the map. There is no coming back from your own people."
+scene = "your own people"
+
+[[ending]]
+cause = "taken_out"
+title = "TAKEN OUT"
+won = false
+epilogue = "{{.Leader}}'s crew took the last corner on the night of day {{.Days}}. With no muscle left to send there was nothing to hold and nobody to hold it with. The city forgot your name in a week."
+scene = "the last corner falls"
+
+[[ending]]
+cause = "vanished"
+title = "VANISHED"
+won = true
+epilogue = "The papers were good. A name nobody has heard, a city nobody would guess, and {{.Offshore}} to live on. Some say the DA never stopped looking. Some say you were seen in {{.Here}} last spring."
+scene = "a name nobody has heard"

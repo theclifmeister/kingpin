@@ -127,6 +127,7 @@ type Effects struct {
 	EvidenceDecayDays     int     // days without new evidence before a point goes cold, 0 = never (lowest)
 	EvidenceArrest        int     // evidence that is an indictment, 0 = heat.toml's (highest)
 	FallGuys              int     // how many indictments somebody else takes, one each (sum)
+	Identities            int     // new identities (#49): with one, the indictment past the fall guys is the vanished ending, and Vanish is open (sum)
 
 	// The crew sim (#118).
 	WageMul            float64 // on the wage bill (lowest)
@@ -228,6 +229,7 @@ func FoldEffects(w *World, tree content.UpgradesConfig) Effects {
 		}
 		fx.EvidenceArrest = max(fx.EvidenceArrest, e.EvidenceArrest)
 		fx.FallGuys += e.FallGuys
+		fx.Identities += e.Identities
 
 		// The crew.
 		lowest(&fx.WageMul, e.WageMul)

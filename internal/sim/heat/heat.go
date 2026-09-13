@@ -781,12 +781,14 @@ func (s *Sim) Step(w *game.World, t *game.Tick) {
 		reasons[here] = append(reasons[here], fmt.Sprintf("the case goes cold (file %d)", h.Evidence))
 	}
 
-	// Every sting and raid goes in a file. A thick enough file is a case.
+	// Every sting and raid goes in a file. A thick enough file is a case,
+	// and the case runs the exit plans (#49): a fall guy takes it, else
+	// a new identity makes it the vanished ending, else it is the end.
 	if arrest := s.EvidenceArrest(w); w.Over == nil && arrest > 0 && h.Evidence >= arrest {
 		if !s.takeFall(w, t, fx) {
-			w.Over = &game.Ending{Day: t.Day, Cause: "indicted", PeakCash: w.Stats.PeakCash}
+			w.Over = w.End(s.exit(content.CauseIndicted, fx), t.Day, "")
 			t.Emit(events.Enforcement{Day: t.Day, City: hot.ID, Level: content.Arrest, StockLost: map[string]int{}})
-			t.Emit(events.GameOver{Day: t.Day, Cause: "indicted"})
+			t.Emit(events.GameOver{Day: t.Day, Cause: w.Over.Cause})
 		}
 	}
 
@@ -838,9 +840,9 @@ func (s *Sim) fire(w *game.World, t *game.Tick, city *game.City, r content.Respo
 		if s.takeFall(w, t, fx) {
 			return
 		}
-		w.Over = &game.Ending{Day: t.Day, Cause: "arrested", PeakCash: w.Stats.PeakCash}
+		w.Over = w.End(s.exit(content.CauseArrested, fx), t.Day, "")
 		t.Emit(ev)
-		t.Emit(events.GameOver{Day: t.Day, Cause: "arrested"})
+		t.Emit(events.GameOver{Day: t.Day, Cause: w.Over.Cause})
 		return
 	default: // sting, raid, task force
 		stockLoss, cashLoss := r.StockLoss, r.CashLoss
@@ -1061,6 +1063,18 @@ func pastTense(f events.Force) string {
 // the case that would have ended the run closes on him instead. The file
 // is wiped, heat drops to 50 everywhere and half of all cash goes on
 // making it stick. It reports whether he took it.
+// exit is the cause the case ends the run with once the fall guys are
+// spent (#49): the cause the police wrote (indicted, arrested), or
+// vanished with a new identity from the tree (upgrades.toml identity,
+// fx.Identities), which turns the end into an exit once, since the run
+// is over either way. A read on the tree, no dice.
+func (s *Sim) exit(cause string, fx game.Effects) string {
+	if fx.Identities > 0 {
+		return content.CauseVanished
+	}
+	return cause
+}
+
 func (s *Sim) takeFall(w *game.World, t *game.Tick, fx game.Effects) bool {
 	if !w.FallGuyLeft(fx) {
 		return false

@@ -318,6 +318,8 @@ var bindings = []binding{
 		do: func(m *Model, _ string) { m.askInvest() }},
 	{key: "o", label: "reserve", help: "clean cash into the offshore account", screens: on(screenLedger),
 		do: func(m *Model, _ string) { m.askReserve() }},
+	{key: "w", label: "walk away", help: "retire on the account, or vanish", screens: on(screenLedger),
+		do: func(m *Model, _ string) { m.askExit() }},
 	{key: "enter", label: "buy / dial", help: "buy the offer or turn the route selected", screens: on(screenLedger), when: ledgerActable,
 		do: func(m *Model, _ string) { m.ledgerEnter() }},
 	// The rivals.
@@ -401,6 +403,7 @@ var bindings = []binding{
 // what the footer and the status bar say.
 var modeBindings = []binding{
 	{key: "↑↓", label: "pick", modes: in(modeStart, modePost, modeStrike, modeUndercut, modeFront, modeAssign, modePropose, modeGuard, modeDriver, modeSpy)},
+	{key: "↑↓", label: "pick", modes: in(modeExit), when: step(0)},
 	{key: "↑↓", label: "pick", modes: in(modeMove), when: moveList},
 	{key: "↑↓", label: "pick", modes: in(modeCut, modeCook), when: labList},
 	{key: "↑↓", label: "pick", modes: in(modeSell, modeTarget), when: step(0)},
@@ -483,15 +486,18 @@ var modeBindings = []binding{
 	{key: "enter", label: "pay", modes: in(modePayCop)},
 	{key: "enter", label: "next", modes: in(modeSpy), when: spyOnFactions},
 	{key: "enter", label: "plant", modes: in(modeSpy), when: spyOnCrew},
+	{key: "enter", label: "next", modes: in(modeExit), when: step(0)},
+	{key: "y", label: "retire", modes: in(modeExit), when: exitRetiring},
+	{key: "y", label: "vanish", modes: in(modeExit), when: exitVanishing},
 	{key: "q", label: "quit", modes: in(modeStart, modeOver)},
 	// The trade's other side (#168): listed on the product step (and a
 	// buy's connect step) alone, where the toggle is live.
 	{key: "s", label: "sell", modes: in(modeBuy), when: buyList},
 	{key: "b", label: "buy", modes: in(modeSell), when: step(0)},
-	{key: "⇧tab", label: "back", keys: []string{"shift+tab"}, modes: in(modeBuy, modeSell, modeTarget, modeCart, modePropose, modeFront, modeMove, modeFund, modeCut, modeCook, modeBribe, modeSpy), when: pastFirstStep},
+	{key: "⇧tab", label: "back", keys: []string{"shift+tab"}, modes: in(modeBuy, modeSell, modeTarget, modeCart, modePropose, modeFront, modeMove, modeFund, modeCut, modeCook, modeBribe, modeSpy, modeExit), when: pastFirstStep},
 	{key: "esc", label: "close", modes: in(modeBuy, modeSell, modeTarget, modePropose, modePost, modeStrike, modeUndercut, modeFront, modeAssign, modeFund, modeCart, modeMove, modeGuard,
 		modeConfirmNew, modeConfirmDelete, modeConfirmFire, modeConfirmEnd, modeConfirmUpgrade, modeConfirmInvestigate, modeConfirmPayOff, modeConfirmTravel, modeConfirmFast, modeConfirmDrop,
-		modeConfirmScout, modeConfirmBoost, modeConfirmTip, modeConfirmBuyOff, modeCut, modeCook, modeInvest, modeBribe, modeConfirmCheckpoint, modeReserve, modeConfirmBail, modeDriver, modeConfirmDeed, modePayCop, modeSpy)},
+		modeConfirmScout, modeConfirmBoost, modeConfirmTip, modeConfirmBuyOff, modeCut, modeCook, modeInvest, modeBribe, modeConfirmCheckpoint, modeReserve, modeConfirmBail, modeDriver, modeConfirmDeed, modePayCop, modeSpy, modeExit)},
 	{key: "enter esc", label: "close", modes: in(modeReport, modeHelp, modeStage)},
 	{key: "enter esc", label: "close", modes: in(modeCard), when: step(1)},
 	{key: "␣ esc", label: "close", modes: in(modeDetails)},
@@ -534,6 +540,8 @@ func (m *Model) modalStep() int {
 		if len(m.spyFactions()) > 1 {
 			return m.spy.step // with one faction the dialog is its one page
 		}
+	case modeExit:
+		return m.exit.step
 	case modeCard:
 		if m.cardDone {
 			return 1
@@ -743,6 +751,9 @@ var words = [][2]string{
 	{"feds", "the task force above the raid: a day's notice, takes an asset"},
 	{"intel", "what you know, with how sure: seen, bought, sent out, or fed"},
 	{"spy", "a crew member under with a faction: reports, sells nothing"},
+	{"ending", "how a run ends: nine ways, each a summary and a score"},
+	{"score", "the offshore account over one plus the bodies; days shown"},
+	{"walk away", "retire on the account, or vanish on an identity: asked twice"},
 }
 
 // helpLines is the help modal's body: every binding, grouped, one a

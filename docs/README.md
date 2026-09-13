@@ -44,3 +44,4 @@ One file a subsystem, the detail CLAUDE.md points at (#175). Each is the contrac
 - [Property is the block a corner is on, bought with clean cash](property.md)
 - [Assets are the supply side bought with clean money](assets.md)
 - [Intel: what you know against what is true](intel.md)
+- [The endings, the exit plans and the run summary](endings.md)

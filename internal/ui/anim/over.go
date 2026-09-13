@@ -6,6 +6,8 @@ import (
 	"strings"
 	"time"
 
+	"github.com/charmbracelet/lipgloss"
+
 	"github.com/theclifmeister/kingpin/internal/ui/theme"
 )
 
@@ -16,7 +18,8 @@ import (
 // the run's cash lines) and dice off Seed(seed, day, "over"); the
 // summary that follows is read off the world, never off the scene. The
 // model's causeScene is the switch, with Arrested the default for a
-// cause without a scene of its own (#49's exits, as they land).
+// cause the file does not know; the six endings #49 added share Exit,
+// the one shape, over the cause's title and line from endings.toml.
 
 // OverLength is how long every ending's scene runs.
 const OverLength = 1500 * time.Millisecond
@@ -29,6 +32,8 @@ const (
 	overWord  = 700 * time.Millisecond  // arrested: the word on the tape
 	overLoss  = 1000 * time.Millisecond // broke: the figures fall off the bottom
 	overZero  = 500 * time.Millisecond  // broke: the nought rains in
+	overTitle = 700 * time.Millisecond  // exit: the ending's title decrypts
+	overLine  = 800 * time.Millisecond  // exit: its line prints under it
 )
 
 // OverPagesMax is the most pages the DA's file prints: the file is
@@ -101,6 +106,24 @@ func Broke(figures string, rng *rand.Rand) Scene {
 	)
 }
 
+// Exit is the one shape the other endings share (#49: retired, a
+// businessman, kingpin, betrayed, taken out, vanished; the text keyed
+// on the cause from endings.toml): the ending's title decrypts from
+// noise in the accent (theme.Money for a run won, theme.Heat for one
+// lost) over overTitle, then its line prints under it in theme.Text
+// over overLine, a blank row between, and the frame holds. The two are
+// one block three rows high, each on a text of its own with the other
+// rows blank, so both sit centred as one. The dice are the decrypt's
+// and the print head's.
+func Exit(title, line string, accent lipgloss.Color, rng *rand.Rand) Scene {
+	head := NewText(title + "\n \n" + strings.Repeat(" ", max(1, lipgloss.Width(line))))
+	foot := NewText(strings.Repeat(" ", max(1, lipgloss.Width(title))) + "\n \n" + line)
+	return Sequence(
+		Step{Decrypt(head, accent, overTitle, rng), overTitle},
+		Step{Layer(Still(head, accent), Print(foot, theme.Text, overLine, rng)), overLine},
+	)
+}
+
 // Arrest is the word's block art in the title's hand: six rows, sixty
 // columns.
 const Arrest = `
@@ -126,6 +149,8 @@ const Zero = `
 // The registry's samples: what Scenes plays each ending over, for the
 // review tool and the guards, where there is no world to read.
 const (
+	sampleExitTitle, sampleExitLine = "RETIRED CLEAN", "the account clears. nobody comes looking."
+
 	sampleHeadline = "Indictment lands in Ridgeport: 'we got our man', says DA"
 	sampleFigures  = "peak cash         $84,930\n" +
 		"total revenue    $212,400\n" +

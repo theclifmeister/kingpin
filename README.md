@@ -93,8 +93,8 @@ decrypting and its prose wiping in; a sting or a raid strobes the
 report's title and glitches its level in on a bad tape; a new stage
 prints in and is swept by light; a corner that changed hands overnight
 burns on the map from one colour to the other and its name slides into
-the pane; and a run's ending plays the DA's file, the arrest or the
-empty till before the summary. Scenes are short (250 ms to 1.5 s), any
+the pane; and a run's ending plays the DA's file, the arrest, the
+empty till or the exit's title and line before the summary. Scenes are short (250 ms to 1.5 s), any
 key skips one, and nothing animates while you play: the screen redraws
 only when you press a key. To turn them off, for a slow terminal, a
 capture, or because they wear, to turn off only the morning's (the most
@@ -407,6 +407,7 @@ The full table is below; `?` brings it up in the game.
 | `f` | fund city | give a city clean cash for goodwill | ledger |
 | `i` | invest | clean cash into the selected front's levels | ledger |
 | `o` | reserve | clean cash into the offshore account | ledger |
+| `w` | walk away | retire on the account, or vanish | ledger |
 | `enter` | buy / dial | buy the offer or turn the route selected | ledger |
 | `d` | propose | offer the rival a truce, tribute or a split | rivals |
 | `y` | accept | take the selected offer | rivals |
@@ -675,7 +676,21 @@ Clean cash can go offshore (`o` on the ledger): the account survives every
 ending, cannot be spent, and is safe from the fall guy and the auditors;
 it is the score. Up to a lot a day moves unnoticed; every lot over it is
 a page in the DA's file the morning after. Enough offshore and enough
-quiet days in a row, and you can retire.
+quiet days in a row, and you can retire (`w` on the ledger, asked twice).
+
+### Endings
+
+A run ends nine ways, and the summary says which: **indicted** (the
+file), **arrested** (the heat), **broke** (the till), **retired** on the
+account, a **businessman** whose fronts out-earn the street for a month
+with the city on side, **kingpin** with every crew in the city yours or
+gone and the city held, **betrayed** by a lieutenant who knew where
+everything was or an ally who broke a deal while you were at war,
+**taken out** when the last corner falls at war with no muscle to send,
+or **vanished** on a new identity from the tree, which also turns the
+indictment the fall guys do not take into an exit. The score is the
+account over one plus the bodies; the pile left behind is printed, never
+scored, and the days are shown, never scored.
 
 ### News
 

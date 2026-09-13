@@ -371,6 +371,24 @@ tribute_corners = 3
 homage_cut = 0.20
 homage_chance = 0.25
 
+# The endings this sim owns (#49, docs/endings.md), each a threshold on
+# state the step already reads and no dice: kingpin once Dominant() has
+# held dominant_days days (the day the last faction fell or bowed is on
+# the table's stamps, so no counter) with more than kingpin_share of
+# home's corners held (the weather, #44's rival_leader_killed, empties a
+# table over a quiet trader on one corner in a year on a seed in six,
+# and a city nobody holds has no kingpin); taken out the night a faction's
+# push takes the last corner you hold anywhere with its war open
+# (war_threshold) and fewer enforcers at work than taken_out_muscle;
+# betrayed the night a faction breaks a deal with you of its own accord
+# (a chaotic one's whim) while another faction's war with you is over
+# betray_war. Zero boxes each; the harness's NoEndings boxes all three.
+[endings]
+dominant_days = 14
+kingpin_share = 0.5
+taken_out_muscle = 2
+betray_war = 40
+
 # Buying off muscle (#70): dirty cash to send the rival's people home.
 # They leave the rival and never join you. A head costs muscle_price
 # corner-days plus cash_share of the rival's chest per head it keeps (a

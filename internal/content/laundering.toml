@@ -61,6 +61,17 @@ retire_cash = 750000
 retire_days = 14
 retire_heat = 40
 
+# The businessman ending (#49): the fronts' own income net of their
+# upkeep (LegitIncome, #192) out-earns what the street sold for, every
+# day for legit_days days in a row, with home's goodwill over its
+# pressure (World.LegitDays counts them, zeroed by a day that fails).
+# A player who never invests has a legit income at or under zero and
+# never counts a day; the boss earns ~$0.3M a day off its levels against
+# ~$0.9M of street, and runs the city at pressure 100, so it never ends
+# by accident (TestNobodyIsABusinessmanByAccident). 0 boxes it.
+[businessman]
+legit_days = 30
+
 # The fronts. cost is paid in dirty cash, once. throughput is dirty cash
 # washed per day at the normal dial. upkeep is clean cash per day; unpaid,
 # the place shuts. audit_risk is the chance per day of an audit at the

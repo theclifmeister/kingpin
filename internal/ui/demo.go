@@ -94,8 +94,15 @@ func (m *Model) DemoScene(name, effect string) tea.Cmd {
 	case "card":
 		w.Dilemmas.Pending = demoCard(w.Day)
 		m.showCard()
-	case "over:indicted", "over:arrested", "over:broke":
-		w.Over = &game.Ending{Day: w.Day, Cause: strings.TrimPrefix(name, "over:"), PeakCash: w.Stats.PeakCash}
+	case "over:indicted", "over:arrested", "over:broke", "over:exit":
+		// The exit (#49) is the registry's one entry for the six causes
+		// that share it, played over the retiree's; `over:<cause>` for
+		// any cause in endings.toml plays that one.
+		cause := strings.TrimPrefix(name, "over:")
+		if cause == "exit" {
+			cause = content.CauseRetired
+		}
+		w.Over = w.End(cause, w.Day, w.Rival().Leader)
 		w.Heat.Evidence = max(w.Heat.Evidence, 7) // the file's pages
 		m.mode = modeOver
 		m.playOver()
@@ -128,6 +135,12 @@ func (m *Model) DemoScene(name, effect string) tea.Cmd {
 		m.screen = screenMap
 		m.mapSceneStart()
 	default:
+		if cause, ok := strings.CutPrefix(name, "over:"); ok && m.cfg.Endings.Ending(cause) != nil {
+			w.Over = w.End(cause, w.Day, w.Rival().Leader)
+			m.mode = modeOver
+			m.playOver()
+			break
+		}
 		return nil
 	}
 	return m.tick()

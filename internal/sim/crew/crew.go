@@ -398,6 +398,16 @@ func (s *Sim) Step(w *game.World, t *game.Tick) {
 			m.Informant = true
 			w.Stats.Informants++
 			t.Emit(events.LieutenantFlipped{Day: t.Day, ID: m.ID, Name: m.Name, City: m.City})
+			// The betrayal (#49): a lieutenant running a city that
+			// holds betray_share of your corners, betray_corners at
+			// least, knows where everything is, and the run ends the
+			// night they turn. A read on the map, no dice; 0 boxes it.
+			if lt := s.cfg.Lieutenant; lt.BetrayShare > 0 && m.Runs() && w.Over == nil {
+				if held, there := w.Held(), w.HeldIn(m.City); there >= max(1, lt.BetrayCorners) && float64(there) >= lt.BetrayShare*float64(held) {
+					w.Over = w.End(content.CauseBetrayed, t.Day, m.Name)
+					t.Emit(events.GameOver{Day: t.Day, Cause: content.CauseBetrayed})
+				}
+			}
 			continue
 		}
 		if m.Loyalty >= inf.Loyalty || m.Nerve >= inf.Nerve {
@@ -425,9 +435,9 @@ func (s *Sim) Step(w *game.World, t *game.Tick) {
 	// If they empty the till with nothing left to sell, anywhere or on
 	// the road, the run is over: there is no move that makes money from
 	// nothing.
-	if w.TotalStock() == 0 && float64(w.Player.DirtyCash) < cheapestUnit(w) {
-		w.Over = &game.Ending{Day: t.Day, Cause: "broke", PeakCash: w.Stats.PeakCash}
-		t.Emit(events.GameOver{Day: t.Day, Cause: "broke"})
+	if w.Over == nil && w.TotalStock() == 0 && float64(w.Player.DirtyCash) < cheapestUnit(w) {
+		w.Over = w.End(content.CauseBroke, t.Day, "")
+		t.Emit(events.GameOver{Day: t.Day, Cause: content.CauseBroke})
 		return
 	}
 

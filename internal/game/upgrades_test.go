@@ -193,6 +193,7 @@ var foldRules = []struct {
 	{"EvidenceDecayDays", lowest},
 	{"EvidenceArrest", highest},
 	{"FallGuys", sum},
+	{"Identities", sum},
 
 	{"WageMul", lowest},
 	{"LoyaltyLossMul", product},

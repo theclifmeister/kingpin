@@ -599,6 +599,7 @@ func (s *Sim) Step(w *game.World, t *game.Tick) {
 	s.assetsStep(w, t)
 	s.reserve(w, t)
 	s.quiet(w, t)
+	s.legit(w, t)
 	s.announce(w, t)
 }
 
@@ -655,6 +656,38 @@ func (s *Sim) quiet(w *game.World, t *game.Tick) {
 		return
 	}
 	w.QuietDays++
+}
+
+// legit counts the days the fronts out-earn the street (#49, the
+// businessman ending): a day counts when LegitIncome, every front's own
+// income net of its upkeep, is over zero and over what the street sold
+// for tonight (the tick's PlayerSold revenue, the market sim's, which
+// steps before this one) and home's goodwill is over its pressure (the
+// law's, which steps before this one too); a day that fails zeroes the
+// count, and at [businessman] legit_days the run ends a businessman.
+// With no legit_days in the file nothing is counted, so a run on the
+// file before the table is the run it was. A read, no dice.
+func (s *Sim) legit(w *game.World, t *game.Tick) {
+	days := s.cfg.Businessman.LegitDays
+	if days <= 0 || w.Over != nil {
+		return
+	}
+	street := 0
+	for _, e := range t.Events() {
+		if ev, ok := e.(events.PlayerSold); ok {
+			street += ev.Revenue
+		}
+	}
+	home := w.Home()
+	if income := s.LegitIncome(w); income <= 0 || income <= street || home.Goodwill <= home.Pressure {
+		w.LegitDays = 0
+		return
+	}
+	w.LegitDays++
+	if w.LegitDays >= days {
+		w.Over = w.End(content.CauseBusinessman, t.Day, "")
+		t.Emit(events.GameOver{Day: t.Day, Cause: content.CauseBusinessman})
+	}
 }
 
 // reportGrowth reports the levels bought at a front today (#192,

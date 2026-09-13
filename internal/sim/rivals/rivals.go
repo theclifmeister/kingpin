@@ -459,6 +459,7 @@ func (s *Sim) Step(w *game.World, t *game.Tick) {
 			s.feed(w, t, r)
 		}
 	}
+	s.endings(w, t)
 }
 
 // step runs one faction's day: arrival, money, the table (offers taken,

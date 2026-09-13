@@ -219,10 +219,13 @@ func TestRetireeRetires(t *testing.T) {
 		}
 		if res.Over != nil && res.Over.Cause == "retired" {
 			retired++
-			scores = append(scores, res.World.Offshore)
+			scores = append(scores, res.World.Stats.Score)
 			days = append(days, res.Days)
 			if res.World.Offshore < cfg.Laundering.Offshore.RetireCash || res.World.QuietDays < cfg.Laundering.Offshore.RetireDays {
 				t.Fatalf("seed %d: retired on %d offshore and %d quiet days", seed, res.World.Offshore, res.World.QuietDays)
+			}
+			if want := res.World.Offshore / (1 + res.World.Stats.Bodies); res.World.Stats.Score != want {
+				t.Fatalf("seed %d: scored %d on %d offshore and %d bodies; the score is the account over one plus the bodies (#49)", seed, res.World.Stats.Score, res.World.Offshore, res.World.Stats.Bodies)
 			}
 		} else if res.Over != nil {
 			// The laundered player it is built on ends the same way on
@@ -270,12 +273,12 @@ func TestRetireeRetires(t *testing.T) {
 		if w.Over == nil || w.Over.Cause != "retired" {
 			t.Fatalf("k=%d: %+v", k, w.Over)
 		}
-		t.Logf("k=%d: retired on day %d scoring %d", k, w.Day, w.Offshore)
+		t.Logf("k=%d: retired on day %d scoring %d", k, w.Day, w.Stats.Score)
 		if k == 0 {
 			continue
 		}
-		if base := scoreAt(t, cfg, 1, 0); w.Offshore > base {
-			t.Errorf("lying low %d more days scored %d, over %d at once", k, w.Offshore, base)
+		if base := scoreAt(t, cfg, 1, 0); w.Stats.Score > base {
+			t.Errorf("lying low %d more days scored %d, over %d at once", k, w.Stats.Score, base)
 		}
 	}
 }
@@ -312,7 +315,7 @@ func scoreAt(t *testing.T, cfg *content.Config, seed uint64, k int) int {
 		}
 		clock.EndDay(w)
 	}
-	return w.Offshore
+	return w.Stats.Score
 }
 
 // TestRetireIsATierFourExit (#195, the sizing): the laundered player's
