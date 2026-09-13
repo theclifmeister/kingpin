@@ -861,3 +861,64 @@ func cheapestUnit(w *game.World) float64 {
 	}
 	return price
 }
+
+// Join puts a member of the role on the payroll on day 0, hired for
+// nothing (#50, a character's start): the roll generate makes with the
+// role fixed, the name from the pool's list for it (the chemists' for
+// a chemist, the drivers' for a driver, the crew's for the rest), the
+// stats and the age off rng, which is the character's own stream and
+// never the pool's, so the faces the pool deals are the faces it
+// always dealt. A lieutenant joins unassigned with a temper off the
+// same dice.
+func (s *Sim) Join(w *game.World, role string, rng rand) game.CrewMember {
+	fx := game.FoldEffects(w, s.tree)
+	tun := s.cfg.Crew
+	rc := s.cfg.Role[role]
+	used := map[string]bool{}
+	for _, m := range w.Crew.Members {
+		used[m.Name] = true
+	}
+	for _, m := range w.Crew.Candidates {
+		used[m.Name] = true
+	}
+	pool := s.names
+	switch role {
+	case game.RoleChemist:
+		pool = s.chemists
+	case game.RoleDriver:
+		pool = s.drivers
+	}
+	var free []string
+	for _, n := range pool {
+		if !used[n] {
+			free = append(free, n)
+		}
+	}
+	sort.Strings(free)
+	name := "Nobody"
+	if len(free) > 0 {
+		name = free[rng.IntN(len(free))]
+	}
+	skill := min(100, 15+rng.IntN(71)+fx.SkillBonus)
+	m := game.CrewMember{
+		ID:      w.Crew.NextID + 1,
+		Name:    name,
+		Role:    role,
+		Skill:   skill,
+		Loyalty: float64(min(100, tun.StartLoyaltyMin+rng.IntN(max(1, tun.StartLoyaltyMax-tun.StartLoyaltyMin+1))+fx.StartLoyaltyBonus)),
+		Greed:   5 + rng.IntN(91),
+		Nerve:   5 + rng.IntN(91),
+		Wage:    int(math.Round(rc.WageBase + rc.WagePerSkill*float64(skill))),
+		Hired:   w.Day,
+		Age:     s.age(rng),
+	}
+	if role == "runner" {
+		m.Units = int(math.Round(tun.UnitsPerSkill * float64(skill)))
+	}
+	if role == game.RoleLieutenant {
+		m.Personality = content.LieutenantPersonalities[rng.IntN(len(content.LieutenantPersonalities))]
+	}
+	w.Crew.NextID = m.ID
+	w.Crew.Members = append(w.Crew.Members, m)
+	return m
+}

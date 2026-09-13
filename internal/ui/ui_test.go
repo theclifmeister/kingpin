@@ -1160,6 +1160,11 @@ func TestUnreadableSaveIsRefused(t *testing.T) {
 		t.Fatalf("delete: mode %v status %q", m.mode, m.status)
 	}
 	m.Update(key("enter"))
+	if m.mode != modeNewRun || m.nr.slot != 2 {
+		t.Fatalf("enter on the empty slot: mode %v slot %d, want the new-run dialog (#50)", m.mode, m.nr.slot)
+	}
+	m.Update(key("enter")) // the default character
+	m.Update(key("enter")) // a random seed; the hard DA is locked on an empty profile
 	if m.mode != modePlay || m.slot != 2 || m.w.SchemaVersion != game.SchemaVersion || m.w.Day != 0 {
 		t.Fatalf("new run: mode %v slot %d schema %d day %d", m.mode, m.slot, m.w.SchemaVersion, m.w.Day)
 	}
@@ -1251,6 +1256,11 @@ func TestStartMenuLists(t *testing.T) {
 	}
 	m.mode, m.startChoice = modeStart, 1
 	m.Update(key("enter"))
+	if m.mode != modeNewRun || m.nr.slot != 2 {
+		t.Fatalf("enter on the empty slot: mode %v slot %d, want the new-run dialog (#50)", m.mode, m.nr.slot)
+	}
+	m.Update(key("enter")) // the default character
+	m.Update(key("enter")) // a random seed
 	if m.mode != modePlay || m.slot != 2 || m.w.Day != 0 || game.Slots()[1].Empty {
 		t.Fatalf("new run in slot 2: mode %v slot %d day %d", m.mode, m.slot, m.w.Day)
 	}
@@ -1260,7 +1270,8 @@ func TestStartMenuLists(t *testing.T) {
 }
 
 // -slot N opens the slot straight away: a full one continues, an empty
-// one starts a run there, and a bad number is refused.
+// one opens the new-run dialog for it (#50), and a bad number is
+// refused.
 func TestNewSlot(t *testing.T) {
 	t.Setenv("KINGPIN_HOME", t.TempDir())
 	cfg := content.MustLoad()
@@ -1274,8 +1285,15 @@ func TestNewSlot(t *testing.T) {
 		t.Fatalf("slot 1: %v mode %v slot %d", err, m.mode, m.slot)
 	}
 	m, err = NewSlot(cfg, 3, Options{Anim: false})
-	if err != nil || m.mode != modePlay || m.slot != 3 || m.w.Day != 0 || game.Slots()[2].Empty {
-		t.Fatalf("slot 3: %v mode %v slot %d", err, m.mode, m.slot)
+	if err != nil || m.mode != modeNewRun || m.nr.slot != 3 || m.w != nil {
+		t.Fatalf("slot 3: %v mode %v slot %d", err, m.mode, m.nr.slot)
+	}
+	m.Update(tea.WindowSizeMsg{Width: 80, Height: 24})
+	assertFits(t, m.View(), 80, 24, "the picker with no run behind it")
+	m.Update(key("enter"))
+	m.Update(key("enter"))
+	if m.mode != modePlay || m.slot != 3 || m.w.Day != 0 || game.Slots()[2].Empty {
+		t.Fatalf("slot 3 started: mode %v slot %d", m.mode, m.slot)
 	}
 	if _, err := NewSlot(cfg, 4, Options{Anim: false}); err == nil {
 		t.Fatal("opened slot 4")
@@ -2477,7 +2495,7 @@ func TestCampaignKeys(t *testing.T) {
 // the tree.
 func richModel(t *testing.T, w, h int) *Model {
 	t.Helper()
-	return richModelSeeded(t, w, h, game.NewSeed())
+	return richModelSeeded(t, w, h, newSeed())
 }
 
 // richModelSeeded is richModel on a seed of the caller's: the same run
@@ -2690,6 +2708,24 @@ func TestModalsFit(t *testing.T) {
 			fillSlots(t, m)
 			m.mode = modeStart
 			m.Update(key("D"))
+		}},
+		// The new-run dialog (#50): the picker on an empty slot, the seed
+		// page, and the hard DA page once the profile has earned it.
+		{"new run: character", modeNewRun, func(t *testing.T, m *Model) { m.mode, m.startChoice = modeStart, 1; m.Update(key("enter")) }},
+		{"new run: seed", modeNewRun, func(t *testing.T, m *Model) {
+			m.mode, m.startChoice = modeStart, 1
+			m.Update(key("enter"))
+			m.Update(key("enter"))
+		}},
+		{"new run: hard DA", modeNewRun, func(t *testing.T, m *Model) {
+			m.profile.Unlocks[game.HardDAID] = true
+			m.mode, m.startChoice = modeStart, 1
+			m.Update(key("enter"))
+			m.Update(key("enter"))
+			m.Update(key("enter"))
+			if m.nr.step != 2 {
+				t.Fatalf("the toggle's page did not open: step %d", m.nr.step)
+			}
 		}},
 		{"report", modeReport, func(t *testing.T, m *Model) { m.mode = modeReport }},
 		{"buy product", modeBuy, func(t *testing.T, m *Model) { m.Update(key("b")) }},
@@ -2990,7 +3026,7 @@ func TestModalsFit(t *testing.T) {
 					}
 				}
 			}
-			if c.mode != modeStart && c.mode != modeConfirmDelete { // no run behind the start menu, so no status bar
+			if c.mode != modeStart && c.mode != modeConfirmDelete && c.mode != modeNewRun { // no run behind the start menu, so no status bar
 				ls := strings.Split(view, "\n")
 				if bar := strings.TrimSpace(stripANSI(ls[len(ls)-1])); bar != foot {
 					t.Errorf("%s: the status bar shows %q, not the footer %q", what, bar, foot)

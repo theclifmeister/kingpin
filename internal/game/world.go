@@ -6,7 +6,6 @@ import (
 	"fmt"
 	"math"
 	"math/rand/v2"
-	"time"
 
 	"github.com/theclifmeister/kingpin/internal/events"
 )
@@ -89,6 +88,12 @@ type World struct {
 	// written by the sims that own the truth (Learn) and read by the
 	// panels through Known. Nil is a run that has learnt nothing.
 	Intel []Fact
+
+	// Start (#50, profile.go) is what the run began as: the character,
+	// the hard DA, the daily's date and whether it was practice. Stamped
+	// at NewWorld, read by the summary and the profile, never by a sim;
+	// zero is every run before the feature, so no bump.
+	Start Start
 
 	// LegitDays (#49) is how many days in a row the fronts' own income
 	// has out-earned the street with home's goodwill over its pressure:
@@ -1640,9 +1645,6 @@ func (w *World) HeatHere() float64 {
 	}
 	return 0
 }
-
-// NewSeed returns a seed derived from the wall clock.
-func NewSeed() uint64 { return uint64(time.Now().UnixNano()) }
 
 // RNGFor returns the deterministic random source for a given day of a run.
 // Deriving it from (seed, day) means nothing about the RNG needs saving.

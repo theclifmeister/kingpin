@@ -47,6 +47,8 @@ func main() {
 	incidents := flag.String("incidents", "on", "on | off: off boxes the world's incident table (#44); the harness tests run with it boxed, so a pinned number reads with off")
 	cut := flag.Float64("cut", 0, "cut everything the policy buys by this ratio (#47, harness.Cutter): 0.5 adds half again at nothing")
 	life := flag.String("life", "on", "on | off: off boxes crew.toml's [life] table (#46, harness.NoLife): nobody ages, is arrested, wounded or killed; a run with it off is the run before the feature")
+	character := flag.String("character", "", "start every run as this character of characters.toml (#50, harness.Character): dealer | cook | bookkeeper | excop | dockhand (default the dealer, the run as it is); a start is on the world on day 0 and no sim reads it")
+	hardDA := flag.Bool("hardda", false, "start every run with a law-and-order DA and a zealous chief (#50, the hard DA toggle): set at NewWorld, never pinned; -chief and -da pin")
 	deeds := flag.String("deeds", "on", "on | off: off boxes city.toml's [deed] table (#194, harness.NoDeeds): no block is on sale, so boss buys none; a run with it off is the run before the feature")
 	flag.Parse()
 	at := func(def float64) float64 {
@@ -78,6 +80,10 @@ func main() {
 		cfg = harness.NoLife(cfg)
 	default:
 		fmt.Fprintf(os.Stderr, "unknown -life %q\n", *life)
+		os.Exit(2)
+	}
+	if *character != "" && cfg.Characters.Character(*character) == nil {
+		fmt.Fprintf(os.Stderr, "unknown -character %q\n", *character)
 		os.Exit(2)
 	}
 	switch *deeds {
@@ -312,7 +318,9 @@ func main() {
 				fmt.Println()
 			}
 		}
-		w := sim.NewWorld(cfg, seed)
+		start := harness.Character(cfg, *character)
+		start.HardDA = *hardDA
+		w := sim.NewWorldWith(cfg, seed, start)
 		if *cash > 0 {
 			w.Player.DirtyCash = *cash
 		}
@@ -600,6 +608,13 @@ func main() {
 	sort.Ints(played)
 	sort.Ints(peaks)
 	fmt.Printf("policy=%s runs=%d horizon=%d days\n", *policy, *runs, *days)
+	if *character != "" || *hardDA {
+		who := *character
+		if who == "" {
+			who = cfg.Characters.Default().ID
+		}
+		fmt.Printf("character:     %s (%s), hard DA %v\n", who, cfg.Characters.Character(who).Name, *hardDA)
+	}
 	fmt.Printf("days played:   min %d median %d max %d\n", played[0], played[len(played)/2], played[len(played)-1])
 	fmt.Printf("peak cash:     min %d median %d max %d\n", peaks[0], peaks[len(peaks)/2], peaks[len(peaks)-1])
 	fmt.Printf("net worth:    ")

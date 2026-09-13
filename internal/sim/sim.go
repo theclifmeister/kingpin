@@ -108,18 +108,101 @@ func (s *Set) Migrations() []game.Migration {
 // NewWorld starts a fresh run from config: every city's corners with the
 // player on the starting one at home, a hiring pool, a rival, a chief and
 // a DA and the connects (#72) drawn from the day-0 RNG so they are part
-// of the seed like everything else, and the launder dial at normal.
+// of the seed like everything else, and the launder dial at normal. It
+// is NewWorldWith as the default character with nothing on: the run as
+// it is, byte for byte (#50).
 func NewWorld(cfg *content.Config, seed uint64) *game.World {
+	return NewWorldWith(cfg, seed, game.Start{})
+}
+
+// NewWorldWith is NewWorld as a start (#50, docs/profile.md): the
+// character's start from characters.toml applied once, here, after the
+// sims have seeded the world on the day-0 stream and before the first
+// day steps, and the hard DA seated. No sim reads the start: what a
+// character changes is on the world on day 0 (a member on the payroll,
+// a node owned, a product listed, where you stand, the reputation, a
+// fact in the file) and the run plays on from there as any run would.
+// The character's own dice are Tick{Day 0}.Sub("character"), never the
+// home stream, so the pool, the table and the law are the seed's
+// whatever the character; the default character (an empty or the
+// first row's id) is stamped as "" and leaves the world untouched.
+func NewWorldWith(cfg *content.Config, seed uint64, start game.Start) *game.World {
 	t := cfg.Market.Market
 	w := game.NewWorld(seed, logistics.StartingCities(cfg.City, cfg.Market), t.StartCash, t.CarryLimit)
+	if cfg.Characters.IsDefault(start.Character) {
+		start.Character = ""
+	}
+	w.Start = start
+	ch := cfg.Characters.Character(start.Character)
 	territory.New(cfg).Seed(w)
 	rng := game.RNGFor(seed, 0)
-	crew.New(cfg).Seed(w, rng)
+	cs := crew.New(cfg)
+	cs.Seed(w, rng)
 	rivals.New(cfg).Seed(w, rng)
 	laundering.New(cfg).Seed(w)
 	law.New(cfg).Seed(w, rng)
-	if mk, err := market.New(cfg); err == nil {
+	if start.HardDA {
+		// The personalities the law sim would have drawn, set and not
+		// pinned: the elections and the chief's term run as they do.
+		w.Law.DA.Stance = "law_and_order"
+		w.Law.Chief.Personality = "zealous"
+	}
+	mk, err := market.New(cfg)
+	if err == nil {
+		if ch != nil {
+			for _, id := range ch.Start.Products {
+				mk.List(w, id) // before the connects are priced, so they price it
+			}
+		}
 		mk.Seed(w, rng)
 	}
+	if ch != nil {
+		applyStart(cfg, w, cs, ch.Start)
+	}
 	return w
+}
+
+// applyStart puts a character's start on the world on day 0.
+func applyStart(cfg *content.Config, w *game.World, cs *crew.Sim, s content.StartConfig) {
+	dice := (&game.Tick{Day: 0, Seed: w.Seed}).Sub("character")
+	for _, role := range s.Crew {
+		cs.Join(w, role, dice)
+	}
+	for _, id := range s.Upgrades {
+		grant(cfg.Upgrades, w, id)
+	}
+	if s.City != "" {
+		// Home's starting corner goes back to the street: you stand on
+		// the character's, in its city.
+		if c := w.PostOf(game.You); c != nil {
+			_ = w.Abandon(c.ID)
+		}
+		_ = w.Travel(s.City)
+		_ = w.Post(s.Corner, game.You)
+	}
+	r := &w.Player.Reputation
+	r.Fear, r.Respect, r.Notoriety = s.Reputation.Fear, s.Reputation.Respect, s.Reputation.Notoriety
+	if s.KnowChief {
+		w.Learn(game.Fact{Subject: game.SubjectChief, Kind: game.FactPersonality, Value: w.Law.Chief.Personality, Confidence: 1, Day: 0, Source: game.SourceSeen})
+	}
+}
+
+// grant gives the world a node of the tree for nothing, its
+// prerequisites first, the way harness.Own does: through BuyUpgrade,
+// so a carry bonus or a supplier discount lands as a purchase would.
+func grant(tree content.UpgradesConfig, w *game.World, id string) {
+	u := tree.Upgrade(id)
+	if u == nil || w.Owns(id) {
+		return
+	}
+	for _, req := range u.Requires {
+		grant(tree, w, req)
+	}
+	if u.Clean {
+		w.Player.CleanCash += u.Cost
+	} else {
+		w.Player.DirtyCash += u.Cost
+	}
+	_, _ = w.BuyUpgrade(tree, id)
+	w.Today.UpgradesToday = nil // a start is not a purchase to report
 }
