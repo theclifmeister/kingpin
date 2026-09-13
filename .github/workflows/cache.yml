@@ -82,29 +82,17 @@ jobs:
       # tracked file gets an mtime that is a function of its blob (28 bits
       # of the sha: 2001-2010, never in the future, which Go refuses to
       # cache) and every directory a fixed one, .git too (a guard in
-      # internal/game walks the root, whose listing includes it), once git
-      # has re-stat'ed its index, or go build's VCS stamping would rewrite
-      # it and move .git's mtime again. The same lines are in ci.yml.
+      # internal/game walks the root, whose listing includes it; GOFLAGS
+      # above keeps go from running git status, whose index rewrite would
+      # move .git again). The same lines are in ci.yml.
       - name: content mtimes
         run: |
           git ls-files -s | while IFS=$'\t' read -r meta path; do
             sha=${meta#* }
             touch -d "@$((0x${sha:0:7} + 1000000000))" -- "$path"
           done
-          git update-index -q --refresh
           find . -path ./.git -prune -o -type d -exec touch -d @1000000000 {} +
           touch -d @1000000000 .git
-
-      - name: DEBUG watch .git
-        run: |
-          sudo apt-get install -y -q inotify-tools >/dev/null 2>&1 || true
-          nohup inotifywait -m -r --timefmt '%T' --format '%T %w%f %e' -o /tmp/inotify.log .git >/dev/null 2>&1 &
-          sleep 1
-
-      - name: DEBUG ls after-mtimes
-        run: |
-          ls -la --time-style=full-iso . internal cmd | head -60
-          stat -c '%n %s %Y %f' . .git internal cmd
 
       - uses: actions/setup-go@v7
         with:
@@ -122,27 +110,10 @@ jobs:
       - name: build
         run: go build ./...
 
-      - name: DEBUG ls after-build
-        run: |
-          ls -la --time-style=full-iso . internal cmd | head -60
-          stat -c '%n %s %Y %f' . .git internal cmd
-
       - name: test
         run: |
           go test -timeout 30m ./internal/harness ./internal/ui
           go test -race -timeout 30m $(go list ./... | grep -v -e /internal/harness$ -e /internal/ui$)
-
-      - name: DEBUG ls after-test
-        run: |
-          ls -la --time-style=full-iso . internal cmd | head -60
-          stat -c '%n %s %Y %f' . .git internal cmd
-      - name: DEBUG inotify log
-        run: cat /tmp/inotify.log || true
-
-      - name: DEBUG game twice
-        run: |
-          GODEBUG=gocachetest=1 go test -race -timeout 30m ./internal/game
-          GODEBUG=gocachetest=1 go test -race -timeout 30m ./internal/game
 
       - uses: actions/cache/save@v6
         if: ${{ !cancelled() }}
