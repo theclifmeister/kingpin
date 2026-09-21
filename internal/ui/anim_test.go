@@ -120,7 +120,7 @@ func TestNoTickInPlayMode(t *testing.T) {
 	}
 	// The map after the strike's scene: the one scene on a play screen
 	// played, and the map is play mode again.
-	struck := richModel(t, 120, 40)
+	struck := richModelSeeded(t, 120, 40, 5) // a seed the rival takes nothing on overnight: one flip (#225)
 	struck.opts.Anim = true
 	strikeMorning(t, struck)
 	if _, cmd := struck.Update(key("5")); cmd == nil || struck.scene == nil {
