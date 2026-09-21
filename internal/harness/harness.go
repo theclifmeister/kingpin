@@ -394,8 +394,12 @@ func BuyUpgrades(cfg *content.Config, w *game.World, margin float64) {
 		}
 		var pick *content.UpgradeConfig
 		for _, n := range cfg.Upgrades.Branch(branch) {
-			if w.Owns(n.ID) || len(w.Missing(n)) > 0 || n.Effects.Identities > 0 {
-				continue // an exit plan (#49, identity) is a decision, not the next node: a policy that means to vanish owns it (Own)
+			if w.Owns(n.ID) || len(w.Missing(n)) > 0 || n.Effects.Identities > 0 || n.Effects.AutoBail {
+				// An exit plan (#49, identity) is a decision, not the next
+				// node: a policy that means to vanish owns it (Own). The
+				// bondsman (#230) bails what no scripted policy bails by
+				// hand, so buying it would change the policy, not the tree.
+				continue
 			}
 			if pick == nil || n.Cost < pick.Cost {
 				u := n

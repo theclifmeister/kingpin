@@ -500,3 +500,87 @@ func TestDriverComesLookingOnceARouteHasRun(t *testing.T) {
 		t.Fatalf("driver cut at 100: %v, at 50: %v", s.DriverCut(100), s.DriverCut(50))
 	}
 }
+
+// The bondsman (#230): with auto_bail owned and the clean cash to cover
+// it, an arrest is bailed the night it lands (the whole of the role's
+// bail, once, out tomorrow with bail_loyalty, the lawyer named on the
+// money line); short of the cash the member sits as they always did,
+// and the report says the account was short.
+func TestBondsmanBailsTheMorningOf(t *testing.T) {
+	cfg := content.MustLoad()
+	sure := *cfg
+	sure.Crew.Life.ArrestChance = 1
+	life := sure.Crew.Life
+	w, s := lifeWorld(t, &sure, 100_000)
+	w.Upgrades["bondsman"] = true
+	r := hire(w, "runner", 30)
+	e := hire(w, "enforcer", 30)
+	w.Crew.HiredToday = nil
+	_ = w.Post("c1", r.ID)
+	_ = w.Post("c1", e.ID)
+	cost := s.BailCost(*r)
+	w.Player.CleanCash = cost // the runner's bail and not a dollar more: the enforcer sits
+	w.Heat.Sweep = game.Sweep{Day: w.Day + 1, City: "test", Level: content.Sting, Corners: []string{"c1"}, Crew: []int{r.ID, e.ID}}
+	w.Day++
+	loyal := w.Crew.Member(r.ID).Loyalty
+	evs := step(w, s)
+	k := kinds(evs)
+	if k["CrewArrested"] != 2 || k["CrewBailed"] != 1 {
+		t.Fatalf("the night of the arrests: %v", k)
+	}
+	for _, ev := range evs {
+		switch ev := ev.(type) {
+		case events.CrewBailed:
+			if ev.ID != r.ID || ev.Cost != cost || ev.Who != "the lawyer" {
+				t.Fatalf("the bondsman's bail: %+v", ev)
+			}
+		case events.CrewArrested:
+			if ev.ID == r.ID && (!ev.Sprung || ev.Short) || ev.ID == e.ID && (ev.Sprung || !ev.Short) {
+				t.Fatalf("the arrest's line: %+v", ev)
+			}
+		}
+	}
+	if m := w.Crew.Member(r.ID); !m.Bailed || m.JailedUntil != w.Day+1 || !m.Jailed(w.Day) {
+		t.Fatalf("the runner after the bondsman: %+v", m)
+	}
+	if m := w.Crew.Member(e.ID); m.Bailed || m.JailedUntil != w.Day+life.JailDays {
+		t.Fatalf("the enforcer with the account short: %+v", m)
+	}
+	if w.Player.CleanCash != 0 || w.Stats.Bails != 1 || w.Stats.BailCash != cost || w.Stats.Arrests != 2 {
+		t.Fatalf("after the night: clean %d bails %d for %d, arrests %d", w.Player.CleanCash, w.Stats.Bails, w.Stats.BailCash, w.Stats.Arrests)
+	}
+	if _, err := w.Bail(r.ID, cost); err != game.ErrBailed {
+		t.Fatalf("bailing by hand on top of the bondsman: %v", err)
+	}
+	// The morning: the runner walks with bail_loyalty, the enforcer sits.
+	evs = step(w, s)
+	if kinds(evs)["CrewReleased"] != 1 {
+		t.Fatalf("the morning after: %v", kinds(evs))
+	}
+	if m := w.Crew.Member(r.ID); m.Jailed(w.Day) || m.Bailed || m.Loyalty < loyal+life.BailLoyalty-2 {
+		t.Fatalf("released: %+v (was %.0f)", m, loyal)
+	}
+	if m := w.Crew.Member(e.ID); !m.Jailed(w.Day) {
+		t.Fatalf("the enforcer walked with no bail down: %+v", m)
+	}
+	// Without the node the same night jails both and pays nothing.
+	w, s = lifeWorld(t, &sure, 100_000)
+	r = hire(w, "runner", 30)
+	w.Crew.HiredToday = nil
+	_ = w.Post("c1", r.ID)
+	w.Player.CleanCash = 100_000
+	w.Heat.Sweep = game.Sweep{Day: w.Day + 1, City: "test", Level: content.Sting, Corners: []string{"c1"}, Crew: []int{r.ID}}
+	w.Day++
+	evs = step(w, s)
+	if k := kinds(evs); k["CrewArrested"] != 1 || k["CrewBailed"] != 0 {
+		t.Fatalf("without the node: %v", k)
+	}
+	if m := w.Crew.Member(r.ID); m.Bailed || m.JailedUntil != w.Day+life.JailDays || w.Player.CleanCash != 100_000 || w.Stats.Bails != 0 {
+		t.Fatalf("without the node: %+v, clean %d, bails %d", m, w.Player.CleanCash, w.Stats.Bails)
+	}
+	for _, ev := range evs {
+		if ev, ok := ev.(events.CrewArrested); ok && (ev.Sprung || ev.Short) {
+			t.Fatalf("the arrest's line names a bondsman nobody owns: %+v", ev)
+		}
+	}
+}

@@ -142,19 +142,19 @@ func (s *Sim) life(w *game.World, t *game.Tick, fx game.Effects) {
 				continue
 			}
 			if rng.Float64() < life.ArrestChance {
-				s.jail(w, t, m, sw.City, w.PostOf(m.ID), "")
+				s.jail(w, t, m, sw.City, w.PostOf(m.ID), "", fx)
 			}
 		}
 		if content.Rank(sw.Level) >= content.Rank(content.Raid) && sw.Units > 0 { // a raid, or the task force (#48)
 			if m := c.Chemist(); m != nil && !m.Jailed(t.Day) && rng.Float64() < life.ArrestChance {
-				s.jail(w, t, m, sw.City, nil, "")
+				s.jail(w, t, m, sw.City, nil, "", fx)
 			}
 		}
 	}
 	for _, e := range t.Events() {
 		if ev, ok := e.(events.ShipmentSeized); ok && ev.Driver != 0 {
 			if m := c.Member(ev.Driver); m != nil && !m.Jailed(t.Day) {
-				s.jail(w, t, m, ev.From, nil, ev.Route)
+				s.jail(w, t, m, ev.From, nil, ev.Route, fx)
 			}
 		}
 	}
@@ -240,10 +240,16 @@ func (s *Sim) kinLoyalty(w *game.World, m game.CrewMember, d float64) {
 }
 
 // jail puts m in a cell for jail_days: off the corner, the house and
-// the road, selling and guarding nothing until they are out.
-func (s *Sim) jail(w *game.World, t *game.Tick, m *game.CrewMember, city string, corner *game.Corner, route string) {
+// the road, selling and guarding nothing until they are out. With the
+// bondsman owned (#230, auto_bail) the bail is paid from clean cash
+// the same night when the account covers it, exactly as a hand bail
+// is (World.Bail: the whole of it, once, out tomorrow with
+// bail_loyalty), and the report says who paid; short of the cash the
+// arrest stands as it always did. No dice either way.
+func (s *Sim) jail(w *game.World, t *game.Tick, m *game.CrewMember, city string, corner *game.Corner, route string, fx game.Effects) {
 	life := s.cfg.Life
-	ev := events.CrewArrested{Day: t.Day, ID: m.ID, Name: m.Name, Role: m.Role, City: city, Days: life.JailDays, Bail: s.BailCost(*m), Route: route}
+	cost := s.BailCost(*m)
+	ev := events.CrewArrested{Day: t.Day, ID: m.ID, Name: m.Name, Role: m.Role, City: city, Days: life.JailDays, Bail: cost, Route: route}
 	if corner != nil {
 		ev.Corner, ev.CornerName = corner.ID, corner.Name
 	}
@@ -251,6 +257,19 @@ func (s *Sim) jail(w *game.World, t *game.Tick, m *game.CrewMember, city string,
 	m.JailedUntil = t.Day + life.JailDays
 	m.Bailed = false
 	w.Stats.Arrests++
+	if fx.AutoBail {
+		if cost <= w.Player.CleanCash {
+			w.Player.CleanCash -= cost
+			w.Stats.Bails++
+			w.Stats.BailCash += cost
+			m.Bailed = true
+			m.JailedUntil = t.Day + 1
+			ev.Sprung = true
+			t.Emit(events.CrewBailed{Day: t.Day, ID: m.ID, Name: m.Name, Cost: cost, Who: "the lawyer"})
+		} else {
+			ev.Short = true
+		}
+	}
 	t.Emit(ev)
 }
 

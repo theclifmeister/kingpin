@@ -535,21 +535,36 @@ func (s *Sim) Step(w *game.World, t *game.Tick) {
 			rep.Crew = append(rep.Crew, fmt.Sprintf("%s took your money and stays sweet on you, for now.", ev.Name))
 			rep.Money = append(rep.Money, fmt.Sprintf("Paid off %s -%s", ev.Name, format.Money(ev.Cost)))
 		case events.CrewBailed:
-			// Crew life (#46): the cells, the cots and the funerals.
+			// Crew life (#46): the cells, the cots and the funerals. The
+			// bondsman's bail (#230, Who) is on the arrest's own line;
+			// here it is the money.
 			paidOff += ev.Cost
+			if ev.Who != "" {
+				rep.Money = append(rep.Money, fmt.Sprintf("Bail for %s -%s clean (%s)", ev.Name, format.Money(ev.Cost), ev.Who))
+				break
+			}
 			rep.Crew = append(rep.Crew, fmt.Sprintf("Bail is down for %s: they walk tomorrow.", ev.Name))
 			rep.Money = append(rep.Money, fmt.Sprintf("Bail for %s -%s clean", ev.Name, format.Money(ev.Cost)))
 		case events.CrewArrested:
 			d := at(ev.City)
 			d.Name, d.Role, d.Corner = ev.Name, ev.Role, ev.CornerName
 			add("crew", "CrewArrested", d)
+			// The bail's tail (#230): a hand bail's price, the bondsman's
+			// bail already paid, or the bondsman's account too short.
+			tail := fmt.Sprintf("%s in a cell, %s clean to walk them out tomorrow.", format.Plural(ev.Days, "day"), format.Money(ev.Bail))
+			switch {
+			case ev.Sprung:
+				tail = fmt.Sprintf("sprung by the lawyer before morning, %s clean out of the account.", format.Money(ev.Bail))
+			case ev.Short:
+				tail = fmt.Sprintf("%s in a cell; the lawyer could not cover the %s clean bail, and neither could you.", format.Plural(ev.Days, "day"), format.Money(ev.Bail))
+			}
 			switch {
 			case ev.Route != "":
-				rep.Crew = append(rep.Crew, fmt.Sprintf("%s was taken with the shipment: %s in a cell, %s clean to walk them out tomorrow.", ev.Name, format.Plural(ev.Days, "day"), format.Money(ev.Bail)))
+				rep.Crew = append(rep.Crew, fmt.Sprintf("%s was taken with the shipment: %s", ev.Name, tail))
 			case ev.Corner != "":
-				rep.Crew = append(rep.Crew, fmt.Sprintf("The police took %s off %s: %s in a cell, %s clean to walk them out tomorrow.", ev.Name, ev.CornerName, format.Plural(ev.Days, "day"), format.Money(ev.Bail)))
+				rep.Crew = append(rep.Crew, fmt.Sprintf("The police took %s off %s: %s", ev.Name, ev.CornerName, tail))
 			default:
-				rep.Crew = append(rep.Crew, fmt.Sprintf("The raid found the lab: %s in a cell for %s, %s clean to walk them out tomorrow.", ev.Name, format.Plural(ev.Days, "day"), format.Money(ev.Bail)))
+				rep.Crew = append(rep.Crew, fmt.Sprintf("The raid found the lab: %s taken, %s", ev.Name, tail))
 			}
 		case events.CrewReleased:
 			d := base

@@ -206,6 +206,7 @@ var foldRules = []struct {
 	{"SkillBonus", sum},
 	{"HireFeeMul", lowest},
 	{"StartLoyaltyBonus", sum},
+	{"AutoBail", highest},
 
 	{"WashMul", product},
 	{"AuditRiskMul", product},
@@ -265,15 +266,21 @@ func TestFoldEffects(t *testing.T) {
 		// sit either side of 1 so lowest and highest are told apart
 		// from a product; for a delta they are plain counts.
 		a, b := 0.6, 1.5
-		if cf.Type.Kind() == reflect.Int {
+		switch cf.Type.Kind() {
+		case reflect.Int:
 			a, b = 3, 5
+		case reflect.Bool: // a flag (#230): one node carries it, the other does not
+			a, b = 0, 1
 		}
 		set := func(v float64) content.UpgradeEffects {
 			var e content.UpgradeEffects
 			f := reflect.ValueOf(&e).Elem().FieldByName(r.name)
-			if f.Kind() == reflect.Int {
+			switch f.Kind() {
+			case reflect.Int:
 				f.SetInt(int64(v))
-			} else {
+			case reflect.Bool:
+				f.SetBool(v != 0)
+			default:
 				f.SetFloat(v)
 			}
 			return e
@@ -286,9 +293,14 @@ func TestFoldEffects(t *testing.T) {
 		w.Upgrades["a"], w.Upgrades["b"] = true, true
 		got := reflect.ValueOf(FoldEffects(w, tree)).FieldByName(r.name)
 		var val float64
-		if got.Kind() == reflect.Int {
+		switch got.Kind() {
+		case reflect.Int:
 			val = float64(got.Int())
-		} else {
+		case reflect.Bool:
+			if got.Bool() {
+				val = 1
+			}
+		default:
 			val = got.Float()
 		}
 		want := map[foldRule]float64{product: a * b, sum: a + b, lowest: math.Min(a, b), highest: math.Max(a, b)}[r.rule]
@@ -305,7 +317,7 @@ func TestFoldEffects(t *testing.T) {
 		w.Upgrades = map[string]bool{}
 		none := reflect.ValueOf(FoldEffects(w, tree)).FieldByName(r.name)
 		id := reflect.ValueOf(identity).FieldByName(r.name)
-		if none.Kind() == reflect.Int && none.Int() != 0 || none.Kind() == reflect.Float64 && none.Float() != id.Float() {
+		if none.Kind() == reflect.Int && none.Int() != 0 || none.Kind() == reflect.Float64 && none.Float() != id.Float() || none.Kind() == reflect.Bool && none.Bool() {
 			t.Errorf("%s: nothing owned folds to %v", r.name, none)
 		}
 	}

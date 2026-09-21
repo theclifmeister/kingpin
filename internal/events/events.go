@@ -956,7 +956,10 @@ func (ShipmentSeized) Kind() string { return "ShipmentSeized" }
 // enforcer who stood on a corner the police hit, the chemist after a
 // raid that took stock (Corner empty, the lab), or the driver of a
 // seized shipment (Route). Days is how long they are held; Bail what
-// walking them out costs in clean cash.
+// walking them out costs in clean cash. Sprung is the bondsman's
+// (#230): the bail was paid from clean cash the night of the arrest;
+// Short that the bondsman was owned and the clean account could not
+// cover it, so they sit.
 type CrewArrested struct {
 	Day        int
 	ID         int
@@ -969,17 +972,22 @@ type CrewArrested struct {
 	RouteName  string
 	Days       int
 	Bail       int
+	Sprung     bool
+	Short      bool
 }
 
 func (CrewArrested) Kind() string { return "CrewArrested" }
 
 // CrewBailed is report-only bookkeeping (#46): the clean cash the
-// player put down today for a member's release tomorrow.
+// player put down today for a member's release tomorrow. Who names
+// who paid when it was not the player's hand: "the lawyer" for the
+// bondsman's bail (#230), empty for a hand bail.
 type CrewBailed struct {
 	Day  int
 	ID   int
 	Name string
 	Cost int
+	Who  string
 }
 
 func (CrewBailed) Kind() string { return "CrewBailed" }

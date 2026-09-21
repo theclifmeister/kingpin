@@ -177,6 +177,8 @@ func TestEffectWordsCoverTheVocabulary(t *testing.T) {
 			f.SetFloat(0.9)
 		case reflect.Int:
 			f.SetInt(2)
+		case reflect.Bool: // a flag (#230)
+			f.SetBool(true)
 		default:
 			t.Fatalf("%s: a %s in the vocabulary", rt.Field(i).Name, f.Kind())
 		}

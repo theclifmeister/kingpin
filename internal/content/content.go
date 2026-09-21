@@ -1465,6 +1465,7 @@ type UpgradeEffects struct {
 	SkillBonus         int     `toml:"skill_bonus"`
 	HireFeeMul         float64 `toml:"hire_fee_mul"`
 	StartLoyaltyBonus  int     `toml:"start_loyalty_bonus"`
+	AutoBail           bool    `toml:"auto_bail"` // the bondsman (#230): an arrest is bailed from clean cash the night it lands, when the cash covers it
 
 	// The laundering sim (#118).
 	WashMul        float64 `toml:"wash_mul"`

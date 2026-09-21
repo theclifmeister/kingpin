@@ -50,6 +50,7 @@
 #   skill_bonus              added to a generated candidate's skill (sum)
 #   hire_fee_mul             on a candidate's signing fee (lowest)
 #   start_loyalty_bonus      added to a generated candidate's loyalty (sum)
+#   auto_bail                the bondsman (#230): an arrest of yours is bailed from clean cash the night it lands, when the cash covers it (highest)
 #
 # The laundering sim (laundering.Sim, #118):
 #   wash_mul                 on every front's throughput (product)
@@ -389,6 +390,21 @@ requires = ["fallguy"]
 desc = "There is always somebody who owes you. One more indictment with the wrong name on it."
 [upgrade.effects]
 fall_guys = 1
+
+# The bondsman (#230): with the lawyer on retainer, nobody of yours sits
+# in a cell while the clean account can cover the role's bail. The crew
+# sim pays it the night the arrest lands (auto_bail, no dice), with
+# bail_loyalty as a hand bail buys; short of the cash the arrest stands.
+[[upgrade]]
+id = "bondsman"
+name = "Bail bondsman"
+branch = "legal"
+cost = 600000
+clean = true
+requires = ["retainer"]
+desc = "The lawyer has a bondsman on speed dial. Anybody of yours taken in is out by morning, if the clean account covers it."
+[upgrade.effects]
+auto_bail = true
 
 # The exit plan (#49): a new identity, clean and expensive. With one, the
 # indictment the fall guys do not take is the vanished ending rather than
