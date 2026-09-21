@@ -32,6 +32,8 @@ func (m *Model) mapSelected() *game.Corner {
 func (m *Model) mapMove(dx, dy int) {
 	if m.onRoutes {
 		switch {
+		case dx != 0:
+			m.cycleCity(dx) // ←→ on the routes turns the city, as the market's does (#239)
 		case dy < 0 && m.routeCursor == 0:
 			m.onRoutes = false
 		case dy < 0:

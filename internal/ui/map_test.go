@@ -402,3 +402,75 @@ func TestRouteMarkerMoves(t *testing.T) {
 		t.Errorf("two landing today: %q", got)
 	}
 }
+
+// The map's keys act on the shown cursor (#239): r and R on a corner
+// refuse and point at the routes rather than turning the route the
+// hidden routes cursor last sat on; on a route they turn it and open
+// the target; ←→ on the routes turns the city, as the market's does;
+// and the market's t and o act on the products alone, silent and
+// unlisted on the buyers.
+func TestMapKeysActOnTheShownCursor(t *testing.T) {
+	m := richModel(t, 120, 40)
+	w := m.w
+	m.Update(key("5"))
+	m.onRoutes, m.mapCursor = false, 0
+	r := m.mapRoutes()[0]
+	before := w.Route(r.ID).Dial
+	m.Update(key("r"))
+	if w.Route(r.ID).Dial != before || m.mode != modePlay || !strings.Contains(m.status, "Pick a route") {
+		t.Fatalf("r on a corner: dial %v (was %v) mode %v status %q", w.Route(r.ID).Dial, before, m.mode, m.status)
+	}
+	m.Update(key("R"))
+	if m.mode != modePlay || !strings.Contains(m.status, "Pick a route") {
+		t.Fatalf("R on a corner: mode %v status %q", m.mode, m.status)
+	}
+	m.onRoutes, m.routeCursor = true, 0
+	m.Update(key("r"))
+	if w.Route(r.ID).Dial == before {
+		t.Fatalf("r on a route did not turn the dial: %v", w.Route(r.ID).Dial)
+	}
+	m.Update(key("R"))
+	if m.mode != modeTarget {
+		t.Fatalf("R on a route: mode %v status %q", m.mode, m.status)
+	}
+	m.Update(key("esc"))
+	city := m.city
+	m.Update(key("right"))
+	if m.city == city {
+		t.Fatalf("→ on the routes did not turn the city: %s", m.city)
+	}
+	// The market's cut and cook are the products' alone.
+	m.Update(key("2"))
+	m.onBuyers, m.onSuppliers = false, false
+	if keys := m.paneKeys(); !hasKey(keys, "t") {
+		t.Fatalf("t cut is not listed on the products: %v", keyNames(keys))
+	}
+	if len(m.buyerRows()) == 0 {
+		t.Skip("the fixture has no buyer to sit on")
+	}
+	m.onBuyers = true
+	if keys := m.paneKeys(); hasKey(keys, "t") || hasKey(keys, "o") {
+		t.Fatalf("t cut or o cook is listed on the buyers: %v", keyNames(keys))
+	}
+	m.Update(key("t"))
+	if m.mode != modePlay {
+		t.Fatalf("t on the buyers opened %v", m.mode)
+	}
+}
+
+func hasKey(bs []binding, k string) bool {
+	for _, b := range bs {
+		if b.key == k {
+			return true
+		}
+	}
+	return false
+}
+
+func keyNames(bs []binding) []string {
+	var out []string
+	for _, b := range bs {
+		out = append(out, b.key+" "+b.label)
+	}
+	return out
+}
