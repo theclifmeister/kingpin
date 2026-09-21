@@ -558,7 +558,10 @@ func (m *Model) cornerSection(sel *game.Corner) section {
 			lines = append(lines, keyRow("w", fmt.Sprintf("push takes it %s, hit %s", m.oddsWord(f, sel, events.ForcePush), m.oddsWord(f, sel, events.ForceHit))))
 			lines = append(lines, keyRow("w", fmt.Sprintf("boost: the till, ~%s", cash(m.set.Rivals.BoostTake(w, *sel)))))
 		} else {
-			lines = append(lines, wrapped(theme.Subtle, "Taking it is a matter for the enforcers. Hire some "+screenPointer(screenCrew)+".")...)
+			// The pointer on a line of its own: wrapped mid-phrase it read
+			// `screen (4)` at a line's start, a key hint to the grammar's eye.
+			lines = append(lines, wrapped(theme.Subtle, "Taking it is a matter for the enforcers.")...)
+			lines = append(lines, theme.Subtle.Render("Hire one "+screenPointer(screenCrew)+"."))
 		}
 		// The books (#70): the police, tipped off, take the corner.
 		tp := m.set.Rivals.TipTuning()

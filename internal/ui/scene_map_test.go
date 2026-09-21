@@ -181,7 +181,10 @@ func TestStrikeSceneInTheOtherCity(t *testing.T) {
 	profile := lipgloss.ColorProfile()
 	lipgloss.SetColorProfile(0)
 	defer lipgloss.SetColorProfile(profile)
-	m := richModel(t, 120, 40)
+	// The pinned seed: on the clock's the rival's own strike can take a
+	// home corner the same night, and the home map would have a scene
+	// of its own to play (#258).
+	m := richModelSeeded(t, 120, 40, 5)
 	m.opts.Anim = true
 	other := m.w.City(m.w.CityOrder[1])
 	c := &other.Corners[0]

@@ -232,7 +232,7 @@ what your enforcers' chances look like:
 
 <!-- capture:map-120x40 -->
 ```text
- KINGPIN  1  2  3  4  5  6  7  8  9                                                       Day 4 · dirty $452K · heat 12
+ KINGPIN  1 Dash  2 Mkt  3 Journal  4 Crew  5 Map  6 Upgr  7 Ledger  8 Rivals  9 Intel    Day 4 · dirty $452K · heat 12
 MAP · Eastside  [ ◉ Eastside ]  Bayport  3/10 held · 3 worked · ~1828/day free      ╭─ DETAILS ────────────────────────╮
  ▴ THE DOCKS         ▪ RAIL YARD         ▪ OLD MILL                                 │ THE DOCKS                        │
    theirs              Dre                 Gato ⚔ Moose                             │ Mona's since day 0               │
