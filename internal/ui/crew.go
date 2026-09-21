@@ -51,14 +51,14 @@ func (m *Model) askFire() {
 		m.refuse("Can't fire: put the cursor on somebody on the payroll.")
 		return
 	}
-	m.fireID = c.ID
+	m.subjectID = c.ID
 	m.ask("fire", (*Model).fireConfirm, (*Model).confirmFire)
 }
 
 // fireConfirm is the confirmation's modal, naming who goes.
 func (m *Model) fireConfirm() string {
 	name := "them"
-	if c := m.w.Crew.Member(m.fireID); c != nil {
+	if c := m.w.Crew.Member(m.subjectID); c != nil {
 		name = c.Name
 	}
 	return m.modal("FIRE "+name+"?", []string{"No severance in this business. The rest of the crew", "will take it personally."}, m.modalFooter())
@@ -66,7 +66,7 @@ func (m *Model) fireConfirm() string {
 
 func (m *Model) confirmFire() {
 	m.mode = modePlay
-	got, err := m.w.Fire(m.fireID)
+	got, err := m.w.Fire(m.subjectID)
 	if err != nil {
 		m.refuse("Can't fire: " + err.Error())
 		return
@@ -130,13 +130,13 @@ func (m *Model) askPayOff() {
 		m.refuse("Can't pay off: put the cursor on somebody on the payroll.")
 		return
 	}
-	m.fireID = c.ID
+	m.subjectID = c.ID
 	m.ask("pay", (*Model).payOffConfirm, (*Model).confirmPayOff)
 }
 
 func (m *Model) confirmPayOff() {
 	m.mode = modePlay
-	c := m.w.Crew.Member(m.fireID)
+	c := m.w.Crew.Member(m.subjectID)
 	if c == nil {
 		return
 	}
@@ -149,7 +149,7 @@ func (m *Model) confirmPayOff() {
 }
 
 func (m *Model) payOffConfirm() string {
-	c := m.w.Crew.Member(m.fireID)
+	c := m.w.Crew.Member(m.subjectID)
 	if c == nil {
 		return m.modal("PAY OFF", []string{"They are gone."}, m.modalFooter())
 	}

@@ -25,11 +25,20 @@ import (
 
 // newRunDialog is the dialog's state.
 type newRunDialog struct {
+	stepper
 	slot   int         // the slot the run starts in
-	step   int         // 0 the character, 1 the seed, 2 the hard DA
 	cursor int         // the row on the first page: the characters, then the daily
 	seed   numberField // the typed seed; blank is random
 	hard   bool        // the hard DA toggle
+}
+
+// field is the seed on its page (#243); back keeps it, a seed being
+// nobody's step's.
+func (d *newRunDialog) field() *numberField {
+	if d.step == 1 {
+		return &d.seed
+	}
+	return nil
 }
 
 // openNewRun opens the dialog for the slot on its first page, the
@@ -91,14 +100,13 @@ func (m *Model) characterOpen(ch content.CharacterConfig) bool {
 func (m *Model) keyNewRun(k tea.KeyMsg) (tea.Model, tea.Cmd) {
 	key := k.String()
 	d := &m.nr
-	switch key {
-	case "esc":
+	if closes(key) {
 		m.mode = modeStart
 		return m, nil
+	}
+	switch key {
 	case "shift+tab":
-		if d.step > 0 {
-			d.step--
-		}
+		d.back(noField) // the seed stays: it is nobody's step's
 		return m, nil
 	case "tab":
 		if d.step < m.lastStep() && (d.step > 0 || d.cursor != m.dailyRow()) {

@@ -39,6 +39,7 @@ type binding struct {
 	screens []screen             // the screens whose pane lists it; nil lists it nowhere
 	modes   []mode               // the modals whose footer lists it (modeBindings)
 	global  bool                 // works on every screen, listed or not; a screen's own binding for the same key wins there
+	dialogs bool                 // listed for whatever dialog is open (#243: openPaged), so no mode list
 	quiet   bool                 // in help and the README only: the frame's keys, which the title bar and help carry
 	when    func(*Model) bool    // live only while this holds; nil is always
 	do      func(*Model, string) // what it does in play mode, given the key pressed
@@ -109,29 +110,12 @@ func step(n int) func(*Model) bool { return func(m *Model) bool { return m.modal
 // shift+tab has a page to go back to.
 func pastFirstStep(m *Model) bool { return m.modalStep() > 0 }
 
-// numberStep is the open modal being on a number field (#112): the buy,
-// sell and cart dialogs' quantity page, the target dialog's number (its
-// third page, after units or days, #115), the fund dialog's amount, the
-// move dialog's quantity (#73) and the invest dialog's levels (#192).
-// The field's shortcuts are listed there and nowhere else.
+// numberStep is the open dialog being on a number field (#112, #243:
+// what its state says through paged). The field's shortcuts are listed
+// there and nowhere else.
 func numberStep(m *Model) bool {
-	switch m.mode {
-	case modeFund, modeConfirmFast, modeConfirmBuyOff, modeInvest, modeReserve, modePayCop:
-		return true
-	case modeBuy:
-		return buyAt(1)(m)
-	case modeSell, modeCart, modeBribe:
-		return m.modalStep() == 1
-	case modeTarget:
-		return m.modalStep() == 2
-	case modeMove:
-		return m.mv.step == 3
-	case modeCut, modeCook:
-		return m.lab.step == 1
-	case modeNewRun:
-		return m.nr.step == 1
-	}
-	return false
+	d := m.openPaged()
+	return d != nil && d.field() != nil
 }
 
 // newRunNext is the new-run dialog (#50) having a page after this one:
@@ -150,7 +134,7 @@ func newRunStart(m *Model) bool {
 
 // moveList is the move dialog (#73) being on a list page: from, to or
 // the product; its fourth page is the quantity.
-func moveList(m *Model) bool { return m.mv.step < 3 }
+func moveList(m *Model) bool { return m.modalStep() < 3 }
 
 // mapOnRoutes is the map's routes cursor being on an edge (#42): where
 // the checkpoint is for sale.
@@ -177,12 +161,12 @@ func fundNext(m *Model) bool { return !fundLast(m) }
 
 // frontBuy and houseRent are the buy picker's second page, on the
 // fronts and on the houses (#73).
-func frontBuy(m *Model) bool { return m.frontStep == 1 && m.frontKind == pickFront }
+func frontBuy(m *Model) bool { return m.front.step == 1 && m.front.kind == pickFront }
 
-func houseRent(m *Model) bool { return m.frontStep == 1 && m.frontKind == pickHouse }
+func houseRent(m *Model) bool { return m.front.step == 1 && m.front.kind == pickHouse }
 
 // assetBuy is the picker's second page on the assets (#48).
-func assetBuy(m *Model) bool { return m.frontStep == 1 && m.frontKind == pickAsset }
+func assetBuy(m *Model) bool { return m.front.step == 1 && m.front.kind == pickAsset }
 
 // buyAt is the buy dialog being on its nth step past the connect step
 // (#72): 0 the product, 1 the quantity, 2 the repeat and the pay. The
@@ -423,7 +407,7 @@ var modeBindings = []binding{
 	{key: "1-6", label: "choose", modes: in(modeNewRun), when: step(0)},
 	{key: "←→", label: "toggle", modes: in(modeNewRun), when: step(2)},
 	{key: "↑↓", label: "pick", modes: in(modeMove), when: moveList},
-	{key: "↑↓", label: "pick", modes: in(modeCut, modeCook), when: labList},
+	{key: "↑↓", label: "pick", modes: in(modeCut, modeCook), when: step(0)},
 	{key: "↑↓", label: "pick", modes: in(modeSell, modeTarget), when: step(0)},
 	{key: "↑↓", label: "pick", modes: in(modeBuy), when: buyList},
 	{key: "↑↓", label: "pick", modes: in(modeCart), when: cartHasLines},
@@ -443,15 +427,15 @@ var modeBindings = []binding{
 	{key: "1-2", label: "repeat", modes: in(modeSell), when: step(3)},
 	{key: "1-3", label: "dial", modes: in(modeCart), when: cartOnSell},
 	{key: "1-3", label: "choose", modes: in(modeCard), when: step(0)},
-	{key: "m", label: "max", modes: in(modeBuy, modeSell, modeTarget, modeCart, modeFund, modeConfirmFast, modeMove, modeConfirmBuyOff, modeCut, modeCook, modeInvest, modeBribe, modeReserve, modePayCop, modeNewRun), when: numberStep},
-	{key: "h", label: "half", modes: in(modeBuy, modeSell, modeTarget, modeCart, modeFund, modeConfirmFast, modeMove, modeConfirmBuyOff, modeCut, modeCook, modeInvest, modeBribe, modeReserve, modePayCop, modeNewRun), when: numberStep},
-	{key: "↑↓", label: "±1", modes: in(modeBuy, modeSell, modeTarget, modeCart, modeFund, modeConfirmFast, modeMove, modeConfirmBuyOff, modeCut, modeCook, modeInvest, modeBribe, modeReserve, modePayCop, modeNewRun), when: numberStep},
-	{key: "pgup pgdn", label: "±10", modes: in(modeBuy, modeSell, modeTarget, modeCart, modeFund, modeConfirmFast, modeMove, modeConfirmBuyOff, modeCut, modeCook, modeInvest, modeBribe, modeReserve, modePayCop, modeNewRun), when: numberStep},
+	{key: "m", label: "max", dialogs: true, when: numberStep},
+	{key: "h", label: "half", dialogs: true, when: numberStep},
+	{key: "↑↓", label: "±1", dialogs: true, when: numberStep},
+	{key: "pgup pgdn", label: "±10", dialogs: true, when: numberStep},
 	{key: "enter", label: "next", modes: in(modeSell, modeTarget, modePropose, modeFront), when: step(0)},
 	{key: "enter", label: "next", modes: in(modeMove), when: moveList},
-	{key: "enter", label: "next", modes: in(modeCut, modeCook), when: labList},
-	{key: "enter", label: "cut", modes: in(modeCut), when: labNumber},
-	{key: "enter", label: "cook", modes: in(modeCook), when: labNumber},
+	{key: "enter", label: "next", modes: in(modeCut, modeCook), when: step(0)},
+	{key: "enter", label: "cut", modes: in(modeCut), when: step(1)},
+	{key: "enter", label: "cook", modes: in(modeCook), when: step(1)},
 	{key: "enter", label: "next", modes: in(modeSell, modeTarget), when: step(1)},
 	{key: "enter", label: "next", modes: in(modeBuy), when: buyNext},
 	{key: "enter", label: "next", modes: in(modeSell), when: step(2)},
@@ -502,59 +486,65 @@ var modeBindings = []binding{
 	// buy's connect step) alone, where the toggle is live.
 	{key: "s", label: "sell", modes: in(modeBuy), when: buyList},
 	{key: "b", label: "buy", modes: in(modeSell), when: step(0)},
-	{key: "⇧tab", label: "back", keys: []string{"shift+tab"}, modes: in(modeBuy, modeSell, modeTarget, modeCart, modePropose, modeFront, modeMove, modeFund, modeCut, modeCook, modeBribe, modeSpy, modeExit, modeNewRun), when: pastFirstStep},
-	{key: "esc", label: "close", modes: in(modeBuy, modeSell, modeTarget, modePropose, modePost, modeStrike, modeUndercut, modeFront, modeAssign, modeFund, modeCart, modeMove, modeGuard,
-		modeConfirm, modeConfirmEnd, modeConfirmFast, modeConfirmBuyOff, modeCut, modeCook, modeInvest, modeBribe, modeReserve, modeDriver, modePayCop, modeSpy, modeExit, modeNewRun)},
+	{key: "⇧tab", label: "back", keys: []string{"shift+tab"}, dialogs: true, when: pastFirstStep},
+	{key: "esc", label: "close", dialogs: true, modes: in(modeConfirm, modeConfirmEnd)},
 	{key: "enter esc", label: "close", modes: in(modeReport, modeHelp, modeStage)},
 	{key: "enter esc", label: "close", modes: in(modeCard), when: step(1)},
 	{key: "␣ esc", label: "close", modes: in(modeDetails)},
 }
 
-// modalStep is the page the open dialog is on: the buy, sell and target
-// dialogs and the propose dialog have pages, and the card's outcome is
-// its second.
-func (m *Model) modalStep() int {
+// openPaged is the state of the dialog open (#243), or nil for a
+// modal with no pages of its own: a confirmation, a reader, the card.
+func (m *Model) openPaged() paged {
 	switch m.mode {
-	case modeBuy:
-		// The connect step (#72) is a page before the product where
-		// the dialog has one, so back has it to go to.
-		if m.dlg.pick {
-			return 0
-		}
-		if m.dlg.paged {
-			return m.dlg.step + 1
-		}
-		return m.dlg.step
-	case modeSell:
-		return m.dlg.step
+	case modeBuy, modeSell:
+		return &m.dlg
 	case modeTarget:
-		return m.tgt.step
-	case modeFront:
-		return m.frontStep
-	case modeMove:
-		return m.mv.step
-	case modeCut, modeCook:
-		return m.lab.step
+		return &m.tgt
 	case modeCart:
-		return m.crt.step
-	case modePropose:
-		return m.proposeStep
-	case modeFund:
-		return m.fnd.step
+		return &m.crt
+	case modeMove:
+		return &m.mv
+	case modeCut, modeCook:
+		return &m.lab
 	case modeBribe:
-		return m.br.step
+		return &m.br
+	case modeFund:
+		return &m.fnd
 	case modeSpy:
-		if len(m.spyFactions()) > 1 {
-			return m.spy.step // with one faction the dialog is its one page
-		}
+		return &m.spy
 	case modeExit:
-		return m.exit.step
+		return &m.exit
 	case modeNewRun:
-		return m.nr.step
-	case modeCard:
-		if m.cardDone {
-			return 1
-		}
+		return &m.nr
+	case modeFront:
+		return &m.front
+	case modePropose:
+		return &m.prop
+	case modeInvest:
+		return &m.inv
+	case modeReserve:
+		return &m.rsv
+	case modePayCop:
+		return &m.cop
+	case modeConfirmFast:
+		return &m.fst
+	case modeConfirmBuyOff:
+		return &m.bo
+	case modePost, modeStrike, modeUndercut, modeAssign, modeGuard, modeDriver:
+		return &m.pick
+	}
+	return nil
+}
+
+// modalStep is the page the open dialog is on, as its state says
+// (#243); the card's outcome is its second page.
+func (m *Model) modalStep() int {
+	if d := m.openPaged(); d != nil {
+		return d.page()
+	}
+	if m.mode == modeCard && m.cardDone {
+		return 1
 	}
 	return 0
 }
@@ -602,10 +592,12 @@ func (m *Model) keysFor(s screen) []binding {
 func (m *Model) modeKeys(md mode) []binding {
 	var out []binding
 	for _, b := range modeBindings {
+		listed := b.dialogs && m.openPaged() != nil
 		for _, x := range b.modes {
-			if x == md && b.live(m) {
-				out = append(out, b)
-			}
+			listed = listed || x == md
+		}
+		if listed && b.live(m) { // the mode first: a predicate may read the run, and the start menu has none
+			out = append(out, b)
 		}
 	}
 	return out

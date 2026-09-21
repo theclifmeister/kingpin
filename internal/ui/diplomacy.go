@@ -47,6 +47,16 @@ func (m *Model) termRows(kind string) ([]game.Deal, []string) {
 	return deals, words
 }
 
+func (d *proposeDialog) field() *numberField { return nil }
+
+// proposeDialog is the propose dialog's state (#243): the page (0 the
+// kind, 1 the terms), the kind picked and the row under the cursor.
+type proposeDialog struct {
+	stepper
+	kind   int // an index into proposeKinds while on the terms page
+	cursor int
+}
+
 // askPropose opens the dialog, or explains why there is nobody to talk to.
 func (m *Model) askPropose() {
 	r := m.faction()
@@ -61,34 +71,34 @@ func (m *Model) askPropose() {
 	if m.w.Over != nil {
 		return
 	}
-	m.proposeStep, m.proposeKind, m.proposeCursor = 0, 0, 0
+	m.prop.step, m.prop.kind, m.prop.cursor = 0, 0, 0
 	m.mode = modePropose
 }
 
 // proposeRows are the rows of the current page.
 func (m *Model) proposeRows() int {
-	if m.proposeStep == 0 {
+	if m.prop.step == 0 {
 		n := len(proposeKinds)
 		if m.w.Today.Proposal != nil {
 			n++ // withdraw
 		}
 		return n
 	}
-	deals, _ := m.termRows(proposeKinds[m.proposeKind])
+	deals, _ := m.termRows(proposeKinds[m.prop.kind])
 	return len(deals)
 }
 
 // pickPropose is enter on the dialog: the kind page opens the terms
 // page, the terms page sends the proposal.
 func (m *Model) pickPropose() {
-	if m.proposeStep == 0 {
-		if m.proposeCursor >= len(proposeKinds) {
+	if m.prop.step == 0 {
+		if m.prop.cursor >= len(proposeKinds) {
 			m.w.Withdraw()
 			m.mode = modePlay
 			m.say("Proposal withdrawn.")
 			return
 		}
-		kind := proposeKinds[m.proposeCursor]
+		kind := proposeKinds[m.prop.cursor]
 		if kind == game.DealShipment {
 			m.refuse("Can't propose a shipment: joint shipments need routes, and there are none yet.")
 			return
@@ -97,15 +107,15 @@ func (m *Model) pickPropose() {
 			m.refuse(fmt.Sprintf("Can't propose that: you already have %s.", m.w.Describe(*d)))
 			return
 		}
-		m.proposeKind, m.proposeStep, m.proposeCursor = m.proposeCursor, 1, 1
+		m.prop.kind, m.prop.step, m.prop.cursor = m.prop.cursor, 1, 1
 		return
 	}
-	deals, _ := m.termRows(proposeKinds[m.proposeKind])
+	deals, _ := m.termRows(proposeKinds[m.prop.kind])
 	if len(deals) == 0 {
 		m.mode = modePlay
 		return
 	}
-	d := deals[max(0, min(m.proposeCursor, len(deals)-1))]
+	d := deals[max(0, min(m.prop.cursor, len(deals)-1))]
 	r := m.faction()
 	m.mode = modePlay
 	if err := m.w.ProposeTo(r.Faction(), d.Kind, d.Terms); err != nil {
@@ -119,8 +129,8 @@ func (m *Model) viewPropose() string {
 	w := m.w
 	r := m.faction()
 	var body []string
-	m.proposeCursor = max(0, min(m.proposeCursor, m.proposeRows()-1))
-	if m.proposeStep == 0 {
+	m.prop.cursor = max(0, min(m.prop.cursor, m.proposeRows()-1))
+	if m.prop.step == 0 {
 		body = append(body, theme.Subtle.Render(fmt.Sprintf("%s · %s · trust %.0f", m.rivalName(r), m.personalityWord(r), r.Trust)), "")
 		for i, kind := range proposeKinds {
 			var line, note string
@@ -143,7 +153,7 @@ func (m *Model) viewPropose() string {
 			body = m.proposeLine(body, len(proposeKinds), "withdraw", "take back tonight's proposal, "+w.Describe(*w.Today.Proposal))
 		}
 	} else {
-		kind := proposeKinds[m.proposeKind]
+		kind := proposeKinds[m.prop.kind]
 		deals, words := m.termRows(kind)
 		body = append(body, theme.Subtle.Render(fmt.Sprintf("%s to %s. Odds are what the dice use.", capitalize(kind), m.rivalName(r))), "")
 		for i, d := range deals {
@@ -167,7 +177,7 @@ func (m *Model) viewPropose() string {
 		case game.DealTribute:
 			body = append(body, "", theme.Subtle.Render(m.tributeBaseLine(r)))
 		case game.DealSplit:
-			body = append(body, "", theme.Subtle.Render("Your side: "+w.Side(deals[m.proposeCursor])))
+			body = append(body, "", theme.Subtle.Render("Your side: "+w.Side(deals[m.prop.cursor])))
 		}
 		if m.set.Rivals.Distrusted(r, w.Day+1) {
 			body = append(body, "", theme.Bad.Render("They are not taking your calls. You broke a deal."))
@@ -179,7 +189,7 @@ func (m *Model) viewPropose() string {
 // proposeLine appends a row of the propose dialog; the modal cuts it to
 // its width.
 func (m *Model) proposeLine(body []string, i int, line, note string) []string {
-	if i == m.proposeCursor {
+	if i == m.prop.cursor {
 		m.modalFollow(len(body))
 		return append(body, theme.Gold.Render("▸ ")+theme.Selected.Render(line)+"  "+note)
 	}

@@ -30,7 +30,7 @@ import (
 // is about (a buy is where you stand, a sale in the shown city) the
 // first body line says so.
 type dialog struct {
-	step     int // 0 product, 1 quantity, 2 the buy's repeat or the sale's dial, 3 the sale's repeat
+	stepper
 	pick     bool
 	paged    bool // the buy has a connect step before the product
 	supplier int  // the connect picked, an index into connectsHere, while paged
@@ -38,9 +38,31 @@ type dialog struct {
 	qty      numberField
 	dial     events.Dial
 	repeat   repeat
-	err      string
 	turned   bool // the dialog was turned to this side from a city other than this one (#168)
 }
+
+// page is the dialog's page for the key table (#243): the connect
+// step, where there is one, is a page before the product's, so back has
+// it to go to. fieldAt is the quantity on its step; field the one on
+// this page.
+func (d *dialog) page() int {
+	if d.pick {
+		return 0
+	}
+	if d.paged {
+		return d.step + 1
+	}
+	return d.step
+}
+
+func (d *dialog) fieldAt(step int) *numberField {
+	if step == 1 && !d.pick {
+		return &d.qty
+	}
+	return nil
+}
+
+func (d *dialog) field() *numberField { return d.fieldAt(d.step) }
 
 // payNames are the buy's last-step notches for how it is paid, in the
 // dial convention.
@@ -305,19 +327,15 @@ func (m *Model) keyDialog(k tea.KeyMsg) (tea.Model, tea.Cmd) {
 	key := k.String()
 	d := &m.dlg
 	d.err = ""
-	switch key {
-	case "esc":
+	if closes(key) {
 		m.mode = modePlay
 		return m, nil
+	}
+	switch key {
 	case "shift+tab":
 		return m.dialogBack()
 	case "tab":
 		return m.dialogForward()
-	case "q":
-		if d.step != 1 || d.pick {
-			m.mode = modePlay
-			return m, nil
-		}
 	}
 	if d.pick {
 		// The connect step (#72): a list of the connects where you
@@ -633,22 +651,13 @@ func (m *Model) dialogBack() (tea.Model, tea.Cmd) {
 	if d.pick {
 		return m, nil
 	}
-	switch d.step {
-	case 0:
+	if d.step == 0 {
 		if d.paged {
 			d.pick = true
 		}
-	case 1:
-		d.step = 0
-		d.qty.SetValue("")
-		d.qty.Blur()
-	case 2:
-		d.step = 1
-		return m, d.qty.Focus()
-	case 3:
-		d.step = 2
+		return m, nil
 	}
-	return m, nil
+	return m, d.back(d.fieldAt) // the one back rule (#243): the quantity is cleared on leaving its step, kept on coming back to it
 }
 
 func (m *Model) parseQty(maxQty int) (int, error) { return parseQtyInput(m.dlg.qty.Value(), maxQty) }

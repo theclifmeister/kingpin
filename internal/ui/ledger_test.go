@@ -101,8 +101,8 @@ func TestLedgerCursor(t *testing.T) {
 		t.Fatalf("the offer's pane does not say enter buys it:\n%s", stripANSI(strings.Join(m.details()[0].lines, "\n")))
 	}
 	m.Update(key("enter"))
-	if m.mode != modeFront || m.frontCursor != 0 {
-		t.Fatalf("enter on an offer: mode %v cursor %d", m.mode, m.frontCursor)
+	if m.mode != modeFront || m.front.cursor != 0 {
+		t.Fatalf("enter on an offer: mode %v cursor %d", m.mode, m.front.cursor)
 	}
 	assertFits(t, m.View(), 120, 40, "front confirmation from the ledger")
 	m.Update(key("enter"))

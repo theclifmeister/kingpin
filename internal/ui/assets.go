@@ -232,8 +232,8 @@ func (m *Model) viewAssets() string {
 	if len(rows) == 0 {
 		return m.modal("BUY AN ASSET", []string{"Nothing for sale."}, m.modalFooter())
 	}
-	m.frontCursor = max(0, min(m.frontCursor, len(rows)-1))
-	m.modalFollow(1 + m.frontCursor) // under the header
+	m.front.cursor = max(0, min(m.front.cursor, len(rows)-1))
+	m.modalFollow(1 + m.front.cursor) // under the header
 	cols := append([]col(nil), assetOfferCols...)
 	cells := m.assetOfferRows(rows)
 	// Where the modal is too narrow for the row whole the floor goes,
@@ -248,8 +248,8 @@ func (m *Model) viewAssets() string {
 			cells[i] = append(cells[i][:drop:drop], cells[i][drop+1:]...)
 		}
 	}
-	body := table(cols, cells, m.frontCursor, m.modalInner())
-	o := rows[m.frontCursor]
+	body := table(cols, cells, m.front.cursor, m.modalInner())
+	o := rows[m.front.cursor]
 	body = append(body, "")
 	body = append(body, m.inHand())
 	body = append(body, m.subtle(fmt.Sprintf("%s The upkeep is clean cash, and a task force can take it.", m.assetBlurb(o.ID)))...)
@@ -263,7 +263,7 @@ func (m *Model) confirmAsset() {
 	if len(rows) == 0 {
 		return
 	}
-	o := rows[max(0, min(m.frontCursor, len(rows)-1))]
+	o := rows[max(0, min(m.front.cursor, len(rows)-1))]
 	a, err := m.w.BuyAsset(o)
 	if err != nil {
 		m.refuse("Can't buy: " + err.Error())

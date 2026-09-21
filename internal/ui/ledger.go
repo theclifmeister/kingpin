@@ -32,14 +32,14 @@ func (m *Model) askFront() {
 		m.refuse("Nothing to buy: you own every front, every house and every asset there is.")
 		return
 	}
-	m.frontCursor, m.frontStep = 0, 0
+	m.front.cursor, m.front.step = 0, 0
 	m.mode = modeFront
 }
 
 // confirmFront buys the offer under the cursor: a front, or a house on
 // the picker's house page.
 func (m *Model) confirmFront() {
-	switch m.frontKind {
+	switch m.front.kind {
 	case pickHouse:
 		m.confirmHouse()
 		return
@@ -52,7 +52,7 @@ func (m *Model) confirmFront() {
 	if len(rows) == 0 {
 		return
 	}
-	o := rows[max(0, min(m.frontCursor, len(rows)-1))]
+	o := rows[max(0, min(m.front.cursor, len(rows)-1))]
 	f, err := m.w.BuyFront(o)
 	if err != nil {
 		m.refuse("Can't buy: " + err.Error())
@@ -133,10 +133,10 @@ func (m *Model) offerRowsWith(rows []game.FrontOffer, long bool) [][]any {
 }
 
 func (m *Model) viewFront() string {
-	if m.frontStep == 0 {
+	if m.front.step == 0 {
 		return m.viewKind()
 	}
-	switch m.frontKind {
+	switch m.front.kind {
 	case pickHouse:
 		return m.viewHouses()
 	case pickAsset:
@@ -146,11 +146,8 @@ func (m *Model) viewFront() string {
 	if len(rows) == 0 {
 		return m.modal("BUY A FRONT", []string{"Nothing for sale."}, m.modalFooter())
 	}
-	m.frontCursor = max(0, min(m.frontCursor, len(rows)-1))
-	m.modalFollow(1 + m.frontCursor) // under the header
-	body := table(offerCols, m.offerRows(rows, m.modalInner()), m.frontCursor, m.modalInner())
-	body = append(body, "", m.inHand(), theme.Subtle.Render("It opens tomorrow."))
-	return m.modal("BUY A FRONT", body, m.modalFooter())
+	clamp(&m.front.cursor, len(rows))
+	return m.pickerModal("BUY A FRONT", nil, offerCols, m.offerRows(rows, m.modalInner()), m.front.cursor, m.inHand(), theme.Subtle.Render("It opens tomorrow."))
 }
 
 // The ledger (#87) is the till, the fronts, the houses (#73), the road
@@ -262,10 +259,10 @@ func (m *Model) ledgerEnter() {
 	sel := m.ledgerSelected()
 	switch sel.kind {
 	case ledgerOffer:
-		m.frontKind, m.frontStep, m.frontCursor = pickFront, 1, sel.i
+		m.front.kind, m.front.step, m.front.cursor = pickFront, 1, sel.i
 		m.mode = modeFront
 	case ledgerAssetOffer:
-		m.frontKind, m.frontStep, m.frontCursor = pickAsset, 1, sel.i
+		m.front.kind, m.front.step, m.front.cursor = pickAsset, 1, sel.i
 		m.mode = modeFront
 	case ledgerRoute:
 		m.cycleLedgerRoute(m.ledgerRoutes()[sel.i])

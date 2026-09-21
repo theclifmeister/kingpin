@@ -23,13 +23,21 @@ func stanceWord(stance string) string {
 // is open (#193) a second page, the campaign: which ticket and how much
 // clean cash behind it. Enter on the last page gives both.
 type fundDialog struct {
+	stepper
 	city   int // index into CityOrder
 	amt    numberField
-	step   int // 0 the city and the goodwill, 1 the campaign
 	ticket int // index into game.Tickets
 	camp   numberField
-	err    string
 }
+
+func (d *fundDialog) fieldAt(step int) *numberField {
+	if step == 1 {
+		return &d.camp
+	}
+	return &d.amt
+}
+
+func (d *fundDialog) field() *numberField { return d.fieldAt(d.step) }
 
 // askFund opens the fund dialog on the city you are in.
 func (m *Model) askFund() {
@@ -117,10 +125,11 @@ func (m *Model) keyFund(k tea.KeyMsg) (tea.Model, tea.Cmd) {
 	d := &m.fnd
 	d.err = ""
 	last := !m.campaignOpen() || d.step == 1
-	switch key {
-	case "esc":
+	if closes(key) {
 		m.mode = modePlay
 		return m, nil
+	}
+	switch key {
 	case "left", "[", "right", "]":
 		n, at := len(m.w.CityOrder), &d.city
 		if d.step == 1 {
@@ -135,12 +144,7 @@ func (m *Model) keyFund(k tea.KeyMsg) (tea.Model, tea.Cmd) {
 		}
 		return m, nil
 	case "shift+tab":
-		if d.step == 1 {
-			d.step = 0
-			d.camp.Blur()
-			return m, d.amt.Focus()
-		}
-		return m, nil
+		return m, d.back(d.fieldAt)
 	case "tab":
 		if last {
 			return m, nil

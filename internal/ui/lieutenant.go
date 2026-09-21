@@ -27,11 +27,11 @@ func (m *Model) askAssign() {
 		m.refuse(fmt.Sprintf("Can't give a city to %s: only a lieutenant runs one, and they are %s.", c.Name, format.A(c.Role)))
 		return
 	}
-	m.fireID = c.ID
-	m.assignCursor = 0
+	m.subjectID = c.ID
+	m.pick.cursor = 0
 	for i, cid := range m.assignRows() {
 		if cid == c.City {
-			m.assignCursor = i
+			m.pick.cursor = i
 		}
 	}
 	m.mode = modeAssign
@@ -40,11 +40,11 @@ func (m *Model) askAssign() {
 func (m *Model) confirmAssign() {
 	rows := m.assignRows()
 	m.mode = modePlay
-	lt := m.w.Crew.Member(m.fireID)
+	lt := m.w.Crew.Member(m.subjectID)
 	if lt == nil {
 		return
 	}
-	city := rows[max(0, min(m.assignCursor, len(rows)-1))]
+	city := rows[max(0, min(m.pick.cursor, len(rows)-1))]
 	if city == "" {
 		if err := m.w.Unassign(lt.ID); err != nil {
 			m.refuse("Can't take the city back: " + err.Error())
@@ -61,12 +61,12 @@ func (m *Model) confirmAssign() {
 }
 
 func (m *Model) viewAssign() string {
-	lt := m.w.Crew.Member(m.fireID)
+	lt := m.w.Crew.Member(m.subjectID)
 	if lt == nil {
 		return m.modal("ASSIGN", []string{"They are gone."}, m.modalFooter())
 	}
 	rows := m.assignRows()
-	m.assignCursor = max(0, min(m.assignCursor, len(rows)-1))
+	clamp(&m.pick.cursor, len(rows))
 	var cells [][]any
 	for _, cid := range rows {
 		if cid == "" {
@@ -82,14 +82,11 @@ func (m *Model) viewAssign() string {
 		}
 		cells = append(cells, []any{m.w.CityName(cid), heldIn(m.w, cid), m.w.StockIn(cid), runs})
 	}
-	m.modalFollow(1 + m.assignCursor) // under the header
-	body := table([]col{{"city", kText, 0}, {"corners", kInt, 0}, {"units", kInt, 0}, {"runs", kText, 0}}, cells, m.assignCursor, m.modalInner())
 	// Two lines that fit the modal's width.
-	body = append(body, "",
+	return m.pickerModal("ASSIGN "+lt.Name, nil, []col{{"city", kText, 0}, {"corners", kInt, 0}, {"units", kInt, 0}, {"runs", kText, 0}}, cells, m.pick.cursor,
 		theme.Subtle.Render("Each night they post the idle crew, drop a corner robbed twice and sell"),
 		theme.Subtle.Render(fmt.Sprintf("the stash at their dial; your own order wins. Cut %.0f%%, +%d crew slots.", m.set.Crew.Cut()*100, m.cfg.Crew.Role[game.RoleLieutenant].Crew)),
 		"", theme.Subtle.Render(fmt.Sprintf("Which city should %s run?", lt.Name)))
-	return m.modal("ASSIGN "+lt.Name, body, m.modalFooter())
 }
 
 // heldIn counts the corners the player holds in a city.

@@ -35,6 +35,16 @@ const (
 	pickAsset
 )
 
+// frontPicker is the buy picker's state (#73, #243): the page (0 the
+// kind, 1 the offers), the kind and the offer under the cursor.
+type frontPicker struct {
+	stepper
+	kind   int // an index into pickNames: a front, a house or an asset
+	cursor int // the offer selected on the second page
+}
+
+func (p *frontPicker) field() *numberField { return nil }
+
 // pickNames are the picker's first page, in the dial convention.
 var pickNames = []string{"front", "house", "asset"}
 
@@ -71,31 +81,31 @@ func (m *Model) houseOfferRows(rows []game.HouseOffer) [][]any {
 // the cursor, enter is next on the first page and buy on the second, and
 // a digit picks a row.
 func (m *Model) keyFront(key string) {
-	switch key {
-	case "esc", "q":
+	if closes(key) {
 		m.mode = modePlay
+		return
+	}
+	switch key {
 	case "shift+tab":
-		if m.frontStep == 1 {
-			m.frontStep = 0
-		}
+		m.front.back(noField)
 	case "tab":
-		if m.frontStep == 0 {
+		if m.front.step == 0 {
 			m.openOffers()
 		}
 	case "up", "k":
-		if m.frontStep == 0 {
-			m.frontKind = max(0, m.frontKind-1)
-		} else if m.frontCursor > 0 {
-			m.frontCursor--
+		if m.front.step == 0 {
+			m.front.kind = max(0, m.front.kind-1)
+		} else if m.front.cursor > 0 {
+			m.front.cursor--
 		}
 	case "down", "j":
-		if m.frontStep == 0 {
-			m.frontKind = min(len(pickNames)-1, m.frontKind+1)
-		} else if m.frontCursor < len(m.offerCount())-1 {
-			m.frontCursor++
+		if m.front.step == 0 {
+			m.front.kind = min(len(pickNames)-1, m.front.kind+1)
+		} else if m.front.cursor < len(m.offerCount())-1 {
+			m.front.cursor++
 		}
 	case "enter":
-		if m.frontStep == 0 {
+		if m.front.step == 0 {
 			m.openOffers()
 		} else {
 			m.confirmFront()
@@ -103,13 +113,13 @@ func (m *Model) keyFront(key string) {
 	default:
 		if len(key) == 1 && key[0] >= '1' && key[0] <= '9' {
 			i := int(key[0] - '1')
-			if m.frontStep == 0 {
+			if m.front.step == 0 {
 				if i < len(pickNames) {
-					m.frontKind = i
+					m.front.kind = i
 					m.openOffers()
 				}
 			} else if i < len(m.offerCount()) {
-				m.frontCursor = i
+				m.front.cursor = i
 				m.confirmFront()
 			}
 		}
@@ -119,7 +129,7 @@ func (m *Model) keyFront(key string) {
 // offerCount is one entry an offer of the kind the picker is on, for
 // the cursor's range.
 func (m *Model) offerCount() []struct{} {
-	switch m.frontKind {
+	switch m.front.kind {
 	case pickHouse:
 		return make([]struct{}, len(m.houseRows()))
 	case pickAsset:
@@ -133,7 +143,7 @@ func (m *Model) offerCount() []struct{} {
 func (m *Model) openOffers() {
 	if len(m.offerCount()) == 0 {
 		m.mode = modePlay
-		switch m.frontKind {
+		switch m.front.kind {
 		case pickHouse:
 			m.refuse("Nothing to rent: you have every house there is.")
 		case pickAsset:
@@ -143,7 +153,7 @@ func (m *Model) openOffers() {
 		}
 		return
 	}
-	m.frontStep, m.frontCursor = 1, 0
+	m.front.step, m.front.cursor = 1, 0
 }
 
 // confirmHouse takes the lease on the house under the cursor.
@@ -153,7 +163,7 @@ func (m *Model) confirmHouse() {
 	if len(rows) == 0 {
 		return
 	}
-	o := rows[max(0, min(m.frontCursor, len(rows)-1))]
+	o := rows[max(0, min(m.front.cursor, len(rows)-1))]
 	h, err := m.w.BuyHouse(o)
 	if err != nil {
 		m.refuse("Can't rent: " + err.Error())
@@ -164,13 +174,13 @@ func (m *Model) confirmHouse() {
 
 // viewKind is the picker's first page: front or house, what each is.
 func (m *Model) viewKind() string {
-	m.frontKind = max(0, min(m.frontKind, len(pickNames)-1))
+	m.front.kind = max(0, min(m.front.kind, len(pickNames)-1))
 	rows := [][]any{
 		{"front", fmt.Sprintf("washes dirty cash clean · %d on offer", len(m.frontRows()))},
 		{"house", fmt.Sprintf("keeps stock off the street · %d on offer", len(m.houseRows()))},
 		{"asset", fmt.Sprintf("the supply side, clean cash · %d on offer", len(m.assetRows()))},
 	}
-	body := table([]col{{"kind", kText, 0}, {"what", kText, 0}}, rows, m.frontKind, m.modalInner())
+	body := table([]col{{"kind", kText, 0}, {"what", kText, 0}}, rows, m.front.kind, m.modalInner())
 	body = append(body, "")
 	body = append(body, m.inHand())
 	body = append(body, m.subtle("A house takes what arrives in its city first, and a raid hits one place, not the operation. An asset is bought clean and the feds take an interest.")...)
@@ -183,8 +193,8 @@ func (m *Model) viewHouses() string {
 	if len(rows) == 0 {
 		return m.modal("RENT A HOUSE", []string{"Nothing to rent."}, m.modalFooter())
 	}
-	m.frontCursor = max(0, min(m.frontCursor, len(rows)-1))
-	m.modalFollow(1 + m.frontCursor) // under the header
+	m.front.cursor = max(0, min(m.front.cursor, len(rows)-1))
+	m.modalFollow(1 + m.front.cursor) // under the header
 	cols := append([]col(nil), houseOfferCols...)
 	cells := m.houseOfferRows(rows)
 	// Where the modal is too narrow for the row whole, the block's heat
@@ -199,8 +209,8 @@ func (m *Model) viewHouses() string {
 			cells[i] = append(cells[i][:drop:drop], cells[i][drop+1:]...)
 		}
 	}
-	body := table(cols, cells, m.frontCursor, m.modalInner())
-	o := rows[m.frontCursor]
+	body := table(cols, cells, m.front.cursor, m.modalInner())
+	o := rows[m.front.cursor]
 	block := o.Corner
 	if c := m.w.Corner(o.Corner); c != nil {
 		block = c.Name
@@ -300,14 +310,13 @@ func (m *Model) ledgerHouseSelected() *game.House {
 
 // The move dialog (#73): from, to, product, quantity.
 type moveDialog struct {
-	step    int
+	stepper
 	city    string
 	from    string // a house id, or game.Street
 	to      string
 	product string
 	cursor  int
 	qty     numberField
-	err     string
 }
 
 // places lists the places in the move's city a step offers: every
@@ -410,20 +419,29 @@ func (m *Model) moveRows() int {
 	return 0
 }
 
+func (d *moveDialog) fieldAt(step int) *numberField {
+	if step == 3 {
+		return &d.qty
+	}
+	return nil
+}
+
+func (d *moveDialog) field() *numberField { return d.fieldAt(d.step) }
+
 func (m *Model) keyMove(k tea.KeyMsg) (tea.Model, tea.Cmd) {
 	key := k.String()
 	d := &m.mv
 	d.err = ""
-	switch key {
-	case "esc":
+	if closes(key) {
 		m.mode = modePlay
 		return m, nil
+	}
+	switch key {
 	case "shift+tab":
 		// Back keeps what the earlier step chose under the cursor (#110).
 		if d.step > 0 {
-			d.step--
+			d.back(d.fieldAt)
 			d.cursor = m.moveChosen()
-			d.qty.SetValue("")
 		}
 		return m, nil
 	case "tab":
@@ -615,7 +633,7 @@ func (m *Model) askGuard() {
 		m.refuse("Nothing to post: no enforcers. Hire one " + screenPointer(screenCrew) + ".")
 		return
 	}
-	m.guardCursor = 0
+	m.pick.cursor = 0
 	m.mode = modeGuard
 }
 
@@ -626,7 +644,7 @@ func (m *Model) confirmGuard() {
 	if h == nil || len(rows) == 0 {
 		return
 	}
-	who := rows[max(0, min(m.guardCursor, len(rows)-1))]
+	who := rows[max(0, min(m.pick.cursor, len(rows)-1))]
 	if err := m.w.Guard(h.ID, who.ID); err != nil {
 		m.refuse("Can't post: " + err.Error())
 		return
@@ -638,29 +656,7 @@ func (m *Model) confirmGuard() {
 	m.say(fmt.Sprintf("%s is inside %s: robbery %.1f%%/day.", who.Name, h.Name, m.set.Territory.HouseRobberyChance(m.w, h)*100))
 }
 
-func (m *Model) keyGuard(key string) {
-	switch key {
-	case "esc", "q":
-		m.mode = modePlay
-	case "up", "k":
-		if m.guardCursor > 0 {
-			m.guardCursor--
-		}
-	case "down", "j":
-		if m.guardCursor < len(m.guardRows())-1 {
-			m.guardCursor++
-		}
-	case "enter":
-		m.confirmGuard()
-	default:
-		if len(key) == 1 && key[0] >= '1' && key[0] <= '9' {
-			if i := int(key[0] - '1'); i < len(m.guardRows()) {
-				m.guardCursor = i
-				m.confirmGuard()
-			}
-		}
-	}
-}
+func (m *Model) keyGuard(key string) { m.pickerKey(key, len(m.guardRows()), m.confirmGuard) }
 
 func (m *Model) viewGuard() string {
 	h := m.ledgerHouseSelected()
@@ -668,7 +664,7 @@ func (m *Model) viewGuard() string {
 	if h == nil {
 		return m.modal("GUARD", []string{"Nobody to post."}, m.modalFooter())
 	}
-	m.guardCursor = max(0, min(m.guardCursor, len(rows)-1))
+	clamp(&m.pick.cursor, len(rows))
 	var cells [][]any
 	for _, r := range rows {
 		var where any = styled{theme.Subtle, "unposted"}
@@ -685,11 +681,7 @@ func (m *Model) viewGuard() string {
 		}
 		cells = append(cells, []any{r.Name, skill, where})
 	}
-	m.modalFollow(1 + m.guardCursor)
-	body := table([]col{{"name", kText, 0}, {"skill", kInt, 0}, {"where", kText, 0}}, cells, m.guardCursor, m.modalInner())
-	body = append(body, "")
-	body = append(body, m.subtle(fmt.Sprintf("Who should guard %s? One enforcer, one job: the house or a corner.", h.Name))...)
-	return m.modal("GUARD "+strings.ToUpper(h.Name), body, m.modalFooter())
+	return m.pickerModal("GUARD "+strings.ToUpper(h.Name), nil, []col{{"name", kText, 0}, {"skill", kInt, 0}, {"where", kText, 0}}, cells, m.pick.cursor, m.subtle(fmt.Sprintf("Who should guard %s? One enforcer, one job: the house or a corner.", h.Name))...)
 }
 
 // askDrop asks before walking away from the house under the cursor.

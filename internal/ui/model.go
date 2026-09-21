@@ -111,31 +111,25 @@ type Model struct {
 	width, height  int
 	screen         screen
 	mode           mode
-	cfm            confirm // the open confirmation's payload (#242): what y does, what the modal shows, where no goes
-	city           string  // city the market and map screens show; follows you when you travel
-	cursor         int     // product cursor shared by market screen and dialogs
-	crewCursor     int     // row on the crew screen: roster first, then candidates
-	fireID         int     // member awaiting the fire confirmation
-	mapCursor      int     // corner selected on the map
-	mapTop         int     // the first row of the map's grid drawn, scrolled to keep the cursor in view
-	routeCursor    int     // route selected under the map's grid
-	onRoutes       bool    // the map's arrows are on the routes, past the bottom row
-	buyerCursor    int     // contract selected under the market's product table
-	onBuyers       bool    // the market's arrows are on the buyers, past the bottom row
-	supplierCursor int     // connect selected under the market's buyers (#72)
-	onSuppliers    bool    // the market's arrows are on the connects, past the buyers
-	postRole       string  // runner or enforcer, while the post picker is open
-	postCursor     int
-	strikeCursor   int    // row in the strike picker
-	undercutCursor int    // row in the undercut picker (#68)
-	branch         int    // branch shown on the upgrades screen, an index into content.Branches: a view cursor like city
-	upgradeCursor  []int  // node selected in each branch, one an entry of content.Branches, so a branch left and returned to is where it was
-	upgradeID      string // node awaiting the buy confirmation
-	frontCursor    int    // offer selected in the buy picker's second page
-	frontKind      int    // the buy picker's first page: a front or a house (#73)
-	frontStep      int    // the buy picker's page: 0 the kind, 1 the offers
-	guardCursor    int    // row in the guard picker (#73)
-	driverCursor   int    // row in the driver picker (#46)
+	cfm            confirm       // the open confirmation's payload (#242): what y does, what the modal shows, where no goes
+	city           string        // city the market and map screens show; follows you when you travel
+	cursor         int           // product cursor shared by market screen and dialogs
+	crewCursor     int           // row on the crew screen: roster first, then candidates
+	subjectID      int           // the member a fire, pay-off, bail or assignment is about (#243)
+	pick           picker        // the one-page picker open: post, strike, undercut, assign, guard or driver (#243)
+	front          frontPicker   // the buy picker (#73): the kind, then the offers
+	prop           proposeDialog // the propose dialog (#43): the kind, then the terms
+	mapCursor      int           // corner selected on the map
+	mapTop         int           // the first row of the map's grid drawn, scrolled to keep the cursor in view
+	routeCursor    int           // route selected under the map's grid
+	onRoutes       bool          // the map's arrows are on the routes, past the bottom row
+	buyerCursor    int           // contract selected under the market's product table
+	onBuyers       bool          // the market's arrows are on the buyers, past the bottom row
+	supplierCursor int           // connect selected under the market's buyers (#72)
+	onSuppliers    bool          // the market's arrows are on the connects, past the buyers
+	branch         int           // branch shown on the upgrades screen, an index into content.Branches: a view cursor like city
+	upgradeCursor  []int         // node selected in each branch, one an entry of content.Branches, so a branch left and returned to is where it was
+	upgradeID      string        // node awaiting the buy confirmation
 	mv             moveDialog
 	lab            labDialog // the cut and the cook dialogs (#47)
 	ledgerCursor   int       // row on the ledger: fronts, then routes, then offers
@@ -145,16 +139,12 @@ type Model struct {
 	cardDone       bool      // the card is answered; the outcome is showing
 	dealCursor     int       // offer selected on the rivals screen
 	factionCursor  int       // faction the rivals screen is turned to (#43): an index into World.Rivals
-	proposeStep    int       // 0: pick the kind, 1: pick the terms
-	proposeKind    int       // index into proposeKinds while on the terms page
-	proposeCursor  int
-	assignCursor   int    // row in the assign picker
-	modalScroll    int    // first body line the open modal shows
-	outcome        string // what the last answer did, while it shows
-	journalCursor  int    // headline selected on the journal screen, newest first
-	journalTop     int    // first headline the journal screen shows
-	journalSeen    int    // the journal's length when the journal screen was last shown; not saved, a view cursor like city
-	journalFilter  string // the source the journal screen shows, or every one when empty (#122); a view cursor like journalSeen
+	modalScroll    int       // first body line the open modal shows
+	outcome        string    // what the last answer did, while it shows
+	journalCursor  int       // headline selected on the journal screen, newest first
+	journalTop     int       // first headline the journal screen shows
+	journalSeen    int       // the journal's length when the journal screen was last shown; not saved, a view cursor like city
+	journalFilter  string    // the source the journal screen shows, or every one when empty (#122); a view cursor like journalSeen
 	dlg            dialog
 	tgt            targetDialog
 	crt            cartDialog
@@ -563,96 +553,16 @@ func (m *Model) handleKey(k tea.KeyMsg) (tea.Model, tea.Cmd) {
 		}
 		return m, nil
 	case modePost:
-		switch key {
-		case "esc", "q":
-			m.mode = modePlay
-		case "up", "k":
-			if m.postCursor > 0 {
-				m.postCursor--
-			}
-		case "down", "j":
-			if m.postCursor < len(m.postRows(m.postRole))-1 {
-				m.postCursor++
-			}
-		case "enter":
-			m.confirmPost()
-		default:
-			if len(key) == 1 && key[0] >= '1' && key[0] <= '9' {
-				if i := int(key[0] - '1'); i < len(m.postRows(m.postRole)) {
-					m.postCursor = i
-					m.confirmPost()
-				}
-			}
-		}
+		m.pickerKey(key, len(m.postRows(m.pick.role)), m.confirmPost)
 		return m, nil
 	case modeStrike:
-		switch key {
-		case "esc", "q":
-			m.mode = modePlay
-		case "up", "k":
-			if m.strikeCursor > 0 {
-				m.strikeCursor--
-			}
-		case "down", "j":
-			if m.strikeCursor < len(m.strikeRows())-1 {
-				m.strikeCursor++
-			}
-		case "enter":
-			m.confirmStrike()
-		default:
-			if len(key) == 1 && key[0] >= '1' && key[0] <= '9' {
-				if i := int(key[0] - '1'); i < len(m.strikeRows()) {
-					m.strikeCursor = i
-					m.confirmStrike()
-				}
-			}
-		}
+		m.pickerKey(key, len(m.strikeRows()), m.confirmStrike)
 		return m, nil
 	case modeUndercut:
-		switch key {
-		case "esc", "q":
-			m.mode = modePlay
-		case "up", "k":
-			if m.undercutCursor > 0 {
-				m.undercutCursor--
-			}
-		case "down", "j":
-			if m.undercutCursor < len(m.undercutRows())-1 {
-				m.undercutCursor++
-			}
-		case "enter":
-			m.confirmUndercut()
-		default:
-			if len(key) == 1 && key[0] >= '1' && key[0] <= '9' {
-				if i := int(key[0] - '1'); i < len(m.undercutRows()) {
-					m.undercutCursor = i
-					m.confirmUndercut()
-				}
-			}
-		}
+		m.pickerKey(key, len(m.undercutRows()), m.confirmUndercut)
 		return m, nil
 	case modeAssign:
-		switch key {
-		case "esc", "q":
-			m.mode = modePlay
-		case "up", "k":
-			if m.assignCursor > 0 {
-				m.assignCursor--
-			}
-		case "down", "j":
-			if m.assignCursor < len(m.assignRows())-1 {
-				m.assignCursor++
-			}
-		case "enter":
-			m.confirmAssign()
-		default:
-			if len(key) == 1 && key[0] >= '1' && key[0] <= '9' {
-				if i := int(key[0] - '1'); i < len(m.assignRows()) {
-					m.assignCursor = i
-					m.confirmAssign()
-				}
-			}
-		}
+		m.pickerKey(key, len(m.assignRows()), m.confirmAssign)
 		return m, nil
 	case modeFront:
 		m.keyFront(key)
@@ -682,31 +592,34 @@ func (m *Model) handleKey(k tea.KeyMsg) (tea.Model, tea.Cmd) {
 		// kept under the cursor) and is silent on the first page, tab
 		// opens the terms for the kind under the cursor and is silent on
 		// them and on `withdraw`, which is not a page.
-		switch key {
-		case "esc", "q":
+		if closes(key) {
 			m.mode = modePlay
+			return m, nil
+		}
+		switch key {
 		case "shift+tab":
-			if m.proposeStep == 1 {
-				m.proposeStep, m.proposeCursor = 0, m.proposeKind
+			if m.prop.step == 1 {
+				m.prop.back(noField)
+				m.prop.cursor = m.prop.kind
 			}
 		case "tab":
-			if m.proposeStep == 0 && m.proposeCursor < len(proposeKinds) {
+			if m.prop.step == 0 && m.prop.cursor < len(proposeKinds) {
 				m.pickPropose()
 			}
 		case "up", "k":
-			if m.proposeCursor > 0 {
-				m.proposeCursor--
+			if m.prop.cursor > 0 {
+				m.prop.cursor--
 			}
 		case "down", "j":
-			if m.proposeCursor < m.proposeRows()-1 {
-				m.proposeCursor++
+			if m.prop.cursor < m.proposeRows()-1 {
+				m.prop.cursor++
 			}
 		case "enter":
 			m.pickPropose()
 		default:
 			if len(key) == 1 && key[0] >= '1' && key[0] <= '9' {
 				if i := int(key[0] - '1'); i < m.proposeRows() {
-					m.proposeCursor = i
+					m.prop.cursor = i
 					m.pickPropose()
 				}
 			}

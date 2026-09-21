@@ -77,8 +77,8 @@ func TestUndercutKeys(t *testing.T) {
 	}
 	// Reopened, the picker opens on the dial queued and offers stop.
 	m.Update(key("u"))
-	if rows := m.undercutRows(); len(rows) != 4 || m.undercutCursor != 2 {
-		t.Fatalf("picker with an undercut queued: rows %v cursor %d", rows, m.undercutCursor)
+	if rows := m.undercutRows(); len(rows) != 4 || m.pick.cursor != 2 {
+		t.Fatalf("picker with an undercut queued: rows %v cursor %d", rows, m.pick.cursor)
 	}
 	m.Update(key("4")) // stop
 	if _, ok := m.w.Undercutting("docks"); ok || !strings.Contains(m.status, "Called off") {
