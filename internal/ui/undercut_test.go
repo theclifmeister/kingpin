@@ -56,7 +56,7 @@ func TestUndercutKeys(t *testing.T) {
 		t.Fatalf("u next door: mode %v rows %v status %q", m.mode, m.undercutRows(), m.status)
 	}
 	view := stripANSI(m.View())
-	for _, s := range []string{"UNDERCUT", "quiet", "normal", "aggressive", "takes", "units/day", "price", "they lose", "-10%", "Vasquez"} {
+	for _, s := range []string{"UNDERCUT", "quiet", "normal", "aggressive", "takes", "units/day", "off", "they lose", "-10%", "Vasquez"} {
 		if !strings.Contains(view, s) {
 			t.Errorf("the picker does not show %q:\n%s", s, view)
 		}

@@ -27,7 +27,7 @@ import (
 func (m *Model) known() game.Knowledge { return game.Known(m.w) }
 
 // intelCols are the INTEL table's columns.
-var intelCols = []col{{"subject", kText, 0}, {"fact", kText, 0}, {"sure", kPct, 0}, {"age", kDays, 0}, {"source", kText, 0}}
+var intelCols = []col{{"subject", kText, 0}, {"fact", kText, 0}, {"sure", kPct, 0}, {"learnt", kDays, 0}, {"source", kText, 0}}
 
 // intelRows are the table's rows, one a live fact, the newest first.
 func (m *Model) intelRows() [][]any {
@@ -526,7 +526,7 @@ func (m *Model) viewSpy() string {
 			cells = append(cells, []any{styled{m.factionStyle(r.Faction()), truncate(r.Leader, 14)}, m.w.CityOf(r).Name, m.known().Personality(r.Faction()), m.muscleWord(r), factCount(m.known(), r)})
 		}
 		m.modalFollow(1 + m.spy.faction)
-		body := table([]col{{"faction", kText, 0}, {"home", kText, 0}, {"temper", kText, 0}, {"muscle", kText, 0}, {"known", kText, 0}}, cells, m.spy.faction, m.modalInner())
+		body := table([]col{{"faction", kText, 0}, {"city", kText, 0}, {"temper", kText, 0}, {"muscle", kText, 0}, {"known", kText, 0}}, cells, m.spy.faction, m.modalInner())
 		body = append(body, "")
 		body = append(body, m.subtle("Whose crew? A spy under reports its muscle, its next move and where its till is; the odds of being found are its temper's.")...)
 		return m.modal("PLANT A SPY", body, m.modalFooter())

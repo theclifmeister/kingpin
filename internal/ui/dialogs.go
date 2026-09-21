@@ -1038,7 +1038,7 @@ func temperWords(temper string) string {
 // why they sell you nothing.
 func (m *Model) connectTable(id string, cursor int) []string {
 	w := m.w
-	cols := []col{{"connect", kText, 0}, {"price/unit", kPrice, 0}, {"lot", kInt, 0}, {"left", kInt, 0}, {"rel", kBar, 8}, {"credit", kCash, 0}, {"", kText, 0}}
+	cols := []col{{"connect", kText, 0}, {"price", kPrice, 0}, {"lot", kInt, 0}, {"left", kInt, 0}, {"rel", kBar, 8}, {"credit", kCash, 0}, {"", kText, 0}}
 	var rows [][]any
 	for _, sup := range m.connectsHere() {
 		var unit any
@@ -1117,11 +1117,11 @@ func relStyle(band, bands int) lipgloss.Style {
 // every one fits. The cursor is the row of the product selected.
 func (m *Model) dialogRows(city string, buy bool) (cols []col, rows [][]any, cursor int) {
 	w := m.w
-	cols = []col{{"product", kText, 0}, {"price/unit", kPrice, 0}}
+	cols = []col{{"product", kText, 0}, {"price", kPrice, 0}}
 	if buy {
 		cols = append(cols, col{"street", kPrice, 0}, col{"margin", kPct, 0})
 	}
-	cols = append(cols, col{"Δ", kPct, 0}, col{"", kBar, 0}, col{"have", kInt, 0})
+	cols = append(cols, col{"Δ", kPct, 0}, col{"", kBar, 0}, col{"stash", kInt, 0})
 	if !buy {
 		cols = append(cols, col{"demand/day", kInt, 0})
 	}

@@ -377,7 +377,7 @@ func (m *Model) upgradeStatus(u content.UpgradeConfig) (string, lipgloss.Style) 
 		if m.canAfford(u) {
 			return "available", theme.Gold
 		}
-		return cash(u.Cost-m.poolCash(u)) + " short", theme.Warning
+		return money(u.Cost-m.poolCash(u)) + " short", theme.Warning
 	}
 	var names []string
 	for _, id := range m.w.Missing(u) {
@@ -390,7 +390,7 @@ func (m *Model) upgradeStatus(u content.UpgradeConfig) (string, lipgloss.Style) 
 // and the two pools, the branch tabs, the shown branch as one table
 // (the mark in the gutter is the node's state, the name indented a cell
 // a level under its prerequisite so the branch reads as a tree, the
-// cost through cash() as the pane prints it, and where the node stands)
+// cost through money() as the pane prints it (#237: a lump sum), and where the node stands)
 // and the legend; the node under the cursor is the pane's.
 func (m *Model) viewUpgrades() string {
 	w := m.w
@@ -426,7 +426,7 @@ func (m *Model) viewUpgrades() string {
 	if _, ok := m.upgradeSelected(); ok {
 		cursor = *m.nodeCursor()
 	}
-	for _, l := range table([]col{{"node", kText, 0}, {"cost", kCash, 0}, {"status", kText, 0}}, rows, cursor, width) {
+	for _, l := range table([]col{{"node", kText, 0}, {"cost", kMoney, 0}, {"status", kText, 0}}, rows, cursor, width) {
 		b.WriteString(l + "\n")
 	}
 	b.WriteString("\n" + truncate(theme.Good.Render("✓")+theme.Subtle.Render(" owned  ")+theme.Gold.Render("○")+theme.Subtle.Render(" available  · locked"), width) + "\n")
@@ -436,7 +436,7 @@ func (m *Model) viewUpgrades() string {
 // costLine is a node's cost and pool as the pane's first line prints
 // them: `$12K dirty`, the tree's cost string.
 func costLine(u content.UpgradeConfig) string {
-	return cash(u.Cost) + " " + pool(u)
+	return money(u.Cost) + " " + pool(u)
 }
 
 // upgradesDetails is the tree's pane (#86): the node under the cursor,
@@ -458,7 +458,7 @@ func (m *Model) upgradesDetails() []section {
 		if m.canAfford(sel) {
 			lines = append(lines, cost+theme.Subtle.Render(" · ")+theme.Gold.Render("available"))
 		} else {
-			lines = append(lines, cost+theme.Subtle.Render(" · ")+theme.Warning.Render(fmt.Sprintf("%s short", cash(sel.Cost-m.poolCash(sel)))))
+			lines = append(lines, cost+theme.Subtle.Render(" · ")+theme.Warning.Render(fmt.Sprintf("%s short", money(sel.Cost-m.poolCash(sel)))))
 		}
 	default:
 		var names []string

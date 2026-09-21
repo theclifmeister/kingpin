@@ -312,7 +312,7 @@ func (m *Model) viewCrew() string {
 		for _, c := range w.Crew.Members {
 			rows = append(rows, append(row(c), m.post(c), day(c.Hired)))
 		}
-		cols := append(shared, col{"post", kText, 0}, col{"hired", kDays, 0})
+		cols := append(shared, col{"where", kText, 0}, col{"hired", kDays, 0})
 		// Where MAIN is too narrow for the post to read whole (64
 		// columns beside the pane at 100), the columns the pane carries
 		// go first: carry, then the hire day, then the age (#46).

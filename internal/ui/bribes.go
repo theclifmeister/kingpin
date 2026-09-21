@@ -378,13 +378,13 @@ func (m *Model) payoffRows() []payoff {
 }
 
 // payoffCols are the block's columns.
-var payoffCols = []col{{"who", kText, 0}, {"what", kText, 0}, {"days left", kText, 0}}
+var payoffCols = []col{{"who", kText, 0}, {"what", kText, 0}, {"days", kDays, 0}}
 
 // payoffTable is the block's rows as the table draws them.
 func (m *Model) payoffTable(rows []payoff) [][]any {
 	var out [][]any
 	for _, p := range rows {
-		out = append(out, []any{p.Who, p.What, plural(max(0, p.Until-m.w.Day), "day")})
+		out = append(out, []any{p.Who, p.What, max(0, p.Until-m.w.Day)})
 	}
 	return out
 }

@@ -21,7 +21,7 @@ import (
 
 // booksCols are the BOOKS table's columns: what was read, the figure,
 // and how many days ago.
-var booksCols = []col{{"books", kText, 0}, {"as read", kText, 0}, {"age", kDays, 0}}
+var booksCols = []col{{"books", kText, 0}, {"as read", kText, 0}, {"read", kDays, 0}}
 
 // booksAge is how old the snapshot is in words: `read 3 days ago`,
 // `read today`, with `stale` once it is.

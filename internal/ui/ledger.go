@@ -297,7 +297,7 @@ func launderRow(d events.Launder) string {
 // is too narrow for the row whole the lifetime wash goes, then today's.
 var frontCols = []col{{"front", kText, 0}, {"lvl", kInt, 0}, {"earns/day", kMoney, 0}, {"washes/day", kMoney, 0}, {"today", kMoney, 0}, {"lifetime", kMoney, 0}, {"audit", kPct, 0}, {"status", kText, 0}}
 
-var routeCols = []col{{"route", kText, 0}, {"mode", kText, 0}, {"dial", kDial, 0}, {"target", kText, 0}, {"on the road", kText, 0}, {"lots/wk", kCash, 0}, {"fares/wk", kCash, 0}, {"lost", kInt, 0}}
+var routeCols = []col{{"route", kText, 0}, {"mode", kText, 0}, {"dial", kDial, 0}, {"target", kText, 0}, {"on the road", kText, 0}, {"lots/wk", kMoney, 0}, {"fares/wk", kMoney, 0}, {"lost", kInt, 0}}
 
 // routeRow is a route's LOGISTICS row: its dial, what it keeps where,
 // what is on it, and the week's books.
