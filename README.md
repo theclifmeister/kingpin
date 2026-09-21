@@ -435,6 +435,8 @@ The full table is below; `?` brings it up in the game.
 | `a` | accept | take the selected offer | rivals |
 | `x` | decline | turn the selected offer down | rivals |
 | `i` | scout | buy a look at the rival's books | rivals |
+| `w` | declare war | enforcers on the faction every night, hit | rivals |
+| `w` | call off war | stand the enforcers down | rivals |
 | `$` | buy off | pay the rival's muscle to go home | rivals |
 | `$` | pay cop | a cop's word on the chief and the police | intel |
 | `p` | plant spy | send a crew member under with a faction | intel |
@@ -775,6 +777,7 @@ The later policies exercise a particular part of the business:
 | `delegated` | Adds a lieutenant in Eastside to the distributor. |
 | `funded` | Runs fronts and pays the city when pressure rises. |
 | `favoured` | The distributor that bribes the chief when hot and calls in the favour when a raid is due. |
+| `warlord` | Runs a crew and keeps a war order on the nearest faction until it folds. |
 | `dealer` | Runs a crew, reserves stock for buyers and delivers when heat allows. |
 | `stocked` | Runs a crew with supply contracts at one day's corner demand. |
 | `routine` | After $20k peak cash, uses normal standing orders that grow with the stash. |

@@ -125,6 +125,8 @@ func main() {
 			f = events.ForceHit
 		}
 		p = harness.Warlike(cfg, at(40), *corners, f)
+	case "warlord":
+		p = harness.Warlord(cfg, at(40))
 	case "diplomat":
 		p = harness.Diplomat(cfg, at(40), *corners)
 	case "informed":

@@ -171,6 +171,14 @@ func (m *Model) streetLines(innerW, maxLines int, narrow, withRoad bool) []strin
 		if c := w.Corner(s.Corner); c != nil {
 			topic(fact{theme.Warning.Render(fmt.Sprintf("Enforcers go to %s tonight: %s.", c.Name, s.Force)), priStrike})
 		}
+	} else if r := w.Faction(w.War); w.War != "" && r != nil {
+		// The war order (#229): where the enforcers go tonight on it.
+		line := fmt.Sprintf("War on %s: nowhere to go tonight.", m.rivalName(r))
+		if c := m.set.Rivals.WarTarget(w, r); c != nil {
+			force, _ := m.cfg.Rivals.War.Force()
+			line = fmt.Sprintf("War on %s: enforcers go to %s tonight, %s.", m.rivalName(r), c.Name, force)
+		}
+		topic(fact{theme.Warning.Render(line), priStrike})
 	}
 
 	var last string
