@@ -16,7 +16,7 @@ func TestEveryEndingHasAnEpilogue(t *testing.T) {
 	if len(e.Endings) != len(Causes) {
 		t.Errorf("%d rows for %d causes", len(e.Endings), len(Causes))
 	}
-	d := Epilogue{Days: 120, City: "Eastside", Here: "Bayport", Offshore: "$750,000", Left: "$1,200", Bodies: 2, Fronts: "3 businesses", Corners: 6, Name: "Ziggy", Leader: "Sal", DA: "Marsh", Chief: "Kerr", Pages: 7, Years: "4 years", Hot: true}
+	d := Epilogue{Days: 120, City: "Eastside", Here: "Bayport", Offshore: "$750,000", Left: "$1,200", Bodies: 2, Fronts: "3 businesses", Corners: 6, Name: "Ziggy", Leader: "Sal", DA: "Marsh", Chief: "Kerr", Pages: 7, Years: "4 years", Reign: "31 days", Hot: true}
 	for _, c := range Causes {
 		row := e.Ending(c)
 		if row == nil {

@@ -292,6 +292,12 @@ RivalAbsorbed = [
   "{{.Rival}}'s outfit folds; what is left runs with {{.Name}} now",
   "End of the line for {{.Rival}}'s crew: absorbed by {{.Name}}'s",
 ]
+# The reign (#227): the morning the city became yours for good.
+ReignBegan = [
+  "Every crew in {{.City}} answers to one name now, police sources say",
+  "{{.City}} has a boss: 'the last of them bowed this week'",
+  "Task force memo leaked: '{{.City}}'s trade is one organisation'",
+]
 RivalScattered = [
   "{{.Rival}}'s crew scatters; 'nothing left to hold', says one",
   "{{.Rival}}'s outfit is finished: corners gone, people gone",

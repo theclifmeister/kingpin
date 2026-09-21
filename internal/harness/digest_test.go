@@ -173,6 +173,9 @@ const (
 // number moves from day 1: QuietDays, the count of quiet days in a row,
 // which every run keeps and nothing but Retire reads; the boss reserves
 // nothing by day 60 on this seed, holding under a campaign's worth).
+// Again for #227 (World.Reign added to the walk; no number moved: with
+// the field skipped the digest is the list before it on all sixty days,
+// the boss holding no reign by day 60 on this seed).
 // Again for #43 (the table, on the duel's dice, harness.OneFaction:
 // World.Rival became the slice World.Rivals of one, RivalState gained
 // Home, Grudges, Trusts, Ally, Against, LostToYou, LastTakenBy,
@@ -212,19 +215,19 @@ const (
 // cmd/balance prints 2be03a7's trace to the dollar on boss, laundered
 // and distributor to day 200, TestNoEndingIsTheOldRun).
 var seedDigest = []string{
-	"a6306c9b5b7da6dc", "cad61c2851ccd71a", "6e265c84b8b05ca0", "8a1555992019f224",
-	"7e8f9c7e15138bb1", "8ca359721d73eec9", "1193d86bc5f2437d", "e6c3e659ee44d68b",
-	"6cdf19213a3c7ba5", "bad73c70e0b1756a", "2b097f9cedc97f21", "ed451c5271aac6c5",
-	"47c47bb1c99133b3", "326d0970422531ca", "d5786ddd13cb687c", "3d4e801a298e35d4",
-	"9e3eb6a83c80f6de", "31f3439cd2fe1c51", "3454443dbc65a839", "acbe79a4cc23f2e9",
-	"7f60bfc88578033b", "588a005326eefc06", "158bba7f8f6dc417", "5a1d63138ff4b606",
-	"754687c15972b23e", "6ee33d708a1df5a4", "e81c6809f60eb34e", "38c88c43cc393fd9",
-	"9419946f2da52b4c", "17da9895ad552f41", "f63f9402eb337af8", "c478b973a8cfda3a",
-	"490da66061991a0f", "cfc9f43084dd0100", "82c3c08cf6ee04cd", "ae318a657b0151fd",
-	"7a9411af23314898", "a9f3b078e44b446b", "49b4715622a3f093", "1aa8d0915b7b7cf3",
-	"801a28ddf16f702c", "eef41829b9ad0273", "eb5077e0c878222d", "a05e5152d73cb2f3",
-	"163ec824ae06b291", "b84f5b50b1fa1ce3", "80ac9c0017d7e2ba", "62a19454f2af518c",
-	"709e6891155a3c4b", "c609a3f79e5f9185", "3104e27eb0a4f174", "d825f4a2a233fa49",
-	"86be982384d50db9", "8237c222a93f51af", "540eb9e9ecc62c9f", "e56b4f70e4d3bae5",
-	"5ef692b0c853bf07", "6d566f6664ec03dc", "f83c530c2f0b2803", "14903e9a28ab2a53",
+	"807cb95b6a2a338d", "685c7f588eb2d41f", "f94ae6bb076d12d9", "403207b071cca2fb",
+	"a800678fa892007e", "6711165570bab6a8", "941ae8126705c3a4", "1aa5f575152f625a",
+	"295bfd1e5c1ff00e", "95eecc6b0fa05119", "ba1be70167a39f32", "30c50d9b842dcacc",
+	"fbce29b061080c22", "9ab9226c5356c4a9", "c3f7696ea1757869", "c258747906a962b9",
+	"f678ac71d832adb1", "af4c1a8fc4a09ca6", "f7eb2bca647b94ca", "ca0e34715fee4ecc",
+	"1e88d5b21876ab84", "6a6b5325f5bba3d5", "899d16482d0f2f04", "d7c3b18491134563",
+	"63b62ca9d62d5a4b", "eb661db7b671fc05", "5c54f9f8410fd49b", "3b31e658fa21293c",
+	"9bb1ab54523d8dd5", "c958a36114f867b2", "9c1bd892580a26ab", "ea8d421ce1e03717",
+	"6f1ccebd50286e60", "55d3a29dd797e5e5", "0e9f9c171033c022", "8b318a9429990080",
+	"30484040dd49cfa7", "1e3e53999b88e876", "59c98f133990f612", "dc36054d1d504c5c",
+	"ff940da979108b2d", "c84d8f3f68b16abe", "c9eb16778925e58e", "42240b7d61e35820",
+	"45529bdbc0ed1e48", "342c7cef4cacb86a", "8a754a8a2b90e835", "874523a227d3b959",
+	"a4eab7b780dcf61a", "03cf1ab8146463d2", "be10b36cbe27ac09", "7ce99b61b8bd4dee",
+	"be038074f703f660", "7e47fd17eb7436f8", "96613d4734a90f50", "43bbae9603ca167e",
+	"f508e5e84138285c", "4590b40285c7b431", "9e1cd9242c9bb774", "a351087136e5311c",
 }

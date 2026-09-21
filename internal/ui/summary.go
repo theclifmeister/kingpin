@@ -144,6 +144,7 @@ func (m *Model) epilogue() string {
 		Chief:    w.Law.Chief.Name,
 		Pages:    max(1, w.Heat.Evidence),
 		Years:    plural(m.cfg.Endings.Kingpin.Reign(home.Heat, home.Pressure), "year"),
+		Reign:    plural(max(1, w.ReignDay()), "day"),
 		Hot:      home.Heat > home.Pressure,
 	}
 	if e.Who == "" {
@@ -266,6 +267,9 @@ func (m *Model) bestCrew() string {
 // reads as the name alone.
 func (m *Model) reachedLine() string {
 	w := m.w
+	if w.Over != nil && w.Over.Cause == content.CauseKingpin && w.Reign > 0 {
+		return fmt.Sprintf("Kingpin on day %d", w.Reign) // the reign's first morning (#227)
+	}
 	name := w.TierName(m.cfg.Progression)
 	if d := w.ReachedOn(w.Tier()); d > 0 {
 		return fmt.Sprintf("%s on day %d", name, d)

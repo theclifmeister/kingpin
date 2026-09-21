@@ -2837,10 +2837,18 @@ func TestModalsFit(t *testing.T) {
 			m.w.Upgrades["lawyer"], m.w.Upgrades["retainer"], m.w.Upgrades["identity"] = true, true, true
 			m.Update(key("1"))
 			m.Update(key("w"))
-			m.Update(key("j"))
-			m.Update(key("enter"))
+			m.Update(key("2")) // the digit selects and commits (#241); j would walk on to the crown's row (#227)
 			if m.exit.step != 1 || m.exit.cursor != 1 {
 				t.Fatalf("the confirmation did not open on vanish: %q", m.status)
+			}
+		}},
+		{"walk away: crown?", modeExit, func(t *testing.T, m *Model) { // the reign (#227)
+			m.w.Reign = 1
+			m.Update(key("1"))
+			m.Update(key("w"))
+			m.Update(key("3"))
+			if m.exit.step != 1 || m.exit.cursor != 2 {
+				t.Fatalf("the confirmation did not open on the crown: %q", m.status)
 			}
 		}},
 		{"confirm new", modeConfirm, func(t *testing.T, m *Model) { m.Update(key("N")) }},

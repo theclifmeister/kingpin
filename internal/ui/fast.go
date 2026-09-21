@@ -221,6 +221,10 @@ func (m *Model) stopEvent(e events.Event) string {
 		return "the tunnel was found"
 	case events.Unlocked:
 		return unlockStop(ev)
+	case events.ReignBegan:
+		return "the city is yours" // the reign (#227)
+	case events.ReignBroken:
+		return "the reign is over: " + ev.Why
 	case events.RivalMovedIn:
 		return ev.Rival + " moved in on " + ev.Name
 	case events.RivalEyeing:

@@ -1131,6 +1131,32 @@ type DealEnded struct {
 
 func (DealEnded) Kind() string { return "DealEnded" }
 
+// ReignBegan is the morning the city became yours for good (#227): every
+// faction at the table gone or paying homage for dominant_days, with
+// more than kingpin_share of home's corners held. Crews is how many pay
+// homage and Homage what they pay a night between them. The crown is
+// the player's to take from here (World.Crown); the run plays on until
+// they do.
+type ReignBegan struct {
+	Day    int
+	City   string
+	Crews  int
+	Homage int
+}
+
+func (ReignBegan) Kind() string { return "ReignBegan" }
+
+// ReignBroken is report-only (#227): the reign stopped holding this
+// morning, Why says how (a faction set up again, or the share fell),
+// and it can begin again.
+type ReignBroken struct {
+	Day  int
+	City string
+	Why  string
+}
+
+func (ReignBroken) Kind() string { return "ReignBroken" }
+
 // TributePaid is report-only bookkeeping: the day's tribute handed over.
 type TributePaid struct {
 	Day     int

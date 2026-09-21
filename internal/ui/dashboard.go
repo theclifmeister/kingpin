@@ -123,6 +123,11 @@ func (m *Model) streetLines(innerW, maxLines int, narrow, withRoad bool) []strin
 	if w.Worked() == 0 {
 		corners.s = theme.Bad.Render("You hold no corner, so nothing sells. Claim one " + screenPointer(screenMap) + ".")
 	}
+	if w.Reign > 0 {
+		// The city is yours (#227): on the corners' fact, the one the
+		// panel never drops, since the tier's is the first to go.
+		corners.s += theme.Gold.Render(fmt.Sprintf(" · reign d%d", w.ReignDay()))
+	}
 	tier := fact{theme.Subtle.Render("tier " + w.TierName(m.cfg.Progression)), priTier}
 	if w.StagePending() > 0 {
 		// The stage not yet seen (#149) is marked the way the Journal tab
@@ -642,6 +647,16 @@ func (m *Model) alerts() []alert {
 	}
 	if line := m.retireLine(); line != "" {
 		out = append(out, newAlert(line, "retirement"))
+	}
+	// The reign (#227): the city is yours and the crown is there to take;
+	// keyed once, so a fast-forward stops the morning it begins.
+	if w.Reign > 0 {
+		crews, homage := w.HomageDeals()
+		who := "every crew gone"
+		if crews > 0 {
+			who = fmt.Sprintf("%s paying %s a night", plural(crews, "crew"), money(homage))
+		}
+		out = append(out, newAlert(theme.Gold.Render(fmt.Sprintf("The city is yours: day %d of the reign, %s. Take the crown or play on.", w.ReignDay(), who)), "the city is yours"))
 	}
 	return out
 }

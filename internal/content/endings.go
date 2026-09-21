@@ -82,6 +82,7 @@ type Epilogue struct {
 	Chief    string
 	Pages    int    // the DA's file
 	Years    string // the kingpin's reign, `4 years`
+	Reign    string // the reign lived before the crown was taken (#227), `31 days`
 	Hot      bool   // the heat over the pressure at home at the end
 }
 

@@ -390,7 +390,7 @@ The full table is below; `?` brings it up in the game.
 | `N` | new run | start over, after a confirmation | everywhere |
 | `q` | quit | save and quit | everywhere |
 | `c` | cart | the day's cart: edit its buys and orders | dashboard, market |
-| `w` | walk away | retire on the account, or vanish | dashboard |
+| `w` | walk away | retire, vanish, or take the crown | dashboard |
 | `i` | intel | the file on the chief and the police here | dashboard |
 | `←→` | city | turn the market to the other city | market |
 | `a` | accept | take the buyer's offer | market |

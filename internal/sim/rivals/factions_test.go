@@ -581,3 +581,87 @@ func TestAwayFactionLivesInTheOtherCity(t *testing.T) {
 		t.Fatal("six seeds at away = 1 seated nobody in Bayport")
 	}
 }
+
+// The reign (#227): the morning Dominant() has held dominant_days with
+// the city held, the sim stamps World.Reign and emits ReignBegan rather
+// than ending the run; the crown is open (CanCrown). A faction setting
+// up again (its homage ending) zeroes the stamp (ReignBroken), the
+// crown closes, and a new homage deal begins it again dominant_days
+// on; the run is never ended by the sim.
+func TestReignBreaks(t *testing.T) {
+	cfg := table(3)
+	cfg.Rivals.Factions.HomageChance = 0
+	w, s := world(t, cfg, 8)
+	f1, f2, f3 := w.Rivals[0], w.Rivals[1], w.Rivals[2]
+	days := cfg.Rivals.Endings.DominantDays
+	// The city held: more than kingpin_share of home's corners with a
+	// runner on each; f2 and f3 gone, f1 on one corner paying homage.
+	home := w.Home()
+	n := int(cfg.Rivals.Endings.KingpinShare*float64(len(home.Corners))) + 1
+	for i := 0; i < n; i++ {
+		c := &home.Corners[i]
+		c.Owner, c.Faction, c.Runner, c.Since = game.OwnerPlayer, "", 1, 1
+	}
+	seat(w, f1, home.Corners[len(home.Corners)-1].ID, 2)
+	f1.Cash = 10_000_000
+	f2.Arrived, f2.Absorbed = 1, 1
+	f3.Arrived, f3.Fragmented = 1, 1
+	w.Day = 20
+	f1.Deals = append(f1.Deals, game.Deal{Kind: game.DealHomage, Terms: game.Terms{PerDay: 100}, Since: w.Day, Faction: f1.Faction()})
+	if !w.Dominant() || !s.HoldsTheCity(w) || w.CanCrown() {
+		t.Fatalf("dominant %v holds %v crown %v", w.Dominant(), s.HoldsTheCity(w), w.CanCrown())
+	}
+	var began *events.ReignBegan
+	for w.Day-20 <= days+2 && began == nil {
+		evs := step(w, s)
+		began = find[events.ReignBegan](evs)
+		if w.Over != nil {
+			t.Fatalf("the sim ended the run: %+v", w.Over)
+		}
+	}
+	if began == nil || w.Reign != w.Day || w.Day-20 != days || !w.CanCrown() || began.Crews != 1 || began.Homage != 100 {
+		t.Fatalf("the reign: began %+v, Reign %d on day %d (dominant since %d), crown %v", began, w.Reign, w.Day, s.DominantSince(w), w.CanCrown())
+	}
+	if w.ReignDay() != 1 {
+		t.Fatalf("day %d of the reign on its first morning", w.ReignDay())
+	}
+	evs := step(w, s)
+	if find[events.ReignBegan](evs) != nil || w.Reign != w.Day-1 || w.ReignDay() != 2 {
+		t.Fatalf("the second morning: %v, Reign %d, day %d of it", kinds(evs), w.Reign, w.ReignDay())
+	}
+	// f1's homage ends (it sets up again): the reign breaks.
+	f1.Deals = nil
+	evs = step(w, s)
+	broke := find[events.ReignBroken](evs)
+	if broke == nil || w.Reign != 0 || w.CanCrown() || broke.Why != "a crew set up again" {
+		t.Fatalf("the reign did not break: %+v Reign %d crown %v", broke, w.Reign, w.CanCrown())
+	}
+	if err := w.Crown(); err != game.ErrNoReign {
+		t.Fatalf("the crown with no reign: %v", err)
+	}
+	// A new homage deal, and dominant_days on it begins again.
+	f1.Deals = append(f1.Deals, game.Deal{Kind: game.DealHomage, Terms: game.Terms{PerDay: 100}, Since: w.Day, Faction: f1.Faction()})
+	from := w.Day
+	began = nil
+	for w.Day-from <= days+2 && began == nil {
+		began = find[events.ReignBegan](step(w, s))
+	}
+	if began == nil || w.Day-from != days || !w.CanCrown() {
+		t.Fatalf("the reign did not begin again: %+v on day %d from %d", began, w.Day, from)
+	}
+	// The share falling breaks it too.
+	home.Corners[0].Owner, home.Corners[0].Runner = game.OwnerNone, 0
+	broke = find[events.ReignBroken](step(w, s))
+	if broke == nil || broke.Why != "the city slipped under the share" || w.Reign != 0 {
+		t.Fatalf("the share: %+v Reign %d", broke, w.Reign)
+	}
+	// And the crown, taken while it holds, is the kingpin ending.
+	home.Corners[0].Owner, home.Corners[0].Runner = game.OwnerPlayer, 1
+	f1.Deals[0].Since = w.Day - days
+	if find[events.ReignBegan](step(w, s)) == nil || !w.CanCrown() {
+		t.Fatal("the reign did not begin on the stamp")
+	}
+	if err := w.Crown(); err != nil || w.Over == nil || w.Over.Cause != content.CauseKingpin || w.Over.Day != w.Day {
+		t.Fatalf("the crown: %v %+v", err, w.Over)
+	}
+}
