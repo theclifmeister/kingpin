@@ -911,6 +911,7 @@ func (m *Model) dashboardDetails() []section {
 		}
 	}
 	secs = append(secs, section{"ALERTS", m.alertLines(paneTextW, 8)})
+	secs = append(secs, m.nameSection()...) // what your name buys (#233), after what needs you
 	return secs
 }
 

@@ -185,6 +185,11 @@ const (
 // Again for #231 (Stats.Taxed in the walk; no number moved: with the
 // field skipped the digest is the list before it on all sixty days, the
 // boss holding no city by day 60).
+// Again for #233, by copy alone, on day 56: the report's opening line
+// under TIER the night the rival's push on the boss's front line was
+// held off (World.Report is in the walk); with the report set aside the
+// digest is the list before it on all sixty days, on both trees, and no
+// number moved.
 // Again for #43 (the table, on the duel's dice, harness.OneFaction:
 // World.Rival became the slice World.Rivals of one, RivalState gained
 // Home, Grudges, Trusts, Ally, Against, LostToYou, LastTakenBy,
@@ -237,6 +242,6 @@ var seedDigest = []string{
 	"f60843c8743a4c81", "e938c0c5166b3a6e", "7dc3fc8f4321df98", "bab3ce384810c206",
 	"afd478f6d6054386", "ce51e4a294b998a0", "bb33b61f7241fb23", "b8f745acbdaf2455",
 	"16673d5fa4ecbe02", "90f86248441cb24a", "ad4dd8a154f244bb", "3c4e0b5791e9fa30",
-	"b63045c6e62c42fe", "dc92701f665b1c20", "9176ee5c73b6e978", "ea0dcd0e6d77c84e",
+	"b63045c6e62c42fe", "dc92701f665b1c20", "9176ee5c73b6e978", "b0f52a74a4255957",
 	"e50fbe3b4e71832e", "89b7499320818e67", "57d6977869327446", "be92475b2b988db6",
 }

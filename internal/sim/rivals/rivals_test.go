@@ -1,6 +1,7 @@
 package rivals_test
 
 import (
+	"fmt"
 	"math"
 	"testing"
 
@@ -612,4 +613,45 @@ func TestStaleTellIsDropped(t *testing.T) {
 	if k["CornerTaken"] != 0 || w.Corner(eyed).Owner != game.OwnerNone || w.RivalHeld() > s.MaxCorners(w, w.Rival()) {
 		t.Fatalf("at its share: %v, %s is %s's, holds %d of %d", k, eyed, w.Corner(eyed).Owner, w.RivalHeld(), s.MaxCorners(w, w.Rival()))
 	}
+}
+
+// A claim your name turned (#233): with fear at 100 the rival's claim
+// chance is cut by rival_claim_cut, and on a night the one roll falls
+// between the cut chance and the full one the sim reports
+// ClaimDeterred and sets up nowhere; the roll is the roll it always
+// made (TestSeedDigest has the dice), and with no fear nothing is
+// deterred.
+func TestClaimDeterredIsReadOffTheRoll(t *testing.T) {
+	cfg := content.MustLoad()
+	cfg.Rivals.Factions.Min, cfg.Rivals.Factions.Max = 1, 1
+	seen := map[string]int{}
+	for _, fear := range []float64{0, 100} {
+		w, s := world(t, cfg, 11)
+		w.Player.Reputation.Fear = fear
+		r := w.Rival()
+		r.Arrived, r.Cash, r.Muscle = 1, 1_000_000, 4
+		for day := 0; day < 60; day++ {
+			for _, e := range step(w, s) {
+				switch ev := e.(type) {
+				case events.ClaimDeterred:
+					seen[fmt.Sprintf("deterred@%.0f", fear)]++
+					if ev.City != w.Home().ID || ev.Faction != r.Faction() {
+						t.Fatalf("%+v", ev)
+					}
+					for _, o := range step(w, s) {
+						_ = o
+					}
+				case events.RivalEyeing:
+					seen[fmt.Sprintf("eyeing@%.0f", fear)]++
+				}
+			}
+		}
+	}
+	if seen["deterred@0"] != 0 {
+		t.Fatalf("deterred with no fear: %v", seen)
+	}
+	if seen["deterred@100"] == 0 {
+		t.Fatalf("nothing deterred at fear 100 over sixty nights: %v", seen)
+	}
+	t.Logf("%v", seen)
 }

@@ -1144,6 +1144,19 @@ type DealEnded struct {
 
 func (DealEnded) Kind() string { return "DealEnded" }
 
+// ClaimDeterred is report-only (#233): a faction rolled to set up on a
+// free corner in City tonight and your fear turned the roll (the roll
+// was under its chance and over the chance fear leaves it). The rivals
+// sim emits it off a roll it already makes; nothing new is rolled.
+type ClaimDeterred struct {
+	Day     int
+	City    string
+	Rival   string
+	Faction string
+}
+
+func (ClaimDeterred) Kind() string { return "ClaimDeterred" }
+
 // Taxed is report-only (#231): what the free corners of a city you
 // hold paid you tonight for the right to work them, and how many.
 type Taxed struct {

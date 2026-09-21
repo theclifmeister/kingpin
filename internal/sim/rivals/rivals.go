@@ -675,17 +675,28 @@ func (s *Sim) step(w *game.World, t *game.Tick, r *game.RivalState, rng rand) {
 	// cycle a day longer), and a claim kept off a corner rests it too.
 	s.resolveEyeing(w, t, r)
 	held := w.RivalHeldBy(r.Faction())
-	if held < s.MaxCorners(w, r) && (r.Routed == 0 || t.Day-r.Routed >= tun.RegroupDays) && rng.Float64() < pc.ClaimChance*s.ClaimScale(w, r)*s.ClaimPace(w)/float64(s.Crowd(w, r)) {
-		// The chest is asked after the roll (#139): a rival that cannot
-		// pay for a corner today rolls all the same, so the seed's dice
-		// do not move when its money binds. Nor does the table's cap
-		// (#43): a table that holds its share of the city rolls and
-		// sets up nowhere.
-		if s.Rested(r, t.Day) && r.Cash >= s.ClaimCost(w, r) && !s.TableFull(w, r) {
-			if c := s.pickFree(w, r, rng, t.Day, held == 0); c != nil {
-				r.Eyeing, r.EyeingDay, r.LastClaim = c.ID, t.Day, t.Day
-				t.Emit(events.RivalEyeing{Day: t.Day, Rival: r.Leader, Faction: r.Faction(), Corner: c.ID, Name: c.Name})
+	if held < s.MaxCorners(w, r) && (r.Routed == 0 || t.Day-r.Routed >= tun.RegroupDays) {
+		// One roll, as it always was; the fear's cut is read off it
+		// either way (#233): a roll under the chance and over what fear
+		// leaves it is a claim your name turned, reported and nothing
+		// else.
+		roll := rng.Float64()
+		full := pc.ClaimChance * s.ClaimScale(w, r) / float64(s.Crowd(w, r))
+		switch {
+		case roll < full*s.ClaimPace(w):
+			// The chest is asked after the roll (#139): a rival that cannot
+			// pay for a corner today rolls all the same, so the seed's dice
+			// do not move when its money binds. Nor does the table's cap
+			// (#43): a table that holds its share of the city rolls and
+			// sets up nowhere.
+			if s.Rested(r, t.Day) && r.Cash >= s.ClaimCost(w, r) && !s.TableFull(w, r) {
+				if c := s.pickFree(w, r, rng, t.Day, held == 0); c != nil {
+					r.Eyeing, r.EyeingDay, r.LastClaim = c.ID, t.Day, t.Day
+					t.Emit(events.RivalEyeing{Day: t.Day, Rival: r.Leader, Faction: r.Faction(), Corner: c.ID, Name: c.Name})
+				}
 			}
+		case roll < full:
+			t.Emit(events.ClaimDeterred{Day: t.Day, City: w.CityOf(r).ID, Rival: r.Leader, Faction: r.Faction()})
 		}
 	}
 
