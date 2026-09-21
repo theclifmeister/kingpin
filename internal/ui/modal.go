@@ -32,6 +32,24 @@ func inHand(dirty, clean int) string {
 	return row("in hand", cash(dirty)+" dirty · "+cash(clean)+" clean")
 }
 
+// confirm is the one confirmation's payload (#242): the fourteen
+// yes-or-no questions (a new run, a slot deleted, a fire, an upgrade,
+// asking around, a pay-off, a trip, a house dropped, a scout, a boost, a
+// tip, a checkpoint, bail, a deed) are one modeConfirm, each askX
+// setting what y does, what the modal shows and where no goes.
+type confirm struct {
+	verb string              // the footer's `y <verb>`
+	view func(*Model) string // the rendered modal
+	act  func(*Model)        // what yes does; it sets the mode it leaves in
+	back mode                // where any other key goes: modeStart for the slot deletion, modePlay otherwise
+}
+
+// ask opens a confirmation over the play screen.
+func (m *Model) ask(verb string, view func(*Model) string, act func(*Model)) {
+	m.cfm = confirm{verb: verb, view: view, act: act, back: modePlay}
+	m.mode = modeConfirm
+}
+
 // modalMax is the widest a modal gets. Under it the modal is the terminal
 // less a two-column margin each side.
 const modalMax = 76
@@ -138,5 +156,9 @@ func (m *Model) modalFooter() []binding {
 	if m.mode == modePlay {
 		return nil
 	}
-	return m.modeKeys(m.mode)
+	out := m.modeKeys(m.mode)
+	for i := range out {
+		out[i].label = m.labelOf(out[i]) // the confirmation's verb off its payload (#242)
+	}
+	return out
 }

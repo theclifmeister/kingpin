@@ -45,52 +45,39 @@ type mode int
 const (
 	modeStart mode = iota // the start menu: a save slot to continue or start in, or quit
 	modePlay
+	modeConfirm // one yes-or-no confirmation, its payload in Model.cfm (#242)
 	modeReport
 	modeBuy
 	modeSell
 	modeOver
-	modeConfirmNew
-	modeConfirmDelete // empty the slot under the start menu's cursor?
-	modeConfirmFire
 	modeConfirmEnd
 	modeHelp
-	modePost           // pick who to post on the selected corner
-	modeStrike         // pick how hard to send the enforcers at the selected corner
-	modeConfirmUpgrade // buy the selected upgrade?
-	modeFront          // pick a front to buy
-	modeConfirmInvestigate
-	modeConfirmPayOff
-	modeStage             // the stage entered this morning (#149), before the card and the report
-	modeCard              // a dilemma card, before the morning report
-	modeTarget            // the route target dialog: product -> units or days -> the number
-	modeConfirmTravel     // move to the other city?
-	modePropose           // pick a deal to put to the rival: kind, then terms
-	modeAssign            // pick the city a lieutenant runs
-	modeFund              // give a city clean cash for goodwill
-	modeDetails           // the details pane as an overlay, where the terminal is too narrow to hold it beside MAIN
-	modeCart              // the day's cart: its buys and orders, editable until the day ends
-	modeConfirmFast       // run days until something needs you (#116): the cap, then y or enter
-	modeUndercut          // pick the dial to undercut the selected rival corner at (#68)
-	modeMove              // move stock between the street and the houses in a city (#73): from, to, product, quantity
-	modeGuard             // pick the enforcer who guards the selected house (#73)
-	modeConfirmDrop       // walk away from the selected house? (#73)
-	modeConfirmScout      // read the rival's books tonight? (#70)
-	modeConfirmBoost      // send the enforcers for the till on the selected corner? (#70)
-	modeConfirmTip        // tip the police on the selected corner? (#70)
-	modeConfirmBuyOff     // pay the rival's muscle to go home: the heads, then y or enter (#70)
-	modeCut               // cut a product where you stand (#47): the product, then the percent added
-	modeCook              // a chemist's cook order (#47): the product, then the units
-	modeInvest            // clean cash into the selected front's levels (#192): the levels, then enter
-	modeBribe             // an envelope for the chief or the DA (#42): the target, then the amount
-	modeConfirmCheckpoint // buy the checkpoint or customs agent on the selected route? (#42)
-	modeReserve           // clean cash into the offshore account (#195): the amount, then enter
-	modeConfirmBail       // put bail down for the selected member in a cell? (#46)
-	modeDriver            // pick the driver who rides the selected route (#46)
-	modePayCop            // pay a cop for a word on the police (#45): the amount, then enter
-	modeSpy               // plant a spy (#45): the faction, then who goes under
-	modeConfirmDeed       // buy the block the selected corner is on? (#194)
-	modeExit              // walk away (#49): retire on the account or vanish on a new identity, then the confirmation
-	modeNewRun            // a new run from the start menu (#50): the character, the seed, the hard DA
+	modePost          // pick who to post on the selected corner
+	modeStrike        // pick how hard to send the enforcers at the selected corner
+	modeFront         // pick a front to buy
+	modeStage         // the stage entered this morning (#149), before the card and the report
+	modeCard          // a dilemma card, before the morning report
+	modeTarget        // the route target dialog: product -> units or days -> the number
+	modePropose       // pick a deal to put to the rival: kind, then terms
+	modeAssign        // pick the city a lieutenant runs
+	modeFund          // give a city clean cash for goodwill
+	modeDetails       // the details pane as an overlay, where the terminal is too narrow to hold it beside MAIN
+	modeCart          // the day's cart: its buys and orders, editable until the day ends
+	modeConfirmFast   // run days until something needs you (#116): the cap, then y or enter
+	modeUndercut      // pick the dial to undercut the selected rival corner at (#68)
+	modeMove          // move stock between the street and the houses in a city (#73): from, to, product, quantity
+	modeGuard         // pick the enforcer who guards the selected house (#73)
+	modeConfirmBuyOff // pay the rival's muscle to go home: the heads, then y or enter (#70)
+	modeCut           // cut a product where you stand (#47): the product, then the percent added
+	modeCook          // a chemist's cook order (#47): the product, then the units
+	modeInvest        // clean cash into the selected front's levels (#192): the levels, then enter
+	modeBribe         // an envelope for the chief or the DA (#42): the target, then the amount
+	modeReserve       // clean cash into the offshore account (#195): the amount, then enter
+	modeDriver        // pick the driver who rides the selected route (#46)
+	modePayCop        // pay a cop for a word on the police (#45): the amount, then enter
+	modeSpy           // plant a spy (#45): the faction, then who goes under
+	modeExit          // walk away (#49): retire on the account or vanish on a new identity, then the confirmation
+	modeNewRun        // a new run from the start menu (#50): the character, the seed, the hard DA
 	modeCount
 )
 
@@ -124,19 +111,20 @@ type Model struct {
 	width, height  int
 	screen         screen
 	mode           mode
-	city           string // city the market and map screens show; follows you when you travel
-	cursor         int    // product cursor shared by market screen and dialogs
-	crewCursor     int    // row on the crew screen: roster first, then candidates
-	fireID         int    // member awaiting the fire confirmation
-	mapCursor      int    // corner selected on the map
-	mapTop         int    // the first row of the map's grid drawn, scrolled to keep the cursor in view
-	routeCursor    int    // route selected under the map's grid
-	onRoutes       bool   // the map's arrows are on the routes, past the bottom row
-	buyerCursor    int    // contract selected under the market's product table
-	onBuyers       bool   // the market's arrows are on the buyers, past the bottom row
-	supplierCursor int    // connect selected under the market's buyers (#72)
-	onSuppliers    bool   // the market's arrows are on the connects, past the buyers
-	postRole       string // runner or enforcer, while the post picker is open
+	cfm            confirm // the open confirmation's payload (#242): what y does, what the modal shows, where no goes
+	city           string  // city the market and map screens show; follows you when you travel
+	cursor         int     // product cursor shared by market screen and dialogs
+	crewCursor     int     // row on the crew screen: roster first, then candidates
+	fireID         int     // member awaiting the fire confirmation
+	mapCursor      int     // corner selected on the map
+	mapTop         int     // the first row of the map's grid drawn, scrolled to keep the cursor in view
+	routeCursor    int     // route selected under the map's grid
+	onRoutes       bool    // the map's arrows are on the routes, past the bottom row
+	buyerCursor    int     // contract selected under the market's product table
+	onBuyers       bool    // the market's arrows are on the buyers, past the bottom row
+	supplierCursor int     // connect selected under the market's buyers (#72)
+	onSuppliers    bool    // the market's arrows are on the connects, past the buyers
+	postRole       string  // runner or enforcer, while the post picker is open
 	postCursor     int
 	strikeCursor   int    // row in the strike picker
 	undercutCursor int    // row in the undercut picker (#68)
@@ -519,66 +507,17 @@ func (m *Model) handleKey(k tea.KeyMsg) (tea.Model, tea.Cmd) {
 		return m, nil
 	}
 	switch m.mode {
-	case modeConfirmNew:
-		switch key {
-		case "y", "Y":
-			m.restart()
-		default:
-			m.mode = modePlay
-		}
-		return m, nil
-	case modeConfirmDelete:
-		switch key {
-		case "y", "Y":
-			m.confirmDelete()
-		default:
-			m.mode = modeStart
-		}
-		return m, nil
-	case modeConfirmFire:
-		switch key {
-		case "y", "Y":
-			m.confirmFire()
-		default:
-			m.mode = modePlay
+	case modeConfirm:
+		if key == "y" || key == "Y" {
+			m.cfm.act(m)
+		} else {
+			m.mode = m.cfm.back
 		}
 		return m, nil
 	case modeConfirmEnd:
 		switch key {
 		case "y", "Y", "enter":
 			m.endDay()
-		default:
-			m.mode = modePlay
-		}
-		return m, nil
-	case modeConfirmUpgrade:
-		switch key {
-		case "y", "Y":
-			m.confirmUpgrade()
-		default:
-			m.mode = modePlay
-		}
-		return m, nil
-	case modeConfirmInvestigate:
-		switch key {
-		case "y", "Y":
-			m.confirmInvestigate()
-		default:
-			m.mode = modePlay
-		}
-		return m, nil
-	case modeConfirmPayOff:
-		switch key {
-		case "y", "Y":
-			m.confirmPayOff()
-		default:
-			m.mode = modePlay
-		}
-		return m, nil
-	case modeConfirmBail:
-		switch key {
-		case "y", "Y":
-			m.confirmBail()
 		default:
 			m.mode = modePlay
 		}
@@ -594,58 +533,10 @@ func (m *Model) handleKey(k tea.KeyMsg) (tea.Model, tea.Cmd) {
 	case modeExit:
 		m.keyExit(key)
 		return m, nil
-	case modeConfirmTravel:
-		switch key {
-		case "y", "Y":
-			m.confirmTravel()
-		default:
-			m.mode = modePlay
-		}
-		return m, nil
-	case modeConfirmScout:
-		switch key {
-		case "y", "Y":
-			m.confirmScout()
-		default:
-			m.mode = modePlay
-		}
-		return m, nil
-	case modeConfirmBoost:
-		switch key {
-		case "y", "Y":
-			m.confirmBoost()
-		default:
-			m.mode = modePlay
-		}
-		return m, nil
-	case modeConfirmTip:
-		switch key {
-		case "y", "Y":
-			m.confirmTip()
-		default:
-			m.mode = modePlay
-		}
-		return m, nil
 	case modeConfirmBuyOff:
 		return m.keyBuyOff(k)
 	case modeBribe:
 		return m.keyBribe(k)
-	case modeConfirmCheckpoint:
-		switch key {
-		case "y", "Y":
-			m.confirmCheckpoint()
-		default:
-			m.mode = modePlay
-		}
-		return m, nil
-	case modeConfirmDeed:
-		switch key {
-		case "y", "Y":
-			m.confirmDeed()
-		default:
-			m.mode = modePlay
-		}
-		return m, nil
 	case modeInvest:
 		return m.keyInvest(k)
 	case modeReserve:
@@ -773,14 +664,6 @@ func (m *Model) handleKey(k tea.KeyMsg) (tea.Model, tea.Cmd) {
 	case modeGuard:
 		m.keyGuard(key)
 		return m, nil
-	case modeConfirmDrop:
-		switch key {
-		case "y", "Y":
-			m.confirmDrop()
-		default:
-			m.mode = modePlay
-		}
-		return m, nil
 	case modeReport:
 		switch key {
 		case "enter", "esc", " ", "r", "q":
@@ -879,7 +762,8 @@ func (m *Model) keyStart(key string) (tea.Model, tea.Cmd) {
 			m.refuse("Nothing to delete.")
 			return m, nil
 		}
-		m.mode = modeConfirmDelete
+		m.cfm = confirm{verb: "delete", view: (*Model).deleteConfirm, act: (*Model).confirmDelete, back: modeStart} // no returns to the menu, not the run
+		m.mode = modeConfirm
 	case "q":
 		return m.quit()
 	}
@@ -1079,14 +963,8 @@ func (m *Model) View() string {
 		body = m.viewDialog()
 	case modeOver:
 		body = m.viewOver()
-	case modeConfirmNew:
-		body = m.modal("NEW RUN?", []string{"Abandon the current run and start over?"}, m.modalFooter())
-	case modeConfirmFire:
-		name := "them"
-		if c := m.w.Crew.Member(m.fireID); c != nil {
-			name = c.Name
-		}
-		body = m.modal("FIRE "+name+"?", []string{"No severance in this business. The rest of the crew", "will take it personally."}, m.modalFooter())
+	case modeConfirm:
+		body = m.cfm.view(m)
 	case modeConfirmEnd:
 		// The cart in a sentence, then what the night does.
 		body = m.modal("END THE DAY?", []string{m.endDayLine(), "The sims step and the run autosaves."}, m.modalFooter())
@@ -1098,8 +976,6 @@ func (m *Model) View() string {
 		body = m.viewStrike()
 	case modeUndercut:
 		body = m.viewUndercut()
-	case modeConfirmUpgrade:
-		body = m.upgradeConfirm()
 	case modeFront:
 		body = m.viewFront()
 	case modeMove:
@@ -1108,16 +984,8 @@ func (m *Model) View() string {
 		body = m.viewLab()
 	case modeGuard:
 		body = m.viewGuard()
-	case modeConfirmDrop:
-		body = m.dropConfirm()
 	case modeAssign:
 		body = m.viewAssign()
-	case modeConfirmInvestigate:
-		body = m.investigateConfirm()
-	case modeConfirmPayOff:
-		body = m.payOffConfirm()
-	case modeConfirmBail:
-		body = m.bailConfirm()
 	case modeDriver:
 		body = m.viewDriver()
 	case modePayCop:
@@ -1126,22 +994,10 @@ func (m *Model) View() string {
 		body = m.viewSpy()
 	case modeExit:
 		body = m.viewExit()
-	case modeConfirmTravel:
-		body = m.travelConfirm()
-	case modeConfirmScout:
-		body = m.scoutConfirm()
-	case modeConfirmBoost:
-		body = m.boostConfirm()
-	case modeConfirmTip:
-		body = m.tipConfirm()
 	case modeConfirmBuyOff:
 		body = m.viewBuyOff()
 	case modeBribe:
 		body = m.viewBribe()
-	case modeConfirmCheckpoint:
-		body = m.modal("BUY THE "+strings.ToUpper(m.checkpointWord())+"?", m.checkpointConfirm(), m.modalFooter())
-	case modeConfirmDeed:
-		body = m.modal("BUY THE BLOCK?", m.deedConfirm(), m.modalFooter())
 	case modeInvest:
 		body = m.viewInvest()
 	case modeReserve:
@@ -1415,8 +1271,8 @@ func heatStyle(v float64) lipgloss.Style {
 func (m *Model) viewStart() string {
 	var box string
 	switch {
-	case m.mode == modeConfirmDelete:
-		box = m.deleteConfirm()
+	case m.mode == modeConfirm: // the slot deletion, the one confirmation over the menu
+		box = m.cfm.view(m)
 	case m.mode == modeNewRun:
 		box = m.viewNewRun()
 	default:
@@ -1473,6 +1329,11 @@ func slotLine(s game.SlotInfo, now time.Time) string {
 	}
 	parts = append(parts, "saved "+format.Ago(now.Sub(s.Saved)))
 	return strings.Join(parts, " · ")
+}
+
+// newConfirm asks before the run is abandoned for a new one.
+func (m *Model) newConfirm() string {
+	return m.modal("NEW RUN?", []string{"Abandon the current run and start over?"}, m.modalFooter())
 }
 
 // deleteConfirm asks before a slot is emptied, naming the run in it.

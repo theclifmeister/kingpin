@@ -169,12 +169,12 @@ func TestTabIsSilentWhereThereIsNoPage(t *testing.T) {
 		open func(m *Model)
 	}{
 		{"confirm end", modeConfirmEnd, func(m *Model) { m.Update(key("enter")) }},
-		{"confirm new", modeConfirmNew, func(m *Model) { m.Update(key("N")) }},
-		{"confirm fire", modeConfirmFire, func(m *Model) { m.Update(key("4")); m.Update(key("f")) }},
-		{"confirm travel", modeConfirmTravel, func(m *Model) { m.Update(key("g")) }},
+		{"confirm new", modeConfirm, func(m *Model) { m.Update(key("N")) }},
+		{"confirm fire", modeConfirm, func(m *Model) { m.Update(key("4")); m.Update(key("f")) }},
+		{"confirm travel", modeConfirm, func(m *Model) { m.Update(key("g")) }},
 		{"post", modePost, func(m *Model) { m.Update(key("5")); m.mapCursor = 1; m.Update(key("c")) }},
 		{"guard", modeGuard, func(m *Model) { onHouse(nil, m); m.Update(key("e")) }},
-		{"confirm drop", modeConfirmDrop, func(m *Model) { onHouse(nil, m); m.Update(key("x")) }},
+		{"confirm drop", modeConfirm, func(m *Model) { onHouse(nil, m); m.Update(key("x")) }},
 		{"fund", modeFund, func(m *Model) { m.Update(key("7")); m.Update(key("f")) }},
 		{"invest", modeInvest, func(m *Model) { m.w.Player.CleanCash = 200_000; m.Update(key("7")); m.Update(key("i")) }},
 		{"reserve", modeReserve, func(m *Model) { m.w.Player.CleanCash = 200_000; m.Update(key("7")); m.Update(key("o")) }},

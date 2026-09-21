@@ -639,7 +639,7 @@ func (m *Model) askTravel() {
 		m.refuse("Can't go: there is nowhere else.")
 		return
 	}
-	m.mode = modeConfirmTravel
+	m.ask("go", (*Model).travelConfirm, (*Model).confirmTravel)
 }
 
 // travelTo is the city g goes to: the one shown if you are not in it,

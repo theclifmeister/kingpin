@@ -41,7 +41,12 @@ func (m *Model) askDeed() {
 		m.refuse("Can't buy: " + game.ErrNoDeeds.Error() + ".")
 		return
 	}
-	m.mode = modeConfirmDeed
+	m.ask("buy", (*Model).deedModal, (*Model).confirmDeed)
+}
+
+// deedModal is the confirmation's modal over deedConfirm's body.
+func (m *Model) deedModal() string {
+	return m.modal("BUY THE BLOCK?", m.deedConfirm(), m.modalFooter())
 }
 
 // confirmDeed buys the block under the selected corner.

@@ -36,7 +36,7 @@ func TestDeedKeys(t *testing.T) {
 		t.Fatalf("the inspector prices the block with nothing washed:\n%s", pane)
 	}
 	m.Update(key("d"))
-	if m.mode != modeConfirmDeed {
+	if m.mode != modeConfirm {
 		t.Fatalf("d on the map: mode %v", m.mode)
 	}
 	m.Update(key("y"))
@@ -59,7 +59,7 @@ func TestDeedKeys(t *testing.T) {
 		t.Fatalf("the inspector does not price the block:\n%s", pane)
 	}
 	m.Update(key("d"))
-	if m.mode != modeConfirmDeed {
+	if m.mode != modeConfirm {
 		t.Fatalf("d on the map: mode %v", m.mode)
 	}
 	assertFits(t, m.View(), 80, 24, "deed confirmation")

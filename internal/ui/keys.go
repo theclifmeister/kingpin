@@ -397,7 +397,7 @@ var bindings = []binding{
 	{key: "ctrl+s", label: "save", help: "save now; the end of the day saves too", global: true, quiet: true,
 		do: func(m *Model, _ string) { m.save() }},
 	{key: "N", label: "new run", help: "start over, after a confirmation", global: true, quiet: true,
-		do: func(m *Model, _ string) { m.mode = modeConfirmNew }},
+		do: func(m *Model, _ string) { m.ask("new run", (*Model).newConfirm, (*Model).restart) }},
 	{key: "q", label: "quit", help: "save and quit", global: true, quiet: true,
 		do: func(m *Model, _ string) { m.quit() }}, // saves and sets quitting; keyPlay returns tea.Quit
 }
@@ -464,7 +464,6 @@ var modeBindings = []binding{
 	{key: "enter", label: "move", modes: in(modeMove), when: step(3)},
 	{key: "enter", label: "post", modes: in(modeGuard)},
 	{key: "enter", label: "drive", modes: in(modeDriver)},
-	{key: "y", label: "drop", modes: in(modeConfirmDrop)},
 	{key: "enter", label: "sell", modes: in(modeSell), when: sellOnce},
 	{key: "enter", label: "sell nightly", modes: in(modeSell), when: sellStanding},
 	{key: "enter", label: "set", modes: in(modeTarget), when: step(2)},
@@ -479,8 +478,6 @@ var modeBindings = []binding{
 	{key: "enter", label: "next", modes: in(modeFund), when: fundNext},
 	{key: "enter", label: "next", modes: in(modeBribe), when: step(0)},
 	{key: "enter", label: "pay", modes: in(modeBribe), when: step(1)},
-	{key: "y", label: "buy", modes: in(modeConfirmCheckpoint)},
-	{key: "y", label: "buy", modes: in(modeConfirmDeed)},
 	{key: "enter", label: "give", modes: in(modeFund), when: fundLast},
 	{key: "enter", label: "decide", modes: in(modeCard), when: step(0)},
 	{key: "n", label: "new run", modes: in(modeOver)},
@@ -488,19 +485,9 @@ var modeBindings = []binding{
 	{key: "enter", label: "next", modes: in(modeNewRun), when: newRunNext},
 	{key: "enter", label: "start", modes: in(modeNewRun), when: newRunStart},
 	{key: "D", label: "delete", modes: in(modeStart)},
-	{key: "y", label: "new run", modes: in(modeConfirmNew)},
-	{key: "y", label: "delete", modes: in(modeConfirmDelete)},
-	{key: "y", label: "fire", modes: in(modeConfirmFire)},
+	{key: "y", label: "<verb>", modes: in(modeConfirm)}, // the payload's verb (#242): fire, buy, go, scout…
 	{key: "y enter", label: "end day", modes: in(modeConfirmEnd)},
 	{key: "y enter", label: "run", modes: in(modeConfirmFast)},
-	{key: "y", label: "buy", modes: in(modeConfirmUpgrade)},
-	{key: "y", label: "ask", modes: in(modeConfirmInvestigate)},
-	{key: "y", label: "pay", modes: in(modeConfirmPayOff)},
-	{key: "y", label: "bail", modes: in(modeConfirmBail)},
-	{key: "y", label: "go", modes: in(modeConfirmTravel)},
-	{key: "y", label: "scout", modes: in(modeConfirmScout)},
-	{key: "y", label: "boost", modes: in(modeConfirmBoost)},
-	{key: "y", label: "tip", modes: in(modeConfirmTip)},
 	{key: "y enter", label: "pay", modes: in(modeConfirmBuyOff)},
 	{key: "enter", label: "invest", modes: in(modeInvest)},
 	{key: "enter", label: "reserve", modes: in(modeReserve)},
@@ -517,8 +504,7 @@ var modeBindings = []binding{
 	{key: "b", label: "buy", modes: in(modeSell), when: step(0)},
 	{key: "⇧tab", label: "back", keys: []string{"shift+tab"}, modes: in(modeBuy, modeSell, modeTarget, modeCart, modePropose, modeFront, modeMove, modeFund, modeCut, modeCook, modeBribe, modeSpy, modeExit, modeNewRun), when: pastFirstStep},
 	{key: "esc", label: "close", modes: in(modeBuy, modeSell, modeTarget, modePropose, modePost, modeStrike, modeUndercut, modeFront, modeAssign, modeFund, modeCart, modeMove, modeGuard,
-		modeConfirmNew, modeConfirmDelete, modeConfirmFire, modeConfirmEnd, modeConfirmUpgrade, modeConfirmInvestigate, modeConfirmPayOff, modeConfirmTravel, modeConfirmFast, modeConfirmDrop,
-		modeConfirmScout, modeConfirmBoost, modeConfirmTip, modeConfirmBuyOff, modeCut, modeCook, modeInvest, modeBribe, modeConfirmCheckpoint, modeReserve, modeConfirmBail, modeDriver, modeConfirmDeed, modePayCop, modeSpy, modeExit, modeNewRun)},
+		modeConfirm, modeConfirmEnd, modeConfirmFast, modeConfirmBuyOff, modeCut, modeCook, modeInvest, modeBribe, modeReserve, modeDriver, modePayCop, modeSpy, modeExit, modeNewRun)},
 	{key: "enter esc", label: "close", modes: in(modeReport, modeHelp, modeStage)},
 	{key: "enter esc", label: "close", modes: in(modeCard), when: step(1)},
 	{key: "␣ esc", label: "close", modes: in(modeDetails)},
@@ -633,10 +619,14 @@ func rawKeys(b binding) []string {
 	return b.keys
 }
 
-// labelOf is the label as the pane draws it, the other city named.
+// labelOf is the label as the pane draws it, the other city named and
+// the confirmation's verb read off its payload (#242).
 func (m *Model) labelOf(b binding) string {
 	if strings.Contains(b.label, "<city>") && m.w != nil {
 		return strings.ReplaceAll(b.label, "<city>", m.w.CityName(m.travelTo()))
+	}
+	if b.label == "<verb>" {
+		return m.cfm.verb
 	}
 	return b.label
 }

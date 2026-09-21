@@ -100,7 +100,7 @@ func (m *Model) askBail() {
 		return
 	}
 	m.fireID = c.ID
-	m.mode = modeConfirmBail
+	m.ask("bail", (*Model).bailConfirm, (*Model).confirmBail)
 }
 
 func (m *Model) confirmBail() {

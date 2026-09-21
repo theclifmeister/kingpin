@@ -143,7 +143,7 @@ func (m *Model) titleLoop() {
 
 // onStart reports whether the start menu is what View draws.
 func (m *Model) onStart() bool {
-	return m.mode == modeStart || m.mode == modeConfirmDelete || m.mode == modeNewRun || m.w == nil
+	return m.mode == modeStart || (m.mode == modeConfirm && m.cfm.back == modeStart) || m.mode == modeNewRun || m.w == nil
 }
 
 // titleFits reports whether the terminal has room for the art over the

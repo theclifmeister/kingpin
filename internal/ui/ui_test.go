@@ -1199,7 +1199,7 @@ func TestUnreadableSaveIsRefused(t *testing.T) {
 	}
 	assertFits(t, m.View(), 80, 24, "start menu with error")
 	m.Update(key("D"))
-	if m.mode != modeConfirmDelete {
+	if m.mode != modeConfirm {
 		t.Fatalf("D: mode %v", m.mode)
 	}
 	if got := stripANSI(m.View()); !strings.Contains(got, "DELETE SLOT 2?") || !strings.Contains(got, "Day 0 · $") {
@@ -2097,7 +2097,7 @@ func TestRouteAndTravelKeys(t *testing.T) {
 
 	// Travel: g asks, esc stays, y goes; your corner is left, stock stays.
 	m.Update(key("g"))
-	if m.mode != modeConfirmTravel {
+	if m.mode != modeConfirm {
 		t.Fatalf("g: mode %v", m.mode)
 	}
 	assertFits(t, m.View(), 80, 24, "travel confirm")
@@ -2761,7 +2761,7 @@ func TestModalsFit(t *testing.T) {
 	cases := []open{
 		{"start", modeStart, func(t *testing.T, m *Model) { m.mode = modeStart }},
 		{"start with three slots", modeStart, func(t *testing.T, m *Model) { fillSlots(t, m); m.mode = modeStart }},
-		{"confirm delete", modeConfirmDelete, func(t *testing.T, m *Model) {
+		{"confirm delete", modeConfirm, func(t *testing.T, m *Model) {
 			fillSlots(t, m)
 			m.mode = modeStart
 			m.Update(key("D"))
@@ -2841,8 +2841,8 @@ func TestModalsFit(t *testing.T) {
 				t.Fatalf("the confirmation did not open on vanish: %q", m.status)
 			}
 		}},
-		{"confirm new", modeConfirmNew, func(t *testing.T, m *Model) { m.Update(key("N")) }},
-		{"confirm fire", modeConfirmFire, func(t *testing.T, m *Model) { m.Update(key("4")); m.Update(key("f")) }},
+		{"confirm new", modeConfirm, func(t *testing.T, m *Model) { m.Update(key("N")) }},
+		{"confirm fire", modeConfirm, func(t *testing.T, m *Model) { m.Update(key("4")); m.Update(key("f")) }},
 		{"confirm end", modeConfirmEnd, func(t *testing.T, m *Model) { m.Update(key("enter")) }},
 		{"confirm fast", modeConfirmFast, func(t *testing.T, m *Model) { m.Update(key("F")) }},
 		{"help", modeHelp, func(t *testing.T, m *Model) { m.Update(key("?")) }},
@@ -2856,7 +2856,7 @@ func TestModalsFit(t *testing.T) {
 			m.mapCursor = 0
 			m.Update(key("u"))
 		}},
-		{"confirm upgrade", modeConfirmUpgrade, func(t *testing.T, m *Model) { m.Update(key("6")); m.Update(key("enter")) }},
+		{"confirm upgrade", modeConfirm, func(t *testing.T, m *Model) { m.Update(key("6")); m.Update(key("enter")) }},
 		{"buy picker: kind", modeFront, func(t *testing.T, m *Model) { m.Update(key("7")); m.Update(key("b")) }},
 		{"front", modeFront, func(t *testing.T, m *Model) { m.Update(key("7")); m.Update(key("b")); m.Update(key("enter")) }},
 		{"house", modeFront, func(t *testing.T, m *Model) {
@@ -2901,26 +2901,26 @@ func TestModalsFit(t *testing.T) {
 			m.Update(key("4"))
 		}},
 		{"guard", modeGuard, func(t *testing.T, m *Model) { onHouse(t, m); m.Update(key("e")) }},
-		{"confirm drop", modeConfirmDrop, func(t *testing.T, m *Model) { onHouse(t, m); m.Update(key("x")) }},
-		{"confirm investigate", modeConfirmInvestigate, func(t *testing.T, m *Model) { m.Update(key("4")); m.Update(key("i")) }},
+		{"confirm drop", modeConfirm, func(t *testing.T, m *Model) { onHouse(t, m); m.Update(key("x")) }},
+		{"confirm investigate", modeConfirm, func(t *testing.T, m *Model) { m.Update(key("4")); m.Update(key("i")) }},
 		// The books (#70): the scout and the buy-off from the rivals
 		// screen, the boost from the strike picker's fourth row and the
 		// tip from the map, on the fixture's rival corner.
-		{"confirm scout", modeConfirmScout, func(t *testing.T, m *Model) { m.Update(key("8")); m.Update(key("i")) }},
+		{"confirm scout", modeConfirm, func(t *testing.T, m *Model) { m.Update(key("8")); m.Update(key("i")) }},
 		{"confirm buy off", modeConfirmBuyOff, func(t *testing.T, m *Model) { m.Update(key("8")); m.Update(key("$")) }},
 		{"invest", modeInvest, func(t *testing.T, m *Model) { m.w.Player.CleanCash = 200_000; m.Update(key("7")); m.Update(key("i")) }},
 		{"reserve", modeReserve, func(t *testing.T, m *Model) { m.w.Player.CleanCash = 200_000; m.Update(key("7")); m.Update(key("o")) }},
-		{"confirm boost", modeConfirmBoost, func(t *testing.T, m *Model) {
+		{"confirm boost", modeConfirm, func(t *testing.T, m *Model) {
 			m.Update(key("5"))
 			m.mapCursor = 0
 			m.Update(key("w"))
 			m.Update(key("4"))
 		}},
-		{"confirm tip", modeConfirmTip, func(t *testing.T, m *Model) { m.Update(key("5")); m.mapCursor = 0; m.Update(key("t")) }},
-		{"confirm pay off", modeConfirmPayOff, func(t *testing.T, m *Model) { m.Update(key("4")); m.Update(key("$")) }},
+		{"confirm tip", modeConfirm, func(t *testing.T, m *Model) { m.Update(key("5")); m.mapCursor = 0; m.Update(key("t")) }},
+		{"confirm pay off", modeConfirm, func(t *testing.T, m *Model) { m.Update(key("4")); m.Update(key("$")) }},
 		// Crew life (#46): the bail on a member put in a cell, the driver
 		// picker on the map's routes with a driver on the payroll.
-		{"confirm bail", modeConfirmBail, func(t *testing.T, m *Model) {
+		{"confirm bail", modeConfirm, func(t *testing.T, m *Model) {
 			m.w.Crew.Members[0].JailedUntil = m.w.Day + 5
 			m.Update(key("4"))
 			m.crewCursor = 0
@@ -2937,7 +2937,7 @@ func TestModalsFit(t *testing.T) {
 		// ledger and the checkpoint confirmation from the map's routes.
 		{"bribe target", modeBribe, func(t *testing.T, m *Model) { m.Update(key("7")); m.Update(key("$")) }},
 		{"bribe amount", modeBribe, func(t *testing.T, m *Model) { m.Update(key("7")); m.Update(key("$")); m.Update(key("enter")) }},
-		{"confirm checkpoint", modeConfirmCheckpoint, func(t *testing.T, m *Model) {
+		{"confirm checkpoint", modeConfirm, func(t *testing.T, m *Model) {
 			m.Update(key("5"))
 			m.Update(key("]"))
 			m.onRoutes = true
@@ -2945,13 +2945,13 @@ func TestModalsFit(t *testing.T) {
 		}},
 		// The property (#194): the block under the corner the map cursor
 		// is on, with the DA's line drawn both sides of the price.
-		{"confirm deed", modeConfirmDeed, func(t *testing.T, m *Model) {
+		{"confirm deed", modeConfirm, func(t *testing.T, m *Model) {
 			m.w.Player.CleanCash = 5_000_000
 			m.w.Stats.Laundered = 20_000_000
 			m.Update(key("5"))
 			m.Update(key("d"))
 		}},
-		{"confirm deed over the line", modeConfirmDeed, func(t *testing.T, m *Model) {
+		{"confirm deed over the line", modeConfirm, func(t *testing.T, m *Model) {
 			m.w.Player.CleanCash = 5_000_000
 			m.Update(key("5"))
 			m.Update(key("d"))
@@ -2998,7 +2998,7 @@ func TestModalsFit(t *testing.T) {
 			m.Update(key("enter"))
 			m.Update(key("3"))
 		}},
-		{"confirm travel", modeConfirmTravel, func(t *testing.T, m *Model) { m.Update(key("g")) }},
+		{"confirm travel", modeConfirm, func(t *testing.T, m *Model) { m.Update(key("g")) }},
 		{"propose kinds", modePropose, func(t *testing.T, m *Model) { m.Update(key("8")); m.Update(key("d")) }},
 		{"propose terms", modePropose, func(t *testing.T, m *Model) { m.Update(key("8")); m.Update(key("d")); m.Update(key("2")) }},
 		{"assign", modeAssign, func(t *testing.T, m *Model) { m.Update(key("4")); m.crewCursor = 3; m.Update(key("t")) }},
@@ -3094,7 +3094,7 @@ func TestModalsFit(t *testing.T) {
 					}
 				}
 			}
-			if c.mode != modeStart && c.mode != modeConfirmDelete && c.mode != modeNewRun { // no run behind the start menu, so no status bar
+			if c.mode != modeStart && !(c.mode == modeConfirm && m.cfm.back == modeStart) && c.mode != modeNewRun { // no run behind the start menu, so no status bar
 				ls := strings.Split(view, "\n")
 				if bar := strings.TrimSpace(stripANSI(ls[len(ls)-1])); bar != foot {
 					t.Errorf("%s: the status bar shows %q, not the footer %q", what, bar, foot)

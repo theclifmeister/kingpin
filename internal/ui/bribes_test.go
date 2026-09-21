@@ -135,7 +135,7 @@ func TestBribeKeys(t *testing.T) {
 		t.Fatal("the route is cut before anything was bought")
 	}
 	m.Update(key("$"))
-	if m.mode != modeConfirmCheckpoint {
+	if m.mode != modeConfirm {
 		t.Fatalf("$ on a route: mode %v status %q", m.mode, m.status)
 	}
 	assertFits(t, m.View(), 80, 24, "checkpoint confirmation")
