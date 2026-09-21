@@ -66,6 +66,32 @@ corner = "fishmarket"
 [character.start.reputation]
 fear = 15
 
+# The Heir (#232): New Game+, unlocked by the kingpin ending (the crown,
+# #227). corners is the start key it brought: the corners held on day 0
+# with the start crew posted on them in order; here the old man's
+# enforcer guarding the old man's corner, which drifts in drift_days
+# unless somebody is put to work on it: the heir hires. The issue's
+# start (an enforcer and a runner on two corners) flipped the ordering
+# the difficulty tests pin (quiet over managed on 3 of 10 seeds: a
+# runner selling from day 0 is a second hand), so it shrank to one
+# corner and no runner, as the issue said to. The notoriety is the
+# point: the heir arrives in the paper, so every unit moved by hand
+# costs more heat (notoriety_heat), and the character is to get off
+# the corner and delegate.
+[[character]]
+id = "heir"
+name = "The Heir"
+blurb = "The old man's crew, the old man's corners and the old man's name. Everybody is waiting to see if you are him."
+[character.unlock]
+ending = "kingpin"
+[character.start]
+crew = ["enforcer"]
+corners = ["riverside"]
+upgrades = ["stash"]
+[character.start.reputation]
+fear = 25
+notoriety = 15
+
 # The toggles (#50): a start that is not a character, opt-in beside
 # one on the start menu once its rule has been met. Hard DA seats a
 # law-and-order DA and a zealous chief at NewWorld, the personalities
