@@ -929,6 +929,34 @@ func TestJournalUnreadCount(t *testing.T) {
 // Enter confirms dialogs and closes the report, so a stray extra press must
 // never burn a day: on the play screen it only asks. n ends the day at once;
 // enter ends it after a confirmation.
+// Every screen names an empty selection (#240): with nothing under the
+// cursor the pane's first section is a titled placeholder (NOBODY, NO
+// RIVAL, THE FILE, JOURNAL, NO CORNER, NO NODE, NO PRODUCT), never nil
+// with the pane opening on KEYS.
+func TestEmptySelectionIsTitled(t *testing.T) {
+	empty := map[screen]func(m *Model){
+		screenDashboard: func(m *Model) { m.cursor = 99 },
+		screenMarket:    func(m *Model) { m.cursor = 99 },
+		screenCrew:      func(m *Model) { m.w.Crew.Members, m.w.Crew.Candidates = nil, nil },
+		screenMap:       func(m *Model) { m.shown().Corners = nil },
+		screenUpgrades:  func(m *Model) { m.cfg.Upgrades.Nodes = nil },
+	}
+	for s := screen(0); s < screenCount; s++ {
+		m := newTestModel(t, 120, 40) // fresh: no facts, no news, no rival in town
+		m.screen = s
+		if f := empty[s]; f != nil {
+			f(m)
+		}
+		secs := m.details()
+		if len(secs) == 0 || secs[0].title == "" || len(secs[0].lines) == 0 {
+			t.Errorf("%s: an empty selection has no titled first section: %+v", screenNames[s], secs)
+		}
+		if view := stripANSI(m.View()); !strings.Contains(view, stripANSI(secs[0].title)) {
+			t.Errorf("%s: the pane does not show %q:\n%s", screenNames[s], secs[0].title, view)
+		}
+	}
+}
+
 // The title bar keeps its tab names when there is news (#235): at 120
 // columns nine short names fit with nothing to spare, so the unread
 // badge used to push every screen but the journal to digits alone,

@@ -96,7 +96,7 @@ func (m *Model) askCook() {
 		return
 	}
 	if m.w.Crew.Chemist() == nil {
-		m.refuse("Nobody on the payroll can cook. Hire a chemist on the crew screen (4).")
+		m.refuse("Nobody on the payroll can cook. Hire a chemist " + screenPointer(screenCrew) + ".")
 		return
 	}
 	m.lab = labDialog{city: m.w.Player.Location, qty: newNumberField("blank = a batch")}

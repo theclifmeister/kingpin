@@ -447,7 +447,7 @@ func (m *Model) upgradesDetails() []section {
 	w := m.w
 	sel, ok := m.upgradeSelected()
 	if !ok {
-		return nil
+		return []section{{"NO NODE", []string{emptyState("Nothing under the cursor.")}}}
 	}
 	cost := theme.Gold.Render(costLine(sel))
 	var lines []string

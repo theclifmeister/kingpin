@@ -572,7 +572,7 @@ func (m *Model) viewCart() string {
 	lines := m.cartLines()
 	var body []string
 	if len(lines) == 0 {
-		body = append(body, theme.Subtle.Render("Nothing in the cart."))
+		body = append(body, emptyState("Nothing in the cart."))
 		return m.modal("CART", body, m.modalFooter())
 	}
 	cursor := max(0, min(d.cursor, len(lines)-1))

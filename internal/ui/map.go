@@ -426,7 +426,7 @@ func (m *Model) mapDetails() []section {
 	}
 	sel := m.mapSelected()
 	if sel == nil {
-		return nil
+		return []section{{"NO CORNER", []string{emptyState("Nothing under the cursor.")}}}
 	}
 	sec := m.cornerSection(sel)
 	if head, ok := m.mapHead(sel); ok {

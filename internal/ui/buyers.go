@@ -45,7 +45,7 @@ func (m *Model) buyersLines() []string {
 	rows := m.buyerRows()
 	title := sectionTitle("BUYERS", m.accent()) + theme.Subtle.Render(" · "+m.shown().Name)
 	if len(rows) == 0 {
-		return []string{title, theme.Subtle.Render("Nobody is asking. Offers come here and lapse in a few days.")}
+		return []string{title, emptyState("Nobody is asking. Offers come here and lapse in a few days.")}
 	}
 	out := []string{title}
 	for i, c := range rows {

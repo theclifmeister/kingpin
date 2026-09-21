@@ -831,8 +831,7 @@ func ReadmeKeys() string {
 // Every other key the player is told about is in the pane's KEYS or a
 // modal's footer.
 func tutorialLine() string {
-	sub := theme.Subtle.Render
-	return sub("No sales queued. Press ") + theme.Key.Render("s") + sub(" to sell, ") + theme.Key.Render("n") + sub(" to end the day.")
+	return emptyState("No sales queued. Press ", "s", " to sell, ", "n", " to end the day.")
 }
 
 // The README's key table sits between these markers; cmd/keys writes it

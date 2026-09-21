@@ -382,14 +382,11 @@ func (m *Model) marketDetails() []section {
 	if sup := m.selectedSupplier(); sup != nil {
 		return m.supplierSections(sup)
 	}
-	if m.cursor >= len(w.Products) {
-		return nil
+	if m.cursor >= len(w.Products) || city.Market[w.Products[m.cursor]] == nil {
+		return append(m.cartSection(city.ID), section{"NO PRODUCT", []string{emptyState("Nothing under the cursor.")}})
 	}
 	id := w.Products[m.cursor]
 	p := city.Market[id]
-	if p == nil {
-		return nil
-	}
 	f := facts(p)
 	sel := []string{
 		row("range 30d", f.rangeText()),
