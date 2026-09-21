@@ -6,6 +6,7 @@ import (
 
 	"github.com/charmbracelet/bubbles/textinput"
 	tea "github.com/charmbracelet/bubbletea"
+	"github.com/charmbracelet/lipgloss"
 
 	"github.com/theclifmeister/kingpin/internal/ui/theme"
 )
@@ -30,13 +31,16 @@ type numberField struct {
 
 // newNumberField is a field with its placeholder, what a blank means;
 // the field is as wide as the placeholder, so the max sits close after
-// the number.
+// the number. The text input's Width counts its prompt and the cursor
+// cell (bubbles v1: the placeholder is cut to `Width - prompt - 1` with
+// an ellipsis), so the width is the prompt's plus the placeholder's and
+// the placeholder renders whole (#234).
 func newNumberField(placeholder string) numberField {
 	ti := textinput.New()
 	ti.Placeholder = placeholder
 	ti.CharLimit = 9
-	ti.Width = len(placeholder)
 	ti.Prompt = "> "
+	ti.Width = lipgloss.Width(ti.Prompt) + lipgloss.Width(placeholder)
 	return numberField{in: ti}
 }
 
