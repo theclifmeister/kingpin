@@ -172,7 +172,8 @@ func (m *Model) viewKind() string {
 	}
 	body := table([]col{{"kind", kText, 0}, {"what", kText, 0}}, rows, m.frontKind, m.modalInner())
 	body = append(body, "")
-	body = append(body, m.subtle(fmt.Sprintf("Dirty cash %s, clean %s. A house takes what arrives in its city first, and a raid hits one place, not the operation. An asset is bought clean and the feds take an interest.", cash(m.w.Player.DirtyCash), cash(m.w.Player.CleanCash)))...)
+	body = append(body, m.inHand())
+	body = append(body, m.subtle("A house takes what arrives in its city first, and a raid hits one place, not the operation. An asset is bought clean and the feds take an interest.")...)
 	return m.modal("BUY", body, m.modalFooter())
 }
 
@@ -205,7 +206,8 @@ func (m *Model) viewHouses() string {
 		block = c.Name
 	}
 	body = append(body, "")
-	body = append(body, m.subtle(fmt.Sprintf("Dirty cash %s. %s is on %s in %s; the rent is clean cash, and unpaid %d days running the landlord throws you out.", cash(m.w.Player.DirtyCash), o.Name, block, m.w.CityName(o.City), m.set.Territory.RentDays()))...)
+	body = append(body, m.inHand())
+	body = append(body, m.subtle(fmt.Sprintf("%s is on %s in %s; the rent is clean cash, and unpaid %d days running the landlord throws you out.", o.Name, block, m.w.CityName(o.City), m.set.Territory.RentDays()))...)
 	return m.modal("RENT A HOUSE", body, m.modalFooter())
 }
 
@@ -578,12 +580,12 @@ func (m *Model) viewMove() string {
 		body = []string{
 			fmt.Sprintf("%s → %s: %s", m.placeLabel(d.from), m.placeLabel(d.to), w.ProductName(d.product)),
 			"",
-			"Quantity  " + qty.View(),
+			row("quantity", qty.View()),
 			"",
 		}
 		body = append(body, m.subtle(fmt.Sprintf("%s holds %d of %d. A move is free and instant; the units moved are exposure tonight, at %s of a unit sold.", m.placeLabel(d.to), toUnits, room, times(m.cfg.Houses.Houses.MoveHeat)))...)
 		if n, err := parseQtyInput(d.qty.Value(), m.moveMax()); err == nil && n > 0 {
-			body = append(body, theme.Subtle.Render(fmt.Sprintf("Heat      +%.1f tonight for %d units", m.set.Heat.MoveHeat(w, d.city, d.product, n), n)))
+			body = append(body, row("heat", theme.Subtle.Render(fmt.Sprintf("+%.1f tonight for %d units", m.set.Heat.MoveHeat(w, d.city, d.product, n), n))))
 		}
 	}
 	if d.err != "" {

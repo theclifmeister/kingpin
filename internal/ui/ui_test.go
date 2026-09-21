@@ -7,6 +7,7 @@ import (
 	"os"
 	"path/filepath"
 	"reflect"
+	"regexp"
 	"strings"
 	"testing"
 	"time"
@@ -2467,7 +2468,7 @@ func TestCampaignKeys(t *testing.T) {
 	}
 	assertFits(t, m.View(), 80, 24, "campaign page")
 	view = stripANSI(m.View())
-	for _, want := range []string{"campaign", "Ticket", "reform", "law-and-order", "enter give", "⇧tab back", "←→ ticket"} {
+	for _, want := range []string{"campaign", "ticket", "reform", "law-and-order", "enter give", "⇧tab back", "←→ ticket"} {
 		if !strings.Contains(view, want) {
 			t.Fatalf("campaign page lacks %q:\n%s", want, view)
 		}
@@ -2749,6 +2750,8 @@ func modalBox(t *testing.T, view string) (top, width int, box []string) {
 // body row 2, a footer line of the mode's bindings, and the status bar
 // repeating that footer. The table opens every mode in the enum from the
 // rich fixture, the dialogs on each of their steps.
+var capRow = regexp.MustCompile(`^[A-Z][a-z]+ {2,}\S`)
+
 func TestModalsFit(t *testing.T) {
 	type open struct {
 		name string
@@ -3062,6 +3065,17 @@ func TestModalsFit(t *testing.T) {
 			}
 			if inner(2) != "" || inner(len(box)-3) != "" {
 				t.Errorf("%s: no blank around the body:\n%s", what, stripANSI(strings.Join(box, "\n")))
+			}
+			// A modal's rows are the pane's (#236): lowercase labels
+			// through row(); no body line opens, at the margin, with a
+			// capitalised word padded to a value (a table's rows sit
+			// behind their gutter, so they are not looked at).
+			for i := 3; i < len(box)-3; i++ {
+				l := strings.TrimSpace(stripANSI(box[i]))
+				l = strings.TrimSuffix(strings.TrimPrefix(l, "║ "), "║")
+				if capRow.MatchString(l) {
+					t.Errorf("%s: a capitalised row label on body line %d: %q", what, i, strings.TrimSpace(l))
+				}
 			}
 			foot := strings.TrimSpace(stripANSI(legend(m.modalFooter())))
 			got := inner(len(box) - 2)

@@ -251,7 +251,8 @@ func (m *Model) viewAssets() string {
 	body := table(cols, cells, m.frontCursor, m.modalInner())
 	o := rows[m.frontCursor]
 	body = append(body, "")
-	body = append(body, m.subtle(fmt.Sprintf("Clean cash %s. %s The upkeep is clean cash, and a task force can take it.", cash(m.w.Player.CleanCash), m.assetBlurb(o.ID)))...)
+	body = append(body, m.inHand())
+	body = append(body, m.subtle(fmt.Sprintf("%s The upkeep is clean cash, and a task force can take it.", m.assetBlurb(o.ID)))...)
 	return m.modal("BUY AN ASSET", body, m.modalFooter())
 }
 

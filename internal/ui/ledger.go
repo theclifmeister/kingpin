@@ -149,7 +149,7 @@ func (m *Model) viewFront() string {
 	m.frontCursor = max(0, min(m.frontCursor, len(rows)-1))
 	m.modalFollow(1 + m.frontCursor) // under the header
 	body := table(offerCols, m.offerRows(rows, m.modalInner()), m.frontCursor, m.modalInner())
-	body = append(body, "", theme.Subtle.Render(fmt.Sprintf("Dirty cash %s. It opens tomorrow.", cash(m.w.Player.DirtyCash))))
+	body = append(body, "", m.inHand(), theme.Subtle.Render("It opens tomorrow."))
 	return m.modal("BUY A FRONT", body, m.modalFooter())
 }
 

@@ -107,7 +107,7 @@ func (m *Model) deedConfirm() []string {
 	if n := w.DeedsIn(c.City) + 1; tun.HeadlineDeeds > 0 && n >= tun.HeadlineDeeds {
 		body = append(body, theme.Warning.Render(fmt.Sprintf("Your %s in %s: this one makes the paper.", ordinal(n)+" block", w.CityName(c.City))))
 	}
-	body = append(body, "", theme.Subtle.Render(fmt.Sprintf("Clean cash %s.", cash(w.Player.CleanCash))))
+	body = append(body, "", m.inHand())
 	return body
 }
 
