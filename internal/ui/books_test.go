@@ -155,8 +155,19 @@ func TestBooksKeys(t *testing.T) {
 	if pane := paneRender(m); !strings.Contains(pane, "tipped tonight") {
 		t.Errorf("the inspector does not say the corner is tipped:\n%s", pane)
 	}
-	// On your own corner t is refused.
-	m.mapCursor = m.yourCorner()
+	// On your own corner t is refused. The fixture's seed is the clock's
+	// and the rival may have taken the corner you ran (yourCorner falls
+	// back to the first, the rival's): any corner of yours will do.
+	m.mapCursor = -1
+	for i, c := range m.shown().Corners {
+		if c.Owner == game.OwnerPlayer {
+			m.mapCursor = i
+			break
+		}
+	}
+	if m.mapCursor < 0 {
+		t.Fatal("fixture: no corner of yours")
+	}
 	m.Update(key("t"))
 	if m.mode != modePlay || !strings.HasPrefix(m.status, "Can't tip the police there") {
 		t.Fatalf("t on your corner: mode %v status %q", m.mode, m.status)
