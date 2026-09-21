@@ -322,7 +322,7 @@ var bindings = []binding{
 	{key: "u", label: "buy upgrade", help: "buy the node under the cursor (enter too)", screens: on(screenUpgrades),
 		do: func(m *Model, _ string) { m.askUpgrade() }},
 	// The ledger.
-	{key: "b", label: "buy front", help: "buy a front or an asset, rent a house", screens: on(screenLedger),
+	{key: "b", label: "buy", help: "buy a front, a house or an asset", screens: on(screenLedger),
 		do: func(m *Model, _ string) { m.askFront() }},
 	{key: "m", label: "move stock", help: "move stock between the street and the houses", screens: on(screenLedger),
 		do: func(m *Model, _ string) { m.askMove() }},
@@ -338,7 +338,7 @@ var bindings = []binding{
 		do: func(m *Model, _ string) { m.askInvest() }},
 	{key: "o", label: "reserve", help: "clean cash into the offshore account", screens: on(screenLedger),
 		do: func(m *Model, _ string) { m.askReserve() }},
-	{key: "w", label: "walk away", help: "retire on the account, or vanish", screens: on(screenLedger),
+	{key: "w", label: "walk away", help: "retire on the account, or vanish", screens: on(screenDashboard),
 		do: func(m *Model, _ string) { m.askExit() }},
 	// The rivals.
 	{key: "d", label: "propose", help: "offer the rival a truce, tribute or a split", screens: on(screenRivals),

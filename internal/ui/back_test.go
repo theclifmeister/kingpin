@@ -269,7 +269,7 @@ func TestPickersTakeDigits(t *testing.T) {
 		{"propose", func(m *Model) { m.Update(key("8")); m.Update(key("d")) }, func(m *Model) bool { return m.mode == modePropose && m.prop.step == 1 }},
 		{"bribe", func(m *Model) { m.Update(key("7")); m.Update(key("$")) }, func(m *Model) bool { return m.mode == modeBribe && m.modalStep() == 1 }},
 		{"spy", func(m *Model) { m.Update(key("9")); m.Update(key("p")) }, func(m *Model) bool { return m.mode == modePlay || m.spy.step == 1 }},
-		{"exit", func(m *Model) { m.Update(key("7")); m.Update(key("w")) }, func(m *Model) bool { return m.exit.step == 1 || strings.Contains(m.status, "not open") }},
+		{"exit", func(m *Model) { m.Update(key("1")); m.Update(key("w")) }, func(m *Model) bool { return m.exit.step == 1 || strings.Contains(m.status, "not open") }},
 	}
 	for _, p := range pickers {
 		m := richModel(t, 120, 40)

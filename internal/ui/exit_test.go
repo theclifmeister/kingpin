@@ -13,15 +13,15 @@ import (
 // short, an ended save of every cause reloads straight to its summary,
 // and the summary carries what the issue asks for.
 
-// TestWalkAwayAsksTwice: w on the ledger opens the dialog; enter on an
+// TestWalkAwayAsksTwice: w on the dashboard opens the dialog; enter on an
 // open way out turns to the confirmation and y ends the run, saved,
 // with the summary up; a closed one is refused and the run goes on.
 func TestWalkAwayAsksTwice(t *testing.T) {
 	m := richModel(t, 100, 30)
-	m.Update(key("7"))
+	m.Update(key("1"))
 	m.Update(key("w"))
 	if m.mode != modeExit || m.exit.step != 0 {
-		t.Fatalf("w on the ledger: mode %v step %d", m.mode, m.exit.step)
+		t.Fatalf("w on the dashboard: mode %v step %d", m.mode, m.exit.step)
 	}
 	// Neither is open on the fixture: enter refuses and stays.
 	m.Update(key("enter"))
@@ -72,7 +72,7 @@ func TestWalkAwayAsksTwice(t *testing.T) {
 	}
 	// Vanishing: on the identity, from the second row.
 	v := richModel(t, 100, 30)
-	v.Update(key("7"))
+	v.Update(key("1"))
 	v.w.Upgrades["lawyer"], v.w.Upgrades["retainer"], v.w.Upgrades["identity"] = true, true, true
 	v.Update(key("w"))
 	if v.exit.cursor != 1 {

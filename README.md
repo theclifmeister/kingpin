@@ -390,6 +390,7 @@ The full table is below; `?` brings it up in the game.
 | `N` | new run | start over, after a confirmation | everywhere |
 | `q` | quit | save and quit | everywhere |
 | `c` | cart | the day's cart: edit its buys and orders | dashboard, market |
+| `w` | walk away | retire on the account, or vanish | dashboard |
 | `i` | intel | the file on the chief and the police here | dashboard |
 | `←→` | city | turn the market to the other city | market |
 | `a` | accept | take the buyer's offer | market |
@@ -420,7 +421,7 @@ The full table is below; `?` brings it up in the game.
 | `i` | intel | the file on the faction holding the corner | map |
 | `←→` | branch | turn the tree to the next branch | upgrades |
 | `u` | buy upgrade | buy the node under the cursor (enter too) | upgrades |
-| `b` | buy front | buy a front or an asset, rent a house | ledger |
+| `b` | buy | buy a front, a house or an asset | ledger |
 | `m` | move stock | move stock between the street and the houses | ledger |
 | `e` | guard house | post an enforcer inside the selected house | ledger |
 | `x` | drop house | drop the selected house, after asking | ledger |
@@ -428,7 +429,6 @@ The full table is below; `?` brings it up in the game.
 | `f` | fund city | give a city clean cash for goodwill | ledger |
 | `u` | invest | clean cash into the selected front's levels | ledger |
 | `o` | reserve | clean cash into the offshore account | ledger |
-| `w` | walk away | retire on the account, or vanish | ledger |
 | `[ ]` | faction | the next faction at the table | rivals |
 | `d` | propose | offer the rival a truce, tribute or a split | rivals |
 | `a` | accept | take the selected offer | rivals |

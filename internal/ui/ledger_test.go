@@ -61,20 +61,7 @@ func TestLedgerCursor(t *testing.T) {
 		t.Fatalf("enter on a house: mode %v day %d -> %d", m.mode, day, w.Day)
 	}
 	m.Update(key("esc"))
-	// Onto the routes: enter turns the selected route's dial a notch.
-	for i := range routes {
-		m.Update(key("j"))
-		if got, want := first(), strings.ToUpper(routes[i].Name); got != want {
-			t.Fatalf("route %d: %q, want %q", i, got, want)
-		}
-	}
-	last := routes[2]
-	before := w.Route(last.ID).Dial
-	m.Update(key("enter")) // enter on a route is the frame's too (#241): the dial is the map's r
-	if got := w.Route(last.ID).Dial; got != before || m.mode != modeConfirmEnd {
-		t.Fatalf("enter on a route: dial %v -> %v, mode %v, status %q", before, got, m.mode, m.status)
-	}
-	m.Update(key("esc"))
+	// The routes are the map's (#245): the ledger lists none.
 	// Onto the offers: b opens the buy picker on that offer.
 	for i := range offers {
 		m.Update(key("down"))
@@ -151,15 +138,13 @@ func TestLedgerScrolls(t *testing.T) {
 			return w.Assets[r.i].Name
 		case ledgerAssetOffer:
 			return m.assetRows()[r.i].Name
-		case ledgerRoute:
-			return m.ledgerRoutes()[r.i].Name
 		case ledgerPayoff:
 			return m.payoffRows()[r.i].Who
 		}
 		return m.frontRows()[r.i].Name
 	}
 	heading := func(r ledgerRow) string {
-		return [...]string{"FRONTS", "STASH", "PROPERTY", "ASSETS", "ASSETS", "LOGISTICS", "PAYOFFS", "ON OFFER"}[r.kind]
+		return [...]string{"FRONTS", "STASH", "PROPERTY", "ASSETS", "ASSETS", "PAYOFFS", "ON OFFER"}[r.kind]
 	}
 	for i, r := range rows {
 		assertFrame(t, m, "short ledger row "+name(r))
@@ -204,11 +189,12 @@ func TestLedgerEmptyStates(t *testing.T) {
 			t.Errorf("the ledger still says %q:\n%s", stale, view)
 		}
 	}
-	// With no fronts the cursor starts on the first route.
-	if sel := m.ledgerSelected(); sel.kind != ledgerRoute || sel.i != 0 {
+	// With no fronts the cursor starts on the first offer (#245: the
+	// road is the map's).
+	if sel := m.ledgerSelected(); sel.kind != ledgerOffer || sel.i != 0 {
 		t.Fatalf("selected %+v with no fronts", sel)
 	}
-	if got := m.details()[0].title; got != strings.ToUpper(m.ledgerRoutes()[0].Name) {
+	if got := m.details()[0].title; got != strings.ToUpper(m.frontRows()[0].Name) {
 		t.Fatalf("the pane's first section is %q", got)
 	}
 	// The wash section is there whatever is selected.
