@@ -351,6 +351,10 @@ var bindings = []binding{
 		do: func(m *Model, _ string) { m.answerOffer(false) }},
 	{key: "i", label: "scout", help: "buy a look at the rival's books", screens: on(screenRivals),
 		do: func(m *Model, _ string) { m.askScout() }},
+	{key: "w", label: "declare war", help: "enforcers on the faction every night, hit", screens: on(screenRivals), when: notAtWar,
+		do: func(m *Model, _ string) { m.askWar() }},
+	{key: "w", label: "call off war", help: "stand the enforcers down", screens: on(screenRivals), when: atWar,
+		do: func(m *Model, _ string) { m.askCallOffWar() }},
 	{key: "$", label: "buy off", help: "pay the rival's muscle to go home", screens: on(screenRivals),
 		do: func(m *Model, _ string) { m.askBuyOff() }},
 	// Intel (#45).
@@ -788,6 +792,7 @@ var words = [][2]string{
 	{"walk away", "retire on the account, vanish, or take the crown: asked twice"},
 	{"reign", "the city yours: every crew gone or bowing, most of home held"},
 	{"favour", "a bought chief owes you one; call it in, no raid"},
+	{"war", "enforcers hit one faction every night until it folds"},
 	{"character", "a start and nothing more: what is on the world on day 0"},
 	{"daily", "the date's seed, the default character; the first go scores"},
 	{"profile", "the runs, the unlocks and the dailies; a second file, no sim"},

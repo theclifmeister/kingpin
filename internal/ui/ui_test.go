@@ -2920,6 +2920,16 @@ func TestModalsFit(t *testing.T) {
 		{"confirm buy off", modeConfirmBuyOff, func(t *testing.T, m *Model) { m.Update(key("8")); m.Update(key("$")) }},
 		{"invest", modeInvest, func(t *testing.T, m *Model) { m.w.Player.CleanCash = 200_000; m.Update(key("7")); m.Update(key("u")) }},
 		{"reserve", modeReserve, func(t *testing.T, m *Model) { m.w.Player.CleanCash = 200_000; m.Update(key("7")); m.Update(key("o")) }},
+		{"declare war", modeConfirm, func(t *testing.T, m *Model) { // the war order (#229)
+			m.Update(key("8"))
+			m.factionCursor = 0
+			m.Update(key("w"))
+		}},
+		{"call off war", modeConfirm, func(t *testing.T, m *Model) {
+			m.w.War = m.w.Rival().Faction()
+			m.Update(key("8"))
+			m.Update(key("w"))
+		}},
 		{"confirm boost", modeConfirm, func(t *testing.T, m *Model) {
 			m.Update(key("5"))
 			m.mapCursor = 0

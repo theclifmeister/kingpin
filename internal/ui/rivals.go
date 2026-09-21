@@ -392,3 +392,97 @@ func (m *Model) rivalsDetails() []section {
 	}
 	return []section{sel, {"RULES", rules}, m.booksSection(), {"LIFETIME", life}}
 }
+
+// The war order (#229, docs/rival.md): w on the rivals screen declares
+// war on the faction under the cursor, after asking; while a war is on
+// the same key calls it off, after asking. The rivals sim sends the
+// hand's strike every night the hand leaves empty, at the file's dial
+// on the faction's corner nearest your front line, and ends the war
+// the night the faction folds, bows or has nothing left where you hold
+// ground.
+
+// atWar and notAtWar are the key's two labels.
+func atWar(m *Model) bool    { return m.w.War != "" }
+func notAtWar(m *Model) bool { return m.w.War == "" }
+
+// warWord is the faction the war stands against, for a line: `Big Sal's
+// crew`.
+func (m *Model) warWord() string { return m.rivalName(m.w.Faction(m.w.War)) }
+
+// askWar opens the declaration, or refuses with why.
+func (m *Model) askWar() {
+	w := m.w
+	r := m.faction()
+	if w.Over != nil {
+		return
+	}
+	switch {
+	case w.War != "":
+		m.refuse(fmt.Sprintf("One war at a time: the enforcers are on %s. Call it off first.", m.warWord()))
+	case r.Arrived == 0:
+		m.refuse("Nothing to fight: nobody is contesting the city yet.")
+	case r.Gone():
+		m.refuse("Nothing to fight: " + m.rivalName(r) + " is no more. Turn to another faction.")
+	case w.Crew.OnPayroll("enforcer") == 0:
+		m.refuse("Nobody to send: no enforcers. Hire one " + screenPointer(screenCrew) + ".")
+	case !w.WarHasGround(r):
+		m.refuse(fmt.Sprintf("Nowhere to go: %s holds no corner in a city you hold ground in.", m.rivalName(r)))
+	default:
+		m.ask("declare war", (*Model).warConfirm, (*Model).confirmWar)
+	}
+}
+
+// warConfirm is the declaration's body: the faction, the first corner,
+// the dial and the odds, and what a war under a deal is.
+func (m *Model) warConfirm() string {
+	w := m.w
+	r := m.faction()
+	force, _ := m.cfg.Rivals.War.Force()
+	c := m.set.Rivals.WarTarget(w, r)
+	body := m.wrapLines(fmt.Sprintf("Every night you send nobody yourself, the enforcers %s %s's nearest corner: %s tonight, odds %s, heat +%.0f. The same roll, the same toll on the crew, until they fold, bow or hold nothing left where you do.", force, m.rivalName(r), c.Name, m.oddsWord(r, c, force), m.set.Rivals.StrikeHeat(c, force)))
+	if w.AtPeaceWith(r.Faction()) {
+		body = append(body, "", theme.Bad.Render("You have a deal with them: the first night breaks it, and the table remembers."))
+	}
+	body = append(body, "", theme.Subtle.Render("The war ends on its own when there is nothing left to take, or when you call it off here."))
+	return m.modal("WAR ON "+strings.ToUpper(m.rivalName(r))+"?", body, m.modalFooter())
+}
+
+// confirmWar declares it.
+func (m *Model) confirmWar() {
+	m.mode = modePlay
+	r := m.faction()
+	if err := m.w.DeclareWar(r.Faction()); err != nil {
+		m.refuse("Can't declare war: " + err.Error() + ".")
+		return
+	}
+	m.say(fmt.Sprintf("War on %s: the enforcers go in every night from tonight.", m.rivalName(r)))
+}
+
+// askCallOffWar opens the stand-down, or refuses with why.
+func (m *Model) askCallOffWar() {
+	if m.w.Over != nil {
+		return
+	}
+	if m.w.War == "" {
+		m.refuse("There is no war on.")
+		return
+	}
+	m.ask("call off war", (*Model).callOffWarConfirm, (*Model).confirmCallOffWar)
+}
+
+// callOffWarConfirm is the stand-down's body.
+func (m *Model) callOffWarConfirm() string {
+	body := m.wrapLines(fmt.Sprintf("Call off the war on %s: the enforcers stand down from tonight. What was taken stays taken; the grudge stays too.", m.warWord()))
+	return m.modal("CALL OFF THE WAR?", body, m.modalFooter())
+}
+
+// confirmCallOffWar ends it.
+func (m *Model) confirmCallOffWar() {
+	m.mode = modePlay
+	who := m.warWord()
+	if err := m.w.CallOffWar(); err != nil {
+		m.refuse("Can't: " + err.Error() + ".")
+		return
+	}
+	m.say(fmt.Sprintf("The war on %s is off. The enforcers stay home tonight.", who))
+}

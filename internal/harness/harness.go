@@ -641,6 +641,33 @@ func Warlike(cfg *content.Config, lieLowAt float64, corners int, force events.Fo
 	}
 }
 
+// Warlord plays like Crewed and declares war (#229) on the first
+// faction alive at home (Nearest) as soon as it has an enforcer on the
+// payroll and the faction holds a corner in a city it holds ground in,
+// and again on the next one once that war ends: the war order as the
+// scripted player plays it.
+func Warlord(cfg *content.Config, lieLowAt float64) Policy {
+	crewed := Crewed(cfg, lieLowAt)
+	return func(w *game.World) {
+		crewed(w)
+		if w.Over != nil || w.War != "" {
+			return
+		}
+		if r := Nearest(w); r != nil && r.Alive() {
+			_ = w.DeclareWar(r.Faction())
+		}
+	}
+}
+
+// NoWar returns a copy of cfg with the war order boxed (#229): the dial
+// blank, so a declared war sends nothing. A run that never declares one
+// is byte-for-byte the same on the file and under it.
+func NoWar(cfg *content.Config) *content.Config {
+	boxed := *cfg
+	boxed.Rivals.War = content.WarTuning{}
+	return &boxed
+}
+
 // RivalBooks is the rival's day as the rivals sim keeps it: what its
 // corners earn it today (rivals.Sim.Income, a price war's squeeze off)
 // and what its muscle costs it (rivals.Sim.Wages, the wage in the

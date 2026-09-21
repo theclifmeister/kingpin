@@ -110,6 +110,15 @@ type World struct {
 	// reign, the run before.
 	Reign int
 
+	// War (#229) is the faction the war order stands against: its id,
+	// "" for none. Declared from the rivals screen (DeclareWar), it is
+	// the hand's strike sent every night the hand leaves empty, at
+	// rivals.toml [war] dial on the faction's corner nearest your front
+	// line (rivals.Sim.WarTarget); the rivals sim ends it the night the
+	// faction is gone, pays homage or has no corner left in a city you
+	// hold. One war at a time. Zero is the run before.
+	War string
+
 	// Today is the player's per-day scratch (#144): what the actions
 	// queued since the morning, for the sims to resolve tonight. The
 	// clock zeroes it as a unit after every EndDay (ClearToday), bar the
@@ -758,6 +767,7 @@ type StrikeOrder struct {
 	Corner string
 	Force  events.Force
 	Boost  bool
+	War    bool // the war order's strike (#229), not the hand's
 }
 
 // ScoutOrder is the player paying for a look at the rival's books

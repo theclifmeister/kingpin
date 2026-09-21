@@ -230,7 +230,12 @@ func (m *Model) stopEvent(e events.Event) string {
 	case events.RivalEyeing:
 		return ev.Rival + " is eyeing " + ev.Name
 	case events.CornerStruck:
+		if ev.War && !ev.Taken {
+			return "" // the war order's night that held (#229): the war runs on, a corner taken wants a runner
+		}
 		return "the strike on " + ev.Name
+	case events.WarEnded:
+		return "the war on " + ev.Rival + "'s crew is over"
 	case events.RivalBoosted:
 		if !ev.Taken {
 			return "the boost on " + ev.Name + " failed"

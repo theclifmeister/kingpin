@@ -738,17 +738,27 @@ func (s *Sim) Step(w *game.World, t *game.Tick) {
 			d := base
 			d.Corner, d.Rival = ev.Name, ev.Rival
 			d = crew(d, ev.Rival)
+			who := "Your enforcers"
+			if ev.War {
+				who = fmt.Sprintf("The war on %s's crew: your enforcers", ev.Rival) // the war order (#229)
+			}
 			switch {
 			case ev.Routed:
 				add("rivals", "RivalRouted", d)
-				rep.Territory = append(rep.Territory, fmt.Sprintf("Your enforcers %s %s and TOOK it. That was %s's last corner.", pastTense(ev.Force), ev.Name, ev.Rival))
+				rep.Territory = append(rep.Territory, fmt.Sprintf("%s %s %s and TOOK it. That was %s's last corner.", who, pastTense(ev.Force), ev.Name, ev.Rival))
 			case ev.Taken:
 				add("rivals", "CornerStruckTaken", d)
-				rep.Territory = append(rep.Territory, fmt.Sprintf("Your enforcers %s %s and TOOK it. Post a runner before it drifts.", pastTense(ev.Force), ev.Name))
+				rep.Territory = append(rep.Territory, fmt.Sprintf("%s %s %s and TOOK it. Post a runner before it drifts.", who, pastTense(ev.Force), ev.Name))
 			default:
 				add("rivals", "CornerStruckHeld", d)
-				rep.Territory = append(rep.Territory, fmt.Sprintf("Your enforcers %s %s; %s's people held it.", pastTense(ev.Force), ev.Name, ev.Rival))
+				rep.Territory = append(rep.Territory, fmt.Sprintf("%s %s %s; %s's people held it.", who, pastTense(ev.Force), ev.Name, ev.Rival))
 			}
+		case events.WarEnded:
+			d := base
+			d.Rival = ev.Rival
+			d = crew(d, ev.Rival)
+			add("rivals", "WarEnded", d)
+			rep.Territory = append(rep.Territory, fmt.Sprintf("The war on %s's crew is over: %s. The enforcers stand down.", ev.Rival, ev.Why))
 		case events.RivalTippedPolice:
 			d := base
 			d.Rival = ev.Rival

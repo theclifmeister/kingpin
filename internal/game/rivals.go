@@ -124,3 +124,77 @@ func (w *World) CancelBuyOff() {
 	}
 	w.Today.Poach = nil
 }
+
+// The war order (#229): enforcers as a standing order against one
+// faction. DeclareWar names the faction; the rivals sim sends the
+// hand's strike every night the hand leaves empty (Today.Strike nil),
+// at rivals.toml [war] dial on the faction's corner nearest your front
+// line, with the same roll, heat, toll and betrayal a hand's strike
+// carries, and ends the war the night the faction folds, bows or has
+// no corner left where you hold ground (WarEnded). It never ends the
+// run: taken_out is the faction's to win, as now.
+
+var (
+	// ErrAtWar means a war is on already: one at a time.
+	ErrAtWar = errors.New("one war at a time: call the other off first")
+	// ErrNoWar means there is no war to call off.
+	ErrNoWar = errors.New("there is no war on")
+	// ErrNothingToTake means the faction holds no corner in a city you
+	// hold ground in: nowhere for the enforcers to go.
+	ErrNothingToTake = errors.New("they hold no corner in a city you hold ground in")
+)
+
+// DeclareWar puts the enforcers on a standing order against a faction:
+// alive, with a corner in a city you hold ground in, and enforcers on
+// the payroll to send. One war at a time.
+func (w *World) DeclareWar(faction string) error {
+	if w.Over != nil {
+		return ErrGameOver
+	}
+	r := w.Faction(faction)
+	if r == nil || !r.Alive() {
+		return ErrNoFaction
+	}
+	if w.Crew.OnPayroll("enforcer") == 0 {
+		return ErrNoEnforcers
+	}
+	if w.War != "" {
+		return ErrAtWar
+	}
+	if !w.WarHasGround(r) {
+		return ErrNothingToTake
+	}
+	w.War = r.Faction()
+	return nil
+}
+
+// CallOffWar ends the war order.
+func (w *World) CallOffWar() error {
+	if w.Over != nil {
+		return ErrGameOver
+	}
+	if w.War == "" {
+		return ErrNoWar
+	}
+	w.War = ""
+	return nil
+}
+
+// AtWarWith reports whether the war order stands against r.
+func (w *World) AtWarWith(r *RivalState) bool {
+	return r != nil && w.War != "" && w.War == r.Faction()
+}
+
+// WarHasGround reports whether the faction holds a corner in a city you
+// hold ground in: somewhere the war can go.
+func (w *World) WarHasGround(r *RivalState) bool {
+	if r == nil {
+		return false
+	}
+	for _, c := range w.Corners() {
+		if c.Owner == OwnerRival && c.FactionID() == r.Faction() && w.HeldIn(c.City) > 0 {
+			return true
+		}
+	}
+	return false
+}

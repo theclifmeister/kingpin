@@ -727,6 +727,7 @@ type RivalsConfig struct {
 	Poach       PoachTuning                  `toml:"poach"`
 	Factions    FactionsTuning               `toml:"factions"`
 	Endings     RivalEndingsTuning           `toml:"endings"`
+	War         WarTuning                    `toml:"war"`
 	Deal        map[string]DealConfig        `toml:"deal"`
 	Personality map[string]PersonalityConfig `toml:"personality"`
 	Force       map[string]ForceConfig       `toml:"force"`
@@ -962,6 +963,26 @@ var Personalities = []string{"expansionist", "defensive", "opportunist", "chaoti
 
 // ForceFor returns the tuning for a force dial position.
 func (r RivalsConfig) ForceFor(f events.Force) ForceConfig { return r.Force[f.String()] }
+
+// WarTuning is rivals.toml's [war] (#229): the dial the war order's
+// strikes go in at, warn, push or hit; anything else boxes the war
+// (harness.NoWar), so a run that never declares one is the run before.
+type WarTuning struct {
+	Dial string `toml:"dial"`
+}
+
+// Force is the dial as events.Force, and whether the table is on.
+func (w WarTuning) Force() (events.Force, bool) {
+	switch w.Dial {
+	case "warn":
+		return events.ForceWarn, true
+	case "push":
+		return events.ForcePush, true
+	case "hit":
+		return events.ForceHit, true
+	}
+	return 0, false
+}
 
 // DealKinds are the deals that can be proposed, in the order the UI
 // lists them. The joint shipment waits on routes (#30).

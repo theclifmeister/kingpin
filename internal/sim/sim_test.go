@@ -90,7 +90,7 @@ func TestSimsWriteOnlyTheirOwnState(t *testing.T) {
 		"market":     {"Cities.Market", "Contracts", "Buyers", "Suppliers", "Markup", "Supply", "Standing", "BaseQuality", "Cities.Corners.Repeat"},
 		"logistics":  {"Shipments", "Logistics", "Routes"},
 		"territory":  {"Cities.Corners", "Houses"},
-		"rivals":     {"Rivals", "Rival", "Faction", "Offers", "Over", "Reign"},                                      // the endings it owns (#49): kingpin (the reign's stamp since #227), taken_out, the table's betrayed
+		"rivals":     {"Rivals", "Rival", "Faction", "Offers", "Over", "Reign", "War"},                               // the endings it owns (#49): kingpin (the reign's stamp since #227), taken_out, the table's betrayed; the war order it ends (#229)
 		"crew":       {"Crew", "Delegated", "DelegatedSupply", "Over"},                                               // broke, and the lieutenant's betrayed (#49)
 		"heat":       {"Heat", "Cities.Heat", "Houses", "FallsTaken", "Over"},                                        // indicted, arrested, and vanished through the exit plans (#49)
 		"law":        {"Law", "Cities.Pressure", "Cities.Goodwill", "Cities.Campaign", "Cities.Corners.Deed"},        // the forfeiture takes a deed through w.SeizeDeed (#194)

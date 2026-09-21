@@ -288,6 +288,12 @@ FactionTook = [
   "{{.Corner}} changes hands: {{.Name}} out, {{.Rival}} in",
   "{{.City}} turf war: {{.Rival}}'s people now hold {{.Corner}}",
 ]
+# The war order (#229): the night it ends on its own.
+WarEnded = [
+  "{{.City}}'s turf war ends: {{.Rival}}'s crew 'has nothing left to hold'",
+  "Quiet on the corners at last; police say {{.Rival}}'s people 'are done'",
+  "The war for {{.City}}'s blocks is over, and everyone knows who won",
+]
 RivalAbsorbed = [
   "{{.Rival}}'s outfit folds; what is left runs with {{.Name}} now",
   "End of the line for {{.Rival}}'s crew: absorbed by {{.Name}}'s",

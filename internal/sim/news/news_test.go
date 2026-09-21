@@ -33,8 +33,8 @@ func TestEveryEmittedEventHasTemplate(t *testing.T) {
 		"CrewArrested", "CrewReleased", "CrewShot", "CrewKilled", "CrewRetired", "MuscleKilled", // CrewBailed, CrewRecovered and KinLooking are report-only (#46)
 		"CornerClaimed", "CornerLost", "CornerRobbed", "CornerCrackdown",
 		"RivalMovedIn", "RivalEyeing", "RivalOutbid", "RivalClaimed", "CornerTaken", "CornerHanded", "RivalPushed",
-		"RivalAbandoned", // PlayerUndercut is report-only
-		"CornerStruckTaken", "CornerStruckHeld", "RivalRouted",
+		"RivalAbandoned",                                                   // PlayerUndercut is report-only
+		"CornerStruckTaken", "CornerStruckHeld", "RivalRouted", "WarEnded", // the war order (#229)
 		"RivalTippedPolice", "WarOpen", "WarCrackdown",
 		"RivalBoosted", "RivalBoostedHeld", "RivalRaided", "RivalMusclePoached", // RivalScouted and PoliceTipped are report-only (#70)
 		"ReignBegan",                                               // ReignBroken is report-only (#227)

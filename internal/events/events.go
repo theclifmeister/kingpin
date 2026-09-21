@@ -432,9 +432,22 @@ type CornerStruck struct {
 	Routed  bool
 	Heat    float64
 	Toll    float64
+	War     bool // the war order's strike (#229), not the hand's
 }
 
 func (CornerStruck) Kind() string { return "CornerStruck" }
+
+// WarEnded is the war order ending on its own (#229): the faction is
+// gone, pays homage, or holds no corner left in a city you hold. Why
+// says which.
+type WarEnded struct {
+	Day     int
+	Rival   string
+	Faction string
+	Why     string
+}
+
+func (WarEnded) Kind() string { return "WarEnded" }
 
 // RivalTippedPolice is the rival calling the cops on the player: heat.
 type RivalTippedPolice struct {

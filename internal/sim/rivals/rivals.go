@@ -459,7 +459,68 @@ func (s *Sim) Step(w *game.World, t *game.Tick) {
 			s.feed(w, t, r)
 		}
 	}
+	s.war(w, t)
 	s.endings(w, t)
+}
+
+// WarTarget is the corner the war order strikes tonight (#229): of the
+// faction's corners in a city you hold ground in, one bordering a
+// corner you hold before one that does not, the biggest first, ties in
+// the map's order; nil with none, which ends the war. No dice.
+func (s *Sim) WarTarget(w *game.World, r *game.RivalState) *game.Corner {
+	var best *game.Corner
+	front := false
+	for _, cid := range w.CityOrder {
+		city := w.Cities[cid]
+		if w.HeldIn(cid) == 0 {
+			continue
+		}
+		for i := range city.Corners {
+			c := &city.Corners[i]
+			if !owns(*c, r) {
+				continue
+			}
+			line := false
+			for _, o := range city.Corners {
+				if o.Held() && c.Borders(o) {
+					line = true
+					break
+				}
+			}
+			if best == nil || (line && !front) || (line == front && c.Demand > best.Demand) {
+				best, front = c, line
+			}
+		}
+	}
+	return best
+}
+
+// war ends the war order the night it has nothing left to fight (#229):
+// the faction gone, paying homage, or holding no corner in a city you
+// hold ground in. A read, no dice; the run never ends here.
+func (s *Sim) war(w *game.World, t *game.Tick) {
+	if w.War == "" {
+		return
+	}
+	r := w.Faction(w.War)
+	why := ""
+	switch {
+	case r == nil || r.Gone():
+		why = "they are no more"
+	case w.DealWith(r.Faction(), game.DealHomage) != nil:
+		why = "they pay you homage now"
+	case s.WarTarget(w, r) == nil:
+		why = "they hold no corner left in a city you hold ground in"
+	}
+	if why == "" {
+		return
+	}
+	w.War = ""
+	ev := events.WarEnded{Day: t.Day, Faction: w.War, Why: why}
+	if r != nil {
+		ev.Rival, ev.Faction = r.Leader, r.Faction()
+	}
+	t.Emit(ev)
 }
 
 // step runs one faction's day: arrival, money, the table (offers taken,
@@ -535,7 +596,17 @@ func (s *Sim) step(w *game.World, t *game.Tick, r *game.RivalState, rng rand) {
 	// paid back with one phone call tonight, whatever else the night
 	// brings. Then it answers what you proposed, and a chaotic one may
 	// tear something up on a whim.
-	if o := w.Today.Strike; o != nil {
+	// The war order (#229) is the hand's strike on a night the hand
+	// sent none: the same order, the same roll on the same stream.
+	o := w.Today.Strike
+	if o == nil && w.AtWarWith(r) && w.Crew.Role("enforcer") > 0 { // nobody at work, no order: the hand could send none either
+		if force, on := s.cfg.War.Force(); on {
+			if c := s.WarTarget(w, r); c != nil {
+				o = &game.StrikeOrder{Corner: c.ID, Force: force, War: true}
+			}
+		}
+	}
+	if o != nil {
 		if c := w.Corner(o.Corner); c != nil && owns(*c, r) {
 			s.strike(w, t, r, rng, o, c)
 			betrayed = s.crossed(w, t, r, o) || betrayed
@@ -786,7 +857,7 @@ func (s *Sim) strike(w *game.World, t *game.Tick, r *game.RivalState, rng rand, 
 	fc := s.cfg.ForceFor(o.Force)
 	ev := events.CornerStruck{
 		Day: t.Day, Corner: c.ID, Name: c.Name, Rival: r.Leader, Faction: r.Faction(), Force: o.Force,
-		Heat: s.StrikeHeat(c, o.Force), Toll: fc.Loyalty,
+		Heat: s.StrikeHeat(c, o.Force), Toll: fc.Loyalty, War: o.War,
 	}
 	w.Stats.Strikes++
 	r.Observed = true
