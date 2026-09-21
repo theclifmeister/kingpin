@@ -214,6 +214,23 @@ func (s *Sim) Step(w *game.World, t *game.Tick) {
 		rep.Tier = tierLines(n, len(s.pcfg.Tiers), *tier)
 		addOff("progression", "news", "TierReached", base)
 	}
+	// The reign (#227): while the city is yours the TIER section opens
+	// with where the reign stands, its homage counted off tonight's
+	// TributePaid; the morning it began carries the headline, and the
+	// morning it broke says how.
+	for _, e := range t.Events() {
+		switch ev := e.(type) {
+		case events.ReignBegan:
+			d := at(ev.City)
+			add("rivals", "ReignBegan", d)
+			rep.Tier = append([]string{fmt.Sprintf("The city is yours: every crew in %s is gone or paying. Take the crown when you are ready (walk away on the dashboard), or reign.", d.City)}, rep.Tier...)
+		case events.ReignBroken:
+			rep.Tier = append([]string{fmt.Sprintf("The reign is over for now: %s. Hold the city and the table and it begins again.", ev.Why)}, rep.Tier...)
+		}
+	}
+	if w.Reign > 0 {
+		rep.Tier = append([]string{reignLine(w, t)}, rep.Tier...)
+	}
 
 	// The world's incident (#44), dealt first thing this tick: a
 	// headline under the world source, its template picked off the

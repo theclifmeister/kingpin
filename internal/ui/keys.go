@@ -338,7 +338,7 @@ var bindings = []binding{
 		do: func(m *Model, _ string) { m.askInvest() }},
 	{key: "o", label: "reserve", help: "clean cash into the offshore account", screens: on(screenLedger),
 		do: func(m *Model, _ string) { m.askReserve() }},
-	{key: "w", label: "walk away", help: "retire on the account, or vanish", screens: on(screenDashboard),
+	{key: "w", label: "walk away", help: "retire, vanish, or take the crown", screens: on(screenDashboard),
 		do: func(m *Model, _ string) { m.askExit() }},
 	// The rivals.
 	{key: "d", label: "propose", help: "offer the rival a truce, tribute or a split", screens: on(screenRivals),
@@ -505,6 +505,7 @@ var modeBindings = []binding{
 	{key: "enter", label: "next", modes: in(modeExit), when: step(0)},
 	{key: "y", label: "retire", modes: in(modeExit), when: exitRetiring},
 	{key: "y", label: "vanish", modes: in(modeExit), when: exitVanishing},
+	{key: "y", label: "crown", modes: in(modeExit), when: exitCrowning},
 	{key: "q", label: "quit", modes: in(modeStart, modeOver)},
 	// The trade's other side (#168): listed on the product step (and a
 	// buy's connect step) alone, where the toggle is live.
@@ -782,7 +783,8 @@ var words = [][2]string{
 	{"spy", "a crew member under with a faction: reports, sells nothing"},
 	{"ending", "how a run ends: nine ways, each a summary and a score"},
 	{"score", "the offshore account over one plus the bodies; days shown"},
-	{"walk away", "retire on the account, or vanish on an identity: asked twice"},
+	{"walk away", "retire on the account, vanish, or take the crown: asked twice"},
+	{"reign", "the city yours: every crew gone or bowing, most of home held"},
 	{"character", "a start and nothing more: what is on the world on day 0"},
 	{"daily", "the date's seed, the default character; the first go scores"},
 	{"profile", "the runs, the unlocks and the dailies; a second file, no sim"},

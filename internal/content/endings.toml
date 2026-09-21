@@ -10,7 +10,8 @@
 # (home), .Here (where you stood), .Offshore and .Left (money, formatted),
 # .Bodies, .Fronts, .Corners, .Name (the lieutenant who flipped), .Leader
 # (the faction that took you or broke the deal), .DA, .Chief, .Pages (the
-# DA's file), .Years (the kingpin's reign, in words) and .Hot (the heat
+# DA's file), .Years (the kingpin's reign, in words), .Reign (the reign
+# lived before the crown was taken, #227, in words) and .Hot (the heat
 # over the pressure at the end).
 
 # The kingpin's reign is a function of the heat and the pressure at home
@@ -77,7 +78,7 @@ scene = "the mayor cuts the ribbon"
 cause = "kingpin"
 title = "KINGPIN"
 won = true
-epilogue = "Every crew in {{.City}} is yours or gone. It lasted {{.Years}}. {{if .Hot}}Then {{.Chief}}'s successor finished what the file started.{{else}}Then the city elected somebody who meant it.{{end}}"
+epilogue = "Every crew in {{.City}} is yours or gone. The city was yours {{.Reign}} before you took the crown, and the crown lasted {{.Years}}. {{if .Hot}}Then {{.Chief}}'s successor finished what the file started.{{else}}Then the city elected somebody who meant it.{{end}}"
 scene = "the city is yours"
 
 [[ending]]

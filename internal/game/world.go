@@ -102,6 +102,14 @@ type World struct {
 	// legit_days the run ends a businessman. Zero is the run before.
 	LegitDays int
 
+	// Reign (#227) is the day the city became yours for good: the
+	// rivals sim stamps it the morning Dominant() has held dominant_days
+	// with more than kingpin_share of home's corners held, zeroes it the
+	// morning that stops holding, and the crown (World.Crown) ends the
+	// run a kingpin on the player's say-so while it stands. Zero is no
+	// reign, the run before.
+	Reign int
+
 	// Today is the player's per-day scratch (#144): what the actions
 	// queued since the morning, for the sims to resolve tonight. The
 	// clock zeroes it as a unit after every EndDay (ClearToday), bar the

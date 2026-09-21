@@ -19,6 +19,8 @@ var (
 	ErrNotQuiet = errors.New("it is not quiet enough to walk away yet")
 	// ErrNoIdentity means vanishing takes a new identity from the tree.
 	ErrNoIdentity = errors.New("vanishing takes a new identity")
+	// ErrNoReign means the crown takes the city: the reign is not on.
+	ErrNoReign = errors.New("the city is not yours yet")
 )
 
 // End is the ending written for a cause on day: the day, the cause, the
@@ -83,3 +85,54 @@ func (w *World) Vanish(fx Effects) error {
 // CanVanish reports whether Vanish would take: an identity owned and
 // the run not over.
 func (w *World) CanVanish(fx Effects) bool { return w.Over == nil && fx.Identities > 0 }
+
+// Crown ends the run as "kingpin" (#227): the player takes the crown
+// while the reign holds (Reign, stamped by the rivals sim the morning
+// the city became theirs for good and zeroed the morning it stops
+// being), on any morning of it. It is the kingpin ending as it always
+// read, on the player's say-so instead of the detector's; the score is
+// the account as it stands, so playing the reign on is allowed and
+// never rewarded.
+func (w *World) Crown() error {
+	if w.Over != nil {
+		return ErrGameOver
+	}
+	if w.Reign <= 0 {
+		return ErrNoReign
+	}
+	w.Over = w.End("kingpin", w.Day, "")
+	return nil
+}
+
+// CanCrown reports whether Crown would take: the reign on and the run
+// not over.
+func (w *World) CanCrown() bool { return w.Over == nil && w.Reign > 0 }
+
+// ReignDay is which day of the reign this is, counting the morning it
+// began as day 1; 0 with no reign.
+func (w *World) ReignDay() int { return w.ReignDayOn(w.Day) }
+
+// ReignDayOn is ReignDay on a given day: a sim in the tick that stamps
+// the reign reads it against the tick's day, since the clock has not
+// moved the world's yet.
+func (w *World) ReignDayOn(day int) int {
+	if w.Reign <= 0 {
+		return 0
+	}
+	return day - w.Reign + 1
+}
+
+// HomageDeals is the reign's tally (#227): how many factions pay you
+// homage and what they pay a night between them.
+func (w *World) HomageDeals() (crews, perDay int) {
+	for _, r := range w.Rivals {
+		if r == nil {
+			continue
+		}
+		if d := w.DealWith(r.Faction(), DealHomage); d != nil {
+			crews++
+			perDay += d.Terms.PerDay
+		}
+	}
+	return crews, perDay
+}

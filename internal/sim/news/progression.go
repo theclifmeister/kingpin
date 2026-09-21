@@ -6,6 +6,7 @@ import (
 
 	"github.com/theclifmeister/kingpin/internal/content"
 	"github.com/theclifmeister/kingpin/internal/events"
+	"github.com/theclifmeister/kingpin/internal/format"
 	"github.com/theclifmeister/kingpin/internal/game"
 )
 
@@ -26,6 +27,26 @@ func (s *Sim) tier(w *game.World, t *game.Tick) int {
 		return n
 	}
 	return 0
+}
+
+// reignLine is the report's REIGN line (#227) while the city is yours:
+// the day of the reign, the crews paying homage and what they paid
+// tonight between them (the tick's TributePaid to you).
+func reignLine(w *game.World, t *game.Tick) string {
+	crews, _ := w.HomageDeals()
+	paid := 0
+	for _, e := range t.Events() {
+		if ev, ok := e.(events.TributePaid); ok && ev.ToYou {
+			paid += ev.Amount
+		}
+	}
+	line := fmt.Sprintf("REIGN: day %d of the reign", w.ReignDayOn(t.Day))
+	if crews > 0 {
+		line += fmt.Sprintf(" · %s paying homage · %s a night", format.Plural(crews, "crew"), format.Money(paid))
+	} else {
+		line += " · every crew gone"
+	}
+	return line
 }
 
 // tierLines is the report's TIER section for tier n of total: the name
