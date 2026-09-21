@@ -251,7 +251,7 @@ var bindings = []binding{
 		do: func(m *Model, _ string) { m.answerContract(true) }},
 	{key: "x", label: "decline", help: "turn the buyer's offer down", screens: on(screenMarket), when: onBuyers,
 		do: func(m *Model, _ string) { m.answerContract(false) }},
-	{key: "t", label: "cut", help: "cut a product in the stash where you stand", screens: on(screenMarket), when: onProducts,
+	{key: "%", label: "cut", help: "cut a product in the stash where you stand", screens: on(screenMarket), when: onProducts,
 		do: func(m *Model, _ string) { m.askCut() }},
 	{key: "o", label: "cook", help: "the chemist cooks a batch where you stand", screens: on(screenMarket), when: onProductsWithChemist,
 		do: func(m *Model, _ string) { m.askCook() }},
@@ -265,7 +265,7 @@ var bindings = []binding{
 		do: func(m *Model, _ string) { m.hireSelected() }},
 	{key: "f", label: "fire", help: "fire the selected member, after asking", screens: on(screenCrew),
 		do: func(m *Model, _ string) { m.askFire() }},
-	{key: "t", label: "assign", help: "give the selected lieutenant a city to run", screens: on(screenCrew),
+	{key: "l", label: "assign", help: "give the selected lieutenant a city to run", screens: on(screenCrew),
 		do: func(m *Model, _ string) { m.askAssign() }},
 	{key: "i", label: "investigate", help: "ask who is talking to the police, for a fee", screens: on(screenCrew),
 		do: func(m *Model, _ string) { m.askInvestigate() }},
@@ -319,7 +319,7 @@ var bindings = []binding{
 			m.jumpIntel(r.Faction(), m.rivalName(r))
 		}},
 	// The tree.
-	{key: "u", label: "buy upgrade", help: "buy the node under the cursor (enter too)", keys: []string{"u", "enter"}, screens: on(screenUpgrades),
+	{key: "u", label: "buy upgrade", help: "buy the node under the cursor (enter too)", screens: on(screenUpgrades),
 		do: func(m *Model, _ string) { m.askUpgrade() }},
 	// The ledger.
 	{key: "b", label: "buy front", help: "buy a front or an asset, rent a house", screens: on(screenLedger),
@@ -334,14 +334,12 @@ var bindings = []binding{
 		do: func(m *Model, _ string) { m.askBribe() }},
 	{key: "f", label: "fund city", help: "give a city clean cash for goodwill", screens: on(screenLedger),
 		do: func(m *Model, _ string) { m.askFund() }},
-	{key: "i", label: "invest", help: "clean cash into the selected front's levels", screens: on(screenLedger), when: ledgerOnFront,
+	{key: "u", label: "invest", help: "clean cash into the selected front's levels", screens: on(screenLedger), when: ledgerOnFront,
 		do: func(m *Model, _ string) { m.askInvest() }},
 	{key: "o", label: "reserve", help: "clean cash into the offshore account", screens: on(screenLedger),
 		do: func(m *Model, _ string) { m.askReserve() }},
 	{key: "w", label: "walk away", help: "retire on the account, or vanish", screens: on(screenLedger),
 		do: func(m *Model, _ string) { m.askExit() }},
-	{key: "enter", label: "buy / dial", help: "buy the offer or turn the route selected", screens: on(screenLedger), when: ledgerActable,
-		do: func(m *Model, _ string) { m.ledgerEnter() }},
 	// The rivals.
 	{key: "d", label: "propose", help: "offer the rival a truce, tribute or a split", screens: on(screenRivals),
 		do: func(m *Model, _ string) { m.askPropose() }},
@@ -422,7 +420,13 @@ var bindings = []binding{
 // alias). The keys themselves are handled by handleKey; the table is
 // what the footer and the status bar say.
 var modeBindings = []binding{
-	{key: "↑↓", label: "pick", modes: in(modeStart, modePost, modeStrike, modeUndercut, modeFront, modeAssign, modePropose, modeGuard, modeDriver, modeSpy)},
+	{key: "↑↓", label: "pick", modes: in(modeStart, modePost, modeStrike, modeFront, modeAssign, modePropose, modeGuard, modeDriver, modeSpy)},
+	// Every picker takes the digits as select-and-commit and says so (#241).
+	{key: "1-9", label: "choose", modes: in(modePost, modeStrike, modeFront, modeAssign, modePropose, modeGuard, modeDriver, modeSpy)},
+	{key: "1-9", label: "choose", modes: in(modeExit), when: step(0)},
+	// The undercut is a dial like the sale's (#241): ←→ turns it, 1-3 pick a notch.
+	{key: "←→", label: "dial", modes: in(modeUndercut)},
+	{key: "1-3", label: "dial", modes: in(modeUndercut)},
 	{key: "↑↓", label: "pick", modes: in(modeExit, modeNewRun), when: step(0)},
 	{key: "1-6", label: "choose", modes: in(modeNewRun), when: step(0)},
 	{key: "←→", label: "toggle", modes: in(modeNewRun), when: step(2)},
@@ -491,8 +495,8 @@ var modeBindings = []binding{
 	{key: "D", label: "delete", modes: in(modeStart)},
 	{key: "y", label: "<verb>", modes: in(modeConfirm)}, // the payload's verb (#242): fire, buy, go, scout…
 	{key: "y enter", label: "end day", modes: in(modeConfirmEnd)},
-	{key: "y enter", label: "run", modes: in(modeConfirmFast)},
-	{key: "y enter", label: "pay", modes: in(modeConfirmBuyOff)},
+	{key: "enter", label: "run", modes: in(modeConfirmFast)},
+	{key: "enter", label: "pay", modes: in(modeConfirmBuyOff)},
 	{key: "enter", label: "invest", modes: in(modeInvest)},
 	{key: "enter", label: "reserve", modes: in(modeReserve)},
 	{key: "enter", label: "pay", modes: in(modePayCop)},

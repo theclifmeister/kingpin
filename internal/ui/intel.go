@@ -508,6 +508,17 @@ func (m *Model) keySpy(key string) {
 			return
 		}
 		m.confirmSpy()
+	default:
+		// A digit selects and commits, as in every picker (#241).
+		if len(key) == 1 && key[0] >= '1' && key[0] <= '9' {
+			i := int(key[0] - '1')
+			if m.spy.step == 0 && i < len(m.spyFactions()) {
+				m.spy.faction, m.spy.step = i, 1
+			} else if m.spy.step == 1 && i < len(m.spyCandidates()) {
+				m.spy.member = i
+				m.confirmSpy()
+			}
+		}
 	}
 }
 

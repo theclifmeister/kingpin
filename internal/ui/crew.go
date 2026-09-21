@@ -508,9 +508,9 @@ func (m *Model) personLines(c game.CrewMember, onPayroll bool) []string {
 		lines = append(lines, keyRow("f", fmt.Sprintf("fire: the rest lose %.0f loyalty", tun.FireLoyalty)))
 	}
 	if c.Lieutenant() && c.City == "" {
-		lines = append(lines, keyRow("t", "give them a city"))
+		lines = append(lines, keyRow("l", "give them a city"))
 	} else if c.Lieutenant() {
-		lines = append(lines, keyRow("t", "move them or take the city"))
+		lines = append(lines, keyRow("l", "move them or take the city"))
 	}
 	if c.Jailed(w.Day) && !c.Bailed {
 		bail := fmt.Sprintf("bail for %s clean", money(m.set.Crew.BailCost(c)))

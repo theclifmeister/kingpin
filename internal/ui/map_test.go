@@ -442,19 +442,19 @@ func TestMapKeysActOnTheShownCursor(t *testing.T) {
 	// The market's cut and cook are the products' alone.
 	m.Update(key("2"))
 	m.onBuyers, m.onSuppliers = false, false
-	if keys := m.paneKeys(); !hasKey(keys, "t") {
-		t.Fatalf("t cut is not listed on the products: %v", keyNames(keys))
+	if keys := m.paneKeys(); !hasKey(keys, "%") {
+		t.Fatalf("%% cut is not listed on the products: %v", keyNames(keys))
 	}
 	if len(m.buyerRows()) == 0 {
 		t.Skip("the fixture has no buyer to sit on")
 	}
 	m.onBuyers = true
-	if keys := m.paneKeys(); hasKey(keys, "t") || hasKey(keys, "o") {
-		t.Fatalf("t cut or o cook is listed on the buyers: %v", keyNames(keys))
+	if keys := m.paneKeys(); hasKey(keys, "%") || hasKey(keys, "o") {
+		t.Fatalf("%% cut or o cook is listed on the buyers: %v", keyNames(keys))
 	}
-	m.Update(key("t"))
+	m.Update(key("%"))
 	if m.mode != modePlay {
-		t.Fatalf("t on the buyers opened %v", m.mode)
+		t.Fatalf("%% on the buyers opened %v", m.mode)
 	}
 }
 

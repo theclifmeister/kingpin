@@ -46,10 +46,12 @@ func TestWalkAwayAsksTwice(t *testing.T) {
 		t.Fatalf("shift+tab did not go back: step %d", m.exit.step)
 	}
 	m.Update(key("enter"))
-	m.Update(key("n")) // not y: nothing happens
-	if m.w.Over != nil || m.mode != modeExit {
-		t.Fatalf("a stray key ended the run: over %+v mode %v", m.w.Over, m.mode)
+	m.Update(key("n")) // not y: declines, as every confirmation does (#241)
+	if m.w.Over != nil || m.mode != modePlay {
+		t.Fatalf("a stray key did not decline: over %+v mode %v", m.w.Over, m.mode)
 	}
+	m.Update(key("w"))
+	m.Update(key("enter"))
 	day := m.w.Day
 	m.Update(key("y"))
 	if m.w.Over == nil || m.w.Over.Cause != content.CauseRetired || m.mode != modeOver || m.w.Day != day {

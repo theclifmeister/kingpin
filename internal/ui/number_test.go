@@ -9,7 +9,7 @@ import (
 
 // Every number field takes the same shortcuts (#112): from an empty
 // field m is max and h half of it (rounded down), ↑ past max stays at
-// max, pgdn past zero stays at zero, a is m, the field shows `/ N max`
+// max, pgdn past zero stays at zero, the field shows `/ N max`
 // after the number and its footer lists the shortcuts; and a typed
 // number over max is refused where it always was, by the game, the
 // route target excepted, which is set as it always was (a target is
@@ -128,9 +128,6 @@ func TestNumberField(t *testing.T) {
 		fld.SetValue("")
 		m.Update(key("h"))
 		want("h", strconv.Itoa(mx/2))
-		fld.SetValue("")
-		m.Update(key("a"))
-		want("a", strconv.Itoa(mx))
 		fld.SetValue("")
 		m.Update(key("pgdown"))
 		want("pgdn", "0")

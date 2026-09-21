@@ -60,7 +60,7 @@ func TestUpgradeArrowsTurnTheBranch(t *testing.T) {
 	}
 	// Enter buys the node under the cursor: the first of Security.
 	m.Update(key("right"))
-	m.Update(key("enter"))
+	m.Update(key("u"))
 	if m.mode != modeConfirm || m.upgradeID != sec[0].ID {
 		t.Fatalf("enter: mode %v id %q status %q", m.mode, m.upgradeID, m.status)
 	}
@@ -202,7 +202,7 @@ func TestUpgradesScreenKeys(t *testing.T) {
 	m := newTestModel(t, 100, 30)
 	m.w.Player.DirtyCash = 8000
 	m.Update(key("u"))
-	if m.mode != modePlay || m.status != "Undercut on the map screen (5). Buy upgrade on the upgrades screen (6)." {
+	if m.mode != modePlay || m.status != "Undercut on the map screen (5). Buy upgrade on the upgrades screen (6). Invest on the ledger screen (7)." {
 		t.Fatalf("u on the dashboard: mode %v status %q", m.mode, m.status)
 	}
 	m.Update(key("6"))
@@ -214,7 +214,7 @@ func TestUpgradesScreenKeys(t *testing.T) {
 		t.Fatalf("first node is %s", rows[0].ID)
 	}
 	// Enter asks; anything but y backs out.
-	m.Update(key("enter"))
+	m.Update(key("u"))
 	if m.mode != modeConfirm || m.upgradeID != "stash" {
 		t.Fatalf("enter did not ask: mode %v id %q status %q", m.mode, m.upgradeID, m.status)
 	}
@@ -229,17 +229,17 @@ func TestUpgradesScreenKeys(t *testing.T) {
 		t.Fatalf("y did not buy: owns %v cash %d capacity %d status %q", m.w.Owns("stash"), m.w.Player.DirtyCash, m.w.Capacity(m.w.Player.Location), m.status)
 	}
 	// Owned, locked and unaffordable nodes explain themselves without a modal.
-	m.Update(key("enter"))
+	m.Update(key("u"))
 	if m.mode != modePlay || !strings.Contains(m.status, "already") {
 		t.Fatalf("buying twice: mode %v status %q", m.mode, m.status)
 	}
 	m.Update(key("j")) // stash2: needs nothing more, but $15K
-	m.Update(key("enter"))
+	m.Update(key("u"))
 	if m.mode != modePlay || !strings.Contains(m.status, "costs") {
 		t.Fatalf("unaffordable: mode %v status %q", m.mode, m.status)
 	}
 	m.Update(key("j")) // stash3, under stash2 in the tree: locked behind it
-	m.Update(key("enter"))
+	m.Update(key("u"))
 	if m.mode != modePlay || !strings.Contains(m.status, "Second stash") {
 		t.Fatalf("locked: mode %v status %q", m.mode, m.status)
 	}
@@ -255,7 +255,7 @@ func TestUpgradesScreenKeys(t *testing.T) {
 	if !strings.Contains(strings.Join(m.w.Report.Money, "\n"), "Stash spot -$5,000") {
 		t.Fatalf("money section: %v", m.w.Report.Money)
 	}
-	m.Update(key("enter"))
+	m.Update(key("u"))
 	if m.w.Report.CashBefore != 8000 {
 		t.Fatalf("cash before = %d, want the morning's 8000", m.w.Report.CashBefore)
 	}

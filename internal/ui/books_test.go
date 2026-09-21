@@ -23,7 +23,7 @@ func TestBooksKeys(t *testing.T) {
 	// the dashboard is the intel jump since #45).
 	m.Update(key("3"))
 	m.Update(key("i"))
-	if m.mode != modePlay || m.status != "Investigate on the crew screen (4). Intel on the map screen (5). Invest on the ledger screen (7). Scout on the rivals screen (8). Intel on the dashboard screen (1)." {
+	if m.mode != modePlay || m.status != "Investigate on the crew screen (4). Intel on the map screen (5). Scout on the rivals screen (8). Intel on the dashboard screen (1)." {
 		t.Fatalf("i on the journal: mode %v status %q", m.mode, m.status)
 	}
 	m.Update(key("$"))
@@ -32,7 +32,7 @@ func TestBooksKeys(t *testing.T) {
 	}
 	m.Update(key("1"))
 	m.Update(key("t"))
-	if m.mode != modePlay || m.status != "Cut on the market screen (2). Assign on the crew screen (4). Tip police on the map screen (5)." {
+	if m.mode != modePlay || m.status != "Tip police on the map screen (5)." { // t is tip (#241): cut is %, assign l
 		t.Fatalf("t on the dashboard: mode %v status %q", m.mode, m.status)
 	}
 	// The scout: the confirmation names the cost and the odds; y queues it,
@@ -70,7 +70,7 @@ func TestBooksKeys(t *testing.T) {
 		t.Fatalf("$ on the rivals screen: mode %v max %d", m.mode, m.bo.units.max)
 	}
 	view = stripANSI(m.View())
-	for _, want := range []string{"BUY OFF THEIR MUSCLE?", "buy blind", "/ 1 max", "y enter pay"} {
+	for _, want := range []string{"BUY OFF THEIR MUSCLE?", "buy blind", "/ 1 max", "enter pay"} {
 		if !strings.Contains(view, want) {
 			t.Errorf("the buy-off confirmation lacks %q:\n%s", want, view)
 		}
@@ -100,7 +100,7 @@ func TestBooksKeys(t *testing.T) {
 		t.Fatalf("$ with the books read: mode %v max %d", m.mode, m.bo.units.max)
 	}
 	m.Update(key("3"))
-	m.Update(key("y"))
+	m.Update(key("enter")) // a number dialog commits on enter (#241)
 	if w.Today.Poach == nil || w.Today.Poach.Units != 3 || w.Today.Poach.Cost != 3*price {
 		t.Fatalf("three heads: %+v", w.Today.Poach)
 	}

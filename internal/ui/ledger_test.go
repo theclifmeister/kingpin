@@ -5,8 +5,6 @@ import (
 	"testing"
 
 	tea "github.com/charmbracelet/bubbletea"
-
-	"github.com/theclifmeister/kingpin/internal/events"
 )
 
 // stripLine is the details strip of a view at a width under the pane's:
@@ -72,14 +70,12 @@ func TestLedgerCursor(t *testing.T) {
 	}
 	last := routes[2]
 	before := w.Route(last.ID).Dial
-	m.Update(key("enter"))
-	if got := w.Route(last.ID).Dial; got != (before+1)%(events.RouteFast+1) || m.mode != modePlay {
+	m.Update(key("enter")) // enter on a route is the frame's too (#241): the dial is the map's r
+	if got := w.Route(last.ID).Dial; got != before || m.mode != modeConfirmEnd {
 		t.Fatalf("enter on a route: dial %v -> %v, mode %v, status %q", before, got, m.mode, m.status)
 	}
-	if !strings.Contains(m.status, last.Name) {
-		t.Fatalf("status after the dial: %q", m.status)
-	}
-	// Onto the offers: enter opens the buy confirmation on that offer.
+	m.Update(key("esc"))
+	// Onto the offers: b opens the buy picker on that offer.
 	for i := range offers {
 		m.Update(key("down"))
 		if got, want := first(), strings.ToUpper(offers[i].Name); got != want {
@@ -97,13 +93,14 @@ func TestLedgerCursor(t *testing.T) {
 	if o.Locked(w) || o.Cost > w.Player.DirtyCash {
 		t.Fatalf("fixture: %s is not affordable (%+v, dirty %d)", o.Name, o, w.Player.DirtyCash)
 	}
-	if !strings.Contains(stripANSI(strings.Join(m.details()[0].lines, "\n")), "enter buy it") {
-		t.Fatalf("the offer's pane does not say enter buys it:\n%s", stripANSI(strings.Join(m.details()[0].lines, "\n")))
+	if !strings.Contains(stripANSI(strings.Join(m.details()[0].lines, "\n")), "b  buy it through the picker") {
+		t.Fatalf("the offer's pane does not say b buys it:\n%s", stripANSI(strings.Join(m.details()[0].lines, "\n")))
 	}
-	m.Update(key("enter"))
-	if m.mode != modeFront || m.front.cursor != 0 {
-		t.Fatalf("enter on an offer: mode %v cursor %d", m.mode, m.front.cursor)
+	m.Update(key("b")) // b opens the picker on its kind page (#241: enter's shortcut onto the offer went with enter)
+	if m.mode != modeFront || m.front.step != 0 {
+		t.Fatalf("b on an offer: mode %v step %d", m.mode, m.front.step)
 	}
+	m.Update(key("1")) // a front: the kind page's first row
 	assertFits(t, m.View(), 120, 40, "front confirmation from the ledger")
 	m.Update(key("enter"))
 	if m.mode != modePlay || len(w.Fronts) != 4 || w.Fronts[3].ID != o.ID {

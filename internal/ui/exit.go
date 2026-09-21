@@ -96,24 +96,34 @@ func (m *Model) keyExit(key string) {
 		}
 	case "enter", "tab":
 		if m.exit.step == 0 {
-			r := rows[max(0, min(m.exit.cursor, len(rows)-1))]
-			if !r.open {
-				m.refuse(fmt.Sprintf("%s is not open: %s.", r.name, r.short))
-				return
-			}
-			m.exit.step = 1
+			m.openExit(rows)
 		}
 	case "y", "Y":
 		if m.exit.step == 1 {
 			m.confirmExit()
 		}
 	default:
-		if m.exit.step == 0 && len(key) == 1 && key[0] >= '1' && key[0] <= '9' {
+		switch {
+		case m.exit.step == 1 && key != "up" && key != "down" && key != "j" && key != "k":
+			m.mode = modePlay // the confirmation declines on any other key, as every confirmation does (#241)
+		case m.exit.step == 0 && len(key) == 1 && key[0] >= '1' && key[0] <= '9':
 			if i := int(key[0] - '1'); i < len(rows) {
 				m.exit.cursor = i
+				m.openExit(rows) // a digit selects and commits, as in every picker (#241)
 			}
 		}
 	}
+}
+
+// openExit turns to the confirmation for the way out under the cursor,
+// or refuses a closed one.
+func (m *Model) openExit(rows []exitRow) {
+	r := rows[max(0, min(m.exit.cursor, len(rows)-1))]
+	if !r.open {
+		m.refuse(fmt.Sprintf("%s is not open: %s.", r.name, r.short))
+		return
+	}
+	m.exit.step = 1
 }
 
 // confirmExit ends the run the way the cursor says, saves, and opens

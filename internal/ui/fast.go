@@ -84,7 +84,7 @@ func (m *Model) keyFast(k tea.KeyMsg) (tea.Model, tea.Cmd) {
 	case "esc", "q":
 		m.mode = modePlay
 		return m, nil
-	case "y", "Y", "enter":
+	case "enter": // every number dialog commits on enter; y is a confirmation's yes (#241)
 		m.confirmFast()
 		return m, nil
 	}

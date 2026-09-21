@@ -98,8 +98,7 @@ func TestNewRunStartsTheCharacter(t *testing.T) {
 		t.Fatalf("esc: mode %v, slot 2 empty %v", m.mode, game.Slots()[1].Empty)
 	}
 	m.Update(key("enter"))
-	m.Update(key("2"))
-	m.Update(key("enter"))
+	m.Update(key("2")) // a digit selects and commits (#241): the cook, and the seed page
 	for _, k := range []string{"4", "2"} {
 		m.Update(key(k))
 	}
@@ -139,8 +138,7 @@ func TestNewRunStartsTheCharacter(t *testing.T) {
 func TestDailyIsTheDate(t *testing.T) {
 	m := pickerModel(t)
 	m.Update(key("enter"))
-	m.Update(key("6")) // the daily
-	m.Update(key("enter"))
+	m.Update(key("6")) // the daily: a digit selects and commits (#241), so it starts at once
 	w := m.w
 	if m.mode != modePlay || w.Seed != game.DailySeed(sept13) || w.Start.Character != "" || w.Start.Daily != "20260913" || w.Start.Practice {
 		t.Fatalf("mode %v seed %d start %+v", m.mode, w.Seed, w.Start)
@@ -171,8 +169,7 @@ func TestDailyIsTheDate(t *testing.T) {
 	if view := stripANSI(m.View()); !strings.Contains(view, "a practice run") {
 		t.Errorf("the picker does not say practice:\n%s", view)
 	}
-	m.Update(key("6"))
-	m.Update(key("enter"))
+	m.Update(key("6")) // starts at once (#241)
 	if !m.w.Start.Practice || m.w.Seed != game.DailySeed(sept13) || !strings.Contains(m.status, "practice") {
 		t.Fatalf("second attempt: start %+v status %q", m.w.Start, m.status)
 	}

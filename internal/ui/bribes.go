@@ -128,6 +128,8 @@ func (m *Model) keyBribe(k tea.KeyMsg) (tea.Model, tea.Cmd) {
 			d.cursor = min(len(bribeTargets)-1, d.cursor+1)
 		case "1", "2":
 			d.cursor = int(key[0] - '1')
+			d.step = 1 // a digit selects and commits, as in every picker (#241)
+			return m, d.amt.Focus()
 		}
 		return m, nil
 	}

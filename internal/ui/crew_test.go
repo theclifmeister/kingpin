@@ -166,13 +166,13 @@ func TestAssignLieutenantKeys(t *testing.T) {
 	w.Crew.NextID = 2
 	other := w.CityOrder[1]
 
-	m.Update(key("t")) // dashboard: a pointer, not the picker
-	if m.mode != modePlay || !strings.Contains(m.status, "crew screen (4)") {
+	m.Update(key("t")) // dashboard: a pointer, not a picker (#241: t is tip; l assigns, and lies low off the crew screen)
+	if m.mode != modePlay || !strings.Contains(m.status, "map screen (5)") {
 		t.Fatalf("t on the dashboard: mode %v status %q", m.mode, m.status)
 	}
 	m.Update(key("4"))
 	m.crewCursor = 0
-	m.Update(key("t")) // a runner
+	m.Update(key("l")) // a runner
 	if m.mode != modePlay || !strings.Contains(m.status, "only a lieutenant") || m.statusKind != statusWarning {
 		t.Fatalf("t on a runner: mode %v status %q", m.mode, m.status)
 	}
@@ -181,12 +181,12 @@ func TestAssignLieutenantKeys(t *testing.T) {
 		t.Fatalf("crew screen before assigning:\n%s", view)
 	}
 	m.crewCursor = 1
-	if pane := paneText(m); strings.Contains(pane, "violent") || !strings.Contains(pane, "temper      shows on the job") || !strings.Contains(pane, "t  give them a city") {
+	if pane := paneText(m); strings.Contains(pane, "violent") || !strings.Contains(pane, "temper      shows on the job") || !strings.Contains(pane, "l  give them a city") {
 		t.Fatalf("pane before assigning:\n%s", pane)
 	}
-	m.Update(key("t"))
+	m.Update(key("l"))
 	if m.mode != modeAssign {
-		t.Fatalf("mode after t on a lieutenant = %v (%s)", m.mode, m.status)
+		t.Fatalf("mode after l on a lieutenant = %v (%s)", m.mode, m.status)
 	}
 	assertFits(t, m.View(), 80, 24, "assign picker")
 	m.Update(key("2")) // the second city
@@ -229,7 +229,7 @@ func TestAssignLieutenantKeys(t *testing.T) {
 	}
 	// And back off the city: the last row of the picker.
 	m.crewCursor = 1
-	m.Update(key("t"))
+	m.Update(key("l"))
 	m.Update(key("down"))
 	m.Update(key("down"))
 	m.Update(key("enter"))

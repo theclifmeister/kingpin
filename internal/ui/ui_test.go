@@ -2857,7 +2857,7 @@ func TestModalsFit(t *testing.T) {
 			m.mapCursor = 0
 			m.Update(key("u"))
 		}},
-		{"confirm upgrade", modeConfirm, func(t *testing.T, m *Model) { m.Update(key("6")); m.Update(key("enter")) }},
+		{"confirm upgrade", modeConfirm, func(t *testing.T, m *Model) { m.Update(key("6")); m.Update(key("u")) }},
 		{"buy picker: kind", modeFront, func(t *testing.T, m *Model) { m.Update(key("7")); m.Update(key("b")) }},
 		{"front", modeFront, func(t *testing.T, m *Model) { m.Update(key("7")); m.Update(key("b")); m.Update(key("enter")) }},
 		{"house", modeFront, func(t *testing.T, m *Model) {
@@ -2886,10 +2886,10 @@ func TestModalsFit(t *testing.T) {
 		}},
 		// The lab dialogs (#47): the cut on the fixture's stash, the cook
 		// with a chemist put on the payroll.
-		{"cut product", modeCut, func(t *testing.T, m *Model) { m.Update(key("2")); m.Update(key("t")) }},
+		{"cut product", modeCut, func(t *testing.T, m *Model) { m.Update(key("2")); m.Update(key("%")) }},
 		{"cut percent", modeCut, func(t *testing.T, m *Model) {
 			m.Update(key("2"))
-			m.Update(key("t"))
+			m.Update(key("%"))
 			m.Update(key("enter"))
 			m.Update(key("5"))
 		}},
@@ -2909,7 +2909,7 @@ func TestModalsFit(t *testing.T) {
 		// tip from the map, on the fixture's rival corner.
 		{"confirm scout", modeConfirm, func(t *testing.T, m *Model) { m.Update(key("8")); m.Update(key("i")) }},
 		{"confirm buy off", modeConfirmBuyOff, func(t *testing.T, m *Model) { m.Update(key("8")); m.Update(key("$")) }},
-		{"invest", modeInvest, func(t *testing.T, m *Model) { m.w.Player.CleanCash = 200_000; m.Update(key("7")); m.Update(key("i")) }},
+		{"invest", modeInvest, func(t *testing.T, m *Model) { m.w.Player.CleanCash = 200_000; m.Update(key("7")); m.Update(key("u")) }},
 		{"reserve", modeReserve, func(t *testing.T, m *Model) { m.w.Player.CleanCash = 200_000; m.Update(key("7")); m.Update(key("o")) }},
 		{"confirm boost", modeConfirm, func(t *testing.T, m *Model) {
 			m.Update(key("5"))
@@ -3002,7 +3002,7 @@ func TestModalsFit(t *testing.T) {
 		{"confirm travel", modeConfirm, func(t *testing.T, m *Model) { m.Update(key("g")) }},
 		{"propose kinds", modePropose, func(t *testing.T, m *Model) { m.Update(key("8")); m.Update(key("d")) }},
 		{"propose terms", modePropose, func(t *testing.T, m *Model) { m.Update(key("8")); m.Update(key("d")); m.Update(key("2")) }},
-		{"assign", modeAssign, func(t *testing.T, m *Model) { m.Update(key("4")); m.crewCursor = 3; m.Update(key("t")) }},
+		{"assign", modeAssign, func(t *testing.T, m *Model) { m.Update(key("4")); m.crewCursor = 3; m.Update(key("l")) }},
 		{"fund", modeFund, func(t *testing.T, m *Model) { m.Update(key("7")); m.Update(key("f")) }},
 		{"details", modeDetails, func(t *testing.T, m *Model) { m.Update(key("5")); m.mode = modeDetails }},
 		// The cart (#103): the modal on its lines and on a quantity, and

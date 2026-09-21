@@ -559,6 +559,14 @@ func (m *Model) handleKey(k tea.KeyMsg) (tea.Model, tea.Cmd) {
 		m.pickerKey(key, len(m.strikeRows()), m.confirmStrike)
 		return m, nil
 	case modeUndercut:
+		// The dial turns with ←→ as the sale's does (#241); the rows are
+		// the notches, so the picker's cursor is the dial.
+		switch key {
+		case "left", "h":
+			key = "up"
+		case "right", "l":
+			key = "down"
+		}
 		m.pickerKey(key, len(m.undercutRows()), m.confirmUndercut)
 		return m, nil
 	case modeAssign:

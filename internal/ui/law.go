@@ -130,13 +130,13 @@ func (m *Model) keyFund(k tea.KeyMsg) (tea.Model, tea.Cmd) {
 		return m, nil
 	}
 	switch key {
-	case "left", "[", "right", "]":
+	case "left", "right": // ←→ turns the dial inside a modal, [ ] being the screens' (#241); h stays the field's half here
 		n, at := len(m.w.CityOrder), &d.city
 		if d.step == 1 {
 			n, at = len(game.Tickets), &d.ticket
 		}
 		if n > 1 {
-			if key == "left" || key == "[" {
+			if key == "left" {
 				*at = (*at + n - 1) % n
 			} else {
 				*at = (*at + 1) % n
