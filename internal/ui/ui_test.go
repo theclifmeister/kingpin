@@ -1603,9 +1603,10 @@ func TestMapScreenKeys(t *testing.T) {
 // happens from other screens, on your own corners, or without enforcers.
 func TestStrikeKeys(t *testing.T) {
 	m := newTestModel(t, 100, 30)
+	m.Update(key("2")) // the market: w is nobody's there (#245: on the dashboard it walks away)
 	m.Update(key("w"))
 	if m.mode != modePlay || !strings.Contains(m.status, "map") {
-		t.Fatalf("w on the dashboard: mode %v status %q", m.mode, m.status)
+		t.Fatalf("w on the market: mode %v status %q", m.mode, m.status)
 	}
 	m.Update(key("5"))
 	m.mapCursor = m.yourCorner()
@@ -2066,8 +2067,8 @@ func TestRouteAndTravelKeys(t *testing.T) {
 	assertFits(t, m.View(), 120, 40, "tall dashboard with the road")
 	m.Update(tea.WindowSizeMsg{Width: 80, Height: 24})
 	m.Update(key("7"))
-	if v := stripANSI(m.View()); !strings.Contains(v, "LOGISTICS") || !strings.Contains(v, route.Name) {
-		t.Fatalf("the ledger does not list the route:\n%s", v)
+	if v := stripANSI(m.View()); !strings.Contains(v, "LOGISTICS") || !strings.Contains(v, "on the map screen (5)") {
+		t.Fatalf("the ledger does not point at the map for the road (#245):\n%s", v)
 	}
 	m.Update(key("1"))
 	for i := 0; i < days; i++ {
@@ -2822,10 +2823,10 @@ func TestModalsFit(t *testing.T) {
 		}},
 		// The exits (#49): the walk-away dialog's two pages, on a run
 		// that can retire and one that can vanish.
-		{"walk away", modeExit, func(t *testing.T, m *Model) { m.Update(key("7")); m.Update(key("w")) }},
+		{"walk away", modeExit, func(t *testing.T, m *Model) { m.Update(key("1")); m.Update(key("w")) }},
 		{"walk away: retire?", modeExit, func(t *testing.T, m *Model) {
 			m.w.Offshore, m.w.QuietDays = 2_000_000, 30
-			m.Update(key("7"))
+			m.Update(key("1"))
 			m.Update(key("w"))
 			m.Update(key("enter"))
 			if m.exit.step != 1 {
@@ -2834,7 +2835,7 @@ func TestModalsFit(t *testing.T) {
 		}},
 		{"walk away: vanish?", modeExit, func(t *testing.T, m *Model) {
 			m.w.Upgrades["lawyer"], m.w.Upgrades["retainer"], m.w.Upgrades["identity"] = true, true, true
-			m.Update(key("7"))
+			m.Update(key("1"))
 			m.Update(key("w"))
 			m.Update(key("j"))
 			m.Update(key("enter"))

@@ -11,7 +11,7 @@ import (
 )
 
 // The stash houses on the ledger (#73): the STASH table under the one
-// cursor with FRONTS, LOGISTICS and ON OFFER, the picker's house step
+// cursor with FRONTS, PAYOFFS and ON OFFER, the picker's house step
 // (b, then front or house), the move dialog (m: from, to, product,
 // quantity), the guard picker (e) and the drop confirmation (x).
 

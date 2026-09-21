@@ -164,8 +164,7 @@ const (
 	ledgerDeed       // the property (#194)
 	ledgerAsset      // an asset owned (#48)
 	ledgerAssetOffer // one on offer
-	ledgerRoute
-	ledgerPayoff // the bought law (#42)
+	ledgerPayoff     // the bought law (#42)
 	ledgerOffer
 )
 
@@ -207,9 +206,6 @@ func (m *Model) ledgerRows() []ledgerRow {
 		for i := range m.assetRows() {
 			rows = append(rows, ledgerRow{ledgerAssetOffer, i})
 		}
-	}
-	for i := range m.ledgerRoutes() {
-		rows = append(rows, ledgerRow{ledgerRoute, i})
 	}
 	for i := range m.payoffRows() {
 		rows = append(rows, ledgerRow{ledgerPayoff, i})
@@ -254,24 +250,6 @@ func launderRow(d events.Launder) string {
 // front earns a day on its own (#192) beside what it washes; where MAIN
 // is too narrow for the row whole the lifetime wash goes, then today's.
 var frontCols = []col{{"front", kText, 0}, {"lvl", kInt, 0}, {"earns/day", kMoney, 0}, {"washes/day", kMoney, 0}, {"today", kMoney, 0}, {"lifetime", kMoney, 0}, {"audit", kPct, 0}, {"status", kText, 0}}
-
-var routeCols = []col{{"route", kText, 0}, {"mode", kText, 0}, {"dial", kDial, 0}, {"target", kText, 0}, {"on the road", kText, 0}, {"lots/wk", kMoney, 0}, {"fares/wk", kMoney, 0}, {"lost", kInt, 0}}
-
-// routeRow is a route's LOGISTICS row: its dial, what it keeps where,
-// what is on it, and the week's books.
-func (m *Model) routeRow(r content.RouteConfig) []any {
-	w := m.w
-	rs := w.Route(r.ID)
-	target, road := m.targetLine(r.ID), m.roadOn(r.ID)
-	if target == "" {
-		target = "none"
-	}
-	if road == "" {
-		road = "none"
-	}
-	lots, fares := w.Logistics.RouteSpend(r.ID, w.Day, 7)
-	return []any{r.Name, r.Mode, styled{dialStyle(rs.Dial), rs.Dial}, target, road, lots, fares, w.Logistics.Lost[r.ID]}
-}
 
 // viewLedger is the ledger's MAIN: the till lines, then FRONTS,
 // LOGISTICS and ON OFFER as tables under the one cursor, scrolled so
@@ -429,33 +407,14 @@ func (m *Model) viewLedger() string {
 		}
 	}
 
-	routes := m.ledgerRoutes()
-	if len(routes) > 0 {
-		lost := 0
-		for _, n := range w.Logistics.Lost {
-			lost += n
-		}
-		heading("LOGISTICS", fmt.Sprintf(" · shipped %s in %s · seized %d", plural(w.Stats.Shipped, "unit"), plural(w.Stats.Shipments, "run"), lost))
-		var rows [][]any
-		for _, r := range routes {
-			rows = append(rows, m.routeRow(r))
-		}
-		cols := append([]col(nil), routeCols...)
-		// Where MAIN is too narrow for the targets to read whole (64
-		// columns beside the pane at 100, with a route keeping two
-		// products), the columns the pane carries go first: what the
-		// route has lost, then its mode.
-		for _, drop := range []int{7, 1} {
-			if tableWidth(cols, rows) <= width {
-				break
-			}
-			cols = append(cols[:drop:drop], cols[drop+1:]...)
-			for i := range rows {
-				rows[i] = append(rows[i][:drop:drop], rows[i][drop+1:]...)
-			}
-		}
-		tableLines(ledgerRoute, cols, rows)
+	// The road is the map's (#245): the ledger reads its money and
+	// points at the map for the dials, the targets and what is on it.
+	lost := 0
+	for _, n := range w.Logistics.Lost {
+		lost += n
 	}
+	heading("LOGISTICS", fmt.Sprintf(" · shipped %s in %s · seized %d", plural(w.Stats.Shipped, "unit"), plural(w.Stats.Shipments, "run"), lost))
+	line(theme.Subtle.Render(fmt.Sprintf("%s open; the road is %s.", plural(len(m.ledgerRoutes()), "route"), screenPointer(screenMap))))
 
 	// The bought law (#42): every live deal, and what the DA has heard
 	// if somebody on the payroll knows.
@@ -526,8 +485,6 @@ func (m *Model) ledgerDetails() []section {
 		secs = append(secs, m.assetSection(m.w.Assets[sel.i]))
 	case ledgerAssetOffer:
 		secs = append(secs, m.assetOfferSection(m.assetRows()[sel.i]))
-	case ledgerRoute:
-		secs = append(secs, m.ledgerRouteSection(m.ledgerRoutes()[sel.i]))
 	case ledgerPayoff:
 		if rows := m.payoffRows(); sel.i < len(rows) {
 			secs = append(secs, m.payoffSection(rows[sel.i]))
@@ -583,43 +540,6 @@ func (m *Model) accountantBonus(f game.Front) (int, bool) {
 	}
 	base := int(float64(fc.Throughput)*m.set.Laundering.Dial(m.w.Laundering.Dial).Mul + 0.5)
 	return m.set.Laundering.Throughput(m.w, f) - base, true
-}
-
-// ledgerRouteSection is a route's detail on the ledger: the edge, its
-// dial and terms, the targets, what is on the road, the week's lots and
-// fares, what it has lost, and where the road's money comes from.
-func (m *Model) ledgerRouteSection(r content.RouteConfig) section {
-	w := m.w
-	title, lines := m.routeFacts(r) // the map's key rows stay on the map: the ledger's keys are its own
-	lots, fares := w.Logistics.RouteSpend(r.ID, w.Day, 7)
-	lines = append(lines, m.buysFromRow(r)...)
-	lines = append(lines,
-		row("this week", fmt.Sprintf("lots %s · fares %s", cash(lots), cash(fares))),
-		row("lost", plural(w.Logistics.Lost[r.ID], "unit")+" on the road"))
-	lines = append(lines, wrapped(theme.Subtle, fmt.Sprintf("The road spends what is over %s dirty.", cash(m.set.Laundering.Float(w))))...)
-	lines = append(lines, theme.Subtle.Render("Turn it "+screenPointer(screenMap)+".")) // one line: the pointer reads whole
-	return section{title, lines}
-}
-
-// buysFromRow names the connect a route buys its lots from (#72): the
-// wholesaler at its source, with the lot and where they stand, or that
-// nobody there sells by the lot.
-func (m *Model) buysFromRow(r content.RouteConfig) []string {
-	w := m.w
-	sup := w.WholesaleSupplier(r.From)
-	if sup == nil {
-		return []string{row("buys from", theme.Subtle.Render("nobody: the stash there"))}
-	}
-	state := fmt.Sprintf("lots of %d", sup.Lot)
-	switch {
-	case sup.Frozen(w.Day):
-		state = theme.Bad.Render(fmt.Sprintf("not taking calls, %dd", sup.FrozenUntil-w.Day))
-	case sup.Locked(w):
-		state = theme.Subtle.Render("once " + cash(sup.UnlockCash) + " is moved")
-	case sup.Left() == 0:
-		state = theme.Warning.Render("nothing left today")
-	}
-	return []string{row("buys from", sup.Name+sep+state)}
 }
 
 // offerSection is an offer's detail: what it costs, washes and keeps,

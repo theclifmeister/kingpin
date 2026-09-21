@@ -327,29 +327,6 @@ func (m *Model) viewTarget() string {
 	return m.modal("TARGET · "+r.Name, body, m.modalFooter())
 }
 
-// roadOn is what is on the road on a route: units per product with the
-// soonest arrival, in product order, or "" when it is empty.
-func (m *Model) roadOn(route string) string {
-	w := m.w
-	var parts []string
-	for _, id := range w.Products {
-		units, soonest := 0, 0
-		for _, sh := range w.Shipments {
-			if sh.Route != route || sh.Product != id {
-				continue
-			}
-			units += sh.Units
-			if d := sh.DaysLeft(w.Day); soonest == 0 || d < soonest {
-				soonest = d
-			}
-		}
-		if units > 0 {
-			parts = append(parts, fmt.Sprintf("%d %s, %dd", units, w.ProductName(id), soonest))
-		}
-	}
-	return strings.Join(parts, ", ")
-}
-
 // targetLine is a route's targets in one line, `3d (≈180) Weed · 400
 // Coke`, a days target with the units it means today, or "" when it
 // has none.

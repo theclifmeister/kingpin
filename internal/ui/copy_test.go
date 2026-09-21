@@ -160,7 +160,7 @@ func TestStatusKinds(t *testing.T) {
 	m.Update(key("d"))
 	check("a proposal with no rival", theme.Warning, "Nothing to ", "Can't ")
 	m.Update(key("1"))
-	m.Update(key("w"))
+	m.Update(key("e")) // the map's and the ledger's, not the dashboard's (#245: w walks away here)
 	check("a key the screen does not take", theme.Warning)
 	// A confirmation: the buy.
 	m.Update(key("b"))
