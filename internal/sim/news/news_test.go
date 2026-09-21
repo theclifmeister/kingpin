@@ -52,7 +52,7 @@ func TestEveryEmittedEventHasTemplate(t *testing.T) {
 		"TierReached",                                            // #147
 		"HouseBought", "HouseRobbed", "HouseRaided", "HouseLost", // HouseCompromised, StockMoved and RentPaid are report-only (#73)
 		"Overdose",                  // StockCut and Cooked are report-only (#47)
-		"DeedsBought", "DeedSeized", // DeedBought and DeedRent are report-only (#194)
+		"DeedsBought", "DeedSeized", // DeedBought and DeedRent are report-only (#194); Taxed is report-only (#231)
 		"SpyPlanted", "SpyFound", "SpyShot", "IntelFalseRoute", "IntelFalseStash", // IntelGained is report-only (#45)
 	}
 	for _, r := range cfg.Heat.Responses {

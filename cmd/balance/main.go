@@ -268,6 +268,7 @@ func main() {
 	campaigns, campaignsWon, backed := 0, 0, 0                                        // #193
 	bribes, bribed, backfires, checkpoints, checkpointCash, leads := 0, 0, 0, 0, 0, 0 // #42
 	favours := 0                                                                      // #228
+	taxed := 0                                                                        // #231
 	stances := map[string]int{}
 	tempersOfChief := map[string]int{}
 	var rels []int
@@ -577,6 +578,7 @@ func main() {
 		campaigns, campaignsWon, backed = campaigns+st.Campaigns, campaignsWon+st.CampaignsWon, backed+st.Backed
 		bribes, bribed, backfires, checkpoints, checkpointCash, leads = bribes+st.Bribes, bribed+st.Bribed, backfires+st.Backfires, checkpoints+st.Checkpoints, checkpointCash+st.CheckpointCash, leads+st.Leads
 		favours += st.Favours
+		taxed += st.Taxed
 		stances[res.World.Law.DA.Stance]++
 		tempersOfChief[res.World.Law.Chief.Personality]++
 		// The street connect where the run ended: the relationship the
@@ -786,6 +788,9 @@ func main() {
 	fmt.Printf("law:           pressure %d goodwill %d at the end (medians), pressure max %d, %d elections, %d chiefs replaced, $%d given per run; DA %v chief %v\n",
 		pressure[len(pressure)/2], goodwill[len(goodwill)/2], pressure[len(pressure)-1], elections, chiefs, funded / *runs, stances, tempersOfChief)
 	fmt.Printf("campaigns:     %d backed, %d won, $%d put behind a ticket per run\n", campaigns, campaignsWon, backed / *runs)
+	if taxed > 0 {
+		fmt.Printf("tax:           $%d per run off the free corners of a city held\n", taxed / *runs)
+	}
 	fmt.Printf("bribes:        %d envelopes ($%d per run), %d backfired, %d leads, %d favours called in; %d checkpoints and customs deals ($%d per run)\n", bribes, bribed / *runs, backfires, leads, favours, checkpoints, checkpointCash / *runs)
 	if len(rels) > 0 {
 		sort.Ints(rels)

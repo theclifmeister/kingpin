@@ -1144,6 +1144,17 @@ type DealEnded struct {
 
 func (DealEnded) Kind() string { return "DealEnded" }
 
+// Taxed is report-only (#231): what the free corners of a city you
+// hold paid you tonight for the right to work them, and how many.
+type Taxed struct {
+	Day     int
+	City    string
+	Corners int
+	Amount  int
+}
+
+func (Taxed) Kind() string { return "Taxed" }
+
 // ReignBegan is the morning the city became yours for good (#227): every
 // faction at the table gone or paying homage for dominant_days, with
 // more than kingpin_share of home's corners held. Crews is how many pay

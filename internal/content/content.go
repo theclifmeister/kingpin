@@ -203,8 +203,22 @@ type DialConfig struct {
 type CityConfig struct {
 	Territory TerritoryTuning `toml:"territory"`
 	Deed      DeedTuning      `toml:"deed"`
+	Tax       TaxTuning       `toml:"tax"`
 	Cities    []CityEntry     `toml:"city"`
 }
+
+// TaxTuning is city.toml [tax] (#231): once you hold more than Share of
+// a city's corners (and MinHeld at least), every corner nobody holds
+// there is worked by independents who pay you Cut of its trade a night
+// in dirty cash. Cut at 0 boxes it.
+type TaxTuning struct {
+	Share   float64 `toml:"share"`
+	Cut     float64 `toml:"cut"`
+	MinHeld int     `toml:"min_held"`
+}
+
+// On reports whether the tax is in the file.
+func (t TaxTuning) On() bool { return t.Cut > 0 && t.Share > 0 }
 
 // DeedTuning mirrors city.toml [deed] (#194): what buying the block a
 // corner is on costs and does. The price is Days of the corner's street
