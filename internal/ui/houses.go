@@ -229,7 +229,7 @@ func (m *Model) houseRow(h game.House) []any {
 
 // houseStatus is a house's state for the status column, in the one
 // lowercase vocabulary: known (the police have it), rent unpaid 2d,
-// quiet.
+// unknown (#238: `quiet` is a corner's heat).
 func (m *Model) houseStatus(h game.House) any {
 	switch {
 	case h.Known:
@@ -237,7 +237,7 @@ func (m *Model) houseStatus(h game.House) any {
 	case h.Unpaid > 0:
 		return styled{theme.Warning, fmt.Sprintf("rent unpaid %dd", h.Unpaid)}
 	default:
-		return styled{theme.Good, "quiet"}
+		return styled{theme.Good, "unknown"}
 	}
 }
 
@@ -253,7 +253,7 @@ func (m *Model) houseSection(h game.House) section {
 	if c := w.Corner(h.Corner); c != nil {
 		lines = append(lines, row("block", c.Name), row("", fmt.Sprintf("heat %s · risk %s", times(c.Heat), times(c.Risk))))
 	}
-	lines = append(lines, row("holds", fmt.Sprintf("%d of %d", h.Units(), h.Capacity)))
+	lines = append(lines, row("stash", fmt.Sprintf("%d of %d", h.Units(), h.Capacity)))
 	for _, id := range w.Products {
 		if q := h.Stock[id]; q > 0 {
 			lines = append(lines, row("", fmt.Sprintf("%d %s", q, w.ProductName(id))))

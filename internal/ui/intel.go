@@ -639,10 +639,11 @@ func (m *Model) defenceWord(r *game.RivalState) string {
 	return fmt.Sprintf("~%.1f–%.1f", rv.DefenceAt(m.w, r, lo), rv.DefenceAt(m.w, r, hi))
 }
 
-// riskWord is a route's odds of a seizure over a run at a dial as the
-// file lets you read them: `~12%`, or `?` on a road you have never lost
-// a shipment on and nobody has told you about.
-func (m *Model) riskWord(r content.RouteConfig, d events.Ship) string {
+// seizedWord is a route's odds of a seizure over a run at a dial as
+// the file lets you read them: `~12%`, or `?` on a road you have never
+// lost a shipment on and nobody has told you about (#238: `riskWord`
+// is the corner's band, `rough`).
+func (m *Model) seizedWord(r content.RouteConfig, d events.Ship) string {
 	base, ok := m.known().Risk(r.ID)
 	if !ok {
 		return game.Unknown

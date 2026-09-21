@@ -308,7 +308,7 @@ func (m *Model) moodLine(r *game.RivalState) (line string, bad bool) {
 	case r.Absorbed > 0:
 		return fmt.Sprintf("Absorbed on day %d. There is nobody left to talk to.", r.Absorbed), false
 	case r.Fragmented > 0:
-		return fmt.Sprintf("Leaderless since day %d. What is left of them is drifting.", r.Fragmented), false
+		return fmt.Sprintf("Leaderless since day %d. Their corners go back to the street.", r.Fragmented), false
 	case m.set.Rivals.Distrusted(r, w.Day+1):
 		return fmt.Sprintf("You broke a deal. They take nothing for %s.", plural(r.Betrayed+m.set.Rivals.Diplomacy().DistrustDays-w.Day-1, "more day")), true
 	case r.Trust >= 60:
@@ -359,7 +359,7 @@ func (m *Model) rivalsDetails() []section {
 		if d.Until > 0 {
 			term = plural(d.Left(w.Day), "day") + " left"
 		}
-		lines := []string{row("who", fmt.Sprintf("%s, since day %d", who, d.Since)), row("holds", term)}
+		lines := []string{row("who", fmt.Sprintf("%s, since day %d", who, d.Since)), row("term", term)}
 		if d.Kind == game.DealTribute {
 			lines = append(lines, m.tributeRows(r, d)...)
 		}

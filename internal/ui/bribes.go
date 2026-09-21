@@ -329,7 +329,7 @@ func (m *Model) checkpointConfirm() []string {
 		body = append(body, theme.Subtle.Render(fmt.Sprintf("Yours until day %d already; this adds to it.", until)))
 	}
 	if d.On() {
-		body = append(body, "", row("seized now", fmt.Sprintf("%s a run at %s", m.riskWord(*r, d.Ship()), d)))
+		body = append(body, "", row("seized now", fmt.Sprintf("%s a run at %s", m.seizedWord(*r, d.Ship()), d)))
 	}
 	body = append(body, "")
 	for _, l := range m.wrapLines(fmt.Sprintf("A law-and-order DA taking office ends it within %s, and nothing is for sale while they sit.", plural(tun.CallsStopDays, "day"))) {
@@ -408,7 +408,7 @@ func (m *Model) payoffSection(p payoff) section {
 	if p.Route != nil {
 		r := *p.Route
 		d := w.Route(r.ID).Dial
-		lines = append(lines, row("edge", fmt.Sprintf("%s %s %s", w.CityName(r.From), edge(r.Mode), w.CityName(r.To))), row("seized", fmt.Sprintf("%s a run at %s", m.riskWord(r, d.Ship()), d)))
+		lines = append(lines, row("edge", fmt.Sprintf("%s %s %s", w.CityName(r.From), edge(r.Mode), w.CityName(r.To))), row("seized", fmt.Sprintf("%s a run at %s", m.seizedWord(r, d.Ship()), d)))
 	}
 	if w.Cold() {
 		lines = append(lines, theme.Bad.Render("A law-and-order DA sits: it ends within the week."))
