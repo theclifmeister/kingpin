@@ -109,7 +109,7 @@ func (m *Model) askScout() {
 		m.refuse("Can't scout twice: somebody is already reading their books tonight.")
 		return
 	}
-	m.mode = modeConfirmScout
+	m.ask("scout", (*Model).scoutConfirm, (*Model).confirmScout)
 }
 
 func (m *Model) confirmScout() {
@@ -212,7 +212,7 @@ func (m *Model) askTip() {
 		m.refuse("Can't tip twice: you have already tipped the police tonight.")
 		return
 	}
-	m.mode = modeConfirmTip
+	m.ask("tip", (*Model).tipConfirm, (*Model).confirmTip)
 }
 
 func (m *Model) confirmTip() {

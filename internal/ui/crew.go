@@ -52,7 +52,16 @@ func (m *Model) askFire() {
 		return
 	}
 	m.fireID = c.ID
-	m.mode = modeConfirmFire
+	m.ask("fire", (*Model).fireConfirm, (*Model).confirmFire)
+}
+
+// fireConfirm is the confirmation's modal, naming who goes.
+func (m *Model) fireConfirm() string {
+	name := "them"
+	if c := m.w.Crew.Member(m.fireID); c != nil {
+		name = c.Name
+	}
+	return m.modal("FIRE "+name+"?", []string{"No severance in this business. The rest of the crew", "will take it personally."}, m.modalFooter())
 }
 
 func (m *Model) confirmFire() {
@@ -78,7 +87,7 @@ func (m *Model) askInvestigate() {
 		m.refuse("Can't ask twice: somebody is already asking around tonight.")
 		return
 	}
-	m.mode = modeConfirmInvestigate
+	m.ask("ask", (*Model).investigateConfirm, (*Model).confirmInvestigate)
 }
 
 func (m *Model) confirmInvestigate() {
@@ -122,7 +131,7 @@ func (m *Model) askPayOff() {
 		return
 	}
 	m.fireID = c.ID
-	m.mode = modeConfirmPayOff
+	m.ask("pay", (*Model).payOffConfirm, (*Model).confirmPayOff)
 }
 
 func (m *Model) confirmPayOff() {

@@ -267,7 +267,13 @@ func (m *Model) askCheckpoint() {
 		m.refuse("Nothing to buy: no route out of " + m.shown().Name + ".")
 		return
 	}
-	m.mode = modeConfirmCheckpoint
+	m.ask("buy", (*Model).checkpointModal, (*Model).confirmCheckpoint)
+}
+
+// checkpointModal is the confirmation's modal: the deal in the title,
+// checkpointConfirm the body.
+func (m *Model) checkpointModal() string {
+	return m.modal("BUY THE "+strings.ToUpper(m.checkpointWord())+"?", m.checkpointConfirm(), m.modalFooter())
 }
 
 // checkpointWord is the selected route's deal, for the confirmation's

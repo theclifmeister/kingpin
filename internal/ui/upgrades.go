@@ -163,7 +163,7 @@ func (m *Model) askUpgrade() {
 		return
 	}
 	m.upgradeID = u.ID
-	m.mode = modeConfirmUpgrade
+	m.ask("buy", (*Model).upgradeConfirm, (*Model).confirmUpgrade)
 }
 
 func (m *Model) confirmUpgrade() {

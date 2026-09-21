@@ -61,7 +61,7 @@ func TestUpgradeArrowsTurnTheBranch(t *testing.T) {
 	// Enter buys the node under the cursor: the first of Security.
 	m.Update(key("right"))
 	m.Update(key("enter"))
-	if m.mode != modeConfirmUpgrade || m.upgradeID != sec[0].ID {
+	if m.mode != modeConfirm || m.upgradeID != sec[0].ID {
 		t.Fatalf("enter: mode %v id %q status %q", m.mode, m.upgradeID, m.status)
 	}
 	m.Update(key("y"))
@@ -215,7 +215,7 @@ func TestUpgradesScreenKeys(t *testing.T) {
 	}
 	// Enter asks; anything but y backs out.
 	m.Update(key("enter"))
-	if m.mode != modeConfirmUpgrade || m.upgradeID != "stash" {
+	if m.mode != modeConfirm || m.upgradeID != "stash" {
 		t.Fatalf("enter did not ask: mode %v id %q status %q", m.mode, m.upgradeID, m.status)
 	}
 	m.Update(key("esc"))

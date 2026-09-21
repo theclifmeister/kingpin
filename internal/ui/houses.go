@@ -697,7 +697,7 @@ func (m *Model) askDrop() {
 	if m.ledgerHouseSelected() == nil || m.w.Over != nil {
 		return
 	}
-	m.mode = modeConfirmDrop
+	m.ask("drop", (*Model).dropConfirm, (*Model).confirmDrop)
 }
 
 func (m *Model) confirmDrop() {

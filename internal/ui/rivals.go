@@ -107,7 +107,7 @@ func (m *Model) confirmStrike() {
 	if i >= len(forces) {
 		// A boost confirms first (#70): the picker's cursor carries the
 		// force into the confirmation.
-		m.mode = modeConfirmBoost
+		m.ask("boost", (*Model).boostConfirm, (*Model).confirmBoost)
 		return
 	}
 	if err := m.w.SendEnforcers(c.ID, forces[i]); err != nil {

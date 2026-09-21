@@ -43,7 +43,7 @@ func TestCrewScreenKeys(t *testing.T) {
 	}
 	// Cursor is on the new hire; f asks, anything but y backs out.
 	m.Update(key("f"))
-	if m.mode != modeConfirmFire {
+	if m.mode != modeConfirm {
 		t.Fatalf("f did not ask: mode %v status %q", m.mode, m.status)
 	}
 	m.Update(key("esc"))
@@ -87,7 +87,7 @@ func TestInvestigateAndPayOffKeys(t *testing.T) {
 	hired := m.w.Crew.Members[0]
 	cash := m.w.Player.DirtyCash
 	m.Update(key("i"))
-	if m.mode != modeConfirmInvestigate {
+	if m.mode != modeConfirm {
 		t.Fatalf("i did not ask: mode %v status %q", m.mode, m.status)
 	}
 	assertFits(t, m.View(), 80, 24, "investigate confirmation")
@@ -111,7 +111,7 @@ func TestInvestigateAndPayOffKeys(t *testing.T) {
 	// Pay off the new hire.
 	cash = m.w.Player.DirtyCash
 	m.Update(key("$"))
-	if m.mode != modeConfirmPayOff {
+	if m.mode != modeConfirm {
 		t.Fatalf("$ did not ask: mode %v status %q", m.mode, m.status)
 	}
 	assertFits(t, m.View(), 80, 24, "pay-off confirmation")

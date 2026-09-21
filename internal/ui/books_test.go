@@ -45,7 +45,7 @@ func TestBooksKeys(t *testing.T) {
 		}
 	}
 	m.Update(key("i"))
-	if m.mode != modeConfirmScout {
+	if m.mode != modeConfirm {
 		t.Fatalf("i on the rivals screen: mode %v status %q", m.mode, m.status)
 	}
 	view := stripANSI(m.View())
@@ -116,7 +116,7 @@ func TestBooksKeys(t *testing.T) {
 	m.mapCursor = 0
 	m.Update(key("w"))
 	m.Update(key("4"))
-	if m.mode != modeConfirmBoost {
+	if m.mode != modeConfirm {
 		t.Fatalf("the fourth picker row: mode %v status %q", m.mode, m.status)
 	}
 	view = stripANSI(m.View())
@@ -135,7 +135,7 @@ func TestBooksKeys(t *testing.T) {
 	// The tip: t confirms, y queues it, a second t is refused, and the
 	// inspector reads it.
 	m.Update(key("t"))
-	if m.mode != modeConfirmTip {
+	if m.mode != modeConfirm {
 		t.Fatalf("t on the rival corner: mode %v status %q", m.mode, m.status)
 	}
 	view = stripANSI(m.View())
