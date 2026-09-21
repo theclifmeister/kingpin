@@ -14,14 +14,28 @@ import (
 // cities in order, the one shown in brackets and Selected, with a mark
 // on the one you are in (`[ ◉ Eastside ]  Bayport`).
 func (m *Model) cityTabs() string {
-	var parts []string
-	for _, id := range m.w.CityOrder {
-		c := m.w.Cities[id]
-		label := c.Name
+	var labels []string
+	shown := 0
+	for i, id := range m.w.CityOrder {
+		label := m.w.Cities[id].Name
 		if id == m.w.Player.Location {
 			label = "◉ " + label
 		}
 		if id == m.city {
+			shown = i
+		}
+		labels = append(labels, label)
+	}
+	return tabLine(labels, shown)
+}
+
+// tabLine is the one tab row (#244): the labels two spaces apart in
+// Subtle, the shown one in brackets and Selected. The city tabs and
+// the upgrades screen's branch tabs are both drawn through it.
+func tabLine(labels []string, shown int) string {
+	var parts []string
+	for i, label := range labels {
+		if i == shown {
 			parts = append(parts, theme.Selected.Render("[ "+label+" ]"))
 		} else {
 			parts = append(parts, theme.Subtle.Render(label))
@@ -379,7 +393,7 @@ func (m *Model) marketDetails() []section {
 	f := facts(p)
 	sel := []string{
 		row("range 30d", f.rangeText()),
-		row("glut", fmt.Sprintf("%.0f%%", p.Glut*100)),
+		row("glut", pctText(p.Glut*100)),
 	}
 	if p.NoSupply {
 		sel = append(sel, row("supplier", theme.Warning.Render("not sold here")))

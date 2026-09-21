@@ -21,10 +21,7 @@ func (m *Model) selectedContract() *game.Contract {
 	if !m.onBuyers || len(rows) == 0 {
 		return nil
 	}
-	if m.buyerCursor >= len(rows) {
-		m.buyerCursor = len(rows) - 1
-	}
-	c := rows[m.buyerCursor]
+	c := rows[clamp(&m.buyerCursor, len(rows))]
 	return &c
 }
 
@@ -46,7 +43,7 @@ func urgency(days int) lipgloss.Style {
 func (m *Model) buyersLines() []string {
 	w := m.w
 	rows := m.buyerRows()
-	title := sectionTitle("BUYERS", theme.Market) + theme.Subtle.Render(" · "+m.shown().Name)
+	title := sectionTitle("BUYERS", m.accent()) + theme.Subtle.Render(" · "+m.shown().Name)
 	if len(rows) == 0 {
 		return []string{title, theme.Subtle.Render("Nobody is asking. Offers come here and lapse in a few days.")}
 	}

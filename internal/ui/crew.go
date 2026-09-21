@@ -9,7 +9,6 @@ import (
 
 	"github.com/theclifmeister/kingpin/internal/events"
 	"github.com/theclifmeister/kingpin/internal/game"
-	"github.com/theclifmeister/kingpin/internal/ui/sparkline"
 	"github.com/theclifmeister/kingpin/internal/ui/theme"
 )
 
@@ -28,8 +27,7 @@ func (m *Model) crewSelected() (game.CrewMember, bool, bool) {
 	if len(rows) == 0 {
 		return game.CrewMember{}, false, false
 	}
-	m.crewCursor = max(0, min(m.crewCursor, len(rows)-1))
-	return rows[m.crewCursor], m.crewCursor < len(m.w.Crew.Members), true
+	return rows[clamp(&m.crewCursor, len(rows))], m.crewCursor < len(m.w.Crew.Members), true
 }
 
 func (m *Model) hireSelected() {
@@ -275,7 +273,7 @@ func (m *Model) viewCrew() string {
 	width := m.mainWidth()
 	var b strings.Builder
 
-	b.WriteString(truncate(sectionTitle("CREW", theme.Crew)+theme.Subtle.Render(fmt.Sprintf(" · %d of %d on the payroll", len(w.Crew.Members), m.set.Crew.MaxCrew(w))), width) + "\n")
+	b.WriteString(truncate(theme.PanelTitle.Render("CREW")+theme.Subtle.Render(fmt.Sprintf(" · %d of %d on the payroll", len(w.Crew.Members), m.set.Crew.MaxCrew(w))), width) + "\n")
 	b.WriteString(truncate(theme.Subtle.Render("pay  ")+payRow(pay)+theme.Gold.Render(fmt.Sprintf("   %s/day", money(m.set.Crew.Wages(w, pay)))), width) + "\n")
 	if warn := m.crewWarning(); warn != "" {
 		b.WriteString(truncate(theme.Bad.Render(warn), width) + "\n")
@@ -306,7 +304,7 @@ func (m *Model) viewCrew() string {
 	}
 	shared := []col{{"name", kText, 0}, {"role", kText, 0}, {"skill", kInt, 0}, {"age", kInt, 0}, {"loyalty", kBar, 10}, {"wage", kMoney, 0}, {"carry", kInt, 0}}
 
-	b.WriteString(sectionTitle("ON THE PAYROLL", theme.Crew) + "\n")
+	b.WriteString(sectionTitle("ON THE PAYROLL", m.accent()) + "\n")
 	if len(w.Crew.Members) == 0 {
 		b.WriteString(emptyState("Nobody on the payroll. Pick a face below and press ", "h", ".") + "\n")
 	} else {
@@ -318,15 +316,7 @@ func (m *Model) viewCrew() string {
 		// Where MAIN is too narrow for the post to read whole (64
 		// columns beside the pane at 100), the columns the pane carries
 		// go first: carry, then the hire day, then the age (#46).
-		for _, drop := range []int{6, 7, 3} {
-			if tableWidth(cols, rows) <= width {
-				break
-			}
-			cols = append(cols[:drop:drop], cols[drop+1:]...)
-			for i := range rows {
-				rows[i] = append(rows[i][:drop:drop], rows[i][drop+1:]...)
-			}
-		}
+		cols, rows = dropCols(cols, rows, width, "carry", "hired", "age")
 		for _, l := range table(cols, rows, m.crewCursor, width) {
 			b.WriteString(l + "\n")
 		}
@@ -334,7 +324,7 @@ func (m *Model) viewCrew() string {
 	b.WriteString("\n")
 
 	next := max(1, m.set.Crew.PoolDays(w)-(w.Day-w.Crew.PoolDay))
-	title := sectionTitle("LOOKING FOR WORK", theme.Crew) + theme.Subtle.Render(" · new faces in "+plural(next, "day"))
+	title := sectionTitle("LOOKING FOR WORK", m.accent()) + theme.Subtle.Render(" · new faces in "+plural(next, "day"))
 	if !m.set.Crew.LieutenantsWanted(w) {
 		// The line named before it fires (#148): what the lieutenants
 		// wait on, in the form the width has room for.
@@ -356,15 +346,7 @@ func (m *Model) viewCrew() string {
 			rows = append(rows, append(row(c), fee))
 		}
 		cols := append(shared, col{"fee", kMoney, 0})
-		for _, drop := range []int{6, 3} {
-			if tableWidth(cols, rows) <= width {
-				break
-			}
-			cols = append(cols[:drop:drop], cols[drop+1:]...)
-			for i := range rows {
-				rows[i] = append(rows[i][:drop:drop], rows[i][drop+1:]...)
-			}
-		}
+		cols, rows = dropCols(cols, rows, width, "carry", "age")
 		for _, l := range table(cols, rows, m.crewCursor-len(w.Crew.Members), width) {
 			b.WriteString(l + "\n")
 		}
@@ -425,7 +407,7 @@ func (m *Model) personLines(c game.CrewMember, onPayroll bool) []string {
 	line := m.crewLine(c)
 	lines := []string{
 		first,
-		row("loyalty", loyaltyStyle(c.Loyalty, line).Render(sparkline.Bar(c.Loyalty/100, 10, []float64{line / 100})+fmt.Sprintf(" %.0f", c.Loyalty))),
+		row("loyalty", barText(c.Loyalty/100, 10, []float64{line / 100}, fmt.Sprintf(" %.0f", c.Loyalty), loyaltyStyle(c.Loyalty, line))),
 	}
 	if c.Lieutenant() {
 		lines = append(lines, sub(fmt.Sprintf("  turns under %.0f · walks at %.0f", line, tun.QuitThreshold)))

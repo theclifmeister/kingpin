@@ -2,6 +2,7 @@ package ui
 
 import (
 	"fmt"
+	"slices"
 	"strings"
 
 	"github.com/charmbracelet/lipgloss"
@@ -163,13 +164,10 @@ func cellText(k colKind, width int, v any) (string, *lipgloss.Style) {
 		s = price(toFloat(v))
 	case kPct:
 		f := toFloat(v)
-		switch {
-		case sign:
+		if sign {
 			s = fmt.Sprintf("%+.0f%%", f)
-		case f < 10 && f > -10:
-			s = fmt.Sprintf("%.1f%%", f)
-		default:
-			s = fmt.Sprintf("%.0f%%", f)
+		} else {
+			s = pctText(f)
 		}
 	case kDays:
 		if d, ok := v.(day); ok {
@@ -180,7 +178,7 @@ func cellText(k colKind, width int, v any) (string, *lipgloss.Style) {
 	case kBar:
 		switch x := v.(type) {
 		case gauge:
-			s = sparkline.Bar(x.frac, width, x.marks) + fmt.Sprintf(" %.0f", x.n)
+			s = barText(x.frac, width, x.marks, fmt.Sprintf(" %.0f", x.n), theme.Plain)
 		case spark:
 			s = sparkline.Render(x.vs, width)
 			if x.mark != "" {
@@ -355,4 +353,24 @@ func tableWidth(cols []col, rows [][]any) int {
 		w = max(w, lipgloss.Width(l))
 	}
 	return w
+}
+
+// dropCols drops columns from a table, by title in the order given,
+// until it fits the width (#244): the columns the pane carries go
+// first, so the caller names them in the order it can spare them.
+func dropCols(cols []col, rows [][]any, width int, order ...string) ([]col, [][]any) {
+	for _, title := range order {
+		if tableWidth(cols, rows) <= width {
+			break
+		}
+		i := slices.IndexFunc(cols, func(c col) bool { return c.title == title })
+		if i < 0 {
+			continue
+		}
+		cols = append(cols[:i:i], cols[i+1:]...)
+		for r := range rows {
+			rows[r] = append(rows[r][:i:i], rows[r][i+1:]...)
+		}
+	}
+	return cols, rows
 }

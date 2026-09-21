@@ -269,7 +269,7 @@ func (m *Model) houseSection(h game.House) section {
 		guard = fmt.Sprintf("%s · skill %d", g.Name, g.Skill)
 	}
 	lines = append(lines, row("guard", guard))
-	lines = append(lines, row("robbery", fmt.Sprintf("%.1f%%/day", m.set.Territory.HouseRobberyChance(w, &h)*100)))
+	lines = append(lines, row("robbery", pctText(m.set.Territory.HouseRobberyChance(w, &h)*100)+"/day"))
 	lines = append(lines, row("since", fmt.Sprintf("day %d · %s", h.Bought, money(h.Price))))
 	if h.Known {
 		lines = append(lines, wrapped(theme.Bad, "The police know this house: it is the one the raid finds. Move the stock out and drop it.")...)

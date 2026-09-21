@@ -9,7 +9,6 @@ import (
 	"github.com/theclifmeister/kingpin/internal/content"
 	"github.com/theclifmeister/kingpin/internal/events"
 	"github.com/theclifmeister/kingpin/internal/game"
-	"github.com/theclifmeister/kingpin/internal/ui/sparkline"
 	"github.com/theclifmeister/kingpin/internal/ui/theme"
 )
 
@@ -45,8 +44,7 @@ func (m *Model) intelSelected() *game.Fact {
 	if len(facts) == 0 {
 		return nil
 	}
-	m.intelCursor = max(0, min(m.intelCursor, len(facts)-1))
-	return &facts[m.intelCursor]
+	return &facts[clamp(&m.intelCursor, len(facts))]
 }
 
 // intelMove moves the cursor down the file.
@@ -218,7 +216,7 @@ func sureBar(f game.Fact, day int) string {
 	case c < 0.7:
 		style = theme.Warning
 	}
-	return style.Render(sparkline.Bar(c, 8, nil)) + style.Render(fmt.Sprintf(" %.0f%%", c*100))
+	return barText(c, 8, nil, fmt.Sprintf(" %.0f%%", c*100), style)
 }
 
 // viewIntel is MAIN on the intel screen: the file as a table over the
@@ -233,11 +231,10 @@ func (m *Model) viewIntel() string {
 	if len(facts) == 0 {
 		line(emptyState("Nothing known yet. Pay a cop with ", "$", ", or plant a spy with ") + theme.Key.Render("p") + theme.Subtle.Render("; what happens to you is written here."))
 	} else {
-		m.intelCursor = max(0, min(m.intelCursor, len(facts)-1))
-		ls = append(ls, table(intelCols, m.intelRows(), m.intelCursor, width)...)
+		ls = append(ls, table(intelCols, m.intelRows(), clamp(&m.intelCursor, len(facts)), width)...)
 	}
 	ls = append(ls, "")
-	line(sectionTitle("SPIES", theme.Intel))
+	line(sectionTitle("SPIES", m.accent()))
 	spies := w.Crew.Spies()
 	if len(spies) == 0 {
 		line(theme.Subtle.Render("Nobody under."))

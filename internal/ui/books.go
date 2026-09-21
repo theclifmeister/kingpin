@@ -8,7 +8,6 @@ import (
 
 	"github.com/theclifmeister/kingpin/internal/events"
 	"github.com/theclifmeister/kingpin/internal/game"
-	"github.com/theclifmeister/kingpin/internal/ui/sparkline"
 	"github.com/theclifmeister/kingpin/internal/ui/theme"
 )
 
@@ -70,7 +69,7 @@ func (m *Model) policeBar(r *game.RivalState, width int) string {
 	if r.Heat >= tp.PoliceNotice {
 		style = theme.Bad
 	}
-	s := style.Render(sparkline.Bar(r.Heat/tp.PoliceNotice, width, nil)) + style.Render(fmt.Sprintf(" %.0f/%.0f", r.Heat, tp.PoliceNotice))
+	s := barText(r.Heat/tp.PoliceNotice, width, nil, fmt.Sprintf(" %.0f/%.0f", r.Heat, tp.PoliceNotice), style)
 	if !m.set.Rivals.RaidReady(r, m.w.Day+1) {
 		s += theme.Subtle.Render(fmt.Sprintf(" · raided %s ago", plural(m.w.Day-r.LastRaid, "day")))
 	}
@@ -80,7 +79,7 @@ func (m *Model) policeBar(r *game.RivalState, width int) string {
 // booksLines is the BOOKS block of the rivals screen's MAIN: the title
 // with the snapshot's age, the table, and the police's attention.
 func (m *Model) booksLines(r *game.RivalState, width int) []string {
-	ls := []string{sectionTitle("BOOKS · "+m.booksAge(r), theme.Rivals)}
+	ls := []string{sectionTitle("BOOKS · "+m.booksAge(r), m.accent())}
 	ls = append(ls, table(booksCols, m.booksRows(r), -1, width)...)
 	barW := max(6, min(12, width/6))
 	ls = append(ls, truncate(theme.Subtle.Render("police ")+m.policeBar(r, barW), width))
