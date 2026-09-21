@@ -2930,6 +2930,15 @@ func TestModalsFit(t *testing.T) {
 		{"confirm pay off", modeConfirm, func(t *testing.T, m *Model) { m.Update(key("4")); m.Update(key("$")) }},
 		// Crew life (#46): the bail on a member put in a cell, the driver
 		// picker on the map's routes with a driver on the payroll.
+		{"confirm favour", modeConfirm, func(t *testing.T, m *Model) { // the favour (#228)
+			m.w.Law.Favours = 1
+			m.w.Law.DA.Stance = "moderate"
+			m.w.Law.Chief.Name = "Kerr"
+			raid := m.set.Heat.Thresholds()[2]
+			m.w.Here().Heat = m.set.Heat.Threshold(m.w, raid, m.w.Here()) + 1
+			m.Update(key("7"))
+			m.Update(key("v"))
+		}},
 		{"confirm bail", modeConfirm, func(t *testing.T, m *Model) {
 			m.w.Crew.Members[0].JailedUntil = m.w.Day + 5
 			m.Update(key("4"))

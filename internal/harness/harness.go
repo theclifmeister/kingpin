@@ -1044,6 +1044,21 @@ func Corrupt(cfg *content.Config, lieLowAt float64) Policy {
 	}
 }
 
+// Favoured plays like Corrupt and calls in the favour (#228) on every
+// morning the bought chief owes one and a sting, a raid or the task
+// force is due tonight (heat.Sim.Due): the corrupt player with the
+// phone call. It is the lever the favour is measured on.
+func Favoured(cfg *content.Config, lieLowAt float64) Policy {
+	corrupt := Corrupt(cfg, lieLowAt)
+	hs := heat.New(cfg)
+	return func(w *game.World) {
+		corrupt(w)
+		if due := hs.Due(w); w.CanCallFavour(due != "") {
+			_ = w.CallFavour(true)
+		}
+	}
+}
+
 // CorruptHeat is the heat over which the corrupt player pays the chief,
 // and CorruptMargin how many times the price it keeps in hand.
 const (

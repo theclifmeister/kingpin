@@ -423,8 +423,17 @@ func (m *Model) lawLines(innerW int, narrow bool) []string {
 	} else {
 		chief += theme.Subtle.Render("new")
 	}
+	// The favour (#228) before the days left: the debt is what you act
+	// on, the term what you wait for.
+	owes := ""
+	if l.Favours > 0 && !w.Cold() {
+		owes = sep + theme.Good.Render("owes one")
+	}
 	if end := m.set.Law.ChiefTermEnds(w); end > 0 && !narrow {
-		chief = firstFit(innerW, chief+sep+theme.Subtle.Render(fmt.Sprintf("%dd left", max(0, end-w.Day))), chief)
+		left := sep + theme.Subtle.Render(fmt.Sprintf("%dd left", max(0, end-w.Day)))
+		chief = firstFit(innerW, chief+owes+left, chief+owes, chief+left, chief)
+	} else {
+		chief = firstFit(innerW, chief+owes, chief)
 	}
 	// The ticket is spelt out where the line has the room for it and
 	// the election, and law-order where it does not; the election goes
@@ -647,6 +656,12 @@ func (m *Model) alerts() []alert {
 	}
 	if line := m.retireLine(); line != "" {
 		out = append(out, newAlert(line, "retirement"))
+	}
+	// The favour (#228): the chief owes you one and the police come
+	// tonight; keyed on the response due, so F stops once a night it
+	// could be called.
+	if due := m.favourDue(); w.CanCallFavour(due != "") {
+		out = append(out, newAlert(theme.Warning.Render(fmt.Sprintf("Chief %s owes you one and the %s comes tonight: call it in %s.", w.Law.Chief.Name, favourWord(due), screenPointer(screenLedger))), "the favour on the "+due))
 	}
 	// The reign (#227): the city is yours and the crown is there to take;
 	// keyed once, so a fast-forward stops the morning it begins.

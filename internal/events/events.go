@@ -1424,9 +1424,24 @@ type BribeAccepted struct {
 	Share  float64
 	Odds   float64
 	Leads  int
+	Favour bool // the chief owes you one now (#228)
 }
 
 func (BribeAccepted) Kind() string { return "BribeAccepted" }
+
+// RaidFellThrough is the favour called in (#228): the response the
+// police would have made tonight in City (Level: sting, raid, the task
+// force, or the patrol the heat fell to) did not come. Nothing taken,
+// no heat lost, the cooldown started as if it had; the page the favour
+// costs is on HeatChanged's reasons.
+type RaidFellThrough struct {
+	Day      int
+	City     string
+	Level    string
+	Evidence int // the pages the favour cost this morning
+}
+
+func (RaidFellThrough) Kind() string { return "RaidFellThrough" }
 
 // BribeRefused is report-only bookkeeping (#42): the envelope was
 // pocketed and nothing changed. Why is short (under the price), quiet

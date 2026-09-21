@@ -144,6 +144,8 @@ func main() {
 		p = harness.Funded(cfg, at(40))
 	case "corrupt":
 		p = harness.Corrupt(cfg, at(40))
+	case "favoured":
+		p = harness.Favoured(cfg, at(40))
 	case "distributor":
 		p = harness.Distributor(cfg, at(40))
 	case "driven":
@@ -263,6 +265,7 @@ func main() {
 	elections, chiefs, funded := 0, 0, 0
 	campaigns, campaignsWon, backed := 0, 0, 0                                        // #193
 	bribes, bribed, backfires, checkpoints, checkpointCash, leads := 0, 0, 0, 0, 0, 0 // #42
+	favours := 0                                                                      // #228
 	stances := map[string]int{}
 	tempersOfChief := map[string]int{}
 	var rels []int
@@ -571,6 +574,7 @@ func main() {
 		elections, chiefs, funded = elections+st.Elections, chiefs+st.Chiefs, funded+st.Funded
 		campaigns, campaignsWon, backed = campaigns+st.Campaigns, campaignsWon+st.CampaignsWon, backed+st.Backed
 		bribes, bribed, backfires, checkpoints, checkpointCash, leads = bribes+st.Bribes, bribed+st.Bribed, backfires+st.Backfires, checkpoints+st.Checkpoints, checkpointCash+st.CheckpointCash, leads+st.Leads
+		favours += st.Favours
 		stances[res.World.Law.DA.Stance]++
 		tempersOfChief[res.World.Law.Chief.Personality]++
 		// The street connect where the run ended: the relationship the
@@ -780,7 +784,7 @@ func main() {
 	fmt.Printf("law:           pressure %d goodwill %d at the end (medians), pressure max %d, %d elections, %d chiefs replaced, $%d given per run; DA %v chief %v\n",
 		pressure[len(pressure)/2], goodwill[len(goodwill)/2], pressure[len(pressure)-1], elections, chiefs, funded / *runs, stances, tempersOfChief)
 	fmt.Printf("campaigns:     %d backed, %d won, $%d put behind a ticket per run\n", campaigns, campaignsWon, backed / *runs)
-	fmt.Printf("bribes:        %d envelopes ($%d per run), %d backfired, %d leads; %d checkpoints and customs deals ($%d per run)\n", bribes, bribed / *runs, backfires, leads, checkpoints, checkpointCash / *runs)
+	fmt.Printf("bribes:        %d envelopes ($%d per run), %d backfired, %d leads, %d favours called in; %d checkpoints and customs deals ($%d per run)\n", bribes, bribed / *runs, backfires, leads, favours, checkpoints, checkpointCash / *runs)
 	if len(rels) > 0 {
 		sort.Ints(rels)
 		fmt.Printf("suppliers:     rel %d with the street connect at the end (median), %d days in debt per run, %d late payments, %d freezes, %d collections, $%d taken on credit per run (credit %s)\n",

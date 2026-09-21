@@ -1089,8 +1089,22 @@ func (s *Sim) Step(w *game.World, t *game.Tick) {
 			} else if ev.Share < 1 {
 				effect = fmt.Sprintf("a lazy chief, half the good: %s", effect)
 			}
-			rep.Law = append(rep.Law, fmt.Sprintf("%s took the %s: %s. Somebody at the DA's office heard (lead %d of %d).", who, format.Money(ev.Amount), effect, ev.Leads, leadsCase))
+			line := fmt.Sprintf("%s took the %s: %s. Somebody at the DA's office heard (lead %d of %d).", who, format.Money(ev.Amount), effect, ev.Leads, leadsCase)
+			if ev.Favour {
+				line += " The chief owes you one: call it in on a morning a raid is due and it will not come."
+			}
+			rep.Law = append(rep.Law, line)
 			rep.Money = append(rep.Money, fmt.Sprintf("Envelope for %s -%s", who, format.Money(ev.Amount)))
+		case events.RaidFellThrough:
+			// The favour (#228): the response that did not come.
+			d := at(ev.City)
+			d.Level = ev.Level
+			add("law", "RaidFellThrough", d)
+			word := ev.Level
+			if word == content.TaskForce {
+				word = "task force"
+			}
+			rep.Heat = append(rep.Heat, fmt.Sprintf("The %s%s fell through: Chief %s's people stood down at the last minute. Nothing taken, nothing cooled, and the file grows by %d: the chief's name is in your ledger now.", word, in(ev.City), w.Law.Chief.Name, ev.Evidence))
 		case events.BribeRefused:
 			bribed += ev.Amount
 			who := "Chief " + w.Law.Chief.Name

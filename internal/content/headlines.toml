@@ -465,6 +465,12 @@ ChiefReplacedCampaign = [
 # and pressure count them); the day the phones stop is the law's.
 # BribeAccepted, BribeRefused, LeadFound and CheckpointBought are
 # report-only: nobody prints a bribe that worked.
+# The favour (#228): the response that did not come.
+RaidFellThrough = [
+  "Raid in {{.City}} called off at the last minute, sources say",
+  "{{.City}} police pulled back from a planned operation overnight; Chief {{.Chief}} 'reviewing priorities'",
+  "'Somebody made a call': {{.City}} officers sent home hours before a bust",
+]
 BribeBackfired = [
   "{{.Name}} turns over 'an attempted inducement' to the DA; {{.City}} outfit named in the complaint",
   "{{.City}}: envelope handed to {{.Name}} ends up in an evidence bag, and a name with it",

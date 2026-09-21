@@ -125,6 +125,17 @@ checkpoint_days = 30        # days a bought checkpoint or customs agent holds
 calls_stop_days = 5         # days after a law-and-order DA takes office that every live deal ends
 fixer_odds = 0.25           # a skill-100 fixer adds this to the DA's odds
 fixer_discount = 0.4        # ... and takes this off da_price (what a backfire costs them is crew.toml's)
+# The favour (#228): a chief's envelope that takes leaves the chief owing
+# you one (Law.Favours, at most favours_max; a backfire owes nothing, the
+# cold zeroes it). World.CallFavour spends it on a morning a sting, a
+# raid or the task force is due tonight (heat.Sim.Due): the heat sim
+# reads Law.FavourOwed the way it reads Backfired and the response does
+# not come (nothing taken, no heat drop, the cooldown started as if it
+# had fired; RaidFellThrough), heat untouched, and favour_evidence pages
+# go in the file: the chief's name is in your ledger now. Never lowers
+# heat, so #60's rule holds and the aggressive player is still indicted.
+favours_max = 1             # favours a bought chief owes at once
+favour_evidence = 1         # pages the morning after a favour is called in
 
 # What the other sims read off the law, each from its own step. The
 # pressure knobs are the effect at pressure 100 and scale linearly from

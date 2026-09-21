@@ -50,6 +50,16 @@ type LawState struct {
 	// fronts had washed. The heat sim reads it the next morning, as it
 	// reads Backfired, and files forfeit_evidence pages. 0: never.
 	Forfeited int
+
+	// The favour (#228): Favours is what the bought chief owes you (a
+	// chief's envelope that takes adds one, to law.toml [bribes]
+	// favours_max; the cold zeroes it), FavourOwed the night one was
+	// called in for (CallFavour: the day of the tick after the morning
+	// of the call, so a call on day 0 reads). The heat sim reads it on
+	// that tick as it reads Backfired: the night's response falls
+	// through and favour_evidence pages go in the file.
+	Favours    int
+	FavourOwed int
 }
 
 // Bribe targets (#42): the chief and the DA.
@@ -145,7 +155,54 @@ var (
 	// ErrNoDirtyCash means a bribe or a checkpoint was offered clean
 	// money: cash in a bag is dirty cash.
 	ErrNoDirtyCash = errors.New("a bribe is dirty cash in a bag, and you have none")
+	// ErrNoFavour means the chief owes you nothing (#228): no envelope
+	// of yours has been taken since the last call, or the cold killed it.
+	ErrNoFavour = errors.New("the chief owes you nothing")
+	// ErrNothingDue means no sting, raid or task force is due tonight,
+	// so there is nothing a call could stop.
+	ErrNothingDue = errors.New("nothing is coming tonight that a call could stop")
+	// ErrFavourCalled means the call was made this morning already.
+	ErrFavourCalled = errors.New("the call is made; wait for the morning")
 )
+
+// CallFavour calls in the favour a bought chief owes (#228): tonight's
+// response falls through. due is whether a sting, a raid or the task
+// force is due tonight (heat.Sim.Due, the caller's, as Retire takes
+// its tuning from the laundering sim): with nothing due there is
+// nothing to stop and the favour is kept. One a morning; refused under
+// the cold, since nobody takes a call while a law-and-order DA sits.
+// The favour is spent now and the heat sim reads FavourOwed tonight;
+// the page it files is the price.
+func (w *World) CallFavour(due bool) error {
+	if w.Over != nil {
+		return ErrGameOver
+	}
+	if w.Cold() {
+		return ErrOfficialsCold
+	}
+	if w.FavourCalled() {
+		return ErrFavourCalled
+	}
+	if w.Law.Favours <= 0 {
+		return ErrNoFavour
+	}
+	if !due {
+		return ErrNothingDue
+	}
+	w.Law.Favours--
+	w.Law.FavourOwed = w.Day + 1
+	w.Stats.Favours++
+	return nil
+}
+
+// FavourCalled reports whether the call was made this morning: tonight
+// is the night it is owed on.
+func (w *World) FavourCalled() bool { return w.Law.FavourOwed == w.Day+1 }
+
+// CanCallFavour reports whether CallFavour would take.
+func (w *World) CanCallFavour(due bool) bool {
+	return w.Over == nil && !w.Cold() && w.Law.Favours > 0 && !w.FavourCalled() && due
+}
 
 // Cold reports whether the officials have stopped taking calls (#42): a
 // law-and-order DA sits. The chief will not be bribed and no checkpoint

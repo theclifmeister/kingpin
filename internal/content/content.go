@@ -1240,6 +1240,8 @@ type BribeTuning struct {
 	CallsStopDays    int     `toml:"calls_stop_days"`
 	FixerOdds        float64 `toml:"fixer_odds"`
 	FixerDiscount    float64 `toml:"fixer_discount"`
+	FavoursMax       int     `toml:"favours_max"`     // the favour (#228): favours a bought chief can owe at once; 0 boxes it
+	FavourEvidence   int     `toml:"favour_evidence"` // pages the morning a favour is called in: the chief's name is in your ledger
 }
 
 // CampaignTuning is law.toml's [campaign] (#193): what clean cash behind
