@@ -11,21 +11,23 @@ import (
 // Crew life on the screens (#46): the crew screen's tags, ages and kin,
 // the bail, and the driver on a route.
 
-// crewTag is the one-word state a member is in for the roster's post
-// column, "" for one at work: JAILED with the days to go (OUT TOMORROW
-// once bail is down), WOUNDED with the days, RETIRING for one whose
-// next birthday is the farewell.
+// crewTag is the one-word state a member is in for the roster's where
+// column, "" for one at work: jailed with the days to go (out tomorrow
+// once bail is down), wounded with the days, retiring for one whose
+// next birthday is the farewell. Lowercase, as every status in a table
+// is (#238: `jailed` is the word in tables and summary rows, `a cell`
+// prose only).
 func (m *Model) crewTag(c game.CrewMember) string {
 	day := m.w.Day
 	switch {
 	case c.Jailed(day) && c.Bailed:
-		return "OUT TOMORROW"
+		return "out tomorrow"
 	case c.Jailed(day):
-		return fmt.Sprintf("JAILED %dd", c.JailedUntil-day)
+		return fmt.Sprintf("jailed %dd", c.JailedUntil-day)
 	case c.Wounded(day):
-		return fmt.Sprintf("WOUNDED %dd", c.WoundedUntil-day)
+		return fmt.Sprintf("wounded %dd", c.WoundedUntil-day)
 	case m.set.Crew.Retiring(c):
-		return "RETIRING"
+		return "retiring"
 	}
 	return ""
 }

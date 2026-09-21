@@ -277,3 +277,101 @@ func TestEmptyStates(t *testing.T) {
 		}
 	}
 }
+
+// TestStateWords (#238): docs/copy.md's state-word table lists every
+// word once with one meaning, and the screens read the words the table
+// gives: a frozen asset is `shut, back in Nd` like a frozen front and
+// never `idle` (the crew's word); a house nobody knows about is
+// `unknown`, never `quiet` (a corner's heat); a member in a cell is
+// `jailed Nd` in the roster and `jailed · Nd to go` in the pane; a held
+// corner nobody works reads `street in Nd` in the grid and `back to
+// the street in Nd` in the pane; the rival's corner count is `corners`
+// and a house's units `stash`.
+func TestStateWords(t *testing.T) {
+	// The doc's table: every word once.
+	b, err := os.ReadFile("../../docs/copy.md")
+	if err != nil {
+		t.Fatal(err)
+	}
+	rowRE := regexp.MustCompile("^\\| (`[^|]*`) \\| ")
+	wordRE := regexp.MustCompile("`([^`]+)`")
+	seen := map[string]bool{}
+	rows := 0
+	for _, l := range strings.Split(string(b), "\n") {
+		m := rowRE.FindStringSubmatch(l)
+		if m == nil {
+			continue
+		}
+		rows++
+		for _, w := range wordRE.FindAllStringSubmatch(m[1], -1) {
+			if seen[w[1]] {
+				t.Errorf("docs/copy.md lists the state word %q twice", w[1])
+			}
+			seen[w[1]] = true
+		}
+	}
+	if rows < 8 || !seen["idle"] || !seen["unknown"] || !seen["street in 3d"] {
+		t.Fatalf("docs/copy.md's state-word table has %d rows and lacks the words", rows)
+	}
+
+	m := richModel(t, 120, 40)
+	w := m.w
+	day := w.Day
+	view := func(screen string) string {
+		m.Update(key(screen))
+		return stripANSI(m.View())
+	}
+	// The ledger: a frozen asset and a house nobody knows.
+	if len(w.Assets) == 0 {
+		o := m.set.Laundering.AssetOffers()[0]
+		w.Assets = append(w.Assets, game.Asset{ID: o.ID, Name: o.Name, Effect: o.Effect, City: o.City, Cost: o.Cost, Upkeep: o.Upkeep, Bought: day - 1})
+	}
+	w.Assets[0].FrozenUntil = day + 3
+	if len(w.Houses) == 0 {
+		t.Fatal("the rich fixture has no house")
+	}
+	w.Houses[0].Known, w.Houses[0].Unpaid = false, 0
+	if v := view("7"); !strings.Contains(v, "shut, back in 2d") || strings.Contains(v, "idle") || !strings.Contains(v, "unknown") || strings.Contains(v, "quiet") {
+		t.Errorf("the ledger: want `shut, back in 2d` and `unknown`, never `idle` or `quiet`:\n%s", v)
+	}
+	// The crew: one in a cell.
+	if len(w.Crew.Members) == 0 {
+		t.Fatal("the rich fixture has no crew")
+	}
+	w.Crew.Members[0].JailedUntil, w.Crew.Members[0].Bailed = day+4, false
+	m.crewCursor = 0
+	if v := view("4"); !strings.Contains(v, "jailed 4d") || !strings.Contains(v, "jailed · 4d to go") || strings.Contains(v, "a cell") || strings.Contains(v, "JAILED") {
+		t.Errorf("the crew: want `jailed 4d` and `jailed · 4d to go`, never `a cell` or JAILED:\n%s", v)
+	}
+	// The map: a held corner nobody works, and the rival's.
+	m.Update(key("5"))
+	cs := m.shown().Corners
+	held, rival := -1, -1
+	for i := range cs {
+		if cs[i].Owner == game.OwnerRival && rival < 0 {
+			rival = i
+		} else if cs[i].Owner != game.OwnerRival && held < 0 {
+			cs[i].Owner, cs[i].Runner, cs[i].Enforcer, cs[i].Idle = game.OwnerPlayer, 0, 0, 0
+			held = i
+		}
+	}
+	if held < 0 || rival < 0 {
+		t.Fatalf("the fixture's map has no corner to hold (%d) or the rival's (%d)", held, rival)
+	}
+	m.mapCursor, m.onRoutes = held, false
+	if v := stripANSI(m.View()); !strings.Contains(v, "street in ") || !strings.Contains(v, "back to the street in ") || strings.Contains(v, "nobody, ") || strings.Contains(v, "drifting") {
+		t.Errorf("the map: want `street in Nd` and `back to the street in Nd`, never `nobody, Nd left` or `drifting`:\n%s", v)
+	}
+	m.mapCursor = rival
+	if v := stripANSI(m.View()); !strings.Contains(v, "corners ") || strings.Contains(v, "holds ") {
+		t.Errorf("the rival's corner: want `corners`, never `holds`:\n%s", v)
+	}
+	// The house's units are `stash`, never `holds`.
+	m.Update(key("7"))
+	for m.ledgerSelected().kind != ledgerHouse {
+		m.Update(key("j"))
+	}
+	if v := stripANSI(m.View()); !strings.Contains(v, "stash ") || strings.Contains(v, "holds ") {
+		t.Errorf("the house's section: want `stash`, never `holds`:\n%s", v)
+	}
+}

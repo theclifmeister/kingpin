@@ -214,7 +214,7 @@ func payRow(p events.Pay) string {
 // guards nothing; a runner without one is idle.
 func (m *Model) post(c game.CrewMember) any {
 	w := m.w
-	if tag := m.crewTag(c); tag != "" && tag != "RETIRING" {
+	if tag := m.crewTag(c); tag != "" && tag != "retiring" {
 		return styled{theme.Bad, tag} // in a cell or laid up (#46): nowhere
 	}
 	switch {
@@ -423,7 +423,7 @@ func (m *Model) personLines(c game.CrewMember, onPayroll bool) []string {
 	}
 	lines = append(lines, row("wage", fmt.Sprintf("%s/day %s", money(m.set.Crew.WageAt(w, c, pay)), pay)), sub("  "+strings.Join(others, " · ")))
 	if c.Units > 0 {
-		lines = append(lines, row("carries", "+"+plural(c.Units, "unit")))
+		lines = append(lines, row("carry", "+"+plural(c.Units, "unit")))
 	}
 	if a := m.ageLine(c); a != "" {
 		lines = append(lines, row("age", a))
@@ -448,9 +448,9 @@ func (m *Model) personLines(c game.CrewMember, onPayroll bool) []string {
 	}
 	switch {
 	case c.Jailed(w.Day) && c.Bailed:
-		lines = append(lines, row("post", theme.Warning.Render("a cell · out tomorrow")))
+		lines = append(lines, row("post", theme.Warning.Render("jailed · out tomorrow")))
 	case c.Jailed(w.Day):
-		lines = append(lines, row("post", theme.Bad.Render(fmt.Sprintf("a cell · %dd to go", c.JailedUntil-w.Day))))
+		lines = append(lines, row("post", theme.Bad.Render(fmt.Sprintf("jailed · %dd to go", c.JailedUntil-w.Day))))
 	case c.Wounded(w.Day):
 		lines = append(lines, row("post", theme.Bad.Render(fmt.Sprintf("laid up · %dd to go", c.WoundedUntil-w.Day))))
 	case c.Role == game.RoleDriver && w.DrivenRoute(c.ID) != "":

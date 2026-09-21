@@ -78,7 +78,7 @@ func (m *Model) sayRouteDial(r content.RouteConfig, d events.RouteDial) {
 		return
 	}
 	lg := m.set.Logistics
-	line := fmt.Sprintf("%s %s: %s %s to %s, seized %s.", r.Name, d, plural(lg.Days(m.w, r, d.Ship()), "day"), r.Mode, m.w.CityName(r.To), m.riskWord(r, d.Ship()))
+	line := fmt.Sprintf("%s %s: %s %s to %s, seized %s.", r.Name, d, plural(lg.Days(m.w, r, d.Ship()), "day"), r.Mode, m.w.CityName(r.To), m.seizedWord(r, d.Ship()))
 	if !m.w.Route(r.ID).HasTargets() {
 		line += " It sends nothing without a target."
 	}
@@ -419,7 +419,7 @@ func (m *Model) routeLines(width int) []string {
 			dial := fit(d.String(), 6)
 			terms := ""
 			if units != "" {
-				terms = fmt.Sprintf("  %dd · %d%s · %s/u · %s", lg.Days(w, r, d.Ship()), lg.Capacity(w, r), units, fare(lg.Fare(w, r)), m.riskWord(r, d.Ship()))
+				terms = fmt.Sprintf("  %dd · %d%s · %s/u · %s", lg.Days(w, r, d.Ship()), lg.Capacity(w, r), units, fare(lg.Fare(w, r)), m.seizedWord(r, d.Ship()))
 			}
 			plain := name + "  " + from + road + to + "  " + dial + terms
 			widest = max(widest, 2+lipgloss.Width(plain))
@@ -577,7 +577,7 @@ func (m *Model) routeFacts(r content.RouteConfig) (string, []string) {
 	}
 	lines = append(lines,
 		row("days", fmt.Sprintf("%d · capacity %d", lg.Days(w, r, d.Ship()), lg.Capacity(w, r))),
-		row("fare", fmt.Sprintf("%s/u · seized %s", fare(lg.Fare(w, r)), m.riskWord(r, d.Ship()))),
+		row("fare", fmt.Sprintf("%s/u · seized %s", fare(lg.Fare(w, r)), m.seizedWord(r, d.Ship()))),
 	)
 	switch t := m.targetLine(r.ID); {
 	case t == "" && d.On():
@@ -673,7 +673,7 @@ func (m *Model) travelConfirm() string {
 	to := m.travelTo()
 	body := []string{fmt.Sprintf("Leave %s for %s today?", m.w.Here().Name, m.w.CityName(to)), ""}
 	if c := m.w.PostOf(game.You); c != nil {
-		body = append(body, theme.Warning.Render(fmt.Sprintf("You step off %s: it drifts back to the street", c.Name)), theme.Warning.Render("unless a runner takes it."))
+		body = append(body, theme.Warning.Render(fmt.Sprintf("You step off %s: back to the street in %dd", c.Name, m.driftLeft(c))), theme.Warning.Render("unless a runner takes it."))
 	} else {
 		body = append(body, theme.Subtle.Render("You stand on no corner here to leave."))
 	}

@@ -97,12 +97,13 @@ func (m *Model) assetBlurb(id string) string {
 	return ""
 }
 
-// assetStatus is an asset's state for the status column: idle for
-// unpaid upkeep, else standing, with the day the task force last came.
+// assetStatus is an asset's state for the status column: `shut, back
+// in Nd` for unpaid upkeep (the front's word, #238: `idle` is the
+// crew's), else standing, with the day the task force last came.
 func (m *Model) assetStatus(a game.Asset) any {
 	w := m.w
 	if a.Frozen(w.Day + 1) {
-		return styled{theme.Warning, fmt.Sprintf("idle %dd", a.FrozenUntil-w.Day-1)}
+		return styled{theme.Warning, fmt.Sprintf("shut, back in %dd", a.FrozenUntil-w.Day-1)}
 	}
 	if last, ok := w.Heat.LastResponse[content.TaskForce]; ok && last > 0 {
 		return styled{theme.Good, fmt.Sprintf("standing · feds looked %dd ago", w.Day-last)}

@@ -236,7 +236,7 @@ what your enforcers' chances look like:
 MAP · Eastside   [ ◉ Eastside ]  Bayport  3/10 held · 3 worked · ~1828/day free     ╭─ DETAILS ────────────────────────╮
  ▴ THE DOCKS         ▪ RAIL YARD         ▪ OLD MILL                                 │ THE DOCKS                        │
    theirs              Dre                 Gato ⚔ Moose                             │ Mona's since day 0               │
-   ~231/day quiet      ~130/day quiet      ~109/day quiet                           │ holds       1 corner             │
+   ~231/day quiet      ~130/day quiet      ~109/day quiet                           │ corners     1                    │
  ▪ FOURTH & MAIN     · BUS DEPOT         · THE PROJECTS      · PRECINCT ROW         │ size        ×1.2                 │
    you                 free                free                free                 │ heat        ×0.6 quiet           │
    ~142/day undercut   ~142/day warm       ~326/day average    ~269/day hot         │ risk        ×1.6 rough           │

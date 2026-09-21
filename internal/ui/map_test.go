@@ -49,7 +49,7 @@ func mapFacts(t *testing.T, m *Model, c *game.Corner, text, where string) {
 			want = append(want, "push flips")
 		}
 	case c.Owner == game.OwnerRival:
-		want = append(want, w.Rival().Leader+"'s since day", "holds", "push takes it", "hit ~")
+		want = append(want, w.Rival().Leader+"'s since day", "corners", "push takes it", "hit ~")
 	case m.eyed(c):
 		// The tell (#69): the rival may be eyeing the fixture's free
 		// corner on some seeds; the hint is then to keep them off.
@@ -140,7 +140,7 @@ func TestMapInspectorInPane(t *testing.T) {
 		}
 		// The rival's count is the inspector's, not the title's.
 		m.mapCursor = rival
-		if text := paneText(m); !strings.Contains(text, plural(m.w.RivalHeld(), "corner")) {
+		if text := paneText(m); !strings.Contains(text, fmt.Sprintf("corners     %d", m.w.RivalHeld())) { // the count under `corners` (#238), as the FACTIONS table's column
 			t.Errorf("the rival's corner does not say how many they hold:\n%s", text)
 		}
 		if title := strings.Split(stripANSI(m.View()), "\n")[1]; !strings.Contains(title, "held ·") || !strings.Contains(title, "/day free") || strings.Contains(title, m.w.Rival().Leader) {

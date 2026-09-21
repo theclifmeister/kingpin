@@ -312,7 +312,7 @@ func (m *Model) viewMap() string {
 				}
 				who = st.Render(fit("  "+who, cellW-1))
 			case c.Held():
-				who = theme.Warning.Render(fit(fmt.Sprintf("  nobody, %dd left", m.driftLeft(c)), cellW-1))
+				who = theme.Warning.Render(fit(fmt.Sprintf("  street in %dd", m.driftLeft(c)), cellW-1))
 			case c.Owner == game.OwnerRival:
 				if s := w.Today.Strike; s != nil && s.Corner == c.ID {
 					who = theme.Warning.Render(fit(fmt.Sprintf("  ⚔ %s tonight", s.Force), cellW-1))
@@ -415,6 +415,13 @@ func (m *Model) driftLeft(c *game.Corner) int {
 	return max(1, m.set.Territory.DriftDays(m.w)-c.Idle)
 }
 
+// fragmentLeft is the days a leaderless faction's last corner has
+// before it goes back to the street (the rivals sim spreads them over
+// fragment_days from the leader's fall; #238: the one drift phrase).
+func (m *Model) fragmentLeft(r *game.RivalState) int {
+	return max(1, r.Fragmented+m.set.Rivals.Factions().FragmentDays-m.w.Day-1)
+}
+
 // mapDetails is the map's pane: the inspector for the corner under the
 // cursor, or the route's detail while the cursor is on the routes, and
 // the keys.
@@ -456,9 +463,9 @@ func (m *Model) cornerSection(sel *game.Corner) section {
 		if s := w.Today.Strike; s != nil && s.Corner == sel.ID {
 			lines = append(lines, theme.Warning.Render(fmt.Sprintf("⚔ %s tonight", s.Force)))
 		}
-		lines = append(lines, row("holds", st.Render(plural(w.RivalHeldBy(f.Faction()), "corner"))))
+		lines = append(lines, row("corners", st.Render(fmt.Sprintf("%d", w.RivalHeldBy(f.Faction()))))) // the count, as the FACTIONS table's column
 		if f.Fragmented > 0 {
-			lines = append(lines, theme.Warning.Render("leaderless: drifting back to the street"))
+			lines = append(lines, theme.Warning.Render(fmt.Sprintf("leaderless: back to the street in %dd", m.fragmentLeft(f))))
 		}
 	case m.eyed(sel):
 		lines = append(lines, m.factionStyle(m.eyedBy(sel)).Render(fmt.Sprintf("free · %s set up here tomorrow", w.FactionName(m.eyedBy(sel)))))
@@ -550,7 +557,7 @@ func (m *Model) cornerSection(sel *game.Corner) section {
 		lines = append(lines, keyRow("c", "move a runner here"), keyRow("e", "post an enforcer"), keyRow("a", "abandon the corner"))
 	case sel.Held():
 		lines = append(lines,
-			theme.Warning.Render(fmt.Sprintf("back to the street in %s", plural(m.driftLeft(sel), "day"))),
+			theme.Warning.Render(fmt.Sprintf("back to the street in %dd", m.driftLeft(sel))),
 			keyRow("c", "post a runner here"), keyRow("e", "post an enforcer"), keyRow("a", "abandon the corner"))
 	case sel.Owner == game.OwnerRival:
 		f := m.factionOf(sel)
