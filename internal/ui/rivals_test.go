@@ -63,7 +63,7 @@ func TestRivalsPane(t *testing.T) {
 		}
 	}
 	pane := paneRender(m)
-	for _, want := range []string{"TRUCE · 30 DAYS", "theirs · 4 days to answer", "y  accept it", "x  turn it down", "RULES", "LIFETIME", "struck", "broken", "tribute", "KEYS"} {
+	for _, want := range []string{"TRUCE · 30 DAYS", "theirs · 4 days to answer", "a  accept it", "x  turn it down", "RULES", "LIFETIME", "struck", "broken", "tribute", "KEYS"} {
 		if !strings.Contains(pane, want) {
 			t.Errorf("the pane lacks %q:\n%s", want, pane)
 		}

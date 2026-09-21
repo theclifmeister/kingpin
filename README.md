@@ -372,7 +372,7 @@ The full table is below; `?` brings it up in the game.
 | `n` | end day | end the day: the sims step and the run saves | everywhere |
 | `F` | fast-forward | run days until something needs you | everywhere |
 | `↑↓` | pick | move the cursor (j and k move it too) | everywhere |
-| `[ ]` | city | next city, or the next faction on rivals | everywhere |
+| `[ ]` | city | the next city on the market and the map | everywhere |
 | `b` | buy | buy where you stand or a lieutenant runs | everywhere |
 | `s` | sell | queue a street sale in the city shown | everywhere |
 | `x` | cancel order | cancel order, else standing, else contract | everywhere |
@@ -430,8 +430,9 @@ The full table is below; `?` brings it up in the game.
 | `o` | reserve | clean cash into the offshore account | ledger |
 | `w` | walk away | retire on the account, or vanish | ledger |
 | `enter` | buy / dial | buy the offer or turn the route selected | ledger |
+| `[ ]` | faction | the next faction at the table | rivals |
 | `d` | propose | offer the rival a truce, tribute or a split | rivals |
-| `y` | accept | take the selected offer | rivals |
+| `a` | accept | take the selected offer | rivals |
 | `x` | decline | turn the selected offer down | rivals |
 | `i` | scout | buy a look at the rival's books | rivals |
 | `$` | buy off | pay the rival's muscle to go home | rivals |

@@ -1035,6 +1035,7 @@ func TestEnterDoesNotEndDay(t *testing.T) {
 	// The target dialog: enter picks the product, enter the kind, enter
 	// sets the target, and none is a day.
 	m.Update(key("5"))
+	m.onRoutes = true // R acts on the routes cursor (#239)
 	m.Update(key("R"))
 	if m.mode != modeTarget {
 		t.Fatalf("R on the map: mode %v status %q", m.mode, m.status)
@@ -2300,14 +2301,14 @@ func TestRivalsScreenKeys(t *testing.T) {
 	}
 	m.Update(key("d"))
 	m.Update(key("d"))
-	// Offers: x declines the selected one, y accepts, a lapsed one is refused.
+	// Offers: x declines the selected one, a accepts (#239: the buyer's key too; y is a confirmation's yes), a lapsed one is refused.
 	m.Update(key("8"))
 	w.Offers = []game.Offer{
 		{ID: 7, Deal: game.Deal{Kind: game.DealTribute, Terms: game.Terms{PerDay: 400}, Offered: true}, Expires: w.Day + 2},
 		{ID: 8, Deal: game.Deal{Kind: game.DealSplit, Terms: game.Terms{Corners: []string{w.Home().Corners[0].ID}}, Offered: true}, Expires: w.Day - 1},
 	}
 	m.Update(key("down"))
-	m.Update(key("y"))
+	m.Update(key("a"))
 	if len(w.Today.Accepted) != 0 || !strings.Contains(m.status, "lapsed") {
 		t.Fatalf("accepting a lapsed offer: accepted %+v status %q", w.Today.Accepted, m.status)
 	}
@@ -2315,7 +2316,7 @@ func TestRivalsScreenKeys(t *testing.T) {
 	if len(w.Offers) != 1 || w.Offers[0].ID != 7 {
 		t.Fatalf("declining: offers %+v", w.Offers)
 	}
-	m.Update(key("y"))
+	m.Update(key("a"))
 	if len(w.Offers) != 0 || len(w.Today.Accepted) != 1 || w.Today.Accepted[0].ID != 7 {
 		t.Fatalf("accepting: offers %+v accepted %+v status %q", w.Offers, w.Today.Accepted, m.status)
 	}

@@ -103,6 +103,13 @@ func hasChemist(m *Model) bool { return m.w.Crew.Chemist() != nil }
 // onBuyers is the market's cursor being on the buyers under the table.
 func onBuyers(m *Model) bool { return m.screen == screenMarket && m.onBuyers }
 
+// onProducts is the market's cursor being on the product table (#239):
+// where the cut and the cook act, and are listed. onProductsWithChemist
+// is the cook's: a chemist on the payroll too.
+func onProducts(m *Model) bool { return m.screen == screenMarket && !m.onBuyers && !m.onSuppliers }
+
+func onProductsWithChemist(m *Model) bool { return onProducts(m) && hasChemist(m) }
+
 // step is the dialog open being on its nth page.
 func step(n int) func(*Model) bool { return func(m *Model) bool { return m.modalStep() == n } }
 
@@ -231,14 +238,11 @@ var bindings = []binding{
 				m.journalPage(1)
 			}
 		}},
-	{key: "[ ]", label: "city", help: "next city, or the next faction on rivals", keys: []string{"[", "]"}, screens: on(screenMarket, screenMap, screenRivals), global: true,
-		do: func(m *Model, key string) {
-			if m.screen == screenRivals {
-				m.cycleFaction(dir(key))
-				return
-			}
-			m.cycleCity(dir(key))
-		}},
+	{key: "[ ]", label: "city", help: "the next city on the market and the map", keys: []string{"[", "]"}, screens: on(screenMarket, screenMap), global: true,
+		do: func(m *Model, key string) { m.cycleCity(dir(key)) }},
+	// The rivals screen's own [ ] turns the faction, and says so (#239).
+	{key: "[ ]", label: "faction", help: "the next faction at the table", keys: []string{"[", "]"}, screens: on(screenRivals),
+		do: func(m *Model, key string) { m.cycleFaction(dir(key)) }},
 	// The dashboard and the market: the day's cart.
 	{key: "c", label: "cart", help: "the day's cart: edit its buys and orders", screens: on(screenDashboard, screenMarket),
 		do: func(m *Model, _ string) { m.openCart() }},
@@ -247,9 +251,9 @@ var bindings = []binding{
 		do: func(m *Model, _ string) { m.answerContract(true) }},
 	{key: "x", label: "decline", help: "turn the buyer's offer down", screens: on(screenMarket), when: onBuyers,
 		do: func(m *Model, _ string) { m.answerContract(false) }},
-	{key: "t", label: "cut", help: "cut a product in the stash where you stand", screens: on(screenMarket),
+	{key: "t", label: "cut", help: "cut a product in the stash where you stand", screens: on(screenMarket), when: onProducts,
 		do: func(m *Model, _ string) { m.askCut() }},
-	{key: "o", label: "cook", help: "the chemist cooks a batch where you stand", screens: on(screenMarket), when: hasChemist,
+	{key: "o", label: "cook", help: "the chemist cooks a batch where you stand", screens: on(screenMarket), when: onProductsWithChemist,
 		do: func(m *Model, _ string) { m.askCook() }},
 	{key: "d", label: "deliver", help: "hand the buyer what the stash here holds", screens: on(screenMarket), when: onBuyers,
 		do: func(m *Model, _ string) { m.deliverSelected() }},
@@ -284,10 +288,26 @@ var bindings = []binding{
 		do: func(m *Model, _ string) { m.askTip() }},
 	{key: "d", label: "buy block", help: "buy the block the selected corner is on", screens: on(screenMap),
 		do: func(m *Model, _ string) { m.askDeed() }},
+	// The route keys act on the shown cursor (#239): on a corner they
+	// refuse and point at the routes, so the hidden routes cursor is
+	// never turned by accident (the global r report is theirs to shadow
+	// on the map, so they stay live there).
 	{key: "r", label: "route dial", help: "the selected route: off, slow, normal, fast", screens: on(screenMap),
-		do: func(m *Model, _ string) { m.cycleRoute() }},
+		do: func(m *Model, _ string) {
+			if !m.onRoutes {
+				m.refuse("Pick a route: the dial is on the routes under the grid, not a corner.")
+				return
+			}
+			m.cycleRoute()
+		}},
 	{key: "R", label: "route target", help: "what the selected route keeps the far end at", screens: on(screenMap),
-		do: func(m *Model, _ string) { m.openTarget() }},
+		do: func(m *Model, _ string) {
+			if !m.onRoutes {
+				m.refuse("Pick a route: the target is on the routes under the grid, not a corner.")
+				return
+			}
+			m.openTarget()
+		}},
 	{key: "$", label: "buy checkpoint", help: "buy the checkpoint or customs on the route", screens: on(screenMap), when: mapOnRoutes,
 		do: func(m *Model, _ string) { m.askCheckpoint() }},
 	{key: "v", label: "driver", help: "put a driver on the selected route", screens: on(screenMap), when: mapOnRoutes,
@@ -325,7 +345,7 @@ var bindings = []binding{
 	// The rivals.
 	{key: "d", label: "propose", help: "offer the rival a truce, tribute or a split", screens: on(screenRivals),
 		do: func(m *Model, _ string) { m.askPropose() }},
-	{key: "y", label: "accept", help: "take the selected offer", screens: on(screenRivals),
+	{key: "a", label: "accept", help: "take the selected offer", screens: on(screenRivals),
 		do: func(m *Model, _ string) { m.answerOffer(true) }},
 	{key: "x", label: "decline", help: "turn the selected offer down", screens: on(screenRivals),
 		do: func(m *Model, _ string) { m.answerOffer(false) }},

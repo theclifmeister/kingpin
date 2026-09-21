@@ -14,10 +14,12 @@ import (
 
 // handledKeys are the keys keyPlay's switch handled the day the key
 // table replaced it (#80), F since (#116), m (#73), o (#47, #195) and 9
-// (#45, the intel screen): what the table must list, and all it may.
+// (#45, the intel screen), less y (#239: a confirmation's yes, no
+// screen's key since the rivals' accept became a): what the table must
+// list, and all it may.
 var handledKeys = []string{
 	"q", " ", "ctrl+s", "?", "1", "2", "3", "4", "5", "6", "7", "8", "9", "tab", "shift+tab",
-	"n", "F", "enter", "u", "r", "R", "b", "s", "t", "g", "[", "]", "x", "y", "l", "N",
+	"n", "F", "enter", "u", "r", "R", "b", "s", "t", "g", "[", "]", "x", "l", "N",
 	"h", "f", "p", "d", "i", "$", "c", "e", "a", "w", "m", "o", "v",
 	"up", "k", "down", "j", "left", "right", "pgup", "pgdown",
 }
@@ -173,7 +175,7 @@ func TestGlobalsAreListedWhereUsed(t *testing.T) {
 		"n":   everywhere,
 		"F":   on(screenDashboard),
 		"↑↓":  listScreens,
-		"[ ]": on(screenMarket, screenMap, screenRivals),
+		"[ ]": on(screenMarket, screenMap), // the rivals screen's own [ ] faction shadows it there (#239)
 		"b":   on(screenDashboard, screenMarket),
 		"s":   on(screenDashboard, screenMarket),
 		"x":   on(screenDashboard, screenMarket),
