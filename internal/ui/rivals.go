@@ -343,7 +343,7 @@ func (m *Model) rivalsDetails() []section {
 		}
 		lines = append(lines, wrapped(theme.Body, dealDoes(o.Deal.Kind))...)
 		lines = append(lines, wrapped(theme.Subtle, dealBreaks(o.Deal.Kind))...)
-		lines = append(lines, keyRow("y", "accept it"), keyRow("x", "turn it down"))
+		lines = append(lines, keyRow("a", "accept it"), keyRow("x", "turn it down"))
 		sel = section{m.dealTitle(o.Deal), lines}
 	case len(r.Deals) > 0:
 		d := r.Deals[0]
