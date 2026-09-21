@@ -1063,6 +1063,7 @@ type Stats struct {
 	Deeds          int // blocks bought (#194)
 	DeedCash       int // clean cash they cost
 	DeedRent       int // clean cash the blocks paid back
+	Taxed          int // dirty cash the free corners paid you for the right to work them (#231)
 	DeedsSeized    int // deeds the DA took (the forfeiture)
 	Wounded        int // crew shot and laid up
 	Retired        int // crew who retired

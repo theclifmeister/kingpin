@@ -198,7 +198,80 @@ func (s *Sim) Step(w *game.World, t *game.Tick) {
 		}
 		s.step(w, t, rng, fx, w.Cities[cid], revenue)
 	}
+	s.taxStep(w, t)
 	s.houseStep(w, t, fx)
+}
+
+// HoldsTheCity reports whether the tax holds in a city (#231): the city
+// yours in the kingpin's sense, World.Dominant (every faction at the
+// table arrived and gone or paying homage), with more than city.toml
+// [tax] share of its corners held, min_held at least. The share is its
+// own number beside the kingpin's, so the ending's file is untouched;
+// the table's read is what makes it dominance and not an early land
+// grab: every crewed policy holds six of home's ten corners from day 6
+// or 7, before the rival has grown past its first, for a week or three,
+// and the share alone taxed those days, moved seven seed-pinned tests
+// and flipped two orderings (the PR's ruling; docs/corners.md).
+func (s *Sim) HoldsTheCity(w *game.World, city string) bool {
+	tax := s.cfg.Tax
+	c := w.Cities[city]
+	if !tax.On() || c == nil || !w.Dominant() {
+		return false
+	}
+	held := w.HeldIn(city)
+	return held >= max(1, tax.MinHeld) && float64(held) > tax.Share*float64(len(c.Corners))
+}
+
+// TaxDue is what the free corners of a city would pay tonight (#231)
+// before the jitter, and how many: the ledger's line. 0 where the tax
+// does not hold.
+func (s *Sim) TaxDue(w *game.World, city string) (corners, amount int) {
+	if !s.HoldsTheCity(w, city) {
+		return 0, 0
+	}
+	for _, c := range w.Cities[city].Corners {
+		if c.Owner == game.OwnerNone {
+			corners++
+			amount += int(math.Round(w.CornerTrade(c) * s.cfg.Tax.Cut))
+		}
+	}
+	return corners, amount
+}
+
+// taxStep is the tax (#231): in every city where the share holds, each
+// corner nobody holds pays cut of its trade in dirty cash, jittered a
+// tenth either way on the tax's own stream (so a run in which the share
+// never holds draws nothing the old run did not, and the home stream
+// never moves), summed as Stats.Taxed and reported per city. No heat,
+// no evidence: nobody of yours moved a unit.
+func (s *Sim) taxStep(w *game.World, t *game.Tick) {
+	if !s.cfg.Tax.On() {
+		return
+	}
+	for _, cid := range w.CityOrder {
+		if !s.HoldsTheCity(w, cid) {
+			continue
+		}
+		rng := t.Sub("tax:" + cid)
+		ev := events.Taxed{Day: t.Day, City: cid}
+		for _, c := range w.Cities[cid].Corners {
+			if c.Owner != game.OwnerNone {
+				continue
+			}
+			paid := int(math.Round(w.CornerTrade(c) * s.cfg.Tax.Cut * (0.9 + 0.2*rng.Float64())))
+			if paid <= 0 {
+				continue
+			}
+			ev.Corners++
+			ev.Amount += paid
+		}
+		if ev.Corners == 0 {
+			continue
+		}
+		w.Player.DirtyCash += ev.Amount
+		w.Stats.Taxed += ev.Amount
+		t.Emit(ev)
+	}
 }
 
 // deedStep is the property's day (#194), at the top of the step: the

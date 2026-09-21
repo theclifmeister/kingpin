@@ -64,6 +64,9 @@ func (m *Model) summaryLines() []string {
 	if s := w.Stats; s.Earned+s.Invested > 0 {
 		money = append(money, [2]string{"the fronts", fmt.Sprintf("%s in levels, %s earned", cash(s.Invested), cash(s.Earned))})
 	}
+	if s := w.Stats; s.Taxed > 0 {
+		money = append(money, [2]string{"the tax", cash(s.Taxed) + " off the free corners of a city you held"}) // #231
+	}
 	out = append(out, m.factLines(money)...)
 
 	// The people: the bodies and the fallen, the betrayals, the best of

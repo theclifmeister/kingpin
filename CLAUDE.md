@@ -60,7 +60,7 @@ Package layout: `cmd/kingpin` (the game), `cmd/balance` (headless runs), `cmd/ke
 | Subsystem | Code | Tuning | Doc | Pins it |
 |---|---|---|---|---|
 | Cities, stock, capacity | `game/world.go`, `sim/logistics.Migrate`, `sim/territory.Migrate` | `city.toml` | `docs/cities.md` | `TestSaveMigratesTheOneCity` |
-| Corners, demand, robbery, drift | `game/territory.go`, `sim/territory` | `city.toml` | `docs/corners.md` | `territory_test.go` |
+| Corners, demand, robbery, drift, the tax (#231) | `game/territory.go`, `sim/territory` | `city.toml` | `docs/corners.md` | `territory_test.go` |
 | Market, prices, orders, price war | `sim/market`, `game/actions.go` | `market.toml` | `docs/tuning.md`, `docs/rival.md` (#68) | `TestPriceInvariants`, `TestNoUndercutIsTheOldRun` |
 | Connects (suppliers, credit) | `game/suppliers.go`, `sim/market/suppliers.go`, `ui/suppliers.go` | `suppliers.toml` | `docs/connects.md` | `TestSupplierInvariants`, `TestLeveragedIsALeverNotFreeMoney` |
 | Supply contracts (buy routine) | `World.Supply`, `market.Sim.Plan`, `ui/dialogs.go` | `market.toml [supply]` | `docs/supply-contracts.md` | `TestSupplyMatchesTheHand`, `TestStockedIsWithinFifteenPercentOfCrewed` |

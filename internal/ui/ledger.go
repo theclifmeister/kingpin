@@ -269,6 +269,13 @@ func (m *Model) viewLedger() string {
 	if thr := m.set.Heat.DirtyCashThreshold(w); thr > 0 && w.Player.DirtyCash > thr {
 		line(theme.Warning.Render(fmt.Sprintf("▲ Dirty cash over %s draws heat every day it sits there.", cash(thr))))
 	}
+	// The tax (#231): what the free corners of a city you hold pay a
+	// night, city by city where it holds.
+	for _, cid := range w.CityOrder {
+		if corners, amount := m.set.Territory.TaxDue(w, cid); corners > 0 {
+			line(sub("tax      ") + theme.Gold.Render(fmt.Sprintf("%s in %s pay ~%s/night", plural(corners, "free corner"), w.CityName(cid), money(amount))) + sub(fmt.Sprintf(" · %s so far", cash(w.Stats.Taxed))))
+		}
+	}
 
 	// Each table's heading and the line the cursor is on, for the
 	// scroll: the cursor's table is kept in view from its heading, and

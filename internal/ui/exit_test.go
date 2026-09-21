@@ -261,7 +261,13 @@ func TestFastForwardStopsOnTheReign(t *testing.T) {
 	closeMorning(t, m)
 	m.Update(key("esc"))
 	// The crown: the third row, open, asked twice, ends the run a
-	// kingpin on this day with the score as it stands.
+	// kingpin on this day with the score as it stands. The fixture's
+	// runners can be arrested overnight and a corner drift under the
+	// share, which breaks the reign (TestReignBreaks has that); put it
+	// back on for the crown if the nights took it.
+	if w.Reign == 0 {
+		w.Reign = day
+	}
 	w.Offshore, w.Stats.Bodies = 900_000, 2
 	m.Update(key("1"))
 	m.Update(key("w"))

@@ -275,7 +275,7 @@ func (s *Sim) Step(w *game.World, t *game.Tick) {
 	}
 
 	// Money before we look at events: sales are already applied by market.
-	var soldRevenue, lostCash, spent, wages, skimmed, robbed, upgrades, upkeep, seized, paidOff, investigated, shipping, tribute, cuts, standingCut, funded, backed, contracts, forfeits, repaid, rent, earned, invested, cutting, cooking, reserved, deeds, deedRent int
+	var soldRevenue, lostCash, spent, wages, skimmed, robbed, upgrades, upkeep, seized, paidOff, investigated, shipping, tribute, cuts, standingCut, funded, backed, contracts, forfeits, repaid, rent, earned, invested, cutting, cooking, reserved, deeds, deedRent, taxed int
 	var scouted, poached, boosted int // the books (#70): what a scout and a buy-off cost, less the refund, and what a boost took
 	var bribed, checkpoints int       // the bought law (#42): the envelopes and the deals on the road, paid up front
 	routeCost := map[string]int{}     // what each route cost today, lots and fares, by name in the order first seen
@@ -1293,6 +1293,11 @@ func (s *Sim) Step(w *game.World, t *game.Tick) {
 		case events.DeedRent:
 			deedRent += ev.Amount
 			rep.Money = append(rep.Money, fmt.Sprintf("Rent from %s +%s clean", format.Plural(ev.Deeds, "block"), format.Money(ev.Amount)))
+		case events.Taxed:
+			// The tax (#231): the free corners of a city you hold paying
+			// for the right to work them.
+			taxed += ev.Amount
+			rep.Money = append(rep.Money, fmt.Sprintf("The tax: %s%s +%s", format.Plural(ev.Corners, "free corner"), in(ev.City), format.Money(ev.Amount)))
 		case events.DeedSeized:
 			d := at(ev.City)
 			d.Corner = ev.Name
@@ -1381,7 +1386,7 @@ func (s *Sim) Step(w *game.World, t *game.Tick) {
 		spent += m.Fee
 		rep.Money = append(rep.Money, fmt.Sprintf("Signing fee for %s -%s", m.Name, format.Money(m.Fee)))
 	}
-	rep.CashBefore = w.Cash() - soldRevenue - contracts + forfeits + lostCash + spent + wages + skimmed + robbed + upgrades + upkeep + seized + paidOff + investigated + shipping + tribute + cuts + funded + backed + repaid + rent + scouted + poached + bribed + checkpoints - boosted - earned + invested + cutting + cooking + reserved + deeds - deedRent
+	rep.CashBefore = w.Cash() - soldRevenue - contracts + forfeits + lostCash + spent + wages + skimmed + robbed + upgrades + upkeep + seized + paidOff + investigated + shipping + tribute + cuts + funded + backed + repaid + rent + scouted + poached + bribed + checkpoints - boosted - earned + invested + cutting + cooking + reserved + deeds - deedRent - taxed
 	if soldRevenue > 0 {
 		rep.Money = append(rep.Money, fmt.Sprintf("Street sales +%s", format.Money(soldRevenue)))
 	}
