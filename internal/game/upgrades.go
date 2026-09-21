@@ -141,6 +141,7 @@ type Effects struct {
 	SkillBonus         int     // added to a generated candidate's skill (sum)
 	HireFeeMul         float64 // on a candidate's signing fee (lowest)
 	StartLoyaltyBonus  int     // added to a generated candidate's loyalty (sum)
+	AutoBail           bool    // the bondsman (#230): an arrest is bailed from clean cash the night it lands, when the cash covers it (highest)
 
 	// The laundering sim (#118).
 	WashMul        float64 // on every front's throughput (product)
@@ -243,6 +244,7 @@ func FoldEffects(w *World, tree content.UpgradesConfig) Effects {
 		fx.SkillBonus += e.SkillBonus
 		lowest(&fx.HireFeeMul, e.HireFeeMul)
 		fx.StartLoyaltyBonus += e.StartLoyaltyBonus
+		fx.AutoBail = fx.AutoBail || e.AutoBail
 
 		// Laundering.
 		product(&fx.WashMul, e.WashMul)
