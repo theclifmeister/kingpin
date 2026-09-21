@@ -32,7 +32,13 @@ func TestBackIsOneKey(t *testing.T) {
 			m.onRoutes = true
 			m.Update(key("R"))
 		}, func(m *Model) int { return m.tgt.step }, func(m *Model) int { return m.cursor }, 2, []string{"enter", "enter"}},
-		{"cart", modeCart, func(m *Model) { fillCart(t, m); m.Update(key("c")); m.Update(key("down")) }, func(m *Model) int { return m.crt.step }, func(m *Model) int { return m.crt.cursor }, 1, []string{"enter"}},
+		{"cart", modeCart, func(m *Model) {
+			if len(m.w.Today.Buys) == 0 {
+				fillCart(t, m) // once: the q check below reopens the dialog on the same cart
+			}
+			m.Update(key("c"))
+			m.Update(key("down"))
+		}, func(m *Model) int { return m.crt.step }, func(m *Model) int { return m.crt.cursor }, 1, []string{"enter"}},
 		{"propose", modePropose, func(m *Model) { m.Update(key("8")); m.Update(key("d")); m.Update(key("down")) }, func(m *Model) int { return m.prop.step }, func(m *Model) int { return m.prop.cursor }, 1, []string{"enter"}},
 		// The buy picker (#73: the kind, then the offers) and the move
 		// dialog (from, to, product, quantity).
@@ -112,6 +118,15 @@ func TestBackIsOneKey(t *testing.T) {
 		if m.mode != modePlay || m.screen != screen {
 			t.Fatalf("%s: esc from the last step: mode %v screen %v", d.name, m.mode, m.screen)
 		}
+		// q closes whole from the last step too (#241: closes).
+		d.open(m)
+		for _, k := range d.enter {
+			m.Update(key(k))
+		}
+		m.Update(key("q"))
+		if m.mode != modePlay || m.screen != screen {
+			t.Fatalf("%s: q from the last step: mode %v screen %v", d.name, m.mode, m.screen)
+		}
 		// A quantity that does not read is not a complete step: the field
 		// takes digits only (#112), so 0 is the one a player can type.
 		if d.name == "sell" || d.name == "buy" {
@@ -176,7 +191,7 @@ func TestTabIsSilentWhereThereIsNoPage(t *testing.T) {
 		{"guard", modeGuard, func(m *Model) { onHouse(nil, m); m.Update(key("e")) }},
 		{"confirm drop", modeConfirm, func(m *Model) { onHouse(nil, m); m.Update(key("x")) }},
 		{"fund", modeFund, func(m *Model) { m.Update(key("7")); m.Update(key("f")) }},
-		{"invest", modeInvest, func(m *Model) { m.w.Player.CleanCash = 200_000; m.Update(key("7")); m.Update(key("i")) }},
+		{"invest", modeInvest, func(m *Model) { m.w.Player.CleanCash = 200_000; m.Update(key("7")); m.Update(key("u")) }},
 		{"reserve", modeReserve, func(m *Model) { m.w.Player.CleanCash = 200_000; m.Update(key("7")); m.Update(key("o")) }},
 		{"report", modeReport, func(m *Model) { m.mode = modeReport }},
 		{"help", modeHelp, func(m *Model) { m.Update(key("?")) }},
@@ -223,6 +238,61 @@ func TestTabIsSilentWhereThereIsNoPage(t *testing.T) {
 		}
 		if strings.Contains(b.key, "esc") && b.label != "close" {
 			t.Errorf("%s %s: esc closes", b.key, b.label)
+		}
+	}
+}
+
+// Every picker takes the digits as select-and-commit (#241): 1 on a
+// one-page picker commits its first row, on a paged one turns the page
+// (or refuses, where the row is closed), and the footer says `1-9
+// choose` where the rows are the picker's.
+func TestPickersTakeDigits(t *testing.T) {
+	type picker struct {
+		name string
+		open func(m *Model)
+		done func(m *Model) bool
+	}
+	pickers := []picker{
+		{"post", func(m *Model) { m.Update(key("5")); m.mapCursor = 1; m.Update(key("c")) }, func(m *Model) bool { return m.mode == modePlay }},
+		{"strike", func(m *Model) { m.Update(key("5")); m.mapCursor = 0; m.Update(key("w")) }, func(m *Model) bool { return m.mode == modePlay }},
+		{"undercut", func(m *Model) { m.w.Rival().Deals = nil; m.Update(key("5")); m.mapCursor = 0; m.Update(key("u")) }, func(m *Model) bool { return m.mode == modePlay }},
+		{"assign", func(m *Model) { m.Update(key("4")); m.crewCursor = 3; m.Update(key("l")) }, func(m *Model) bool { return m.mode == modePlay }},
+		{"guard", func(m *Model) { onHouse(t, m); m.Update(key("e")) }, func(m *Model) bool { return m.mode == modePlay }},
+		{"driver", func(m *Model) {
+			withDriver(m)
+			m.Update(key("5"))
+			m.Update(key("]"))
+			m.onRoutes = true
+			m.Update(key("v"))
+		}, func(m *Model) bool { return m.mode == modePlay }},
+		{"front", func(m *Model) { m.Update(key("7")); m.Update(key("b")) }, func(m *Model) bool { return m.mode == modeFront && m.front.step == 1 }},
+		{"propose", func(m *Model) { m.Update(key("8")); m.Update(key("d")) }, func(m *Model) bool { return m.mode == modePropose && m.prop.step == 1 }},
+		{"bribe", func(m *Model) { m.Update(key("7")); m.Update(key("$")) }, func(m *Model) bool { return m.mode == modeBribe && m.modalStep() == 1 }},
+		{"spy", func(m *Model) { m.Update(key("9")); m.Update(key("p")) }, func(m *Model) bool { return m.mode == modePlay || m.spy.step == 1 }},
+		{"exit", func(m *Model) { m.Update(key("7")); m.Update(key("w")) }, func(m *Model) bool { return m.exit.step == 1 || strings.Contains(m.status, "not open") }},
+	}
+	for _, p := range pickers {
+		m := richModel(t, 120, 40)
+		p.open(m)
+		mode := m.mode
+		if mode == modePlay {
+			t.Fatalf("%s: the picker did not open: %q", p.name, m.status)
+		}
+		listed := "1-9 choose"
+		switch p.name {
+		case "bribe":
+			listed = "1-2 choose"
+		case "undercut":
+			listed = "1-3 dial" // the notches, as the sale's (#241)
+		case "exit":
+			listed = "1-9 choose"
+		}
+		if !strings.Contains(stripANSI(m.View()), listed) {
+			t.Errorf("%s: the footer does not list %s:\n%s", p.name, listed, stripANSI(m.View()))
+		}
+		m.Update(key("1"))
+		if !p.done(m) {
+			t.Errorf("%s: 1 did not select and commit: mode %v step %d status %q", p.name, m.mode, m.modalStep(), m.status)
 		}
 	}
 }

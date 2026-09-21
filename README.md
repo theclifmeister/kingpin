@@ -394,14 +394,14 @@ The full table is below; `?` brings it up in the game.
 | `←→` | city | turn the market to the other city | market |
 | `a` | accept | take the buyer's offer | market |
 | `x` | decline | turn the buyer's offer down | market |
-| `t` | cut | cut a product in the stash where you stand | market |
+| `%` | cut | cut a product in the stash where you stand | market |
 | `o` | cook | the chemist cooks a batch where you stand | market |
 | `d` | deliver | hand the buyer what the stash here holds | market |
 | `pgup pgdn` | page | page through the journal | journal |
 | `f` | filter | show one source's headlines, then all again | journal |
 | `h` | hire | hire the selected candidate | crew |
 | `f` | fire | fire the selected member, after asking | crew |
-| `t` | assign | give the selected lieutenant a city to run | crew |
+| `l` | assign | give the selected lieutenant a city to run | crew |
 | `i` | investigate | ask who is talking to the police, for a fee | crew |
 | `$` | pay off | buy the selected member's loyalty | crew |
 | `b` | bail | clean cash to walk the selected member out | crew |
@@ -426,10 +426,9 @@ The full table is below; `?` brings it up in the game.
 | `x` | drop house | drop the selected house, after asking | ledger |
 | `$` | bribe | an envelope for the chief or the DA | ledger |
 | `f` | fund city | give a city clean cash for goodwill | ledger |
-| `i` | invest | clean cash into the selected front's levels | ledger |
+| `u` | invest | clean cash into the selected front's levels | ledger |
 | `o` | reserve | clean cash into the offshore account | ledger |
 | `w` | walk away | retire on the account, or vanish | ledger |
-| `enter` | buy / dial | buy the offer or turn the route selected | ledger |
 | `[ ]` | faction | the next faction at the table | rivals |
 | `d` | propose | offer the rival a truce, tribute or a split | rivals |
 | `a` | accept | take the selected offer | rivals |

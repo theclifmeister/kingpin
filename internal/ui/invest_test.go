@@ -18,13 +18,13 @@ func TestInvestDialog(t *testing.T) {
 	w := m.w
 	l := m.set.Laundering
 	m.Update(key("3")) // i on the dashboard is the intel jump since #45; the pointer is read off the journal
-	m.Update(key("i"))
+	m.Update(key("u"))
 	if m.mode != modePlay || !strings.Contains(m.status, "ledger") {
 		t.Fatalf("i on the journal: mode %v status %q", m.mode, m.status)
 	}
 	m.Update(key("7"))
 	w.Player.CleanCash = 0
-	m.Update(key("i"))
+	m.Update(key("u"))
 	if m.mode != modePlay || !strings.Contains(m.status, "clean cash") {
 		t.Fatalf("i with no clean cash: mode %v status %q", m.mode, m.status)
 	}
@@ -35,7 +35,7 @@ func TestInvestDialog(t *testing.T) {
 	if !strings.Contains(view, "lvl") || !strings.Contains(view, "earns/day") {
 		t.Fatalf("the FRONTS table has no level or income column:\n%s", view)
 	}
-	m.Update(key("i"))
+	m.Update(key("u"))
 	if m.mode != modeInvest || m.inv.front != f.ID {
 		t.Fatalf("i on a front: mode %v front %q", m.mode, m.inv.front)
 	}
@@ -47,7 +47,7 @@ func TestInvestDialog(t *testing.T) {
 	if m.mode != modePlay || w.Fronts[0].Level != 0 || w.Player.CleanCash != cost+1 {
 		t.Fatal("esc invested")
 	}
-	m.Update(key("i"))
+	m.Update(key("u"))
 	m.Update(key("2"))
 	m.Update(key("enter"))
 	now := w.Fronts[0]
@@ -68,7 +68,7 @@ func TestInvestDialog(t *testing.T) {
 	m.Update(key("esc"))
 	// Too many levels at once is refused in the dialog, and a front at
 	// its top refuses before it opens.
-	m.Update(key("i"))
+	m.Update(key("u"))
 	m.Update(key("9"))
 	m.Update(key("9"))
 	m.Update(key("enter"))
@@ -77,13 +77,13 @@ func TestInvestDialog(t *testing.T) {
 	}
 	m.Update(key("esc"))
 	w.Fronts[0].Level = l.MaxLevel(w.Fronts[0])
-	m.Update(key("i"))
+	m.Update(key("u"))
 	if m.mode != modePlay || !strings.Contains(m.status, "as big as it gets") {
 		t.Fatalf("i on a front at its top: mode %v status %q", m.mode, m.status)
 	}
 	// Off a front i is silent on the ledger: the cursor on a house.
 	m.ledgerCursor = 3
-	m.Update(key("i"))
+	m.Update(key("u"))
 	if m.mode != modePlay {
 		t.Fatalf("i on a house: mode %v", m.mode)
 	}

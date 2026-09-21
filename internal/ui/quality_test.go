@@ -25,7 +25,7 @@ func TestCutDialog(t *testing.T) {
 	if v := stripANSI(m.View()); !strings.Contains(v, "qual") {
 		t.Fatalf("the market table has no quality column:\n%s", v)
 	}
-	m.Update(key("t"))
+	m.Update(key("%"))
 	if m.mode != modeCut {
 		t.Fatalf("t on the market: mode %v status %q", m.mode, m.status)
 	}
@@ -57,13 +57,13 @@ func TestCutDialog(t *testing.T) {
 	for _, id := range w.Products {
 		w.TakeStock(home, id, w.Stock(home, id))
 	}
-	m.Update(key("t"))
+	m.Update(key("%"))
 	if m.mode != modePlay || !strings.Contains(m.status, "Nothing here to cut") {
 		t.Fatalf("t with an empty stash: mode %v status %q", m.mode, m.status)
 	}
 	// The report names the cut.
 	w.SetStock(home, weed, 40)
-	m.Update(key("t"))
+	m.Update(key("%"))
 	m.Update(key("enter"))
 	m.Update(key("enter")) // blank: the most
 	if m.mode != modePlay {

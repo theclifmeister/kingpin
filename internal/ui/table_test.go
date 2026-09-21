@@ -253,7 +253,7 @@ func TestReportNumbers(t *testing.T) {
 		m.Update(key("enter"))
 	}
 	m.Update(key("6"))
-	m.Update(key("enter"))
+	m.Update(key("u"))
 	m.Update(key("y"))
 	m.w.SetStock(m.w.Player.Location, m.w.Products[0], 200)
 	m.Update(key("1"))

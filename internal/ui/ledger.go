@@ -32,7 +32,7 @@ func (m *Model) askFront() {
 		m.refuse("Nothing to buy: you own every front, every house and every asset there is.")
 		return
 	}
-	m.front.cursor, m.front.step = 0, 0
+	m.front.cursor, m.front.step = 0, 0 // the kind page first, wherever the cursor sits (#241: enter's shortcut onto an offer row went with enter)
 	m.mode = modeFront
 }
 
@@ -239,45 +239,6 @@ func (m *Model) ledgerMove(dy int) {
 	} else if dy > 0 && m.ledgerCursor < n-1 {
 		m.ledgerCursor++
 	}
-}
-
-// ledgerActable reports whether enter is the ledger's on the selected
-// row: it buys an offer or turns a route's dial; on a front it is the
-// frame's, and asks to end the day as it does everywhere.
-func ledgerActable(m *Model) bool {
-	kind := m.ledgerSelected().kind
-	return m.screen == screenLedger && kind != ledgerFront && kind != ledgerHouse && kind != ledgerDeed && kind != ledgerPayoff && kind != ledgerAsset
-}
-
-// ledgerEnter is enter on the ledger: the selected offer goes to the
-// buy confirmation (the picker, on that row), the selected route's dial
-// turns a notch.
-func (m *Model) ledgerEnter() {
-	if m.w.Over != nil {
-		return
-	}
-	sel := m.ledgerSelected()
-	switch sel.kind {
-	case ledgerOffer:
-		m.front.kind, m.front.step, m.front.cursor = pickFront, 1, sel.i
-		m.mode = modeFront
-	case ledgerAssetOffer:
-		m.front.kind, m.front.step, m.front.cursor = pickAsset, 1, sel.i
-		m.mode = modeFront
-	case ledgerRoute:
-		m.cycleLedgerRoute(m.ledgerRoutes()[sel.i])
-	}
-}
-
-// cycleLedgerRoute turns a route's dial a notch, as the map's r does,
-// and says what the road does at it.
-func (m *Model) cycleLedgerRoute(r content.RouteConfig) {
-	d := (m.w.Route(r.ID).Dial + 1) % (events.RouteFast + 1)
-	if err := m.w.SetRoute(r.ID, d); err != nil {
-		m.refuse("Can't turn the dial: " + err.Error())
-		return
-	}
-	m.sayRouteDial(r, d)
 }
 
 // launderRow draws the launder dial as `careful  [normal]  greedy`.
@@ -607,7 +568,7 @@ func (m *Model) frontSection(f game.Front) section {
 			next := f
 			next.Level++
 			lines = append(lines, row("next", fmt.Sprintf("%s clean → +%s/day", money(l.LevelCost(f, 1)), money(l.Income(next)-l.Income(f)))))
-			lines = append(lines, keyRow("i", "invest"))
+			lines = append(lines, keyRow("u", "invest"))
 		}
 	}
 	return section{strings.ToUpper(f.Name), lines}
@@ -636,7 +597,7 @@ func (m *Model) ledgerRouteSection(r content.RouteConfig) section {
 		row("this week", fmt.Sprintf("lots %s · fares %s", cash(lots), cash(fares))),
 		row("lost", plural(w.Logistics.Lost[r.ID], "unit")+" on the road"))
 	lines = append(lines, wrapped(theme.Subtle, fmt.Sprintf("The road spends what is over %s dirty.", cash(m.set.Laundering.Float(w))))...)
-	lines = append(lines, keyRow("enter", "turn the dial"))
+	lines = append(lines, theme.Subtle.Render("Turn it "+screenPointer(screenMap)+".")) // one line: the pointer reads whole
 	return section{title, lines}
 }
 
@@ -677,7 +638,7 @@ func (m *Model) offerSection(o game.FrontOffer) section {
 	case o.Cost > w.Player.DirtyCash:
 		lines = append(lines, theme.Bad.Render("short "+money(o.Cost-w.Player.DirtyCash)))
 	default:
-		lines = append(lines, keyRow("enter", "buy it"))
+		lines = append(lines, keyRow("b", "buy it through the picker"))
 	}
 	return section{strings.ToUpper(o.Name), lines}
 }

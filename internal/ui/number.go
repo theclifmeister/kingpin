@@ -15,8 +15,8 @@ import (
 // and sell dialogs' quantity, the cart's, the route target's units and
 // the fund dialog's amount. One helper takes the keys and draws the
 // field, so every field has the same four shortcuts beside the digits
-// and backspace: m is the most the field can take (a an alias, where
-// "all" is the word), h half of it, ↑↓ ±1 and pgup pgdn ±10, every
+// and backspace: m is the most the field can take, h half of it, ↑↓ ±1
+// and pgup pgdn ±10 (#241: no alias; a is accept and abandon), every
 // shortcut clamped to [0, max]. Typing is not clamped: a typed number
 // over max is refused where it always was, by the game (`Only 3 Weed in
 // Eastside.`), and a blank still means what it did (the most for a buy,
@@ -83,7 +83,7 @@ func (f *numberField) Update(k tea.KeyMsg) tea.Cmd {
 		n = 0
 	}
 	switch key {
-	case "m", "a":
+	case "m":
 		f.Set(f.max)
 	case "h":
 		f.Set(f.max / 2)

@@ -177,7 +177,7 @@ func (m *Model) assetOfferSection(o game.AssetOffer) section {
 	case o.Cost > w.Player.CleanCash:
 		lines = append(lines, theme.Bad.Render("short "+money(o.Cost-w.Player.CleanCash)+" clean"))
 	default:
-		lines = append(lines, keyRow("enter", "buy it"))
+		lines = append(lines, keyRow("b", "buy it through the picker"))
 	}
 	if lost := w.AssetLost(o.ID); lost != nil {
 		lines = append(lines, wrapped(theme.Warning, fmt.Sprintf("The feds took it on day %d. It is for sale again at the price.", lost.Lost))...)
