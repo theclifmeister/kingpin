@@ -361,6 +361,9 @@ func (m *Model) viewRivals() string {
 	line(leader)
 	barW := max(6, min(12, width/6))
 	line(sub("trust ") + m.trustBar(r, barW) + "   " + sub("war ") + m.warBar(r, barW))
+	if name := m.nameLine(); name != "" {
+		line(name) // what your name buys at the table (#233), under the leader's line
+	}
 	ls = append(ls, "")
 
 	line(sectionTitle("DEALS", m.accent()))

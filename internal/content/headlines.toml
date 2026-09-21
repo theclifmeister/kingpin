@@ -3,6 +3,18 @@
 
 flavour_chance = 0.35
 
+# The boss's headlines (#233): flavour that names you, rolled at
+# flavour_chance off Tick.Sub("swagger") only while the city is yours in
+# the kingpin's sense, so the home stream never moves. .Title is what
+# the paper calls you: the boss of Eastside here, a crew or a dealer
+# elsewhere.
+swagger = [
+  "Op-ed: {{.City}} has {{.Title}} now, and everybody on the street knows the name",
+  "Council member asks who {{.Title}} answers to; nobody answers",
+  "Word on the corners: {{.Title}} pays better than the city does",
+  "Profile: {{.Title}}, the name nobody in {{.City}} says out loud",
+]
+
 flavour = [
   "Mayor cuts ribbon on new {{.City}} community centre",
   "Local team wins; {{.City}} bars packed",

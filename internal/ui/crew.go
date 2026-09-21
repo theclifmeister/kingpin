@@ -444,6 +444,9 @@ func (m *Model) personLines(c game.CrewMember, onPayroll bool) []string {
 		if len(c.Kin) > 0 {
 			lines = append(lines, row("", sub("came with the kin: fee at the discount")))
 		}
+		if w.Player.Reputation.Notoriety > 50 {
+			lines = append(lines, sub("  asked to work for you")) // your name is in the paper (#233)
+		}
 		lines = append(lines, row("would", hireBlurb(c.Role)))
 		if c.Role == game.RoleChemist {
 			// What their hand would be worth (#47).

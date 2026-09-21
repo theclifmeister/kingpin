@@ -23,8 +23,10 @@ type Sim struct {
 	cfg  content.HeadlinesConfig
 	dcfg content.DilemmasConfig
 	pcfg content.ProgressionConfig
+	rcfg content.RivalEndingsTuning // the kingpin's share, for the paper's title (#233)
 	tmpl map[string][]*template.Template
 	flav []*template.Template
+	swag []*template.Template // the boss's headlines (#233)
 	deck []card
 	inc  map[string]*template.Template // the incidents' report lines by id (#44)
 }
@@ -39,7 +41,14 @@ func New(cfg *content.Config) (*Sim, error) {
 	if err != nil {
 		return nil, fmt.Errorf("dilemmas: %w", err)
 	}
-	s := &Sim{cfg: cfg.Headlines, dcfg: cfg.Dilemmas, pcfg: cfg.Progression, tmpl: map[string][]*template.Template{}, deck: deck, inc: map[string]*template.Template{}}
+	s := &Sim{cfg: cfg.Headlines, dcfg: cfg.Dilemmas, pcfg: cfg.Progression, rcfg: cfg.Rivals.Endings, tmpl: map[string][]*template.Template{}, deck: deck, inc: map[string]*template.Template{}}
+	for i, src := range cfg.Headlines.Swagger {
+		t, err := template.New(fmt.Sprintf("swagger#%d", i)).Funcs(articles).Parse(article(src))
+		if err != nil {
+			return nil, fmt.Errorf("swagger[%d]: %w", i, err)
+		}
+		s.swag = append(s.swag, t)
+	}
 	for _, inc := range cfg.Incidents.Table {
 		t, err := template.New(inc.ID + ".report").Funcs(articles).Parse(article(inc.Report))
 		if err != nil {
@@ -130,6 +139,7 @@ type data struct {
 	Leader  string // the rival's leader (#44)
 	Faction string // the rival's faction, `Big Sal's crew` (#44)
 	Asset   string // an asset by name (#48)
+	Title   string // what the paper calls you (#233): a dealer, a crew, the boss of Eastside
 }
 
 // Step writes headlines into the journal and assembles the morning report.
@@ -168,7 +178,7 @@ func (s *Sim) Step(w *game.World, t *game.Tick) {
 	// with no spy under and nobody feeding it is the run it was.
 	addIntel := func(source, key string, d data) { addOff("intel:news", source, key, d) }
 	here := w.Here()
-	base := data{City: here.Name, DA: w.Law.DA.Name, Chief: w.Law.Chief.Name, Leader: w.Rival().Leader}
+	base := data{City: here.Name, DA: w.Law.DA.Name, Chief: w.Law.Chief.Name, Leader: w.Rival().Leader, Title: s.title(w)}
 	if w.Rival().Leader != "" {
 		base.Faction = w.Rival().Leader + "'s crew"
 	}
@@ -231,6 +241,9 @@ func (s *Sim) Step(w *game.World, t *game.Tick) {
 	if w.Reign > 0 {
 		rep.Tier = append([]string{reignLine(w, t)}, rep.Tier...)
 	}
+	// The morning opens on you (#233): what your name did last night,
+	// when there is something to say, under the reign's line.
+	rep.Tier = append(swaggerLines(w, t), rep.Tier...)
 
 	// The world's incident (#44), dealt first thing this tick: a
 	// headline under the world source, its template picked off the
@@ -1410,6 +1423,16 @@ func (s *Sim) Step(w *game.World, t *game.Tick) {
 	if len(s.flav) > 0 && t.RNG.Float64() < s.cfg.FlavourChance {
 		txt := render(s.flav[t.RNG.IntN(len(s.flav))], base)
 		lines = append(lines, game.Headline{Day: t.Day, Source: "news", Text: txt})
+	}
+	// The paper names the boss (#233): while the city is yours in the
+	// kingpin's sense, a swagger headline at the flavour's chance off
+	// its own stream, so the home stream and every run that never held
+	// the city are what they were.
+	if len(s.swag) > 0 && s.boss(w) {
+		if rng := t.Sub("swagger"); rng.Float64() < s.cfg.FlavourChance {
+			txt := render(s.swag[rng.IntN(len(s.swag))], base)
+			lines = append(lines, game.Headline{Day: t.Day, Source: "news", Text: txt})
+		}
 	}
 
 	// Yesterday's card: the choice is already in the journal (Choose put
