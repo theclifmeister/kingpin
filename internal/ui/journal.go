@@ -178,7 +178,7 @@ func (m *Model) viewJournal() string {
 	var b strings.Builder
 	b.WriteString(truncate(m.journalTitle(len(hs)), width) + "\n")
 	if len(hs) == 0 {
-		b.WriteString(theme.Subtle.Render("The paper has nothing to say about you. Yet.") + "\n")
+		b.WriteString(emptyState("The paper has nothing to say about you. Yet.") + "\n")
 		return b.String()
 	}
 	m.journalFollow()
@@ -223,7 +223,7 @@ func (m *Model) journalDetails() []section {
 		}
 		secs = append(secs, section{fmt.Sprintf("D%d · %s", h.Day, strings.ToUpper(sourceName(h.Source))), lines})
 	} else {
-		secs = append(secs, section{"JOURNAL", []string{theme.Subtle.Render("Nothing yet.")}})
+		secs = append(secs, section{"JOURNAL", []string{emptyState("Nothing yet.")}})
 	}
 	var legend []string
 	for i := 0; i < len(journalSources); i += cols {

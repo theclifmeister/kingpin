@@ -503,7 +503,7 @@ func (m *Model) viewLedger() string {
 	// if somebody on the payroll knows.
 	heading("PAYOFFS", m.payoffNote())
 	if payoffs := m.payoffRows(); len(payoffs) == 0 {
-		line(emptyState("Nobody at city hall is on the payroll. Press ", "$", " to change that; checkpoints are on the map."))
+		line(emptyState("Nobody at city hall is on the payroll; checkpoints are on the map."))
 	} else {
 		tableLines(ledgerPayoff, payoffCols, m.payoffTable(payoffs))
 	}
@@ -547,12 +547,6 @@ func (m *Model) ledgerWindow(ls []string, top, at int) []string {
 	}
 	m.ledgerScroll = s
 	return ls[s : s+h]
-}
-
-// emptyState is an empty state that names its key the legend's way, as
-// the tutorial line does: `No deals. Press d to propose one.`
-func emptyState(before, key, after string) string {
-	return theme.Subtle.Render(before) + theme.Key.Render(key) + theme.Subtle.Render(after)
 }
 
 // ledgerDetails is the ledger's pane: the selected front, house, route
@@ -638,9 +632,7 @@ func (m *Model) accountantBonus(f game.Front) (int, bool) {
 // fares, what it has lost, and where the road's money comes from.
 func (m *Model) ledgerRouteSection(r content.RouteConfig) section {
 	w := m.w
-	sec := m.routeSection(r)
-	// The map's key rows come off: the ledger's keys are its own.
-	lines := sec.lines[:len(sec.lines)-2]
+	title, lines := m.routeFacts(r) // the map's key rows stay on the map: the ledger's keys are its own
 	lots, fares := w.Logistics.RouteSpend(r.ID, w.Day, 7)
 	lines = append(lines, m.buysFromRow(r)...)
 	lines = append(lines,
@@ -648,7 +640,7 @@ func (m *Model) ledgerRouteSection(r content.RouteConfig) section {
 		row("lost", plural(w.Logistics.Lost[r.ID], "unit")+" on the road"))
 	lines = append(lines, wrapped(theme.Subtle, fmt.Sprintf("The road spends what is over %s dirty.", cash(m.set.Laundering.Float(w))))...)
 	lines = append(lines, keyRow("enter", "turn the dial"))
-	return section{sec.title, lines}
+	return section{title, lines}
 }
 
 // buysFromRow names the connect a route buys its lots from (#72): the

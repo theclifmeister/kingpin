@@ -335,7 +335,7 @@ func (m *Model) viewCrew() string {
 	}
 	b.WriteString(truncate(title, width) + "\n")
 	if len(w.Crew.Candidates) == 0 {
-		b.WriteString(theme.Subtle.Render("Nobody right now.") + "\n")
+		b.WriteString(emptyState("Nobody right now.") + "\n")
 	} else {
 		var rows [][]any
 		for _, c := range w.Crew.Candidates {

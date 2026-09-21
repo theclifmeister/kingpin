@@ -322,7 +322,7 @@ func (m *Model) viewRivals() string {
 	sub := theme.Subtle.Render
 	line(theme.PanelTitle.Render("RIVALS · " + w.CityOf(r).Name))
 	if w.Rival().Arrived == 0 && w.RivalHeld() == 0 {
-		line(sub("Nobody is contesting the city yet."))
+		line(emptyState("Nobody is contesting the city yet."))
 		return strings.Join(ls, "\n")
 	}
 	// The table (#43): every faction, the cursor on the one shown.
@@ -331,7 +331,7 @@ func (m *Model) viewRivals() string {
 		ls = append(ls, "")
 	}
 	if r.Arrived == 0 {
-		line(sub(m.rivalName(r) + " have not moved in yet."))
+		line(emptyState(m.rivalName(r) + " have not moved in yet."))
 		return strings.Join(ls, "\n")
 	}
 	style := m.factionStyle(r.Faction())
@@ -376,7 +376,7 @@ func (m *Model) viewRivals() string {
 
 	line(sectionTitle("OFFERS", m.accent()))
 	if len(w.Offers) == 0 {
-		line(sub("Nothing on the table."))
+		line(emptyState("Nothing on the table."))
 	} else {
 		m.dealCursor = max(0, min(m.dealCursor, len(w.Offers)-1))
 		var rows [][]any

@@ -96,6 +96,23 @@ func sectionTitle(title string, accent lipgloss.Color) string {
 	return theme.Heading(accent).Render(truncate(title, paneTextW))
 }
 
+// emptyState is the one empty line under a heading (#240): prose in
+// Subtle, and where it names a key, the key drawn the legend's way,
+// the parts alternating prose and key (`No deals. Press d to propose
+// one.` is `emptyState("No deals. Press ", "d", " to propose one.")`).
+// Every empty line in MAIN, the pane and a modal goes through it.
+func emptyState(parts ...string) string {
+	var b strings.Builder
+	for i, p := range parts {
+		if i%2 == 1 {
+			b.WriteString(theme.Key.Render(p))
+		} else {
+			b.WriteString(theme.Subtle.Render(p))
+		}
+	}
+	return b.String()
+}
+
 // rendered reports whether a title carries styling of its own.
 func rendered(s string) bool { return strings.Contains(s, "\x1b") }
 

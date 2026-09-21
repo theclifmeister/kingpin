@@ -573,7 +573,7 @@ func (m *Model) rivalLines(innerW int) []string {
 	case w.Today.Proposal != nil:
 		table = theme.Gold.Render("proposal tonight")
 	default:
-		table = theme.Subtle.Render("Nothing on the table.")
+		table = emptyState("Nothing on the table.")
 	}
 	if len(others) > 0 {
 		// Four lines: the factions' line takes the trust's when there
@@ -701,7 +701,7 @@ func (m *Model) alertLines(width, n int) []string {
 		out = append(out, theme.Subtle.Render(day)+truncate(w.Journal[i].Text, max(10, width-lipgloss.Width(day))))
 	}
 	if len(out) == 0 {
-		out = append(out, theme.Subtle.Render("Nobody is looking at you. Yet."))
+		out = append(out, emptyState("Nobody is looking at you. Yet."))
 	}
 	return out
 }

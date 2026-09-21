@@ -543,10 +543,18 @@ func (m *Model) shipmentLines(route string) [][]string {
 	return lines
 }
 
-// routeSection is the route's detail for the pane: the edge, the dial
-// and the terms at it, the targets, what is on the road, and what r and
-// R do.
+// routeSection is the route's detail for the map's pane: the facts
+// (routeFacts) and what r, R and v do to it.
 func (m *Model) routeSection(r content.RouteConfig) section {
+	title, lines := m.routeFacts(r)
+	return section{title, append(lines, keyRow("r", "turn the dial"), keyRow("R", "set a target"), keyRow("v", "put a driver on it"))}
+}
+
+// routeFacts is the route's detail without its keys (#240: the ledger
+// takes the facts and adds keys of its own): the title, then the edge,
+// the dial and the terms at it, the targets, what is on the road and
+// the driver.
+func (m *Model) routeFacts(r content.RouteConfig) (string, []string) {
 	w := m.w
 	lg := m.set.Logistics
 	d := w.Route(r.ID).Dial
@@ -597,8 +605,7 @@ func (m *Model) routeSection(r content.RouteConfig) section {
 		}
 	}
 	lines = append(lines, row("driver", m.driverLine(r.ID)))
-	lines = append(lines, keyRow("r", "turn the dial"), keyRow("R", "set a target"), keyRow("v", "put a driver on it"))
-	return section{strings.ToUpper(r.Name), lines}
+	return strings.ToUpper(r.Name), lines
 }
 
 // edge draws a route's mode as an arrow of fixed width, so the routes

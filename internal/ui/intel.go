@@ -229,7 +229,7 @@ func (m *Model) viewIntel() string {
 	facts := m.known().Facts()
 	line(theme.PanelTitle.Render(fmt.Sprintf("INTEL · %s", plural(len(facts), "fact"))))
 	if len(facts) == 0 {
-		line(emptyState("Nothing known yet. Pay a cop with ", "$", ", or plant a spy with ") + theme.Key.Render("p") + theme.Subtle.Render("; what happens to you is written here."))
+		line(emptyState("Nothing known yet. Pay a cop with ", "$", ", or plant a spy with ", "p", "; what happens to you is written here."))
 	} else {
 		ls = append(ls, table(intelCols, m.intelRows(), clamp(&m.intelCursor, len(facts)), width)...)
 	}
@@ -237,7 +237,7 @@ func (m *Model) viewIntel() string {
 	line(sectionTitle("SPIES", m.accent()))
 	spies := w.Crew.Spies()
 	if len(spies) == 0 {
-		line(theme.Subtle.Render("Nobody under."))
+		line(emptyState("Nobody under."))
 	} else {
 		var rows [][]any
 		for _, s := range spies {
