@@ -47,11 +47,19 @@ type cartLine struct {
 // cartDialog is the state of the cart modal: the line under the cursor
 // and, on its second step, the quantity being typed for it.
 type cartDialog struct {
+	stepper
 	cursor int
-	step   int // 0 the lines, 1 a quantity for the selected one
 	qty    numberField
-	err    string
 }
+
+func (d *cartDialog) fieldAt(step int) *numberField {
+	if step == 1 {
+		return &d.qty
+	}
+	return nil
+}
+
+func (d *cartDialog) field() *numberField { return d.fieldAt(d.step) }
 
 // cartLines is the cart: the buys in the order they were made, the
 // contracts' first since they were made first, then the orders in city
@@ -342,23 +350,15 @@ func (m *Model) keyCart(k tea.KeyMsg) (tea.Model, tea.Cmd) {
 	// either step, shift+tab returns the quantity step to the line list
 	// (the line stays under the cursor) and is silent there, tab opens
 	// the quantity for the line under the cursor and is silent on it.
-	switch key {
-	case "esc":
+	if closes(key) {
 		m.mode = modePlay
 		return m, nil
+	}
+	switch key {
 	case "shift+tab":
-		if d.step == 1 {
-			d.step = 0
-			d.qty.Blur()
-		}
-		return m, nil
+		return m, d.back(d.fieldAt)
 	case "tab":
 		if d.step == 1 {
-			return m, nil
-		}
-	case "q":
-		if d.step == 0 {
-			m.mode = modePlay
 			return m, nil
 		}
 	}

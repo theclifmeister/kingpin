@@ -20,11 +20,19 @@ import (
 // bribeDialog is the state of the bribe dialog: the target under the
 // cursor on its first page, the amount on its second.
 type bribeDialog struct {
-	step   int // 0 the target, 1 the amount
+	stepper
 	cursor int // index into bribeTargets
 	amt    numberField
-	err    string
 }
+
+func (d *bribeDialog) fieldAt(step int) *numberField {
+	if step == 1 {
+		return &d.amt
+	}
+	return nil
+}
+
+func (d *bribeDialog) field() *numberField { return d.fieldAt(d.step) }
 
 // bribeTargets are the dialog's rows, in order.
 var bribeTargets = []string{game.BribeChief, game.BribeDA}
@@ -91,16 +99,13 @@ func (m *Model) keyBribe(k tea.KeyMsg) (tea.Model, tea.Cmd) {
 	key := k.String()
 	d := &m.br
 	d.err = ""
-	switch key {
-	case "esc", "q":
+	if closes(key) {
 		m.mode = modePlay
 		return m, nil
+	}
+	switch key {
 	case "shift+tab":
-		if d.step == 1 {
-			d.step = 0
-			d.amt.Blur()
-		}
-		return m, nil
+		return m, d.back(d.fieldAt)
 	case "tab":
 		if d.step == 0 {
 			d.step = 1

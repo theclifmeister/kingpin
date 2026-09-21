@@ -99,13 +99,13 @@ func (m *Model) askBail() {
 		m.refuse(fmt.Sprintf("Bail is already down for %s: they walk tomorrow.", c.Name))
 		return
 	}
-	m.fireID = c.ID
+	m.subjectID = c.ID
 	m.ask("bail", (*Model).bailConfirm, (*Model).confirmBail)
 }
 
 func (m *Model) confirmBail() {
 	m.mode = modePlay
-	c := m.w.Crew.Member(m.fireID)
+	c := m.w.Crew.Member(m.subjectID)
 	if c == nil {
 		return
 	}
@@ -118,7 +118,7 @@ func (m *Model) confirmBail() {
 }
 
 func (m *Model) bailConfirm() string {
-	c := m.w.Crew.Member(m.fireID)
+	c := m.w.Crew.Member(m.subjectID)
 	if c == nil {
 		return m.modal("BAIL", []string{"They are gone."}, m.modalFooter())
 	}
@@ -155,10 +155,10 @@ func (m *Model) askDriver() {
 		m.refuse("Nobody to put on the road: no drivers. Hire one " + screenPointer(screenCrew) + ".")
 		return
 	}
-	m.driverCursor = 0
+	m.pick.cursor = 0
 	for i, c := range m.driverRows() {
 		if c.ID != 0 && m.w.Route(r.ID).Driver == c.ID {
-			m.driverCursor = i
+			m.pick.cursor = i
 		}
 	}
 	m.mode = modeDriver
@@ -171,7 +171,7 @@ func (m *Model) confirmDriver() {
 	if r == nil || len(rows) == 0 {
 		return
 	}
-	who := rows[max(0, min(m.driverCursor, len(rows)-1))]
+	who := rows[max(0, min(m.pick.cursor, len(rows)-1))]
 	if err := m.w.SetRouteDriver(r.ID, who.ID); err != nil {
 		m.refuse("Can't put them on the road: " + err.Error())
 		return
@@ -183,29 +183,7 @@ func (m *Model) confirmDriver() {
 	m.say(fmt.Sprintf("%s drives %s from tomorrow: risk −%.0f%% a day on the road, and jailed if a shipment is seized.", who.Name, r.Name, m.set.Logistics.DriverCut(who.Skill)*100))
 }
 
-func (m *Model) keyDriver(key string) {
-	switch key {
-	case "esc", "q":
-		m.mode = modePlay
-	case "up", "k":
-		if m.driverCursor > 0 {
-			m.driverCursor--
-		}
-	case "down", "j":
-		if m.driverCursor < len(m.driverRows())-1 {
-			m.driverCursor++
-		}
-	case "enter":
-		m.confirmDriver()
-	default:
-		if len(key) == 1 && key[0] >= '1' && key[0] <= '9' {
-			if i := int(key[0] - '1'); i < len(m.driverRows()) {
-				m.driverCursor = i
-				m.confirmDriver()
-			}
-		}
-	}
-}
+func (m *Model) keyDriver(key string) { m.pickerKey(key, len(m.driverRows()), m.confirmDriver) }
 
 func (m *Model) viewDriver() string {
 	r := m.selectedRoute()
@@ -213,7 +191,7 @@ func (m *Model) viewDriver() string {
 	if r == nil {
 		return m.modal("DRIVER", []string{"No route selected."}, m.modalFooter())
 	}
-	m.driverCursor = max(0, min(m.driverCursor, len(rows)-1))
+	clamp(&m.pick.cursor, len(rows))
 	var cells [][]any
 	for _, c := range rows {
 		var where any = styled{theme.Subtle, "idle"}
@@ -230,11 +208,7 @@ func (m *Model) viewDriver() string {
 		}
 		cells = append(cells, []any{c.Name, skill, cut, where})
 	}
-	m.modalFollow(1 + m.driverCursor)
-	body := table([]col{{"name", kText, 0}, {"skill", kInt, 0}, {"risk", kText, 0}, {"where", kText, 0}}, cells, m.driverCursor, m.modalInner())
-	body = append(body, "")
-	body = append(body, m.subtle(fmt.Sprintf("Who drives %s? They ride every shipment on it, and a seized one takes them with it.", r.Name))...)
-	return m.modal("DRIVER · "+strings.ToUpper(r.Name), body, m.modalFooter())
+	return m.pickerModal("DRIVER · "+strings.ToUpper(r.Name), nil, []col{{"name", kText, 0}, {"skill", kInt, 0}, {"risk", kText, 0}, {"where", kText, 0}}, cells, m.pick.cursor, m.subtle(fmt.Sprintf("Who drives %s? They ride every shipment on it, and a seized one takes them with it.", r.Name))...)
 }
 
 // routeName is a route's name by id, or the id.

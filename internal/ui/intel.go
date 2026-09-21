@@ -325,6 +325,9 @@ type copDialog struct {
 	err string
 }
 
+func (d *copDialog) page() int           { return 0 }
+func (d *copDialog) field() *numberField { return &d.amt }
+
 // askPayCop opens the cop dialog.
 func (m *Model) askPayCop() {
 	if m.w.Over != nil {
@@ -413,10 +416,22 @@ func (m *Model) viewPayCop() string {
 
 // The spy dialog (modeSpy): the faction, then who goes under.
 type spyDialog struct {
-	step    int
+	stepper
+	single  bool // one faction on the ground: the dialog is its one page, the crew's
 	faction int
 	member  int
 }
+
+// page is the crew page alone with one faction (#243): nothing to go
+// back to.
+func (d *spyDialog) page() int {
+	if d.single {
+		return 0
+	}
+	return d.step
+}
+
+func (d *spyDialog) field() *numberField { return nil }
 
 // spyFactions are the factions a spy can join: alive, in table order.
 func (m *Model) spyFactions() []*game.RivalState {
@@ -458,7 +473,7 @@ func (m *Model) askSpy() {
 		m.refuse("Can't plant another: somebody is going under tonight.")
 		return
 	}
-	m.spy = spyDialog{}
+	m.spy = spyDialog{single: len(m.spyFactions()) == 1}
 	if len(m.spyFactions()) == 1 {
 		m.spy.step = 1
 	}
@@ -466,12 +481,14 @@ func (m *Model) askSpy() {
 }
 
 func (m *Model) keySpy(key string) {
-	switch key {
-	case "esc", "q":
+	if closes(key) {
 		m.mode = modePlay
+		return
+	}
+	switch key {
 	case "shift+tab":
-		if m.spy.step > 0 && len(m.spyFactions()) > 1 {
-			m.spy.step = 0
+		if !m.spy.single {
+			m.spy.back(noField)
 		}
 	case "up", "k":
 		if m.spy.step == 0 && m.spy.faction > 0 {
@@ -525,11 +542,7 @@ func (m *Model) viewSpy() string {
 		for _, r := range facs {
 			cells = append(cells, []any{styled{m.factionStyle(r.Faction()), truncate(r.Leader, 14)}, m.w.CityOf(r).Name, m.known().Personality(r.Faction()), m.muscleWord(r), factCount(m.known(), r)})
 		}
-		m.modalFollow(1 + m.spy.faction)
-		body := table([]col{{"faction", kText, 0}, {"city", kText, 0}, {"temper", kText, 0}, {"muscle", kText, 0}, {"known", kText, 0}}, cells, m.spy.faction, m.modalInner())
-		body = append(body, "")
-		body = append(body, m.subtle("Whose crew? A spy under reports its muscle, its next move and where its till is; the odds of being found are its temper's.")...)
-		return m.modal("PLANT A SPY", body, m.modalFooter())
+		return m.pickerModal("PLANT A SPY", nil, []col{{"faction", kText, 0}, {"city", kText, 0}, {"temper", kText, 0}, {"muscle", kText, 0}, {"known", kText, 0}}, cells, m.spy.faction, m.subtle("Whose crew? A spy under reports its muscle, its next move and where its till is; the odds of being found are its temper's.")...)
 	}
 	facs := m.spyFactions()
 	r := facs[max(0, min(m.spy.faction, len(facs)-1))]
@@ -543,15 +556,11 @@ func (m *Model) viewSpy() string {
 		}
 		cells = append(cells, []any{c.Name, c.Role, c.Skill, approx{tun.SpyOdds(c.Skill) * 100}, where})
 	}
-	m.modalFollow(1 + m.spy.member)
-	body := table([]col{{"name", kText, 0}, {"role", kText, 0}, {"skill", kInt, 0}, {"right", kPct, 0}, {"where", kText, 0}}, cells, m.spy.member, m.modalInner())
-	body = append(body, "")
 	foundWord := "their temper's, which you do not know"
 	if temper := m.known().Personality(r.Faction()); temper != game.Unknown {
 		foundWord = fmt.Sprintf("%.0f%% a report", tun.Found(temper)*100)
 	}
-	body = append(body, m.subtle(fmt.Sprintf("Who goes under with %s? They sell nothing for you while they are there and report every %s. The odds of being found are %s; found, %.0f%% come home and the rest are shot.", m.rivalName(r), plural(tun.SpyDays, "day"), foundWord, tun.TurnShare*100))...)
-	return m.modal("PLANT A SPY · "+strings.ToUpper(m.rivalName(r)), body, m.modalFooter())
+	return m.pickerModal("PLANT A SPY · "+strings.ToUpper(m.rivalName(r)), nil, []col{{"name", kText, 0}, {"role", kText, 0}, {"skill", kInt, 0}, {"right", kPct, 0}, {"where", kText, 0}}, cells, m.spy.member, m.subtle(fmt.Sprintf("Who goes under with %s? They sell nothing for you while they are there and report every %s. The odds of being found are %s; found, %.0f%% come home and the rest are shot.", m.rivalName(r), plural(tun.SpyDays, "day"), foundWord, tun.TurnShare*100))...)
 }
 
 // factCount counts the facts the file holds on a faction, for the picker.

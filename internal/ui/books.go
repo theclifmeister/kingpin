@@ -150,7 +150,7 @@ func (m *Model) scoutConfirm() string {
 // boostForce is the force the boost row picked carries into the
 // confirmation.
 func (m *Model) boostForce() (events.Force, bool) {
-	i := m.strikeCursor - len(forces)
+	i := m.pick.cursor - len(forces)
 	if i < 0 || i >= len(forces) {
 		return 0, false
 	}
@@ -274,6 +274,9 @@ type buyOffDialog struct {
 	units numberField
 	err   string
 }
+
+func (d *buyOffDialog) page() int           { return 0 }
+func (d *buyOffDialog) field() *numberField { return &d.units }
 
 // buyOffMax is the most heads the dialog offers: the muscle as last
 // read, or one while the books are unread (you do not know how many

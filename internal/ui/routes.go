@@ -28,12 +28,20 @@ import (
 // the target is units or days of the far end's demand (←→, #115), then
 // the number.
 type targetDialog struct {
+	stepper
 	route string // route id it sets
-	step  int    // 0 product, 1 units or days, 2 the number
 	days  bool   // the number is days of the far end's demand, not units
 	units numberField
-	err   string
 }
+
+func (d *targetDialog) fieldAt(step int) *numberField {
+	if step == 2 {
+		return &d.units
+	}
+	return nil
+}
+
+func (d *targetDialog) field() *numberField { return d.fieldAt(d.step) }
 
 // mapRoutes are the routes touching the city the map shows, in file
 // order: what the routes cursor walks.
@@ -122,27 +130,15 @@ func (m *Model) keyTarget(k tea.KeyMsg) (tea.Model, tea.Cmd) {
 	// step) and is silent on the first, tab goes forward (a product and
 	// a kind are always chosen) and is silent on the last. The number is
 	// a numberField (#112) whose max is targetMax.
-	switch key {
-	case "esc":
+	if closes(key) {
 		m.mode = modePlay
 		return m, nil
+	}
+	switch key {
 	case "shift+tab":
-		switch d.step {
-		case 2:
-			d.step = 1
-			d.units.SetValue("")
-			d.units.Blur()
-		case 1:
-			d.step = 0
-		}
-		return m, nil
+		return m, d.back(d.fieldAt)
 	case "tab":
 		if d.step == 2 {
-			return m, nil
-		}
-	case "q":
-		if d.step == 0 {
-			m.mode = modePlay
 			return m, nil
 		}
 	}

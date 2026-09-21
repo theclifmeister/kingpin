@@ -183,8 +183,8 @@ func TestTributeReadsTheRivalsStreet(t *testing.T) {
 	m.Update(key("8"))
 	m.Update(key("d"))
 	m.Update(key("2"))
-	if m.mode != modePropose || m.proposeStep != 1 {
-		t.Fatalf("the tribute page: mode %v step %d", m.mode, m.proposeStep)
+	if m.mode != modePropose || m.prop.step != 1 {
+		t.Fatalf("the tribute page: mode %v step %d", m.mode, m.prop.step)
 	}
 	body := stripANSI(m.View())
 	for _, want := range []string{"of your street", "Your street: " + base + " a day on your corners here in what they sell."} {

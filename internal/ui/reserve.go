@@ -18,6 +18,9 @@ type reserveDialog struct {
 	err string
 }
 
+func (d *reserveDialog) page() int           { return 0 }
+func (d *reserveDialog) field() *numberField { return &d.amt }
+
 // askReserve opens the reserve dialog.
 func (m *Model) askReserve() {
 	if m.w.Over != nil {

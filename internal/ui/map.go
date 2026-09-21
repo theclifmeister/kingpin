@@ -145,19 +145,19 @@ func (m *Model) askPost(role string) {
 		m.refuse("Nothing to post: no " + format.Plurals(role) + ". Hire one " + screenPointer(screenCrew) + ".")
 		return
 	}
-	m.postRole = role
-	m.postCursor = 0
+	m.pick.role = role
+	m.pick.cursor = 0
 	m.mode = modePost
 }
 
 func (m *Model) confirmPost() {
 	c := m.mapSelected()
-	rows := m.postRows(m.postRole)
+	rows := m.postRows(m.pick.role)
 	m.mode = modePlay
 	if c == nil || len(rows) == 0 {
 		return
 	}
-	who := rows[max(0, min(m.postCursor, len(rows)-1))]
+	who := rows[max(0, min(m.pick.cursor, len(rows)-1))]
 	if err := m.w.Post(c.ID, who.ID); err != nil {
 		if who.ID == game.You && err == game.ErrElsewhere {
 			m.refuse(fmt.Sprintf("Can't stand on %s from %s: go there first.", c.Name, m.w.Here().Name))
@@ -168,7 +168,7 @@ func (m *Model) confirmPost() {
 	}
 	if who.ID == game.You {
 		m.say(fmt.Sprintf("You are working %s now.", c.Name))
-	} else if m.postRole == "enforcer" {
+	} else if m.pick.role == "enforcer" {
 		m.say(fmt.Sprintf("%s is guarding %s.", who.Name, c.Name))
 	} else {
 		m.say(fmt.Sprintf("%s is working %s.", who.Name, c.Name))
@@ -189,11 +189,11 @@ func (m *Model) abandonSelected() {
 
 func (m *Model) viewPost() string {
 	c := m.mapSelected()
-	rows := m.postRows(m.postRole)
+	rows := m.postRows(m.pick.role)
 	if c == nil || len(rows) == 0 {
 		return m.modal("POST", []string{"Nobody to post."}, m.modalFooter())
 	}
-	m.postCursor = max(0, min(m.postCursor, len(rows)-1))
+	clamp(&m.pick.cursor, len(rows))
 	var cells [][]any
 	for _, r := range rows {
 		var where any = styled{theme.Subtle, "idle"}
@@ -212,14 +212,11 @@ func (m *Model) viewPost() string {
 		}
 		cells = append(cells, []any{r.Name, skill, where})
 	}
-	m.modalFollow(1 + m.postCursor) // under the header
-	body := table([]col{{"name", kText, 0}, {"skill", kInt, 0}, {"where", kText, 0}}, cells, m.postCursor, m.modalInner())
 	what, title := "work", "POST A RUNNER"
-	if m.postRole == "enforcer" {
+	if m.pick.role == "enforcer" {
 		what, title = "guard", "POST AN ENFORCER"
 	}
-	body = append(body, "", theme.Subtle.Render(fmt.Sprintf("Who should %s %s?", what, c.Name)))
-	return m.modal(title, body, m.modalFooter())
+	return m.pickerModal(title, nil, []col{{"name", kText, 0}, {"skill", kInt, 0}, {"where", kText, 0}}, cells, m.pick.cursor, theme.Subtle.Render(fmt.Sprintf("Who should %s %s?", what, c.Name)))
 }
 
 func (m *Model) viewMap() string {

@@ -21,9 +21,11 @@ import (
 
 // exitDialog is the walk-away dialog's state: the page and the row.
 type exitDialog struct {
-	step   int // 0 the ways out, 1 the confirmation
+	stepper
 	cursor int // 0 retire, 1 vanish
 }
+
+func (d *exitDialog) field() *numberField { return nil }
 
 // exitRow is one way out on the first page.
 type exitRow struct {
@@ -77,11 +79,13 @@ func (m *Model) askExit() {
 // what is short), shift+tab back, y on the confirmation, esc closes.
 func (m *Model) keyExit(key string) {
 	rows := m.exitRows()
-	switch key {
-	case "esc", "q":
+	if closes(key) {
 		m.mode = modePlay
+		return
+	}
+	switch key {
 	case "shift+tab":
-		m.exit.step = 0
+		m.exit.back(noField)
 	case "up", "k":
 		if m.exit.step == 0 && m.exit.cursor > 0 {
 			m.exit.cursor--

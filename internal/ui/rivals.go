@@ -87,7 +87,7 @@ func (m *Model) askStrike() {
 		m.refuse("Nothing to send: no enforcers. Hire one " + screenPointer(screenCrew) + ".")
 		return
 	}
-	m.strikeCursor = 1
+	m.pick.cursor = 1
 	m.mode = modeStrike
 }
 
@@ -98,7 +98,7 @@ func (m *Model) confirmStrike() {
 	if c == nil {
 		return
 	}
-	i := max(0, min(m.strikeCursor, len(rows)-1))
+	i := max(0, min(m.pick.cursor, len(rows)-1))
 	if i >= 2*len(forces) {
 		m.w.CallOff()
 		m.say("Called off. The enforcers stay home tonight.")
@@ -123,7 +123,7 @@ func (m *Model) viewStrike() string {
 		return m.modal("SEND ENFORCERS", []string{"Nowhere to send them."}, m.modalFooter())
 	}
 	rows := m.strikeRows()
-	m.strikeCursor = max(0, min(m.strikeCursor, len(rows)-1))
+	m.pick.cursor = max(0, min(m.pick.cursor, len(rows)-1))
 	fac := m.factionOf(c)
 	body := []string{theme.Subtle.Render(fmt.Sprintf("%s vs %s on %s, muscle %s", plural(m.w.Crew.Role("enforcer"), "enforcer"), m.rivalName(fac), c.Name, m.defenceWord(fac))), ""}
 	var cells [][]any
@@ -141,9 +141,6 @@ func (m *Model) viewStrike() string {
 			cells = append(cells, []any{r, nil, nil, nil, nil})
 		}
 	}
-	m.modalFollow(len(body) + 1 + m.strikeCursor) // under the header
-	body = append(body, table([]col{{"force", kText, 0}, {"lands", kText, 0}, {"heat", kText, 0}, {"war", kInt, 0}, {"for", kText, 0}}, cells, m.strikeCursor, m.modalInner())...)
-	body = append(body, "")
 	notes := []string{
 		"Harder flips faster, draws more heat on you, adds to the war",
 		"and costs the enforcers' nerve. A loud enough war brings a",
@@ -152,10 +149,10 @@ func (m *Model) viewStrike() string {
 	if _, _, _, ok := m.known().Muscle(fac.Faction()); !ok {
 		notes = append(notes, "You do not know their muscle: the odds read blind until you do.")
 	}
-	for _, l := range notes {
-		body = append(body, theme.Subtle.Render(l))
+	for i, l := range notes {
+		notes[i] = theme.Subtle.Render(l)
 	}
-	return m.modal("SEND ENFORCERS", body, m.modalFooter())
+	return m.pickerModal("SEND ENFORCERS", body, []col{{"force", kText, 0}, {"lands", kText, 0}, {"heat", kText, 0}, {"war", kInt, 0}, {"for", kText, 0}}, cells, m.pick.cursor, notes...)
 }
 
 // dials are the undercut picker's rows, in dial order (#68).
@@ -188,9 +185,9 @@ func (m *Model) askUndercut() {
 		m.refuse("Can't undercut: " + err.Error())
 		return
 	}
-	m.undercutCursor = 1
+	m.pick.cursor = 1
 	if d, ok := m.w.Undercutting(c.ID); ok {
-		m.undercutCursor = int(d)
+		m.pick.cursor = int(d)
 	}
 	m.mode = modeUndercut
 }
@@ -202,7 +199,7 @@ func (m *Model) confirmUndercut() {
 	if c == nil {
 		return
 	}
-	i := max(0, min(m.undercutCursor, len(rows)-1))
+	i := max(0, min(m.pick.cursor, len(rows)-1))
 	if i >= len(dials) {
 		m.w.CancelUndercut(c.ID)
 		m.say("Called off. " + c.Name + " sells at their price tonight.")
@@ -236,7 +233,7 @@ func (m *Model) viewUndercut() string {
 		return m.modal("UNDERCUT", []string{"Nothing to undercut."}, m.modalFooter())
 	}
 	rows := m.undercutRows()
-	m.undercutCursor = max(0, min(m.undercutCursor, len(rows)-1))
+	m.pick.cursor = max(0, min(m.pick.cursor, len(rows)-1))
 	body := []string{
 		theme.Subtle.Render(fmt.Sprintf("%s on %s: worth ~%s a day to them", m.rivalName(m.factionOf(c)), c.Name, cash(m.set.Rivals.CornerIncome(m.w, *c)))),
 		theme.Subtle.Render(fmt.Sprintf("your corners next door ×%.1f: the share taken scales with them", m.w.NextDoor(*c))),
@@ -251,18 +248,16 @@ func (m *Model) viewUndercut() string {
 			cells = append(cells, []any{r, nil, nil, nil, nil})
 		}
 	}
-	m.modalFollow(len(body) + 1 + m.undercutCursor) // under the header
-	body = append(body, table([]col{{"dial", kDial, 0}, {"takes", kPct, 0}, {"units/day", kInt, 0}, {"off", kPct, 0}, {"they lose", kCash, 0}}, cells, m.undercutCursor, m.modalInner())...)
-	body = append(body, "")
-	for _, l := range []string{
+	notes := []string{
 		"Tonight's orders here serve their customers too, cheap, on top",
 		"of your own corners; the extra volume gluts the product. No",
 		"heat, a little war and a grudge; starve a corner long enough",
 		"and they push back or give it up, by temper.",
-	} {
-		body = append(body, theme.Subtle.Render(l))
 	}
-	return m.modal("UNDERCUT", body, m.modalFooter())
+	for i, l := range notes {
+		notes[i] = theme.Subtle.Render(l)
+	}
+	return m.pickerModal("UNDERCUT", body, []col{{"dial", kDial, 0}, {"takes", kPct, 0}, {"units/day", kInt, 0}, {"off", kPct, 0}, {"they lose", kCash, 0}}, cells, m.pick.cursor, notes...)
 }
 
 // dealRules are the three lines on what a deal does and what breaks it,

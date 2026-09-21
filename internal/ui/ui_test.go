@@ -1525,8 +1525,8 @@ func TestMapScreenKeys(t *testing.T) {
 		target = m.shown().Corners[m.mapCursor]
 	}
 	m.Update(key("c"))
-	if m.mode != modePost || m.postRole != "runner" {
-		t.Fatalf("c on the map: mode %v role %q", m.mode, m.postRole)
+	if m.mode != modePost || m.pick.role != "runner" {
+		t.Fatalf("c on the map: mode %v role %q", m.mode, m.pick.role)
 	}
 	rows := m.postRows("runner")
 	if rows[0].ID != game.You {
@@ -1696,12 +1696,12 @@ func TestLedgerScreenKeys(t *testing.T) {
 	// Too poor, then unlocked but short, then bought. The picker opens
 	// on the kind (#73: a front or a house); enter takes the fronts.
 	m.Update(key("b"))
-	if m.mode != modeFront || m.frontStep != 0 {
-		t.Fatalf("b on the ledger: mode %v step %d", m.mode, m.frontStep)
+	if m.mode != modeFront || m.front.step != 0 {
+		t.Fatalf("b on the ledger: mode %v step %d", m.mode, m.front.step)
 	}
 	m.Update(key("enter"))
-	if m.mode != modeFront || m.frontStep != 1 || m.frontKind != pickFront {
-		t.Fatalf("enter on the kind: mode %v step %d kind %d", m.mode, m.frontStep, m.frontKind)
+	if m.mode != modeFront || m.front.step != 1 || m.front.kind != pickFront {
+		t.Fatalf("enter on the kind: mode %v step %d kind %d", m.mode, m.front.step, m.front.kind)
 	}
 	m.Update(key("enter"))
 	if m.mode != modePlay || len(m.w.Fronts) != 0 || !strings.Contains(m.status, "Can't buy") {
@@ -2243,20 +2243,20 @@ func TestRivalsScreenKeys(t *testing.T) {
 	w.Rival().Trust, w.Rival().War, w.Player.Reputation.Fear = 100, 30, 100
 	day := w.Day
 	m.Update(key("d"))
-	if m.mode != modePropose || m.proposeStep != 0 {
-		t.Fatalf("d on the rivals screen: mode %v step %d", m.mode, m.proposeStep)
+	if m.mode != modePropose || m.prop.step != 0 {
+		t.Fatalf("d on the rivals screen: mode %v step %d", m.mode, m.prop.step)
 	}
 	m.Update(key("4")) // shipment: listed, locked
 	if m.mode != modePropose || !strings.Contains(m.status, "routes") {
 		t.Fatalf("shipment: mode %v status %q", m.mode, m.status)
 	}
 	m.Update(key("1")) // truce -> terms page
-	if m.proposeStep != 1 || proposeKinds[m.proposeKind] != game.DealTruce {
-		t.Fatalf("after picking truce: step %d kind %d", m.proposeStep, m.proposeKind)
+	if m.prop.step != 1 || proposeKinds[m.prop.kind] != game.DealTruce {
+		t.Fatalf("after picking truce: step %d kind %d", m.prop.step, m.prop.kind)
 	}
 	m.Update(key("shift+tab"))
-	if m.mode != modePropose || m.proposeStep != 0 {
-		t.Fatalf("shift+tab on the terms page should go back a page: mode %v step %d", m.mode, m.proposeStep)
+	if m.mode != modePropose || m.prop.step != 0 {
+		t.Fatalf("shift+tab on the terms page should go back a page: mode %v step %d", m.mode, m.prop.step)
 	}
 	m.Update(key("enter")) // truce again
 	m.Update(key("enter")) // the standard term

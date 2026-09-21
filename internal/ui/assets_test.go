@@ -44,8 +44,8 @@ func TestAssetsInTheGrammar(t *testing.T) {
 	m.Update(key("j"))
 	m.Update(key("j"))
 	m.Update(key("enter"))
-	if m.mode != modeFront || m.frontKind != pickAsset || m.frontStep != 1 {
-		t.Fatalf("the picker is not on the asset page: mode %v kind %d step %d", m.mode, m.frontKind, m.frontStep)
+	if m.mode != modeFront || m.front.kind != pickAsset || m.front.step != 1 {
+		t.Fatalf("the picker is not on the asset page: mode %v kind %d step %d", m.mode, m.front.kind, m.front.step)
 	}
 	for _, sz := range [][2]int{{80, 24}, {100, 30}, {120, 40}} {
 		m.Update(tea.WindowSizeMsg{Width: sz[0], Height: sz[1]})

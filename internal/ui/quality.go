@@ -24,19 +24,21 @@ import (
 
 // labDialog is the cut and the cook dialog's state.
 type labDialog struct {
-	step    int
+	stepper
 	city    string
 	product string
 	cursor  int
 	qty     numberField
-	err     string
 }
 
-// labList is a lab dialog being on its product page.
-func labList(m *Model) bool { return m.lab.step == 0 }
+func (d *labDialog) fieldAt(step int) *numberField {
+	if step == 1 {
+		return &d.qty
+	}
+	return nil
+}
 
-// labNumber is a lab dialog being on its number page.
-func labNumber(m *Model) bool { return m.lab.step == 1 }
+func (d *labDialog) field() *numberField { return d.fieldAt(d.step) }
 
 // cutProducts are the products the stash where you stand holds that the
 // file lets you cut.
@@ -154,16 +156,13 @@ func (m *Model) keyLab(k tea.KeyMsg) (tea.Model, tea.Cmd) {
 	key := k.String()
 	d := &m.lab
 	d.err = ""
-	switch key {
-	case "esc":
+	if closes(key) {
 		m.mode = modePlay
 		return m, nil
+	}
+	switch key {
 	case "shift+tab":
-		if d.step > 0 {
-			d.step--
-			d.qty.SetValue("")
-		}
-		return m, nil
+		return m, d.back(d.fieldAt)
 	case "tab":
 		if d.step == 0 {
 			m.labNext()

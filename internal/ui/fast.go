@@ -43,6 +43,9 @@ type fastDialog struct {
 	err  string
 }
 
+func (d *fastDialog) page() int           { return 0 }
+func (d *fastDialog) field() *numberField { return &d.days }
+
 // askFast opens the confirmation on the default cap.
 func (m *Model) askFast() {
 	if m.w.Over != nil {

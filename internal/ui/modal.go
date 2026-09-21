@@ -3,6 +3,8 @@ package ui
 import (
 	"strings"
 
+	tea "github.com/charmbracelet/bubbletea"
+
 	"github.com/charmbracelet/lipgloss"
 	"github.com/charmbracelet/x/ansi"
 
@@ -48,6 +50,101 @@ type confirm struct {
 func (m *Model) ask(verb string, view func(*Model) string, act func(*Model)) {
 	m.cfm = confirm{verb: verb, view: view, act: act, back: modePlay}
 	m.mode = modeConfirm
+}
+
+// stepper is the state every dialog with pages embeds (#243): the page
+// it is on and the error under its body. back is the one back rule: a
+// step back blurs and clears the number field the step leaves and
+// focuses the one it lands on, keeping what the earlier steps chose
+// (the product, the line, the kind, the city); fieldAt is the dialog's
+// number field on a step, nil off one (noField for a dialog with none).
+type stepper struct {
+	step int
+	err  string
+}
+
+func (s *stepper) back(fieldAt func(int) *numberField) tea.Cmd {
+	if s.step == 0 {
+		return nil
+	}
+	if f := fieldAt(s.step); f != nil {
+		f.SetValue("")
+		f.Blur()
+	}
+	s.step--
+	if f := fieldAt(s.step); f != nil {
+		return f.Focus()
+	}
+	return nil
+}
+
+func (s *stepper) page() int { return s.step }
+
+// noField is fieldAt for a dialog with no number field.
+func noField(int) *numberField { return nil }
+
+// closes reports whether a key closes a modal whole: esc, and q, from
+// any step (#243).
+func closes(key string) bool { return key == "esc" || key == "q" }
+
+// paged is what a mode's state tells the key table (#243): the page it
+// is on and the number field on it, nil off one. The footer's generic
+// rows follow from it through openPaged: the field's four while there
+// is a field, `⇧tab back` past the first page and `esc close`.
+type paged interface {
+	page() int
+	field() *numberField
+}
+
+// picker is the one-page picker's state (#243): the cursor the arrows
+// and the digits walk, and the post picker's role. One is open at a
+// time, so the six (post, strike, undercut, assign, guard, driver) share
+// it; each askX sets the cursor as it opens.
+type picker struct {
+	cursor int
+	role   string // the post picker's: runner or enforcer
+}
+
+func (p *picker) page() int           { return 0 }
+func (p *picker) field() *numberField { return nil }
+
+// pickerKey is every one-page picker's keys (#243): ↑↓ and j k move the
+// cursor within rows, 1-9 select and commit, enter commits, esc and q
+// close.
+func (m *Model) pickerKey(key string, rows int, pick func()) {
+	switch key {
+	case "esc", "q":
+		m.mode = modePlay
+	case "up", "k":
+		if m.pick.cursor > 0 {
+			m.pick.cursor--
+		}
+	case "down", "j":
+		if m.pick.cursor < rows-1 {
+			m.pick.cursor++
+		}
+	case "enter":
+		pick()
+	default:
+		if len(key) == 1 && key[0] >= '1' && key[0] <= '9' {
+			if i := int(key[0] - '1'); i < rows {
+				m.pick.cursor = i
+				pick()
+			}
+		}
+	}
+}
+
+// pickerModal is every picker's modal (#243): the head lines, the table
+// with the cursor's row kept in view, then a blank and the notes where
+// there are any.
+func (m *Model) pickerModal(title string, head []string, cols []col, cells [][]any, cursor int, notes ...string) string {
+	m.modalFollow(len(head) + 1 + cursor) // under the header
+	body := append(append([]string{}, head...), table(cols, cells, cursor, m.modalInner())...)
+	if len(notes) > 0 {
+		body = append(append(body, ""), notes...)
+	}
+	return m.modal(title, body, m.modalFooter())
 }
 
 // modalMax is the widest a modal gets. Under it the modal is the terminal
