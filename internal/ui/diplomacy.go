@@ -6,7 +6,6 @@ import (
 	"strings"
 
 	"github.com/theclifmeister/kingpin/internal/game"
-	"github.com/theclifmeister/kingpin/internal/ui/sparkline"
 	"github.com/theclifmeister/kingpin/internal/ui/theme"
 )
 
@@ -219,7 +218,7 @@ func (m *Model) trustBar(r *game.RivalState, width int) string {
 	case t >= 60:
 		style = theme.Good
 	}
-	return style.Render(sparkline.Bar(t/100, width, nil)) + style.Render(fmt.Sprintf(" %.0f", t))
+	return barText(t/100, width, nil, fmt.Sprintf(" %.0f", t), style)
 }
 
 // warBar is the war against the line the police crack down at, as a
@@ -234,7 +233,7 @@ func (m *Model) warBar(r *game.RivalState, width int) string {
 	if r.War >= tun.WarThreshold {
 		style, word = theme.Bad, " loud"
 	}
-	return style.Render(sparkline.Bar(r.War/tun.CrackdownThreshold, width, nil)) + style.Render(fmt.Sprintf(" %.0f/%.0f%s", r.War, tun.CrackdownThreshold, word))
+	return barText(r.War/tun.CrackdownThreshold, width, nil, fmt.Sprintf(" %.0f/%.0f%s", r.War, tun.CrackdownThreshold, word), style)
 }
 
 // rivalCorners is how much of the city a faction holds, in words.
@@ -348,7 +347,7 @@ func (m *Model) viewRivals() string {
 	line(sub("trust ") + m.trustBar(r, barW) + "   " + sub("war ") + m.warBar(r, barW))
 	ls = append(ls, "")
 
-	line(sectionTitle("DEALS", theme.Rivals))
+	line(sectionTitle("DEALS", m.accent()))
 	if len(r.Deals) == 0 {
 		line(emptyState("No deals. Press ", "d", " to propose one."))
 	} else {
@@ -375,7 +374,7 @@ func (m *Model) viewRivals() string {
 	}
 	ls = append(ls, "")
 
-	line(sectionTitle("OFFERS", theme.Rivals))
+	line(sectionTitle("OFFERS", m.accent()))
 	if len(w.Offers) == 0 {
 		line(sub("Nothing on the table."))
 	} else {

@@ -242,7 +242,7 @@ func (m *Model) viewMap() string {
 	}
 	// One title line: the city, the tabs, and the count; the rival's
 	// count is the corner inspector's.
-	head := theme.PanelTitle.Render("MAP · "+city.Name) + "  " + m.cityTabs() + "  " +
+	head := m.screenTitle("MAP") + "  " +
 		theme.Subtle.Render(fmt.Sprintf("%d/%d held · %d worked · ~%.0f/day free", held, len(cs), worked, free))
 	lines := []string{truncate(head, width)}
 
@@ -341,7 +341,7 @@ func (m *Model) viewMap() string {
 	// The routes out of here, each an edge between the cities with its
 	// dial and what is on it. The selected route's detail is the pane's.
 	if len(routes) > 0 {
-		lines = append(lines, "", theme.RoadText.Render("ROUTES"))
+		lines = append(lines, "", sectionTitle("ROUTES", m.accent()))
 		lines = append(lines, routes...)
 	}
 	return strings.Join(lines, "\n") + "\n"
@@ -470,7 +470,7 @@ func (m *Model) cornerSection(sel *game.Corner) section {
 		row("heat", fmt.Sprintf("×%.1f %s", sel.Heat, heatWord(sel.Heat))),
 		row("risk", fmt.Sprintf("×%.1f %s", sel.Risk, riskWord(sel.Risk))))
 	if sel.Held() {
-		lines = append(lines, row("robbery", fmt.Sprintf("%.1f%%/day", m.set.Territory.RobberyChance(w, sel)*100)))
+		lines = append(lines, row("robbery", pctText(m.set.Territory.RobberyChance(w, sel)*100)+"/day"))
 	}
 	// The deed to the block (#194): yours since when and what it pays,
 	// or what it would cost.

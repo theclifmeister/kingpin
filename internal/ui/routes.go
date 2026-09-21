@@ -48,8 +48,7 @@ func (m *Model) selectedRoute() *content.RouteConfig {
 	if len(routes) == 0 {
 		return nil
 	}
-	m.routeCursor = max(0, min(m.routeCursor, len(routes)-1))
-	return &routes[m.routeCursor]
+	return &routes[clamp(&m.routeCursor, len(routes))]
 }
 
 // cycleRoute turns the selected route's dial a notch: off, slow, normal,

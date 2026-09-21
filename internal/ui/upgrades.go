@@ -366,21 +366,6 @@ func (m *Model) branchTabs(width int) string {
 	return truncate(tabLine(short, m.branch), width)
 }
 
-// tabLine is the branch tabs in the market's city-tab convention
-// (cityTabs, which #113 holds; fold the two once it lands): the labels
-// two spaces apart in Subtle, the shown one in brackets and Selected.
-func tabLine(labels []string, shown int) string {
-	var parts []string
-	for i, label := range labels {
-		if i == shown {
-			parts = append(parts, theme.Selected.Render("[ "+label+" ]"))
-		} else {
-			parts = append(parts, theme.Subtle.Render(label))
-		}
-	}
-	return strings.Join(parts, "  ")
-}
-
 // upgradeStatus is where a node stands as the table's status column
 // says it: owned, available, what it needs first, or how short the
 // pool is.
@@ -413,7 +398,7 @@ func (m *Model) viewUpgrades() string {
 	var b strings.Builder
 	owned, total := m.ownedCount()
 	sep := theme.Subtle.Render(" · ")
-	title := sectionTitle("UPGRADES", theme.Money) + theme.Subtle.Render(fmt.Sprintf(" · %d of %d owned", owned, total)) +
+	title := theme.PanelTitle.Render("UPGRADES") + theme.Subtle.Render(fmt.Sprintf(" · %d of %d owned", owned, total)) +
 		sep + theme.Gold.Render("dirty "+cash(w.Player.DirtyCash)) + sep + theme.Good.Render("clean "+cash(w.Player.CleanCash))
 	b.WriteString(truncate(title, width) + "\n")
 	b.WriteString(m.branchTabs(width) + "\n\n")

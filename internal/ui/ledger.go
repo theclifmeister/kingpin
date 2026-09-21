@@ -230,8 +230,7 @@ func (m *Model) ledgerSelected() ledgerRow {
 	if len(rows) == 0 {
 		return ledgerRow{-1, 0}
 	}
-	m.ledgerCursor = max(0, min(m.ledgerCursor, len(rows)-1))
-	return rows[m.ledgerCursor]
+	return rows[clamp(&m.ledgerCursor, len(rows))]
 }
 
 // ledgerMove is the arrows on the ledger: the cursor down the fronts,
@@ -349,7 +348,7 @@ func (m *Model) viewLedger() string {
 		if first < 0 {
 			first = len(ls)
 		}
-		line(sectionTitle(title, theme.Money) + sub(note))
+		line(sectionTitle(title, m.accent()) + sub(note))
 	}
 	tableLines := func(kind int, cols []col, rows [][]any) {
 		c := cursorIn(kind)
@@ -603,7 +602,7 @@ func (m *Model) frontSection(f game.Front) section {
 		st.Render(status),
 		row("washes", washes),
 		row("today", money(f.WashedToday)+" · lifetime "+money(f.Washed)),
-		row("audit", fmt.Sprintf("%.1f%%/day at %s", l.AuditRisk(w, f)*100, w.Laundering.Dial)),
+		row("audit", pctText(l.AuditRisk(w, f)*100)+"/day at "+w.Laundering.Dial.String()),
 	}
 	if m.cfg.Laundering.Front(f.ID) != nil {
 		lines = append(lines, row("upkeep", money(l.FrontUpkeep(w, f))+"/day clean"))
@@ -681,7 +680,7 @@ func (m *Model) offerSection(o game.FrontOffer) section {
 		row("cost", money(o.Cost)+" dirty"),
 		row("washes", money(o.Throughput)+"/day"),
 		row("upkeep", money(o.Upkeep)+"/day clean"),
-		row("audit", fmt.Sprintf("%.1f%%/day", o.AuditRisk*100)),
+		row("audit", pctText(o.AuditRisk*100)+"/day"),
 	}
 	switch {
 	case o.Locked(w):
@@ -705,7 +704,7 @@ func (m *Model) washSection() section {
 		row("dial", w.Laundering.Dial.String()),
 		row("washing", fmt.Sprintf("up to %s/day", money(l.Capacity(w)))),
 		row("upkeep", fmt.Sprintf("%s/day", money(l.Upkeep(w)))),
-		row("audit", fmt.Sprintf("%.1f%%/day", l.AnyAuditRisk(w)*100)),
+		row("audit", pctText(l.AnyAuditRisk(w)*100)+"/day"),
 		row("legit", fmt.Sprintf("%s/day net of upkeep", money(l.LegitIncome(w)))),
 		row("fronts", fmt.Sprintf("%d · washed %s", len(w.Fronts), cash(w.Stats.Laundered))),
 	}

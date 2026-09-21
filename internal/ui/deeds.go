@@ -201,7 +201,7 @@ func (m *Model) deedSection(c game.Corner) section {
 	}
 	switch {
 	case c.Held():
-		lines = append(lines, row("robbery", fmt.Sprintf("%.1f%%/day (×%s)", tr.RobberyChance(w, &c)*100, times(tun.RobberyMul))), row("pushes", fmt.Sprintf("×%s on this corner", times(tun.PushMul))))
+		lines = append(lines, row("robbery", fmt.Sprintf("%s/day (×%s)", pctText(tr.RobberyChance(w, &c)*100), times(tun.RobberyMul))), row("pushes", fmt.Sprintf("×%s on this corner", times(tun.PushMul))))
 	case c.Owner == game.OwnerRival:
 		lines = append(lines, row("defence", fmt.Sprintf("theirs ×%s: strike it", times(tun.PushMul))))
 	}

@@ -340,8 +340,7 @@ func (m *Model) faction() *game.RivalState {
 	if len(rs) == 0 {
 		return m.w.Rival()
 	}
-	m.factionCursor = max(0, min(m.factionCursor, len(rs)-1))
-	return rs[m.factionCursor]
+	return rs[clamp(&m.factionCursor, len(rs))]
 }
 
 // factionOf is the faction holding a corner, or the rival at home for

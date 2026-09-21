@@ -1,11 +1,13 @@
 package ui
 
 import (
+	"fmt"
 	"strings"
 
 	"github.com/charmbracelet/lipgloss"
 
 	"github.com/theclifmeister/kingpin/internal/format"
+	"github.com/theclifmeister/kingpin/internal/ui/sparkline"
 )
 
 // money, cash and price are the three money formats, one per column
@@ -77,4 +79,30 @@ func pct(from, to float64) float64 {
 		return 0
 	}
 	return (to - from) / from * 100
+}
+
+// pctText is a percentage as the table's kPct column prints it (#244):
+// one decimal under ten, none from ten (`4.5%`, `12%`), so a percent in
+// the pane reads as the same percent in a table.
+func pctText(f float64) string {
+	if f < 10 && f > -10 {
+		return fmt.Sprintf("%.1f%%", f)
+	}
+	return fmt.Sprintf("%.0f%%", f)
+}
+
+// barText is a bar with its number after it, styled as one (#244):
+// `████░░░░ 45`. The suffix is the caller's (` 45`, ` 45/60`, ` 67%`),
+// the marks the ticks on the bar (a loyalty's line), so every bar in
+// MAIN and the pane is drawn the way the table's gauge cell is.
+func barText(frac float64, width int, marks []float64, suffix string, style lipgloss.Style) string {
+	return style.Render(sparkline.Bar(frac, width, marks) + suffix)
+}
+
+// clamp holds a cursor inside a list of n and returns it: the last row
+// once the list shrank under it, 0 for an empty list (#244: every
+// selection clamps both ends the same way).
+func clamp(cur *int, n int) int {
+	*cur = max(0, min(*cur, n-1))
+	return *cur
 }

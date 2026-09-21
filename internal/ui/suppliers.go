@@ -7,7 +7,6 @@ import (
 	"github.com/charmbracelet/lipgloss"
 
 	"github.com/theclifmeister/kingpin/internal/game"
-	"github.com/theclifmeister/kingpin/internal/ui/sparkline"
 	"github.com/theclifmeister/kingpin/internal/ui/theme"
 )
 
@@ -40,10 +39,7 @@ func (m *Model) selectedSupplier() *game.Supplier {
 	if !m.onSuppliers || len(rows) == 0 {
 		return nil
 	}
-	if m.supplierCursor >= len(rows) {
-		m.supplierCursor = len(rows) - 1
-	}
-	return rows[m.supplierCursor]
+	return rows[clamp(&m.supplierCursor, len(rows))]
 }
 
 // suppliersLines is the SUPPLIERS block under the market's buyers: the
@@ -54,7 +50,7 @@ func (m *Model) selectedSupplier() *game.Supplier {
 func (m *Model) suppliersLines() []string {
 	w := m.w
 	rows := m.supplierRows()
-	title := sectionTitle("SUPPLIERS", theme.Market) + theme.Subtle.Render(" · "+m.shown().Name)
+	title := sectionTitle("SUPPLIERS", m.accent()) + theme.Subtle.Render(" · "+m.shown().Name)
 	if len(rows) == 0 {
 		return []string{title, theme.Subtle.Render("Nobody sells here. Yet.")}
 	}
@@ -80,7 +76,7 @@ func (m *Model) suppliersLines() []string {
 			unit = fmt.Sprintf("%8s", price(sup.Price[id]))
 		}
 		style := relStyle(m.set.Market.Band(sup.Rel), m.set.Market.Bands())
-		bar := style.Render(sparkline.Bar(sup.Rel/100, 5, nil) + fmt.Sprintf(" %3.0f", sup.Rel))
+		bar := barText(sup.Rel/100, 5, nil, fmt.Sprintf(" %3.0f", sup.Rel), style)
 		note := m.supplierNote(sup)
 		long = append(long, fmt.Sprintf("%s%s %s  lot %-4d %5d left  rel %s  %s", cur, name, unit, sup.Lot, sup.Left(), bar, note))
 		short = append(short, fmt.Sprintf("%s%s %s  lot %-4d rel %s  %s", cur, name, unit, sup.Lot, style.Render(fmt.Sprintf("%3.0f", sup.Rel)), note))
@@ -139,7 +135,7 @@ func (m *Model) supplierSections(sup *game.Supplier) []section {
 	sel := []string{
 		row("temper", sup.Temper),
 		row("", theme.Subtle.Render(temperShort(sup.Temper))),
-		row("rel", relStyle(band, bands).Render(sparkline.Bar(sup.Rel/100, 6, nil)+fmt.Sprintf(" %.0f", sup.Rel))+sep+bandWord(band, bands)),
+		row("rel", barText(sup.Rel/100, 6, nil, fmt.Sprintf(" %.0f", sup.Rel), relStyle(band, bands))+sep+bandWord(band, bands)),
 		row("price", fmt.Sprintf("~%.0f%% of street", mk.SupplierRatio(w, sup)*100)),
 	}
 	if band < bands-1 {
