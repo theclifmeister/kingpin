@@ -368,7 +368,7 @@ func (m *Model) viewBuyOff() string {
 		known = fmt.Sprintf("As last read (%s): %s.", strings.TrimPrefix(m.booksAge(r), "read "), plural(k.Muscle, "head"))
 	}
 	body := m.wrapLines(fmt.Sprintf("Pay %s's people to go home: %s a head, %s for %s.", r.Leader, money(price), money(n*price), plural(n, "head")))
-	body = append(body, theme.Subtle.Render(known), "", "Heads     "+units.View(), "")
+	body = append(body, theme.Subtle.Render(known), "", m.inHand(), row("heads", units.View()), "")
 	body = append(body, m.wrapLines(fmt.Sprintf("~%.0f%% it lands: they leave %s and never join you; what you paid for heads that were not there comes back. A well-paid crew costs more; respect cuts it.", p.Odds*100, m.rivalName(r)))...)
 	body = append(body, theme.Warning.Render("Failing, the money is gone and they know you tried."))
 	if m.bo.err != "" {

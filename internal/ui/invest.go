@@ -144,12 +144,13 @@ func (m *Model) viewInvest() string {
 		style = theme.Bad
 	}
 	body := []string{
-		fmt.Sprintf("Now       level %d of %d · earns %s/day · washes %s/day · upkeep %s/day", f.Level, l.MaxLevel(*f), money(l.Income(*f)), money(l.Throughput(w, *f)), money(l.FrontUpkeep(w, *f))),
-		fmt.Sprintf("Levels    %s   %s", levels.View(), theme.Subtle.Render("clean "+cash(w.Player.CleanCash))),
+		m.inHand(),
+		row("now", fmt.Sprintf("level %d of %d · earns %s/day · washes %s/day · upkeep %s/day", f.Level, l.MaxLevel(*f), money(l.Income(*f)), money(l.Throughput(w, *f)), money(l.FrontUpkeep(w, *f)))),
+		row("levels", levels.View()),
 	}
 	if f.Level+n <= l.MaxLevel(*f) {
-		body = append(body, fmt.Sprintf("Buys      level %d for %s: earns %s/day, washes %s/day, upkeep %s/day, audit %.1f%%/day",
-			after.Level, style.Render(money(cost)), theme.Good.Render(money(l.Income(after))), money(l.Throughput(w, after)), money(l.FrontUpkeep(w, after)), l.AuditRisk(w, after)*100))
+		body = append(body, row("buys", fmt.Sprintf("level %d for %s: earns %s/day, washes %s/day, upkeep %s/day, audit %.1f%%/day",
+			after.Level, style.Render(money(cost)), theme.Good.Render(money(l.Income(after))), money(l.Throughput(w, after)), money(l.FrontUpkeep(w, after)), l.AuditRisk(w, after)*100)))
 	} else {
 		body = append(body, theme.Bad.Render(fmt.Sprintf("%s takes %s more at most.", f.Name, plural(l.MaxLevel(*f)-f.Level, "level"))))
 	}

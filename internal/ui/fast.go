@@ -111,7 +111,7 @@ func (m *Model) viewFast() string {
 	body := []string{
 		fmt.Sprintf("Run up to %s, stopping when something needs you.", plural(n, "day")),
 		"",
-		"Days      " + days.View(),
+		row("days", days.View()),
 		"",
 		theme.Subtle.Render("Stops for a card, the police, the rival, the crew, the road, a buyer,"),
 		theme.Subtle.Render("the law, a routine that ran short, a gate crossed or a new alert."),

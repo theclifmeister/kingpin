@@ -392,15 +392,15 @@ func (m *Model) viewPayCop() string {
 	field := m.cop.amt
 	field.max = w.Player.DirtyCash
 	body := []string{
-		fmt.Sprintf("In hand    %s dirty", cash(w.Player.DirtyCash)),
-		fmt.Sprintf("Amount     %s", field.View()),
+		m.inHand(),
+		row("amount", field.View()),
 	}
 	if amt > 0 {
 		style := theme.Gold
 		if amt > w.Player.DirtyCash {
 			style = theme.Bad
 		}
-		body = append(body, fmt.Sprintf("Straight   %s", style.Render(fmt.Sprintf("~%.0f%%", tun.Accuracy(amt)*100))))
+		body = append(body, row("straight", style.Render(fmt.Sprintf("~%.0f%%", tun.Accuracy(amt)*100))))
 	}
 	body = append(body, "")
 	body = append(body, m.subtle(fmt.Sprintf("Buys what Chief %s is like and the %s police's next move: the rung they stand at and the first night they can fire. The price is %s for %.0f%%; less money, less often. A wrong word is off by a rung or a few days.", w.Law.Chief.Name, w.Here().Name, money(tun.CopPrice), tun.CopAccuracy*100))...)

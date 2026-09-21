@@ -19,6 +19,19 @@ import (
 // wrapped (the card wraps its prose before it gets here). A body taller
 // than the room scrolls, and the footer says so.
 
+// A modal's rows are the pane's rows (#236): every labelled line in a
+// dialog body is row(label, value), lowercase, the label at paneLabelW,
+// and every dialog that spends opens its rows with the cash in hand, so
+// the player reads the same row in the same place before every
+// purchase.
+func (m *Model) inHand() string { return inHand(m.w.Player.DirtyCash, m.w.Player.CleanCash) }
+
+// inHand is the row for a dirty and a clean pile: `in hand     $452K
+// dirty · $50K clean`.
+func inHand(dirty, clean int) string {
+	return row("in hand", cash(dirty)+" dirty · "+cash(clean)+" clean")
+}
+
 // modalMax is the widest a modal gets. Under it the modal is the terminal
 // less a two-column margin each side.
 const modalMax = 76

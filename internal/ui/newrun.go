@@ -215,7 +215,7 @@ func (m *Model) viewNewRun() string {
 	case 1:
 		ch := m.cfg.Characters.Characters[max(0, min(d.cursor, len(m.cfg.Characters.Characters)-1))]
 		body = append(body, theme.Bold.Render(ch.Name)+"  "+theme.Subtle.Render(truncate(ch.Blurb, m.modalInner()-len(ch.Name)-2)))
-		body = append(body, "", "Seed  "+d.seed.View())
+		body = append(body, "", row("seed", d.seed.View()))
 		body = append(body, m.subtle("A seed replays a run: the same seed and the same start play the same day for day. Blank takes a random one.")...)
 		if !m.hardDAOpen() {
 			hd := m.cfg.Characters.HardDA

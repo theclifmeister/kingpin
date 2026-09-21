@@ -237,9 +237,10 @@ func (m *Model) viewFund() string {
 	amt := m.fnd.amt
 	amt.max = m.maxFund(c)
 	body := []string{
-		"City      " + dialCells(cities, m.fnd.city),
-		fmt.Sprintf("Now       pressure %s  goodwill %s", theme.Bad.Render(fmt.Sprintf("%.0f", c.Pressure)), theme.Good.Render(fmt.Sprintf("%.0f", c.Goodwill))),
-		fmt.Sprintf("Amount    %s   %s", amt.View(), theme.Subtle.Render("clean "+cash(w.Player.CleanCash))),
+		m.inHand(),
+		row("city", dialCells(cities, m.fnd.city)),
+		row("now", fmt.Sprintf("pressure %s  goodwill %s", theme.Bad.Render(fmt.Sprintf("%.0f", c.Pressure)), theme.Good.Render(fmt.Sprintf("%.0f", c.Goodwill)))),
+		row("amount", amt.View()),
 	}
 	if amt, err := m.fundAmount(c); err == nil {
 		g := m.set.Law.Goodwill(amt)
@@ -247,7 +248,7 @@ func (m *Model) viewFund() string {
 		if amt > w.Player.CleanCash {
 			style = theme.Bad
 		}
-		body = append(body, fmt.Sprintf("Buys      %s goodwill for %s   %s", theme.Good.Render(fmt.Sprintf("+%.0f", g)), style.Render(money(amt)), theme.Subtle.Render(fmt.Sprintf("(%s a point, 100 at most)", money(tun.GoodwillCash)))))
+		body = append(body, row("buys", fmt.Sprintf("%s goodwill for %s   %s", theme.Good.Render(fmt.Sprintf("+%.0f", g)), style.Render(money(amt)), theme.Subtle.Render(fmt.Sprintf("(%s a point, 100 at most)", money(tun.GoodwillCash))))))
 	}
 	body = append(body, "",
 		theme.Subtle.Render(fmt.Sprintf("Full goodwill takes %.1f pressure off the city a day; it fades %.0f%% a day.", tun.GoodwillCut, tun.GoodwillDecay*100)),
@@ -287,9 +288,10 @@ func (m *Model) viewCampaign(c *game.City) string {
 	field := m.fnd.camp
 	field.max = m.maxBack(c)
 	body := []string{
-		"Ticket    " + dialCells(tickets, m.fnd.ticket),
-		"Campaign  " + holds,
-		fmt.Sprintf("Amount    %s   %s", field.View(), theme.Subtle.Render("clean "+cash(w.Player.CleanCash-given))),
+		inHand(w.Player.DirtyCash, w.Player.CleanCash-given), // the clean cash left after the first page's goodwill
+		row("ticket", dialCells(tickets, m.fnd.ticket)),
+		row("campaign", holds),
+		row("amount", field.View()),
 	}
 	if back, err := m.backAmount(); err == nil && back > 0 {
 		style := theme.Gold
@@ -297,7 +299,7 @@ func (m *Model) viewCampaign(c *game.City) string {
 			style = theme.Bad
 		}
 		total := camp.Cash + back
-		body = append(body, fmt.Sprintf("Buys      %s of %s's vote for %s   %s", theme.Good.Render(swingWord(cmp.Swing(total))), c.Name, style.Render(money(back)), theme.Subtle.Render(fmt.Sprintf("(%s a point, %.0f at most)", money(cmp.Cash), cmp.SwingMax*100))))
+		body = append(body, row("buys", fmt.Sprintf("%s of %s's vote for %s   %s", theme.Good.Render(swingWord(cmp.Swing(total))), c.Name, style.Render(money(back)), theme.Subtle.Render(fmt.Sprintf("(%s a point, %.0f at most)", money(cmp.Cash), cmp.SwingMax*100)))))
 	}
 	body = append(body, "",
 		theme.Subtle.Render("A winner you backed owes you: the sting line sits higher. A loser's rival knows who paid."),

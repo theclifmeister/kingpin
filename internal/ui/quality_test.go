@@ -36,7 +36,7 @@ func TestCutDialog(t *testing.T) {
 	}
 	m.Update(key("5"))
 	m.Update(key("0"))
-	if v := stripANSI(m.View()); !strings.Contains(v, "After     150 units at quality 33") {
+	if v := stripANSI(m.View()); !strings.Contains(v, "after       150 units at quality 33") {
 		t.Fatalf("the cut's preview:\n%s", v)
 	}
 	m.Update(key("enter"))
@@ -105,7 +105,7 @@ func TestCookDialog(t *testing.T) {
 	m.Update(key("enter"))
 	m.Update(key("2"))
 	m.Update(key("0"))
-	if v := stripANSI(m.View()); !strings.Contains(v, "Cost      $6,000 for 20") {
+	if v := stripANSI(m.View()); !strings.Contains(v, "cost        $6,000 for 20") {
 		t.Fatalf("the cook's cost line:\n%s", v)
 	}
 	cash := w.Player.DirtyCash

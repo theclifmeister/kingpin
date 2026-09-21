@@ -295,7 +295,7 @@ func (m *Model) viewTarget() string {
 			body = append(body, theme.Subtle.Render(fmt.Sprintf("          days of %s's demand in %s, ~%.0f/day today: the", w.ProductName(id), w.CityName(r.To), w.Demand(r.To, id))),
 				theme.Subtle.Render("          target follows the corners you hold there."))
 		} else {
-			body = append(body, theme.Subtle.Render(fmt.Sprintf("          units of %s kept in %s, whatever sells there.", w.ProductName(id), w.CityName(r.To))))
+			body = append(body, row("", theme.Subtle.Render(fmt.Sprintf("units of %s kept in %s, whatever sells there.", w.ProductName(id), w.CityName(r.To)))))
 		}
 	default:
 		d.units.max = m.targetMax(r)
@@ -303,14 +303,14 @@ func (m *Model) viewTarget() string {
 		if d.days {
 			what = fmt.Sprintf("days of %s's demand in %s", w.ProductName(id), w.CityName(r.To))
 		}
-		body = append(body, "", fmt.Sprintf("Target    %s   %s", d.units.View(), theme.Subtle.Render(what)))
+		body = append(body, "", row("target", d.units.View()+"   "+theme.Subtle.Render(what)))
 		if s := strings.TrimSpace(d.units.Value()); s != "" {
 			if n, err := strconv.Atoi(s); err == nil && n > 0 {
 				if d.days {
 					// What the days mean this morning: the number the
 					// road sends against, and where it comes from.
 					n = m.set.Logistics.DaysTarget(w, *r, id, n)
-					body = append(body, theme.Subtle.Render(fmt.Sprintf("Today     %sd ≈ %s: ~%.0f/day on your corners in %s", s, plural(n, "unit"), w.Demand(r.To, id), w.CityName(r.To))))
+					body = append(body, row("today", theme.Subtle.Render(fmt.Sprintf("%sd ≈ %s: ~%.0f/day on your corners in %s", s, plural(n, "unit"), w.Demand(r.To, id), w.CityName(r.To)))))
 				}
 				if src := w.Product(r.From, id); src != nil {
 					unit := src.SupplierPrice
@@ -320,7 +320,7 @@ func (m *Model) viewTarget() string {
 						how = "by the lot from " + sup.Name
 					}
 					short := max(0, n-w.Stock(r.To, id)-w.Bound(r.To, id))
-					body = append(body, theme.Subtle.Render(fmt.Sprintf("Short     %d: ~%s %s + %s fares", short, money(int(float64(short)*unit)), how, money(int(math.Ceil(float64(short)*m.set.Logistics.Fare(w, *r)))))))
+					body = append(body, row("short", theme.Subtle.Render(fmt.Sprintf("%d: ~%s %s + %s fares", short, money(int(float64(short)*unit)), how, money(int(math.Ceil(float64(short)*m.set.Logistics.Fare(w, *r))))))))
 				}
 			}
 		}

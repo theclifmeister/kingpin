@@ -897,22 +897,27 @@ func (m *Model) viewDialog() string {
 	// Step 1: quantity, the number field with what it can take after it.
 	if d.step >= 1 {
 		d.qty.max = m.qtyMax()
-		body = append(body, "quantity   "+d.qty.View())
+		if buy {
+			body = append(body, m.inHand())
+		}
+		body = append(body, row("quantity", d.qty.View()))
 		body = append(body, m.priceRows(city, id, buy)...)
 		if buy && sup != nil {
 			if qty, err := m.parseQty(m.maxBuyBy(id, d.credit)); err == nil {
 				cost := w.Quote(sup, id, qty, d.credit)
 				style := theme.Gold
 				have := w.Player.DirtyCash
-				pool := "dirty cash " + cash(have)
 				if d.credit {
 					have = sup.Credit()
-					pool = "credit " + cash(have)
 				}
 				if cost > have {
 					style = theme.Bad
 				}
-				body = append(body, fmt.Sprintf("total      %s   %s", style.Render(money(cost)), theme.Subtle.Render(pool)))
+				total := style.Render(money(cost))
+				if d.credit {
+					total += "   " + theme.Subtle.Render("credit "+cash(have))
+				}
+				body = append(body, row("total", total))
 				if qty < sup.Lot && sup.SmallLot > 1 {
 					body = append(body, theme.Warning.Render(fmt.Sprintf("Under %s's lot of %d: ×%.2g a unit.", sup.Name, sup.Lot, sup.SmallLot)))
 				}
@@ -933,17 +938,17 @@ func (m *Model) viewDialog() string {
 	// in the dial convention, and what the notches mean.
 	if buy && d.step >= 2 && sup != nil {
 		qty, _ := m.parseQty(m.maxBuyBy(id, d.credit))
-		body = append(body, "", "repeat     "+dialCells(repeatNames, int(d.repeat)))
+		body = append(body, "", row("repeat", dialCells(repeatNames, int(d.repeat))))
 		pay := dialCells(payNames, 0)
 		if d.credit {
 			pay = dialCells(payNames, 1)
 		} else if !m.creditOffered() || d.repeat == repeatKeep {
 			pay = theme.Dial(true).Render("[cash]") + "  " + theme.Subtle.Render("credit")
 		}
-		body = append(body, "pay        "+pay)
+		body = append(body, row("pay", pay))
 		switch {
 		case d.repeat == repeatKeep:
-			body = append(body, fmt.Sprintf("contract   keep %d here, the shortfall bought each morning at %s (×%.2f)", qty, price(m.set.Market.SupplyPrice(w, city, id)), m.set.Market.Markup()))
+			body = append(body, row("contract", fmt.Sprintf("keep %d here, the shortfall bought each morning at %s (×%.2f)", qty, price(m.set.Market.SupplyPrice(w, city, id)), m.set.Market.Markup())))
 			if c, ok := w.Supplied(city, id); ok {
 				body = append(body, theme.Subtle.Render(fmt.Sprintf("Kept at %d since day %d; this replaces it.", c.Units, c.Since)))
 			} else {
@@ -954,7 +959,7 @@ func (m *Model) viewDialog() string {
 			if sup.Debt > 0 {
 				due = sup.DebtDue
 			}
-			body = append(body, fmt.Sprintf("credit     %s at ×%.2f · due day %d · %s of the book left", money(w.Quote(sup, id, qty, true)), sup.CreditRatio, due, cash(sup.Credit())))
+			body = append(body, row("credit", fmt.Sprintf("%s at ×%.2f · due day %d · %s of the book left", money(w.Quote(sup, id, qty, true)), sup.CreditRatio, due, cash(sup.Credit()))))
 			if sup.Debt > 0 {
 				body = append(body, theme.Warning.Render(fmt.Sprintf("You owe them %s already, due day %d.", money(sup.Debt), sup.DebtDue)))
 			} else {
@@ -969,12 +974,12 @@ func (m *Model) viewDialog() string {
 	// convention: the chosen notch in brackets and the accent.
 	if !buy && d.step >= 2 {
 		qty, _ := m.parseQty(m.sellable(city, id))
-		body = append(body, "", "dial       "+dialRow(d.dial))
+		body = append(body, "", row("dial", dialRow(d.dial)))
 		dc := m.set.Market.Dial(d.dial)
 		est := min(qty, m.set.Market.Capacity(w, city, id, d.dial))
-		body = append(body, fmt.Sprintf("expect     ~%d of %d at ~%s = ~%s", est, qty, price(p.Price*dc.Price), theme.Gold.Render(money(int(float64(est)*p.Price*dc.Price)))))
+		body = append(body, row("expect", fmt.Sprintf("~%d of %d at ~%s = ~%s", est, qty, price(p.Price*dc.Price), theme.Gold.Render(money(int(float64(est)*p.Price*dc.Price))))))
 		h := m.estHeat(city, id, qty, d.dial)
-		body = append(body, fmt.Sprintf("heat       %s   %s", heatStyle(w.City(city).Heat+h*4).Render(fmt.Sprintf("+%.1f", h)), theme.Subtle.Render(dialBlurb(d.dial))))
+		body = append(body, row("heat", heatStyle(w.City(city).Heat+h*4).Render(fmt.Sprintf("+%.1f", h))+"   "+theme.Subtle.Render(dialBlurb(d.dial))))
 		if w.WorkedIn(city) == 0 {
 			body = append(body, theme.Bad.Render(fmt.Sprintf("You work no corner in %s: nothing will sell.", w.CityName(city))), theme.Bad.Render("Post somebody "+screenPointer(screenMap)+"."))
 		}
@@ -984,9 +989,9 @@ func (m *Model) viewDialog() string {
 	// and what a standing order means.
 	if !buy && d.step >= 3 {
 		qty, _ := m.parseQty(m.sellable(city, id))
-		body = append(body, "", "repeat     "+dialCells(sellRepeatNames, int(d.repeat)))
+		body = append(body, "", row("repeat", dialCells(sellRepeatNames, int(d.repeat))))
 		if d.repeat == repeatStanding {
-			body = append(body, fmt.Sprintf("standing   %d at %s nightly until cancelled; the crew keep %.0f%%", qty, d.dial, m.set.Market.Cut()*100))
+			body = append(body, row("standing", fmt.Sprintf("%d at %s nightly until cancelled; the crew keep %.0f%%", qty, d.dial, m.set.Market.Cut()*100)))
 			if o, ok := w.YourStanding(city, id); ok {
 				body = append(body, theme.Subtle.Render(fmt.Sprintf("Standing at %d %s now; this replaces it.", o.Qty, o.Dial)))
 			} else {

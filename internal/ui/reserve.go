@@ -90,8 +90,9 @@ func (m *Model) viewReserve() string {
 	field := m.rsv.amt
 	field.max = w.Player.CleanCash
 	body := []string{
-		fmt.Sprintf("Account   %s offshore · %s clean in hand", theme.Good.Render(cash(w.Offshore)), cash(w.Player.CleanCash)),
-		fmt.Sprintf("Amount    %s", field.View()),
+		m.inHand(),
+		row("account", theme.Good.Render(cash(w.Offshore))+" offshore"),
+		row("amount", field.View()),
 	}
 	if amt > 0 {
 		total := amt + w.ReservedToday()
@@ -104,7 +105,7 @@ func (m *Model) viewReserve() string {
 		if amt > w.Player.CleanCash {
 			style = theme.Bad
 		}
-		body = append(body, fmt.Sprintf("Moves     %s tonight, fee %s   %s", style.Render(money(amt)), money(l.Fee(amt)), pages))
+		body = append(body, row("moves", fmt.Sprintf("%s tonight, fee %s   %s", style.Render(money(amt)), money(l.Fee(amt)), pages)))
 	}
 	body = append(body, "",
 		theme.Subtle.Render(fmt.Sprintf("Up to %s a day moves unnoticed; every lot over it is a page. The account keeps %.0f%%.", money(off.Lot), off.Fee*100)),

@@ -311,19 +311,21 @@ func (m *Model) viewLab() string {
 			body = []string{
 				fmt.Sprintf("%s cooks %s", chem, w.ProductName(d.product)),
 				"",
-				"Units     " + qty.View(),
+				m.inHand(),
+				row("units", qty.View()),
 				"",
 			}
 			body = append(body, m.subtle(fmt.Sprintf("Precursors are %s a unit, dirty, paid now; the lot lands in %s in %s at quality %.0f, %s's. A batch is %d.", price(float64(m.set.Crew.CookCostIn(w, d.city, m.set.Market.CookCost(d.product)))), w.CityName(d.city), plural(m.set.Crew.CookDays(), "day"), m.set.Crew.QualityIn(w, d.city), chem, m.set.Crew.BatchIn(w, d.city)))...)
 			if n, err := parseQtyInput(d.qty.Value(), m.cookMax()); err == nil && n > 0 {
-				body = append(body, theme.Subtle.Render(fmt.Sprintf("Cost      %s for %d, against %s from a connect", cash(n*m.set.Crew.CookCostIn(w, d.city, m.set.Market.CookCost(d.product))), n, cash(int(float64(n)*w.Product(d.city, d.product).SupplierPrice)))))
+				body = append(body, row("cost", theme.Subtle.Render(fmt.Sprintf("%s for %d, against %s from a connect", cash(n*m.set.Crew.CookCostIn(w, d.city, m.set.Market.CookCost(d.product))), n, cash(int(float64(n)*w.Product(d.city, d.product).SupplierPrice))))))
 			}
 		} else {
 			l := w.Lot(d.city, d.product)
 			body = []string{
 				fmt.Sprintf("%s: %d at quality %.0f", w.ProductName(d.product), l.Units, l.Quality),
 				"",
-				"Percent   " + qty.View(),
+				m.inHand(),
+				row("percent", qty.View()),
 				"",
 			}
 			note := fmt.Sprintf("The cut adds that share of the units at nothing, so the quality falls by the same share; %s a unit added, dirty. The street pays full at quality %.0f and less under it; a corner sold under %.0f stops coming back.", price(float64(m.set.Market.CutCost(d.product))), w.StreetQuality(), m.set.Market.Tuning().RepeatFloor)
@@ -333,7 +335,7 @@ func (m *Model) viewLab() string {
 			body = append(body, m.subtle(note)...)
 			if pct, err := parseQtyInput(d.qty.Value(), m.cutMax()); err == nil && pct > 0 {
 				units, quality, cost := m.cutPreview(pct)
-				body = append(body, theme.Subtle.Render(fmt.Sprintf("After     %d units at quality %.0f, sells at ×%.2f, for %s", units, quality, m.set.Market.QualityMul(quality), cash(cost))))
+				body = append(body, row("after", theme.Subtle.Render(fmt.Sprintf("%d units at quality %.0f, sells at ×%.2f, for %s", units, quality, m.set.Market.QualityMul(quality), cash(cost)))))
 			}
 		}
 	}

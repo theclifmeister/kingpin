@@ -162,8 +162,9 @@ func (m *Model) viewBribe() string {
 			amt = price
 		}
 		body := []string{
-			"For       " + m.officialName(target) + theme.Subtle.Render("  · price "+money(price)),
-			fmt.Sprintf("Amount    %s   %s", field.View(), theme.Subtle.Render("dirty "+cash(w.Player.DirtyCash))),
+			m.inHand(),
+			row("for", m.officialName(target)+theme.Subtle.Render("  · price "+money(price))),
+			row("amount", field.View()),
 			"",
 		}
 		body = append(body, m.wrapLines(m.bribeOdds(target, amt))...)
