@@ -42,7 +42,7 @@ var pickNames = []string{"front", "house", "asset"}
 // picker: where, how much it holds, what it costs and keeps, the block's
 // heat and risk (the raid's weight and the robbers'), and whether it is
 // open to you.
-var houseOfferCols = []col{{"house", kText, 0}, {"city", kText, 0}, {"holds", kInt, 0}, {"price", kMoney, 0}, {"rent/day", kMoney, 0}, {"heat", kText, 0}, {"risk", kText, 0}, {"status", kText, 0}}
+var houseOfferCols = []col{{"house", kText, 0}, {"city", kText, 0}, {"room", kInt, 0}, {"cost", kMoney, 0}, {"rent/day", kMoney, 0}, {"heat", kText, 0}, {"risk", kText, 0}, {"status", kText, 0}}
 
 func (m *Model) houseOfferRows(rows []game.HouseOffer) [][]any {
 	var out [][]any
@@ -170,7 +170,7 @@ func (m *Model) viewKind() string {
 		{"house", fmt.Sprintf("keeps stock off the street · %d on offer", len(m.houseRows()))},
 		{"asset", fmt.Sprintf("the supply side, clean cash · %d on offer", len(m.assetRows()))},
 	}
-	body := table([]col{{"buy", kText, 0}, {"what", kText, 0}}, rows, m.frontKind, m.modalInner())
+	body := table([]col{{"kind", kText, 0}, {"what", kText, 0}}, rows, m.frontKind, m.modalInner())
 	body = append(body, "")
 	body = append(body, m.subtle(fmt.Sprintf("Dirty cash %s, clean %s. A house takes what arrives in its city first, and a raid hits one place, not the operation. An asset is bought clean and the feds take an interest.", cash(m.w.Player.DirtyCash), cash(m.w.Player.CleanCash)))...)
 	return m.modal("BUY", body, m.modalFooter())
@@ -211,7 +211,7 @@ func (m *Model) viewHouses() string {
 
 // houseCols is the ledger's STASH table: where each house is, what it
 // holds of what it can, the rent, who is inside and its state.
-var houseCols = []col{{"house", kText, 0}, {"city", kText, 0}, {"block", kText, 0}, {"stock", kText, 0}, {"rent/day", kMoney, 0}, {"guard", kText, 0}, {"status", kText, 0}}
+var houseCols = []col{{"house", kText, 0}, {"city", kText, 0}, {"block", kText, 0}, {"holding", kText, 0}, {"rent/day", kMoney, 0}, {"guard", kText, 0}, {"status", kText, 0}}
 
 // houseRow is a house's STASH row.
 func (m *Model) houseRow(h game.House) []any {
@@ -550,7 +550,7 @@ func (m *Model) viewMove() string {
 			break
 		}
 		m.modalFollow(1 + d.cursor)
-		body = table([]col{{"place", kText, 0}, {"holds", kText, 0}}, placeRows(ids), d.cursor, m.modalInner())
+		body = table([]col{{"place", kText, 0}, {"holding", kText, 0}}, placeRows(ids), d.cursor, m.modalInner())
 		what := "Move from where?"
 		if d.step == 1 {
 			what = "From " + m.placeLabel(d.from) + " to where?"
@@ -568,7 +568,7 @@ func (m *Model) viewMove() string {
 			rows = append(rows, []any{w.ProductName(id), q})
 		}
 		m.modalFollow(1 + d.cursor)
-		body = table([]col{{"product", kText, 0}, {"have", kInt, 0}}, rows, d.cursor, m.modalInner())
+		body = table([]col{{"product", kText, 0}, {"stash", kInt, 0}}, rows, d.cursor, m.modalInner())
 		body = append(body, "", theme.Subtle.Render(fmt.Sprintf("From %s to %s: what?", m.placeLabel(d.from), m.placeLabel(d.to))))
 	default:
 		qty := d.qty

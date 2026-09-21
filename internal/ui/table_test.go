@@ -1,6 +1,7 @@
 package ui
 
 import (
+	"os"
 	"regexp"
 	"strings"
 	"testing"
@@ -20,7 +21,7 @@ var kindPatterns = map[colKind]*regexp.Regexp{
 	kPct:   regexp.MustCompile(`^(-|~?[+-]?\d+(\.\d)?%)$`),
 	kDays:  regexp.MustCompile(`^(-|\d+d|d\d+)$`),
 	kBar:   regexp.MustCompile(`^(-|[█░┆]+ \d+|[▁▂▃▄▅▆▇█]+( [▲▼])?)$`),
-	kDial:  regexp.MustCompile(`^(-|\d+ (quiet|normal|aggr\.)( \(lt\))?|quiet|normal|aggr\.|off|slow|fast)$`),
+	kDial:  regexp.MustCompile(`^(-|\d+ (quiet|normal|aggr\.)( \(lt\))?|quiet|normal|aggr\.|aggressive|off|slow|fast)$`),
 }
 
 // cells splits one rendered table line into its cells by the widths
@@ -146,11 +147,21 @@ func drawnCols(cols []col, rows [][]any) []col {
 // TestTablesAreConsistent: every table the rich fixture renders at 80
 // and 120 columns passes checkTable.
 func TestTablesAreConsistent(t *testing.T) {
+	kinds := map[string]colKind{}
 	for _, sz := range [][2]int{{80, 24}, {120, 40}} {
 		n := 0
 		tableHook = func(cols []col, lines []string) {
 			n++
 			checkTable(t, cols, lines)
+			for _, c := range cols {
+				if c.title == "" {
+					continue
+				}
+				if k, ok := kinds[c.title]; ok && k != c.kind {
+					t.Errorf("the header %q is %s on one table and %s on another (#237)", c.title, kindName(c.kind), kindName(k))
+				}
+				kinds[c.title] = c.kind
+			}
 		}
 		richFixture(t, sz, func(*Model, string, string) {})
 		tableHook = nil
@@ -158,21 +169,70 @@ func TestTablesAreConsistent(t *testing.T) {
 			t.Errorf("%dx%d: only %d tables rendered", sz[0], sz[1], n)
 		}
 	}
+	// One header per quantity (#237): docs/format.md's table is the
+	// vocabulary, and every header the fixture rendered is in it under
+	// the kind it rendered as.
+	doc := headerKinds(t)
+	for title, kind := range kinds {
+		key := title
+		if sparkTitle.MatchString(title) {
+			key = "Nd"
+		}
+		if want, ok := doc[key]; !ok {
+			t.Errorf("the header %q (%s) is not in docs/format.md's table", title, kindName(kind))
+		} else if want != kindName(kind) {
+			t.Errorf("the header %q renders as %s; docs/format.md says %s", title, kindName(kind), want)
+		}
+	}
+}
+
+var (
+	sparkTitle = regexp.MustCompile(`^\d+d$`)
+	docKindRow = regexp.MustCompile(`^\| (text|int|cash|money|price|pct|days|bar|dial) \| (.*?) \|`)
+	docHeader  = regexp.MustCompile("`([^`]+)`")
+)
+
+// headerKinds reads docs/format.md's header table: the kind's name for
+// each header it lists.
+func headerKinds(t *testing.T) map[string]string {
+	t.Helper()
+	b, err := os.ReadFile("../../docs/format.md")
+	if err != nil {
+		t.Fatal(err)
+	}
+	out := map[string]string{}
+	for _, l := range strings.Split(string(b), "\n") {
+		m := docKindRow.FindStringSubmatch(l)
+		if m == nil {
+			continue
+		}
+		for _, h := range docHeader.FindAllStringSubmatch(m[2], -1) {
+			if prev, ok := out[h[1]]; ok && prev != m[1] {
+				t.Errorf("docs/format.md lists %q under %s and %s", h[1], prev, m[1])
+			}
+			out[h[1]] = m[1]
+		}
+	}
+	if len(out) < 50 {
+		t.Fatalf("docs/format.md's header table lists only %d headers", len(out))
+	}
+	return out
 }
 
 // TestUpgradeCostReadsTheSame: the tree and the inspector print a node's
-// cost through cash() and so agree.
+// cost through money() (#237: a lump sum is `cost`, kMoney, on every
+// table) and so agree.
 func TestUpgradeCostReadsTheSame(t *testing.T) {
 	m := newTestModel(t, 120, 40)
 	m.Update(key("6"))
 	for range m.upgradeRows() {
 		sel, _ := m.upgradeSelected()
 		v := stripANSI(m.View())
-		if strings.Count(v, cash(sel.Cost)) < 2 {
-			t.Errorf("%s: the tree and the inspector do not both print %s:\n%s", sel.Name, cash(sel.Cost), v)
+		if strings.Count(v, money(sel.Cost)) < 2 {
+			t.Errorf("%s: the tree and the inspector do not both print %s:\n%s", sel.Name, money(sel.Cost), v)
 		}
-		if strings.Contains(v, money(sel.Cost)) && money(sel.Cost) != cash(sel.Cost) {
-			t.Errorf("%s: %s printed as %s somewhere", sel.Name, cash(sel.Cost), money(sel.Cost))
+		if strings.Contains(v, cash(sel.Cost)) && money(sel.Cost) != cash(sel.Cost) {
+			t.Errorf("%s: %s printed as %s somewhere", sel.Name, money(sel.Cost), cash(sel.Cost))
 		}
 		m.Update(key("j"))
 	}

@@ -43,7 +43,7 @@ func (m *Model) eyeingWord(r *game.RivalState) string {
 
 // factionCols are the rivals screen's FACTIONS table: who, where, what
 // they hold, their muscle and where you stand.
-var factionCols = []col{{"faction", kText, 0}, {"home", kText, 0}, {"corners", kInt, 0}, {"muscle", kText, 0}, {"stance", kText, 0}, {"trust", kInt, 0}}
+var factionCols = []col{{"faction", kText, 0}, {"city", kText, 0}, {"corners", kInt, 0}, {"muscle", kText, 0}, {"stance", kText, 0}, {"trust", kBar, 6}}
 
 // factionRows are the FACTIONS table's rows, one a faction in the order
 // of the table, the leader in the faction's colour.
@@ -55,7 +55,7 @@ func (m *Model) factionRows() [][]any {
 		name := m.factionStyle(r.Faction()).Render(truncate(r.Leader, 14))
 		var corners, muscle, trust any
 		if r.Arrived > 0 && !r.Gone() {
-			corners, muscle, trust = w.RivalHeldBy(r.Faction()), m.muscleWord(r), int(r.Trust) // the muscle as the file holds it (#45)
+			corners, muscle, trust = w.RivalHeldBy(r.Faction()), m.muscleWord(r), styled{m.trustStyle(r), gauge{frac: r.Trust / 100, n: r.Trust}} // the muscle as the file holds it (#45); trust a bar, as the pane draws it
 		}
 		rows = append(rows, []any{name, w.CityOf(r).Name, corners, muscle, w.Stance(r, tun.WarThreshold), trust})
 	}
@@ -132,17 +132,17 @@ func (m *Model) viewStrike() string {
 		switch {
 		case i < len(forces):
 			f := forces[i]
-			cells = append(cells, []any{r, m.oddsCell(fac, c, f), signed{m.set.Rivals.StrikeHeat(c, f)}, signed{m.cfg.Rivals.ForceFor(f).War}, "the corner"})
+			cells = append(cells, []any{r, m.oddsCell(fac, c, f), fmt.Sprintf("%+.0f", m.set.Rivals.StrikeHeat(c, f)), signed{m.cfg.Rivals.ForceFor(f).War}, "the corner"})
 		case i < 2*len(forces):
 			// A boost (#70): the same odds at the force, for the till.
 			f := forces[i-len(forces)]
-			cells = append(cells, []any{r, m.oddsCell(fac, c, f), signed{m.set.Rivals.BoostHeat(c)}, signed{b.War}, "~" + cash(m.set.Rivals.BoostTake(m.w, *c))})
+			cells = append(cells, []any{r, m.oddsCell(fac, c, f), fmt.Sprintf("%+.0f", m.set.Rivals.BoostHeat(c)), signed{b.War}, "~" + cash(m.set.Rivals.BoostTake(m.w, *c))})
 		default:
 			cells = append(cells, []any{r, nil, nil, nil, nil})
 		}
 	}
 	m.modalFollow(len(body) + 1 + m.strikeCursor) // under the header
-	body = append(body, table([]col{{"force", kText, 0}, {"lands", kText, 0}, {"heat", kInt, 0}, {"war", kInt, 0}, {"for", kText, 0}}, cells, m.strikeCursor, m.modalInner())...)
+	body = append(body, table([]col{{"force", kText, 0}, {"lands", kText, 0}, {"heat", kText, 0}, {"war", kInt, 0}, {"for", kText, 0}}, cells, m.strikeCursor, m.modalInner())...)
 	body = append(body, "")
 	notes := []string{
 		"Harder flips faster, draws more heat on you, adds to the war",
@@ -252,7 +252,7 @@ func (m *Model) viewUndercut() string {
 		}
 	}
 	m.modalFollow(len(body) + 1 + m.undercutCursor) // under the header
-	body = append(body, table([]col{{"dial", kText, 0}, {"takes", kPct, 0}, {"units/day", kInt, 0}, {"price", kPct, 0}, {"they lose", kCash, 0}}, cells, m.undercutCursor, m.modalInner())...)
+	body = append(body, table([]col{{"dial", kDial, 0}, {"takes", kPct, 0}, {"units/day", kInt, 0}, {"off", kPct, 0}, {"they lose", kCash, 0}}, cells, m.undercutCursor, m.modalInner())...)
 	body = append(body, "")
 	for _, l := range []string{
 		"Tonight's orders here serve their customers too, cheap, on top",

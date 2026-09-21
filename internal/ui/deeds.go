@@ -148,7 +148,7 @@ func ordinal(n int) string {
 
 // deedCols is the ledger's PROPERTY table: the block, its city, whose
 // corner it is, what it cost, what it pays a day and since when.
-var deedCols = []col{{"block", kText, 0}, {"city", kText, 0}, {"corner", kText, 0}, {"price", kMoney, 0}, {"rent/day", kMoney, 0}, {"since", kText, 0}}
+var deedCols = []col{{"block", kText, 0}, {"city", kText, 0}, {"corner", kText, 0}, {"cost", kMoney, 0}, {"rent/day", kMoney, 0}, {"since", kText, 0}}
 
 // deedRow is a deed's PROPERTY row.
 func (m *Model) deedRow(c game.Corner) []any {

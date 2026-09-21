@@ -202,7 +202,7 @@ The dashboard at 80x24, with the details strip above the status bar:
 ```text
  KINGPIN  1  2  3  4  5  6  7  8  9               Day 4 · dirty $452K · heat 12
 ╭─ STREET · Eastside ──────────────────────────────────────────────────────────╮
-│   product     price     Δ  5d       stock  order                             │
+│   product     price     Δ  5d       stash  order                             │
 │ ▸ Weed       $19.23   -6%  ▄▇▁█▁       40  -                                 │
 │   Pills      $44.21  -14%  ▁▂▆█▁       30  30 normal ↻                       │
 │   Coke      $153.32   -1%  ▁▂▂█▇ ▲      0  -                                 │

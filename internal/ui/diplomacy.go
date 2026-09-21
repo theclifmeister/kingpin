@@ -5,6 +5,8 @@ import (
 	"math"
 	"strings"
 
+	"github.com/charmbracelet/lipgloss"
+
 	"github.com/theclifmeister/kingpin/internal/game"
 	"github.com/theclifmeister/kingpin/internal/ui/theme"
 )
@@ -210,15 +212,19 @@ func (m *Model) answerOffer(accept bool) {
 
 // trustBar is a faction's trust in you, as a bar.
 func (m *Model) trustBar(r *game.RivalState, width int) string {
-	t := r.Trust
-	style := m.factionStyle(r.Faction())
+	return barText(r.Trust/100, width, nil, fmt.Sprintf(" %.0f", r.Trust), m.trustStyle(r))
+}
+
+// trustStyle is the colour a faction's trust is drawn in, on the bar
+// and in the FACTIONS table: the faction's, Bad under 20, Good from 60.
+func (m *Model) trustStyle(r *game.RivalState) lipgloss.Style {
 	switch {
-	case t < 20:
-		style = theme.Bad
-	case t >= 60:
-		style = theme.Good
+	case r.Trust < 20:
+		return theme.Bad
+	case r.Trust >= 60:
+		return theme.Good
 	}
-	return barText(t/100, width, nil, fmt.Sprintf(" %.0f", t), style)
+	return m.factionStyle(r.Faction())
 }
 
 // warBar is the war against the line the police crack down at, as a

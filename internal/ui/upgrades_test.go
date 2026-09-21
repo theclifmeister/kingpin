@@ -353,8 +353,8 @@ func TestUpgradesScreenInTheGrammar(t *testing.T) {
 						line = l
 					}
 				}
-				if !strings.Contains(line, u.Name) || !strings.Contains(line, cash(u.Cost)) {
-					t.Errorf("%dx%d %s: the cursor's row %q lacks the name or %s", sz[0], sz[1], u.ID, line, cash(u.Cost))
+				if !strings.Contains(line, u.Name) || !strings.Contains(line, money(u.Cost)) {
+					t.Errorf("%dx%d %s: the cursor's row %q lacks the name or %s", sz[0], sz[1], u.ID, line, money(u.Cost))
 				}
 				status, _ := m.upgradeStatus(u)
 				if !strings.Contains(line, status) && !strings.Contains(line, "…") {
@@ -365,8 +365,8 @@ func TestUpgradesScreenInTheGrammar(t *testing.T) {
 					t.Fatalf("%s: sections %v", u.ID, secs)
 				}
 				first := stripANSI(secs[0].lines[0])
-				if !strings.HasPrefix(first, cash(u.Cost)+" "+pool(u)) {
-					t.Errorf("%s: the pane's first line is %q, want it to start with %q", u.ID, first, cash(u.Cost)+" "+pool(u))
+				if !strings.HasPrefix(first, money(u.Cost)+" "+pool(u)) {
+					t.Errorf("%s: the pane's first line is %q, want it to start with %q", u.ID, first, money(u.Cost)+" "+pool(u))
 				}
 				state := m.upgradeState(u)
 				switch {
@@ -391,11 +391,11 @@ func TestUpgradesScreenInTheGrammar(t *testing.T) {
 				if !strings.Contains(bl, branchFor[branch]) || !strings.Contains(bl, fmt.Sprintf("%d of %d", owned, len(rows))) {
 					t.Errorf("%s: the BRANCH section reads %q", u.ID, bl)
 				}
-				if strings.Count(v, cash(u.Cost)) < 2 {
-					t.Errorf("%s: the tree and the pane do not both print %s:\n%s", u.ID, cash(u.Cost), v)
+				if strings.Count(v, money(u.Cost)) < 2 {
+					t.Errorf("%s: the tree and the pane do not both print %s:\n%s", u.ID, money(u.Cost), v)
 				}
-				if state == "available" && m.canAfford(u) && !strings.Contains(strings.Join(secs[0].lines, "\n"), "u  buy it for "+cash(u.Cost)+" "+pool(u)) {
-					t.Errorf("%s: the pane does not offer u for %s", u.ID, cash(u.Cost))
+				if state == "available" && m.canAfford(u) && !strings.Contains(strings.Join(secs[0].lines, "\n"), "u  buy it for "+money(u.Cost)+" "+pool(u)) {
+					t.Errorf("%s: the pane does not offer u for %s", u.ID, money(u.Cost))
 				}
 				if u.Clean && !strings.Contains(line, "clean · ") {
 					t.Errorf("%s: the row does not say clean: %q", u.ID, line)

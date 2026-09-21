@@ -69,7 +69,7 @@ func (m *Model) productRows(city string, selected int, market bool) (cols []col,
 	if market {
 		cols = append(cols, col{"supplier", kPrice, 0}, col{"stash", kInt, 0}, col{"qual", kInt, 0}, col{"demand/day", kInt, 0})
 	} else {
-		cols = append(cols, col{"stock", kInt, 0})
+		cols = append(cols, col{"stash", kInt, 0})
 	}
 	cols = append(cols, col{"order", kDial, 0})
 	if market {

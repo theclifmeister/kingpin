@@ -289,7 +289,7 @@ func (m *Model) viewLab() string {
 			for _, id := range ids {
 				rows = append(rows, []any{w.ProductName(id), m.set.Crew.CookCostIn(w, d.city, m.set.Market.CookCost(id)), w.Product(d.city, id).SupplierPrice, w.Stock(d.city, id)})
 			}
-			body = table([]col{{"product", kText, 0}, {"cook/unit", kPrice, 0}, {"buy/unit", kPrice, 0}, {"have", kInt, 0}}, rows, d.cursor, m.modalInner())
+			body = table([]col{{"product", kText, 0}, {"cook", kPrice, 0}, {"buy", kPrice, 0}, {"stash", kInt, 0}}, rows, d.cursor, m.modalInner())
 			line := fmt.Sprintf("%s cooks at quality %.0f, up to %d a batch, ready in %s.", m.set.Crew.ChemistName(w), m.set.Crew.QualityIn(w, d.city), m.set.Crew.BatchIn(w, d.city), plural(m.set.Crew.CookDays(), "day"))
 			if m.set.Crew.Lab(w, d.city) != nil {
 				line += " The lab is here."
@@ -300,7 +300,7 @@ func (m *Model) viewLab() string {
 				l := w.Lot(d.city, id)
 				rows = append(rows, []any{w.ProductName(id), l.Units, l.Quality, fmt.Sprintf("+%.0f%%", m.set.Market.CutMax(id)*100), m.set.Market.CutCost(id)})
 			}
-			body = table([]col{{"product", kText, 0}, {"have", kInt, 0}, {"quality", kInt, 0}, {"most", kText, 0}, {"$/unit", kPrice, 0}}, rows, d.cursor, m.modalInner())
+			body = table([]col{{"product", kText, 0}, {"stash", kInt, 0}, {"quality", kInt, 0}, {"most", kText, 0}, {"price", kPrice, 0}}, rows, d.cursor, m.modalInner())
 			body = append(body, "", theme.Subtle.Render("Cut what?"))
 		}
 	default:

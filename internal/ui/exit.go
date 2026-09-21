@@ -147,7 +147,7 @@ func (m *Model) viewExit() string {
 			}
 			cells = append(cells, []any{r.name, r.terms, open})
 		}
-		body := table([]col{{"way out", kText, 0}, {"takes", kText, 0}, {"", kText, 0}}, cells, m.exit.cursor, m.modalInner())
+		body := table([]col{{"way out", kText, 0}, {"terms", kText, 0}, {"", kText, 0}}, cells, m.exit.cursor, m.modalInner())
 		body = append(body, "")
 		body = append(body, m.subtle(fmt.Sprintf("The account holds %s and %s quiet. Whatever you leave with, the run ends this morning: the pile, the stock, the crew and the fronts stay behind, and the account over one plus the bodies is the score.", money(w.Offshore), plural(w.QuietDays, "day")))...)
 		return m.modal("WALK AWAY", body, m.modalFooter())
