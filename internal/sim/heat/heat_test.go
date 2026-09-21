@@ -819,3 +819,130 @@ func TestBoughtLaw(t *testing.T) {
 		t.Fatalf("the morning after the file opened: evidence %d, want %d", w.Heat.Evidence, b.BackfireEvidence+b.LeadEvidence)
 	}
 }
+
+// The favour (#228): called in on a morning the raid is due, the raid
+// falls through that night (RaidFellThrough, no Enforcement, no stock
+// or cash taken, no sweep, not counted), its cooldown starts as if it
+// had fired, favour_evidence pages go in the file, and the same rung
+// fires the next time it is met once the cooldown lifts. Due reads the
+// ladder as Step does: the raid on a raid's heat, "" under the patrol
+// line and while the cooldown holds; the task force announced.
+func TestFavourSkipsOneNight(t *testing.T) {
+	cfg := content.MustLoad()
+	s := heat.New(cfg)
+	b := cfg.Law.Bribes
+	r := rung(cfg, content.Raid)
+	w := world(t, cfg)
+	home := w.Home().ID
+	w.SetStock(home, w.Products[0], 100)
+	w.Player.DirtyCash = 10_000
+	w.Law.Favours = 2 // one to spend, one to refuse the second call on
+	if due := s.Due(w); due != "" {
+		t.Fatalf("due %q on a cold morning", due)
+	}
+	if err := w.CallFavour(false); err != game.ErrNothingDue {
+		t.Fatalf("a call with nothing due: %v", err)
+	}
+	w.Home().Heat = over(w, s, r, w.Home())
+	if due := s.Due(w); due != content.Raid {
+		t.Fatalf("due %q on a raid's heat", due)
+	}
+	if err := w.CallFavour(true); err != nil {
+		t.Fatal(err)
+	}
+	if err := w.CallFavour(true); err != game.ErrFavourCalled {
+		t.Fatalf("a second call the same morning: %v", err)
+	}
+	if w.Law.Favours != 1 || w.Law.FavourOwed != w.Day+1 || !w.FavourCalled() || w.Stats.Favours != 1 {
+		t.Fatalf("after the call: %+v stats %d", w.Law, w.Stats.Favours)
+	}
+	tk := step(w, s, sale(w, home, 10))
+	var fell *events.RaidFellThrough
+	for _, e := range tk.Events() {
+		if ev, ok := e.(events.RaidFellThrough); ok {
+			fell = &ev
+		}
+	}
+	if fell == nil || fell.Level != content.Raid || fell.City != home || fell.Evidence != b.FavourEvidence || enforcement(tk) != nil {
+		t.Fatalf("the night of the favour: fell %+v enforcement %+v", fell, enforcement(tk))
+	}
+	if w.Stock(home, w.Products[0]) != 100 || w.Player.DirtyCash != 10_000 || w.Stats.Raids != 0 || w.Heat.Responses[content.Raid] != 0 || w.Heat.Sweep.Day != 0 {
+		t.Fatalf("the raid took something: stock %d cash %d raids %d responses %v sweep %+v", w.Stock(home, w.Products[0]), w.Player.DirtyCash, w.Stats.Raids, w.Heat.Responses, w.Heat.Sweep)
+	}
+	if w.Heat.Evidence != b.FavourEvidence || w.Heat.EvidenceDay != w.Day {
+		t.Fatalf("the favour's page: file %d on day %d", w.Heat.Evidence, w.Heat.EvidenceDay)
+	}
+	if w.Heat.LastResponse[content.Raid] != w.Day {
+		t.Fatalf("the cooldown did not start: %v", w.Heat.LastResponse)
+	}
+	// The cooldown holds the rung: nothing due, and on the same heat the
+	// night after fires the sting under it, not the raid.
+	w.Home().Heat = over(w, s, r, w.Home())
+	if due := s.Due(w); due == content.Raid {
+		t.Fatalf("the raid due under its cooldown")
+	}
+	// Once the cooldown lifts the raid fires as it always did.
+	w.Day += s.CooldownDays(w, content.Raid)
+	w.Home().Heat = over(w, s, r, w.Home())
+	if due := s.Due(w); due != content.Raid {
+		t.Fatalf("due %q with the cooldown lifted", due)
+	}
+	tk = step(w, s, sale(w, home, 10))
+	if ev := enforcement(tk); ev == nil || ev.Level != content.Raid || w.Stats.Raids != 1 {
+		t.Fatalf("the raid after the cooldown: %+v", ev)
+	}
+	// The task force announced: due the morning after, and the favour
+	// stops it too, its cooldown started.
+	w = world(t, cfg)
+	w.Day = 5 // a day in, so the announcement's stamp reads
+	w.Law.Favours = 1
+	w.Player.DirtyCash = s.TaskForceCash() + 1
+	w.Heat.TaskForceDay = w.Day
+	if due := s.Due(w); due != content.TaskForce {
+		t.Fatalf("due %q with the task force announced", due)
+	}
+	if err := w.CallFavour(true); err != nil {
+		t.Fatal(err)
+	}
+	tk = step(w, s)
+	k := map[string]int{}
+	for _, e := range tk.Events() {
+		k[e.Kind()]++
+	}
+	if k["RaidFellThrough"] != 1 || k["Enforcement"] != 0 || k["AssetSeized"] != 0 || w.Stats.TaskForces != 0 || w.Heat.LastResponse[content.TaskForce] != w.Day || w.Heat.TaskForceDay != 0 {
+		t.Fatalf("the task force under the favour: %v stats %d last %v", k, w.Stats.TaskForces, w.Heat.LastResponse)
+	}
+}
+
+// The favour never lowers heat (#228, #60's rule): the night it falls
+// through, heat is the number the same night reads with the rung held
+// by its cooldown (the decay alone), never the raid's heat_drop; the
+// file is the twin's plus favour_evidence.
+func TestFavourNeverLowersHeat(t *testing.T) {
+	cfg := content.MustLoad()
+	s := heat.New(cfg)
+	r := rung(cfg, content.Raid)
+	play := func(favour bool) *game.World {
+		w := world(t, cfg)
+		home := w.Home().ID
+		w.SetStock(home, w.Products[0], 100)
+		w.Home().Heat = over(w, s, r, w.Home())
+		if favour {
+			w.Law.Favours = 1
+			if err := w.CallFavour(true); err != nil {
+				t.Fatal(err)
+			}
+		} else {
+			w.Heat.LastResponse = map[string]int{content.Raid: w.Day, content.Sting: w.Day, content.Patrol: w.Day}
+		}
+		step(w, s, sale(w, home, 10))
+		return w
+	}
+	with, twin := play(true), play(false)
+	if !near(with.Home().Heat, twin.Home().Heat) || with.Home().Heat >= over(with, s, r, with.Home())*(1-s.Decay(with))+1 {
+		t.Fatalf("heat %.2f with the favour, %.2f with the rung held", with.Home().Heat, twin.Home().Heat)
+	}
+	if with.Heat.Evidence != twin.Heat.Evidence+cfg.Law.Bribes.FavourEvidence {
+		t.Fatalf("file %d with the favour, %d with the rung held", with.Heat.Evidence, twin.Heat.Evidence)
+	}
+}

@@ -426,6 +426,7 @@ The full table is below; `?` brings it up in the game.
 | `e` | guard house | post an enforcer inside the selected house | ledger |
 | `x` | drop house | drop the selected house, after asking | ledger |
 | `$` | bribe | an envelope for the chief or the DA | ledger |
+| `v` | call favour | the bought chief owes you: no raid tonight | ledger |
 | `f` | fund city | give a city clean cash for goodwill | ledger |
 | `u` | invest | clean cash into the selected front's levels | ledger |
 | `o` | reserve | clean cash into the offshore account | ledger |
@@ -773,6 +774,7 @@ The later policies exercise a particular part of the business:
 | `distributor` | Supplies Eastside by the biggest route, targets days of demand, then moves to Bayport when wholesale opens and sells at both ends. |
 | `delegated` | Adds a lieutenant in Eastside to the distributor. |
 | `funded` | Runs fronts and pays the city when pressure rises. |
+| `favoured` | The distributor that bribes the chief when hot and calls in the favour when a raid is due. |
 | `dealer` | Runs a crew, reserves stock for buyers and delivers when heat allows. |
 | `stocked` | Runs a crew with supply contracts at one day's corner demand. |
 | `routine` | After $20k peak cash, uses normal standing orders that grow with the stash. |

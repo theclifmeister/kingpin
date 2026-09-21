@@ -1021,6 +1021,7 @@ type Stats struct {
 	Checkpoints    int // checkpoints and customs deals bought
 	CheckpointCash int // dirty cash they cost
 	Leads          int // leads the DA's office picked up from your envelopes
+	Favours        int // favours called in on a bought chief (#228): responses that fell through
 	Elections      int // DA elections held
 	Chiefs         int // police chiefs replaced
 	Contracts      int // buyers' contracts delivered in full (#71)

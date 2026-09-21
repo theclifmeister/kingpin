@@ -4,6 +4,8 @@ import (
 	"strings"
 	"testing"
 
+	"github.com/theclifmeister/kingpin/internal/content"
+	"github.com/theclifmeister/kingpin/internal/events"
 	"github.com/theclifmeister/kingpin/internal/game"
 )
 
@@ -154,5 +156,91 @@ func TestBribeKeys(t *testing.T) {
 	m.Update(key("7"))
 	if view := stripANSI(m.View()); !strings.Contains(view, r.Name+" ") || !strings.Contains(view, dealWord(r)) {
 		t.Fatalf("PAYOFFS lacks the route:\n%s", view)
+	}
+}
+
+// The favour (#228): v on the ledger is refused with why while the
+// chief owes nothing, nothing is due or the officials are cold; with a
+// favour owed and a raid due it asks, y makes the call (the favour
+// spent, the day stamped, a second call refused), the LAW panel reads
+// `owes you one` until then and the ALERTS carry the call; the night
+// falls through: the report says so, a fast-forward stops on it, and
+// the file grew by a page while the heat did not drop.
+func TestFavourKeys(t *testing.T) {
+	m := richModel(t, 100, 30)
+	w := m.w
+	w.Law.Chief.Personality, w.Law.Chief.Observed = "corrupt", true
+	w.Law.Chief.Name = "Kerr" // short enough for the panel to carry the debt at 100 columns
+	w.Law.DA.Stance = "moderate"
+	w.Law.ChiefBought = w.Day + 30
+	w.Law.ChiefShare = 1
+	m.Update(key("7"))
+	m.Update(key("v"))
+	if m.mode != modePlay || !strings.Contains(m.status, "owes you nothing") {
+		t.Fatalf("v with no favour: mode %v status %q", m.mode, m.status)
+	}
+	w.Law.Favours = 1
+	m.Update(key("v"))
+	if m.mode != modePlay || !strings.Contains(m.status, "nothing is coming tonight") {
+		t.Fatalf("v with nothing due: mode %v status %q", m.mode, m.status)
+	}
+	m.Update(key("1"))
+	if view := stripANSI(m.View()); !strings.Contains(view, "owes one") {
+		t.Fatalf("the LAW panel does not say the chief owes you one:\n%s", view)
+	}
+	raid := m.set.Heat.Thresholds()[2]
+	w.Here().Heat = (m.set.Heat.Threshold(w, raid, w.Here()) + 1) / (1 - m.set.Heat.Decay(w))
+	if due := m.set.Heat.Due(w); due != "raid" {
+		t.Fatalf("due %q on a raid's heat", due)
+	}
+	alerted := false
+	for _, a := range m.alerts() {
+		if strings.HasPrefix(a.key, "the favour") {
+			alerted = true
+		}
+	}
+	if !alerted {
+		t.Fatalf("no alert for the favour: %+v", m.alerts())
+	}
+	m.Update(key("7"))
+	m.Update(key("v"))
+	if m.mode != modeConfirm {
+		t.Fatalf("v with a raid due: mode %v status %q", m.mode, m.status)
+	}
+	assertFits(t, m.View(), 100, 30, "favour confirm")
+	if view := stripANSI(m.View()); !strings.Contains(view, "CALL IN THE FAVOUR?") || !strings.Contains(view, "raid due") || !strings.Contains(view, "call favour") {
+		t.Fatalf("the confirmation:\n%s", view)
+	}
+	m.Update(key("y"))
+	if m.mode != modePlay || w.Law.Favours != 0 || !w.FavourCalled() || w.Stats.Favours != 1 {
+		t.Fatalf("y: mode %v law %+v", m.mode, w.Law)
+	}
+	m.Update(key("v"))
+	if !strings.Contains(m.status, "The call is made") {
+		t.Fatalf("v after the call: %q", m.status)
+	}
+	file, heat, day := w.Heat.Evidence, w.Here().Heat, w.Day
+	w.Today.LieLow = false
+	fast(t, m, 5)
+	if w.Day != day+1 { // the morning stops on the fall-through, or on a card or an unlock the fixture's run has that morning, which outrank it
+		t.Fatalf("F did not stop on the favour's morning: %q on day %d", m.fastStop, w.Day)
+	}
+	if why := m.stopEvent(events.RaidFellThrough{Day: w.Day, City: w.Here().ID, Level: content.Raid}); why != "the raid fell through" {
+		t.Fatalf("the stop reads %q", why)
+	}
+	closeMorning(t, m)
+	if rep := strings.Join(w.Report.Heat, "\n"); !strings.Contains(rep, "fell through") || !strings.Contains(rep, "the file grows by 1") {
+		t.Fatalf("the report's HEAT section:\n%s", rep)
+	}
+	if w.Heat.Evidence != file+m.set.Law.Bribes().FavourEvidence || w.Here().Heat > heat || w.Stats.Raids != 0 || w.Stats.Stings != 0 {
+		t.Fatalf("the night: file %d -> %d, heat %.1f -> %.1f, raids %d stings %d", file, w.Heat.Evidence, heat, w.Here().Heat, w.Stats.Raids, w.Stats.Stings)
+	}
+	// Under the cold nobody takes the call.
+	w.Law.Favours, w.Law.DA.Stance = 1, "law_and_order"
+	m.Update(key("esc"))
+	m.Update(key("7"))
+	m.Update(key("v"))
+	if !strings.Contains(m.status, "law-and-order") {
+		t.Fatalf("v under the cold: %q", m.status)
 	}
 }

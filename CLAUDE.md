@@ -33,7 +33,7 @@ go test ./internal/ui -run TestReadmeCaptures -update      # README captures fro
 go run ./cmd/anim                                          # review every scene (-list, -scene, -seed)
 ```
 
-`cmd/balance -policy P` plays one of thirty-one scripted policies (`idle` to `informed`; an unknown one falls back to `normal`): what each plays, every flag (`-character C` and `-hardda` since #50) and what the output lines mean are in `docs/harness.md`. Day counts (`harness.Horizon`, `TierDays`, `-days`) are where the tooling *looks*, never a run length: the game has no day cap and a run ends only through an ending (#27). Do not add mechanics that end a run for playing on.
+`cmd/balance -policy P` plays one of thirty-two scripted policies (`idle` to `informed`; an unknown one falls back to `normal`): what each plays, every flag (`-character C` and `-hardda` since #50) and what the output lines mean are in `docs/harness.md`. Day counts (`harness.Horizon`, `TierDays`, `-days`) are where the tooling *looks*, never a run length: the game has no day cap and a run ends only through an ending (#27). Do not add mechanics that end a run for playing on.
 
 Set `KINGPIN_HOME` to keep test saves and the profile out of your real config dir (tests use `t.TempDir()`). To drive the TUI headlessly, run it under `tmux` (`send-keys` / `capture-pane`); `internal/ui/ui_test.go` has a `key()` helper for feeding `tea.KeyMsg`s to the model. `KINGPIN_NO_ANIM=1` turns the animation off; `KINGPIN_ANIM_EFFECT=name` pins the title effect.
 

@@ -293,6 +293,8 @@ func (m *Model) stopEvent(e events.Event) string {
 	// the envelopes, and the day the phones stop.
 	case events.BribeBackfired:
 		return "the envelope came back"
+	case events.RaidFellThrough:
+		return "the " + favourWord(ev.Level) + " fell through" // the favour (#228)
 	case events.LeadsFiled:
 		return "the DA's file on your envelopes"
 	case events.OfficialsCold:
