@@ -799,7 +799,7 @@ Use these flags to compare runs with the same conditions:
 | `-snitch` | Starts with an informant on the payroll. |
 | `-cards decline\|first` | Answers cards with the last (do-nothing) or first choice. |
 | `-incidents off` | Boxes the world's incident table (on by default). |
-| `-character cook` | Starts every run as that character (`dealer`, `cook`, `bookkeeper`, `excop`, `dockhand`). |
+| `-character cook` | Starts every run as that character (`dealer`, `cook`, `bookkeeper`, `excop`, `dockhand`, `heir`). |
 | `-hardda` | Seats a law-and-order DA and a zealous chief on day 0, never pinned. |
 
 Cards are off by default, and the harness tests box the incidents too, so

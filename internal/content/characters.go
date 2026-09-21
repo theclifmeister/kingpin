@@ -57,6 +57,7 @@ type StartConfig struct {
 	Products   []string        `toml:"products"`
 	City       string          `toml:"city"`
 	Corner     string          `toml:"corner"`
+	Corners    []string        `toml:"corners"` // corners held on day 0 with the start crew posted on them, in order (#232)
 	Reputation StartReputation `toml:"reputation"`
 	KnowChief  bool            `toml:"know_chief"`
 }
@@ -70,7 +71,7 @@ type StartReputation struct {
 
 // Empty reports whether the start changes nothing: the default's.
 func (s StartConfig) Empty() bool {
-	return len(s.Crew) == 0 && len(s.Upgrades) == 0 && len(s.Products) == 0 && s.City == "" && s.Corner == "" && s.Reputation == StartReputation{} && !s.KnowChief
+	return len(s.Crew) == 0 && len(s.Upgrades) == 0 && len(s.Products) == 0 && s.City == "" && s.Corner == "" && len(s.Corners) == 0 && s.Reputation == StartReputation{} && !s.KnowChief
 }
 
 // Character returns the row with id, or nil.
@@ -152,6 +153,30 @@ func (c CharactersConfig) validate(crew CrewConfig, up UpgradesConfig, mk Market
 			}
 			if !found {
 				return fmt.Errorf("character %q: no corner %q in %s", ch.ID, s.Corner, s.City)
+			}
+		}
+		// The corners held on day 0 (#232): in the start city (home
+		// with none named), each once, and free: not the corner you
+		// stand on, the character's or the file's start.
+		startCity, standing := s.City, s.Corner
+		if startCity == "" {
+			startCity, standing = city.Home().ID, city.Territory.Start
+		}
+		held := map[string]bool{}
+		for _, id := range s.Corners {
+			if held[id] {
+				return fmt.Errorf("character %q: corner %q held twice", ch.ID, id)
+			}
+			held[id] = true
+			if id == standing {
+				return fmt.Errorf("character %q: corner %q is the one you stand on", ch.ID, id)
+			}
+			found := false
+			for _, k := range city.City(startCity).Corners {
+				found = found || k.ID == id
+			}
+			if !found {
+				return fmt.Errorf("character %q: no corner %q in %s", ch.ID, id, startCity)
 			}
 		}
 		for _, v := range []float64{s.Reputation.Fear, s.Reputation.Respect, s.Reputation.Notoriety} {

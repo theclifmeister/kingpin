@@ -138,7 +138,7 @@ func TestNewRunStartsTheCharacter(t *testing.T) {
 func TestDailyIsTheDate(t *testing.T) {
 	m := pickerModel(t)
 	m.Update(key("enter"))
-	m.Update(key("6")) // the daily: a digit selects and commits (#241), so it starts at once
+	m.Update(key("7")) // the daily, the row after the six characters: a digit selects and commits (#241), so it starts at once
 	w := m.w
 	if m.mode != modePlay || w.Seed != game.DailySeed(sept13) || w.Start.Character != "" || w.Start.Daily != "20260913" || w.Start.Practice {
 		t.Fatalf("mode %v seed %d start %+v", m.mode, w.Seed, w.Start)
@@ -169,7 +169,7 @@ func TestDailyIsTheDate(t *testing.T) {
 	if view := stripANSI(m.View()); !strings.Contains(view, "a practice run") {
 		t.Errorf("the picker does not say practice:\n%s", view)
 	}
-	m.Update(key("6")) // starts at once (#241)
+	m.Update(key("7")) // the daily row, after the six characters: starts at once (#241)
 	if !m.w.Start.Practice || m.w.Seed != game.DailySeed(sept13) || !strings.Contains(m.status, "practice") {
 		t.Fatalf("second attempt: start %+v status %q", m.w.Start, m.status)
 	}
@@ -207,10 +207,10 @@ func TestRunEndRecordsAndUnlocks(t *testing.T) {
 	w.Over = w.End(content.CauseKingpin, w.Day, "")
 	m.save()
 	m.finish(true)
-	if m.mode != modeOver || len(m.unlocked) != 1 || m.unlocked[0] != game.HardDAID {
+	if m.mode != modeOver || len(m.unlocked) != 2 || m.unlocked[0] != "heir" || m.unlocked[1] != game.HardDAID { // the kingpin ending opens the Heir (#232) and the toggle
 		t.Fatalf("mode %v unlocked %v", m.mode, m.unlocked)
 	}
-	if view := stripANSI(strings.Join(m.summaryLines(), "\n")); !strings.Contains(view, "unlocked Hard DA") || !strings.Contains(view, "1st of 1 run") {
+	if view := stripANSI(strings.Join(m.summaryLines(), "\n")); !strings.Contains(view, "unlocked The Heir, Hard DA") || !strings.Contains(view, "1st of 1 run") {
 		t.Errorf("the summary does not say what it unlocked:\n%s", view)
 	}
 	p, _ := game.LoadProfile(sept13)

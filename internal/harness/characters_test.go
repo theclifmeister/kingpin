@@ -297,3 +297,45 @@ func TestDailySeedIsTheDate(t *testing.T) {
 		t.Fatal("two dailies on one date diverged")
 	}
 }
+
+// TestHeirStartsPosted (#232): the heir's day 0 has the old man's
+// corner held with the old man's enforcer guarding it, beside the
+// corner you stand on; the stash owned; the reputation as the file
+// says; and nothing else of the start on the world
+// (TestCharacterIsDayZero has the rest). The corners key posts the
+// start crew in order, so a two-corner start with a runner would work
+// the first and guard the second; the heir's shrank to one corner and
+// no runner (the file says why).
+func TestHeirStartsPosted(t *testing.T) {
+	t.Parallel()
+	cfg := content.MustLoad()
+	ch := cfg.Characters.Character("heir")
+	if ch == nil {
+		t.Fatal("no heir in the file")
+	}
+	w := sim.NewWorldWith(cfg, 2, Character(cfg, "heir"))
+	if w.Day != 0 || len(ch.Start.Corners) != 1 || len(w.Crew.Members) != 1 {
+		t.Fatalf("day %d, %d corners, %d on the payroll", w.Day, len(ch.Start.Corners), len(w.Crew.Members))
+	}
+	enforcer := w.Crew.Members[0]
+	if enforcer.Role != "enforcer" {
+		t.Fatalf("the crew: %s", enforcer.Role)
+	}
+	corner := w.Corner(ch.Start.Corners[0])
+	if !corner.Held() || corner.Enforcer != enforcer.ID || corner.Runner != 0 || corner.Since != 0 {
+		t.Fatalf("the old man's corner: %+v", corner)
+	}
+	if post := w.PostOf(enforcer.ID); post == nil || post.ID != corner.ID {
+		t.Fatalf("the post: %v", post)
+	}
+	if you := w.PostOf(game.You); you == nil || you.ID != cfg.City.Territory.Start || w.HeldIn(w.Home().ID) != 2 {
+		t.Fatalf("you stand on %v with %d held at home", you, w.HeldIn(w.Home().ID))
+	}
+	if !w.Owns("stash") || w.Player.Reputation.Fear != 25 || w.Player.Reputation.Notoriety != 15 || w.Player.Reputation.Respect != 0 {
+		t.Fatalf("the rest of the start: owns %v, reputation %+v", w.Upgrades, w.Player.Reputation)
+	}
+	// The unlock is the kingpin ending, the crown's (#227).
+	if ch.Unlock.Ending != content.CauseKingpin || !game.Met(ch.Unlock, cfg.Progression, content.CauseKingpin, "") {
+		t.Fatalf("the unlock: %+v", ch.Unlock)
+	}
+}
