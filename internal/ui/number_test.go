@@ -96,8 +96,14 @@ func TestNumberField(t *testing.T) {
 			t.Fatalf("%s: the field opens with %q", f.name, v)
 		}
 		// The cart opens on the line's quantity and the target on the
-		// target set: clear it first.
+		// target set: clear it first. Empty, the field shows its whole
+		// placeholder (#234: the input's width counts the prompt and
+		// the cursor, so a width of the placeholder alone cut it to
+		// `blank = …`).
 		fld.SetValue("")
+		if view := stripANSI(m.View()); !strings.Contains(view, fld.in.Placeholder) {
+			t.Errorf("%s: the empty field does not show its placeholder %q whole:\n%s", f.name, fld.in.Placeholder, view)
+		}
 		want := func(step, v string) {
 			t.Helper()
 			if m.mode != mode || fld.Value() != v {
