@@ -1272,7 +1272,7 @@ func (m *Model) viewTitle() string {
 	// (`Journal 3`, the count in the news accent) wherever its name
 	// fits; the digits-only bar drops it with the name.
 	unread := m.journalUnread()
-	tabsFor := func(short int) string {
+	tabsFor := func(short int, badge bool) string {
 		var tabs []string
 		for i, n := range screenNames {
 			var label string
@@ -1284,7 +1284,7 @@ func (m *Model) viewTitle() string {
 			default:
 				label = fmt.Sprintf("%d", i+1)
 			}
-			if screen(i) == screenJournal && short < 2 && unread > 0 {
+			if screen(i) == screenJournal && badge && unread > 0 {
 				label += " " + theme.NewsText.Render(fmt.Sprintf("%d", unread))
 			}
 			if screen(i) == m.screen && m.mode == modePlay {
@@ -1315,17 +1315,27 @@ func (m *Model) viewTitle() string {
 		return strings.Join(parts, sep) + " "
 	}
 	// Try the roomy layout first, then progressively shorter ones: the
-	// tabs shorten before the right side loses anything.
+	// tabs shorten before the right side loses anything, and the short
+	// names drop the unread badge before they give way to digits (#235:
+	// nine short names fit 120 columns with nothing to spare, so the
+	// badge alone pushed every screen to digits exactly when there was
+	// news to point at).
 	for _, try := range []struct {
 		short       int
+		badge       bool
 		city, clean bool
-	}{{0, true, true}, {1, true, true}, {1, true, false}, {1, false, false}, {2, false, false}} {
-		left, right := tabsFor(try.short), rightFor(try.city, try.clean)
+	}{
+		{0, true, true, true},
+		{1, true, true, true}, {1, true, true, false}, {1, true, false, false},
+		{1, false, true, true}, {1, false, true, false}, {1, false, false, false},
+		{2, false, false, false},
+	} {
+		left, right := tabsFor(try.short, try.badge), rightFor(try.city, try.clean)
 		if gap := m.width - lipgloss.Width(left) - lipgloss.Width(right); gap >= 1 {
 			return left + strings.Repeat(" ", gap) + right
 		}
 	}
-	return fit(tabsFor(2)+" "+rightFor(false, false), m.width)
+	return fit(tabsFor(2, false)+" "+rightFor(false, false), m.width)
 }
 
 // paneKeys is the pane's KEYS section in play mode: the key table's

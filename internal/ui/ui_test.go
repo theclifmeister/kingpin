@@ -929,6 +929,32 @@ func TestJournalUnreadCount(t *testing.T) {
 // Enter confirms dialogs and closes the report, so a stray extra press must
 // never burn a day: on the play screen it only asks. n ends the day at once;
 // enter ends it after a confirmation.
+// The title bar keeps its tab names when there is news (#235): at 120
+// columns nine short names fit with nothing to spare, so the unread
+// badge used to push every screen but the journal to digits alone,
+// exactly when the bar should say which tab has the news. Now the
+// short names drop the badge before they give way to digits: no view
+// of the rich fixture at 120x40 reads `KINGPIN 1 2 3 …`.
+func TestTitleBarKeepsItsNamesWithNews(t *testing.T) {
+	seen, badged := 0, 0
+	richFixture(t, [2]int{120, 40}, func(m *Model, view, what string) {
+		top := stripANSI(strings.SplitN(view, "\n", 2)[0])
+		if !strings.Contains(top, "KINGPIN") {
+			return
+		}
+		seen++
+		if m.journalUnread() > 0 && m.screen != screenJournal {
+			badged++
+		}
+		if !strings.Contains(top, "Mkt") && !strings.Contains(top, "Market") {
+			t.Errorf("%s: the title bar lost its tab names (%d unread): %q", what, m.journalUnread(), top)
+		}
+	})
+	if seen == 0 || badged == 0 {
+		t.Fatalf("the fixture showed %d title bars, %d with unread news off the journal", seen, badged)
+	}
+}
+
 func TestEnterDoesNotEndDay(t *testing.T) {
 	m := newTestModel(t, 80, 24)
 	m.Update(key("n"))
