@@ -68,6 +68,7 @@ func Schema() ([]byte, error) {
 				"kind":    map[string]any{"type": "string", "enum": sortedKinds()},
 				"day":     map[string]any{"type": "integer"},
 				"payload": map[string]any{"description": "the event, its schema under events by kind"},
+				"cue":     g.of(reflect.TypeFor[engine.Cue]()),
 			}, "required": []string{"kind", "day", "payload"}},
 			"view": g.of(reflect.TypeFor[engine.View]()),
 		},

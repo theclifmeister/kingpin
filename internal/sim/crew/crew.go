@@ -340,13 +340,13 @@ func (s *Sim) Step(w *game.World, t *game.Tick) {
 func (s *Sim) roster(n *night) {
 	t, c := n.t, n.c
 	for _, m := range c.HiredToday {
-		t.Emit(events.CrewHired{Day: t.Day, Name: m.Name, Role: m.Role, Fee: m.Fee})
+		t.Emit(events.CrewHired{Day: t.Day, ID: m.ID, Name: m.Name, Role: m.Role, Fee: m.Fee})
 	}
 	for _, m := range c.FiredToday {
 		if !m.Informant {
 			n.fired++
 		}
-		t.Emit(events.CrewFired{Day: t.Day, Name: m.Name, Role: m.Role, Informant: m.Informant})
+		t.Emit(events.CrewFired{Day: t.Day, ID: m.ID, Name: m.Name, Role: m.Role, Informant: m.Informant})
 	}
 	for _, p := range c.PaidOffToday {
 		t.Emit(events.CrewPaidOff{Day: t.Day, Name: p.Name, Cost: p.Cost})

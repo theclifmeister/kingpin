@@ -5,6 +5,7 @@ import (
 
 	"github.com/charmbracelet/lipgloss"
 
+	"github.com/theclifmeister/kingpin/internal/engine"
 	"github.com/theclifmeister/kingpin/internal/events"
 	"github.com/theclifmeister/kingpin/internal/game"
 	"github.com/theclifmeister/kingpin/internal/ui/anim"
@@ -39,21 +40,20 @@ type mapFlip struct {
 	from   string
 }
 
-// mapFlips reads the tick's events for the corners that changed hands
-// with you on one side: a strike of yours that took the corner, and a
-// corner the rival took off you.
+// mapFlips is the tick's corners that changed hands between you and a
+// rival, read off the engine's cues (#301, engine.CueOf): a strike of
+// yours that took the corner, a corner the rival took off you. A corner
+// going back to the street (idle, a crackdown, a raid on your tip) is a
+// flip too, and the map's scene leaves it out, as it always has.
 func mapFlips(evs []events.Event) []mapFlip {
 	var flips []mapFlip
 	for _, e := range evs {
-		switch ev := e.(type) {
-		case events.CornerStruck:
-			if ev.Taken {
-				flips = append(flips, mapFlip{ev.Corner, game.OwnerRival})
-			}
-		case events.CornerTaken:
-			if ev.From == game.OwnerPlayer {
-				flips = append(flips, mapFlip{ev.Corner, game.OwnerPlayer})
-			}
+		c, ok := engine.CueOf(e)
+		if !ok || c.Kind != engine.CueCornerFlip {
+			continue
+		}
+		if (c.From == game.OwnerPlayer && c.To == game.OwnerRival) || (c.From == game.OwnerRival && c.To == game.OwnerPlayer) {
+			flips = append(flips, mapFlip{c.Corner, c.From})
 		}
 	}
 	return flips

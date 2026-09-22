@@ -158,6 +158,7 @@ func (GameOver) Kind() string { return "GameOver" }
 // CrewHired records a signing made during the day.
 type CrewHired struct {
 	Day  int
+	ID   int // the member (#301): a front end animates them by it
 	Name string
 	Role string
 	Fee  int
@@ -170,6 +171,7 @@ func (CrewHired) Kind() string { return "CrewHired" }
 // the rest of the crew do not hold it against you.
 type CrewFired struct {
 	Day       int
+	ID        int // the member (#301): a front end animates them by it
 	Name      string
 	Role      string
 	Informant bool
@@ -180,6 +182,7 @@ func (CrewFired) Kind() string { return "CrewFired" }
 // CrewQuit records a member who walked because loyalty bottomed out.
 type CrewQuit struct {
 	Day  int
+	ID   int // the member (#301): a front end animates them by it
 	Name string
 	Role string
 }
@@ -203,6 +206,7 @@ func (CrewTurnedInformant) Kind() string { return "CrewTurnedInformant" }
 // if they ran none).
 type CrewDefected struct {
 	Day        int
+	ID         int // the member (#301): a front end animates them by it
 	Name       string
 	Role       string
 	Rival      string

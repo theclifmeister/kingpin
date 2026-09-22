@@ -152,10 +152,10 @@ func (s *Sim) quit(n *night) {
 			to = w.StrongestFaction(w.Home().ID)
 		}
 		if to == nil {
-			t.Emit(events.CrewQuit{Day: t.Day, Name: m.Name, Role: m.Role})
+			t.Emit(events.CrewQuit{Day: t.Day, ID: m.ID, Name: m.Name, Role: m.Role})
 			continue
 		}
-		ev := events.CrewDefected{Day: t.Day, Name: m.Name, Role: m.Role, Rival: to.Leader, Faction: to.Faction()}
+		ev := events.CrewDefected{Day: t.Day, ID: m.ID, Name: m.Name, Role: m.Role, Rival: to.Leader, Faction: to.Faction()}
 		lead := game.Lead{Name: m.Name, Faction: to.Faction()}
 		if post != nil && post.City == w.CityOf(to).ID {
 			ev.Corner, ev.CornerName = post.ID, post.Name
