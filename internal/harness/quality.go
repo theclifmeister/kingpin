@@ -7,6 +7,7 @@ import (
 	"github.com/theclifmeister/kingpin/internal/events"
 	"github.com/theclifmeister/kingpin/internal/game"
 	"github.com/theclifmeister/kingpin/internal/sim/crew"
+	"github.com/theclifmeister/kingpin/internal/sim/laundering"
 	"github.com/theclifmeister/kingpin/internal/sim/market"
 )
 
@@ -72,12 +73,13 @@ func Cook(cfg *content.Config, lieLowAt float64) Policy {
 		panic("harness.Cook: " + err.Error())
 	}
 	cs := crew.New(cfg)
+	ld := laundering.New(cfg)
 	hot := TooHot(cfg, lieLowAt)
 	cooks := func(id string) bool { return mk.Cooks(id) }
 	return func(w *game.World) {
-		washUp(cfg, w)
-		hireChemist(cfg, w)
-		staff(cfg, w, w.Player.Location, 0)
+		washUp(ld, w)
+		hireChemist(cfg, cs, w)
+		staff(cfg, cs, w, w.Player.Location, 0)
 		if hot(w) {
 			w.SetLieLow(true)
 			return
@@ -92,34 +94,20 @@ func Cook(cfg *content.Config, lieLowAt float64) Policy {
 // hireChemist signs the chemist in the pool when none is on the
 // payroll, firing the least skilled runner to make room on a full
 // roster with three or more of them.
-func hireChemist(cfg *content.Config, w *game.World) {
+func hireChemist(cfg *content.Config, cs *crew.Sim, w *game.World) {
 	if w.Crew.Chemist() != nil {
 		return
 	}
-	var chem *game.CrewMember
-	for i := range w.Crew.Candidates {
-		if c := &w.Crew.Candidates[i]; c.Role == game.RoleChemist && (chem == nil || c.Skill > chem.Skill) {
-			chem = c
-		}
-	}
-	if chem == nil {
+	best := bestCandidate(w, game.RoleChemist)
+	if best < 0 {
 		return
 	}
-	maxCrew := crew.New(cfg).MaxCrew(w)
+	chem := w.Crew.Candidates[best] // Fire leaves the pool as it is
+	maxCrew := cs.MaxCrew(w)
 	if len(w.Crew.Members) >= maxCrew {
-		if w.Crew.Runners() < 3 || len(w.Crew.FiredToday) > 0 {
+		if w.Crew.Runners() < 3 || len(w.Crew.FiredToday) > 0 || !fireWorstRunner(w) {
 			return
 		}
-		worst := -1
-		for i, m := range w.Crew.Members {
-			if m.Role == game.RoleRunner && (worst < 0 || m.Skill < w.Crew.Members[worst].Skill) {
-				worst = i
-			}
-		}
-		if worst < 0 {
-			return
-		}
-		_, _ = w.Fire(w.Crew.Members[worst].ID)
 	}
 	if w.Player.DirtyCash >= chem.Fee+cfg.Market.Market.StartCash {
 		_, _ = w.Hire(chem.ID, maxCrew)
