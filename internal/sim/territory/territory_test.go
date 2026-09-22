@@ -7,12 +7,13 @@ import (
 	"github.com/theclifmeister/kingpin/internal/content"
 	"github.com/theclifmeister/kingpin/internal/events"
 	"github.com/theclifmeister/kingpin/internal/game"
+	"github.com/theclifmeister/kingpin/internal/gametest"
 	"github.com/theclifmeister/kingpin/internal/sim/territory"
 )
 
 func world(t *testing.T, cfg *content.Config) (*game.World, *territory.Sim) {
 	t.Helper()
-	w := game.NewWorld(7, []game.StartingCity{{ID: cfg.City.Home().ID, Name: "Testville", Products: []game.StartingProduct{{ID: "weed", Name: "Weed", Price: 20, Demand: 60, SupplierRatio: 0.55}}}}, 10_000, 100)
+	w := gametest.City(7, cfg.City.Home().ID, "Testville", 10_000, gametest.Weed)
 	s := territory.New(cfg)
 	s.Seed(w)
 	w.Crew.Members = []game.CrewMember{
@@ -23,13 +24,7 @@ func world(t *testing.T, cfg *content.Config) (*game.World, *territory.Sim) {
 }
 
 func step(w *game.World, s *territory.Sim, extra ...events.Event) []events.Event {
-	t := &game.Tick{Day: w.Day + 1, RNG: game.RNGFor(w.Seed, w.Day+1)}
-	for _, e := range extra {
-		t.Emit(e)
-	}
-	s.Step(w, t)
-	w.Day++
-	return t.Events()
+	return gametest.StepUnseeded(w, s, extra...).Events()
 }
 
 func kinds(evs []events.Event) map[string]int {
