@@ -8,6 +8,7 @@ import (
 	"github.com/theclifmeister/kingpin/internal/content"
 	"github.com/theclifmeister/kingpin/internal/events"
 	"github.com/theclifmeister/kingpin/internal/game"
+	"github.com/theclifmeister/kingpin/internal/gametest"
 	"github.com/theclifmeister/kingpin/internal/sim"
 	"github.com/theclifmeister/kingpin/internal/sim/heat"
 )
@@ -35,12 +36,7 @@ func world(t *testing.T, cfg *content.Config) *game.World {
 // step runs one day of heat over w with the given events already
 // emitted (the earlier sims' sales, the war), and returns the tick.
 func step(w *game.World, s *heat.Sim, evs ...events.Event) *game.Tick {
-	tk := &game.Tick{Day: w.Day + 1, RNG: game.RNGFor(w.Seed, w.Day+1), Seed: w.Seed}
-	for _, e := range evs {
-		tk.Emit(e)
-	}
-	s.Step(w, tk)
-	w.Day++
+	tk := gametest.Step(w, s, evs...)
 	w.ClearToday(w.Day)
 	return tk
 }
