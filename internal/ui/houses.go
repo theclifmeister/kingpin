@@ -6,6 +6,7 @@ import (
 
 	tea "github.com/charmbracelet/bubbletea"
 
+	"github.com/theclifmeister/kingpin/internal/format"
 	"github.com/theclifmeister/kingpin/internal/game"
 	"github.com/theclifmeister/kingpin/internal/ui/theme"
 )
@@ -95,14 +96,14 @@ func (m *Model) keyFront(key string) {
 	case "up", "k":
 		if m.front.step == 0 {
 			m.front.kind = max(0, m.front.kind-1)
-		} else if m.front.cursor > 0 {
-			m.front.cursor--
+		} else {
+			stepCursor(&m.front.cursor, -1, len(m.offerCount()))
 		}
 	case "down", "j":
 		if m.front.step == 0 {
 			m.front.kind = min(len(pickNames)-1, m.front.kind+1)
-		} else if m.front.cursor < len(m.offerCount())-1 {
-			m.front.cursor++
+		} else {
+			stepCursor(&m.front.cursor, 1, len(m.offerCount()))
 		}
 	case "enter":
 		if m.front.step == 0 {
@@ -111,8 +112,7 @@ func (m *Model) keyFront(key string) {
 			m.confirmFront()
 		}
 	default:
-		if len(key) == 1 && key[0] >= '1' && key[0] <= '9' {
-			i := int(key[0] - '1')
+		if i, ok := digit(key); ok {
 			if m.front.step == 0 {
 				if i < len(pickNames) {
 					m.front.kind = i
@@ -460,19 +460,13 @@ func (m *Model) keyMove(k tea.KeyMsg) (tea.Model, tea.Cmd) {
 	if d.step < 3 {
 		switch key {
 		case "up", "k":
-			if d.cursor > 0 {
-				d.cursor--
-			}
+			stepCursor(&d.cursor, -1, m.moveRows())
 		case "down", "j":
-			if d.cursor < m.moveRows()-1 {
-				d.cursor++
-			}
+			stepCursor(&d.cursor, 1, m.moveRows())
 		default:
-			if len(key) == 1 && key[0] >= '1' && key[0] <= '9' {
-				if i := int(key[0] - '1'); i < m.moveRows() {
-					d.cursor = i
-					m.moveNext()
-				}
+			if i, ok := digit(key); ok && i < m.moveRows() {
+				d.cursor = i
+				m.moveNext()
 			}
 		}
 		return m, nil
@@ -533,7 +527,7 @@ func (m *Model) moveNext() {
 
 func (m *Model) confirmMove() {
 	d := &m.mv
-	qty, err := parseQtyInput(d.qty.Value(), m.moveMax())
+	qty, err := readQty(d.qty, m.moveMax())
 	if err != nil {
 		d.err = dialogError(err)
 		return
@@ -602,7 +596,7 @@ func (m *Model) viewMove() string {
 			"",
 		}
 		body = append(body, m.subtle(fmt.Sprintf("%s holds %d of %d. A move is free and instant; the units moved are exposure tonight, at %s of a unit sold.", m.placeLabel(d.to), toUnits, room, times(m.cfg.Houses.Houses.MoveHeat)))...)
-		if n, err := parseQtyInput(d.qty.Value(), m.moveMax()); err == nil && n > 0 {
+		if n, err := readQty(d.qty, m.moveMax()); err == nil && n > 0 {
 			body = append(body, row("heat", theme.Subtle.Render(fmt.Sprintf("+%.1f tonight for %d units", m.rules.Heat.MoveHeat(w, d.city, d.product, n), n))))
 		}
 	}
@@ -653,7 +647,7 @@ func (m *Model) confirmGuard() {
 		m.say("Nobody is guarding " + h.Name + " now.")
 		return
 	}
-	m.say(fmt.Sprintf("%s is inside %s: robbery %.1f%%/day.", who.Name, h.Name, m.rules.Territory.HouseRobberyChance(m.w, h)*100))
+	m.say(fmt.Sprintf("%s is inside %s: robbery %s/day.", who.Name, h.Name, format.Pct(m.rules.Territory.HouseRobberyChance(m.w, h), 1)))
 }
 
 func (m *Model) keyGuard(key string) { m.pickerKey(key, len(m.guardRows()), m.confirmGuard) }

@@ -19,67 +19,6 @@ import (
 	"github.com/theclifmeister/kingpin/internal/ui/theme"
 )
 
-type screen int
-
-const (
-	screenDashboard screen = iota
-	screenMarket
-	screenJournal
-	screenCrew
-	screenMap
-	screenUpgrades
-	screenLedger
-	screenRivals
-	screenIntel // what you know against what is true (#45)
-	screenCount
-)
-
-var (
-	screenNames = []string{"Dashboard", "Market", "Journal", "Crew", "Map", "Upgrades", "Ledger", "Rivals", "Intel"}
-	screenShort = []string{"Dash", "Mkt", "Journal", "Crew", "Map", "Upgr", "Ledger", "Rivals", "Intel"} // when the title bar is tight (Mkt since the ninth tab, #45: nine short names and the news count fit 120 columns)
-)
-
-type mode int
-
-const (
-	modeStart mode = iota // the start menu: a save slot to continue or start in, or quit
-	modePlay
-	modeConfirm // one yes-or-no confirmation, its payload in Model.cfm (#242)
-	modeReport
-	modeBuy
-	modeSell
-	modeOver
-	modeConfirmEnd
-	modeHelp
-	modePost          // pick who to post on the selected corner
-	modeStrike        // pick how hard to send the enforcers at the selected corner
-	modeFront         // pick a front to buy
-	modeStage         // the stage entered this morning (#149), before the card and the report
-	modeCard          // a dilemma card, before the morning report
-	modeTarget        // the route target dialog: product -> units or days -> the number
-	modePropose       // pick a deal to put to the rival: kind, then terms
-	modeAssign        // pick the city a lieutenant runs
-	modeFund          // give a city clean cash for goodwill
-	modeDetails       // the details pane as an overlay, where the terminal is too narrow to hold it beside MAIN
-	modeCart          // the day's cart: its buys and orders, editable until the day ends
-	modeConfirmFast   // run days until something needs you (#116): the cap, then enter
-	modeUndercut      // pick the dial to undercut the selected rival corner at (#68)
-	modeMove          // move stock between the street and the houses in a city (#73): from, to, product, quantity
-	modeGuard         // pick the enforcer who guards the selected house (#73)
-	modeConfirmBuyOff // pay the rival's muscle to go home: the heads, then enter (#70)
-	modeCut           // cut a product where you stand (#47): the product, then the percent added
-	modeCook          // a chemist's cook order (#47): the product, then the units
-	modeInvest        // clean cash into the selected front's levels (#192): the levels, then enter
-	modeBribe         // an envelope for the chief or the DA (#42): the target, then the amount
-	modeReserve       // clean cash into the offshore account (#195): the amount, then enter
-	modeDriver        // pick the driver who rides the selected route (#46)
-	modePayCop        // pay a cop for a word on the police (#45): the amount, then enter
-	modeSpy           // plant a spy (#45): the faction, then who goes under
-	modeExit          // walk away (#49): retire on the account or vanish on a new identity, then the confirmation
-	modeNewRun        // a new run from the start menu (#50): the character, the seed, the hard DA
-	modeCount
-)
-
 // Model is the root Bubble Tea model.
 type Model struct {
 	cfg   *content.Config
@@ -136,12 +75,8 @@ type Model struct {
 	tgt            targetDialog
 	crt            cartDialog
 	fnd            fundDialog
-	fst            fastDialog
-	bo             buyOffDialog
 	br             bribeDialog
-	inv            investDialog
-	rsv            reserveDialog
-	cop            copDialog        // the cop dialog (#45)
+	amt            amountDialog     // the one-field dialog open (#275): invest, reserve, pay a cop, buy off, fast-forward
 	spy            spyDialog        // the spy dialog (#45)
 	exit           exitDialog       // the walk-away dialog (#49)
 	nr             newRunDialog     // the new-run dialog (#50)
@@ -485,189 +420,81 @@ func (m *Model) handleKey(k tea.KeyMsg) (tea.Model, tea.Cmd) {
 	if m.skip() {
 		return m, nil // any key ends an interstitial and is consumed (#152)
 	}
-	switch m.mode {
-	case modeStart:
-		return m.keyStart(key)
-	case modeNewRun:
-		return m.keyNewRun(k)
-	}
 	// Tab and shift+tab are the screens' keys and a dialog's pages
 	// (#110): a modal with no pages, a confirmation included, leaves them
-	// alone rather than closing on them.
+	// alone rather than closing on them. The start menu takes neither.
 	if m.mode != modePlay && (key == "tab" || key == "shift+tab") && !m.hasPages(m.mode) {
 		return m, nil
 	}
-	switch m.mode {
-	case modeConfirm:
-		if key == "y" || key == "Y" {
-			m.cfm.act(m)
-		} else {
-			m.mode = m.cfm.back
-		}
-		return m, nil
-	case modeConfirmEnd:
-		switch key {
-		case "y", "Y", "enter":
-			m.endDay()
-		default:
-			m.mode = modePlay
-		}
-		return m, nil
-	case modeDriver:
-		m.keyDriver(key)
-		return m, nil
-	case modePayCop:
-		return m.keyPayCop(k)
-	case modeSpy:
-		m.keySpy(key)
-		return m, nil
-	case modeExit:
-		m.keyExit(key)
-		return m, nil
-	case modeConfirmBuyOff:
-		return m.keyBuyOff(k)
-	case modeBribe:
-		return m.keyBribe(k)
-	case modeInvest:
-		return m.keyInvest(k)
-	case modeReserve:
-		return m.keyReserve(k)
-	case modeTarget:
-		return m.keyTarget(k)
-	case modeFund:
-		return m.keyFund(k)
-	case modeConfirmFast:
-		return m.keyFast(k)
-	case modeCart:
-		return m.keyCart(k)
-	case modeHelp:
-		if !m.scrollModal(key) {
-			m.mode = modePlay
-		}
-		return m, nil
-	case modeDetails:
-		switch key {
-		case "esc", " ", "enter", "q":
-			m.mode = modePlay
-		default:
-			m.scrollModal(key)
-		}
-		return m, nil
-	case modePost:
-		m.pickerKey(key, len(m.postRows(m.pick.role)), m.confirmPost)
-		return m, nil
-	case modeStrike:
-		m.pickerKey(key, len(m.strikeRows()), m.confirmStrike)
-		return m, nil
-	case modeUndercut:
-		// The dial turns with ←→ as the sale's does (#241); the rows are
-		// the notches, so the picker's cursor is the dial.
-		switch key {
-		case "left", "h":
-			key = "up"
-		case "right", "l":
-			key = "down"
-		}
-		m.pickerKey(key, len(m.undercutRows()), m.confirmUndercut)
-		return m, nil
-	case modeAssign:
-		m.pickerKey(key, len(m.assignRows()), m.confirmAssign)
-		return m, nil
-	case modeFront:
-		m.keyFront(key)
-		return m, nil
-	case modeMove:
-		return m.keyMove(k)
-	case modeCut, modeCook:
-		return m.keyLab(k)
-	case modeGuard:
-		m.keyGuard(key)
-		return m, nil
-	case modeReport:
-		switch key {
-		case "enter", "esc", " ", "r", "q":
-			m.mode = modePlay
-		default:
-			m.scrollModal(key)
-		}
-		return m, nil
-	case modeStage:
-		return m.keyStage(key)
-	case modeCard:
-		return m.keyCard(key)
-	case modePropose:
-		// Back is one key and close is one key (#110): esc closes from
-		// either page, shift+tab leaves the terms for the kinds (the kind
-		// kept under the cursor) and is silent on the first page, tab
-		// opens the terms for the kind under the cursor and is silent on
-		// them and on `withdraw`, which is not a page.
-		if closes(key) {
-			m.mode = modePlay
-			return m, nil
-		}
-		switch key {
-		case "shift+tab":
-			if m.prop.step == 1 {
-				m.prop.back(noField)
-				m.prop.cursor = m.prop.kind
-			}
-		case "tab":
-			if m.prop.step == 0 && m.prop.cursor < len(proposeKinds) {
-				m.pickPropose()
-			}
-		case "up", "k":
-			if m.prop.cursor > 0 {
-				m.prop.cursor--
-			}
-		case "down", "j":
-			if m.prop.cursor < m.proposeRows()-1 {
-				m.prop.cursor++
-			}
-		case "enter":
-			m.pickPropose()
-		default:
-			if len(key) == 1 && key[0] >= '1' && key[0] <= '9' {
-				if i := int(key[0] - '1'); i < m.proposeRows() {
-					m.prop.cursor = i
-					m.pickPropose()
-				}
-			}
-		}
-		return m, nil
-	case modeOver:
-		switch key {
-		case "n":
-			_ = game.DeleteSave(m.slot)
-			m.restart()
-		case "esc":
-			m.mode = modeStart
-			m.startChoice = m.slot - 1
-			m.status = ""
-		case "q":
-			return m.quit()
-		default:
-			m.scrollModal(key)
-		}
-		return m, nil
-	case modeBuy, modeSell:
-		return m.keyDialog(k)
-	}
-	return m.keyPlay(key)
+	return modes[m.mode].key(m, k)
 }
 
-// hasPages is a modal whose keys walk pages: the dialogs tab and
-// shift+tab move through. The fund dialog has a second page, the
-// campaign, only while one is open (#193).
-func (m *Model) hasPages(md mode) bool {
-	switch md {
-	case modeBuy, modeSell, modeTarget, modeCart, modePropose, modeFront, modeMove, modeCut, modeCook, modeBribe, modeExit, modeNewRun:
-		return true
-	case modeFund:
-		return m.campaignOpen()
-	case modeSpy:
-		return !m.spy.single
+// keyConfirm is the one yes-or-no confirmation (#242): y does what its
+// payload says, any other key goes back where it came from.
+func (m *Model) keyConfirm(key string) {
+	if key == "y" || key == "Y" {
+		m.cfm.act(m)
+	} else {
+		m.mode = m.cfm.back
 	}
-	return false
+}
+
+// keyConfirmEnd ends the day on y or enter; any other key goes back.
+func (m *Model) keyConfirmEnd(key string) {
+	switch key {
+	case "y", "Y", "enter":
+		m.endDay()
+	default:
+		m.mode = modePlay
+	}
+}
+
+// keyHelp scrolls the help modal; any other key closes it.
+func (m *Model) keyHelp(key string) {
+	if !m.scrollModal(key) {
+		m.mode = modePlay
+	}
+}
+
+// keyDetails scrolls the details overlay; esc, space, enter and q close
+// it.
+func (m *Model) keyDetails(key string) {
+	switch key {
+	case "esc", " ", "enter", "q":
+		m.mode = modePlay
+	default:
+		m.scrollModal(key)
+	}
+}
+
+// keyReport scrolls the morning report; enter, esc, space, r and q
+// close it.
+func (m *Model) keyReport(key string) {
+	switch key {
+	case "enter", "esc", " ", "r", "q":
+		m.mode = modePlay
+	default:
+		m.scrollModal(key)
+	}
+}
+
+// keyOver is the summary of a run that ended: n starts a new one in the
+// slot, esc goes to the start menu, q quits.
+func (m *Model) keyOver(key string) (tea.Model, tea.Cmd) {
+	switch key {
+	case "n":
+		_ = game.DeleteSave(m.slot)
+		m.restart()
+	case "esc":
+		m.mode = modeStart
+		m.startChoice = m.slot - 1
+		m.status = ""
+	case "q":
+		return m.quit()
+	default:
+		m.scrollModal(key)
+	}
+	return m, nil
 }
 
 // keyPlay is the main screen's key handler: the key table (keys.go) and
@@ -698,67 +525,6 @@ func (m *Model) switchScreen(s screen) {
 	if s == screenJournal {
 		m.refreshJournal()
 		m.journalSeen = len(m.w.Journal)
-	}
-}
-
-// moveCursor moves the screen's cursor: down a list, along the map's
-// grid, down the tree's branch and between its branches, between the
-// cities on the market;
-// the journal scrolls. Arrows never move between tabs (the digits and
-// tab do that), and a screen with no horizontal structure ignores dx.
-func (m *Model) moveCursor(dx, dy int) {
-	switch m.screen {
-	case screenJournal:
-		m.journalMove(dy)
-	case screenCrew:
-		if dy < 0 && m.crewCursor > 0 {
-			m.crewCursor--
-		} else if dy > 0 && m.crewCursor < len(m.crewRows())-1 {
-			m.crewCursor++
-		}
-	case screenMap:
-		m.mapMove(dx, dy)
-	case screenUpgrades:
-		m.upgradeMove(dx, dy)
-	case screenRivals:
-		switch {
-		case dx != 0:
-			m.cycleFaction(dx)
-		case dy < 0 && m.dealCursor > 0:
-			m.dealCursor--
-		case dy > 0 && m.dealCursor < len(m.w.Offers)-1:
-			m.dealCursor++
-		}
-	case screenLedger:
-		m.ledgerMove(dy)
-	case screenIntel:
-		m.intelMove(dy)
-	case screenMarket:
-		switch {
-		case dx != 0:
-			m.cycleCity(dx)
-		case m.onSuppliers:
-			m.suppliersMove(dy)
-		case m.onBuyers:
-			m.buyersMove(dy)
-		case dy < 0 && m.cursor > 0:
-			m.cursor--
-		case dy > 0 && m.cursor < len(m.w.Products)-1:
-			m.cursor++
-		case dy > 0 && len(m.buyerRows()) > 0:
-			// Off the bottom of the table the arrows reach the buyers,
-			// the way the map's reach the routes, and off the bottom of
-			// those the connects (#72).
-			m.onBuyers, m.buyerCursor = true, 0
-		case dy > 0 && len(m.supplierRows()) > 0:
-			m.onSuppliers, m.supplierCursor = true, 0
-		}
-	default:
-		if dy < 0 && m.cursor > 0 {
-			m.cursor--
-		} else if dy > 0 && m.cursor < len(m.w.Products)-1 {
-			m.cursor++
-		}
 	}
 }
 
@@ -828,143 +594,25 @@ func (m *Model) View() string {
 	if m.onStart() {
 		return m.viewStart()
 	}
-	var body string
-	switch m.mode {
-	case modeReport:
-		body = m.viewReport()
-	case modeBuy, modeSell:
-		body = m.viewDialog()
-	case modeOver:
-		body = m.viewOver()
-	case modeConfirm:
-		body = m.cfm.view(m)
-	case modeConfirmEnd:
-		// The cart in a sentence, then what the night does.
-		body = m.modal("END THE DAY?", []string{m.endDayLine(), "The sims step and the run autosaves."}, m.modalFooter())
-	case modeHelp:
-		body = m.viewHelp()
-	case modePost:
-		body = m.viewPost()
-	case modeStrike:
-		body = m.viewStrike()
-	case modeUndercut:
-		body = m.viewUndercut()
-	case modeFront:
-		body = m.viewFront()
-	case modeMove:
-		body = m.viewMove()
-	case modeCut, modeCook:
-		body = m.viewLab()
-	case modeGuard:
-		body = m.viewGuard()
-	case modeAssign:
-		body = m.viewAssign()
-	case modeDriver:
-		body = m.viewDriver()
-	case modePayCop:
-		body = m.viewPayCop()
-	case modeSpy:
-		body = m.viewSpy()
-	case modeExit:
-		body = m.viewExit()
-	case modeConfirmBuyOff:
-		body = m.viewBuyOff()
-	case modeBribe:
-		body = m.viewBribe()
-	case modeInvest:
-		body = m.viewInvest()
-	case modeReserve:
-		body = m.viewReserve()
-	case modeTarget:
-		body = m.viewTarget()
-	case modeFund:
-		body = m.viewFund()
-	case modeConfirmFast:
-		body = m.viewFast()
-	case modeCart:
-		body = m.viewCart()
-	case modeStage:
-		body = m.viewStage()
-	case modeCard:
-		body = m.viewCard()
-	case modePropose:
-		body = m.viewPropose()
-	case modeDetails:
-		body = m.overlay(m.details(), m.paneKeys(), m.accent())
-	default:
+	view := modes[m.mode].view
+	if view == nil {
 		return m.frame(m.viewScreen(), m.details(), m.paneKeys(), m.accent())
 	}
+	body := view(m)
 	body = theme.Plain.Width(m.width).Height(m.bodyHeight()).MaxHeight(m.bodyHeight()).Render(body)
 	return lines(m.viewTitle(), body, m.viewFooter())
 }
 
-// viewScreen is the MAIN of the screen shown.
-func (m *Model) viewScreen() string {
-	switch m.screen {
-	case screenMarket:
-		return m.viewMarket()
-	case screenJournal:
-		return m.viewJournal()
-	case screenCrew:
-		return m.viewCrew()
-	case screenMap:
-		return m.viewMap()
-	case screenUpgrades:
-		return m.viewUpgrades()
-	case screenLedger:
-		return m.viewLedger()
-	case screenRivals:
-		return m.viewRivals()
-	case screenIntel:
-		return m.viewIntel()
-	default:
-		return m.viewDashboard()
-	}
+// viewConfirm is the open confirmation, as its payload draws it (#242).
+func (m *Model) viewConfirm() string { return m.cfm.view(m) }
+
+// viewConfirmEnd is the cart in a sentence, then what the night does.
+func (m *Model) viewConfirmEnd() string {
+	return m.modal("END THE DAY?", []string{m.endDayLine(), "The sims step and the run autosaves."}, m.modalFooter())
 }
 
-// details is the pane's content for the screen shown: its sections, the
-// selection first. The keys it accepts are the key table's (keysFor).
-func (m *Model) details() []section {
-	switch m.screen {
-	case screenMarket:
-		return m.marketDetails()
-	case screenJournal:
-		return m.journalDetails()
-	case screenCrew:
-		return m.crewDetails()
-	case screenMap:
-		return m.mapDetails()
-	case screenUpgrades:
-		return m.upgradesDetails()
-	case screenLedger:
-		return m.ledgerDetails()
-	case screenRivals:
-		return m.rivalsDetails()
-	case screenIntel:
-		return m.intelDetails()
-	default:
-		return m.dashboardDetails()
-	}
-}
-
-// accent is the colour the screen shown draws its pane and titles in:
-// one per sim.
-func (m *Model) accent() lipgloss.Color {
-	switch m.screen {
-	case screenMarket:
-		return theme.Market
-	case screenJournal:
-		return theme.News
-	case screenCrew:
-		return theme.Crew
-	case screenMap, screenRivals:
-		return theme.Rivals
-	case screenIntel:
-		return theme.Intel
-	default:
-		return theme.Money
-	}
-}
+// viewDetails is the details pane as an overlay, under paneMinWidth.
+func (m *Model) viewDetails() string { return m.overlay(m.details(), m.paneKeys(), m.accent()) }
 
 func (m *Model) viewTitle() string {
 	w := m.w
@@ -974,13 +622,13 @@ func (m *Model) viewTitle() string {
 	unread := m.journalUnread()
 	tabsFor := func(short int, badge bool) string {
 		var tabs []string
-		for i, n := range screenNames {
+		for i, sc := range screens {
 			var label string
 			switch short {
 			case 0:
-				label = fmt.Sprintf("%d %s", i+1, n)
+				label = fmt.Sprintf("%d %s", i+1, sc.name)
 			case 1:
-				label = fmt.Sprintf("%d %s", i+1, screenShort[i])
+				label = fmt.Sprintf("%d %s", i+1, sc.short)
 			default:
 				label = fmt.Sprintf("%d", i+1)
 			}

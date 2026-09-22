@@ -90,7 +90,7 @@ func (r *reporter) reportLaw(e events.Event) bool {
 		case "quiet":
 			why = "sent it back with no note. A reformer; nothing came of it."
 		case "odds":
-			why = fmt.Sprintf("kept it and did nothing this time (~%.0f%% it would land).", ev.Odds*100)
+			why = "kept it and did nothing this time (~" + format.Pct(ev.Odds, 0) + " it would land)."
 		}
 		rep.Law = append(rep.Law, fmt.Sprintf("%s %s", who, why))
 		rep.Money = append(rep.Money, fmt.Sprintf("Envelope for %s -%s", who, format.Money(ev.Amount)))

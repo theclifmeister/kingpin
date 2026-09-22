@@ -93,6 +93,7 @@ type LieutenantTuning struct {
 	RevealDays    int                              `toml:"reveal_days"`    // days on the job before the report names their personality
 	BetrayShare   float64                          `toml:"betray_share"`   // a lieutenant who flips running a city that holds this share of your corners ends the run betrayed (#49); 0 never
 	BetrayCorners int                              `toml:"betray_corners"` // ... and at least this many of them: a flip over one corner is a leak, not a betrayal
+	RobbedOff     int                              `toml:"robbed_off"`     // a corner robbed this many times is not worth the stock: they take the crew off it and never post or guard it (#275)
 	Personality   map[string]LieutenantPersonality `toml:"personality"`
 }
 
@@ -150,6 +151,12 @@ type CrewTuning struct {
 	HireFeePerSkill float64 `toml:"hire_fee_per_skill"`
 	StartLoyaltyMin int     `toml:"start_loyalty_min"`
 	StartLoyaltyMax int     `toml:"start_loyalty_max"`
+	SkillMin        int     `toml:"skill_min"` // a candidate's skill is drawn in skill_min..skill_max (#275), before the tree's skill_bonus
+	SkillMax        int     `toml:"skill_max"`
+	GreedMin        int     `toml:"greed_min"` // ... greed in greed_min..greed_max
+	GreedMax        int     `toml:"greed_max"`
+	NerveMin        int     `toml:"nerve_min"` // ... and nerve in nerve_min..nerve_max
+	NerveMax        int     `toml:"nerve_max"`
 	GreedDrift      float64 `toml:"greed_drift"`
 	DangerDays      int     `toml:"danger_days"`
 	DangerLoyalty   float64 `toml:"danger_loyalty"`
@@ -234,7 +241,16 @@ func (c CrewConfig) validate(market MarketConfig) error {
 			return fmt.Errorf("bad [lieutenant.personality.%s] table %+v", p, lp)
 		}
 	}
-	if lt := c.Lieutenant; lt.Chance < 0 || lt.Chance > 1 || lt.Flip < 0 || lt.RevealDays < 0 {
+	t := c.Crew
+	for _, r := range []struct {
+		name     string
+		min, max int
+	}{{"skill", t.SkillMin, t.SkillMax}, {"greed", t.GreedMin, t.GreedMax}, {"nerve", t.NerveMin, t.NerveMax}} {
+		if r.min < 0 || r.max < r.min || r.max > 100 {
+			return fmt.Errorf("[crew] %s_min %d and %s_max %d are not a range in 0..100", r.name, r.min, r.name, r.max)
+		}
+	}
+	if lt := c.Lieutenant; lt.Chance < 0 || lt.Chance > 1 || lt.Flip < 0 || lt.RevealDays < 0 || lt.RobbedOff < 1 {
 		return fmt.Errorf("bad [lieutenant] table %+v", lt)
 	}
 	if r := c.Role["lieutenant"]; r.Cut < 0 || r.Cut >= 1 || r.Crew < 0 {

@@ -122,15 +122,13 @@ func (m *Model) keyNewRun(k tea.KeyMsg) (tea.Model, tea.Cmd) {
 		rows := m.newRunRows()
 		switch key {
 		case "up", "k":
-			d.cursor = (d.cursor + rows - 1) % rows
+			wrapCursor(&d.cursor, -1, rows)
 		case "down", "j":
-			d.cursor = (d.cursor + 1) % rows
+			wrapCursor(&d.cursor, 1, rows)
 		default:
-			if len(key) == 1 && key[0] >= '1' && key[0] <= '9' {
-				if i := int(key[0] - '1'); i < rows {
-					d.cursor = i
-					m.nextNewRun() // a digit selects and commits, as in every picker (#241)
-				}
+			if i, ok := digit(key); ok && i < rows {
+				d.cursor = i
+				m.nextNewRun() // a digit selects and commits, as in every picker (#241)
 			}
 		}
 	case 1:

@@ -40,14 +40,12 @@ func sourceLines(t *testing.T, dirs ...string) map[string]string {
 				if strings.HasPrefix(strings.TrimSpace(l), "//") {
 					continue
 				}
-				out[f+":"+itoa(i+1)] = l
+				out[f+":"+strconv.Itoa(i+1)] = l
 			}
 		}
 	}
 	return out
 }
-
-func itoa(n int) string { return strconv.Itoa(n) }
 
 // pluralHack is a string literal with a `(s)` in it.
 var pluralHack = regexp.MustCompile(`"(?:[^"\\]|\\.)*\(s\)(?:[^"\\]|\\.)*"`)

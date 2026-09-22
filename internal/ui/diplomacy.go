@@ -7,6 +7,7 @@ import (
 
 	"github.com/charmbracelet/lipgloss"
 
+	"github.com/theclifmeister/kingpin/internal/format"
 	"github.com/theclifmeister/kingpin/internal/game"
 	"github.com/theclifmeister/kingpin/internal/ui/theme"
 )
@@ -36,7 +37,7 @@ func (m *Model) termRows(kind string) ([]game.Deal, []string) {
 	case game.DealTribute:
 		for i, c := range dip.TributeCuts {
 			deals = append(deals, game.Deal{Kind: kind, Terms: game.Terms{PerDay: m.rules.Rivals.Cut(w, r, c)}})
-			words = append(words, fmt.Sprintf("%.0f%% of your street", c*100)+[]string{" (thin)", "", " (fat)"}[i])
+			words = append(words, format.Pct(c, 0)+" of your street"+[]string{" (thin)", "", " (fat)"}[i])
 		}
 	case game.DealSplit:
 		for i, line := range w.SplitLinesWith(r.Faction()) {
@@ -122,7 +123,7 @@ func (m *Model) pickPropose() {
 		m.refuse("Can't propose: " + err.Error())
 		return
 	}
-	m.say(fmt.Sprintf("Proposed %s to %s. They answer in the morning; odds ~%.0f%%.", m.w.Describe(d), m.rivalName(r), m.rules.Rivals.Chance(m.w, r, d)*100))
+	m.say(fmt.Sprintf("Proposed %s to %s. They answer in the morning; odds ~%s.", m.w.Describe(d), m.rivalName(r), format.Pct(m.rules.Rivals.Chance(m.w, r, d), 0)))
 }
 
 func (m *Model) viewPropose() string {
@@ -167,7 +168,7 @@ func (m *Model) viewPropose() string {
 			case game.DealSplit:
 				line = fmt.Sprintf("%-10s %-36s", plural(len(d.Terms.Corners), "corner"), words[i])
 			}
-			note := fmt.Sprintf("~%.0f%%", odds*100)
+			note := "~" + format.Pct(odds, 0)
 			if odds == 0 {
 				note = theme.Bad.Render("refused")
 			}
@@ -389,7 +390,7 @@ func (m *Model) viewRivals() string {
 		if to == nil {
 			to = w.Rival()
 		}
-		line(theme.Gold.Render(fmt.Sprintf("Tonight  you propose %s to %s; they answer in the morning, ~%.0f%%", w.Describe(*p), to.Leader, m.rules.Rivals.Chance(w, to, *p)*100)))
+		line(theme.Gold.Render(fmt.Sprintf("Tonight  you propose %s to %s; they answer in the morning, ~%s", w.Describe(*p), to.Leader, format.Pct(m.rules.Rivals.Chance(w, to, *p), 0))))
 	}
 	ls = append(ls, "")
 
@@ -421,4 +422,38 @@ func capitalize(s string) string {
 		return s
 	}
 	return strings.ToUpper(s[:1]) + s[1:]
+}
+
+// keyPropose is the propose dialog's keys. Back is one key and close is
+// one key (#110): esc closes from either page, shift+tab leaves the
+// terms for the kinds (the kind kept under the cursor) and is silent on
+// the first page, tab opens the terms for the kind under the cursor and
+// is silent on them and on `withdraw`, which is not a page.
+func (m *Model) keyPropose(key string) {
+	if closes(key) {
+		m.mode = modePlay
+		return
+	}
+	switch key {
+	case "shift+tab":
+		if m.prop.step == 1 {
+			m.prop.back(noField)
+			m.prop.cursor = m.prop.kind
+		}
+	case "tab":
+		if m.prop.step == 0 && m.prop.cursor < len(proposeKinds) {
+			m.pickPropose()
+		}
+	case "up", "k":
+		stepCursor(&m.prop.cursor, -1, m.proposeRows())
+	case "down", "j":
+		stepCursor(&m.prop.cursor, 1, m.proposeRows())
+	case "enter":
+		m.pickPropose()
+	default:
+		if i, ok := digit(key); ok && i < m.proposeRows() {
+			m.prop.cursor = i
+			m.pickPropose()
+		}
+	}
 }

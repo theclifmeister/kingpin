@@ -8,6 +8,7 @@ import (
 	"github.com/theclifmeister/kingpin/internal/content"
 	"github.com/theclifmeister/kingpin/internal/events"
 	"github.com/theclifmeister/kingpin/internal/game"
+	"github.com/theclifmeister/kingpin/internal/gametest"
 	"github.com/theclifmeister/kingpin/internal/sim/rivals"
 	"github.com/theclifmeister/kingpin/internal/sim/territory"
 )
@@ -25,7 +26,7 @@ func duel() *content.Config {
 // two enforcers on the payroll, and a rival picked from the seed.
 func world(t *testing.T, cfg *content.Config, seed uint64) (*game.World, *rivals.Sim) {
 	t.Helper()
-	w := game.NewWorld(seed, []game.StartingCity{{ID: cfg.City.Home().ID, Name: "Testville", Products: []game.StartingProduct{{ID: "weed", Name: "Weed", Price: 20, Demand: 60, SupplierRatio: 0.55}}}}, 10_000, 100)
+	w := gametest.City(seed, cfg.City.Home().ID, "Testville", 10_000, gametest.Weed)
 	territory.New(cfg).Seed(w)
 	w.Crew.Members = []game.CrewMember{
 		{ID: 1, Name: "Dre", Role: "runner", Skill: 60, Units: 120, Loyalty: 70, Nerve: 50},
@@ -39,10 +40,7 @@ func world(t *testing.T, cfg *content.Config, seed uint64) (*game.World, *rivals
 }
 
 func step(w *game.World, s *rivals.Sim) []events.Event {
-	t := &game.Tick{Day: w.Day + 1, RNG: game.RNGFor(w.Seed, w.Day+1)}
-	s.Step(w, t)
-	w.Day++
-	return t.Events()
+	return gametest.StepUnseeded(w, s).Events()
 }
 
 func kinds(evs []events.Event) map[string]int {

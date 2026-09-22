@@ -5,6 +5,7 @@ import (
 	"strings"
 
 	"github.com/theclifmeister/kingpin/internal/content"
+	"github.com/theclifmeister/kingpin/internal/format"
 	"github.com/theclifmeister/kingpin/internal/game"
 	"github.com/theclifmeister/kingpin/internal/ui/theme"
 )
@@ -84,13 +85,13 @@ func (m *Model) assetBlurb(id string) string {
 	city := m.w.CityName(a.City)
 	switch a.Effect {
 	case content.AssetSupplier:
-		return fmt.Sprintf("The wholesaler in %s sells at %.0f%% of street, without limit, and a buy never nudges their price.", city, a.OwnRatio*100)
+		return fmt.Sprintf("The wholesaler in %s sells at %s of street, without limit, and a buy never nudges their price.", city, format.Pct(a.OwnRatio, 0))
 	case content.AssetPort:
-		return fmt.Sprintf("Every boat through %s carries ×%.3g and clears customs for nothing.", city, a.CapacityMul)
+		return fmt.Sprintf("Every boat through %s carries %s and clears customs for nothing.", city, format.TimesSig(a.CapacityMul, 3))
 	case content.AssetAirstrip:
 		return "The plane route is open: a day's flight, the priciest fare, and a risk only the task force's watch touches."
 	case content.AssetLab:
-		return fmt.Sprintf("A cook in %s is ×%.3g the batch at quality %.0f, precursors at %.0f%% of the cost.", city, a.LabMul, a.LabQuality, a.LabCostMul*100)
+		return fmt.Sprintf("A cook in %s is %s the batch at quality %.0f, precursors at %s of the cost.", city, format.TimesSig(a.LabMul, 3), a.LabQuality, format.Pct(a.LabCostMul, 0))
 	case content.AssetTunnel:
 		return "The tunnel route is open: cheap, slow and nearly never seen, until it is found once."
 	}

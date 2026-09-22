@@ -76,7 +76,7 @@ func (s *Sim) undercut(w *game.World, t *game.Tick, r *game.RivalState) {
 // it; a chaotic one rolls between the two. The count starts over after
 // an answer. Nothing here rolls dice on a corner nobody undercut, so a
 // run that never does is the old run.
-func (s *Sim) pricewar(w *game.World, t *game.Tick, r *game.RivalState, rng rand) {
+func (s *Sim) pricewar(w *game.World, t *game.Tick, r *game.RivalState, rng game.Rand) {
 	tun := s.cfg.Pricewar
 	ground := s.corners(w, r)
 	starved := false

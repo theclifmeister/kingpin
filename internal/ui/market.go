@@ -6,6 +6,7 @@ import (
 
 	"github.com/charmbracelet/lipgloss"
 
+	"github.com/theclifmeister/kingpin/internal/format"
 	"github.com/theclifmeister/kingpin/internal/game"
 	"github.com/theclifmeister/kingpin/internal/ui/theme"
 )
@@ -257,7 +258,7 @@ func (f priceFacts) shockRow() (label, value string) {
 	if f.p.ShockDays <= 0 {
 		return "", ""
 	}
-	v := fmt.Sprintf("×%.2f, %s more", f.p.ShockFactor, plural(f.p.ShockDays, "day"))
+	v := fmt.Sprintf("%s, %s more", format.Times(f.p.ShockFactor, 2), plural(f.p.ShockDays, "day"))
 	if f.p.ShockSlump {
 		return "slump", theme.Warning.Render(v)
 	}
@@ -294,7 +295,7 @@ func (m *Model) priceLine(city, id string, buy bool) string {
 		case f.through != "":
 			// Through a lieutenant (#174): the connect's price, the
 			// markup in words, and the margin over what the buy pays.
-			parts = append(parts, sub(price(f.base)), sub(fmt.Sprintf("+%.0f%% through %s", (f.markup-1)*100, f.through)), sub("street "+price(f.p.Price)), sub("margin "+f.marginText()))
+			parts = append(parts, sub(price(f.base)), sub(fmt.Sprintf("+%s through %s", format.Pct(f.markup-1, 0), f.through)), sub("street "+price(f.p.Price)), sub("margin "+f.marginText()))
 		default:
 			parts = append(parts, sub(price(f.unit)), sub("street "+price(f.p.Price)), sub("margin "+f.marginText()))
 		}
@@ -404,7 +405,7 @@ func (m *Model) marketDetails() []section {
 	// is not the default (the table's column has the figure; the pane
 	// keeps its rows for what has changed); the connect's likewise.
 	if l := w.Lot(city.ID, id); l.Units > 0 && l.Quality != w.StreetQuality() {
-		v := fmt.Sprintf("%.0f, sells at ×%.2f", l.Quality, m.rules.Market.QualityMul(l.Quality))
+		v := fmt.Sprintf("%.0f, sells at %s", l.Quality, format.Times(m.rules.Market.QualityMul(l.Quality), 2))
 		if l.Quality < w.StreetQuality() {
 			v = theme.Warning.Render(v)
 		}
@@ -454,7 +455,7 @@ func (m *Model) marketDetails() []section {
 		notes = append(notes, wrapped(theme.Warning, "Not sold here: it comes in by the road (the map's routes) or in your pockets.")...)
 	}
 	if lt := w.Crew.Lieutenant(city.ID); !here && lt != nil {
-		notes = append(notes, wrapped(theme.Subtle, fmt.Sprintf("You are in %s: %s buys here for you at ×%.2f the connect's price, and keeps the stash stocked where you set no contract. Runners sell what is stashed here.", w.Here().Name, lt.Name, m.rules.Market.Markup()))...)
+		notes = append(notes, wrapped(theme.Subtle, fmt.Sprintf("You are in %s: %s buys here for you at %s the connect's price, and keeps the stash stocked where you set no contract. Runners sell what is stashed here.", w.Here().Name, lt.Name, format.Times(m.rules.Market.Markup(), 2)))...)
 	} else if !here {
 		notes = append(notes, wrapped(theme.Subtle, fmt.Sprintf("You are in %s: the supplier here sells to you there, not here. Runners sell what is stashed here.", w.Here().Name))...)
 	}
@@ -527,9 +528,33 @@ func (m *Model) standingRows(city, id string) []string {
 	if !ok {
 		return nil
 	}
-	rows := []string{row("standing", theme.Gold.Render(fmt.Sprintf("%d %s", o.Qty, dialShort(o.Dial)))+sep+fmt.Sprintf("cut %.0f%%", m.rules.Market.Cut()*100))}
+	rows := []string{row("standing", theme.Gold.Render(fmt.Sprintf("%d %s", o.Qty, dialShort(o.Dial)))+sep+"cut "+format.Pct(m.rules.Market.Cut(), 0))}
 	if _, ok := w.Order(city, id); !ok {
 		rows = append(rows, keyRow("x", "cancel the standing order"))
 	}
 	return rows
+}
+
+// marketMove turns the market to another city with ←→ and walks its
+// rows with ↑↓: the products, then the buyers, then the connects.
+func (m *Model) marketMove(dx, dy int) {
+	switch {
+	case dx != 0:
+		m.cycleCity(dx)
+	case m.onSuppliers:
+		m.suppliersMove(dy)
+	case m.onBuyers:
+		m.buyersMove(dy)
+	case dy < 0 && m.cursor > 0:
+		m.cursor--
+	case dy > 0 && m.cursor < len(m.w.Products)-1:
+		m.cursor++
+	case dy > 0 && len(m.buyerRows()) > 0:
+		// Off the bottom of the table the arrows reach the buyers,
+		// the way the map's reach the routes, and off the bottom of
+		// those the connects (#72).
+		m.onBuyers, m.buyerCursor = true, 0
+	case dy > 0 && len(m.supplierRows()) > 0:
+		m.onSuppliers, m.supplierCursor = true, 0
+	}
 }

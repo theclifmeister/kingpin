@@ -6,6 +6,7 @@ import (
 	"github.com/theclifmeister/kingpin/internal/content"
 	"github.com/theclifmeister/kingpin/internal/events"
 	"github.com/theclifmeister/kingpin/internal/game"
+	"github.com/theclifmeister/kingpin/internal/gametest"
 	"github.com/theclifmeister/kingpin/internal/sim/laundering"
 )
 
@@ -79,10 +80,7 @@ func TestAssetsAreCleanMoney(t *testing.T) {
 		t.Fatalf("after the freeze: live %v clean %d", w.AssetLive(o.ID), w.Player.CleanCash)
 	}
 	// Seized: off the books on the heat sim's event, and for sale again.
-	tk := &game.Tick{Day: w.Day + 1, RNG: game.RNGFor(w.Seed, w.Day+1)}
-	tk.Emit(events.AssetSeized{Day: tk.Day, Asset: o.ID, Name: o.Name, Cost: o.Cost})
-	s.Step(w, tk)
-	w.Day++
+	gametest.StepUnseeded(w, s, events.AssetSeized{Day: w.Day + 1, Asset: o.ID, Name: o.Name, Cost: o.Cost})
 	if w.HasAsset(o.ID) || len(w.AssetsLost) != 1 || w.AssetsLost[0].Why != "seized" || w.Stats.AssetsLost != 1 || w.NetWorth() != w.Cash() {
 		t.Fatalf("seized: %v lost %+v", w.Assets, w.AssetsLost)
 	}
@@ -91,10 +89,7 @@ func TestAssetsAreCleanMoney(t *testing.T) {
 		t.Fatalf("bought again after the seizure: %v", err)
 	}
 	// Found (the tunnel): gone for good.
-	tk = &game.Tick{Day: w.Day + 1, RNG: game.RNGFor(w.Seed, w.Day+1)}
-	tk.Emit(events.TunnelFound{Day: tk.Day, Asset: o.ID, Name: o.Name})
-	s.Step(w, tk)
-	w.Day++
+	gametest.StepUnseeded(w, s, events.TunnelFound{Day: w.Day + 1, Asset: o.ID, Name: o.Name})
 	if w.HasAsset(o.ID) || len(w.AssetsLost) != 2 || w.AssetsLost[1].Why != "found" {
 		t.Fatalf("found: %v lost %+v", w.Assets, w.AssetsLost)
 	}
