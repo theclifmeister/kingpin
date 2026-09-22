@@ -129,11 +129,7 @@ func TestStageSceneEndsItself(t *testing.T) {
 // slot the way a start from the menu does: the size known first.
 func continued(t *testing.T, m *Model, opts Options) *Model {
 	t.Helper()
-	c, err := New(m.cfg, opts)
-	if err != nil {
-		t.Fatal(err)
-	}
-	c.Update(tea.WindowSizeMsg{Width: m.width, Height: m.height})
+	c := sizedModel(t, m.cfg, opts, m.width, m.height)
 	if err := c.continueRun(m.slot); err != nil {
 		t.Fatal(err)
 	}

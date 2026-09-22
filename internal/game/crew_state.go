@@ -52,13 +52,7 @@ const RoleChemist = "chemist"
 
 // Chemist is the best chemist on the payroll, or nil.
 func (c *CrewState) Chemist() *CrewMember {
-	var best *CrewMember
-	for i := range c.Members {
-		if m := &c.Members[i]; m.Role == RoleChemist && m.Working() && (best == nil || m.Skill > best.Skill) {
-			best = m
-		}
-	}
-	return best
+	return c.Best(RoleChemist)
 }
 
 // Cooking is what is on its way to a city's stash of a product (#47).
@@ -225,12 +219,32 @@ func (c CrewState) OnPayroll(role string) int {
 
 // Member returns the roster entry with id, or nil.
 func (c *CrewState) Member(id int) *CrewMember {
+	return find(c.Members, func(e *CrewMember) bool { return e.ID == id })
+}
+
+// Best is the most skilled member of a role at work (not jailed, wounded
+// or undercover), or nil; the first on the roster wins a tie (#275). The
+// chemist and the fixer are Best of their role.
+func (c *CrewState) Best(role string) *CrewMember {
+	return c.top(role, true)
+}
+
+// Strongest is the most skilled member of a role on the books, at work or
+// not, or nil; the first on the roster wins a tie (#275). The odds that
+// read the best enforcer (the investigation, the scout) have always
+// counted a jailed or wounded one: Best would move them.
+func (c *CrewState) Strongest(role string) *CrewMember {
+	return c.top(role, false)
+}
+
+func (c *CrewState) top(role string, working bool) *CrewMember {
+	var best *CrewMember
 	for i := range c.Members {
-		if c.Members[i].ID == id {
-			return &c.Members[i]
+		if m := &c.Members[i]; m.Role == role && (!working || m.Working()) && (best == nil || m.Skill > best.Skill) {
+			best = m
 		}
 	}
-	return nil
+	return best
 }
 
 // Lieutenant returns the member running a city, or nil.
@@ -249,13 +263,7 @@ const RoleFixer = "fixer"
 // Fixer returns the most skilled fixer on the payroll, or nil: the one
 // whose word the law sim weighs on a bribe.
 func (c *CrewState) Fixer() *CrewMember {
-	var best *CrewMember
-	for i := range c.Members {
-		if m := &c.Members[i]; m.Role == RoleFixer && m.Working() && (best == nil || m.Skill > best.Skill) {
-			best = m
-		}
-	}
-	return best
+	return c.Best(RoleFixer)
 }
 
 // Lieutenants counts the members running a city.

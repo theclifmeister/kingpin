@@ -106,7 +106,7 @@ func TestCartListsAndEdits(t *testing.T) {
 	// The pane, on the dashboard and the market.
 	for _, s := range []string{"1", "2"} {
 		m.Update(key(s))
-		_, pane := bodyRows(m)
+		_, pane := splitView(m)
 		text := strings.Join(pane, "\n")
 		for _, want := range []string{"CART", "buying      2 lines", "selling     2 lines", "heat        +", "buy         10 Weed", "buy         4 Pills", "sell        10 Weed aggr.", "sell        4 Pills quiet", "c  edit"} {
 			if !strings.Contains(text, want) {

@@ -2,12 +2,12 @@ package ui
 
 import (
 	"fmt"
-	"strconv"
 	"strings"
 
 	tea "github.com/charmbracelet/bubbletea"
 
 	"github.com/theclifmeister/kingpin/internal/events"
+	"github.com/theclifmeister/kingpin/internal/format"
 	"github.com/theclifmeister/kingpin/internal/game"
 	"github.com/theclifmeister/kingpin/internal/ui/theme"
 )
@@ -341,13 +341,9 @@ func (m *Model) keyDialog(k tea.KeyMsg) (tea.Model, tea.Cmd) {
 		n := len(m.connectsHere())
 		switch key {
 		case "up", "k":
-			if d.supplier > 0 {
-				d.supplier--
-			}
+			stepCursor(&d.supplier, -1, n)
 		case "down", "j":
-			if d.supplier < n-1 {
-				d.supplier++
-			}
+			stepCursor(&d.supplier, 1, n)
 		case "1", "2", "3", "4", "5", "6", "7", "8", "9":
 			if i := int(key[0] - '1'); i < n {
 				d.supplier = i
@@ -369,13 +365,9 @@ func (m *Model) keyDialog(k tea.KeyMsg) (tea.Model, tea.Cmd) {
 				m.switchSide()
 			}
 		case "up", "k":
-			if m.cursor > 0 {
-				m.cursor--
-			}
+			stepCursor(&m.cursor, -1, len(m.w.Products))
 		case "down", "j":
-			if m.cursor < len(m.w.Products)-1 {
-				m.cursor++
-			}
+			stepCursor(&m.cursor, 1, len(m.w.Products))
 		case "1", "2", "3", "4", "5", "6", "7", "8", "9":
 			if i := int(key[0] - '1'); i < len(m.w.Products) {
 				m.cursor = i
@@ -587,27 +579,20 @@ func (m *Model) dialogBack() (tea.Model, tea.Cmd) {
 	return m, d.back(d.fieldAt) // the one back rule (#243): the quantity is cleared on leaving its step, kept on coming back to it
 }
 
-func (m *Model) parseQty(maxQty int) (int, error) { return parseQtyInput(m.dlg.qty.Value(), maxQty) }
+func (m *Model) parseQty(maxQty int) (int, error) { return readQty(m.dlg.qty, maxQty) }
 
 // dialogError is a game error as a dialog shows it: in the register of
 // the status bar's refusals, sentence case with a full stop (`Enter a
 // whole number above zero.`, `Only 3 Weed in Eastside.`).
 func dialogError(err error) string { return sentence(capitalize(err.Error())) }
 
-// parseQtyInput reads a quantity field: blank means the most allowed.
-func parseQtyInput(v string, maxQty int) (int, error) {
-	s := strings.TrimSpace(v)
-	if s == "" {
-		if maxQty <= 0 {
-			return 0, fmt.Errorf("nothing to do")
-		}
-		return maxQty, nil
+// readQty reads a quantity field: blank means the most allowed, and
+// nothing to do where that is none.
+func readQty(f numberField, maxQty int) (int, error) {
+	if strings.TrimSpace(f.Value()) == "" && maxQty <= 0 {
+		return 0, fmt.Errorf("nothing to do")
 	}
-	n, err := strconv.Atoi(s)
-	if err != nil || n <= 0 {
-		return 0, fmt.Errorf("enter a whole number above zero")
-	}
-	return n, nil
+	return f.Read(maxQty)
 }
 
 // maxBuy is the most of a product the buy dialog's connect will sell
@@ -668,7 +653,7 @@ func (m *Model) confirmKeep() (tea.Model, tea.Cmd) {
 	if err := m.sess.SetSupply(city, id, qty); err != nil {
 		return m.quantityAgain(err)
 	}
-	m.say(fmt.Sprintf("Keeping %d %s in %s: bought each morning at ×%.2f the supplier's price.", qty, m.w.ProductName(id), m.w.CityName(city), m.rules.Market.Markup()))
+	m.say(fmt.Sprintf("Keeping %d %s in %s: bought each morning at %s the supplier's price.", qty, m.w.ProductName(id), m.w.CityName(city), format.Times(m.rules.Market.Markup(), 2)))
 	m.nextLine()
 	return m, nil
 }
@@ -723,7 +708,7 @@ func (m *Model) confirmStanding() (tea.Model, tea.Cmd) {
 	if err := m.sess.PlaceStanding(city, id, qty, m.dlg.dial); err != nil {
 		return m.quantityAgain(err)
 	}
-	m.say(fmt.Sprintf("Standing: %d %s in %s, %s, every night until you cancel it; the crew keep %.0f%%.", qty, m.w.ProductName(id), m.w.CityName(city), m.dlg.dial, m.rules.Market.Cut()*100))
+	m.say(fmt.Sprintf("Standing: %d %s in %s, %s, every night until you cancel it; the crew keep %s.", qty, m.w.ProductName(id), m.w.CityName(city), m.dlg.dial, format.Pct(m.rules.Market.Cut(), 0)))
 	m.nextLine()
 	return m, nil
 }
@@ -860,7 +845,7 @@ func (m *Model) quantityRows(d dialog, city, id string, buy bool, sup *game.Supp
 				}
 				body = append(body, row("total", total))
 				if qty < sup.Lot && sup.SmallLot > 1 {
-					body = append(body, theme.Warning.Render(fmt.Sprintf("Under %s's lot of %d: ×%.2g a unit.", sup.Name, sup.Lot, sup.SmallLot)))
+					body = append(body, theme.Warning.Render(fmt.Sprintf("Under %s's lot of %d: %s a unit.", sup.Name, sup.Lot, format.TimesSig(sup.SmallLot, 2))))
 				}
 			}
 			note := fmt.Sprintf("%s has %d left today", sup.Name, sup.Left())
@@ -893,7 +878,7 @@ func (m *Model) buyTermsRows(d dialog, city, id string, sup *game.Supplier) []st
 	body = append(body, row("pay", pay))
 	switch {
 	case d.repeat == repeatKeep:
-		body = append(body, row("contract", fmt.Sprintf("keep %d here, the shortfall bought each morning at %s (×%.2f)", qty, price(m.rules.Market.SupplyPrice(w, city, id)), m.rules.Market.Markup())))
+		body = append(body, row("contract", fmt.Sprintf("keep %d here, the shortfall bought each morning at %s (%s)", qty, price(m.rules.Market.SupplyPrice(w, city, id)), format.Times(m.rules.Market.Markup(), 2))))
 		if c, ok := w.Supplied(city, id); ok {
 			body = append(body, theme.Subtle.Render(fmt.Sprintf("Kept at %d since day %d; this replaces it.", c.Units, c.Since)))
 		} else {
@@ -904,7 +889,7 @@ func (m *Model) buyTermsRows(d dialog, city, id string, sup *game.Supplier) []st
 		if sup.Debt > 0 {
 			due = sup.DebtDue
 		}
-		body = append(body, row("credit", fmt.Sprintf("%s at ×%.2f · due day %d · %s of the book left", money(w.Quote(sup, id, qty, true)), sup.CreditRatio, due, cash(sup.Credit()))))
+		body = append(body, row("credit", fmt.Sprintf("%s at %s · due day %d · %s of the book left", money(w.Quote(sup, id, qty, true)), format.Times(sup.CreditRatio, 2), due, cash(sup.Credit()))))
 		if sup.Debt > 0 {
 			body = append(body, theme.Warning.Render(fmt.Sprintf("You owe them %s already, due day %d.", money(sup.Debt), sup.DebtDue)))
 		} else {
@@ -942,7 +927,7 @@ func (m *Model) sellRepeatRows(d dialog, city, id string) []string {
 	qty, _ := m.parseQty(m.sellable(city, id))
 	body = append(body, "", row("repeat", dialCells(sellRepeatNames, int(d.repeat))))
 	if d.repeat == repeatStanding {
-		body = append(body, row("standing", fmt.Sprintf("%d at %s nightly until cancelled; the crew keep %.0f%%", qty, d.dial, m.rules.Market.Cut()*100)))
+		body = append(body, row("standing", fmt.Sprintf("%d at %s nightly until cancelled; the crew keep %s", qty, d.dial, format.Pct(m.rules.Market.Cut(), 0))))
 		if o, ok := w.YourStanding(city, id); ok {
 			body = append(body, theme.Subtle.Render(fmt.Sprintf("Standing at %d %s now; this replaces it.", o.Qty, o.Dial)))
 		} else {

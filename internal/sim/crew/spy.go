@@ -97,7 +97,7 @@ func (s *Sim) spies(w *game.World, t *game.Tick) {
 
 // report files what a spy saw tonight: the muscle, the next move and
 // the till, each true at the spy's odds and filed at them.
-func (s *Sim) report(w *game.World, t *game.Tick, rng rand, m *game.CrewMember, r *game.RivalState) {
+func (s *Sim) report(w *game.World, t *game.Tick, rng game.Rand, m *game.CrewMember, r *game.RivalState) {
 	tun := s.intel
 	p := tun.SpyOdds(m.Skill)
 	w.Stats.Reports++

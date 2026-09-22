@@ -70,6 +70,19 @@ func Price(v float64) string {
 	return Money(int(math.Round(v)))
 }
 
+// Pct is a fraction written as a percent to prec decimals (#275):
+// Pct(0.25, 0) is `25%`, Pct(0.045, 1) `4.5%`. It is `%.0f%%` of the
+// fraction times a hundred, so a site that wrote that reads the same.
+func Pct(frac float64, prec int) string { return fmt.Sprintf("%.*f%%", prec, frac*100) }
+
+// Times is a multiplier to prec decimals (#275): Times(1.25, 2) is
+// `×1.25`, Times(1.5, 1) `×1.5`.
+func Times(x float64, prec int) string { return fmt.Sprintf("×%.*f", prec, x) }
+
+// TimesSig is a multiplier to sig significant figures, trailing zeros
+// dropped (#275): TimesSig(1.5, 3) is `×1.5`, TimesSig(2, 3) `×2`.
+func TimesSig(x float64, sig int) string { return fmt.Sprintf("×%.*g", sig, x) }
+
 // Ago is how long since something happened, the way the start menu dates
 // a save: `just now` under a minute, then `5m ago`, `2h ago`, `3d ago`.
 func Ago(d time.Duration) string {

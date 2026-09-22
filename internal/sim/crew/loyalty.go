@@ -104,7 +104,7 @@ func (s *Sim) drift(n *night) {
 		if d < 0 {
 			d *= loss
 		}
-		m.Loyalty = math.Max(0, math.Min(100, m.Loyalty+d))
+		m.Loyalty = max(0, min(100, m.Loyalty+d))
 	}
 }
 

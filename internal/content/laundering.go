@@ -94,12 +94,7 @@ type GrowthConfig struct {
 
 // Front returns the config for id, or nil.
 func (l LaunderingConfig) Front(id string) *FrontConfig {
-	for i := range l.Fronts {
-		if l.Fronts[i].ID == id {
-			return &l.Fronts[i]
-		}
-	}
-	return nil
+	return find(l.Fronts, func(e *FrontConfig) bool { return e.ID == id })
 }
 
 // DialFor returns the tuning for a launder dial position.

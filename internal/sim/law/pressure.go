@@ -132,9 +132,9 @@ func (s *Sim) fade(w *game.World, t *game.Tick, gain map[string]float64) {
 		from := c.Pressure
 		p := c.Pressure + gain[cid]
 		p -= (p - tun.Baseline) * tun.Decay
-		p -= tun.GoodwillCut * clamp01(c.Goodwill/100)
-		c.Pressure = math.Max(0, math.Min(100, p))
-		c.Goodwill = math.Max(0, math.Min(100, c.Goodwill-c.Goodwill*tun.GoodwillDecay))
+		p -= tun.GoodwillCut * max(0, min(1, c.Goodwill/100))
+		c.Pressure = max(0, min(100, p))
+		c.Goodwill = max(0, min(100, c.Goodwill-c.Goodwill*tun.GoodwillDecay))
 		if band(from, tun.Band) != band(c.Pressure, tun.Band) {
 			t.Emit(events.PressureShifted{Day: t.Day, City: cid, From: from, To: c.Pressure})
 		}
@@ -148,5 +148,3 @@ func band(v, w float64) int {
 	}
 	return int(math.Min(v, 99.999) / w)
 }
-
-func clamp01(v float64) float64 { return math.Max(0, math.Min(1, v)) }

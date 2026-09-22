@@ -183,13 +183,20 @@ func applyStart(cfg *content.Config, w *game.World, cs *crew.Sim, s content.Star
 	}
 	// The corners held on day 0 (#232): yours from the start, the start
 	// crew posted on them in order (a runner works one, an enforcer
-	// guards one; a corner nobody works drifts as any does).
+	// guards one; a corner nobody works drifts as any does). A street
+	// corner is handed over like any other (#274: a hand-over is Hand,
+	// TestCornerOwnerIsHanded); one already yours, the corner you stand
+	// on, keeps you on it and starts its clock again.
 	for i, id := range s.Corners {
 		c := w.Corner(id)
 		if c == nil || c.Owner == game.OwnerRival {
 			continue
 		}
-		c.Owner, c.Faction, c.Since, c.Idle = game.OwnerPlayer, "", 0, 0
+		if c.Owner == game.OwnerPlayer {
+			c.Since, c.Idle = 0, 0
+		} else {
+			c.Hand(game.OwnerPlayer, "", 0)
+		}
 		if i < len(joined) {
 			_ = w.Post(id, joined[i].ID)
 		}

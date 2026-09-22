@@ -7,20 +7,18 @@ import (
 	"github.com/theclifmeister/kingpin/internal/content"
 	"github.com/theclifmeister/kingpin/internal/events"
 	"github.com/theclifmeister/kingpin/internal/game"
+	"github.com/theclifmeister/kingpin/internal/gametest"
 	"github.com/theclifmeister/kingpin/internal/sim/reputation"
 )
 
 func world() *game.World {
-	return game.NewWorld(1, []game.StartingCity{{ID: "test", Name: "Test", Products: []game.StartingProduct{{ID: "weed", Name: "Weed", Price: 20, Demand: 60, SupplierRatio: 0.55}}}}, 500, 100)
+	return gametest.City(1, "test", "Test", 500, gametest.Weed)
 }
 
 // step runs one day with the given events already emitted, as if by the
 // sims before this one, and returns what the reputation sim emitted.
 func step(s *reputation.Sim, w *game.World, day int, before ...events.Event) []events.Event {
-	t := &game.Tick{Day: day, RNG: game.RNGFor(1, day)}
-	for _, e := range before {
-		t.Emit(e)
-	}
+	t := gametest.TickOn(w, day, before...)
 	s.Step(w, t)
 	return t.Events()[len(before):]
 }

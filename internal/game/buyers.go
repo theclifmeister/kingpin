@@ -104,12 +104,7 @@ type BuyersState struct {
 
 // Contract returns the contract with id, or nil.
 func (w *World) Contract(id int) *Contract {
-	for i := range w.Contracts {
-		if w.Contracts[i].ID == id {
-			return &w.Contracts[i]
-		}
-	}
-	return nil
+	return find(w.Contracts, func(e *Contract) bool { return e.ID == id })
 }
 
 // ContractsIn lists the contracts on the books in a city that are still
