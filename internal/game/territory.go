@@ -55,7 +55,7 @@ type Corner struct {
 	Since      int                // day the current owner took it
 	Idle       int                // consecutive days held with nobody working it
 	Squeeze    float64            // share of its demand a rival is undercutting away today, 0..1
-	Robbed     int                // stick-ups since it was last claimed; a lieutenant gives up on a corner at two
+	Robbed     int                // stick-ups on your watch; a lieutenant gives up on a corner at two. Not the holder's: a hand-over keeps it, and the territory sim forgets it once the corner has been off your street for the drift days
 	Yours      bool               // you have held it at some time; the rival's grace period leaves those alone (#60)
 	Starved    int                // days a price war has cut the rival's trade here (#68), counted off Squeeze by the rivals sim, which answers at pricewar_days; a rest that long forgets them
 	StarvedDay int                // the last day it was cut; 0 never
@@ -386,6 +386,20 @@ func (w *World) Recall(id int) {
 	}
 }
 
+// Hand gives the corner to owner (faction is the faction's id for
+// OwnerRival, "" otherwise) on day, sending whoever worked it home
+// (#281). Everything that belongs to the holder starts again: the runner
+// and the enforcer, the idle count, the squeeze, the price war's starve
+// count and Since. Robbed does not: it is your stick-ups on the corner,
+// not the holder's, and the territory sim forgets it on its own clock.
+// Every hand-over goes through here, so no two can disagree on what a
+// new holder inherits.
+func (c *Corner) Hand(owner, faction string, day int) {
+	c.Owner, c.Faction = owner, faction
+	c.Runner, c.Enforcer, c.Idle, c.Squeeze, c.Since = 0, 0, 0, 0, day
+	c.Starved, c.StarvedDay = 0, 0
+}
+
 // Abandon gives a held corner back to the street and recalls everyone on
 // it.
 func (w *World) Abandon(corner string) error {
@@ -399,8 +413,7 @@ func (w *World) Abandon(corner string) error {
 	if c.Owner != OwnerPlayer {
 		return fmt.Errorf("you do not hold %s", c.Name)
 	}
-	c.Owner, c.Faction = OwnerNone, ""
-	c.Runner, c.Enforcer, c.Idle, c.Since = 0, 0, 0, w.Day
+	c.Hand(OwnerNone, "", w.Day)
 	w.Today.Abandoned = append(w.Today.Abandoned, c.ID)
 	return nil
 }

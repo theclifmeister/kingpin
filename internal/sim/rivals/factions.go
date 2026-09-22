@@ -212,8 +212,7 @@ func (s *Sim) drift(w *game.World, t *game.Tick, r *game.RivalState) {
 		if c == nil || !owns(*c, r) {
 			continue
 		}
-		c.Owner, c.Faction, c.Runner, c.Enforcer, c.Idle, c.Squeeze, c.Since = game.OwnerNone, "", 0, 0, 0, 0, t.Day
-		c.Starved, c.StarvedDay = 0, 0
+		c.Hand(game.OwnerNone, "", t.Day)
 		t.Emit(events.RivalAbandoned{Day: t.Day, Rival: r.Leader, Faction: r.Faction(), Corner: c.ID, Name: c.Name, Reason: "fragmented"})
 	}
 	if len(r.Fragments) == 0 {
