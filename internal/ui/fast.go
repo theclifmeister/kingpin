@@ -74,7 +74,7 @@ func (m *Model) fastCap() (int, error) {
 	return n, nil
 }
 
-// keyFast is the confirmation: y or enter runs the days, esc closes, and
+// keyFast is the confirmation: enter runs the days, esc closes, and
 // the rest goes to the number field (digits, backspace and the field's
 // shortcuts; a letter never lands in it).
 func (m *Model) keyFast(k tea.KeyMsg) (tea.Model, tea.Cmd) {
