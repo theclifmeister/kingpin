@@ -15,7 +15,7 @@ import (
 
 // dialRow draws the sell dial as `quiet  normal  [aggressive]`.
 func dialRow(d events.Dial) string {
-	return dialCells([]string{"quiet", "normal", "aggressive"}, int(d))
+	return dialCells(events.DialNames(), int(d))
 }
 
 // dialCells is the dial convention (#88): every notch in a row two

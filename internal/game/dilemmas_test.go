@@ -1,7 +1,9 @@
 package game
 
 import (
+	"encoding/json"
 	"errors"
+	"sort"
 	"strings"
 	"testing"
 )
@@ -68,7 +70,7 @@ func TestChooseAppliesEveryEffectKey(t *testing.T) {
 }
 
 // A key the world does not know is an error, never a silent no-op; the
-// list of legal keys and the switch that applies them must agree.
+// list of legal keys and the table that applies them must agree.
 func TestChooseRefusesUnknownEffect(t *testing.T) {
 	w := cardWorld()
 	w.Dilemmas.Pending = &Card{ID: "t", Choices: []Choice{{Label: "x", Outcome: "x", Effects: map[string]float64{"evidence": 1}}, {Label: "y", Outcome: "y"}}}
@@ -86,6 +88,43 @@ func TestChooseRefusesUnknownEffect(t *testing.T) {
 	}
 	if _, err := w.Choose(5); !errors.Is(err, ErrBadChoice) {
 		t.Fatalf("choice 5 of 2: %v", err)
+	}
+}
+
+// A choice with a key the world does not know changes nothing (#274):
+// every key is checked before any applies, so the known keys that sort
+// before the bad one ("clean_cash", "dirty_cash", "heat") and the one
+// after it ("war") land nowhere, and the card is still pending.
+func TestUnknownEffectChangesNothing(t *testing.T) {
+	w := cardWorld()
+	card := &Card{ID: "t", Amount: 100, Member: 1, Choices: []Choice{
+		{Label: "x", Outcome: "x", Effects: map[string]float64{"clean_cash": 50, "dirty_cash": -50, "heat": 10, "hex": 1, "war": 10}},
+		{Label: "y", Outcome: "y"},
+	}}
+	w.Dilemmas.Pending = card
+	before, err := json.Marshal(w)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if _, err := w.Choose(0); err == nil || !strings.Contains(err.Error(), `unknown effect "hex"`) {
+		t.Fatalf("err = %v", err)
+	}
+	after, err := json.Marshal(w)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if string(before) != string(after) {
+		t.Fatalf("a refused choice changed the world:\nbefore %s\nafter  %s", before, after)
+	}
+	if w.Dilemmas.Pending != card || w.Dilemmas.Answered != nil {
+		t.Fatalf("pending %v answered %v", w.Dilemmas.Pending, w.Dilemmas.Answered)
+	}
+}
+
+// EffectKeys is the table's keys, sorted: the order Choose applies them.
+func TestEffectKeysAreSorted(t *testing.T) {
+	if !sort.StringsAreSorted(EffectKeys) || len(EffectKeys) != len(effects) {
+		t.Fatalf("EffectKeys %v", EffectKeys)
 	}
 }
 
