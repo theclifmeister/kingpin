@@ -10,7 +10,7 @@ Everything after the first $500 is your fault.
 
 ## Play
 
-You need Go 1.24 and a terminal at least 80x24. Install and start:
+You need Go 1.26 and a terminal at least 80x24. Install and start:
 
 ```sh
 git clone https://github.com/theclifmeister/kingpin.git

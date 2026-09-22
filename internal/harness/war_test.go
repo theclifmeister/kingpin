@@ -12,66 +12,41 @@ import (
 
 // TestNoWarIsTheOldRun (#229): a run that never declares war is
 // byte-for-byte the run before the order existed. Eight policies,
-// the fighters among them, hashed daily to day 120 on the file and on
-// the file with the war boxed (harness.NoWar), one seed each,
-// identical, and no strike of the war's, no WarEnded.
+// the fighters among them, hashed daily on the file and on the file
+// with the war boxed (harness.NoWar; assertOldRun: one seed, 120
+// days), identical, and no strike of the war's, no WarEnded.
 func TestNoWarIsTheOldRun(t *testing.T) {
 	t.Parallel()
-	cfg := content.MustLoad()
-	off := NoWar(cfg)
-	for name, policy := range map[string]func(*content.Config) Policy{
-		"crewed":      func(c *content.Config) Policy { return Crewed(c, 40) },
-		"war":         func(c *content.Config) Policy { return Warlike(c, 40, 0, events.ForceHit) },
-		"diplomat":    func(c *content.Config) Policy { return Diplomat(c, 40, 0) },
-		"boss":        func(c *content.Config) Policy { return Boss(c, 40, "") },
-		"distributor": func(c *content.Config) Policy { return Distributor(c, 40) },
-		"tipster":     func(c *content.Config) Policy { return Tipster(c, 40) },
-		"saboteur":    func(c *content.Config) Policy { return Saboteur(c, 40) },
-		"upgraded":    func(c *content.Config) Policy { return Upgraded(c, 40) },
-	} {
-		name, policy := name, policy
-		t.Run(name, func(t *testing.T) {
-			t.Parallel()
-			var with, without []string
-			for i, c := range []*content.Config{cfg, off} {
-				w := sim.NewWorld(c, 1)
-				_, sims, err := sim.Default(c)
-				if err != nil {
-					t.Fatal(err)
-				}
-				clock := game.NewClock(nil, sims...)
-				p := policy(c)
-				var ds []string
-				for day := 1; day <= 120 && w.Over == nil; day++ {
-					p(w)
-					for _, e := range clock.EndDay(w) {
-						switch ev := e.(type) {
-						case events.WarEnded:
-							t.Fatalf("%s day %d: %+v in a run that never declared war", name, day, ev)
-						case events.CornerStruck:
-							if ev.War {
-								t.Fatalf("%s day %d: %+v in a run that never declared war", name, day, ev)
-							}
-						}
-					}
-					ds = append(ds, digest(w))
-				}
-				if w.War != "" {
-					t.Fatalf("%s: at war with nobody declaring: %q", name, w.War)
-				}
-				if i == 0 {
-					with = ds
-				} else {
-					without = ds
-				}
+	assertOldRun(t, oldRunCase{
+		never: "never declared war",
+		seeds: 1,
+		days:  120,
+		box:   NoWar,
+		policies: map[string]func(*content.Config) Policy{
+			"crewed":      func(c *content.Config) Policy { return Crewed(c, 40) },
+			"war":         func(c *content.Config) Policy { return Warlike(c, 40, 0, events.ForceHit) },
+			"diplomat":    func(c *content.Config) Policy { return Diplomat(c, 40, 0) },
+			"boss":        func(c *content.Config) Policy { return Boss(c, 40, "") },
+			"distributor": func(c *content.Config) Policy { return Distributor(c, 40) },
+			"tipster":     func(c *content.Config) Policy { return Tipster(c, 40) },
+			"saboteur":    func(c *content.Config) Policy { return Saboteur(c, 40) },
+			"upgraded":    func(c *content.Config) Policy { return Upgraded(c, 40) },
+		},
+		forbid: func(e events.Event) bool {
+			switch ev := e.(type) {
+			case events.WarEnded:
+				return true
+			case events.CornerStruck:
+				return ev.War
 			}
-			for day := range with {
-				if day >= len(without) || with[day] != without[day] {
-					t.Fatalf("%s: the world moved on day %d with the war in the file and nobody declaring one", name, day+1)
-				}
+			return false
+		},
+		after: func(t *testing.T, w *game.World, _ bool) {
+			if w.War != "" {
+				t.Fatalf("at war with nobody declaring: %q", w.War)
 			}
-		})
-	}
+		},
+	})
 }
 
 // TestWarIsTheHandsStrikes (#229): a war night and the same strike sent

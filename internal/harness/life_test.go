@@ -13,50 +13,71 @@ import (
 
 // With crew.toml's [life] table boxed (harness.NoLife, cmd/balance
 // -life off) a run is byte-for-byte the run before the feature: the
-// life stream is drawn but nothing acts on it. The proof is the money
-// curve's own numbers as main pinned them before #46 (t1-t4 with the
-// incidents boxed, as every harness run has them), and a crewed run
-// under the box that emits nothing of #46's and carries none of its
-// state.
+// life stream is drawn but nothing acts on it. Life acts only through
+// the crew, so the managed player, who hires nobody, reads the same
+// run on the file and under the box to the tier-4 checkpoint on the
+// twenty seeds TestMoneyCurve reads (assertOldRun, as Run plays them:
+// the net worth every day, the whole world every tenth and the last),
+// with the hiring pool set aside: its faces carry the ages and kin the
+// table seeds at generation, off the life stream, and nothing else of
+// the world may move, so a box that still draws on the home stream, or
+// a life that reaches past the crew, fails it. The crewed and the
+// boss players under the box emit nothing of #46's and carry none of
+// its state. Until #276 this pinned main's pre-#46 medians to the
+// dollar (84,930 / 605,294 / 16,650,659 / 83,811,847, under the duel
+// and harness.NoDeeds), a copy of the money curve every balance PR had
+// to edit: the duel's own numbers are TestSeedDigest's pin.
 func TestNoLifeIsTheOldRun(t *testing.T) {
 	t.Parallel()
-	// The duel too (#43, harness.OneFaction): main's pre-#46 figures are
-	// the one rival's, so the table is boxed beside the life; and the
-	// property (#194, harness.NoDeeds): the boss buys deeds since, and
-	// main's figures are its runs without them.
-	cfg := NoDeeds(OneFaction(NoLife(content.MustLoad())))
-	for _, row := range []struct {
-		tier   int
-		policy func(*content.Config) Policy
-		want   int
-	}{
-		{1, func(c *content.Config) Policy { return Managed(c, 50) }, 84_930},
-		{2, func(c *content.Config) Policy { return Crewed(c, 40) }, 605_294},
-		{3, func(c *content.Config) Policy { return Boss(c, 40, "") }, 16_650_659},
-		{4, func(c *content.Config) Policy { return Boss(c, 40, "") }, 83_811_847},
-	} {
-		if got := medianNetWorth(t, cfg, row.policy, tierDay(row.tier)); got != row.want {
-			t.Errorf("tier %d with life boxed: median net worth %d on day %d, main's pre-#46 figure is %d", row.tier, got, tierDay(row.tier), row.want)
-		}
-	}
-	for seed := uint64(1); seed <= 3; seed++ {
-		res, err := Run(cfg, seed, 120, Crewed(cfg, 40))
-		if err != nil {
-			t.Fatal(err)
-		}
-		for _, e := range res.Events {
-			switch ev := e.(type) {
-			case events.CrewArrested, events.CrewReleased, events.CrewBailed, events.CrewShot, events.CrewRecovered, events.CrewRetired, events.KinLooking:
-				t.Fatalf("seed %d: %+v in a run with life boxed", seed, ev)
+	assertOldRun(t, oldRunCase{
+		never: "hired nobody",
+		box:   NoLife,
+		policies: map[string]func(*content.Config) Policy{
+			"managed": func(c *content.Config) Policy { return Managed(c, 50) },
+		},
+		seeds: 20,
+		days:  Horizon,
+		asRun: true,
+		every: 10,
+		scrub: func(_ *testing.T, w *game.World, _ bool) func() {
+			pool := w.Crew.Candidates
+			w.Crew.Candidates = nil
+			return func() { w.Crew.Candidates = pool }
+		},
+		after: func(t *testing.T, w *game.World, _ bool) {
+			if len(w.Crew.Members) != 0 {
+				t.Fatalf("the managed player hired %d", len(w.Crew.Members))
 			}
-		}
-		w := res.World
-		if s := w.Stats; s.Bodies+s.Fallen+s.Arrests+s.Bails+s.Wounded+s.Retired > 0 || len(w.Crew.Fallen) > 0 {
-			t.Fatalf("seed %d: life in the stats with the table boxed: %+v", seed, s)
-		}
-		for _, m := range append(w.Crew.Members, w.Crew.Candidates...) {
-			if m.Age != 0 || m.Growth != 0 || len(m.Kin) > 0 || m.JailedUntil+m.WoundedUntil != 0 {
-				t.Fatalf("seed %d: %+v carries life with the table boxed", seed, m)
+		},
+	})
+	cfg := NoLife(content.MustLoad())
+	for _, row := range []struct {
+		name   string
+		policy func(*content.Config) Policy
+		days   int
+	}{
+		{"crewed", func(c *content.Config) Policy { return Crewed(c, 40) }, 120},
+		{"boss", func(c *content.Config) Policy { return Boss(c, 40, "") }, Horizon},
+	} {
+		for seed := uint64(1); seed <= 3; seed++ {
+			res, err := Run(cfg, seed, row.days, row.policy(cfg))
+			if err != nil {
+				t.Fatal(err)
+			}
+			for _, e := range res.Events {
+				switch ev := e.(type) {
+				case events.CrewArrested, events.CrewReleased, events.CrewBailed, events.CrewShot, events.CrewRecovered, events.CrewRetired, events.KinLooking:
+					t.Fatalf("%s seed %d: %+v in a run with life boxed", row.name, seed, ev)
+				}
+			}
+			w := res.World
+			if s := w.Stats; s.Bodies+s.Fallen+s.Arrests+s.Bails+s.Wounded+s.Retired > 0 || len(w.Crew.Fallen) > 0 {
+				t.Fatalf("%s seed %d: life in the stats with the table boxed: %+v", row.name, seed, s)
+			}
+			for _, m := range append(w.Crew.Members, w.Crew.Candidates...) {
+				if m.Age != 0 || m.Growth != 0 || len(m.Kin) > 0 || m.JailedUntil+m.WoundedUntil != 0 {
+					t.Fatalf("%s seed %d: %+v carries life with the table boxed", row.name, seed, m)
+				}
 			}
 		}
 	}

@@ -20,57 +20,32 @@ func NoTax(cfg *content.Config) *content.Config {
 
 // TestNoTaxIsTheOldRun (#231): a run in which the share never holds
 // is byte-for-byte the run before the tax existed. The boss, the
-// laundered and the crewed players are hashed daily to the tier-4
-// checkpoint on the file and on the file with cut at 0, one seed each,
-// identical, nothing taxed; the jitter rolls on the tax's own stream,
-// so the home stream never moves.
+// laundered and the crewed players are hashed daily on the file and on
+// the file with cut at 0 (assertOldRun: one seed to the tier-4
+// checkpoint), identical, nothing taxed; the jitter rolls on the tax's
+// own stream, so the home stream never moves.
 func TestNoTaxIsTheOldRun(t *testing.T) {
 	t.Parallel()
-	cfg := content.MustLoad()
-	off := NoTax(cfg)
-	for name, policy := range map[string]func(*content.Config) Policy{
-		"boss":      func(c *content.Config) Policy { return Boss(c, 40, "") },
-		"laundered": func(c *content.Config) Policy { return Laundered(c, 40) },
-		"crewed":    func(c *content.Config) Policy { return Crewed(c, 40) },
-	} {
-		name, policy := name, policy
-		t.Run(name, func(t *testing.T) {
-			t.Parallel()
-			var with, without []string
-			for i, c := range []*content.Config{cfg, off} {
-				w := sim.NewWorld(c, 1)
-				_, sims, err := sim.Default(c)
-				if err != nil {
-					t.Fatal(err)
-				}
-				clock := game.NewClock(nil, sims...)
-				p := policy(c)
-				var ds []string
-				for day := 1; day <= Horizon && w.Over == nil; day++ {
-					p(w)
-					for _, e := range clock.EndDay(w) {
-						if ev, ok := e.(events.Taxed); ok {
-							t.Fatalf("%s day %d: %+v in a run that never held the share", name, day, ev)
-						}
-					}
-					ds = append(ds, digest(w))
-				}
-				if w.Stats.Taxed != 0 {
-					t.Fatalf("%s: taxed %d with the share never held", name, w.Stats.Taxed)
-				}
-				if i == 0 {
-					with = ds
-				} else {
-					without = ds
-				}
+	assertOldRun(t, oldRunCase{
+		never: "never held the share",
+		seeds: 1,
+		days:  Horizon,
+		box:   NoTax,
+		policies: map[string]func(*content.Config) Policy{
+			"boss":      func(c *content.Config) Policy { return Boss(c, 40, "") },
+			"laundered": func(c *content.Config) Policy { return Laundered(c, 40) },
+			"crewed":    func(c *content.Config) Policy { return Crewed(c, 40) },
+		},
+		forbid: func(e events.Event) bool {
+			_, ok := e.(events.Taxed)
+			return ok
+		},
+		after: func(t *testing.T, w *game.World, _ bool) {
+			if w.Stats.Taxed != 0 {
+				t.Fatalf("taxed %d with the share never held", w.Stats.Taxed)
 			}
-			for day := range with {
-				if day >= len(without) || with[day] != without[day] {
-					t.Fatalf("%s: the world moved on day %d with the tax in the file and the share never held", name, day+1)
-				}
-			}
-		})
-	}
+		},
+	})
 }
 
 // TestTaxAtTierFive (#231): the tier-5 band ($100M-$1B, #205) re-read

@@ -23,60 +23,50 @@ import (
 
 // TestNoIntelIsTheOldRun: with the feed on (the file's default) and no
 // policy paying a cop, planting a spy or shipping on a road it was fed,
-// t1–t4 read main's figures to the dollar (dff4a0a's, after #194's
-// deeds moved the boss's rows from $16,398,315 / $90,560,038); and the
-// crewed player under
-// NoIntel and under the default is the same run day by day, the file
-// aside.
+// the money curve's players read the same run on the file and under
+// NoIntel (assertOldRun, as Run plays them: the net worth every day,
+// the whole world every tenth and the last): the managed player to the
+// tier-1 checkpoint, the crewed player to day 120 (past tier 2's) and
+// the boss to tier 4's (past tier 3's), on the twenty seeds
+// TestMoneyCurve takes its medians over, and nobody pays a cop, plants
+// a spy or bites. Until #276 this pinned t1-t4's medians to the dollar
+// (84,930 / 544,231 / 16,399,563 / 90,250,452), a copy of the money
+// curve every balance PR had to edit, beside the crewed player's net
+// worth and stats (the lures aside) on three seeds; the property is
+// the box, and a feed that moves a number fails on the day it moves
+// it, on any seed, where a median can hide it.
 func TestNoIntelIsTheOldRun(t *testing.T) {
 	t.Parallel()
-	cfg := content.MustLoad()
 	for _, row := range []struct {
-		tier   int
+		name   string
 		policy func(*content.Config) Policy
-		want   int
+		days   int
 	}{
-		{1, func(c *content.Config) Policy { return Managed(c, 50) }, 84_930},
-		{2, func(c *content.Config) Policy { return Crewed(c, 40) }, 544_231},
-		{3, func(c *content.Config) Policy { return Boss(c, 40, "") }, 16_399_563},
-		{4, func(c *content.Config) Policy { return Boss(c, 40, "") }, 90_250_452},
+		{"managed", func(c *content.Config) Policy { return Managed(c, 50) }, tierDay(1)},
+		{"crewed", func(c *content.Config) Policy { return Crewed(c, 40) }, max(tierDay(2), 120)},
+		{"boss", func(c *content.Config) Policy { return Boss(c, 40, "") }, tierDay(4)},
 	} {
-		if got := medianNetWorth(t, cfg, row.policy, tierDay(row.tier)); got != row.want {
-			t.Errorf("tier %d with intel in the game: median net worth %d on day %d, main's figure after #194 (dff4a0a) is %d", row.tier, got, tierDay(row.tier), row.want)
-		}
-	}
-	boxed := NoIntel(cfg)
-	for seed := uint64(1); seed <= 3; seed++ {
-		a, err := Run(cfg, seed, 120, Crewed(cfg, 40))
-		if err != nil {
-			t.Fatal(err)
-		}
-		b, err := Run(boxed, seed, 120, Crewed(boxed, 40))
-		if err != nil {
-			t.Fatal(err)
-		}
-		if len(a.NetWorth) != len(b.NetWorth) {
-			t.Fatalf("seed %d: %d days against %d", seed, len(a.NetWorth), len(b.NetWorth))
-		}
-		for d := range a.NetWorth {
-			if a.NetWorth[d] != b.NetWorth[d] {
-				t.Fatalf("seed %d day %d: the feed moved the crewed player: %d against %d boxed", seed, d+1, a.NetWorth[d], b.NetWorth[d])
-			}
-		}
-		sa, sb := a.World.Stats, b.World.Stats
-		sa.Lures, sb.Lures = 0, 0
-		if sa != sb {
-			t.Fatalf("seed %d: the stats differ with the feed boxed:\n%+v\n%+v", seed, sa, sb)
-		}
-		if sa.CopsPaid+sa.Spies+sa.Bitten != 0 || len(a.World.Crew.Spies()) != 0 {
-			t.Fatalf("seed %d: the crewed player paid a cop, planted a spy or bit: %+v", seed, sa)
-		}
-		for _, e := range a.Events {
-			switch e.(type) {
-			case events.SpyPlanted, events.SpyFound, events.IntelFalse:
-				t.Fatalf("seed %d: %s in a run that never used the file", seed, e.Kind())
-			}
-		}
+		assertOldRun(t, oldRunCase{
+			never:    "never used the file",
+			box:      NoIntel,
+			policies: map[string]func(*content.Config) Policy{row.name: row.policy},
+			seeds:    20,
+			days:     row.days,
+			asRun:    true,
+			every:    10,
+			forbid: func(e events.Event) bool {
+				switch e.(type) {
+				case events.SpyPlanted, events.SpyFound, events.IntelFalse:
+					return true
+				}
+				return false
+			},
+			after: func(t *testing.T, w *game.World, _ bool) {
+				if s := w.Stats; s.CopsPaid+s.Spies+s.Bitten != 0 || len(w.Crew.Spies()) != 0 {
+					t.Fatalf("paid a cop, planted a spy or bit: %+v", s)
+				}
+			},
+		})
 	}
 }
 
