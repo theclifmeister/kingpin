@@ -318,7 +318,7 @@ func (m *Model) buyOffUnits() (int, error) {
 	return n, nil
 }
 
-// keyBuyOff is the confirmation: y or enter pays, esc closes, and the
+// keyBuyOff is the confirmation: enter pays, esc closes, and the
 // rest goes to the number field.
 func (m *Model) keyBuyOff(k tea.KeyMsg) (tea.Model, tea.Cmd) {
 	key := k.String()

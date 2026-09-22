@@ -63,11 +63,11 @@ const (
 	modeFund          // give a city clean cash for goodwill
 	modeDetails       // the details pane as an overlay, where the terminal is too narrow to hold it beside MAIN
 	modeCart          // the day's cart: its buys and orders, editable until the day ends
-	modeConfirmFast   // run days until something needs you (#116): the cap, then y or enter
+	modeConfirmFast   // run days until something needs you (#116): the cap, then enter
 	modeUndercut      // pick the dial to undercut the selected rival corner at (#68)
 	modeMove          // move stock between the street and the houses in a city (#73): from, to, product, quantity
 	modeGuard         // pick the enforcer who guards the selected house (#73)
-	modeConfirmBuyOff // pay the rival's muscle to go home: the heads, then y or enter (#70)
+	modeConfirmBuyOff // pay the rival's muscle to go home: the heads, then enter (#70)
 	modeCut           // cut a product where you stand (#47): the product, then the percent added
 	modeCook          // a chemist's cook order (#47): the product, then the units
 	modeInvest        // clean cash into the selected front's levels (#192): the levels, then enter
