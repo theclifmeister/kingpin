@@ -194,7 +194,7 @@ func (s *Sim) Step(w *game.World, t *game.Tick) {
 		// Home rolls off the day's stream, every other city off its own.
 		rng := t.RNG
 		if cid != w.Home().ID {
-			rng = t.Sub("territory:" + cid)
+			rng = t.Sub(game.StreamTerritoryOf + cid)
 		}
 		s.step(w, t, rng, fx, w.Cities[cid], revenue)
 	}
@@ -252,7 +252,7 @@ func (s *Sim) taxStep(w *game.World, t *game.Tick) {
 		if !s.HoldsTheCity(w, cid) {
 			continue
 		}
-		rng := t.Sub("tax:" + cid)
+		rng := t.Sub(game.StreamTaxOf + cid)
 		ev := events.Taxed{Day: t.Day, City: cid}
 		for _, c := range w.Cities[cid].Corners {
 			if c.Owner != game.OwnerNone {
@@ -323,7 +323,7 @@ func (s *Sim) houseStep(w *game.World, t *game.Tick, fx game.Effects) {
 		if h.Guard != 0 && w.Crew.Member(h.Guard) == nil {
 			h.Guard = 0
 		}
-		if t.Sub("houses:"+h.City).Float64() >= s.houseRobberyChance(fx, w, h) {
+		if t.Sub(game.StreamHousesOf+h.City).Float64() >= s.houseRobberyChance(fx, w, h) {
 			continue
 		}
 		ev := events.HouseRobbed{Day: t.Day, House: h.ID, Name: h.Name, City: h.City, Guarded: h.Guarded(), StockLost: map[string]int{}}

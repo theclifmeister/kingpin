@@ -112,7 +112,7 @@ func hireChemist(cfg *content.Config, w *game.World) {
 		}
 		worst := -1
 		for i, m := range w.Crew.Members {
-			if m.Role == "runner" && (worst < 0 || m.Skill < w.Crew.Members[worst].Skill) {
+			if m.Role == game.RoleRunner && (worst < 0 || m.Skill < w.Crew.Members[worst].Skill) {
 				worst = i
 			}
 		}

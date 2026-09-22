@@ -437,7 +437,7 @@ func main() {
 			case events.RivalAbandoned:
 				abandons++
 			case events.WarEscalated:
-				if ev.Stage == "crackdown" {
+				if ev.Stage == events.StageCrackdown {
 					crackdowns++
 				}
 			case events.FrontAudited:

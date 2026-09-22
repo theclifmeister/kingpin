@@ -130,7 +130,7 @@ func (m *Model) scoutConfirm() string {
 	odds := m.set.Rivals.ScoutOdds(w, r)
 	best := 0
 	for _, c := range w.Crew.Members {
-		if c.Role == "enforcer" && c.Skill > best {
+		if c.Role == game.RoleEnforcer && c.Skill > best {
 			best = c.Skill
 		}
 	}

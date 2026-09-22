@@ -104,7 +104,7 @@ func (m *Model) investigateConfirm() string {
 	odds := m.set.Crew.InvestigateOdds(w)
 	best := 0
 	for _, c := range w.Crew.Members {
-		if c.Role == "enforcer" && c.Skill > best {
+		if c.Role == game.RoleEnforcer && c.Skill > best {
 			best = c.Skill
 		}
 	}
@@ -238,7 +238,7 @@ func (m *Model) post(c game.CrewMember) any {
 			return styled{theme.CrewText, "runs " + w.CityName(c.City)}
 		}
 		return styled{theme.Warning, "no city"}
-	case c.Role == "accountant":
+	case c.Role == game.RoleAccountant:
 		if n := len(w.Fronts); n > 0 {
 			return styled{theme.CrewText, plural(n, "front")}
 		}
@@ -256,7 +256,7 @@ func (m *Model) post(c game.CrewMember) any {
 	if h := w.GuardOf(c.ID); h != nil {
 		return styled{theme.CrewText, "guards " + h.Name}
 	}
-	if c.Role == "enforcer" {
+	if c.Role == game.RoleEnforcer {
 		return styled{theme.Warning, "unposted"}
 	}
 	return styled{theme.Warning, "idle"}
@@ -371,7 +371,7 @@ func (m *Model) accountants() (add int, cut float64) {
 	tun := m.cfg.Laundering.Laundering
 	through, risk := 0.0, 1.0
 	for _, c := range m.w.Crew.Members {
-		if c.Role != "accountant" {
+		if c.Role != game.RoleAccountant {
 			continue
 		}
 		skill := float64(c.Skill) / 100
@@ -473,7 +473,7 @@ func (m *Model) personLines(c game.CrewMember, onPayroll bool) []string {
 		lines = append(lines, row("runs", w.CityName(c.City)))
 	case c.Lieutenant():
 		lines = append(lines, row("runs", theme.Warning.Render("no city yet")))
-	case c.Role == "accountant":
+	case c.Role == game.RoleAccountant:
 		if len(w.Fronts) == 0 {
 			lines = append(lines, row("post", theme.Warning.Render("no front to work")))
 		} else {
@@ -491,7 +491,7 @@ func (m *Model) personLines(c game.CrewMember, onPayroll bool) []string {
 	default:
 		if p := w.PostOf(c.ID); p != nil {
 			lines = append(lines, row("post", p.Name))
-		} else if c.Role == "enforcer" {
+		} else if c.Role == game.RoleEnforcer {
 			lines = append(lines, row("post", theme.Warning.Render("unposted")))
 		} else {
 			lines = append(lines, row("post", theme.Warning.Render("idle")))
@@ -557,9 +557,9 @@ func (m *Model) temper(c game.CrewMember) string {
 // hireBlurb is what a candidate would do on the payroll, for the pane.
 func hireBlurb(role string) string {
 	switch role {
-	case "accountant":
+	case game.RoleAccountant:
 		return "work the fronts"
-	case "enforcer":
+	case game.RoleEnforcer:
 		return "guard a corner"
 	case game.RoleLieutenant:
 		return "run a city"
@@ -594,9 +594,9 @@ func (m *Model) crewSection() section {
 			continue // one in a cell or laid up (#46) is not idle, they are nowhere
 		}
 		switch c.Role {
-		case "runner":
+		case game.RoleRunner:
 			idle++
-		case "enforcer":
+		case game.RoleEnforcer:
 			unposted++
 		}
 	}
@@ -617,7 +617,7 @@ func (m *Model) crewSection() section {
 		lines = append(lines, wrapped(theme.Warning, "A runner earns nothing and an enforcer guards nothing off a corner.")...)
 		lines = append(lines, wrapped(theme.Warning, "Post them "+screenPointer(screenMap)+".")...)
 	}
-	if n := w.Crew.Role("accountant"); n > 0 {
+	if n := w.Crew.Role(game.RoleAccountant); n > 0 {
 		if len(w.Fronts) == 0 {
 			lines = append(lines, wrapped(theme.Warning, "An accountant with no front is a wage.")...)
 			lines = append(lines, wrapped(theme.Warning, "Buy "+screenPointer(screenLedger)+".")...)

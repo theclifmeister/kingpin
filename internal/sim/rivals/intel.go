@@ -102,7 +102,7 @@ func (s *Sim) feed(w *game.World, t *game.Tick, r *game.RivalState) {
 	if tun.FeedChance <= 0 || !r.Alive() || r.Trust >= tun.FeedTrust {
 		return
 	}
-	rng := t.Sub("intel")
+	rng := t.Sub(game.StreamIntel)
 	if rng.Float64() >= tun.FeedChance {
 		return
 	}

@@ -55,7 +55,7 @@ func (s *Sim) endings(w *game.World, t *game.Tick) {
 	// anywhere tonight, its war with you is open, and the enforcers on
 	// the payroll, at work or laid up, are under taken_out_muscle:
 	// nothing to hold and nobody to hold it with.
-	if tun.TakenOutMuscle > 0 && w.Held() == 0 && w.Crew.OnPayroll("enforcer") < tun.TakenOutMuscle {
+	if tun.TakenOutMuscle > 0 && w.Held() == 0 && w.Crew.OnPayroll(game.RoleEnforcer) < tun.TakenOutMuscle {
 		for _, r := range w.Rivals {
 			if r != nil && r.Alive() && r.LastFlip == t.Day && r.War >= s.cfg.Rivals.WarThreshold {
 				w.Over = w.End(content.CauseTakenOut, t.Day, r.Leader)

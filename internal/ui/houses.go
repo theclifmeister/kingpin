@@ -615,9 +615,9 @@ func (m *Model) viewMove() string {
 // The guard picker (#73): an enforcer for the house under the cursor,
 // or nobody.
 func (m *Model) guardRows() []game.CrewMember {
-	rows := []game.CrewMember{{ID: 0, Name: "Nobody", Role: "enforcer"}}
+	rows := []game.CrewMember{{ID: 0, Name: "Nobody", Role: game.RoleEnforcer}}
 	for _, c := range m.w.Crew.Members {
-		if c.Role == "enforcer" {
+		if c.Role == game.RoleEnforcer {
 			rows = append(rows, c)
 		}
 	}

@@ -164,7 +164,7 @@ func NewWorldWith(cfg *content.Config, seed uint64, start game.Start) *game.Worl
 
 // applyStart puts a character's start on the world on day 0.
 func applyStart(cfg *content.Config, w *game.World, cs *crew.Sim, s content.StartConfig) {
-	dice := (&game.Tick{Day: 0, Seed: w.Seed}).Sub("character")
+	dice := (&game.Tick{Day: 0, Seed: w.Seed}).Sub(game.StreamCharacter)
 	var joined []game.CrewMember
 	for _, role := range s.Crew {
 		joined = append(joined, cs.Join(w, role, dice))

@@ -43,10 +43,10 @@ func (s *Sim) factions(w *game.World, t *game.Tick, c *game.CrewState, fx game.E
 			}
 			gone[m.ID] = true
 		case events.RivalLeaderArrested:
-			rng := t.Sub("fragment")
+			rng := t.Sub(game.StreamFragment)
 			for i := 0; i < ev.Muscle; i++ {
 				m := s.generate(w, rng, nil, rng, fx)
-				m.Role, m.Units, m.Personality = "enforcer", 0, ""
+				m.Role, m.Units, m.Personality = game.RoleEnforcer, 0, ""
 				m.Former = ev.Faction
 				m.Fee = int(math.Round(float64(m.Fee) * s.fac.FragmentDiscount))
 				c.Candidates = append(c.Candidates, m)

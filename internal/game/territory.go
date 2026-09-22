@@ -325,7 +325,7 @@ func (w *World) Post(corner string, id int) error {
 	if id == You && c.City != w.Player.Location {
 		return ErrElsewhere
 	}
-	role := "runner"
+	role := RoleRunner
 	if id != You {
 		m := w.Crew.Member(id)
 		if m == nil {
@@ -344,7 +344,7 @@ func (w *World) Post(corner string, id int) error {
 			return ErrUndercover
 		}
 	}
-	if role != "runner" && role != "enforcer" {
+	if role != RoleRunner && role != RoleEnforcer {
 		return ErrNotPostable
 	}
 	if c.Owner != OwnerPlayer {
@@ -359,7 +359,7 @@ func (w *World) Post(corner string, id int) error {
 		c.Owner, c.Faction = OwnerPlayer, ""
 		c.Since = w.Day
 	}
-	if role == "enforcer" {
+	if role == RoleEnforcer {
 		c.Enforcer = id
 	} else {
 		c.Runner = id
@@ -419,7 +419,7 @@ func (w *World) SendEnforcers(corner string, force events.Force) error {
 	if c.Owner != OwnerRival {
 		return fmt.Errorf("%s is not a rival's", c.Name)
 	}
-	if w.Crew.Role("enforcer") == 0 {
+	if w.Crew.Role(RoleEnforcer) == 0 {
 		return ErrNoEnforcers
 	}
 	w.Today.Strike = &StrikeOrder{Corner: corner, Force: force}

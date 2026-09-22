@@ -51,7 +51,7 @@ func (r *reporter) reportLogistics(e events.Event) bool {
 	case events.TunnelFound:
 		d := base
 		d.Asset, d.Route, d.Product = ev.Name, ev.Name, w.ProductName(ev.Product)
-		r.addOff("assets:news", "heat", "TunnelFound", d)
+		r.addOff(game.StreamAssetsNews, "heat", "TunnelFound", d)
 		rep.Shipments = append(rep.Shipments, fmt.Sprintf("THE TUNNEL IS FOUND: %d %s taken in it, and it is shut for good.", ev.Units, w.ProductName(ev.Product)))
 	// Intel (#45): the facts filed tonight are the report's INTEL
 	// section; a spy going under, one found and a lie that bit are

@@ -155,7 +155,7 @@ func (w *World) DeclareWar(faction string) error {
 	if r == nil || !r.Alive() {
 		return ErrNoFaction
 	}
-	if w.Crew.OnPayroll("enforcer") == 0 {
+	if w.Crew.OnPayroll(RoleEnforcer) == 0 {
 		return ErrNoEnforcers
 	}
 	if w.War != "" {

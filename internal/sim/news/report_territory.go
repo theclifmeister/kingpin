@@ -88,7 +88,7 @@ func (r *reporter) reportTerritory(e events.Event) bool {
 	case events.DeedsBought:
 		d := r.at(ev.City)
 		d.Corner, d.Qty = ev.Name, ev.Count
-		r.addOff("deeds:news", "laundering", "DeedsBought", d)
+		r.addOff(game.StreamDeedsNews, "laundering", "DeedsBought", d)
 		rep.Law = append(rep.Law, fmt.Sprintf("%s makes the paper: %s in your name now. The town wonders where the money came from.", ev.Name, format.Plural(ev.Count, "block")))
 	case events.DeedRent:
 		r.deedRent += ev.Amount

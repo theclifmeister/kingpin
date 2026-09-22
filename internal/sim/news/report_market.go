@@ -6,6 +6,7 @@ import (
 
 	"github.com/theclifmeister/kingpin/internal/events"
 	"github.com/theclifmeister/kingpin/internal/format"
+	"github.com/theclifmeister/kingpin/internal/game"
 )
 
 // reportMarket writes the market sim's events into the morning: the
@@ -44,16 +45,16 @@ func (r *reporter) reportMarket(e events.Event) bool {
 			d.Product = ev.Name
 			r.add("unlock", "UnlockedProduct", d)
 		case "connect":
-			r.addOff("suppliers", "unlock", "UnlockedConnect", d)
+			r.addOff(game.StreamSuppliers, "unlock", "UnlockedConnect", d)
 		case "front":
 			d.Front = ev.Name
-			r.addOff("unlocks", "unlock", "UnlockedFront", d)
+			r.addOff(game.StreamUnlocks, "unlock", "UnlockedFront", d)
 		case "role":
 			d.Role = ev.ID
-			r.addOff("unlocks", "unlock", "UnlockedRole", d)
+			r.addOff(game.StreamUnlocks, "unlock", "UnlockedRole", d)
 		case "asset":
 			d.Asset = ev.Name
-			r.addOff("assets:news", "unlock", "UnlockedAsset", d)
+			r.addOff(game.StreamAssetsNews, "unlock", "UnlockedAsset", d)
 		}
 	case events.PriceShock:
 		d := r.at(ev.City)
@@ -217,7 +218,7 @@ func (r *reporter) reportMarket(e events.Event) bool {
 		if d.Corner == "" {
 			d.Corner = "a " + d.City + " corner"
 		}
-		r.addOff("overdose:news", "overdose", "Overdose", d)
+		r.addOff(game.StreamOverdoseNews, "overdose", "Overdose", d)
 		where := ev.CornerName
 		if where == "" {
 			where = "your corners"

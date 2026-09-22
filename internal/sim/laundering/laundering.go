@@ -266,7 +266,7 @@ func (s *Sim) accountants(w *game.World) (throughput float64, risk float64) {
 	tun := s.cfg.Laundering
 	risk = 1
 	for _, m := range w.Crew.Members {
-		if m.Role != "accountant" {
+		if m.Role != game.RoleAccountant {
 			continue
 		}
 		skill := float64(m.Skill) / 100
@@ -484,7 +484,7 @@ func (s *Sim) flip(w *game.World, t *game.Tick) {
 	var pick *game.CrewMember
 	for i := range w.Crew.Members {
 		m := &w.Crew.Members[i]
-		if m.Role != "accountant" || m.Informant || m.Loyalty >= s.inf.Loyalty {
+		if m.Role != game.RoleAccountant || m.Informant || m.Loyalty >= s.inf.Loyalty {
 			continue
 		}
 		if pick == nil || m.Loyalty < pick.Loyalty {

@@ -499,27 +499,27 @@ func staff(cfg *content.Config, w *game.World, city string, corners int) {
 	// with a rival about, enforcers come first once one runner is on.
 	runners, worked := 0, w.WorkedIn(city)
 	for _, m := range w.Crew.Members {
-		if m.Role != "runner" {
+		if m.Role != game.RoleRunner {
 			continue
 		}
 		if p := w.PostOf(m.ID); p == nil || p.City == city {
 			runners++
 		}
 	}
-	want := "runner"
+	want := game.RoleRunner
 	if runners+1 >= corners {
-		want = "enforcer"
+		want = game.RoleEnforcer
 	}
-	if n := w.Crew.Role("enforcer"); want == "enforcer" && n >= min(corners, worked) {
+	if n := w.Crew.Role(game.RoleEnforcer); want == game.RoleEnforcer && n >= min(corners, worked) {
 		want = ""
 	}
-	if w.Rival().Arrived > 0 && w.Crew.Runners() >= 1 && w.Crew.Role("enforcer") < guards {
-		want = "enforcer"
+	if w.Rival().Arrived > 0 && w.Crew.Runners() >= 1 && w.Crew.Role(game.RoleEnforcer) < guards {
+		want = game.RoleEnforcer
 		// A full roster of runners makes room: the least skilled goes.
 		if len(w.Crew.Members) >= maxCrew && len(w.Crew.FiredToday) == 0 {
 			worst := -1
 			for i, m := range w.Crew.Members {
-				if m.Role == "runner" && (worst < 0 || m.Skill < w.Crew.Members[worst].Skill) {
+				if m.Role == game.RoleRunner && (worst < 0 || m.Skill < w.Crew.Members[worst].Skill) {
 					worst = i
 				}
 			}
@@ -551,7 +551,7 @@ func staff(cfg *content.Config, w *game.World, city string, corners int) {
 			continue
 		}
 		switch m.Role {
-		case "runner":
+		case game.RoleRunner:
 			if w.WorkedIn(city) >= corners {
 				continue
 			}
@@ -562,7 +562,7 @@ func staff(cfg *content.Config, w *game.World, city string, corners int) {
 			if c != nil {
 				_ = w.Post(c.ID, m.ID)
 			}
-		case "enforcer":
+		case game.RoleEnforcer:
 			// The corners the rival borders first, then the riskiest.
 			score := func(c game.Corner) float64 {
 				if w.Contested(c) {
@@ -602,7 +602,7 @@ func Vigilant(cfg *content.Config, lieLowAt float64) Policy {
 func Plant(cfg *content.Config, w *game.World) game.CrewMember {
 	best := -1
 	for i, c := range w.Crew.Candidates {
-		if c.Role == "runner" && (best < 0 || c.Skill > w.Crew.Candidates[best].Skill) {
+		if c.Role == game.RoleRunner && (best < 0 || c.Skill > w.Crew.Candidates[best].Skill) {
 			best = i
 		}
 	}
@@ -632,7 +632,7 @@ func Warlike(cfg *content.Config, lieLowAt float64, corners int, force events.Fo
 	hot := TooHot(cfg, lieLowAt)
 	return func(w *game.World) {
 		territory(w)
-		if hot(w) || w.Crew.Role("enforcer") == 0 {
+		if hot(w) || w.Crew.Role(game.RoleEnforcer) == 0 {
 			return
 		}
 		if c := pickCorner(w, func(c game.Corner) bool { return c.Owner == game.OwnerRival }, size); c != nil {
@@ -740,7 +740,7 @@ func Outbid(w *game.World) bool {
 	who := 0
 	worst := 0.0
 	for _, m := range w.Crew.Members {
-		if m.Role != "runner" {
+		if m.Role != game.RoleRunner {
 			continue
 		}
 		p := w.PostOf(m.ID)
@@ -1318,12 +1318,12 @@ func distribute(cfg *content.Config, lieLowAt float64, delegate, fight bool, per
 				}
 			}
 		}
-		want := "runner"
-		if w.Rival().Arrived > 0 && w.Crew.Role("enforcer") == 0 && w.Crew.Runners() >= 2 {
-			want = "enforcer"
+		want := game.RoleRunner
+		if w.Rival().Arrived > 0 && w.Crew.Role(game.RoleEnforcer) == 0 && w.Crew.Runners() >= 2 {
+			want = game.RoleEnforcer
 		}
-		if fight && w.Rival().Arrived > 0 && w.Crew.Role("enforcer") < guards && w.Crew.Runners() >= 2 {
-			want = "enforcer"
+		if fight && w.Rival().Arrived > 0 && w.Crew.Role(game.RoleEnforcer) < guards && w.Crew.Runners() >= 2 {
+			want = game.RoleEnforcer
 		}
 		if delegate && lt == nil {
 			for _, c := range w.Crew.Candidates {
@@ -1337,7 +1337,7 @@ func distribute(cfg *content.Config, lieLowAt float64, delegate, fight bool, per
 			if want == game.RoleLieutenant && len(w.Crew.Members) >= crewSim.MaxCrew(w) && len(w.Crew.FiredToday) == 0 {
 				worst := -1
 				for i, m := range w.Crew.Members {
-					if m.Role == "runner" && (worst < 0 || m.Skill < w.Crew.Members[worst].Skill) {
+					if m.Role == game.RoleRunner && (worst < 0 || m.Skill < w.Crew.Members[worst].Skill) {
 						worst = i
 					}
 				}
@@ -1392,11 +1392,11 @@ func distribute(cfg *content.Config, lieLowAt float64, delegate, fight bool, per
 			if w.PostOf(m.ID) != nil {
 				continue
 			}
-			if delegated && (m.Role != "runner" || (w.WorkedIn(hub) >= hubCorners && m.Hired == w.Day)) {
+			if delegated && (m.Role != game.RoleRunner || (w.WorkedIn(hub) >= hubCorners && m.Hired == w.Day)) {
 				continue
 			}
 			switch m.Role {
-			case "runner":
+			case game.RoleRunner:
 				// Home first, until homeCorners are worked or the rival
 				// has left nothing to work; then here.
 				for _, city := range []string{home, hub} {
@@ -1412,7 +1412,7 @@ func distribute(cfg *content.Config, lieLowAt float64, delegate, fight bool, per
 						break
 					}
 				}
-			case "enforcer":
+			case game.RoleEnforcer:
 				score := func(c game.Corner) float64 {
 					if w.Contested(c) {
 						return 10 + c.Demand

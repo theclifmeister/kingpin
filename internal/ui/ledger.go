@@ -542,7 +542,7 @@ func (m *Model) frontSection(f game.Front) section {
 // at the dial, when there are any.
 func (m *Model) accountantBonus(f game.Front) (int, bool) {
 	fc := m.cfg.Laundering.Front(f.ID)
-	if fc == nil || m.w.Crew.Role("accountant") == 0 {
+	if fc == nil || m.w.Crew.Role(game.RoleAccountant) == 0 {
 		return 0, false
 	}
 	base := int(float64(fc.Throughput)*m.set.Laundering.Dial(m.w.Laundering.Dial).Mul + 0.5)
@@ -586,7 +586,7 @@ func (m *Model) washSection() section {
 		row("fronts", fmt.Sprintf("%d · washed %s", len(w.Fronts), cash(w.Stats.Laundered))),
 	}
 	lines = append(lines, wrapped(theme.Subtle, fmt.Sprintf("The till keeps %s dirty for the street; the wash and the road spend only what is over it.", cash(tun.Float)))...)
-	if n := w.Crew.Role("accountant"); n > 0 {
+	if n := w.Crew.Role(game.RoleAccountant); n > 0 {
 		lines = append(lines, wrapped(theme.Subtle, fmt.Sprintf("%s on the payroll: more through every front, fewer audits.", plural(n, "accountant")))...)
 	} else if len(w.Fronts) > 0 {
 		// The pointer on a line of its own: wrapped mid-phrase it read

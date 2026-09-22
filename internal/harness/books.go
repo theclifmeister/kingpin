@@ -86,7 +86,7 @@ func saboteur(cfg *content.Config, lieLowAt float64, tips tipping) Policy {
 		if target == nil {
 			return
 		}
-		if !hot(w) && w.Crew.Role("enforcer") > 0 && w.Today.Strike == nil && r.War < SaboteurWar*tun.CrackdownThreshold {
+		if !hot(w) && w.Crew.Role(game.RoleEnforcer) > 0 && w.Today.Strike == nil && r.War < SaboteurWar*tun.CrackdownThreshold {
 			for _, f := range forces {
 				if f != events.ForceWarn && len(r.Deals) > 0 {
 					break

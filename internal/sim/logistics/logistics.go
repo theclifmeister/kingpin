@@ -388,7 +388,7 @@ func (s *Sim) deals(w *game.World, t *game.Tick) {
 // move is the road: today's rolls, and the arrivals landed.
 func (s *Sim) move(w *game.World, t *game.Tick, fx game.Effects) {
 	tun := s.cfg.Shipping
-	rng := t.Sub("logistics")
+	rng := t.Sub(game.StreamLogistics)
 	sort.SliceStable(w.Shipments, func(i, j int) bool { return w.Shipments[i].ID < w.Shipments[j].ID })
 	kept := w.Shipments[:0]
 	for _, sh := range w.Shipments {

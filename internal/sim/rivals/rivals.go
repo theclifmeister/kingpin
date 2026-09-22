@@ -194,7 +194,7 @@ func owns(c game.Corner, r *game.RivalState) bool { return c.FactionID() == r.Fa
 func (s *Sim) Strength(w *game.World) float64 {
 	n := 0.0
 	for _, m := range w.Crew.Members {
-		if m.Role != "enforcer" || !m.Working() {
+		if m.Role != game.RoleEnforcer || !m.Working() {
 			continue // one in a cell or laid up (#46) goes on no strike
 		}
 		v := 0.5 + float64(m.Skill)/100
@@ -446,7 +446,7 @@ func (s *Sim) Step(w *game.World, t *game.Tick) {
 		}
 		var rng rand = t.RNG
 		if i > 0 {
-			rng = t.Sub("faction:" + r.Faction())
+			rng = t.Sub(game.StreamFactionOf + r.Faction())
 		}
 		s.step(w, t, r, rng)
 	}
@@ -599,7 +599,7 @@ func (s *Sim) step(w *game.World, t *game.Tick, r *game.RivalState, rng rand) {
 	// The war order (#229) is the hand's strike on a night the hand
 	// sent none: the same order, the same roll on the same stream.
 	o := w.Today.Strike
-	if o == nil && w.AtWarWith(r) && w.Crew.Role("enforcer") > 0 { // nobody at work, no order: the hand could send none either
+	if o == nil && w.AtWarWith(r) && w.Crew.Role(game.RoleEnforcer) > 0 { // nobody at work, no order: the hand could send none either
 		if force, on := s.cfg.War.Force(); on {
 			if c := s.WarTarget(w, r); c != nil {
 				o = &game.StrikeOrder{Corner: c.ID, Force: force, War: true}
@@ -775,7 +775,7 @@ func (s *Sim) step(w *game.World, t *game.Tick, r *game.RivalState, rng rand) {
 	// 7. The war: crossing the line makes headlines; loud enough and the
 	// police clear both sides; otherwise it fades a little.
 	if warBefore < tun.WarThreshold && r.War >= tun.WarThreshold {
-		t.Emit(events.WarEscalated{Day: t.Day, Stage: "open", War: r.War})
+		t.Emit(events.WarEscalated{Day: t.Day, Stage: events.StageOpen, War: r.War})
 	}
 	if r.War >= tun.CrackdownThreshold {
 		s.crackdown(w, t, r)
@@ -858,7 +858,7 @@ func (s *Sim) EyeingBy(w *game.World, r *game.RivalState) *game.Corner {
 // strike resolves the player's enforcers going in on a corner of the
 // faction, or for its takings (#70, boost).
 func (s *Sim) strike(w *game.World, t *game.Tick, r *game.RivalState, rng rand, o *game.StrikeOrder, c *game.Corner) {
-	if w.Crew.Role("enforcer") == 0 {
+	if w.Crew.Role(game.RoleEnforcer) == 0 {
 		return
 	}
 	if o.Boost {
@@ -1115,7 +1115,7 @@ func (s *Sim) cutter(w *game.World, r *game.RivalState, c game.Corner) *game.Cor
 // draws heat.
 func (s *Sim) crackdown(w *game.World, t *game.Tick, r *game.RivalState) {
 	tun := s.cfg.Rivals
-	ev := events.WarEscalated{Day: t.Day, Stage: "crackdown", War: r.War, Heat: tun.CrackdownHeat}
+	ev := events.WarEscalated{Day: t.Day, Stage: events.StageCrackdown, War: r.War, Heat: tun.CrackdownHeat}
 	var cleared []*game.Corner
 	ground := s.corners(w, r)
 	for _, owner := range []string{game.OwnerPlayer, game.OwnerRival} {

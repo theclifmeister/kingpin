@@ -21,8 +21,8 @@ import (
 // accountant only comes looking for work once there is a front to keep the
 // books of.
 var (
-	roles      = []string{"runner", "runner", "enforcer"}
-	rolesFront = []string{"runner", "runner", "enforcer", "accountant"}
+	roles      = []string{game.RoleRunner, game.RoleRunner, game.RoleEnforcer}
+	rolesFront = []string{game.RoleRunner, game.RoleRunner, game.RoleEnforcer, game.RoleAccountant}
 )
 
 func rolesFor(w *game.World) []string {
@@ -50,7 +50,7 @@ func (s *Sim) announce(w *game.World, t *game.Tick) {
 		t.Emit(events.Unlocked{Day: t.Day, Gate: "role", ID: role, Name: name, Why: why})
 	}
 	if len(w.Fronts) > 0 {
-		offer("accountant", "Accountants", "a front owned")
+		offer(game.RoleAccountant, "Accountants", "a front owned")
 	}
 	if LieutenantsWanted(w) {
 		offer(game.RoleLieutenant, "Lieutenants", "corners in two cities")
@@ -215,7 +215,7 @@ func (s *Sim) InvestigateOdds(w *game.World) float64 {
 	tun := s.cfg.Informant
 	best := 0
 	for _, m := range w.Crew.Members {
-		if m.Role == "enforcer" && m.Skill > best {
+		if m.Role == game.RoleEnforcer && m.Skill > best {
 			best = m.Skill
 		}
 	}
@@ -260,7 +260,7 @@ func (s *Sim) wages(w *game.World, p events.Pay, fx game.Effects) int {
 // the home stream always drew.
 func (s *Sim) Seed(w *game.World, rng rand) {
 	w.Crew.Pay = events.PayFair
-	life := (&game.Tick{Day: 0, Seed: w.Seed}).Sub("life")
+	life := (&game.Tick{Day: 0, Seed: w.Seed}).Sub(game.StreamLife)
 	s.refill(w, rng, nil, nil, nil, life, game.FoldEffects(w, s.tree))
 }
 
@@ -334,8 +334,8 @@ func (s *Sim) Step(w *game.World, t *game.Tick) {
 	for _, f := range w.Fronts {
 		wash += f.WashedToday
 	}
-	enforcers := c.Role("enforcer")
-	deter := math.Pow(1-s.cfg.Role["enforcer"].Deterrence, float64(enforcers))
+	enforcers := c.Role(game.RoleEnforcer)
+	deter := math.Pow(1-s.cfg.Role[game.RoleEnforcer].Deterrence, float64(enforcers))
 	share, washShare := 0.0, 0.0
 	skimmers := 0
 	for _, m := range c.Members {
@@ -344,7 +344,7 @@ func (s *Sim) Step(w *game.World, t *game.Tick) {
 		}
 		if t.RNG.Float64() < tun.SkimChance*fx.SkimChanceMul*deter {
 			cut := tun.SkimShare * (0.5 + float64(m.Greed)/100)
-			if m.Role == "accountant" {
+			if m.Role == game.RoleAccountant {
 				washShare += cut
 			} else {
 				share += cut
@@ -494,7 +494,7 @@ func (s *Sim) Step(w *game.World, t *game.Tick) {
 		var worst *game.CrewMember
 		for i := range c.Members {
 			m := &c.Members[i]
-			if m.Role == "enforcer" && m.Working() && (worst == nil || m.Nerve < worst.Nerve) {
+			if m.Role == game.RoleEnforcer && m.Working() && (worst == nil || m.Nerve < worst.Nerve) {
 				worst = m
 			}
 		}
@@ -508,7 +508,7 @@ func (s *Sim) Step(w *game.World, t *game.Tick) {
 			danger = true
 		}
 	}
-	shield := math.Pow(1-s.cfg.Role["enforcer"].Protection, float64(enforcers))
+	shield := math.Pow(1-s.cfg.Role[game.RoleEnforcer].Protection, float64(enforcers))
 	loss := s.loyaltyLoss(w, fx)
 	base := s.cfg.PayFor(c.Pay).Loyalty
 	base -= tun.FireLoyalty * float64(fired)
@@ -524,7 +524,7 @@ func (s *Sim) Step(w *game.World, t *game.Tick) {
 		if danger {
 			d -= tun.DangerLoyalty * fx.DangerLoyaltyMul * float64(100-m.Nerve) / 100 * shield
 		}
-		if m.Role == "enforcer" {
+		if m.Role == game.RoleEnforcer {
 			d -= toll * float64(100-m.Nerve) / 100
 		}
 		if d < 0 {
@@ -609,12 +609,12 @@ func (s *Sim) Step(w *game.World, t *game.Tick) {
 	// 7. The hiring pool refills after hires and the rotation.
 	var side, drv rand
 	if FixersWanted(w) {
-		side = t.Sub("fixer")
+		side = t.Sub(game.StreamFixer)
 	}
 	if DriversWanted(w) {
-		drv = t.Sub("driver")
+		drv = t.Sub(game.StreamDriver)
 	}
-	s.refill(w, t.RNG, t.Sub("chemist"), side, drv, t.Sub("life"), fx)
+	s.refill(w, t.RNG, t.Sub(game.StreamChemist), side, drv, t.Sub(game.StreamLife), fx)
 }
 
 // refill tops the candidate pool up to size with fresh faces, and, once
@@ -841,7 +841,7 @@ func (s *Sim) generate(w *game.World, rng, side, life rand, fx game.Effects) gam
 		Personality: personality, // "" for anyone but a lieutenant
 		Age:         s.age(life),
 	}
-	if role == "runner" {
+	if role == game.RoleRunner {
 		m.Units = int(math.Round(tun.UnitsPerSkill * float64(skill)))
 	}
 	w.Crew.NextID = m.ID
@@ -912,7 +912,7 @@ func (s *Sim) Join(w *game.World, role string, rng rand) game.CrewMember {
 		Hired:   w.Day,
 		Age:     s.age(rng),
 	}
-	if role == "runner" {
+	if role == game.RoleRunner {
 		m.Units = int(math.Round(tun.UnitsPerSkill * float64(skill)))
 	}
 	if role == game.RoleLieutenant {

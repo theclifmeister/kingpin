@@ -173,7 +173,7 @@ func (s *Sim) overdoses(w *game.World, t *game.Tick, city, product string, units
 	if s.boxed() || units <= 0 || q.OdUnits <= 0 || q.OdChance <= 0 || quality >= q.OdQuality || !q.Hard(product) {
 		return
 	}
-	rng := t.Sub("overdose")
+	rng := t.Sub(game.StreamOverdose)
 	c := w.Cities[city]
 	rolls := float64(units) / q.OdUnits
 	for rolls > 0 {

@@ -122,8 +122,8 @@ func (m *Model) cornerUnits(c game.Corner) float64 {
 // every enforcer.
 func (m *Model) postRows(role string) []game.CrewMember {
 	var rows []game.CrewMember
-	if role == "runner" {
-		rows = append(rows, game.CrewMember{ID: game.You, Name: "You", Role: "runner", Skill: 0})
+	if role == game.RoleRunner {
+		rows = append(rows, game.CrewMember{ID: game.You, Name: "You", Role: game.RoleRunner, Skill: 0})
 	}
 	for _, c := range m.w.Crew.Members {
 		if c.Role == role {
@@ -170,7 +170,7 @@ func (m *Model) confirmPost() {
 	}
 	if who.ID == game.You {
 		m.say(fmt.Sprintf("You are working %s now.", c.Name))
-	} else if m.pick.role == "enforcer" {
+	} else if m.pick.role == game.RoleEnforcer {
 		m.say(fmt.Sprintf("%s is guarding %s.", who.Name, c.Name))
 	} else {
 		m.say(fmt.Sprintf("%s is working %s.", who.Name, c.Name))
@@ -215,7 +215,7 @@ func (m *Model) viewPost() string {
 		cells = append(cells, []any{r.Name, skill, where})
 	}
 	what, title := "work", "POST A RUNNER"
-	if m.pick.role == "enforcer" {
+	if m.pick.role == game.RoleEnforcer {
 		what, title = "guard", "POST AN ENFORCER"
 	}
 	return m.pickerModal(title, nil, []col{{"name", kText, 0}, {"skill", kInt, 0}, {"where", kText, 0}}, cells, m.pick.cursor, theme.Subtle.Render(fmt.Sprintf("Who should %s %s?", what, c.Name)))
@@ -560,7 +560,7 @@ func (m *Model) cornerSection(sel *game.Corner) section {
 			keyRow("c", "post a runner here"), keyRow("e", "post an enforcer"), keyRow("a", "abandon the corner"))
 	case sel.Owner == game.OwnerRival:
 		f := m.factionOf(sel)
-		if n := w.Crew.Role("enforcer"); n > 0 {
+		if n := w.Crew.Role(game.RoleEnforcer); n > 0 {
 			lines = append(lines, keyRow("w", fmt.Sprintf("push takes it %s, hit %s", m.oddsWord(f, sel, events.ForcePush), m.oddsWord(f, sel, events.ForceHit))))
 			lines = append(lines, keyRow("w", fmt.Sprintf("boost: the till, ~%s", cash(m.set.Rivals.BoostTake(w, *sel)))))
 		} else {
