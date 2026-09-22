@@ -1525,17 +1525,11 @@ func washUp(cfg *content.Config, w *game.World) {
 	washUpAt(cfg, w, 3)
 }
 
-// Invest buys the cheapest next level of any front owned (#192), one a
-// day, when clean cash is margin times its price: the boss's way of
-// putting the pile to work. A front at its top is skipped. It reports
-// whether a level was bought.
-func Invest(ld *laundering.Sim, w *game.World, margin float64) bool {
-	return InvestOver(ld, w, margin, 0)
-}
-
-// InvestOver is Invest with a reserve: only the clean cash over it
-// counts toward the margin. The boss keeps a campaign's worth (#193,
-// law.toml [campaign] Fill) for the next election.
+// InvestOver buys the cheapest next level of any front owned (#192), one
+// a day, when the clean cash over reserve is margin times its price: the
+// boss's way of putting the pile to work. A front at its top is skipped.
+// It reports whether a level was bought. The boss keeps a campaign's
+// worth in reserve (#193, law.toml [campaign] Fill) for the next election.
 func InvestOver(ld *laundering.Sim, w *game.World, margin float64, reserve int) bool {
 	var pick *game.Front
 	best := 0

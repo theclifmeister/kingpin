@@ -221,9 +221,6 @@ func (s *Sim) drift(w *game.World, t *game.Tick, r *game.RivalState) {
 	}
 }
 
-// Fragmenting reports whether a faction's corners are still drifting.
-func (s *Sim) Fragmenting(r *game.RivalState) bool { return r.Fragmented > 0 && len(r.Fragments) > 0 }
-
 // contest is a faction pushing on the corners of the other factions it
 // borders (#43), on the factions stream: at its push chance (slower at
 // its cap or resting, harder with a grudge against the holder), muscle

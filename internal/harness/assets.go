@@ -95,15 +95,6 @@ func Cartel(cfg *content.Config, lieLowAt float64) Policy {
 	}
 }
 
-// NextAsset is the price of the cheapest asset on offer that is open
-// and not owned, or nothing: what the cartel keeps in hand for it.
-func NextAsset(ld *laundering.Sim, w *game.World) int {
-	if o := nextAsset(ld, w); o != nil {
-		return o.Cost
-	}
-	return 0
-}
-
 // nextAsset is the cheapest asset on offer, open, not owned and not
 // gone for good, or nil.
 func nextAsset(ld *laundering.Sim, w *game.World) *game.AssetOffer {

@@ -218,10 +218,6 @@ func (s *Sim) ChiefTakes(w *game.World, amount int) (share float64, backfire boo
 	return share, false
 }
 
-// ColdDay is the day every deal ends under the sitting DA (#42): 0
-// unless they are law-and-order.
-func (s *Sim) ColdDay(w *game.World) int { return w.Law.Cold }
-
 // bribes resolves today's envelopes (#42) on the bribes side stream,
 // fades the leads, and on the cold day ends every live deal.
 func (s *Sim) bribes(w *game.World, t *game.Tick) {

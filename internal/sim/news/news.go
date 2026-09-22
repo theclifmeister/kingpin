@@ -104,15 +104,6 @@ func article(src string) string {
 // sure every event kind the sims emit can be reported.
 func (s *Sim) HasTemplate(key string) bool { return len(s.tmpl[key]) > 0 }
 
-// Keys returns every template key.
-func (s *Sim) Keys() []string {
-	out := make([]string, 0, len(s.tmpl))
-	for k := range s.tmpl {
-		out = append(out, k)
-	}
-	return out
-}
-
 // data is what a template can name. The paper's regulars (#44: the DA,
 // the chief, the rival's leader and faction) are filled on every line
 // from the world, so any headline can read like a paper (`as DA Ramirez
