@@ -28,7 +28,7 @@ func (c *counter) Step(w *World, t *Tick) {
 // testWorld is a one-product city with two corners; the player works the
 // first one, the way a fresh run starts.
 func testWorld() *World {
-	w := NewWorld(99, []StartingCity{{ID: "test", Name: "Testville", HeatMul: 1, Products: []StartingProduct{{ID: "a", Name: "A", Price: 10, Demand: 5}}}}, 500, 100)
+	w := NewWorld(99, []StartingCity{{ID: "test", Name: "Testville", HeatMul: 1, Products: []StartingProduct{{ID: "a", Name: "A", Price: 10, Demand: 5, SupplierRatio: 0.55}}}}, 500, 100)
 	w.Home().Corners = []Corner{
 		{ID: "home", City: "test", Name: "Home", Demand: 1, Heat: 1, Risk: 1, Owner: OwnerNone},
 		{ID: "docks", City: "test", Name: "Docks", X: 1, Demand: 1.5, Taste: map[string]float64{"a": 2}, Heat: 0.5, Risk: 2, Owner: OwnerNone},
@@ -60,7 +60,7 @@ func priceAt(w *World, city, product string, price float64) {
 // one corner there and a route between the two.
 func twoCityWorld() *World {
 	w := testWorld()
-	w.AddCity(StartingCity{ID: "port", Name: "Port", HeatMul: 0.5, Wholesale: true, Products: []StartingProduct{{ID: "a", Name: "A", Price: 4, Demand: 2}}})
+	w.AddCity(StartingCity{ID: "port", Name: "Port", HeatMul: 0.5, Wholesale: true, Products: []StartingProduct{{ID: "a", Name: "A", Price: 4, Demand: 2, SupplierRatio: 0.55}}})
 	w.Cities["port"].Corners = []Corner{{ID: "wharf", City: "port", Name: "Wharf", Demand: 1, Heat: 1, Risk: 1, Owner: OwnerNone}}
 	// The port's street connect and its wholesaler (#72): lots of a
 	// hundred at half the street connect's price, once $5,000 has been

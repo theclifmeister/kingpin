@@ -9,8 +9,8 @@ import (
 
 func lieutenantWorld() *World {
 	w := NewWorld(1, []StartingCity{
-		{ID: "home", Name: "Home", Products: []StartingProduct{{ID: "weed", Name: "Weed", Price: 20, Demand: 60}}},
-		{ID: "hub", Name: "Hub", Products: []StartingProduct{{ID: "weed", Name: "Weed", Price: 26, Demand: 60}}},
+		{ID: "home", Name: "Home", Products: []StartingProduct{{ID: "weed", Name: "Weed", Price: 20, Demand: 60, SupplierRatio: 0.55}}},
+		{ID: "hub", Name: "Hub", Products: []StartingProduct{{ID: "weed", Name: "Weed", Price: 26, Demand: 60, SupplierRatio: 0.55}}},
 	}, 1000, 100)
 	w.Crew.Members = []CrewMember{
 		{ID: 1, Name: "Dre", Role: "runner", Units: 100},

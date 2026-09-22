@@ -688,6 +688,7 @@ func (s *Sim) Step(w *game.World, t *game.Tick) {
 		}
 		if pages := max(0, tun.AuditEvidence-fx.AuditEvidenceCut); f.AuditDial == events.LaunderGreedy && pages > 0 {
 			h.Evidence += pages
+			h.EvidenceDay = t.Day
 			add(here, tun.AuditHeat, fmt.Sprintf("audit at %s, run greedy: the DA's file grows", f.Name))
 		} else {
 			add(here, tun.AuditHeat, fmt.Sprintf("audit at %s", f.Name))

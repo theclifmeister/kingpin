@@ -256,7 +256,7 @@ func (m *Model) pickRow(selected bool, name, under string, open bool) []string {
 	if selected {
 		head = theme.Gold.Render("▸ ") + theme.Selected.Render(" "+name+" ")
 	}
-	return []string{cut(head, m.modalInner()), cut("     "+theme.Subtle.Render(truncate(under, m.modalInner()-5)), m.modalInner())}
+	return []string{truncate(head, m.modalInner()), truncate("     "+theme.Subtle.Render(truncate(under, m.modalInner()-5)), m.modalInner())}
 }
 
 // The profile (#50): loaded once with the model, written when a run

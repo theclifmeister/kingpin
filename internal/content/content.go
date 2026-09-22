@@ -1914,12 +1914,10 @@ func decodeBytes(name string, b []byte, v any) error {
 	if err != nil {
 		return fmt.Errorf("%s: %w", name, err)
 	}
-	// An effect name nobody reads, or a trigger field nobody checks, would
-	// silently do nothing.
-	if name == "upgrades.toml" || name == "reputation.toml" || name == "dilemmas.toml" || name == "routes.toml" || name == "law.toml" || name == "buyers.toml" || name == "progression.toml" || name == "houses.toml" || name == "incidents.toml" || name == "assets.toml" || name == "intel.toml" || name == "endings.toml" || name == "characters.toml" {
-		if keys := md.Undecoded(); len(keys) > 0 {
-			return fmt.Errorf("%s: unknown key %s", name, keys[0])
-		}
+	// A key nobody reads, a misspelled tuning number or an effect name
+	// nobody folds, would silently do nothing: every file is strict.
+	if keys := md.Undecoded(); len(keys) > 0 {
+		return fmt.Errorf("%s: unknown key %s", name, keys[0])
 	}
 	return nil
 }

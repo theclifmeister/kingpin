@@ -282,3 +282,28 @@ func TestReportNumbers(t *testing.T) {
 		t.Errorf("money lines: %v", r.Money)
 	}
 }
+
+// truncate and fit cut a styled string between its escape sequences,
+// never through one, and keep the ones after the cut: the colour never
+// bleeds past the cell.
+func TestTruncateKeepsStylesWhole(t *testing.T) {
+	profile := lipgloss.ColorProfile()
+	lipgloss.SetColorProfile(0) // termenv.TrueColor, so the style is a sequence
+	defer lipgloss.SetColorProfile(profile)
+	styled := "ab " + theme.Bad.Render("hello world")
+	sequence := regexp.MustCompile(`\x1b\[[0-9;]*m`)
+	for _, w := range []int{1, 2, 5, 7, 10} {
+		for name, got := range map[string]string{"truncate": truncate(styled, w), "fit": fit(styled, w)} {
+			if lipgloss.Width(got) > w {
+				t.Errorf("%s(%d): %d cells", name, w, lipgloss.Width(got))
+			}
+			seqs := sequence.FindAllString(got, -1)
+			if strings.Contains(sequence.ReplaceAllString(got, ""), "\x1b") {
+				t.Errorf("%s(%d): a sequence cut through: %q", name, w, got)
+			}
+			if len(seqs) > 0 && seqs[len(seqs)-1] != "\x1b[0m" && seqs[len(seqs)-1] != "\x1b[m" {
+				t.Errorf("%s(%d): the colour is never closed: %q", name, w, got)
+			}
+		}
+	}
+}

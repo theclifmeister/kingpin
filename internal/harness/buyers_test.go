@@ -532,7 +532,7 @@ func TestHandoffHeat(t *testing.T) {
 		home := w.Home().ID
 		pc := cfg.Market.Product(hard)
 		for _, cid := range w.CityOrder {
-			w.AddProduct(cid, game.StartingProduct{ID: pc.ID, Name: pc.Name, Price: pc.BasePrice, Demand: pc.Demand})
+			w.AddProduct(cid, game.StartingProduct{ID: pc.ID, Name: pc.Name, Price: pc.BasePrice, Demand: pc.Demand, SupplierRatio: 0.55})
 		}
 		if deliver {
 			c := w.OfferContract(game.Contract{Buyer: "test", Name: "a tester", City: home, Product: hard, Units: 100, Premium: 1.5, HeatMul: 0.5, Since: w.Day, Expires: w.Day + 1, Due: w.Day + 1})

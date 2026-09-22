@@ -5,8 +5,8 @@ import "testing"
 func contractWorld(t *testing.T) (*World, Contract) {
 	t.Helper()
 	w := NewWorld(1, []StartingCity{
-		{ID: "a", Name: "A", Products: []StartingProduct{{ID: "weed", Name: "Weed", Price: 20, Demand: 60}}},
-		{ID: "b", Name: "B", Products: []StartingProduct{{ID: "weed", Name: "Weed", Price: 26, Demand: 60}}},
+		{ID: "a", Name: "A", Products: []StartingProduct{{ID: "weed", Name: "Weed", Price: 20, Demand: 60, SupplierRatio: 0.55}}},
+		{ID: "b", Name: "B", Products: []StartingProduct{{ID: "weed", Name: "Weed", Price: 26, Demand: 60, SupplierRatio: 0.55}}},
 	}, 500, 100)
 	w.Day = 10
 	c := w.OfferContract(Contract{Buyer: "x", Name: "a tester", City: "a", Product: "weed", Units: 30, Premium: 1.5, HeatMul: 0.4, Since: 10, Expires: 12, Due: 14})

@@ -50,8 +50,13 @@ func main() {
 		os.Exit(1)
 	}
 	p := tea.NewProgram(m, tea.WithAltScreen())
-	if _, err := p.Run(); err != nil {
+	final, err := p.Run()
+	if err != nil {
 		fmt.Fprintln(os.Stderr, "kingpin:", err)
+		os.Exit(1)
+	}
+	if fm, ok := final.(*ui.Model); ok && fm.QuitErr() != nil {
+		fmt.Fprintln(os.Stderr, "kingpin:", fm.QuitErr())
 		os.Exit(1)
 	}
 }

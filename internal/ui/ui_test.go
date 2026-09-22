@@ -3231,3 +3231,24 @@ func onHouse(t *testing.T, m *Model) {
 	}
 	panic("the fixture has no house")
 }
+
+// A save that fails on the way out is not dropped: the screen is gone,
+// so the model keeps the error for main to print; one that succeeds
+// leaves nothing to say.
+func TestQuitKeepsAFailedSave(t *testing.T) {
+	m := richModel(t, 100, 30)
+	m.quit()
+	if m.QuitErr() != nil {
+		t.Fatalf("a good save: %v", m.QuitErr())
+	}
+	blocker := filepath.Join(t.TempDir(), "file")
+	if err := os.WriteFile(blocker, nil, 0o600); err != nil {
+		t.Fatal(err)
+	}
+	m = richModel(t, 100, 30)
+	t.Setenv("KINGPIN_HOME", filepath.Join(blocker, "home")) // under a file: no directory can be made
+	m.quit()
+	if m.QuitErr() == nil || !strings.Contains(m.QuitErr().Error(), "not saved") {
+		t.Fatalf("a failed save on quit: %v", m.QuitErr())
+	}
+}

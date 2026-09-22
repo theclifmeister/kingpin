@@ -258,3 +258,25 @@ func TestWarKeys(t *testing.T) {
 		t.Fatalf("y on the stand-down: mode %v war %q", m.mode, w.War)
 	}
 }
+
+// The spy dialog with more than one faction on the ground has two pages
+// (#45): tab turns to the crew and shift+tab turns back to the factions
+// with the faction still chosen.
+func TestSpyDialogTurnsItsPages(t *testing.T) {
+	m := tableModel(t, 120, 40)
+	m.w.Crew.Members = append(m.w.Crew.Members, game.CrewMember{ID: 99, Name: "Dre", Role: "runner", Skill: 50, Loyalty: 80})
+	m.Update(key("9"))
+	m.Update(key("p"))
+	if m.mode != modeSpy || m.spy.single || m.spy.step != 0 {
+		t.Fatalf("p with %d factions: mode %v single %v step %d status %q", len(m.spyFactions()), m.mode, m.spy.single, m.spy.step, m.status)
+	}
+	m.Update(key("down"))
+	m.Update(key("tab"))
+	if m.mode != modeSpy || m.spy.step != 1 {
+		t.Fatalf("tab on the factions: mode %v step %d", m.mode, m.spy.step)
+	}
+	m.Update(key("shift+tab"))
+	if m.mode != modeSpy || m.spy.step != 0 || m.spy.faction != 1 {
+		t.Fatalf("shift+tab on the crew: mode %v step %d faction %d", m.mode, m.spy.step, m.spy.faction)
+	}
+}
