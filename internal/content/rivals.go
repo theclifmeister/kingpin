@@ -263,17 +263,7 @@ type WarTuning struct {
 }
 
 // Force is the dial as events.Force, and whether the table is on.
-func (w WarTuning) Force() (events.Force, bool) {
-	switch w.Dial {
-	case "warn":
-		return events.ForceWarn, true
-	case "push":
-		return events.ForcePush, true
-	case "hit":
-		return events.ForceHit, true
-	}
-	return 0, false
-}
+func (w WarTuning) Force() (events.Force, bool) { return events.ParseForce(w.Dial) }
 
 // DealKinds are the deals that can be proposed, in the order the UI
 // lists them. The joint shipment waits on routes (#30).
@@ -289,8 +279,8 @@ func (r RivalsConfig) validate() error {
 			return fmt.Errorf("no [personality.%s] table", p)
 		}
 	}
-	for _, f := range []events.Force{events.ForceWarn, events.ForcePush, events.ForceHit} {
-		if _, ok := r.Force[f.String()]; !ok {
+	for _, f := range events.ForceNames() {
+		if _, ok := r.Force[f]; !ok {
 			return fmt.Errorf("no [force.%s] table", f)
 		}
 	}

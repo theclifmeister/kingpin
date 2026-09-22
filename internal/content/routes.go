@@ -84,14 +84,7 @@ func (r RoutesConfig) Route(id string) *RouteConfig {
 
 // DialFor returns the tuning for a ship dial position.
 func (r RoutesConfig) DialFor(d events.Ship) ShipDialConfig {
-	switch d {
-	case events.ShipSlow:
-		return r.Dial.Slow
-	case events.ShipFast:
-		return r.Dial.Fast
-	default:
-		return r.Dial.Normal
-	}
+	return threeWay(int(d), r.Dial.Slow, r.Dial.Normal, r.Dial.Fast)
 }
 
 // validate checks the routes join cities that exist, the numbers make

@@ -24,27 +24,9 @@ func (s *Sim) PersonalHeat(w *game.World) float64 {
 	return content.Scale(w.Player.Reputation.Notoriety, s.rep.NotorietyHeat)
 }
 
-func (s *Sim) dialHeat(d events.Dial) float64 {
-	switch d {
-	case events.DialQuiet:
-		return s.market.Dial.Quiet.Heat
-	case events.DialAggressive:
-		return s.market.Dial.Aggressive.Heat
-	default:
-		return s.market.Dial.Normal.Heat
-	}
-}
+func (s *Sim) dialHeat(d events.Dial) float64 { return s.market.Dial.For(d).Heat }
 
-func (s *Sim) dialFill(d events.Dial) float64 {
-	switch d {
-	case events.DialQuiet:
-		return s.market.Dial.Quiet.Fill
-	case events.DialAggressive:
-		return s.market.Dial.Aggressive.Fill
-	default:
-		return s.market.Dial.Normal.Fill
-	}
-}
+func (s *Sim) dialFill(d events.Dial) float64 { return s.market.Dial.For(d).Fill }
 
 // SaleHeat is the heat drawn in a city by trying to move wanted units of
 // a product there at a dial. Heat follows volume: every unit is a
