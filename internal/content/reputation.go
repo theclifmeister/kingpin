@@ -60,21 +60,11 @@ type ReputationFX struct {
 
 // Scale is v at axis 0 and v times (1 + full) at axis 100: how an effect
 // that adds grows with an axis.
-func Scale(axis, full float64) float64 { return 1 + full*clamp01(axis/100) }
+func Scale(axis, full float64) float64 { return 1 + full*max(0, min(1, axis/100)) }
 
 // Cut is 1 at axis 0 and 1 - full at axis 100: how an effect that takes
 // away grows with an axis.
-func Cut(axis, full float64) float64 { return 1 - full*clamp01(axis/100) }
-
-func clamp01(v float64) float64 {
-	if v < 0 {
-		return 0
-	}
-	if v > 1 {
-		return 1
-	}
-	return v
-}
+func Cut(axis, full float64) float64 { return 1 - full*max(0, min(1, axis/100)) }
 
 // validate checks the [reputation] table: a total and a band to count
 // in, and a decay that is a fraction.

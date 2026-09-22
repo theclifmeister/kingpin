@@ -36,12 +36,12 @@ func TestInvestDialog(t *testing.T) {
 		t.Fatalf("the FRONTS table has no level or income column:\n%s", view)
 	}
 	m.Update(key("u"))
-	if m.mode != modeInvest || m.inv.front != f.ID {
-		t.Fatalf("i on a front: mode %v front %q", m.mode, m.inv.front)
+	if m.mode != modeInvest || m.amt.subject != f.ID {
+		t.Fatalf("i on a front: mode %v front %q", m.mode, m.amt.subject)
 	}
 	assertFits(t, m.View(), 80, 24, "invest dialog")
-	if m.inv.levels.max != 2 {
-		t.Fatalf("the field's max is %d with %s clean and two levels at %s, want 2", m.inv.levels.max, money(w.Player.CleanCash), money(cost))
+	if m.amt.max != 2 {
+		t.Fatalf("the field's max is %d with %s clean and two levels at %s, want 2", m.amt.max, money(w.Player.CleanCash), money(cost))
 	}
 	m.Update(key("esc"))
 	if m.mode != modePlay || w.Fronts[0].Level != 0 || w.Player.CleanCash != cost+1 {
@@ -72,8 +72,8 @@ func TestInvestDialog(t *testing.T) {
 	m.Update(key("9"))
 	m.Update(key("9"))
 	m.Update(key("enter"))
-	if m.mode != modeInvest || m.inv.err == "" {
-		t.Fatalf("99 levels: mode %v err %q", m.mode, m.inv.err)
+	if m.mode != modeInvest || m.amt.err == "" {
+		t.Fatalf("99 levels: mode %v err %q", m.mode, m.amt.err)
 	}
 	m.Update(key("esc"))
 	w.Fronts[0].Level = l.MaxLevel(w.Fronts[0])

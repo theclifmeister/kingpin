@@ -21,7 +21,7 @@ func ReadmeKeys() string {
 			if !k.global {
 				var names []string
 				for _, s := range k.screens {
-					names = append(names, screenOf[s])
+					names = append(names, screens[s].word)
 				}
 				where = strings.Join(names, ", ")
 			}

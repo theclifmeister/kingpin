@@ -6,6 +6,7 @@ import (
 
 	"github.com/theclifmeister/kingpin/internal/content"
 	"github.com/theclifmeister/kingpin/internal/events"
+	"github.com/theclifmeister/kingpin/internal/format"
 	"github.com/theclifmeister/kingpin/internal/game"
 	"github.com/theclifmeister/kingpin/internal/ui/theme"
 )
@@ -63,7 +64,7 @@ func (m *Model) cycleLaunder() {
 		m.say(fmt.Sprintf("Launder dial %s. %s Buy a front %s to use it.", d, launderBlurb(d), screenPointer(screenLedger)))
 		return
 	}
-	m.say(fmt.Sprintf("Launder dial %s: washing up to %s/day, audit risk %.1f%%/day. %s", d, money(m.rules.Laundering.Capacity(m.w)), m.rules.Laundering.AnyAuditRisk(m.w)*100, launderBlurb(d)))
+	m.say(fmt.Sprintf("Launder dial %s: washing up to %s/day, audit risk %s/day. %s", d, money(m.rules.Laundering.Capacity(m.w)), format.Pct(m.rules.Laundering.AnyAuditRisk(m.w), 1), launderBlurb(d)))
 }
 
 func launderBlurb(d events.Launder) string {
@@ -256,7 +257,7 @@ func (m *Model) viewLedger() string {
 
 	line(theme.PanelTitle.Render("LEDGER"))
 	line(theme.Gold.Render("dirty "+cash(w.Player.DirtyCash)) + sub(" · ") + theme.Good.Render("clean "+cash(w.Player.CleanCash)) + sub(" · ") + theme.Gold.Render("offshore "+cash(w.Offshore)) + sub(fmt.Sprintf(" · seized %s lifetime", cash(w.Stats.Seized))))
-	line(sub("launder  ") + launderRow(w.Laundering.Dial) + sub(fmt.Sprintf("   audit %.1f%%/day · up to %s/day · legit %s/day", l.AnyAuditRisk(w)*100, money(l.Capacity(w)), money(l.LegitIncome(w)))))
+	line(sub("launder  ") + launderRow(w.Laundering.Dial) + sub(fmt.Sprintf("   audit %s/day · up to %s/day · legit %s/day", format.Pct(l.AnyAuditRisk(w), 1), money(l.Capacity(w)), money(l.LegitIncome(w)))))
 	if thr := m.rules.Heat.DirtyCashThreshold(w); thr > 0 && w.Player.DirtyCash > thr {
 		line(theme.Warning.Render(fmt.Sprintf("▲ Dirty cash over %s draws heat every day it sits there.", cash(thr))))
 	}

@@ -15,12 +15,20 @@ type CityConfig struct {
 // TaxTuning is city.toml [tax] (#231): once you hold more than Share of
 // a city's corners (and MinHeld at least), every corner nobody holds
 // there is worked by independents who pay you Cut of its trade a night
-// in dirty cash. Cut at 0 boxes it.
+// in dirty cash, jittered by Jitter either way (#275: the 0.9..1.1 it
+// was, as data). Cut at 0 boxes it.
 type TaxTuning struct {
 	Share   float64 `toml:"share"`
 	Cut     float64 `toml:"cut"`
 	MinHeld int     `toml:"min_held"`
+	Jitter  float64 `toml:"jitter"`
 }
+
+// Jittered is the night's multiplier on the cut off a draw u in [0, 1):
+// 1 - Jitter + 2 x Jitter x u, which at a jitter of 0.1 is the
+// 0.9 + 0.2u it replaced to the bit (1 - 0.1 and 2 x 0.1 are exactly
+// 0.9 and 0.2 in a float64).
+func (t TaxTuning) Jittered(u float64) float64 { return 1 - t.Jitter + 2*t.Jitter*u }
 
 // On reports whether the tax is in the file.
 func (t TaxTuning) On() bool { return t.Cut > 0 && t.Share > 0 }
@@ -115,12 +123,7 @@ func (c CityEntry) HeatMul() float64 {
 
 // Corner returns the city's corner with id, or nil.
 func (c CityEntry) Corner(id string) *CornerConfig {
-	for i := range c.Corners {
-		if c.Corners[i].ID == id {
-			return &c.Corners[i]
-		}
-	}
-	return nil
+	return find(c.Corners, func(e *CornerConfig) bool { return e.ID == id })
 }
 
 type TerritoryTuning struct {
@@ -155,12 +158,7 @@ func (c CityConfig) Corner(id string) *CornerConfig {
 
 // City returns the city with id, or nil.
 func (c CityConfig) City(id string) *CityEntry {
-	for i := range c.Cities {
-		if c.Cities[i].ID == id {
-			return &c.Cities[i]
-		}
-	}
-	return nil
+	return find(c.Cities, func(e *CityEntry) bool { return e.ID == id })
 }
 
 // Home is the first city: where a run starts.
@@ -204,6 +202,9 @@ func (c CityConfig) validate() error {
 	}
 	if c.Home().Corner(c.Territory.Start) == nil {
 		return fmt.Errorf("start corner %q is not in %s", c.Territory.Start, c.Home().ID)
+	}
+	if j := c.Tax.Jitter; j < 0 || j >= 1 {
+		return fmt.Errorf("[tax] jitter %.2f must be in 0..1: a night's tax is cut times 1 - jitter to 1 + jitter", j)
 	}
 	return c.Deed.validate()
 }

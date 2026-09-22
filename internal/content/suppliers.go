@@ -89,12 +89,7 @@ func (s SupplierConfig) QualityOf(product string, def float64) float64 {
 
 // Supplier returns the connect with id, or nil.
 func (c SuppliersConfig) Supplier(id string) *SupplierConfig {
-	for i := range c.Deck {
-		if c.Deck[i].ID == id {
-			return &c.Deck[i]
-		}
-	}
-	return nil
+	return find(c.Deck, func(e *SupplierConfig) bool { return e.ID == id })
 }
 
 // Bands is how many relationship bands there are: one entry of the

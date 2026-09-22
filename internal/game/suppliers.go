@@ -138,12 +138,7 @@ func (s Supplier) Owes() bool { return s.Debt > 0 }
 
 // Supplier returns the connect with id, or nil.
 func (w *World) Supplier(id string) *Supplier {
-	for i := range w.Suppliers {
-		if w.Suppliers[i].ID == id {
-			return &w.Suppliers[i]
-		}
-	}
-	return nil
+	return find(w.Suppliers, func(e *Supplier) bool { return e.ID == id })
 }
 
 // SuppliersIn lists the connects in a city, in the order seeded.

@@ -79,7 +79,7 @@ func TestEveryKeyIsInTheTable(t *testing.T) {
 			}
 			for _, k := range rawKeys(b) {
 				if prev, dup := own[k]; dup && b.when == nil && prev.when == nil {
-					t.Errorf("%s: %q is both %s and %s", screenOf[s], k, prev.label, b.label)
+					t.Errorf("%s: %q is both %s and %s", screens[s].word, k, prev.label, b.label)
 				}
 				own[k] = b
 			}
@@ -94,11 +94,11 @@ func TestEveryKeyIsInTheTable(t *testing.T) {
 			switch {
 			case found, ownHere, len(k) != 1:
 				if m.status != "" && pointerRE.MatchString(m.status) {
-					t.Errorf("%s: %q is taken here and was pointed away: %q", screenOf[s], k, m.status)
+					t.Errorf("%s: %q is taken here and was pointed away: %q", screens[s].word, k, m.status)
 				}
 			default:
 				if p := pointer(k); p != "" && (m.status != p || !pointerRE.MatchString(p)) {
-					t.Errorf("%s: %q gave %q, want the pointer %q", screenOf[s], k, m.status, p)
+					t.Errorf("%s: %q gave %q, want the pointer %q", screens[s].word, k, m.status, p)
 				}
 			}
 			if m.quitting {
@@ -120,19 +120,19 @@ func TestLegendMatchesTable(t *testing.T) {
 		m.status = ""
 		keys := m.keysFor(s)
 		if len(keys) < 3 || keys[0].key != "n" || keys[0].label != "end day" || keys[len(keys)-1].key != "?" {
-			t.Errorf("%s: keysFor is %v", screenOf[s], keys)
+			t.Errorf("%s: keysFor is %v", screens[s].word, keys)
 		}
 		for _, b := range keys {
 			if b.key == "q" {
-				t.Errorf("%s: q is in the pane's KEYS", screenOf[s])
+				t.Errorf("%s: q is in the pane's KEYS", screens[s].word)
 			}
 			if !b.names(s) {
-				t.Errorf("%s: the pane lists %s %s, which does not name the screen", screenOf[s], b.key, b.label)
+				t.Errorf("%s: the pane lists %s %s, which does not name the screen", screens[s].word, b.key, b.label)
 			}
 		}
 		// The pane's KEYS rows, read off the render: every key and its
 		// label in order, two a row.
-		rows := strings.Split(stripANSI(m.View()), "\n")
+		rows := viewLines(m)
 		var text string
 		in := false
 		for _, r := range rows {
@@ -156,13 +156,13 @@ func TestLegendMatchesTable(t *testing.T) {
 			pair := b.key + " " + m.labelOf(b)
 			i := strings.Index(text[at:], pair)
 			if i < 0 {
-				t.Errorf("%s: the pane's KEYS lack %q after %q in %q", screenOf[s], pair, text[:at], text)
+				t.Errorf("%s: the pane's KEYS lack %q after %q in %q", screens[s].word, pair, text[:at], text)
 				continue
 			}
 			at += i + len(pair)
 		}
 		if rest := strings.TrimSpace(text[at:]); rest != "" {
-			t.Errorf("%s: the pane's KEYS carry %q past the table", screenOf[s], rest)
+			t.Errorf("%s: the pane's KEYS carry %q past the table", screens[s].word, rest)
 		}
 	}
 }
@@ -203,7 +203,7 @@ func TestGlobalsAreListedWhereUsed(t *testing.T) {
 				listed = listed || x == s
 			}
 			if b.names(s) != listed {
-				t.Errorf("%s %s names %s: %v, want %v", b.key, b.label, screenOf[s], b.names(s), listed)
+				t.Errorf("%s %s names %s: %v, want %v", b.key, b.label, screens[s].word, b.names(s), listed)
 			}
 			// Pressed anywhere, the key is taken: by the global or by the
 			// screen's own binding for it, never pointed away (␣ at 120
@@ -212,7 +212,7 @@ func TestGlobalsAreListedWhereUsed(t *testing.T) {
 			m.status = ""
 			for _, k := range rawKeys(b) {
 				if _, found, own := m.lookup(k); !found && !own {
-					t.Errorf("%s: %q is not taken by any binding", screenOf[s], k)
+					t.Errorf("%s: %q is not taken by any binding", screens[s].word, k)
 				}
 			}
 		}

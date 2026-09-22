@@ -34,6 +34,11 @@ structure_evidence = 1      # pages per lot of clean cash moved offshore over la
 taskforce_cash = 25000000   # the task force (#48) forms only with an asset owned or dirty cash over this: a tier-3
                             # player never meets it, and the pile a tier-4 operation sits on past what its fronts
                             # cover is where it bites (#191)
+bust_days = 30              # a bust that took product stays on the record this long: the connect in that city holds
+                            # it against you (suppliers.toml, #72), a month like the seizures
+fall_heat = 50              # the fall guy (#49, upgrades.toml fall_guys): the case closes on him, the file is wiped
+                            # and every city's heat drops to this ...
+fall_cash = 0.5             # ... and this share of the dirty cash and of the clean goes on making it stick
 
 [[response]]
 level = "patrol"

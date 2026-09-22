@@ -4,8 +4,6 @@ import (
 	"strings"
 	"testing"
 
-	tea "github.com/charmbracelet/bubbletea"
-
 	"github.com/theclifmeister/kingpin/internal/content"
 	"github.com/theclifmeister/kingpin/internal/game"
 )
@@ -57,7 +55,7 @@ func TestTellIsDrawn(t *testing.T) {
 		}
 		assertFits(t, m.View(), sz[0], sz[1], "dashboard with the tell")
 		m.Update(key("8"))
-		if line := strings.Split(stripANSI(m.View()), "\n")[2]; !strings.Contains(line, word) {
+		if line := viewLines(m)[2]; !strings.Contains(line, word) {
 			t.Errorf("%dx%d: the rivals screen's leader line does not read %q: %q", sz[0], sz[1], word, line)
 		}
 		assertFits(t, m.View(), sz[0], sz[1], "rivals with the tell")
@@ -85,11 +83,7 @@ func TestFastForwardStopsOnTheTell(t *testing.T) {
 	}
 	cfg.Rivals.Pace.ClaimScaleMin, cfg.Rivals.Pace.ClaimScaleMax = 1, 1
 	t.Setenv("KINGPIN_HOME", t.TempDir())
-	m, err := New(cfg, Options{Anim: false})
-	if err != nil {
-		t.Fatal(err)
-	}
-	m.Update(tea.WindowSizeMsg{Width: 80, Height: 24})
+	m := sizedModel(t, cfg, Options{Anim: false}, 80, 24)
 	m.startRun(7)
 	w := m.w
 	home := w.Home()

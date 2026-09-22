@@ -22,9 +22,9 @@ func (m *Model) keyStart(key string) (tea.Model, tea.Cmd) {
 	rows := game.SlotCount + 1
 	switch key {
 	case "up", "k":
-		m.startChoice = (m.startChoice + rows - 1) % rows
+		wrapCursor(&m.startChoice, -1, rows)
 	case "down", "j":
-		m.startChoice = (m.startChoice + 1) % rows
+		wrapCursor(&m.startChoice, 1, rows)
 	case "enter":
 		return m.pickStart()
 	case "D":

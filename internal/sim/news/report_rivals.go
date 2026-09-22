@@ -157,7 +157,7 @@ func (r *reporter) reportRivals(e events.Event) bool {
 			rep.Money = append(rep.Money, fmt.Sprintf("Bought off %s of %s's muscle -%s", format.Plural(ev.Got, "head"), ev.Rival, format.Money(ev.Cost-ev.Refund)))
 		}
 	case events.RivalUndercut:
-		rep.Territory = append(rep.Territory, fmt.Sprintf("%s's crew are undercutting you on %s: -%.0f%% demand there.", ev.Rival, strings.Join(ev.Corners, ", "), ev.Share*100))
+		rep.Territory = append(rep.Territory, fmt.Sprintf("%s's crew are undercutting you on %s: -%s demand there.", ev.Rival, strings.Join(ev.Corners, ", "), format.Pct(ev.Share, 0)))
 	case events.RivalAbandoned:
 		d := base
 		d.Corner, d.Rival = ev.Name, ev.Rival

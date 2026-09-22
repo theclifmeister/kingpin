@@ -46,13 +46,11 @@ func (s *Sim) ScoutCost() int { return s.cfg.Books.ScoutCost }
 func (s *Sim) ScoutOdds(w *game.World, r *game.RivalState) float64 {
 	tun := s.cfg.Books
 	best := 0
-	for _, m := range w.Crew.Members {
-		if m.Role == game.RoleEnforcer && m.Skill > best {
-			best = m.Skill
-		}
+	if m := w.Crew.Strongest(game.RoleEnforcer); m != nil {
+		best = max(0, m.Skill)
 	}
 	p := tun.ScoutBase + tun.ScoutSkill*float64(best)/100 + tun.ScoutLearn*float64(r.Scouted)
-	return math.Max(0, math.Min(1, p))
+	return max(0, min(1, p))
 }
 
 // Stale reports whether the books as last read are stale_days old or
@@ -109,7 +107,7 @@ func (s *Sim) RaidReady(r *game.RivalState, day int) bool {
 // a robbery is not a fight for ground, and a rival robbed every few
 // nights that claimed as fast as it could held more of the city than
 // one left alone.
-func (s *Sim) boost(w *game.World, t *game.Tick, r *game.RivalState, rng rand, o *game.StrikeOrder, c *game.Corner) {
+func (s *Sim) boost(w *game.World, t *game.Tick, r *game.RivalState, rng game.Rand, o *game.StrikeOrder, c *game.Corner) {
 	b := s.cfg.Boost
 	fc := s.cfg.ForceFor(o.Force)
 	ev := events.RivalBoosted{
@@ -291,5 +289,5 @@ func (s *Sim) heat(r *game.RivalState, pushes int) {
 	}
 	r.Heat += tp.PushHeat * float64(pushes)
 	r.Heat -= r.Heat * tp.Decay
-	r.Heat = math.Max(0, math.Min(100, r.Heat))
+	r.Heat = max(0, min(100, r.Heat))
 }

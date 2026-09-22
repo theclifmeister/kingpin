@@ -6,12 +6,13 @@ import (
 	"github.com/theclifmeister/kingpin/internal/content"
 	"github.com/theclifmeister/kingpin/internal/events"
 	"github.com/theclifmeister/kingpin/internal/game"
+	"github.com/theclifmeister/kingpin/internal/gametest"
 	"github.com/theclifmeister/kingpin/internal/sim"
 	"github.com/theclifmeister/kingpin/internal/sim/world"
 )
 
 func tick(w *game.World, d int) *game.Tick {
-	return &game.Tick{Day: d, RNG: game.RNGFor(w.Seed, d), Seed: w.Seed}
+	return gametest.TickOn(w, d)
 }
 
 // step runs the sim one day and reports what it dealt.

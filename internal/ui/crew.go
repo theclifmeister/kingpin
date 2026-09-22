@@ -8,6 +8,7 @@ import (
 	"github.com/charmbracelet/lipgloss"
 
 	"github.com/theclifmeister/kingpin/internal/events"
+	"github.com/theclifmeister/kingpin/internal/format"
 	"github.com/theclifmeister/kingpin/internal/game"
 	"github.com/theclifmeister/kingpin/internal/ui/theme"
 )
@@ -96,17 +97,17 @@ func (m *Model) confirmInvestigate() {
 		m.refuse("Can't investigate: " + err.Error())
 		return
 	}
-	m.say(fmt.Sprintf("Questions get asked tonight. Odds of a name ~%.0f%%.", m.rules.Crew.InvestigateOdds(m.w)*100))
+	m.say("Questions get asked tonight. Odds of a name ~" + format.Pct(m.rules.Crew.InvestigateOdds(m.w), 0) + ".")
 }
 
 func (m *Model) investigateConfirm() string {
 	w := m.w
 	odds := m.rules.Crew.InvestigateOdds(w)
+	// The best enforcer on the books, at work or not, as the odds read
+	// them (CrewState.Strongest, #275); one at skill 0 asks nothing.
 	best := 0
-	for _, c := range w.Crew.Members {
-		if c.Role == game.RoleEnforcer && c.Skill > best {
-			best = c.Skill
-		}
+	if e := w.Crew.Strongest(game.RoleEnforcer); e != nil {
+		best = max(0, e.Skill)
 	}
 	who := "With no enforcer on the payroll you are asking yourself."
 	if best > 0 {
@@ -115,7 +116,7 @@ func (m *Model) investigateConfirm() string {
 	body := []string{
 		fmt.Sprintf("Somebody goes through the crew tonight for %s.", money(m.rules.Crew.InvestigateCost())),
 		who,
-		fmt.Sprintf("If somebody is talking to the police, ~%.0f%% it names them.", odds*100),
+		"If somebody is talking to the police, ~" + format.Pct(odds, 0) + " it names them.",
 	}
 	if w.Crew.Investigated > 0 {
 		body = append(body, theme.Subtle.Render(fmt.Sprintf("Every empty night so far (%d) narrows it down.", w.Crew.Investigated)))
@@ -154,7 +155,7 @@ func (m *Model) payOffConfirm() string {
 		return m.modal("PAY OFF", []string{"They are gone."}, m.modalFooter())
 	}
 	body := []string{
-		fmt.Sprintf("%s for %s: loyalty %.0f → %.0f.", money(m.rules.Crew.PayoffCost(*c)), c.Name, c.Loyalty, min(100, c.Loyalty+m.rules.Crew.PayoffLoyalty())),
+		fmt.Sprintf("%s for %s: loyalty %.0f %s %.0f.", money(m.rules.Crew.PayoffCost(*c)), c.Name, c.Loyalty, format.Arrow, min(100, c.Loyalty+m.rules.Crew.PayoffLoyalty())),
 		theme.Subtle.Render("It buys loyalty, not silence: somebody already talking keeps talking."),
 	}
 	return m.modal("PAY OFF "+c.Name+"?", body, m.modalFooter())
@@ -521,7 +522,7 @@ func (m *Model) personLines(c game.CrewMember, onPayroll bool) []string {
 		}
 		lines = append(lines, keyRow("b", bail))
 	}
-	lines = append(lines, keyRow("$", fmt.Sprintf("pay off for %s: %.0f → %.0f", money(m.rules.Crew.PayoffCost(c)), c.Loyalty, min(100, c.Loyalty+m.rules.Crew.PayoffLoyalty()))))
+	lines = append(lines, keyRow("$", fmt.Sprintf("pay off for %s: %.0f %s %.0f", money(m.rules.Crew.PayoffCost(c)), c.Loyalty, format.Arrow, min(100, c.Loyalty+m.rules.Crew.PayoffLoyalty()))))
 	return append(lines, m.askAroundRow())
 }
 
@@ -534,7 +535,7 @@ func (m *Model) askAroundRow() string {
 	if m.w.Today.Investigation != nil {
 		return keyRow("i", theme.Subtle.Render("ask around: already asking"))
 	}
-	return keyRow("i", fmt.Sprintf("ask around %s, names ~%.0f%%", money(m.rules.Crew.InvestigateCost()), m.rules.Crew.InvestigateOdds(m.w)*100))
+	return keyRow("i", fmt.Sprintf("ask around %s, names ~%s", money(m.rules.Crew.InvestigateCost()), format.Pct(m.rules.Crew.InvestigateOdds(m.w), 0)))
 }
 
 // temper is a lieutenant's personality as the pane shows it: the word
@@ -622,7 +623,7 @@ func (m *Model) crewSection() section {
 			lines = append(lines, wrapped(theme.Warning, "Buy "+screenPointer(screenLedger)+".")...)
 		} else {
 			add, cut := m.accountants()
-			lines = append(lines, row("accountant", fmt.Sprintf("+%s/day a front", money(add))), row("", sub(fmt.Sprintf("audit risk cut %.0f%%", cut*100))))
+			lines = append(lines, row("accountant", fmt.Sprintf("+%s/day a front", money(add))), row("", sub("audit risk cut "+format.Pct(cut, 0))))
 		}
 	}
 	for _, cid := range w.CityOrder {
@@ -670,4 +671,14 @@ func (m *Model) wounded() int {
 		}
 	}
 	return n
+}
+
+// crewMove walks the crew screen's rows: the roster, then the
+// candidates.
+func (m *Model) crewMove(dy int) {
+	if dy < 0 && m.crewCursor > 0 {
+		m.crewCursor--
+	} else if dy > 0 && m.crewCursor < len(m.crewRows())-1 {
+		m.crewCursor++
+	}
 }

@@ -8,6 +8,7 @@ import (
 
 	"github.com/theclifmeister/kingpin/internal/content"
 	"github.com/theclifmeister/kingpin/internal/events"
+	"github.com/theclifmeister/kingpin/internal/format"
 	"github.com/theclifmeister/kingpin/internal/game"
 	"github.com/theclifmeister/kingpin/internal/ui/theme"
 )
@@ -216,7 +217,7 @@ func sureBar(f game.Fact, day int) string {
 	case c < 0.7:
 		style = theme.Warning
 	}
-	return barText(c, 8, nil, fmt.Sprintf(" %.0f%%", c*100), style)
+	return barText(c, 8, nil, " "+format.Pct(c, 0), style)
 }
 
 // viewIntel is MAIN on the intel screen: the file as a table over the
@@ -251,7 +252,7 @@ func (m *Model) viewIntel() string {
 		}
 	}
 	if o := w.Today.Cop; o != nil {
-		line(theme.Gold.Render(fmt.Sprintf("Tonight  a cop takes %s and talks: ~%.0f%% straight", money(o.Amount), m.intelTuning().Accuracy(o.Amount)*100)))
+		line(theme.Gold.Render(fmt.Sprintf("Tonight  a cop takes %s and talks: ~%s straight", money(o.Amount), format.Pct(m.intelTuning().Accuracy(o.Amount), 0))))
 	}
 	return strings.Join(ls, "\n")
 }
@@ -273,7 +274,7 @@ func (m *Model) nextReport(s game.CrewMember) string {
 	}
 	under := m.w.Day - s.UndercoverDay
 	due := tun.SpyDays - under%tun.SpyDays
-	return fmt.Sprintf("next in %dd · ~%.0f%% right", due, tun.SpyOdds(s.Skill)*100)
+	return fmt.Sprintf("next in %dd · ~%s right", due, format.Pct(tun.SpyOdds(s.Skill), 0))
 }
 
 // intelTuning is intel.toml's table.
@@ -297,7 +298,7 @@ func (m *Model) intelDetails() []section {
 			row("source", fmt.Sprint(m.sourceWord(*f))),
 		}
 		if f.Stale > 0 {
-			lines = append(lines, row("fades", fmt.Sprintf("−%.0f%%/day · gone at %.0f%%", f.Stale*100, f.Forget*100)))
+			lines = append(lines, row("fades", fmt.Sprintf("−%s/day · gone at %s", format.Pct(f.Stale, 0), format.Pct(f.Forget, 0))))
 		}
 		lines = append(lines, wrapped(theme.Subtle, m.story(*f))...)
 		sel = section{strings.ToUpper(title), lines}
@@ -305,7 +306,7 @@ func (m *Model) intelDetails() []section {
 		sel = section{"THE FILE", wrapped(theme.Subtle, "Nothing known yet. A push shows you their muscle, a raid the chief, a seizure the road; the rest is bought or sent out from under.")}
 	}
 	sel.lines = append(sel.lines,
-		keyRow("$", fmt.Sprintf("pay a cop: %s, ~%.0f%% straight", money(tun.CopPrice), tun.CopAccuracy*100)),
+		keyRow("$", fmt.Sprintf("pay a cop: %s, ~%s straight", money(tun.CopPrice), format.Pct(tun.CopAccuracy, 0))),
 		keyRow("p", fmt.Sprintf("plant a spy: a report every %s", plural(tun.SpyDays, "day"))))
 	var spies []string
 	for _, s := range w.Crew.Spies() {
@@ -313,20 +314,14 @@ func (m *Model) intelDetails() []section {
 		spies = append(spies, row(truncate(s.Name, paneLabelW), fmt.Sprintf("with %s · %s", m.rivalName(r), m.nextReport(s))))
 	}
 	if len(spies) == 0 {
-		spies = wrapped(theme.Subtle, fmt.Sprintf("Nobody under. A spy stops selling and reports every %s; found, %.0f%% come home talking and the rest are shot.", plural(tun.SpyDays, "day"), tun.TurnShare*100))
+		spies = wrapped(theme.Subtle, fmt.Sprintf("Nobody under. A spy stops selling and reports every %s; found, %s come home talking and the rest are shot.", plural(tun.SpyDays, "day"), format.Pct(tun.TurnShare, 0)))
 	}
 	return []section{sel, {"SPIES", spies}}
 }
 
 // The cop dialog (modePayCop): one page, a money field whose blank is
-// the price, what the money buys and how straight it is.
-type copDialog struct {
-	amt numberField
-	err string
-}
-
-func (d *copDialog) page() int           { return 0 }
-func (d *copDialog) field() *numberField { return &d.amt }
+// the price, what the money buys and how straight it is. It is an
+// amountDialog (#275).
 
 // askPayCop opens the cop dialog.
 func (m *Model) askPayCop() {
@@ -341,47 +336,32 @@ func (m *Model) askPayCop() {
 		m.refuse("Can't pay a cop: a cop takes dirty cash, and you have none.")
 		return
 	}
-	m.cop = copDialog{amt: newNumberField("blank = price")}
-	m.cop.amt.money = true
-	m.cop.amt.max = m.w.Player.DirtyCash
-	m.cop.amt.Focus()
-	m.mode = modePayCop
+	m.openAmount(modePayCop, "blank = price", m.w.Player.DirtyCash, true, "")
 }
 
 // copAmount is the amount the field reads: blank is the price, or the
 // dirty cash where that is less.
 func (m *Model) copAmount() (int, error) {
-	return parseQtyInput(m.cop.amt.Value(), min(m.intelTuning().CopPrice, m.w.Player.DirtyCash))
+	return readQty(m.amt.numberField, min(m.intelTuning().CopPrice, m.w.Player.DirtyCash))
 }
 
 func (m *Model) keyPayCop(k tea.KeyMsg) (tea.Model, tea.Cmd) {
-	key := k.String()
-	m.cop.err = ""
-	switch key {
-	case "esc", "q":
-		m.mode = modePlay
-		return m, nil
-	case "enter":
-		m.confirmPayCop()
-		return m, nil
-	}
-	m.cop.amt.max = m.w.Player.DirtyCash
-	return m, m.cop.amt.Update(k)
+	return m.keyAmount(k, func() int { return m.w.Player.DirtyCash }, m.confirmPayCop)
 }
 
 // confirmPayCop pays, or shows why it cannot.
 func (m *Model) confirmPayCop() {
 	amt, err := m.copAmount()
 	if err != nil {
-		m.cop.err = dialogError(err)
+		m.amt.err = dialogError(err)
 		return
 	}
 	if err := m.sess.PayCop(amt); err != nil {
-		m.cop.err = dialogError(err)
+		m.amt.err = dialogError(err)
 		return
 	}
 	m.mode = modePlay
-	m.say(fmt.Sprintf("A cop takes %s. What they know of the chief and the police here is in the morning's report, ~%.0f%% straight.", money(amt), m.intelTuning().Accuracy(amt)*100))
+	m.say(fmt.Sprintf("A cop takes %s. What they know of the chief and the police here is in the morning's report, ~%s straight.", money(amt), format.Pct(m.intelTuning().Accuracy(amt), 0)))
 }
 
 // viewPayCop is the dialog.
@@ -392,8 +372,7 @@ func (m *Model) viewPayCop() string {
 	if err != nil {
 		amt = 0
 	}
-	field := m.cop.amt
-	field.max = w.Player.DirtyCash
+	field := m.amountField(w.Player.DirtyCash)
 	body := []string{
 		m.inHand(),
 		row("amount", field.View()),
@@ -403,13 +382,13 @@ func (m *Model) viewPayCop() string {
 		if amt > w.Player.DirtyCash {
 			style = theme.Bad
 		}
-		body = append(body, row("straight", style.Render(fmt.Sprintf("~%.0f%%", tun.Accuracy(amt)*100))))
+		body = append(body, row("straight", style.Render("~"+format.Pct(tun.Accuracy(amt), 0))))
 	}
 	body = append(body, "")
-	body = append(body, m.subtle(fmt.Sprintf("Buys what Chief %s is like and the %s police's next move: the rung they stand at and the first night they can fire. The price is %s for %.0f%%; less money, less often. A wrong word is off by a rung or a few days.", w.Law.Chief.Name, w.Here().Name, money(tun.CopPrice), tun.CopAccuracy*100))...)
+	body = append(body, m.subtle(fmt.Sprintf("Buys what Chief %s is like and the %s police's next move: the rung they stand at and the first night they can fire. The price is %s for %s; less money, less often. A wrong word is off by a rung or a few days.", w.Law.Chief.Name, w.Here().Name, money(tun.CopPrice), format.Pct(tun.CopAccuracy, 0)))...)
 	body = append(body, m.subtle("The word is in the morning's report and on the intel screen. A cop is not a bribe: nothing is filed.")...)
-	if m.cop.err != "" {
-		body = append(body, "", theme.Bad.Render(m.cop.err))
+	if m.amt.err != "" {
+		body = append(body, "", theme.Bad.Render(m.amt.err))
 	}
 	return m.modal("PAY A COP", body, m.modalFooter())
 }
@@ -490,17 +469,16 @@ func (m *Model) keySpy(key string) {
 		if !m.spy.single {
 			m.spy.back(noField)
 		}
-	case "up", "k":
-		if m.spy.step == 0 && m.spy.faction > 0 {
-			m.spy.faction--
-		} else if m.spy.step == 1 && m.spy.member > 0 {
-			m.spy.member--
+	case "up", "k", "down", "j":
+		d := 1
+		if key == "up" || key == "k" {
+			d = -1
 		}
-	case "down", "j":
-		if m.spy.step == 0 && m.spy.faction < len(m.spyFactions())-1 {
-			m.spy.faction++
-		} else if m.spy.step == 1 && m.spy.member < len(m.spyCandidates())-1 {
-			m.spy.member++
+		switch m.spy.step {
+		case 0:
+			stepCursor(&m.spy.faction, d, len(m.spyFactions()))
+		case 1:
+			stepCursor(&m.spy.member, d, len(m.spyCandidates()))
 		}
 	case "enter", "tab":
 		if m.spy.step == 0 {
@@ -510,8 +488,7 @@ func (m *Model) keySpy(key string) {
 		m.confirmSpy()
 	default:
 		// A digit selects and commits, as in every picker (#241).
-		if len(key) == 1 && key[0] >= '1' && key[0] <= '9' {
-			i := int(key[0] - '1')
+		if i, ok := digit(key); ok {
 			if m.spy.step == 0 && i < len(m.spyFactions()) {
 				m.spy.faction, m.spy.step = i, 1
 			} else if m.spy.step == 1 && i < len(m.spyCandidates()) {
@@ -538,9 +515,9 @@ func (m *Model) confirmSpy() {
 	tun := m.intelTuning()
 	found := "the odds of being found are their temper's"
 	if temper := m.known().Personality(r.Faction()); temper != game.Unknown {
-		found = fmt.Sprintf("~%.0f%% a report they are found", tun.Found(temper)*100)
+		found = "~" + format.Pct(tun.Found(temper), 0) + " a report they are found"
 	}
-	m.say(fmt.Sprintf("%s goes under with %s tonight: off the street, a report every %s, ~%.0f%% right, and %s.", c.Name, m.rivalName(r), plural(tun.SpyDays, "day"), tun.SpyOdds(c.Skill)*100, found))
+	m.say(fmt.Sprintf("%s goes under with %s tonight: off the street, a report every %s, ~%s right, and %s.", c.Name, m.rivalName(r), plural(tun.SpyDays, "day"), format.Pct(tun.SpyOdds(c.Skill), 0), found))
 }
 
 // viewSpy is the dialog: the factions, then the crew.
@@ -569,9 +546,9 @@ func (m *Model) viewSpy() string {
 	}
 	foundWord := "their temper's, which you do not know"
 	if temper := m.known().Personality(r.Faction()); temper != game.Unknown {
-		foundWord = fmt.Sprintf("%.0f%% a report", tun.Found(temper)*100)
+		foundWord = format.Pct(tun.Found(temper), 0) + " a report"
 	}
-	return m.pickerModal("PLANT A SPY · "+strings.ToUpper(m.rivalName(r)), nil, []col{{"name", kText, 0}, {"role", kText, 0}, {"skill", kInt, 0}, {"right", kPct, 0}, {"where", kText, 0}}, cells, m.spy.member, m.subtle(fmt.Sprintf("Who goes under with %s? They sell nothing for you while they are there and report every %s. The odds of being found are %s; found, %.0f%% come home and the rest are shot.", m.rivalName(r), plural(tun.SpyDays, "day"), foundWord, tun.TurnShare*100))...)
+	return m.pickerModal("PLANT A SPY · "+strings.ToUpper(m.rivalName(r)), nil, []col{{"name", kText, 0}, {"role", kText, 0}, {"skill", kInt, 0}, {"right", kPct, 0}, {"where", kText, 0}}, cells, m.spy.member, m.subtle(fmt.Sprintf("Who goes under with %s? They sell nothing for you while they are there and report every %s. The odds of being found are %s; found, %s come home and the rest are shot.", m.rivalName(r), plural(tun.SpyDays, "day"), foundWord, format.Pct(tun.TurnShare, 0)))...)
 }
 
 // factCount counts the facts the file holds on a faction, for the picker.
@@ -668,7 +645,7 @@ func (m *Model) seizedWord(r content.RouteConfig, d events.Ship) string {
 	if !ok {
 		return game.Unknown
 	}
-	return fmt.Sprintf("~%.0f%%", m.rules.Logistics.RiskFrom(m.w, r, d, base)*100)
+	return "~" + format.Pct(m.rules.Logistics.RiskFrom(m.w, r, d, base), 0)
 }
 
 // chiefWord is the chief's temper as the file holds it, or `?`.
