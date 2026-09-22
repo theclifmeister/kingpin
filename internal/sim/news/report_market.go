@@ -62,7 +62,7 @@ func (r *reporter) reportMarket(e events.Event) bool {
 		switch {
 		case ev.Seized:
 			r.add("market", "PriceShockSeized", d)
-			rep.Prices = append(rep.Prices, fmt.Sprintf("%-8s ×%.1f%s for %s: the street was waiting on the shipment", w.ProductName(ev.Product), ev.Factor, r.in(ev.City), format.Plural(ev.Days, "day")))
+			rep.Prices = append(rep.Prices, fmt.Sprintf("%-8s %s%s for %s: the street was waiting on the shipment", w.ProductName(ev.Product), format.Times(ev.Factor, 1), r.in(ev.City), format.Plural(ev.Days, "day")))
 		case ev.Slump:
 			r.add("market", "PriceSlump", d)
 		default:
@@ -171,7 +171,7 @@ func (r *reporter) reportMarket(e events.Event) bool {
 		}
 	case events.ContractDelivered:
 		r.contracts += ev.Revenue
-		line := fmt.Sprintf("Handed %d %s to %s at %s (×%.3g street) = +%s%s", ev.Units, w.ProductName(ev.Product), ev.Name, format.Price(ev.Price), ev.Price/math.Max(ev.Street, 1e-9), format.Money(ev.Revenue), r.in(ev.City))
+		line := fmt.Sprintf("Handed %d %s to %s at %s (%s street) = +%s%s", ev.Units, w.ProductName(ev.Product), ev.Name, format.Price(ev.Price), format.TimesSig(ev.Price/math.Max(ev.Street, 1e-9), 3), format.Money(ev.Revenue), r.in(ev.City))
 		if ev.Complete {
 			line += ". Delivered in full."
 		} else {
@@ -207,7 +207,7 @@ func (r *reporter) reportMarket(e events.Event) bool {
 	case events.PlayerUndercut:
 		// The price war (#68): one line per corner and product, in
 		// SALES, since the units are part of the night's sale.
-		rep.Sales = append(rep.Sales, fmt.Sprintf("Undercut %s on %s: %d %s cheap = +%s, %.0f%% of their trade there", cornerHolder(w, ev.Corner), ev.Name, ev.Units, w.ProductName(ev.Product), format.Money(ev.Revenue), ev.Share*100))
+		rep.Sales = append(rep.Sales, fmt.Sprintf("Undercut %s on %s: %d %s cheap = +%s, %s of their trade there", cornerHolder(w, ev.Corner), ev.Name, ev.Units, w.ProductName(ev.Product), format.Money(ev.Revenue), format.Pct(ev.Share, 0)))
 	case events.Overdose:
 		// The city's story (#47): a headline naming the corner, off
 		// the overdoses' own stream, and a LAW line, since the

@@ -7,6 +7,7 @@ import (
 	tea "github.com/charmbracelet/bubbletea"
 
 	"github.com/theclifmeister/kingpin/internal/content"
+	"github.com/theclifmeister/kingpin/internal/format"
 	"github.com/theclifmeister/kingpin/internal/game"
 	"github.com/theclifmeister/kingpin/internal/ui/theme"
 )
@@ -74,7 +75,7 @@ func (m *Model) fundTicket() string {
 // fundAmount is what the first page gives for goodwill: the typed
 // amount, or blank's most; an error if it does not read.
 func (m *Model) fundAmount(c *game.City) (int, error) {
-	return parseQtyInput(m.fnd.amt.Value(), m.maxFund(c))
+	return readQty(m.fnd.amt, m.maxFund(c))
 }
 
 // maxBack is what the campaign field's m fills in (#193): the clean cash
@@ -256,7 +257,7 @@ func (m *Model) viewFund() string {
 		body = append(body, row("buys", fmt.Sprintf("%s goodwill for %s   %s", theme.Good.Render(fmt.Sprintf("+%.0f", g)), style.Render(money(amt)), theme.Subtle.Render(fmt.Sprintf("(%s a point, 100 at most)", money(tun.GoodwillCash))))))
 	}
 	body = append(body, "",
-		theme.Subtle.Render(fmt.Sprintf("Full goodwill takes %.1f pressure off the city a day; it fades %.0f%% a day.", tun.GoodwillCut, tun.GoodwillDecay*100)),
+		theme.Subtle.Render(fmt.Sprintf("Full goodwill takes %.1f pressure off the city a day; it fades %s a day.", tun.GoodwillCut, format.Pct(tun.GoodwillDecay, 0))),
 		theme.Subtle.Render("Community centres, campaigns, benevolent funds: clean money only."))
 	if m.campaignOpen() {
 		if next := m.set.Law.NextElection(w); next > 0 {

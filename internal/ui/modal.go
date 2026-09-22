@@ -116,21 +116,15 @@ func (m *Model) pickerKey(key string, rows int, pick func()) {
 	case "esc", "q":
 		m.mode = modePlay
 	case "up", "k":
-		if m.pick.cursor > 0 {
-			m.pick.cursor--
-		}
+		stepCursor(&m.pick.cursor, -1, rows)
 	case "down", "j":
-		if m.pick.cursor < rows-1 {
-			m.pick.cursor++
-		}
+		stepCursor(&m.pick.cursor, 1, rows)
 	case "enter":
 		pick()
 	default:
-		if len(key) == 1 && key[0] >= '1' && key[0] <= '9' {
-			if i := int(key[0] - '1'); i < rows {
-				m.pick.cursor = i
-				pick()
-			}
+		if i, ok := digit(key); ok && i < rows {
+			m.pick.cursor = i
+			pick()
 		}
 	}
 }
