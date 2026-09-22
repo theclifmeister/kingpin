@@ -27,56 +27,39 @@ func noLevels(cfg *content.Config) *content.Config {
 
 // TestNoInvestIsTheOldRun (#192, the pattern of TestNoUndercutIsTheOldRun):
 // a run that never invests is byte-for-byte the run before the levels
-// existed. The laundered player, who never invests, plays 120 days on
-// the file and on the file with the levels taken off, and the world is
-// hashed the same after every day; no level, no investment and no
-// income appear anywhere on it, and no FrontInvested or FrontGrew goes
-// out.
+// existed. The laundered player, who never invests, plays on the file
+// and on the file with the levels taken off (assertOldRun: three
+// seeds, 120 days), and the world is hashed the same after every day;
+// no level, no investment and no income appear anywhere on
+// it, and no FrontInvested or FrontGrew goes out.
 func TestNoInvestIsTheOldRun(t *testing.T) {
 	t.Parallel()
-	cfg := content.MustLoad()
-	off := noLevels(cfg)
-	for seed := uint64(1); seed <= 3; seed++ {
-		var with, without []string
-		for i, c := range []*content.Config{cfg, off} {
-			w := sim.NewWorld(c, seed)
-			_, sims, err := sim.Default(c)
-			if err != nil {
-				t.Fatal(err)
+	assertOldRun(t, oldRunCase{
+		never: "never invested",
+		seeds: 3,
+		days:  120,
+		box:   noLevels,
+		policies: map[string]func(*content.Config) Policy{
+			"laundered": func(c *content.Config) Policy { return Laundered(c, 40) },
+		},
+		forbid: func(e events.Event) bool {
+			switch e.(type) {
+			case events.FrontInvested, events.FrontGrew:
+				return true
 			}
-			clock := game.NewClock(nil, sims...)
-			policy := Laundered(c, 40)
-			var ds []string
-			for day := 1; day <= 120 && w.Over == nil; day++ {
-				policy(w)
-				for _, e := range clock.EndDay(w) {
-					switch e.(type) {
-					case events.FrontInvested, events.FrontGrew:
-						t.Fatalf("seed %d day %d: %+v in a run that never invested", seed, day, e)
-					}
-				}
-				ds = append(ds, digest(w))
-			}
+			return false
+		},
+		after: func(t *testing.T, w *game.World, _ bool) {
 			for _, f := range w.Fronts {
 				if f.Level != 0 || f.Invested != 0 || f.Grew != 0 {
-					t.Fatalf("seed %d: %s has a level with nobody investing: %+v", seed, f.ID, f)
+					t.Fatalf("%s has a level with nobody investing: %+v", f.ID, f)
 				}
 			}
 			if w.Stats.Earned != 0 || w.Stats.Invested != 0 {
-				t.Fatalf("seed %d: earned %d invested %d with nobody investing", seed, w.Stats.Earned, w.Stats.Invested)
+				t.Fatalf("earned %d invested %d with nobody investing", w.Stats.Earned, w.Stats.Invested)
 			}
-			if i == 0 {
-				with = ds
-			} else {
-				without = ds
-			}
-		}
-		for day := range with {
-			if with[day] != without[day] {
-				t.Fatalf("seed %d: the world moved on day %d with the levels in the file and nobody buying one", seed, day+1)
-			}
-		}
-	}
+		},
+	})
 }
 
 // TestBossPileDrains (#192, the sizing): at tier 4 the boss's clean

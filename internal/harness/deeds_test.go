@@ -16,53 +16,33 @@ import (
 // TestNoDeedIsTheOldRun (#194): a run that never buys a deed is
 // byte-for-byte the run before the property existed. The laundered and
 // the crewed players (neither buys one) are hashed daily on the file
-// and on the file with the [deed] table boxed (harness.NoDeeds), 120
-// days, three seeds, and nothing of the kind is emitted or counted.
+// and on the file with the [deed] table boxed (harness.NoDeeds;
+// assertOldRun: three seeds, 120 days), and nothing of
+// the kind is emitted or counted.
 func TestNoDeedIsTheOldRun(t *testing.T) {
 	t.Parallel()
-	cfg := content.MustLoad()
-	off := NoDeeds(cfg)
-	for name, policy := range map[string]func(*content.Config) Policy{
-		"laundered": func(c *content.Config) Policy { return Laundered(c, 40) },
-		"crewed":    func(c *content.Config) Policy { return Crewed(c, 40) },
-	} {
-		for seed := uint64(1); seed <= 3; seed++ {
-			var with, without []string
-			for i, c := range []*content.Config{cfg, off} {
-				w := sim.NewWorld(c, seed)
-				_, sims, err := sim.Default(c)
-				if err != nil {
-					t.Fatal(err)
-				}
-				clock := game.NewClock(nil, sims...)
-				p := policy(c)
-				var ds []string
-				for day := 1; day <= 120 && w.Over == nil; day++ {
-					p(w)
-					for _, e := range clock.EndDay(w) {
-						switch e.(type) {
-						case events.DeedBought, events.DeedsBought, events.DeedRent, events.DeedSeized:
-							t.Fatalf("%s seed %d day %d: %+v in a run that never bought a deed", name, seed, day, e)
-						}
-					}
-					ds = append(ds, digest(w))
-				}
-				if len(w.Deeds()) != 0 || w.Stats.Deeds != 0 || w.Stats.DeedCash != 0 || w.Stats.DeedRent != 0 || w.Stats.DeedsSeized != 0 || w.Law.Forfeited != 0 {
-					t.Fatalf("%s seed %d: the property moved with nobody buying: %+v", name, seed, w.Stats)
-				}
-				if i == 0 {
-					with = ds
-				} else {
-					without = ds
-				}
+	assertOldRun(t, oldRunCase{
+		never: "never bought a deed",
+		seeds: 3,
+		days:  120,
+		box:   NoDeeds,
+		policies: map[string]func(*content.Config) Policy{
+			"laundered": func(c *content.Config) Policy { return Laundered(c, 40) },
+			"crewed":    func(c *content.Config) Policy { return Crewed(c, 40) },
+		},
+		forbid: func(e events.Event) bool {
+			switch e.(type) {
+			case events.DeedBought, events.DeedsBought, events.DeedRent, events.DeedSeized:
+				return true
 			}
-			for day := range with {
-				if with[day] != without[day] {
-					t.Fatalf("%s seed %d: the world moved on day %d with the deeds in the file and nobody buying one", name, seed, day+1)
-				}
+			return false
+		},
+		after: func(t *testing.T, w *game.World, _ bool) {
+			if len(w.Deeds()) != 0 || w.Stats.Deeds != 0 || w.Stats.DeedCash != 0 || w.Stats.DeedRent != 0 || w.Stats.DeedsSeized != 0 || w.Law.Forfeited != 0 {
+				t.Fatalf("the property moved with nobody buying: %+v", w.Stats)
 			}
-		}
-	}
+		},
+	})
 }
 
 // landlord is the passive player with the deed to every block it
