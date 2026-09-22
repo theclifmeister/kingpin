@@ -9,6 +9,7 @@ import (
 	"github.com/charmbracelet/lipgloss"
 
 	"github.com/theclifmeister/kingpin/internal/content"
+	"github.com/theclifmeister/kingpin/internal/format"
 	"github.com/theclifmeister/kingpin/internal/game"
 	"github.com/theclifmeister/kingpin/internal/ui/theme"
 )
@@ -219,13 +220,13 @@ func effectWords(e content.UpgradeEffects) []string {
 	mul(e.GlutDecayMul, "gluts clear ×%s faster")
 	mul(e.BuyerGapMul, "buyers come ×%s as often")
 	if e.ContractPremiumBonus != 0 {
-		add(fmt.Sprintf("contracts pay +%.0f%%", e.ContractPremiumBonus*100))
+		add("contracts pay +" + format.Pct(e.ContractPremiumBonus, 0))
 	}
 	// Heat.
 	mul(e.SaleHeatMul, "sale heat ×%s")
 	mul(e.CrewHeatMul, "runners' heat ×%s")
 	if e.PatrolCap > 0 {
-		add(fmt.Sprintf("patrols cap sales at %.0f%%", e.PatrolCap*100))
+		add("patrols cap sales at " + format.Pct(e.PatrolCap, 0))
 	}
 	if e.CooldownBonus > 0 {
 		add("+" + plural(e.CooldownBonus, "day") + " between busts")
@@ -234,7 +235,7 @@ func effectWords(e content.UpgradeEffects) []string {
 	mul(e.RaidLossMul, "raids take ×%s")
 	mul(e.LieLowMultiplier, "lie low ×%s")
 	if e.Decay > 0 {
-		add(fmt.Sprintf("heat fades %.0f%%/day", e.Decay*100))
+		add("heat fades " + format.Pct(e.Decay, 0) + "/day")
 	}
 	mul(e.DirtyCashThresholdMul, "cash pile ×%s before heat")
 	if e.EvidenceCut > 0 {

@@ -25,7 +25,7 @@ func (s *Sim) rotate(n *night) {
 func (s *Sim) pool(n *night) {
 	w, t, fx := n.w, n.t, n.fx
 	// The hiring pool refills after hires and the rotation.
-	var side, drv rand
+	var side, drv game.Rand
 	if FixersWanted(w) {
 		side = t.Sub(game.StreamFixer)
 	}
@@ -44,7 +44,7 @@ func (s *Sim) pool(n *night) {
 // drivers' (#46), nil until a route has run, the one driver looking
 // for work the chemist's pattern again; life is the life stream, the
 // ages (#46). The kin faces (#46) are extra the same way.
-func (s *Sim) refill(w *game.World, rng, chem, side, drv, life rand, fx game.Effects) {
+func (s *Sim) refill(w *game.World, rng, chem, side, drv, life game.Rand, fx game.Effects) {
 	faces := 0
 	for _, c := range w.Crew.Candidates {
 		if !extra(c) && !former(c) {
@@ -67,7 +67,7 @@ func (s *Sim) refill(w *game.World, rng, chem, side, drv, life rand, fx game.Eff
 // over 100, and the fee is priced on the skill they arrive with; none
 // of it adds a draw, so a run owning nothing rolls the pool it always
 // did. The age (#46) is the life stream's draw, not the home stream's.
-func (s *Sim) generate(w *game.World, rng, side, life rand, fx game.Effects) game.CrewMember {
+func (s *Sim) generate(w *game.World, rng, side, life game.Rand, fx game.Effects) game.CrewMember {
 	name := s.pickName(w, s.names, "Nobody", rng)
 	roles := rolesFor(w)
 	role := roles[rng.IntN(len(roles))]
@@ -94,7 +94,7 @@ func (s *Sim) generate(w *game.World, rng, side, life rand, fx game.Effects) gam
 
 // chemist rolls the chemist looking for work (#47): the generate roll
 // off the chemist's stream, with a name from the chemists' list.
-func (s *Sim) chemist(w *game.World, rng, life rand, fx game.Effects) game.CrewMember {
+func (s *Sim) chemist(w *game.World, rng, life game.Rand, fx game.Effects) game.CrewMember {
 	m := s.roll(w, s.pickName(w, s.chemists, "The Chemist", rng), game.RoleChemist, rng, fx)
 	m.Fee = s.hireFee(w, m.Skill, fx)
 	m.Age = s.age(life)
@@ -114,7 +114,7 @@ func (s *Sim) chemistLooking(w *game.World) bool {
 // pickName is a name off pool that nobody on the payroll or in the pool
 // has, drawn on rng from the free ones sorted, or fallback when the pool
 // is spent (no draw then).
-func (s *Sim) pickName(w *game.World, pool []string, fallback string, rng rand) string {
+func (s *Sim) pickName(w *game.World, pool []string, fallback string, rng game.Rand) string {
 	used := map[string]bool{}
 	for _, m := range w.Crew.Members {
 		used[m.Name] = true
@@ -143,7 +143,7 @@ func (s *Sim) pickName(w *game.World, pool []string, fallback string, rng rand) 
 // fee, the age and anything else are the caller's: a hire prices one, a
 // character's start (Join) has none, and each draws its age on its own
 // dice.
-func (s *Sim) roll(w *game.World, name, role string, rng rand, fx game.Effects) game.CrewMember {
+func (s *Sim) roll(w *game.World, name, role string, rng game.Rand, fx game.Effects) game.CrewMember {
 	tun := s.cfg.Crew
 	rc := s.cfg.Role[role]
 	skill := min(100, tun.SkillMin+rng.IntN(tun.SkillMax-tun.SkillMin+1)+fx.SkillBonus)
@@ -172,7 +172,7 @@ func (s *Sim) roll(w *game.World, name, role string, rng rand, fx game.Effects) 
 // never the pool's, so the faces the pool deals are the faces it
 // always dealt. A lieutenant joins unassigned with a temper off the
 // same dice.
-func (s *Sim) Join(w *game.World, role string, rng rand) game.CrewMember {
+func (s *Sim) Join(w *game.World, role string, rng game.Rand) game.CrewMember {
 	fx := game.FoldEffects(w, s.tree)
 	pool := s.names
 	switch role {

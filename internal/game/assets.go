@@ -60,12 +60,7 @@ func (o AssetOffer) Locked(w *World) bool { return w.Stats.PeakClean < o.UnlockC
 
 // Asset returns the owned asset with id, or nil.
 func (w *World) Asset(id string) *Asset {
-	for i := range w.Assets {
-		if w.Assets[i].ID == id {
-			return &w.Assets[i]
-		}
-	}
-	return nil
+	return find(w.Assets, func(e *Asset) bool { return e.ID == id })
 }
 
 // HasAsset reports whether the asset is owned, standing or idle.

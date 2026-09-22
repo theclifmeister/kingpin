@@ -6,6 +6,7 @@ import (
 
 	"github.com/charmbracelet/lipgloss"
 
+	"github.com/theclifmeister/kingpin/internal/format"
 	"github.com/theclifmeister/kingpin/internal/game"
 	"github.com/theclifmeister/kingpin/internal/ui/theme"
 )
@@ -60,7 +61,7 @@ func (m *Model) buyersLines() []string {
 		if left <= 1 {
 			days = urgency(left).Render("last day")
 		}
-		pays := fmt.Sprintf("%s (×%.3g)", price(m.set.Market.ContractPrice(w, c)), c.Premium)
+		pays := fmt.Sprintf("%s (%s)", price(m.set.Market.ContractPrice(w, c)), format.TimesSig(c.Premium, 3))
 		var state string
 		switch c.Status {
 		case game.ContractOffered:
@@ -86,7 +87,7 @@ func (m *Model) contractSections(c game.Contract) []section {
 		row("status", c.Status.String()),
 		row("wants", fmt.Sprintf("%d %s", c.Units, w.ProductName(c.Product))),
 		row("pays", fmt.Sprintf("%s a unit today", price(pays))),
-		row("", theme.Subtle.Render(fmt.Sprintf("×%.3g the street (%s)", c.Premium, price(pays/c.Premium)))),
+		row("", theme.Subtle.Render(fmt.Sprintf("%s the street (%s)", format.TimesSig(c.Premium, 3), price(pays/c.Premium)))),
 		row("", theme.Subtle.Render(fmt.Sprintf("%s when they asked", price(c.Street)))),
 	}
 	switch c.Status {
@@ -113,8 +114,8 @@ func (m *Model) contractSections(c game.Contract) []section {
 	var notes []string
 	notes = append(notes, wrapped(theme.Subtle, c.Pitch)...)
 	if c.Status == game.ContractOffered {
-		notes = append(notes, wrapped(theme.Warning, fmt.Sprintf("If you fail: respect -%.0f, notoriety +%.0f, and they collect %.0f%% of what is short; they stay away %s.",
-			c.Penalty, m.set.Market.BuyersTuning().NotorietyPenalty, c.PenaltyCash*100, plural(m.set.Market.BuyersTuning().BlacklistDays, "day")))...)
+		notes = append(notes, wrapped(theme.Warning, fmt.Sprintf("If you fail: respect -%.0f, notoriety +%.0f, and they collect %s of what is short; they stay away %s.",
+			c.Penalty, m.set.Market.BuyersTuning().NotorietyPenalty, format.Pct(c.PenaltyCash, 0), plural(m.set.Market.BuyersTuning().BlacklistDays, "day")))...)
 	} else {
 		notes = append(notes, wrapped(theme.Subtle, "A handoff needs no corner and no dial.")...)
 	}

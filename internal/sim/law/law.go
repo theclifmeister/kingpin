@@ -63,16 +63,10 @@ func (s *Sim) Tuning() content.LawTuning { return s.cfg.Law }
 // to move, and how far money moves it.
 func (s *Sim) Campaign() content.CampaignTuning { return s.cfg.Campaign }
 
-// rand is the subset of *math/rand/v2.Rand the sim uses.
-type rand interface {
-	IntN(int) int
-	Float64() float64
-}
-
 // Seed picks the run's chief and DA from rng so they are part of the
 // seed like the rival: a name and a personality, a name and a ticket.
 // Both take office on the current day.
-func (s *Sim) Seed(w *game.World, rng rand) {
+func (s *Sim) Seed(w *game.World, rng game.Rand) {
 	w.Law.Chief = game.Chief{Name: s.pick(s.chiefs, rng, "Nobody"), Personality: content.ChiefPersonalities[rng.IntN(len(content.ChiefPersonalities))], Since: w.Day}
 	w.Law.DA = game.DA{Name: s.pick(s.das, rng, "Nobody"), Stance: content.DAStances[rng.IntN(len(content.DAStances))], ElectedDay: w.Day}
 }
@@ -86,7 +80,7 @@ func (s *Sim) Migrate(w *game.World) {
 	}
 }
 
-func (s *Sim) pick(pool []string, rng rand, fallback string) string {
+func (s *Sim) pick(pool []string, rng game.Rand, fallback string) string {
 	if len(pool) == 0 {
 		return fallback
 	}
@@ -129,7 +123,7 @@ func (s *Sim) ChiefTermEnds(w *game.World) int {
 // everything at 100 by the swing, nothing at 0. The dashboard shows it
 // and the dice use it.
 func (s *Sim) LawAndOrderShare(pressure float64) float64 {
-	return clamp01(0.5 + (pressure-50)/100*s.cfg.Law.ElectionSwing)
+	return max(0, min(1, 0.5+(pressure-50)/100*s.cfg.Law.ElectionSwing))
 }
 
 // Swing is what the cities' campaigns move the law-and-order share by
@@ -197,7 +191,7 @@ func (s *Sim) DAOdds(w *game.World, amount int) float64 {
 	if f := w.Crew.Fixer(); f != nil {
 		odds += s.cfg.Bribes.FixerOdds * float64(f.Skill) / 100
 	}
-	return math.Max(0, math.Min(s.cfg.Bribes.DAOddsCap, odds))
+	return max(0, min(s.cfg.Bribes.DAOddsCap, odds))
 }
 
 // ChiefTakes is what the chief does with an envelope (#42): a corrupt

@@ -19,7 +19,7 @@ func fast(t *testing.T, m *Model, days int) {
 	if m.mode != modeConfirmFast {
 		t.Fatalf("F: mode %v, status %q", m.mode, m.status)
 	}
-	m.fst.days.SetValue(fmt.Sprint(days))
+	m.amt.SetValue(fmt.Sprint(days))
 	m.Update(key("enter"))
 }
 
@@ -237,10 +237,10 @@ func TestFastForwardStopsAtTheCap(t *testing.T) {
 	if n, err := m.fastCap(); n != fastDays || err != nil {
 		t.Fatalf("a blank cap reads %d, %v", n, err)
 	}
-	m.fst.days.SetValue(fmt.Sprint(fastDaysMax + 1))
+	m.amt.SetValue(fmt.Sprint(fastDaysMax + 1))
 	m.Update(key("enter"))
-	if m.mode != modeConfirmFast || m.fst.err == "" {
-		t.Fatalf("%d days: mode %v err %q", fastDaysMax+1, m.mode, m.fst.err)
+	if m.mode != modeConfirmFast || m.amt.err == "" {
+		t.Fatalf("%d days: mode %v err %q", fastDaysMax+1, m.mode, m.amt.err)
 	}
 	m.Update(key("esc"))
 	if m.mode != modePlay {

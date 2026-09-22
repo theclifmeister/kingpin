@@ -76,12 +76,7 @@ func (s StartConfig) Empty() bool {
 
 // Character returns the row with id, or nil.
 func (c CharactersConfig) Character(id string) *CharacterConfig {
-	for i := range c.Characters {
-		if c.Characters[i].ID == id {
-			return &c.Characters[i]
-		}
-	}
-	return nil
+	return find(c.Characters, func(e *CharacterConfig) bool { return e.ID == id })
 }
 
 // Default is the first row: the run as it is. An empty id reads as it.

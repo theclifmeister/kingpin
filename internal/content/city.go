@@ -123,12 +123,7 @@ func (c CityEntry) HeatMul() float64 {
 
 // Corner returns the city's corner with id, or nil.
 func (c CityEntry) Corner(id string) *CornerConfig {
-	for i := range c.Corners {
-		if c.Corners[i].ID == id {
-			return &c.Corners[i]
-		}
-	}
-	return nil
+	return find(c.Corners, func(e *CornerConfig) bool { return e.ID == id })
 }
 
 type TerritoryTuning struct {
@@ -163,12 +158,7 @@ func (c CityConfig) Corner(id string) *CornerConfig {
 
 // City returns the city with id, or nil.
 func (c CityConfig) City(id string) *CityEntry {
-	for i := range c.Cities {
-		if c.Cities[i].ID == id {
-			return &c.Cities[i]
-		}
-	}
-	return nil
+	return find(c.Cities, func(e *CityEntry) bool { return e.ID == id })
 }
 
 // Home is the first city: where a run starts.

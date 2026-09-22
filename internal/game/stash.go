@@ -70,7 +70,7 @@ func (w *World) Lot(city, product string) Lot {
 // the migration's; in play a lot's quality moves only by what comes in
 // (AddStock) and the cut (Cut).
 func (w *World) SetQuality(city, product string, quality float64) {
-	w.quality(city)[product] = math.Max(0, math.Min(100, quality))
+	w.quality(city)[product] = clamp(quality)
 }
 
 // StashOf is a copy of the player's stock in a city, product by product,
@@ -332,7 +332,7 @@ func (w *World) Cut(city, product string, ratio, most float64, cost int, bonus f
 	}
 	from := w.Quality(city, product)
 	w.put(city, product, added)
-	to := math.Min(from, from*float64(units)/float64(units+added)+math.Max(0, bonus))
+	to := min(from, from*float64(units)/float64(units+added)+max(0, bonus))
 	w.SetQuality(city, product, to)
 	rec := CutRecord{City: city, Product: product, Units: units, Added: added, From: from, To: w.Quality(city, product), Cost: price, Chemist: chemist}
 	w.Today.Cuts = append(w.Today.Cuts, rec)
@@ -381,7 +381,7 @@ func (w *World) CookOrder(city, product string, units, cost, days int, quality f
 		return Cook{}, err
 	}
 	w.Crew.NextCook++
-	k := Cook{ID: w.Crew.NextCook, City: city, Product: product, Units: units, Quality: math.Max(0, math.Min(100, quality)), Ordered: w.Day, Ready: w.Day + max(1, days), Cost: price, Chemist: chemist}
+	k := Cook{ID: w.Crew.NextCook, City: city, Product: product, Units: units, Quality: clamp(quality), Ordered: w.Day, Ready: w.Day + max(1, days), Cost: price, Chemist: chemist}
 	w.Crew.Cooks = append(w.Crew.Cooks, k)
 	w.Stats.Cooked += units
 	w.Stats.CookCost += price
