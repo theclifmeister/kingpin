@@ -273,16 +273,7 @@ func (s *Sim) BasePrice(city string, pc content.ProductConfig) float64 {
 func (s *Sim) Name() string { return "market" }
 
 // Dial returns the tuning for a dial position.
-func (s *Sim) Dial(d events.Dial) content.DialConfig {
-	switch d {
-	case events.DialQuiet:
-		return s.cfg.Dial.Quiet
-	case events.DialAggressive:
-		return s.cfg.Dial.Aggressive
-	default:
-		return s.cfg.Dial.Normal
-	}
-}
+func (s *Sim) Dial(d events.Dial) content.DialConfig { return s.cfg.Dial.For(d) }
 
 // BuyPressure is how much a buy pushes the supplier price today, per unit
 // over demand: the tuning, less what a supplier contact takes off.

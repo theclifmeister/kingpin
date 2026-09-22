@@ -213,11 +213,7 @@ func (m *Model) crewWarning() string {
 
 // payRow draws the pay dial as `stingy  [fair]  generous`.
 func payRow(p events.Pay) string {
-	var notches []string
-	for d := events.PayStingy; d <= events.PayGenerous; d++ {
-		notches = append(notches, d.String())
-	}
-	return dialCells(notches, int(p-events.PayStingy))
+	return dialCells(events.PayNames(), int(p-events.PayStingy))
 }
 
 // post is the roster's status column: where the member is and, when they

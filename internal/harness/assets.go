@@ -70,7 +70,7 @@ func Cartel(cfg *content.Config, lieLowAt float64) Policy {
 		// not got on: a lot cooking is not on the road, so the target
 		// every open route keeps comes down by it.
 		if cs.Lab(w, home) != nil && main != nil {
-			hireChemist(cfg, w)
+			hireChemist(cfg, cs, w)
 			labRoom(cfg, w, home)
 			if w.Crew.Chemist() != nil {
 				targets := map[string]int{}
