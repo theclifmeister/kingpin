@@ -313,16 +313,17 @@ func StartingCity(c content.CityEntry, market content.MarketConfig) game.Startin
 	sc := game.StartingCity{ID: c.ID, Name: c.Name, HeatMul: c.HeatMul(), Wholesale: c.Wholesale}
 	for _, p := range market.Products {
 		if p.UnlockCash <= market.Market.StartCash {
-			sc.Products = append(sc.Products, Product(c, p))
+			sc.Products = append(sc.Products, Product(c, p, market.Market.SupplierRatio))
 		}
 	}
 	return sc
 }
 
-// Product is a product's starting values in a city.
-func Product(c content.CityEntry, p content.ProductConfig) game.StartingProduct {
+// Product is a product's starting values in a city, its supplier price
+// at the file's flat ratio.
+func Product(c content.CityEntry, p content.ProductConfig, ratio float64) game.StartingProduct {
 	cp := c.Product(p.ID)
-	return game.StartingProduct{ID: p.ID, Name: p.Name, Price: p.BasePrice * cp.Price, Demand: p.Demand * cp.Demand, NoSupply: cp.NoSupply}
+	return game.StartingProduct{ID: p.ID, Name: p.Name, Price: p.BasePrice * cp.Price, Demand: p.Demand * cp.Demand, NoSupply: cp.NoSupply, SupplierRatio: ratio}
 }
 
 // Migrate brings a save from before the second city up to date: the one
@@ -340,7 +341,7 @@ func (s *Sim) Migrate(w *game.World) {
 		city := game.StartingCity{ID: c.ID, Name: c.Name, HeatMul: c.HeatMul(), Wholesale: c.Wholesale}
 		for _, id := range w.Products {
 			if p := s.market.Product(id); p != nil {
-				city.Products = append(city.Products, Product(c, *p))
+				city.Products = append(city.Products, Product(c, *p, s.market.Market.SupplierRatio))
 			}
 		}
 		w.AddCity(city)

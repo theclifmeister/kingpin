@@ -12,7 +12,7 @@ import (
 
 func world(t *testing.T, cfg *content.Config) (*game.World, *territory.Sim) {
 	t.Helper()
-	w := game.NewWorld(7, []game.StartingCity{{ID: cfg.City.Home().ID, Name: "Testville", Products: []game.StartingProduct{{ID: "weed", Name: "Weed", Price: 20, Demand: 60}}}}, 10_000, 100)
+	w := game.NewWorld(7, []game.StartingCity{{ID: cfg.City.Home().ID, Name: "Testville", Products: []game.StartingProduct{{ID: "weed", Name: "Weed", Price: 20, Demand: 60, SupplierRatio: 0.55}}}}, 10_000, 100)
 	s := territory.New(cfg)
 	s.Seed(w)
 	w.Crew.Members = []game.CrewMember{

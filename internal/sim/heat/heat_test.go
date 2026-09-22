@@ -946,3 +946,19 @@ func TestFavourNeverLowersHeat(t *testing.T) {
 		t.Fatalf("file %d with the favour, %d with the rung held", with.Heat.Evidence, twin.Heat.Evidence)
 	}
 }
+
+// A greedy front's audit files a page like any other (#27, #272): it
+// stamps the file's day, so a lawyer's cold case counts from the audit
+// and not from the page before it.
+func TestGreedyAuditStampsTheFile(t *testing.T) {
+	cfg := content.MustLoad()
+	w := world(t, cfg)
+	s := heat.New(cfg)
+	w.Day = 40
+	w.Heat.Evidence, w.Heat.EvidenceDay = 1, 2
+	w.Fronts = append(w.Fronts, game.Front{ID: "laundromat", Name: "the laundromat", Audited: w.Day, AuditDial: events.LaunderGreedy})
+	step(w, s)
+	if want := 1 + cfg.Heat.Heat.AuditEvidence; w.Heat.Evidence != want || w.Heat.EvidenceDay != 41 {
+		t.Fatalf("after a greedy audit: file %d on day %d, want %d on day 41", w.Heat.Evidence, w.Heat.EvidenceDay, want)
+	}
+}

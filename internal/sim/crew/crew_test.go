@@ -18,7 +18,7 @@ func world(t *testing.T, cfg *content.Config, cash int) (*game.World, *crew.Sim)
 	t.Helper()
 	boxed := *cfg
 	boxed.Crew.Life = content.LifeTuning{}
-	w := game.NewWorld(7, []game.StartingCity{{ID: "test", Name: "Testville", Products: []game.StartingProduct{{ID: "a", Name: "A", Price: 10, Demand: 5}}}}, cash, 100)
+	w := game.NewWorld(7, []game.StartingCity{{ID: "test", Name: "Testville", Products: []game.StartingProduct{{ID: "a", Name: "A", Price: 10, Demand: 5, SupplierRatio: 0.55}}}}, cash, 100)
 	s := crew.New(&boxed)
 	s.Seed(w, game.RNGFor(7, 0))
 	return w, s
@@ -383,7 +383,7 @@ func TestTurningAndInvestigation(t *testing.T) {
 func crewProbe(t *testing.T, cfg *content.Config, ids ...string) map[string]float64 {
 	t.Helper()
 	fresh := func() (*game.World, *crew.Sim) {
-		w := game.NewWorld(7, []game.StartingCity{{ID: "test", Name: "Testville", Products: []game.StartingProduct{{ID: "a", Name: "A", Price: 10, Demand: 5}}}}, 1_000_000, 100)
+		w := game.NewWorld(7, []game.StartingCity{{ID: "test", Name: "Testville", Products: []game.StartingProduct{{ID: "a", Name: "A", Price: 10, Demand: 5, SupplierRatio: 0.55}}}}, 1_000_000, 100)
 		for _, id := range ids {
 			w.Upgrades[id] = true
 		}

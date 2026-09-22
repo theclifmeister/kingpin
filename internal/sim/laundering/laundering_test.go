@@ -13,7 +13,7 @@ import (
 )
 
 func world(cash int) *game.World {
-	w := game.NewWorld(7, []game.StartingCity{{ID: "test", Name: "Testville", Products: []game.StartingProduct{{ID: "a", Name: "A", Price: 10, Demand: 5}}}}, cash, 100)
+	w := game.NewWorld(7, []game.StartingCity{{ID: "test", Name: "Testville", Products: []game.StartingProduct{{ID: "a", Name: "A", Price: 10, Demand: 5, SupplierRatio: 0.55}}}}, cash, 100)
 	w.Stats.PeakCash = cash
 	w.Laundering.Dial = events.LaunderNormal
 	return w

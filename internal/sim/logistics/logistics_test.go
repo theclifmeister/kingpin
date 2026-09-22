@@ -312,7 +312,7 @@ func TestStartingCitiesAndMigrate(t *testing.T) {
 	home := cities[0]
 	w := game.NewWorld(3, []game.StartingCity{home}, 500, 100)
 	top := cfg.Market.Products[len(cfg.Market.Products)-1]
-	w.AddProduct(home.ID, game.StartingProduct{ID: top.ID, Name: top.Name, Price: top.BasePrice, Demand: top.Demand})
+	w.AddProduct(home.ID, game.StartingProduct{ID: top.ID, Name: top.Name, Price: top.BasePrice, Demand: top.Demand, SupplierRatio: 0.55})
 	s := logistics.New(cfg)
 	s.Migrate(w)
 	if len(w.CityOrder) != len(cfg.City.Cities) || w.Player.Location != home.ID {

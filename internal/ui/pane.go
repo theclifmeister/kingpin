@@ -35,15 +35,6 @@ func row(label, value string) string {
 	return theme.Subtle.Render(fit(label, paneLabelW)) + " " + value
 }
 
-// cut truncates s to w cells. A styled string cut short loses its
-// closing sequence, so a cut one gets a reset after the ellipsis.
-func cut(s string, w int) string {
-	if lipgloss.Width(s) <= w {
-		return s
-	}
-	return truncate(s, w) + "\x1b[0m"
-}
-
 // keyRow is a section line saying what a key would do to the selection.
 func keyRow(key, what string) string {
 	return theme.Key.Render(fit(key, max(2, lipgloss.Width(key)))) + " " + what
@@ -135,7 +126,7 @@ func (m *Model) keyLines(keys []binding, textW int, accent lipgloss.Color) []str
 			ls = append(ls, strings.TrimRight(line, " "))
 			line, used = "", 0
 		}
-		line += fit(cut(cell, need*keyCellW-1), need*keyCellW)
+		line += fit(truncate(cell, need*keyCellW-1), need*keyCellW)
 		used += need
 	}
 	if line != "" {
@@ -193,7 +184,7 @@ func sectionLines(secs []section, textW, room int, accent lipgloss.Color) []stri
 		}
 		ls = append(ls, sectionTitle(s.title, accent))
 		for _, l := range s.lines {
-			ls = append(ls, cut(l, textW))
+			ls = append(ls, truncate(l, textW))
 		}
 	}
 	return ls
@@ -238,7 +229,7 @@ func strip(sections []section, w int, accent lipgloss.Color) string {
 		text = strings.Join(parts, theme.Subtle.Render(" · "))
 	}
 	text = theme.Gold.Render("▸ ") + text
-	return fit(cut(text, max(1, w-moreW)), max(1, w-moreW)) + "  " + more
+	return fit(truncate(text, max(1, w-moreW)), max(1, w-moreW)) + "  " + more
 }
 
 // overlay renders the pane's sections as a modal over MAIN, for a

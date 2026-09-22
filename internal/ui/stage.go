@@ -43,7 +43,9 @@ func (m *Model) keyStage(key string) (tea.Model, tea.Cmd) {
 	switch key {
 	case "enter", "esc", " ", "q":
 		m.w.SeeStage(m.stage)
-		_ = game.Save(m.slot, m.w)
+		if err := game.Save(m.slot, m.w); err != nil {
+			m.alarm("Save failed: " + err.Error())
+		}
 		m.showCard()
 	default:
 		m.scrollModal(key)

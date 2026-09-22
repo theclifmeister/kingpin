@@ -515,8 +515,8 @@ func (s *Sim) war(w *game.World, t *game.Tick) {
 	if why == "" {
 		return
 	}
-	w.War = ""
 	ev := events.WarEnded{Day: t.Day, Faction: w.War, Why: why}
+	w.War = ""
 	if r != nil {
 		ev.Rival, ev.Faction = r.Leader, r.Faction()
 	}

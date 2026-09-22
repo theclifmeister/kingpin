@@ -5,6 +5,7 @@ import (
 	"strings"
 
 	"github.com/charmbracelet/lipgloss"
+	"github.com/charmbracelet/x/ansi"
 
 	"github.com/theclifmeister/kingpin/internal/format"
 	"github.com/theclifmeister/kingpin/internal/ui/sparkline"
@@ -45,6 +46,8 @@ func fit(s string, width int) string {
 }
 
 // truncate cuts s to width cells, adding an ellipsis when it had to cut.
+// It cuts between escape sequences, never through one, and keeps the
+// ones after the cut, so a styled string cut short still closes.
 func truncate(s string, width int) string {
 	if width <= 0 {
 		return ""
@@ -52,15 +55,10 @@ func truncate(s string, width int) string {
 	if lipgloss.Width(s) <= width {
 		return s
 	}
-	rs := []rune(s)
 	if width == 1 {
-		return string(rs[:1])
+		return ansi.Truncate(s, 1, "")
 	}
-	out := rs
-	for lipgloss.Width(string(out))+1 > width && len(out) > 0 {
-		out = out[:len(out)-1]
-	}
-	return string(out) + "…"
+	return ansi.Truncate(s, width, "…")
 }
 
 // lines joins non-empty strings with newlines.

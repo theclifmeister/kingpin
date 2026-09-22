@@ -51,6 +51,10 @@ func main() {
 	hardDA := flag.Bool("hardda", false, "start every run with a law-and-order DA and a zealous chief (#50, the hard DA toggle): set at NewWorld, never pinned; -chief and -da pin")
 	deeds := flag.String("deeds", "on", "on | off: off boxes city.toml's [deed] table (#194, harness.NoDeeds): no block is on sale, so boss buys none; a run with it off is the run before the feature")
 	flag.Parse()
+	if *runs < 1 {
+		fmt.Fprintf(os.Stderr, "-runs %d: at least one run\n", *runs)
+		os.Exit(2)
+	}
 	at := func(def float64) float64 {
 		if *lieLow > 0 {
 			return *lieLow
@@ -240,7 +244,7 @@ func main() {
 	}
 	won, strikes, tips, crackdowns := 0, 0, 0, 0
 	// The books (#70): what the moves against the rival did per run.
-	scouts, reads, boosts, boostsLanded, boosted, yourTips, raids, poached := 0, 0, 0, 0, 0, 0, 0, 0
+	scouts, reads, boosts, boostsLanded, boosted, yourTips, tipRaids, poached := 0, 0, 0, 0, 0, 0, 0, 0
 	var rivalHeat, evidence []int
 	undercuts, undercutUnits, abandons := 0, 0, 0
 	var muscle []int
@@ -250,7 +254,7 @@ func main() {
 	personalities := map[string]int{}
 	bought := map[string]int{}
 	audits, laundered, clean := 0, 0, 0
-	earned, invested, levels, legit, frozen := 0, 0, 0, 0, 0
+	earned, invested, levels, legit, frontsFrozen := 0, 0, 0, 0, 0
 	offshore, fees, offshoreRuns, structured := 0, 0, 0, 0
 	assetsBought, assetCash, assetsLost, taskForces, tunnelsFound, assetRuns, assetUpkeep := 0, 0, 0, 0, 0, 0, 0 // #48
 	assetsOwned := map[string]int{}
@@ -272,8 +276,8 @@ func main() {
 	stances := map[string]int{}
 	tempersOfChief := map[string]int{}
 	var rels []int
-	debtDays, late, frozen, collected, creditTaken := 0, 0, 0, 0, 0
-	housesHeld, housesLost, houseUnits, rent, raidUnits, raids := 0, 0, 0, 0, 0, 0
+	debtDays, late, connectsFrozen, collected, creditTaken := 0, 0, 0, 0, 0
+	housesHeld, housesLost, houseUnits, rent, raidUnits, houseRaids := 0, 0, 0, 0, 0, 0
 	deedsHeld, deedsBought, deedCash, deedRent, deedsSeized, deedRentDay := 0, 0, 0, 0, 0, 0
 	// Quality (#47): what the cuts and the cooks did, the overdoses, the
 	// quality of what sold and the corners' repeat business at the end.
@@ -424,7 +428,7 @@ func main() {
 			case events.PoliceTipped:
 				yourTips++
 			case events.RivalRaided:
-				raids++
+				tipRaids++
 			case events.RivalMusclePoached:
 				poached += ev.Got
 			case events.PlayerUndercut:
@@ -439,7 +443,7 @@ func main() {
 			case events.FrontAudited:
 				audits++
 			case events.FrontFrozen:
-				frozen++
+				frontsFrozen++
 			case events.Reserved:
 				structured += ev.Lots
 			case events.CrewTurnedInformant:
@@ -458,7 +462,7 @@ func main() {
 			case events.DealOffered:
 				offers++
 			case events.SupplierFrozen:
-				frozen++
+				connectsFrozen++
 			case events.SupplierCollected:
 				collected++
 			case events.HeatChanged:
@@ -606,7 +610,7 @@ func main() {
 		rent += st.Rent
 		for _, e := range res.Events {
 			if ev, ok := e.(events.Enforcement); ok && (ev.Level == content.Raid || ev.Level == content.Sting) {
-				raids++
+				houseRaids++
 				for _, n := range ev.StockLost {
 					raidUnits += n
 				}
@@ -709,7 +713,7 @@ func main() {
 		sort.Ints(rivalHeat)
 		sort.Ints(evidence)
 		fmt.Printf("books:         %.1f scouts per run (%d read), %.1f boosts (%d landed, $%d taken) per run, %.1f tips per run bringing %d raids, %d heads bought off (totals over %d runs); rival muscle %d, rival heat %d, file %d at the end (medians)\n",
-			float64(scouts)/float64(*runs), reads, float64(boosts)/float64(*runs), boostsLanded, boosted / *runs, float64(yourTips)/float64(*runs), raids, poached, *runs, muscle[len(muscle)/2], rivalHeat[len(rivalHeat)/2], evidence[len(evidence)/2])
+			float64(scouts)/float64(*runs), reads, float64(boosts)/float64(*runs), boostsLanded, boosted / *runs, float64(yourTips)/float64(*runs), tipRaids, poached, *runs, muscle[len(muscle)/2], rivalHeat[len(rivalHeat)/2], evidence[len(evidence)/2])
 	}
 	if cutUnits+cooked+overdoses > 0 || *cut > 0 || *policy == "cook" {
 		meanQ := 0.0
@@ -749,7 +753,7 @@ func main() {
 	}
 	fmt.Printf("laundering:    $%d washed per run, %d audits per run, $%d clean at the end\n", laundered / *runs, audits / *runs, clean / *runs)
 	if invested > 0 {
-		fmt.Printf("fronts:        %d levels owned at the end, $%d invested, $%d earned per run, %d shut for upkeep per run; legit income $%d/day at the end (means)\n", levels / *runs, invested / *runs, earned / *runs, frozen / *runs, legit / *runs)
+		fmt.Printf("fronts:        %d levels owned at the end, $%d invested, $%d earned per run, %d shut for upkeep per run; legit income $%d/day at the end (means)\n", levels / *runs, invested / *runs, earned / *runs, frontsFrozen / *runs, legit / *runs)
 	}
 	if offshoreRuns > 0 {
 		sort.Ints(retired)
@@ -795,11 +799,11 @@ func main() {
 	if len(rels) > 0 {
 		sort.Ints(rels)
 		fmt.Printf("suppliers:     rel %d with the street connect at the end (median), %d days in debt per run, %d late payments, %d freezes, %d collections, $%d taken on credit per run (credit %s)\n",
-			rels[len(rels)/2], debtDays / *runs, late, frozen, collected, creditTaken / *runs, *credit)
+			rels[len(rels)/2], debtDays / *runs, late, connectsFrozen, collected, creditTaken / *runs, *credit)
 	}
 	if housesHeld > 0 || housesLost > 0 {
 		fmt.Printf("houses:        %d held at the end per run, %d lost to the landlord, $%d rent per run, %d units lost out of the houses per run; %d stings and raids took %d units per run\n",
-			housesHeld / *runs, housesLost, rent / *runs, houseUnits / *runs, raids, raidUnits / *runs)
+			housesHeld / *runs, housesLost, rent / *runs, houseUnits / *runs, houseRaids, raidUnits / *runs)
 	}
 	if deedsBought > 0 {
 		fmt.Printf("property:      %d deeds held at the end per run (%d bought, %d seized by the DA), $%d spent and $%d paid back per run, $%d/day rent at the end (means)\n",

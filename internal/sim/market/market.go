@@ -476,7 +476,7 @@ func (s *Sim) unlock(w *game.World, t *game.Tick) {
 			}
 			fresh = true
 			cp := s.cityProduct(cid, p.ID)
-			w.AddProduct(cid, game.StartingProduct{ID: p.ID, Name: p.Name, Price: p.BasePrice * cp.Price, Demand: p.Demand * cp.Demand, NoSupply: cp.NoSupply})
+			w.AddProduct(cid, game.StartingProduct{ID: p.ID, Name: p.Name, Price: p.BasePrice * cp.Price, Demand: p.Demand * cp.Demand, NoSupply: cp.NoSupply, SupplierRatio: s.cfg.Market.SupplierRatio})
 		}
 		if fresh {
 			t.Emit(events.Unlocked{Day: t.Day, Gate: "product", ID: p.ID, Name: p.Name, Why: "peak cash " + format.Cash(p.UnlockCash), Price: p.BasePrice})
@@ -657,6 +657,6 @@ func (s *Sim) List(w *game.World, id string) {
 	}
 	for _, cid := range w.CityOrder {
 		cp := s.cityProduct(cid, p.ID)
-		w.AddProduct(cid, game.StartingProduct{ID: p.ID, Name: p.Name, Price: p.BasePrice * cp.Price, Demand: p.Demand * cp.Demand, NoSupply: cp.NoSupply})
+		w.AddProduct(cid, game.StartingProduct{ID: p.ID, Name: p.Name, Price: p.BasePrice * cp.Price, Demand: p.Demand * cp.Demand, NoSupply: cp.NoSupply, SupplierRatio: s.cfg.Market.SupplierRatio})
 	}
 }
