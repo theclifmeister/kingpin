@@ -468,8 +468,9 @@ func Crewed(cfg *content.Config, lieLowAt float64) Policy {
 // city it is in: Distributor is the one that spreads out.
 func Territory(cfg *content.Config, lieLowAt float64, corners int) Policy {
 	managed := Managed(cfg, lieLowAt)
+	cs := crew.New(cfg)
 	return func(w *game.World) {
-		staff(cfg, w, w.Player.Location, corners)
+		staff(cfg, cs, w, w.Player.Location, corners)
 		managed(w)
 	}
 }
@@ -480,21 +481,17 @@ func Territory(cfg *content.Config, lieLowAt float64, corners int) Policy {
 // one runner is on. Runners and enforcers already posted elsewhere are
 // left where they are. The roster cap is the crew sim's (#118: the
 // tree's crew_slots count, so a policy that buys the Crew branch fills
-// the room it bought).
-func staff(cfg *content.Config, w *game.World, city string, corners int) {
+// the room it bought). cs is the caller's crew sim, built once with
+// the policy (#275): it keeps nothing between days.
+func staff(cfg *content.Config, cs *crew.Sim, w *game.World, city string, corners int) {
 	tun := cfg.Crew.Crew
 	if corners <= 0 {
 		corners = len(cfg.City.City(city).Corners)
 	}
 	guards := max(1, tun.MaxCrew/3)
-	maxCrew := crew.New(cfg).MaxCrew(w)
+	maxCrew := cs.MaxCrew(w)
 	w.SetPay(events.PayFair)
-	for _, m := range w.Crew.Members {
-		if m.Loyalty < tun.SkimThreshold {
-			_, _ = w.Fire(m.ID)
-			break // one a day; each firing sours the rest
-		}
-	}
+	fireSkimmer(w, tun)
 	// Runners until the corners are staffed, then enforcers for them;
 	// with a rival about, enforcers come first once one runner is on.
 	runners, worked := 0, w.WorkedIn(city)
@@ -517,27 +514,10 @@ func staff(cfg *content.Config, w *game.World, city string, corners int) {
 		want = game.RoleEnforcer
 		// A full roster of runners makes room: the least skilled goes.
 		if len(w.Crew.Members) >= maxCrew && len(w.Crew.FiredToday) == 0 {
-			worst := -1
-			for i, m := range w.Crew.Members {
-				if m.Role == game.RoleRunner && (worst < 0 || m.Skill < w.Crew.Members[worst].Skill) {
-					worst = i
-				}
-			}
-			if worst >= 0 {
-				_, _ = w.Fire(w.Crew.Members[worst].ID)
-			}
+			fireWorstRunner(w)
 		}
 	}
-	best := -1
-	for i, c := range w.Crew.Candidates {
-		if c.Role != want {
-			continue
-		}
-		if best < 0 || c.Skill > w.Crew.Candidates[best].Skill {
-			best = i
-		}
-	}
-	if best >= 0 && len(w.Crew.Members) < maxCrew {
+	if best := bestCandidate(w, want); best >= 0 && len(w.Crew.Members) < maxCrew {
 		c := w.Crew.Candidates[best]
 		if w.Player.DirtyCash >= c.Fee+cfg.Market.Market.StartCash {
 			_, _ = w.Hire(c.ID, maxCrew)
@@ -564,13 +544,7 @@ func staff(cfg *content.Config, w *game.World, city string, corners int) {
 			}
 		case game.RoleEnforcer:
 			// The corners the rival borders first, then the riskiest.
-			score := func(c game.Corner) float64 {
-				if w.Contested(c) {
-					return 10 + c.Demand
-				}
-				return c.Risk
-			}
-			if c := pickCorner(w, func(c game.Corner) bool { return c.City == city && c.Worked() && c.Enforcer == 0 }, score); c != nil {
+			if c := pickCorner(w, func(c game.Corner) bool { return c.City == city && c.Worked() && c.Enforcer == 0 }, guardScore(w)); c != nil {
 				_ = w.Post(c.ID, m.ID)
 			}
 		}
@@ -600,12 +574,7 @@ func Vigilant(cfg *content.Config, lieLowAt float64) Policy {
 // what one costs without waiting for one to turn. It panics if nobody is
 // looking for work.
 func Plant(cfg *content.Config, w *game.World) game.CrewMember {
-	best := -1
-	for i, c := range w.Crew.Candidates {
-		if c.Role == game.RoleRunner && (best < 0 || c.Skill > w.Crew.Candidates[best].Skill) {
-			best = i
-		}
-	}
+	best := bestCandidate(w, game.RoleRunner)
 	if best < 0 {
 		best = 0
 	}
@@ -803,8 +772,9 @@ const DiplomatDays = 7
 // audit. It is the baseline for "a player who stops sitting on a pile".
 func Laundered(cfg *content.Config, lieLowAt float64) Policy {
 	crewed := Crewed(cfg, lieLowAt)
+	ld := laundering.New(cfg)
 	return func(w *game.World) {
-		washUp(cfg, w)
+		washUp(ld, w)
 		crewed(w)
 	}
 }
@@ -966,7 +936,7 @@ func Elect(cfg *content.Config, w *game.World, day int) events.DAElected {
 // sells everything that lands at home and everything stashed where it
 // is. It is the baseline for "a player who runs a route".
 func Distributor(cfg *content.Config, lieLowAt float64) Policy {
-	return distribute(cfg, lieLowAt, false, false, "", BossMargin)
+	return newRoad(cfg, lieLowAt).trader(roadCrew{guards: 1, hubCorners: HubCorners})
 }
 
 // DistributorDays is how many days of home's demand the distributor keeps
@@ -979,18 +949,20 @@ const DistributorDays = 4
 // in seizures. It is the baseline for "a player who staffs the road".
 func Driven(cfg *content.Config, lieLowAt float64) Policy {
 	distributor := Distributor(cfg, lieLowAt)
+	cs := crew.New(cfg)
 	return func(w *game.World) {
 		distributor(w)
-		Drive(cfg, w)
+		Drive(cfg, cs, w)
 	}
 }
 
 // Drive hires the best driver looking for work when the roster has the
 // room and the till the fee, and keeps the driver on the payroll on
 // the route with the most on it (the one the distributor runs), so a
-// policy staffs the road with one line.
-func Drive(cfg *content.Config, w *game.World) {
-	maxCrew := crew.New(cfg).MaxCrew(w)
+// policy staffs the road with one line. cs is the policy's crew sim,
+// built once (#275).
+func Drive(cfg *content.Config, cs *crew.Sim, w *game.World) {
+	maxCrew := cs.MaxCrew(w)
 	var drv *game.CrewMember
 	for i := range w.Crew.Members {
 		if m := &w.Crew.Members[i]; m.Role == game.RoleDriver && (drv == nil || m.Skill > drv.Skill) {
@@ -998,12 +970,7 @@ func Drive(cfg *content.Config, w *game.World) {
 		}
 	}
 	if drv == nil {
-		best := -1
-		for i, c := range w.Crew.Candidates {
-			if c.Role == game.RoleDriver && (best < 0 || c.Skill > w.Crew.Candidates[best].Skill) {
-				best = i
-			}
-		}
+		best := bestCandidate(w, game.RoleDriver)
 		if best < 0 || len(w.Crew.Members) >= maxCrew {
 			return
 		}
@@ -1105,7 +1072,7 @@ const (
 // temper; "" takes them as they come. It is the tier-4 policy: the
 // second city staffed by somebody who is not you.
 func Delegated(cfg *content.Config, lieLowAt float64, personality string) Policy {
-	return distribute(cfg, lieLowAt, true, false, personality, BossMargin)
+	return newRoad(cfg, lieLowAt).trader(roadCrew{delegate: true, personality: personality, guards: 1, hubCorners: HubCorners})
 }
 
 // Boss plays the whole game (#60): Delegated, and it holds home as well
@@ -1134,7 +1101,7 @@ func Boss(cfg *content.Config, lieLowAt float64, personality string) Policy {
 // dollar into levels, and one thin morning shuts the places that were
 // paying.
 func BossAt(cfg *content.Config, lieLowAt float64, personality string, margin float64) Policy {
-	return distribute(cfg, lieLowAt, true, true, personality, margin)
+	return newRoad(cfg, lieLowAt).boss(personality, margin)
 }
 
 // BossOdds is the strike odds under which the boss talks instead.
@@ -1173,325 +1140,9 @@ func worth(cfg *content.Config, w *game.World, id string) bool {
 // lieutenant's to post.
 const HubCorners = 2
 
-func distribute(cfg *content.Config, lieLowAt float64, delegate, fight bool, personality string, margin float64) Policy {
-	laundered := Laundered(cfg, lieLowAt)
-	ld := laundering.New(cfg)
-	tr := territory.New(cfg)
-	lw := law.New(cfg)
-	crewSim := crew.New(cfg)
-	rv := rivals.New(cfg)
-	dip := cfg.Rivals.Diplomacy
-	lg := logistics.New(cfg)
-	home := cfg.City.Home().ID
-	// The route into home with the most room, from the city that sells
-	// by the lot; the hub is where it starts.
-	var route *content.RouteConfig
-	for _, c := range cfg.City.Cities {
-		if !c.Wholesale || c.ID == home {
-			continue
-		}
-		for _, r := range lg.Routes(c.ID) {
-			if r.From == c.ID && r.To == home && (route == nil || r.Capacity > route.Capacity) {
-				rc := r
-				route = &rc
-			}
-		}
-	}
-	hub := ""
-	if route != nil {
-		hub = route.From
-	}
-	tun := cfg.Crew.Crew
-	homeCorners := max(1, tun.MaxCrew/2)
-	guards := max(1, tun.MaxCrew/3)
-	// The delegated player keeps HubCorners runners of its own in the hub
-	// and leaves the rest to the lieutenant; the boss works every corner
-	// there, the lieutenant's people being their own.
-	hubCorners := HubCorners
-	if fight && hub != "" {
-		hubCorners = len(cfg.City.City(hub).Corners)
-	}
-	hot := TooHot(cfg, lieLowAt)
-	return func(w *game.World) {
-		if route == nil {
-			laundered(w)
-			return
-		}
-		if fight {
-			defer war(w, rv, dip, hot)
-		}
-		// The dial, set once and left; the target, refreshed as home's
-		// corners come and go. Whatever the lot does not undercut home's
-		// street by DistributorMargin is not worth the road.
-		if !w.Route(route.ID).Dial.On() {
-			_ = w.SetRoute(route.ID, events.RouteNormal)
-		}
-		// The boss keeps the pipeline full: the road takes days, and a
-		// target under that many days of demand starves home between
-		// landings.
-		days := float64(DistributorDays)
-		if fight {
-			days = max(days, float64(lg.Days(w, *route, w.Route(route.ID).Dial.Ship())+2))
-		}
-		wholesale := w.WholesaleSupplier(hub)
-		for _, id := range w.Products {
-			homeP := w.Product(home, id)
-			target := 0
-			if wholesale != nil && homeP != nil && wholesale.Price[id] > 0 && wholesale.Price[id] <= homeP.Price*DistributorMargin && (!fight || worth(cfg, w, id)) {
-				target = int(days * w.Demand(home, id))
-			}
-			_ = w.SetRouteTarget(route.ID, id, target)
-		}
-		if wholesale == nil || wholesale.Locked(w) {
-			laundered(w)
-			return
-		}
-		if w.Player.Location != hub {
-			_ = w.Travel(hub)
-		}
-		// The boss spends at a thinner margin (the pile is what draws the
-		// police at this scale, and a front or a node is where it goes)
-		// and pays generous: wages are noise against the takings, and
-		// the loyalty is what keeps a ten-strong roster from firing
-		// itself one a day.
-		if fight {
-			washUpAt(cfg, w, BossMargin)
-			BuyUpgrades(cfg, w, BossMargin)
-			w.SetPay(events.PayGenerous)
-			// The boss pays the town (#193): the reform ticket in every
-			// city when a campaign opens, and goodwill wherever the
-			// pressure is up, as Funded does where it stands.
-			backReform(cfg, w)
-			for _, cid := range w.CityOrder {
-				payTown(cfg, w, w.Cities[cid])
-			}
-			// Then the property (#194): the block under a corner of its
-			// own, cheapest first, one a day, over the same campaign's
-			// worth, and never past what the DA lets the washed figure
-			// explain (the forfeiture's line, DeedLimit).
-			BuyDeed(tr, w, BossMargin, cfg.Law.Campaign.Fill(), lw.DeedLimit(w))
-			// Then the businesses (#192): the levels take what the town
-			// and the property left, over a campaign's worth kept in
-			// hand for the next election, so the boss's civic spending
-			// is what it was.
-			InvestOver(ld, w, margin, cfg.Law.Campaign.Fill())
-			// And a lot a day offshore (#195) over the same reserve,
-			// never over the line and never retiring: its numbers are
-			// the horizon's.
-			ReserveLot(ld, w, cfg.Law.Campaign.Fill())
-		} else {
-			washUp(cfg, w)
-			BuyUpgrades(cfg, w, 3) // the stash spots are what a lot needs room for
-			w.SetPay(events.PayFair)
-		}
-
-		// The crew: runners, and one enforcer for home once the rival is
-		// about. Whoever has sunk to skimming goes, one a day. The
-		// delegated player hires the first lieutenant looking for work
-		// ahead of anyone else and hands them home; while one is on the
-		// payroll it leaves home to them.
-		for _, m := range w.Crew.Members {
-			if m.Loyalty < tun.SkimThreshold {
-				_, _ = w.Fire(m.ID)
-				break
-			}
-		}
-		var lt *game.CrewMember
-		for i := range w.Crew.Members {
-			if w.Crew.Members[i].Lieutenant() {
-				lt = &w.Crew.Members[i]
-			}
-		}
-		// The boss reads the market screen: a lieutenant whose standing
-		// orders are at the aggressive dial is a violent one, and runs
-		// the city into an arrest the first night a shipment lands, so
-		// they go the morning the orders show, before those resolve. (A
-		// careful one sells half of what the corners take, but firing
-		// them costs more than they do: the loyalty, their people and
-		// the wait for the next one looking for work.)
-		if fight && lt != nil && len(w.Crew.FiredToday) == 0 {
-			for _, id := range w.Products {
-				if o, ok := w.StandingOrder(home, id); ok && o.Dial == events.DialAggressive {
-					_, _ = w.Fire(lt.ID)
-					lt = nil
-					break
-				}
-			}
-		}
-		want := game.RoleRunner
-		if w.Rival().Arrived > 0 && w.Crew.Role(game.RoleEnforcer) == 0 && w.Crew.Runners() >= 2 {
-			want = game.RoleEnforcer
-		}
-		if fight && w.Rival().Arrived > 0 && w.Crew.Role(game.RoleEnforcer) < guards && w.Crew.Runners() >= 2 {
-			want = game.RoleEnforcer
-		}
-		if delegate && lt == nil {
-			for _, c := range w.Crew.Candidates {
-				if c.Lieutenant() {
-					want = game.RoleLieutenant
-				}
-			}
-			// A full roster makes room for them: the least skilled
-			// runner goes, and the lieutenant's people more than make
-			// up for it.
-			if want == game.RoleLieutenant && len(w.Crew.Members) >= crewSim.MaxCrew(w) && len(w.Crew.FiredToday) == 0 {
-				worst := -1
-				for i, m := range w.Crew.Members {
-					if m.Role == game.RoleRunner && (worst < 0 || m.Skill < w.Crew.Members[worst].Skill) {
-						worst = i
-					}
-				}
-				if worst >= 0 {
-					_, _ = w.Fire(w.Crew.Members[worst].ID)
-				}
-			}
-		}
-		best := -1
-		for i, c := range w.Crew.Candidates {
-			if c.Role == want && (best < 0 || c.Skill > w.Crew.Candidates[best].Skill) {
-				best = i
-			}
-		}
-		if best >= 0 && len(w.Crew.Members) < crewSim.MaxCrew(w) {
-			if c := w.Crew.Candidates[best]; w.Player.DirtyCash >= c.Fee+cfg.Market.Market.StartCash {
-				if m, err := w.Hire(c.ID, crewSim.MaxCrew(w)); err == nil && m.Lieutenant() {
-					lt = w.Crew.Member(m.ID)
-					if personality != "" {
-						lt.Personality = personality
-					}
-				}
-			}
-		}
-		if lt != nil && lt.City != home {
-			_ = w.Assign(lt.ID, home)
-		}
-		// A lieutenant whose loyalty is sliding toward the flip line is
-		// paid off before they get there: the player who reads the
-		// roster keeps the one person who knows everything sweet.
-		if lt != nil && lt.Loyalty < crewSim.FlipLine()+10 && len(w.Crew.PaidOffToday) == 0 {
-			if cost := crewSim.PayoffCost(*lt); w.Player.DirtyCash >= cost+cfg.Market.Market.StartCash {
-				_, _ = w.PayOff(lt.ID, cost, crewSim.PayoffLoyalty())
-			}
-		}
-		delegated := lt != nil
-		// Arriving with the whole crew posted at home, one runner comes
-		// off the smallest home corner to work here: the route needs
-		// somebody on this end, and a lieutenant only comes looking
-		// once corners are held in both cities.
-		if !delegated && w.WorkedIn(hub) == 0 && w.WorkedIn(home) > homeCorners {
-			if c := pickCorner(w, func(c game.Corner) bool { return c.City == home && c.Worked() && c.Runner != game.You }, func(c game.Corner) float64 { return -c.Demand }); c != nil {
-				w.Recall(c.Runner)
-			}
-		}
-		// Idle runners take corners at home until homeCorners are worked,
-		// then here; the enforcer guards the home corner the rival borders.
-		// With home handed over, HubCorners runners work here, the rest
-		// wait for the lieutenant, enforcer included, and whoever the
-		// lieutenant had no corner for last night works here after all.
-		for _, m := range w.Crew.Members {
-			if w.PostOf(m.ID) != nil {
-				continue
-			}
-			if delegated && (m.Role != game.RoleRunner || (w.WorkedIn(hub) >= hubCorners && m.Hired == w.Day)) {
-				continue
-			}
-			switch m.Role {
-			case game.RoleRunner:
-				// Home first, until homeCorners are worked or the rival
-				// has left nothing to work; then here.
-				for _, city := range []string{home, hub} {
-					if city == home && (delegated || w.WorkedIn(home) >= homeCorners) {
-						continue
-					}
-					c := pickCorner(w, func(c game.Corner) bool { return c.City == city && c.Held() && c.Runner == 0 }, size)
-					if c == nil {
-						c = pickCorner(w, func(c game.Corner) bool { return c.City == city && c.Owner == game.OwnerNone }, size)
-					}
-					if c != nil {
-						_ = w.Post(c.ID, m.ID)
-						break
-					}
-				}
-			case game.RoleEnforcer:
-				score := func(c game.Corner) float64 {
-					if w.Contested(c) {
-						return 10 + c.Demand
-					}
-					return c.Risk
-				}
-				if c := pickCorner(w, func(c game.Corner) bool { return c.City == home && c.Worked() && c.Enforcer == 0 }, score); c != nil {
-					_ = w.Post(c.ID, m.ID)
-				}
-			}
-		}
-
-		// The corners here: the supplier stocks them at retail, toward
-		// what they sell, the way any trader restocks; the boss stocks
-		// only what is worth the heat. The route feeds home on its own.
-		if fight {
-			restockOnly(cfg, w, func(id string) bool { return worth(cfg, w, id) })
-		} else {
-			restock(cfg, w)
-		}
-
-		// Sales: everything at home, and everything here. Heat anywhere
-		// over the line is a day off.
-		if hot(w) {
-			w.SetLieLow(true)
-			return
-		}
-		for _, id := range w.Products {
-			if q := w.Stock(home, id); q > 0 && !delegated {
-				_ = w.PlaceSell(home, id, q, events.DialNormal)
-			}
-			if q := w.Stock(hub, id); q > 0 {
-				_ = w.PlaceSell(hub, id, q, events.DialNormal)
-			}
-		}
-	}
-}
-
 // DistributorMargin is the fraction of home's street price a lot must
 // come under for the distributor to route the product at all.
 const DistributorMargin = 0.7
-
-// war is the boss's answer to the rival, after the day's trading is
-// queued: the enforcers against the rival's biggest corner at push when
-// a corner is contested, heat is under the line and the odds are over
-// BossOdds; else the diplomat's table, a truce proposed whenever a
-// corner was lost in the last DiplomatDays and any truce offered taken.
-func war(w *game.World, rv *rivals.Sim, dip content.DiplomacyTuning, hot func(*game.World) bool) {
-	r := Nearest(w)
-	if r.Arrived == 0 {
-		return
-	}
-	for _, o := range w.Offers {
-		if o.Deal.Kind == game.DealTruce {
-			_, _ = w.Accept(o.ID)
-		}
-	}
-	contested := false
-	for _, c := range w.Home().Corners {
-		if c.Owner == game.OwnerPlayer && w.Contested(c) {
-			contested = true
-		}
-	}
-	// A push when the odds clear the line; otherwise it talks. A strike
-	// under a deal would be a betrayal, so never at peace. (A hit at the
-	// same line wins corners and loses the run: 6.6 strikes a run took 4
-	// corners, brought 23 crackdowns over 20 seeds and indicted 4 of
-	// them, for a lower median at the horizon than talking.)
-	if contested && !w.AtPeaceWith(r.Faction()) && !hot(w) && rv.Odds(w, r, events.ForcePush) >= BossOdds {
-		if c := pickCorner(w, func(c game.Corner) bool { return c.FactionID() == r.Faction() }, size); c != nil {
-			_ = w.SendEnforcers(c.ID, events.ForcePush)
-			return
-		}
-	}
-	if w.AtPeaceWith(r.Faction()) || w.Today.Proposal != nil || r.LastFlip == 0 || w.Day-r.LastFlip > DiplomatDays {
-		return
-	}
-	_ = w.ProposeTo(r.Faction(), game.DealTruce, game.Terms{Days: dip.TruceDays[1]})
-}
 
 // Delegate puts a lieutenant on the payroll, free, running city with the
 // given temper, so a test can measure what one does without waiting for
@@ -1521,8 +1172,8 @@ func Delegate(cfg *content.Config, w *game.World, city, personality string) game
 // washUp is the Laundered policy's fronts: the cheapest one lacking when
 // dirty cash is three times its price, the dial at normal and careful for
 // a while after an audit.
-func washUp(cfg *content.Config, w *game.World) {
-	washUpAt(cfg, w, 3)
+func washUp(ld *laundering.Sim, w *game.World) {
+	washUpAt(ld, w, 3)
 }
 
 // InvestOver buys the cheapest next level of any front owned (#192), one
@@ -1591,9 +1242,10 @@ func Landlord(cfg *content.Config, policy Policy) Policy {
 }
 
 // washUpAt is washUp with the margin given: the front is bought when
-// dirty cash is margin times its price.
-func washUpAt(cfg *content.Config, w *game.World, margin float64) {
-	for _, o := range laundering.New(cfg).Offers() {
+// dirty cash is margin times its price. ld is the policy's laundering
+// sim, built once (#275): it keeps nothing between days.
+func washUpAt(ld *laundering.Sim, w *game.World, margin float64) {
+	for _, o := range ld.Offers() {
 		if w.Front(o.ID) != nil {
 			continue
 		}

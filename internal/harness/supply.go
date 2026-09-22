@@ -6,6 +6,7 @@ import (
 	"github.com/theclifmeister/kingpin/internal/content"
 	"github.com/theclifmeister/kingpin/internal/events"
 	"github.com/theclifmeister/kingpin/internal/game"
+	"github.com/theclifmeister/kingpin/internal/sim/crew"
 	"github.com/theclifmeister/kingpin/internal/sim/market"
 )
 
@@ -23,8 +24,9 @@ func Stocked(cfg *content.Config, lieLowAt float64) Policy {
 	if err != nil {
 		panic(err)
 	}
+	cs := crew.New(cfg)
 	return func(w *game.World) {
-		staff(cfg, w, w.Player.Location, 0)
+		staff(cfg, cs, w, w.Player.Location, 0)
 		if hot(w) {
 			w.SetLieLow(true)
 			return
