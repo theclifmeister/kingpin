@@ -1,8 +1,6 @@
 package ui
 
 import (
-	"bytes"
-	"encoding/gob"
 	"os"
 	"path/filepath"
 	"reflect"
@@ -331,15 +329,7 @@ func TestSceneNeverTouchesTheWorld(t *testing.T) {
 			endDay(t, m)
 			m.Update(key("enter"))
 		}
-		var buf bytes.Buffer
-		if err := gob.NewEncoder(&buf).Encode(m.w); err != nil {
-			t.Fatal(err)
-		}
-		var out game.World
-		if err := gob.NewDecoder(&buf).Decode(&out); err != nil {
-			t.Fatal(err)
-		}
-		return &out
+		return gobCopy(t, m.w)
 	}
 	on, off := play(Options{Anim: true, MorningAnim: true}), play(Options{Anim: false})
 	if !reflect.DeepEqual(on, off) {
@@ -350,31 +340,20 @@ func TestSceneNeverTouchesTheWorld(t *testing.T) {
 	// ended by a key, is the world before its first frame, gob-equal
 	// (DemoScene's own setup, an ending or a card put on the world for
 	// the scene to read, is before the first frame).
-	decoded := func(w *game.World) *game.World {
-		var buf bytes.Buffer
-		if err := gob.NewEncoder(&buf).Encode(w); err != nil {
-			t.Fatal(err)
-		}
-		var out game.World
-		if err := gob.NewDecoder(&buf).Decode(&out); err != nil {
-			t.Fatal(err)
-		}
-		return &out
-	}
 	d := demoModel(t, 120, 40)
 	now := time.Unix(1_700_000_000, 0)
 	for _, sc := range anim.Scenes() {
 		d.DemoScene(sc.Name, "")
-		before := decoded(d.w)
+		before := gobCopy(t, d.w)
 		runOut(d, now, sc.Length)
-		if !reflect.DeepEqual(before, decoded(d.w)) {
+		if !reflect.DeepEqual(before, gobCopy(t, d.w)) {
 			t.Errorf("%s: the world moved while the scene ran", sc.Name)
 		}
 		d.DemoScene(sc.Name, "")
-		before = decoded(d.w)
+		before = gobCopy(t, d.w)
 		tickAt(d, now)
 		d.Update(key("x"))
-		if !reflect.DeepEqual(before, decoded(d.w)) {
+		if !reflect.DeepEqual(before, gobCopy(t, d.w)) {
 			t.Errorf("%s: the world moved on the key that ended the scene", sc.Name)
 		}
 	}

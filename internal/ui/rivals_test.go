@@ -11,31 +11,6 @@ import (
 	"github.com/theclifmeister/kingpin/internal/game"
 )
 
-// paneRender is the details pane's text read off a view at a width from
-// the pane's: every body row's last paneWidth cells, borders trimmed.
-func paneRender(m *Model) string {
-	var out []string
-	for _, l := range strings.Split(stripANSI(m.View()), "\n")[1 : m.height-1] {
-		rs := []rune(l)
-		if len(rs) < paneWidth {
-			continue
-		}
-		out = append(out, strings.TrimSpace(strings.Trim(string(rs[len(rs)-paneWidth:]), "│╭╮╰╯─ ")))
-	}
-	return strings.Join(out, "\n")
-}
-
-// mainText is MAIN's text read off a view: every body row's first
-// mainWidth cells.
-func mainText(m *Model) string {
-	var out []string
-	for _, l := range strings.Split(stripANSI(m.View()), "\n")[1 : m.height-1] {
-		rs := []rune(l)
-		out = append(out, strings.TrimRight(string(rs[:min(len(rs), m.mainWidth())]), " "))
-	}
-	return strings.Join(out, "\n")
-}
-
 // The rivals screen (#87): MAIN is the leader line, the trust and war
 // bars, DEALS and OFFERS as tables with the offer cursor and tonight's
 // proposal; the pane is the selected offer (its terms, who and when,

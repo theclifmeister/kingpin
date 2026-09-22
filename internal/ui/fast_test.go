@@ -1,8 +1,6 @@
 package ui
 
 import (
-	"bytes"
-	"encoding/gob"
 	"fmt"
 	"reflect"
 	"strings"
@@ -11,46 +9,6 @@ import (
 	"github.com/theclifmeister/kingpin/internal/content"
 	"github.com/theclifmeister/kingpin/internal/game"
 )
-
-// fast presses F and runs up to days days.
-func fast(t *testing.T, m *Model, days int) {
-	t.Helper()
-	m.Update(key("F"))
-	if m.mode != modeConfirmFast {
-		t.Fatalf("F: mode %v, status %q", m.mode, m.status)
-	}
-	m.amt.SetValue(fmt.Sprint(days))
-	m.Update(key("enter"))
-}
-
-// closeMorning answers a card with its first choice and closes the
-// outcome and the report, so the next key lands on the play screen.
-func closeMorning(t *testing.T, m *Model) {
-	t.Helper()
-	if m.mode == modeStage {
-		m.Update(key("enter"))
-	}
-	if m.mode == modeCard {
-		m.Update(key("enter"))
-		m.Update(key("enter"))
-	}
-	if m.mode == modeReport {
-		m.Update(key("enter"))
-	}
-	if m.mode != modePlay {
-		t.Fatalf("after the morning: mode %v", m.mode)
-	}
-}
-
-// reportLine is the first line of the report modal's body.
-func reportLine(t *testing.T, m *Model) string {
-	t.Helper()
-	if m.mode != modeReport {
-		t.Fatalf("mode %v, not the report: status %q", m.mode, m.status)
-	}
-	_, _, box := modalBox(t, m.View())
-	return strings.TrimSpace(strings.Trim(strings.TrimSpace(stripANSI(box[3])), "║"))
-}
 
 // A fast-forward stops on the day a card is dealt, before the report,
 // with the card up (a stop never skips a card): the day the n walk
@@ -253,17 +211,6 @@ func TestFastForwardStopsAtTheCap(t *testing.T) {
 // a map in whatever order it walks it, so the two are compared decoded,
 // not as bytes).
 func TestFastForwardIsTheSameDays(t *testing.T) {
-	roundTrip := func(w *game.World) *game.World {
-		var buf bytes.Buffer
-		if err := gob.NewEncoder(&buf).Encode(w); err != nil {
-			t.Fatal(err)
-		}
-		var out game.World
-		if err := gob.NewDecoder(&buf).Decode(&out); err != nil {
-			t.Fatal(err)
-		}
-		return &out
-	}
 	byHand := newTestModel(t, 80, 24)
 	byHand.startRun(5)
 	for i := 0; i < 5; i++ {
@@ -282,14 +229,14 @@ func TestFastForwardIsTheSameDays(t *testing.T) {
 	if !reflect.DeepEqual(m.w, byHand.w) {
 		t.Fatal("F for 5 days and n five times differ")
 	}
-	if !reflect.DeepEqual(roundTrip(m.w), roundTrip(byHand.w)) {
+	if !reflect.DeepEqual(gobCopy(t, m.w), gobCopy(t, byHand.w)) {
 		t.Fatal("F for 5 days and n five times differ through gob")
 	}
 	saved, err := game.Load(m.slot, m.set.Migrations()...)
 	if err != nil {
 		t.Fatal(err)
 	}
-	if !reflect.DeepEqual(saved, roundTrip(byHand.w)) {
+	if !reflect.DeepEqual(saved, gobCopy(t, byHand.w)) {
 		t.Fatal("the save after F differs from the run by hand")
 	}
 }

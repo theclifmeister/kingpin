@@ -6,7 +6,6 @@ import (
 
 	"github.com/theclifmeister/kingpin/internal/events"
 
-	tea "github.com/charmbracelet/bubbletea"
 	"github.com/charmbracelet/lipgloss"
 
 	"github.com/theclifmeister/kingpin/internal/content"
@@ -22,11 +21,7 @@ func tableModel(t *testing.T, w, h int) *Model {
 	t.Setenv("KINGPIN_HOME", t.TempDir())
 	cfg := content.MustLoad()
 	cfg.Rivals.Factions.Min, cfg.Rivals.Factions.Max = 4, 4
-	m, err := New(cfg, Options{Anim: false})
-	if err != nil {
-		t.Fatal(err)
-	}
-	m.Update(tea.WindowSizeMsg{Width: w, Height: h})
+	m := sizedModel(t, cfg, Options{Anim: false}, w, h)
 	m.startRun(11)
 	world := m.w
 	if len(world.Rivals) != 4 {

@@ -328,21 +328,6 @@ func TestCrewScreenUnpostedEnforcer(t *testing.T) {
 	}
 }
 
-// paneProse is paneText (map_test.go) with each section's lines run
-// together, so a wrapped note reads whole.
-func paneProse(m *Model) string {
-	var b strings.Builder
-	for _, s := range m.details() {
-		b.WriteString(s.title + "\n")
-		var ls []string
-		for _, l := range s.lines {
-			ls = append(ls, strings.TrimSpace(stripANSI(l)))
-		}
-		b.WriteString(spaces.ReplaceAllString(strings.Join(ls, " "), " ") + "\n")
-	}
-	return b.String()
-}
-
 // TestCrewPaneNamesTheCosts: the pane's h, i and $ lines carry the same
 // numbers hireSelected, investigateConfirm and payOffConfirm use, and
 // the wage line the other two dials' wages (#86).
@@ -465,7 +450,7 @@ func TestCrewScreenInTheGrammar(t *testing.T) {
 	// The strip at 80 is the person after the name.
 	m.crewCursor = 0
 	c, _, _ := m.crewSelected()
-	rows := strings.Split(stripANSI(m.View()), "\n")
+	rows := viewLines(m)
 	if strip := rows[m.mainHeight()+1]; !strings.HasPrefix(strip, "▸ "+strings.ToUpper(c.Name)+" · "+c.Role+" · skill ") || !strings.HasSuffix(strings.TrimRight(strip, " "), "␣ more") {
 		t.Errorf("strip: %q", strip)
 	}

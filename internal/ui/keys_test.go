@@ -132,7 +132,7 @@ func TestLegendMatchesTable(t *testing.T) {
 		}
 		// The pane's KEYS rows, read off the render: every key and its
 		// label in order, two a row.
-		rows := strings.Split(stripANSI(m.View()), "\n")
+		rows := viewLines(m)
 		var text string
 		in := false
 		for _, r := range rows {
