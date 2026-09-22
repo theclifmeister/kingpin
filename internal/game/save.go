@@ -179,45 +179,12 @@ func Load(slot int, migrations ...Migration) (*World, error) {
 	if w.SchemaVersion > SchemaVersion {
 		return nil, ErrNewerSchema
 	}
-	if w.SchemaVersion < 7 {
-		// The one city there was lived on World itself. Read those fields
-		// off the stream a second time (gob matches by name and ignores
-		// the rest) for MigrateCities to wrap.
-		var old v6
-		if err := gob.NewDecoder(bytes.NewReader(b)).Decode(&old); err != nil {
-			return nil, fmt.Errorf("save file is corrupt: %w", err)
+	for _, r := range legacyReads {
+		if w.SchemaVersion < r.Before {
+			if err := r.Read(&w, b); err != nil {
+				return nil, fmt.Errorf("save file is corrupt: %w", err)
+			}
 		}
-		w.legacy = &old
-	}
-	if w.SchemaVersion < 10 {
-		// The fall guy was a flag (FallGuyUsed) before fall_guys became a
-		// count (#117); gob will not read a bool into an int, so the old
-		// field is read off the stream a second time for MigrateFallGuys.
-		var old v9
-		if err := gob.NewDecoder(bytes.NewReader(b)).Decode(&old); err != nil {
-			return nil, fmt.Errorf("save file is corrupt: %w", err)
-		}
-		w.fell = old.FallGuyUsed
-	}
-	if w.SchemaVersion < 15 {
-		// The one rival lived on World.Rival before the table (#43);
-		// read it off the stream a second time for MigrateFactions to
-		// seat as the first faction.
-		var old v14
-		if err := gob.NewDecoder(bytes.NewReader(b)).Decode(&old); err != nil {
-			return nil, fmt.Errorf("save file is corrupt: %w", err)
-		}
-		w.old = &old
-	}
-	if w.SchemaVersion < 16 {
-		// The books a scout read lived on Rival.Known before intel
-		// (#45); read them off the stream a second time for
-		// MigrateBooks to file as facts.
-		var old v15
-		if err := gob.NewDecoder(bytes.NewReader(b)).Decode(&old); err != nil {
-			return nil, fmt.Errorf("save file is corrupt: %w", err)
-		}
-		w.books = &old
 	}
 	if len(w.Cities) == 0 && (w.legacy == nil || w.legacy.Market == nil) {
 		return nil, fmt.Errorf("save file is corrupt: missing world state")
@@ -260,6 +227,48 @@ func Load(slot int, migrations ...Migration) (*World, error) {
 	w.old = nil
 	w.books = nil
 	return &w, nil
+}
+
+// legacyReads are the fields an older save kept where World no longer
+// has them, one row a shape (#275: Load did this four times over). A
+// save from before schema Before carries the fields; Read decodes the
+// stream a second time into the old shape (gob matches by name and
+// ignores the rest) and hands them to World for the migration that
+// consumes them. Load runs the rows in order and clears what the
+// migrations leave.
+var legacyReads = []struct {
+	Before int
+	Read   func(w *World, b []byte) error
+}{
+	// The one city there was lived on World itself: MigrateCities wraps
+	// it.
+	{7, func(w *World, b []byte) (err error) { w.legacy, err = decodeAgain[v6](b); return err }},
+	// The fall guy was a flag (FallGuyUsed) before fall_guys became a
+	// count (#117); gob will not read a bool into an int, so the old
+	// field is read for MigrateFallGuys.
+	{10, func(w *World, b []byte) error {
+		old, err := decodeAgain[v9](b)
+		if err == nil {
+			w.fell = old.FallGuyUsed
+		}
+		return err
+	}},
+	// The one rival lived on World.Rival before the table (#43):
+	// MigrateFactions seats it as the first faction.
+	{15, func(w *World, b []byte) (err error) { w.old, err = decodeAgain[v14](b); return err }},
+	// The books a scout read lived on Rival.Known before intel (#45):
+	// MigrateBooks files them as facts.
+	{16, func(w *World, b []byte) (err error) { w.books, err = decodeAgain[v15](b); return err }},
+}
+
+// decodeAgain decodes a save's bytes a second time into T, an older
+// shape of part of World.
+func decodeAgain[T any](b []byte) (*T, error) {
+	var old T
+	if err := gob.NewDecoder(bytes.NewReader(b)).Decode(&old); err != nil {
+		return nil, err
+	}
+	return &old, nil
 }
 
 // v6 is what a pre-7 save carried for the one city there was, in the

@@ -358,3 +358,23 @@ func delegatedKeys(w *game.World, city string) []string {
 	sort.Strings(keys)
 	return keys
 }
+
+// lieutenants runs each lieutenant's night in their city and sends
+// their report.
+func (s *Sim) lieutenants(n *night) {
+	w, t, c := n.w, n.t, n.c
+	// The lieutenants' night: each runs their city with whoever is
+	// left, and reports in the morning.
+	for _, cid := range w.CityOrder {
+		lt := c.Lieutenant(cid)
+		if lt == nil {
+			continue
+		}
+		ev := n.acted[lt.ID]
+		if ev == nil { // assigned today, after the takings were counted
+			ev = &events.LieutenantActed{Day: t.Day, ID: lt.ID, Name: lt.Name, City: cid, CityName: w.CityName(cid), Dial: s.Dial(*lt)}
+		}
+		s.delegate(w, t, lt, ev)
+		t.Emit(*ev)
+	}
+}

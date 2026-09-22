@@ -209,8 +209,10 @@ func TestCookOrder(t *testing.T) {
 	}
 }
 
-// TestStashHasNoWriters: no source file outside game/world.go and
-// game/houses.go writes into a stash map (#144). The map is Player.Stash
+// TestStashHasNoWriters: no source file outside game/stash.go (the
+// accessors, split out of world.go in #275), game/world.go (AddCity and
+// AddProduct seed a city's keys) and game/houses.go writes into a stash
+// map (#144). The map is Player.Stash
 // (exported for gob, its name and type kept so no schema bump) and, since
 // #73, a house's Stock, and since #47 the lot's quality beside it,
 // Player.Quality; the only way in or out of them is AddStock,
@@ -243,7 +245,7 @@ func TestStashHasNoWriters(t *testing.T) {
 			}
 			return nil
 		}
-		if !strings.HasSuffix(path, ".go") || strings.HasSuffix(path, "_test.go") || rel == filepath.Join("internal", "game", "world.go") || rel == filepath.Join("internal", "game", "houses.go") {
+		if !strings.HasSuffix(path, ".go") || strings.HasSuffix(path, "_test.go") || rel == filepath.Join("internal", "game", "stash.go") || rel == filepath.Join("internal", "game", "world.go") || rel == filepath.Join("internal", "game", "houses.go") {
 			return nil
 		}
 		src, err := os.ReadFile(path)
@@ -278,6 +280,6 @@ func TestStashHasNoWriters(t *testing.T) {
 		t.Fatal(err)
 	}
 	if len(offenders) > 0 {
-		t.Errorf("stash written outside game/world.go (use AddStock / TakeStock):\n  %s", strings.Join(offenders, "\n  "))
+		t.Errorf("stash written outside game/stash.go (use AddStock / TakeStock):\n  %s", strings.Join(offenders, "\n  "))
 	}
 }
