@@ -147,3 +147,16 @@ func decodeBytes(name string, b []byte, v any) error {
 	}
 	return nil
 }
+
+// find returns the first row of s that match accepts, or nil: the one
+// find-by-id loop every table's lookup shares (#275). The pointer is into
+// s, the table's own slice. game has its own; content imports nothing of
+// game's.
+func find[T any](s []T, match func(*T) bool) *T {
+	for i := range s {
+		if match(&s[i]) {
+			return &s[i]
+		}
+	}
+	return nil
+}

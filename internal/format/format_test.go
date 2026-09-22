@@ -75,3 +75,15 @@ func TestPlural(t *testing.T) {
 		}
 	}
 }
+
+func TestPctAndTimes(t *testing.T) {
+	for _, c := range []struct{ got, want string }{
+		{Pct(0.25, 0), "25%"}, {Pct(0.045, 1), "4.5%"}, {Pct(0, 0), "0%"}, {Pct(1.5, 0), "150%"},
+		{Times(1.25, 2), "×1.25"}, {Times(1.5, 1), "×1.5"}, {Times(2, 2), "×2.00"},
+		{TimesSig(1.5, 3), "×1.5"}, {TimesSig(2, 3), "×2"}, {TimesSig(0.85, 2), "×0.85"},
+	} {
+		if c.got != c.want {
+			t.Errorf("got %q, want %q", c.got, c.want)
+		}
+	}
+}

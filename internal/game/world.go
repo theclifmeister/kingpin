@@ -4,6 +4,7 @@ package game
 
 import (
 	"math/rand/v2"
+	"slices"
 
 	"github.com/theclifmeister/kingpin/internal/events"
 )
@@ -479,12 +480,7 @@ func (f Front) Frozen(day int) bool { return f.FrozenUntil > day }
 
 // Front returns the owned front with id, or nil.
 func (w *World) Front(id string) *Front {
-	for i := range w.Fronts {
-		if w.Fronts[i].ID == id {
-			return &w.Fronts[i]
-		}
-	}
-	return nil
+	return find(w.Fronts, func(e *Front) bool { return e.ID == id })
 }
 
 // SellOrder is a queued street sale in a city, resolved at end of day by
@@ -774,6 +770,16 @@ func (w *World) Product(city, id string) *ProductMarket {
 	return nil
 }
 
+// SortedProducts is a copy of the ladder sorted by id (#275): the fixed
+// order a sim walks the products in when the walk draws dice or its
+// order is reported, so the ladder's own order can change and no run
+// moves.
+func (w *World) SortedProducts() []string {
+	ids := slices.Clone(w.Products)
+	slices.Sort(ids)
+	return ids
+}
+
 // ProductName returns a display name for id.
 func (w *World) ProductName(id string) string {
 	if h := w.Home(); h != nil {
@@ -782,4 +788,16 @@ func (w *World) ProductName(id string) string {
 		}
 	}
 	return id
+}
+
+// find returns the first element of s that match accepts, or nil: the
+// one find-by-id loop every lookup here shares (#275). The pointer is
+// into s, so a caller writes through it as it wrote through &s[i].
+func find[T any](s []T, match func(*T) bool) *T {
+	for i := range s {
+		if match(&s[i]) {
+			return &s[i]
+		}
+	}
+	return nil
 }

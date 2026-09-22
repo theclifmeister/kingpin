@@ -206,7 +206,9 @@ func unknownEffect(c *Card, key string) error {
 	return fmt.Errorf("card %s: unknown effect %q", c.ID, key)
 }
 
-func clamp(v float64) float64 { return math.Max(0, math.Min(100, v)) }
+// clamp holds a 0..100 gauge (heat, pressure, loyalty, war, notoriety) on
+// its scale: the one clamp the cards, the incidents and the stash share.
+func clamp(v float64) float64 { return max(0, min(100, v)) }
 
 // CardSlots are what a card's templates can name, filled from the world
 // when it is drawn (Slots is the save slots' list). The three ids are

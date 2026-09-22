@@ -373,12 +373,10 @@ func (m *Model) keyCart(k tea.KeyMsg) (tea.Model, tea.Cmd) {
 	l := m.cartSelected()
 	switch key {
 	case "up", "k":
-		if d.cursor > 0 {
-			d.cursor--
-		}
+		stepCursor(&d.cursor, -1, len(m.cartLines()))
 	case "down", "j":
-		if l != nil && d.cursor < len(m.cartLines())-1 {
-			d.cursor++
+		if l != nil {
+			stepCursor(&d.cursor, 1, len(m.cartLines()))
 		}
 	case "enter", "tab":
 		if l == nil {
@@ -479,7 +477,7 @@ func (m *Model) setCartQty() {
 	}
 	if l.buy {
 		here := m.w.CanBuyIn(l.city) // where you stand, or through a lieutenant (#174)
-		qty, err := parseQtyInput(d.qty.Value(), m.cartMax())
+		qty, err := readQty(d.qty, m.cartMax())
 		if err != nil {
 			d.err = dialogError(err)
 			return
@@ -522,7 +520,7 @@ func (m *Model) setCartQty() {
 			m.say(fmt.Sprintf("Bought %d more %s from %s for %s.", p.Qty, m.w.ProductName(l.product), from, money(p.Cost)))
 		}
 	} else {
-		qty, err := parseQtyInput(d.qty.Value(), m.cartMax())
+		qty, err := readQty(d.qty, m.cartMax())
 		if err != nil {
 			d.err = dialogError(err)
 			return

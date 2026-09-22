@@ -7,6 +7,7 @@ import (
 	tea "github.com/charmbracelet/bubbletea"
 
 	"github.com/theclifmeister/kingpin/internal/events"
+	"github.com/theclifmeister/kingpin/internal/format"
 	"github.com/theclifmeister/kingpin/internal/game"
 	"github.com/theclifmeister/kingpin/internal/ui/theme"
 )
@@ -93,7 +94,7 @@ func (m *Model) booksSection() section {
 	w := m.w
 	r := m.faction()
 	return section{"BOOKS", []string{
-		keyRow("i", fmt.Sprintf("scout for %s, ~%.0f%%", money(m.set.Rivals.ScoutCost()), m.set.Rivals.ScoutOdds(w, r)*100)),
+		keyRow("i", fmt.Sprintf("scout for %s, ~%s", money(m.set.Rivals.ScoutCost()), format.Pct(m.set.Rivals.ScoutOdds(w, r), 0))),
 		keyRow("$", fmt.Sprintf("buy off a head, %s", cash(m.set.Rivals.MusclePrice(w, r)))),
 	}}
 }
@@ -119,7 +120,7 @@ func (m *Model) confirmScout() {
 		m.refuse("Can't scout: " + err.Error())
 		return
 	}
-	m.say(fmt.Sprintf("Somebody reads %s's books tonight. Odds ~%.0f%%.", m.rivalName(r), m.set.Rivals.ScoutOdds(m.w, r)*100))
+	m.say(fmt.Sprintf("Somebody reads %s's books tonight. Odds ~%s.", m.rivalName(r), format.Pct(m.set.Rivals.ScoutOdds(m.w, r), 0)))
 }
 
 // scoutConfirm is the confirmation's body: the cost, who does the
@@ -139,7 +140,7 @@ func (m *Model) scoutConfirm() string {
 		who = fmt.Sprintf("Your best enforcer (skill %d) does the asking.", best)
 	}
 	body := m.wrapLines(fmt.Sprintf("Somebody goes through %s's books tonight for %s.", m.rivalName(r), money(m.set.Rivals.ScoutCost())))
-	body = append(body, who, fmt.Sprintf("~%.0f%% it reads them: the chest, the take, the muscle, the wages.", odds*100))
+	body = append(body, who, "~"+format.Pct(odds, 0)+" it reads them: the chest, the take, the muscle, the wages.")
 	if r.Scouted > 0 {
 		body = append(body, theme.Subtle.Render(fmt.Sprintf("Every empty night so far (%d) makes the next likelier.", r.Scouted)))
 	}
@@ -255,11 +256,11 @@ func (m *Model) tipConfirm() string {
 			body = append(body, theme.Subtle.Render(l))
 		}
 	case after >= tp.PoliceNotice:
-		for _, l := range m.wrapLines(fmt.Sprintf("That is the line: a raid tonight takes the corner and %.0f%% of their muscle.", tp.RaidMuscle*100)) {
+		for _, l := range m.wrapLines("That is the line: a raid tonight takes the corner and " + format.Pct(tp.RaidMuscle, 0) + " of their muscle.") {
 			body = append(body, theme.Good.Render(l))
 		}
 	}
-	body = append(body, theme.Warning.Render(fmt.Sprintf("Trust -%.0f, and ~%.0f%% the DA's file on you gains a page.", tp.Trust, m.cfg.Heat.Heat.TipEvidence*100)))
+	body = append(body, theme.Warning.Render(fmt.Sprintf("Trust -%.0f, and ~%s the DA's file on you gains a page.", tp.Trust, format.Pct(m.cfg.Heat.Heat.TipEvidence, 0))))
 	if w.AtPeaceWith(r.Faction()) {
 		for _, l := range m.wrapLines("Under a truce or a tribute a tip breaks the peace: trust hits the floor.") {
 			body = append(body, theme.Bad.Render(l))
@@ -267,16 +268,6 @@ func (m *Model) tipConfirm() string {
 	}
 	return m.modal("TIP THE POLICE?", body, m.modalFooter())
 }
-
-// buyOffDialog is the state of the buy-off confirmation: the heads and
-// the error under them.
-type buyOffDialog struct {
-	units numberField
-	err   string
-}
-
-func (d *buyOffDialog) page() int           { return 0 }
-func (d *buyOffDialog) field() *numberField { return &d.units }
 
 // buyOffMax is the most heads the dialog offers: the muscle as last
 // read, or one while the books are unread (you do not know how many
@@ -298,41 +289,17 @@ func (m *Model) askBuyOff() {
 		m.refuse("Can't buy off twice: you are already paying their people tonight.")
 		return
 	}
-	m.bo = buyOffDialog{units: newNumberField("blank = 1")}
-	m.bo.units.max = m.buyOffMax()
-	m.bo.units.Focus()
-	m.mode = modeConfirmBuyOff
+	m.openAmount(modeConfirmBuyOff, "blank = 1", m.buyOffMax(), false, "") // the heads and the error under them, an amountDialog (#275)
 }
 
 // buyOffUnits is the heads the field reads: one for a blank, an error
 // for a number that does not read.
-func (m *Model) buyOffUnits() (int, error) {
-	s := strings.TrimSpace(m.bo.units.Value())
-	if s == "" {
-		return 1, nil
-	}
-	n, ok := m.bo.units.Number()
-	if !ok || n <= 0 {
-		return 0, fmt.Errorf("enter a whole number above zero")
-	}
-	return n, nil
-}
+func (m *Model) buyOffUnits() (int, error) { return m.amt.Read(1) }
 
 // keyBuyOff is the confirmation: enter pays, esc closes, and the
 // rest goes to the number field.
 func (m *Model) keyBuyOff(k tea.KeyMsg) (tea.Model, tea.Cmd) {
-	key := k.String()
-	m.bo.err = ""
-	switch key {
-	case "esc", "q":
-		m.mode = modePlay
-		return m, nil
-	case "enter": // every number dialog commits on enter; y is a confirmation's yes (#241)
-		m.confirmBuyOff()
-		return m, nil
-	}
-	m.bo.units.max = m.buyOffMax()
-	return m, m.bo.units.Update(k)
+	return m.keyAmount(k, m.buyOffMax, m.confirmBuyOff)
 }
 
 // confirmBuyOff pays for the heads the field reads, or shows why it
@@ -340,17 +307,17 @@ func (m *Model) keyBuyOff(k tea.KeyMsg) (tea.Model, tea.Cmd) {
 func (m *Model) confirmBuyOff() {
 	n, err := m.buyOffUnits()
 	if err != nil {
-		m.bo.err = dialogError(err)
+		m.amt.err = dialogError(err)
 		return
 	}
 	r := m.faction()
 	price := m.set.Rivals.MusclePrice(m.w, r)
 	if err := m.w.BuyOffFrom(r.Faction(), n, n*price); err != nil {
-		m.bo.err = dialogError(err)
+		m.amt.err = dialogError(err)
 		return
 	}
 	m.mode = modePlay
-	m.say(fmt.Sprintf("%s of %s's muscle paid to go home tonight: %s. Odds ~%.0f%%.", plural(n, "head"), r.Leader, money(n*price), m.set.Rivals.PoachTuning().Odds*100))
+	m.say(fmt.Sprintf("%s of %s's muscle paid to go home tonight: %s. Odds ~%s.", plural(n, "head"), r.Leader, money(n*price), format.Pct(m.set.Rivals.PoachTuning().Odds, 0)))
 }
 
 // viewBuyOff is the confirmation: the price a head, the field, the odds
@@ -364,18 +331,17 @@ func (m *Model) viewBuyOff() string {
 	if err != nil {
 		n = 1
 	}
-	units := m.bo.units
-	units.max = m.buyOffMax()
+	units := m.amountField(m.buyOffMax())
 	known := "You have not read their books: buy blind, a head at a time."
 	if k := m.known().Books(r.Faction()); k.Read() {
 		known = fmt.Sprintf("As last read (%s): %s.", strings.TrimPrefix(m.booksAge(r), "read "), plural(k.Muscle, "head"))
 	}
 	body := m.wrapLines(fmt.Sprintf("Pay %s's people to go home: %s a head, %s for %s.", r.Leader, money(price), money(n*price), plural(n, "head")))
 	body = append(body, theme.Subtle.Render(known), "", m.inHand(), row("heads", units.View()), "")
-	body = append(body, m.wrapLines(fmt.Sprintf("~%.0f%% it lands: they leave %s and never join you; what you paid for heads that were not there comes back. A well-paid crew costs more; respect cuts it.", p.Odds*100, m.rivalName(r)))...)
+	body = append(body, m.wrapLines(fmt.Sprintf("~%s it lands: they leave %s and never join you; what you paid for heads that were not there comes back. A well-paid crew costs more; respect cuts it.", format.Pct(p.Odds, 0), m.rivalName(r)))...)
 	body = append(body, theme.Warning.Render("Failing, the money is gone and they know you tried."))
-	if m.bo.err != "" {
-		body = append(body, "", theme.Bad.Render(m.bo.err))
+	if m.amt.err != "" {
+		body = append(body, "", theme.Bad.Render(m.amt.err))
 	}
 	return m.modal("BUY OFF THEIR MUSCLE?", body, m.modalFooter())
 }

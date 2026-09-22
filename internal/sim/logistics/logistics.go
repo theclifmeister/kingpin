@@ -11,12 +11,12 @@
 package logistics
 
 import (
-	"fmt"
 	"math"
 	"sort"
 
 	"github.com/theclifmeister/kingpin/internal/content"
 	"github.com/theclifmeister/kingpin/internal/events"
+	"github.com/theclifmeister/kingpin/internal/format"
 	"github.com/theclifmeister/kingpin/internal/game"
 )
 
@@ -138,7 +138,7 @@ func (s *Sim) dayRisk(fx game.Effects, r content.RouteConfig, d events.Ship, cut
 	if r.Mode == "plane" && !watched {
 		return 0
 	}
-	return math.Max(0, math.Min(1, r.Risk*s.Dial(d).Risk*fx.RouteRiskMul*(1-cut)))
+	return max(0, min(1, r.Risk*s.Dial(d).Risk*fx.RouteRiskMul*(1-cut)))
 }
 
 // Cut is what comes off an edge's risk per day: a bought checkpoint (a
@@ -157,7 +157,7 @@ func (s *Sim) Cut(w *game.World, r content.RouteConfig, day int) float64 {
 func (s *Sim) cut(w *game.World, r content.RouteConfig, day int, m *game.CrewMember) float64 {
 	deal := 0.0
 	if w.CheckpointLive(r.ID, day) {
-		deal = math.Max(0, math.Min(1, s.DealCut(r)))
+		deal = max(0, min(1, s.DealCut(r)))
 	}
 	if s.port(w, r) != nil {
 		deal = 1 // your own port clears customs (#48): the agent's envelope is redundant
@@ -182,7 +182,7 @@ func riding(w *game.World, sh game.Shipment, day int) *game.CrewMember {
 // DriverCut is what a driver of a skill takes off a shipment's risk per
 // day on the road (#46): driver_cut x skill/100.
 func (s *Sim) DriverCut(skill int) float64 {
-	return math.Max(0, math.Min(1, s.driver*float64(skill)/100))
+	return max(0, min(1, s.driver*float64(skill)/100))
 }
 
 // DealCut is the cut a bought deal on the route would take, live or not.
@@ -572,7 +572,7 @@ func (s *Sim) learn(w *game.World, t *game.Tick, route string) {
 		return
 	}
 	f := game.Fact{
-		Subject: route, Kind: game.FactRisk, Value: fmt.Sprintf("~%.0f%%/day", r.Risk*100), Number: r.Risk,
+		Subject: route, Kind: game.FactRisk, Value: "~" + format.Pct(r.Risk, 0) + "/day", Number: r.Risk,
 		Confidence: 1, Day: t.Day, Source: game.SourceSeen, Stale: s.intel.StaleRate, Forget: s.intel.Forget,
 	}
 	w.Learn(f)

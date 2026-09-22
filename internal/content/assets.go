@@ -58,23 +58,13 @@ type AssetConfig struct {
 
 // Asset returns the row with id, or nil.
 func (a AssetsConfig) Asset(id string) *AssetConfig {
-	for i := range a.Offers {
-		if a.Offers[i].ID == id {
-			return &a.Offers[i]
-		}
-	}
-	return nil
+	return find(a.Offers, func(e *AssetConfig) bool { return e.ID == id })
 }
 
 // ByEffect returns the row with the effect, or nil: one asset an
 // effect, so a sim asks for the one it reads.
 func (a AssetsConfig) ByEffect(effect string) *AssetConfig {
-	for i := range a.Offers {
-		if a.Offers[i].Effect == effect {
-			return &a.Offers[i]
-		}
-	}
-	return nil
+	return find(a.Offers, func(e *AssetConfig) bool { return e.Effect == effect })
 }
 
 // validate checks the offers: ids and effects unique and known, every

@@ -137,12 +137,8 @@ type Model struct {
 	tgt            targetDialog
 	crt            cartDialog
 	fnd            fundDialog
-	fst            fastDialog
-	bo             buyOffDialog
 	br             bribeDialog
-	inv            investDialog
-	rsv            reserveDialog
-	cop            copDialog        // the cop dialog (#45)
+	amt            amountDialog     // the one-field dialog open (#275): invest, reserve, pay a cop, buy off, fast-forward
 	spy            spyDialog        // the spy dialog (#45)
 	exit           exitDialog       // the walk-away dialog (#49)
 	nr             newRunDialog     // the new-run dialog (#50)
@@ -619,21 +615,15 @@ func (m *Model) handleKey(k tea.KeyMsg) (tea.Model, tea.Cmd) {
 				m.pickPropose()
 			}
 		case "up", "k":
-			if m.prop.cursor > 0 {
-				m.prop.cursor--
-			}
+			stepCursor(&m.prop.cursor, -1, m.proposeRows())
 		case "down", "j":
-			if m.prop.cursor < m.proposeRows()-1 {
-				m.prop.cursor++
-			}
+			stepCursor(&m.prop.cursor, 1, m.proposeRows())
 		case "enter":
 			m.pickPropose()
 		default:
-			if len(key) == 1 && key[0] >= '1' && key[0] <= '9' {
-				if i := int(key[0] - '1'); i < m.proposeRows() {
-					m.prop.cursor = i
-					m.pickPropose()
-				}
+			if i, ok := digit(key); ok && i < m.proposeRows() {
+				m.prop.cursor = i
+				m.pickPropose()
 			}
 		}
 		return m, nil

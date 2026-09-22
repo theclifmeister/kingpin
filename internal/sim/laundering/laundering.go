@@ -396,7 +396,7 @@ func (s *Sim) auditRisk(w *game.World, f game.Front, fx game.Effects, wash int) 
 		return 0
 	}
 	_, cut := s.accountants(w)
-	return math.Max(0, math.Min(1, fc.AuditRisk*s.Dial(w.Laundering.Dial).Risk*cut*fx.AuditRiskMul*s.growthRisk(*fc, f.Level, wash)))
+	return max(0, min(1, fc.AuditRisk*s.Dial(w.Laundering.Dial).Risk*cut*fx.AuditRiskMul*s.growthRisk(*fc, f.Level, wash)))
 }
 
 // growthRisk is what a front's levels multiply its audit risk by (#192):
