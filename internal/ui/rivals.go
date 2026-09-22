@@ -6,6 +6,7 @@ import (
 	"strings"
 
 	"github.com/theclifmeister/kingpin/internal/events"
+	"github.com/theclifmeister/kingpin/internal/format"
 	"github.com/theclifmeister/kingpin/internal/game"
 	"github.com/theclifmeister/kingpin/internal/ui/theme"
 )
@@ -210,8 +211,8 @@ func (m *Model) confirmUndercut() {
 		m.refuse("Can't undercut: " + err.Error())
 		return
 	}
-	m.say(fmt.Sprintf("Undercutting %s tonight at %s: ~%.0f units a day at %.0f%% off, %s loses ~%s a day.",
-		c.Name, d, m.set.Market.UndercutUnits(m.w, *c, d), m.set.Market.PriceCut()*100, m.factionOf(c).Leader, cash(m.undercutLoss(*c, d))))
+	m.say(fmt.Sprintf("Undercutting %s tonight at %s: ~%.0f units a day at %s off, %s loses ~%s a day.",
+		c.Name, d, m.set.Market.UndercutUnits(m.w, *c, d), format.Pct(m.set.Market.PriceCut(), 0), m.factionOf(c).Leader, cash(m.undercutLoss(*c, d))))
 }
 
 // undercutLoss is what a price war on a corner at the dial costs the
@@ -236,7 +237,7 @@ func (m *Model) viewUndercut() string {
 	m.pick.cursor = max(0, min(m.pick.cursor, len(rows)-1))
 	body := []string{
 		theme.Subtle.Render(fmt.Sprintf("%s on %s: worth ~%s a day to them", m.rivalName(m.factionOf(c)), c.Name, cash(m.set.Rivals.CornerIncome(m.w, *c)))),
-		theme.Subtle.Render(fmt.Sprintf("your corners next door ×%.1f: the share taken scales with them", m.w.NextDoor(*c))),
+		theme.Subtle.Render("your corners next door " + format.Times(m.w.NextDoor(*c), 1) + ": the share taken scales with them"),
 		"",
 	}
 	var cells [][]any

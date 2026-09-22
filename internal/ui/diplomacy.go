@@ -7,6 +7,7 @@ import (
 
 	"github.com/charmbracelet/lipgloss"
 
+	"github.com/theclifmeister/kingpin/internal/format"
 	"github.com/theclifmeister/kingpin/internal/game"
 	"github.com/theclifmeister/kingpin/internal/ui/theme"
 )
@@ -36,7 +37,7 @@ func (m *Model) termRows(kind string) ([]game.Deal, []string) {
 	case game.DealTribute:
 		for i, c := range dip.TributeCuts {
 			deals = append(deals, game.Deal{Kind: kind, Terms: game.Terms{PerDay: m.set.Rivals.Cut(w, r, c)}})
-			words = append(words, fmt.Sprintf("%.0f%% of your street", c*100)+[]string{" (thin)", "", " (fat)"}[i])
+			words = append(words, format.Pct(c, 0)+" of your street"+[]string{" (thin)", "", " (fat)"}[i])
 		}
 	case game.DealSplit:
 		for i, line := range w.SplitLinesWith(r.Faction()) {
@@ -122,7 +123,7 @@ func (m *Model) pickPropose() {
 		m.refuse("Can't propose: " + err.Error())
 		return
 	}
-	m.say(fmt.Sprintf("Proposed %s to %s. They answer in the morning; odds ~%.0f%%.", m.w.Describe(d), m.rivalName(r), m.set.Rivals.Chance(m.w, r, d)*100))
+	m.say(fmt.Sprintf("Proposed %s to %s. They answer in the morning; odds ~%s.", m.w.Describe(d), m.rivalName(r), format.Pct(m.set.Rivals.Chance(m.w, r, d), 0)))
 }
 
 func (m *Model) viewPropose() string {
@@ -167,7 +168,7 @@ func (m *Model) viewPropose() string {
 			case game.DealSplit:
 				line = fmt.Sprintf("%-10s %-36s", plural(len(d.Terms.Corners), "corner"), words[i])
 			}
-			note := fmt.Sprintf("~%.0f%%", odds*100)
+			note := "~" + format.Pct(odds, 0)
 			if odds == 0 {
 				note = theme.Bad.Render("refused")
 			}
@@ -389,7 +390,7 @@ func (m *Model) viewRivals() string {
 		if to == nil {
 			to = w.Rival()
 		}
-		line(theme.Gold.Render(fmt.Sprintf("Tonight  you propose %s to %s; they answer in the morning, ~%.0f%%", w.Describe(*p), to.Leader, m.set.Rivals.Chance(w, to, *p)*100)))
+		line(theme.Gold.Render(fmt.Sprintf("Tonight  you propose %s to %s; they answer in the morning, ~%s", w.Describe(*p), to.Leader, format.Pct(m.set.Rivals.Chance(w, to, *p), 0))))
 	}
 	ls = append(ls, "")
 

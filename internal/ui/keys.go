@@ -237,16 +237,8 @@ func (m *Model) openPaged() paged {
 		return &m.front
 	case modePropose:
 		return &m.prop
-	case modeInvest:
-		return &m.inv
-	case modeReserve:
-		return &m.rsv
-	case modePayCop:
-		return &m.cop
-	case modeConfirmFast:
-		return &m.fst
-	case modeConfirmBuyOff:
-		return &m.bo
+	case modeInvest, modeReserve, modePayCop, modeConfirmFast, modeConfirmBuyOff:
+		return &m.amt
 	case modePost, modeStrike, modeUndercut, modeAssign, modeGuard, modeDriver:
 		return &m.pick
 	}

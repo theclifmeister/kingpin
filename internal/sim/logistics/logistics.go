@@ -11,12 +11,12 @@
 package logistics
 
 import (
-	"fmt"
 	"math"
 	"sort"
 
 	"github.com/theclifmeister/kingpin/internal/content"
 	"github.com/theclifmeister/kingpin/internal/events"
+	"github.com/theclifmeister/kingpin/internal/format"
 	"github.com/theclifmeister/kingpin/internal/game"
 )
 
@@ -572,7 +572,7 @@ func (s *Sim) learn(w *game.World, t *game.Tick, route string) {
 		return
 	}
 	f := game.Fact{
-		Subject: route, Kind: game.FactRisk, Value: fmt.Sprintf("~%.0f%%/day", r.Risk*100), Number: r.Risk,
+		Subject: route, Kind: game.FactRisk, Value: "~" + format.Pct(r.Risk, 0) + "/day", Number: r.Risk,
 		Confidence: 1, Day: t.Day, Source: game.SourceSeen, Stale: s.intel.StaleRate, Forget: s.intel.Forget,
 	}
 	w.Learn(f)

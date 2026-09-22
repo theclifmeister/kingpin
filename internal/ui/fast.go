@@ -36,37 +36,21 @@ const (
 	fastDaysMax = 30 // the most one F runs
 )
 
-// fastDialog is the state of the fast-forward confirmation: the cap and
-// the error under it.
-type fastDialog struct {
-	days numberField
-	err  string
-}
-
-func (d *fastDialog) page() int           { return 0 }
-func (d *fastDialog) field() *numberField { return &d.days }
-
-// askFast opens the confirmation on the default cap.
+// askFast opens the confirmation on the default cap: an amountDialog
+// (#275), the cap and the error under it.
 func (m *Model) askFast() {
 	if m.w.Over != nil {
 		return
 	}
-	m.fst = fastDialog{days: newNumberField(fmt.Sprintf("blank = %d", fastDays))}
-	m.fst.days.max = fastDaysMax
-	m.fst.days.Focus()
-	m.mode = modeConfirmFast
+	m.openAmount(modeConfirmFast, fmt.Sprintf("blank = %d", fastDays), fastDaysMax, false, "")
 }
 
 // fastCap is the cap the field reads: fastDays for a blank, an error for
 // a number that does not read or is over fastDaysMax.
 func (m *Model) fastCap() (int, error) {
-	s := strings.TrimSpace(m.fst.days.Value())
-	if s == "" {
-		return fastDays, nil
-	}
-	n, ok := m.fst.days.Number()
-	if !ok || n <= 0 {
-		return 0, fmt.Errorf("enter a whole number above zero")
+	n, err := m.amt.Read(fastDays)
+	if err != nil {
+		return 0, err
 	}
 	if n > fastDaysMax {
 		return 0, fmt.Errorf("up to %d days at a time", fastDaysMax)
@@ -78,25 +62,14 @@ func (m *Model) fastCap() (int, error) {
 // the rest goes to the number field (digits, backspace and the field's
 // shortcuts; a letter never lands in it).
 func (m *Model) keyFast(k tea.KeyMsg) (tea.Model, tea.Cmd) {
-	key := k.String()
-	m.fst.err = ""
-	switch key {
-	case "esc", "q":
-		m.mode = modePlay
-		return m, nil
-	case "enter": // every number dialog commits on enter; y is a confirmation's yes (#241)
-		m.confirmFast()
-		return m, nil
-	}
-	m.fst.days.max = fastDaysMax
-	return m, m.fst.days.Update(k)
+	return m.keyAmount(k, func() int { return fastDaysMax }, m.confirmFast)
 }
 
 // confirmFast runs the days the field reads, or shows why it cannot.
 func (m *Model) confirmFast() {
 	n, err := m.fastCap()
 	if err != nil {
-		m.fst.err = dialogError(err)
+		m.amt.err = dialogError(err)
 		return
 	}
 	m.fastForward(n)
@@ -109,8 +82,7 @@ func (m *Model) viewFast() string {
 	if err != nil {
 		n = fastDays
 	}
-	days := m.fst.days
-	days.max = fastDaysMax
+	days := m.amountField(fastDaysMax)
 	body := []string{
 		fmt.Sprintf("Run up to %s, stopping when something needs you.", plural(n, "day")),
 		"",
@@ -119,8 +91,8 @@ func (m *Model) viewFast() string {
 		theme.Subtle.Render("Stops for a card, the police, the rival, the crew, the road, a buyer,"),
 		theme.Subtle.Render("the law, a routine that ran short, a gate crossed or a new alert."),
 	}
-	if m.fst.err != "" {
-		body = append(body, "", theme.Bad.Render(m.fst.err))
+	if m.amt.err != "" {
+		body = append(body, "", theme.Bad.Render(m.amt.err))
 	}
 	return m.modal("FAST-FORWARD", body, m.modalFooter())
 }

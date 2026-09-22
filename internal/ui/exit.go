@@ -94,12 +94,12 @@ func (m *Model) keyExit(key string) {
 	case "shift+tab":
 		m.exit.back(noField)
 	case "up", "k":
-		if m.exit.step == 0 && m.exit.cursor > 0 {
-			m.exit.cursor--
+		if m.exit.step == 0 {
+			stepCursor(&m.exit.cursor, -1, len(rows))
 		}
 	case "down", "j":
-		if m.exit.step == 0 && m.exit.cursor < len(rows)-1 {
-			m.exit.cursor++
+		if m.exit.step == 0 {
+			stepCursor(&m.exit.cursor, 1, len(rows))
 		}
 	case "enter", "tab":
 		if m.exit.step == 0 {
@@ -113,8 +113,8 @@ func (m *Model) keyExit(key string) {
 		switch {
 		case m.exit.step == 1 && key != "up" && key != "down" && key != "j" && key != "k":
 			m.mode = modePlay // the confirmation declines on any other key, as every confirmation does (#241)
-		case m.exit.step == 0 && len(key) == 1 && key[0] >= '1' && key[0] <= '9':
-			if i := int(key[0] - '1'); i < len(rows) {
+		case m.exit.step == 0:
+			if i, ok := digit(key); ok && i < len(rows) {
 				m.exit.cursor = i
 				m.openExit(rows) // a digit selects and commits, as in every picker (#241)
 			}
