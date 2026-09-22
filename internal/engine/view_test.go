@@ -173,6 +173,16 @@ func TestViewRoundTripsJSON(t *testing.T) {
 	if (&engine.Session{}).View().Version != engine.ViewVersion {
 		t.Fatal("the view before a run has no version")
 	}
+	// Day 0: no morning report yet (World.Report is nil until the first
+	// day ends), and the view is still whole.
+	fresh, err := engine.New(content.MustLoad())
+	if err != nil {
+		t.Fatal(err)
+	}
+	fresh.NewRun(7, game.Start{})
+	if v := fresh.View(); v.Day != 0 || v.Report.Day != 0 || len(v.Cities) == 0 {
+		t.Fatalf("the day-0 view: day %d, report day %d, %d cities", v.Day, v.Report.Day, len(v.Cities))
+	}
 }
 
 // TestViewHoldsNothingOfTheWorld (#299): a front end may keep and change

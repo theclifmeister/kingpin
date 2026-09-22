@@ -415,15 +415,21 @@ func (s *Session) View() View {
 		}
 		v.Card = cv
 	}
-	r := w.Report
-	v.Report = ReportView{
+	if r := w.Report; r != nil { // nil before the first morning
+		v.Report = reportView(r)
+	}
+	v.Alerts = s.Alerts()
+	return v
+}
+
+// reportView is the morning report as the view carries it.
+func reportView(r *game.DayReport) ReportView {
+	return ReportView{
 		Day: r.Day, Incident: lines(r.Incident), Unlocked: lines(r.Unlocked), Tier: lines(r.Tier), Prices: lines(r.Prices),
 		Sales: lines(r.Sales), Heat: lines(r.Heat), Crew: lines(r.Crew), Territory: lines(r.Territory),
 		Shipments: lines(r.Shipments), Law: lines(r.Law), Intel: lines(r.Intel), Money: lines(r.Money),
 		Upgrades: lines(r.Upgrades), News: lines(r.News), CashBefore: r.CashBefore, CashAfter: r.CashAfter,
 	}
-	v.Alerts = s.Alerts()
-	return v
 }
 
 // lines copies a report section, so the view holds nothing of the
