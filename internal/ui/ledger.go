@@ -63,7 +63,10 @@ func (m *Model) confirmFront() {
 
 func (m *Model) cycleLaunder() {
 	d := (m.w.Laundering.Dial + 1) % 3
-	m.w.SetLaunderDial(d)
+	if err := m.w.SetLaunderDial(d); err != nil {
+		m.refuse("Can't set the dial: " + err.Error())
+		return
+	}
 	if len(m.w.Fronts) == 0 {
 		m.say(fmt.Sprintf("Launder dial %s. %s Buy a front %s to use it.", d, launderBlurb(d), screenPointer(screenLedger)))
 		return

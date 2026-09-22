@@ -409,7 +409,7 @@ type HeatState struct {
 	FederalUntil int            // the feds are in town until this day (#44, an incident): the heat sim's decay is FederalDecay of itself on every tick before it
 	FederalDecay float64        // ... by this much; 0 reads as no change
 	TaskForceDay int            // the day a task force was announced (#48, TaskForceFormed); it fires the next tick, and 0 is none forming
-	WatchUntil   int            // the feds watch the skies until this day (#48): the plane route's risk is the file's before it and zero after; stamped when a task force fires
+	WatchUntil   int            // the feds watch the skies until this day (#48): the plane route's risk is the file's before it and zero after; stamped when a task force comes, fired or stopped by a favour (#281): the favour cancels the bust, not the watch
 	LineUntil    int            // the task force's threshold is LineMul of itself on every tick before this day (#48, an incident: the extradition treaty)
 	LineMul      float64        // ... by this much; 0 reads as no change
 	Busts        []Bust         // stings and raids that took stock, kept a while: the market sim reads yesterday's for the connect there (#72)

@@ -162,7 +162,10 @@ func (m *Model) payOffConfirm() string {
 
 func (m *Model) cyclePay() {
 	p := (m.w.Crew.Pay + 1) % 3
-	m.w.SetPay(p)
+	if err := m.w.SetPay(p); err != nil {
+		m.refuse("Can't set the pay: " + err.Error())
+		return
+	}
 	m.say(fmt.Sprintf("Pay %s, %s/day. %s", p, money(m.set.Crew.Wages(m.w, p)), payBlurb(p)))
 }
 

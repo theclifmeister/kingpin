@@ -116,14 +116,13 @@ func (s *Sim) walk(w *game.World, t *game.Tick, lt game.CrewMember) {
 				continue
 			}
 			ev.Corners = append(ev.Corners, c.Name)
-			c.Runner, c.Enforcer, c.Idle, c.Squeeze, c.Robbed, c.Since = 0, 0, 0, 0, 0, t.Day
 			if to != nil {
-				c.Owner, c.Faction = game.OwnerRival, to.Faction()
+				c.Hand(game.OwnerRival, to.Faction(), t.Day)
 				w.Faction(to.ID).Flips++
 				w.Faction(to.ID).LastFlip = t.Day
 				w.Stats.CornersLost++
 			} else {
-				c.Owner, c.Faction = game.OwnerNone, ""
+				c.Hand(game.OwnerNone, "", t.Day)
 			}
 		}
 		if to != nil {

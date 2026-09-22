@@ -228,8 +228,7 @@ func (s *Sim) raid(w *game.World, t *game.Tick, r *game.RivalState, c *game.Corn
 	r.Heat = math.Max(0, r.Heat-tp.PoliceNotice)
 	r.LastRaid = t.Day
 	r.Grudge += tp.Grudge
-	c.Owner, c.Faction, c.Runner, c.Enforcer, c.Idle, c.Squeeze, c.Since = game.OwnerNone, "", 0, 0, 0, 0, t.Day
-	c.Starved, c.StarvedDay = 0, 0
+	c.Hand(game.OwnerNone, "", t.Day)
 	w.Stats.RivalRaids++
 	t.Emit(events.RivalRaided{Day: t.Day, Corner: c.ID, Name: c.Name, Rival: r.Leader, Faction: r.Faction(), Muscle: lost})
 }

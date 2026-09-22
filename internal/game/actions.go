@@ -600,7 +600,18 @@ func (w *World) Fire(id int) (CrewMember, error) {
 }
 
 // SetPay sets the pay dial for the whole crew. It persists until changed.
-func (w *World) SetPay(p events.Pay) { w.Crew.Pay = p }
+// A run that is over, or a dial off the three positions, is refused, as
+// SetRoute refuses them (#281).
+func (w *World) SetPay(p events.Pay) error {
+	if w.Over != nil {
+		return ErrGameOver
+	}
+	if p < events.PayStingy || p > events.PayGenerous {
+		return ErrBadDial
+	}
+	w.Crew.Pay = p
+	return nil
+}
 
 // Bail puts cost in clean cash down for the jailed member with id
 // (#46): they walk tomorrow, with their loyalty up when the crew sim
@@ -784,8 +795,18 @@ func (w *World) InvestedToday(id string) int {
 }
 
 // SetLaunderDial sets the launder dial for every front. It persists until
-// changed.
-func (w *World) SetLaunderDial(d events.Launder) { w.Laundering.Dial = d }
+// changed. A run that is over, or a dial off the three positions, is
+// refused, as SetRoute refuses them (#281).
+func (w *World) SetLaunderDial(d events.Launder) error {
+	if w.Over != nil {
+		return ErrGameOver
+	}
+	if d < events.LaunderCareful || d > events.LaunderGreedy {
+		return ErrBadDial
+	}
+	w.Laundering.Dial = d
+	return nil
+}
 
 // spend takes cost from dirty cash first and clean cash for the rest, the
 // way somebody paid off the books is paid. It reports whether there was

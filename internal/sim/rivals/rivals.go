@@ -877,8 +877,7 @@ func (s *Sim) strike(w *game.World, t *game.Tick, r *game.RivalState, rng rand, 
 	r.Trust = math.Max(0, r.Trust-fc.Trust)
 	if rng.Float64() < s.OddsOn(w, r, c, o.Force) {
 		ev.Taken = true
-		c.Owner, c.Faction, c.Runner, c.Enforcer, c.Idle, c.Squeeze, c.Since = game.OwnerPlayer, "", 0, 0, 0, 0, t.Day
-		c.Starved, c.StarvedDay = 0, 0
+		c.Hand(game.OwnerPlayer, "", t.Day)
 		r.Grudge++
 		r.LostToYou++
 		r.LastTakenBy = ""
@@ -897,8 +896,7 @@ func (s *Sim) strike(w *game.World, t *game.Tick, r *game.RivalState, rng rand, 
 // take hands a corner to a faction, naming it on the corner (#144),
 // sending whoever was on it home.
 func (s *Sim) take(w *game.World, r *game.RivalState, c *game.Corner, day int) {
-	c.Owner, c.Faction, c.Runner, c.Enforcer, c.Idle, c.Squeeze, c.Since = game.OwnerRival, r.Faction(), 0, 0, 0, 0, day
-	c.Starved, c.StarvedDay = 0, 0
+	c.Hand(game.OwnerRival, r.Faction(), day)
 }
 
 // pickFree chooses the free corner the faction sets up on. Arriving (or
@@ -1055,8 +1053,7 @@ func (s *Sim) pricewar(w *game.World, t *game.Tick, r *game.RivalState, rng rand
 			if tun.Grudge {
 				r.Grudge++
 			}
-			c.Owner, c.Faction, c.Runner, c.Enforcer, c.Idle, c.Squeeze, c.Since = game.OwnerNone, "", 0, 0, 0, 0, t.Day
-			c.Starved, c.StarvedDay = 0, 0
+			c.Hand(game.OwnerNone, "", t.Day)
 			t.Emit(events.RivalAbandoned{Day: t.Day, Rival: r.Leader, Faction: r.Faction(), Corner: c.ID, Name: c.Name, Reason: "pricewar"})
 			if w.RivalHeldBy(r.Faction()) == 0 && r.Routed < t.Day {
 				r.Routed = t.Day
@@ -1136,8 +1133,7 @@ func (s *Sim) crackdown(w *game.World, t *game.Tick, r *game.RivalState) {
 	}
 	for _, c := range cleared {
 		owner, faction := c.Owner, c.Faction
-		c.Owner, c.Faction, c.Runner, c.Enforcer, c.Idle, c.Squeeze, c.Since = game.OwnerNone, "", 0, 0, 0, 0, t.Day
-		c.Starved, c.StarvedDay = 0, 0
+		c.Hand(game.OwnerNone, "", t.Day)
 		ev.Lost = append(ev.Lost, c.Name)
 		t.Emit(events.CornerLost{Day: t.Day, Corner: c.ID, Name: c.Name, Reason: "crackdown", Owner: owner, Faction: faction})
 	}

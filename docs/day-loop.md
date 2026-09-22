@@ -17,3 +17,4 @@ A stream two sims draw on is one sequence, shared in step order: a draw by the e
 
 Every other stream has one drawer: the one the constant's comment names. The news sim's own streams (`StreamProgression`, `StreamUnlocks` and the `…News` ones) exist so a feature's headlines never move the home stream.
 
+**The ruling on the shared streams** (#281): they stay shared. Each is shared inside one feature (the books, intel, the connects, the buyers), so a run that never uses the feature is still byte-for-byte the run before it, and splitting one would move pinned numbers for no change to the game.
