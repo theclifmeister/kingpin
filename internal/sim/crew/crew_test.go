@@ -8,6 +8,7 @@ import (
 	"github.com/theclifmeister/kingpin/internal/content"
 	"github.com/theclifmeister/kingpin/internal/events"
 	"github.com/theclifmeister/kingpin/internal/game"
+	"github.com/theclifmeister/kingpin/internal/gametest"
 	"github.com/theclifmeister/kingpin/internal/sim/crew"
 )
 
@@ -18,19 +19,14 @@ func world(t *testing.T, cfg *content.Config, cash int) (*game.World, *crew.Sim)
 	t.Helper()
 	boxed := *cfg
 	boxed.Crew.Life = content.LifeTuning{}
-	w := game.NewWorld(7, []game.StartingCity{{ID: "test", Name: "Testville", Products: []game.StartingProduct{{ID: "a", Name: "A", Price: 10, Demand: 5, SupplierRatio: 0.55}}}}, cash, 100)
+	w := gametest.OneCity(7, cash)
 	s := crew.New(&boxed)
 	s.Seed(w, game.RNGFor(7, 0))
 	return w, s
 }
 
 func step(w *game.World, s *crew.Sim, extra ...events.Event) []events.Event {
-	t := &game.Tick{Day: w.Day + 1, RNG: game.RNGFor(w.Seed, w.Day+1)}
-	for _, e := range extra {
-		t.Emit(e)
-	}
-	s.Step(w, t)
-	w.Day++
+	t := gametest.StepUnseeded(w, s, extra...)
 	w.Crew.HiredToday, w.Crew.FiredToday = nil, nil
 	return t.Events()
 }
@@ -383,7 +379,7 @@ func TestTurningAndInvestigation(t *testing.T) {
 func crewProbe(t *testing.T, cfg *content.Config, ids ...string) map[string]float64 {
 	t.Helper()
 	fresh := func() (*game.World, *crew.Sim) {
-		w := game.NewWorld(7, []game.StartingCity{{ID: "test", Name: "Testville", Products: []game.StartingProduct{{ID: "a", Name: "A", Price: 10, Demand: 5, SupplierRatio: 0.55}}}}, 1_000_000, 100)
+		w := gametest.OneCity(7, 1_000_000)
 		for _, id := range ids {
 			w.Upgrades[id] = true
 		}

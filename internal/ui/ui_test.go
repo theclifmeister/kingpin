@@ -709,18 +709,18 @@ func TestSpaceOpensTheOverlayUnder100(t *testing.T) {
 		m.status = ""
 		beside := stripANSI(m.View())
 		if !m.paneShown() || !strings.Contains(beside, "DETAILS") || strings.Contains(beside, "␣ more") {
-			t.Errorf("%s: the pane is not beside MAIN at 120:\n%s", screenOf[s], beside)
+			t.Errorf("%s: the pane is not beside MAIN at 120:\n%s", screens[s].word, beside)
 		}
 		if m.mainWidth() != 120-paneWidth {
-			t.Errorf("%s: MAIN is %d wide beside the pane, want %d", screenOf[s], m.mainWidth(), 120-paneWidth)
+			t.Errorf("%s: MAIN is %d wide beside the pane, want %d", screens[s].word, m.mainWidth(), 120-paneWidth)
 		}
 		m.Update(key(" "))
 		if m.mode != modePlay || !m.paneShown() || m.status != "" {
-			t.Errorf("%s: space at 120: mode %v pane shown %v status %q", screenOf[s], m.mode, m.paneShown(), m.status)
+			t.Errorf("%s: space at 120: mode %v pane shown %v status %q", screens[s].word, m.mode, m.paneShown(), m.status)
 		}
 		for _, b := range m.keysFor(s) {
 			if b.key == "␣" {
-				t.Errorf("%s: ␣ is listed at 120", screenOf[s])
+				t.Errorf("%s: ␣ is listed at 120", screens[s].word)
 			}
 		}
 		if s == screenMap {
@@ -836,10 +836,10 @@ func TestEmptySelectionIsTitled(t *testing.T) {
 		}
 		secs := m.details()
 		if len(secs) == 0 || secs[0].title == "" || len(secs[0].lines) == 0 {
-			t.Errorf("%s: an empty selection has no titled first section: %+v", screenNames[s], secs)
+			t.Errorf("%s: an empty selection has no titled first section: %+v", screens[s].name, secs)
 		}
 		if view := stripANSI(m.View()); !strings.Contains(view, stripANSI(secs[0].title)) {
-			t.Errorf("%s: the pane does not show %q:\n%s", screenNames[s], secs[0].title, view)
+			t.Errorf("%s: the pane does not show %q:\n%s", screens[s].name, secs[0].title, view)
 		}
 	}
 }

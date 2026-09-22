@@ -73,7 +73,14 @@ func TestSimsNeverImportEachOther(t *testing.T) {
 // alias taken into it (`r := w.Rival()`, `m := &w.Crew.Members[i]`);
 // what a sim writes through a pointer it was handed (a *City from
 // w.Cities, a *House from w.Fullest) is the same rule by convention,
-// and the docs say which sim writes which. The exceptions are the
+// and the docs say which sim writes which. The corner is the one such
+// pointer the tree checks (#274, corners_test.go): it is the territory
+// sim's, a change of holder is game.(*Corner).Hand
+// (TestCornerOwnerIsHanded), and every other package's write into one
+// is a row of cornerWriters (TestCornerWritersAreDeclared): the
+// market's Repeat and its Squeeze on the rival's corners, the rivals'
+// Squeeze on yours and Starved/StarvedDay, the lieutenant's Since, and
+// the hand-overs the rivals and the lieutenant make. The exceptions are the
 // cross-sim writes the docs rule on, each named here so the list can
 // only shrink: the lieutenant's walk books the rival's flip the night
 // the corners change hands (crew/lieutenant.go, #144 PR 2), the audit

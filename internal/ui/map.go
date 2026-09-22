@@ -657,3 +657,8 @@ func (m *Model) pusher(c *game.Corner) *game.RivalState {
 	}
 	return best
 }
+
+// keyPost is the post picker's keys: the picker's, on the roles' rows.
+func (m *Model) keyPost(key string) {
+	m.pickerKey(key, len(m.postRows(m.pick.role)), m.confirmPost)
+}

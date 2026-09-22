@@ -7,6 +7,7 @@ import (
 	"github.com/theclifmeister/kingpin/internal/content"
 	"github.com/theclifmeister/kingpin/internal/events"
 	"github.com/theclifmeister/kingpin/internal/game"
+	"github.com/theclifmeister/kingpin/internal/gametest"
 	"github.com/theclifmeister/kingpin/internal/sim"
 	"github.com/theclifmeister/kingpin/internal/sim/news"
 )
@@ -173,11 +174,7 @@ func TestThePaperNamesYou(t *testing.T) {
 	}
 	w := sim.NewWorld(cfg, 4)
 	tk := func(day int, evs ...events.Event) *game.Tick {
-		t := &game.Tick{Day: day, RNG: game.RNGFor(w.Seed, day), Seed: w.Seed}
-		for _, e := range evs {
-			t.Emit(e)
-		}
-		return t
+		return gametest.TickOn(w, day, evs...)
 	}
 	w.Day = 4
 	n.Step(w, tk(5))

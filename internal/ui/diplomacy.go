@@ -423,3 +423,37 @@ func capitalize(s string) string {
 	}
 	return strings.ToUpper(s[:1]) + s[1:]
 }
+
+// keyPropose is the propose dialog's keys. Back is one key and close is
+// one key (#110): esc closes from either page, shift+tab leaves the
+// terms for the kinds (the kind kept under the cursor) and is silent on
+// the first page, tab opens the terms for the kind under the cursor and
+// is silent on them and on `withdraw`, which is not a page.
+func (m *Model) keyPropose(key string) {
+	if closes(key) {
+		m.mode = modePlay
+		return
+	}
+	switch key {
+	case "shift+tab":
+		if m.prop.step == 1 {
+			m.prop.back(noField)
+			m.prop.cursor = m.prop.kind
+		}
+	case "tab":
+		if m.prop.step == 0 && m.prop.cursor < len(proposeKinds) {
+			m.pickPropose()
+		}
+	case "up", "k":
+		stepCursor(&m.prop.cursor, -1, m.proposeRows())
+	case "down", "j":
+		stepCursor(&m.prop.cursor, 1, m.proposeRows())
+	case "enter":
+		m.pickPropose()
+	default:
+		if i, ok := digit(key); ok && i < m.proposeRows() {
+			m.prop.cursor = i
+			m.pickPropose()
+		}
+	}
+}

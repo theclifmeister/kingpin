@@ -534,3 +534,27 @@ func (m *Model) standingRows(city, id string) []string {
 	}
 	return rows
 }
+
+// marketMove turns the market to another city with ←→ and walks its
+// rows with ↑↓: the products, then the buyers, then the connects.
+func (m *Model) marketMove(dx, dy int) {
+	switch {
+	case dx != 0:
+		m.cycleCity(dx)
+	case m.onSuppliers:
+		m.suppliersMove(dy)
+	case m.onBuyers:
+		m.buyersMove(dy)
+	case dy < 0 && m.cursor > 0:
+		m.cursor--
+	case dy > 0 && m.cursor < len(m.w.Products)-1:
+		m.cursor++
+	case dy > 0 && len(m.buyerRows()) > 0:
+		// Off the bottom of the table the arrows reach the buyers,
+		// the way the map's reach the routes, and off the bottom of
+		// those the connects (#72).
+		m.onBuyers, m.buyerCursor = true, 0
+	case dy > 0 && len(m.supplierRows()) > 0:
+		m.onSuppliers, m.supplierCursor = true, 0
+	}
+}
