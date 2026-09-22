@@ -2,6 +2,7 @@
 
 One file a subsystem, the detail CLAUDE.md points at (#175). Each is the contract for the sim or screen it names: read it before touching that code and update it in the same PR.
 
+- [The engine is one session a front end drives](engine.md)
 - [The harness and cmd/balance](harness.md)
 - [Day loop](day-loop.md)
 - [Events are the cross-sim channel](events.md)

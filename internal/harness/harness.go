@@ -6,6 +6,7 @@ import (
 	"math"
 
 	"github.com/theclifmeister/kingpin/internal/content"
+	"github.com/theclifmeister/kingpin/internal/engine"
 	"github.com/theclifmeister/kingpin/internal/events"
 	"github.com/theclifmeister/kingpin/internal/game"
 	"github.com/theclifmeister/kingpin/internal/sim"
@@ -101,11 +102,11 @@ func Play(cfg *content.Config, w *game.World, days int, policy Policy, opts Opti
 }
 
 func run(cfg *content.Config, w *game.World, days int, policy Policy, pick Chooser) (Result, error) {
-	_, sims, err := sim.Default(cfg)
+	sess, err := engine.New(cfg)
 	if err != nil {
 		return Result{}, err
 	}
-	clock := game.NewClock(nil, sims...)
+	sess.Attach(w)
 	var all []events.Event
 	var worth []int
 	for d := 0; d < days && w.Over == nil; d++ {
@@ -118,7 +119,7 @@ func run(cfg *content.Config, w *game.World, days int, policy Policy, pick Choos
 		if policy != nil {
 			policy(w)
 		}
-		all = append(all, clock.EndDay(w)...)
+		all = append(all, sess.EndDay()...)
 		worth = append(worth, w.NetWorth())
 	}
 	return Result{Days: w.Day, Over: w.Over, PeakCash: w.Stats.PeakCash, EndCash: w.Cash(), NetWorth: worth, Events: all, World: w}, nil
