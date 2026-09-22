@@ -30,6 +30,7 @@ type View struct {
 	Crew      []MemberView   `json:"crew"`
 	Routes    []RouteView    `json:"routes"`
 	Shipments []ShipmentView `json:"shipments"`
+	Connects  []ConnectView  `json:"connects"`
 	Houses    []HouseView    `json:"houses"`
 	Fronts    []FrontView    `json:"fronts"`
 	Factions  []FactionView  `json:"factions"`
@@ -155,6 +156,26 @@ type ShipmentView struct {
 	Units   int    `json:"units"`
 	Sent    int    `json:"sent"`
 	Arrives int    `json:"arrives"`
+}
+
+// ConnectView is a supplier (#72): who sells what where, today's
+// prices for what they will sell you now, and where you stand with them.
+type ConnectView struct {
+	ID         string             `json:"id"`
+	Name       string             `json:"name"`
+	City       string             `json:"city"`
+	Wholesale  bool               `json:"wholesale,omitempty"`
+	Temper     string             `json:"temper"`
+	Open       bool               `json:"open"`            // the door is open to you
+	Owned      bool               `json:"owned,omitempty"` // the connect is yours (#48)
+	Prices     map[string]float64 `json:"prices"`          // product id -> per unit today, for what they sell you now
+	Cap        int                `json:"cap"`             // units they can get you today
+	Lot        int                `json:"lot"`
+	CreditDays int                `json:"credit_days,omitempty"`
+	Limit      int                `json:"limit,omitempty"` // credit they will run you to today
+	Rel        float64            `json:"rel"`
+	Debt       int                `json:"debt,omitempty"`
+	DebtDue    int                `json:"debt_due,omitempty"`
 }
 
 // HouseView is a stash house.
@@ -346,6 +367,16 @@ func (s *Session) View() View {
 	}
 	for _, sh := range w.Shipments {
 		v.Shipments = append(v.Shipments, ShipmentView{ID: sh.ID, Route: sh.Route, From: sh.From, To: sh.To, Product: sh.Product, Units: sh.Units, Sent: sh.Sent, Arrives: sh.Arrives})
+	}
+	for i := range w.Suppliers {
+		sup := &w.Suppliers[i]
+		cv := ConnectView{ID: sup.ID, Name: sup.Name, City: sup.City, Wholesale: sup.Wholesale, Temper: sup.Temper, Open: sup.Open(w), Owned: sup.Owned, Prices: map[string]float64{}, Cap: sup.Left(), Lot: sup.Lot, CreditDays: sup.CreditDays, Limit: sup.Limit, Rel: sup.Rel, Debt: sup.Debt, DebtDue: sup.DebtDue}
+		for _, pid := range w.Products {
+			if w.Available(sup, pid) {
+				cv.Prices[pid] = sup.Price[pid]
+			}
+		}
+		v.Connects = append(v.Connects, cv)
 	}
 	for _, h := range w.Houses {
 		stock := map[string]int{}

@@ -79,7 +79,7 @@ The slot is the caller's: the TUI keeps `Model.slot` and passes it to `Load` and
   - `cities`: heat, pressure, goodwill, the police's next rung as the file knows it, every product (price, supplier price, demand, shock, history and its `PriceFacts`) and every corner (the cell, demand, owner, faction, runner, enforcer, since, deed).
   - `crew`: role, age, skill, loyalty, wage, the city a lieutenant runs, the post, jailed, and a lieutenant's personality once the report has named it.
   - `routes` open to you: the dial by name, closed, the driver, and the risk the file holds.
-  - `shipments`, `houses` (stock, guard, whether the police know it) and `fronts` (level, frozen, washed).
+  - `shipments`, `connects` (who sells what where, today's price for what they will sell you now, the day's cap, the lot, credit, the relationship, the debt and when it is due; the temper, which the TUI shows), `houses` (stock, guard, whether the police know it) and `fronts` (level, frozen, washed).
   - `factions`: leader, alive, arrival, corners held, trust, war, and, from the file only, the temper (`?` until known), the heads as a band, the last read of the books and the next move.
   - `law`: the chief, the temper the file knows, the DA and the stance, the next election.
   - `card`: the one waiting, with its choices' labels.
@@ -93,7 +93,7 @@ The slot is the caller's: the TUI keeps `Model.slot` and passes it to `Load` and
   - a planted fact's author
   - who on the payroll is informing, and a member's greed and nerve
   - the informant's leak count (the "somebody is talking" alert is the tell)
-- **Versioning.** `engine.ViewVersion` (1) is the shape of `View` and moves when a field is added, renamed, retyped or dropped. It is never tied to the save's `game.SchemaVersion`: the world stays free to change shape, and the view is the contract. `TestViewShapeIsPinned` walks the type by reflection into one line per field, its JSON path and its Go kind (`.cities[].products[].facts.margin float64`), and compares that with `engine/testdata/view_shape.txt` (198 lines, headed `version 1`).
+- **Versioning.** `engine.ViewVersion` (1) is the shape of `View` and moves when a field is added, renamed, retyped or dropped. It is never tied to the save's `game.SchemaVersion`: the world stays free to change shape, and the view is the contract. `TestViewShapeIsPinned` walks the type by reflection into one line per field, its JSON path and its Go kind (`.cities[].products[].facts.margin float64`), and compares that with `engine/testdata/view_shape.txt` (215 lines, headed `version 1`).
   - A shape change that keeps the number fails with the lines that moved.
   - With the number moved, `go test ./internal/engine -run TestViewShapeIsPinned -update` writes the new shape.
   - The file pins shape and never values, so it reads the same on amd64 CI and an arm64 machine, where fused multiply-add moves floats (the reason `TestNoUnlockIsTheOldRun` hashes nothing a float writes).
