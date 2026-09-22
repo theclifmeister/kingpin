@@ -1,7 +1,7 @@
 # Kingpin
 
 You start with $500 and a corner nobody wants. Buy stock, work the street,
-keep the crew paid. The police watch what you move. The rival watches where
+keep the crew paid. The police watch what you move. The rivals watch where
 you stand. Your own people watch the payroll.
 
 Kingpin is a terminal game about building a drug empire one day at a time.
@@ -27,11 +27,11 @@ takes you back to work.
 
 Your first day needs four keys: **`b` buy, `s` sell, `n` end day, `?` help**.
 On the dashboard, buy a little Weed. Pick the product, enter a quantity
-(`h` buys half of what you can afford and hold), and choose `once`.
-Close the buy dialog with `esc`, then sell: pick the product, quantity,
-`normal` dial and `once`. Close the dialog. The sale is queued for tonight.
-Press `n` and read the morning report. You now know what sold, what you
-made, and how much attention it bought you.
+(`h` fills the field to half of what you can afford and hold), and choose
+`once`. Close the buy dialog with `esc`, then sell: pick the product,
+quantity, `normal` dial and `once`. Close the dialog. The sale is queued
+for tonight. Press `n` and read the morning report. You now know what
+sold, what you made, and how much attention it bought you.
 
 Watch **cash, stock and heat** on the dashboard. The details beside the
 selected product show demand and the expected sale; below 100 columns,
@@ -40,11 +40,12 @@ no order is a quiet night for everyone but your wallet.
 
 ### Saves
 
-The game saves at the end of every day; `q` saves and quits. There are
-three slots in `$KINGPIN_HOME`, or your platform config directory under
-`kingpin/`: `save1.gob` to `save3.gob`. An old `save.gob` counts as slot 1.
-The menu shows each run's day, cash, city and save age. `D` empties a slot
-after asking; `N` starts over in the current slot after asking.
+The game saves at the end of every day; `q` saves and quits, and `ctrl+s`
+saves now. There are three slots in `$KINGPIN_HOME`, or your platform
+config directory under `kingpin/`: `save1.gob` to `save3.gob`. An old
+`save.gob` counts as slot 1. The menu shows each run's day, cash, city
+and save age. `D` empties a slot after asking; `N` starts over in the
+current slot, as the same character, after asking.
 
 To skip the menu and open slot 2:
 
@@ -63,7 +64,9 @@ the Cook begins with a chemist and meth on the ladder, the Bookkeeper
 (unlocked by ending as a businessman) with an accountant, the Ex-Cop
 (unlocked by vanishing) with a police scanner and the chief's temper
 known, the Dockhand (unlocked by reaching Distribution) on Bayport's Fish
-Market. Ending a run as kingpin unlocks the Hard DA toggle: a
+Market, the Heir (unlocked by taking the crown) with the old man's
+enforcer on Riverside, a stash spot, and a name the street already
+fears. Taking the crown also unlocks the Hard DA toggle: a
 law-and-order DA and a zealous chief on the first morning, never pinned.
 No simulation reads the profile or the character: the same seed and the
 same start play the same run whatever the profile says. A corrupt
@@ -142,59 +145,79 @@ The effects are ports of
 ## Layout
 
 The top bar tells you the day, dirty cash and local heat, with clean cash
-and your city when there is room. It also holds the eight screen tabs and
-the journal's unread count. Use `1`–`8`, or `tab` and `shift+tab`, to move
+and your city when there is room. It also holds the nine screen tabs and
+the journal's unread count. Use `1`–`9`, or `tab` and `shift+tab`, to move
 between screens.
 
 The bottom bar answers your last action. A refusal tells you why; danger
 shows in red. `?` opens help, including a **WORDS** glossary for the dial,
-the float and the other things the street expects you to know.
+the float, the file and the other things the street expects you to know.
 
 At 100 columns and up, **DETAILS** sits beside the main screen. It follows
-the cursor: the selected product, person, corner or offer, its facts, and
-what you can do with it. **KEYS** is at the bottom, with `n end day` first
-and `? help` last. In a narrower terminal, a one-line **details strip**
-takes its place. `space` opens the whole pane; `esc` or `space` closes it.
-The wide pane stays open wherever it fits.
+the cursor: the selected product, person, corner, offer or fact, its
+facts, and what you can do with it. **KEYS** is at the bottom, with
+`n end day` first and `? help` last. In a narrower terminal, a one-line
+**details strip** takes its place. `space` opens the whole pane; `esc` or
+`space` closes it. The wide pane stays open wherever it fits.
 
 Dialogs, reports and help share a box, at most 76 columns wide, with their
-keys in the footer. Longer pages scroll. `esc` closes the whole box;
-`shift+tab` goes back a step in a dialog, and `tab` goes forward when the
-step is complete. Inside a dialog, `enter` advances or confirms. It never
-ends the day. On a play screen, `enter` asks before ending it; `n` does not.
+keys in the footer. Longer pages scroll. `esc` or `q` closes the whole
+box from any step; `shift+tab` goes back a step in a dialog, and `tab`
+goes forward when the step is complete. Inside a dialog, `enter` advances
+or confirms. It never ends the day. A confirmation takes `y` and nothing
+else; any other key declines. On a play screen, `enter` asks before
+ending the day; `n` does not.
 
-Number fields take digits and `backspace`. Use `m` (or `a`) for the maximum,
-`h` for half, `↑`/`↓` for one at a time, or `pgup`/`pgdn` for ten. These
-shortcuts stay within the limit shown after the number. A blank means the
-maximum, except on a route target, where it means none.
+Number fields take digits and `backspace`. Use `m` for the maximum, `h`
+for half, `↑`/`↓` for one at a time, or `pgup`/`pgdn` for ten. These
+shortcuts stay within the limit shown after the number. A blank means
+what the field's placeholder says: the maximum on a buy or a sale, the
+price on an envelope, none on a route target. In a picker, `↑`/`↓` move
+and `1`–`9` choose.
 
 Keys are listed on the screens where they belong. Global actions work
-across screens unless a local action takes that key: `b` buys stock on the
-dashboard and fronts on the ledger. A misplaced key points you back:
-`Hire on the crew screen (4).`
+across screens unless a local action takes that key: `b` buys stock on
+the dashboard and a front, a house or an asset on the ledger; `i` is
+always information (investigate, intel, scout); `$` is always a payment.
+A misplaced key points you back: `Hire on the crew screen (4).`
 
 ## Screens
 
 1. **Dashboard** — your stock, orders, corners and crew, with cash, heat,
-   the law and the rival below. Start here each morning. Details carries
-   the alerts and the selected product's sale estimate.
-2. **Market** — prices, suppliers, demand, orders and buyers with deadlines.
-   `←`/`→` shows the other city. Looking there does not move you there.
+   the law and the rivals below. Start here each morning. Details carries
+   the alerts, the selected product's sale estimate and, under YOUR
+   NAME, what your reputation is doing in words. `l` lies low, `F`
+   fast-forwards, `w` walks away from the run, `i` opens the file on
+   the chief.
+2. **Market** — prices, quality, connects, demand, orders and buyers with
+   deadlines. `←`/`→` shows the other city. Looking there does not move
+   you there. With a chemist on the payroll, `%` cuts a lot and `o` cooks.
 3. **Journal** — every headline, newest first, coloured by its source.
    `f` filters by source; details shows the selected headline in full.
-4. **Crew** — who's on the payroll and who's looking for work. Details
-   shows loyalty, wages, posts and the cost of hiring or asking questions.
-5. **Map** — your corners in blue, theirs in purple, free ones plain.
-   `?` marks the corner the rival is eyeing; `$` marks your undercut tonight.
-   Routes sit below the grid, each with a `▪` on its road for every
-   shipment in flight, placed by the days it has been out (`▪2` where two
-   share a day). Details gives the corner or route its numbers.
+4. **Crew** — who's on the payroll, with age and skill, and who's looking
+   for work. `h` hires, `f` fires, `l` gives a lieutenant a city, `i`
+   asks who is talking, `$` buys loyalty, `b` bails somebody out.
+5. **Map** — your corners in blue, theirs in purple, free ones plain; a
+   block you own carries `⌂`, the corner a rival is eyeing `?`, your
+   undercut tonight `$`. Routes sit below the grid, each with a `▪` on
+   its road for every shipment in flight, placed by the days it has been
+   out (`▪2` where two share a day). Post, strike, undercut, tip and buy
+   the block on a corner; set the dial, the target, a checkpoint and a
+   driver on a route. Details gives the corner or route its numbers.
 6. **Upgrades** — seven branches; `←`/`→` changes branch. Each node sits
    under the one it needs. Details tells you the cost and what you get.
-7. **Ledger** — dirty and clean cash, fronts, route costs and fronts for
-   sale. This is where you put the money through the wash.
-8. **Rivals** — the leader, trust, war, deals and offers. Details gives
-   the terms. Sometimes the table costs less than the street.
+7. **Ledger** — dirty, clean and offshore cash, the fronts, the stash
+   houses, the blocks you own, the assets, the road's totals, the
+   envelopes out and what is for sale. This is where you put the money
+   through the wash, and where you invest it, reserve it, bribe with it,
+   give it away and call in the favour a bought chief owes you.
+8. **Rivals** — the leader, trust, war, the table of factions (`[`/`]`
+   turns it), deals and offers. `i` buys a look at their books, `$` pays
+   their muscle to go home, `w` declares war on one of them. Sometimes the
+   table costs less than the street.
+9. **Intel** — what you know against what is true: every fact in your
+   file, how sure it is and who said so, and the spies you have under.
+   `$` pays a cop for a word on the police here; `p` plants a spy.
 
 The dashboard at 80x24, with the details strip above the status bar:
 
@@ -279,42 +302,58 @@ ROUTES                                                                          
 
 At first you work the corner yourself. Buy only what you can move, leave
 some cash in the till, and read the report before doing it again. The
-supplier opens the product ladder as your money grows. Better margins are
+connect opens the product ladder as your money grows. Better margins are
 useful. So is a night the police have nothing to report.
 
 As the takings grow, hire a runner and post them on another corner.
 Now two corners can sell. Now there is payroll. An enforcer helps keep a
 corner from being robbed; fair pay helps keep the people on it yours.
 If money goes missing or the DA's file grows without a bust, read the
-crew screen. The roster does not tell you who is talking.
+crew screen. The roster does not tell you who is talking. A sting or a
+raid takes names too: whoever stood on the corner can be picked up the
+next morning, and bail is clean cash.
 
-The rival moves in. The report names the corner they want before they
-take it, and the map marks it `?`. Post somebody there in time, fight for
-it, sell cheap next door, or talk terms on the rivals screen. Winning a
-corner and keeping a quiet city are separate jobs.
+The rival moves in on day ten, and it is the first of several. The
+report names the corner they want before they take it, and the map marks
+it `?`. Post somebody there in time, fight for it, sell cheap next door,
+buy the block it stands on, or talk terms on the rivals screen. Winning
+a corner and keeping a quiet city are separate jobs.
 
 Eventually the dirty cash itself draws heat. Your first front washes
 some of it clean each day and leaves a float for the street. The upkeep
 is real; so are the audits. Accountants help. The greedy dial is always
-there when you think you have solved the money problem.
+there when you think you have solved the money problem. Clean cash pays
+the rent on a stash house, which keeps stock off the street and out of a
+raid that finds somewhere else; a raid hits one place, and a house the
+police know about is the place.
+
+Stock has a quality. What the connects sell is middling; a cut stretches
+a bag and drops the price it fetches, and a corner sold bad product loses
+its regulars. Hard product cut too far kills people, which is pressure
+and news. A chemist, once meth is on the ladder, cooks meth and designer
+for well under what the connect asks.
 
 Bayport is down the coast. Coke and heroin come off the boats cheap;
 weed and pills cost more. Travel there with `g` when you need to do
 business yourself. Your stock stays put. Set a route and a target to keep
-Eastside supplied, then watch the road in the report. Once you hold
-corners in both cities, a lieutenant can turn up to run one for you.
-They take a cut. They also take loyalty rather seriously.
+Eastside supplied, then watch the road in the report; a driver on the
+route and a bought checkpoint both cut what the police take. Once you
+hold corners in both cities, a lieutenant can turn up to run one for you.
+They take 8% of the city, keep it stocked and sell it at the dial their
+temper favours. They also take loyalty rather seriously.
 
-Clean money, once there is enough of it, buys the supply side. Hold $8M
-clean and the **assets** go on sale on the ledger: a tunnel under the
-county line, the Dutchman's book (his lots at a tenth of street, without
-limit), the lab (a chemist's batch eight times over at quality 90), the
-port (the boats through it carry double and clear customs), an airstrip
-(a day's flight). Each costs clean cash and clean upkeep, puts a floor
-under the heat in every city, and is a reason for the feds to form a
-**task force**: the rung above the raid, announced the morning before it
-comes, and it takes an asset with it. Lie low that day; what they find
-on a quiet night is not a case.
+Clean money, once there is enough of it, buys the supply side. The
+**assets** go on sale on the ledger one at a time as your clean peak
+climbs: a tunnel under the county line at $8M (found once, gone for
+good), the Dutchman's book at $10M (his lots at a tenth of street,
+without limit), the lab at $14M (a chemist's batch eight times over at
+quality 90, precursors at half), the port at $20M (the boats through it
+carry double and clear customs), an airstrip at $28M (a day's flight).
+Each costs clean cash and clean upkeep, puts a floor under the heat in
+every city, and is a reason for the feds to form a **task force**: the
+rung above the raid, announced the morning before it comes, and it takes
+an asset with it. Lie low that day; what they find on a quiet night is
+not a case.
 
 The game names these stages. A run starts as a **Corner** trader, becomes
 a **Crew** with the first hire, **Territory** once $25K has moved and
@@ -327,6 +366,15 @@ run. The report opens with it too, the dashboard reads `tier Territory`
 (`· new` until you have seen the stage) and the run summary says which
 you reached and when. A stage once reached stays reached, and it changes
 nothing by itself: it is a name for what has opened.
+
+There is no last day. A run ends when the law, the street or the till
+ends it, or when you walk away: `w` on the dashboard retires on the
+offshore account once it holds enough and the city has been quiet long
+enough, vanishes on a new identity bought from the Legal branch, or,
+once every crew in the city is gone or paying you and you hold more
+than half of it, takes the crown. That last is a **reign** you can play
+on: the free corners pay you a tax, the paper writes about you, and the
+crown is yours whenever you want it. The account is the score.
 
 ### Let the routine run
 
@@ -343,24 +391,27 @@ column marks a standing order with `↻`. You can queue sales against stock
 a supply contract will bring in.
 
 `F` fast-forwards until something needs you, up to a cap you choose
-(7 days by default, 30 at most). Cards, new alerts, police action, rival
-moves or offers, crew departures, audits, seizures, buyers, changes at
-the courthouse, short orders and doors opening stop it. The report tells
-you why: `Stopped after 3 days: contract due today.`
+(7 days by default, 30 at most). The run ending, a new stage, a card, a
+new alert, police action, rival moves or offers, crew arrested, shot,
+retired or gone, a spy found, audits, seizures, buyers, changes at the
+courthouse, envelopes that came back, a raid that fell through, a war
+night that took a corner, the reign beginning or breaking, houses
+robbed or raided, short orders and doors opening stop it. The report tells you why: `Stopped
+after 3 days: contract due today.`
 
 ### Doors open on the way up
 
 Everything the game keeps behind a line is announced the morning it
 opens: a product listing, a front for sale, a connect who will deal with
-you, accountants or lieutenants looking for work. The report opens with
-an **UNLOCKED** section, the journal has a headline under the `unlock`
-source (`f` filters to them: every door you have opened, in order) and
-`F` stops. The next door is named before it opens: the dashboard alerts
-once you are within half its line (`The Laundromat opens at $25K peak:
-$18K to go.`), the market's notes name the next product on the ladder
-and what it takes, the ledger's fronts for sale read the distance
-(`locked · $18K to go`) and the crew screen says what the lieutenants
-wait on.
+you, accountants or lieutenants looking for work, a house or an asset on
+the ledger. The report opens with an **UNLOCKED** section, the journal
+has a headline under the `unlock` source (`f` filters to them: every door
+you have opened, in order) and `F` stops. The next door is named before
+it opens: the dashboard alerts once you are within half its line (`The
+Laundromat opens at $25K peak: $18K to go.`), the market's notes name the
+next product on the ladder and what it takes, the ledger's fronts for
+sale read the distance (`locked · $18K to go`) and the crew screen says
+what the lieutenants wait on.
 
 ## Keys
 
@@ -444,15 +495,17 @@ The full table is below; `?` brings it up in the game.
 
 ## How it works
 
-For implementation details, invariants and test coverage, see [CLAUDE.md](CLAUDE.md).
+For implementation details, invariants and test coverage, see [CLAUDE.md](CLAUDE.md)
+and the one file a subsystem in [docs/](docs/README.md).
 Tuning lives in `internal/content/*.toml`. These are the systems behind a run.
 
 Every day the simulations step in a fixed order (`world -> market -> logistics -> territory -> rivals -> crew -> heat -> law -> laundering -> reputation -> news`),
 each reading the world and emitting typed events that later sims and the UI
 consume. Randomness is derived from the run seed and the day number, so a
 run is fully reproducible and nothing about the RNG needs saving; what
-happens away from home rolls on its own side of the stream, so a run that
-never leaves the first city plays the same as it always did.
+happens away from home, and every feature added since the first city,
+rolls on its own side of the stream, so a run that never uses one plays
+the same as it always did.
 
 ### Cities
 
@@ -460,8 +513,8 @@ Everything happens in one of two cities, each with its own
 street prices, its own corners and its own police. Eastside is home;
 Bayport is the port down the coast, where coke and heroin come off the
 boats cheap and nobody much wants them, weed and pills cost more, and
-the police watch the water. You are in one city at a time: the supplier
-sells to you where you stand, into a stash there, and you can only work
+the police watch the water. You are in one city at a time: the connects
+sell to you where you stand, into a stash there, and you can only work
 a corner yourself where you are; runners sell where they are posted.
 `g` moves you, for what only you can do there; the routes move the
 stock.
@@ -472,24 +525,55 @@ Market drifts prices toward an equilibrium with noise, rolls supply
 shocks and demand slumps, and resolves your sell orders, city by city.
 Selling into demand barely moves the price; flooding past it craters it.
 
+Every lot has a **quality**, one number per product per city, blended
+as stock arrives. The connects sell at 50, where the price is the street
+price; at 100 a unit fetches a quarter more, at 0 nearly a third less,
+on every sale and on a buyer's premium. `%` on the market **cuts** a lot: so many
+units of nothing at a price per unit added, at most doubling it, and
+the quality falls by the same share. The street remembers: a city sold under
+40 loses a little of every worked corner's regulars each night, and only
+better product wins them back. Heroin, meth or designer sold under 30 off
+your own corners rolls an **overdose** per twenty units, which is pressure
+in the city, notoriety and a headline, never a page in the DA's file.
+A **chemist** turns up in the pool once meth is on the ladder: `o`
+**cooks** a batch of meth or designer for the price of precursors, landing
+three days later at their quality, and their hand on a cut keeps some of
+the quality back.
+
+The **connects** are the supply side. Each city has a street connect who
+sells everything the city sells, in lots of fifty, on credit up to a
+small book; the Dutchman in Bayport wholesales in lots of a hundred once
+$500K has moved; and one pool connect a run, with their own range and
+terms, deals with you once $25K has moved and the street connect in their
+city vouches. Every lot you or the road buys earns a little standing;
+paying a debt on its day earns more, paying late loses it, a bust that
+takes their product loses it. Standing moves the price toward the bottom
+of their band, how much they will run you a day and how much credit they
+extend, and at the top they tip you off the day before a shock or a slump
+on something they sell. Credit costs a markup and is collected on its
+day, dirty cash then clean; short, a patient connect extends once, a
+sharp one freezes you out and adds a fee, a connected one sends somebody
+round. A debt never ends the run.
+
 It also deals the **buyers**: every few days somebody in one of the
-cities wants product off-corner, on a deadline, at a premium over that
+cities wants product off-corner, on a deadline, at a multiple of that
 city's street price on the day you hand it over (a club owner who wants
-pills for the weekend, a face from out of town who wants coke in bulk).
-Offers come to the market screen and lapse in a few days; take one and
-it is yours to deliver out of that city's stash, standing there, by its
-due day. A handoff needs no corner, is not capped by a patrol, takes no
-cut for a lieutenant and draws heat at the buyer's own rate; short at
-the due day, you lose respect, gain notoriety, the buyer collects for
-the rest and stays away for a month. The premium is a bet: it is against
-the street on the day, so a slump or a spike since the buyer asked is
-yours to eat. The deck is `internal/content/buyers.toml`.
+pills for the weekend, a face from out of town who wants coke in bulk;
+the mover who deals by the case pays under the street as often as over
+it). Offers come to the market screen and lapse in a few days; take one
+and it is yours to deliver out of that city's stash, standing there, by
+its due day. A handoff needs no corner, is not capped by a patrol, takes
+no cut for a lieutenant and draws heat at the buyer's own rate; short at
+the due day, you lose respect, gain notoriety, the buyer collects a share
+of what you owed and stays away for a month. The premium is a bet: it is
+against the street on the day, so a slump or a spike since the buyer
+asked is yours to eat. The deck is `internal/content/buyers.toml`.
 
 It fills **supply contracts** every morning before anything sells: a
-contract keeps the stash in a city at a level, bought from the
-supplier there at a small markup, out of dirty cash, through the same
-path as a buy by hand, so the supplier reacts to it exactly as to you;
-short of cash or room it buys what it can and the report says so.
+contract keeps the stash in a city at a level, bought from the connect
+there at a small markup, out of dirty cash, through the same path as a
+buy by hand, so the connect reacts to it exactly as to you; short of
+cash or room it buys what it can and the report says so.
 
 It resolves the **standing orders** every night where you placed no
 order of the day: the same units at the same dial, through the same
@@ -505,7 +589,8 @@ each a different point on the speed / cost / risk triangle, and each a
 target stock for the far end per product, in units or in **days of
 demand** (what the corners you hold there sell in that many days,
 sized again every morning, so the target follows the ground you hold;
-the dialog says what the days mean today, `3d ≈ 180 units`).
+the dialog says what the days mean today, `3d ≈ 180 units`). The
+airstrip adds a plane and the tunnel a tunnel, once you own them.
 
 Every day a route that is on sends what Eastside is short of its target, up to
 what the route carries, out of the Bayport stash first and then by the lot from
@@ -522,72 +607,179 @@ again tomorrow, and, if it was sent fast, the DA gets a page. The
 morning report reads as a supply line, and the first seizure is the cue
 to turn the dial down.
 
+Two things cut the odds on a road. A **driver** comes looking for work
+once a route has run; `v` on the map puts them on a route, and they take
+up to half off its risk each day, by their skill. A shipment taken with
+them on it puts them in a cell that night. A **checkpoint** on a road, or
+the customs agent on a boat's, is bought with dirty cash on the map for
+thirty days and takes a good deal more off; the two compound, and the
+odds the map shows are the odds the dice use. The map's `seized` column
+reads `?` on a road you have never lost a shipment on: the risk is what
+you have learnt, not what the file says.
+
 ### Territory
 
 Territory is each city's corners. Each is its own demand pool and only
 a corner somebody stands on sells; a runner holds one for you, an enforcer
 keeps it from being robbed, and a corner nobody works drifts back to the
-street. The rival fights over Eastside.
+street. The factions fight over the ground too.
+
+Once the city is yours in the kingpin's sense (every faction at the
+table gone or paying you homage) and you hold more than half its
+corners, the corners nobody holds are worked by independents who pay
+you a **tax** for the right: a tenth of each corner's trade a night, in
+dirty cash, with no heat and no page, since nobody of yours moved a
+unit. The report's MONEY line and the ledger carry it. A faction setting
+up on a free corner ends that corner's tax; the share falling ends it
+all.
+
+### Stash houses
+
+A house is a rented place on a named block: a lease in dirty cash, rent
+in clean every day, so much room. Everything that arrives in a city goes
+into its houses first and the street last; everything that leaves comes
+off the street first. A house is not a bigger bag (what you carry on the
+street is unchanged); it is somewhere a raid has to find. A sting or a
+raid hits **one place** in a city, rolled over the houses and the street
+by the heat of the block each stands on, so an empty house on a cheap
+block shields nothing. A house the police **know** (an informant told
+them, it was robbed, or a bust took something from it) is the target
+until you drop it; with an informant on the payroll a raid empties the
+fullest house whole. A house is robbed like a corner, behind a door, and
+an enforcer posted inside (`e` on the ledger) cuts that like a guard on a
+corner. `m` moves stock between the street and the houses, free and at
+once, for a little exposure and no page. Five days of unpaid rent and
+the landlord throws you out with everything inside. Houses are bought
+with `b` on the ledger and dropped with `x`.
+
+### Property
+
+`d` on the map buys the **block** a corner is on, with clean cash only,
+at ninety days of that corner's street trade at today's prices. A deed
+stays with the block whoever holds the corner: it halves the robbery
+chance on it and on a house there, halves a rival's odds of pushing you
+off it and of defending it against you (a deed slows the rival, never
+stops it), halves the block's weight in a raid's roll, and pays you clean
+rent that returns the price in five hundred days. A deed on a rival's block
+is legal and the businessman's way to a corner. Deeds are public: each
+adds a little pressure a day, and the fourth in a city makes the paper.
+The DA reads them against the wash: hold more in deeds than half of what
+your fronts have ever laundered and the newest is **forfeited**, one a
+night, no refund, and the file gains two pages. Card money and the
+fronts' own income explain nothing.
 
 ### Crew
 
-Crew are runners, enforcers and accountants you hire from a rotating
-pool. Runners raise how much you can hold and how much of the street you
-reach; accountants put more through every front and keep the auditors
-away.
+Crew are runners, enforcers, accountants, lieutenants, chemists, drivers
+and fixers, hired from a rotating pool; the last four come looking once
+their door opens. Runners raise how much you can hold and how much of the
+street you reach; accountants put more through every front and keep the
+auditors away; a fixer improves an envelope's odds.
 
 The pay dial trades wages for loyalty; loyalty also falls with
 greed, danger and firings. Below a threshold a member skims the takings,
 or the wash (the report says so without naming names); lower still, the
 nervous start talking to the police, feeding the DA's file every few days
-whatever you sell, and a raid goes straight to your stash. The roster
+whatever you sell, and a raid empties your fullest house. The roster
 never shows it: the tell is a file that grows without a bust and a heat
 delta the dial does not explain, and after two of those the screens hint
 at it.
 
-Investigating (`i`) names them with odds that scale with your best
-enforcer's skill; firing them stops it. An audit turns a disloyal
-accountant the same way. At the floor a member walks, or,
-while the rival holds ground, defects to it and walks it onto the corner
-they ran.
+Investigating (`i`) names them, for a fee, with odds that scale with your
+best enforcer's skill and with every night that named nobody; firing
+them stops it, and the crew do not hold that firing against you. An
+audit turns a disloyal accountant the same way, a backfired envelope its
+fixer, a spy caught and turned comes home talking, and somebody left in
+a cell may come out talking. `$` buys a member's loyalty outright, for
+two months of their wage: it buys loyalty, not silence. At the floor a
+member walks, or, while a faction holds ground in the city they stood
+in, defects to it and walks it onto the corner they ran; a faction with
+money poaches the same way, offering your least loyal member better pay.
+
+People have **lives**. They sign on between nineteen and forty-four and
+age a year every thirty days; skill grows with the pay dial up to a cap,
+nerve falls past thirty-eight, and at fifty they retire (loyal, they
+recommend a cousin; sour, they leave a page behind). Hiring somebody
+brings their **kin** into the pool at half the fee, marked `♦`, and kin
+remember a firing or a body. A sting or a raid takes the names of
+everyone who stood on a held corner there, and each rolls a quarter
+chance of ten days in a cell the next morning, where they work nothing
+and the wage runs on. **Bail** (`b` on the crew screen) is clean cash,
+the whole amount by role, and buys loyalty; unbailed, they come out
+under the line and may turn. The Legal branch's bail bondsman pays it
+from the clean account the night of the arrest, when the account
+covers it. Enforcers going in on a strike, and the
+guard on a corner a rival pushed and failed to take, can be **shot**:
+wounded for twelve days or dead, by the force used. Every body on
+either side counts against the score.
 
 ### Lieutenants
 
 Lieutenants run a city for you. Once you hold corners in both
 cities, one turns up in the hiring pool now and then; give them a city
-(`t` on the crew screen) and every night they post your idle runners
-on its best corners, give up a corner after its second stick-up, and
+(`l` on the crew screen) and every night they post your idle runners
+on its best corners, give up a corner after its second stick-up, keep
+the stash there topped up on a supply contract of their own and
 sell everything stashed there at the dial their temper favours: a
 **violent** one sells aggressive and runs the city hot, a **greedy**
 one skims on top of the cut, a **careful** one sells quiet and earns
 less, a **steady** one just runs it. You learn which after ten days on
 the job.
 
-They keep a cut of the city's takings, bring people of their
-own (the roster grows while they run a city), and your own order for a
-product there wins the day. Watch their loyalty more than anyone's:
-under the line they turn informant with no dice and feed the DA thick
-pages; at the floor they walk with the city, every corner they ran and
-the stash there.
+They keep 8% of the city's takings, bring eight roster slots of people
+of their own, and your own order for a product there wins the day.
+Through them you can buy in a city you are not standing in, at the
+contract markup. Watch their loyalty more than anyone's: under the line
+they turn informant with no dice and feed the DA thick pages, and a
+lieutenant who turns while running half your corners ends the run
+**betrayed**; at the floor they walk with the city, every corner they
+ran and the stash there.
 
 ### Rivals
 
-The rival is the other crew in the city: one per run, with a leader and
-a temperament drawn from the seed. It moves in on a free corner, claims
-more, pushes on the corners of yours it borders, undercuts you there and
-calls the police when you hurt it. A claim is **telegraphed**: the day
-it picks a corner the report says so, the map marks it `?` and the
-RIVALS panel reads `eyeing Riverside`; it sets up there the next night
-unless somebody of yours is posted on it by then, in which case it
-leaves, keeps its money and holds a grudge.
+A run seats **three to six factions** at the table, each with a leader
+and a temperament drawn from the seed (at most one chaotic). The first
+moves into Eastside on day ten and the rest arrive one every twenty-five
+days after it. Each moves in on a free corner, claims more, pushes on
+the corners of yours it borders, undercuts you there and calls the
+police when you hurt it. A claim is **telegraphed**: the day it picks a
+corner the report says so, the map marks it `?` and the RIVALS panel
+reads `eyeing Riverside`; it sets up there the next night unless
+somebody of yours is posted on it by then, in which case it leaves,
+keeps its money and holds a grudge.
 
-Enforcers on the war dial (warn /
-push / hit) are one answer; the table is another; money is the third:
-work a corner next to one of theirs and `u` on the map **undercuts** it,
-tonight's orders serving a share of its customers cheap on top of your
-own, which costs you margin and gluts the product, draws no heat, and
-cuts what the corner earns them; starve a corner for days and they push
-back or, by temper, give it up.
+The table shares the map: between them the factions stop claiming free
+corners past a share of the city and push on you instead, and they push
+on each other, muscle against muscle, which never brings a crackdown on
+you. A faction with no corners for a month is **absorbed** by the one
+that took its last, unless you or the police routed it. Defensive
+factions side with whoever an expansionist pushes, and at enough trust
+half their front line joins the victim's pushes, yours included. A
+faction your enforcers have taken three corners off may offer
+**homage**, a fifth of its take a day, theirs to offer and never yours
+to ask. `[`/`]` on the rivals screen turns the table; breaking a deal
+with one costs you trust with them all.
+
+Enforcers on the war dial (warn / push / hit, `w` on the map) are one
+answer, and `w` on the rivals screen makes them a routine: a **war** on
+one faction sends the hand's strike every night you send none, at the
+hit dial, on their corner nearest your front line, with the same dice,
+heat and toll as a strike by hand; it ends when they are gone, paying
+homage or hold nothing in a city you do. The table is another answer; money is the third: work a corner next to
+one of theirs and `u` on the map **undercuts** it, tonight's orders
+serving a share of its customers cheap on top of your own, which costs
+you margin and gluts the product, draws no heat, and cuts what the
+corner earns them; starve a corner for days and they push back or, by
+temper, give it up. The **books** are the fourth: `i` on the rivals
+screen **scouts** a faction's cash, income, muscle and wages, for a fee
+and at odds your best enforcer sets; the strike picker's last rows
+**boost** a corner's till instead of taking the corner; `t` on the map
+**tips** the police on a rival corner, free, and enough tips bring a
+raid that puts a share of their muscle in the van and, past the line,
+takes the leader (the corners drift to the street and the muscle turns
+up in your hiring pool cheap); `$` on the rivals screen **buys off** a
+head of their muscle, dirty cash, before the night's fighting, and they
+go home and never join you.
 
 It keeps a **trust**
 in you, seeded by its temperament, and you can propose a **truce** (a
@@ -600,83 +792,134 @@ makes offers of its own when its situation calls for one, and they stand
 a few days.
 
 Every day a deal holds earns trust (and a kept peace earns
-respect); a strike costs it; a push or a hit under a deal, a missed
-tribute or walking off a split corner is a **betrayal**: trust falls to
-the floor, it makes one call to the police, and it takes nothing for a
-month. A chaotic rival breaks deals on a whim; a defensive one never.
-The joint shipment is on the list and not yet on the table.
+respect); a strike costs it; a push or a hit under a deal, a tip, a
+missed tribute or walking off a split corner is a **betrayal**: trust
+falls to the floor, it makes one call to the police, and it takes
+nothing for a month. A chaotic rival breaks deals on a whim; a defensive
+one never. The joint shipment is on the list and not yet on the table.
 
 ### Heat
 
 Heat is per city: it rises with the volume you *tried* to move there
 and how loud the dial was, plus a little, where you are, for sitting on a
 pile of dirty cash. Units your crew moves count at a discount, but sloppy
-low-skill runners add a premium. It decays slowly, faster if you lie low.
+low-skill runners add a premium, and a notorious boss's own units count
+extra. It decays slowly, faster if you lie low (`l`), down to a floor
+your fear or an asset you own sets.
 
 The hottest city's police answer at the thresholds: patrols, stings,
-raids and finally arrest, and what they take comes out of the stash
-there. Every sting and raid goes in the DA's file, which is yours
-wherever you are; a thick enough file is an indictment. Between the raid
-and the arrest is the **task force**, which forms only against an asset
-you own or a dirty pile over $25M: announced the morning before it
-comes, it takes stock, cash and one asset, and no chief shortens its
-wait. The gauge marks its line once it can form.
+raids and finally arrest, one response a day, and what they take comes
+out of one place in that city: a house they know, else one rolled by the
+heat of its block, else the street. Every sting and raid on a day you
+dealt there goes in the DA's file, which is yours wherever you are; a
+raid on a quiet night costs stock and cash and no page. A thick enough
+file is an indictment, thinner under a law-and-order DA, thicker under a
+reformer or a bought one. The file also grows without a bust: an
+informant's page every few days, a tip that comes back on you, an
+envelope that backfires, offshore lots over the line, a forfeited deed.
+Between the raid and the arrest is the **task force**, which forms only
+against an asset you own or a dirty pile over $25M: announced the
+morning before it comes, it takes stock, cash and one asset, and no
+chief shortens its wait. The gauge marks its line once it can form.
 
 ### Reputation
 
 Reputation is the face the street keeps on you: **fear** (from
-strikes and pushes), **respect** (from a generous payroll, a pay-off and
-every night a deal holds; a full delivery to a buyer too) and
-**notoriety** (from volume and every headline about you). Each does one
-thing at full strength: fear slows the rival's pushes and claims and
-sways it at the table but sets a floor heat never falls under; respect
-keeps the crew loyal and the supplier friendly; notoriety raises what a
-new hire asks and makes every unit *you* move on your own corner hotter,
-so a notorious boss gets off the corner. The street has only so much
-attention: you cannot max all three.
+strikes, pushes and boosts), **respect** (from a generous payroll, a
+pay-off and every night a deal holds; a full delivery to a buyer too;
+short wages and a failed delivery cost it) and **notoriety** (from
+volume, strikes, overdoses, bodies and every headline about you). Each
+pulls its own way at full strength: fear slows the rivals' pushes and
+claims and sways them at the table but sets a floor heat never falls
+under; respect keeps the crew loyal, the connects friendly and their
+muscle cheap to buy off; notoriety makes hiring cheap and every unit
+*you* move on your own corner hotter, so a notorious boss gets off the
+corner. The street has only so much attention: you cannot max all three.
+The dashboard's pane says what each axis is doing in words, under YOUR
+NAME, with the numbers the dice use; a candidate who has read about you
+says so, and once the city is yours the paper writes about the boss.
 
 ### The law
 
 The law has faces. A **police chief** with a temperament drawn from
-the seed and hidden until you have seen them work: a **zealous** one
-sends the stings and raids back sooner and lets heat fade slower, a
-**lazy** one the opposite and their patrols let more through, a
-**corrupt** one is neutral for now. They serve a term and the mayor
-names another.
+the seed and hidden until you have seen them work, or twenty days in, or
+paid a cop: a **zealous** one sends the stings and raids back sooner and
+lets heat fade slower, a **lazy** one the opposite and their patrols let
+more through, a **corrupt** one is the one who takes an envelope. They
+serve a term and the mayor names another.
 
 A **DA** elected every ninety days on a ticket: a
 **law-and-order** DA needs a thinner file to indict and stings sooner,
 a **reformer** the reverse, a **moderate** runs the courthouse by the
 book. Who wins is decided by **public pressure**, a number every city
-carries: violence, hard product (heroin, meth, designer) and headlines
-about you push it up, it fades on its own, and a loud city gets its
-police answering sooner (patrols, raids, the arrest line), gets the
-rival's phone calls returned, and elects a crackdown DA, who may fire
-the chief on the way in.
+carries: violence, hard product (heroin, meth, designer), deeds,
+overdoses, bodies and headlines about you push it up, it fades on its
+own, and a loud city gets its police answering sooner (patrols, raids,
+the task force, the arrest line), gets the rivals' phone calls returned,
+and elects a crackdown DA, who may fire the chief on the way in.
 
-Clean cash buys **goodwill** (`f` on the
-ledger): community centres, campaigns, benevolent funds, which take the
-pressure off a little every day. Dirty money is not welcome. The
-dashboard's LAW panel shows all of it, and the report carries elections
-and new chiefs. The law never adds a page to the file by itself: it
-moves the thresholds, the cooldowns and the decay.
+Clean cash buys **goodwill** (`f` on the ledger), which takes the
+pressure off a little every day, and, in the month before a vote, backs
+a **campaign**: the second page of the same dialog puts clean cash
+behind the reform or the law-and-order ticket in a city, so much a point
+of its vote, up to a ceiling; money moves the vote and never decides it,
+backing both sides buys nothing, and a city that backed the loser pays
+for it. A DA you backed lets the sting line sit higher and sells for half.
+Dirty money is not welcome there; it buys the rest. `$` on the ledger
+sends an **envelope**: a corrupt chief takes it (a lazy one at half
+effect, a zealous one files it), and heat fades faster and the stings
+and raids come back later for a month, and the chief owes you one: the
+morning a sting, a raid or the task force is due tonight, `v` on the
+ledger calls in the **favour** and it does not come, nothing taken and
+nothing cooled, for a page in the file with the chief's name on it; a moderate DA takes it at odds
+the dialog shows, a reformer refuses, a law-and-order DA files it, and a
+bought DA needs a thicker file. A backfire is heat and a page whatever
+you sold; three envelopes taken open a file of their own; a law-and-order
+DA taking office ends every deal in five days and nobody takes a call
+while they sit. A **fixer** in the pool, once you have paid anyone,
+improves the odds. The dashboard's LAW panel shows all of it, and the
+report carries elections and new chiefs. The chief and the DA never add
+a page by themselves: they move the thresholds, the cooldowns and the
+decay. The pages the law does add are for things you did.
+
+### Intel
+
+The sims keep the truth; the screens read your **file**. A faction's
+temper, its muscle, the chief's temper, the police's next move and a
+road's risk read `?` until something has told you: a fight your
+enforcers were in, a scout, a bust you took, a chief seen at work.
+Every fact carries how sure it is and fades from the day it was
+learnt, a temper apart, which never fades. `$` on the intel screen pays
+a cop for a word on the chief and on what the police here will do next
+and when, right three times in four, a rung or a night off otherwise,
+never off the ladder; a cop is not a bribe. `p` sends one of your own
+under with a faction: they work nothing for you while they are under,
+report every five nights on its muscle, its next move and its fattest
+till at odds their skill sets, and each report risks being found, half
+of those coming home turned and the rest shot. A faction that does not
+trust you feeds you lies, `a contact says`: a road that reads safe and
+is not, a till that reads fat and is empty. Once one bites, the source
+reads `fed by` in red. `i` on the dashboard opens the file on the chief;
+`i` on a rival's corner on the map opens the file on its faction.
 
 ### Upgrades
 
-There are fifty-six upgrades across seven branches. Bonuses stack and
+There are fifty-eight upgrades across seven branches. Bonuses stack and
 stay with the run:
 
-- **Operations** earns more: storage, supplier terms and street trade.
+- **Operations** earns more: storage, connect terms and street trade.
 - **Security** cools heat faster and softens the damage.
-- **Legal** helps you survive the case.
-- **Crew** makes the payroll cheaper and your people more likely to stay.
+- **Legal** helps you survive the case: the lawyer, the bondsman, the
+  fall guys and, last, a new identity.
+- **Crew** makes the payroll cheaper and your people more likely to stay,
+  and grows the roster and the pool.
 - **Laundering** washes more with less attention from auditors.
 - **Logistics** moves more stock for less on the road.
-- **Street** helps you hold your corners.
+- **Street** helps you hold your corners against the rivals' pushes.
 
 The nodes and their effects live in `internal/content/upgrades.toml`;
-[CLAUDE.md](CLAUDE.md) covers the full tree. Nothing removes the heat
-curve. Clean-cash nodes cost money the fronts have washed.
+[docs/upgrades.md](docs/upgrades.md) covers the full tree. Nothing removes
+the heat curve. Clean-cash nodes cost money the fronts have washed.
 
 ### Laundering
 
@@ -688,33 +931,41 @@ The launder dial pushes them all harder or softer: greedy washes more, gets
 audited more, and an audit of a front run greedy goes in the DA's file.
 The wash always leaves a float in the till for the street. Dirty cash
 over the threshold is heat every day it sits there; clean cash is what
-the retainer, and the endgame, ask for.
+the retainer, the rent, the deeds, the assets and the endgame ask for.
 
-A front grows by levels: clean cash invested in it (`i` on the ledger)
+A front grows by levels: clean cash invested in it (`u` on the ledger)
 earns clean income of its own every day, dirty or no dirty, and pays
 itself back in a hundred days. Each level washes more, costs more, and is
 looked at more; a front whose wash outruns what its income explains is
 the one the auditors find, and one that grows big enough makes the paper.
 
-Clean cash can go offshore (`o` on the ledger): the account survives every
-ending, cannot be spent, and is safe from the fall guy and the auditors;
-it is the score. Up to a lot a day moves unnoticed; every lot over it is
-a page in the DA's file the morning after. Enough offshore and enough
-quiet days in a row, and you can retire (`w` on the ledger, asked twice).
+Clean cash can go offshore (`o` on the ledger), less a small fee: the
+account survives every ending, cannot be spent, and is safe from the fall
+guy, the auditors and the forfeiture; it is the score. Up to a lot a day
+moves unnoticed; every lot over it is a page in the DA's file the morning
+after. Enough offshore and enough quiet days in a row, and you can retire
+(`w` on the dashboard, asked twice).
 
 ### Endings
 
 A run ends nine ways, and the summary says which: **indicted** (the
 file), **arrested** (the heat), **broke** (the till), **retired** on the
-account, a **businessman** whose fronts out-earn the street for a month
-with the city on side, **kingpin** with every crew in the city yours or
-gone and the city held, **betrayed** by a lieutenant who knew where
+account, a **businessman** whose fronts out-earn the street for thirty
+days with the city on side, **kingpin** by taking the crown during a
+**reign** (every faction at the table absorbed, broken or paying you
+homage for two weeks while you hold more than half of home; the reign
+is announced, can be played on as long as it holds, and breaks the
+morning a crew sets up again or the share falls), **betrayed** by a lieutenant who knew where
 everything was or an ally who broke a deal while you were at war,
-**taken out** when the last corner falls at war with no muscle to send,
-or **vanished** on a new identity from the tree, which also turns the
-indictment the fall guys do not take into an exit. The score is the
-account over one plus the bodies; the pile left behind is printed, never
-scored, and the days are shown, never scored.
+**taken out** when the last corner falls at war with fewer than two
+enforcers on the payroll, or **vanished** on a new identity from the
+tree, which also turns the indictment the fall guys do not take into an
+exit. The **exit plans** run in order: the fall guys take the first
+case each, then the identity turns the next into an exit, then the run
+ends. `w` on the dashboard walks away on either plan, or takes the
+crown, by choice. The
+score is the account over one plus the bodies; the pile left behind is
+printed, never scored, and the days are shown, never scored.
 
 ### News
 
@@ -775,13 +1026,25 @@ The later policies exercise a particular part of the business:
 | --- | --- |
 | `distributor` | Supplies Eastside by the biggest route, targets days of demand, then moves to Bayport when wholesale opens and sells at both ends. |
 | `delegated` | Adds a lieutenant in Eastside to the distributor. |
-| `funded` | Runs fronts and pays the city when pressure rises. |
+| `driven` | The distributor with a driver on its busiest route. |
+| `corrupt` | The distributor that pays the chief when the heat is up and keeps a checkpoint on its road. |
+| `funded` | Runs fronts, pays the city when pressure rises and backs the reform ticket. |
 | `favoured` | The distributor that bribes the chief when hot and calls in the favour when a raid is due. |
 | `warlord` | Runs a crew and keeps a war order on the nearest faction until it folds. |
 | `dealer` | Runs a crew, reserves stock for buyers and delivers when heat allows. |
 | `stocked` | Runs a crew with supply contracts at one day's corner demand. |
 | `routine` | After $20k peak cash, uses normal standing orders that grow with the stash. |
-| `boss` | Works the hub's corners, sends enforcers when odds justify it, buys fronts and upgrades at a margin, and fires lieutenants who sell aggressive. |
+| `leveraged` | Runs a crew that restocks on the connects' credit first and pays cash for the rest. |
+| `pricewar` | Holds territory by undercutting the biggest rival corner next door instead of striking. |
+| `saboteur` | Runs a crew that works the rival's books: scouts, boosts the till, buys off muscle. |
+| `tipster` | The saboteur that tips the police every night the rival holds a corner. |
+| `stashed` | Runs fronts and keeps its stock in stash houses. |
+| `cook` | Runs fronts with a chemist, cooking meth and designer instead of buying them. |
+| `retiree` | Runs fronts, reserves a lot a day and retires on the account once the days are quiet. |
+| `informed` | The diplomat that pays a cop when the heat is up and lies low on the nights the word says the police can move. |
+| `boss` | Works the hub's corners, sends enforcers when odds justify it, buys fronts, deeds and upgrades at a margin, and fires lieutenants who sell aggressive. |
+| `cartel` | The boss with the assets: buys each as its price comes into clean cash, opens the plane and the tunnel, cooks in the lab. |
+| `reckless` | The cartel that never lies low and sells aggressive from its first asset. |
 
 ### Isolate a system
 
@@ -789,7 +1052,8 @@ Use these flags to compare runs with the same conditions:
 
 | Flag | Effect |
 | --- | --- |
-| `-rival none` | Keeps the rival out. |
+| `-rival none` | Keeps the rivals out; `-rival expansionist` and the like pin the first faction's temper. |
+| `-factions 1` | The duel the game was before the table; `0` is the file's count by seed. |
 | `-heat off` | Switches heat off. |
 | `-pace off` | Gives the rival its flat pace. |
 | `-lt violent\|greedy\|careful\|steady` | Forces the delegated lieutenant's temper. |
@@ -799,6 +1063,11 @@ Use these flags to compare runs with the same conditions:
 | `-snitch` | Starts with an informant on the payroll. |
 | `-cards decline\|first` | Answers cards with the last (do-nothing) or first choice. |
 | `-incidents off` | Boxes the world's incident table (on by default). |
+| `-life off` | Boxes crew life: nobody ages, is arrested, wounded or killed. |
+| `-deeds off` | Takes every block off the market. |
+| `-credit off` | Withdraws every connect's credit. |
+| `-cut 0.5` | Cuts everything the policy buys by that ratio. |
+| `-houses N` | How many stash houses the stashed policy keeps a city. |
 | `-character cook` | Starts every run as that character (`dealer`, `cook`, `bookkeeper`, `excop`, `dockhand`, `heir`). |
 | `-hardda` | Seats a law-and-order DA and a zealous chief on day 0, never pinned. |
 
@@ -817,9 +1086,10 @@ The tests in [internal/harness](internal/harness) hold the difficulty curve:
 quiet survives, aggression gets indicted, and managing heat, crew, upgrades
 and fronts pays better than ignoring them. They also check conservation of
 stock and cash, reproducible runs, save/load, deals, delegation, the law,
-buyers, supply contracts and standing orders. `TestMoneyCurve` pins the
+buyers, supply contracts, standing orders, houses, deeds, the assets, the
+intel file and every ending. `TestMoneyCurve` pins the
 scale per tier at each tier's checkpoint in `progression.toml` (days 30,
-70, 120, 200), and `cmd/balance` prints the median day a policy enters
+70, 120, 200, 300), and `cmd/balance` prints the median day a policy enters
 each tier. See [CLAUDE.md](CLAUDE.md) for the detailed expectations.
 
 ## Source
@@ -834,12 +1104,13 @@ cmd/keys/           prints the key table above from the UI's bindings (-w writes
 cmd/anim/           plays every scene on a demo run, for review
 internal/events/    event types and bus
 internal/game/      world state, clock, player actions, save/load
-internal/sim/       simulations: market, logistics, territory, rivals, crew, heat, law, laundering, reputation, news
+internal/sim/       simulations: world, market, logistics, territory, rivals, crew, heat, law, laundering, reputation, news
 internal/content/   embedded TOML tuning, names and headline templates
 internal/harness/   headless runner and balance tests
 internal/format/    the one place a number is written: cash, money, price, arrows, plurals
 internal/ui/        Bubble Tea: the frame, the pane, the key table, the modal, the tables, the screens, the theme
 internal/ui/anim/   the scenes: the effects, the canvas, the player, the title's art
+docs/               one file a subsystem: the names, the numbers and the tests that pin them
 ```
 
 The key table comes from `internal/ui/keys.go`, shared with the pane, help
