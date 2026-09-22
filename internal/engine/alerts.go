@@ -42,23 +42,23 @@ const (
 // and the rest carry no number that moves. The other fields are the
 // kind's, as the constants say; the rest are zero.
 type Alert struct {
-	Kind AlertKind
-	Key  string
+	Kind AlertKind `json:"kind"`
+	Key  string    `json:"key"`
 
-	City     string  // heat, da_race: the city's id (heat: where you are)
-	Contract int     // contract_due: the contract's id
-	Supplier string  // debt_due: the connect's id
-	House    string  // house_known: the house's id
-	Due      int     // contract_due, debt_due: the day it is due
-	Amount   int     // debt_due: the debt; float: the float; wages: the wages; retire: the cash short; reign: the homage a night
-	Have     int     // debt_due: the cash in hand; float, wages: the dirty cash
-	Heat     float64 // heat: the city's heat
-	Line     float64 // heat: the patrol line
-	Days     int     // da_race: days to the election; retire: quiet days short; reign: the reign's day
-	Count    int     // reign: the crews paying homage
-	Ready    bool    // retire: retiring is open now
-	Level    string  // favour: the response due tonight
-	Gate     *Gate   // gate: the door
+	City     string  `json:"city,omitempty"`     // heat, da_race: the city's id (heat: where you are)
+	Contract int     `json:"contract,omitempty"` // contract_due: the contract's id
+	Supplier string  `json:"supplier,omitempty"` // debt_due: the connect's id
+	House    string  `json:"house,omitempty"`    // house_known: the house's id
+	Due      int     `json:"due,omitempty"`      // contract_due, debt_due: the day it is due
+	Amount   int     `json:"amount,omitempty"`   // debt_due: the debt; float: the float; wages: the wages; retire: the cash short; reign: the homage a night
+	Have     int     `json:"have,omitempty"`     // debt_due: the cash in hand; float, wages: the dirty cash
+	Heat     float64 `json:"heat,omitempty"`     // heat: the city's heat
+	Line     float64 `json:"line,omitempty"`     // heat: the patrol line
+	Days     int     `json:"days,omitempty"`     // da_race: days to the election; retire: quiet days short; reign: the reign's day
+	Count    int     `json:"count,omitempty"`    // reign: the crews paying homage
+	Ready    bool    `json:"ready,omitempty"`    // retire: retiring is open now
+	Level    string  `json:"level,omitempty"`    // favour: the response due tonight
+	Gate     *Gate   `json:"gate,omitempty"`     // gate: the door
 }
 
 // Alerts is what needs you this morning, loudest first, in the order
@@ -155,12 +155,12 @@ const GateNear = 0.5
 // the ladder, a front's offer, a connect, an asset (on peak clean cash,
 // #48).
 type Gate struct {
-	Kind  string // product | front | connect | asset
-	ID    string
-	Name  string
-	Line  int    // the peak it opens at: clean cash for an asset, else cash
-	Vouch string // a connect's second condition, `Cass at 60`, or ""
-	Clean bool   // the line is on peak clean cash (an asset's)
+	Kind  string `json:"kind"` // product | front | connect | asset
+	ID    string `json:"id"`
+	Name  string `json:"name"`
+	Line  int    `json:"line"`            // the peak it opens at: clean cash for an asset, else cash
+	Vouch string `json:"vouch,omitempty"` // a connect's second condition, `Cass at 60`, or ""
+	Clean bool   `json:"clean,omitempty"` // the line is on peak clean cash (an asset's)
 }
 
 // Peak is the peak the gate reads against: clean for an asset, else

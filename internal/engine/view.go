@@ -1,0 +1,415 @@
+package engine
+
+import (
+	"sort"
+
+	"github.com/theclifmeister/kingpin/internal/game"
+)
+
+// ViewVersion is the shape of View (#299, docs/engine.md). It moves
+// when a field is added, renamed, retyped or dropped, never with the
+// save's game.SchemaVersion: the world is free to change shape, the view
+// is the contract a front end in another process is written against.
+// TestViewShapeIsPinned fails on a shape change that keeps the number.
+const ViewVersion = 1
+
+// View is a snapshot of what the player can see: what a front end draws
+// (#299). It is built from the world the way the TUI reads it and holds
+// no pointer into it, so it can be kept, compared and sent as JSON. What
+// the player does not know is not in it: a faction's temper and heads,
+// the chief's temper and a route's risk are the intel file's
+// (game.Known), never the truth (TestViewReadsTheFile), and who on the
+// payroll is talking is not in it at all.
+type View struct {
+	Version   int            `json:"version"`
+	Seed      uint64         `json:"seed"`
+	Day       int            `json:"day"`
+	Over      *EndingView    `json:"over,omitempty"`
+	You       YouView        `json:"you"`
+	Cities    []CityView     `json:"cities"`
+	Crew      []MemberView   `json:"crew"`
+	Routes    []RouteView    `json:"routes"`
+	Shipments []ShipmentView `json:"shipments"`
+	Houses    []HouseView    `json:"houses"`
+	Fronts    []FrontView    `json:"fronts"`
+	Factions  []FactionView  `json:"factions"`
+	Law       LawView        `json:"law"`
+	Card      *CardView      `json:"card,omitempty"`
+	Report    ReportView     `json:"report"`
+	Alerts    []Alert        `json:"alerts"`
+}
+
+// EndingView is how the run ended.
+type EndingView struct {
+	Day   int    `json:"day"`
+	Cause string `json:"cause"` // one of content.Causes
+	Who   string `json:"who,omitempty"`
+}
+
+// YouView is the player.
+type YouView struct {
+	City      string                    `json:"city"`
+	DirtyCash int                       `json:"dirty_cash"`
+	CleanCash int                       `json:"clean_cash"`
+	Offshore  int                       `json:"offshore"`
+	NetWorth  int                       `json:"net_worth"`
+	PeakCash  int                       `json:"peak_cash"`
+	LieLow    bool                      `json:"lie_low"`
+	Tier      int                       `json:"tier"`
+	TierName  string                    `json:"tier_name"`
+	Pay       string                    `json:"pay"`
+	Launder   string                    `json:"launder"`
+	Evidence  int                       `json:"evidence"`
+	Fear      float64                   `json:"fear"`
+	Respect   float64                   `json:"respect"`
+	Notoriety float64                   `json:"notoriety"`
+	Stock     map[string]map[string]int `json:"stock"` // city id -> product id -> units on the street
+	Upgrades  []string                  `json:"upgrades"`
+	QuietDays int                       `json:"quiet_days"`
+	Character string                    `json:"character,omitempty"`
+	HardDA    bool                      `json:"hard_da,omitempty"`
+}
+
+// CityView is a city: its heat, its law and its market and corners.
+type CityView struct {
+	ID       string        `json:"id"`
+	Name     string        `json:"name"`
+	Heat     float64       `json:"heat"`
+	Pressure float64       `json:"pressure"`
+	Goodwill float64       `json:"goodwill"`
+	Response string        `json:"response,omitempty"`     // the police's next rung, as the file knows it
+	Due      int           `json:"response_day,omitempty"` // ... the first day it can fire
+	Products []ProductView `json:"products"`
+	Corners  []CornerView  `json:"corners"`
+}
+
+// ProductView is a product's market in a city.
+type ProductView struct {
+	ID            string     `json:"id"`
+	Name          string     `json:"name"`
+	Price         float64    `json:"price"`
+	SupplierPrice float64    `json:"supplier_price"`
+	Demand        float64    `json:"demand"`
+	NoSupply      bool       `json:"no_supply,omitempty"`
+	ShockDays     int        `json:"shock_days,omitempty"`
+	Slump         bool       `json:"slump,omitempty"`
+	History       []float64  `json:"history"`
+	Facts         PriceFacts `json:"facts"`
+}
+
+// CornerView is a corner on the map.
+type CornerView struct {
+	ID       string  `json:"id"`
+	Name     string  `json:"name"`
+	X        int     `json:"x"`
+	Y        int     `json:"y"`
+	Demand   float64 `json:"demand"`
+	Owner    string  `json:"owner"`             // none, player, rival
+	Faction  string  `json:"faction,omitempty"` // who holds it while Owner is rival
+	Runner   int     `json:"runner,omitempty"`  // crew id, game.You for you, 0 nobody
+	Enforcer int     `json:"enforcer,omitempty"`
+	Since    int     `json:"since"`
+	Deed     bool    `json:"deed,omitempty"`
+}
+
+// MemberView is someone on the payroll. A lieutenant's personality is
+// here once the report has named it (Observed); an informant is not
+// marked.
+type MemberView struct {
+	ID          int     `json:"id"`
+	Name        string  `json:"name"`
+	Role        string  `json:"role"`
+	Age         int     `json:"age"`
+	Skill       int     `json:"skill"`
+	Loyalty     float64 `json:"loyalty"`
+	Wage        int     `json:"wage"`
+	Hired       int     `json:"hired"`
+	City        string  `json:"city,omitempty"` // the city a lieutenant runs
+	Post        string  `json:"post,omitempty"` // the corner they work or guard
+	Jailed      bool    `json:"jailed,omitempty"`
+	Personality string  `json:"personality,omitempty"`
+}
+
+// RouteView is a route open to you, with its dial and what the file
+// says of its risk.
+type RouteView struct {
+	ID        string  `json:"id"`
+	Name      string  `json:"name"`
+	Mode      string  `json:"mode"`
+	From      string  `json:"from"`
+	To        string  `json:"to"`
+	Dial      string  `json:"dial"`
+	Closed    bool    `json:"closed,omitempty"`
+	Driver    int     `json:"driver,omitempty"`
+	Risk      float64 `json:"risk,omitempty"` // a day in transit, as the file knows it
+	RiskKnown bool    `json:"risk_known,omitempty"`
+}
+
+// ShipmentView is product on the road.
+type ShipmentView struct {
+	ID      int    `json:"id"`
+	Route   string `json:"route"`
+	From    string `json:"from"`
+	To      string `json:"to"`
+	Product string `json:"product"`
+	Units   int    `json:"units"`
+	Sent    int    `json:"sent"`
+	Arrives int    `json:"arrives"`
+}
+
+// HouseView is a stash house.
+type HouseView struct {
+	ID       string         `json:"id"`
+	Name     string         `json:"name"`
+	City     string         `json:"city"`
+	Corner   string         `json:"corner"`
+	Capacity int            `json:"capacity"`
+	Stock    map[string]int `json:"stock"`
+	Guard    int            `json:"guard,omitempty"`
+	Known    bool           `json:"known,omitempty"` // the police have it in the file
+}
+
+// FrontView is a front you own.
+type FrontView struct {
+	ID     string `json:"id"`
+	Name   string `json:"name"`
+	Level  int    `json:"level"`
+	Frozen bool   `json:"frozen,omitempty"`
+	Washed int    `json:"washed"`
+}
+
+// FactionView is a faction at the table as the player knows it: what
+// anyone can see (who leads it, when it arrived, the corners it holds,
+// the trust and the war between you) and what the file holds on the
+// rest.
+type FactionView struct {
+	ID          string     `json:"id"`
+	Leader      string     `json:"leader"`
+	Alive       bool       `json:"alive"`
+	Arrived     int        `json:"arrived"`
+	Corners     int        `json:"corners"`
+	Trust       float64    `json:"trust"`
+	War         float64    `json:"war"`
+	Personality string     `json:"personality"` // game.Unknown ("?") until the file has it
+	MuscleLo    int        `json:"muscle_lo,omitempty"`
+	MuscleHi    int        `json:"muscle_hi,omitempty"`
+	MuscleKnown bool       `json:"muscle_known,omitempty"`
+	Books       *BooksView `json:"books,omitempty"` // the last read of its books
+	Move        string     `json:"move,omitempty"`  // the corner the file says it moves on next
+	Deals       []string   `json:"deals,omitempty"` // the kinds of the deals live with it
+}
+
+// BooksView is a read of a faction's books (#70, #45).
+type BooksView struct {
+	Day    int `json:"day"`
+	Cash   int `json:"cash"`
+	Income int `json:"income"`
+	Muscle int `json:"muscle"`
+	Wages  int `json:"wages"`
+}
+
+// LawView is the chief and the DA.
+type LawView struct {
+	Chief        string `json:"chief"`
+	ChiefTemper  string `json:"chief_temper"` // game.Unknown until the file has it
+	DA           string `json:"da"`
+	DAStance     string `json:"da_stance"`
+	NextElection int    `json:"next_election,omitempty"`
+}
+
+// CardView is the dilemma card waiting for an answer.
+type CardView struct {
+	ID      string   `json:"id"`
+	Title   string   `json:"title"`
+	Text    string   `json:"text"`
+	Choices []string `json:"choices"`
+}
+
+// ReportView is the morning report, its sections in the order the TUI
+// shows them, each a list of lines in words.
+type ReportView struct {
+	Day        int      `json:"day"`
+	Incident   []string `json:"incident,omitempty"`
+	Unlocked   []string `json:"unlocked,omitempty"`
+	Tier       []string `json:"tier,omitempty"`
+	Prices     []string `json:"prices,omitempty"`
+	Sales      []string `json:"sales,omitempty"`
+	Heat       []string `json:"heat,omitempty"`
+	Crew       []string `json:"crew,omitempty"`
+	Territory  []string `json:"territory,omitempty"`
+	Shipments  []string `json:"shipments,omitempty"`
+	Law        []string `json:"law,omitempty"`
+	Intel      []string `json:"intel,omitempty"`
+	Money      []string `json:"money,omitempty"`
+	Upgrades   []string `json:"upgrades,omitempty"`
+	News       []string `json:"news,omitempty"`
+	CashBefore int      `json:"cash_before"`
+	CashAfter  int      `json:"cash_after"`
+}
+
+// View is the run as the player sees it this morning. Before a run it
+// is the zero View at the current version.
+func (s *Session) View() View {
+	w := s.w
+	v := View{Version: ViewVersion}
+	if w == nil {
+		return v
+	}
+	known := game.Known(w)
+	v.Seed, v.Day = w.Seed, w.Day
+	if w.Over != nil {
+		v.Over = &EndingView{Day: w.Over.Day, Cause: w.Over.Cause, Who: w.Over.Who}
+	}
+	v.You = YouView{
+		City:      w.Player.Location,
+		DirtyCash: w.Player.DirtyCash,
+		CleanCash: w.Player.CleanCash,
+		Offshore:  w.Offshore,
+		NetWorth:  w.NetWorth(),
+		PeakCash:  w.Stats.PeakCash,
+		LieLow:    w.Today.LieLow,
+		Tier:      w.Tier(),
+		TierName:  w.TierName(s.cfg.Progression),
+		Pay:       w.Crew.Pay.String(),
+		Launder:   w.Laundering.Dial.String(),
+		Evidence:  w.Heat.Evidence,
+		Fear:      w.Player.Reputation.Fear,
+		Respect:   w.Player.Reputation.Respect,
+		Notoriety: w.Player.Reputation.Notoriety,
+		QuietDays: w.QuietDays,
+		Character: w.Start.Character,
+		HardDA:    w.Start.HardDA,
+	}
+	for _, id := range sortedKeys(w.Upgrades) {
+		if w.Upgrades[id] {
+			v.You.Upgrades = append(v.You.Upgrades, id)
+		}
+	}
+	street := map[string]map[string]int{} // city -> product -> units, built here so the view shares no map with the world
+	for _, cid := range w.CityOrder {
+		c := w.Cities[cid]
+		stock := map[string]int{}
+		for _, pid := range w.Products {
+			if n := w.Stock(cid, pid); n > 0 {
+				stock[pid] = n
+			}
+		}
+		street[cid] = stock
+		cv := CityView{ID: c.ID, Name: c.Name, Heat: c.Heat, Pressure: c.Pressure, Goodwill: c.Goodwill}
+		if level, day, ok := known.Response(cid); ok {
+			cv.Response, cv.Due = level, day
+		}
+		for _, pid := range w.Products {
+			p := c.Market[pid]
+			if p == nil {
+				continue
+			}
+			cv.Products = append(cv.Products, ProductView{
+				ID: pid, Name: p.Name, Price: p.Price, SupplierPrice: p.SupplierPrice, Demand: p.Demand,
+				NoSupply: p.NoSupply, ShockDays: p.ShockDays, Slump: p.ShockDays > 0 && p.ShockSlump,
+				History: append([]float64(nil), p.History...), Facts: Facts(p),
+			})
+		}
+		for _, k := range c.Corners {
+			cv.Corners = append(cv.Corners, CornerView{
+				ID: k.ID, Name: k.Name, X: k.X, Y: k.Y, Demand: k.Demand, Owner: k.Owner, Faction: k.Faction,
+				Runner: k.Runner, Enforcer: k.Enforcer, Since: k.Since, Deed: k.Deed != nil,
+			})
+		}
+		v.Cities = append(v.Cities, cv)
+	}
+	v.You.Stock = street
+	for _, m := range w.Crew.Members {
+		mv := MemberView{ID: m.ID, Name: m.Name, Role: m.Role, Age: m.Age, Skill: m.Skill, Loyalty: m.Loyalty, Wage: m.Wage, Hired: m.Hired, City: m.City, Jailed: m.Jailed(w.Day)}
+		if c := w.PostOf(m.ID); c != nil {
+			mv.Post = c.ID
+		}
+		if m.Observed {
+			mv.Personality = m.Personality
+		}
+		v.Crew = append(v.Crew, mv)
+	}
+	seen := map[string]bool{}
+	for _, cid := range w.CityOrder {
+		for _, r := range s.set.Logistics.RoutesOpen(w, cid) {
+			if seen[r.ID] {
+				continue
+			}
+			seen[r.ID] = true
+			rs := w.Route(r.ID)
+			rv := RouteView{ID: r.ID, Name: r.Name, Mode: r.Mode, From: r.From, To: r.To, Dial: rs.Dial.String(), Closed: rs.Closed(w.Day), Driver: rs.Driver}
+			if risk, ok := known.Risk(r.ID); ok {
+				rv.Risk, rv.RiskKnown = risk, true
+			}
+			v.Routes = append(v.Routes, rv)
+		}
+	}
+	for _, sh := range w.Shipments {
+		v.Shipments = append(v.Shipments, ShipmentView{ID: sh.ID, Route: sh.Route, From: sh.From, To: sh.To, Product: sh.Product, Units: sh.Units, Sent: sh.Sent, Arrives: sh.Arrives})
+	}
+	for _, h := range w.Houses {
+		stock := map[string]int{}
+		for pid, n := range h.Stock {
+			if n > 0 {
+				stock[pid] = n
+			}
+		}
+		v.Houses = append(v.Houses, HouseView{ID: h.ID, Name: h.Name, City: h.City, Corner: h.Corner, Capacity: h.Capacity, Stock: stock, Guard: h.Guard, Known: h.Known})
+	}
+	for _, f := range w.Fronts {
+		v.Fronts = append(v.Fronts, FrontView{ID: f.ID, Name: f.Name, Level: f.Level, Frozen: f.FrozenUntil > w.Day, Washed: f.Washed})
+	}
+	for _, r := range w.Rivals {
+		id := r.Faction()
+		fv := FactionView{ID: id, Leader: r.Leader, Alive: r.Alive(), Arrived: r.Arrived, Corners: w.RivalHeldBy(id), Trust: r.Trust, War: r.War, Personality: known.Personality(id)}
+		if lo, hi, _, ok := known.Muscle(id); ok {
+			fv.MuscleLo, fv.MuscleHi, fv.MuscleKnown = lo, hi, true
+		}
+		if b := known.Books(id); b.Read() {
+			fv.Books = &BooksView{Day: b.Day, Cash: b.Cash, Income: b.Income, Muscle: b.Muscle, Wages: b.Wages}
+		}
+		if c, ok := known.Move(id); ok {
+			fv.Move = c
+		}
+		for _, d := range r.Deals {
+			fv.Deals = append(fv.Deals, d.Kind)
+		}
+		v.Factions = append(v.Factions, fv)
+	}
+	v.Law = LawView{Chief: w.Law.Chief.Name, ChiefTemper: known.Chief(), DA: w.Law.DA.Name, DAStance: w.Law.DA.Stance, NextElection: s.set.Law.NextElection(w)}
+	if c := w.Dilemmas.Pending; c != nil {
+		cv := &CardView{ID: c.ID, Title: c.Title, Text: c.Text}
+		for _, ch := range c.Choices {
+			cv.Choices = append(cv.Choices, ch.Label)
+		}
+		v.Card = cv
+	}
+	r := w.Report
+	v.Report = ReportView{
+		Day: r.Day, Incident: lines(r.Incident), Unlocked: lines(r.Unlocked), Tier: lines(r.Tier), Prices: lines(r.Prices),
+		Sales: lines(r.Sales), Heat: lines(r.Heat), Crew: lines(r.Crew), Territory: lines(r.Territory),
+		Shipments: lines(r.Shipments), Law: lines(r.Law), Intel: lines(r.Intel), Money: lines(r.Money),
+		Upgrades: lines(r.Upgrades), News: lines(r.News), CashBefore: r.CashBefore, CashAfter: r.CashAfter,
+	}
+	v.Alerts = s.Alerts()
+	return v
+}
+
+// lines copies a report section, so the view holds nothing of the
+// world's; nil stays nil.
+func lines(xs []string) []string {
+	if len(xs) == 0 {
+		return nil
+	}
+	return append([]string(nil), xs...)
+}
+
+// sortedKeys is a map's keys in order.
+func sortedKeys[V any](m map[string]V) []string {
+	keys := make([]string, 0, len(m))
+	for k := range m {
+		keys = append(keys, k)
+	}
+	sort.Strings(keys)
+	return keys
+}
