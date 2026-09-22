@@ -30,7 +30,7 @@ func Stage(title string, body []string, accent lipgloss.Color, rng *rand.Rand) S
 		rows:  len(body),
 		head: Sequence(
 			Step{Print(t, accent, third, rng), third},
-			Step{Beams(t, accent, third, rng), third},
+			Step{Play(Effects["beams"], t, accent, third, rng), third},
 		),
 		wipe: Wipe(b, "", third, rng),
 		at:   2 * third,

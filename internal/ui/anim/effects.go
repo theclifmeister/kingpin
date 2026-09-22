@@ -26,7 +26,9 @@ type Maker func(text Text, accent lipgloss.Color, over time.Duration, rng *rand.
 
 // Needs is what an effect needs of a scene: a text (the curtain has
 // none) and a canvas at least MinW by MinH. A scene that lacks it plays
-// a Still instead.
+// a Still instead: Play is where that is decided (#322), so a scene
+// takes an effect whose needs are more than a cell through Play and
+// never calls its Maker itself (TestEffectsArePlayed).
 type Needs struct {
 	Text       bool
 	MinW, MinH int
@@ -77,6 +79,42 @@ func Names() []string {
 	}
 	sort.Strings(names)
 	return names
+}
+
+// Play is an effect over a text as a scene plays it (#322): the effect
+// made once, here, on the dice given, so the dice are thrown exactly as
+// a call of its Maker throws them, and drawn only where its Needs are
+// met by the text and the canvas it is drawn on (the frame's size, or
+// the canvas a Layer, a Sequence or a blit hands it); where they are
+// not, the frame is the Still of the text in the accent, which is what
+// the effect resolves to anyway. Done is the effect's either way, so a
+// Sequence's steps keep their spans whatever the canvas.
+func Play(e Effect, text Text, accent lipgloss.Color, over time.Duration, rng *rand.Rand) Scene {
+	return played{s: e.New(text, accent, over, rng), needs: e.Needs, text: text, still: Still(text, accent)}
+}
+
+type played struct {
+	s     Scene // the effect
+	needs Needs
+	text  Text
+	still Scene // the fallback
+}
+
+func (p played) Done(t time.Duration) bool { return p.s.Done(t) }
+
+func (p played) Frame(t time.Duration, w, h int) []string {
+	if !p.needs.Met(p.text, w, h) {
+		return p.still.Frame(t, w, h)
+	}
+	return p.s.Frame(t, w, h)
+}
+
+func (p played) paint(cv *Canvas, t time.Duration) {
+	if !p.needs.Met(p.text, cv.W, cv.H) {
+		paint(p.still, cv, t)
+		return
+	}
+	paint(p.s, cv, t)
 }
 
 // Still is the fallback: the text in the accent, done at once, for a
