@@ -6,6 +6,7 @@ import (
 
 	"github.com/charmbracelet/lipgloss"
 
+	"github.com/theclifmeister/kingpin/internal/engine"
 	"github.com/theclifmeister/kingpin/internal/game"
 	"github.com/theclifmeister/kingpin/internal/ui/theme"
 )
@@ -173,21 +174,8 @@ func facts(p *game.ProductMarket) priceFacts { return factsAt(p, p.SupplierPrice
 // and margin are what the buy pays and makes, or 0 where they do not
 // deal in it.
 func factsAt(p *game.ProductMarket, unit float64) priceFacts {
-	f := priceFacts{p: p, unit: unit, lo: p.Price, hi: p.Price}
-	if n := len(p.History); n >= 2 {
-		f.delta = pct(p.History[n-2], p.History[n-1])
-	}
-	for _, v := range p.History {
-		f.lo = min(f.lo, v)
-		f.hi = min(max(f.hi, v), 1e9)
-	}
-	if p.NoSupply {
-		f.unit = 0
-	}
-	if f.unit > 0 {
-		f.margin = (p.Price - f.unit) / f.unit * 100
-	}
-	return f
+	e := engine.FactsAt(p, unit)
+	return priceFacts{p: p, unit: e.Unit, delta: e.Delta, lo: e.Lo, hi: e.Hi, margin: e.Margin}
 }
 
 // priceFacts is facts for a product in a city; nil where the city has

@@ -72,13 +72,6 @@ func lines(ss ...string) string {
 	return strings.Join(out, "\n")
 }
 
-func pct(from, to float64) float64 {
-	if from == 0 {
-		return 0
-	}
-	return (to - from) / from * 100
-}
-
 // pctText is a percentage as the table's kPct column prints it (#244):
 // one decimal under ten, none from ten (`4.5%`, `12%`), so a percent in
 // the pane reads as the same percent in a table.

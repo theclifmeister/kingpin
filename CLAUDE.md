@@ -92,14 +92,14 @@ Package layout: `cmd/kingpin` (the game), `cmd/balance` (headless runs), `cmd/ke
 | News, report, journal | `sim/news`, `ui/journal.go` | `headlines.toml` | `docs/events.md`, `docs/market-and-journal.md` | `TestEveryEmittedEventHasTemplate`, `TestArticlesAgreeWithTheValue`, `TestSimsNeverImportEachOther` |
 | Engine (#293) | `engine` | | `docs/engine.md` | `TestUIActsThroughTheSession` |
 | Saves and slots | `game/save.go`, `modeStart` | | `docs/saves.md` | `TestOldSaveIsMigrated`, `TestUnreadableSaveIsRefused` |
-| Fast-forward, alerts, stop events | `ui/fast.go`, `alerts.go` `alerts()` | | `docs/ui.md` | `TestFastForwardIsTheSameDays`, `TestFastForwardStopsOnACard` |
+| Fast-forward, alerts, stop events | `engine/stops.go`, `alerts.go`, `ui/fast.go` | | `docs/ui.md` | `TestFastForwardIsTheSameDays`, `TestFastForwardStopsOnACard` |
 | The cart, the dialogs, the delta | `ui/cart.go`, `ui/dialogs.go`, `ui/market.go` `priceFacts` | | `docs/cart.md` | `cart_test.go`, `delta_test.go`, `toggle_test.go` |
 | Dashboard, map, ledger, rivals screens | `ui/dashboard.go`, `map.go`, `routes.go`, `ledger.go`, `rivals.go` | | `docs/frame-and-pane.md`, `docs/ui.md` | `dashboard_test.go`, `TestRouteMarkerMoves`, `TestTablesAreConsistent` |
 | Animation: scenes, effects, the title loop, the registry | `ui/anim` (`Scenes()`), `ui/scene*.go`, `ui/demo.go`, `cmd/anim` | | `docs/animation.md` | `TestEveryModeWithASceneIsListed`, `TestNoTickInPlayMode`, `TestSceneStopsTicking`, `TestScenesFit` |
 
 ### Rules of thumb that took a PR to learn
 
-- A new alert goes in `alerts()`, a new fast-forward stop in `stopEvent`; key them so `F` stops once. A character is a start on day 0 and nothing a sim reads (`docs/profile.md`).
+- A new alert goes in `engine.Alerts`, a new stop in `engine.StopsOn`; key them so `F` stops once. A character is a start on day 0 and nothing a sim reads (`docs/profile.md`).
 - Sale heat is per unit moved, weighted by the corner and the city; only dealing builds a case (a sting on a quiet day adds no evidence), bar an informant (`docs/snitching.md`) and a bribe that backfires (#42): both something you did.
 - The rival's costs are in corner-days and its muscle is what its take pays for (`docs/rival.md`, #139); its claim is telegraphed a day ahead (#69), so a pinned seed reading one day can shift by one.
 - A cut off the take weighs ~2.5x on net worth at the crewed margin (`docs/standing-orders.md`).

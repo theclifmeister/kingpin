@@ -7,6 +7,7 @@ import (
 
 	tea "github.com/charmbracelet/bubbletea"
 
+	"github.com/theclifmeister/kingpin/internal/engine"
 	"github.com/theclifmeister/kingpin/internal/game"
 )
 
@@ -99,7 +100,7 @@ func TestFastForwardStopsOnAnUnlock(t *testing.T) {
 }
 
 // The nearest gate ahead is an alert while it is within reach, under
-// unlockNear of its line to go: it appears the morning the peak crosses
+// engine.GateNear of its line to go: it appears the morning the peak crosses
 // half the line, stops F once (keyed per gate), and goes the morning
 // the gate fires, when the Unlocked stops F instead.
 func TestUnlockAlerts(t *testing.T) {
@@ -107,7 +108,7 @@ func TestUnlockAlerts(t *testing.T) {
 	m.startRun(5)
 	o := laundromat(t, m)
 	key := "unlock:front:laundromat"
-	half := int(float64(o.UnlockCash) * unlockNear)
+	half := int(float64(o.UnlockCash) * engine.GateNear)
 	m.w.Player.DirtyCash = half - 500
 	m.w.Stats.PeakCash = m.w.Player.DirtyCash
 	if a := unlockAlert(m, key); a != nil {

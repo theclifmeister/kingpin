@@ -5,6 +5,7 @@ import (
 	"strings"
 
 	"github.com/theclifmeister/kingpin/internal/content"
+	"github.com/theclifmeister/kingpin/internal/engine"
 	"github.com/theclifmeister/kingpin/internal/game"
 	"github.com/theclifmeister/kingpin/internal/ui/theme"
 )
@@ -22,23 +23,11 @@ import (
 // assetRows lists the assets on offer the player does not own, cheapest
 // first, locked ones included so the ladder is visible; one the police
 // found (the tunnel) is gone for good and not listed.
-func (m *Model) assetRows() []game.AssetOffer {
-	var rows []game.AssetOffer
-	for _, o := range m.rules.Laundering.AssetOffers() {
-		if m.w.HasAsset(o.ID) {
-			continue
-		}
-		if lost := m.w.AssetLost(o.ID); lost != nil && lost.Why == "found" {
-			continue
-		}
-		rows = append(rows, o)
-	}
-	return rows
-}
+func (m *Model) assetRows() []game.AssetOffer { return m.sess.AssetOffers() }
 
 // assetsShown reports whether the ledger carries the ASSETS block: once
 // an asset is owned, one has been lost, or the first line is within
-// reach (unlockNear of it to go on peak clean cash), so a run that
+// reach (engine.GateNear of it to go on peak clean cash), so a run that
 // never gets near the cartel reads the ledger it always did.
 func (m *Model) assetsShown() bool {
 	w := m.w
@@ -46,7 +35,7 @@ func (m *Model) assetsShown() bool {
 		return true
 	}
 	for _, o := range m.assetRows() {
-		if float64(o.UnlockCash-w.Stats.PeakClean) < float64(o.UnlockCash)*unlockNear {
+		if float64(o.UnlockCash-w.Stats.PeakClean) < float64(o.UnlockCash)*engine.GateNear {
 			return true
 		}
 	}

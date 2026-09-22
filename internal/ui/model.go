@@ -207,7 +207,6 @@ func wire(cfg *content.Config, opts Options) (*Model, error) {
 		rules: sess.Rules(),
 		opts:  opts,
 	}
-	sess.Subscribe(m.onEvent)
 	m.now = time.Now
 	m.loadProfile()
 	return m, nil
@@ -215,12 +214,6 @@ func wire(cfg *content.Config, opts Options) (*Model, error) {
 
 // World exposes the current world for tests.
 func (m *Model) World() *game.World { return m.w }
-
-func (m *Model) onEvent(e events.Event) {
-	if ev, ok := e.(events.Enforcement); ok {
-		m.flash = append(m.flash, ev)
-	}
-}
 
 // newRun starts a fresh run in the slot, which is where it saves from
 // now on.
@@ -402,16 +395,29 @@ func (m *Model) endDay() {
 	m.morning(m.stepDay())
 }
 
-// stepDay ends a day through the clock, saves and follows the journal;
-// it returns the tick's events, which a fast-forward reads its stops
-// off. The last fast-forward's stop line goes with the day it was for.
+// stepDay ends one day through the session (n's) and does what the TUI
+// does with every day (dayEnded); it returns the tick's events. The
+// last fast-forward's stop line goes with the day it was for.
 func (m *Model) stepDay() []events.Event {
-	m.flash = nil
-	m.fastStop = ""
 	evs := m.sess.EndDay()
+	m.dayEnded(evs)
+	return evs
+}
+
+// dayEnded is what the TUI does with every day that ends, n's or a
+// fast-forward's (Session.FastForward calls it): the day's enforcement
+// kept for the bust scene, the last stop line gone, the save, the
+// journal.
+func (m *Model) dayEnded(evs []events.Event) {
+	m.flash = nil
+	for _, e := range evs {
+		if ev, ok := e.(events.Enforcement); ok {
+			m.flash = append(m.flash, ev)
+		}
+	}
+	m.fastStop = ""
 	m.save()
 	m.refreshJournal()
-	return evs
 }
 
 // morning opens the day that has just begun: the run over, else the

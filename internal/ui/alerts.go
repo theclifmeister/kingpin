@@ -11,86 +11,99 @@ import (
 
 	"github.com/charmbracelet/lipgloss"
 
-	"github.com/theclifmeister/kingpin/internal/content"
-	"github.com/theclifmeister/kingpin/internal/events"
+	"github.com/theclifmeister/kingpin/internal/engine"
 	"github.com/theclifmeister/kingpin/internal/ui/theme"
 )
 
-// alert is one thing that needs you this morning, on the dashboard's
-// ALERTS and, when it is new, a fast-forward's stop (#116): the line as
-// the panel draws it, the reason as the report's stop line names it
-// (`contract due today`) and the key a fast-forward compares morning
-// to morning, the alert's identity: a contract's is the contract and
-// the day, so each stops once when it is due tomorrow and once when it
-// is due today whatever the others; the rest are the reason, which
-// carries no number that moves.
+// alert is one of the engine's alerts (#298, engine.Alerts) as the
+// TUI words it: the line as the dashboard's ALERTS draws it, the reason
+// as the report's stop line names it (`contract due today`) and the
+// engine's key, the alert's identity morning to morning that a
+// fast-forward compares.
 type alert struct {
+	kind engine.AlertKind
 	text string
 	why  string
 	key  string
 }
 
-// newAlert is an alert whose key is its reason.
-func newAlert(text, why string) alert { return alert{text, why, why} }
-
-// alerts is what needs you this morning, loudest first: somebody
-// talking, a contract due today or tomorrow, the heat where you are at
-// or over the patrol line, the dirty cash under the float while a front
-// or a route waits on it, the wages the dirty cash cannot pay tonight,
-// and, last, the nearest gate ahead while it is within reach (#148,
-// unlockAlerts). The dashboard's ALERTS carry them and a fast-forward
-// stops on one the morning before did not have; the list is the one
-// source for both.
+// alerts is what needs you this morning, loudest first, in the engine's
+// order (engine.Alerts: somebody talking, a contract or a debt due, the
+// heat over the patrol line, a task force forming, the float, the
+// wages, the gate within reach, a house the police know, the DA race,
+// retirement, the favour, the reign). The dashboard's ALERTS carry them
+// and a fast-forward stops on one the morning before did not have.
 func (m *Model) alerts() []alert {
-	w := m.w
-	here := w.Here()
 	var out []alert
-	if m.talking() {
-		out = append(out, newAlert(theme.Bad.Bold(true).Render("Somebody is talking.")+theme.Bad.Render(" Investigate "+screenPointer(screenCrew)+"."), "somebody is talking"))
+	for _, a := range m.sess.Alerts() {
+		out = append(out, m.alertOf(a))
 	}
-	out = append(out, m.contractAlerts()...)
-	out = append(out, m.debtAlerts()...)
-	for _, r := range m.rules.Heat.ThresholdsIn(w, here) {
-		if r.Level == content.Patrol && here.Heat >= r.Threshold {
-			out = append(out, newAlert(theme.Bad.Render(fmt.Sprintf("Heat %.0f in %s is over the patrol line (%.0f).", here.Heat, here.Name, r.Threshold)), "heat in "+here.Name+" over the patrol line"))
+	return out
+}
+
+// alertOf words an engine alert.
+func (m *Model) alertOf(a engine.Alert) alert {
+	w := m.w
+	text, why := "", a.Key
+	switch a.Kind {
+	case engine.AlertTalking:
+		text = theme.Bad.Bold(true).Render("Somebody is talking.") + theme.Bad.Render(" Investigate "+screenPointer(screenCrew)+".")
+	case engine.AlertContractDue:
+		when, style := "tomorrow", theme.Warning
+		if a.Due <= w.Day {
+			when, style = "today", theme.Bad
 		}
-	}
-	// A task force announced this morning (#48): it comes tonight and
-	// takes an asset; a fast-forward stops on it.
-	if m.rules.Heat.TaskForceForming(w) {
-		out = append(out, newAlert(theme.Bad.Bold(true).Render("A task force formed this morning.")+theme.Bad.Render(" It comes tonight: lie low."), "a task force formed"))
-	}
-	if fl := m.rules.Laundering.Float(w); w.Player.DirtyCash < fl && m.floatMatters() {
-		out = append(out, newAlert(theme.Warning.Render(fmt.Sprintf("Dirty cash %s is under the float (%s): the wash and the road wait.", cash(w.Player.DirtyCash), cash(fl))), "dirty cash under the float"))
-	}
-	if wages := m.rules.Crew.Wages(w, w.Crew.Pay); wages > w.Player.DirtyCash {
-		out = append(out, newAlert(theme.Warning.Render(fmt.Sprintf("Wages %s due tonight, %s dirty in hand.", money(wages), money(w.Player.DirtyCash))), "wages short"))
-	}
-	out = append(out, m.unlockAlerts()...)
-	out = append(out, m.houseAlerts()...)
-	// A DA race taking money (#193), while you have clean cash to put in
-	// and none in this city's campaign yet.
-	if next := m.rules.Law.NextElection(w); w.Law.CampaignOpen && w.Player.CleanCash > 0 && w.Campaigning(here.ID).Cash == 0 && next > 0 {
-		out = append(out, newAlert(theme.Warning.Render(fmt.Sprintf("The DA race is %s off and the tickets are taking money %s.", plural(max(0, next-w.Day), "day"), screenPointer(screenLedger))), "the DA race is taking money"))
-	}
-	if line := m.retireLine(); line != "" {
-		out = append(out, newAlert(line, "retirement"))
-	}
-	// The favour (#228): the chief owes you one and the police come
-	// tonight; keyed on the response due, so F stops once a night it
-	// could be called.
-	if due := m.favourDue(); w.CanCallFavour(due != "") {
-		out = append(out, newAlert(theme.Warning.Render(fmt.Sprintf("Chief %s owes you one and the %s comes tonight: call it in %s.", w.Law.Chief.Name, favourWord(due), screenPointer(screenLedger))), "the favour on the "+due))
-	}
-	// The reign (#227): the city is yours and the crown is there to take;
-	// keyed once, so a fast-forward stops the morning it begins.
-	if w.Reign > 0 {
-		crews, homage := w.HomageDeals()
+		why = "contract due " + when
+		if c := w.Contract(a.Contract); c != nil {
+			text = style.Render(fmt.Sprintf("%s: %d %s due %s in %s", c.Name, c.Owed(), w.ProductName(c.Product), when, w.CityName(c.City)))
+		}
+	case engine.AlertDebtDue:
+		why = "debt due tomorrow"
+		style := theme.Warning
+		if a.Have < a.Amount {
+			style = theme.Bad
+		}
+		if sup := w.Supplier(a.Supplier); sup != nil {
+			text = style.Render(fmt.Sprintf("%s: %s due tomorrow, %s in hand.", sup.Name, money(a.Amount), cash(a.Have)))
+		}
+	case engine.AlertHeat:
+		text = theme.Bad.Render(fmt.Sprintf("Heat %.0f in %s is over the patrol line (%.0f).", a.Heat, w.CityName(a.City), a.Line))
+	case engine.AlertTaskForce:
+		text = theme.Bad.Bold(true).Render("A task force formed this morning.") + theme.Bad.Render(" It comes tonight: lie low.")
+	case engine.AlertFloat:
+		text = theme.Warning.Render(fmt.Sprintf("Dirty cash %s is under the float (%s): the wash and the road wait.", cash(a.Have), cash(a.Amount)))
+	case engine.AlertWages:
+		text = theme.Warning.Render(fmt.Sprintf("Wages %s due tonight, %s dirty in hand.", money(a.Amount), money(a.Have)))
+	case engine.AlertGate:
+		text, why = theme.Gold.Render(gateText(w, *a.Gate)), gateThe(*a.Gate)+" within reach"
+	case engine.AlertHouseKnown:
+		if h := w.House(a.House); h != nil {
+			text = theme.Bad.Render(fmt.Sprintf("The police know about %s: move the stock out and drop it %s.", h.Name, screenPointer(screenLedger)))
+			why = "the police know about " + h.Name
+		}
+	case engine.AlertDARace:
+		text = theme.Warning.Render(fmt.Sprintf("The DA race is %s off and the tickets are taking money %s.", plural(a.Days, "day"), screenPointer(screenLedger)))
+	case engine.AlertRetire:
+		text = m.retireLine()
+	case engine.AlertFavour:
+		text = theme.Warning.Render(fmt.Sprintf("Chief %s owes you one and the %s comes tonight: call it in %s.", w.Law.Chief.Name, favourWord(a.Level), screenPointer(screenLedger)))
+	case engine.AlertReign:
 		who := "every crew gone"
-		if crews > 0 {
-			who = fmt.Sprintf("%s paying %s a night", plural(crews, "crew"), money(homage))
+		if a.Count > 0 {
+			who = fmt.Sprintf("%s paying %s a night", plural(a.Count, "crew"), money(a.Amount))
 		}
-		out = append(out, newAlert(theme.Gold.Render(fmt.Sprintf("The city is yours: day %d of the reign, %s. Take the crown or play on.", w.ReignDay(), who)), "the city is yours"))
+		text = theme.Gold.Render(fmt.Sprintf("The city is yours: day %d of the reign, %s. Take the crown or play on.", a.Days, who))
+	}
+	return alert{kind: a.Kind, text: text, why: why, key: a.Key}
+}
+
+// alertsOf is this morning's alerts of one kind.
+func (m *Model) alertsOf(kind engine.AlertKind) []alert {
+	var out []alert
+	for _, a := range m.alerts() {
+		if a.kind == kind {
+			out = append(out, a)
+		}
 	}
 	return out
 }
@@ -116,21 +129,6 @@ func (m *Model) retireLine() string {
 		parts = append(parts, cash(s)+" short")
 	}
 	return theme.Subtle.Render(strings.Join(parts, " · "))
-}
-
-// floatMatters is whether anything reads the laundering float: a front
-// to wash with or a route with its dial on. A new run's $500 against a
-// $50,000 float is nobody's business until then.
-func (m *Model) floatMatters() bool {
-	if len(m.w.Fronts) > 0 {
-		return true
-	}
-	for _, r := range m.w.Routes {
-		if r.Dial != events.RouteOff {
-			return true
-		}
-	}
-	return false
 }
 
 // alertLines are the ALERTS: what needs you this morning (alerts), then

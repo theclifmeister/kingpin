@@ -754,19 +754,3 @@ func (m *Model) stashedLine(city string, short bool) string {
 	}
 	return fmt.Sprintf("carrying %d/%d · stashed %d in %s", w.Player.StockIn(city), w.StreetCapacity(city), housed, plural(len(houses), "house"))
 }
-
-// houseAlerts are the houses the police know about: the one the raid
-// finds, until it is dropped.
-func (m *Model) houseAlerts() []alert {
-	var out []alert
-	for _, h := range m.w.Houses {
-		if h.Known {
-			out = append(out, alert{
-				text: theme.Bad.Render(fmt.Sprintf("The police know about %s: move the stock out and drop it %s.", h.Name, screenPointer(screenLedger))),
-				why:  "the police know about " + h.Name,
-				key:  "known " + h.ID,
-			})
-		}
-	}
-	return out
-}
