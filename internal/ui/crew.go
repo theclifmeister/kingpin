@@ -103,11 +103,11 @@ func (m *Model) confirmInvestigate() {
 func (m *Model) investigateConfirm() string {
 	w := m.w
 	odds := m.set.Crew.InvestigateOdds(w)
+	// The best enforcer on the books, at work or not, as the odds read
+	// them (CrewState.Strongest, #275); one at skill 0 asks nothing.
 	best := 0
-	for _, c := range w.Crew.Members {
-		if c.Role == game.RoleEnforcer && c.Skill > best {
-			best = c.Skill
-		}
+	if e := w.Crew.Strongest(game.RoleEnforcer); e != nil {
+		best = max(0, e.Skill)
 	}
 	who := "With no enforcer on the payroll you are asking yourself."
 	if best > 0 {
