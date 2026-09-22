@@ -292,67 +292,46 @@ func TestEndingFrequencies(t *testing.T) {
 // TestNoEndingIsTheOldRun (#49): a run that reaches none of the new
 // endings is byte-for-byte the run before they existed. The boss, the
 // laundered and the distributor players are hashed daily on the file
-// and on the file with the detectors boxed (harness.NoEndings), to the
-// tier-4 checkpoint, and nothing ends either way: the detectors are
-// reads on state the sims already had, bar the count of legit days,
-// which is set aside as #195's quiet days are (the boss's peaks at 3
-// of 30 over fifty seeds).
+// and on the file with the detectors boxed (harness.NoEndings;
+// assertOldRun: one seed to the tier-4 checkpoint), and nothing
+// ends either way: the detectors are reads on state the sims already
+// had, bar the count of legit days, which is set aside as #195's quiet
+// days are (the boss's peaks at 3 of 30 over fifty seeds) and never
+// moves with the table boxed.
 func TestNoEndingIsTheOldRun(t *testing.T) {
 	t.Parallel()
-	cfg := content.MustLoad()
-	off := NoEndings(cfg)
-	for name, policy := range map[string]func(*content.Config) Policy{
-		"boss":        func(c *content.Config) Policy { return Boss(c, 40, "") },
-		"laundered":   func(c *content.Config) Policy { return Laundered(c, 40) },
-		"distributor": func(c *content.Config) Policy { return Distributor(c, 40) },
-	} {
-		name, policy := name, policy
-		t.Run(name, func(t *testing.T) {
-			t.Parallel()
-			var with, without []string
-			for i, c := range []*content.Config{cfg, off} {
-				w := sim.NewWorld(c, 1)
-				_, sims, err := sim.Default(c)
-				if err != nil {
-					t.Fatal(err)
-				}
-				clock := game.NewClock(nil, sims...)
-				p := policy(c)
-				var ds []string
-				peak := 0
-				for day := 1; day <= Horizon && w.Over == nil; day++ {
-					p(w)
-					clock.EndDay(w)
-					// The count of legit days is the one number the
-					// table moves in a run that ends nothing (#195's
-					// QuietDays pattern): set aside, and its peak logged.
-					legit := w.LegitDays
-					w.LegitDays = 0
-					ds = append(ds, digest(w))
-					w.LegitDays = legit
-					peak = max(peak, legit)
-				}
-				if w.Over != nil {
-					t.Fatalf("%s: the run ended %+v", name, w.Over)
-				}
-				if i == 0 {
-					t.Logf("%s: legit days peak %d of %d", name, peak, cfg.Laundering.Businessman.LegitDays)
-				} else if peak != 0 {
-					t.Fatalf("%s: the count moved with the table boxed", name)
-				}
-				if i == 0 {
-					with = ds
-				} else {
-					without = ds
-				}
+	assertOldRun(t, oldRunCase{
+		never: "reached none of the new endings",
+		seeds: 1,
+		days:  Horizon,
+		box:   NoEndings,
+		policies: map[string]func(*content.Config) Policy{
+			"boss":        func(c *content.Config) Policy { return Boss(c, 40, "") },
+			"laundered":   func(c *content.Config) Policy { return Laundered(c, 40) },
+			"distributor": func(c *content.Config) Policy { return Distributor(c, 40) },
+		},
+		scrub: func(t *testing.T, w *game.World, boxed bool) func() {
+			// The count of legit days is the one number the table
+			// moves in a run that ends nothing (#195's QuietDays
+			// pattern): set aside on the file, logged on every day it
+			// counts (the peak is read off the log), never counted
+			// boxed.
+			legit := w.LegitDays
+			if boxed && legit != 0 {
+				t.Fatalf("day %d: the count of legit days moved to %d with the table boxed", w.Day, legit)
 			}
-			for day := range with {
-				if with[day] != without[day] {
-					t.Fatalf("%s: the world moved on day %d with the endings in the file and none reached", name, day+1)
-				}
+			if legit != 0 {
+				t.Logf("day %d: legit days %d of %d", w.Day, legit, content.MustLoad().Laundering.Businessman.LegitDays)
 			}
-		})
-	}
+			w.LegitDays = 0
+			return func() { w.LegitDays = legit }
+		},
+		after: func(t *testing.T, w *game.World, _ bool) {
+			if w.Over != nil {
+				t.Fatalf("the run ended %+v", w.Over)
+			}
+		},
+	})
 }
 
 // TestScoreIsTheAccount (#49, #195's ruling): the score is the offshore
