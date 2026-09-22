@@ -2,7 +2,6 @@ package crew
 
 import (
 	"math"
-	"sort"
 
 	"github.com/theclifmeister/kingpin/internal/content"
 	"github.com/theclifmeister/kingpin/internal/events"
@@ -402,40 +401,9 @@ func driverLooking(w *game.World) bool {
 // driver rolls the driver looking for work (#46): the chemist's
 // pattern, off the driver's stream with a name from the drivers' list.
 func (s *Sim) driver(w *game.World, rng, life rand, fx game.Effects) game.CrewMember {
-	used := map[string]bool{}
-	for _, m := range w.Crew.Members {
-		used[m.Name] = true
-	}
-	for _, m := range w.Crew.Candidates {
-		used[m.Name] = true
-	}
-	var free []string
-	for _, n := range s.drivers {
-		if !used[n] {
-			free = append(free, n)
-		}
-	}
-	sort.Strings(free)
-	name := "The Driver"
-	if len(free) > 0 {
-		name = free[rng.IntN(len(free))]
-	}
-	tun := s.cfg.Crew
-	rc := s.cfg.Role[game.RoleDriver]
-	skill := min(100, 15+rng.IntN(71)+fx.SkillBonus)
-	m := game.CrewMember{
-		ID:      w.Crew.NextID + 1,
-		Name:    name,
-		Role:    game.RoleDriver,
-		Skill:   skill,
-		Loyalty: float64(min(100, tun.StartLoyaltyMin+rng.IntN(max(1, tun.StartLoyaltyMax-tun.StartLoyaltyMin+1))+fx.StartLoyaltyBonus)),
-		Greed:   5 + rng.IntN(91),
-		Nerve:   5 + rng.IntN(91),
-		Wage:    int(math.Round(rc.WageBase + rc.WagePerSkill*float64(skill))),
-		Fee:     s.hireFee(w, skill, fx),
-		Age:     s.age(life),
-	}
-	w.Crew.NextID = m.ID
+	m := s.roll(w, s.pickName(w, s.drivers, "The Driver", rng), game.RoleDriver, rng, fx)
+	m.Fee = s.hireFee(w, m.Skill, fx)
+	m.Age = s.age(life)
 	return m
 }
 

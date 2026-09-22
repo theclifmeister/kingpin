@@ -667,40 +667,9 @@ func (s *Sim) ChemistsWanted(w *game.World) bool {
 // chemist rolls the chemist looking for work (#47): the generate roll
 // off the chemist's stream, with a name from the chemists' list.
 func (s *Sim) chemist(w *game.World, rng, life rand, fx game.Effects) game.CrewMember {
-	used := map[string]bool{}
-	for _, m := range w.Crew.Members {
-		used[m.Name] = true
-	}
-	for _, m := range w.Crew.Candidates {
-		used[m.Name] = true
-	}
-	var free []string
-	for _, n := range s.chemists {
-		if !used[n] {
-			free = append(free, n)
-		}
-	}
-	sort.Strings(free)
-	name := "The Chemist"
-	if len(free) > 0 {
-		name = free[rng.IntN(len(free))]
-	}
-	tun := s.cfg.Crew
-	rc := s.cfg.Role[game.RoleChemist]
-	skill := min(100, 15+rng.IntN(71)+fx.SkillBonus)
-	m := game.CrewMember{
-		ID:      w.Crew.NextID + 1,
-		Name:    name,
-		Role:    game.RoleChemist,
-		Skill:   skill,
-		Loyalty: float64(min(100, tun.StartLoyaltyMin+rng.IntN(max(1, tun.StartLoyaltyMax-tun.StartLoyaltyMin+1))+fx.StartLoyaltyBonus)),
-		Greed:   5 + rng.IntN(91),
-		Nerve:   5 + rng.IntN(91),
-		Wage:    int(math.Round(rc.WageBase + rc.WagePerSkill*float64(skill))),
-		Fee:     s.hireFee(w, skill, fx),
-		Age:     s.age(life),
-	}
-	w.Crew.NextID = m.ID
+	m := s.roll(w, s.pickName(w, s.chemists, "The Chemist", rng), game.RoleChemist, rng, fx)
+	m.Fee = s.hireFee(w, m.Skill, fx)
+	m.Age = s.age(life)
 	return m
 }
 
@@ -790,25 +759,7 @@ func (s *Sim) land(w *game.World, t *game.Tick) {
 // of it adds a draw, so a run owning nothing rolls the pool it always
 // did. The age (#46) is the life stream's draw, not the home stream's.
 func (s *Sim) generate(w *game.World, rng, side, life rand, fx game.Effects) game.CrewMember {
-	tun := s.cfg.Crew
-	used := map[string]bool{}
-	for _, m := range w.Crew.Members {
-		used[m.Name] = true
-	}
-	for _, m := range w.Crew.Candidates {
-		used[m.Name] = true
-	}
-	var free []string
-	for _, n := range s.names {
-		if !used[n] {
-			free = append(free, n)
-		}
-	}
-	sort.Strings(free)
-	name := "Nobody"
-	if len(free) > 0 {
-		name = free[rng.IntN(len(free))]
-	}
+	name := s.pickName(w, s.names, "Nobody", rng)
 	roles := rolesFor(w)
 	role := roles[rng.IntN(len(roles))]
 	// Lieutenants are rare, and only come looking once there is a second
@@ -825,6 +776,46 @@ func (s *Sim) generate(w *game.World, rng, side, life rand, fx game.Effects) gam
 	if side != nil && role != game.RoleLieutenant && side.Float64() < s.cfg.Role[game.RoleFixer].Chance {
 		role = game.RoleFixer
 	}
+	m := s.roll(w, name, role, rng, fx)
+	m.Fee = s.hireFee(w, m.Skill, fx)
+	m.Personality = personality // "" for anyone but a lieutenant
+	m.Age = s.age(life)
+	return m
+}
+
+// pickName is a name off pool that nobody on the payroll or in the pool
+// has, drawn on rng from the free ones sorted, or fallback when the pool
+// is spent (no draw then).
+func (s *Sim) pickName(w *game.World, pool []string, fallback string, rng rand) string {
+	used := map[string]bool{}
+	for _, m := range w.Crew.Members {
+		used[m.Name] = true
+	}
+	for _, m := range w.Crew.Candidates {
+		used[m.Name] = true
+	}
+	var free []string
+	for _, n := range pool {
+		if !used[n] {
+			free = append(free, n)
+		}
+	}
+	sort.Strings(free)
+	if len(free) == 0 {
+		return fallback
+	}
+	return free[rng.IntN(len(free))]
+}
+
+// roll is a new member of role called name, with the next ID: skill,
+// loyalty, greed and nerve drawn on rng in that order, the tree's
+// skill_bonus and start_loyalty_bonus on the roll and never over 100,
+// the wage off the role's table and a runner's units off the skill. The
+// fee, the age and anything else are the caller's: a hire prices one, a
+// character's start (Join) has none, and each draws its age on its own
+// dice.
+func (s *Sim) roll(w *game.World, name, role string, rng rand, fx game.Effects) game.CrewMember {
+	tun := s.cfg.Crew
 	rc := s.cfg.Role[role]
 	skill := min(100, 15+rng.IntN(71)+fx.SkillBonus)
 	m := game.CrewMember{
@@ -836,10 +827,6 @@ func (s *Sim) generate(w *game.World, rng, side, life rand, fx game.Effects) gam
 		Greed:   5 + rng.IntN(91),
 		Nerve:   5 + rng.IntN(91),
 		Wage:    int(math.Round(rc.WageBase + rc.WagePerSkill*float64(skill))),
-		Fee:     s.hireFee(w, skill, fx),
-
-		Personality: personality, // "" for anyone but a lieutenant
-		Age:         s.age(life),
 	}
 	if role == game.RoleRunner {
 		m.Units = int(math.Round(tun.UnitsPerSkill * float64(skill)))
@@ -872,15 +859,6 @@ func cheapestUnit(w *game.World) float64 {
 // same dice.
 func (s *Sim) Join(w *game.World, role string, rng rand) game.CrewMember {
 	fx := game.FoldEffects(w, s.tree)
-	tun := s.cfg.Crew
-	rc := s.cfg.Role[role]
-	used := map[string]bool{}
-	for _, m := range w.Crew.Members {
-		used[m.Name] = true
-	}
-	for _, m := range w.Crew.Candidates {
-		used[m.Name] = true
-	}
 	pool := s.names
 	switch role {
 	case game.RoleChemist:
@@ -888,37 +866,12 @@ func (s *Sim) Join(w *game.World, role string, rng rand) game.CrewMember {
 	case game.RoleDriver:
 		pool = s.drivers
 	}
-	var free []string
-	for _, n := range pool {
-		if !used[n] {
-			free = append(free, n)
-		}
-	}
-	sort.Strings(free)
-	name := "Nobody"
-	if len(free) > 0 {
-		name = free[rng.IntN(len(free))]
-	}
-	skill := min(100, 15+rng.IntN(71)+fx.SkillBonus)
-	m := game.CrewMember{
-		ID:      w.Crew.NextID + 1,
-		Name:    name,
-		Role:    role,
-		Skill:   skill,
-		Loyalty: float64(min(100, tun.StartLoyaltyMin+rng.IntN(max(1, tun.StartLoyaltyMax-tun.StartLoyaltyMin+1))+fx.StartLoyaltyBonus)),
-		Greed:   5 + rng.IntN(91),
-		Nerve:   5 + rng.IntN(91),
-		Wage:    int(math.Round(rc.WageBase + rc.WagePerSkill*float64(skill))),
-		Hired:   w.Day,
-		Age:     s.age(rng),
-	}
-	if role == game.RoleRunner {
-		m.Units = int(math.Round(tun.UnitsPerSkill * float64(skill)))
-	}
+	m := s.roll(w, s.pickName(w, pool, "Nobody", rng), role, rng, fx)
+	m.Hired = w.Day
+	m.Age = s.age(rng)
 	if role == game.RoleLieutenant {
 		m.Personality = content.LieutenantPersonalities[rng.IntN(len(content.LieutenantPersonalities))]
 	}
-	w.Crew.NextID = m.ID
 	w.Crew.Members = append(w.Crew.Members, m)
 	return m
 }
