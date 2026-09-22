@@ -2,7 +2,6 @@ package heat
 
 import (
 	"math"
-	"sort"
 
 	"github.com/theclifmeister/kingpin/internal/content"
 	"github.com/theclifmeister/kingpin/internal/events"
@@ -33,7 +32,7 @@ func (s *Sim) cool(d *day) {
 		if c.Heat > d.floor {
 			c.Heat -= (c.Heat - d.floor) * decay
 		}
-		c.Heat = math.Max(d.floor, math.Min(100, c.Heat))
+		c.Heat = max(d.floor, min(100, c.Heat))
 	}
 }
 
@@ -175,7 +174,7 @@ func (s *Sim) fire(w *game.World, t *game.Tick, city *game.City, r content.Respo
 		}
 		if house := s.place(w, t, city.ID, told); house != nil {
 			ev.House, ev.HouseName = house.ID, house.Name
-			for _, id := range sortedProducts(w) {
+			for _, id := range w.SortedProducts() {
 				if lost := w.TakeFromHouse(house.ID, id, int(math.Round(float64(house.Stock[id])*stockLoss))); lost > 0 {
 					ev.StockLost[id] = lost
 					w.Stats.HouseUnits += lost
@@ -338,14 +337,6 @@ func (s *Sim) place(w *game.World, t *game.Tick, city string, told bool) *game.H
 		}
 	}
 	return cands[len(cands)-1].house
-}
-
-// sortedProducts is the ladder in a fixed order, for a walk over a
-// house's stock whose order is reported.
-func sortedProducts(w *game.World) []string {
-	ids := append([]string(nil), w.Products...)
-	sort.Strings(ids)
-	return ids
 }
 
 // bustDays is how long a bust stays on the record for the connects.

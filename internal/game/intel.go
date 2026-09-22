@@ -73,7 +73,7 @@ type Fact struct {
 // Stale for every day since, in 0..1.
 func (f Fact) Now(day int) float64 {
 	age := max(0, day-f.Day)
-	return math.Max(0, math.Min(1, f.Confidence-f.Stale*float64(age)))
+	return max(0, min(1, f.Confidence-f.Stale*float64(age)))
 }
 
 // Alive reports whether the fact still holds on day: over its Forget
@@ -93,7 +93,7 @@ func (f Fact) Lure() bool { return f.Planted != "" && f.Source == SourceContact 
 // Learn files a fact: it replaces the one with the same subject and kind,
 // drops every fact dead on the fact's day, and clamps the confidence.
 func (w *World) Learn(f Fact) {
-	f.Confidence = math.Max(0, math.Min(1, f.Confidence))
+	f.Confidence = max(0, min(1, f.Confidence))
 	kept := w.Intel[:0]
 	for _, o := range w.Intel {
 		if o.Subject == f.Subject && o.Kind == f.Kind {

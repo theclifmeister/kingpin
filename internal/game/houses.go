@@ -65,12 +65,7 @@ func (h House) Guarded() bool { return h.Guard != 0 }
 
 // House returns the owned house with id, or nil.
 func (w *World) House(id string) *House {
-	for i := range w.Houses {
-		if w.Houses[i].ID == id {
-			return &w.Houses[i]
-		}
-	}
-	return nil
+	return find(w.Houses, func(e *House) bool { return e.ID == id })
 }
 
 // HousesIn lists the houses in a city, in the order bought.
@@ -89,12 +84,7 @@ func (w *World) GuardOf(id int) *House {
 	if id == 0 {
 		return nil
 	}
-	for i := range w.Houses {
-		if w.Houses[i].Guard == id {
-			return &w.Houses[i]
-		}
-	}
-	return nil
+	return find(w.Houses, func(e *House) bool { return e.Guard == id })
 }
 
 // HouseOffer is a house as houses.toml prices it, handed to BuyHouse by

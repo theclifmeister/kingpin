@@ -129,7 +129,7 @@ func (s *Sim) PushOddsAt(w *game.World, r *game.RivalState, c *game.Corner, musc
 // hit under a deal is a betrayal of every deal (crossed). The war order
 // (#229) is the hand's strike on a night the hand sent none (warOrder):
 // the same order, the same roll on the same stream.
-func (s *Sim) struck(w *game.World, t *game.Tick, r *game.RivalState, rng rand) bool {
+func (s *Sim) struck(w *game.World, t *game.Tick, r *game.RivalState, rng game.Rand) bool {
 	o := w.Today.Strike
 	if o == nil {
 		o = s.warOrder(w, r)
@@ -150,7 +150,7 @@ func (s *Sim) struck(w *game.World, t *game.Tick, r *game.RivalState, rng rand) 
 // it onto the corner they ran if nobody stands there; if somebody does,
 // it is a push like any other, with the defector's help counted in.
 // Only a corner of the city it fights over: it never sets up elsewhere.
-func (s *Sim) defectors(w *game.World, t *game.Tick, r *game.RivalState, rng rand) {
+func (s *Sim) defectors(w *game.World, t *game.Tick, r *game.RivalState, rng game.Rand) {
 	for _, l := range w.Crew.Leads {
 		if w.Faction(l.Faction) != r {
 			continue
@@ -180,7 +180,7 @@ func (s *Sim) defectors(w *game.World, t *game.Tick, r *game.RivalState, rng ran
 // player it fears. Every push is noise; one that lands flips the corner
 // and sends its people home. A deal keeps it off: every corner under a
 // truce or a tribute, your side of the line under a split.
-func (s *Sim) push(w *game.World, t *game.Tick, r *game.RivalState, rng rand, pc content.PersonalityConfig) {
+func (s *Sim) push(w *game.World, t *game.Tick, r *game.RivalState, rng game.Rand, pc content.PersonalityConfig) {
 	pace := s.PushPace(w)
 	ground := s.corners(w, r)
 	for i := range ground {
@@ -219,7 +219,7 @@ func (s *Sim) push(w *game.World, t *game.Tick, r *game.RivalState, rng rand, pc
 
 // strike resolves the player's enforcers going in on a corner of the
 // faction, or for its takings (#70, boost).
-func (s *Sim) strike(w *game.World, t *game.Tick, r *game.RivalState, rng rand, o *game.StrikeOrder, c *game.Corner) {
+func (s *Sim) strike(w *game.World, t *game.Tick, r *game.RivalState, rng game.Rand, o *game.StrikeOrder, c *game.Corner) {
 	if w.Crew.Role(game.RoleEnforcer) == 0 {
 		return
 	}

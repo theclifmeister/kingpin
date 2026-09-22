@@ -7,7 +7,6 @@ package territory
 
 import (
 	"math"
-	"sort"
 
 	"github.com/theclifmeister/kingpin/internal/content"
 	"github.com/theclifmeister/kingpin/internal/events"
@@ -141,7 +140,7 @@ func (s *Sim) RobberyChance(w *game.World, c *game.Corner) float64 {
 func (s *Sim) robberyChance(fx game.Effects, w *game.World, c *game.Corner) float64 {
 	tun := s.cfg.Territory
 	p := tun.RobberyChance * c.Risk * fx.RobberyMul * s.deedMul(c)
-	return math.Max(0, math.Min(1, s.guardCut(w, c.Enforcer, p)))
+	return max(0, min(1, s.guardCut(w, c.Enforcer, p)))
 }
 
 // guardCut is what the enforcer with id takes off a robbery chance: the
@@ -170,7 +169,7 @@ func (s *Sim) houseRobberyChance(fx game.Effects, w *game.World, h *game.House) 
 		risk = c.Risk
 	}
 	p := s.cfg.Territory.RobberyChance * risk * s.houses.HouseRisk * fx.RobberyMul * s.deedMul(c)
-	return math.Max(0, math.Min(1, s.guardCut(w, h.Guard, p)))
+	return max(0, min(1, s.guardCut(w, h.Guard, p)))
 }
 
 // RentDays is how long a house's rent can go unpaid before the landlord
@@ -330,8 +329,7 @@ func (s *Sim) houseStep(w *game.World, t *game.Tick, fx game.Effects) {
 		if c := w.Corner(h.Corner); c != nil {
 			ev.Corner = c.Name
 		}
-		ids := append([]string(nil), w.Products...)
-		sort.Strings(ids)
+		ids := w.SortedProducts()
 		for _, id := range ids {
 			if lost := w.TakeFromHouse(h.ID, id, int(math.Round(float64(h.Stock[id])*tun.RobberyStock))); lost > 0 {
 				ev.StockLost[id] = lost
@@ -386,12 +384,7 @@ func (s *Sim) houseStep(w *game.World, t *game.Tick, fx game.Effects) {
 	}
 }
 
-// rand is the subset of *math/rand/v2.Rand the sim uses.
-type rand interface {
-	Float64() float64
-}
-
-func (s *Sim) step(w *game.World, t *game.Tick, rng rand, fx game.Effects, city *game.City, revenue map[string]int) {
+func (s *Sim) step(w *game.World, t *game.Tick, rng game.Rand, fx game.Effects, city *game.City, revenue map[string]int) {
 	tun := s.cfg.Territory
 	drift := s.driftDays(fx)
 	for i := range city.Corners {
@@ -435,8 +428,7 @@ func (s *Sim) step(w *game.World, t *game.Tick, rng rand, fx game.Effects, city 
 			continue
 		}
 		ev := events.CornerRobbed{Day: t.Day, Corner: c.ID, Name: c.Name, StockLost: map[string]int{}}
-		ids := append([]string(nil), w.Products...)
-		sort.Strings(ids)
+		ids := w.SortedProducts()
 		for _, id := range ids {
 			frac := 0.0
 			if held := w.HeldShare(city.ID, id); held > 0 {

@@ -86,7 +86,7 @@ func (s *Sim) Favour(w *game.World, r *game.RivalState, d game.Deal) float64 {
 		if ask > fair {
 			return math.Inf(-1)
 		}
-		return math.Max(-1, math.Min(1, (fair-ask)*4))
+		return max(-1, min(1, (fair-ask)*4))
 	}
 	return math.Inf(-1)
 }
@@ -112,8 +112,8 @@ func (s *Sim) Chance(w *game.World, r *game.RivalState, d game.Deal) float64 {
 		dip.AcceptTrust*r.Trust/100 +
 		s.personality(r).DealBias +
 		dip.AcceptWar*r.War/100 +
-		s.rep.FearDeal*math.Max(0, math.Min(1, w.Player.Reputation.Fear/100))
-	return math.Max(0, math.Min(1, p))
+		s.rep.FearDeal*max(0, min(1, w.Player.Reputation.Fear/100))
+	return max(0, min(1, p))
 }
 
 // seal makes a deal live from tonight, on exactly the terms given.
@@ -284,7 +284,7 @@ func pastTense(f events.Force) string {
 
 // answer is the faction's reply to tonight's proposal, if it was put to
 // it.
-func (s *Sim) answer(w *game.World, t *game.Tick, r *game.RivalState, rng rand) {
+func (s *Sim) answer(w *game.World, t *game.Tick, r *game.RivalState, rng game.Rand) {
 	p := w.Today.Proposal
 	if p == nil || r.Arrived == 0 || w.Faction(p.Faction) != r {
 		return
@@ -302,7 +302,7 @@ func (s *Sim) answer(w *game.World, t *game.Tick, r *game.RivalState, rng rand) 
 
 // whim is the faction breaking a deal of its own accord: a chaotic one
 // does, by personality; the others never.
-func (s *Sim) whim(w *game.World, t *game.Tick, r *game.RivalState, rng rand) {
+func (s *Sim) whim(w *game.World, t *game.Tick, r *game.RivalState, rng game.Rand) {
 	pc := s.personality(r)
 	if pc.Betrayal <= 0 {
 		return
@@ -357,7 +357,7 @@ func (s *Sim) keep(w *game.World, t *game.Tick, r *game.RivalState) {
 // tribute, a defensive one asks for a long truce once the war is loud,
 // a chaotic one with a front line asks for a short one on a whim. One
 // offer of its own on the table at a time.
-func (s *Sim) offer(w *game.World, t *game.Tick, r *game.RivalState, rng rand) {
+func (s *Sim) offer(w *game.World, t *game.Tick, r *game.RivalState, rng game.Rand) {
 	tun := s.cfg.Rivals
 	dip := s.cfg.Diplomacy
 	pc := s.personality(r)
