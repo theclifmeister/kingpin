@@ -9,21 +9,19 @@ import (
 	"github.com/theclifmeister/kingpin/internal/events"
 	"github.com/theclifmeister/kingpin/internal/format"
 	"github.com/theclifmeister/kingpin/internal/game"
+	"github.com/theclifmeister/kingpin/internal/gametest"
 	"github.com/theclifmeister/kingpin/internal/sim/laundering"
 )
 
 func world(cash int) *game.World {
-	w := game.NewWorld(7, []game.StartingCity{{ID: "test", Name: "Testville", Products: []game.StartingProduct{{ID: "a", Name: "A", Price: 10, Demand: 5, SupplierRatio: 0.55}}}}, cash, 100)
+	w := gametest.OneCity(7, cash)
 	w.Stats.PeakCash = cash
 	w.Laundering.Dial = events.LaunderNormal
 	return w
 }
 
 func step(w *game.World, s *laundering.Sim) []events.Event {
-	t := &game.Tick{Day: w.Day + 1, RNG: game.RNGFor(w.Seed, w.Day+1)}
-	s.Step(w, t)
-	w.Day++
-	return t.Events()
+	return gametest.StepUnseeded(w, s).Events()
 }
 
 func kinds(evs []events.Event) map[string]int {

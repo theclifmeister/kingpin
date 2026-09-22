@@ -56,7 +56,7 @@ The game is a set of independent, deterministic simulations stepped once per in-
 
 ### The map
 
-Package layout: `cmd/kingpin` (the game), `cmd/balance` (headless runs), `cmd/keys` (the README's table), `cmd/anim` (the scenes, for review); `internal/game` (`World`, actions, clock, saves), `internal/sim/<name>` (one sim each), `internal/events`, `internal/content` (TOML and decode), `internal/format`, `internal/harness` (scripted policies and the acceptance tests), `internal/ui` (screens, dialogs, `theme`, `anim`).
+Package layout: `cmd/kingpin` (the game), `cmd/balance` (headless runs), `cmd/keys` (the README's table), `cmd/anim` (the scenes, for review); `internal/game` (`World`, actions, clock, saves), `internal/sim/<name>` (one sim each), `internal/events`, `internal/content` (TOML and decode), `internal/format`, `internal/harness` (scripted policies and the acceptance tests), `internal/gametest` (the sims' test fixture, tests only), `internal/ui` (screens, dialogs, `theme`, `anim`).
 
 | Subsystem | Code | Tuning | Doc | Pins it |
 |---|---|---|---|---|
