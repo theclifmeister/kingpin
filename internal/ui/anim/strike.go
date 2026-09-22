@@ -27,7 +27,7 @@ func Strike(flips []Flip, name string, accent lipgloss.Color, rng *rand.Rand) Sc
 		s.rows = append(s.rows, region{t, BurnFrom(f.From)(t, f.To, StrikeLength, rng)})
 	}
 	n := NewText(name)
-	s.rows = append(s.rows, region{n, Slide(n, accent, StrikeLength, rng)})
+	s.rows = append(s.rows, region{n, Play(Effects["slide"], n, accent, StrikeLength, rng)})
 	return s
 }
 

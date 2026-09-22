@@ -90,7 +90,7 @@ func Arrested(rng *rand.Rand) Scene {
 	word := NewText(Arrest)
 	return Sequence(
 		Step{bars, overFall},
-		Step{Layer(Held(bars, overFall), Vhstape(word, theme.Text, overWord, rng)), overWord},
+		Step{Layer(Held(bars, overFall), Play(Effects["vhstape"], word, theme.Text, overWord, rng)), overWord},
 		Step{Layer(Reverse(Curtain)(Text{}, theme.Heat, overFall, rng), Still(word, theme.Text)), overFall},
 	)
 }
@@ -102,7 +102,7 @@ func Arrested(rng *rand.Rand) Scene {
 func Broke(figures string, rng *rand.Rand) Scene {
 	return Sequence(
 		Step{Reverse(PourFrom(Up))(NewText(figures), theme.Money, overLoss, rng), overLoss},
-		Step{Rain(NewText(Zero), theme.Heat, overZero, rng), overZero},
+		Step{Play(Effects["rain"], NewText(Zero), theme.Heat, overZero, rng), overZero},
 	)
 }
 
