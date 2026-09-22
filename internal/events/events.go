@@ -8,48 +8,6 @@ type Event interface {
 	Kind() string
 }
 
-// Dial is the risk dial attached to a sell order: every action trades money
-// against heat.
-type Dial int
-
-const (
-	DialQuiet Dial = iota
-	DialNormal
-	DialAggressive
-)
-
-func (d Dial) String() string {
-	switch d {
-	case DialQuiet:
-		return "quiet"
-	case DialAggressive:
-		return "aggressive"
-	default:
-		return "normal"
-	}
-}
-
-// Pay is the crew pay dial: every day the whole crew is paid stingy, fair or
-// generous, trading cash against loyalty.
-type Pay int
-
-const (
-	PayStingy Pay = iota
-	PayFair
-	PayGenerous
-)
-
-func (p Pay) String() string {
-	switch p {
-	case PayStingy:
-		return "stingy"
-	case PayGenerous:
-		return "generous"
-	default:
-		return "fair"
-	}
-}
-
 // DayEnded closes a day. It is always the last event of a tick.
 type DayEnded struct{ Day int }
 
@@ -333,27 +291,6 @@ type CornerRobbed struct {
 
 func (CornerRobbed) Kind() string { return "CornerRobbed" }
 
-// Force is the dial on a strike against a rival corner: how hard the
-// enforcers go in. Harder flips corners faster and draws more heat.
-type Force int
-
-const (
-	ForceWarn Force = iota
-	ForcePush
-	ForceHit
-)
-
-func (f Force) String() string {
-	switch f {
-	case ForceWarn:
-		return "warn"
-	case ForceHit:
-		return "hit"
-	default:
-		return "push"
-	}
-}
-
 // RivalMovedIn is the rival faction's arrival: its first corner.
 type RivalMovedIn struct {
 	Day     int
@@ -528,27 +465,6 @@ func (ReputationShifted) Kind() string { return "ReputationShifted" }
 // Up reports whether the axis crossed the line going up.
 func (r ReputationShifted) Up() bool { return r.To > r.From }
 
-// Launder is the laundering dial: how hard every front is pushed, trading
-// throughput against audits.
-type Launder int
-
-const (
-	LaunderCareful Launder = iota
-	LaunderNormal
-	LaunderGreedy
-)
-
-func (l Launder) String() string {
-	switch l {
-	case LaunderCareful:
-		return "careful"
-	case LaunderGreedy:
-		return "greedy"
-	default:
-		return "normal"
-	}
-}
-
 // FrontBought records a front the player bought during the day.
 type FrontBought struct {
 	Day   int
@@ -684,68 +600,6 @@ type DilemmaAnswered struct {
 }
 
 func (DilemmaAnswered) Kind() string { return "DilemmaAnswered" }
-
-// Ship is the shipping dial: how fast a shipment is pushed over its route,
-// trading days in transit against the chance of a seizure on each.
-type Ship int
-
-const (
-	ShipSlow Ship = iota
-	ShipNormal
-	ShipFast
-)
-
-func (s Ship) String() string {
-	switch s {
-	case ShipSlow:
-		return "slow"
-	case ShipFast:
-		return "fast"
-	default:
-		return "normal"
-	}
-}
-
-// RouteDial is the route dial (#61): a persistent setting per route, off or
-// the ship dial the logistics sim runs the route at every day. Off is the
-// zero value, so a route nobody has touched runs nothing.
-type RouteDial int
-
-const (
-	RouteOff RouteDial = iota
-	RouteSlow
-	RouteNormal
-	RouteFast
-)
-
-func (r RouteDial) String() string {
-	switch r {
-	case RouteSlow:
-		return "slow"
-	case RouteNormal:
-		return "normal"
-	case RouteFast:
-		return "fast"
-	default:
-		return "off"
-	}
-}
-
-// On reports whether the route runs at all.
-func (r RouteDial) On() bool { return r > RouteOff && r <= RouteFast }
-
-// Ship is the ship dial a running route sends at; normal for one that is
-// off, which never sends.
-func (r RouteDial) Ship() Ship {
-	switch r {
-	case RouteSlow:
-		return ShipSlow
-	case RouteFast:
-		return ShipFast
-	default:
-		return ShipNormal
-	}
-}
 
 // WholesaleBought is report-only bookkeeping: lots the logistics sim
 // bought at the source of a route to cover the far city's shortfall.

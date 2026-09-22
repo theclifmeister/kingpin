@@ -115,19 +115,16 @@ func (t LieutenantTuning) Temper(name string) LieutenantPersonality {
 	if p, ok := t.Personality[name]; ok {
 		return p
 	}
-	return LieutenantPersonality{Dial: "normal", Heat: 1, Guard: true}
+	return LieutenantPersonality{Dial: events.DialNormal.String(), Heat: 1, Guard: true}
 }
 
-// SellDial is the dial a temperament sells at.
+// SellDial is the dial a temperament sells at; normal for a name the
+// sell dial does not know, which validate refuses at load.
 func (p LieutenantPersonality) SellDial() events.Dial {
-	switch p.Dial {
-	case "quiet":
-		return events.DialQuiet
-	case "aggressive":
-		return events.DialAggressive
-	default:
-		return events.DialNormal
+	if d, ok := events.ParseDial(p.Dial); ok {
+		return d
 	}
+	return events.DialNormal
 }
 
 // InformantTuning is who turns, and what finding and keeping them costs.
@@ -210,14 +207,7 @@ type RoleConfig struct {
 
 // PayFor returns the tuning for a pay dial position.
 func (c CrewConfig) PayFor(p events.Pay) PayConfig {
-	switch p {
-	case events.PayStingy:
-		return c.Pay.Stingy
-	case events.PayGenerous:
-		return c.Pay.Generous
-	default:
-		return c.Pay.Fair
-	}
+	return threeWay(int(p), c.Pay.Stingy, c.Pay.Fair, c.Pay.Generous)
 }
 
 // validate checks the crew file has what the sims index directly: a
@@ -237,8 +227,8 @@ func (c CrewConfig) validate(market MarketConfig) error {
 		if !ok {
 			return fmt.Errorf("no [lieutenant.personality.%s] table", p)
 		}
-		if d := lp.Dial; d != "quiet" && d != "normal" && d != "aggressive" {
-			return fmt.Errorf("[lieutenant.personality.%s] dial %q", p, d)
+		if _, ok := events.ParseDial(lp.Dial); !ok {
+			return fmt.Errorf("[lieutenant.personality.%s] dial %q: not one of %v", p, lp.Dial, events.DialNames())
 		}
 		if lp.Heat <= 0 || lp.Skim < 0 || lp.Skim >= 1 || lp.StockDays < 0 {
 			return fmt.Errorf("bad [lieutenant.personality.%s] table %+v", p, lp)
