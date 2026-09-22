@@ -579,13 +579,12 @@ func (w *World) BuyDeed(corner string, price int) error {
 	if price <= 0 {
 		return ErrNoDeeds
 	}
-	if price > w.Player.CleanCash {
-		if w.Player.CleanCash <= 0 {
-			return ErrNoCleanCash
-		}
-		return fmt.Errorf("need $%d clean, only have $%d clean", price, w.Player.CleanCash)
+	if price > w.Player.CleanCash && w.Player.CleanCash <= 0 {
+		return ErrNoCleanCash
 	}
-	w.Player.CleanCash -= price
+	if err := w.payClean(price); err != nil {
+		return err
+	}
 	c.Deed = &Deed{Bought: w.Day, Price: price}
 	w.Stats.Deeds++
 	w.Stats.DeedCash += price

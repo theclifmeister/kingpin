@@ -4,6 +4,8 @@ import (
 	"errors"
 	"fmt"
 	"math"
+
+	"github.com/theclifmeister/kingpin/internal/format"
 )
 
 var (
@@ -365,10 +367,10 @@ func (w *World) buy(s *Supplier, product string, qty int, markup float64, credit
 	cost := int(math.Ceil(unit * float64(qty)))
 	if credit {
 		if s.Debt+cost > s.Limit {
-			return Purchase{}, fmt.Errorf("%w: %s will run you $%d, you owe $%d", ErrCreditLimit, s.Name, s.Limit, s.Debt)
+			return Purchase{}, fmt.Errorf("%w: %s will run you %s, you owe %s", ErrCreditLimit, s.Name, format.Money(s.Limit), format.Money(s.Debt))
 		}
 	} else if cost > w.Player.DirtyCash {
-		return Purchase{}, fmt.Errorf("need $%d, only have $%d dirty", cost, w.Player.DirtyCash)
+		return Purchase{}, &ShortError{Need: cost, Have: w.Player.DirtyCash, Pool: "dirty"}
 	}
 	if free := w.Free(s.City); qty > free {
 		return Purchase{}, fmt.Errorf("can only hold %d more units in %s", free, w.CityName(s.City))
@@ -501,10 +503,9 @@ func (w *World) Restock(city, product string, lots int, pricePressure float64) (
 	}
 	unit := s.Price[product]
 	cost := int(math.Ceil(unit * float64(qty)))
-	if cost > w.Player.DirtyCash {
-		return Purchase{}, fmt.Errorf("need $%d, only have $%d dirty", cost, w.Player.DirtyCash)
+	if err := w.payDirty(cost); err != nil {
+		return Purchase{}, err
 	}
-	w.Player.DirtyCash -= cost
 	w.AddStock(city, product, qty, s.QualityOf(w, product))
 	m.BoughtToday += qty
 	s.took(w, product, qty)
