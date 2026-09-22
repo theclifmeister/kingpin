@@ -1,0 +1,173 @@
+name: Go job
+description: >-
+  The steps ci.yml and cache.yml share (#276): set up Go, restore the
+  cache main saved, run the lint or the test job's checks, and in
+  cache.yml save the entry. One copy, so the two workflows cannot drift.
+
+# Why one action (#276). cache.yml warms the cache a pull request restores
+# (#213), and a cached test pass only hits when cache.yml ran the very
+# same go test lines (the flags are part of Go's key) after the very same
+# content mtimes script; the lint entry only helps when it compiled what
+# ci.yml's Lint compiles. Until #276 the two workflows carried copies of
+# those lines and a comment asking that they stay byte for byte the same;
+# now both call this action, which is the only copy.
+#
+# Two things stay in the workflows: the job-level GOFLAGS=-buildvcs=false
+# of the Test jobs (an action cannot set a job's environment, and ci.yml's
+# balance smoke runs after this action under the same env), and ci.yml's
+# balance smoke itself, which cache.yml has no reason to run.
+#
+# The run steps say shell: bash, which a composite action requires; that
+# is bash with -o pipefail where a workflow's default was plain bash -e.
+# No line here has a pipe whose left side can fail on its own: the mtimes
+# loop reads git ls-files, and the go list | grep in the test step is a
+# command substitution, whose status bash ignores in an argument list.
+
+inputs:
+  job:
+    description: "lint (gofmt, tidy, vet, staticcheck, govulncheck) or test (build and the two go test lines)"
+    required: true
+  save:
+    description: "'true' saves GOCACHE and GOMODCACHE under the commit's key after the checks (cache.yml); ci.yml only restores"
+    required: false
+    default: "false"
+
+runs:
+  using: composite
+  steps:
+    # Go keys a cached test result on the mtime and size of every file a
+    # test opens inside the module (the source guards, README.md), and a
+    # fresh checkout stamps every file with the checkout's time, so
+    # without this no entry from another run could ever match. Each
+    # tracked file gets an mtime that is a function of its blob (28 bits
+    # of the sha: 2001-2010, never in the future, which Go refuses to
+    # cache) and every directory a fixed one, .git too (a guard in
+    # internal/game walks the root, whose listing includes it; the job's
+    # GOFLAGS=-buildvcs=false keeps go from running git status, whose
+    # index rewrite would move .git again).
+    - name: content mtimes
+      if: ${{ inputs.job == 'test' }}
+      shell: bash
+      run: |
+        git ls-files -s | while IFS=$'\t' read -r meta path; do
+          sha=${meta#* }
+          touch -d "@$((0x${sha:0:7} + 1000000000))" -- "$path"
+        done
+        find . -path ./.git -prune -o -type d -exec touch -d @1000000000 {} +
+        touch -d @1000000000 .git
+
+    # Both jobs build and check with the toolchain declared in go.mod, so
+    # the minimum supported Go version is what actually gets verified. The
+    # Lint job ran on the latest stable Go while staticcheck was installed
+    # @latest; since #276 staticcheck and govulncheck are pinned in go.mod's
+    # tool block (go tool staticcheck), and a pinned analyser is only
+    # promised to read the Go it was released for, so Lint runs go.mod's Go
+    # too and a bump of the tool (Dependabot) moves it with the toolchain.
+    - uses: actions/setup-go@v7
+      with:
+        go-version-file: go.mod
+        cache: false
+
+    # The newest entry cache.yml saved from main for this go.sum. The key
+    # ends in the commit so no PR ever matches it exactly and the prefix
+    # picks the latest push; the paths are what the save below writes.
+    # Go's test cache lives in GOCACHE too, so a package a PR's change does
+    # not reach reports its pass as (cached).
+    - if: ${{ inputs.job == 'lint' }}
+      uses: actions/cache/restore@v6
+      with:
+        path: |
+          ~/.cache/go-build
+          ~/go/pkg/mod
+          ~/.cache/staticcheck
+        key: go-lint-${{ runner.os }}-${{ hashFiles('go.sum') }}-${{ github.sha }}
+        restore-keys: go-lint-${{ runner.os }}-${{ hashFiles('go.sum') }}-
+
+    - if: ${{ inputs.job == 'test' }}
+      uses: actions/cache/restore@v6
+      with:
+        path: |
+          ~/.cache/go-build
+          ~/go/pkg/mod
+        key: go-test-${{ runner.os }}-${{ hashFiles('go.sum') }}-${{ github.sha }}
+        restore-keys: go-test-${{ runner.os }}-${{ hashFiles('go.sum') }}-
+
+    - name: gofmt
+      if: ${{ inputs.job == 'lint' }}
+      shell: bash
+      run: |
+        out=$(gofmt -l .)
+        if [ -n "$out" ]; then
+          echo "files need gofmt:"; echo "$out"; exit 1
+        fi
+
+    - name: go mod tidy
+      if: ${{ inputs.job == 'lint' }}
+      shell: bash
+      run: |
+        go mod tidy
+        git diff --exit-code go.mod go.sum
+
+    - name: go vet
+      if: ${{ inputs.job == 'lint' }}
+      shell: bash
+      run: go vet ./...
+
+    # Both analysers are pinned in go.mod's tool block (#276), so a run is
+    # the version go.sum names and Dependabot proposes the bump; go tool
+    # builds them into GOCACHE, which the lint entry carries.
+    - name: staticcheck
+      if: ${{ inputs.job == 'lint' }}
+      shell: bash
+      run: go tool staticcheck ./...
+
+    # Fails only on a vulnerability the code can reach (a symbol it calls);
+    # one in a package or module it merely imports is reported, not failed.
+    - name: govulncheck
+      if: ${{ inputs.job == 'lint' }}
+      shell: bash
+      run: go tool govulncheck ./...
+
+    - name: build
+      if: ${{ inputs.job == 'test' }}
+      shell: bash
+      run: go build ./...
+
+    # The race detector runs everywhere a goroutine could exist and is
+    # skipped on the two packages that pay for it and cannot use it
+    # (#211): internal/harness (7.4x slower under -race) and internal/ui
+    # (5.7x) start no goroutine, and TestNoGoroutineInTheTree keeps it
+    # so. race.yml sweeps the whole tree under -race weekly. The PR
+    # that first adds a goroutine to either package puts -race back on
+    # it here in the same PR.
+    # No -count=1 (#213): Go keys a cached pass on the test binary, the
+    # flags and every file and environment variable the tests read, so
+    # only a package none of a PR's changes reach is skipped, and the
+    # suite is deterministic by design. cache.yml runs these same lines
+    # through this action (the flags are part of the key); race.yml keeps
+    # -count=1 so the weekly sweep runs everything.
+    - name: test
+      if: ${{ inputs.job == 'test' }}
+      shell: bash
+      run: |
+        go test -timeout 30m ./internal/harness ./internal/ui
+        go test -race -timeout 30m $(go list ./... | grep -v -e /internal/harness$ -e /internal/ui$)
+
+    # cache.yml only. Saved on failure too (the build cache is still good;
+    # Go never caches a failed test), never on a cancel.
+    - if: ${{ inputs.save == 'true' && inputs.job == 'lint' && !cancelled() }}
+      uses: actions/cache/save@v6
+      with:
+        path: |
+          ~/.cache/go-build
+          ~/go/pkg/mod
+          ~/.cache/staticcheck
+        key: go-lint-${{ runner.os }}-${{ hashFiles('go.sum') }}-${{ github.sha }}
+
+    - if: ${{ inputs.save == 'true' && inputs.job == 'test' && !cancelled() }}
+      uses: actions/cache/save@v6
+      with:
+        path: |
+          ~/.cache/go-build
+          ~/go/pkg/mod
+        key: go-test-${{ runner.os }}-${{ hashFiles('go.sum') }}-${{ github.sha }}

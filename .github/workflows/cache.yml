@@ -5,15 +5,16 @@ name: Cache
 # with setup-go's own cache every PR built and compiled cold (11 s of
 # go build, ~18 s to compile the harness test binary) and then saved two
 # ~90 MB entries nobody read. This workflow runs on every push to main
-# (and by hand), repeats ci.yml's build, vet and tests with the same
-# flags, and saves GOCACHE and GOMODCACHE under a key that ends in the
-# commit; ci.yml restores the newest entry for the same go.sum by prefix.
-# Go's test cache rides in GOCACHE, so a PR whose change reaches none of a
-# package's inputs reports that package's pass as (cached); the test
-# lines must stay byte for byte ci.yml's, since the flags are part of
-# Go's key. It gates nothing: a red run here is a failure on main to look
-# at, never a check. The entry is saved on failure too (the build cache
-# is still good; Go never caches a failed test), never on a cancel.
+# (and by hand), repeats ci.yml's lint and tests through the same
+# composite action, .github/actions/go (#276: one copy of the steps, so
+# the test flags, which are part of Go's key, cannot drift), and saves
+# GOCACHE and GOMODCACHE under a key that ends in the commit; ci.yml
+# restores the newest entry for the same go.sum by prefix. Go's test
+# cache rides in GOCACHE, so a PR whose change reaches none of a
+# package's inputs reports that package's pass as (cached). It gates
+# nothing: a red run here is a failure on main to look at, never a
+# check. The entry is saved on failure too (the build cache is still
+# good; Go never caches a failed test), never on a cancel.
 on:
   push:
     branches: [main]
@@ -28,97 +29,30 @@ concurrency:
 
 jobs:
   lint:
-    # What ci.yml's Lint job compiles, on the same stable Go: vet, and
-    # staticcheck's install (most of that step is building it) and facts.
+    # ci.yml's Lint job, then the save: what it compiles (vet, the pinned
+    # staticcheck and govulncheck) and staticcheck's facts.
     name: Lint cache
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v7
 
-      - uses: actions/setup-go@v7
+      - uses: ./.github/actions/go
         with:
-          go-version: stable
-          cache: false
-
-      - uses: actions/cache/restore@v6
-        with:
-          path: |
-            ~/.cache/go-build
-            ~/go/pkg/mod
-            ~/.cache/staticcheck
-          key: go-lint-${{ runner.os }}-${{ hashFiles('go.sum') }}-${{ github.sha }}
-          restore-keys: go-lint-${{ runner.os }}-${{ hashFiles('go.sum') }}-
-
-      - name: go vet
-        run: go vet ./...
-
-      - name: staticcheck
-        run: |
-          go install honnef.co/go/tools/cmd/staticcheck@latest
-          "$(go env GOPATH)/bin/staticcheck" ./...
-
-      - uses: actions/cache/save@v6
-        if: ${{ !cancelled() }}
-        with:
-          path: |
-            ~/.cache/go-build
-            ~/go/pkg/mod
-            ~/.cache/staticcheck
-          key: go-lint-${{ runner.os }}-${{ hashFiles('go.sum') }}-${{ github.sha }}
+          job: lint
+          save: "true"
 
   test:
-    # What ci.yml's Test job runs, on go.mod's toolchain, flag for flag.
+    # ci.yml's Test job, flag for flag, then the save.
     name: Test cache
     runs-on: ubuntu-latest
     env:
+      # As in ci.yml: keeps go from running git status after the content
+      # mtimes step (#213).
       GOFLAGS: -buildvcs=false
     steps:
       - uses: actions/checkout@v7
 
-      # Go keys a cached test result on the mtime and size of every file a
-      # test opens inside the module (the source guards, README.md), and a
-      # fresh checkout stamps every file with the checkout's time, so
-      # without this no entry from another run could ever match. Each
-      # tracked file gets an mtime that is a function of its blob (28 bits
-      # of the sha: 2001-2010, never in the future, which Go refuses to
-      # cache) and every directory a fixed one, .git too (a guard in
-      # internal/game walks the root, whose listing includes it; GOFLAGS
-      # above keeps go from running git status, whose index rewrite would
-      # move .git again). The same lines are in ci.yml.
-      - name: content mtimes
-        run: |
-          git ls-files -s | while IFS=$'\t' read -r meta path; do
-            sha=${meta#* }
-            touch -d "@$((0x${sha:0:7} + 1000000000))" -- "$path"
-          done
-          find . -path ./.git -prune -o -type d -exec touch -d @1000000000 {} +
-          touch -d @1000000000 .git
-
-      - uses: actions/setup-go@v7
+      - uses: ./.github/actions/go
         with:
-          go-version-file: go.mod
-          cache: false
-
-      - uses: actions/cache/restore@v6
-        with:
-          path: |
-            ~/.cache/go-build
-            ~/go/pkg/mod
-          key: go-test-${{ runner.os }}-${{ hashFiles('go.sum') }}-${{ github.sha }}
-          restore-keys: go-test-${{ runner.os }}-${{ hashFiles('go.sum') }}-
-
-      - name: build
-        run: go build ./...
-
-      - name: test
-        run: |
-          go test -timeout 30m ./internal/harness ./internal/ui
-          go test -race -timeout 30m $(go list ./... | grep -v -e /internal/harness$ -e /internal/ui$)
-
-      - uses: actions/cache/save@v6
-        if: ${{ !cancelled() }}
-        with:
-          path: |
-            ~/.cache/go-build
-            ~/go/pkg/mod
-          key: go-test-${{ runner.os }}-${{ hashFiles('go.sum') }}-${{ github.sha }}
+          job: test
+          save: "true"
