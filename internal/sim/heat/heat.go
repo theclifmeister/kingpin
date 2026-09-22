@@ -645,6 +645,17 @@ func (s *Sim) Step(w *game.World, t *game.Tick) {
 			reasons[here] = append(reasons[here], fmt.Sprintf("the bribe backfired: the DA's file on you grows (%d)", h.Evidence))
 		}
 	}
+	// The favour called in this morning (#228, w.Law.FavourOwed, the
+	// night it is owed on, this tick's): the chief's name is in your ledger now, and the
+	// DA's file gains favour_evidence pages whatever was sold, the
+	// third bend in #27 beside the informant's and the backfire's,
+	// because calling it was something you did. The response it stops
+	// is below, with the ladder.
+	if b := s.law.Bribes; w.Law.FavourOwed == t.Day && b.FavourEvidence > 0 {
+		h.Evidence += b.FavourEvidence
+		h.EvidenceDay = t.Day
+		reasons[here] = append(reasons[here], fmt.Sprintf("the favour: the chief's name is in your ledger, and the DA's file on you grows (%d)", h.Evidence))
+	}
 	if b := s.law.Bribes; w.Law.Filed > 0 && w.Law.Filed == t.Day-1 && b.LeadEvidence > 0 {
 		h.Evidence += b.LeadEvidence
 		h.EvidenceDay = t.Day
@@ -736,13 +747,25 @@ func (s *Sim) Step(w *game.World, t *game.Tick) {
 	}
 	hot := s.hottest(w)
 	resp := s.Thresholds()
+	// The favour called in this morning (#228): the chief's people stand
+	// down tonight. The one response that would have fired does not
+	// (nothing taken, no heat drop, no sweep, not counted), its cooldown
+	// starts as if it had, and RaidFellThrough says so; heat is
+	// untouched, so the same rung is there when the cooldown lifts. The
+	// arrest is the DA's and no chief stops it. fire rolls nothing on
+	// the home stream, so a run without a favour is the run before.
+	favour := w.Law.FavourOwed == t.Day
 	// A task force announced yesterday comes tonight (#48), whatever the
 	// heat: it formed, and it acts. The day's one response is its.
 	if h.TaskForceDay > 0 && h.TaskForceDay < t.Day {
 		h.TaskForceDay = 0
 		if r := s.rung(content.TaskForce); r != nil {
-			h.Responses[r.Level]++
-			s.fire(w, t, hot, *r, attempted[hot.ID], fx)
+			if favour {
+				t.Emit(events.RaidFellThrough{Day: t.Day, City: hot.ID, Level: r.Level, Evidence: s.law.Bribes.FavourEvidence})
+			} else {
+				h.Responses[r.Level]++
+				s.fire(w, t, hot, *r, attempted[hot.ID], fx)
+			}
 			h.LastResponse[r.Level] = t.Day
 			h.WatchUntil = t.Day + s.CooldownDays(w, r.Level)
 		}
@@ -764,6 +787,11 @@ func (s *Sim) Step(w *game.World, t *game.Tick) {
 			// day's response. It comes tomorrow night.
 			h.TaskForceDay = t.Day
 			t.Emit(events.TaskForceFormed{Day: t.Day, City: hot.ID, Assets: len(w.Assets)})
+			break
+		}
+		if favour && r.Level != content.Arrest {
+			t.Emit(events.RaidFellThrough{Day: t.Day, City: hot.ID, Level: r.Level, Evidence: s.law.Bribes.FavourEvidence})
+			h.LastResponse[r.Level] = t.Day
 			break
 		}
 		h.Responses[r.Level]++
@@ -806,6 +834,10 @@ func (s *Sim) Step(w *game.World, t *game.Tick) {
 	// night leaves them, at the cop's accuracy off the intel stream.
 	s.cop(w, t)
 }
+
+// Hottest is the city whose police answer tonight, for the favour's
+// dialog (#228).
+func (s *Sim) Hottest(w *game.World) *game.City { return s.hottest(w) }
 
 // hottest is the city whose police answer today: the hottest, and where
 // the player is when it is a tie.
@@ -1113,6 +1145,41 @@ func (s *Sim) Next(w *game.World, city *game.City, day int) (level string, from 
 		from = max(from, last+s.CooldownDays(w, level))
 	}
 	return level, from
+}
+
+// Due is the response the police would make tonight on the heat as it
+// stands this morning (#228), for the favour: the task force announced
+// yesterday, else the highest rung the hottest city meets whose
+// cooldown has lifted, as Step reads the ladder. It is "" when nothing
+// would fire, when the rung met is the task force's (tonight it is
+// announced, not made), the patrol's (a cadence, not worth a call) or
+// the arrest's (the DA's, and no chief stops it). The night's decay
+// runs before the ladder is read, so it is what the morning says, not a
+// promise; the favour is spent on the call either way.
+func (s *Sim) Due(w *game.World) string {
+	if s.TaskForceForming(w) {
+		return content.TaskForce
+	}
+	hot := s.hottest(w)
+	resp := s.Thresholds()
+	for i := len(resp) - 1; i >= 0; i-- {
+		r := resp[i]
+		if hot.Heat < s.Threshold(w, r, hot) {
+			continue
+		}
+		if r.Level == content.TaskForce && !s.TaskForceEligible(w) {
+			continue
+		}
+		if last, ok := w.Heat.LastResponse[r.Level]; ok && w.Day+1-last < s.CooldownDays(w, r.Level) && r.Level != content.Arrest {
+			continue
+		}
+		switch r.Level {
+		case content.TaskForce, content.Patrol, content.Arrest:
+			return ""
+		}
+		return r.Level
+	}
+	return ""
 }
 
 // cop files the police's next move where the player stands off a cop

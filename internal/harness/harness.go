@@ -394,8 +394,12 @@ func BuyUpgrades(cfg *content.Config, w *game.World, margin float64) {
 		}
 		var pick *content.UpgradeConfig
 		for _, n := range cfg.Upgrades.Branch(branch) {
-			if w.Owns(n.ID) || len(w.Missing(n)) > 0 || n.Effects.Identities > 0 {
-				continue // an exit plan (#49, identity) is a decision, not the next node: a policy that means to vanish owns it (Own)
+			if w.Owns(n.ID) || len(w.Missing(n)) > 0 || n.Effects.Identities > 0 || n.Effects.AutoBail {
+				// An exit plan (#49, identity) is a decision, not the next
+				// node: a policy that means to vanish owns it (Own). The
+				// bondsman (#230) bails what no scripted policy bails by
+				// hand, so buying it would change the policy, not the tree.
+				continue
 			}
 			if pick == nil || n.Cost < pick.Cost {
 				u := n
@@ -635,6 +639,33 @@ func Warlike(cfg *content.Config, lieLowAt float64, corners int, force events.Fo
 			_ = w.SendEnforcers(c.ID, force)
 		}
 	}
+}
+
+// Warlord plays like Crewed and declares war (#229) on the first
+// faction alive at home (Nearest) as soon as it has an enforcer on the
+// payroll and the faction holds a corner in a city it holds ground in,
+// and again on the next one once that war ends: the war order as the
+// scripted player plays it.
+func Warlord(cfg *content.Config, lieLowAt float64) Policy {
+	crewed := Crewed(cfg, lieLowAt)
+	return func(w *game.World) {
+		crewed(w)
+		if w.Over != nil || w.War != "" {
+			return
+		}
+		if r := Nearest(w); r != nil && r.Alive() {
+			_ = w.DeclareWar(r.Faction())
+		}
+	}
+}
+
+// NoWar returns a copy of cfg with the war order boxed (#229): the dial
+// blank, so a declared war sends nothing. A run that never declares one
+// is byte-for-byte the same on the file and under it.
+func NoWar(cfg *content.Config) *content.Config {
+	boxed := *cfg
+	boxed.Rivals.War = content.WarTuning{}
+	return &boxed
 }
 
 // RivalBooks is the rival's day as the rivals sim keeps it: what its
@@ -1036,6 +1067,21 @@ func Corrupt(cfg *content.Config, lieLowAt float64) Policy {
 			if _, live := w.Checkpoint(r.ID); !live && w.Player.DirtyCash >= CorruptMargin*price {
 				_ = w.BuyCheckpoint(r.ID, price, tun.CheckpointDays)
 			}
+		}
+	}
+}
+
+// Favoured plays like Corrupt and calls in the favour (#228) on every
+// morning the bought chief owes one and a sting, a raid or the task
+// force is due tonight (heat.Sim.Due): the corrupt player with the
+// phone call. It is the lever the favour is measured on.
+func Favoured(cfg *content.Config, lieLowAt float64) Policy {
+	corrupt := Corrupt(cfg, lieLowAt)
+	hs := heat.New(cfg)
+	return func(w *game.World) {
+		corrupt(w)
+		if due := hs.Due(w); w.CanCallFavour(due != "") {
+			_ = w.CallFavour(true)
 		}
 	}
 }

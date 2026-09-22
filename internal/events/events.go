@@ -432,9 +432,22 @@ type CornerStruck struct {
 	Routed  bool
 	Heat    float64
 	Toll    float64
+	War     bool // the war order's strike (#229), not the hand's
 }
 
 func (CornerStruck) Kind() string { return "CornerStruck" }
+
+// WarEnded is the war order ending on its own (#229): the faction is
+// gone, pays homage, or holds no corner left in a city you hold. Why
+// says which.
+type WarEnded struct {
+	Day     int
+	Rival   string
+	Faction string
+	Why     string
+}
+
+func (WarEnded) Kind() string { return "WarEnded" }
 
 // RivalTippedPolice is the rival calling the cops on the player: heat.
 type RivalTippedPolice struct {
@@ -956,7 +969,10 @@ func (ShipmentSeized) Kind() string { return "ShipmentSeized" }
 // enforcer who stood on a corner the police hit, the chemist after a
 // raid that took stock (Corner empty, the lab), or the driver of a
 // seized shipment (Route). Days is how long they are held; Bail what
-// walking them out costs in clean cash.
+// walking them out costs in clean cash. Sprung is the bondsman's
+// (#230): the bail was paid from clean cash the night of the arrest;
+// Short that the bondsman was owned and the clean account could not
+// cover it, so they sit.
 type CrewArrested struct {
 	Day        int
 	ID         int
@@ -969,17 +985,22 @@ type CrewArrested struct {
 	RouteName  string
 	Days       int
 	Bail       int
+	Sprung     bool
+	Short      bool
 }
 
 func (CrewArrested) Kind() string { return "CrewArrested" }
 
 // CrewBailed is report-only bookkeeping (#46): the clean cash the
-// player put down today for a member's release tomorrow.
+// player put down today for a member's release tomorrow. Who names
+// who paid when it was not the player's hand: "the lawyer" for the
+// bondsman's bail (#230), empty for a hand bail.
 type CrewBailed struct {
 	Day  int
 	ID   int
 	Name string
 	Cost int
+	Who  string
 }
 
 func (CrewBailed) Kind() string { return "CrewBailed" }
@@ -1122,6 +1143,56 @@ type DealEnded struct {
 }
 
 func (DealEnded) Kind() string { return "DealEnded" }
+
+// ClaimDeterred is report-only (#233): a faction rolled to set up on a
+// free corner in City tonight and your fear turned the roll (the roll
+// was under its chance and over the chance fear leaves it). The rivals
+// sim emits it off a roll it already makes; nothing new is rolled.
+type ClaimDeterred struct {
+	Day     int
+	City    string
+	Rival   string
+	Faction string
+}
+
+func (ClaimDeterred) Kind() string { return "ClaimDeterred" }
+
+// Taxed is report-only (#231): what the free corners of a city you
+// hold paid you tonight for the right to work them, and how many.
+type Taxed struct {
+	Day     int
+	City    string
+	Corners int
+	Amount  int
+}
+
+func (Taxed) Kind() string { return "Taxed" }
+
+// ReignBegan is the morning the city became yours for good (#227): every
+// faction at the table gone or paying homage for dominant_days, with
+// more than kingpin_share of home's corners held. Crews is how many pay
+// homage and Homage what they pay a night between them. The crown is
+// the player's to take from here (World.Crown); the run plays on until
+// they do.
+type ReignBegan struct {
+	Day    int
+	City   string
+	Crews  int
+	Homage int
+}
+
+func (ReignBegan) Kind() string { return "ReignBegan" }
+
+// ReignBroken is report-only (#227): the reign stopped holding this
+// morning, Why says how (a faction set up again, or the share fell),
+// and it can begin again.
+type ReignBroken struct {
+	Day  int
+	City string
+	Why  string
+}
+
+func (ReignBroken) Kind() string { return "ReignBroken" }
 
 // TributePaid is report-only bookkeeping: the day's tribute handed over.
 type TributePaid struct {
@@ -1390,9 +1461,24 @@ type BribeAccepted struct {
 	Share  float64
 	Odds   float64
 	Leads  int
+	Favour bool // the chief owes you one now (#228)
 }
 
 func (BribeAccepted) Kind() string { return "BribeAccepted" }
+
+// RaidFellThrough is the favour called in (#228): the response the
+// police would have made tonight in City (Level: sting, raid, the task
+// force, or the patrol the heat fell to) did not come. Nothing taken,
+// no heat lost, the cooldown started as if it had; the page the favour
+// costs is on HeatChanged's reasons.
+type RaidFellThrough struct {
+	Day      int
+	City     string
+	Level    string
+	Evidence int // the pages the favour cost this morning
+}
+
+func (RaidFellThrough) Kind() string { return "RaidFellThrough" }
 
 // BribeRefused is report-only bookkeeping (#42): the envelope was
 // pocketed and nothing changed. Why is short (under the price), quiet

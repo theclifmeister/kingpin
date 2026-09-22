@@ -221,12 +221,21 @@ func (m *Model) stopEvent(e events.Event) string {
 		return "the tunnel was found"
 	case events.Unlocked:
 		return unlockStop(ev)
+	case events.ReignBegan:
+		return "the city is yours" // the reign (#227)
+	case events.ReignBroken:
+		return "the reign is over: " + ev.Why
 	case events.RivalMovedIn:
 		return ev.Rival + " moved in on " + ev.Name
 	case events.RivalEyeing:
 		return ev.Rival + " is eyeing " + ev.Name
 	case events.CornerStruck:
+		if ev.War && !ev.Taken {
+			return "" // the war order's night that held (#229): the war runs on, a corner taken wants a runner
+		}
 		return "the strike on " + ev.Name
+	case events.WarEnded:
+		return "the war on " + ev.Rival + "'s crew is over"
 	case events.RivalBoosted:
 		if !ev.Taken {
 			return "the boost on " + ev.Name + " failed"
@@ -289,6 +298,8 @@ func (m *Model) stopEvent(e events.Event) string {
 	// the envelopes, and the day the phones stop.
 	case events.BribeBackfired:
 		return "the envelope came back"
+	case events.RaidFellThrough:
+		return "the " + favourWord(ev.Level) + " fell through" // the favour (#228)
 	case events.LeadsFiled:
 		return "the DA's file on your envelopes"
 	case events.OfficialsCold:

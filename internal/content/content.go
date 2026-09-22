@@ -203,8 +203,22 @@ type DialConfig struct {
 type CityConfig struct {
 	Territory TerritoryTuning `toml:"territory"`
 	Deed      DeedTuning      `toml:"deed"`
+	Tax       TaxTuning       `toml:"tax"`
 	Cities    []CityEntry     `toml:"city"`
 }
+
+// TaxTuning is city.toml [tax] (#231): once you hold more than Share of
+// a city's corners (and MinHeld at least), every corner nobody holds
+// there is worked by independents who pay you Cut of its trade a night
+// in dirty cash. Cut at 0 boxes it.
+type TaxTuning struct {
+	Share   float64 `toml:"share"`
+	Cut     float64 `toml:"cut"`
+	MinHeld int     `toml:"min_held"`
+}
+
+// On reports whether the tax is in the file.
+func (t TaxTuning) On() bool { return t.Cut > 0 && t.Share > 0 }
 
 // DeedTuning mirrors city.toml [deed] (#194): what buying the block a
 // corner is on costs and does. The price is Days of the corner's street
@@ -727,6 +741,7 @@ type RivalsConfig struct {
 	Poach       PoachTuning                  `toml:"poach"`
 	Factions    FactionsTuning               `toml:"factions"`
 	Endings     RivalEndingsTuning           `toml:"endings"`
+	War         WarTuning                    `toml:"war"`
 	Deal        map[string]DealConfig        `toml:"deal"`
 	Personality map[string]PersonalityConfig `toml:"personality"`
 	Force       map[string]ForceConfig       `toml:"force"`
@@ -962,6 +977,26 @@ var Personalities = []string{"expansionist", "defensive", "opportunist", "chaoti
 
 // ForceFor returns the tuning for a force dial position.
 func (r RivalsConfig) ForceFor(f events.Force) ForceConfig { return r.Force[f.String()] }
+
+// WarTuning is rivals.toml's [war] (#229): the dial the war order's
+// strikes go in at, warn, push or hit; anything else boxes the war
+// (harness.NoWar), so a run that never declares one is the run before.
+type WarTuning struct {
+	Dial string `toml:"dial"`
+}
+
+// Force is the dial as events.Force, and whether the table is on.
+func (w WarTuning) Force() (events.Force, bool) {
+	switch w.Dial {
+	case "warn":
+		return events.ForceWarn, true
+	case "push":
+		return events.ForcePush, true
+	case "hit":
+		return events.ForceHit, true
+	}
+	return 0, false
+}
 
 // DealKinds are the deals that can be proposed, in the order the UI
 // lists them. The joint shipment waits on routes (#30).
@@ -1240,6 +1275,8 @@ type BribeTuning struct {
 	CallsStopDays    int     `toml:"calls_stop_days"`
 	FixerOdds        float64 `toml:"fixer_odds"`
 	FixerDiscount    float64 `toml:"fixer_discount"`
+	FavoursMax       int     `toml:"favours_max"`     // the favour (#228): favours a bought chief can owe at once; 0 boxes it
+	FavourEvidence   int     `toml:"favour_evidence"` // pages the morning a favour is called in: the chief's name is in your ledger
 }
 
 // CampaignTuning is law.toml's [campaign] (#193): what clean cash behind
@@ -1465,6 +1502,7 @@ type UpgradeEffects struct {
 	SkillBonus         int     `toml:"skill_bonus"`
 	HireFeeMul         float64 `toml:"hire_fee_mul"`
 	StartLoyaltyBonus  int     `toml:"start_loyalty_bonus"`
+	AutoBail           bool    `toml:"auto_bail"` // the bondsman (#230): an arrest is bailed from clean cash the night it lands, when the cash covers it
 
 	// The laundering sim (#118).
 	WashMul        float64 `toml:"wash_mul"`
@@ -1493,6 +1531,7 @@ type HeadlinesConfig struct {
 	FlavourChance float64             `toml:"flavour_chance"`
 	Templates     map[string][]string `toml:"templates"`
 	Flavour       []string            `toml:"flavour"`
+	Swagger       []string            `toml:"swagger"` // the boss's headlines (#233): flavour that names you, while the city is yours
 }
 
 // DilemmasConfig mirrors dilemmas.toml: the cards and their pacing.

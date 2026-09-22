@@ -643,3 +643,87 @@ func TestBribes(t *testing.T) {
 	}
 	t.Fatal("60 elections at pressure 100 and no law-and-order winner")
 }
+
+// The favour (#228): a chief's envelope that takes leaves the chief
+// owing one, to favours_max; a lazy chief's too; a backfire and a
+// short envelope owe nothing; and the cold day zeroes it with the
+// bribe. A run with favours_max at 0 grants none.
+func TestColdDAKillsTheFavour(t *testing.T) {
+	cfg := content.MustLoad()
+	s := law.New(cfg)
+	tun := cfg.Law.Bribes
+	pay := func(w *game.World, amount int) *game.Tick {
+		if err := w.Bribe(game.BribeChief, amount); err != nil {
+			t.Fatal(err)
+		}
+		tk := tick(w, w.Day+1)
+		s.Step(w, tk)
+		w.Day++
+		w.ClearToday(w.Day)
+		return tk
+	}
+	fresh := func(chief string) *game.World {
+		w := sim.NewWorld(cfg, 8)
+		w.Player.DirtyCash = 10_000_000
+		w.Law.Chief.Personality, w.Law.DA.Stance = chief, "moderate"
+		return w
+	}
+	w := fresh("corrupt")
+	pay(w, tun.ChiefPrice-1)
+	if w.Law.Favours != 0 {
+		t.Fatalf("a short envelope owes: %+v", w.Law)
+	}
+	tk := pay(w, tun.ChiefPrice)
+	var acc *events.BribeAccepted
+	for _, e := range tk.Events() {
+		if ev, ok := e.(events.BribeAccepted); ok {
+			acc = &ev
+		}
+	}
+	if w.Law.Favours != 1 || acc == nil || !acc.Favour {
+		t.Fatalf("a corrupt chief's envelope: favours %d event %+v", w.Law.Favours, acc)
+	}
+	tk = pay(w, tun.ChiefPrice)
+	for _, e := range tk.Events() {
+		if ev, ok := e.(events.BribeAccepted); ok && ev.Favour {
+			t.Fatalf("a second favour over favours_max: %+v", ev)
+		}
+	}
+	if w.Law.Favours != tun.FavoursMax {
+		t.Fatalf("favours %d over the cap %d", w.Law.Favours, tun.FavoursMax)
+	}
+	// The cold: a law-and-order DA took office; on the cold day the
+	// favour goes with the bribe.
+	w.Law.DA.Stance = "law_and_order"
+	w.Law.Cold = w.Day + 1
+	tk = tick(w, w.Day+1)
+	s.Step(w, tk)
+	w.Day++
+	if w.Law.Favours != 0 || w.Law.ChiefBought != 0 {
+		t.Fatalf("the cold day: %+v", w.Law)
+	}
+	if err := w.CallFavour(true); err != game.ErrOfficialsCold {
+		t.Fatalf("a call under the cold: %v", err)
+	}
+	w = fresh("zealous")
+	pay(w, tun.ChiefPrice)
+	if w.Law.Favours != 0 {
+		t.Fatalf("a backfire owes: %+v", w.Law)
+	}
+	w = fresh("lazy")
+	pay(w, tun.ChiefPrice)
+	if w.Law.Favours != 1 {
+		t.Fatalf("a lazy chief owes nothing: %+v", w.Law)
+	}
+	boxed := *cfg
+	boxed.Law.Bribes.FavoursMax = 0
+	s = law.New(&boxed)
+	w = fresh("corrupt")
+	pay(w, tun.ChiefPrice)
+	if w.Law.Favours != 0 {
+		t.Fatalf("favours with favours_max at 0: %+v", w.Law)
+	}
+	if err := w.CallFavour(true); err != game.ErrNoFavour {
+		t.Fatalf("a call with nothing owed: %v", err)
+	}
+}

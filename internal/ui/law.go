@@ -6,6 +6,7 @@ import (
 
 	tea "github.com/charmbracelet/bubbletea"
 
+	"github.com/theclifmeister/kingpin/internal/content"
 	"github.com/theclifmeister/kingpin/internal/game"
 	"github.com/theclifmeister/kingpin/internal/ui/theme"
 )
@@ -316,3 +317,71 @@ func (m *Model) viewCampaign(c *game.City) string {
 
 // lawReportStyle is the colour the report's LAW section is printed in.
 var lawReportStyle = theme.LawText
+
+// The favour (#228, docs/law.md): v on the ledger calls in the favour a
+// bought chief owes, after asking. It is open on a morning a sting, a
+// raid or the task force is due tonight (heat.Sim.Due) while the chief
+// owes one and the officials are not cold; the response then falls
+// through and the DA's file gains a page.
+
+// favourDue is the response due tonight, for the favour: "" for none.
+func (m *Model) favourDue() string { return m.set.Heat.Due(m.w) }
+
+// favourWord is a response level in words for the dialog.
+func favourWord(level string) string {
+	if level == content.TaskForce {
+		return "task force"
+	}
+	return level
+}
+
+// askFavour opens the confirmation, or refuses with why the call
+// cannot be made.
+func (m *Model) askFavour() {
+	w := m.w
+	if w.Over != nil {
+		return
+	}
+	due := m.favourDue()
+	switch {
+	case w.Cold():
+		m.refuse("Can't call in the favour: nobody takes a call while a law-and-order DA sits.")
+	case w.FavourCalled():
+		m.refuse("The call is made: whatever was coming tonight will not come.")
+	case w.Law.Favours <= 0:
+		m.refuse(fmt.Sprintf("Can't call in the favour: Chief %s owes you nothing. A bribe that takes leaves them owing one.", w.Law.Chief.Name))
+	case due == "":
+		m.refuse("Can't call in the favour: nothing is coming tonight that a call could stop. Keep it for a raid.")
+	default:
+		m.ask("call favour", (*Model).favourConfirm, (*Model).confirmFavour)
+	}
+}
+
+// favourConfirm is the confirmation's body.
+func (m *Model) favourConfirm() string {
+	w := m.w
+	due := m.favourDue()
+	body := m.wrapLines(fmt.Sprintf("Chief %s's people stand down tonight and the %s due%s does not come. Nothing taken, nothing cooled: the heat stays where it is and the rung stands when its cooldown lifts.", w.Law.Chief.Name, favourWord(due), m.favourWhere()))
+	body = append(body, "")
+	body = append(body, m.subtle(fmt.Sprintf("The price: the chief's name is in your ledger, and the DA's file grows by %d tomorrow. Favours left after this: %d.", m.set.Law.Bribes().FavourEvidence, max(0, w.Law.Favours-1)))...)
+	return m.modal("CALL IN THE FAVOUR?", body, m.modalFooter())
+}
+
+// favourWhere names the city whose police answer tonight when it is
+// not the one you stand in.
+func (m *Model) favourWhere() string {
+	if hot := m.set.Heat.Hottest(m.w); hot != nil && hot.ID != m.w.Here().ID {
+		return " in " + hot.Name
+	}
+	return ""
+}
+
+// confirmFavour makes the call.
+func (m *Model) confirmFavour() {
+	m.mode = modePlay
+	if err := m.w.CallFavour(m.favourDue() != ""); err != nil {
+		m.refuse("Can't call in the favour: " + err.Error() + ".")
+		return
+	}
+	m.say(fmt.Sprintf("The call is made. Chief %s's people stand down tonight.", m.w.Law.Chief.Name))
+}

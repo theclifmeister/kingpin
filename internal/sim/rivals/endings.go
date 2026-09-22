@@ -26,11 +26,30 @@ func (s *Sim) endings(w *game.World, t *game.Tick) {
 	// homage deal's Since), so no counter. The share is what makes it a
 	// reign and not the weather: #44's rival_leader_killed empties a
 	// table over a quiet trader on a corner in a year on a seed in six,
-	// and a city nobody holds has no kingpin.
-	if tun.DominantDays > 0 && s.HoldsTheCity(w) && w.Dominant() && t.Day-s.DominantSince(w) >= tun.DominantDays {
-		w.Over = w.End(content.CauseKingpin, t.Day, "")
-		t.Emit(events.GameOver{Day: t.Day, Cause: content.CauseKingpin})
-		return
+	// and a city nobody holds has no kingpin. Since #227 the detector
+	// stamps the reign (World.Reign, the morning it begins, ReignBegan)
+	// instead of ending the run: the crown is the player's to take from
+	// the walk-away dialog (World.Crown) while it holds, and the morning
+	// it stops holding (a faction set up again, the share fell) the
+	// stamp zeroes (ReignBroken) and it can begin again. A run that
+	// never reaches it is the run before.
+	if tun.DominantDays > 0 {
+		held, dominant := s.HoldsTheCity(w), w.Dominant()
+		switch {
+		case held && dominant && t.Day-s.DominantSince(w) >= tun.DominantDays:
+			if w.Reign == 0 {
+				w.Reign = t.Day
+				crews, homage := w.HomageDeals()
+				t.Emit(events.ReignBegan{Day: t.Day, City: w.Home().ID, Crews: crews, Homage: homage})
+			}
+		case w.Reign != 0:
+			why := "a crew set up again"
+			if !held {
+				why = "the city slipped under the share"
+			}
+			w.Reign = 0
+			t.Emit(events.ReignBroken{Day: t.Day, City: w.Home().ID, Why: why})
+		}
 	}
 	// Taken out: a faction's push took the last corner you held
 	// anywhere tonight, its war with you is open, and the enforcers on

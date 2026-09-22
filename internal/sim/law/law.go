@@ -263,7 +263,13 @@ func (s *Sim) bribes(w *game.World, t *game.Tick) {
 				}
 				l.ChiefBought = from + tun.BribeDays
 				l.ChiefShare = share
-				t.Emit(events.BribeAccepted{Day: t.Day, Target: b.Target, Amount: b.Amount, Until: l.ChiefBought, Share: share, Leads: l.Leads + 1})
+				// The favour (#228): a chief whose envelope takes owes
+				// you one, to favours_max; a backfire owes nothing.
+				favour := tun.FavoursMax > 0 && l.Favours < tun.FavoursMax
+				if favour {
+					l.Favours++
+				}
+				t.Emit(events.BribeAccepted{Day: t.Day, Target: b.Target, Amount: b.Amount, Until: l.ChiefBought, Share: share, Leads: l.Leads + 1, Favour: favour})
 				lead()
 			}
 		case game.BribeDA:
@@ -300,6 +306,7 @@ func (s *Sim) bribes(w *game.World, t *game.Tick) {
 			}
 		}
 		l.ChiefBought, l.ChiefShare, l.DABought = 0, 0, 0
+		l.Favours = 0 // the cold kills the favour with the bribe (#228)
 		if ev.Chief || ev.Bought || len(ev.Routes) > 0 {
 			t.Emit(ev)
 		}

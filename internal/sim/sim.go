@@ -165,8 +165,9 @@ func NewWorldWith(cfg *content.Config, seed uint64, start game.Start) *game.Worl
 // applyStart puts a character's start on the world on day 0.
 func applyStart(cfg *content.Config, w *game.World, cs *crew.Sim, s content.StartConfig) {
 	dice := (&game.Tick{Day: 0, Seed: w.Seed}).Sub("character")
+	var joined []game.CrewMember
 	for _, role := range s.Crew {
-		cs.Join(w, role, dice)
+		joined = append(joined, cs.Join(w, role, dice))
 	}
 	for _, id := range s.Upgrades {
 		grant(cfg.Upgrades, w, id)
@@ -179,6 +180,19 @@ func applyStart(cfg *content.Config, w *game.World, cs *crew.Sim, s content.Star
 		}
 		_ = w.Travel(s.City)
 		_ = w.Post(s.Corner, game.You)
+	}
+	// The corners held on day 0 (#232): yours from the start, the start
+	// crew posted on them in order (a runner works one, an enforcer
+	// guards one; a corner nobody works drifts as any does).
+	for i, id := range s.Corners {
+		c := w.Corner(id)
+		if c == nil || c.Owner == game.OwnerRival {
+			continue
+		}
+		c.Owner, c.Faction, c.Since, c.Idle = game.OwnerPlayer, "", 0, 0
+		if i < len(joined) {
+			_ = w.Post(id, joined[i].ID)
+		}
 	}
 	r := &w.Player.Reputation
 	r.Fear, r.Respect, r.Notoriety = s.Reputation.Fear, s.Reputation.Respect, s.Reputation.Notoriety

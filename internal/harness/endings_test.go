@@ -87,13 +87,15 @@ func scenarios() []scenario {
 		{content.CauseKingpin, 60, func(cfg *content.Config) *content.Config { return NoLife(Factions(cfg, 3)) }, func(cfg *content.Config, w *game.World) {
 			// Every faction fallen on day 1 (#43's TestDominantScripted
 			// with the last leader taken too), and the city held: six
-			// of home's ten corners with a runner on each.
+			// of home's ten corners with a runner on each. The reign
+			// begins on day 15 (#227) and the crown is taken the same
+			// morning (Crowned).
 			for _, r := range w.Rivals {
 				r.Arrived, r.Fragmented = 1, 1
 			}
 			w.Player.DirtyCash = 500_000
 			runners(w, 6)
-		}, func(*content.Config) Policy { return Idle }},
+		}, func(*content.Config) Policy { return Crowned(Idle) }},
 		{content.CauseBetrayed, 5, func(cfg *content.Config) *content.Config { return NoLife(OneFaction(cfg)) }, func(cfg *content.Config, w *game.World) {
 			// A lieutenant runs home with every corner you hold there,
 			// four of them, and turns tonight: under the flip line, over
@@ -376,5 +378,65 @@ func TestScoreIsTheAccount(t *testing.T) {
 	}
 	if !sort.SliceIsSorted(scores, func(i, j int) bool { return scores[i] > scores[j] }) {
 		t.Errorf("the bodies do not divide the score: %v", scores)
+	}
+}
+
+// Crowned wraps a policy with the crown (#227): the morning the reign
+// is on (World.CanCrown) it takes it, ending the run a kingpin the way
+// the detector did before the reign was the player's to live.
+func Crowned(policy Policy) Policy {
+	return func(w *game.World) {
+		if w.CanCrown() {
+			_ = w.Crown()
+			return
+		}
+		policy(w)
+	}
+}
+
+// TestCrownIsTheScoreAsItStands (#227): on the kingpin scenario, taking
+// the crown k days after the reign begins never raises the score (the
+// account over one plus the bodies, as TestRetireeRetires pins for the
+// retiree); the reign is lived, and the summary's day is the crown's.
+func TestCrownIsTheScoreAsItStands(t *testing.T) {
+	t.Parallel()
+	var sc scenario
+	for _, s := range scenarios() {
+		if s.cause == content.CauseKingpin {
+			sc = s
+		}
+	}
+	cfg := sc.cfg(content.MustLoad())
+	var first int
+	for _, k := range []int{0, 10, 30} {
+		w := sim.NewWorld(cfg, 1)
+		sc.world(cfg, w)
+		w.Offshore = 1_200_000
+		waited := 0
+		res, err := RunFrom(cfg, w, 120, func(w *game.World) {
+			if w.CanCrown() {
+				if waited < k {
+					waited++
+					return
+				}
+				_ = w.Crown()
+			}
+		})
+		if err != nil {
+			t.Fatal(err)
+		}
+		if res.Over == nil || res.Over.Cause != content.CauseKingpin {
+			t.Fatalf("k=%d: the run ended %+v", k, res.Over)
+		}
+		if k == 0 {
+			first = res.World.Stats.Score
+		}
+		if res.World.Reign == 0 || res.Over.Day != res.World.Reign+k || res.World.ReignDay() != k+1 {
+			t.Fatalf("k=%d: crowned on day %d with the reign from day %d (day %d of it)", k, res.Over.Day, res.World.Reign, res.World.ReignDay())
+		}
+		if res.World.Stats.Score > first {
+			t.Errorf("k=%d: score %d, over the crown taken at once (%d): playing the reign on paid", k, res.World.Stats.Score, first)
+		}
+		t.Logf("k=%d: crowned on day %d, day %d of the reign, score %d", k, res.Over.Day, res.World.ReignDay(), res.World.Stats.Score)
 	}
 }

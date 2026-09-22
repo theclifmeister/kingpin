@@ -3,6 +3,18 @@
 
 flavour_chance = 0.35
 
+# The boss's headlines (#233): flavour that names you, rolled at
+# flavour_chance off Tick.Sub("swagger") only while the city is yours in
+# the kingpin's sense, so the home stream never moves. .Title is what
+# the paper calls you: the boss of Eastside here, a crew or a dealer
+# elsewhere.
+swagger = [
+  "Op-ed: {{.City}} has {{.Title}} now, and everybody on the street knows the name",
+  "Council member asks who {{.Title}} answers to; nobody answers",
+  "Word on the corners: {{.Title}} pays better than the city does",
+  "Profile: {{.Title}}, the name nobody in {{.City}} says out loud",
+]
+
 flavour = [
   "Mayor cuts ribbon on new {{.City}} community centre",
   "Local team wins; {{.City}} bars packed",
@@ -288,9 +300,21 @@ FactionTook = [
   "{{.Corner}} changes hands: {{.Name}} out, {{.Rival}} in",
   "{{.City}} turf war: {{.Rival}}'s people now hold {{.Corner}}",
 ]
+# The war order (#229): the night it ends on its own.
+WarEnded = [
+  "{{.City}}'s turf war ends: {{.Rival}}'s crew 'has nothing left to hold'",
+  "Quiet on the corners at last; police say {{.Rival}}'s people 'are done'",
+  "The war for {{.City}}'s blocks is over, and everyone knows who won",
+]
 RivalAbsorbed = [
   "{{.Rival}}'s outfit folds; what is left runs with {{.Name}} now",
   "End of the line for {{.Rival}}'s crew: absorbed by {{.Name}}'s",
+]
+# The reign (#227): the morning the city became yours for good.
+ReignBegan = [
+  "Every crew in {{.City}} answers to one name now, police sources say",
+  "{{.City}} has a boss: 'the last of them bowed this week'",
+  "Task force memo leaked: '{{.City}}'s trade is one organisation'",
 ]
 RivalScattered = [
   "{{.Rival}}'s crew scatters; 'nothing left to hold', says one",
@@ -459,6 +483,12 @@ ChiefReplacedCampaign = [
 # and pressure count them); the day the phones stop is the law's.
 # BribeAccepted, BribeRefused, LeadFound and CheckpointBought are
 # report-only: nobody prints a bribe that worked.
+# The favour (#228): the response that did not come.
+RaidFellThrough = [
+  "Raid in {{.City}} called off at the last minute, sources say",
+  "{{.City}} police pulled back from a planned operation overnight; Chief {{.Chief}} 'reviewing priorities'",
+  "'Somebody made a call': {{.City}} officers sent home hours before a bust",
+]
 BribeBackfired = [
   "{{.Name}} turns over 'an attempted inducement' to the DA; {{.City}} outfit named in the complaint",
   "{{.City}}: envelope handed to {{.Name}} ends up in an evidence bag, and a name with it",

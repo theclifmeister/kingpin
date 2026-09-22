@@ -123,6 +123,11 @@ func (m *Model) streetLines(innerW, maxLines int, narrow, withRoad bool) []strin
 	if w.Worked() == 0 {
 		corners.s = theme.Bad.Render("You hold no corner, so nothing sells. Claim one " + screenPointer(screenMap) + ".")
 	}
+	if w.Reign > 0 {
+		// The city is yours (#227): on the corners' fact, the one the
+		// panel never drops, since the tier's is the first to go.
+		corners.s += theme.Gold.Render(fmt.Sprintf(" · reign d%d", w.ReignDay()))
+	}
 	tier := fact{theme.Subtle.Render("tier " + w.TierName(m.cfg.Progression)), priTier}
 	if w.StagePending() > 0 {
 		// The stage not yet seen (#149) is marked the way the Journal tab
@@ -166,6 +171,14 @@ func (m *Model) streetLines(innerW, maxLines int, narrow, withRoad bool) []strin
 		if c := w.Corner(s.Corner); c != nil {
 			topic(fact{theme.Warning.Render(fmt.Sprintf("Enforcers go to %s tonight: %s.", c.Name, s.Force)), priStrike})
 		}
+	} else if r := w.Faction(w.War); w.War != "" && r != nil {
+		// The war order (#229): where the enforcers go tonight on it.
+		line := fmt.Sprintf("War on %s: nowhere to go tonight.", m.rivalName(r))
+		if c := m.set.Rivals.WarTarget(w, r); c != nil {
+			force, _ := m.cfg.Rivals.War.Force()
+			line = fmt.Sprintf("War on %s: enforcers go to %s tonight, %s.", m.rivalName(r), c.Name, force)
+		}
+		topic(fact{theme.Warning.Render(line), priStrike})
 	}
 
 	var last string
@@ -418,8 +431,17 @@ func (m *Model) lawLines(innerW int, narrow bool) []string {
 	} else {
 		chief += theme.Subtle.Render("new")
 	}
+	// The favour (#228) before the days left: the debt is what you act
+	// on, the term what you wait for.
+	owes := ""
+	if l.Favours > 0 && !w.Cold() {
+		owes = sep + theme.Good.Render("owes one")
+	}
 	if end := m.set.Law.ChiefTermEnds(w); end > 0 && !narrow {
-		chief = firstFit(innerW, chief+sep+theme.Subtle.Render(fmt.Sprintf("%dd left", max(0, end-w.Day))), chief)
+		left := sep + theme.Subtle.Render(fmt.Sprintf("%dd left", max(0, end-w.Day)))
+		chief = firstFit(innerW, chief+owes+left, chief+owes, chief+left, chief)
+	} else {
+		chief = firstFit(innerW, chief+owes, chief)
 	}
 	// The ticket is spelt out where the line has the room for it and
 	// the election, and law-order where it does not; the election goes
@@ -642,6 +664,22 @@ func (m *Model) alerts() []alert {
 	}
 	if line := m.retireLine(); line != "" {
 		out = append(out, newAlert(line, "retirement"))
+	}
+	// The favour (#228): the chief owes you one and the police come
+	// tonight; keyed on the response due, so F stops once a night it
+	// could be called.
+	if due := m.favourDue(); w.CanCallFavour(due != "") {
+		out = append(out, newAlert(theme.Warning.Render(fmt.Sprintf("Chief %s owes you one and the %s comes tonight: call it in %s.", w.Law.Chief.Name, favourWord(due), screenPointer(screenLedger))), "the favour on the "+due))
+	}
+	// The reign (#227): the city is yours and the crown is there to take;
+	// keyed once, so a fast-forward stops the morning it begins.
+	if w.Reign > 0 {
+		crews, homage := w.HomageDeals()
+		who := "every crew gone"
+		if crews > 0 {
+			who = fmt.Sprintf("%s paying %s a night", plural(crews, "crew"), money(homage))
+		}
+		out = append(out, newAlert(theme.Gold.Render(fmt.Sprintf("The city is yours: day %d of the reign, %s. Take the crown or play on.", w.ReignDay(), who)), "the city is yours"))
 	}
 	return out
 }
@@ -873,6 +911,7 @@ func (m *Model) dashboardDetails() []section {
 		}
 	}
 	secs = append(secs, section{"ALERTS", m.alertLines(paneTextW, 8)})
+	secs = append(secs, m.nameSection()...) // what your name buys (#233), after what needs you
 	return secs
 }
 

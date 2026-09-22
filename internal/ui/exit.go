@@ -9,20 +9,21 @@ import (
 	"github.com/theclifmeister/kingpin/internal/ui/theme"
 )
 
-// The exits (#49, docs/endings.md): w on the ledger opens the walk-away
-// dialog, one modal with two pages that asks twice. The first page is
-// the two ways out with their terms and whether each is open: retiring
-// on the offshore account (#195: retire_cash in the account and
-// retire_days quiet in a row) and vanishing on a new identity (the
-// tree's identity node). enter on an open one turns to the second page,
-// the confirmation, and y ends the run there and then: the ending is
-// written through World.Retire or World.Vanish, the run saves, and
-// modeOver opens on the ending's scene as a morning would.
+// The exits (#49, docs/endings.md): w on the dashboard opens the
+// walk-away dialog, one modal with two pages that asks twice. The first
+// page is the three ways out with their terms and whether each is open:
+// retiring on the offshore account (#195: retire_cash in the account and
+// retire_days quiet in a row), vanishing on a new identity (the tree's
+// identity node) and taking the crown (#227: the reign on, World.Reign).
+// enter on an open one turns to the second page, the confirmation, and
+// y ends the run there and then: the ending is written through
+// World.Retire, World.Vanish or World.Crown, the run saves, and modeOver
+// opens on the ending's scene as a morning would.
 
 // exitDialog is the walk-away dialog's state: the page and the row.
 type exitDialog struct {
 	stepper
-	cursor int // 0 retire, 1 vanish
+	cursor int // 0 retire, 1 vanish, 2 the crown
 }
 
 func (d *exitDialog) field() *numberField { return nil }
@@ -55,7 +56,13 @@ func (m *Model) exitRows() []exitRow {
 	if !vanish.open {
 		vanish.short = "no new identity"
 	}
-	return []exitRow{retire, vanish}
+	crown := exitRow{cause: content.CauseKingpin, name: "Take the crown", terms: "the city yours: every crew gone or paying", open: w.CanCrown()}
+	if crown.open {
+		crown.terms = fmt.Sprintf("day %d of the reign", w.ReignDay())
+	} else {
+		crown.short = "the city is not yours"
+	}
+	return []exitRow{retire, vanish, crown}
 }
 
 // askExit opens the dialog on its first page.
@@ -136,6 +143,8 @@ func (m *Model) confirmExit() {
 	switch r.cause {
 	case content.CauseRetired:
 		err = m.set.Laundering.Retire(m.w)
+	case content.CauseKingpin:
+		err = m.w.Crown()
 	default:
 		err = m.w.Vanish(game.FoldEffects(m.w, m.cfg.Upgrades))
 	}
@@ -171,6 +180,9 @@ func (m *Model) viewExit() string {
 	switch r.cause {
 	case content.CauseRetired:
 		body = m.wrapLines(fmt.Sprintf("Retire on %s offshore, %s quiet. Nobody comes looking. The run ends now, on day %d.", money(w.Offshore), plural(w.QuietDays, "day"), w.Day))
+	case content.CauseKingpin:
+		crews, homage := w.HomageDeals()
+		body = m.wrapLines(fmt.Sprintf("Take the crown on day %d of the reign: %s paying homage, %s a night, %s offshore. The city stays yours in the epilogue; the run ends now, on day %d.", w.ReignDay(), plural(crews, "crew"), money(homage), money(w.Offshore), w.Day))
 	default:
 		body = m.wrapLines(fmt.Sprintf("Vanish on the new identity with %s offshore. The DA keeps looking; the papers are good. The run ends now, on day %d.", money(w.Offshore), w.Day))
 	}
@@ -183,6 +195,7 @@ func (m *Model) viewExit() string {
 func exitConfirming(m *Model) bool { return m.mode == modeExit && m.exit.step == 1 }
 
 // exitRetiring is the confirmation being retirement's; exitVanishing
-// the identity's.
+// the identity's; exitCrowning the crown's (#227).
 func exitRetiring(m *Model) bool  { return exitConfirming(m) && m.exit.cursor == 0 }
 func exitVanishing(m *Model) bool { return exitConfirming(m) && m.exit.cursor == 1 }
+func exitCrowning(m *Model) bool  { return exitConfirming(m) && m.exit.cursor == 2 }

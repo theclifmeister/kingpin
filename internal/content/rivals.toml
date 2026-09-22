@@ -383,6 +383,17 @@ homage_chance = 0.25
 # betrayed the night a faction breaks a deal with you of its own accord
 # (a chaotic one's whim) while another faction's war with you is over
 # betray_war. Zero boxes each; the harness's NoEndings boxes all three.
+# The war order (#229, World.DeclareWar, rivals.Sim.WarTarget): enforcers
+# as a standing order against one faction. Every night the hand sends no
+# strike, the rivals sim sends the hand's strike at this dial on the
+# faction's corner nearest your front line, with the same roll, heat,
+# loyalty toll, fear and notoriety, so the war is exactly the strikes the
+# hand would have sent; it ends the night the faction is gone, pays
+# homage or holds no corner in a city you hold. A dial that is not warn,
+# push or hit boxes it (harness.NoWar).
+[war]
+dial = "hit"
+
 [endings]
 dominant_days = 14
 kingpin_share = 0.5

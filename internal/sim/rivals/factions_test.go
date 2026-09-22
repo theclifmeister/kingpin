@@ -581,3 +581,249 @@ func TestAwayFactionLivesInTheOtherCity(t *testing.T) {
 		t.Fatal("six seeds at away = 1 seated nobody in Bayport")
 	}
 }
+
+// The reign (#227): the morning Dominant() has held dominant_days with
+// the city held, the sim stamps World.Reign and emits ReignBegan rather
+// than ending the run; the crown is open (CanCrown). A faction setting
+// up again (its homage ending) zeroes the stamp (ReignBroken), the
+// crown closes, and a new homage deal begins it again dominant_days
+// on; the run is never ended by the sim.
+func TestReignBreaks(t *testing.T) {
+	cfg := table(3)
+	cfg.Rivals.Factions.HomageChance = 0
+	w, s := world(t, cfg, 8)
+	f1, f2, f3 := w.Rivals[0], w.Rivals[1], w.Rivals[2]
+	days := cfg.Rivals.Endings.DominantDays
+	// The city held: more than kingpin_share of home's corners with a
+	// runner on each; f2 and f3 gone, f1 on one corner paying homage.
+	home := w.Home()
+	n := int(cfg.Rivals.Endings.KingpinShare*float64(len(home.Corners))) + 1
+	for i := 0; i < n; i++ {
+		c := &home.Corners[i]
+		c.Owner, c.Faction, c.Runner, c.Since = game.OwnerPlayer, "", 1, 1
+	}
+	seat(w, f1, home.Corners[len(home.Corners)-1].ID, 2)
+	f1.Cash = 10_000_000
+	f2.Arrived, f2.Absorbed = 1, 1
+	f3.Arrived, f3.Fragmented = 1, 1
+	w.Day = 20
+	f1.Deals = append(f1.Deals, game.Deal{Kind: game.DealHomage, Terms: game.Terms{PerDay: 100}, Since: w.Day, Faction: f1.Faction()})
+	if !w.Dominant() || !s.HoldsTheCity(w) || w.CanCrown() {
+		t.Fatalf("dominant %v holds %v crown %v", w.Dominant(), s.HoldsTheCity(w), w.CanCrown())
+	}
+	var began *events.ReignBegan
+	for w.Day-20 <= days+2 && began == nil {
+		evs := step(w, s)
+		began = find[events.ReignBegan](evs)
+		if w.Over != nil {
+			t.Fatalf("the sim ended the run: %+v", w.Over)
+		}
+	}
+	if began == nil || w.Reign != w.Day || w.Day-20 != days || !w.CanCrown() || began.Crews != 1 || began.Homage != 100 {
+		t.Fatalf("the reign: began %+v, Reign %d on day %d (dominant since %d), crown %v", began, w.Reign, w.Day, s.DominantSince(w), w.CanCrown())
+	}
+	if w.ReignDay() != 1 {
+		t.Fatalf("day %d of the reign on its first morning", w.ReignDay())
+	}
+	evs := step(w, s)
+	if find[events.ReignBegan](evs) != nil || w.Reign != w.Day-1 || w.ReignDay() != 2 {
+		t.Fatalf("the second morning: %v, Reign %d, day %d of it", kinds(evs), w.Reign, w.ReignDay())
+	}
+	// f1's homage ends (it sets up again): the reign breaks.
+	f1.Deals = nil
+	evs = step(w, s)
+	broke := find[events.ReignBroken](evs)
+	if broke == nil || w.Reign != 0 || w.CanCrown() || broke.Why != "a crew set up again" {
+		t.Fatalf("the reign did not break: %+v Reign %d crown %v", broke, w.Reign, w.CanCrown())
+	}
+	if err := w.Crown(); err != game.ErrNoReign {
+		t.Fatalf("the crown with no reign: %v", err)
+	}
+	// A new homage deal, and dominant_days on it begins again.
+	f1.Deals = append(f1.Deals, game.Deal{Kind: game.DealHomage, Terms: game.Terms{PerDay: 100}, Since: w.Day, Faction: f1.Faction()})
+	from := w.Day
+	began = nil
+	for w.Day-from <= days+2 && began == nil {
+		began = find[events.ReignBegan](step(w, s))
+	}
+	if began == nil || w.Day-from != days || !w.CanCrown() {
+		t.Fatalf("the reign did not begin again: %+v on day %d from %d", began, w.Day, from)
+	}
+	// The share falling breaks it too.
+	home.Corners[0].Owner, home.Corners[0].Runner = game.OwnerNone, 0
+	broke = find[events.ReignBroken](step(w, s))
+	if broke == nil || broke.Why != "the city slipped under the share" || w.Reign != 0 {
+		t.Fatalf("the share: %+v Reign %d", broke, w.Reign)
+	}
+	// And the crown, taken while it holds, is the kingpin ending.
+	home.Corners[0].Owner, home.Corners[0].Runner = game.OwnerPlayer, 1
+	f1.Deals[0].Since = w.Day - days
+	if find[events.ReignBegan](step(w, s)) == nil || !w.CanCrown() {
+		t.Fatal("the reign did not begin on the stamp")
+	}
+	if err := w.Crown(); err != nil || w.Over == nil || w.Over.Cause != content.CauseKingpin || w.Over.Day != w.Day {
+		t.Fatalf("the crown: %v %+v", err, w.Over)
+	}
+}
+
+// The war order (#229): declared on a faction, the sim sends the hand's
+// strike every night the hand sends none, at the file's dial on the
+// faction's corner nearest your front line (WarTarget: bordering yours
+// first, the biggest first), with CornerStruck.War set; a hand's strike
+// takes the night instead; the war ends on its own the night the
+// faction is gone, pays homage or holds no corner in a city you hold,
+// and never writes Over; boxed (NoWar's dial) it sends nothing.
+func TestWarEndsWhenTheFactionFolds(t *testing.T) {
+	cfg := table(2)
+	force, on := cfg.Rivals.War.Force()
+	if !on || force != events.ForceHit {
+		t.Fatalf("the file's war dial: %v %v", force, on)
+	}
+	w, s := world(t, cfg, 5)
+	f1, f2 := w.Rivals[0], w.Rivals[1]
+	home := w.Home()
+	// You on the first corner, f1 on two: one bordering yours, one not.
+	you := &home.Corners[0]
+	you.Owner, you.Runner, you.Since = game.OwnerPlayer, 1, 1
+	var next, far *game.Corner
+	for i := range home.Corners {
+		c := &home.Corners[i]
+		if c.ID == you.ID {
+			continue
+		}
+		if c.Borders(*you) && next == nil {
+			next = c
+		} else if !c.Borders(*you) && far == nil {
+			far = c
+		}
+	}
+	seat(w, f1, next.ID, 6)
+	seat(w, f1, far.ID, 6)
+	f1.Muscle, f1.Cash = 6, 1_000_000
+	f2.Arrived, f2.Absorbed = 1, 1
+	w.Day = 10
+	if err := w.DeclareWar(f1.Faction()); err != nil {
+		t.Fatal(err)
+	}
+	if err := w.DeclareWar(f1.Faction()); err != game.ErrAtWar {
+		t.Fatalf("a second war: %v", err)
+	}
+	if c := s.WarTarget(w, f1); c == nil || c.ID != next.ID {
+		t.Fatalf("the target is %+v, want the corner on your front line %s", c, next.ID)
+	}
+	evs := step(w, s)
+	struck := find[events.CornerStruck](evs)
+	if struck == nil || !struck.War || struck.Corner != next.ID || struck.Force != events.ForceHit || w.Stats.Strikes != 1 || f1.LastStruck != w.Day {
+		t.Fatalf("the war's first night: %+v strikes %d", struck, w.Stats.Strikes)
+	}
+	if w.Over != nil {
+		t.Fatalf("the war ended the run: %+v", w.Over)
+	}
+	// A hand's strike takes the night: one strike, the hand's.
+	if err := w.SendEnforcers(far.ID, events.ForceWarn); err != nil {
+		t.Fatal(err)
+	}
+	evs = step(w, s)
+	w.Today.Strike = nil
+	n := 0
+	for _, e := range evs {
+		if ev, ok := e.(events.CornerStruck); ok {
+			n++
+			if ev.War || ev.Corner != far.ID || ev.Force != events.ForceWarn {
+				t.Fatalf("the hand's night: %+v", ev)
+			}
+		}
+	}
+	if n != 1 {
+		t.Fatalf("%d strikes on the hand's night", n)
+	}
+	// The faction gone: the war ends on its own, with nothing to end.
+	f1.Fragmented = w.Day
+	evs = step(w, s)
+	ended := find[events.WarEnded](evs)
+	if ended == nil || ended.Faction != f1.Faction() || w.War != "" || find[events.CornerStruck](evs) != nil {
+		t.Fatalf("the war did not end with the faction gone: %+v war %q %v", ended, w.War, kinds(evs))
+	}
+	if err := w.CallOffWar(); err != game.ErrNoWar {
+		t.Fatalf("calling off no war: %v", err)
+	}
+	// No corner where you hold ground: refused, and ends a war that
+	// loses it. Homage ends it too.
+	w, s = world(t, cfg, 5)
+	f1, f2 = w.Rivals[0], w.Rivals[1]
+	f2.Arrived, f2.Absorbed = 1, 1
+	home = w.Home()
+	for i := range home.Corners {
+		if c := &home.Corners[i]; c.Held() {
+			c.Owner, c.Runner, c.Enforcer = game.OwnerNone, 0, 0
+		}
+	}
+	seat(w, f1, home.Corners[1].ID, 6)
+	if err := w.DeclareWar(f1.Faction()); err != game.ErrNothingToTake {
+		t.Fatalf("a war with no ground held: %v", err)
+	}
+	home.Corners[0].Owner, home.Corners[0].Runner = game.OwnerPlayer, 1
+	w.Day = 10
+	if err := w.DeclareWar(f1.Faction()); err != nil {
+		t.Fatal(err)
+	}
+	home.Corners[0].Owner, home.Corners[0].Runner = game.OwnerNone, 0
+	if ended := find[events.WarEnded](step(w, s)); ended == nil || w.War != "" {
+		t.Fatalf("the war did not end with no ground held: %+v", ended)
+	}
+	home.Corners[0].Owner, home.Corners[0].Runner = game.OwnerPlayer, 1
+	if err := w.DeclareWar(f1.Faction()); err != nil {
+		t.Fatal(err)
+	}
+	f1.Deals = append(f1.Deals, game.Deal{Kind: game.DealHomage, Terms: game.Terms{PerDay: 10}, Since: w.Day, Faction: f1.Faction()})
+	f1.Cash = 1_000_000
+	if ended := find[events.WarEnded](step(w, s)); ended == nil || ended.Why != "they pay you homage now" || w.War != "" {
+		t.Fatalf("the war did not end on homage: %+v", ended)
+	}
+	// Boxed: the dial off, the war sends nothing.
+	boxed := *cfg
+	boxed.Rivals.War.Dial = ""
+	w, s = world(t, &boxed, 5)
+	f1, f2 = w.Rivals[0], w.Rivals[1]
+	f2.Arrived, f2.Absorbed = 1, 1
+	home = w.Home()
+	home.Corners[0].Owner, home.Corners[0].Runner = game.OwnerPlayer, 1
+	seat(w, f1, home.Corners[1].ID, 6)
+	w.Day = 10
+	if err := w.DeclareWar(f1.Faction()); err != nil {
+		t.Fatal(err)
+	}
+	if evs := step(w, s); find[events.CornerStruck](evs) != nil || w.Stats.Strikes != 0 {
+		t.Fatalf("a boxed war struck: %v", kinds(evs))
+	}
+}
+
+// The war is a betrayal (#229): declared under a kept truce, the first
+// night's strike breaks every deal with the faction, as a hand's push
+// or hit does, and the faction pays it back with a phone call.
+func TestWarIsABetrayal(t *testing.T) {
+	cfg := table(2)
+	w, s := world(t, cfg, 6)
+	f1, f2 := w.Rivals[0], w.Rivals[1]
+	f2.Arrived, f2.Absorbed = 1, 1
+	home := w.Home()
+	home.Corners[0].Owner, home.Corners[0].Runner = game.OwnerPlayer, 1
+	seat(w, f1, home.Corners[1].ID, 6)
+	f1.Trust = 80
+	f1.Deals = []game.Deal{{Kind: game.DealTruce, Terms: game.Terms{Days: 100}, Since: 5, Until: 200, Faction: f1.Faction()}}
+	w.Day = 10
+	if !w.AtPeaceWith(f1.Faction()) {
+		t.Fatal("no peace to break")
+	}
+	if err := w.DeclareWar(f1.Faction()); err != nil {
+		t.Fatal(err)
+	}
+	evs := step(w, s)
+	broken := find[events.DealBroken](evs)
+	if broken == nil || broken.By != "you" || broken.Deal != game.DealTruce || w.AtPeaceWith(f1.Faction()) || f1.Betrayed != w.Day || w.Stats.Betrayals != 1 {
+		t.Fatalf("the war under a truce: %+v peace %v betrayed %d stats %d", broken, w.AtPeaceWith(f1.Faction()), f1.Betrayed, w.Stats.Betrayals)
+	}
+	if find[events.RivalTippedPolice](evs) == nil {
+		t.Fatalf("no phone call for the betrayal: %v", kinds(evs))
+	}
+}

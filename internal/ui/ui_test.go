@@ -2837,10 +2837,18 @@ func TestModalsFit(t *testing.T) {
 			m.w.Upgrades["lawyer"], m.w.Upgrades["retainer"], m.w.Upgrades["identity"] = true, true, true
 			m.Update(key("1"))
 			m.Update(key("w"))
-			m.Update(key("j"))
-			m.Update(key("enter"))
+			m.Update(key("2")) // the digit selects and commits (#241); j would walk on to the crown's row (#227)
 			if m.exit.step != 1 || m.exit.cursor != 1 {
 				t.Fatalf("the confirmation did not open on vanish: %q", m.status)
+			}
+		}},
+		{"walk away: crown?", modeExit, func(t *testing.T, m *Model) { // the reign (#227)
+			m.w.Reign = 1
+			m.Update(key("1"))
+			m.Update(key("w"))
+			m.Update(key("3"))
+			if m.exit.step != 1 || m.exit.cursor != 2 {
+				t.Fatalf("the confirmation did not open on the crown: %q", m.status)
 			}
 		}},
 		{"confirm new", modeConfirm, func(t *testing.T, m *Model) { m.Update(key("N")) }},
@@ -2912,6 +2920,16 @@ func TestModalsFit(t *testing.T) {
 		{"confirm buy off", modeConfirmBuyOff, func(t *testing.T, m *Model) { m.Update(key("8")); m.Update(key("$")) }},
 		{"invest", modeInvest, func(t *testing.T, m *Model) { m.w.Player.CleanCash = 200_000; m.Update(key("7")); m.Update(key("u")) }},
 		{"reserve", modeReserve, func(t *testing.T, m *Model) { m.w.Player.CleanCash = 200_000; m.Update(key("7")); m.Update(key("o")) }},
+		{"declare war", modeConfirm, func(t *testing.T, m *Model) { // the war order (#229)
+			m.Update(key("8"))
+			m.factionCursor = 0
+			m.Update(key("w"))
+		}},
+		{"call off war", modeConfirm, func(t *testing.T, m *Model) {
+			m.w.War = m.w.Rival().Faction()
+			m.Update(key("8"))
+			m.Update(key("w"))
+		}},
 		{"confirm boost", modeConfirm, func(t *testing.T, m *Model) {
 			m.Update(key("5"))
 			m.mapCursor = 0
@@ -2922,6 +2940,15 @@ func TestModalsFit(t *testing.T) {
 		{"confirm pay off", modeConfirm, func(t *testing.T, m *Model) { m.Update(key("4")); m.Update(key("$")) }},
 		// Crew life (#46): the bail on a member put in a cell, the driver
 		// picker on the map's routes with a driver on the payroll.
+		{"confirm favour", modeConfirm, func(t *testing.T, m *Model) { // the favour (#228)
+			m.w.Law.Favours = 1
+			m.w.Law.DA.Stance = "moderate"
+			m.w.Law.Chief.Name = "Kerr"
+			raid := m.set.Heat.Thresholds()[2]
+			m.w.Here().Heat = m.set.Heat.Threshold(m.w, raid, m.w.Here()) + 1
+			m.Update(key("7"))
+			m.Update(key("v"))
+		}},
 		{"confirm bail", modeConfirm, func(t *testing.T, m *Model) {
 			m.w.Crew.Members[0].JailedUntil = m.w.Day + 5
 			m.Update(key("4"))

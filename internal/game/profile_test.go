@@ -110,10 +110,10 @@ func TestEveryUnlockRuleFromAnEnding(t *testing.T) {
 		{content.CauseRetired, "territory", nil},
 		{content.CauseVanished, "corner", []string{"excop"}},
 		{content.CauseBusinessman, "territory", []string{"bookkeeper"}},
-		{content.CauseKingpin, "territory", []string{HardDAID}},
+		{content.CauseKingpin, "territory", []string{"heir", HardDAID}}, // the Heir (#232) and the toggle
 		{content.CauseIndicted, "distribution", []string{"dockhand"}},
 		{content.CauseTakenOut, "cartel", []string{"dockhand"}},
-		{content.CauseKingpin, "cartel", []string{"dockhand", HardDAID}},
+		{content.CauseKingpin, "cartel", []string{"dockhand", "heir", HardDAID}},
 		{content.CauseVanished, "distribution", []string{"excop", "dockhand"}},
 		{"struck_by_lightning", "", nil},
 	}
@@ -136,7 +136,7 @@ func TestEveryUnlockRuleFromAnEnding(t *testing.T) {
 		}
 	}
 	rec := RunRecord{Seed: 1, Ending: content.CauseKingpin, Days: 150, Stage: "cartel", Date: "20260913"}
-	if fresh := p.Record(chars, prog, rec); !reflect.DeepEqual(fresh, []string{"dockhand", HardDAID}) {
+	if fresh := p.Record(chars, prog, rec); !reflect.DeepEqual(fresh, []string{"dockhand", "heir", HardDAID}) {
 		t.Fatalf("fresh %v", fresh)
 	}
 	if fresh := p.Record(chars, prog, rec); fresh != nil || len(p.Runs) != 1 {

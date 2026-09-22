@@ -1,6 +1,7 @@
 package ui
 
 import (
+	"fmt"
 	"strings"
 	"testing"
 
@@ -131,7 +132,7 @@ func TestSummaryReadsTheRun(t *testing.T) {
 	m.mode = modeOver
 	view := stripANSI(m.View())
 	for _, want := range []string{
-		"KINGPIN · DAY", "It lasted", "THE STORY", "day 1", "THE MONEY", "$600K · the score", "left behind",
+		"KINGPIN · DAY", "the crown lasted", "THE STORY", "day 1", "THE MONEY", "$600K · the score", "left behind",
 		"THE PEOPLE", "2, 1 of them yours", "Ziggy (runner · day 3)", "1 deal broken by them", "best of them", "Ziggy, runner, fell on day 3",
 		"THE CITY", "fear", "respect", "notoriety", "SCORE  $200K", "$600K over 1 + 2 bodies",
 	} {
@@ -172,5 +173,124 @@ func TestSummaryReadsTheRun(t *testing.T) {
 		if v := stripANSI(m.View()); strings.Contains(v, "↓ more") || !strings.Contains(v, "SCORE") {
 			t.Errorf("120x40 %s: the summary does not stand whole:\n%s", cause, v)
 		}
+	}
+}
+
+// The reign (#227): a fast-forward stops the morning the city becomes
+// yours (ReignBegan), the report's TIER section opens on the reign, the
+// dashboard's STREET carries `reign dN` and the ALERTS the crown, and
+// the walk-away dialog's third row takes it: the run ends a kingpin on
+// that day, the summary's reached row reads the reign's first morning
+// and the epilogue the reign lived.
+func TestFastForwardStopsOnTheReign(t *testing.T) {
+	m := richModelSeeded(t, 100, 30, 4) // one seed: the fixture's runners keep their corners to day 15 on it
+	m.w.Home().Heat = 0
+	w := m.w
+	// Every faction at the table gone since day 1 and more than
+	// kingpin_share of home's corners held: the tick dominant_days on
+	// stamps the reign, and the fast-forward stops there.
+	days := m.cfg.Rivals.Endings.DominantDays
+	for _, r := range w.Rivals {
+		r.Arrived, r.Fragmented, r.Muscle = 1, 1, 0
+	}
+	home := w.Home()
+	n := int(m.cfg.Rivals.Endings.KingpinShare*float64(len(home.Corners))) + 1
+	for i := 0; i < n; i++ {
+		// A runner on each, hired by hand: a held corner nobody works
+		// drifts back to the street inside dominant_days.
+		c := &home.Corners[i]
+		c.Owner, c.Faction, c.Runner, c.Enforcer, c.Since = game.OwnerPlayer, "", 0, 0, 1
+		w.Crew.NextID++
+		w.Crew.Members = append(w.Crew.Members, game.CrewMember{ID: w.Crew.NextID, Name: fmt.Sprintf("Runner %d", i), Role: "runner", Skill: 50, Units: 100, Loyalty: 80, Nerve: 50, Wage: 50, Hired: w.Day, Age: 30})
+		if err := w.Post(c.ID, w.Crew.NextID); err != nil {
+			t.Fatal(err)
+		}
+	}
+	w.Player.DirtyCash = 5_000_000 // the wages for the month
+	if w.Reign != 0 || w.CanCrown() {
+		t.Fatalf("a reign before the tick: %d", w.Reign)
+	}
+	for w.Day < days+1 {
+		fast(t, m, 30)
+		if strings.Contains(m.fastStop, "the city is yours") {
+			break
+		}
+		closeMorning(t, m)
+		m.Update(key("esc"))
+	}
+	day := w.Day
+	if day != days+1 || w.Reign != day || !strings.Contains(m.fastStop, "the city is yours") {
+		t.Fatalf("F stopped on day %d, reign %d, stop %q", w.Day, w.Reign, m.fastStop)
+	}
+	if m.mode == modeStage {
+		m.Update(key("enter"))
+	}
+	if m.mode == modeCard {
+		m.Update(key("enter"))
+		m.Update(key("enter"))
+	}
+	if m.mode != modeReport {
+		t.Fatalf("mode %v after the stop", m.mode)
+	}
+	view := stripANSI(m.View())
+	for _, want := range []string{"REIGN: day 1 of the reign", "The city is yours"} {
+		if !strings.Contains(view, want) {
+			t.Errorf("the report lacks %q:\n%s", want, view)
+		}
+	}
+	m.Update(key("esc"))
+	m.Update(key("1"))
+	view = stripANSI(m.View())
+	if !strings.Contains(view, "reign d1") {
+		t.Errorf("the dashboard lacks %q:\n%s", "reign d1", view)
+	}
+	found := false
+	for _, a := range m.alerts() {
+		if a.key == "the city is yours" && strings.Contains(stripANSI(a.text), "day 1 of the reign") {
+			found = true
+		}
+	}
+	if !found {
+		t.Errorf("no alert for the reign: %+v", m.alerts())
+	}
+	// A second fast-forward does not stop on the reign again.
+	fast(t, m, 3)
+	if strings.Contains(m.fastStop, "the city is yours") {
+		t.Fatalf("the second F stopped on the reign again on day %d: %q", w.Day, m.fastStop)
+	}
+	closeMorning(t, m)
+	m.Update(key("esc"))
+	// The crown: the third row, open, asked twice, ends the run a
+	// kingpin on this day with the score as it stands. The fixture's
+	// runners can be arrested overnight and a corner drift under the
+	// share, which breaks the reign (TestReignBreaks has that); put it
+	// back on for the crown if the nights took it.
+	if w.Reign == 0 {
+		w.Reign = day
+	}
+	w.Offshore, w.Stats.Bodies = 900_000, 2
+	m.Update(key("1"))
+	m.Update(key("w"))
+	m.Update(key("3"))
+	if m.mode != modeExit || m.exit.step != 1 || m.exit.cursor != 2 || !strings.Contains(stripANSI(m.View()), "TAKE THE CROWN?") {
+		t.Fatalf("3 on the dialog: mode %v step %d cursor %d\n%s", m.mode, m.exit.step, m.exit.cursor, stripANSI(m.View()))
+	}
+	m.Update(key("y"))
+	if w.Over == nil || w.Over.Cause != content.CauseKingpin || w.Over.Day != w.Day || m.mode != modeOver || w.Stats.Score != 300_000 {
+		t.Fatalf("y: over %+v mode %v score %d", w.Over, m.mode, w.Stats.Score)
+	}
+	view = stripANSI(m.View())
+	for _, want := range []string{"KINGPIN", fmt.Sprintf("reached Kingpin on day %d", w.Reign), fmt.Sprintf("The city was yours %s", plural(w.ReignDay(), "day"))} {
+		if !strings.Contains(view, want) {
+			t.Errorf("the summary lacks %q:\n%s", want, view)
+		}
+	}
+	// Without the reign the row is closed and refused.
+	m = richModel(t, 100, 30)
+	m.Update(key("1"))
+	m.Update(key("w"))
+	m.Update(key("3"))
+	if m.mode != modeExit || m.exit.step != 0 || !strings.Contains(m.status, "not yours") {
+		t.Fatalf("the crown with no reign: mode %v step %d status %q", m.mode, m.exit.step, m.status)
 	}
 }

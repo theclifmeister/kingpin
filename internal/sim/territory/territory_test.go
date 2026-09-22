@@ -251,3 +251,103 @@ func TestStreetNodesMoveTheirNumbers(t *testing.T) {
 		t.Fatalf("day %d: no CornerLost on the folded day: %v", w.Day, k)
 	}
 }
+
+// The tax (#231): once more than [tax] share of a city's corners are
+// held (min_held at least), every corner nobody holds there pays cut of
+// its trade a night in dirty cash (jittered a tenth either way on the
+// tax's stream), summed as Stats.Taxed and reported per city; a corner
+// a faction sets up on pays nothing; the share falling stops it; the
+// city's heat and the file never move for it; and with cut at 0 nothing
+// is paid and nothing emitted.
+func TestTaxStopsWhenTheShareFalls(t *testing.T) {
+	cfg := content.MustLoad()
+	tax := cfg.City.Tax
+	if !tax.On() {
+		t.Fatal("the tax is boxed in the file")
+	}
+	w, s := world(t, cfg)
+	home := w.Home()
+	n := len(home.Corners)
+	for i := range home.Corners {
+		c := &home.Corners[i]
+		c.Owner, c.Faction, c.Runner, c.Enforcer, c.Since = game.OwnerNone, "", 0, 0, 1
+	}
+	held := int(tax.Share*float64(n)) + 1
+	for i := 0; i < held; i++ {
+		c := &home.Corners[i]
+		c.Owner, c.Runner = game.OwnerPlayer, 1
+	}
+	free := n - held
+	home.Corners[n-1].Owner, home.Corners[n-1].Faction = game.OwnerRival, "rival" // a faction's corner pays nothing
+	free--
+	// The table: with a faction still on the ground the city is not
+	// yours, whatever the share (an early land grab pays nothing); with
+	// every faction gone it is.
+	w.Rivals = []*game.RivalState{{Leader: "Sal", Arrived: 1}}
+	if s.HoldsTheCity(w, home.ID) {
+		t.Fatal("the tax holds with a faction alive at the table")
+	}
+	if k := kinds(step(w, s)); k["Taxed"] != 0 || w.Stats.Taxed != 0 {
+		t.Fatalf("taxed with a faction alive: %v", k)
+	}
+	w.Rivals[0].Fragmented = 1
+	if !s.HoldsTheCity(w, home.ID) {
+		t.Fatalf("the share does not hold with %d of %d and the table gone", held, n)
+	}
+	due, amount := s.TaxDue(w, home.ID)
+	if due != free || amount <= 0 {
+		t.Fatalf("due %d corners for %d, want %d", due, amount, free)
+	}
+	heat, file, cash := home.Heat, w.Heat.Evidence, w.Player.DirtyCash
+	evs := step(w, s)
+	var taxed *events.Taxed
+	for _, e := range evs {
+		if ev, ok := e.(events.Taxed); ok {
+			taxed = &ev
+		}
+	}
+	if taxed == nil || taxed.City != home.ID || taxed.Corners != free || taxed.Amount <= 0 {
+		t.Fatalf("the tax: %+v", taxed)
+	}
+	lo, hi := int(float64(amount)*0.88), int(float64(amount)*1.12)+1
+	if taxed.Amount < lo || taxed.Amount > hi || w.Player.DirtyCash != cash+taxed.Amount || w.Stats.Taxed != taxed.Amount {
+		t.Fatalf("paid %d for a due of %d, cash %d -> %d, taxed %d", taxed.Amount, amount, cash, w.Player.DirtyCash, w.Stats.Taxed)
+	}
+	if home.Heat != heat || w.Heat.Evidence != file {
+		t.Fatalf("the tax moved the heat or the file: %.1f -> %.1f, %d -> %d", heat, home.Heat, file, w.Heat.Evidence)
+	}
+	for _, e := range evs {
+		if _, ok := e.(events.PlayerSold); ok {
+			t.Fatal("the tax is a sale")
+		}
+	}
+	// The same night on the same seed pays the same: the jitter is the
+	// tax's own stream.
+	again, _ := world(t, cfg)
+	again.Cities = w.Cities // not a copy: the world above is stepped no further
+	// The share falls: one corner drifts off you, and nobody pays.
+	home.Corners[0].Owner, home.Corners[0].Runner = game.OwnerNone, 0
+	if s.HoldsTheCity(w, home.ID) {
+		t.Fatal("the share holds with one under it")
+	}
+	taxedBefore := w.Stats.Taxed
+	if k := kinds(step(w, s)); k["Taxed"] != 0 || w.Stats.Taxed != taxedBefore {
+		t.Fatalf("the tax with the share fallen: %v", k)
+	}
+	// Boxed: nothing.
+	boxed := *cfg
+	boxed.City.Tax.Cut = 0
+	w, s = world(t, &boxed)
+	home = w.Home()
+	for i := range home.Corners {
+		c := &home.Corners[i]
+		c.Owner, c.Faction, c.Runner, c.Enforcer, c.Since = game.OwnerPlayer, "", 1, 0, 1
+	}
+	home.Corners[n-1].Owner, home.Corners[n-1].Runner = game.OwnerNone, 0
+	if s.HoldsTheCity(w, home.ID) {
+		t.Fatal("the share holds with the tax boxed")
+	}
+	if k := kinds(step(w, s)); k["Taxed"] != 0 || w.Stats.Taxed != 0 {
+		t.Fatalf("a boxed tax paid: %v", k)
+	}
+}

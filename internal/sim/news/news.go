@@ -23,8 +23,10 @@ type Sim struct {
 	cfg  content.HeadlinesConfig
 	dcfg content.DilemmasConfig
 	pcfg content.ProgressionConfig
+	rcfg content.RivalEndingsTuning // the kingpin's share, for the paper's title (#233)
 	tmpl map[string][]*template.Template
 	flav []*template.Template
+	swag []*template.Template // the boss's headlines (#233)
 	deck []card
 	inc  map[string]*template.Template // the incidents' report lines by id (#44)
 }
@@ -39,7 +41,14 @@ func New(cfg *content.Config) (*Sim, error) {
 	if err != nil {
 		return nil, fmt.Errorf("dilemmas: %w", err)
 	}
-	s := &Sim{cfg: cfg.Headlines, dcfg: cfg.Dilemmas, pcfg: cfg.Progression, tmpl: map[string][]*template.Template{}, deck: deck, inc: map[string]*template.Template{}}
+	s := &Sim{cfg: cfg.Headlines, dcfg: cfg.Dilemmas, pcfg: cfg.Progression, rcfg: cfg.Rivals.Endings, tmpl: map[string][]*template.Template{}, deck: deck, inc: map[string]*template.Template{}}
+	for i, src := range cfg.Headlines.Swagger {
+		t, err := template.New(fmt.Sprintf("swagger#%d", i)).Funcs(articles).Parse(article(src))
+		if err != nil {
+			return nil, fmt.Errorf("swagger[%d]: %w", i, err)
+		}
+		s.swag = append(s.swag, t)
+	}
 	for _, inc := range cfg.Incidents.Table {
 		t, err := template.New(inc.ID + ".report").Funcs(articles).Parse(article(inc.Report))
 		if err != nil {
@@ -130,6 +139,7 @@ type data struct {
 	Leader  string // the rival's leader (#44)
 	Faction string // the rival's faction, `Big Sal's crew` (#44)
 	Asset   string // an asset by name (#48)
+	Title   string // what the paper calls you (#233): a dealer, a crew, the boss of Eastside
 }
 
 // Step writes headlines into the journal and assembles the morning report.
@@ -168,7 +178,7 @@ func (s *Sim) Step(w *game.World, t *game.Tick) {
 	// with no spy under and nobody feeding it is the run it was.
 	addIntel := func(source, key string, d data) { addOff("intel:news", source, key, d) }
 	here := w.Here()
-	base := data{City: here.Name, DA: w.Law.DA.Name, Chief: w.Law.Chief.Name, Leader: w.Rival().Leader}
+	base := data{City: here.Name, DA: w.Law.DA.Name, Chief: w.Law.Chief.Name, Leader: w.Rival().Leader, Title: s.title(w)}
 	if w.Rival().Leader != "" {
 		base.Faction = w.Rival().Leader + "'s crew"
 	}
@@ -214,6 +224,26 @@ func (s *Sim) Step(w *game.World, t *game.Tick) {
 		rep.Tier = tierLines(n, len(s.pcfg.Tiers), *tier)
 		addOff("progression", "news", "TierReached", base)
 	}
+	// The reign (#227): while the city is yours the TIER section opens
+	// with where the reign stands, its homage counted off tonight's
+	// TributePaid; the morning it began carries the headline, and the
+	// morning it broke says how.
+	for _, e := range t.Events() {
+		switch ev := e.(type) {
+		case events.ReignBegan:
+			d := at(ev.City)
+			add("rivals", "ReignBegan", d)
+			rep.Tier = append([]string{fmt.Sprintf("The city is yours: every crew in %s is gone or paying. Take the crown when you are ready (walk away on the dashboard), or reign.", d.City)}, rep.Tier...)
+		case events.ReignBroken:
+			rep.Tier = append([]string{fmt.Sprintf("The reign is over for now: %s. Hold the city and the table and it begins again.", ev.Why)}, rep.Tier...)
+		}
+	}
+	if w.Reign > 0 {
+		rep.Tier = append([]string{reignLine(w, t)}, rep.Tier...)
+	}
+	// The morning opens on you (#233): what your name did last night,
+	// when there is something to say, under the reign's line.
+	rep.Tier = append(swaggerLines(w, t), rep.Tier...)
 
 	// The world's incident (#44), dealt first thing this tick: a
 	// headline under the world source, its template picked off the
@@ -258,7 +288,7 @@ func (s *Sim) Step(w *game.World, t *game.Tick) {
 	}
 
 	// Money before we look at events: sales are already applied by market.
-	var soldRevenue, lostCash, spent, wages, skimmed, robbed, upgrades, upkeep, seized, paidOff, investigated, shipping, tribute, cuts, standingCut, funded, backed, contracts, forfeits, repaid, rent, earned, invested, cutting, cooking, reserved, deeds, deedRent int
+	var soldRevenue, lostCash, spent, wages, skimmed, robbed, upgrades, upkeep, seized, paidOff, investigated, shipping, tribute, cuts, standingCut, funded, backed, contracts, forfeits, repaid, rent, earned, invested, cutting, cooking, reserved, deeds, deedRent, taxed int
 	var scouted, poached, boosted int // the books (#70): what a scout and a buy-off cost, less the refund, and what a boost took
 	var bribed, checkpoints int       // the bought law (#42): the envelopes and the deals on the road, paid up front
 	routeCost := map[string]int{}     // what each route cost today, lots and fares, by name in the order first seen
@@ -535,21 +565,36 @@ func (s *Sim) Step(w *game.World, t *game.Tick) {
 			rep.Crew = append(rep.Crew, fmt.Sprintf("%s took your money and stays sweet on you, for now.", ev.Name))
 			rep.Money = append(rep.Money, fmt.Sprintf("Paid off %s -%s", ev.Name, format.Money(ev.Cost)))
 		case events.CrewBailed:
-			// Crew life (#46): the cells, the cots and the funerals.
+			// Crew life (#46): the cells, the cots and the funerals. The
+			// bondsman's bail (#230, Who) is on the arrest's own line;
+			// here it is the money.
 			paidOff += ev.Cost
+			if ev.Who != "" {
+				rep.Money = append(rep.Money, fmt.Sprintf("Bail for %s -%s clean (%s)", ev.Name, format.Money(ev.Cost), ev.Who))
+				break
+			}
 			rep.Crew = append(rep.Crew, fmt.Sprintf("Bail is down for %s: they walk tomorrow.", ev.Name))
 			rep.Money = append(rep.Money, fmt.Sprintf("Bail for %s -%s clean", ev.Name, format.Money(ev.Cost)))
 		case events.CrewArrested:
 			d := at(ev.City)
 			d.Name, d.Role, d.Corner = ev.Name, ev.Role, ev.CornerName
 			add("crew", "CrewArrested", d)
+			// The bail's tail (#230): a hand bail's price, the bondsman's
+			// bail already paid, or the bondsman's account too short.
+			tail := fmt.Sprintf("%s in a cell, %s clean to walk them out tomorrow.", format.Plural(ev.Days, "day"), format.Money(ev.Bail))
+			switch {
+			case ev.Sprung:
+				tail = fmt.Sprintf("sprung by the lawyer before morning, %s clean out of the account.", format.Money(ev.Bail))
+			case ev.Short:
+				tail = fmt.Sprintf("%s in a cell; the lawyer could not cover the %s clean bail, and neither could you.", format.Plural(ev.Days, "day"), format.Money(ev.Bail))
+			}
 			switch {
 			case ev.Route != "":
-				rep.Crew = append(rep.Crew, fmt.Sprintf("%s was taken with the shipment: %s in a cell, %s clean to walk them out tomorrow.", ev.Name, format.Plural(ev.Days, "day"), format.Money(ev.Bail)))
+				rep.Crew = append(rep.Crew, fmt.Sprintf("%s was taken with the shipment: %s", ev.Name, tail))
 			case ev.Corner != "":
-				rep.Crew = append(rep.Crew, fmt.Sprintf("The police took %s off %s: %s in a cell, %s clean to walk them out tomorrow.", ev.Name, ev.CornerName, format.Plural(ev.Days, "day"), format.Money(ev.Bail)))
+				rep.Crew = append(rep.Crew, fmt.Sprintf("The police took %s off %s: %s", ev.Name, ev.CornerName, tail))
 			default:
-				rep.Crew = append(rep.Crew, fmt.Sprintf("The raid found the lab: %s in a cell for %s, %s clean to walk them out tomorrow.", ev.Name, format.Plural(ev.Days, "day"), format.Money(ev.Bail)))
+				rep.Crew = append(rep.Crew, fmt.Sprintf("The raid found the lab: %s taken, %s", ev.Name, tail))
 			}
 		case events.CrewReleased:
 			d := base
@@ -706,17 +751,27 @@ func (s *Sim) Step(w *game.World, t *game.Tick) {
 			d := base
 			d.Corner, d.Rival = ev.Name, ev.Rival
 			d = crew(d, ev.Rival)
+			who := "Your enforcers"
+			if ev.War {
+				who = fmt.Sprintf("The war on %s's crew: your enforcers", ev.Rival) // the war order (#229)
+			}
 			switch {
 			case ev.Routed:
 				add("rivals", "RivalRouted", d)
-				rep.Territory = append(rep.Territory, fmt.Sprintf("Your enforcers %s %s and TOOK it. That was %s's last corner.", pastTense(ev.Force), ev.Name, ev.Rival))
+				rep.Territory = append(rep.Territory, fmt.Sprintf("%s %s %s and TOOK it. That was %s's last corner.", who, pastTense(ev.Force), ev.Name, ev.Rival))
 			case ev.Taken:
 				add("rivals", "CornerStruckTaken", d)
-				rep.Territory = append(rep.Territory, fmt.Sprintf("Your enforcers %s %s and TOOK it. Post a runner before it drifts.", pastTense(ev.Force), ev.Name))
+				rep.Territory = append(rep.Territory, fmt.Sprintf("%s %s %s and TOOK it. Post a runner before it drifts.", who, pastTense(ev.Force), ev.Name))
 			default:
 				add("rivals", "CornerStruckHeld", d)
-				rep.Territory = append(rep.Territory, fmt.Sprintf("Your enforcers %s %s; %s's people held it.", pastTense(ev.Force), ev.Name, ev.Rival))
+				rep.Territory = append(rep.Territory, fmt.Sprintf("%s %s %s; %s's people held it.", who, pastTense(ev.Force), ev.Name, ev.Rival))
 			}
+		case events.WarEnded:
+			d := base
+			d.Rival = ev.Rival
+			d = crew(d, ev.Rival)
+			add("rivals", "WarEnded", d)
+			rep.Territory = append(rep.Territory, fmt.Sprintf("The war on %s's crew is over: %s. The enforcers stand down.", ev.Rival, ev.Why))
 		case events.RivalTippedPolice:
 			d := base
 			d.Rival = ev.Rival
@@ -1057,8 +1112,22 @@ func (s *Sim) Step(w *game.World, t *game.Tick) {
 			} else if ev.Share < 1 {
 				effect = fmt.Sprintf("a lazy chief, half the good: %s", effect)
 			}
-			rep.Law = append(rep.Law, fmt.Sprintf("%s took the %s: %s. Somebody at the DA's office heard (lead %d of %d).", who, format.Money(ev.Amount), effect, ev.Leads, leadsCase))
+			line := fmt.Sprintf("%s took the %s: %s. Somebody at the DA's office heard (lead %d of %d).", who, format.Money(ev.Amount), effect, ev.Leads, leadsCase)
+			if ev.Favour {
+				line += " The chief owes you one: call it in on a morning a raid is due and it will not come."
+			}
+			rep.Law = append(rep.Law, line)
 			rep.Money = append(rep.Money, fmt.Sprintf("Envelope for %s -%s", who, format.Money(ev.Amount)))
+		case events.RaidFellThrough:
+			// The favour (#228): the response that did not come.
+			d := at(ev.City)
+			d.Level = ev.Level
+			add("law", "RaidFellThrough", d)
+			word := ev.Level
+			if word == content.TaskForce {
+				word = "task force"
+			}
+			rep.Heat = append(rep.Heat, fmt.Sprintf("The %s%s fell through: Chief %s's people stood down at the last minute. Nothing taken, nothing cooled, and the file grows by %d: the chief's name is in your ledger now.", word, in(ev.City), w.Law.Chief.Name, ev.Evidence))
 		case events.BribeRefused:
 			bribed += ev.Amount
 			who := "Chief " + w.Law.Chief.Name
@@ -1237,6 +1306,11 @@ func (s *Sim) Step(w *game.World, t *game.Tick) {
 		case events.DeedRent:
 			deedRent += ev.Amount
 			rep.Money = append(rep.Money, fmt.Sprintf("Rent from %s +%s clean", format.Plural(ev.Deeds, "block"), format.Money(ev.Amount)))
+		case events.Taxed:
+			// The tax (#231): the free corners of a city you hold paying
+			// for the right to work them.
+			taxed += ev.Amount
+			rep.Money = append(rep.Money, fmt.Sprintf("The tax: %s%s +%s", format.Plural(ev.Corners, "free corner"), in(ev.City), format.Money(ev.Amount)))
 		case events.DeedSeized:
 			d := at(ev.City)
 			d.Corner = ev.Name
@@ -1325,7 +1399,7 @@ func (s *Sim) Step(w *game.World, t *game.Tick) {
 		spent += m.Fee
 		rep.Money = append(rep.Money, fmt.Sprintf("Signing fee for %s -%s", m.Name, format.Money(m.Fee)))
 	}
-	rep.CashBefore = w.Cash() - soldRevenue - contracts + forfeits + lostCash + spent + wages + skimmed + robbed + upgrades + upkeep + seized + paidOff + investigated + shipping + tribute + cuts + funded + backed + repaid + rent + scouted + poached + bribed + checkpoints - boosted - earned + invested + cutting + cooking + reserved + deeds - deedRent
+	rep.CashBefore = w.Cash() - soldRevenue - contracts + forfeits + lostCash + spent + wages + skimmed + robbed + upgrades + upkeep + seized + paidOff + investigated + shipping + tribute + cuts + funded + backed + repaid + rent + scouted + poached + bribed + checkpoints - boosted - earned + invested + cutting + cooking + reserved + deeds - deedRent - taxed
 	if soldRevenue > 0 {
 		rep.Money = append(rep.Money, fmt.Sprintf("Street sales +%s", format.Money(soldRevenue)))
 	}
@@ -1349,6 +1423,16 @@ func (s *Sim) Step(w *game.World, t *game.Tick) {
 	if len(s.flav) > 0 && t.RNG.Float64() < s.cfg.FlavourChance {
 		txt := render(s.flav[t.RNG.IntN(len(s.flav))], base)
 		lines = append(lines, game.Headline{Day: t.Day, Source: "news", Text: txt})
+	}
+	// The paper names the boss (#233): while the city is yours in the
+	// kingpin's sense, a swagger headline at the flavour's chance off
+	// its own stream, so the home stream and every run that never held
+	// the city are what they were.
+	if len(s.swag) > 0 && s.boss(w) {
+		if rng := t.Sub("swagger"); rng.Float64() < s.cfg.FlavourChance {
+			txt := render(s.swag[rng.IntN(len(s.swag))], base)
+			lines = append(lines, game.Headline{Day: t.Day, Source: "news", Text: txt})
+		}
 	}
 
 	// Yesterday's card: the choice is already in the journal (Choose put

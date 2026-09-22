@@ -4,6 +4,8 @@ import (
 	"strings"
 	"testing"
 
+	"github.com/theclifmeister/kingpin/internal/events"
+
 	tea "github.com/charmbracelet/bubbletea"
 	"github.com/charmbracelet/lipgloss"
 
@@ -163,5 +165,96 @@ func TestDashboardListsTheFactions(t *testing.T) {
 	assertFits(t, m.View(), 80, 24, "dashboard with the table")
 	if !strings.Contains(view, "+3 more") {
 		t.Fatalf("the narrow layout does not count the table:\n%s", view)
+	}
+}
+
+// The war order (#229): w on the rivals screen asks and declares war on
+// the faction under the cursor (refused with why while nobody has
+// arrived, no enforcer is on the payroll, or one is on already), the
+// dashboard's STREET carries where the enforcers go tonight, the night
+// strikes with the war's line in the report, a fast-forward runs past a
+// night that held, and w again calls it off after asking.
+func TestWarKeys(t *testing.T) {
+	m := richModel(t, 100, 30)
+	w := m.w
+	r := w.Rival()
+	m.Update(key("8"))
+	m.factionCursor = 0
+	if r.Arrived == 0 {
+		t.Fatalf("the fixture's rival has not arrived")
+	}
+	enforcers := w.Crew.Members[:0:0]
+	for _, c := range w.Crew.Members {
+		if c.Role != "enforcer" {
+			enforcers = append(enforcers, c)
+		}
+	}
+	saved := w.Crew.Members
+	w.Crew.Members = enforcers
+	m.Update(key("w"))
+	if m.mode != modePlay || !strings.Contains(m.status, "no enforcers") {
+		t.Fatalf("w with no enforcer: mode %v status %q", m.mode, m.status)
+	}
+	w.Crew.Members = saved
+	m.Update(key("w"))
+	if m.mode != modeConfirm {
+		t.Fatalf("w on the rivals screen: mode %v status %q", m.mode, m.status)
+	}
+	assertFits(t, m.View(), 100, 30, "declare war")
+	if view := stripANSI(m.View()); !strings.Contains(view, "WAR ON") || !strings.Contains(view, "declare war") {
+		t.Fatalf("the declaration:\n%s", view)
+	}
+	m.Update(key("y"))
+	if m.mode != modePlay || w.War != r.Faction() {
+		t.Fatalf("y: mode %v war %q status %q", m.mode, w.War, m.status)
+	}
+	m.Update(key("1"))
+	if view := stripANSI(m.View()); !strings.Contains(view, "War on "+m.rivalName(r)) {
+		t.Fatalf("the dashboard does not carry the war:\n%s", view)
+	}
+	day := w.Day
+	evs := m.stepDay()
+	m.morning(evs)
+	skipScene(m)
+	var struck *events.CornerStruck
+	for _, e := range evs {
+		if ev, ok := e.(events.CornerStruck); ok {
+			struck = &ev
+		}
+	}
+	if w.Day != day+1 || struck == nil || !struck.War || struck.Faction != r.Faction() {
+		t.Fatalf("the war's first night: %+v", struck)
+	}
+	if rep := strings.Join(w.Report.Territory, "\n"); !strings.Contains(rep, "The war on "+r.Leader+"'s crew") {
+		t.Fatalf("the report's STREET section:\n%s", rep)
+	}
+	if why := m.stopEvent(events.CornerStruck{War: true, Name: "x"}); why != "" {
+		t.Fatalf("a war night that held stops a fast-forward: %q", why)
+	}
+	if why := m.stopEvent(events.CornerStruck{War: true, Taken: true, Name: "x"}); why == "" {
+		t.Fatal("a war night that took a corner does not stop a fast-forward")
+	}
+	closeMorning(t, m)
+	if w.War == "" {
+		// The first night routed the fixture's rival off its one corner
+		// and the war ended on its own (WarEnded): put it back on to
+		// walk the stand-down.
+		for _, e := range evs {
+			if ev, ok := e.(events.WarEnded); ok && ev.Faction == r.Faction() {
+				w.War = r.Faction()
+			}
+		}
+		if w.War == "" {
+			t.Fatalf("the war ended with no WarEnded: %v", evs)
+		}
+	}
+	m.Update(key("8"))
+	m.Update(key("w"))
+	if m.mode != modeConfirm || !strings.Contains(stripANSI(m.View()), "CALL OFF THE WAR?") {
+		t.Fatalf("w at war: mode %v\n%s", m.mode, stripANSI(m.View()))
+	}
+	m.Update(key("y"))
+	if m.mode != modePlay || w.War != "" {
+		t.Fatalf("y on the stand-down: mode %v war %q", m.mode, w.War)
 	}
 }

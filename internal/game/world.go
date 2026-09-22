@@ -102,6 +102,23 @@ type World struct {
 	// legit_days the run ends a businessman. Zero is the run before.
 	LegitDays int
 
+	// Reign (#227) is the day the city became yours for good: the
+	// rivals sim stamps it the morning Dominant() has held dominant_days
+	// with more than kingpin_share of home's corners held, zeroes it the
+	// morning that stops holding, and the crown (World.Crown) ends the
+	// run a kingpin on the player's say-so while it stands. Zero is no
+	// reign, the run before.
+	Reign int
+
+	// War (#229) is the faction the war order stands against: its id,
+	// "" for none. Declared from the rivals screen (DeclareWar), it is
+	// the hand's strike sent every night the hand leaves empty, at
+	// rivals.toml [war] dial on the faction's corner nearest your front
+	// line (rivals.Sim.WarTarget); the rivals sim ends it the night the
+	// faction is gone, pays homage or has no corner left in a city you
+	// hold. One war at a time. Zero is the run before.
+	War string
+
 	// Today is the player's per-day scratch (#144): what the actions
 	// queued since the morning, for the sims to resolve tonight. The
 	// clock zeroes it as a unit after every EndDay (ClearToday), bar the
@@ -750,6 +767,7 @@ type StrikeOrder struct {
 	Corner string
 	Force  events.Force
 	Boost  bool
+	War    bool // the war order's strike (#229), not the hand's
 }
 
 // ScoutOrder is the player paying for a look at the rival's books
@@ -1013,6 +1031,7 @@ type Stats struct {
 	Checkpoints    int // checkpoints and customs deals bought
 	CheckpointCash int // dirty cash they cost
 	Leads          int // leads the DA's office picked up from your envelopes
+	Favours        int // favours called in on a bought chief (#228): responses that fell through
 	Elections      int // DA elections held
 	Chiefs         int // police chiefs replaced
 	Contracts      int // buyers' contracts delivered in full (#71)
@@ -1044,6 +1063,7 @@ type Stats struct {
 	Deeds          int // blocks bought (#194)
 	DeedCash       int // clean cash they cost
 	DeedRent       int // clean cash the blocks paid back
+	Taxed          int // dirty cash the free corners paid you for the right to work them (#231)
 	DeedsSeized    int // deeds the DA took (the forfeiture)
 	Wounded        int // crew shot and laid up
 	Retired        int // crew who retired

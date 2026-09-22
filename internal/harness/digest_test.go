@@ -173,6 +173,23 @@ const (
 // number moves from day 1: QuietDays, the count of quiet days in a row,
 // which every run keeps and nothing but Retire reads; the boss reserves
 // nothing by day 60 on this seed, holding under a campaign's worth).
+// Again for #227 (World.Reign added to the walk; no number moved: with
+// the field skipped the digest is the list before it on all sixty days,
+// the boss holding no reign by day 60 on this seed).
+// Again for #228 (Law.Favours, Law.FavourOwed and Stats.Favours in the
+// walk; no number moved: with the fields skipped the digest is the list
+// before it on all sixty days, the boss paying nobody by day 60 here).
+// Again for #229 (World.War in the walk; no number moved: with the
+// field skipped the digest is the list before it on all sixty days, the
+// boss declaring no war).
+// Again for #231 (Stats.Taxed in the walk; no number moved: with the
+// field skipped the digest is the list before it on all sixty days, the
+// boss holding no city by day 60).
+// Again for #233, by copy alone, on day 56: the report's opening line
+// under TIER the night the rival's push on the boss's front line was
+// held off (World.Report is in the walk); with the report set aside the
+// digest is the list before it on all sixty days, on both trees, and no
+// number moved.
 // Again for #43 (the table, on the duel's dice, harness.OneFaction:
 // World.Rival became the slice World.Rivals of one, RivalState gained
 // Home, Grudges, Trusts, Ally, Against, LostToYou, LastTakenBy,
@@ -212,19 +229,19 @@ const (
 // cmd/balance prints 2be03a7's trace to the dollar on boss, laundered
 // and distributor to day 200, TestNoEndingIsTheOldRun).
 var seedDigest = []string{
-	"a6306c9b5b7da6dc", "cad61c2851ccd71a", "6e265c84b8b05ca0", "8a1555992019f224",
-	"7e8f9c7e15138bb1", "8ca359721d73eec9", "1193d86bc5f2437d", "e6c3e659ee44d68b",
-	"6cdf19213a3c7ba5", "bad73c70e0b1756a", "2b097f9cedc97f21", "ed451c5271aac6c5",
-	"47c47bb1c99133b3", "326d0970422531ca", "d5786ddd13cb687c", "3d4e801a298e35d4",
-	"9e3eb6a83c80f6de", "31f3439cd2fe1c51", "3454443dbc65a839", "acbe79a4cc23f2e9",
-	"7f60bfc88578033b", "588a005326eefc06", "158bba7f8f6dc417", "5a1d63138ff4b606",
-	"754687c15972b23e", "6ee33d708a1df5a4", "e81c6809f60eb34e", "38c88c43cc393fd9",
-	"9419946f2da52b4c", "17da9895ad552f41", "f63f9402eb337af8", "c478b973a8cfda3a",
-	"490da66061991a0f", "cfc9f43084dd0100", "82c3c08cf6ee04cd", "ae318a657b0151fd",
-	"7a9411af23314898", "a9f3b078e44b446b", "49b4715622a3f093", "1aa8d0915b7b7cf3",
-	"801a28ddf16f702c", "eef41829b9ad0273", "eb5077e0c878222d", "a05e5152d73cb2f3",
-	"163ec824ae06b291", "b84f5b50b1fa1ce3", "80ac9c0017d7e2ba", "62a19454f2af518c",
-	"709e6891155a3c4b", "c609a3f79e5f9185", "3104e27eb0a4f174", "d825f4a2a233fa49",
-	"86be982384d50db9", "8237c222a93f51af", "540eb9e9ecc62c9f", "e56b4f70e4d3bae5",
-	"5ef692b0c853bf07", "6d566f6664ec03dc", "f83c530c2f0b2803", "14903e9a28ab2a53",
+	"31bdbbcf7a28923b", "355a11d031d938f5", "bb7cad44f580fbdb", "a666740b398f53bf",
+	"67250750f44c610e", "f35ef8dda06f0df0", "53d079d63526fef2", "9bf9595075126e90",
+	"845275631bf78766", "49a85bb422c32fed", "28cf2d7e8bba96a8", "bd57ef944f81b1e8",
+	"83d98378a8f69e20", "2328a6e9171d11c3", "42bcdb92364468d3", "c7f5bb78980f6791",
+	"5900e6261d2bf2cb", "1a24c745afc805c4", "4dc63bf960aa2804", "d323975859800bb2",
+	"ae79813887ccc762", "afe7a0a84dafee2f", "875c0861e23837fa", "a41e6301750797a9",
+	"eaeb9f9359a80a6b", "c78e88339afc8abb", "80840584fc39dc17", "d306fb35041bbba4",
+	"addbdbdca1a67e83", "907d08b021df6a9c", "2ff2a1f811bad693", "555bc856e33ae255",
+	"b82722b174223750", "0afcee74ed366df9", "a182e260da607a62", "be5f2ea83714f95e",
+	"3ba1deb8e9ca4d51", "0e5a981a29c1cadc", "044f74fff789bd34", "9aff97bed620267c",
+	"f60843c8743a4c81", "e938c0c5166b3a6e", "7dc3fc8f4321df98", "bab3ce384810c206",
+	"afd478f6d6054386", "ce51e4a294b998a0", "bb33b61f7241fb23", "b8f745acbdaf2455",
+	"16673d5fa4ecbe02", "90f86248441cb24a", "ad4dd8a154f244bb", "3c4e0b5791e9fa30",
+	"b63045c6e62c42fe", "dc92701f665b1c20", "9176ee5c73b6e978", "b0f52a74a4255957",
+	"e50fbe3b4e71832e", "89b7499320818e67", "57d6977869327446", "be92475b2b988db6",
 }

@@ -269,6 +269,9 @@ func effectWords(e content.UpgradeEffects) []string {
 	bonus(e.SkillBonus, "skill on new faces")
 	mul(e.HireFeeMul, "signing fees ×%s")
 	bonus(e.StartLoyaltyBonus, "loyalty on new faces")
+	if e.AutoBail {
+		add("arrests bailed overnight")
+	}
 	// Laundering.
 	mul(e.WashMul, "wash ×%s every front")
 	mul(e.AuditRiskMul, "audit risk ×%s")
