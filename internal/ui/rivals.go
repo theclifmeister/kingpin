@@ -34,7 +34,7 @@ func (m *Model) personalityWord(r *game.RivalState) string {
 // eyeingWord is the tell (#69) for a panel line, `eyeing Riverside` in
 // the faction's colour, or "" while no corner is spoken for.
 func (m *Model) eyeingWord(r *game.RivalState) string {
-	c := m.set.Rivals.EyeingBy(m.w, r)
+	c := m.rules.Rivals.EyeingBy(m.w, r)
 	if c == nil || c.Owner != game.OwnerNone {
 		return ""
 	}
@@ -49,7 +49,7 @@ var factionCols = []col{{"faction", kText, 0}, {"city", kText, 0}, {"corners", k
 // of the table, the leader in the faction's colour.
 func (m *Model) factionRows() [][]any {
 	w := m.w
-	tun := m.set.Rivals.Tuning()
+	tun := m.rules.Rivals.Tuning()
 	var rows [][]any
 	for _, r := range w.Rivals {
 		name := m.factionStyle(r.Faction()).Render(truncate(r.Leader, 14))
@@ -100,7 +100,7 @@ func (m *Model) confirmStrike() {
 	}
 	i := max(0, min(m.pick.cursor, len(rows)-1))
 	if i >= 2*len(forces) {
-		m.w.CallOff()
+		m.sess.CallOff()
 		m.say("Called off. The enforcers stay home tonight.")
 		return
 	}
@@ -110,11 +110,11 @@ func (m *Model) confirmStrike() {
 		m.ask("boost", (*Model).boostConfirm, (*Model).confirmBoost)
 		return
 	}
-	if err := m.w.SendEnforcers(c.ID, forces[i]); err != nil {
+	if err := m.sess.SendEnforcers(c.ID, forces[i]); err != nil {
 		m.refuse("Can't send them: " + err.Error())
 		return
 	}
-	m.say(fmt.Sprintf("Enforcers go to %s tonight: %s. Odds %s, heat +%.0f.", c.Name, forces[i], m.oddsWord(m.factionOf(c), c, forces[i]), m.set.Rivals.StrikeHeat(c, forces[i])))
+	m.say(fmt.Sprintf("Enforcers go to %s tonight: %s. Odds %s, heat +%.0f.", c.Name, forces[i], m.oddsWord(m.factionOf(c), c, forces[i]), m.rules.Rivals.StrikeHeat(c, forces[i])))
 }
 
 func (m *Model) viewStrike() string {
@@ -127,16 +127,16 @@ func (m *Model) viewStrike() string {
 	fac := m.factionOf(c)
 	body := []string{theme.Subtle.Render(fmt.Sprintf("%s vs %s on %s, muscle %s", plural(m.w.Crew.Role(game.RoleEnforcer), "enforcer"), m.rivalName(fac), c.Name, m.defenceWord(fac))), ""}
 	var cells [][]any
-	b := m.set.Rivals.BoostTuning()
+	b := m.rules.Rivals.BoostTuning()
 	for i, r := range rows {
 		switch {
 		case i < len(forces):
 			f := forces[i]
-			cells = append(cells, []any{r, m.oddsCell(fac, c, f), fmt.Sprintf("%+.0f", m.set.Rivals.StrikeHeat(c, f)), signed{m.cfg.Rivals.ForceFor(f).War}, "the corner"})
+			cells = append(cells, []any{r, m.oddsCell(fac, c, f), fmt.Sprintf("%+.0f", m.rules.Rivals.StrikeHeat(c, f)), signed{m.cfg.Rivals.ForceFor(f).War}, "the corner"})
 		case i < 2*len(forces):
 			// A boost (#70): the same odds at the force, for the till.
 			f := forces[i-len(forces)]
-			cells = append(cells, []any{r, m.oddsCell(fac, c, f), fmt.Sprintf("%+.0f", m.set.Rivals.BoostHeat(c)), signed{b.War}, "~" + cash(m.set.Rivals.BoostTake(m.w, *c))})
+			cells = append(cells, []any{r, m.oddsCell(fac, c, f), fmt.Sprintf("%+.0f", m.rules.Rivals.BoostHeat(c)), signed{b.War}, "~" + cash(m.rules.Rivals.BoostTake(m.w, *c))})
 		default:
 			cells = append(cells, []any{r, nil, nil, nil, nil})
 		}
@@ -201,30 +201,30 @@ func (m *Model) confirmUndercut() {
 	}
 	i := max(0, min(m.pick.cursor, len(rows)-1))
 	if i >= len(dials) {
-		m.w.CancelUndercut(c.ID)
+		m.sess.CancelUndercut(c.ID)
 		m.say("Called off. " + c.Name + " sells at their price tonight.")
 		return
 	}
 	d := dials[i]
-	if err := m.w.Undercut(c.ID, d); err != nil {
+	if err := m.sess.Undercut(c.ID, d); err != nil {
 		m.refuse("Can't undercut: " + err.Error())
 		return
 	}
 	m.say(fmt.Sprintf("Undercutting %s tonight at %s: ~%.0f units a day at %.0f%% off, %s loses ~%s a day.",
-		c.Name, d, m.set.Market.UndercutUnits(m.w, *c, d), m.set.Market.PriceCut()*100, m.factionOf(c).Leader, cash(m.undercutLoss(*c, d))))
+		c.Name, d, m.rules.Market.UndercutUnits(m.w, *c, d), m.rules.Market.PriceCut()*100, m.factionOf(c).Leader, cash(m.undercutLoss(*c, d))))
 }
 
 // undercutLoss is what a price war on a corner at the dial costs the
 // rival a day: the share taken of what the corner earns it.
 func (m *Model) undercutLoss(c game.Corner, d events.Dial) int {
-	return int(math.Round(m.set.Market.Steal(m.w, c, d) * float64(m.set.Rivals.CornerIncome(m.w, c))))
+	return int(math.Round(m.rules.Market.Steal(m.w, c, d) * float64(m.rules.Rivals.CornerIncome(m.w, c))))
 }
 
 // undercutPriceCut is what a unit moved off the rival's corner at the
 // dial makes against the street price, as a signed share: the dial's
 // price less price_cut.
 func (m *Model) undercutPriceCut(d events.Dial) float64 {
-	return (m.set.Market.Dial(d).Price*(1-m.set.Market.PriceCut()) - 1) * 100
+	return (m.rules.Market.Dial(d).Price*(1-m.rules.Market.PriceCut()) - 1) * 100
 }
 
 func (m *Model) viewUndercut() string {
@@ -235,7 +235,7 @@ func (m *Model) viewUndercut() string {
 	rows := m.undercutRows()
 	m.pick.cursor = max(0, min(m.pick.cursor, len(rows)-1))
 	body := []string{
-		theme.Subtle.Render(fmt.Sprintf("%s on %s: worth ~%s a day to them", m.rivalName(m.factionOf(c)), c.Name, cash(m.set.Rivals.CornerIncome(m.w, *c)))),
+		theme.Subtle.Render(fmt.Sprintf("%s on %s: worth ~%s a day to them", m.rivalName(m.factionOf(c)), c.Name, cash(m.rules.Rivals.CornerIncome(m.w, *c)))),
 		theme.Subtle.Render(fmt.Sprintf("your corners next door ×%.1f: the share taken scales with them", m.w.NextDoor(*c))),
 		"",
 	}
@@ -243,7 +243,7 @@ func (m *Model) viewUndercut() string {
 	for i, r := range rows {
 		if i < len(dials) {
 			d := dials[i]
-			cells = append(cells, []any{r, approx{m.set.Market.Steal(m.w, *c, d) * 100}, approx{m.set.Market.UndercutUnits(m.w, *c, d)}, signed{m.undercutPriceCut(d)}, m.undercutLoss(*c, d)})
+			cells = append(cells, []any{r, approx{m.rules.Market.Steal(m.w, *c, d) * 100}, approx{m.rules.Market.UndercutUnits(m.w, *c, d)}, signed{m.undercutPriceCut(d)}, m.undercutLoss(*c, d)})
 		} else {
 			cells = append(cells, []any{r, nil, nil, nil, nil})
 		}
@@ -304,8 +304,8 @@ func (m *Model) moodLine(r *game.RivalState) (line string, bad bool) {
 		return fmt.Sprintf("Absorbed on day %d. There is nobody left to talk to.", r.Absorbed), false
 	case r.Fragmented > 0:
 		return fmt.Sprintf("Leaderless since day %d. Their corners go back to the street.", r.Fragmented), false
-	case m.set.Rivals.Distrusted(r, w.Day+1):
-		return fmt.Sprintf("You broke a deal. They take nothing for %s.", plural(r.Betrayed+m.set.Rivals.Diplomacy().DistrustDays-w.Day-1, "more day")), true
+	case m.rules.Rivals.Distrusted(r, w.Day+1):
+		return fmt.Sprintf("You broke a deal. They take nothing for %s.", plural(r.Betrayed+m.rules.Rivals.Diplomacy().DistrustDays-w.Day-1, "more day")), true
 	case r.Trust >= 60:
 		return "They take you at your word. A deal is cheap to strike.", false
 	case r.Trust < 20:
@@ -366,7 +366,7 @@ func (m *Model) rivalsDetails() []section {
 	}
 	// Who stands with you (#43): the defensive factions the expansionist
 	// pushed toward you.
-	if allies := m.set.Rivals.Allies(w); len(allies) > 0 {
+	if allies := m.rules.Rivals.Allies(w); len(allies) > 0 {
 		var names []string
 		for _, a := range allies {
 			names = append(names, m.factionStyle(a.Faction()).Render(a.Leader))
@@ -438,8 +438,8 @@ func (m *Model) warConfirm() string {
 	w := m.w
 	r := m.faction()
 	force, _ := m.cfg.Rivals.War.Force()
-	c := m.set.Rivals.WarTarget(w, r)
-	body := m.wrapLines(fmt.Sprintf("Every night you send nobody yourself, the enforcers %s %s's nearest corner: %s tonight, odds %s, heat +%.0f. The same roll, the same toll on the crew, until they fold, bow or hold nothing left where you do.", force, m.rivalName(r), c.Name, m.oddsWord(r, c, force), m.set.Rivals.StrikeHeat(c, force)))
+	c := m.rules.Rivals.WarTarget(w, r)
+	body := m.wrapLines(fmt.Sprintf("Every night you send nobody yourself, the enforcers %s %s's nearest corner: %s tonight, odds %s, heat +%.0f. The same roll, the same toll on the crew, until they fold, bow or hold nothing left where you do.", force, m.rivalName(r), c.Name, m.oddsWord(r, c, force), m.rules.Rivals.StrikeHeat(c, force)))
 	if w.AtPeaceWith(r.Faction()) {
 		body = append(body, "", theme.Bad.Render("You have a deal with them: the first night breaks it, and the table remembers."))
 	}
@@ -451,7 +451,7 @@ func (m *Model) warConfirm() string {
 func (m *Model) confirmWar() {
 	m.mode = modePlay
 	r := m.faction()
-	if err := m.w.DeclareWar(r.Faction()); err != nil {
+	if err := m.sess.DeclareWar(r.Faction()); err != nil {
 		m.refuse("Can't declare war: " + err.Error() + ".")
 		return
 	}
@@ -480,7 +480,7 @@ func (m *Model) callOffWarConfirm() string {
 func (m *Model) confirmCallOffWar() {
 	m.mode = modePlay
 	who := m.warWord()
-	if err := m.w.CallOffWar(); err != nil {
+	if err := m.sess.CallOffWar(); err != nil {
 		m.refuse("Can't: " + err.Error() + ".")
 		return
 	}

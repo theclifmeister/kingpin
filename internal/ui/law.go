@@ -85,7 +85,7 @@ func (m *Model) maxBack(c *game.City) int {
 	if amt, err := m.fundAmount(c); err == nil {
 		left -= amt
 	}
-	room := m.set.Law.Campaign().Fill() - m.w.Campaigning(c.ID).Cash
+	room := m.rules.Law.Campaign().Fill() - m.w.Campaigning(c.ID).Cash
 	return max(0, min(left, room))
 }
 
@@ -113,7 +113,7 @@ func (m *Model) fundCity() *game.City {
 // of it if that is less. Goodwill stops at 100, so more would be given
 // for nothing.
 func (m *Model) maxFund(c *game.City) int {
-	need := int((100 - c.Goodwill) * float64(m.set.Law.Tuning().GoodwillCash))
+	need := int((100 - c.Goodwill) * float64(m.rules.Law.Tuning().GoodwillCash))
 	return max(0, min(need, m.w.Player.CleanCash))
 }
 
@@ -200,13 +200,13 @@ func (m *Model) confirmFund() (tea.Model, tea.Cmd) {
 		return m, nil
 	}
 	if amt > 0 {
-		if err := m.w.Fund(c.ID, amt); err != nil {
+		if err := m.sess.Fund(c.ID, amt); err != nil {
 			m.fnd.err = dialogError(err)
 			return m, nil
 		}
 	}
 	if back > 0 {
-		if err := m.w.Back(c.ID, m.fundTicket(), back); err != nil {
+		if err := m.sess.Back(c.ID, m.fundTicket(), back); err != nil {
 			m.fnd.err = dialogError(err)
 			return m, nil
 		}
@@ -214,11 +214,11 @@ func (m *Model) confirmFund() (tea.Model, tea.Cmd) {
 	m.mode = modePlay
 	var said []string
 	if amt > 0 {
-		said = append(said, fmt.Sprintf("Gave %s %s clean. Goodwill +%.0f tonight; it takes the pressure off a little every day.", c.Name, money(amt), m.set.Law.Goodwill(amt)))
+		said = append(said, fmt.Sprintf("Gave %s %s clean. Goodwill +%.0f tonight; it takes the pressure off a little every day.", c.Name, money(amt), m.rules.Law.Goodwill(amt)))
 	}
 	if back > 0 {
 		camp := m.w.Campaigning(c.ID)
-		said = append(said, fmt.Sprintf("Put %s clean behind the %s ticket in %s: the campaign holds %s, %s of the city's vote.", money(back), stanceWord(m.fundTicket()), c.Name, money(camp.Cash), swingWord(m.set.Law.Campaign().Swing(camp.Cash))))
+		said = append(said, fmt.Sprintf("Put %s clean behind the %s ticket in %s: the campaign holds %s, %s of the city's vote.", money(back), stanceWord(m.fundTicket()), c.Name, money(camp.Cash), swingWord(m.rules.Law.Campaign().Swing(camp.Cash))))
 	}
 	m.say(strings.Join(said, " "))
 	return m, nil
@@ -230,7 +230,7 @@ func swingWord(swing float64) string { return fmt.Sprintf("%.1f points", swing*1
 func (m *Model) viewFund() string {
 	w := m.w
 	c := m.fundCity()
-	tun := m.set.Law.Tuning()
+	tun := m.rules.Law.Tuning()
 	if m.fnd.step == 1 {
 		return m.viewCampaign(c)
 	}
@@ -248,7 +248,7 @@ func (m *Model) viewFund() string {
 		row("amount", amt.View()),
 	}
 	if amt, err := m.fundAmount(c); err == nil {
-		g := m.set.Law.Goodwill(amt)
+		g := m.rules.Law.Goodwill(amt)
 		style := theme.Gold
 		if amt > w.Player.CleanCash {
 			style = theme.Bad
@@ -259,7 +259,7 @@ func (m *Model) viewFund() string {
 		theme.Subtle.Render(fmt.Sprintf("Full goodwill takes %.1f pressure off the city a day; it fades %.0f%% a day.", tun.GoodwillCut, tun.GoodwillDecay*100)),
 		theme.Subtle.Render("Community centres, campaigns, benevolent funds: clean money only."))
 	if m.campaignOpen() {
-		if next := m.set.Law.NextElection(w); next > 0 {
+		if next := m.rules.Law.NextElection(w); next > 0 {
 			body = append(body, theme.Gold.Render(fmt.Sprintf("DA race in %s: the tickets are taking money on the next page.", plural(max(0, next-w.Day), "day"))))
 		}
 	}
@@ -273,7 +273,7 @@ func (m *Model) viewFund() string {
 // dial, what the city's campaign holds, and the amount to add.
 func (m *Model) viewCampaign(c *game.City) string {
 	w := m.w
-	cmp := m.set.Law.Campaign()
+	cmp := m.rules.Law.Campaign()
 	var tickets []string
 	for _, t := range game.Tickets {
 		tickets = append(tickets, stanceWord(t))
@@ -325,7 +325,7 @@ var lawReportStyle = theme.LawText
 // through and the DA's file gains a page.
 
 // favourDue is the response due tonight, for the favour: "" for none.
-func (m *Model) favourDue() string { return m.set.Heat.Due(m.w) }
+func (m *Model) favourDue() string { return m.rules.Heat.Due(m.w) }
 
 // favourWord is a response level in words for the dialog.
 func favourWord(level string) string {
@@ -363,14 +363,14 @@ func (m *Model) favourConfirm() string {
 	due := m.favourDue()
 	body := m.wrapLines(fmt.Sprintf("Chief %s's people stand down tonight and the %s due%s does not come. Nothing taken, nothing cooled: the heat stays where it is and the rung stands when its cooldown lifts.", w.Law.Chief.Name, favourWord(due), m.favourWhere()))
 	body = append(body, "")
-	body = append(body, m.subtle(fmt.Sprintf("The price: the chief's name is in your ledger, and the DA's file grows by %d tomorrow. Favours left after this: %d.", m.set.Law.Bribes().FavourEvidence, max(0, w.Law.Favours-1)))...)
+	body = append(body, m.subtle(fmt.Sprintf("The price: the chief's name is in your ledger, and the DA's file grows by %d tomorrow. Favours left after this: %d.", m.rules.Law.Bribes().FavourEvidence, max(0, w.Law.Favours-1)))...)
 	return m.modal("CALL IN THE FAVOUR?", body, m.modalFooter())
 }
 
 // favourWhere names the city whose police answer tonight when it is
 // not the one you stand in.
 func (m *Model) favourWhere() string {
-	if hot := m.set.Heat.Hottest(m.w); hot != nil && hot.ID != m.w.Here().ID {
+	if hot := m.rules.Heat.Hottest(m.w); hot != nil && hot.ID != m.w.Here().ID {
 		return " in " + hot.Name
 	}
 	return ""
@@ -379,7 +379,7 @@ func (m *Model) favourWhere() string {
 // confirmFavour makes the call.
 func (m *Model) confirmFavour() {
 	m.mode = modePlay
-	if err := m.w.CallFavour(m.favourDue() != ""); err != nil {
+	if err := m.sess.CallFavour(); err != nil {
 		m.refuse("Can't call in the favour: " + err.Error() + ".")
 		return
 	}

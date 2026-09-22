@@ -49,9 +49,26 @@ func New(cfg *content.Config) (*Session, error) {
 // Config is the tuning the session was built from.
 func (s *Session) Config() *content.Config { return s.cfg }
 
-// Rules is the constructed sims, the handles a front end reads a cost
-// or a preview through until the session offers them as quotes (#297).
-func (s *Session) Rules() *sim.Set { return s.set }
+// Rules is what a front end reads a cost, a price or a preview through
+// (#297): one interface a sim, each listing the sim's read methods a
+// front end may call and nothing that steps or seeds it.
+func (s *Session) Rules() Rules {
+	return Rules{
+		Market:     s.set.Market,
+		Logistics:  s.set.Logistics,
+		Territory:  s.set.Territory,
+		Rivals:     s.set.Rivals,
+		Crew:       s.set.Crew,
+		Heat:       s.set.Heat,
+		Law:        s.set.Law,
+		Laundering: s.set.Laundering,
+	}
+}
+
+// Sims is the constructed sims themselves, for the harness and the
+// tests that pin them. A front end reads them through Rules and acts
+// through the session's commands (TestFrontEndsUseTheSession).
+func (s *Session) Sims() *sim.Set { return s.set }
 
 // World is the run the session drives, nil before it has one.
 func (s *Session) World() *game.World { return s.w }

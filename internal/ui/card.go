@@ -95,7 +95,7 @@ func (m *Model) keyCard(key string) (tea.Model, tea.Cmd) {
 // answerCard takes the highlighted choice: the effects land at once, the
 // outcome goes in the journal and stays on screen until the next enter.
 func (m *Model) answerCard() {
-	a, err := m.w.Choose(m.cardCursor)
+	a, err := m.sess.Choose(m.cardCursor)
 	if err != nil {
 		m.refuse("Can't answer that: " + err.Error())
 		m.showCard()

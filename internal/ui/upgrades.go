@@ -168,7 +168,7 @@ func (m *Model) askUpgrade() {
 
 func (m *Model) confirmUpgrade() {
 	m.mode = modePlay
-	got, err := m.w.BuyUpgrade(m.cfg.Upgrades, m.upgradeID)
+	got, err := m.sess.BuyUpgrade(m.upgradeID)
 	if err != nil {
 		m.refuse("Can't buy: " + err.Error())
 		return

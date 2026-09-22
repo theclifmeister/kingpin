@@ -8,7 +8,6 @@ import (
 
 	"github.com/theclifmeister/kingpin/internal/content"
 	"github.com/theclifmeister/kingpin/internal/game"
-	"github.com/theclifmeister/kingpin/internal/sim/logistics"
 	"github.com/theclifmeister/kingpin/internal/ui/theme"
 )
 
@@ -61,9 +60,9 @@ func (m *Model) bribeTarget() string {
 // (halved under one you backed, less the fixer's cut).
 func (m *Model) bribePrice(target string) int {
 	if target == game.BribeDA {
-		return m.set.Law.DAPrice(m.w)
+		return m.rules.Law.DAPrice(m.w)
 	}
-	return m.set.Law.Bribes().ChiefPrice
+	return m.rules.Law.Bribes().ChiefPrice
 }
 
 // bribeMax is what the amount field's m fills in: the price, up to the
@@ -145,7 +144,7 @@ func (m *Model) confirmBribe() {
 		m.br.err = dialogError(err)
 		return
 	}
-	if err := m.w.Bribe(target, amt); err != nil {
+	if err := m.sess.Bribe(target, amt); err != nil {
 		m.br.err = dialogError(err)
 		return
 	}
@@ -157,7 +156,7 @@ func (m *Model) confirmBribe() {
 // and their price, then the amount with the odds.
 func (m *Model) viewBribe() string {
 	w := m.w
-	lw := m.set.Law
+	lw := m.rules.Law
 	tun := lw.Bribes()
 	if m.br.step == 1 {
 		target := m.bribeTarget()
@@ -195,7 +194,7 @@ func (m *Model) viewBribe() string {
 		body = append(body, line)
 	}
 	body = append(body, "")
-	body = append(body, m.wrapLines(fmt.Sprintf("A corrupt chief takes it: heat fades %.1fx faster and stings and raids come %s later for %s. A lazy one takes half the good. A zealous one, or a law-and-order DA, files it: a page and heat %.0f in the morning.", m.set.Heat.BribeDecayMul(), plural(m.set.Heat.BribeCooldown(), "day"), plural(tun.BribeDays, "day"), tun.BackfireHeat))...)
+	body = append(body, m.wrapLines(fmt.Sprintf("A corrupt chief takes it: heat fades %.1fx faster and stings and raids come %s later for %s. A lazy one takes half the good. A zealous one, or a law-and-order DA, files it: a page and heat %.0f in the morning.", m.rules.Heat.BribeDecayMul(), plural(m.rules.Heat.BribeCooldown(), "day"), plural(tun.BribeDays, "day"), tun.BackfireHeat))...)
 	body = append(body, m.wrapLines(fmt.Sprintf("A DA who takes it needs a thicker file to indict for %s. Every envelope taken is a lead; at %d the DA opens a file. Dirty cash only.", plural(tun.BribeDays, "day"), tun.LeadsCase))...)
 	if w.Cold() {
 		body = append(body, "", theme.Bad.Render("A law-and-order DA sits: the chief is not taking calls."))
@@ -235,7 +234,7 @@ func (m *Model) officialWord(target string) string {
 // likely to do, as far as you know.
 func (m *Model) bribeOdds(target string, amt int) string {
 	l := m.w.Law
-	lw := m.set.Law
+	lw := m.rules.Law
 	tun := lw.Bribes()
 	if target == game.BribeDA {
 		switch {
@@ -287,15 +286,15 @@ func (m *Model) checkpointModal() string {
 // title.
 func (m *Model) checkpointWord() string {
 	if r := m.selectedRoute(); r != nil {
-		return dealWord(*r)
+		return m.dealWord(*r)
 	}
 	return "checkpoint"
 }
 
 // dealWord is what a route's deal is called: a checkpoint on the road,
 // a customs agent at the water.
-func dealWord(r content.RouteConfig) string {
-	if logistics.Customs(r) {
+func (m *Model) dealWord(r content.RouteConfig) string {
+	if m.rules.Logistics.Customs(r) {
 		return "customs agent"
 	}
 	return "checkpoint"
@@ -303,10 +302,10 @@ func dealWord(r content.RouteConfig) string {
 
 // dealPrice is what the route's deal costs.
 func (m *Model) dealPrice(r content.RouteConfig) int {
-	if logistics.Customs(r) {
-		return m.set.Law.Bribes().CustomsPrice
+	if m.rules.Logistics.Customs(r) {
+		return m.rules.Law.Bribes().CustomsPrice
 	}
-	return m.set.Law.Bribes().CheckpointPrice
+	return m.rules.Law.Bribes().CheckpointPrice
 }
 
 // confirmCheckpoint buys the deal on the selected route.
@@ -316,16 +315,15 @@ func (m *Model) confirmCheckpoint() {
 		m.mode = modePlay
 		return
 	}
-	tun := m.set.Law.Bribes()
 	price := m.dealPrice(*r)
-	if err := m.w.BuyCheckpoint(r.ID, price, tun.CheckpointDays); err != nil {
+	if err := m.sess.BuyCheckpoint(r.ID); err != nil {
 		m.mode = modePlay
-		m.refuse("Can't buy the " + dealWord(*r) + ": " + err.Error() + ".")
+		m.refuse("Can't buy the " + m.dealWord(*r) + ": " + err.Error() + ".")
 		return
 	}
 	m.mode = modePlay
 	until, _ := m.w.Checkpoint(r.ID)
-	m.say(fmt.Sprintf("The %s on the %s is yours until day %d: %s. Risk on that edge cut %.0f%% while it holds.", dealWord(*r), r.Name, until, money(price), m.set.Logistics.DealCut(*r)*100))
+	m.say(fmt.Sprintf("The %s on the %s is yours until day %d: %s. Risk on that edge cut %.0f%% while it holds.", m.dealWord(*r), r.Name, until, money(price), m.rules.Logistics.DealCut(*r)*100))
 }
 
 // checkpointConfirm is the confirmation's body.
@@ -335,10 +333,10 @@ func (m *Model) checkpointConfirm() []string {
 		return []string{"No route."}
 	}
 	w := m.w
-	lg := m.set.Logistics
-	tun := m.set.Law.Bribes()
+	lg := m.rules.Logistics
+	tun := m.rules.Law.Bribes()
 	d := w.Route(r.ID).Dial
-	body := m.wrapLines(fmt.Sprintf("Buy the %s on the %s (%s %s %s) for %s, dirty: %s of the risk off every day on that edge for %s.", dealWord(*r), r.Name, w.CityName(r.From), edge(r.Mode), w.CityName(r.To), money(m.dealPrice(*r)), fmt.Sprintf("%.0f%%", lg.DealCut(*r)*100), plural(tun.CheckpointDays, "day")))
+	body := m.wrapLines(fmt.Sprintf("Buy the %s on the %s (%s %s %s) for %s, dirty: %s of the risk off every day on that edge for %s.", m.dealWord(*r), r.Name, w.CityName(r.From), edge(r.Mode), w.CityName(r.To), money(m.dealPrice(*r)), fmt.Sprintf("%.0f%%", lg.DealCut(*r)*100), plural(tun.CheckpointDays, "day")))
 	if until, live := w.Checkpoint(r.ID); live {
 		body = append(body, theme.Subtle.Render(fmt.Sprintf("Yours until day %d already; this adds to it.", until)))
 	}
@@ -385,7 +383,7 @@ func (m *Model) payoffRows() []payoff {
 	for _, r := range m.ledgerRoutes() {
 		if until, live := w.Checkpoint(r.ID); live {
 			rc := r
-			rows = append(rows, payoff{Who: r.Name, What: dealWord(r) + fmt.Sprintf(", risk cut %.0f%%", m.set.Logistics.DealCut(r)*100), Until: until, Route: &rc})
+			rows = append(rows, payoff{Who: r.Name, What: m.dealWord(r) + fmt.Sprintf(", risk cut %.0f%%", m.rules.Logistics.DealCut(r)*100), Until: until, Route: &rc})
 		}
 	}
 	return rows

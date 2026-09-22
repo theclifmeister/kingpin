@@ -84,7 +84,7 @@ func TestEndingSceneByCause(t *testing.T) {
 	if m.w.Day != day+1 || m.scene == nil {
 		t.Fatalf("after n: day %d → %d, scene %v", day, m.w.Day, m.scene)
 	}
-	if saved, err := game.Load(m.slot, m.set.Migrations()...); err != nil || saved.Over == nil || saved.Over.Cause != "indicted" {
+	if saved, err := game.Load(m.slot, m.sess.Sims().Migrations()...); err != nil || saved.Over == nil || saved.Over.Cause != "indicted" {
 		t.Fatalf("the ending was not saved before the scene: %v %+v", err, saved.Over)
 	}
 	if !strings.Contains(m.View(), "GAME OVER") || strings.Contains(m.View(), "SCORE") {

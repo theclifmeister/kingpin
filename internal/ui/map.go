@@ -160,7 +160,7 @@ func (m *Model) confirmPost() {
 		return
 	}
 	who := rows[max(0, min(m.pick.cursor, len(rows)-1))]
-	if err := m.w.Post(c.ID, who.ID); err != nil {
+	if err := m.sess.Post(c.ID, who.ID); err != nil {
 		if who.ID == game.You && err == game.ErrElsewhere {
 			m.refuse(fmt.Sprintf("Can't stand on %s from %s: go there first.", c.Name, m.w.Here().Name))
 			return
@@ -182,7 +182,7 @@ func (m *Model) abandonSelected() {
 	if c == nil {
 		return
 	}
-	if err := m.w.Abandon(c.ID); err != nil {
+	if err := m.sess.Abandon(c.ID); err != nil {
 		m.refuse("Can't abandon: " + err.Error())
 		return
 	}
@@ -411,14 +411,14 @@ func (m *Model) eyedBy(c *game.Corner) string {
 // driftLeft is the days a held corner nobody works has before it goes
 // back to the street.
 func (m *Model) driftLeft(c *game.Corner) int {
-	return max(1, m.set.Territory.DriftDays(m.w)-c.Idle)
+	return max(1, m.rules.Territory.DriftDays(m.w)-c.Idle)
 }
 
 // fragmentLeft is the days a leaderless faction's last corner has
 // before it goes back to the street (the rivals sim spreads them over
 // fragment_days from the leader's fall; #238: the one drift phrase).
 func (m *Model) fragmentLeft(r *game.RivalState) int {
-	return max(1, r.Fragmented+m.set.Rivals.Factions().FragmentDays-m.w.Day-1)
+	return max(1, r.Fragmented+m.rules.Rivals.Factions().FragmentDays-m.w.Day-1)
 }
 
 // mapDetails is the map's pane: the inspector for the corner under the
@@ -476,12 +476,12 @@ func (m *Model) cornerSection(sel *game.Corner) section {
 		row("heat", fmt.Sprintf("×%.1f %s", sel.Heat, heatWord(sel.Heat))),
 		row("risk", fmt.Sprintf("×%.1f %s", sel.Risk, riskWord(sel.Risk))))
 	if sel.Held() {
-		lines = append(lines, row("robbery", pctText(m.set.Territory.RobberyChance(w, sel)*100)+"/day"))
+		lines = append(lines, row("robbery", pctText(m.rules.Territory.RobberyChance(w, sel)*100)+"/day"))
 	}
 	// The deed to the block (#194): yours since when and what it pays,
 	// or what it would cost.
 	if d := sel.Deed; d != nil {
-		lines = append(lines, row("DEED", theme.Gold.Render(fmt.Sprintf("yours since day %d · %s/day", d.Bought, money(m.set.Territory.DeedRent(d))))))
+		lines = append(lines, row("DEED", theme.Gold.Render(fmt.Sprintf("yours since day %d · %s/day", d.Bought, money(m.rules.Territory.DeedRent(d))))))
 	}
 	// The corner's repeat business (#47): the share of its customers
 	// still coming back, once bad product has cost it some; a row the
@@ -498,7 +498,7 @@ func (m *Model) cornerSection(sel *game.Corner) section {
 		lines = append(lines, row("undercut", theme.RivalText.Render(fmt.Sprintf("-%.0f%% (%s)", sel.Squeeze*100, m.squeezers(sel)))))
 	}
 	if d, ok := w.Undercutting(sel.ID); ok && sel.Owner == game.OwnerRival {
-		lines = append(lines, row("undercut", theme.MarketText.Render(fmt.Sprintf("%s · takes ~%.0f/day", d, m.set.Market.UndercutUnits(w, *sel, d)))))
+		lines = append(lines, row("undercut", theme.MarketText.Render(fmt.Sprintf("%s · takes ~%.0f/day", d, m.rules.Market.UndercutUnits(w, *sel, d)))))
 	}
 	if sel.Held() && w.Contested(*sel) {
 		lines = append(lines, row("push flips", theme.RivalText.Render(m.pushWord(m.pusher(sel), sel)))) // at the muscle the file holds (#45)
@@ -508,8 +508,8 @@ func (m *Model) cornerSection(sel *game.Corner) section {
 	// operation with nothing washed does without, so the pane reads as
 	// it did): the price today, and the rent.
 	if sel.Deed == nil && w.Player.CleanCash > 0 {
-		if price := m.set.Territory.DeedPrice(w, *sel); price > 0 {
-			lines = append(lines, keyRow("d", fmt.Sprintf("buy the block: %s clean, +%s/day", cash(price), cash(m.set.Territory.DeedRent(&game.Deed{Price: price})))))
+		if price := m.rules.Territory.DeedPrice(w, *sel); price > 0 {
+			lines = append(lines, keyRow("d", fmt.Sprintf("buy the block: %s clean, +%s/day", cash(price), cash(m.rules.Territory.DeedRent(&game.Deed{Price: price})))))
 		}
 	}
 	// Demand per product, biggest first, as many to a line as the value
@@ -562,7 +562,7 @@ func (m *Model) cornerSection(sel *game.Corner) section {
 		f := m.factionOf(sel)
 		if n := w.Crew.Role(game.RoleEnforcer); n > 0 {
 			lines = append(lines, keyRow("w", fmt.Sprintf("push takes it %s, hit %s", m.oddsWord(f, sel, events.ForcePush), m.oddsWord(f, sel, events.ForceHit))))
-			lines = append(lines, keyRow("w", fmt.Sprintf("boost: the till, ~%s", cash(m.set.Rivals.BoostTake(w, *sel)))))
+			lines = append(lines, keyRow("w", fmt.Sprintf("boost: the till, ~%s", cash(m.rules.Rivals.BoostTake(w, *sel)))))
 		} else {
 			// The pointer on a line of its own: wrapped mid-phrase it read
 			// `screen (4)` at a line's start, a key hint to the grammar's eye.
@@ -570,7 +570,7 @@ func (m *Model) cornerSection(sel *game.Corner) section {
 			lines = append(lines, theme.Subtle.Render("Hire one "+screenPointer(screenCrew)+"."))
 		}
 		// The books (#70): the police, tipped off, take the corner.
-		tp := m.set.Rivals.TipTuning()
+		tp := m.rules.Rivals.TipTuning()
 		if s := w.Today.Tipoff; s != nil && s.Corner == sel.ID {
 			lines = append(lines, keyRow("t", fmt.Sprintf("tipped tonight: police %.0f → %.0f", f.Heat, min(100, f.Heat+tp.Heat))))
 		} else {
@@ -579,7 +579,7 @@ func (m *Model) cornerSection(sel *game.Corner) section {
 		// The price war (#68): the third answer, from next door.
 		switch err := w.CanUndercut(sel.ID); {
 		case err == nil:
-			lines = append(lines, keyRow("u", fmt.Sprintf("undercut: takes ~%.0f%% at normal, no heat", m.set.Market.Steal(w, *sel, events.DialNormal)*100)))
+			lines = append(lines, keyRow("u", fmt.Sprintf("undercut: takes ~%.0f%% at normal, no heat", m.rules.Market.Steal(w, *sel, events.DialNormal)*100)))
 		case err == game.ErrNotNextDoor:
 			lines = append(lines, wrapped(theme.Subtle, "Work a corner next door and you can undercut it.")...)
 		}

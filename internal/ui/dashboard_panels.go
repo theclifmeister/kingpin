@@ -41,7 +41,7 @@ func (m *Model) heatLines(innerW int, narrow bool) []string {
 	// The ladder as the player faces it (#48, heat.Sim.Ladder): the
 	// task force's line is marked only once one can form, so a run
 	// with no asset and a small pile reads the four rungs it always did.
-	for _, r := range m.set.Heat.Ladder(w, here) {
+	for _, r := range m.rules.Heat.Ladder(w, here) {
 		marks = append(marks, r.Threshold/100)
 		name := r.Level
 		if r.Level == content.TaskForce {
@@ -51,7 +51,7 @@ func (m *Model) heatLines(innerW int, narrow bool) []string {
 	}
 	lines := []string{heatStyle(here.Heat).Render(sparkline.Bar(here.Heat/100, innerW, marks))}
 	numbers := []string{heatStyle(here.Heat).Render(fmt.Sprintf("%.0f", here.Heat)) + theme.Subtle.Render("/100"), theme.Subtle.Render(fmt.Sprintf("peak %.0f", w.Heat.Peak))}
-	if ev := m.set.Heat.EvidenceArrest(w); ev > 0 {
+	if ev := m.rules.Heat.EvidenceArrest(w); ev > 0 {
 		style := theme.Subtle
 		if w.Heat.Evidence >= ev-2 {
 			style = theme.Bad
@@ -132,15 +132,15 @@ func thresholdLines(thr []string, innerW int) []string {
 func (m *Model) cashLines(innerW int, narrow bool) []string {
 	w := m.w
 	over := ""
-	if line := m.set.Heat.DirtyCashThreshold(w); line > 0 {
-		if line += m.set.Heat.Cover(w); w.Player.DirtyCash > line {
+	if line := m.rules.Heat.DirtyCashThreshold(w); line > 0 {
+		if line += m.rules.Heat.Cover(w); w.Player.DirtyCash > line {
 			over = theme.Warning.Render(fmt.Sprintf("over %s: heat", cash(line)))
 		}
 	}
 	dirty := theme.Gold.Render("dirty  " + cash(w.Player.DirtyCash))
 	clean := theme.Subtle.Render("clean  " + cash(w.Player.CleanCash))
 	if len(w.Fronts) > 0 {
-		wash := cash(m.set.Laundering.Capacity(w))
+		wash := cash(m.rules.Laundering.Capacity(w))
 		clean = firstFit(innerW, clean+theme.Subtle.Render(fmt.Sprintf("  +%s/day %s", wash, w.Laundering.Dial)), clean+theme.Subtle.Render(" +"+wash))
 	}
 	peak := theme.Subtle.Render("peak   " + cash(w.Stats.PeakCash))
@@ -184,7 +184,7 @@ func (m *Model) lawLines(innerW int, narrow bool) []string {
 	if l.Favours > 0 && !w.Cold() {
 		owes = sep + theme.Good.Render("owes one")
 	}
-	if end := m.set.Law.ChiefTermEnds(w); end > 0 && !narrow {
+	if end := m.rules.Law.ChiefTermEnds(w); end > 0 && !narrow {
 		left := sep + theme.Subtle.Render(fmt.Sprintf("%dd left", max(0, end-w.Day)))
 		chief = firstFit(innerW, chief+owes+left, chief+owes, chief+left, chief)
 	} else {
@@ -199,7 +199,7 @@ func (m *Model) lawLines(innerW int, narrow bool) []string {
 		short = "law-order"
 	}
 	election, tight := "", ""
-	if next := m.set.Law.NextElection(w); next > 0 && !narrow {
+	if next := m.rules.Law.NextElection(w); next > 0 && !narrow {
 		election = sep + theme.Subtle.Render(fmt.Sprintf("election in %dd", max(0, next-w.Day)))
 		tight = sep + theme.Subtle.Render(fmt.Sprintf("election %dd", max(0, next-w.Day)))
 	}
@@ -273,7 +273,7 @@ func (m *Model) rivalShort(innerW int) string {
 func (m *Model) rivalLines(innerW int) []string {
 	w := m.w
 	r := w.Rival()
-	tun := m.set.Rivals.Tuning()
+	tun := m.rules.Rivals.Tuning()
 	if r.Arrived == 0 && w.RivalHeld() == 0 {
 		var ls []string
 		for _, l := range wrap("Nobody is contesting the city. Yet.", innerW) {

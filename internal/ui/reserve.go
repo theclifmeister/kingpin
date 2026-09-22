@@ -40,7 +40,7 @@ func (m *Model) askReserve() {
 // reserveAmount is the amount the field reads: blank is a lot, or the
 // clean cash where that is less.
 func (m *Model) reserveAmount() (int, error) {
-	lot := min(m.set.Laundering.Offshore().Lot, m.w.Player.CleanCash)
+	lot := min(m.rules.Laundering.Offshore().Lot, m.w.Player.CleanCash)
 	return parseQtyInput(m.rsv.amt.Value(), lot)
 }
 
@@ -66,12 +66,12 @@ func (m *Model) confirmReserve() {
 		m.rsv.err = dialogError(err)
 		return
 	}
-	if err := m.w.Reserve(amt); err != nil {
+	if err := m.sess.Reserve(amt); err != nil {
 		m.rsv.err = dialogError(err)
 		return
 	}
 	m.mode = modePlay
-	l := m.set.Laundering
+	l := m.rules.Laundering
 	say := fmt.Sprintf("%s clean goes offshore tonight, fee %s.", money(amt), money(l.Fee(amt)))
 	if lots := l.Lots(m.w.ReservedToday()); lots > 0 {
 		m.alarm(say + fmt.Sprintf(" Over the lot by %s: the DA will read it.", plural(lots, "lot")))
@@ -84,7 +84,7 @@ func (m *Model) confirmReserve() {
 // the DA reads.
 func (m *Model) viewReserve() string {
 	w := m.w
-	l := m.set.Laundering
+	l := m.rules.Laundering
 	off := l.Offshore()
 	amt, err := m.reserveAmount()
 	if err != nil {
@@ -102,7 +102,7 @@ func (m *Model) viewReserve() string {
 		lots := l.Lots(total)
 		pages := theme.Good.Render("under the lot: nobody reads it")
 		if lots > 0 {
-			pages = theme.Bad.Render(fmt.Sprintf("over the lot by %s: %s in the DA's file tomorrow", plural(lots, "lot"), plural(lots*m.set.Heat.StructureEvidence(), "page")))
+			pages = theme.Bad.Render(fmt.Sprintf("over the lot by %s: %s in the DA's file tomorrow", plural(lots, "lot"), plural(lots*m.rules.Heat.StructureEvidence(), "page")))
 		}
 		style := theme.Gold
 		if amt > w.Player.CleanCash {

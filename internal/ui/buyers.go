@@ -60,7 +60,7 @@ func (m *Model) buyersLines() []string {
 		if left <= 1 {
 			days = urgency(left).Render("last day")
 		}
-		pays := fmt.Sprintf("%s (×%.3g)", price(m.set.Market.ContractPrice(w, c)), c.Premium)
+		pays := fmt.Sprintf("%s (×%.3g)", price(m.rules.Market.ContractPrice(w, c)), c.Premium)
 		var state string
 		switch c.Status {
 		case game.ContractOffered:
@@ -81,7 +81,7 @@ func (m *Model) buyersLines() []string {
 // would pay and draw tonight.
 func (m *Model) contractSections(c game.Contract) []section {
 	w := m.w
-	pays := m.set.Market.ContractPrice(w, c)
+	pays := m.rules.Market.ContractPrice(w, c)
 	sel := []string{
 		row("status", c.Status.String()),
 		row("wants", fmt.Sprintf("%d %s", c.Units, w.ProductName(c.Product))),
@@ -103,7 +103,7 @@ func (m *Model) contractSections(c game.Contract) []section {
 			n = q
 		}
 		if n > 0 {
-			heat := m.set.Heat.ContractHeat(w, c.City, c.Product, n, c.HeatMul)
+			heat := m.rules.Heat.ContractHeat(w, c.City, c.Product, n, c.HeatMul)
 			sel = append(sel,
 				row("tonight", fmt.Sprintf("%d for ~%s", n, money(int(pays*float64(n))))),
 				row("heat", fmt.Sprintf("+%.1f in %s", heat, w.CityName(c.City))))
@@ -114,7 +114,7 @@ func (m *Model) contractSections(c game.Contract) []section {
 	notes = append(notes, wrapped(theme.Subtle, c.Pitch)...)
 	if c.Status == game.ContractOffered {
 		notes = append(notes, wrapped(theme.Warning, fmt.Sprintf("If you fail: respect -%.0f, notoriety +%.0f, and they collect %.0f%% of what is short; they stay away %s.",
-			c.Penalty, m.set.Market.BuyersTuning().NotorietyPenalty, c.PenaltyCash*100, plural(m.set.Market.BuyersTuning().BlacklistDays, "day")))...)
+			c.Penalty, m.rules.Market.BuyersTuning().NotorietyPenalty, c.PenaltyCash*100, plural(m.rules.Market.BuyersTuning().BlacklistDays, "day")))...)
 	} else {
 		notes = append(notes, wrapped(theme.Subtle, "A handoff needs no corner and no dial.")...)
 	}
@@ -163,9 +163,9 @@ func (m *Model) answerContract(accept bool) {
 	}
 	var err error
 	if accept {
-		err = m.w.AcceptContract(c.ID)
+		err = m.sess.AcceptContract(c.ID)
 	} else {
-		err = m.w.DeclineContract(c.ID)
+		err = m.sess.DeclineContract(c.ID)
 	}
 	if err != nil {
 		m.refuse("Can't answer that: " + err.Error())
@@ -194,7 +194,7 @@ func (m *Model) deliverSelected() {
 		m.refuse(fmt.Sprintf("Nothing to hand over: no %s in the stash in %s.", m.w.ProductName(c.Product), m.w.CityName(c.City)))
 		return
 	}
-	if err := m.w.Deliver(c.ID, n); err != nil {
+	if err := m.sess.Deliver(c.ID, n); err != nil {
 		if err == game.ErrElsewhere {
 			m.refuse(fmt.Sprintf("Can't deliver from here: the handoff is in %s, go there.", m.w.CityName(c.City)))
 		} else {
@@ -202,7 +202,7 @@ func (m *Model) deliverSelected() {
 		}
 		return
 	}
-	m.say(fmt.Sprintf("%d %s go to %s tonight for about %s.", n, m.w.ProductName(c.Product), c.Name, money(int(m.set.Market.ContractPrice(m.w, *c)*float64(n)))))
+	m.say(fmt.Sprintf("%d %s go to %s tonight for about %s.", n, m.w.ProductName(c.Product), c.Name, money(int(m.rules.Market.ContractPrice(m.w, *c)*float64(n)))))
 }
 
 // contractsLine is the dashboard's one line on the buyers: how many

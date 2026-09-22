@@ -121,10 +121,10 @@ func (m *Model) orderEstimate(o game.SellOrder, standing bool) (units, take int,
 	cut := 0.0
 	if standing {
 		qty = min(qty, m.sellable(o.City, o.Product))
-		cut = m.set.Market.Cut()
+		cut = m.rules.Market.Cut()
 	}
-	units = min(qty, m.set.Market.Capacity(m.w, o.City, o.Product, o.Dial))
-	take = int(float64(units) * p.Price * m.set.Market.Dial(o.Dial).Price * (1 - cut))
+	units = min(qty, m.rules.Market.Capacity(m.w, o.City, o.Product, o.Dial))
+	take = int(float64(units) * p.Price * m.rules.Market.Dial(o.Dial).Price * (1 - cut))
 	return units, take, m.estHeat(o.City, o.Product, qty, o.Dial)
 }
 
@@ -422,9 +422,9 @@ func (m *Model) keyCart(k tea.KeyMsg) (tea.Model, tea.Cmd) {
 // PlaceSell.
 func (m *Model) placeLine(l cartLine, qty int, dial events.Dial) error {
 	if l.standing {
-		return m.w.PlaceStanding(l.city, l.product, qty, dial)
+		return m.sess.PlaceStanding(l.city, l.product, qty, dial)
 	}
-	return m.w.PlaceSell(l.city, l.product, qty, dial)
+	return m.sess.PlaceSell(l.city, l.product, qty, dial)
 }
 
 // cartMax is what the cart's quantity can take for the line under the
@@ -451,11 +451,11 @@ func (m *Model) cartMax() int {
 func (m *Model) giveBack(l cartLine, qty int) (int, error) {
 	switch {
 	case l.contract:
-		return m.w.ReturnSupplied(l.city, l.product, qty)
+		return m.sess.ReturnSupplied(l.city, l.product, qty)
 	case l.credit:
-		return m.w.ReturnCredit(l.city, l.product, qty)
+		return m.sess.ReturnCredit(l.city, l.product, qty)
 	}
-	return m.w.Return(l.city, l.product, qty)
+	return m.sess.Return(l.city, l.product, qty)
 }
 
 // returned is the status after a return: what came back to the till,
@@ -510,7 +510,7 @@ func (m *Model) setCartQty() {
 				d.err = fmt.Sprintf("Nobody in %s sells %s today.", m.w.CityName(l.city), m.w.ProductName(l.product))
 				return
 			}
-			p, err := m.w.Buy(sup.ID, l.product, qty-l.qty, false, m.set.Market.BuyPressure(m.w))
+			p, err := m.sess.Buy(sup.ID, l.product, qty-l.qty, false)
 			if err != nil {
 				d.err = dialogError(err)
 				return
@@ -546,12 +546,12 @@ func (m *Model) setCartQty() {
 // the stash stays, with the refusal in the modal and the status bar.
 func (m *Model) removeCartLine(l cartLine) {
 	if l.standing {
-		m.w.CancelStanding(l.city, l.product)
+		m.sess.CancelStanding(l.city, l.product)
 		m.say("Standing order cancelled.")
 		return
 	}
 	if !l.buy {
-		m.w.CancelSell(l.city, l.product)
+		m.sess.CancelSell(l.city, l.product)
 		m.say("Order cancelled.")
 		return
 	}

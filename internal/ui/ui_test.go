@@ -367,9 +367,9 @@ func richFixture(t *testing.T, sz [2]int, check func(m *Model, view, what string
 	// A route on with a target and a shipment in flight: the routes
 	// under the grid with the cursor on them, the target dialog and
 	// every screen that reports the road.
-	route := m.set.Logistics.Routes(m.w.CityOrder[1])[0]
+	route := m.sess.Sims().Logistics.Routes(m.w.CityOrder[1])[0]
 	m.w.SetStock(route.From, m.w.Products[0], 300)
-	m.w.Player.DirtyCash += m.set.Logistics.Float()
+	m.w.Player.DirtyCash += m.sess.Sims().Logistics.Float()
 	m.Update(key("]"))
 	for len(m.shown().Corners) > 0 && !m.onRoutes {
 		m.Update(key("j"))
@@ -1096,7 +1096,7 @@ func TestEnterDoesNotEndDay(t *testing.T) {
 	if m.w.Day != day+3 || m.mode != modePlay {
 		t.Fatalf("enter in the target dialog: day %d -> %d, mode %v (%s)", day+3, m.w.Day, m.mode, m.tgt.err)
 	}
-	route := m.set.Logistics.Routes(m.w.Player.Location)[0]
+	route := m.sess.Sims().Logistics.Routes(m.w.Player.Location)[0]
 	if m.w.Route(route.ID).Target[m.w.Products[0]] != 7 {
 		t.Fatalf("the target was not set: %+v", m.w.Route(route.ID))
 	}
@@ -1725,7 +1725,7 @@ func TestStrikeKeys(t *testing.T) {
 // unaffordable front is refused with a reason.
 func TestLedgerScreenKeys(t *testing.T) {
 	m := newTestModel(t, 100, 30)
-	cheapest := m.set.Laundering.Offers()[0]
+	cheapest := m.rules.Laundering.Offers()[0]
 	m.Update(key("b"))
 	if m.mode != modeBuy {
 		t.Fatalf("b on the dashboard: mode %v", m.mode)
@@ -1775,7 +1775,7 @@ func TestLedgerScreenKeys(t *testing.T) {
 	}
 	m.Update(key("b"))
 	m.Update(key("enter"))
-	if rows := m.frontRows(); len(rows) != len(m.set.Laundering.Offers())-1 || rows[0].ID == cheapest.ID {
+	if rows := m.frontRows(); len(rows) != len(m.rules.Laundering.Offers())-1 || rows[0].ID == cheapest.ID {
 		t.Fatalf("picker still offers what you own: %+v", rows)
 	}
 	m.Update(key("esc"))
@@ -1916,7 +1916,7 @@ func TestRouteAndTravelKeys(t *testing.T) {
 	w := m.w
 	home, hub := w.Home().ID, w.CityOrder[1]
 	product := w.Products[0]
-	m.w.Player.DirtyCash = 20_000 + m.set.Logistics.Float()
+	m.w.Player.DirtyCash = 20_000 + m.sess.Sims().Logistics.Float()
 	m.Update(key("2"))
 	m.Update(key("right"))
 	if m.screen != screenMarket || m.mode != modePlay || m.city != hub {
@@ -1953,7 +1953,7 @@ func TestRouteAndTravelKeys(t *testing.T) {
 
 	// The routes out of the hub run into home. Down past the grid reaches
 	// them, j and k walk them, k off the top comes back to the grid.
-	routes := m.set.Logistics.Routes(hub)
+	routes := m.sess.Sims().Logistics.Routes(hub)
 	if len(routes) < 2 {
 		t.Skipf("%d route(s) out of %s", len(routes), hub)
 	}
@@ -2035,7 +2035,7 @@ func TestRouteAndTravelKeys(t *testing.T) {
 	}
 	m.Update(key("enter"))
 	m.Update(key("3"))
-	today := m.set.Logistics.DaysTarget(w, route, product, 3)
+	today := m.rules.Logistics.DaysTarget(w, route, product, 3)
 	if view := stripANSI(m.View()); !strings.Contains(view, "3d ≈ "+plural(today, "unit")) {
 		t.Fatalf("the days step does not say what 3 days mean today (%d):\n%s", today, view)
 	}
@@ -2083,7 +2083,7 @@ func TestRouteAndTravelKeys(t *testing.T) {
 	// so the corner carries no risk while this test counts the road.
 	w.PostOf(game.You).Risk = 0
 	cash := w.Player.DirtyCash
-	days := m.set.Logistics.Days(w, route, events.ShipSlow)
+	days := m.rules.Logistics.Days(w, route, events.ShipSlow)
 	endDay(t, m)
 	if len(w.Shipments) != 1 || w.Shipments[0].Units != 30 || w.Shipments[0].Dial != events.ShipSlow || w.Shipments[0].Route != route.ID {
 		t.Fatalf("after the day: shipments %+v report %v", w.Shipments, w.Report.Shipments)
@@ -2328,7 +2328,7 @@ func TestRivalsScreenKeys(t *testing.T) {
 	m.Update(key("d"))
 	m.Update(key("1"))
 	m.Update(key("1")) // the short truce
-	if w.Today.Proposal == nil || m.set.Rivals.Chance(w, w.Rival(), *w.Today.Proposal) < 1 {
+	if w.Today.Proposal == nil || m.rules.Rivals.Chance(w, w.Rival(), *w.Today.Proposal) < 1 {
 		t.Fatalf("propose: %+v status %q", w.Today.Proposal, m.status)
 	}
 	endDay(t, m)
@@ -2533,7 +2533,7 @@ func TestCampaignKeys(t *testing.T) {
 	}
 	m.Update(key("left"))
 	// m fills the swing, less the goodwill on the first page.
-	fill := m.set.Law.Campaign().Fill()
+	fill := m.rules.Law.Campaign().Fill()
 	m.Update(key("m"))
 	if got, _ := m.fnd.camp.Number(); got != fill {
 		t.Fatalf("m filled %d, want the swing's %d", got, fill)
@@ -2658,7 +2658,7 @@ func richModelSeeded(t *testing.T, w, h int, seed uint64) *Model {
 	world.Rival().Deals = []game.Deal{{Kind: game.DealSplit, Terms: game.Terms{Corners: []string{home.Corners[1].ID}}, Since: world.Day}}
 	world.Offers = []game.Offer{{ID: 1, Deal: game.Deal{Kind: game.DealTruce, Terms: game.Terms{Days: 30}, Offered: true}, Expires: world.Day + 4}}
 	// A route on with a target, and a day for it to send a shipment.
-	route := m.set.Logistics.Routes(world.CityOrder[1])[0]
+	route := m.sess.Sims().Logistics.Routes(world.CityOrder[1])[0]
 	m.cfg.Routes.Routes[0].Risk = 0
 	world.SetStock(route.From, world.Products[0], 300)
 	if err := world.SetRoute(route.ID, events.RouteNormal); err != nil {
@@ -2993,8 +2993,8 @@ func TestModalsFit(t *testing.T) {
 			m.w.Law.Favours = 1
 			m.w.Law.DA.Stance = "moderate"
 			m.w.Law.Chief.Name = "Kerr"
-			raid := m.set.Heat.Thresholds()[2]
-			m.w.Here().Heat = m.set.Heat.Threshold(m.w, raid, m.w.Here()) + 1
+			raid := m.sess.Sims().Heat.Thresholds()[2]
+			m.w.Here().Heat = m.sess.Sims().Heat.Threshold(m.w, raid, m.w.Here()) + 1
 			m.Update(key("7"))
 			m.Update(key("v"))
 		}},

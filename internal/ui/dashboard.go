@@ -138,8 +138,8 @@ func (m *Model) streetLines(innerW, maxLines int, narrow, withRoad bool) []strin
 		topic(corners, tier)
 	}
 	if n := len(w.Crew.Members); n > 0 {
-		crew := fact{theme.CrewText.Render(fmt.Sprintf("crew %d · %s pay %s/day", n, w.Crew.Pay, money(m.set.Crew.Wages(w, w.Crew.Pay)))), priCrew}
-		if w.Crew.LastSkim > 0 && w.Day-w.Crew.LastSkim < m.set.Crew.Tuning().SuspectDays {
+		crew := fact{theme.CrewText.Render(fmt.Sprintf("crew %d · %s pay %s/day", n, w.Crew.Pay, money(m.rules.Crew.Wages(w, w.Crew.Pay)))), priCrew}
+		if w.Crew.LastSkim > 0 && w.Day-w.Crew.LastSkim < m.rules.Crew.Tuning().SuspectDays {
 			topic(crew, fact{theme.Bad.Render("skimming suspected"), priCrew})
 		} else {
 			topic(crew)
@@ -171,7 +171,7 @@ func (m *Model) streetLines(innerW, maxLines int, narrow, withRoad bool) []strin
 	} else if r := w.Faction(w.War); w.War != "" && r != nil {
 		// The war order (#229): where the enforcers go tonight on it.
 		line := fmt.Sprintf("War on %s: nowhere to go tonight.", m.rivalName(r))
-		if c := m.set.Rivals.WarTarget(w, r); c != nil {
+		if c := m.rules.Rivals.WarTarget(w, r); c != nil {
 			force, _ := m.cfg.Rivals.War.Force()
 			line = fmt.Sprintf("War on %s: enforcers go to %s tonight, %s.", m.rivalName(r), c.Name, force)
 		}
@@ -185,10 +185,10 @@ func (m *Model) streetLines(innerW, maxLines int, narrow, withRoad bool) []strin
 	case len(w.Today.Orders) > 0:
 		last = theme.Gold.Render("Orders queued for tonight.")
 	case len(w.Standing) > 0:
-		last = theme.Gold.Render(fmt.Sprintf("Standing orders sell tonight; the crew keep %.0f%%.", m.set.Market.Cut()*100))
+		last = theme.Gold.Render(fmt.Sprintf("Standing orders sell tonight; the crew keep %.0f%%.", m.rules.Market.Cut()*100))
 	default:
 		if lt := w.Crew.Lieutenant(here.ID); lt != nil && m.standingHere() > 0 {
-			last = theme.Gold.Render(fmt.Sprintf("%s sells the stash here at %s; an order of yours overrides it.", lt.Name, m.set.Crew.Dial(*lt)))
+			last = theme.Gold.Render(fmt.Sprintf("%s sells the stash here at %s; an order of yours overrides it.", lt.Name, m.rules.Crew.Dial(*lt)))
 		} else if line := m.retireLine(); line != "" {
 			last = line // how far off the exit is (#195)
 		} else {
@@ -351,8 +351,8 @@ func (m *Model) sellEstimate(city, id string, dial events.Dial) (units int, take
 	if p == nil {
 		return 0, 0
 	}
-	units = min(w.Stock(city, id), m.set.Market.Capacity(w, city, id, dial))
-	return units, int(float64(units) * p.Price * m.set.Market.Dial(dial).Price)
+	units = min(w.Stock(city, id), m.rules.Market.Capacity(w, city, id, dial))
+	return units, int(float64(units) * p.Price * m.rules.Market.Dial(dial).Price)
 }
 
 // dashboardDetails is the dashboard's pane: the product under the

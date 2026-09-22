@@ -18,14 +18,14 @@ import (
 func TestAssetsInTheGrammar(t *testing.T) {
 	m := richModel(t, 100, 30)
 	w := m.w
-	ld := m.set.Laundering
+	ld := m.rules.Laundering
 	offers := ld.AssetOffers()
 	first := offers[0]
 	m.Update(key("7"))
 	if view := stripANSI(m.View()); strings.Contains(view, "ASSETS") {
 		t.Fatalf("the ledger carries ASSETS with the cartel out of view:\n%s", view)
 	}
-	for _, r := range m.set.Heat.Ladder(w, w.Here()) {
+	for _, r := range m.rules.Heat.Ladder(w, w.Here()) {
 		if r.Level == content.TaskForce {
 			t.Fatal("the gauge marks the task force with nothing owned")
 		}
@@ -87,7 +87,7 @@ func TestAssetsInTheGrammar(t *testing.T) {
 		t.Fatalf("the pane lacks the asset's section:\n%s", view)
 	}
 	marked := false
-	for _, r := range m.set.Heat.Ladder(w, w.Here()) {
+	for _, r := range m.rules.Heat.Ladder(w, w.Here()) {
 		marked = marked || r.Level == content.TaskForce
 	}
 	if !marked {

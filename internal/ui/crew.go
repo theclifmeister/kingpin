@@ -36,7 +36,7 @@ func (m *Model) hireSelected() {
 		m.refuse("Can't hire: put the cursor on somebody looking for work.")
 		return
 	}
-	got, err := m.w.Hire(c.ID, m.set.Crew.MaxCrew(m.w))
+	got, err := m.sess.Hire(c.ID)
 	if err != nil {
 		m.refuse("Can't hire: " + err.Error())
 		return
@@ -66,7 +66,7 @@ func (m *Model) fireConfirm() string {
 
 func (m *Model) confirmFire() {
 	m.mode = modePlay
-	got, err := m.w.Fire(m.subjectID)
+	got, err := m.sess.Fire(m.subjectID)
 	if err != nil {
 		m.refuse("Can't fire: " + err.Error())
 		return
@@ -92,16 +92,16 @@ func (m *Model) askInvestigate() {
 
 func (m *Model) confirmInvestigate() {
 	m.mode = modePlay
-	if err := m.w.Investigate(m.set.Crew.InvestigateCost()); err != nil {
+	if err := m.sess.Investigate(); err != nil {
 		m.refuse("Can't investigate: " + err.Error())
 		return
 	}
-	m.say(fmt.Sprintf("Questions get asked tonight. Odds of a name ~%.0f%%.", m.set.Crew.InvestigateOdds(m.w)*100))
+	m.say(fmt.Sprintf("Questions get asked tonight. Odds of a name ~%.0f%%.", m.rules.Crew.InvestigateOdds(m.w)*100))
 }
 
 func (m *Model) investigateConfirm() string {
 	w := m.w
-	odds := m.set.Crew.InvestigateOdds(w)
+	odds := m.rules.Crew.InvestigateOdds(w)
 	best := 0
 	for _, c := range w.Crew.Members {
 		if c.Role == game.RoleEnforcer && c.Skill > best {
@@ -113,7 +113,7 @@ func (m *Model) investigateConfirm() string {
 		who = fmt.Sprintf("Your best enforcer (skill %d) does the asking.", best)
 	}
 	body := []string{
-		fmt.Sprintf("Somebody goes through the crew tonight for %s.", money(m.set.Crew.InvestigateCost())),
+		fmt.Sprintf("Somebody goes through the crew tonight for %s.", money(m.rules.Crew.InvestigateCost())),
 		who,
 		fmt.Sprintf("If somebody is talking to the police, ~%.0f%% it names them.", odds*100),
 	}
@@ -140,7 +140,7 @@ func (m *Model) confirmPayOff() {
 	if c == nil {
 		return
 	}
-	got, err := m.w.PayOff(c.ID, m.set.Crew.PayoffCost(*c), m.set.Crew.PayoffLoyalty())
+	got, err := m.sess.PayOff(c.ID)
 	if err != nil {
 		m.refuse("Can't pay them off: " + err.Error())
 		return
@@ -154,7 +154,7 @@ func (m *Model) payOffConfirm() string {
 		return m.modal("PAY OFF", []string{"They are gone."}, m.modalFooter())
 	}
 	body := []string{
-		fmt.Sprintf("%s for %s: loyalty %.0f → %.0f.", money(m.set.Crew.PayoffCost(*c)), c.Name, c.Loyalty, min(100, c.Loyalty+m.set.Crew.PayoffLoyalty())),
+		fmt.Sprintf("%s for %s: loyalty %.0f → %.0f.", money(m.rules.Crew.PayoffCost(*c)), c.Name, c.Loyalty, min(100, c.Loyalty+m.rules.Crew.PayoffLoyalty())),
 		theme.Subtle.Render("It buys loyalty, not silence: somebody already talking keeps talking."),
 	}
 	return m.modal("PAY OFF "+c.Name+"?", body, m.modalFooter())
@@ -162,11 +162,11 @@ func (m *Model) payOffConfirm() string {
 
 func (m *Model) cyclePay() {
 	p := (m.w.Crew.Pay + 1) % 3
-	if err := m.w.SetPay(p); err != nil {
+	if err := m.sess.SetPay(p); err != nil {
 		m.refuse("Can't set the pay: " + err.Error())
 		return
 	}
-	m.say(fmt.Sprintf("Pay %s, %s/day. %s", p, money(m.set.Crew.Wages(m.w, p)), payBlurb(p)))
+	m.say(fmt.Sprintf("Pay %s, %s/day. %s", p, money(m.rules.Crew.Wages(m.w, p)), payBlurb(p)))
 }
 
 func payBlurb(p events.Pay) string {
@@ -197,7 +197,7 @@ func loyaltyStyle(l, threshold float64) lipgloss.Style {
 // whole of it.
 func (m *Model) crewWarning() string {
 	w := m.w
-	tun := m.set.Crew.Tuning()
+	tun := m.rules.Crew.Tuning()
 	switch {
 	case m.talking():
 		return "▲ Somebody is talking. The file grew without a bust. Ask around or fire your suspect."
@@ -265,9 +265,9 @@ func (m *Model) post(c game.CrewMember) any {
 // under, which the loyalty bar is coloured against.
 func (m *Model) crewLine(c game.CrewMember) float64 {
 	if c.Lieutenant() {
-		return m.set.Crew.FlipLine()
+		return m.rules.Crew.FlipLine()
 	}
-	return m.set.Crew.Tuning().SkimThreshold
+	return m.rules.Crew.Tuning().SkimThreshold
 }
 
 // viewCrew is the crew screen's MAIN (#86): the title with the count,
@@ -276,13 +276,13 @@ func (m *Model) crewLine(c game.CrewMember) float64 {
 // whole is the pane's.
 func (m *Model) viewCrew() string {
 	w := m.w
-	tun := m.set.Crew.Tuning()
+	tun := m.rules.Crew.Tuning()
 	pay := w.Crew.Pay
 	width := m.mainWidth()
 	var b strings.Builder
 
-	b.WriteString(truncate(theme.PanelTitle.Render("CREW")+theme.Subtle.Render(fmt.Sprintf(" · %d of %d on the payroll", len(w.Crew.Members), m.set.Crew.MaxCrew(w))), width) + "\n")
-	b.WriteString(truncate(theme.Subtle.Render("pay  ")+payRow(pay)+theme.Gold.Render(fmt.Sprintf("   %s/day", money(m.set.Crew.Wages(w, pay)))), width) + "\n")
+	b.WriteString(truncate(theme.PanelTitle.Render("CREW")+theme.Subtle.Render(fmt.Sprintf(" · %d of %d on the payroll", len(w.Crew.Members), m.rules.Crew.MaxCrew(w))), width) + "\n")
+	b.WriteString(truncate(theme.Subtle.Render("pay  ")+payRow(pay)+theme.Gold.Render(fmt.Sprintf("   %s/day", money(m.rules.Crew.Wages(w, pay)))), width) + "\n")
 	if warn := m.crewWarning(); warn != "" {
 		b.WriteString(truncate(theme.Bad.Render(warn), width) + "\n")
 	}
@@ -308,7 +308,7 @@ func (m *Model) viewCrew() string {
 		if c.Age > 0 {
 			age = c.Age
 		}
-		return []any{name, c.Role, c.Skill, age, styled{loyaltyStyle(c.Loyalty, m.crewLine(c)), gauge{c.Loyalty / 100, marks, c.Loyalty}}, m.set.Crew.WageAt(w, c, pay), carry}
+		return []any{name, c.Role, c.Skill, age, styled{loyaltyStyle(c.Loyalty, m.crewLine(c)), gauge{c.Loyalty / 100, marks, c.Loyalty}}, m.rules.Crew.WageAt(w, c, pay), carry}
 	}
 	shared := []col{{"name", kText, 0}, {"role", kText, 0}, {"skill", kInt, 0}, {"age", kInt, 0}, {"loyalty", kBar, 10}, {"wage", kMoney, 0}, {"carry", kInt, 0}}
 
@@ -331,9 +331,9 @@ func (m *Model) viewCrew() string {
 	}
 	b.WriteString("\n")
 
-	next := max(1, m.set.Crew.PoolDays(w)-(w.Day-w.Crew.PoolDay))
+	next := max(1, m.rules.Crew.PoolDays(w)-(w.Day-w.Crew.PoolDay))
 	title := sectionTitle("LOOKING FOR WORK", m.accent()) + theme.Subtle.Render(" · new faces in "+plural(next, "day"))
-	if !m.set.Crew.LieutenantsWanted(w) {
+	if !m.rules.Crew.LieutenantsWanted(w) {
 		// The line named before it fires (#148): what the lieutenants
 		// wait on, in the form the width has room for.
 		title = firstFit(width,
@@ -377,7 +377,7 @@ func (m *Model) accountants() (add int, cut float64) {
 		through += tun.AccountantThroughput * skill
 		risk *= 1 - tun.AccountantRiskCut*skill
 	}
-	add = int(math.Round(through * m.set.Laundering.Dial(m.w.Laundering.Dial).Mul))
+	add = int(math.Round(through * m.rules.Laundering.Dial(m.w.Laundering.Dial).Mul))
 	return add, 1 - math.Max(0, risk)
 }
 
@@ -398,7 +398,7 @@ func (m *Model) crewDetails() []section {
 // candidate.
 func (m *Model) personLines(c game.CrewMember, onPayroll bool) []string {
 	w := m.w
-	tun := m.set.Crew.Tuning()
+	tun := m.rules.Crew.Tuning()
 	pay := w.Crew.Pay
 	sub := theme.Subtle.Render
 
@@ -426,10 +426,10 @@ func (m *Model) personLines(c game.CrewMember, onPayroll bool) []string {
 	var others []string
 	for d := events.PayStingy; d <= events.PayGenerous; d++ {
 		if d != pay {
-			others = append(others, fmt.Sprintf("%s %s", d, money(m.set.Crew.WageAt(w, c, d))))
+			others = append(others, fmt.Sprintf("%s %s", d, money(m.rules.Crew.WageAt(w, c, d))))
 		}
 	}
-	lines = append(lines, row("wage", fmt.Sprintf("%s/day %s", money(m.set.Crew.WageAt(w, c, pay)), pay)), sub("  "+strings.Join(others, " · ")))
+	lines = append(lines, row("wage", fmt.Sprintf("%s/day %s", money(m.rules.Crew.WageAt(w, c, pay)), pay)), sub("  "+strings.Join(others, " · ")))
 	if c.Units > 0 {
 		lines = append(lines, row("carry", "+"+plural(c.Units, "unit")))
 	}
@@ -449,7 +449,7 @@ func (m *Model) personLines(c game.CrewMember, onPayroll bool) []string {
 		lines = append(lines, row("would", hireBlurb(c.Role)))
 		if c.Role == game.RoleChemist {
 			// What their hand would be worth (#47).
-			lines = append(lines, row("cooks", fmt.Sprintf("q %.0f · %d a batch", m.set.Crew.QualityOf(c.Skill), m.set.Crew.BatchOf(c.Skill))))
+			lines = append(lines, row("cooks", fmt.Sprintf("q %.0f · %d a batch", m.rules.Crew.QualityOf(c.Skill), m.rules.Crew.BatchOf(c.Skill))))
 		}
 		hire := fmt.Sprintf("hire for %s", money(c.Fee))
 		if c.Fee > w.Player.DirtyCash {
@@ -482,8 +482,8 @@ func (m *Model) personLines(c game.CrewMember, onPayroll bool) []string {
 		// What their hand is worth (#47): the quality a cook lands at
 		// and what a cut keeps, the best chemist's; a lesser one waits.
 		if best := w.Crew.Chemist(); best != nil && best.ID == c.ID {
-			lines = append(lines, row("cooks", fmt.Sprintf("q %.0f · %d a batch", m.set.Crew.ChemistQuality(w), m.set.Crew.Batch(w))))
-			lines = append(lines, row("cuts", fmt.Sprintf("keep %.0f points", m.set.Crew.CutBonus(w))))
+			lines = append(lines, row("cooks", fmt.Sprintf("q %.0f · %d a batch", m.rules.Crew.ChemistQuality(w), m.rules.Crew.Batch(w))))
+			lines = append(lines, row("cuts", fmt.Sprintf("keep %.0f points", m.rules.Crew.CutBonus(w))))
 		} else {
 			lines = append(lines, row("post", theme.Subtle.Render("second to the best chemist")))
 		}
@@ -515,13 +515,13 @@ func (m *Model) personLines(c game.CrewMember, onPayroll bool) []string {
 		lines = append(lines, keyRow("l", "move them or take the city"))
 	}
 	if c.Jailed(w.Day) && !c.Bailed {
-		bail := fmt.Sprintf("bail for %s clean", money(m.set.Crew.BailCost(c)))
-		if m.set.Crew.BailCost(c) > w.Player.CleanCash {
+		bail := fmt.Sprintf("bail for %s clean", money(m.rules.Crew.BailCost(c)))
+		if m.rules.Crew.BailCost(c) > w.Player.CleanCash {
 			bail = theme.Bad.Render(bail + " · can't")
 		}
 		lines = append(lines, keyRow("b", bail))
 	}
-	lines = append(lines, keyRow("$", fmt.Sprintf("pay off for %s: %.0f → %.0f", money(m.set.Crew.PayoffCost(c)), c.Loyalty, min(100, c.Loyalty+m.set.Crew.PayoffLoyalty()))))
+	lines = append(lines, keyRow("$", fmt.Sprintf("pay off for %s: %.0f → %.0f", money(m.rules.Crew.PayoffCost(c)), c.Loyalty, min(100, c.Loyalty+m.rules.Crew.PayoffLoyalty()))))
 	return append(lines, m.askAroundRow())
 }
 
@@ -534,7 +534,7 @@ func (m *Model) askAroundRow() string {
 	if m.w.Today.Investigation != nil {
 		return keyRow("i", theme.Subtle.Render("ask around: already asking"))
 	}
-	return keyRow("i", fmt.Sprintf("ask around %s, names ~%.0f%%", money(m.set.Crew.InvestigateCost()), m.set.Crew.InvestigateOdds(m.w)*100))
+	return keyRow("i", fmt.Sprintf("ask around %s, names ~%.0f%%", money(m.rules.Crew.InvestigateCost()), m.rules.Crew.InvestigateOdds(m.w)*100))
 }
 
 // temper is a lieutenant's personality as the pane shows it: the word
@@ -549,7 +549,7 @@ func (m *Model) temper(c game.CrewMember) string {
 	case c.City == "":
 		return theme.Subtle.Render("shows on the job")
 	}
-	left := max(1, m.set.Crew.RevealDays()-(m.w.Day-c.Assigned))
+	left := max(1, m.rules.Crew.RevealDays()-(m.w.Day-c.Assigned))
 	return theme.Subtle.Render("shows in " + plural(left, "day"))
 }
 
@@ -644,7 +644,7 @@ func (m *Model) crewSection() section {
 	} else if w.Today.Investigation != nil {
 		lines = append(lines, row("tonight", "questions get asked"))
 	}
-	if sl := m.set.Heat.Sloppiness(w, here.ID); sl > 0 {
+	if sl := m.rules.Heat.Sloppiness(w, here.ID); sl > 0 {
 		per := sl * m.cfg.Heat.Heat.SloppyHeat * 100
 		lines = append(lines, row("sloppy", theme.Warning.Render(fmt.Sprintf("+%.1f heat/100 units", per))), row("", sub(fmt.Sprintf("runners under skill %d", m.cfg.Heat.Heat.SloppySkill))))
 	}

@@ -14,7 +14,7 @@ import (
 // cheapest first, locked ones included so the ladder is visible.
 func (m *Model) frontRows() []game.FrontOffer {
 	var rows []game.FrontOffer
-	for _, o := range m.set.Laundering.Offers() {
+	for _, o := range m.rules.Laundering.Offers() {
 		if m.w.Front(o.ID) == nil {
 			rows = append(rows, o)
 		}
@@ -53,17 +53,17 @@ func (m *Model) confirmFront() {
 		return
 	}
 	o := rows[max(0, min(m.front.cursor, len(rows)-1))]
-	f, err := m.w.BuyFront(o)
+	f, err := m.sess.BuyFront(o.ID)
 	if err != nil {
 		m.refuse("Can't buy: " + err.Error())
 		return
 	}
-	m.say(fmt.Sprintf("Bought %s for %s. It opens tomorrow, washing up to %s/day.", f.Name, money(o.Cost), money(m.set.Laundering.Throughput(m.w, f))))
+	m.say(fmt.Sprintf("Bought %s for %s. It opens tomorrow, washing up to %s/day.", f.Name, money(o.Cost), money(m.rules.Laundering.Throughput(m.w, f))))
 }
 
 func (m *Model) cycleLaunder() {
 	d := (m.w.Laundering.Dial + 1) % 3
-	if err := m.w.SetLaunderDial(d); err != nil {
+	if err := m.sess.SetLaunderDial(d); err != nil {
 		m.refuse("Can't set the dial: " + err.Error())
 		return
 	}
@@ -71,7 +71,7 @@ func (m *Model) cycleLaunder() {
 		m.say(fmt.Sprintf("Launder dial %s. %s Buy a front %s to use it.", d, launderBlurb(d), screenPointer(screenLedger)))
 		return
 	}
-	m.say(fmt.Sprintf("Launder dial %s: washing up to %s/day, audit risk %.1f%%/day. %s", d, money(m.set.Laundering.Capacity(m.w)), m.set.Laundering.AnyAuditRisk(m.w)*100, launderBlurb(d)))
+	m.say(fmt.Sprintf("Launder dial %s: washing up to %s/day, audit risk %.1f%%/day. %s", d, money(m.rules.Laundering.Capacity(m.w)), m.rules.Laundering.AnyAuditRisk(m.w)*100, launderBlurb(d)))
 }
 
 func launderBlurb(d events.Launder) string {
@@ -90,7 +90,7 @@ func launderBlurb(d events.Launder) string {
 // 14d, shut, back in 2d.
 func (m *Model) frontStatus(f game.Front) any {
 	switch {
-	case f.Frozen(m.w.Day+1) && f.Audited > 0 && f.FrozenUntil == f.Audited+m.set.Laundering.Tuning().AuditFreezeDays:
+	case f.Frozen(m.w.Day+1) && f.Audited > 0 && f.FrozenUntil == f.Audited+m.rules.Laundering.Tuning().AuditFreezeDays:
 		return styled{theme.Bad, fmt.Sprintf("audit, back in %dd", f.FrozenUntil-m.w.Day)}
 	case f.Frozen(m.w.Day + 1):
 		return styled{theme.Warning, fmt.Sprintf("shut, back in %dd", f.FrozenUntil-m.w.Day)}
@@ -180,7 +180,7 @@ type ledgerRow struct{ kind, i int }
 func (m *Model) ledgerRoutes() []content.RouteConfig {
 	var routes []content.RouteConfig
 	for _, cid := range m.w.CityOrder {
-		for _, r := range m.set.Logistics.RoutesOpen(m.w, cid) {
+		for _, r := range m.rules.Logistics.RoutesOpen(m.w, cid) {
 			if r.From == cid {
 				routes = append(routes, r)
 			}
@@ -255,7 +255,7 @@ var frontCols = []col{{"front", kText, 0}, {"lvl", kInt, 0}, {"earns/day", kMone
 // the cursor's table stays in view.
 func (m *Model) viewLedger() string {
 	w := m.w
-	l := m.set.Laundering
+	l := m.rules.Laundering
 	width := m.mainWidth()
 	sel := m.ledgerSelected()
 	var ls []string
@@ -265,13 +265,13 @@ func (m *Model) viewLedger() string {
 	line(theme.PanelTitle.Render("LEDGER"))
 	line(theme.Gold.Render("dirty "+cash(w.Player.DirtyCash)) + sub(" · ") + theme.Good.Render("clean "+cash(w.Player.CleanCash)) + sub(" · ") + theme.Gold.Render("offshore "+cash(w.Offshore)) + sub(fmt.Sprintf(" · seized %s lifetime", cash(w.Stats.Seized))))
 	line(sub("launder  ") + launderRow(w.Laundering.Dial) + sub(fmt.Sprintf("   audit %.1f%%/day · up to %s/day · legit %s/day", l.AnyAuditRisk(w)*100, money(l.Capacity(w)), money(l.LegitIncome(w)))))
-	if thr := m.set.Heat.DirtyCashThreshold(w); thr > 0 && w.Player.DirtyCash > thr {
+	if thr := m.rules.Heat.DirtyCashThreshold(w); thr > 0 && w.Player.DirtyCash > thr {
 		line(theme.Warning.Render(fmt.Sprintf("▲ Dirty cash over %s draws heat every day it sits there.", cash(thr))))
 	}
 	// The tax (#231): what the free corners of a city you hold pay a
 	// night, city by city where it holds.
 	for _, cid := range w.CityOrder {
-		if corners, amount := m.set.Territory.TaxDue(w, cid); corners > 0 {
+		if corners, amount := m.rules.Territory.TaxDue(w, cid); corners > 0 {
 			line(sub("tax      ") + theme.Gold.Render(fmt.Sprintf("%s in %s pay ~%s/night", plural(corners, "free corner"), w.CityName(cid), money(amount))) + sub(fmt.Sprintf(" · %s so far", cash(w.Stats.Taxed))))
 		}
 	}
@@ -375,12 +375,12 @@ func (m *Model) viewLedger() string {
 	// view; the offers are bought on the picker's asset page.
 	if m.assetsShown() {
 		owned, offers := w.Assets, m.assetRows()
-		note := fmt.Sprintf(" · %s owned · %s/day clean", plural(len(owned), "asset"), money(m.set.Laundering.AssetUpkeep(w)))
+		note := fmt.Sprintf(" · %s owned · %s/day clean", plural(len(owned), "asset"), money(m.rules.Laundering.AssetUpkeep(w)))
 		if len(w.AssetsLost) > 0 {
 			note += fmt.Sprintf(" · %d lost", len(w.AssetsLost))
 		}
 		heading("ASSETS", note)
-		if m.set.Heat.TaskForceForming(w) {
+		if m.rules.Heat.TaskForceForming(w) {
 			line(theme.Bad.Render("▲ A task force formed this morning and comes tonight. Lie low."))
 		}
 		if len(owned)+len(offers) == 0 {
@@ -506,7 +506,7 @@ func (m *Model) ledgerDetails() []section {
 // bought.
 func (m *Model) frontSection(f game.Front) section {
 	w := m.w
-	l := m.set.Laundering
+	l := m.rules.Laundering
 	status, _ := cellText(kText, 0, m.frontStatus(f))
 	st := m.frontStatus(f).(styled).st
 	washes := money(l.Throughput(w, f)) + "/day"
@@ -544,8 +544,8 @@ func (m *Model) accountantBonus(f game.Front) (int, bool) {
 	if fc == nil || m.w.Crew.Role(game.RoleAccountant) == 0 {
 		return 0, false
 	}
-	base := int(float64(fc.Throughput)*m.set.Laundering.Dial(m.w.Laundering.Dial).Mul + 0.5)
-	return m.set.Laundering.Throughput(m.w, f) - base, true
+	base := int(float64(fc.Throughput)*m.rules.Laundering.Dial(m.w.Laundering.Dial).Mul + 0.5)
+	return m.rules.Laundering.Throughput(m.w, f) - base, true
 }
 
 // offerSection is an offer's detail: what it costs, washes and keeps,
@@ -574,7 +574,7 @@ func (m *Model) offerSection(o game.FrontOffer) section {
 // the dirty-cash warning.
 func (m *Model) washSection() section {
 	w := m.w
-	l := m.set.Laundering
+	l := m.rules.Laundering
 	tun := l.Tuning()
 	lines := []string{
 		row("dial", w.Laundering.Dial.String()),
@@ -593,7 +593,7 @@ func (m *Model) washSection() section {
 		lines = append(lines, wrapped(theme.Subtle, "An accountant adds to every front and cuts audit risk. Keep them loyal: they skim the wash.")...)
 		lines = append(lines, theme.Subtle.Render("Hire one "+screenPointer(screenCrew)+"."))
 	}
-	if thr := m.set.Heat.DirtyCashThreshold(w); thr > 0 && w.Player.DirtyCash > thr {
+	if thr := m.rules.Heat.DirtyCashThreshold(w); thr > 0 && w.Player.DirtyCash > thr {
 		lines = append(lines, wrapped(theme.Warning, fmt.Sprintf("Dirty cash over %s draws heat every day it sits there.", cash(thr)))...)
 	}
 	return section{"WASH", lines}

@@ -37,7 +37,7 @@ func (m *Model) askDeed() {
 		m.refuse(fmt.Sprintf("The block %s is on is yours already, since day %d.", c.Name, c.Deed.Bought))
 		return
 	}
-	if m.set.Territory.DeedPrice(m.w, *c) <= 0 {
+	if m.rules.Territory.DeedPrice(m.w, *c) <= 0 {
 		m.refuse("Can't buy: " + game.ErrNoDeeds.Error() + ".")
 		return
 	}
@@ -56,13 +56,13 @@ func (m *Model) confirmDeed() {
 	if c == nil {
 		return
 	}
-	price := m.set.Territory.DeedPrice(m.w, *c)
-	if err := m.w.BuyDeed(c.ID, price); err != nil {
+	price := m.rules.Territory.DeedPrice(m.w, *c)
+	if err := m.sess.BuyDeed(c.ID); err != nil {
 		m.refuse("Can't buy the block: " + err.Error() + ".")
 		return
 	}
-	line := fmt.Sprintf("The block %s is on is yours: %s clean. It pays %s/day.", c.Name, money(price), money(m.set.Territory.DeedRent(c.Deed)))
-	if m.set.Law.Forfeits(m.w) {
+	line := fmt.Sprintf("The block %s is on is yours: %s clean. It pays %s/day.", c.Name, money(price), money(m.rules.Territory.DeedRent(c.Deed)))
+	if m.rules.Law.Forfeits(m.w) {
 		m.alarm(line + " The DA will ask where the money came from.")
 		return
 	}
@@ -79,7 +79,7 @@ func (m *Model) deedConfirm() []string {
 		return []string{"No corner."}
 	}
 	w := m.w
-	tr := m.set.Territory
+	tr := m.rules.Territory
 	tun := tr.Deeds()
 	price := tr.DeedPrice(w, *c)
 	rent := tr.DeedRent(&game.Deed{Price: price})
@@ -100,10 +100,10 @@ func (m *Model) deedConfirm() []string {
 		body = append(body, row("pressure", fmt.Sprintf("+%s a day in %s: deeds are public record", times(tun.Pressure), w.CityName(c.City))))
 	}
 	body = append(body, "")
-	held, limit := w.DeedValue(), m.set.Law.DeedLimit(w)
+	held, limit := w.DeedValue(), m.rules.Law.DeedLimit(w)
 	line := fmt.Sprintf("The DA's line: %s in deeds against %s washed lets you hold %s. With this one you would hold %s.", money(held), money(w.Stats.Laundered), money(limit), money(held+price))
 	if held+price > limit {
-		for _, l := range m.wrapLines(line + fmt.Sprintf(" Over it the DA seizes the newest deed tonight and files %s in the morning.", plural(m.set.Heat.ForfeitEvidence(), "page"))) {
+		for _, l := range m.wrapLines(line + fmt.Sprintf(" Over it the DA seizes the newest deed tonight and files %s in the morning.", plural(m.rules.Heat.ForfeitEvidence(), "page"))) {
 			body = append(body, theme.Bad.Render(l))
 		}
 	} else {
@@ -157,7 +157,7 @@ var deedCols = []col{{"block", kText, 0}, {"city", kText, 0}, {"corner", kText, 
 
 // deedRow is a deed's PROPERTY row.
 func (m *Model) deedRow(c game.Corner) []any {
-	return []any{c.Name, m.w.CityName(c.City), m.cornerWhose(c), c.Deed.Price, m.set.Territory.DeedRent(c.Deed), fmt.Sprintf("day %d", c.Deed.Bought)}
+	return []any{c.Name, m.w.CityName(c.City), m.cornerWhose(c), c.Deed.Price, m.rules.Territory.DeedRent(c.Deed), fmt.Sprintf("day %d", c.Deed.Bought)}
 }
 
 // cornerWhose is whose a corner is, for a table cell: yours, the
@@ -182,20 +182,20 @@ func (m *Model) deedNote() string {
 	}
 	rent := 0
 	for _, c := range deeds {
-		rent += m.set.Territory.DeedRent(c.Deed)
+		rent += m.rules.Territory.DeedRent(c.Deed)
 	}
 	note := fmt.Sprintf(" · %s · %s · %s/day", plural(len(deeds), "block"), cash(w.DeedValue()), cash(rent))
-	if m.set.Law.Forfeits(w) {
+	if m.rules.Law.Forfeits(w) {
 		return note + " · " + theme.Bad.Render("over the DA's line")
 	}
-	return note + fmt.Sprintf(" · DA's line %s", cash(m.set.Law.DeedLimit(w)))
+	return note + fmt.Sprintf(" · DA's line %s", cash(m.rules.Law.DeedLimit(w)))
 }
 
 // deedSection is a deed's detail in the pane: whose corner it is, what
 // it cost and pays, what it does there, and the DA's line.
 func (m *Model) deedSection(c game.Corner) section {
 	w := m.w
-	tr := m.set.Territory
+	tr := m.rules.Territory
 	tun := tr.Deeds()
 	whose, _ := cellText(kText, 0, m.cornerWhose(c))
 	lines := []string{
@@ -213,8 +213,8 @@ func (m *Model) deedSection(c game.Corner) section {
 	if n := m.housesOn(c.ID); n > 0 {
 		lines = append(lines, row("houses", fmt.Sprintf("%d here · raid ×%s", n, times(tun.RaidMul))))
 	}
-	held, limit := w.DeedValue(), m.set.Law.DeedLimit(w)
-	if m.set.Law.Forfeits(w) {
+	held, limit := w.DeedValue(), m.rules.Law.DeedLimit(w)
+	if m.rules.Law.Forfeits(w) {
 		lines = append(lines, wrapped(theme.Bad, fmt.Sprintf("Over the DA's line: %s in deeds against %s allowed. The newest goes tonight.", money(held), money(limit)))...)
 	} else {
 		lines = append(lines, row("DA's line", fmt.Sprintf("%s of %s", money(held), money(limit))))

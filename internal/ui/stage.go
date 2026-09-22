@@ -41,7 +41,7 @@ func (m *Model) showStage() {
 func (m *Model) keyStage(key string) (tea.Model, tea.Cmd) {
 	switch key {
 	case "enter", "esc", " ", "q":
-		m.w.SeeStage(m.stage)
+		m.sess.SeeStage(m.stage)
 		if err := m.sess.Save(m.slot); err != nil {
 			m.alarm("Save failed: " + err.Error())
 		}

@@ -19,7 +19,7 @@ import (
 func TestDeedKeys(t *testing.T) {
 	m := richModel(t, 80, 24)
 	w := m.w
-	tr := m.set.Territory
+	tr := m.rules.Territory
 	m.Update(key("5"))
 	m.mapCursor = 1 // Dre's corner, yours
 	c := m.mapSelected()
@@ -140,7 +140,7 @@ func TestDeedKeys(t *testing.T) {
 		t.Fatalf("the cursor is not on the rival's corner: %+v", rc)
 	}
 	f := m.factionOf(rc)
-	before := m.set.Rivals.OddsOn(w, f, rc, events.ForcePush)
+	before := m.sess.Sims().Rivals.OddsOn(w, f, rc, events.ForcePush)
 	w.Player.CleanCash = tr.DeedPrice(w, *rc)
 	m.Update(key("d"))
 	if view := stripANSI(m.View()); !strings.Contains(view, f.Leader+"'s defence") {
@@ -150,7 +150,7 @@ func TestDeedKeys(t *testing.T) {
 	if rc.Deed == nil {
 		t.Fatalf("the rival's block was not bought: %q", m.status)
 	}
-	if after := m.set.Rivals.OddsOn(w, f, rc, events.ForcePush); after <= before {
+	if after := m.sess.Sims().Rivals.OddsOn(w, f, rc, events.ForcePush); after <= before {
 		t.Fatalf("the deed did not cut their defence: odds %.3f before, %.3f after", before, after)
 	}
 	if !strings.Contains(paneText(m), "DEED") {

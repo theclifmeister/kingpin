@@ -90,7 +90,7 @@ Package layout: `cmd/kingpin` (the game), `cmd/balance` (headless runs), `cmd/ke
 | World incidents: the table, closures, named headlines | `sim/world`, `game/incidents.go`, `Route.ClosedUntil` | `incidents.toml`, `names.toml` | `docs/incidents.md` | `world_test.go`, `TestEveryIncidentFires`, `TestNoIncidentsIsTheOldRun` |
 | Progression tiers, the stage, unlocks | `game/progression.go`, `sim/news/progression.go`, `ui/stage.go`, `ui/unlocks.go`, `events.Unlocked` | `progression.toml` | `docs/progression.md`, `docs/stage.md`, `docs/unlocks.md` | `TestTiersAreOrdered`, `TestEveryGateIsAnnounced`, `TestNoUnlockIsTheOldRun` |
 | News, report, journal | `sim/news`, `ui/journal.go` | `headlines.toml` | `docs/events.md`, `docs/market-and-journal.md` | `TestEveryEmittedEventHasTemplate`, `TestArticlesAgreeWithTheValue`, `TestSimsNeverImportEachOther` |
-| Engine session (#293) | `engine` | | `docs/engine.md` | `TestOneAssemblyPath` |
+| Engine (#293) | `engine` | | `docs/engine.md` | `TestUIActsThroughTheSession` |
 | Saves and slots | `game/save.go`, `modeStart` | | `docs/saves.md` | `TestOldSaveIsMigrated`, `TestUnreadableSaveIsRefused` |
 | Fast-forward, alerts, stop events | `ui/fast.go`, `alerts.go` `alerts()` | | `docs/ui.md` | `TestFastForwardIsTheSameDays`, `TestFastForwardStopsOnACard` |
 | The cart, the dialogs, the delta | `ui/cart.go`, `ui/dialogs.go`, `ui/market.go` `priceFacts` | | `docs/cart.md` | `cart_test.go`, `delta_test.go`, `toggle_test.go` |

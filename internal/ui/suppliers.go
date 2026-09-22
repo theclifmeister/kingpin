@@ -76,7 +76,7 @@ func (m *Model) suppliersLines() []string {
 		if id != "" && w.Available(sup, id) {
 			unit = fmt.Sprintf("%8s", price(sup.Price[id]))
 		}
-		style := relStyle(m.set.Market.Band(sup.Rel), m.set.Market.Bands())
+		style := relStyle(m.rules.Market.Band(sup.Rel), m.rules.Market.Bands())
 		bar := barText(sup.Rel/100, 5, nil, fmt.Sprintf(" %3.0f", sup.Rel), style)
 		note := m.supplierNote(sup)
 		long = append(long, fmt.Sprintf("%s%s %s  lot %-4d %5d left  rel %s  %s", cur, name, unit, sup.Lot, sup.Left(), bar, note))
@@ -130,7 +130,7 @@ func (m *Model) supplierNote(sup *game.Supplier) string {
 // and the keys.
 func (m *Model) supplierSections(sup *game.Supplier) []section {
 	w := m.w
-	mk := m.set.Market
+	mk := m.rules.Market
 	here := sup.City == w.Player.Location
 	band, bands := mk.Band(sup.Rel), mk.Bands()
 	sel := []string{
@@ -455,7 +455,7 @@ func (m *Model) connectTable(id string, cursor int) []string {
 		if w.Available(sup, id) {
 			unit = sup.Price[id]
 		}
-		rows = append(rows, []any{sup.Name, unit, sup.Lot, sup.Left(), styled{relStyle(m.set.Market.Band(sup.Rel), m.set.Market.Bands()), gauge{frac: sup.Rel / 100, n: sup.Rel}}, sup.Credit(), m.connectStatus(sup)})
+		rows = append(rows, []any{sup.Name, unit, sup.Lot, sup.Left(), styled{relStyle(m.rules.Market.Band(sup.Rel), m.rules.Market.Bands()), gauge{frac: sup.Rel / 100, n: sup.Rel}}, sup.Credit(), m.connectStatus(sup)})
 	}
 	return table(cols, rows, cursor, m.modalInner())
 }

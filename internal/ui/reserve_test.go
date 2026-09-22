@@ -14,7 +14,7 @@ import (
 func TestReserveDialog(t *testing.T) {
 	m := richModel(t, 80, 24)
 	w := m.w
-	l := m.set.Laundering
+	l := m.rules.Laundering
 	off := l.Offshore()
 	m.Update(key("o"))
 	if m.mode != modePlay || !strings.Contains(m.status, "ledger") {
@@ -81,7 +81,7 @@ func TestReserveDialog(t *testing.T) {
 	w.SetLieLow(true)
 	endDay(t, m)
 	m.Update(key("enter"))
-	if want := before + l.Lots(off.Lot*3)*m.set.Heat.StructureEvidence(); w.Heat.Evidence != want {
+	if want := before + l.Lots(off.Lot*3)*m.rules.Heat.StructureEvidence(); w.Heat.Evidence != want {
 		t.Fatalf("two mornings after: evidence %d, want %d", w.Heat.Evidence, want)
 	}
 	// Retirement within reach: the alert and the summary row.
@@ -90,7 +90,7 @@ func TestReserveDialog(t *testing.T) {
 	if line := stripANSI(m.retireLine()); !strings.Contains(line, "You could retire") {
 		t.Fatalf("the alert does not say retiring is open: %q", line)
 	}
-	if err := l.Retire(w); err != nil || w.Over == nil || w.Over.Cause != "retired" {
+	if err := m.sess.Retire(); err != nil || w.Over == nil || w.Over.Cause != "retired" {
 		t.Fatalf("retire: %v %+v", err, w.Over)
 	}
 	m.mode = modeOver

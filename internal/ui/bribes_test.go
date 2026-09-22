@@ -23,7 +23,7 @@ func TestBribeKeys(t *testing.T) {
 	w := m.w
 	w.Law.Chief.Personality, w.Law.Chief.Observed = "corrupt", true
 	w.Law.DA.Stance = "moderate"
-	price := m.set.Law.Bribes().ChiefPrice
+	price := m.rules.Law.Bribes().ChiefPrice
 	m.Update(key("7"))
 	dirty := w.Player.DirtyCash
 	w.Player.DirtyCash = 0
@@ -129,7 +129,7 @@ func TestBribeKeys(t *testing.T) {
 	}
 	m.onRoutes, m.routeCursor = true, 0
 	r := *m.selectedRoute()
-	if m.set.Logistics.Cut(w, r, w.Day) != 0 {
+	if m.sess.Sims().Logistics.Cut(w, r, w.Day) != 0 {
 		t.Fatal("the route is cut before anything was bought")
 	}
 	m.Update(key("$"))
@@ -145,16 +145,16 @@ func TestBribeKeys(t *testing.T) {
 	m.Update(key("$"))
 	m.Update(key("y"))
 	until, live := w.Checkpoint(r.ID)
-	if m.mode != modePlay || !live || until != w.Day+m.set.Law.Bribes().CheckpointDays || w.Player.DirtyCash != dirty-m.dealPrice(r) || !strings.Contains(m.status, "yours") {
+	if m.mode != modePlay || !live || until != w.Day+m.rules.Law.Bribes().CheckpointDays || w.Player.DirtyCash != dirty-m.dealPrice(r) || !strings.Contains(m.status, "yours") {
 		t.Fatalf("y: mode %v until %d live %v dirty %d status %q", m.mode, until, live, w.Player.DirtyCash, m.status)
 	}
 	// The fixture's routes carry no risk (captures are deterministic);
 	// the cut is what the dice would take off (TestCheckpointCutsRisk).
-	if got := m.set.Logistics.Cut(w, r, w.Day); got != m.set.Logistics.DealCut(r) || got <= 0 {
+	if got := m.sess.Sims().Logistics.Cut(w, r, w.Day); got != m.sess.Sims().Logistics.DealCut(r) || got <= 0 {
 		t.Fatalf("the bought route's cut is %.2f", got)
 	}
 	m.Update(key("7"))
-	if view := stripANSI(m.View()); !strings.Contains(view, r.Name+" ") || !strings.Contains(view, dealWord(r)) {
+	if view := stripANSI(m.View()); !strings.Contains(view, r.Name+" ") || !strings.Contains(view, m.dealWord(r)) {
 		t.Fatalf("PAYOFFS lacks the route:\n%s", view)
 	}
 }
@@ -188,9 +188,9 @@ func TestFavourKeys(t *testing.T) {
 	if view := stripANSI(m.View()); !strings.Contains(view, "owes one") {
 		t.Fatalf("the LAW panel does not say the chief owes you one:\n%s", view)
 	}
-	raid := m.set.Heat.Thresholds()[2]
-	w.Here().Heat = (m.set.Heat.Threshold(w, raid, w.Here()) + 1) / (1 - m.set.Heat.Decay(w))
-	if due := m.set.Heat.Due(w); due != "raid" {
+	raid := m.sess.Sims().Heat.Thresholds()[2]
+	w.Here().Heat = (m.sess.Sims().Heat.Threshold(w, raid, w.Here()) + 1) / (1 - m.sess.Sims().Heat.Decay(w))
+	if due := m.rules.Heat.Due(w); due != "raid" {
 		t.Fatalf("due %q on a raid's heat", due)
 	}
 	alerted := false
@@ -233,7 +233,7 @@ func TestFavourKeys(t *testing.T) {
 	if rep := strings.Join(w.Report.Heat, "\n"); !strings.Contains(rep, "fell through") || !strings.Contains(rep, "the file grows by 1") {
 		t.Fatalf("the report's HEAT section:\n%s", rep)
 	}
-	if w.Heat.Evidence != file+m.set.Law.Bribes().FavourEvidence || w.Here().Heat > heat || w.Stats.Raids != 0 || w.Stats.Stings != 0 {
+	if w.Heat.Evidence != file+m.rules.Law.Bribes().FavourEvidence || w.Here().Heat > heat || w.Stats.Raids != 0 || w.Stats.Stings != 0 {
 		t.Fatalf("the night: file %d -> %d, heat %.1f -> %.1f, raids %d stings %d", file, w.Heat.Evidence, heat, w.Here().Heat, w.Stats.Raids, w.Stats.Stings)
 	}
 	closeMorning(t, m)

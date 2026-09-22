@@ -34,7 +34,7 @@ func TestIncidentInTheGrammar(t *testing.T) {
 
 	// The route's pane says it is shut.
 	m := richModel(t, 120, 40)
-	route := m.set.Logistics.Routes(m.w.Home().ID)[0]
+	route := m.sess.Sims().Logistics.Routes(m.w.Home().ID)[0]
 	m.w.ApplyIncident(m.w.Day+1, content.IncidentEffects{RouteClosed: 3}, game.IncidentTarget{Routes: []string{route.ID}})
 	if !m.w.RouteClosed(route.ID) {
 		t.Fatal("the route is not closed")
