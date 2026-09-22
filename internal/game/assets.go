@@ -111,13 +111,12 @@ func (w *World) BuyAsset(o AssetOffer) (Asset, error) {
 	if o.Locked(w) {
 		return Asset{}, fmt.Errorf("nobody will sell you %s until you have held %s clean", o.Name, format.Cash(o.UnlockCash))
 	}
-	if o.Cost > w.Player.CleanCash {
-		if w.Player.CleanCash <= 0 {
-			return Asset{}, ErrNoCleanCash
-		}
-		return Asset{}, fmt.Errorf("%s costs %s clean, only have %s clean", o.Name, format.Money(o.Cost), format.Money(w.Player.CleanCash))
+	if o.Cost > w.Player.CleanCash && w.Player.CleanCash <= 0 {
+		return Asset{}, ErrNoCleanCash
 	}
-	w.Player.CleanCash -= o.Cost
+	if err := w.payClean(o.Cost); err != nil {
+		return Asset{}, err
+	}
 	a := Asset{ID: o.ID, Name: o.Name, Effect: o.Effect, City: o.City, Cost: o.Cost, Upkeep: o.Upkeep, Bought: w.Day}
 	w.Assets = append(w.Assets, a)
 	w.Stats.Assets++

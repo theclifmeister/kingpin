@@ -327,11 +327,10 @@ func (w *World) Cut(city, product string, ratio, most float64, cost int, bonus f
 		return CutRecord{}, fmt.Errorf("can only hold %d more units in %s", free, w.CityName(city))
 	}
 	price := cost * added
-	if price > w.Player.DirtyCash {
-		return CutRecord{}, fmt.Errorf("need $%d, only have $%d dirty", price, w.Player.DirtyCash)
+	if err := w.payDirty(price); err != nil {
+		return CutRecord{}, err
 	}
 	from := w.Quality(city, product)
-	w.Player.DirtyCash -= price
 	w.put(city, product, added)
 	to := math.Min(from, from*float64(units)/float64(units+added)+math.Max(0, bonus))
 	w.SetQuality(city, product, to)
@@ -378,10 +377,9 @@ func (w *World) CookOrder(city, product string, units, cost, days int, quality f
 		return Cook{}, fmt.Errorf("can only hold %d more units in %s", max(0, free), w.CityName(city))
 	}
 	price := cost * units
-	if price > w.Player.DirtyCash {
-		return Cook{}, fmt.Errorf("need $%d, only have $%d dirty", price, w.Player.DirtyCash)
+	if err := w.payDirty(price); err != nil {
+		return Cook{}, err
 	}
-	w.Player.DirtyCash -= price
 	w.Crew.NextCook++
 	k := Cook{ID: w.Crew.NextCook, City: city, Product: product, Units: units, Quality: math.Max(0, math.Min(100, quality)), Ordered: w.Day, Ready: w.Day + max(1, days), Cost: price, Chemist: chemist}
 	w.Crew.Cooks = append(w.Crew.Cooks, k)

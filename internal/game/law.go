@@ -2,7 +2,6 @@ package game
 
 import (
 	"errors"
-	"fmt"
 	"slices"
 )
 
@@ -231,13 +230,12 @@ func (w *World) Bribe(target string, amount int) error {
 			return ErrBribedToday
 		}
 	}
-	if amount > w.Player.DirtyCash {
-		if w.Player.DirtyCash <= 0 {
-			return ErrNoDirtyCash
-		}
-		return fmt.Errorf("need $%d dirty, only have $%d dirty", amount, w.Player.DirtyCash)
+	if amount > w.Player.DirtyCash && w.Player.DirtyCash <= 0 {
+		return ErrNoDirtyCash
 	}
-	w.Player.DirtyCash -= amount
+	if err := w.payDirty(amount); err != nil {
+		return err
+	}
 	w.Stats.Bribes++
 	w.Stats.Bribed += amount
 	w.Today.Bribes = append(w.Today.Bribes, BribeOrder{Target: target, Amount: amount})
@@ -269,13 +267,12 @@ func (w *World) BuyCheckpoint(route string, cost, days int) error {
 	if w.Cold() {
 		return ErrOfficialsCold
 	}
-	if cost > w.Player.DirtyCash {
-		if w.Player.DirtyCash <= 0 {
-			return ErrNoDirtyCash
-		}
-		return fmt.Errorf("need $%d dirty, only have $%d dirty", cost, w.Player.DirtyCash)
+	if cost > w.Player.DirtyCash && w.Player.DirtyCash <= 0 {
+		return ErrNoDirtyCash
 	}
-	w.Player.DirtyCash -= cost
+	if err := w.payDirty(cost); err != nil {
+		return err
+	}
 	rs := w.Route(route)
 	until := w.Day
 	if live, ok := w.Checkpoint(route); ok {
@@ -332,13 +329,12 @@ func (w *World) Fund(city string, amount int) error {
 	if amount <= 0 {
 		return ErrBadQuantity
 	}
-	if amount > w.Player.CleanCash {
-		if w.Player.CleanCash <= 0 {
-			return ErrNoCleanCash
-		}
-		return fmt.Errorf("need $%d clean, only have $%d clean", amount, w.Player.CleanCash)
+	if amount > w.Player.CleanCash && w.Player.CleanCash <= 0 {
+		return ErrNoCleanCash
 	}
-	w.Player.CleanCash -= amount
+	if err := w.payClean(amount); err != nil {
+		return err
+	}
 	w.Stats.Funded += amount
 	w.Today.Funded = append(w.Today.Funded, Funding{City: city, Amount: amount})
 	return nil
@@ -365,13 +361,12 @@ func (w *World) Back(city, ticket string, amount int) error {
 	if amount <= 0 {
 		return ErrBadQuantity
 	}
-	if amount > w.Player.CleanCash {
-		if w.Player.CleanCash <= 0 {
-			return ErrNoCleanCash
-		}
-		return fmt.Errorf("need $%d clean, only have $%d clean", amount, w.Player.CleanCash)
+	if amount > w.Player.CleanCash && w.Player.CleanCash <= 0 {
+		return ErrNoCleanCash
 	}
-	w.Player.CleanCash -= amount
+	if err := w.payClean(amount); err != nil {
+		return err
+	}
 	w.Stats.Backed += amount
 	w.Today.Backed = append(w.Today.Backed, Backing{City: city, Ticket: ticket, Amount: amount})
 	return nil
@@ -390,13 +385,12 @@ func (w *World) Reserve(amount int) error {
 	if amount <= 0 {
 		return ErrBadQuantity
 	}
-	if amount > w.Player.CleanCash {
-		if w.Player.CleanCash <= 0 {
-			return ErrNoCleanCash
-		}
-		return fmt.Errorf("need $%d clean, only have $%d clean", amount, w.Player.CleanCash)
+	if amount > w.Player.CleanCash && w.Player.CleanCash <= 0 {
+		return ErrNoCleanCash
 	}
-	w.Player.CleanCash -= amount
+	if err := w.payClean(amount); err != nil {
+		return err
+	}
 	w.Today.Reserved += amount
 	return nil
 }
