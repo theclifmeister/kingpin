@@ -65,7 +65,7 @@ func TestEffectsInWordsAgreeWithTheSims(t *testing.T) {
 		t.Errorf("the pane lacks the floor %q:\n%s", floor, text)
 	}
 	for _, l := range secs[0].lines {
-		if lipglossWidth(l) > paneTextW {
+		if lipgloss.Width(l) > paneTextW {
 			t.Errorf("a line is wider than the pane: %q", stripANSI(l))
 		}
 	}
@@ -90,5 +90,3 @@ func TestEffectsInWordsAgreeWithTheSims(t *testing.T) {
 		}
 	}
 }
-
-func lipglossWidth(s string) int { return lipgloss.Width(s) }

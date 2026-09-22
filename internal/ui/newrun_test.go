@@ -7,8 +7,6 @@ import (
 	"testing"
 	"time"
 
-	tea "github.com/charmbracelet/bubbletea"
-
 	"github.com/theclifmeister/kingpin/internal/content"
 	"github.com/theclifmeister/kingpin/internal/game"
 	"github.com/theclifmeister/kingpin/internal/sim"
@@ -218,11 +216,7 @@ func TestRunEndRecordsAndUnlocks(t *testing.T) {
 		t.Fatalf("profile %+v", p)
 	}
 	// Opened again from its save: filed once.
-	again, err := New(duel(), Options{Anim: false}) // the same home: the menu, slot 1 being full
-	if err != nil {
-		t.Fatal(err)
-	}
-	again.Update(tea.WindowSizeMsg{Width: 80, Height: 24})
+	again := sizedModel(t, duel(), Options{Anim: false}, 80, 24) // the same home: the menu, slot 1 being full
 	again.now = m.now
 	if err := again.continueRun(2); err != nil {
 		t.Fatal(err)
@@ -262,11 +256,7 @@ func TestCorruptProfileIsSetAside(t *testing.T) {
 	if err := os.WriteFile(path, []byte("{nope"), 0o644); err != nil {
 		t.Fatal(err)
 	}
-	m, err := New(duel(), Options{Anim: false})
-	if err != nil {
-		t.Fatal(err)
-	}
-	m.Update(tea.WindowSizeMsg{Width: 80, Height: 24})
+	m := sizedModel(t, duel(), Options{Anim: false}, 80, 24)
 	if !strings.Contains(m.profileErr, "profile is corrupt") || !strings.Contains(m.profileErr, "profile.json.corrupt-") {
 		t.Fatalf("err %q", m.profileErr)
 	}

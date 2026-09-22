@@ -9,8 +9,6 @@ import (
 
 	"github.com/charmbracelet/lipgloss"
 
-	tea "github.com/charmbracelet/bubbletea"
-
 	"github.com/theclifmeister/kingpin/internal/content"
 )
 
@@ -52,7 +50,7 @@ func TestHelpScrollsToTheLastRow(t *testing.T) {
 		t.Fatalf("help at 80x24 does not scroll:\n%s", stripANSI(m.View()))
 	}
 	for i := 0; i < 20 && strings.Contains(stripANSI(m.View()), "↓ more"); i++ {
-		m.Update(tea.KeyMsg{Type: tea.KeyPgDown})
+		m.Update(key("pgdown"))
 	}
 	view := stripANSI(m.View())
 	if strings.Contains(view, "↓ more") || !strings.Contains(view, "↑ more") {
