@@ -20,63 +20,39 @@ func NoFavour(cfg *content.Config) *content.Config {
 
 // TestNoFavourIsTheOldRun (#228): a run that never calls in a favour is
 // byte-for-byte the run before the favour existed. The corrupt player
-// (who bribes and never calls) and the boss are hashed daily to the
-// tier-4 checkpoint on the file and on the file with favours_max at 0,
-// the count of favours owed and the morning report set aside as #195's
-// quiet days are (the count and the bribe line's `the chief owes you
-// one` are what a taken envelope moves; the report is text the news
-// sim writes, never a sim's read), and nothing falls through.
+// (who bribes and never calls) and the boss are hashed daily
+// (assertOldRun: two seeds to the tier-4 checkpoint) on the file and
+// on the file with favours_max at 0, the count of favours owed and the
+// morning report set aside as #195's quiet days are (the count and the
+// bribe line's `the chief owes you one` are what a taken envelope
+// moves; the report is text the news sim writes, never a sim's read),
+// and nothing falls through.
 func TestNoFavourIsTheOldRun(t *testing.T) {
 	t.Parallel()
-	cfg := content.MustLoad()
-	off := NoFavour(cfg)
-	for name, policy := range map[string]func(*content.Config) Policy{
-		"corrupt": func(c *content.Config) Policy { return Corrupt(c, 40) },
-		"boss":    func(c *content.Config) Policy { return Boss(c, 40, "") },
-	} {
-		name, policy := name, policy
-		t.Run(name, func(t *testing.T) {
-			t.Parallel()
-			for seed := uint64(1); seed <= 2; seed++ {
-				var with, without []string
-				for i, c := range []*content.Config{cfg, off} {
-					w := sim.NewWorld(c, seed)
-					_, sims, err := sim.Default(c)
-					if err != nil {
-						t.Fatal(err)
-					}
-					clock := game.NewClock(nil, sims...)
-					p := policy(c)
-					var ds []string
-					for day := 1; day <= Horizon && w.Over == nil; day++ {
-						p(w)
-						for _, e := range clock.EndDay(w) {
-							if ev, ok := e.(events.RaidFellThrough); ok {
-								t.Fatalf("%s seed %d day %d: %+v in a run that never called a favour", name, seed, day, ev)
-							}
-						}
-						favours, rep := w.Law.Favours, w.Report
-						w.Law.Favours, w.Report = 0, nil
-						ds = append(ds, digest(w))
-						w.Law.Favours, w.Report = favours, rep
-					}
-					if w.Law.FavourOwed != 0 || w.Stats.Favours != 0 || (i == 1 && w.Law.Favours != 0) {
-						t.Fatalf("%s seed %d: the favour moved with nobody calling: %+v stats %d", name, seed, w.Law, w.Stats.Favours)
-					}
-					if i == 0 {
-						with = ds
-					} else {
-						without = ds
-					}
-				}
-				for day := range with {
-					if day >= len(without) || with[day] != without[day] {
-						t.Fatalf("%s seed %d: the world moved on day %d with the favour in the file and nobody calling it in", name, seed, day+1)
-					}
-				}
+	assertOldRun(t, oldRunCase{
+		never: "never called a favour",
+		seeds: 2,
+		days:  Horizon,
+		box:   NoFavour,
+		policies: map[string]func(*content.Config) Policy{
+			"corrupt": func(c *content.Config) Policy { return Corrupt(c, 40) },
+			"boss":    func(c *content.Config) Policy { return Boss(c, 40, "") },
+		},
+		forbid: func(e events.Event) bool {
+			_, ok := e.(events.RaidFellThrough)
+			return ok
+		},
+		scrub: func(_ *testing.T, w *game.World, _ bool) func() {
+			favours, rep := w.Law.Favours, w.Report
+			w.Law.Favours, w.Report = 0, nil
+			return func() { w.Law.Favours, w.Report = favours, rep }
+		},
+		after: func(t *testing.T, w *game.World, boxed bool) {
+			if w.Law.FavourOwed != 0 || w.Stats.Favours != 0 || (boxed && w.Law.Favours != 0) {
+				t.Fatalf("the favour moved with nobody calling: %+v stats %d", w.Law, w.Stats.Favours)
 			}
-		})
-	}
+		},
+	})
 }
 
 // TestAggressiveStillIndicted (#228, #60's rule): the favour never

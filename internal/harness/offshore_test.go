@@ -21,53 +21,36 @@ func noOffshore(cfg *content.Config) *content.Config {
 
 // TestNoReserveIsTheOldRun (#195): a run that never reserves is
 // byte-for-byte the run before the account existed. The laundered
-// player plays 120 days on the file and on the file with the table
-// taken off, hashed daily with the quiet-day count set aside (the one
-// number the table moves on its own: a count nothing but Retire reads),
-// and nothing else differs; no Reserved goes out and the account stays
-// empty.
+// player plays on the file and on the file with the table taken off
+// (assertOldRun: three seeds, 120 days), hashed daily
+// with the quiet-day count set aside (the one number the table moves
+// on its own: a count nothing but Retire reads), and nothing else
+// differs; no Reserved goes out and the account stays empty.
 func TestNoReserveIsTheOldRun(t *testing.T) {
 	t.Parallel()
-	cfg := content.MustLoad()
-	off := noOffshore(cfg)
-	for seed := uint64(1); seed <= 3; seed++ {
-		var with, without []string
-		for i, c := range []*content.Config{cfg, off} {
-			w := sim.NewWorld(c, seed)
-			_, sims, err := sim.Default(c)
-			if err != nil {
-				t.Fatal(err)
-			}
-			clock := game.NewClock(nil, sims...)
-			policy := Laundered(c, 40)
-			var ds []string
-			for day := 1; day <= 120 && w.Over == nil; day++ {
-				policy(w)
-				for _, e := range clock.EndDay(w) {
-					if _, ok := e.(events.Reserved); ok {
-						t.Fatalf("seed %d day %d: %+v in a run that never reserved", seed, day, e)
-					}
-				}
-				quiet := w.QuietDays
-				w.QuietDays = 0
-				ds = append(ds, digest(w))
-				w.QuietDays = quiet
-			}
+	assertOldRun(t, oldRunCase{
+		never: "never reserved",
+		seeds: 3,
+		days:  120,
+		box:   noOffshore,
+		policies: map[string]func(*content.Config) Policy{
+			"laundered": func(c *content.Config) Policy { return Laundered(c, 40) },
+		},
+		forbid: func(e events.Event) bool {
+			_, ok := e.(events.Reserved)
+			return ok
+		},
+		scrub: func(_ *testing.T, w *game.World, _ bool) func() {
+			quiet := w.QuietDays
+			w.QuietDays = 0
+			return func() { w.QuietDays = quiet }
+		},
+		after: func(t *testing.T, w *game.World, _ bool) {
 			if w.Offshore != 0 || w.Stats.Reserved != 0 || w.Stats.Fees != 0 || w.Laundering.Structured != (game.Structuring{}) {
-				t.Fatalf("seed %d: the account moved with nobody reserving: %d, stats %d/%d, %+v", seed, w.Offshore, w.Stats.Reserved, w.Stats.Fees, w.Laundering.Structured)
+				t.Fatalf("the account moved with nobody reserving: %d, stats %d/%d, %+v", w.Offshore, w.Stats.Reserved, w.Stats.Fees, w.Laundering.Structured)
 			}
-			if i == 0 {
-				with = ds
-			} else {
-				without = ds
-			}
-		}
-		for day := range with {
-			if with[day] != without[day] {
-				t.Fatalf("seed %d: the world moved on day %d with the account in the file and nobody reserving", seed, day+1)
-			}
-		}
-	}
+		},
+	})
 }
 
 // reservingHider is a hider with clean cash who moves amount offshore

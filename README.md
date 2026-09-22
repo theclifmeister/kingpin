@@ -1113,7 +1113,7 @@ internal/ui/anim/   the scenes: the effects, the canvas, the player, the title's
 docs/               one file a subsystem: the names, the numbers and the tests that pin them
 ```
 
-The key table comes from `internal/ui/keys.go`, shared with the pane, help
+The key table comes from `internal/ui/bindings.go`, shared with the pane, help
 and modal footers. The screen captures use a fixed-seed test fixture and
 the title's still is the loop's first pass at a fixed moment.
 Regenerate these blocks after changing the UI:
