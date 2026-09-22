@@ -33,6 +33,11 @@ type Options struct {
 	Anim        bool
 	MorningAnim bool
 	Effect      string
+	// Seeds, when set, stands in for the wall clock wherever a run takes
+	// a fresh seed (#292): a new run, a restart, the new-run dialog with
+	// its seed field blank. The tests pin it so every run they play
+	// replays; the game leaves it nil and plays newSeed.
+	Seeds func() uint64
 }
 
 // frameMsg is a frame's tick: when it fired and which scene it was

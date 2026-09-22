@@ -56,7 +56,7 @@ func (w *World) BuyUpgrade(tree content.UpgradesConfig, id string) (content.Upgr
 		pool, have = "clean", w.Player.CleanCash
 	}
 	if u.Cost > have {
-		return *u, fmt.Errorf("%s costs $%d %s, only have $%d %s", u.Name, u.Cost, pool, have, pool)
+		return *u, &ShortError{Need: u.Cost, Have: have, Pool: pool}
 	}
 
 	before := FoldEffects(w, tree)

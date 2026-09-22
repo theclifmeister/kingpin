@@ -2,7 +2,6 @@ package game
 
 import (
 	"errors"
-	"fmt"
 	"math"
 
 	"github.com/theclifmeister/kingpin/internal/events"
@@ -27,10 +26,9 @@ func (w *World) Hire(id, maxCrew int) (CrewMember, error) {
 		return CrewMember{}, ErrCrewFull
 	}
 	c := w.Crew.Candidates[idx]
-	if c.Fee > w.Player.DirtyCash {
-		return CrewMember{}, fmt.Errorf("%s wants $%d up front, only have $%d dirty", c.Name, c.Fee, w.Player.DirtyCash)
+	if err := w.payDirty(c.Fee); err != nil {
+		return CrewMember{}, err
 	}
-	w.Player.DirtyCash -= c.Fee
 	c.Hired = w.Day
 	w.Crew.Candidates = append(w.Crew.Candidates[:idx], w.Crew.Candidates[idx+1:]...)
 	w.Crew.Members = append(w.Crew.Members, c)
@@ -92,10 +90,9 @@ func (w *World) Bail(id, cost int) (CrewMember, error) {
 	if m.Bailed {
 		return CrewMember{}, ErrBailed
 	}
-	if cost > w.Player.CleanCash {
-		return CrewMember{}, fmt.Errorf("bail for %s is %s clean, only have %s", m.Name, dollars(cost), dollars(w.Player.CleanCash))
+	if err := w.payClean(cost); err != nil {
+		return CrewMember{}, err
 	}
-	w.Player.CleanCash -= cost
 	w.Stats.Bails++
 	w.Stats.BailCash += cost
 	m.Bailed = true
@@ -118,7 +115,7 @@ func (w *World) Investigate(cost int) error {
 		return ErrInvestigating
 	}
 	if !w.spend(cost) {
-		return fmt.Errorf("need $%d, only have $%d", cost, w.Cash())
+		return &ShortError{Need: cost, Have: w.Cash()}
 	}
 	w.Today.Investigation = &InvestigationOrder{Cost: cost}
 	return nil
@@ -135,7 +132,7 @@ func (w *World) PayOff(id, cost int, loyalty float64) (CrewMember, error) {
 		return CrewMember{}, ErrNoMember
 	}
 	if !w.spend(cost) {
-		return CrewMember{}, fmt.Errorf("%s wants $%d, only have $%d", m.Name, cost, w.Cash())
+		return CrewMember{}, &ShortError{Need: cost, Have: w.Cash()}
 	}
 	m.Loyalty = math.Min(100, m.Loyalty+loyalty)
 	w.Crew.PaidOffToday = append(w.Crew.PaidOffToday, Payoff{ID: m.ID, Name: m.Name, Cost: cost})

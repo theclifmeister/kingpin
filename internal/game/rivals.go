@@ -2,7 +2,6 @@ package game
 
 import (
 	"errors"
-	"fmt"
 )
 
 // The books (#70): the player's moves against the rival's machine that
@@ -45,7 +44,7 @@ func (w *World) ScoutFaction(faction string, cost int) error {
 		return ErrScouting
 	}
 	if !w.spend(cost) {
-		return fmt.Errorf("need $%d, only have $%d", cost, w.Cash())
+		return &ShortError{Need: cost, Have: w.Cash()}
 	}
 	w.Today.Scouting = &ScoutOrder{Cost: cost, Faction: faction}
 	return nil
@@ -109,10 +108,9 @@ func (w *World) BuyOffFrom(faction string, units, cost int) error {
 	if w.Today.Poach != nil {
 		return ErrPoaching
 	}
-	if cost > w.Player.DirtyCash {
-		return fmt.Errorf("need $%d dirty, only have $%d", cost, w.Player.DirtyCash)
+	if err := w.payDirty(cost); err != nil {
+		return err
 	}
-	w.Player.DirtyCash -= cost
 	w.Today.Poach = &PoachOrder{Units: units, Cost: cost, Faction: faction}
 	return nil
 }

@@ -321,265 +321,33 @@ func sortedRoutes(w *game.World) []string {
 
 // Step turns today's funding into goodwill, moves every city's pressure
 // from the day's violence, hard product and headlines, lets the chief's
-// term run out, and holds the election when it is due.
+// term run out, and holds the election when it is due. It runs as
+// phases in a fixed order (#275): the envelopes, the funding
+// (pressure.go), the backing (election.go), the pressure's sources and
+// its fade (pressure.go), the chief (chief.go), the election
+// (election.go), the forfeiture and tomorrow's campaign window. The
+// order is the dice's and the report's: a phase moved is a run that
+// reads differently.
 func (s *Sim) Step(w *game.World, t *game.Tick) {
-	tun := s.cfg.Law
-	src := s.cfg.Pressure
-	home := w.Home().ID
-	here := w.Player.Location
-
 	// The envelopes (#42), before the vote: a bribe on election day goes
 	// to the sitting DA.
 	s.bribes(w, t)
 
-	// Funding: clean cash given today buys goodwill where it was given.
-	for _, f := range w.Today.Funded {
-		c := w.Cities[f.City]
-		if c == nil {
-			continue
-		}
-		g := s.Goodwill(f.Amount)
-		c.Goodwill = math.Min(100, c.Goodwill+g)
-		t.Emit(events.CityFunded{Day: t.Day, City: f.City, Amount: f.Amount, Goodwill: g})
-	}
+	s.fund(w, t)
+	s.back(w, t)
+	gain := s.sources(w, t)
+	s.fade(w, t, gain)
+	replaced := s.chief(w, t)
+	s.elect(w, t, replaced)
+	s.forfeit(w, t)
 
-	// Backing (#193): clean cash put behind a ticket today joins the
-	// city's campaign. Money on the other ticket hedges it: the campaign
-	// keeps counting the cash and buys nothing at the count.
-	for _, b := range w.Today.Backed {
-		c := w.Cities[b.City]
-		if c == nil {
-			continue
-		}
-		camp := &c.Campaign
-		if camp.Cash == 0 {
-			w.Stats.Campaigns++
-		}
-		if camp.Ticket != "" && camp.Ticket != b.Ticket {
-			camp.Hedged = true
-		}
-		if camp.Ticket == "" {
-			camp.Ticket = b.Ticket
-		}
-		camp.Cash += b.Amount
-		t.Emit(events.CampaignBacked{Day: t.Day, City: b.City, Ticket: b.Ticket, Amount: b.Amount, Total: camp.Cash, Swing: s.cfg.Campaign.Swing(camp.Cash)})
-	}
+	// Tomorrow's campaign window (#193): the tickets take money from
+	// open_days before the election to the day of it.
+	w.Law.CampaignOpen = s.CampaignOpen(w, t.Day+1)
+}
 
-	// Sources. Violence is the home city's; hard product counts where it
-	// sold, on a corner or handed to a buyer; a headline about you counts
-	// where you are, as notoriety does.
-	gain := map[string]float64{}
-	units := map[string]int{}
-	for _, e := range t.Events() {
-		switch ev := e.(type) {
-		case events.CornerStruck:
-			gain[home] += src.Strike
-		case events.RivalBoosted:
-			gain[home] += src.Boost
-		case events.RivalRaided:
-			gain[home] += src.RivalRaid
-		case events.RivalPushed:
-			gain[home] += src.Push
-		case events.FactionPushed:
-			gain[ev.City] += src.Factions // two factions fighting (#43): violence in its city
-		case events.CornerTaken:
-			if ev.From == game.OwnerPlayer {
-				gain[home] += src.Push
-			}
-		case events.WarEscalated:
-			if ev.Stage == events.StageCrackdown {
-				gain[home] += src.Crackdown
-			}
-		case events.PlayerSold:
-			if slices.Contains(src.Hard, ev.Product) {
-				units[ev.City] += ev.Sold
-			}
-		case events.ContractDelivered:
-			// A buyer's handoff is product sold in that city (#71): it
-			// counts against hard_units the way a corner sale does.
-			if slices.Contains(src.Hard, ev.Product) {
-				units[ev.City] += ev.Units
-			}
-		case events.Overdose:
-			// Bad product on your corner (#47) is the city's story: it
-			// is pressure where it happened and never a page (#27).
-			gain[ev.City] += src.Overdose
-		case events.CrewShot:
-			// A body on a corner, either side (#46), is the city's
-			// story the same way, where it fell (home for a strike or
-			// a push with no corner named).
-			if ev.Dead {
-				city := ev.City
-				if city == "" {
-					city = home
-				}
-				gain[city] += src.Body
-			}
-		}
-	}
-	if src.HardUnits > 0 {
-		for cid, n := range units {
-			gain[cid] += float64(n) / src.HardUnits
-		}
-	}
-	for i := len(w.Journal) - 1; i >= 0 && w.Journal[i].Day == t.Day-1; i-- {
-		if slices.Contains(src.Sources, w.Journal[i].Source) {
-			gain[here] += src.Headline
-		}
-	}
-	// A front whose growth made the paper yesterday (#192): the
-	// laundering sim steps after this one, so its Grew stamp is how the
-	// story reaches today's pressure, where you are, as a headline does.
-	for _, f := range w.Fronts {
-		if f.Grew != 0 && f.Grew == t.Day-1 {
-			gain[here] += src.FrontGrew
-		}
-	}
-	// A campaign is public money (#193): the city it runs in talks.
-	for _, cid := range w.CityOrder {
-		if w.Cities[cid].Campaign.Cash > 0 {
-			gain[cid] += s.cfg.Campaign.Pressure
-		}
-	}
-	// A deed is public record (#194): every block you hold in a city is
-	// pressure there a day, over what goodwill covers.
-	if s.deed.On() && s.deed.Pressure > 0 {
-		for _, cid := range w.CityOrder {
-			gain[cid] += s.deed.Pressure * float64(w.DeedsIn(cid))
-		}
-	}
-	// An asset (#48) is a thing the whole city can see: its pressure
-	// lands in its city every day it stands.
-	for _, a := range s.assets.Offers {
-		if a.Pressure > 0 && w.AssetLive(a.ID) {
-			gain[a.City] += a.Pressure
-		}
-	}
-
-	// Fade toward the baseline, goodwill takes its cut and fades itself,
-	// and a band crossed is news.
-	for _, cid := range w.CityOrder {
-		c := w.Cities[cid]
-		from := c.Pressure
-		p := c.Pressure + gain[cid]
-		p -= (p - tun.Baseline) * tun.Decay
-		p -= tun.GoodwillCut * clamp01(c.Goodwill/100)
-		c.Pressure = math.Max(0, math.Min(100, p))
-		c.Goodwill = math.Max(0, math.Min(100, c.Goodwill-c.Goodwill*tun.GoodwillDecay))
-		if band(from, tun.Band) != band(c.Pressure, tun.Band) {
-			t.Emit(events.PressureShifted{Day: t.Day, City: cid, From: from, To: c.Pressure})
-		}
-	}
-
-	// The chief: you learn what they are like after a while in office, or
-	// the first time their people come through the door.
-	chief := &w.Law.Chief
-	if !chief.Observed {
-		if t.Day-chief.Since >= tun.ObserveDays {
-			chief.Observed = true
-		}
-		for _, e := range t.Events() {
-			if ev, ok := e.(events.Enforcement); ok && ev.Level != content.Arrest {
-				chief.Observed = true
-			}
-		}
-	}
-	s.intelChief(w, t)
-	replaced := false
-	if end := s.ChiefTermEnds(w); end > 0 && t.Day >= end {
-		s.replaceChief(w, t, "term", "")
-		replaced = true
-	}
-	// The world's incidents (#44), dealt first thing this tick: a chief
-	// who resigned is replaced this morning, on the law's own dice, and
-	// a snap election is held that many days out (the term resets when
-	// it is), on the mood the city is in then. An actor whose clock is
-	// stopped (a term of 0, harness.Appoint) is held through both.
-	for _, e := range t.Events() {
-		if ev, ok := e.(events.Incident); ok {
-			if ev.NewChief && !replaced && tun.ChiefTerm > 0 {
-				s.replaceChief(w, t, "resigned", "")
-				replaced = true
-			}
-			if ev.Election > 0 && tun.TermDays > 0 {
-				w.Law.SnapElection = t.Day + ev.Election
-			}
-		}
-	}
-
-	// The election: the cities' mean pressure swings the vote, the
-	// campaigns move it by what they bought (#193, before the one draw,
-	// so a run with no money on the table rolls the same dice), a
-	// moderate takes their share whatever the mood, and one draw
-	// decides it. A winner on the sitting DA's ticket is the sitting DA
-	// re-elected. A law-and-order DA elected on a loud enough city wants
-	// a new chief.
-	if next := s.NextElection(w); next > 0 && t.Day >= next {
-		mean := w.MeanPressure()
-		swing := s.Swing(w)
-		share := clamp01(s.LawAndOrderShare(mean) + swing)
-		law := share * (1 - tun.Moderate)
-		reform := (1 - share) * (1 - tun.Moderate)
-		rng := t.Sub(game.StreamLaw)
-		r := rng.Float64()
-		stance := "moderate"
-		switch {
-		case r < law:
-			stance = "law_and_order"
-		case r < law+reform:
-			stance = "reform"
-		}
-		da := &w.Law.DA
-		incumbent := stance == da.Stance
-		if !incumbent {
-			da.Name = s.pick(without(s.das, da.Name), rng, da.Name)
-			da.Stance = stance
-		}
-		da.ElectedDay = t.Day
-		w.Law.SnapElection = 0
-		// A law-and-order DA taking office (#42): every live deal ends
-		// calls_stop_days on, and nobody takes a call while they sit; any
-		// other winner opens the phones again.
-		if !incumbent {
-			w.Law.Cold = 0
-			if stance == "law_and_order" {
-				w.Law.Cold = t.Day + s.cfg.Bribes.CallsStopDays
-			}
-		}
-		// The campaigns are spent (#193): a city whose ticket won has a
-		// DA who owes you; one whose ticket lost has a DA who knows who
-		// paid for the other side, and under a law-and-order winner a
-		// zealous chief at once; one that paid both sides has a headline.
-		backed := false
-		for _, cid := range w.CityOrder {
-			c := w.Cities[cid]
-			camp := c.Campaign
-			c.Campaign = game.Campaign{}
-			switch {
-			case camp.Cash <= 0:
-			case camp.Hedged:
-				t.Emit(events.CampaignHedged{Day: t.Day, City: cid, Cash: camp.Cash})
-			case camp.Ticket == stance:
-				backed = true
-				w.Stats.CampaignsWon++
-			default:
-				c.Pressure = math.Min(100, c.Pressure+s.cfg.Campaign.LoserPressure)
-				chief := stance == "law_and_order" && s.cfg.Campaign.LoserChief && !replaced
-				if chief {
-					s.replaceChief(w, t, "campaign", "zealous")
-					replaced = true
-				}
-				t.Emit(events.CampaignLost{Day: t.Day, City: cid, Ticket: camp.Ticket, Cash: camp.Cash, Winner: stance, Pressure: s.cfg.Campaign.LoserPressure, Chief: chief})
-			}
-		}
-		da.Backed = backed
-		w.Stats.Elections++
-		t.Emit(events.DAElected{Day: t.Day, Name: da.Name, Stance: stance, Incumbent: incumbent, Pressure: mean, Swing: swing, Backed: backed})
-		if stance == "law_and_order" && mean > tun.ReplacePressure && !replaced {
-			s.replaceChief(w, t, "da", "")
-		}
-	}
-
+// forfeit takes the newest deed back when the deeds outrun the wash.
+func (s *Sim) forfeit(w *game.World, t *game.Tick) {
 	// The forfeiture (#194): the deeds held cost more than forfeit_ratio
 	// times what the fronts have washed, so the money has no story and
 	// the DA takes the newest block back: one a night, no refund, no
@@ -593,79 +361,4 @@ func (s *Sim) Step(w *game.World, t *game.Tick) {
 			t.Emit(events.DeedSeized{Day: t.Day, Corner: c.ID, Name: c.Name, City: c.City, Price: d.Price, Spent: spent, Washed: w.Stats.Laundered, Limit: limit})
 		}
 	}
-
-	// Tomorrow's campaign window (#193): the tickets take money from
-	// open_days before the election to the day of it.
-	w.Law.CampaignOpen = s.CampaignOpen(w, t.Day+1)
-}
-
-// replaceChief puts a new chief in office: a new name and a personality
-// drawn from the law's side stream, hidden until observed; why is term,
-// da, resigned (#44) or campaign, and personality, if given, is who the
-// mayor was told to name (#193's zealous chief).
-func (s *Sim) replaceChief(w *game.World, t *game.Tick, why, personality string) {
-	rng := t.Sub(game.StreamLaw)
-	old := w.Law.Chief.Name
-	name := s.pick(without(s.chiefs, old), rng, old)
-	if personality == "" {
-		personality = content.ChiefPersonalities[rng.IntN(len(content.ChiefPersonalities))]
-	}
-	w.Law.Chief = game.Chief{Name: name, Personality: personality, Since: t.Day}
-	w.Stats.Chiefs++
-	w.Unlearn(game.SubjectChief, game.FactPersonality) // a new chief is one you know nothing about (#45)
-	t.Emit(events.ChiefReplaced{Day: t.Day, Name: name, Old: old, Why: why})
-}
-
-// without is the pool less one name: nobody succeeds themselves.
-func without(pool []string, name string) []string {
-	var out []string
-	for _, n := range pool {
-		if n != name {
-			out = append(out, n)
-		}
-	}
-	return out
-}
-
-// band is which band of width w a value sits in; 100 sits in the top one.
-func band(v, w float64) int {
-	if w <= 0 {
-		return 0
-	}
-	return int(math.Min(v, 99.999) / w)
-}
-
-func clamp01(v float64) float64 { return math.Max(0, math.Min(1, v)) }
-
-// intelChief files what you know of the chief (#45): their temper at
-// full confidence once Observed (the days in office, or their people
-// through the door; no dice), and off a cop paid today (World.Today.Cop)
-// at the cop's accuracy for the price, a wrong word naming one of the
-// other tempers, rolled on Tick.Sub("intel") after the heat sim's roll
-// on the same envelope. The observed fact never fades, the cop's does
-// (you see for yourself soon enough); a chief replaced takes either
-// with them (replaceChief).
-func (s *Sim) intelChief(w *game.World, t *game.Tick) {
-	chief := w.Law.Chief
-	known, _ := game.Known(w).Fact(game.SubjectChief, game.FactPersonality)
-	if chief.Observed && chief.Personality != "" && known.Confidence < 1 {
-		f := game.Fact{Subject: game.SubjectChief, Kind: game.FactPersonality, Value: chief.Personality, Confidence: 1, Day: t.Day, Source: game.SourceSeen}
-		w.Learn(f)
-		t.Emit(events.IntelGained{Day: t.Day, Subject: f.Subject, FactKind: f.Kind, Value: f.Value, Confidence: 1, Source: f.Source, Name: chief.Name})
-		return
-	}
-	o := w.Today.Cop
-	if o == nil || chief.Personality == "" || known.Confidence >= 1 {
-		return
-	}
-	p := s.intel.Accuracy(o.Amount)
-	rng := t.Sub(game.StreamIntel)
-	word := chief.Personality
-	if rng.Float64() >= p {
-		others := without(content.ChiefPersonalities, chief.Personality)
-		word = others[rng.IntN(len(others))]
-	}
-	f := game.Fact{Subject: game.SubjectChief, Kind: game.FactPersonality, Value: word, Confidence: p, Day: t.Day, Source: game.SourceCop, Stale: s.intel.StaleRate, Forget: s.intel.Forget}
-	w.Learn(f)
-	t.Emit(events.IntelGained{Day: t.Day, Subject: f.Subject, FactKind: f.Kind, Value: word, Confidence: p, Source: f.Source, Name: chief.Name})
 }
