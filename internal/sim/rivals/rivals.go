@@ -133,18 +133,12 @@ func (s *Sim) Tuning() content.RivalsTuning { return s.cfg.Rivals }
 // Factions exposes the table's tuning (#43) for the UI and the harness.
 func (s *Sim) Factions() content.FactionsTuning { return s.cfg.Factions }
 
-// rand is the subset of *math/rand/v2.Rand the sim uses.
-type rand interface {
-	IntN(int) int
-	Float64() float64
-}
-
 // Seed picks the run's rival at home: a leader, a personality and a
 // supplier price, all from rng so they are part of the seed. It arrives
 // later. The rest of the table (#43) is seeded beside it off the
 // factions' own stream (seedTable), so the rival at home is the rival
 // the seed always drew.
-func (s *Sim) Seed(w *game.World, rng rand) {
+func (s *Sim) Seed(w *game.World, rng game.Rand) {
 	tun := s.cfg.Rivals
 	r := w.Rival()
 	r.Leader = "Nobody"
@@ -213,7 +207,7 @@ func (s *Sim) Step(w *game.World, t *game.Tick) {
 			s.drift(w, t, r)
 			continue
 		}
-		var rng rand = t.RNG
+		var rng game.Rand = t.RNG
 		if i > 0 {
 			rng = t.Sub(game.StreamFactionOf + r.Faction())
 		}
@@ -240,7 +234,7 @@ func (s *Sim) Step(w *game.World, t *game.Tick) {
 // the dice always ran in, so the function reads as the night's agenda:
 // the money in economy.go, the strike and the pushes in strike.go, the
 // claim in claim.go, the price war in pricewar.go, the war in war.go.
-func (s *Sim) step(w *game.World, t *game.Tick, r *game.RivalState, rng rand) {
+func (s *Sim) step(w *game.World, t *game.Tick, r *game.RivalState, rng game.Rand) {
 	tun := s.cfg.Rivals
 	if r.Leader == "" {
 		s.Seed(w, t.RNG)
@@ -335,7 +329,7 @@ func (s *Sim) step(w *game.World, t *game.Tick, r *game.RivalState, rng rand) {
 // grudge is a grudge paid back with a phone call (step 6), unless there
 // is a peace; a city under pressure listens harder. The roll is made
 // only with a grudge held and no peace, as it always was.
-func (s *Sim) grudge(w *game.World, t *game.Tick, r *game.RivalState, rng rand, pc content.PersonalityConfig) {
+func (s *Sim) grudge(w *game.World, t *game.Tick, r *game.RivalState, rng game.Rand, pc content.PersonalityConfig) {
 	if r.Grudge > 0 && !w.AtPeaceWith(r.Faction()) && rng.Float64() < pc.TipChance*s.TipPace(w, r) {
 		r.Grudge--
 		r.Tips++
@@ -371,8 +365,8 @@ func (s *Sim) settle(t *game.Tick, r *game.RivalState) {
 	if !r.Observed && t.Day-r.Arrived >= s.cfg.Rivals.ObserveDays {
 		r.Observed = true
 	}
-	r.War = math.Max(0, math.Min(100, r.War))
-	r.Trust = math.Max(0, math.Min(100, r.Trust))
+	r.War = max(0, min(100, r.War))
+	r.Trust = max(0, min(100, r.Trust))
 	if r.Cash < 0 {
 		r.Cash = 0
 	}

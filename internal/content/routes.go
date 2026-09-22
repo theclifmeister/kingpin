@@ -74,12 +74,7 @@ func (r RouteConfig) Other(city string) string {
 
 // Route returns the route with id, or nil.
 func (r RoutesConfig) Route(id string) *RouteConfig {
-	for i := range r.Routes {
-		if r.Routes[i].ID == id {
-			return &r.Routes[i]
-		}
-	}
-	return nil
+	return find(r.Routes, func(e *RouteConfig) bool { return e.ID == id })
 }
 
 // DialFor returns the tuning for a ship dial position.

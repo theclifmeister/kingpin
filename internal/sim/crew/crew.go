@@ -213,13 +213,11 @@ func (s *Sim) InvestigateCost() int { return s.cfg.Informant.InvestigateCost }
 func (s *Sim) InvestigateOdds(w *game.World) float64 {
 	tun := s.cfg.Informant
 	best := 0
-	for _, m := range w.Crew.Members {
-		if m.Role == game.RoleEnforcer && m.Skill > best {
-			best = m.Skill
-		}
+	if m := w.Crew.Strongest(game.RoleEnforcer); m != nil {
+		best = max(0, m.Skill)
 	}
 	p := tun.InvestigateBase + tun.InvestigateSkill*float64(best)/100 + tun.InvestigateLearn*float64(w.Crew.Investigated)
-	return math.Max(0, math.Min(1, p))
+	return max(0, min(1, p))
 }
 
 // PayoffCost is what buying m's loyalty costs.
@@ -257,7 +255,7 @@ func (s *Sim) wages(w *game.World, p events.Pay, fx game.Effects) int {
 // day 0. It draws from rng, which the caller derives from the seed; the
 // ages (#46) come off day 0's life stream, so the faces are the faces
 // the home stream always drew.
-func (s *Sim) Seed(w *game.World, rng rand) {
+func (s *Sim) Seed(w *game.World, rng game.Rand) {
 	w.Crew.Pay = events.PayFair
 	life := (&game.Tick{Day: 0, Seed: w.Seed}).Sub(game.StreamLife)
 	s.refill(w, rng, nil, nil, nil, life, game.FoldEffects(w, s.tree))
@@ -269,12 +267,6 @@ func (s *Sim) Migrate(w *game.World) {
 	if len(w.Crew.Candidates) == 0 {
 		s.Seed(w, game.RNGFor(w.Seed, w.Day))
 	}
-}
-
-// rand is the subset of *math/rand/v2.Rand the sim uses.
-type rand interface {
-	IntN(int) int
-	Float64() float64
 }
 
 // night is one Step's working state (#275): what its phases share.
@@ -378,7 +370,7 @@ func (s *Sim) ChemistQuality(w *game.World) float64 {
 // would cook at.
 func (s *Sim) QualityOf(skill int) float64 {
 	rc := s.cfg.Role[game.RoleChemist]
-	return math.Max(0, math.Min(100, rc.QualityBase+rc.QualityPerSkill*float64(skill)))
+	return max(0, min(100, rc.QualityBase+rc.QualityPerSkill*float64(skill)))
 }
 
 // BatchOf is the most units a chemist of a skill cooks an order.

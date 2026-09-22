@@ -40,8 +40,8 @@ enforcer_cut = 0.80         # fraction of the robbery chance a skill-100 enforce
 # corners (min_held at least), the corners nobody holds there are worked
 # by independents who pay you for the right: cut of each corner's trade
 # a night (every product the city sells at its price and the corner's
-# full share, World.CornerTrade), in dirty cash, jittered a tenth either
-# way on Tick.Sub("tax:" + city). No heat and no evidence: nobody of
+# full share, World.CornerTrade), in dirty cash, jittered by jitter (a
+# tenth) either way on Tick.Sub("tax:" + city). No heat and no evidence: nobody of
 # yours moved a unit. A faction setting up on a free corner ends that
 # corner's tax. share is its own number beside rivals.toml [endings]
 # kingpin_share so the ending's file is untouched; cut = 0 boxes it.
@@ -49,6 +49,7 @@ enforcer_cut = 0.80         # fraction of the robbery chance a skill-100 enforce
 share = 0.5
 cut = 0.10
 min_held = 1
+jitter = 0.1                # a night's tax is cut times 1 - jitter to 1 + jitter: independents pay what the night made
 
 [deed]
 days = 90

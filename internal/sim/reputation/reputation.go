@@ -137,7 +137,7 @@ func (s *Sim) Step(w *game.World, t *game.Tick) {
 // fade closes part of the gap to the baseline and clamps to 0..100.
 func fade(v float64, tun content.ReputationTuning) float64 {
 	v -= (v - tun.Baseline) * tun.Decay
-	return math.Max(0, math.Min(100, v))
+	return max(0, min(100, v))
 }
 
 // band is which band of width w a value sits in; 100 sits in the top one.

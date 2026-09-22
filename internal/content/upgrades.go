@@ -128,12 +128,7 @@ func (u UpgradesConfig) validate() error {
 
 // Upgrade returns the node with id, or nil.
 func (u UpgradesConfig) Upgrade(id string) *UpgradeConfig {
-	for i := range u.Nodes {
-		if u.Nodes[i].ID == id {
-			return &u.Nodes[i]
-		}
-	}
-	return nil
+	return find(u.Nodes, func(e *UpgradeConfig) bool { return e.ID == id })
 }
 
 // Branch returns the nodes of one branch, in tree order.

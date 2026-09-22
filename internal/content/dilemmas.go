@@ -78,12 +78,7 @@ type ChoiceConfig struct {
 
 // Card returns the card with id, or nil.
 func (d DilemmasConfig) Card(id string) *CardConfig {
-	for i := range d.Cards {
-		if d.Cards[i].ID == id {
-			return &d.Cards[i]
-		}
-	}
-	return nil
+	return find(d.Cards, func(e *CardConfig) bool { return e.ID == id })
 }
 
 // validate checks the deck reads as a deck: ids unique, every card with a
