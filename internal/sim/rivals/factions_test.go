@@ -560,7 +560,7 @@ func TestAwayFactionLivesInTheOtherCity(t *testing.T) {
 	found := false
 	for seed := uint64(1); seed <= 6 && !found; seed++ {
 		w, s := world(t, cfg, seed)
-		w.AddCity(game.StartingCity{ID: "bayport", Name: "Bayport", Products: []game.StartingProduct{{ID: "weed", Name: "Weed", Price: 40, Demand: 30}}})
+		w.AddCity(game.StartingCity{ID: "bayport", Name: "Bayport", Products: []game.StartingProduct{{ID: "weed", Name: "Weed", Price: 40, Demand: 30, SupplierRatio: 0.55}}})
 		w.Rivals = w.Rivals[:1]
 		s.MigrateFactions(w) // reseed with two cities on the map
 		away := 0
@@ -779,6 +779,12 @@ func TestWarEndsWhenTheFactionFolds(t *testing.T) {
 	f1.Cash = 1_000_000
 	if ended := find[events.WarEnded](step(w, s)); ended == nil || ended.Why != "they pay you homage now" || w.War != "" {
 		t.Fatalf("the war did not end on homage: %+v", ended)
+	}
+	// A war on a faction no longer at the table ends naming the faction
+	// it was on, not an empty one.
+	w.War = "nobody's crew"
+	if ended := find[events.WarEnded](step(w, s)); ended == nil || ended.Faction != "nobody's crew" || ended.Why != "they are no more" || w.War != "" {
+		t.Fatalf("the war on a missing faction: %+v war %q", ended, w.War)
 	}
 	// Boxed: the dial off, the war sends nothing.
 	boxed := *cfg

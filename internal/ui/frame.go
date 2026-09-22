@@ -63,7 +63,7 @@ func block(s string, w, h int) []string {
 		ls = append(ls, "")
 	}
 	for i, l := range ls {
-		ls[i] = fit(cut(l, w), w)
+		ls[i] = fit(truncate(l, w), w)
 	}
 	return ls
 }

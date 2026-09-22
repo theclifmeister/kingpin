@@ -18,7 +18,7 @@ import (
 // there for a test or a migration, and StashOf is a copy that changes
 // nothing when written to.
 func TestStockAccessors(t *testing.T) {
-	w := NewWorld(1, []StartingCity{{ID: "test", Name: "Test", Products: []StartingProduct{{ID: "a", Name: "A", Price: 10, Demand: 5}}}}, 500, 100)
+	w := NewWorld(1, []StartingCity{{ID: "test", Name: "Test", Products: []StartingProduct{{ID: "a", Name: "A", Price: 10, Demand: 5, SupplierRatio: 0.55}}}}, 500, 100)
 	if got := w.Stock("test", "a"); got != 0 {
 		t.Fatalf("a fresh stash holds %d", got)
 	}
@@ -69,7 +69,7 @@ func TestStockAccessors(t *testing.T) {
 // leaves 0..100, and a house-first landing and a street-first draw keep
 // the one number the city holds.
 func TestLotQuality(t *testing.T) {
-	w := NewWorld(1, []StartingCity{{ID: "test", Name: "Test", Products: []StartingProduct{{ID: "a", Name: "A", Price: 10, Demand: 5}}}}, 500, 100)
+	w := NewWorld(1, []StartingCity{{ID: "test", Name: "Test", Products: []StartingProduct{{ID: "a", Name: "A", Price: 10, Demand: 5, SupplierRatio: 0.55}}}}, 500, 100)
 	if q := w.Quality("test", "a"); q != StreetQuality {
 		t.Fatalf("an empty lot reads %v; want the default %v", q, StreetQuality)
 	}
@@ -126,7 +126,7 @@ func TestLotQuality(t *testing.T) {
 // past the room the city has and with nothing to cut, and a chemist's
 // bonus puts quality back, never over what it was.
 func TestCut(t *testing.T) {
-	w := NewWorld(1, []StartingCity{{ID: "test", Name: "Test", Products: []StartingProduct{{ID: "a", Name: "A", Price: 10, Demand: 5}}}}, 5000, 1000)
+	w := NewWorld(1, []StartingCity{{ID: "test", Name: "Test", Products: []StartingProduct{{ID: "a", Name: "A", Price: 10, Demand: 5, SupplierRatio: 0.55}}}}, 5000, 1000)
 	w.Player.Location = "test"
 	w.AddStock("test", "a", 100, 60)
 	if _, err := w.Cut("test", "a", 0.5, 0.4, 2, 0, ""); err == nil {
@@ -179,7 +179,7 @@ func TestCut(t *testing.T) {
 // past the room with what is on its way counted, paid on the order, and
 // lands at the quality it was ordered at.
 func TestCookOrder(t *testing.T) {
-	w := NewWorld(1, []StartingCity{{ID: "test", Name: "Test", Products: []StartingProduct{{ID: "a", Name: "A", Price: 10, Demand: 5}}}}, 5000, 100)
+	w := NewWorld(1, []StartingCity{{ID: "test", Name: "Test", Products: []StartingProduct{{ID: "a", Name: "A", Price: 10, Demand: 5, SupplierRatio: 0.55}}}}, 5000, 100)
 	w.Player.Location = "test"
 	if _, err := w.CookOrder("test", "a", 10, 30, 3, 70, 80, ""); !errors.Is(err, ErrNoChemist) {
 		t.Fatalf("a cook with no chemist: %v", err)

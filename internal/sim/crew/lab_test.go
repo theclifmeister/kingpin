@@ -19,7 +19,7 @@ func TestTheLabMultipliesTheCook(t *testing.T) {
 	if lab == nil {
 		t.Fatal("no lab in the file")
 	}
-	w := game.NewWorld(7, []game.StartingCity{{ID: lab.City, Name: "Lab City", Products: []game.StartingProduct{{ID: "a", Name: "A", Price: 10, Demand: 5}}}, {ID: "other", Name: "Other", Products: []game.StartingProduct{{ID: "a", Name: "A", Price: 10, Demand: 5}}}}, 1000, 100)
+	w := game.NewWorld(7, []game.StartingCity{{ID: lab.City, Name: "Lab City", Products: []game.StartingProduct{{ID: "a", Name: "A", Price: 10, Demand: 5, SupplierRatio: 0.55}}}, {ID: "other", Name: "Other", Products: []game.StartingProduct{{ID: "a", Name: "A", Price: 10, Demand: 5, SupplierRatio: 0.55}}}}, 1000, 100)
 	s := crew.New(cfg)
 	w.Crew.Members = []game.CrewMember{{ID: 1, Name: "Doc", Role: game.RoleChemist, Skill: 50, Loyalty: 80}}
 	batch, quality := s.Batch(w), s.ChemistQuality(w)

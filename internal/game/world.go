@@ -1094,6 +1094,10 @@ type StartingProduct struct {
 	Price    float64
 	Demand   float64
 	NoSupply bool // the supplier in this city does not sell it
+	// SupplierRatio is the flat supplier price as a fraction of street
+	// (market.toml's supplier_ratio): what the market reads until its
+	// first step prices the product.
+	SupplierRatio float64
 }
 
 // StartingCity describes a city as a run starts: its identity, its static
@@ -1178,7 +1182,7 @@ func (w *World) AddProduct(city string, p StartingProduct) {
 	c.Market[p.ID] = &ProductMarket{
 		Name:          p.Name,
 		Price:         p.Price,
-		SupplierPrice: p.Price * 0.55,
+		SupplierPrice: p.Price * p.SupplierRatio,
 		Demand:        p.Demand,
 		ShockFactor:   1,
 		History:       []float64{p.Price},

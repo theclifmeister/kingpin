@@ -171,6 +171,7 @@ type Model struct {
 	flash          []events.Enforcement // the enforcements of the last tick, via the bus: the bust's scene reads the level (#155)
 	reportScene    reportSceneKind      // which scene the report opened on (#159), while m.scene is up in modeReport
 	quitting       bool
+	quitErr        error // the save on the way out failed: main says so once the screen is back
 }
 
 // New wires config, simulations, clock and bus together. With a run in
@@ -287,7 +288,9 @@ func (m *Model) startRunWith(seed uint64, start game.Start) {
 		who = " " + ch.Name + "."
 	}
 	m.say(fmt.Sprintf("New run.%s %s, %s in your pocket. Seed %d.", who, m.w.Here().Name, money(m.w.Player.DirtyCash), m.w.Seed))
-	_ = game.Save(m.slot, m.w)
+	if err := game.Save(m.slot, m.w); err != nil {
+		m.alarm("Save failed: " + err.Error())
+	}
 	m.journalFilter = "" // a new run's journal is read whole
 	m.refreshJournal()
 }
@@ -434,6 +437,10 @@ func (m *Model) morning(evs []events.Event) {
 	}
 	m.showStage()
 }
+
+// QuitErr is why the save on the way out failed, or nil: the program
+// has quit, so the screen cannot say it and main does.
+func (m *Model) QuitErr() error { return m.quitErr }
 
 func (m *Model) save() {
 	if err := game.Save(m.slot, m.w); err != nil {
@@ -663,6 +670,8 @@ func (m *Model) hasPages(md mode) bool {
 		return true
 	case modeFund:
 		return m.campaignOpen()
+	case modeSpy:
+		return !m.spy.single
 	}
 	return false
 }
@@ -858,7 +867,9 @@ func (m *Model) openDetails() {
 
 func (m *Model) quit() (tea.Model, tea.Cmd) {
 	if m.w != nil {
-		_ = game.Save(m.slot, m.w)
+		if err := game.Save(m.slot, m.w); err != nil {
+			m.quitErr = fmt.Errorf("the run was not saved: %w", err)
+		}
 	}
 	m.stop()
 	m.quitting = true
@@ -1206,7 +1217,7 @@ func (m *Model) viewStart() string {
 			}
 		}
 		if h := m.historyLine(); h != "" {
-			body = append(body, "", theme.Subtle.Render(cut(h, m.modalInner())))
+			body = append(body, "", theme.Subtle.Render(truncate(h, m.modalInner())))
 		}
 		if m.profileErr != "" {
 			body = append(body, "")
