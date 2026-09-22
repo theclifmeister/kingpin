@@ -23,7 +23,7 @@ type investDialog struct {
 func (d *investDialog) page() int           { return 0 }
 func (d *investDialog) field() *numberField { return &d.levels }
 
-// ledgerOnFront is the ledger's cursor being on a front: where i invests.
+// ledgerOnFront is the ledger's cursor being on a front: where u invests (#241).
 func ledgerOnFront(m *Model) bool {
 	return m.screen == screenLedger && m.ledgerSelected().kind == ledgerFront
 }
