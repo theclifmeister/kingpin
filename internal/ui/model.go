@@ -241,13 +241,22 @@ func (m *Model) onEvent(e events.Event) {
 // now on.
 func (m *Model) newRun(slot int) {
 	m.slot = slot
-	m.startRun(newSeed())
+	m.startRun(m.freshSeed())
 }
 
 // newSeed is a fresh random seed off the wall clock: the UI's alone
 // (#50: time.Now is read here and never in game, sim or the harness,
 // TestNoWallClockInTheSims).
 func newSeed() uint64 { return uint64(time.Now().UnixNano()) }
+
+// freshSeed is the seed a new run takes: the wall clock's, or the one
+// Options.Seeds hands out (#292).
+func (m *Model) freshSeed() uint64 {
+	if m.opts.Seeds != nil {
+		return m.opts.Seeds()
+	}
+	return newSeed()
+}
 
 // restart begins a new run in the current slot as the run that is up
 // began (#50: the same character and the hard DA; a daily's is a run
@@ -258,7 +267,7 @@ func (m *Model) restart() {
 	if m.w != nil {
 		start = game.Start{Character: m.w.Start.Character, HardDA: m.w.Start.HardDA}
 	}
-	m.startRunWith(newSeed(), start)
+	m.startRunWith(m.freshSeed(), start)
 }
 
 // startRun begins a run from a seed in the current slot: a new world,

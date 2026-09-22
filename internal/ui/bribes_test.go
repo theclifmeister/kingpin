@@ -228,13 +228,15 @@ func TestFavourKeys(t *testing.T) {
 	if why := m.stopEvent(events.RaidFellThrough{Day: w.Day, City: w.Here().ID, Level: content.Raid}); why != "the raid fell through" {
 		t.Fatalf("the stop reads %q", why)
 	}
-	closeMorning(t, m)
+	// The night, read before the morning's card is answered (#292): a
+	// card's choice can move the heat, and it is not the favour's.
 	if rep := strings.Join(w.Report.Heat, "\n"); !strings.Contains(rep, "fell through") || !strings.Contains(rep, "the file grows by 1") {
 		t.Fatalf("the report's HEAT section:\n%s", rep)
 	}
 	if w.Heat.Evidence != file+m.set.Law.Bribes().FavourEvidence || w.Here().Heat > heat || w.Stats.Raids != 0 || w.Stats.Stings != 0 {
 		t.Fatalf("the night: file %d -> %d, heat %.1f -> %.1f, raids %d stings %d", file, w.Heat.Evidence, heat, w.Here().Heat, w.Stats.Raids, w.Stats.Stings)
 	}
+	closeMorning(t, m)
 	// Under the cold nobody takes the call.
 	w.Law.Favours, w.Law.DA.Stance = 1, "law_and_order"
 	m.Update(key("esc"))
