@@ -11,66 +11,136 @@ import (
 	"github.com/theclifmeister/kingpin/internal/sim/news"
 )
 
-// Every event the market, logistics, territory, rivals, crew, heat, law
-// and laundering sims can emit must have a headline template, otherwise
-// the ticker goes silent on something that matters. RivalUndercut,
-// CashLaundered, FrontInvested, Reserved, CrewPaidOff, WholesaleBought, SupplyBought,
-// SupplyShort, StandingShort, ShipmentSent, ShipmentArrived and CityFunded are
-// report-only bookkeeping, like PriceMove, CrewPaid and LieutenantActed;
-// CrewTurnedInformant and LieutenantFlipped are deliberately silent, the
-// informant is hidden; DilemmaDrawn and DilemmaAnswered carry their own
-// text, the card's; an Incident's key is the row's (#44).
+// reportOnly is every kind with no headline template on purpose (#274):
+// bookkeeping the morning report prints and the ticker would only
+// repeat, the informant's that are deliberately silent (the informant
+// is hidden), the card's that carry their own text, and the loop's own.
+// A new kind goes here or gets a template in headlines.toml;
+// TestEveryEmittedEventHasTemplate fails on one that does neither and
+// on one that does both.
+var reportOnly = map[string]bool{
+	"PriceMove": true, "CrewPaid": true, "LieutenantActed": true,
+	"RivalUndercut": true, "CashLaundered": true, "CrewPaidOff": true,
+	"WholesaleBought": true, "SupplyBought": true, "SupplyShort": true, "StandingShort": true,
+	"ShipmentSent": true, "ShipmentArrived": true, "CityFunded": true,
+	"PlayerUndercut":      true,
+	"CrewTurnedInformant": true, "LieutenantFlipped": true, // deliberately silent: the informant is hidden
+	"DilemmaDrawn": true, "DilemmaAnswered": true, // they carry their own text, the card's
+	"FrontInvested": true, "Reserved": true, // #192, #195
+	"CrewBailed": true, "CrewRecovered": true, "KinLooking": true, // #46
+	"RivalScouted": true, "PoliceTipped": true, // #70
+	"ReignBroken": true, // #227
+	"DealEnded":   true, "TributePaid": true,
+	"CampaignBacked": true,                                                                    // #193
+	"BribeAccepted":  true, "BribeRefused": true, "LeadFound": true, "CheckpointBought": true, // #42
+	"ContractAccepted": true, "ContractExpired": true,
+	"SupplierBought": true, "CreditTaken": true, "DebtPaid": true, // #72
+	"HouseCompromised": true, "StockMoved": true, "RentPaid": true, // #73
+	"StockCut": true, "CookOrdered": true, "Cooked": true, // #47
+	"DeedBought": true, "DeedRent": true, // #194
+	"Taxed":         true, // #231
+	"ClaimDeterred": true, // #233
+	"TrustSpread":   true, // #43
+	"AssetFrozen":   true, // #48
+	"IntelGained":   true, // #45
+	// Found unlisted (#274): neither templated nor named report-only
+	// before events.All; the loop's own, never a line of news.
+	"DayEnded": true, "Headline": true, "GameOver": true,
+}
+
+// templateKeys is the headline keys a kind writes where they are not
+// just its own name: a kind picks one by what happened (a seizure, a
+// slump, a firing that was an informant), by its level or axis, or by
+// its gate. A kind not here writes the key of its own name.
+func templateKeys(cfg *content.Config) map[string][]string {
+	keys := map[string][]string{
+		"PriceShock":          {"PriceShock", "PriceShockSeized", "PriceSlump"},
+		"Unlocked":            {"UnlockedProduct", "UnlockedFront", "UnlockedConnect", "UnlockedRole", "UnlockedAsset"}, // by its Gate (#148)
+		"PlayerSold":          {"PlayerSoldBig", "PlayerSoldZero"},
+		"HeatChanged":         {"HeatWarning"},
+		"CrewFired":           {"CrewFired", "CrewFiredInformant"},
+		"CrewShot":            {"CrewShot", "CrewKilled", "MuscleKilled"}, // #46
+		"LieutenantWalked":    {"LieutenantWalked", "LieutenantWalkedRival"},
+		"CornerLost":          {"CornerLost", "CornerCrackdown"},
+		"CornerTaken":         {"CornerTaken", "CornerHanded", "RivalClaimed"},
+		"CornerStruck":        {"CornerStruckTaken", "CornerStruckHeld", "RivalRouted"}, // the war order (#229)
+		"WarEscalated":        {"WarOpen", "WarCrackdown"},
+		"RivalBoosted":        {"RivalBoosted", "RivalBoostedHeld"}, // #70
+		"FactionPushed":       {"FactionPushed", "FactionTook"},     // #43
+		"RivalAbsorbed":       {"RivalAbsorbed", "RivalScattered"},
+		"RivalLeaderArrested": {"RivalLeaderArrested", "RivalLeaderKilled"},
+		"ReputationShifted": {"ReputationFearUp", "ReputationFearDown", "ReputationRespectUp", "ReputationRespectDown",
+			"ReputationNotorietyUp", "ReputationNotorietyDown"},
+		"DAElected":       {"DAElected", "DAReElected", "DABought"}, // #193
+		"ChiefReplaced":   {"ChiefReplaced", "ChiefReplacedDA", "ChiefReplacedCampaign"},
+		"PressureShifted": {"PressureShiftedUp", "PressureShiftedDown"},
+		"SpyFound":        {"SpyFound", "SpyShot"},                // #45
+		"IntelFalse":      {"IntelFalseRoute", "IntelFalseStash"}, // #45
+	}
+	// Every rung of the police response, the task force's (#48) included.
+	for _, r := range cfg.Heat.Responses {
+		keys["Enforcement"] = append(keys["Enforcement"], "Enforcement"+capital(r.Level))
+	}
+	// The world's incidents (#44): Incident for a row without its own,
+	// and every row's key beside it.
+	keys["Incident"] = []string{"Incident"}
+	for _, inc := range cfg.Incidents.Table {
+		keys["Incident"] = append(keys["Incident"], inc.Key())
+	}
+	return keys
+}
+
+// Every event kind (events.All, #274) has a headline template or is
+// named report-only, otherwise the ticker goes silent on something that
+// matters without anybody having decided it should: every key a kind
+// writes has a template, a report-only kind has no template and no
+// keys, the two lists name only real kinds, and every template in
+// headlines.toml is one some kind writes.
 func TestEveryEmittedEventHasTemplate(t *testing.T) {
 	cfg := content.MustLoad()
 	n, err := news.New(cfg)
 	if err != nil {
 		t.Fatal(err)
 	}
-	required := []string{
-		"PriceShock", "PriceShockSeized", "PriceSlump", "ShipmentSeized",
-		"UnlockedProduct", "UnlockedFront", "UnlockedConnect", "UnlockedRole", // Unlocked, by its Gate (#148)
-		"PlayerSoldBig", "PlayerSoldZero",
-		"EnforcementPatrol", "EnforcementSting", "EnforcementRaid", "EnforcementArrest",
-		"LaidLow", "HeatWarning",
-		"CrewHired", "CrewFired", "CrewFiredInformant", "CrewQuit", "CrewSkimmed",
-		"CrewDefected", "InvestigationRun", "LieutenantWalked", "LieutenantWalkedRival",
-		"CrewArrested", "CrewReleased", "CrewShot", "CrewKilled", "CrewRetired", "MuscleKilled", // CrewBailed, CrewRecovered and KinLooking are report-only (#46)
-		"CornerClaimed", "CornerLost", "CornerRobbed", "CornerCrackdown",
-		"RivalMovedIn", "RivalEyeing", "RivalOutbid", "RivalClaimed", "CornerTaken", "CornerHanded", "RivalPushed",
-		"RivalAbandoned",                                                   // PlayerUndercut is report-only
-		"CornerStruckTaken", "CornerStruckHeld", "RivalRouted", "WarEnded", // the war order (#229)
-		"RivalTippedPolice", "WarOpen", "WarCrackdown",
-		"RivalBoosted", "RivalBoostedHeld", "RivalRaided", "RivalMusclePoached", // RivalScouted and PoliceTipped are report-only (#70)
-		"ReignBegan",                                               // ReignBroken is report-only (#227)
-		"DealOffered", "DealAccepted", "DealRefused", "DealBroken", // DealEnded and TributePaid are report-only
-		"UpgradeBought", "FallGuyBurned",
-		"FrontBought", "FrontAudited", "FrontFrozen", "FrontGrew", // FrontInvested (#192) and Reserved (#195) are report-only
-		"ReputationFearUp", "ReputationFearDown", "ReputationRespectUp", "ReputationRespectDown",
-		"ReputationNotorietyUp", "ReputationNotorietyDown",
-		"DAElected", "DAReElected", "ChiefReplaced", "ChiefReplacedDA", "PressureShiftedUp", "PressureShiftedDown", // CityFunded is report-only
-		"DABought", "CampaignLost", "CampaignHedged", "ChiefReplacedCampaign", // CampaignBacked is report-only (#193)
-		"BribeBackfired", "LeadsFiled", "OfficialsCold", // BribeAccepted, BribeRefused, LeadFound and CheckpointBought are report-only (#42)
-		"RaidFellThrough",                                        // the favour (#228)
-		"ContractOffered", "ContractDelivered", "ContractFailed", // ContractAccepted and ContractExpired are report-only
-		"DebtLate", "SupplierFrozen", "SupplierWarned", "SupplierCollected", // SupplierBought, CreditTaken and DebtPaid are report-only (#72)
-		"TierReached",                                            // #147
-		"HouseBought", "HouseRobbed", "HouseRaided", "HouseLost", // HouseCompromised, StockMoved and RentPaid are report-only (#73)
-		"Overdose",                  // StockCut and Cooked are report-only (#47)
-		"DeedsBought", "DeedSeized", // DeedBought and DeedRent are report-only (#194); Taxed is report-only (#231); ClaimDeterred is report-only (#233)
-		"SpyPlanted", "SpyFound", "SpyShot", "IntelFalseRoute", "IntelFalseStash", // IntelGained is report-only (#45)
+	keys := templateKeys(cfg)
+	kinds := map[string]bool{}
+	written := map[string]bool{}
+	for _, e := range events.All {
+		k := e.Kind()
+		kinds[k] = true
+		if reportOnly[k] {
+			if n.HasTemplate(k) {
+				t.Errorf("%s is report-only but has a headline template", k)
+			}
+			if _, ok := keys[k]; ok {
+				t.Errorf("%s is report-only but writes template keys", k)
+			}
+			continue
+		}
+		ks, ok := keys[k]
+		if !ok {
+			ks = []string{k}
+		}
+		for _, key := range ks {
+			written[key] = true
+			if !n.HasTemplate(key) {
+				t.Errorf("no headline template for %s (kind %s): add one, or list the kind in reportOnly", key, k)
+			}
+		}
 	}
-	for _, r := range cfg.Heat.Responses {
-		required = append(required, "Enforcement"+capital(r.Level))
+	for k := range reportOnly {
+		if !kinds[k] {
+			t.Errorf("report-only %s is not an event kind", k)
+		}
 	}
-	// The world's incidents (#44): Incident for a row without its own,
-	// and every row's key beside it.
-	required = append(required, "Incident")
-	for _, inc := range cfg.Incidents.Table {
-		required = append(required, inc.Key())
+	for k := range keys {
+		if !kinds[k] {
+			t.Errorf("template keys listed for %s, which is not an event kind", k)
+		}
 	}
-	for _, k := range required {
-		if !n.HasTemplate(k) {
-			t.Errorf("no headline template for %s", k)
+	for key := range cfg.Headlines.Templates {
+		if !written[key] {
+			t.Errorf("headline template %s is written by no event kind", key)
 		}
 	}
 	if len(cfg.Headlines.Flavour) < 10 {
