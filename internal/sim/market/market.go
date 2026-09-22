@@ -9,7 +9,6 @@ package market
 import (
 	"fmt"
 	"math"
-	"sort"
 
 	"github.com/theclifmeister/kingpin/internal/content"
 	"github.com/theclifmeister/kingpin/internal/events"
@@ -309,8 +308,7 @@ func (s *Sim) Step(w *game.World, t *game.Tick) {
 	s.supply(w, t, fx)
 	s.credit(w)
 	s.unlock(w, t)
-	ids := append([]string(nil), w.Products...)
-	sort.Strings(ids) // deterministic regardless of map order
+	ids := w.SortedProducts() // deterministic regardless of map order
 
 	for _, cid := range w.CityOrder {
 		city := w.Cities[cid]
@@ -410,7 +408,7 @@ func (s *Sim) Step(w *game.World, t *game.Tick) {
 			noise := rng.NormFloat64() * pc.Volatility
 			m.Price += (target - m.Price) * tun.Reversion
 			m.Price *= 1 + noise
-			m.Price = clamp(m.Price, basePrice*tun.PriceFloorRatio, basePrice*tun.PriceCeilingRatio)
+			m.Price = min(max(m.Price, basePrice*tun.PriceFloorRatio), basePrice*tun.PriceCeilingRatio)
 
 			// 4. Demand per standard corner wanders around the city's
 			// base; slumps cut it. The corners the player works there
@@ -613,16 +611,6 @@ func (s *Sim) resolveAt(w *game.World, t *game.Tick, city string, m *game.Produc
 		s.sold.add(own, quality)
 		s.overdoses(w, t, city, o.Product, own, quality)
 	}
-}
-
-func clamp(v, lo, hi float64) float64 {
-	if v < lo {
-		return lo
-	}
-	if v > hi {
-		return hi
-	}
-	return v
 }
 
 // fragmented reports whether a faction living in the city lost its

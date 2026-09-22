@@ -193,11 +193,8 @@ func (w *World) Corners() []Corner {
 // Corner returns the corner with id in any city, or nil.
 func (w *World) Corner(id string) *Corner {
 	for _, cid := range w.CityOrder {
-		cs := w.Cities[cid].Corners
-		for i := range cs {
-			if cs[i].ID == id {
-				return &cs[i]
-			}
+		if c := find(w.Cities[cid].Corners, func(e *Corner) bool { return e.ID == id }); c != nil {
+			return c
 		}
 	}
 	return nil
@@ -296,11 +293,8 @@ func (w *World) PostOf(id int) *Corner {
 		return nil
 	}
 	for _, cid := range w.CityOrder {
-		cs := w.Cities[cid].Corners
-		for i := range cs {
-			if cs[i].Runner == id || cs[i].Enforcer == id {
-				return &cs[i]
-			}
+		if c := find(w.Cities[cid].Corners, func(e *Corner) bool { return e.Runner == id || e.Enforcer == id }); c != nil {
+			return c
 		}
 	}
 	return nil

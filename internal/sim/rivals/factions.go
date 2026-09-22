@@ -312,7 +312,7 @@ func (s *Sim) trust(r *game.RivalState, id string, delta float64) {
 	if r.Trusts == nil {
 		r.Trusts = map[string]float64{}
 	}
-	r.Trusts[id] = math.Max(0, math.Min(100, r.TrustIn(id)+delta))
+	r.Trusts[id] = max(0, min(100, r.TrustIn(id)+delta))
 }
 
 // AllyMuscle is the muscle the factions standing with attacker against

@@ -50,3 +50,12 @@ const (
 	StreamIntelNews     = "intel:news"     // the intel headlines (#45)
 	StreamOverdoseNews  = "overdose:news"  // an overdose's headline (#47)
 )
+
+// Rand is the subset of *math/rand/v2.Rand the sims draw on (#275): the
+// home stream (Tick.RNG) and every Sub are one, so a helper takes
+// whichever the caller rolls on. One interface for every sim that passes
+// its dice down.
+type Rand interface {
+	IntN(int) int
+	Float64() float64
+}

@@ -9,8 +9,6 @@ import (
 
 	"github.com/charmbracelet/lipgloss"
 
-	tea "github.com/charmbracelet/bubbletea"
-
 	"github.com/theclifmeister/kingpin/internal/content"
 )
 
@@ -31,7 +29,7 @@ func TestHelpScrollsToTheLastRow(t *testing.T) {
 	}
 	for _, g := range helpGroups()[1:] {
 		for _, b := range g.keys {
-			if b.global || !b.names(screen(indexOf(screenOf, strings.ToLower(g.title)))) {
+			if b.global || !b.names(screenNamed(strings.ToLower(g.title))) {
 				t.Errorf("%s lists %s %s, which is not its own", g.title, b.key, b.label)
 			}
 		}
@@ -52,7 +50,7 @@ func TestHelpScrollsToTheLastRow(t *testing.T) {
 		t.Fatalf("help at 80x24 does not scroll:\n%s", stripANSI(m.View()))
 	}
 	for i := 0; i < 20 && strings.Contains(stripANSI(m.View()), "↓ more"); i++ {
-		m.Update(tea.KeyMsg{Type: tea.KeyPgDown})
+		m.Update(key("pgdown"))
 	}
 	view := stripANSI(m.View())
 	if strings.Contains(view, "↓ more") || !strings.Contains(view, "↑ more") {
@@ -67,10 +65,11 @@ func TestHelpScrollsToTheLastRow(t *testing.T) {
 	}
 }
 
-func indexOf(names map[screen]string, name string) int {
-	for s, n := range names {
-		if n == name {
-			return int(s)
+// screenNamed is the screen whose word is name, or -1.
+func screenNamed(name string) screen {
+	for s := range screens {
+		if screens[s].word == name {
+			return screen(s)
 		}
 	}
 	return -1

@@ -72,21 +72,15 @@ func (m *Model) keyCard(key string) (tea.Model, tea.Cmd) {
 	}
 	switch key {
 	case "up", "k":
-		if m.cardCursor > 0 {
-			m.cardCursor--
-		}
+		stepCursor(&m.cardCursor, -1, len(c.Choices))
 	case "down", "j":
-		if m.cardCursor < len(c.Choices)-1 {
-			m.cardCursor++
-		}
+		stepCursor(&m.cardCursor, 1, len(c.Choices))
 	case "enter":
 		m.answerCard()
 	default:
-		if len(key) == 1 && key[0] >= '1' && key[0] <= '9' {
-			if i := int(key[0] - '1'); i < len(c.Choices) {
-				m.cardCursor = i
-				m.answerCard()
-			}
+		if i, ok := digit(key); ok && i < len(c.Choices) {
+			m.cardCursor = i
+			m.answerCard()
 		}
 	}
 	return m, nil

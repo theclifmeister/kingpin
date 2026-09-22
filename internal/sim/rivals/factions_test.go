@@ -6,6 +6,7 @@ import (
 	"github.com/theclifmeister/kingpin/internal/content"
 	"github.com/theclifmeister/kingpin/internal/events"
 	"github.com/theclifmeister/kingpin/internal/game"
+	"github.com/theclifmeister/kingpin/internal/gametest"
 )
 
 // table is the file with exactly n factions in the run (#43), all at
@@ -374,10 +375,7 @@ func TestTippingFragments(t *testing.T) {
 	// same tick (#44's rival_leader_killed).
 	f2 := w.Rivals[1]
 	seat(w, f2, "docks", 4)
-	tick := &game.Tick{Day: w.Day + 1, RNG: game.RNGFor(w.Seed, w.Day+1)}
-	tick.Emit(events.Incident{Day: tick.Day, ID: "rival_leader_killed", City: w.Home().ID, LeaderKilled: true})
-	s.Step(w, tick)
-	w.Day++
+	tick := gametest.StepUnseeded(w, s, events.Incident{Day: w.Day + 1, ID: "rival_leader_killed", City: w.Home().ID, LeaderKilled: true})
 	killed := find[events.RivalLeaderArrested](tick.Events())
 	if killed == nil || !killed.Killed || killed.Faction != f2.Faction() || !f2.Gone() {
 		t.Fatalf("the incident did not kill the leader: %+v f2 %+v", killed, *f2)

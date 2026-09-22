@@ -18,19 +18,6 @@ import (
 // The map in the grammar (#85): MAIN is the title line, the grid and
 // the routes; the corner inspector and the route detail are the pane.
 
-// paneText is the pane's sections rendered plain, one line each, for
-// asserting what the inspector carries.
-func paneText(m *Model) string {
-	var ls []string
-	for _, s := range m.details() {
-		ls = append(ls, s.title)
-		for _, l := range s.lines {
-			ls = append(ls, stripANSI(l))
-		}
-	}
-	return strings.Join(ls, "\n")
-}
-
 // mapFacts is what the corner inspector must say about a corner in
 // each state: the old inspector's facts, the hint as key rows.
 func mapFacts(t *testing.T, m *Model, c *game.Corner, text, where string) {
@@ -143,7 +130,7 @@ func TestMapInspectorInPane(t *testing.T) {
 		if text := paneText(m); !strings.Contains(text, fmt.Sprintf("corners     %d", m.w.RivalHeld())) { // the count under `corners` (#238), as the FACTIONS table's column
 			t.Errorf("the rival's corner does not say how many they hold:\n%s", text)
 		}
-		if title := strings.Split(stripANSI(m.View()), "\n")[1]; !strings.Contains(title, "held ·") || !strings.Contains(title, "/day free") || strings.Contains(title, m.w.Rival().Leader) {
+		if title := viewLines(m)[1]; !strings.Contains(title, "held ·") || !strings.Contains(title, "/day free") || strings.Contains(title, m.w.Rival().Leader) {
 			t.Errorf("%dx%d: the title line: %q", sz[0], sz[1], title)
 		}
 	}

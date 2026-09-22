@@ -117,6 +117,8 @@ low_cash_days = 3           # an expansionist that cannot pay its muscle this ma
 upper_hand = 1.5            # an opportunist with this many times the guard on your front line demands tribute
 split_fair = 0.45           # share of the city's demand it lets your side of a split have at trust 0 ...
 split_trust = 0.30          # ... plus this at trust 100; a greedier line is refused outright
+split_terms = 4             # the split's terms (-1..1) are its slack, the fair line less your ask, times this:
+                            # a quarter of the city under the line is the easiest ask there is
 
 # What each deal kind is worth to it before trust and temper.
 [deal.truce]
@@ -197,6 +199,22 @@ muscle_per_corner = 1.2
 undercut = 0.20
 tip_chance = 0.40
 defence = 1.0
+
+# The weight of bodies on the street (#275: the numbers rivals.Sim
+# Strength and Guard had in the code). Going in, each of your enforcers
+# at work counts strength_base plus skill over strength_skill, and one
+# posted on a corner of yours counts that over posted: he is busy. Held,
+# a corner of yours pushed by a faction weighs guard_enforcer plus skill
+# over guard_skill for the enforcer on it, guard_you where you work it
+# yourself, guard_runner where a runner does, plus the tree's guard_bonus.
+[weight]
+strength_base = 0.5
+strength_skill = 100        # a skill-100 enforcer brings one and a half of a skill-0 one's weight ...
+posted = 2                  # ... and half of it from a corner he guards
+guard_enforcer = 1
+guard_skill = 50            # an enforcer standing on the corner is worth one to three bodies by skill ...
+guard_you = 1.5             # ... you, one and a half: they know who you are ...
+guard_runner = 0.5          # ... and a runner, half of one: he runs
 
 # The force dial on a strike. attack multiplies your enforcers' strength;
 # flip is the chance to take the corner at even odds; heat is what the

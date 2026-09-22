@@ -50,12 +50,7 @@ type BuyerConfig struct {
 
 // Buyer returns the buyer with id, or nil.
 func (b BuyersConfig) Buyer(id string) *BuyerConfig {
-	for i := range b.Deck {
-		if b.Deck[i].ID == id {
-			return &b.Deck[i]
-		}
-	}
-	return nil
+	return find(b.Deck, func(e *BuyerConfig) bool { return e.ID == id })
 }
 
 // BuyerAny is the city or product value that leaves the choice to the

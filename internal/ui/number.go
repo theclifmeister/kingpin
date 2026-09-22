@@ -1,6 +1,7 @@
 package ui
 
 import (
+	"errors"
 	"strconv"
 	"strings"
 
@@ -65,6 +66,24 @@ func (f numberField) Number() (int, bool) {
 	}
 	n, err := strconv.Atoi(s)
 	return n, err == nil && n >= 0
+}
+
+// errNotAWholeNumber is what a field says of text that does not read as
+// a quantity: the one refusal every dialog shows for it (#275).
+var errNotAWholeNumber = errors.New("enter a whole number above zero")
+
+// Read is the quantity the field reads (#275): blank for a blank, what
+// the dialog takes it to mean (one level, the price, the most allowed),
+// and errNotAWholeNumber for text that does not read or reads as zero.
+func (f numberField) Read(blank int) (int, error) {
+	if strings.TrimSpace(f.in.Value()) == "" {
+		return blank, nil
+	}
+	n, ok := f.Number()
+	if !ok || n <= 0 {
+		return 0, errNotAWholeNumber
+	}
+	return n, nil
 }
 
 // Focus and Blur are the text input's: the cursor shows while the field

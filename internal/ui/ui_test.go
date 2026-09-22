@@ -8,7 +8,6 @@ import (
 	"path/filepath"
 	"reflect"
 	"regexp"
-	"strconv"
 	"strings"
 	"testing"
 	"time"
@@ -23,168 +22,6 @@ import (
 	"github.com/theclifmeister/kingpin/internal/sim"
 	"github.com/theclifmeister/kingpin/internal/ui/theme"
 )
-
-// newTestModel is a fresh install at w by h with animation off (#152):
-// no test and no README capture holds a scene unless it asks for one
-// (newAnimModel).
-func newTestModel(t *testing.T, w, h int) *Model {
-	t.Helper()
-	return newModelWith(t, w, h, Options{Anim: false})
-}
-
-// duel is the file with one faction in the run (#43): the rival at
-// home alone, the run every fixture here was pinned on. The table's
-// screens are tested on tableModel.
-func duel() *content.Config {
-	cfg := content.MustLoad()
-	cfg.Rivals.Factions.Min, cfg.Rivals.Factions.Max = 1, 1
-	return cfg
-}
-
-// fixtureSeed is the seed the UI tests play (#292). It was the wall
-// clock's until a test that held on most worlds failed on one in eighty,
-// and nobody could play that world again.
-const fixtureSeed = 1
-
-// testSeed is where a test's runs start (#292): fixtureSeed, or
-// KINGPIN_TEST_SEED to look at other worlds (a number, or random for the
-// wall clock's). A test that fails says which seed it played, so the
-// failure replays.
-func testSeed(t *testing.T) uint64 {
-	t.Helper()
-	seed := uint64(fixtureSeed)
-	switch v := os.Getenv("KINGPIN_TEST_SEED"); v {
-	case "":
-	case "random":
-		seed = newSeed()
-	default:
-		n, err := strconv.ParseUint(v, 10, 64)
-		if err != nil {
-			t.Fatalf("KINGPIN_TEST_SEED=%q: a number, or random", v)
-		}
-		seed = n
-	}
-	t.Cleanup(func() {
-		if t.Failed() {
-			t.Logf("played seed %d: KINGPIN_TEST_SEED=%d replays it", seed, seed)
-		}
-	})
-	return seed
-}
-
-// testSeeds is the Options.Seeds a test model plays (#292): testSeed,
-// then the next and the next for every further run the test starts, so
-// the UI suite plays the same worlds on every run.
-func testSeeds(t *testing.T) func() uint64 {
-	t.Helper()
-	next := testSeed(t)
-	return func() uint64 {
-		s := next
-		next++
-		return s
-	}
-}
-
-// newModelWith is newTestModel with the options given, its runs on the
-// test seeds unless the options name their own.
-func newModelWith(t *testing.T, w, h int, opts Options) *Model {
-	t.Helper()
-	if opts.Seeds == nil {
-		opts.Seeds = testSeeds(t)
-	}
-	t.Setenv("KINGPIN_HOME", t.TempDir())
-	m, err := New(duel(), opts)
-	if err != nil {
-		t.Fatal(err)
-	}
-	m.Update(tea.WindowSizeMsg{Width: w, Height: h})
-	return m
-}
-
-func key(s string) tea.KeyMsg {
-	if len(s) == 1 {
-		return tea.KeyMsg{Type: tea.KeyRunes, Runes: []rune(s)}
-	}
-	switch s {
-	case "enter":
-		return tea.KeyMsg{Type: tea.KeyEnter}
-	case "esc":
-		return tea.KeyMsg{Type: tea.KeyEsc}
-	case "tab":
-		return tea.KeyMsg{Type: tea.KeyTab}
-	case "left":
-		return tea.KeyMsg{Type: tea.KeyLeft}
-	case "right":
-		return tea.KeyMsg{Type: tea.KeyRight}
-	case "up":
-		return tea.KeyMsg{Type: tea.KeyUp}
-	case "down":
-		return tea.KeyMsg{Type: tea.KeyDown}
-	case "shift+tab":
-		return tea.KeyMsg{Type: tea.KeyShiftTab}
-	}
-	return tea.KeyMsg{Type: tea.KeyRunes, Runes: []rune(s)}
-}
-
-// endDay presses n and, if the news sim dealt a dilemma card overnight,
-// answers it with the highlighted choice and reads the outcome, so the
-// caller lands on the morning report the way it did before cards. Cards
-// come at the seed's whim from day 5 on, and test seeds are wall-clock.
-func endDay(t *testing.T, m *Model) {
-	t.Helper()
-	m.Update(key("n"))
-	skipScene(m)
-	if m.mode == modeStage {
-		// A tier entered overnight (#149) opens its stage before the card.
-		assertFits(t, m.View(), m.width, m.height, "stage")
-		m.Update(key("enter"))
-		skipScene(m)
-	}
-	if m.mode == modeCard {
-		assertFits(t, m.View(), m.width, m.height, "dilemma card")
-		m.Update(key("enter"))
-		if m.mode != modeCard || !m.cardDone {
-			t.Fatalf("answering the card: mode %v done %v", m.mode, m.cardDone)
-		}
-		assertFits(t, m.View(), m.width, m.height, "dilemma outcome")
-		m.Update(key("enter"))
-	}
-}
-
-// skipScene ends the interstitial a morning opened on, if one is up (a
-// fixture with animation on: the card's scene, #154), so the keys
-// after it are the modal's; any key does, consumed, so esc it is. A
-// report's scene resolves and holds instead (#203): the keys after it
-// are the report's too, and its close ends the hold.
-func skipScene(m *Model) {
-	if m.scene != nil && !m.scene.Idle && !m.scene.Holding() {
-		m.Update(key("esc"))
-	}
-}
-
-func assertFits(t *testing.T, view string, w, h int, what string) {
-	t.Helper()
-	ls := strings.Split(view, "\n")
-	if len(ls) > h {
-		t.Errorf("%s: %d lines > height %d", what, len(ls), h)
-	}
-	for i, l := range ls {
-		if lw := lipgloss.Width(l); lw > w {
-			t.Errorf("%s: line %d is %d cells wide > %d: %q", what, i, lw, w, l)
-		}
-		// A modal wider than the screen wraps its border onto the next
-		// line: the top-right corner then starts a line of its own, a
-		// one-cell overflow leaves a lone corner, and a body line loses
-		// its closing bar.
-		p := strings.TrimSpace(stripANSI(l))
-		switch {
-		case strings.HasPrefix(p, "═") && strings.HasSuffix(p, "╗") && !strings.HasPrefix(p, "╔"),
-			p == "╗" || p == "╝",
-			strings.Contains(p, "║") && !strings.HasSuffix(p, "║"):
-			t.Errorf("%s: a modal wider than %d wrapped at line %d: %q", what, w, i, p)
-		}
-	}
-}
 
 // assertFrame checks the three-part frame every play-mode screen
 // renders into: row 0 the title bar, rows 1..h-2 the body, row h-1 the
@@ -872,18 +709,18 @@ func TestSpaceOpensTheOverlayUnder100(t *testing.T) {
 		m.status = ""
 		beside := stripANSI(m.View())
 		if !m.paneShown() || !strings.Contains(beside, "DETAILS") || strings.Contains(beside, "␣ more") {
-			t.Errorf("%s: the pane is not beside MAIN at 120:\n%s", screenOf[s], beside)
+			t.Errorf("%s: the pane is not beside MAIN at 120:\n%s", screens[s].word, beside)
 		}
 		if m.mainWidth() != 120-paneWidth {
-			t.Errorf("%s: MAIN is %d wide beside the pane, want %d", screenOf[s], m.mainWidth(), 120-paneWidth)
+			t.Errorf("%s: MAIN is %d wide beside the pane, want %d", screens[s].word, m.mainWidth(), 120-paneWidth)
 		}
 		m.Update(key(" "))
 		if m.mode != modePlay || !m.paneShown() || m.status != "" {
-			t.Errorf("%s: space at 120: mode %v pane shown %v status %q", screenOf[s], m.mode, m.paneShown(), m.status)
+			t.Errorf("%s: space at 120: mode %v pane shown %v status %q", screens[s].word, m.mode, m.paneShown(), m.status)
 		}
 		for _, b := range m.keysFor(s) {
 			if b.key == "␣" {
-				t.Errorf("%s: ␣ is listed at 120", screenOf[s])
+				t.Errorf("%s: ␣ is listed at 120", screens[s].word)
 			}
 		}
 		if s == screenMap {
@@ -999,10 +836,10 @@ func TestEmptySelectionIsTitled(t *testing.T) {
 		}
 		secs := m.details()
 		if len(secs) == 0 || secs[0].title == "" || len(secs[0].lines) == 0 {
-			t.Errorf("%s: an empty selection has no titled first section: %+v", screenNames[s], secs)
+			t.Errorf("%s: an empty selection has no titled first section: %+v", screens[s].name, secs)
 		}
 		if view := stripANSI(m.View()); !strings.Contains(view, stripANSI(secs[0].title)) {
-			t.Errorf("%s: the pane does not show %q:\n%s", screenNames[s], secs[0].title, view)
+			t.Errorf("%s: the pane does not show %q:\n%s", screens[s].name, secs[0].title, view)
 		}
 	}
 }
@@ -1163,11 +1000,7 @@ func TestOldSaveIsMigrated(t *testing.T) {
 	if err := os.WriteFile(filepath.Join(dir, "save.gob"), buf.Bytes(), 0o644); err != nil {
 		t.Fatal(err)
 	}
-	m, err := New(content.MustLoad(), Options{Anim: false})
-	if err != nil {
-		t.Fatal(err)
-	}
-	m.Update(tea.WindowSizeMsg{Width: 80, Height: 24})
+	m := sizedModel(t, content.MustLoad(), Options{Anim: false}, 80, 24)
 	if m.mode != modeStart || m.startChoice != 0 {
 		t.Fatalf("mode %v choice %d, want the start menu on slot 1", m.mode, m.startChoice)
 	}
@@ -1234,11 +1067,7 @@ func TestUnreadableSaveIsRefused(t *testing.T) {
 	if err := game.Save(2, w); err != nil {
 		t.Fatal(err)
 	}
-	m, err := New(content.MustLoad(), Options{Anim: false})
-	if err != nil {
-		t.Fatal(err)
-	}
-	m.Update(tea.WindowSizeMsg{Width: 80, Height: 24})
+	m := sizedModel(t, content.MustLoad(), Options{Anim: false}, 80, 24)
 	if m.mode != modeStart {
 		t.Fatalf("mode = %v, want the start menu", m.mode)
 	}
@@ -1881,11 +1710,7 @@ func TestCardBeforeReport(t *testing.T) {
 		t.Fatalf("mode %v", m.mode)
 	}
 	m.Update(key("ctrl+c")) // quit saves
-	m2, err := New(m.cfg, Options{Anim: false})
-	if err != nil {
-		t.Fatal(err)
-	}
-	m2.Update(tea.WindowSizeMsg{Width: 80, Height: 24})
+	m2 := newModelIn(t, m, 80, 24)
 	if m2.mode != modeStart {
 		t.Fatalf("no continue offered: mode %v", m2.mode)
 	}
@@ -2771,32 +2596,6 @@ func testCard(day int) *game.Card {
 		}}
 }
 
-// modalBox finds the modal in a view: its top border's line index, its
-// width, and its lines from the top border to the bottom one.
-func modalBox(t *testing.T, view string) (top, width int, box []string) {
-	t.Helper()
-	ls := strings.Split(view, "\n")
-	top = -1
-	for i, l := range ls {
-		p := strings.TrimSpace(stripANSI(l))
-		switch {
-		case strings.HasPrefix(p, "╔"):
-			if top >= 0 {
-				t.Fatalf("two modals in the view:\n%s", stripANSI(view))
-			}
-			top, width = i, lipgloss.Width(p)
-		case strings.HasPrefix(p, "╚"):
-			if top < 0 {
-				t.Fatalf("a bottom border with no top:\n%s", stripANSI(view))
-			}
-			box = ls[top : i+1]
-			return top, width, box
-		}
-	}
-	t.Fatalf("no modal in the view:\n%s", stripANSI(view))
-	return
-}
-
 // Every mode's modal is the one modal (#81): min(width-4, 76) wide, on
 // body row 2, a footer line of the mode's bindings, and the status bar
 // repeating that footer. The table opens every mode in the enum from the
@@ -3233,23 +3032,6 @@ func TestReportScrolls(t *testing.T) {
 			t.Fatalf("enter on the %s: mode %v day %d -> %d", c.name, m.mode, day, m.w.Day)
 		}
 	}
-}
-
-// stripANSI removes escape sequences so a render can be read as text.
-func stripANSI(s string) string {
-	var b strings.Builder
-	in := false
-	for _, r := range s {
-		switch {
-		case r == 0x1b:
-			in = true
-		case in && r == 'm':
-			in = false
-		case !in:
-			b.WriteRune(r)
-		}
-	}
-	return b.String()
 }
 
 // onHouse puts the ledger's cursor on the fixture's house (#73); t may

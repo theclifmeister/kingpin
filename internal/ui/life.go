@@ -4,6 +4,7 @@ import (
 	"fmt"
 	"strings"
 
+	"github.com/theclifmeister/kingpin/internal/format"
 	"github.com/theclifmeister/kingpin/internal/game"
 	"github.com/theclifmeister/kingpin/internal/ui/theme"
 )
@@ -125,7 +126,7 @@ func (m *Model) bailConfirm() string {
 	cost := m.rules.Crew.BailCost(*c)
 	life := m.rules.Crew.Life()
 	body := []string{
-		fmt.Sprintf("%s clean for %s: out tomorrow, loyalty %.0f → %.0f.", money(cost), c.Name, c.Loyalty, min(100, c.Loyalty+life.BailLoyalty)),
+		fmt.Sprintf("%s clean for %s: out tomorrow, loyalty %.0f %s %.0f.", money(cost), c.Name, c.Loyalty, format.Arrow, min(100, c.Loyalty+life.BailLoyalty)),
 		theme.Subtle.Render(fmt.Sprintf("Left in, they are out in %s, sour, and the DA has had them a while.", plural(c.JailedUntil-m.w.Day, "day"))),
 	}
 	if cost > m.w.Player.CleanCash {
@@ -180,7 +181,7 @@ func (m *Model) confirmDriver() {
 		m.say("Nobody drives " + r.Name + " now.")
 		return
 	}
-	m.say(fmt.Sprintf("%s drives %s from tomorrow: risk −%.0f%% a day on the road, and jailed if a shipment is seized.", who.Name, r.Name, m.rules.Logistics.DriverCut(who.Skill)*100))
+	m.say(fmt.Sprintf("%s drives %s from tomorrow: risk −%s a day on the road, and jailed if a shipment is seized.", who.Name, r.Name, format.Pct(m.rules.Logistics.DriverCut(who.Skill), 0)))
 }
 
 func (m *Model) keyDriver(key string) { m.pickerKey(key, len(m.driverRows()), m.confirmDriver) }
@@ -195,7 +196,7 @@ func (m *Model) viewDriver() string {
 	var cells [][]any
 	for _, c := range rows {
 		var where any = styled{theme.Subtle, "idle"}
-		var skill, cut any = c.Skill, fmt.Sprintf("−%.0f%%", m.rules.Logistics.DriverCut(c.Skill)*100)
+		var skill, cut any = c.Skill, "−" + format.Pct(m.rules.Logistics.DriverCut(c.Skill), 0)
 		switch {
 		case c.ID == 0:
 			where, skill, cut = styled{theme.Subtle, "takes the driver off"}, nil, nil
@@ -233,5 +234,5 @@ func (m *Model) driverLine(route string) string {
 	if !c.Fit(m.w.Day) {
 		return theme.Warning.Render(fmt.Sprintf("%s · %s", c.Name, strings.ToLower(m.crewTag(*c))))
 	}
-	return fmt.Sprintf("%s · risk −%.0f%%", c.Name, m.rules.Logistics.DriverCut(c.Skill)*100)
+	return fmt.Sprintf("%s · risk −%s", c.Name, format.Pct(m.rules.Logistics.DriverCut(c.Skill), 0))
 }

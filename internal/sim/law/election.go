@@ -46,7 +46,7 @@ func (s *Sim) elect(w *game.World, t *game.Tick, replaced bool) {
 	if next := s.NextElection(w); next > 0 && t.Day >= next {
 		mean := w.MeanPressure()
 		swing := s.Swing(w)
-		share := clamp01(s.LawAndOrderShare(mean) + swing)
+		share := max(0, min(1, s.LawAndOrderShare(mean)+swing))
 		law := share * (1 - tun.Moderate)
 		reform := (1 - share) * (1 - tun.Moderate)
 		rng := t.Sub(game.StreamLaw)

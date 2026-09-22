@@ -6,6 +6,7 @@ import (
 	"github.com/theclifmeister/kingpin/internal/content"
 	"github.com/theclifmeister/kingpin/internal/events"
 	"github.com/theclifmeister/kingpin/internal/game"
+	"github.com/theclifmeister/kingpin/internal/gametest"
 	"github.com/theclifmeister/kingpin/internal/sim/crew"
 )
 
@@ -14,7 +15,7 @@ import (
 // member and candidate given an age.
 func lifeWorld(t *testing.T, cfg *content.Config, cash int) (*game.World, *crew.Sim) {
 	t.Helper()
-	w := game.NewWorld(7, []game.StartingCity{{ID: "test", Name: "Testville", Products: []game.StartingProduct{{ID: "a", Name: "A", Price: 10, Demand: 5, SupplierRatio: 0.55}}}}, cash, 100)
+	w := gametest.OneCity(7, cash)
 	w.Home().Corners = []game.Corner{
 		{ID: "c1", City: "test", Name: "First", Demand: 1, Heat: 1, Risk: 1, Owner: game.OwnerNone},
 		{ID: "c2", City: "test", Name: "Second", Demand: 1, Heat: 1, Risk: 1, Owner: game.OwnerNone},

@@ -10,6 +10,7 @@ import (
 
 	"github.com/charmbracelet/lipgloss"
 
+	"github.com/theclifmeister/kingpin/internal/format"
 	"github.com/theclifmeister/kingpin/internal/game"
 	"github.com/theclifmeister/kingpin/internal/ui/sparkline"
 	"github.com/theclifmeister/kingpin/internal/ui/theme"
@@ -186,9 +187,9 @@ func (m *Model) supplierLine() string {
 	}
 	if best == nil {
 		if len(w.SuppliersIn(here)) == 0 {
-			return fmt.Sprintf("supplier at ~%.0f%% of street", m.rules.Market.BaseRatio(w)*100)
+			return "supplier at ~" + format.Pct(m.rules.Market.BaseRatio(w), 0) + " of street"
 		}
 		return "nobody is selling to you today"
 	}
-	return fmt.Sprintf("%s sells at ~%.0f%% of street", best.Name, ratio*100)
+	return fmt.Sprintf("%s sells at ~%s of street", best.Name, format.Pct(ratio, 0))
 }

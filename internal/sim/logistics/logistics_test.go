@@ -7,6 +7,7 @@ import (
 	"github.com/theclifmeister/kingpin/internal/content"
 	"github.com/theclifmeister/kingpin/internal/events"
 	"github.com/theclifmeister/kingpin/internal/game"
+	"github.com/theclifmeister/kingpin/internal/gametest"
 	"github.com/theclifmeister/kingpin/internal/sim/logistics"
 	"github.com/theclifmeister/kingpin/internal/sim/market"
 	"github.com/theclifmeister/kingpin/internal/sim/territory"
@@ -40,10 +41,7 @@ func world(t *testing.T, cfg *content.Config, risk float64) (*game.World, *logis
 }
 
 func step(w *game.World, s *logistics.Sim) []events.Event {
-	t := &game.Tick{Day: w.Day + 1, RNG: game.RNGFor(w.Seed, w.Day+1), Seed: w.Seed}
-	s.Step(w, t)
-	w.Day++
-	return t.Events()
+	return gametest.Step(w, s).Events()
 }
 
 // The dial scales a route: fast is fewer days at more risk per day, slow

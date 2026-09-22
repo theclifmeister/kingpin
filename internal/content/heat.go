@@ -29,6 +29,9 @@ type HeatTuning struct {
 	AuditEvidence      int     `toml:"audit_evidence"`     // evidence an audit adds when the front was run greedy
 	StructureEvidence  int     `toml:"structure_evidence"` // pages per lot of clean cash moved offshore over the lot in a day (#195)
 	TaskforceCash      int     `toml:"taskforce_cash"`     // dirty cash over which the task force can form with no asset owned (#48); 0 is never on cash alone
+	BustDays           int     `toml:"bust_days"`          // days a bust that took product stays on the record the connects read (#72)
+	FallHeat           float64 `toml:"fall_heat"`          // the fall guy (#49): every city's heat is capped here once he takes the case ...
+	FallCash           float64 `toml:"fall_cash"`          // ... and this share of the dirty cash and of the clean goes on making it stick
 }
 
 // The response ladder's levels (#144): the names heat.toml's
@@ -82,6 +85,9 @@ type ResponseConfig struct {
 // rung the code does not know, and the thresholds climbing in the
 // ladder's order.
 func (h HeatConfig) validate() error {
+	if t := h.Heat; t.BustDays < 1 || t.FallHeat < 0 || t.FallHeat > 100 || t.FallCash < 0 || t.FallCash > 1 {
+		return fmt.Errorf("[heat] bust_days %d must be positive, fall_heat %.0f in 0..100 and fall_cash %.2f in 0..1", t.BustDays, t.FallHeat, t.FallCash)
+	}
 	at := map[string]float64{}
 	for _, r := range h.Responses {
 		if Rank(r.Level) == 0 {
