@@ -80,11 +80,6 @@ var (
 	arrows    = []string{"up", "down", "left", "right", "k", "j"}
 )
 
-var screenOf = map[screen]string{
-	screenDashboard: "dashboard", screenMarket: "market", screenJournal: "journal", screenCrew: "crew",
-	screenMap: "map", screenUpgrades: "upgrades", screenLedger: "ledger", screenRivals: "rivals", screenIntel: "intel",
-}
-
 func on(ss ...screen) []screen { return ss }
 func in(ms ...mode) []mode     { return ms }
 
@@ -208,42 +203,6 @@ func sellStanding(m *Model) bool { return m.modalStep() == 3 && m.dlg.repeat == 
 // stripShown is the terminal being too narrow for the pane beside MAIN,
 // so the strip stands in for it and ␣ opens it whole (#111).
 func stripShown(m *Model) bool { return m.width < paneMinWidth }
-
-// openPaged is the state of the dialog open (#243), or nil for a
-// modal with no pages of its own: a confirmation, a reader, the card.
-func (m *Model) openPaged() paged {
-	switch m.mode {
-	case modeBuy, modeSell:
-		return &m.dlg
-	case modeTarget:
-		return &m.tgt
-	case modeCart:
-		return &m.crt
-	case modeMove:
-		return &m.mv
-	case modeCut, modeCook:
-		return &m.lab
-	case modeBribe:
-		return &m.br
-	case modeFund:
-		return &m.fnd
-	case modeSpy:
-		return &m.spy
-	case modeExit:
-		return &m.exit
-	case modeNewRun:
-		return &m.nr
-	case modeFront:
-		return &m.front
-	case modePropose:
-		return &m.prop
-	case modeInvest, modeReserve, modePayCop, modeConfirmFast, modeConfirmBuyOff:
-		return &m.amt
-	case modePost, modeStrike, modeUndercut, modeAssign, modeGuard, modeDriver:
-		return &m.pick
-	}
-	return nil
-}
 
 // modalStep is the page the open dialog is on, as its state says
 // (#243); the card's outcome is its second page.
@@ -379,7 +338,7 @@ func pointer(key string) string {
 // screenPointer is the spelling every pointer to a screen uses in prose:
 // `on the crew screen (4)`.
 func screenPointer(s screen) string {
-	return fmt.Sprintf("on the %s screen (%d)", screenOf[s], int(s)+1)
+	return fmt.Sprintf("on the %s screen (%d)", screens[s].word, int(s)+1)
 }
 
 // helpGroups are the help modal's and the README's groups: GLOBAL, the
@@ -394,7 +353,7 @@ type helpGroup struct {
 func helpGroups() []helpGroup {
 	groups := []helpGroup{{title: "GLOBAL"}}
 	for s := screen(0); s < screenCount; s++ {
-		groups = append(groups, helpGroup{title: strings.ToUpper(screenOf[s])})
+		groups = append(groups, helpGroup{title: strings.ToUpper(screens[s].word)})
 	}
 	for _, b := range bindings {
 		i := 0 // a global one is everyone's, wherever the pane lists it
