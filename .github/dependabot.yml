@@ -1,0 +1,18 @@
+# Weekly version updates (#276): the Go modules, which since #276 include
+# the pinned staticcheck and govulncheck in go.mod's tool block, and the
+# actions the workflows and the composite action use (Dependabot reads
+# .github/workflows under /; a composite action's directory is named on
+# its own). A bump is a pull request like any other and passes CI first.
+version: 2
+updates:
+  - package-ecosystem: gomod
+    directory: /
+    schedule:
+      interval: weekly
+
+  - package-ecosystem: github-actions
+    directories:
+      - /
+      - /.github/actions/go
+    schedule:
+      interval: weekly
