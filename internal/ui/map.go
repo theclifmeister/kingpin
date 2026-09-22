@@ -513,7 +513,10 @@ func (m *Model) cornerSection(sel *game.Corner) section {
 		}
 	}
 	// Demand per product, biggest first, as many to a line as the value
-	// column holds whole (two, mostly).
+	// column holds whole (two, mostly). The sort stays on the ladder's
+	// order, not World.SortedProducts (#275): a stable sort breaks a tie
+	// in demand (every product at none, say) by the order it starts in,
+	// and the ladder's is not the ids'.
 	ids := append([]string(nil), w.Products...)
 	demand := func(id string) float64 {
 		if p := w.Product(city.ID, id); p != nil {

@@ -129,11 +129,11 @@ func (m *Model) scoutConfirm() string {
 	w := m.w
 	r := m.faction()
 	odds := m.set.Rivals.ScoutOdds(w, r)
+	// The best enforcer on the books, at work or not, as the odds read
+	// them (CrewState.Strongest, #275); one at skill 0 asks nothing.
 	best := 0
-	for _, c := range w.Crew.Members {
-		if c.Role == game.RoleEnforcer && c.Skill > best {
-			best = c.Skill
-		}
+	if e := w.Crew.Strongest(game.RoleEnforcer); e != nil {
+		best = max(0, e.Skill)
 	}
 	who := "With no enforcer on the payroll you are asking around yourself."
 	if best > 0 {
