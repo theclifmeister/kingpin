@@ -23,7 +23,7 @@ func Incident(line string, rng *rand.Rand) Scene {
 	text := NewText(line)
 	return &incident{
 		print: Print(text, theme.World, IncidentLength, rng),
-		beams: Replay(Layer(Still(text, theme.World), Beams(text, theme.World, incidentBeams, rng)), incidentBeams, HoldRest),
+		beams: Replay(Layer(Still(text, theme.World), Play(Effects["beams"], text, theme.World, incidentBeams, rng)), incidentBeams, HoldRest),
 		width: text.Width(),
 	}
 }
