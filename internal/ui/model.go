@@ -13,7 +13,6 @@ import (
 
 	"github.com/theclifmeister/kingpin/internal/content"
 	"github.com/theclifmeister/kingpin/internal/events"
-	"github.com/theclifmeister/kingpin/internal/format"
 	"github.com/theclifmeister/kingpin/internal/game"
 	"github.com/theclifmeister/kingpin/internal/sim"
 	"github.com/theclifmeister/kingpin/internal/ui/anim"
@@ -79,17 +78,6 @@ const (
 	modeExit          // walk away (#49): retire on the account or vanish on a new identity, then the confirmation
 	modeNewRun        // a new run from the start menu (#50): the character, the seed, the hard DA
 	modeCount
-)
-
-// statusKind is what a status message is, and so how the status bar
-// colours it: neutral for a confirmation of what you did, a warning for
-// a refusal, bad for a danger.
-type statusKind int
-
-const (
-	statusBody statusKind = iota
-	statusWarning
-	statusBad
 )
 
 // Model is the root Bubble Tea model.
@@ -685,59 +673,6 @@ func (m *Model) hasPages(md mode) bool {
 	return false
 }
 
-// keyStart is the start menu: the slots and Quit under one cursor, enter
-// takes the row, D asks before emptying a slot, q quits.
-func (m *Model) keyStart(key string) (tea.Model, tea.Cmd) {
-	rows := game.SlotCount + 1
-	switch key {
-	case "up", "k":
-		m.startChoice = (m.startChoice + rows - 1) % rows
-	case "down", "j":
-		m.startChoice = (m.startChoice + 1) % rows
-	case "enter":
-		return m.pickStart()
-	case "D":
-		if m.startChoice >= game.SlotCount || game.Slots()[m.startChoice].Empty {
-			m.refuse("Nothing to delete.")
-			return m, nil
-		}
-		m.cfm = confirm{verb: "delete", view: (*Model).deleteConfirm, act: (*Model).confirmDelete, back: modeStart} // no returns to the menu, not the run
-		m.mode = modeConfirm
-	case "q":
-		return m.quit()
-	}
-	return m, nil
-}
-
-// pickStart takes the start menu's row: a full slot continues its run,
-// an empty one starts a new run in it, Quit quits. A run that does not
-// load leaves the menu up with the error under the rows.
-func (m *Model) pickStart() (tea.Model, tea.Cmd) {
-	if m.startChoice >= game.SlotCount {
-		return m.quit()
-	}
-	slot := m.startChoice + 1
-	if game.Slots()[m.startChoice].Empty {
-		m.openNewRun(slot)
-		return m, nil
-	}
-	if err := m.continueRun(slot); err != nil {
-		m.alarm(fmt.Sprintf("Could not load slot %d: %s", slot, err.Error()))
-	}
-	return m, nil
-}
-
-// confirmDelete empties the slot under the start menu's cursor.
-func (m *Model) confirmDelete() {
-	slot := m.startChoice + 1
-	m.mode = modeStart
-	if err := game.DeleteSave(slot); err != nil {
-		m.alarm(fmt.Sprintf("Could not delete slot %d: %s", slot, err.Error()))
-		return
-	}
-	m.say(fmt.Sprintf("Slot %d deleted.", slot))
-}
-
 // keyPlay is the main screen's key handler: the key table (keys.go) and
 // nothing else. A key no binding on this screen takes is refused with a
 // pointer to the screen where one does, if it is a letter that means
@@ -1034,34 +969,6 @@ func (m *Model) accent() lipgloss.Color {
 	}
 }
 
-// say sets the status to a confirmation of what you did, in the body
-// colour; refuse to a refusal, in the warning colour, ended with a full
-// stop where the site left it off (`Can't hire: the crew is as big as
-// you can manage.`); alarm to a danger, in red. Every site sets the
-// kind through one of the three (#88, TestStatusKinds).
-func (m *Model) say(s string) {
-	m.status, m.statusKind = s, statusBody
-}
-
-func (m *Model) refuse(s string) {
-	m.status, m.statusKind = sentence(s), statusWarning
-}
-
-func (m *Model) alarm(s string) {
-	m.status, m.statusKind = sentence(s), statusBad
-}
-
-// sentence ends s with a full stop where it has no end punctuation, so
-// a refusal built on a game error (`Can't sell: only 3 Weed in
-// Eastside`) reads as one; a dialog error is capitalized too
-// (dialogError).
-func sentence(s string) string {
-	if s == "" || strings.ContainsRune(".!?", rune(s[len(s)-1])) {
-		return s
-	}
-	return s + "."
-}
-
 func (m *Model) viewTitle() string {
 	w := m.w
 	// The Journal tab carries the count of headlines you have not read
@@ -1143,40 +1050,6 @@ func (m *Model) paneKeys() []binding {
 	return m.keysFor(m.screen)
 }
 
-// statusStyle is the colour of the status message by its kind: a
-// confirmation in the body colour, a refusal in the warning colour, a
-// danger in red. Every site sets the kind (say, refuse, alarm).
-func (m *Model) statusStyle() lipgloss.Style {
-	switch m.statusKind {
-	case statusWarning:
-		return theme.Warning
-	case statusBad:
-		return theme.Bad
-	}
-	return theme.Body
-}
-
-// viewFooter is the status bar: the status message at the left, in its
-// kind's colour, and `? help` pinned at the right; no legend (#109: the
-// keys are listed where they are used, in the pane). The message wins:
-// when the two cannot share the row it shows alone, and it is cut only
-// when it alone does not fit. Inside a modal the bar repeats the
-// modal's footer and nothing else.
-func (m *Model) viewFooter() string {
-	if f := m.modalFooter(); f != nil {
-		return fit(legend(f), m.width)
-	}
-	help := m.helpPair()
-	if m.status == "" {
-		return fit(strings.Repeat(" ", max(0, m.width-lipgloss.Width(help)))+help, m.width)
-	}
-	msg := " " + m.statusStyle().Render(m.status)
-	if gap := m.width - lipgloss.Width(msg) - lipgloss.Width(help); gap >= 0 {
-		return msg + strings.Repeat(" ", gap) + help
-	}
-	return truncate(msg, m.width)
-}
-
 // helpPair is the `? help` pair the status bar pins, the key table's.
 func (m *Model) helpPair() string {
 	for _, b := range bindings {
@@ -1204,168 +1077,10 @@ func heatStyle(v float64) lipgloss.Style {
 	}
 }
 
-// viewStart is the start menu: the three slots and Quit under one
-// cursor, and the delete confirmation over it. There is no run behind
-// it, so no frame: the box sits where it does on every other screen,
-// or under the title's art while its loop runs (#152: from 80x24 with
-// animation on; otherwise the menu is as it always was).
-func (m *Model) viewStart() string {
-	var box string
-	switch {
-	case m.mode == modeConfirm: // the slot deletion, the one confirmation over the menu
-		box = m.cfm.view(m)
-	case m.mode == modeNewRun:
-		box = m.viewNewRun()
-	default:
-		body := []string{theme.Subtle.Render("a drug empire, one day at a time"), ""}
-		for i, o := range m.startRows() {
-			if i == m.startChoice {
-				body = append(body, theme.Gold.Render("▸ ")+theme.Selected.Render(" "+o+" "))
-			} else {
-				body = append(body, "   "+o)
-			}
-		}
-		if h := m.historyLine(); h != "" {
-			body = append(body, "", theme.Subtle.Render(truncate(h, m.modalInner())))
-		}
-		if m.profileErr != "" {
-			body = append(body, "")
-			for _, l := range m.wrapLines(m.profileErr) {
-				body = append(body, theme.Warning.Render(l))
-			}
-		}
-		if m.status != "" {
-			// Load errors can be long; wrap inside the box instead of past it.
-			body = append(body, "")
-			for _, l := range m.wrapLines(m.status) {
-				body = append(body, m.statusStyle().Render(l))
-			}
-		}
-		box = m.modal("KINGPIN", body, m.modalFooter())
-	}
-	if art := m.titleArt(); art != nil {
-		box = strings.Join(art, "\n") + "\n" + box
-	}
-	return theme.Plain.Width(m.width).Height(m.height).MaxHeight(m.height).Render("\n" + box)
-}
-
-// startRows is the start menu's rows: one a slot, then Quit.
-func (m *Model) startRows() []string {
-	rows := make([]string, 0, game.SlotCount+1)
-	for _, s := range game.Slots() {
-		rows = append(rows, slotLine(s, m.now()))
-	}
-	return append(rows, "Quit")
-}
-
-// slotLine is what the start menu says of a slot: `Slot 1 · day 42 ·
-// $1.2M · Eastside · saved 2h ago`, or `Slot 2 · empty`.
-func slotLine(s game.SlotInfo, now time.Time) string {
-	if s.Empty {
-		return fmt.Sprintf("Slot %d · empty", s.Slot)
-	}
-	parts := []string{fmt.Sprintf("Slot %d", s.Slot), fmt.Sprintf("day %d", s.Day), cash(s.Cash)}
-	if s.City != "" {
-		parts = append(parts, s.City)
-	}
-	parts = append(parts, "saved "+format.Ago(now.Sub(s.Saved)))
-	return strings.Join(parts, " · ")
-}
-
-// newConfirm asks before the run is abandoned for a new one.
-func (m *Model) newConfirm() string {
-	return m.modal("NEW RUN?", []string{"Abandon the current run and start over?"}, m.modalFooter())
-}
-
-// deleteConfirm asks before a slot is emptied, naming the run in it.
-func (m *Model) deleteConfirm() string {
-	s := game.Slots()[m.startChoice]
-	line := slotLine(s, m.now())
-	if i := strings.Index(line, " · "); i >= 0 {
-		line = line[i+len(" · "):]
-	}
-	line = strings.ToUpper(line[:1]) + line[1:]
-	return m.modal(fmt.Sprintf("DELETE SLOT %d?", s.Slot), []string{line, "The run is gone for good."}, m.modalFooter())
-}
-
 // viewHelp is the help modal (#89): the key table, GLOBAL first and then
 // each screen's own keys, WORDS, the game's terms in a line each, and
 // the one line of voice, in the scrolling modal.
 func (m *Model) viewHelp() string {
 	body := append(m.helpLines(), "", theme.Subtle.Render("Heat is the antagonist. Greed is always available."))
 	return m.modal("HELP", body, m.modalFooter())
-}
-
-// viewReport is the report: the modal titled `MORNING REPORT · DAY 42`
-// over the day's sections. While the morning's scene runs (#159) the
-// title row is its frame's, in the same box, the body as it is; while
-// the bust's runs (#155) the title row and a line at the head of the
-// body are its; while the incident's runs (#203) the INCIDENT
-// section's first line is its. Each holds until the report closes
-// (#203), so "runs" is the whole of the report's time up.
-func (m *Model) viewReport() string {
-	if m.w.Report == nil {
-		return m.modal("MORNING REPORT", []string{"Nothing happened yet."}, m.modalFooter())
-	}
-	if frame := m.morningFrame(); frame != nil {
-		return m.modalTitled(frame[1], m.reportLines(), m.modalFooter())
-	}
-	if frame := m.bustFrame(); frame != nil {
-		// The bust's line heads the body while it plays (#155), its own
-		// section over the report's.
-		return m.modalTitled(frame[0], append([]string{frame[1], ""}, m.reportLines()...), m.modalFooter())
-	}
-	if frame := m.incidentFrame(); frame != nil {
-		body := m.reportLines()
-		if i := incidentRow(body, m.w.Report); i >= 0 {
-			body[i] = frame[0]
-		}
-		return m.modal(m.reportTitle(), body, m.modalFooter())
-	}
-	return m.modal(m.reportTitle(), m.reportLines(), m.modalFooter())
-}
-
-// reportTitle is the report's title row: `MORNING REPORT · DAY 42`.
-func (m *Model) reportTitle() string {
-	return fmt.Sprintf("MORNING REPORT · DAY %d", m.w.Report.Day)
-}
-
-// reportLines is the report's body: a fast-forward's stop line first
-// (#116), then the day's sections, each a heading in its sim's colour
-// over its lines.
-func (m *Model) reportLines() []string {
-	r := m.w.Report
-	var body []string // the modal cuts a long line to its width, never wraps it
-	if stop := m.stopLine(); stop != "" {
-		// A fast-forward's report opens with why it stopped (#116).
-		body = append(body, theme.Warning.Render(stop), "")
-	}
-	section := func(title string, ls []string, style lipgloss.Style) {
-		if len(ls) == 0 {
-			return
-		}
-		body = append(body, style.Bold(true).Render(title))
-		for _, l := range ls {
-			body = append(body, "  "+l)
-		}
-		body = append(body, "")
-	}
-	section("INCIDENT", r.Incident, theme.Fg(theme.World)) // the world's incident this morning (#44): first, the day is about it
-	section("TIER", r.Tier, theme.Warning)                 // the tier entered this morning (#147)
-	section("UNLOCKED", r.Unlocked, theme.Gold)            // a gate crossed (#148): next, it is what the morning is about
-	section("PRICES", r.Prices, theme.Good)
-	section("SALES", r.Sales, theme.Gold)
-	section("SHIPMENTS", r.Shipments, theme.RoadText)
-	section("HEAT", r.Heat, theme.Bad)
-	section("LAW", r.Law, lawReportStyle)
-	section("INTEL", r.Intel, theme.IntelText) // what was learnt tonight (#45)
-	section("CREW", r.Crew, theme.CrewText)
-	section("TERRITORY", r.Territory, theme.RivalText)
-	section("MONEY", append(r.Money, fmt.Sprintf("Cash %s %s %s", cash(r.CashBefore), format.Arrow, cash(r.CashAfter))), theme.Gold)
-	section("UPGRADES", r.Upgrades, theme.Gold)
-	section("NEWS", r.News, theme.Subtle)
-	for len(body) > 0 && body[len(body)-1] == "" {
-		body = body[:len(body)-1]
-	}
-	return body
 }
