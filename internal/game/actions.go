@@ -2,7 +2,8 @@ package game
 
 import (
 	"errors"
-	"fmt"
+
+	"github.com/theclifmeister/kingpin/internal/format"
 )
 
 var (
@@ -65,8 +66,44 @@ func (w *World) SetLieLow(on bool) {
 	}
 }
 
-// dollars writes a whole-dollar figure with a $ for an error message.
-func dollars(n int) string { return fmt.Sprintf("$%d", n) }
+// ShortError is the one refusal for a purchase the player cannot cover
+// (#275): Need is what it costs, Have what the pool it comes out of
+// holds, Pool which pool that is ("dirty", "clean", or "" for cash from
+// both, as spend takes it). The UI prints it after "Can't ...: ", so it
+// writes its figures with format.Money like every other number the
+// player reads, in one wording at every site: "need $1,234, only have
+// $1,000 dirty".
+type ShortError struct {
+	Need, Have int
+	Pool       string
+}
+
+func (e *ShortError) Error() string {
+	msg := "need " + format.Money(e.Need) + ", only have " + format.Money(e.Have)
+	if e.Pool != "" {
+		msg += " " + e.Pool
+	}
+	return msg
+}
+
+// payDirty takes cost from dirty cash, or refuses with a ShortError and
+// takes nothing: the check-then-deduct every dirty-cash purchase does.
+func (w *World) payDirty(cost int) error {
+	if cost > w.Player.DirtyCash {
+		return &ShortError{Need: cost, Have: w.Player.DirtyCash, Pool: "dirty"}
+	}
+	w.Player.DirtyCash -= cost
+	return nil
+}
+
+// payClean is payDirty for clean cash.
+func (w *World) payClean(cost int) error {
+	if cost > w.Player.CleanCash {
+		return &ShortError{Need: cost, Have: w.Player.CleanCash, Pool: "clean"}
+	}
+	w.Player.CleanCash -= cost
+	return nil
+}
 
 // spend takes cost from dirty cash first and clean cash for the rest, the
 // way somebody paid off the books is paid. It reports whether there was

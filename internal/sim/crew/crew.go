@@ -10,7 +10,6 @@ package crew
 
 import (
 	"math"
-	"sort"
 
 	"github.com/theclifmeister/kingpin/internal/content"
 	"github.com/theclifmeister/kingpin/internal/events"
@@ -278,380 +277,80 @@ type rand interface {
 	Float64() float64
 }
 
+// night is one Step's working state (#275): what its phases share.
+// fired is the firings the rest hold against you (an informant's is not
+// one), enforcers the enforcers at work as the skim counted them (the
+// drift's shield reads the same count), acted the lieutenants' reports
+// the take opens and the night fills, short what the wages came up
+// short and asked whether an investigation named nobody.
+type night struct {
+	w         *game.World
+	t         *game.Tick
+	tun       content.CrewTuning
+	fx        game.Effects
+	c         *game.CrewState
+	fired     int
+	enforcers int
+	acted     map[int]*events.LieutenantActed
+	short     int
+	asked     bool
+}
+
 // Step pays wages, lets disloyal members skim, drifts loyalty, and handles
 // quitting and the hiring pool. Skimming is checked on how people felt this
 // morning, before today's drift, so a member never skims on a day they
 // started above the threshold. The tree folds once at the top (#118)
-// and every number below is the tuning times it.
+// and every number below is the tuning times it. It runs as phases in a
+// fixed order (#275): the day's hires and firings and the pool's
+// rotation, crew life (life.go) and the spies (spy.go), the skim, the
+// turning, the wages and the broke check (pay.go), the investigation,
+// the drift and the quitting (loyalty.go), the lieutenants' night
+// (lieutenant.go) and the refill (pool.go). The order is the dice's: a
+// phase moved is a run that rolls differently.
 func (s *Sim) Step(w *game.World, t *game.Tick) {
-	tun := s.cfg.Crew
-	fx := game.FoldEffects(w, s.tree)
-	c := &w.Crew
+	n := &night{w: w, t: t, tun: s.cfg.Crew, fx: game.FoldEffects(w, s.tree), c: &w.Crew}
 	s.announce(w, t)
 	s.land(w, t)
+	s.roster(n)
+	s.rotate(n)
 
+	// Crew life (#46): the cells, last night's sweep, tonight's
+	// shooting, the birthdays and the kin, all off the life stream.
+	s.life(w, t, n.fx)
+
+	// The spies (#45): tonight's plant, the reports due and who was
+	// found, off the intel stream.
+	s.spies(w, t)
+
+	s.skim(n)
+	s.turn(n)
+	s.pay(n)
+	if s.broke(n) {
+		return
+	}
+	s.investigate(n)
+	s.drift(n)
+	s.quit(n)
+	s.lieutenants(n)
+	s.pool(n)
+}
+
+// roster reports the day's hires, firings and pay-offs, and counts the
+// firings the rest hold against you.
+func (s *Sim) roster(n *night) {
+	t, c := n.t, n.c
 	for _, m := range c.HiredToday {
 		t.Emit(events.CrewHired{Day: t.Day, Name: m.Name, Role: m.Role, Fee: m.Fee})
 	}
-	fired := 0 // firings the rest hold against you: an informant's is not one
 	for _, m := range c.FiredToday {
 		if !m.Informant {
-			fired++
+			n.fired++
 		}
 		t.Emit(events.CrewFired{Day: t.Day, Name: m.Name, Role: m.Role, Informant: m.Informant})
 	}
 	for _, p := range c.PaidOffToday {
 		t.Emit(events.CrewPaidOff{Day: t.Day, Name: p.Name, Cost: p.Cost})
 	}
-
-	// The hiring pool rotates on a schedule (the refill is the last
-	// thing the step does): before crew life, so a kin recommended
-	// tonight (#46) is a face in the morning's pool and not one the
-	// rotation wiped.
-	if days := s.poolDays(fx); days > 0 && t.Day-c.PoolDay >= days {
-		c.Candidates = nil
-		c.PoolDay = t.Day
-	}
-
-	// Crew life (#46): the cells, last night's sweep, tonight's
-	// shooting, the birthdays and the kin, all off the life stream.
-	s.life(w, t, fx)
-
-	// The spies (#45): tonight's plant, the reports due and who was
-	// found, off the intel stream.
-	s.spies(w, t)
-
-	// 1. Skimming, on this morning's loyalty. Street crew skim the day's
-	// takings; an accountant skims the wash, and the wash they can see is
-	// the last one the fronts did (laundering steps after crew), so it
-	// comes out of clean cash.
-	revenue, wash := 0, 0
-	for _, e := range t.Events() {
-		if ps, ok := e.(events.PlayerSold); ok {
-			revenue += ps.Revenue
-		}
-	}
-	for _, f := range w.Fronts {
-		wash += f.WashedToday
-	}
-	enforcers := c.Role(game.RoleEnforcer)
-	deter := math.Pow(1-s.cfg.Role[game.RoleEnforcer].Deterrence, float64(enforcers))
-	share, washShare := 0.0, 0.0
-	skimmers := 0
-	for _, m := range c.Members {
-		if m.Loyalty >= tun.SkimThreshold {
-			continue
-		}
-		if t.RNG.Float64() < tun.SkimChance*fx.SkimChanceMul*deter {
-			cut := tun.SkimShare * (0.5 + float64(m.Greed)/100)
-			if m.Role == game.RoleAccountant {
-				washShare += cut
-			} else {
-				share += cut
-			}
-			skimmers++
-		}
-	}
-	// The lieutenants' cut of their cities' takings, and what a greedy
-	// one skims on top, at any loyalty: nobody deters the boss of a city.
-	acted := map[int]*events.LieutenantActed{}
-	extra := s.take(w, t, acted)
-	if extra > 0 {
-		skimmers++
-	}
-	if skimmers > 0 {
-		amount := min(int(math.Round(float64(revenue)*math.Min(share, tun.SkimCap))), w.Player.DirtyCash-extra) + extra
-		fromWash := min(int(math.Round(float64(wash)*math.Min(washShare, tun.SkimCap))), w.Player.CleanCash)
-		if amount+fromWash > 0 {
-			w.Player.DirtyCash -= amount
-			w.Player.CleanCash -= fromWash
-			w.Stats.Skimmed += amount + fromWash
-			c.LastSkim = t.Day
-			t.Emit(events.CrewSkimmed{Day: t.Day, Amount: amount + fromWash, Skimmers: skimmers, FromWash: fromWash})
-		}
-	}
-
-	// Turning, on the same morning loyalty: the disloyal and nervous start
-	// talking. Nothing is shown; the heat sim starts its clock on the event.
-	// A lieutenant turns under a higher line and without dice: they know
-	// where everything is, and the DA knows it. A fixer whose envelope
-	// blew up last night (#42, w.Law.Backfired) loses backfire_loyalty
-	// and, under the line, turns the way an audit turns an accountant
-	// (#29): no dice, they were the one holding the bag.
-	inf := s.cfg.Informant
-	if w.Law.Backfired > 0 && w.Law.Backfired == t.Day-1 {
-		if f := c.Fixer(); f != nil {
-			f.Loyalty = math.Max(0, f.Loyalty-s.cfg.Role[game.RoleFixer].BackfireLoyalty)
-			if !f.Informant && f.Loyalty < inf.Loyalty {
-				f.Informant = true
-				w.Stats.Informants++
-				t.Emit(events.CrewTurnedInformant{Day: t.Day, ID: f.ID, Name: f.Name})
-			}
-		}
-	}
-	for i := range c.Members {
-		m := &c.Members[i]
-		if m.Informant {
-			continue
-		}
-		if m.Lieutenant() && m.Loyalty < s.cfg.Lieutenant.Flip {
-			m.Informant = true
-			w.Stats.Informants++
-			t.Emit(events.LieutenantFlipped{Day: t.Day, ID: m.ID, Name: m.Name, City: m.City})
-			// The betrayal (#49): a lieutenant running a city that
-			// holds betray_share of your corners, betray_corners at
-			// least, knows where everything is, and the run ends the
-			// night they turn. A read on the map, no dice; 0 boxes it.
-			if lt := s.cfg.Lieutenant; lt.BetrayShare > 0 && m.Runs() && w.Over == nil {
-				if held, there := w.Held(), w.HeldIn(m.City); there >= max(1, lt.BetrayCorners) && float64(there) >= lt.BetrayShare*float64(held) {
-					w.Over = w.End(content.CauseBetrayed, t.Day, m.Name)
-					t.Emit(events.GameOver{Day: t.Day, Cause: content.CauseBetrayed})
-				}
-			}
-			continue
-		}
-		if m.Loyalty >= inf.Loyalty || m.Nerve >= inf.Nerve {
-			continue
-		}
-		if t.RNG.Float64() < inf.Chance*fx.InformantChanceMul {
-			m.Informant = true
-			w.Stats.Informants++
-			t.Emit(events.CrewTurnedInformant{Day: t.Day, ID: m.ID, Name: m.Name})
-		}
-	}
-
-	// 2. Wages. Coming up short is remembered.
-	short := 0
-	if len(c.Members) > 0 {
-		wages := s.wages(w, c.Pay, fx)
-		paid := min(wages, w.Player.DirtyCash)
-		short = wages - paid
-		w.Player.DirtyCash -= paid
-		w.Stats.Wages += paid
-		t.Emit(events.CrewPaid{Day: t.Day, Pay: c.Pay, Wages: paid, Short: short})
-	}
-
-	// Wages are the only way money leaves without something coming back.
-	// If they empty the till with nothing left to sell, anywhere or on
-	// the road, the run is over: there is no move that makes money from
-	// nothing.
-	if w.Over == nil && w.TotalStock() == 0 && float64(w.Player.DirtyCash) < cheapestUnit(w) {
-		w.Over = w.End(content.CauseBroke, t.Day, "")
-		t.Emit(events.GameOver{Day: t.Day, Cause: content.CauseBroke})
-		return
-	}
-
-	// 3. The investigation: it names an informant with the odds the UI
-	// showed, or nobody, and being asked costs everyone a little loyalty
-	// either way when it comes up empty.
-	asked := false
-	if o := w.Today.Investigation; o != nil {
-		ev := events.InvestigationRun{Day: t.Day, Cost: o.Cost}
-		w.Stats.Investigations++
-		if c.Informants() > 0 && t.RNG.Float64() < s.InvestigateOdds(w) {
-			pick := t.RNG.IntN(c.Informants())
-			for _, m := range c.Members {
-				if !m.Informant {
-					continue
-				}
-				if pick == 0 {
-					ev.Found, ev.Name = true, m.Name
-					c.Exposed = m.ID
-				}
-				pick--
-			}
-			c.Investigated = 0
-		} else {
-			asked = true
-			c.Investigated++
-		}
-		t.Emit(ev)
-	}
-
-	// 4. Loyalty drift: pay, greed, danger, firings, unpaid wages, an
-	// investigation that named nobody, and for the enforcers, the strike
-	// they went on today: a toll from the rivals sim that the nervous feel
-	// most and a win halves. A respected boss's crew feel every loss less.
-	toll := 0.0
-	hurt := 0
-	for _, e := range t.Events() {
-		switch ev := e.(type) {
-		case events.CornerStruck:
-			if ev.Taken {
-				toll += ev.Toll / 2
-			} else {
-				toll += ev.Toll
-			}
-		case events.RivalBoosted:
-			// A boost (#70) is the enforcers going in too: its toll by
-			// nerve as a strike's, and a failure against real muscle
-			// hurts the one with the least nerve.
-			toll += ev.Toll
-			hurt += ev.Hurt
-		}
-	}
-	if hurt > 0 {
-		var worst *game.CrewMember
-		for i := range c.Members {
-			m := &c.Members[i]
-			if m.Role == game.RoleEnforcer && m.Working() && (worst == nil || m.Nerve < worst.Nerve) {
-				worst = m
-			}
-		}
-		if worst != nil {
-			worst.Skill = max(1, worst.Skill-hurt)
-		}
-	}
-	danger := false
-	for _, level := range []string{content.Sting, content.Raid, content.TaskForce} {
-		if d, ok := w.Heat.LastResponse[level]; ok && t.Day-d <= tun.DangerDays {
-			danger = true
-		}
-	}
-	shield := math.Pow(1-s.cfg.Role[game.RoleEnforcer].Protection, float64(enforcers))
-	loss := s.loyaltyLoss(w, fx)
-	base := s.cfg.PayFor(c.Pay).Loyalty
-	base -= tun.FireLoyalty * float64(fired)
-	if short > 0 {
-		base -= tun.UnpaidLoyalty
-	}
-	if asked {
-		base -= inf.InvestigateLoyalty
-	}
-	for i := range c.Members {
-		m := &c.Members[i]
-		d := base - tun.GreedDrift*float64(m.Greed)/100
-		if danger {
-			d -= tun.DangerLoyalty * fx.DangerLoyaltyMul * float64(100-m.Nerve) / 100 * shield
-		}
-		if m.Role == game.RoleEnforcer {
-			d -= toll * float64(100-m.Nerve) / 100
-		}
-		if d < 0 {
-			d *= loss
-		}
-		m.Loyalty = math.Max(0, math.Min(100, m.Loyalty+d))
-	}
-
-	// 5. Quitting, or defecting: whoever walks leaves their corner
-	// unworked, and while the rival holds ground in the city they go to
-	// it instead, and walk it onto that corner (the rival sim acts on
-	// the lead next step, off c.Leads: last night's are consumed by now,
-	// the rival steps first, so tonight's start the queue afresh; #144)
-	// if it is one the rival fights over: the rival lives at home, so a
-	// corner in another city is just a corner left. A lieutenant running
-	// a city walks with it.
-	c.Leads = nil
-	poached := s.factions(w, t, c, fx)
-	kept := c.Members[:0]
-	var gone []game.CrewMember // whoever walked or defected: their kin remember it (#46)
-	for _, m := range c.Members {
-		if poached[m.ID] {
-			continue // gone to a faction tonight (#43)
-		}
-		if m.Loyalty > tun.QuitThreshold {
-			kept = append(kept, m)
-			continue
-		}
-		gone = append(gone, m)
-		if m.Runs() {
-			delete(acted, m.ID)
-			s.walk(w, t, m)
-			continue
-		}
-		post := w.PostOf(m.ID)
-		w.Recall(m.ID)
-		// The faction they go to (#43): the one holding most of the
-		// city they stood in, or of home with no post; none holding
-		// ground and they just quit.
-		city := w.Home().ID
-		if post != nil {
-			city = post.City
-		}
-		to := w.StrongestFaction(city)
-		if to == nil && city != w.Home().ID {
-			to = w.StrongestFaction(w.Home().ID)
-		}
-		if to == nil {
-			t.Emit(events.CrewQuit{Day: t.Day, Name: m.Name, Role: m.Role})
-			continue
-		}
-		ev := events.CrewDefected{Day: t.Day, Name: m.Name, Role: m.Role, Rival: to.Leader, Faction: to.Faction()}
-		lead := game.Lead{Name: m.Name, Faction: to.Faction()}
-		if post != nil && post.City == w.CityOf(to).ID {
-			ev.Corner, ev.CornerName = post.ID, post.Name
-			lead.Corner = post.ID
-		}
-		c.Leads = append(c.Leads, lead)
-		w.Stats.Defections++
-		t.Emit(ev)
-	}
-	c.Members = kept
-	for _, m := range gone {
-		s.kinLoyalty(w, m, -s.cfg.Life.KinLoyalty)
-	}
-
-	// 6. The lieutenants' night: each runs their city with whoever is
-	// left, and reports in the morning.
-	for _, cid := range w.CityOrder {
-		lt := c.Lieutenant(cid)
-		if lt == nil {
-			continue
-		}
-		ev := acted[lt.ID]
-		if ev == nil { // assigned today, after the takings were counted
-			ev = &events.LieutenantActed{Day: t.Day, ID: lt.ID, Name: lt.Name, City: cid, CityName: w.CityName(cid), Dial: s.Dial(*lt)}
-		}
-		s.delegate(w, t, lt, ev)
-		t.Emit(*ev)
-	}
-
-	// 7. The hiring pool refills after hires and the rotation.
-	var side, drv rand
-	if FixersWanted(w) {
-		side = t.Sub(game.StreamFixer)
-	}
-	if DriversWanted(w) {
-		drv = t.Sub(game.StreamDriver)
-	}
-	s.refill(w, t.RNG, t.Sub(game.StreamChemist), side, drv, t.Sub(game.StreamLife), fx)
-}
-
-// refill tops the candidate pool up to size with fresh faces, and, once
-// meth is on the ladder, adds the one chemist looking for work beside
-// them (#47), drawn off the chemist's own stream (nil at seed: the
-// ladder has no meth on day 0) with a name from their own list, so the
-// faces the home stream draws are the faces it always drew. side is the
-// fixers' stream (#42), nil while nobody has paid an envelope; drv the
-// drivers' (#46), nil until a route has run, the one driver looking
-// for work the chemist's pattern again; life is the life stream, the
-// ages (#46). The kin faces (#46) are extra the same way.
-func (s *Sim) refill(w *game.World, rng, chem, side, drv, life rand, fx game.Effects) {
-	faces := 0
-	for _, c := range w.Crew.Candidates {
-		if !extra(c) && !former(c) {
-			faces++
-		}
-	}
-	for ; faces < s.candidates(fx); faces++ {
-		w.Crew.Candidates = append(w.Crew.Candidates, s.generate(w, rng, side, life, fx))
-	}
-	if chem != nil && s.ChemistsWanted(w) && !s.chemistLooking(w) {
-		w.Crew.Candidates = append(w.Crew.Candidates, s.chemist(w, chem, life, fx))
-	}
-	if drv != nil && DriversWanted(w) && !driverLooking(w) {
-		w.Crew.Candidates = append(w.Crew.Candidates, s.driver(w, drv, life, fx))
-	}
-}
-
-// chemistLooking reports whether the pool holds a chemist.
-func (s *Sim) chemistLooking(w *game.World) bool {
-	for _, c := range w.Crew.Candidates {
-		if c.Role == game.RoleChemist {
-			return true
-		}
-	}
-	return false
 }
 
 // ChemistsWanted reports whether a chemist comes looking for work: the
@@ -662,15 +361,6 @@ func (s *Sim) ChemistsWanted(w *game.World) bool {
 		return false
 	}
 	return w.Home().Market[id] != nil
-}
-
-// chemist rolls the chemist looking for work (#47): the generate roll
-// off the chemist's stream, with a name from the chemists' list.
-func (s *Sim) chemist(w *game.World, rng, life rand, fx game.Effects) game.CrewMember {
-	m := s.roll(w, s.pickName(w, s.chemists, "The Chemist", rng), game.RoleChemist, rng, fx)
-	m.Fee = s.hireFee(w, m.Skill, fx)
-	m.Age = s.age(life)
-	return m
 }
 
 // ChemistQuality is the quality the best chemist on the payroll makes
@@ -751,127 +441,4 @@ func (s *Sim) land(w *game.World, t *game.Tick) {
 	if len(w.Crew.Cooks) == 0 {
 		w.Crew.Cooks = nil
 	}
-}
-
-// generate rolls a new candidate whose name is not already in use. The
-// tree's skill_bonus and start_loyalty_bonus land on the roll, never
-// over 100, and the fee is priced on the skill they arrive with; none
-// of it adds a draw, so a run owning nothing rolls the pool it always
-// did. The age (#46) is the life stream's draw, not the home stream's.
-func (s *Sim) generate(w *game.World, rng, side, life rand, fx game.Effects) game.CrewMember {
-	name := s.pickName(w, s.names, "Nobody", rng)
-	roles := rolesFor(w)
-	role := roles[rng.IntN(len(roles))]
-	// Lieutenants are rare, and only come looking once there is a second
-	// city to hand over; the roll is only made then, so a run in one city
-	// draws the same pool it always did.
-	personality := ""
-	if lt := s.cfg.Lieutenant; LieutenantsWanted(w) && rng.Float64() < lt.Chance {
-		role = game.RoleLieutenant
-		personality = content.LieutenantPersonalities[rng.IntN(len(content.LieutenantPersonalities))]
-	}
-	// Fixers (#42) come looking once you have paid somebody, on their
-	// own stream, so a run that pays nobody draws the pool it always
-	// did; they never displace a lieutenant.
-	if side != nil && role != game.RoleLieutenant && side.Float64() < s.cfg.Role[game.RoleFixer].Chance {
-		role = game.RoleFixer
-	}
-	m := s.roll(w, name, role, rng, fx)
-	m.Fee = s.hireFee(w, m.Skill, fx)
-	m.Personality = personality // "" for anyone but a lieutenant
-	m.Age = s.age(life)
-	return m
-}
-
-// pickName is a name off pool that nobody on the payroll or in the pool
-// has, drawn on rng from the free ones sorted, or fallback when the pool
-// is spent (no draw then).
-func (s *Sim) pickName(w *game.World, pool []string, fallback string, rng rand) string {
-	used := map[string]bool{}
-	for _, m := range w.Crew.Members {
-		used[m.Name] = true
-	}
-	for _, m := range w.Crew.Candidates {
-		used[m.Name] = true
-	}
-	var free []string
-	for _, n := range pool {
-		if !used[n] {
-			free = append(free, n)
-		}
-	}
-	sort.Strings(free)
-	if len(free) == 0 {
-		return fallback
-	}
-	return free[rng.IntN(len(free))]
-}
-
-// roll is a new member of role called name, with the next ID: skill,
-// loyalty, greed and nerve drawn on rng in that order, the tree's
-// skill_bonus and start_loyalty_bonus on the roll and never over 100,
-// the wage off the role's table and a runner's units off the skill. The
-// fee, the age and anything else are the caller's: a hire prices one, a
-// character's start (Join) has none, and each draws its age on its own
-// dice.
-func (s *Sim) roll(w *game.World, name, role string, rng rand, fx game.Effects) game.CrewMember {
-	tun := s.cfg.Crew
-	rc := s.cfg.Role[role]
-	skill := min(100, 15+rng.IntN(71)+fx.SkillBonus)
-	m := game.CrewMember{
-		ID:      w.Crew.NextID + 1,
-		Name:    name,
-		Role:    role,
-		Skill:   skill,
-		Loyalty: float64(min(100, tun.StartLoyaltyMin+rng.IntN(max(1, tun.StartLoyaltyMax-tun.StartLoyaltyMin+1))+fx.StartLoyaltyBonus)),
-		Greed:   5 + rng.IntN(91),
-		Nerve:   5 + rng.IntN(91),
-		Wage:    int(math.Round(rc.WageBase + rc.WagePerSkill*float64(skill))),
-	}
-	if role == game.RoleRunner {
-		m.Units = int(math.Round(tun.UnitsPerSkill * float64(skill)))
-	}
-	w.Crew.NextID = m.ID
-	return m
-}
-
-// cheapestUnit is the lowest supplier price where the player is.
-func cheapestUnit(w *game.World) float64 {
-	price := math.Inf(1)
-	if c := w.Here(); c != nil {
-		for _, m := range c.Market {
-			price = math.Min(price, m.SupplierPrice)
-		}
-	}
-	if math.IsInf(price, 1) {
-		return 0
-	}
-	return price
-}
-
-// Join puts a member of the role on the payroll on day 0, hired for
-// nothing (#50, a character's start): the roll generate makes with the
-// role fixed, the name from the pool's list for it (the chemists' for
-// a chemist, the drivers' for a driver, the crew's for the rest), the
-// stats and the age off rng, which is the character's own stream and
-// never the pool's, so the faces the pool deals are the faces it
-// always dealt. A lieutenant joins unassigned with a temper off the
-// same dice.
-func (s *Sim) Join(w *game.World, role string, rng rand) game.CrewMember {
-	fx := game.FoldEffects(w, s.tree)
-	pool := s.names
-	switch role {
-	case game.RoleChemist:
-		pool = s.chemists
-	case game.RoleDriver:
-		pool = s.drivers
-	}
-	m := s.roll(w, s.pickName(w, pool, "Nobody", rng), role, rng, fx)
-	m.Hired = w.Day
-	m.Age = s.age(rng)
-	if role == game.RoleLieutenant {
-		m.Personality = content.LieutenantPersonalities[rng.IntN(len(content.LieutenantPersonalities))]
-	}
-	w.Crew.Members = append(w.Crew.Members, m)
-	return m
 }

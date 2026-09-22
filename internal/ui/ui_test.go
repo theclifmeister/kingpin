@@ -8,6 +8,7 @@ import (
 	"path/filepath"
 	"reflect"
 	"regexp"
+	"strconv"
 	"strings"
 	"testing"
 	"time"
@@ -40,9 +41,57 @@ func duel() *content.Config {
 	return cfg
 }
 
-// newModelWith is newTestModel with the options given.
+// fixtureSeed is the seed the UI tests play (#292). It was the wall
+// clock's until a test that held on most worlds failed on one in eighty,
+// and nobody could play that world again.
+const fixtureSeed = 1
+
+// testSeed is where a test's runs start (#292): fixtureSeed, or
+// KINGPIN_TEST_SEED to look at other worlds (a number, or random for the
+// wall clock's). A test that fails says which seed it played, so the
+// failure replays.
+func testSeed(t *testing.T) uint64 {
+	t.Helper()
+	seed := uint64(fixtureSeed)
+	switch v := os.Getenv("KINGPIN_TEST_SEED"); v {
+	case "":
+	case "random":
+		seed = newSeed()
+	default:
+		n, err := strconv.ParseUint(v, 10, 64)
+		if err != nil {
+			t.Fatalf("KINGPIN_TEST_SEED=%q: a number, or random", v)
+		}
+		seed = n
+	}
+	t.Cleanup(func() {
+		if t.Failed() {
+			t.Logf("played seed %d: KINGPIN_TEST_SEED=%d replays it", seed, seed)
+		}
+	})
+	return seed
+}
+
+// testSeeds is the Options.Seeds a test model plays (#292): testSeed,
+// then the next and the next for every further run the test starts, so
+// the UI suite plays the same worlds on every run.
+func testSeeds(t *testing.T) func() uint64 {
+	t.Helper()
+	next := testSeed(t)
+	return func() uint64 {
+		s := next
+		next++
+		return s
+	}
+}
+
+// newModelWith is newTestModel with the options given, its runs on the
+// test seeds unless the options name their own.
 func newModelWith(t *testing.T, w, h int, opts Options) *Model {
 	t.Helper()
+	if opts.Seeds == nil {
+		opts.Seeds = testSeeds(t)
+	}
 	t.Setenv("KINGPIN_HOME", t.TempDir())
 	m, err := New(duel(), opts)
 	if err != nil {
@@ -2552,7 +2601,7 @@ func TestCampaignKeys(t *testing.T) {
 // the tree.
 func richModel(t *testing.T, w, h int) *Model {
 	t.Helper()
-	return richModelSeeded(t, w, h, newSeed())
+	return richModelSeeded(t, w, h, testSeed(t))
 }
 
 // richModelSeeded is richModel on a seed of the caller's: the same run

@@ -37,12 +37,11 @@ func (w *World) BuyFront(o FrontOffer) (Front, error) {
 		return Front{}, ErrFrontOwned
 	}
 	if o.Locked(w) {
-		return Front{}, fmt.Errorf("nobody will sell you %s until you have moved $%d", o.Name, o.UnlockCash)
+		return Front{}, fmt.Errorf("nobody will sell you %s until you have moved %s", o.Name, format.Money(o.UnlockCash))
 	}
-	if o.Cost > w.Player.DirtyCash {
-		return Front{}, fmt.Errorf("%s costs $%d, only have $%d dirty", o.Name, o.Cost, w.Player.DirtyCash)
+	if err := w.payDirty(o.Cost); err != nil {
+		return Front{}, err
 	}
-	w.Player.DirtyCash -= o.Cost
 	f := Front{ID: o.ID, Name: o.Name, Cost: o.Cost, Bought: w.Day}
 	w.Fronts = append(w.Fronts, f)
 	return f, nil
@@ -80,13 +79,12 @@ func (w *World) Invest(o LevelOffer) error {
 	if f.Level+o.Levels > o.Max {
 		return fmt.Errorf("%s takes %s more at most", f.Name, format.Plural(o.Max-f.Level, "level"))
 	}
-	if o.Cost > w.Player.CleanCash {
-		if w.Player.CleanCash <= 0 {
-			return ErrNoCleanCash
-		}
-		return fmt.Errorf("need $%d clean, only have $%d clean", o.Cost, w.Player.CleanCash)
+	if o.Cost > w.Player.CleanCash && w.Player.CleanCash <= 0 {
+		return ErrNoCleanCash
 	}
-	w.Player.CleanCash -= o.Cost
+	if err := w.payClean(o.Cost); err != nil {
+		return err
+	}
 	f.Level += o.Levels
 	f.Invested += o.Cost
 	w.Stats.Invested += o.Cost
