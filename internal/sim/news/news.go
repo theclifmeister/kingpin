@@ -453,7 +453,7 @@ func saleLine(w *game.World, ev events.PlayerSold) string {
 	}
 	// The quality's mark on the price (#47), only where it left one.
 	if ev.QualityMul > 0 && math.Abs(ev.QualityMul-1) >= 0.005 {
-		who += fmt.Sprintf(", quality %.0f ×%.2f", ev.Quality, ev.QualityMul)
+		who += fmt.Sprintf(", quality %.0f %s", ev.Quality, format.Times(ev.QualityMul, 2))
 	}
 	return fmt.Sprintf("%-8s sold %d/%d at %s avg = +%s (%s%s)", w.ProductName(ev.Product), ev.Sold, ev.Wanted, format.Price(ev.AvgPrice), format.Money(ev.Revenue), ev.Dial, who)
 }
@@ -643,7 +643,7 @@ func pointer(muscle int) string {
 // intelLine is a filed fact as the report says it (#45): what was
 // learnt, of whom, how and how sure.
 func intelLine(w *game.World, ev events.IntelGained) string {
-	sure := fmt.Sprintf("%.0f%% sure", ev.Confidence*100)
+	sure := format.Pct(ev.Confidence, 0) + " sure"
 	how := map[string]string{
 		game.SourceSeen: "Seen", game.SourceBooks: "The books say", game.SourceCop: "The cop says",
 		game.SourceSpy: "Your spy says", game.SourceContact: "A contact says",

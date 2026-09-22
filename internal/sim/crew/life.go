@@ -47,7 +47,7 @@ func DriversWanted(w *game.World) bool { return w.Stats.Shipments > 0 }
 
 // age is a candidate's age at generation, off the life stream; 0 with
 // the table boxed.
-func (s *Sim) age(life rand) int {
+func (s *Sim) age(life game.Rand) int {
 	l := s.cfg.Life
 	if !l.On() {
 		return 0
@@ -113,7 +113,7 @@ func (s *Sim) life(w *game.World, t *game.Tick, fx game.Effects) {
 			if m.Bailed {
 				m.Loyalty = math.Min(100, m.Loyalty+life.BailLoyalty)
 			} else {
-				m.Loyalty = math.Max(0, math.Min(m.Loyalty, inf.Loyalty-life.JailLoyalty))
+				m.Loyalty = max(0, min(m.Loyalty, inf.Loyalty-life.JailLoyalty))
 				if !m.Informant && rng.Float64() < life.ReleaseTurn*fx.InformantChanceMul {
 					m.Informant = true
 					w.Stats.Informants++
@@ -233,7 +233,7 @@ func (s *Sim) life(w *game.World, t *game.Tick, fx game.Effects) {
 func (s *Sim) kinLoyalty(w *game.World, m game.CrewMember, d float64) {
 	for _, id := range m.Kin {
 		if k := w.Crew.Member(id); k != nil {
-			k.Loyalty = math.Max(0, math.Min(100, k.Loyalty+d))
+			k.Loyalty = max(0, min(100, k.Loyalty+d))
 		}
 	}
 }
@@ -274,7 +274,7 @@ func (s *Sim) jail(w *game.World, t *game.Tick, m *game.CrewMember, city string,
 
 // shoot rolls a death and then a wound for the member with id on a
 // corner, at mul times the table's chances.
-func (s *Sim) shoot(w *game.World, t *game.Tick, rng rand, id int, corner *game.Corner, mul float64, strike bool, faction string) {
+func (s *Sim) shoot(w *game.World, t *game.Tick, rng game.Rand, id int, corner *game.Corner, mul float64, strike bool, faction string) {
 	life := s.cfg.Life
 	m := w.Crew.Member(id)
 	if m == nil {
@@ -303,7 +303,7 @@ func (s *Sim) shoot(w *game.World, t *game.Tick, rng rand, id int, corner *game.
 // theirs rolls a death on the rival's side of a strike or a push: a
 // body the count takes and the paper prints; the rival's headcount is
 // the rivals sim's own business.
-func (s *Sim) theirs(w *game.World, t *game.Tick, rng rand, corner *game.Corner, mul float64, strike bool, faction string) {
+func (s *Sim) theirs(w *game.World, t *game.Tick, rng game.Rand, corner *game.Corner, mul float64, strike bool, faction string) {
 	if rng.Float64() >= s.cfg.Life.KillChance*mul {
 		return
 	}
@@ -346,7 +346,7 @@ func (s *Sim) fall(w *game.World, t *game.Tick, m game.CrewMember, corner *game.
 // who is in the pool tomorrow at the discount; a sour one, under the
 // informant line, talks on the way out, and the heat sim files the
 // page (the informant exception applied once).
-func (s *Sim) retire(w *game.World, t *game.Tick, rng rand, m game.CrewMember, fx game.Effects) {
+func (s *Sim) retire(w *game.World, t *game.Tick, rng game.Rand, m game.CrewMember, fx game.Effects) {
 	life := s.cfg.Life
 	ev := events.CrewRetired{Day: t.Day, ID: m.ID, Name: m.Name, Role: m.Role, Age: m.Age}
 	w.Recall(m.ID)
@@ -370,7 +370,7 @@ func (s *Sim) retire(w *game.World, t *game.Tick, rng rand, m game.CrewMember, f
 // at kin_discount off the fee, linked both ways. It is an extra face
 // beside the pool's usual ones (refill counts it with the chemist's),
 // so the faces the home stream draws are the faces it always drew.
-func (s *Sim) kinFace(w *game.World, t *game.Tick, rng rand, m *game.CrewMember, fx game.Effects) *game.CrewMember {
+func (s *Sim) kinFace(w *game.World, t *game.Tick, rng game.Rand, m *game.CrewMember, fx game.Effects) *game.CrewMember {
 	life := s.cfg.Life
 	k := s.generate(w, rng, nil, rng, fx)
 	k.Fee = int(math.Round(float64(k.Fee) * (1 - life.KinDiscount)))
@@ -400,7 +400,7 @@ func driverLooking(w *game.World) bool {
 
 // driver rolls the driver looking for work (#46): the chemist's
 // pattern, off the driver's stream with a name from the drivers' list.
-func (s *Sim) driver(w *game.World, rng, life rand, fx game.Effects) game.CrewMember {
+func (s *Sim) driver(w *game.World, rng, life game.Rand, fx game.Effects) game.CrewMember {
 	m := s.roll(w, s.pickName(w, s.drivers, "The Driver", rng), game.RoleDriver, rng, fx)
 	m.Fee = s.hireFee(w, m.Skill, fx)
 	m.Age = s.age(life)
@@ -410,7 +410,7 @@ func (s *Sim) driver(w *game.World, rng, life rand, fx game.Effects) game.CrewMe
 // DriverCut is what a driver of a skill takes off a shipment's risk per
 // day on the road: driver_cut x skill/100.
 func (s *Sim) DriverCut(skill int) float64 {
-	return math.Max(0, math.Min(1, s.cfg.Role[game.RoleDriver].DriverCut*float64(skill)/100))
+	return max(0, min(1, s.cfg.Role[game.RoleDriver].DriverCut*float64(skill)/100))
 }
 
 // factionOf is the faction an event names (#43), the rival at home for

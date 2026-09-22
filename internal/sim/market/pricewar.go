@@ -194,7 +194,7 @@ func (s *Sim) closeWar(city *game.City) {
 	}
 	for _, c := range b.corners {
 		if total := b.total[c.ID]; total > 0 {
-			c.Squeeze = math.Max(0, math.Min(1, b.taken[c.ID]/total))
+			c.Squeeze = max(0, min(1, b.taken[c.ID]/total))
 		}
 	}
 }

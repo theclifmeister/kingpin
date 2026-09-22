@@ -5,6 +5,7 @@ import (
 
 	tea "github.com/charmbracelet/bubbletea"
 
+	"github.com/theclifmeister/kingpin/internal/format"
 	"github.com/theclifmeister/kingpin/internal/ui/theme"
 )
 
@@ -12,14 +13,7 @@ import (
 // one place nothing takes it from and the one it never comes back
 // from. One page, a number field in dollars (blank is a lot: what
 // moves unnoticed), the fee and the pages the DA files over the lot, in
-// red past it.
-type reserveDialog struct {
-	amt numberField
-	err string
-}
-
-func (d *reserveDialog) page() int           { return 0 }
-func (d *reserveDialog) field() *numberField { return &d.amt }
+// red past it. It is an amountDialog (#275).
 
 // askReserve opens the reserve dialog.
 func (m *Model) askReserve() {
@@ -30,44 +24,29 @@ func (m *Model) askReserve() {
 		m.refuse("Can't reserve: the account takes clean cash, and you have none.")
 		return
 	}
-	m.rsv = reserveDialog{amt: newNumberField("blank = a lot")}
-	m.rsv.amt.money = true
-	m.rsv.amt.max = m.w.Player.CleanCash
-	m.rsv.amt.Focus()
-	m.mode = modeReserve
+	m.openAmount(modeReserve, "blank = a lot", m.w.Player.CleanCash, true, "")
 }
 
 // reserveAmount is the amount the field reads: blank is a lot, or the
 // clean cash where that is less.
 func (m *Model) reserveAmount() (int, error) {
 	lot := min(m.set.Laundering.Offshore().Lot, m.w.Player.CleanCash)
-	return parseQtyInput(m.rsv.amt.Value(), lot)
+	return readQty(m.amt.numberField, lot)
 }
 
 func (m *Model) keyReserve(k tea.KeyMsg) (tea.Model, tea.Cmd) {
-	key := k.String()
-	m.rsv.err = ""
-	switch key {
-	case "esc", "q":
-		m.mode = modePlay
-		return m, nil
-	case "enter":
-		m.confirmReserve()
-		return m, nil
-	}
-	m.rsv.amt.max = m.w.Player.CleanCash
-	return m, m.rsv.amt.Update(k)
+	return m.keyAmount(k, func() int { return m.w.Player.CleanCash }, m.confirmReserve)
 }
 
 // confirmReserve sends the amount, or shows why it cannot.
 func (m *Model) confirmReserve() {
 	amt, err := m.reserveAmount()
 	if err != nil {
-		m.rsv.err = dialogError(err)
+		m.amt.err = dialogError(err)
 		return
 	}
 	if err := m.w.Reserve(amt); err != nil {
-		m.rsv.err = dialogError(err)
+		m.amt.err = dialogError(err)
 		return
 	}
 	m.mode = modePlay
@@ -90,8 +69,7 @@ func (m *Model) viewReserve() string {
 	if err != nil {
 		amt = 0
 	}
-	field := m.rsv.amt
-	field.max = w.Player.CleanCash
+	field := m.amountField(w.Player.CleanCash)
 	body := []string{
 		m.inHand(),
 		row("account", theme.Good.Render(cash(w.Offshore))+" offshore"),
@@ -111,13 +89,13 @@ func (m *Model) viewReserve() string {
 		body = append(body, row("moves", fmt.Sprintf("%s tonight, fee %s   %s", style.Render(money(amt)), money(l.Fee(amt)), pages)))
 	}
 	body = append(body, "",
-		theme.Subtle.Render(fmt.Sprintf("Up to %s a day moves unnoticed; every lot over it is a page. The account keeps %.0f%%.", money(off.Lot), off.Fee*100)),
+		theme.Subtle.Render(fmt.Sprintf("Up to %s a day moves unnoticed; every lot over it is a page. The account keeps %s.", money(off.Lot), format.Pct(off.Fee, 0))),
 		theme.Subtle.Render("Nothing takes from the account and nothing comes back: it is the exit, and the score."))
 	if off.RetireCash > 0 {
 		body = append(body, theme.Subtle.Render(fmt.Sprintf("Retiring takes %s offshore and %s quiet in a row; %s so far.", money(off.RetireCash), plural(off.RetireDays, "day"), plural(w.QuietDays, "quiet day"))))
 	}
-	if m.rsv.err != "" {
-		body = append(body, "", theme.Bad.Render(m.rsv.err))
+	if m.amt.err != "" {
+		body = append(body, "", theme.Bad.Render(m.amt.err))
 	}
 	return m.modal("RESERVE OFFSHORE", body, m.modalFooter())
 }

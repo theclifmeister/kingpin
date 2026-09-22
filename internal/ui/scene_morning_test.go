@@ -113,7 +113,7 @@ func TestMorningSceneRollsTheDay(t *testing.T) {
 	m := plainMorning(t, 80, 24, Options{Anim: true, MorningAnim: true})
 	now := time.Unix(1_700_000_000, 0)
 	tickAt(m, now)
-	bar := func() string { return strings.Split(stripANSI(m.View()), "\n")[0] }
+	bar := func() string { return viewLines(m)[0] }
 	first := bar()
 	if !strings.Contains(first, fmt.Sprintf("Day %d ", m.w.Day-1)) {
 		t.Errorf("the first frame's bar does not carry yesterday's day:\n%s", first)

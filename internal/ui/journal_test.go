@@ -25,7 +25,7 @@ func TestJournalTruncatesWithEllipsis(t *testing.T) {
 	)
 	m.Update(key("3"))
 	assertFrame(t, m, "journal at 80x24")
-	main, _ := bodyRows(m)
+	main, _ := splitView(m)
 	if !strings.HasPrefix(main[0], "JOURNAL · ") || !strings.Contains(main[0], "headlines, newest first") {
 		t.Errorf("the title is %q", main[0])
 	}
@@ -41,7 +41,7 @@ func TestJournalTruncatesWithEllipsis(t *testing.T) {
 	}
 	// The strip names the day and source; the overlay carries the text
 	// whole and the legend.
-	ls := strings.Split(stripANSI(m.View()), "\n")
+	ls := viewLines(m)
 	if strip := ls[len(ls)-2]; !strings.HasPrefix(strip, "▸ D8 · HEAT · Somebody") {
 		t.Errorf("the strip is %q", strip)
 	}
@@ -58,7 +58,7 @@ func TestJournalTruncatesWithEllipsis(t *testing.T) {
 		t.Fatalf("down: cursor %d", m.journalCursor)
 	}
 	m.Update(tea.WindowSizeMsg{Width: 120, Height: 40})
-	_, pane := bodyRows(m)
+	_, pane := splitView(m)
 	paneText := strings.Join(pane, "\n")
 	if !strings.Contains(paneText, "D3 · CREW") || !strings.Contains(paneText, "Eastside crews hiring") {
 		t.Errorf("the pane does not name the selected headline's day and source:\n%s", paneText)
@@ -68,7 +68,7 @@ func TestJournalTruncatesWithEllipsis(t *testing.T) {
 			t.Errorf("the legend lacks %q:\n%s", s, paneText)
 		}
 	}
-	main, _ = bodyRows(m)
+	main, _ = splitView(m)
 	if !strings.HasPrefix(main[2], "▸ d3  ") || strings.HasPrefix(main[1], "▸") {
 		t.Errorf("the cursor row is not the second headline:\n%s", strings.Join(main[:3], "\n"))
 	}
@@ -92,22 +92,22 @@ func TestJournalPages(t *testing.T) {
 	}
 	m.Update(key("3"))
 	rows := m.journalRows()
-	m.Update(tea.KeyMsg{Type: tea.KeyPgDown})
+	m.Update(key("pgdown"))
 	if m.journalCursor != rows || m.journalTop != 1 {
 		t.Fatalf("pgdn: cursor %d top %d rows %d", m.journalCursor, m.journalTop, rows)
 	}
-	main, _ := bodyRows(m)
+	main, _ := splitView(m)
 	if !strings.HasPrefix(main[len(main)-1], "▸ ") {
 		t.Errorf("the cursor is not on the last row shown:\n%s", strings.Join(main, "\n"))
 	}
 	for i := 0; i < 10; i++ {
-		m.Update(tea.KeyMsg{Type: tea.KeyPgDown})
+		m.Update(key("pgdown"))
 	}
 	if m.journalCursor != 59 || m.journalTop != 60-rows {
 		t.Errorf("pgdn to the end: cursor %d top %d", m.journalCursor, m.journalTop)
 	}
 	assertFrame(t, m, "journal at the end")
-	m.Update(tea.KeyMsg{Type: tea.KeyPgUp})
+	m.Update(key("pgup"))
 	if m.journalCursor != 59-rows {
 		t.Errorf("pgup: cursor %d", m.journalCursor)
 	}
@@ -170,7 +170,7 @@ func TestJournalFilterCycles(t *testing.T) {
 			t.Errorf("%q: the cursor is not on the newest headline: %d at %d", w, m.journalCursor, m.journalTop)
 		}
 	}
-	main, _ := bodyRows(m)
+	main, _ := splitView(m)
 	if !strings.Contains(main[0], "5 headlines, newest first") {
 		t.Errorf("back on every source the title is %q", main[0])
 	}
@@ -182,7 +182,7 @@ func TestJournalFilterCycles(t *testing.T) {
 	if m.journalFilter != "law" {
 		t.Fatalf("three presses: %q", m.journalFilter)
 	}
-	main, pane := bodyRows(m)
+	main, pane := splitView(m)
 	if !strings.Contains(main[0], "JOURNAL · 1 of 5 headlines · law") {
 		t.Errorf("the filtered title is %q", main[0])
 	}
@@ -245,23 +245,23 @@ func TestJournalFilterCycles(t *testing.T) {
 	if m.journalFilter != "market" || len(m.headlines()) != 60 {
 		t.Fatalf("filter %q over %d headlines", m.journalFilter, len(m.headlines()))
 	}
-	main, _ = bodyRows(m)
+	main, _ = splitView(m)
 	if !strings.Contains(main[0], "60 of 65 headlines · market") {
 		t.Errorf("the title is %q", main[0])
 	}
 	rows := m.journalRows()
-	m.Update(tea.KeyMsg{Type: tea.KeyPgDown})
+	m.Update(key("pgdown"))
 	if m.journalCursor != rows || m.journalTop != 1 {
 		t.Fatalf("pgdn: cursor %d top %d rows %d", m.journalCursor, m.journalTop, rows)
 	}
 	for i := 0; i < 10; i++ {
-		m.Update(tea.KeyMsg{Type: tea.KeyPgDown})
+		m.Update(key("pgdown"))
 	}
 	if m.journalCursor != 59 || m.journalTop != 60-rows {
 		t.Errorf("pgdn to the end of the filtered list: cursor %d top %d", m.journalCursor, m.journalTop)
 	}
 	assertFrame(t, m, "filtered journal at the end")
-	m.Update(tea.KeyMsg{Type: tea.KeyPgUp})
+	m.Update(key("pgup"))
 	if m.journalCursor != 59-rows {
 		t.Errorf("pgup: cursor %d", m.journalCursor)
 	}

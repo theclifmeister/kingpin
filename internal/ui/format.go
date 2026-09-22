@@ -104,3 +104,36 @@ func clamp(cur *int, n int) int {
 	*cur = max(0, min(*cur, n-1))
 	return *cur
 }
+
+// stepCursor is ↑↓ (and j k) on a list of n that stops at its ends
+// (#275): d -1 moves the cursor up a row unless it is on the first, d
+// +1 down a row unless it is on the last; a cursor past the end of a
+// list that shrank under it is left for clamp.
+func stepCursor(cur *int, d, n int) {
+	switch {
+	case d < 0 && *cur > 0:
+		*cur--
+	case d > 0 && *cur < n-1:
+		*cur++
+	}
+}
+
+// wrapCursor is ↑↓ on a list of n that goes round (#275): the start
+// menu and the new run's first page, where up from the first row is the
+// last.
+func wrapCursor(cur *int, d, n int) {
+	if d < 0 {
+		*cur = (*cur + n - 1) % n
+	} else {
+		*cur = (*cur + 1) % n
+	}
+}
+
+// digit is a key 1-9 as the row it picks, 0-8 (#275): every picker's
+// select-and-commit.
+func digit(key string) (int, bool) {
+	if len(key) == 1 && key[0] >= '1' && key[0] <= '9' {
+		return int(key[0] - '1'), true
+	}
+	return 0, false
+}

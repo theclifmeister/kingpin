@@ -119,12 +119,7 @@ func (i IncidentConfig) Key() string {
 
 // Incident returns the row with id, or nil.
 func (c IncidentsConfig) Incident(id string) *IncidentConfig {
-	for i := range c.Table {
-		if c.Table[i].ID == id {
-			return &c.Table[i]
-		}
-	}
-	return nil
+	return find(c.Table, func(e *IncidentConfig) bool { return e.ID == id })
 }
 
 // validate checks the table reads as a table: ids unique, every row

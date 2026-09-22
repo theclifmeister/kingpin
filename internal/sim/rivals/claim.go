@@ -15,7 +15,7 @@ import (
 // before arrive_day; from it, the first day with a free corner to stand
 // on and a seat left at the table's share, it sets up there. Either way
 // it undercuts what it contests, and the rest of its step waits.
-func (s *Sim) arrive(w *game.World, t *game.Tick, r *game.RivalState, rng rand) {
+func (s *Sim) arrive(w *game.World, t *game.Tick, r *game.RivalState, rng game.Rand) {
 	if t.Day < s.ArriveDay(w, r) {
 		s.undercut(w, t, r)
 		return
@@ -42,7 +42,7 @@ func (s *Sim) arrive(w *game.World, t *game.Tick, r *game.RivalState, rng rand) 
 // cooldown runs from the tell, the day it chose, so the pace #60 set is
 // the pace it keeps (a claim a day later is not a claim cycle a day
 // longer), and a claim kept off a corner rests it too.
-func (s *Sim) claim(w *game.World, t *game.Tick, r *game.RivalState, rng rand, pc content.PersonalityConfig) {
+func (s *Sim) claim(w *game.World, t *game.Tick, r *game.RivalState, rng game.Rand, pc content.PersonalityConfig) {
 	held := w.RivalHeldBy(r.Faction())
 	if held >= s.MaxCorners(w, r) || (r.Routed != 0 && t.Day-r.Routed < s.cfg.Rivals.RegroupDays) {
 		return
@@ -127,7 +127,7 @@ func (s *Sim) EyeingBy(w *game.World, r *game.RivalState) *game.Corner {
 // says: the biggest free corner anywhere, one next to its own, or any.
 // Arriving, and for arrive_grace days after, a corner you have ever
 // worked is not one it sets up on (#60).
-func (s *Sim) pickFree(w *game.World, r *game.RivalState, rng rand, day int, arriving bool) *game.Corner {
+func (s *Sim) pickFree(w *game.World, r *game.RivalState, rng game.Rand, day int, arriving bool) *game.Corner {
 	var free, quiet, adjacent []*game.Corner
 	ground := s.corners(w, r)
 	split := w.DealWith(r.Faction(), game.DealSplit)

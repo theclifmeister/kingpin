@@ -66,8 +66,8 @@ func TestBooksKeys(t *testing.T) {
 	// The buy-off: blind, a head at a time; enter pays, the order is
 	// queued and the cash is gone.
 	m.Update(key("$"))
-	if m.mode != modeConfirmBuyOff || m.bo.units.max != 1 {
-		t.Fatalf("$ on the rivals screen: mode %v max %d", m.mode, m.bo.units.max)
+	if m.mode != modeConfirmBuyOff || m.amt.max != 1 {
+		t.Fatalf("$ on the rivals screen: mode %v max %d", m.mode, m.amt.max)
 	}
 	view = stripANSI(m.View())
 	for _, want := range []string{"BUY OFF THEIR MUSCLE?", "buy blind", "/ 1 max", "enter pay"} {
@@ -96,8 +96,8 @@ func TestBooksKeys(t *testing.T) {
 		}
 	}
 	m.Update(key("$"))
-	if m.mode != modeConfirmBuyOff || m.bo.units.max != 5 {
-		t.Fatalf("$ with the books read: mode %v max %d", m.mode, m.bo.units.max)
+	if m.mode != modeConfirmBuyOff || m.amt.max != 5 {
+		t.Fatalf("$ with the books read: mode %v max %d", m.mode, m.amt.max)
 	}
 	m.Update(key("3"))
 	m.Update(key("enter")) // a number dialog commits on enter (#241)

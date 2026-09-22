@@ -472,9 +472,9 @@ func (m *Model) cornerSection(sel *game.Corner) section {
 		lines = append(lines, theme.Subtle.Render("free"))
 	}
 	lines = append(lines,
-		row("size", fmt.Sprintf("×%.1f", sel.Demand)),
-		row("heat", fmt.Sprintf("×%.1f %s", sel.Heat, heatWord(sel.Heat))),
-		row("risk", fmt.Sprintf("×%.1f %s", sel.Risk, riskWord(sel.Risk))))
+		row("size", format.Times(sel.Demand, 1)),
+		row("heat", format.Times(sel.Heat, 1)+" "+heatWord(sel.Heat)),
+		row("risk", format.Times(sel.Risk, 1)+" "+riskWord(sel.Risk)))
 	if sel.Held() {
 		lines = append(lines, row("robbery", pctText(m.set.Territory.RobberyChance(w, sel)*100)+"/day"))
 	}
@@ -493,9 +493,9 @@ func (m *Model) cornerSection(sel *game.Corner) section {
 	switch {
 	case sel.Squeeze > 0 && sel.Owner == game.OwnerRival:
 		// The price war (#68): what last night's orders took off it.
-		lines = append(lines, row("squeezed", theme.MarketText.Render(fmt.Sprintf("-%.0f%% by you, %s", sel.Squeeze*100, plural(sel.Starved, "day")))))
+		lines = append(lines, row("squeezed", theme.MarketText.Render(fmt.Sprintf("-%s by you, %s", format.Pct(sel.Squeeze, 0), plural(sel.Starved, "day")))))
 	case sel.Squeeze > 0:
-		lines = append(lines, row("undercut", theme.RivalText.Render(fmt.Sprintf("-%.0f%% (%s)", sel.Squeeze*100, m.squeezers(sel)))))
+		lines = append(lines, row("undercut", theme.RivalText.Render(fmt.Sprintf("-%s (%s)", format.Pct(sel.Squeeze, 0), m.squeezers(sel)))))
 	}
 	if d, ok := w.Undercutting(sel.ID); ok && sel.Owner == game.OwnerRival {
 		lines = append(lines, row("undercut", theme.MarketText.Render(fmt.Sprintf("%s · takes ~%.0f/day", d, m.set.Market.UndercutUnits(w, *sel, d)))))
@@ -513,7 +513,10 @@ func (m *Model) cornerSection(sel *game.Corner) section {
 		}
 	}
 	// Demand per product, biggest first, as many to a line as the value
-	// column holds whole (two, mostly).
+	// column holds whole (two, mostly). The sort stays on the ladder's
+	// order, not World.SortedProducts (#275): a stable sort breaks a tie
+	// in demand (every product at none, say) by the order it starts in,
+	// and the ladder's is not the ids'.
 	ids := append([]string(nil), w.Products...)
 	demand := func(id string) float64 {
 		if p := w.Product(city.ID, id); p != nil {
@@ -572,14 +575,14 @@ func (m *Model) cornerSection(sel *game.Corner) section {
 		// The books (#70): the police, tipped off, take the corner.
 		tp := m.set.Rivals.TipTuning()
 		if s := w.Today.Tipoff; s != nil && s.Corner == sel.ID {
-			lines = append(lines, keyRow("t", fmt.Sprintf("tipped tonight: police %.0f → %.0f", f.Heat, min(100, f.Heat+tp.Heat))))
+			lines = append(lines, keyRow("t", fmt.Sprintf("tipped tonight: police %.0f %s %.0f", f.Heat, format.Arrow, min(100, f.Heat+tp.Heat))))
 		} else {
 			lines = append(lines, keyRow("t", fmt.Sprintf("tip the police: at %.0f of %.0f", f.Heat, tp.PoliceNotice)))
 		}
 		// The price war (#68): the third answer, from next door.
 		switch err := w.CanUndercut(sel.ID); {
 		case err == nil:
-			lines = append(lines, keyRow("u", fmt.Sprintf("undercut: takes ~%.0f%% at normal, no heat", m.set.Market.Steal(w, *sel, events.DialNormal)*100)))
+			lines = append(lines, keyRow("u", "undercut: takes ~"+format.Pct(m.set.Market.Steal(w, *sel, events.DialNormal), 0)+" at normal, no heat"))
 		case err == game.ErrNotNextDoor:
 			lines = append(lines, wrapped(theme.Subtle, "Work a corner next door and you can undercut it.")...)
 		}
@@ -656,4 +659,9 @@ func (m *Model) pusher(c *game.Corner) *game.RivalState {
 		}
 	}
 	return best
+}
+
+// keyPost is the post picker's keys: the picker's, on the roles' rows.
+func (m *Model) keyPost(key string) {
+	m.pickerKey(key, len(m.postRows(m.pick.role)), m.confirmPost)
 }

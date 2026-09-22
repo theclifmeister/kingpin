@@ -88,12 +88,7 @@ type Epilogue struct {
 
 // Ending returns the row for the cause, or nil.
 func (e EndingsConfig) Ending(cause string) *EndingConfig {
-	for i := range e.Endings {
-		if e.Endings[i].Cause == cause {
-			return &e.Endings[i]
-		}
-	}
-	return nil
+	return find(e.Endings, func(x *EndingConfig) bool { return x.Cause == cause })
 }
 
 // Won reports whether the cause counts as won; false for one the file

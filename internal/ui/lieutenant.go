@@ -57,7 +57,7 @@ func (m *Model) confirmAssign() {
 		m.refuse("Can't give them the city: " + err.Error())
 		return
 	}
-	m.say(fmt.Sprintf("%s runs %s from tonight: posts the idle crew, sells the stash, keeps %.0f%%.", lt.Name, m.w.CityName(city), m.set.Crew.Cut()*100))
+	m.say(fmt.Sprintf("%s runs %s from tonight: posts the idle crew, sells the stash, keeps %s.", lt.Name, m.w.CityName(city), format.Pct(m.set.Crew.Cut(), 0)))
 }
 
 func (m *Model) viewAssign() string {
@@ -85,7 +85,7 @@ func (m *Model) viewAssign() string {
 	// Two lines that fit the modal's width.
 	return m.pickerModal("ASSIGN "+lt.Name, nil, []col{{"city", kText, 0}, {"corners", kInt, 0}, {"units", kInt, 0}, {"runs", kText, 0}}, cells, m.pick.cursor,
 		theme.Subtle.Render("Each night they post the idle crew, drop a corner robbed twice and sell"),
-		theme.Subtle.Render(fmt.Sprintf("the stash at their dial; your own order wins. Cut %.0f%%, +%d crew slots.", m.set.Crew.Cut()*100, m.cfg.Crew.Role[game.RoleLieutenant].Crew)),
+		theme.Subtle.Render(fmt.Sprintf("the stash at their dial; your own order wins. Cut %s, +%d crew slots.", format.Pct(m.set.Crew.Cut(), 0), m.cfg.Crew.Role[game.RoleLieutenant].Crew)),
 		"", theme.Subtle.Render(fmt.Sprintf("Which city should %s run?", lt.Name)))
 }
 
@@ -133,3 +133,6 @@ func (m *Model) standingHere() int {
 	}
 	return n
 }
+
+// keyAssign is the assign picker's keys: the cities a lieutenant runs.
+func (m *Model) keyAssign(key string) { m.pickerKey(key, len(m.assignRows()), m.confirmAssign) }

@@ -146,13 +146,9 @@ func (m *Model) keyTarget(k tea.KeyMsg) (tea.Model, tea.Cmd) {
 	case 0:
 		switch key {
 		case "up", "k":
-			if m.cursor > 0 {
-				m.cursor--
-			}
+			stepCursor(&m.cursor, -1, len(m.w.Products))
 		case "down", "j":
-			if m.cursor < len(m.w.Products)-1 {
-				m.cursor++
-			}
+			stepCursor(&m.cursor, 1, len(m.w.Products))
 		case "1", "2", "3", "4", "5", "6", "7", "8", "9":
 			if i := int(key[0] - '1'); i < len(m.w.Products) {
 				m.cursor = i
