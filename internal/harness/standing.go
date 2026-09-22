@@ -4,6 +4,7 @@ import (
 	"github.com/theclifmeister/kingpin/internal/content"
 	"github.com/theclifmeister/kingpin/internal/events"
 	"github.com/theclifmeister/kingpin/internal/game"
+	"github.com/theclifmeister/kingpin/internal/sim/crew"
 )
 
 // Routine plays like Crewed and, once the operation is running, never
@@ -19,8 +20,9 @@ import (
 // It is the baseline for what the routine costs against the hand.
 func Routine(cfg *content.Config, lieLowAt float64) Policy {
 	hot := TooHot(cfg, lieLowAt)
+	cs := crew.New(cfg)
 	return func(w *game.World) {
-		staff(cfg, w, w.Player.Location, 0)
+		staff(cfg, cs, w, w.Player.Location, 0)
 		if hot(w) {
 			w.SetLieLow(true)
 			return

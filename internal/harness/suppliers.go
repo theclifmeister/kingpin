@@ -4,6 +4,7 @@ import (
 	"github.com/theclifmeister/kingpin/internal/content"
 	"github.com/theclifmeister/kingpin/internal/events"
 	"github.com/theclifmeister/kingpin/internal/game"
+	"github.com/theclifmeister/kingpin/internal/sim/crew"
 )
 
 // Leveraged plays like Crewed on credit (#72): whatever it restocks it
@@ -18,8 +19,9 @@ func Leveraged(cfg *content.Config, lieLowAt float64) Policy {
 	pressure := func(w *game.World) float64 {
 		return cfg.Market.Market.BuyPricePressure * game.FoldEffects(w, cfg.Upgrades).BuyPressureMul
 	}
+	cs := crew.New(cfg)
 	return func(w *game.World) {
-		staff(cfg, w, w.Player.Location, 0)
+		staff(cfg, cs, w, w.Player.Location, 0)
 		if hot(w) {
 			w.SetLieLow(true)
 			return
