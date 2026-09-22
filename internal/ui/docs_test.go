@@ -31,7 +31,7 @@ func TestHelpScrollsToTheLastRow(t *testing.T) {
 	}
 	for _, g := range helpGroups()[1:] {
 		for _, b := range g.keys {
-			if b.global || !b.names(screen(indexOf(screenOf, strings.ToLower(g.title)))) {
+			if b.global || !b.names(screenNamed(strings.ToLower(g.title))) {
 				t.Errorf("%s lists %s %s, which is not its own", g.title, b.key, b.label)
 			}
 		}
@@ -67,10 +67,11 @@ func TestHelpScrollsToTheLastRow(t *testing.T) {
 	}
 }
 
-func indexOf(names map[screen]string, name string) int {
-	for s, n := range names {
-		if n == name {
-			return int(s)
+// screenNamed is the screen whose word is name, or -1.
+func screenNamed(name string) screen {
+	for s := range screens {
+		if screens[s].word == name {
+			return screen(s)
 		}
 	}
 	return -1

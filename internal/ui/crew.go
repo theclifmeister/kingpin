@@ -672,3 +672,13 @@ func (m *Model) wounded() int {
 	}
 	return n
 }
+
+// crewMove walks the crew screen's rows: the roster, then the
+// candidates.
+func (m *Model) crewMove(dy int) {
+	if dy < 0 && m.crewCursor > 0 {
+		m.crewCursor--
+	} else if dy > 0 && m.crewCursor < len(m.crewRows())-1 {
+		m.crewCursor++
+	}
+}

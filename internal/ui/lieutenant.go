@@ -133,3 +133,6 @@ func (m *Model) standingHere() int {
 	}
 	return n
 }
+
+// keyAssign is the assign picker's keys: the cities a lieutenant runs.
+func (m *Model) keyAssign(key string) { m.pickerKey(key, len(m.assignRows()), m.confirmAssign) }
