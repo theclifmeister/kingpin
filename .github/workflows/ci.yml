@@ -2,10 +2,12 @@ name: CI
 
 # Runs on pull requests only: main changes solely through merged PRs whose
 # checks already passed, so a second run there would be redundant. A push
-# to main runs cache.yml instead, which repeats the same build, vet and
-# tests only to save a warm cache under main; a PR restores it below
-# (#213) and never saves one of its own (nothing could read it: a cache
-# saved under a PR's ref is visible to that PR alone).
+# to main runs cache.yml instead, which repeats the same lint and tests
+# only to save a warm cache under main; a PR restores it (#213) and never
+# saves one of its own (nothing could read it: a cache saved under a PR's
+# ref is visible to that PR alone). The steps both workflows run live in
+# one composite action, .github/actions/go (#276), so the flags that key
+# the cache cannot drift between them.
 on:
   pull_request:
 
@@ -18,49 +20,16 @@ concurrency:
 
 jobs:
   lint:
-    # Runs on the latest stable Go so staticcheck@latest is always usable;
-    # analysing a module that declares an older go directive is fine.
+    # gofmt, go mod tidy drift, go vet, staticcheck and govulncheck, the
+    # last two pinned in go.mod's tool block (#276), on go.mod's Go.
     name: Lint
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v7
 
-      - uses: actions/setup-go@v7
+      - uses: ./.github/actions/go
         with:
-          go-version: stable
-          cache: false
-
-      # The newest entry cache.yml saved from main for this go.sum. The
-      # key ends in the commit so no PR ever matches it exactly and the
-      # prefix picks the latest push; the paths are what cache.yml saves.
-      - uses: actions/cache/restore@v6
-        with:
-          path: |
-            ~/.cache/go-build
-            ~/go/pkg/mod
-            ~/.cache/staticcheck
-          key: go-lint-${{ runner.os }}-${{ hashFiles('go.sum') }}-${{ github.sha }}
-          restore-keys: go-lint-${{ runner.os }}-${{ hashFiles('go.sum') }}-
-
-      - name: gofmt
-        run: |
-          out=$(gofmt -l .)
-          if [ -n "$out" ]; then
-            echo "files need gofmt:"; echo "$out"; exit 1
-          fi
-
-      - name: go mod tidy
-        run: |
-          go mod tidy
-          git diff --exit-code go.mod go.sum
-
-      - name: go vet
-        run: go vet ./...
-
-      - name: staticcheck
-        run: |
-          go install honnef.co/go/tools/cmd/staticcheck@latest
-          "$(go env GOPATH)/bin/staticcheck" ./...
+          job: lint
 
   test:
     # Builds and tests with the toolchain declared in go.mod so the
@@ -68,65 +37,17 @@ jobs:
     name: Test
     runs-on: ubuntu-latest
     env:
+      # Keeps go from running git status, whose index rewrite would move
+      # .git after the action's content mtimes step (#213).
       GOFLAGS: -buildvcs=false
     steps:
       - uses: actions/checkout@v7
 
-      # Go keys a cached test result on the mtime and size of every file a
-      # test opens inside the module (the source guards, README.md), and a
-      # fresh checkout stamps every file with the checkout's time, so
-      # without this no entry from another run could ever match. Each
-      # tracked file gets an mtime that is a function of its blob (28 bits
-      # of the sha: 2001-2010, never in the future, which Go refuses to
-      # cache) and every directory a fixed one, .git too (a guard in
-      # internal/game walks the root, whose listing includes it; GOFLAGS
-      # above keeps go from running git status, whose index rewrite would
-      # move .git again). The same lines are in cache.yml.
-      - name: content mtimes
-        run: |
-          git ls-files -s | while IFS=$'\t' read -r meta path; do
-            sha=${meta#* }
-            touch -d "@$((0x${sha:0:7} + 1000000000))" -- "$path"
-          done
-          find . -path ./.git -prune -o -type d -exec touch -d @1000000000 {} +
-          touch -d @1000000000 .git
-
-      - uses: actions/setup-go@v7
+      # content mtimes, setup-go, the restore, go build and the two go
+      # test lines (#211's split): the steps cache.yml runs.
+      - uses: ./.github/actions/go
         with:
-          go-version-file: go.mod
-          cache: false
-
-      # The newest entry cache.yml saved from main for this go.sum (see
-      # the Lint job). Go's test cache lives in GOCACHE too, so a package
-      # this PR's change does not reach reports its pass as (cached).
-      - uses: actions/cache/restore@v6
-        with:
-          path: |
-            ~/.cache/go-build
-            ~/go/pkg/mod
-          key: go-test-${{ runner.os }}-${{ hashFiles('go.sum') }}-${{ github.sha }}
-          restore-keys: go-test-${{ runner.os }}-${{ hashFiles('go.sum') }}-
-
-      - name: build
-        run: go build ./...
-
-      # The race detector runs everywhere a goroutine could exist and is
-      # skipped on the two packages that pay for it and cannot use it
-      # (#211): internal/harness (7.4x slower under -race) and internal/ui
-      # (5.7x) start no goroutine, and TestNoGoroutineInTheTree keeps it
-      # so. race.yml sweeps the whole tree under -race weekly. The PR
-      # that first adds a goroutine to either package puts -race back on
-      # it here in the same PR.
-      # No -count=1 (#213): Go keys a cached pass on the test binary, the
-      # flags and every file and environment variable the tests read, so
-      # only a package none of this PR's changes reach is skipped, and the
-      # suite is deterministic by design. cache.yml must run these exact
-      # lines (the flags are part of the key) or nothing is ever cached;
-      # race.yml keeps -count=1 so the weekly sweep runs everything.
-      - name: test
-        run: |
-          go test -timeout 30m ./internal/harness ./internal/ui
-          go test -race -timeout 30m $(go list ./... | grep -v -e /internal/harness$ -e /internal/ui$)
+          job: test
 
       - name: balance smoke
         run: go run ./cmd/balance -runs 3 -days 50

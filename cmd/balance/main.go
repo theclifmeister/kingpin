@@ -5,9 +5,7 @@ package main
 import (
 	"flag"
 	"fmt"
-	"math"
 	"os"
-	"sort"
 	"strings"
 
 	"github.com/theclifmeister/kingpin/internal/content"
@@ -15,14 +13,12 @@ import (
 	"github.com/theclifmeister/kingpin/internal/game"
 	"github.com/theclifmeister/kingpin/internal/harness"
 	"github.com/theclifmeister/kingpin/internal/sim"
-	"github.com/theclifmeister/kingpin/internal/sim/laundering"
-	"github.com/theclifmeister/kingpin/internal/sim/territory"
 )
 
 func main() {
 	runs := flag.Int("runs", 20, "number of seeded runs")
 	days := flag.Int("days", harness.Horizon, "days to play each run for; a measuring horizon, the game itself has no cap")
-	policy := flag.String("policy", "normal", "idle | hide | quiet | normal | aggressive | careful | managed | upgraded | crewed | vigilant | territory | war | diplomat | laundered | funded | corrupt | distributor | driven | delegated | dealer | stocked | routine | leveraged | boss | pricewar | stashed | saboteur | tipster | cook | retiree | cartel | reckless | informed")
+	policy := flag.String("policy", "normal", "the scripted policy every run plays (harness.Policies): "+strings.Join(harness.PolicyNames(), " | "))
 	lt := flag.String("lt", "", "force the delegated policy's lieutenant temper: violent | greedy | careful | steady (default as generated)")
 	corners := flag.Int("corners", 3, "corners the territory and war policies work, counting yours")
 	force := flag.String("force", "push", "warn | push | hit: how hard the war policy strikes")
@@ -55,12 +51,30 @@ func main() {
 		fmt.Fprintf(os.Stderr, "-runs %d: at least one run\n", *runs)
 		os.Exit(2)
 	}
-	at := func(def float64) float64 {
-		if *lieLow > 0 {
-			return *lieLow
-		}
-		return def
+	// Every string flag with a fixed vocabulary is checked before
+	// anything runs (#274): an unknown policy fell back to normal and an
+	// unknown -force, -undercut or on/off to its default, so a typo
+	// printed the default's numbers under the typo's name.
+	entry, ok := harness.PolicyNamed(*policy)
+	if !ok {
+		refuse("policy", *policy, harness.PolicyNames())
 	}
+	forces := map[string]events.Force{"warn": events.ForceWarn, "push": events.ForcePush, "hit": events.ForceHit}
+	dials := map[string]events.Dial{"quiet": events.DialQuiet, "normal": events.DialNormal, "aggressive": events.DialAggressive}
+	oneOf("force", *force, "warn", "push", "hit")
+	oneOf("undercut", *undercut, "quiet", "normal", "aggressive")
+	oneOf("heat", *heatFlag, "on", "off")
+	oneOf("pace", *pace, "on", "off")
+	oneOf("credit", *credit, "on", "off")
+	oneOf("fronts", *fronts, "on", "off")
+	oneOf("life", *life, "on", "off")
+	oneOf("deeds", *deeds, "on", "off")
+	oneOf("incidents", *incidents, "on", "off")
+	oneOf("cards", *cards, "", "decline", "first")
+	oneOf("rival", *rival, append([]string{"", "none"}, content.Personalities...)...)
+	oneOf("lt", *lt, append([]string{""}, content.LieutenantPersonalities...)...)
+	oneOf("chief", *chief, append([]string{""}, content.ChiefPersonalities...)...)
+	oneOf("da", *da, append([]string{""}, content.DAStances...)...)
 
 	cfg := content.MustLoad()
 	if *rival == "none" {
@@ -78,113 +92,26 @@ func main() {
 	if *credit == "off" {
 		cfg = harness.NoCredit(cfg)
 	}
-	switch *life {
-	case "on":
-	case "off":
+	if *life == "off" {
 		cfg = harness.NoLife(cfg)
-	default:
-		fmt.Fprintf(os.Stderr, "unknown -life %q\n", *life)
-		os.Exit(2)
 	}
 	if *character != "" && cfg.Characters.Character(*character) == nil {
 		fmt.Fprintf(os.Stderr, "unknown -character %q\n", *character)
 		os.Exit(2)
 	}
-	switch *deeds {
-	case "on":
-	case "off":
+	if *deeds == "off" {
 		cfg = harness.NoDeeds(cfg)
-	default:
-		fmt.Fprintf(os.Stderr, "unknown -deeds %q\n", *deeds)
-		os.Exit(2)
 	}
-	var p harness.Policy
-	switch *policy {
-	case "idle":
-		p = harness.Idle
-	case "hide":
-		p = harness.Hide
-	case "quiet":
-		p = harness.Trader(cfg, events.DialQuiet)
-	case "aggressive":
-		p = harness.Trader(cfg, events.DialAggressive)
-	case "careful":
-		p = harness.Careful(cfg, at(35))
-	case "managed":
-		p = harness.Managed(cfg, at(50))
-	case "upgraded":
-		p = harness.Upgraded(cfg, at(40))
-	case "crewed":
-		p = harness.Crewed(cfg, at(40))
-	case "vigilant":
-		p = harness.Vigilant(cfg, at(40))
-	case "territory":
-		p = harness.Territory(cfg, at(40), *corners)
-	case "war":
-		f := events.ForcePush
-		switch *force {
-		case "warn":
-			f = events.ForceWarn
-		case "hit":
-			f = events.ForceHit
-		}
-		p = harness.Warlike(cfg, at(40), *corners, f)
-	case "warlord":
-		p = harness.Warlord(cfg, at(40))
-	case "diplomat":
-		p = harness.Diplomat(cfg, at(40), *corners)
-	case "informed":
-		p = harness.Informed(cfg, at(40), *corners)
-	case "pricewar":
-		d := events.DialNormal
-		switch *undercut {
-		case "quiet":
-			d = events.DialQuiet
-		case "aggressive":
-			d = events.DialAggressive
-		}
-		p = harness.Pricewar(cfg, at(40), *corners, d)
-	case "laundered":
-		p = harness.Laundered(cfg, at(40))
-	case "funded":
-		p = harness.Funded(cfg, at(40))
-	case "corrupt":
-		p = harness.Corrupt(cfg, at(40))
-	case "favoured":
-		p = harness.Favoured(cfg, at(40))
-	case "distributor":
-		p = harness.Distributor(cfg, at(40))
-	case "driven":
-		p = harness.Driven(cfg, at(40))
-	case "delegated":
-		p = harness.Delegated(cfg, at(40), *lt)
-	case "dealer":
-		p = harness.Dealer(cfg, at(40))
-	case "stocked":
-		p = harness.Stocked(cfg, at(40))
-	case "routine":
-		p = harness.Routine(cfg, at(40))
-	case "leveraged":
-		p = harness.Leveraged(cfg, at(40))
-	case "boss":
-		p = harness.BossAt(cfg, at(40), *lt, *margin)
-	case "retiree":
-		p = harness.Retiree(cfg, at(40))
-	case "stashed":
-		p = harness.Stashed(cfg, at(40), *houses, *fronts != "off")
-	case "saboteur":
-		p = harness.Saboteur(cfg, at(40))
-	case "tipster":
-		p = harness.Tipster(cfg, at(40))
-	case "cook":
-		p = harness.Cook(cfg, at(40))
-	case "cartel":
-		p = harness.Cartel(cfg, at(40))
-	case "reckless":
-		p = harness.Reckless(cfg)
-	default:
-		p = harness.Trader(cfg, events.DialNormal)
-	}
+	p := entry.Make(cfg, harness.PolicyOpts{
+		LieLow:     *lieLow,
+		Corners:    *corners,
+		Force:      forces[*force],
+		Undercut:   dials[*undercut],
+		Lieutenant: *lt,
+		Margin:     *margin,
+		Houses:     *houses,
+		Fronts:     *fronts != "off",
+	})
 	if *cut > 0 {
 		p = harness.Cutter(cfg, *cut, p)
 	}
@@ -199,133 +126,20 @@ func main() {
 		pick = harness.Decline
 	case "first":
 		pick = harness.First
-	case "":
-	default:
-		fmt.Fprintf(os.Stderr, "unknown -cards %q\n", *cards)
-		os.Exit(2)
 	}
-	switch *incidents {
-	case "on", "off":
-	default:
-		fmt.Fprintf(os.Stderr, "unknown -incidents %q\n", *incidents)
-		os.Exit(2)
-	}
-	var played, peaks []int
-	worth := map[int][]int{}
-	fired := map[string]int{} // incident id -> times it fired across the runs (#44)
-	firedRuns := 0
-	reached := map[int][]int{} // tier -> the day each run entered it, or never (#147)
-	endings := map[string]int{}
-	robberies, robbed := 0, 0
-	var rivalHeld, takens []int
-	rivalAt := map[int][]int{}
-	// The table (#43): corners per faction at the pace days (by seat,
-	// medians), the pushes between factions, the absorptions, the
-	// leaders taken, the crew poached, the homage paid, and whether any
-	// day of any run read Dominant.
-	factionAt := map[int][][]int{}
-	factionPushes, factionTakes, absorbed, arrested, poachedCrew, poachOffers, homagePaid, homageDays, dominantDays, counts := 0, 0, 0, 0, 0, 0, 0, 0, 0, map[int]int{}
-	factionsAt := func(w *game.World, d int) {
-		for i, r := range w.Rivals {
-			for len(factionAt[d]) <= i {
-				factionAt[d] = append(factionAt[d], nil)
-			}
-			factionAt[d][i] = append(factionAt[d][i], w.RivalHeldBy(r.Faction()))
-		}
-	}
-	// The rival's books at the pace days (#139): cash, income and the
-	// wage bill, so whether money can hurt it is a number in the output.
-	cashAt, incomeAt, wagesAt := map[int][]int{}, map[int][]int{}, map[int][]int{}
-	books := func(w *game.World, d int) {
-		income, wages := harness.RivalBooks(cfg, w)
-		cashAt[d] = append(cashAt[d], w.Rival().Cash)
-		incomeAt[d] = append(incomeAt[d], income)
-		wagesAt[d] = append(wagesAt[d], wages)
-	}
-	won, strikes, tips, crackdowns := 0, 0, 0, 0
-	// The books (#70): what the moves against the rival did per run.
-	scouts, reads, boosts, boostsLanded, boosted, yourTips, tipRaids, poached := 0, 0, 0, 0, 0, 0, 0, 0
-	var rivalHeat, evidence []int
-	undercuts, undercutUnits, abandons := 0, 0, 0
-	var muscle []int
-	informants, leaks, investigations, named, defections := 0, 0, 0, 0, 0
-	lieutenants, cuts, walked, flipped := 0, 0, 0, 0
-	tempers := map[string]int{}
-	personalities := map[string]int{}
-	bought := map[string]int{}
-	audits, laundered, clean := 0, 0, 0
-	earned, invested, levels, legit, frontsFrozen := 0, 0, 0, 0, 0
-	offshore, fees, offshoreRuns, structured := 0, 0, 0, 0
-	assetsBought, assetCash, assetsLost, taskForces, tunnelsFound, assetRuns, assetUpkeep := 0, 0, 0, 0, 0, 0, 0 // #48
-	assetsOwned := map[string]int{}
-	var retired []int
-	var scores []int // the score of every run that ended (#49): the account over one plus the bodies
-	ld := laundering.New(cfg)
-	tr := territory.New(cfg) // the deeds' rent (#194)
-	shipments, shipped, seizures, seizedUnits := 0, 0, 0, 0
-	var fear, respect, notoriety []int
-	dealt := map[string]int{}
-	deals, refused, betrayals, betrayedBy, tribute, offers := 0, 0, 0, 0, 0, 0
-	var trust []int
-	var pressure, goodwill []int
-	elections, chiefs, funded := 0, 0, 0
-	campaigns, campaignsWon, backed := 0, 0, 0                                        // #193
-	bribes, bribed, backfires, checkpoints, checkpointCash, leads := 0, 0, 0, 0, 0, 0 // #42
-	favours := 0                                                                      // #228
-	taxed := 0                                                                        // #231
-	stances := map[string]int{}
-	tempersOfChief := map[string]int{}
-	var rels []int
-	debtDays, late, connectsFrozen, collected, creditTaken := 0, 0, 0, 0, 0
-	housesHeld, housesLost, houseUnits, rent, raidUnits, houseRaids := 0, 0, 0, 0, 0, 0
-	deedsHeld, deedsBought, deedCash, deedRent, deedsSeized, deedRentDay := 0, 0, 0, 0, 0, 0
-	// Quality (#47): what the cuts and the cooks did, the overdoses, the
-	// quality of what sold and the corners' repeat business at the end.
-	cutUnits, cutCost, cooked, cookCost, overdoses, chemists := 0, 0, 0, 0, 0, 0
-	// Crew life (#46): the bodies on both sides, the cells, the bails,
-	// the wounds and the retirements, and what the driver did.
-	bodies, fallen, arrests, bails, bailCash, wounded, pensioned, driven, drivenSeized := 0, 0, 0, 0, 0, 0, 0, 0, 0
-	// Intel (#45): the cops paid and what they cost, the spies planted,
-	// found and shot with the reports they filed, the lies fed and the
-	// ones that bit, and the facts at the end.
-	copsPaid, copCash, spies, spiesFound, spiesShot, reports, lures, bitten, factsHeld := 0, 0, 0, 0, 0, 0, 0, 0, 0
-	soldUnits, soldWeighed := 0.0, 0.0
-	var repeats []int
+	t := newTally(cfg)
 	for seed := *seed0; seed < *seed0+uint64(*runs); seed++ {
 		// The rival's corners at the pace days, read the morning after.
 		pol := func(w *game.World) {
-			for _, d := range harness.PaceDays {
-				if w.Day == d {
-					rivalAt[d] = append(rivalAt[d], w.RivalHeld())
-					books(w, d)
-					factionsAt(w, d)
-				}
-			}
-			if w.Dominant() {
-				dominantDays++
-			}
+			t.morning(w)
 			p(w)
 		}
-		if *trace && seed == *seed0 {
+		traced := *trace && seed == *seed0
+		if traced {
 			inner := pol
 			pol = func(w *game.World) {
 				inner(w)
-				fmt.Printf("day %3d %s dirty %8d clean %9d heat", w.Day, w.Player.Location, w.Player.DirtyCash, w.Player.CleanCash)
-				for _, cid := range w.CityOrder {
-					fmt.Printf(" %.0f", w.Cities[cid].Heat)
-				}
-				fmt.Printf(" pressure")
-				for _, cid := range w.CityOrder {
-					fmt.Printf(" %.0f", w.Cities[cid].Pressure)
-				}
-				fmt.Printf(" file %d stock %3d/%3d +%d road orders %d crew %d corners %d/%d rival %d war %3.0f upgrades %d fronts %d %s deeds %d rep %.0f/%.0f/%.0f", w.Heat.Evidence, w.Stashed(), w.Capacity(w.Player.Location), w.TotalStock()-w.Stashed(), len(w.Today.Orders), len(w.Crew.Members), w.Worked(), w.Held(), w.RivalHeld(), w.Rival().War, len(w.Upgrades), len(w.Fronts), w.Laundering.Dial, len(w.Deeds()), w.Player.Reputation.Fear, w.Player.Reputation.Respect, w.Player.Reputation.Notoriety)
-				for _, id := range w.Products {
-					fmt.Printf("  %s", id)
-					for _, cid := range w.CityOrder {
-						fmt.Printf(" $%.1f", w.Cities[cid].Market[id].Price)
-					}
-				}
-				fmt.Println()
+				traceDay(w)
 			}
 		}
 		start := harness.Character(cfg, *character)
@@ -337,7 +151,7 @@ func main() {
 		if *rival != "" && *rival != "none" {
 			w.Rival().Personality = *rival
 		}
-		counts[len(w.Rivals)]++
+		t.table.counts[len(w.Rivals)]++
 		harness.Own(cfg, w, owned...)
 		if *snitch {
 			harness.Plant(cfg, w)
@@ -348,494 +162,60 @@ func main() {
 			fmt.Fprintln(os.Stderr, err)
 			os.Exit(1)
 		}
-		if res.World.Day == *days {
-			for _, d := range harness.PaceDays {
-				if d == *days {
-					rivalAt[d] = append(rivalAt[d], res.World.RivalHeld())
-					books(res.World, d)
-					factionsAt(res.World, d)
-				}
-			}
-		}
-		played = append(played, res.Days)
-		peaks = append(peaks, res.PeakCash)
-		for n := 2; n <= len(cfg.Progression.Tiers); n++ {
-			reached[n] = append(reached[n], res.World.ReachedOn(n))
-		}
-		for _, d := range harness.TierDays {
-			if d <= *days {
-				worth[d] = append(worth[d], res.NetWorthAt(d))
-			}
-		}
-		if res.Over != nil {
-			endings[res.Over.Cause]++
-			scores = append(scores, res.World.Stats.Score)
-		} else {
-			endings["still free"]++
-		}
-		for _, e := range res.Events {
-			switch ev := e.(type) {
-			case events.Incident:
-				fired[ev.ID]++
-				firedRuns++
-				if *trace && seed == *seed0 {
-					fmt.Printf("day %3d incident %s in %s", ev.Day, ev.ID, ev.City)
-					if ev.Route != "" {
-						fmt.Printf(" route %s", ev.Route)
-					}
-					if ev.Product != "" {
-						fmt.Printf(" product %s", ev.Product)
-					}
-					if ev.Days > 0 {
-						fmt.Printf(" %dd", ev.Days)
-					}
-					fmt.Println()
-				}
-			case events.DeedBought:
-				if *trace && seed == *seed0 {
-					fmt.Printf("day %3d deed %s in %s $%d, rent $%d/day\n", ev.Day, ev.Corner, ev.City, ev.Price, ev.Rent)
-				}
-			case events.DeedSeized:
-				if *trace && seed == *seed0 {
-					fmt.Printf("day %3d forfeiture %s in %s $%d: $%d in deeds against $%d washed\n", ev.Day, ev.Corner, ev.City, ev.Price, ev.Spent, ev.Washed)
-				}
-			case events.CornerRobbed:
-				robberies++
-			case events.FactionPushed:
-				factionPushes++
-				if ev.Taken {
-					factionTakes++
-				}
-			case events.CrewPoached:
-				poachOffers++
-			case events.TributePaid:
-				if ev.ToYou {
-					homageDays++
-				}
-			case events.RivalTippedPolice:
-				tips++
-			case events.RivalScouted:
-				scouts++
-				if ev.Read {
-					reads++
-				}
-			case events.RivalBoosted:
-				boosts++
-				if ev.Taken {
-					boostsLanded++
-					boosted += ev.Cash
-				}
-			case events.PoliceTipped:
-				yourTips++
-			case events.RivalRaided:
-				tipRaids++
-			case events.RivalMusclePoached:
-				poached += ev.Got
-			case events.PlayerUndercut:
-				undercuts++
-				undercutUnits += ev.Units
-			case events.RivalAbandoned:
-				abandons++
-			case events.WarEscalated:
-				if ev.Stage == events.StageCrackdown {
-					crackdowns++
-				}
-			case events.FrontAudited:
-				audits++
-			case events.FrontFrozen:
-				frontsFrozen++
-			case events.Reserved:
-				structured += ev.Lots
-			case events.CrewTurnedInformant:
-				informants++
-			case events.InvestigationRun:
-				investigations++
-				if ev.Found {
-					named++
-				}
-			case events.CrewDefected:
-				defections++
-			case events.LieutenantFlipped:
-				flipped++
-			case events.DilemmaDrawn:
-				dealt[ev.Card]++
-			case events.DealOffered:
-				offers++
-			case events.SupplierFrozen:
-				connectsFrozen++
-			case events.SupplierCollected:
-				collected++
-			case events.HeatChanged:
-				for _, r := range ev.Reasons {
-					if strings.HasPrefix(r, "the DA's file") {
-						leaks++
-					}
-				}
-			case events.PlayerSold:
-				soldUnits += float64(ev.Sold)
-				soldWeighed += float64(ev.Sold) * ev.Quality
-			}
-		}
-		cutUnits += res.World.Stats.Cut
-		cutCost += res.World.Stats.CutCost
-		cooked += res.World.Stats.Cooked
-		cookCost += res.World.Stats.CookCost
-		overdoses += res.World.Stats.Overdoses
-		if res.World.Crew.Chemist() != nil {
-			chemists++
-		}
-		in := res.World.Stats
-		copsPaid, copCash, spies, spiesFound, spiesShot, reports, lures, bitten = copsPaid+in.CopsPaid, copCash+in.CopCash, spies+in.Spies, spiesFound+in.SpiesFound, spiesShot+in.SpiesShot, reports+in.Reports, lures+in.Lures, bitten+in.Bitten
-		factsHeld += len(game.Known(res.World).Facts())
-		bodies += res.World.Stats.Bodies
-		fallen += res.World.Stats.Fallen
-		arrests += res.World.Stats.Arrests
-		bails += res.World.Stats.Bails
-		bailCash += res.World.Stats.BailCash
-		wounded += res.World.Stats.Wounded
-		pensioned += res.World.Stats.Retired
-		for _, e := range res.Events {
-			switch ev := e.(type) {
-			case events.ShipmentSent:
-				if ev.Driver != 0 {
-					driven++
-				}
-			case events.ShipmentSeized:
-				if ev.Driver != 0 {
-					drivenSeized++
-				}
-			}
-		}
-		for _, c := range res.World.Home().Corners {
-			if c.Held() {
-				repeats = append(repeats, int(math.Round(c.Repeats()*100)))
-			}
-		}
-		robbed += res.World.Stats.Robbed
-		cuts += res.World.Stats.Cuts
-		walked += res.World.Stats.Walked
-		for _, m := range res.World.Crew.Members {
-			if m.Runs() {
-				lieutenants++
-				tempers[m.Personality]++
-			}
-		}
-		rivalHeld = append(rivalHeld, res.World.RivalHeld())
-		muscle = append(muscle, res.World.Rival().Muscle)
-		rivalHeat = append(rivalHeat, int(res.World.Rival().Heat))
-		evidence = append(evidence, res.World.Heat.Evidence)
-		takens = append(takens, res.World.Stats.CornersLost)
-		won += res.World.Stats.CornersWon
-		strikes += res.World.Stats.Strikes
-		personalities[res.World.Rival().Personality]++
-		homagePaid += res.World.Stats.Homage
-		poachedCrew += res.World.Stats.CrewPoached
-		absorbed += res.World.Stats.Absorbed
-		arrested += res.World.Stats.Fragmented
-		for id := range res.World.Upgrades {
-			bought[id]++
-		}
-		laundered += res.World.Stats.Laundered
-		clean += res.World.Player.CleanCash
-		offshore += res.World.Offshore
-		if st := res.World.Stats; st.Assets > 0 || st.TaskForces > 0 {
-			assetRuns++
-			assetsBought += st.Assets
-			assetCash += st.AssetCash
-			assetsLost += st.AssetsLost
-			taskForces += st.TaskForces
-			assetUpkeep += st.AssetUpkeep
-			for _, a := range res.World.Assets {
-				assetsOwned[a.ID]++
-			}
-			for _, a := range res.World.AssetsLost {
-				if a.Why == "found" {
-					tunnelsFound++
-				}
-			}
-		}
-		fees += res.World.Stats.Fees
-		if res.World.Offshore > 0 {
-			offshoreRuns++
-		}
-		if res.Over != nil && res.Over.Cause == "retired" {
-			retired = append(retired, res.World.Offshore)
-		}
-		earned += res.World.Stats.Earned
-		invested += res.World.Stats.Invested
-		for _, f := range res.World.Fronts {
-			levels += f.Level
-		}
-		legit += ld.LegitIncome(res.World)
-		shipments += res.World.Stats.Shipments
-		shipped += res.World.Stats.Shipped
-		seizures += res.World.Stats.Seizures
-		seizedUnits += res.World.Stats.SeizedOnRoad
-		rep := res.World.Player.Reputation
-		fear, respect, notoriety = append(fear, int(rep.Fear)), append(respect, int(rep.Respect)), append(notoriety, int(rep.Notoriety))
-		st := res.World.Stats
-		deals, refused, betrayals, betrayedBy, tribute = deals+st.Deals, refused+st.DealsRefused, betrayals+st.Betrayals, betrayedBy+st.BetrayedBy, tribute+st.Tribute
-		trust = append(trust, int(res.World.Rival().Trust))
-		pressure = append(pressure, int(res.World.Here().Pressure))
-		goodwill = append(goodwill, int(res.World.Here().Goodwill))
-		elections, chiefs, funded = elections+st.Elections, chiefs+st.Chiefs, funded+st.Funded
-		campaigns, campaignsWon, backed = campaigns+st.Campaigns, campaignsWon+st.CampaignsWon, backed+st.Backed
-		bribes, bribed, backfires, checkpoints, checkpointCash, leads = bribes+st.Bribes, bribed+st.Bribed, backfires+st.Backfires, checkpoints+st.Checkpoints, checkpointCash+st.CheckpointCash, leads+st.Leads
-		favours += st.Favours
-		taxed += st.Taxed
-		stances[res.World.Law.DA.Stance]++
-		tempersOfChief[res.World.Law.Chief.Personality]++
-		// The street connect where the run ended: the relationship the
-		// policy built.
-		if sup := res.World.StreetSupplier(res.World.Player.Location); sup != nil {
-			rels = append(rels, int(sup.Rel))
-		}
-		debtDays += st.DebtDays
-		late += st.LatePayments
-		creditTaken += st.Credit
-		housesHeld += len(res.World.Houses)
-		housesLost += st.HousesLost
-		// The property (#194): the deeds held at the end, what they
-		// cost and paid back, the DA's seizures, and the rent a day at
-		// the end.
-		deedsHeld += len(res.World.Deeds())
-		deedsBought += st.Deeds
-		deedCash += st.DeedCash
-		deedRent += st.DeedRent
-		deedsSeized += st.DeedsSeized
-		for _, c := range res.World.Deeds() {
-			deedRentDay += tr.DeedRent(c.Deed)
-		}
-		houseUnits += st.HouseUnits
-		rent += st.Rent
-		for _, e := range res.Events {
-			if ev, ok := e.(events.Enforcement); ok && (ev.Level == content.Raid || ev.Level == content.Sting) {
-				houseRaids++
-				for _, n := range ev.StockLost {
-					raidUnits += n
-				}
-			}
+		t.add(res, *days, traced)
+	}
+	t.print(summary{
+		policy: *policy, pace: *pace, credit: *credit, cards: *cards, character: *character,
+		runs: *runs, days: *days,
+		hardDA: *hardDA, snitch: *snitch, incidents: *incidents == "on", dealing: pick != nil,
+		cut: *cut,
+	})
+}
+
+// oneOf refuses a string flag whose value is not one of valid (#274):
+// every string flag with a fixed vocabulary goes through it, so a typo
+// exits 2 with the valid values instead of playing the default.
+func oneOf(name, value string, valid ...string) {
+	for _, v := range valid {
+		if v == value {
+			return
 		}
 	}
-	sort.Ints(played)
-	sort.Ints(peaks)
-	fmt.Printf("policy=%s runs=%d horizon=%d days\n", *policy, *runs, *days)
-	if *character != "" || *hardDA {
-		who := *character
-		if who == "" {
-			who = cfg.Characters.Default().ID
+	refuse(name, value, valid)
+}
+
+// refuse prints the unknown value with the valid ones and exits 2.
+func refuse(name, value string, valid []string) {
+	named := make([]string, len(valid))
+	for i, v := range valid {
+		if v == "" {
+			v = `""`
 		}
-		fmt.Printf("character:     %s (%s), hard DA %v\n", who, cfg.Characters.Character(who).Name, *hardDA)
+		named[i] = v
 	}
-	fmt.Printf("days played:   min %d median %d max %d\n", played[0], played[len(played)/2], played[len(played)-1])
-	fmt.Printf("peak cash:     min %d median %d max %d\n", peaks[0], peaks[len(peaks)/2], peaks[len(peaks)-1])
-	fmt.Printf("net worth:    ")
-	for _, d := range harness.TierDays {
-		if ws := worth[d]; len(ws) > 0 {
-			sort.Ints(ws)
-			fmt.Printf(" day %d median %d", d, ws[len(ws)/2])
+	fmt.Fprintf(os.Stderr, "unknown -%s %q: one of %s\n", name, value, strings.Join(named, " | "))
+	os.Exit(2)
+}
+
+// traceDay is -trace's line for a day: where the player stands, the
+// cash, the heat and the pressure a city, the file, the stock, the
+// crew, the corners, the rival, the tree, the fronts, the deeds, the
+// reputation and every product's price a city.
+func traceDay(w *game.World) {
+	fmt.Printf("day %3d %s dirty %8d clean %9d heat", w.Day, w.Player.Location, w.Player.DirtyCash, w.Player.CleanCash)
+	for _, cid := range w.CityOrder {
+		fmt.Printf(" %.0f", w.Cities[cid].Heat)
+	}
+	fmt.Printf(" pressure")
+	for _, cid := range w.CityOrder {
+		fmt.Printf(" %.0f", w.Cities[cid].Pressure)
+	}
+	fmt.Printf(" file %d stock %3d/%3d +%d road orders %d crew %d corners %d/%d rival %d war %3.0f upgrades %d fronts %d %s deeds %d rep %.0f/%.0f/%.0f", w.Heat.Evidence, w.Stashed(), w.Capacity(w.Player.Location), w.TotalStock()-w.Stashed(), len(w.Today.Orders), len(w.Crew.Members), w.Worked(), w.Held(), w.RivalHeld(), w.Rival().War, len(w.Upgrades), len(w.Fronts), w.Laundering.Dial, len(w.Deeds()), w.Player.Reputation.Fear, w.Player.Reputation.Respect, w.Player.Reputation.Notoriety)
+	for _, id := range w.Products {
+		fmt.Printf("  %s", id)
+		for _, cid := range w.CityOrder {
+			fmt.Printf(" $%.1f", w.Cities[cid].Market[id].Price)
 		}
 	}
 	fmt.Println()
-	// The median day each tier is entered: a run that never entered it
-	// sorts last, so a tier half the runs never reach reads as never.
-	fmt.Printf("tiers:        ")
-	for n := 2; n <= len(cfg.Progression.Tiers); n++ {
-		days := reached[n]
-		sort.Slice(days, func(i, j int) bool {
-			if days[i] < 0 || days[j] < 0 {
-				return days[j] < 0 && days[i] >= 0
-			}
-			return days[i] < days[j]
-		})
-		med := days[len(days)/2]
-		if med < 0 {
-			fmt.Printf(" %d %s never", n, cfg.Progression.Tiers[n-1].Name)
-		} else {
-			fmt.Printf(" %d %s d%d", n, cfg.Progression.Tiers[n-1].Name, med)
-		}
-		if n < len(cfg.Progression.Tiers) {
-			fmt.Printf(" ·")
-		}
-	}
-	fmt.Println(" (median day entered)")
-	fmt.Printf("robberies:     %d per run, $%d lost per run\n", robberies / *runs, robbed / *runs)
-	sort.Ints(rivalHeld)
-	sort.Ints(takens)
-	fmt.Printf("rival:         holds %d corners at the end (median), took %d/%d/%d of yours (min/median/max), tipped police %.1f times per run, %d crackdowns; %v\n",
-		rivalHeld[len(rivalHeld)/2], takens[0], takens[len(takens)/2], takens[len(takens)-1], float64(tips)/float64(*runs), crackdowns, personalities)
-	fmt.Printf("rival pace:   ")
-	for _, d := range harness.PaceDays {
-		if ws := rivalAt[d]; len(ws) > 0 {
-			sort.Ints(ws)
-			fmt.Printf(" day %d median %d corners (%d..%d)", d, ws[len(ws)/2], ws[0], ws[len(ws)-1])
-		}
-	}
-	fmt.Printf(" (pace %s)\n", *pace)
-	if len(counts) > 1 || counts[1] == 0 {
-		fmt.Printf("factions:      %v per run (count: runs);", counts)
-		for _, d := range harness.PaceDays {
-			if fs := factionAt[d]; len(fs) > 0 {
-				fmt.Printf(" day %d corners", d)
-				for i, ws := range fs {
-					if len(ws) == 0 {
-						continue
-					}
-					sort.Ints(ws)
-					fmt.Printf(" f%d %d", i+1, ws[len(ws)/2])
-				}
-				fmt.Printf(";")
-			}
-		}
-		fmt.Printf(" %d pushes between factions (%d corners changed hands), %d absorbed, %d leaders taken, %d of your crew poached (%d offers), $%d homage over %d days (totals over %d runs); dominant on %d days\n",
-			factionPushes, factionTakes, absorbed, arrested, poachedCrew, poachOffers, homagePaid, homageDays, *runs, dominantDays)
-	}
-	fmt.Printf("rival books:  ")
-	for _, d := range harness.PaceDays {
-		if cs := cashAt[d]; len(cs) > 0 {
-			sort.Ints(cs)
-			sort.Ints(incomeAt[d])
-			sort.Ints(wagesAt[d])
-			fmt.Printf(" day %d cash %d income %d/day wages %d/day", d, cs[len(cs)/2], incomeAt[d][len(cs)/2], wagesAt[d][len(cs)/2])
-		}
-	}
-	fmt.Println(" (medians)")
-	if strikes > 0 {
-		fmt.Printf("war:           %.1f strikes per run, %.1f corners won per run\n", float64(strikes)/float64(*runs), float64(won)/float64(*runs))
-	}
-	if undercuts+abandons > 0 {
-		sort.Ints(muscle)
-		fmt.Printf("price war:     %.1f undercuts per run moving %d units, %d corners abandoned (totals over %d runs), rival muscle %d at the end (median)\n",
-			float64(undercuts)/float64(*runs), undercutUnits / *runs, abandons, *runs, muscle[len(muscle)/2])
-	}
-	if scouts+boosts+yourTips+poached > 0 {
-		sort.Ints(muscle)
-		sort.Ints(rivalHeat)
-		sort.Ints(evidence)
-		fmt.Printf("books:         %.1f scouts per run (%d read), %.1f boosts (%d landed, $%d taken) per run, %.1f tips per run bringing %d raids, %d heads bought off (totals over %d runs); rival muscle %d, rival heat %d, file %d at the end (medians)\n",
-			float64(scouts)/float64(*runs), reads, float64(boosts)/float64(*runs), boostsLanded, boosted / *runs, float64(yourTips)/float64(*runs), tipRaids, poached, *runs, muscle[len(muscle)/2], rivalHeat[len(rivalHeat)/2], evidence[len(evidence)/2])
-	}
-	if cutUnits+cooked+overdoses > 0 || *cut > 0 || *policy == "cook" {
-		meanQ := 0.0
-		if soldUnits > 0 {
-			meanQ = soldWeighed / soldUnits
-		}
-		rep := 100
-		if len(repeats) > 0 {
-			sort.Ints(repeats)
-			rep = repeats[len(repeats)/2]
-		}
-		fmt.Printf("quality:       %d units cut in for $%d, %d cooked for $%d (per run), %d overdoses over %d runs, %d runs end with a chemist; sold at quality %.0f (mean), held corners keep %d%% of their customers at the end (median)\n",
-			cutUnits / *runs, cutCost / *runs, cooked / *runs, cookCost / *runs, overdoses, *runs, chemists, meanQ, rep)
-	}
-	if bodies+arrests+wounded+pensioned+driven > 0 {
-		fmt.Printf("crew life:     %.1f bodies per run (%.1f yours), %.1f arrests, %.1f bails for $%d, %.1f wounded, %.1f retired; %d shipments driven, %d of them seized (totals over %d runs)\n",
-			float64(bodies)/float64(*runs), float64(fallen)/float64(*runs), float64(arrests)/float64(*runs), float64(bails)/float64(*runs), bailCash / *runs, float64(wounded)/float64(*runs), float64(pensioned)/float64(*runs), driven, drivenSeized, *runs)
-	}
-	if copsPaid+spies+lures > 0 || *policy == "informed" {
-		fmt.Printf("intel:         %.1f cops paid for $%d per run, %.1f spies planted (%d found, %d of them shot; %d reports), %.1f lies fed (%d bit) per run; %.1f facts held at the end (over %d runs)\n",
-			float64(copsPaid)/float64(*runs), copCash / *runs, float64(spies)/float64(*runs), spiesFound, spiesShot, reports, float64(lures)/float64(*runs), bitten, float64(factsHeld)/float64(*runs), *runs)
-	}
-	if informants+leaks+investigations+defections > 0 || *snitch {
-		fmt.Printf("snitching:     %d turned, %d pages leaked, %d investigations named %d, %d defections (totals over %d runs)\n", informants, leaks, investigations, named, defections, *runs)
-	}
-	if lieutenants+walked+flipped > 0 {
-		fmt.Printf("lieutenants:   %d running a city at the end, $%d cut per run, %d walked, %d flipped (totals over %d runs); %v\n", lieutenants, cuts / *runs, walked, flipped, *runs, tempers)
-	}
-	if len(bought) > 0 {
-		var ids []string
-		for _, n := range cfg.Upgrades.Nodes {
-			if bought[n.ID] > 0 {
-				ids = append(ids, fmt.Sprintf("%s %d", n.ID, bought[n.ID]))
-			}
-		}
-		fmt.Printf("upgrades:      %s (runs owning each)\n", strings.Join(ids, ", "))
-	}
-	fmt.Printf("laundering:    $%d washed per run, %d audits per run, $%d clean at the end\n", laundered / *runs, audits / *runs, clean / *runs)
-	if invested > 0 {
-		fmt.Printf("fronts:        %d levels owned at the end, $%d invested, $%d earned per run, %d shut for upkeep per run; legit income $%d/day at the end (means)\n", levels / *runs, invested / *runs, earned / *runs, frontsFrozen / *runs, legit / *runs)
-	}
-	if offshoreRuns > 0 {
-		sort.Ints(retired)
-		score := 0
-		if len(retired) > 0 {
-			score = retired[len(retired)/2]
-		}
-		fmt.Printf("offshore:      $%d in the account at the end, $%d in fees per run, %d lots over the line (totals over %d runs); %d retired, scoring $%d (median)\n", offshore / *runs, fees / *runs, structured, *runs, len(retired), score)
-	}
-	if assetRuns > 0 {
-		var ids []string
-		for _, a := range cfg.Assets.Offers {
-			if assetsOwned[a.ID] > 0 {
-				ids = append(ids, fmt.Sprintf("%s %d", a.ID, assetsOwned[a.ID]))
-			}
-		}
-		fmt.Printf("assets:        %.1f bought per run for $%d, $%d upkeep per run, %.1f seized per run, %.1f task forces per run, %d tunnels found (over %d runs); owned at the end: %s\n",
-			float64(assetsBought)/float64(*runs), assetCash / *runs, assetUpkeep / *runs, float64(assetsLost)/float64(*runs), float64(taskForces)/float64(*runs), tunnelsFound, *runs, strings.Join(ids, ", "))
-	}
-	if shipments > 0 {
-		fmt.Printf("logistics:     %.1f shipments per run carrying %d units, %.1f seized per run taking %d units (%.0f%% of shipments)\n",
-			float64(shipments)/float64(*runs), shipped / *runs, float64(seizures)/float64(*runs), seizedUnits / *runs, 100*float64(seizures)/float64(shipments))
-	}
-	sort.Ints(fear)
-	sort.Ints(respect)
-	sort.Ints(notoriety)
-	fmt.Printf("reputation:    fear %d respect %d notoriety %d at the end (medians), fear max %d respect max %d notoriety max %d\n",
-		fear[len(fear)/2], respect[len(respect)/2], notoriety[len(notoriety)/2], fear[len(fear)-1], respect[len(respect)-1], notoriety[len(notoriety)-1])
-	if deals+refused+offers > 0 {
-		sort.Ints(trust)
-		fmt.Printf("diplomacy:     %d deals struck, %d refused, %d offered by the rival, %d broken by you, %d by them, $%d tribute per run, trust %d at the end (median)\n",
-			deals, refused, offers, betrayals, betrayedBy, tribute / *runs, trust[len(trust)/2])
-	}
-	sort.Ints(pressure)
-	sort.Ints(goodwill)
-	fmt.Printf("law:           pressure %d goodwill %d at the end (medians), pressure max %d, %d elections, %d chiefs replaced, $%d given per run; DA %v chief %v\n",
-		pressure[len(pressure)/2], goodwill[len(goodwill)/2], pressure[len(pressure)-1], elections, chiefs, funded / *runs, stances, tempersOfChief)
-	fmt.Printf("campaigns:     %d backed, %d won, $%d put behind a ticket per run\n", campaigns, campaignsWon, backed / *runs)
-	if taxed > 0 {
-		fmt.Printf("tax:           $%d per run off the free corners of a city held\n", taxed / *runs)
-	}
-	fmt.Printf("bribes:        %d envelopes ($%d per run), %d backfired, %d leads, %d favours called in; %d checkpoints and customs deals ($%d per run)\n", bribes, bribed / *runs, backfires, leads, favours, checkpoints, checkpointCash / *runs)
-	if len(rels) > 0 {
-		sort.Ints(rels)
-		fmt.Printf("suppliers:     rel %d with the street connect at the end (median), %d days in debt per run, %d late payments, %d freezes, %d collections, $%d taken on credit per run (credit %s)\n",
-			rels[len(rels)/2], debtDays / *runs, late, connectsFrozen, collected, creditTaken / *runs, *credit)
-	}
-	if housesHeld > 0 || housesLost > 0 {
-		fmt.Printf("houses:        %d held at the end per run, %d lost to the landlord, $%d rent per run, %d units lost out of the houses per run; %d stings and raids took %d units per run\n",
-			housesHeld / *runs, housesLost, rent / *runs, houseUnits / *runs, houseRaids, raidUnits / *runs)
-	}
-	if deedsBought > 0 {
-		fmt.Printf("property:      %d deeds held at the end per run (%d bought, %d seized by the DA), $%d spent and $%d paid back per run, $%d/day rent at the end (means)\n",
-			deedsHeld / *runs, deedsBought, deedsSeized, deedCash / *runs, deedRent / *runs, deedRentDay / *runs)
-	}
-	if pick != nil {
-		total := 0
-		var ids []string
-		for _, c := range cfg.Dilemmas.Cards {
-			if dealt[c.ID] > 0 {
-				total += dealt[c.ID]
-				ids = append(ids, fmt.Sprintf("%s %d", c.ID, dealt[c.ID]))
-			}
-		}
-		fmt.Printf("cards:         %.1f per run answered %s, %d of %d in the deck seen: %s\n", float64(total)/float64(*runs), *cards, len(ids), len(cfg.Dilemmas.Cards), strings.Join(ids, ", "))
-	}
-	if *incidents == "on" {
-		var ids []string
-		for _, inc := range cfg.Incidents.Table {
-			if fired[inc.ID] > 0 {
-				ids = append(ids, fmt.Sprintf("%s %d", inc.ID, fired[inc.ID]))
-			}
-		}
-		fmt.Printf("incidents:     %.1f per run, %d of %d in the table seen: %s\n", float64(firedRuns)/float64(*runs), len(ids), len(cfg.Incidents.Table), strings.Join(ids, ", "))
-	}
-	// The endings (#49): how every run ended, and the median score of
-	// the ones that did (the offshore account over one plus the bodies,
-	// docs/endings.md); a run still going on the horizon has no score.
-	sort.Ints(scores)
-	median := 0
-	if len(scores) > 0 {
-		median = scores[len(scores)/2]
-	}
-	fmt.Printf("endings:       %v; %d of %d ended, scoring $%d (median)\n", endings, len(scores), *runs, median)
 }
