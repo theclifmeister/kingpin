@@ -10,6 +10,12 @@ hire_fee_base = 100         # signing fee = base + per_skill * skill
 hire_fee_per_skill = 4
 start_loyalty_min = 45
 start_loyalty_max = 70
+skill_min = 15              # a candidate's skill is drawn evenly in skill_min..skill_max, before the tree's
+skill_max = 85              # skill_bonus: nobody walks in useless and nobody walks in finished
+greed_min = 5               # greed and nerve are drawn the same way, wider: a saint and a coward are rare,
+greed_max = 95              # never impossible
+nerve_min = 5
+nerve_max = 95
 greed_drift = 0.8           # loyalty lost per day at greed 100 (scales linearly)
 danger_days = 5             # a sting or raid counts as danger for this many days
 danger_loyalty = 3.0        # loyalty lost per danger day at nerve 0 (scales with 100-nerve)
@@ -42,7 +48,7 @@ payoff_loyalty = 25         # and buys this much loyalty
 
 # Lieutenants run a city for you (Phase 3.3): assigned to one, every night
 # they post the idle runners on its best corners, give up on a corner
-# after its second stick-up or when nobody is left to work it, and sell
+# after its robbed_off-th stick-up or when nobody is left to work it, and sell
 # everything in its stash at the dial their temperament favours; your own
 # order for a product there wins the day. They keep a cut of the city's
 # takings ([role.lieutenant]) and bring their own people: an assigned
@@ -61,6 +67,8 @@ evidence = 2                # pages a flipped lieutenant feeds the DA per leak (
 reveal_days = 10            # days on the job before the report names their temperament
 betray_share = 0.5          # a lieutenant who flips running a city that holds this share of your corners ends the run betrayed (#49); 0 never
 betray_corners = 3          # ... and at least this many corners there: a flip over one corner is a leak, not a betrayal (the boss's seed 6 collapsed to one)
+robbed_off = 2              # a corner stuck up this many times is not worth the stock: they take the crew off it and
+                            # never post a runner or an enforcer there again
 
 # What each temperament does with the city: the sell dial it favours, a
 # multiplier on the city's sale heat, what it skims on top of the cut at

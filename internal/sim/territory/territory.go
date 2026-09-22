@@ -238,10 +238,10 @@ func (s *Sim) TaxDue(w *game.World, city string) (corners, amount int) {
 }
 
 // taxStep is the tax (#231): in every city where the share holds, each
-// corner nobody holds pays cut of its trade in dirty cash, jittered a
-// tenth either way on the tax's own stream (so a run in which the share
-// never holds draws nothing the old run did not, and the home stream
-// never moves), summed as Stats.Taxed and reported per city. No heat,
+// corner nobody holds pays cut of its trade in dirty cash, jittered by
+// city.toml [tax] jitter (a tenth) either way on the tax's own stream
+// (so a run in which the share never holds draws nothing the old run
+// did not, and the home stream never moves), summed as Stats.Taxed and reported per city. No heat,
 // no evidence: nobody of yours moved a unit.
 func (s *Sim) taxStep(w *game.World, t *game.Tick) {
 	if !s.cfg.Tax.On() {
@@ -257,7 +257,7 @@ func (s *Sim) taxStep(w *game.World, t *game.Tick) {
 			if c.Owner != game.OwnerNone {
 				continue
 			}
-			paid := int(math.Round(w.CornerTrade(c) * s.cfg.Tax.Cut * (0.9 + 0.2*rng.Float64())))
+			paid := int(math.Round(w.CornerTrade(c) * s.cfg.Tax.Cut * s.cfg.Tax.Jittered(rng.Float64())))
 			if paid <= 0 {
 				continue
 			}

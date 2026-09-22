@@ -237,7 +237,7 @@ func (s *Sim) fire(w *game.World, t *game.Tick, city *game.City, r content.Respo
 			w.Heat.Busts = append(w.Heat.Busts, game.Bust{Day: t.Day, City: city.ID, Level: r.Level, Units: units})
 			kept := w.Heat.Busts[:0]
 			for _, b := range w.Heat.Busts {
-				if t.Day-b.Day <= bustDays {
+				if t.Day-b.Day <= s.cfg.Heat.BustDays {
 					kept = append(kept, b)
 				}
 			}
@@ -338,6 +338,3 @@ func (s *Sim) place(w *game.World, t *game.Tick, city string, told bool) *game.H
 	}
 	return cands[len(cands)-1].house
 }
-
-// bustDays is how long a bust stays on the record for the connects.
-const bustDays = 30

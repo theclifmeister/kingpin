@@ -136,7 +136,8 @@ func (s *Sim) pickName(w *game.World, pool []string, fallback string, rng game.R
 }
 
 // roll is a new member of role called name, with the next ID: skill,
-// loyalty, greed and nerve drawn on rng in that order, the tree's
+// loyalty, greed and nerve drawn on rng in that order, each evenly in
+// its crew.toml [crew] range (skill_min..skill_max and so on), the tree's
 // skill_bonus and start_loyalty_bonus on the roll and never over 100,
 // the wage off the role's table and a runner's units off the skill. The
 // fee, the age and anything else are the caller's: a hire prices one, a
@@ -145,15 +146,15 @@ func (s *Sim) pickName(w *game.World, pool []string, fallback string, rng game.R
 func (s *Sim) roll(w *game.World, name, role string, rng game.Rand, fx game.Effects) game.CrewMember {
 	tun := s.cfg.Crew
 	rc := s.cfg.Role[role]
-	skill := min(100, 15+rng.IntN(71)+fx.SkillBonus)
+	skill := min(100, tun.SkillMin+rng.IntN(tun.SkillMax-tun.SkillMin+1)+fx.SkillBonus)
 	m := game.CrewMember{
 		ID:      w.Crew.NextID + 1,
 		Name:    name,
 		Role:    role,
 		Skill:   skill,
 		Loyalty: float64(min(100, tun.StartLoyaltyMin+rng.IntN(max(1, tun.StartLoyaltyMax-tun.StartLoyaltyMin+1))+fx.StartLoyaltyBonus)),
-		Greed:   5 + rng.IntN(91),
-		Nerve:   5 + rng.IntN(91),
+		Greed:   tun.GreedMin + rng.IntN(tun.GreedMax-tun.GreedMin+1),
+		Nerve:   tun.NerveMin + rng.IntN(tun.NerveMax-tun.NerveMin+1),
 		Wage:    int(math.Round(rc.WageBase + rc.WagePerSkill*float64(skill))),
 	}
 	if role == game.RoleRunner {

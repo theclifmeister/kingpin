@@ -14,17 +14,19 @@ import (
 )
 
 // Strength is the weight the crew's enforcers bring to a strike: each one
-// counts 0.5 + skill/100, and one guarding a corner counts half of that,
+// counts strength_base + skill/strength_skill (rivals.toml [weight]: 0.5
+// + skill/100), and one guarding a corner counts that over posted (half),
 // they are busy.
 func (s *Sim) Strength(w *game.World) float64 {
+	wt := s.cfg.Weight
 	n := 0.0
 	for _, m := range w.Crew.Members {
 		if m.Role != game.RoleEnforcer || !m.Working() {
 			continue // one in a cell or laid up (#46) goes on no strike
 		}
-		v := 0.5 + float64(m.Skill)/100
+		v := wt.StrengthBase + float64(m.Skill)/wt.StrengthSkill
 		if w.PostOf(m.ID) != nil {
-			v /= 2
+			v /= wt.Posted
 		}
 		n += v
 	}
@@ -89,19 +91,22 @@ func (s *Sim) StrikeHeat(c *game.Corner, force events.Force) float64 {
 }
 
 // Guard is the weight of whoever stands on a player corner when it is
-// pushed: an enforcer counts 1 + skill/50, you count 1.5, a runner 0.5,
-// and the tree's guard_bonus (the front line) is a body on every one,
-// so a corner it covers is never walked onto unopposed.
+// pushed (rivals.toml [weight]): an enforcer counts guard_enforcer +
+// skill/guard_skill (1 + skill/50), you count guard_you (1.5), a runner
+// guard_runner (0.5), and the tree's guard_bonus (the front line) is a
+// body on every one, so a corner it covers is never walked onto
+// unopposed.
 func (s *Sim) Guard(w *game.World, c *game.Corner) float64 {
+	wt := s.cfg.Weight
 	g := float64(s.Effects(w).GuardBonus)
 	if m := w.Crew.Member(c.Enforcer); m != nil && c.Enforcer != 0 {
-		g += 1 + float64(m.Skill)/50
+		g += wt.GuardEnforcer + float64(m.Skill)/wt.GuardSkill
 	}
 	switch {
 	case c.Runner == game.You:
-		g += 1.5
+		g += wt.GuardYou
 	case c.Runner != 0:
-		g += 0.5
+		g += wt.GuardRunner
 	}
 	return g
 }
