@@ -33,7 +33,7 @@ func Title(name string, rng *rand.Rand) Scene {
 	if !ok || !e.Needs.Text {
 		e = Effects["decrypt"]
 	}
-	return e.New(NewText(Kingpin), theme.Money, TitleLength, rng)
+	return Play(e, NewText(Kingpin), theme.Money, TitleLength, rng)
 }
 
 // TitleEffects is the set the title cycles: every effect that resolves

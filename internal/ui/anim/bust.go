@@ -40,14 +40,14 @@ func Bust(title, level, loss string, stash bool, rng *rand.Rand) Scene {
 			Step{Still(head, theme.Money), bustStrobe},
 		),
 		titleW: head.Width(),
-		level:  Vhstape(word, theme.Heat, glitch, rng),
+		level:  Play(Effects["vhstape"], word, theme.Heat, glitch, rng),
 		levelW: word.Width(),
 		loss:   Burn(rest, theme.Heat, BustLength-burnAt, rng),
 		lossW:  rest.Width(),
 		burnAt: burnAt,
 		purple: -1,
 		pulse:  Pulse(head, theme.Money, theme.Heat, holdPulseOn, HoldPulse),
-		jitter: Replay(Vhstape(word, theme.Heat, bustJitter, rng), bustJitter, HoldRest),
+		jitter: Replay(Play(Effects["vhstape"], word, theme.Heat, bustJitter, rng), bustJitter, HoldRest),
 	}
 	if stash {
 		b.purple = frames(bustGlitchStash / 3)
