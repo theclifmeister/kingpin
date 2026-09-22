@@ -33,8 +33,9 @@ import (
 //   - internal/ui/anim/canvas.go imports sync for the one mutex in the
 //     tree, round the package-level style cache that every rendered run
 //     reads: the cache is shared by whatever renders a frame, and the
-//     package stays under -race in ci.yml (only internal/ui itself is
-//     exempt, not internal/ui/...), so the detector still watches it.
+//     package stays under -race in CI's test step (.github/actions/go,
+//     #276; only internal/ui itself is exempt, not internal/ui/...), so
+//     the detector still watches it.
 //   - Bubble Tea's own runtime (tea.Program: its event loop, the
 //     renderer, a Cmd's goroutine) is started by cmd/kingpin and
 //     cmd/anim and never by a test: the UI tests call Model.Update and
@@ -43,8 +44,8 @@ import (
 //     internal/ and is not walked.
 //
 // The PR that first adds a goroutine to internal/harness or internal/ui
-// adds the file here and puts -race back on that package in ci.yml in
-// the same PR.
+// adds the file here and puts -race back on that package in CI's test
+// step (.github/actions/go) in the same PR.
 func TestNoGoroutineInTheTree(t *testing.T) {
 	t.Parallel()
 	root := filepath.Join("..")
