@@ -7,6 +7,7 @@ import (
 	tea "github.com/charmbracelet/bubbletea"
 
 	"github.com/theclifmeister/kingpin/internal/content"
+	"github.com/theclifmeister/kingpin/internal/format"
 	"github.com/theclifmeister/kingpin/internal/game"
 	"github.com/theclifmeister/kingpin/internal/ui/theme"
 )
@@ -73,14 +74,7 @@ func (m *Model) bribeMax() int {
 
 // bribeAmount is what the field reads: the price for a blank.
 func (m *Model) bribeAmount() (int, error) {
-	if strings.TrimSpace(m.br.amt.Value()) == "" {
-		return m.bribePrice(m.bribeTarget()), nil
-	}
-	n, ok := m.br.amt.Number()
-	if !ok || n <= 0 {
-		return 0, fmt.Errorf("enter a whole number above zero")
-	}
-	return n, nil
+	return m.br.amt.Read(m.bribePrice(m.bribeTarget()))
 }
 
 // officialName is the chief's or the DA's name with their title.
@@ -239,13 +233,13 @@ func (m *Model) bribeOdds(target string, amt int) string {
 	if target == game.BribeDA {
 		switch {
 		case l.DA.Backed:
-			return fmt.Sprintf("~%.0f%% they take it: they owe you the election. Refused, the money is gone and nothing else happens.", lw.DAOdds(m.w, amt)*100)
+			return "~" + format.Pct(lw.DAOdds(m.w, amt), 0) + " they take it: they owe you the election. Refused, the money is gone and nothing else happens."
 		case l.DA.Stance == "law_and_order":
 			return "A law-and-order DA does not take envelopes. This one goes in an evidence bag."
 		case l.DA.Stance == "reform":
 			return "A reformer sends it back with no note. Nothing happens, and the money is gone."
 		}
-		return fmt.Sprintf("~%.0f%% they take it (%s is even odds). Refused, the money is gone and nothing else happens.", lw.DAOdds(m.w, amt)*100, money(lw.DAPrice(m.w)))
+		return fmt.Sprintf("~%s they take it (%s is even odds). Refused, the money is gone and nothing else happens.", format.Pct(lw.DAOdds(m.w, amt), 0), money(lw.DAPrice(m.w)))
 	}
 	if amt < tun.ChiefPrice {
 		return theme.Warning.Render(fmt.Sprintf("Under the price (%s): the chief's people pocket it and nothing changes.", money(tun.ChiefPrice)))
@@ -323,7 +317,7 @@ func (m *Model) confirmCheckpoint() {
 	}
 	m.mode = modePlay
 	until, _ := m.w.Checkpoint(r.ID)
-	m.say(fmt.Sprintf("The %s on the %s is yours until day %d: %s. Risk on that edge cut %.0f%% while it holds.", m.dealWord(*r), r.Name, until, money(price), m.rules.Logistics.DealCut(*r)*100))
+	m.say(fmt.Sprintf("The %s on the %s is yours until day %d: %s. Risk on that edge cut %s while it holds.", m.dealWord(*r), r.Name, until, money(price), format.Pct(m.rules.Logistics.DealCut(*r), 0)))
 }
 
 // checkpointConfirm is the confirmation's body.
@@ -336,7 +330,7 @@ func (m *Model) checkpointConfirm() []string {
 	lg := m.rules.Logistics
 	tun := m.rules.Law.Bribes()
 	d := w.Route(r.ID).Dial
-	body := m.wrapLines(fmt.Sprintf("Buy the %s on the %s (%s %s %s) for %s, dirty: %s of the risk off every day on that edge for %s.", m.dealWord(*r), r.Name, w.CityName(r.From), edge(r.Mode), w.CityName(r.To), money(m.dealPrice(*r)), fmt.Sprintf("%.0f%%", lg.DealCut(*r)*100), plural(tun.CheckpointDays, "day")))
+	body := m.wrapLines(fmt.Sprintf("Buy the %s on the %s (%s %s %s) for %s, dirty: %s of the risk off every day on that edge for %s.", m.dealWord(*r), r.Name, w.CityName(r.From), edge(r.Mode), w.CityName(r.To), money(m.dealPrice(*r)), format.Pct(lg.DealCut(*r), 0), plural(tun.CheckpointDays, "day")))
 	if until, live := w.Checkpoint(r.ID); live {
 		body = append(body, theme.Subtle.Render(fmt.Sprintf("Yours until day %d already; this adds to it.", until)))
 	}
@@ -383,7 +377,7 @@ func (m *Model) payoffRows() []payoff {
 	for _, r := range m.ledgerRoutes() {
 		if until, live := w.Checkpoint(r.ID); live {
 			rc := r
-			rows = append(rows, payoff{Who: r.Name, What: m.dealWord(r) + fmt.Sprintf(", risk cut %.0f%%", m.rules.Logistics.DealCut(r)*100), Until: until, Route: &rc})
+			rows = append(rows, payoff{Who: r.Name, What: m.dealWord(r) + ", risk cut " + format.Pct(m.rules.Logistics.DealCut(r), 0), Until: until, Route: &rc})
 		}
 	}
 	return rows

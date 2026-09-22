@@ -39,12 +39,7 @@ type HouseConfig struct {
 
 // House returns the offer with id, or nil.
 func (h HousesConfig) House(id string) *HouseConfig {
-	for i := range h.Offers {
-		if h.Offers[i].ID == id {
-			return &h.Offers[i]
-		}
-	}
-	return nil
+	return find(h.Offers, func(e *HouseConfig) bool { return e.ID == id })
 }
 
 // validate checks the offers against the cities: every house on a

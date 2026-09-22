@@ -7,6 +7,7 @@ import (
 	"github.com/charmbracelet/lipgloss"
 
 	"github.com/theclifmeister/kingpin/internal/events"
+	"github.com/theclifmeister/kingpin/internal/format"
 	"github.com/theclifmeister/kingpin/internal/ui/theme"
 )
 
@@ -162,7 +163,7 @@ func (m *Model) streetLines(innerW, maxLines int, narrow, withRoad bool) []strin
 		topic(fact{theme.Bad.Render("Somebody is talking. Investigate " + screenPointer(screenCrew) + "."), priTalking})
 	}
 	if w.Heat.SellCapDays > 0 {
-		topic(fact{theme.Bad.Render(fmt.Sprintf("Patrols: sales capped at %.0f%% of demand for %s more.", w.Heat.SellCap*100, plural(w.Heat.SellCapDays, "day"))), priPatrol})
+		topic(fact{theme.Bad.Render(fmt.Sprintf("Patrols: sales capped at %s of demand for %s more.", format.Pct(w.Heat.SellCap, 0), plural(w.Heat.SellCapDays, "day"))), priPatrol})
 	}
 	if s := w.Today.Strike; s != nil {
 		if c := w.Corner(s.Corner); c != nil {
@@ -185,7 +186,7 @@ func (m *Model) streetLines(innerW, maxLines int, narrow, withRoad bool) []strin
 	case len(w.Today.Orders) > 0:
 		last = theme.Gold.Render("Orders queued for tonight.")
 	case len(w.Standing) > 0:
-		last = theme.Gold.Render(fmt.Sprintf("Standing orders sell tonight; the crew keep %.0f%%.", m.rules.Market.Cut()*100))
+		last = theme.Gold.Render("Standing orders sell tonight; the crew keep " + format.Pct(m.rules.Market.Cut(), 0) + ".")
 	default:
 		if lt := w.Crew.Lieutenant(here.ID); lt != nil && m.standingHere() > 0 {
 			last = theme.Gold.Render(fmt.Sprintf("%s sells the stash here at %s; an order of yours overrides it.", lt.Name, m.rules.Crew.Dial(*lt)))

@@ -4,7 +4,6 @@ import (
 	"fmt"
 	"math"
 	"math/rand/v2"
-	"sort"
 	"strings"
 
 	"github.com/theclifmeister/kingpin/internal/content"
@@ -305,11 +304,11 @@ func (s *Sim) book(w *game.World, t *game.Tick) {
 			base := s.scfg.Temper[sup.Temper].Rel
 			sup.Rel += (base - sup.Rel) * tun.QuietDecay
 		}
-		sup.Rel = math.Max(0, math.Min(100, sup.Rel))
+		sup.Rel = max(0, min(100, sup.Rel))
 		if sup.Debt > 0 && sup.DebtDue <= t.Day {
 			s.collect(w, t, sup)
 		}
-		sup.Rel = math.Max(0, math.Min(100, sup.Rel))
+		sup.Rel = max(0, min(100, sup.Rel))
 		if sup.Rel < tun.FreezeRel && !sup.Frozen(t.Day) {
 			sup.FrozenUntil = t.Day + tun.FreezeDays
 			t.Emit(events.SupplierFrozen{Day: t.Day, City: sup.City, Supplier: sup.ID, Name: sup.Name, Days: tun.FreezeDays, Why: "floor"})
@@ -417,6 +416,9 @@ func (s *Sim) collect(w *game.World, t *game.Tick, sup *game.Supplier) {
 func (s *Sim) sendSomebody(w *game.World, t *game.Tick, sup *game.Supplier) {
 	tun := s.scfg.Suppliers
 	ev := events.SupplierCollected{Day: t.Day, City: sup.City, Supplier: sup.ID, Name: sup.Name, Owed: sup.Debt}
+	// The loop stays spelled out (not CrewState.Strongest, #275): it is a
+	// write into the crew's rows, and TestSimsWriteOnlyTheirOwnState
+	// lists it as an exception by this line.
 	var muscle *game.CrewMember
 	for i := range w.Crew.Members {
 		m := &w.Crew.Members[i]
@@ -493,8 +495,7 @@ type shock struct {
 // use tomorrow, against the shock state as tonight leaves it.
 func (s *Sim) peek(w *game.World, t *game.Tick) []shock {
 	tun := s.cfg.Market
-	ids := append([]string(nil), w.Products...)
-	sort.Strings(ids)
+	ids := w.SortedProducts()
 	tomorrow := &game.Tick{Day: t.Day + 1, Seed: w.Seed}
 	var out []shock
 	for _, cid := range w.CityOrder {

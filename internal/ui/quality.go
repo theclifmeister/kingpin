@@ -6,6 +6,7 @@ import (
 
 	tea "github.com/charmbracelet/bubbletea"
 
+	"github.com/theclifmeister/kingpin/internal/format"
 	"github.com/theclifmeister/kingpin/internal/game"
 	"github.com/theclifmeister/kingpin/internal/ui/theme"
 )
@@ -182,19 +183,13 @@ func (m *Model) keyLab(k tea.KeyMsg) (tea.Model, tea.Cmd) {
 		ids := m.labProducts()
 		switch key {
 		case "up", "k":
-			if d.cursor > 0 {
-				d.cursor--
-			}
+			stepCursor(&d.cursor, -1, len(ids))
 		case "down", "j":
-			if d.cursor < len(ids)-1 {
-				d.cursor++
-			}
+			stepCursor(&d.cursor, 1, len(ids))
 		default:
-			if len(key) == 1 && key[0] >= '1' && key[0] <= '9' {
-				if i := int(key[0] - '1'); i < len(ids) {
-					d.cursor = i
-					m.labNext()
-				}
+			if i, ok := digit(key); ok && i < len(ids) {
+				d.cursor = i
+				m.labNext()
 			}
 		}
 		return m, nil
@@ -230,7 +225,7 @@ func (m *Model) cutPreview(pct int) (units int, quality float64, cost int) {
 
 func (m *Model) confirmCut() {
 	d := &m.lab
-	pct, err := parseQtyInput(d.qty.Value(), m.cutMax())
+	pct, err := readQty(d.qty, m.cutMax())
 	if err != nil {
 		d.err = dialogError(err)
 		return
@@ -245,12 +240,12 @@ func (m *Model) confirmCut() {
 	if rec.Chemist != "" {
 		hand = fmt.Sprintf(" %s kept it at that.", rec.Chemist)
 	}
-	m.say(fmt.Sprintf("Cut %d %s into %d: quality %.0f → %.0f, sells at ×%.2f.%s Cost %s.", rec.Units, m.w.ProductName(d.product), rec.Units+rec.Added, rec.From, rec.To, m.rules.Market.QualityMul(rec.To), hand, cash(rec.Cost)))
+	m.say(fmt.Sprintf("Cut %d %s into %d: quality %.0f %s %.0f, sells at %s.%s Cost %s.", rec.Units, m.w.ProductName(d.product), rec.Units+rec.Added, rec.From, format.Arrow, rec.To, format.Times(m.rules.Market.QualityMul(rec.To), 2), hand, cash(rec.Cost)))
 }
 
 func (m *Model) confirmCook() {
 	d := &m.lab
-	units, err := parseQtyInput(d.qty.Value(), m.cookMax())
+	units, err := readQty(d.qty, m.cookMax())
 	if err != nil {
 		d.err = dialogError(err)
 		return
@@ -297,7 +292,7 @@ func (m *Model) viewLab() string {
 		} else {
 			for _, id := range ids {
 				l := w.Lot(d.city, id)
-				rows = append(rows, []any{w.ProductName(id), l.Units, l.Quality, fmt.Sprintf("+%.0f%%", m.rules.Market.CutMax(id)*100), m.rules.Market.CutCost(id)})
+				rows = append(rows, []any{w.ProductName(id), l.Units, l.Quality, "+" + format.Pct(m.rules.Market.CutMax(id), 0), m.rules.Market.CutCost(id)})
 			}
 			body = table([]col{{"product", kText, 0}, {"stash", kInt, 0}, {"quality", kInt, 0}, {"most", kText, 0}, {"price", kPrice, 0}}, rows, d.cursor, m.modalInner())
 			body = append(body, "", theme.Subtle.Render("Cut what?"))
@@ -315,7 +310,7 @@ func (m *Model) viewLab() string {
 				"",
 			}
 			body = append(body, m.subtle(fmt.Sprintf("Precursors are %s a unit, dirty, paid now; the lot lands in %s in %s at quality %.0f, %s's. A batch is %d.", price(float64(m.rules.Crew.CookCostIn(w, d.city, m.rules.Market.CookCost(d.product)))), w.CityName(d.city), plural(m.rules.Crew.CookDays(), "day"), m.rules.Crew.QualityIn(w, d.city), chem, m.rules.Crew.BatchIn(w, d.city)))...)
-			if n, err := parseQtyInput(d.qty.Value(), m.cookMax()); err == nil && n > 0 {
+			if n, err := readQty(d.qty, m.cookMax()); err == nil && n > 0 {
 				body = append(body, row("cost", theme.Subtle.Render(fmt.Sprintf("%s for %d, against %s from a connect", cash(n*m.rules.Crew.CookCostIn(w, d.city, m.rules.Market.CookCost(d.product))), n, cash(int(float64(n)*w.Product(d.city, d.product).SupplierPrice))))))
 			}
 		} else {
@@ -332,9 +327,9 @@ func (m *Model) viewLab() string {
 				note += fmt.Sprintf(" %s's hand keeps %.0f points of it.", chem.Name, m.rules.Crew.CutBonus(w))
 			}
 			body = append(body, m.subtle(note)...)
-			if pct, err := parseQtyInput(d.qty.Value(), m.cutMax()); err == nil && pct > 0 {
+			if pct, err := readQty(d.qty, m.cutMax()); err == nil && pct > 0 {
 				units, quality, cost := m.cutPreview(pct)
-				body = append(body, row("after", theme.Subtle.Render(fmt.Sprintf("%d units at quality %.0f, sells at ×%.2f, for %s", units, quality, m.rules.Market.QualityMul(quality), cash(cost)))))
+				body = append(body, row("after", theme.Subtle.Render(fmt.Sprintf("%d units at quality %.0f, sells at %s, for %s", units, quality, format.Times(m.rules.Market.QualityMul(quality), 2), cash(cost)))))
 			}
 		}
 	}
@@ -364,5 +359,5 @@ func repeatText(c game.Corner) string {
 	if r >= 1 {
 		return "all of them come back"
 	}
-	return strings.TrimSpace(fmt.Sprintf("%.0f%% come back", r*100))
+	return strings.TrimSpace(format.Pct(r, 0) + " come back")
 }

@@ -8,6 +8,7 @@ import (
 	"github.com/charmbracelet/lipgloss"
 
 	"github.com/theclifmeister/kingpin/internal/engine"
+	"github.com/theclifmeister/kingpin/internal/format"
 	"github.com/theclifmeister/kingpin/internal/game"
 	"github.com/theclifmeister/kingpin/internal/ui/theme"
 )
@@ -138,14 +139,14 @@ func (m *Model) supplierSections(sup *game.Supplier) []section {
 		row("temper", sup.Temper),
 		row("", theme.Subtle.Render(temperShort(sup.Temper))),
 		row("rel", barText(sup.Rel/100, 6, nil, fmt.Sprintf(" %.0f", sup.Rel), relStyle(band, bands))+sep+bandWord(band, bands)),
-		row("price", fmt.Sprintf("~%.0f%% of street", mk.SupplierRatio(w, sup)*100)),
+		row("price", "~"+format.Pct(mk.SupplierRatio(w, sup), 0)+" of street"),
 	}
 	if band < bands-1 {
-		sel = append(sel, row("", theme.Subtle.Render(fmt.Sprintf("~%.0f%% at rel %.0f", mk.RatioAt(w, sup, band+1)*100, float64(band+1)*mk.SuppliersTuning().BandWidth))))
+		sel = append(sel, row("", theme.Subtle.Render(fmt.Sprintf("~%s at rel %.0f", format.Pct(mk.RatioAt(w, sup, band+1), 0), float64(band+1)*mk.SuppliersTuning().BandWidth))))
 	}
 	sel = append(sel, row("lot", fmt.Sprintf("%d", sup.Lot)))
 	if sup.SmallLot > 1 {
-		sel = append(sel, row("", theme.Subtle.Render(fmt.Sprintf("under it ×%.2g a unit", sup.SmallLot))))
+		sel = append(sel, row("", theme.Subtle.Render("under it "+format.TimesSig(sup.SmallLot, 2)+" a unit")))
 	}
 	sel = append(sel, row("today", fmt.Sprintf("%d of %d left", sup.Left(), sup.Cap)))
 	// What they sell is as good as the file says (#47): named where it
@@ -171,7 +172,7 @@ func (m *Model) supplierSections(sup *game.Supplier) []section {
 		sel = append(sel, row("credit", theme.Subtle.Render("none")))
 	default:
 		sel = append(sel, row("credit", fmt.Sprintf("%s of %s", cash(sup.Credit()), cash(sup.Limit))),
-			row("", theme.Subtle.Render(fmt.Sprintf("×%.2f/u, %dd to pay", sup.CreditRatio, sup.CreditDays))))
+			row("", theme.Subtle.Render(fmt.Sprintf("%s/u, %dd to pay", format.Times(sup.CreditRatio, 2), sup.CreditDays))))
 	}
 	if sup.Debt > 0 {
 		style := theme.Warning

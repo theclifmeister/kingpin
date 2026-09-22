@@ -5,6 +5,7 @@ import (
 
 	"github.com/theclifmeister/kingpin/internal/content"
 	"github.com/theclifmeister/kingpin/internal/events"
+	"github.com/theclifmeister/kingpin/internal/format"
 	"github.com/theclifmeister/kingpin/internal/game"
 )
 
@@ -141,7 +142,7 @@ func (s *Sim) feed(w *game.World, t *game.Tick, r *game.RivalState) {
 	name := ""
 	if i < len(roads) {
 		id := roads[i]
-		f = game.Fact{Subject: id, Kind: game.FactRisk, Value: fmt.Sprintf("~%.0f%%/day", tun.FeedRisk*100), Number: tun.FeedRisk}
+		f = game.Fact{Subject: id, Kind: game.FactRisk, Value: "~" + format.Pct(tun.FeedRisk, 0) + "/day", Number: tun.FeedRisk}
 		name = s.routeName(id)
 	} else {
 		id := corners[i-len(roads)]

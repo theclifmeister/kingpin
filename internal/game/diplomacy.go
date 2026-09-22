@@ -185,12 +185,7 @@ func (w *World) CornerPeace(c Corner) bool {
 
 // Offer returns the pending offer with id, or nil.
 func (w *World) Offer(id int) *Offer {
-	for i := range w.Offers {
-		if w.Offers[i].ID == id {
-			return &w.Offers[i]
-		}
-	}
-	return nil
+	return find(w.Offers, func(e *Offer) bool { return e.ID == id })
 }
 
 // Propose puts a deal to the rival at home; it answers in the morning.
