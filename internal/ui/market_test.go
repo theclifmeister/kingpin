@@ -10,26 +10,6 @@ import (
 	"github.com/theclifmeister/kingpin/internal/game"
 )
 
-// bodyRows splits a play-mode view into MAIN and the pane, row by row:
-// the body rows' first mainWidth cells and, where the pane sits beside
-// MAIN, their last paneWidth cells, ANSI stripped.
-func bodyRows(m *Model) (main, pane []string) {
-	ls := strings.Split(m.View(), "\n")
-	end := len(ls) - 1
-	if !m.paneShown() && m.width < paneMinWidth {
-		end-- // the strip
-	}
-	for i := 1; i < end; i++ {
-		rs := []rune(stripANSI(ls[i]))
-		if m.paneShown() && len(rs) >= paneWidth {
-			pane = append(pane, string(rs[len(rs)-paneWidth:]))
-			rs = rs[:len(rs)-paneWidth]
-		}
-		main = append(main, string(rs))
-	}
-	return main, pane
-}
-
 // The market's MAIN is the title with the city tabs, the product table
 // and the buyers; every fact the detail block used to print under the
 // table (the range, glut, margin, demand, what is elsewhere, the stash
@@ -44,7 +24,7 @@ func TestMarketDetailInPane(t *testing.T) {
 	m.w.SetStock(other, weed, 240)
 	m.Update(key("2"))
 	facts := []string{"range 30d", "glut", "margin", "/day on", "per standard", "ELSEWHERE", m.w.CityName(other), "240 in " + m.w.CityName(other)}
-	main, pane := bodyRows(m)
+	main, pane := splitView(m)
 	all := strings.Join(main, "\n")
 	if !strings.Contains(main[0], "MARKET · "+m.w.CityName(home)) || !strings.Contains(main[0], "[ ◉ "+m.w.CityName(home)+" ]  "+m.w.CityName(other)) {
 		t.Errorf("the title is not `MARKET · <city>` with the city tabs: %q", main[0])
@@ -69,7 +49,7 @@ func TestMarketDetailInPane(t *testing.T) {
 	// The other city is the wholesale city and not where you stand: the
 	// notes say so, in the pane.
 	m.Update(key("]"))
-	main, pane = bodyRows(m)
+	main, pane = splitView(m)
 	all, paneText = strings.Join(main, "\n"), strings.Join(pane, "\n")
 	if strings.Contains(all, "You are in") || strings.Contains(all, "lots of") {
 		t.Errorf("MAIN carries the notes:\n%s", all)
@@ -83,7 +63,7 @@ func TestMarketDetailInPane(t *testing.T) {
 	// overlay carries the sections whole where the height allows.
 	m.Update(key("["))
 	m.Update(tea.WindowSizeMsg{Width: 80, Height: 40})
-	ls := strings.Split(stripANSI(m.View()), "\n")
+	ls := viewLines(m)
 	strip := ls[len(ls)-2]
 	if !strings.HasPrefix(strip, "▸ "+strings.ToUpper(m.w.ProductName(weed))) || !strings.Contains(strip, "range 30d $") {
 		t.Errorf("the strip does not name the product and its range: %q", strip)
@@ -101,7 +81,7 @@ func TestMarketDetailInPane(t *testing.T) {
 	m.Update(key("esc"))
 	m.Update(tea.WindowSizeMsg{Width: 80, Height: 24})
 	assertFits(t, m.View(), 80, 24, "market at 80x24")
-	main, _ = bodyRows(m)
+	main, _ = splitView(m)
 	if all = strings.Join(main, "\n"); strings.Contains(all, "range") || strings.Contains(all, "glut") {
 		t.Errorf("MAIN at 80 carries the detail:\n%s", all)
 	}
@@ -117,7 +97,7 @@ func TestMarketRendersInTheGrammar(t *testing.T) {
 			if m.mode != modePlay || m.screen != screenMarket || m.onBuyers {
 				return
 			}
-			main, _ := bodyRows(m)
+			main, _ := splitView(m)
 			if !strings.HasPrefix(main[0], "MARKET · "+m.shown().Name+"   ") {
 				t.Errorf("%dx%d %s: the title is %q", sz[0], sz[1], what, main[0])
 			}
@@ -159,7 +139,7 @@ func TestMarketArrowsTurnTheCity(t *testing.T) {
 	if m.city != m.w.CityOrder[1] || m.cursor != 1 || m.screen != screenMarket {
 		t.Fatalf("right: city %s cursor %d screen %v", m.city, m.cursor, m.screen)
 	}
-	_, pane := bodyRows(m)
+	_, pane := splitView(m)
 	if want := strings.ToUpper(m.w.ProductName(m.w.Products[1])) + " · " + strings.ToUpper(m.w.CityName(m.w.CityOrder[1])); !strings.Contains(strings.Join(pane, "\n"), want) {
 		t.Errorf("the pane is not %q:\n%s", want, strings.Join(pane, "\n"))
 	}

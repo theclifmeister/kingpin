@@ -5,8 +5,6 @@ import (
 	"strings"
 	"testing"
 
-	tea "github.com/charmbracelet/bubbletea"
-
 	"github.com/theclifmeister/kingpin/internal/game"
 )
 
@@ -127,18 +125,6 @@ func TestStageOnce(t *testing.T) {
 			t.Errorf("%dx%d: the tier fact after the stage:\n%s", size[0], size[1], view)
 		}
 	}
-}
-
-// newModelIn is a second model on the same save dir as m, for continuing
-// m's slot the way a fresh start of the game would.
-func newModelIn(t *testing.T, m *Model, w, h int) *Model {
-	t.Helper()
-	c, err := New(m.cfg, Options{Anim: false})
-	if err != nil {
-		t.Fatal(err)
-	}
-	c.Update(tea.WindowSizeMsg{Width: w, Height: h})
-	return c
 }
 
 // F stops on the morning a tier is entered, before the report, with the

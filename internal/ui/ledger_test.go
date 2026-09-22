@@ -7,13 +7,6 @@ import (
 	tea "github.com/charmbracelet/bubbletea"
 )
 
-// stripLine is the details strip of a view at a width under the pane's:
-// row h-2, `▸ …  ␣ more`.
-func stripLine(m *Model) string {
-	ls := strings.Split(stripANSI(m.View()), "\n")
-	return strings.TrimRight(ls[m.height-2], " ")
-}
-
 // The ledger's one cursor (#87) walks the fronts, the routes and the
 // offers in order and stays on the rows there are; the pane's first
 // section names the row; enter turns a route's dial and opens the buy

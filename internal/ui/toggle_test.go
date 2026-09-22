@@ -7,16 +7,6 @@ import (
 	"github.com/theclifmeister/kingpin/internal/game"
 )
 
-// footerKeys is the modal's footer as `key label` pairs, for reading
-// what a step lists.
-func footerKeys(m *Model) string {
-	var keys []string
-	for _, b := range m.modalFooter() {
-		keys = append(keys, b.key+" "+b.label)
-	}
-	return strings.Join(keys, "  ")
-}
-
 // The trade is one dialog (#168): b and s on the product step turn it
 // to the other side in place, the product under the cursor and the cart
 // kept; on the quantity step the field ignores them, so a typed
@@ -141,12 +131,12 @@ func TestDialogToggleNamesTheCity(t *testing.T) {
 	if m.mode != modeBuy || m.dialogCity() != w.Player.Location {
 		t.Fatalf("b: mode %v city %s err %q", m.mode, m.dialogCity(), m.dlg.err)
 	}
-	rows := strings.Split(stripANSI(m.View()), "\n")
+	rows := viewLines(m)
 	if want := "Buying in " + w.CityName(w.Player.Location) + "."; !strings.Contains(rows[5], want) {
 		t.Fatalf("the first body line is not %q:\n%s", want, strings.Join(rows, "\n"))
 	}
 	m.Update(key("s"))
-	rows = strings.Split(stripANSI(m.View()), "\n")
+	rows = viewLines(m)
 	if want := "Selling in " + w.CityName(hub) + "."; m.mode != modeSell || !strings.Contains(rows[5], want) {
 		t.Fatalf("the first body line is not %q:\n%s", want, strings.Join(rows, "\n"))
 	}
