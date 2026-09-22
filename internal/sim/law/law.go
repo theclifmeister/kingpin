@@ -280,7 +280,7 @@ func (s *Sim) bribes(w *game.World, t *game.Tick) {
 				t.Emit(events.BribeRefused{Day: t.Day, Target: b.Target, Amount: b.Amount, Why: "quiet"})
 			default:
 				odds := s.DAOdds(w, b.Amount)
-				if t.Sub("bribes").Float64() >= odds {
+				if t.Sub(game.StreamBribes).Float64() >= odds {
 					t.Emit(events.BribeRefused{Day: t.Day, Target: b.Target, Amount: b.Amount, Why: "odds", Odds: odds})
 					continue
 				}
@@ -391,7 +391,7 @@ func (s *Sim) Step(w *game.World, t *game.Tick) {
 				gain[home] += src.Push
 			}
 		case events.WarEscalated:
-			if ev.Stage == "crackdown" {
+			if ev.Stage == events.StageCrackdown {
 				gain[home] += src.Crackdown
 			}
 		case events.PlayerSold:
@@ -524,7 +524,7 @@ func (s *Sim) Step(w *game.World, t *game.Tick) {
 		share := clamp01(s.LawAndOrderShare(mean) + swing)
 		law := share * (1 - tun.Moderate)
 		reform := (1 - share) * (1 - tun.Moderate)
-		rng := t.Sub(s.Name())
+		rng := t.Sub(game.StreamLaw)
 		r := rng.Float64()
 		stance := "moderate"
 		switch {
@@ -608,7 +608,7 @@ func (s *Sim) Step(w *game.World, t *game.Tick) {
 // da, resigned (#44) or campaign, and personality, if given, is who the
 // mayor was told to name (#193's zealous chief).
 func (s *Sim) replaceChief(w *game.World, t *game.Tick, why, personality string) {
-	rng := t.Sub(s.Name())
+	rng := t.Sub(game.StreamLaw)
 	old := w.Law.Chief.Name
 	name := s.pick(without(s.chiefs, old), rng, old)
 	if personality == "" {
@@ -663,7 +663,7 @@ func (s *Sim) intelChief(w *game.World, t *game.Tick) {
 		return
 	}
 	p := s.intel.Accuracy(o.Amount)
-	rng := t.Sub("intel")
+	rng := t.Sub(game.StreamIntel)
 	word := chief.Personality
 	if rng.Float64() >= p {
 		others := without(content.ChiefPersonalities, chief.Personality)

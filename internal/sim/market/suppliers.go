@@ -420,14 +420,14 @@ func (s *Sim) sendSomebody(w *game.World, t *game.Tick, sup *game.Supplier) {
 	var muscle *game.CrewMember
 	for i := range w.Crew.Members {
 		m := &w.Crew.Members[i]
-		if m.Role == "enforcer" && (muscle == nil || m.Skill > muscle.Skill) {
+		if m.Role == game.RoleEnforcer && (muscle == nil || m.Skill > muscle.Skill) {
 			muscle = m
 		}
 	}
 	if muscle != nil {
 		muscle.Loyalty = math.Max(0, muscle.Loyalty-tun.CollectLoyalty)
 		ev.Member, ev.MemberName, ev.Loyalty = muscle.ID, muscle.Name, tun.CollectLoyalty
-		if t.Sub("suppliers").Float64()*100 >= float64(muscle.Nerve) {
+		if t.Sub(game.StreamSuppliers).Float64()*100 >= float64(muscle.Nerve) {
 			muscle.Skill = max(1, muscle.Skill-int(tun.CollectHurt))
 			w.Recall(muscle.ID)
 			ev.Hurt = true
@@ -501,7 +501,7 @@ func (s *Sim) peek(w *game.World, t *game.Tick) []shock {
 		city := w.Cities[cid]
 		rng := game.RNGFor(w.Seed, t.Day+1)
 		if city != w.Home() {
-			rng = tomorrow.Sub("market:" + cid)
+			rng = tomorrow.Sub(game.StreamMarketOf + cid)
 		}
 		for _, id := range ids {
 			m := city.Market[id]

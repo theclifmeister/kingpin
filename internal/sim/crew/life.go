@@ -60,7 +60,7 @@ func (s *Sim) age(life rand) int {
 // ages an age (13 -> 14), off the seed and the day and never the home
 // stream, so the run replays as it did.
 func (s *Sim) MigrateAges(w *game.World) {
-	life := (&game.Tick{Day: w.Day, Seed: w.Seed}).Sub("ages")
+	life := (&game.Tick{Day: w.Day, Seed: w.Seed}).Sub(game.StreamAges)
 	for i := range w.Crew.Members {
 		if w.Crew.Members[i].Age == 0 {
 			w.Crew.Members[i].Age = s.age(life)
@@ -82,7 +82,7 @@ func (s *Sim) life(w *game.World, t *game.Tick, fx game.Effects) {
 	if !life.On() {
 		return
 	}
-	rng := t.Sub("life")
+	rng := t.Sub(game.StreamLife)
 	c := &w.Crew
 
 	// 1. What you did today reaches the kin (the firings, the pay-offs
@@ -172,7 +172,7 @@ func (s *Sim) life(w *game.World, t *game.Tick, fx game.Effects) {
 			mul := life.ForceMul(ev.Force.String())
 			var went []int
 			for _, m := range c.Members {
-				if m.Role == "enforcer" && m.Fit(t.Day) {
+				if m.Role == game.RoleEnforcer && m.Fit(t.Day) {
 					went = append(went, m.ID)
 				}
 			}

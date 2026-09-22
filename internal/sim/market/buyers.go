@@ -123,7 +123,7 @@ func (s *Sim) deal(w *game.World, t *game.Tick) {
 	}
 	pace := s.bcfg.Buyers
 	fx := game.FoldEffects(w, s.tree)
-	rng := t.Sub("buyers")
+	rng := t.Sub(game.StreamBuyers)
 	roll := rng.Float64()
 	since := t.Day - w.Buyers.LastOffer
 	// A buyer's book (buyer_gap_mul) shortens both gaps; the roll is made

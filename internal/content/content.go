@@ -1753,7 +1753,9 @@ func Load() (*Config, error) {
 	if err := c.Routes.validate(c.City); err != nil {
 		return nil, fmt.Errorf("routes.toml: %w", err)
 	}
-	for _, role := range []string{"runner", "enforcer", "accountant", "lieutenant", "chemist"} {
+	// Every role the game hires (game.Role*): the sims index these
+	// tables directly, the driver's and the fixer's included.
+	for _, role := range []string{"runner", "enforcer", "accountant", "lieutenant", "chemist", "driver", "fixer"} {
 		if _, ok := c.Crew.Role[role]; !ok {
 			return nil, fmt.Errorf("crew.toml: no [role.%s] table", role)
 		}

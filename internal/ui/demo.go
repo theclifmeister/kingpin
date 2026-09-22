@@ -52,8 +52,8 @@ func DemoModel(cfg *content.Config, seed uint64, w, h int) (*Model, error) {
 	world.Player.DirtyCash = 48_000
 	world.Stats.PeakCash = 48_000
 	world.Crew.Members = append(world.Crew.Members,
-		game.CrewMember{ID: 1, Name: "Dre", Role: "runner", Skill: 60, Units: 120, Loyalty: 80, Nerve: 50, Wage: 50},
-		game.CrewMember{ID: 2, Name: "Moose", Role: "enforcer", Skill: 70, Loyalty: 70, Nerve: 60, Wage: 65},
+		game.CrewMember{ID: 1, Name: "Dre", Role: game.RoleRunner, Skill: 60, Units: 120, Loyalty: 80, Nerve: 50, Wage: 50},
+		game.CrewMember{ID: 2, Name: "Moose", Role: game.RoleEnforcer, Skill: 70, Loyalty: 70, Nerve: 60, Wage: 65},
 	)
 	world.Crew.NextID = 2
 	home := world.Home()

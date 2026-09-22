@@ -60,7 +60,7 @@ func (s *Sim) spies(w *game.World, t *game.Tick) {
 		if tun.SpyDays <= 0 || (t.Day-m.UndercoverDay)%tun.SpyDays != 0 {
 			continue
 		}
-		rng := t.Sub("intel")
+		rng := t.Sub(game.StreamIntel)
 		s.report(w, t, rng, m, r)
 		if rng.Float64() >= tun.Found(r.Personality) {
 			continue

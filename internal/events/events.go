@@ -476,13 +476,19 @@ func (RivalUndercut) Kind() string { return "RivalUndercut" }
 // cleared and Heat is what the player draws for it.
 type WarEscalated struct {
 	Day   int
-	Stage string // open, crackdown
+	Stage string // StageOpen or StageCrackdown
 	War   float64
 	Lost  []string // corner names cleared, both sides
 	Heat  float64
 }
 
 func (WarEscalated) Kind() string { return "WarEscalated" }
+
+// The war's stages (WarEscalated.Stage).
+const (
+	StageOpen      = "open"      // the war is loud: the police notice
+	StageCrackdown = "crackdown" // the police crush both sides
+)
 
 // UpgradeBought records a node of the upgrade tree the player bought
 // during the day. It is reported, not reacted to: the effect is already in

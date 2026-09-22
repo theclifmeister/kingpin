@@ -6,6 +6,7 @@ import (
 	"github.com/theclifmeister/kingpin/internal/content"
 	"github.com/theclifmeister/kingpin/internal/events"
 	"github.com/theclifmeister/kingpin/internal/format"
+	"github.com/theclifmeister/kingpin/internal/game"
 )
 
 // reportHeat writes the heat sim's events into the morning: the
@@ -64,7 +65,7 @@ func (r *reporter) reportHeat(e events.Event) bool {
 		r.addHouses("heat", "HouseRaided", d)
 	case events.TaskForceFormed:
 		d := r.at(ev.City)
-		r.addOff("assets:news", "heat", "TaskForceFormed", d)
+		r.addOff(game.StreamAssetsNews, "heat", "TaskForceFormed", d)
 		line := fmt.Sprintf("A TASK FORCE has formed%s. It comes tomorrow night", r.in(ev.City))
 		if ev.Assets > 0 {
 			line += " and it will take an asset with it"
@@ -73,7 +74,7 @@ func (r *reporter) reportHeat(e events.Event) bool {
 	case events.AssetSeized:
 		d := r.at(ev.City)
 		d.Asset = ev.Name
-		r.addOff("assets:news", "heat", "AssetSeized", d)
+		r.addOff(game.StreamAssetsNews, "heat", "AssetSeized", d)
 		rep.Heat = append(rep.Heat, fmt.Sprintf("  they took %s: %s of yours, gone.", ev.Name, format.Money(ev.Cost)))
 	case events.StockMoved:
 		rep.Territory = append(rep.Territory, fmt.Sprintf("Moved %d %s from %s to %s%s.", ev.Units, w.ProductName(ev.Product), ev.From, ev.To, r.in(ev.City)))

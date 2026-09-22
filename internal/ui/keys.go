@@ -275,9 +275,9 @@ var bindings = []binding{
 		do: func(m *Model, _ string) { m.askBail() }},
 	// The map.
 	{key: "c", label: "post runner", help: "post a runner on the selected corner", screens: on(screenMap),
-		do: func(m *Model, _ string) { m.askPost("runner") }},
+		do: func(m *Model, _ string) { m.askPost(game.RoleRunner) }},
 	{key: "e", label: "post enforcer", help: "post an enforcer on the selected corner", screens: on(screenMap),
-		do: func(m *Model, _ string) { m.askPost("enforcer") }},
+		do: func(m *Model, _ string) { m.askPost(game.RoleEnforcer) }},
 	{key: "a", label: "abandon", help: "give the selected corner up", screens: on(screenMap),
 		do: func(m *Model, _ string) { m.abandonSelected() }},
 	{key: "w", label: "send enforcers", help: "send the enforcers at the selected corner", screens: on(screenMap),

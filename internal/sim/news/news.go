@@ -162,7 +162,7 @@ func (s *Sim) Step(w *game.World, t *game.Tick) {
 	if n := s.tier(w, t); n > 0 {
 		tier := s.pcfg.Tier(n)
 		rep.Tier = tierLines(n, len(s.pcfg.Tiers), *tier)
-		r.addOff("progression", "news", "TierReached", base)
+		r.addOff(game.StreamProgression, "news", "TierReached", base)
 	}
 	// The reign (#227): while the city is yours the TIER section opens
 	// with where the reign stands, its homage counted off tonight's
@@ -219,7 +219,7 @@ func (s *Sim) Step(w *game.World, t *game.Tick) {
 			key = "Incident"
 			d.Name = ev.Name
 		}
-		r.addOff("incidents:news", "world", key, d)
+		r.addOff(game.StreamIncidentsNews, "world", key, d)
 		if tm := s.inc[ev.ID]; tm != nil {
 			rep.Incident = append(rep.Incident, render(tm, d))
 		} else {
@@ -303,7 +303,7 @@ func (s *Sim) Step(w *game.World, t *game.Tick) {
 	// its own stream, so the home stream and every run that never held
 	// the city are what they were.
 	if len(s.swag) > 0 && s.boss(w) {
-		if rng := t.Sub("swagger"); rng.Float64() < s.cfg.FlavourChance {
+		if rng := t.Sub(game.StreamSwagger); rng.Float64() < s.cfg.FlavourChance {
 			txt := render(s.swag[rng.IntN(len(s.swag))], base)
 			r.lines = append(r.lines, game.Headline{Day: t.Day, Source: "news", Text: txt})
 		}

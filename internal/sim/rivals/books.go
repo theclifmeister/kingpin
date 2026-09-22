@@ -47,7 +47,7 @@ func (s *Sim) ScoutOdds(w *game.World, r *game.RivalState) float64 {
 	tun := s.cfg.Books
 	best := 0
 	for _, m := range w.Crew.Members {
-		if m.Role == "enforcer" && m.Skill > best {
+		if m.Role == game.RoleEnforcer && m.Skill > best {
 			best = m.Skill
 		}
 	}
@@ -148,7 +148,7 @@ func (s *Sim) poach(w *game.World, t *game.Tick, r *game.RivalState) {
 		return
 	}
 	ev := events.RivalMusclePoached{Day: t.Day, Rival: r.Leader, Faction: r.Faction(), Wanted: o.Units, Cost: o.Cost}
-	if t.Sub("books").Float64() < s.cfg.Poach.Odds {
+	if t.Sub(game.StreamBooks).Float64() < s.cfg.Poach.Odds {
 		ev.Got = min(o.Units, r.Muscle)
 		r.Muscle -= ev.Got
 		s.sendAway(t, r, ev.Got)
@@ -246,7 +246,7 @@ func (s *Sim) scout(w *game.World, t *game.Tick, r *game.RivalState) {
 	}
 	w.Stats.Scouts++
 	ev := events.RivalScouted{Day: t.Day, Cost: o.Cost, Rival: r.Leader, Faction: r.Faction()}
-	if t.Sub("books").Float64() < s.ScoutOdds(w, r) {
+	if t.Sub(game.StreamBooks).Float64() < s.ScoutOdds(w, r) {
 		ev.Read = true
 		ev.Cash, ev.Income, ev.Muscle, ev.Wages = r.Cash, s.Income(w, r), r.Muscle, s.Wages(w, r)
 		s.file(w, t, r, game.Books{Day: t.Day, Cash: ev.Cash, Income: ev.Income, Muscle: ev.Muscle, Wages: ev.Wages})

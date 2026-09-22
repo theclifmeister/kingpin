@@ -5,6 +5,7 @@ import (
 
 	"github.com/theclifmeister/kingpin/internal/events"
 	"github.com/theclifmeister/kingpin/internal/format"
+	"github.com/theclifmeister/kingpin/internal/game"
 )
 
 // reportLaundering writes the laundering sim's events into the morning: the
@@ -73,7 +74,7 @@ func (r *reporter) reportLaundering(e events.Event) bool {
 		// off the assets' own stream, so no pinned run moves.
 		d := r.at(ev.City)
 		d.Asset = ev.Name
-		r.addOff("assets:news", "laundering", "AssetBought", d)
+		r.addOff(game.StreamAssetsNews, "laundering", "AssetBought", d)
 		r.spent += ev.Cost
 		rep.Money = append(rep.Money, fmt.Sprintf("Bought %s -%s clean. It stands from today, %s/day clean to keep.", ev.Name, format.Money(ev.Cost), format.Money(ev.Upkeep)))
 	case events.AssetFrozen:

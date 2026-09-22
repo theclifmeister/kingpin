@@ -328,7 +328,7 @@ func (s *Sim) Step(w *game.World, t *game.Tick) {
 		// at home.
 		rng := t.RNG
 		if city != w.Home() {
-			rng = t.Sub("market:" + cid)
+			rng = t.Sub(game.StreamMarketOf + cid)
 		}
 		s.deliver(w, t, cid)
 		// The price war (#68): the rival's corners at home start the

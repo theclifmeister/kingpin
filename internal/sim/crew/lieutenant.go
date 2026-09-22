@@ -193,7 +193,7 @@ func (s *Sim) delegate(w *game.World, t *game.Tick, lt *game.CrewMember, ev *eve
 	}
 	for i := range w.Crew.Members {
 		m := &w.Crew.Members[i]
-		if m.Role != "runner" || w.PostOf(m.ID) != nil || !m.Fit(t.Day) {
+		if m.Role != game.RoleRunner || w.PostOf(m.ID) != nil || !m.Fit(t.Day) {
 			continue // a runner in a cell or laid up (#46) is nobody to post
 		}
 		c := post(m.ID, func(c *game.Corner) bool { return c.Held() && c.Runner == 0 })
@@ -210,7 +210,7 @@ func (s *Sim) delegate(w *game.World, t *game.Tick, lt *game.CrewMember, ev *eve
 	if tp.Guard {
 		for i := range w.Crew.Members {
 			m := &w.Crew.Members[i]
-			if m.Role != "enforcer" || w.PostOf(m.ID) != nil || !m.Fit(t.Day) {
+			if m.Role != game.RoleEnforcer || w.PostOf(m.ID) != nil || !m.Fit(t.Day) {
 				continue
 			}
 			var best *game.Corner

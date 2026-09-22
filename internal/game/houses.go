@@ -285,7 +285,7 @@ func (w *World) Guard(house string, id int) error {
 	if m == nil {
 		return ErrNoMember
 	}
-	if m.Role != "enforcer" {
+	if m.Role != RoleEnforcer {
 		return ErrNotEnforcer
 	}
 	if m.Jailed(w.Day) {

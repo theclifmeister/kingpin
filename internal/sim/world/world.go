@@ -47,7 +47,7 @@ func (s *Sim) Step(w *game.World, t *game.Tick) {
 		return
 	}
 	pace := s.cfg.Incidents
-	rng := t.Sub("incidents")
+	rng := t.Sub(game.StreamIncidents)
 	since := t.Day - w.Incidents.Last
 	roll := rng.Float64()
 	if since < pace.MinGap {

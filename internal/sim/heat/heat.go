@@ -523,7 +523,7 @@ func (s *Sim) Step(w *game.World, t *game.Tick) {
 			// books side stream's, so a run that never tips keeps its
 			// dice. It does not reset the retainer's clock unless it
 			// files.
-			if tun.TipEvidence > 0 && t.Sub("books").Float64() < tun.TipEvidence {
+			if tun.TipEvidence > 0 && t.Sub(game.StreamBooks).Float64() < tun.TipEvidence {
 				h.Evidence++
 				h.EvidenceDay = t.Day
 				reasons[home] = append(reasons[home], fmt.Sprintf("your tip: the DA's file on you grows (%d)", h.Evidence))
@@ -535,7 +535,7 @@ func (s *Sim) Step(w *game.World, t *game.Tick) {
 			// sides' wars raising it.
 			add(ev.City, ev.Heat, "the factions fought over "+ev.Name)
 		case events.WarEscalated:
-			if ev.Stage == "crackdown" {
+			if ev.Stage == events.StageCrackdown {
 				add(home, ev.Heat, "the crackdown")
 			}
 		case events.ShipmentSeized:
@@ -1050,7 +1050,7 @@ func (s *Sim) place(w *game.World, t *game.Tick, city string, told bool) *game.H
 	if len(cands) == 1 {
 		return cands[0].house
 	}
-	roll := t.Sub("houses").Float64() * total
+	roll := t.Sub(game.StreamHouses).Float64() * total
 	for _, c := range cands {
 		roll -= c.weight
 		if roll < 0 {
@@ -1197,7 +1197,7 @@ func (s *Sim) cop(w *game.World, t *game.Tick) {
 	city := w.Here()
 	level, from := s.Next(w, city, t.Day)
 	p := tun.Accuracy(o.Amount)
-	rng := t.Sub("intel")
+	rng := t.Sub(game.StreamIntel)
 	if rng.Float64() >= p {
 		// A wrong word: the rung beside it, or a few days out.
 		resp := s.Thresholds()

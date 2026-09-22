@@ -19,11 +19,6 @@ import (
 // byte-for-byte. Poaching and homage need a table: with one faction in
 // the run nobody poaches and nobody bows.
 
-// StreamFactions is the side stream the table's own rolls come off: the
-// count and the seats at seed, the fights between factions, a
-// fragmenting faction's drift order.
-const StreamFactions = "factions"
-
 // seedTable seeds the factions beside the rival at home (#43) off the
 // factions stream of day 0: min to max of them by seed, at most one
 // chaotic across the table, each with a leader nobody else has, a
@@ -36,7 +31,7 @@ func (s *Sim) seedTable(w *game.World) {
 	if len(w.Rivals) != 1 || f.Max < 2 {
 		return
 	}
-	rng := game.SubRNG(w.Seed, 0, StreamFactions)
+	rng := game.SubRNG(w.Seed, 0, game.StreamFactions)
 	n := f.Min
 	if f.Max > f.Min {
 		n += rng.IntN(f.Max - f.Min + 1)
@@ -181,7 +176,7 @@ func (s *Sim) fragment(w *game.World, t *game.Tick, r *game.RivalState, killed b
 	if r.Gone() {
 		return
 	}
-	rng := t.Sub(StreamFactions)
+	rng := t.Sub(game.StreamFactions)
 	var ids []string
 	for _, c := range s.corners(w, r) {
 		if owns(c, r) {
@@ -239,7 +234,7 @@ func (s *Sim) Fragmenting(r *game.RivalState) bool { return r.Fragmented > 0 && 
 func (s *Sim) contest(w *game.World, t *game.Tick, r *game.RivalState) {
 	f := s.cfg.Factions
 	pc := s.personality(r)
-	rng := t.Sub(StreamFactions)
+	rng := t.Sub(game.StreamFactions)
 	ground := s.corners(w, r)
 	for i := range ground {
 		c := &ground[i]
@@ -393,7 +388,7 @@ func (s *Sim) poachCrew(w *game.World, t *game.Tick) {
 	if r == nil || len(w.Crew.Members) == 0 || f.PoachChance <= 0 {
 		return
 	}
-	if t.Sub("poach").Float64() >= f.PoachChance {
+	if t.Sub(game.StreamPoach).Float64() >= f.PoachChance {
 		return
 	}
 	pick := -1
@@ -430,7 +425,7 @@ func (s *Sim) homage(w *game.World, t *game.Tick, r *game.RivalState) {
 	if f.TributeCorners <= 0 || r.LostToYou < f.TributeCorners || w.RivalHeldBy(id) == 0 || s.Distrusted(r, t.Day) || w.DealWith(id, game.DealHomage) != nil || s.offering(w, id) {
 		return
 	}
-	if t.Sub("homage").Float64() >= f.HomageChance {
+	if t.Sub(game.StreamHomage).Float64() >= f.HomageChance {
 		return
 	}
 	per := s.round(f.HomageCut * float64(s.Income(w, r)))

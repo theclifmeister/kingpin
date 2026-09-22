@@ -68,16 +68,20 @@ func (r *reporter) addOff(stream, source, key string, d data) {
 	r.lines = append(r.lines, game.Headline{Day: r.t.Day, Source: source, Text: txt})
 }
 
-func (r *reporter) addBuyers(key string, d data)    { r.addOff("buyers", "buyers", key, d) }
-func (r *reporter) addSuppliers(key string, d data) { r.addOff("suppliers", "market", key, d) }
+func (r *reporter) addBuyers(key string, d data)    { r.addOff(game.StreamBuyers, "buyers", key, d) }
+func (r *reporter) addSuppliers(key string, d data) { r.addOff(game.StreamSuppliers, "market", key, d) }
 
 // addHouses: the houses' lines (#73) pick theirs off a side stream too:
 // a run with no house is the run it was.
-func (r *reporter) addHouses(source, key string, d data) { r.addOff("houses:news", source, key, d) }
+func (r *reporter) addHouses(source, key string, d data) {
+	r.addOff(game.StreamHousesNews, source, key, d)
+}
 
 // addIntel: the intel lines (#45) pick theirs off the intel side stream:
 // a run with no spy under and nobody feeding it is the run it was.
-func (r *reporter) addIntel(source, key string, d data) { r.addOff("intel:news", source, key, d) }
+func (r *reporter) addIntel(source, key string, d data) {
+	r.addOff(game.StreamIntelNews, source, key, d)
+}
 
 // crew names the faction a rival event is about (#43): the event's
 // leader and their crew in the Leader and Faction slots, so a line about

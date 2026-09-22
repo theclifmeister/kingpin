@@ -83,7 +83,7 @@ func (m *Model) askStrike() {
 		m.refuse("Can't send them there: enforcers go against a corner a rival holds.")
 		return
 	}
-	if m.w.Crew.Role("enforcer") == 0 {
+	if m.w.Crew.Role(game.RoleEnforcer) == 0 {
 		m.refuse("Nothing to send: no enforcers. Hire one " + screenPointer(screenCrew) + ".")
 		return
 	}
@@ -125,7 +125,7 @@ func (m *Model) viewStrike() string {
 	rows := m.strikeRows()
 	m.pick.cursor = max(0, min(m.pick.cursor, len(rows)-1))
 	fac := m.factionOf(c)
-	body := []string{theme.Subtle.Render(fmt.Sprintf("%s vs %s on %s, muscle %s", plural(m.w.Crew.Role("enforcer"), "enforcer"), m.rivalName(fac), c.Name, m.defenceWord(fac))), ""}
+	body := []string{theme.Subtle.Render(fmt.Sprintf("%s vs %s on %s, muscle %s", plural(m.w.Crew.Role(game.RoleEnforcer), "enforcer"), m.rivalName(fac), c.Name, m.defenceWord(fac))), ""}
 	var cells [][]any
 	b := m.set.Rivals.BoostTuning()
 	for i, r := range rows {
@@ -423,7 +423,7 @@ func (m *Model) askWar() {
 		m.refuse("Nothing to fight: nobody is contesting the city yet.")
 	case r.Gone():
 		m.refuse("Nothing to fight: " + m.rivalName(r) + " is no more. Turn to another faction.")
-	case w.Crew.OnPayroll("enforcer") == 0:
+	case w.Crew.OnPayroll(game.RoleEnforcer) == 0:
 		m.refuse("Nobody to send: no enforcers. Hire one " + screenPointer(screenCrew) + ".")
 	case !w.WarHasGround(r):
 		m.refuse(fmt.Sprintf("Nowhere to go: %s holds no corner in a city you hold ground in.", m.rivalName(r)))

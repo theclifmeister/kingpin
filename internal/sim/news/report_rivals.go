@@ -261,7 +261,7 @@ func (r *reporter) reportRivals(e events.Event) bool {
 		rep.Territory = append(rep.Territory, fmt.Sprintf("Word of the broken deal got round: %s trust you %.0f less.", format.Plural(ev.Others, "other faction"), ev.Spread))
 	case events.WarEscalated:
 		d := base
-		if ev.Stage == "crackdown" {
+		if ev.Stage == events.StageCrackdown {
 			r.add("rivals", "WarCrackdown", d)
 			rep.Territory = append(rep.Territory, fmt.Sprintf("CRACKDOWN. The police cleared %s. Both sides lost ground.", strings.Join(ev.Lost, ", ")))
 		} else {

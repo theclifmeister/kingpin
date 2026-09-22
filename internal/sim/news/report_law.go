@@ -135,7 +135,7 @@ func (r *reporter) reportLaw(e events.Event) bool {
 	case events.DeedSeized:
 		d := r.at(ev.City)
 		d.Corner = ev.Name
-		r.addOff("deeds:news", "laundering", "DeedSeized", d)
+		r.addOff(game.StreamDeedsNews, "laundering", "DeedSeized", d)
 		rep.Law = append(rep.Law, fmt.Sprintf("FORFEITURE: the DA seized the block %s is on%s (%s). %s in deeds against %s washed; the money has no story, and the file will grow in the morning.", ev.Name, r.in(ev.City), format.Money(ev.Price), format.Money(ev.Spent), format.Money(ev.Washed)))
 	default:
 		return false

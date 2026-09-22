@@ -475,6 +475,15 @@ type Fallen struct {
 	CornerName string
 }
 
+// The crew's roles, as crew.toml's [role.*] tables name them (#274):
+// runners sell, enforcers guard and strike, accountants wash through the
+// fronts. The specialists' roles are declared beside their helpers.
+const (
+	RoleRunner     = "runner"
+	RoleEnforcer   = "enforcer"
+	RoleAccountant = "accountant"
+)
+
 // RoleChemist is the role of the crew member who makes quality (#47):
 // cuts keep more with one on the payroll, and only they cook.
 const RoleChemist = "chemist"
@@ -625,7 +634,7 @@ type InvestigationOrder struct {
 }
 
 // Runners counts the runners at work.
-func (c CrewState) Runners() int { return c.Role("runner") }
+func (c CrewState) Runners() int { return c.Role(RoleRunner) }
 
 // Role counts the members of a role at work: on the payroll and neither
 // in a cell nor laid up (#46, Working), so an enforcer in a cell
