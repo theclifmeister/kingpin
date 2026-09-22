@@ -60,38 +60,104 @@ type Answer struct {
 	Headline string
 }
 
-// EffectKeys are the effects a choice may carry. Adding one is a code
-// change here and in applyEffect; the news sim refuses a card whose
-// choices use any other key, so a typo in the deck is a load failure, not
-// a silent no-op. Cash deltas are clamped at zero, heat, loyalty and war at
-// 0..100. The *_amount keys are multiples of the card's Amount, so a card
-// can name the sum it is about and then take or pay it. stock_share is the
-// fraction of every product lost (negative) or found (positive, capped by
-// what the operation can hold). fear, respect and notoriety move the
-// reputation axes (#14), clamped to 0..100; the sum cap is applied by the
-// reputation sim at its next step.
-var EffectKeys = []string{
-	"dirty_cash", "clean_cash", "dirty_amount", "clean_amount",
-	"heat",
-	"loyalty", "crew_loyalty",
-	"war", "grudge", "rival_muscle", "rival_cash",
-	"stock_share",
-	"fear", "respect", "notoriety",
+// effects is the one table of what a choice may carry (#274): every key
+// a card can use and what it does to the world, so the list of legal keys
+// and what applies them cannot drift apart. Adding an effect is a line
+// here; the news sim refuses a card whose choices use any other key, so a
+// typo in the deck is a load failure, not a silent no-op. Cash deltas are
+// clamped at zero, heat, loyalty and war at 0..100. The *_amount keys are
+// multiples of the card's Amount, so a card can name the sum it is about
+// and then take or pay it. stock_share is the fraction of every product
+// lost (negative) or found (positive, capped by what the operation can
+// hold). fear, respect and notoriety move the reputation axes (#14),
+// clamped to 0..100; the sum cap is applied by the reputation sim at its
+// next step.
+var effects = map[string]func(w *World, c *Card, v float64){
+	"dirty_cash": func(w *World, _ *Card, v float64) {
+		w.Player.DirtyCash = max(0, w.Player.DirtyCash+int(v))
+	},
+	"clean_cash": func(w *World, _ *Card, v float64) {
+		w.Player.CleanCash = max(0, w.Player.CleanCash+int(v))
+	},
+	"dirty_amount": func(w *World, c *Card, v float64) {
+		w.Player.DirtyCash = max(0, w.Player.DirtyCash+int(math.Round(v*float64(c.Amount))))
+	},
+	"clean_amount": func(w *World, c *Card, v float64) {
+		w.Player.CleanCash = max(0, w.Player.CleanCash+int(math.Round(v*float64(c.Amount))))
+	},
+	"heat": func(w *World, _ *Card, v float64) {
+		// Where you are: the card is about tonight, and you are here.
+		if c := w.Here(); c != nil {
+			c.Heat = clamp(c.Heat + v)
+			w.Heat.Peak = math.Max(w.Heat.Peak, c.Heat)
+		}
+	},
+	"loyalty": func(w *World, c *Card, v float64) {
+		if m := w.Crew.Member(c.Member); m != nil {
+			m.Loyalty = clamp(m.Loyalty + v)
+		}
+	},
+	"crew_loyalty": func(w *World, _ *Card, v float64) {
+		for i := range w.Crew.Members {
+			w.Crew.Members[i].Loyalty = clamp(w.Crew.Members[i].Loyalty + v)
+		}
+	},
+	"war":          func(w *World, _ *Card, v float64) { w.Rival().War = clamp(w.Rival().War + v) },
+	"grudge":       func(w *World, _ *Card, v float64) { w.Rival().Grudge = max(0, w.Rival().Grudge+int(v)) },
+	"rival_muscle": func(w *World, _ *Card, v float64) { w.Rival().Muscle = max(0, w.Rival().Muscle+int(v)) },
+	"rival_cash":   func(w *World, _ *Card, v float64) { w.Rival().Cash = max(0, w.Rival().Cash+int(v)) },
+	"stock_share": func(w *World, _ *Card, v float64) {
+		for _, cid := range w.CityOrder {
+			free := w.Free(cid)
+			for _, id := range w.Products {
+				d := int(math.Round(float64(w.Stock(cid, id)) * v))
+				if d > 0 {
+					d = min(d, free)
+					free -= d
+				}
+				w.AddStock(cid, id, d, w.StreetQuality()) // a negative share is a take, clamped at nothing; a windfall is street product
+			}
+		}
+	},
+	"fear":      reputationEffect("fear"),
+	"respect":   reputationEffect("respect"),
+	"notoriety": reputationEffect("notoriety"),
 }
+
+// reputationEffect moves one reputation axis at once, clamped like the
+// sim clamps it; the street's total attention (the sum cap) is the
+// reputation sim's to enforce, and it does so on every source when it
+// steps tonight.
+func reputationEffect(axis string) func(w *World, _ *Card, v float64) {
+	return func(w *World, _ *Card, v float64) {
+		a := w.Player.Reputation.Axis(axis)
+		*a = clamp(*a + v)
+	}
+}
+
+// EffectKeys are the keys of effects, sorted: the order Choose applies a
+// choice's effects in, and the list the news sim checks a deck against
+// (through KnownEffect) at start-up.
+var EffectKeys = func() []string {
+	keys := make([]string, 0, len(effects))
+	for k := range effects {
+		keys = append(keys, k)
+	}
+	sort.Strings(keys)
+	return keys
+}()
 
 // KnownEffect reports whether key is one of EffectKeys.
 func KnownEffect(key string) bool {
-	for _, k := range EffectKeys {
-		if k == key {
-			return true
-		}
-	}
-	return false
+	_, ok := effects[key]
+	return ok
 }
 
 // Choose answers the pending card with choice i: every effect applies at
 // once, the outcome goes in the journal and the card is gone. It is the
-// one place card effects touch the world.
+// one place card effects touch the world. Every key of the choice is
+// checked before any applies (#274), so a key the world does not know
+// leaves the world as it was and the card still pending.
 func (w *World) Choose(i int) (Answer, error) {
 	if w.Over != nil {
 		return Answer{}, ErrGameOver
@@ -111,9 +177,12 @@ func (w *World) Choose(i int) (Answer, error) {
 	}
 	sort.Strings(keys)
 	for _, k := range keys {
-		if err := w.applyEffect(c, k, ch.Effects[k]); err != nil {
-			return Answer{}, err
+		if !KnownEffect(k) {
+			return Answer{}, unknownEffect(c, k)
 		}
+	}
+	for _, k := range keys {
+		effects[k](w, c, ch.Effects[k])
 	}
 	a := Answer{Day: w.Day, Card: c.ID, Title: c.Title, Choice: ch.Label, Outcome: ch.Outcome, Headline: ch.Headline}
 	w.Dilemmas.Pending = nil
@@ -122,61 +191,19 @@ func (w *World) Choose(i int) (Answer, error) {
 	return a, nil
 }
 
-// applyEffect is the one function that knows what every effect key does.
+// applyEffect applies one key through the table, or refuses a key the
+// table does not hold.
 func (w *World) applyEffect(c *Card, key string, v float64) error {
-	switch key {
-	case "dirty_cash":
-		w.Player.DirtyCash = max(0, w.Player.DirtyCash+int(v))
-	case "clean_cash":
-		w.Player.CleanCash = max(0, w.Player.CleanCash+int(v))
-	case "dirty_amount":
-		w.Player.DirtyCash = max(0, w.Player.DirtyCash+int(math.Round(v*float64(c.Amount))))
-	case "clean_amount":
-		w.Player.CleanCash = max(0, w.Player.CleanCash+int(math.Round(v*float64(c.Amount))))
-	case "heat":
-		// Where you are: the card is about tonight, and you are here.
-		if c := w.Here(); c != nil {
-			c.Heat = clamp(c.Heat + v)
-			w.Heat.Peak = math.Max(w.Heat.Peak, c.Heat)
-		}
-	case "loyalty":
-		if m := w.Crew.Member(c.Member); m != nil {
-			m.Loyalty = clamp(m.Loyalty + v)
-		}
-	case "crew_loyalty":
-		for i := range w.Crew.Members {
-			w.Crew.Members[i].Loyalty = clamp(w.Crew.Members[i].Loyalty + v)
-		}
-	case "war":
-		w.Rival().War = clamp(w.Rival().War + v)
-	case "grudge":
-		w.Rival().Grudge = max(0, w.Rival().Grudge+int(v))
-	case "rival_muscle":
-		w.Rival().Muscle = max(0, w.Rival().Muscle+int(v))
-	case "rival_cash":
-		w.Rival().Cash = max(0, w.Rival().Cash+int(v))
-	case "stock_share":
-		for _, cid := range w.CityOrder {
-			free := w.Free(cid)
-			for _, id := range w.Products {
-				d := int(math.Round(float64(w.Stock(cid, id)) * v))
-				if d > 0 {
-					d = min(d, free)
-					free -= d
-				}
-				w.AddStock(cid, id, d, w.StreetQuality()) // a negative share is a take, clamped at nothing; a windfall is street product
-			}
-		}
-	case "fear", "respect", "notoriety":
-		// The axis moves at once, clamped like the sim clamps it; the
-		// street's total attention (the sum cap) is the reputation sim's
-		// to enforce, and it does so on every source when it steps tonight.
-		a := w.Player.Reputation.Axis(key)
-		*a = clamp(*a + v)
-	default:
-		return fmt.Errorf("card %s: unknown effect %q", c.ID, key)
+	f, ok := effects[key]
+	if !ok {
+		return unknownEffect(c, key)
 	}
+	f(w, c, v)
 	return nil
+}
+
+func unknownEffect(c *Card, key string) error {
+	return fmt.Errorf("card %s: unknown effect %q", c.ID, key)
 }
 
 func clamp(v float64) float64 { return math.Max(0, math.Min(100, v)) }

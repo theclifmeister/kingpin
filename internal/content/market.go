@@ -1,6 +1,10 @@
 package content
 
-import "fmt"
+import (
+	"fmt"
+
+	"github.com/theclifmeister/kingpin/internal/events"
+)
 
 // MarketConfig mirrors market.toml.
 type MarketConfig struct {
@@ -146,6 +150,26 @@ type DialTable struct {
 	Quiet      DialConfig `toml:"quiet"`
 	Normal     DialConfig `toml:"normal"`
 	Aggressive DialConfig `toml:"aggressive"`
+}
+
+// For returns the tuning for a sell dial position: the market's fill,
+// price and impact and the heat sim's weight read one row (#275).
+func (t DialTable) For(d events.Dial) DialConfig {
+	return threeWay(int(d), t.Quiet, t.Normal, t.Aggressive)
+}
+
+// threeWay picks a three-way dial's row by its position (#275): the low
+// notch at 0, the high at 2 and the middle for anything else, as every
+// three-way dial's String reads a value off its table (events/dials.go).
+func threeWay[T any](pos int, low, mid, high T) T {
+	switch pos {
+	case 0:
+		return low
+	case 2:
+		return high
+	default:
+		return mid
+	}
 }
 
 type DialConfig struct {

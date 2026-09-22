@@ -169,7 +169,7 @@ func (m *Model) nextNewRun() {
 		d.step++
 		return
 	}
-	seed := newSeed()
+	seed := m.freshSeed()
 	if n, ok := d.seed.Number(); ok && strings.TrimSpace(d.seed.Value()) != "" {
 		seed = uint64(n)
 	}

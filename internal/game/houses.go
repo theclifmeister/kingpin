@@ -129,10 +129,9 @@ func (w *World) BuyHouse(o HouseOffer) (House, error) {
 	if o.Locked(w) {
 		return House{}, ErrHouseLocked
 	}
-	if o.Price > w.Player.DirtyCash {
-		return House{}, fmt.Errorf("need $%d, only have $%d dirty", o.Price, w.Player.DirtyCash)
+	if err := w.payDirty(o.Price); err != nil {
+		return House{}, err
 	}
-	w.Player.DirtyCash -= o.Price
 	h := House{ID: o.ID, Name: o.Name, City: o.City, Corner: o.Corner, Capacity: o.Capacity, Price: o.Price, Rent: o.Rent, Bought: w.Day}
 	w.Houses = append(w.Houses, h)
 	w.Today.HousesBought = append(w.Today.HousesBought, h.ID)
