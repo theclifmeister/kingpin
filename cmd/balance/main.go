@@ -59,10 +59,10 @@ func main() {
 	if !ok {
 		refuse("policy", *policy, harness.PolicyNames())
 	}
-	forces := map[string]events.Force{"warn": events.ForceWarn, "push": events.ForcePush, "hit": events.ForceHit}
-	dials := map[string]events.Dial{"quiet": events.DialQuiet, "normal": events.DialNormal, "aggressive": events.DialAggressive}
-	oneOf("force", *force, "warn", "push", "hit")
-	oneOf("undercut", *undercut, "quiet", "normal", "aggressive")
+	oneOf("force", *force, events.ForceNames()...)
+	oneOf("undercut", *undercut, events.DialNames()...)
+	forceDial, _ := events.ParseForce(*force)
+	undercutDial, _ := events.ParseDial(*undercut)
 	oneOf("heat", *heatFlag, "on", "off")
 	oneOf("pace", *pace, "on", "off")
 	oneOf("credit", *credit, "on", "off")
@@ -105,8 +105,8 @@ func main() {
 	p := entry.Make(cfg, harness.PolicyOpts{
 		LieLow:     *lieLow,
 		Corners:    *corners,
-		Force:      forces[*force],
-		Undercut:   dials[*undercut],
+		Force:      forceDial,
+		Undercut:   undercutDial,
 		Lieutenant: *lt,
 		Margin:     *margin,
 		Houses:     *houses,

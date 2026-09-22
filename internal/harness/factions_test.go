@@ -15,26 +15,45 @@ import (
 
 // One faction is the old run (#43): under harness.OneFaction the rival
 // at home rolls on the tick's stream alone and nothing of the table
-// fires or is written, so the money curve reads main's own figures
-// after #46 to the dollar (t1 and t2 here, the incidents boxed as every
-// harness run has them; TestNoLifeIsTheOldRun pins the boss's t3 and t4
-// under the same box, and cmd/balance -factions 1 prints main's trace)
-// and a run of every home policy emits none of the table's events.
+// fires or is written, and a run of every home policy emits none of the
+// table's events. The table is the duel's dice plus side streams, so
+// until a second seat is on the ground the file and the duel read the
+// same world, the other seats set aside: the managed and the crewed
+// players on the twenty seeds TestMoneyCurve reads, to the tier-2
+// checkpoint or the day the second faction moves in (assertOldRun, as
+// Run plays them). A table roll on the home stream before then (the
+// richest faction's poach offer rolls from day 10 in a crewed run)
+// moves the file's run on the day it is drawn and fails it. Until
+// #276 this pinned t1 and t2's duel medians to the dollar (84,930 /
+// 595,556, main's after #46), a copy of the money curve every balance
+// PR had to edit: the duel's own numbers are TestSeedDigest's pin.
 func TestOneFactionIsTheOldRun(t *testing.T) {
 	t.Parallel()
+	assertOldRun(t, oldRunCase{
+		never: "met no second faction",
+		box:   OneFaction,
+		policies: map[string]func(*content.Config) Policy{
+			"managed": func(c *content.Config) Policy { return Managed(c, 50) },
+			"crewed":  func(c *content.Config) Policy { return Crewed(c, 40) },
+		},
+		seeds: 20,
+		days:  tierDay(2),
+		asRun: true,
+		until: func(w *game.World, today []events.Event) bool {
+			for _, r := range w.Rivals[1:] {
+				if r.Arrived != 0 {
+					return true
+				}
+			}
+			return tableActed(today)
+		},
+		scrub: func(_ *testing.T, w *game.World, _ bool) func() {
+			seats := w.Rivals
+			w.Rivals = seats[:1]
+			return func() { w.Rivals = seats }
+		},
+	})
 	cfg := OneFaction(content.MustLoad())
-	for _, row := range []struct {
-		tier   int
-		policy func(*content.Config) Policy
-		want   int
-	}{
-		{1, func(c *content.Config) Policy { return Managed(c, 50) }, 84_930},
-		{2, func(c *content.Config) Policy { return Crewed(c, 40) }, 595_556},
-	} {
-		if got := medianNetWorth(t, cfg, row.policy, tierDay(row.tier)); got != row.want {
-			t.Errorf("tier %d in the duel: median net worth %d on day %d, main's figure after #46 is %d", row.tier, got, tierDay(row.tier), row.want)
-		}
-	}
 	for name, policy := range map[string]Policy{
 		"territory": Territory(cfg, 40, 4),
 		"war":       Warlike(cfg, 40, 4, events.ForcePush),
@@ -53,15 +72,28 @@ func TestOneFactionIsTheOldRun(t *testing.T) {
 			t.Fatalf("%s: the duel carries the table's state: %+v %+v", name, *r, w.Stats)
 		}
 		for _, e := range res.Events {
-			switch e.(type) {
-			case events.FactionPushed, events.RivalAbsorbed, events.CrewPoached, events.TrustSpread:
-				t.Fatalf("%s: %s in a duel", name, e.Kind())
-			}
-			if d, ok := e.(events.DealOffered); ok && d.Deal == game.DealHomage {
-				t.Fatalf("%s: a homage offered in a duel", name)
+			if tableActed([]events.Event{e}) {
+				t.Fatalf("%s: %+v in a duel", name, e)
 			}
 		}
 	}
+}
+
+// tableActed reports whether any of evs is the table's own doing (#43):
+// a push between factions, an absorption, a poach, trust spread or a
+// homage offered, none of which a duel ever emits.
+func tableActed(evs []events.Event) bool {
+	for _, e := range evs {
+		switch ev := e.(type) {
+		case events.FactionPushed, events.RivalAbsorbed, events.CrewPoached, events.TrustSpread:
+			return true
+		case events.DealOffered:
+			if ev.Deal == game.DealHomage {
+				return true
+			}
+		}
+	}
+	return false
 }
 
 // With four factions a rival-vs-rival push happens before day 120 on

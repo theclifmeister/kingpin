@@ -104,14 +104,7 @@ func (l LaunderingConfig) Front(id string) *FrontConfig {
 
 // DialFor returns the tuning for a launder dial position.
 func (l LaunderingConfig) DialFor(d events.Launder) LaunderConfig {
-	switch d {
-	case events.LaunderCareful:
-		return l.Dial.Careful
-	case events.LaunderGreedy:
-		return l.Dial.Greedy
-	default:
-		return l.Dial.Normal
-	}
+	return threeWay(int(d), l.Dial.Careful, l.Dial.Normal, l.Dial.Greedy)
 }
 
 // validate checks the fronts and the tables that grow them: at least

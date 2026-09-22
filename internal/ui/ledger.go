@@ -242,11 +242,7 @@ func (m *Model) ledgerMove(dy int) {
 
 // launderRow draws the launder dial as `careful  [normal]  greedy`.
 func launderRow(d events.Launder) string {
-	var notches []string
-	for x := events.LaunderCareful; x <= events.LaunderGreedy; x++ {
-		notches = append(notches, x.String())
-	}
-	return dialCells(notches, int(d-events.LaunderCareful))
+	return dialCells(events.LaunderNames(), int(d-events.LaunderCareful))
 }
 
 // frontCols are the FRONTS table's columns: the level and what the

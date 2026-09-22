@@ -7,7 +7,6 @@ import (
 	"go/parser"
 	"go/token"
 	"go/types"
-	"io/fs"
 	"path/filepath"
 	"strings"
 	"testing"
@@ -241,17 +240,23 @@ func TestIntelScreenFits(t *testing.T) {
 // Risk and a lieutenant's Personality are not the truth this guards.
 func TestPanelsReadTheFile(t *testing.T) {
 	fset := token.NewFileSet()
-	pkgs, err := parser.ParseDir(fset, ".", func(fi fs.FileInfo) bool {
-		return !strings.HasSuffix(fi.Name(), "_test.go") && fi.Name() != "demo.go"
-	}, 0)
+	// One file at a time, not parser.ParseDir: staticcheck flags that as
+	// deprecated since Go 1.25 (SA1019, #276), and the package's files
+	// are just the directory's non-test .go files.
+	names, err := filepath.Glob("*.go")
 	if err != nil {
 		t.Fatal(err)
 	}
 	var files []*ast.File
-	for _, p := range pkgs {
-		for _, f := range p.Files {
-			files = append(files, f)
+	for _, name := range names {
+		if strings.HasSuffix(name, "_test.go") || name == "demo.go" {
+			continue
 		}
+		f, err := parser.ParseFile(fset, name, nil, 0)
+		if err != nil {
+			t.Fatal(err)
+		}
+		files = append(files, f)
 	}
 	if len(files) < 20 {
 		t.Fatalf("only %d files parsed; the glob is wrong", len(files))

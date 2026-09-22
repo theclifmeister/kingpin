@@ -2,6 +2,7 @@ package ui
 
 import (
 	"fmt"
+	"math"
 	"strings"
 
 	"github.com/charmbracelet/lipgloss"
@@ -322,4 +323,197 @@ func (m *Model) debtLine() string {
 		style = theme.Bad
 	}
 	return style.Render(fmt.Sprintf("owe %s, due %s", cash(owed), dueWord(due-w.Day)))
+}
+
+// connectsHere is every connect in the buy's city (buyCity: where you
+// stand, or the city a lieutenant runs for you, #174), in the order
+// seeded: the buy dialog's connect step and what the picked index
+// counts into.
+func (m *Model) connectsHere() []*game.Supplier { return m.w.SuppliersIn(m.buyCity()) }
+
+// dealing reports whether a connect is open for business with you
+// today: unlocked, taking calls, with something left and a product to
+// sell here.
+func (m *Model) dealing(sup *game.Supplier) bool {
+	for _, id := range m.w.Products {
+		if m.w.Available(sup, id) {
+			return true
+		}
+	}
+	return false
+}
+
+// sellsYou reports whether a connect sells you anything today: some
+// product is available from them and you could take at least a unit of
+// it, for cash or on their book.
+func (m *Model) sellsYou(sup *game.Supplier) bool {
+	for _, id := range m.w.Products {
+		if m.maxBuyFrom(sup, id, false) > 0 || m.maxBuyFrom(sup, id, true) > 0 {
+			return true
+		}
+	}
+	return false
+}
+
+// whyNobodySells is the refusal when no connect where you stand is
+// dealing today: nobody here, frozen, out of stock for the day, or
+// locked.
+func (m *Model) whyNobodySells() string {
+	w := m.w
+	city := m.buyCity()
+	cs := m.connectsHere()
+	if len(cs) == 0 {
+		return "nobody sells in " + w.CityName(city)
+	}
+	for _, sup := range cs {
+		if sup.Frozen(w.Day) {
+			return sup.Name + " is not taking your calls for " + plural(sup.FrozenUntil-w.Day, "day")
+		}
+	}
+	for _, sup := range cs {
+		if sup.Open(w) && sup.Left() == 0 {
+			return sup.Name + " has nothing left today"
+		}
+	}
+	return "nobody in " + w.CityName(city) + " will deal with you yet"
+}
+
+// buySupplier is the connect the buy dialog buys a product from: the
+// one picked on the connect step where there was one, else the one
+// connect that sells you something, else the cheapest that sells the
+// product today.
+func (m *Model) buySupplier(id string) *game.Supplier {
+	if cs := m.connectsHere(); m.mode == modeBuy && m.dlg.supplier >= 0 && m.dlg.supplier < len(cs) {
+		return cs[m.dlg.supplier]
+	}
+	return m.w.BestSupplier(m.buyCity(), id)
+}
+
+// creditOffered reports whether the buy dialog's connect will run you
+// anything today.
+func (m *Model) creditOffered() bool {
+	sup := m.buySupplier(m.w.Products[m.cursor])
+	return sup != nil && sup.Credit() > 0
+}
+
+// maxBuyFrom is maxBuyBy from a named connect.
+func (m *Model) maxBuyFrom(sup *game.Supplier, id string, credit bool) int {
+	if sup == nil || !m.w.Available(sup, id) {
+		return 0
+	}
+	return max(0, min(m.affordFrom(sup, id, credit), m.w.Free(sup.City), sup.Left()))
+}
+
+// affordFrom is how many units of a product the cash, or the connect's
+// book, covers at their quote (World.Quote: the markup on it where the
+// buy goes through a lieutenant, #174): the plain price first, then
+// the small-lot premium once the buy is under the lot.
+func (m *Model) affordFrom(sup *game.Supplier, id string, credit bool) int {
+	unit := sup.Price[id] * m.w.BuyMarkup(sup.City)
+	if unit <= 0 {
+		return 0
+	}
+	cash := m.w.Player.DirtyCash
+	if credit {
+		cash = sup.Credit()
+		unit *= sup.CreditRatio
+	}
+	n := int(math.Floor(float64(cash) / unit))
+	if n < sup.Lot && sup.SmallLot > 1 {
+		n = int(math.Floor(float64(cash) / (unit * sup.SmallLot)))
+	}
+	for n > 0 && m.w.Quote(sup, id, n, credit) > cash {
+		n--
+	}
+	return n
+}
+
+// temperWords is what a connect's temper does about a missed payment,
+// for the credit note and the pane.
+func temperWords(temper string) string {
+	switch temper {
+	case "patient":
+		return "they let it ride once, then stop taking your calls"
+	case "sharp":
+		return "they stop taking your calls and add a fee"
+	case "connected":
+		return "they send somebody for your muscle"
+	}
+	return "they remember"
+}
+
+// connectTable is the buy dialog's connect step (#72): one row a
+// connect where you stand, their price for the product, the lot, what
+// they have left today, the relationship and the credit they give, or
+// why they sell you nothing.
+func (m *Model) connectTable(id string, cursor int) []string {
+	w := m.w
+	cols := []col{{"connect", kText, 0}, {"price", kPrice, 0}, {"lot", kInt, 0}, {"left", kInt, 0}, {"rel", kBar, 8}, {"credit", kCash, 0}, {"", kText, 0}}
+	var rows [][]any
+	for _, sup := range m.connectsHere() {
+		var unit any
+		if w.Available(sup, id) {
+			unit = sup.Price[id]
+		}
+		rows = append(rows, []any{sup.Name, unit, sup.Lot, sup.Left(), styled{relStyle(m.set.Market.Band(sup.Rel), m.set.Market.Bands()), gauge{frac: sup.Rel / 100, n: sup.Rel}}, sup.Credit(), m.connectStatus(sup)})
+	}
+	return table(cols, rows, cursor, m.modalInner())
+}
+
+// connectStatus is a connect's state in a word or two: frozen, locked,
+// sold out for the day, owing, or nothing.
+func (m *Model) connectStatus(sup *game.Supplier) string {
+	w := m.w
+	switch {
+	case sup.Frozen(w.Day):
+		return theme.Bad.Render(fmt.Sprintf("frozen %dd", sup.FrozenUntil-w.Day))
+	case sup.Locked(w):
+		return theme.Subtle.Render("won't deal yet")
+	case sup.Left() == 0:
+		return theme.Warning.Render("nothing left today")
+	case sup.Debt > 0:
+		return theme.Warning.Render(fmt.Sprintf("owe %s by d%d", cash(sup.Debt), sup.DebtDue))
+	}
+	return ""
+}
+
+// connectBlurb is the connect step's note on the connect under the
+// cursor: their temper, what they deal in, and the door if it is shut.
+func (m *Model) connectBlurb(sup *game.Supplier, id string) []string {
+	w := m.w
+	deals := "everything sold here"
+	if len(sup.Products) > 0 {
+		var names []string
+		for _, pid := range sup.Products {
+			names = append(names, w.ProductName(pid))
+		}
+		deals = strings.Join(names, ", ")
+	}
+	lines := []string{theme.Subtle.Render(fmt.Sprintf("%s: %s, deals in %s by the %d.", sup.Name, sup.Temper, deals, sup.Lot))}
+	switch {
+	case sup.Locked(w) && w.Stats.PeakCash < sup.UnlockCash:
+		lines = append(lines, theme.Warning.Render(fmt.Sprintf("They deal with people who have moved %s.", cash(sup.UnlockCash))))
+	case sup.Locked(w):
+		if st := w.StreetSupplier(sup.City); st != nil {
+			lines = append(lines, theme.Warning.Render(fmt.Sprintf("They want a word from %s first: rel %.0f, they need %.0f.", st.Name, st.Rel, sup.UnlockRel)))
+		}
+	case sup.Frozen(w.Day):
+		lines = append(lines, theme.Bad.Render(fmt.Sprintf("Not taking your calls for %s.", plural(sup.FrozenUntil-w.Day, "day"))))
+	}
+	return lines
+}
+
+// relStyle colours a relationship by its band: the floor red, under
+// neutral a warning, neutral plain, over it good.
+func relStyle(band, bands int) lipgloss.Style {
+	n := bands / 2
+	switch {
+	case band == 0:
+		return theme.Bad
+	case band < n:
+		return theme.Warning
+	case band > n:
+		return theme.Good
+	}
+	return theme.Subtle
 }
