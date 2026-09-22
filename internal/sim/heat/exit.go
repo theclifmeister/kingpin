@@ -38,8 +38,9 @@ func (s *Sim) exit(cause string, fx game.Effects) string {
 // takeFall is the fall guy's one job: if the player owns one who has not
 // taken his fall (fall_guys is a count, one fall each: World.FallGuyLeft),
 // the case that would have ended the run closes on him instead. The file
-// is wiped, heat drops to 50 everywhere and half of all cash goes on
-// making it stick. It reports whether he took it.
+// is wiped, heat drops to heat.toml fall_heat everywhere and fall_cash
+// of the dirty cash and of the clean goes on making it stick. It reports
+// whether he took it.
 func (s *Sim) takeFall(w *game.World, t *game.Tick, fx game.Effects) bool {
 	if !w.FallGuyLeft(fx) {
 		return false
@@ -48,11 +49,19 @@ func (s *Sim) takeFall(w *game.World, t *game.Tick, fx game.Effects) bool {
 	w.Heat.Evidence = 0
 	w.Heat.EvidenceDay = t.Day
 	for _, c := range w.Cities {
-		c.Heat = math.Min(c.Heat, 50)
+		c.Heat = math.Min(c.Heat, s.cfg.Heat.FallHeat)
 	}
-	lost := w.Player.DirtyCash/2 + w.Player.CleanCash/2
-	w.Player.DirtyCash -= w.Player.DirtyCash / 2
-	w.Player.CleanCash -= w.Player.CleanCash / 2
-	t.Emit(events.FallGuyBurned{Day: t.Day, CashLost: lost})
+	dirty, clean := s.fallShare(w.Player.DirtyCash), s.fallShare(w.Player.CleanCash)
+	w.Player.DirtyCash -= dirty
+	w.Player.CleanCash -= clean
+	t.Emit(events.FallGuyBurned{Day: t.Day, CashLost: dirty + clean})
 	return true
+}
+
+// fallShare is fall_cash of a pile, truncated toward zero as the integer
+// halving it replaced was (#275): a float64 holds every amount a run
+// reaches exactly and multiplying by 0.5 is exact, so at 0.5 it is
+// cash/2 to the dollar.
+func (s *Sim) fallShare(cash int) int {
+	return int(float64(cash) * s.cfg.Heat.FallCash)
 }

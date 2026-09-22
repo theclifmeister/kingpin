@@ -19,6 +19,7 @@ type RivalsConfig struct {
 	Factions    FactionsTuning               `toml:"factions"`
 	Endings     RivalEndingsTuning           `toml:"endings"`
 	War         WarTuning                    `toml:"war"`
+	Weight      WeightTuning                 `toml:"weight"`
 	Deal        map[string]DealConfig        `toml:"deal"`
 	Personality map[string]PersonalityConfig `toml:"personality"`
 	Force       map[string]ForceConfig       `toml:"force"`
@@ -238,6 +239,24 @@ type DiplomacyTuning struct {
 	UpperHand      float64   `toml:"upper_hand"`      // an opportunist with this many times the muscle on the front line demands tribute
 	SplitFair      float64   `toml:"split_fair"`      // share of the city's demand the rival lets the player's side of a split have at trust 0 ...
 	SplitTrust     float64   `toml:"split_trust"`     // ... plus this much at trust 100
+	SplitTerms     float64   `toml:"split_terms"`     // the split's terms are (fair - ask) times this, clamped to -1..1 (#275)
+}
+
+// WeightTuning is rivals.toml [weight] (#275): what a body on the street
+// weighs. Strength counts an enforcer at work StrengthBase + skill /
+// StrengthSkill, over Posted where he guards a corner; Guard counts the
+// enforcer on a pushed corner GuardEnforcer + skill / GuardSkill, the
+// player working it GuardYou and a runner GuardRunner. The fields stand
+// where the literals stood, divisors as divisors, so every weight is
+// the float it was.
+type WeightTuning struct {
+	StrengthBase  float64 `toml:"strength_base"`
+	StrengthSkill float64 `toml:"strength_skill"`
+	Posted        float64 `toml:"posted"`
+	GuardEnforcer float64 `toml:"guard_enforcer"`
+	GuardSkill    float64 `toml:"guard_skill"`
+	GuardYou      float64 `toml:"guard_you"`
+	GuardRunner   float64 `toml:"guard_runner"`
 }
 
 // DealConfig is what the rival thinks of one deal kind: the base chance
@@ -295,6 +314,14 @@ func (r RivalsConfig) validate() error {
 	}
 	if d.OfferDays < 1 || d.DistrustDays < 1 {
 		return fmt.Errorf("offer_days %d and distrust_days %d must be positive", d.OfferDays, d.DistrustDays)
+	}
+	if d.SplitTerms <= 0 {
+		return fmt.Errorf("[diplomacy] split_terms %.2f must be positive: a fairer ask is an easier one", d.SplitTerms)
+	}
+	// The weights (#275): every body weighs something, and the divisors
+	// divide.
+	if wt := r.Weight; wt.StrengthBase <= 0 || wt.StrengthSkill <= 0 || wt.Posted <= 0 || wt.GuardEnforcer <= 0 || wt.GuardSkill <= 0 || wt.GuardYou <= 0 || wt.GuardRunner <= 0 {
+		return fmt.Errorf("[weight] every weight and divisor must be positive: %+v", wt)
 	}
 	if t := r.Rivals; t.Margin <= 0 || t.MuscleWage <= 0 {
 		return fmt.Errorf("margin %.2f and muscle_wage %.2f must be positive", t.Margin, t.MuscleWage)

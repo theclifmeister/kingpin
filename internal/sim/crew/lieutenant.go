@@ -139,8 +139,9 @@ func (s *Sim) walk(w *game.World, t *game.Tick, lt game.CrewMember) {
 }
 
 // delegate is a lieutenant's night in their city: the crew come off a
-// corner robbed twice, idle runners go on the best corners (a held one
-// nobody works, else the biggest free one), idle enforcers guard the
+// corner robbed robbed_off times (crew.toml [lieutenant], twice), idle
+// runners go on the best corners (a held one nobody works, else the
+// biggest free one), and neither goes back on it; idle enforcers guard the
 // worked ones if the temperament bothers, whatever they cannot staff is
 // given up, and every product in the stash gets a standing order at
 // their dial for tomorrow. Nothing here rolls dice.
@@ -150,15 +151,17 @@ func (s *Sim) delegate(w *game.World, t *game.Tick, lt *game.CrewMember, ev *eve
 		return
 	}
 	tp := s.cfg.Lieutenant.Temper(lt.Personality)
+	off := s.cfg.Lieutenant.RobbedOff // crew.toml [lieutenant] robbed_off: the stick-ups a corner is worth
 	split := w.Deal(game.DealSplit)
 	keep := func(c *game.Corner) bool { // a corner the lieutenant leaves alone
 		return c.Runner == game.You || (split != nil && c.City == w.Home().ID && split.Covers(c.ID))
 	}
 
-	// 1. A corner robbed twice is not worth the stock: the crew come off.
+	// 1. A corner robbed robbed_off times is not worth the stock: the crew
+	// come off.
 	for i := range city.Corners {
 		c := &city.Corners[i]
-		if !c.Held() || c.Robbed < 2 || keep(c) {
+		if !c.Held() || c.Robbed < off || keep(c) {
 			continue
 		}
 		w.Recall(c.Runner)
@@ -170,7 +173,7 @@ func (s *Sim) delegate(w *game.World, t *game.Tick, lt *game.CrewMember, ev *eve
 	byDemand := func(ok func(c *game.Corner) bool) []*game.Corner {
 		var out []*game.Corner
 		for i := range city.Corners {
-			if c := &city.Corners[i]; c.Robbed < 2 && ok(c) {
+			if c := &city.Corners[i]; c.Robbed < off && ok(c) {
 				out = append(out, c)
 			}
 		}
@@ -221,7 +224,7 @@ func (s *Sim) delegate(w *game.World, t *game.Tick, lt *game.CrewMember, ev *eve
 			}
 			for j := range city.Corners {
 				c := &city.Corners[j]
-				if c.Worked() && c.Enforcer == 0 && c.Robbed < 2 && (best == nil || score(c) > score(best)) {
+				if c.Worked() && c.Enforcer == 0 && c.Robbed < off && (best == nil || score(c) > score(best)) {
 					best = c
 				}
 			}

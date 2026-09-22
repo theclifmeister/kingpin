@@ -86,7 +86,7 @@ func (s *Sim) Favour(w *game.World, r *game.RivalState, d game.Deal) float64 {
 		if ask > fair {
 			return math.Inf(-1)
 		}
-		return math.Max(-1, math.Min(1, (fair-ask)*4))
+		return math.Max(-1, math.Min(1, (fair-ask)*dip.SplitTerms))
 	}
 	return math.Inf(-1)
 }
