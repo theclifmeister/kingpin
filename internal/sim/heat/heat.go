@@ -103,7 +103,7 @@ func (s *Sim) Bought(w *game.World) float64 {
 	if !w.Law.ChiefBoughtOn(w.Day) {
 		return 0
 	}
-	return math.Max(0, math.Min(1, w.Law.ChiefShare))
+	return max(0, min(1, w.Law.ChiefShare))
 }
 
 // Decay is the fraction of heat above the floor that fades in a day: the
@@ -256,7 +256,7 @@ func (s *Sim) DirtyCashThreshold(w *game.World) int {
 // what is above it. A nobody's floor is zero. An asset owned (#48) puts
 // its own floor under every city, and the higher of the two holds.
 func (s *Sim) Floor(w *game.World) float64 {
-	return math.Max(s.rep.FearHeatFloor*math.Max(0, math.Min(1, w.Player.Reputation.Fear/100)), s.AssetFloor(w))
+	return max(s.rep.FearHeatFloor*max(0, min(1, w.Player.Reputation.Fear/100)), s.AssetFloor(w))
 }
 
 // Effects is what the player's upgrades do to heat today.
@@ -342,7 +342,7 @@ func (s *Sim) Step(w *game.World, t *game.Tick) {
 func (s *Sim) settle(d *day) {
 	for _, cid := range d.w.CityOrder {
 		c := d.w.Cities[cid]
-		c.Heat = math.Max(d.floor, math.Min(100, c.Heat))
+		c.Heat = max(d.floor, min(100, c.Heat))
 		if c.Heat > d.h.Peak {
 			d.h.Peak = c.Heat
 		}

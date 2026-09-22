@@ -47,7 +47,7 @@ func (q QualityTuning) Mul(quality float64) float64 {
 	if d <= 0 || d >= 100 {
 		return 1
 	}
-	quality = clamp01(quality/100) * 100
+	quality = max(0, min(1, quality/100)) * 100
 	if quality < d {
 		low := q.LowMul
 		if low <= 0 {
@@ -181,12 +181,7 @@ type DialConfig struct {
 
 // Product returns the config for id, or nil.
 func (m MarketConfig) Product(id string) *ProductConfig {
-	for i := range m.Products {
-		if m.Products[i].ID == id {
-			return &m.Products[i]
-		}
-	}
-	return nil
+	return find(m.Products, func(e *ProductConfig) bool { return e.ID == id })
 }
 
 // validate refuses a market the sims cannot trade in: no products, a
