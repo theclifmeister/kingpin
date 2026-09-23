@@ -59,7 +59,7 @@ func TestSimsNeverImportEachOther(t *testing.T) {
 
 // TestSimsWriteOnlyTheirOwnState (#144): a package under internal/sim/
 // assigns into its own state on the World and nothing else. Its own
-// state is the field the map in CLAUDE.md gives it (the heat sim
+// state is the field the map in docs/README.md gives it (the heat sim
 // w.Heat and a city's Heat, the law w.Law and a city's Pressure and
 // Goodwill, the market the markets, the connects, the contracts and the
 // buyers, the default quality and a corner's Repeat, #47, its field on

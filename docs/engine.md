@@ -1,8 +1,12 @@
 # The engine is one session a front end drives
 
-**The engine** (#293, `internal/engine`) is the game as one object: `engine.Session` assembles a run the one way, owns its world and its lifecycle, and publishes the day's events. The TUI (`internal/ui`) and the harness (`internal/harness`) both play through it, and so will any other front end: a graphical client built in a real game engine, a script, a server that speaks to a client in another language. #293 is the epic and holds the whole design. It lands in six phases, #296 to #301, and this file grows with each one.
+**The engine** (#293, `internal/engine`) is the game as one object: `engine.Session` assembles a run the one way, owns its world and its lifecycle, and publishes the day's events.
+The TUI (`internal/ui`) and the harness (`internal/harness`) both play through it, and so will any other front end: a graphical client built in a real game engine, a script, a server that speaks to a client in another language. #293 is the epic and holds the whole design.
+It lands in six phases, #296 to #301, and this file grows with each one.
 
-**Phase 1, the session (#296).** `engine.New(cfg)` builds every sim from the one `*content.Config` in `sim.Default`'s step order (`world -> market -> logistics -> territory -> rivals -> crew -> heat -> law -> laundering -> reputation -> news`, `docs/day-loop.md`), a `game.Clock` over them and an `events.Bus` the clock publishes on. The session has no run until it is given one:
+**Phase 1, the session (#296).**
+`engine.New(cfg)` builds every sim from the one `*content.Config` in `sim.Default`'s step order (`world -> market -> logistics -> territory -> rivals -> crew -> heat -> law -> laundering -> reputation -> news`, `docs/day-loop.md`), a `game.Clock` over them and an `events.Bus` the clock publishes on.
+The session has no run until it is given one:
 
 - `NewRun(seed, start)` is `sim.NewWorldWith` (a character, the hard DA, the daily, `docs/profile.md`).
 - `Attach(w)` drives a world the caller built. The harness and the tests start theirs from `sim.NewWorld` on a config of their own.
@@ -21,9 +25,14 @@ The slot is the caller's: the TUI keeps `Model.slot` and passes it to `Load` and
 - It starts no goroutine. A transport that serves it to another process (phase 5, #300) lives outside it and runs under `-race`.
 - A front end that stepped its own clock would have a second step order and a second migration chain to keep right, so **there is one assembly path**. `TestOneAssemblyPath` (`engine/session_test.go`) parses every non-test `.go` file outside `internal/engine` and `internal/sim` and fails on a call of `sim.Default` or `game.NewClock`. Tests are exempt: they pin the pieces the session is built from.
 
-**What pins it.** `TestSessionIsTheHandAssembledRun` plays the trader sixty days on seed 7 through the session and through a hand-assembled clock and finds the same events and the same world, byte for byte, and what `Subscribe` received is what `EndDay` returned. `TestSessionSavesAndResumes` plays thirty days, saves, loads into a fresh session and plays thirty more, and gets the run that never stopped. The move changed no number: the harness's runs are the same runs (`TestDeterministicForSeed`, `TestSeedDigest`, `TestMoneyCurve` and the difficulty ordering unchanged), and the TUI's tests and README captures pass as they were.
+**What pins it.**
+`TestSessionIsTheHandAssembledRun` plays the trader sixty days on seed 7 through the session and through a hand-assembled clock and finds the same events and the same world, byte for byte, and what `Subscribe` received is what `EndDay` returned.
+`TestSessionSavesAndResumes` plays thirty days, saves, loads into a fresh session and plays thirty more, and gets the run that never stopped.
+The move changed no number: the harness's runs are the same runs (`TestDeterministicForSeed`, `TestSeedDigest`, `TestMoneyCurve` and the difficulty ordering unchanged), and the TUI's tests and README captures pass as they were.
 
-**Phase 2, the rules and the commands (#297).** A front end reads the sims through `Rules` and acts on the run through the session's commands. It never holds a sim, and it never calls a `World` method that changes the run.
+**Phase 2, the rules and the commands (#297).**
+A front end reads the sims through `Rules` and acts on the run through the session's commands.
+It never holds a sim, and it never calls a `World` method that changes the run.
 
 - **`Session.Rules()`** (`engine/quotes.go`) is one interface per sim, `MarketRules`, `LogisticsRules`, `TerritoryRules`, `RivalsRules`, `CrewRules`, `HeatRules`, `LawRules` and `LaunderingRules`, each listing the read methods a front end calls on that sim: a cost, a price, the odds, a threshold, a preview, the tuning it explains itself with. The sims satisfy them as they are, so there is no forwarding layer and no second copy of a number. Every signature is in `game`, `content` and `events` types, never a sim package's. The lists hold what the TUI calls and nothing that steps, seeds, migrates or acts: `Laundering.Retire`, the one action a sim carried, is a command now. `logistics.Customs` and `logistics.Watched`, the two package functions the TUI read, gained methods of the same name on the sim so they read through `LogisticsRules`. The TUI keeps them as `Model.rules` (the old `m.set`).
 - **The commands** (`engine/commands.go`) are one `Session` method per player action, 68 in all (beside them `HouseOffers`, the one query the buys by id needed), grouped by the market, the street, the crew, the road, the money, the law, the table and the endings. Each wraps the `World` method of the same name and never copies its rules. Where the `World` method takes a number the sims own, the command reads it off the sims and takes only what the player chose, so a front end can neither get it wrong nor name a price of its own:
@@ -48,7 +57,10 @@ The slot is the caller's: the TUI keeps `Model.slot` and passes it to `Load` and
 - `TestCommandsChargeWhatTheRulesQuote` (`engine/commands_test.go`) pins that a command charges what `Rules` quotes: the investigation's cost, the block's price out of clean cash, and the scouting's cost once the rival is on the map. `TestBuyByIDRefusesWhatIsNotOffered` pins `ErrNoOffer` for the four buys by id and that every house offer carries an id and a price.
 - No number moved. Every UI test, including the README captures, passes with the TUI acting through the commands.
 
-**Phase 3, the facts (#298).** The TUI used to work out some things it shows, and a second front end would have had to copy them or drift: what needs you this morning, the doors ahead, whether a day stops a fast-forward, what a price is doing. The engine decides them now and hands them over as values. The words and colours stay the front end's (the TUI's are in `docs/copy.md`'s voice).
+**Phase 3, the facts (#298).**
+The TUI used to work out some things it shows, and a second front end would have had to copy them or drift: what needs you this morning, the doors ahead, whether a day stops a fast-forward, what a price is doing.
+The engine decides them now and hands them over as values.
+The words and colours stay the front end's (the TUI's are in `docs/copy.md`'s voice).
 
 - **Alerts** (`engine/alerts.go`). `Session.Alerts()` returns `[]Alert`, loudest first, in the order of the `AlertKind` constants: `talking`, `contract_due`, `debt_due`, `heat` (where you are, at or over the patrol line), `task_force`, `float` (only while `FloatMatters`: a front, or a route with its dial on), `wages`, `gate`, `house_known`, `da_race`, `retire`, `favour` and `reign`.
   - Each alert carries a `Key`, its identity from one morning to the next. The keys are the strings the TUI used before (`contract 12 due today`, `debt street due 41`, `unlock:front:laundromat`, `known h1`, `heat in Eastside over the patrol line`, …), so a fast-forward stops on exactly what it did.
@@ -72,7 +84,9 @@ The slot is the caller's: the TUI keeps `Model.slot` and passes it to `Load` and
 - `TestEveryStopHasWords` (`ui/stops_test.go`) walks `events.All`: every kind the engine stops on at its zero value has words in `stopEvent`, and nothing it does not stop on is worded. `stopEvent` falls back to the kind's name, so a stop is never silent.
 - Every existing fast-forward, alert, unlock, debt and delta test in the TUI passes unchanged, and no number moved.
 
-**Phase 4, the view (#299).** `Session.View()` (`engine/view.go`) returns `engine.View`, a snapshot of what the player can see. It is what a front end in another process draws from, and it holds no pointer into the world, so it can be kept, compared, changed and sent as JSON.
+**Phase 4, the view (#299).**
+`Session.View()` (`engine/view.go`) returns `engine.View`, a snapshot of what the player can see.
+It is what a front end in another process draws from, and it holds no pointer into the world, so it can be kept, compared, changed and sent as JSON.
 
 - **What it holds.** `version`, `seed`, `day` and `over` (how the run ended), then:
   - `you`: the city you're in, dirty, clean and offshore cash, net worth, peak cash, lie-low, the tier and its name, the pay and launder dials by name, the DA's evidence, fear, respect and notoriety, your street stock by city, the upgrades owned, the quiet days, the character and the hard DA.
@@ -109,7 +123,9 @@ The slot is the caller's: the TUI keeps `Model.slot` and passes it to `Load` and
 - `TestViewHoldsNothingOfTheWorld`: every history, stock map, report line and corner list in the view is overwritten, and the world's JSON is unchanged.
 - `TestViewReadsTheFile`: sixty days of the informed player (two of the three factions' tempers in the file by then). Every faction's temper and heads band, and the chief's temper, equal `game.Known`'s. It also type-checks the engine and fails on any read in `view.go` of the truths above; a planted `r.Muscle` fails it by name.
 
-**Phase 5, the wire (#300).** `cmd/kingpind` serves a session to a front end in another process. `internal/protocol` is the protocol, `internal/protocol/schema.json` its contract, and `cmd/kingpin-client` the reference client.
+**Phase 5, the wire (#300).**
+`cmd/kingpind` serves a session to a front end in another process.
+`internal/protocol` is the protocol, `internal/protocol/schema.json` its contract, and `cmd/kingpin-client` the reference client.
 
 - **Framing.** JSON-RPC 2.0, one message per line, over stdin and stdout (`protocol.Serve` takes any reader and writer).
   - A request has `"jsonrpc": "2.0"`, an `id` and a `method`, with `params` **by position** (a JSON array; empty or absent for none).
@@ -142,7 +158,11 @@ The slot is the caller's: the TUI keeps `Model.slot` and passes it to `Load` and
 - `TestEverySessionMethodIsClassed` and `TestSchemaIsCurrent` (above).
 - The day-0 view (before the first morning, `World.Report` still nil) is in phase 4's `TestViewRoundTripsJSON`; the protocol found the nil.
 
-**The quotes (#325).** A front end in another process prices a move before it makes it, with the numbers the TUI reads. `internal/protocol/rules.go` serves every method of `engine.Rules` as `rules.<sim>.<method>` in snake_case: `rules.market.capacity`, `rules.crew.investigate_cost`, `rules.rivals.odds_on_at`. That is 146 methods, which makes 229 on the wire with #327's `export_save` and `import_save`. A quote needs a run, changes nothing and sends nothing but its answer: no `view` follows it.
+**The quotes (#325).**
+A front end in another process prices a move before it makes it, with the numbers the TUI reads.
+`internal/protocol/rules.go` serves every method of `engine.Rules` as `rules.<sim>.<method>` in snake_case: `rules.market.capacity`, `rules.crew.investigate_cost`, `rules.rivals.odds_on_at`.
+That is 146 methods, which makes 229 on the wire with #327's `export_save` and `import_save`.
+A quote needs a run, changes nothing and sends nothing but its answer: no `view` follows it.
 
 - **The world is the server's.** A rule's `*game.World` is the run's and never a parameter.
 - **A thing of the world goes by its id** and is resolved against the run (`protocol.ruleParams`):
@@ -177,15 +197,22 @@ The slot is the caller's: the TUI keeps `Model.slot` and passes it to `Load` and
   - a quote before any run.
 - `TestQuotedIsCharged` quotes the investigation and a block over the wire, makes both moves over the wire, and checks each charges its quote.
 
-**Phase 6, the cues (#301).** A graphical front end draws the view and moves its sprites on the day's events. `engine.CueOf(e)` (`engine/cues.go`) reads an event as that movement, in ids and never in words. It returns a `Cue` whose `Kind` is one of 17, with the ids that kind needs (`city`, `corner`, `house`, `route`, `shipment`, `member`, `faction`, `asset`, `product`, `units`), `from` and `to`, `level`, `phase` and `dead`:
+**Phase 6, the cues (#301).**
+A graphical front end draws the view and moves its sprites on the day's events.
+`engine.CueOf(e)` (`engine/cues.go`) reads an event as that movement, in ids and never in words.
+It returns a `Cue` whose `Kind` is one of 17, with the ids that kind needs (`city`, `corner`, `house`, `route`, `shipment`, `member`, `faction`, `asset`, `product`, `units`), `from` and `to`, `level`, `phase` and `dead`:
 
 - `corner_flip` carries the owners before and after. A strike that took the corner is a flip from `rival` to `player`; one that held is a `strike`. A corner lost carries its old owner and why (`idle` or `crackdown`).
 - `shipment` carries the route, both cities, the shipment's id and the phase (`sent`, `landed`, `seized`).
 - The crew cues (`crew_joined`, `crew_left`, `crew_down`, `crew_back`) carry the member's id.
 
-The protocol sends the cue with each event it applies to (`event.params.cue`). `cmd/kingpin-client` prints a `cue` line for every animated event, which is the check that the events are enough to animate.
+The protocol sends the cue with each event it applies to (`event.params.cue`).
+`cmd/kingpin-client` prints a `cue` line for every animated event, which is the check that the events are enough to animate.
 
-**The audit.** Every kind in `events.All` is decided in one table, `engine.cueKinds`: it gives a cue, or it is the report's and the journal's alone. `TestEveryKindIsCuedOrNot` fails on a kind whose `CueOf` disagrees with the table, so a new kind is decided when it is added. The table below is generated from it (`TestCueTableIsCurrent`; `go test ./internal/engine -run TestCueTableIsCurrent -update` rewrites it):
+**The audit.**
+Every kind in `events.All` is decided in one table, `engine.cueKinds`: it gives a cue, or it is the report's and the journal's alone.
+`TestEveryKindIsCuedOrNot` fails on a kind whose `CueOf` disagrees with the table, so a new kind is decided when it is added.
+The table below is generated from it (`TestCueTableIsCurrent`; `go test ./internal/engine -run TestCueTableIsCurrent -update` rewrites it):
 
 <!-- cues:begin (generated by TestCueTableIsCurrent -update) -->
 | Cue | From the events |
@@ -211,9 +238,15 @@ The protocol sends the cue with each event it applies to (`event.params.cue`). `
 The report's and the journal's alone, no cue (94): `AssetBought`, `AssetFrozen`, `BribeAccepted`, `BribeBackfired`, `BribeRefused`, `CampaignBacked`, `CampaignHedged`, `CampaignLost`, `CashLaundered`, `CheckpointBought`, `ChiefReplaced`, `CityFunded`, `ClaimDeterred`, `ContractAccepted`, `ContractDelivered`, `ContractExpired`, `ContractFailed`, `ContractOffered`, `CookOrdered`, `Cooked`, `CreditTaken`, `CrewPaid`, `CrewPaidOff`, `CrewPoached`, `CrewSkimmed`, `CrewTurnedInformant`, `DAElected`, `DayEnded`, `DealAccepted`, `DealBroken`, `DealEnded`, `DealOffered`, `DealRefused`, `DebtLate`, `DebtPaid`, `DeedRent`, `DeedsBought`, `DilemmaAnswered`, `DilemmaDrawn`, `FallGuyBurned`, `FrontAudited`, `FrontBought`, `FrontFrozen`, `FrontGrew`, `FrontInvested`, `Headline`, `HeatChanged`, `HouseCompromised`, `Incident`, `IntelFalse`, `IntelGained`, `InvestigationRun`, `KinLooking`, `LaidLow`, `LeadFound`, `LeadsFiled`, `LieutenantActed`, `LieutenantFlipped`, `OfficialsCold`, `PlayerUndercut`, `PoliceTipped`, `PressureShifted`, `PriceMove`, `RaidFellThrough`, `RentPaid`, `ReputationShifted`, `Reserved`, `RivalAbsorbed`, `RivalLeaderArrested`, `RivalMusclePoached`, `RivalOutbid`, `RivalScouted`, `RivalTippedPolice`, `RivalUndercut`, `SpyFound`, `SpyPlanted`, `StandingShort`, `StockCut`, `StockMoved`, `SupplierBought`, `SupplierCollected`, `SupplierFrozen`, `SupplierWarned`, `SupplyBought`, `SupplyShort`, `Taxed`, `TierReached`, `TributePaid`, `TrustSpread`, `Unlocked`, `UpgradeBought`, `WarEnded`, `WarEscalated`, `WholesaleBought`.
 <!-- cues:end -->
 
-**The ids the events lacked.** The audit found four crew events that named the member but not their id: `CrewHired`, `CrewQuit`, `CrewFired` and `CrewDefected`. Each gained `ID` (additive; zero reads as the event before it), set where the crew sim emits them (`crew.go` `roster`, `loyalty.go`). Every other animated kind already carried its ids. No headline reads the new field, and no pinned number moves.
+**The ids the events lacked.**
+The audit found four crew events that named the member but not their id: `CrewHired`, `CrewQuit`, `CrewFired` and `CrewDefected`.
+Each gained `ID` (additive; zero reads as the event before it), set where the crew sim emits them (`crew.go` `roster`, `loyalty.go`).
+Every other animated kind already carried its ids.
+No headline reads the new field, and no pinned number moves.
 
-**The TUI's derivation, gone.** `ui.mapFlips` (the corners the map's scene burns, #158) now reads the cues and keeps the flips between you and a rival: `player` to `rival`, or `rival` to `player`. A corner going back to the street is a flip too, and the scene leaves it out as it always has.
+**The TUI's derivation, gone.**
+`ui.mapFlips` (the corners the map's scene burns, #158) now reads the cues and keeps the flips between you and a rival: `player` to `rival`, or `rival` to `player`.
+A corner going back to the street is a flip too, and the scene leaves it out as it always has.
 
 **What pins it.**
 
@@ -223,7 +256,9 @@ The report's and the journal's alone, no cue (94): `AssetBought`, `AssetFrozen`,
 - `TestCuesCarryIDs` plays 120 days of the boss. Every cue has a day. Every corner cue names a corner on the map, and every flip changes hands. Every shipment names its route, both cities and its id. Every crew cue names a member. Every police cue names a city and a level. The run sees at least one claim, shipment, hire, sale and police cue.
 - `TestProtocolIsTheSession` and `TestOverStdio` (phase 5) carry the cues in the event bytes they compare.
 
-**The WebSocket transport (#326).** `kingpind -listen 127.0.0.1:7777` serves the same protocol over WebSocket (RFC 6455) instead of stdio. It is for a browser client, or a game engine that would rather open a socket than start a process.
+**The WebSocket transport (#326).**
+`kingpind -listen 127.0.0.1:7777` serves the same protocol over WebSocket (RFC 6455) instead of stdio.
+It is for a browser client, or a game engine that would rather open a socket than start a process.
 
 - **Framing.** One JSON-RPC message per text frame. The methods, the notifications, the error codes and the order are stdio's: a call's `event`s and its `view` go out as frames before its response.
   - `protocol.ServeWS` hands each message to `Server.Handle`, the loop `Serve` runs on stdio. The transport is framing and nothing else, so there is still one implementation of the protocol.
@@ -256,7 +291,10 @@ The report's and the journal's alone, no cue (94): `AssetBought`, `AssetFrozen`,
 - `TestOverStdio` is unchanged: stdio is still the default.
 - Checked by hand against an independent client, Python's `websockets`: the handshake with a localhost Origin, a 200 KB message (a 64-bit length), ping and pong, and a clean close.
 
-**Embedding (#327).** A front end can run the engine inside its own process. The protocol is still the contract: each embedding exposes one call, a request line in and the lines it produced out (`protocol.Server.Handle`, the loop stdio and WebSocket run). There is no second API.
+**Embedding (#327).**
+A front end can run the engine inside its own process.
+The protocol is still the contract: each embedding exposes one call, a request line in and the lines it produced out (`protocol.Server.Handle`, the loop stdio and WebSocket run).
+There is no second API.
 
 - **WebAssembly** (`cmd/kingpin-wasm`, `js && wasm`), for a browser or a web game engine: `GOOS=js GOARCH=wasm go build -o kingpin.wasm ./cmd/kingpin-wasm`, run with Go's `wasm_exec.js` (`$(go env GOROOT)/lib/wasm`). The module is about 12 MB.
   - It sets one global, `kingpin`: `kingpin.protocol` and `kingpin.view` are the versions, and `kingpin.open()` is a session whose `handle(line)` returns the answers as an array of strings, notifications first.
