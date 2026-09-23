@@ -81,6 +81,58 @@ func TestDeckRefusesUnknownEffectKey(t *testing.T) {
 	}
 }
 
+// Every slot a card's templates use is one its trigger fills (#349): the
+// shipped deck constructs, and a card naming a slot nobody fills is a
+// construction error wherever the slot sits, not a hole in the text.
+func TestEverySlotIsFilledByItsTrigger(t *testing.T) {
+	cfg := content.MustLoad()
+	if _, err := news.New(cfg); err != nil {
+		t.Fatalf("shipped deck: %v", err)
+	}
+	card := func(tr content.CardTrigger) content.CardConfig {
+		return content.CardConfig{ID: "x", Title: "x", Text: "x", Trigger: tr, Choices: []content.ChoiceConfig{
+			{Label: "a", Outcome: "a"}, {Label: "b", Outcome: "b"},
+		}}
+	}
+	rows := []struct {
+		name   string
+		slot   string
+		place  func(c *content.CardConfig, src string)
+		refuse content.CardTrigger // fills nothing the slot needs
+		allow  content.CardTrigger // fills it
+	}{
+		{"name in text", "Name", func(c *content.CardConfig, s string) { c.Text = s }, content.CardTrigger{CrewMin: 2}, content.CardTrigger{CrewMin: 2, LoyaltyAbove: 1}},
+		{"role in title", "Role", func(c *content.CardConfig, s string) { c.Title = s }, content.CardTrigger{CrewMin: 1}, content.CardTrigger{Role: "enforcer"}},
+		{"corner in label", "Corner", func(c *content.CardConfig, s string) { c.Choices[0].Label = s }, content.CardTrigger{Rival: true}, content.CardTrigger{Corners: 1}},
+		{"theirs in outcome", "Theirs", func(c *content.CardConfig, s string) { c.Choices[1].Outcome = s }, content.CardTrigger{Corners: 1}, content.CardTrigger{Contested: true}},
+		{"front in follow-up", "Front", func(c *content.CardConfig, s string) { c.Choices[0].Headline = s }, content.CardTrigger{CashMin: 1}, content.CardTrigger{Fronts: true}},
+		{"name inside an if", "Name", func(c *content.CardConfig, s string) { c.Text = "{{if .Amount}}" + s + "{{end}}" }, content.CardTrigger{CrewMin: 2}, content.CardTrigger{LoyaltyBelow: 50}},
+	}
+	for _, r := range rows {
+		t.Run(r.name, func(t *testing.T) {
+			bad := *cfg
+			c := card(r.refuse)
+			r.place(&c, "{{."+r.slot+"}} again")
+			bad.Dilemmas.Cards = []content.CardConfig{c}
+			if _, err := news.New(&bad); err == nil || !strings.Contains(err.Error(), "{{."+r.slot+"}}") {
+				t.Fatalf("refused trigger: err = %v", err)
+			}
+			bad.Dilemmas.Cards[0].Trigger = r.allow
+			if _, err := news.New(&bad); err != nil {
+				t.Fatalf("filling trigger: %v", err)
+			}
+		})
+	}
+	// The slots every card fills need no trigger.
+	ok := *cfg
+	c := card(content.CardTrigger{DayMin: 1})
+	c.Text = "{{.City}} {{.Rival}} {{.Product}} {{.Amount}}"
+	ok.Dilemmas.Cards = []content.CardConfig{c}
+	if _, err := news.New(&ok); err != nil {
+		t.Fatalf("always-filled slots: %v", err)
+	}
+}
+
 // A card is never eligible while its trigger is false, and fills its
 // slots from the world when it is true: one row per trigger kind.
 func TestTriggersHold(t *testing.T) {
