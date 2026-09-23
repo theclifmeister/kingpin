@@ -116,7 +116,7 @@ The slot is the caller's: the TUI keeps `Model.slot` and passes it to `Load` and
   - The server answers every request. Before the response it sends the notifications the call caused: every `event` the day published (`{"kind", "day", "payload"}`, the kind being the event's stable `Kind()`), then a `view` (the whole `engine.View`) after any call that may have changed the run.
   - A client that waits for its response has already read everything the call caused.
   - The server is one loop on one goroutine: read a line, run it, write and flush. It holds no lock and starts no goroutine, and `TestNoGoroutineInTheTree` walks the package like the rest of `internal/`.
-- **The methods, 81 in all.**
+- **The methods, 81 in all** (and the 146 quotes #325 added, below).
   - **68 commands.** Each session command is served under its name in snake_case (`buy`, `place_sell`, `buy_checkpoint`, `scout_faction`, …) by reflection over `engine.Session` (`protocol.commands`), with its parameters in order. A dial goes in by name (`"aggressive"`, `"fair"`, `"push"`), refused with the names listed when it matches none. Terms go as an object (`{"days", "per_day", "corners", "route", "units"}`). The result is the command's value, or null.
   - **8 queries.** `view`, `alerts`, `gates_ahead`, `next_gates`, `front_offers`, `asset_offers`, `house_offers`, `float_matters`.
   - **5 lifecycle methods, by hand.**
@@ -125,12 +125,12 @@ The slot is the caller's: the TUI keeps `Model.slot` and passes it to `Load` and
     - `end_day []` returns `{day, events}`, with the events already sent as notifications.
     - `fast_forward [days]` returns `{ran, day, stop, alert?, event?}`, the days weighed server-side by `Session.FastForward`.
   - Every method but `new_run` and `load` needs a run.
-  - **Not on the wire,** each with its reason in `protocol.unserved`: `Attach`, `Config`, `Sims`, `World`, `Subscribe`, `Stop`, and `Rules`. The sims' read methods take a `*game.World`, and the view carries what a front end shows, so quotes on the wire are a follow-up. `TestEverySessionMethodIsClassed` fails on a session method in none of the three lists, so a new command is served, or refused, on purpose.
+  - **Not on the wire,** each with its reason in `protocol.unserved`: `Attach`, `Config`, `Sims`, `World`, `Subscribe` and `Stop`. `Rules` is there too, served rule by rule as the quotes (#325, below). `TestEverySessionMethodIsClassed` fails on a session method in none of the three lists, so a new command is served, or refused, on purpose.
 - **Errors.** JSON-RPC's codes: `-32700` not JSON, `-32600` not a request, `-32601` no such method, `-32602` params that do not fit, `-32603` the engine panicked (recovered; the message says so). The game adds two:
   - `-32000` **refused**: a move the rules do not allow, the message being the game's own words (`can only hold 48 more units in Eastside`, `nothing on offer by that name`). `protocol.Refused(err)` tells it apart.
   - `-32001` **no run**: call `new_run` or `load` first.
 - **Encoding.** The view is snake_case with dials by name (phase 4). A result or an event payload is the Go value as `encoding/json` writes it: Go field names, and a dial as the int a save holds. The schema marks it `integer` with `x-names` in order. `protocol.EventJSON` is the one encoding of an event, so a client in the same process can compare its events with the wire's byte for byte.
-- **The schema.** `protocol.Schema()` generates a JSON Schema document (draft 2020-12) from the Go types: the protocol and view versions, the framing, the error codes, every method's `params` (`prefixItems`, a dial as its enum of names) and `result`, the two notifications, every event kind's payload under `events`, and 175 named types under `$defs`. It is checked in as `internal/protocol/schema.json` (about 165 KB). `TestSchemaIsCurrent` fails when the file is stale, and `go test ./internal/protocol -run TestSchemaIsCurrent -update` rewrites it. `protocol.Version` (1) moves with the methods; the view keeps `engine.ViewVersion`.
+- **The schema.** `protocol.Schema()` generates a JSON Schema document (draft 2020-12) from the Go types: the protocol and view versions, the framing, the error codes, every method's `params` (`prefixItems`, a dial as its enum of names) and `result`, the two notifications, every event kind's payload under `events`, and 175 named types under `$defs`. It is checked in as `internal/protocol/schema.json` (about 165 KB). `TestSchemaIsCurrent` fails when the file is stale, and `go test ./internal/protocol -run TestSchemaIsCurrent -update` rewrites it. `protocol.Version` (2 since the quotes, #325) moves with the methods; the view keeps `engine.ViewVersion`.
 - **The reference client.** `protocol.Play(c, seed, days)` plays a run through the protocol alone. Each morning it reads the view, answers a card with its first choice, spends 60% of the dirty cash across what the street connect where it stands sells, puts everything it holds on the street at the aggressive dial, and ends the day, until the run ends. `cmd/kingpin-client -server <kingpind> -seed 7` starts `kingpind` and prints every event as it arrived and how the run ended. On seed 7 that is `indicted` on day 30, after 718 events.
   - One bug found on the way is now part of the client: it decodes each view into a fresh value. Decoded over the last one, a field the new view omits as empty (an answered `card`) would keep its old value.
 
@@ -141,6 +141,41 @@ The slot is the caller's: the TUI keeps `Model.slot` and passes it to `Load` and
 - `TestErrors` pins every code: no run, no method, wrong count, a dial by a wrong name (the message lists the right ones), refused (`travel` nowhere, `buy_front` of nothing), not JSON, not a request, and params that are not an array.
 - `TestEverySessionMethodIsClassed` and `TestSchemaIsCurrent` (above).
 - The day-0 view (before the first morning, `World.Report` still nil) is in phase 4's `TestViewRoundTripsJSON`; the protocol found the nil.
+
+**The quotes (#325).** A front end in another process prices a move before it makes it, with the numbers the TUI reads. `internal/protocol/rules.go` serves every method of `engine.Rules` as `rules.<sim>.<method>` in snake_case: `rules.market.capacity`, `rules.crew.investigate_cost`, `rules.rivals.odds_on_at`. That is 146 methods, which makes 227 on the wire. A quote needs a run, changes nothing and sends nothing but its answer: no `view` follows it.
+
+- **The world is the server's.** A rule's `*game.World` is the run's and never a parameter.
+- **A thing of the world goes by its id** and is resolved against the run (`protocol.ruleParams`):
+  - a corner (`game.Corner` and `*game.Corner`), a faction (`*game.RivalState`), a supplier, a city, a house;
+  - a deed, by its corner, refused on one without a deed;
+  - a front, owned or on offer (an offer is the front as bought, level 0);
+  - a crew member, on the payroll or in the pool;
+  - a contract;
+  - a route (`content.RouteConfig`).
+  
+  An id the run doesn't have is `-32602`, naming the parameter.
+- **A deal goes as an object**, `{"kind", "terms"}` (`protocol.DealParams`, the terms as the commands spell them). A dial goes by name, as the commands' do.
+- **A day is today or tomorrow**, the two the TUI asks about. Any other is `-32602`: `rules.logistics.watched` asked of a later day would read the task force's watch off the run before the run has told the player.
+- **Results.** A `(value, ok)` answer is the value, or `-32000` refused when not ok (`rules.laundering.asset_offer` of nothing). Two values go as an object named after the rule's results (`rules.territory.tax_due` is `{"corners", "amount"}`). A result that would carry the truth or a pointer into the run goes by id (`protocol.ruleResults`): a corner, a city, the allies as faction ids, `routes_open` as route ids.
+- **Not on the wire** (`protocol.unservedRules`, each with its reason): `Logistics.Route`. A route's config holds its true risk, and the view carries the route with the risk the file knows.
+- **The names are quotes.go's.** Reflection can't see a parameter's name, so `internal/protocol/rules_names.go` is generated from `internal/engine/quotes.go`'s declarations (`go test ./internal/protocol -run TestRuleNamesAreCurrent -update`). A world thing is named for what it is (`corner`, `faction`, `member`), a dial for its type (`dial`, `force`, `pay`), and anything else by the name quotes.go gives it. Renaming one there renames it on the wire.
+- **What the wire may say.** The ruling is parity with the TUI: `Rules` holds what the TUI reads. The truths it must not read (`TestPanelsReadTheFile`'s list: a faction's muscle and personality, the chief's, a route's risk, a planted fact) are kept out of the interfaces, and a rule that needs muscle (`odds_on_at`, `push_odds_at`, `defence_at`) takes the muscle the client read off the view's file.
+
+**What pins it.**
+
+- `TestEveryRuleIsClassed`: every method of every `Rules` interface is served or in `unservedRules`, and every one has its names.
+- `TestRuleNamesAreCurrent`: `rules_names.go` is `quotes.go`'s names.
+- `TestNoTruthOnTheWire` walks every quote's result type and fails on a `game.World`, `game.RivalState`, `game.Chief`, `game.Fact` or `content.RouteConfig` anywhere inside.
+- `TestEveryQuoteIsTheRules` runs sixty days of the boss on seed 7 and lays one of every thing a rule takes by id. It asks all 146 quotes over the wire and compares each answer with `Session.Rules()` asked in the process. The run's JSON is byte-identical before and after.
+- `TestQuoteRefusals` covers:
+  - an unknown corner, faction or member;
+  - a day before today or after tomorrow;
+  - a dial by a wrong name;
+  - an asset not on offer;
+  - a quote with too many params;
+  - the unserved route;
+  - a quote before any run.
+- `TestQuotedIsCharged` quotes the investigation and a block over the wire, makes both moves over the wire, and checks each charges its quote.
 
 **Phase 6, the cues (#301).** A graphical front end draws the view and moves its sprites on the day's events. `engine.CueOf(e)` (`engine/cues.go`) reads an event as that movement, in ids and never in words. It returns a `Cue` whose `Kind` is one of 17, with the ids that kind needs (`city`, `corner`, `house`, `route`, `shipment`, `member`, `faction`, `asset`, `product`, `units`), `from` and `to`, `level`, `phase` and `dead`:
 
