@@ -20,15 +20,12 @@ type reporter struct {
 	here  *game.City // where you stand: a line about anywhere else says where
 	base  data       // what every line names unless it says otherwise
 
-	// The money the day's events moved, summed for CASH BEFORE and the
-	// MONEY lines: sales are already applied by market.
-	soldRevenue, lostCash, spent, wages, skimmed, robbed, upgrades, upkeep int
-	seized, paidOff, investigated, shipping, tribute, cuts, standingCut    int
-	funded, backed, contracts, forfeits, repaid, rent, earned, invested    int
-	cutting, cooking, reserved, deeds, deedRent, taxed                     int
-
-	scouted, poached, boosted int // the books (#70): what a scout and a buy-off cost, less the refund, and what a boost took
-	bribed, checkpoints       int // the bought law (#42): the envelopes and the deals on the road, paid up front
+	// The money the day's events moved, by the flow's category and pile
+	// (#351): the report's CashFlow, whose opening is CASH BEFORE. The
+	// few totals beside it are the MONEY section's summary lines.
+	flow                                      map[string]game.Pools
+	soldRevenue, standingCut, skimmed, seized int
+	scouted, poached                          bool // tonight's scout and buy-off made the report: an order the night dropped (its faction gone) is paid for all the same
 
 	routeCost  map[string]int // what each route cost today, lots and fares, by name
 	routeOrder []string       // the routes in the order they first spent
@@ -116,6 +113,12 @@ func (r *reporter) cornerCity(id string) string {
 		return c.City
 	}
 	return r.here.ID
+}
+
+// book puts what an event moved into the night's flow under cat, signed
+// by pile: money in positive (#351).
+func (r *reporter) book(cat string, dirty, clean int) {
+	r.flow[cat] = r.flow[cat].Add(game.Pools{Dirty: dirty, Clean: clean})
 }
 
 // charge puts a route's cost on the day's tab, keeping the order the

@@ -15,12 +15,12 @@ func (r *reporter) reportLogistics(e events.Event) bool {
 	switch ev := e.(type) {
 	case events.WholesaleBought:
 		// The route's lots, bought this morning for what it sends.
-		r.shipping += ev.Cost
+		r.book(game.FlowRoutes, -ev.Cost, 0)
 		r.charge(ev.Name, ev.Cost)
 		rep.Shipments = append(rep.Shipments, fmt.Sprintf("Bought %d %s (%s) in %s for the %s -%s", ev.Units, w.ProductName(ev.Product), format.Plural(ev.Lots, "lot"), w.CityName(ev.City), ev.Name, format.Money(ev.Cost)))
 	case events.ShipmentSent:
 		// Paid this morning, when the route put it on the road.
-		r.shipping += ev.Cost
+		r.book(game.FlowRoutes, -ev.Cost, 0)
 		r.charge(ev.Name, ev.Cost)
 		rep.Shipments = append(rep.Shipments, fmt.Sprintf("%d %s left %s for %s by %s, %s: %s, fare -%s", ev.Units, w.ProductName(ev.Product), w.CityName(ev.From), w.CityName(ev.To), ev.Mode, ev.Dial, format.Plural(ev.Days, "day"), format.Money(ev.Cost)))
 	case events.ShipmentArrived:
@@ -41,7 +41,7 @@ func (r *reporter) reportLogistics(e events.Event) bool {
 			rep.Shipments = append(rep.Shipments, "The first one is the cue: a hot road wants the dial turned down (map, r), and the route sends what it lost again tomorrow.")
 		}
 	case events.CheckpointBought:
-		r.checkpoints += ev.Cost
+		r.book(game.FlowRoutes, -ev.Cost, 0)
 		what := "checkpoint"
 		if ev.Mode == "boat" || ev.Mode == "plane" {
 			what = "customs agent"

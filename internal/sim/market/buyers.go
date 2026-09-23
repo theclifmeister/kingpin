@@ -291,7 +291,7 @@ func (s *Sim) settle(w *game.World, t *game.Tick) {
 			if m := w.Product(c.City, c.Product); m != nil {
 				street = m.Price
 			}
-			cash := w.TakeCash(int(math.Round(c.PenaltyCash * float64(c.Owed()) * street)))
+			took := w.TakeCash(int(math.Round(c.PenaltyCash * float64(c.Owed()) * street)))
 			c.Status = game.ContractFailed
 			c.Resolved = t.Day
 			w.Stats.ContractsShort++
@@ -301,7 +301,7 @@ func (s *Sim) settle(w *game.World, t *game.Tick) {
 			w.Buyers.Blacklist[c.Buyer] = t.Day + pace.BlacklistDays
 			t.Emit(events.ContractFailed{
 				Day: t.Day, ID: c.ID, Buyer: c.Buyer, Name: c.Name, City: c.City, Product: c.Product,
-				Units: c.Units, Delivered: c.Delivered, Cash: cash, Respect: c.Penalty, Notoriety: pace.NotorietyPenalty,
+				Units: c.Units, Delivered: c.Delivered, Cash: took.Total(), Clean: took.Clean, Respect: c.Penalty, Notoriety: pace.NotorietyPenalty,
 				Blacklisted: w.Buyers.Blacklist[c.Buyer],
 			})
 		case c.Status == game.ContractOffered && c.Expires < t.Day:

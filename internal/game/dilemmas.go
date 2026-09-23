@@ -58,6 +58,7 @@ type Answer struct {
 	Choice   string
 	Outcome  string
 	Headline string
+	Cash     Pools // what the choice did to the piles (#351), after the clamps: the report's flow reads it
 }
 
 // effects is the one table of what a choice may carry (#274): every key
@@ -181,10 +182,12 @@ func (w *World) Choose(i int) (Answer, error) {
 			return Answer{}, unknownEffect(c, k)
 		}
 	}
+	before := Pools{Dirty: w.Player.DirtyCash, Clean: w.Player.CleanCash}
 	for _, k := range keys {
 		effects[k](w, c, ch.Effects[k])
 	}
-	a := Answer{Day: w.Day, Card: c.ID, Title: c.Title, Choice: ch.Label, Outcome: ch.Outcome, Headline: ch.Headline}
+	a := Answer{Day: w.Day, Card: c.ID, Title: c.Title, Choice: ch.Label, Outcome: ch.Outcome, Headline: ch.Headline,
+		Cash: Pools{Dirty: w.Player.DirtyCash - before.Dirty, Clean: w.Player.CleanCash - before.Clean}}
 	w.Dilemmas.Pending = nil
 	w.Dilemmas.Answered = &a
 	w.Journal = append(w.Journal, Headline{Day: w.Day, Source: "dilemma", Text: ch.Outcome})

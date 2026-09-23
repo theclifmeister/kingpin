@@ -15,7 +15,7 @@ func (s *Sim) investigate(n *night) {
 	// showed, or nobody, and being asked costs everyone a little loyalty
 	// either way when it comes up empty.
 	if o := w.Today.Investigation; o != nil {
-		ev := events.InvestigationRun{Day: t.Day, Cost: o.Cost}
+		ev := events.InvestigationRun{Day: t.Day, Cost: o.Cost, Clean: o.Clean}
 		w.Stats.Investigations++
 		if c.Informants() > 0 && t.RNG.Float64() < s.InvestigateOdds(w) {
 			pick := t.RNG.IntN(c.Informants())

@@ -27,7 +27,7 @@ var reportOnly = map[string]bool{
 	"PlayerUndercut":      true,
 	"CrewTurnedInformant": true, "LieutenantFlipped": true, // deliberately silent: the informant is hidden
 	"DilemmaDrawn": true, "DilemmaAnswered": true, // they carry their own text, the card's
-	"FrontInvested": true, "Reserved": true, // #192, #195
+	"FrontInvested": true, "Reserved": true, "AssetUpkeepPaid": true, // #192, #195, #351
 	"CrewBailed": true, "CrewRecovered": true, "KinLooking": true, // #46
 	"RivalScouted": true, "PoliceTipped": true, // #70
 	"ReignBroken": true, // #227
