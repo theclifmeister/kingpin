@@ -25,7 +25,8 @@ import (
 
 // Version is the protocol's: the methods, their parameters and the
 // notifications. The view inside carries its own, engine.ViewVersion.
-const Version = 1
+// 2 added export_save and import_save (#327).
+const Version = 2
 
 // The error codes: JSON-RPC 2.0's, and the game's own in its
 // server-error range.

@@ -47,7 +47,7 @@ var commands = []string{
 
 // queries are the session's reads served as they are: they change
 // nothing.
-var queries = []string{"View", "Alerts", "GatesAhead", "NextGates", "FrontOffers", "AssetOffers", "HouseOffers", "FloatMatters"}
+var queries = []string{"View", "Alerts", "GatesAhead", "NextGates", "FrontOffers", "AssetOffers", "HouseOffers", "FloatMatters", "ExportSave"}
 
 // unserved are the session's methods the wire does not carry, and why:
 // TestEverySessionMethodIsClassed fails on one in no list, so a new
@@ -63,6 +63,7 @@ var unserved = map[string]string{
 	"NewRun":      "new_run, by hand: the start as three positions",
 	"Load":        "load, by hand",
 	"Save":        "save, by hand",
+	"ImportSave":  "import_save, by hand: the save as base64, like load",
 	"EndDay":      "end_day, by hand: the events go out as notifications",
 	"FastForward": "fast_forward, by hand: the days are weighed server side",
 }
@@ -103,6 +104,22 @@ func init() {
 				return nil, err
 			}
 			if _, err := s.sess.Load(slot); err != nil {
+				return nil, err
+			}
+			return s.sess.View(), nil
+		},
+	})
+	register(method{
+		name:    "import_save",
+		params:  []param{{"save", reflect.TypeFor[[]byte]()}},
+		result:  reflect.TypeFor[engine.View](),
+		changes: true,
+		call: func(s *Server, ps []json.RawMessage) (any, error) {
+			var b []byte
+			if err := decode(ps, 1, &b); err != nil {
+				return nil, err
+			}
+			if _, err := s.sess.ImportSave(b); err != nil {
 				return nil, err
 			}
 			return s.sess.View(), nil

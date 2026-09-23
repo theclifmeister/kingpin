@@ -146,15 +146,26 @@ func Save(slot int, w *World) error {
 	if err := os.MkdirAll(filepath.Dir(p), 0o755); err != nil {
 		return err
 	}
-	var buf bytes.Buffer
-	if err := gob.NewEncoder(&buf).Encode(w); err != nil {
-		return fmt.Errorf("encode save: %w", err)
+	b, err := Encode(w)
+	if err != nil {
+		return err
 	}
 	tmp := p + ".tmp"
-	if err := os.WriteFile(tmp, buf.Bytes(), 0o644); err != nil {
+	if err := os.WriteFile(tmp, b, 0o644); err != nil {
 		return err
 	}
 	return os.Rename(tmp, p)
+}
+
+// Encode is w as a save holds it, the bytes Save writes to a slot: for
+// a front end that keeps its saves itself (#327: a browser has no
+// slots), Decode reads them back.
+func Encode(w *World) ([]byte, error) {
+	var buf bytes.Buffer
+	if err := gob.NewEncoder(&buf).Encode(w); err != nil {
+		return nil, fmt.Errorf("encode save: %w", err)
+	}
+	return buf.Bytes(), nil
 }
 
 // Load reads the slot, upgrading an older save one schema version at a
@@ -172,6 +183,13 @@ func Load(slot int, migrations ...Migration) (*World, error) {
 	if err != nil {
 		return nil, err
 	}
+	return Decode(b, migrations...)
+}
+
+// Decode reads a save's bytes as Load reads a slot's: upgraded with the
+// migrations, and refused when newer than this build, older with no
+// path, or corrupt.
+func Decode(b []byte, migrations ...Migration) (*World, error) {
 	var w World
 	if err := gob.NewDecoder(bytes.NewReader(b)).Decode(&w); err != nil {
 		return nil, fmt.Errorf("save file is corrupt: %w", err)

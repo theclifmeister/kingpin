@@ -108,10 +108,14 @@ runs:
         go mod tidy
         git diff --exit-code go.mod go.sum
 
+    # cmd/kingpin-wasm is js/wasm alone (#327), which ./... on the runner
+    # skips: vet it for its own target too.
     - name: go vet
       if: ${{ inputs.job == 'lint' }}
       shell: bash
-      run: go vet ./...
+      run: |
+        go vet ./...
+        GOOS=js GOARCH=wasm go vet ./cmd/kingpin-wasm
 
     # Both analysers are pinned in go.mod's tool block (#276), so a run is
     # the version go.sum names and Dependabot proposes the bump; go tool
@@ -132,6 +136,18 @@ runs:
       if: ${{ inputs.job == 'test' }}
       shell: bash
       run: go build ./...
+
+    # The engine embedded (#327): the WebAssembly module and the C shared
+    # library build for their targets on every PR, so a change that breaks
+    # either fails here. The test step replays the reference game through
+    # both (TestWASMIsTheEngine under the runner's Node, TestCIsTheEngine
+    # linked with its cc; each fails rather than skips when CI is set).
+    - name: embeddings
+      if: ${{ inputs.job == 'test' }}
+      shell: bash
+      run: |
+        GOOS=js GOARCH=wasm go build -o /dev/null ./cmd/kingpin-wasm
+        go build -buildmode=c-shared -o "$RUNNER_TEMP/libkingpin.so" ./cmd/libkingpin
 
     # The race detector runs everywhere a goroutine could exist and is
     # skipped on the two packages that pay for it and cannot use it

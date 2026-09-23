@@ -186,3 +186,26 @@ The report's and the journal's alone, no cue (94): `AssetBought`, `AssetFrozen`,
 - `TestCueTableIsCurrent`.
 - `TestCuesCarryIDs` plays 120 days of the boss. Every cue has a day. Every corner cue names a corner on the map, and every flip changes hands. Every shipment names its route, both cities and its id. Every crew cue names a member. Every police cue names a city and a level. The run sees at least one claim, shipment, hire, sale and police cue.
 - `TestProtocolIsTheSession` and `TestOverStdio` (phase 5) carry the cues in the event bytes they compare.
+
+**Embedding (#327).** A front end can run the engine inside its own process. The protocol is still the contract: each embedding exposes one call, a request line in and the lines it produced out (`protocol.Server.Handle`, the loop stdio and WebSocket run). There is no second API.
+
+- **WebAssembly** (`cmd/kingpin-wasm`, `js && wasm`), for a browser or a web game engine: `GOOS=js GOARCH=wasm go build -o kingpin.wasm ./cmd/kingpin-wasm`, run with Go's `wasm_exec.js` (`$(go env GOROOT)/lib/wasm`). The module is about 12 MB.
+  - It sets one global, `kingpin`: `kingpin.protocol` and `kingpin.view` are the versions, and `kingpin.open()` is a session whose `handle(line)` returns the answers as an array of strings, notifications first.
+  - Each `open` is a session of its own, with its own tuning, like each `kingpind` connection.
+  - A `handle` that isn't given one string returns an `Error`.
+- **A C shared library** (`cmd/libkingpin`, `cgo`), for a native game engine (Godot, Unity, Unreal): `go build -buildmode=c-shared -o libkingpin.so ./cmd/libkingpin` writes `libkingpin.h` beside the library. The calls:
+  - `kingpin_open()` returns a handle, `> 0`.
+  - `kingpin_handle(h, line)` returns the answer lines, each ending in `\n`, in memory the host passes to `kingpin_free`.
+  - `kingpin_close(h)` ends the session.
+  - `kingpin_protocol()` and `kingpin_view()` are the versions.
+  
+  A handle that isn't open answers a JSON-RPC `-32600` line. One lock serialises every call, so a host may call from any thread. The lock lives in `cmd/`, which `TestNoGoroutineInTheTree` doesn't walk: a native host's threads are the host's, and nothing under `internal/` locks.
+- **Saves.** Neither embedding has save slots to rely on, since a browser has no filesystem. `export_save` returns the run as a save's bytes (base64 on the wire), and `import_save [save]` makes them the run and returns the view, as `load` does. The host keeps them where it likes: `localStorage`, IndexedDB, the engine's user directory. The bytes are a slot file's exactly (`game.Encode` and `game.Decode`, `docs/saves.md`), so a save moves between the TUI and an embedding. The schema shows `[]byte` as a base64 string. `protocol.Version` is 2.
+- **CI.** The test job builds both targets on every PR (the `embeddings` step of `.github/actions/go`), and the lint job vets the WASM package for its own target, since `./...` on the runner skips it. The test step replays the reference game through both. In CI, a missing `node` or `cc` fails the test rather than skipping it.
+
+**What pins it.**
+
+- `protocol.Transcript(seed, days)` records the reference game on a server in the process: every request line and every line answered. The game's moves depend only on the answers, so an embedding handed the same requests must answer the same bytes.
+- `TestWASMIsTheEngine` builds the module and runs it under Node with `wasm_exec.js`. It replays seed 7's 322 requests and gets the 2.6 MB of answers byte for byte. It also checks the two versions on the global and a refused non-string.
+- `TestCIsTheEngine` builds the library, compiles and links a C program against it with `cc`, and replays the same transcript through `kingpin_handle` with the same bytes. It checks the versions and what a closed handle answers.
+- `TestSaveBytesRoundTrip` plays twenty days, then `export_save`, then twenty more. Another server that runs `import_save` and plays the same twenty days gets the same events and the same view. Nothing is written to the slots. Rubbish is refused (`-32000`), and an export with no run is `-32001`.
