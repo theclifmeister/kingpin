@@ -14,6 +14,7 @@
 house_risk = 0.25  # multiplier on city.toml's robbery_chance x the block's risk, per house per day (a house is behind a door; a corner is on the street); a guard cuts it as an enforcer cuts a corner's
 rent_days = 5      # days the rent can go unpaid before the landlord throws you out, the stock with you
 move_heat = 0.3    # heat a unit moved between places draws, relative to one sold on a standard corner (heat.toml sale_heat / street_units)
+full_share = 0.9   # the share of a city's capacity (the street and its houses) the stash holds before it is an alert (#352); 0 for none
 
 # The offers, priced against the block: the quiet block, low heat and
 # low risk, is dear; the one on Precinct Row is cheap because the police

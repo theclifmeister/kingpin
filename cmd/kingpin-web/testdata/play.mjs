@@ -10,8 +10,9 @@ import path from "node:path";
 import { createRequire } from "node:module";
 import { pathToFileURL } from "node:url";
 
-const [site, kindsJSON, bossPath] = process.argv.slice(2);
+const [site, kindsJSON, bossPath, alertKindsJSON] = process.argv.slice(2);
 const kinds = JSON.parse(kindsJSON);
+const alertKinds = JSON.parse(alertKindsJSON);
 const require = createRequire(import.meta.url);
 
 globalThis.require = require;
@@ -30,6 +31,7 @@ const { ANIMATIONS } = await mod("cues.js");
 const { layout } = await mod("layout.js");
 const { drawMap } = await mod("scene.js");
 const { SPRITES } = await mod("sprites.js");
+const { WORDS, PANELS, alertText, alertPanel } = await mod("alerts.js");
 const { fileWord, policeLines } = await mod("police.js");
 
 const go = new Go();
@@ -56,6 +58,27 @@ try {
 // The table: every cue the engine gives, and nothing it does not.
 out.missing = kinds.filter((k) => !ANIMATIONS[k]);
 out.extra = Object.keys(ANIMATIONS).filter((k) => !kinds.includes(k));
+
+// The alerts (#352): words for every kind the engine raises, and no
+// more.
+out.alertsMissing = alertKinds.filter((k) => !WORDS[k]);
+out.alertsExtra = Object.keys(WORDS).filter((k) => !alertKinds.includes(k));
+out.alertsWorded = 0;
+out.alertsLinked = 0;
+
+// word checks every alert of a morning: words with nothing missing in
+// them, an act on a screen, and a panel the page has or none.
+function word(v, where) {
+  for (const a of v.alerts || []) {
+    const text = alertText(v, a);
+    if (typeof text !== "string" || !text || /undefined|NaN|null/.test(text)) problem(`${where}: ${a.kind} reads ${JSON.stringify(text)}`);
+    if (!a.act || !a.act.screen) problem(`${where}: ${a.kind} has no act`);
+    const panel = alertPanel(a);
+    if (panel && !Object.values(PANELS).includes(panel)) problem(`${where}: ${a.kind} links to ${panel}`);
+    out.alertsWorded++;
+    if (panel) out.alertsLinked++;
+  }
+}
 
 for (const [name, rows] of Object.entries(SPRITES)) {
   if (rows.some((r) => r.length !== rows[0].length)) problem(`sprite ${name} has ragged rows`);
@@ -108,6 +131,7 @@ function play(seed, days) {
   let day = 0;
   for (; day < days && !v.over; day++) {
     v = autoDay(s);
+    word(v, `seed ${seed} day ${v.day}`);
     if (v.card) checkCard(v.card, `seed ${seed} day ${v.day}`);
     const L = layout(v, 1200, 760);
     drawMap(ctx, L, day * 16);
@@ -172,6 +196,7 @@ const nights = JSON.parse(fs.readFileSync(bossPath, "utf8"));
 const bossSeen = {};
 let last = null;
 for (const n of nights) {
+  word(n.view, `boss day ${n.view.day}`);
   const L = layout(n.view, 1200, 760);
   drawMap(ctx, L, 0);
   police(n.view, `boss day ${n.view.day}`);
