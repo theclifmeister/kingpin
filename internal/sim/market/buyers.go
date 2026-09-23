@@ -105,7 +105,7 @@ func (s *Sim) wants(w *game.World, b content.BuyerConfig) (cities []string, prod
 // [buyers]'s scaled by the Operations branch (buyer_gap_mul), the first
 // never over the second.
 func (s *Sim) Gaps(w *game.World) (minGap, maxGap int) {
-	mul := game.FoldEffects(w, s.tree).BuyerGapMul
+	mul := game.FoldEffectsAll(w, s.tree).BuyerGapMul // a nightclub anywhere brings the buyers (#344)
 	pace := s.bcfg.Buyers
 	minGap = max(0, int(math.Round(float64(pace.MinGap)*mul)))
 	maxGap = max(minGap, int(math.Round(float64(pace.MaxGap)*mul)))

@@ -313,6 +313,13 @@ func (s *Sim) Floor(w *game.World) float64 {
 // Effects is what the player's upgrades do to heat today.
 func (s *Sim) Effects(w *game.World) game.Effects { return game.FoldEffects(w, s.tree) }
 
+// EffectsIn is Effects with the fronts that stand in city folded in
+// (#344): what a sale or a handoff there reads, the nightclub's
+// sale_heat_mul among them.
+func (s *Sim) EffectsIn(w *game.World, city string) game.Effects {
+	return game.FoldEffectsIn(w, s.tree, city)
+}
+
 func (s *Sim) Name() string { return "heat" }
 
 // Thresholds returns the response thresholds in ascending order, for the UI.

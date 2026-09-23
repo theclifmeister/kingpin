@@ -102,6 +102,13 @@ func (s *Sim) Float() int { return s.float }
 // the ones the dice use.
 func (s *Sim) Effects(w *game.World) game.Effects { return game.FoldEffects(w, s.tree) }
 
+// routeEffects is Effects with the fronts that stand at either end of
+// r folded in (#344): what a route's risk reads, the car wash's
+// route_risk_mul on the roads out of its city.
+func (s *Sim) routeEffects(w *game.World, r content.RouteConfig) game.Effects {
+	return game.FoldEffectsIn(w, s.tree, r.From, r.To)
+}
+
 // Dial returns the tuning for a ship dial position.
 func (s *Sim) Dial(d events.Ship) content.ShipDialConfig { return s.cfg.DialFor(d) }
 
@@ -131,9 +138,10 @@ func (s *Sim) days(fx game.Effects, r content.RouteConfig, d events.Ship) int {
 
 // DayRisk is the chance a shipment on a route at a dial is intercepted on
 // any one day in transit: the route's risk times the dial's and the
-// tree's route_risk_mul (the tyres, the compartments).
+// tree's route_risk_mul (the tyres, the compartments; and a car wash at
+// either end, #344).
 func (s *Sim) DayRisk(w *game.World, r content.RouteConfig, d events.Ship) float64 {
-	return s.dayRisk(s.Effects(w), r, d, s.Cut(w, r, w.Day), Watched(w, w.Day+1))
+	return s.dayRisk(s.routeEffects(w, r), r, d, s.Cut(w, r, w.Day), Watched(w, w.Day+1))
 }
 
 // dayRisk is DayRisk with the fold, the cut and the watch given: a
@@ -209,7 +217,7 @@ func (s *Sim) Customs(r content.RouteConfig) bool { return Customs(r) }
 // before it lands: what the map shows against the dial, and what the dice
 // add up to over the days.
 func (s *Sim) Risk(w *game.World, r content.RouteConfig, d events.Ship) float64 {
-	return s.risk(s.Effects(w), r, d, s.Cut(w, r, w.Day), Watched(w, w.Day+1))
+	return s.risk(s.routeEffects(w, r), r, d, s.Cut(w, r, w.Day), Watched(w, w.Day+1))
 }
 
 func (s *Sim) risk(fx game.Effects, r content.RouteConfig, d events.Ship, cut float64, watched bool) float64 {
@@ -411,7 +419,7 @@ func (s *Sim) move(w *game.World, t *game.Tick, fx game.Effects) {
 		risk := 0.0
 		r := s.cfg.Route(sh.Route)
 		if r != nil {
-			risk = s.dayRisk(fx, *r, sh.Dial, s.cut(w, *r, t.Day, riding(w, sh, t.Day)), Watched(w, t.Day))
+			risk = s.dayRisk(s.routeEffects(w, *r), *r, sh.Dial, s.cut(w, *r, t.Day, riding(w, sh, t.Day)), Watched(w, t.Day))
 		}
 		// A road a faction fed you as quiet (#45) is a road it has the
 		// customs watching: the first shipment on it is taken, whatever

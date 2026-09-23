@@ -474,6 +474,19 @@ type Front struct {
 	Level       int            // the levels bought (#192); 0 is the front as bought, washing and costing what the file says
 	Invested    int            // clean cash put into its levels, lifetime
 	Grew        int            // the day its growth made the paper (#192); 0 means it has not
+	City        string         // the city it stands in, where it was bought (#344); "" is home, a front from before
+}
+
+// FrontCity is the city a front stands in (#344): where it was bought,
+// home for a front from before the fronts had roles.
+func (w *World) FrontCity(f Front) string {
+	if f.City != "" {
+		return f.City
+	}
+	if h := w.Home(); h != nil {
+		return h.ID
+	}
+	return ""
 }
 
 // Frozen reports whether the front is shut on day.
