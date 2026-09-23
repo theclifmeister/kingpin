@@ -72,13 +72,44 @@
       </aside>
     </div>
     <footer>
-      <div class="status">
-        <span id="status" role="status" aria-live="polite"
-          >Loading your city…</span
-        ><small id="save-status">Runs are saved in this browser</small>
+      <section class="risk-hud" aria-label="Heat and indictment risk">
+        <button
+          id="heat-risk"
+          class="risk-meter"
+          aria-label="View heat details"
+          disabled
+        >
+          <span class="risk-top"
+            ><span id="heat-label">District heat</span
+            ><b id="heat-value">—</b></span
+          >
+          <span class="risk-track"><i id="heat-fill"></i></span>
+          <span id="heat-detail">Loading police thresholds…</span>
+        </button>
+        <button
+          id="evidence-risk"
+          class="risk-meter"
+          aria-label="View indictment evidence details"
+          disabled
+        >
+          <span class="risk-top"
+            ><span>DA evidence</span><b id="evidence-value">—</b></span
+          >
+          <span class="risk-track"><i id="evidence-fill"></i></span>
+          <span id="evidence-detail">Loading indictment threshold…</span>
+        </button>
+        <p id="risk-warning" role="status" aria-live="polite" hidden></p>
+      </section>
+      <div class="turn-controls">
+        <div class="status">
+          <span id="status" role="status" aria-live="polite"
+            >Loading your city…</span
+          ><small id="save-status">Runs are saved in this browser</small>
+        </div>
+        <button id="low">Lie low</button
+        ><button id="week">Advance 7 days</button
+        ><button id="end" class="primary">End day <kbd>SPACE</kbd> →</button>
       </div>
-      <button id="low">Lie low</button><button id="week">Advance 7 days</button
-      ><button id="end" class="primary">End day <kbd>SPACE</kbd> →</button>
     </footer>
     <dialog id="modal"><div id="modal-content"></div></dialog>
     <div id="loading">

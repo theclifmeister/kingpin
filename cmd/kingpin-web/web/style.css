@@ -670,3 +670,107 @@ dialog .actions {
     transition: none !important;
   }
 }
+
+/* The risk dashboard stays next to turn controls, including on small screens. */
+footer {
+  height: auto;
+  display: block;
+  padding: 10px 26px 14px;
+}
+.turn-controls {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+}
+.risk-hud {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 8px 16px;
+  margin-bottom: 10px;
+}
+.risk-meter {
+  display: grid;
+  gap: 5px;
+  text-align: left;
+  padding: 8px 12px;
+  background: #111f2b;
+  min-width: 0;
+  border-color: #355548;
+}
+.risk-top {
+  display: flex;
+  justify-content: space-between;
+  gap: 12px;
+  font-size: 14px;
+}
+.risk-meter > span:last-child {
+  font-size: 12px;
+  color: var(--muted);
+}
+.risk-track {
+  height: 4px;
+  display: block;
+  background: #293947;
+  overflow: hidden;
+  border-radius: 4px;
+}
+.risk-track i {
+  display: block;
+  height: 100%;
+  background: var(--mint);
+}
+.risk-meter[data-severity="caution"] {
+  border-color: #9c7b40;
+}
+.risk-meter[data-severity="critical"] {
+  border-color: var(--red);
+  background: #311e28;
+}
+[data-severity="caution"] .risk-track i {
+  background: var(--amber);
+}
+[data-severity="critical"] .risk-track i {
+  background: var(--red);
+}
+#risk-warning {
+  grid-column: 1/-1;
+  font-size: 14px;
+  line-height: 1.45;
+  color: var(--amber);
+  padding: 3px 0;
+}
+#risk-warning[data-severity="critical"] {
+  color: #ffaaa9;
+}
+@media (max-width: 800px) {
+  footer {
+    padding: 8px 12px;
+  }
+  .turn-controls {
+    flex-wrap: wrap;
+    gap: 8px;
+  }
+  .risk-hud {
+    gap: 6px;
+    margin-bottom: 8px;
+  }
+  .risk-top {
+    flex-wrap: wrap;
+    gap: 2px;
+  }
+  .risk-meter {
+    padding: 7px 8px;
+    flex: initial;
+  }
+  .risk-meter > span:last-child {
+    font-size: 12px;
+  }
+  #risk-warning {
+    max-height: 72px;
+    overflow: auto;
+    font-size: 12px;
+  }
+  .turn-controls .status {
+    width: 100%;
+  }
+}

@@ -28,6 +28,7 @@ const { Session, SUPPORTED, VersionError } = await mod("session.js");
 const { autoDay } = await mod("autoplay.js");
 const { ANIMATIONS } = await mod("cues.js");
 const { CUE_STYLES } = await mod("phaser-map.js");
+const { readRisk, safeFastForward } = await mod("risk.js");
 const { layout } = await mod("layout.js");
 const { drawMap } = await mod("scene.js");
 const { SPRITES } = await mod("sprites.js");
@@ -43,6 +44,39 @@ const ctx = new Proxy({}, { get: (t, k) => (k in t ? t[k] : () => {}), set: (t, 
 
 const out = { engine: { protocol: kingpin.protocol, view: kingpin.view }, supported: SUPPORTED, problems: [] };
 const problem = (s) => out.problems.length < 40 && out.problems.push(s);
+
+// Risk follows the quoted DA limit, independently of district heat. A cold
+// district must never hide an almost-complete evidence file.
+const riskSession = new Session(kingpin);
+riskSession.newRun(7);
+const limit = riskSession.call("rules.heat.evidence_arrest");
+const initialRisk = readRisk(riskSession);
+if (initialRisk.limit !== limit || initialRisk.critical) problem("incorrect initial risk");
+let sawEvidenceWarning = false;
+for (let i=0; i<80 && !riskSession.view.over; i++) {
+  autoDay(riskSession);
+  const risk = readRisk(riskSession);
+  if (!riskSession.view.over && risk.evidenceCritical) sawEvidenceWarning = true;
+}
+if (!sawEvidenceWarning) problem("no evidence warning before the seeded indictment");
+const fake = {
+  view: {day:0,you:{evidence:5},cities:[{id:"here",name:"Here",heat:0},{id:"away",name:"Away",heat:60}]},
+  limit:6, turns:0,
+  call(method) {
+    if(method==="rules.heat.evidence_arrest")return this.limit;
+    if(method==="rules.heat.ladder")return [{Level:"patrol",Threshold:40,Evidence:0},{Level:"sting",Threshold:55,Evidence:1},{Level:"raid",Threshold:75,Evidence:2},{Level:"arrest",Threshold:95,Evidence:0}];
+    if(method==="fast_forward"){this.turns++;this.view.day++;this.view.you.evidence++;return {ran:1,day:this.view.day,stop:"cap"};}
+    throw new Error(method);
+  },
+};
+if(!readRisk(fake).evidenceCritical || readRisk(fake).hottest.id!=="away") problem("cold current city hid evidence or distant heat");
+fake.view.cities[1].heat=0;
+fake.limit=12;
+if(readRisk(fake).critical) problem("risk ignored the quoted raised indictment limit");
+fake.limit=6;fake.view.you.evidence=3;
+const stopped=safeFastForward(fake,7);
+if(stopped.ran!==1||stopped.stop!=="danger"||fake.turns!==1) problem("fast-forward ran past critical evidence");
+if(safeFastForward(fake,7).ran!==0||fake.turns!==1) problem("fast-forward advanced an already critical run");
 
 // The versions: this build's are spoken, another is refused.
 out.accepts = SUPPORTED.protocol.includes(kingpin.protocol) && SUPPORTED.view.includes(kingpin.view);

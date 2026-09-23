@@ -51,6 +51,16 @@ End day (or Space outside controls/dialogs) advances one day. Advance 7 days use
 
 Settings include the original autopilot, explicitly labelled as trading for the player. It uses `autoplay.js`, pauses for a card or ending, and stops while settings are open. Manual play remains the default.
 
+## Heat and indictment warnings
+
+Heat and evidence are always visible in the sticky turn-control area on desktop and mobile. The heat meter names the hottest district and the next/current police response line. The evidence meter shows the DA’s file against `rules.heat.evidence_arrest`, including points remaining. Clicking either opens Law, which also shows the local response ladder and the previous night’s heat/law report.
+
+`js/risk.js` reads `rules.heat.ladder` for every visible city and the current indictment limit. It never hardcodes the DA’s six-point base: officials and legal upgrades can change the quoted limit. Amber flags existing evidence or patrol-level attention; red flags any district at a sting-or-higher line or a nonempty file within one response’s base evidence of indictment. This is an attention policy, not a prediction that another night is safe. Evidence can grow through informants, bribes, audits and other actions as well as enforcement.
+
+Critical risk requires a pre-turn decision: review the case, lie low without advancing, or explicitly advance **one** day. Keyboard advancement uses the same guard. Seven-day play retains the engine’s normal stops and checks risk after every day. Autopilot refuses to start in danger and pauses when danger is reached. The ending explains that evidence and heat are separate. Lying low cancels today’s sales/deliveries and helps heat decay; it is not an instant evidence reset or guaranteed escape.
+
+`TestWebClient` checks that the real seeded WASM run warns before indictment, low local heat cannot hide evidence or another district’s heat, changed DA limits are respected, and fast-forward stops at critical evidence.
+
 ## Saves and layout
 
 Every successful action exports the engine's save to `localStorage` under the original `kingpin.save` key. Settings provide save/load and export/import of the base64 save as a text `.save` file. The bytes inside remain the engine's save, compatible with the TUI's schema. Starting over requires confirmation; export first to keep the old run. Storage failures display a warning and retain the live session for export.

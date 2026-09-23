@@ -1,5 +1,6 @@
 import { Session, streetConnect } from "./session.js";
 import { autoDay } from "./autoplay.js";
+import { readRisk, safeFastForward } from "./risk.js";
 import { CityMap } from "./phaser-map.js";
 const $ = (id) => document.getElementById(id),
   money = (n) =>
@@ -147,7 +148,10 @@ function save() {
 function act(method, ...args) {
   if (!session) return;
   try {
-    const r = session.call(method, ...args);
+    const r =
+      method === "fast_forward"
+        ? safeFastForward(session, args[0])
+        : session.call(method, ...args);
     session.refresh();
     const cues = session
       .take()
@@ -175,8 +179,94 @@ function act(method, ...args) {
     status(e.message, true);
   }
 }
+function openLaw(city) {
+  tab = "law";
+  cityID = city || cityID;
+  render();
+  if (innerWidth < 800) $("panel-title").scrollIntoView({ behavior: "smooth" });
+}
+function renderRisk(risk) {
+  const city = risk.hottest;
+  $("heat-risk").disabled = $("evidence-risk").disabled = false;
+  $("heat-label").textContent = `Heat · ${city.name}`;
+  $("heat-value").textContent = `${city.heat.toFixed(1)} / 100`;
+  $("heat-detail").textContent = city.reached
+    ? `${city.reached.Level} line reached${city.next ? ` · ${city.next.Level} at ${city.next.Threshold.toFixed(1)}` : ""}`
+    : `Below patrol · next ${city.next?.Level || "response"} at ${city.next?.Threshold.toFixed(1) || "—"}`;
+  $("heat-fill").style.width = `${Math.max(0, Math.min(100, city.heat))}%`;
+  $("heat-risk").dataset.severity = risk.heatCritical
+    ? "critical"
+    : city.reached
+      ? "caution"
+      : "quiet";
+  $("evidence-value").textContent =
+    `${risk.evidence} / ${risk.limit > 0 ? risk.limit : "—"}`;
+  $("evidence-detail").textContent =
+    risk.limit > 0
+      ? `Indictment at ${risk.limit} · ${risk.remaining} remaining`
+      : "No active indictment threshold";
+  $("evidence-fill").style.width =
+    `${risk.limit > 0 ? Math.min(100, (risk.evidence / risk.limit) * 100) : 0}%`;
+  $("evidence-risk").dataset.severity = risk.evidenceCritical
+    ? "critical"
+    : risk.evidence > 0
+      ? "caution"
+      : "quiet";
+  $("risk-warning").hidden = !risk.caution;
+  $("risk-warning").textContent =
+    `${risk.critical ? "DANGER — " : "CAUTION — "}${risk.warnings.join(" ")}`;
+  $("risk-warning").dataset.severity = risk.critical ? "critical" : "caution";
+  $("heat-risk").onclick = () => openLaw(city.id);
+  $("evidence-risk").onclick = () => openLaw();
+}
+function advanceDays(days) {
+  if (actionsDisabled) return;
+  const risk = readRisk(session);
+  if (risk.critical) {
+    stopAuto();
+    modal(
+      "Danger before tonight",
+      `${risk.warnings.join(" ")} Lying low cancels today's sales and deliveries and helps heat cool; it does not instantly remove evidence or guarantee safety.`,
+      [
+        button("Review the case", () => {
+          closeModal();
+          openLaw();
+        }),
+        button(
+          "Lie low instead",
+          () => {
+            closeModal();
+            act("set_lie_low", true);
+          },
+          false,
+          "primary",
+        ),
+        button(
+          "Advance one day anyway",
+          () => {
+            closeModal();
+            act("end_day");
+          },
+          false,
+          "danger",
+        ),
+      ],
+    );
+    return;
+  }
+  act(days === 1 ? "end_day" : "fast_forward", ...(days === 1 ? [] : [days]));
+}
 function render() {
   const v = session.view;
+  const risk = readRisk(session);
+  renderRisk(risk);
+  if (risk.critical && autoTimer) {
+    stopAuto();
+    status(
+      "Autopilot paused — review heat and evidence before continuing.",
+      true,
+    );
+  }
   actionsDisabled = !!v.over || !!v.card;
   if (actionsDisabled) stopAuto();
   cityID = v.cities.some((c) => c.id === cityID) ? cityID : v.you.city;
@@ -297,7 +387,7 @@ function render() {
   } else if (v.over && !reviewedEnding) {
     modal(
       "The run is over",
-      `Day ${v.over.day}: ${v.over.cause}${v.over.who ? ` · ${v.over.who}` : ""}. Final net worth: ${money(v.you.net_worth)}.`,
+      `Day ${v.over.day}: ${v.over.cause}${v.over.who ? ` · ${v.over.who}` : ""}. Final net worth: ${money(v.you.net_worth)}.${v.over.cause === "indicted" ? ` The DA had ${risk.evidence} evidence; the current indictment threshold is ${risk.limit}. Evidence is separate from district heat. See Law and the heat report to review what built the case.` : ""}`,
       [
         button("Start a new run", () => startNew(), false, "primary"),
         button("Review the city", () => {
@@ -793,12 +883,14 @@ const panels = {
     if (!v.offers.length) empty("No diplomatic offers right now.");
   },
   law(v, city) {
+    const risk = readRisk(session);
+    const local = risk.cities.find((c) => c.id === city.id);
     const c = card(
       "The case against you",
       `District attorney: ${v.law.da} · ${v.law.da_stance}`,
     );
     stats(c, [
-      ["EVIDENCE", v.you.evidence],
+      ["EVIDENCE", `${risk.evidence} / ${risk.limit || "—"}`],
       ["LOCAL HEAT", Math.round(city.heat)],
     ]);
     c.append(
@@ -817,7 +909,34 @@ const panels = {
         "primary",
       ),
     );
+    c.append(
+      el(
+        "p",
+        "Heat is local police attention. Evidence is the DA’s separate case against you; cooling heat does not automatically erase it. Stings and raids while dealing can add evidence. Informants and other actions can also grow the file.",
+      ),
+    );
+    c.append(
+      el(
+        "p",
+        "Lie low cancels today’s sales and deliveries and increases heat decay. A legal retainer can let evidence decay after quiet days; lying low alone is not an instant reset.",
+      ),
+    );
     $("panel").append(c);
+    heading(`${city.name} · current police thresholds`);
+    for (const rung of local.ladder) {
+      const line = card(
+        rung.Level,
+        `Heat ${rung.Threshold.toFixed(1)}${rung.Evidence ? ` · base evidence from response: ${rung.Evidence}` : ""}`,
+        city.heat >= rung.Threshold ? "LINE REACHED" : "",
+      );
+      $("panel").append(line);
+    }
+    const reasons = (v.report.heat || []).concat(v.report.law || []);
+    if (reasons.length) {
+      heading("What happened last night");
+      for (const reason of reasons)
+        $("panel").append(el("p", reason, "list-line"));
+    }
     heading("Current alerts");
     for (const a of v.alerts)
       $("panel").append(card(a.kind.replaceAll("_", " "), a.key));
@@ -852,6 +971,12 @@ function stopAuto() {
   autoTimer = null;
 }
 function toggleAuto() {
+  if (readRisk(session).critical) {
+    stopAuto();
+    closeModal();
+    advanceDays(1);
+    return;
+  }
   if (autoTimer) {
     stopAuto();
     closeModal();
@@ -861,7 +986,7 @@ function toggleAuto() {
   closeModal();
   status("Autopilot is trading and advancing days. Open settings to pause.");
   autoTimer = setInterval(() => {
-    if (actionsDisabled) {
+    if (actionsDisabled || readRisk(session).critical) {
       stopAuto();
       return;
     }
@@ -929,7 +1054,11 @@ function settings() {
         const input = el("input");
         input.type = "file";
         input.accept = ".save,.txt";
+        input.hidden = true;
+        document.body.append(input);
+        input.addEventListener("cancel", () => input.remove());
         input.onchange = async () => {
+          input.remove();
           try {
             if (!input.files[0]) return;
             stopAuto();
@@ -997,8 +1126,8 @@ async function boot() {
       b.append(el("span", icon, "icon"), el("span", title));
       $("nav").append(b);
     }
-    $("end").onclick = () => act("end_day");
-    $("week").onclick = () => act("fast_forward", 7);
+    $("end").onclick = () => advanceDays(1);
+    $("week").onclick = () => advanceDays(7);
     $("low").onclick = () => act("set_lie_low", !session.view.you.lie_low);
     $("menu").onclick = settings;
     $("zoom-in").onclick = () => map.zoom(1.2);
@@ -1012,7 +1141,7 @@ async function boot() {
         !["INPUT", "SELECT", "TEXTAREA", "BUTTON"].includes(e.target.tagName)
       ) {
         e.preventDefault();
-        if (!actionsDisabled) act("end_day");
+        if (!actionsDisabled) advanceDays(1);
       }
     });
     const seed = new URLSearchParams(location.search).get("seed");
