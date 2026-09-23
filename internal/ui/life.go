@@ -27,7 +27,7 @@ func (m *Model) crewTag(c game.CrewMember) string {
 		return fmt.Sprintf("jailed %dd", c.JailedUntil-day)
 	case c.Wounded(day):
 		return fmt.Sprintf("wounded %dd", c.WoundedUntil-day)
-	case m.set.Crew.Retiring(c):
+	case m.rules.Crew.Retiring(c):
 		return "retiring"
 	}
 	return ""
@@ -72,14 +72,14 @@ func relation(a, b int) string {
 
 // ageLine is the pane's age row: the age, and when they retire.
 func (m *Model) ageLine(c game.CrewMember) string {
-	life := m.set.Crew.Life()
+	life := m.rules.Crew.Life()
 	if !life.On() || c.Age == 0 {
 		return ""
 	}
 	s := fmt.Sprintf("%d", c.Age)
 	switch {
-	case m.set.Crew.Retiring(c):
-		s += theme.Warning.Render(fmt.Sprintf(" · retires d%d", m.set.Crew.Birthday(c, m.w.Day)))
+	case m.rules.Crew.Retiring(c):
+		s += theme.Warning.Render(fmt.Sprintf(" · retires d%d", m.rules.Crew.Birthday(c, m.w.Day)))
 	default:
 		s += theme.Subtle.Render(fmt.Sprintf(" · retires at %d", life.RetireAge))
 	}
@@ -110,7 +110,7 @@ func (m *Model) confirmBail() {
 	if c == nil {
 		return
 	}
-	got, err := m.w.Bail(c.ID, m.set.Crew.BailCost(*c))
+	got, err := m.sess.Bail(c.ID)
 	if err != nil {
 		m.refuse("Can't bail them: " + err.Error())
 		return
@@ -123,8 +123,8 @@ func (m *Model) bailConfirm() string {
 	if c == nil {
 		return m.modal("BAIL", []string{"They are gone."}, m.modalFooter())
 	}
-	cost := m.set.Crew.BailCost(*c)
-	life := m.set.Crew.Life()
+	cost := m.rules.Crew.BailCost(*c)
+	life := m.rules.Crew.Life()
 	body := []string{
 		fmt.Sprintf("%s clean for %s: out tomorrow, loyalty %.0f %s %.0f.", money(cost), c.Name, c.Loyalty, format.Arrow, min(100, c.Loyalty+life.BailLoyalty)),
 		theme.Subtle.Render(fmt.Sprintf("Left in, they are out in %s, sour, and the DA has had them a while.", plural(c.JailedUntil-m.w.Day, "day"))),
@@ -173,7 +173,7 @@ func (m *Model) confirmDriver() {
 		return
 	}
 	who := rows[max(0, min(m.pick.cursor, len(rows)-1))]
-	if err := m.w.SetRouteDriver(r.ID, who.ID); err != nil {
+	if err := m.sess.SetRouteDriver(r.ID, who.ID); err != nil {
 		m.refuse("Can't put them on the road: " + err.Error())
 		return
 	}
@@ -181,7 +181,7 @@ func (m *Model) confirmDriver() {
 		m.say("Nobody drives " + r.Name + " now.")
 		return
 	}
-	m.say(fmt.Sprintf("%s drives %s from tomorrow: risk −%s a day on the road, and jailed if a shipment is seized.", who.Name, r.Name, format.Pct(m.set.Logistics.DriverCut(who.Skill), 0)))
+	m.say(fmt.Sprintf("%s drives %s from tomorrow: risk −%s a day on the road, and jailed if a shipment is seized.", who.Name, r.Name, format.Pct(m.rules.Logistics.DriverCut(who.Skill), 0)))
 }
 
 func (m *Model) keyDriver(key string) { m.pickerKey(key, len(m.driverRows()), m.confirmDriver) }
@@ -196,7 +196,7 @@ func (m *Model) viewDriver() string {
 	var cells [][]any
 	for _, c := range rows {
 		var where any = styled{theme.Subtle, "idle"}
-		var skill, cut any = c.Skill, "−" + format.Pct(m.set.Logistics.DriverCut(c.Skill), 0)
+		var skill, cut any = c.Skill, "−" + format.Pct(m.rules.Logistics.DriverCut(c.Skill), 0)
 		switch {
 		case c.ID == 0:
 			where, skill, cut = styled{theme.Subtle, "takes the driver off"}, nil, nil
@@ -214,7 +214,7 @@ func (m *Model) viewDriver() string {
 
 // routeName is a route's name by id, or the id.
 func (m *Model) routeName(id string) string {
-	if r := m.set.Logistics.Route(id); r != nil {
+	if r := m.rules.Logistics.Route(id); r != nil {
 		return r.Name
 	}
 	return id
@@ -234,5 +234,5 @@ func (m *Model) driverLine(route string) string {
 	if !c.Fit(m.w.Day) {
 		return theme.Warning.Render(fmt.Sprintf("%s · %s", c.Name, strings.ToLower(m.crewTag(*c))))
 	}
-	return fmt.Sprintf("%s · risk −%s", c.Name, format.Pct(m.set.Logistics.DriverCut(c.Skill), 0))
+	return fmt.Sprintf("%s · risk −%s", c.Name, format.Pct(m.rules.Logistics.DriverCut(c.Skill), 0))
 }

@@ -36,7 +36,7 @@ func (m *Model) booksAge(r *game.RivalState) string {
 	if age > 0 {
 		s = "read " + plural(age, "day") + " ago"
 	}
-	if m.set.Rivals.Stale(m.w, r, m.w.Day) {
+	if m.rules.Rivals.Stale(m.w, r, m.w.Day) {
 		s += " · stale"
 	}
 	return s
@@ -62,7 +62,7 @@ func (m *Model) booksRows(r *game.RivalState) [][]any {
 // they act at: `police ████░░░░ 45/60`, `raided 3d ago` while they will
 // not be back, or `none` at zero.
 func (m *Model) policeBar(r *game.RivalState, width int) string {
-	tp := m.set.Rivals.TipTuning()
+	tp := m.rules.Rivals.TipTuning()
 	if r.Heat <= 0 && r.LastRaid == 0 {
 		return theme.Subtle.Render("none")
 	}
@@ -71,7 +71,7 @@ func (m *Model) policeBar(r *game.RivalState, width int) string {
 		style = theme.Bad
 	}
 	s := barText(r.Heat/tp.PoliceNotice, width, nil, fmt.Sprintf(" %.0f/%.0f", r.Heat, tp.PoliceNotice), style)
-	if !m.set.Rivals.RaidReady(r, m.w.Day+1) {
+	if !m.rules.Rivals.RaidReady(r, m.w.Day+1) {
 		s += theme.Subtle.Render(fmt.Sprintf(" · raided %s ago", plural(m.w.Day-r.LastRaid, "day")))
 	}
 	return s
@@ -94,8 +94,8 @@ func (m *Model) booksSection() section {
 	w := m.w
 	r := m.faction()
 	return section{"BOOKS", []string{
-		keyRow("i", fmt.Sprintf("scout for %s, ~%s", money(m.set.Rivals.ScoutCost()), format.Pct(m.set.Rivals.ScoutOdds(w, r), 0))),
-		keyRow("$", fmt.Sprintf("buy off a head, %s", cash(m.set.Rivals.MusclePrice(w, r)))),
+		keyRow("i", fmt.Sprintf("scout for %s, ~%s", money(m.rules.Rivals.ScoutCost()), format.Pct(m.rules.Rivals.ScoutOdds(w, r), 0))),
+		keyRow("$", fmt.Sprintf("buy off a head, %s", cash(m.rules.Rivals.MusclePrice(w, r)))),
 	}}
 }
 
@@ -116,11 +116,11 @@ func (m *Model) askScout() {
 func (m *Model) confirmScout() {
 	m.mode = modePlay
 	r := m.faction()
-	if err := m.w.ScoutFaction(r.Faction(), m.set.Rivals.ScoutCost()); err != nil {
+	if err := m.sess.ScoutFaction(r.Faction()); err != nil {
 		m.refuse("Can't scout: " + err.Error())
 		return
 	}
-	m.say(fmt.Sprintf("Somebody reads %s's books tonight. Odds ~%s.", m.rivalName(r), format.Pct(m.set.Rivals.ScoutOdds(m.w, r), 0)))
+	m.say(fmt.Sprintf("Somebody reads %s's books tonight. Odds ~%s.", m.rivalName(r), format.Pct(m.rules.Rivals.ScoutOdds(m.w, r), 0)))
 }
 
 // scoutConfirm is the confirmation's body: the cost, who does the
@@ -128,7 +128,7 @@ func (m *Model) confirmScout() {
 func (m *Model) scoutConfirm() string {
 	w := m.w
 	r := m.faction()
-	odds := m.set.Rivals.ScoutOdds(w, r)
+	odds := m.rules.Rivals.ScoutOdds(w, r)
 	// The best enforcer on the books, at work or not, as the odds read
 	// them (CrewState.Strongest, #275); one at skill 0 asks nothing.
 	best := 0
@@ -139,12 +139,12 @@ func (m *Model) scoutConfirm() string {
 	if best > 0 {
 		who = fmt.Sprintf("Your best enforcer (skill %d) does the asking.", best)
 	}
-	body := m.wrapLines(fmt.Sprintf("Somebody goes through %s's books tonight for %s.", m.rivalName(r), money(m.set.Rivals.ScoutCost())))
+	body := m.wrapLines(fmt.Sprintf("Somebody goes through %s's books tonight for %s.", m.rivalName(r), money(m.rules.Rivals.ScoutCost())))
 	body = append(body, who, "~"+format.Pct(odds, 0)+" it reads them: the chest, the take, the muscle, the wages.")
 	if r.Scouted > 0 {
 		body = append(body, theme.Subtle.Render(fmt.Sprintf("Every empty night so far (%d) makes the next likelier.", r.Scouted)))
 	}
-	body = append(body, theme.Subtle.Render(fmt.Sprintf("A snapshot: it goes stale after %s. Failing, the money is gone.", plural(m.set.Rivals.Books().StaleDays, "day"))))
+	body = append(body, theme.Subtle.Render(fmt.Sprintf("A snapshot: it goes stale after %s. Failing, the money is gone.", plural(m.rules.Rivals.Books().StaleDays, "day"))))
 	return m.modal("SCOUT THEIR BOOKS?", body, m.modalFooter())
 }
 
@@ -167,11 +167,11 @@ func (m *Model) confirmBoost() {
 	if c == nil || !ok {
 		return
 	}
-	if err := m.w.Boost(c.ID, f); err != nil {
+	if err := m.sess.Boost(c.ID, f); err != nil {
 		m.refuse("Can't send them: " + err.Error())
 		return
 	}
-	m.say(fmt.Sprintf("Enforcers go for the till on %s tonight at %s: ~%s, odds %s, heat +%.0f.", c.Name, f, cash(m.set.Rivals.BoostTake(m.w, *c)), m.oddsWord(m.factionOf(c), c, f), m.set.Rivals.BoostHeat(c)))
+	m.say(fmt.Sprintf("Enforcers go for the till on %s tonight at %s: ~%s, odds %s, heat +%.0f.", c.Name, f, cash(m.rules.Rivals.BoostTake(m.w, *c)), m.oddsWord(m.factionOf(c), c, f), m.rules.Rivals.BoostHeat(c)))
 }
 
 // boostConfirm is the confirmation's body: the till, the odds, the heat
@@ -182,11 +182,11 @@ func (m *Model) boostConfirm() string {
 	if c == nil || !ok {
 		return m.modal("BOOST?", []string{"Nowhere to send them."}, m.modalFooter())
 	}
-	b := m.set.Rivals.BoostTuning()
+	b := m.rules.Rivals.BoostTuning()
 	r := m.factionOf(c)
 	body := m.wrapLines(fmt.Sprintf("The enforcers go in at %s for the till on %s, not the corner.", f, c.Name))
-	body = append(body, m.wrapLines(fmt.Sprintf("%s they come back with ~%s of %s's takings.", m.oddsWord(r, c, f), cash(m.set.Rivals.BoostTake(m.w, *c)), r.Leader))...)
-	body = append(body, fmt.Sprintf("Heat +%.0f and war +%.0f either way; trust -%.0f.", m.set.Rivals.BoostHeat(c), b.War, m.cfg.Rivals.ForceFor(f).Trust))
+	body = append(body, m.wrapLines(fmt.Sprintf("%s they come back with ~%s of %s's takings.", m.oddsWord(r, c, f), cash(m.rules.Rivals.BoostTake(m.w, *c)), r.Leader))...)
+	body = append(body, fmt.Sprintf("Heat +%.0f and war +%.0f either way; trust -%.0f.", m.rules.Rivals.BoostHeat(c), b.War, m.cfg.Rivals.ForceFor(f).Trust))
 	fail := fmt.Sprintf("Failing, the enforcers lose %.0f nerve-weighted loyalty", b.FailLoss)
 	if lo, _, _, ok := m.known().Muscle(r.Faction()); ok && lo > b.FailMuscle {
 		fail += " and one gets hurt"
@@ -222,11 +222,11 @@ func (m *Model) confirmTip() {
 	if c == nil {
 		return
 	}
-	if err := m.w.Tip(c.ID); err != nil {
+	if err := m.sess.Tip(c.ID); err != nil {
 		m.refuse("Can't tip: " + err.Error())
 		return
 	}
-	tp := m.set.Rivals.TipTuning()
+	tp := m.rules.Rivals.TipTuning()
 	r := m.factionOf(c)
 	m.say(fmt.Sprintf("The police hear about %s tonight. Their attention on %s: %.0f → %.0f of %.0f.", c.Name, r.Leader, r.Heat, min(100, r.Heat+tp.Heat), tp.PoliceNotice))
 }
@@ -240,9 +240,9 @@ func (m *Model) tipConfirm() string {
 		return m.modal("TIP THE POLICE?", []string{"Nobody to tip on."}, m.modalFooter())
 	}
 	w := m.w
-	tp := m.set.Rivals.TipTuning()
+	tp := m.rules.Rivals.TipTuning()
 	r := m.factionOf(c)
-	arrest := m.set.Rivals.Factions().LeaderArrestHeat
+	arrest := m.rules.Rivals.Factions().LeaderArrestHeat
 	after := min(100, r.Heat+tp.Heat)
 	body := []string{fmt.Sprintf("A word to the police about %s's people on %s. Free.", r.Leader, c.Name)}
 	body = append(body, m.wrapLines(fmt.Sprintf("Their attention on %s goes %.0f → %.0f; at %.0f they raid the corner, at %.0f they take %s.", m.rivalName(r), r.Heat, after, tp.PoliceNotice, arrest, r.Leader))...)
@@ -251,7 +251,7 @@ func (m *Model) tipConfirm() string {
 		for _, l := range m.wrapLines(fmt.Sprintf("That is the end of them: the police take %s tonight and the crew comes apart.", r.Leader)) {
 			body = append(body, theme.Good.Render(l))
 		}
-	case !m.set.Rivals.RaidReady(r, w.Day+1):
+	case !m.rules.Rivals.RaidReady(r, w.Day+1):
 		for _, l := range m.wrapLines(fmt.Sprintf("They raided %s ago and will not be back for %s; the attention builds meanwhile.", plural(w.Day-r.LastRaid, "day"), plural(r.LastRaid+tp.RaidDays-w.Day-1, "day"))) {
 			body = append(body, theme.Subtle.Render(l))
 		}
@@ -311,13 +311,13 @@ func (m *Model) confirmBuyOff() {
 		return
 	}
 	r := m.faction()
-	price := m.set.Rivals.MusclePrice(m.w, r)
-	if err := m.w.BuyOffFrom(r.Faction(), n, n*price); err != nil {
+	price := m.rules.Rivals.MusclePrice(m.w, r)
+	if err := m.sess.BuyOffFrom(r.Faction(), n); err != nil {
 		m.amt.err = dialogError(err)
 		return
 	}
 	m.mode = modePlay
-	m.say(fmt.Sprintf("%s of %s's muscle paid to go home tonight: %s. Odds ~%s.", plural(n, "head"), r.Leader, money(n*price), format.Pct(m.set.Rivals.PoachTuning().Odds, 0)))
+	m.say(fmt.Sprintf("%s of %s's muscle paid to go home tonight: %s. Odds ~%s.", plural(n, "head"), r.Leader, money(n*price), format.Pct(m.rules.Rivals.PoachTuning().Odds, 0)))
 }
 
 // viewBuyOff is the confirmation: the price a head, the field, the odds
@@ -325,8 +325,8 @@ func (m *Model) confirmBuyOff() {
 func (m *Model) viewBuyOff() string {
 	w := m.w
 	r := m.faction()
-	p := m.set.Rivals.PoachTuning()
-	price := m.set.Rivals.MusclePrice(w, r)
+	p := m.rules.Rivals.PoachTuning()
+	price := m.rules.Rivals.MusclePrice(w, r)
 	n, err := m.buyOffUnits()
 	if err != nil {
 		n = 1

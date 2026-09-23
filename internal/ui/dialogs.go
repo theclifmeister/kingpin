@@ -458,7 +458,7 @@ func (m *Model) qtyMax() int {
 // stash there and what its supply contract will buy in the morning by
 // the market sim's plan.
 func (m *Model) sellable(city, id string) int {
-	return m.w.Stock(city, id) + m.set.Market.Due(m.w, city, id)
+	return m.w.Stock(city, id) + m.rules.Market.Due(m.w, city, id)
 }
 
 // sellableIn is sellable over every product in a city: whether the sell
@@ -621,7 +621,7 @@ func (m *Model) confirmBuy() (tea.Model, tea.Cmd) {
 	if sup == nil {
 		return m.quantityAgain(fmt.Errorf("nobody sells %s here today", m.w.ProductName(id)))
 	}
-	p, err := m.w.Buy(sup.ID, id, qty, m.dlg.credit, m.set.Market.BuyPressure(m.w))
+	p, err := m.sess.Buy(sup.ID, id, qty, m.dlg.credit)
 	if err != nil {
 		return m.quantityAgain(err)
 	}
@@ -650,10 +650,10 @@ func (m *Model) confirmKeep() (tea.Model, tea.Cmd) {
 	if err != nil {
 		return m.quantityAgain(err)
 	}
-	if err := m.w.SetSupply(city, id, qty); err != nil {
+	if err := m.sess.SetSupply(city, id, qty); err != nil {
 		return m.quantityAgain(err)
 	}
-	m.say(fmt.Sprintf("Keeping %d %s in %s: bought each morning at %s the supplier's price.", qty, m.w.ProductName(id), m.w.CityName(city), format.Times(m.set.Market.Markup(), 2)))
+	m.say(fmt.Sprintf("Keeping %d %s in %s: bought each morning at %s the supplier's price.", qty, m.w.ProductName(id), m.w.CityName(city), format.Times(m.rules.Market.Markup(), 2)))
 	m.nextLine()
 	return m, nil
 }
@@ -686,7 +686,7 @@ func (m *Model) confirmSell() (tea.Model, tea.Cmd) {
 	if err != nil {
 		return m.quantityAgain(err)
 	}
-	if err := m.w.PlaceSell(city, id, qty, m.dlg.dial); err != nil {
+	if err := m.sess.PlaceSell(city, id, qty, m.dlg.dial); err != nil {
 		return m.quantityAgain(err)
 	}
 	m.say(fmt.Sprintf("Queued %d %s in %s, %s. It sells at the end of the day.", qty, m.w.ProductName(id), m.w.CityName(city), m.dlg.dial))
@@ -705,10 +705,10 @@ func (m *Model) confirmStanding() (tea.Model, tea.Cmd) {
 	if err != nil {
 		return m.quantityAgain(err)
 	}
-	if err := m.w.PlaceStanding(city, id, qty, m.dlg.dial); err != nil {
+	if err := m.sess.PlaceStanding(city, id, qty, m.dlg.dial); err != nil {
 		return m.quantityAgain(err)
 	}
-	m.say(fmt.Sprintf("Standing: %d %s in %s, %s, every night until you cancel it; the crew keep %s.", qty, m.w.ProductName(id), m.w.CityName(city), m.dlg.dial, format.Pct(m.set.Market.Cut(), 0)))
+	m.say(fmt.Sprintf("Standing: %d %s in %s, %s, every night until you cancel it; the crew keep %s.", qty, m.w.ProductName(id), m.w.CityName(city), m.dlg.dial, format.Pct(m.rules.Market.Cut(), 0)))
 	m.nextLine()
 	return m, nil
 }
@@ -719,8 +719,8 @@ func (m *Model) estHeat(city, id string, qty int, dial events.Dial) float64 {
 	if m.w.Product(city, id) == nil {
 		return 0
 	}
-	moved := min(qty, m.set.Market.Capacity(m.w, city, id, dial))
-	return m.set.Heat.SaleHeat(m.w, city, id, qty, dial) + m.set.Heat.SloppyHeat(m.w, city, moved)
+	moved := min(qty, m.rules.Market.Capacity(m.w, city, id, dial))
+	return m.rules.Heat.SaleHeat(m.w, city, id, qty, dial) + m.rules.Heat.SloppyHeat(m.w, city, moved)
 }
 
 // viewDialog draws the buy or sell modal: the title, the connect step
@@ -853,7 +853,7 @@ func (m *Model) quantityRows(d dialog, city, id string, buy bool, sup *game.Supp
 				note += fmt.Sprintf("; their book covers %d", n)
 			}
 			body = append(body, theme.Subtle.Render(note+"."))
-		} else if due := m.set.Market.Due(w, city, id); due > 0 {
+		} else if due := m.rules.Market.Due(w, city, id); due > 0 {
 			body = append(body, theme.Subtle.Render(fmt.Sprintf("%d stashed and %d the contract brings in the morning.", w.Stock(city, id), due)))
 		}
 	} else if len(w.Today.Buys)+len(w.Today.Orders) == 0 {
@@ -878,7 +878,7 @@ func (m *Model) buyTermsRows(d dialog, city, id string, sup *game.Supplier) []st
 	body = append(body, row("pay", pay))
 	switch {
 	case d.repeat == repeatKeep:
-		body = append(body, row("contract", fmt.Sprintf("keep %d here, the shortfall bought each morning at %s (%s)", qty, price(m.set.Market.SupplyPrice(w, city, id)), format.Times(m.set.Market.Markup(), 2))))
+		body = append(body, row("contract", fmt.Sprintf("keep %d here, the shortfall bought each morning at %s (%s)", qty, price(m.rules.Market.SupplyPrice(w, city, id)), format.Times(m.rules.Market.Markup(), 2))))
 		if c, ok := w.Supplied(city, id); ok {
 			body = append(body, theme.Subtle.Render(fmt.Sprintf("Kept at %d since day %d; this replaces it.", c.Units, c.Since)))
 		} else {
@@ -908,8 +908,8 @@ func (m *Model) sellDialRows(d dialog, city, id string, p *game.ProductMarket) [
 	var body []string
 	qty, _ := m.parseQty(m.sellable(city, id))
 	body = append(body, "", row("dial", dialRow(d.dial)))
-	dc := m.set.Market.Dial(d.dial)
-	est := min(qty, m.set.Market.Capacity(w, city, id, d.dial))
+	dc := m.rules.Market.Dial(d.dial)
+	est := min(qty, m.rules.Market.Capacity(w, city, id, d.dial))
 	body = append(body, row("expect", fmt.Sprintf("~%d of %d at ~%s = ~%s", est, qty, price(p.Price*dc.Price), theme.Gold.Render(money(int(float64(est)*p.Price*dc.Price))))))
 	h := m.estHeat(city, id, qty, d.dial)
 	body = append(body, row("heat", heatStyle(w.City(city).Heat+h*4).Render(fmt.Sprintf("+%.1f", h))+"   "+theme.Subtle.Render(dialBlurb(d.dial))))
@@ -927,7 +927,7 @@ func (m *Model) sellRepeatRows(d dialog, city, id string) []string {
 	qty, _ := m.parseQty(m.sellable(city, id))
 	body = append(body, "", row("repeat", dialCells(sellRepeatNames, int(d.repeat))))
 	if d.repeat == repeatStanding {
-		body = append(body, row("standing", fmt.Sprintf("%d at %s nightly until cancelled; the crew keep %s", qty, d.dial, format.Pct(m.set.Market.Cut(), 0))))
+		body = append(body, row("standing", fmt.Sprintf("%d at %s nightly until cancelled; the crew keep %s", qty, d.dial, format.Pct(m.rules.Market.Cut(), 0))))
 		if o, ok := w.YourStanding(city, id); ok {
 			body = append(body, theme.Subtle.Render(fmt.Sprintf("Standing at %d %s now; this replaces it.", o.Qty, o.Dial)))
 		} else {

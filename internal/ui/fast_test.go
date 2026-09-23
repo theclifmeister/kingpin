@@ -66,7 +66,7 @@ func TestFastForwardStopsOnACard(t *testing.T) {
 func TestFastForwardStopsOnAnAlert(t *testing.T) {
 	m := richModelSeeded(t, 80, 24, 1)
 	patrol := 0.0
-	for _, r := range m.set.Heat.ThresholdsIn(m.w, m.w.Here()) {
+	for _, r := range m.rules.Heat.ThresholdsIn(m.w, m.w.Here()) {
 		if r.Level == content.Patrol {
 			patrol = r.Threshold
 		}
@@ -232,7 +232,7 @@ func TestFastForwardIsTheSameDays(t *testing.T) {
 	if !reflect.DeepEqual(gobCopy(t, m.w), gobCopy(t, byHand.w)) {
 		t.Fatal("F for 5 days and n five times differ through gob")
 	}
-	saved, err := game.Load(m.slot, m.set.Migrations()...)
+	saved, err := game.Load(m.slot, m.sess.Sims().Migrations()...)
 	if err != nil {
 		t.Fatal(err)
 	}

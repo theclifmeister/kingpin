@@ -15,18 +15,17 @@ import (
 	"github.com/theclifmeister/kingpin/internal/engine"
 	"github.com/theclifmeister/kingpin/internal/events"
 	"github.com/theclifmeister/kingpin/internal/game"
-	"github.com/theclifmeister/kingpin/internal/sim"
 	"github.com/theclifmeister/kingpin/internal/ui/anim"
 	"github.com/theclifmeister/kingpin/internal/ui/theme"
 )
 
 // Model is the root Bubble Tea model.
 type Model struct {
-	cfg  *content.Config
-	sess *engine.Session // the run's engine (#296): the sims, the clock and the bus, one assembly
-	set  *sim.Set        // sess.Rules(), the sims' costs and previews until the session quotes them (#297)
-	w    *game.World     // sess.World(), the run on screen
-	opts Options
+	cfg   *content.Config
+	sess  *engine.Session // the run's engine (#296): the sims, the clock and the bus, one assembly
+	rules engine.Rules    // sess.Rules(): the sims' costs, prices and previews (#297)
+	w     *game.World     // sess.World(), the run on screen
+	opts  Options
 
 	scene       *anim.Player // the scene on screen (#152), nil while none is: the tick chain runs on it
 	titleEffect string       // the effect the title loop's current pass plays (#153), the next pass avoids it
@@ -138,10 +137,10 @@ func wire(cfg *content.Config, opts Options) (*Model, error) {
 		return nil, err
 	}
 	m := &Model{
-		cfg:  cfg,
-		sess: sess,
-		set:  sess.Rules(),
-		opts: opts,
+		cfg:   cfg,
+		sess:  sess,
+		rules: sess.Rules(),
+		opts:  opts,
 	}
 	sess.Subscribe(m.onEvent)
 	m.now = time.Now
@@ -539,15 +538,15 @@ func (m *Model) cancelSelected() {
 	id := m.w.Products[m.cursor]
 	if city := m.actionCity(); m.w.Cities[city] != nil {
 		if _, ok := m.w.Order(city, id); ok {
-			m.w.CancelSell(city, id)
+			m.sess.CancelSell(city, id)
 			m.say("Order cancelled.")
 		} else if o, ok := m.w.YourStanding(city, id); ok {
-			m.w.CancelStanding(city, id)
+			m.sess.CancelStanding(city, id)
 			m.say(fmt.Sprintf("Standing order cancelled: %d %s in %s no longer sells nightly.", o.Qty, m.w.ProductName(id), m.w.CityName(city)))
 		} else if c, ok := m.w.Supplied(city, id); ok {
 			// With no order to cancel, x clears the supply contract
 			// (#113): the stash is no longer kept there.
-			m.w.ClearSupply(city, id)
+			m.sess.ClearSupply(city, id)
 			m.say(fmt.Sprintf("Contract cleared: %s in %s is no longer kept at %d.", m.w.ProductName(id), m.w.CityName(city), c.Units))
 		}
 	}
@@ -555,7 +554,7 @@ func (m *Model) cancelSelected() {
 
 // toggleLieLow turns lying low on and off for today.
 func (m *Model) toggleLieLow() {
-	m.w.SetLieLow(!m.w.Today.LieLow)
+	m.sess.SetLieLow(!m.w.Today.LieLow)
 	if m.w.Today.LieLow {
 		m.say("Lying low today: no sales, heat fades faster.")
 	} else {

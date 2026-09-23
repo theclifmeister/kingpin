@@ -356,7 +356,7 @@ func (m *Model) confirmPayCop() {
 		m.amt.err = dialogError(err)
 		return
 	}
-	if err := m.w.PayCop(amt); err != nil {
+	if err := m.sess.PayCop(amt); err != nil {
 		m.amt.err = dialogError(err)
 		return
 	}
@@ -508,7 +508,7 @@ func (m *Model) confirmSpy() {
 	}
 	r := facs[max(0, min(m.spy.faction, len(facs)-1))]
 	c := cands[max(0, min(m.spy.member, len(cands)-1))]
-	if err := m.w.PlantSpy(r.Faction(), c.ID); err != nil {
+	if err := m.sess.PlantSpy(r.Faction(), c.ID); err != nil {
 		m.refuse("Can't send them: " + err.Error())
 		return
 	}
@@ -587,7 +587,7 @@ func (m *Model) oddsWord(r *game.RivalState, c *game.Corner, force events.Force)
 	if !ok {
 		return game.Unknown
 	}
-	rv := m.set.Rivals
+	rv := m.rules.Rivals
 	a, b := rv.OddsOnAt(m.w, r, c, force, hi)*100, rv.OddsOnAt(m.w, r, c, force, lo)*100
 	if lo == hi || fmt.Sprintf("%.0f", a) == fmt.Sprintf("%.0f", b) {
 		return fmt.Sprintf("~%.0f%%", a)
@@ -603,7 +603,7 @@ func (m *Model) oddsCell(r *game.RivalState, c *game.Corner, force events.Force)
 		return nil
 	}
 	if lo == hi {
-		return approx{m.set.Rivals.OddsOnAt(m.w, r, c, force, lo) * 100}
+		return approx{m.rules.Rivals.OddsOnAt(m.w, r, c, force, lo) * 100}
 	}
 	return m.oddsWord(r, c, force)
 }
@@ -614,7 +614,7 @@ func (m *Model) pushWord(r *game.RivalState, c *game.Corner) string {
 	if !ok {
 		return game.Unknown
 	}
-	rv := m.set.Rivals
+	rv := m.rules.Rivals
 	a, b := rv.PushOddsAt(m.w, r, c, lo)*100, rv.PushOddsAt(m.w, r, c, hi)*100
 	if lo == hi || fmt.Sprintf("%.0f", a) == fmt.Sprintf("%.0f", b) {
 		return fmt.Sprintf("~%.0f%%", a)
@@ -629,7 +629,7 @@ func (m *Model) defenceWord(r *game.RivalState) string {
 	if !ok {
 		return game.Unknown
 	}
-	rv := m.set.Rivals
+	rv := m.rules.Rivals
 	if lo == hi {
 		return fmt.Sprintf("~%.1f", rv.DefenceAt(m.w, r, lo))
 	}
@@ -645,7 +645,7 @@ func (m *Model) seizedWord(r content.RouteConfig, d events.Ship) string {
 	if !ok {
 		return game.Unknown
 	}
-	return "~" + format.Pct(m.set.Logistics.RiskFrom(m.w, r, d, base), 0)
+	return "~" + format.Pct(m.rules.Logistics.RiskFrom(m.w, r, d, base), 0)
 }
 
 // chiefWord is the chief's temper as the file holds it, or `?`.

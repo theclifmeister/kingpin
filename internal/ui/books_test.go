@@ -56,7 +56,7 @@ func TestBooksKeys(t *testing.T) {
 	}
 	cash := w.Cash()
 	m.Update(key("y"))
-	if m.mode != modePlay || w.Today.Scouting == nil || w.Today.Scouting.Cost != m.set.Rivals.ScoutCost() || w.Cash() != cash-m.set.Rivals.ScoutCost() {
+	if m.mode != modePlay || w.Today.Scouting == nil || w.Today.Scouting.Cost != m.rules.Rivals.ScoutCost() || w.Cash() != cash-m.rules.Rivals.ScoutCost() {
 		t.Fatalf("y on the scout: mode %v scouting %+v cash %d -> %d", m.mode, w.Today.Scouting, cash, w.Cash())
 	}
 	m.Update(key("i"))
@@ -75,7 +75,7 @@ func TestBooksKeys(t *testing.T) {
 			t.Errorf("the buy-off confirmation lacks %q:\n%s", want, view)
 		}
 	}
-	price := m.set.Rivals.MusclePrice(w, w.Rival())
+	price := m.rules.Rivals.MusclePrice(w, w.Rival())
 	dirty := w.Player.DirtyCash
 	m.Update(key("enter"))
 	if m.mode != modePlay || w.Today.Poach == nil || w.Today.Poach.Units != 1 || w.Today.Poach.Cost != price || w.Player.DirtyCash != dirty-price {
@@ -105,7 +105,7 @@ func TestBooksKeys(t *testing.T) {
 		t.Fatalf("three heads: %+v", w.Today.Poach)
 	}
 	day := w.Day
-	w.Day = game.Known(w).Books(w.Rival().Faction()).Day + m.set.Rivals.Books().StaleDays // the fixture is on day 4: stale is read on a later morning
+	w.Day = game.Known(w).Books(w.Rival().Faction()).Day + m.rules.Rivals.Books().StaleDays // the fixture is on day 4: stale is read on a later morning
 	if main := mainText(m); !strings.Contains(main, "stale") {
 		t.Errorf("MAIN does not say the books are stale:\n%s", main)
 	}

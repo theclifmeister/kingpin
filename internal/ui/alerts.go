@@ -50,27 +50,27 @@ func (m *Model) alerts() []alert {
 	}
 	out = append(out, m.contractAlerts()...)
 	out = append(out, m.debtAlerts()...)
-	for _, r := range m.set.Heat.ThresholdsIn(w, here) {
+	for _, r := range m.rules.Heat.ThresholdsIn(w, here) {
 		if r.Level == content.Patrol && here.Heat >= r.Threshold {
 			out = append(out, newAlert(theme.Bad.Render(fmt.Sprintf("Heat %.0f in %s is over the patrol line (%.0f).", here.Heat, here.Name, r.Threshold)), "heat in "+here.Name+" over the patrol line"))
 		}
 	}
 	// A task force announced this morning (#48): it comes tonight and
 	// takes an asset; a fast-forward stops on it.
-	if m.set.Heat.TaskForceForming(w) {
+	if m.rules.Heat.TaskForceForming(w) {
 		out = append(out, newAlert(theme.Bad.Bold(true).Render("A task force formed this morning.")+theme.Bad.Render(" It comes tonight: lie low."), "a task force formed"))
 	}
-	if fl := m.set.Laundering.Float(w); w.Player.DirtyCash < fl && m.floatMatters() {
+	if fl := m.rules.Laundering.Float(w); w.Player.DirtyCash < fl && m.floatMatters() {
 		out = append(out, newAlert(theme.Warning.Render(fmt.Sprintf("Dirty cash %s is under the float (%s): the wash and the road wait.", cash(w.Player.DirtyCash), cash(fl))), "dirty cash under the float"))
 	}
-	if wages := m.set.Crew.Wages(w, w.Crew.Pay); wages > w.Player.DirtyCash {
+	if wages := m.rules.Crew.Wages(w, w.Crew.Pay); wages > w.Player.DirtyCash {
 		out = append(out, newAlert(theme.Warning.Render(fmt.Sprintf("Wages %s due tonight, %s dirty in hand.", money(wages), money(w.Player.DirtyCash))), "wages short"))
 	}
 	out = append(out, m.unlockAlerts()...)
 	out = append(out, m.houseAlerts()...)
 	// A DA race taking money (#193), while you have clean cash to put in
 	// and none in this city's campaign yet.
-	if next := m.set.Law.NextElection(w); w.Law.CampaignOpen && w.Player.CleanCash > 0 && w.Campaigning(here.ID).Cash == 0 && next > 0 {
+	if next := m.rules.Law.NextElection(w); w.Law.CampaignOpen && w.Player.CleanCash > 0 && w.Campaigning(here.ID).Cash == 0 && next > 0 {
 		out = append(out, newAlert(theme.Warning.Render(fmt.Sprintf("The DA race is %s off and the tickets are taking money %s.", plural(max(0, next-w.Day), "day"), screenPointer(screenLedger))), "the DA race is taking money"))
 	}
 	if line := m.retireLine(); line != "" {
@@ -101,11 +101,11 @@ func (m *Model) alerts() []alert {
 // exit in the file.
 func (m *Model) retireLine() string {
 	w := m.w
-	off := m.set.Laundering.Offshore()
+	off := m.rules.Laundering.Offshore()
 	if w.Offshore <= 0 || off.RetireCash <= 0 {
 		return ""
 	}
-	if m.set.Laundering.CanRetire(w) {
+	if m.rules.Laundering.CanRetire(w) {
 		return theme.Good.Render(fmt.Sprintf("You could retire: %s offshore, %s quiet.", cash(w.Offshore), plural(w.QuietDays, "day")))
 	}
 	var parts []string

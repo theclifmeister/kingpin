@@ -12,7 +12,6 @@ import (
 	"github.com/theclifmeister/kingpin/internal/content"
 	"github.com/theclifmeister/kingpin/internal/events"
 	"github.com/theclifmeister/kingpin/internal/game"
-	"github.com/theclifmeister/kingpin/internal/sim/logistics"
 	"github.com/theclifmeister/kingpin/internal/ui/theme"
 )
 
@@ -46,7 +45,7 @@ func (d *targetDialog) field() *numberField { return d.fieldAt(d.step) }
 // mapRoutes are the routes touching the city the map shows, in file
 // order: what the routes cursor walks.
 func (m *Model) mapRoutes() []content.RouteConfig {
-	return m.set.Logistics.RoutesOpen(m.w, m.shown().ID) // the plane and the tunnel once their asset stands (#48)
+	return m.rules.Logistics.RoutesOpen(m.w, m.shown().ID) // the plane and the tunnel once their asset stands (#48)
 }
 
 // selectedRoute is the route under the routes cursor, or nil when the
@@ -71,7 +70,7 @@ func (m *Model) cycleRoute() {
 		return
 	}
 	d := (m.w.Route(r.ID).Dial + 1) % (events.RouteFast + 1)
-	if err := m.w.SetRoute(r.ID, d); err != nil {
+	if err := m.sess.SetRoute(r.ID, d); err != nil {
 		m.refuse("Can't turn the dial: " + err.Error())
 		return
 	}
@@ -85,7 +84,7 @@ func (m *Model) sayRouteDial(r content.RouteConfig, d events.RouteDial) {
 		m.say(fmt.Sprintf("%s off: nothing moves on it. Its targets are kept.", r.Name))
 		return
 	}
-	lg := m.set.Logistics
+	lg := m.rules.Logistics
 	line := fmt.Sprintf("%s %s: %s %s to %s, seized %s.", r.Name, d, plural(lg.Days(m.w, r, d.Ship()), "day"), r.Mode, m.w.CityName(r.To), m.seizedWord(r, d.Ship()))
 	if !m.w.Route(r.ID).HasTargets() {
 		line += " It sends nothing without a target."
@@ -109,7 +108,7 @@ func (m *Model) openTarget() {
 
 // targetRoute is the route the target dialog is about.
 func (m *Model) targetRoute() *content.RouteConfig {
-	if r := m.set.Logistics.Route(m.tgt.route); r != nil {
+	if r := m.rules.Logistics.Route(m.tgt.route); r != nil {
 		return r
 	}
 	return m.selectedRoute()
@@ -206,7 +205,7 @@ func (m *Model) targetMax(r *content.RouteConfig) int {
 // logistics sim's read of it (Sim.Target) so the dialog and the pane
 // show the number the road sends against.
 func (m *Model) targetToday(r content.RouteConfig, product string) int {
-	return m.set.Logistics.Target(m.w, r, product)
+	return m.rules.Logistics.Target(m.w, r, product)
 }
 
 func (m *Model) confirmTarget() (tea.Model, tea.Cmd) {
@@ -221,9 +220,9 @@ func (m *Model) confirmTarget() (tea.Model, tea.Cmd) {
 		}
 		n = v
 	}
-	set, kept := m.w.SetRouteTarget, fmt.Sprintf("%d %s", n, m.w.ProductName(id))
+	set, kept := m.sess.SetRouteTarget, fmt.Sprintf("%d %s", n, m.w.ProductName(id))
 	if m.tgt.days {
-		set = m.w.SetRouteDays
+		set = m.sess.SetRouteDays
 		kept = fmt.Sprintf("%s of %s's demand", plural(n, "day"), m.w.ProductName(id))
 	}
 	if err := set(r.ID, id, n); err != nil {
@@ -255,7 +254,7 @@ func (m *Model) viewTarget() string {
 	rs := w.Route(r.ID)
 	body := []string{
 		theme.Subtle.Render(fmt.Sprintf("%s keeps %s stocked: every day it sends what is short of", r.Name, w.CityName(r.To))),
-		theme.Subtle.Render(fmt.Sprintf("the target, up to %d units, buying by the lot in %s.", m.set.Logistics.Capacity(w, *r), w.CityName(r.From))),
+		theme.Subtle.Render(fmt.Sprintf("the target, up to %d units, buying by the lot in %s.", m.rules.Logistics.Capacity(w, *r), w.CityName(r.From))),
 		"",
 	}
 	var rows [][]any
@@ -301,7 +300,7 @@ func (m *Model) viewTarget() string {
 				if d.days {
 					// What the days mean this morning: the number the
 					// road sends against, and where it comes from.
-					n = m.set.Logistics.DaysTarget(w, *r, id, n)
+					n = m.rules.Logistics.DaysTarget(w, *r, id, n)
 					body = append(body, row("today", theme.Subtle.Render(fmt.Sprintf("%sd ≈ %s: ~%.0f/day on your corners in %s", s, plural(n, "unit"), w.Demand(r.To, id), w.CityName(r.To)))))
 				}
 				if src := w.Product(r.From, id); src != nil {
@@ -312,7 +311,7 @@ func (m *Model) viewTarget() string {
 						how = "by the lot from " + sup.Name
 					}
 					short := max(0, n-w.Stock(r.To, id)-w.Bound(r.To, id))
-					body = append(body, row("short", theme.Subtle.Render(fmt.Sprintf("%d: ~%s %s + %s fares", short, money(int(float64(short)*unit)), how, money(int(math.Ceil(float64(short)*m.set.Logistics.Fare(w, *r))))))))
+					body = append(body, row("short", theme.Subtle.Render(fmt.Sprintf("%d: ~%s %s + %s fares", short, money(int(float64(short)*unit)), how, money(int(math.Ceil(float64(short)*m.rules.Logistics.Fare(w, *r))))))))
 				}
 			}
 		}
@@ -327,7 +326,7 @@ func (m *Model) viewTarget() string {
 // Coke`, a days target with the units it means today, or "" when it
 // has none.
 func (m *Model) targetLine(route string) string {
-	r := m.set.Logistics.Route(route)
+	r := m.rules.Logistics.Route(route)
 	rs := m.w.Route(route)
 	var parts []string
 	for _, id := range m.w.Products {
@@ -367,7 +366,7 @@ func dialStyle(d events.RouteDial) lipgloss.Style {
 // (routeSection).
 func (m *Model) routeLines(width int) []string {
 	w := m.w
-	lg := m.set.Logistics
+	lg := m.rules.Logistics
 	routes := m.mapRoutes()
 	nameW, cityW, modeW := 0, 0, edgeW
 	for _, r := range routes {
@@ -525,7 +524,7 @@ func (m *Model) routeSection(r content.RouteConfig) section {
 // the driver.
 func (m *Model) routeFacts(r content.RouteConfig) (string, []string) {
 	w := m.w
-	lg := m.set.Logistics
+	lg := m.rules.Logistics
 	d := w.Route(r.ID).Dial
 	lines := []string{
 		theme.Subtle.Render(fmt.Sprintf("%s %s %s", w.CityName(r.From), edge(r.Mode), w.CityName(r.To))),
@@ -538,7 +537,7 @@ func (m *Model) routeFacts(r content.RouteConfig) (string, []string) {
 	if r.Mode == "plane" {
 		// The plane's risk is the task force's alone (#48): the file's
 		// while the feds watch the skies, nothing otherwise.
-		if logistics.Watched(w, w.Day+1) {
+		if m.rules.Logistics.Watched(w, w.Day+1) {
 			lines = append(lines, row("watched", theme.Warning.Render(fmt.Sprintf("the feds, %s to go", plural(w.Heat.WatchUntil-w.Day-1, "night")))))
 		} else {
 			lines = append(lines, row("watched", theme.Subtle.Render("nobody: the sky is clear")))
@@ -629,7 +628,7 @@ func (m *Model) travelTo() string {
 func (m *Model) confirmTravel() {
 	to := m.travelTo()
 	m.mode = modePlay
-	if err := m.w.Travel(to); err != nil {
+	if err := m.sess.Travel(to); err != nil {
 		m.refuse("Can't go: " + err.Error())
 		return
 	}

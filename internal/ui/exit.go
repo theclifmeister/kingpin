@@ -40,9 +40,9 @@ type exitRow struct {
 // exitRows lists the two ways out with their terms as they stand.
 func (m *Model) exitRows() []exitRow {
 	w := m.w
-	off := m.set.Laundering.Offshore()
+	off := m.rules.Laundering.Offshore()
 	fx := game.FoldEffects(w, m.cfg.Upgrades)
-	retire := exitRow{cause: content.CauseRetired, name: "Retire", open: m.set.Laundering.CanRetire(w)}
+	retire := exitRow{cause: content.CauseRetired, name: "Retire", open: m.rules.Laundering.CanRetire(w)}
 	retire.terms = fmt.Sprintf("%s offshore and %s quiet", money(off.RetireCash), plural(off.RetireDays, "day"))
 	var parts []string
 	if s := off.RetireCash - w.Offshore; s > 0 {
@@ -142,11 +142,11 @@ func (m *Model) confirmExit() {
 	var err error
 	switch r.cause {
 	case content.CauseRetired:
-		err = m.set.Laundering.Retire(m.w)
+		err = m.sess.Retire()
 	case content.CauseKingpin:
-		err = m.w.Crown()
+		err = m.sess.Crown()
 	default:
-		err = m.w.Vanish(game.FoldEffects(m.w, m.cfg.Upgrades))
+		err = m.sess.Vanish()
 	}
 	if err != nil {
 		m.refuse("Can't: " + err.Error() + ".")

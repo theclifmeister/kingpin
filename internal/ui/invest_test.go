@@ -16,7 +16,7 @@ import (
 func TestInvestDialog(t *testing.T) {
 	m := richModel(t, 80, 24)
 	w := m.w
-	l := m.set.Laundering
+	l := m.rules.Laundering
 	m.Update(key("3")) // i on the dashboard is the intel jump since #45; the pointer is read off the journal
 	m.Update(key("u"))
 	if m.mode != modePlay || !strings.Contains(m.status, "ledger") {

@@ -321,7 +321,7 @@ func TestStateWords(t *testing.T) {
 	}
 	// The ledger: a frozen asset and a house nobody knows.
 	if len(w.Assets) == 0 {
-		o := m.set.Laundering.AssetOffers()[0]
+		o := m.rules.Laundering.AssetOffers()[0]
 		w.Assets = append(w.Assets, game.Asset{ID: o.ID, Name: o.Name, Effect: o.Effect, City: o.City, Cost: o.Cost, Upkeep: o.Upkeep, Bought: day - 1})
 	}
 	w.Assets[0].FrozenUntil = day + 3

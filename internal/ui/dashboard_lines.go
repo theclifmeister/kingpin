@@ -187,7 +187,7 @@ func (m *Model) supplierLine() string {
 	}
 	if best == nil {
 		if len(w.SuppliersIn(here)) == 0 {
-			return "supplier at ~" + format.Pct(m.set.Market.BaseRatio(w), 0) + " of street"
+			return "supplier at ~" + format.Pct(m.rules.Market.BaseRatio(w), 0) + " of street"
 		}
 		return "nobody is selling to you today"
 	}

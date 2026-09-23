@@ -25,7 +25,7 @@ import (
 // found (the tunnel) is gone for good and not listed.
 func (m *Model) assetRows() []game.AssetOffer {
 	var rows []game.AssetOffer
-	for _, o := range m.set.Laundering.AssetOffers() {
+	for _, o := range m.rules.Laundering.AssetOffers() {
 		if m.w.HasAsset(o.ID) {
 			continue
 		}
@@ -152,7 +152,7 @@ func (m *Model) assetSection(a game.Asset) section {
 		row("city", w.CityName(a.City)),
 		row("upkeep", money(a.Upkeep)+"/day clean"),
 	)
-	if o, ok := m.set.Laundering.AssetOffer(a.ID); ok && o.HeatFloor > 0 {
+	if o, ok := m.rules.Laundering.AssetOffer(a.ID); ok && o.HeatFloor > 0 {
 		lines = append(lines, row("heat floor", fmt.Sprintf("%.0f in every city while it stands", o.HeatFloor)))
 	}
 	lines = append(lines, row("bought", fmt.Sprintf("day %d · %s clean", a.Bought, money(a.Cost))))
@@ -190,7 +190,7 @@ func (m *Model) assetOfferSection(o game.AssetOffer) section {
 // morning, the last time it came, or the line it forms at.
 func (m *Model) taskForceLines() []string {
 	w := m.w
-	h := m.set.Heat
+	h := m.rules.Heat
 	if h.TaskForceForming(w) {
 		return wrapped(theme.Bad, "A task force formed this morning and comes tonight: it takes an asset with it. Lie low.")
 	}
@@ -265,7 +265,7 @@ func (m *Model) confirmAsset() {
 		return
 	}
 	o := rows[max(0, min(m.front.cursor, len(rows)-1))]
-	a, err := m.w.BuyAsset(o)
+	a, err := m.sess.BuyAsset(o.ID)
 	if err != nil {
 		m.refuse("Can't buy: " + err.Error())
 		return

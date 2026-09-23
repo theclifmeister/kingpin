@@ -21,9 +21,9 @@ import (
 // the ladder is visible.
 func (m *Model) houseRows() []game.HouseOffer {
 	var rows []game.HouseOffer
-	for _, o := range m.cfg.Houses.Offers {
+	for _, o := range m.sess.HouseOffers() {
 		if m.w.House(o.ID) == nil {
-			rows = append(rows, game.HouseOffer{ID: o.ID, Name: o.Name, City: o.City, Corner: o.Corner, Capacity: o.Capacity, Price: o.Price, Rent: o.Rent, UnlockCash: o.UnlockCash})
+			rows = append(rows, o)
 		}
 	}
 	return rows
@@ -164,7 +164,7 @@ func (m *Model) confirmHouse() {
 		return
 	}
 	o := rows[max(0, min(m.front.cursor, len(rows)-1))]
-	h, err := m.w.BuyHouse(o)
+	h, err := m.sess.BuyHouse(o.ID)
 	if err != nil {
 		m.refuse("Can't rent: " + err.Error())
 		return
@@ -217,7 +217,7 @@ func (m *Model) viewHouses() string {
 	}
 	body = append(body, "")
 	body = append(body, m.inHand())
-	body = append(body, m.subtle(fmt.Sprintf("%s is on %s in %s; the rent is clean cash, and unpaid %d days running the landlord throws you out.", o.Name, block, m.w.CityName(o.City), m.set.Territory.RentDays()))...)
+	body = append(body, m.subtle(fmt.Sprintf("%s is on %s in %s; the rent is clean cash, and unpaid %d days running the landlord throws you out.", o.Name, block, m.w.CityName(o.City), m.rules.Territory.RentDays()))...)
 	return m.modal("RENT A HOUSE", body, m.modalFooter())
 }
 
@@ -273,7 +273,7 @@ func (m *Model) houseSection(h game.House) section {
 	}
 	rent := money(h.Rent) + "/day clean"
 	if h.Unpaid > 0 {
-		rent += fmt.Sprintf(" · unpaid %d of %d days", h.Unpaid, m.set.Territory.RentDays())
+		rent += fmt.Sprintf(" · unpaid %d of %d days", h.Unpaid, m.rules.Territory.RentDays())
 	}
 	lines = append(lines, row("rent", rent))
 	guard := theme.Subtle.Render("nobody")
@@ -281,7 +281,7 @@ func (m *Model) houseSection(h game.House) section {
 		guard = fmt.Sprintf("%s · skill %d", g.Name, g.Skill)
 	}
 	lines = append(lines, row("guard", guard))
-	lines = append(lines, row("robbery", pctText(m.set.Territory.HouseRobberyChance(w, &h)*100)+"/day"))
+	lines = append(lines, row("robbery", pctText(m.rules.Territory.HouseRobberyChance(w, &h)*100)+"/day"))
 	lines = append(lines, row("since", fmt.Sprintf("day %d · %s", h.Bought, money(h.Price))))
 	if h.Known {
 		lines = append(lines, wrapped(theme.Bad, "The police know this house: it is the one the raid finds. Move the stock out and drop it.")...)
@@ -532,13 +532,13 @@ func (m *Model) confirmMove() {
 		d.err = dialogError(err)
 		return
 	}
-	n, err := m.w.Move(d.city, d.from, d.to, d.product, qty)
+	n, err := m.sess.Move(d.city, d.from, d.to, d.product, qty)
 	if err != nil {
 		d.err = dialogError(err)
 		return
 	}
 	m.mode = modePlay
-	heat := m.set.Heat.MoveHeat(m.w, d.city, d.product, n)
+	heat := m.rules.Heat.MoveHeat(m.w, d.city, d.product, n)
 	m.say(fmt.Sprintf("Moved %d %s from %s to %s. The drive is +%.1f heat tonight.", n, m.w.ProductName(d.product), m.placeLabel(d.from), m.placeLabel(d.to), heat))
 }
 
@@ -597,7 +597,7 @@ func (m *Model) viewMove() string {
 		}
 		body = append(body, m.subtle(fmt.Sprintf("%s holds %d of %d. A move is free and instant; the units moved are exposure tonight, at %s of a unit sold.", m.placeLabel(d.to), toUnits, room, times(m.cfg.Houses.Houses.MoveHeat)))...)
 		if n, err := readQty(d.qty, m.moveMax()); err == nil && n > 0 {
-			body = append(body, row("heat", theme.Subtle.Render(fmt.Sprintf("+%.1f tonight for %d units", m.set.Heat.MoveHeat(w, d.city, d.product, n), n))))
+			body = append(body, row("heat", theme.Subtle.Render(fmt.Sprintf("+%.1f tonight for %d units", m.rules.Heat.MoveHeat(w, d.city, d.product, n), n))))
 		}
 	}
 	if d.err != "" {
@@ -639,7 +639,7 @@ func (m *Model) confirmGuard() {
 		return
 	}
 	who := rows[max(0, min(m.pick.cursor, len(rows)-1))]
-	if err := m.w.Guard(h.ID, who.ID); err != nil {
+	if err := m.sess.Guard(h.ID, who.ID); err != nil {
 		m.refuse("Can't post: " + err.Error())
 		return
 	}
@@ -647,7 +647,7 @@ func (m *Model) confirmGuard() {
 		m.say("Nobody is guarding " + h.Name + " now.")
 		return
 	}
-	m.say(fmt.Sprintf("%s is inside %s: robbery %s/day.", who.Name, h.Name, format.Pct(m.set.Territory.HouseRobberyChance(m.w, h), 1)))
+	m.say(fmt.Sprintf("%s is inside %s: robbery %s/day.", who.Name, h.Name, format.Pct(m.rules.Territory.HouseRobberyChance(m.w, h), 1)))
 }
 
 func (m *Model) keyGuard(key string) { m.pickerKey(key, len(m.guardRows()), m.confirmGuard) }
@@ -693,7 +693,7 @@ func (m *Model) confirmDrop() {
 		return
 	}
 	units := h.Units()
-	gone, err := m.w.Drop(h.ID)
+	gone, err := m.sess.Drop(h.ID)
 	if err != nil {
 		m.refuse("Can't drop: " + err.Error())
 		return

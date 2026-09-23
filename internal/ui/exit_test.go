@@ -35,7 +35,7 @@ func TestWalkAwayAsksTwice(t *testing.T) {
 	}
 	// Retiring: the account and the quiet days in hand, enter turns
 	// to the confirmation, shift+tab back, enter again, y ends it.
-	off := m.set.Laundering.Offshore()
+	off := m.rules.Laundering.Offshore()
 	m.w.Offshore, m.w.QuietDays, m.w.Stats.Bodies = off.RetireCash+250_000, off.RetireDays, 1
 	m.Update(key("w"))
 	m.Update(key("enter"))
@@ -67,7 +67,7 @@ func TestWalkAwayAsksTwice(t *testing.T) {
 			t.Errorf("the summary lacks %q:\n%s", want, view)
 		}
 	}
-	saved, err := game.Load(m.slot, m.set.Migrations()...)
+	saved, err := game.Load(m.slot, m.sess.Sims().Migrations()...)
 	if err != nil || saved.Over == nil || saved.Over.Cause != content.CauseRetired {
 		t.Fatalf("the ending was not saved: %v %+v", err, saved.Over)
 	}

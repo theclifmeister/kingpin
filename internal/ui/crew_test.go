@@ -97,7 +97,7 @@ func TestInvestigateAndPayOffKeys(t *testing.T) {
 	}
 	m.Update(key("i"))
 	m.Update(key("y"))
-	if m.w.Today.Investigation == nil || m.w.Player.DirtyCash != cash-m.set.Crew.InvestigateCost() {
+	if m.w.Today.Investigation == nil || m.w.Player.DirtyCash != cash-m.rules.Crew.InvestigateCost() {
 		t.Fatalf("y did not queue: %+v cash %d status %q", m.w.Today.Investigation, m.w.Player.DirtyCash, m.status)
 	}
 	m.Update(key("i"))
@@ -117,7 +117,7 @@ func TestInvestigateAndPayOffKeys(t *testing.T) {
 	assertFits(t, m.View(), 80, 24, "pay-off confirmation")
 	m.Update(key("y"))
 	c := m.w.Crew.Member(hired.ID)
-	if c.Loyalty != min(100, hired.Loyalty+m.set.Crew.PayoffLoyalty()) || m.w.Player.DirtyCash != cash-m.set.Crew.PayoffCost(hired) || len(m.w.Crew.PaidOffToday) != 1 {
+	if c.Loyalty != min(100, hired.Loyalty+m.rules.Crew.PayoffLoyalty()) || m.w.Player.DirtyCash != cash-m.rules.Crew.PayoffCost(hired) || len(m.w.Crew.PaidOffToday) != 1 {
 		t.Fatalf("pay off: loyalty %.0f -> %.0f cash %d -> %d status %q", hired.Loyalty, c.Loyalty, cash, m.w.Player.DirtyCash, m.status)
 	}
 
@@ -346,7 +346,7 @@ func TestCrewPaneNamesTheCosts(t *testing.T) {
 		t.Fatalf("hire charged %d, the pane said %d", 20_000-m.w.Player.DirtyCash, cand.Fee)
 	}
 	pane = paneText(m)
-	crew := m.set.Crew
+	crew := m.rules.Crew
 	want := []string{
 		strings.ToUpper(hired.Name),
 		fmt.Sprintf("%s · skill %d · hired d%d", hired.Role, hired.Skill, hired.Hired),
@@ -402,10 +402,10 @@ func TestCrewScreenInTheGrammar(t *testing.T) {
 	m.Update(key("4"))
 	view := stripANSI(m.View())
 	main := strings.Split(stripANSI(m.viewScreen()), "\n")
-	if !strings.HasPrefix(main[0], fmt.Sprintf("CREW · %d of %d on the payroll", len(m.w.Crew.Members), m.set.Crew.MaxCrew(m.w))) {
+	if !strings.HasPrefix(main[0], fmt.Sprintf("CREW · %d of %d on the payroll", len(m.w.Crew.Members), m.rules.Crew.MaxCrew(m.w))) {
 		t.Errorf("title: %q", main[0])
 	}
-	if !strings.HasPrefix(main[1], fmt.Sprintf("pay  stingy  [fair]  generous   %s/day", money(m.set.Crew.Wages(m.w, events.PayFair)))) {
+	if !strings.HasPrefix(main[1], fmt.Sprintf("pay  stingy  [fair]  generous   %s/day", money(m.rules.Crew.Wages(m.w, events.PayFair)))) {
 		t.Errorf("pay line: %q", main[1])
 	}
 	if !strings.HasPrefix(main[2], "▲ Skimming suspected. Money went missing on day") || !strings.HasSuffix(strings.TrimRight(main[2], " "), "…") {

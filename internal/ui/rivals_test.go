@@ -154,7 +154,7 @@ func TestRivalsEmptyStates(t *testing.T) {
 func TestTributeReadsTheRivalsStreet(t *testing.T) {
 	m := richModel(t, 120, 40)
 	w := m.w
-	base := cash(int(math.Round(m.set.Rivals.TributeBase(w, w.Rival()))))
+	base := cash(int(math.Round(m.rules.Rivals.TributeBase(w, w.Rival()))))
 	m.Update(key("8"))
 	m.Update(key("d"))
 	m.Update(key("2"))
@@ -171,7 +171,7 @@ func TestTributeReadsTheRivalsStreet(t *testing.T) {
 		t.Errorf("the tribute page still reads `of your take`:\n%s", body)
 	}
 	m.Update(key("esc"))
-	mid := m.set.Rivals.Cut(w, w.Rival(), m.set.Rivals.Diplomacy().TributeCuts[1])
+	mid := m.rules.Rivals.Cut(w, w.Rival(), m.rules.Rivals.Diplomacy().TributeCuts[1])
 	w.Rival().Deals = nil
 	w.Offers = []game.Offer{{ID: 1, Deal: game.Deal{Kind: game.DealTribute, Terms: game.Terms{PerDay: mid}, Offered: true}, Expires: w.Day + 3}}
 	pane := stripANSI(paneRender(m))
@@ -195,8 +195,8 @@ func TestTributeReadsTheRivalsStreet(t *testing.T) {
 	h := w.Home()
 	h.Market["designer"] = &game.ProductMarket{Price: 2500, Demand: 40, NoSupply: true}
 	w.Products = append(w.Products, "designer")
-	if got := cash(int(math.Round(m.set.Rivals.TributeBase(w, w.Rival())))); got != base || m.set.Rivals.Cut(w, w.Rival(), m.set.Rivals.Diplomacy().TributeCuts[1]) != mid {
-		t.Errorf("designer at home moved the base %s -> %s, the middle cut %d -> %d", base, got, mid, m.set.Rivals.Cut(w, w.Rival(), m.set.Rivals.Diplomacy().TributeCuts[1]))
+	if got := cash(int(math.Round(m.rules.Rivals.TributeBase(w, w.Rival())))); got != base || m.rules.Rivals.Cut(w, w.Rival(), m.rules.Rivals.Diplomacy().TributeCuts[1]) != mid {
+		t.Errorf("designer at home moved the base %s -> %s, the middle cut %d -> %d", base, got, mid, m.rules.Rivals.Cut(w, w.Rival(), m.rules.Rivals.Diplomacy().TributeCuts[1]))
 	}
 	assertFrame(t, m, "rivals with a tribute")
 }

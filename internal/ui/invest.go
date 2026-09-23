@@ -28,7 +28,7 @@ func (m *Model) investFront() *game.Front { return m.w.Front(m.amt.subject) }
 // left to its top, and never more than the clean cash pays for; at
 // least one, so the field can say what the next one costs.
 func (m *Model) investMax(f game.Front) int {
-	l := m.set.Laundering
+	l := m.rules.Laundering
 	room := l.MaxLevel(f) - f.Level
 	n := 0
 	for n < room && l.LevelCost(f, n+1) <= m.w.Player.CleanCash {
@@ -47,7 +47,7 @@ func (m *Model) askInvest() {
 		return
 	}
 	f := m.w.Fronts[sel.i]
-	l := m.set.Laundering
+	l := m.rules.Laundering
 	if l.MaxLevel(f) == 0 {
 		m.refuse(fmt.Sprintf("Can't invest in %s: it is what it is.", f.Name))
 		return
@@ -84,9 +84,9 @@ func (m *Model) confirmInvest(f game.Front) {
 		m.amt.err = dialogError(err)
 		return
 	}
-	l := m.set.Laundering
+	l := m.rules.Laundering
 	o := l.Levels(f, n)
-	if err := m.w.Invest(o); err != nil {
+	if err := m.sess.Invest(f.ID, n); err != nil {
 		m.amt.err = dialogError(err)
 		return
 	}
@@ -103,7 +103,7 @@ func (m *Model) viewInvest() string {
 		return m.modal("INVEST", []string{"Nothing to invest in."}, m.modalFooter())
 	}
 	w := m.w
-	l := m.set.Laundering
+	l := m.rules.Laundering
 	n, err := m.investLevels()
 	if err != nil {
 		n = 1

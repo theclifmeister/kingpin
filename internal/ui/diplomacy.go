@@ -23,7 +23,7 @@ var proposeKinds = []string{game.DealTruce, game.DealTribute, game.DealSplit, ga
 // termRows are the dialog's second page: the three asks for a kind, with
 // the deal each one makes and a word on it.
 func (m *Model) termRows(kind string) ([]game.Deal, []string) {
-	dip := m.set.Rivals.Diplomacy()
+	dip := m.rules.Rivals.Diplomacy()
 	w := m.w
 	r := m.faction()
 	var deals []game.Deal
@@ -36,7 +36,7 @@ func (m *Model) termRows(kind string) ([]game.Deal, []string) {
 		}
 	case game.DealTribute:
 		for i, c := range dip.TributeCuts {
-			deals = append(deals, game.Deal{Kind: kind, Terms: game.Terms{PerDay: m.set.Rivals.Cut(w, r, c)}})
+			deals = append(deals, game.Deal{Kind: kind, Terms: game.Terms{PerDay: m.rules.Rivals.Cut(w, r, c)}})
 			words = append(words, format.Pct(c, 0)+" of your street"+[]string{" (thin)", "", " (fat)"}[i])
 		}
 	case game.DealSplit:
@@ -94,7 +94,7 @@ func (m *Model) proposeRows() int {
 func (m *Model) pickPropose() {
 	if m.prop.step == 0 {
 		if m.prop.cursor >= len(proposeKinds) {
-			m.w.Withdraw()
+			m.sess.Withdraw()
 			m.mode = modePlay
 			m.say("Proposal withdrawn.")
 			return
@@ -119,11 +119,11 @@ func (m *Model) pickPropose() {
 	d := deals[max(0, min(m.prop.cursor, len(deals)-1))]
 	r := m.faction()
 	m.mode = modePlay
-	if err := m.w.ProposeTo(r.Faction(), d.Kind, d.Terms); err != nil {
+	if err := m.sess.ProposeTo(r.Faction(), d.Kind, d.Terms); err != nil {
 		m.refuse("Can't propose: " + err.Error())
 		return
 	}
-	m.say(fmt.Sprintf("Proposed %s to %s. They answer in the morning; odds ~%s.", m.w.Describe(d), m.rivalName(r), format.Pct(m.set.Rivals.Chance(m.w, r, d), 0)))
+	m.say(fmt.Sprintf("Proposed %s to %s. They answer in the morning; odds ~%s.", m.w.Describe(d), m.rivalName(r), format.Pct(m.rules.Rivals.Chance(m.w, r, d), 0)))
 }
 
 func (m *Model) viewPropose() string {
@@ -158,7 +158,7 @@ func (m *Model) viewPropose() string {
 		deals, words := m.termRows(kind)
 		body = append(body, theme.Subtle.Render(fmt.Sprintf("%s to %s. Odds are what the dice use.", capitalize(kind), m.rivalName(r))), "")
 		for i, d := range deals {
-			odds := m.set.Rivals.Chance(w, r, d)
+			odds := m.rules.Rivals.Chance(w, r, d)
 			var line string
 			switch kind {
 			case game.DealTruce:
@@ -180,7 +180,7 @@ func (m *Model) viewPropose() string {
 		case game.DealSplit:
 			body = append(body, "", theme.Subtle.Render("Your side: "+w.Side(deals[m.prop.cursor])))
 		}
-		if m.set.Rivals.Distrusted(r, w.Day+1) {
+		if m.rules.Rivals.Distrusted(r, w.Day+1) {
 			body = append(body, "", theme.Bad.Render("They are not taking your calls. You broke a deal."))
 		}
 	}
@@ -207,14 +207,14 @@ func (m *Model) answerOffer(accept bool) {
 	}
 	o := w.Offers[max(0, min(m.dealCursor, len(w.Offers)-1))]
 	if accept {
-		if _, err := w.Accept(o.ID); err != nil {
+		if _, err := m.sess.Accept(o.ID); err != nil {
 			m.refuse("Can't accept: " + err.Error())
 			return
 		}
 		m.say(fmt.Sprintf("Accepted %s. It holds from tonight.", w.Describe(o.Deal)))
 		return
 	}
-	if _, err := w.Decline(o.ID); err != nil {
+	if _, err := m.sess.Decline(o.ID); err != nil {
 		m.refuse("Can't decline: " + err.Error())
 		return
 	}
@@ -241,7 +241,7 @@ func (m *Model) trustStyle(r *game.RivalState) lipgloss.Style {
 // warBar is the war against the line the police crack down at, as a
 // bar: `war ████░░░░ 53/80 loud`, or `no war`.
 func (m *Model) warBar(r *game.RivalState, width int) string {
-	tun := m.set.Rivals.Tuning()
+	tun := m.rules.Rivals.Tuning()
 	if r.War <= 0 {
 		return theme.Subtle.Render("no war")
 	}
@@ -265,7 +265,7 @@ func (m *Model) rivalCorners(r *game.RivalState) string {
 // dice use (#162): the street value the corners you work at home move
 // in the products the rival deals in, the port's product left out.
 func (m *Model) tributeBaseLine(r *game.RivalState) string {
-	return fmt.Sprintf("Your street: %s a day on your corners %s in what they sell.", cash(int(math.Round(m.set.Rivals.TributeBase(m.w, r)))), m.cityWord(r))
+	return fmt.Sprintf("Your street: %s a day on your corners %s in what they sell.", cash(int(math.Round(m.rules.Rivals.TributeBase(m.w, r)))), m.cityWord(r))
 }
 
 // cityWord is where a faction's street is, for a line: `here` for the
@@ -280,7 +280,7 @@ func (m *Model) cityWord(r *game.RivalState) string {
 // tributeRows are the pane's lines on a tribute: the cut it is of your
 // street today, and what your street is, so the pane and the dice agree.
 func (m *Model) tributeRows(r *game.RivalState, d game.Deal) []string {
-	base := m.set.Rivals.TributeBase(m.w, r)
+	base := m.rules.Rivals.TributeBase(m.w, r)
 	cut := "-"
 	if base > 0 {
 		cut = fmt.Sprintf("~%.0f%% of your street", 100*float64(d.Terms.PerDay)/base)
@@ -354,7 +354,7 @@ func (m *Model) viewRivals() string {
 	style := m.factionStyle(r.Faction())
 	leader := style.Render(m.rivalName(r)) + sub(fmt.Sprintf(" · %s · %s · muscle %s", m.personalityWord(r), m.rivalCorners(r), m.muscleWord(r)))
 	if r.Gone() {
-		leader = style.Render(m.rivalName(r)) + sub(" · "+w.Stance(r, m.set.Rivals.Tuning().WarThreshold))
+		leader = style.Render(m.rivalName(r)) + sub(" · "+w.Stance(r, m.rules.Rivals.Tuning().WarThreshold))
 	}
 	if eye := m.eyeingWord(r); eye != "" {
 		leader += sub(" · ") + eye
@@ -390,7 +390,7 @@ func (m *Model) viewRivals() string {
 		if to == nil {
 			to = w.Rival()
 		}
-		line(theme.Gold.Render(fmt.Sprintf("Tonight  you propose %s to %s; they answer in the morning, ~%s", w.Describe(*p), to.Leader, format.Pct(m.set.Rivals.Chance(w, to, *p), 0))))
+		line(theme.Gold.Render(fmt.Sprintf("Tonight  you propose %s to %s; they answer in the morning, ~%s", w.Describe(*p), to.Leader, format.Pct(m.rules.Rivals.Chance(w, to, *p), 0))))
 	}
 	ls = append(ls, "")
 

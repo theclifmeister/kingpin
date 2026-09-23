@@ -46,18 +46,18 @@ func (m *Model) confirmAssign() {
 	}
 	city := rows[max(0, min(m.pick.cursor, len(rows)-1))]
 	if city == "" {
-		if err := m.w.Unassign(lt.ID); err != nil {
+		if err := m.sess.Unassign(lt.ID); err != nil {
 			m.refuse("Can't take the city back: " + err.Error())
 			return
 		}
 		m.say(fmt.Sprintf("%s runs nothing now. The crew they posted stay where they are.", lt.Name))
 		return
 	}
-	if err := m.w.Assign(lt.ID, city); err != nil {
+	if err := m.sess.Assign(lt.ID, city); err != nil {
 		m.refuse("Can't give them the city: " + err.Error())
 		return
 	}
-	m.say(fmt.Sprintf("%s runs %s from tonight: posts the idle crew, sells the stash, keeps %s.", lt.Name, m.w.CityName(city), format.Pct(m.set.Crew.Cut(), 0)))
+	m.say(fmt.Sprintf("%s runs %s from tonight: posts the idle crew, sells the stash, keeps %s.", lt.Name, m.w.CityName(city), format.Pct(m.rules.Crew.Cut(), 0)))
 }
 
 func (m *Model) viewAssign() string {
@@ -85,7 +85,7 @@ func (m *Model) viewAssign() string {
 	// Two lines that fit the modal's width.
 	return m.pickerModal("ASSIGN "+lt.Name, nil, []col{{"city", kText, 0}, {"corners", kInt, 0}, {"units", kInt, 0}, {"runs", kText, 0}}, cells, m.pick.cursor,
 		theme.Subtle.Render("Each night they post the idle crew, drop a corner robbed twice and sell"),
-		theme.Subtle.Render(fmt.Sprintf("the stash at their dial; your own order wins. Cut %s, +%d crew slots.", format.Pct(m.set.Crew.Cut(), 0), m.cfg.Crew.Role[game.RoleLieutenant].Crew)),
+		theme.Subtle.Render(fmt.Sprintf("the stash at their dial; your own order wins. Cut %s, +%d crew slots.", format.Pct(m.rules.Crew.Cut(), 0), m.cfg.Crew.Role[game.RoleLieutenant].Crew)),
 		"", theme.Subtle.Render(fmt.Sprintf("Which city should %s run?", lt.Name)))
 }
 
@@ -113,7 +113,7 @@ func (m *Model) runsLine() string {
 			if lt.Observed {
 				part += " (" + lt.Personality + ")"
 			} else {
-				left := max(1, m.set.Crew.RevealDays()-(m.w.Day-lt.Assigned))
+				left := max(1, m.rules.Crew.RevealDays()-(m.w.Day-lt.Assigned))
 				part += fmt.Sprintf("; temper unknown for %d more day%s", left, map[bool]string{true: "s"}[left != 1])
 			}
 			parts = append(parts, part)

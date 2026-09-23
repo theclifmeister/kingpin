@@ -84,6 +84,10 @@ func (s *Sim) port(w *game.World, r content.RouteConfig) *content.AssetConfig {
 // edge only the task force touches.
 func Watched(w *game.World, day int) bool { return day < w.Heat.WatchUntil }
 
+// Watched is the package's Watched as the sim's, the way a front end
+// reads it through engine.Rules (#297).
+func (s *Sim) Watched(w *game.World, day int) bool { return Watched(w, day) }
+
 func (s *Sim) Name() string { return "logistics" }
 
 // Tuning exposes the shipping constants the UI needs to explain itself.
@@ -196,6 +200,10 @@ func (s *Sim) DealCut(r content.RouteConfig) float64 {
 // Customs reports whether the route's deal is a customs agent (a boat
 // or plane edge) rather than a checkpoint (car, truck).
 func Customs(r content.RouteConfig) bool { return r.Mode == "boat" || r.Mode == "plane" }
+
+// Customs is the package's Customs as the sim's, the way a front end
+// reads it through engine.Rules (#297).
+func (s *Sim) Customs(r content.RouteConfig) bool { return Customs(r) }
 
 // Risk is the chance a shipment on a route at a dial is seized at all
 // before it lands: what the map shows against the dial, and what the dice

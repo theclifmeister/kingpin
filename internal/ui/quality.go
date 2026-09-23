@@ -46,7 +46,7 @@ func (d *labDialog) field() *numberField { return d.fieldAt(d.step) }
 func (m *Model) cutProducts() []string {
 	var out []string
 	for _, id := range m.w.Products {
-		if m.w.Stock(m.lab.city, id) > 0 && m.set.Market.CutMax(id) > 0 {
+		if m.w.Stock(m.lab.city, id) > 0 && m.rules.Market.CutMax(id) > 0 {
 			out = append(out, id)
 		}
 	}
@@ -58,7 +58,7 @@ func (m *Model) cutProducts() []string {
 func (m *Model) cookProducts() []string {
 	var out []string
 	for _, id := range m.w.Products {
-		if m.w.Product(m.lab.city, id) != nil && m.set.Market.Cooks(id) {
+		if m.w.Product(m.lab.city, id) != nil && m.rules.Market.Cooks(id) {
 			out = append(out, id)
 		}
 	}
@@ -116,14 +116,14 @@ func (m *Model) askCook() {
 func (m *Model) cutMax() int {
 	d := &m.lab
 	units := m.w.Stock(d.city, d.product)
-	most := int(m.set.Market.CutMax(d.product) * 100)
+	most := int(m.rules.Market.CutMax(d.product) * 100)
 	if units <= 0 {
 		return 0
 	}
 	if room := m.w.Free(d.city); room < units*most/100 {
 		most = min(most, room*100/units)
 	}
-	if cost := m.set.Market.CutCost(d.product); cost > 0 {
+	if cost := m.rules.Market.CutCost(d.product); cost > 0 {
 		affordable := m.w.Player.DirtyCash / cost
 		if affordable < units*most/100 {
 			most = min(most, affordable*100/units)
@@ -137,9 +137,9 @@ func (m *Model) cutMax() int {
 // the till.
 func (m *Model) cookMax() int {
 	d := &m.lab
-	most := m.set.Crew.BatchIn(m.w, d.city) // the lab's batch where it stands (#48)
+	most := m.rules.Crew.BatchIn(m.w, d.city) // the lab's batch where it stands (#48)
 	most = min(most, m.w.Free(d.city)-m.w.Crew.Cooking(d.city, d.product))
-	if cost := m.set.Crew.CookCostIn(m.w, d.city, m.set.Market.CookCost(d.product)); cost > 0 {
+	if cost := m.rules.Crew.CookCostIn(m.w, d.city, m.rules.Market.CookCost(d.product)); cost > 0 {
 		most = min(most, m.w.Player.DirtyCash/cost)
 	}
 	return max(0, most)
@@ -218,9 +218,9 @@ func (m *Model) cutPreview(pct int) (units int, quality float64, cost int) {
 	from := m.w.Quality(d.city, d.product)
 	quality = from
 	if have+added > 0 {
-		quality = min(from, from*float64(have)/float64(have+added)+m.set.Crew.CutBonus(m.w))
+		quality = min(from, from*float64(have)/float64(have+added)+m.rules.Crew.CutBonus(m.w))
 	}
-	return have + added, quality, added * m.set.Market.CutCost(d.product)
+	return have + added, quality, added * m.rules.Market.CutCost(d.product)
 }
 
 func (m *Model) confirmCut() {
@@ -230,7 +230,7 @@ func (m *Model) confirmCut() {
 		d.err = dialogError(err)
 		return
 	}
-	rec, err := m.w.Cut(d.city, d.product, float64(pct)/100, m.set.Market.CutMax(d.product), m.set.Market.CutCost(d.product), m.set.Crew.CutBonus(m.w), m.set.Crew.ChemistName(m.w))
+	rec, err := m.sess.Cut(d.city, d.product, float64(pct)/100)
 	if err != nil {
 		d.err = dialogError(err)
 		return
@@ -240,7 +240,7 @@ func (m *Model) confirmCut() {
 	if rec.Chemist != "" {
 		hand = fmt.Sprintf(" %s kept it at that.", rec.Chemist)
 	}
-	m.say(fmt.Sprintf("Cut %d %s into %d: quality %.0f %s %.0f, sells at %s.%s Cost %s.", rec.Units, m.w.ProductName(d.product), rec.Units+rec.Added, rec.From, format.Arrow, rec.To, format.Times(m.set.Market.QualityMul(rec.To), 2), hand, cash(rec.Cost)))
+	m.say(fmt.Sprintf("Cut %d %s into %d: quality %.0f %s %.0f, sells at %s.%s Cost %s.", rec.Units, m.w.ProductName(d.product), rec.Units+rec.Added, rec.From, format.Arrow, rec.To, format.Times(m.rules.Market.QualityMul(rec.To), 2), hand, cash(rec.Cost)))
 }
 
 func (m *Model) confirmCook() {
@@ -250,7 +250,7 @@ func (m *Model) confirmCook() {
 		d.err = dialogError(err)
 		return
 	}
-	k, err := m.w.CookOrder(d.city, d.product, units, m.set.Crew.CookCostIn(m.w, d.city, m.set.Market.CookCost(d.product)), m.set.Crew.CookDays(), m.set.Crew.QualityIn(m.w, d.city), m.set.Crew.BatchIn(m.w, d.city), m.set.Crew.ChemistName(m.w))
+	k, err := m.sess.Cook(d.city, d.product, units)
 	if err != nil {
 		d.err = dialogError(err)
 		return
@@ -281,18 +281,18 @@ func (m *Model) viewLab() string {
 		var rows [][]any
 		if cook {
 			for _, id := range ids {
-				rows = append(rows, []any{w.ProductName(id), m.set.Crew.CookCostIn(w, d.city, m.set.Market.CookCost(id)), w.Product(d.city, id).SupplierPrice, w.Stock(d.city, id)})
+				rows = append(rows, []any{w.ProductName(id), m.rules.Crew.CookCostIn(w, d.city, m.rules.Market.CookCost(id)), w.Product(d.city, id).SupplierPrice, w.Stock(d.city, id)})
 			}
 			body = table([]col{{"product", kText, 0}, {"cook", kPrice, 0}, {"buy", kPrice, 0}, {"stash", kInt, 0}}, rows, d.cursor, m.modalInner())
-			line := fmt.Sprintf("%s cooks at quality %.0f, up to %d a batch, ready in %s.", m.set.Crew.ChemistName(w), m.set.Crew.QualityIn(w, d.city), m.set.Crew.BatchIn(w, d.city), plural(m.set.Crew.CookDays(), "day"))
-			if m.set.Crew.Lab(w, d.city) != nil {
+			line := fmt.Sprintf("%s cooks at quality %.0f, up to %d a batch, ready in %s.", m.rules.Crew.ChemistName(w), m.rules.Crew.QualityIn(w, d.city), m.rules.Crew.BatchIn(w, d.city), plural(m.rules.Crew.CookDays(), "day"))
+			if m.rules.Crew.Lab(w, d.city) != nil {
 				line += " The lab is here."
 			}
 			body = append(body, "", theme.Subtle.Render(line))
 		} else {
 			for _, id := range ids {
 				l := w.Lot(d.city, id)
-				rows = append(rows, []any{w.ProductName(id), l.Units, l.Quality, "+" + format.Pct(m.set.Market.CutMax(id), 0), m.set.Market.CutCost(id)})
+				rows = append(rows, []any{w.ProductName(id), l.Units, l.Quality, "+" + format.Pct(m.rules.Market.CutMax(id), 0), m.rules.Market.CutCost(id)})
 			}
 			body = table([]col{{"product", kText, 0}, {"stash", kInt, 0}, {"quality", kInt, 0}, {"most", kText, 0}, {"price", kPrice, 0}}, rows, d.cursor, m.modalInner())
 			body = append(body, "", theme.Subtle.Render("Cut what?"))
@@ -301,7 +301,7 @@ func (m *Model) viewLab() string {
 		qty := d.qty
 		qty.max = m.labMax()
 		if cook {
-			chem := m.set.Crew.ChemistName(w)
+			chem := m.rules.Crew.ChemistName(w)
 			body = []string{
 				fmt.Sprintf("%s cooks %s", chem, w.ProductName(d.product)),
 				"",
@@ -309,9 +309,9 @@ func (m *Model) viewLab() string {
 				row("units", qty.View()),
 				"",
 			}
-			body = append(body, m.subtle(fmt.Sprintf("Precursors are %s a unit, dirty, paid now; the lot lands in %s in %s at quality %.0f, %s's. A batch is %d.", price(float64(m.set.Crew.CookCostIn(w, d.city, m.set.Market.CookCost(d.product)))), w.CityName(d.city), plural(m.set.Crew.CookDays(), "day"), m.set.Crew.QualityIn(w, d.city), chem, m.set.Crew.BatchIn(w, d.city)))...)
+			body = append(body, m.subtle(fmt.Sprintf("Precursors are %s a unit, dirty, paid now; the lot lands in %s in %s at quality %.0f, %s's. A batch is %d.", price(float64(m.rules.Crew.CookCostIn(w, d.city, m.rules.Market.CookCost(d.product)))), w.CityName(d.city), plural(m.rules.Crew.CookDays(), "day"), m.rules.Crew.QualityIn(w, d.city), chem, m.rules.Crew.BatchIn(w, d.city)))...)
 			if n, err := readQty(d.qty, m.cookMax()); err == nil && n > 0 {
-				body = append(body, row("cost", theme.Subtle.Render(fmt.Sprintf("%s for %d, against %s from a connect", cash(n*m.set.Crew.CookCostIn(w, d.city, m.set.Market.CookCost(d.product))), n, cash(int(float64(n)*w.Product(d.city, d.product).SupplierPrice))))))
+				body = append(body, row("cost", theme.Subtle.Render(fmt.Sprintf("%s for %d, against %s from a connect", cash(n*m.rules.Crew.CookCostIn(w, d.city, m.rules.Market.CookCost(d.product))), n, cash(int(float64(n)*w.Product(d.city, d.product).SupplierPrice))))))
 			}
 		} else {
 			l := w.Lot(d.city, d.product)
@@ -322,14 +322,14 @@ func (m *Model) viewLab() string {
 				row("percent", qty.View()),
 				"",
 			}
-			note := fmt.Sprintf("The cut adds that share of the units at nothing, so the quality falls by the same share; %s a unit added, dirty. The street pays full at quality %.0f and less under it; a corner sold under %.0f stops coming back.", price(float64(m.set.Market.CutCost(d.product))), w.StreetQuality(), m.set.Market.Tuning().RepeatFloor)
+			note := fmt.Sprintf("The cut adds that share of the units at nothing, so the quality falls by the same share; %s a unit added, dirty. The street pays full at quality %.0f and less under it; a corner sold under %.0f stops coming back.", price(float64(m.rules.Market.CutCost(d.product))), w.StreetQuality(), m.rules.Market.Tuning().RepeatFloor)
 			if chem := w.Crew.Chemist(); chem != nil {
-				note += fmt.Sprintf(" %s's hand keeps %.0f points of it.", chem.Name, m.set.Crew.CutBonus(w))
+				note += fmt.Sprintf(" %s's hand keeps %.0f points of it.", chem.Name, m.rules.Crew.CutBonus(w))
 			}
 			body = append(body, m.subtle(note)...)
 			if pct, err := readQty(d.qty, m.cutMax()); err == nil && pct > 0 {
 				units, quality, cost := m.cutPreview(pct)
-				body = append(body, row("after", theme.Subtle.Render(fmt.Sprintf("%d units at quality %.0f, sells at %s, for %s", units, quality, format.Times(m.set.Market.QualityMul(quality), 2), cash(cost)))))
+				body = append(body, row("after", theme.Subtle.Render(fmt.Sprintf("%d units at quality %.0f, sells at %s, for %s", units, quality, format.Times(m.rules.Market.QualityMul(quality), 2), cash(cost)))))
 			}
 		}
 	}

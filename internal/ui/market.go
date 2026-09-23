@@ -405,7 +405,7 @@ func (m *Model) marketDetails() []section {
 	// is not the default (the table's column has the figure; the pane
 	// keeps its rows for what has changed); the connect's likewise.
 	if l := w.Lot(city.ID, id); l.Units > 0 && l.Quality != w.StreetQuality() {
-		v := fmt.Sprintf("%.0f, sells at %s", l.Quality, format.Times(m.set.Market.QualityMul(l.Quality), 2))
+		v := fmt.Sprintf("%.0f, sells at %s", l.Quality, format.Times(m.rules.Market.QualityMul(l.Quality), 2))
 		if l.Quality < w.StreetQuality() {
 			v = theme.Warning.Render(v)
 		}
@@ -455,7 +455,7 @@ func (m *Model) marketDetails() []section {
 		notes = append(notes, wrapped(theme.Warning, "Not sold here: it comes in by the road (the map's routes) or in your pockets.")...)
 	}
 	if lt := w.Crew.Lieutenant(city.ID); !here && lt != nil {
-		notes = append(notes, wrapped(theme.Subtle, fmt.Sprintf("You are in %s: %s buys here for you at %s the connect's price, and keeps the stash stocked where you set no contract. Runners sell what is stashed here.", w.Here().Name, lt.Name, format.Times(m.set.Market.Markup(), 2)))...)
+		notes = append(notes, wrapped(theme.Subtle, fmt.Sprintf("You are in %s: %s buys here for you at %s the connect's price, and keeps the stash stocked where you set no contract. Runners sell what is stashed here.", w.Here().Name, lt.Name, format.Times(m.rules.Market.Markup(), 2)))...)
 	} else if !here {
 		notes = append(notes, wrapped(theme.Subtle, fmt.Sprintf("You are in %s: the supplier here sells to you there, not here. Runners sell what is stashed here.", w.Here().Name))...)
 	}
@@ -506,8 +506,8 @@ func (m *Model) contractRows(city, id string) []string {
 	if bought > 0 {
 		rows = append(rows, row("", fmt.Sprintf("bought %d today for %s", bought, money(cost))))
 	}
-	if due := m.set.Market.Due(w, city, id); due > 0 {
-		rows = append(rows, row("", theme.Subtle.Render(fmt.Sprintf("brings %d in the morning at %s", due, price(m.set.Market.SupplyPrice(w, city, id))))))
+	if due := m.rules.Market.Due(w, city, id); due > 0 {
+		rows = append(rows, row("", theme.Subtle.Render(fmt.Sprintf("brings %d in the morning at %s", due, price(m.rules.Market.SupplyPrice(w, city, id))))))
 	}
 	if _, ok := w.Order(city, id); ok || !own {
 		return rows
@@ -528,7 +528,7 @@ func (m *Model) standingRows(city, id string) []string {
 	if !ok {
 		return nil
 	}
-	rows := []string{row("standing", theme.Gold.Render(fmt.Sprintf("%d %s", o.Qty, dialShort(o.Dial)))+sep+"cut "+format.Pct(m.set.Market.Cut(), 0))}
+	rows := []string{row("standing", theme.Gold.Render(fmt.Sprintf("%d %s", o.Qty, dialShort(o.Dial)))+sep+"cut "+format.Pct(m.rules.Market.Cut(), 0))}
 	if _, ok := w.Order(city, id); !ok {
 		rows = append(rows, keyRow("x", "cancel the standing order"))
 	}
