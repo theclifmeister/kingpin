@@ -186,20 +186,14 @@ func (s *Sim) fire(w *game.World, t *game.Tick, city *game.City, r content.Respo
 		t.Emit(events.GameOver{Day: t.Day, Cause: w.Over.Cause})
 		return
 	default: // sting, raid, task force
-		stockLoss, cashLoss := r.StockLoss, r.CashLoss
+		// What the rung takes, folded as Rungs shows it (bite): the
+		// feds take the file's numbers (#48) and an asset besides
+		// (seize, below).
+		b := bite(r, fx)
+		stockLoss, cashLoss := b.StockLoss, b.CashLoss
 		told := r.Level == content.Raid && w.Crew.Informants() > 0
-		switch r.Level {
-		case content.Raid:
-			stockLoss *= fx.RaidLossMul
-			cashLoss *= fx.RaidLossMul
-			if told {
-				stockLoss, ev.Stash = 1, true
-			}
-		case content.TaskForce:
-			// The feds take the file's numbers (#48): no node softens
-			// them, and they take an asset besides (seize, below).
-		default:
-			stockLoss *= fx.StingStockMul
+		if told {
+			stockLoss, ev.Stash = 1, true
 		}
 		if house := s.place(w, t, city.ID, told); house != nil {
 			ev.House, ev.HouseName = house.ID, house.Name
@@ -274,7 +268,7 @@ func (s *Sim) fire(w *game.World, t *game.Tick, city *game.City, r content.Respo
 		}
 	}
 	if attempted {
-		ev.Evidence = max(0, r.Evidence-fx.EvidenceCut)
+		ev.Evidence = bite(r, fx).Evidence
 		if ev.Evidence > 0 {
 			w.Heat.Evidence += ev.Evidence
 			w.Heat.EvidenceDay = t.Day

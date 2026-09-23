@@ -185,6 +185,45 @@ func (s *Sim) Ladder(w *game.World, city *game.City) []content.ResponseConfig {
 	return out
 }
 
+// Rungs is the ladder the player faces in a city today with what each
+// rung takes (#355): Ladder's lines, and each rung's stock and cash
+// share, its pages and a patrol's cap folded the way fire folds them
+// (bite), so the POLICE section and the view say what the dice would
+// do. The patrol's cap is before the chief's temper: that is intel
+// (docs/intel.md), and a panel that folded it would read the truth.
+func (s *Sim) Rungs(w *game.World, city *game.City) []content.ResponseConfig {
+	fx := s.Effects(w)
+	out := s.Ladder(w, city)
+	for i, r := range out {
+		out[i] = bite(r, fx)
+		if r.Level == content.Patrol {
+			cap := math.Max(r.Cap, fx.PatrolCap)
+			if city != nil {
+				cap *= content.Cut(city.Pressure, s.law.Effects.PressureCapCut)
+			}
+			out[i].Cap = math.Min(1, cap)
+		}
+	}
+	return out
+}
+
+// bite is what a rung takes once the upgrades have had their say: a
+// raid's shares by raid_loss_mul, a sting's stock by sting_stock_mul,
+// the task force's as the file prints them (the feds take the file's
+// numbers, #48), and the pages less evidence_cut. fire and Rungs both
+// read it, so the panel and the dice cannot disagree.
+func bite(r content.ResponseConfig, fx game.Effects) content.ResponseConfig {
+	switch r.Level {
+	case content.Raid:
+		r.StockLoss *= fx.RaidLossMul
+		r.CashLoss *= fx.RaidLossMul
+	case content.Sting:
+		r.StockLoss *= fx.StingStockMul
+	}
+	r.Evidence = max(0, r.Evidence-fx.EvidenceCut)
+	return r
+}
+
 // TaskForceEligible reports whether a task force can form against the
 // player (#48): an asset owned, or dirty cash over taskforce_cash. A
 // player with neither plays the four-rung ladder as it always was; the

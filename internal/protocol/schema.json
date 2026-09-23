@@ -1683,6 +1683,12 @@
         "id": {
           "type": "string"
         },
+        "ladder": {
+          "items": {
+            "$ref": "#/$defs/engine.RungView"
+          },
+          "type": "array"
+        },
         "name": {
           "type": "string"
         },
@@ -1700,6 +1706,9 @@
         },
         "response_day": {
           "type": "integer"
+        },
+        "response_sure": {
+          "type": "number"
         }
       },
       "required": [
@@ -1708,6 +1717,7 @@
         "heat",
         "pressure",
         "goodwill",
+        "ladder",
         "products",
         "corners"
       ],
@@ -2175,17 +2185,26 @@
     },
     "engine.LawView": {
       "properties": {
+        "arrest_line": {
+          "type": "integer"
+        },
         "chief": {
           "type": "string"
         },
         "chief_temper": {
           "type": "string"
         },
+        "cover": {
+          "type": "integer"
+        },
         "da": {
           "type": "string"
         },
         "da_stance": {
           "type": "string"
+        },
+        "exposure_line": {
+          "type": "integer"
         },
         "next_election": {
           "type": "integer"
@@ -2195,7 +2214,10 @@
         "chief",
         "chief_temper",
         "da",
-        "da_stance"
+        "da_stance",
+        "arrest_line",
+        "exposure_line",
+        "cover"
       ],
       "type": "object"
     },
@@ -2520,6 +2542,36 @@
         "from",
         "to",
         "dial"
+      ],
+      "type": "object"
+    },
+    "engine.RungView": {
+      "properties": {
+        "cap": {
+          "type": "number"
+        },
+        "cap_days": {
+          "type": "integer"
+        },
+        "cash_loss": {
+          "type": "number"
+        },
+        "level": {
+          "type": "string"
+        },
+        "line": {
+          "type": "number"
+        },
+        "pages": {
+          "type": "integer"
+        },
+        "stock_loss": {
+          "type": "number"
+        }
+      },
+      "required": [
+        "level",
+        "line"
       ],
       "type": "object"
     },
@@ -10662,6 +10714,27 @@
       },
       "result": {
         "type": "number"
+      }
+    },
+    "rules.heat.rungs": {
+      "changes": false,
+      "needsRun": true,
+      "params": {
+        "maxItems": 1,
+        "minItems": 1,
+        "prefixItems": [
+          {
+            "title": "city",
+            "type": "string"
+          }
+        ],
+        "type": "array"
+      },
+      "result": {
+        "items": {
+          "$ref": "#/$defs/content.ResponseConfig"
+        },
+        "type": "array"
       }
     },
     "rules.heat.sale_heat": {
