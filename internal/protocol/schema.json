@@ -521,6 +521,66 @@
       ],
       "type": "object"
     },
+    "engine.Cue": {
+      "properties": {
+        "asset": {
+          "type": "string"
+        },
+        "city": {
+          "type": "string"
+        },
+        "corner": {
+          "type": "string"
+        },
+        "day": {
+          "type": "integer"
+        },
+        "dead": {
+          "type": "boolean"
+        },
+        "faction": {
+          "type": "string"
+        },
+        "from": {
+          "type": "string"
+        },
+        "house": {
+          "type": "string"
+        },
+        "kind": {
+          "type": "string"
+        },
+        "level": {
+          "type": "string"
+        },
+        "member": {
+          "type": "integer"
+        },
+        "phase": {
+          "type": "string"
+        },
+        "product": {
+          "type": "string"
+        },
+        "route": {
+          "type": "string"
+        },
+        "shipment": {
+          "type": "integer"
+        },
+        "to": {
+          "type": "string"
+        },
+        "units": {
+          "type": "integer"
+        }
+      },
+      "required": [
+        "kind",
+        "day"
+      ],
+      "type": "object"
+    },
     "engine.EndingView": {
       "properties": {
         "cause": {
@@ -2270,6 +2330,9 @@
         "Faction": {
           "type": "string"
         },
+        "ID": {
+          "type": "integer"
+        },
         "Name": {
           "type": "string"
         },
@@ -2282,6 +2345,7 @@
       },
       "required": [
         "Day",
+        "ID",
         "Name",
         "Role",
         "Rival",
@@ -2296,6 +2360,9 @@
         "Day": {
           "type": "integer"
         },
+        "ID": {
+          "type": "integer"
+        },
         "Informant": {
           "type": "boolean"
         },
@@ -2308,6 +2375,7 @@
       },
       "required": [
         "Day",
+        "ID",
         "Name",
         "Role",
         "Informant"
@@ -2322,6 +2390,9 @@
         "Fee": {
           "type": "integer"
         },
+        "ID": {
+          "type": "integer"
+        },
         "Name": {
           "type": "string"
         },
@@ -2331,6 +2402,7 @@
       },
       "required": [
         "Day",
+        "ID",
         "Name",
         "Role",
         "Fee"
@@ -2434,6 +2506,9 @@
         "Day": {
           "type": "integer"
         },
+        "ID": {
+          "type": "integer"
+        },
         "Name": {
           "type": "string"
         },
@@ -2443,6 +2518,7 @@
       },
       "required": [
         "Day",
+        "ID",
         "Name",
         "Role"
       ],
@@ -8457,6 +8533,9 @@
   "notifications": {
     "event": {
       "properties": {
+        "cue": {
+          "$ref": "#/$defs/engine.Cue"
+        },
         "day": {
           "type": "integer"
         },

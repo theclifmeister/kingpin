@@ -47,10 +47,16 @@ func main() {
 	if !*quiet {
 		for _, raw := range c.Events() {
 			var e struct {
-				Kind string `json:"kind"`
-				Day  int    `json:"day"`
+				Kind string          `json:"kind"`
+				Day  int             `json:"day"`
+				Cue  json.RawMessage `json:"cue"`
 			}
-			if json.Unmarshal(raw, &e) == nil {
+			if json.Unmarshal(raw, &e) != nil {
+				continue
+			}
+			if len(e.Cue) > 0 {
+				fmt.Printf("day %3d  %-20s cue %s\n", e.Day, e.Kind, e.Cue) // what a renderer animates (#301)
+			} else {
 				fmt.Printf("day %3d  %s\n", e.Day, e.Kind)
 			}
 		}

@@ -80,18 +80,30 @@ type Notification struct {
 }
 
 // EventParams is an event as the wire carries it: its kind (the
-// events.Event Kind, stable), the day it happened and the event itself.
+// events.Event Kind, stable), the day it happened, the event itself and,
+// for one a front end animates, its cue (#301, engine.CueOf): the ids a
+// renderer moves its sprites by.
 type EventParams struct {
 	Kind    string       `json:"kind"`
 	Day     int          `json:"day"`
 	Payload events.Event `json:"payload"`
+	Cue     *engine.Cue  `json:"cue,omitempty"`
+}
+
+// eventParams is an event's params.
+func eventParams(e events.Event, day int) EventParams {
+	p := EventParams{Kind: e.Kind(), Day: day, Payload: e}
+	if c, ok := engine.CueOf(e); ok {
+		p.Cue = &c
+	}
+	return p
 }
 
 // EventJSON is an event as an `event` notification's params carry it,
 // byte for byte: a client in the same process encodes its events with
 // it to compare them with the wire's.
 func EventJSON(e events.Event, day int) (json.RawMessage, error) {
-	return json.Marshal(EventParams{Kind: e.Kind(), Day: day, Payload: e})
+	return json.Marshal(eventParams(e, day))
 }
 
 // Server is one session served.
@@ -111,7 +123,7 @@ func NewServer(cfg *content.Config) (*Server, error) {
 	sess.Subscribe(func(e events.Event) {
 		// The clock publishes after it has moved the world to the tick's
 		// day, so the world's day is the event's.
-		s.pending = append(s.pending, Notification{JSONRPC: "2.0", Method: "event", Params: EventParams{Kind: e.Kind(), Day: sess.World().Day, Payload: e}})
+		s.pending = append(s.pending, Notification{JSONRPC: "2.0", Method: "event", Params: eventParams(e, sess.World().Day)})
 	})
 	return s, nil
 }
