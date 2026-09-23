@@ -21,6 +21,10 @@
 # Slots: {{.Name}} {{.Role}} (the member), {{.Corner}} (yours), {{.Theirs}}
 # (the rival corner it borders, when contested), {{.Rival}} (the leader),
 # {{.City}}, {{.Front}}, {{.Product}}, {{.Amount}}.
+# A slot is filled only by the trigger fields that name it: Name and Role
+# by role, loyalty_below or loyalty_above; Corner by corners or contested;
+# Theirs by contested; Front by fronts. A card that uses one its trigger
+# never fills fails at start-up (#349).
 #
 # Convention: the LAST choice is what happens if you do nothing; the
 # harness takes it for any card a policy does not answer. Text reads at 80
@@ -171,6 +175,7 @@ amount = 300
 amount_share = 0.05
 [card.trigger]
 crew_min = 2
+loyalty_above = 1 # names the most loyal member, whose brother it is (#349)
 [[card.choice]]
 label = "Pay for the funeral"
 outcome = "You paid for the funeral, {{.Amount}}. The crew stood at the back."

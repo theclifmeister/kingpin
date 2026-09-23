@@ -138,13 +138,18 @@ func (m *Model) streetLines(innerW, maxLines int, narrow, withRoad bool) []strin
 	} else {
 		topic(corners, tier)
 	}
+	var crewFacts []fact
 	if n := len(w.Crew.Members); n > 0 {
-		crew := fact{theme.CrewText.Render(fmt.Sprintf("crew %d · %s pay %s/day", n, w.Crew.Pay, money(m.rules.Crew.Wages(w, w.Crew.Pay)))), priCrew}
+		crewFacts = append(crewFacts, fact{theme.CrewText.Render(fmt.Sprintf("crew %d · %s pay %s/day", n, w.Crew.Pay, money(m.rules.Crew.Wages(w, w.Crew.Pay)))), priCrew})
 		if w.Crew.LastSkim > 0 && w.Day-w.Crew.LastSkim < m.rules.Crew.Tuning().SuspectDays {
-			topic(crew, fact{theme.Bad.Render("skimming suspected"), priCrew})
-		} else {
-			topic(crew)
+			crewFacts = append(crewFacts, fact{theme.Bad.Render("skimming suspected"), priCrew})
 		}
+	}
+	if line := m.crewTrouble(); line != "" {
+		crewFacts = append(crewFacts, fact{theme.Warning.Render(line), priCrew}) // #345
+	}
+	if len(crewFacts) > 0 {
+		topic(crewFacts...)
 	}
 	if line := m.supplyLine(); line != "" {
 		topic(fact{line, priSupply})

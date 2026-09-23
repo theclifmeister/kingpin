@@ -276,6 +276,9 @@
     },
     "content.CrewTuning": {
       "properties": {
+        "AlertMargin": {
+          "type": "number"
+        },
         "Candidates": {
           "type": "integer"
         },
@@ -377,7 +380,8 @@
         "SkimShare",
         "SkimCap",
         "SuspectDays",
-        "QuitThreshold"
+        "QuitThreshold",
+        "AlertMargin"
       ],
       "type": "object"
     },
@@ -1490,7 +1494,16 @@
         "contract": {
           "type": "integer"
         },
+        "corner": {
+          "type": "string"
+        },
         "count": {
+          "type": "integer"
+        },
+        "cross": {
+          "type": "string"
+        },
+        "day": {
           "type": "integer"
         },
         "days": {
@@ -1498,6 +1511,9 @@
         },
         "due": {
           "type": "integer"
+        },
+        "gap": {
+          "type": "number"
         },
         "gate": {
           "$ref": "#/$defs/engine.Gate"
@@ -1522,6 +1538,9 @@
         },
         "line": {
           "type": "number"
+        },
+        "member": {
+          "type": "integer"
         },
         "ready": {
           "type": "boolean"
@@ -10303,6 +10322,19 @@
         "type": "integer"
       }
     },
+    "rules.heat.exposure_line": {
+      "changes": false,
+      "needsRun": true,
+      "params": {
+        "maxItems": 0,
+        "minItems": 0,
+        "prefixItems": [],
+        "type": "array"
+      },
+      "result": {
+        "type": "integer"
+      }
+    },
     "rules.heat.forfeit_evidence": {
       "changes": false,
       "needsRun": true,
@@ -12841,5 +12873,5 @@
   },
   "protocol": 4,
   "title": "kingpind",
-  "view_version": 2
+  "view_version": 3
 }

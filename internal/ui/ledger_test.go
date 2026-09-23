@@ -196,3 +196,44 @@ func TestLedgerEmptyStates(t *testing.T) {
 		t.Fatalf("the last section is %q, want WASH", secs[len(secs)-1].title)
 	}
 }
+
+// The dirty pile's line is one number on both screens (#350): the
+// dashboard's CASH panel and the ledger (its till lines and the WASH
+// section) warn at the threshold plus what the fronts cover, the line
+// the heat sim charges against, and the ledger names the cover. A pile
+// over the bare threshold but under the cover warns on neither.
+func TestExposureLineIsOneNumber(t *testing.T) {
+	m := richModel(t, 120, 40)
+	w := m.w
+	thr, cover := m.rules.Heat.DirtyCashThreshold(w), m.rules.Heat.Cover(w)
+	line := m.rules.Heat.ExposureLine(w)
+	if len(w.Fronts) == 0 || cover <= 0 || line != thr+cover {
+		t.Fatalf("fixture: %d fronts, threshold %d, cover %d, line %d", len(w.Fronts), thr, cover, line)
+	}
+	screens := func() (dash, ledger string) {
+		m.Update(key("1"))
+		dash = strings.Join(viewLines(m), "\n")
+		m.Update(key("7"))
+		ledger = strings.Join(viewLines(m), "\n")
+		return dash, ledger
+	}
+
+	w.Player.DirtyCash = thr + cover/2
+	dash, ledger := screens()
+	if strings.Contains(dash, ": heat") || strings.Contains(ledger, "draws heat") {
+		t.Fatalf("under the cover the screens warn:\n%s\n---\n%s", dash, ledger)
+	}
+
+	w.Player.DirtyCash = line + 1
+	dash, _ = screens()
+	if want := "over " + cash(line) + ": heat"; !strings.Contains(dash, want) {
+		t.Fatalf("the dashboard lacks %q:\n%s", want, dash)
+	}
+	want := "Dirty cash over " + cash(line) + " draws heat every day: " + cash(thr) + ", plus " + cash(cover) + " your fronts cover."
+	if till := mainText(m); !strings.Contains(till, "▲ "+want) {
+		t.Fatalf("the till lines lack %q:\n%s", want, till)
+	}
+	if pane := paneProse(m); !strings.Contains(pane, want) {
+		t.Fatalf("WASH lacks %q:\n%s", want, pane)
+	}
+}

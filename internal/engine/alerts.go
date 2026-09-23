@@ -2,6 +2,7 @@ package engine
 
 import (
 	"fmt"
+	"math"
 	"sort"
 
 	"github.com/theclifmeister/kingpin/internal/content"
@@ -27,6 +28,9 @@ const (
 	AlertTaskForce   AlertKind = "task_force"   // a task force formed this morning
 	AlertFloat       AlertKind = "float"        // Have dirty under the float, Amount
 	AlertWages       AlertKind = "wages"        // Amount in wages tonight, Have dirty
+	AlertCrewLine    AlertKind = "crew_line"    // Member is Gap over the Cross line (Line), Days at tonight's drift
+	AlertSkim        AlertKind = "skim"         // skimming suspected: money went missing on Day
+	AlertIdleCorner  AlertKind = "idle_corner"  // nobody works Corner in City: back to the street in Days
 	AlertGate        AlertKind = "gate"         // Gate within reach
 	AlertHouseKnown  AlertKind = "house_known"  // the police know about House
 	AlertDARace      AlertKind = "da_race"      // the DA race is Days off and taking money
@@ -45,7 +49,7 @@ type Alert struct {
 	Kind AlertKind `json:"kind"`
 	Key  string    `json:"key"`
 
-	City     string  `json:"city,omitempty"`     // heat, da_race: the city's id (heat: where you are)
+	City     string  `json:"city,omitempty"`     // heat, da_race, idle_corner: the city's id (heat: where you are)
 	Contract int     `json:"contract,omitempty"` // contract_due: the contract's id
 	Supplier string  `json:"supplier,omitempty"` // debt_due: the connect's id
 	House    string  `json:"house,omitempty"`    // house_known: the house's id
@@ -53,11 +57,16 @@ type Alert struct {
 	Amount   int     `json:"amount,omitempty"`   // debt_due: the debt; float: the float; wages: the wages; retire: the cash short; reign: the homage a night
 	Have     int     `json:"have,omitempty"`     // debt_due: the cash in hand; float, wages: the dirty cash
 	Heat     float64 `json:"heat,omitempty"`     // heat: the city's heat
-	Line     float64 `json:"line,omitempty"`     // heat: the patrol line
-	Days     int     `json:"days,omitempty"`     // da_race: days to the election; retire: quiet days short; reign: the reign's day
+	Line     float64 `json:"line,omitempty"`     // heat: the patrol line; crew_line: the loyalty line
+	Days     int     `json:"days,omitempty"`     // da_race: days to the election; retire: quiet days short; reign: the reign's day; crew_line: days to the line at tonight's drift (0: not falling); idle_corner: days before it drifts
 	Count    int     `json:"count,omitempty"`    // reign: the crews paying homage
 	Ready    bool    `json:"ready,omitempty"`    // retire: retiring is open now
 	Level    string  `json:"level,omitempty"`    // favour: the response due tonight
+	Member   int     `json:"member,omitempty"`   // crew_line: the member's id
+	Cross    string  `json:"cross,omitempty"`    // crew_line: the line ahead: skim, flip (a lieutenant's) or walk
+	Gap      float64 `json:"gap,omitempty"`      // crew_line: the loyalty over the line
+	Corner   string  `json:"corner,omitempty"`   // idle_corner: the corner's id
+	Day      int     `json:"day,omitempty"`      // skim: the day money last went missing
 	Gate     *Gate   `json:"gate,omitempty"`     // gate: the door
 }
 
@@ -104,6 +113,11 @@ func (s *Session) Alerts() []Alert {
 	if wages := s.set.Crew.Wages(w, w.Crew.Pay); wages > w.Player.DirtyCash {
 		out = append(out, Alert{Kind: AlertWages, Key: "wages short", Amount: wages, Have: w.Player.DirtyCash})
 	}
+	out = append(out, s.crewLines()...)
+	if tun := s.set.Crew.Tuning(); w.Crew.LastSkim > 0 && w.Day-w.Crew.LastSkim < tun.SuspectDays {
+		out = append(out, Alert{Kind: AlertSkim, Key: "skimming suspected", Day: w.Crew.LastSkim})
+	}
+	out = append(out, s.idleCorners()...)
 	for _, g := range s.NextGates() {
 		if g.Near(w) {
 			out = append(out, Alert{Kind: AlertGate, Key: "unlock:" + g.Kind + ":" + g.ID, Gate: &g})
@@ -126,6 +140,64 @@ func (s *Session) Alerts() []Alert {
 	if w.Reign > 0 {
 		crews, homage := w.HomageDeals()
 		out = append(out, Alert{Kind: AlertReign, Key: "the city is yours", Days: w.ReignDay(), Count: crews, Amount: homage})
+	}
+	return out
+}
+
+// crewLines are the members near their next loyalty line (#345), in
+// roster order: within alert_margin of it, or near enough that
+// tonight's drift takes them over. The line ahead is the skim line (a
+// lieutenant's flip) while they are over it, then the walk. A member
+// has one line ahead, so one alert, keyed by the member and the line:
+// a fast-forward stops once as they near the skim line and once more
+// as they near the walk. Informants stay silent (docs/snitching.md):
+// the informant line is nobody's alert.
+func (s *Session) crewLines() []Alert {
+	w := s.w
+	tun := s.set.Crew.Tuning()
+	if tun.AlertMargin <= 0 {
+		return nil
+	}
+	var out []Alert
+	for _, m := range w.Crew.Members {
+		cross, line := "skim", tun.SkimThreshold
+		if m.Lieutenant() {
+			cross, line = "flip", s.set.Crew.FlipLine()
+		}
+		if m.Loyalty < line {
+			cross, line = "walk", tun.QuitThreshold
+		}
+		gap := m.Loyalty - line
+		days := 0
+		if d := s.set.Crew.Drift(w, m); d < 0 {
+			days = max(1, int(math.Ceil(gap/-d)))
+		}
+		if gap > tun.AlertMargin && days != 1 {
+			continue
+		}
+		out = append(out, Alert{Kind: AlertCrewLine, Key: fmt.Sprintf("crew %d near the %s line", m.ID, cross),
+			Member: m.ID, Cross: cross, Line: line, Gap: gap, Days: days})
+	}
+	return out
+}
+
+// idleCorners are the corners you hold that nobody works this morning
+// (#345), in city order, with the days before they drift back to the
+// street (territory's drift_days, the tree's bonus in). Keyed by the
+// corner, so a fast-forward stops once as it goes idle; the night it
+// drifts stops on the CornerLost.
+func (s *Session) idleCorners() []Alert {
+	w := s.w
+	drift := s.set.Territory.DriftDays(w)
+	if drift <= 0 {
+		return nil
+	}
+	var out []Alert
+	for _, c := range w.Corners() {
+		if !c.Held() || c.Worked() {
+			continue
+		}
+		out = append(out, Alert{Kind: AlertIdleCorner, Key: "idle corner " + c.ID, Corner: c.ID, City: c.City, Days: max(1, drift-c.Idle)})
 	}
 	return out
 }

@@ -62,13 +62,20 @@ The TUI used to work out some things it shows, and a second front end would have
 The engine decides them now and hands them over as values.
 The words and colours stay the front end's (the TUI's are in `docs/copy.md`'s voice).
 
-- **Alerts** (`engine/alerts.go`). `Session.Alerts()` returns `[]Alert`, loudest first, in the order of the `AlertKind` constants: `talking`, `contract_due`, `debt_due`, `heat` (where you are, at or over the patrol line), `task_force`, `float` (only while `FloatMatters`: a front, or a route with its dial on), `wages`, `gate`, `house_known`, `da_race`, `retire`, `favour` and `reign`.
+- **Alerts** (`engine/alerts.go`). `Session.Alerts()` returns `[]Alert`, loudest first, in the order of the `AlertKind` constants: `talking`, `contract_due`, `debt_due`, `heat` (where you are, at or over the patrol line), `task_force`, `float` (only while `FloatMatters`: a front, or a route with its dial on), `wages`, `crew_line`, `skim`, `idle_corner`, `gate`, `house_known`, `da_race`, `retire`, `favour` and `reign`.
   - Each alert carries a `Key`, its identity from one morning to the next. The keys are the strings the TUI used before (`contract 12 due today`, `debt street due 41`, `unlock:front:laundromat`, `known h1`, `heat in Eastside over the patrol line`, …), so a fast-forward stops on exactly what it did.
   - The kind's fields are ids and numbers, never words: `City`, `Contract`, `Supplier`, `House`, `Due`, `Amount`, `Have`, `Heat`, `Line`, `Days`, `Count`, `Ready`, `Level`, `Gate`.
   - The TUI's `alerts()` words each one (`alertOf`), and `debtAlerts` is `alertsOf(engine.AlertDebtDue)`.
+  - The crew trouble (#345) is three kinds, read off the world with no sim state moved.
+    `crew_line` is a member within `crew.toml`'s `alert_margin` (5) over the line ahead of them, or near enough that tonight's drift takes them over it: the skim line (a lieutenant's flip line) while they are over it, then the walk (`quit_threshold`).
+    It names the member (`member`, an id), the line (`cross`: `skim`, `flip` or `walk`; `line`), the loyalty over it (`gap`) and the days to it at tonight's drift (`days`, 0 while loyalty is not falling), and is keyed `crew 7 near the walk line`, so a fast-forward stops once a member a line.
+    The drift is `crew.Sim.Drift`, the read of a quiet night's move (the pay dial, the unpaid penalty when the wages are over the dirty cash, greed, the danger behind the enforcers) that shares its arithmetic with the night's (`memberDrift`), so `TestSeedDigest` did not move.
+    The informant line is nobody's alert: informants stay silent (`docs/snitching.md`).
+    `skim` is up while the crew screen's warning is (`LastSkim` within `suspect_days`), keyed once, so the skim stops a fast-forward the morning it is first suspected and not every night it goes on (`day` is when the money went).
+    `idle_corner` is a corner you hold that nobody works this morning (`corner`, `city`), with the days before it drifts (`days`, territory's `DriftDays` less `Idle`), keyed per corner.
 - **Gates** (#148). `engine.Gate` (`Kind`, `ID`, `Name`, `Line`, `Vouch`, `Clean`) with `Peak`, `ToGo` and `Near` (under `GateNear`, 0.5, of the line). `Session.GatesAhead()` and `NextGates()` find them. `Session.FrontOffers()` and `AssetOffers()` are the offers you do not own, the asset list less any the task force found; the TUI's `frontRows` and `assetRows` are those. The TUI keeps the words: `gateText`, `gateThe`, `gateToGo`.
 - **Stops** (`engine/stops.go`).
-  - `StopsOn(e)` decides whether an event stops a fast-forward, including each kind's conditions: an `Enforcement` past a patrol; a `CornerStruck` unless it is a war night that held; a `RivalBoosted` that failed; a `CornerTaken` from you; a `CrewShot` dead and yours; `PressureShifted` or `ReputationShifted` up; and a fixed list of kinds that always stop.
+  - `StopsOn(e)` decides whether an event stops a fast-forward, including each kind's conditions: an `Enforcement` past a patrol; a `CornerStruck` unless it is a war night that held; a `RivalBoosted` that failed; a `CornerTaken` from you; a `CornerLost` of yours that nobody worked (`idle`, #345); a `CrewShot` dead and yours; `PressureShifted` or `ReputationShifted` up; and a fixed list of kinds that always stop.
   - `Session.Stop(evs, before)` weighs a day in this order: a new stage, a card, an alert whose key the morning before lacked, the first event `StopsOn` names.
   - `Session.FastForward(days, after)` is the loop. It calls `EndDay` a day at a time, calls `after` with each day's events before weighing the day (the TUI saves and journals there, `dayEnded`), and returns the days run, the `Stop` (`stage`, `card`, `alert`, `event`, `over`, `cap`) and the stopping day's events.
   - The TUI's `stopEvent` is now only the words, and `stopWhy` words a `Stop`.
@@ -111,7 +118,7 @@ It is what a front end in another process draws from, and it holds no pointer in
   - a planted fact's author
   - who on the payroll is informing, and a member's greed and nerve
   - the informant's leak count (the "somebody is talking" alert is the tell)
-- **Versioning.** `engine.ViewVersion` (2 since #332 added the pool, the contracts, the offers and the tree) is the shape of `View` and moves when a field is added, renamed, retyped or dropped. It is never tied to the save's `game.SchemaVersion`: the world stays free to change shape, and the view is the contract. `TestViewShapeIsPinned` walks the type by reflection into one line per field, its JSON path and its Go kind (`.cities[].products[].facts.margin float64`), and compares that with `engine/testdata/view_shape.txt` (267 lines, headed `version 2`).
+- **Versioning.** `engine.ViewVersion` (2 since #332 added the pool, the contracts, the offers and the tree; 3 since #345 added the crew trouble's alert fields) is the shape of `View` and moves when a field is added, renamed, retyped or dropped. It is never tied to the save's `game.SchemaVersion`: the world stays free to change shape, and the view is the contract. `TestViewShapeIsPinned` walks the type by reflection into one line per field, its JSON path and its Go kind (`.cities[].products[].facts.margin float64`), and compares that with `engine/testdata/view_shape.txt` (273 lines, headed `version 3`).
   - A shape change that keeps the number fails with the lines that moved.
   - With the number moved, `go test ./internal/engine -run TestViewShapeIsPinned -update` writes the new shape.
   - The file pins shape and never values, so it reads the same on amd64 CI and an arm64 machine, where fused multiply-add moves floats (the reason `TestNoUnlockIsTheOldRun` hashes nothing a float writes).
@@ -138,7 +145,7 @@ It is what a front end in another process draws from, and it holds no pointer in
   - The server answers every request. Before the response it sends the notifications the call caused: every `event` the day published (`{"kind", "day", "payload"}`, the kind being the event's stable `Kind()`), then a `view` (the whole `engine.View`) after any call that may have changed the run.
   - A client that waits for its response has already read everything the call caused.
   - The server is one loop on one goroutine: read a line, run it, write and flush. It holds no lock and starts no goroutine, and `TestNoGoroutineInTheTree` walks the package like the rest of `internal/`.
-- **The methods, 85 in all** (and the 146 quotes #325 added, below).
+- **The methods, 85 in all** (and the 147 quotes #325 added, below).
   - **68 commands.** Each session command is served under its name in snake_case (`buy`, `place_sell`, `buy_checkpoint`, `scout_faction`, …) by reflection over `engine.Session` (`protocol.commands`), with its parameters in order. A dial goes in by name (`"aggressive"`, `"fair"`, `"push"`), refused with the names listed when it matches none. Terms go as an object (`{"days", "per_day", "corners", "route", "units"}`). The result is the command's value, or null.
   - **11 queries.** `view`, `alerts`, `gates_ahead`, `next_gates`, `front_offers`, `asset_offers`, `house_offers`, `float_matters`, `export_save`, and the buy's two (#356): `max_buy [supplier, product, credit]` returns `{max, held, capacity}` (`engine.BuyRoom`: `World.MaxBuy`, the most a buy takes with no refusal for the cash, the room or the connect's day, and the stash it lands in), and `restock_plan [city, days]` returns the lines that top the stash up to days of demand (`[]game.RestockLine`, never null; see `docs/cart.md`).
   - **6 lifecycle methods, by hand** (`import_save` among them, #327).
@@ -168,7 +175,7 @@ It is what a front end in another process draws from, and it holds no pointer in
 **The quotes (#325).**
 A front end in another process prices a move before it makes it, with the numbers the TUI reads.
 `internal/protocol/rules.go` serves every method of `engine.Rules` as `rules.<sim>.<method>` in snake_case: `rules.market.capacity`, `rules.crew.investigate_cost`, `rules.rivals.odds_on_at`.
-That is 146 methods, which makes 229 on the wire with #327's `export_save` and `import_save`.
+That is 147 methods (#350 added `rules.heat.exposure_line`), which makes 232 on the wire with the 85 methods above.
 A quote needs a run, changes nothing and sends nothing but its answer: no `view` follows it.
 
 - **The world is the server's.** A rule's `*game.World` is the run's and never a parameter.
@@ -193,7 +200,7 @@ A quote needs a run, changes nothing and sends nothing but its answer: no `view`
 - `TestEveryRuleIsClassed`: every method of every `Rules` interface is served or in `unservedRules`, and every one has its names.
 - `TestRuleNamesAreCurrent`: `rules_names.go` is `quotes.go`'s names.
 - `TestNoTruthOnTheWire` walks every quote's result type and fails on a `game.World`, `game.RivalState`, `game.Chief`, `game.Fact` or `content.RouteConfig` anywhere inside.
-- `TestEveryQuoteIsTheRules` runs sixty days of the boss on seed 7 and lays one of every thing a rule takes by id. It asks all 146 quotes over the wire and compares each answer with `Session.Rules()` asked in the process. The run's JSON is byte-identical before and after.
+- `TestEveryQuoteIsTheRules` runs sixty days of the boss on seed 7 and lays one of every thing a rule takes by id. It asks all 147 quotes over the wire and compares each answer with `Session.Rules()` asked in the process. The run's JSON is byte-identical before and after.
 - `TestQuoteRefusals` covers:
   - an unknown corner, faction or member;
   - a day before today or after tomorrow;
