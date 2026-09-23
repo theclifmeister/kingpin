@@ -432,6 +432,18 @@ func (m *Model) viewLedger() string {
 		tableLines(ledgerOffer, offerCols, m.offerRows(offers, width))
 	}
 
+	// The cash flow (#351): the last nights by category, so a category
+	// that has been bleeding all week reads as a row of minuses. It is
+	// the foot of the ledger, under no cursor: the window runs down to it
+	// with the cursor on the last row.
+	if cols, rows, net := m.flowTable(width); len(rows) > 0 {
+		heading("FLOW", fmt.Sprintf(" · the last %s · net %s", plural(len(cols)-1, "night"), signedCash(net)))
+		ls = append(ls, table(cols, rows, -1, width)...)
+		if n := len(m.ledgerRows()); n > 0 && m.ledgerCursor == n-1 {
+			top, at = at, len(ls)-1
+		}
+	}
+
 	if top == first {
 		top = 0
 	}
@@ -590,4 +602,63 @@ func (m *Model) washSection() section {
 		lines = append(lines, wrapped(theme.Warning, warn)...)
 	}
 	return section{"WASH", lines}
+}
+
+// flowTable is the ledger's FLOW (#351): the last headlines.toml [flow]
+// shown nights of World.Flows as columns, oldest first, a row a
+// category that moved in any of them (its total, signed) and the net
+// under them; the oldest nights go first where MAIN is too narrow. It
+// returns the columns, the rows and the net across the nights shown;
+// no rows before the first night.
+func (m *Model) flowTable(width int) ([]col, [][]any, int) {
+	flows := m.w.Flows
+	if n := m.cfg.Headlines.Flow.Shown; len(flows) > n {
+		flows = flows[len(flows)-n:]
+	}
+	build := func(flows []game.CashFlow) ([]col, [][]any, int) {
+		cols := []col{{"flow", kText, 0}}
+		for _, f := range flows {
+			cols = append(cols, col{fmt.Sprintf("d%d", f.Day), kCash, 0})
+		}
+		var rows [][]any
+		for _, cat := range game.FlowCats {
+			row := []any{game.FlowLabel(cat)}
+			moved := false
+			for _, f := range flows {
+				n := f.Line(cat).Total()
+				moved = moved || n != 0
+				row = append(row, flowCell(n))
+			}
+			if moved {
+				rows = append(rows, row)
+			}
+		}
+		if len(rows) == 0 {
+			return cols, nil, 0
+		}
+		net, total := []any{styled{theme.Gold, "Net"}}, 0
+		for _, f := range flows {
+			st := theme.Good
+			if f.Net() < 0 {
+				st = theme.Bad
+			}
+			net = append(net, styled{st, signed{f.Net()}})
+			total += f.Net()
+		}
+		return cols, append(rows, net), total
+	}
+	cols, rows, net := build(flows)
+	for len(flows) > 1 && tableWidth(cols, rows) > width {
+		flows = flows[1:]
+		cols, rows, net = build(flows)
+	}
+	return cols, rows, net
+}
+
+// signedCash is a total's change with its sign either way: `+$45K`.
+func signedCash(n int) string {
+	if n > 0 {
+		return "+" + cash(n)
+	}
+	return cash(n)
 }

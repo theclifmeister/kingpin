@@ -382,7 +382,7 @@ func TestInvestigateAndPayOff(t *testing.T) {
 	if err := w.Investigate(1000); err == nil {
 		t.Fatal("investigated with too little cash")
 	}
-	if err := w.Investigate(400); err != nil || w.Today.Investigation == nil || w.Today.Investigation.Cost != 400 {
+	if err := w.Investigate(400); err != nil || w.Today.Investigation == nil || w.Today.Investigation.Cost != 400 || w.Today.Investigation.Clean != 100 {
 		t.Fatalf("investigate: %v %+v", err, w.Today.Investigation)
 	}
 	if w.Player.DirtyCash != 0 || w.Player.CleanCash != 200 {
@@ -401,7 +401,7 @@ func TestInvestigateAndPayOff(t *testing.T) {
 	if err != nil || m.Loyalty != 100 || w.Crew.Members[0].Loyalty != 100 || w.Player.CleanCash != 50 {
 		t.Fatalf("pay off: %v %+v clean %d", err, m, w.Player.CleanCash)
 	}
-	if len(w.Crew.PaidOffToday) != 1 || w.Crew.PaidOffToday[0] != (Payoff{ID: 1, Name: "Dre", Cost: 150}) {
+	if len(w.Crew.PaidOffToday) != 1 || w.Crew.PaidOffToday[0] != (Payoff{ID: 1, Name: "Dre", Cost: 150, Clean: 150}) {
 		t.Fatalf("pay off not recorded: %+v", w.Crew.PaidOffToday)
 	}
 	NewClock(nil, &counter{}).EndDay(w)

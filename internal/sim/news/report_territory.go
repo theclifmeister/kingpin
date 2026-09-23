@@ -47,13 +47,16 @@ func (r *reporter) reportTerritory(e events.Event) bool {
 		d.Corner = ev.Name
 		r.add("territory", "CornerRobbed", d)
 		rep.Territory = append(rep.Territory, robberyLine(w, ev))
-		r.robbed += ev.Cash
+		r.book(game.FlowLosses, -ev.Cash, 0)
+		if ev.Cash > 0 {
+			rep.Money = append(rep.Money, fmt.Sprintf("Robbed on %s in %s -%s", ev.Name, w.CityName(r.cornerCity(ev.Corner)), format.Money(ev.Cash)))
+		}
 	// The stash houses (#73).
 	case events.HouseBought:
 		d := r.at(ev.City)
 		d.Name = ev.Name
 		r.addHouses("territory", "HouseBought", d)
-		r.spent += ev.Price
+		r.book(game.FlowInvestments, -ev.Price, 0)
 		rep.Money = append(rep.Money, fmt.Sprintf("Took the lease on %s -%s. Rent %s/day clean from tomorrow.", ev.Name, format.Money(ev.Price), format.Money(ev.Rent)))
 	case events.HouseRobbed:
 		d := r.at(ev.City)
@@ -69,7 +72,7 @@ func (r *reporter) reportTerritory(e events.Event) bool {
 		r.addHouses("territory", "HouseLost", d)
 		rep.Territory = append(rep.Territory, fmt.Sprintf("The landlord threw you out of %s%s: %s gone with it. The rent went unpaid.", ev.Name, r.in(ev.City), format.Plural(ev.Units, "unit")))
 	case events.RentPaid:
-		r.rent += ev.Amount
+		r.book(game.FlowRoutes, 0, -ev.Amount)
 		if ev.Amount > 0 {
 			rep.Money = append(rep.Money, fmt.Sprintf("Rent on %s -%s clean", format.Plural(ev.Houses, "house"), format.Money(ev.Amount)))
 		}
@@ -83,7 +86,7 @@ func (r *reporter) reportTerritory(e events.Event) bool {
 	// off the deeds' own stream: a run with no deed is the run it
 	// was.
 	case events.DeedBought:
-		r.deeds += ev.Price
+		r.book(game.FlowInvestments, 0, -ev.Price)
 		rep.Money = append(rep.Money, fmt.Sprintf("Bought the block %s is on%s -%s clean. It pays %s/day clean.", ev.Name, r.in(ev.City), format.Money(ev.Price), format.Money(ev.Rent)))
 	case events.DeedsBought:
 		d := r.at(ev.City)
@@ -91,12 +94,12 @@ func (r *reporter) reportTerritory(e events.Event) bool {
 		r.addOff(game.StreamDeedsNews, "laundering", "DeedsBought", d)
 		rep.Law = append(rep.Law, fmt.Sprintf("%s makes the paper: %s in your name now. The town wonders where the money came from.", ev.Name, format.Plural(ev.Count, "block")))
 	case events.DeedRent:
-		r.deedRent += ev.Amount
+		r.book(game.FlowInvestments, 0, ev.Amount)
 		rep.Money = append(rep.Money, fmt.Sprintf("Rent from %s +%s clean", format.Plural(ev.Deeds, "block"), format.Money(ev.Amount)))
 	case events.Taxed:
 		// The tax (#231): the free corners of a city you hold paying
 		// for the right to work them.
-		r.taxed += ev.Amount
+		r.book(game.FlowTax, ev.Amount, 0)
 		rep.Money = append(rep.Money, fmt.Sprintf("The tax: %s%s +%s", format.Plural(ev.Corners, "free corner"), r.in(ev.City), format.Money(ev.Amount)))
 	default:
 		return false

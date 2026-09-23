@@ -40,6 +40,10 @@ td button { padding: 1px 6px; }
 #travel button { margin: 0 6px 6px 0; }
 #report p { margin: 2px 0; }
 #report h3 { font-size: 12px; color: var(--gold); margin: 8px 0 2px; font-weight: normal; }
+#report table.flow td { padding: 1px 4px; }
+#report table.flow tr.total td { color: var(--gold); }
+#report table.flow tr.big.good td { color: var(--good); }
+#report table.flow tr.big.bad td { color: var(--bad); }
 #toast { color: var(--bad); }
 #toast.ok { color: var(--good); }
 kbd { color: var(--dim); font-size: 11px; }
