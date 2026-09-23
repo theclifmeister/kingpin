@@ -1,75 +1,66 @@
 # The web client
 
-**The web client** (#328, `cmd/kingpin-web`) is the second front end, and the first graphical one.
-The game is drawn in a browser: sprites on a canvas, moved by the engine's cues and played through the protocol alone.
-It proves the engine is front-end agnostic.
-It reads nothing but the view, the events and their cues, and acts through nothing but protocol calls, so what it needed and the engine lacked became engine issues (#332, #333), never workarounds.
+The graphical client (`cmd/kingpin-web`, #328, #339) runs the real Go engine in the browser through WebAssembly. Phaser 3.90.0 renders the interactive isometric territory map. Semantic HTML provides the management panels, forms, and dialogs. No backend process or gameplay reimplementation is involved.
 
 ```sh
-go run ./cmd/kingpin-web              # builds the site and serves it on http://127.0.0.1:8080/ (?seed=7 pins the run)
-go run ./cmd/kingpin-web -out site/   # writes the static site: any static host serves it
+go run ./cmd/kingpin-web              # http://127.0.0.1:8080/
+go run ./cmd/kingpin-web -out site/   # static site, including engine and Phaser
+go test ./cmd/kingpin-web             # WASM reference games and cue coverage
 ```
 
-**The choice (the issue asked for it first).**
-A browser page on the WebAssembly build (#327), drawn with Canvas 2D in plain ES modules, with no third-party code and no build step.
-Why:
+The Go toolchain must match `go.mod`. `Build` embeds `web/`, compiles `cmd/kingpin-wasm`, and copies that toolchain's `wasm_exec.js`. There is no npm build step. The pinned Phaser distribution and MIT notice are in `web/vendor/`; the game does not fetch Phaser from a CDN at runtime. Google Fonts supplies optional Barlow fonts, with system fallbacks.
 
-- **It needs nothing installed.** Godot, Unity or Unreal would each add an editor, a project format and a toolchain to the repo, and a client nobody here can build or test would drift. The browser is on every machine, and the site is static files: the page, its modules, `kingpin.wasm` and Go's `wasm_exec.js`.
-- **It runs the engine in the page** (`kingpin.open()`, #327): no server, no socket, no process. Saves live in the browser (`export_save` into `localStorage`, `import_save` back).
-- **It can be tested here.** The page's own modules run under Node against the same module (`TestWebClient`), and the page itself was played in headless Chromium to an ending with no console error.
-- **A real engine can still come later.** The contract it would speak is the same: the protocol over the C library (`cmd/libkingpin`) or over WebSocket (#326). This client is what that one would be measured against.
+![Phaser web frontend](kingpin-web-preview.jpg)
 
-**The files** (`cmd/kingpin-web/web/`, embedded in the command):
+## The contract
 
-- `js/session.js`: the protocol as the client speaks it. `Session` wraps one `kingpin.open()`: `call(method, ...params)` sends a request line and keeps the `event` notifications (`take()` hands them over) and the last `view`. It throws `RPCError` (`refused` for `-32000`, the game's words) on an error. The moves the page makes are one method each: `newRun`, `endDay`, `fastForward`, `choose`, `travel`, `buy`, `sell`, `exportSave`, `importSave`. `streetConnect(view, city)` is the open street connect where you stand. It touches no DOM.
-- **The versions.** `SUPPORTED` is `{protocol: [3], view: [2]}` (view 2 since #332). `checkVersions` refuses a module whose `kingpin.protocol` or `kingpin.view` is another (`VersionError`, shown full-page) before a run starts: a field renamed under the client would draw a wrong game instead of failing. A version bump in the engine fails `TestWebClient` until `SUPPORTED` moves with the client.
-- `js/autoplay.js`: `autoDay(session)` is the autopilot, the reference client's greedy dealer (`protocol.Play`) a day at a time. It answers a card with its first choice, spends 60% of the dirty cash across the street connect's products, sells everything at `aggressive` and ends the day. A refused move is part of play.
-- `js/layout.js`: where things are, a pure function of the view and the canvas size.
-  - The cities stand side by side in the view's order, each a block of its corners on their `city.toml` cells. One cell size fits every city.
-  - Each road has its own lane under the blocks, and the deeper lanes leave the blocks wider, so the roads nest and none crosses another.
-  - Corners are coloured green for yours, the faction's colour in the view's order for a rival's, and grey for the street's. A deed has a gold edge.
-  - `cornerSpot`, `cityHead`, `routePath`, `along`, `memberSpot` (a member's post, a lieutenant's city, else beside you) and `houseSpot` place a cue's ids.
-- `js/sprites.js`: placeholder pixel art, a string a row and a letter a colour, drawn a pixel a `fillRect`. The sprites are the player, a runner, an enforcer, a cop, a robber, the car, truck, boat and plane (a route's mode picks one), a squad car, a helicopter, a house, a coin, a skull, a flag, a crate, a badge and a fist.
-- `js/cues.js`: `ANIMATIONS`, one entry for each of the 17 cues (`engine.CueKinds`). An entry turns a cue into timed drawings over the layout, `{dur, draw(ctx, p)}` with `p` running from 0 to 1:
-  - `corner_claimed`: a flag goes up.
-  - `corner_flip`: the old owner's colour drains off the corner.
-  - `strike`: a fist shakes.
-  - `rival_move`: the faction's colour closes in with an enforcer.
-  - `robbery`: a masked man runs off.
-  - `police`: a squad car arrives with its lights going.
-  - `task_force`: a helicopter crosses the city.
-  - `shipment`: a crate is loaded and the vehicle sets off; it drops at the far end; or it is seized under a badge.
-  - The crew cues: a runner pops in, walks off, is arrested (or a skull, when shot) or bounces back.
-  - `sale`: coins rise off your corners.
-  - `market`: an arrow over the city.
-  - `property`: a house builds or crumbles.
-  - `overdose`: a skull.
-  - `run`: a banner (the reign begins, is broken, the end).
-  
-  None of them reads the world: they draw only the cue and where the layout puts its ids.
-- `js/scene.js`: `drawMap(ctx, L, now)` draws the blocks tinted by heat, the roads with their dials, the corners and who works or guards them, the houses, and the shipments on the road at their share of the trip. `Scene` owns the canvas and the frame loop. `play(cues)` queues a night's cues 160 ms apart, so a busy night reads as a sequence.
-- `js/main.js`: the page. It loads the module, opens a session and starts a run (the URL's `?seed=`, else a random one).
-  - The header shows the day, the tier, the cash, the net worth and the evidence.
-  - The panel is the city you stand in. Each product shows the street price, the connect's price and what you hold, with a buy quantity and buy and sell buttons at the chosen dial. Below are travel, the pool looking for work (the view's `pool`, #332: each with a hire button, off when the fee is more than your dirty cash) and the morning report's sections.
-  - The footer holds end day (`space`), the next 7 days (`fast_forward`), the autopilot (`a`) and a toast that gives a refusal in the game's words.
-  - A card is a modal with its choices. The ending is an overlay that waits for the night's last animation.
-- `cmd/kingpin-web` builds the site (`Build(dir)`): the embedded files, `kingpin.wasm` built for `js/wasm`, and the toolchain's own `wasm_exec.js`, which must match the Go that built the module. It serves the site on `-addr`, or writes it to `-out` and exits.
+`js/session.js` is unchanged: `Session` wraps `kingpin.open()`, sends JSON-RPC commands through `handle`, and reads view/event notifications. It supports protocol 3 and view 2 and refuses other versions before play. Every action goes through this session. Prices, purchase costs and eligibility errors come from the engine. Panels draw only the versioned view and public queries such as `house_offers` and `rules.territory.deed_price`; no hidden world state is read.
 
-**What it does not do yet.**
-It covers the loop the issue asked for: buy, sell, travel, end the day, answer a card, see the ending.
-It hires from the pool (#332).
-Everything else the TUI offers is still missing: routes, houses, fronts, the crew's posts, contracts, the factions' offers, the upgrade tree, the rivals' table and the law.
-Each is a panel over what the view carries (the contracts, offers and tree since #332) and the commands and quotes (#325) the protocol already serves.
-The art is placeholder.
+## The map
 
-**What pins it.**
+`js/phaser-map.js` owns one Phaser game and its scene, camera, input, and tweens. Districts use the cities and corner grid coordinates in the view. Building height is a stable visual variation, not a game statistic. Colour means ownership; a gold outline means a deed; a small mint dot means a runner is posted there. Route lines show their name and pace, and shipments occupy their progress along the route.
 
-- `TestWebClient` builds the site as the command does and runs `testdata/play.mjs` under Node. The script loads the page's own modules with the engine loaded the way the page loads it, minus the DOM.
-  - The client speaks this build's protocol and view versions and refuses another.
-  - `ANIMATIONS` is `engine.CueKinds`, no more and no less, and every sprite's rows are the same width.
-  - Seed 7 with the autopilot reaches an ending (indicted, day 30).
-  - Seeds 7, 11, 23 and 42, and 120 nights of the harness's `boss` on seed 3 (written by the Go test, so the client sees a run that ships, hires and fights), draw every day's map. Every cue in those runs names a corner or route on the map, gives animations with a length, and draws at `p` 0, ½ and 1, on a context that records nothing but must not throw.
-  - That is 14 of the 17 kinds from the engine itself. A kind no run gave (`overdose`, `strike` and `task_force` today) is made up on the boss's last morning, with ids off its map and in each of its phases, and drawn too.
-  - In CI, a missing `node` fails the test rather than skipping it.
-- `engine.CueKinds` is the list the table is held to. `TestCueKindsIsEveryCue` pins it to the cue table.
-- The page was played by hand and by the autopilot in headless Chromium (Playwright) to an ending: seed 7 is indicted on day 31, with no console error.
+- Click a corner to open its territory controls. A native corner selector provides a keyboard alternative.
+- Select districts below the map to inspect them. Inspection does not move the player; Market exposes an explicit travel command when elsewhere.
+- Drag to pan, scroll or use +/− to zoom, and Fit map to reset.
+- `CUE_STYLES` covers all 17 engine cues. Events produce coloured rings and rising labels; shipment cues also move a marker along the route. These effects never mutate or advance the game.
+- Effects respect `prefers-reduced-motion`. New/imported runs clear pending effects.
+
+The previous Canvas renderer (`layout.js`, `scene.js`, `sprites.js`, `cues.js`) remains as a reference renderer and acceptance fixture. It is not the active page renderer.
+
+## Playing
+
+The page opens directly into a run, restores `kingpin.save` if available, or creates a random seed. `?seed=7` starts that seed instead of restoring. The header shows dirty cash, clean cash, and net worth; the day and tier are above the map. The morning briefing summarizes up to four report sections. The full last-night report is in Journal.
+
+Ten panels provide:
+
+| Panel | Controls and information |
+| --- | --- |
+| Market | Street connect prices, street prices, percentage change and history, quantities, buying, queued sales with quiet/normal/aggressive dials, travel |
+| Territory | Corner selection, ownership and demand, posting yourself or crew, deed quotes/purchases, abandoning a corner with confirmation, warn/push/hit against rival corners |
+| Crew | Recruitment fees, wages, skill and loyalty, payroll policy, posting crew, bail quotes, dismissal confirmation |
+| Routes | Route pace, product targets, driver assignment, known risk and in-transit shipments |
+| Property | Owned houses and fronts, front investment quotes, house/front/asset purchases, laundering pace |
+| Contracts | Offers and deadlines, accepting/declining, delivery quantities |
+| Rivals | Known leaders, territory, trust, war, next move, scouting quotes, declaring war with confirmation, accepting/declining offers |
+| Upgrades | Full tree, descriptions, prerequisite names, costs and cash pool, availability and purchases |
+| Law | DA and chief intelligence, evidence, heat, election date, lie-low toggle and alerts |
+| Journal | All sections of the latest morning report |
+
+End day (or Space outside controls/dialogs) advances one day. Advance 7 days uses the engine's fast-forward and reports the reason it stopped. A waiting card blocks day controls and opens a modal with the engine's choices. The ending can be reviewed or followed by a new run. Refused actions show the engine's error, without inventing front-end rules.
+
+Settings include the original autopilot, explicitly labelled as trading for the player. It uses `autoplay.js`, pauses for a card or ending, and stops while settings are open. Manual play remains the default.
+
+## Saves and layout
+
+Every successful action exports the engine's save to `localStorage` under the original `kingpin.save` key. Settings provide save/load and export/import of the base64 save as a text `.save` file. The bytes inside remain the engine's save, compatible with the TUI's schema. Starting over requires confirmation; export first to keep the old run. Storage failures display a warning and retain the live session for export.
+
+The desktop layout has navigation, map/briefing, and a scrolling management panel. At narrow widths navigation scrolls horizontally and panels stack beneath the map. Dialogs use native focus management. Selection, quantities, price changes, and ownership are also expressed as text rather than colour alone.
+
+## Validation and scope
+
+`TestWebClient` builds the complete static site and runs its actual session module under Node against WASM. The reference autoplay and multiple seeded/boss runs check protocol compatibility, endings, reference-renderer output, and all engine cue kinds. The Phaser cue-style table is additionally checked against `engine.CueKinds` so a new engine cue cannot silently be omitted.
+
+Browser smoke checks for #339 exercise boot, buying, queued sales, day advancement, hiring, each panel, and saved-run restoration. The engine and protocol tests continue to pin game behavior. The presentation adds no balance or simulation change.
+
+This is broader than the first reference web client, but not complete TUI parity: advanced negotiations, standing orders, production/cutting, detailed house stock transfers, political contributions and special endings do not yet have dedicated controls. All remain engine capabilities for later panels.

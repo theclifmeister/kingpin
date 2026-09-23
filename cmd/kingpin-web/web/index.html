@@ -3,87 +3,88 @@
   <head>
     <meta charset="utf-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1" />
-    <title>Kingpin</title>
+    <meta name="theme-color" content="#0b1118" />
+    <title>Kingpin · City of ambition</title>
     <link rel="stylesheet" href="style.css" />
     <script src="wasm_exec.js"></script>
+    <script src="vendor/phaser-3.90.0.min.js"></script>
     <script type="module" src="js/main.js"></script>
   </head>
   <body>
     <header>
-      <strong class="brand">KINGPIN</strong>
-      <span id="day">day –</span>
-      <span id="tier"></span>
-      <span>dirty <b id="dirty">–</b></span>
-      <span>clean <b id="clean">–</b></span>
-      <span>worth <b id="net">–</b></span>
-      <span>evidence <b id="evidence">–</b></span>
-      <span class="spacer"></span>
-      <span class="dim" id="seed"></span>
-      <button id="save" title="Keep the run in this browser">Save</button>
-      <button id="load" title="The run kept in this browser">Load</button>
-      <button id="new">New run</button>
+      <a class="brand" href="./"
+        ><span class="brand-mark">K</span>KINGPIN<span class="edition"
+          >CITY OF AMBITION</span
+        ></a
+      >
+      <div class="resources">
+        <div><small>ON THE STREET</small><b id="dirty">—</b></div>
+        <div><small>CLEAN CASH</small><b id="clean">—</b></div>
+        <div><small>NET WORTH</small><b id="net">—</b></div>
+      </div>
+      <button id="menu" aria-label="Open game settings">☰</button>
     </header>
-    <main>
-      <canvas id="map" aria-label="The map: your cities, corners, crew and shipments"></canvas>
-      <aside id="panel">
-        <section>
-          <h2 id="here">–</h2>
-          <table id="market">
-            <thead>
-              <tr><th>product</th><th>street</th><th>connect</th><th>held</th><th></th></tr>
-            </thead>
-            <tbody></tbody>
-          </table>
-          <label class="dial">sell at
-            <select id="dial">
-              <option value="quiet">quiet</option>
-              <option value="normal">normal</option>
-              <option value="aggressive" selected>aggressive</option>
-            </select>
-          </label>
+    <div class="workspace">
+      <nav id="nav" aria-label="Game panels"></nav>
+      <main>
+        <div class="map-heading">
+          <div>
+            <small id="tier">BUILD YOUR EMPIRE</small>
+            <h1>The city is yours.</h1>
+          </div>
+          <div class="day"><small>DAY</small><b id="day">00</b></div>
+        </div>
+        <div class="map-wrap">
+          <div
+            id="map"
+            role="img"
+            aria-label="Interactive territory map. Select a corner to manage it, or use the Territory panel."
+          ></div>
+          <div class="map-tools">
+            <button id="zoom-in" aria-label="Zoom in">+</button
+            ><button id="zoom-out" aria-label="Zoom out">−</button
+            ><button id="reset-map">Fit map</button>
+          </div>
+          <div class="legend">
+            <span class="mint">◆ Your territory</span
+            ><span class="red">◆ Rival territory</span><span>◇ Unclaimed</span>
+          </div>
+          <div class="map-caption">
+            DISTRICT INTELLIGENCE <span>Drag to pan · Scroll to zoom</span>
+          </div>
+        </div>
+        <div class="city-strip" id="cities"></div>
+        <section class="brief">
+          <div class="section-head">
+            <h2>Morning briefing</h2>
+            <span id="brief-day"></span>
+          </div>
+          <div id="briefing"></div>
         </section>
-        <section>
-          <h2>Travel</h2>
-          <div id="travel"></div>
-        </section>
-        <section>
-          <h2>Looking for work</h2>
-          <table id="pool">
-            <thead>
-              <tr><th>name</th><th>role</th><th>skill</th><th>wage</th><th>fee</th><th></th></tr>
-            </thead>
-            <tbody></tbody>
-          </table>
-        </section>
-        <section>
-          <h2>This morning</h2>
-          <div id="report"></div>
-        </section>
+      </main>
+      <aside>
+        <div class="panel-heading">
+          <small id="panel-kicker">YOUR OPERATIONS</small>
+          <h2 id="panel-title">Street market</h2>
+          <p id="panel-intro"></p>
+        </div>
+        <div id="panel"></div>
       </aside>
-    </main>
+    </div>
     <footer>
-      <button id="end" class="primary">End day <kbd>space</kbd></button>
-      <button id="week">Next 7 days</button>
-      <button id="auto">Autopilot <kbd>a</kbd></button>
-      <span id="toast" role="status"></span>
+      <div class="status">
+        <span id="status" role="status" aria-live="polite"
+          >Loading your city…</span
+        ><small id="save-status">Runs are saved in this browser</small>
+      </div>
+      <button id="low">Lie low</button><button id="week">Advance 7 days</button
+      ><button id="end" class="primary">End day <kbd>SPACE</kbd> →</button>
     </footer>
-
-    <div id="card" class="overlay" hidden>
-      <div class="box">
-        <h2 id="card-title"></h2>
-        <p id="card-text"></p>
-        <div id="card-choices"></div>
-      </div>
-    </div>
-    <div id="ending" class="overlay" hidden>
-      <div class="box">
-        <h2>The run is over</h2>
-        <p id="ending-text"></p>
-        <button id="again" class="primary">New run</button>
-      </div>
-    </div>
-    <div id="fatal" class="overlay" hidden>
-      <div class="box"><h2>Kingpin cannot start</h2><p id="fatal-text"></p></div>
+    <dialog id="modal"><div id="modal-content"></div></dialog>
+    <div id="loading">
+      <div class="brand-mark">K</div>
+      <h2>Every empire starts somewhere.</h2>
+      <p id="loading-text">Loading the Kingpin engine…</p>
     </div>
   </body>
 </html>

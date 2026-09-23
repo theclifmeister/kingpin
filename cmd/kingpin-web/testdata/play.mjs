@@ -27,6 +27,7 @@ const mod = (name) => import(pathToFileURL(path.join(site, "js", name)).href);
 const { Session, SUPPORTED, VersionError } = await mod("session.js");
 const { autoDay } = await mod("autoplay.js");
 const { ANIMATIONS } = await mod("cues.js");
+const { CUE_STYLES } = await mod("phaser-map.js");
 const { layout } = await mod("layout.js");
 const { drawMap } = await mod("scene.js");
 const { SPRITES } = await mod("sprites.js");
@@ -55,6 +56,8 @@ try {
 // The table: every cue the engine gives, and nothing it does not.
 out.missing = kinds.filter((k) => !ANIMATIONS[k]);
 out.extra = Object.keys(ANIMATIONS).filter((k) => !kinds.includes(k));
+for (const k of kinds) if (!CUE_STYLES[k]) problem(`Phaser has no cue style for ${k}`);
+for (const k of Object.keys(CUE_STYLES)) if (!kinds.includes(k)) problem(`Phaser has unknown cue ${k}`);
 
 for (const [name, rows] of Object.entries(SPRITES)) {
   if (rows.some((r) => r.length !== rows[0].length)) problem(`sprite ${name} has ragged rows`);
