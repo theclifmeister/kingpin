@@ -605,6 +605,10 @@ func TestCashPileLine(t *testing.T) {
 	if got := heatAfter(over, front); got != 0 || s.Cover(w) < over-thr {
 		t.Fatalf("with a front at $%d covering $%d: %.3f heat", front, s.Cover(w), got)
 	}
+	// The line the screens warn at is the one charged against (#350).
+	if line := s.ExposureLine(w); line != thr+s.Cover(w) || heatAfter(line, front) != 0 || heatAfter(line+thr, front) <= 0 {
+		t.Fatalf("the exposure line is %d, the threshold %d and the cover %d", line, thr, s.Cover(w))
+	}
 	w.Upgrades["quietmoney"] = true
 	if raised := s.DirtyCashThreshold(w); raised <= thr || heatAfter(raised, 0) != 0 {
 		t.Fatalf("quiet money: the line is %d (was %d)", raised, thr)

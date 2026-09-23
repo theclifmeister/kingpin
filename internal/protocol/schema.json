@@ -10201,6 +10201,19 @@
         "type": "integer"
       }
     },
+    "rules.heat.exposure_line": {
+      "changes": false,
+      "needsRun": true,
+      "params": {
+        "maxItems": 0,
+        "minItems": 0,
+        "prefixItems": [],
+        "type": "array"
+      },
+      "result": {
+        "type": "integer"
+      }
+    },
     "rules.heat.forfeit_evidence": {
       "changes": false,
       "needsRun": true,
