@@ -175,6 +175,8 @@ func (m *Model) stopEvent(e events.Event) string {
 		return "the police raided " + ev.Name
 	case events.CornerTaken:
 		return ev.Rival + " took " + ev.Name
+	case events.CornerLost:
+		return ev.Name + " went back to the street" // nobody worked it (#345)
 	case events.RivalAbandoned:
 		return ev.Rival + " gave up " + ev.Name
 	case events.CrewQuit:

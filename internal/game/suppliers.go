@@ -368,7 +368,7 @@ func (w *World) buy(s *Supplier, product string, qty int, markup float64, credit
 		return Purchase{}, &ShortError{Need: cost, Have: w.Player.DirtyCash, Pool: "dirty"}
 	}
 	if free := w.Free(s.City); qty > free {
-		return Purchase{}, fmt.Errorf("can only hold %d more units in %s", free, w.CityName(s.City))
+		return Purchase{}, w.noRoom(s.City, free)
 	}
 	p := Purchase{City: s.City, Product: product, Qty: qty, UnitPrice: unit, Cost: cost, Prior: s.Price[product], Contract: contract, Supplier: s.ID, Credit: credit, SmallLot: small}
 	if contract {

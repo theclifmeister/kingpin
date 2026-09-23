@@ -276,6 +276,9 @@
     },
     "content.CrewTuning": {
       "properties": {
+        "AlertMargin": {
+          "type": "number"
+        },
         "Candidates": {
           "type": "integer"
         },
@@ -377,7 +380,8 @@
         "SkimShare",
         "SkimCap",
         "SuspectDays",
-        "QuitThreshold"
+        "QuitThreshold",
+        "AlertMargin"
       ],
       "type": "object"
     },
@@ -1490,7 +1494,16 @@
         "contract": {
           "type": "integer"
         },
+        "corner": {
+          "type": "string"
+        },
         "count": {
+          "type": "integer"
+        },
+        "cross": {
+          "type": "string"
+        },
+        "day": {
           "type": "integer"
         },
         "days": {
@@ -1498,6 +1511,9 @@
         },
         "due": {
           "type": "integer"
+        },
+        "gap": {
+          "type": "number"
         },
         "gate": {
           "$ref": "#/$defs/engine.Gate"
@@ -1522,6 +1538,9 @@
         },
         "line": {
           "type": "number"
+        },
+        "member": {
+          "type": "integer"
         },
         "ready": {
           "type": "boolean"
@@ -1560,6 +1579,25 @@
         "income",
         "muscle",
         "wages"
+      ],
+      "type": "object"
+    },
+    "engine.BuyRoom": {
+      "properties": {
+        "capacity": {
+          "type": "integer"
+        },
+        "held": {
+          "type": "integer"
+        },
+        "max": {
+          "type": "integer"
+        }
+      },
+      "required": [
+        "max",
+        "held",
+        "capacity"
       ],
       "type": "object"
     },
@@ -7979,6 +8017,37 @@
       ],
       "type": "object"
     },
+    "game.RestockLine": {
+      "properties": {
+        "cost": {
+          "type": "integer"
+        },
+        "have": {
+          "type": "integer"
+        },
+        "level": {
+          "type": "integer"
+        },
+        "product": {
+          "type": "string"
+        },
+        "supplier": {
+          "type": "string"
+        },
+        "units": {
+          "type": "integer"
+        }
+      },
+      "required": [
+        "product",
+        "supplier",
+        "level",
+        "have",
+        "units",
+        "cost"
+      ],
+      "type": "object"
+    },
     "protocol.DayResult": {
       "properties": {
         "day": {
@@ -8064,6 +8133,7 @@
     "invalid_params": -32602,
     "invalid_request": -32600,
     "no_method": -32601,
+    "no_room": -32002,
     "no_run": -32001,
     "parse": -32700,
     "refused": -32000
@@ -9402,6 +9472,32 @@
         "$ref": "#/$defs/engine.View"
       }
     },
+    "max_buy": {
+      "changes": false,
+      "needsRun": true,
+      "params": {
+        "maxItems": 3,
+        "minItems": 3,
+        "prefixItems": [
+          {
+            "title": "supplier",
+            "type": "string"
+          },
+          {
+            "title": "product",
+            "type": "string"
+          },
+          {
+            "title": "credit",
+            "type": "boolean"
+          }
+        ],
+        "type": "array"
+      },
+      "result": {
+        "$ref": "#/$defs/engine.BuyRoom"
+      }
+    },
     "move": {
       "changes": true,
       "needsRun": true,
@@ -9670,6 +9766,31 @@
       },
       "result": {
         "type": "null"
+      }
+    },
+    "restock_plan": {
+      "changes": false,
+      "needsRun": true,
+      "params": {
+        "maxItems": 2,
+        "minItems": 2,
+        "prefixItems": [
+          {
+            "title": "city",
+            "type": "string"
+          },
+          {
+            "title": "days",
+            "type": "number"
+          }
+        ],
+        "type": "array"
+      },
+      "result": {
+        "items": {
+          "$ref": "#/$defs/game.RestockLine"
+        },
+        "type": "array"
       }
     },
     "retire": {
@@ -10330,6 +10451,19 @@
       }
     },
     "rules.heat.evidence_arrest": {
+      "changes": false,
+      "needsRun": true,
+      "params": {
+        "maxItems": 0,
+        "minItems": 0,
+        "prefixItems": [],
+        "type": "array"
+      },
+      "result": {
+        "type": "integer"
+      }
+    },
+    "rules.heat.exposure_line": {
       "changes": false,
       "needsRun": true,
       "params": {
@@ -12879,7 +13013,7 @@
       "$ref": "#/$defs/engine.View"
     }
   },
-  "protocol": 3,
+  "protocol": 4,
   "title": "kingpind",
-  "view_version": 3
+  "view_version": 4
 }

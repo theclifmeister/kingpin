@@ -168,6 +168,7 @@ type CrewTuning struct {
 	SkimCap         float64 `toml:"skim_cap"`
 	SuspectDays     int     `toml:"suspect_days"`
 	QuitThreshold   float64 `toml:"quit_threshold"`
+	AlertMargin     float64 `toml:"alert_margin"` // a member this close over their next line is an alert (#345); 0 is none
 }
 
 type PayTable struct {
@@ -249,6 +250,9 @@ func (c CrewConfig) validate(market MarketConfig) error {
 		if r.min < 0 || r.max < r.min || r.max > 100 {
 			return fmt.Errorf("[crew] %s_min %d and %s_max %d are not a range in 0..100", r.name, r.min, r.name, r.max)
 		}
+	}
+	if t.AlertMargin < 0 {
+		return fmt.Errorf("[crew] alert_margin %v is under zero", t.AlertMargin)
 	}
 	if lt := c.Lieutenant; lt.Chance < 0 || lt.Chance > 1 || lt.Flip < 0 || lt.RevealDays < 0 || lt.RobbedOff < 1 {
 		return fmt.Errorf("bad [lieutenant] table %+v", lt)

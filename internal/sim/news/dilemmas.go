@@ -4,6 +4,7 @@ import (
 	"fmt"
 	"strings"
 	"text/template"
+	"text/template/parse"
 
 	"github.com/theclifmeister/kingpin/internal/content"
 	"github.com/theclifmeister/kingpin/internal/events"
@@ -56,9 +57,90 @@ func parseDeck(cfg content.DilemmasConfig) ([]card, error) {
 			}
 			k.choices = append(k.choices, t)
 		}
+		if err := checkSlots(k); err != nil {
+			return nil, err
+		}
 		deck = append(deck, k)
 	}
 	return deck, nil
+}
+
+// slotFilledBy is which trigger fields fill a slot that is not always
+// filled (game.Eligible): a slot missing here (City, Rival, Product,
+// Amount) is filled for every card.
+var slotFilledBy = map[string]func(t content.CardTrigger) bool{
+	"Name":   namesMember,
+	"Role":   namesMember,
+	"Corner": func(t content.CardTrigger) bool { return t.Corners > 0 || t.Contested },
+	"Theirs": func(t content.CardTrigger) bool { return t.Contested },
+	"Front":  func(t content.CardTrigger) bool { return t.Fronts },
+}
+
+func namesMember(t content.CardTrigger) bool {
+	return t.Role != "" || t.LoyaltyBelow > 0 || t.LoyaltyAbove > 0
+}
+
+// checkSlots refuses a card whose title, text, labels, outcomes or
+// follow-up name a slot its trigger never fills (#349): an empty slot is
+// no template error, so it would render with a hole.
+func checkSlots(k card) error {
+	ts := []*template.Template{k.title, k.text}
+	for _, ch := range k.choices {
+		ts = append(ts, ch.label, ch.outcome, ch.headline)
+	}
+	for _, t := range ts {
+		for _, slot := range slotsUsed(t.Tree.Root) {
+			if filled, ok := slotFilledBy[slot]; ok && !filled(k.cfg.Trigger) {
+				return fmt.Errorf("card %s: %s uses {{.%s}}, which its trigger never fills", k.cfg.ID, t.Name(), slot)
+			}
+		}
+	}
+	return nil
+}
+
+// slotsUsed lists the top-level fields a template tree reads ({{.Name}}
+// gives Name), in any action, pipeline or branch.
+func slotsUsed(n parse.Node) []string {
+	var out []string
+	switch n := n.(type) {
+	case *parse.ListNode:
+		if n == nil {
+			return nil
+		}
+		for _, c := range n.Nodes {
+			out = append(out, slotsUsed(c)...)
+		}
+	case *parse.ActionNode:
+		out = slotsUsed(n.Pipe)
+	case *parse.PipeNode:
+		if n == nil {
+			return nil
+		}
+		for _, c := range n.Cmds {
+			out = append(out, slotsUsed(c)...)
+		}
+	case *parse.CommandNode:
+		for _, a := range n.Args {
+			out = append(out, slotsUsed(a)...)
+		}
+	case *parse.FieldNode:
+		out = append(out, n.Ident[0])
+	case *parse.ChainNode:
+		out = slotsUsed(n.Node)
+	case *parse.IfNode:
+		out = branchSlots(&n.BranchNode)
+	case *parse.RangeNode:
+		out = branchSlots(&n.BranchNode)
+	case *parse.WithNode:
+		out = branchSlots(&n.BranchNode)
+	case *parse.TemplateNode:
+		out = slotsUsed(n.Pipe)
+	}
+	return out
+}
+
+func branchSlots(b *parse.BranchNode) []string {
+	return append(append(slotsUsed(b.Pipe), slotsUsed(b.List)...), slotsUsed(b.ElseList)...)
 }
 
 // Deck lists the cards the sim knows, in file order.

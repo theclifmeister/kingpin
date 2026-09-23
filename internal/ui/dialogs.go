@@ -1,6 +1,7 @@
 package ui
 
 import (
+	"errors"
 	"fmt"
 	"strings"
 
@@ -623,6 +624,15 @@ func (m *Model) confirmBuy() (tea.Model, tea.Cmd) {
 	}
 	p, err := m.sess.Buy(sup.ID, id, qty, m.dlg.credit)
 	if err != nil {
+		// Over the room, the cash or the connect's day (#356): the
+		// field is set to what fits, so the refusal is an offer the
+		// next enter takes.
+		var short *game.ShortError
+		over := errors.Is(err, game.ErrNoRoom) || errors.Is(err, game.ErrSupplierCapacity) || errors.Is(err, game.ErrCreditLimit) || errors.As(err, &short)
+		if fits := m.maxBuyBy(id, m.dlg.credit); over && fits > 0 && fits < qty {
+			m.dlg.qty.Set(fits)
+			return m.quantityAgain(fmt.Errorf("%w; the quantity is now %d, what fits", err, fits))
+		}
 		return m.quantityAgain(err)
 	}
 	from := sup.Name
@@ -844,6 +854,7 @@ func (m *Model) quantityRows(d dialog, city, id string, buy bool, sup *game.Supp
 					total += "   " + theme.Subtle.Render("credit "+cash(have))
 				}
 				body = append(body, row("total", total))
+				body = append(body, m.afterRow(sup, qty, cost, have, d.credit))
 				if qty < sup.Lot && sup.SmallLot > 1 {
 					body = append(body, theme.Warning.Render(fmt.Sprintf("Under %s's lot of %d: %s a unit.", sup.Name, sup.Lot, format.TimesSig(sup.SmallLot, 2))))
 				}
@@ -860,6 +871,28 @@ func (m *Model) quantityRows(d dialog, city, id string, buy bool, sup *game.Supp
 		body = append(body, theme.Subtle.Render("Pick a product."))
 	}
 	return body
+}
+
+// afterRow is the buy's quantity step's `after` row (#356): the cash,
+// or the connect's book on credit, left once qty units are paid for,
+// and the stash where they land as it would stand, held of what it
+// holds; each Bad when the buy is over it.
+func (m *Model) afterRow(sup *game.Supplier, qty, cost, have int, credit bool) string {
+	w := m.w
+	left, pool := have-cost, " dirty"
+	if credit {
+		pool = " of their book"
+	}
+	pile := cash(max(0, left)) + pool
+	if left < 0 {
+		pile = theme.Bad.Render(cash(left) + pool)
+	}
+	held, room := w.StockIn(sup.City)+qty, w.Capacity(sup.City)
+	stash := fmt.Sprintf("room %d/%d in %s", held, room, w.CityName(sup.City))
+	if held > room {
+		stash = theme.Bad.Render(stash)
+	}
+	return row("after", pile+" · "+stash)
 }
 
 // buyTermsRows is step 2 of a buy: once or keep at (#113) and cash or

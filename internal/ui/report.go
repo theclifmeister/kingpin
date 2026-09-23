@@ -76,7 +76,12 @@ func (m *Model) reportLines() []string {
 	section("HEAT", r.Heat, theme.Bad)
 	section("LAW", r.Law, lawReportStyle)
 	section("INTEL", r.Intel, theme.IntelText) // what was learnt tonight (#45)
-	section("CREW", r.Crew, theme.CrewText)
+	crew := r.Crew
+	if line := m.crewTrouble(); line != "" {
+		// The crew trouble this morning (#345), the alerts' counts.
+		crew = append(append([]string(nil), crew...), theme.Warning.Render(line))
+	}
+	section("CREW", crew, theme.CrewText)
 	section("TERRITORY", r.Territory, theme.RivalText)
 	section("MONEY", m.moneyLines(r), theme.Gold)
 	section("UPGRADES", r.Upgrades, theme.Gold)

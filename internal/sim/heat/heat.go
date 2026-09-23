@@ -246,10 +246,22 @@ func (s *Sim) Cover(w *game.World) int {
 
 // DirtyCashThreshold is the dirty cash the police read nothing into,
 // before what the fronts cover: heat.toml's line, raised by the Security
-// branch (dirty_cash_threshold_mul). The dashboard's warning reads it,
-// so the line the player sees is the one the dice use.
+// branch (dirty_cash_threshold_mul).
 func (s *Sim) DirtyCashThreshold(w *game.World) int {
 	return int(math.Round(float64(s.cfg.Heat.DirtyCashThreshold) * s.Effects(w).DirtyCashThresholdMul))
+}
+
+// ExposureLine is the dirty cash past which the pile draws heat: the
+// threshold plus what the fronts cover (Cover), or zero when the file
+// turns the pile's heat off. The pile's heat charges against it and
+// every screen that warns reads it (#350), so the line the player sees
+// is the one the dice use.
+func (s *Sim) ExposureLine(w *game.World) int {
+	thr := s.DirtyCashThreshold(w)
+	if thr <= 0 {
+		return 0
+	}
+	return thr + s.Cover(w)
 }
 
 // Floor is the heat a feared player never cools below: decay works on

@@ -76,13 +76,8 @@ func (s *Sim) drift(n *night) {
 			worst.Skill = max(1, worst.Skill-hurt)
 		}
 	}
-	danger := false
-	for _, level := range []string{content.Sting, content.Raid, content.TaskForce} {
-		if d, ok := w.Heat.LastResponse[level]; ok && t.Day-d <= tun.DangerDays {
-			danger = true
-		}
-	}
-	shield := math.Pow(1-s.cfg.Role[game.RoleEnforcer].Protection, float64(n.enforcers))
+	danger := s.danger(w, t.Day)
+	shield := s.shield(n.enforcers)
 	loss := s.loyaltyLoss(w, fx)
 	base := s.cfg.PayFor(c.Pay).Loyalty
 	base -= tun.FireLoyalty * float64(n.fired)
@@ -94,18 +89,61 @@ func (s *Sim) drift(n *night) {
 	}
 	for i := range c.Members {
 		m := &c.Members[i]
-		d := base - tun.GreedDrift*float64(m.Greed)/100
-		if danger {
-			d -= tun.DangerLoyalty * fx.DangerLoyaltyMul * float64(100-m.Nerve) / 100 * shield
-		}
-		if m.Role == game.RoleEnforcer {
-			d -= toll * float64(100-m.Nerve) / 100
-		}
-		if d < 0 {
-			d *= loss
-		}
-		m.Loyalty = max(0, min(100, m.Loyalty+d))
+		m.Loyalty = max(0, min(100, m.Loyalty+s.memberDrift(*m, base, danger, shield, toll, loss, fx)))
 	}
+}
+
+// memberDrift is one member's loyalty move for the night off the
+// crew's base (the pay dial and what the day took off everyone): their
+// greed, the danger by their nerve behind the enforcers' shield, an
+// enforcer's toll of the strike, and the loss multiplier on a fall.
+func (s *Sim) memberDrift(m game.CrewMember, base float64, danger bool, shield, toll, loss float64, fx game.Effects) float64 {
+	tun := s.cfg.Crew
+	d := base - tun.GreedDrift*float64(m.Greed)/100
+	if danger {
+		d -= tun.DangerLoyalty * fx.DangerLoyaltyMul * float64(100-m.Nerve) / 100 * shield
+	}
+	if m.Role == game.RoleEnforcer {
+		d -= toll * float64(100-m.Nerve) / 100
+	}
+	if d < 0 {
+		d *= loss
+	}
+	return d
+}
+
+// danger is whether a sting, a raid or the task force came within
+// danger_days of day.
+func (s *Sim) danger(w *game.World, day int) bool {
+	danger := false
+	for _, level := range []string{content.Sting, content.Raid, content.TaskForce} {
+		if d, ok := w.Heat.LastResponse[level]; ok && day-d <= s.cfg.Crew.DangerDays {
+			danger = true
+		}
+	}
+	return danger
+}
+
+// shield is what enforcers leave of the danger's toll on loyalty.
+func (s *Sim) shield(enforcers int) float64 {
+	return math.Pow(1-s.cfg.Role[game.RoleEnforcer].Protection, float64(enforcers))
+}
+
+// Drift is a member's loyalty move tonight at this morning's standing
+// (#345), a read that moves nothing: the pay dial, the unpaid penalty
+// when the wages are over the dirty cash in hand (the wages alert's
+// reading), their greed and the danger behind the shield of the
+// enforcers on the payroll, through the loss multiplier. What only the
+// night knows (a strike's toll, a firing, an investigation that named
+// nobody) is left out, so it is the drift of a quiet night.
+func (s *Sim) Drift(w *game.World, m game.CrewMember) float64 {
+	fx := game.FoldEffects(w, s.tree)
+	c := &w.Crew
+	base := s.cfg.PayFor(c.Pay).Loyalty
+	if s.wages(w, c.Pay, fx) > w.Player.DirtyCash {
+		base -= s.cfg.Crew.UnpaidLoyalty
+	}
+	return s.memberDrift(m, base, s.danger(w, w.Day+1), s.shield(c.Role(game.RoleEnforcer)), 0, s.loyaltyLoss(w, fx), fx)
 }
 
 // quit sees off whoever walks or defects tonight, and whoever goes to a
