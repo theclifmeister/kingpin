@@ -1,6 +1,7 @@
 package engine
 
 import (
+	"reflect"
 	"sort"
 
 	"github.com/theclifmeister/kingpin/internal/game"
@@ -274,6 +275,7 @@ func (s *Session) View() View {
 	w := s.w
 	v := View{Version: ViewVersion}
 	if w == nil {
+		noNulls(reflect.ValueOf(&v).Elem())
 		return v
 	}
 	known := game.Known(w)
@@ -419,7 +421,46 @@ func (s *Session) View() View {
 		v.Report = reportView(r)
 	}
 	v.Alerts = s.Alerts()
+	noNulls(reflect.ValueOf(&v).Elem())
 	return v
+}
+
+// noNulls makes every nil slice and map in v empty, all the way down
+// (#333): encoding/json writes a nil one as null, so a list would come
+// as [] one morning and null the next, and every client would have to
+// guard it. A nil pointer (over, card, books) is a field that is absent
+// and stays nil; each is omitempty, so none is ever null either. It
+// walks the view's own types, so a list added later is covered.
+func noNulls(v reflect.Value) {
+	switch v.Kind() {
+	case reflect.Pointer:
+		if !v.IsNil() {
+			noNulls(v.Elem())
+		}
+	case reflect.Struct:
+		for i := 0; i < v.NumField(); i++ {
+			if v.Type().Field(i).IsExported() {
+				noNulls(v.Field(i))
+			}
+		}
+	case reflect.Slice:
+		if v.IsNil() {
+			v.Set(reflect.MakeSlice(v.Type(), 0, 0))
+		}
+		for i := 0; i < v.Len(); i++ {
+			noNulls(v.Index(i))
+		}
+	case reflect.Map:
+		if v.IsNil() {
+			v.Set(reflect.MakeMap(v.Type()))
+		}
+		for _, k := range v.MapKeys() {
+			e := reflect.New(v.Type().Elem()).Elem()
+			e.Set(v.MapIndex(k))
+			noNulls(e)
+			v.SetMapIndex(k, e)
+		}
+	}
 }
 
 // reportView is the morning report as the view carries it.

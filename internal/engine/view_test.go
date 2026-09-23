@@ -312,3 +312,55 @@ func TestViewReadsTheFile(t *testing.T) {
 		t.Errorf("the view reads the truth; read game.Known(w):\n  %s", strings.Join(hits, "\n  "))
 	}
 }
+
+// TestViewHasNoNull (#333): no list or map in the view is ever null,
+// before a run, on day 0 and forty days in, so a client need not guard
+// one. A pointer that is absent (over, card, books) is left out, never
+// null.
+func TestViewHasNoNull(t *testing.T) {
+	t.Parallel()
+	fresh, err := engine.New(content.MustLoad())
+	if err != nil {
+		t.Fatal(err)
+	}
+	before := fresh.View()
+	fresh.NewRun(7, game.Start{})
+	day0 := fresh.View()
+	s, _ := playedSession(t, 40)
+	for name, v := range map[string]engine.View{"before a run": before, "day 0": day0, "day 40": s.View()} {
+		raw, err := json.Marshal(v)
+		if err != nil {
+			t.Fatal(err)
+		}
+		var doc any
+		if err := json.Unmarshal(raw, &doc); err != nil {
+			t.Fatal(err)
+		}
+		var nulls []string
+		var walk func(path string, x any)
+		walk = func(path string, x any) {
+			switch x := x.(type) {
+			case nil:
+				nulls = append(nulls, path)
+			case map[string]any:
+				for k, e := range x {
+					walk(path+"."+k, e)
+				}
+			case []any:
+				for _, e := range x {
+					walk(path+"[]", e)
+				}
+			}
+		}
+		walk("", doc)
+		if len(nulls) > 0 {
+			sort.Strings(nulls)
+			t.Errorf("the view %s has null at %v", name, nulls)
+		}
+	}
+	for _, list := range []string{`"houses":[]`, `"shipments":[]`, `"alerts":[]`, `"crew":[]`} {
+		if raw, _ := json.Marshal(before); !strings.Contains(string(raw), list) {
+			t.Errorf("the view before a run does not say %s", list)
+		}
+	}
+}
