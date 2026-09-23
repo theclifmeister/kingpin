@@ -219,6 +219,7 @@ The report's and the journal's alone, no cue (94): `AssetBought`, `AssetFrozen`,
 
 - `TestEveryKindIsCuedOrNot`.
 - `TestCueTableIsCurrent`.
+- `TestCueKindsIsEveryCue`: `engine.CueKinds()` (#328) lists the 17 cues, sorted. A front end holds its animation table to that list, as the web client's `TestWebClient` does (`docs/web.md`).
 - `TestCuesCarryIDs` plays 120 days of the boss. Every cue has a day. Every corner cue names a corner on the map, and every flip changes hands. Every shipment names its route, both cities and its id. Every crew cue names a member. Every police cue names a city and a level. The run sees at least one claim, shipment, hire, sale and police cue.
 - `TestProtocolIsTheSession` and `TestOverStdio` (phase 5) carry the cues in the event bytes they compare.
 
