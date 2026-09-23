@@ -445,7 +445,7 @@ func (m *Model) mapDetails() []section {
 	if head, ok := m.mapHead(sel); ok {
 		sec.title = head // #158: the name sliding in, rendered
 	}
-	return []section{sec}
+	return []section{sec, m.policeSection(m.shown())} // the police of the city shown (#355)
 }
 
 // cornerSection is the corner inspector: whose it is and since when,

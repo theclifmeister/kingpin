@@ -346,10 +346,12 @@ grudge = 1
 # ally_line ally_share of its front-line muscle joins their pushes on it
 # (yours too). A faction with no corners for absorb_days since another
 # took its last is absorbed by it (its muscle joins them); routed by you
-# or the police it regroups as it always did. The richest faction with
-# poach_cash corner-days in the chest offers your least loyal member
-# poach_mul their wages at poach_chance a night: under poach_line they
-# go, over it they stay a little less loyal (poach_dip). Its heat past
+# or the police it regroups as it always did while its chest covers a
+# claim, and scatters at absorb_days when it cannot (#370). The
+# richest faction with poach_cash corner-days in the chest offers your
+# least loyal member poach_mul their wages at poach_chance a night:
+# under poach_line they go, over it they stay a little less loyal
+# (poach_dip). Its heat past
 # leader_arrest_heat (your tips, #70) costs it its leader: it fragments,
 # its corners drift to the street over fragment_days in random order,
 # its city's products spike shock_mul for shock_days and its muscle turn

@@ -96,7 +96,7 @@ func (r *reporter) reportRivals(e events.Event) bool {
 	// the buy-off. The scout, the tip and the buy-off are report-only;
 	// the boost and the raid are news.
 	case events.RivalScouted:
-		r.scouted += ev.Cost
+		r.scouted = true // the cost is booked off the order (Step)
 		who := w.Faction(ev.Faction)
 		if who == nil {
 			who = w.Rival()
@@ -112,7 +112,7 @@ func (r *reporter) reportRivals(e events.Event) bool {
 		d.Corner, d.Rival = ev.Name, ev.Rival
 		d = r.crew(d, ev.Rival)
 		if ev.Taken {
-			r.boosted += ev.Cash
+			r.book(game.FlowOther, ev.Cash, 0)
 			r.add("rivals", "RivalBoosted", d)
 			rep.Territory = append(rep.Territory, fmt.Sprintf("Your enforcers robbed %s on %s: %s off their day's take, into your pocket. The corner is still theirs.", ev.Rival, ev.Name, format.Money(ev.Cash)))
 			rep.Money = append(rep.Money, fmt.Sprintf("Robbed %s on %s +%s", ev.Rival, ev.Name, format.Money(ev.Cash)))
@@ -140,7 +140,8 @@ func (r *reporter) reportRivals(e events.Event) bool {
 		d := base
 		d.Rival = ev.Rival
 		d = r.crew(d, ev.Rival)
-		r.poached += ev.Cost - ev.Refund
+		r.book(game.FlowInvestments, ev.Refund, 0) // the order's cost is booked off the order (Step)
+		r.poached = true
 		switch {
 		case ev.Failed:
 			rep.Territory = append(rep.Territory, fmt.Sprintf("Your money never reached %s's people, or they took it and stayed. %s knows you tried.", ev.Rival, ev.Rival))
@@ -204,10 +205,11 @@ func (r *reporter) reportRivals(e events.Event) bool {
 		}
 	case events.TributePaid:
 		if ev.ToYou {
+			r.book(game.FlowInvestments, ev.Amount, 0)
 			rep.Money = append(rep.Money, fmt.Sprintf("Homage from %s +%s", ev.Rival, format.Money(ev.Amount)))
 			break
 		}
-		r.tribute += ev.Amount
+		r.book(game.FlowInvestments, -ev.Amount, 0)
 		rep.Money = append(rep.Money, fmt.Sprintf("Tribute to %s -%s", ev.Rival, format.Money(ev.Amount)))
 	// The table (#43): factions fighting each other, one absorbing
 	// another, a leader taken, your crew poached, a betrayal

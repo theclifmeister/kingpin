@@ -9,6 +9,7 @@ import (
 	"github.com/charmbracelet/lipgloss"
 
 	"github.com/theclifmeister/kingpin/internal/format"
+	"github.com/theclifmeister/kingpin/internal/game"
 	"github.com/theclifmeister/kingpin/internal/ui/theme"
 )
 
@@ -82,11 +83,65 @@ func (m *Model) reportLines() []string {
 	}
 	section("CREW", crew, theme.CrewText)
 	section("TERRITORY", r.Territory, theme.RivalText)
-	section("MONEY", append(r.Money, fmt.Sprintf("Cash %s %s %s", cash(r.CashBefore), format.Arrow, cash(r.CashAfter))), theme.Gold)
+	section("MONEY", m.moneyLines(r), theme.Gold)
 	section("UPGRADES", r.Upgrades, theme.Gold)
 	section("NEWS", r.News, theme.Subtle)
 	for len(body) > 0 && body[len(body)-1] == "" {
 		body = body[:len(body)-1]
 	}
 	return body
+}
+
+// flowCols are the waterfall's columns (#351): the category, then the
+// two piles and both together.
+var flowCols = []col{{"flow", kText, 0}, {"dirty", kMoney, 0}, {"clean", kMoney, 0}, {"total", kMoney, 0}}
+
+// moneyLines is the report's MONEY section (#351): the night's cash
+// flow first, the opening, a row a category that moved (signed, dirty
+// and clean apart, one past [flow] big_share of the opening in red or
+// green) and the closing, which is the opening and the rows summed pile
+// by pile; then the itemised lines naming each cause, then the cash
+// before and after. A night that moved nothing is the lines alone.
+func (m *Model) moneyLines(r *game.DayReport) []string {
+	cashLine := fmt.Sprintf("Cash %s %s %s", cash(r.CashBefore), format.Arrow, cash(r.CashAfter))
+	f := r.Flow
+	var rows [][]any
+	for _, l := range f.Lines {
+		if l.Dirty == 0 && l.Clean == 0 {
+			continue
+		}
+		row := []any{game.FlowLabel(l.Cat), flowCell(l.Dirty), flowCell(l.Clean), signed{l.Total()}}
+		if f.Big(l, m.cfg.Headlines.Flow.BigShare) {
+			st := theme.Good
+			if l.Total() < 0 {
+				st = theme.Bad
+			}
+			for i := range row {
+				row[i] = styled{st, row[i]}
+			}
+		}
+		rows = append(rows, row)
+	}
+	if len(rows) == 0 {
+		return append(append([]string(nil), r.Money...), cashLine)
+	}
+	ends := func(label string, p game.Pools) []any {
+		return []any{styled{theme.Gold, label}, styled{theme.Gold, p.Dirty}, styled{theme.Gold, p.Clean}, styled{theme.Gold, p.Total()}}
+	}
+	rows = append([][]any{ends("Opening", f.Opening)}, rows...)
+	rows = append(rows, ends("Closing", f.Closing))
+	ls := table(flowCols, rows, -1, 0)
+	if len(r.Money) > 0 {
+		ls = append(ls, "")
+	}
+	return append(append(ls, r.Money...), cashLine)
+}
+
+// flowCell is one pile of a flow line: signed, and empty where the
+// pile did not move.
+func flowCell(n int) any {
+	if n == 0 {
+		return nil
+	}
+	return signed{n}
 }

@@ -26,6 +26,7 @@ type DayReport struct {
 	News       []string
 	CashBefore int
 	CashAfter  int
+	Flow       CashFlow // the night's money by category, dirty and clean (#351); CashBefore and CashAfter are its opening and closing
 }
 
 // Ending records how a run finished: the day, the cause (one of

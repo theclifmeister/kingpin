@@ -91,6 +91,13 @@ func list(ds []string) string {
 	return b.String()
 }
 
+// unwalked is what the digest leaves out: the report's cash flow
+// (#351), the night's money by category and the history of it. It is
+// the news sim's reading of the numbers the walk already hashes (the
+// piles, the report's lines and CASH BEFORE), no sim reads it, and a
+// change to its shape or its categories is a report's, never a number's.
+var unwalked = map[string]bool{"World.Flows": true, "DayReport.Flow": true}
+
 // digest is the world's hash: FNV-1a over a walk of every exported
 // value in a fixed order, floats to six decimals.
 func digest(w *game.World) string {
@@ -110,7 +117,7 @@ func walk(h interface{ Write([]byte) (int, error) }, v reflect.Value) {
 		walk(h, v.Elem())
 	case reflect.Struct:
 		for i := 0; i < v.NumField(); i++ {
-			if f := v.Type().Field(i); f.IsExported() {
+			if f := v.Type().Field(i); f.IsExported() && !unwalked[v.Type().Name()+"."+f.Name] {
 				put(f.Name)
 				walk(h, v.Field(i))
 			}
@@ -236,6 +243,17 @@ const (
 // the first morning a card is pending, by shape alone and no number
 // moved: with the field skipped the digest is the one before on all
 // sixty days).
+// Again for #351 (the report's cash flow, World.Flows and
+// DayReport.Flow, which the walk leaves out, unwalked): days 9, 24, 26
+// and 47 move by the report's words alone, a robbery's MONEY line
+// naming the corner and the city (`Robbed on Riverside in Eastside`)
+// where it read `Robbed on the corner`; days 57 to 60 by its numbers,
+// the lieutenant's skim no longer counted twice (once off
+// LieutenantActed and again inside the night's CrewSkimmed, so day 57's
+// MISSING FROM THE COUNT read $188 for $94 and CASH BEFORE sat $94
+// high; the flow reconciling pile by pile is what found it). No number
+// moved: with World.Report set aside on both sides the digest is
+// main's on all sixty days (checked again on top of #358).
 // Again for #341 (RivalState.ScoutingCity, ScoutDay, Recruited,
 // ScoutsHit and Cell, World.Takes, Today.HitScouts and three Stats added
 // to the walk; the move is on day 1 by shape alone and no number moved:
@@ -244,17 +262,17 @@ const (
 var seedDigest = []string{
 	"ca99e8d10e9c9c62", "8e8dbba35c18d29c", "5921ac88368f041e", "da9d7def10555d4e",
 	"99900c12d22c084a", "1b425da38c2cb454", "538313dae4cc42ce", "2964861688812df6",
-	"444fba7ecab2d6e4", "f738c01fb7745f4b", "9c9cf765128fc8ea", "66e34894910ee638",
+	"1f0fab279efbc122", "f738c01fb7745f4b", "9c9cf765128fc8ea", "66e34894910ee638",
 	"fdffed5d6793f030", "c204332ae229b1ab", "1abdd246d65d7fb7", "aa4c25c55c126d49",
 	"6112982d276cc64f", "4d672e1eae0234a6", "973f5899048ecea8", "7ce8b005abf655d2",
-	"4738d5be0703a658", "93b8029b0b341981", "1cc9f6a32f15f496", "bf0360fa07a96d3f",
-	"8c1d50511cabb9e3", "3bba914bd70435b5", "1fd908596a3cbe8d", "362f5af423608ac6",
+	"4738d5be0703a658", "93b8029b0b341981", "1cc9f6a32f15f496", "fc4e9b504f3298e7",
+	"8c1d50511cabb9e3", "dae30c264922980d", "1fd908596a3cbe8d", "362f5af423608ac6",
 	"9fcb817efb63c8ef", "6b7627c985a8157a", "569684c49aca0967", "83ebc863031e9d5d",
 	"cd728108fb90ecd6", "1c5f8fed669d4153", "1797a846dc6fdbda", "e2fd0bfe249826ea",
 	"4f991d37dbf4efa5", "b8c520776f96bcf0", "d0afe4e112dc4506", "53fcb3df14d34da4",
 	"ffaa5256656441f7", "4ac914b338e299dc", "5221d00c96a7baf8", "81ceb01b7fec29d2",
-	"ca97aee2db3114ec", "6a23d309447c87a4", "3287b492abcdb6cf", "4a3ddbaa6e94b843",
+	"ca97aee2db3114ec", "6a23d309447c87a4", "9e2137ebfb37fe19", "4a3ddbaa6e94b843",
 	"af053fe8a013d8e8", "12b5843c495e6480", "7c3b8c2968f49821", "7c1580c67cd31de2",
 	"ffd7d18f49a4b7da", "3f510aa265144978", "bb2a4e6f655b801c", "6d1a4e4fdb11fd91",
-	"75abc4a5b1dafa82", "aff14d6eaa6521d7", "c10162646ac818b8", "5f4a1f348947007c",
+	"8ae81bc912ec8179", "d23c3027270b5b8e", "33c3c2b1bca4a1c2", "54621d153b6a076c",
 }

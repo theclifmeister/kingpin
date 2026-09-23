@@ -15,6 +15,7 @@ The 14 -> 15 step (#43) is `rivals.Sim.MigrateFactions`: `World.SeatRival` seats
 The 15 -> 16 step (#45) is `game.MigrateBooks`: `Rival.Known`, the books a scout read, is gone (the read is four facts in `World.Intel`), so `Load` reads the old field off the stream a second time as `v15` (on every faction, and on a pre-15 save's one `Rival`) and files a read snapshot as the facts on the day it was read, fading from there as a fresh read would (`TestSaveFilesTheBooksRead`); every other #45 field is a zero value (`docs/intel.md`).
 The four second reads (`v6` before 7, `v9` before 10, `v14` before 15, `v15` before 16) are one table, `legacyReads` in `save.go` (#275): a row is the schema it applies below and the read that decodes the stream again (`decodeAgain[T]`) and hands the old shape to the field its migration consumes; `Load` runs the rows in order before the migrations and clears `legacy`, `old` and `books` after them.
 A new shape that gob cannot carry across is a row there.
+#351's cash flow needs no step: `World.Flows`, `DayReport.Flow`, `Answer.Cash` and the orders' `Clean` are zero on an old save, whose first morning's report has no flow and prints its money lines alone.
 
 **Saves without slots (#327).**
 A front end with no filesystem, such as a browser running the WebAssembly build, keeps the run itself as bytes.

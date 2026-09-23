@@ -97,7 +97,7 @@ func (w *World) Bail(id, cost int) (CrewMember, error) {
 	w.Stats.BailCash += cost
 	m.Bailed = true
 	m.JailedUntil = w.Day + 1
-	w.Crew.BailedToday = append(w.Crew.BailedToday, Payoff{ID: m.ID, Name: m.Name, Cost: cost})
+	w.Crew.BailedToday = append(w.Crew.BailedToday, Payoff{ID: m.ID, Name: m.Name, Cost: cost, Clean: cost})
 	return *m, nil
 }
 
@@ -114,10 +114,11 @@ func (w *World) Investigate(cost int) error {
 	if w.Today.Investigation != nil {
 		return ErrInvestigating
 	}
-	if !w.spend(cost) {
+	clean, ok := w.spend(cost)
+	if !ok {
 		return &ShortError{Need: cost, Have: w.Cash()}
 	}
-	w.Today.Investigation = &InvestigationOrder{Cost: cost}
+	w.Today.Investigation = &InvestigationOrder{Cost: cost, Clean: clean}
 	return nil
 }
 
@@ -131,11 +132,12 @@ func (w *World) PayOff(id, cost int, loyalty float64) (CrewMember, error) {
 	if m == nil {
 		return CrewMember{}, ErrNoMember
 	}
-	if !w.spend(cost) {
+	clean, ok := w.spend(cost)
+	if !ok {
 		return CrewMember{}, &ShortError{Need: cost, Have: w.Cash()}
 	}
 	m.Loyalty = math.Min(100, m.Loyalty+loyalty)
-	w.Crew.PaidOffToday = append(w.Crew.PaidOffToday, Payoff{ID: m.ID, Name: m.Name, Cost: cost})
+	w.Crew.PaidOffToday = append(w.Crew.PaidOffToday, Payoff{ID: m.ID, Name: m.Name, Cost: cost, Clean: clean})
 	return *m, nil
 }
 

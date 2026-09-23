@@ -27,6 +27,14 @@ func TestMoney(t *testing.T) {
 	}
 }
 
+func TestSigned(t *testing.T) {
+	for n, want := range map[int]string{0: "$0", 1200: "+$1,200", -300: "-$300"} {
+		if got := Signed(n); got != want {
+			t.Errorf("Signed(%d) = %q, want %q", n, got, want)
+		}
+	}
+}
+
 func TestPrice(t *testing.T) {
 	for v, want := range map[float64]string{19.5: "$19.50", 999.99: "$999.99", 2500: "$2,500", 10000: "$10,000", 2168.6: "$2,169"} {
 		if got := Price(v); got != want {

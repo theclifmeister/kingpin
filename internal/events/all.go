@@ -32,6 +32,6 @@ var All = []Event{
 	RivalMusclePoached{}, TierReached{}, HouseBought{}, HouseRobbed{}, HouseRaided{},
 	HouseLost{}, HouseCompromised{}, StockMoved{}, RentPaid{}, Overdose{}, StockCut{},
 	CookOrdered{}, Cooked{}, DeedBought{}, DeedsBought{}, DeedRent{}, DeedSeized{},
-	AssetBought{}, AssetFrozen{}, TaskForceFormed{}, AssetSeized{}, TunnelFound{},
+	AssetBought{}, AssetFrozen{}, AssetUpkeepPaid{}, TaskForceFormed{}, AssetSeized{}, TunnelFound{},
 	IntelGained{}, SpyPlanted{}, SpyFound{}, IntelFalse{},
 }
