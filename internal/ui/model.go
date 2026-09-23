@@ -12,6 +12,7 @@ import (
 	"github.com/charmbracelet/lipgloss"
 
 	"github.com/theclifmeister/kingpin/internal/content"
+	"github.com/theclifmeister/kingpin/internal/engine"
 	"github.com/theclifmeister/kingpin/internal/events"
 	"github.com/theclifmeister/kingpin/internal/game"
 	"github.com/theclifmeister/kingpin/internal/sim"
@@ -21,12 +22,11 @@ import (
 
 // Model is the root Bubble Tea model.
 type Model struct {
-	cfg   *content.Config
-	bus   *events.Bus
-	set   *sim.Set
-	clock *game.Clock
-	w     *game.World
-	opts  Options
+	cfg  *content.Config
+	sess *engine.Session // the run's engine (#296): the sims, the clock and the bus, one assembly
+	set  *sim.Set        // sess.Rules(), the sims' costs and previews until the session quotes them (#297)
+	w    *game.World     // sess.World(), the run on screen
+	opts Options
 
 	scene       *anim.Player // the scene on screen (#152), nil while none is: the tick chain runs on it
 	titleEffect string       // the effect the title loop's current pass plays (#153), the next pass avoids it
@@ -133,19 +133,17 @@ func NewSlot(cfg *content.Config, slot int, opts Options) (*Model, error) {
 }
 
 func wire(cfg *content.Config, opts Options) (*Model, error) {
-	set, sims, err := sim.Default(cfg)
+	sess, err := engine.New(cfg)
 	if err != nil {
 		return nil, err
 	}
-	bus := events.NewBus()
 	m := &Model{
-		cfg:   cfg,
-		bus:   bus,
-		set:   set,
-		clock: game.NewClock(bus, sims...),
-		opts:  opts,
+		cfg:  cfg,
+		sess: sess,
+		set:  sess.Rules(),
+		opts: opts,
 	}
-	bus.Subscribe(m.onEvent)
+	sess.Subscribe(m.onEvent)
 	m.now = time.Now
 	m.loadProfile()
 	return m, nil
@@ -202,7 +200,7 @@ func (m *Model) startRun(seed uint64) { m.startRunWith(seed, game.Start{}) }
 // DA and the daily the run begins as, sim.NewWorldWith's.
 func (m *Model) startRunWith(seed uint64, start game.Start) {
 	m.stop() // the title's loop ends with the menu
-	m.w = sim.NewWorldWith(m.cfg, seed, start)
+	m.w = m.sess.NewRun(seed, start)
 	m.unlocked = nil
 	m.mode = modePlay
 	m.screen = screenDashboard
@@ -220,7 +218,7 @@ func (m *Model) startRunWith(seed uint64, start game.Start) {
 		who = " " + ch.Name + "."
 	}
 	m.say(fmt.Sprintf("New run.%s %s, %s in your pocket. Seed %d.", who, m.w.Here().Name, money(m.w.Player.DirtyCash), m.w.Seed))
-	if err := game.Save(m.slot, m.w); err != nil {
+	if err := m.sess.Save(m.slot); err != nil {
 		m.alarm("Save failed: " + err.Error())
 	}
 	m.journalFilter = "" // a new run's journal is read whole
@@ -294,7 +292,7 @@ func (m *Model) cycleCity(d int) {
 // continueRun picks up the run saved in the slot, which is where it
 // saves from now on.
 func (m *Model) continueRun(slot int) error {
-	w, err := game.Load(slot, m.set.Migrations()...)
+	w, err := m.sess.Load(slot)
 	if err != nil {
 		return err
 	}
@@ -346,7 +344,7 @@ func (m *Model) endDay() {
 func (m *Model) stepDay() []events.Event {
 	m.flash = nil
 	m.fastStop = ""
-	evs := m.clock.EndDay(m.w)
+	evs := m.sess.EndDay()
 	m.save()
 	m.refreshJournal()
 	return evs
@@ -375,7 +373,7 @@ func (m *Model) morning(evs []events.Event) {
 func (m *Model) QuitErr() error { return m.quitErr }
 
 func (m *Model) save() {
-	if err := game.Save(m.slot, m.w); err != nil {
+	if err := m.sess.Save(m.slot); err != nil {
 		m.alarm("Save failed: " + err.Error())
 		return
 	}
@@ -577,7 +575,7 @@ func (m *Model) openDetails() {
 
 func (m *Model) quit() (tea.Model, tea.Cmd) {
 	if m.w != nil {
-		if err := game.Save(m.slot, m.w); err != nil {
+		if err := m.sess.Save(m.slot); err != nil {
 			m.quitErr = fmt.Errorf("the run was not saved: %w", err)
 		}
 	}

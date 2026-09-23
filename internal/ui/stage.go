@@ -6,7 +6,6 @@ import (
 
 	tea "github.com/charmbracelet/bubbletea"
 
-	"github.com/theclifmeister/kingpin/internal/game"
 	"github.com/theclifmeister/kingpin/internal/ui/theme"
 )
 
@@ -43,7 +42,7 @@ func (m *Model) keyStage(key string) (tea.Model, tea.Cmd) {
 	switch key {
 	case "enter", "esc", " ", "q":
 		m.w.SeeStage(m.stage)
-		if err := game.Save(m.slot, m.w); err != nil {
+		if err := m.sess.Save(m.slot); err != nil {
 			m.alarm("Save failed: " + err.Error())
 		}
 		m.showCard()
