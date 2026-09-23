@@ -236,15 +236,16 @@ const (
 // cmd/balance prints 2be03a7's trace to the dollar on boss, laundered
 // and distributor to day 200, TestNoEndingIsTheOldRun).
 // Again for #351 (the report's cash flow, World.Flows and
-// DayReport.Flow, which the walk leaves out, unwalked): day 9 moves by
-// the report's words alone, a robbery's MONEY line naming the corner
-// and the city (`Robbed on The Docks in Eastside`) where it read `Robbed
-// on the corner`; and day 57's numbers in the report, where the
-// lieutenant's skim was counted twice, once off LieutenantActed and
-// again inside the night's CrewSkimmed, so MISSING FROM THE COUNT read
-// $188 for $94 and CASH BEFORE sat $94 high (the flow reconciling pile
-// by pile is what found it). No number moved: with World.Report set
-// aside on both sides the digest is 0a96994's on all sixty days.
+// DayReport.Flow, which the walk leaves out, unwalked): days 9, 24, 26
+// and 47 move by the report's words alone, a robbery's MONEY line
+// naming the corner and the city (`Robbed on Riverside in Eastside`)
+// where it read `Robbed on the corner`; days 57 to 60 by its numbers,
+// the lieutenant's skim no longer counted twice (once off
+// LieutenantActed and again inside the night's CrewSkimmed, so day 57's
+// MISSING FROM THE COUNT read $188 for $94 and CASH BEFORE sat $94
+// high; the flow reconciling pile by pile is what found it). No number
+// moved: with World.Report set aside on both sides the digest is
+// main's on all sixty days (checked again at 08db337).
 var seedDigest = []string{
 	"31bdbbcf7a28923b", "355a11d031d938f5", "bb7cad44f580fbdb", "a666740b398f53bf",
 	"67250750f44c610e", "f35ef8dda06f0df0", "53d079d63526fef2", "9bf9595075126e90",

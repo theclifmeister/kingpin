@@ -34,7 +34,7 @@ Every night's change in cash is explained, opening to closing, by cause.
   - a greedy lieutenant's skim, counted once off `LieutenantActed` and again inside `CrewSkimmed`.
 - **The piles** of a cost taken dirty first and clean for the rest are kept where it is paid. `World.spend` returns the clean part for `InvestigationOrder.Clean`, `Payoff.Clean` and `ScoutOrder.Clean`, and `World.TakeCash` returns a `Pools`. `InvestigationRun`, `CrewPaidOff`, `RivalScouted`, `DebtPaid`, `DebtLate`, `ContractFailed` and `FallGuyBurned` carry `Clean`.
 - **The history.** `World.Flows` keeps the last `headlines.toml [flow] days` (14) nights, oldest first. It is the news sim's (`TestSimsWriteOnlyTheirOwnState`) and zero on a save from before it, so there is no schema bump.
-- **It is a report.** No sim reads it and it adds no dice. `TestSeedDigest` leaves `World.Flows` and `DayReport.Flow` out of its walk (`unwalked`). The report's own words moved on two days of the pinned run (day 9, a robbery's line naming its corner; day 57, the lieutenant's skim no longer counted twice), and no world number moved.
+- **It is a report.** No sim reads it and it adds no dice. `TestSeedDigest` leaves `World.Flows` and `DayReport.Flow` out of its walk (`unwalked`). The report's own words moved on eight days of the pinned run (days 9, 24, 26 and 47, a robbery's line naming its corner; days 57 to 60, the lieutenant's skim no longer counted twice), and no world number moved.
 - `TestFlowIsTheReportersTotals` holds the lines to the night's events read on their own: the sales, the losses, the tax and the wash's dirty side.
 
 **The TUI.**
