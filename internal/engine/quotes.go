@@ -127,6 +127,7 @@ type HeatRules interface {
 	DirtyCashThreshold(w *game.World) int
 	Due(w *game.World) string
 	EvidenceArrest(w *game.World) int
+	ExposureLine(w *game.World) int
 	ForfeitEvidence() int
 	Hottest(w *game.World) *game.City
 	Ladder(w *game.World, city *game.City) []content.ResponseConfig
