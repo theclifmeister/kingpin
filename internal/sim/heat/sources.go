@@ -282,8 +282,8 @@ func (s *Sim) sloppy(d *day) {
 // the reasons where you are read in that order.
 func (s *Sim) dirtyCash(d *day) {
 	w := d.w
-	if thr := s.DirtyCashThreshold(w); thr > 0 && w.Player.DirtyCash > thr+s.Cover(w) {
-		mult := float64(w.Player.DirtyCash-thr-s.Cover(w)) / float64(thr)
+	if line := s.ExposureLine(w); line > 0 && w.Player.DirtyCash > line {
+		mult := float64(w.Player.DirtyCash-line) / float64(s.DirtyCashThreshold(w))
 		d.add(d.here, d.tun.DirtyCashHeat*mult, "dirty cash")
 	}
 }

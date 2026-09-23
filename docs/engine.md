@@ -145,7 +145,7 @@ It is what a front end in another process draws from, and it holds no pointer in
   - The server answers every request. Before the response it sends the notifications the call caused: every `event` the day published (`{"kind", "day", "payload"}`, the kind being the event's stable `Kind()`), then a `view` (the whole `engine.View`) after any call that may have changed the run.
   - A client that waits for its response has already read everything the call caused.
   - The server is one loop on one goroutine: read a line, run it, write and flush. It holds no lock and starts no goroutine, and `TestNoGoroutineInTheTree` walks the package like the rest of `internal/`.
-- **The methods, 81 in all** (and the 146 quotes #325 added, below).
+- **The methods, 81 in all** (and the 147 quotes #325 added, below).
   - **68 commands.** Each session command is served under its name in snake_case (`buy`, `place_sell`, `buy_checkpoint`, `scout_faction`, …) by reflection over `engine.Session` (`protocol.commands`), with its parameters in order. A dial goes in by name (`"aggressive"`, `"fair"`, `"push"`), refused with the names listed when it matches none. Terms go as an object (`{"days", "per_day", "corners", "route", "units"}`). The result is the command's value, or null.
   - **8 queries.** `view`, `alerts`, `gates_ahead`, `next_gates`, `front_offers`, `asset_offers`, `house_offers`, `float_matters`.
   - **5 lifecycle methods, by hand.**
@@ -174,7 +174,7 @@ It is what a front end in another process draws from, and it holds no pointer in
 **The quotes (#325).**
 A front end in another process prices a move before it makes it, with the numbers the TUI reads.
 `internal/protocol/rules.go` serves every method of `engine.Rules` as `rules.<sim>.<method>` in snake_case: `rules.market.capacity`, `rules.crew.investigate_cost`, `rules.rivals.odds_on_at`.
-That is 146 methods, which makes 229 on the wire with #327's `export_save` and `import_save`.
+That is 147 methods (#350 added `rules.heat.exposure_line`), which makes 230 on the wire with #327's `export_save` and `import_save`.
 A quote needs a run, changes nothing and sends nothing but its answer: no `view` follows it.
 
 - **The world is the server's.** A rule's `*game.World` is the run's and never a parameter.
@@ -199,7 +199,7 @@ A quote needs a run, changes nothing and sends nothing but its answer: no `view`
 - `TestEveryRuleIsClassed`: every method of every `Rules` interface is served or in `unservedRules`, and every one has its names.
 - `TestRuleNamesAreCurrent`: `rules_names.go` is `quotes.go`'s names.
 - `TestNoTruthOnTheWire` walks every quote's result type and fails on a `game.World`, `game.RivalState`, `game.Chief`, `game.Fact` or `content.RouteConfig` anywhere inside.
-- `TestEveryQuoteIsTheRules` runs sixty days of the boss on seed 7 and lays one of every thing a rule takes by id. It asks all 146 quotes over the wire and compares each answer with `Session.Rules()` asked in the process. The run's JSON is byte-identical before and after.
+- `TestEveryQuoteIsTheRules` runs sixty days of the boss on seed 7 and lays one of every thing a rule takes by id. It asks all 147 quotes over the wire and compares each answer with `Session.Rules()` asked in the process. The run's JSON is byte-identical before and after.
 - `TestQuoteRefusals` covers:
   - an unknown corner, faction or member;
   - a day before today or after tomorrow;
