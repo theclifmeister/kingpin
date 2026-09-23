@@ -228,20 +228,24 @@ const (
 // days, the boss's legit income under zero and nothing ending, and
 // cmd/balance prints 2be03a7's trace to the dollar on boss, laundered
 // and distributor to day 200, TestNoEndingIsTheOldRun).
+// Again for #342 (DilemmaState.Owes added to the walk; the move is on
+// day 1 by shape alone and no number moved: with the field skipped the
+// digest is the list before it on all sixty days, the digest's run
+// answering no card).
 var seedDigest = []string{
-	"31bdbbcf7a28923b", "355a11d031d938f5", "bb7cad44f580fbdb", "a666740b398f53bf",
-	"67250750f44c610e", "f35ef8dda06f0df0", "53d079d63526fef2", "9bf9595075126e90",
-	"845275631bf78766", "49a85bb422c32fed", "28cf2d7e8bba96a8", "bd57ef944f81b1e8",
-	"83d98378a8f69e20", "2328a6e9171d11c3", "42bcdb92364468d3", "c7f5bb78980f6791",
-	"5900e6261d2bf2cb", "1a24c745afc805c4", "4dc63bf960aa2804", "d323975859800bb2",
-	"ae79813887ccc762", "afe7a0a84dafee2f", "875c0861e23837fa", "a41e6301750797a9",
-	"eaeb9f9359a80a6b", "c78e88339afc8abb", "80840584fc39dc17", "d306fb35041bbba4",
-	"addbdbdca1a67e83", "907d08b021df6a9c", "2ff2a1f811bad693", "555bc856e33ae255",
-	"b82722b174223750", "0afcee74ed366df9", "a182e260da607a62", "be5f2ea83714f95e",
-	"3ba1deb8e9ca4d51", "0e5a981a29c1cadc", "044f74fff789bd34", "9aff97bed620267c",
-	"f60843c8743a4c81", "e938c0c5166b3a6e", "7dc3fc8f4321df98", "bab3ce384810c206",
-	"afd478f6d6054386", "ce51e4a294b998a0", "bb33b61f7241fb23", "b8f745acbdaf2455",
-	"16673d5fa4ecbe02", "90f86248441cb24a", "ad4dd8a154f244bb", "3c4e0b5791e9fa30",
-	"b63045c6e62c42fe", "dc92701f665b1c20", "9176ee5c73b6e978", "767ab988baf93b29",
-	"e50fbe3b4e71832e", "89b7499320818e67", "57d6977869327446", "be92475b2b988db6",
+	"0a185cd20b737fe7", "e94ccd608b8fccc1", "7b19268dcb2f9ef7", "672ed40fbdb47bb3",
+	"d31389711036afc4", "9cc093044d4c5b7a", "98bd25d2abd4e264", "746c41b5a4611102",
+	"f09d5f56ef834112", "9377b0f44114e537", "90f5369e4eea04b6", "159264c1c428c11c",
+	"cb3655e8c9b7f294", "9d17ae2367d5e22d", "b33a9121a4cc9ecd", "b697576300afcb07",
+	"b5752f608d191eaf", "747cc51f84eb0ee2", "681c6e01a9e09168", "283d244fe7860fc8",
+	"8f90ee63cf7dfde6", "12c954e3f269fa23", "54fad5957a679148", "17f620cf82546b4d",
+	"2811f1bed857320f", "647fa77ba82f4c09", "c2aaadfa67dc308b", "9b5ad50fee10c1a6",
+	"2afa95403849dc65", "dc100c17b8ca2840", "413fd63c3056800d", "cd41a0c2137c52c1",
+	"bef419464b3faf5a", "999de60ee8b0fdef", "6fea823852387c28", "2ad5c1f07ccb2eca",
+	"90338d418a51afe3", "30da35fcc9eb5dea", "b3183055900b02de", "b31289af0fb1cb6e",
+	"2524a3046a4a8abd", "6e966bc394300282", "ec5fdd8072af5942", "10a96da674bec698",
+	"6071d846f1206062", "d061a739c56debd6", "547732ee57456e4f", "1b68e77e6ad0050b",
+	"6f2b55675785c568", "94947ec4e37d7d06", "d51fc2f5d30a62ed", "2a2ab4beba0136e2",
+	"dece5535472948a0", "a82757cfed1a80c6", "cca6e0b9d5e7dcf4", "69932100060eef3b",
+	"e238ea34a8f5c2d2", "fefb4e7b5fcf9743", "12989fd5cca62502", "bd4dc23168e40e42",
 }

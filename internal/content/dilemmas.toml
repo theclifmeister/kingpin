@@ -14,9 +14,21 @@
 #   war, grudge, rival_muscle, rival_cash
 #   stock_share                fraction of every product, lost if negative
 #   fear, respect, notoriety   reputation axes (#14), 0..100
+#   corner                     negative only: give the named corner up
+#   owes                       favours owed; a card's owes_min collects
 # A key the world does not know fails at start-up. Amount is amount_share
 # of the player's dirty cash (the bag it is paid from), but at least
-# amount, rounded to two figures.
+# amount, rounded to two figures, and at most amount_max.
+#
+# Stakes (#342): every card says what kind of sum it names.
+#   personal  a fixed range, amount up to a required amount_max: a
+#             furnace stays a furnace however big the bag gets
+#   business  a share of the bag, amount_max optional
+# From rich_tier on a card is drawn at weight_rich, or at rich_rest times
+# its weight if it sets none, so a rich player's deck is mostly the band
+# at the end of the file, whose choices cost standing, ground or a
+# favour, not a bigger number; the cards that only cost money sink to
+# weight_rich = 0.1.
 #
 # Slots: {{.Name}} {{.Role}} (the member), {{.Corner}} (yours), {{.Theirs}}
 # (the rival corner it borders, when contested), {{.Rival}} (the leader),
@@ -33,6 +45,8 @@
 [dilemmas]
 min_gap = 5
 max_gap = 8
+rich_tier = 4   # Distribution: $500K moved
+rich_rest = 0.2 # the weight past rich_tier of a card with no weight_rich, times its own
 
 # ---------------------------------------------------------------- crew
 
@@ -40,6 +54,7 @@ max_gap = 8
 id = "stash_hit"
 title = "A night's work"
 text = "{{.Name}} has been watching {{.Rival}}'s stash house for a week and says three people could clear it tonight. Maybe {{.Amount}} in there. Nobody would know who did it, {{.Name}} says. Everybody would know who did it."
+stakes = "business"
 amount = 800
 amount_share = 0.25
 [card.trigger]
@@ -77,8 +92,10 @@ notoriety = 3
 id = "wants_raise"
 title = "A word about money"
 text = "{{.Name}} catches you on the stairs. Rent is up, the kid needs shoes, and {{.Rival}} pays better, or so people say. {{.Amount}} would show some respect."
+stakes = "personal"
 amount = 200
 amount_share = 0.06
+amount_max = 5000
 [card.trigger]
 loyalty_below = 50
 crew_min = 1
@@ -106,8 +123,10 @@ fear = 2
 id = "runner_arrested"
 title = "One of yours is in the cells"
 text = "{{.Name}} got picked up on {{.Corner}} with a pocketful. The lawyer says {{.Amount}} tonight gets them out before anyone thinks to ask questions. Or they sit, and think about who put them there."
+stakes = "personal"
 amount = 400
 amount_share = 0.12
+amount_max = 10000
 [card.trigger]
 role = "runner"
 heat_min = 25
@@ -140,8 +159,10 @@ respect = -3
 id = "hand_in_the_bag"
 title = "A hand in the bag"
 text = "The count was short again and this time {{.Name}} was seen. Not much, {{.Amount}} maybe, but everyone knows, and everyone is watching what you do about it."
+stakes = "personal"
 amount = 150
 amount_share = 0.04
+amount_max = 5000
 [card.trigger]
 loyalty_below = 35
 crew_min = 2
@@ -171,8 +192,10 @@ respect = -2
 id = "funeral"
 title = "A funeral"
 text = "{{.Name}}'s brother was shot outside a bar on the south side. Nothing to do with you. The family cannot afford to bury him properly, and the crew are waiting to see what a boss does."
+stakes = "personal"
 amount = 300
 amount_share = 0.05
+amount_max = 15000
 [card.trigger]
 crew_min = 2
 loyalty_above = 1 # names the most loyal member, whose brother it is (#349)
@@ -199,8 +222,11 @@ crew_loyalty = -5
 id = "wants_a_gun"
 title = "Hardware"
 text = "{{.Name}} wants to carry. Says the corners are getting hot and an enforcer with nothing in their waistband is just a big target. {{.Amount}} for something clean, no history."
+stakes = "personal"
 amount = 350
 amount_share = 0.05
+amount_max = 3000
+weight_rich = 0.1
 [card.trigger]
 role = "enforcer"
 heat_min = 20
@@ -223,8 +249,11 @@ respect = 1
 id = "block_party"
 title = "The block wants a party"
 text = "The crew want to throw a party for the block: music, a grill, {{.Amount}} of goodwill. The neighbours would love it. So would every patrol car within a mile."
+stakes = "personal"
 amount = 400
 amount_share = 0.05
+amount_max = 20000
+weight_rich = 0.1
 [card.trigger]
 crew_min = 3
 cash_min = 1000
@@ -255,6 +284,7 @@ crew_loyalty = -3
 id = "cops_daughter"
 title = "Complicated"
 text = "{{.Name}} is seeing somebody. Nice, by all accounts. Her father is a sergeant at the precinct that covers {{.Corner}}. {{.Name}} says it is nobody's business."
+stakes = "personal"
 [card.trigger]
 crew_min = 1
 loyalty_above = 30
@@ -286,6 +316,7 @@ loyalty = 3
 id = "sit_down"
 title = "A sit-down"
 text = "Word comes from {{.Rival}}: a meeting, neutral ground, no hardware. Split the city and stop bleeding money on each other. It could be an olive branch. It could be a room with one door."
+stakes = "business"
 [card.trigger]
 rival = true
 war_min = 20
@@ -315,8 +346,10 @@ war = -5
 id = "poaching"
 title = "Poaching"
 text = "{{.Rival}}'s people have been buying {{.Name}} drinks and talking numbers. Double wages, they say. {{.Name}} has not said yes. {{.Name}} has not said no either."
+stakes = "personal"
 amount = 300
 amount_share = 0.06
+amount_max = 10000
 [card.trigger]
 rival = true
 loyalty_below = 55
@@ -344,6 +377,7 @@ loyalty = -12
 id = "shipment"
 title = "A shipment"
 text = "{{.Rival}}'s connect brings a load through the docks tonight, one car, two people. You know the route. Maybe {{.Amount}} in product and cash if it went missing."
+stakes = "business"
 amount = 1500
 amount_share = 0.3
 [card.trigger]
@@ -380,8 +414,10 @@ rival_cash = 1000
 id = "detective_lean"
 title = "A friendly detective"
 text = "A detective with expensive shoes offers to make {{.Rival}}'s life difficult for a month. Stops, searches, a raid or two. {{.Amount}}, cash, no receipt."
+stakes = "business"
 amount = 800
 amount_share = 0.15
+amount_max = 100000
 [card.trigger]
 rival = true
 heat_min = 10
@@ -404,9 +440,11 @@ notoriety = -1
 id = "turncoat"
 title = "A turncoat"
 text = "One of {{.Rival}}'s people wants out and wants in with you. They know where {{.Rival}} keeps the money and who they pay. They also might be exactly what they look like: a plant."
+stakes = "business"
 amount = 300
 amount_share = 0.05
 weight = 2
+amount_max = 50000
 [card.trigger]
 rival = true
 war_min = 20
@@ -434,6 +472,7 @@ respect = 2
 id = "rival_laid_up"
 title = "{{.Rival}} is in hospital"
 text = "{{.Rival}} went into hospital last night. Nothing to do with you. Their crew are standing around on {{.Theirs}} looking at each other. Everybody knows this is the week to move, if you are going to."
+stakes = "business"
 [card.trigger]
 rival = true
 contested = true
@@ -461,8 +500,10 @@ war = -2
 id = "leave_by_friday"
 title = "A deadline"
 text = "A note under the door: {{.Rival}} wants {{.Corner}} cleared by Friday. Your people can keep their legs if they go quietly. {{.Rival}} has taken corners before. {{.Rival}} means it."
+stakes = "business"
 amount = 500
 amount_share = 0.1
+amount_max = 250000
 [card.trigger]
 rival = true
 personality = "expansionist"
@@ -495,6 +536,7 @@ grudge = 1
 id = "torched_car"
 title = "A car on fire"
 text = "Somebody torched a car outside your place last night. Nobody's car in particular, which is the point. {{.Rival}}'s crew were laughing about it on {{.Theirs}} this morning."
+stakes = "business"
 [card.trigger]
 rival = true
 personality = "chaotic"
@@ -526,6 +568,7 @@ war = 2
 id = "line_on_the_map"
 title = "A line on the map"
 text = "{{.Rival}} sends a map with a line drawn across it: their side, yours. They do not want the city. They want to be left alone, and to leave you alone. Nobody crosses, nobody talks to the police."
+stakes = "business"
 [card.trigger]
 rival = true
 personality = "defensive"
@@ -547,6 +590,7 @@ rival_muscle = 1
 id = "bulk_buyer"
 title = "A bulk buyer"
 text = "{{.Rival}} is short of {{.Product}} and sends word: they will buy a third of what you are holding, cash, {{.Amount}}, no questions. Today only. Selling to the competition is money. It is also selling to the competition."
+stakes = "business"
 amount = 400
 amount_share = 0.15
 [card.trigger]
@@ -573,8 +617,10 @@ war = 2
 id = "lose_a_file"
 title = "A file goes missing"
 text = "A detective you have never met sits down across from you in a diner. There is a file with your name on it. For {{.Amount}} it could get lost in the move to the new building. He orders pie."
+stakes = "business"
 amount = 600
 amount_share = 0.15
+amount_max = 100000
 [card.trigger]
 heat_min = 40
 [[card.choice]]
@@ -601,8 +647,10 @@ fear = 2
 id = "reporter"
 title = "A reporter"
 text = "A reporter has been on {{.Corner}} with a notebook asking the runners for their names. She has a byline and a photographer, and a story about a young outfit in {{.City}} is a story about you."
+stakes = "personal"
 amount = 200
 amount_share = 0.04
+amount_max = 2000
 [card.trigger]
 heat_min = 25
 corners = 1
@@ -634,8 +682,10 @@ notoriety = 2
 id = "witness"
 title = "A witness"
 text = "A woman who has lived over {{.Corner}} for forty years saw the last stick-up from her window, and the police have been round twice with photographs. She likes her tea and her quiet."
+stakes = "personal"
 amount = 500
 amount_share = 0.1
+amount_max = 20000
 [card.trigger]
 heat_min = 30
 corners = 1
@@ -663,8 +713,10 @@ heat = 6
 id = "sergeant"
 title = "The sergeant's rate"
 text = "The sergeant whose cars roll through {{.Corner}} sends a uniform round with a number: {{.Amount}}, and his cars find other streets to roll through for a while. It is not a request so much as a price list."
+stakes = "business"
 amount = 300
 amount_share = 0.08
+amount_max = 50000
 [card.trigger]
 heat_min = 20
 corners = 1
@@ -685,8 +737,10 @@ fear = 1
 id = "sweep_tip"
 title = "A tip"
 text = "A patrolman you once did a favour for calls from a payphone: they are sweeping the corners tomorrow, every one, warrants or not. He would like something for the call. He would also like you to remember he made it."
+stakes = "personal"
 amount = 200
 amount_share = 0.05
+amount_max = 5000
 [card.trigger]
 heat_min = 35
 crew_min = 1
@@ -711,8 +765,11 @@ crew_loyalty = -3
 id = "church_roof"
 title = "The church roof"
 text = "The pastor from the church on {{.Corner}} comes by, hat in hand. The roof leaks and the collection does not cover it. He knows what you do. He also knows who fixes roofs in this neighbourhood."
+stakes = "personal"
 amount = 300
 amount_share = 0.05
+amount_max = 50000
+weight_rich = 0.1
 [card.trigger]
 cash_min = 1500
 corners = 1
@@ -741,8 +798,11 @@ heat = 1
 id = "counterfeit"
 title = "Funny money"
 text = "{{.Name}} took {{.Amount}} in twenties on {{.Corner}} last night and every one of them is fake. Good fakes. Somebody is passing paper on your corners and {{.Name}} did not check."
+stakes = "business"
 amount = 200
 amount_share = 0.06
+amount_max = 20000
+weight_rich = 0.1
 [card.trigger]
 role = "runner"
 cash_min = 800
@@ -771,8 +831,11 @@ loyalty = 6
 id = "the_car"
 title = "A boss's car"
 text = "The crew have started saying it: a boss should not be pulling up in that. {{.Amount}} gets something with tinted windows and a sound system. Everyone on the street would know it. Everyone."
+stakes = "personal"
 amount = 3000
 amount_share = 0.15
+amount_max = 150000
+weight_rich = 0.1
 [card.trigger]
 cash_min = 20000
 crew_min = 2
@@ -795,8 +858,11 @@ respect = 1
 id = "cousins_books"
 title = "The cousin's books"
 text = "An accountant with a nervous cousin who owns a car wash offers to run {{.Amount}} through the books this month. Seventy cents on the dollar comes back clean. He has done it before. He says."
+stakes = "business"
 amount = 1000
 amount_share = 0.2
+amount_max = 250000
+weight_rich = 0.1
 [card.trigger]
 cash_min = 5000
 [[card.choice]]
@@ -813,10 +879,13 @@ outcome = "You passed on the car wash. The pile stays dirty."
 id = "card_game"
 title = "A game upstairs"
 text = "There is a card game above the club tonight, the kind with a doctor, a councilman and a man nobody introduces. Your name came up. Sitting down costs {{.Amount}}; sitting down means being seen."
-amount = 500
+stakes = "personal"
+amount = 10000
 amount_share = 0.1
+amount_max = 100000
+weight_rich = 0.1
 [card.trigger]
-cash_min = 3000
+cash_min = 20000
 [[card.choice]]
 label = "Sit in"
 outcome = "You sat in and walked out up {{.Amount}}. The councilman knows your name."
@@ -834,8 +903,11 @@ notoriety = -1
 id = "permit"
 title = "A man from the city"
 text = "A man from the city with a clipboard says {{.Front}} is operating without the right permit. {{.Amount}}, in clean money, and the paperwork appears. Otherwise there will be an inspection, and inspectors look at books."
+stakes = "business"
 amount = 400
 amount_share = 0.05
+amount_max = 50000
+weight_rich = 0.1
 [card.trigger]
 fronts = true
 [[card.choice]]
@@ -853,8 +925,11 @@ heat = 5
 id = "mother_calls"
 title = "Your mother calls"
 text = "Your mother calls. The furnace is out, the landlord is useless, and she does not ask what you do for a living because she does not want to know. {{.Amount}} would fix it. She did not ask."
+stakes = "personal"
 amount = 250
 amount_share = 0.04
+amount_max = 5000
+weight_rich = 0.1
 [card.trigger]
 cash_min = 1000
 day_min = 10
@@ -879,6 +954,7 @@ crew_loyalty = -2
 id = "kid_on_the_corner"
 title = "A kid on the corner"
 text = "A twelve-year-old has been hanging around {{.Corner}} asking to hold the bag. Quick, fearless, and the police cannot charge him with much. Every outfit in {{.City}} uses kids. That is one reason people hate them."
+stakes = "business"
 [card.trigger]
 corners = 1
 crew_min = 1
@@ -895,3 +971,235 @@ dirty_cash = 200
 heat = 4
 respect = -4
 notoriety = 2
+
+# ---------------------------------------------------------------- rich
+#
+# The rich band (#342): gated on $500K moved and drawn at weight_rich
+# from rich_tier on. Past a few million a sum is noise, so these cost
+# standing, ground, people or a favour. Every one has a choice that moves
+# something other than cash (TestRichCardsMoveMoreThanCash).
+
+[[card]]
+id = "peace_for_a_corner"
+title = "Peace has a price"
+text = "{{.Rival}} sends word through a priest: the shooting stops tomorrow if {{.Corner}} is theirs. No money changes hands. Your people walk off it, theirs walk on, and everyone on {{.Theirs}} goes home at night."
+stakes = "business"
+weight_rich = 4
+[card.trigger]
+rival = true
+contested = true
+peak_cash_min = 500000
+[[card.choice]]
+label = "Double the guard on {{.Corner}}"
+outcome = "You put more people on {{.Corner}}. {{.Rival}} took it as an answer."
+[card.choice.effects]
+war = 10
+grudge = 1
+crew_loyalty = 2
+fear = 4
+[[card.choice]]
+label = "Give up {{.Corner}}"
+outcome = "You walked your people off {{.Corner}}. The shooting stopped."
+headline = "A quiet week on {{.City}}'s corners; police credit 'community work'"
+[card.choice.effects]
+corner = -1
+war = -35
+grudge = -2
+crew_loyalty = -4
+respect = -3
+[[card.choice]]
+label = "Send the priest back"
+outcome = "You sent the priest back with nothing. {{.Rival}} is still waiting."
+[card.choice.effects]
+war = 5
+
+[[card]]
+id = "councilman"
+title = "A councilman's favour"
+text = "A councilman you have met twice, both times at funerals, says the task force could be persuaded to look at somebody else in {{.City}} for a while. He does not want money. He wants to be owed, and he will say when."
+stakes = "business"
+weight_rich = 4
+once = true
+[card.trigger]
+heat_min = 20
+peak_cash_min = 500000
+[[card.choice]]
+label = "Owe him"
+outcome = "The councilman made a call. You owe him one, and he knows it."
+[card.choice.effects]
+heat = -15
+owes = 1
+notoriety = -2
+[[card.choice]]
+label = "Owe nobody"
+outcome = "You thanked him and owed him nothing. He did not look surprised."
+[card.choice.effects]
+respect = 2
+
+[[card]]
+id = "favour_due"
+title = "The favour comes due"
+text = "The councilman calls. A developer friend of his wants the block {{.Corner}} stands on for condominiums, and your people are in the brochure photos. He is not asking. He is reminding you what you owe."
+stakes = "business"
+amount = 50000
+amount_share = 0.02
+amount_max = 500000
+weight_rich = 4
+[card.trigger]
+owes_min = 1
+corners = 1
+peak_cash_min = 500000
+[[card.choice]]
+label = "Buy him off: {{.Amount}}"
+outcome = "You paid the councilman {{.Amount}} to forget the favour. He took it."
+[card.choice.effects]
+dirty_amount = -1
+owes = -1
+respect = -3
+[[card.choice]]
+label = "Give him {{.Corner}}"
+outcome = "You gave the councilman {{.Corner}}. The debt is paid."
+headline = "Council approves {{.City}} redevelopment; residents object"
+[card.choice.effects]
+corner = -1
+owes = -1
+heat = -5
+crew_loyalty = -3
+[[card.choice]]
+label = "Tell him no"
+outcome = "You told the councilman no. The task force remembered your name."
+[card.choice.effects]
+owes = -1
+heat = 20
+notoriety = 4
+
+[[card]]
+id = "the_wedding"
+title = "A scene at a wedding"
+text = "{{.Name}} broke the nose of {{.Rival}}'s nephew at a wedding, in front of the bride. {{.Rival}} wants {{.Name}} to come and apologise on their ground, alone. The whole city is watching what you let happen to your own."
+stakes = "business"
+weight_rich = 4
+[card.trigger]
+rival = true
+crew_min = 2
+loyalty_above = 1
+peak_cash_min = 500000
+[[card.choice]]
+label = "Send {{.Name}} to apologise"
+outcome = "{{.Name}} apologised, alone, and came back with a black eye."
+[card.choice.effects]
+loyalty = -20
+war = -15
+grudge = -1
+respect = -2
+[[card.choice]]
+label = "Go yourself, with {{.Name}}"
+outcome = "You went with {{.Name}} and did the talking. {{.Rival}} was impressed."
+[card.choice.effects]
+loyalty = 10
+war = -10
+grudge = -1
+respect = 4
+heat = 3
+[[card.choice]]
+label = "Nobody goes anywhere"
+outcome = "Nobody went. {{.Rival}}'s family will remember the wedding."
+[card.choice.effects]
+loyalty = 5
+war = 15
+grudge = 2
+fear = 3
+
+[[card]]
+id = "a_say"
+title = "A say"
+text = "{{.Name}} has been with you since the first corner and says so, at the table, in front of everyone. They want a say now: who gets hired, who gets cut, whose name gets said. It is not really a question."
+stakes = "personal"
+weight_rich = 4
+[card.trigger]
+crew_min = 3
+loyalty_above = 50
+peak_cash_min = 500000
+[[card.choice]]
+label = "Give {{.Name}} a say"
+outcome = "{{.Name}} has a say now. The others watch who they talk to."
+[card.choice.effects]
+loyalty = 20
+crew_loyalty = -4
+respect = 2
+[[card.choice]]
+label = "Remind {{.Name}} whose name it is"
+outcome = "You reminded {{.Name}} whose name is on it. Everyone heard."
+[card.choice.effects]
+loyalty = -25
+crew_loyalty = 2
+fear = 5
+[[card.choice]]
+label = "Change the subject"
+outcome = "You changed the subject. {{.Name}} let you, this time."
+[card.choice.effects]
+loyalty = -8
+
+[[card]]
+id = "the_gala"
+title = "A table at the gala"
+text = "{{.Front}} is invited to the mayor's charity gala: a table for ten at {{.Amount}}, your name in the programme beside judges and bankers. Everyone will see you there. That is the point, and the problem."
+stakes = "personal"
+amount = 25000
+amount_share = 0.01
+amount_max = 100000
+weight_rich = 4
+[card.trigger]
+fronts = true
+peak_cash_min = 500000
+[[card.choice]]
+label = "Buy the table"
+outcome = "You sat with the mayor's people. Half the room knew who you were."
+headline = "Mayor's gala raises record sum for {{.City}} schools"
+[card.choice.effects]
+clean_amount = -1
+respect = 6
+notoriety = 5
+heat = -5
+[[card.choice]]
+label = "Send a cheque, stay home"
+outcome = "You sent a cheque and stayed home. The mayor sent a thank-you note."
+[card.choice.effects]
+clean_amount = -0.3
+respect = 2
+[[card.choice]]
+label = "Decline"
+outcome = "You declined. The seat went to a man who sells insurance."
+[card.choice.effects]
+notoriety = -1
+
+[[card]]
+id = "the_petition"
+title = "A petition"
+text = "The grandmothers on {{.Corner}} have started a petition: no more selling outside the school. Three hundred names, and a meeting with the precinct on Thursday. They are not afraid of you, which is new."
+stakes = "business"
+weight_rich = 4
+[card.trigger]
+corners = 1
+peak_cash_min = 500000
+[[card.choice]]
+label = "Have a word with their sons"
+outcome = "Somebody talked to their sons. The petition lost two hundred names."
+[card.choice.effects]
+fear = 8
+respect = -8
+notoriety = 4
+[[card.choice]]
+label = "Move the trade off {{.Corner}}"
+outcome = "You gave {{.Corner}} back to the grandmothers. The school is quiet."
+headline = "{{.City}} residents claim victory over corner dealers"
+[card.choice.effects]
+corner = -1
+respect = 8
+heat = -8
+[[card.choice]]
+label = "Ignore the petition"
+outcome = "You ignored the petition. The precinct did not."
+[card.choice.effects]
+heat = 6
+respect = -3

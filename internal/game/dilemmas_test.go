@@ -6,6 +6,8 @@ import (
 	"sort"
 	"strings"
 	"testing"
+
+	"github.com/theclifmeister/kingpin/internal/content"
 )
 
 // cardWorld is testWorld with somebody on the payroll, a rival in town and
@@ -31,7 +33,8 @@ func TestChooseAppliesEveryEffectKey(t *testing.T) {
 	}
 	all["stock_share"] = -0.5
 	all["clean_amount"] = 2
-	w.Dilemmas.Pending = &Card{ID: "t", Day: 1, Title: "T", Amount: 100, Member: 1,
+	w.Dilemmas.Owes = 2
+	w.Dilemmas.Pending = &Card{ID: "t", Day: 1, Title: "T", Amount: 100, Member: 1, Corner: "home",
 		Choices: []Choice{{Label: "all", Outcome: "everything happened", Effects: all}, {Label: "none", Outcome: "nothing"}}}
 	a, err := w.Choose(0)
 	if err != nil {
@@ -54,6 +57,8 @@ func TestChooseAppliesEveryEffectKey(t *testing.T) {
 		"fear":                        w.Player.Reputation.Fear == 9,
 		"respect":                     w.Player.Reputation.Respect == 19,
 		"notoriety":                   w.Player.Reputation.Notoriety == 29,
+		"corner":                      w.Corner("home").Owner == OwnerNone,
+		"owes":                        w.Dilemmas.Owes == 1,
 	}
 	for what, ok := range checks {
 		if !ok {
@@ -173,5 +178,59 @@ func TestSaveKeepsCard(t *testing.T) {
 	}
 	if _, err := w2.Choose(0); err != nil || w2.Home().Heat != 56 || w2.Player.DirtyCash != 1800 {
 		t.Fatalf("answering after load: %v heat %v cash %d", err, w2.Home().Heat, w2.Player.DirtyCash)
+	}
+}
+
+// The two keys of #342: corner gives the card's corner up to the street,
+// as Abandon does, and only a corner you still hold; owes runs the
+// favours owed up and down, never under zero, and a trigger's owes_min
+// reads it.
+func TestCornerAndOwesEffects(t *testing.T) {
+	w := cardWorld()
+	if w.Corner("home").Owner != OwnerPlayer {
+		t.Fatalf("the fixture works home: %+v", w.Corner("home"))
+	}
+	w.Dilemmas.Pending = &Card{ID: "t", Corner: "home", Choices: []Choice{
+		{Label: "x", Outcome: "x", Effects: map[string]float64{"corner": -1, "owes": 1}}, {Label: "y", Outcome: "y"},
+	}}
+	if _, err := w.Choose(0); err != nil {
+		t.Fatal(err)
+	}
+	if c := w.Corner("home"); c.Owner != OwnerNone || len(w.Today.Abandoned) != 1 {
+		t.Fatalf("corner not given up: %+v, abandoned %v", c, w.Today.Abandoned)
+	}
+	if w.Dilemmas.Owes != 1 {
+		t.Fatalf("owes = %d", w.Dilemmas.Owes)
+	}
+	collect := content.CardConfig{Trigger: content.CardTrigger{OwesMin: 1}}
+	if _, ok := Eligible(w, collect); !ok {
+		t.Fatal("owes_min 1 does not hold on a favour owed")
+	}
+	// A corner already gone is nothing to give up, and owes stops at zero.
+	w.Dilemmas.Pending = &Card{ID: "t", Corner: "home", Choices: []Choice{
+		{Label: "x", Outcome: "x", Effects: map[string]float64{"corner": -1, "owes": -3}}, {Label: "y", Outcome: "y"},
+	}}
+	if _, err := w.Choose(0); err != nil {
+		t.Fatal(err)
+	}
+	if w.Dilemmas.Owes != 0 || len(w.Today.Abandoned) != 1 {
+		t.Fatalf("owes %d abandoned %v", w.Dilemmas.Owes, w.Today.Abandoned)
+	}
+	if _, ok := Eligible(w, collect); ok {
+		t.Fatal("owes_min 1 holds with nothing owed")
+	}
+}
+
+// A card's sum (#342): its share of the bag, at least its amount, never
+// over its amount_max, and a card with no cap grows with the bag.
+func TestCardSumIsCapped(t *testing.T) {
+	furnace := content.CardConfig{Amount: 250, AmountShare: 0.04, AmountMax: 5000}
+	for _, r := range []struct{ dirty, want int }{{0, 250}, {10_000, 400}, {100_000, 4000}, {100_000_000, 5000}} {
+		if got := CardSum(furnace, r.dirty); got != r.want {
+			t.Errorf("furnace at $%d: $%d, want $%d", r.dirty, got, r.want)
+		}
+	}
+	if got := CardSum(content.CardConfig{Amount: 800, AmountShare: 0.25}, 100_000_000); got != 25_000_000 {
+		t.Errorf("an uncapped business card at $100M: $%d", got)
 	}
 }
