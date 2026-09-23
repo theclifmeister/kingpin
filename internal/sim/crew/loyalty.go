@@ -38,33 +38,61 @@ func (s *Sim) investigate(n *night) {
 	}
 }
 
-// drift moves every member's loyalty for the day.
-func (s *Sim) drift(n *night) {
+// tonight is what the night's drift reads for the whole crew: the base
+// (the pay dial and what the day took off everyone), the danger behind
+// the enforcers' shield, the strike's toll, the loss multiplier, and
+// the skill a failed boost costs the least nervy enforcer. The captain
+// (#346) reads it too, before the drift, to see who tonight takes near
+// the quit line; nothing in it rolls or writes.
+type tonight struct {
+	base, shield, toll, loss float64
+	danger                   bool
+	hurt                     int
+}
+
+func (s *Sim) tonight(n *night) tonight {
 	w, t, c, tun, fx := n.w, n.t, n.c, n.tun, n.fx
 	inf := s.cfg.Informant
 	// Loyalty drift: pay, greed, danger, firings, unpaid wages, an
 	// investigation that named nobody, and for the enforcers, the strike
 	// they went on today: a toll from the rivals sim that the nervous feel
 	// most and a win halves. A respected boss's crew feel every loss less.
-	toll := 0.0
-	hurt := 0
+	var d tonight
 	for _, e := range t.Events() {
 		switch ev := e.(type) {
 		case events.CornerStruck:
 			if ev.Taken {
-				toll += ev.Toll / 2
+				d.toll += ev.Toll / 2
 			} else {
-				toll += ev.Toll
+				d.toll += ev.Toll
 			}
 		case events.RivalBoosted:
 			// A boost (#70) is the enforcers going in too: its toll by
 			// nerve as a strike's, and a failure against real muscle
 			// hurts the one with the least nerve.
-			toll += ev.Toll
-			hurt += ev.Hurt
+			d.toll += ev.Toll
+			d.hurt += ev.Hurt
 		}
 	}
-	if hurt > 0 {
+	d.danger = s.danger(w, t.Day)
+	d.shield = s.shield(n.enforcers)
+	d.loss = s.loyaltyLoss(w, fx)
+	d.base = s.cfg.PayFor(c.Pay).Loyalty
+	d.base -= tun.FireLoyalty * float64(n.fired)
+	if n.short > 0 {
+		d.base -= tun.UnpaidLoyalty
+	}
+	if n.asked {
+		d.base -= inf.InvestigateLoyalty
+	}
+	return d
+}
+
+// drift moves every member's loyalty for the day.
+func (s *Sim) drift(n *night) {
+	c, fx := n.c, n.fx
+	d := s.tonight(n)
+	if d.hurt > 0 {
 		var worst *game.CrewMember
 		for i := range c.Members {
 			m := &c.Members[i]
@@ -73,30 +101,20 @@ func (s *Sim) drift(n *night) {
 			}
 		}
 		if worst != nil {
-			worst.Skill = max(1, worst.Skill-hurt)
+			worst.Skill = max(1, worst.Skill-d.hurt)
 		}
-	}
-	danger := s.danger(w, t.Day)
-	shield := s.shield(n.enforcers)
-	loss := s.loyaltyLoss(w, fx)
-	base := s.cfg.PayFor(c.Pay).Loyalty
-	base -= tun.FireLoyalty * float64(n.fired)
-	if n.short > 0 {
-		base -= tun.UnpaidLoyalty
-	}
-	if n.asked {
-		base -= inf.InvestigateLoyalty
 	}
 	for i := range c.Members {
 		m := &c.Members[i]
-		m.Loyalty = max(0, min(100, m.Loyalty+s.memberDrift(*m, base, danger, shield, toll, loss, fx)))
+		m.Loyalty = max(0, min(100, m.Loyalty+s.memberDrift(*m, d.base, d.danger, d.shield, d.toll, d.loss, fx)))
 	}
 }
 
 // memberDrift is one member's loyalty move for the night off the
 // crew's base (the pay dial and what the day took off everyone): their
 // greed, the danger by their nerve behind the enforcers' shield, an
-// enforcer's toll of the strike, and the loss multiplier on a fall.
+// enforcer's toll of the strike, and the loss multiplier on a fall,
+// times their trait's loyalty_loss_mul (#346).
 func (s *Sim) memberDrift(m game.CrewMember, base float64, danger bool, shield, toll, loss float64, fx game.Effects) float64 {
 	tun := s.cfg.Crew
 	d := base - tun.GreedDrift*float64(m.Greed)/100
@@ -107,7 +125,7 @@ func (s *Sim) memberDrift(m game.CrewMember, base float64, danger bool, shield, 
 		d -= toll * float64(100-m.Nerve) / 100
 	}
 	if d < 0 {
-		d *= loss
+		d *= loss * s.cfg.TraitOf(m.Trait).LossMul() // a steady veteran feels it less (#346)
 	}
 	return d
 }

@@ -71,6 +71,8 @@ var bindings = []binding{
 		do: func(m *Model, _ string) { m.hireSelected() }},
 	{key: "f", label: "fire", help: "fire the selected member, after asking", screens: on(screenCrew),
 		do: func(m *Model, _ string) { m.askFire() }},
+	{key: "c", label: "captain", help: "make the selected veteran captain of a city", screens: on(screenCrew),
+		do: func(m *Model, _ string) { m.askCaptain() }},
 	{key: "l", label: "assign", help: "give the selected lieutenant a city to run", screens: on(screenCrew),
 		do: func(m *Model, _ string) { m.askAssign() }},
 	{key: "i", label: "investigate", help: "ask who is talking to the police, for a fee", screens: on(screenCrew),
@@ -234,9 +236,10 @@ var bindings = []binding{
 // alias). The keys themselves are handled by handleKey; the table is
 // what the footer and the status bar say.
 var modeBindings = []binding{
-	{key: "↑↓", label: "pick", modes: in(modeStart, modePost, modeStrike, modeFront, modeAssign, modePropose, modeGuard, modeDriver, modeSpy)},
+	{key: "↑↓", label: "pick", modes: in(modeStart, modePost, modeStrike, modeFront, modeAssign, modePropose, modeGuard, modeDriver, modeSpy, modeCaptain)},
 	// Every picker takes the digits as select-and-commit and says so (#241).
-	{key: "1-9", label: "choose", modes: in(modePost, modeStrike, modeFront, modeAssign, modePropose, modeGuard, modeDriver, modeSpy)},
+	{key: "1-9", label: "choose", modes: in(modePost, modeStrike, modeFront, modeAssign, modePropose, modeGuard, modeDriver, modeSpy, modeCaptain)},
+	{key: "←→", label: "budget", modes: in(modeCaptain)},
 	{key: "1-9", label: "choose", modes: in(modeExit), when: step(0)},
 	// The undercut is a dial like the sale's (#241): ←→ turns it, 1-3 pick a notch.
 	{key: "←→", label: "dial", modes: in(modeUndercut)},
@@ -297,6 +300,7 @@ var modeBindings = []binding{
 	{key: "enter", label: "send", modes: in(modeStrike)},
 	{key: "enter", label: "undercut", modes: in(modeUndercut)},
 	{key: "enter", label: "assign", modes: in(modeAssign)},
+	{key: "enter", label: "name", modes: in(modeCaptain)},
 	{key: "enter", label: "next", modes: in(modeFund), when: fundNext},
 	{key: "enter", label: "next", modes: in(modeBribe), when: step(0)},
 	{key: "enter", label: "pay", modes: in(modeBribe), when: step(1)},

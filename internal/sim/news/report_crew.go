@@ -149,6 +149,28 @@ func (r *reporter) reportCrew(e events.Event) bool {
 		if ev.Cut > 0 {
 			rep.Money = append(rep.Money, fmt.Sprintf("%s's cut of %s -%s", ev.Name, ev.CityName, format.Money(ev.Cut)))
 		}
+	case events.CrewTrait:
+		// Veterans (#346): a known quantity now.
+		d := base
+		d.Name, d.Role, d.Trait = ev.Name, ev.Role, ev.Trait
+		r.add("crew", "CrewTrait", d)
+		if ev.Good {
+			rep.Crew = append(rep.Crew, fmt.Sprintf("%d days in, %s has shown what they are: %s.", ev.Days, ev.Name, ev.Trait))
+		} else {
+			rep.Crew = append(rep.Crew, fmt.Sprintf("%d days in, %s has shown what they are: %s. Watch them.", ev.Days, ev.Name, ev.Trait))
+		}
+	case events.CaptainActed:
+		// The cut is the sales' net, as a lieutenant's is; the pay-offs
+		// are the loyalty bought on top of the wages, as a hand's are.
+		r.book(game.FlowSales, -ev.Cut, 0)
+		r.book(game.FlowWages, -(ev.Spent - ev.SpentClean), -ev.SpentClean)
+		rep.Crew = append(rep.Crew, captainLines(ev)...)
+		if ev.Cut > 0 {
+			rep.Money = append(rep.Money, fmt.Sprintf("%s's cut of %s -%s", ev.Name, ev.CityName, format.Money(ev.Cut)))
+		}
+		if ev.Spent > 0 {
+			rep.Money = append(rep.Money, fmt.Sprintf("%s's pay-offs in %s -%s", ev.Name, ev.CityName, format.Money(ev.Spent)))
+		}
 	case events.CrewSkimmed:
 		r.add("crew", "CrewSkimmed", base)
 		r.skimmed += ev.Amount

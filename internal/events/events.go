@@ -2009,3 +2009,42 @@ type IntelFalse struct {
 }
 
 func (IntelFalse) Kind() string { return "IntelFalse" }
+
+// CrewTrait is a veteran showing what they are (#346): Trait, at Days
+// of service, Good when the crew screen reads it as a strength.
+type CrewTrait struct {
+	Day   int
+	ID    int
+	Name  string
+	Role  string
+	Trait string
+	Days  int
+	Good  bool
+}
+
+func (CrewTrait) Kind() string { return "CrewTrait" }
+
+// CaptainActed is report-only bookkeeping (#346): what a captain did
+// for their city tonight through the player's own actions (the runners
+// Posted, by corner name; the members Paid off and what that cost; the
+// suspected skimmers Pulled off a corner) and the Cut they kept of the
+// city's takings. Absent says they were in a cell, laid up or under;
+// Careless that their loyalty is under the care line and they did
+// nothing.
+type CaptainActed struct {
+	Day        int
+	ID         int
+	Name       string
+	City       string
+	CityName   string
+	Posted     []string
+	Paid       []string
+	Spent      int
+	SpentClean int // of Spent, what came out of the clean pile (#351), for the report's flow
+	Pulled     []string
+	Cut        int
+	Absent     bool
+	Careless   bool
+}
+
+func (CaptainActed) Kind() string { return "CaptainActed" }

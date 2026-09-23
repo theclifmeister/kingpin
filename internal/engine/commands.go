@@ -220,6 +220,16 @@ func (s *Session) Assign(id int, city string) error { return s.w.Assign(id, city
 // Unassign brings a lieutenant home (World.Unassign).
 func (s *Session) Unassign(id int) error { return s.w.Unassign(id) }
 
+// NameCaptain makes a member captain of a city with a nightly pay-off
+// budget, on the trust the crew's tuning asks (World.NameCaptain, #346).
+func (s *Session) NameCaptain(id int, city string, budget int) error {
+	cp := s.set.Crew.Captaincy()
+	return s.w.NameCaptain(id, city, budget, cp.Loyalty, cp.Days)
+}
+
+// DropCaptain takes the captaincy off a member (World.DropCaptain).
+func (s *Session) DropCaptain(id int) error { return s.w.DropCaptain(id) }
+
 // ---- the road
 
 // SetRoute turns a route's dial (World.SetRoute).

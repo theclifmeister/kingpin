@@ -12,7 +12,7 @@ import (
 // save's game.SchemaVersion: the world is free to change shape, the view
 // is the contract a front end in another process is written against.
 // TestViewShapeIsPinned fails on a shape change that keeps the number.
-const ViewVersion = 7
+const ViewVersion = 8
 
 // View is a snapshot of what the player can see: what a front end draws
 // (#299). It is built from the world the way the TUI reads it and holds
@@ -148,8 +148,11 @@ type MemberView struct {
 	Post        string  `json:"post,omitempty"` // the corner they work or guard
 	Jailed      bool    `json:"jailed,omitempty"`
 	Personality string  `json:"personality,omitempty"`
-	Carry       int     `json:"carry"`         // the sell capacity they add
-	Fee         int     `json:"fee,omitempty"` // in the pool: what hiring them costs, dirty cash
+	Carry       int     `json:"carry"`             // the sell capacity they add
+	Fee         int     `json:"fee,omitempty"`     // in the pool: what hiring them costs, dirty cash
+	Trait       string  `json:"trait,omitempty"`   // what a veteran showed at the traits' days of service (#346)
+	Captain     string  `json:"captain,omitempty"` // the city they are captain of (#346)
+	Budget      int     `json:"budget,omitempty"`  // ... and their pay-off budget a night there
 }
 
 // ContractView is a buyer's contract still somebody's business (#71,
@@ -486,7 +489,7 @@ func (s *Session) View() View {
 		v.Upgrades = append(v.Upgrades, UpgradeView{ID: u.ID, Name: u.Name, Branch: u.Branch, Desc: u.Desc, Cost: u.Cost, Clean: u.Clean, Requires: append([]string(nil), u.Requires...), State: state})
 	}
 	for _, m := range w.Crew.Members {
-		mv := MemberView{ID: m.ID, Name: m.Name, Role: m.Role, Age: m.Age, Skill: m.Skill, Loyalty: m.Loyalty, Wage: m.Wage, Hired: m.Hired, City: m.City, Jailed: m.Jailed(w.Day), Carry: m.Units}
+		mv := MemberView{ID: m.ID, Name: m.Name, Role: m.Role, Age: m.Age, Skill: m.Skill, Loyalty: m.Loyalty, Wage: m.Wage, Hired: m.Hired, City: m.City, Jailed: m.Jailed(w.Day), Carry: m.Units, Trait: m.Trait, Captain: m.Captain, Budget: m.Budget}
 		if c := w.PostOf(m.ID); c != nil {
 			mv.Post = c.ID
 		}

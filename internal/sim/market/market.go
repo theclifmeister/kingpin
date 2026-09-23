@@ -8,6 +8,7 @@ package market
 
 import (
 	"fmt"
+	"maps"
 	"math"
 
 	"github.com/theclifmeister/kingpin/internal/content"
@@ -27,10 +28,11 @@ type Sim struct {
 	buyers []buyer
 	scfg   content.SuppliersConfig
 	war    content.PricewarTuning
-	assets content.AssetsConfig   // #48: the supplier asset, the one connect that is yours
-	fac    content.FactionsTuning // the table (#43): the price spike a fragmenting faction's city takes
-	ledger *warBook               // the price war's books for the step in hand (#68); nil outside Step
-	sold   *soldQuality           // what the city in hand's corners were sold tonight (#47); nil outside Step
+	assets content.AssetsConfig     // #48: the supplier asset, the one connect that is yours
+	fac    content.FactionsTuning   // the table (#43): the price spike a fragmenting faction's city takes
+	traits map[string]content.Trait // #346: a connected veteran's buyer_gap_mul
+	ledger *warBook                 // the price war's books for the step in hand (#68); nil outside Step
+	sold   *soldQuality             // what the city in hand's corners were sold tonight (#47); nil outside Step
 }
 
 // New builds a market sim from the config, copying what it reads (#144):
@@ -45,13 +47,14 @@ type Sim struct {
 // relationship moves. The price war (#68, rivals.toml [pricewar]) is
 // what an order at home takes off a rival corner next door and at what
 // price: the market resolves it, the rivals sim reads the squeeze it
-// leaves.
+// leaves. The crew's trait tables (#346) say what a connected
+// veteran does to the buyers' gaps.
 func New(cfg *content.Config) (*Sim, error) {
 	deck, err := parseBuyers(cfg.Buyers)
 	if err != nil {
 		return nil, fmt.Errorf("buyers: %w", err)
 	}
-	return &Sim{cfg: cfg.Market, cities: cfg.City, ship: cfg.Routes.Shipping, tree: cfg.Upgrades, rep: cfg.Reputation.Effects, bcfg: cfg.Buyers, buyers: deck, scfg: cfg.Suppliers, war: cfg.Rivals.Pricewar, assets: cfg.Assets, fac: cfg.Rivals.Factions}, nil
+	return &Sim{cfg: cfg.Market, cities: cfg.City, ship: cfg.Routes.Shipping, tree: cfg.Upgrades, rep: cfg.Reputation.Effects, bcfg: cfg.Buyers, buyers: deck, scfg: cfg.Suppliers, war: cfg.Rivals.Pricewar, assets: cfg.Assets, fac: cfg.Rivals.Factions, traits: maps.Clone(cfg.Crew.Trait)}, nil
 }
 
 // Markup is the supplier's price for a standing order as a multiple of

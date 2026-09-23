@@ -314,7 +314,7 @@ func TestLevelsDrawTheAuditors(t *testing.T) {
 	// audit_level needs to rise above the noise.
 	t.Logf("with crew life on: %s", levelsAudits(t, content.MustLoad()))
 	// The duel (#43, harness.OneFaction): this pins a mechanism on a seed, and the table moves the seed's dice.
-	cfg := OneFaction(NoLife(content.MustLoad()))
+	cfg := OneFaction(NoTraits(NoLife(content.MustLoad()))) // and the veterans (#346), the same crew noise
 	off := noLevels(cfg)
 	audits, pressure, notoriety := [2]int{}, [2]float64{}, [2]float64{}
 	for seed := uint64(1); seed <= 10; seed++ {

@@ -206,6 +206,10 @@ CrewKilled = [
   "Killing on {{.Corner}}: 'the {{.City}} war has a body count now', says the DA's office",
   "{{.Role}} gunned down on {{.Corner}}; {{.City}} council demands the boss's arrest",
 ]
+CrewTrait = [
+  "{{.City}} {{.Role}} {{.Name}} a known face now; the word on the street is '{{.Trait}}'",
+  "Old hands on {{.City}}'s corners: {{.Name}}, {{.Trait}}, they say",
+]
 CrewRetired = [
   "{{.Name}} 'done with the {{.City}} game' and leaving town",
   "Veteran {{.City}} {{.Role}} {{.Name}} retires; 'the streets are for the young'",

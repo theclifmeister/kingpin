@@ -126,6 +126,8 @@ func (s *Sim) SloppyHeat(w *game.World, city string, units int) float64 {
 // counts how far they fall below the sloppy-skill line (a skill-0 runner
 // 1, a skilled one 0) times that corner's share of the corners you work
 // there. A runner without a corner is not on the street to be noticed.
+// A veteran's trait (#346) adds its heat for a hothead on the corner
+// and takes a sharp runner out of it; it is never over 1.
 func (s *Sim) Sloppiness(w *game.World, city string) float64 {
 	line := float64(s.cfg.Heat.SloppySkill)
 	c0 := w.City(city)
@@ -138,17 +140,29 @@ func (s *Sim) Sloppiness(w *game.World, city string) float64 {
 			continue
 		}
 		total += c.Demand
+		// A veteran's trait (#346): a hothead on the corner, running it
+		// or guarding it, counts its heat; a sharp runner is never
+		// sloppy, whatever the skill.
+		if c.Enforcer != 0 {
+			if m := w.Crew.Member(c.Enforcer); m != nil {
+				sloppy += c.Demand * s.traits[m.Trait].Heat
+			}
+		}
 		if c.Runner == game.You {
 			continue
 		}
-		if m := w.Crew.Member(c.Runner); m != nil && float64(m.Skill) < line {
-			sloppy += c.Demand * (line - float64(m.Skill)) / line
+		if m := w.Crew.Member(c.Runner); m != nil {
+			tr := s.traits[m.Trait]
+			sloppy += c.Demand * tr.Heat
+			if !tr.Sharp && float64(m.Skill) < line {
+				sloppy += c.Demand * (line - float64(m.Skill)) / line
+			}
 		}
 	}
 	if total <= 0 {
 		return 0
 	}
-	return sloppy / total
+	return min(1, sloppy/total)
 }
 
 // add puts v heat on a city and, with a why, a line in its report:

@@ -428,6 +428,8 @@ var words = [][2]string{
 	{"jailed", "in a cell after a bust, working nothing; bail is clean cash"},
 	{"kin", "a cousin, partner or friend on the payroll: they remember"},
 	{"driver", "rides a route's shipments and cuts the risk; seized, jailed"},
+	{"trait", "what a veteran showed after their days of service; some bad"},
+	{"captain", "a trusted veteran who looks after a city's crew each night"},
 	{"asset", "the supply side bought clean: a connect, port, plane, lab"},
 	{"feds", "the task force above the raid: a day's notice, takes an asset"},
 	{"intel", "what you know, with how sure: seen, bought, sent out, or fed"},

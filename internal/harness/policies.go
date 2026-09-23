@@ -61,6 +61,7 @@ var Policies = []NamedPolicy{
 	{"managed", func(cfg *content.Config, o PolicyOpts) Policy { return Managed(cfg, o.at(50)) }},
 	{"upgraded", func(cfg *content.Config, o PolicyOpts) Policy { return Upgraded(cfg, o.at(40)) }},
 	{"crewed", func(cfg *content.Config, o PolicyOpts) Policy { return Crewed(cfg, o.at(40)) }},
+	{"captained", func(cfg *content.Config, o PolicyOpts) Policy { return Captained(cfg, o.at(40)) }},
 	{"vigilant", func(cfg *content.Config, o PolicyOpts) Policy { return Vigilant(cfg, o.at(40)) }},
 	{"territory", func(cfg *content.Config, o PolicyOpts) Policy { return Territory(cfg, o.at(40), o.Corners) }},
 	{"war", func(cfg *content.Config, o PolicyOpts) Policy { return Warlike(cfg, o.at(40), o.Corners, o.Force) }},
