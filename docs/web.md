@@ -1,0 +1,65 @@
+# The web client
+
+**The web client** (#328, `cmd/kingpin-web`) is the second front end, and the first graphical one. The game is drawn in a browser: sprites on a canvas, moved by the engine's cues and played through the protocol alone. It proves the engine is front-end agnostic. It reads nothing but the view, the events and their cues, and acts through nothing but protocol calls, so what it needed and the engine lacked became engine issues (#332, #333), never workarounds.
+
+```sh
+go run ./cmd/kingpin-web              # builds the site and serves it on http://127.0.0.1:8080/ (?seed=7 pins the run)
+go run ./cmd/kingpin-web -out site/   # writes the static site: any static host serves it
+```
+
+**The choice (the issue asked for it first).** A browser page on the WebAssembly build (#327), drawn with Canvas 2D in plain ES modules, with no third-party code and no build step. Why:
+
+- **It needs nothing installed.** Godot, Unity or Unreal would each add an editor, a project format and a toolchain to the repo, and a client nobody here can build or test would drift. The browser is on every machine, and the site is static files: the page, its modules, `kingpin.wasm` and Go's `wasm_exec.js`.
+- **It runs the engine in the page** (`kingpin.open()`, #327): no server, no socket, no process. Saves live in the browser (`export_save` into `localStorage`, `import_save` back).
+- **It can be tested here.** The page's own modules run under Node against the same module (`TestWebClient`), and the page itself was played in headless Chromium to an ending with no console error.
+- **A real engine can still come later.** The contract it would speak is the same: the protocol over the C library (`cmd/libkingpin`) or over WebSocket (#326). This client is what that one would be measured against.
+
+**The files** (`cmd/kingpin-web/web/`, embedded in the command):
+
+- `js/session.js`: the protocol as the client speaks it. `Session` wraps one `kingpin.open()`: `call(method, ...params)` sends a request line and keeps the `event` notifications (`take()` hands them over) and the last `view`. It throws `RPCError` (`refused` for `-32000`, the game's words) on an error. The moves the page makes are one method each: `newRun`, `endDay`, `fastForward`, `choose`, `travel`, `buy`, `sell`, `exportSave`, `importSave`. `streetConnect(view, city)` is the open street connect where you stand. It touches no DOM.
+- **The versions.** `SUPPORTED` is `{protocol: [2], view: [1]}`. `checkVersions` refuses a module whose `kingpin.protocol` or `kingpin.view` is another (`VersionError`, shown full-page) before a run starts: a field renamed under the client would draw a wrong game instead of failing. A version bump in the engine fails `TestWebClient` until `SUPPORTED` moves with the client.
+- `js/autoplay.js`: `autoDay(session)` is the autopilot, the reference client's greedy dealer (`protocol.Play`) a day at a time. It answers a card with its first choice, spends 60% of the dirty cash across the street connect's products, sells everything at `aggressive` and ends the day. A refused move is part of play.
+- `js/layout.js`: where things are, a pure function of the view and the canvas size.
+  - The cities stand side by side in the view's order, each a block of its corners on their `city.toml` cells. One cell size fits every city.
+  - Each road has its own lane under the blocks, and the deeper lanes leave the blocks wider, so the roads nest and none crosses another.
+  - Corners are coloured green for yours, the faction's colour in the view's order for a rival's, and grey for the street's. A deed has a gold edge.
+  - `cornerSpot`, `cityHead`, `routePath`, `along`, `memberSpot` (a member's post, a lieutenant's city, else beside you) and `houseSpot` place a cue's ids.
+- `js/sprites.js`: placeholder pixel art, a string a row and a letter a colour, drawn a pixel a `fillRect`. The sprites are the player, a runner, an enforcer, a cop, a robber, the car, truck, boat and plane (a route's mode picks one), a squad car, a helicopter, a house, a coin, a skull, a flag, a crate, a badge and a fist.
+- `js/cues.js`: `ANIMATIONS`, one entry for each of the 17 cues (`engine.CueKinds`). An entry turns a cue into timed drawings over the layout, `{dur, draw(ctx, p)}` with `p` running from 0 to 1:
+  - `corner_claimed`: a flag goes up.
+  - `corner_flip`: the old owner's colour drains off the corner.
+  - `strike`: a fist shakes.
+  - `rival_move`: the faction's colour closes in with an enforcer.
+  - `robbery`: a masked man runs off.
+  - `police`: a squad car arrives with its lights going.
+  - `task_force`: a helicopter crosses the city.
+  - `shipment`: a crate is loaded and the vehicle sets off; it drops at the far end; or it is seized under a badge.
+  - The crew cues: a runner pops in, walks off, is arrested (or a skull, when shot) or bounces back.
+  - `sale`: coins rise off your corners.
+  - `market`: an arrow over the city.
+  - `property`: a house builds or crumbles.
+  - `overdose`: a skull.
+  - `run`: a banner (the reign begins, is broken, the end).
+  
+  None of them reads the world: they draw only the cue and where the layout puts its ids.
+- `js/scene.js`: `drawMap(ctx, L, now)` draws the blocks tinted by heat, the roads with their dials, the corners and who works or guards them, the houses, and the shipments on the road at their share of the trip. `Scene` owns the canvas and the frame loop. `play(cues)` queues a night's cues 160 ms apart, so a busy night reads as a sequence.
+- `js/main.js`: the page. It loads the module, opens a session and starts a run (the URL's `?seed=`, else a random one).
+  - The header shows the day, the tier, the cash, the net worth and the evidence.
+  - The panel is the city you stand in. Each product shows the street price, the connect's price and what you hold, with a buy quantity and buy and sell buttons at the chosen dial. Below are travel and the morning report's sections.
+  - The footer holds end day (`space`), the next 7 days (`fast_forward`), the autopilot (`a`) and a toast that gives a refusal in the game's words.
+  - A card is a modal with its choices. The ending is an overlay that waits for the night's last animation.
+- `cmd/kingpin-web` builds the site (`Build(dir)`): the embedded files, `kingpin.wasm` built for `js/wasm`, and the toolchain's own `wasm_exec.js`, which must match the Go that built the module. It serves the site on `-addr`, or writes it to `-out` and exits.
+
+**What it does not do yet.** It covers the loop the issue asked for: buy, sell, travel, end the day, answer a card, see the ending. Hiring waits on #332, because the view has no pool to hire from. Everything else the TUI offers is still missing: routes, houses, fronts, the crew's posts, the rivals' table and the law. Each is a panel over the commands and quotes (#325) the protocol already serves. The art is placeholder.
+
+**What pins it.**
+
+- `TestWebClient` builds the site as the command does and runs `testdata/play.mjs` under Node. The script loads the page's own modules with the engine loaded the way the page loads it, minus the DOM.
+  - The client speaks this build's protocol and view versions and refuses another.
+  - `ANIMATIONS` is `engine.CueKinds`, no more and no less, and every sprite's rows are the same width.
+  - Seed 7 with the autopilot reaches an ending (indicted, day 30).
+  - Seeds 7, 11, 23 and 42, and 120 nights of the harness's `boss` on seed 3 (written by the Go test, so the client sees a run that ships, hires and fights), draw every day's map. Every cue in those runs names a corner or route on the map, gives animations with a length, and draws at `p` 0, ½ and 1, on a context that records nothing but must not throw.
+  - That is 14 of the 17 kinds from the engine itself. A kind no run gave (`overdose`, `strike` and `task_force` today) is made up on the boss's last morning, with ids off its map and in each of its phases, and drawn too.
+  - In CI, a missing `node` fails the test rather than skipping it.
+- `engine.CueKinds` is the list the table is held to. `TestCueKindsIsEveryCue` pins it to the cue table.
+- The page was played by hand and by the autopilot in headless Chromium (Playwright) to an ending: seed 7 is indicted on day 31, with no console error.

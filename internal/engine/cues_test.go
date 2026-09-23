@@ -166,3 +166,29 @@ func TestCueTableIsCurrent(t *testing.T) {
 	}
 	t.Fatal("the cue table in docs/engine.md is stale: go test ./internal/engine -run TestCueTableIsCurrent -update")
 }
+
+// TestCueKindsIsEveryCue (#328): CueKinds lists each cue the table
+// gives, once, in order, and nothing else.
+func TestCueKindsIsEveryCue(t *testing.T) {
+	t.Parallel()
+	given := map[engine.CueKind]bool{}
+	for _, e := range events.All {
+		if k := engine.CueKindOf(e.Kind()); k != "" {
+			given[k] = true
+		}
+	}
+	listed := engine.CueKinds()
+	if !sort.SliceIsSorted(listed, func(i, j int) bool { return listed[i] < listed[j] }) {
+		t.Errorf("CueKinds is not sorted: %v", listed)
+	}
+	seen := map[engine.CueKind]bool{}
+	for _, k := range listed {
+		if seen[k] || !given[k] {
+			t.Errorf("CueKinds lists %s twice or no event gives it", k)
+		}
+		seen[k] = true
+	}
+	if len(seen) != len(given) || len(listed) != 17 {
+		t.Errorf("CueKinds lists %d, the table gives %d, docs/engine.md says 17", len(seen), len(given))
+	}
+}

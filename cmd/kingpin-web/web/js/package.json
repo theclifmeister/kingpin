@@ -1,0 +1,4 @@
+{
+  "//": "The page's modules are ES modules; this tells Node so when TestWebClient imports them (a browser reads the script tag).",
+  "type": "module"
+}

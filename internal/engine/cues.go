@@ -89,6 +89,15 @@ var cueKinds = map[string]CueKind{
 // and the journal carry alone.
 func CueKindOf(kind string) CueKind { return cueKinds[kind] }
 
+// CueKinds is every cue, sorted: what a front end's animation table
+// must cover (#328: the web client's test holds its table to it).
+func CueKinds() []CueKind {
+	return []CueKind{
+		CueCornerClaimed, CueCornerFlip, CueCrewBack, CueCrewDown, CueCrewJoined, CueCrewLeft, CueMarket, CueOverdose,
+		CuePolice, CueProperty, CueRivalMove, CueRobbery, CueRun, CueSale, CueShipment, CueStrike, CueTaskForce,
+	}
+}
+
 // CueOf is the event as a front end animates it, or false for one with
 // no cue.
 func CueOf(e events.Event) (Cue, bool) {
