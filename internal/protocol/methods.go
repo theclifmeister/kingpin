@@ -55,7 +55,7 @@ var queries = []string{"View", "Alerts", "GatesAhead", "NextGates", "FrontOffers
 var unserved = map[string]string{
 	"Attach":      "a world built in the caller's process",
 	"Config":      "the tuning is the server's",
-	"Rules":       "the sims' read methods take a *game.World; the view carries what a front end shows (quotes on the wire are a follow-up)",
+	"Rules":       "served rule by rule as rules.<sim>.<method> (rules.go, #325)",
 	"Sims":        "the harness's and the tests'",
 	"World":       "a pointer into the run; the view is its wire form",
 	"Subscribe":   "events are notifications",

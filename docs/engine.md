@@ -116,7 +116,7 @@ The slot is the caller's: the TUI keeps `Model.slot` and passes it to `Load` and
   - The server answers every request. Before the response it sends the notifications the call caused: every `event` the day published (`{"kind", "day", "payload"}`, the kind being the event's stable `Kind()`), then a `view` (the whole `engine.View`) after any call that may have changed the run.
   - A client that waits for its response has already read everything the call caused.
   - The server is one loop on one goroutine: read a line, run it, write and flush. It holds no lock and starts no goroutine, and `TestNoGoroutineInTheTree` walks the package like the rest of `internal/`.
-- **The methods, 81 in all.**
+- **The methods, 81 in all** (and the 146 quotes #325 added, below).
   - **68 commands.** Each session command is served under its name in snake_case (`buy`, `place_sell`, `buy_checkpoint`, `scout_faction`, …) by reflection over `engine.Session` (`protocol.commands`), with its parameters in order. A dial goes in by name (`"aggressive"`, `"fair"`, `"push"`), refused with the names listed when it matches none. Terms go as an object (`{"days", "per_day", "corners", "route", "units"}`). The result is the command's value, or null.
   - **8 queries.** `view`, `alerts`, `gates_ahead`, `next_gates`, `front_offers`, `asset_offers`, `house_offers`, `float_matters`.
   - **5 lifecycle methods, by hand.**
@@ -125,12 +125,12 @@ The slot is the caller's: the TUI keeps `Model.slot` and passes it to `Load` and
     - `end_day []` returns `{day, events}`, with the events already sent as notifications.
     - `fast_forward [days]` returns `{ran, day, stop, alert?, event?}`, the days weighed server-side by `Session.FastForward`.
   - Every method but `new_run` and `load` needs a run.
-  - **Not on the wire,** each with its reason in `protocol.unserved`: `Attach`, `Config`, `Sims`, `World`, `Subscribe`, `Stop`, and `Rules`. The sims' read methods take a `*game.World`, and the view carries what a front end shows, so quotes on the wire are a follow-up. `TestEverySessionMethodIsClassed` fails on a session method in none of the three lists, so a new command is served, or refused, on purpose.
+  - **Not on the wire,** each with its reason in `protocol.unserved`: `Attach`, `Config`, `Sims`, `World`, `Subscribe` and `Stop`. `Rules` is there too, served rule by rule as the quotes (#325, below). `TestEverySessionMethodIsClassed` fails on a session method in none of the three lists, so a new command is served, or refused, on purpose.
 - **Errors.** JSON-RPC's codes: `-32700` not JSON, `-32600` not a request, `-32601` no such method, `-32602` params that do not fit, `-32603` the engine panicked (recovered; the message says so). The game adds two:
   - `-32000` **refused**: a move the rules do not allow, the message being the game's own words (`can only hold 48 more units in Eastside`, `nothing on offer by that name`). `protocol.Refused(err)` tells it apart.
   - `-32001` **no run**: call `new_run` or `load` first.
 - **Encoding.** The view is snake_case with dials by name (phase 4). A result or an event payload is the Go value as `encoding/json` writes it: Go field names, and a dial as the int a save holds. The schema marks it `integer` with `x-names` in order. `protocol.EventJSON` is the one encoding of an event, so a client in the same process can compare its events with the wire's byte for byte.
-- **The schema.** `protocol.Schema()` generates a JSON Schema document (draft 2020-12) from the Go types: the protocol and view versions, the framing, the error codes, every method's `params` (`prefixItems`, a dial as its enum of names) and `result`, the two notifications, every event kind's payload under `events`, and 175 named types under `$defs`. It is checked in as `internal/protocol/schema.json` (about 165 KB). `TestSchemaIsCurrent` fails when the file is stale, and `go test ./internal/protocol -run TestSchemaIsCurrent -update` rewrites it. `protocol.Version` (1) moves with the methods; the view keeps `engine.ViewVersion`.
+- **The schema.** `protocol.Schema()` generates a JSON Schema document (draft 2020-12) from the Go types: the protocol and view versions, the framing, the error codes, every method's `params` (`prefixItems`, a dial as its enum of names) and `result`, the two notifications, every event kind's payload under `events`, and 175 named types under `$defs`. It is checked in as `internal/protocol/schema.json` (about 165 KB). `TestSchemaIsCurrent` fails when the file is stale, and `go test ./internal/protocol -run TestSchemaIsCurrent -update` rewrites it. `protocol.Version` (2 since the quotes, #325; 3 since the saves as bytes, #327) moves with the methods; the view keeps `engine.ViewVersion`.
 - **The reference client.** `protocol.Play(c, seed, days)` plays a run through the protocol alone. Each morning it reads the view, answers a card with its first choice, spends 60% of the dirty cash across what the street connect where it stands sells, puts everything it holds on the street at the aggressive dial, and ends the day, until the run ends. `cmd/kingpin-client -server <kingpind> -seed 7` starts `kingpind` and prints every event as it arrived and how the run ended. On seed 7 that is `indicted` on day 30, after 718 events.
   - One bug found on the way is now part of the client: it decodes each view into a fresh value. Decoded over the last one, a field the new view omits as empty (an answered `card`) would keep its old value.
 
@@ -141,6 +141,41 @@ The slot is the caller's: the TUI keeps `Model.slot` and passes it to `Load` and
 - `TestErrors` pins every code: no run, no method, wrong count, a dial by a wrong name (the message lists the right ones), refused (`travel` nowhere, `buy_front` of nothing), not JSON, not a request, and params that are not an array.
 - `TestEverySessionMethodIsClassed` and `TestSchemaIsCurrent` (above).
 - The day-0 view (before the first morning, `World.Report` still nil) is in phase 4's `TestViewRoundTripsJSON`; the protocol found the nil.
+
+**The quotes (#325).** A front end in another process prices a move before it makes it, with the numbers the TUI reads. `internal/protocol/rules.go` serves every method of `engine.Rules` as `rules.<sim>.<method>` in snake_case: `rules.market.capacity`, `rules.crew.investigate_cost`, `rules.rivals.odds_on_at`. That is 146 methods, which makes 229 on the wire with #327's `export_save` and `import_save`. A quote needs a run, changes nothing and sends nothing but its answer: no `view` follows it.
+
+- **The world is the server's.** A rule's `*game.World` is the run's and never a parameter.
+- **A thing of the world goes by its id** and is resolved against the run (`protocol.ruleParams`):
+  - a corner (`game.Corner` and `*game.Corner`), a faction (`*game.RivalState`), a supplier, a city, a house;
+  - a deed, by its corner, refused on one without a deed;
+  - a front, owned or on offer (an offer is the front as bought, level 0);
+  - a crew member, on the payroll or in the pool;
+  - a contract;
+  - a route (`content.RouteConfig`).
+  
+  An id the run doesn't have is `-32602`, naming the parameter.
+- **A deal goes as an object**, `{"kind", "terms"}` (`protocol.DealParams`, the terms as the commands spell them). A dial goes by name, as the commands' do.
+- **A day is today or tomorrow**, the two the TUI asks about. Any other is `-32602`: `rules.logistics.watched` asked of a later day would read the task force's watch off the run before the run has told the player.
+- **Results.** A `(value, ok)` answer is the value, or `-32000` refused when not ok (`rules.laundering.asset_offer` of nothing). Two values go as an object named after the rule's results (`rules.territory.tax_due` is `{"corners", "amount"}`). A result that would carry the truth or a pointer into the run goes by id (`protocol.ruleResults`): a corner, a city, the allies as faction ids, `routes_open` as route ids.
+- **Not on the wire** (`protocol.unservedRules`, each with its reason): `Logistics.Route`. A route's config holds its true risk, and the view carries the route with the risk the file knows.
+- **The names are quotes.go's.** Reflection can't see a parameter's name, so `internal/protocol/rules_names.go` is generated from `internal/engine/quotes.go`'s declarations (`go test ./internal/protocol -run TestRuleNamesAreCurrent -update`). A world thing is named for what it is (`corner`, `faction`, `member`), a dial for its type (`dial`, `force`, `pay`), and anything else by the name quotes.go gives it. Renaming one there renames it on the wire.
+- **What the wire may say.** The ruling is parity with the TUI: `Rules` holds what the TUI reads. The truths it must not read (`TestPanelsReadTheFile`'s list: a faction's muscle and personality, the chief's, a route's risk, a planted fact) are kept out of the interfaces, and a rule that needs muscle (`odds_on_at`, `push_odds_at`, `defence_at`) takes the muscle the client read off the view's file.
+
+**What pins it.**
+
+- `TestEveryRuleIsClassed`: every method of every `Rules` interface is served or in `unservedRules`, and every one has its names.
+- `TestRuleNamesAreCurrent`: `rules_names.go` is `quotes.go`'s names.
+- `TestNoTruthOnTheWire` walks every quote's result type and fails on a `game.World`, `game.RivalState`, `game.Chief`, `game.Fact` or `content.RouteConfig` anywhere inside.
+- `TestEveryQuoteIsTheRules` runs sixty days of the boss on seed 7 and lays one of every thing a rule takes by id. It asks all 146 quotes over the wire and compares each answer with `Session.Rules()` asked in the process. The run's JSON is byte-identical before and after.
+- `TestQuoteRefusals` covers:
+  - an unknown corner, faction or member;
+  - a day before today or after tomorrow;
+  - a dial by a wrong name;
+  - an asset not on offer;
+  - a quote with too many params;
+  - the unserved route;
+  - a quote before any run.
+- `TestQuotedIsCharged` quotes the investigation and a block over the wire, makes both moves over the wire, and checks each charges its quote.
 
 **Phase 6, the cues (#301).** A graphical front end draws the view and moves its sprites on the day's events. `engine.CueOf(e)` (`engine/cues.go`) reads an event as that movement, in ids and never in words. It returns a `Cue` whose `Kind` is one of 17, with the ids that kind needs (`city`, `corner`, `house`, `route`, `shipment`, `member`, `faction`, `asset`, `product`, `units`), `from` and `to`, `level`, `phase` and `dead`:
 
@@ -187,6 +222,39 @@ The report's and the journal's alone, no cue (94): `AssetBought`, `AssetFrozen`,
 - `TestCuesCarryIDs` plays 120 days of the boss. Every cue has a day. Every corner cue names a corner on the map, and every flip changes hands. Every shipment names its route, both cities and its id. Every crew cue names a member. Every police cue names a city and a level. The run sees at least one claim, shipment, hire, sale and police cue.
 - `TestProtocolIsTheSession` and `TestOverStdio` (phase 5) carry the cues in the event bytes they compare.
 
+**The WebSocket transport (#326).** `kingpind -listen 127.0.0.1:7777` serves the same protocol over WebSocket (RFC 6455) instead of stdio. It is for a browser client, or a game engine that would rather open a socket than start a process.
+
+- **Framing.** One JSON-RPC message per text frame. The methods, the notifications, the error codes and the order are stdio's: a call's `event`s and its `view` go out as frames before its response.
+  - `protocol.ServeWS` hands each message to `Server.Handle`, the loop `Serve` runs on stdio. The transport is framing and nothing else, so there is still one implementation of the protocol.
+  - The client end reads and writes lines (`protocol.WS` is an `io.Reader` and an `io.Writer`), so `RPCClient` and the reference game play over it unchanged.
+  - `kingpin-client -ws ws://127.0.0.1:7777/` plays against a `kingpind` already listening.
+- **What the transport takes.**
+  - Text frames, fragmented or whole, up to 16 MiB a message (stdio's line cap).
+  - A ping is answered with a pong, and a close is echoed and ends the session.
+  - It refuses, closing with the code for why:
+    - `1002` for an unmasked client frame, a reserved bit, an unknown opcode, a continuation of nothing, or a fragmented or long control frame;
+    - `1003` for a binary frame;
+    - `1007` for a message that isn't UTF-8;
+    - `1009` for a message over the cap.
+- **The handshake.** `protocol.AcceptWS` takes a `GET /` upgrade at version 13 with a key. Anything else gets its HTTP error: `405`, `404`, `400`, or `426` for another version.
+  - A request carrying an `Origin` is refused with `403` unless the page is on this machine (`localhost` or a loopback IP). Any website the player visits could otherwise open a socket to `localhost` and drive the game.
+  - A client gets ten seconds to finish the handshake.
+- **Loopback only.** `-listen` refuses any address but a loopback one: the protocol has no authentication, and remote play is not what it is for. An empty host is `127.0.0.1`, and port 0 picks one. `kingpind` prints the URL to connect to (`ws://127.0.0.1:PORT/`) on stdout, then runs until it is killed.
+- **One connection at a time, a session each.** The standard library alone, no dependency: `net.Listen`, `http.ReadRequest` for the handshake, and the frames by hand in `internal/protocol/ws.go`.
+  - `kingpind` accepts a connection, serves it on its own goroutine until it hangs up, then accepts the next. A second client waits.
+  - This keeps the tree free of goroutines (`TestNoGoroutineInTheTree` walks `internal/protocol` too): there is no `net/http` server spawning one per connection, and nothing is shared that would want a lock. Each connection gets a fresh session and its own tuning, loaded when it arrives, with no run until it calls `new_run` or `load`.
+  - A game played by one client needs nothing more. Serving several at once is a later change, and it would bring a lock and put the race detector's guard on the table.
+
+**What pins it.**
+
+- `TestOverWebSocket` builds `kingpind` and runs it with `-listen 127.0.0.1:0`. It plays the reference game on seed 7 over a real socket and gets `TestProtocolIsTheSession`'s direct run byte for byte: every event and the last view. It closes the connection and gets the server's close back. A second client then gets a session of its own, with no run.
+- `TestListenIsLoopbackOnly`: `0.0.0.0`, `[::]` and a public address are refused.
+- `TestHandshake`: RFC 6455's sample key gets RFC 6455's accept, a page on `localhost` or `127.0.0.1` may connect, and each bad request gets its status.
+- `TestFrames`: fragments with a ping between them read as one message and the ping is answered; a 16-bit length reads; a close is echoed; each refused frame closes with its code.
+- `TestServeWS`: the frames come in stdio's order.
+- `TestOverStdio` is unchanged: stdio is still the default.
+- Checked by hand against an independent client, Python's `websockets`: the handshake with a localhost Origin, a 200 KB message (a 64-bit length), ping and pong, and a clean close.
+
 **Embedding (#327).** A front end can run the engine inside its own process. The protocol is still the contract: each embedding exposes one call, a request line in and the lines it produced out (`protocol.Server.Handle`, the loop stdio and WebSocket run). There is no second API.
 
 - **WebAssembly** (`cmd/kingpin-wasm`, `js && wasm`), for a browser or a web game engine: `GOOS=js GOARCH=wasm go build -o kingpin.wasm ./cmd/kingpin-wasm`, run with Go's `wasm_exec.js` (`$(go env GOROOT)/lib/wasm`). The module is about 12 MB.
@@ -200,7 +268,7 @@ The report's and the journal's alone, no cue (94): `AssetBought`, `AssetFrozen`,
   - `kingpin_protocol()` and `kingpin_view()` are the versions.
   
   A handle that isn't open answers a JSON-RPC `-32600` line. One lock serialises every call, so a host may call from any thread. The lock lives in `cmd/`, which `TestNoGoroutineInTheTree` doesn't walk: a native host's threads are the host's, and nothing under `internal/` locks.
-- **Saves.** Neither embedding has save slots to rely on, since a browser has no filesystem. `export_save` returns the run as a save's bytes (base64 on the wire), and `import_save [save]` makes them the run and returns the view, as `load` does. The host keeps them where it likes: `localStorage`, IndexedDB, the engine's user directory. The bytes are a slot file's exactly (`game.Encode` and `game.Decode`, `docs/saves.md`), so a save moves between the TUI and an embedding. The schema shows `[]byte` as a base64 string. `protocol.Version` is 2.
+- **Saves.** Neither embedding has save slots to rely on, since a browser has no filesystem. `export_save` returns the run as a save's bytes (base64 on the wire), and `import_save [save]` makes them the run and returns the view, as `load` does. The host keeps them where it likes: `localStorage`, IndexedDB, the engine's user directory. The bytes are a slot file's exactly (`game.Encode` and `game.Decode`, `docs/saves.md`), so a save moves between the TUI and an embedding. The schema shows `[]byte` as a base64 string. `protocol.Version` is 3.
 - **CI.** The test job builds both targets on every PR (the `embeddings` step of `.github/actions/go`), and the lint job vets the WASM package for its own target, since `./...` on the runner skips it. The test step replays the reference game through both. In CI, a missing `node` or `cc` fails the test rather than skipping it.
 
 **What pins it.**

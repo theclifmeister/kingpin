@@ -1,5 +1,1231 @@
 {
   "$defs": {
+    "content.AssetConfig": {
+      "properties": {
+        "CapacityMul": {
+          "type": "number"
+        },
+        "City": {
+          "type": "string"
+        },
+        "Cost": {
+          "type": "integer"
+        },
+        "Effect": {
+          "type": "string"
+        },
+        "HeatFloor": {
+          "type": "number"
+        },
+        "ID": {
+          "type": "string"
+        },
+        "LabCostMul": {
+          "type": "number"
+        },
+        "LabMul": {
+          "type": "number"
+        },
+        "LabQuality": {
+          "type": "number"
+        },
+        "Name": {
+          "type": "string"
+        },
+        "OwnRatio": {
+          "type": "number"
+        },
+        "Pressure": {
+          "type": "number"
+        },
+        "UnlockCash": {
+          "type": "integer"
+        },
+        "Upkeep": {
+          "type": "integer"
+        }
+      },
+      "required": [
+        "ID",
+        "Name",
+        "City",
+        "UnlockCash",
+        "Cost",
+        "Upkeep",
+        "HeatFloor",
+        "Pressure",
+        "Effect",
+        "OwnRatio",
+        "CapacityMul",
+        "LabMul",
+        "LabQuality",
+        "LabCostMul"
+      ],
+      "type": "object"
+    },
+    "content.BooksTuning": {
+      "properties": {
+        "ScoutBase": {
+          "type": "number"
+        },
+        "ScoutCost": {
+          "type": "integer"
+        },
+        "ScoutLearn": {
+          "type": "number"
+        },
+        "ScoutSkill": {
+          "type": "number"
+        },
+        "StaleDays": {
+          "type": "integer"
+        }
+      },
+      "required": [
+        "ScoutCost",
+        "ScoutBase",
+        "ScoutSkill",
+        "ScoutLearn",
+        "StaleDays"
+      ],
+      "type": "object"
+    },
+    "content.BoostTuning": {
+      "properties": {
+        "FailHurt": {
+          "type": "integer"
+        },
+        "FailLoss": {
+          "type": "number"
+        },
+        "FailMuscle": {
+          "type": "integer"
+        },
+        "Heat": {
+          "type": "number"
+        },
+        "Loyalty": {
+          "type": "number"
+        },
+        "Take": {
+          "type": "number"
+        },
+        "War": {
+          "type": "number"
+        }
+      },
+      "required": [
+        "Take",
+        "Heat",
+        "War",
+        "Loyalty",
+        "FailLoss",
+        "FailMuscle",
+        "FailHurt"
+      ],
+      "type": "object"
+    },
+    "content.BribeTuning": {
+      "properties": {
+        "BackfireEvidence": {
+          "type": "integer"
+        },
+        "BackfireHeat": {
+          "type": "number"
+        },
+        "BribeDays": {
+          "type": "integer"
+        },
+        "CallsStopDays": {
+          "type": "integer"
+        },
+        "CheckpointDays": {
+          "type": "integer"
+        },
+        "CheckpointPrice": {
+          "type": "integer"
+        },
+        "ChiefPrice": {
+          "type": "integer"
+        },
+        "CustomsPrice": {
+          "type": "integer"
+        },
+        "DAOddsCap": {
+          "type": "number"
+        },
+        "DAPrice": {
+          "type": "integer"
+        },
+        "FavourEvidence": {
+          "type": "integer"
+        },
+        "FavoursMax": {
+          "type": "integer"
+        },
+        "FixerDiscount": {
+          "type": "number"
+        },
+        "FixerOdds": {
+          "type": "number"
+        },
+        "LazyEffect": {
+          "type": "number"
+        },
+        "LeadDecayDays": {
+          "type": "integer"
+        },
+        "LeadEvidence": {
+          "type": "integer"
+        },
+        "LeadsCase": {
+          "type": "integer"
+        }
+      },
+      "required": [
+        "ChiefPrice",
+        "DAPrice",
+        "DAOddsCap",
+        "BribeDays",
+        "LazyEffect",
+        "BackfireEvidence",
+        "BackfireHeat",
+        "LeadsCase",
+        "LeadEvidence",
+        "LeadDecayDays",
+        "CheckpointPrice",
+        "CustomsPrice",
+        "CheckpointDays",
+        "CallsStopDays",
+        "FixerOdds",
+        "FixerDiscount",
+        "FavoursMax",
+        "FavourEvidence"
+      ],
+      "type": "object"
+    },
+    "content.BuyersTuning": {
+      "properties": {
+        "BlacklistDays": {
+          "type": "integer"
+        },
+        "KeepDays": {
+          "type": "integer"
+        },
+        "MaxGap": {
+          "type": "integer"
+        },
+        "MinGap": {
+          "type": "integer"
+        },
+        "NotorietyPenalty": {
+          "type": "number"
+        },
+        "OfferDays": {
+          "type": "integer"
+        },
+        "Respect": {
+          "type": "number"
+        }
+      },
+      "required": [
+        "MinGap",
+        "MaxGap",
+        "OfferDays",
+        "BlacklistDays",
+        "Respect",
+        "NotorietyPenalty",
+        "KeepDays"
+      ],
+      "type": "object"
+    },
+    "content.CampaignTuning": {
+      "properties": {
+        "BackedDAPriceMul": {
+          "type": "number"
+        },
+        "Cash": {
+          "type": "integer"
+        },
+        "LoserChief": {
+          "type": "boolean"
+        },
+        "LoserPressure": {
+          "type": "number"
+        },
+        "OpenDays": {
+          "type": "integer"
+        },
+        "Pressure": {
+          "type": "number"
+        },
+        "SwingMax": {
+          "type": "number"
+        }
+      },
+      "required": [
+        "Cash",
+        "SwingMax",
+        "OpenDays",
+        "Pressure",
+        "BackedDAPriceMul",
+        "LoserPressure",
+        "LoserChief"
+      ],
+      "type": "object"
+    },
+    "content.CrewTuning": {
+      "properties": {
+        "Candidates": {
+          "type": "integer"
+        },
+        "DangerDays": {
+          "type": "integer"
+        },
+        "DangerLoyalty": {
+          "type": "number"
+        },
+        "FireLoyalty": {
+          "type": "number"
+        },
+        "GreedDrift": {
+          "type": "number"
+        },
+        "GreedMax": {
+          "type": "integer"
+        },
+        "GreedMin": {
+          "type": "integer"
+        },
+        "HireFeeBase": {
+          "type": "integer"
+        },
+        "HireFeePerSkill": {
+          "type": "number"
+        },
+        "MaxCrew": {
+          "type": "integer"
+        },
+        "NerveMax": {
+          "type": "integer"
+        },
+        "NerveMin": {
+          "type": "integer"
+        },
+        "PoolDays": {
+          "type": "integer"
+        },
+        "QuitThreshold": {
+          "type": "number"
+        },
+        "SkillMax": {
+          "type": "integer"
+        },
+        "SkillMin": {
+          "type": "integer"
+        },
+        "SkimCap": {
+          "type": "number"
+        },
+        "SkimChance": {
+          "type": "number"
+        },
+        "SkimShare": {
+          "type": "number"
+        },
+        "SkimThreshold": {
+          "type": "number"
+        },
+        "StartLoyaltyMax": {
+          "type": "integer"
+        },
+        "StartLoyaltyMin": {
+          "type": "integer"
+        },
+        "SuspectDays": {
+          "type": "integer"
+        },
+        "UnitsPerSkill": {
+          "type": "number"
+        },
+        "UnpaidLoyalty": {
+          "type": "number"
+        }
+      },
+      "required": [
+        "MaxCrew",
+        "Candidates",
+        "PoolDays",
+        "UnitsPerSkill",
+        "HireFeeBase",
+        "HireFeePerSkill",
+        "StartLoyaltyMin",
+        "StartLoyaltyMax",
+        "SkillMin",
+        "SkillMax",
+        "GreedMin",
+        "GreedMax",
+        "NerveMin",
+        "NerveMax",
+        "GreedDrift",
+        "DangerDays",
+        "DangerLoyalty",
+        "FireLoyalty",
+        "UnpaidLoyalty",
+        "SkimThreshold",
+        "SkimChance",
+        "SkimShare",
+        "SkimCap",
+        "SuspectDays",
+        "QuitThreshold"
+      ],
+      "type": "object"
+    },
+    "content.DeedTuning": {
+      "properties": {
+        "Days": {
+          "type": "number"
+        },
+        "ForfeitEvidence": {
+          "type": "integer"
+        },
+        "ForfeitRatio": {
+          "type": "number"
+        },
+        "HeadlineDeeds": {
+          "type": "integer"
+        },
+        "Pressure": {
+          "type": "number"
+        },
+        "PushMul": {
+          "type": "number"
+        },
+        "RaidMul": {
+          "type": "number"
+        },
+        "Rent": {
+          "type": "number"
+        },
+        "RobberyMul": {
+          "type": "number"
+        }
+      },
+      "required": [
+        "Days",
+        "Rent",
+        "RobberyMul",
+        "PushMul",
+        "RaidMul",
+        "Pressure",
+        "HeadlineDeeds",
+        "ForfeitRatio",
+        "ForfeitEvidence"
+      ],
+      "type": "object"
+    },
+    "content.DialConfig": {
+      "properties": {
+        "Fill": {
+          "type": "number"
+        },
+        "Heat": {
+          "type": "number"
+        },
+        "Impact": {
+          "type": "number"
+        },
+        "Price": {
+          "type": "number"
+        }
+      },
+      "required": [
+        "Fill",
+        "Price",
+        "Impact",
+        "Heat"
+      ],
+      "type": "object"
+    },
+    "content.DiplomacyTuning": {
+      "properties": {
+        "AcceptTrust": {
+          "type": "number"
+        },
+        "AcceptWar": {
+          "type": "number"
+        },
+        "BetrayalFloor": {
+          "type": "number"
+        },
+        "BetrayalSpread": {
+          "type": "number"
+        },
+        "DistrustDays": {
+          "type": "integer"
+        },
+        "JointTrust": {
+          "type": "number"
+        },
+        "LowCashDays": {
+          "type": "integer"
+        },
+        "OfferDays": {
+          "type": "integer"
+        },
+        "SplitFair": {
+          "type": "number"
+        },
+        "SplitTerms": {
+          "type": "number"
+        },
+        "SplitTrust": {
+          "type": "number"
+        },
+        "TributeCuts": {
+          "items": {
+            "type": "number"
+          },
+          "type": "array"
+        },
+        "TributeMin": {
+          "type": "integer"
+        },
+        "TruceDays": {
+          "items": {
+            "type": "integer"
+          },
+          "type": "array"
+        },
+        "TrustKept": {
+          "type": "number"
+        },
+        "UpperHand": {
+          "type": "number"
+        }
+      },
+      "required": [
+        "OfferDays",
+        "TrustKept",
+        "AcceptTrust",
+        "AcceptWar",
+        "BetrayalFloor",
+        "DistrustDays",
+        "BetrayalSpread",
+        "JointTrust",
+        "TruceDays",
+        "TributeCuts",
+        "TributeMin",
+        "LowCashDays",
+        "UpperHand",
+        "SplitFair",
+        "SplitTrust",
+        "SplitTerms"
+      ],
+      "type": "object"
+    },
+    "content.FactionsTuning": {
+      "properties": {
+        "AbsorbDays": {
+          "type": "integer"
+        },
+        "AllyLine": {
+          "type": "number"
+        },
+        "AllyShare": {
+          "type": "number"
+        },
+        "AllyTrust": {
+          "type": "number"
+        },
+        "ArriveGap": {
+          "type": "integer"
+        },
+        "Away": {
+          "type": "number"
+        },
+        "AwayMax": {
+          "type": "integer"
+        },
+        "FragmentDays": {
+          "type": "integer"
+        },
+        "FragmentDiscount": {
+          "type": "number"
+        },
+        "GrudgeTrust": {
+          "type": "number"
+        },
+        "HomageChance": {
+          "type": "number"
+        },
+        "HomageCut": {
+          "type": "number"
+        },
+        "LeaderArrestHeat": {
+          "type": "number"
+        },
+        "Max": {
+          "type": "integer"
+        },
+        "Min": {
+          "type": "integer"
+        },
+        "PoachCash": {
+          "type": "number"
+        },
+        "PoachChance": {
+          "type": "number"
+        },
+        "PoachDip": {
+          "type": "number"
+        },
+        "PoachLine": {
+          "type": "number"
+        },
+        "PoachMul": {
+          "type": "number"
+        },
+        "PushHeat": {
+          "type": "number"
+        },
+        "SharedPace": {
+          "type": "boolean"
+        },
+        "ShockDays": {
+          "type": "integer"
+        },
+        "ShockMul": {
+          "type": "number"
+        },
+        "TableShare": {
+          "type": "number"
+        },
+        "TributeCorners": {
+          "type": "integer"
+        }
+      },
+      "required": [
+        "Min",
+        "Max",
+        "Away",
+        "AwayMax",
+        "ArriveGap",
+        "SharedPace",
+        "TableShare",
+        "AbsorbDays",
+        "AllyTrust",
+        "AllyLine",
+        "AllyShare",
+        "GrudgeTrust",
+        "PushHeat",
+        "PoachCash",
+        "PoachMul",
+        "PoachChance",
+        "PoachLine",
+        "PoachDip",
+        "LeaderArrestHeat",
+        "FragmentDays",
+        "ShockMul",
+        "ShockDays",
+        "FragmentDiscount",
+        "TributeCorners",
+        "HomageCut",
+        "HomageChance"
+      ],
+      "type": "object"
+    },
+    "content.GrowthConfig": {
+      "properties": {
+        "AuditLevel": {
+          "type": "number"
+        },
+        "HeadlineLevel": {
+          "type": "integer"
+        },
+        "LegitRatio": {
+          "type": "number"
+        }
+      },
+      "required": [
+        "AuditLevel",
+        "LegitRatio",
+        "HeadlineLevel"
+      ],
+      "type": "object"
+    },
+    "content.LaunderConfig": {
+      "properties": {
+        "Mul": {
+          "type": "number"
+        },
+        "Risk": {
+          "type": "number"
+        }
+      },
+      "required": [
+        "Mul",
+        "Risk"
+      ],
+      "type": "object"
+    },
+    "content.LaunderingTuning": {
+      "properties": {
+        "AccountantRiskCut": {
+          "type": "number"
+        },
+        "AccountantThroughput": {
+          "type": "number"
+        },
+        "AuditFreezeDays": {
+          "type": "integer"
+        },
+        "AuditSeize": {
+          "type": "number"
+        },
+        "Float": {
+          "type": "integer"
+        },
+        "UpkeepFreezeDays": {
+          "type": "integer"
+        }
+      },
+      "required": [
+        "Float",
+        "AuditFreezeDays",
+        "AuditSeize",
+        "UpkeepFreezeDays",
+        "AccountantThroughput",
+        "AccountantRiskCut"
+      ],
+      "type": "object"
+    },
+    "content.LawTuning": {
+      "properties": {
+        "Band": {
+          "type": "number"
+        },
+        "Baseline": {
+          "type": "number"
+        },
+        "ChiefTerm": {
+          "type": "integer"
+        },
+        "Decay": {
+          "type": "number"
+        },
+        "ElectionSwing": {
+          "type": "number"
+        },
+        "GoodwillCash": {
+          "type": "integer"
+        },
+        "GoodwillCut": {
+          "type": "number"
+        },
+        "GoodwillDecay": {
+          "type": "number"
+        },
+        "Moderate": {
+          "type": "number"
+        },
+        "ObserveDays": {
+          "type": "integer"
+        },
+        "ReplacePressure": {
+          "type": "number"
+        },
+        "TermDays": {
+          "type": "integer"
+        }
+      },
+      "required": [
+        "ChiefTerm",
+        "TermDays",
+        "ReplacePressure",
+        "ObserveDays",
+        "Baseline",
+        "Decay",
+        "Band",
+        "GoodwillCash",
+        "GoodwillCut",
+        "GoodwillDecay",
+        "ElectionSwing",
+        "Moderate"
+      ],
+      "type": "object"
+    },
+    "content.LifeTuning": {
+      "properties": {
+        "AgeMax": {
+          "type": "integer"
+        },
+        "AgeMin": {
+          "type": "integer"
+        },
+        "ArrestChance": {
+          "type": "number"
+        },
+        "BailLoyalty": {
+          "type": "number"
+        },
+        "Force": {
+          "additionalProperties": {
+            "type": "number"
+          },
+          "type": "object"
+        },
+        "JailDays": {
+          "type": "integer"
+        },
+        "JailLoyalty": {
+          "type": "number"
+        },
+        "KillChance": {
+          "type": "number"
+        },
+        "KinBodyLoyalty": {
+          "type": "number"
+        },
+        "KinBodyNerve": {
+          "type": "integer"
+        },
+        "KinChance": {
+          "type": "number"
+        },
+        "KinDiscount": {
+          "type": "number"
+        },
+        "KinLoyalty": {
+          "type": "number"
+        },
+        "NerveAge": {
+          "type": "integer"
+        },
+        "NerveLoss": {
+          "type": "integer"
+        },
+        "Personality": {
+          "additionalProperties": {
+            "type": "number"
+          },
+          "type": "object"
+        },
+        "ReleaseTurn": {
+          "type": "number"
+        },
+        "RetireAge": {
+          "type": "integer"
+        },
+        "RetireLoyal": {
+          "type": "number"
+        },
+        "SkillCap": {
+          "type": "integer"
+        },
+        "SkillGrowth": {
+          "type": "number"
+        },
+        "WoundChance": {
+          "type": "number"
+        },
+        "WoundDays": {
+          "type": "integer"
+        },
+        "YearDays": {
+          "type": "integer"
+        }
+      },
+      "required": [
+        "YearDays",
+        "AgeMin",
+        "AgeMax",
+        "SkillGrowth",
+        "SkillCap",
+        "NerveAge",
+        "NerveLoss",
+        "RetireAge",
+        "RetireLoyal",
+        "ArrestChance",
+        "JailDays",
+        "BailLoyalty",
+        "JailLoyalty",
+        "ReleaseTurn",
+        "WoundChance",
+        "KillChance",
+        "WoundDays",
+        "KinChance",
+        "KinDiscount",
+        "KinLoyalty",
+        "KinBodyLoyalty",
+        "KinBodyNerve",
+        "Force",
+        "Personality"
+      ],
+      "type": "object"
+    },
+    "content.OffshoreConfig": {
+      "properties": {
+        "Fee": {
+          "type": "number"
+        },
+        "Lot": {
+          "type": "integer"
+        },
+        "RetireCash": {
+          "type": "integer"
+        },
+        "RetireDays": {
+          "type": "integer"
+        },
+        "RetireHeat": {
+          "type": "number"
+        }
+      },
+      "required": [
+        "Lot",
+        "Fee",
+        "RetireCash",
+        "RetireDays",
+        "RetireHeat"
+      ],
+      "type": "object"
+    },
+    "content.PoachTuning": {
+      "properties": {
+        "AwayDays": {
+          "type": "integer"
+        },
+        "CashShare": {
+          "type": "number"
+        },
+        "Grudge": {
+          "type": "integer"
+        },
+        "MusclePrice": {
+          "type": "number"
+        },
+        "Odds": {
+          "type": "number"
+        }
+      },
+      "required": [
+        "MusclePrice",
+        "CashShare",
+        "Odds",
+        "Grudge",
+        "AwayDays"
+      ],
+      "type": "object"
+    },
+    "content.QualityTuning": {
+      "properties": {
+        "Default": {
+          "type": "number"
+        },
+        "HighMul": {
+          "type": "number"
+        },
+        "LowMul": {
+          "type": "number"
+        },
+        "OdChance": {
+          "type": "number"
+        },
+        "OdProducts": {
+          "items": {
+            "type": "string"
+          },
+          "type": "array"
+        },
+        "OdQuality": {
+          "type": "number"
+        },
+        "OdUnits": {
+          "type": "number"
+        },
+        "RepeatFloor": {
+          "type": "number"
+        },
+        "RepeatGain": {
+          "type": "number"
+        },
+        "RepeatLoss": {
+          "type": "number"
+        },
+        "RepeatMin": {
+          "type": "number"
+        },
+        "RepeatStart": {
+          "type": "number"
+        }
+      },
+      "required": [
+        "Default",
+        "LowMul",
+        "HighMul",
+        "RepeatStart",
+        "RepeatFloor",
+        "RepeatLoss",
+        "RepeatGain",
+        "RepeatMin",
+        "OdQuality",
+        "OdUnits",
+        "OdChance",
+        "OdProducts"
+      ],
+      "type": "object"
+    },
+    "content.ResponseConfig": {
+      "properties": {
+        "Cap": {
+          "type": "number"
+        },
+        "CapDays": {
+          "type": "integer"
+        },
+        "CashLoss": {
+          "type": "number"
+        },
+        "Cooldown": {
+          "type": "integer"
+        },
+        "Evidence": {
+          "type": "integer"
+        },
+        "HeatDrop": {
+          "type": "number"
+        },
+        "Level": {
+          "type": "string"
+        },
+        "StockLoss": {
+          "type": "number"
+        },
+        "Threshold": {
+          "type": "number"
+        }
+      },
+      "required": [
+        "Level",
+        "Threshold",
+        "CapDays",
+        "Cap",
+        "StockLoss",
+        "CashLoss",
+        "HeatDrop",
+        "Evidence",
+        "Cooldown"
+      ],
+      "type": "object"
+    },
+    "content.RivalsTuning": {
+      "properties": {
+        "ArriveDay": {
+          "type": "integer"
+        },
+        "ClaimCost": {
+          "type": "number"
+        },
+        "CrackdownCorners": {
+          "type": "integer"
+        },
+        "CrackdownHeat": {
+          "type": "number"
+        },
+        "CrackdownMuscle": {
+          "type": "number"
+        },
+        "CrackdownThreshold": {
+          "type": "number"
+        },
+        "Margin": {
+          "type": "number"
+        },
+        "MuscleFee": {
+          "type": "number"
+        },
+        "MuscleWage": {
+          "type": "number"
+        },
+        "ObserveDays": {
+          "type": "integer"
+        },
+        "OutbidGrudge": {
+          "type": "integer"
+        },
+        "PushFlip": {
+          "type": "number"
+        },
+        "PushWar": {
+          "type": "number"
+        },
+        "RegroupDays": {
+          "type": "integer"
+        },
+        "StartCash": {
+          "type": "number"
+        },
+        "StartMuscle": {
+          "type": "integer"
+        },
+        "SupplierMax": {
+          "type": "number"
+        },
+        "SupplierMin": {
+          "type": "number"
+        },
+        "TipHeat": {
+          "type": "number"
+        },
+        "UndercutPrice": {
+          "type": "number"
+        },
+        "WarDecay": {
+          "type": "number"
+        },
+        "WarThreshold": {
+          "type": "number"
+        }
+      },
+      "required": [
+        "ArriveDay",
+        "StartCash",
+        "StartMuscle",
+        "Margin",
+        "MuscleWage",
+        "MuscleFee",
+        "ClaimCost",
+        "SupplierMin",
+        "SupplierMax",
+        "PushFlip",
+        "PushWar",
+        "UndercutPrice",
+        "TipHeat",
+        "ObserveDays",
+        "RegroupDays",
+        "WarDecay",
+        "WarThreshold",
+        "CrackdownThreshold",
+        "CrackdownCorners",
+        "CrackdownHeat",
+        "CrackdownMuscle",
+        "OutbidGrudge"
+      ],
+      "type": "object"
+    },
+    "content.SupplierTuning": {
+      "properties": {
+        "BandWidth": {
+          "type": "number"
+        },
+        "Capacity": {
+          "items": {
+            "type": "number"
+          },
+          "type": "array"
+        },
+        "CollectHurt": {
+          "type": "number"
+        },
+        "CollectLoyalty": {
+          "type": "number"
+        },
+        "Credit": {
+          "items": {
+            "type": "number"
+          },
+          "type": "array"
+        },
+        "ExtendDays": {
+          "type": "integer"
+        },
+        "FreezeDays": {
+          "type": "integer"
+        },
+        "FreezeRel": {
+          "type": "number"
+        },
+        "LateFee": {
+          "type": "number"
+        },
+        "QuietDays": {
+          "type": "integer"
+        },
+        "QuietDecay": {
+          "type": "number"
+        },
+        "RelLate": {
+          "type": "number"
+        },
+        "RelPaid": {
+          "type": "number"
+        },
+        "RelPerLot": {
+          "type": "number"
+        },
+        "SeizeRel": {
+          "type": "number"
+        }
+      },
+      "required": [
+        "BandWidth",
+        "RelPerLot",
+        "RelPaid",
+        "RelLate",
+        "SeizeRel",
+        "QuietDays",
+        "QuietDecay",
+        "FreezeRel",
+        "FreezeDays",
+        "LateFee",
+        "ExtendDays",
+        "CollectLoyalty",
+        "CollectHurt",
+        "Capacity",
+        "Credit"
+      ],
+      "type": "object"
+    },
+    "content.TipTuning": {
+      "properties": {
+        "Decay": {
+          "type": "number"
+        },
+        "Grudge": {
+          "type": "integer"
+        },
+        "Heat": {
+          "type": "number"
+        },
+        "PoliceNotice": {
+          "type": "number"
+        },
+        "PushHeat": {
+          "type": "number"
+        },
+        "RaidDays": {
+          "type": "integer"
+        },
+        "RaidMuscle": {
+          "type": "number"
+        },
+        "Trust": {
+          "type": "number"
+        }
+      },
+      "required": [
+        "Heat",
+        "PushHeat",
+        "Decay",
+        "PoliceNotice",
+        "RaidMuscle",
+        "RaidDays",
+        "Trust",
+        "Grudge"
+      ],
+      "type": "object"
+    },
     "content.UpgradeConfig": {
       "properties": {
         "Branch": {
@@ -6325,6 +7551,29 @@
       ],
       "type": "object"
     },
+    "game.LevelOffer": {
+      "properties": {
+        "Cost": {
+          "type": "integer"
+        },
+        "Front": {
+          "type": "string"
+        },
+        "Levels": {
+          "type": "integer"
+        },
+        "Max": {
+          "type": "integer"
+        }
+      },
+      "required": [
+        "Front",
+        "Levels",
+        "Cost",
+        "Max"
+      ],
+      "type": "object"
+    },
     "game.Offer": {
       "properties": {
         "Deal": {
@@ -6415,6 +7664,21 @@
       "required": [
         "day",
         "events"
+      ],
+      "type": "object"
+    },
+    "protocol.DealParams": {
+      "properties": {
+        "kind": {
+          "type": "string"
+        },
+        "terms": {
+          "$ref": "#/$defs/protocol.TermsParams"
+        }
+      },
+      "required": [
+        "kind",
+        "terms"
       ],
       "type": "object"
     },
@@ -8169,6 +9433,2562 @@
         "type": "integer"
       }
     },
+    "rules.crew.bail_cost": {
+      "changes": false,
+      "needsRun": true,
+      "params": {
+        "maxItems": 1,
+        "minItems": 1,
+        "prefixItems": [
+          {
+            "title": "member",
+            "type": "integer"
+          }
+        ],
+        "type": "array"
+      },
+      "result": {
+        "type": "integer"
+      }
+    },
+    "rules.crew.batch": {
+      "changes": false,
+      "needsRun": true,
+      "params": {
+        "maxItems": 0,
+        "minItems": 0,
+        "prefixItems": [],
+        "type": "array"
+      },
+      "result": {
+        "type": "integer"
+      }
+    },
+    "rules.crew.batch_in": {
+      "changes": false,
+      "needsRun": true,
+      "params": {
+        "maxItems": 1,
+        "minItems": 1,
+        "prefixItems": [
+          {
+            "title": "city",
+            "type": "string"
+          }
+        ],
+        "type": "array"
+      },
+      "result": {
+        "type": "integer"
+      }
+    },
+    "rules.crew.batch_of": {
+      "changes": false,
+      "needsRun": true,
+      "params": {
+        "maxItems": 1,
+        "minItems": 1,
+        "prefixItems": [
+          {
+            "title": "skill",
+            "type": "integer"
+          }
+        ],
+        "type": "array"
+      },
+      "result": {
+        "type": "integer"
+      }
+    },
+    "rules.crew.birthday": {
+      "changes": false,
+      "needsRun": true,
+      "params": {
+        "maxItems": 2,
+        "minItems": 2,
+        "prefixItems": [
+          {
+            "title": "member",
+            "type": "integer"
+          },
+          {
+            "title": "day",
+            "type": "integer"
+          }
+        ],
+        "type": "array"
+      },
+      "result": {
+        "type": "integer"
+      }
+    },
+    "rules.crew.chemist_name": {
+      "changes": false,
+      "needsRun": true,
+      "params": {
+        "maxItems": 0,
+        "minItems": 0,
+        "prefixItems": [],
+        "type": "array"
+      },
+      "result": {
+        "type": "string"
+      }
+    },
+    "rules.crew.chemist_quality": {
+      "changes": false,
+      "needsRun": true,
+      "params": {
+        "maxItems": 0,
+        "minItems": 0,
+        "prefixItems": [],
+        "type": "array"
+      },
+      "result": {
+        "type": "number"
+      }
+    },
+    "rules.crew.cook_cost_in": {
+      "changes": false,
+      "needsRun": true,
+      "params": {
+        "maxItems": 2,
+        "minItems": 2,
+        "prefixItems": [
+          {
+            "title": "city",
+            "type": "string"
+          },
+          {
+            "title": "cost",
+            "type": "integer"
+          }
+        ],
+        "type": "array"
+      },
+      "result": {
+        "type": "integer"
+      }
+    },
+    "rules.crew.cook_days": {
+      "changes": false,
+      "needsRun": true,
+      "params": {
+        "maxItems": 0,
+        "minItems": 0,
+        "prefixItems": [],
+        "type": "array"
+      },
+      "result": {
+        "type": "integer"
+      }
+    },
+    "rules.crew.cut": {
+      "changes": false,
+      "needsRun": true,
+      "params": {
+        "maxItems": 0,
+        "minItems": 0,
+        "prefixItems": [],
+        "type": "array"
+      },
+      "result": {
+        "type": "number"
+      }
+    },
+    "rules.crew.cut_bonus": {
+      "changes": false,
+      "needsRun": true,
+      "params": {
+        "maxItems": 0,
+        "minItems": 0,
+        "prefixItems": [],
+        "type": "array"
+      },
+      "result": {
+        "type": "number"
+      }
+    },
+    "rules.crew.dial": {
+      "changes": false,
+      "needsRun": true,
+      "params": {
+        "maxItems": 1,
+        "minItems": 1,
+        "prefixItems": [
+          {
+            "title": "member",
+            "type": "integer"
+          }
+        ],
+        "type": "array"
+      },
+      "result": {
+        "maximum": 2,
+        "minimum": 0,
+        "type": "integer",
+        "x-names": [
+          "quiet",
+          "normal",
+          "aggressive"
+        ]
+      }
+    },
+    "rules.crew.flip_line": {
+      "changes": false,
+      "needsRun": true,
+      "params": {
+        "maxItems": 0,
+        "minItems": 0,
+        "prefixItems": [],
+        "type": "array"
+      },
+      "result": {
+        "type": "number"
+      }
+    },
+    "rules.crew.investigate_cost": {
+      "changes": false,
+      "needsRun": true,
+      "params": {
+        "maxItems": 0,
+        "minItems": 0,
+        "prefixItems": [],
+        "type": "array"
+      },
+      "result": {
+        "type": "integer"
+      }
+    },
+    "rules.crew.investigate_odds": {
+      "changes": false,
+      "needsRun": true,
+      "params": {
+        "maxItems": 0,
+        "minItems": 0,
+        "prefixItems": [],
+        "type": "array"
+      },
+      "result": {
+        "type": "number"
+      }
+    },
+    "rules.crew.lab": {
+      "changes": false,
+      "needsRun": true,
+      "params": {
+        "maxItems": 1,
+        "minItems": 1,
+        "prefixItems": [
+          {
+            "title": "city",
+            "type": "string"
+          }
+        ],
+        "type": "array"
+      },
+      "result": {
+        "$ref": "#/$defs/content.AssetConfig"
+      }
+    },
+    "rules.crew.lieutenants_wanted": {
+      "changes": false,
+      "needsRun": true,
+      "params": {
+        "maxItems": 0,
+        "minItems": 0,
+        "prefixItems": [],
+        "type": "array"
+      },
+      "result": {
+        "type": "boolean"
+      }
+    },
+    "rules.crew.life": {
+      "changes": false,
+      "needsRun": true,
+      "params": {
+        "maxItems": 0,
+        "minItems": 0,
+        "prefixItems": [],
+        "type": "array"
+      },
+      "result": {
+        "$ref": "#/$defs/content.LifeTuning"
+      }
+    },
+    "rules.crew.max_crew": {
+      "changes": false,
+      "needsRun": true,
+      "params": {
+        "maxItems": 0,
+        "minItems": 0,
+        "prefixItems": [],
+        "type": "array"
+      },
+      "result": {
+        "type": "integer"
+      }
+    },
+    "rules.crew.payoff_cost": {
+      "changes": false,
+      "needsRun": true,
+      "params": {
+        "maxItems": 1,
+        "minItems": 1,
+        "prefixItems": [
+          {
+            "title": "member",
+            "type": "integer"
+          }
+        ],
+        "type": "array"
+      },
+      "result": {
+        "type": "integer"
+      }
+    },
+    "rules.crew.payoff_loyalty": {
+      "changes": false,
+      "needsRun": true,
+      "params": {
+        "maxItems": 0,
+        "minItems": 0,
+        "prefixItems": [],
+        "type": "array"
+      },
+      "result": {
+        "type": "number"
+      }
+    },
+    "rules.crew.pool_days": {
+      "changes": false,
+      "needsRun": true,
+      "params": {
+        "maxItems": 0,
+        "minItems": 0,
+        "prefixItems": [],
+        "type": "array"
+      },
+      "result": {
+        "type": "integer"
+      }
+    },
+    "rules.crew.quality_in": {
+      "changes": false,
+      "needsRun": true,
+      "params": {
+        "maxItems": 1,
+        "minItems": 1,
+        "prefixItems": [
+          {
+            "title": "city",
+            "type": "string"
+          }
+        ],
+        "type": "array"
+      },
+      "result": {
+        "type": "number"
+      }
+    },
+    "rules.crew.quality_of": {
+      "changes": false,
+      "needsRun": true,
+      "params": {
+        "maxItems": 1,
+        "minItems": 1,
+        "prefixItems": [
+          {
+            "title": "skill",
+            "type": "integer"
+          }
+        ],
+        "type": "array"
+      },
+      "result": {
+        "type": "number"
+      }
+    },
+    "rules.crew.retiring": {
+      "changes": false,
+      "needsRun": true,
+      "params": {
+        "maxItems": 1,
+        "minItems": 1,
+        "prefixItems": [
+          {
+            "title": "member",
+            "type": "integer"
+          }
+        ],
+        "type": "array"
+      },
+      "result": {
+        "type": "boolean"
+      }
+    },
+    "rules.crew.reveal_days": {
+      "changes": false,
+      "needsRun": true,
+      "params": {
+        "maxItems": 0,
+        "minItems": 0,
+        "prefixItems": [],
+        "type": "array"
+      },
+      "result": {
+        "type": "integer"
+      }
+    },
+    "rules.crew.tuning": {
+      "changes": false,
+      "needsRun": true,
+      "params": {
+        "maxItems": 0,
+        "minItems": 0,
+        "prefixItems": [],
+        "type": "array"
+      },
+      "result": {
+        "$ref": "#/$defs/content.CrewTuning"
+      }
+    },
+    "rules.crew.wage_at": {
+      "changes": false,
+      "needsRun": true,
+      "params": {
+        "maxItems": 2,
+        "minItems": 2,
+        "prefixItems": [
+          {
+            "title": "member",
+            "type": "integer"
+          },
+          {
+            "enum": [
+              "stingy",
+              "fair",
+              "generous"
+            ],
+            "title": "pay",
+            "type": "string"
+          }
+        ],
+        "type": "array"
+      },
+      "result": {
+        "type": "integer"
+      }
+    },
+    "rules.crew.wages": {
+      "changes": false,
+      "needsRun": true,
+      "params": {
+        "maxItems": 1,
+        "minItems": 1,
+        "prefixItems": [
+          {
+            "enum": [
+              "stingy",
+              "fair",
+              "generous"
+            ],
+            "title": "pay",
+            "type": "string"
+          }
+        ],
+        "type": "array"
+      },
+      "result": {
+        "type": "integer"
+      }
+    },
+    "rules.heat.bribe_cooldown": {
+      "changes": false,
+      "needsRun": true,
+      "params": {
+        "maxItems": 0,
+        "minItems": 0,
+        "prefixItems": [],
+        "type": "array"
+      },
+      "result": {
+        "type": "integer"
+      }
+    },
+    "rules.heat.bribe_decay_mul": {
+      "changes": false,
+      "needsRun": true,
+      "params": {
+        "maxItems": 0,
+        "minItems": 0,
+        "prefixItems": [],
+        "type": "array"
+      },
+      "result": {
+        "type": "number"
+      }
+    },
+    "rules.heat.contract_heat": {
+      "changes": false,
+      "needsRun": true,
+      "params": {
+        "maxItems": 4,
+        "minItems": 4,
+        "prefixItems": [
+          {
+            "title": "city",
+            "type": "string"
+          },
+          {
+            "title": "product",
+            "type": "string"
+          },
+          {
+            "title": "units",
+            "type": "integer"
+          },
+          {
+            "title": "mul",
+            "type": "number"
+          }
+        ],
+        "type": "array"
+      },
+      "result": {
+        "type": "number"
+      }
+    },
+    "rules.heat.cover": {
+      "changes": false,
+      "needsRun": true,
+      "params": {
+        "maxItems": 0,
+        "minItems": 0,
+        "prefixItems": [],
+        "type": "array"
+      },
+      "result": {
+        "type": "integer"
+      }
+    },
+    "rules.heat.dirty_cash_threshold": {
+      "changes": false,
+      "needsRun": true,
+      "params": {
+        "maxItems": 0,
+        "minItems": 0,
+        "prefixItems": [],
+        "type": "array"
+      },
+      "result": {
+        "type": "integer"
+      }
+    },
+    "rules.heat.due": {
+      "changes": false,
+      "needsRun": true,
+      "params": {
+        "maxItems": 0,
+        "minItems": 0,
+        "prefixItems": [],
+        "type": "array"
+      },
+      "result": {
+        "type": "string"
+      }
+    },
+    "rules.heat.evidence_arrest": {
+      "changes": false,
+      "needsRun": true,
+      "params": {
+        "maxItems": 0,
+        "minItems": 0,
+        "prefixItems": [],
+        "type": "array"
+      },
+      "result": {
+        "type": "integer"
+      }
+    },
+    "rules.heat.forfeit_evidence": {
+      "changes": false,
+      "needsRun": true,
+      "params": {
+        "maxItems": 0,
+        "minItems": 0,
+        "prefixItems": [],
+        "type": "array"
+      },
+      "result": {
+        "type": "integer"
+      }
+    },
+    "rules.heat.hottest": {
+      "changes": false,
+      "needsRun": true,
+      "params": {
+        "maxItems": 0,
+        "minItems": 0,
+        "prefixItems": [],
+        "type": "array"
+      },
+      "result": {
+        "type": "string"
+      }
+    },
+    "rules.heat.ladder": {
+      "changes": false,
+      "needsRun": true,
+      "params": {
+        "maxItems": 1,
+        "minItems": 1,
+        "prefixItems": [
+          {
+            "title": "city",
+            "type": "string"
+          }
+        ],
+        "type": "array"
+      },
+      "result": {
+        "items": {
+          "$ref": "#/$defs/content.ResponseConfig"
+        },
+        "type": "array"
+      }
+    },
+    "rules.heat.move_heat": {
+      "changes": false,
+      "needsRun": true,
+      "params": {
+        "maxItems": 3,
+        "minItems": 3,
+        "prefixItems": [
+          {
+            "title": "city",
+            "type": "string"
+          },
+          {
+            "title": "product",
+            "type": "string"
+          },
+          {
+            "title": "units",
+            "type": "integer"
+          }
+        ],
+        "type": "array"
+      },
+      "result": {
+        "type": "number"
+      }
+    },
+    "rules.heat.sale_heat": {
+      "changes": false,
+      "needsRun": true,
+      "params": {
+        "maxItems": 4,
+        "minItems": 4,
+        "prefixItems": [
+          {
+            "title": "city",
+            "type": "string"
+          },
+          {
+            "title": "product",
+            "type": "string"
+          },
+          {
+            "title": "wanted",
+            "type": "integer"
+          },
+          {
+            "enum": [
+              "quiet",
+              "normal",
+              "aggressive"
+            ],
+            "title": "dial",
+            "type": "string"
+          }
+        ],
+        "type": "array"
+      },
+      "result": {
+        "type": "number"
+      }
+    },
+    "rules.heat.sloppiness": {
+      "changes": false,
+      "needsRun": true,
+      "params": {
+        "maxItems": 1,
+        "minItems": 1,
+        "prefixItems": [
+          {
+            "title": "city",
+            "type": "string"
+          }
+        ],
+        "type": "array"
+      },
+      "result": {
+        "type": "number"
+      }
+    },
+    "rules.heat.sloppy_heat": {
+      "changes": false,
+      "needsRun": true,
+      "params": {
+        "maxItems": 2,
+        "minItems": 2,
+        "prefixItems": [
+          {
+            "title": "city",
+            "type": "string"
+          },
+          {
+            "title": "units",
+            "type": "integer"
+          }
+        ],
+        "type": "array"
+      },
+      "result": {
+        "type": "number"
+      }
+    },
+    "rules.heat.structure_evidence": {
+      "changes": false,
+      "needsRun": true,
+      "params": {
+        "maxItems": 0,
+        "minItems": 0,
+        "prefixItems": [],
+        "type": "array"
+      },
+      "result": {
+        "type": "integer"
+      }
+    },
+    "rules.heat.task_force_forming": {
+      "changes": false,
+      "needsRun": true,
+      "params": {
+        "maxItems": 0,
+        "minItems": 0,
+        "prefixItems": [],
+        "type": "array"
+      },
+      "result": {
+        "type": "boolean"
+      }
+    },
+    "rules.heat.thresholds_in": {
+      "changes": false,
+      "needsRun": true,
+      "params": {
+        "maxItems": 1,
+        "minItems": 1,
+        "prefixItems": [
+          {
+            "title": "city",
+            "type": "string"
+          }
+        ],
+        "type": "array"
+      },
+      "result": {
+        "items": {
+          "$ref": "#/$defs/content.ResponseConfig"
+        },
+        "type": "array"
+      }
+    },
+    "rules.laundering.any_audit_risk": {
+      "changes": false,
+      "needsRun": true,
+      "params": {
+        "maxItems": 0,
+        "minItems": 0,
+        "prefixItems": [],
+        "type": "array"
+      },
+      "result": {
+        "type": "number"
+      }
+    },
+    "rules.laundering.asset_offer": {
+      "changes": false,
+      "needsRun": true,
+      "params": {
+        "maxItems": 1,
+        "minItems": 1,
+        "prefixItems": [
+          {
+            "title": "id",
+            "type": "string"
+          }
+        ],
+        "type": "array"
+      },
+      "result": {
+        "$ref": "#/$defs/game.AssetOffer"
+      }
+    },
+    "rules.laundering.asset_offers": {
+      "changes": false,
+      "needsRun": true,
+      "params": {
+        "maxItems": 0,
+        "minItems": 0,
+        "prefixItems": [],
+        "type": "array"
+      },
+      "result": {
+        "items": {
+          "$ref": "#/$defs/game.AssetOffer"
+        },
+        "type": "array"
+      }
+    },
+    "rules.laundering.asset_upkeep": {
+      "changes": false,
+      "needsRun": true,
+      "params": {
+        "maxItems": 0,
+        "minItems": 0,
+        "prefixItems": [],
+        "type": "array"
+      },
+      "result": {
+        "type": "integer"
+      }
+    },
+    "rules.laundering.audit_risk": {
+      "changes": false,
+      "needsRun": true,
+      "params": {
+        "maxItems": 1,
+        "minItems": 1,
+        "prefixItems": [
+          {
+            "title": "front",
+            "type": "string"
+          }
+        ],
+        "type": "array"
+      },
+      "result": {
+        "type": "number"
+      }
+    },
+    "rules.laundering.can_retire": {
+      "changes": false,
+      "needsRun": true,
+      "params": {
+        "maxItems": 0,
+        "minItems": 0,
+        "prefixItems": [],
+        "type": "array"
+      },
+      "result": {
+        "type": "boolean"
+      }
+    },
+    "rules.laundering.capacity": {
+      "changes": false,
+      "needsRun": true,
+      "params": {
+        "maxItems": 0,
+        "minItems": 0,
+        "prefixItems": [],
+        "type": "array"
+      },
+      "result": {
+        "type": "integer"
+      }
+    },
+    "rules.laundering.dial": {
+      "changes": false,
+      "needsRun": true,
+      "params": {
+        "maxItems": 1,
+        "minItems": 1,
+        "prefixItems": [
+          {
+            "enum": [
+              "careful",
+              "normal",
+              "greedy"
+            ],
+            "title": "launder",
+            "type": "string"
+          }
+        ],
+        "type": "array"
+      },
+      "result": {
+        "$ref": "#/$defs/content.LaunderConfig"
+      }
+    },
+    "rules.laundering.fee": {
+      "changes": false,
+      "needsRun": true,
+      "params": {
+        "maxItems": 1,
+        "minItems": 1,
+        "prefixItems": [
+          {
+            "title": "amount",
+            "type": "integer"
+          }
+        ],
+        "type": "array"
+      },
+      "result": {
+        "type": "integer"
+      }
+    },
+    "rules.laundering.front_upkeep": {
+      "changes": false,
+      "needsRun": true,
+      "params": {
+        "maxItems": 1,
+        "minItems": 1,
+        "prefixItems": [
+          {
+            "title": "front",
+            "type": "string"
+          }
+        ],
+        "type": "array"
+      },
+      "result": {
+        "type": "integer"
+      }
+    },
+    "rules.laundering.growth": {
+      "changes": false,
+      "needsRun": true,
+      "params": {
+        "maxItems": 0,
+        "minItems": 0,
+        "prefixItems": [],
+        "type": "array"
+      },
+      "result": {
+        "$ref": "#/$defs/content.GrowthConfig"
+      }
+    },
+    "rules.laundering.income": {
+      "changes": false,
+      "needsRun": true,
+      "params": {
+        "maxItems": 1,
+        "minItems": 1,
+        "prefixItems": [
+          {
+            "title": "front",
+            "type": "string"
+          }
+        ],
+        "type": "array"
+      },
+      "result": {
+        "type": "integer"
+      }
+    },
+    "rules.laundering.legit_income": {
+      "changes": false,
+      "needsRun": true,
+      "params": {
+        "maxItems": 0,
+        "minItems": 0,
+        "prefixItems": [],
+        "type": "array"
+      },
+      "result": {
+        "type": "integer"
+      }
+    },
+    "rules.laundering.level_cost": {
+      "changes": false,
+      "needsRun": true,
+      "params": {
+        "maxItems": 2,
+        "minItems": 2,
+        "prefixItems": [
+          {
+            "title": "front",
+            "type": "string"
+          },
+          {
+            "title": "n",
+            "type": "integer"
+          }
+        ],
+        "type": "array"
+      },
+      "result": {
+        "type": "integer"
+      }
+    },
+    "rules.laundering.levels": {
+      "changes": false,
+      "needsRun": true,
+      "params": {
+        "maxItems": 2,
+        "minItems": 2,
+        "prefixItems": [
+          {
+            "title": "front",
+            "type": "string"
+          },
+          {
+            "title": "n",
+            "type": "integer"
+          }
+        ],
+        "type": "array"
+      },
+      "result": {
+        "$ref": "#/$defs/game.LevelOffer"
+      }
+    },
+    "rules.laundering.lots": {
+      "changes": false,
+      "needsRun": true,
+      "params": {
+        "maxItems": 1,
+        "minItems": 1,
+        "prefixItems": [
+          {
+            "title": "amount",
+            "type": "integer"
+          }
+        ],
+        "type": "array"
+      },
+      "result": {
+        "type": "integer"
+      }
+    },
+    "rules.laundering.max_level": {
+      "changes": false,
+      "needsRun": true,
+      "params": {
+        "maxItems": 1,
+        "minItems": 1,
+        "prefixItems": [
+          {
+            "title": "front",
+            "type": "string"
+          }
+        ],
+        "type": "array"
+      },
+      "result": {
+        "type": "integer"
+      }
+    },
+    "rules.laundering.offers": {
+      "changes": false,
+      "needsRun": true,
+      "params": {
+        "maxItems": 0,
+        "minItems": 0,
+        "prefixItems": [],
+        "type": "array"
+      },
+      "result": {
+        "items": {
+          "$ref": "#/$defs/game.FrontOffer"
+        },
+        "type": "array"
+      }
+    },
+    "rules.laundering.offshore": {
+      "changes": false,
+      "needsRun": true,
+      "params": {
+        "maxItems": 0,
+        "minItems": 0,
+        "prefixItems": [],
+        "type": "array"
+      },
+      "result": {
+        "$ref": "#/$defs/content.OffshoreConfig"
+      }
+    },
+    "rules.laundering.throughput": {
+      "changes": false,
+      "needsRun": true,
+      "params": {
+        "maxItems": 1,
+        "minItems": 1,
+        "prefixItems": [
+          {
+            "title": "front",
+            "type": "string"
+          }
+        ],
+        "type": "array"
+      },
+      "result": {
+        "type": "integer"
+      }
+    },
+    "rules.laundering.tuning": {
+      "changes": false,
+      "needsRun": true,
+      "params": {
+        "maxItems": 0,
+        "minItems": 0,
+        "prefixItems": [],
+        "type": "array"
+      },
+      "result": {
+        "$ref": "#/$defs/content.LaunderingTuning"
+      }
+    },
+    "rules.laundering.upkeep": {
+      "changes": false,
+      "needsRun": true,
+      "params": {
+        "maxItems": 0,
+        "minItems": 0,
+        "prefixItems": [],
+        "type": "array"
+      },
+      "result": {
+        "type": "integer"
+      }
+    },
+    "rules.law.bribes": {
+      "changes": false,
+      "needsRun": true,
+      "params": {
+        "maxItems": 0,
+        "minItems": 0,
+        "prefixItems": [],
+        "type": "array"
+      },
+      "result": {
+        "$ref": "#/$defs/content.BribeTuning"
+      }
+    },
+    "rules.law.campaign": {
+      "changes": false,
+      "needsRun": true,
+      "params": {
+        "maxItems": 0,
+        "minItems": 0,
+        "prefixItems": [],
+        "type": "array"
+      },
+      "result": {
+        "$ref": "#/$defs/content.CampaignTuning"
+      }
+    },
+    "rules.law.chief_term_ends": {
+      "changes": false,
+      "needsRun": true,
+      "params": {
+        "maxItems": 0,
+        "minItems": 0,
+        "prefixItems": [],
+        "type": "array"
+      },
+      "result": {
+        "type": "integer"
+      }
+    },
+    "rules.law.d_a_odds": {
+      "changes": false,
+      "needsRun": true,
+      "params": {
+        "maxItems": 1,
+        "minItems": 1,
+        "prefixItems": [
+          {
+            "title": "amount",
+            "type": "integer"
+          }
+        ],
+        "type": "array"
+      },
+      "result": {
+        "type": "number"
+      }
+    },
+    "rules.law.d_a_price": {
+      "changes": false,
+      "needsRun": true,
+      "params": {
+        "maxItems": 0,
+        "minItems": 0,
+        "prefixItems": [],
+        "type": "array"
+      },
+      "result": {
+        "type": "integer"
+      }
+    },
+    "rules.law.deed_limit": {
+      "changes": false,
+      "needsRun": true,
+      "params": {
+        "maxItems": 0,
+        "minItems": 0,
+        "prefixItems": [],
+        "type": "array"
+      },
+      "result": {
+        "type": "integer"
+      }
+    },
+    "rules.law.forfeits": {
+      "changes": false,
+      "needsRun": true,
+      "params": {
+        "maxItems": 0,
+        "minItems": 0,
+        "prefixItems": [],
+        "type": "array"
+      },
+      "result": {
+        "type": "boolean"
+      }
+    },
+    "rules.law.goodwill": {
+      "changes": false,
+      "needsRun": true,
+      "params": {
+        "maxItems": 1,
+        "minItems": 1,
+        "prefixItems": [
+          {
+            "title": "amount",
+            "type": "integer"
+          }
+        ],
+        "type": "array"
+      },
+      "result": {
+        "type": "number"
+      }
+    },
+    "rules.law.next_election": {
+      "changes": false,
+      "needsRun": true,
+      "params": {
+        "maxItems": 0,
+        "minItems": 0,
+        "prefixItems": [],
+        "type": "array"
+      },
+      "result": {
+        "type": "integer"
+      }
+    },
+    "rules.law.tuning": {
+      "changes": false,
+      "needsRun": true,
+      "params": {
+        "maxItems": 0,
+        "minItems": 0,
+        "prefixItems": [],
+        "type": "array"
+      },
+      "result": {
+        "$ref": "#/$defs/content.LawTuning"
+      }
+    },
+    "rules.logistics.capacity": {
+      "changes": false,
+      "needsRun": true,
+      "params": {
+        "maxItems": 1,
+        "minItems": 1,
+        "prefixItems": [
+          {
+            "title": "route",
+            "type": "string"
+          }
+        ],
+        "type": "array"
+      },
+      "result": {
+        "type": "integer"
+      }
+    },
+    "rules.logistics.customs": {
+      "changes": false,
+      "needsRun": true,
+      "params": {
+        "maxItems": 1,
+        "minItems": 1,
+        "prefixItems": [
+          {
+            "title": "route",
+            "type": "string"
+          }
+        ],
+        "type": "array"
+      },
+      "result": {
+        "type": "boolean"
+      }
+    },
+    "rules.logistics.days": {
+      "changes": false,
+      "needsRun": true,
+      "params": {
+        "maxItems": 2,
+        "minItems": 2,
+        "prefixItems": [
+          {
+            "title": "route",
+            "type": "string"
+          },
+          {
+            "enum": [
+              "slow",
+              "normal",
+              "fast"
+            ],
+            "title": "ship",
+            "type": "string"
+          }
+        ],
+        "type": "array"
+      },
+      "result": {
+        "type": "integer"
+      }
+    },
+    "rules.logistics.days_target": {
+      "changes": false,
+      "needsRun": true,
+      "params": {
+        "maxItems": 3,
+        "minItems": 3,
+        "prefixItems": [
+          {
+            "title": "route",
+            "type": "string"
+          },
+          {
+            "title": "product",
+            "type": "string"
+          },
+          {
+            "title": "days",
+            "type": "integer"
+          }
+        ],
+        "type": "array"
+      },
+      "result": {
+        "type": "integer"
+      }
+    },
+    "rules.logistics.deal_cut": {
+      "changes": false,
+      "needsRun": true,
+      "params": {
+        "maxItems": 1,
+        "minItems": 1,
+        "prefixItems": [
+          {
+            "title": "route",
+            "type": "string"
+          }
+        ],
+        "type": "array"
+      },
+      "result": {
+        "type": "number"
+      }
+    },
+    "rules.logistics.driver_cut": {
+      "changes": false,
+      "needsRun": true,
+      "params": {
+        "maxItems": 1,
+        "minItems": 1,
+        "prefixItems": [
+          {
+            "title": "skill",
+            "type": "integer"
+          }
+        ],
+        "type": "array"
+      },
+      "result": {
+        "type": "number"
+      }
+    },
+    "rules.logistics.fare": {
+      "changes": false,
+      "needsRun": true,
+      "params": {
+        "maxItems": 1,
+        "minItems": 1,
+        "prefixItems": [
+          {
+            "title": "route",
+            "type": "string"
+          }
+        ],
+        "type": "array"
+      },
+      "result": {
+        "type": "number"
+      }
+    },
+    "rules.logistics.risk_from": {
+      "changes": false,
+      "needsRun": true,
+      "params": {
+        "maxItems": 3,
+        "minItems": 3,
+        "prefixItems": [
+          {
+            "title": "route",
+            "type": "string"
+          },
+          {
+            "enum": [
+              "slow",
+              "normal",
+              "fast"
+            ],
+            "title": "ship",
+            "type": "string"
+          },
+          {
+            "title": "base",
+            "type": "number"
+          }
+        ],
+        "type": "array"
+      },
+      "result": {
+        "type": "number"
+      }
+    },
+    "rules.logistics.routes_open": {
+      "changes": false,
+      "needsRun": true,
+      "params": {
+        "maxItems": 1,
+        "minItems": 1,
+        "prefixItems": [
+          {
+            "title": "city",
+            "type": "string"
+          }
+        ],
+        "type": "array"
+      },
+      "result": {
+        "items": {
+          "type": "string"
+        },
+        "type": "array"
+      }
+    },
+    "rules.logistics.target": {
+      "changes": false,
+      "needsRun": true,
+      "params": {
+        "maxItems": 2,
+        "minItems": 2,
+        "prefixItems": [
+          {
+            "title": "route",
+            "type": "string"
+          },
+          {
+            "title": "product",
+            "type": "string"
+          }
+        ],
+        "type": "array"
+      },
+      "result": {
+        "type": "integer"
+      }
+    },
+    "rules.logistics.watched": {
+      "changes": false,
+      "needsRun": true,
+      "params": {
+        "maxItems": 1,
+        "minItems": 1,
+        "prefixItems": [
+          {
+            "title": "day",
+            "type": "integer"
+          }
+        ],
+        "type": "array"
+      },
+      "result": {
+        "type": "boolean"
+      }
+    },
+    "rules.market.band": {
+      "changes": false,
+      "needsRun": true,
+      "params": {
+        "maxItems": 1,
+        "minItems": 1,
+        "prefixItems": [
+          {
+            "title": "rel",
+            "type": "number"
+          }
+        ],
+        "type": "array"
+      },
+      "result": {
+        "type": "integer"
+      }
+    },
+    "rules.market.bands": {
+      "changes": false,
+      "needsRun": true,
+      "params": {
+        "maxItems": 0,
+        "minItems": 0,
+        "prefixItems": [],
+        "type": "array"
+      },
+      "result": {
+        "type": "integer"
+      }
+    },
+    "rules.market.base_ratio": {
+      "changes": false,
+      "needsRun": true,
+      "params": {
+        "maxItems": 0,
+        "minItems": 0,
+        "prefixItems": [],
+        "type": "array"
+      },
+      "result": {
+        "type": "number"
+      }
+    },
+    "rules.market.buyers_tuning": {
+      "changes": false,
+      "needsRun": true,
+      "params": {
+        "maxItems": 0,
+        "minItems": 0,
+        "prefixItems": [],
+        "type": "array"
+      },
+      "result": {
+        "$ref": "#/$defs/content.BuyersTuning"
+      }
+    },
+    "rules.market.capacity": {
+      "changes": false,
+      "needsRun": true,
+      "params": {
+        "maxItems": 3,
+        "minItems": 3,
+        "prefixItems": [
+          {
+            "title": "city",
+            "type": "string"
+          },
+          {
+            "title": "product",
+            "type": "string"
+          },
+          {
+            "enum": [
+              "quiet",
+              "normal",
+              "aggressive"
+            ],
+            "title": "dial",
+            "type": "string"
+          }
+        ],
+        "type": "array"
+      },
+      "result": {
+        "type": "integer"
+      }
+    },
+    "rules.market.contract_price": {
+      "changes": false,
+      "needsRun": true,
+      "params": {
+        "maxItems": 1,
+        "minItems": 1,
+        "prefixItems": [
+          {
+            "title": "contract",
+            "type": "integer"
+          }
+        ],
+        "type": "array"
+      },
+      "result": {
+        "type": "number"
+      }
+    },
+    "rules.market.cook_cost": {
+      "changes": false,
+      "needsRun": true,
+      "params": {
+        "maxItems": 1,
+        "minItems": 1,
+        "prefixItems": [
+          {
+            "title": "product",
+            "type": "string"
+          }
+        ],
+        "type": "array"
+      },
+      "result": {
+        "type": "integer"
+      }
+    },
+    "rules.market.cooks": {
+      "changes": false,
+      "needsRun": true,
+      "params": {
+        "maxItems": 1,
+        "minItems": 1,
+        "prefixItems": [
+          {
+            "title": "product",
+            "type": "string"
+          }
+        ],
+        "type": "array"
+      },
+      "result": {
+        "type": "boolean"
+      }
+    },
+    "rules.market.cut": {
+      "changes": false,
+      "needsRun": true,
+      "params": {
+        "maxItems": 0,
+        "minItems": 0,
+        "prefixItems": [],
+        "type": "array"
+      },
+      "result": {
+        "type": "number"
+      }
+    },
+    "rules.market.cut_cost": {
+      "changes": false,
+      "needsRun": true,
+      "params": {
+        "maxItems": 1,
+        "minItems": 1,
+        "prefixItems": [
+          {
+            "title": "product",
+            "type": "string"
+          }
+        ],
+        "type": "array"
+      },
+      "result": {
+        "type": "integer"
+      }
+    },
+    "rules.market.cut_max": {
+      "changes": false,
+      "needsRun": true,
+      "params": {
+        "maxItems": 1,
+        "minItems": 1,
+        "prefixItems": [
+          {
+            "title": "product",
+            "type": "string"
+          }
+        ],
+        "type": "array"
+      },
+      "result": {
+        "type": "number"
+      }
+    },
+    "rules.market.dial": {
+      "changes": false,
+      "needsRun": true,
+      "params": {
+        "maxItems": 1,
+        "minItems": 1,
+        "prefixItems": [
+          {
+            "enum": [
+              "quiet",
+              "normal",
+              "aggressive"
+            ],
+            "title": "dial",
+            "type": "string"
+          }
+        ],
+        "type": "array"
+      },
+      "result": {
+        "$ref": "#/$defs/content.DialConfig"
+      }
+    },
+    "rules.market.due": {
+      "changes": false,
+      "needsRun": true,
+      "params": {
+        "maxItems": 2,
+        "minItems": 2,
+        "prefixItems": [
+          {
+            "title": "city",
+            "type": "string"
+          },
+          {
+            "title": "product",
+            "type": "string"
+          }
+        ],
+        "type": "array"
+      },
+      "result": {
+        "type": "integer"
+      }
+    },
+    "rules.market.markup": {
+      "changes": false,
+      "needsRun": true,
+      "params": {
+        "maxItems": 0,
+        "minItems": 0,
+        "prefixItems": [],
+        "type": "array"
+      },
+      "result": {
+        "type": "number"
+      }
+    },
+    "rules.market.price_cut": {
+      "changes": false,
+      "needsRun": true,
+      "params": {
+        "maxItems": 0,
+        "minItems": 0,
+        "prefixItems": [],
+        "type": "array"
+      },
+      "result": {
+        "type": "number"
+      }
+    },
+    "rules.market.quality_mul": {
+      "changes": false,
+      "needsRun": true,
+      "params": {
+        "maxItems": 1,
+        "minItems": 1,
+        "prefixItems": [
+          {
+            "title": "quality",
+            "type": "number"
+          }
+        ],
+        "type": "array"
+      },
+      "result": {
+        "type": "number"
+      }
+    },
+    "rules.market.ratio_at": {
+      "changes": false,
+      "needsRun": true,
+      "params": {
+        "maxItems": 2,
+        "minItems": 2,
+        "prefixItems": [
+          {
+            "title": "supplier",
+            "type": "string"
+          },
+          {
+            "title": "band",
+            "type": "integer"
+          }
+        ],
+        "type": "array"
+      },
+      "result": {
+        "type": "number"
+      }
+    },
+    "rules.market.steal": {
+      "changes": false,
+      "needsRun": true,
+      "params": {
+        "maxItems": 2,
+        "minItems": 2,
+        "prefixItems": [
+          {
+            "title": "corner",
+            "type": "string"
+          },
+          {
+            "enum": [
+              "quiet",
+              "normal",
+              "aggressive"
+            ],
+            "title": "dial",
+            "type": "string"
+          }
+        ],
+        "type": "array"
+      },
+      "result": {
+        "type": "number"
+      }
+    },
+    "rules.market.supplier_ratio": {
+      "changes": false,
+      "needsRun": true,
+      "params": {
+        "maxItems": 1,
+        "minItems": 1,
+        "prefixItems": [
+          {
+            "title": "supplier",
+            "type": "string"
+          }
+        ],
+        "type": "array"
+      },
+      "result": {
+        "type": "number"
+      }
+    },
+    "rules.market.suppliers_tuning": {
+      "changes": false,
+      "needsRun": true,
+      "params": {
+        "maxItems": 0,
+        "minItems": 0,
+        "prefixItems": [],
+        "type": "array"
+      },
+      "result": {
+        "$ref": "#/$defs/content.SupplierTuning"
+      }
+    },
+    "rules.market.supply_price": {
+      "changes": false,
+      "needsRun": true,
+      "params": {
+        "maxItems": 2,
+        "minItems": 2,
+        "prefixItems": [
+          {
+            "title": "city",
+            "type": "string"
+          },
+          {
+            "title": "product",
+            "type": "string"
+          }
+        ],
+        "type": "array"
+      },
+      "result": {
+        "type": "number"
+      }
+    },
+    "rules.market.tuning": {
+      "changes": false,
+      "needsRun": true,
+      "params": {
+        "maxItems": 0,
+        "minItems": 0,
+        "prefixItems": [],
+        "type": "array"
+      },
+      "result": {
+        "$ref": "#/$defs/content.QualityTuning"
+      }
+    },
+    "rules.market.undercut_units": {
+      "changes": false,
+      "needsRun": true,
+      "params": {
+        "maxItems": 2,
+        "minItems": 2,
+        "prefixItems": [
+          {
+            "title": "corner",
+            "type": "string"
+          },
+          {
+            "enum": [
+              "quiet",
+              "normal",
+              "aggressive"
+            ],
+            "title": "dial",
+            "type": "string"
+          }
+        ],
+        "type": "array"
+      },
+      "result": {
+        "type": "number"
+      }
+    },
+    "rules.rivals.allies": {
+      "changes": false,
+      "needsRun": true,
+      "params": {
+        "maxItems": 0,
+        "minItems": 0,
+        "prefixItems": [],
+        "type": "array"
+      },
+      "result": {
+        "items": {
+          "type": "string"
+        },
+        "type": "array"
+      }
+    },
+    "rules.rivals.books": {
+      "changes": false,
+      "needsRun": true,
+      "params": {
+        "maxItems": 0,
+        "minItems": 0,
+        "prefixItems": [],
+        "type": "array"
+      },
+      "result": {
+        "$ref": "#/$defs/content.BooksTuning"
+      }
+    },
+    "rules.rivals.boost_heat": {
+      "changes": false,
+      "needsRun": true,
+      "params": {
+        "maxItems": 1,
+        "minItems": 1,
+        "prefixItems": [
+          {
+            "title": "corner",
+            "type": "string"
+          }
+        ],
+        "type": "array"
+      },
+      "result": {
+        "type": "number"
+      }
+    },
+    "rules.rivals.boost_take": {
+      "changes": false,
+      "needsRun": true,
+      "params": {
+        "maxItems": 1,
+        "minItems": 1,
+        "prefixItems": [
+          {
+            "title": "corner",
+            "type": "string"
+          }
+        ],
+        "type": "array"
+      },
+      "result": {
+        "type": "integer"
+      }
+    },
+    "rules.rivals.boost_tuning": {
+      "changes": false,
+      "needsRun": true,
+      "params": {
+        "maxItems": 0,
+        "minItems": 0,
+        "prefixItems": [],
+        "type": "array"
+      },
+      "result": {
+        "$ref": "#/$defs/content.BoostTuning"
+      }
+    },
+    "rules.rivals.chance": {
+      "changes": false,
+      "needsRun": true,
+      "params": {
+        "maxItems": 2,
+        "minItems": 2,
+        "prefixItems": [
+          {
+            "title": "faction",
+            "type": "string"
+          },
+          {
+            "$ref": "#/$defs/protocol.DealParams",
+            "title": "deal"
+          }
+        ],
+        "type": "array"
+      },
+      "result": {
+        "type": "number"
+      }
+    },
+    "rules.rivals.corner_income": {
+      "changes": false,
+      "needsRun": true,
+      "params": {
+        "maxItems": 1,
+        "minItems": 1,
+        "prefixItems": [
+          {
+            "title": "corner",
+            "type": "string"
+          }
+        ],
+        "type": "array"
+      },
+      "result": {
+        "type": "integer"
+      }
+    },
+    "rules.rivals.cut": {
+      "changes": false,
+      "needsRun": true,
+      "params": {
+        "maxItems": 2,
+        "minItems": 2,
+        "prefixItems": [
+          {
+            "title": "faction",
+            "type": "string"
+          },
+          {
+            "title": "share",
+            "type": "number"
+          }
+        ],
+        "type": "array"
+      },
+      "result": {
+        "type": "integer"
+      }
+    },
+    "rules.rivals.defence_at": {
+      "changes": false,
+      "needsRun": true,
+      "params": {
+        "maxItems": 2,
+        "minItems": 2,
+        "prefixItems": [
+          {
+            "title": "faction",
+            "type": "string"
+          },
+          {
+            "title": "muscle",
+            "type": "integer"
+          }
+        ],
+        "type": "array"
+      },
+      "result": {
+        "type": "number"
+      }
+    },
+    "rules.rivals.diplomacy": {
+      "changes": false,
+      "needsRun": true,
+      "params": {
+        "maxItems": 0,
+        "minItems": 0,
+        "prefixItems": [],
+        "type": "array"
+      },
+      "result": {
+        "$ref": "#/$defs/content.DiplomacyTuning"
+      }
+    },
+    "rules.rivals.distrusted": {
+      "changes": false,
+      "needsRun": true,
+      "params": {
+        "maxItems": 2,
+        "minItems": 2,
+        "prefixItems": [
+          {
+            "title": "faction",
+            "type": "string"
+          },
+          {
+            "title": "day",
+            "type": "integer"
+          }
+        ],
+        "type": "array"
+      },
+      "result": {
+        "type": "boolean"
+      }
+    },
+    "rules.rivals.eyeing_by": {
+      "changes": false,
+      "needsRun": true,
+      "params": {
+        "maxItems": 1,
+        "minItems": 1,
+        "prefixItems": [
+          {
+            "title": "faction",
+            "type": "string"
+          }
+        ],
+        "type": "array"
+      },
+      "result": {
+        "type": "string"
+      }
+    },
+    "rules.rivals.factions": {
+      "changes": false,
+      "needsRun": true,
+      "params": {
+        "maxItems": 0,
+        "minItems": 0,
+        "prefixItems": [],
+        "type": "array"
+      },
+      "result": {
+        "$ref": "#/$defs/content.FactionsTuning"
+      }
+    },
+    "rules.rivals.muscle_price": {
+      "changes": false,
+      "needsRun": true,
+      "params": {
+        "maxItems": 1,
+        "minItems": 1,
+        "prefixItems": [
+          {
+            "title": "faction",
+            "type": "string"
+          }
+        ],
+        "type": "array"
+      },
+      "result": {
+        "type": "integer"
+      }
+    },
+    "rules.rivals.odds_on_at": {
+      "changes": false,
+      "needsRun": true,
+      "params": {
+        "maxItems": 4,
+        "minItems": 4,
+        "prefixItems": [
+          {
+            "title": "faction",
+            "type": "string"
+          },
+          {
+            "title": "corner",
+            "type": "string"
+          },
+          {
+            "enum": [
+              "warn",
+              "push",
+              "hit"
+            ],
+            "title": "force",
+            "type": "string"
+          },
+          {
+            "title": "muscle",
+            "type": "integer"
+          }
+        ],
+        "type": "array"
+      },
+      "result": {
+        "type": "number"
+      }
+    },
+    "rules.rivals.poach_tuning": {
+      "changes": false,
+      "needsRun": true,
+      "params": {
+        "maxItems": 0,
+        "minItems": 0,
+        "prefixItems": [],
+        "type": "array"
+      },
+      "result": {
+        "$ref": "#/$defs/content.PoachTuning"
+      }
+    },
+    "rules.rivals.push_odds_at": {
+      "changes": false,
+      "needsRun": true,
+      "params": {
+        "maxItems": 3,
+        "minItems": 3,
+        "prefixItems": [
+          {
+            "title": "faction",
+            "type": "string"
+          },
+          {
+            "title": "corner",
+            "type": "string"
+          },
+          {
+            "title": "muscle",
+            "type": "integer"
+          }
+        ],
+        "type": "array"
+      },
+      "result": {
+        "type": "number"
+      }
+    },
+    "rules.rivals.raid_ready": {
+      "changes": false,
+      "needsRun": true,
+      "params": {
+        "maxItems": 2,
+        "minItems": 2,
+        "prefixItems": [
+          {
+            "title": "faction",
+            "type": "string"
+          },
+          {
+            "title": "day",
+            "type": "integer"
+          }
+        ],
+        "type": "array"
+      },
+      "result": {
+        "type": "boolean"
+      }
+    },
+    "rules.rivals.scout_cost": {
+      "changes": false,
+      "needsRun": true,
+      "params": {
+        "maxItems": 0,
+        "minItems": 0,
+        "prefixItems": [],
+        "type": "array"
+      },
+      "result": {
+        "type": "integer"
+      }
+    },
+    "rules.rivals.scout_odds": {
+      "changes": false,
+      "needsRun": true,
+      "params": {
+        "maxItems": 1,
+        "minItems": 1,
+        "prefixItems": [
+          {
+            "title": "faction",
+            "type": "string"
+          }
+        ],
+        "type": "array"
+      },
+      "result": {
+        "type": "number"
+      }
+    },
+    "rules.rivals.stale": {
+      "changes": false,
+      "needsRun": true,
+      "params": {
+        "maxItems": 2,
+        "minItems": 2,
+        "prefixItems": [
+          {
+            "title": "faction",
+            "type": "string"
+          },
+          {
+            "title": "day",
+            "type": "integer"
+          }
+        ],
+        "type": "array"
+      },
+      "result": {
+        "type": "boolean"
+      }
+    },
+    "rules.rivals.strike_heat": {
+      "changes": false,
+      "needsRun": true,
+      "params": {
+        "maxItems": 2,
+        "minItems": 2,
+        "prefixItems": [
+          {
+            "title": "corner",
+            "type": "string"
+          },
+          {
+            "enum": [
+              "warn",
+              "push",
+              "hit"
+            ],
+            "title": "force",
+            "type": "string"
+          }
+        ],
+        "type": "array"
+      },
+      "result": {
+        "type": "number"
+      }
+    },
+    "rules.rivals.tip_tuning": {
+      "changes": false,
+      "needsRun": true,
+      "params": {
+        "maxItems": 0,
+        "minItems": 0,
+        "prefixItems": [],
+        "type": "array"
+      },
+      "result": {
+        "$ref": "#/$defs/content.TipTuning"
+      }
+    },
+    "rules.rivals.tribute_base": {
+      "changes": false,
+      "needsRun": true,
+      "params": {
+        "maxItems": 1,
+        "minItems": 1,
+        "prefixItems": [
+          {
+            "title": "faction",
+            "type": "string"
+          }
+        ],
+        "type": "array"
+      },
+      "result": {
+        "type": "number"
+      }
+    },
+    "rules.rivals.tuning": {
+      "changes": false,
+      "needsRun": true,
+      "params": {
+        "maxItems": 0,
+        "minItems": 0,
+        "prefixItems": [],
+        "type": "array"
+      },
+      "result": {
+        "$ref": "#/$defs/content.RivalsTuning"
+      }
+    },
+    "rules.rivals.war_target": {
+      "changes": false,
+      "needsRun": true,
+      "params": {
+        "maxItems": 1,
+        "minItems": 1,
+        "prefixItems": [
+          {
+            "title": "faction",
+            "type": "string"
+          }
+        ],
+        "type": "array"
+      },
+      "result": {
+        "type": "string"
+      }
+    },
+    "rules.territory.deed_price": {
+      "changes": false,
+      "needsRun": true,
+      "params": {
+        "maxItems": 1,
+        "minItems": 1,
+        "prefixItems": [
+          {
+            "title": "corner",
+            "type": "string"
+          }
+        ],
+        "type": "array"
+      },
+      "result": {
+        "type": "integer"
+      }
+    },
+    "rules.territory.deed_rent": {
+      "changes": false,
+      "needsRun": true,
+      "params": {
+        "maxItems": 1,
+        "minItems": 1,
+        "prefixItems": [
+          {
+            "title": "corner",
+            "type": "string"
+          }
+        ],
+        "type": "array"
+      },
+      "result": {
+        "type": "integer"
+      }
+    },
+    "rules.territory.deeds": {
+      "changes": false,
+      "needsRun": true,
+      "params": {
+        "maxItems": 0,
+        "minItems": 0,
+        "prefixItems": [],
+        "type": "array"
+      },
+      "result": {
+        "$ref": "#/$defs/content.DeedTuning"
+      }
+    },
+    "rules.territory.drift_days": {
+      "changes": false,
+      "needsRun": true,
+      "params": {
+        "maxItems": 0,
+        "minItems": 0,
+        "prefixItems": [],
+        "type": "array"
+      },
+      "result": {
+        "type": "integer"
+      }
+    },
+    "rules.territory.house_robbery_chance": {
+      "changes": false,
+      "needsRun": true,
+      "params": {
+        "maxItems": 1,
+        "minItems": 1,
+        "prefixItems": [
+          {
+            "title": "house",
+            "type": "string"
+          }
+        ],
+        "type": "array"
+      },
+      "result": {
+        "type": "number"
+      }
+    },
+    "rules.territory.rent_days": {
+      "changes": false,
+      "needsRun": true,
+      "params": {
+        "maxItems": 0,
+        "minItems": 0,
+        "prefixItems": [],
+        "type": "array"
+      },
+      "result": {
+        "type": "integer"
+      }
+    },
+    "rules.territory.robbery_chance": {
+      "changes": false,
+      "needsRun": true,
+      "params": {
+        "maxItems": 1,
+        "minItems": 1,
+        "prefixItems": [
+          {
+            "title": "corner",
+            "type": "string"
+          }
+        ],
+        "type": "array"
+      },
+      "result": {
+        "type": "number"
+      }
+    },
+    "rules.territory.tax_due": {
+      "changes": false,
+      "needsRun": true,
+      "params": {
+        "maxItems": 1,
+        "minItems": 1,
+        "prefixItems": [
+          {
+            "title": "city",
+            "type": "string"
+          }
+        ],
+        "type": "array"
+      },
+      "result": {
+        "properties": {
+          "amount": {
+            "type": "integer"
+          },
+          "corners": {
+            "type": "integer"
+          }
+        },
+        "required": [
+          "corners",
+          "amount"
+        ],
+        "type": "object"
+      }
+    },
     "save": {
       "changes": false,
       "needsRun": true,
@@ -8728,7 +12548,7 @@
       "$ref": "#/$defs/engine.View"
     }
   },
-  "protocol": 2,
+  "protocol": 3,
   "title": "kingpind",
   "view_version": 1
 }
