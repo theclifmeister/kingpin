@@ -1605,7 +1605,7 @@
       "properties": {
         "choices": {
           "items": {
-            "type": "string"
+            "$ref": "#/$defs/engine.ChoiceView"
           },
           "type": "array"
         },
@@ -1624,6 +1624,39 @@
         "title",
         "text",
         "choices"
+      ],
+      "type": "object"
+    },
+    "engine.Chip": {
+      "properties": {
+        "text": {
+          "type": "string"
+        },
+        "tone": {
+          "type": "string"
+        }
+      },
+      "required": [
+        "text",
+        "tone"
+      ],
+      "type": "object"
+    },
+    "engine.ChoiceView": {
+      "properties": {
+        "label": {
+          "type": "string"
+        },
+        "preview": {
+          "items": {
+            "$ref": "#/$defs/engine.Chip"
+          },
+          "type": "array"
+        }
+      },
+      "required": [
+        "label",
+        "preview"
       ],
       "type": "object"
     },
@@ -13015,5 +13048,5 @@
   },
   "protocol": 4,
   "title": "kingpind",
-  "view_version": 4
+  "view_version": 5
 }

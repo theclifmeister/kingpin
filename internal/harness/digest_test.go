@@ -239,6 +239,10 @@ const (
 // day 1 by shape alone and no number moved: with the field skipped the
 // digest is the list before it on all sixty days, the digest's run
 // answering no card).
+// Again for #358 (Card.Hide added to the walk; the move is on day 5,
+// the first morning a card is pending, by shape alone and no number
+// moved: with the field skipped the digest is the one before on all
+// sixty days).
 // Again for #351 (the report's cash flow, World.Flows and
 // DayReport.Flow, which the walk leaves out, unwalked): days 9, 24, 26
 // and 47 move by the report's words alone, a robbery's MONEY line
@@ -249,21 +253,21 @@ const (
 // MISSING FROM THE COUNT read $188 for $94 and CASH BEFORE sat $94
 // high; the flow reconciling pile by pile is what found it). No number
 // moved: with World.Report set aside on both sides the digest is
-// main's on all sixty days (checked again on top of #342).
+// main's on all sixty days (checked again on top of #358).
 var seedDigest = []string{
 	"0a185cd20b737fe7", "e94ccd608b8fccc1", "7b19268dcb2f9ef7", "672ed40fbdb47bb3",
-	"d31389711036afc4", "9cc093044d4c5b7a", "98bd25d2abd4e264", "746c41b5a4611102",
-	"71576d09b5e44c6a", "9377b0f44114e537", "90f5369e4eea04b6", "159264c1c428c11c",
-	"cb3655e8c9b7f294", "9d17ae2367d5e22d", "b33a9121a4cc9ecd", "b697576300afcb07",
-	"b5752f608d191eaf", "747cc51f84eb0ee2", "681c6e01a9e09168", "283d244fe7860fc8",
-	"8f90ee63cf7dfde6", "12c954e3f269fa23", "54fad5957a679148", "941f5c36f047c683",
-	"2811f1bed857320f", "0adfbcb5a2d096cb", "c2aaadfa67dc308b", "9b5ad50fee10c1a6",
-	"2afa95403849dc65", "dc100c17b8ca2840", "413fd63c3056800d", "cd41a0c2137c52c1",
-	"bef419464b3faf5a", "999de60ee8b0fdef", "6fea823852387c28", "2ad5c1f07ccb2eca",
-	"90338d418a51afe3", "30da35fcc9eb5dea", "b3183055900b02de", "b31289af0fb1cb6e",
-	"2524a3046a4a8abd", "6e966bc394300282", "ec5fdd8072af5942", "10a96da674bec698",
-	"6071d846f1206062", "d061a739c56debd6", "56a7e8f9dc086c1f", "1b68e77e6ad0050b",
-	"6f2b55675785c568", "94947ec4e37d7d06", "d51fc2f5d30a62ed", "2a2ab4beba0136e2",
-	"dece5535472948a0", "a82757cfed1a80c6", "cca6e0b9d5e7dcf4", "69932100060eef3b",
-	"8136c1ae4ec396cb", "ec0b2a6ca7f34102", "590e2d07355e9116", "fd77d66fd322d9d2",
+	"3fa9635ce0d1148d", "a5fc52962f77a3b3", "5a497124e7f50439", "f2bc9b7bc2210541",
+	"25347760c509f803", "47db052b474da138", "827538b80358cbb5", "191f6b4bc58a611d",
+	"1e348279ace107ed", "71345b6a67d50e40", "9d2855f16b4da47c", "3b41a553fd04e3de",
+	"ced5ede6191db1be", "a289d77497244681", "956ea8ac6c753555", "fb8d16dcdfc7e67b",
+	"3f9145d08fdde991", "85a3251619fcde78", "943cbccd70422f75", "8f069c528dc0a8da",
+	"4da38dfb4a26f698", "0395c60b0e7595bc", "02126a3ca6ccbc4e", "08b828cddf15e737",
+	"3cb6a315ebfd6962", "d4f4117a086b864f", "876af881722aa542", "648a254623621f6e",
+	"f5ad32279e8880ed", "ea4c7ff1defabd10", "da6c7490f60f7f19", "633f8edec050c9c3",
+	"ae8f9bba79ffb77c", "27fdff2b907e4b51", "5b2cb75050840679", "974386703b7afdfb",
+	"a43587f4a5bc4098", "a9be8075c3e5394f", "86efe85b0172517b", "47762478a4f9f8d3",
+	"cca0e0e280cd5727", "753ee165fb6ac377", "ee0419667d18d660", "1d378d013074040e",
+	"4858a5b27fccd80d", "c6e70d4d4ab813f5", "150ce333a69602a0", "e48df8e87ed74665",
+	"a8311d6a519d03f1", "1d4042aa34121d69", "db7f676ab36c5603", "615cbdfa1c4046ce",
+	"147aac40c73d65d4", "7b43e61bba6f5a45", "95c88a6574df8e31", "981b71057d4142b9",
 }

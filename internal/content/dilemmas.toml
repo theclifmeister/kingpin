@@ -38,6 +38,10 @@
 # Theirs by contested; Front by fronts. A card that uses one its trigger
 # never fills fails at start-up (#349).
 #
+# hide = true on a card (#358) shows "costs you something" under each
+# choice instead of what it does: for a card whose drama is the unknown.
+# Use it sparingly; the turncoat is the one.
+#
 # Convention: the LAST choice is what happens if you do nothing; the
 # harness takes it for any card a policy does not answer. Text reads at 80
 # columns: keep it under ~280 characters and outcomes under 70.
@@ -439,6 +443,7 @@ notoriety = -1
 [[card]]
 id = "turncoat"
 title = "A turncoat"
+hide = true
 text = "One of {{.Rival}}'s people wants out and wants in with you. They know where {{.Rival}} keeps the money and who they pay. They also might be exactly what they look like: a plant."
 stakes = "business"
 amount = 300

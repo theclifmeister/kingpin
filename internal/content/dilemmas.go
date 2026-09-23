@@ -45,6 +45,7 @@ type CardConfig struct {
 	Weight      float64        `toml:"weight"`      // relative draw weight; 0 means 1
 	WeightRich  float64        `toml:"weight_rich"` // the weight from the deck's rich_tier on; 0 means Weight
 	Once        bool           `toml:"once"`        // at most once per run
+	Hide        bool           `toml:"hide"`        // the drama is the unknown (#358): the choices show no preview
 	Amount      int            `toml:"amount"`
 	AmountShare float64        `toml:"amount_share"`
 	AmountMax   int            `toml:"amount_max"` // the cap on the sum; 0 none (a business card only)
