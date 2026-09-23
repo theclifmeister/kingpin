@@ -449,6 +449,7 @@ The full table is below; `?` brings it up in the game.
 | `%` | cut | cut a product in the stash where you stand | market |
 | `o` | cook | the chemist cooks a batch where you stand | market |
 | `d` | deliver | hand the buyer what the stash here holds | market |
+| `R` | restock | buy days of your corners' demand, reviewed | market |
 | `pgup pgdn` | page | page through the journal | journal |
 | `f` | filter | show one source's headlines, then all again | journal |
 | `h` | hire | hire the selected candidate | crew |

@@ -1582,6 +1582,25 @@
       ],
       "type": "object"
     },
+    "engine.BuyRoom": {
+      "properties": {
+        "capacity": {
+          "type": "integer"
+        },
+        "held": {
+          "type": "integer"
+        },
+        "max": {
+          "type": "integer"
+        }
+      },
+      "required": [
+        "max",
+        "held",
+        "capacity"
+      ],
+      "type": "object"
+    },
     "engine.CardView": {
       "properties": {
         "choices": {
@@ -7860,6 +7879,37 @@
       ],
       "type": "object"
     },
+    "game.RestockLine": {
+      "properties": {
+        "cost": {
+          "type": "integer"
+        },
+        "have": {
+          "type": "integer"
+        },
+        "level": {
+          "type": "integer"
+        },
+        "product": {
+          "type": "string"
+        },
+        "supplier": {
+          "type": "string"
+        },
+        "units": {
+          "type": "integer"
+        }
+      },
+      "required": [
+        "product",
+        "supplier",
+        "level",
+        "have",
+        "units",
+        "cost"
+      ],
+      "type": "object"
+    },
     "protocol.DayResult": {
       "properties": {
         "day": {
@@ -7945,6 +7995,7 @@
     "invalid_params": -32602,
     "invalid_request": -32600,
     "no_method": -32601,
+    "no_room": -32002,
     "no_run": -32001,
     "parse": -32700,
     "refused": -32000
@@ -9280,6 +9331,32 @@
         "$ref": "#/$defs/engine.View"
       }
     },
+    "max_buy": {
+      "changes": false,
+      "needsRun": true,
+      "params": {
+        "maxItems": 3,
+        "minItems": 3,
+        "prefixItems": [
+          {
+            "title": "supplier",
+            "type": "string"
+          },
+          {
+            "title": "product",
+            "type": "string"
+          },
+          {
+            "title": "credit",
+            "type": "boolean"
+          }
+        ],
+        "type": "array"
+      },
+      "result": {
+        "$ref": "#/$defs/engine.BuyRoom"
+      }
+    },
     "move": {
       "changes": true,
       "needsRun": true,
@@ -9548,6 +9625,31 @@
       },
       "result": {
         "type": "null"
+      }
+    },
+    "restock_plan": {
+      "changes": false,
+      "needsRun": true,
+      "params": {
+        "maxItems": 2,
+        "minItems": 2,
+        "prefixItems": [
+          {
+            "title": "city",
+            "type": "string"
+          },
+          {
+            "title": "days",
+            "type": "number"
+          }
+        ],
+        "type": "array"
+      },
+      "result": {
+        "items": {
+          "$ref": "#/$defs/game.RestockLine"
+        },
+        "type": "array"
       }
     },
     "retire": {
@@ -12769,7 +12871,7 @@
       "$ref": "#/$defs/engine.View"
     }
   },
-  "protocol": 3,
+  "protocol": 4,
   "title": "kingpind",
   "view_version": 3
 }
