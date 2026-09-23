@@ -190,15 +190,27 @@ func TestPreviewIsTheOutcome(t *testing.T) {
 		}
 		worlds = append(worlds, broke, hot)
 	}
+	// The rich band's (#342): a bag the capped sums stop short of.
+	rich, _ := game.Decode(mustEncode(t, worlds[1]))
+	rich.Player.DirtyCash, rich.Stats.PeakCash = 5_000_000, 5_000_000
+	worlds = append(worlds, rich)
 	moved := 0
+	keys := map[string]bool{}
 	for n, w := range worlds {
 		member := 0
 		if len(w.Crew.Members) > 0 {
 			member = w.Crew.Members[0].ID
 		}
+		corner := ""
+		for _, c := range w.Corners() {
+			if c.Owner == game.OwnerPlayer {
+				corner = c.ID
+				break
+			}
+		}
 		for _, cc := range cfg.Dilemmas.Cards {
 			card := func() *game.Card {
-				c := &game.Card{ID: cc.ID, Member: member, Amount: max(cc.Amount, int(cc.AmountShare*float64(w.Player.DirtyCash)))}
+				c := &game.Card{ID: cc.ID, Member: member, Corner: corner, Amount: game.CardSum(cc, w.Player.DirtyCash)}
 				for _, ch := range cc.Choices {
 					c.Choices = append(c.Choices, game.Choice{Label: ch.Label, Outcome: ch.Outcome, Effects: ch.Effects})
 				}
@@ -229,11 +241,21 @@ func TestPreviewIsTheOutcome(t *testing.T) {
 				if len(got) > 0 {
 					moved++
 				}
+				for _, ch := range got {
+					keys[ch.Key] = true
+				}
 			}
 		}
 	}
 	if moved == 0 {
 		t.Error("no preview moved anything")
+	}
+	// The rich band's keys (#342) are in the preview too: a corner given
+	// up and a favour owed.
+	for _, k := range []string{"corners", "owes"} {
+		if !keys[k] {
+			t.Errorf("no preview moved %s", k)
+		}
 	}
 }
 

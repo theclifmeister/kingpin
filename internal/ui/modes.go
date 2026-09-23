@@ -50,6 +50,7 @@ const (
 	modeSpy           // plant a spy (#45): the faction, then who goes under
 	modeExit          // walk away (#49): retire on the account or vanish on a new identity, then the confirmation
 	modeNewRun        // a new run from the start menu (#50): the character, the seed, the hard DA
+	modeRestock       // top the stash up to days of demand (#356): the days, the plan under them, then enter
 	modeCount
 )
 
@@ -155,6 +156,7 @@ func init() {
 		modeSpy:           {name: "spy", view: (*Model).viewSpy, key: byKey((*Model).keySpy), pages: func(m *Model) bool { return !m.spy.single }, paged: spyState},
 		modeExit:          {name: "exit", view: (*Model).viewExit, key: byKey((*Model).keyExit), pages: always, paged: exitState},
 		modeNewRun:        {name: "new run", view: (*Model).viewStart, key: (*Model).keyNewRun, pages: always, paged: nrState},
+		modeRestock:       {name: "restock", view: (*Model).viewRestock, key: (*Model).keyRestock, paged: amtState},
 	}
 }
 

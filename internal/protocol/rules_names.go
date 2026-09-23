@@ -44,6 +44,7 @@ var ruleNames = map[string]ruleSig{
 	"Heat.DirtyCashThreshold":      {[]string{"w"}, nil},
 	"Heat.Due":                     {[]string{"w"}, nil},
 	"Heat.EvidenceArrest":          {[]string{"w"}, nil},
+	"Heat.ExposureLine":            {[]string{"w"}, nil},
 	"Heat.ForfeitEvidence":         {nil, nil},
 	"Heat.Hottest":                 {[]string{"w"}, nil},
 	"Heat.Ladder":                  {[]string{"w", "city"}, nil},

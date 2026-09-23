@@ -6,7 +6,8 @@ import (
 
 // amountDialog is every one-field dialog (#275): invest (modeInvest),
 // reserve (modeReserve), pay a cop (modePayCop), buy off
-// (modeConfirmBuyOff) and fast-forward (modeConfirmFast). Each is one
+// (modeConfirmBuyOff), fast-forward (modeConfirmFast) and restock
+// (modeRestock, #356). Each is one
 // page with one number field and the error under it, and only one is
 // ever open, so they share Model.amt, which each askX sets whole as it
 // opens its dialog. subject is what the dialog is open on where that

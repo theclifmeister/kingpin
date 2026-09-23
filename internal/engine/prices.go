@@ -41,3 +41,38 @@ func FactsAt(p *game.ProductMarket, unit float64) PriceFacts {
 	}
 	return f
 }
+
+// BuyRoom is what a buy from a connect can take right now (#356): Max,
+// the most it takes (World.MaxBuy: the cash or their book, the room
+// and their day, the least of the three), and the stash it lands in,
+// Held of Capacity units, so a front end can draw the room before and
+// after the buy.
+type BuyRoom struct {
+	Max      int `json:"max"`
+	Held     int `json:"held"`
+	Capacity int `json:"capacity"`
+}
+
+// MaxBuy is BuyRoom for a product from a connect, cash or on credit: a
+// buy of Max never meets a refusal for the cash, the room or the
+// connect's day (#356).
+func (s *Session) MaxBuy(supplier, product string, credit bool) (BuyRoom, error) {
+	sup := s.w.Supplier(supplier)
+	if sup == nil {
+		return BuyRoom{}, game.ErrNoSupplier
+	}
+	return BuyRoom{Max: s.w.MaxBuy(sup, product, credit), Held: s.w.StockIn(sup.City), Capacity: s.w.Capacity(sup.City)}, nil
+}
+
+// RestockPlan is what topping a city's stash up to days of demand would
+// buy by hand now (World.RestockPlan, #356), keeping the supply
+// contracts' float in the till as they do (market.Sim.Float): the
+// lines a front end shows for review and then buys, one Buy each. It
+// is never null on the wire.
+func (s *Session) RestockPlan(city string, days float64) []game.RestockLine {
+	plan := s.w.RestockPlan(city, days, s.set.Market.Float(s.w))
+	if plan == nil {
+		plan = []game.RestockLine{}
+	}
+	return plan
+}

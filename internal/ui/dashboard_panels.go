@@ -123,6 +123,28 @@ func thresholdLines(thr []string, innerW int) []string {
 	return out
 }
 
+// exposure is the line past which the dirty pile draws heat
+// (heat.Sim.ExposureLine: the threshold plus what the fronts cover) and
+// whether the pile is past it. The dashboard's CASH panel and the
+// ledger both warn off it, so the two screens cannot disagree (#350).
+func (m *Model) exposure() (line int, past bool) {
+	line = m.rules.Heat.ExposureLine(m.w)
+	return line, line > 0 && m.w.Player.DirtyCash > line
+}
+
+// exposureWarning is the ledger's sentence for a pile past the line,
+// naming the cover when the fronts give any; empty under the line.
+func (m *Model) exposureWarning() string {
+	line, past := m.exposure()
+	if !past {
+		return ""
+	}
+	if cover := m.rules.Heat.Cover(m.w); cover > 0 {
+		return fmt.Sprintf("Dirty cash over %s draws heat every day: %s, plus %s your fronts cover.", cash(line), cash(line-cover), cash(cover))
+	}
+	return fmt.Sprintf("Dirty cash over %s draws heat every day it sits there.", cash(line))
+}
+
 // cashLines is the CASH panel's content, four lines: the dirty pile
 // with the warning on its row once it is past what the fronts cover,
 // the clean cash with the day's wash, the peak, and the other city's
@@ -132,10 +154,8 @@ func thresholdLines(thr []string, innerW int) []string {
 func (m *Model) cashLines(innerW int, narrow bool) []string {
 	w := m.w
 	over := ""
-	if line := m.rules.Heat.DirtyCashThreshold(w); line > 0 {
-		if line += m.rules.Heat.Cover(w); w.Player.DirtyCash > line {
-			over = theme.Warning.Render(fmt.Sprintf("over %s: heat", cash(line)))
-		}
+	if line, past := m.exposure(); past {
+		over = theme.Warning.Render(fmt.Sprintf("over %s: heat", cash(line)))
 	}
 	dirty := theme.Gold.Render("dirty  " + cash(w.Player.DirtyCash))
 	clean := theme.Subtle.Render("clean  " + cash(w.Player.CleanCash))

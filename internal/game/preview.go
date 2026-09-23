@@ -30,10 +30,11 @@ func (c Change) Delta() float64 { return c.To - c.From }
 // Gauges are what a card's effects can move, in the order a preview
 // lists them: the two bags (dirty_cash and dirty_amount both land in
 // dirty), the heat where you stand, each member's loyalty, the four
-// numbers the home rival keeps, the units you hold, and the three
-// reputation axes. The heat's high-water mark moves with the heat and
+// numbers the home rival keeps, the units you hold, the corners you
+// hold (a card's corner given up, #342), the favours you owe, and the
+// three reputation axes. The heat's high-water mark moves with the heat and
 // is a stat, not a gauge.
-var Gauges = []string{"dirty_cash", "clean_cash", "heat", "loyalty", "war", "grudge", "rival_muscle", "rival_cash", "stock", "fear", "respect", "notoriety"}
+var Gauges = []string{"dirty_cash", "clean_cash", "heat", "loyalty", "war", "grudge", "rival_muscle", "rival_cash", "stock", "corners", "owes", "fear", "respect", "notoriety"}
 
 // gauges reads every gauge in w, in Gauges' order. It only reads: the
 // rival's are read off Rivals, not Rival(), which would make one.
@@ -58,6 +59,13 @@ func gauges(w *World) []Change {
 		)
 	}
 	out = append(out, Change{Key: "stock", From: float64(w.Stashed())})
+	held := 0
+	for _, c := range w.Corners() {
+		if c.Owner == OwnerPlayer {
+			held++
+		}
+	}
+	out = append(out, Change{Key: "corners", From: float64(held)}, Change{Key: "owes", From: float64(w.Dilemmas.Owes)})
 	for _, a := range Axes {
 		out = append(out, Change{Key: a, From: *w.Player.Reputation.Axis(a)})
 	}

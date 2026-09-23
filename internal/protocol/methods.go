@@ -47,7 +47,7 @@ var commands = []string{
 
 // queries are the session's reads served as they are: they change
 // nothing.
-var queries = []string{"View", "Alerts", "GatesAhead", "NextGates", "FrontOffers", "AssetOffers", "HouseOffers", "FloatMatters", "ExportSave"}
+var queries = []string{"View", "Alerts", "GatesAhead", "NextGates", "FrontOffers", "AssetOffers", "HouseOffers", "FloatMatters", "ExportSave", "MaxBuy", "RestockPlan"}
 
 // unserved are the session's methods the wire does not carry, and why:
 // TestEverySessionMethodIsClassed fails on one in no list, so a new
@@ -351,7 +351,7 @@ func decode(ps []json.RawMessage, n int, ptrs ...any) error {
 // reflection cannot see them.
 var paramNames = map[string][]string{
 	"Travel": {"city"}, "SetLieLow": {"on"}, "SeeStage": {"stage"}, "Choose": {"choice"},
-	"Buy": {"supplier", "product", "qty", "credit"}, "Return": {"city", "product", "qty"},
+	"Buy": {"supplier", "product", "qty", "credit"}, "MaxBuy": {"supplier", "product", "credit"}, "RestockPlan": {"city", "days"}, "Return": {"city", "product", "qty"},
 	"ReturnCredit": {"city", "product", "qty"}, "ReturnSupplied": {"city", "product", "qty"},
 	"PlaceSell": {"city", "product", "qty", "dial"}, "CancelSell": {"city", "product"},
 	"PlaceStanding": {"city", "product", "qty", "dial"}, "CancelStanding": {"city", "product"},

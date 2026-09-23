@@ -52,7 +52,7 @@ func ChoiceChips(cfg *content.Config, r Rules, w *game.World, c *game.Card) [][]
 		if err != nil {
 			continue // a key the world does not know: Choose refuses it too
 		}
-		out[i] = chips(cfg, r, w, ch)
+		out[i] = chips(cfg, r, w, c, ch)
 		if len(out[i]) == 0 {
 			out[i] = []Chip{{Text: "changes nothing", Tone: ToneNote}}
 		}
@@ -61,7 +61,7 @@ func ChoiceChips(cfg *content.Config, r Rules, w *game.World, c *game.Card) [][]
 }
 
 // chips is one choice's changes in words.
-func chips(cfg *content.Config, r Rules, w *game.World, changes []game.Change) []Chip {
+func chips(cfg *content.Config, r Rules, w *game.World, c *game.Card, changes []game.Change) []Chip {
 	var out []Chip
 	var loyalty []game.Change
 	for _, ch := range changes {
@@ -96,6 +96,18 @@ func chips(cfg *content.Config, r Rules, w *game.World, changes []game.Change) [
 			out = append(out, Chip{Text: "their cash " + signedCash(int(d)), Tone: good(d < 0)})
 		case "stock":
 			out = append(out, Chip{Text: "stock " + signed(d), Tone: good(d > 0)})
+		case "corners":
+			if k := w.Corner(c.Corner); d < 0 && k != nil {
+				out = append(out, Chip{Text: "give up " + k.Name, Tone: ToneCost})
+			} else {
+				out = append(out, Chip{Text: "corners " + signed(d), Tone: good(d > 0)})
+			}
+		case "owes":
+			if d > 0 {
+				out = append(out, Chip{Text: "you'll owe " + favours(int(d)), Tone: ToneLine})
+			} else {
+				out = append(out, Chip{Text: favours(int(-d)) + " repaid", Tone: ToneGain})
+			}
 		case "fear", "respect":
 			out = append(out, Chip{Text: ch.Key + " " + signed(d), Tone: good(d > 0)})
 			rep = rep || d > 0
@@ -222,6 +234,14 @@ func signedCash(n int) string {
 		return "−" + format.Cash(-n)
 	}
 	return "+" + format.Cash(n)
+}
+
+// favours is a count of favours in words: `a favour`, `2 favours`.
+func favours(n int) string {
+	if n == 1 {
+		return "a favour"
+	}
+	return format.Plural(n, "favour")
 }
 
 // rung is a level in words.

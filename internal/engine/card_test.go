@@ -70,6 +70,22 @@ func TestChoiceChipsSayTheLines(t *testing.T) {
 		t.Errorf("the view's card is %+v", v.Card)
 	}
 
+	// The rich band's keys (#342): the card's corner given up, a favour.
+	var held *game.Corner
+	for _, k := range w.Corners() {
+		if k.Owner == game.OwnerPlayer {
+			held = &k
+			break
+		}
+	}
+	if held == nil {
+		t.Fatal("no corner held on day 0")
+	}
+	deal := &game.Card{ID: "deal", Corner: held.ID, Choices: []game.Choice{{Label: "Sell", Effects: map[string]float64{"corner": -1, "owes": 1}}}}
+	if got := texts(engine.ChoiceChips(cfg, s.Rules(), w, deal)[0]); got != "give up "+held.Name+" · you'll owe a favour" {
+		t.Errorf("the corner and the favour read %q", got)
+	}
+
 	c.Hide = true
 	for i, cs := range engine.ChoiceChips(cfg, s.Rules(), w, c) {
 		if len(cs) != 1 || cs[0].Text != engine.Hidden {
