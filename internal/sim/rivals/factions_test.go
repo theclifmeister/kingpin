@@ -210,6 +210,57 @@ func TestAbsorption(t *testing.T) {
 	}
 }
 
+// A faction you routed that cannot pay for a claim at today's prices
+// has no take to save one out of, so after absorb_days with no corners
+// it scatters (#370): absorbed by nobody, gone, and the city stops
+// waiting on it. One with the chest for a claim regroups as it always
+// did. The duel is the same: its one rival scatters too.
+func TestBrokeRoutedFactionScatters(t *testing.T) {
+	for _, n := range []int{1, 3} {
+		cfg := table(n)
+		w, s := world(t, cfg, 4)
+		for _, o := range w.Rivals[1:] {
+			o.Arrived, o.Absorbed = 1, 1 // out of the way: the city waits on r alone
+		}
+		r := w.Rivals[0]
+		r.Arrived, r.Observed, r.Muscle, r.Cash = 1, true, 0, 0
+		r.Routed, r.LastTakenBy = 30, ""
+		w.Day = 30 + cfg.Rivals.Factions.AbsorbDays - 2
+		if evs := step(w, s); find[events.RivalAbsorbed](evs) != nil || r.Gone() {
+			t.Fatalf("%d factions: scattered a day early: %v", n, kinds(evs))
+		}
+		if w.Dominant() {
+			t.Fatalf("%d factions: dominant with a faction still standing", n)
+		}
+		evs := step(w, s)
+		ab := find[events.RivalAbsorbed](evs)
+		if ab == nil || ab.Faction != r.Faction() || ab.By != "" || ab.ByFaction != "" {
+			t.Fatalf("%d factions: day %d: %v %+v", n, w.Day, kinds(evs), ab)
+		}
+		if !r.Gone() || r.Absorbed != w.Day || r.AbsorbedBy != "" || w.Stats.Absorbed != 1 {
+			t.Fatalf("%d factions: after: %+v", n, *r)
+		}
+		if !w.Dominant() || w.Stance(r, 0) != "absorbed" {
+			t.Fatalf("%d factions: the city still waits on a scattered faction (%s)", n, w.Stance(r, 0))
+		}
+	}
+
+	// The chest for a claim: it regroups, and is never scattered.
+	cfg := duel()
+	w, s := world(t, cfg, 4)
+	r := w.Rival()
+	r.Arrived, r.Observed, r.Muscle = 1, true, 0
+	r.Routed, r.LastTakenBy = 30, ""
+	w.Day = 30 + cfg.Rivals.Factions.AbsorbDays - 2
+	for i := 0; i < 10; i++ {
+		r.Cash = max(r.Cash, 10*s.ClaimCost(w, r))
+		step(w, s)
+		if r.Gone() {
+			t.Fatalf("a routed faction with the money to come back scattered on day %d: %+v", w.Day, *r)
+		}
+	}
+}
+
 // The alliance (#43): when an expansionist pushes on you, a defensive
 // faction in the city sides with you (Ally you, Against it), its trust
 // in you up by ally_trust a push, and at ally_line its front-line
