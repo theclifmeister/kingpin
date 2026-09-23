@@ -301,6 +301,8 @@ func dealBreaks(kind string) string {
 func (m *Model) moodLine(r *game.RivalState) (line string, bad bool) {
 	w := m.w
 	switch {
+	case r.Absorbed > 0 && r.AbsorbedBy == "":
+		return fmt.Sprintf("Scattered on day %d. There is nobody left to talk to.", r.Absorbed), false
 	case r.Absorbed > 0:
 		return fmt.Sprintf("Absorbed on day %d. There is nobody left to talk to.", r.Absorbed), false
 	case r.Fragmented > 0:
