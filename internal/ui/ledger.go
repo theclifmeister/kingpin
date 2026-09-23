@@ -13,15 +13,7 @@ import (
 
 // frontRows lists the fronts on offer that the player does not own yet,
 // cheapest first, locked ones included so the ladder is visible.
-func (m *Model) frontRows() []game.FrontOffer {
-	var rows []game.FrontOffer
-	for _, o := range m.rules.Laundering.Offers() {
-		if m.w.Front(o.ID) == nil {
-			rows = append(rows, o)
-		}
-	}
-	return rows
-}
+func (m *Model) frontRows() []game.FrontOffer { return m.sess.FrontOffers() }
 
 // askFront opens the buy picker on its first page, the kind (#73: a
 // front or a house).

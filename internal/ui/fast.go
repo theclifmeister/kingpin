@@ -7,9 +7,9 @@ import (
 	tea "github.com/charmbracelet/bubbletea"
 
 	"github.com/theclifmeister/kingpin/internal/content"
+	"github.com/theclifmeister/kingpin/internal/engine"
 	"github.com/theclifmeister/kingpin/internal/events"
 	"github.com/theclifmeister/kingpin/internal/format"
-	"github.com/theclifmeister/kingpin/internal/game"
 	"github.com/theclifmeister/kingpin/internal/ui/theme"
 )
 
@@ -97,94 +97,58 @@ func (m *Model) viewFast() string {
 	return m.modal("FAST-FORWARD", body, m.modalFooter())
 }
 
-// fastForward ends up to days days, each through stepDay as n ends one,
-// and stops before the report of the first that needs you: it opens
-// that morning as endDay does (the run over, the card, then the
-// report), the report's first line naming the reason.
+// fastForward ends up to days days through the engine
+// (Session.FastForward, #298), each saved and journalled as n's is
+// (dayEnded), and stops on the first that needs you: it opens that
+// morning as endDay does (the run over, the card, then the report), the
+// report's first line naming the reason.
 func (m *Model) fastForward(days int) {
 	m.mode = modePlay
 	if m.w.Over != nil {
 		m.finish(false)
 		return
 	}
-	ran := 0
-	var reason string
-	var evs []events.Event
-	for ran < days {
-		before := m.alerts()
-		evs = m.stepDay()
-		ran++
-		if m.w.Over != nil {
-			break
-		}
-		if reason = m.stopReason(evs, before); reason != "" {
-			break
-		}
-	}
+	ran, stop, evs := m.sess.FastForward(days, m.dayEnded)
 	if m.w.Over == nil {
-		if reason == "" {
-			reason = "the cap"
-		}
-		m.fastStop = fmt.Sprintf("Stopped after %s: %s.", plural(ran, "day"), reason)
+		m.fastStop = fmt.Sprintf("Stopped after %s: %s.", plural(ran, "day"), m.stopWhy(stop))
 	}
 	m.say(fmt.Sprintf("Ran %s.", plural(ran, "day")))
 	m.morning(evs) // the stopping day's events: an earlier day's strike is the journal's
 }
 
-// stopReason is why the day that just ended needs you, or "" when it
-// does not: a new stage (#149, first: the tier entered this morning),
-// a card dealt, then an alert that was not on the dashboard
-// the morning before (by its key, so a contract due tomorrow stops once
-// and again when it is due today, and heat over the patrol line once
-// until it drops under and comes back), then the first of the day's
-// events that stopEvent names.
-func (m *Model) stopReason(evs []events.Event, before []alert) string {
-	if m.w.StagePending() > 0 {
+// stopWhy is why a fast-forward stopped, as the report's first line
+// names it: a new stage, a card, a new alert's reason, the event's
+// (stopEvent) or the cap.
+func (m *Model) stopWhy(st engine.Stop) string {
+	switch st.Kind {
+	case engine.StopStage:
 		return "a new stage"
-	}
-	if m.w.Dilemmas.Pending != nil {
+	case engine.StopCard:
 		return "a card to answer"
+	case engine.StopAlert:
+		return m.alertOf(st.Alert).why
+	case engine.StopEvent:
+		return m.stopEvent(st.Event)
 	}
-	was := map[string]bool{}
-	for _, a := range before {
-		was[a.key] = true
-	}
-	for _, a := range m.alerts() {
-		if !was[a.key] {
-			return a.why
-		}
-	}
-	for _, e := range evs {
-		if why := m.stopEvent(e); why != "" {
-			return why
-		}
-	}
-	return ""
+	return "the cap"
 }
 
-// stopEvent is the reason an event stops the run, or "" for one that
-// does not: the police past a patrol, a corner struck or taken off you,
-// the crew walking, an audit, a seizure, the rival's offer or a deal
-// broken, a corner the rival gave up to a price war (free: the tell's
-// kind of stop, a corner to post on), the police raiding a rival corner
-// on your tip (free too) or a boost that failed (#70), a buyer asking,
-// pressure or a
-// reputation axis up a band, a new chief or an election, a contract
-// or a standing order that ran short (the routine broke), a gate crossed
-// (#148: the Laundromat open to you, Heroin on offer, the Dutchman
-// dealing, lieutenants wanting work), the rival moving in, a stash
-// house robbed, hit or lost (#73), and a spy found or a lie that bit
-// (#45).
+// stopEvent is the reason an event stops a fast-forward, as the report
+// names it, or "" for one that does not. Which events stop is the
+// engine's (engine.StopsOn, #298); this is only the words, and an event
+// the engine stops on that has no words here is named by its kind
+// (TestEveryStopHasWords).
 func (m *Model) stopEvent(e events.Event) string {
+	if !engine.StopsOn(e) {
+		return ""
+	}
 	w := m.w
 	switch ev := e.(type) {
 	case events.Enforcement:
 		if ev.Level == content.TaskForce {
 			return "the task force in " + w.CityName(ev.City)
 		}
-		if ev.Level != content.Patrol {
-			return format.A(ev.Level) + " in " + w.CityName(ev.City)
-		}
+		return format.A(ev.Level) + " in " + w.CityName(ev.City)
 	case events.TaskForceFormed:
 		return "a task force formed in " + w.CityName(ev.City)
 	case events.AssetSeized:
@@ -202,22 +166,15 @@ func (m *Model) stopEvent(e events.Event) string {
 	case events.RivalEyeing:
 		return ev.Rival + " is eyeing " + ev.Name
 	case events.CornerStruck:
-		if ev.War && !ev.Taken {
-			return "" // the war order's night that held (#229): the war runs on, a corner taken wants a runner
-		}
 		return "the strike on " + ev.Name
 	case events.WarEnded:
 		return "the war on " + ev.Rival + "'s crew is over"
 	case events.RivalBoosted:
-		if !ev.Taken {
-			return "the boost on " + ev.Name + " failed"
-		}
+		return "the boost on " + ev.Name + " failed"
 	case events.RivalRaided:
 		return "the police raided " + ev.Name
 	case events.CornerTaken:
-		if ev.From == game.OwnerPlayer {
-			return ev.Rival + " took " + ev.Name
-		}
+		return ev.Rival + " took " + ev.Name
 	case events.RivalAbandoned:
 		return ev.Rival + " gave up " + ev.Name
 	case events.CrewQuit:
@@ -227,9 +184,7 @@ func (m *Model) stopEvent(e events.Event) string {
 	case events.CrewArrested:
 		return ev.Name + " was arrested" // #46
 	case events.CrewShot:
-		if ev.Dead && !ev.Theirs {
-			return ev.Name + " was shot dead"
-		}
+		return ev.Name + " was shot dead"
 	case events.CrewRetired:
 		return ev.Name + " retired"
 	case events.SpyFound: // #45: a spy found, shot or home, and a lie that bit
@@ -255,13 +210,9 @@ func (m *Model) stopEvent(e events.Event) string {
 	case events.ContractOffered:
 		return ev.Name + " is asking"
 	case events.PressureShifted:
-		if ev.To > ev.From {
-			return "pressure up in " + w.CityName(ev.City)
-		}
+		return "pressure up in " + w.CityName(ev.City)
 	case events.ReputationShifted:
-		if ev.To > ev.From {
-			return ev.Axis + " up"
-		}
+		return ev.Axis + " up"
 	case events.ChiefReplaced:
 		return "a new chief"
 	case events.DAElected:
@@ -288,7 +239,7 @@ func (m *Model) stopEvent(e events.Event) string {
 	case events.HouseLost:
 		return "the landlord threw you out of " + ev.Name
 	}
-	return ""
+	return e.Kind()
 }
 
 // stopLine is the report's first line after a fast-forward, or "".

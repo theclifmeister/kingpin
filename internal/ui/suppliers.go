@@ -7,6 +7,7 @@ import (
 
 	"github.com/charmbracelet/lipgloss"
 
+	"github.com/theclifmeister/kingpin/internal/engine"
 	"github.com/theclifmeister/kingpin/internal/format"
 	"github.com/theclifmeister/kingpin/internal/game"
 	"github.com/theclifmeister/kingpin/internal/ui/theme"
@@ -279,31 +280,9 @@ func (m *Model) suppliersMove(d int) {
 	}
 }
 
-// debtAlerts are the connects' lines for the dashboard's ALERTS: a debt
-// due tomorrow, the last morning to raise the cash (the market sim
-// collects it at the top of the day it is due, so the morning it is
-// due it is paid, or late and re-dated), keyed by the connect and the
-// day, so a fast-forward (#116) stops on it once.
-func (m *Model) debtAlerts() []alert {
-	w := m.w
-	var out []alert
-	for i := range w.Suppliers {
-		sup := &w.Suppliers[i]
-		if sup.Debt <= 0 || sup.DebtDue > w.Day+1 {
-			continue
-		}
-		style := theme.Warning
-		if w.Cash() < sup.Debt {
-			style = theme.Bad
-		}
-		out = append(out, alert{
-			text: style.Render(fmt.Sprintf("%s: %s due tomorrow, %s in hand.", sup.Name, money(sup.Debt), cash(w.Cash()))),
-			why:  "debt due tomorrow",
-			key:  fmt.Sprintf("debt %s due %d", sup.ID, sup.DebtDue),
-		})
-	}
-	return out
-}
+// debtAlerts are this morning's alerts on a debt due tomorrow (#298,
+// engine.AlertDebtDue).
+func (m *Model) debtAlerts() []alert { return m.alertsOf(engine.AlertDebtDue) }
 
 // debtLine is the dashboard's fact on what you owe the connects: the
 // total and the nearest day, or nothing with no debt.

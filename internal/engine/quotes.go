@@ -156,7 +156,6 @@ type LaunderingRules interface {
 	Capacity(w *game.World) int
 	Dial(d events.Launder) content.LaunderConfig
 	Fee(amount int) int
-	Float(w *game.World) int
 	FrontUpkeep(w *game.World, f game.Front) int
 	Growth() content.GrowthConfig
 	Income(f game.Front) int

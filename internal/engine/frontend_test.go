@@ -18,16 +18,16 @@ import (
 // never a World method a front end calls itself.
 var worldReads = []string{
 	"AssetLost", "AtPeaceWith", "Available", "BestSupplier", "Bound", "BuyMarkup", "Campaigning", "CanBuyIn",
-	"CanCallFavour", "CanCrown", "CanUndercut", "CanVanish", "Capacity", "Cash", "Checkpoint", "City",
-	"CityName", "CityOf", "Cold", "Contested", "ContestedBy", "ContractsDue", "ContractsIn", "Corner",
+	"CanCrown", "CanUndercut", "CanVanish", "Capacity", "Cash", "Checkpoint", "City", "CityName",
+	"CityOf", "Cold", "Contested", "ContestedBy", "Contract", "ContractsDue", "ContractsIn", "Corner",
 	"DealWith", "DeedValue", "Deeds", "DeedsIn", "DelegatedOrder", "DelegatedSupplied", "Deliverable", "Demand",
 	"Describe", "DrivenRoute", "Faction", "FactionIndex", "FactionName", "FallGuyLeft", "FavourCalled", "Free",
-	"Front", "GuardOf", "HasAsset", "Held", "Here", "HomageDeals", "Home", "House",
-	"HousesIn", "Lot", "Missing", "NextDoor", "Order", "Owed", "Owns", "PostOf",
-	"Product", "ProductName", "Quality", "QueuedDelivery", "Quote", "ReachedOn", "ReignDay", "ReservedToday",
-	"Rival", "RivalHeld", "RivalHeldBy", "Route", "RouteClosed", "Score", "Side", "SplitLinesWith",
-	"Stage", "StagePending", "Stance", "StashOf", "Stashed", "Stock", "StockIn", "Street",
-	"StreetCapacity", "StreetQuality", "StreetSupplier", "Supplied", "SuppliedToday", "SuppliersIn", "Tier", "TierName",
+	"Front", "GuardOf", "Held", "Here", "HomageDeals", "Home", "House", "HousesIn",
+	"Lot", "Missing", "NextDoor", "Order", "Owed", "Owns", "PostOf", "Product",
+	"ProductName", "Quality", "QueuedDelivery", "Quote", "ReachedOn", "ReignDay", "ReservedToday", "Rival",
+	"RivalHeld", "RivalHeldBy", "Route", "RouteClosed", "Score", "Side", "SplitLinesWith", "Stage",
+	"StagePending", "Stance", "StashOf", "Stashed", "Stock", "StockIn", "Street", "StreetCapacity",
+	"StreetQuality", "StreetSupplier", "Supplied", "SuppliedToday", "Supplier", "SuppliersIn", "Tier", "TierName",
 	"TotalStock", "Undercutting", "WarHasGround", "WholesaleSupplier", "Worked", "WorkedIn", "YourStanding",
 }
 
