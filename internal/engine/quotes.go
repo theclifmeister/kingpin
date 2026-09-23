@@ -6,7 +6,11 @@ import (
 	"github.com/theclifmeister/kingpin/internal/game"
 )
 
-// QUOTES-PLACEHOLDER
+// The rules a front end reads (#297): one interface per sim, the read
+// methods the TUI calls on it, each satisfied by the sim as it is. The
+// parameter names are the wire's too (#325): internal/protocol serves
+// every method as rules.<sim>.<method> and names its parameters after
+// these, so a name here is part of the protocol.
 type MarketRules interface {
 	Band(rel float64) int
 	Bands() int
