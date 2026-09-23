@@ -1,4 +1,4 @@
-version 3
+version 6
 .version int
 .seed uint64
 .day int
@@ -224,7 +224,10 @@ version 3
 .card.title string
 .card.text string
 .card.choices []
-.card.choices[] string
+.card.choices[].label string
+.card.choices[].preview []
+.card.choices[].preview[].text string
+.card.choices[].preview[].tone string
 .report.day int
 .report.incident []
 .report.incident[] string
@@ -272,6 +275,11 @@ version 3
 .alerts[].count int
 .alerts[].ready bool
 .alerts[].level string
+.alerts[].member int
+.alerts[].cross string
+.alerts[].gap float64
+.alerts[].corner string
+.alerts[].day int
 .alerts[].gate.kind string
 .alerts[].gate.id string
 .alerts[].gate.name string

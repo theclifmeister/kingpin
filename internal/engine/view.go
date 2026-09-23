@@ -12,7 +12,7 @@ import (
 // save's game.SchemaVersion: the world is free to change shape, the view
 // is the contract a front end in another process is written against.
 // TestViewShapeIsPinned fails on a shape change that keeps the number.
-const ViewVersion = 3
+const ViewVersion = 6
 
 // View is a snapshot of what the player can see: what a front end draws
 // (#299). It is built from the world the way the TUI reads it and holds
@@ -314,10 +314,17 @@ type LawView struct {
 
 // CardView is the dilemma card waiting for an answer.
 type CardView struct {
-	ID      string   `json:"id"`
-	Title   string   `json:"title"`
-	Text    string   `json:"text"`
-	Choices []string `json:"choices"`
+	ID      string       `json:"id"`
+	Title   string       `json:"title"`
+	Text    string       `json:"text"`
+	Choices []ChoiceView `json:"choices"`
+}
+
+// ChoiceView is one answer on the card: its label and what it does
+// (#358, ChoiceChips), the chips the TUI draws under the label.
+type ChoiceView struct {
+	Label   string `json:"label"`
+	Preview []Chip `json:"preview"`
 }
 
 // ReportView is the morning report, its sections in the order the TUI
@@ -519,8 +526,9 @@ func (s *Session) View() View {
 		ArrestLine: s.set.Heat.EvidenceArrest(w), ExposureLine: s.set.Heat.ExposureLine(w), Cover: s.set.Heat.Cover(w)}
 	if c := w.Dilemmas.Pending; c != nil {
 		cv := &CardView{ID: c.ID, Title: c.Title, Text: c.Text}
-		for _, ch := range c.Choices {
-			cv.Choices = append(cv.Choices, ch.Label)
+		chips := ChoiceChips(s.cfg, s.Rules(), w, c)
+		for i, ch := range c.Choices {
+			cv.Choices = append(cv.Choices, ChoiceView{Label: ch.Label, Preview: chips[i]})
 		}
 		v.Card = cv
 	}

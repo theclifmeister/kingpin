@@ -2774,6 +2774,21 @@ func TestModalsFit(t *testing.T) {
 		{"confirm buy off", modeConfirmBuyOff, func(t *testing.T, m *Model) { m.Update(key("8")); m.Update(key("$")) }},
 		{"invest", modeInvest, func(t *testing.T, m *Model) { m.w.Player.CleanCash = 200_000; m.Update(key("7")); m.Update(key("u")) }},
 		{"reserve", modeReserve, func(t *testing.T, m *Model) { m.w.Player.CleanCash = 200_000; m.Update(key("7")); m.Update(key("o")) }},
+		// The restock (#356): its plan's table under the days, with the
+		// cash to buy it all, and the buy's after row over the room.
+		{"restock", modeRestock, func(t *testing.T, m *Model) {
+			m.w.Player.DirtyCash = 10_000_000
+			m.Update(key("2"))
+			m.Update(key("R"))
+		}},
+		{"buy past the room", modeBuy, func(t *testing.T, m *Model) {
+			m.w.Player.DirtyCash = 10_000_000
+			m.Update(key("b"))
+			m.Update(key("enter"))
+			for _, k := range "99999" {
+				m.Update(key(string(k)))
+			}
+		}},
 		{"declare war", modeConfirm, func(t *testing.T, m *Model) { // the war order (#229)
 			m.Update(key("8"))
 			m.factionCursor = 0

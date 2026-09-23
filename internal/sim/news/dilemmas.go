@@ -55,6 +55,11 @@ func parseDeck(cfg content.DilemmasConfig) ([]card, error) {
 			if ch.Effects["loyalty"] != 0 && c.Trigger.Role == "" && c.Trigger.LoyaltyBelow == 0 && c.Trigger.LoyaltyAbove == 0 {
 				return nil, fmt.Errorf("card %s choice %d: loyalty needs a trigger that names a member", c.ID, i)
 			}
+			// Ground is given up on purpose: never by the first choice,
+			// the one enter takes, and only the corner the trigger names.
+			if v := ch.Effects["corner"]; v != 0 && (v > 0 || i == 0 || c.Trigger.Corners == 0 && !c.Trigger.Contested) {
+				return nil, fmt.Errorf("card %s choice %d: corner gives up the corner a trigger names, and only gives it up, never on the first choice", c.ID, i)
+			}
 			k.choices = append(k.choices, t)
 		}
 		if err := checkSlots(k); err != nil {
@@ -178,6 +183,9 @@ func (s *Sim) drawCard(w *game.World, t *game.Tick) {
 	}
 	var picks []pick
 	total := 0.0
+	// Past the rich tier the deck leans to the cards that cost standing,
+	// ground or a favour, not a bigger number (#342).
+	rich := pace.RichTier > 0 && w.Tier() >= pace.RichTier
 	for i := range s.deck {
 		c := &s.deck[i]
 		n := w.Dilemmas.Drawn[c.cfg.ID]
@@ -191,6 +199,12 @@ func (s *Sim) drawCard(w *game.World, t *game.Tick) {
 		wt := c.cfg.Weight
 		if wt <= 0 {
 			wt = 1
+		}
+		switch {
+		case rich && c.cfg.WeightRich > 0:
+			wt = c.cfg.WeightRich
+		case rich:
+			wt *= pace.RichRest
 		}
 		wt /= float64(1 + n)
 		picks = append(picks, pick{c, sl, wt})
@@ -217,6 +231,7 @@ func (s *Sim) drawCard(w *game.World, t *game.Tick) {
 		Member: sl.MemberID,
 		Corner: sl.CornerID,
 		Amount: sl.Sum,
+		Hide:   c.cfg.Hide,
 	}
 	for i, ch := range c.choices {
 		pending.Choices = append(pending.Choices, game.Choice{

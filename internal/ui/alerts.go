@@ -7,6 +7,7 @@ package ui
 
 import (
 	"fmt"
+	"math"
 	"strings"
 
 	"github.com/charmbracelet/lipgloss"
@@ -30,7 +31,8 @@ type alert struct {
 // alerts is what needs you this morning, loudest first, in the engine's
 // order (engine.Alerts: somebody talking, a contract or a debt due, the
 // heat over the patrol line, a task force forming, the float, the
-// wages, the gate within reach, a house the police know, the DA race,
+// wages, a member near a line, the skim, a corner nobody works, the
+// gate within reach, a house the police know, the DA race,
 // retirement, the favour, the reign). The dashboard's ALERTS carry them
 // and a fast-forward stops on one the morning before did not have.
 func (m *Model) alerts() []alert {
@@ -74,6 +76,13 @@ func (m *Model) alertOf(a engine.Alert) alert {
 		text = theme.Warning.Render(fmt.Sprintf("Dirty cash %s is under the float (%s): the wash and the road wait.", cash(a.Have), cash(a.Amount)))
 	case engine.AlertWages:
 		text = theme.Warning.Render(fmt.Sprintf("Wages %s due tonight, %s dirty in hand.", money(a.Amount), money(a.Have)))
+	case engine.AlertCrewLine:
+		text, why = m.crewLineAlert(a)
+	case engine.AlertSkim:
+		text = theme.Bad.Render(fmt.Sprintf("Skimming suspected: money went missing on day %d. Watch the loyalty %s.", a.Day, screenPointer(screenCrew)))
+		why = "skimming suspected"
+	case engine.AlertIdleCorner:
+		text, why = m.idleCornerAlert(a)
 	case engine.AlertGate:
 		text, why = theme.Gold.Render(gateText(w, *a.Gate)), gateThe(*a.Gate)+" within reach"
 	case engine.AlertHouseKnown:
@@ -95,6 +104,76 @@ func (m *Model) alertOf(a engine.Alert) alert {
 		text = theme.Gold.Render(fmt.Sprintf("The city is yours: day %d of the reign, %s. Take the crown or play on.", a.Days, who))
 	}
 	return alert{kind: a.Kind, text: text, why: why, key: a.Key}
+}
+
+// crossWords are what crossing each of the crew's loyalty lines is
+// called in an alert: the skim, a lieutenant's flip, the walk.
+var crossWords = map[string]string{"skim": "skimming", "flip": "turning", "walk": "walking"}
+
+// crewLineAlert words a member near their next line (#345): `Deshawn
+// is 4 from walking (2 days). Pay them, or pay them off on the crew
+// screen (4).`, the days at tonight's drift when it is falling; red
+// for the walk and a lieutenant's flip, amber for the skim.
+func (m *Model) crewLineAlert(a engine.Alert) (text, why string) {
+	name := "Somebody"
+	if c := m.w.Crew.Member(a.Member); c != nil {
+		name = c.Name
+	}
+	gap := max(1, int(math.Ceil(a.Gap)))
+	why = fmt.Sprintf("%s %d from %s", name, gap, crossWords[a.Cross])
+	line := fmt.Sprintf("%s is %d from %s", name, gap, crossWords[a.Cross])
+	if a.Days > 0 {
+		line += " (" + plural(a.Days, "day") + ")"
+	}
+	line += ". Pay them, or pay them off " + screenPointer(screenCrew) + "."
+	style := theme.Bad
+	if a.Cross == "skim" {
+		style = theme.Warning
+	}
+	return style.Render(line), why
+}
+
+// idleCornerAlert words a corner you hold that nobody works (#345):
+// `Nobody works Rail Yard: back to the street in 2 days. Post a runner
+// on the map screen (5).`, the city named when it is not where you
+// stand; red the night it goes.
+func (m *Model) idleCornerAlert(a engine.Alert) (text, why string) {
+	w := m.w
+	name := a.Corner
+	if c := w.Corner(a.Corner); c != nil {
+		name = c.Name
+	}
+	if a.City != w.Here().ID {
+		name += " in " + w.CityName(a.City)
+	}
+	when, style := "in "+plural(a.Days, "day"), theme.Warning
+	if a.Days <= 1 {
+		when, style = "tonight", theme.Bad
+	}
+	return style.Render(fmt.Sprintf("Nobody works %s: back to the street %s. Post a runner %s.", name, when, screenPointer(screenMap))), "nobody works " + name
+}
+
+// crewTrouble is the morning's crew trouble in a line (#345), `2 near
+// the line, 1 corner unworked`, or "" when there is none: the report's
+// CREW section and the dashboard's crew fact, counted off the alerts.
+func (m *Model) crewTrouble() string {
+	near, idle := 0, 0
+	for _, a := range m.sess.Alerts() {
+		switch a.Kind {
+		case engine.AlertCrewLine:
+			near++
+		case engine.AlertIdleCorner:
+			idle++
+		}
+	}
+	var parts []string
+	if near > 0 {
+		parts = append(parts, fmt.Sprintf("%d near the line", near))
+	}
+	if idle > 0 {
+		parts = append(parts, plural(idle, "corner")+" unworked")
+	}
+	return strings.Join(parts, ", ")
 }
 
 // alertsOf is this morning's alerts of one kind.

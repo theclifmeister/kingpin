@@ -18,12 +18,16 @@ var (
 // DilemmaState is the deck as it stands in this run: the card waiting for
 // an answer, when the last one came up, and how often each has been drawn.
 // Answered is per-day scratch the clock clears: the news sim reads it the
-// next morning for the follow-up headline.
+// next morning for the follow-up headline. Owes is the favours the player
+// has taken and not paid back (#342): a card's owes effect runs it up or
+// down, and a later card's owes_min trigger comes to collect; zero is the
+// pre-#342 state.
 type DilemmaState struct {
 	Pending  *Card          // drawn overnight; shown before the morning report
 	LastCard int            // day the last card was drawn; paces the next
 	Drawn    map[string]int // card id -> times drawn this run
 	Answered *Answer
+	Owes     int
 }
 
 // Card is a dilemma as drawn: its text already rendered with the world's
@@ -38,6 +42,7 @@ type Card struct {
 	Member  int    // crew id the card is about; 0 nobody
 	Corner  string // corner id the card is about; "" none
 	Amount  int    // the sum the card is about; 0 none
+	Hide    bool   // the card's drama is the unknown (#358): no preview, "costs you something"
 }
 
 // Choice is one answer on a card. Effects are deltas keyed by name; the
@@ -71,7 +76,9 @@ type Answer struct {
 // lost (negative) or found (positive, capped by what the operation can
 // hold). fear, respect and notoriety move the reputation axes (#14),
 // clamped to 0..100; the sum cap is applied by the reputation sim at its
-// next step.
+// next step. corner (negative only) gives the card's corner up to the
+// street, as Abandon does; owes runs up the favours owed, which a later
+// card's owes_min trigger reads (#342).
 var effects = map[string]func(w *World, c *Card, v float64){
 	"dirty_cash": func(w *World, _ *Card, v float64) {
 		w.Player.DirtyCash = max(0, w.Player.DirtyCash+int(v))
@@ -118,6 +125,14 @@ var effects = map[string]func(w *World, c *Card, v float64){
 				w.AddStock(cid, id, d, w.StreetQuality()) // a negative share is a take, clamped at nothing; a windfall is street product
 			}
 		}
+	},
+	"corner": func(w *World, c *Card, v float64) {
+		if v < 0 && c.Corner != "" {
+			_ = w.Abandon(c.Corner) // a corner lost since the card was drawn is nothing to give up
+		}
+	},
+	"owes": func(w *World, _ *Card, v float64) {
+		w.Dilemmas.Owes = max(0, w.Dilemmas.Owes+int(v))
 	},
 	"fear":      reputationEffect("fear"),
 	"respect":   reputationEffect("respect"),
@@ -169,6 +184,22 @@ func (w *World) Choose(i int) (Answer, error) {
 	if i < 0 || i >= len(c.Choices) {
 		return Answer{}, ErrBadChoice
 	}
+	if err := c.apply(w, i); err != nil {
+		return Answer{}, err
+	}
+	ch := c.Choices[i]
+	a := Answer{Day: w.Day, Card: c.ID, Title: c.Title, Choice: ch.Label, Outcome: ch.Outcome, Headline: ch.Headline}
+	w.Dilemmas.Pending = nil
+	w.Dilemmas.Answered = &a
+	w.Journal = append(w.Journal, Headline{Day: w.Day, Source: "dilemma", Text: ch.Outcome})
+	return a, nil
+}
+
+// apply is choice i's effects on w, the one path Choose and Preview
+// share (#358), so what the card shows is what it does. Every key of
+// the choice is checked before any applies (#274), so a key the world
+// does not know leaves w as it was.
+func (c *Card) apply(w *World, i int) error {
 	ch := c.Choices[i]
 	// Sorted so clamps land the same way whatever order the map iterates.
 	keys := make([]string, 0, len(ch.Effects))
@@ -178,17 +209,13 @@ func (w *World) Choose(i int) (Answer, error) {
 	sort.Strings(keys)
 	for _, k := range keys {
 		if !KnownEffect(k) {
-			return Answer{}, unknownEffect(c, k)
+			return unknownEffect(c, k)
 		}
 	}
 	for _, k := range keys {
 		effects[k](w, c, ch.Effects[k])
 	}
-	a := Answer{Day: w.Day, Card: c.ID, Title: c.Title, Choice: ch.Label, Outcome: ch.Outcome, Headline: ch.Headline}
-	w.Dilemmas.Pending = nil
-	w.Dilemmas.Answered = &a
-	w.Journal = append(w.Journal, Headline{Day: w.Day, Source: "dilemma", Text: ch.Outcome})
-	return a, nil
+	return nil
 }
 
 // applyEffect applies one key through the table, or refuses a key the
@@ -366,6 +393,9 @@ func Eligible(w *World, c content.CardConfig) (CardSlots, bool) {
 	if t.CitiesHeld > 0 && w.CitiesHeld() < t.CitiesHeld {
 		return s, false
 	}
+	if w.Dilemmas.Owes < t.OwesMin {
+		return s, false
+	}
 	most := -1
 	for _, id := range w.Products {
 		q := 0
@@ -376,9 +406,21 @@ func Eligible(w *World, c content.CardConfig) (CardSlots, bool) {
 			most, s.Product = q, w.ProductName(id)
 		}
 	}
-	s.Sum = nice(max(c.Amount, int(c.AmountShare*float64(w.Player.DirtyCash))))
+	s.Sum = CardSum(c, w.Player.DirtyCash)
 	s.Amount = format.Money(s.Sum)
 	return s, true
+}
+
+// CardSum is the sum a card names against a bag of dirty cash: its
+// share of the bag, at least its amount, rounded to two figures, and
+// never over its amount_max (#342), so a personal card stays the size of
+// the thing it is about however rich the player gets.
+func CardSum(c content.CardConfig, dirty int) int {
+	n := nice(max(c.Amount, int(c.AmountShare*float64(dirty))))
+	if c.AmountMax > 0 {
+		n = min(n, c.AmountMax)
+	}
+	return n
 }
 
 // nice rounds a sum to two significant figures, the way somebody names a

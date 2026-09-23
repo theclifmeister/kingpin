@@ -58,20 +58,22 @@ type Model struct {
 	upgradeCursor  []int         // node selected in each branch, one an entry of content.Branches, so a branch left and returned to is where it was
 	upgradeID      string        // node awaiting the buy confirmation
 	mv             moveDialog
-	lab            labDialog // the cut and the cook dialogs (#47)
-	ledgerCursor   int       // row on the ledger: fronts, then routes, then offers
-	ledgerScroll   int       // first line of the ledger MAIN shows, following the cursor
-	stage          int       // the tier whose stage is showing (#149)
-	cardCursor     int       // choice highlighted on the dilemma card
-	cardDone       bool      // the card is answered; the outcome is showing
-	dealCursor     int       // offer selected on the rivals screen
-	factionCursor  int       // faction the rivals screen is turned to (#43): an index into World.Rivals
-	modalScroll    int       // first body line the open modal shows
-	outcome        string    // what the last answer did, while it shows
-	journalCursor  int       // headline selected on the journal screen, newest first
-	journalTop     int       // first headline the journal screen shows
-	journalSeen    int       // the journal's length when the journal screen was last shown; not saved, a view cursor like city
-	journalFilter  string    // the source the journal screen shows, or every one when empty (#122); a view cursor like journalSeen
+	lab            labDialog       // the cut and the cook dialogs (#47)
+	ledgerCursor   int             // row on the ledger: fronts, then routes, then offers
+	ledgerScroll   int             // first line of the ledger MAIN shows, following the cursor
+	stage          int             // the tier whose stage is showing (#149)
+	cardCursor     int             // choice highlighted on the dilemma card
+	cardDone       bool            // the card is answered; the outcome is showing
+	chipsFor       *game.Card      // the card chips was worked out for (#358)
+	chips          [][]engine.Chip // what each choice on chipsFor does
+	dealCursor     int             // offer selected on the rivals screen
+	factionCursor  int             // faction the rivals screen is turned to (#43): an index into World.Rivals
+	modalScroll    int             // first body line the open modal shows
+	outcome        string          // what the last answer did, while it shows
+	journalCursor  int             // headline selected on the journal screen, newest first
+	journalTop     int             // first headline the journal screen shows
+	journalSeen    int             // the journal's length when the journal screen was last shown; not saved, a view cursor like city
+	journalFilter  string          // the source the journal screen shows, or every one when empty (#122); a view cursor like journalSeen
 	dlg            dialog
 	tgt            targetDialog
 	crt            cartDialog
