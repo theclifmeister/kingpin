@@ -87,7 +87,8 @@ A PR that changes a subsystem updates its row.
 | World incidents: the table, closures, named headlines | `sim/world`, `game/incidents.go`, `Route.ClosedUntil` | `incidents.toml`, `names.toml` | `docs/incidents.md` | `world_test.go`, `TestEveryIncidentFires`, `TestNoIncidentsIsTheOldRun` |
 | Progression tiers, the stage, unlocks | `game/progression.go`, `sim/news/progression.go`, `ui/stage.go`, `ui/unlocks.go`, `events.Unlocked` | `progression.toml` | `docs/progression.md`, `docs/stage.md`, `docs/unlocks.md` | `TestTiersAreOrdered`, `TestEveryGateIsAnnounced`, `TestNoUnlockIsTheOldRun` |
 | News, report, journal | `sim/news`, `ui/journal.go` | `headlines.toml` | `docs/events.md`, `docs/market-and-journal.md` | `TestEveryEmittedEventHasTemplate`, `TestArticlesAgreeWithTheValue`, `TestSimsNeverImportEachOther` |
-| Engine (#293) | `engine`, `protocol` | | `docs/engine.md` | `TestUIActsThroughTheSession` |
+| Engine (#293): the session, the view, the protocol, the embeddings | `engine` (`view.go`), `protocol`, `cmd/kingpind`, `cmd/kingpin-wasm`, `cmd/libkingpin` | | `docs/engine.md` | `TestUIActsThroughTheSession`, `TestViewShapeIsPinned`, `TestViewHasNoNull`, `TestViewCarriesWhatTheScreensList`, `TestProtocolIsTheSession` |
+| The web client (#328) | `cmd/kingpin-web` (`web/js`) | | `docs/web.md` | `TestWebClient` |
 | Saves and slots | `game/save.go`, `modeStart` | | `docs/saves.md` | `TestOldSaveIsMigrated`, `TestUnreadableSaveIsRefused` |
 | Fast-forward, alerts, stop events | `engine/stops.go`, `alerts.go`, `ui/fast.go` | | `docs/ui.md` | `TestFastForwardIsTheSameDays`, `TestFastForwardStopsOnACard` |
 | The cart, the dialogs, the delta | `ui/cart.go`, `ui/dialogs.go`, `ui/market.go` `priceFacts` | | `docs/cart.md` | `cart_test.go`, `delta_test.go`, `toggle_test.go` |

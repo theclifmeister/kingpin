@@ -95,6 +95,20 @@ function play(seed, days) {
   return { seed, day: v.day, over: v.over ? v.over.cause : "", seen };
 }
 
+// Hiring (#332): the pool's first id, by the page's own call, lands on
+// the payroll.
+{
+  const s = new Session(kingpin);
+  const v = s.newRun(7);
+  const id = (v.pool[0] || {}).id;
+  if (!id) problem("nobody in the pool on day 0");
+  else {
+    s.hire(id);
+    const after = s.refresh();
+    if (!after.crew.some((m) => m.id === id) || after.pool.some((m) => m.id === id)) problem(`hired ${id} and not on the payroll`);
+  }
+}
+
 out.reference = play(7, 400);
 out.more = [11, 23, 42].map((seed) => play(seed, 150));
 

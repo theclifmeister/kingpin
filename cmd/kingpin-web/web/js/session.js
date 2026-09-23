@@ -7,7 +7,7 @@
 // The versions this client is written against. A module with another
 // protocol or view version is refused before a run starts: a field
 // renamed under the client would draw a wrong game, not fail.
-export const SUPPORTED = { protocol: [3], view: [1] };
+export const SUPPORTED = { protocol: [3], view: [2] };
 
 export class VersionError extends Error {}
 
@@ -90,6 +90,9 @@ export class Session {
   }
   buy(supplier, product, qty) {
     return this.call("buy", supplier, product, qty, false);
+  }
+  hire(candidate) {
+    return this.call("hire", candidate);
   }
   sell(city, product, qty, dial) {
     return this.call("place_sell", city, product, qty, dial);

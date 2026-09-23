@@ -1700,6 +1700,69 @@
       ],
       "type": "object"
     },
+    "engine.ContractView": {
+      "properties": {
+        "city": {
+          "type": "string"
+        },
+        "delivered": {
+          "type": "integer"
+        },
+        "due": {
+          "type": "integer"
+        },
+        "expires": {
+          "type": "integer"
+        },
+        "id": {
+          "type": "integer"
+        },
+        "name": {
+          "type": "string"
+        },
+        "penalty": {
+          "type": "number"
+        },
+        "penalty_cash": {
+          "type": "number"
+        },
+        "pitch": {
+          "type": "string"
+        },
+        "premium": {
+          "type": "number"
+        },
+        "product": {
+          "type": "string"
+        },
+        "status": {
+          "type": "string"
+        },
+        "street": {
+          "type": "number"
+        },
+        "units": {
+          "type": "integer"
+        }
+      },
+      "required": [
+        "id",
+        "name",
+        "pitch",
+        "city",
+        "product",
+        "units",
+        "delivered",
+        "premium",
+        "street",
+        "penalty",
+        "penalty_cash",
+        "status",
+        "expires",
+        "due"
+      ],
+      "type": "object"
+    },
     "engine.CornerView": {
       "properties": {
         "deed": {
@@ -2011,8 +2074,14 @@
         "age": {
           "type": "integer"
         },
+        "carry": {
+          "type": "integer"
+        },
         "city": {
           "type": "string"
+        },
+        "fee": {
+          "type": "integer"
         },
         "hired": {
           "type": "integer"
@@ -2053,7 +2122,35 @@
         "skill",
         "loyalty",
         "wage",
-        "hired"
+        "hired",
+        "carry"
+      ],
+      "type": "object"
+    },
+    "engine.OfferView": {
+      "properties": {
+        "expires": {
+          "type": "integer"
+        },
+        "faction": {
+          "type": "string"
+        },
+        "id": {
+          "type": "integer"
+        },
+        "kind": {
+          "type": "string"
+        },
+        "terms": {
+          "$ref": "#/$defs/engine.TermsView"
+        }
+      },
+      "required": [
+        "id",
+        "faction",
+        "kind",
+        "terms",
+        "expires"
       ],
       "type": "object"
     },
@@ -2316,6 +2413,70 @@
       ],
       "type": "object"
     },
+    "engine.TermsView": {
+      "properties": {
+        "corners": {
+          "items": {
+            "type": "string"
+          },
+          "type": "array"
+        },
+        "days": {
+          "type": "integer"
+        },
+        "per_day": {
+          "type": "integer"
+        },
+        "route": {
+          "type": "string"
+        },
+        "units": {
+          "type": "integer"
+        }
+      },
+      "type": "object"
+    },
+    "engine.UpgradeView": {
+      "properties": {
+        "branch": {
+          "type": "string"
+        },
+        "clean": {
+          "type": "boolean"
+        },
+        "cost": {
+          "type": "integer"
+        },
+        "desc": {
+          "type": "string"
+        },
+        "id": {
+          "type": "string"
+        },
+        "name": {
+          "type": "string"
+        },
+        "requires": {
+          "items": {
+            "type": "string"
+          },
+          "type": "array"
+        },
+        "state": {
+          "type": "string"
+        }
+      },
+      "required": [
+        "id",
+        "name",
+        "branch",
+        "desc",
+        "cost",
+        "requires",
+        "state"
+      ],
+      "type": "object"
+    },
     "engine.View": {
       "properties": {
         "alerts": {
@@ -2336,6 +2497,12 @@
         "connects": {
           "items": {
             "$ref": "#/$defs/engine.ConnectView"
+          },
+          "type": "array"
+        },
+        "contracts": {
+          "items": {
+            "$ref": "#/$defs/engine.ContractView"
           },
           "type": "array"
         },
@@ -2369,8 +2536,20 @@
         "law": {
           "$ref": "#/$defs/engine.LawView"
         },
+        "offers": {
+          "items": {
+            "$ref": "#/$defs/engine.OfferView"
+          },
+          "type": "array"
+        },
         "over": {
           "$ref": "#/$defs/engine.EndingView"
+        },
+        "pool": {
+          "items": {
+            "$ref": "#/$defs/engine.MemberView"
+          },
+          "type": "array"
         },
         "report": {
           "$ref": "#/$defs/engine.ReportView"
@@ -2390,6 +2569,12 @@
           },
           "type": "array"
         },
+        "upgrades": {
+          "items": {
+            "$ref": "#/$defs/engine.UpgradeView"
+          },
+          "type": "array"
+        },
         "version": {
           "type": "integer"
         },
@@ -2404,6 +2589,10 @@
         "you",
         "cities",
         "crew",
+        "pool",
+        "contracts",
+        "offers",
+        "upgrades",
         "routes",
         "shipments",
         "connects",
@@ -12550,5 +12739,5 @@
   },
   "protocol": 3,
   "title": "kingpind",
-  "view_version": 1
+  "view_version": 2
 }

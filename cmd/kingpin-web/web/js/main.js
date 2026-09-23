@@ -172,6 +172,23 @@ function render() {
     ...v.cities.map((c) => button(c.name, c.id === v.you.city, () => act(() => session.travel(c.id), `on the road to ${c.name}`))),
   );
 
+  const pool = (v.pool || []).map((c) => {
+    const tr = document.createElement("tr");
+    for (const text of [c.name, c.role, String(c.skill), money(c.wage), money(c.fee)]) {
+      tr.append(Object.assign(document.createElement("td"), { textContent: text }));
+    }
+    const td = document.createElement("td");
+    td.append(button("Hire", c.fee > v.you.dirty_cash, () => act(() => session.hire(c.id), `${c.name} is on the payroll`)));
+    tr.append(td);
+    return tr;
+  });
+  if (!pool.length) {
+    const tr = document.createElement("tr");
+    tr.append(Object.assign(document.createElement("td"), { className: "dim", colSpan: 6, textContent: "Nobody right now." }));
+    pool.push(tr);
+  }
+  $("pool").tBodies[0].replaceChildren(...pool);
+
   const sections = ["incident", "unlocked", "tier", "prices", "sales", "heat", "crew", "territory", "shipments", "law", "intel", "money", "upgrades", "news"];
   const parts = [];
   for (const s of sections) {

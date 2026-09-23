@@ -22,7 +22,7 @@ Why:
 **The files** (`cmd/kingpin-web/web/`, embedded in the command):
 
 - `js/session.js`: the protocol as the client speaks it. `Session` wraps one `kingpin.open()`: `call(method, ...params)` sends a request line and keeps the `event` notifications (`take()` hands them over) and the last `view`. It throws `RPCError` (`refused` for `-32000`, the game's words) on an error. The moves the page makes are one method each: `newRun`, `endDay`, `fastForward`, `choose`, `travel`, `buy`, `sell`, `exportSave`, `importSave`. `streetConnect(view, city)` is the open street connect where you stand. It touches no DOM.
-- **The versions.** `SUPPORTED` is `{protocol: [3], view: [1]}`. `checkVersions` refuses a module whose `kingpin.protocol` or `kingpin.view` is another (`VersionError`, shown full-page) before a run starts: a field renamed under the client would draw a wrong game instead of failing. A version bump in the engine fails `TestWebClient` until `SUPPORTED` moves with the client.
+- **The versions.** `SUPPORTED` is `{protocol: [3], view: [2]}` (view 2 since #332). `checkVersions` refuses a module whose `kingpin.protocol` or `kingpin.view` is another (`VersionError`, shown full-page) before a run starts: a field renamed under the client would draw a wrong game instead of failing. A version bump in the engine fails `TestWebClient` until `SUPPORTED` moves with the client.
 - `js/autoplay.js`: `autoDay(session)` is the autopilot, the reference client's greedy dealer (`protocol.Play`) a day at a time. It answers a card with its first choice, spends 60% of the dirty cash across the street connect's products, sells everything at `aggressive` and ends the day. A refused move is part of play.
 - `js/layout.js`: where things are, a pure function of the view and the canvas size.
   - The cities stand side by side in the view's order, each a block of its corners on their `city.toml` cells. One cell size fits every city.
@@ -50,16 +50,16 @@ Why:
 - `js/scene.js`: `drawMap(ctx, L, now)` draws the blocks tinted by heat, the roads with their dials, the corners and who works or guards them, the houses, and the shipments on the road at their share of the trip. `Scene` owns the canvas and the frame loop. `play(cues)` queues a night's cues 160 ms apart, so a busy night reads as a sequence.
 - `js/main.js`: the page. It loads the module, opens a session and starts a run (the URL's `?seed=`, else a random one).
   - The header shows the day, the tier, the cash, the net worth and the evidence.
-  - The panel is the city you stand in. Each product shows the street price, the connect's price and what you hold, with a buy quantity and buy and sell buttons at the chosen dial. Below are travel and the morning report's sections.
+  - The panel is the city you stand in. Each product shows the street price, the connect's price and what you hold, with a buy quantity and buy and sell buttons at the chosen dial. Below are travel, the pool looking for work (the view's `pool`, #332: each with a hire button, off when the fee is more than your dirty cash) and the morning report's sections.
   - The footer holds end day (`space`), the next 7 days (`fast_forward`), the autopilot (`a`) and a toast that gives a refusal in the game's words.
   - A card is a modal with its choices. The ending is an overlay that waits for the night's last animation.
 - `cmd/kingpin-web` builds the site (`Build(dir)`): the embedded files, `kingpin.wasm` built for `js/wasm`, and the toolchain's own `wasm_exec.js`, which must match the Go that built the module. It serves the site on `-addr`, or writes it to `-out` and exits.
 
 **What it does not do yet.**
 It covers the loop the issue asked for: buy, sell, travel, end the day, answer a card, see the ending.
-Hiring waits on #332, because the view has no pool to hire from.
-Everything else the TUI offers is still missing: routes, houses, fronts, the crew's posts, the rivals' table and the law.
-Each is a panel over the commands and quotes (#325) the protocol already serves.
+It hires from the pool (#332).
+Everything else the TUI offers is still missing: routes, houses, fronts, the crew's posts, contracts, the factions' offers, the upgrade tree, the rivals' table and the law.
+Each is a panel over what the view carries (the contracts, offers and tree since #332) and the commands and quotes (#325) the protocol already serves.
 The art is placeholder.
 
 **What pins it.**
