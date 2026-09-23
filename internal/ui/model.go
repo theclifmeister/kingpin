@@ -80,6 +80,7 @@ type Model struct {
 	spy            spyDialog        // the spy dialog (#45)
 	exit           exitDialog       // the walk-away dialog (#49)
 	nr             newRunDialog     // the new-run dialog (#50)
+	pre            presetsDialog    // the presets dialog (#357)
 	intelCursor    int              // row on the intel screen (#45)
 	fastStop       string           // the report's first line after a fast-forward (`Stopped after 3 days: …`), until the next day ends
 	slot           int              // the save slot this run lives in: where ctrl+s, the end of the day and quitting save

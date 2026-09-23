@@ -136,6 +136,22 @@ function play(seed, days) {
   }
 }
 
+// The presets (#357): the list, a diff that leaves the run alone, and
+// the apply that does what the diff said.
+{
+  const s = new Session(kingpin);
+  s.newRun(7);
+  const list = s.presets();
+  if (!Array.isArray(list) || !list.some((p) => p.id === "dark")) problem(`presets: ${JSON.stringify(list)}`);
+  s.call("set_launder_dial", "greedy");
+  const before = s.refresh();
+  const review = s.presetDiff("quiet");
+  if (!review.changes.some((c) => c.setting === "launder" && c.to === "careful")) problem(`preset_diff: ${JSON.stringify(review)}`);
+  if (JSON.stringify(s.refresh()) !== JSON.stringify(before)) problem("preset_diff changed the run");
+  const applied = s.applyPreset("quiet");
+  if (JSON.stringify(applied) !== JSON.stringify(review)) problem(`apply_preset did not do what preset_diff said: ${JSON.stringify(applied)}`);
+}
+
 out.reference = play(7, 400);
 out.more = [11, 23, 42].map((seed) => play(seed, 150));
 

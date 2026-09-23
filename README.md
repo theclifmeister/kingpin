@@ -450,6 +450,7 @@ The full table is below; `?` brings it up in the game.
 | `o` | cook | the chemist cooks a batch where you stand | market |
 | `d` | deliver | hand the buyer what the stash here holds | market |
 | `R` | restock | buy days of your corners' demand, reviewed | market |
+| `P` | presets | the routine's dials in one bundle, reviewed | market |
 | `pgup pgdn` | page | page through the journal | journal |
 | `f` | filter | show one source's headlines, then all again | journal |
 | `h` | hire | hire the selected candidate | crew |

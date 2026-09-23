@@ -432,6 +432,7 @@ var words = [][2]string{
 	{"character", "a start and nothing more: what is on the world on day 0"},
 	{"daily", "the date's seed, the default character; the first go scores"},
 	{"profile", "the runs, the unlocks and the dailies; a second file, no sim"},
+	{"preset", "the routine's dials in one bundle: reviewed, then applied"},
 }
 
 // helpLines is the help modal's body: every binding, grouped, one a
