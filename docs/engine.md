@@ -221,3 +221,36 @@ The report's and the journal's alone, no cue (94): `AssetBought`, `AssetFrozen`,
 - `TestCueTableIsCurrent`.
 - `TestCuesCarryIDs` plays 120 days of the boss. Every cue has a day. Every corner cue names a corner on the map, and every flip changes hands. Every shipment names its route, both cities and its id. Every crew cue names a member. Every police cue names a city and a level. The run sees at least one claim, shipment, hire, sale and police cue.
 - `TestProtocolIsTheSession` and `TestOverStdio` (phase 5) carry the cues in the event bytes they compare.
+
+**The WebSocket transport (#326).** `kingpind -listen 127.0.0.1:7777` serves the same protocol over WebSocket (RFC 6455) instead of stdio. It is for a browser client, or a game engine that would rather open a socket than start a process.
+
+- **Framing.** One JSON-RPC message per text frame. The methods, the notifications, the error codes and the order are stdio's: a call's `event`s and its `view` go out as frames before its response.
+  - `protocol.ServeWS` hands each message to `Server.Handle`, the loop `Serve` runs on stdio. The transport is framing and nothing else, so there is still one implementation of the protocol.
+  - The client end reads and writes lines (`protocol.WS` is an `io.Reader` and an `io.Writer`), so `RPCClient` and the reference game play over it unchanged.
+  - `kingpin-client -ws ws://127.0.0.1:7777/` plays against a `kingpind` already listening.
+- **What the transport takes.**
+  - Text frames, fragmented or whole, up to 16 MiB a message (stdio's line cap).
+  - A ping is answered with a pong, and a close is echoed and ends the session.
+  - It refuses, closing with the code for why:
+    - `1002` for an unmasked client frame, a reserved bit, an unknown opcode, a continuation of nothing, or a fragmented or long control frame;
+    - `1003` for a binary frame;
+    - `1007` for a message that isn't UTF-8;
+    - `1009` for a message over the cap.
+- **The handshake.** `protocol.AcceptWS` takes a `GET /` upgrade at version 13 with a key. Anything else gets its HTTP error: `405`, `404`, `400`, or `426` for another version.
+  - A request carrying an `Origin` is refused with `403` unless the page is on this machine (`localhost` or a loopback IP). Any website the player visits could otherwise open a socket to `localhost` and drive the game.
+  - A client gets ten seconds to finish the handshake.
+- **Loopback only.** `-listen` refuses any address but a loopback one: the protocol has no authentication, and remote play is not what it is for. An empty host is `127.0.0.1`, and port 0 picks one. `kingpind` prints the URL to connect to (`ws://127.0.0.1:PORT/`) on stdout, then runs until it is killed.
+- **One connection at a time, a session each.** The standard library alone, no dependency: `net.Listen`, `http.ReadRequest` for the handshake, and the frames by hand in `internal/protocol/ws.go`.
+  - `kingpind` accepts a connection, serves it on its own goroutine until it hangs up, then accepts the next. A second client waits.
+  - This keeps the tree free of goroutines (`TestNoGoroutineInTheTree` walks `internal/protocol` too): there is no `net/http` server spawning one per connection, and nothing is shared that would want a lock. Each connection gets a fresh session and its own tuning, loaded when it arrives, with no run until it calls `new_run` or `load`.
+  - A game played by one client needs nothing more. Serving several at once is a later change, and it would bring a lock and put the race detector's guard on the table.
+
+**What pins it.**
+
+- `TestOverWebSocket` builds `kingpind` and runs it with `-listen 127.0.0.1:0`. It plays the reference game on seed 7 over a real socket and gets `TestProtocolIsTheSession`'s direct run byte for byte: every event and the last view. It closes the connection and gets the server's close back. A second client then gets a session of its own, with no run.
+- `TestListenIsLoopbackOnly`: `0.0.0.0`, `[::]` and a public address are refused.
+- `TestHandshake`: RFC 6455's sample key gets RFC 6455's accept, a page on `localhost` or `127.0.0.1` may connect, and each bad request gets its status.
+- `TestFrames`: fragments with a ping between them read as one message and the ping is answered; a 16-bit length reads; a close is echoed; each refused frame closes with its code.
+- `TestServeWS`: the frames come in stdio's order.
+- `TestOverStdio` is unchanged: stdio is still the default.
+- Checked by hand against an independent client, Python's `websockets`: the handshake with a localhost Origin, a 200 KB message (a 64-bit length), ping and pong, and a clean close.
