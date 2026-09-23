@@ -1,4 +1,4 @@
-version 2
+version 3
 .version int
 .seed uint64
 .day int
@@ -212,7 +212,10 @@ version 2
 .card.title string
 .card.text string
 .card.choices []
-.card.choices[] string
+.card.choices[].label string
+.card.choices[].preview []
+.card.choices[].preview[].text string
+.card.choices[].preview[].tone string
 .report.day int
 .report.incident []
 .report.incident[] string

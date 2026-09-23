@@ -217,6 +217,7 @@ func (s *Sim) drawCard(w *game.World, t *game.Tick) {
 		Member: sl.MemberID,
 		Corner: sl.CornerID,
 		Amount: sl.Sum,
+		Hide:   c.cfg.Hide,
 	}
 	for i, ch := range c.choices {
 		pending.Choices = append(pending.Choices, game.Choice{

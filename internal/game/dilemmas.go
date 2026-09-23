@@ -38,6 +38,7 @@ type Card struct {
 	Member  int    // crew id the card is about; 0 nobody
 	Corner  string // corner id the card is about; "" none
 	Amount  int    // the sum the card is about; 0 none
+	Hide    bool   // the card's drama is the unknown (#358): no preview, "costs you something"
 }
 
 // Choice is one answer on a card. Effects are deltas keyed by name; the
@@ -169,6 +170,22 @@ func (w *World) Choose(i int) (Answer, error) {
 	if i < 0 || i >= len(c.Choices) {
 		return Answer{}, ErrBadChoice
 	}
+	if err := c.apply(w, i); err != nil {
+		return Answer{}, err
+	}
+	ch := c.Choices[i]
+	a := Answer{Day: w.Day, Card: c.ID, Title: c.Title, Choice: ch.Label, Outcome: ch.Outcome, Headline: ch.Headline}
+	w.Dilemmas.Pending = nil
+	w.Dilemmas.Answered = &a
+	w.Journal = append(w.Journal, Headline{Day: w.Day, Source: "dilemma", Text: ch.Outcome})
+	return a, nil
+}
+
+// apply is choice i's effects on w, the one path Choose and Preview
+// share (#358), so what the card shows is what it does. Every key of
+// the choice is checked before any applies (#274), so a key the world
+// does not know leaves w as it was.
+func (c *Card) apply(w *World, i int) error {
 	ch := c.Choices[i]
 	// Sorted so clamps land the same way whatever order the map iterates.
 	keys := make([]string, 0, len(ch.Effects))
@@ -178,17 +195,13 @@ func (w *World) Choose(i int) (Answer, error) {
 	sort.Strings(keys)
 	for _, k := range keys {
 		if !KnownEffect(k) {
-			return Answer{}, unknownEffect(c, k)
+			return unknownEffect(c, k)
 		}
 	}
 	for _, k := range keys {
 		effects[k](w, c, ch.Effects[k])
 	}
-	a := Answer{Day: w.Day, Card: c.ID, Title: c.Title, Choice: ch.Label, Outcome: ch.Outcome, Headline: ch.Headline}
-	w.Dilemmas.Pending = nil
-	w.Dilemmas.Answered = &a
-	w.Journal = append(w.Journal, Headline{Day: w.Day, Source: "dilemma", Text: ch.Outcome})
-	return a, nil
+	return nil
 }
 
 // applyEffect applies one key through the table, or refuses a key the

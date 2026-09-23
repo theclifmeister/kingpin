@@ -75,6 +75,17 @@ function animate(c, L, v, where) {
   }
 }
 
+// A card's choices (#358) each carry a label and what they do, a chip
+// a thing in one of the four tones.
+let cards = 0;
+function checkCard(card, where) {
+  cards++;
+  for (const c of card.choices) {
+    if (typeof c.label !== "string" || !Array.isArray(c.preview) || c.preview.length === 0) problem(`${where}: card ${card.id} has a choice with no preview`);
+    else if (c.preview.some((p) => !p.text || !["gain", "cost", "line", "note"].includes(p.tone))) problem(`${where}: card ${card.id} has a chip ${JSON.stringify(c.preview)}`);
+  }
+}
+
 // play is one seed with the autopilot until it ends or days run out.
 function play(seed, days) {
   const s = new Session(kingpin);
@@ -84,6 +95,7 @@ function play(seed, days) {
   let day = 0;
   for (; day < days && !v.over; day++) {
     v = autoDay(s);
+    if (v.card) checkCard(v.card, `seed ${seed} day ${v.day}`);
     const L = layout(v, 1200, 760);
     drawMap(ctx, L, day * 16);
     for (const e of s.take()) {
@@ -111,6 +123,7 @@ function play(seed, days) {
 
 out.reference = play(7, 400);
 out.more = [11, 23, 42].map((seed) => play(seed, 150));
+if (cards === 0) problem("no card came up in four runs");
 
 // The boss's nights: the cues of a run that ships, hires and fights,
 // each over the morning it led to.

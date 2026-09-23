@@ -27,6 +27,7 @@ type CardConfig struct {
 	Text        string         `toml:"text"`
 	Weight      float64        `toml:"weight"` // relative draw weight; 0 means 1
 	Once        bool           `toml:"once"`   // at most once per run
+	Hide        bool           `toml:"hide"`   // the drama is the unknown (#358): the choices show no preview
 	Amount      int            `toml:"amount"`
 	AmountShare float64        `toml:"amount_share"`
 	Trigger     CardTrigger    `toml:"trigger"`

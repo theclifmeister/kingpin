@@ -205,7 +205,7 @@ function render() {
   if (v.card) {
     $("card-title").textContent = v.card.title;
     $("card-text").textContent = v.card.text;
-    $("card-choices").replaceChildren(...v.card.choices.map((c, i) => button(c, false, () => act(() => session.choose(i)))));
+    $("card-choices").replaceChildren(...v.card.choices.map((c, i) => choiceButton(c, () => act(() => session.choose(i)))));
   }
   const over = !!v.over;
   // The ending waits for the night's last animation, THE END among them.
@@ -218,6 +218,17 @@ function render() {
     }, 2400);
   for (const id of ["end", "week"]) $(id).disabled = over || !!v.card;
   $("auto").disabled = over;
+}
+
+// choiceButton is a card's choice: its label, and under it what it does
+// (#358), a chip a thing in the tone's colour.
+function choiceButton(choice, onclick) {
+  const b = button(choice.label, false, onclick);
+  const chips = document.createElement("span");
+  chips.className = "chips";
+  chips.append(...choice.preview.map((c) => Object.assign(document.createElement("span"), { className: `chip ${c.tone}`, textContent: c.text })));
+  b.append(chips);
+  return b;
 }
 
 function button(text, disabled, onclick) {
