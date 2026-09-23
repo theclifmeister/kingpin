@@ -1,4 +1,4 @@
-version 2
+version 3
 .version int
 .seed uint64
 .day int
@@ -36,6 +36,15 @@ version 2
 .cities[].goodwill float64
 .cities[].response string
 .cities[].response_day int
+.cities[].response_sure float64
+.cities[].ladder []
+.cities[].ladder[].level string
+.cities[].ladder[].line float64
+.cities[].ladder[].stock_loss float64
+.cities[].ladder[].cash_loss float64
+.cities[].ladder[].pages int
+.cities[].ladder[].cap float64
+.cities[].ladder[].cap_days int
 .cities[].products []
 .cities[].products[].id string
 .cities[].products[].name string
@@ -208,6 +217,9 @@ version 2
 .law.da string
 .law.da_stance string
 .law.next_election int
+.law.arrest_line int
+.law.exposure_line int
+.law.cover int
 .card.id string
 .card.title string
 .card.text string

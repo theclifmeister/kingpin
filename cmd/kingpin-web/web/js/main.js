@@ -3,6 +3,7 @@
 // scene's; the panel, the card and the ending are the DOM's. Every move
 // is a protocol call; a move the game refuses says why on the toast.
 import { autoDay } from "./autoplay.js";
+import { fileWord, policeLines } from "./police.js";
 import { Scene } from "./scene.js";
 import { Session, streetConnect } from "./session.js";
 
@@ -143,7 +144,8 @@ function render() {
   $("dirty").textContent = money(v.you.dirty_cash);
   $("clean").textContent = money(v.you.clean_cash);
   $("net").textContent = money(v.you.net_worth);
-  $("evidence").textContent = v.you.evidence;
+  $("evidence").textContent = fileWord(v);
+  $("evidence").className = v.law.arrest_line > 0 && v.law.arrest_line - v.you.evidence <= 2 ? "warn" : "";
 
   const city = v.cities.find((c) => c.id === v.you.city);
   $("here").textContent = city ? city.name : v.you.city;
@@ -167,6 +169,11 @@ function render() {
     return tr;
   });
   $("market").tBodies[0].replaceChildren(...rows);
+
+  // The law (#355): the police risk where you stand, each part explained.
+  $("police").replaceChildren(
+    ...policeLines(v, v.you.city).map((l) => Object.assign(document.createElement("p"), { textContent: l.text, className: l.warn ? "warn" : "" })),
+  );
 
   $("travel").replaceChildren(
     ...v.cities.map((c) => button(c.name, c.id === v.you.city, () => act(() => session.travel(c.id), `on the road to ${c.name}`))),

@@ -49,6 +49,7 @@ type Model struct {
 	mapTop         int           // the first row of the map's grid drawn, scrolled to keep the cursor in view
 	routeCursor    int           // route selected under the map's grid
 	onRoutes       bool          // the map's arrows are on the routes, past the bottom row
+	onPolice       bool          // the dashboard's arrows are on HEAT, CASH and LAW, past the product table (#355)
 	buyerCursor    int           // contract selected under the market's product table
 	onBuyers       bool          // the market's arrows are on the buyers, past the bottom row
 	supplierCursor int           // connect selected under the market's buyers (#72)

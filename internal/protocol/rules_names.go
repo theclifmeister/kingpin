@@ -49,6 +49,7 @@ var ruleNames = map[string]ruleSig{
 	"Heat.Hottest":                 {[]string{"w"}, nil},
 	"Heat.Ladder":                  {[]string{"w", "city"}, nil},
 	"Heat.MoveHeat":                {[]string{"w", "city", "product", "units"}, nil},
+	"Heat.Rungs":                   {[]string{"w", "city"}, nil},
 	"Heat.SaleHeat":                {[]string{"w", "city", "product", "wanted", "dial"}, nil},
 	"Heat.Sloppiness":              {[]string{"w", "city"}, nil},
 	"Heat.SloppyHeat":              {[]string{"w", "city", "units"}, nil},

@@ -962,3 +962,56 @@ func TestGreedyAuditStampsTheFile(t *testing.T) {
 		t.Fatalf("after a greedy audit: file %d on day %d, want %d on day 41", w.Heat.Evidence, w.Heat.EvidenceDay, want)
 	}
 }
+
+// Rungs is what the police take (#355): the ladder's lines as Ladder
+// has them, and each rung's shares and pages as a firing takes them,
+// under no upgrade and under the nodes that soften a sting, a raid and
+// the file; a patrol's cap is PatrolCap before the chief's temper.
+func TestRungsAreWhatTheyTake(t *testing.T) {
+	cfg := content.MustLoad()
+	s := heat.New(cfg)
+	for _, nodes := range [][]string{nil, {"lookouts", "safehouse", "lawyer"}, {"lookouts", "safehouse", "scanner", "cleancars", "lawyer", "paper"}} {
+		for _, level := range []string{content.Sting, content.Raid} {
+			w := world(t, cfg)
+			for _, id := range nodes {
+				w.Upgrades[id] = true
+			}
+			home := w.Home()
+			home.Pressure = 40
+			rungs, ladder := s.Rungs(w, home), s.Ladder(w, home)
+			if len(rungs) != len(ladder) {
+				t.Fatalf("%v: %d rungs, %d on the ladder", nodes, len(rungs), len(ladder))
+			}
+			var r content.ResponseConfig
+			for i := range rungs {
+				if rungs[i].Level != ladder[i].Level || !near(rungs[i].Threshold, ladder[i].Threshold) {
+					t.Fatalf("%v: rung %d is %s at %.2f, the ladder's %s at %.2f", nodes, i, rungs[i].Level, rungs[i].Threshold, ladder[i].Level, ladder[i].Threshold)
+				}
+				if rungs[i].Level == content.Patrol {
+					if want := s.PatrolCap(w, rung(cfg, content.Patrol), home); !near(math.Min(1, rungs[i].Cap*s.Chief(w).Cap), want) {
+						t.Fatalf("%v: patrol cap %.3f before the chief, %.3f after, want %.3f", nodes, rungs[i].Cap, rungs[i].Cap*s.Chief(w).Cap, want)
+					}
+				}
+				if rungs[i].Level == level {
+					r = rungs[i]
+				}
+			}
+			w.SetStock(home.ID, w.Products[0], 1000)
+			w.Player.DirtyCash = 100000
+			home.Heat = over(w, s, rung(cfg, level), home)
+			ev := enforcement(step(w, s, sale(w, home.ID, 10)))
+			if ev == nil || ev.Level != level {
+				t.Fatalf("%v: over the %s line: %+v", nodes, level, ev)
+			}
+			if got, want := ev.StockLost[w.Products[0]], int(math.Round(1000*r.StockLoss)); got != want {
+				t.Fatalf("%v %s: took %d of 1000 units, Rungs says %.2f (%d)", nodes, level, got, r.StockLoss, want)
+			}
+			if got, want := ev.CashLost, int(math.Round(100000*r.CashLoss)); got != want {
+				t.Fatalf("%v %s: took $%d, Rungs says %.2f ($%d)", nodes, level, got, r.CashLoss, want)
+			}
+			if ev.Evidence != r.Evidence {
+				t.Fatalf("%v %s: filed %d pages, Rungs says %d", nodes, level, ev.Evidence, r.Evidence)
+			}
+		}
+	}
+}

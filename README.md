@@ -275,12 +275,12 @@ ROUTES                                                                          
                                                                                     │ w  boost: the till, ~$24K        │
                                                                                     │ t  tip the police: at 0 of 60    │
                                                                                     │                                  │
-                                                                                    │                                  │
-                                                                                    │                                  │
-                                                                                    │                                  │
-                                                                                    │                                  │
-                                                                                    │                                  │
-                                                                                    │                                  │
+                                                                                    │ POLICE · EASTSIDE                │
+                                                                                    │ heat        12 · patrol in 28    │
+                                                                                    │ patrol 40   sales ~60% for 2d    │
+                                                                                    │ sting 58    10% stock, 5% cash   │
+                                                                                    │ raid 75     50% stock, 30% cash  │
+                                                                                    │ …                                │
                                                                                     │                                  │
                                                                                     │ KEYS                             │
                                                                                     │ n  end day      ↑↓←→ pick        │

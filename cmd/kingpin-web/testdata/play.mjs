@@ -30,6 +30,7 @@ const { ANIMATIONS } = await mod("cues.js");
 const { layout } = await mod("layout.js");
 const { drawMap } = await mod("scene.js");
 const { SPRITES } = await mod("sprites.js");
+const { fileWord, policeLines } = await mod("police.js");
 
 const go = new Go();
 const { instance } = await WebAssembly.instantiate(fs.readFileSync(path.join(site, "kingpin.wasm")), go.importObject);
@@ -75,6 +76,18 @@ function animate(c, L, v, where) {
   }
 }
 
+// police is the law panel (#355) on a morning: a line for the heat,
+// one a rung of the view's ladder, the file with its arrest line in the
+// header, and nothing that reads undefined or NaN.
+function police(v, where) {
+  const c = v.cities.find((x) => x.id === v.you.city);
+  const lines = policeLines(v, v.you.city);
+  if (!c || !c.ladder.length) problem(`${where}: no ladder where you stand`);
+  else if (lines.length < 1 + c.ladder.length) problem(`${where}: the law panel has ${lines.length} lines for ${c.ladder.length} rungs`);
+  if (v.law.arrest_line > 0 && fileWord(v) !== `${v.you.evidence}/${v.law.arrest_line}`) problem(`${where}: the header reads file ${fileWord(v)}`);
+  for (const l of lines) if (/undefined|NaN/.test(l.text)) problem(`${where}: the law panel reads "${l.text}"`);
+}
+
 // play is one seed with the autopilot until it ends or days run out.
 function play(seed, days) {
   const s = new Session(kingpin);
@@ -86,6 +99,7 @@ function play(seed, days) {
     v = autoDay(s);
     const L = layout(v, 1200, 760);
     drawMap(ctx, L, day * 16);
+    police(v, `seed ${seed} day ${v.day}`);
     for (const e of s.take()) {
       if (!e.cue) continue;
       seen[e.cue.kind] = (seen[e.cue.kind] || 0) + 1;
@@ -120,6 +134,7 @@ let last = null;
 for (const n of nights) {
   const L = layout(n.view, 1200, 760);
   drawMap(ctx, L, 0);
+  police(n.view, `boss day ${n.view.day}`);
   for (const c of n.cues || []) {
     bossSeen[c.kind] = (bossSeen[c.kind] || 0) + 1;
     animate(c, L, n.view, `boss day ${n.view.day}`);

@@ -131,6 +131,7 @@ type HeatRules interface {
 	ForfeitEvidence() int
 	Hottest(w *game.World) *game.City
 	Ladder(w *game.World, city *game.City) []content.ResponseConfig
+	Rungs(w *game.World, city *game.City) []content.ResponseConfig
 	MoveHeat(w *game.World, city string, product string, units int) float64
 	SaleHeat(w *game.World, city string, product string, wanted int, dial events.Dial) float64
 	Sloppiness(w *game.World, city string) float64
