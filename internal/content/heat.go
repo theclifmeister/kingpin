@@ -4,9 +4,26 @@ import "fmt"
 
 // HeatConfig mirrors heat.toml.
 type HeatConfig struct {
-	Heat      HeatTuning       `toml:"heat"`
-	Responses []ResponseConfig `toml:"response"`
+	Heat          HeatTuning          `toml:"heat"`
+	Investigation InvestigationTuning `toml:"investigation"`
+	Responses     []ResponseConfig    `toml:"response"`
 }
+
+// InvestigationTuning is the targeted investigation (#343): with it on,
+// the police who would send a blind sting open an investigation on the
+// biggest source of the city's heat (a corner, a product, a house) and
+// the sting lands on that target alone, LeadDays later. Off, the sting
+// is the blind one it always was and nothing is tallied.
+type InvestigationTuning struct {
+	Enabled        bool    `toml:"enabled"`
+	WindowDays     int     `toml:"window_days"`      // the tally of heat by source forgets 1/window_days of itself a day
+	LeadDays       int     `toml:"lead_days"`        // the nights between the investigation opening and the hit
+	ClosedHeatDrop float64 `toml:"closed_heat_drop"` // the city's heat a hit that found its target takes off: the sacrifice pays
+	Evidence       int     `toml:"evidence"`         // the pages a hit on a target in use files; 0 is the sting's
+}
+
+// On reports whether investigations open at all.
+func (i InvestigationTuning) On() bool { return i.Enabled && i.WindowDays > 0 && i.LeadDays > 0 }
 
 type HeatTuning struct {
 	Decay              float64 `toml:"decay"`
@@ -87,6 +104,9 @@ type ResponseConfig struct {
 func (h HeatConfig) validate() error {
 	if t := h.Heat; t.BustDays < 1 || t.FallHeat < 0 || t.FallHeat > 100 || t.FallCash < 0 || t.FallCash > 1 {
 		return fmt.Errorf("[heat] bust_days %d must be positive, fall_heat %.0f in 0..100 and fall_cash %.2f in 0..1", t.BustDays, t.FallHeat, t.FallCash)
+	}
+	if i := h.Investigation; i.Enabled && (i.WindowDays < 1 || i.LeadDays < 1 || i.ClosedHeatDrop < 0 || i.Evidence < 0) {
+		return fmt.Errorf("[investigation] window_days %d and lead_days %d must be positive, closed_heat_drop %.1f and evidence %d not negative", i.WindowDays, i.LeadDays, i.ClosedHeatDrop, i.Evidence)
 	}
 	at := map[string]float64{}
 	for _, r := range h.Responses {

@@ -413,6 +413,11 @@ type HeatState struct {
 	LineMul      float64        // ... by this much; 0 reads as no change
 	Busts        []Bust         // stings and raids that took stock, kept a while: the market sim reads yesterday's for the connect there (#72)
 	Sweep        Sweep          // the last sting or raid and who stood where when it came (#46): the crew sim reads yesterday's for the arrests
+	// Trail is the heat by source the police can put a name to (#343,
+	// heat.toml [investigation]): LeadKey to a tally that forgets
+	// 1/window_days of itself a day. Nil with the feature off.
+	Trail         map[string]float64
+	Investigation Investigation // the one open investigation (#343); the zero value is none
 }
 
 // Sweep is a sting or raid as the crew remember it (#46): the city, the

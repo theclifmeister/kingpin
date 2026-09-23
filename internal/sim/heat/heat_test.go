@@ -253,7 +253,7 @@ func TestSaleHeatFollowsVolume(t *testing.T) {
 // A handoff to a buyer counts as dealing; a sale in the other city does
 // not count here.
 func TestQuietDayRule(t *testing.T) {
-	cfg := content.MustLoad()
+	cfg := blind(content.MustLoad())
 	s := heat.New(cfg)
 	for _, level := range []string{content.Sting, content.Raid} {
 		r := rung(cfg, level)
@@ -305,7 +305,7 @@ func TestQuietDayRule(t *testing.T) {
 // each repeat of a rung cools less; and the arrest ends the run, or the
 // fall guy takes it, once.
 func TestTheLadderFires(t *testing.T) {
-	cfg := content.MustLoad()
+	cfg := blind(content.MustLoad())
 	s := heat.New(cfg)
 	w := world(t, cfg)
 	home, hub := w.Home(), w.Cities[w.CityOrder[1]]
@@ -394,7 +394,7 @@ func TestTheLadderFires(t *testing.T) {
 // without a new one; the lawyer's evidence_cut thins what a sting
 // files, to a floor of nothing.
 func TestTheFile(t *testing.T) {
-	cfg := content.MustLoad()
+	cfg := blind(content.MustLoad())
 	s := heat.New(cfg)
 	w := world(t, cfg)
 	w.Heat.Evidence = s.EvidenceArrest(w)

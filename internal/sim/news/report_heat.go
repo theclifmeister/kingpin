@@ -76,10 +76,50 @@ func (r *reporter) reportHeat(e events.Event) bool {
 		d.Asset = ev.Name
 		r.addOff(game.StreamAssetsNews, "heat", "AssetSeized", d)
 		rep.Heat = append(rep.Heat, fmt.Sprintf("  they took %s: %s of yours, gone.", ev.Name, format.Money(ev.Cost)))
+	case events.InvestigationOpened:
+		// A named target (#343): the headline off its own stream, so a
+		// run with the feature off rolls what it always did.
+		d := r.at(ev.City)
+		d.Name = leadPhrase(ev.Lead, ev.Name)
+		r.addOff(game.StreamInvestigationNews, "heat", "InvestigationOpened", d)
+		rep.Heat = append(rep.Heat, fmt.Sprintf("The police opened an investigation into %s%s. It lands in %d nights: %s", d.Name, r.in(ev.City), ev.Due-ev.Day, leadAdvice(ev.Lead)))
+	case events.InvestigationClosed:
+		name := leadPhrase(ev.Lead, ev.Name)
+		switch {
+		case ev.Fell:
+			rep.Heat = append(rep.Heat, fmt.Sprintf("The investigation into %s%s was dropped: the chief's people stood down.", name, r.in(ev.City)))
+		case ev.Hit:
+			rep.Heat = append(rep.Heat, fmt.Sprintf("The investigation into %s%s closed on it: they got what they came for.", name, r.in(ev.City)))
+		default:
+			d := r.at(ev.City)
+			d.Name = name
+			r.addOff(game.StreamInvestigationNews, "heat", "InvestigationClosed", d)
+			rep.Heat = append(rep.Heat, fmt.Sprintf("The investigation into %s%s closed on nothing: nothing taken, nothing filed.", name, r.in(ev.City)))
+		}
 	case events.StockMoved:
 		rep.Territory = append(rep.Territory, fmt.Sprintf("Moved %d %s from %s to %s%s.", ev.Units, w.ProductName(ev.Product), ev.From, ev.To, r.in(ev.City)))
 	default:
 		return false
 	}
 	return true
+}
+
+// leadPhrase is an investigation's target as the paper names it (#343):
+// the corner or the house by name, a product as its trade.
+func leadPhrase(lead, name string) string {
+	if lead == game.LeadProduct {
+		return "the " + name + " trade"
+	}
+	return name
+}
+
+// leadAdvice is what the report says to do about an investigation.
+func leadAdvice(lead string) string {
+	switch lead {
+	case game.LeadProduct:
+		return "stop selling it here and move it out, or let them have it."
+	case game.LeadHouse:
+		return "empty it, or let them have it."
+	}
+	return "work another corner, or let them have this one."
 }

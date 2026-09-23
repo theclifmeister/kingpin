@@ -21,22 +21,23 @@ type AlertKind string
 
 // The alerts, loudest first: the order Alerts returns them in.
 const (
-	AlertTalking     AlertKind = "talking"      // somebody on the payroll is talking
-	AlertContractDue AlertKind = "contract_due" // Contract due Due (today or tomorrow)
-	AlertDebtDue     AlertKind = "debt_due"     // Supplier owed Amount on Due, Have in hand
-	AlertHeat        AlertKind = "heat"         // Heat in City at or over the patrol Line
-	AlertTaskForce   AlertKind = "task_force"   // a task force formed this morning
-	AlertFloat       AlertKind = "float"        // Have dirty under the float, Amount
-	AlertWages       AlertKind = "wages"        // Amount in wages tonight, Have dirty
-	AlertCrewLine    AlertKind = "crew_line"    // Member is Gap over the Cross line (Line), Days at tonight's drift
-	AlertSkim        AlertKind = "skim"         // skimming suspected: money went missing on Day
-	AlertIdleCorner  AlertKind = "idle_corner"  // nobody works Corner in City: back to the street in Days
-	AlertGate        AlertKind = "gate"         // Gate within reach
-	AlertHouseKnown  AlertKind = "house_known"  // the police know about House
-	AlertDARace      AlertKind = "da_race"      // the DA race is Days off and taking money
-	AlertRetire      AlertKind = "retire"       // Ready, or Days quiet and Amount short
-	AlertFavour      AlertKind = "favour"       // the chief owes you one and Level comes tonight
-	AlertReign       AlertKind = "reign"        // day Days of the reign, Count crews paying Amount
+	AlertTalking       AlertKind = "talking"       // somebody on the payroll is talking
+	AlertContractDue   AlertKind = "contract_due"  // Contract due Due (today or tomorrow)
+	AlertDebtDue       AlertKind = "debt_due"      // Supplier owed Amount on Due, Have in hand
+	AlertHeat          AlertKind = "heat"          // Heat in City at or over the patrol Line
+	AlertTaskForce     AlertKind = "task_force"    // a task force formed this morning
+	AlertInvestigation AlertKind = "investigation" // the police in City are working Target (Corner, Product or House): the hit in Days
+	AlertFloat         AlertKind = "float"         // Have dirty under the float, Amount
+	AlertWages         AlertKind = "wages"         // Amount in wages tonight, Have dirty
+	AlertCrewLine      AlertKind = "crew_line"     // Member is Gap over the Cross line (Line), Days at tonight's drift
+	AlertSkim          AlertKind = "skim"          // skimming suspected: money went missing on Day
+	AlertIdleCorner    AlertKind = "idle_corner"   // nobody works Corner in City: back to the street in Days
+	AlertGate          AlertKind = "gate"          // Gate within reach
+	AlertHouseKnown    AlertKind = "house_known"   // the police know about House
+	AlertDARace        AlertKind = "da_race"       // the DA race is Days off and taking money
+	AlertRetire        AlertKind = "retire"        // Ready, or Days quiet and Amount short
+	AlertFavour        AlertKind = "favour"        // the chief owes you one and Level comes tonight
+	AlertReign         AlertKind = "reign"         // day Days of the reign, Count crews paying Amount
 )
 
 // Alert is one thing that needs you this morning. Key is its identity
@@ -49,23 +50,25 @@ type Alert struct {
 	Kind AlertKind `json:"kind"`
 	Key  string    `json:"key"`
 
-	City     string  `json:"city,omitempty"`     // heat, da_race, idle_corner: the city's id (heat: where you are)
+	City     string  `json:"city,omitempty"`     // heat, da_race, idle_corner, investigation: the city's id (heat: where you are)
 	Contract int     `json:"contract,omitempty"` // contract_due: the contract's id
 	Supplier string  `json:"supplier,omitempty"` // debt_due: the connect's id
-	House    string  `json:"house,omitempty"`    // house_known: the house's id
+	House    string  `json:"house,omitempty"`    // house_known, investigation: the house's id
 	Due      int     `json:"due,omitempty"`      // contract_due, debt_due: the day it is due
 	Amount   int     `json:"amount,omitempty"`   // debt_due: the debt; float: the float; wages: the wages; retire: the cash short; reign: the homage a night
 	Have     int     `json:"have,omitempty"`     // debt_due: the cash in hand; float, wages: the dirty cash
 	Heat     float64 `json:"heat,omitempty"`     // heat: the city's heat
 	Line     float64 `json:"line,omitempty"`     // heat: the patrol line; crew_line: the loyalty line
-	Days     int     `json:"days,omitempty"`     // da_race: days to the election; retire: quiet days short; reign: the reign's day; crew_line: days to the line at tonight's drift (0: not falling); idle_corner: days before it drifts
+	Days     int     `json:"days,omitempty"`     // da_race: days to the election; retire: quiet days short; reign: the reign's day; crew_line: days to the line at tonight's drift (0: not falling); idle_corner: days before it drifts; investigation: nights to the hit (1: tonight)
 	Count    int     `json:"count,omitempty"`    // reign: the crews paying homage
 	Ready    bool    `json:"ready,omitempty"`    // retire: retiring is open now
 	Level    string  `json:"level,omitempty"`    // favour: the response due tonight
 	Member   int     `json:"member,omitempty"`   // crew_line: the member's id
 	Cross    string  `json:"cross,omitempty"`    // crew_line: the line ahead: skim, flip (a lieutenant's) or walk
 	Gap      float64 `json:"gap,omitempty"`      // crew_line: the loyalty over the line
-	Corner   string  `json:"corner,omitempty"`   // idle_corner: the corner's id
+	Corner   string  `json:"corner,omitempty"`   // idle_corner, investigation: the corner's id
+	Target   string  `json:"target,omitempty"`   // investigation: what is named, corner | product | house (#343)
+	Product  string  `json:"product,omitempty"`  // investigation: the product's id
 	Day      int     `json:"day,omitempty"`      // skim: the day money last went missing
 	Gate     *Gate   `json:"gate,omitempty"`     // gate: the door
 }
@@ -106,6 +109,21 @@ func (s *Session) Alerts() []Alert {
 	}
 	if s.set.Heat.TaskForceForming(w) {
 		out = append(out, Alert{Kind: AlertTaskForce, Key: "a task force formed"})
+	}
+	if inv := w.Heat.Investigation; inv.Open() {
+		// Keyed by the investigation (#343): a fast-forward stops the
+		// morning it opens, and not again for the same one.
+		a := Alert{Kind: AlertInvestigation, Key: fmt.Sprintf("investigation %s %s %s %d", inv.City, inv.Kind, inv.Target, inv.Opened),
+			City: inv.City, Target: inv.Kind, Days: max(1, inv.DaysLeft(w.Day))}
+		switch inv.Kind {
+		case game.LeadCorner:
+			a.Corner = inv.Target
+		case game.LeadProduct:
+			a.Product = inv.Target
+		case game.LeadHouse:
+			a.House = inv.Target
+		}
+		out = append(out, a)
 	}
 	if fl := s.set.Laundering.Float(w); w.Player.DirtyCash < fl && s.FloatMatters() {
 		out = append(out, Alert{Kind: AlertFloat, Key: "dirty cash under the float", Amount: fl, Have: w.Player.DirtyCash})

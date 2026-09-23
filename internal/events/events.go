@@ -1900,6 +1900,40 @@ type TaskForceFormed struct {
 
 func (TaskForceFormed) Kind() string { return "TaskForceFormed" }
 
+// InvestigationOpened is the heat sim naming what the police are
+// looking at (#343): the night the sting would have come to City, they
+// open an investigation on the biggest source of its heat instead. Lead
+// is corner, product or house (game.LeadCorner..), Target its id and
+// Name its name; the hit comes on the night Due.
+type InvestigationOpened struct {
+	Day    int
+	City   string
+	Lead   string
+	Target string
+	Name   string
+	Due    int
+}
+
+func (InvestigationOpened) Kind() string { return "InvestigationOpened" }
+
+// InvestigationClosed is the night an investigation lands (#343). Hit
+// says it found its target in use or holding stock: an Enforcement of
+// level sting rides beside it with what it took and filed. A miss is
+// the target suspended, moved or emptied in time: nothing taken,
+// nothing filed. Fell says a favour called in (#228) stood it down.
+type InvestigationClosed struct {
+	Day      int
+	City     string
+	Lead     string
+	Target   string
+	Name     string
+	Hit      bool
+	Fell     bool
+	Evidence int
+}
+
+func (InvestigationClosed) Kind() string { return "InvestigationClosed" }
+
 // AssetSeized is the task force taking an asset (#48): gone, not
 // frozen. It rides beside the Enforcement of level taskforce.
 type AssetSeized struct {

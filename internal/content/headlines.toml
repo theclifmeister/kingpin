@@ -105,6 +105,19 @@ EnforcementTaskforce = [
 EnforcementArrest = [
   "{{.City}} dealer arrested in early-morning operation",
 ]
+# Targeted investigations (#343): the police name what they are looking
+# at the night they open one, and the paper says so when it goes
+# nowhere; a hit is the sting's own headline. {{.Name}} is the corner,
+# the house or `the weed trade`. Both pick off their own stream.
+InvestigationOpened = [
+  "{{.City}} detectives open investigation into {{.Name}}",
+  "Police 'building a case' around {{.Name}}, {{.City}} sources say",
+  "Chief {{.Chief}} confirms surveillance on {{.Name}} in {{.City}}",
+]
+InvestigationClosed = [
+  "{{.City}} police investigation into {{.Name}} comes up empty",
+  "Surveillance on {{.Name}} ends with no arrests, {{.City}} police admit",
+]
 TaskForceFormed = [
   "Federal task force announced for {{.City}}; DA {{.DA}} 'welcomes the help'",
   "Feds set up shop in {{.City}}: 'we know who we are looking for', says agent in charge",
