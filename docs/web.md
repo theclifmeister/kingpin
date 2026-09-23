@@ -1,13 +1,18 @@
 # The web client
 
-**The web client** (#328, `cmd/kingpin-web`) is the second front end, and the first graphical one. The game is drawn in a browser: sprites on a canvas, moved by the engine's cues and played through the protocol alone. It proves the engine is front-end agnostic. It reads nothing but the view, the events and their cues, and acts through nothing but protocol calls, so what it needed and the engine lacked became engine issues (#332, #333), never workarounds.
+**The web client** (#328, `cmd/kingpin-web`) is the second front end, and the first graphical one.
+The game is drawn in a browser: sprites on a canvas, moved by the engine's cues and played through the protocol alone.
+It proves the engine is front-end agnostic.
+It reads nothing but the view, the events and their cues, and acts through nothing but protocol calls, so what it needed and the engine lacked became engine issues (#332, #333), never workarounds.
 
 ```sh
 go run ./cmd/kingpin-web              # builds the site and serves it on http://127.0.0.1:8080/ (?seed=7 pins the run)
 go run ./cmd/kingpin-web -out site/   # writes the static site: any static host serves it
 ```
 
-**The choice (the issue asked for it first).** A browser page on the WebAssembly build (#327), drawn with Canvas 2D in plain ES modules, with no third-party code and no build step. Why:
+**The choice (the issue asked for it first).**
+A browser page on the WebAssembly build (#327), drawn with Canvas 2D in plain ES modules, with no third-party code and no build step.
+Why:
 
 - **It needs nothing installed.** Godot, Unity or Unreal would each add an editor, a project format and a toolchain to the repo, and a client nobody here can build or test would drift. The browser is on every machine, and the site is static files: the page, its modules, `kingpin.wasm` and Go's `wasm_exec.js`.
 - **It runs the engine in the page** (`kingpin.open()`, #327): no server, no socket, no process. Saves live in the browser (`export_save` into `localStorage`, `import_save` back).
@@ -50,7 +55,12 @@ go run ./cmd/kingpin-web -out site/   # writes the static site: any static host 
   - A card is a modal with its choices. The ending is an overlay that waits for the night's last animation.
 - `cmd/kingpin-web` builds the site (`Build(dir)`): the embedded files, `kingpin.wasm` built for `js/wasm`, and the toolchain's own `wasm_exec.js`, which must match the Go that built the module. It serves the site on `-addr`, or writes it to `-out` and exits.
 
-**What it does not do yet.** It covers the loop the issue asked for (buy, sell, travel, end the day, answer a card, see the ending), and it hires from the pool (#332). Everything else the TUI offers is still missing: routes, houses, fronts, the crew's posts, contracts, the factions' offers, the upgrade tree, the rivals' table and the law. Each is a panel over what the view carries (the contracts, offers and tree since #332) and the commands and quotes (#325) the protocol already serves. The art is placeholder.
+**What it does not do yet.**
+It covers the loop the issue asked for: buy, sell, travel, end the day, answer a card, see the ending.
+It hires from the pool (#332).
+Everything else the TUI offers is still missing: routes, houses, fronts, the crew's posts, contracts, the factions' offers, the upgrade tree, the rivals' table and the law.
+Each is a panel over what the view carries (the contracts, offers and tree since #332) and the commands and quotes (#325) the protocol already serves.
+The art is placeholder.
 
 **What pins it.**
 
