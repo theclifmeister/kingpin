@@ -1,0 +1,8622 @@
+{
+  "$defs": {
+    "content.UpgradeConfig": {
+      "properties": {
+        "Branch": {
+          "type": "string"
+        },
+        "Clean": {
+          "type": "boolean"
+        },
+        "Cost": {
+          "type": "integer"
+        },
+        "Desc": {
+          "type": "string"
+        },
+        "Effects": {
+          "$ref": "#/$defs/content.UpgradeEffects"
+        },
+        "ID": {
+          "type": "string"
+        },
+        "Name": {
+          "type": "string"
+        },
+        "Requires": {
+          "items": {
+            "type": "string"
+          },
+          "type": "array"
+        }
+      },
+      "required": [
+        "ID",
+        "Name",
+        "Branch",
+        "Cost",
+        "Clean",
+        "Requires",
+        "Desc",
+        "Effects"
+      ],
+      "type": "object"
+    },
+    "content.UpgradeEffects": {
+      "properties": {
+        "AuditEvidenceCut": {
+          "type": "integer"
+        },
+        "AuditFreezeCut": {
+          "type": "integer"
+        },
+        "AuditRiskMul": {
+          "type": "number"
+        },
+        "AuditSeizeMul": {
+          "type": "number"
+        },
+        "AutoBail": {
+          "type": "boolean"
+        },
+        "BuyPressureMul": {
+          "type": "number"
+        },
+        "BuyerGapMul": {
+          "type": "number"
+        },
+        "CandidatesBonus": {
+          "type": "integer"
+        },
+        "CarryBonus": {
+          "type": "integer"
+        },
+        "ContractPremiumBonus": {
+          "type": "number"
+        },
+        "CooldownBonus": {
+          "type": "integer"
+        },
+        "CrewHeatMul": {
+          "type": "number"
+        },
+        "CrewSlots": {
+          "type": "integer"
+        },
+        "DangerLoyaltyMul": {
+          "type": "number"
+        },
+        "Decay": {
+          "type": "number"
+        },
+        "DemandMul": {
+          "type": "number"
+        },
+        "DirtyCashThresholdMul": {
+          "type": "number"
+        },
+        "DriftDaysBonus": {
+          "type": "integer"
+        },
+        "EvidenceArrest": {
+          "type": "integer"
+        },
+        "EvidenceCut": {
+          "type": "integer"
+        },
+        "EvidenceDecayDays": {
+          "type": "integer"
+        },
+        "FallGuys": {
+          "type": "integer"
+        },
+        "FareMul": {
+          "type": "number"
+        },
+        "FillMul": {
+          "type": "number"
+        },
+        "FloatMul": {
+          "type": "number"
+        },
+        "GlutDecayMul": {
+          "type": "number"
+        },
+        "GuardBonus": {
+          "type": "integer"
+        },
+        "HireFeeMul": {
+          "type": "number"
+        },
+        "Identities": {
+          "type": "integer"
+        },
+        "InformantChanceMul": {
+          "type": "number"
+        },
+        "LieLowMultiplier": {
+          "type": "number"
+        },
+        "LoyaltyLossMul": {
+          "type": "number"
+        },
+        "PatrolCap": {
+          "type": "number"
+        },
+        "PoolDaysCut": {
+          "type": "integer"
+        },
+        "RaidLossMul": {
+          "type": "number"
+        },
+        "RivalPushMul": {
+          "type": "number"
+        },
+        "RobberyMul": {
+          "type": "number"
+        },
+        "RouteCapacityMul": {
+          "type": "number"
+        },
+        "RouteDaysMul": {
+          "type": "number"
+        },
+        "RouteRiskMul": {
+          "type": "number"
+        },
+        "SaleHeatMul": {
+          "type": "number"
+        },
+        "SaleImpactMul": {
+          "type": "number"
+        },
+        "SkillBonus": {
+          "type": "integer"
+        },
+        "SkimChanceMul": {
+          "type": "number"
+        },
+        "StartLoyaltyBonus": {
+          "type": "integer"
+        },
+        "StingStockMul": {
+          "type": "number"
+        },
+        "SupplierMul": {
+          "type": "number"
+        },
+        "UpkeepMul": {
+          "type": "number"
+        },
+        "WageMul": {
+          "type": "number"
+        },
+        "WashMul": {
+          "type": "number"
+        },
+        "WholesaleMul": {
+          "type": "number"
+        }
+      },
+      "required": [
+        "CarryBonus",
+        "SupplierMul",
+        "BuyPressureMul",
+        "FillMul",
+        "SaleImpactMul",
+        "DemandMul",
+        "GlutDecayMul",
+        "BuyerGapMul",
+        "ContractPremiumBonus",
+        "SaleHeatMul",
+        "CrewHeatMul",
+        "PatrolCap",
+        "CooldownBonus",
+        "StingStockMul",
+        "RaidLossMul",
+        "LieLowMultiplier",
+        "Decay",
+        "DirtyCashThresholdMul",
+        "EvidenceCut",
+        "AuditEvidenceCut",
+        "EvidenceDecayDays",
+        "EvidenceArrest",
+        "FallGuys",
+        "Identities",
+        "WageMul",
+        "LoyaltyLossMul",
+        "DangerLoyaltyMul",
+        "SkimChanceMul",
+        "InformantChanceMul",
+        "CrewSlots",
+        "CandidatesBonus",
+        "PoolDaysCut",
+        "SkillBonus",
+        "HireFeeMul",
+        "StartLoyaltyBonus",
+        "AutoBail",
+        "WashMul",
+        "AuditRiskMul",
+        "AuditSeizeMul",
+        "UpkeepMul",
+        "AuditFreezeCut",
+        "FloatMul",
+        "RouteRiskMul",
+        "RouteCapacityMul",
+        "RouteDaysMul",
+        "FareMul",
+        "WholesaleMul",
+        "DriftDaysBonus",
+        "RobberyMul",
+        "GuardBonus",
+        "RivalPushMul"
+      ],
+      "type": "object"
+    },
+    "engine.Alert": {
+      "properties": {
+        "amount": {
+          "type": "integer"
+        },
+        "city": {
+          "type": "string"
+        },
+        "contract": {
+          "type": "integer"
+        },
+        "count": {
+          "type": "integer"
+        },
+        "days": {
+          "type": "integer"
+        },
+        "due": {
+          "type": "integer"
+        },
+        "gate": {
+          "$ref": "#/$defs/engine.Gate"
+        },
+        "have": {
+          "type": "integer"
+        },
+        "heat": {
+          "type": "number"
+        },
+        "house": {
+          "type": "string"
+        },
+        "key": {
+          "type": "string"
+        },
+        "kind": {
+          "type": "string"
+        },
+        "level": {
+          "type": "string"
+        },
+        "line": {
+          "type": "number"
+        },
+        "ready": {
+          "type": "boolean"
+        },
+        "supplier": {
+          "type": "string"
+        }
+      },
+      "required": [
+        "kind",
+        "key"
+      ],
+      "type": "object"
+    },
+    "engine.BooksView": {
+      "properties": {
+        "cash": {
+          "type": "integer"
+        },
+        "day": {
+          "type": "integer"
+        },
+        "income": {
+          "type": "integer"
+        },
+        "muscle": {
+          "type": "integer"
+        },
+        "wages": {
+          "type": "integer"
+        }
+      },
+      "required": [
+        "day",
+        "cash",
+        "income",
+        "muscle",
+        "wages"
+      ],
+      "type": "object"
+    },
+    "engine.CardView": {
+      "properties": {
+        "choices": {
+          "items": {
+            "type": "string"
+          },
+          "type": "array"
+        },
+        "id": {
+          "type": "string"
+        },
+        "text": {
+          "type": "string"
+        },
+        "title": {
+          "type": "string"
+        }
+      },
+      "required": [
+        "id",
+        "title",
+        "text",
+        "choices"
+      ],
+      "type": "object"
+    },
+    "engine.CityView": {
+      "properties": {
+        "corners": {
+          "items": {
+            "$ref": "#/$defs/engine.CornerView"
+          },
+          "type": "array"
+        },
+        "goodwill": {
+          "type": "number"
+        },
+        "heat": {
+          "type": "number"
+        },
+        "id": {
+          "type": "string"
+        },
+        "name": {
+          "type": "string"
+        },
+        "pressure": {
+          "type": "number"
+        },
+        "products": {
+          "items": {
+            "$ref": "#/$defs/engine.ProductView"
+          },
+          "type": "array"
+        },
+        "response": {
+          "type": "string"
+        },
+        "response_day": {
+          "type": "integer"
+        }
+      },
+      "required": [
+        "id",
+        "name",
+        "heat",
+        "pressure",
+        "goodwill",
+        "products",
+        "corners"
+      ],
+      "type": "object"
+    },
+    "engine.ConnectView": {
+      "properties": {
+        "cap": {
+          "type": "integer"
+        },
+        "city": {
+          "type": "string"
+        },
+        "credit_days": {
+          "type": "integer"
+        },
+        "debt": {
+          "type": "integer"
+        },
+        "debt_due": {
+          "type": "integer"
+        },
+        "id": {
+          "type": "string"
+        },
+        "limit": {
+          "type": "integer"
+        },
+        "lot": {
+          "type": "integer"
+        },
+        "name": {
+          "type": "string"
+        },
+        "open": {
+          "type": "boolean"
+        },
+        "owned": {
+          "type": "boolean"
+        },
+        "prices": {
+          "additionalProperties": {
+            "type": "number"
+          },
+          "type": "object"
+        },
+        "rel": {
+          "type": "number"
+        },
+        "temper": {
+          "type": "string"
+        },
+        "wholesale": {
+          "type": "boolean"
+        }
+      },
+      "required": [
+        "id",
+        "name",
+        "city",
+        "temper",
+        "open",
+        "prices",
+        "cap",
+        "lot",
+        "rel"
+      ],
+      "type": "object"
+    },
+    "engine.CornerView": {
+      "properties": {
+        "deed": {
+          "type": "boolean"
+        },
+        "demand": {
+          "type": "number"
+        },
+        "enforcer": {
+          "type": "integer"
+        },
+        "faction": {
+          "type": "string"
+        },
+        "id": {
+          "type": "string"
+        },
+        "name": {
+          "type": "string"
+        },
+        "owner": {
+          "type": "string"
+        },
+        "runner": {
+          "type": "integer"
+        },
+        "since": {
+          "type": "integer"
+        },
+        "x": {
+          "type": "integer"
+        },
+        "y": {
+          "type": "integer"
+        }
+      },
+      "required": [
+        "id",
+        "name",
+        "x",
+        "y",
+        "demand",
+        "owner",
+        "since"
+      ],
+      "type": "object"
+    },
+    "engine.EndingView": {
+      "properties": {
+        "cause": {
+          "type": "string"
+        },
+        "day": {
+          "type": "integer"
+        },
+        "who": {
+          "type": "string"
+        }
+      },
+      "required": [
+        "day",
+        "cause"
+      ],
+      "type": "object"
+    },
+    "engine.FactionView": {
+      "properties": {
+        "alive": {
+          "type": "boolean"
+        },
+        "arrived": {
+          "type": "integer"
+        },
+        "books": {
+          "$ref": "#/$defs/engine.BooksView"
+        },
+        "corners": {
+          "type": "integer"
+        },
+        "deals": {
+          "items": {
+            "type": "string"
+          },
+          "type": "array"
+        },
+        "id": {
+          "type": "string"
+        },
+        "leader": {
+          "type": "string"
+        },
+        "move": {
+          "type": "string"
+        },
+        "muscle_hi": {
+          "type": "integer"
+        },
+        "muscle_known": {
+          "type": "boolean"
+        },
+        "muscle_lo": {
+          "type": "integer"
+        },
+        "personality": {
+          "type": "string"
+        },
+        "trust": {
+          "type": "number"
+        },
+        "war": {
+          "type": "number"
+        }
+      },
+      "required": [
+        "id",
+        "leader",
+        "alive",
+        "arrived",
+        "corners",
+        "trust",
+        "war",
+        "personality"
+      ],
+      "type": "object"
+    },
+    "engine.FrontView": {
+      "properties": {
+        "frozen": {
+          "type": "boolean"
+        },
+        "id": {
+          "type": "string"
+        },
+        "level": {
+          "type": "integer"
+        },
+        "name": {
+          "type": "string"
+        },
+        "washed": {
+          "type": "integer"
+        }
+      },
+      "required": [
+        "id",
+        "name",
+        "level",
+        "washed"
+      ],
+      "type": "object"
+    },
+    "engine.Gate": {
+      "properties": {
+        "clean": {
+          "type": "boolean"
+        },
+        "id": {
+          "type": "string"
+        },
+        "kind": {
+          "type": "string"
+        },
+        "line": {
+          "type": "integer"
+        },
+        "name": {
+          "type": "string"
+        },
+        "vouch": {
+          "type": "string"
+        }
+      },
+      "required": [
+        "kind",
+        "id",
+        "name",
+        "line"
+      ],
+      "type": "object"
+    },
+    "engine.HouseView": {
+      "properties": {
+        "capacity": {
+          "type": "integer"
+        },
+        "city": {
+          "type": "string"
+        },
+        "corner": {
+          "type": "string"
+        },
+        "guard": {
+          "type": "integer"
+        },
+        "id": {
+          "type": "string"
+        },
+        "known": {
+          "type": "boolean"
+        },
+        "name": {
+          "type": "string"
+        },
+        "stock": {
+          "additionalProperties": {
+            "type": "integer"
+          },
+          "type": "object"
+        }
+      },
+      "required": [
+        "id",
+        "name",
+        "city",
+        "corner",
+        "capacity",
+        "stock"
+      ],
+      "type": "object"
+    },
+    "engine.LawView": {
+      "properties": {
+        "chief": {
+          "type": "string"
+        },
+        "chief_temper": {
+          "type": "string"
+        },
+        "da": {
+          "type": "string"
+        },
+        "da_stance": {
+          "type": "string"
+        },
+        "next_election": {
+          "type": "integer"
+        }
+      },
+      "required": [
+        "chief",
+        "chief_temper",
+        "da",
+        "da_stance"
+      ],
+      "type": "object"
+    },
+    "engine.MemberView": {
+      "properties": {
+        "age": {
+          "type": "integer"
+        },
+        "city": {
+          "type": "string"
+        },
+        "hired": {
+          "type": "integer"
+        },
+        "id": {
+          "type": "integer"
+        },
+        "jailed": {
+          "type": "boolean"
+        },
+        "loyalty": {
+          "type": "number"
+        },
+        "name": {
+          "type": "string"
+        },
+        "personality": {
+          "type": "string"
+        },
+        "post": {
+          "type": "string"
+        },
+        "role": {
+          "type": "string"
+        },
+        "skill": {
+          "type": "integer"
+        },
+        "wage": {
+          "type": "integer"
+        }
+      },
+      "required": [
+        "id",
+        "name",
+        "role",
+        "age",
+        "skill",
+        "loyalty",
+        "wage",
+        "hired"
+      ],
+      "type": "object"
+    },
+    "engine.PriceFacts": {
+      "properties": {
+        "delta": {
+          "type": "number"
+        },
+        "hi": {
+          "type": "number"
+        },
+        "lo": {
+          "type": "number"
+        },
+        "margin": {
+          "type": "number"
+        },
+        "unit": {
+          "type": "number"
+        }
+      },
+      "required": [
+        "unit",
+        "delta",
+        "lo",
+        "hi",
+        "margin"
+      ],
+      "type": "object"
+    },
+    "engine.ProductView": {
+      "properties": {
+        "demand": {
+          "type": "number"
+        },
+        "facts": {
+          "$ref": "#/$defs/engine.PriceFacts"
+        },
+        "history": {
+          "items": {
+            "type": "number"
+          },
+          "type": "array"
+        },
+        "id": {
+          "type": "string"
+        },
+        "name": {
+          "type": "string"
+        },
+        "no_supply": {
+          "type": "boolean"
+        },
+        "price": {
+          "type": "number"
+        },
+        "shock_days": {
+          "type": "integer"
+        },
+        "slump": {
+          "type": "boolean"
+        },
+        "supplier_price": {
+          "type": "number"
+        }
+      },
+      "required": [
+        "id",
+        "name",
+        "price",
+        "supplier_price",
+        "demand",
+        "history",
+        "facts"
+      ],
+      "type": "object"
+    },
+    "engine.ReportView": {
+      "properties": {
+        "cash_after": {
+          "type": "integer"
+        },
+        "cash_before": {
+          "type": "integer"
+        },
+        "crew": {
+          "items": {
+            "type": "string"
+          },
+          "type": "array"
+        },
+        "day": {
+          "type": "integer"
+        },
+        "heat": {
+          "items": {
+            "type": "string"
+          },
+          "type": "array"
+        },
+        "incident": {
+          "items": {
+            "type": "string"
+          },
+          "type": "array"
+        },
+        "intel": {
+          "items": {
+            "type": "string"
+          },
+          "type": "array"
+        },
+        "law": {
+          "items": {
+            "type": "string"
+          },
+          "type": "array"
+        },
+        "money": {
+          "items": {
+            "type": "string"
+          },
+          "type": "array"
+        },
+        "news": {
+          "items": {
+            "type": "string"
+          },
+          "type": "array"
+        },
+        "prices": {
+          "items": {
+            "type": "string"
+          },
+          "type": "array"
+        },
+        "sales": {
+          "items": {
+            "type": "string"
+          },
+          "type": "array"
+        },
+        "shipments": {
+          "items": {
+            "type": "string"
+          },
+          "type": "array"
+        },
+        "territory": {
+          "items": {
+            "type": "string"
+          },
+          "type": "array"
+        },
+        "tier": {
+          "items": {
+            "type": "string"
+          },
+          "type": "array"
+        },
+        "unlocked": {
+          "items": {
+            "type": "string"
+          },
+          "type": "array"
+        },
+        "upgrades": {
+          "items": {
+            "type": "string"
+          },
+          "type": "array"
+        }
+      },
+      "required": [
+        "day",
+        "cash_before",
+        "cash_after"
+      ],
+      "type": "object"
+    },
+    "engine.RouteView": {
+      "properties": {
+        "closed": {
+          "type": "boolean"
+        },
+        "dial": {
+          "type": "string"
+        },
+        "driver": {
+          "type": "integer"
+        },
+        "from": {
+          "type": "string"
+        },
+        "id": {
+          "type": "string"
+        },
+        "mode": {
+          "type": "string"
+        },
+        "name": {
+          "type": "string"
+        },
+        "risk": {
+          "type": "number"
+        },
+        "risk_known": {
+          "type": "boolean"
+        },
+        "to": {
+          "type": "string"
+        }
+      },
+      "required": [
+        "id",
+        "name",
+        "mode",
+        "from",
+        "to",
+        "dial"
+      ],
+      "type": "object"
+    },
+    "engine.ShipmentView": {
+      "properties": {
+        "arrives": {
+          "type": "integer"
+        },
+        "from": {
+          "type": "string"
+        },
+        "id": {
+          "type": "integer"
+        },
+        "product": {
+          "type": "string"
+        },
+        "route": {
+          "type": "string"
+        },
+        "sent": {
+          "type": "integer"
+        },
+        "to": {
+          "type": "string"
+        },
+        "units": {
+          "type": "integer"
+        }
+      },
+      "required": [
+        "id",
+        "route",
+        "from",
+        "to",
+        "product",
+        "units",
+        "sent",
+        "arrives"
+      ],
+      "type": "object"
+    },
+    "engine.View": {
+      "properties": {
+        "alerts": {
+          "items": {
+            "$ref": "#/$defs/engine.Alert"
+          },
+          "type": "array"
+        },
+        "card": {
+          "$ref": "#/$defs/engine.CardView"
+        },
+        "cities": {
+          "items": {
+            "$ref": "#/$defs/engine.CityView"
+          },
+          "type": "array"
+        },
+        "connects": {
+          "items": {
+            "$ref": "#/$defs/engine.ConnectView"
+          },
+          "type": "array"
+        },
+        "crew": {
+          "items": {
+            "$ref": "#/$defs/engine.MemberView"
+          },
+          "type": "array"
+        },
+        "day": {
+          "type": "integer"
+        },
+        "factions": {
+          "items": {
+            "$ref": "#/$defs/engine.FactionView"
+          },
+          "type": "array"
+        },
+        "fronts": {
+          "items": {
+            "$ref": "#/$defs/engine.FrontView"
+          },
+          "type": "array"
+        },
+        "houses": {
+          "items": {
+            "$ref": "#/$defs/engine.HouseView"
+          },
+          "type": "array"
+        },
+        "law": {
+          "$ref": "#/$defs/engine.LawView"
+        },
+        "over": {
+          "$ref": "#/$defs/engine.EndingView"
+        },
+        "report": {
+          "$ref": "#/$defs/engine.ReportView"
+        },
+        "routes": {
+          "items": {
+            "$ref": "#/$defs/engine.RouteView"
+          },
+          "type": "array"
+        },
+        "seed": {
+          "type": "integer"
+        },
+        "shipments": {
+          "items": {
+            "$ref": "#/$defs/engine.ShipmentView"
+          },
+          "type": "array"
+        },
+        "version": {
+          "type": "integer"
+        },
+        "you": {
+          "$ref": "#/$defs/engine.YouView"
+        }
+      },
+      "required": [
+        "version",
+        "seed",
+        "day",
+        "you",
+        "cities",
+        "crew",
+        "routes",
+        "shipments",
+        "connects",
+        "houses",
+        "fronts",
+        "factions",
+        "law",
+        "report",
+        "alerts"
+      ],
+      "type": "object"
+    },
+    "engine.YouView": {
+      "properties": {
+        "character": {
+          "type": "string"
+        },
+        "city": {
+          "type": "string"
+        },
+        "clean_cash": {
+          "type": "integer"
+        },
+        "dirty_cash": {
+          "type": "integer"
+        },
+        "evidence": {
+          "type": "integer"
+        },
+        "fear": {
+          "type": "number"
+        },
+        "hard_da": {
+          "type": "boolean"
+        },
+        "launder": {
+          "type": "string"
+        },
+        "lie_low": {
+          "type": "boolean"
+        },
+        "net_worth": {
+          "type": "integer"
+        },
+        "notoriety": {
+          "type": "number"
+        },
+        "offshore": {
+          "type": "integer"
+        },
+        "pay": {
+          "type": "string"
+        },
+        "peak_cash": {
+          "type": "integer"
+        },
+        "quiet_days": {
+          "type": "integer"
+        },
+        "respect": {
+          "type": "number"
+        },
+        "stock": {
+          "additionalProperties": {
+            "additionalProperties": {
+              "type": "integer"
+            },
+            "type": "object"
+          },
+          "type": "object"
+        },
+        "tier": {
+          "type": "integer"
+        },
+        "tier_name": {
+          "type": "string"
+        },
+        "upgrades": {
+          "items": {
+            "type": "string"
+          },
+          "type": "array"
+        }
+      },
+      "required": [
+        "city",
+        "dirty_cash",
+        "clean_cash",
+        "offshore",
+        "net_worth",
+        "peak_cash",
+        "lie_low",
+        "tier",
+        "tier_name",
+        "pay",
+        "launder",
+        "evidence",
+        "fear",
+        "respect",
+        "notoriety",
+        "stock",
+        "upgrades",
+        "quiet_days"
+      ],
+      "type": "object"
+    },
+    "events.AssetBought": {
+      "properties": {
+        "Asset": {
+          "type": "string"
+        },
+        "City": {
+          "type": "string"
+        },
+        "Cost": {
+          "type": "integer"
+        },
+        "Day": {
+          "type": "integer"
+        },
+        "Name": {
+          "type": "string"
+        },
+        "Upkeep": {
+          "type": "integer"
+        }
+      },
+      "required": [
+        "Day",
+        "Asset",
+        "Name",
+        "City",
+        "Cost",
+        "Upkeep"
+      ],
+      "type": "object"
+    },
+    "events.AssetFrozen": {
+      "properties": {
+        "Asset": {
+          "type": "string"
+        },
+        "Day": {
+          "type": "integer"
+        },
+        "Days": {
+          "type": "integer"
+        },
+        "Name": {
+          "type": "string"
+        },
+        "Upkeep": {
+          "type": "integer"
+        }
+      },
+      "required": [
+        "Day",
+        "Asset",
+        "Name",
+        "Upkeep",
+        "Days"
+      ],
+      "type": "object"
+    },
+    "events.AssetSeized": {
+      "properties": {
+        "Asset": {
+          "type": "string"
+        },
+        "City": {
+          "type": "string"
+        },
+        "Cost": {
+          "type": "integer"
+        },
+        "Day": {
+          "type": "integer"
+        },
+        "Name": {
+          "type": "string"
+        }
+      },
+      "required": [
+        "Day",
+        "City",
+        "Asset",
+        "Name",
+        "Cost"
+      ],
+      "type": "object"
+    },
+    "events.Bought": {
+      "properties": {
+        "Cost": {
+          "type": "integer"
+        },
+        "Product": {
+          "type": "string"
+        },
+        "Units": {
+          "type": "integer"
+        }
+      },
+      "required": [
+        "Product",
+        "Units",
+        "Cost"
+      ],
+      "type": "object"
+    },
+    "events.BribeAccepted": {
+      "properties": {
+        "Amount": {
+          "type": "integer"
+        },
+        "Day": {
+          "type": "integer"
+        },
+        "Favour": {
+          "type": "boolean"
+        },
+        "Leads": {
+          "type": "integer"
+        },
+        "Odds": {
+          "type": "number"
+        },
+        "Share": {
+          "type": "number"
+        },
+        "Target": {
+          "type": "string"
+        },
+        "Until": {
+          "type": "integer"
+        }
+      },
+      "required": [
+        "Day",
+        "Target",
+        "Amount",
+        "Until",
+        "Share",
+        "Odds",
+        "Leads",
+        "Favour"
+      ],
+      "type": "object"
+    },
+    "events.BribeBackfired": {
+      "properties": {
+        "Amount": {
+          "type": "integer"
+        },
+        "Day": {
+          "type": "integer"
+        },
+        "Evidence": {
+          "type": "integer"
+        },
+        "Heat": {
+          "type": "number"
+        },
+        "Target": {
+          "type": "string"
+        }
+      },
+      "required": [
+        "Day",
+        "Target",
+        "Amount",
+        "Evidence",
+        "Heat"
+      ],
+      "type": "object"
+    },
+    "events.BribeRefused": {
+      "properties": {
+        "Amount": {
+          "type": "integer"
+        },
+        "Day": {
+          "type": "integer"
+        },
+        "Odds": {
+          "type": "number"
+        },
+        "Target": {
+          "type": "string"
+        },
+        "Why": {
+          "type": "string"
+        }
+      },
+      "required": [
+        "Day",
+        "Target",
+        "Amount",
+        "Why",
+        "Odds"
+      ],
+      "type": "object"
+    },
+    "events.CampaignBacked": {
+      "properties": {
+        "Amount": {
+          "type": "integer"
+        },
+        "City": {
+          "type": "string"
+        },
+        "Day": {
+          "type": "integer"
+        },
+        "Swing": {
+          "type": "number"
+        },
+        "Ticket": {
+          "type": "string"
+        },
+        "Total": {
+          "type": "integer"
+        }
+      },
+      "required": [
+        "Day",
+        "City",
+        "Ticket",
+        "Amount",
+        "Total",
+        "Swing"
+      ],
+      "type": "object"
+    },
+    "events.CampaignHedged": {
+      "properties": {
+        "Cash": {
+          "type": "integer"
+        },
+        "City": {
+          "type": "string"
+        },
+        "Day": {
+          "type": "integer"
+        }
+      },
+      "required": [
+        "Day",
+        "City",
+        "Cash"
+      ],
+      "type": "object"
+    },
+    "events.CampaignLost": {
+      "properties": {
+        "Cash": {
+          "type": "integer"
+        },
+        "Chief": {
+          "type": "boolean"
+        },
+        "City": {
+          "type": "string"
+        },
+        "Day": {
+          "type": "integer"
+        },
+        "Pressure": {
+          "type": "number"
+        },
+        "Ticket": {
+          "type": "string"
+        },
+        "Winner": {
+          "type": "string"
+        }
+      },
+      "required": [
+        "Day",
+        "City",
+        "Ticket",
+        "Cash",
+        "Winner",
+        "Pressure",
+        "Chief"
+      ],
+      "type": "object"
+    },
+    "events.CashLaundered": {
+      "properties": {
+        "Amount": {
+          "type": "integer"
+        },
+        "Day": {
+          "type": "integer"
+        },
+        "Earned": {
+          "type": "integer"
+        },
+        "Fronts": {
+          "type": "integer"
+        },
+        "Upkeep": {
+          "type": "integer"
+        }
+      },
+      "required": [
+        "Day",
+        "Amount",
+        "Upkeep",
+        "Fronts",
+        "Earned"
+      ],
+      "type": "object"
+    },
+    "events.CheckpointBought": {
+      "properties": {
+        "Cost": {
+          "type": "integer"
+        },
+        "Day": {
+          "type": "integer"
+        },
+        "Mode": {
+          "type": "string"
+        },
+        "Name": {
+          "type": "string"
+        },
+        "Route": {
+          "type": "string"
+        },
+        "Until": {
+          "type": "integer"
+        }
+      },
+      "required": [
+        "Day",
+        "Route",
+        "Name",
+        "Mode",
+        "Cost",
+        "Until"
+      ],
+      "type": "object"
+    },
+    "events.ChiefReplaced": {
+      "properties": {
+        "Day": {
+          "type": "integer"
+        },
+        "Name": {
+          "type": "string"
+        },
+        "Old": {
+          "type": "string"
+        },
+        "Why": {
+          "type": "string"
+        }
+      },
+      "required": [
+        "Day",
+        "Name",
+        "Old",
+        "Why"
+      ],
+      "type": "object"
+    },
+    "events.CityFunded": {
+      "properties": {
+        "Amount": {
+          "type": "integer"
+        },
+        "City": {
+          "type": "string"
+        },
+        "Day": {
+          "type": "integer"
+        },
+        "Goodwill": {
+          "type": "number"
+        }
+      },
+      "required": [
+        "Day",
+        "City",
+        "Amount",
+        "Goodwill"
+      ],
+      "type": "object"
+    },
+    "events.ClaimDeterred": {
+      "properties": {
+        "City": {
+          "type": "string"
+        },
+        "Day": {
+          "type": "integer"
+        },
+        "Faction": {
+          "type": "string"
+        },
+        "Rival": {
+          "type": "string"
+        }
+      },
+      "required": [
+        "Day",
+        "City",
+        "Rival",
+        "Faction"
+      ],
+      "type": "object"
+    },
+    "events.ContractAccepted": {
+      "properties": {
+        "City": {
+          "type": "string"
+        },
+        "Day": {
+          "type": "integer"
+        },
+        "Due": {
+          "type": "integer"
+        },
+        "ID": {
+          "type": "integer"
+        },
+        "Name": {
+          "type": "string"
+        },
+        "Product": {
+          "type": "string"
+        },
+        "Units": {
+          "type": "integer"
+        }
+      },
+      "required": [
+        "Day",
+        "ID",
+        "Name",
+        "City",
+        "Product",
+        "Units",
+        "Due"
+      ],
+      "type": "object"
+    },
+    "events.ContractDelivered": {
+      "properties": {
+        "Buyer": {
+          "type": "string"
+        },
+        "City": {
+          "type": "string"
+        },
+        "Complete": {
+          "type": "boolean"
+        },
+        "Day": {
+          "type": "integer"
+        },
+        "HeatMul": {
+          "type": "number"
+        },
+        "ID": {
+          "type": "integer"
+        },
+        "Name": {
+          "type": "string"
+        },
+        "Owed": {
+          "type": "integer"
+        },
+        "Price": {
+          "type": "number"
+        },
+        "Product": {
+          "type": "string"
+        },
+        "Quality": {
+          "type": "number"
+        },
+        "Respect": {
+          "type": "number"
+        },
+        "Revenue": {
+          "type": "integer"
+        },
+        "Signed": {
+          "type": "number"
+        },
+        "Street": {
+          "type": "number"
+        },
+        "Total": {
+          "type": "integer"
+        },
+        "Units": {
+          "type": "integer"
+        }
+      },
+      "required": [
+        "Day",
+        "ID",
+        "Buyer",
+        "Name",
+        "City",
+        "Product",
+        "Units",
+        "Owed",
+        "Total",
+        "Price",
+        "Street",
+        "Signed",
+        "Revenue",
+        "Complete",
+        "HeatMul",
+        "Respect",
+        "Quality"
+      ],
+      "type": "object"
+    },
+    "events.ContractExpired": {
+      "properties": {
+        "City": {
+          "type": "string"
+        },
+        "Day": {
+          "type": "integer"
+        },
+        "ID": {
+          "type": "integer"
+        },
+        "Name": {
+          "type": "string"
+        },
+        "Product": {
+          "type": "string"
+        },
+        "Units": {
+          "type": "integer"
+        }
+      },
+      "required": [
+        "Day",
+        "ID",
+        "Name",
+        "City",
+        "Product",
+        "Units"
+      ],
+      "type": "object"
+    },
+    "events.ContractFailed": {
+      "properties": {
+        "Blacklisted": {
+          "type": "integer"
+        },
+        "Buyer": {
+          "type": "string"
+        },
+        "Cash": {
+          "type": "integer"
+        },
+        "City": {
+          "type": "string"
+        },
+        "Day": {
+          "type": "integer"
+        },
+        "Delivered": {
+          "type": "integer"
+        },
+        "ID": {
+          "type": "integer"
+        },
+        "Name": {
+          "type": "string"
+        },
+        "Notoriety": {
+          "type": "number"
+        },
+        "Product": {
+          "type": "string"
+        },
+        "Respect": {
+          "type": "number"
+        },
+        "Units": {
+          "type": "integer"
+        }
+      },
+      "required": [
+        "Day",
+        "ID",
+        "Buyer",
+        "Name",
+        "City",
+        "Product",
+        "Units",
+        "Delivered",
+        "Cash",
+        "Respect",
+        "Notoriety",
+        "Blacklisted"
+      ],
+      "type": "object"
+    },
+    "events.ContractOffered": {
+      "properties": {
+        "Buyer": {
+          "type": "string"
+        },
+        "City": {
+          "type": "string"
+        },
+        "Day": {
+          "type": "integer"
+        },
+        "Due": {
+          "type": "integer"
+        },
+        "Expires": {
+          "type": "integer"
+        },
+        "ID": {
+          "type": "integer"
+        },
+        "Name": {
+          "type": "string"
+        },
+        "Pitch": {
+          "type": "string"
+        },
+        "Premium": {
+          "type": "number"
+        },
+        "Product": {
+          "type": "string"
+        },
+        "Units": {
+          "type": "integer"
+        }
+      },
+      "required": [
+        "Day",
+        "ID",
+        "Buyer",
+        "Name",
+        "Pitch",
+        "City",
+        "Product",
+        "Units",
+        "Premium",
+        "Due",
+        "Expires"
+      ],
+      "type": "object"
+    },
+    "events.CookOrdered": {
+      "properties": {
+        "Chemist": {
+          "type": "string"
+        },
+        "City": {
+          "type": "string"
+        },
+        "Cost": {
+          "type": "integer"
+        },
+        "Day": {
+          "type": "integer"
+        },
+        "Days": {
+          "type": "integer"
+        },
+        "Product": {
+          "type": "string"
+        },
+        "Quality": {
+          "type": "number"
+        },
+        "Units": {
+          "type": "integer"
+        }
+      },
+      "required": [
+        "Day",
+        "City",
+        "Product",
+        "Units",
+        "Quality",
+        "Cost",
+        "Days",
+        "Chemist"
+      ],
+      "type": "object"
+    },
+    "events.Cooked": {
+      "properties": {
+        "Chemist": {
+          "type": "string"
+        },
+        "City": {
+          "type": "string"
+        },
+        "Cost": {
+          "type": "integer"
+        },
+        "Day": {
+          "type": "integer"
+        },
+        "Product": {
+          "type": "string"
+        },
+        "Quality": {
+          "type": "number"
+        },
+        "Units": {
+          "type": "integer"
+        }
+      },
+      "required": [
+        "Day",
+        "City",
+        "Product",
+        "Units",
+        "Quality",
+        "Cost",
+        "Chemist"
+      ],
+      "type": "object"
+    },
+    "events.CornerClaimed": {
+      "properties": {
+        "Corner": {
+          "type": "string"
+        },
+        "Day": {
+          "type": "integer"
+        },
+        "Name": {
+          "type": "string"
+        },
+        "Worker": {
+          "type": "string"
+        }
+      },
+      "required": [
+        "Day",
+        "Corner",
+        "Name",
+        "Worker"
+      ],
+      "type": "object"
+    },
+    "events.CornerLost": {
+      "properties": {
+        "Corner": {
+          "type": "string"
+        },
+        "Day": {
+          "type": "integer"
+        },
+        "Faction": {
+          "type": "string"
+        },
+        "Name": {
+          "type": "string"
+        },
+        "Owner": {
+          "type": "string"
+        },
+        "Reason": {
+          "type": "string"
+        }
+      },
+      "required": [
+        "Day",
+        "Corner",
+        "Name",
+        "Reason",
+        "Owner",
+        "Faction"
+      ],
+      "type": "object"
+    },
+    "events.CornerRobbed": {
+      "properties": {
+        "Cash": {
+          "type": "integer"
+        },
+        "Corner": {
+          "type": "string"
+        },
+        "Day": {
+          "type": "integer"
+        },
+        "Name": {
+          "type": "string"
+        },
+        "StockLost": {
+          "additionalProperties": {
+            "type": "integer"
+          },
+          "type": "object"
+        }
+      },
+      "required": [
+        "Day",
+        "Corner",
+        "Name",
+        "Cash",
+        "StockLost"
+      ],
+      "type": "object"
+    },
+    "events.CornerStruck": {
+      "properties": {
+        "Corner": {
+          "type": "string"
+        },
+        "Day": {
+          "type": "integer"
+        },
+        "Faction": {
+          "type": "string"
+        },
+        "Force": {
+          "maximum": 2,
+          "minimum": 0,
+          "type": "integer",
+          "x-names": [
+            "warn",
+            "push",
+            "hit"
+          ]
+        },
+        "Heat": {
+          "type": "number"
+        },
+        "Name": {
+          "type": "string"
+        },
+        "Rival": {
+          "type": "string"
+        },
+        "Routed": {
+          "type": "boolean"
+        },
+        "Taken": {
+          "type": "boolean"
+        },
+        "Toll": {
+          "type": "number"
+        },
+        "War": {
+          "type": "boolean"
+        }
+      },
+      "required": [
+        "Day",
+        "Corner",
+        "Name",
+        "Rival",
+        "Faction",
+        "Force",
+        "Taken",
+        "Routed",
+        "Heat",
+        "Toll",
+        "War"
+      ],
+      "type": "object"
+    },
+    "events.CornerTaken": {
+      "properties": {
+        "Corner": {
+          "type": "string"
+        },
+        "Day": {
+          "type": "integer"
+        },
+        "Faction": {
+          "type": "string"
+        },
+        "From": {
+          "type": "string"
+        },
+        "Handed": {
+          "type": "string"
+        },
+        "Name": {
+          "type": "string"
+        },
+        "Pricewar": {
+          "type": "boolean"
+        },
+        "Rival": {
+          "type": "string"
+        }
+      },
+      "required": [
+        "Day",
+        "Corner",
+        "Name",
+        "Rival",
+        "Faction",
+        "From",
+        "Handed",
+        "Pricewar"
+      ],
+      "type": "object"
+    },
+    "events.CreditTaken": {
+      "properties": {
+        "Amount": {
+          "type": "integer"
+        },
+        "City": {
+          "type": "string"
+        },
+        "Day": {
+          "type": "integer"
+        },
+        "Debt": {
+          "type": "integer"
+        },
+        "Due": {
+          "type": "integer"
+        },
+        "Name": {
+          "type": "string"
+        },
+        "Supplier": {
+          "type": "string"
+        }
+      },
+      "required": [
+        "Day",
+        "City",
+        "Supplier",
+        "Name",
+        "Amount",
+        "Debt",
+        "Due"
+      ],
+      "type": "object"
+    },
+    "events.CrewArrested": {
+      "properties": {
+        "Bail": {
+          "type": "integer"
+        },
+        "City": {
+          "type": "string"
+        },
+        "Corner": {
+          "type": "string"
+        },
+        "CornerName": {
+          "type": "string"
+        },
+        "Day": {
+          "type": "integer"
+        },
+        "Days": {
+          "type": "integer"
+        },
+        "ID": {
+          "type": "integer"
+        },
+        "Name": {
+          "type": "string"
+        },
+        "Role": {
+          "type": "string"
+        },
+        "Route": {
+          "type": "string"
+        },
+        "RouteName": {
+          "type": "string"
+        },
+        "Short": {
+          "type": "boolean"
+        },
+        "Sprung": {
+          "type": "boolean"
+        }
+      },
+      "required": [
+        "Day",
+        "ID",
+        "Name",
+        "Role",
+        "City",
+        "Corner",
+        "CornerName",
+        "Route",
+        "RouteName",
+        "Days",
+        "Bail",
+        "Sprung",
+        "Short"
+      ],
+      "type": "object"
+    },
+    "events.CrewBailed": {
+      "properties": {
+        "Cost": {
+          "type": "integer"
+        },
+        "Day": {
+          "type": "integer"
+        },
+        "ID": {
+          "type": "integer"
+        },
+        "Name": {
+          "type": "string"
+        },
+        "Who": {
+          "type": "string"
+        }
+      },
+      "required": [
+        "Day",
+        "ID",
+        "Name",
+        "Cost",
+        "Who"
+      ],
+      "type": "object"
+    },
+    "events.CrewDefected": {
+      "properties": {
+        "Corner": {
+          "type": "string"
+        },
+        "CornerName": {
+          "type": "string"
+        },
+        "Day": {
+          "type": "integer"
+        },
+        "Faction": {
+          "type": "string"
+        },
+        "Name": {
+          "type": "string"
+        },
+        "Rival": {
+          "type": "string"
+        },
+        "Role": {
+          "type": "string"
+        }
+      },
+      "required": [
+        "Day",
+        "Name",
+        "Role",
+        "Rival",
+        "Faction",
+        "Corner",
+        "CornerName"
+      ],
+      "type": "object"
+    },
+    "events.CrewFired": {
+      "properties": {
+        "Day": {
+          "type": "integer"
+        },
+        "Informant": {
+          "type": "boolean"
+        },
+        "Name": {
+          "type": "string"
+        },
+        "Role": {
+          "type": "string"
+        }
+      },
+      "required": [
+        "Day",
+        "Name",
+        "Role",
+        "Informant"
+      ],
+      "type": "object"
+    },
+    "events.CrewHired": {
+      "properties": {
+        "Day": {
+          "type": "integer"
+        },
+        "Fee": {
+          "type": "integer"
+        },
+        "Name": {
+          "type": "string"
+        },
+        "Role": {
+          "type": "string"
+        }
+      },
+      "required": [
+        "Day",
+        "Name",
+        "Role",
+        "Fee"
+      ],
+      "type": "object"
+    },
+    "events.CrewPaid": {
+      "properties": {
+        "Day": {
+          "type": "integer"
+        },
+        "Pay": {
+          "maximum": 2,
+          "minimum": 0,
+          "type": "integer",
+          "x-names": [
+            "stingy",
+            "fair",
+            "generous"
+          ]
+        },
+        "Short": {
+          "type": "integer"
+        },
+        "Wages": {
+          "type": "integer"
+        }
+      },
+      "required": [
+        "Day",
+        "Pay",
+        "Wages",
+        "Short"
+      ],
+      "type": "object"
+    },
+    "events.CrewPaidOff": {
+      "properties": {
+        "Cost": {
+          "type": "integer"
+        },
+        "Day": {
+          "type": "integer"
+        },
+        "Name": {
+          "type": "string"
+        }
+      },
+      "required": [
+        "Day",
+        "Name",
+        "Cost"
+      ],
+      "type": "object"
+    },
+    "events.CrewPoached": {
+      "properties": {
+        "Day": {
+          "type": "integer"
+        },
+        "Dip": {
+          "type": "number"
+        },
+        "Faction": {
+          "type": "string"
+        },
+        "ID": {
+          "type": "integer"
+        },
+        "Name": {
+          "type": "string"
+        },
+        "Rival": {
+          "type": "string"
+        },
+        "Role": {
+          "type": "string"
+        },
+        "Stayed": {
+          "type": "boolean"
+        },
+        "Wages": {
+          "type": "integer"
+        }
+      },
+      "required": [
+        "Day",
+        "ID",
+        "Name",
+        "Role",
+        "Rival",
+        "Faction",
+        "Wages",
+        "Stayed",
+        "Dip"
+      ],
+      "type": "object"
+    },
+    "events.CrewQuit": {
+      "properties": {
+        "Day": {
+          "type": "integer"
+        },
+        "Name": {
+          "type": "string"
+        },
+        "Role": {
+          "type": "string"
+        }
+      },
+      "required": [
+        "Day",
+        "Name",
+        "Role"
+      ],
+      "type": "object"
+    },
+    "events.CrewRecovered": {
+      "properties": {
+        "Day": {
+          "type": "integer"
+        },
+        "ID": {
+          "type": "integer"
+        },
+        "Name": {
+          "type": "string"
+        },
+        "Role": {
+          "type": "string"
+        }
+      },
+      "required": [
+        "Day",
+        "ID",
+        "Name",
+        "Role"
+      ],
+      "type": "object"
+    },
+    "events.CrewReleased": {
+      "properties": {
+        "Bailed": {
+          "type": "boolean"
+        },
+        "Day": {
+          "type": "integer"
+        },
+        "ID": {
+          "type": "integer"
+        },
+        "Name": {
+          "type": "string"
+        },
+        "Role": {
+          "type": "string"
+        }
+      },
+      "required": [
+        "Day",
+        "ID",
+        "Name",
+        "Role",
+        "Bailed"
+      ],
+      "type": "object"
+    },
+    "events.CrewRetired": {
+      "properties": {
+        "Age": {
+          "type": "integer"
+        },
+        "Day": {
+          "type": "integer"
+        },
+        "ID": {
+          "type": "integer"
+        },
+        "Kin": {
+          "type": "string"
+        },
+        "Name": {
+          "type": "string"
+        },
+        "Role": {
+          "type": "string"
+        },
+        "Sour": {
+          "type": "boolean"
+        }
+      },
+      "required": [
+        "Day",
+        "ID",
+        "Name",
+        "Role",
+        "Age",
+        "Kin",
+        "Sour"
+      ],
+      "type": "object"
+    },
+    "events.CrewShot": {
+      "properties": {
+        "City": {
+          "type": "string"
+        },
+        "Corner": {
+          "type": "string"
+        },
+        "CornerName": {
+          "type": "string"
+        },
+        "Day": {
+          "type": "integer"
+        },
+        "Days": {
+          "type": "integer"
+        },
+        "Dead": {
+          "type": "boolean"
+        },
+        "Faction": {
+          "type": "string"
+        },
+        "ID": {
+          "type": "integer"
+        },
+        "Name": {
+          "type": "string"
+        },
+        "Rival": {
+          "type": "string"
+        },
+        "Role": {
+          "type": "string"
+        },
+        "Strike": {
+          "type": "boolean"
+        },
+        "Theirs": {
+          "type": "boolean"
+        }
+      },
+      "required": [
+        "Day",
+        "ID",
+        "Name",
+        "Role",
+        "Corner",
+        "CornerName",
+        "City",
+        "Rival",
+        "Faction",
+        "Dead",
+        "Theirs",
+        "Days",
+        "Strike"
+      ],
+      "type": "object"
+    },
+    "events.CrewSkimmed": {
+      "properties": {
+        "Amount": {
+          "type": "integer"
+        },
+        "Day": {
+          "type": "integer"
+        },
+        "FromWash": {
+          "type": "integer"
+        },
+        "Skimmers": {
+          "type": "integer"
+        }
+      },
+      "required": [
+        "Day",
+        "Amount",
+        "Skimmers",
+        "FromWash"
+      ],
+      "type": "object"
+    },
+    "events.CrewTurnedInformant": {
+      "properties": {
+        "Day": {
+          "type": "integer"
+        },
+        "ID": {
+          "type": "integer"
+        },
+        "Name": {
+          "type": "string"
+        }
+      },
+      "required": [
+        "Day",
+        "ID",
+        "Name"
+      ],
+      "type": "object"
+    },
+    "events.DAElected": {
+      "properties": {
+        "Backed": {
+          "type": "boolean"
+        },
+        "Day": {
+          "type": "integer"
+        },
+        "Incumbent": {
+          "type": "boolean"
+        },
+        "Name": {
+          "type": "string"
+        },
+        "Pressure": {
+          "type": "number"
+        },
+        "Stance": {
+          "type": "string"
+        },
+        "Swing": {
+          "type": "number"
+        }
+      },
+      "required": [
+        "Day",
+        "Name",
+        "Stance",
+        "Incumbent",
+        "Pressure",
+        "Swing",
+        "Backed"
+      ],
+      "type": "object"
+    },
+    "events.DayEnded": {
+      "properties": {
+        "Day": {
+          "type": "integer"
+        }
+      },
+      "required": [
+        "Day"
+      ],
+      "type": "object"
+    },
+    "events.DealAccepted": {
+      "properties": {
+        "Day": {
+          "type": "integer"
+        },
+        "Deal": {
+          "type": "string"
+        },
+        "Faction": {
+          "type": "string"
+        },
+        "Offered": {
+          "type": "boolean"
+        },
+        "Rival": {
+          "type": "string"
+        },
+        "Terms": {
+          "type": "string"
+        },
+        "Until": {
+          "type": "integer"
+        }
+      },
+      "required": [
+        "Day",
+        "Rival",
+        "Faction",
+        "Deal",
+        "Terms",
+        "Until",
+        "Offered"
+      ],
+      "type": "object"
+    },
+    "events.DealBroken": {
+      "properties": {
+        "By": {
+          "type": "string"
+        },
+        "Day": {
+          "type": "integer"
+        },
+        "Deal": {
+          "type": "string"
+        },
+        "Faction": {
+          "type": "string"
+        },
+        "Rival": {
+          "type": "string"
+        },
+        "Why": {
+          "type": "string"
+        }
+      },
+      "required": [
+        "Day",
+        "Rival",
+        "Faction",
+        "Deal",
+        "By",
+        "Why"
+      ],
+      "type": "object"
+    },
+    "events.DealEnded": {
+      "properties": {
+        "Day": {
+          "type": "integer"
+        },
+        "Deal": {
+          "type": "string"
+        },
+        "Faction": {
+          "type": "string"
+        },
+        "Rival": {
+          "type": "string"
+        }
+      },
+      "required": [
+        "Day",
+        "Rival",
+        "Faction",
+        "Deal"
+      ],
+      "type": "object"
+    },
+    "events.DealOffered": {
+      "properties": {
+        "Day": {
+          "type": "integer"
+        },
+        "Deal": {
+          "type": "string"
+        },
+        "Expires": {
+          "type": "integer"
+        },
+        "Faction": {
+          "type": "string"
+        },
+        "ID": {
+          "type": "integer"
+        },
+        "Rival": {
+          "type": "string"
+        },
+        "Terms": {
+          "type": "string"
+        }
+      },
+      "required": [
+        "Day",
+        "ID",
+        "Rival",
+        "Faction",
+        "Deal",
+        "Terms",
+        "Expires"
+      ],
+      "type": "object"
+    },
+    "events.DealRefused": {
+      "properties": {
+        "Day": {
+          "type": "integer"
+        },
+        "Deal": {
+          "type": "string"
+        },
+        "Faction": {
+          "type": "string"
+        },
+        "Rival": {
+          "type": "string"
+        },
+        "Terms": {
+          "type": "string"
+        }
+      },
+      "required": [
+        "Day",
+        "Rival",
+        "Faction",
+        "Deal",
+        "Terms"
+      ],
+      "type": "object"
+    },
+    "events.DebtLate": {
+      "properties": {
+        "City": {
+          "type": "string"
+        },
+        "Day": {
+          "type": "integer"
+        },
+        "Due": {
+          "type": "integer"
+        },
+        "Fee": {
+          "type": "integer"
+        },
+        "Left": {
+          "type": "integer"
+        },
+        "Name": {
+          "type": "string"
+        },
+        "Owed": {
+          "type": "integer"
+        },
+        "Paid": {
+          "type": "integer"
+        },
+        "Supplier": {
+          "type": "string"
+        },
+        "Temper": {
+          "type": "string"
+        },
+        "What": {
+          "type": "string"
+        }
+      },
+      "required": [
+        "Day",
+        "City",
+        "Supplier",
+        "Name",
+        "Temper",
+        "Owed",
+        "Paid",
+        "Fee",
+        "Left",
+        "Due",
+        "What"
+      ],
+      "type": "object"
+    },
+    "events.DebtPaid": {
+      "properties": {
+        "Amount": {
+          "type": "integer"
+        },
+        "City": {
+          "type": "string"
+        },
+        "Day": {
+          "type": "integer"
+        },
+        "Name": {
+          "type": "string"
+        },
+        "Supplier": {
+          "type": "string"
+        }
+      },
+      "required": [
+        "Day",
+        "City",
+        "Supplier",
+        "Name",
+        "Amount"
+      ],
+      "type": "object"
+    },
+    "events.DeedBought": {
+      "properties": {
+        "City": {
+          "type": "string"
+        },
+        "Corner": {
+          "type": "string"
+        },
+        "Count": {
+          "type": "integer"
+        },
+        "Day": {
+          "type": "integer"
+        },
+        "Name": {
+          "type": "string"
+        },
+        "Price": {
+          "type": "integer"
+        },
+        "Rent": {
+          "type": "integer"
+        }
+      },
+      "required": [
+        "Day",
+        "Corner",
+        "Name",
+        "City",
+        "Price",
+        "Rent",
+        "Count"
+      ],
+      "type": "object"
+    },
+    "events.DeedRent": {
+      "properties": {
+        "Amount": {
+          "type": "integer"
+        },
+        "Day": {
+          "type": "integer"
+        },
+        "Deeds": {
+          "type": "integer"
+        }
+      },
+      "required": [
+        "Day",
+        "Amount",
+        "Deeds"
+      ],
+      "type": "object"
+    },
+    "events.DeedSeized": {
+      "properties": {
+        "City": {
+          "type": "string"
+        },
+        "Corner": {
+          "type": "string"
+        },
+        "Day": {
+          "type": "integer"
+        },
+        "Limit": {
+          "type": "integer"
+        },
+        "Name": {
+          "type": "string"
+        },
+        "Price": {
+          "type": "integer"
+        },
+        "Spent": {
+          "type": "integer"
+        },
+        "Washed": {
+          "type": "integer"
+        }
+      },
+      "required": [
+        "Day",
+        "Corner",
+        "Name",
+        "City",
+        "Price",
+        "Spent",
+        "Washed",
+        "Limit"
+      ],
+      "type": "object"
+    },
+    "events.DeedsBought": {
+      "properties": {
+        "City": {
+          "type": "string"
+        },
+        "Corner": {
+          "type": "string"
+        },
+        "Count": {
+          "type": "integer"
+        },
+        "Day": {
+          "type": "integer"
+        },
+        "Name": {
+          "type": "string"
+        }
+      },
+      "required": [
+        "Day",
+        "Corner",
+        "Name",
+        "City",
+        "Count"
+      ],
+      "type": "object"
+    },
+    "events.DilemmaAnswered": {
+      "properties": {
+        "Card": {
+          "type": "string"
+        },
+        "Choice": {
+          "type": "string"
+        },
+        "Day": {
+          "type": "integer"
+        }
+      },
+      "required": [
+        "Day",
+        "Card",
+        "Choice"
+      ],
+      "type": "object"
+    },
+    "events.DilemmaDrawn": {
+      "properties": {
+        "Card": {
+          "type": "string"
+        },
+        "Day": {
+          "type": "integer"
+        },
+        "Title": {
+          "type": "string"
+        }
+      },
+      "required": [
+        "Day",
+        "Card",
+        "Title"
+      ],
+      "type": "object"
+    },
+    "events.Enforcement": {
+      "properties": {
+        "CashLost": {
+          "type": "integer"
+        },
+        "City": {
+          "type": "string"
+        },
+        "Corners": {
+          "items": {
+            "type": "string"
+          },
+          "type": "array"
+        },
+        "Day": {
+          "type": "integer"
+        },
+        "Evidence": {
+          "type": "integer"
+        },
+        "House": {
+          "type": "string"
+        },
+        "HouseName": {
+          "type": "string"
+        },
+        "Level": {
+          "type": "string"
+        },
+        "Stash": {
+          "type": "boolean"
+        },
+        "StockLost": {
+          "additionalProperties": {
+            "type": "integer"
+          },
+          "type": "object"
+        }
+      },
+      "required": [
+        "Day",
+        "City",
+        "Level",
+        "StockLost",
+        "CashLost",
+        "Evidence",
+        "Stash",
+        "House",
+        "HouseName",
+        "Corners"
+      ],
+      "type": "object"
+    },
+    "events.FactionPushed": {
+      "properties": {
+        "Against": {
+          "type": "string"
+        },
+        "AgainstRival": {
+          "type": "string"
+        },
+        "City": {
+          "type": "string"
+        },
+        "Corner": {
+          "type": "string"
+        },
+        "Day": {
+          "type": "integer"
+        },
+        "Faction": {
+          "type": "string"
+        },
+        "Heat": {
+          "type": "number"
+        },
+        "Name": {
+          "type": "string"
+        },
+        "Rival": {
+          "type": "string"
+        },
+        "Taken": {
+          "type": "boolean"
+        }
+      },
+      "required": [
+        "Day",
+        "City",
+        "Corner",
+        "Name",
+        "Rival",
+        "Faction",
+        "Against",
+        "AgainstRival",
+        "Taken",
+        "Heat"
+      ],
+      "type": "object"
+    },
+    "events.FallGuyBurned": {
+      "properties": {
+        "CashLost": {
+          "type": "integer"
+        },
+        "Day": {
+          "type": "integer"
+        }
+      },
+      "required": [
+        "Day",
+        "CashLost"
+      ],
+      "type": "object"
+    },
+    "events.FrontAudited": {
+      "properties": {
+        "Day": {
+          "type": "integer"
+        },
+        "Days": {
+          "type": "integer"
+        },
+        "Dial": {
+          "maximum": 2,
+          "minimum": 0,
+          "type": "integer",
+          "x-names": [
+            "careful",
+            "normal",
+            "greedy"
+          ]
+        },
+        "Front": {
+          "type": "string"
+        },
+        "Name": {
+          "type": "string"
+        },
+        "Seized": {
+          "type": "integer"
+        }
+      },
+      "required": [
+        "Day",
+        "Front",
+        "Name",
+        "Dial",
+        "Seized",
+        "Days"
+      ],
+      "type": "object"
+    },
+    "events.FrontBought": {
+      "properties": {
+        "Cost": {
+          "type": "integer"
+        },
+        "Day": {
+          "type": "integer"
+        },
+        "Front": {
+          "type": "string"
+        },
+        "Name": {
+          "type": "string"
+        }
+      },
+      "required": [
+        "Day",
+        "Front",
+        "Name",
+        "Cost"
+      ],
+      "type": "object"
+    },
+    "events.FrontFrozen": {
+      "properties": {
+        "Day": {
+          "type": "integer"
+        },
+        "Days": {
+          "type": "integer"
+        },
+        "Front": {
+          "type": "string"
+        },
+        "Name": {
+          "type": "string"
+        },
+        "Upkeep": {
+          "type": "integer"
+        }
+      },
+      "required": [
+        "Day",
+        "Front",
+        "Name",
+        "Upkeep",
+        "Days"
+      ],
+      "type": "object"
+    },
+    "events.FrontGrew": {
+      "properties": {
+        "Day": {
+          "type": "integer"
+        },
+        "Front": {
+          "type": "string"
+        },
+        "Level": {
+          "type": "integer"
+        },
+        "Name": {
+          "type": "string"
+        }
+      },
+      "required": [
+        "Day",
+        "Front",
+        "Name",
+        "Level"
+      ],
+      "type": "object"
+    },
+    "events.FrontInvested": {
+      "properties": {
+        "Cost": {
+          "type": "integer"
+        },
+        "Day": {
+          "type": "integer"
+        },
+        "Front": {
+          "type": "string"
+        },
+        "Income": {
+          "type": "integer"
+        },
+        "Level": {
+          "type": "integer"
+        },
+        "Levels": {
+          "type": "integer"
+        },
+        "Name": {
+          "type": "string"
+        }
+      },
+      "required": [
+        "Day",
+        "Front",
+        "Name",
+        "Levels",
+        "Level",
+        "Cost",
+        "Income"
+      ],
+      "type": "object"
+    },
+    "events.GameOver": {
+      "properties": {
+        "Cause": {
+          "type": "string"
+        },
+        "Day": {
+          "type": "integer"
+        }
+      },
+      "required": [
+        "Day",
+        "Cause"
+      ],
+      "type": "object"
+    },
+    "events.Headline": {
+      "properties": {
+        "Day": {
+          "type": "integer"
+        },
+        "Source": {
+          "type": "string"
+        },
+        "Text": {
+          "type": "string"
+        }
+      },
+      "required": [
+        "Day",
+        "Source",
+        "Text"
+      ],
+      "type": "object"
+    },
+    "events.HeatChanged": {
+      "properties": {
+        "City": {
+          "type": "string"
+        },
+        "Day": {
+          "type": "integer"
+        },
+        "From": {
+          "type": "number"
+        },
+        "Reasons": {
+          "items": {
+            "type": "string"
+          },
+          "type": "array"
+        },
+        "To": {
+          "type": "number"
+        }
+      },
+      "required": [
+        "Day",
+        "City",
+        "From",
+        "To",
+        "Reasons"
+      ],
+      "type": "object"
+    },
+    "events.HouseBought": {
+      "properties": {
+        "City": {
+          "type": "string"
+        },
+        "Day": {
+          "type": "integer"
+        },
+        "House": {
+          "type": "string"
+        },
+        "Name": {
+          "type": "string"
+        },
+        "Price": {
+          "type": "integer"
+        },
+        "Rent": {
+          "type": "integer"
+        }
+      },
+      "required": [
+        "Day",
+        "House",
+        "Name",
+        "City",
+        "Price",
+        "Rent"
+      ],
+      "type": "object"
+    },
+    "events.HouseCompromised": {
+      "properties": {
+        "City": {
+          "type": "string"
+        },
+        "Day": {
+          "type": "integer"
+        },
+        "House": {
+          "type": "string"
+        },
+        "Name": {
+          "type": "string"
+        },
+        "Why": {
+          "type": "string"
+        }
+      },
+      "required": [
+        "Day",
+        "House",
+        "Name",
+        "City",
+        "Why"
+      ],
+      "type": "object"
+    },
+    "events.HouseLost": {
+      "properties": {
+        "City": {
+          "type": "string"
+        },
+        "Day": {
+          "type": "integer"
+        },
+        "House": {
+          "type": "string"
+        },
+        "Name": {
+          "type": "string"
+        },
+        "Units": {
+          "type": "integer"
+        }
+      },
+      "required": [
+        "Day",
+        "House",
+        "Name",
+        "City",
+        "Units"
+      ],
+      "type": "object"
+    },
+    "events.HouseRaided": {
+      "properties": {
+        "City": {
+          "type": "string"
+        },
+        "Day": {
+          "type": "integer"
+        },
+        "House": {
+          "type": "string"
+        },
+        "Level": {
+          "type": "string"
+        },
+        "Name": {
+          "type": "string"
+        },
+        "StockLost": {
+          "additionalProperties": {
+            "type": "integer"
+          },
+          "type": "object"
+        },
+        "Whole": {
+          "type": "boolean"
+        }
+      },
+      "required": [
+        "Day",
+        "House",
+        "Name",
+        "City",
+        "Level",
+        "Whole",
+        "StockLost"
+      ],
+      "type": "object"
+    },
+    "events.HouseRobbed": {
+      "properties": {
+        "City": {
+          "type": "string"
+        },
+        "Corner": {
+          "type": "string"
+        },
+        "Day": {
+          "type": "integer"
+        },
+        "Guarded": {
+          "type": "boolean"
+        },
+        "House": {
+          "type": "string"
+        },
+        "Name": {
+          "type": "string"
+        },
+        "StockLost": {
+          "additionalProperties": {
+            "type": "integer"
+          },
+          "type": "object"
+        }
+      },
+      "required": [
+        "Day",
+        "House",
+        "Name",
+        "City",
+        "Corner",
+        "Guarded",
+        "StockLost"
+      ],
+      "type": "object"
+    },
+    "events.Incident": {
+      "properties": {
+        "Chief": {
+          "type": "string"
+        },
+        "City": {
+          "type": "string"
+        },
+        "DA": {
+          "type": "string"
+        },
+        "Day": {
+          "type": "integer"
+        },
+        "Days": {
+          "type": "integer"
+        },
+        "Election": {
+          "type": "integer"
+        },
+        "ID": {
+          "type": "string"
+        },
+        "LeaderKilled": {
+          "type": "boolean"
+        },
+        "Name": {
+          "type": "string"
+        },
+        "NewChief": {
+          "type": "boolean"
+        },
+        "Person": {
+          "type": "string"
+        },
+        "Product": {
+          "type": "string"
+        },
+        "Route": {
+          "type": "string"
+        }
+      },
+      "required": [
+        "Day",
+        "ID",
+        "Name",
+        "City",
+        "Route",
+        "Product",
+        "Person",
+        "Days",
+        "Chief",
+        "DA",
+        "NewChief",
+        "Election",
+        "LeaderKilled"
+      ],
+      "type": "object"
+    },
+    "events.IntelFalse": {
+      "properties": {
+        "Day": {
+          "type": "integer"
+        },
+        "FactKind": {
+          "type": "string"
+        },
+        "Faction": {
+          "type": "string"
+        },
+        "Name": {
+          "type": "string"
+        },
+        "Rival": {
+          "type": "string"
+        },
+        "Subject": {
+          "type": "string"
+        }
+      },
+      "required": [
+        "Day",
+        "Subject",
+        "FactKind",
+        "Name",
+        "Rival",
+        "Faction"
+      ],
+      "type": "object"
+    },
+    "events.IntelGained": {
+      "properties": {
+        "Confidence": {
+          "type": "number"
+        },
+        "Day": {
+          "type": "integer"
+        },
+        "FactKind": {
+          "type": "string"
+        },
+        "Name": {
+          "type": "string"
+        },
+        "Source": {
+          "type": "string"
+        },
+        "Subject": {
+          "type": "string"
+        },
+        "Value": {
+          "type": "string"
+        }
+      },
+      "required": [
+        "Day",
+        "Subject",
+        "FactKind",
+        "Value",
+        "Confidence",
+        "Source",
+        "Name"
+      ],
+      "type": "object"
+    },
+    "events.InvestigationRun": {
+      "properties": {
+        "Cost": {
+          "type": "integer"
+        },
+        "Day": {
+          "type": "integer"
+        },
+        "Found": {
+          "type": "boolean"
+        },
+        "Name": {
+          "type": "string"
+        }
+      },
+      "required": [
+        "Day",
+        "Cost",
+        "Found",
+        "Name"
+      ],
+      "type": "object"
+    },
+    "events.KinLooking": {
+      "properties": {
+        "Day": {
+          "type": "integer"
+        },
+        "Fee": {
+          "type": "integer"
+        },
+        "Name": {
+          "type": "string"
+        },
+        "Of": {
+          "type": "string"
+        },
+        "Role": {
+          "type": "string"
+        }
+      },
+      "required": [
+        "Day",
+        "Name",
+        "Role",
+        "Of",
+        "Fee"
+      ],
+      "type": "object"
+    },
+    "events.LaidLow": {
+      "properties": {
+        "Day": {
+          "type": "integer"
+        }
+      },
+      "required": [
+        "Day"
+      ],
+      "type": "object"
+    },
+    "events.LeadFound": {
+      "properties": {
+        "Case": {
+          "type": "integer"
+        },
+        "Day": {
+          "type": "integer"
+        },
+        "Leads": {
+          "type": "integer"
+        }
+      },
+      "required": [
+        "Day",
+        "Leads",
+        "Case"
+      ],
+      "type": "object"
+    },
+    "events.LeadsFiled": {
+      "properties": {
+        "Day": {
+          "type": "integer"
+        },
+        "Evidence": {
+          "type": "integer"
+        },
+        "Leads": {
+          "type": "integer"
+        }
+      },
+      "required": [
+        "Day",
+        "Leads",
+        "Evidence"
+      ],
+      "type": "object"
+    },
+    "events.LieutenantActed": {
+      "properties": {
+        "Bought": {
+          "items": {
+            "$ref": "#/$defs/events.Bought"
+          },
+          "type": "array"
+        },
+        "City": {
+          "type": "string"
+        },
+        "CityName": {
+          "type": "string"
+        },
+        "Contracts": {
+          "type": "integer"
+        },
+        "Cut": {
+          "type": "integer"
+        },
+        "Day": {
+          "type": "integer"
+        },
+        "Dial": {
+          "maximum": 2,
+          "minimum": 0,
+          "type": "integer",
+          "x-names": [
+            "quiet",
+            "normal",
+            "aggressive"
+          ]
+        },
+        "Dropped": {
+          "items": {
+            "type": "string"
+          },
+          "type": "array"
+        },
+        "Guarded": {
+          "items": {
+            "type": "string"
+          },
+          "type": "array"
+        },
+        "ID": {
+          "type": "integer"
+        },
+        "Name": {
+          "type": "string"
+        },
+        "Orders": {
+          "type": "integer"
+        },
+        "Personality": {
+          "type": "string"
+        },
+        "Posted": {
+          "items": {
+            "type": "string"
+          },
+          "type": "array"
+        },
+        "Revealed": {
+          "type": "boolean"
+        },
+        "Revenue": {
+          "type": "integer"
+        },
+        "Skimmed": {
+          "type": "integer"
+        }
+      },
+      "required": [
+        "Day",
+        "ID",
+        "Name",
+        "City",
+        "CityName",
+        "Personality",
+        "Revealed",
+        "Dial",
+        "Posted",
+        "Guarded",
+        "Dropped",
+        "Orders",
+        "Revenue",
+        "Cut",
+        "Skimmed",
+        "Bought",
+        "Contracts"
+      ],
+      "type": "object"
+    },
+    "events.LieutenantFlipped": {
+      "properties": {
+        "City": {
+          "type": "string"
+        },
+        "Day": {
+          "type": "integer"
+        },
+        "ID": {
+          "type": "integer"
+        },
+        "Name": {
+          "type": "string"
+        }
+      },
+      "required": [
+        "Day",
+        "ID",
+        "Name",
+        "City"
+      ],
+      "type": "object"
+    },
+    "events.LieutenantWalked": {
+      "properties": {
+        "City": {
+          "type": "string"
+        },
+        "CityName": {
+          "type": "string"
+        },
+        "Corners": {
+          "items": {
+            "type": "string"
+          },
+          "type": "array"
+        },
+        "Day": {
+          "type": "integer"
+        },
+        "Faction": {
+          "type": "string"
+        },
+        "ID": {
+          "type": "integer"
+        },
+        "Name": {
+          "type": "string"
+        },
+        "Rival": {
+          "type": "string"
+        },
+        "Units": {
+          "type": "integer"
+        }
+      },
+      "required": [
+        "Day",
+        "ID",
+        "Name",
+        "City",
+        "CityName",
+        "Corners",
+        "Units",
+        "Rival",
+        "Faction"
+      ],
+      "type": "object"
+    },
+    "events.OfficialsCold": {
+      "properties": {
+        "Bought": {
+          "type": "boolean"
+        },
+        "Chief": {
+          "type": "boolean"
+        },
+        "DA": {
+          "type": "string"
+        },
+        "Day": {
+          "type": "integer"
+        },
+        "Routes": {
+          "items": {
+            "type": "string"
+          },
+          "type": "array"
+        }
+      },
+      "required": [
+        "Day",
+        "DA",
+        "Chief",
+        "Bought",
+        "Routes"
+      ],
+      "type": "object"
+    },
+    "events.Overdose": {
+      "properties": {
+        "City": {
+          "type": "string"
+        },
+        "Corner": {
+          "type": "string"
+        },
+        "CornerName": {
+          "type": "string"
+        },
+        "Day": {
+          "type": "integer"
+        },
+        "Product": {
+          "type": "string"
+        },
+        "Quality": {
+          "type": "number"
+        }
+      },
+      "required": [
+        "Day",
+        "City",
+        "Corner",
+        "CornerName",
+        "Product",
+        "Quality"
+      ],
+      "type": "object"
+    },
+    "events.PlayerSold": {
+      "properties": {
+        "AvgPrice": {
+          "type": "number"
+        },
+        "City": {
+          "type": "string"
+        },
+        "Cut": {
+          "type": "integer"
+        },
+        "Day": {
+          "type": "integer"
+        },
+        "Delegated": {
+          "type": "boolean"
+        },
+        "Dial": {
+          "maximum": 2,
+          "minimum": 0,
+          "type": "integer",
+          "x-names": [
+            "quiet",
+            "normal",
+            "aggressive"
+          ]
+        },
+        "Lieutenant": {
+          "type": "integer"
+        },
+        "LieutenantName": {
+          "type": "string"
+        },
+        "Product": {
+          "type": "string"
+        },
+        "Quality": {
+          "type": "number"
+        },
+        "QualityMul": {
+          "type": "number"
+        },
+        "Revenue": {
+          "type": "integer"
+        },
+        "Sold": {
+          "type": "integer"
+        },
+        "Standing": {
+          "type": "boolean"
+        },
+        "Undercut": {
+          "type": "integer"
+        },
+        "UndercutRevenue": {
+          "type": "integer"
+        },
+        "Wanted": {
+          "type": "integer"
+        }
+      },
+      "required": [
+        "Day",
+        "City",
+        "Product",
+        "Wanted",
+        "Sold",
+        "Dial",
+        "AvgPrice",
+        "Revenue",
+        "Lieutenant",
+        "LieutenantName",
+        "Standing",
+        "Delegated",
+        "Cut",
+        "Undercut",
+        "UndercutRevenue",
+        "Quality",
+        "QualityMul"
+      ],
+      "type": "object"
+    },
+    "events.PlayerUndercut": {
+      "properties": {
+        "Corner": {
+          "type": "string"
+        },
+        "Day": {
+          "type": "integer"
+        },
+        "Dial": {
+          "maximum": 2,
+          "minimum": 0,
+          "type": "integer",
+          "x-names": [
+            "quiet",
+            "normal",
+            "aggressive"
+          ]
+        },
+        "Name": {
+          "type": "string"
+        },
+        "Product": {
+          "type": "string"
+        },
+        "Revenue": {
+          "type": "integer"
+        },
+        "Share": {
+          "type": "number"
+        },
+        "Units": {
+          "type": "integer"
+        }
+      },
+      "required": [
+        "Day",
+        "Corner",
+        "Name",
+        "Product",
+        "Units",
+        "Share",
+        "Revenue",
+        "Dial"
+      ],
+      "type": "object"
+    },
+    "events.PoliceTipped": {
+      "properties": {
+        "Betrayal": {
+          "type": "boolean"
+        },
+        "Corner": {
+          "type": "string"
+        },
+        "Day": {
+          "type": "integer"
+        },
+        "Faction": {
+          "type": "string"
+        },
+        "Name": {
+          "type": "string"
+        },
+        "Rival": {
+          "type": "string"
+        },
+        "RivalHeat": {
+          "type": "number"
+        }
+      },
+      "required": [
+        "Day",
+        "Corner",
+        "Name",
+        "Rival",
+        "Faction",
+        "RivalHeat",
+        "Betrayal"
+      ],
+      "type": "object"
+    },
+    "events.PressureShifted": {
+      "properties": {
+        "City": {
+          "type": "string"
+        },
+        "Day": {
+          "type": "integer"
+        },
+        "From": {
+          "type": "number"
+        },
+        "To": {
+          "type": "number"
+        }
+      },
+      "required": [
+        "Day",
+        "City",
+        "From",
+        "To"
+      ],
+      "type": "object"
+    },
+    "events.PriceMove": {
+      "properties": {
+        "City": {
+          "type": "string"
+        },
+        "Day": {
+          "type": "integer"
+        },
+        "From": {
+          "type": "number"
+        },
+        "Product": {
+          "type": "string"
+        },
+        "To": {
+          "type": "number"
+        }
+      },
+      "required": [
+        "Day",
+        "City",
+        "Product",
+        "From",
+        "To"
+      ],
+      "type": "object"
+    },
+    "events.PriceShock": {
+      "properties": {
+        "City": {
+          "type": "string"
+        },
+        "Day": {
+          "type": "integer"
+        },
+        "Days": {
+          "type": "integer"
+        },
+        "Factor": {
+          "type": "number"
+        },
+        "Product": {
+          "type": "string"
+        },
+        "Seized": {
+          "type": "boolean"
+        },
+        "Slump": {
+          "type": "boolean"
+        }
+      },
+      "required": [
+        "Day",
+        "City",
+        "Product",
+        "Factor",
+        "Days",
+        "Slump",
+        "Seized"
+      ],
+      "type": "object"
+    },
+    "events.RaidFellThrough": {
+      "properties": {
+        "City": {
+          "type": "string"
+        },
+        "Day": {
+          "type": "integer"
+        },
+        "Evidence": {
+          "type": "integer"
+        },
+        "Level": {
+          "type": "string"
+        }
+      },
+      "required": [
+        "Day",
+        "City",
+        "Level",
+        "Evidence"
+      ],
+      "type": "object"
+    },
+    "events.ReignBegan": {
+      "properties": {
+        "City": {
+          "type": "string"
+        },
+        "Crews": {
+          "type": "integer"
+        },
+        "Day": {
+          "type": "integer"
+        },
+        "Homage": {
+          "type": "integer"
+        }
+      },
+      "required": [
+        "Day",
+        "City",
+        "Crews",
+        "Homage"
+      ],
+      "type": "object"
+    },
+    "events.ReignBroken": {
+      "properties": {
+        "City": {
+          "type": "string"
+        },
+        "Day": {
+          "type": "integer"
+        },
+        "Why": {
+          "type": "string"
+        }
+      },
+      "required": [
+        "Day",
+        "City",
+        "Why"
+      ],
+      "type": "object"
+    },
+    "events.RentPaid": {
+      "properties": {
+        "Amount": {
+          "type": "integer"
+        },
+        "Day": {
+          "type": "integer"
+        },
+        "Houses": {
+          "type": "integer"
+        },
+        "Unpaid": {
+          "items": {
+            "type": "string"
+          },
+          "type": "array"
+        }
+      },
+      "required": [
+        "Day",
+        "Amount",
+        "Houses",
+        "Unpaid"
+      ],
+      "type": "object"
+    },
+    "events.ReputationShifted": {
+      "properties": {
+        "Axis": {
+          "type": "string"
+        },
+        "Day": {
+          "type": "integer"
+        },
+        "From": {
+          "type": "number"
+        },
+        "To": {
+          "type": "number"
+        }
+      },
+      "required": [
+        "Day",
+        "Axis",
+        "From",
+        "To"
+      ],
+      "type": "object"
+    },
+    "events.Reserved": {
+      "properties": {
+        "Amount": {
+          "type": "integer"
+        },
+        "Day": {
+          "type": "integer"
+        },
+        "Fee": {
+          "type": "integer"
+        },
+        "Lots": {
+          "type": "integer"
+        }
+      },
+      "required": [
+        "Day",
+        "Amount",
+        "Fee",
+        "Lots"
+      ],
+      "type": "object"
+    },
+    "events.RivalAbandoned": {
+      "properties": {
+        "Corner": {
+          "type": "string"
+        },
+        "Day": {
+          "type": "integer"
+        },
+        "Faction": {
+          "type": "string"
+        },
+        "Name": {
+          "type": "string"
+        },
+        "Reason": {
+          "type": "string"
+        },
+        "Rival": {
+          "type": "string"
+        }
+      },
+      "required": [
+        "Day",
+        "Rival",
+        "Faction",
+        "Corner",
+        "Name",
+        "Reason"
+      ],
+      "type": "object"
+    },
+    "events.RivalAbsorbed": {
+      "properties": {
+        "By": {
+          "type": "string"
+        },
+        "ByFaction": {
+          "type": "string"
+        },
+        "Day": {
+          "type": "integer"
+        },
+        "Faction": {
+          "type": "string"
+        },
+        "Muscle": {
+          "type": "integer"
+        },
+        "Rival": {
+          "type": "string"
+        }
+      },
+      "required": [
+        "Day",
+        "Rival",
+        "Faction",
+        "By",
+        "ByFaction",
+        "Muscle"
+      ],
+      "type": "object"
+    },
+    "events.RivalBoosted": {
+      "properties": {
+        "Cash": {
+          "type": "integer"
+        },
+        "Corner": {
+          "type": "string"
+        },
+        "Day": {
+          "type": "integer"
+        },
+        "Faction": {
+          "type": "string"
+        },
+        "Force": {
+          "maximum": 2,
+          "minimum": 0,
+          "type": "integer",
+          "x-names": [
+            "warn",
+            "push",
+            "hit"
+          ]
+        },
+        "Heat": {
+          "type": "number"
+        },
+        "Hurt": {
+          "type": "integer"
+        },
+        "Name": {
+          "type": "string"
+        },
+        "Rival": {
+          "type": "string"
+        },
+        "Taken": {
+          "type": "boolean"
+        },
+        "Toll": {
+          "type": "number"
+        }
+      },
+      "required": [
+        "Day",
+        "Corner",
+        "Name",
+        "Rival",
+        "Faction",
+        "Force",
+        "Taken",
+        "Cash",
+        "Heat",
+        "Toll",
+        "Hurt"
+      ],
+      "type": "object"
+    },
+    "events.RivalEyeing": {
+      "properties": {
+        "Corner": {
+          "type": "string"
+        },
+        "Day": {
+          "type": "integer"
+        },
+        "Faction": {
+          "type": "string"
+        },
+        "Name": {
+          "type": "string"
+        },
+        "Rival": {
+          "type": "string"
+        }
+      },
+      "required": [
+        "Day",
+        "Rival",
+        "Faction",
+        "Corner",
+        "Name"
+      ],
+      "type": "object"
+    },
+    "events.RivalLeaderArrested": {
+      "properties": {
+        "City": {
+          "type": "string"
+        },
+        "Corners": {
+          "type": "integer"
+        },
+        "Day": {
+          "type": "integer"
+        },
+        "Faction": {
+          "type": "string"
+        },
+        "Killed": {
+          "type": "boolean"
+        },
+        "Muscle": {
+          "type": "integer"
+        },
+        "Rival": {
+          "type": "string"
+        }
+      },
+      "required": [
+        "Day",
+        "Rival",
+        "Faction",
+        "City",
+        "Corners",
+        "Muscle",
+        "Killed"
+      ],
+      "type": "object"
+    },
+    "events.RivalMovedIn": {
+      "properties": {
+        "Corner": {
+          "type": "string"
+        },
+        "Day": {
+          "type": "integer"
+        },
+        "Faction": {
+          "type": "string"
+        },
+        "Name": {
+          "type": "string"
+        },
+        "Rival": {
+          "type": "string"
+        }
+      },
+      "required": [
+        "Day",
+        "Rival",
+        "Faction",
+        "Corner",
+        "Name"
+      ],
+      "type": "object"
+    },
+    "events.RivalMusclePoached": {
+      "properties": {
+        "Cost": {
+          "type": "integer"
+        },
+        "Day": {
+          "type": "integer"
+        },
+        "Faction": {
+          "type": "string"
+        },
+        "Failed": {
+          "type": "boolean"
+        },
+        "Got": {
+          "type": "integer"
+        },
+        "Refund": {
+          "type": "integer"
+        },
+        "Rival": {
+          "type": "string"
+        },
+        "Wanted": {
+          "type": "integer"
+        }
+      },
+      "required": [
+        "Day",
+        "Rival",
+        "Faction",
+        "Wanted",
+        "Got",
+        "Cost",
+        "Refund",
+        "Failed"
+      ],
+      "type": "object"
+    },
+    "events.RivalOutbid": {
+      "properties": {
+        "Corner": {
+          "type": "string"
+        },
+        "Day": {
+          "type": "integer"
+        },
+        "Faction": {
+          "type": "string"
+        },
+        "Name": {
+          "type": "string"
+        },
+        "Rival": {
+          "type": "string"
+        }
+      },
+      "required": [
+        "Day",
+        "Rival",
+        "Faction",
+        "Corner",
+        "Name"
+      ],
+      "type": "object"
+    },
+    "events.RivalPushed": {
+      "properties": {
+        "Corner": {
+          "type": "string"
+        },
+        "Day": {
+          "type": "integer"
+        },
+        "Faction": {
+          "type": "string"
+        },
+        "Name": {
+          "type": "string"
+        },
+        "Pricewar": {
+          "type": "boolean"
+        },
+        "Rival": {
+          "type": "string"
+        }
+      },
+      "required": [
+        "Day",
+        "Corner",
+        "Name",
+        "Rival",
+        "Faction",
+        "Pricewar"
+      ],
+      "type": "object"
+    },
+    "events.RivalRaided": {
+      "properties": {
+        "Corner": {
+          "type": "string"
+        },
+        "Day": {
+          "type": "integer"
+        },
+        "Faction": {
+          "type": "string"
+        },
+        "Muscle": {
+          "type": "integer"
+        },
+        "Name": {
+          "type": "string"
+        },
+        "Rival": {
+          "type": "string"
+        }
+      },
+      "required": [
+        "Day",
+        "Corner",
+        "Name",
+        "Rival",
+        "Faction",
+        "Muscle"
+      ],
+      "type": "object"
+    },
+    "events.RivalScouted": {
+      "properties": {
+        "Cash": {
+          "type": "integer"
+        },
+        "Cost": {
+          "type": "integer"
+        },
+        "Day": {
+          "type": "integer"
+        },
+        "Faction": {
+          "type": "string"
+        },
+        "Income": {
+          "type": "integer"
+        },
+        "Muscle": {
+          "type": "integer"
+        },
+        "Read": {
+          "type": "boolean"
+        },
+        "Rival": {
+          "type": "string"
+        },
+        "Wages": {
+          "type": "integer"
+        }
+      },
+      "required": [
+        "Day",
+        "Cost",
+        "Read",
+        "Rival",
+        "Faction",
+        "Cash",
+        "Income",
+        "Muscle",
+        "Wages"
+      ],
+      "type": "object"
+    },
+    "events.RivalTippedPolice": {
+      "properties": {
+        "Day": {
+          "type": "integer"
+        },
+        "Faction": {
+          "type": "string"
+        },
+        "Heat": {
+          "type": "number"
+        },
+        "Rival": {
+          "type": "string"
+        }
+      },
+      "required": [
+        "Day",
+        "Rival",
+        "Faction",
+        "Heat"
+      ],
+      "type": "object"
+    },
+    "events.RivalUndercut": {
+      "properties": {
+        "Corners": {
+          "items": {
+            "type": "string"
+          },
+          "type": "array"
+        },
+        "Day": {
+          "type": "integer"
+        },
+        "Faction": {
+          "type": "string"
+        },
+        "Rival": {
+          "type": "string"
+        },
+        "Share": {
+          "type": "number"
+        }
+      },
+      "required": [
+        "Day",
+        "Rival",
+        "Faction",
+        "Corners",
+        "Share"
+      ],
+      "type": "object"
+    },
+    "events.ShipmentArrived": {
+      "properties": {
+        "Day": {
+          "type": "integer"
+        },
+        "From": {
+          "type": "string"
+        },
+        "ID": {
+          "type": "integer"
+        },
+        "Mode": {
+          "type": "string"
+        },
+        "Product": {
+          "type": "string"
+        },
+        "Route": {
+          "type": "string"
+        },
+        "To": {
+          "type": "string"
+        },
+        "Units": {
+          "type": "integer"
+        }
+      },
+      "required": [
+        "Day",
+        "ID",
+        "Route",
+        "Mode",
+        "From",
+        "To",
+        "Product",
+        "Units"
+      ],
+      "type": "object"
+    },
+    "events.ShipmentSeized": {
+      "properties": {
+        "Day": {
+          "type": "integer"
+        },
+        "Dial": {
+          "maximum": 2,
+          "minimum": 0,
+          "type": "integer",
+          "x-names": [
+            "slow",
+            "normal",
+            "fast"
+          ]
+        },
+        "Driver": {
+          "type": "integer"
+        },
+        "DriverName": {
+          "type": "string"
+        },
+        "From": {
+          "type": "string"
+        },
+        "ID": {
+          "type": "integer"
+        },
+        "Mode": {
+          "type": "string"
+        },
+        "Product": {
+          "type": "string"
+        },
+        "Route": {
+          "type": "string"
+        },
+        "To": {
+          "type": "string"
+        },
+        "Units": {
+          "type": "integer"
+        }
+      },
+      "required": [
+        "Day",
+        "ID",
+        "Route",
+        "Mode",
+        "From",
+        "To",
+        "Product",
+        "Units",
+        "Dial",
+        "Driver",
+        "DriverName"
+      ],
+      "type": "object"
+    },
+    "events.ShipmentSent": {
+      "properties": {
+        "Cost": {
+          "type": "integer"
+        },
+        "Day": {
+          "type": "integer"
+        },
+        "Days": {
+          "type": "integer"
+        },
+        "Dial": {
+          "maximum": 2,
+          "minimum": 0,
+          "type": "integer",
+          "x-names": [
+            "slow",
+            "normal",
+            "fast"
+          ]
+        },
+        "Driver": {
+          "type": "integer"
+        },
+        "From": {
+          "type": "string"
+        },
+        "ID": {
+          "type": "integer"
+        },
+        "Mode": {
+          "type": "string"
+        },
+        "Name": {
+          "type": "string"
+        },
+        "Product": {
+          "type": "string"
+        },
+        "Route": {
+          "type": "string"
+        },
+        "To": {
+          "type": "string"
+        },
+        "Units": {
+          "type": "integer"
+        }
+      },
+      "required": [
+        "Day",
+        "ID",
+        "Route",
+        "Name",
+        "Mode",
+        "From",
+        "To",
+        "Product",
+        "Units",
+        "Cost",
+        "Dial",
+        "Days",
+        "Driver"
+      ],
+      "type": "object"
+    },
+    "events.SpyFound": {
+      "properties": {
+        "Day": {
+          "type": "integer"
+        },
+        "Dead": {
+          "type": "boolean"
+        },
+        "Faction": {
+          "type": "string"
+        },
+        "ID": {
+          "type": "integer"
+        },
+        "Name": {
+          "type": "string"
+        },
+        "Reports": {
+          "type": "integer"
+        },
+        "Rival": {
+          "type": "string"
+        },
+        "Role": {
+          "type": "string"
+        },
+        "Why": {
+          "type": "string"
+        }
+      },
+      "required": [
+        "Day",
+        "ID",
+        "Name",
+        "Role",
+        "Rival",
+        "Faction",
+        "Dead",
+        "Why",
+        "Reports"
+      ],
+      "type": "object"
+    },
+    "events.SpyPlanted": {
+      "properties": {
+        "Day": {
+          "type": "integer"
+        },
+        "Faction": {
+          "type": "string"
+        },
+        "ID": {
+          "type": "integer"
+        },
+        "Name": {
+          "type": "string"
+        },
+        "Rival": {
+          "type": "string"
+        },
+        "Role": {
+          "type": "string"
+        }
+      },
+      "required": [
+        "Day",
+        "ID",
+        "Name",
+        "Role",
+        "Rival",
+        "Faction"
+      ],
+      "type": "object"
+    },
+    "events.StandingShort": {
+      "properties": {
+        "City": {
+          "type": "string"
+        },
+        "Day": {
+          "type": "integer"
+        },
+        "Product": {
+          "type": "string"
+        },
+        "Stock": {
+          "type": "integer"
+        },
+        "Units": {
+          "type": "integer"
+        }
+      },
+      "required": [
+        "Day",
+        "City",
+        "Product",
+        "Units",
+        "Stock"
+      ],
+      "type": "object"
+    },
+    "events.StockCut": {
+      "properties": {
+        "Added": {
+          "type": "integer"
+        },
+        "Chemist": {
+          "type": "string"
+        },
+        "City": {
+          "type": "string"
+        },
+        "Cost": {
+          "type": "integer"
+        },
+        "Day": {
+          "type": "integer"
+        },
+        "From": {
+          "type": "number"
+        },
+        "Product": {
+          "type": "string"
+        },
+        "To": {
+          "type": "number"
+        },
+        "Units": {
+          "type": "integer"
+        }
+      },
+      "required": [
+        "Day",
+        "City",
+        "Product",
+        "Units",
+        "Added",
+        "From",
+        "To",
+        "Cost",
+        "Chemist"
+      ],
+      "type": "object"
+    },
+    "events.StockMoved": {
+      "properties": {
+        "City": {
+          "type": "string"
+        },
+        "Day": {
+          "type": "integer"
+        },
+        "From": {
+          "type": "string"
+        },
+        "Product": {
+          "type": "string"
+        },
+        "To": {
+          "type": "string"
+        },
+        "Units": {
+          "type": "integer"
+        }
+      },
+      "required": [
+        "Day",
+        "City",
+        "From",
+        "To",
+        "Product",
+        "Units"
+      ],
+      "type": "object"
+    },
+    "events.SupplierBought": {
+      "properties": {
+        "City": {
+          "type": "string"
+        },
+        "Cost": {
+          "type": "integer"
+        },
+        "Credit": {
+          "type": "boolean"
+        },
+        "Day": {
+          "type": "integer"
+        },
+        "Name": {
+          "type": "string"
+        },
+        "Price": {
+          "type": "number"
+        },
+        "Product": {
+          "type": "string"
+        },
+        "SmallLot": {
+          "type": "boolean"
+        },
+        "Supplier": {
+          "type": "string"
+        },
+        "Units": {
+          "type": "integer"
+        }
+      },
+      "required": [
+        "Day",
+        "City",
+        "Supplier",
+        "Name",
+        "Product",
+        "Units",
+        "Price",
+        "Cost",
+        "Credit",
+        "SmallLot"
+      ],
+      "type": "object"
+    },
+    "events.SupplierCollected": {
+      "properties": {
+        "City": {
+          "type": "string"
+        },
+        "Day": {
+          "type": "integer"
+        },
+        "Hurt": {
+          "type": "boolean"
+        },
+        "Loyalty": {
+          "type": "number"
+        },
+        "Member": {
+          "type": "integer"
+        },
+        "MemberName": {
+          "type": "string"
+        },
+        "Name": {
+          "type": "string"
+        },
+        "Owed": {
+          "type": "integer"
+        },
+        "Product": {
+          "type": "string"
+        },
+        "Supplier": {
+          "type": "string"
+        },
+        "Units": {
+          "type": "integer"
+        }
+      },
+      "required": [
+        "Day",
+        "City",
+        "Supplier",
+        "Name",
+        "Owed",
+        "Member",
+        "MemberName",
+        "Loyalty",
+        "Hurt",
+        "Units",
+        "Product"
+      ],
+      "type": "object"
+    },
+    "events.SupplierFrozen": {
+      "properties": {
+        "City": {
+          "type": "string"
+        },
+        "Day": {
+          "type": "integer"
+        },
+        "Days": {
+          "type": "integer"
+        },
+        "Name": {
+          "type": "string"
+        },
+        "Supplier": {
+          "type": "string"
+        },
+        "Why": {
+          "type": "string"
+        }
+      },
+      "required": [
+        "Day",
+        "City",
+        "Supplier",
+        "Name",
+        "Days",
+        "Why"
+      ],
+      "type": "object"
+    },
+    "events.SupplierWarned": {
+      "properties": {
+        "City": {
+          "type": "string"
+        },
+        "Day": {
+          "type": "integer"
+        },
+        "Name": {
+          "type": "string"
+        },
+        "Product": {
+          "type": "string"
+        },
+        "Slump": {
+          "type": "boolean"
+        },
+        "Supplier": {
+          "type": "string"
+        }
+      },
+      "required": [
+        "Day",
+        "City",
+        "Supplier",
+        "Name",
+        "Product",
+        "Slump"
+      ],
+      "type": "object"
+    },
+    "events.SupplyBought": {
+      "properties": {
+        "City": {
+          "type": "string"
+        },
+        "Cost": {
+          "type": "integer"
+        },
+        "Day": {
+          "type": "integer"
+        },
+        "Level": {
+          "type": "integer"
+        },
+        "Lieutenant": {
+          "type": "string"
+        },
+        "Price": {
+          "type": "number"
+        },
+        "Product": {
+          "type": "string"
+        },
+        "Supplier": {
+          "type": "string"
+        },
+        "Units": {
+          "type": "integer"
+        }
+      },
+      "required": [
+        "Day",
+        "City",
+        "Product",
+        "Units",
+        "Level",
+        "Price",
+        "Cost",
+        "Supplier",
+        "Lieutenant"
+      ],
+      "type": "object"
+    },
+    "events.SupplyShort": {
+      "properties": {
+        "City": {
+          "type": "string"
+        },
+        "Day": {
+          "type": "integer"
+        },
+        "Lieutenant": {
+          "type": "string"
+        },
+        "Product": {
+          "type": "string"
+        },
+        "Short": {
+          "type": "integer"
+        },
+        "Units": {
+          "type": "integer"
+        },
+        "Why": {
+          "type": "string"
+        }
+      },
+      "required": [
+        "Day",
+        "City",
+        "Product",
+        "Units",
+        "Short",
+        "Why",
+        "Lieutenant"
+      ],
+      "type": "object"
+    },
+    "events.TaskForceFormed": {
+      "properties": {
+        "Assets": {
+          "type": "integer"
+        },
+        "City": {
+          "type": "string"
+        },
+        "Day": {
+          "type": "integer"
+        }
+      },
+      "required": [
+        "Day",
+        "City",
+        "Assets"
+      ],
+      "type": "object"
+    },
+    "events.Taxed": {
+      "properties": {
+        "Amount": {
+          "type": "integer"
+        },
+        "City": {
+          "type": "string"
+        },
+        "Corners": {
+          "type": "integer"
+        },
+        "Day": {
+          "type": "integer"
+        }
+      },
+      "required": [
+        "Day",
+        "City",
+        "Corners",
+        "Amount"
+      ],
+      "type": "object"
+    },
+    "events.TierReached": {
+      "properties": {
+        "Day": {
+          "type": "integer"
+        },
+        "Name": {
+          "type": "string"
+        },
+        "Tier": {
+          "type": "integer"
+        }
+      },
+      "required": [
+        "Day",
+        "Tier",
+        "Name"
+      ],
+      "type": "object"
+    },
+    "events.TributePaid": {
+      "properties": {
+        "Amount": {
+          "type": "integer"
+        },
+        "Day": {
+          "type": "integer"
+        },
+        "Faction": {
+          "type": "string"
+        },
+        "Rival": {
+          "type": "string"
+        },
+        "ToYou": {
+          "type": "boolean"
+        }
+      },
+      "required": [
+        "Day",
+        "Rival",
+        "Faction",
+        "Amount",
+        "ToYou"
+      ],
+      "type": "object"
+    },
+    "events.TrustSpread": {
+      "properties": {
+        "Day": {
+          "type": "integer"
+        },
+        "Faction": {
+          "type": "string"
+        },
+        "Others": {
+          "type": "integer"
+        },
+        "Rival": {
+          "type": "string"
+        },
+        "Spread": {
+          "type": "number"
+        }
+      },
+      "required": [
+        "Day",
+        "Rival",
+        "Faction",
+        "Spread",
+        "Others"
+      ],
+      "type": "object"
+    },
+    "events.TunnelFound": {
+      "properties": {
+        "Asset": {
+          "type": "string"
+        },
+        "Day": {
+          "type": "integer"
+        },
+        "Name": {
+          "type": "string"
+        },
+        "Product": {
+          "type": "string"
+        },
+        "Route": {
+          "type": "string"
+        },
+        "Units": {
+          "type": "integer"
+        }
+      },
+      "required": [
+        "Day",
+        "Route",
+        "Name",
+        "Asset",
+        "Product",
+        "Units"
+      ],
+      "type": "object"
+    },
+    "events.Unlocked": {
+      "properties": {
+        "City": {
+          "type": "string"
+        },
+        "Cost": {
+          "type": "integer"
+        },
+        "Day": {
+          "type": "integer"
+        },
+        "Gate": {
+          "type": "string"
+        },
+        "ID": {
+          "type": "string"
+        },
+        "Name": {
+          "type": "string"
+        },
+        "Price": {
+          "type": "number"
+        },
+        "Why": {
+          "type": "string"
+        }
+      },
+      "required": [
+        "Day",
+        "Gate",
+        "ID",
+        "Name",
+        "City",
+        "Why",
+        "Price",
+        "Cost"
+      ],
+      "type": "object"
+    },
+    "events.UpgradeBought": {
+      "properties": {
+        "Branch": {
+          "type": "string"
+        },
+        "Clean": {
+          "type": "boolean"
+        },
+        "Cost": {
+          "type": "integer"
+        },
+        "Day": {
+          "type": "integer"
+        },
+        "ID": {
+          "type": "string"
+        },
+        "Name": {
+          "type": "string"
+        }
+      },
+      "required": [
+        "Day",
+        "ID",
+        "Name",
+        "Branch",
+        "Cost",
+        "Clean"
+      ],
+      "type": "object"
+    },
+    "events.WarEnded": {
+      "properties": {
+        "Day": {
+          "type": "integer"
+        },
+        "Faction": {
+          "type": "string"
+        },
+        "Rival": {
+          "type": "string"
+        },
+        "Why": {
+          "type": "string"
+        }
+      },
+      "required": [
+        "Day",
+        "Rival",
+        "Faction",
+        "Why"
+      ],
+      "type": "object"
+    },
+    "events.WarEscalated": {
+      "properties": {
+        "Day": {
+          "type": "integer"
+        },
+        "Heat": {
+          "type": "number"
+        },
+        "Lost": {
+          "items": {
+            "type": "string"
+          },
+          "type": "array"
+        },
+        "Stage": {
+          "type": "string"
+        },
+        "War": {
+          "type": "number"
+        }
+      },
+      "required": [
+        "Day",
+        "Stage",
+        "War",
+        "Lost",
+        "Heat"
+      ],
+      "type": "object"
+    },
+    "events.WholesaleBought": {
+      "properties": {
+        "City": {
+          "type": "string"
+        },
+        "Cost": {
+          "type": "integer"
+        },
+        "Day": {
+          "type": "integer"
+        },
+        "Lots": {
+          "type": "integer"
+        },
+        "Name": {
+          "type": "string"
+        },
+        "Product": {
+          "type": "string"
+        },
+        "Route": {
+          "type": "string"
+        },
+        "Supplier": {
+          "type": "string"
+        },
+        "Units": {
+          "type": "integer"
+        }
+      },
+      "required": [
+        "Day",
+        "City",
+        "Route",
+        "Name",
+        "Product",
+        "Lots",
+        "Units",
+        "Cost",
+        "Supplier"
+      ],
+      "type": "object"
+    },
+    "game.Answer": {
+      "properties": {
+        "Card": {
+          "type": "string"
+        },
+        "Choice": {
+          "type": "string"
+        },
+        "Day": {
+          "type": "integer"
+        },
+        "Headline": {
+          "type": "string"
+        },
+        "Outcome": {
+          "type": "string"
+        },
+        "Title": {
+          "type": "string"
+        }
+      },
+      "required": [
+        "Day",
+        "Card",
+        "Title",
+        "Choice",
+        "Outcome",
+        "Headline"
+      ],
+      "type": "object"
+    },
+    "game.Asset": {
+      "properties": {
+        "Bought": {
+          "type": "integer"
+        },
+        "City": {
+          "type": "string"
+        },
+        "Cost": {
+          "type": "integer"
+        },
+        "Effect": {
+          "type": "string"
+        },
+        "FrozenUntil": {
+          "type": "integer"
+        },
+        "ID": {
+          "type": "string"
+        },
+        "Lost": {
+          "type": "integer"
+        },
+        "Name": {
+          "type": "string"
+        },
+        "Upkeep": {
+          "type": "integer"
+        },
+        "Why": {
+          "type": "string"
+        }
+      },
+      "required": [
+        "ID",
+        "Name",
+        "Effect",
+        "City",
+        "Cost",
+        "Upkeep",
+        "Bought",
+        "FrozenUntil",
+        "Lost",
+        "Why"
+      ],
+      "type": "object"
+    },
+    "game.AssetOffer": {
+      "properties": {
+        "City": {
+          "type": "string"
+        },
+        "Cost": {
+          "type": "integer"
+        },
+        "Effect": {
+          "type": "string"
+        },
+        "HeatFloor": {
+          "type": "number"
+        },
+        "ID": {
+          "type": "string"
+        },
+        "Name": {
+          "type": "string"
+        },
+        "UnlockCash": {
+          "type": "integer"
+        },
+        "Upkeep": {
+          "type": "integer"
+        }
+      },
+      "required": [
+        "ID",
+        "Name",
+        "Effect",
+        "City",
+        "Cost",
+        "Upkeep",
+        "UnlockCash",
+        "HeatFloor"
+      ],
+      "type": "object"
+    },
+    "game.Cook": {
+      "properties": {
+        "Chemist": {
+          "type": "string"
+        },
+        "City": {
+          "type": "string"
+        },
+        "Cost": {
+          "type": "integer"
+        },
+        "ID": {
+          "type": "integer"
+        },
+        "Ordered": {
+          "type": "integer"
+        },
+        "Product": {
+          "type": "string"
+        },
+        "Quality": {
+          "type": "number"
+        },
+        "Ready": {
+          "type": "integer"
+        },
+        "Units": {
+          "type": "integer"
+        }
+      },
+      "required": [
+        "ID",
+        "City",
+        "Product",
+        "Units",
+        "Quality",
+        "Ordered",
+        "Ready",
+        "Cost",
+        "Chemist"
+      ],
+      "type": "object"
+    },
+    "game.CrewMember": {
+      "properties": {
+        "Age": {
+          "type": "integer"
+        },
+        "Assigned": {
+          "type": "integer"
+        },
+        "Bailed": {
+          "type": "boolean"
+        },
+        "City": {
+          "type": "string"
+        },
+        "Fee": {
+          "type": "integer"
+        },
+        "Former": {
+          "type": "string"
+        },
+        "Greed": {
+          "type": "integer"
+        },
+        "Growth": {
+          "type": "number"
+        },
+        "Hired": {
+          "type": "integer"
+        },
+        "ID": {
+          "type": "integer"
+        },
+        "Informant": {
+          "type": "boolean"
+        },
+        "JailedUntil": {
+          "type": "integer"
+        },
+        "Kin": {
+          "items": {
+            "type": "integer"
+          },
+          "type": "array"
+        },
+        "Loyalty": {
+          "type": "number"
+        },
+        "Name": {
+          "type": "string"
+        },
+        "Nerve": {
+          "type": "integer"
+        },
+        "Observed": {
+          "type": "boolean"
+        },
+        "Personality": {
+          "type": "string"
+        },
+        "Role": {
+          "type": "string"
+        },
+        "Skill": {
+          "type": "integer"
+        },
+        "Undercover": {
+          "type": "string"
+        },
+        "UndercoverDay": {
+          "type": "integer"
+        },
+        "Units": {
+          "type": "integer"
+        },
+        "Wage": {
+          "type": "integer"
+        },
+        "WoundedUntil": {
+          "type": "integer"
+        }
+      },
+      "required": [
+        "ID",
+        "Name",
+        "Role",
+        "Skill",
+        "Loyalty",
+        "Greed",
+        "Nerve",
+        "Units",
+        "Wage",
+        "Fee",
+        "Hired",
+        "Informant",
+        "Personality",
+        "City",
+        "Assigned",
+        "Observed",
+        "Former",
+        "Age",
+        "Growth",
+        "Kin",
+        "JailedUntil",
+        "WoundedUntil",
+        "Bailed",
+        "Undercover",
+        "UndercoverDay"
+      ],
+      "type": "object"
+    },
+    "game.CutRecord": {
+      "properties": {
+        "Added": {
+          "type": "integer"
+        },
+        "Chemist": {
+          "type": "string"
+        },
+        "City": {
+          "type": "string"
+        },
+        "Cost": {
+          "type": "integer"
+        },
+        "From": {
+          "type": "number"
+        },
+        "Product": {
+          "type": "string"
+        },
+        "To": {
+          "type": "number"
+        },
+        "Units": {
+          "type": "integer"
+        }
+      },
+      "required": [
+        "City",
+        "Product",
+        "Units",
+        "Added",
+        "From",
+        "To",
+        "Cost",
+        "Chemist"
+      ],
+      "type": "object"
+    },
+    "game.Deal": {
+      "properties": {
+        "Faction": {
+          "type": "string"
+        },
+        "Kind": {
+          "type": "string"
+        },
+        "Offered": {
+          "type": "boolean"
+        },
+        "Since": {
+          "type": "integer"
+        },
+        "Terms": {
+          "$ref": "#/$defs/protocol.TermsParams"
+        },
+        "Until": {
+          "type": "integer"
+        }
+      },
+      "required": [
+        "Kind",
+        "Terms",
+        "Since",
+        "Until",
+        "Offered",
+        "Faction"
+      ],
+      "type": "object"
+    },
+    "game.Front": {
+      "properties": {
+        "AuditDial": {
+          "maximum": 2,
+          "minimum": 0,
+          "type": "integer",
+          "x-names": [
+            "careful",
+            "normal",
+            "greedy"
+          ]
+        },
+        "Audited": {
+          "type": "integer"
+        },
+        "Bought": {
+          "type": "integer"
+        },
+        "Cost": {
+          "type": "integer"
+        },
+        "FrozenUntil": {
+          "type": "integer"
+        },
+        "Grew": {
+          "type": "integer"
+        },
+        "ID": {
+          "type": "string"
+        },
+        "Invested": {
+          "type": "integer"
+        },
+        "Level": {
+          "type": "integer"
+        },
+        "Name": {
+          "type": "string"
+        },
+        "Washed": {
+          "type": "integer"
+        },
+        "WashedToday": {
+          "type": "integer"
+        }
+      },
+      "required": [
+        "ID",
+        "Name",
+        "Cost",
+        "Bought",
+        "FrozenUntil",
+        "Washed",
+        "WashedToday",
+        "Audited",
+        "AuditDial",
+        "Level",
+        "Invested",
+        "Grew"
+      ],
+      "type": "object"
+    },
+    "game.FrontOffer": {
+      "properties": {
+        "AuditRisk": {
+          "type": "number"
+        },
+        "Cost": {
+          "type": "integer"
+        },
+        "ID": {
+          "type": "string"
+        },
+        "Name": {
+          "type": "string"
+        },
+        "Throughput": {
+          "type": "integer"
+        },
+        "UnlockCash": {
+          "type": "integer"
+        },
+        "Upkeep": {
+          "type": "integer"
+        }
+      },
+      "required": [
+        "ID",
+        "Name",
+        "Cost",
+        "Throughput",
+        "Upkeep",
+        "AuditRisk",
+        "UnlockCash"
+      ],
+      "type": "object"
+    },
+    "game.House": {
+      "properties": {
+        "Bought": {
+          "type": "integer"
+        },
+        "Capacity": {
+          "type": "integer"
+        },
+        "City": {
+          "type": "string"
+        },
+        "Corner": {
+          "type": "string"
+        },
+        "Guard": {
+          "type": "integer"
+        },
+        "ID": {
+          "type": "string"
+        },
+        "Known": {
+          "type": "boolean"
+        },
+        "Name": {
+          "type": "string"
+        },
+        "Price": {
+          "type": "integer"
+        },
+        "Raided": {
+          "type": "integer"
+        },
+        "Rent": {
+          "type": "integer"
+        },
+        "Robbed": {
+          "type": "integer"
+        },
+        "Stock": {
+          "additionalProperties": {
+            "type": "integer"
+          },
+          "type": "object"
+        },
+        "Unpaid": {
+          "type": "integer"
+        }
+      },
+      "required": [
+        "ID",
+        "Name",
+        "City",
+        "Corner",
+        "Capacity",
+        "Price",
+        "Rent",
+        "Stock",
+        "Guard",
+        "Known",
+        "Bought",
+        "Unpaid",
+        "Robbed",
+        "Raided"
+      ],
+      "type": "object"
+    },
+    "game.HouseOffer": {
+      "properties": {
+        "Capacity": {
+          "type": "integer"
+        },
+        "City": {
+          "type": "string"
+        },
+        "Corner": {
+          "type": "string"
+        },
+        "ID": {
+          "type": "string"
+        },
+        "Name": {
+          "type": "string"
+        },
+        "Price": {
+          "type": "integer"
+        },
+        "Rent": {
+          "type": "integer"
+        },
+        "UnlockCash": {
+          "type": "integer"
+        }
+      },
+      "required": [
+        "ID",
+        "Name",
+        "City",
+        "Corner",
+        "Capacity",
+        "Price",
+        "Rent",
+        "UnlockCash"
+      ],
+      "type": "object"
+    },
+    "game.Offer": {
+      "properties": {
+        "Deal": {
+          "$ref": "#/$defs/game.Deal"
+        },
+        "Expires": {
+          "type": "integer"
+        },
+        "Faction": {
+          "type": "string"
+        },
+        "ID": {
+          "type": "integer"
+        }
+      },
+      "required": [
+        "ID",
+        "Deal",
+        "Expires",
+        "Faction"
+      ],
+      "type": "object"
+    },
+    "game.Purchase": {
+      "properties": {
+        "City": {
+          "type": "string"
+        },
+        "Contract": {
+          "type": "boolean"
+        },
+        "Cost": {
+          "type": "integer"
+        },
+        "Credit": {
+          "type": "boolean"
+        },
+        "Day": {
+          "type": "integer"
+        },
+        "Lieutenant": {
+          "type": "string"
+        },
+        "Prior": {
+          "type": "number"
+        },
+        "Product": {
+          "type": "string"
+        },
+        "Qty": {
+          "type": "integer"
+        },
+        "SmallLot": {
+          "type": "boolean"
+        },
+        "Supplier": {
+          "type": "string"
+        },
+        "UnitPrice": {
+          "type": "number"
+        }
+      },
+      "required": [
+        "City",
+        "Product",
+        "Qty",
+        "UnitPrice",
+        "Cost",
+        "Prior",
+        "Contract",
+        "Day",
+        "Supplier",
+        "Credit",
+        "SmallLot",
+        "Lieutenant"
+      ],
+      "type": "object"
+    },
+    "protocol.DayResult": {
+      "properties": {
+        "day": {
+          "type": "integer"
+        },
+        "events": {
+          "type": "integer"
+        }
+      },
+      "required": [
+        "day",
+        "events"
+      ],
+      "type": "object"
+    },
+    "protocol.FastResult": {
+      "properties": {
+        "alert": {
+          "$ref": "#/$defs/engine.Alert"
+        },
+        "day": {
+          "type": "integer"
+        },
+        "event": {
+          "type": "string"
+        },
+        "ran": {
+          "type": "integer"
+        },
+        "stop": {
+          "type": "string"
+        }
+      },
+      "required": [
+        "ran",
+        "day",
+        "stop"
+      ],
+      "type": "object"
+    },
+    "protocol.TermsParams": {
+      "properties": {
+        "corners": {
+          "items": {
+            "type": "string"
+          },
+          "type": "array"
+        },
+        "days": {
+          "type": "integer"
+        },
+        "per_day": {
+          "type": "integer"
+        },
+        "route": {
+          "type": "string"
+        },
+        "units": {
+          "type": "integer"
+        }
+      },
+      "type": "object"
+    }
+  },
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "errors": {
+    "internal": -32603,
+    "invalid_params": -32602,
+    "invalid_request": -32600,
+    "no_method": -32601,
+    "no_run": -32001,
+    "parse": -32700,
+    "refused": -32000
+  },
+  "events": {
+    "AssetBought": {
+      "$ref": "#/$defs/events.AssetBought"
+    },
+    "AssetFrozen": {
+      "$ref": "#/$defs/events.AssetFrozen"
+    },
+    "AssetSeized": {
+      "$ref": "#/$defs/events.AssetSeized"
+    },
+    "BribeAccepted": {
+      "$ref": "#/$defs/events.BribeAccepted"
+    },
+    "BribeBackfired": {
+      "$ref": "#/$defs/events.BribeBackfired"
+    },
+    "BribeRefused": {
+      "$ref": "#/$defs/events.BribeRefused"
+    },
+    "CampaignBacked": {
+      "$ref": "#/$defs/events.CampaignBacked"
+    },
+    "CampaignHedged": {
+      "$ref": "#/$defs/events.CampaignHedged"
+    },
+    "CampaignLost": {
+      "$ref": "#/$defs/events.CampaignLost"
+    },
+    "CashLaundered": {
+      "$ref": "#/$defs/events.CashLaundered"
+    },
+    "CheckpointBought": {
+      "$ref": "#/$defs/events.CheckpointBought"
+    },
+    "ChiefReplaced": {
+      "$ref": "#/$defs/events.ChiefReplaced"
+    },
+    "CityFunded": {
+      "$ref": "#/$defs/events.CityFunded"
+    },
+    "ClaimDeterred": {
+      "$ref": "#/$defs/events.ClaimDeterred"
+    },
+    "ContractAccepted": {
+      "$ref": "#/$defs/events.ContractAccepted"
+    },
+    "ContractDelivered": {
+      "$ref": "#/$defs/events.ContractDelivered"
+    },
+    "ContractExpired": {
+      "$ref": "#/$defs/events.ContractExpired"
+    },
+    "ContractFailed": {
+      "$ref": "#/$defs/events.ContractFailed"
+    },
+    "ContractOffered": {
+      "$ref": "#/$defs/events.ContractOffered"
+    },
+    "CookOrdered": {
+      "$ref": "#/$defs/events.CookOrdered"
+    },
+    "Cooked": {
+      "$ref": "#/$defs/events.Cooked"
+    },
+    "CornerClaimed": {
+      "$ref": "#/$defs/events.CornerClaimed"
+    },
+    "CornerLost": {
+      "$ref": "#/$defs/events.CornerLost"
+    },
+    "CornerRobbed": {
+      "$ref": "#/$defs/events.CornerRobbed"
+    },
+    "CornerStruck": {
+      "$ref": "#/$defs/events.CornerStruck"
+    },
+    "CornerTaken": {
+      "$ref": "#/$defs/events.CornerTaken"
+    },
+    "CreditTaken": {
+      "$ref": "#/$defs/events.CreditTaken"
+    },
+    "CrewArrested": {
+      "$ref": "#/$defs/events.CrewArrested"
+    },
+    "CrewBailed": {
+      "$ref": "#/$defs/events.CrewBailed"
+    },
+    "CrewDefected": {
+      "$ref": "#/$defs/events.CrewDefected"
+    },
+    "CrewFired": {
+      "$ref": "#/$defs/events.CrewFired"
+    },
+    "CrewHired": {
+      "$ref": "#/$defs/events.CrewHired"
+    },
+    "CrewPaid": {
+      "$ref": "#/$defs/events.CrewPaid"
+    },
+    "CrewPaidOff": {
+      "$ref": "#/$defs/events.CrewPaidOff"
+    },
+    "CrewPoached": {
+      "$ref": "#/$defs/events.CrewPoached"
+    },
+    "CrewQuit": {
+      "$ref": "#/$defs/events.CrewQuit"
+    },
+    "CrewRecovered": {
+      "$ref": "#/$defs/events.CrewRecovered"
+    },
+    "CrewReleased": {
+      "$ref": "#/$defs/events.CrewReleased"
+    },
+    "CrewRetired": {
+      "$ref": "#/$defs/events.CrewRetired"
+    },
+    "CrewShot": {
+      "$ref": "#/$defs/events.CrewShot"
+    },
+    "CrewSkimmed": {
+      "$ref": "#/$defs/events.CrewSkimmed"
+    },
+    "CrewTurnedInformant": {
+      "$ref": "#/$defs/events.CrewTurnedInformant"
+    },
+    "DAElected": {
+      "$ref": "#/$defs/events.DAElected"
+    },
+    "DayEnded": {
+      "$ref": "#/$defs/events.DayEnded"
+    },
+    "DealAccepted": {
+      "$ref": "#/$defs/events.DealAccepted"
+    },
+    "DealBroken": {
+      "$ref": "#/$defs/events.DealBroken"
+    },
+    "DealEnded": {
+      "$ref": "#/$defs/events.DealEnded"
+    },
+    "DealOffered": {
+      "$ref": "#/$defs/events.DealOffered"
+    },
+    "DealRefused": {
+      "$ref": "#/$defs/events.DealRefused"
+    },
+    "DebtLate": {
+      "$ref": "#/$defs/events.DebtLate"
+    },
+    "DebtPaid": {
+      "$ref": "#/$defs/events.DebtPaid"
+    },
+    "DeedBought": {
+      "$ref": "#/$defs/events.DeedBought"
+    },
+    "DeedRent": {
+      "$ref": "#/$defs/events.DeedRent"
+    },
+    "DeedSeized": {
+      "$ref": "#/$defs/events.DeedSeized"
+    },
+    "DeedsBought": {
+      "$ref": "#/$defs/events.DeedsBought"
+    },
+    "DilemmaAnswered": {
+      "$ref": "#/$defs/events.DilemmaAnswered"
+    },
+    "DilemmaDrawn": {
+      "$ref": "#/$defs/events.DilemmaDrawn"
+    },
+    "Enforcement": {
+      "$ref": "#/$defs/events.Enforcement"
+    },
+    "FactionPushed": {
+      "$ref": "#/$defs/events.FactionPushed"
+    },
+    "FallGuyBurned": {
+      "$ref": "#/$defs/events.FallGuyBurned"
+    },
+    "FrontAudited": {
+      "$ref": "#/$defs/events.FrontAudited"
+    },
+    "FrontBought": {
+      "$ref": "#/$defs/events.FrontBought"
+    },
+    "FrontFrozen": {
+      "$ref": "#/$defs/events.FrontFrozen"
+    },
+    "FrontGrew": {
+      "$ref": "#/$defs/events.FrontGrew"
+    },
+    "FrontInvested": {
+      "$ref": "#/$defs/events.FrontInvested"
+    },
+    "GameOver": {
+      "$ref": "#/$defs/events.GameOver"
+    },
+    "Headline": {
+      "$ref": "#/$defs/events.Headline"
+    },
+    "HeatChanged": {
+      "$ref": "#/$defs/events.HeatChanged"
+    },
+    "HouseBought": {
+      "$ref": "#/$defs/events.HouseBought"
+    },
+    "HouseCompromised": {
+      "$ref": "#/$defs/events.HouseCompromised"
+    },
+    "HouseLost": {
+      "$ref": "#/$defs/events.HouseLost"
+    },
+    "HouseRaided": {
+      "$ref": "#/$defs/events.HouseRaided"
+    },
+    "HouseRobbed": {
+      "$ref": "#/$defs/events.HouseRobbed"
+    },
+    "Incident": {
+      "$ref": "#/$defs/events.Incident"
+    },
+    "IntelFalse": {
+      "$ref": "#/$defs/events.IntelFalse"
+    },
+    "IntelGained": {
+      "$ref": "#/$defs/events.IntelGained"
+    },
+    "InvestigationRun": {
+      "$ref": "#/$defs/events.InvestigationRun"
+    },
+    "KinLooking": {
+      "$ref": "#/$defs/events.KinLooking"
+    },
+    "LaidLow": {
+      "$ref": "#/$defs/events.LaidLow"
+    },
+    "LeadFound": {
+      "$ref": "#/$defs/events.LeadFound"
+    },
+    "LeadsFiled": {
+      "$ref": "#/$defs/events.LeadsFiled"
+    },
+    "LieutenantActed": {
+      "$ref": "#/$defs/events.LieutenantActed"
+    },
+    "LieutenantFlipped": {
+      "$ref": "#/$defs/events.LieutenantFlipped"
+    },
+    "LieutenantWalked": {
+      "$ref": "#/$defs/events.LieutenantWalked"
+    },
+    "OfficialsCold": {
+      "$ref": "#/$defs/events.OfficialsCold"
+    },
+    "Overdose": {
+      "$ref": "#/$defs/events.Overdose"
+    },
+    "PlayerSold": {
+      "$ref": "#/$defs/events.PlayerSold"
+    },
+    "PlayerUndercut": {
+      "$ref": "#/$defs/events.PlayerUndercut"
+    },
+    "PoliceTipped": {
+      "$ref": "#/$defs/events.PoliceTipped"
+    },
+    "PressureShifted": {
+      "$ref": "#/$defs/events.PressureShifted"
+    },
+    "PriceMove": {
+      "$ref": "#/$defs/events.PriceMove"
+    },
+    "PriceShock": {
+      "$ref": "#/$defs/events.PriceShock"
+    },
+    "RaidFellThrough": {
+      "$ref": "#/$defs/events.RaidFellThrough"
+    },
+    "ReignBegan": {
+      "$ref": "#/$defs/events.ReignBegan"
+    },
+    "ReignBroken": {
+      "$ref": "#/$defs/events.ReignBroken"
+    },
+    "RentPaid": {
+      "$ref": "#/$defs/events.RentPaid"
+    },
+    "ReputationShifted": {
+      "$ref": "#/$defs/events.ReputationShifted"
+    },
+    "Reserved": {
+      "$ref": "#/$defs/events.Reserved"
+    },
+    "RivalAbandoned": {
+      "$ref": "#/$defs/events.RivalAbandoned"
+    },
+    "RivalAbsorbed": {
+      "$ref": "#/$defs/events.RivalAbsorbed"
+    },
+    "RivalBoosted": {
+      "$ref": "#/$defs/events.RivalBoosted"
+    },
+    "RivalEyeing": {
+      "$ref": "#/$defs/events.RivalEyeing"
+    },
+    "RivalLeaderArrested": {
+      "$ref": "#/$defs/events.RivalLeaderArrested"
+    },
+    "RivalMovedIn": {
+      "$ref": "#/$defs/events.RivalMovedIn"
+    },
+    "RivalMusclePoached": {
+      "$ref": "#/$defs/events.RivalMusclePoached"
+    },
+    "RivalOutbid": {
+      "$ref": "#/$defs/events.RivalOutbid"
+    },
+    "RivalPushed": {
+      "$ref": "#/$defs/events.RivalPushed"
+    },
+    "RivalRaided": {
+      "$ref": "#/$defs/events.RivalRaided"
+    },
+    "RivalScouted": {
+      "$ref": "#/$defs/events.RivalScouted"
+    },
+    "RivalTippedPolice": {
+      "$ref": "#/$defs/events.RivalTippedPolice"
+    },
+    "RivalUndercut": {
+      "$ref": "#/$defs/events.RivalUndercut"
+    },
+    "ShipmentArrived": {
+      "$ref": "#/$defs/events.ShipmentArrived"
+    },
+    "ShipmentSeized": {
+      "$ref": "#/$defs/events.ShipmentSeized"
+    },
+    "ShipmentSent": {
+      "$ref": "#/$defs/events.ShipmentSent"
+    },
+    "SpyFound": {
+      "$ref": "#/$defs/events.SpyFound"
+    },
+    "SpyPlanted": {
+      "$ref": "#/$defs/events.SpyPlanted"
+    },
+    "StandingShort": {
+      "$ref": "#/$defs/events.StandingShort"
+    },
+    "StockCut": {
+      "$ref": "#/$defs/events.StockCut"
+    },
+    "StockMoved": {
+      "$ref": "#/$defs/events.StockMoved"
+    },
+    "SupplierBought": {
+      "$ref": "#/$defs/events.SupplierBought"
+    },
+    "SupplierCollected": {
+      "$ref": "#/$defs/events.SupplierCollected"
+    },
+    "SupplierFrozen": {
+      "$ref": "#/$defs/events.SupplierFrozen"
+    },
+    "SupplierWarned": {
+      "$ref": "#/$defs/events.SupplierWarned"
+    },
+    "SupplyBought": {
+      "$ref": "#/$defs/events.SupplyBought"
+    },
+    "SupplyShort": {
+      "$ref": "#/$defs/events.SupplyShort"
+    },
+    "TaskForceFormed": {
+      "$ref": "#/$defs/events.TaskForceFormed"
+    },
+    "Taxed": {
+      "$ref": "#/$defs/events.Taxed"
+    },
+    "TierReached": {
+      "$ref": "#/$defs/events.TierReached"
+    },
+    "TributePaid": {
+      "$ref": "#/$defs/events.TributePaid"
+    },
+    "TrustSpread": {
+      "$ref": "#/$defs/events.TrustSpread"
+    },
+    "TunnelFound": {
+      "$ref": "#/$defs/events.TunnelFound"
+    },
+    "Unlocked": {
+      "$ref": "#/$defs/events.Unlocked"
+    },
+    "UpgradeBought": {
+      "$ref": "#/$defs/events.UpgradeBought"
+    },
+    "WarEnded": {
+      "$ref": "#/$defs/events.WarEnded"
+    },
+    "WarEscalated": {
+      "$ref": "#/$defs/events.WarEscalated"
+    },
+    "WholesaleBought": {
+      "$ref": "#/$defs/events.WholesaleBought"
+    }
+  },
+  "framing": "JSON-RPC 2.0, one message a line; params by position; notifications before the response they belong to",
+  "methods": {
+    "abandon": {
+      "changes": true,
+      "needsRun": true,
+      "params": {
+        "maxItems": 1,
+        "minItems": 1,
+        "prefixItems": [
+          {
+            "title": "corner",
+            "type": "string"
+          }
+        ],
+        "type": "array"
+      },
+      "result": {
+        "type": "null"
+      }
+    },
+    "accept": {
+      "changes": true,
+      "needsRun": true,
+      "params": {
+        "maxItems": 1,
+        "minItems": 1,
+        "prefixItems": [
+          {
+            "title": "offer",
+            "type": "integer"
+          }
+        ],
+        "type": "array"
+      },
+      "result": {
+        "$ref": "#/$defs/game.Offer"
+      }
+    },
+    "accept_contract": {
+      "changes": true,
+      "needsRun": true,
+      "params": {
+        "maxItems": 1,
+        "minItems": 1,
+        "prefixItems": [
+          {
+            "title": "contract",
+            "type": "integer"
+          }
+        ],
+        "type": "array"
+      },
+      "result": {
+        "type": "null"
+      }
+    },
+    "alerts": {
+      "changes": false,
+      "needsRun": true,
+      "params": {
+        "maxItems": 0,
+        "minItems": 0,
+        "prefixItems": [],
+        "type": "array"
+      },
+      "result": {
+        "items": {
+          "$ref": "#/$defs/engine.Alert"
+        },
+        "type": "array"
+      }
+    },
+    "asset_offers": {
+      "changes": false,
+      "needsRun": true,
+      "params": {
+        "maxItems": 0,
+        "minItems": 0,
+        "prefixItems": [],
+        "type": "array"
+      },
+      "result": {
+        "items": {
+          "$ref": "#/$defs/game.AssetOffer"
+        },
+        "type": "array"
+      }
+    },
+    "assign": {
+      "changes": true,
+      "needsRun": true,
+      "params": {
+        "maxItems": 2,
+        "minItems": 2,
+        "prefixItems": [
+          {
+            "title": "member",
+            "type": "integer"
+          },
+          {
+            "title": "city",
+            "type": "string"
+          }
+        ],
+        "type": "array"
+      },
+      "result": {
+        "type": "null"
+      }
+    },
+    "back": {
+      "changes": true,
+      "needsRun": true,
+      "params": {
+        "maxItems": 3,
+        "minItems": 3,
+        "prefixItems": [
+          {
+            "title": "city",
+            "type": "string"
+          },
+          {
+            "title": "ticket",
+            "type": "string"
+          },
+          {
+            "title": "amount",
+            "type": "integer"
+          }
+        ],
+        "type": "array"
+      },
+      "result": {
+        "type": "null"
+      }
+    },
+    "bail": {
+      "changes": true,
+      "needsRun": true,
+      "params": {
+        "maxItems": 1,
+        "minItems": 1,
+        "prefixItems": [
+          {
+            "title": "member",
+            "type": "integer"
+          }
+        ],
+        "type": "array"
+      },
+      "result": {
+        "$ref": "#/$defs/game.CrewMember"
+      }
+    },
+    "boost": {
+      "changes": true,
+      "needsRun": true,
+      "params": {
+        "maxItems": 2,
+        "minItems": 2,
+        "prefixItems": [
+          {
+            "title": "corner",
+            "type": "string"
+          },
+          {
+            "enum": [
+              "warn",
+              "push",
+              "hit"
+            ],
+            "title": "force",
+            "type": "string"
+          }
+        ],
+        "type": "array"
+      },
+      "result": {
+        "type": "null"
+      }
+    },
+    "bribe": {
+      "changes": true,
+      "needsRun": true,
+      "params": {
+        "maxItems": 2,
+        "minItems": 2,
+        "prefixItems": [
+          {
+            "title": "target",
+            "type": "string"
+          },
+          {
+            "title": "amount",
+            "type": "integer"
+          }
+        ],
+        "type": "array"
+      },
+      "result": {
+        "type": "null"
+      }
+    },
+    "buy": {
+      "changes": true,
+      "needsRun": true,
+      "params": {
+        "maxItems": 4,
+        "minItems": 4,
+        "prefixItems": [
+          {
+            "title": "supplier",
+            "type": "string"
+          },
+          {
+            "title": "product",
+            "type": "string"
+          },
+          {
+            "title": "qty",
+            "type": "integer"
+          },
+          {
+            "title": "credit",
+            "type": "boolean"
+          }
+        ],
+        "type": "array"
+      },
+      "result": {
+        "$ref": "#/$defs/game.Purchase"
+      }
+    },
+    "buy_asset": {
+      "changes": true,
+      "needsRun": true,
+      "params": {
+        "maxItems": 1,
+        "minItems": 1,
+        "prefixItems": [
+          {
+            "title": "asset",
+            "type": "string"
+          }
+        ],
+        "type": "array"
+      },
+      "result": {
+        "$ref": "#/$defs/game.Asset"
+      }
+    },
+    "buy_checkpoint": {
+      "changes": true,
+      "needsRun": true,
+      "params": {
+        "maxItems": 1,
+        "minItems": 1,
+        "prefixItems": [
+          {
+            "title": "route",
+            "type": "string"
+          }
+        ],
+        "type": "array"
+      },
+      "result": {
+        "type": "null"
+      }
+    },
+    "buy_deed": {
+      "changes": true,
+      "needsRun": true,
+      "params": {
+        "maxItems": 1,
+        "minItems": 1,
+        "prefixItems": [
+          {
+            "title": "corner",
+            "type": "string"
+          }
+        ],
+        "type": "array"
+      },
+      "result": {
+        "type": "null"
+      }
+    },
+    "buy_front": {
+      "changes": true,
+      "needsRun": true,
+      "params": {
+        "maxItems": 1,
+        "minItems": 1,
+        "prefixItems": [
+          {
+            "title": "front",
+            "type": "string"
+          }
+        ],
+        "type": "array"
+      },
+      "result": {
+        "$ref": "#/$defs/game.Front"
+      }
+    },
+    "buy_house": {
+      "changes": true,
+      "needsRun": true,
+      "params": {
+        "maxItems": 1,
+        "minItems": 1,
+        "prefixItems": [
+          {
+            "title": "house",
+            "type": "string"
+          }
+        ],
+        "type": "array"
+      },
+      "result": {
+        "$ref": "#/$defs/game.House"
+      }
+    },
+    "buy_off_from": {
+      "changes": true,
+      "needsRun": true,
+      "params": {
+        "maxItems": 2,
+        "minItems": 2,
+        "prefixItems": [
+          {
+            "title": "faction",
+            "type": "string"
+          },
+          {
+            "title": "units",
+            "type": "integer"
+          }
+        ],
+        "type": "array"
+      },
+      "result": {
+        "type": "null"
+      }
+    },
+    "buy_upgrade": {
+      "changes": true,
+      "needsRun": true,
+      "params": {
+        "maxItems": 1,
+        "minItems": 1,
+        "prefixItems": [
+          {
+            "title": "upgrade",
+            "type": "string"
+          }
+        ],
+        "type": "array"
+      },
+      "result": {
+        "$ref": "#/$defs/content.UpgradeConfig"
+      }
+    },
+    "call_favour": {
+      "changes": true,
+      "needsRun": true,
+      "params": {
+        "maxItems": 0,
+        "minItems": 0,
+        "prefixItems": [],
+        "type": "array"
+      },
+      "result": {
+        "type": "null"
+      }
+    },
+    "call_off": {
+      "changes": true,
+      "needsRun": true,
+      "params": {
+        "maxItems": 0,
+        "minItems": 0,
+        "prefixItems": [],
+        "type": "array"
+      },
+      "result": {
+        "type": "null"
+      }
+    },
+    "call_off_war": {
+      "changes": true,
+      "needsRun": true,
+      "params": {
+        "maxItems": 0,
+        "minItems": 0,
+        "prefixItems": [],
+        "type": "array"
+      },
+      "result": {
+        "type": "null"
+      }
+    },
+    "cancel_sell": {
+      "changes": true,
+      "needsRun": true,
+      "params": {
+        "maxItems": 2,
+        "minItems": 2,
+        "prefixItems": [
+          {
+            "title": "city",
+            "type": "string"
+          },
+          {
+            "title": "product",
+            "type": "string"
+          }
+        ],
+        "type": "array"
+      },
+      "result": {
+        "type": "null"
+      }
+    },
+    "cancel_standing": {
+      "changes": true,
+      "needsRun": true,
+      "params": {
+        "maxItems": 2,
+        "minItems": 2,
+        "prefixItems": [
+          {
+            "title": "city",
+            "type": "string"
+          },
+          {
+            "title": "product",
+            "type": "string"
+          }
+        ],
+        "type": "array"
+      },
+      "result": {
+        "type": "null"
+      }
+    },
+    "cancel_undercut": {
+      "changes": true,
+      "needsRun": true,
+      "params": {
+        "maxItems": 1,
+        "minItems": 1,
+        "prefixItems": [
+          {
+            "title": "corner",
+            "type": "string"
+          }
+        ],
+        "type": "array"
+      },
+      "result": {
+        "type": "null"
+      }
+    },
+    "choose": {
+      "changes": true,
+      "needsRun": true,
+      "params": {
+        "maxItems": 1,
+        "minItems": 1,
+        "prefixItems": [
+          {
+            "title": "choice",
+            "type": "integer"
+          }
+        ],
+        "type": "array"
+      },
+      "result": {
+        "$ref": "#/$defs/game.Answer"
+      }
+    },
+    "clear_supply": {
+      "changes": true,
+      "needsRun": true,
+      "params": {
+        "maxItems": 2,
+        "minItems": 2,
+        "prefixItems": [
+          {
+            "title": "city",
+            "type": "string"
+          },
+          {
+            "title": "product",
+            "type": "string"
+          }
+        ],
+        "type": "array"
+      },
+      "result": {
+        "type": "null"
+      }
+    },
+    "cook": {
+      "changes": true,
+      "needsRun": true,
+      "params": {
+        "maxItems": 3,
+        "minItems": 3,
+        "prefixItems": [
+          {
+            "title": "city",
+            "type": "string"
+          },
+          {
+            "title": "product",
+            "type": "string"
+          },
+          {
+            "title": "units",
+            "type": "integer"
+          }
+        ],
+        "type": "array"
+      },
+      "result": {
+        "$ref": "#/$defs/game.Cook"
+      }
+    },
+    "crown": {
+      "changes": true,
+      "needsRun": true,
+      "params": {
+        "maxItems": 0,
+        "minItems": 0,
+        "prefixItems": [],
+        "type": "array"
+      },
+      "result": {
+        "type": "null"
+      }
+    },
+    "cut": {
+      "changes": true,
+      "needsRun": true,
+      "params": {
+        "maxItems": 3,
+        "minItems": 3,
+        "prefixItems": [
+          {
+            "title": "city",
+            "type": "string"
+          },
+          {
+            "title": "product",
+            "type": "string"
+          },
+          {
+            "title": "ratio",
+            "type": "number"
+          }
+        ],
+        "type": "array"
+      },
+      "result": {
+        "$ref": "#/$defs/game.CutRecord"
+      }
+    },
+    "declare_war": {
+      "changes": true,
+      "needsRun": true,
+      "params": {
+        "maxItems": 1,
+        "minItems": 1,
+        "prefixItems": [
+          {
+            "title": "faction",
+            "type": "string"
+          }
+        ],
+        "type": "array"
+      },
+      "result": {
+        "type": "null"
+      }
+    },
+    "decline": {
+      "changes": true,
+      "needsRun": true,
+      "params": {
+        "maxItems": 1,
+        "minItems": 1,
+        "prefixItems": [
+          {
+            "title": "offer",
+            "type": "integer"
+          }
+        ],
+        "type": "array"
+      },
+      "result": {
+        "$ref": "#/$defs/game.Offer"
+      }
+    },
+    "decline_contract": {
+      "changes": true,
+      "needsRun": true,
+      "params": {
+        "maxItems": 1,
+        "minItems": 1,
+        "prefixItems": [
+          {
+            "title": "contract",
+            "type": "integer"
+          }
+        ],
+        "type": "array"
+      },
+      "result": {
+        "type": "null"
+      }
+    },
+    "deliver": {
+      "changes": true,
+      "needsRun": true,
+      "params": {
+        "maxItems": 2,
+        "minItems": 2,
+        "prefixItems": [
+          {
+            "title": "contract",
+            "type": "integer"
+          },
+          {
+            "title": "units",
+            "type": "integer"
+          }
+        ],
+        "type": "array"
+      },
+      "result": {
+        "type": "null"
+      }
+    },
+    "drop": {
+      "changes": true,
+      "needsRun": true,
+      "params": {
+        "maxItems": 1,
+        "minItems": 1,
+        "prefixItems": [
+          {
+            "title": "house",
+            "type": "string"
+          }
+        ],
+        "type": "array"
+      },
+      "result": {
+        "$ref": "#/$defs/game.House"
+      }
+    },
+    "end_day": {
+      "changes": true,
+      "needsRun": true,
+      "params": {
+        "maxItems": 0,
+        "minItems": 0,
+        "prefixItems": [],
+        "type": "array"
+      },
+      "result": {
+        "$ref": "#/$defs/protocol.DayResult"
+      }
+    },
+    "fast_forward": {
+      "changes": true,
+      "needsRun": true,
+      "params": {
+        "maxItems": 1,
+        "minItems": 1,
+        "prefixItems": [
+          {
+            "title": "days",
+            "type": "integer"
+          }
+        ],
+        "type": "array"
+      },
+      "result": {
+        "$ref": "#/$defs/protocol.FastResult"
+      }
+    },
+    "fire": {
+      "changes": true,
+      "needsRun": true,
+      "params": {
+        "maxItems": 1,
+        "minItems": 1,
+        "prefixItems": [
+          {
+            "title": "member",
+            "type": "integer"
+          }
+        ],
+        "type": "array"
+      },
+      "result": {
+        "$ref": "#/$defs/game.CrewMember"
+      }
+    },
+    "float_matters": {
+      "changes": false,
+      "needsRun": true,
+      "params": {
+        "maxItems": 0,
+        "minItems": 0,
+        "prefixItems": [],
+        "type": "array"
+      },
+      "result": {
+        "type": "boolean"
+      }
+    },
+    "front_offers": {
+      "changes": false,
+      "needsRun": true,
+      "params": {
+        "maxItems": 0,
+        "minItems": 0,
+        "prefixItems": [],
+        "type": "array"
+      },
+      "result": {
+        "items": {
+          "$ref": "#/$defs/game.FrontOffer"
+        },
+        "type": "array"
+      }
+    },
+    "fund": {
+      "changes": true,
+      "needsRun": true,
+      "params": {
+        "maxItems": 2,
+        "minItems": 2,
+        "prefixItems": [
+          {
+            "title": "city",
+            "type": "string"
+          },
+          {
+            "title": "amount",
+            "type": "integer"
+          }
+        ],
+        "type": "array"
+      },
+      "result": {
+        "type": "null"
+      }
+    },
+    "gates_ahead": {
+      "changes": false,
+      "needsRun": true,
+      "params": {
+        "maxItems": 0,
+        "minItems": 0,
+        "prefixItems": [],
+        "type": "array"
+      },
+      "result": {
+        "items": {
+          "$ref": "#/$defs/engine.Gate"
+        },
+        "type": "array"
+      }
+    },
+    "guard": {
+      "changes": true,
+      "needsRun": true,
+      "params": {
+        "maxItems": 2,
+        "minItems": 2,
+        "prefixItems": [
+          {
+            "title": "house",
+            "type": "string"
+          },
+          {
+            "title": "member",
+            "type": "integer"
+          }
+        ],
+        "type": "array"
+      },
+      "result": {
+        "type": "null"
+      }
+    },
+    "hire": {
+      "changes": true,
+      "needsRun": true,
+      "params": {
+        "maxItems": 1,
+        "minItems": 1,
+        "prefixItems": [
+          {
+            "title": "candidate",
+            "type": "integer"
+          }
+        ],
+        "type": "array"
+      },
+      "result": {
+        "$ref": "#/$defs/game.CrewMember"
+      }
+    },
+    "house_offers": {
+      "changes": false,
+      "needsRun": true,
+      "params": {
+        "maxItems": 0,
+        "minItems": 0,
+        "prefixItems": [],
+        "type": "array"
+      },
+      "result": {
+        "items": {
+          "$ref": "#/$defs/game.HouseOffer"
+        },
+        "type": "array"
+      }
+    },
+    "invest": {
+      "changes": true,
+      "needsRun": true,
+      "params": {
+        "maxItems": 2,
+        "minItems": 2,
+        "prefixItems": [
+          {
+            "title": "front",
+            "type": "string"
+          },
+          {
+            "title": "levels",
+            "type": "integer"
+          }
+        ],
+        "type": "array"
+      },
+      "result": {
+        "type": "null"
+      }
+    },
+    "investigate": {
+      "changes": true,
+      "needsRun": true,
+      "params": {
+        "maxItems": 0,
+        "minItems": 0,
+        "prefixItems": [],
+        "type": "array"
+      },
+      "result": {
+        "type": "null"
+      }
+    },
+    "load": {
+      "changes": true,
+      "needsRun": false,
+      "params": {
+        "maxItems": 1,
+        "minItems": 1,
+        "prefixItems": [
+          {
+            "title": "slot",
+            "type": "integer"
+          }
+        ],
+        "type": "array"
+      },
+      "result": {
+        "$ref": "#/$defs/engine.View"
+      }
+    },
+    "move": {
+      "changes": true,
+      "needsRun": true,
+      "params": {
+        "maxItems": 5,
+        "minItems": 5,
+        "prefixItems": [
+          {
+            "title": "city",
+            "type": "string"
+          },
+          {
+            "title": "from",
+            "type": "string"
+          },
+          {
+            "title": "to",
+            "type": "string"
+          },
+          {
+            "title": "product",
+            "type": "string"
+          },
+          {
+            "title": "units",
+            "type": "integer"
+          }
+        ],
+        "type": "array"
+      },
+      "result": {
+        "type": "integer"
+      }
+    },
+    "new_run": {
+      "changes": true,
+      "needsRun": false,
+      "params": {
+        "maxItems": 3,
+        "minItems": 3,
+        "prefixItems": [
+          {
+            "title": "seed",
+            "type": "integer"
+          },
+          {
+            "title": "character",
+            "type": "string"
+          },
+          {
+            "title": "hard_da",
+            "type": "boolean"
+          }
+        ],
+        "type": "array"
+      },
+      "result": {
+        "$ref": "#/$defs/engine.View"
+      }
+    },
+    "next_gates": {
+      "changes": false,
+      "needsRun": true,
+      "params": {
+        "maxItems": 0,
+        "minItems": 0,
+        "prefixItems": [],
+        "type": "array"
+      },
+      "result": {
+        "items": {
+          "$ref": "#/$defs/engine.Gate"
+        },
+        "type": "array"
+      }
+    },
+    "pay_cop": {
+      "changes": true,
+      "needsRun": true,
+      "params": {
+        "maxItems": 1,
+        "minItems": 1,
+        "prefixItems": [
+          {
+            "title": "amount",
+            "type": "integer"
+          }
+        ],
+        "type": "array"
+      },
+      "result": {
+        "type": "null"
+      }
+    },
+    "pay_off": {
+      "changes": true,
+      "needsRun": true,
+      "params": {
+        "maxItems": 1,
+        "minItems": 1,
+        "prefixItems": [
+          {
+            "title": "member",
+            "type": "integer"
+          }
+        ],
+        "type": "array"
+      },
+      "result": {
+        "$ref": "#/$defs/game.CrewMember"
+      }
+    },
+    "place_sell": {
+      "changes": true,
+      "needsRun": true,
+      "params": {
+        "maxItems": 4,
+        "minItems": 4,
+        "prefixItems": [
+          {
+            "title": "city",
+            "type": "string"
+          },
+          {
+            "title": "product",
+            "type": "string"
+          },
+          {
+            "title": "qty",
+            "type": "integer"
+          },
+          {
+            "enum": [
+              "quiet",
+              "normal",
+              "aggressive"
+            ],
+            "title": "dial",
+            "type": "string"
+          }
+        ],
+        "type": "array"
+      },
+      "result": {
+        "type": "null"
+      }
+    },
+    "place_standing": {
+      "changes": true,
+      "needsRun": true,
+      "params": {
+        "maxItems": 4,
+        "minItems": 4,
+        "prefixItems": [
+          {
+            "title": "city",
+            "type": "string"
+          },
+          {
+            "title": "product",
+            "type": "string"
+          },
+          {
+            "title": "qty",
+            "type": "integer"
+          },
+          {
+            "enum": [
+              "quiet",
+              "normal",
+              "aggressive"
+            ],
+            "title": "dial",
+            "type": "string"
+          }
+        ],
+        "type": "array"
+      },
+      "result": {
+        "type": "null"
+      }
+    },
+    "plant_spy": {
+      "changes": true,
+      "needsRun": true,
+      "params": {
+        "maxItems": 2,
+        "minItems": 2,
+        "prefixItems": [
+          {
+            "title": "faction",
+            "type": "string"
+          },
+          {
+            "title": "member",
+            "type": "integer"
+          }
+        ],
+        "type": "array"
+      },
+      "result": {
+        "type": "null"
+      }
+    },
+    "post": {
+      "changes": true,
+      "needsRun": true,
+      "params": {
+        "maxItems": 2,
+        "minItems": 2,
+        "prefixItems": [
+          {
+            "title": "corner",
+            "type": "string"
+          },
+          {
+            "title": "member",
+            "type": "integer"
+          }
+        ],
+        "type": "array"
+      },
+      "result": {
+        "type": "null"
+      }
+    },
+    "propose_to": {
+      "changes": true,
+      "needsRun": true,
+      "params": {
+        "maxItems": 3,
+        "minItems": 3,
+        "prefixItems": [
+          {
+            "title": "faction",
+            "type": "string"
+          },
+          {
+            "title": "kind",
+            "type": "string"
+          },
+          {
+            "$ref": "#/$defs/protocol.TermsParams",
+            "title": "terms"
+          }
+        ],
+        "type": "array"
+      },
+      "result": {
+        "type": "null"
+      }
+    },
+    "reserve": {
+      "changes": true,
+      "needsRun": true,
+      "params": {
+        "maxItems": 1,
+        "minItems": 1,
+        "prefixItems": [
+          {
+            "title": "amount",
+            "type": "integer"
+          }
+        ],
+        "type": "array"
+      },
+      "result": {
+        "type": "null"
+      }
+    },
+    "retire": {
+      "changes": true,
+      "needsRun": true,
+      "params": {
+        "maxItems": 0,
+        "minItems": 0,
+        "prefixItems": [],
+        "type": "array"
+      },
+      "result": {
+        "type": "null"
+      }
+    },
+    "return": {
+      "changes": true,
+      "needsRun": true,
+      "params": {
+        "maxItems": 3,
+        "minItems": 3,
+        "prefixItems": [
+          {
+            "title": "city",
+            "type": "string"
+          },
+          {
+            "title": "product",
+            "type": "string"
+          },
+          {
+            "title": "qty",
+            "type": "integer"
+          }
+        ],
+        "type": "array"
+      },
+      "result": {
+        "type": "integer"
+      }
+    },
+    "return_credit": {
+      "changes": true,
+      "needsRun": true,
+      "params": {
+        "maxItems": 3,
+        "minItems": 3,
+        "prefixItems": [
+          {
+            "title": "city",
+            "type": "string"
+          },
+          {
+            "title": "product",
+            "type": "string"
+          },
+          {
+            "title": "qty",
+            "type": "integer"
+          }
+        ],
+        "type": "array"
+      },
+      "result": {
+        "type": "integer"
+      }
+    },
+    "return_supplied": {
+      "changes": true,
+      "needsRun": true,
+      "params": {
+        "maxItems": 3,
+        "minItems": 3,
+        "prefixItems": [
+          {
+            "title": "city",
+            "type": "string"
+          },
+          {
+            "title": "product",
+            "type": "string"
+          },
+          {
+            "title": "qty",
+            "type": "integer"
+          }
+        ],
+        "type": "array"
+      },
+      "result": {
+        "type": "integer"
+      }
+    },
+    "save": {
+      "changes": false,
+      "needsRun": true,
+      "params": {
+        "maxItems": 1,
+        "minItems": 1,
+        "prefixItems": [
+          {
+            "title": "slot",
+            "type": "integer"
+          }
+        ],
+        "type": "array"
+      },
+      "result": {
+        "type": "null"
+      }
+    },
+    "scout_faction": {
+      "changes": true,
+      "needsRun": true,
+      "params": {
+        "maxItems": 1,
+        "minItems": 1,
+        "prefixItems": [
+          {
+            "title": "faction",
+            "type": "string"
+          }
+        ],
+        "type": "array"
+      },
+      "result": {
+        "type": "null"
+      }
+    },
+    "see_stage": {
+      "changes": true,
+      "needsRun": true,
+      "params": {
+        "maxItems": 1,
+        "minItems": 1,
+        "prefixItems": [
+          {
+            "title": "stage",
+            "type": "integer"
+          }
+        ],
+        "type": "array"
+      },
+      "result": {
+        "type": "null"
+      }
+    },
+    "send_enforcers": {
+      "changes": true,
+      "needsRun": true,
+      "params": {
+        "maxItems": 2,
+        "minItems": 2,
+        "prefixItems": [
+          {
+            "title": "corner",
+            "type": "string"
+          },
+          {
+            "enum": [
+              "warn",
+              "push",
+              "hit"
+            ],
+            "title": "force",
+            "type": "string"
+          }
+        ],
+        "type": "array"
+      },
+      "result": {
+        "type": "null"
+      }
+    },
+    "set_launder_dial": {
+      "changes": true,
+      "needsRun": true,
+      "params": {
+        "maxItems": 1,
+        "minItems": 1,
+        "prefixItems": [
+          {
+            "enum": [
+              "careful",
+              "normal",
+              "greedy"
+            ],
+            "title": "dial",
+            "type": "string"
+          }
+        ],
+        "type": "array"
+      },
+      "result": {
+        "type": "null"
+      }
+    },
+    "set_lie_low": {
+      "changes": true,
+      "needsRun": true,
+      "params": {
+        "maxItems": 1,
+        "minItems": 1,
+        "prefixItems": [
+          {
+            "title": "on",
+            "type": "boolean"
+          }
+        ],
+        "type": "array"
+      },
+      "result": {
+        "type": "null"
+      }
+    },
+    "set_pay": {
+      "changes": true,
+      "needsRun": true,
+      "params": {
+        "maxItems": 1,
+        "minItems": 1,
+        "prefixItems": [
+          {
+            "enum": [
+              "stingy",
+              "fair",
+              "generous"
+            ],
+            "title": "pay",
+            "type": "string"
+          }
+        ],
+        "type": "array"
+      },
+      "result": {
+        "type": "null"
+      }
+    },
+    "set_route": {
+      "changes": true,
+      "needsRun": true,
+      "params": {
+        "maxItems": 2,
+        "minItems": 2,
+        "prefixItems": [
+          {
+            "title": "route",
+            "type": "string"
+          },
+          {
+            "enum": [
+              "off",
+              "slow",
+              "normal",
+              "fast"
+            ],
+            "title": "dial",
+            "type": "string"
+          }
+        ],
+        "type": "array"
+      },
+      "result": {
+        "type": "null"
+      }
+    },
+    "set_route_days": {
+      "changes": true,
+      "needsRun": true,
+      "params": {
+        "maxItems": 3,
+        "minItems": 3,
+        "prefixItems": [
+          {
+            "title": "route",
+            "type": "string"
+          },
+          {
+            "title": "product",
+            "type": "string"
+          },
+          {
+            "title": "days",
+            "type": "integer"
+          }
+        ],
+        "type": "array"
+      },
+      "result": {
+        "type": "null"
+      }
+    },
+    "set_route_driver": {
+      "changes": true,
+      "needsRun": true,
+      "params": {
+        "maxItems": 2,
+        "minItems": 2,
+        "prefixItems": [
+          {
+            "title": "route",
+            "type": "string"
+          },
+          {
+            "title": "member",
+            "type": "integer"
+          }
+        ],
+        "type": "array"
+      },
+      "result": {
+        "type": "null"
+      }
+    },
+    "set_route_target": {
+      "changes": true,
+      "needsRun": true,
+      "params": {
+        "maxItems": 3,
+        "minItems": 3,
+        "prefixItems": [
+          {
+            "title": "route",
+            "type": "string"
+          },
+          {
+            "title": "product",
+            "type": "string"
+          },
+          {
+            "title": "units",
+            "type": "integer"
+          }
+        ],
+        "type": "array"
+      },
+      "result": {
+        "type": "null"
+      }
+    },
+    "set_supply": {
+      "changes": true,
+      "needsRun": true,
+      "params": {
+        "maxItems": 3,
+        "minItems": 3,
+        "prefixItems": [
+          {
+            "title": "city",
+            "type": "string"
+          },
+          {
+            "title": "product",
+            "type": "string"
+          },
+          {
+            "title": "units",
+            "type": "integer"
+          }
+        ],
+        "type": "array"
+      },
+      "result": {
+        "type": "null"
+      }
+    },
+    "tip": {
+      "changes": true,
+      "needsRun": true,
+      "params": {
+        "maxItems": 1,
+        "minItems": 1,
+        "prefixItems": [
+          {
+            "title": "corner",
+            "type": "string"
+          }
+        ],
+        "type": "array"
+      },
+      "result": {
+        "type": "null"
+      }
+    },
+    "travel": {
+      "changes": true,
+      "needsRun": true,
+      "params": {
+        "maxItems": 1,
+        "minItems": 1,
+        "prefixItems": [
+          {
+            "title": "city",
+            "type": "string"
+          }
+        ],
+        "type": "array"
+      },
+      "result": {
+        "type": "null"
+      }
+    },
+    "unassign": {
+      "changes": true,
+      "needsRun": true,
+      "params": {
+        "maxItems": 1,
+        "minItems": 1,
+        "prefixItems": [
+          {
+            "title": "member",
+            "type": "integer"
+          }
+        ],
+        "type": "array"
+      },
+      "result": {
+        "type": "null"
+      }
+    },
+    "undercut": {
+      "changes": true,
+      "needsRun": true,
+      "params": {
+        "maxItems": 2,
+        "minItems": 2,
+        "prefixItems": [
+          {
+            "title": "corner",
+            "type": "string"
+          },
+          {
+            "enum": [
+              "quiet",
+              "normal",
+              "aggressive"
+            ],
+            "title": "dial",
+            "type": "string"
+          }
+        ],
+        "type": "array"
+      },
+      "result": {
+        "type": "null"
+      }
+    },
+    "vanish": {
+      "changes": true,
+      "needsRun": true,
+      "params": {
+        "maxItems": 0,
+        "minItems": 0,
+        "prefixItems": [],
+        "type": "array"
+      },
+      "result": {
+        "type": "null"
+      }
+    },
+    "view": {
+      "changes": false,
+      "needsRun": true,
+      "params": {
+        "maxItems": 0,
+        "minItems": 0,
+        "prefixItems": [],
+        "type": "array"
+      },
+      "result": {
+        "$ref": "#/$defs/engine.View"
+      }
+    },
+    "withdraw": {
+      "changes": true,
+      "needsRun": true,
+      "params": {
+        "maxItems": 0,
+        "minItems": 0,
+        "prefixItems": [],
+        "type": "array"
+      },
+      "result": {
+        "type": "null"
+      }
+    }
+  },
+  "notifications": {
+    "event": {
+      "properties": {
+        "day": {
+          "type": "integer"
+        },
+        "kind": {
+          "enum": [
+            "AssetBought",
+            "AssetFrozen",
+            "AssetSeized",
+            "BribeAccepted",
+            "BribeBackfired",
+            "BribeRefused",
+            "CampaignBacked",
+            "CampaignHedged",
+            "CampaignLost",
+            "CashLaundered",
+            "CheckpointBought",
+            "ChiefReplaced",
+            "CityFunded",
+            "ClaimDeterred",
+            "ContractAccepted",
+            "ContractDelivered",
+            "ContractExpired",
+            "ContractFailed",
+            "ContractOffered",
+            "CookOrdered",
+            "Cooked",
+            "CornerClaimed",
+            "CornerLost",
+            "CornerRobbed",
+            "CornerStruck",
+            "CornerTaken",
+            "CreditTaken",
+            "CrewArrested",
+            "CrewBailed",
+            "CrewDefected",
+            "CrewFired",
+            "CrewHired",
+            "CrewPaid",
+            "CrewPaidOff",
+            "CrewPoached",
+            "CrewQuit",
+            "CrewRecovered",
+            "CrewReleased",
+            "CrewRetired",
+            "CrewShot",
+            "CrewSkimmed",
+            "CrewTurnedInformant",
+            "DAElected",
+            "DayEnded",
+            "DealAccepted",
+            "DealBroken",
+            "DealEnded",
+            "DealOffered",
+            "DealRefused",
+            "DebtLate",
+            "DebtPaid",
+            "DeedBought",
+            "DeedRent",
+            "DeedSeized",
+            "DeedsBought",
+            "DilemmaAnswered",
+            "DilemmaDrawn",
+            "Enforcement",
+            "FactionPushed",
+            "FallGuyBurned",
+            "FrontAudited",
+            "FrontBought",
+            "FrontFrozen",
+            "FrontGrew",
+            "FrontInvested",
+            "GameOver",
+            "Headline",
+            "HeatChanged",
+            "HouseBought",
+            "HouseCompromised",
+            "HouseLost",
+            "HouseRaided",
+            "HouseRobbed",
+            "Incident",
+            "IntelFalse",
+            "IntelGained",
+            "InvestigationRun",
+            "KinLooking",
+            "LaidLow",
+            "LeadFound",
+            "LeadsFiled",
+            "LieutenantActed",
+            "LieutenantFlipped",
+            "LieutenantWalked",
+            "OfficialsCold",
+            "Overdose",
+            "PlayerSold",
+            "PlayerUndercut",
+            "PoliceTipped",
+            "PressureShifted",
+            "PriceMove",
+            "PriceShock",
+            "RaidFellThrough",
+            "ReignBegan",
+            "ReignBroken",
+            "RentPaid",
+            "ReputationShifted",
+            "Reserved",
+            "RivalAbandoned",
+            "RivalAbsorbed",
+            "RivalBoosted",
+            "RivalEyeing",
+            "RivalLeaderArrested",
+            "RivalMovedIn",
+            "RivalMusclePoached",
+            "RivalOutbid",
+            "RivalPushed",
+            "RivalRaided",
+            "RivalScouted",
+            "RivalTippedPolice",
+            "RivalUndercut",
+            "ShipmentArrived",
+            "ShipmentSeized",
+            "ShipmentSent",
+            "SpyFound",
+            "SpyPlanted",
+            "StandingShort",
+            "StockCut",
+            "StockMoved",
+            "SupplierBought",
+            "SupplierCollected",
+            "SupplierFrozen",
+            "SupplierWarned",
+            "SupplyBought",
+            "SupplyShort",
+            "TaskForceFormed",
+            "Taxed",
+            "TierReached",
+            "TributePaid",
+            "TrustSpread",
+            "TunnelFound",
+            "Unlocked",
+            "UpgradeBought",
+            "WarEnded",
+            "WarEscalated",
+            "WholesaleBought"
+          ],
+          "type": "string"
+        },
+        "payload": {
+          "description": "the event, its schema under events by kind"
+        }
+      },
+      "required": [
+        "kind",
+        "day",
+        "payload"
+      ],
+      "type": "object"
+    },
+    "view": {
+      "$ref": "#/$defs/engine.View"
+    }
+  },
+  "protocol": 1,
+  "title": "kingpind",
+  "view_version": 1
+}
