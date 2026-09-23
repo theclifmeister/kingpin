@@ -23,6 +23,23 @@ From `rich_tier` (4, Distribution) a card is drawn at its `weight_rich`, or at `
 `harness.Run` plays with the deck boxed, so no money band moves; `RunWith` chooser runs deal the new cards and the capped sums once the peak passes $500K.
 `Owes` is a zero field on `DilemmaState` (no schema bump) and moved `TestSeedDigest` on day 1 by shape alone.
 
+## What a choice costs (#358)
+
+**Every card shows what each choice costs before you choose** (#358, `game/preview.go`, `engine/card.go`).
+Every effect is deterministic, so nothing is uncertain at the moment of choosing; the uncertainty is downstream (a grudge becomes a war, heat trips a rung, loyalty crosses the skim line).
+`Card.Preview(w, i)` applies choice `i` through `Card.apply`, the path `Choose` takes, on a copy of the world (`World.clone`, the save's gob encoding), and returns what moved as `game.Change`s (`Key`, `Member`, `From`, `To`) over `game.Gauges`: dirty and clean cash, the heat where you stand, each member's loyalty, the home rival's war, grudge, muscle and cash, the units you hold, the corners you hold, the favours you owe (`Dilemmas.Owes`), and the three reputation axes.
+The clamps land as they will, so the preview is the outcome; the reputation sim's cap on the axes' sum is applied that evening, so it is a note, not a number.
+`engine.ChoiceChips(cfg, rules, w, c)` puts each choice's changes in words, one `Chip` (`Text`, `Tone`: `gain`, `cost`, `line`, `note`) a thing: `dirty −$12K`, `heat +7`, `Vee's loyalty +8` (the named member) or `crew loyalty +8` (everyone, `up to +8` where a clamp made them differ), `war with Big Sal's crew +5`, `their muscle −1`, `their cash −$2,500`, `stock −120`, `respect +5`, `give up Rail Yard` (the card's corner, the `corner` key) and `you'll owe a favour` (the `owes` key, in the `line` tone: the favour comes due as a later card).
+Where a move crosses a line the world already knows, the chip says so in words and never in dice, in the `line` tone: `heat 53 → 59: over the sting line` (the highest rung of `Heat.Ladder` crossed; `back under` going down), `Vee's loyalty 32 → 27: under the skim line` (`skim_threshold`; `over` going up), `grudge +20: Big Sal's crew remember`.
+The rival's figures are deltas only: the view leaves its grudge, chest and muscle out, and the card does not leak them.
+A choice that pushes the axes past `total` gets `more than the street can hold: it evens out tonight`; one that moves nothing says `changes nothing`.
+**`hide = true`** on a card (`CardConfig.Hide`, carried on `game.Card.Hide`) is for a card whose drama is the unknown: every choice shows `costs you something` (`engine.Hidden`) and no figure.
+Use it sparingly: the turncoat, who might be a plant, is the one card that has it.
+The TUI draws the chips under each label, indented to the label's text, in the theme's tones (a gain `Good`, a cost `Bad`, a line `Warning`, a note `Subtle`), joined with ` · ` and folded to the modal's width (`cardChoices`, `foldChips`); they are worked out once a card (`cardChips`), the modal scrolls, and the cursor keeps its whole choice in view, label first.
+The card's scene reserves the chips' rows, so the box is its finished size from the first frame.
+The engine's view carries the same chips (`CardView.Choices[].Preview`, view 4) and the web client draws them under each button.
+`TestPreviewIsTheOutcome` (harness) holds every card in the deck, the rich band's included, on four worlds two runs reached, two of them broke and hot, and one with a $5M bag, the card naming a corner you hold, to `Preview(i)` being the change `Choose(i)` makes, gauge for gauge, and a corner given up and a favour owed among what moved; `TestPreviewNeverWritesTheWorld` digests the world around a preview of every key; `TestChoiceChipsSayTheLines` (engine) pins the words, the lines, the corner and the favour, `hide` and the view; `TestCardShowsWhatEachChoiceDoes` (ui) fits the longest card with its chips at 80x24, 100x30 and 120x40.
+
 ## Showing and testing
 
 The UI shows the card in `modeCard` before the report (`showCard`): the card is dealt, its title decrypting and its prose wiping in, any key skipping to the finished card (#154, `docs/animation.md`); `1-3`/`enter` decide, the outcome shows, a second `enter` opens the report, and `enter` never ends the day; `continueRun` reopens a pending card, dealt again.
