@@ -6,10 +6,11 @@ import "github.com/theclifmeister/kingpin/internal/game"
 // the numbers every screen that shows a price reads, so a decision made
 // in a dialog is made on the number the market shows.
 type PriceFacts struct {
-	Unit   float64 // the supplier price the facts are read against; 0 where nobody sells it
-	Delta  float64 // yesterday's close to today's, in percent
-	Lo, Hi float64 // the range of the history
-	Margin float64 // the street over Unit, in percent; 0 where Unit is
+	Unit   float64 `json:"unit"`  // the supplier price the facts are read against; 0 where nobody sells it
+	Delta  float64 `json:"delta"` // yesterday's close to today's, in percent
+	Lo     float64 `json:"lo"`    // the range of the history
+	Hi     float64 `json:"hi"`
+	Margin float64 `json:"margin"` // the street over Unit, in percent; 0 where Unit is
 }
 
 // Facts is FactsAt against the market's own supplier price (the best

@@ -71,3 +71,40 @@ The slot is the caller's: the TUI keeps `Model.slot` and passes it to `Load` and
 - `TestAlertsAreKeyedOnce` plays eighty aggressive days and finds no empty or repeated key on any morning.
 - `TestEveryStopHasWords` (`ui/stops_test.go`) walks `events.All`: every kind the engine stops on at its zero value has words in `stopEvent`, and nothing it does not stop on is worded. `stopEvent` falls back to the kind's name, so a stop is never silent.
 - Every existing fast-forward, alert, unlock, debt and delta test in the TUI passes unchanged, and no number moved.
+
+**Phase 4, the view (#299).** `Session.View()` (`engine/view.go`) returns `engine.View`, a snapshot of what the player can see. It is what a front end in another process draws from, and it holds no pointer into the world, so it can be kept, compared, changed and sent as JSON.
+
+- **What it holds.** `version`, `seed`, `day` and `over` (how the run ended), then:
+  - `you`: the city you're in, dirty, clean and offshore cash, net worth, peak cash, lie-low, the tier and its name, the pay and launder dials by name, the DA's evidence, fear, respect and notoriety, your street stock by city, the upgrades owned, the quiet days, the character and the hard DA.
+  - `cities`: heat, pressure, goodwill, the police's next rung as the file knows it, every product (price, supplier price, demand, shock, history and its `PriceFacts`) and every corner (the cell, demand, owner, faction, runner, enforcer, since, deed).
+  - `crew`: role, age, skill, loyalty, wage, the city a lieutenant runs, the post, jailed, and a lieutenant's personality once the report has named it.
+  - `routes` open to you: the dial by name, closed, the driver, and the risk the file holds.
+  - `shipments`, `connects` (who sells what where, today's price for what they will sell you now, the day's cap, the lot, credit, the relationship, the debt and when it is due; the temper, which the TUI shows), `houses` (stock, guard, whether the police know it) and `fronts` (level, frozen, washed).
+  - `factions`: leader, alive, arrival, corners held, trust, war, and, from the file only, the temper (`?` until known), the heads as a band, the last read of the books and the next move.
+  - `law`: the chief, the temper the file knows, the DA and the stance, the next election.
+  - `card`: the one waiting, with its choices' labels.
+  - `report`: the morning report's sections as lines.
+  - `alerts`: phase 3's typed alerts.
+  
+  Dials go out as names (`fair`, `normal`), never as ints. Every JSON key is snake_case, and optional ones are `omitempty`.
+- **What it leaves out.** What the player does not know is not there:
+  - a faction's true temper, heads, chest, grudge, arrears and the corner it is eyeing
+  - the chief's true temper and a route's true risk
+  - a planted fact's author
+  - who on the payroll is informing, and a member's greed and nerve
+  - the informant's leak count (the "somebody is talking" alert is the tell)
+- **Versioning.** `engine.ViewVersion` (1) is the shape of `View` and moves when a field is added, renamed, retyped or dropped. It is never tied to the save's `game.SchemaVersion`: the world stays free to change shape, and the view is the contract. `TestViewShapeIsPinned` walks the type by reflection into one line per field, its JSON path and its Go kind (`.cities[].products[].facts.margin float64`), and compares that with `engine/testdata/view_shape.txt` (215 lines, headed `version 1`).
+  - A shape change that keeps the number fails with the lines that moved.
+  - With the number moved, `go test ./internal/engine -run TestViewShapeIsPinned -update` writes the new shape.
+  - The file pins shape and never values, so it reads the same on amd64 CI and an arm64 machine, where fused multiply-add moves floats (the reason `TestNoUnlockIsTheOldRun` hashes nothing a float writes).
+
+**Rulings.**
+
+- The issue asked the TUI to read the view where that was a straight swap. It doesn't, deliberately. The TUI runs in the same process and redraws on every key; building a whole snapshot per frame to read a handful of fields would allocate the world's size each keypress for nothing, and the view exists for front ends that cannot hold a Go pointer. The TUI's direct reads are already confined to methods that only read (`TestUIActsThroughTheSession`'s `worldReads`, phase 2), and the rival panels to the file (`TestPanelsReadTheFile`). Those two lists are the remaining direct reads, and phase 5's protocol serves the view.
+
+**What pins it.**
+
+- `TestViewShapeIsPinned` (above).
+- `TestViewRoundTripsJSON`: forty days of the informed player's run give a view that is byte-identical after a trip through JSON, and the view before a run carries its version.
+- `TestViewHoldsNothingOfTheWorld`: every history, stock map, report line and corner list in the view is overwritten, and the world's JSON is unchanged.
+- `TestViewReadsTheFile`: sixty days of the informed player (two of the three factions' tempers in the file by then). Every faction's temper and heads band, and the chief's temper, equal `game.Known`'s. It also type-checks the engine and fails on any read in `view.go` of the truths above; a planted `r.Muscle` fails it by name.
