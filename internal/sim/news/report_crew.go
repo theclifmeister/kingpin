@@ -5,6 +5,7 @@ import (
 
 	"github.com/theclifmeister/kingpin/internal/events"
 	"github.com/theclifmeister/kingpin/internal/format"
+	"github.com/theclifmeister/kingpin/internal/game"
 )
 
 // reportCrew writes the crew sim's events into the morning: the
@@ -38,7 +39,7 @@ func (r *reporter) reportCrew(e events.Event) bool {
 			rep.Crew = append(rep.Crew, fmt.Sprintf("%s went over to %s.", ev.Name, ev.Rival))
 		}
 	case events.InvestigationRun:
-		r.investigated += ev.Cost
+		r.book(game.FlowRoutes, -(ev.Cost - ev.Clean), -ev.Clean)
 		r.add("crew", "InvestigationRun", base)
 		if ev.Found {
 			rep.Crew = append(rep.Crew, fmt.Sprintf("The investigation named %s: they have been talking to the police. Fire them (f) and the file stops growing.", ev.Name))
@@ -47,14 +48,14 @@ func (r *reporter) reportCrew(e events.Event) bool {
 		}
 		rep.Money = append(rep.Money, fmt.Sprintf("Investigation -%s", format.Money(ev.Cost)))
 	case events.CrewPaidOff:
-		r.paidOff += ev.Cost
+		r.book(game.FlowWages, -(ev.Cost - ev.Clean), -ev.Clean)
 		rep.Crew = append(rep.Crew, fmt.Sprintf("%s took your money and stays sweet on you, for now.", ev.Name))
 		rep.Money = append(rep.Money, fmt.Sprintf("Paid off %s -%s", ev.Name, format.Money(ev.Cost)))
 	case events.CrewBailed:
 		// Crew life (#46): the cells, the cots and the funerals. The
 		// bondsman's bail (#230, Who) is on the arrest's own line;
 		// here it is the money.
-		r.paidOff += ev.Cost
+		r.book(game.FlowRoutes, 0, -ev.Cost)
 		if ev.Who != "" {
 			rep.Money = append(rep.Money, fmt.Sprintf("Bail for %s -%s clean (%s)", ev.Name, format.Money(ev.Cost), ev.Who))
 			break
@@ -141,8 +142,9 @@ func (r *reporter) reportCrew(e events.Event) bool {
 		}
 		rep.Crew = append(rep.Crew, lieutenantWalkedLine(ev))
 	case events.LieutenantActed:
-		r.cuts += ev.Cut
-		r.skimmed += ev.Skimmed
+		// The cut is the sales' net; a greedy one's skim on top is in
+		// the night's CrewSkimmed with everybody else's.
+		r.book(game.FlowSales, -ev.Cut, 0)
 		rep.Crew = append(rep.Crew, lieutenantLines(w, ev)...)
 		if ev.Cut > 0 {
 			rep.Money = append(rep.Money, fmt.Sprintf("%s's cut of %s -%s", ev.Name, ev.CityName, format.Money(ev.Cut)))
@@ -150,6 +152,7 @@ func (r *reporter) reportCrew(e events.Event) bool {
 	case events.CrewSkimmed:
 		r.add("crew", "CrewSkimmed", base)
 		r.skimmed += ev.Amount
+		r.book(game.FlowLosses, -(ev.Amount - ev.FromWash), -ev.FromWash)
 		switch {
 		case ev.FromWash == ev.Amount:
 			rep.Crew = append(rep.Crew, fmt.Sprintf("%s of the wash never came out clean. Somebody is cooking the books.", format.Money(ev.Amount)))
@@ -159,7 +162,7 @@ func (r *reporter) reportCrew(e events.Event) bool {
 			rep.Crew = append(rep.Crew, fmt.Sprintf("%s of the takings never made it back. Somebody is skimming.", format.Money(ev.Amount)))
 		}
 	case events.CrewPaid:
-		r.wages += ev.Wages
+		r.book(game.FlowWages, -ev.Wages, 0)
 		line := fmt.Sprintf("Wages (%s) -%s", ev.Pay, format.Money(ev.Wages))
 		if ev.Short > 0 {
 			line += fmt.Sprintf(", %s SHORT", format.Money(ev.Short))
@@ -167,7 +170,7 @@ func (r *reporter) reportCrew(e events.Event) bool {
 		}
 		rep.Money = append(rep.Money, line)
 	case events.CookOrdered:
-		r.cooking += ev.Cost
+		r.book(game.FlowPurchases, -ev.Cost, 0)
 		rep.Crew = append(rep.Crew, fmt.Sprintf("%s is cooking %d %s%s: quality %.0f, ready in %s = -%s", ev.Chemist, ev.Units, w.ProductName(ev.Product), r.in(ev.City), ev.Quality, format.Plural(ev.Days, "day"), format.Money(ev.Cost)))
 		rep.Money = append(rep.Money, fmt.Sprintf("Precursors for %s -%s", w.ProductName(ev.Product), format.Money(ev.Cost)))
 	case events.Cooked:

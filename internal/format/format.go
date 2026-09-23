@@ -35,6 +35,15 @@ func Money(n int) string {
 	return "$" + b.String()
 }
 
+// Signed is Money for a change, its sign written either way: `+$1,200`,
+// `-$300`, `$0` (#351: the cash flow's lines).
+func Signed(n int) string {
+	if n > 0 {
+		return "+" + Money(n)
+	}
+	return Money(n)
+}
+
 // Cash formats a dollar amount the way a headline would: exact with
 // separators under $10K, then $45K, $1.2M, $34B. Totals on the dashboard,
 // title bar, report and run summary use it; itemised figures stay exact.

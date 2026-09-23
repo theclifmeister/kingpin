@@ -223,6 +223,7 @@ func (CrewDefected) Kind() string { return "CrewDefected" }
 type InvestigationRun struct {
 	Day   int
 	Cost  int
+	Clean int // of Cost, the clean pile's once the dirty ran out (#351)
 	Found bool
 	Name  string
 }
@@ -244,9 +245,10 @@ func (CrewSkimmed) Kind() string { return "CrewSkimmed" }
 // CrewPaidOff is report-only bookkeeping: a member the player paid for
 // loyalty during the day.
 type CrewPaidOff struct {
-	Day  int
-	Name string
-	Cost int
+	Day   int
+	Name  string
+	Cost  int
+	Clean int // of Cost, the clean pile's once the dirty ran out (#351)
 }
 
 func (CrewPaidOff) Kind() string { return "CrewPaidOff" }
@@ -451,6 +453,7 @@ func (UpgradeBought) Kind() string { return "UpgradeBought" }
 type FallGuyBurned struct {
 	Day      int
 	CashLost int
+	Clean    int // of CashLost, the clean pile's (#351)
 }
 
 func (FallGuyBurned) Kind() string { return "FallGuyBurned" }
@@ -682,6 +685,7 @@ type DebtPaid struct {
 	Supplier string
 	Name     string
 	Amount   int
+	Clean    int // of Amount, what came out of the clean pile once the dirty ran out (#351)
 }
 
 func (DebtPaid) Kind() string { return "DebtPaid" }
@@ -704,6 +708,7 @@ type DebtLate struct {
 	Left     int
 	Due      int
 	What     string
+	Clean    int // of Paid, what came out of the clean pile once the dirty ran out (#351)
 }
 
 func (DebtLate) Kind() string { return "DebtLate" }
@@ -1496,6 +1501,7 @@ type ContractFailed struct {
 	Units       int
 	Delivered   int
 	Cash        int
+	Clean       int     // of Cash, what came out of the clean pile once the dirty ran out (#351)
 	Respect     float64 // positive: what respect loses
 	Notoriety   float64 // what notoriety gains
 	Blacklisted int     // first day the buyer will deal again
@@ -1557,6 +1563,7 @@ func (RivalAbandoned) Kind() string { return "RivalAbandoned" }
 type RivalScouted struct {
 	Day     int
 	Cost    int
+	Clean   int // of Cost, the clean pile's once the dirty ran out (#351)
 	Read    bool
 	Rival   string // whose books (#43)
 	Faction string // faction id
@@ -1888,6 +1895,16 @@ type AssetFrozen struct {
 }
 
 func (AssetFrozen) Kind() string { return "AssetFrozen" }
+
+// AssetUpkeepPaid is what the assets' upkeep took out of the clean pile
+// tonight (#351), across Assets of them: the report's flow reads it.
+type AssetUpkeepPaid struct {
+	Day    int
+	Amount int
+	Assets int
+}
+
+func (AssetUpkeepPaid) Kind() string { return "AssetUpkeepPaid" }
 
 // TaskForceFormed is the heat sim's tell (#48): a task force forms in
 // City this morning and comes tomorrow night. Assets is how many it

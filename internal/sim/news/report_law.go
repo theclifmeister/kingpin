@@ -40,7 +40,7 @@ func (r *reporter) reportLaw(e events.Event) bool {
 		rep.Law = append([]string{chiefLine(ev)}, rep.Law...)
 	// Campaigns (#193): the money in, and what it bought at the count.
 	case events.CampaignBacked:
-		r.backed += ev.Amount
+		r.book(game.FlowInvestments, 0, -ev.Amount)
 		rep.Law = append(rep.Law, fmt.Sprintf("Put %s clean behind the %s ticket in %s: the campaign holds %s, %s of the city's vote", format.Money(ev.Amount), stanceWords(ev.Ticket), w.CityName(ev.City), format.Money(ev.Total), swingWords(ev.Swing)))
 		rep.Money = append(rep.Money, fmt.Sprintf("Campaign in %s -%s clean", w.CityName(ev.City), format.Money(ev.Amount)))
 	case events.CampaignLost:
@@ -58,7 +58,7 @@ func (r *reporter) reportLaw(e events.Event) bool {
 	// The bought law (#42): the envelopes, the leads, the deals on
 	// the road, and the day it all stops.
 	case events.BribeAccepted:
-		r.bribed += ev.Amount
+		r.book(game.FlowInvestments, -ev.Amount, 0)
 		leadsCase := 0
 		for _, e2 := range t.Events() {
 			if lf, ok := e2.(events.LeadFound); ok {
@@ -80,7 +80,7 @@ func (r *reporter) reportLaw(e events.Event) bool {
 		rep.Law = append(rep.Law, line)
 		rep.Money = append(rep.Money, fmt.Sprintf("Envelope for %s -%s", who, format.Money(ev.Amount)))
 	case events.BribeRefused:
-		r.bribed += ev.Amount
+		r.book(game.FlowInvestments, -ev.Amount, 0)
 		who := "Chief " + w.Law.Chief.Name
 		if ev.Target == game.BribeDA {
 			who = "DA " + w.Law.DA.Name
@@ -95,7 +95,7 @@ func (r *reporter) reportLaw(e events.Event) bool {
 		rep.Law = append(rep.Law, fmt.Sprintf("%s %s", who, why))
 		rep.Money = append(rep.Money, fmt.Sprintf("Envelope for %s -%s", who, format.Money(ev.Amount)))
 	case events.BribeBackfired:
-		r.bribed += ev.Amount
+		r.book(game.FlowInvestments, -ev.Amount, 0)
 		who := "Chief " + w.Law.Chief.Name
 		if ev.Target == game.BribeDA {
 			who = "DA " + w.Law.DA.Name
@@ -129,7 +129,7 @@ func (r *reporter) reportLaw(e events.Event) bool {
 		r.add("law", key, r.at(ev.City))
 		rep.Law = append(rep.Law, fmt.Sprintf("%s pressure %.0f %s %.0f", w.CityName(ev.City), ev.From, format.Arrow, ev.To))
 	case events.CityFunded:
-		r.funded += ev.Amount
+		r.book(game.FlowInvestments, 0, -ev.Amount)
 		rep.Law = append(rep.Law, fmt.Sprintf("Gave %s %s clean: goodwill +%.0f (now %.0f)", w.CityName(ev.City), format.Money(ev.Amount), ev.Goodwill, w.Cities[ev.City].Goodwill))
 		rep.Money = append(rep.Money, fmt.Sprintf("Funded %s -%s clean", w.CityName(ev.City), format.Money(ev.Amount)))
 	case events.DeedSeized:

@@ -242,7 +242,7 @@ func (s *Sim) scout(w *game.World, t *game.Tick, r *game.RivalState) {
 		return
 	}
 	w.Stats.Scouts++
-	ev := events.RivalScouted{Day: t.Day, Cost: o.Cost, Rival: r.Leader, Faction: r.Faction()}
+	ev := events.RivalScouted{Day: t.Day, Cost: o.Cost, Clean: o.Clean, Rival: r.Leader, Faction: r.Faction()}
 	if t.Sub(game.StreamBooks).Float64() < s.ScoutOdds(w, r) {
 		ev.Read = true
 		ev.Cash, ev.Income, ev.Muscle, ev.Wages = r.Cash, s.Income(w, r), r.Muscle, s.Wages(w, r)
