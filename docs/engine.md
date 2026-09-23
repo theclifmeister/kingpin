@@ -97,7 +97,7 @@ It is what a front end in another process draws from, and it holds no pointer in
 
 - **What it holds.** `version`, `seed`, `day` and `over` (how the run ended), then:
   - `you`: the city you're in, dirty, clean and offshore cash, net worth, peak cash, lie-low, the tier and its name, the pay and launder dials by name, the DA's evidence, fear, respect and notoriety, your street stock by city, the upgrades owned, the quiet days, the character and the hard DA.
-  - `cities`: heat, pressure, goodwill, the police's next rung as the file knows it, every product (price, supplier price, demand, shock, history and its `PriceFacts`) and every corner (the cell, demand, owner, faction, runner, enforcer, since, deed).
+  - `cities`: heat, pressure, goodwill, the police's next rung as the file knows it with how sure the word is today (`response_sure`, #355), the `ladder` (#355: a rung each as `heat.Sim.Rungs` folds it, its `line`, the `stock_loss` and `cash_loss` shares, the `pages` it files on a day you sold, a patrol's `cap` before the chief's temper, which is intel, and its `cap_days`), every product (price, supplier price, demand, shock, history and its `PriceFacts`) and every corner (the cell, demand, owner, faction, runner, enforcer, since, deed).
   - `crew`: role, age, skill, loyalty, wage, the city a lieutenant runs, the post, jailed, and a lieutenant's personality once the report has named it.
   - `pool` (#332): who is looking for work, as the crew screen lists them: role, age, skill, loyalty, wage, `carry` (the sell capacity they add, which `crew` carries too) and `fee`, the id `hire` takes. There is no personality, since none has been observed, and no former faction, which the TUI does not show either.
   - `contracts` (#332): the buyers' contracts still somebody's business (offered or accepted), as the buyers screen shows them: the buyer's name and pitch, the city, the product, the units and those delivered, the premium, the street price it was offered against, the penalties, the status, and the last days to take it and to deliver. Each has the id that `accept_contract`, `decline_contract` and `deliver` take.
@@ -106,7 +106,7 @@ It is what a front end in another process draws from, and it holds no pointer in
   - `routes` open to you: the dial by name, closed, the driver, and the risk the file holds.
   - `shipments`, `connects` (who sells what where, today's price for what they will sell you now, the day's cap, the lot, credit, the relationship, the debt and when it is due; the temper, which the TUI shows), `houses` (stock, guard, whether the police know it) and `fronts` (level, frozen, washed).
   - `factions`: leader, alive, arrival, corners held, trust, war, and, from the file only, the temper (`?` until known), the heads as a band, the last read of the books and the next move.
-  - `law`: the chief, the temper the file knows, the DA and the stance, the next election.
+  - `law`: the chief, the temper the file knows, the DA and the stance, the next election, and (#355) the `arrest_line` (`heat.Sim.EvidenceArrest`), the `exposure_line` (`ExposureLine`) and the fronts' `cover` (`Cover`).
   - `card`: the one waiting, with its choices: each a `label` and a `preview`, what it does as chips (`text`, `tone`: `gain`, `cost`, `line` or `note`; `engine.ChoiceChips`, #358, `docs/dilemmas.md`).
   - `report`: the morning report's sections as lines, and `flow` (#351): the night's cash flow, `opening` and `closing` by pile (`dirty`, `clean`), one line a category in `game.FlowCats`' order (`cat`, `label`, the signed `dirty` and `clean`, and `big` past headlines.toml `[flow] big_share` of the opening) and the `net`. Opening plus the lines is the closing, pile by pile (`docs/market-and-journal.md`).
   - `alerts`: phase 3's typed alerts.
@@ -118,7 +118,7 @@ It is what a front end in another process draws from, and it holds no pointer in
   - a planted fact's author
   - who on the payroll is informing, and a member's greed and nerve
   - the informant's leak count (the "somebody is talking" alert is the tell)
-- **Versioning.** `engine.ViewVersion` (2 since #332 added the pool, the contracts, the offers and the tree; 3 since #345 added the crew trouble's alert fields; 4 since #358 made a card's choices a label and a preview; 5 since #351 added the report's cash flow, `report.flow`) is the shape of `View` and moves when a field is added, renamed, retyped or dropped. It is never tied to the save's `game.SchemaVersion`: the world stays free to change shape, and the view is the contract. `TestViewShapeIsPinned` walks the type by reflection into one line per field, its JSON path and its Go kind (`.cities[].products[].facts.margin float64`), and compares that with `engine/testdata/view_shape.txt` (286 lines, headed `version 5`).
+- **Versioning.** `engine.ViewVersion` (2 since #332 added the pool, the contracts, the offers and the tree; 3 since #345 added the crew trouble's alert fields; 4 since #358 made a card's choices a label and a preview; 5 since #351 added the report's cash flow, `report.flow`; 6 since #355 added the ladder, the word's sureness and the law's lines) is the shape of `View` and moves when a field is added, renamed, retyped or dropped. It is never tied to the save's `game.SchemaVersion`: the world stays free to change shape, and the view is the contract. `TestViewShapeIsPinned` walks the type by reflection into one line per field, its JSON path and its Go kind (`.cities[].products[].facts.margin float64`), and compares that with `engine/testdata/view_shape.txt` (299 lines, headed `version 6`).
   - A shape change that keeps the number fails with the lines that moved.
   - With the number moved, `go test ./internal/engine -run TestViewShapeIsPinned -update` writes the new shape.
   - The file pins shape and never values, so it reads the same on amd64 CI and an arm64 machine, where fused multiply-add moves floats (the reason `TestNoUnlockIsTheOldRun` hashes nothing a float writes).
@@ -134,6 +134,7 @@ It is what a front end in another process draws from, and it holds no pointer in
 - `TestViewHoldsNothingOfTheWorld`: every history, stock map, report line and corner list in the view is overwritten, and the world's JSON is unchanged.
 - `TestViewReadsTheFile`: sixty days of the informed player (two of the three factions' tempers in the file by then). Every faction's temper and heads band, and the chief's temper, equal `game.Known`'s. It also type-checks the engine and fails on any read in `view.go` of the truths above; a planted `r.Muscle` fails it by name.
 - `TestViewHasNoNull` (#333): a list or map in the view is never `null`: not before a run, not on day 0, not forty days in. `Session.View` ends with `noNulls`, which walks the view's own types by reflection and makes every nil slice and map empty, so a list added later is covered too. Without it, `encoding/json` wrote a nil slice as `null`, and a list came as `[]` one morning and `null` the next (`houses`, `shipments`, `fronts`, `alerts` and `you.upgrades` did, on a played run). A pointer that is absent (`over`, `card`, `books`) stays absent: each is `omitempty`, so none is ever `null` either. It is a change of value, not of shape, so `ViewVersion` stays 1, and a client that guarded the nulls keeps working.
+- `TestViewCarriesThePolice` (#355): sixty days of the informed player and a cop paid. Every city's ladder is `heat.Sim.Rungs` rung for rung, the law's arrest line, exposure line and cover are the sim's, and the police's next move and its sureness are the file's.
 - `TestViewCarriesWhatTheScreensList` (#332): sixty days of the informed player. The view's pool is the world's candidates, and its contracts are the live ones. Its offers are the world's, and its tree is every node, each in the state the world gives it. On a fresh run, pool[0] hired by the view's id lands on the payroll and leaves the pool, and an available node bought by its id reads `owned`. `protocol.TestHireFromTheView` does the hire over the wire, seeing only the view.
 
 **Phase 5, the wire (#300).**
@@ -145,7 +146,7 @@ It is what a front end in another process draws from, and it holds no pointer in
   - The server answers every request. Before the response it sends the notifications the call caused: every `event` the day published (`{"kind", "day", "payload"}`, the kind being the event's stable `Kind()`), then a `view` (the whole `engine.View`) after any call that may have changed the run.
   - A client that waits for its response has already read everything the call caused.
   - The server is one loop on one goroutine: read a line, run it, write and flush. It holds no lock and starts no goroutine, and `TestNoGoroutineInTheTree` walks the package like the rest of `internal/`.
-- **The methods, 85 in all** (and the 147 quotes #325 added, below).
+- **The methods, 85 in all** (and the 148 quotes #325 added, below).
   - **68 commands.** Each session command is served under its name in snake_case (`buy`, `place_sell`, `buy_checkpoint`, `scout_faction`, …) by reflection over `engine.Session` (`protocol.commands`), with its parameters in order. A dial goes in by name (`"aggressive"`, `"fair"`, `"push"`), refused with the names listed when it matches none. Terms go as an object (`{"days", "per_day", "corners", "route", "units"}`). The result is the command's value, or null.
   - **11 queries.** `view`, `alerts`, `gates_ahead`, `next_gates`, `front_offers`, `asset_offers`, `house_offers`, `float_matters`, `export_save`, and the buy's two (#356): `max_buy [supplier, product, credit]` returns `{max, held, capacity}` (`engine.BuyRoom`: `World.MaxBuy`, the most a buy takes with no refusal for the cash, the room or the connect's day, and the stash it lands in), and `restock_plan [city, days]` returns the lines that top the stash up to days of demand (`[]game.RestockLine`, never null; see `docs/cart.md`).
   - **6 lifecycle methods, by hand** (`import_save` among them, #327).
@@ -175,7 +176,7 @@ It is what a front end in another process draws from, and it holds no pointer in
 **The quotes (#325).**
 A front end in another process prices a move before it makes it, with the numbers the TUI reads.
 `internal/protocol/rules.go` serves every method of `engine.Rules` as `rules.<sim>.<method>` in snake_case: `rules.market.capacity`, `rules.crew.investigate_cost`, `rules.rivals.odds_on_at`.
-That is 147 methods (#350 added `rules.heat.exposure_line`), which makes 232 on the wire with the 85 methods above.
+That is 148 methods (#350 added `rules.heat.exposure_line`, #355 `rules.heat.rungs`), which makes 233 on the wire with the 85 methods above.
 A quote needs a run, changes nothing and sends nothing but its answer: no `view` follows it.
 
 - **The world is the server's.** A rule's `*game.World` is the run's and never a parameter.
@@ -200,7 +201,7 @@ A quote needs a run, changes nothing and sends nothing but its answer: no `view`
 - `TestEveryRuleIsClassed`: every method of every `Rules` interface is served or in `unservedRules`, and every one has its names.
 - `TestRuleNamesAreCurrent`: `rules_names.go` is `quotes.go`'s names.
 - `TestNoTruthOnTheWire` walks every quote's result type and fails on a `game.World`, `game.RivalState`, `game.Chief`, `game.Fact` or `content.RouteConfig` anywhere inside.
-- `TestEveryQuoteIsTheRules` runs sixty days of the boss on seed 7 and lays one of every thing a rule takes by id. It asks all 147 quotes over the wire and compares each answer with `Session.Rules()` asked in the process. The run's JSON is byte-identical before and after.
+- `TestEveryQuoteIsTheRules` runs sixty days of the boss on seed 7 and lays one of every thing a rule takes by id. It asks all 148 quotes over the wire and compares each answer with `Session.Rules()` asked in the process. The run's JSON is byte-identical before and after.
 - `TestQuoteRefusals` covers:
   - an unknown corner, faction or member;
   - a day before today or after tomorrow;
