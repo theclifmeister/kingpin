@@ -12,7 +12,7 @@ import (
 // save's game.SchemaVersion: the world is free to change shape, the view
 // is the contract a front end in another process is written against.
 // TestViewShapeIsPinned fails on a shape change that keeps the number.
-const ViewVersion = 1
+const ViewVersion = 2
 
 // View is a snapshot of what the player can see: what a front end draws
 // (#299). It is built from the world the way the TUI reads it and holds
@@ -29,6 +29,10 @@ type View struct {
 	You       YouView        `json:"you"`
 	Cities    []CityView     `json:"cities"`
 	Crew      []MemberView   `json:"crew"`
+	Pool      []MemberView   `json:"pool"` // looking for work (#332): hire by id
+	Contracts []ContractView `json:"contracts"`
+	Offers    []OfferView    `json:"offers"`
+	Upgrades  []UpgradeView  `json:"upgrades"`
 	Routes    []RouteView    `json:"routes"`
 	Shipments []ShipmentView `json:"shipments"`
 	Connects  []ConnectView  `json:"connects"`
@@ -130,6 +134,58 @@ type MemberView struct {
 	Post        string  `json:"post,omitempty"` // the corner they work or guard
 	Jailed      bool    `json:"jailed,omitempty"`
 	Personality string  `json:"personality,omitempty"`
+	Carry       int     `json:"carry"`         // the sell capacity they add
+	Fee         int     `json:"fee,omitempty"` // in the pool: what hiring them costs, dirty cash
+}
+
+// ContractView is a buyer's contract still somebody's business (#71,
+// #332): on offer, or taken and owed.
+type ContractView struct {
+	ID          int     `json:"id"`
+	Name        string  `json:"name"` // the buyer, as the offer names them
+	Pitch       string  `json:"pitch"`
+	City        string  `json:"city"`
+	Product     string  `json:"product"`
+	Units       int     `json:"units"`
+	Delivered   int     `json:"delivered"`
+	Premium     float64 `json:"premium"`      // on the street price at delivery
+	Street      float64 `json:"street"`       // the street price the day it was offered
+	Penalty     float64 `json:"penalty"`      // respect lost if short at the due day
+	PenaltyCash float64 `json:"penalty_cash"` // of the short units' street value
+	Status      string  `json:"status"`       // offered, accepted
+	Expires     int     `json:"expires"`      // the last day the offer can be taken
+	Due         int     `json:"due"`          // the last day a delivery can be handed over
+}
+
+// OfferView is a deal a faction has put on the table (#32, #332).
+type OfferView struct {
+	ID      int       `json:"id"`
+	Faction string    `json:"faction"`
+	Kind    string    `json:"kind"`
+	Terms   TermsView `json:"terms"`
+	Expires int       `json:"expires"`
+}
+
+// TermsView is a deal's terms, as the commands spell them.
+type TermsView struct {
+	Days    int      `json:"days,omitempty"`
+	PerDay  int      `json:"per_day,omitempty"`
+	Corners []string `json:"corners,omitempty"`
+	Route   string   `json:"route,omitempty"`
+	Units   int      `json:"units,omitempty"`
+}
+
+// UpgradeView is a node of the upgrade tree and where it stands for
+// you (#332): owned, available (its prerequisites owned) or locked.
+type UpgradeView struct {
+	ID       string   `json:"id"`
+	Name     string   `json:"name"`
+	Branch   string   `json:"branch"`
+	Desc     string   `json:"desc"`
+	Cost     int      `json:"cost"`
+	Clean    bool     `json:"clean,omitempty"` // paid in clean cash, not dirty
+	Requires []string `json:"requires"`
+	State    string   `json:"state"`
 }
 
 // RouteView is a route open to you, with its dial and what the file
@@ -342,8 +398,35 @@ func (s *Session) View() View {
 		v.Cities = append(v.Cities, cv)
 	}
 	v.You.Stock = street
+	for _, m := range w.Crew.Candidates {
+		v.Pool = append(v.Pool, MemberView{ID: m.ID, Name: m.Name, Role: m.Role, Age: m.Age, Skill: m.Skill, Loyalty: m.Loyalty, Wage: m.Wage, Carry: m.Units, Fee: m.Fee})
+	}
+	for _, c := range w.Contracts {
+		if c.Done() {
+			continue
+		}
+		v.Contracts = append(v.Contracts, ContractView{
+			ID: c.ID, Name: c.Name, Pitch: c.Pitch, City: c.City, Product: c.Product, Units: c.Units, Delivered: c.Delivered,
+			Premium: c.Premium, Street: c.Street, Penalty: c.Penalty, PenaltyCash: c.PenaltyCash, Status: c.Status.String(), Expires: c.Expires, Due: c.Due,
+		})
+	}
+	for _, o := range w.Offers {
+		t := o.Deal.Terms
+		v.Offers = append(v.Offers, OfferView{ID: o.ID, Faction: o.With(), Kind: o.Deal.Kind, Expires: o.Expires,
+			Terms: TermsView{Days: t.Days, PerDay: t.PerDay, Corners: append([]string(nil), t.Corners...), Route: t.Route, Units: t.Units}})
+	}
+	for _, u := range s.cfg.Upgrades.Nodes {
+		state := "locked"
+		switch {
+		case w.Owns(u.ID):
+			state = "owned"
+		case len(w.Missing(u)) == 0:
+			state = "available"
+		}
+		v.Upgrades = append(v.Upgrades, UpgradeView{ID: u.ID, Name: u.Name, Branch: u.Branch, Desc: u.Desc, Cost: u.Cost, Clean: u.Clean, Requires: append([]string(nil), u.Requires...), State: state})
+	}
 	for _, m := range w.Crew.Members {
-		mv := MemberView{ID: m.ID, Name: m.Name, Role: m.Role, Age: m.Age, Skill: m.Skill, Loyalty: m.Loyalty, Wage: m.Wage, Hired: m.Hired, City: m.City, Jailed: m.Jailed(w.Day)}
+		mv := MemberView{ID: m.ID, Name: m.Name, Role: m.Role, Age: m.Age, Skill: m.Skill, Loyalty: m.Loyalty, Wage: m.Wage, Hired: m.Hired, City: m.City, Jailed: m.Jailed(w.Day), Carry: m.Units}
 		if c := w.PostOf(m.ID); c != nil {
 			mv.Post = c.ID
 		}

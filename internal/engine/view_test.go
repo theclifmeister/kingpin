@@ -364,3 +364,108 @@ func TestViewHasNoNull(t *testing.T) {
 		}
 	}
 }
+
+// TestViewCarriesWhatTheScreensList (#332): what the TUI's screens list
+// to act on is in the view, by the id the command takes: the pool the
+// crew screen hires from, the buyers' contracts, the factions' offers
+// and the upgrade tree with where each node stands. A front end that
+// sees only the view hires, and buys an upgrade, by those ids.
+func TestViewCarriesWhatTheScreensList(t *testing.T) {
+	t.Parallel()
+	s, w := playedSession(t, 60)
+	v := s.View()
+
+	if len(v.Pool) != len(w.Crew.Candidates) || len(v.Pool) == 0 {
+		t.Fatalf("the view's pool has %d, the world's %d", len(v.Pool), len(w.Crew.Candidates))
+	}
+	for i, c := range v.Pool {
+		m := w.Crew.Candidates[i]
+		if c.ID != m.ID || c.Fee != m.Fee || c.Carry != m.Units || c.Personality != "" {
+			t.Errorf("pool %d: %+v, the candidate %+v", i, c, m)
+		}
+	}
+	live := 0
+	for _, c := range w.Contracts {
+		if !c.Done() {
+			live++
+		}
+	}
+	if len(v.Contracts) != live {
+		t.Errorf("the view has %d contracts, the world %d live", len(v.Contracts), live)
+	}
+	for _, c := range v.Contracts {
+		if wc := w.Contract(c.ID); wc == nil || wc.Status.String() != c.Status || wc.Units != c.Units {
+			t.Errorf("contract %d: %+v, the world's %+v", c.ID, c, wc)
+		}
+	}
+	if len(v.Offers) != len(w.Offers) {
+		t.Errorf("the view has %d offers, the world %d", len(v.Offers), len(w.Offers))
+	}
+	for _, o := range v.Offers {
+		if wo := w.Offer(o.ID); wo == nil || wo.Deal.Kind != o.Kind || wo.With() != o.Faction {
+			t.Errorf("offer %d: %+v, the world's %+v", o.ID, o, wo)
+		}
+	}
+	tree := content.MustLoad().Upgrades.Nodes
+	if len(v.Upgrades) != len(tree) {
+		t.Fatalf("the view has %d upgrades, the tree %d", len(v.Upgrades), len(tree))
+	}
+	for i, u := range v.Upgrades {
+		want := "locked"
+		if w.Owns(u.ID) {
+			want = "owned"
+		} else if len(w.Missing(tree[i])) == 0 {
+			want = "available"
+		}
+		if u.ID != tree[i].ID || u.State != want {
+			t.Errorf("upgrade %s: %s, want %s", u.ID, u.State, want)
+		}
+	}
+
+	// Sixty days in, the informed player's crew is as big as it can
+	// manage: the hire and the buy are a fresh run's.
+	fresh, err := engine.New(content.MustLoad())
+	if err != nil {
+		t.Fatal(err)
+	}
+	fw := fresh.NewRun(7, game.Start{})
+	fw.Player.DirtyCash += 10_000_000
+	v = fresh.View()
+	if len(v.Pool) == 0 {
+		t.Fatal("nobody looking for work on day 0")
+	}
+	hired := v.Pool[0].ID
+	if _, err := fresh.Hire(hired); err != nil {
+		t.Fatalf("hiring pool[0] by the view's id: %v", err)
+	}
+	var buy *engine.UpgradeView
+	for i, u := range v.Upgrades {
+		if buy == nil && u.State == "available" && !u.Clean {
+			buy = &v.Upgrades[i]
+		}
+	}
+	if buy == nil {
+		t.Fatal("no dirty-cash upgrade available to buy on day 0")
+	}
+	if _, err := fresh.BuyUpgrade(buy.ID); err != nil {
+		t.Fatalf("buying %s by the view's id: %v", buy.ID, err)
+	}
+	after := fresh.View()
+	onPayroll := false
+	for _, m := range after.Crew {
+		onPayroll = onPayroll || m.ID == hired
+	}
+	for _, c := range after.Pool {
+		if c.ID == hired {
+			t.Error("the hired candidate is still in the pool")
+		}
+	}
+	if !onPayroll {
+		t.Error("the hired candidate is not on the payroll")
+	}
+	for _, u := range after.Upgrades {
+		if u.ID == buy.ID && u.State != "owned" {
+			t.Errorf("%s bought and %s", u.ID, u.State)
+		}
+	}
+}

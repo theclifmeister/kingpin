@@ -324,3 +324,38 @@ func TestSchemaIsCurrent(t *testing.T) {
 		t.Fatalf("the schema lists %d methods of %d", len(ms), len(methods))
 	}
 }
+
+// TestHireFromTheView (#332): a client that sees only the view hires
+// over the protocol: the pool's first id, and the next view has them on
+// the payroll and out of the pool.
+func TestHireFromTheView(t *testing.T) {
+	t.Parallel()
+	c, _ := loopClient(t)
+	var v engine.View
+	if err := c.Call("new_run", []any{7, "", false}, &v); err != nil {
+		t.Fatal(err)
+	}
+	if len(v.Pool) == 0 {
+		t.Fatal("nobody in the view's pool on day 0")
+	}
+	id := v.Pool[0].ID
+	if err := c.Call("hire", []any{id}, nil); err != nil {
+		t.Fatalf("hire %d: %v", id, err)
+	}
+	var after engine.View
+	if err := json.Unmarshal(c.LastView(), &after); err != nil {
+		t.Fatal(err)
+	}
+	onPayroll := false
+	for _, m := range after.Crew {
+		onPayroll = onPayroll || m.ID == id
+	}
+	for _, m := range after.Pool {
+		if m.ID == id {
+			t.Error("hired and still in the pool")
+		}
+	}
+	if !onPayroll {
+		t.Errorf("hired %d and not on the payroll: %+v", id, after.Crew)
+	}
+}
