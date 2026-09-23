@@ -1483,8 +1483,28 @@
       ],
       "type": "object"
     },
+    "engine.Act": {
+      "properties": {
+        "mode": {
+          "type": "string"
+        },
+        "screen": {
+          "type": "string"
+        },
+        "subject": {
+          "type": "string"
+        }
+      },
+      "required": [
+        "screen"
+      ],
+      "type": "object"
+    },
     "engine.Alert": {
       "properties": {
+        "act": {
+          "$ref": "#/$defs/engine.Act"
+        },
         "amount": {
           "type": "integer"
         },
@@ -1551,7 +1571,8 @@
       },
       "required": [
         "kind",
-        "key"
+        "key",
+        "act"
       ],
       "type": "object"
     },
@@ -12771,5 +12792,5 @@
   },
   "protocol": 3,
   "title": "kingpind",
-  "view_version": 3
+  "view_version": 4
 }

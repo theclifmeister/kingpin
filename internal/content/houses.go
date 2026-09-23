@@ -15,11 +15,14 @@ type HousesConfig struct {
 // corner's), RentDays is how long the rent can go unpaid before the
 // landlord throws you out, and MoveHeat is what a unit moved between
 // places draws relative to one sold on a standard corner (the heat sim
-// reads it).
+// reads it). FullShare is the share of a city's capacity the stash holds
+// before the engine's stash_full alert (#352; no sim reads it), 0 for
+// none.
 type HousesTuning struct {
 	HouseRisk float64 `toml:"house_risk"`
 	RentDays  int     `toml:"rent_days"`
 	MoveHeat  float64 `toml:"move_heat"`
+	FullShare float64 `toml:"full_share"`
 }
 
 // HouseConfig is one offer: a place in a city on a block (the corner
@@ -46,7 +49,7 @@ func (h HousesConfig) House(id string) *HouseConfig {
 // block of its city, ids unique, capacity and price positive, rent not
 // negative, and the tuning in range.
 func (h HousesConfig) validate(city CityConfig) error {
-	if h.Houses.HouseRisk < 0 || h.Houses.RentDays <= 0 || h.Houses.MoveHeat < 0 {
+	if h.Houses.HouseRisk < 0 || h.Houses.RentDays <= 0 || h.Houses.MoveHeat < 0 || h.Houses.FullShare < 0 || h.Houses.FullShare > 1 {
 		return fmt.Errorf("bad [houses] table %+v", h.Houses)
 	}
 	seen := map[string]bool{}

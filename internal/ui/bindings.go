@@ -43,6 +43,10 @@ var bindings = []binding{
 	// The rivals screen's own [ ] turns the faction, and says so (#239).
 	{key: "[ ]", label: "faction", help: "the next faction at the table", keys: []string{"[", "]"}, screens: on(screenRivals),
 		do: func(m *Model, key string) { m.cycleFaction(dir(key)) }},
+	// The dashboard's own [ ] picks an alert in ALERTS (#352), and o
+	// opens what answers it.
+	{key: "[ ]", label: "alert", help: "pick an alert in ALERTS", keys: []string{"[", "]"}, screens: on(screenDashboard), when: hasAlerts,
+		do: func(m *Model, key string) { m.cycleAlert(dir(key)) }},
 	// The dashboard and the market: the day's cart.
 	{key: "c", label: "cart", help: "the day's cart: edit its buys and orders", screens: on(screenDashboard, screenMarket),
 		do: func(m *Model, _ string) { m.openCart() }},
@@ -142,6 +146,8 @@ var bindings = []binding{
 		do: func(m *Model, _ string) { m.askReserve() }},
 	{key: "w", label: "walk away", help: "retire, vanish, or take the crown", screens: on(screenDashboard),
 		do: func(m *Model, _ string) { m.askExit() }},
+	{key: "o", label: "open alert", help: "go where the selected alert is answered", screens: on(screenDashboard), when: hasAlerts,
+		do: func(m *Model, _ string) { m.openSelectedAlert() }},
 	// The rivals.
 	{key: "d", label: "propose", help: "offer the rival a truce, tribute or a split", screens: on(screenRivals),
 		do: func(m *Model, _ string) { m.askPropose() }},
@@ -319,6 +325,7 @@ var modeBindings = []binding{
 	{key: "b", label: "buy", modes: in(modeSell), when: step(0)},
 	{key: "⇧tab", label: "back", keys: []string{"shift+tab"}, dialogs: true, when: pastFirstStep},
 	{key: "esc", label: "close", dialogs: true, modes: in(modeConfirm, modeConfirmEnd)},
+	{key: "o", label: "open alert", modes: in(modeReport), when: stoppedOnAlert}, // the fast-forward's stop line (#352)
 	{key: "enter esc", label: "close", modes: in(modeReport, modeHelp, modeStage)},
 	{key: "enter esc", label: "close", modes: in(modeCard), when: step(1)},
 	{key: "␣ esc", label: "close", modes: in(modeDetails)},

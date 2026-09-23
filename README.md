@@ -440,8 +440,10 @@ The full table is below; `?` brings it up in the game.
 | `ctrl+s` | save | save now; the end of the day saves too | everywhere |
 | `N` | new run | start over, after a confirmation | everywhere |
 | `q` | quit | save and quit | everywhere |
+| `[ ]` | alert | pick an alert in ALERTS | dashboard |
 | `c` | cart | the day's cart: edit its buys and orders | dashboard, market |
 | `w` | walk away | retire, vanish, or take the crown | dashboard |
+| `o` | open alert | go where the selected alert is answered | dashboard |
 | `i` | intel | the file on the chief and the police here | dashboard |
 | `←→` | city | turn the market to the other city | market |
 | `a` | accept | take the buyer's offer | market |
