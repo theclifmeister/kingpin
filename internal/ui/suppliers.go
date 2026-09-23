@@ -2,7 +2,6 @@ package ui
 
 import (
 	"fmt"
-	"math"
 	"strings"
 
 	"github.com/charmbracelet/lipgloss"
@@ -376,36 +375,9 @@ func (m *Model) creditOffered() bool {
 	return sup != nil && sup.Credit() > 0
 }
 
-// maxBuyFrom is maxBuyBy from a named connect.
+// maxBuyFrom is maxBuyBy from a named connect (World.MaxBuy, #356).
 func (m *Model) maxBuyFrom(sup *game.Supplier, id string, credit bool) int {
-	if sup == nil || !m.w.Available(sup, id) {
-		return 0
-	}
-	return max(0, min(m.affordFrom(sup, id, credit), m.w.Free(sup.City), sup.Left()))
-}
-
-// affordFrom is how many units of a product the cash, or the connect's
-// book, covers at their quote (World.Quote: the markup on it where the
-// buy goes through a lieutenant, #174): the plain price first, then
-// the small-lot premium once the buy is under the lot.
-func (m *Model) affordFrom(sup *game.Supplier, id string, credit bool) int {
-	unit := sup.Price[id] * m.w.BuyMarkup(sup.City)
-	if unit <= 0 {
-		return 0
-	}
-	cash := m.w.Player.DirtyCash
-	if credit {
-		cash = sup.Credit()
-		unit *= sup.CreditRatio
-	}
-	n := int(math.Floor(float64(cash) / unit))
-	if n < sup.Lot && sup.SmallLot > 1 {
-		n = int(math.Floor(float64(cash) / (unit * sup.SmallLot)))
-	}
-	for n > 0 && m.w.Quote(sup, id, n, credit) > cash {
-		n--
-	}
-	return n
+	return m.w.MaxBuy(sup, id, credit)
 }
 
 // temperWords is what a connect's temper does about a missed payment,

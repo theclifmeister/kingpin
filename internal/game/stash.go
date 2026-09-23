@@ -324,7 +324,7 @@ func (w *World) Cut(city, product string, ratio, most float64, cost int, bonus f
 		return CutRecord{}, ErrBadRatio
 	}
 	if free := w.Free(city); added > free {
-		return CutRecord{}, fmt.Errorf("can only hold %d more units in %s", free, w.CityName(city))
+		return CutRecord{}, w.noRoom(city, free)
 	}
 	price := cost * added
 	if err := w.payDirty(price); err != nil {
@@ -374,7 +374,7 @@ func (w *World) CookOrder(city, product string, units, cost, days int, quality f
 		}
 	}
 	if free := w.Free(city) - w.Crew.Cooking(city, product); units > free {
-		return Cook{}, fmt.Errorf("can only hold %d more units in %s", max(0, free), w.CityName(city))
+		return Cook{}, w.noRoom(city, free)
 	}
 	price := cost * units
 	if err := w.payDirty(price); err != nil {

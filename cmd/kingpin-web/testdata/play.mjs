@@ -24,7 +24,7 @@ globalThis.crypto ??= require("crypto");
 require(path.join(site, "wasm_exec.js"));
 
 const mod = (name) => import(pathToFileURL(path.join(site, "js", name)).href);
-const { Session, SUPPORTED, VersionError } = await mod("session.js");
+const { Session, SUPPORTED, VersionError, streetConnect } = await mod("session.js");
 const { autoDay } = await mod("autoplay.js");
 const { ANIMATIONS } = await mod("cues.js");
 const { layout } = await mod("layout.js");
@@ -106,6 +106,33 @@ function play(seed, days) {
     s.hire(id);
     const after = s.refresh();
     if (!after.crew.some((m) => m.id === id) || after.pool.some((m) => m.id === id)) problem(`hired ${id} and not on the payroll`);
+  }
+}
+
+// Buying (#356): max_buy is never refused, and a restock plan is a
+// list its lines buy (the no_room code is the protocol test's).
+{
+  const s = new Session(kingpin);
+  const v = s.newRun(7);
+  const k = streetConnect(v, v.you.city);
+  const id = k && Object.keys(k.prices)[0];
+  if (!id) problem("no street connect selling on day 0");
+  else {
+    const room = s.maxBuy(k.id, id);
+    if (!(room.max > 0) || !(room.capacity > 0)) problem(`max_buy on day 0: ${JSON.stringify(room)}`);
+    else {
+      try {
+        s.buy(k.id, id, room.max);
+      } catch (e) {
+        problem(`buying max_buy's ${room.max} was refused: ${e.message}`);
+      }
+    }
+    const plan = s.restockPlan(v.you.city, 2);
+    if (!Array.isArray(plan)) problem("restock_plan is not a list");
+    for (const l of plan) {
+      if (!(l.units > 0) || !(l.cost > 0)) problem(`restock line ${JSON.stringify(l)}`);
+      s.buy(l.supplier, l.product, l.units);
+    }
   }
 }
 

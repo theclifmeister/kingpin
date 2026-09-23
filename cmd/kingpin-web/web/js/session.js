@@ -7,7 +7,7 @@
 // The versions this client is written against. A module with another
 // protocol or view version is refused before a run starts: a field
 // renamed under the client would draw a wrong game, not fail.
-export const SUPPORTED = { protocol: [3], view: [2] };
+export const SUPPORTED = { protocol: [4], view: [2] };
 
 export class VersionError extends Error {}
 
@@ -22,15 +22,20 @@ export function checkVersions(kingpin) {
   }
 }
 
+// NO_ROOM is the refusal for the stash's room (#356): its data says
+// how many more units fit.
+export const NO_ROOM = -32002;
+
 // RPCError is a call the engine answered with an error. refused is the
-// game saying no (-32000): a move the rules do not allow, its message in
-// the game's words.
+// game saying no (-32000, or NO_ROOM): a move the rules do not allow,
+// its message in the game's words. free is what fits after a NO_ROOM.
 export class RPCError extends Error {
   constructor(method, error) {
     super(error.message);
     this.method = method;
     this.code = error.code;
-    this.refused = error.code === -32000;
+    this.refused = error.code === -32000 || error.code === NO_ROOM;
+    this.free = error.code === NO_ROOM && error.data ? error.data.free : null;
   }
 }
 
@@ -90,6 +95,16 @@ export class Session {
   }
   buy(supplier, product, qty) {
     return this.call("buy", supplier, product, qty, false);
+  }
+  // maxBuy is what a cash buy from the connect can take now (#356):
+  // {max, held, capacity}, the stash's units held of what it holds.
+  maxBuy(supplier, product) {
+    return this.call("max_buy", supplier, product, false);
+  }
+  // restockPlan is the buys that top the city's stash up to days of
+  // demand (#356): [{product, supplier, level, have, units, cost}].
+  restockPlan(city, days) {
+    return this.call("restock_plan", city, days);
   }
   hire(candidate) {
     return this.call("hire", candidate);
