@@ -120,6 +120,8 @@ func (m *Model) factWord(f game.Fact) any {
 		return fmt.Sprintf("%s from d%.0f", f.Value, f.Number)
 	case game.FactRisk:
 		return "seized " + f.Value
+	case game.FactScout:
+		return fmt.Sprintf("in %s d%.0f", w.CityName(f.Value), f.Number)
 	}
 	return f.Value
 }
@@ -182,6 +184,8 @@ func (m *Model) story(f game.Fact) string {
 		what = fmt.Sprintf("The %s police stand at the %s rung and can move from day %.0f: before that the cooldown holds them, whatever the heat.", w.CityName(f.Subject), f.Value, f.Number)
 	case game.FactRisk:
 		what = fmt.Sprintf("%s is seized %s in transit at the normal dial; the map's odds fold it the way the dice would.", m.routeName(f.Subject), f.Value)
+	case game.FactScout:
+		what = fmt.Sprintf("%s has scouts in %s, drawn by your take there, and moves in on day %.0f unless something changes.", who, w.CityName(f.Value), f.Number)
 	}
 	how := map[string]string{
 		game.SourceSeen:    "You saw it yourself.",

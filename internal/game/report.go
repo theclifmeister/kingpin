@@ -79,6 +79,9 @@ type Stats struct {
 	CrewPoached    int // your crew poached by a faction (#43)
 	Absorbed       int // factions absorbed by another (#43)
 	Fragmented     int // factions that lost their leader (#43)
+	Moves          int // factions that sent scouts to a city where you earn (#341)
+	Expanded       int // of those, the ones that arrived there
+	Withdrew       int // of those, the ones whose scouts went home
 	Cuts           int // dirty cash the lieutenants kept as their cut, and the crew's cut on your standing orders (#114)
 	Walked         int // lieutenants who walked with their city
 	Funded         int // clean cash given to the cities (#41)

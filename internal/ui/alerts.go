@@ -31,8 +31,9 @@ type alert struct {
 // alerts is what needs you this morning, loudest first, in the engine's
 // order (engine.Alerts: somebody talking, a contract or a debt due, the
 // heat over the patrol line, a task force forming, the float, the
-// wages, a member near a line, the skim, a corner nobody works, the
-// gate within reach, a house the police know, the DA race,
+// wages, a member near a line, the skim, a corner nobody works, a
+// faction on its way to a city where you earn (#341), the gate within
+// reach, a house the police know, the DA race,
 // retirement, the favour, the reign). The dashboard's ALERTS carry them
 // and a fast-forward stops on one the morning before did not have.
 func (m *Model) alerts() []alert {
@@ -83,6 +84,8 @@ func (m *Model) alertOf(a engine.Alert) alert {
 		why = "skimming suspected"
 	case engine.AlertIdleCorner:
 		text, why = m.idleCornerAlert(a)
+	case engine.AlertScouts:
+		text, why = m.scoutsAlert(a)
 	case engine.AlertGate:
 		text, why = theme.Gold.Render(gateText(w, *a.Gate)), gateThe(*a.Gate)+" within reach"
 	case engine.AlertHouseKnown:
@@ -104,6 +107,26 @@ func (m *Model) alertOf(a engine.Alert) alert {
 		text = theme.Gold.Render(fmt.Sprintf("The city is yours: day %d of the reign, %s. Take the crown or play on.", a.Days, who))
 	}
 	return alert{kind: a.Kind, text: text, why: why, key: a.Key}
+}
+
+// scoutsAlert words a faction moving on a city where you earn (#341):
+// `Sal's crew has scouts in Bayport: in on day 59. See the rivals
+// screen (6).`, amber while it scouts, red once it recruits (the take
+// no longer sends it home).
+func (m *Model) scoutsAlert(a engine.Alert) (text, why string) {
+	who := "Somebody"
+	for _, r := range m.w.Rivals {
+		if r != nil && r.Scouting() && r.ScoutingCity == a.City {
+			who = m.rivalName(r)
+		}
+	}
+	city := m.w.CityName(a.City)
+	style, what := theme.Warning, "has scouts in "+city
+	if a.Level == "recruiting" {
+		style, what = theme.Bad, "is recruiting in "+city
+	}
+	why = who + " " + what
+	return style.Render(fmt.Sprintf("%s %s: in %s. Answer them %s.", who, what, plural(a.Days, "day"), screenPointer(screenRivals))), why
 }
 
 // crossWords are what crossing each of the crew's loyalty lines is

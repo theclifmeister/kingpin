@@ -528,6 +528,41 @@
       ],
       "type": "object"
     },
+    "content.ExpansionTuning": {
+      "properties": {
+        "ArriveDays": {
+          "type": "integer"
+        },
+        "Bite": {
+          "type": "integer"
+        },
+        "Enabled": {
+          "type": "boolean"
+        },
+        "ScoutDays": {
+          "type": "integer"
+        },
+        "SetbackDays": {
+          "type": "integer"
+        },
+        "TakeMin": {
+          "type": "integer"
+        },
+        "WindowDays": {
+          "type": "integer"
+        }
+      },
+      "required": [
+        "Enabled",
+        "TakeMin",
+        "WindowDays",
+        "ScoutDays",
+        "ArriveDays",
+        "SetbackDays",
+        "Bite"
+      ],
+      "type": "object"
+    },
     "content.FactionsTuning": {
       "properties": {
         "AbsorbDays": {
@@ -6285,6 +6320,37 @@
       ],
       "type": "object"
     },
+    "events.RivalRecruiting": {
+      "properties": {
+        "Arrive": {
+          "type": "integer"
+        },
+        "Bite": {
+          "type": "integer"
+        },
+        "City": {
+          "type": "string"
+        },
+        "Day": {
+          "type": "integer"
+        },
+        "Faction": {
+          "type": "string"
+        },
+        "Rival": {
+          "type": "string"
+        }
+      },
+      "required": [
+        "Day",
+        "City",
+        "Rival",
+        "Faction",
+        "Bite",
+        "Arrive"
+      ],
+      "type": "object"
+    },
     "events.RivalScouted": {
       "properties": {
         "Cash": {
@@ -6325,6 +6391,41 @@
         "Income",
         "Muscle",
         "Wages"
+      ],
+      "type": "object"
+    },
+    "events.RivalScouting": {
+      "properties": {
+        "Arrive": {
+          "type": "integer"
+        },
+        "Cell": {
+          "type": "string"
+        },
+        "City": {
+          "type": "string"
+        },
+        "Day": {
+          "type": "integer"
+        },
+        "Faction": {
+          "type": "string"
+        },
+        "Recruit": {
+          "type": "integer"
+        },
+        "Rival": {
+          "type": "string"
+        }
+      },
+      "required": [
+        "Day",
+        "City",
+        "Rival",
+        "Faction",
+        "Cell",
+        "Recruit",
+        "Arrive"
       ],
       "type": "object"
     },
@@ -6378,6 +6479,60 @@
         "Faction",
         "Corners",
         "Share"
+      ],
+      "type": "object"
+    },
+    "events.RivalWithdrew": {
+      "properties": {
+        "City": {
+          "type": "string"
+        },
+        "Day": {
+          "type": "integer"
+        },
+        "Faction": {
+          "type": "string"
+        },
+        "Rival": {
+          "type": "string"
+        }
+      },
+      "required": [
+        "Day",
+        "City",
+        "Rival",
+        "Faction"
+      ],
+      "type": "object"
+    },
+    "events.ScoutsHit": {
+      "properties": {
+        "Arrive": {
+          "type": "integer"
+        },
+        "City": {
+          "type": "string"
+        },
+        "Day": {
+          "type": "integer"
+        },
+        "Faction": {
+          "type": "string"
+        },
+        "Rival": {
+          "type": "string"
+        },
+        "Setback": {
+          "type": "integer"
+        }
+      },
+      "required": [
+        "Day",
+        "City",
+        "Rival",
+        "Faction",
+        "Setback",
+        "Arrive"
       ],
       "type": "object"
     },
@@ -8358,14 +8513,26 @@
     "RivalRaided": {
       "$ref": "#/$defs/events.RivalRaided"
     },
+    "RivalRecruiting": {
+      "$ref": "#/$defs/events.RivalRecruiting"
+    },
     "RivalScouted": {
       "$ref": "#/$defs/events.RivalScouted"
+    },
+    "RivalScouting": {
+      "$ref": "#/$defs/events.RivalScouting"
     },
     "RivalTippedPolice": {
       "$ref": "#/$defs/events.RivalTippedPolice"
     },
     "RivalUndercut": {
       "$ref": "#/$defs/events.RivalUndercut"
+    },
+    "RivalWithdrew": {
+      "$ref": "#/$defs/events.RivalWithdrew"
+    },
+    "ScoutsHit": {
+      "$ref": "#/$defs/events.ScoutsHit"
     },
     "ShipmentArrived": {
       "$ref": "#/$defs/events.ShipmentArrived"
@@ -9274,6 +9441,24 @@
       },
       "result": {
         "$ref": "#/$defs/game.CrewMember"
+      }
+    },
+    "hit_scouts": {
+      "changes": true,
+      "needsRun": true,
+      "params": {
+        "maxItems": 1,
+        "minItems": 1,
+        "prefixItems": [
+          {
+            "title": "faction",
+            "type": "string"
+          }
+        ],
+        "type": "array"
+      },
+      "result": {
+        "type": "null"
       }
     },
     "house_offers": {
@@ -11736,6 +11921,24 @@
         "type": "array"
       }
     },
+    "rules.rivals.arrive_day": {
+      "changes": false,
+      "needsRun": true,
+      "params": {
+        "maxItems": 1,
+        "minItems": 1,
+        "prefixItems": [
+          {
+            "title": "faction",
+            "type": "string"
+          }
+        ],
+        "type": "array"
+      },
+      "result": {
+        "type": "integer"
+      }
+    },
     "rules.rivals.books": {
       "changes": false,
       "needsRun": true,
@@ -11915,6 +12118,19 @@
       },
       "result": {
         "type": "boolean"
+      }
+    },
+    "rules.rivals.expansion": {
+      "changes": false,
+      "needsRun": true,
+      "params": {
+        "maxItems": 0,
+        "minItems": 0,
+        "prefixItems": [],
+        "type": "array"
+      },
+      "result": {
+        "$ref": "#/$defs/content.ExpansionTuning"
       }
     },
     "rules.rivals.eyeing_by": {
@@ -12858,9 +13074,13 @@
             "RivalOutbid",
             "RivalPushed",
             "RivalRaided",
+            "RivalRecruiting",
             "RivalScouted",
+            "RivalScouting",
             "RivalTippedPolice",
             "RivalUndercut",
+            "RivalWithdrew",
+            "ScoutsHit",
             "ShipmentArrived",
             "ShipmentSeized",
             "ShipmentSent",
@@ -12904,7 +13124,7 @@
       "$ref": "#/$defs/engine.View"
     }
   },
-  "protocol": 4,
+  "protocol": 5,
   "title": "kingpind",
   "view_version": 4
 }

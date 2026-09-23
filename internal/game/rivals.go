@@ -196,3 +196,36 @@ func (w *World) WarHasGround(r *RivalState) bool {
 	}
 	return false
 }
+
+// Hitting the scouts (#341): a faction moving on a city where you earn
+// and nobody lives is telegraphed, and its scouts can be hit before it
+// arrives.
+var (
+	ErrNotScouting = errors.New("they are not moving on a city")
+	ErrScoutsHit   = errors.New("their scouts have been hit already")
+)
+
+// HitScouts sends the enforcers after the scouts of a faction moving on
+// a city tonight (#341): the rivals sim sets it back setback_days and
+// it holds a grudge. Once a faction; one a night; an enforcer on the
+// payroll to send.
+func (w *World) HitScouts(faction string) error {
+	if w.Over != nil {
+		return ErrGameOver
+	}
+	r := w.Faction(faction)
+	if r == nil {
+		return ErrNoFaction
+	}
+	if !r.Scouting() || r.Gone() {
+		return ErrNotScouting
+	}
+	if r.ScoutsHit > 0 || w.Today.HitScouts != "" {
+		return ErrScoutsHit
+	}
+	if w.Crew.OnPayroll(RoleEnforcer) == 0 {
+		return ErrNoEnforcers
+	}
+	w.Today.HitScouts = r.Faction()
+	return nil
+}

@@ -31,6 +31,7 @@ const (
 	AlertCrewLine    AlertKind = "crew_line"    // Member is Gap over the Cross line (Line), Days at tonight's drift
 	AlertSkim        AlertKind = "skim"         // skimming suspected: money went missing on Day
 	AlertIdleCorner  AlertKind = "idle_corner"  // nobody works Corner in City: back to the street in Days
+	AlertScouts      AlertKind = "scouts"       // a faction moving on City (#341), at stage Level (scouting or recruiting), arriving in Days
 	AlertGate        AlertKind = "gate"         // Gate within reach
 	AlertHouseKnown  AlertKind = "house_known"  // the police know about House
 	AlertDARace      AlertKind = "da_race"      // the DA race is Days off and taking money
@@ -118,6 +119,7 @@ func (s *Session) Alerts() []Alert {
 		out = append(out, Alert{Kind: AlertSkim, Key: "skimming suspected", Day: w.Crew.LastSkim})
 	}
 	out = append(out, s.idleCorners()...)
+	out = append(out, s.scouts()...)
 	for _, g := range s.NextGates() {
 		if g.Near(w) {
 			out = append(out, Alert{Kind: AlertGate, Key: "unlock:" + g.Kind + ":" + g.ID, Gate: &g})
@@ -140,6 +142,26 @@ func (s *Session) Alerts() []Alert {
 	if w.Reign > 0 {
 		crews, homage := w.HomageDeals()
 		out = append(out, Alert{Kind: AlertReign, Key: "the city is yours", Days: w.ReignDay(), Count: crews, Amount: homage})
+	}
+	return out
+}
+
+// scouts are the factions moving on a city where you earn (#341), in
+// table order: one alert a faction, keyed by the faction, the city and
+// the stage, so a fast-forward stops once on the scouts and once more
+// on the recruiting; the arrival is the RivalMovedIn stop.
+func (s *Session) scouts() []Alert {
+	var out []Alert
+	for _, r := range s.w.Rivals {
+		if r == nil || !r.Scouting() || r.Gone() {
+			continue
+		}
+		stage := "scouting"
+		if r.Recruited > 0 {
+			stage = "recruiting"
+		}
+		days := max(0, s.set.Rivals.ArriveDay(s.w, r)-s.w.Day)
+		out = append(out, Alert{Kind: AlertScouts, Key: "scouts " + r.Faction() + " in " + r.ScoutingCity + " " + stage, City: r.ScoutingCity, Level: stage, Days: days})
 	}
 	return out
 }

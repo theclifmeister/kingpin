@@ -352,6 +352,10 @@ func (s *Session) DeclareWar(faction string) error { return s.w.DeclareWar(facti
 // CallOffWar ends the war (World.CallOffWar).
 func (s *Session) CallOffWar() error { return s.w.CallOffWar() }
 
+// HitScouts sends the enforcers after a faction's scouts tonight
+// (World.HitScouts, #341).
+func (s *Session) HitScouts(faction string) error { return s.w.HitScouts(faction) }
+
 // Withdraw pulls the muscle back (World.Withdraw).
 func (s *Session) Withdraw() { s.w.Withdraw() }
 

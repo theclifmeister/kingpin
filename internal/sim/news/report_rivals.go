@@ -236,6 +236,32 @@ func (r *reporter) reportRivals(e events.Event) bool {
 			r.add("rivals", "RivalScattered", d)
 			rep.Territory = append(rep.Territory, fmt.Sprintf("%s's crew scattered: nobody left to run with. One faction fewer.", ev.Rival))
 		}
+	// Following the money (#341): the scouts, the recruiting, the
+	// scouts going home and the scouts hit; the arrival is RivalMovedIn.
+	case events.RivalScouting:
+		d := r.at(ev.City)
+		d.Rival = ev.Rival
+		d = r.crew(d, ev.Rival)
+		r.add("rivals", "RivalScouting", d)
+		rep.Territory = append(rep.Territory, fmt.Sprintf("%s's scouts are in %s: your take there drew them. They recruit on day %d and move in on day %d unless the money dries up first. Take the corners there, or hit the scouts from the rivals screen.", ev.Rival, w.CityName(ev.City), ev.Recruit, ev.Arrive))
+	case events.RivalRecruiting:
+		d := r.at(ev.City)
+		d.Rival = ev.Rival
+		d = r.crew(d, ev.Rival)
+		r.add("rivals", "RivalRecruiting", d)
+		rep.Territory = append(rep.Territory, fmt.Sprintf("%s's crew is hiring in %s: the pool's best faces and your own people there are being asked. They move in on day %d whatever the money does now.", ev.Rival, w.CityName(ev.City), ev.Arrive))
+	case events.RivalWithdrew:
+		d := r.at(ev.City)
+		d.Rival = ev.Rival
+		d = r.crew(d, ev.Rival)
+		r.add("rivals", "RivalWithdrew", d)
+		rep.Territory = append(rep.Territory, fmt.Sprintf("%s's scouts left %s: the money there is not what it was.", ev.Rival, w.CityName(ev.City)))
+	case events.ScoutsHit:
+		d := r.at(ev.City)
+		d.Rival = ev.Rival
+		d = r.crew(d, ev.Rival)
+		r.add("rivals", "ScoutsHit", d)
+		rep.Territory = append(rep.Territory, fmt.Sprintf("Your enforcers ran %s's scouts out of %s: %s back, day %d now. They will remember it.", ev.Rival, w.CityName(ev.City), format.Plural(ev.Setback, "day"), ev.Arrive))
 	case events.RivalLeaderArrested:
 		d := r.at(ev.City)
 		d.Rival = ev.Rival

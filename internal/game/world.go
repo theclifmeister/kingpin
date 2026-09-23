@@ -118,6 +118,13 @@ type World struct {
 	// hold. One war at a time. Zero is the run before.
 	War string
 
+	// Takes (#341) is the rivals sim's window on the player's take in
+	// each city away from home: by city id, the revenue of the last
+	// window_days days, a day a slot (the day modulo the window). A city
+	// gets a row the first day anything sells there, so a run that never
+	// sells away from home keeps it nil, the run before.
+	Takes map[string][]int
+
 	// Today is the player's per-day scratch (#144): what the actions
 	// queued since the morning, for the sims to resolve tonight. The
 	// clock zeroes it as a unit after every EndDay (ClearToday), bar the
@@ -168,6 +175,7 @@ type Today struct {
 	Scouting      *ScoutOrder            // somebody reading the rival's books tonight (#70); the rivals sim resolves it
 	Tipoff        *TipOrder              // the rival corner you tipped the police on tonight (#70); the rivals sim resolves it
 	Poach         *PoachOrder            // the rival's muscle you are paying to go home tonight (#70); the rivals sim resolves it
+	HitScouts     string                 // the faction whose scouts your enforcers hit tonight (#341); the rivals sim resolves it
 	Invested      []Investment           // levels bought at the fronts today (#192), applied at once; the laundering sim reports them
 	Cuts          []CutRecord            // the cuts made today (#47), applied at once; the market sim reports them
 	Reserved      int                    // clean cash on its way offshore tonight (#195), out of the pile already; the laundering sim moves it and takes the fee

@@ -322,6 +322,14 @@ func (m *Model) moodLine(r *game.RivalState) (line string, bad bool) {
 func (m *Model) rivalsDetails() []section {
 	w := m.w
 	r := m.faction()
+	if r.Scouting() {
+		e := m.rules.Rivals.Expansion()
+		lines := wrapped(theme.Subtle, fmt.Sprintf("Your take in %s drew %s. Taking the free corners there leaves them less room; a tribute keeps them off yours; a take under %s over %s before they recruit sends them home; once they recruit they come anyway.", w.CityName(r.ScoutingCity), m.rivalName(r), money(e.TakeMin), plural(e.WindowDays, "day")))
+		if r.ScoutsHit == 0 {
+			lines = append(lines, keyRow("h", fmt.Sprintf("hit the scouts: +%s, a grudge", plural(e.SetbackDays, "day"))))
+		}
+		return []section{{"ON THE WAY", lines}}
+	}
 	if r.Arrived == 0 {
 		return []section{{"NO RIVAL", wrapped(theme.Subtle, "Nobody is contesting the city yet. When somebody does, this is where you talk to them.")}}
 	}
@@ -515,4 +523,84 @@ func (m *Model) rivalsMove(dx, dy int) {
 	case dy > 0 && m.dealCursor < len(m.w.Offers)-1:
 		m.dealCursor++
 	}
+}
+
+// The scouts (#341, docs/rival.md): a faction moving on a city where
+// you earn and nobody lives is telegraphed in stages, and h on the
+// rivals screen, with it under the cursor, sends the enforcers after
+// its scouts, once, after asking: a setback and a grudge.
+
+// onScouts is the h key's condition: the faction under the cursor is on
+// its way to a city.
+func onScouts(m *Model) bool { r := m.faction(); return r != nil && r.Scouting() && !r.Gone() }
+
+// scoutsWord is a faction's move for a line: `scouting Bayport · in
+// d59`, `recruiting in Bayport · in d59`; "" for one not on its way.
+func (m *Model) scoutsWord(r *game.RivalState) string {
+	if r == nil || !r.Scouting() {
+		return ""
+	}
+	stage := "scouting "
+	if r.Recruited > 0 {
+		stage = "recruiting in "
+	}
+	return stage + m.w.CityName(r.ScoutingCity) + " · in " + fmt.Sprintf("d%d", m.rules.Rivals.ArriveDay(m.w, r))
+}
+
+// scoutsLines are the rivals screen's lines for a faction on its way:
+// where, the stages' days, and the answers.
+func (m *Model) scoutsLines(r *game.RivalState) []string {
+	e := m.rules.Rivals.Expansion()
+	city := m.w.CityName(r.ScoutingCity)
+	arrive := m.rules.Rivals.ArriveDay(m.w, r)
+	lines := []string{m.factionStyle(r.Faction()).Render(m.rivalName(r)) + theme.Subtle.Render(" · "+m.scoutsWord(r))}
+	if r.Recruited == 0 {
+		lines = append(lines, fmt.Sprintf("Your take in %s drew them. They recruit from day %d and move in on day %d, unless your take there falls under %s over %s first.", city, r.ScoutDay+e.ScoutDays, arrive, money(e.TakeMin), plural(e.WindowDays, "day")))
+	} else {
+		lines = append(lines, fmt.Sprintf("They are hiring in %s and asking your people there. They move in on day %d whatever the money does now.", city, arrive))
+	}
+	return append(lines, "Take the free corners there first, pay them, or hit the scouts.")
+}
+
+// askHitScouts opens the hit, or refuses with why.
+func (m *Model) askHitScouts() {
+	w := m.w
+	r := m.faction()
+	switch {
+	case w.Over != nil:
+		return
+	case !onScouts(m):
+		m.refuse("Nobody to hit: " + m.rivalName(r) + " is not moving on a city.")
+	case r.ScoutsHit > 0:
+		m.refuse("Their scouts have been hit already: it will not work twice.")
+	case w.Today.HitScouts != "":
+		m.refuse("The enforcers are already out after scouts tonight.")
+	case w.Crew.OnPayroll(game.RoleEnforcer) == 0:
+		m.refuse("Nobody to send: no enforcers. Hire one " + screenPointer(screenCrew) + ".")
+	default:
+		m.ask("hit the scouts", (*Model).hitScoutsConfirm, (*Model).confirmHitScouts)
+	}
+}
+
+// hitScoutsConfirm is the hit's body: the setback, the grudge, and a
+// deal it breaks.
+func (m *Model) hitScoutsConfirm() string {
+	r := m.faction()
+	e := m.rules.Rivals.Expansion()
+	body := m.wrapLines(fmt.Sprintf("The enforcers run %s's scouts out of %s tonight: they are set back %s, to move in on day %d, and they will hold it against you. It works once.", m.rivalName(r), m.w.CityName(r.ScoutingCity), plural(e.SetbackDays, "day"), m.rules.Rivals.ArriveDay(m.w, r)+e.SetbackDays))
+	if m.w.AtPeaceWith(r.Faction()) {
+		body = append(body, "", theme.Bad.Render("You have a deal with them: this breaks it, and the table remembers."))
+	}
+	return m.modal("HIT "+strings.ToUpper(m.rivalName(r))+"'S SCOUTS?", body, m.modalFooter())
+}
+
+// confirmHitScouts queues it.
+func (m *Model) confirmHitScouts() {
+	m.mode = modePlay
+	r := m.faction()
+	if err := m.sess.HitScouts(r.Faction()); err != nil {
+		m.refuse("Can't: " + err.Error() + ".")
+		return
+	}
+	m.say(fmt.Sprintf("The enforcers go after %s's scouts tonight.", m.rivalName(r)))
 }

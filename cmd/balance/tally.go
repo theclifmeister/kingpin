@@ -3,6 +3,7 @@ package main
 import (
 	"fmt"
 	"math"
+	"slices"
 	"sort"
 	"strings"
 
@@ -44,6 +45,13 @@ type tableTally struct {
 	poachedCrew, poachOffers             int
 	homagePaid, homageDays, dominantDays int
 	counts                               map[int]int // factions in the run -> runs
+
+	// Following the money (#341): the scouts sent, the arrivals and the
+	// scouts that went home over every run; the runs an away faction
+	// arrived in; and, in those, the share of the city it moved on that
+	// you and the factions hold at the end, in percent.
+	moves, expanded, withdrew, expandedRuns int
+	awayYou, awayThem                       []int
 }
 
 // booksTally is the moves against the rival's books (#70).
@@ -263,6 +271,29 @@ func (t *tally) add(res harness.Result, days int, trace bool) {
 	t.table.poachedCrew += st.CrewPoached
 	t.table.absorbed += st.Absorbed
 	t.table.arrested += st.Fragmented
+	t.table.moves += st.Moves
+	t.table.expanded += st.Expanded
+	t.table.withdrew += st.Withdrew
+	if st.Expanded > 0 {
+		t.table.expandedRuns++
+		for _, cid := range w.CityOrder[1:] {
+			city := w.Cities[cid]
+			if len(city.Corners) == 0 || !slices.ContainsFunc(w.Rivals, func(r *game.RivalState) bool { return r != nil && r.Home == cid && r.Arrived > 0 }) {
+				continue
+			}
+			you, them := 0, 0
+			for _, c := range city.Corners {
+				switch c.Owner {
+				case game.OwnerPlayer:
+					you++
+				case game.OwnerRival:
+					them++
+				}
+			}
+			t.table.awayYou = append(t.table.awayYou, 100*you/len(city.Corners))
+			t.table.awayThem = append(t.table.awayThem, 100*them/len(city.Corners))
+		}
+	}
 	for id := range w.Upgrades {
 		t.bought[id]++
 	}
@@ -563,6 +594,15 @@ func (t *tally) print(s summary) {
 		}
 		fmt.Printf(" %d pushes between factions (%d corners changed hands), %d absorbed, %d leaders taken, %d of your crew poached (%d offers), $%d homage over %d days (totals over %d runs); dominant on %d days\n",
 			tb.pushes, tb.takes, tb.absorbed, tb.arrested, tb.poachedCrew, tb.poachOffers, tb.homagePaid, tb.homageDays, runs, tb.dominantDays)
+	}
+	if tb.moves > 0 {
+		fmt.Printf("expansion:     an away faction arrived in %d of %d runs (%d scouts sent, %d arrived, %d went home)", tb.expandedRuns, runs, tb.moves, tb.expanded, tb.withdrew)
+		if n := len(tb.awayYou); n > 0 {
+			sort.Ints(tb.awayYou)
+			sort.Ints(tb.awayThem)
+			fmt.Printf("; the city it moved on at the end: you %d%% of its corners, the factions %d%% (medians)", tb.awayYou[n/2], tb.awayThem[n/2])
+		}
+		fmt.Println()
 	}
 	fmt.Printf("rival books:  ")
 	for _, d := range harness.PaceDays {

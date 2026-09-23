@@ -675,6 +675,8 @@ func intelLine(w *game.World, ev events.IntelGained) string {
 		return fmt.Sprintf("%s: the next thing coming in %s is a %s (%s).", how, name, ev.Value, sure)
 	case game.FactRisk:
 		return fmt.Sprintf("%s: %s is seized %s in transit (%s).", how, name, ev.Value, sure)
+	case game.FactScout:
+		return fmt.Sprintf("%s: %s has scouts in %s (%s).", how, name, w.CityName(ev.Value), sure)
 	}
 	return fmt.Sprintf("%s: %s %s %s (%s).", how, name, ev.FactKind, ev.Value, sure)
 }

@@ -389,6 +389,29 @@ tribute_corners = 3
 homage_cut = 0.20
 homage_chance = 0.25
 
+# The table follows the money (#341, rivals.Sim.expand): the rivals sim
+# keeps your take in each city away from home over the last window_days
+# days (off PlayerSold, no dice), and a city where no faction lives
+# whose window crosses take_min draws one, telegraphed in stages: the
+# scouts (a seat still in the wings, or a cell of the strongest faction
+# at home once every seat has arrived), the recruiting scout_days later
+# (bite of the hiring pool's best faces, your crew in the city poachable
+# at the table's poach_chance and poach_line, and a tribute offered for
+# a peace), and the arrival arrive_days after that, under arrive_grace
+# like any arrival. A hit on the scouts sets it back setback_days, once;
+# a window back under take_min before the recruiting sends the scouts
+# home. A run whose take away from home never crosses take_min never
+# sees it. It needs a table: the duel never expands. enabled = false
+# boxes it (harness.NoExpansion).
+[expansion]
+enabled = true
+take_min = 500000
+window_days = 7
+scout_days = 7
+arrive_days = 7
+setback_days = 7
+bite = 2
+
 # The endings this sim owns (#49, docs/endings.md), each a threshold on
 # state the step already reads and no dice: kingpin once Dominant() has
 # held dominant_days days (the day the last faction fell or bowed is on

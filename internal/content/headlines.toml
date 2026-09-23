@@ -310,6 +310,26 @@ RivalAbsorbed = [
   "{{.Rival}}'s outfit folds; what is left runs with {{.Name}} now",
   "End of the line for {{.Rival}}'s crew: absorbed by {{.Name}}'s",
 ]
+# Following the money (#341): a faction drawn to a city where you earn
+# and nobody else operates, in stages.
+RivalScouting = [
+  "Out-of-town faces asking about {{.City}}'s corners; word is {{.Rival}} sent them",
+  "{{.Rival}}'s people seen sizing up {{.City}}: 'somebody is making money here'",
+  "Strangers counting heads on {{.City}}'s blocks; {{.Rival}}'s crew, say regulars",
+]
+RivalRecruiting = [
+  "{{.Rival}}'s crew is hiring in {{.City}}, and paying over the odds",
+  "Corner boys in {{.City}} fielding offers from {{.Rival}}'s people",
+  "{{.Rival}} building a crew in {{.City}}; 'they are staying', says a bartender",
+]
+RivalWithdrew = [
+  "{{.Rival}}'s scouts pack up in {{.City}}: 'not worth it', says a source",
+  "The out-of-towners are gone from {{.City}}; {{.Rival}} looks elsewhere",
+]
+ScoutsHit = [
+  "Beating in {{.City}}: out-of-town men 'sent home', police say",
+  "{{.Rival}}'s scouts roughed up in {{.City}}; nobody saw anything",
+]
 # The reign (#227): the morning the city became yours for good.
 ReignBegan = [
   "Every crew in {{.City}} answers to one name now, police sources say",

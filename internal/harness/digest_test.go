@@ -236,20 +236,25 @@ const (
 // the first morning a card is pending, by shape alone and no number
 // moved: with the field skipped the digest is the one before on all
 // sixty days).
+// Again for #341 (RivalState.ScoutingCity, ScoutDay, Recruited,
+// ScoutsHit and Cell, World.Takes, Today.HitScouts and three Stats added
+// to the walk; the move is on day 1 by shape alone and no number moved:
+// with the fields skipped the digest is the one before on all sixty
+// days, the duel never expanding and never keeping the window).
 var seedDigest = []string{
-	"0a185cd20b737fe7", "e94ccd608b8fccc1", "7b19268dcb2f9ef7", "672ed40fbdb47bb3",
-	"3fa9635ce0d1148d", "a5fc52962f77a3b3", "5a497124e7f50439", "f2bc9b7bc2210541",
-	"8c8d092d882629c1", "47db052b474da138", "827538b80358cbb5", "191f6b4bc58a611d",
-	"1e348279ace107ed", "71345b6a67d50e40", "9d2855f16b4da47c", "3b41a553fd04e3de",
-	"ced5ede6191db1be", "a289d77497244681", "956ea8ac6c753555", "fb8d16dcdfc7e67b",
-	"3f9145d08fdde991", "85a3251619fcde78", "943cbccd70422f75", "b130f9f72c3dd0be",
-	"4da38dfb4a26f698", "47a6284b4bc88670", "02126a3ca6ccbc4e", "08b828cddf15e737",
-	"3cb6a315ebfd6962", "d4f4117a086b864f", "876af881722aa542", "648a254623621f6e",
-	"f5ad32279e8880ed", "ea4c7ff1defabd10", "da6c7490f60f7f19", "633f8edec050c9c3",
-	"ae8f9bba79ffb77c", "27fdff2b907e4b51", "5b2cb75050840679", "974386703b7afdfb",
-	"a43587f4a5bc4098", "a9be8075c3e5394f", "86efe85b0172517b", "47762478a4f9f8d3",
-	"cca0e0e280cd5727", "753ee165fb6ac377", "2e249186b9d1536a", "1d378d013074040e",
-	"4858a5b27fccd80d", "c6e70d4d4ab813f5", "150ce333a69602a0", "e48df8e87ed74665",
-	"a8311d6a519d03f1", "1d4042aa34121d69", "db7f676ab36c5603", "615cbdfa1c4046ce",
-	"93a80516f05c7dcf", "afdab01dc9ed4c30", "2c1281b6856d1f83", "1fb6351335018b2d",
+	"ca99e8d10e9c9c62", "8e8dbba35c18d29c", "5921ac88368f041e", "da9d7def10555d4e",
+	"99900c12d22c084a", "1b425da38c2cb454", "538313dae4cc42ce", "2964861688812df6",
+	"444fba7ecab2d6e4", "f738c01fb7745f4b", "9c9cf765128fc8ea", "66e34894910ee638",
+	"fdffed5d6793f030", "c204332ae229b1ab", "1abdd246d65d7fb7", "aa4c25c55c126d49",
+	"6112982d276cc64f", "4d672e1eae0234a6", "973f5899048ecea8", "7ce8b005abf655d2",
+	"4738d5be0703a658", "93b8029b0b341981", "1cc9f6a32f15f496", "bf0360fa07a96d3f",
+	"8c1d50511cabb9e3", "3bba914bd70435b5", "1fd908596a3cbe8d", "362f5af423608ac6",
+	"9fcb817efb63c8ef", "6b7627c985a8157a", "569684c49aca0967", "83ebc863031e9d5d",
+	"cd728108fb90ecd6", "1c5f8fed669d4153", "1797a846dc6fdbda", "e2fd0bfe249826ea",
+	"4f991d37dbf4efa5", "b8c520776f96bcf0", "d0afe4e112dc4506", "53fcb3df14d34da4",
+	"ffaa5256656441f7", "4ac914b338e299dc", "5221d00c96a7baf8", "81ceb01b7fec29d2",
+	"ca97aee2db3114ec", "6a23d309447c87a4", "3287b492abcdb6cf", "4a3ddbaa6e94b843",
+	"af053fe8a013d8e8", "12b5843c495e6480", "7c3b8c2968f49821", "7c1580c67cd31de2",
+	"ffd7d18f49a4b7da", "3f510aa265144978", "bb2a4e6f655b801c", "6d1a4e4fdb11fd91",
+	"75abc4a5b1dafa82", "aff14d6eaa6521d7", "c10162646ac818b8", "5f4a1f348947007c",
 }
