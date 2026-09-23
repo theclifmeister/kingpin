@@ -1611,7 +1611,7 @@
       "properties": {
         "choices": {
           "items": {
-            "type": "string"
+            "$ref": "#/$defs/engine.ChoiceView"
           },
           "type": "array"
         },
@@ -1630,6 +1630,39 @@
         "title",
         "text",
         "choices"
+      ],
+      "type": "object"
+    },
+    "engine.Chip": {
+      "properties": {
+        "text": {
+          "type": "string"
+        },
+        "tone": {
+          "type": "string"
+        }
+      },
+      "required": [
+        "text",
+        "tone"
+      ],
+      "type": "object"
+    },
+    "engine.ChoiceView": {
+      "properties": {
+        "label": {
+          "type": "string"
+        },
+        "preview": {
+          "items": {
+            "$ref": "#/$defs/engine.Chip"
+          },
+          "type": "array"
+        }
+      },
+      "required": [
+        "label",
+        "preview"
       ],
       "type": "object"
     },
@@ -1992,6 +2025,59 @@
       ],
       "type": "object"
     },
+    "engine.FlowLineView": {
+      "properties": {
+        "big": {
+          "type": "boolean"
+        },
+        "cat": {
+          "type": "string"
+        },
+        "clean": {
+          "type": "integer"
+        },
+        "dirty": {
+          "type": "integer"
+        },
+        "label": {
+          "type": "string"
+        }
+      },
+      "required": [
+        "cat",
+        "label",
+        "dirty",
+        "clean",
+        "big"
+      ],
+      "type": "object"
+    },
+    "engine.FlowView": {
+      "properties": {
+        "closing": {
+          "$ref": "#/$defs/engine.PoolsView"
+        },
+        "lines": {
+          "items": {
+            "$ref": "#/$defs/engine.FlowLineView"
+          },
+          "type": "array"
+        },
+        "net": {
+          "type": "integer"
+        },
+        "opening": {
+          "$ref": "#/$defs/engine.PoolsView"
+        }
+      },
+      "required": [
+        "opening",
+        "lines",
+        "closing",
+        "net"
+      ],
+      "type": "object"
+    },
     "engine.FrontView": {
       "properties": {
         "frozen": {
@@ -2198,6 +2284,21 @@
       ],
       "type": "object"
     },
+    "engine.PoolsView": {
+      "properties": {
+        "clean": {
+          "type": "integer"
+        },
+        "dirty": {
+          "type": "integer"
+        }
+      },
+      "required": [
+        "dirty",
+        "clean"
+      ],
+      "type": "object"
+    },
     "engine.PriceFacts": {
       "properties": {
         "delta": {
@@ -2289,6 +2390,9 @@
         "day": {
           "type": "integer"
         },
+        "flow": {
+          "$ref": "#/$defs/engine.FlowView"
+        },
         "heat": {
           "items": {
             "type": "string"
@@ -2371,7 +2475,8 @@
       "required": [
         "day",
         "cash_before",
-        "cash_after"
+        "cash_after",
+        "flow"
       ],
       "type": "object"
     },
@@ -2825,6 +2930,25 @@
         "Asset",
         "Name",
         "Cost"
+      ],
+      "type": "object"
+    },
+    "events.AssetUpkeepPaid": {
+      "properties": {
+        "Amount": {
+          "type": "integer"
+        },
+        "Assets": {
+          "type": "integer"
+        },
+        "Day": {
+          "type": "integer"
+        }
+      },
+      "required": [
+        "Day",
+        "Amount",
+        "Assets"
       ],
       "type": "object"
     },
@@ -3307,6 +3431,9 @@
         "City": {
           "type": "string"
         },
+        "Clean": {
+          "type": "integer"
+        },
         "Day": {
           "type": "integer"
         },
@@ -3342,6 +3469,7 @@
         "Units",
         "Delivered",
         "Cash",
+        "Clean",
         "Respect",
         "Notoriety",
         "Blacklisted"
@@ -3900,6 +4028,9 @@
     },
     "events.CrewPaidOff": {
       "properties": {
+        "Clean": {
+          "type": "integer"
+        },
         "Cost": {
           "type": "integer"
         },
@@ -3913,7 +4044,8 @@
       "required": [
         "Day",
         "Name",
-        "Cost"
+        "Cost",
+        "Clean"
       ],
       "type": "object"
     },
@@ -4371,6 +4503,9 @@
         "City": {
           "type": "string"
         },
+        "Clean": {
+          "type": "integer"
+        },
         "Day": {
           "type": "integer"
         },
@@ -4413,7 +4548,8 @@
         "Fee",
         "Left",
         "Due",
-        "What"
+        "What",
+        "Clean"
       ],
       "type": "object"
     },
@@ -4424,6 +4560,9 @@
         },
         "City": {
           "type": "string"
+        },
+        "Clean": {
+          "type": "integer"
         },
         "Day": {
           "type": "integer"
@@ -4440,7 +4579,8 @@
         "City",
         "Supplier",
         "Name",
-        "Amount"
+        "Amount",
+        "Clean"
       ],
       "type": "object"
     },
@@ -4707,13 +4847,17 @@
         "CashLost": {
           "type": "integer"
         },
+        "Clean": {
+          "type": "integer"
+        },
         "Day": {
           "type": "integer"
         }
       },
       "required": [
         "Day",
-        "CashLost"
+        "CashLost",
+        "Clean"
       ],
       "type": "object"
     },
@@ -5285,6 +5429,9 @@
     },
     "events.InvestigationRun": {
       "properties": {
+        "Clean": {
+          "type": "integer"
+        },
         "Cost": {
           "type": "integer"
         },
@@ -5301,6 +5448,7 @@
       "required": [
         "Day",
         "Cost",
+        "Clean",
         "Found",
         "Name"
       ],
@@ -6333,6 +6481,9 @@
         "Cash": {
           "type": "integer"
         },
+        "Clean": {
+          "type": "integer"
+        },
         "Cost": {
           "type": "integer"
         },
@@ -6361,6 +6512,7 @@
       "required": [
         "Day",
         "Cost",
+        "Clean",
         "Read",
         "Rival",
         "Faction",
@@ -7317,6 +7469,9 @@
         "Card": {
           "type": "string"
         },
+        "Cash": {
+          "$ref": "#/$defs/game.Pools"
+        },
         "Choice": {
           "type": "string"
         },
@@ -7339,7 +7494,8 @@
         "Title",
         "Choice",
         "Outcome",
-        "Headline"
+        "Headline",
+        "Cash"
       ],
       "type": "object"
     },
@@ -7900,6 +8056,21 @@
       ],
       "type": "object"
     },
+    "game.Pools": {
+      "properties": {
+        "Clean": {
+          "type": "integer"
+        },
+        "Dirty": {
+          "type": "integer"
+        }
+      },
+      "required": [
+        "Dirty",
+        "Clean"
+      ],
+      "type": "object"
+    },
     "game.Purchase": {
       "properties": {
         "City": {
@@ -8085,6 +8256,9 @@
     },
     "AssetSeized": {
       "$ref": "#/$defs/events.AssetSeized"
+    },
+    "AssetUpkeepPaid": {
+      "$ref": "#/$defs/events.AssetUpkeepPaid"
     },
     "BribeAccepted": {
       "$ref": "#/$defs/events.BribeAccepted"
@@ -12802,6 +12976,7 @@
             "AssetBought",
             "AssetFrozen",
             "AssetSeized",
+            "AssetUpkeepPaid",
             "BribeAccepted",
             "BribeBackfired",
             "BribeRefused",
@@ -12957,5 +13132,5 @@
   },
   "protocol": 4,
   "title": "kingpind",
-  "view_version": 4
+  "view_version": 8
 }

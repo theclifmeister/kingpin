@@ -16,7 +16,10 @@ func (r *reporter) reportHeat(e events.Event) bool {
 	switch ev := e.(type) {
 	case events.FallGuyBurned:
 		r.add("heat", "FallGuyBurned", base)
-		r.lostCash += ev.CashLost
+		r.book(game.FlowLosses, -(ev.CashLost - ev.Clean), -ev.Clean)
+		if ev.CashLost > 0 {
+			rep.Money = append(rep.Money, fmt.Sprintf("The fall guy's price -%s", format.Money(ev.CashLost)))
+		}
 		rep.Heat = append(rep.Heat, fmt.Sprintf("THE FALL GUY TOOK IT. The case is closed and heat is down, but %s went on making it stick. There is no second one.", format.Money(ev.CashLost)))
 	case events.HeatChanged:
 		if ev.City != here.ID && len(ev.Reasons) == 0 && ev.To < 1 {
@@ -46,7 +49,10 @@ func (r *reporter) reportHeat(e events.Event) bool {
 				rep.Heat = append(rep.Heat, "  they found nothing to hang on you")
 			}
 		}
-		r.lostCash += ev.CashLost
+		r.book(game.FlowLosses, -ev.CashLost, 0)
+		if ev.CashLost > 0 {
+			rep.Money = append(rep.Money, seizedLine(w, ev))
+		}
 	case events.LaidLow:
 		r.add("heat", "LaidLow", base)
 	case events.RaidFellThrough:

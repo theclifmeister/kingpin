@@ -104,6 +104,7 @@ func (s *Sim) assetsStep(w *game.World, t *game.Tick) {
 			w.LoseAsset(ev.Asset, t.Day, "found")
 		}
 	}
+	upkeep, paying := 0, 0
 	for i := range w.Assets {
 		a := &w.Assets[i]
 		if a.Bought == t.Day-1 {
@@ -121,6 +122,11 @@ func (s *Sim) assetsStep(w *game.World, t *game.Tick) {
 		}
 		w.Player.CleanCash -= a.Upkeep
 		w.Stats.AssetUpkeep += a.Upkeep
+		upkeep += a.Upkeep
+		paying++
+	}
+	if upkeep > 0 {
+		t.Emit(events.AssetUpkeepPaid{Day: t.Day, Amount: upkeep, Assets: paying})
 	}
 }
 

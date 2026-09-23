@@ -1,8 +1,13 @@
 package ui
 
 import (
-	tea "github.com/charmbracelet/bubbletea"
+	"strings"
 
+	tea "github.com/charmbracelet/bubbletea"
+	"github.com/charmbracelet/lipgloss"
+
+	"github.com/theclifmeister/kingpin/internal/engine"
+	"github.com/theclifmeister/kingpin/internal/game"
 	"github.com/theclifmeister/kingpin/internal/ui/theme"
 )
 
@@ -103,7 +108,9 @@ func (m *Model) answerCard() {
 }
 
 // viewCard is the card, its prose wrapped to the modal's width (the one
-// thing that wraps), then the choices; after the answer, the outcome.
+// thing that wraps), then the choices, each with what it does under it
+// (#358); after the answer, the outcome. The cursor keeps the whole of
+// its choice in view, the label first.
 func (m *Model) viewCard() string {
 	if m.cardDone {
 		return m.modal("WHAT HAPPENED", m.wrapLines(m.outcome), m.modalFooter())
@@ -117,14 +124,84 @@ func (m *Model) viewCard() string {
 	}
 	m.cardCursor = max(0, min(m.cardCursor, len(c.Choices)-1))
 	body := append(m.wrapLines(c.Text), "")
+	choices, at := m.cardChoices(c)
+	end := len(choices)
+	if m.cardCursor+1 < len(at) {
+		end = at[m.cardCursor+1]
+	}
+	m.modalFollow(len(body) + end - 1)
+	m.modalFollow(len(body) + at[m.cardCursor])
+	return m.modal(c.Title, append(body, choices...), m.modalFooter())
+}
+
+// cardChoices is the card's choices as the modal draws them: each label,
+// the cursor's highlighted, and under it its chips (engine.ChoiceChips)
+// in their tones, folded at " · " to the modal's width. at is the line
+// each choice starts on.
+func (m *Model) cardChoices(c *game.Card) (lines []string, at []int) {
+	chips := m.cardChips(c)
 	for i, ch := range c.Choices {
+		at = append(at, len(lines))
 		label := string(rune('1'+i)) + " " + truncate(ch.Label, m.modalInner()-6)
 		if i == m.cardCursor {
-			m.modalFollow(len(body))
-			body = append(body, theme.Gold.Render("▸ ")+theme.Selected.Render(" "+label+" "))
+			lines = append(lines, theme.Gold.Render("▸ ")+theme.Selected.Render(" "+label+" "))
 		} else {
-			body = append(body, "    "+label)
+			lines = append(lines, "    "+label)
+		}
+		if i < len(chips) {
+			lines = append(lines, foldChips(chips[i], m.modalInner()-6, "      ")...)
 		}
 	}
-	return m.modal(c.Title, body, m.modalFooter())
+	return lines, at
+}
+
+// cardChips is what each choice on the pending card does, worked out
+// once a card: ChoiceChips copies the world for every choice, and the
+// world stands still while the card is up.
+func (m *Model) cardChips(c *game.Card) [][]engine.Chip {
+	if m.chipsFor != c {
+		m.chipsFor, m.chips = c, engine.ChoiceChips(m.cfg, m.rules, m.w, c)
+	}
+	return m.chips
+}
+
+// chipStyle is a chip's tone in the theme's colours: a gain the good's,
+// a cost the danger's, a line crossed the warning's, a note subtle.
+func chipStyle(tone string) lipgloss.Style {
+	switch tone {
+	case engine.ToneGain:
+		return theme.Good
+	case engine.ToneCost:
+		return theme.Bad
+	case engine.ToneLine:
+		return theme.Warning
+	}
+	return theme.Subtle
+}
+
+// foldChips joins chips with " · " into lines of at most width, each
+// behind the indent; a chip wider than a line has one to itself and is
+// cut there.
+func foldChips(chips []engine.Chip, width int, indent string) []string {
+	var out []string
+	var line strings.Builder
+	w := 0
+	for _, c := range chips {
+		cw := min(width, lipgloss.Width(c.Text))
+		if w > 0 && w+3+cw > width {
+			out = append(out, indent+line.String())
+			line.Reset()
+			w = 0
+		}
+		if w > 0 {
+			line.WriteString(theme.Subtle.Render(" · "))
+			w += 3
+		}
+		line.WriteString(chipStyle(c.Tone).Render(truncate(c.Text, width)))
+		w += cw
+	}
+	if w > 0 {
+		out = append(out, indent+line.String())
+	}
+	return out
 }

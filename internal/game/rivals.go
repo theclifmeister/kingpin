@@ -43,10 +43,11 @@ func (w *World) ScoutFaction(faction string, cost int) error {
 	if w.Today.Scouting != nil {
 		return ErrScouting
 	}
-	if !w.spend(cost) {
+	clean, ok := w.spend(cost)
+	if !ok {
 		return &ShortError{Need: cost, Have: w.Cash()}
 	}
-	w.Today.Scouting = &ScoutOrder{Cost: cost, Faction: faction}
+	w.Today.Scouting = &ScoutOrder{Cost: cost, Faction: faction, Clean: clean}
 	return nil
 }
 

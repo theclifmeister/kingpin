@@ -365,19 +365,20 @@ func (s *Sim) credit(w *game.World) {
 func (s *Sim) collect(w *game.World, t *game.Tick, sup *game.Supplier) {
 	tun := s.scfg.Suppliers
 	owed := sup.Debt
-	paid := w.TakeCash(sup.Debt)
+	took := w.TakeCash(sup.Debt)
+	paid := took.Total()
 	sup.Debt -= paid
 	w.Stats.Repaid += paid
 	if sup.Debt <= 0 {
 		sup.Debt, sup.DebtDue, sup.Extended = 0, 0, false
 		sup.Rel += tun.RelPaid
-		t.Emit(events.DebtPaid{Day: t.Day, City: sup.City, Supplier: sup.ID, Name: sup.Name, Amount: paid})
+		t.Emit(events.DebtPaid{Day: t.Day, City: sup.City, Supplier: sup.ID, Name: sup.Name, Amount: paid, Clean: took.Clean})
 		return
 	}
 	sup.Late++
 	w.Stats.LatePayments++
 	sup.Rel -= tun.RelLate
-	ev := events.DebtLate{Day: t.Day, City: sup.City, Supplier: sup.ID, Name: sup.Name, Temper: sup.Temper, Owed: owed, Paid: paid}
+	ev := events.DebtLate{Day: t.Day, City: sup.City, Supplier: sup.ID, Name: sup.Name, Temper: sup.Temper, Owed: owed, Paid: paid, Clean: took.Clean}
 	freeze := false
 	switch sup.Temper {
 	case "patient":

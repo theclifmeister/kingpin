@@ -54,7 +54,7 @@ func (s *Sim) takeFall(w *game.World, t *game.Tick, fx game.Effects) bool {
 	dirty, clean := s.fallShare(w.Player.DirtyCash), s.fallShare(w.Player.CleanCash)
 	w.Player.DirtyCash -= dirty
 	w.Player.CleanCash -= clean
-	t.Emit(events.FallGuyBurned{Day: t.Day, CashLost: dirty + clean})
+	t.Emit(events.FallGuyBurned{Day: t.Day, CashLost: dirty + clean, Clean: clean})
 	return true
 }
 

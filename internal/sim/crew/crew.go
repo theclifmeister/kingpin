@@ -341,7 +341,7 @@ func (s *Sim) roster(n *night) {
 		t.Emit(events.CrewFired{Day: t.Day, ID: m.ID, Name: m.Name, Role: m.Role, Informant: m.Informant})
 	}
 	for _, p := range c.PaidOffToday {
-		t.Emit(events.CrewPaidOff{Day: t.Day, Name: p.Name, Cost: p.Cost})
+		t.Emit(events.CrewPaidOff{Day: t.Day, Name: p.Name, Cost: p.Cost, Clean: p.Clean})
 	}
 }
 
