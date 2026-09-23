@@ -104,7 +104,11 @@ func firstFit(width int, candidates ...string) string {
 func (m *Model) streetLines(innerW, maxLines int, narrow, withRoad bool) []string {
 	w := m.w
 	here := w.Here()
-	cols, rows, cursor := m.productRows(here.ID, m.cursor, false)
+	sel := m.cursor
+	if m.onPolice {
+		sel = -1 // the arrows are on the police (#355): no product is picked
+	}
+	cols, rows, cursor := m.productRows(here.ID, sel, false)
 	sparkW := max(3, min(24, innerW-tableWidth(cols, rows)))
 	sparkCol(cols, rows, sparkW)
 	lines := table(cols, rows, cursor, innerW)
@@ -299,9 +303,9 @@ func (m *Model) dashboardNarrow(width, h int) string {
 	rows := []string{
 		panel("STREET · "+here.Name, strings.Join(street, "\n"), width, streetH, theme.Market),
 		lipgloss.JoinHorizontal(lipgloss.Top,
-			panel("HEAT", strings.Join(m.heatLines(heatW-4, true), "\n"), heatW, dashPanelH, theme.Heat),
-			panel("CASH", strings.Join(m.cashLines(cashW-4, true), "\n"), cashW, dashPanelH, theme.Money),
-			panel("LAW", strings.Join(m.lawLines(lawW-4, true), "\n"), lawW, dashPanelH, theme.Heat)),
+			panel(m.policeTitle("HEAT"), strings.Join(m.heatLines(heatW-4, true), "\n"), heatW, dashPanelH, theme.Heat),
+			panel(m.policeTitle("CASH"), strings.Join(m.cashLines(cashW-4, true), "\n"), cashW, dashPanelH, theme.Money),
+			panel(m.policeTitle("LAW"), strings.Join(m.lawLines(lawW-4, true), "\n"), lawW, dashPanelH, theme.Heat)),
 	}
 	if alerts != "" {
 		rows = append(rows, alerts)
@@ -334,10 +338,10 @@ func (m *Model) dashboardWide(width, h int) string {
 	rows := []string{
 		panel("STREET · "+here.Name, strings.Join(street, "\n"), width, streetH, theme.Market),
 		lipgloss.JoinHorizontal(lipgloss.Top,
-			panel("HEAT", strings.Join(heat, "\n"), leftW, rowH, theme.Heat),
-			panel("CASH", strings.Join(m.cashLines(rightW-4, false), "\n"), rightW, rowH, theme.Money)),
+			panel(m.policeTitle("HEAT"), strings.Join(heat, "\n"), leftW, rowH, theme.Heat),
+			panel(m.policeTitle("CASH"), strings.Join(m.cashLines(rightW-4, false), "\n"), rightW, rowH, theme.Money)),
 		lipgloss.JoinHorizontal(lipgloss.Top,
-			panel("LAW", strings.Join(m.lawLines(leftW-4, false), "\n"), leftW, dashPanelH, theme.Heat),
+			panel(m.policeTitle("LAW"), strings.Join(m.lawLines(leftW-4, false), "\n"), leftW, dashPanelH, theme.Heat),
 			panel("RIVALS", strings.Join(m.rivalLines(rightW-4), "\n"), rightW, dashPanelH, theme.Rivals)),
 	}
 	if citiesH > 0 {
@@ -362,10 +366,16 @@ func (m *Model) sellEstimate(city, id string, dial events.Dial) (units int, take
 }
 
 // dashboardDetails is the dashboard's pane: the product under the
-// cursor with what s would do to it, the alerts, and the keys.
+// cursor with what s would do to it, or POLICE with the arrows past the
+// table (#355), the alerts, and the keys.
 func (m *Model) dashboardDetails() []section {
 	w := m.w
 	here := w.Here()
+	if m.onPolice {
+		// Past the product table (#355): the police where you stand,
+		// first even over the cart, since the arrows asked for it.
+		return append(append([]section{m.policeSection(here)}, m.cartSection(here.ID)...), m.dashboardAfter()...)
+	}
 	secs := m.cartSection(here.ID) // the day's cart first, so the strip carries its totals (#103)
 	if m.cursor < len(w.Products) {
 		id := w.Products[m.cursor]
@@ -427,7 +437,11 @@ func (m *Model) dashboardDetails() []section {
 			secs = append(secs, section{strings.ToUpper(p.Name) + " · " + strings.ToUpper(here.Name), lines})
 		}
 	}
-	secs = append(secs, section{"ALERTS", m.alertLines(paneTextW, 8)})
-	secs = append(secs, m.nameSection()...) // what your name buys (#233), after what needs you
-	return secs
+	return append(secs, m.dashboardAfter()...)
+}
+
+// dashboardAfter is the dashboard pane past its selection: the alerts
+// and what your name buys (#233), after what needs you.
+func (m *Model) dashboardAfter() []section {
+	return append([]section{{"ALERTS", m.alertLines(paneTextW, 8)}}, m.nameSection()...)
 }

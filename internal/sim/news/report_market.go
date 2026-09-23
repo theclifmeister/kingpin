@@ -15,7 +15,11 @@ func (r *reporter) reportMarket(e events.Event) bool {
 	w, t, rep, here, base := r.w, r.t, r.rep, r.here, r.base
 	switch ev := e.(type) {
 	case events.UpgradeBought:
-		r.upgrades += ev.Cost
+		if ev.Clean {
+			r.book(game.FlowInvestments, 0, -ev.Cost)
+		} else {
+			r.book(game.FlowInvestments, -ev.Cost, 0)
+		}
 		d := base
 		d.Name = ev.Name
 		r.add("money", "UpgradeBought", d)
@@ -70,8 +74,8 @@ func (r *reporter) reportMarket(e events.Event) bool {
 		}
 	case events.PlayerSold:
 		r.soldRevenue += ev.Revenue
-		r.cuts += ev.Cut
 		r.standingCut += ev.Cut
+		r.book(game.FlowSales, ev.Revenue-ev.Cut, 0)
 		rep.Sales = append(rep.Sales, saleLine(w, ev)+r.in(ev.City))
 		d := r.at(ev.City)
 		d.Product = w.ProductName(ev.Product)
@@ -119,10 +123,10 @@ func (r *reporter) reportMarket(e events.Event) bool {
 	case events.CreditTaken:
 		rep.Money = append(rep.Money, fmt.Sprintf("%s put %s on your book%s: you owe them %s, due day %d.", ev.Name, format.Money(ev.Amount), r.in(ev.City), format.Money(ev.Debt), ev.Due))
 	case events.DebtPaid:
-		r.repaid += ev.Amount
+		r.book(game.FlowPurchases, -(ev.Amount - ev.Clean), -ev.Clean)
 		rep.Money = append(rep.Money, fmt.Sprintf("Paid %s the %s you owed, on the day. -%s", ev.Name, format.Money(ev.Amount), format.Money(ev.Amount)))
 	case events.DebtLate:
-		r.repaid += ev.Paid
+		r.book(game.FlowPurchases, -(ev.Paid - ev.Clean), -ev.Clean)
 		d := r.at(ev.City)
 		d.Name = ev.Name
 		r.addSuppliers("DebtLate", d)
@@ -170,7 +174,7 @@ func (r *reporter) reportMarket(e events.Event) bool {
 			rep.Money = append(rep.Money, fmt.Sprintf("%s's people came for the %s you owe and found nothing to take. They will be back.", ev.Name, format.Money(ev.Owed)))
 		}
 	case events.ContractDelivered:
-		r.contracts += ev.Revenue
+		r.book(game.FlowSales, ev.Revenue, 0)
 		line := fmt.Sprintf("Handed %d %s to %s at %s (%s street) = +%s%s", ev.Units, w.ProductName(ev.Product), ev.Name, format.Price(ev.Price), format.TimesSig(ev.Price/math.Max(ev.Street, 1e-9), 3), format.Money(ev.Revenue), r.in(ev.City))
 		if ev.Complete {
 			line += ". Delivered in full."
@@ -190,7 +194,7 @@ func (r *reporter) reportMarket(e events.Event) bool {
 			r.addBuyers("ContractDelivered", d)
 		}
 	case events.ContractFailed:
-		r.forfeits += ev.Cash
+		r.book(game.FlowLosses, -(ev.Cash - ev.Clean), -ev.Clean)
 		line := fmt.Sprintf("You let %s down: %d of %d %s delivered by the day%s.", ev.Name, ev.Delivered, ev.Units, w.ProductName(ev.Product), r.in(ev.City))
 		if ev.Cash > 0 {
 			line += fmt.Sprintf(" They took %s for the rest.", format.Money(ev.Cash))
@@ -225,7 +229,7 @@ func (r *reporter) reportMarket(e events.Event) bool {
 		}
 		rep.Law = append(rep.Law, fmt.Sprintf("OVERDOSE on %s%s: somebody went down on your %s (quality %.0f). The city is talking, the DA is listening.", where, r.in(ev.City), w.ProductName(ev.Product), ev.Quality))
 	case events.StockCut:
-		r.cutting += ev.Cost
+		r.book(game.FlowPurchases, -ev.Cost, 0)
 		hand := ""
 		if ev.Chemist != "" {
 			hand = ", " + ev.Chemist + "'s hand on it"

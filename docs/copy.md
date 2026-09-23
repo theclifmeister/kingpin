@@ -8,6 +8,7 @@ One voice: terse, second person, present tense, sentence case, real plurals (eve
 **Empty states** are sentences in `Subtle`, sentence case, a full stop, every one through `emptyState` (#240: its parts alternate prose and key, so a line with no key is `emptyState(text)` and the dashboard's `tutorialLine` is one with two; the ledger's PAYOFFS line names no key, `$` being in KEYS beside it), the key named the legend's way (`Nobody on the payroll. Pick a face below and press h.`, `No fronts yet. …press b to buy one.`, `No deals. Press d to propose one.`, `Nobody right now.`, `Nothing on the table.`, `Nobody is asking. Offers come here and lapse in a few days.`); the rival's and the paper's `Yet.` lines stay, they are the voice (`TestEmptyStates`).
 **Status vocabularies**, lowercase in tables, and **one meaning per word** (#238): the table below lists each state word once with the one thing it means and where it is read; `TestStateWords` reads it (no word twice) and pins the words on the screens.
 `a cell`, `laid up` and `drift` are prose and help's words, never a cell.
+**The police's words** (#355): help's WORDS explains `heat`, each rung (`patrol`, `sting`, `raid`, `arrest`; `feds` was #48's), the `file`, `pressure`, `goodwill`, `cover` and `estimate`, one line each; a forecast is always called an `estimate` and carries how sure it is (`a cop · 75% sure`, the intel screen's `sure`), and the POLICE section says the lines as the dice read them (`docs/law.md`).
 
 | word | means | where |
 |---|---|---|

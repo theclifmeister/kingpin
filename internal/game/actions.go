@@ -106,14 +106,15 @@ func (w *World) payClean(cost int) error {
 }
 
 // spend takes cost from dirty cash first and clean cash for the rest, the
-// way somebody paid off the books is paid. It reports whether there was
-// enough between the two.
-func (w *World) spend(cost int) bool {
+// way somebody paid off the books is paid. It reports how much of it was
+// clean, which the order keeps for the report's flow (#351), and whether
+// there was enough between the two.
+func (w *World) spend(cost int) (clean int, ok bool) {
 	if cost > w.Cash() {
-		return false
+		return 0, false
 	}
 	dirty := min(cost, w.Player.DirtyCash)
 	w.Player.DirtyCash -= dirty
 	w.Player.CleanCash -= cost - dirty
-	return true
+	return cost - dirty, true
 }

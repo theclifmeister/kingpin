@@ -469,3 +469,49 @@ func TestViewCarriesWhatTheScreensList(t *testing.T) {
 		}
 	}
 }
+
+// TestViewCarriesThePolice (#355): every city's ladder is the heat
+// sim's Rungs, rung for rung; the law carries the arrest line, the
+// exposure line and the cover the sim charges against; and the police's
+// next move is the file's, with how sure it is today.
+func TestViewCarriesThePolice(t *testing.T) {
+	t.Parallel()
+	s, w := playedSession(t, 60)
+	if w.Over == nil && w.Player.DirtyCash > 5000 {
+		// A cop's word where you stand, so the forecast is in the view.
+		if err := s.PayCop(5000); err != nil {
+			t.Fatal(err)
+		}
+		s.EndDay()
+	}
+	v := s.View()
+	heat := s.Rules().Heat
+	known := game.Known(w)
+	words := 0
+	for _, c := range v.Cities {
+		rungs := heat.Rungs(w, w.City(c.ID))
+		if len(c.Ladder) != len(rungs) || len(rungs) == 0 {
+			t.Fatalf("%s: %d rungs in the view, %d in the sim", c.ID, len(c.Ladder), len(rungs))
+		}
+		for i, r := range rungs {
+			got := c.Ladder[i]
+			if got.Level != r.Level || got.Line != r.Threshold || got.StockLoss != r.StockLoss || got.CashLoss != r.CashLoss || got.Pages != r.Evidence || got.Cap != r.Cap || got.CapDays != r.CapDays {
+				t.Errorf("%s rung %d: %+v, the sim's %+v", c.ID, i, got, r)
+			}
+		}
+		if f, ok := known.Fact(c.ID, game.FactResponse); ok {
+			words++
+			if c.Response != f.Value || c.Sure != f.Now(w.Day) {
+				t.Errorf("%s: the word %q at %.2f, the file's %q at %.2f", c.ID, c.Response, c.Sure, f.Value, f.Now(w.Day))
+			}
+		} else if c.Response != "" || c.Sure != 0 {
+			t.Errorf("%s: a word %q at %.2f with nothing in the file", c.ID, c.Response, c.Sure)
+		}
+	}
+	if v.Law.ArrestLine != heat.EvidenceArrest(w) || v.Law.ExposureLine != heat.ExposureLine(w) || v.Law.Cover != heat.Cover(w) {
+		t.Errorf("the law: arrest %d, exposure %d, cover %d; the sim's %d, %d, %d", v.Law.ArrestLine, v.Law.ExposureLine, v.Law.Cover, heat.EvidenceArrest(w), heat.ExposureLine(w), heat.Cover(w))
+	}
+	if words == 0 {
+		t.Errorf("day %d: no city carries a cop's word, and one was paid", w.Day)
+	}
+}

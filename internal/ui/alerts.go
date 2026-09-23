@@ -359,8 +359,11 @@ func (m *Model) cycleAlert(d int) {
 	}
 }
 
-// hasAlerts is the dashboard having an alert to pick and open.
-func hasAlerts(m *Model) bool { return len(m.sess.Alerts()) > 0 }
+// hasAlerts is the dashboard having an alert to pick and open, its
+// arrows on the product table: with them on HEAT, CASH and LAW (#355)
+// the pane leads with POLICE and the keys wear that region, so the
+// alert keys are neither listed nor live there.
+func hasAlerts(m *Model) bool { return !m.onPolice && len(m.sess.Alerts()) > 0 }
 
 // stoppedOnAlert is the report open on a fast-forward that stopped on
 // an alert: its o opens it.

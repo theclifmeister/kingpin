@@ -15,8 +15,8 @@ import (
 // number column may also hold `-` for none.
 var kindPatterns = map[colKind]*regexp.Regexp{
 	kInt:   regexp.MustCompile(`^(-|~?[+-]?\d+( \(lt\))?)$`),
-	kCash:  regexp.MustCompile(`^(-|-?\$(\d{1,3}(,\d{3})*|\d+\.\d[KMBT]|\d{2,3}[KMBT]))$`),
-	kMoney: regexp.MustCompile(`^(-|-?\$\d{1,3}(,\d{3})*)$`),
+	kCash:  regexp.MustCompile(`^(-|[+-]?\$(\d{1,3}(,\d{3})*|\d+\.\d[KMBT]|\d{2,3}[KMBT]))$`),
+	kMoney: regexp.MustCompile(`^(-|[+-]?\$\d{1,3}(,\d{3})*)$`),
 	kPrice: regexp.MustCompile(`^(-|\$\d{1,3}(,\d{3})*(\.\d\d)?)$`),
 	kPct:   regexp.MustCompile(`^(-|~?[+-]?\d+(\.\d)?%)$`),
 	kDays:  regexp.MustCompile(`^(-|\d+d|d\d+)$`),
@@ -178,6 +178,9 @@ func TestTablesAreConsistent(t *testing.T) {
 		if sparkTitle.MatchString(title) {
 			key = "Nd"
 		}
+		if nightTitle.MatchString(title) {
+			key = "dN"
+		}
 		if want, ok := doc[key]; !ok {
 			t.Errorf("the header %q (%s) is not in docs/format.md's table", title, kindName(kind))
 		} else if want != kindName(kind) {
@@ -188,6 +191,7 @@ func TestTablesAreConsistent(t *testing.T) {
 
 var (
 	sparkTitle = regexp.MustCompile(`^\d+d$`)
+	nightTitle = regexp.MustCompile(`^d\d+$`) // a night of the ledger's FLOW (#351)
 	docKindRow = regexp.MustCompile(`^\| (text|int|cash|money|price|pct|days|bar|dial) \| (.*?) \|`)
 	docHeader  = regexp.MustCompile("`([^`]+)`")
 )

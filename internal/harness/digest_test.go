@@ -91,6 +91,13 @@ func list(ds []string) string {
 	return b.String()
 }
 
+// unwalked is what the digest leaves out: the report's cash flow
+// (#351), the night's money by category and the history of it. It is
+// the news sim's reading of the numbers the walk already hashes (the
+// piles, the report's lines and CASH BEFORE), no sim reads it, and a
+// change to its shape or its categories is a report's, never a number's.
+var unwalked = map[string]bool{"World.Flows": true, "DayReport.Flow": true}
+
 // digest is the world's hash: FNV-1a over a walk of every exported
 // value in a fixed order, floats to six decimals.
 func digest(w *game.World) string {
@@ -110,7 +117,7 @@ func walk(h interface{ Write([]byte) (int, error) }, v reflect.Value) {
 		walk(h, v.Elem())
 	case reflect.Struct:
 		for i := 0; i < v.NumField(); i++ {
-			if f := v.Type().Field(i); f.IsExported() {
+			if f := v.Type().Field(i); f.IsExported() && !unwalked[v.Type().Name()+"."+f.Name] {
 				put(f.Name)
 				walk(h, v.Field(i))
 			}
@@ -236,20 +243,31 @@ const (
 // the first morning a card is pending, by shape alone and no number
 // moved: with the field skipped the digest is the one before on all
 // sixty days).
+// Again for #351 (the report's cash flow, World.Flows and
+// DayReport.Flow, which the walk leaves out, unwalked): days 9, 24, 26
+// and 47 move by the report's words alone, a robbery's MONEY line
+// naming the corner and the city (`Robbed on Riverside in Eastside`)
+// where it read `Robbed on the corner`; days 57 to 60 by its numbers,
+// the lieutenant's skim no longer counted twice (once off
+// LieutenantActed and again inside the night's CrewSkimmed, so day 57's
+// MISSING FROM THE COUNT read $188 for $94 and CASH BEFORE sat $94
+// high; the flow reconciling pile by pile is what found it). No number
+// moved: with World.Report set aside on both sides the digest is
+// main's on all sixty days (checked again on top of #358).
 var seedDigest = []string{
 	"0a185cd20b737fe7", "e94ccd608b8fccc1", "7b19268dcb2f9ef7", "672ed40fbdb47bb3",
 	"3fa9635ce0d1148d", "a5fc52962f77a3b3", "5a497124e7f50439", "f2bc9b7bc2210541",
-	"8c8d092d882629c1", "47db052b474da138", "827538b80358cbb5", "191f6b4bc58a611d",
+	"25347760c509f803", "47db052b474da138", "827538b80358cbb5", "191f6b4bc58a611d",
 	"1e348279ace107ed", "71345b6a67d50e40", "9d2855f16b4da47c", "3b41a553fd04e3de",
 	"ced5ede6191db1be", "a289d77497244681", "956ea8ac6c753555", "fb8d16dcdfc7e67b",
-	"3f9145d08fdde991", "85a3251619fcde78", "943cbccd70422f75", "b130f9f72c3dd0be",
-	"4da38dfb4a26f698", "47a6284b4bc88670", "02126a3ca6ccbc4e", "08b828cddf15e737",
+	"3f9145d08fdde991", "85a3251619fcde78", "943cbccd70422f75", "8f069c528dc0a8da",
+	"4da38dfb4a26f698", "0395c60b0e7595bc", "02126a3ca6ccbc4e", "08b828cddf15e737",
 	"3cb6a315ebfd6962", "d4f4117a086b864f", "876af881722aa542", "648a254623621f6e",
 	"f5ad32279e8880ed", "ea4c7ff1defabd10", "da6c7490f60f7f19", "633f8edec050c9c3",
 	"ae8f9bba79ffb77c", "27fdff2b907e4b51", "5b2cb75050840679", "974386703b7afdfb",
 	"a43587f4a5bc4098", "a9be8075c3e5394f", "86efe85b0172517b", "47762478a4f9f8d3",
-	"cca0e0e280cd5727", "753ee165fb6ac377", "2e249186b9d1536a", "1d378d013074040e",
+	"cca0e0e280cd5727", "753ee165fb6ac377", "ee0419667d18d660", "1d378d013074040e",
 	"4858a5b27fccd80d", "c6e70d4d4ab813f5", "150ce333a69602a0", "e48df8e87ed74665",
 	"a8311d6a519d03f1", "1d4042aa34121d69", "db7f676ab36c5603", "615cbdfa1c4046ce",
-	"93a80516f05c7dcf", "afdab01dc9ed4c30", "2c1281b6856d1f83", "1fb6351335018b2d",
+	"147aac40c73d65d4", "7b43e61bba6f5a45", "95c88a6574df8e31", "981b71057d4142b9",
 }

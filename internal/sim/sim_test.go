@@ -103,7 +103,7 @@ func TestSimsWriteOnlyTheirOwnState(t *testing.T) {
 		"law":        {"Law", "Cities.Pressure", "Cities.Goodwill", "Cities.Campaign", "Cities.Corners.Deed"},        // the forfeiture takes a deed through w.SeizeDeed (#194)
 		"laundering": {"Laundering", "Fronts", "Offshore", "QuietDays", "Assets", "AssetsLost", "LegitDays", "Over"}, // the assets are clean money (#48): the task force names what it takes, this sim books it; businessman (#49)
 		"reputation": {"Player.Reputation"},
-		"news":       {"Journal", "Report", "Dilemmas", "Progression"},
+		"news":       {"Journal", "Report", "Dilemmas", "Progression", "Flows"}, // the cash flow's history (#351)
 	}
 	shared := []string{"Player.DirtyCash", "Player.CleanCash", "Stats"}
 	allowed := map[string]bool{

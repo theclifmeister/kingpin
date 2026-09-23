@@ -83,10 +83,24 @@ type CityView struct {
 	Heat     float64       `json:"heat"`
 	Pressure float64       `json:"pressure"`
 	Goodwill float64       `json:"goodwill"`
-	Response string        `json:"response,omitempty"`     // the police's next rung, as the file knows it
-	Due      int           `json:"response_day,omitempty"` // ... the first day it can fire
+	Response string        `json:"response,omitempty"`      // the police's next rung, as the file knows it
+	Due      int           `json:"response_day,omitempty"`  // ... the first day it can fire
+	Sure     float64       `json:"response_sure,omitempty"` // ... and how sure the word is today (#355): an estimate
+	Ladder   []RungView    `json:"ladder"`                  // the police's lines here and what each takes (#355, heat.Sim.Rungs)
 	Products []ProductView `json:"products"`
 	Corners  []CornerView  `json:"corners"`
+}
+
+// RungView is one rung of a city's police ladder (#355): the heat it
+// fires at today and what it takes, as heat.Sim.Rungs folds it.
+type RungView struct {
+	Level     string  `json:"level"`
+	Line      float64 `json:"line"`
+	StockLoss float64 `json:"stock_loss,omitempty"` // share of the stock a bust takes
+	CashLoss  float64 `json:"cash_loss,omitempty"`  // share of the dirty cash
+	Pages     int     `json:"pages,omitempty"`      // pages it files on a day you sold
+	Cap       float64 `json:"cap,omitempty"`        // a patrol: the share of demand it lets through, before the chief
+	CapDays   int     `json:"cap_days,omitempty"`   // ... for this many days
 }
 
 // ProductView is a product's market in a city.
@@ -293,6 +307,9 @@ type LawView struct {
 	DA           string `json:"da"`
 	DAStance     string `json:"da_stance"`
 	NextElection int    `json:"next_election,omitempty"`
+	ArrestLine   int    `json:"arrest_line"`   // the pages an indictment needs (#355, heat.Sim.EvidenceArrest); 0 with no file
+	ExposureLine int    `json:"exposure_line"` // the dirty cash past which the pile draws heat (heat.Sim.ExposureLine)
+	Cover        int    `json:"cover"`         // ... of which the fronts cover this much (heat.Sim.Cover)
 }
 
 // CardView is the dilemma card waiting for an answer.
@@ -330,6 +347,36 @@ type ReportView struct {
 	News       []string `json:"news,omitempty"`
 	CashBefore int      `json:"cash_before"`
 	CashAfter  int      `json:"cash_after"`
+	Flow       FlowView `json:"flow"` // the night's cash flow (#351): drawn in place of the money lines
+}
+
+// FlowView is the night's cash flow (#351): the piles the day opened
+// on, one line a category in the order the money moves, and the piles
+// it closed on. Opening plus the lines is the closing, dirty and clean
+// each.
+type FlowView struct {
+	Opening PoolsView      `json:"opening"`
+	Lines   []FlowLineView `json:"lines"`
+	Closing PoolsView      `json:"closing"`
+	Net     int            `json:"net"` // closing less opening, both piles
+}
+
+// PoolsView is cash in each pile.
+type PoolsView struct {
+	Dirty int `json:"dirty"`
+	Clean int `json:"clean"`
+}
+
+// FlowLineView is one category of the flow: its id (game.FlowCats), the
+// words for it, the signed amounts by pile, and whether it moved more
+// than headlines.toml [flow] big_share of the opening (the line to look
+// at first).
+type FlowLineView struct {
+	Cat   string `json:"cat"`
+	Label string `json:"label"`
+	Dirty int    `json:"dirty"`
+	Clean int    `json:"clean"`
+	Big   bool   `json:"big"`
 }
 
 // View is the run as the player sees it this morning. Before a run it
@@ -384,6 +431,12 @@ func (s *Session) View() View {
 		cv := CityView{ID: c.ID, Name: c.Name, Heat: c.Heat, Pressure: c.Pressure, Goodwill: c.Goodwill}
 		if level, day, ok := known.Response(cid); ok {
 			cv.Response, cv.Due = level, day
+			if f, ok := known.Fact(cid, game.FactResponse); ok {
+				cv.Sure = f.Now(w.Day)
+			}
+		}
+		for _, r := range s.set.Heat.Rungs(w, c) {
+			cv.Ladder = append(cv.Ladder, RungView{Level: r.Level, Line: r.Threshold, StockLoss: r.StockLoss, CashLoss: r.CashLoss, Pages: r.Evidence, Cap: r.Cap, CapDays: r.CapDays})
 		}
 		for _, pid := range w.Products {
 			p := c.Market[pid]
@@ -499,7 +552,8 @@ func (s *Session) View() View {
 		}
 		v.Factions = append(v.Factions, fv)
 	}
-	v.Law = LawView{Chief: w.Law.Chief.Name, ChiefTemper: known.Chief(), DA: w.Law.DA.Name, DAStance: w.Law.DA.Stance, NextElection: s.set.Law.NextElection(w)}
+	v.Law = LawView{Chief: w.Law.Chief.Name, ChiefTemper: known.Chief(), DA: w.Law.DA.Name, DAStance: w.Law.DA.Stance, NextElection: s.set.Law.NextElection(w),
+		ArrestLine: s.set.Heat.EvidenceArrest(w), ExposureLine: s.set.Heat.ExposureLine(w), Cover: s.set.Heat.Cover(w)}
 	if c := w.Dilemmas.Pending; c != nil {
 		cv := &CardView{ID: c.ID, Title: c.Title, Text: c.Text}
 		chips := ChoiceChips(s.cfg, s.Rules(), w, c)
@@ -509,7 +563,7 @@ func (s *Session) View() View {
 		v.Card = cv
 	}
 	if r := w.Report; r != nil { // nil before the first morning
-		v.Report = reportView(r)
+		v.Report = reportView(r, s.cfg.Headlines.Flow.BigShare)
 	}
 	v.Alerts = s.Alerts()
 	noNulls(reflect.ValueOf(&v).Elem())
@@ -554,10 +608,21 @@ func noNulls(v reflect.Value) {
 	}
 }
 
-// reportView is the morning report as the view carries it.
-func reportView(r *game.DayReport) ReportView {
+// reportView is the morning report as the view carries it, its flow's
+// big lines picked out at bigShare of the opening.
+func reportView(r *game.DayReport, bigShare float64) ReportView {
+	f := r.Flow
+	fv := FlowView{
+		Opening: PoolsView{Dirty: f.Opening.Dirty, Clean: f.Opening.Clean},
+		Closing: PoolsView{Dirty: f.Closing.Dirty, Clean: f.Closing.Clean},
+		Net:     f.Net(),
+	}
+	for _, l := range f.Lines {
+		fv.Lines = append(fv.Lines, FlowLineView{Cat: l.Cat, Label: game.FlowLabel(l.Cat), Dirty: l.Dirty, Clean: l.Clean, Big: f.Big(l, bigShare)})
+	}
 	return ReportView{
-		Day: r.Day, Incident: lines(r.Incident), Unlocked: lines(r.Unlocked), Tier: lines(r.Tier), Prices: lines(r.Prices),
+		Flow: fv,
+		Day:  r.Day, Incident: lines(r.Incident), Unlocked: lines(r.Unlocked), Tier: lines(r.Tier), Prices: lines(r.Prices),
 		Sales: lines(r.Sales), Heat: lines(r.Heat), Crew: lines(r.Crew), Territory: lines(r.Territory),
 		Shipments: lines(r.Shipments), Law: lines(r.Law), Intel: lines(r.Intel), Money: lines(r.Money),
 		Upgrades: lines(r.Upgrades), News: lines(r.News), CashBefore: r.CashBefore, CashAfter: r.CashAfter,

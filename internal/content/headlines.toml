@@ -34,6 +34,15 @@ flavour = [
   "Landlord fined over {{.City}} tenement",
 ]
 
+# The report's cash flow (#351): World.Flows keeps the last `days`
+# nights of it, the ledger's FLOW section shows the last `shown`, and a
+# category that moved more than `big_share` of the night's opening cash
+# is picked out in the report's waterfall. A report: no sim reads it.
+[flow]
+days = 14
+shown = 7
+big_share = 0.25
+
 [templates]
 PriceShock = [
   "{{.Product}} prices surge after bust upriver",

@@ -258,15 +258,16 @@ func (w *World) ContractsDue() (live, today, tomorrow int) {
 }
 
 // TakeCash takes what it can of cost, dirty cash first and clean for the
-// rest, and reports what it took: a buyer let down collects what is
-// there. The market sim's, for a failed contract's penalty.
-func (w *World) TakeCash(cost int) int {
+// rest, and reports what it took from each pile (the report's flow
+// splits it, #351): a buyer let down collects what is there. The market
+// sim's, for a failed contract's penalty and a debt on its day.
+func (w *World) TakeCash(cost int) Pools {
 	if cost <= 0 {
-		return 0
+		return Pools{}
 	}
 	took := min(cost, w.Cash())
 	dirty := min(took, w.Player.DirtyCash)
 	w.Player.DirtyCash -= dirty
 	w.Player.CleanCash -= took - dirty
-	return took
+	return Pools{Dirty: dirty, Clean: took - dirty}
 }
