@@ -1,8 +1,6 @@
 package harness
 
 import (
-	"math"
-
 	"github.com/theclifmeister/kingpin/internal/content"
 	"github.com/theclifmeister/kingpin/internal/events"
 	"github.com/theclifmeister/kingpin/internal/game"
@@ -62,33 +60,20 @@ const StockDays = 1
 
 // contract sets the stocked player's supply contracts where it stands:
 // StockDays of demand per product, cut to the bag's share of the
-// product by demand where the levels together would overfill it.
+// product by demand where the levels together would overfill it
+// (World.StockLevels, the market screen's restock too, #356).
 func contract(w *game.World) {
-	city := w.Here()
-	total, want := 0.0, 0.0
-	levels := map[string]float64{}
+	city := w.Player.Location
+	levels := w.StockLevels(city, StockDays)
 	for _, id := range w.Products {
-		m := city.Market[id]
-		if m == nil || m.NoSupply {
-			continue
-		}
-		levels[id] = StockDays * w.Demand(city.ID, id)
-		total += m.Demand
-		want += levels[id]
-	}
-	room := float64(w.Capacity(city.ID))
-	for _, id := range w.Products {
-		level, ok := levels[id]
+		units, ok := levels[id]
 		if !ok {
 			continue
 		}
-		if want > room && total > 0 {
-			level = math.Min(level, room*city.Market[id].Demand/total)
-		}
-		if units := int(level); units > 0 {
-			_ = w.SetSupply(city.ID, id, units)
+		if units > 0 {
+			_ = w.SetSupply(city, id, units)
 		} else {
-			w.ClearSupply(city.ID, id)
+			w.ClearSupply(city, id)
 		}
 	}
 }

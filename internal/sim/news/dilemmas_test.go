@@ -199,6 +199,8 @@ func TestTriggersHold(t *testing.T) {
 			func(w *game.World) { w.Player.DirtyCash, w.Stats.PeakCash = 100, 25_000 }, nil},
 		{"cities_held", content.CardTrigger{CitiesHeld: 2}, func(w *game.World) {},
 			func(w *game.World) { w.Cities[w.CityOrder[1]].Corners[0].Owner = game.OwnerPlayer }, nil},
+		// A favour owed (#342), what a card's owes effect runs up.
+		{"owes_min", content.CardTrigger{OwesMin: 1}, func(w *game.World) {}, func(w *game.World) { w.Dilemmas.Owes = 1 }, nil},
 	}
 	for _, row := range rows {
 		w := base()
@@ -289,5 +291,156 @@ func TestDrawPacing(t *testing.T) {
 	}
 	if drawn != 1 {
 		t.Fatalf("once card drawn %d times", drawn)
+	}
+}
+
+// A personal card is the size of the thing it is about (#342): every one
+// in the deck, rendered against a world with $100M dirty, names a sum no
+// bigger than its amount_max, and a business card still grows with the
+// bag.
+func TestPersonalStakesAreCapped(t *testing.T) {
+	cfg := content.MustLoad()
+	w := sim.NewWorld(cfg, 1)
+	w.Player.DirtyCash = 100_000_000
+	personal := 0
+	for _, c := range cfg.Dilemmas.Cards {
+		c.Trigger = content.CardTrigger{} // the sum, not the trigger, is under test
+		s, ok := game.Eligible(w, c)
+		if !ok {
+			t.Fatalf("card %s: an empty trigger does not hold", c.ID)
+		}
+		if c.AmountMax > 0 && s.Sum > c.AmountMax {
+			t.Errorf("card %s names %s at $100M dirty; its cap is $%d", c.ID, s.Amount, c.AmountMax)
+		}
+		if c.Stakes == content.StakesPersonal {
+			personal++
+		}
+		if c.ID == "stash_hit" && s.Sum < 10_000_000 {
+			t.Errorf("stash_hit, a business card, names %s at $100M dirty", s.Amount)
+		}
+	}
+	if personal < 10 {
+		t.Fatalf("only %d personal cards", personal)
+	}
+}
+
+// cashKeys are the keys that only move money.
+var cashKeys = map[string]bool{"dirty_cash": true, "clean_cash": true, "dirty_amount": true, "clean_amount": true}
+
+// The rich band (#342), the cards gated on the peak or weighted up past
+// the rich tier, costs more than money: every card in it has a choice
+// that moves something other than cash, and there are enough of them to
+// be most of a rich player's deck.
+func TestRichCardsMoveMoreThanCash(t *testing.T) {
+	cfg := content.MustLoad()
+	if cfg.Dilemmas.Dilemmas.RichTier < 2 || cfg.Dilemmas.Dilemmas.RichTier > len(cfg.Progression.Tiers) {
+		t.Fatalf("rich_tier %d is not a tier past the first", cfg.Dilemmas.Dilemmas.RichTier)
+	}
+	band := 0
+	for _, c := range cfg.Dilemmas.Cards {
+		if c.Trigger.PeakCashMin == 0 && c.WeightRich <= max(c.Weight, 1) {
+			continue
+		}
+		band++
+		moves := false
+		for _, ch := range c.Choices {
+			for k := range ch.Effects {
+				moves = moves || !cashKeys[k]
+			}
+		}
+		if !moves {
+			t.Errorf("card %s is in the rich band and only moves money", c.ID)
+		}
+	}
+	if band < 6 {
+		t.Fatalf("only %d cards in the rich band", band)
+	}
+}
+
+// Past the rich tier the deck leans to the band (#342): the same rich
+// world, dealt a year of cards, draws mostly the band once the tier is
+// reached, and far fewer of them with the lean switched off.
+func TestRichDeckLeansToTheBand(t *testing.T) {
+	cfg := content.MustLoad()
+	band := map[string]bool{}
+	for _, c := range cfg.Dilemmas.Cards {
+		if c.WeightRich > max(c.Weight, 1) {
+			band[c.ID] = true
+		}
+	}
+	share := func(richTier int) float64 {
+		deal := *cfg
+		deal.Dilemmas.Dilemmas.RichTier = richTier
+		s, err := news.New(&deal)
+		if err != nil {
+			t.Fatal(err)
+		}
+		w := sim.NewWorld(cfg, 5)
+		w.Player.DirtyCash, w.Stats.PeakCash = 5_000_000, 5_000_000
+		w.Reach(cfg.Dilemmas.Dilemmas.RichTier, 1)
+		w.Home().Heat = 30
+		w.Fronts = []game.Front{{ID: "laundromat", Name: "Suds"}}
+		w.Crew.Members = []game.CrewMember{{ID: 1, Name: "Dre", Role: "runner", Loyalty: 60}, {ID: 2, Name: "Tank", Role: "enforcer", Loyalty: 70}, {ID: 3, Name: "Boo", Role: "runner", Loyalty: 40}}
+		// The rival on the corner next to yours, so the rival cards are in.
+		mine := w.PostOf(game.You)
+		for i := range w.Home().Corners {
+			if c := &w.Home().Corners[i]; c.Owner == game.OwnerNone && c.Borders(*mine) {
+				c.Owner = game.OwnerRival
+				break
+			}
+		}
+		w.Rival().Arrived = 1
+		dealt, rich := 0, 0
+		for d := 1; d <= 365; d++ {
+			if p := w.Dilemmas.Pending; p != nil {
+				if _, err := w.Choose(len(p.Choices) - 1); err != nil {
+					t.Fatal(err)
+				}
+			}
+			s.Step(w, &game.Tick{Day: d, RNG: game.RNGFor(w.Seed, d)})
+			w.Day = d
+			if p := w.Dilemmas.Pending; p != nil && p.Day == d {
+				dealt++
+				if band[p.ID] {
+					rich++
+				}
+			}
+		}
+		if dealt < 30 {
+			t.Fatalf("only %d cards in a year", dealt)
+		}
+		return float64(rich) / float64(dealt)
+	}
+	lean, flat := share(cfg.Dilemmas.Dilemmas.RichTier), share(0)
+	t.Logf("the band's share of a rich year: %.2f leaning, %.2f flat", lean, flat)
+	if lean <= 0.5 || lean <= flat {
+		t.Fatalf("the band is %.2f of a rich player's cards (%.2f without the lean); want most", lean, flat)
+	}
+}
+
+// corner gives up the corner a trigger names, and only gives it up, and
+// never on the first choice, the one enter takes: a card that names no
+// corner, would gain one or puts it first fails at start-up.
+func TestDeckRefusesAStrayCorner(t *testing.T) {
+	cfg := content.MustLoad()
+	card := func(tr content.CardTrigger, first, second map[string]float64) *content.Config {
+		bad := *cfg
+		bad.Dilemmas.Cards = []content.CardConfig{{ID: "x", Title: "x", Text: "x", Trigger: tr, Choices: []content.ChoiceConfig{
+			{Label: "a", Outcome: "a", Effects: first}, {Label: "b", Outcome: "b", Effects: second},
+		}}}
+		return &bad
+	}
+	give := map[string]float64{"corner": -1}
+	for name, bad := range map[string]*content.Config{
+		"no corner named":  card(content.CardTrigger{CrewMin: 1}, nil, give),
+		"a corner gained":  card(content.CardTrigger{Corners: 1}, nil, map[string]float64{"corner": 1}),
+		"the first choice": card(content.CardTrigger{Corners: 1}, give, nil),
+	} {
+		if _, err := news.New(bad); err == nil || !strings.Contains(err.Error(), "corner") {
+			t.Errorf("%s: err = %v", name, err)
+		}
+	}
+	if _, err := news.New(card(content.CardTrigger{Contested: true}, nil, give)); err != nil {
+		t.Fatalf("a named corner, given up second: %v", err)
 	}
 }

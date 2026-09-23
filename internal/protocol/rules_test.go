@@ -506,6 +506,10 @@ func TestQuotedIsCharged(t *testing.T) {
 		t.Fatalf("deed_price: %s %v", raw, rerr)
 	}
 	w.Stats.Laundered += 10 * price
+	// The block's price is the corner's trade, which the rig's run sets
+	// (the deck it answers moved it past the $5M top-up in #342): the
+	// test is the quote, not the pile, so the pile covers it.
+	w.Player.CleanCash = max(w.Player.CleanCash, price)
 	clean := w.Player.CleanCash
 	if _, rerr := q.quote(t, "buy_deed", corner); rerr != nil {
 		t.Fatal(rerr)

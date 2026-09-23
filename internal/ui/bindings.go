@@ -61,6 +61,8 @@ var bindings = []binding{
 		do: func(m *Model, _ string) { m.askCook() }},
 	{key: "d", label: "deliver", help: "hand the buyer what the stash here holds", screens: on(screenMarket), when: onBuyers,
 		do: func(m *Model, _ string) { m.deliverSelected() }},
+	{key: "R", label: "restock", help: "buy days of your corners' demand, reviewed", screens: on(screenMarket),
+		do: func(m *Model, _ string) { m.askRestock() }},
 	// The journal: one source at a time.
 	{key: "f", label: "filter", help: "show one source's headlines, then all again", screens: on(screenJournal),
 		do: func(m *Model, _ string) { m.cycleFilter() }},
@@ -311,6 +313,7 @@ var modeBindings = []binding{
 	{key: "enter", label: "pay", modes: in(modeConfirmBuyOff)},
 	{key: "enter", label: "invest", modes: in(modeInvest)},
 	{key: "enter", label: "reserve", modes: in(modeReserve)},
+	{key: "enter", label: "buy", modes: in(modeRestock)},
 	{key: "enter", label: "pay", modes: in(modePayCop)},
 	{key: "enter", label: "next", modes: in(modeSpy), when: spyOnFactions},
 	{key: "enter", label: "plant", modes: in(modeSpy), when: spyOnCrew},

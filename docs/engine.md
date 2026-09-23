@@ -88,7 +88,7 @@ The words and colours stay the front end's (the TUI's are in `docs/copy.md`'s vo
   - `Session.FastForward(days, after)` is the loop. It calls `EndDay` a day at a time, calls `after` with each day's events before weighing the day (the TUI saves and journals there, `dayEnded`), and returns the days run, the `Stop` (`stage`, `card`, `alert`, `event`, `over`, `cap`) and the stopping day's events.
   - The TUI's `stopEvent` is now only the words, and `stopWhy` words a `Stop`.
   - The TUI's per-day flash of enforcement for the bust scene is now taken from the day's events in `dayEnded`, in the order the bus published them. The bus subscriber (`onEvent`) is gone, because it could not be reset between days inside the engine's loop.
-- **Price facts** (`engine/prices.go`). `engine.Facts(p)` and `FactsAt(p, unit)` return `PriceFacts` (`Unit`, `Delta`, `Lo`, `Hi`, `Margin`): the day's change, the range of the history, and the margin over a unit, with no unit where the city's supplier does not sell the product. The TUI's `factsAt` copies them into its own `priceFacts`, which keeps the lieutenant's markup and the rendering.
+- **Price facts** (`engine/prices.go`). `engine.Facts(p)` and `FactsAt(p, unit)` return `PriceFacts` (`Unit`, `Delta`, `Lo`, `Hi`, `Margin`): the day's change, the range of the history, and the margin over a unit, with no unit where the city's supplier does not sell the product. The TUI's `factsAt` copies them into its own `priceFacts`, which keeps the lieutenant's markup and the rendering. `Session.MaxBuy(supplier, product, credit)` (`BuyRoom`) and `Session.RestockPlan(city, days)` are the buy's reads (#356): the most a buy takes and the stash it lands in, and the restock's lines at the supply contracts' float (`market.Sim.Float`).
 
 **What pins it.**
 
@@ -116,7 +116,7 @@ It is what a front end in another process draws from, and it holds no pointer in
   - `shipments`, `connects` (who sells what where, today's price for what they will sell you now, the day's cap, the lot, credit, the relationship, the debt and when it is due; the temper, which the TUI shows), `houses` (stock, guard, whether the police know it) and `fronts` (level, frozen, washed).
   - `factions`: leader, alive, arrival, corners held, trust, war, and, from the file only, the temper (`?` until known), the heads as a band, the last read of the books and the next move.
   - `law`: the chief, the temper the file knows, the DA and the stance, the next election.
-  - `card`: the one waiting, with its choices' labels.
+  - `card`: the one waiting, with its choices: each a `label` and a `preview`, what it does as chips (`text`, `tone`: `gain`, `cost`, `line` or `note`; `engine.ChoiceChips`, #358, `docs/dilemmas.md`).
   - `report`: the morning report's sections as lines.
   - `alerts`: phase 3's typed alerts.
   
@@ -127,7 +127,7 @@ It is what a front end in another process draws from, and it holds no pointer in
   - a planted fact's author
   - who on the payroll is informing, and a member's greed and nerve
   - the informant's leak count (the "somebody is talking" alert is the tell)
-- **Versioning.** `engine.ViewVersion` (2 since #332 added the pool, the contracts, the offers and the tree; 3 since #345 added the crew trouble's alert fields; 4 since #352 added `alerts[].act`) is the shape of `View` and moves when a field is added, renamed, retyped or dropped. It is never tied to the save's `game.SchemaVersion`: the world stays free to change shape, and the view is the contract. `TestViewShapeIsPinned` walks the type by reflection into one line per field, its JSON path and its Go kind (`.cities[].products[].facts.margin float64`), and compares that with `engine/testdata/view_shape.txt` (276 lines, headed `version 4`).
+- **Versioning.** `engine.ViewVersion` (2 since #332 added the pool, the contracts, the offers and the tree; 3 since #345 added the crew trouble's alert fields; 4 since #358 made a card's choices a label and a preview; 7 since #352 added `alerts[].act`) is the shape of `View` and moves when a field is added, renamed, retyped or dropped. It is never tied to the save's `game.SchemaVersion`: the world stays free to change shape, and the view is the contract. `TestViewShapeIsPinned` walks the type by reflection into one line per field, its JSON path and its Go kind (`.cities[].products[].facts.margin float64`), and compares that with `engine/testdata/view_shape.txt` (279 lines, headed `version 7`).
   - A shape change that keeps the number fails with the lines that moved.
   - With the number moved, `go test ./internal/engine -run TestViewShapeIsPinned -update` writes the new shape.
   - The file pins shape and never values, so it reads the same on amd64 CI and an arm64 machine, where fused multiply-add moves floats (the reason `TestNoUnlockIsTheOldRun` hashes nothing a float writes).
@@ -154,21 +154,22 @@ It is what a front end in another process draws from, and it holds no pointer in
   - The server answers every request. Before the response it sends the notifications the call caused: every `event` the day published (`{"kind", "day", "payload"}`, the kind being the event's stable `Kind()`), then a `view` (the whole `engine.View`) after any call that may have changed the run.
   - A client that waits for its response has already read everything the call caused.
   - The server is one loop on one goroutine: read a line, run it, write and flush. It holds no lock and starts no goroutine, and `TestNoGoroutineInTheTree` walks the package like the rest of `internal/`.
-- **The methods, 81 in all** (and the 147 quotes #325 added, below).
+- **The methods, 85 in all** (and the 147 quotes #325 added, below).
   - **68 commands.** Each session command is served under its name in snake_case (`buy`, `place_sell`, `buy_checkpoint`, `scout_faction`, …) by reflection over `engine.Session` (`protocol.commands`), with its parameters in order. A dial goes in by name (`"aggressive"`, `"fair"`, `"push"`), refused with the names listed when it matches none. Terms go as an object (`{"days", "per_day", "corners", "route", "units"}`). The result is the command's value, or null.
-  - **8 queries.** `view`, `alerts`, `gates_ahead`, `next_gates`, `front_offers`, `asset_offers`, `house_offers`, `float_matters`.
-  - **5 lifecycle methods, by hand.**
+  - **11 queries.** `view`, `alerts`, `gates_ahead`, `next_gates`, `front_offers`, `asset_offers`, `house_offers`, `float_matters`, `export_save`, and the buy's two (#356): `max_buy [supplier, product, credit]` returns `{max, held, capacity}` (`engine.BuyRoom`: `World.MaxBuy`, the most a buy takes with no refusal for the cash, the room or the connect's day, and the stash it lands in), and `restock_plan [city, days]` returns the lines that top the stash up to days of demand (`[]game.RestockLine`, never null; see `docs/cart.md`).
+  - **6 lifecycle methods, by hand** (`import_save` among them, #327).
     - `new_run [seed, character, hard_da]`: the seed is the client's, and the server never draws one. It returns the view.
     - `load [slot]` returns the view. `save [slot]`.
     - `end_day []` returns `{day, events}`, with the events already sent as notifications.
     - `fast_forward [days]` returns `{ran, day, stop, alert?, event?}`, the days weighed server-side by `Session.FastForward`.
   - Every method but `new_run` and `load` needs a run.
   - **Not on the wire,** each with its reason in `protocol.unserved`: `Attach`, `Config`, `Sims`, `World`, `Subscribe` and `Stop`. `Rules` is there too, served rule by rule as the quotes (#325, below). `TestEverySessionMethodIsClassed` fails on a session method in none of the three lists, so a new command is served, or refused, on purpose.
-- **Errors.** JSON-RPC's codes: `-32700` not JSON, `-32600` not a request, `-32601` no such method, `-32602` params that do not fit, `-32603` the engine panicked (recovered; the message says so). The game adds two:
-  - `-32000` **refused**: a move the rules do not allow, the message being the game's own words (`can only hold 48 more units in Eastside`, `nothing on offer by that name`). `protocol.Refused(err)` tells it apart.
+- **Errors.** JSON-RPC's codes: `-32700` not JSON, `-32600` not a request, `-32601` no such method, `-32602` params that do not fit, `-32603` the engine panicked (recovered; the message says so). The game adds three:
+  - `-32000` **refused**: a move the rules do not allow, the message being the game's own words (`nothing on offer by that name`). `protocol.Refused(err)` tells it apart.
   - `-32001` **no run**: call `new_run` or `load` first.
+  - `-32002` **no room** (#356): the refusal for the stash's room (`game.RoomError`, which `errors.Is(err, game.ErrNoRoom)` matches), its message the game's words (`can only hold 48 more units in Eastside`) and its `data` `{"free", "city"}`, so a client offers what fits rather than a bare no. `protocol.Refused` counts it as a refusal. `TestNoRoomIsTyped` pins the code, the data and `max_buy`.
 - **Encoding.** The view is snake_case with dials by name (phase 4). A result or an event payload is the Go value as `encoding/json` writes it: Go field names, and a dial as the int a save holds. The schema marks it `integer` with `x-names` in order. `protocol.EventJSON` is the one encoding of an event, so a client in the same process can compare its events with the wire's byte for byte.
-- **The schema.** `protocol.Schema()` generates a JSON Schema document (draft 2020-12) from the Go types: the protocol and view versions, the framing, the error codes, every method's `params` (`prefixItems`, a dial as its enum of names) and `result`, the two notifications, every event kind's payload under `events`, and 175 named types under `$defs`. It is checked in as `internal/protocol/schema.json` (about 165 KB). `TestSchemaIsCurrent` fails when the file is stale, and `go test ./internal/protocol -run TestSchemaIsCurrent -update` rewrites it. `protocol.Version` (2 since the quotes, #325; 3 since the saves as bytes, #327) moves with the methods; the view keeps `engine.ViewVersion`.
+- **The schema.** `protocol.Schema()` generates a JSON Schema document (draft 2020-12) from the Go types: the protocol and view versions, the framing, the error codes, every method's `params` (`prefixItems`, a dial as its enum of names) and `result`, the two notifications, every event kind's payload under `events`, and 209 named types under `$defs`. It is checked in as `internal/protocol/schema.json` (about 250 KB). `TestSchemaIsCurrent` fails when the file is stale, and `go test ./internal/protocol -run TestSchemaIsCurrent -update` rewrites it. `protocol.Version` (2 since the quotes, #325; 3 since the saves as bytes, #327; 4 since `max_buy`, `restock_plan` and `no_room`, #356) moves with the methods; the view keeps `engine.ViewVersion`.
 - **The reference client.** `protocol.Play(c, seed, days)` plays a run through the protocol alone. Each morning it reads the view, answers a card with its first choice, spends 60% of the dirty cash across what the street connect where it stands sells, puts everything it holds on the street at the aggressive dial, and ends the day, until the run ends. `cmd/kingpin-client -server <kingpind> -seed 7` starts `kingpind` and prints every event as it arrived and how the run ended. On seed 7 that is `indicted` on day 30, after 718 events.
   - One bug found on the way is now part of the client: it decodes each view into a fresh value. Decoded over the last one, a field the new view omits as empty (an answered `card`) would keep its old value.
 
@@ -183,7 +184,7 @@ It is what a front end in another process draws from, and it holds no pointer in
 **The quotes (#325).**
 A front end in another process prices a move before it makes it, with the numbers the TUI reads.
 `internal/protocol/rules.go` serves every method of `engine.Rules` as `rules.<sim>.<method>` in snake_case: `rules.market.capacity`, `rules.crew.investigate_cost`, `rules.rivals.odds_on_at`.
-That is 147 methods (#350 added `rules.heat.exposure_line`), which makes 230 on the wire with #327's `export_save` and `import_save`.
+That is 147 methods (#350 added `rules.heat.exposure_line`), which makes 232 on the wire with the 85 methods above.
 A quote needs a run, changes nothing and sends nothing but its answer: no `view` follows it.
 
 - **The world is the server's.** A rule's `*game.World` is the run's and never a parameter.
@@ -329,7 +330,7 @@ There is no second API.
   - `kingpin_protocol()` and `kingpin_view()` are the versions.
   
   A handle that isn't open answers a JSON-RPC `-32600` line. One lock serialises every call, so a host may call from any thread. The lock lives in `cmd/`, which `TestNoGoroutineInTheTree` doesn't walk: a native host's threads are the host's, and nothing under `internal/` locks.
-- **Saves.** Neither embedding has save slots to rely on, since a browser has no filesystem. `export_save` returns the run as a save's bytes (base64 on the wire), and `import_save [save]` makes them the run and returns the view, as `load` does. The host keeps them where it likes: `localStorage`, IndexedDB, the engine's user directory. The bytes are a slot file's exactly (`game.Encode` and `game.Decode`, `docs/saves.md`), so a save moves between the TUI and an embedding. The schema shows `[]byte` as a base64 string. `protocol.Version` is 3.
+- **Saves.** Neither embedding has save slots to rely on, since a browser has no filesystem. `export_save` returns the run as a save's bytes (base64 on the wire), and `import_save [save]` makes them the run and returns the view, as `load` does. The host keeps them where it likes: `localStorage`, IndexedDB, the engine's user directory. The bytes are a slot file's exactly (`game.Encode` and `game.Decode`, `docs/saves.md`), so a save moves between the TUI and an embedding. The schema shows `[]byte` as a base64 string. `protocol.Version` is 3 (4 since #356).
 - **CI.** The test job builds both targets on every PR (the `embeddings` step of `.github/actions/go`), and the lint job vets the WASM package for its own target, since `./...` on the runner skips it. The test step replays the reference game through both. In CI, a missing `node` or `cc` fails the test rather than skipping it.
 
 **What pins it.**

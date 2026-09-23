@@ -25,7 +25,7 @@ globalThis.crypto ??= require("crypto");
 require(path.join(site, "wasm_exec.js"));
 
 const mod = (name) => import(pathToFileURL(path.join(site, "js", name)).href);
-const { Session, SUPPORTED, VersionError } = await mod("session.js");
+const { Session, SUPPORTED, VersionError, streetConnect } = await mod("session.js");
 const { autoDay } = await mod("autoplay.js");
 const { ANIMATIONS } = await mod("cues.js");
 const { layout } = await mod("layout.js");
@@ -98,6 +98,17 @@ function animate(c, L, v, where) {
   }
 }
 
+// A card's choices (#358) each carry a label and what they do, a chip
+// a thing in one of the four tones.
+let cards = 0;
+function checkCard(card, where) {
+  cards++;
+  for (const c of card.choices) {
+    if (typeof c.label !== "string" || !Array.isArray(c.preview) || c.preview.length === 0) problem(`${where}: card ${card.id} has a choice with no preview`);
+    else if (c.preview.some((p) => !p.text || !["gain", "cost", "line", "note"].includes(p.tone))) problem(`${where}: card ${card.id} has a chip ${JSON.stringify(c.preview)}`);
+  }
+}
+
 // play is one seed with the autopilot until it ends or days run out.
 function play(seed, days) {
   const s = new Session(kingpin);
@@ -108,6 +119,7 @@ function play(seed, days) {
   for (; day < days && !v.over; day++) {
     v = autoDay(s);
     word(v, `seed ${seed} day ${v.day}`);
+    if (v.card) checkCard(v.card, `seed ${seed} day ${v.day}`);
     const L = layout(v, 1200, 760);
     drawMap(ctx, L, day * 16);
     for (const e of s.take()) {
@@ -133,8 +145,36 @@ function play(seed, days) {
   }
 }
 
+// Buying (#356): max_buy is never refused, and a restock plan is a
+// list its lines buy (the no_room code is the protocol test's).
+{
+  const s = new Session(kingpin);
+  const v = s.newRun(7);
+  const k = streetConnect(v, v.you.city);
+  const id = k && Object.keys(k.prices)[0];
+  if (!id) problem("no street connect selling on day 0");
+  else {
+    const room = s.maxBuy(k.id, id);
+    if (!(room.max > 0) || !(room.capacity > 0)) problem(`max_buy on day 0: ${JSON.stringify(room)}`);
+    else {
+      try {
+        s.buy(k.id, id, room.max);
+      } catch (e) {
+        problem(`buying max_buy's ${room.max} was refused: ${e.message}`);
+      }
+    }
+    const plan = s.restockPlan(v.you.city, 2);
+    if (!Array.isArray(plan)) problem("restock_plan is not a list");
+    for (const l of plan) {
+      if (!(l.units > 0) || !(l.cost > 0)) problem(`restock line ${JSON.stringify(l)}`);
+      s.buy(l.supplier, l.product, l.units);
+    }
+  }
+}
+
 out.reference = play(7, 400);
 out.more = [11, 23, 42].map((seed) => play(seed, 150));
+if (cards === 0) problem("no card came up in four runs");
 
 // The boss's nights: the cues of a run that ships, hires and fights,
 // each over the morning it led to.

@@ -21,13 +21,15 @@ import (
 	"github.com/theclifmeister/kingpin/internal/content"
 	"github.com/theclifmeister/kingpin/internal/engine"
 	"github.com/theclifmeister/kingpin/internal/events"
+	"github.com/theclifmeister/kingpin/internal/game"
 )
 
 // Version is the protocol's: the methods, their parameters and the
 // notifications. The view inside carries its own, engine.ViewVersion.
 // 2 added the quotes, rules.<sim>.<method> (#325); 3 export_save and
-// import_save (#327).
-const Version = 3
+// import_save (#327); 4 max_buy, restock_plan and the no_room error
+// (#356).
+const Version = 4
 
 // The error codes: JSON-RPC 2.0's, and the game's own in its
 // server-error range.
@@ -39,6 +41,7 @@ const (
 	CodeInternal       = -32603 // the engine panicked; the run may be damaged
 	CodeRefused        = -32000 // the game refused the action: the message says why, in the game's words
 	CodeNoRun          = -32001 // the method needs a run and there is none: new_run or load first
+	CodeNoRoom         = -32002 // the game refused for the stash's room (game.RoomError, #356): data.free is what fits
 )
 
 // Request is a call. An id is echoed in the response; a request without
@@ -60,17 +63,26 @@ type Response struct {
 
 // Error is a refused or failed call.
 type Error struct {
-	Code    int    `json:"code"`
-	Message string `json:"message"`
+	Code    int        `json:"code"`
+	Message string     `json:"message"`
+	Data    *ErrorData `json:"data,omitempty"`
+}
+
+// ErrorData is what an error carries past its message: the room a
+// no_room refusal leaves (#356).
+type ErrorData struct {
+	Free int    `json:"free"`
+	City string `json:"city"`
 }
 
 func (e *Error) Error() string { return fmt.Sprintf("%s (%d)", e.Message, e.Code) }
 
-// Refused reports whether err is the game saying no (CodeRefused): a
-// move the rules do not allow, never a fault in the call.
+// Refused reports whether err is the game saying no (CodeRefused, or
+// CodeNoRoom, the refusal that says what fits): a move the rules do
+// not allow, never a fault in the call.
 func Refused(err error) bool {
 	var e *Error
-	return errors.As(err, &e) && e.Code == CodeRefused
+	return errors.As(err, &e) && (e.Code == CodeRefused || e.Code == CodeNoRoom)
 }
 
 // Notification is what the server sends unasked: `event` with an
@@ -185,7 +197,12 @@ func (s *Server) handle(line []byte) (resp Response) {
 	result, err := m.call(s, params)
 	if err != nil {
 		var e *Error
-		if !errors.As(err, &e) {
+		var room *game.RoomError
+		switch {
+		case errors.As(err, &e):
+		case errors.As(err, &room):
+			e = &Error{Code: CodeNoRoom, Message: err.Error(), Data: &ErrorData{Free: room.Free, City: room.City}}
+		default:
 			e = &Error{Code: CodeRefused, Message: err.Error()}
 		}
 		resp.Error = e

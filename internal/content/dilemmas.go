@@ -9,26 +9,46 @@ type DilemmasConfig struct {
 }
 
 // DilemmasTuning paces the cards: none for MinGap days after the last,
-// then a rising chance each day until one is certain at MaxGap.
+// then a rising chance each day until one is certain at MaxGap. From
+// RichTier on (a progression tier's number; 0 never) a card is drawn at
+// its WeightRich, or at RichRest times its weight if it sets none, so a
+// rich player's deck leans to the cards that cost standing, ground or a
+// favour (#342).
 type DilemmasTuning struct {
-	MinGap int `toml:"min_gap"`
-	MaxGap int `toml:"max_gap"`
+	MinGap   int     `toml:"min_gap"`
+	MaxGap   int     `toml:"max_gap"`
+	RichTier int     `toml:"rich_tier"`
+	RichRest float64 `toml:"rich_rest"`
 }
+
+// The two kinds of stake a card declares (#342). A personal sum is a
+// fixed range, amount up to amount_max, however big the bag; a business
+// sum is a share of the bag, capped only if amount_max says so.
+const (
+	StakesPersonal = "personal"
+	StakesBusiness = "business"
+)
 
 // CardConfig is one dilemma: when it can come up, what it says and what
 // each answer does. Text and choices are text/templates over the slots
 // the news sim fills from the world (Name, Role, Corner, Theirs, Rival,
 // City, Front, Product, Amount). Amount is the sum the card is about:
 // AmountShare of the player's dirty cash (the bag it is paid from), but at
-// least Amount.
+// least Amount and, when AmountMax is set, at most AmountMax. Stakes says
+// which kind of sum it is (StakesPersonal, StakesBusiness): a personal
+// card that names a sum must cap it (#342).
 type CardConfig struct {
 	ID          string         `toml:"id"`
 	Title       string         `toml:"title"`
 	Text        string         `toml:"text"`
-	Weight      float64        `toml:"weight"` // relative draw weight; 0 means 1
-	Once        bool           `toml:"once"`   // at most once per run
+	Stakes      string         `toml:"stakes"`
+	Weight      float64        `toml:"weight"`      // relative draw weight; 0 means 1
+	WeightRich  float64        `toml:"weight_rich"` // the weight from the deck's rich_tier on; 0 means Weight
+	Once        bool           `toml:"once"`        // at most once per run
+	Hide        bool           `toml:"hide"`        // the drama is the unknown (#358): the choices show no preview
 	Amount      int            `toml:"amount"`
 	AmountShare float64        `toml:"amount_share"`
+	AmountMax   int            `toml:"amount_max"` // the cap on the sum; 0 none (a business card only)
 	Trigger     CardTrigger    `toml:"trigger"`
 	Choices     []ChoiceConfig `toml:"choice"`
 }
@@ -60,6 +80,7 @@ type CardTrigger struct {
 	City         string  `toml:"city"`           // the city the card or incident is about (#44): it must exist, and it fills the City slot
 	DAStance     string  `toml:"da_stance"`      // the sitting DA's ticket (#44)
 	PeakCleanMin int     `toml:"peak_clean_min"` // Stats.PeakClean, the clean high-water mark the assets unlock on (#48)
+	OwesMin      int     `toml:"owes_min"`       // favours owed (World.Dilemmas.Owes), what a card's owes effect runs up (#342)
 }
 
 // Set reports whether the trigger checks anything at all.
@@ -82,10 +103,14 @@ func (d DilemmasConfig) Card(id string) *CardConfig {
 }
 
 // validate checks the deck reads as a deck: ids unique, every card with a
-// title, a trigger and two or three choices, and the pacing sane.
+// title, a trigger, its stakes and two or three choices, and the pacing
+// sane.
 func (d DilemmasConfig) validate() error {
 	if d.Dilemmas.MinGap < 1 || d.Dilemmas.MaxGap < d.Dilemmas.MinGap {
 		return fmt.Errorf("min_gap %d and max_gap %d must be 1 <= min <= max", d.Dilemmas.MinGap, d.Dilemmas.MaxGap)
+	}
+	if d.Dilemmas.RichTier < 0 || d.Dilemmas.RichTier > 0 && (d.Dilemmas.RichRest <= 0 || d.Dilemmas.RichRest > 1) {
+		return fmt.Errorf("rich_tier %d and rich_rest %v must be 0, or a tier and 0 < rest <= 1", d.Dilemmas.RichTier, d.Dilemmas.RichRest)
 	}
 	seen := map[string]bool{}
 	for _, c := range d.Cards {
@@ -99,6 +124,9 @@ func (d DilemmasConfig) validate() error {
 		if !c.Trigger.Set() {
 			return fmt.Errorf("card %q has no trigger", c.ID)
 		}
+		if err := c.validateStakes(); err != nil {
+			return err
+		}
 		if n := len(c.Choices); n < 2 || n > 3 {
 			return fmt.Errorf("card %q has %d choices; want 2 or 3", c.ID, n)
 		}
@@ -107,6 +135,26 @@ func (d DilemmasConfig) validate() error {
 				return fmt.Errorf("card %q choice %d needs a label and an outcome", c.ID, i)
 			}
 		}
+	}
+	return nil
+}
+
+// validateStakes checks a card's stakes and its sum (#342): a declared
+// kind, no negative sum or weight, a cap no lower than the floor, and a
+// cap on every personal card that names a sum, so a furnace stays a
+// furnace whatever the bag.
+func (c CardConfig) validateStakes() error {
+	if c.Stakes != StakesPersonal && c.Stakes != StakesBusiness {
+		return fmt.Errorf("card %q: stakes %q; want %q or %q", c.ID, c.Stakes, StakesPersonal, StakesBusiness)
+	}
+	if c.Amount < 0 || c.AmountShare < 0 || c.AmountMax < 0 || c.Weight < 0 || c.WeightRich < 0 {
+		return fmt.Errorf("card %q: a negative amount, share, cap or weight", c.ID)
+	}
+	if c.AmountMax > 0 && c.AmountMax < c.Amount {
+		return fmt.Errorf("card %q: amount_max %d is under amount %d", c.ID, c.AmountMax, c.Amount)
+	}
+	if c.Stakes == StakesPersonal && (c.Amount > 0 || c.AmountShare > 0) && c.AmountMax == 0 {
+		return fmt.Errorf("card %q: a personal card that names a sum needs an amount_max", c.ID)
 	}
 	return nil
 }

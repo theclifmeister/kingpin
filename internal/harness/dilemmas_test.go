@@ -157,3 +157,148 @@ func TestEveryCardIsDealtAndReadsClean(t *testing.T) {
 		t.Errorf("cards never dealt across 32 runs: %v (seen %v)", missing, seen)
 	}
 }
+
+// TestPreviewIsTheOutcome (#358): for every card in the deck, on worlds
+// a few runs reached and on the same worlds broke and hot (the clamps),
+// Preview(i) is what Choose(i) moves, gauge for gauge, and asking never
+// writes the world (TestPreviewNeverWritesTheWorld's half, here where
+// the worlds are).
+func TestPreviewIsTheOutcome(t *testing.T) {
+	t.Parallel()
+	cfg := content.MustLoad()
+	var worlds []*game.World
+	for seed := uint64(1); seed <= 2; seed++ {
+		for i, policy := range []Policy{Laundered(cfg, 40), Warlike(cfg, 40, 3, events.ForceHit)} {
+			w := sim.NewWorld(cfg, seed)
+			if i == 0 {
+				w.Player.DirtyCash = 30_000
+			}
+			res, err := RunFrom(cfg, w, 40, policy)
+			if err != nil {
+				t.Fatal(err)
+			}
+			worlds = append(worlds, res.World)
+		}
+	}
+	for _, w := range worlds[:2] {
+		broke, _ := game.Decode(mustEncode(t, w))
+		broke.Player.DirtyCash, broke.Player.CleanCash = 0, 0
+		hot, _ := game.Decode(mustEncode(t, w))
+		hot.Here().Heat = 97
+		for i := range hot.Crew.Members {
+			hot.Crew.Members[i].Loyalty = 98
+		}
+		worlds = append(worlds, broke, hot)
+	}
+	// The rich band's (#342): a bag the capped sums stop short of.
+	rich, _ := game.Decode(mustEncode(t, worlds[1]))
+	rich.Player.DirtyCash, rich.Stats.PeakCash = 5_000_000, 5_000_000
+	worlds = append(worlds, rich)
+	moved := 0
+	keys := map[string]bool{}
+	for n, w := range worlds {
+		member := 0
+		if len(w.Crew.Members) > 0 {
+			member = w.Crew.Members[0].ID
+		}
+		corner := ""
+		for _, c := range w.Corners() {
+			if c.Owner == game.OwnerPlayer {
+				corner = c.ID
+				break
+			}
+		}
+		for _, cc := range cfg.Dilemmas.Cards {
+			card := func() *game.Card {
+				c := &game.Card{ID: cc.ID, Member: member, Corner: corner, Amount: game.CardSum(cc, w.Player.DirtyCash)}
+				for _, ch := range cc.Choices {
+					c.Choices = append(c.Choices, game.Choice{Label: ch.Label, Outcome: ch.Outcome, Effects: ch.Effects})
+				}
+				return c
+			}
+			for i := range cc.Choices {
+				cp, err := game.Decode(mustEncode(t, w))
+				if err != nil {
+					t.Fatal(err)
+				}
+				cp.Over = nil
+				before := digest(cp)
+				got, err := card().Preview(cp, i)
+				if err != nil {
+					t.Fatalf("world %d, %s choice %d: %v", n, cc.ID, i, err)
+				}
+				if digest(cp) != before {
+					t.Fatalf("world %d, %s choice %d: Preview wrote the world", n, cc.ID, i)
+				}
+				cp.Dilemmas.Pending = card()
+				reading := game.Reading(cp)
+				if _, err := cp.Choose(i); err != nil {
+					t.Fatalf("world %d, %s choice %d: %v", n, cc.ID, i, err)
+				}
+				if want := game.Moved(reading, cp); !reflect.DeepEqual(got, want) {
+					t.Errorf("world %d, %s choice %d: preview %+v, Choose moved %+v", n, cc.ID, i, got, want)
+				}
+				if len(got) > 0 {
+					moved++
+				}
+				for _, ch := range got {
+					keys[ch.Key] = true
+				}
+			}
+		}
+	}
+	if moved == 0 {
+		t.Error("no preview moved anything")
+	}
+	// The rich band's keys (#342) are in the preview too: a corner given
+	// up and a favour owed.
+	for _, k := range []string{"corners", "owes"} {
+		if !keys[k] {
+			t.Errorf("no preview moved %s", k)
+		}
+	}
+}
+
+// TestPreviewNeverWritesTheWorld (#358): asking what a choice does
+// leaves the world as it was, every choice of a card that moves every
+// gauge, on a world with a crew, a rival and stock.
+func TestPreviewNeverWritesTheWorld(t *testing.T) {
+	t.Parallel()
+	cfg := content.MustLoad()
+	w := sim.NewWorld(cfg, 3)
+	w.Player.DirtyCash = 30_000
+	res, err := RunFrom(cfg, w, 30, Laundered(cfg, 40))
+	if err != nil {
+		t.Fatal(err)
+	}
+	w = res.World
+	all := map[string]float64{}
+	for _, k := range game.EffectKeys {
+		all[k] = -3
+	}
+	c := &game.Card{ID: "all", Amount: 500, Choices: []game.Choice{{Effects: all}, {Effects: map[string]float64{"stock_share": 0.5, "heat": 40, "crew_loyalty": 10}}, {}}}
+	if len(w.Crew.Members) > 0 {
+		c.Member = w.Crew.Members[0].ID
+	}
+	before := digest(w)
+	for i := range c.Choices {
+		if _, err := c.Preview(w, i); err != nil {
+			t.Fatal(err)
+		}
+	}
+	if digest(w) != before {
+		t.Fatal("Preview wrote the world")
+	}
+	if _, err := c.Preview(w, 3); err != game.ErrBadChoice {
+		t.Errorf("choice 3 of 3: %v", err)
+	}
+}
+
+func mustEncode(t *testing.T, w *game.World) []byte {
+	t.Helper()
+	b, err := game.Encode(w)
+	if err != nil {
+		t.Fatal(err)
+	}
+	return b
+}

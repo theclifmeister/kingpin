@@ -15,6 +15,7 @@ let session = null;
 let scene = null;
 let auto = null; // the autopilot's timer
 let endingTimer = null;
+let fits = {}; // product id -> the quantity a no-room refusal set (#356), for the next draw
 
 async function boot() {
   let kingpin;
@@ -110,6 +111,7 @@ function wire() {
   $("end").onclick = () => endDays(1);
   $("week").onclick = () => endDays(7);
   $("auto").onclick = toggleAuto;
+  $("restock").onclick = restock;
   $("new").onclick = () => newRun(1 + Math.floor(Math.random() * 1e9));
   $("again").onclick = () => newRun(1 + Math.floor(Math.random() * 1e9));
   $("save").onclick = () => {
@@ -156,18 +158,39 @@ function render() {
     for (const text of [p.name, money(p.price), offer ? money(offer) : "–", String(held[p.id] || 0), ""]) {
       tr.append(Object.assign(document.createElement("td"), { textContent: text }));
     }
+    // The buy (#356): the field's max is what the connect, the cash and
+    // the stash allow (max_buy), and the after line under it is the cash
+    // and the room the typed number leaves, red when it is over.
+    const room = offer ? session.maxBuy(k.id, p.id) : null;
     const qty = document.createElement("input");
     qty.type = "number";
     qty.min = "1";
-    qty.value = offer ? String(Math.max(1, Math.floor((v.you.dirty_cash * 0.3) / offer))) : "";
-    const buy = button("Buy", !offer, () => act(() => session.buy(k.id, p.id, Number(qty.value)), `bought ${qty.value} ${p.name}`));
+    if (room) qty.max = String(room.max);
+    qty.value = offer ? String(fits[p.id] || Math.max(1, Math.min(room.max, Math.floor((v.you.dirty_cash * 0.3) / offer)))) : "";
+    const after = Object.assign(document.createElement("div"), { className: "dim after" });
+    const showAfter = () => {
+      if (!room) return;
+      const n = Math.max(0, Number(qty.value) || 0);
+      const left = v.you.dirty_cash - n * offer;
+      const stash = room.held + n;
+      after.textContent = `after ${money(left)} dirty · room ${stash}/${room.capacity}`;
+      after.classList.toggle("over", left < 0 || stash > room.capacity);
+    };
+    qty.oninput = showAfter;
+    showAfter();
+    const most = button("Max", !room || !room.max, () => {
+      qty.value = String(room.max);
+      showAfter();
+    });
+    const buy = button("Buy", !offer, () => buyWhatFits(k.id, p, Number(qty.value)));
     const sell = button("Sell", !held[p.id], () =>
       act(() => session.sell(v.you.city, p.id, held[p.id], $("dial").value), `${held[p.id]} ${p.name} on the street tonight`),
     );
-    tr.lastChild.append(qty, buy, sell);
+    tr.lastChild.append(qty, most, buy, sell, after);
     return tr;
   });
   $("market").tBodies[0].replaceChildren(...rows);
+  fits = {};
 
   $("travel").replaceChildren(
     ...v.cities.map((c) => button(c.name, c.id === v.you.city, () => act(() => session.travel(c.id), `on the road to ${c.name}`))),
@@ -218,7 +241,7 @@ function render() {
   if (v.card) {
     $("card-title").textContent = v.card.title;
     $("card-text").textContent = v.card.text;
-    $("card-choices").replaceChildren(...v.card.choices.map((c, i) => button(c, false, () => act(() => session.choose(i)))));
+    $("card-choices").replaceChildren(...v.card.choices.map((c, i) => choiceButton(c, () => act(() => session.choose(i)))));
   }
   const over = !!v.over;
   // The ending waits for the night's last animation, THE END among them.
@@ -240,6 +263,51 @@ function showPanel(id) {
   el.classList.remove("flash");
   void el.offsetWidth; // restart the animation
   el.classList.add("flash");
+}
+
+// choiceButton is a card's choice: its label, and under it what it does
+// (#358), a chip a thing in the tone's colour.
+function choiceButton(choice, onclick) {
+  const b = button(choice.label, false, onclick);
+  const chips = document.createElement("span");
+  chips.className = "chips";
+  chips.append(...choice.preview.map((c) => Object.assign(document.createElement("span"), { className: `chip ${c.tone}`, textContent: c.text })));
+  b.append(chips);
+  return b;
+}
+
+// buyWhatFits buys qty of a product; a refusal for the room (#356)
+// sets the field to what fits, so the next click buys it.
+function buyWhatFits(supplier, p, qty) {
+  try {
+    session.buy(supplier, p.id, qty);
+    toast(`bought ${qty} ${p.name}`, true);
+  } catch (e) {
+    if (!e.refused) throw e;
+    if (e.free > 0) {
+      fits[p.id] = e.free;
+      toast(`${e.message}: the quantity is now what fits`);
+    } else toast(e.message);
+  }
+  session.refresh();
+  render();
+}
+
+// restock tops the stash where you stand up to the days of demand
+// (#356): the plan is shown for review, then bought a line at a time.
+function restock() {
+  const v = session.view;
+  const days = Math.max(1, Number($("restock-days").value) || 2);
+  const plan = session.restockPlan(v.you.city, days);
+  if (!plan.length) return toast("nothing to restock: the stash holds the demand, or nothing more fits");
+  const city = v.cities.find((c) => c.id === v.you.city);
+  const name = (id) => ((city && city.products.find((p) => p.id === id)) || { name: id }).name;
+  const lines = plan.map((l) => `${l.units} ${name(l.product)} for ${money(l.cost)}`);
+  const total = plan.reduce((n, l) => n + l.cost, 0);
+  if (!confirm(`Restock for ${days} days of demand, ${money(total)}:\n${lines.join("\n")}`)) return;
+  act(() => {
+    for (const l of plan) session.buy(l.supplier, l.product, l.units);
+  }, `restocked: ${lines.join(", ")}`);
 }
 
 function button(text, disabled, onclick) {

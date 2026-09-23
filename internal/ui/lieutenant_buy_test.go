@@ -4,6 +4,8 @@ import (
 	"strings"
 	"testing"
 
+	tea "github.com/charmbracelet/bubbletea"
+
 	"github.com/theclifmeister/kingpin/internal/game"
 )
 
@@ -110,7 +112,10 @@ func TestBuyDialogFollowsTheLieutenant(t *testing.T) {
 	m.Update(key("esc"))
 	assertFits(t, m.View(), 100, 30, "the market with a delegated city")
 
-	// The keep column and the pane read the lieutenant's contract.
+	// The keep column and the pane read the lieutenant's contract, at a
+	// size whose pane holds the product section under the cart and the
+	// keys (#356's R restock took the market pane's last line at 100x30).
+	m.Update(tea.WindowSizeMsg{Width: 120, Height: 40})
 	w.DelegateSupply(hub, weed, 120)
 	m.cursor = 0
 	if v := stripANSI(m.View()); !strings.Contains(v, "120 (lt)") || !strings.Contains(v, "keep at 120 (lt)") {

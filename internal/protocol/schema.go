@@ -60,7 +60,7 @@ func Schema() ([]byte, error) {
 		"framing":      "JSON-RPC 2.0, one message a line; params by position; notifications before the response they belong to",
 		"errors": map[string]int{
 			"parse": CodeParse, "invalid_request": CodeInvalidRequest, "no_method": CodeNoMethod,
-			"invalid_params": CodeInvalidParams, "internal": CodeInternal, "refused": CodeRefused, "no_run": CodeNoRun,
+			"invalid_params": CodeInvalidParams, "internal": CodeInternal, "refused": CodeRefused, "no_run": CodeNoRun, "no_room": CodeNoRoom,
 		},
 		"methods": ms,
 		"notifications": map[string]any{
