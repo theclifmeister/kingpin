@@ -105,6 +105,27 @@ func (s *Session) Save(slot int) error {
 	return game.Save(slot, s.w)
 }
 
+// ExportSave is the run as a save's bytes (game.Encode), for a front end
+// that keeps its saves itself (#327): a browser has no slots.
+func (s *Session) ExportSave() ([]byte, error) {
+	if s.w == nil {
+		return nil, ErrNoRun
+	}
+	return game.Encode(s.w)
+}
+
+// ImportSave makes a save's bytes the run, as Load makes a slot's:
+// upgraded with the sims' migrations, and refused when it cannot be
+// read.
+func (s *Session) ImportSave(b []byte) (*game.World, error) {
+	w, err := game.Decode(b, s.set.Migrations()...)
+	if err != nil {
+		return nil, err
+	}
+	s.w = w
+	return w, nil
+}
+
 // EndDay steps every sim once over the run (game.Clock.EndDay),
 // publishes the tick's events to the subscribers and returns them. It
 // is a no-op once the run is over, or before there is one.

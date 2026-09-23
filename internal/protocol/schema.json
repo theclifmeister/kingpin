@@ -8827,6 +8827,20 @@
         "$ref": "#/$defs/protocol.DayResult"
       }
     },
+    "export_save": {
+      "changes": false,
+      "needsRun": true,
+      "params": {
+        "maxItems": 0,
+        "minItems": 0,
+        "prefixItems": [],
+        "type": "array"
+      },
+      "result": {
+        "contentEncoding": "base64",
+        "type": "string"
+      }
+    },
     "fast_forward": {
       "changes": true,
       "needsRun": true,
@@ -8984,6 +8998,25 @@
           "$ref": "#/$defs/game.HouseOffer"
         },
         "type": "array"
+      }
+    },
+    "import_save": {
+      "changes": true,
+      "needsRun": false,
+      "params": {
+        "maxItems": 1,
+        "minItems": 1,
+        "prefixItems": [
+          {
+            "contentEncoding": "base64",
+            "title": "save",
+            "type": "string"
+          }
+        ],
+        "type": "array"
+      },
+      "result": {
+        "$ref": "#/$defs/engine.View"
       }
     },
     "invest": {
@@ -12515,7 +12548,7 @@
       "$ref": "#/$defs/engine.View"
     }
   },
-  "protocol": 2,
+  "protocol": 3,
   "title": "kingpind",
   "view_version": 1
 }

@@ -112,6 +112,9 @@ func (g *schemaGen) of(t reflect.Type) map[string]any {
 	case reflect.Float32, reflect.Float64:
 		return map[string]any{"type": "number"}
 	case reflect.Slice, reflect.Array:
+		if t.Kind() == reflect.Slice && t.Elem().Kind() == reflect.Uint8 {
+			return map[string]any{"type": "string", "contentEncoding": "base64"} // encoding/json's []byte: a save's bytes
+		}
 		return map[string]any{"type": "array", "items": g.of(t.Elem())}
 	case reflect.Map:
 		return map[string]any{"type": "object", "additionalProperties": g.of(t.Elem())}

@@ -130,7 +130,7 @@ The slot is the caller's: the TUI keeps `Model.slot` and passes it to `Load` and
   - `-32000` **refused**: a move the rules do not allow, the message being the game's own words (`can only hold 48 more units in Eastside`, `nothing on offer by that name`). `protocol.Refused(err)` tells it apart.
   - `-32001` **no run**: call `new_run` or `load` first.
 - **Encoding.** The view is snake_case with dials by name (phase 4). A result or an event payload is the Go value as `encoding/json` writes it: Go field names, and a dial as the int a save holds. The schema marks it `integer` with `x-names` in order. `protocol.EventJSON` is the one encoding of an event, so a client in the same process can compare its events with the wire's byte for byte.
-- **The schema.** `protocol.Schema()` generates a JSON Schema document (draft 2020-12) from the Go types: the protocol and view versions, the framing, the error codes, every method's `params` (`prefixItems`, a dial as its enum of names) and `result`, the two notifications, every event kind's payload under `events`, and 175 named types under `$defs`. It is checked in as `internal/protocol/schema.json` (about 165 KB). `TestSchemaIsCurrent` fails when the file is stale, and `go test ./internal/protocol -run TestSchemaIsCurrent -update` rewrites it. `protocol.Version` (2 since the quotes, #325) moves with the methods; the view keeps `engine.ViewVersion`.
+- **The schema.** `protocol.Schema()` generates a JSON Schema document (draft 2020-12) from the Go types: the protocol and view versions, the framing, the error codes, every method's `params` (`prefixItems`, a dial as its enum of names) and `result`, the two notifications, every event kind's payload under `events`, and 175 named types under `$defs`. It is checked in as `internal/protocol/schema.json` (about 165 KB). `TestSchemaIsCurrent` fails when the file is stale, and `go test ./internal/protocol -run TestSchemaIsCurrent -update` rewrites it. `protocol.Version` (2 since the quotes, #325; 3 since the saves as bytes, #327) moves with the methods; the view keeps `engine.ViewVersion`.
 - **The reference client.** `protocol.Play(c, seed, days)` plays a run through the protocol alone. Each morning it reads the view, answers a card with its first choice, spends 60% of the dirty cash across what the street connect where it stands sells, puts everything it holds on the street at the aggressive dial, and ends the day, until the run ends. `cmd/kingpin-client -server <kingpind> -seed 7` starts `kingpind` and prints every event as it arrived and how the run ended. On seed 7 that is `indicted` on day 30, after 718 events.
   - One bug found on the way is now part of the client: it decodes each view into a fresh value. Decoded over the last one, a field the new view omits as empty (an answered `card`) would keep its old value.
 
@@ -142,7 +142,7 @@ The slot is the caller's: the TUI keeps `Model.slot` and passes it to `Load` and
 - `TestEverySessionMethodIsClassed` and `TestSchemaIsCurrent` (above).
 - The day-0 view (before the first morning, `World.Report` still nil) is in phase 4's `TestViewRoundTripsJSON`; the protocol found the nil.
 
-**The quotes (#325).** A front end in another process prices a move before it makes it, with the numbers the TUI reads. `internal/protocol/rules.go` serves every method of `engine.Rules` as `rules.<sim>.<method>` in snake_case: `rules.market.capacity`, `rules.crew.investigate_cost`, `rules.rivals.odds_on_at`. That is 146 methods, which makes 227 on the wire. A quote needs a run, changes nothing and sends nothing but its answer: no `view` follows it.
+**The quotes (#325).** A front end in another process prices a move before it makes it, with the numbers the TUI reads. `internal/protocol/rules.go` serves every method of `engine.Rules` as `rules.<sim>.<method>` in snake_case: `rules.market.capacity`, `rules.crew.investigate_cost`, `rules.rivals.odds_on_at`. That is 146 methods, which makes 229 on the wire with #327's `export_save` and `import_save`. A quote needs a run, changes nothing and sends nothing but its answer: no `view` follows it.
 
 - **The world is the server's.** A rule's `*game.World` is the run's and never a parameter.
 - **A thing of the world goes by its id** and is resolved against the run (`protocol.ruleParams`):
@@ -254,3 +254,26 @@ The report's and the journal's alone, no cue (94): `AssetBought`, `AssetFrozen`,
 - `TestServeWS`: the frames come in stdio's order.
 - `TestOverStdio` is unchanged: stdio is still the default.
 - Checked by hand against an independent client, Python's `websockets`: the handshake with a localhost Origin, a 200 KB message (a 64-bit length), ping and pong, and a clean close.
+
+**Embedding (#327).** A front end can run the engine inside its own process. The protocol is still the contract: each embedding exposes one call, a request line in and the lines it produced out (`protocol.Server.Handle`, the loop stdio and WebSocket run). There is no second API.
+
+- **WebAssembly** (`cmd/kingpin-wasm`, `js && wasm`), for a browser or a web game engine: `GOOS=js GOARCH=wasm go build -o kingpin.wasm ./cmd/kingpin-wasm`, run with Go's `wasm_exec.js` (`$(go env GOROOT)/lib/wasm`). The module is about 12 MB.
+  - It sets one global, `kingpin`: `kingpin.protocol` and `kingpin.view` are the versions, and `kingpin.open()` is a session whose `handle(line)` returns the answers as an array of strings, notifications first.
+  - Each `open` is a session of its own, with its own tuning, like each `kingpind` connection.
+  - A `handle` that isn't given one string returns an `Error`.
+- **A C shared library** (`cmd/libkingpin`, `cgo`), for a native game engine (Godot, Unity, Unreal): `go build -buildmode=c-shared -o libkingpin.so ./cmd/libkingpin` writes `libkingpin.h` beside the library. The calls:
+  - `kingpin_open()` returns a handle, `> 0`.
+  - `kingpin_handle(h, line)` returns the answer lines, each ending in `\n`, in memory the host passes to `kingpin_free`.
+  - `kingpin_close(h)` ends the session.
+  - `kingpin_protocol()` and `kingpin_view()` are the versions.
+  
+  A handle that isn't open answers a JSON-RPC `-32600` line. One lock serialises every call, so a host may call from any thread. The lock lives in `cmd/`, which `TestNoGoroutineInTheTree` doesn't walk: a native host's threads are the host's, and nothing under `internal/` locks.
+- **Saves.** Neither embedding has save slots to rely on, since a browser has no filesystem. `export_save` returns the run as a save's bytes (base64 on the wire), and `import_save [save]` makes them the run and returns the view, as `load` does. The host keeps them where it likes: `localStorage`, IndexedDB, the engine's user directory. The bytes are a slot file's exactly (`game.Encode` and `game.Decode`, `docs/saves.md`), so a save moves between the TUI and an embedding. The schema shows `[]byte` as a base64 string. `protocol.Version` is 3.
+- **CI.** The test job builds both targets on every PR (the `embeddings` step of `.github/actions/go`), and the lint job vets the WASM package for its own target, since `./...` on the runner skips it. The test step replays the reference game through both. In CI, a missing `node` or `cc` fails the test rather than skipping it.
+
+**What pins it.**
+
+- `protocol.Transcript(seed, days)` records the reference game on a server in the process: every request line and every line answered. The game's moves depend only on the answers, so an embedding handed the same requests must answer the same bytes.
+- `TestWASMIsTheEngine` builds the module and runs it under Node with `wasm_exec.js`. It replays seed 7's 322 requests and gets the 2.6 MB of answers byte for byte. It also checks the two versions on the global and a refused non-string.
+- `TestCIsTheEngine` builds the library, compiles and links a C program against it with `cc`, and replays the same transcript through `kingpin_handle` with the same bytes. It checks the versions and what a closed handle answers.
+- `TestSaveBytesRoundTrip` plays twenty days, then `export_save`, then twenty more. Another server that runs `import_save` and plays the same twenty days gets the same events and the same view. Nothing is written to the slots. Rubbish is refused (`-32000`), and an export with no run is `-32001`.
