@@ -1,6 +1,7 @@
 # Kingpin docs
 
-One file a subsystem, the detail CLAUDE.md points at (#175). Each is the contract for the sim or screen it names: read it before touching that code and update it in the same PR.
+One file a subsystem, the detail CLAUDE.md points at (#175).
+Each is the contract for the sim or screen it names: read it before touching that code and update it in the same PR.
 
 - [The engine is one session a front end drives](engine.md)
 - [The web client: the game drawn in a browser](web.md)
