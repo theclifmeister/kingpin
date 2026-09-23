@@ -27,6 +27,8 @@ skim_share = 0.10           # of the day's takings per skimmer, times 0.5 + gree
 skim_cap = 0.5              # most of the takings that can go missing in a day
 suspect_days = 10           # the crew screen warns for this long after a skim
 quit_threshold = 10         # at this loyalty a member walks, or defects to the rival if it holds corners
+alert_margin = 5            # this close over the next line (skim, walk, a lieutenant's flip) a member is an alert (#345),
+                            # and so is one tonight's drift takes over it; 0 never
 
 # Snitching. A member under both lines rolls every day to start talking to
 # the police; from then on they feed the DA's file whatever you sell (the

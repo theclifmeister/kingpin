@@ -258,8 +258,8 @@ func (m *Model) viewLedger() string {
 	line(theme.PanelTitle.Render("LEDGER"))
 	line(theme.Gold.Render("dirty "+cash(w.Player.DirtyCash)) + sub(" · ") + theme.Good.Render("clean "+cash(w.Player.CleanCash)) + sub(" · ") + theme.Gold.Render("offshore "+cash(w.Offshore)) + sub(fmt.Sprintf(" · seized %s lifetime", cash(w.Stats.Seized))))
 	line(sub("launder  ") + launderRow(w.Laundering.Dial) + sub(fmt.Sprintf("   audit %s/day · up to %s/day · legit %s/day", format.Pct(l.AnyAuditRisk(w), 1), money(l.Capacity(w)), money(l.LegitIncome(w)))))
-	if thr := m.rules.Heat.DirtyCashThreshold(w); thr > 0 && w.Player.DirtyCash > thr {
-		line(theme.Warning.Render(fmt.Sprintf("▲ Dirty cash over %s draws heat every day it sits there.", cash(thr))))
+	if warn := m.exposureWarning(); warn != "" {
+		line(theme.Warning.Render("▲ " + warn))
 	}
 	// The tax (#231): what the free corners of a city you hold pay a
 	// night, city by city where it holds.
@@ -586,8 +586,8 @@ func (m *Model) washSection() section {
 		lines = append(lines, wrapped(theme.Subtle, "An accountant adds to every front and cuts audit risk. Keep them loyal: they skim the wash.")...)
 		lines = append(lines, theme.Subtle.Render("Hire one "+screenPointer(screenCrew)+"."))
 	}
-	if thr := m.rules.Heat.DirtyCashThreshold(w); thr > 0 && w.Player.DirtyCash > thr {
-		lines = append(lines, wrapped(theme.Warning, fmt.Sprintf("Dirty cash over %s draws heat every day it sits there.", cash(thr)))...)
+	if warn := m.exposureWarning(); warn != "" {
+		lines = append(lines, wrapped(theme.Warning, warn)...)
 	}
 	return section{"WASH", lines}
 }

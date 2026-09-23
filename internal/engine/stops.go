@@ -90,7 +90,8 @@ func (s *Session) FastForward(days int, after func([]events.Event)) (int, Stop, 
 // crossed, the reign begun or broken, the rival moving in or eyeing a
 // corner, a strike (bar a war night that held, #229), the war over, a
 // boost that failed (#70), the police raiding a rival corner, a corner
-// taken off you, a corner the rival gave up, the crew quitting,
+// taken off you, a corner of yours nobody worked gone back to the street
+// (#345), a corner the rival gave up, the crew quitting,
 // defecting, arrested (#46), shot dead or retiring, a spy found or a lie
 // that bit (#45), a lieutenant walking, an audit, a seizure, a deal
 // offered or broken, a buyer asking, pressure or a reputation axis up a
@@ -108,6 +109,8 @@ func StopsOn(e events.Event) bool {
 		return !ev.Taken
 	case events.CornerTaken:
 		return ev.From == game.OwnerPlayer
+	case events.CornerLost:
+		return ev.Reason == "idle" && ev.Owner == game.OwnerPlayer
 	case events.CrewShot:
 		return ev.Dead && !ev.Theirs
 	case events.PressureShifted:

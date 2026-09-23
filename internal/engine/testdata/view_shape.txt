@@ -1,4 +1,4 @@
-version 2
+version 3
 .version int
 .seed uint64
 .day int
@@ -260,6 +260,11 @@ version 2
 .alerts[].count int
 .alerts[].ready bool
 .alerts[].level string
+.alerts[].member int
+.alerts[].cross string
+.alerts[].gap float64
+.alerts[].corner string
+.alerts[].day int
 .alerts[].gate.kind string
 .alerts[].gate.id string
 .alerts[].gate.name string

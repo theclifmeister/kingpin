@@ -21,8 +21,8 @@ Why:
 
 **The files** (`cmd/kingpin-web/web/`, embedded in the command):
 
-- `js/session.js`: the protocol as the client speaks it. `Session` wraps one `kingpin.open()`: `call(method, ...params)` sends a request line and keeps the `event` notifications (`take()` hands them over) and the last `view`. It throws `RPCError` (`refused` for `-32000`, the game's words) on an error. The moves the page makes are one method each: `newRun`, `endDay`, `fastForward`, `choose`, `travel`, `buy`, `sell`, `exportSave`, `importSave`. `streetConnect(view, city)` is the open street connect where you stand. It touches no DOM.
-- **The versions.** `SUPPORTED` is `{protocol: [3], view: [2]}` (view 2 since #332). `checkVersions` refuses a module whose `kingpin.protocol` or `kingpin.view` is another (`VersionError`, shown full-page) before a run starts: a field renamed under the client would draw a wrong game instead of failing. A version bump in the engine fails `TestWebClient` until `SUPPORTED` moves with the client.
+- `js/session.js`: the protocol as the client speaks it. `Session` wraps one `kingpin.open()`: `call(method, ...params)` sends a request line and keeps the `event` notifications (`take()` hands them over) and the last `view`. It throws `RPCError` (`refused` for `-32000`, the game's words) on an error. The moves the page makes are one method each: `newRun`, `endDay`, `fastForward`, `choose`, `travel`, `buy`, `maxBuy`, `restockPlan`, `sell`, `exportSave`, `importSave`. A `no_room` refusal (`NO_ROOM`, `-32002`, #356) is `refused` too, with `free`, what fits. `streetConnect(view, city)` is the open street connect where you stand. It touches no DOM.
+- **The versions.** `SUPPORTED` is `{protocol: [4], view: [3]}` (view 3 since #345, protocol 4 since #356). `checkVersions` refuses a module whose `kingpin.protocol` or `kingpin.view` is another (`VersionError`, shown full-page) before a run starts: a field renamed under the client would draw a wrong game instead of failing. A version bump in the engine fails `TestWebClient` until `SUPPORTED` moves with the client.
 - `js/autoplay.js`: `autoDay(session)` is the autopilot, the reference client's greedy dealer (`protocol.Play`) a day at a time. It answers a card with its first choice, spends 60% of the dirty cash across the street connect's products, sells everything at `aggressive` and ends the day. A refused move is part of play.
 - `js/layout.js`: where things are, a pure function of the view and the canvas size.
   - The cities stand side by side in the view's order, each a block of its corners on their `city.toml` cells. One cell size fits every city.
@@ -51,6 +51,7 @@ Why:
 - `js/main.js`: the page. It loads the module, opens a session and starts a run (the URL's `?seed=`, else a random one).
   - The header shows the day, the tier, the cash, the net worth and the evidence.
   - The panel is the city you stand in. Each product shows the street price, the connect's price and what you hold, with a buy quantity and buy and sell buttons at the chosen dial. Below are travel, the pool looking for work (the view's `pool`, #332: each with a hire button, off when the fee is more than your dirty cash) and the morning report's sections.
+  - The buy (#356) is the TUI's: the quantity's `max` is `max_buy`, clamped into the default of 30% of the cash, a `Max` button fills it, and the line under it is `after $X dirty · room H/C` as the number changes, red when either is over. A buy refused for the room sets the quantity to what fits, so the next click buys it. `Restock` for N days of demand (2 by default) shows `restock_plan` in a confirmation and buys its lines one `buy` each.
   - The footer holds end day (`space`), the next 7 days (`fast_forward`), the autopilot (`a`) and a toast that gives a refusal in the game's words.
   - A card is a modal with its choices. The ending is an overlay that waits for the night's last animation.
 - `cmd/kingpin-web` builds the site (`Build(dir)`): the embedded files, `kingpin.wasm` built for `js/wasm`, and the toolchain's own `wasm_exec.js`, which must match the Go that built the module. It serves the site on `-addr`, or writes it to `-out` and exits.
@@ -68,6 +69,7 @@ The art is placeholder.
   - The client speaks this build's protocol and view versions and refuses another.
   - `ANIMATIONS` is `engine.CueKinds`, no more and no less, and every sprite's rows are the same width.
   - Seed 7 with the autopilot reaches an ending (indicted, day 30).
+  - A buy of `max_buy` on day 0 is never refused, and a restock plan's lines each buy (#356).
   - Seeds 7, 11, 23 and 42, and 120 nights of the harness's `boss` on seed 3 (written by the Go test, so the client sees a run that ships, hires and fights), draw every day's map. Every cue in those runs names a corner or route on the map, gives animations with a length, and draws at `p` 0, ½ and 1, on a context that records nothing but must not throw.
   - That is 14 of the 17 kinds from the engine itself. A kind no run gave (`overdose`, `strike` and `task_force` today) is made up on the boss's last morning, with ids off its map and in each of its phases, and drawn too.
   - In CI, a missing `node` fails the test rather than skipping it.

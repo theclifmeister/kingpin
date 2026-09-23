@@ -9,6 +9,7 @@ import (
 	"github.com/theclifmeister/kingpin/internal/events"
 	"github.com/theclifmeister/kingpin/internal/game"
 	"github.com/theclifmeister/kingpin/internal/sim"
+	"github.com/theclifmeister/kingpin/internal/sim/market"
 )
 
 // A run with supply contracts (#113) replays from its seed and survives
@@ -203,5 +204,50 @@ func TestStockedIsWithinFifteenPercentOfCrewed(t *testing.T) {
 	t.Logf("day %d median net worth: stocked %d, crewed %d (%.1f%%)", TierDays[1], s, c, float64(s-c)/float64(c)*100)
 	if float64(s) < 0.85*float64(c) {
 		t.Fatalf("stocked median %d is more than 15%% under crewed %d", s, c)
+	}
+}
+
+// The market screen's restock is the stocked player's sizing (#356):
+// on the same world, with the cash to buy it all, RestockPlan at
+// StockDays buys what the stocked player's contracts would, product by
+// product (World.StockLevels is both their sizing).
+func TestRestockMatchesStocked(t *testing.T) {
+	t.Parallel()
+	cfg := content.MustLoad()
+	mk, err := market.New(cfg)
+	if err != nil {
+		t.Fatal(err)
+	}
+	lines := 0
+	for seed := uint64(1); seed <= 4; seed++ {
+		for _, days := range []int{5, 20, 40} {
+			w := sim.NewWorld(cfg, seed)
+			if _, err := RunFrom(cfg, w, days, Stocked(cfg, 40)); err != nil {
+				t.Fatal(err)
+			}
+			if w.Over != nil {
+				continue
+			}
+			w.Player.DirtyCash = 1_000_000_000
+			city := w.Player.Location
+			restock := map[string]int{}
+			for _, l := range w.RestockPlan(city, StockDays, mk.Float(w)) {
+				restock[l.Product] = l.Units
+				lines++
+			}
+			contract(w)
+			stocked := map[string]int{}
+			for _, p := range mk.Plan(w) {
+				if p.Contract.City == city && p.Units > 0 {
+					stocked[p.Contract.Product] = p.Units
+				}
+			}
+			if fmt.Sprint(restock) != fmt.Sprint(stocked) {
+				t.Errorf("seed %d day %d in %s: restock %v, the stocked contracts %v", seed, w.Day, city, restock, stocked)
+			}
+		}
+	}
+	if lines == 0 {
+		t.Fatal("no restock bought anything: the comparison is empty")
 	}
 }

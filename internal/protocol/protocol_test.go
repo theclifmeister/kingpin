@@ -359,3 +359,38 @@ func TestHireFromTheView(t *testing.T) {
 		t.Errorf("hired %d and not on the payroll: %+v", id, after.Crew)
 	}
 }
+
+// A buy past the room is refused as no_room with what fits (#356), and
+// max_buy is what a buy takes without a refusal.
+func TestNoRoomIsTyped(t *testing.T) {
+	t.Parallel()
+	c, srv := loopClient(t)
+	if err := c.Call("new_run", []any{7, "", false}, nil); err != nil {
+		t.Fatal(err)
+	}
+	w := srv.sess.World()
+	w.Player.DirtyCash = 1_000_000_000
+	sup := w.StreetSupplier(w.Player.Location)
+	sup.Cap = 1_000_000
+	product := w.Products[0]
+	var room engine.BuyRoom
+	if err := c.Call("max_buy", []any{sup.ID, product, false}, &room); err != nil {
+		t.Fatal(err)
+	}
+	free := room.Capacity - room.Held
+	if room.Max != free || free <= 0 {
+		t.Fatalf("max_buy with the cash to fill the stash: %+v", room)
+	}
+	err := c.Call("buy", []any{sup.ID, product, free + 1, false}, nil)
+	var e *Error
+	if !errors.As(err, &e) || e.Code != CodeNoRoom || e.Data == nil || e.Data.Free != free || !Refused(err) {
+		t.Fatalf("a buy one past the room: %v (%+v)", err, e)
+	}
+	if err := c.Call("buy", []any{sup.ID, product, room.Max, false}, nil); err != nil {
+		t.Fatalf("a buy of max_buy's %d: %v", room.Max, err)
+	}
+	var plan []game.RestockLine
+	if err := c.Call("restock_plan", []any{w.Player.Location, 2.0}, &plan); err != nil || plan == nil {
+		t.Fatalf("restock_plan on a full stash: %v %v", plan, err)
+	}
+}

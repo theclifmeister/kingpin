@@ -33,6 +33,9 @@ button:disabled { opacity: 0.4; cursor: default; }
 button.primary { background: #1f5f3d; border-color: var(--good); }
 button.on { background: #5c4a12; border-color: var(--gold); }
 td button { padding: 1px 6px; }
+.after { font-size: 11px; }
+.after.over { color: var(--bad); }
+#restock-days { width: 3em; background: var(--bg); color: var(--text); border: 1px solid var(--edge); padding: 2px 4px; }
 .dial { display: block; margin-top: 8px; color: var(--dim); }
 #travel button { margin: 0 6px 6px 0; }
 #report p { margin: 2px 0; }
