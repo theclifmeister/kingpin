@@ -7,7 +7,7 @@
 // The versions this client is written against. A module with another
 // protocol or view version is refused before a run starts: a field
 // renamed under the client would draw a wrong game, not fail.
-export const SUPPORTED = { protocol: [4], view: [5] };
+export const SUPPORTED = { protocol: [6], view: [5] };
 
 export class VersionError extends Error {}
 
@@ -105,6 +105,12 @@ export class Session {
   // demand (#356): [{product, supplier, level, have, units, cost}].
   restockPlan(city, days) {
     return this.call("restock_plan", city, days);
+  }
+  // preview is tonight, estimated (#353): {day, flow, sales, idle,
+  // corners, alerts, unknown, ...}, the night's money in the cash
+  // flow's categories. It changes nothing.
+  preview() {
+    return this.call("preview");
   }
   hire(candidate) {
     return this.call("hire", candidate);

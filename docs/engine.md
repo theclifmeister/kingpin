@@ -91,6 +91,26 @@ The words and colours stay the front end's (the TUI's are in `docs/copy.md`'s vo
 - `TestEveryStopHasWords` (`ui/stops_test.go`) walks `events.All`: every kind the engine stops on at its zero value has words in `stopEvent`, and nothing it does not stop on is worded. `stopEvent` falls back to the kind's name, so a stop is never silent.
 - Every existing fast-forward, alert, unlock, debt and delta test in the TUI passes unchanged, and no number moved.
 
+**The day's preview (#353).**
+`Session.Preview()` (`engine/preview.go`) is tonight, estimated, before the day ends: a `*DayPreview`, nil before a run and once it is over.
+It is served as a query, `preview`, never a view field, so `ViewVersion` did not move; it changes nothing and no `view` follows it.
+
+- **The money.** `flow` is a `FlowView` in #351's categories (`game.FlowCats`), so a morning's report can be set beside it: `opening` is the piles now, each line what the night is expected to move by pile, and `closing` the projected piles. The day's own spending (the cart's buys, `bought`; the fees) is already in the opening.
+- **In the night's order.** The preview books the money in the order the sims move it, so each estimator that reads the till reads it as the night would have left it: a copy of the `World` struct whose `Player` (a value) alone is written. The steps are:
+  - the market: a debt due tonight (dirty first, then clean), the supply contracts' buys (`market.Sim.Plan`, `supply`), a buyer's handoffs, each order or standing order (`market.Sim.Estimate`, below, less the crew's cut on a standing one), and a contract short at its due day (`losses`);
+  - the road: `logistics.Sim.Outlay(w, moved)`, the lots and fares `run` would buy and send, on the stashes as the sales leave them and with the wholesaler's day started again, as the market's `credit` starts it;
+  - the street: the blocks' rent in, the houses' rent out and the tax;
+  - the crew: the lieutenants' cut of their cities' sales, then the wages at the dial (`crew.Sim.Wages`);
+  - the wash: front by front, what is over the float, the upkeep out of the clean pile as it stands and the levels' income (`Throughput`, `Washable`, `FrontUpkeep`, `Income`), then the assets' upkeep.
+- **The two new reads.** Each is its sim's own arithmetic, with nothing written.
+  - `market.Sim.Estimate(w, city, order, stock)` is `resolveAt` with no dice and no price war. The impact is `impact`, which the night's sale now calls too, so `TestSeedDigest` did not move.
+  - `logistics.Sim.Outlay` is `run` with nothing bought or sent.
+- **The rest.** `sales` is per city (units, units handed over, the take after the cuts, and the heat `SaleHeat` and `SloppyHeat` give, the sell dialog's). `supply`, `routes`, `wages` and `wash` are the lines' parts. `idle` is the runners and enforcers fit, on no corner and at no house. `corners` is the `idle_corner` alerts, and `alerts` the rest of the morning's. `unknown` is `PreviewUnknown`, the ids of what it leaves out: `robbery`, `police`, `prices`, `audit`, `skim`, `rivals`, `crew`.
+- **What pins it.**
+  - `TestPreviewNeverWritesTheWorld` hashes the world's JSON before and after a preview, every morning of sixty days of the boss, the distributor and the aggressive trader.
+  - `TestPreviewAgreesWithAQuietNight` plays every policy in `harness.Policies` eighty nights on seed 7. On every night whose events hold none of the dice kinds (a robbery, the police, an audit, a skim, the price war, a seizure, the crew shot, arrested or gone, the rivals' boost or poach, a collector, a contract failed at the night's price, an incident, the wholesale lots at tomorrow's price), the projected closing is the report's closing, dirty and clean, to the dollar. That was 1,669 of 2,710 nights when it landed.
+  - `protocol.TestPreviewOverTheWire` checks the wire's preview is the session's and that no view follows it. The web client's `TestWebClient` checks the page's own call.
+
 **Phase 4, the view (#299).**
 `Session.View()` (`engine/view.go`) returns `engine.View`, a snapshot of what the player can see.
 It is what a front end in another process draws from, and it holds no pointer into the world, so it can be kept, compared, changed and sent as JSON.
@@ -145,9 +165,9 @@ It is what a front end in another process draws from, and it holds no pointer in
   - The server answers every request. Before the response it sends the notifications the call caused: every `event` the day published (`{"kind", "day", "payload"}`, the kind being the event's stable `Kind()`), then a `view` (the whole `engine.View`) after any call that may have changed the run.
   - A client that waits for its response has already read everything the call caused.
   - The server is one loop on one goroutine: read a line, run it, write and flush. It holds no lock and starts no goroutine, and `TestNoGoroutineInTheTree` walks the package like the rest of `internal/`.
-- **The methods, 85 in all** (and the 147 quotes #325 added, below).
+- **The methods, 86 in all** (and the 147 quotes #325 added, below).
   - **68 commands.** Each session command is served under its name in snake_case (`buy`, `place_sell`, `buy_checkpoint`, `scout_faction`, …) by reflection over `engine.Session` (`protocol.commands`), with its parameters in order. A dial goes in by name (`"aggressive"`, `"fair"`, `"push"`), refused with the names listed when it matches none. Terms go as an object (`{"days", "per_day", "corners", "route", "units"}`). The result is the command's value, or null.
-  - **11 queries.** `view`, `alerts`, `gates_ahead`, `next_gates`, `front_offers`, `asset_offers`, `house_offers`, `float_matters`, `export_save`, and the buy's two (#356): `max_buy [supplier, product, credit]` returns `{max, held, capacity}` (`engine.BuyRoom`: `World.MaxBuy`, the most a buy takes with no refusal for the cash, the room or the connect's day, and the stash it lands in), and `restock_plan [city, days]` returns the lines that top the stash up to days of demand (`[]game.RestockLine`, never null; see `docs/cart.md`).
+  - **12 queries.** `view`, `alerts`, `gates_ahead`, `next_gates`, `front_offers`, `asset_offers`, `house_offers`, `float_matters`, `export_save`, `preview` (#353: the day's preview, `engine.DayPreview`, below), and the buy's two (#356): `max_buy [supplier, product, credit]` returns `{max, held, capacity}` (`engine.BuyRoom`: `World.MaxBuy`, the most a buy takes with no refusal for the cash, the room or the connect's day, and the stash it lands in), and `restock_plan [city, days]` returns the lines that top the stash up to days of demand (`[]game.RestockLine`, never null; see `docs/cart.md`).
   - **6 lifecycle methods, by hand** (`import_save` among them, #327).
     - `new_run [seed, character, hard_da]`: the seed is the client's, and the server never draws one. It returns the view.
     - `load [slot]` returns the view. `save [slot]`.
@@ -160,7 +180,7 @@ It is what a front end in another process draws from, and it holds no pointer in
   - `-32001` **no run**: call `new_run` or `load` first.
   - `-32002` **no room** (#356): the refusal for the stash's room (`game.RoomError`, which `errors.Is(err, game.ErrNoRoom)` matches), its message the game's words (`can only hold 48 more units in Eastside`) and its `data` `{"free", "city"}`, so a client offers what fits rather than a bare no. `protocol.Refused` counts it as a refusal. `TestNoRoomIsTyped` pins the code, the data and `max_buy`.
 - **Encoding.** The view is snake_case with dials by name (phase 4). A result or an event payload is the Go value as `encoding/json` writes it: Go field names, and a dial as the int a save holds. The schema marks it `integer` with `x-names` in order. `protocol.EventJSON` is the one encoding of an event, so a client in the same process can compare its events with the wire's byte for byte.
-- **The schema.** `protocol.Schema()` generates a JSON Schema document (draft 2020-12) from the Go types: the protocol and view versions, the framing, the error codes, every method's `params` (`prefixItems`, a dial as its enum of names) and `result`, the two notifications, every event kind's payload under `events`, and 209 named types under `$defs`. It is checked in as `internal/protocol/schema.json` (about 250 KB). `TestSchemaIsCurrent` fails when the file is stale, and `go test ./internal/protocol -run TestSchemaIsCurrent -update` rewrites it. `protocol.Version` (2 since the quotes, #325; 3 since the saves as bytes, #327; 4 since `max_buy`, `restock_plan` and `no_room`, #356) moves with the methods; the view keeps `engine.ViewVersion`.
+- **The schema.** `protocol.Schema()` generates a JSON Schema document (draft 2020-12) from the Go types: the protocol and view versions, the framing, the error codes, every method's `params` (`prefixItems`, a dial as its enum of names) and `result`, the two notifications, every event kind's payload under `events`, and 209 named types under `$defs`. It is checked in as `internal/protocol/schema.json` (about 250 KB). `TestSchemaIsCurrent` fails when the file is stale, and `go test ./internal/protocol -run TestSchemaIsCurrent -update` rewrites it. `protocol.Version` (2 since the quotes, #325; 3 since the saves as bytes, #327; 4 since `max_buy`, `restock_plan` and `no_room`, #356; 6 since `preview`, #353, 5 being #369's) moves with the methods; the view keeps `engine.ViewVersion`.
 - **The reference client.** `protocol.Play(c, seed, days)` plays a run through the protocol alone. Each morning it reads the view, answers a card with its first choice, spends 60% of the dirty cash across what the street connect where it stands sells, puts everything it holds on the street at the aggressive dial, and ends the day, until the run ends. `cmd/kingpin-client -server <kingpind> -seed 7` starts `kingpind` and prints every event as it arrived and how the run ended. On seed 7 that is `indicted` on day 30, after 718 events.
   - One bug found on the way is now part of the client: it decodes each view into a fresh value. Decoded over the last one, a field the new view omits as empty (an answered `card`) would keep its old value.
 
@@ -175,7 +195,7 @@ It is what a front end in another process draws from, and it holds no pointer in
 **The quotes (#325).**
 A front end in another process prices a move before it makes it, with the numbers the TUI reads.
 `internal/protocol/rules.go` serves every method of `engine.Rules` as `rules.<sim>.<method>` in snake_case: `rules.market.capacity`, `rules.crew.investigate_cost`, `rules.rivals.odds_on_at`.
-That is 147 methods (#350 added `rules.heat.exposure_line`), which makes 232 on the wire with the 85 methods above.
+That is 147 methods (#350 added `rules.heat.exposure_line`), which makes 233 on the wire with the 86 methods above.
 A quote needs a run, changes nothing and sends nothing but its answer: no `view` follows it.
 
 - **The world is the server's.** A rule's `*game.World` is the run's and never a parameter.

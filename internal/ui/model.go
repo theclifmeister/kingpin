@@ -447,13 +447,16 @@ func (m *Model) keyConfirm(key string) {
 	}
 }
 
-// keyConfirmEnd ends the day on y or enter; any other key goes back.
+// keyConfirmEnd ends the day on y or enter; the scroll keys move the
+// day's preview (#353); any other key goes back.
 func (m *Model) keyConfirmEnd(key string) {
 	switch key {
 	case "y", "Y", "enter":
 		m.endDay()
 	default:
-		m.mode = modePlay
+		if !m.scrollModal(key) {
+			m.mode = modePlay
+		}
 	}
 }
 
@@ -614,9 +617,11 @@ func (m *Model) View() string {
 // viewConfirm is the open confirmation, as its payload draws it (#242).
 func (m *Model) viewConfirm() string { return m.cfm.view(m) }
 
-// viewConfirmEnd is the cart in a sentence, then what the night does.
+// viewConfirmEnd is the day's preview (#353): what is left idle and
+// what needs you, the cart in a sentence, tonight's money estimated,
+// then what the night does.
 func (m *Model) viewConfirmEnd() string {
-	return m.modal("END THE DAY?", []string{m.endDayLine(), "The sims step and the run autosaves."}, m.modalFooter())
+	return m.modal("END THE DAY?", m.previewLines(), m.modalFooter())
 }
 
 // viewDetails is the details pane as an overlay, under paneMinWidth.

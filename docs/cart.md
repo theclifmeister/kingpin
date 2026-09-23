@@ -14,3 +14,18 @@ The plan is `World.RestockPlan(city, days, keep)`: one line a product in ladder 
 `StockLevels` is the stocked player's contract sizing moved out of `harness.Stocked` (`docs/supply-contracts.md`), so the policy and the screen share one sizing: `TestRestockMatchesStocked` compares the plan with what the stocked player's contracts would buy on the same world, product by product, and the stocked policy's run is byte-for-byte what it was.
 Nothing is bought until `enter`, which buys the plan by hand, one `Session.Buy` a line, so the lines land in the cart as buys, each editable or returned there until the day ends (`Restocked 5 lines in Eastside for $28,261, in the cart until the day ends.`; a line refused on the way is named in the alarm); an empty plan is the dialog's error line (`Nothing to buy: the stash in Eastside is full.`).
 `TestRestockFillsTheCart` pins it, `TestRestockPlan` the plan, `TestMaxBuyNeverRefused` that `World.MaxBuy` (the quantity field's max, `maxBuyFrom`) is never refused, and `TestErrNoRoomIsTyped` the room refusal, a `game.RoomError` (`Free`, `City`) that matches `ErrNoRoom`, from the buy, the cut and the cook alike.
+
+**The day's preview is the END THE DAY? modal** (#353, `ui/daypreview.go`, `engine.Session.Preview`).
+`enter` opens it, and `y` or `enter` there ends the day as before (`TestEnterDoesNotEndDay`); `n` still ends it at once, with no preview.
+The body is `previewLines`, in this order:
+
+- **What needs you.** The crew left idle tonight by name (`idleLine`, `Idle tonight: Ike and Dee (runners), Moss (enforcer). Post them on the map screen (5).`), then each corner you hold that nobody works (`idleCornerAlert`'s words), then the rest of the morning's alerts (`alertOf`).
+- **The cart.** The cart in a sentence (`endDayLine`), then each city's sales tonight (`Eastside: ~75 units sold, ~$3,006, +2.3 heat.`).
+- **Tonight's money.** It is drawn as the report's cash flow (`moneyLines`), in its categories (`previewTable`, `tonight ~ dirty clean total`): `Now` (the piles as they stand), a row for each category the night is expected to move, and `Closing`, the projected piles.
+- **What it cannot know.** `Estimates before the dice: robberies, the police, tomorrow's prices, audits, skims, the rivals and the crew's nights are not in them.` (`engine.PreviewUnknown`, worded by `unknownWords`).
+
+The body scrolls (`scrollModal`); any key other than a scroll key goes back.
+The lines are tonight's, and what the day has already paid (the cart's buys) is in `Now`.
+So the morning's report and the preview meet at the closing: on a night the dice leave alone, they agree to the dollar (`TestPreviewAgreesWithAQuietNight`, `docs/engine.md`).
+`TestEndDayShowsThePreview` pins the order, the closing and the scroll, and `TestModalsFit` opens it with a full cart.
+Whether `n` should show the preview when something needs you is left open, as the issue left it.
