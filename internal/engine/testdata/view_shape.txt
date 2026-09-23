@@ -1,4 +1,4 @@
-version 4
+version 5
 .version int
 .seed uint64
 .day int
@@ -247,6 +247,17 @@ version 4
 .report.news[] string
 .report.cash_before int
 .report.cash_after int
+.report.flow.opening.dirty int
+.report.flow.opening.clean int
+.report.flow.lines []
+.report.flow.lines[].cat string
+.report.flow.lines[].label string
+.report.flow.lines[].dirty int
+.report.flow.lines[].clean int
+.report.flow.lines[].big bool
+.report.flow.closing.dirty int
+.report.flow.closing.clean int
+.report.flow.net int
 .alerts []
 .alerts[].kind string
 .alerts[].key string

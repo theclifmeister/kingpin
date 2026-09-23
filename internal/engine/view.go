@@ -12,7 +12,7 @@ import (
 // save's game.SchemaVersion: the world is free to change shape, the view
 // is the contract a front end in another process is written against.
 // TestViewShapeIsPinned fails on a shape change that keeps the number.
-const ViewVersion = 4
+const ViewVersion = 5
 
 // View is a snapshot of what the player can see: what a front end draws
 // (#299). It is built from the world the way the TUI reads it and holds
@@ -330,6 +330,36 @@ type ReportView struct {
 	News       []string `json:"news,omitempty"`
 	CashBefore int      `json:"cash_before"`
 	CashAfter  int      `json:"cash_after"`
+	Flow       FlowView `json:"flow"` // the night's cash flow (#351): drawn in place of the money lines
+}
+
+// FlowView is the night's cash flow (#351): the piles the day opened
+// on, one line a category in the order the money moves, and the piles
+// it closed on. Opening plus the lines is the closing, dirty and clean
+// each.
+type FlowView struct {
+	Opening PoolsView      `json:"opening"`
+	Lines   []FlowLineView `json:"lines"`
+	Closing PoolsView      `json:"closing"`
+	Net     int            `json:"net"` // closing less opening, both piles
+}
+
+// PoolsView is cash in each pile.
+type PoolsView struct {
+	Dirty int `json:"dirty"`
+	Clean int `json:"clean"`
+}
+
+// FlowLineView is one category of the flow: its id (game.FlowCats), the
+// words for it, the signed amounts by pile, and whether it moved more
+// than headlines.toml [flow] big_share of the opening (the line to look
+// at first).
+type FlowLineView struct {
+	Cat   string `json:"cat"`
+	Label string `json:"label"`
+	Dirty int    `json:"dirty"`
+	Clean int    `json:"clean"`
+	Big   bool   `json:"big"`
 }
 
 // View is the run as the player sees it this morning. Before a run it
@@ -509,7 +539,7 @@ func (s *Session) View() View {
 		v.Card = cv
 	}
 	if r := w.Report; r != nil { // nil before the first morning
-		v.Report = reportView(r)
+		v.Report = reportView(r, s.cfg.Headlines.Flow.BigShare)
 	}
 	v.Alerts = s.Alerts()
 	noNulls(reflect.ValueOf(&v).Elem())
@@ -554,10 +584,21 @@ func noNulls(v reflect.Value) {
 	}
 }
 
-// reportView is the morning report as the view carries it.
-func reportView(r *game.DayReport) ReportView {
+// reportView is the morning report as the view carries it, its flow's
+// big lines picked out at bigShare of the opening.
+func reportView(r *game.DayReport, bigShare float64) ReportView {
+	f := r.Flow
+	fv := FlowView{
+		Opening: PoolsView{Dirty: f.Opening.Dirty, Clean: f.Opening.Clean},
+		Closing: PoolsView{Dirty: f.Closing.Dirty, Clean: f.Closing.Clean},
+		Net:     f.Net(),
+	}
+	for _, l := range f.Lines {
+		fv.Lines = append(fv.Lines, FlowLineView{Cat: l.Cat, Label: game.FlowLabel(l.Cat), Dirty: l.Dirty, Clean: l.Clean, Big: f.Big(l, bigShare)})
+	}
 	return ReportView{
-		Day: r.Day, Incident: lines(r.Incident), Unlocked: lines(r.Unlocked), Tier: lines(r.Tier), Prices: lines(r.Prices),
+		Flow: fv,
+		Day:  r.Day, Incident: lines(r.Incident), Unlocked: lines(r.Unlocked), Tier: lines(r.Tier), Prices: lines(r.Prices),
 		Sales: lines(r.Sales), Heat: lines(r.Heat), Crew: lines(r.Crew), Territory: lines(r.Territory),
 		Shipments: lines(r.Shipments), Law: lines(r.Law), Intel: lines(r.Intel), Money: lines(r.Money),
 		Upgrades: lines(r.Upgrades), News: lines(r.News), CashBefore: r.CashBefore, CashAfter: r.CashAfter,

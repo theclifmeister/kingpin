@@ -18,6 +18,7 @@ type StrikeOrder struct {
 type ScoutOrder struct {
 	Cost    int
 	Faction string // whose books (#43); "" is the rival at home
+	Clean   int    // of Cost, what came out of the clean pile (#351), for the report's flow
 }
 
 // TipOrder is the player tipping the police on a rival corner tonight

@@ -178,15 +178,17 @@ func (c CrewState) Informants() int {
 
 // Payoff is a member paid to stay loyal today, for the report.
 type Payoff struct {
-	ID   int
-	Name string
-	Cost int
+	ID    int
+	Name  string
+	Cost  int
+	Clean int // of Cost, what came out of the clean pile (#351), for the report's flow
 }
 
 // InvestigationOrder is the player asking questions of the crew tonight,
 // paid up front and resolved by the crew sim at end of day.
 type InvestigationOrder struct {
-	Cost int
+	Cost  int
+	Clean int // of Cost, what came out of the clean pile (#351), for the report's flow
 }
 
 // Runners counts the runners at work.

@@ -142,7 +142,7 @@ func (s *Sim) Step(w *game.World, t *game.Tick) {
 	if w.Rival().Leader != "" {
 		base.Faction = w.Rival().Leader + "'s crew"
 	}
-	r := &reporter{s: s, w: w, t: t, rep: rep, here: here, base: base, routeCost: map[string]int{}}
+	r := &reporter{s: s, w: w, t: t, rep: rep, here: here, base: base, routeCost: map[string]int{}, flow: map[string]game.Pools{}}
 
 	// The tier (#147), first: the run enters the first tier past the
 	// highest reached whose trigger holds this morning, one a morning,
@@ -250,35 +250,54 @@ func (s *Sim) Step(w *game.World, t *game.Tick) {
 			// On the book, not out of the till (#72).
 			line = fmt.Sprintf("Bought %d %s at %s%s on credit = %s on the book", b.Qty, w.ProductName(b.Product), format.Price(b.UnitPrice), from, format.Money(b.Cost))
 		case b.Contract && b.Lieutenant != "":
-			r.spent += b.Cost
+			r.book(game.FlowPurchases, -b.Cost, 0)
 			line = fmt.Sprintf("%s's restock: %d %s at %s%s = -%s", b.Lieutenant, b.Qty, w.ProductName(b.Product), format.Price(b.UnitPrice), from, format.Money(b.Cost))
 		case b.Contract:
-			r.spent += b.Cost
+			r.book(game.FlowPurchases, -b.Cost, 0)
 			line = fmt.Sprintf("Supply contract: %d %s at %s%s = -%s", b.Qty, w.ProductName(b.Product), format.Price(b.UnitPrice), from, format.Money(b.Cost))
 		default:
-			r.spent += b.Cost
+			r.book(game.FlowPurchases, -b.Cost, 0)
 		}
 		rep.Money = append(rep.Money, line)
 	}
 	for _, m := range w.Crew.HiredToday {
-		r.spent += m.Fee
+		r.book(game.FlowRoutes, -m.Fee, 0)
 		rep.Money = append(rep.Money, fmt.Sprintf("Signing fee for %s -%s", m.Name, format.Money(m.Fee)))
 	}
-	rep.CashBefore = w.Cash() - r.soldRevenue - r.contracts + r.forfeits + r.lostCash + r.spent + r.wages + r.skimmed + r.robbed + r.upgrades + r.upkeep + r.seized + r.paidOff + r.investigated + r.shipping + r.tribute + r.cuts + r.funded + r.backed + r.repaid + r.rent + r.scouted + r.poached + r.bribed + r.checkpoints - r.boosted - r.earned + r.invested + r.cutting + r.cooking + r.reserved + r.deeds - r.deedRent - r.taxed
+	// What the day's errands cost as they were paid (#351): a cop's
+	// word and a look at the books leave the pile the moment they are
+	// bought, whatever the night makes of them, so the flow reads the
+	// orders, not the events.
+	if o := w.Today.Cop; o != nil && o.Amount > 0 {
+		r.book(game.FlowRoutes, -o.Amount, 0)
+		rep.Money = append(rep.Money, fmt.Sprintf("A cop's word -%s", format.Money(o.Amount)))
+	}
+	if o := w.Today.Scouting; o != nil {
+		r.book(game.FlowRoutes, -(o.Cost - o.Clean), -o.Clean)
+		if !r.scouted {
+			rep.Money = append(rep.Money, fmt.Sprintf("Scouting books nobody keeps now -%s", format.Money(o.Cost)))
+		}
+	}
+	if o := w.Today.Poach; o != nil {
+		r.book(game.FlowInvestments, -o.Cost, 0)
+		if !r.poached {
+			rep.Money = append(rep.Money, fmt.Sprintf("Buying off muscle nobody pays now -%s", format.Money(o.Cost)))
+		}
+	}
+	// The card answered this morning, where it moved money: its choice
+	// wrote the piles before the night began.
+	if a := w.Dilemmas.Answered; a != nil && a.Cash != (game.Pools{}) {
+		r.book(game.FlowOther, a.Cash.Dirty, a.Cash.Clean)
+		rep.Money = append(rep.Money, fmt.Sprintf("%s: %s", a.Title, format.Signed(a.Cash.Total())))
+	}
 	if r.soldRevenue > 0 {
 		rep.Money = append(rep.Money, fmt.Sprintf("Street sales +%s", format.Money(r.soldRevenue)))
 	}
 	if r.standingCut > 0 {
 		rep.Money = append(rep.Money, fmt.Sprintf("The crew's cut on the standing orders -%s", format.Money(r.standingCut)))
 	}
-	if r.robbed > 0 {
-		rep.Money = append(rep.Money, fmt.Sprintf("Robbed on the corner -%s", format.Money(r.robbed)))
-	}
 	if r.skimmed > 0 {
 		rep.Money = append(rep.Money, fmt.Sprintf("Missing from the count -%s", format.Money(r.skimmed)))
-	}
-	if r.lostCash > 0 {
-		rep.Money = append(rep.Money, fmt.Sprintf("Seized by police -%s", format.Money(r.lostCash)))
 	}
 	if r.seized > 0 {
 		rep.Money = append(rep.Money, fmt.Sprintf("Seized by the auditors -%s", format.Money(r.seized)))
@@ -316,8 +335,18 @@ func (s *Sim) Step(w *game.World, t *game.Tick) {
 		rep.News = append(rep.News, h.Text)
 		t.Emit(events.Headline{Day: h.Day, Source: h.Source, Text: h.Text})
 	}
+	// The night's cash flow (#351): the lines booked above, closed on
+	// the piles as they stand, the opening worked back from them. CASH
+	// BEFORE and AFTER are its two ends, and the history keeps the last
+	// [flow] days of them.
+	rep.Flow = game.NewCashFlow(t.Day, r.flow, game.Pools{Dirty: w.Player.DirtyCash, Clean: w.Player.CleanCash})
+	rep.CashBefore = rep.Flow.Opening.Total()
 	rep.CashAfter = w.Cash()
 	w.Report = rep
+	w.Flows = append(w.Flows, rep.Flow)
+	if n := len(w.Flows) - s.cfg.Flow.Days; n > 0 {
+		w.Flows = append([]game.CashFlow(nil), w.Flows[n:]...)
+	}
 }
 
 // stanceWords is a DA's ticket as the paper prints it.
@@ -549,6 +578,20 @@ func houseRobbedLine(w *game.World, ev events.HouseRobbed) string {
 		s += " An enforcer inside would have helped."
 	}
 	return s
+}
+
+// seizedLine is a raid's cash in the MONEY section (#351), naming the
+// cause: `Seized by police in Eastside -$42,000 (the raid on the stash)`.
+func seizedLine(w *game.World, ev events.Enforcement) string {
+	what := strings.ToLower(ev.Level)
+	if ev.Level == content.TaskForce {
+		what = "task force"
+	}
+	where := "the stash"
+	if ev.House != "" {
+		where = ev.HouseName
+	}
+	return fmt.Sprintf("Seized by police in %s -%s (the %s on %s)", w.CityName(ev.City), format.Money(ev.CashLost), what, where)
 }
 
 func enforcementLine(w *game.World, ev events.Enforcement) string {

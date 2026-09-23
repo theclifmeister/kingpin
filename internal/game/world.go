@@ -127,6 +127,7 @@ type World struct {
 
 	Journal []Headline // full headline history, oldest first
 	Report  *DayReport // morning report for the current day
+	Flows   []CashFlow // the last nights' cash flows (#351), oldest first, headlines.toml [flow] days of them; the news sim's, and a report: no sim reads it
 	Over    *Ending    // non-nil once the run has ended
 	Stats   Stats
 
