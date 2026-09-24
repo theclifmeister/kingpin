@@ -715,3 +715,29 @@ func TestFixers(t *testing.T) {
 		t.Fatalf("after a backfire under the line: %+v %v", turned, kinds(evs))
 	}
 }
+
+// A name once on the payroll is not dealt again while the pool has
+// others (#425): Ivy, a runner fired on day 14, came back to the pool
+// as an enforcer called Ivy.
+func TestAFiredNameIsNotDealtAgain(t *testing.T) {
+	cfg := content.MustLoad()
+	w, s := world(t, cfg, 1_000_000)
+	hired, err := w.Hire(w.Crew.Candidates[0].ID, cfg.Crew.Crew.MaxCrew)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if _, err := w.Fire(hired.ID); err != nil {
+		t.Fatal(err)
+	}
+	if len(w.Crew.Named) != 1 || w.Crew.Named[0] != hired.Name {
+		t.Fatalf("the payroll's names: %q", w.Crew.Named)
+	}
+	for d := 0; d < 20*cfg.Crew.Crew.PoolDays; d++ {
+		step(w, s)
+		for _, c := range w.Crew.Candidates {
+			if c.Name == hired.Name {
+				t.Fatalf("day %d: %s, fired, is looking for work again as a %s", w.Day, c.Name, c.Role)
+			}
+		}
+	}
+}

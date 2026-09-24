@@ -56,3 +56,25 @@ func (n NamesConfig) validate(crew CrewConfig, city CityConfig) error {
 	}
 	return nil
 }
+
+// validateApart checks a rival leader never shares a name with a
+// connect or anyone the crew pools can deal (#425): a playtest had the
+// rival Cass taking corners while the connect Cass sold at 55% of
+// street, and every line naming Cass read both ways.
+func (n NamesConfig) validateApart(sup SuppliersConfig) error {
+	taken := map[string]string{}
+	for _, s := range sup.Deck {
+		taken[s.Name] = "a connect"
+	}
+	for _, pool := range [][]string{n.Crew, n.Chemists, n.Drivers} {
+		for _, name := range pool {
+			taken[name] = "a crew name"
+		}
+	}
+	for _, r := range n.Rivals {
+		if what, ok := taken[r]; ok {
+			return fmt.Errorf("rival %q is also %s", r, what)
+		}
+	}
+	return nil
+}

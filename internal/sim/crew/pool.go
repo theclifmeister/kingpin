@@ -112,8 +112,10 @@ func (s *Sim) chemistLooking(w *game.World) bool {
 }
 
 // pickName is a name off pool that nobody on the payroll or in the pool
-// has, drawn on rng from the free ones sorted, or fallback when the pool
-// is spent (no draw then).
+// has, nor anyone who was on the payroll this run (#425: Ivy, fired on
+// day 14, came back as an enforcer called Ivy), drawn on rng from the
+// free ones sorted, or fallback when the pool is spent (no draw then).
+// Once every name has been on the payroll the old ones come round again.
 func (s *Sim) pickName(w *game.World, pool []string, fallback string, rng game.Rand) string {
 	used := map[string]bool{}
 	for _, m := range w.Crew.Members {
@@ -122,11 +124,21 @@ func (s *Sim) pickName(w *game.World, pool []string, fallback string, rng game.R
 	for _, m := range w.Crew.Candidates {
 		used[m.Name] = true
 	}
-	var free []string
+	var free, fresh []string
+	named := map[string]bool{}
+	for _, n := range w.Crew.Named {
+		named[n] = true
+	}
 	for _, n := range pool {
 		if !used[n] {
 			free = append(free, n)
+			if !named[n] {
+				fresh = append(fresh, n)
+			}
 		}
+	}
+	if len(fresh) > 0 {
+		free = fresh
 	}
 	sort.Strings(free)
 	if len(free) == 0 {
@@ -188,5 +200,6 @@ func (s *Sim) Join(w *game.World, role string, rng game.Rand) game.CrewMember {
 		m.Personality = content.LieutenantPersonalities[rng.IntN(len(content.LieutenantPersonalities))]
 	}
 	w.Crew.Members = append(w.Crew.Members, m)
+	w.Crew.Named = append(w.Crew.Named, m.Name)
 	return m
 }

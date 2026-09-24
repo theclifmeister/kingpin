@@ -109,6 +109,7 @@ func Load() (*Config, error) {
 		{"dilemmas.toml", c.Dilemmas.validate},
 		{"buyers.toml", func() error { return c.Buyers.validate(c.Market, c.City) }},
 		{"suppliers.toml", func() error { return c.Suppliers.validate(c.Market, c.City) }},
+		{"names.toml", func() error { return c.Names.validateApart(c.Suppliers) }},
 		{"progression.toml", c.Progression.validate},
 		{"houses.toml", func() error { return c.Houses.validate(c.City) }},
 		{"incidents.toml", func() error { return c.Incidents.validate(c.City, c.Market, c.Routes, c.Names) }},

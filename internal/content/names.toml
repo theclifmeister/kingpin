@@ -12,9 +12,10 @@ crew = [
   "Trey", "Vito", "Wally", "Yung", "Ziggy", "Benny", "Cal", "Dom", "Frankie",
 ]
 
-# Rival leaders. One per run; the faction is "<leader>'s crew".
+# Rival leaders. One per run; the faction is "<leader>'s crew". None may be
+# a connect's name or a crew name (#425: a rival Cass beside the connect Cass).
 rivals = [
-  "Big Sal", "Marisol", "Deacon", "Uncle Roy", "Cass", "Little Tony",
+  "Big Sal", "Carmine", "Deacon", "Uncle Roy", "Rosalind", "Little Tony",
   "Mother", "The Preacher", "Dutch", "Lena", "Cyrus", "Mona", "Slick Eddie",
   "Reverend", "Coop", "Ivory",
 ]

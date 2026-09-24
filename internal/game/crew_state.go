@@ -23,6 +23,7 @@ type CrewState struct {
 	NextCook     int             // the last cook's id
 	BailedToday  []Payoff        // bail put down today (#46), per-day scratch the clock clears; the crew sim reports it
 	Fallen       []Fallen        // the crew shot dead on your corners (#46), oldest first: the run summary reads it
+	Named        []string        // every name on the payroll this run, in the order hired (#425): the pool never deals one again while it has others; nil before the field
 }
 
 // Fallen is a member of the crew shot dead on a corner (#46): who, and
