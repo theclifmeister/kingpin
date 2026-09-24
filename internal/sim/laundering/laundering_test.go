@@ -38,7 +38,7 @@ func kinds(evs []events.Event) map[string]int {
 func TestBuyFrontRefusals(t *testing.T) {
 	cfg := content.MustLoad()
 	s := laundering.New(cfg)
-	if _, err := s.Buy(world(1_000_000_000), "casino"); err != game.ErrNoFront {
+	if _, err := s.Buy(world(1_000_000_000), "racetrack"); err != game.ErrNoFront {
 		t.Fatalf("unknown front: %v", err)
 	}
 	for _, fc := range cfg.Laundering.Fronts {
@@ -51,8 +51,26 @@ func TestBuyFrontRefusals(t *testing.T) {
 			{"below unlock", fc.Cost * 2, fc.UnlockCash - 1, "nobody will sell"},
 			{"without cash", fc.Cost - 1, fc.UnlockCash * 2, "only have"},
 		}
+		// A front that waits on an asset (#391) is refused without it
+		// whatever the pile, and sold with it like any other.
+		withAsset := func(w *game.World) *game.World {
+			if fc.Asset != "" {
+				w.Assets = append(w.Assets, game.Asset{ID: fc.Asset})
+			}
+			return w
+		}
+		if fc.Asset != "" {
+			w := world(fc.Cost * 3)
+			before := *w
+			if _, err := s.Buy(w, fc.ID); err == nil || !strings.Contains(err.Error(), "stands") {
+				t.Fatalf("%s without its asset: %v", fc.ID, err)
+			}
+			if !reflect.DeepEqual(before, *w) {
+				t.Fatalf("%s without its asset: world changed", fc.ID)
+			}
+		}
 		for _, c := range cases {
-			w := world(c.cash)
+			w := withAsset(world(c.cash))
 			w.Stats.PeakCash = c.peak
 			before := *w
 			_, err := s.Buy(w, fc.ID)
@@ -63,7 +81,7 @@ func TestBuyFrontRefusals(t *testing.T) {
 				t.Fatalf("%s %s: world changed: %+v -> %+v", fc.ID, c.name, before, *w)
 			}
 		}
-		w := world(fc.Cost * 3)
+		w := withAsset(world(fc.Cost * 3))
 		got, err := s.Buy(w, fc.ID)
 		if err != nil || got.ID != fc.ID || got.Cost != fc.Cost || w.Player.DirtyCash != fc.Cost*2 || len(w.Fronts) != 1 {
 			t.Fatalf("%s: buy %v %+v cash %d fronts %d", fc.ID, err, got, w.Player.DirtyCash, len(w.Fronts))

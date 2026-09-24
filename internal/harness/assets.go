@@ -87,11 +87,30 @@ func Cartel(cfg *content.Config, lieLowAt float64) Policy {
 				}
 			}
 		}
+		// The export lanes (#391): every open lane at its capacity, on
+		// the product that pays the most over its cost off the book
+		// tonight, so the glut on one turns the lane to the next.
+		Export(lg, w)
 		// A task force announced this morning comes tonight: a quiet
 		// night is stock and cash lost, never a page.
 		if ht.TaskForceForming(w) {
 			w.SetLieLow(true)
 		}
+	}
+}
+
+// Export sets every open lane's standing order (#391) to its capacity
+// on the product with the best margin tonight (the price abroad, glut
+// and all, over the cost off the book), or off where none pays.
+func Export(lg *logistics.Sim, w *game.World) {
+	for _, l := range lg.LanesOpen(w) {
+		best, margin := "", 0.0
+		for _, id := range l.Products {
+			if m := lg.ExportPrice(w, l, id) - lg.ExportCost(w, id); lg.ExportCost(w, id) > 0 && m > margin {
+				best, margin = id, m
+			}
+		}
+		_ = w.SetExport(l.ID, best, lg.LaneCapacity(w, l))
 	}
 }
 

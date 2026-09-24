@@ -39,8 +39,8 @@ func TestFrontRoles(t *testing.T) {
 	if err := twice.validate(); err == nil {
 		t.Error("a role defined twice is accepted")
 	}
-	unknown := UpgradesConfig{Fronts: []FrontRole{{ID: "casino"}}}
-	if err := unknown.validateFronts(cfg.Laundering); err == nil || !strings.Contains(err.Error(), "casino") {
+	unknown := UpgradesConfig{Fronts: []FrontRole{{ID: "racetrack"}}}
+	if err := unknown.validateFronts(cfg.Laundering); err == nil || !strings.Contains(err.Error(), "racetrack") {
 		t.Errorf("a role for no front: %v", err)
 	}
 	e := UpgradeEffects{RouteRiskMul: 0.75, BuyerGapMul: 0.7}

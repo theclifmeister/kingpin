@@ -68,6 +68,7 @@ type FrontConfig struct {
 	Upkeep     int     `toml:"upkeep"`     // clean cash per day
 	AuditRisk  float64 `toml:"audit_risk"` // chance per day of an audit at the normal dial
 	UnlockCash int     `toml:"unlock_cash"`
+	Asset      string  `toml:"asset"` // an asset that must stand before it is on offer (#391: the cartel's wash); "" is none
 
 	// The levels (#192): clean cash invested in the front for clean
 	// income of its own. Income is what the first level earns a day,
@@ -106,6 +107,17 @@ func (l LaunderingConfig) DialFor(d events.Launder) LaunderConfig {
 // one front, ids unique, a price and a wash on each, the levels (#192)
 // whole where a front has them, and [growth] and [offshore] (#195) in
 // range.
+// validateAssets checks every front gated on an asset names one the
+// assets file has (#391).
+func (l LaunderingConfig) validateAssets(assets AssetsConfig) error {
+	for _, f := range l.Fronts {
+		if f.Asset != "" && assets.Asset(f.Asset) == nil {
+			return fmt.Errorf("front %q waits on asset %q, which assets.toml does not have", f.ID, f.Asset)
+		}
+	}
+	return nil
+}
+
 func (l LaunderingConfig) validate() error {
 	if len(l.Fronts) == 0 {
 		return fmt.Errorf("no fronts defined")

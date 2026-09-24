@@ -201,4 +201,11 @@ type Stats struct {
 	AssetUpkeep int // clean cash the assets' upkeep took
 	TaskForces  int // task forces that came
 	Score       int // the run's score (#49), stamped by End: the offshore account over one plus the bodies; the pile left behind is printed, never scored
+
+	// The export lanes (#391).
+	ExportLoads   int // loads that left
+	ExportUnits   int // units that landed and were paid for
+	ExportCash    int // dirty cash they paid
+	ExportCost    int // dirty cash the loads cost off the book
+	ExportsSeized int // loads seized
 }

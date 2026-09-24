@@ -179,6 +179,16 @@ TunnelFound = [
   "A tunnel, a torch and {{.Product}}: the county's strangest bust in years",
   "Chief {{.Chief}} shows reporters the tunnel: 'they will not dig another'",
 ]
+ExportLanded = [
+  "{{.Qty}} units of {{.Product}} land in Europe; police trace the shipment to {{.City}}",
+  "Port authority in {{.City}}: 'a freighter's worth of {{.Product}} left from here, and nobody saw it go'",
+  "Interpol names {{.City}} as the source of a new {{.Product}} pipeline",
+]
+ExportSeized = [
+  "Coast guard boards the {{.Route}}: {{.Qty}} units of {{.Product}} seized",
+  "Customs abroad seize {{.Qty}} units of {{.Product}} shipped out of {{.City}}",
+  "Biggest {{.Product}} seizure of the year traced back to {{.City}}",
+]
 UnlockedAsset = [
   "{{.Asset}} is for sale in {{.City}}; 'serious money only', says the broker",
   "{{.Asset}} on the market: {{.City}} wonders who has that kind of clean money",

@@ -80,6 +80,7 @@ type Model struct {
 	fnd            fundDialog
 	br             bribeDialog
 	amt            amountDialog     // the one-field dialog open (#275): invest, reserve, pay a cop, buy off, fast-forward
+	expProduct     int              // the export dialog's product (#391), an index into the lane's products on the market
 	spy            spyDialog        // the spy dialog (#45)
 	exit           exitDialog       // the walk-away dialog (#49)
 	amb            ambitionsDialog  // the ambitions panel (#347)

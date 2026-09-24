@@ -169,3 +169,38 @@ income = 100000
 level_cost = 10000000
 level_mul = 1.2
 max_level = 8
+
+# The cartel's wash (#391): the export lanes (exports.toml) land tens of
+# millions a night in dirty cash, and the ladder above washes a few
+# hundred thousand a day. These two wait on the Dutchman's book (asset =
+# "supplier": FrontOffer.Locked reads it, so a run that never owns the
+# book never sees them and is the run before them) as well as on peak
+# cash, and each covers ten times its price of the pile (heat.toml
+# dirty_cash_cover) the way every front does.
+[[front]]
+id = "casino"
+name = "Casino"
+cost = 30000000
+throughput = 1500000
+upkeep = 60000
+audit_risk = 0.01
+unlock_cash = 20000000
+asset = "supplier"
+income = 300000
+level_cost = 30000000
+level_mul = 1.2
+max_level = 8
+
+[[front]]
+id = "bank"
+name = "Private Bank"
+cost = 120000000
+throughput = 6000000
+upkeep = 200000
+audit_risk = 0.015
+unlock_cash = 100000000
+asset = "supplier"
+income = 1200000
+level_cost = 120000000
+level_mul = 1.2
+max_level = 8

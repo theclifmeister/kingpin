@@ -95,7 +95,7 @@ func TestSimsWriteOnlyTheirOwnState(t *testing.T) {
 	owned := map[string][]string{
 		"world":      {"Incidents"}, // its effects apply in game.ApplyIncident, the one place that knows the keys (#44)
 		"market":     {"Cities.Market", "Contracts", "Buyers", "Suppliers", "Markup", "Supply", "Standing", "BaseQuality", "Cities.Corners.Repeat"},
-		"logistics":  {"Shipments", "Logistics", "Routes"},
+		"logistics":  {"Shipments", "Logistics", "Routes", "Exports"}, // the lanes abroad (#391)
 		"territory":  {"Cities.Corners", "Houses"},
 		"rivals":     {"Rivals", "Rival", "Faction", "Offers", "Over", "Reign", "War", "Takes"},                      // the endings it owns (#49): kingpin (the reign's stamp since #227), taken_out, the table's betrayed; the war order it ends (#229)
 		"crew":       {"Crew", "Delegated", "DelegatedSupply", "DelegatedHit", "Over"},                               // broke, and the lieutenant's betrayed (#49)

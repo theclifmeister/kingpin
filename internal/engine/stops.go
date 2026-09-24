@@ -121,7 +121,7 @@ func StopsOn(e events.Event) bool {
 		events.ReignBegan, events.ReignBroken, events.RivalMovedIn, events.RivalEyeing,
 		events.WarEnded, events.RivalRaided, events.RivalAbandoned, events.CrewQuit,
 		events.CrewDefected, events.CrewArrested, events.CrewRetired, events.SpyFound,
-		events.IntelFalse, events.LieutenantWalked, events.FrontAudited, events.ShipmentSeized,
+		events.IntelFalse, events.LieutenantWalked, events.FrontAudited, events.ShipmentSeized, events.ExportSeized,
 		events.DealOffered, events.DealBroken, events.ContractOffered, events.ChiefReplaced,
 		events.DAElected, events.BribeBackfired, events.RaidFellThrough, events.LeadsFiled,
 		events.OfficialsCold, events.SupplyShort, events.StandingShort, events.HouseRobbed,

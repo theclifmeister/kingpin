@@ -35,6 +35,7 @@ type Config struct {
 	Houses      HousesConfig
 	Incidents   IncidentsConfig
 	Assets      AssetsConfig
+	Exports     ExportsConfig
 	Intel       IntelConfig
 	Endings     EndingsConfig
 	Characters  CharactersConfig
@@ -77,6 +78,7 @@ func Load() (*Config, error) {
 		{"incidents.toml", &c.Incidents},
 		{"intel.toml", &c.Intel},
 		{"assets.toml", &c.Assets},
+		{"exports.toml", &c.Exports},
 		{"endings.toml", &c.Endings},
 		{"characters.toml", &c.Characters},
 		{"ambitions.toml", &c.Ambitions},
@@ -111,6 +113,8 @@ func Load() (*Config, error) {
 		{"intel.toml", c.Intel.validate},
 		{"assets.toml", func() error { return c.Assets.validate(c.City) }},
 		{"routes.toml", func() error { return c.Routes.validateAssets(c.Assets) }},
+		{"exports.toml", func() error { return c.Exports.validate(c.City, c.Market, c.Assets) }},
+		{"laundering.toml", func() error { return c.Laundering.validateAssets(c.Assets) }},
 		{"endings.toml", c.Endings.validate},
 		{"headlines.toml", c.Headlines.validate},
 		{"characters.toml", func() error { return c.Characters.validate(c.Crew, c.Upgrades, c.Market, c.City, c.Progression) }},

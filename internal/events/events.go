@@ -2035,6 +2035,57 @@ type TunnelFound struct {
 
 func (TunnelFound) Kind() string { return "TunnelFound" }
 
+// The export lanes (#391): a load bought off the owned book and sent
+// abroad, landing paid or seized. The logistics sim emits all three.
+
+// ExportShipped is report-only: tonight's load on a lane, what it cost
+// off the book, the rate it will be paid at and the day it lands.
+type ExportShipped struct {
+	Day     int
+	Lane    string
+	Name    string
+	Mode    string
+	City    string // where it leaves from
+	Product string
+	Units   int
+	Cost    int
+	Price   float64 // a unit, on landing
+	Lands   int
+}
+
+func (ExportShipped) Kind() string { return "ExportShipped" }
+
+// ExportLanded is a load paid for abroad: Revenue in dirty cash.
+type ExportLanded struct {
+	Day     int
+	Lane    string
+	Name    string
+	Mode    string
+	City    string // where it left from
+	Product string
+	Units   int
+	Cost    int
+	Revenue int
+}
+
+func (ExportLanded) Kind() string { return "ExportLanded" }
+
+// ExportSeized is a load taken on the way: the load and what it cost
+// are gone. Watched says the feds were watching the skies and the sea.
+type ExportSeized struct {
+	Day     int
+	Lane    string
+	Name    string
+	Mode    string
+	City    string
+	Product string
+	Units   int
+	Cost    int
+	Watched bool
+}
+
+func (ExportSeized) Kind() string { return "ExportSeized" }
+
 // Intel (#45): what you know against what is true.
 
 // IntelGained is report-only bookkeeping: a fact filed tonight, by

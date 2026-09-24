@@ -1610,7 +1610,13 @@ func TestLedgerScreenKeys(t *testing.T) {
 	}
 	m.Update(key("b"))
 	m.Update(key("enter"))
-	if rows := m.frontRows(); len(rows) != len(m.rules.Laundering.Offers())-1 || rows[0].ID == cheapest.ID {
+	ungated := 0 // the cartel's wash (#391) is not on offer before the book stands
+	for _, o := range m.rules.Laundering.Offers() {
+		if o.Asset == "" {
+			ungated++
+		}
+	}
+	if rows := m.frontRows(); len(rows) != ungated-1 || rows[0].ID == cheapest.ID {
 		t.Fatalf("picker still offers what you own: %+v", rows)
 	}
 	m.Update(key("esc"))
@@ -2930,6 +2936,13 @@ func TestModalsFit(t *testing.T) {
 			m.Update(key("c"))
 		}},
 		{"fund", modeFund, func(t *testing.T, m *Model) { m.Update(key("7")); m.Update(key("f")) }},
+		// The export order (#391): the book standing, the cursor on a lane.
+		{"export", modeExport, func(t *testing.T, m *Model) {
+			giveBook(m)
+			m.Update(key("7"))
+			onLane(t, m)
+			m.Update(key("t"))
+		}},
 		{"details", modeDetails, func(t *testing.T, m *Model) { m.Update(key("5")); m.mode = modeDetails }},
 		// The cart (#103): the modal on its lines and on a quantity, and
 		// the dialogs with a full cart under the table.

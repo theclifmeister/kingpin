@@ -31,6 +31,8 @@ type Sim struct {
 	float  int                  // dirty cash the road never spends below: the laundering float
 	assets content.AssetsConfig // #48: the port (capacity and customs on the boats into its city) and the routes an asset opens
 	intel  content.IntelTuning  // #45: what a seizure's fact fades at
+
+	exports content.ExportsConfig // #391: the lanes abroad
 }
 
 // New builds a logistics sim from the config, copying what it reads
@@ -41,7 +43,7 @@ type Sim struct {
 // the laundering float: the road never starves the street any more than
 // the wash does.
 func New(cfg *content.Config) *Sim {
-	return &Sim{cfg: cfg.Routes, cities: cfg.City, market: cfg.Market, tree: cfg.Upgrades, law: cfg.Law.Effects, driver: cfg.Crew.Role[game.RoleDriver].DriverCut, float: cfg.Laundering.Laundering.Float, assets: cfg.Assets, intel: cfg.Intel.Intel}
+	return &Sim{cfg: cfg.Routes, cities: cfg.City, market: cfg.Market, tree: cfg.Upgrades, law: cfg.Law.Effects, driver: cfg.Crew.Role[game.RoleDriver].DriverCut, float: cfg.Laundering.Laundering.Float, assets: cfg.Assets, intel: cfg.Intel.Intel, exports: cfg.Exports}
 }
 
 // Open reports whether a route is there to run (#48): every route in
@@ -377,6 +379,7 @@ func (s *Sim) Step(w *game.World, t *game.Tick) {
 	s.deals(w, t)
 	s.move(w, t, fx)
 	s.run(w, t, fx)
+	s.exportsStep(w, t)
 }
 
 // deals reports today's checkpoints and customs agents bought (#42) and,

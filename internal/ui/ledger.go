@@ -160,6 +160,7 @@ const (
 	ledgerDeed       // the property (#194)
 	ledgerAsset      // an asset owned (#48)
 	ledgerAssetOffer // one on offer
+	ledgerLane       // an export lane (#391)
 	ledgerPayoff     // the bought law (#42)
 	ledgerOffer
 )
@@ -201,6 +202,11 @@ func (m *Model) ledgerRows() []ledgerRow {
 		}
 		for i := range m.assetRows() {
 			rows = append(rows, ledgerRow{ledgerAssetOffer, i})
+		}
+	}
+	if m.exportsShown() {
+		for i := range m.exportLanes() {
+			rows = append(rows, ledgerRow{ledgerLane, i})
 		}
 	}
 	for i := range m.payoffRows() {
@@ -406,6 +412,25 @@ func (m *Model) viewLedger() string {
 		}
 	}
 
+	// The export lanes (#391): every lane, once the book stands or a
+	// load has gone.
+	if m.exportsShown() {
+		heading("EXPORTS", m.exportsNote())
+		lanes := m.exportLanes()
+		cols := append([]col(nil), exportCols...)
+		rows := m.exportTable(lanes)
+		for _, drop := range []int{5, 1} {
+			if tableWidth(cols, rows) <= width {
+				break
+			}
+			cols = append(cols[:drop:drop], cols[drop+1:]...)
+			for i := range rows {
+				rows[i] = append(rows[i][:drop:drop], rows[i][drop+1:]...)
+			}
+		}
+		tableLines(ledgerLane, cols, rows)
+	}
+
 	// The road is the map's (#245): the ledger reads its money and
 	// points at the map for the dials, the targets and what is on it.
 	lost := 0
@@ -496,6 +521,10 @@ func (m *Model) ledgerDetails() []section {
 		secs = append(secs, m.assetSection(m.w.Assets[sel.i]))
 	case ledgerAssetOffer:
 		secs = append(secs, m.assetOfferSection(m.assetRows()[sel.i]))
+	case ledgerLane:
+		if l := m.ledgerLaneSelected(); l != nil {
+			secs = append(secs, m.laneSection(*l))
+		}
 	case ledgerPayoff:
 		if rows := m.payoffRows(); sel.i < len(rows) {
 			secs = append(secs, m.payoffSection(rows[sel.i]))
@@ -587,6 +616,8 @@ func (m *Model) offerSection(o game.FrontOffer) section {
 		lines = append(lines, m.frontRole(o.ID, here.ID)...)
 	}
 	switch {
+	case o.Asset != "" && !w.AssetLive(o.Asset):
+		lines = append(lines, theme.Subtle.Render("locked until "+o.AssetName+" stands"))
 	case o.Locked(w):
 		lines = append(lines, theme.Subtle.Render("locked until peak cash "+cash(o.UnlockCash)), theme.Subtle.Render(cash(o.UnlockCash-w.Stats.PeakCash)+" to go"))
 	case o.Cost > w.Player.DirtyCash:

@@ -1,0 +1,86 @@
+# Exports (#391): the lanes abroad. At tier 5 the operation is bound by
+# demand (two cities' corners) and the assets only make supply cheaper;
+# a lane is demand the corners do not bound. Every lane needs the
+# Dutchman's book (the supplier asset): a load is bought straight off
+# the owned book at its own_ratio of street in the book's city and never
+# touches a stash, so no house and no corner caps it. It leaves the
+# night the order is set, sails `days`, and lands paid in dirty cash at
+# `price` times the street price in the lane's city (the rate locked the
+# night it left), unless it is seized on the way: one roll a load, on
+# landing, off the exports side stream (game.StreamExports), so a run
+# with no lane open draws nothing and replays as it did before the file.
+#
+# [exports]
+#   watched_mul   a lane's risk while the feds watch (the task force's
+#                 cooldown, HeatState.WatchUntil)
+#   glut_floor    the lowest a glutted price goes, a fraction of `price`
+#   record_days   how long a landed or seized load stays on the ledger
+#
+# Each [[lane]]:
+#   id, name      the lane; name is what the ledger and the report say
+#   city          where it leaves from; the price abroad is a multiple
+#                 of the street price here
+#   mode          boat or plane; the port (assets.toml) multiplies a
+#                 boat's capacity out of its city by its capacity_mul
+#   asset         the asset that opens it beside the book; "" is the book
+#                 alone
+#   capacity      units one night's load carries at most
+#   days          in transit
+#   price         the price abroad, a multiple of street in `city`
+#   risk          the chance a load is seized
+#   glut          what a full load takes off the lane's next price for
+#                 that product (a fraction; a part load its share)
+#   recover       what comes back a day
+#   products      what it ships
+#
+# The numbers are measured in #391's PR with `cmd/balance -policy cartel`:
+# the book is bought about day 215, so the lanes have the last three
+# months of the cartel checkpoint to carry the day-300 figure into the
+# billions (the money curve's tier-5 band, docs/tuning.md).
+
+[exports]
+watched_mul = 3.0
+glut_floor = 0.4
+record_days = 14
+
+[[lane]]
+id = "rotterdam"
+name = "Rotterdam freighter"
+city = "bayport"
+mode = "boat"
+asset = ""
+capacity = 16000
+days = 8
+price = 0.8
+risk = 0.03
+glut = 0.05
+recover = 0.03
+products = ["coke", "heroin", "meth", "designer"]
+
+[[lane]]
+id = "gulf"
+name = "Gulf container line"
+city = "bayport"
+mode = "boat"
+asset = "port"
+capacity = 20000
+days = 12
+price = 0.7
+risk = 0.04
+glut = 0.05
+recover = 0.03
+products = ["coke", "heroin", "meth", "designer"]
+
+[[lane]]
+id = "charter"
+name = "Night charter"
+city = "eastside"
+mode = "plane"
+asset = "airstrip"
+capacity = 5000
+days = 2
+price = 1.1
+risk = 0.02
+glut = 0.08
+recover = 0.04
+products = ["coke", "heroin", "meth", "designer"]

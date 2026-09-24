@@ -764,3 +764,13 @@ id = "exchange"
 role = "A crypto exchange: the money leaves the country for less, and the auditors know the name."
 [front.effects]
 offshore_fee_mul = 0.7
+
+[[front]]
+id = "casino"
+role = "A casino: chips in, chips out, and the house always has a story for the difference."
+
+[[front]]
+id = "bank"
+role = "A private bank: the money leaves by wire, and the auditors sit on its board."
+[front.effects]
+offshore_fee_mul = 0.5

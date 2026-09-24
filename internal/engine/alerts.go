@@ -542,7 +542,9 @@ func (s *Session) NextGates() []Gate {
 func (s *Session) FrontOffers() []game.FrontOffer {
 	var out []game.FrontOffer
 	for _, o := range s.set.Laundering.Offers() {
-		if s.w.Front(o.ID) == nil {
+		// A front that waits on an asset (#391: the cartel's wash) is not
+		// on offer, and no door to count down to, until the asset stands.
+		if s.w.Front(o.ID) == nil && (o.Asset == "" || s.w.AssetLive(o.Asset)) {
 			out = append(out, o)
 		}
 	}

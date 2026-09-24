@@ -17,12 +17,12 @@ import (
 // and none changes it. An action is a session command (commands.go),
 // never a World method a front end calls itself.
 var worldReads = []string{
-	"AssetLost", "AtPeaceWith", "Available", "BestSupplier", "Bound", "BuyMarkup", "Campaigning", "CanBuyIn",
+	"AssetLive", "AssetLost", "AtPeaceWith", "Available", "BestSupplier", "Bound", "BuyMarkup", "Campaigning", "CanBuyIn",
 	"CanCrown", "CanUndercut", "CanVanish", "Capacity", "Cash", "Checkpoint", "City", "CityName",
 	"CityOf", "Cold", "Contested", "ContestedBy", "Contract", "ContractsDue", "ContractsIn", "Corner",
 	"DealWith", "DeedValue", "Deeds", "DeedsIn", "DelegatedOrder", "DelegatedSupplied", "Deliverable", "Demand",
-	"Describe", "DrivenRoute", "Faction", "FactionIndex", "FactionName", "FallGuyLeft", "FavourCalled", "Free",
-	"Front", "FrontCity", "GuardOf", "Held", "Here", "HomageDeals", "Home", "House", "HousesIn",
+	"Describe", "DrivenRoute", "ExportOrder", "ExportsOut", "Faction", "FactionIndex", "FactionName", "FallGuyLeft", "FavourCalled", "Free",
+	"Front", "FrontCity", "Glut", "GuardOf", "Held", "Here", "HomageDeals", "Home", "House", "HousesIn",
 	"LeadName", "Lot", "MaxBuy", "Missing", "NextDoor", "Order", "Owed", "Owns", "PostOf", "Product",
 	"ProductName", "Quality", "QueuedDelivery", "Quote", "ReachedOn", "ReignDay", "ReservedToday", "Rival",
 	"RivalHeld", "RivalHeldBy", "Route", "RouteClosed", "Score", "Side", "SplitLinesWith", "Stage",

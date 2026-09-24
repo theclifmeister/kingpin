@@ -142,6 +142,12 @@ var ruleParams = map[reflect.Type]ruleParam{
 		}
 		return nil, false
 	})},
+	reflect.TypeFor[content.LaneConfig](): {stringT, "lane", byID("lane", func(_ *game.World, s *engine.Session, id string) (any, bool) {
+		if l := s.Rules().Logistics.Lane(id); l != nil {
+			return *l, true
+		}
+		return nil, false
+	})},
 	reflect.TypeFor[game.Deal](): {reflect.TypeFor[DealParams](), "deal", func(_ *game.World, _ *engine.Session, raw json.RawMessage) (reflect.Value, error) {
 		var d DealParams
 		if err := json.Unmarshal(raw, &d); err != nil {
@@ -183,6 +189,13 @@ var ruleResults = map[reflect.Type]ruleResult{
 		ids := []string{}
 		for _, r := range v.Interface().([]content.RouteConfig) {
 			ids = append(ids, r.ID)
+		}
+		return ids
+	}},
+	reflect.TypeFor[[]content.LaneConfig](): {reflect.TypeFor[[]string](), func(v reflect.Value) any {
+		ids := []string{}
+		for _, l := range v.Interface().([]content.LaneConfig) {
+			ids = append(ids, l.ID)
 		}
 		return ids
 	}},

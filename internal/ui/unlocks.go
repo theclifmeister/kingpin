@@ -85,6 +85,13 @@ func (m *Model) nextProductNote(city string) string {
 // locked: `locked · $18K to go`, or `$18K to go` where the table is
 // short of room.
 func lockedStatus(w *game.World, o game.FrontOffer, long bool) string {
+	if o.Asset != "" && !w.AssetLive(o.Asset) {
+		// A front that waits on an asset (#391): the asset is the line.
+		if long {
+			return "locked · needs " + o.AssetName
+		}
+		return "needs " + o.AssetName
+	}
 	toGo := cash(o.UnlockCash-w.Stats.PeakCash) + " to go"
 	if long {
 		return "locked · " + toGo

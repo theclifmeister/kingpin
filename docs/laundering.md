@@ -25,6 +25,12 @@ The roles (sized so every pinned band and pin holds, below):
 | nightclub | contacts at a price | `buyer_gap_mul` 0.85 (the buyers come sooner), `robbery_mul` 1.1 and `sale_heat_mul` 1.02 in its city |
 | construction | property | `deed_cost_mul` 0.9, `rent_mul` 1.2 in its city |
 | exchange | the money | `offshore_fee_mul` 0.7; its file `audit_risk` is the highest |
+| casino | the cartel's wash (#391) | none: a pure wash |
+| bank | the cartel's wash (#391) | `offshore_fee_mul` 0.5 |
+
+**The cartel's wash** (#391, `docs/exports.md`): `[[front]]` gained `asset`, an asset that must stand before the front is on offer (`FrontOffer.Asset`, `AssetName`; `Locked` reads it beside peak cash; `BuyFront` refuses `nobody will sell you Casino until The Dutchman's Book stands`; `validateAssets` checks the id at load).
+The Casino ($30M, washes $1.5M a day, $60k upkeep, audit 0.01, line $20M peak cash) and the Private Bank ($120M, $6M a day, $200k upkeep, audit 0.015, line $100M) both wait on the book, so the lanes' landings have somewhere to go: each covers ten times its price of the pile (`dirty_cash_cover`), and each pays 1% a day in levels like every front (`income` $300k and $1.2M on `level_cost` $30M and $120M).
+Until the book stands the pair is on no list: not on offer (`Session.FrontOffers` skips them, so the ledger's ON OFFER and the picker read as before), no gate counted down to, no `Unlocked` (the laundering sim's `announce` waits for both lines), so a run that never owns the book is the run before them.
 
 The restaurant and the nightclub in one city cancel on the robbery (0.9 × 1.1): a choice of where, not only which.
 The restaurant's `sale_heat_mul` is #379's: with the veterans (#346) on, the car wash led `TestNoFrontDominates` on all three counts (days hot 72.5 against the restaurant's 75.3, corners 2.30 against the laundromat's 2.20), and its own role (the road) does nothing for a player with no route, so the edge had to be someone else's; the car wash's `route_risk_mul` at 0.88 or 0.9 moves none of the three.

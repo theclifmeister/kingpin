@@ -150,6 +150,8 @@ var bindings = []binding{
 		do: func(m *Model, _ string) { m.askInvest() }},
 	{key: "o", label: "reserve", help: "clean cash into the offshore account", screens: on(screenLedger),
 		do: func(m *Model, _ string) { m.askReserve() }},
+	{key: "t", label: "export order", help: "the selected export lane's nightly load", screens: on(screenLedger), when: ledgerOnLane,
+		do: func(m *Model, _ string) { m.askExport() }},
 	{key: "w", label: "walk away", help: "retire, vanish, or take the crown", screens: on(screenDashboard),
 		do: func(m *Model, _ string) { m.askExit() }},
 	{key: "o", label: "open alert", help: "go where the selected alert is answered", screens: on(screenDashboard), when: hasAlerts,
@@ -244,6 +246,7 @@ var modeBindings = []binding{
 	// Every picker takes the digits as select-and-commit and says so (#241).
 	{key: "1-9", label: "choose", modes: in(modePost, modeStrike, modeFront, modeAssign, modePropose, modeGuard, modeDriver, modeSpy, modeCaptain, modeAmbitions)},
 	{key: "←→", label: "budget", modes: in(modeCaptain)},
+	{key: "←→", label: "product", modes: in(modeExport)},
 	{key: "1-9", label: "choose", modes: in(modeExit), when: step(0)},
 	// The undercut is a dial like the sale's (#241): ←→ turns it, 1-3 pick a notch.
 	{key: "←→", label: "dial", modes: in(modeUndercut)},
@@ -296,6 +299,7 @@ var modeBindings = []binding{
 	{key: "enter", label: "sell", modes: in(modeSell), when: sellOnce},
 	{key: "enter", label: "sell nightly", modes: in(modeSell), when: sellStanding},
 	{key: "enter", label: "set", modes: in(modeTarget), when: step(2)},
+	{key: "enter", label: "set", modes: in(modeExport)},
 	{key: "enter", label: "quantity", modes: in(modeCart), when: cartHasLines},
 	{key: "x", label: "remove", modes: in(modeCart), when: cartHasLines},
 	{key: "enter", label: "set", modes: in(modeCart), when: step(1)},

@@ -54,6 +54,11 @@ type World struct {
 	Assets     []Asset
 	AssetsLost []Asset
 
+	// The export lanes (#391, game/exports.go): the standing orders, the
+	// loads out and the glut abroad. The logistics sim's; zero is the
+	// run before the lanes.
+	Exports ExportsState
+
 	// The lieutenants' supply contracts (#174), keyed like Supply: the
 	// crew step refreshes them nightly by the temper's stock_days and
 	// the market sim fills them where the player has set none of their
@@ -763,6 +768,9 @@ func (w *World) NetWorth() int {
 	}
 	for _, a := range w.Assets {
 		n += a.Cost // at cost (#48): what was paid, while it stands
+	}
+	for _, l := range w.Exports.Loads {
+		n += l.Cost // a load out at what it cost (#391), as a shipment at the connect's price
 	}
 	return n
 }

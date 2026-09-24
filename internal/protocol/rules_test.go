@@ -310,6 +310,9 @@ func (q quoteRig) arg(t *testing.T, name string, typ reflect.Type) (any, reflect
 			}
 		}
 		t.Fatal("no route open")
+	case reflect.TypeFor[content.LaneConfig]():
+		l := s.Rules().Logistics.Lanes()[0]
+		return l.ID, reflect.ValueOf(l)
 	case reflect.TypeFor[game.Deal]():
 		return DealParams{Kind: "truce", Terms: TermsParams{Days: 10}}, reflect.ValueOf(game.Deal{Kind: "truce", Terms: game.Terms{Days: 10}})
 	}

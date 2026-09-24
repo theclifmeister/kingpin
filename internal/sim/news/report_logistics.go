@@ -53,6 +53,31 @@ func (r *reporter) reportLogistics(e events.Event) bool {
 		d.Asset, d.Route, d.Product = ev.Name, ev.Name, w.ProductName(ev.Product)
 		r.addOff(game.StreamAssetsNews, "heat", "TunnelFound", d)
 		rep.Shipments = append(rep.Shipments, fmt.Sprintf("THE TUNNEL IS FOUND: %d %s taken in it, and it is shut for good.", ev.Units, w.ProductName(ev.Product)))
+	// The export lanes (#391): the load is paid for off the book the
+	// night it leaves and pays on landing; a seizure loses what it cost.
+	case events.ExportShipped:
+		r.book(game.FlowPurchases, -ev.Cost, 0)
+		rep.Shipments = append(rep.Shipments, fmt.Sprintf("%d %s left %s on the %s, bought off the book for -%s: %s a unit abroad, landing day %d", ev.Units, w.ProductName(ev.Product), w.CityName(ev.City), ev.Name, format.Money(ev.Cost), format.Price(ev.Price), ev.Lands))
+		rep.Money = append(rep.Money, fmt.Sprintf("The %s's load off the book -%s", ev.Name, format.Money(ev.Cost)))
+	case events.ExportLanded:
+		r.book(game.FlowSales, ev.Revenue, 0)
+		if w.Stats.ExportUnits == ev.Units {
+			// The first load paid is news: the city learns its size.
+			d := r.at(ev.City)
+			d.Product, d.Qty, d.Mode, d.Route = w.ProductName(ev.Product), ev.Units, ev.Mode, ev.Name
+			r.addOff(game.StreamExportsNews, "logistics", "ExportLanded", d)
+		}
+		rep.Shipments = append(rep.Shipments, fmt.Sprintf("The %s landed %d %s abroad: +%s dirty on %s it cost.", ev.Name, ev.Units, w.ProductName(ev.Product), format.Money(ev.Revenue), format.Money(ev.Cost)))
+		rep.Money = append(rep.Money, fmt.Sprintf("The %s landed abroad %s", ev.Name, format.Signed(ev.Revenue)))
+	case events.ExportSeized:
+		d := r.at(ev.City)
+		d.Product, d.Qty, d.Mode, d.Route = w.ProductName(ev.Product), ev.Units, ev.Mode, ev.Name
+		r.addOff(game.StreamExportsNews, "logistics", "ExportSeized", d)
+		line := fmt.Sprintf("SEIZED abroad: the %s's %d %s, and the %s it cost, gone.", ev.Name, ev.Units, w.ProductName(ev.Product), format.Money(ev.Cost))
+		if ev.Watched {
+			line += " The feds were watching: every lane runs hot while they do."
+		}
+		rep.Shipments = append(rep.Shipments, line)
 	// Intel (#45): the facts filed tonight are the report's INTEL
 	// section; a spy going under, one found and a lie that bit are
 	// news, their templates picked off the intel side stream.
