@@ -10,7 +10,7 @@ import path from "node:path";
 import { createRequire } from "node:module";
 import { pathToFileURL } from "node:url";
 
-const [site, kindsJSON, bossPath, alertKindsJSON] = process.argv.slice(2);
+const [site, kindsJSON, bossPath, alertKindsJSON, exitsPath] = process.argv.slice(2);
 const kinds = JSON.parse(kindsJSON);
 const alertKinds = JSON.parse(alertKindsJSON);
 const require = createRequire(import.meta.url);
@@ -33,6 +33,7 @@ const { drawMap } = await mod("scene.js");
 const { SPRITES } = await mod("sprites.js");
 const { WORDS, PANELS, alertText, alertPanel } = await mod("alerts.js");
 const { fileWord, policeLines } = await mod("police.js");
+const { EXITS, exits, claim, tonightText } = await mod("exits.js");
 
 const go = new Go();
 const { instance } = await WebAssembly.instantiate(fs.readFileSync(path.join(site, "kingpin.wasm")), go.importObject);
@@ -273,7 +274,7 @@ const ids = {
   route: first(last.routes).id, from: city, to: (last.cities[1] || last.cities[0]).id, house: first(last.houses).id,
   product: "weed", units: 10, shipment: 1, level: "raid",
 };
-const phases = { shipment: ["sent", "landed", "seized"], property: ["bought", "lost"], run: ["began", "broke", "ended"], market: ["shock", "slump"], crew_down: [""], corner_flip: [""] };
+const phases = { shipment: ["sent", "landed", "seized"], property: ["bought", "lost"], run: ["began", "broke", "straight", "lapsed", "ended"], market: ["shock", "slump"], crew_down: [""], corner_flip: [""] };
 out.synthetic = [];
 for (const k of kinds) {
   if (all.has(k)) continue;
@@ -284,5 +285,47 @@ for (const k of kinds) {
     if (k === "crew_down") animate({ ...c, dead: true }, L, last, `made-up ${k}`);
   }
 }
+// The ways out and the money (#405): each save the Go test built has
+// one way out open; the page's exits read it open and the rest closed
+// with what is short, the claim ends the run on it, and on the first a
+// cash-out lands the clean cash dirty less the fee the rule quotes, and
+// the tonight line reads.
+const saves = JSON.parse(fs.readFileSync(exitsPath, "utf8"));
+out.exits = {};
+for (const e of EXITS) {
+  const s = new Session(kingpin);
+  s.importSave(saves[e.id]);
+  const read = exits(s.view);
+  const mine = read.find((x) => x.id === e.id);
+  for (const x of read) if (x.id !== e.id && (x.open || !x.why || /undefined|NaN|null/.test(x.why))) problem(`${e.id}'s save: ${x.id} reads ${JSON.stringify(x)}`);
+  if (e.id === "retire") {
+    const before = s.view.you;
+    const fee = s.cashOutFee(1000);
+    s.cashOut(1000);
+    const after = s.refresh().you;
+    out.cashOut = { dirty: after.dirty_cash - before.dirty_cash, clean: before.clean_cash - after.clean_cash, fee };
+    const t = tonightText(s.forecast());
+    if (!/Tonight the police count/.test(t) || /undefined|NaN/.test(t)) problem(`the tonight line: ${t}`);
+  }
+  let over = "";
+  try {
+    over = claim(s, e.id).over?.cause || "";
+  } catch (err) {
+    problem(`${e.id}: the claim was refused: ${err.message}`);
+  }
+  out.exits[e.id] = { open: mine.open, over };
+}
+// A closed way out is refused by the engine, not the page.
+{
+  const s = new Session(kingpin);
+  s.newRun(7);
+  try {
+    s.crown();
+    problem("the crown was taken on day 0");
+  } catch (err) {
+    if (!err.refused) problem(`the crown on day 0 threw ${err}`);
+  }
+}
+
 console.log(JSON.stringify(out));
 process.exit(0);

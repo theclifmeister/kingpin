@@ -517,3 +517,45 @@ func TestViewCarriesThePolice(t *testing.T) {
 		t.Errorf("day %d: no city carries a cop's word, and one was paid", w.Day)
 	}
 }
+
+// TestViewCarriesLanesAndTrophies (#405): every export lane is in the
+// view, shut with the asset it waits on before the book, open with what
+// it carries once the book stands; the order, the loads out, the next
+// landing and what it pays are the world's; a trophy owned is listed.
+func TestViewCarriesLanesAndTrophies(t *testing.T) {
+	cfg := content.MustLoad()
+	s, err := engine.New(cfg)
+	if err != nil {
+		t.Fatal(err)
+	}
+	w := s.NewRun(7, game.Start{})
+	v := s.View()
+	if len(v.Exports) != len(cfg.Exports.Lanes) || len(v.Trophies) != 0 {
+		t.Fatalf("day 0: %d lanes (the file has %d), %d trophies", len(v.Exports), len(cfg.Exports.Lanes), len(v.Trophies))
+	}
+	book := cfg.Assets.ByEffect(content.AssetSupplier)
+	for _, l := range v.Exports {
+		if l.Open || l.Needs != book.Name || l.Out != 0 {
+			t.Fatalf("day 0: %+v, want shut on %s", l, book.Name)
+		}
+	}
+	w.Assets = append(w.Assets, game.Asset{ID: book.ID})
+	lane := cfg.Exports.Lanes[0]
+	if lane.Asset != "" {
+		t.Fatalf("the first lane waits on %s as well as the book", lane.Asset)
+	}
+	product := lane.Products[0]
+	if err := w.SetExport(lane.ID, product, 500); err != nil {
+		t.Fatal(err)
+	}
+	w.Exports.Loads = append(w.Exports.Loads, game.ExportLoad{ID: 1, Lane: lane.ID, Product: product, Units: 500, Price: 1_000, Left: w.Day, Lands: w.Day + lane.Days})
+	w.Trophies = append(w.Trophies, game.Trophy{ID: "yacht", Name: "A yacht", Cost: 25_000_000, Bought: w.Day})
+	v = s.View()
+	got := v.Exports[0]
+	if !got.Open || got.Needs != "" || got.Capacity <= 0 || got.Product != product || got.Units != 500 || got.Price <= 0 || got.Out != 1 || got.Lands != w.Day+lane.Days || got.Pays != 500_000 {
+		t.Fatalf("the open lane: %+v", got)
+	}
+	if len(v.Trophies) != 1 || v.Trophies[0] != (engine.TrophyView{ID: "yacht", Name: "A yacht", Cost: 25_000_000, Bought: w.Day}) {
+		t.Fatalf("the trophies: %+v", v.Trophies)
+	}
+}

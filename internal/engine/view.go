@@ -4,6 +4,7 @@ import (
 	"reflect"
 	"sort"
 
+	"github.com/theclifmeister/kingpin/internal/content"
 	"github.com/theclifmeister/kingpin/internal/game"
 )
 
@@ -12,7 +13,9 @@ import (
 // save's game.SchemaVersion: the world is free to change shape, the view
 // is the contract a front end in another process is written against.
 // TestViewShapeIsPinned fails on a shape change that keeps the number.
-const ViewVersion = 11
+// 12 added exports and trophies (#405): the lanes and the trophies the
+// wire could order and buy since #391 and #392 but not show.
+const ViewVersion = 12
 
 // View is a snapshot of what the player can see: what a front end draws
 // (#299). It is built from the world the way the TUI reads it and holds
@@ -38,6 +41,8 @@ type View struct {
 	Connects  []ConnectView  `json:"connects"`
 	Houses    []HouseView    `json:"houses"`
 	Fronts    []FrontView    `json:"fronts"`
+	Exports   []LaneView     `json:"exports"`  // every export lane in the file (#391, #405), open or not
+	Trophies  []TrophyView   `json:"trophies"` // the trophies you own (#392, #405)
 	Factions  []FactionView  `json:"factions"`
 	Law       LawView        `json:"law"`
 	Card      *CardView      `json:"card,omitempty"`
@@ -273,6 +278,36 @@ type FrontView struct {
 	Level  int    `json:"level"`
 	Frozen bool   `json:"frozen,omitempty"`
 	Washed int    `json:"washed"`
+}
+
+// LaneView is an export lane (#391) as the ledger shows it (#405): open
+// or what opens it (Needs, the asset's name), the standing order, the
+// rate a unit abroad tonight on the ordered product, what it carries
+// tonight, and the loads out with the next landing and what it pays.
+type LaneView struct {
+	ID       string   `json:"id"`
+	Name     string   `json:"name"`
+	City     string   `json:"city"`
+	Mode     string   `json:"mode"`
+	Days     int      `json:"days"`
+	Products []string `json:"products"`
+	Open     bool     `json:"open"`
+	Needs    string   `json:"needs,omitempty"`
+	Capacity int      `json:"capacity"` // units a night tonight
+	Product  string   `json:"product,omitempty"`
+	Units    int      `json:"units,omitempty"`
+	Price    float64  `json:"price,omitempty"` // a unit abroad tonight on Product, glut and all
+	Out      int      `json:"out"`             // loads at sea or in the air
+	Lands    int      `json:"lands,omitempty"` // the day the next one lands
+	Pays     int      `json:"pays,omitempty"`  // what the next one pays on landing
+}
+
+// TrophyView is a trophy you own (#392).
+type TrophyView struct {
+	ID     string `json:"id"`
+	Name   string `json:"name"`
+	Cost   int    `json:"cost"`
+	Bought int    `json:"bought"`
 }
 
 // FactionView is a faction at the table as the player knows it: what
@@ -592,6 +627,10 @@ func (s *Session) View() View {
 	for _, f := range w.Fronts {
 		v.Fronts = append(v.Fronts, FrontView{ID: f.ID, Name: f.Name, Level: f.Level, Frozen: f.FrozenUntil > w.Day, Washed: f.Washed})
 	}
+	v.Exports = s.laneViews()
+	for _, t := range w.Trophies {
+		v.Trophies = append(v.Trophies, TrophyView{ID: t.ID, Name: t.Name, Cost: t.Cost, Bought: t.Bought})
+	}
 	for _, r := range w.Rivals {
 		id := r.Faction()
 		fv := FactionView{ID: id, Leader: r.Leader, Alive: r.Alive(), Arrived: r.Arrived, Corners: w.RivalHeldBy(id), Trust: r.Trust, War: r.War, Personality: known.Personality(id)}
@@ -711,4 +750,40 @@ func sortedKeys[V any](m map[string]V) []string {
 	}
 	sort.Strings(keys)
 	return keys
+}
+
+// laneViews is every export lane as the view carries it (#405): the
+// TUI's EXPORTS block, read the same way.
+func (s *Session) laneViews() []LaneView {
+	w, lg := s.w, s.set.Logistics
+	var out []LaneView
+	for _, l := range lg.Lanes() {
+		lv := LaneView{ID: l.ID, Name: l.Name, City: l.City, Mode: l.Mode, Days: l.Days, Products: append([]string{}, l.Products...), Open: lg.LaneOpen(w, l)}
+		if lv.Open {
+			lv.Capacity = lg.LaneCapacity(w, l)
+		} else {
+			lv.Needs = s.laneNeeds(l)
+		}
+		if o := w.ExportOrder(l.ID); o.On() {
+			lv.Product, lv.Units, lv.Price = o.Product, o.Units, lg.ExportPrice(w, l, o.Product)
+		}
+		if loads := w.ExportsOut(l.ID); len(loads) > 0 {
+			lv.Out, lv.Lands, lv.Pays = len(loads), loads[0].Lands, loads[0].Revenue()
+		}
+		out = append(out, lv)
+	}
+	return out
+}
+
+// laneNeeds is the asset a shut lane waits on: the book when that is
+// what is missing, else the lane's own.
+func (s *Session) laneNeeds(l content.LaneConfig) string {
+	w := s.w
+	if b := s.cfg.Assets.ByEffect(content.AssetSupplier); b != nil && !w.AssetLive(b.ID) {
+		return b.Name
+	}
+	if a := s.cfg.Assets.Asset(l.Asset); a != nil && !w.AssetLive(a.ID) {
+		return a.Name
+	}
+	return ""
 }

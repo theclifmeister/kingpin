@@ -7,7 +7,7 @@
 // The versions this client is written against. A module with another
 // protocol or view version is refused before a run starts: a field
 // renamed under the client would draw a wrong game, not fail.
-export const SUPPORTED = { protocol: [15], view: [11] };
+export const SUPPORTED = { protocol: [15], view: [12] };
 
 export class VersionError extends Error {}
 
@@ -130,6 +130,37 @@ export class Session {
   }
   sell(city, product, qty, dial) {
     return this.call("place_sell", city, product, qty, dial);
+  }
+  // The money (#405): clean cash back into the dirty pile at the
+  // file's fee (#395), clean cash into the offshore account (#195), and
+  // tonight's pile as the police will count it (#397): {dirty,
+  // landings, loads, wages, pile, line, heat}. The forecast changes
+  // nothing.
+  cashOut(amount) {
+    return this.call("cash_out", amount);
+  }
+  cashOutFee(amount) {
+    return this.call("rules.laundering.cash_out_fee", amount);
+  }
+  reserve(amount) {
+    return this.call("reserve", amount);
+  }
+  forecast() {
+    return this.call("forecast");
+  }
+  // The ways out (#405): each ends the run on its own terms and is
+  // refused while they are not met (exits.js says which are).
+  retire() {
+    return this.call("retire");
+  }
+  vanish() {
+    return this.call("vanish");
+  }
+  crown() {
+    return this.call("crown");
+  }
+  goStraight() {
+    return this.call("go_straight");
   }
   exportSave() {
     return this.call("export_save");
