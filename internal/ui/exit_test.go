@@ -289,12 +289,13 @@ func TestFastForwardStopsOnTheReign(t *testing.T) {
 			t.Errorf("the summary lacks %q:\n%s", want, view)
 		}
 	}
-	// Without the reign the row is closed and refused.
+	// Without the reign the row is closed and refused, saying what is
+	// short in the kingpin plan's steps (#399).
 	m = richModel(t, 100, 30)
 	m.Update(key("1"))
 	m.Update(key("w"))
 	m.Update(key("3"))
-	if m.mode != modeExit || m.exit.step != 0 || !strings.Contains(m.status, "not yours") {
+	if m.mode != modeExit || m.exit.step != 0 || !strings.Contains(m.status, "corners held") || !strings.Contains(m.status, "still standing") {
 		t.Fatalf("the crown with no reign: mode %v step %d status %q", m.mode, m.exit.step, m.status)
 	}
 }

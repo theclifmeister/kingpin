@@ -119,6 +119,10 @@ func (m *Model) alertOf(a engine.Alert) alert {
 			who = fmt.Sprintf("%s paying %s a night", plural(a.Count, "crew"), money(a.Amount))
 		}
 		text = theme.Gold.Render(fmt.Sprintf("The city is yours: day %d of the reign, %s. Take the crown or play on.", a.Days, who))
+		if slip := w.ReignSlip; slip > 0 {
+			left := m.cfg.Rivals.Endings.ReignGrace - slip + 1
+			text = theme.Warning.Render(fmt.Sprintf("The reign is slipping under the share of the corners: it breaks in %s unless you take corners back.", plural(left, "morning")))
+		}
 	case engine.AlertStraight:
 		text = theme.Gold.Render(fmt.Sprintf("The fronts earn %s a day, more than the street: go straight (walk away) or play on.", money(a.Amount)))
 	case engine.AlertPlan:

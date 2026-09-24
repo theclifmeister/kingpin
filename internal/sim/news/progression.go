@@ -46,6 +46,9 @@ func reignLine(w *game.World, t *game.Tick) string {
 	} else {
 		line += " · every crew gone"
 	}
+	if w.ReignSlip > 0 {
+		line += " · slipping under the share" // #399: riding the grace, the crown waiting
+	}
 	return line
 }
 

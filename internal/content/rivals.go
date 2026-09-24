@@ -38,6 +38,7 @@ type RivalsConfig struct {
 type RivalEndingsTuning struct {
 	DominantDays   int     `toml:"dominant_days"`
 	KingpinShare   float64 `toml:"kingpin_share"` // ... holding more than this share of home's corners: the weather can empty a table, a city nobody holds has no kingpin
+	ReignGrace     int     `toml:"reign_grace"`   // mornings a reign rides under the share before it breaks (#399); 0 breaks it the first
 	TakenOutMuscle int     `toml:"taken_out_muscle"`
 	BetrayWar      float64 `toml:"betray_war"`
 }

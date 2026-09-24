@@ -33,21 +33,28 @@ func (s *Sim) endings(w *game.World, t *game.Tick) {
 	// it stops holding (a faction set up again, the share fell) the
 	// stamp zeroes (ReignBroken) and it can begin again. A run that
 	// never reaches it is the run before.
+	// Since #399 a reign whose share slips rides it reign_grace mornings
+	// (World.ReignSlip) before it breaks, the crown waiting meanwhile; a
+	// crew setting up again breaks it at once.
 	if tun.DominantDays > 0 {
 		held, dominant := s.HoldsTheCity(w), w.Dominant()
 		switch {
 		case held && dominant && t.Day-s.DominantSince(w) >= tun.DominantDays:
+			w.ReignSlip = 0
 			if w.Reign == 0 {
 				w.Reign = t.Day
 				crews, homage := w.HomageDeals()
-				t.Emit(events.ReignBegan{Day: t.Day, City: w.Home().ID, Crews: crews, Homage: homage})
+				t.Emit(events.ReignBegan{Day: t.Day, City: w.Home().ID, Crews: crews, Homage: homage, Again: w.Reigns > 0})
+				w.Reigns++
 			}
+		case w.Reign != 0 && !held && dominant && w.ReignSlip < tun.ReignGrace:
+			w.ReignSlip++
 		case w.Reign != 0:
 			why := "a crew set up again"
 			if !held {
 				why = "the city slipped under the share"
 			}
-			w.Reign = 0
+			w.Reign, w.ReignSlip = 0, 0
 			t.Emit(events.ReignBroken{Day: t.Day, City: w.Home().ID, Why: why})
 		}
 	}

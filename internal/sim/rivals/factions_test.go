@@ -740,7 +740,7 @@ func TestReignBreaks(t *testing.T) {
 			t.Fatalf("the sim ended the run: %+v", w.Over)
 		}
 	}
-	if began == nil || w.Reign != w.Day || w.Day-20 != days || !w.CanCrown() || began.Crews != 1 || began.Homage != 100 {
+	if began == nil || w.Reign != w.Day || w.Day-20 != days || !w.CanCrown() || began.Crews != 1 || began.Homage != 100 || began.Again {
 		t.Fatalf("the reign: began %+v, Reign %d on day %d (dominant since %d), crown %v", began, w.Reign, w.Day, s.DominantSince(w), w.CanCrown())
 	}
 	if w.ReignDay() != 1 {
@@ -770,17 +770,45 @@ func TestReignBreaks(t *testing.T) {
 	if began == nil || w.Day-from != days || !w.CanCrown() {
 		t.Fatalf("the reign did not begin again: %+v on day %d from %d", began, w.Day, from)
 	}
-	// The share falling breaks it too.
+	if !began.Again {
+		t.Fatal("a reign begun again is not marked Again")
+	}
+	// The share slipping rides reign_grace mornings (#399): the reign
+	// holds with no event, the crown waits, and the city held again
+	// clears the slip.
+	grace := cfg.Rivals.Endings.ReignGrace
+	if grace < 1 {
+		t.Fatal("the file gives the reign no grace")
+	}
+	reign := w.Reign
 	home.Corners[0].Owner, home.Corners[0].Runner = game.OwnerNone, 0
+	for i := 1; i <= grace; i++ {
+		evs := step(w, s)
+		if find[events.ReignBroken](evs) != nil || w.Reign != reign || w.ReignSlip != i || w.CanCrown() {
+			t.Fatalf("slipping morning %d: %v, Reign %d slip %d crown %v", i, kinds(evs), w.Reign, w.ReignSlip, w.CanCrown())
+		}
+		if err := w.Crown(); err != game.ErrReignSlipping {
+			t.Fatalf("the crown while slipping: %v", err)
+		}
+	}
+	home.Corners[0].Owner, home.Corners[0].Runner = game.OwnerPlayer, 1
+	if evs := step(w, s); find[events.ReignBegan](evs) != nil || w.Reign != reign || w.ReignSlip != 0 || !w.CanCrown() {
+		t.Fatalf("held again: %v, Reign %d slip %d", kinds(evs), w.Reign, w.ReignSlip)
+	}
+	// Past the grace the share falling breaks it.
+	home.Corners[0].Owner, home.Corners[0].Runner = game.OwnerNone, 0
+	for i := 1; i <= grace; i++ {
+		step(w, s)
+	}
 	broke = find[events.ReignBroken](step(w, s))
-	if broke == nil || broke.Why != "the city slipped under the share" || w.Reign != 0 {
-		t.Fatalf("the share: %+v Reign %d", broke, w.Reign)
+	if broke == nil || broke.Why != "the city slipped under the share" || w.Reign != 0 || w.ReignSlip != 0 {
+		t.Fatalf("the share past the grace: %+v Reign %d slip %d", broke, w.Reign, w.ReignSlip)
 	}
 	// And the crown, taken while it holds, is the kingpin ending.
 	home.Corners[0].Owner, home.Corners[0].Runner = game.OwnerPlayer, 1
 	f1.Deals[0].Since = w.Day - days
-	if find[events.ReignBegan](step(w, s)) == nil || !w.CanCrown() {
-		t.Fatal("the reign did not begin on the stamp")
+	if find[events.ReignBegan](step(w, s)) == nil || !w.CanCrown() || w.Reigns != 3 {
+		t.Fatalf("the reign did not begin on the stamp (%d reigns)", w.Reigns)
 	}
 	if err := w.Crown(); err != nil || w.Over == nil || w.Over.Cause != content.CauseKingpin || w.Over.Day != w.Day {
 		t.Fatalf("the crown: %v %+v", err, w.Over)

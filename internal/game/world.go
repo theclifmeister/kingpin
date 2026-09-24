@@ -127,6 +127,13 @@ type World struct {
 	// run a kingpin on the player's say-so while it stands. Zero is no
 	// reign, the run before.
 	Reign int
+	// ReignSlip (#399) is how many mornings in a row the reign has held
+	// under kingpin_share, riding [endings] reign_grace; the crown waits
+	// while it is over zero. Reigns is how many reigns the run has begun,
+	// so a reign begun again is not news the way the first was. Both the
+	// rivals sim's; zero is the run before.
+	ReignSlip int
+	Reigns    int
 
 	// War (#229) is the faction the war order stands against: its id,
 	// "" for none. Declared from the rivals screen (DeclareWar), it is

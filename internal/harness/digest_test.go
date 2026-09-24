@@ -315,20 +315,23 @@ const (
 // Again for #395 (Today.CashedOut and two Stats added to the walk):
 // the move on day 1 is shape alone. With the three set aside the digest
 // is main's on all sixty days; the boss never cashes out.
+// Again for #399 (World.ReignSlip and Reigns added to the walk): the
+// move on day 1 is shape alone. With the two set aside the digest is
+// main's on all sixty days; the boss never reigns.
 var seedDigest = []string{
-	"bafb9b6a69d5319e", "e718c29309c47795", "9035d238d6313469", "02851a8d9137b0c4",
-	"90152cd80a63b210", "77c525275c0a2487", "918d350b4a130a6e", "c9e17e5184b145a7",
-	"765402983370a116", "b5b86580ae56bf3e", "4336b7f0392f5032", "6474a94dcf271de6",
-	"7c9ca433bc9ef16d", "8a8b4c7a21233869", "cb8dca3e7ac4274d", "2234c9cc880bc23a",
-	"dd737b832efea8e1", "7dd96d14c0b17a1b", "752678e9ffde9177", "84e2e24115620fe9",
-	"d8af2e323ade08a0", "4c4ccc5aa696e888", "624c77fdb21cfa82", "28f7e2bcf07f9281",
-	"f25c14cb2389232b", "0eb597a566435a73", "812b2b31b1ce01e9", "cc2afbe4a3ea7397",
-	"91cdf4a40994b389", "62eee7ba82a8fd52", "5646963fea74189a", "5b780ece4f00f468",
-	"08f33a01cce12fd2", "099cdf57df445c9f", "2d0ff49d80bc3447", "fcfb56bd2cb4a392",
-	"453bff7c6a6a71dd", "94f1404c0ed07438", "c793086efa45fb61", "b243363abe7deebe",
-	"23256a500f87fc4a", "d544027bf35b3037", "ac02e8e163c00ed8", "9338161d2c1a9f14",
-	"7718b9c122c2e2ef", "b5aad6d55f0baf6f", "0fc956ce3e1ff03e", "698c6f7d913a4c8c",
-	"9d5b7f0806c6079d", "fec211a8efab1faa", "019a2d9eab0938c0", "503fe7c101e4bb21",
-	"d8f56c68a8c808fa", "3ca826fb21484fd1", "d2933c00e1d2959d", "4f37ea675517783e",
-	"f9f04b31bd4271af", "6917f5cfbd7b74e9", "0f198103e933795d", "5bcf153f1d7246fa",
+	"a1d629db2dd465fd", "7cff2071b76b60c6", "8843f575a2ce272a", "3f38cbfff220819f",
+	"388474a62e65c4eb", "3ff765369d8b29bc", "912ff021eebdd5fb", "6c04a60ab54a4d36",
+	"bd9db10f11905f0d", "50a35015a8103437", "5fe080914cde0c89", "d6cfb4d7e2c070e5",
+	"02d291179b7fc634", "c071d21ba3eeb6ac", "eca7a02ed5c47cbc", "6daf27f733bd664b",
+	"7786eef2f379b728", "f94dd1778302d068", "2aa1cfe9734dc840", "79bd77e602fbefd6",
+	"96f221772972aeab", "bc7afb1539fde399", "25305eb628844043", "41749f80d908adf4",
+	"95c82c41b87cb602", "15164066a19d91ae", "53ba3a61bca60cca", "50e5cf7338b22e8e",
+	"f18a302728a84dcc", "4f3d89c3e6d0e9ed", "c2dadd909ea5ac53", "78a3e064d3b8c56d",
+	"af2ade79f0b12393", "817ad46245be9c2c", "80c8a43c994c7698", "a758a296410a9d27",
+	"b01b25735b68e744", "cfbab22e2aede77d", "59c6699ef478a734", "4fdad0d6b9e6ec3d",
+	"003b2d30d408b801", "c58933cd2bb40702", "f5a203171731e0cb", "6b450efce66d20e1",
+	"d51475911b0a0ffa", "28d7bcff6877d1f2", "bf1d8f0291c66015", "cd4617f386f64999",
+	"399dd7ad7a78a346", "080aa3a7d68cf9d3", "06e1864edd7795e1", "fafa78516c7d6d86",
+	"abf0f56f8f9feee9", "121ab4795bb0e9f4", "dfa0dc0e812ae988", "5ac15bc0fea4348d",
+	"fdd2afd497eaa51a", "c4b72c99e7a0e41e", "87efff52565c2f48", "a9ef43c45c6d4575",
 }
