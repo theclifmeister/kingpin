@@ -31,8 +31,10 @@ import (
 // (#356); 5 the presets, presets, preset_commands, preset_diff and
 // apply_preset (#357); 6 rules.territory.deed_rent takes the corner and
 // a price, so an offer's rent is quoted too (#344: a front's rent_mul
-// folds in the block's city); 7 preview, the day's preview (#353).
-const Version = 7
+// folds in the block's city); 7 preview, the day's preview (#353); 8
+// name_captain, drop_captain and the crew rules can_captain, captaincy,
+// trait and trait_days (#346).
+const Version = 8
 
 // The error codes: JSON-RPC 2.0's, and the game's own in its
 // server-error range.

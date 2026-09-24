@@ -6,6 +6,7 @@
 package heat
 
 import (
+	"maps"
 	"math"
 	"sort"
 
@@ -24,9 +25,10 @@ type Sim struct {
 	lt     content.LieutenantTuning
 	law    content.LawConfig
 	houses content.HousesTuning
-	deed   content.DeedTuning   // #194: raid_mul on a house on a deeded block, forfeit_evidence the morning after a forfeiture
-	intel  content.IntelTuning  // #45: what a cop's word is worth
-	assets content.AssetsConfig // #48: the floor an owned asset puts under every city, and which asset the task force takes
+	deed   content.DeedTuning       // #194: raid_mul on a house on a deeded block, forfeit_evidence the morning after a forfeiture
+	intel  content.IntelTuning      // #45: what a cop's word is worth
+	assets content.AssetsConfig     // #48: the floor an owned asset puts under every city, and which asset the task force takes
+	traits map[string]content.Trait // #346: a veteran's sharp and heat, what their corner counts in the sloppiness
 }
 
 // New builds a heat sim from the config, copying what it reads (#144):
@@ -42,9 +44,11 @@ type Sim struct {
 // and the houses' tuning (#73) for what a unit moved between places
 // draws; and the assets (#48) for the heat floor an owned one puts
 // under every city, since the task force that takes one is this sim's
-// rung.
+// rung; and the crew's trait tables (#346) for what a veteran's corner
+// counts in the sloppiness (sharp, heat). The trait words are the crew's,
+// read the way the lieutenant's temper is.
 func New(cfg *content.Config) *Sim {
-	return &Sim{cfg: cfg.Heat, market: cfg.Market, ship: cfg.Routes.Shipping, tree: cfg.Upgrades, rep: cfg.Reputation.Effects, lt: cfg.Crew.Lieutenant, law: cfg.Law, houses: cfg.Houses.Houses, deed: cfg.City.Deed, assets: cfg.Assets, intel: cfg.Intel.Intel}
+	return &Sim{cfg: cfg.Heat, market: cfg.Market, ship: cfg.Routes.Shipping, tree: cfg.Upgrades, rep: cfg.Reputation.Effects, lt: cfg.Crew.Lieutenant, law: cfg.Law, houses: cfg.Houses.Houses, deed: cfg.City.Deed, assets: cfg.Assets, intel: cfg.Intel.Intel, traits: maps.Clone(cfg.Crew.Trait)}
 }
 
 // RaidWeight is a house's weight in the raid's roll over the places

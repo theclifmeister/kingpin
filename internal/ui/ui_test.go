@@ -2914,6 +2914,13 @@ func TestModalsFit(t *testing.T) {
 		{"propose kinds", modePropose, func(t *testing.T, m *Model) { m.Update(key("8")); m.Update(key("d")) }},
 		{"propose terms", modePropose, func(t *testing.T, m *Model) { m.Update(key("8")); m.Update(key("d")); m.Update(key("2")) }},
 		{"assign", modeAssign, func(t *testing.T, m *Model) { m.Update(key("4")); m.crewCursor = 3; m.Update(key("l")) }},
+		// The captain (#346): a veteran trusted with a city's crew.
+		{"captain", modeCaptain, func(t *testing.T, m *Model) {
+			m.Update(key("4"))
+			m.w.Crew.Members[0].Hired = m.w.Day - 60
+			m.crewCursor = 0
+			m.Update(key("c"))
+		}},
 		{"fund", modeFund, func(t *testing.T, m *Model) { m.Update(key("7")); m.Update(key("f")) }},
 		{"details", modeDetails, func(t *testing.T, m *Model) { m.Update(key("5")); m.mode = modeDetails }},
 		// The cart (#103): the modal on its lines and on a quantity, and

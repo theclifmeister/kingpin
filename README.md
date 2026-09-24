@@ -457,6 +457,7 @@ The full table is below; `?` brings it up in the game.
 | `f` | filter | show one source's headlines, then all again | journal |
 | `h` | hire | hire the selected candidate | crew |
 | `f` | fire | fire the selected member, after asking | crew |
+| `c` | captain | make the selected veteran captain of a city | crew |
 | `l` | assign | give the selected lieutenant a city to run | crew |
 | `i` | investigate | ask who is talking to the police, for a fee | crew |
 | `$` | pay off | buy the selected member's loyalty | crew |

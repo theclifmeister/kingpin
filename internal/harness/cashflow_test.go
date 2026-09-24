@@ -78,8 +78,8 @@ func TestCashFlowReconciles(t *testing.T) {
 
 // TestFlowIsTheReportersTotals (#351): the flow's lines are the night's
 // events summed, read off the events themselves: the sales are the
-// street's take and the buyers' less the cut the crew and the
-// lieutenants kept, the losses every robbery, skim, seizure, audit and
+// street's take and the buyers' less the cut the crew, the lieutenants
+// and the captains (#346) kept, the losses every robbery, skim, seizure, audit and
 // collection, the tax the free corners', and the wash's dirty side
 // what went through the fronts.
 func TestFlowIsTheReportersTotals(t *testing.T) {
@@ -93,6 +93,8 @@ func TestFlowIsTheReportersTotals(t *testing.T) {
 			case events.ContractDelivered:
 				sales += ev.Revenue
 			case events.LieutenantActed:
+				sales -= ev.Cut
+			case events.CaptainActed: // #346: the captain's cut, as the lieutenant's
 				sales -= ev.Cut
 			case events.CornerRobbed:
 				losses -= ev.Cash

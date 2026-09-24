@@ -460,6 +460,51 @@ func Crewed(cfg *content.Config, lieLowAt float64) Policy {
 	return Territory(cfg, lieLowAt, 0)
 }
 
+// Captained plays like Crewed and names a captain at home (#346): each
+// morning with nobody looking after home, the most loyal member the
+// crew sim would trust with it (CanCaptain; the first of them on a tie)
+// is named at the first budget in crew.toml [captain] budgets. It is
+// the baseline for "a player who hands crew care to a veteran", read
+// against crewed (TestCaptainedKeepsTheCrew).
+func Captained(cfg *content.Config, lieLowAt float64) Policy {
+	crewed := Crewed(cfg, lieLowAt)
+	cs := crew.New(cfg)
+	return func(w *game.World) {
+		crewed(w)
+		NameCaptain(cfg, cs, w, w.Home().ID)
+	}
+}
+
+// NameCaptain names the most loyal member the crew sim would trust as
+// captain of city, the first of them on a tie, at the first budget,
+// when nobody is captain there; it reports whether one is.
+func NameCaptain(cfg *content.Config, cs *crew.Sim, w *game.World, city string) bool {
+	if w.Crew.Captain(city) != nil {
+		return true
+	}
+	var best *game.CrewMember
+	for i := range w.Crew.Members {
+		m := &w.Crew.Members[i]
+		if m.Captain == "" && cs.CanCaptain(w, *m) && (best == nil || m.Loyalty > best.Loyalty) {
+			best = m
+		}
+	}
+	if best == nil {
+		return false
+	}
+	cp := cfg.Crew.Captain
+	return w.NameCaptain(best.ID, city, cp.Budgets[0], cp.Loyalty, cp.Days) == nil
+}
+
+// NoTraits returns a copy of cfg with crew.toml's [traits] boxed
+// (#346): nobody shows a trait and nothing lived is written, so a run
+// is byte-for-byte the run before the feature (TestNoTraitIsTheOldRun).
+func NoTraits(cfg *content.Config) *content.Config {
+	boxed := *cfg
+	boxed.Crew.Traits = content.TraitsTuning{}
+	return &boxed
+}
+
 // Territory plays like Crewed but works at most corners corners (0 means
 // as many as it can staff), counting the one you stand on, and spends the
 // crew slots it has left on enforcers for the corners most likely to be

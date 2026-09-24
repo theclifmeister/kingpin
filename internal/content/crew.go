@@ -2,6 +2,7 @@ package content
 
 import (
 	"fmt"
+	"sort"
 
 	"github.com/theclifmeister/kingpin/internal/events"
 )
@@ -14,6 +15,115 @@ type CrewConfig struct {
 	Life       LifeTuning            `toml:"life"`
 	Pay        PayTable              `toml:"pay"`
 	Role       map[string]RoleConfig `toml:"role"`
+	Traits     TraitsTuning          `toml:"traits"`  // #346: when a veteran shows what they are
+	Trait      map[string]Trait      `toml:"trait"`   // #346: what each trait is, by name
+	Captain    CaptainTuning         `toml:"captain"` // #346: who can run crew care for a city, and what it costs
+}
+
+// What a member lived through (#346), the words a trait's lived table
+// weighs: stood on a corner the police hit, shot and got up, did time.
+const (
+	LivedRaid = "raid"
+	LivedShot = "shot"
+	LivedJail = "jail"
+)
+
+// TraitsTuning is when a member shows a trait (#346): at Days of
+// service, counted from the day they signed. Zero is the table boxed:
+// nobody shows one, and a run is the run before the feature.
+type TraitsTuning struct {
+	Days int `toml:"days"` // days on the payroll before a member reveals a trait; 0 never
+}
+
+// On reports whether traits are revealed at all.
+func (t TraitsTuning) On() bool { return t.Days > 0 }
+
+// Trait is one trait a veteran can show (#346): how likely it is, by
+// role and by what they lived through, and the crew effect words it
+// folds for that member alone. A zero multiplier reads as 1, so a trait
+// names only the words it moves.
+type Trait struct {
+	Weight float64            `toml:"weight"` // the base weight in the draw
+	Role   map[string]float64 `toml:"role"`   // times this for a member of the role; with a table, a role it does not name never draws it
+	Lived  map[string]float64 `toml:"lived"`  // times this for each of raid, shot, jail they lived through
+	Good   bool               `toml:"good"`   // a trait the crew screen reads as a strength
+	Says   string             `toml:"says"`   // the pane's line for it
+
+	LoyaltyLossMul float64 `toml:"loyalty_loss_mul"` // on a night's loyalty loss, theirs alone
+	SkimChanceMul  float64 `toml:"skim_chance_mul"`  // on their roll to skim under the line
+	Sharp          bool    `toml:"sharp"`            // never counted as sloppy on a corner (heat.toml sloppy_skill)
+	BuyerGapMul    float64 `toml:"buyer_gap_mul"`    // on the buyers' gaps while they are at work (buyers.toml min_gap, max_gap)
+	Deterrence     float64 `toml:"deterrence"`       // enforcers' worth of deterrence against a skimmer they add at work
+	Heat           float64 `toml:"heat"`             // their corner counts this sloppy (heat.toml sloppy_heat), on top of any skill gap
+}
+
+// TraitNames are the trait names in the config, in a fixed order: the order
+// the draw walks them.
+func (c CrewConfig) TraitNames() []string {
+	names := make([]string, 0, len(c.Trait))
+	for n := range c.Trait {
+		names = append(names, n)
+	}
+	sort.Strings(names)
+	return names
+}
+
+// TraitOf is the trait a member has, the zero Trait for none or one the
+// file does not know: every fold of the zero Trait is the old number.
+func (c CrewConfig) TraitOf(name string) Trait {
+	if name == "" {
+		return Trait{}
+	}
+	return c.Trait[name]
+}
+
+// WeightFor is the trait's weight in the draw for a member of role who
+// lived through lived: the weight, times the role's entry (none, with a
+// role table, is 0), times the lived entry for each word there is one.
+func (t Trait) WeightFor(role string, lived []string) float64 {
+	w := t.Weight
+	if len(t.Role) > 0 {
+		w *= t.Role[role]
+	}
+	for _, l := range lived {
+		if m, ok := t.Lived[l]; ok {
+			w *= m
+		}
+	}
+	return w
+}
+
+// one reads a zero multiplier as 1.
+func one(v float64) float64 {
+	if v == 0 {
+		return 1
+	}
+	return v
+}
+
+// LossMul is the trait's fold on a night's loyalty loss.
+func (t Trait) LossMul() float64 { return one(t.LoyaltyLossMul) }
+
+// SkimMul is the trait's fold on the roll to skim.
+func (t Trait) SkimMul() float64 { return one(t.SkimChanceMul) }
+
+// GapMul is the trait's fold on the buyers' gaps.
+func (t Trait) GapMul() float64 { return one(t.BuyerGapMul) }
+
+// CaptainTuning is the captain (#346): a trusted member who runs crew
+// care for a city through the player's own actions. Loyalty and Days
+// are what naming one needs; Care is the loyalty under which they stop
+// caring (they do not flip: that is the lieutenant's drama); Cut is
+// their share of the city's takings; Margin is how close over the quit
+// line a member is before the captain pays them off; Budgets are the
+// nightly pay-off budgets the player picks from, the first the default.
+type CaptainTuning struct {
+	Loyalty float64 `toml:"loyalty"` // naming one needs this loyalty ...
+	Days    int     `toml:"days"`    // ... and this many days on the payroll
+	Care    float64 `toml:"care"`    // under this loyalty they stop caring
+	Cut     float64 `toml:"cut"`     // share of their city's takings they keep
+	Margin  float64 `toml:"margin"`  // a member this close over the quit line gets a pay-off
+	Budgets []int   `toml:"budgets"` // the pay-off budgets a night the player picks from
 }
 
 // LifeTuning is crew life (#46): kin, ageing, arrests and getting
@@ -263,8 +373,49 @@ func (c CrewConfig) validate(market MarketConfig) error {
 	if err := c.Life.validate(); err != nil {
 		return err
 	}
+	if err := c.validateVeterans(); err != nil {
+		return err
+	}
 	if r := c.Role["chemist"]; r.QualityBase < 0 || r.QualityPerSkill < 0 || r.CutBonus < 0 || r.CookDays < 1 || r.BatchPerSkill <= 0 || market.Product(r.UnlockProduct) == nil {
 		return fmt.Errorf("bad [role.chemist] table %+v", r)
+	}
+	return nil
+}
+
+// validateVeterans checks the traits and the captain (#346): every
+// trait drawable and saying what it is, its tables naming only what
+// exists, and a captain with a budget to pick.
+func (c CrewConfig) validateVeterans() error {
+	if c.Traits.Days < 0 {
+		return fmt.Errorf("[traits] days %d is under zero", c.Traits.Days)
+	}
+	if c.Traits.On() && len(c.Trait) == 0 {
+		return fmt.Errorf("[traits] days %d with no [trait.*] table", c.Traits.Days)
+	}
+	for _, n := range c.TraitNames() {
+		tr := c.Trait[n]
+		if tr.Weight <= 0 || tr.LoyaltyLossMul < 0 || tr.SkimChanceMul < 0 || tr.BuyerGapMul < 0 || tr.Deterrence < 0 || tr.Heat < 0 || tr.Says == "" {
+			return fmt.Errorf("bad [trait.%s] table %+v", n, tr)
+		}
+		for k, v := range tr.Lived {
+			if (k != LivedRaid && k != LivedShot && k != LivedJail) || v < 0 {
+				return fmt.Errorf("[trait.%s] lived %s = %v: lived is raid, shot or jail, at zero or over", n, k, v)
+			}
+		}
+		for k, v := range tr.Role {
+			if _, ok := c.Role[k]; !ok || v < 0 {
+				return fmt.Errorf("[trait.%s] role %s = %v: no such role, or under zero", n, k, v)
+			}
+		}
+	}
+	cp := c.Captain
+	if cp.Days < 0 || cp.Loyalty < 0 || cp.Loyalty > 100 || cp.Care < 0 || cp.Cut < 0 || cp.Cut >= 1 || cp.Margin < 0 || len(cp.Budgets) == 0 {
+		return fmt.Errorf("bad [captain] table %+v", cp)
+	}
+	for _, b := range cp.Budgets {
+		if b < 0 {
+			return fmt.Errorf("[captain] budget %d is under zero", b)
+		}
 	}
 	return nil
 }

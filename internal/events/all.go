@@ -34,5 +34,5 @@ var All = []Event{
 	CookOrdered{}, Cooked{}, DeedBought{}, DeedsBought{}, DeedRent{}, DeedSeized{},
 	AssetBought{}, AssetFrozen{}, AssetUpkeepPaid{}, TaskForceFormed{}, AssetSeized{}, TunnelFound{},
 	IntelGained{}, SpyPlanted{}, SpyFound{}, IntelFalse{},
-	InvestigationOpened{}, InvestigationClosed{},
+	InvestigationOpened{}, InvestigationClosed{}, CrewTrait{}, CaptainActed{},
 }

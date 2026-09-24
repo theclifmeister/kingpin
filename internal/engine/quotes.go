@@ -94,6 +94,8 @@ type CrewRules interface {
 	BatchIn(w *game.World, city string) int
 	BatchOf(skill int) int
 	Birthday(m game.CrewMember, day int) int
+	CanCaptain(w *game.World, m game.CrewMember) bool
+	Captaincy() content.CaptainTuning
 	ChemistName(w *game.World) string
 	ChemistQuality(w *game.World) float64
 	CookCostIn(w *game.World, city string, cost int) int
@@ -115,6 +117,8 @@ type CrewRules interface {
 	QualityOf(skill int) float64
 	Retiring(m game.CrewMember) bool
 	RevealDays() int
+	Trait(name string) content.Trait
+	TraitDays() int
 	Tuning() content.CrewTuning
 	WageAt(w *game.World, m game.CrewMember, p events.Pay) int
 	Wages(w *game.World, p events.Pay) int

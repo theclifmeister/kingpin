@@ -251,9 +251,32 @@ func (s *Session) Preview() *DayPreview {
 			}
 		}
 	}
+	short := false
 	if len(w.Crew.Members) > 0 {
 		p.Wages = s.set.Crew.Wages(w, w.Crew.Pay)
+		short = p.Wages > at.Player.DirtyCash
 		book(game.FlowWages, -min(p.Wages, at.Player.DirtyCash), 0)
+	}
+	// The captains (#346), after the wages as the crew step runs them:
+	// each one's cut of their city's takings off the dirty cash, and the
+	// pay-offs they would make, while the budget and the till last.
+	for _, cn := range s.set.Crew.CaptainNights(w, byLt, short) {
+		if cut := max(0, min(cn.Cut, at.Player.DirtyCash)); cut > 0 {
+			book(game.FlowSales, -cut, 0)
+			for i := range p.Sales {
+				if p.Sales[i].City == cn.City {
+					p.Sales[i].Take -= cut
+				}
+			}
+		}
+		spent := 0
+		for _, cost := range cn.Payoffs {
+			if spent+cost > cn.Budget || cost > at.Player.DirtyCash+at.Player.CleanCash {
+				continue
+			}
+			take(game.FlowWages, cost)
+			spent += cost
+		}
 	}
 
 	// The wash: front by front, what is over the float goes through,

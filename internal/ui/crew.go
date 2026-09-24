@@ -317,15 +317,30 @@ func (m *Model) viewCrew() string {
 	if len(w.Crew.Members) == 0 {
 		b.WriteString(emptyState("Nobody on the payroll. Pick a face below and press ", "h", ".") + "\n")
 	} else {
+		// The veterans' traits (#346) are a column once anybody has
+		// shown one.
+		traits := false
+		for _, c := range w.Crew.Members {
+			traits = traits || c.Trait != ""
+		}
 		var rows [][]any
 		for _, c := range w.Crew.Members {
-			rows = append(rows, append(row(c), m.post(c), day(c.Hired)))
+			r := row(c)
+			if traits {
+				r = append(r, m.traitCell(c))
+			}
+			rows = append(rows, append(r, m.post(c), day(c.Hired)))
 		}
-		cols := append(shared, col{"where", kText, 0}, col{"hired", kDays, 0})
+		cols := append([]col(nil), shared...)
+		if traits {
+			cols = append(cols, col{"trait", kText, 0})
+		}
+		cols = append(cols, col{"where", kText, 0}, col{"hired", kDays, 0})
 		// Where MAIN is too narrow for the post to read whole (64
 		// columns beside the pane at 100), the columns the pane carries
-		// go first: carry, then the hire day, then the age (#46).
-		cols, rows = dropCols(cols, rows, width, "carry", "hired", "age")
+		// go first: carry, then the hire day, then the age (#46), then
+		// the trait (#346).
+		cols, rows = dropCols(cols, rows, width, "carry", "hired", "age", "trait")
 		for _, l := range table(cols, rows, m.crewCursor, width) {
 			b.WriteString(l + "\n")
 		}
@@ -440,6 +455,9 @@ func (m *Model) personLines(c game.CrewMember, onPayroll bool) []string {
 	if kin := m.kinNames(c); len(kin) > 0 {
 		lines = append(lines, row("kin", strings.Join(kin, ", ")))
 	}
+	if onPayroll {
+		lines = append(lines, m.veteranLines(c)...)
+	}
 	if !onPayroll {
 		if len(c.Kin) > 0 {
 			lines = append(lines, row("", sub("came with the kin: fee at the discount")))
@@ -514,6 +532,12 @@ func (m *Model) personLines(c game.CrewMember, onPayroll bool) []string {
 		lines = append(lines, keyRow("l", "give them a city"))
 	} else if c.Lieutenant() {
 		lines = append(lines, keyRow("l", "move them or take the city"))
+	}
+	switch {
+	case c.Captain != "":
+		lines = append(lines, keyRow("c", "move the captaincy or take it off them"))
+	case m.rules.Crew.CanCaptain(w, c):
+		lines = append(lines, keyRow("c", "make them captain of a city"))
 	}
 	if c.Jailed(w.Day) && !c.Bailed {
 		bail := fmt.Sprintf("bail for %s clean", money(m.rules.Crew.BailCost(c)))

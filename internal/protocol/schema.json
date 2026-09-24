@@ -274,6 +274,40 @@
       ],
       "type": "object"
     },
+    "content.CaptainTuning": {
+      "properties": {
+        "Budgets": {
+          "items": {
+            "type": "integer"
+          },
+          "type": "array"
+        },
+        "Care": {
+          "type": "number"
+        },
+        "Cut": {
+          "type": "number"
+        },
+        "Days": {
+          "type": "integer"
+        },
+        "Loyalty": {
+          "type": "number"
+        },
+        "Margin": {
+          "type": "number"
+        }
+      },
+      "required": [
+        "Loyalty",
+        "Days",
+        "Care",
+        "Cut",
+        "Margin",
+        "Budgets"
+      ],
+      "type": "object"
+    },
     "content.CrewTuning": {
       "properties": {
         "AlertMargin": {
@@ -1227,6 +1261,63 @@
         "RaidDays",
         "Trust",
         "Grudge"
+      ],
+      "type": "object"
+    },
+    "content.Trait": {
+      "properties": {
+        "BuyerGapMul": {
+          "type": "number"
+        },
+        "Deterrence": {
+          "type": "number"
+        },
+        "Good": {
+          "type": "boolean"
+        },
+        "Heat": {
+          "type": "number"
+        },
+        "Lived": {
+          "additionalProperties": {
+            "type": "number"
+          },
+          "type": "object"
+        },
+        "LoyaltyLossMul": {
+          "type": "number"
+        },
+        "Role": {
+          "additionalProperties": {
+            "type": "number"
+          },
+          "type": "object"
+        },
+        "Says": {
+          "type": "string"
+        },
+        "Sharp": {
+          "type": "boolean"
+        },
+        "SkimChanceMul": {
+          "type": "number"
+        },
+        "Weight": {
+          "type": "number"
+        }
+      },
+      "required": [
+        "Weight",
+        "Role",
+        "Lived",
+        "Good",
+        "Says",
+        "LoyaltyLossMul",
+        "SkimChanceMul",
+        "Sharp",
+        "BuyerGapMul",
+        "Deterrence",
+        "Heat"
       ],
       "type": "object"
     },
@@ -2472,6 +2563,12 @@
         "age": {
           "type": "integer"
         },
+        "budget": {
+          "type": "integer"
+        },
+        "captain": {
+          "type": "string"
+        },
         "carry": {
           "type": "integer"
         },
@@ -2507,6 +2604,9 @@
         },
         "skill": {
           "type": "integer"
+        },
+        "trait": {
+          "type": "string"
         },
         "wage": {
           "type": "integer"
@@ -3575,6 +3675,74 @@
         "Winner",
         "Pressure",
         "Chief"
+      ],
+      "type": "object"
+    },
+    "events.CaptainActed": {
+      "properties": {
+        "Absent": {
+          "type": "boolean"
+        },
+        "Careless": {
+          "type": "boolean"
+        },
+        "City": {
+          "type": "string"
+        },
+        "CityName": {
+          "type": "string"
+        },
+        "Cut": {
+          "type": "integer"
+        },
+        "Day": {
+          "type": "integer"
+        },
+        "ID": {
+          "type": "integer"
+        },
+        "Name": {
+          "type": "string"
+        },
+        "Paid": {
+          "items": {
+            "type": "string"
+          },
+          "type": "array"
+        },
+        "Posted": {
+          "items": {
+            "type": "string"
+          },
+          "type": "array"
+        },
+        "Pulled": {
+          "items": {
+            "type": "string"
+          },
+          "type": "array"
+        },
+        "Spent": {
+          "type": "integer"
+        },
+        "SpentClean": {
+          "type": "integer"
+        }
+      },
+      "required": [
+        "Day",
+        "ID",
+        "Name",
+        "City",
+        "CityName",
+        "Posted",
+        "Paid",
+        "Spent",
+        "SpentClean",
+        "Pulled",
+        "Cut",
+        "Absent",
+        "Careless"
       ],
       "type": "object"
     },
@@ -4708,6 +4876,41 @@
         "Amount",
         "Skimmers",
         "FromWash"
+      ],
+      "type": "object"
+    },
+    "events.CrewTrait": {
+      "properties": {
+        "Day": {
+          "type": "integer"
+        },
+        "Days": {
+          "type": "integer"
+        },
+        "Good": {
+          "type": "boolean"
+        },
+        "ID": {
+          "type": "integer"
+        },
+        "Name": {
+          "type": "string"
+        },
+        "Role": {
+          "type": "string"
+        },
+        "Trait": {
+          "type": "string"
+        }
+      },
+      "required": [
+        "Day",
+        "ID",
+        "Name",
+        "Role",
+        "Trait",
+        "Days",
+        "Good"
       ],
       "type": "object"
     },
@@ -8068,6 +8271,12 @@
         "Bailed": {
           "type": "boolean"
         },
+        "Budget": {
+          "type": "integer"
+        },
+        "Captain": {
+          "type": "string"
+        },
         "City": {
           "type": "string"
         },
@@ -8101,6 +8310,12 @@
           },
           "type": "array"
         },
+        "Lived": {
+          "items": {
+            "type": "string"
+          },
+          "type": "array"
+        },
         "Loyalty": {
           "type": "number"
         },
@@ -8121,6 +8336,9 @@
         },
         "Skill": {
           "type": "integer"
+        },
+        "Trait": {
+          "type": "string"
         },
         "Undercover": {
           "type": "string"
@@ -8163,7 +8381,11 @@
         "WoundedUntil",
         "Bailed",
         "Undercover",
-        "UndercoverDay"
+        "UndercoverDay",
+        "Trait",
+        "Lived",
+        "Captain",
+        "Budget"
       ],
       "type": "object"
     },
@@ -8741,6 +8963,9 @@
     "CampaignLost": {
       "$ref": "#/$defs/events.CampaignLost"
     },
+    "CaptainActed": {
+      "$ref": "#/$defs/events.CaptainActed"
+    },
     "CashLaundered": {
       "$ref": "#/$defs/events.CashLaundered"
     },
@@ -8836,6 +9061,9 @@
     },
     "CrewSkimmed": {
       "$ref": "#/$defs/events.CrewSkimmed"
+    },
+    "CrewTrait": {
+      "$ref": "#/$defs/events.CrewTrait"
     },
     "CrewTurnedInformant": {
       "$ref": "#/$defs/events.CrewTurnedInformant"
@@ -9810,6 +10038,24 @@
         "$ref": "#/$defs/game.House"
       }
     },
+    "drop_captain": {
+      "changes": true,
+      "needsRun": true,
+      "params": {
+        "maxItems": 1,
+        "minItems": 1,
+        "prefixItems": [
+          {
+            "title": "member",
+            "type": "integer"
+          }
+        ],
+        "type": "array"
+      },
+      "result": {
+        "type": "null"
+      }
+    },
     "end_day": {
       "changes": true,
       "needsRun": true,
@@ -10126,6 +10372,32 @@
       },
       "result": {
         "type": "integer"
+      }
+    },
+    "name_captain": {
+      "changes": true,
+      "needsRun": true,
+      "params": {
+        "maxItems": 3,
+        "minItems": 3,
+        "prefixItems": [
+          {
+            "title": "member",
+            "type": "integer"
+          },
+          {
+            "title": "city",
+            "type": "string"
+          },
+          {
+            "title": "budget",
+            "type": "integer"
+          }
+        ],
+        "type": "array"
+      },
+      "result": {
+        "type": "null"
       }
     },
     "new_run": {
@@ -10637,6 +10909,37 @@
         "type": "integer"
       }
     },
+    "rules.crew.can_captain": {
+      "changes": false,
+      "needsRun": true,
+      "params": {
+        "maxItems": 1,
+        "minItems": 1,
+        "prefixItems": [
+          {
+            "title": "member",
+            "type": "integer"
+          }
+        ],
+        "type": "array"
+      },
+      "result": {
+        "type": "boolean"
+      }
+    },
+    "rules.crew.captaincy": {
+      "changes": false,
+      "needsRun": true,
+      "params": {
+        "maxItems": 0,
+        "minItems": 0,
+        "prefixItems": [],
+        "type": "array"
+      },
+      "result": {
+        "$ref": "#/$defs/content.CaptainTuning"
+      }
+    },
     "rules.crew.chemist_name": {
       "changes": false,
       "needsRun": true,
@@ -10944,6 +11247,37 @@
       }
     },
     "rules.crew.reveal_days": {
+      "changes": false,
+      "needsRun": true,
+      "params": {
+        "maxItems": 0,
+        "minItems": 0,
+        "prefixItems": [],
+        "type": "array"
+      },
+      "result": {
+        "type": "integer"
+      }
+    },
+    "rules.crew.trait": {
+      "changes": false,
+      "needsRun": true,
+      "params": {
+        "maxItems": 1,
+        "minItems": 1,
+        "prefixItems": [
+          {
+            "title": "name",
+            "type": "string"
+          }
+        ],
+        "type": "array"
+      },
+      "result": {
+        "$ref": "#/$defs/content.Trait"
+      }
+    },
+    "rules.crew.trait_days": {
       "changes": false,
       "needsRun": true,
       "params": {
@@ -13557,6 +13891,7 @@
             "CampaignBacked",
             "CampaignHedged",
             "CampaignLost",
+            "CaptainActed",
             "CashLaundered",
             "CheckpointBought",
             "ChiefReplaced",
@@ -13589,6 +13924,7 @@
             "CrewRetired",
             "CrewShot",
             "CrewSkimmed",
+            "CrewTrait",
             "CrewTurnedInformant",
             "DAElected",
             "DayEnded",
@@ -13704,7 +14040,7 @@
       "$ref": "#/$defs/engine.View"
     }
   },
-  "protocol": 7,
+  "protocol": 8,
   "title": "kingpind",
-  "view_version": 8
+  "view_version": 9
 }
