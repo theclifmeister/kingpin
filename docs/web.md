@@ -85,3 +85,11 @@ The art is placeholder.
   - In CI, a missing `node` fails the test rather than skipping it.
 - `engine.CueKinds` is the list the table is held to. `TestCueKindsIsEveryCue` pins it to the cue table.
 - The page was played by hand and by the autopilot in headless Chromium (Playwright) to an ending: seed 7 is indicted on day 31, with no console error.
+
+## Ink & Ambition alternative frontend (#383)
+
+`frontends/ink-ambition/` is a separate illustrated HTML/CSS/ES-module interface on the same WASM engine. It preserves this reference client and the TUI. Build with `python3 frontends/ink-ambition/build.py`; serve its generated `dist/` on a static host. Its README lists prerequisites, controls and current UI gaps.
+
+The builder compiles `cmd/kingpin-wasm` from this checkout, copies the matching Go loader and the reference client's session/alert/police helpers, and derives role/trait descriptions from content TOML. A protocol/view guard requires an explicit frontend review when the contract moves. No compiled engine, duplicate simulation, hosted-project metadata or player saves are checked in.
+
+The UI reads structured dilemma consequences, report sections/leading stories/cash flow, the day preview, police ladder and investigations, ambition steps, preset diffs, buy capacity, crew traits and captaincy. Every change is an engine command. Local saves use `export_save`/`import_save`. The illustrated background is decorative; corner markers show engine state. `node frontends/ink-ambition/smoke.mjs` after building checks a real 45-day WASM run, query purity of the public view, structured choices, cash-flow reconciliation and save round-trip. The development validation records desktop/mobile and older-save checks.
