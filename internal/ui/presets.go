@@ -301,11 +301,3 @@ func signedPct(f float64) string {
 	}
 	return pctText(f)
 }
-
-// signedCash is a change in cash with its sign: +$1.2K, -$300.
-func signedCash(n int) string {
-	if n < 0 {
-		return "-" + cash(-n)
-	}
-	return "+" + cash(n)
-}

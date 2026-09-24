@@ -158,8 +158,14 @@ func cellText(k colKind, width int, v any) (string, *lipgloss.Style) {
 		}
 	case kCash:
 		s = cash(toInt(v))
+		if sign && toInt(v) > 0 {
+			s = "+" + s // a change (#351), `+$45K`
+		}
 	case kMoney:
 		s = money(toInt(v))
+		if sign && toInt(v) > 0 {
+			s = "+" + s
+		}
 	case kPrice:
 		s = price(toFloat(v))
 	case kPct:

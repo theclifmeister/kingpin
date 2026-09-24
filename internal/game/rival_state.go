@@ -18,6 +18,7 @@ type StrikeOrder struct {
 type ScoutOrder struct {
 	Cost    int
 	Faction string // whose books (#43); "" is the rival at home
+	Clean   int    // of Cost, what came out of the clean pile (#351), for the report's flow
 }
 
 // TipOrder is the player tipping the police on a rival corner tonight
@@ -91,7 +92,8 @@ type RivalState struct {
 	// is pushing on; "you" is the player); LostToYou counts the corners
 	// your enforcers took off it, what a homage offer waits for;
 	// LastTakenBy is the faction that took its last corner ("" you or
-	// the police), who absorbs it after absorb_days with none; Absorbed
+	// the police), who absorbs it after absorb_days with none (none
+	// absorbs it when "", but a broke one scatters, #370); Absorbed
 	// and Fragmented are the day it stopped being a faction (absorbed
 	// into AbsorbedBy, or its leader taken: Fragments are the corners
 	// still to drift). Zero values are the duel, the pre-#43 state.

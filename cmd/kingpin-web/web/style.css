@@ -18,6 +18,8 @@ footer { border-top: 1px solid var(--edge); border-bottom: 0; }
 .brand { color: var(--gold); letter-spacing: 2px; }
 .spacer { flex: 1; }
 .dim { color: var(--dim); }
+.warn { color: var(--bad); }
+#police p { margin: 4px 0; }
 main { display: grid; grid-template-columns: 1fr 380px; min-height: 0; }
 canvas { width: 100%; height: 100%; display: block; min-height: 320px; }
 aside { overflow-y: auto; border-left: 1px solid var(--edge); background: var(--panel); padding: 4px 14px 14px; }
@@ -38,8 +40,18 @@ td button { padding: 1px 6px; }
 #restock-days { width: 3em; background: var(--bg); color: var(--text); border: 1px solid var(--edge); padding: 2px 4px; }
 .dial { display: block; margin-top: 8px; color: var(--dim); }
 #travel button { margin: 0 6px 6px 0; }
+#alerts { list-style: none; margin: 0; padding: 0; }
+#alerts li { margin: 2px 0; color: var(--gold); }
+#alerts li.dim { color: var(--dim); }
+#alerts button { width: 100%; text-align: left; color: var(--gold); }
+.flash { animation: flash 1s ease-out; }
+@keyframes flash { from { outline: 2px solid var(--gold); } to { outline: 2px solid transparent; } }
 #report p { margin: 2px 0; }
 #report h3 { font-size: 12px; color: var(--gold); margin: 8px 0 2px; font-weight: normal; }
+#report table.flow td { padding: 1px 4px; }
+#report table.flow tr.total td { color: var(--gold); }
+#report table.flow tr.big.good td { color: var(--good); }
+#report table.flow tr.big.bad td { color: var(--bad); }
 #toast { color: var(--bad); }
 #toast.ok { color: var(--good); }
 kbd { color: var(--dim); font-size: 11px; }
@@ -47,6 +59,11 @@ kbd { color: var(--dim); font-size: 11px; }
 .overlay[hidden] { display: none; }
 .box { background: var(--panel); border: 1px solid var(--edge); padding: 20px 24px; max-width: 520px; }
 .box button { display: block; width: 100%; margin-top: 8px; text-align: left; }
+.chips { display: block; margin-top: 3px; font-size: 12px; color: var(--dim); }
+.chip + .chip::before { content: " · "; color: var(--dim); }
+.chip.gain { color: var(--good); }
+.chip.cost { color: var(--bad); }
+.chip.line { color: var(--gold); }
 @media (max-width: 900px) {
   main { grid-template-columns: 1fr; grid-template-rows: 55vh auto; }
   aside { border-left: 0; border-top: 1px solid var(--edge); }

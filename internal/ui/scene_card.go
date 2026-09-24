@@ -54,6 +54,7 @@ func (m *Model) cardOnScene() bool {
 // Done.
 func (m *Model) viewCardScene(c *game.Card) string {
 	frame := m.scene.Frame(m.modalInner(), 2+len(m.wrapLines(c.Text)))
-	body := append(frame[2:], make([]string, 1+len(c.Choices))...)
+	choices, _ := m.cardChoices(c)
+	body := append(frame[2:], make([]string, 1+len(choices))...)
 	return m.modal(ansi.Strip(frame[0]), body, nil)
 }

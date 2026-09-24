@@ -111,6 +111,10 @@ func (m *Model) fastForward(days int) {
 	ran, stop, evs := m.sess.FastForward(days, m.dayEnded)
 	if m.w.Over == nil {
 		m.fastStop = fmt.Sprintf("Stopped after %s: %s.", plural(ran, "day"), m.stopWhy(stop))
+		if stop.Kind == engine.StopAlert {
+			a := stop.Alert
+			m.fastAlert = &a // the report offers the jump (#352)
+		}
 	}
 	m.say(fmt.Sprintf("Ran %s.", plural(ran, "day")))
 	m.morning(evs) // the stopping day's events: an earlier day's strike is the journal's

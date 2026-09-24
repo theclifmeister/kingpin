@@ -52,7 +52,7 @@ var screens [screenCount]screenSpec
 func init() {
 	screens = [screenCount]screenSpec{
 		screenDashboard: {name: "Dashboard", short: "Dash", word: "dashboard", view: (*Model).viewDashboard, details: (*Model).dashboardDetails, accent: theme.Money,
-			move: func(m *Model, _, dy int) { m.productMove(dy) }},
+			move: func(m *Model, _, dy int) { m.dashboardMove(dy) }},
 		screenMarket: {name: "Market", short: "Mkt", word: "market", view: (*Model).viewMarket, details: (*Model).marketDetails, accent: theme.Market,
 			move: (*Model).marketMove},
 		screenJournal: {name: "Journal", short: "Journal", word: "journal", view: (*Model).viewJournal, details: (*Model).journalDetails, accent: theme.News,

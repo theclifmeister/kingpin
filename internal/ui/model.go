@@ -49,6 +49,7 @@ type Model struct {
 	mapTop         int           // the first row of the map's grid drawn, scrolled to keep the cursor in view
 	routeCursor    int           // route selected under the map's grid
 	onRoutes       bool          // the map's arrows are on the routes, past the bottom row
+	onPolice       bool          // the dashboard's arrows are on HEAT, CASH and LAW, past the product table (#355)
 	buyerCursor    int           // contract selected under the market's product table
 	onBuyers       bool          // the market's arrows are on the buyers, past the bottom row
 	supplierCursor int           // connect selected under the market's buyers (#72)
@@ -57,20 +58,22 @@ type Model struct {
 	upgradeCursor  []int         // node selected in each branch, one an entry of content.Branches, so a branch left and returned to is where it was
 	upgradeID      string        // node awaiting the buy confirmation
 	mv             moveDialog
-	lab            labDialog // the cut and the cook dialogs (#47)
-	ledgerCursor   int       // row on the ledger: fronts, then routes, then offers
-	ledgerScroll   int       // first line of the ledger MAIN shows, following the cursor
-	stage          int       // the tier whose stage is showing (#149)
-	cardCursor     int       // choice highlighted on the dilemma card
-	cardDone       bool      // the card is answered; the outcome is showing
-	dealCursor     int       // offer selected on the rivals screen
-	factionCursor  int       // faction the rivals screen is turned to (#43): an index into World.Rivals
-	modalScroll    int       // first body line the open modal shows
-	outcome        string    // what the last answer did, while it shows
-	journalCursor  int       // headline selected on the journal screen, newest first
-	journalTop     int       // first headline the journal screen shows
-	journalSeen    int       // the journal's length when the journal screen was last shown; not saved, a view cursor like city
-	journalFilter  string    // the source the journal screen shows, or every one when empty (#122); a view cursor like journalSeen
+	lab            labDialog       // the cut and the cook dialogs (#47)
+	ledgerCursor   int             // row on the ledger: fronts, then routes, then offers
+	ledgerScroll   int             // first line of the ledger MAIN shows, following the cursor
+	stage          int             // the tier whose stage is showing (#149)
+	cardCursor     int             // choice highlighted on the dilemma card
+	cardDone       bool            // the card is answered; the outcome is showing
+	chipsFor       *game.Card      // the card chips was worked out for (#358)
+	chips          [][]engine.Chip // what each choice on chipsFor does
+	dealCursor     int             // offer selected on the rivals screen
+	factionCursor  int             // faction the rivals screen is turned to (#43): an index into World.Rivals
+	modalScroll    int             // first body line the open modal shows
+	outcome        string          // what the last answer did, while it shows
+	journalCursor  int             // headline selected on the journal screen, newest first
+	journalTop     int             // first headline the journal screen shows
+	journalSeen    int             // the journal's length when the journal screen was last shown; not saved, a view cursor like city
+	journalFilter  string          // the source the journal screen shows, or every one when empty (#122); a view cursor like journalSeen
 	dlg            dialog
 	tgt            targetDialog
 	crt            cartDialog
@@ -83,6 +86,8 @@ type Model struct {
 	pre            presetsDialog    // the presets dialog (#357)
 	intelCursor    int              // row on the intel screen (#45)
 	fastStop       string           // the report's first line after a fast-forward (`Stopped after 3 days: …`), until the next day ends
+	fastAlert      *engine.Alert    // the alert a fast-forward stopped on (#352), which the report's o opens; nil with the rest
+	alertCursor    int              // the alert selected in the dashboard's ALERTS (#352)
 	slot           int              // the save slot this run lives in: where ctrl+s, the end of the day and quitting save
 	profile        *game.Profile    // the game around the runs (#50): loaded with the model, written when a run ends and when a daily starts
 	profileErr     string           // what loading it said, for the start menu: a corrupt one set aside, a newer one left alone
@@ -204,7 +209,7 @@ func (m *Model) startRunWith(seed uint64, start game.Start) {
 	m.city = m.w.Player.Location
 	m.mapCursor = m.yourCorner()
 	m.flash = nil
-	m.fastStop = ""
+	m.fastStop, m.fastAlert = "", nil
 	m.mapScene = nil
 	who := ""
 	if ch := m.cfg.Characters.Character(m.w.Start.Character); ch != nil && m.w.Start.Character != "" {
@@ -301,7 +306,7 @@ func (m *Model) continueRun(slot int) error {
 	}
 	m.city = w.Player.Location
 	m.mapCursor = m.yourCorner()
-	m.fastStop = ""
+	m.fastStop, m.fastAlert = "", nil
 	m.mapScene = nil
 	m.say(fmt.Sprintf("Continued day %d.", w.Day))
 	m.journalFilter = ""
@@ -351,7 +356,7 @@ func (m *Model) dayEnded(evs []events.Event) {
 			m.flash = append(m.flash, ev)
 		}
 	}
-	m.fastStop = ""
+	m.fastStop, m.fastAlert = "", nil
 	m.save()
 	m.refreshJournal()
 }
@@ -480,6 +485,10 @@ func (m *Model) keyReport(key string) {
 	switch key {
 	case "enter", "esc", " ", "r", "q":
 		m.mode = modePlay
+	case "o":
+		if m.fastAlert != nil {
+			m.openAlert(*m.fastAlert) // the stop line's jump (#352)
+		}
 	default:
 		m.scrollModal(key)
 	}

@@ -91,7 +91,8 @@ func (s *Sim) MigrateFactions(w *game.World) {
 // one that took its last, the richest faction poaches your least loyal
 // member, and a faction your enforcers have beaten enough offers
 // homage. Each rolls on a stream of its own; none of it happens in a
-// duel.
+// duel, bar the broke faction you routed scattering (#370), which rolls
+// nothing.
 func (s *Sim) table43(w *game.World, t *game.Tick) {
 	for _, r := range w.Rivals {
 		if r != nil && !r.Gone() {
@@ -112,13 +113,22 @@ func (s *Sim) table43(w *game.World, t *game.Tick) {
 // absorb is a faction that has stood absorb_days with no corners since
 // another faction took its last being swallowed by it (#43): its muscle
 // joins the taker, its deals end and its offers lapse, and it steps no
-// more. One routed by you or the police is not absorbed: it regroups as
-// it always did, so the duel is the duel.
+// more. One routed by you or the police regroups as it always did, so
+// the duel is the duel, while its chest covers a claim at today's
+// prices; one that cannot has no take to save one out of and nothing to
+// sell for it, so it scatters (#370): absorbed by nobody, its muscle
+// gone home, and the city is no longer waiting on it. No dice.
 func (s *Sim) absorb(w *game.World, t *game.Tick, r *game.RivalState) {
-	if r.Arrived == 0 || r.Routed == 0 || r.LastTakenBy == "" || w.RivalHeldBy(r.Faction()) > 0 || t.Day-r.Routed < s.cfg.Factions.AbsorbDays {
+	if r.Arrived == 0 || r.Routed == 0 || w.RivalHeldBy(r.Faction()) > 0 || t.Day-r.Routed < s.cfg.Factions.AbsorbDays {
 		return
 	}
-	by := w.Faction(r.LastTakenBy)
+	if r.LastTakenBy == "" && r.Cash >= s.ClaimCost(w, r) {
+		return
+	}
+	var by *game.RivalState
+	if r.LastTakenBy != "" { // "" is the rival at home's id too: nobody took it
+		by = w.Faction(r.LastTakenBy)
+	}
 	ev := events.RivalAbsorbed{Day: t.Day, Rival: r.Leader, Faction: r.Faction(), Muscle: r.Muscle}
 	if by != nil && !by.Gone() {
 		by.Muscle += r.Muscle

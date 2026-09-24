@@ -124,11 +124,11 @@ func TestContractBookkeeping(t *testing.T) {
 	if got := w.ContractsIn("b"); len(got) != 0 {
 		t.Fatalf("a failed contract is still listed: %+v", got)
 	}
-	if took := w.TakeCash(600); took != 500 || w.Player.DirtyCash != 0 {
+	if took := w.TakeCash(600).Total(); took != 500 || w.Player.DirtyCash != 0 {
 		t.Fatalf("took %d, dirty %d", took, w.Player.DirtyCash)
 	}
 	w.Player.CleanCash = 50
-	if took := w.TakeCash(20); took != 20 || w.Player.CleanCash != 30 {
+	if took := w.TakeCash(20).Total(); took != 20 || w.Player.CleanCash != 30 {
 		t.Fatalf("took %d, clean %d", took, w.Player.CleanCash)
 	}
 }

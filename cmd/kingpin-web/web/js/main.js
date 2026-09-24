@@ -2,12 +2,37 @@
 // session and plays it through the protocol alone. The map is the
 // scene's; the panel, the card and the ending are the DOM's. Every move
 // is a protocol call; a move the game refuses says why on the toast.
+import { alertPanel, alertText } from "./alerts.js";
 import { autoDay } from "./autoplay.js";
+import { fileWord, policeLines } from "./police.js";
 import { Scene } from "./scene.js";
 import { Session, streetConnect } from "./session.js";
 
 const $ = (id) => document.getElementById(id);
 const money = (n) => (n < 0 ? "-$" : "$") + Math.abs(Math.round(n)).toLocaleString("en-US");
+const signed = (n) => (n > 0 ? "+" : "") + money(n);
+
+// flowTable is the night's cash flow (#351): the opening, one row a
+// category that moved (dirty, clean and both, the big ones marked), and
+// the closing. The rows sum to the closing, pile by pile.
+function flowTable(f) {
+  const t = Object.assign(document.createElement("table"), { className: "flow" });
+  const row = (label, d, c, cls, fmt) => {
+    const tr = document.createElement("tr");
+    if (cls) tr.className = cls;
+    for (const text of [label, fmt(d), fmt(c), fmt(d + c)]) tr.append(Object.assign(document.createElement("td"), { textContent: text }));
+    return tr;
+  };
+  const head = document.createElement("tr");
+  for (const text of ["", "dirty", "clean", "total"]) head.append(Object.assign(document.createElement("th"), { textContent: text }));
+  const rows = [head, row("Opening", f.opening.dirty, f.opening.clean, "total", money)];
+  for (const l of f.lines) {
+    if (l.dirty || l.clean) rows.push(row(l.label, l.dirty, l.clean, l.big ? (l.dirty + l.clean < 0 ? "big bad" : "big good") : "", signed));
+  }
+  rows.push(row("Closing", f.closing.dirty, f.closing.clean, "total", money));
+  t.append(...rows);
+  return t;
+}
 const SAVE_KEY = "kingpin.save";
 
 let session = null;
@@ -75,7 +100,7 @@ function endDays(n) {
   if (n === 1) session.endDay();
   else {
     const r = session.fastForward(n);
-    if (r.stop && r.stop !== "cap") toast(`stopped after ${r.ran} days: ${r.alert ? r.alert.kind : r.event || r.stop}`, true);
+    if (r.stop && r.stop !== "cap") toast(`stopped after ${r.ran} days: ${r.alert ? alertText(session.view, r.alert) : r.event || r.stop}`, true);
   }
   afterNight();
 }
@@ -150,7 +175,8 @@ function render() {
   $("dirty").textContent = money(v.you.dirty_cash);
   $("clean").textContent = money(v.you.clean_cash);
   $("net").textContent = money(v.you.net_worth);
-  $("evidence").textContent = v.you.evidence;
+  $("evidence").textContent = fileWord(v);
+  $("evidence").className = v.law.arrest_line > 0 && v.law.arrest_line - v.you.evidence <= 2 ? "warn" : "";
 
   const city = v.cities.find((c) => c.id === v.you.city);
   $("here").textContent = city ? city.name : v.you.city;
@@ -196,6 +222,11 @@ function render() {
   $("market").tBodies[0].replaceChildren(...rows);
   fits = {};
 
+  // The law (#355): the police risk where you stand, each part explained.
+  $("police").replaceChildren(
+    ...policeLines(v, v.you.city).map((l) => Object.assign(document.createElement("p"), { textContent: l.text, className: l.warn ? "warn" : "" })),
+  );
+
   $("travel").replaceChildren(
     ...v.cities.map((c) => button(c.name, c.id === v.you.city, () => act(() => session.travel(c.id), `on the road to ${c.name}`))),
   );
@@ -217,9 +248,28 @@ function render() {
   }
   $("pool").tBodies[0].replaceChildren(...pool);
 
+  // What needs you (#352): each alert a button to the panel that
+  // answers it where the page has one, else its words alone.
+  const alerts = (v.alerts || []).map((a) => {
+    const li = document.createElement("li");
+    const panel = alertPanel(a);
+    if (panel) li.append(button(alertText(v, a), false, () => showPanel(panel)));
+    else li.textContent = alertText(v, a);
+    return li;
+  });
+  if (!alerts.length) alerts.push(Object.assign(document.createElement("li"), { className: "dim", textContent: "Nobody is looking at you. Yet." }));
+  $("alerts").replaceChildren(...alerts);
+
   const sections = ["incident", "unlocked", "tier", "prices", "sales", "heat", "crew", "territory", "shipments", "law", "intel", "money", "upgrades", "news"];
   const parts = [];
   for (const s of sections) {
+    if (s === "money" && v.report && v.report.flow && v.report.flow.lines.some((l) => l.dirty || l.clean)) {
+      // The cash flow (#351) in place of the flat money lines.
+      const h = document.createElement("h3");
+      h.textContent = "money";
+      parts.push(h, flowTable(v.report.flow));
+      continue;
+    }
     const lines = (v.report && v.report[s]) || [];
     if (!lines.length) continue;
     const h = document.createElement("h3");
@@ -233,7 +283,7 @@ function render() {
   if (v.card) {
     $("card-title").textContent = v.card.title;
     $("card-text").textContent = v.card.text;
-    $("card-choices").replaceChildren(...v.card.choices.map((c, i) => button(c, false, () => act(() => session.choose(i)))));
+    $("card-choices").replaceChildren(...v.card.choices.map((c, i) => choiceButton(c, () => act(() => session.choose(i)))));
   }
   const over = !!v.over;
   // The ending waits for the night's last animation, THE END among them.
@@ -246,6 +296,26 @@ function render() {
     }, 2400);
   for (const id of ["end", "week"]) $(id).disabled = over || !!v.card;
   $("auto").disabled = over;
+}
+
+// showPanel brings the panel an alert names into view and flashes it.
+function showPanel(id) {
+  const el = $(id);
+  el.scrollIntoView({ behavior: "smooth", block: "nearest" });
+  el.classList.remove("flash");
+  void el.offsetWidth; // restart the animation
+  el.classList.add("flash");
+}
+
+// choiceButton is a card's choice: its label, and under it what it does
+// (#358), a chip a thing in the tone's colour.
+function choiceButton(choice, onclick) {
+  const b = button(choice.label, false, onclick);
+  const chips = document.createElement("span");
+  chips.className = "chips";
+  chips.append(...choice.preview.map((c) => Object.assign(document.createElement("span"), { className: `chip ${c.tone}`, textContent: c.text })));
+  b.append(chips);
+  return b;
 }
 
 // buyWhatFits buys qty of a product; a refusal for the room (#356)

@@ -109,6 +109,7 @@ func Load() (*Config, error) {
 		{"assets.toml", func() error { return c.Assets.validate(c.City) }},
 		{"routes.toml", func() error { return c.Routes.validateAssets(c.Assets) }},
 		{"endings.toml", c.Endings.validate},
+		{"headlines.toml", c.Headlines.validate},
 		{"characters.toml", func() error { return c.Characters.validate(c.Crew, c.Upgrades, c.Market, c.City, c.Progression) }},
 		{"presets.toml", c.Presets.validate},
 	} {
