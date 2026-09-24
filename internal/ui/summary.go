@@ -4,6 +4,7 @@ import (
 	"fmt"
 	"sort"
 	"strings"
+	"text/template"
 
 	"github.com/theclifmeister/kingpin/internal/content"
 	"github.com/theclifmeister/kingpin/internal/game"
@@ -173,8 +174,12 @@ func (m *Model) storyLines() []string {
 		weight float64
 		i      int
 	}
+	quiet := m.quietLines()
 	var picked []entry
 	for i, h := range m.w.Journal {
+		if quiet[h.Text] {
+			continue
+		}
 		if wt := cfg.Weight[h.Source]; wt > 0 {
 			picked = append(picked, entry{h, wt, i})
 		}
@@ -193,6 +198,28 @@ func (m *Model) storyLines() []string {
 	for _, p := range picked {
 		day := theme.Subtle.Render(fmt.Sprintf("day %-3d", p.h.Day))
 		out = append(out, day+" "+truncate(p.h.Text, m.modalInner()-8))
+	}
+	return out
+}
+
+// quietLines are the texts the summary's quiet templates render to in
+// every city of the run (#424): "Nothing to report from Eastside
+// corners" is a heat line, and the story never tells it.
+func (m *Model) quietLines() map[string]bool {
+	out := map[string]bool{}
+	for _, key := range m.cfg.Endings.Summary.Quiet {
+		for _, src := range m.cfg.Headlines.Templates[key] {
+			tpl, err := template.New(key).Parse(src)
+			if err != nil {
+				continue
+			}
+			for _, c := range m.w.Cities {
+				var b strings.Builder
+				if tpl.Execute(&b, map[string]string{"City": c.Name}) == nil {
+					out[b.String()] = true
+				}
+			}
+		}
 	}
 	return out
 }
