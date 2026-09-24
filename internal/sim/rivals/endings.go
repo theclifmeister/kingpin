@@ -73,24 +73,9 @@ func (s *Sim) HoldsTheCity(w *game.World) bool {
 	return float64(w.HeldIn(home.ID)) > s.cfg.Endings.KingpinShare*float64(len(home.Corners))
 }
 
-// DominantSince is the day the city became yours: the latest of the
-// days each faction at the table fell (Absorbed, Fragmented) or bowed
-// (its homage deal's Since); 0 with no table. With Dominant() true it
-// is the first day of the reign, and the kingpin ending reads the days
-// since it.
-func (s *Sim) DominantSince(w *game.World) int {
-	since := 0
-	for _, r := range w.Rivals {
-		if r == nil {
-			continue
-		}
-		since = max(since, r.Absorbed, r.Fragmented)
-		if d := w.DealWith(r.Faction(), game.DealHomage); d != nil {
-			since = max(since, d.Since)
-		}
-	}
-	return since
-}
+// DominantSince is World.DominantSince (#347 moved it to the world, so
+// the city plan reads the day the detector reads).
+func (s *Sim) DominantSince(w *game.World) int { return w.DominantSince() }
 
 // betrayed is the table's betrayal (#49): a faction has just broken a
 // deal with you of its own accord (whim), and another faction's war

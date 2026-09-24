@@ -37,13 +37,20 @@ func (m *Model) showStage() {
 // card's outcome takes them), marking it seen and saving (quietly: the
 // morning's status, the tell that somebody is talking over the save
 // line, stays), and opens what the morning has next: the card, else the
-// report. Any other key scrolls, where the modal is short of room.
+// report; a closes it onto the ambitions panel first (#347). Any other
+// key scrolls, where the modal is short of room.
 func (m *Model) keyStage(key string) (tea.Model, tea.Cmd) {
 	switch key {
-	case "enter", "esc", " ", "q":
+	case "enter", "esc", " ", "q", "a":
 		m.sess.SeeStage(m.stage)
 		if err := m.sess.Save(m.slot); err != nil {
 			m.alarm("Save failed: " + err.Error())
+		}
+		if key == "a" {
+			// The ambitions (#347): the panel, then the card and the
+			// report as closing the stage goes on to them.
+			m.openAmbitions(true)
+			return m, nil
 		}
 		m.showCard()
 	default:

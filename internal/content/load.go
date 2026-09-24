@@ -38,6 +38,7 @@ type Config struct {
 	Intel       IntelConfig
 	Endings     EndingsConfig
 	Characters  CharactersConfig
+	Ambitions   AmbitionsConfig
 }
 
 // Load parses the embedded TOML files, then checks them (#275): every
@@ -77,6 +78,7 @@ func Load() (*Config, error) {
 		{"assets.toml", &c.Assets},
 		{"endings.toml", &c.Endings},
 		{"characters.toml", &c.Characters},
+		{"ambitions.toml", &c.Ambitions},
 	} {
 		if err := decode(f.name, f.dest); err != nil {
 			return nil, err
@@ -109,6 +111,7 @@ func Load() (*Config, error) {
 		{"endings.toml", c.Endings.validate},
 		{"headlines.toml", c.Headlines.validate},
 		{"characters.toml", func() error { return c.Characters.validate(c.Crew, c.Upgrades, c.Market, c.City, c.Progression) }},
+		{"ambitions.toml", func() error { return c.Ambitions.validate(c.Upgrades) }},
 	} {
 		if err := v.check(); err != nil {
 			return nil, fmt.Errorf("%s: %w", v.name, err)

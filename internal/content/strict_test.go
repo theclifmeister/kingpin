@@ -18,7 +18,7 @@ func TestEveryFileRefusesAnUnknownKey(t *testing.T) {
 		"dilemmas.toml": &c.Dilemmas, "buyers.toml": &c.Buyers, "suppliers.toml": &c.Suppliers,
 		"progression.toml": &c.Progression, "houses.toml": &c.Houses, "incidents.toml": &c.Incidents,
 		"intel.toml": &c.Intel, "assets.toml": &c.Assets, "endings.toml": &c.Endings,
-		"characters.toml": &c.Characters,
+		"characters.toml": &c.Characters, "ambitions.toml": &c.Ambitions,
 	}
 	entries, err := files.ReadDir(".")
 	if err != nil {

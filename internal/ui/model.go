@@ -82,6 +82,7 @@ type Model struct {
 	amt            amountDialog     // the one-field dialog open (#275): invest, reserve, pay a cop, buy off, fast-forward
 	spy            spyDialog        // the spy dialog (#45)
 	exit           exitDialog       // the walk-away dialog (#49)
+	amb            ambitionsDialog  // the ambitions panel (#347)
 	nr             newRunDialog     // the new-run dialog (#50)
 	intelCursor    int              // row on the intel screen (#45)
 	fastStop       string           // the report's first line after a fast-forward (`Stopped after 3 days: …`), until the next day ends

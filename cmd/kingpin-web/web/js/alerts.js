@@ -59,6 +59,11 @@ export const WORDS = {
   },
   favour: (v, a) => `The chief owes you one and the ${a.level || "police"} comes tonight.`,
   reign: (v, a) => `The city is yours: day ${n(a.days)} of the reign.`,
+  plan: (v, a) => {
+    const p = (v.ambitions || []).find((x) => x.id === a.ambition);
+    const name = p ? p.name : "The plan";
+    return a.ready ? `The plan, ${name}: ready.` : `The plan, ${name}: ${n(a.count)} of ${n(a.steps)} steps met.`;
+  },
 };
 
 // alertText is the alert in words; a kind this client does not know is

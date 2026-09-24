@@ -51,6 +51,7 @@ const (
 	modeExit          // walk away (#49): retire on the account or vanish on a new identity, then the confirmation
 	modeNewRun        // a new run from the start menu (#50): the character, the seed, the hard DA
 	modeRestock       // top the stash up to days of demand (#356): the days, the plan under them, then enter
+	modeAmbitions     // the ambitions panel (#347): the endings as plans, pin one
 	modeCount
 )
 
@@ -157,6 +158,7 @@ func init() {
 		modeExit:          {name: "exit", view: (*Model).viewExit, key: byKey((*Model).keyExit), pages: always, paged: exitState},
 		modeNewRun:        {name: "new run", view: (*Model).viewStart, key: (*Model).keyNewRun, pages: always, paged: nrState},
 		modeRestock:       {name: "restock", view: (*Model).viewRestock, key: (*Model).keyRestock, paged: amtState},
+		modeAmbitions:     {name: "ambitions", view: (*Model).viewAmbitions, key: byKey((*Model).keyAmbitions)},
 	}
 }
 

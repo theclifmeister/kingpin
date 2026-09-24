@@ -33,7 +33,7 @@ type param struct {
 // buy, place_sell, hire, … A dial goes by name ("aggressive"), terms as
 // an object (TermsParams).
 var commands = []string{
-	"Travel", "SetLieLow", "SeeStage", "Choose",
+	"Travel", "SetLieLow", "SeeStage", "Choose", "PinAmbition",
 	"Buy", "Return", "ReturnCredit", "ReturnSupplied", "PlaceSell", "CancelSell", "PlaceStanding", "CancelStanding",
 	"SetSupply", "ClearSupply", "AcceptContract", "DeclineContract", "Deliver", "Cut", "Cook",
 	"Post", "Abandon", "SendEnforcers", "Boost", "Undercut", "CancelUndercut", "Tip", "BuyDeed", "BuyHouse", "Drop", "Guard", "Move",
@@ -53,19 +53,22 @@ var queries = []string{"View", "Alerts", "GatesAhead", "NextGates", "FrontOffers
 // TestEverySessionMethodIsClassed fails on one in no list, so a new
 // command cannot miss the wire by accident.
 var unserved = map[string]string{
-	"Attach":      "a world built in the caller's process",
-	"Config":      "the tuning is the server's",
-	"Rules":       "served rule by rule as rules.<sim>.<method> (rules.go, #325)",
-	"Sims":        "the harness's and the tests'",
-	"World":       "a pointer into the run; the view is its wire form",
-	"Subscribe":   "events are notifications",
-	"Stop":        "fast_forward weighs the days itself",
-	"NewRun":      "new_run, by hand: the start as three positions",
-	"Load":        "load, by hand",
-	"Save":        "save, by hand",
-	"ImportSave":  "import_save, by hand: the save as base64, like load",
-	"EndDay":      "end_day, by hand: the events go out as notifications",
-	"FastForward": "fast_forward, by hand: the days are weighed server side",
+	"Attach":        "a world built in the caller's process",
+	"Config":        "the tuning is the server's",
+	"Rules":         "served rule by rule as rules.<sim>.<method> (rules.go, #325)",
+	"Sims":          "the harness's and the tests'",
+	"World":         "a pointer into the run; the view is its wire form",
+	"Subscribe":     "events are notifications",
+	"Stop":          "fast_forward weighs the days itself",
+	"NewRun":        "new_run, by hand: the start as three positions",
+	"Load":          "load, by hand",
+	"Save":          "save, by hand",
+	"ImportSave":    "import_save, by hand: the save as base64, like load",
+	"EndDay":        "end_day, by hand: the events go out as notifications",
+	"FastForward":   "fast_forward, by hand: the days are weighed server side",
+	"Ambitions":     "the view carries them, view.ambitions (#347)",
+	"Plan":          "the view carries it, view.you.ambition and view.ambitions",
+	"AmbitionTerms": "the owners' thresholds the view's ambitions are read against",
 }
 
 // methods is every method on the wire, by name.
@@ -350,7 +353,7 @@ func decode(ps []json.RawMessage, n int, ptrs ...any) error {
 // paramNames are the parameters' names, for the schema and the errors:
 // reflection cannot see them.
 var paramNames = map[string][]string{
-	"Travel": {"city"}, "SetLieLow": {"on"}, "SeeStage": {"stage"}, "Choose": {"choice"},
+	"Travel": {"city"}, "SetLieLow": {"on"}, "SeeStage": {"stage"}, "Choose": {"choice"}, "PinAmbition": {"ambition"},
 	"Buy": {"supplier", "product", "qty", "credit"}, "MaxBuy": {"supplier", "product", "credit"}, "RestockPlan": {"city", "days"}, "Return": {"city", "product", "qty"},
 	"ReturnCredit": {"city", "product", "qty"}, "ReturnSupplied": {"city", "product", "qty"},
 	"PlaceSell": {"city", "product", "qty", "dial"}, "CancelSell": {"city", "product"},

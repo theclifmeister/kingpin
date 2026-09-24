@@ -1,0 +1,67 @@
+# Ambitions (#347, docs/ambitions.md): the endings surfaced early as
+# plans, each with its steps and how far along each one is. An ambition
+# is a read of the world (game.Ambitions), never a gate and never a
+# trigger: nothing here ends a run, moves a sim's dice or the score. The
+# thresholds are the owners' (laundering.toml [offshore] and
+# [businessman], rivals.toml [endings], upgrades.toml); this file is the
+# names, the copy and the two-city milestone's numbers.
+#
+# Each [[ambition]]:
+#   id        one of the game's (content.AmbitionSteps): retire, legit,
+#             city, vanish, two_cities
+#   name      the panel's row
+#   blurb     one line on the plan, the panel's under the table
+#   [ambition.steps]  one short label a step, keyed by the step's id, in
+#             the game's order (content.AmbitionSteps); every step and
+#             no other
+
+[[ambition]]
+id = "retire"
+name = "Retire clean"
+blurb = "Money in the offshore account, then enough quiet days in a row to walk away on it."
+[ambition.steps]
+offshore = "the account"
+quiet = "quiet days"
+
+[[ambition]]
+id = "legit"
+name = "Go legitimate"
+blurb = "The fronts out-earn the street and the city likes you more than it leans on you, a month running."
+[ambition.steps]
+income = "fronts over street"
+goodwill = "goodwill over pressure"
+streak = "days running"
+
+[[ambition]]
+id = "city"
+name = "Take the city"
+blurb = "More than half of home, every crew gone or paying, and it holds long enough to be a reign."
+[ambition.steps]
+share = "home corners"
+factions = "crews down"
+streak = "days it holds"
+
+[[ambition]]
+id = "vanish"
+name = "Disappear"
+blurb = "A lawyer on retainer, then papers good enough to walk out of any indictment."
+[ambition.steps]
+retainer = "lawyer on retainer"
+identity = "a new identity"
+
+[[ambition]]
+id = "two_cities"
+name = "Two-city operation"
+blurb = "A real hold on two cities, a lieutenant running each, for a stretch. A milestone: it ends nothing."
+[ambition.steps]
+ground = "cities held"
+lieutenants = "with a lieutenant"
+held = "held the stretch"
+
+# The two-city milestone: a city counts once you hold share of its
+# corners, a lieutenant runs it, and those corners have been yours days
+# days (Corner.Since); cities of them make it.
+[two_cities]
+share = 0.4
+days = 14
+cities = 2

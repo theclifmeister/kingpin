@@ -34,7 +34,7 @@ type alert struct {
 // heat over the patrol line, a task force forming, the float, the
 // wages, a member near a line, the skim, a member with no post, a
 // corner nobody works, a full stash, the gate within reach, a house the police know, the DA race,
-// retirement, the favour, the reign). The dashboard's ALERTS carry them
+// retirement, the favour, the reign, the plan pinned). The dashboard's ALERTS carry them
 // and a fast-forward stops on one the morning before did not have.
 func (m *Model) alerts() []alert {
 	var out []alert
@@ -109,6 +109,8 @@ func (m *Model) alertOf(a engine.Alert) alert {
 			who = fmt.Sprintf("%s paying %s a night", plural(a.Count, "crew"), money(a.Amount))
 		}
 		text = theme.Gold.Render(fmt.Sprintf("The city is yours: day %d of the reign, %s. Take the crown or play on.", a.Days, who))
+	case engine.AlertPlan:
+		text, why = m.planAlert(a)
 	}
 	return alert{kind: a.Kind, text: text, why: why, key: a.Key}
 }

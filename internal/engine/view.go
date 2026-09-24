@@ -12,7 +12,7 @@ import (
 // save's game.SchemaVersion: the world is free to change shape, the view
 // is the contract a front end in another process is written against.
 // TestViewShapeIsPinned fails on a shape change that keeps the number.
-const ViewVersion = 7
+const ViewVersion = 9
 
 // View is a snapshot of what the player can see: what a front end draws
 // (#299). It is built from the world the way the TUI reads it and holds
@@ -43,6 +43,7 @@ type View struct {
 	Card      *CardView      `json:"card,omitempty"`
 	Report    ReportView     `json:"report"`
 	Alerts    []Alert        `json:"alerts"`
+	Ambitions []AmbitionView `json:"ambitions"` // the endings as plans with their progress (#347)
 }
 
 // EndingView is how the run ended.
@@ -74,6 +75,7 @@ type YouView struct {
 	QuietDays int                       `json:"quiet_days"`
 	Character string                    `json:"character,omitempty"`
 	HardDA    bool                      `json:"hard_da,omitempty"`
+	Ambition  string                    `json:"ambition,omitempty"` // the plan pinned (#347), an ambitions[] id
 }
 
 // CityView is a city: its heat, its law and its market and corners.
@@ -412,6 +414,7 @@ func (s *Session) View() View {
 		QuietDays: w.QuietDays,
 		Character: w.Start.Character,
 		HardDA:    w.Start.HardDA,
+		Ambition:  w.Ambition,
 	}
 	for _, id := range sortedKeys(w.Upgrades) {
 		if w.Upgrades[id] {
@@ -566,6 +569,7 @@ func (s *Session) View() View {
 		v.Report = reportView(r, s.cfg.Headlines.Flow.BigShare)
 	}
 	v.Alerts = s.Alerts()
+	v.Ambitions = s.ambitionViews()
 	noNulls(reflect.ValueOf(&v).Elem())
 	return v
 }
