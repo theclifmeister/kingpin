@@ -197,7 +197,9 @@ func (s *Sim) sales(d *day) {
 		} else if ps.Standing {
 			why = fmt.Sprintf("standing order moved %d %s %s", ps.Sold, w.ProductName(ps.Product), ps.Dial)
 		}
-		d.add(ps.City, s.SaleHeat(w, ps.City, ps.Product, ps.Wanted, ps.Dial), why)
+		v := s.SaleHeat(w, ps.City, ps.Product, ps.Wanted, ps.Dial)
+		d.add(ps.City, v, why)
+		s.leadSale(d, ps.City, ps.Product, v)
 		d.units[ps.City] += ps.Sold
 	}
 }
@@ -263,7 +265,12 @@ func (s *Sim) contracts(d *day) {
 			continue
 		}
 		d.attempted[cd.City] = true
-		d.add(cd.City, s.ContractHeat(w, cd.City, cd.Product, cd.Units, cd.HeatMul), fmt.Sprintf("handed %d %s to %s", cd.Units, w.ProductName(cd.Product), cd.Name))
+		v := s.ContractHeat(w, cd.City, cd.Product, cd.Units, cd.HeatMul)
+		d.add(cd.City, v, fmt.Sprintf("handed %d %s to %s", cd.Units, w.ProductName(cd.Product), cd.Name))
+		if d.sold != nil {
+			d.sold[cd.City+"/"+cd.Product] = true
+		}
+		d.lead(cd.City, game.LeadProduct, cd.Product, v)
 	}
 }
 
@@ -275,6 +282,13 @@ func (s *Sim) moves(d *day) {
 	for _, mv := range w.Today.Moved {
 		if v := s.MoveHeat(w, mv.City, mv.Product, mv.Units); v > 0 {
 			d.add(mv.City, v, fmt.Sprintf("moved %d %s between places", mv.Units, w.ProductName(mv.Product)))
+			// The house the stock went into is the lead (#343); a move
+			// out to the street, the house it came from.
+			if h := w.House(mv.To); h != nil {
+				d.lead(mv.City, game.LeadHouse, h.ID, v)
+			} else if h := w.House(mv.From); h != nil {
+				d.lead(mv.City, game.LeadHouse, h.ID, v)
+			}
 		}
 		t.Emit(events.StockMoved{Day: t.Day, City: mv.City, From: placeName(w, mv.From), To: placeName(w, mv.To), Product: mv.Product, Units: mv.Units})
 	}

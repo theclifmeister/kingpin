@@ -32,6 +32,7 @@ type Session struct {
 	clock *game.Clock
 	bus   *events.Bus
 	w     *game.World
+	saved []game.Preset // the front end's saved presets (#357, UsePresets)
 }
 
 // New builds the sims from cfg in their step order, a clock over them

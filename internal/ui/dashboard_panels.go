@@ -64,6 +64,21 @@ func (m *Model) heatLines(innerW int, narrow bool) []string {
 		lines = append(lines, strings.Join(numbers, " "))
 	}
 	lines = append(lines, thresholdLines(thr, innerW)...)
+	// An open investigation (#343) takes the last line of the ladder's:
+	// what the police are working and the nights to the hit. The gauge
+	// still marks every rung, and HEAT keeps its four lines.
+	if inv := w.Heat.Investigation; inv.Open() {
+		style := theme.Warning
+		if inv.DaysLeft(w.Day) <= 1 {
+			style = theme.Bad
+		}
+		name := w.LeadName(inv.Kind, inv.Target)
+		if inv.Kind == game.LeadProduct {
+			name += " trade"
+		}
+		line := fmt.Sprintf("police on %s · %s", name, plural(max(1, inv.DaysLeft(w.Day)), "day"))
+		lines[len(lines)-1] = style.Render(truncate(line, innerW))
+	}
 	if !narrow {
 		lines = append(lines, m.reputationLine(innerW))
 	}

@@ -88,6 +88,7 @@ var Policies = []NamedPolicy{
 	{"cartel", func(cfg *content.Config, o PolicyOpts) Policy { return Cartel(cfg, o.at(40)) }},
 	{"reckless", func(cfg *content.Config, _ PolicyOpts) Policy { return Reckless(cfg) }},
 	{"informed", func(cfg *content.Config, o PolicyOpts) Policy { return Informed(cfg, o.at(40), o.Corners) }},
+	{"surgeon", func(cfg *content.Config, o PolicyOpts) Policy { return Surgeon(cfg, o.at(SurgeonLine)) }},
 }
 
 // PolicyNames is the registry's names in its order.

@@ -218,10 +218,12 @@ func TestQuietDayRuleHoldsUnderEveryLaw(t *testing.T) {
 	cfg := content.MustLoad()
 	for _, chief := range content.ChiefPersonalities {
 		for _, da := range content.DAStances {
+			// Seed 2 with investigations on (#343): a hider names no
+			// source, so its stings are the blind ones and file nothing.
 			for seed := uint64(1); seed <= 2; seed++ {
 				w := sim.NewWorld(cfg, seed)
 				w.Player.DirtyCash = 5_000_000
-				run := Appoint(cfg, w, chief, da)
+				run := Appoint(Investigations(cfg, seed == 2), w, chief, da)
 				res, _ := RunFrom(run, w, 600, Hide)
 				if res.Over != nil {
 					t.Fatalf("%s/%s seed %d: rich hider ended on day %d: %s", chief, da, seed, res.Days, res.Over.Cause)

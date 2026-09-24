@@ -21,3 +21,5 @@ No other text names a key: not a title, a table cell, a status or a modal body, 
 **The war order** (#229): `w` on the rivals screen is `declare war` while none is on and `call off war` while one is (two bindings on one key by `when`, `atWar` / `notAtWar`, each asked once in `modeConfirm`), the map's `w send enforcers` and the dashboard's `w walk away` being those screens' own; `war` is a help WORD; `docs/rival.md`.
 
 **The restock key** (#356): `R restock` names the market and nothing else (the map's `R route target` is that screen's own), opens `modeRestock` (`docs/cart.md`), whose footer is the number field's row, `enter buy` and `esc close`.
+
+**The presets key** (#357): `P presets` names the market and nothing else, opens `modePresets` (`docs/presets.md`), whose list page lists `↑↓ pick`, `1-9 choose`, `enter review`, `s save current`, `x delete` (on a preset of yours) and `esc close`, and whose review page `enter apply`, `⇧tab back` and `esc close`.

@@ -52,6 +52,7 @@ const (
 	modeNewRun        // a new run from the start menu (#50): the character, the seed, the hard DA
 	modeRestock       // top the stash up to days of demand (#356): the days, the plan under them, then enter
 	modeCaptain       // name a captain (#346): the city, the budget ←→, then enter
+	modePresets       // the operation presets (#357): the list, then the review of what one changes
 	modeCount
 )
 
@@ -114,6 +115,7 @@ func frontState(m *Model) paged { return &m.front }
 func propState(m *Model) paged  { return &m.prop }
 func amtState(m *Model) paged   { return &m.amt }
 func pickState(m *Model) paged  { return &m.pick }
+func preState(m *Model) paged   { return &m.pre }
 
 // modes is the table, one row a mode. It is filled in init: its
 // functions read it back (a view's footer asks the open dialog's page),
@@ -159,6 +161,7 @@ func init() {
 		modeNewRun:        {name: "new run", view: (*Model).viewStart, key: (*Model).keyNewRun, pages: always, paged: nrState},
 		modeRestock:       {name: "restock", view: (*Model).viewRestock, key: (*Model).keyRestock, paged: amtState},
 		modeCaptain:       {name: "captain", view: (*Model).viewCaptain, key: byKey((*Model).keyCaptain), paged: pickState},
+		modePresets:       {name: "presets", view: (*Model).viewPresets, key: byKey((*Model).keyPresets), pages: always, paged: preState},
 	}
 }
 

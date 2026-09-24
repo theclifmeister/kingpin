@@ -85,6 +85,25 @@ func (s *Sim) respond(d *day) {
 		}
 		resp = nil
 	}
+	// An investigation due tonight lands (#343): the sting on its target
+	// alone, and the night's one response. A favour called in stands it
+	// down as it would the sting, and its cooldown starts tonight. Behind
+	// a task force it waits a night. The sting's cooldown otherwise ran
+	// from the night it opened: the police were at work all along, and
+	// can open the next the night after this one lands.
+	if inv := h.Investigation; resp != nil && inv.Open() && t.Day >= inv.Due {
+		if r := s.rung(content.Sting); r != nil {
+			if favour {
+				h.Investigation = game.Investigation{}
+				h.LastResponse[r.Level] = t.Day
+				t.Emit(events.RaidFellThrough{Day: t.Day, City: inv.City, Level: r.Level, Evidence: s.law.Bribes.FavourEvidence})
+				t.Emit(events.InvestigationClosed{Day: t.Day, City: inv.City, Lead: inv.Kind, Target: inv.Target, Name: w.LeadName(inv.Kind, inv.Target), Fell: true})
+			} else {
+				s.strike(d, *r)
+			}
+		}
+		resp = nil
+	}
 	for i := len(resp) - 1; i >= 0; i-- {
 		r := resp[i]
 		if hot.Heat < s.Threshold(w, r, hot) {
@@ -96,6 +115,9 @@ func (s *Sim) respond(d *day) {
 		if last, ok := h.LastResponse[r.Level]; ok && t.Day-last < s.CooldownDays(w, r.Level) && r.Level != content.Arrest {
 			continue
 		}
+		if r.Level == content.Sting && s.Investigating() && h.Investigation.Open() {
+			continue // the sting is the investigation's while one runs (#343): the rung under it still answers
+		}
 		if r.Level == content.TaskForce {
 			// Announced a day ahead (#48): the morning's news, and the
 			// day's response. It comes tomorrow night.
@@ -105,6 +127,13 @@ func (s *Sim) respond(d *day) {
 		}
 		if favour && r.Level != content.Arrest {
 			t.Emit(events.RaidFellThrough{Day: t.Day, City: hot.ID, Level: r.Level, Evidence: s.law.Bribes.FavourEvidence})
+			h.LastResponse[r.Level] = t.Day
+			break
+		}
+		if r.Level == content.Sting && s.Investigating() && s.open(d, hot) {
+			// A named target instead of a blind sting (#343), the rung's
+			// cooldown running from tonight; with nothing to name, the
+			// blind one.
 			h.LastResponse[r.Level] = t.Day
 			break
 		}

@@ -286,34 +286,38 @@ func TestMoneyCurve(t *testing.T) {
 // cost stock and cash and cool heat, but add no evidence.
 func TestRichHiderIsNeverIndicted(t *testing.T) {
 	t.Parallel()
-	cfg := content.MustLoad()
-	// With the float halved too (#118: the thinner float is a laundering
-	// node; a hider with no fronts washes nothing either way).
-	for _, thin := range []bool{false, true} {
-		for seed := uint64(1); seed <= 5; seed++ {
-			w := sim.NewWorld(cfg, seed)
-			w.Player.DirtyCash = 5_000_000
-			if thin {
-				grant(w, "float")
-			}
-			res, _ := RunFrom(cfg, w, 1000, Hide)
-			if res.Over != nil {
-				t.Fatalf("seed %d thin %v: rich hider ended on day %d: %s", seed, thin, res.Days, res.Over.Cause)
-			}
-			if res.World.Heat.Evidence != 0 {
-				t.Fatalf("seed %d thin %v: rich hider has %d evidence against them without ever selling", seed, thin, res.World.Heat.Evidence)
-			}
-			stings := 0
-			for _, e := range res.Events {
-				if ev, ok := e.(events.Enforcement); ok && (ev.Level == content.Sting || ev.Level == content.Raid) {
-					stings++
-					if ev.Evidence != 0 {
-						t.Fatalf("seed %d day %d: %s on a quiet day added %d evidence", seed, ev.Day, ev.Level, ev.Evidence)
+	// With investigations on too (#343): a hider who never deals
+	// names no source, so every sting is the blind one and files nothing.
+	for _, inv := range []bool{false, true} {
+		cfg := Investigations(content.MustLoad(), inv)
+		// With the float halved too (#118: the thinner float is a laundering
+		// node; a hider with no fronts washes nothing either way).
+		for _, thin := range []bool{false, true} {
+			for seed := uint64(1); seed <= 5; seed++ {
+				w := sim.NewWorld(cfg, seed)
+				w.Player.DirtyCash = 5_000_000
+				if thin {
+					grant(w, "float")
+				}
+				res, _ := RunFrom(cfg, w, 1000, Hide)
+				if res.Over != nil {
+					t.Fatalf("seed %d thin %v: rich hider ended on day %d: %s", seed, thin, res.Days, res.Over.Cause)
+				}
+				if res.World.Heat.Evidence != 0 {
+					t.Fatalf("seed %d thin %v: rich hider has %d evidence against them without ever selling", seed, thin, res.World.Heat.Evidence)
+				}
+				stings := 0
+				for _, e := range res.Events {
+					if ev, ok := e.(events.Enforcement); ok && (ev.Level == content.Sting || ev.Level == content.Raid) {
+						stings++
+						if ev.Evidence != 0 {
+							t.Fatalf("seed %d day %d: %s on a quiet day added %d evidence", seed, ev.Day, ev.Level, ev.Evidence)
+						}
 					}
 				}
-			}
-			if stings == 0 {
-				t.Fatalf("seed %d: $5M dirty drew no stings or raids in 1000 days; the pile should still draw attention", seed)
+				if stings == 0 {
+					t.Fatalf("seed %d: $5M dirty drew no stings or raids in 1000 days; the pile should still draw attention", seed)
+				}
 			}
 		}
 	}
