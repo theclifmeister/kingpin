@@ -158,12 +158,16 @@ func (s *Sim) delegate(w *game.World, t *game.Tick, lt *game.CrewMember, ev *eve
 	keep := func(c *game.Corner) bool { // a corner the lieutenant leaves alone
 		return c.Runner == game.You || (split != nil && c.City == w.Home().ID && split.Covers(c.ID))
 	}
+	named := func(c *game.Corner) bool { return namedCorner(w, c) }
 
 	// 1. A corner robbed robbed_off times is not worth the stock: the crew
-	// come off.
+	// come off. So do they off a corner an investigation names (#343):
+	// every temper reads the police's word, and a corner nobody works
+	// the night the hit lands is a miss that files nothing. It stays
+	// held, and the crew go back on it once the investigation closes.
 	for i := range city.Corners {
 		c := &city.Corners[i]
-		if !c.Held() || c.Robbed < off || keep(c) {
+		if !c.Held() || (c.Robbed < off && !named(c)) || keep(c) {
 			continue
 		}
 		w.Recall(c.Runner)
@@ -175,7 +179,7 @@ func (s *Sim) delegate(w *game.World, t *game.Tick, lt *game.CrewMember, ev *eve
 	byDemand := func(ok func(c *game.Corner) bool) []*game.Corner {
 		var out []*game.Corner
 		for i := range city.Corners {
-			if c := &city.Corners[i]; c.Robbed < off && ok(c) {
+			if c := &city.Corners[i]; c.Robbed < off && !named(c) && ok(c) {
 				out = append(out, c)
 			}
 		}
@@ -226,7 +230,7 @@ func (s *Sim) delegate(w *game.World, t *game.Tick, lt *game.CrewMember, ev *eve
 			}
 			for j := range city.Corners {
 				c := &city.Corners[j]
-				if c.Worked() && c.Enforcer == 0 && c.Robbed < off && (best == nil || score(c) > score(best)) {
+				if c.Worked() && c.Enforcer == 0 && c.Robbed < off && !named(c) && (best == nil || score(c) > score(best)) {
 					best = c
 				}
 			}
@@ -242,12 +246,13 @@ func (s *Sim) delegate(w *game.World, t *game.Tick, lt *game.CrewMember, ev *eve
 	// 4. What they cannot staff they give up, rather than let it sit;
 	// with a faction on its way to the city (#341, #379) a temper that
 	// guards holds it instead (a free corner is where it lands), and one
-	// that hits sends the enforcers after its scouts tomorrow night.
+	// that hits sends the enforcers after its scouts tomorrow night. The
+	// corner an investigation names waits for its crew (#343).
 	coming := comingTo(w, lt.City)
 	if coming == nil || !tp.Guard {
 		for i := range city.Corners {
 			c := &city.Corners[i]
-			if !c.Held() || c.Runner != 0 || keep(c) {
+			if !c.Held() || c.Runner != 0 || keep(c) || named(c) {
 				continue
 			}
 			if w.Abandon(c.ID) == nil {
@@ -260,11 +265,15 @@ func (s *Sim) delegate(w *game.World, t *game.Tick, lt *game.CrewMember, ev *eve
 	}
 
 	// 5. Standing orders for tomorrow: everything in the stash, at
-	// their dial. The player's own order for a product wins the day.
+	// their dial. The player's own order for a product wins the day. A
+	// product an investigation names here is not sold (#343).
 	for _, key := range delegatedKeys(w, lt.City) {
 		delete(w.Delegated, key)
 	}
 	for _, id := range w.Products {
+		if namedProduct(w, lt.City, id) {
+			continue
+		}
 		if q := w.Stock(lt.City, id); q > 0 {
 			w.Delegate(lt.City, id, q, ev.Dial)
 			ev.Orders++
@@ -321,7 +330,7 @@ func (s *Sim) restock(w *game.World, t *game.Tick, lt *game.CrewMember, city *ga
 	served := game.FoldEffects(w, s.tree).DemandMul // what the corners serve under the tree, as the market serves an order
 	for _, id := range w.Products {
 		m := city.Market[id]
-		if m == nil || m.NoSupply || tp.StockDays <= 0 || !sold(id) {
+		if m == nil || m.NoSupply || tp.StockDays <= 0 || !sold(id) || namedProduct(w, lt.City, id) {
 			continue
 		}
 		levels[id] = tp.StockDays * w.Demand(lt.City, id) * served
@@ -344,7 +353,7 @@ func (s *Sim) restock(w *game.World, t *game.Tick, lt *game.CrewMember, city *ga
 	}
 	for _, id := range w.Products {
 		due := min(w.SupplyDue(lt.City, id), w.Free(lt.City))
-		if due <= 0 {
+		if due <= 0 || namedProduct(w, lt.City, id) {
 			continue
 		}
 		if q := w.Stock(lt.City, id); q == 0 {
@@ -404,4 +413,20 @@ func (s *Sim) lieutenants(n *night) {
 		s.delegate(w, t, lt, ev)
 		t.Emit(*ev)
 	}
+}
+
+// namedCorner reports whether an open investigation names c (#343): the
+// heat sim's word, which a lieutenant of any temper answers by taking
+// the crew off it until it closes.
+func namedCorner(w *game.World, c *game.Corner) bool {
+	inv := w.Heat.Investigation
+	return inv.Open() && inv.Kind == game.LeadCorner && inv.City == c.City && inv.Target == c.ID
+}
+
+// namedProduct reports whether an open investigation names product in
+// city (#343): the lieutenant neither sells nor buys it there until it
+// closes.
+func namedProduct(w *game.World, city, product string) bool {
+	inv := w.Heat.Investigation
+	return inv.Open() && inv.Kind == game.LeadProduct && inv.City == city && inv.Target == product
 }

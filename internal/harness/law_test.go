@@ -33,7 +33,8 @@ func medianDays(t *testing.T, cfg *content.Config, n int, days int, chief, da st
 // indicted sooner under a zealous chief (stings and raids come back
 // faster) than under a lazy one, and the crewed player who runs hot is
 // indicted sooner under a law-and-order DA (a thinner file will do, and
-// the sting line is lower) than under a reformer.
+// the sting line is lower) than under a reformer, the crewed player
+// riding the sting line (HotCrewedLine).
 func TestChiefAndDATable(t *testing.T) {
 	t.Parallel()
 	cfg := content.MustLoad()
@@ -45,14 +46,26 @@ func TestChiefAndDATable(t *testing.T) {
 		t.Errorf("a zealous chief should indict the aggressive trader sooner than a lazy one: %d vs %d", zealous, lazy)
 	}
 
-	hot := func(c *content.Config) Policy { return Crewed(c, 50) }
+	// Hot is lying low at the sting line itself (#343). With the blind
+	// sting the player who lies low at 50 was indicted on 13 of 20
+	// seeds under either DA; with investigations its lie-low days fall
+	// on the night the named hit lands, so it misses and files nothing,
+	// and it is indicted on 4 (law and order) and 1 (reform): both
+	// medians are the horizon and the table measured nothing. Riding
+	// the line, the DA's ordering reads 31 against 36 days (45 against
+	// 54 with the blind sting).
+	hot := func(c *content.Config) Policy { return Crewed(c, HotCrewedLine) }
 	law := medianDays(t, cfg, 20, 2*Horizon, "corrupt", "law_and_order", hot)
 	reform := medianDays(t, cfg, 20, 2*Horizon, "corrupt", "reform", hot)
-	t.Logf("crewed at 50: lasts %d days under a law-and-order DA, %d under a reformer (medians)", law, reform)
+	t.Logf("crewed at %.0f: lasts %d days under a law-and-order DA, %d under a reformer (medians)", HotCrewedLine, law, reform)
 	if law >= reform {
 		t.Errorf("a law-and-order DA should indict the hot crewed player sooner than a reformer: %d vs %d", law, reform)
 	}
 }
+
+// HotCrewedLine is where the DA table's hot crewed player lies low: the
+// sting line as heat.toml prints it (TooHot moves it with the DA).
+const HotCrewedLine = 55.0
 
 // Pressure stays in 0..100 on every day of every policy, violence raises
 // it (a hit war is louder than holding ground), and paying the town

@@ -126,12 +126,16 @@ func mustSims(t *testing.T, cfg *content.Config) []game.Simulation {
 	return sims
 }
 
-// The moves work and are priced: over five seeds the saboteur leaves the
-// rival less muscle at day 120 than the crewed player, who never touches
-// it, and the heat its fight adds (boosts, the rival's calls, the
-// crackdowns) is under the push war's, both lying low at the same line.
-// The rival's corners under each are logged: the war routs it where the
-// saboteur bleeds it.
+// The moves work and are priced: over eleven seeds the saboteur leaves
+// the rival less muscle at day 120 than the crewed player, who never
+// touches it, and the heat its fight adds (boosts, the rival's calls,
+// the crackdowns) is under the push war's, both lying low at the same
+// line. The rival's corners under each are logged: the war routs it
+// where the saboteur bleeds it. Eleven seeds, not five (#343): with
+// investigations on, a war that is never stung routs the rival within
+// days on some seeds and adds almost nothing, so five seeds' median was
+// a coin toss (saboteur 133 against war 128) where eleven read 125
+// against 189, as the blind sting's 116 against 207 did.
 func TestSaboteurDrainsTheMuscleQuietly(t *testing.T) {
 	t.Parallel()
 	cfg := content.MustLoad()
@@ -140,13 +144,15 @@ func TestSaboteurDrainsTheMuscleQuietly(t *testing.T) {
 		heat            []float64
 	}
 	rows := map[string]*row{}
+	const seeds = 11
+	mid := seeds / 2
 	for name, policy := range map[string]Policy{
 		"crewed":   Crewed(cfg, 40),
 		"saboteur": Saboteur(cfg, 40),
 		"war":      Warlike(cfg, 40, 0, events.ForcePush),
 	} {
 		r := &row{}
-		for seed := uint64(1); seed <= 5; seed++ {
+		for seed := uint64(1); seed <= seeds; seed++ {
 			res := pricewarRun(t, cfg, seed, 120, "", policy, nil)
 			added := 0.0
 			for _, e := range res.Events {
@@ -169,13 +175,13 @@ func TestSaboteurDrainsTheMuscleQuietly(t *testing.T) {
 		sort.Ints(r.corners)
 		sort.Float64s(r.heat)
 		rows[name] = r
-		t.Logf("%s: rival muscle %v, corners %v, heat from the fight %.0f (medians over 5 seeds at day 120: muscle %d, corners %d, heat %.0f)", name, r.muscle, r.corners, r.heat, r.muscle[2], r.corners[2], r.heat[2])
+		t.Logf("%s: rival muscle %v, corners %v, heat from the fight %.0f (medians over %d seeds at day 120: muscle %d, corners %d, heat %.0f)", name, r.muscle, r.corners, r.heat, seeds, r.muscle[mid], r.corners[mid], r.heat[mid])
 	}
-	if rows["saboteur"].muscle[2] >= rows["crewed"].muscle[2] {
-		t.Fatalf("the saboteur left the rival %d muscle at the median, the crewed player %d", rows["saboteur"].muscle[2], rows["crewed"].muscle[2])
+	if rows["saboteur"].muscle[mid] >= rows["crewed"].muscle[mid] {
+		t.Fatalf("the saboteur left the rival %d muscle at the median, the crewed player %d", rows["saboteur"].muscle[mid], rows["crewed"].muscle[mid])
 	}
-	if rows["saboteur"].heat[2] >= rows["war"].heat[2] {
-		t.Fatalf("the saboteur's fight added %.0f heat at the median, the push war's %.0f", rows["saboteur"].heat[2], rows["war"].heat[2])
+	if rows["saboteur"].heat[mid] >= rows["war"].heat[mid] {
+		t.Fatalf("the saboteur's fight added %.0f heat at the median, the push war's %.0f", rows["saboteur"].heat[mid], rows["war"].heat[mid])
 	}
 }
 

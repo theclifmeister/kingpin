@@ -64,13 +64,15 @@ fall_cash = 0.5             # ... and this share of the dirty cash and of the cl
 # the sting's own four with each repeat cooling less; a drop of eight or a
 # third night's warning had the ignorer outlive the blind sting.
 #
-# It ships off (docs/corners.md): on, the money curve's bands hold, but
-# eight pinned behaviours read the blind sting (the cop's word, the DA's
-# ordering, the lawyer's cut, the lieutenant's temper, a handoff's sting,
-# the saboteur, the reckless cartel, the seed digest) and each wants its
-# own ruling. cmd/balance -investigation on plays it.
+# It ships on (#343, docs/corners.md has the rulings on the eight tests
+# written around the blind sting): the cop's word names the night the
+# hit lands, a lieutenant of any temper takes the crew off a named corner
+# and stops selling a named product, and the dashboard's sting rung reads
+# the named hit's pages. enabled = false is the blind sting, the run
+# before the feature byte for byte (TestNoInvestigationIsTheOldRun);
+# cmd/balance -investigation off plays it.
 [investigation]
-enabled = false
+enabled = true
 window_days = 7          # the tally forgets a seventh of itself a day
 lead_days = 2            # opened tonight, the hit two nights later
 closed_heat_drop = 4     # a hit that found its target: the police got someone (1/n on each repeat, as every rung)
