@@ -244,6 +244,13 @@ func (m *Model) viewMap() string {
 	head := m.screenTitle("MAP") + "  " +
 		theme.Subtle.Render(fmt.Sprintf("%d/%d held · %d worked · ~%.0f/day free", held, len(cs), worked, free))
 	lines := []string{truncate(head, width)}
+	// A faction on its way here (#341): the map's mark, in its colour,
+	// under the title, while it scouts and recruits.
+	for _, r := range w.Rivals {
+		if r != nil && r.Scouting() && r.ScoutingCity == m.shown().ID {
+			lines = append(lines, truncate(m.factionStyle(r.Faction()).Render("» "+m.rivalName(r)+" "+m.scoutsWord(r)), width))
+		}
+	}
 
 	// The grid. Cells are laid out by their x, y; the body width decides
 	// how wide a cell can be. It gets the rows MAIN has left once the
@@ -253,7 +260,7 @@ func (m *Model) viewMap() string {
 	// clamp.
 	cols, rows := m.mapGrid()
 	routes := m.routeLines(width)
-	room := m.mainHeight() - 1
+	room := m.mainHeight() - len(lines)
 	if len(routes) > 0 {
 		room -= 2 + len(routes)
 	}
@@ -481,7 +488,7 @@ func (m *Model) cornerSection(sel *game.Corner) section {
 	// The deed to the block (#194): yours since when and what it pays,
 	// or what it would cost.
 	if d := sel.Deed; d != nil {
-		lines = append(lines, row("DEED", theme.Gold.Render(fmt.Sprintf("yours since day %d · %s/day", d.Bought, money(m.rules.Territory.DeedRent(d))))))
+		lines = append(lines, row("DEED", theme.Gold.Render(fmt.Sprintf("yours since day %d · %s/day", d.Bought, money(m.rules.Territory.DeedRent(w, *sel, d.Price))))))
 	}
 	// The corner's repeat business (#47): the share of its customers
 	// still coming back, once bad product has cost it some; a row the
@@ -509,7 +516,7 @@ func (m *Model) cornerSection(sel *game.Corner) section {
 	// it did): the price today, and the rent.
 	if sel.Deed == nil && w.Player.CleanCash > 0 {
 		if price := m.rules.Territory.DeedPrice(w, *sel); price > 0 {
-			lines = append(lines, keyRow("d", fmt.Sprintf("buy the block: %s clean, +%s/day", cash(price), cash(m.rules.Territory.DeedRent(&game.Deed{Price: price})))))
+			lines = append(lines, keyRow("d", fmt.Sprintf("buy the block: %s clean, +%s/day", cash(price), cash(m.rules.Territory.DeedRent(w, *sel, price)))))
 		}
 	}
 	// Demand per product, biggest first, as many to a line as the value

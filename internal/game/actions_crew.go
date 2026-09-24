@@ -176,6 +176,69 @@ func (w *World) Assign(id int, city string) error {
 	return nil
 }
 
+var (
+	ErrCaptainRuns   = errors.New("a lieutenant runs a city: they are nobody's captain")
+	ErrNotTrusted    = errors.New("not trusted enough to be captain")
+	ErrCaptained     = errors.New("somebody is already captain there")
+	ErrBadBudget     = errors.New("a budget is zero or more")
+	ErrNotCaptain    = errors.New("they are nobody's captain")
+	ErrCaptainAbsent = errors.New("they are in no state to take it on")
+)
+
+// NameCaptain makes the member with id captain of a city (#346): from
+// tonight they post its idle runners, pull a suspected skimmer off a
+// corner there and pay off a member near the quit line out of budget
+// a night. One a city; naming them for another city moves them. The
+// caller passes what trust takes, the loyalty and the days on the
+// payroll (the crew's tuning, as Hire takes the cap). A lieutenant
+// runs a city and is never one.
+func (w *World) NameCaptain(id int, city string, budget int, loyalty float64, days int) error {
+	if w.Over != nil {
+		return ErrGameOver
+	}
+	m := w.Crew.Member(id)
+	if m == nil {
+		return ErrNoMember
+	}
+	if m.Lieutenant() {
+		return ErrCaptainRuns
+	}
+	if w.Cities[city] == nil {
+		return ErrNoCity
+	}
+	if budget < 0 {
+		return ErrBadBudget
+	}
+	if !m.Working() {
+		return ErrCaptainAbsent
+	}
+	if m.Captain != city && (m.Loyalty < loyalty || w.Day-m.Hired < days) {
+		return ErrNotTrusted
+	}
+	if c := w.Crew.Captain(city); c != nil && c.ID != id {
+		return ErrCaptained
+	}
+	m.Captain, m.Budget = city, budget
+	return nil
+}
+
+// DropCaptain takes the captaincy off the member with id (#346): they
+// go back to being one of the crew, and the city's care stops tonight.
+func (w *World) DropCaptain(id int) error {
+	if w.Over != nil {
+		return ErrGameOver
+	}
+	m := w.Crew.Member(id)
+	if m == nil {
+		return ErrNoMember
+	}
+	if m.Captain == "" {
+		return ErrNotCaptain
+	}
+	m.Captain, m.Budget = "", 0
+	return nil
+}
+
 // Unassign takes a lieutenant off their city. The crew they posted stay
 // where they are; the standing orders go.
 func (w *World) Unassign(id int) error {

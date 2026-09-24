@@ -42,6 +42,25 @@ func (s *Sim) factions(w *game.World, t *game.Tick, c *game.CrewState, fx game.E
 				gone = map[int]bool{}
 			}
 			gone[m.ID] = true
+		case events.RivalRecruiting:
+			// A faction hiring in a city where you earn (#341) takes the
+			// pool's best faces, the pick of it: the refill tops the
+			// count up with fresh ones. No dice.
+			for i := 0; i < ev.Bite; i++ {
+				best := -1
+				for j, m := range c.Candidates {
+					if extra(m) || former(m) {
+						continue
+					}
+					if best < 0 || m.Skill > c.Candidates[best].Skill {
+						best = j
+					}
+				}
+				if best < 0 {
+					break
+				}
+				c.Candidates = append(c.Candidates[:best], c.Candidates[best+1:]...)
+			}
 		case events.RivalLeaderArrested:
 			rng := t.Sub(game.StreamFragment)
 			for i := 0; i < ev.Muscle; i++ {

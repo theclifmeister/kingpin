@@ -52,7 +52,7 @@ type LogisticsRules interface {
 }
 type TerritoryRules interface {
 	DeedPrice(w *game.World, c game.Corner) int
-	DeedRent(d *game.Deed) int
+	DeedRent(w *game.World, c game.Corner, price int) int
 	Deeds() content.DeedTuning
 	DriftDays(w *game.World) int
 	HouseRobberyChance(w *game.World, h *game.House) float64
@@ -62,6 +62,7 @@ type TerritoryRules interface {
 }
 type RivalsRules interface {
 	Allies(w *game.World) []*game.RivalState
+	ArriveDay(w *game.World, r *game.RivalState) int
 	Books() content.BooksTuning
 	BoostHeat(c *game.Corner) float64
 	BoostTake(w *game.World, c game.Corner) int
@@ -72,6 +73,7 @@ type RivalsRules interface {
 	DefenceAt(w *game.World, r *game.RivalState, muscle int) float64
 	Diplomacy() content.DiplomacyTuning
 	Distrusted(r *game.RivalState, day int) bool
+	Expansion() content.ExpansionTuning
 	EyeingBy(w *game.World, r *game.RivalState) *game.Corner
 	Factions() content.FactionsTuning
 	MusclePrice(w *game.World, r *game.RivalState) int
@@ -94,6 +96,8 @@ type CrewRules interface {
 	BatchIn(w *game.World, city string) int
 	BatchOf(skill int) int
 	Birthday(m game.CrewMember, day int) int
+	CanCaptain(w *game.World, m game.CrewMember) bool
+	Captaincy() content.CaptainTuning
 	ChemistName(w *game.World) string
 	ChemistQuality(w *game.World) float64
 	CookCostIn(w *game.World, city string, cost int) int
@@ -115,6 +119,8 @@ type CrewRules interface {
 	QualityOf(skill int) float64
 	Retiring(m game.CrewMember) bool
 	RevealDays() int
+	Trait(name string) content.Trait
+	TraitDays() int
 	Tuning() content.CrewTuning
 	WageAt(w *game.World, m game.CrewMember, p events.Pay) int
 	Wages(w *game.World, p events.Pay) int
@@ -161,7 +167,7 @@ type LaunderingRules interface {
 	CanRetire(w *game.World) bool
 	Capacity(w *game.World) int
 	Dial(d events.Launder) content.LaunderConfig
-	Fee(amount int) int
+	Fee(w *game.World, amount int) int
 	FrontUpkeep(w *game.World, f game.Front) int
 	Growth() content.GrowthConfig
 	Income(f game.Front) int

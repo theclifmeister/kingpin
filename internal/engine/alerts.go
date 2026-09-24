@@ -21,32 +21,34 @@ type AlertKind string
 
 // The alerts, loudest first: the order Alerts returns them in.
 const (
-	AlertTalking     AlertKind = "talking"      // somebody on the payroll is talking
-	AlertContractDue AlertKind = "contract_due" // Contract due Due (today or tomorrow)
-	AlertDebtDue     AlertKind = "debt_due"     // Supplier owed Amount on Due, Have in hand
-	AlertHeat        AlertKind = "heat"         // Heat in City at or over the patrol Line
-	AlertTaskForce   AlertKind = "task_force"   // a task force formed this morning
-	AlertFloat       AlertKind = "float"        // Have dirty under the float, Amount
-	AlertWages       AlertKind = "wages"        // Amount in wages tonight, Have dirty
-	AlertCrewLine    AlertKind = "crew_line"    // Member is Gap over the Cross line (Line), Days at tonight's drift
-	AlertSkim        AlertKind = "skim"         // skimming suspected: money went missing on Day
-	AlertUnposted    AlertKind = "unposted"     // Member (a runner or an enforcer) has no post; Corner in City is one to put them on, or ""
-	AlertIdleCorner  AlertKind = "idle_corner"  // nobody works Corner in City: back to the street in Days
-	AlertStashFull   AlertKind = "stash_full"   // the stash in City holds Count of its Amount, at or over houses.toml's full_share
-	AlertGate        AlertKind = "gate"         // Gate within reach
-	AlertHouseKnown  AlertKind = "house_known"  // the police know about House
-	AlertDARace      AlertKind = "da_race"      // the DA race is Days off and taking money
-	AlertRetire      AlertKind = "retire"       // Ready, or Days quiet and Amount short
-	AlertFavour      AlertKind = "favour"       // the chief owes you one and Level comes tonight
-	AlertReign       AlertKind = "reign"        // day Days of the reign, Count crews paying Amount
-	AlertPlan        AlertKind = "plan"         // the pinned plan (#347): Count of its Steps met, Ready once done
+	AlertTalking       AlertKind = "talking"       // somebody on the payroll is talking
+	AlertContractDue   AlertKind = "contract_due"  // Contract due Due (today or tomorrow)
+	AlertDebtDue       AlertKind = "debt_due"      // Supplier owed Amount on Due, Have in hand
+	AlertHeat          AlertKind = "heat"          // Heat in City at or over the patrol Line
+	AlertTaskForce     AlertKind = "task_force"    // a task force formed this morning
+	AlertInvestigation AlertKind = "investigation" // the police in City are working Target (Corner, Product or House): the hit in Days
+	AlertFloat         AlertKind = "float"         // Have dirty under the float, Amount
+	AlertWages         AlertKind = "wages"         // Amount in wages tonight, Have dirty
+	AlertCrewLine      AlertKind = "crew_line"     // Member is Gap over the Cross line (Line), Days at tonight's drift
+	AlertSkim          AlertKind = "skim"          // skimming suspected: money went missing on Day
+	AlertUnposted      AlertKind = "unposted"      // Member (a runner or an enforcer) has no post; Corner in City is one to put them on, or ""
+	AlertIdleCorner    AlertKind = "idle_corner"   // nobody works Corner in City: back to the street in Days
+	AlertStashFull     AlertKind = "stash_full"    // the stash in City holds Count of its Amount, at or over houses.toml's full_share
+	AlertScouts        AlertKind = "scouts"        // a faction moving on City (#341), at stage Level (scouting or recruiting), arriving in Days
+	AlertGate          AlertKind = "gate"          // Gate within reach
+	AlertHouseKnown    AlertKind = "house_known"   // the police know about House
+	AlertDARace        AlertKind = "da_race"       // the DA race is Days off and taking money
+	AlertRetire        AlertKind = "retire"        // Ready, or Days quiet and Amount short
+	AlertFavour        AlertKind = "favour"        // the chief owes you one and Level comes tonight
+	AlertReign         AlertKind = "reign"         // day Days of the reign, Count crews paying Amount
+	AlertPlan          AlertKind = "plan"          // the pinned plan (#347): Count of its Steps met, Ready once done
 )
 
 // AlertKinds is every kind, loudest first: the order Alerts returns them
 // in.
 func AlertKinds() []AlertKind {
-	return []AlertKind{AlertTalking, AlertContractDue, AlertDebtDue, AlertHeat, AlertTaskForce, AlertFloat, AlertWages,
-		AlertCrewLine, AlertSkim, AlertUnposted, AlertIdleCorner, AlertStashFull, AlertGate, AlertHouseKnown,
+	return []AlertKind{AlertTalking, AlertContractDue, AlertDebtDue, AlertHeat, AlertTaskForce, AlertInvestigation, AlertFloat, AlertWages,
+		AlertCrewLine, AlertSkim, AlertUnposted, AlertIdleCorner, AlertStashFull, AlertScouts, AlertGate, AlertHouseKnown,
 		AlertDARace, AlertRetire, AlertFavour, AlertReign, AlertPlan}
 }
 
@@ -69,6 +71,7 @@ const (
 	ScreenCrew      = "crew"
 	ScreenMap       = "map"
 	ScreenLedger    = "ledger"
+	ScreenRivals    = "rivals"
 )
 
 // ModePost is the one dialog an act opens: the post picker on the
@@ -108,20 +111,25 @@ var alertActs = map[AlertKind][]Act{
 	AlertDebtDue:     {{Screen: ScreenMarket, Subject: SubjectSupplier}},
 	AlertHeat:        {actDashboard},
 	AlertTaskForce:   {actDashboard},
-	AlertFloat:       {actLedger},
-	AlertWages:       {actCrew},
-	AlertCrewLine:    {actMember},
-	AlertSkim:        {actCrew},
-	AlertUnposted:    {actPost, actMember},
-	AlertIdleCorner:  {actCorner},
-	AlertStashFull:   {{Screen: ScreenLedger, Subject: SubjectCity}},
-	AlertGate:        {actMarket, actLedger},
-	AlertHouseKnown:  {{Screen: ScreenLedger, Subject: SubjectHouse}},
-	AlertDARace:      {actLedger},
-	AlertRetire:      {actLedger, actDashboard},
-	AlertFavour:      {actLedger},
-	AlertReign:       {actDashboard},
-	AlertPlan:        {actDashboard}, // the plan pinned (#347): the dashboard, where it is shown and the walk away is
+	// An investigation (#343) is answered where its target is: the
+	// corner on the map, the product on the market, the house on the
+	// ledger, each selected.
+	AlertInvestigation: {{Screen: ScreenMap, Subject: SubjectCorner}, actMarket, {Screen: ScreenLedger, Subject: SubjectHouse}},
+	AlertFloat:         {actLedger},
+	AlertWages:         {actCrew},
+	AlertCrewLine:      {actMember},
+	AlertSkim:          {actCrew},
+	AlertUnposted:      {actPost, actMember},
+	AlertIdleCorner:    {actCorner},
+	AlertStashFull:     {{Screen: ScreenLedger, Subject: SubjectCity}},
+	AlertScouts:        {{Screen: ScreenRivals}},
+	AlertGate:          {actMarket, actLedger},
+	AlertHouseKnown:    {{Screen: ScreenLedger, Subject: SubjectHouse}},
+	AlertDARace:        {actLedger},
+	AlertRetire:        {actLedger, actDashboard},
+	AlertFavour:        {actLedger},
+	AlertReign:         {actDashboard},
+	AlertPlan:          {actDashboard}, // the plan pinned (#347): the dashboard, where it is shown and the walk away is
 }
 
 // ActsOf is every act an alert of the kind can carry, the usual one
@@ -138,23 +146,25 @@ type Alert struct {
 	Kind AlertKind `json:"kind"`
 	Key  string    `json:"key"`
 
-	City     string  `json:"city,omitempty"`     // heat, da_race, idle_corner, unposted, stash_full: the city's id (heat: where you are; unposted: the corner's)
+	City     string  `json:"city,omitempty"`     // heat, da_race, idle_corner, unposted, stash_full, investigation: the city's id (heat: where you are; unposted: the corner's)
 	Contract int     `json:"contract,omitempty"` // contract_due: the contract's id
 	Supplier string  `json:"supplier,omitempty"` // debt_due: the connect's id
-	House    string  `json:"house,omitempty"`    // house_known: the house's id
+	House    string  `json:"house,omitempty"`    // house_known, investigation: the house's id
 	Due      int     `json:"due,omitempty"`      // contract_due, debt_due: the day it is due
 	Amount   int     `json:"amount,omitempty"`   // debt_due: the debt; float: the float; wages: the wages; retire: the cash short; reign: the homage a night; stash_full: the capacity
 	Have     int     `json:"have,omitempty"`     // debt_due: the cash in hand; float, wages: the dirty cash
 	Heat     float64 `json:"heat,omitempty"`     // heat: the city's heat
 	Line     float64 `json:"line,omitempty"`     // heat: the patrol line; crew_line: the loyalty line
-	Days     int     `json:"days,omitempty"`     // da_race: days to the election; retire: quiet days short; reign: the reign's day; crew_line: days to the line at tonight's drift (0: not falling); idle_corner: days before it drifts
+	Days     int     `json:"days,omitempty"`     // da_race: days to the election; retire: quiet days short; reign: the reign's day; crew_line: days to the line at tonight's drift (0: not falling); idle_corner: days before it drifts; investigation: nights to the hit (1: tonight)
 	Count    int     `json:"count,omitempty"`    // reign: the crews paying homage; stash_full: the units held; plan: the steps met
 	Ready    bool    `json:"ready,omitempty"`    // retire: retiring is open now; plan: the plan is done
 	Level    string  `json:"level,omitempty"`    // favour: the response due tonight
 	Member   int     `json:"member,omitempty"`   // crew_line, unposted: the member's id
 	Cross    string  `json:"cross,omitempty"`    // crew_line: the line ahead: skim, flip (a lieutenant's) or walk
 	Gap      float64 `json:"gap,omitempty"`      // crew_line: the loyalty over the line
-	Corner   string  `json:"corner,omitempty"`   // idle_corner: the corner's id; unposted: a corner to post them on, or ""
+	Corner   string  `json:"corner,omitempty"`   // idle_corner, investigation: the corner's id; unposted: a corner to post them on, or ""
+	Target   string  `json:"target,omitempty"`   // investigation: what is named, corner | product | house (#343)
+	Product  string  `json:"product,omitempty"`  // investigation: the product's id
 	Day      int     `json:"day,omitempty"`      // skim: the day money last went missing
 	Gate     *Gate   `json:"gate,omitempty"`     // gate: the door
 	Ambition string  `json:"ambition,omitempty"` // plan: the ambition pinned
@@ -200,6 +210,23 @@ func (s *Session) Alerts() []Alert {
 	if s.set.Heat.TaskForceForming(w) {
 		out = append(out, Alert{Kind: AlertTaskForce, Key: "a task force formed"})
 	}
+	if inv := w.Heat.Investigation; inv.Open() {
+		// Keyed by the investigation (#343): a fast-forward stops the
+		// morning it opens, and not again for the same one. The act is
+		// where the target is.
+		a := Alert{Kind: AlertInvestigation, Key: fmt.Sprintf("investigation %s %s %s %d", inv.City, inv.Kind, inv.Target, inv.Opened),
+			City: inv.City, Target: inv.Kind, Days: max(1, inv.DaysLeft(w.Day))}
+		acts := alertActs[AlertInvestigation]
+		switch inv.Kind {
+		case game.LeadCorner:
+			a.Corner, a.Act = inv.Target, acts[0]
+		case game.LeadProduct:
+			a.Product, a.Act = inv.Target, acts[1]
+		case game.LeadHouse:
+			a.House, a.Act = inv.Target, acts[2]
+		}
+		out = append(out, a)
+	}
 	if fl := s.set.Laundering.Float(w); w.Player.DirtyCash < fl && s.FloatMatters() {
 		out = append(out, Alert{Kind: AlertFloat, Key: "dirty cash under the float", Amount: fl, Have: w.Player.DirtyCash})
 	}
@@ -213,6 +240,7 @@ func (s *Session) Alerts() []Alert {
 	out = append(out, s.unposted()...)
 	out = append(out, s.idleCorners()...)
 	out = append(out, s.stashesFull()...)
+	out = append(out, s.scouts()...)
 	for _, g := range s.NextGates() {
 		if g.Near(w) {
 			act := actMarket // a product or a connect
@@ -329,6 +357,26 @@ func (s *Session) stashesFull() []Alert {
 			continue
 		}
 		out = append(out, Alert{Kind: AlertStashFull, Key: "stash full in " + cid, City: cid, Count: held, Amount: room})
+	}
+	return out
+}
+
+// scouts are the factions moving on a city where you earn (#341), in
+// table order: one alert a faction, keyed by the faction, the city and
+// the stage, so a fast-forward stops once on the scouts and once more
+// on the recruiting; the arrival is the RivalMovedIn stop.
+func (s *Session) scouts() []Alert {
+	var out []Alert
+	for _, r := range s.w.Rivals {
+		if r == nil || !r.Scouting() || r.Gone() {
+			continue
+		}
+		stage := "scouting"
+		if r.Recruited > 0 {
+			stage = "recruiting"
+		}
+		days := max(0, s.set.Rivals.ArriveDay(s.w, r)-s.w.Day)
+		out = append(out, Alert{Kind: AlertScouts, Key: "scouts " + r.Faction() + " in " + r.ScoutingCity + " " + stage, City: r.ScoutingCity, Level: stage, Days: days})
 	}
 	return out
 }

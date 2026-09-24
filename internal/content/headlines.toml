@@ -114,6 +114,19 @@ EnforcementTaskforce = [
 EnforcementArrest = [
   "{{.City}} dealer arrested in early-morning operation",
 ]
+# Targeted investigations (#343): the police name what they are looking
+# at the night they open one, and the paper says so when it goes
+# nowhere; a hit is the sting's own headline. {{.Name}} is the corner,
+# the house or `the weed trade`. Both pick off their own stream.
+InvestigationOpened = [
+  "{{.City}} detectives open investigation into {{.Name}}",
+  "Police 'building a case' around {{.Name}}, {{.City}} sources say",
+  "Chief {{.Chief}} confirms surveillance on {{.Name}} in {{.City}}",
+]
+InvestigationClosed = [
+  "{{.City}} police investigation into {{.Name}} comes up empty",
+  "Surveillance on {{.Name}} ends with no arrests, {{.City}} police admit",
+]
 TaskForceFormed = [
   "Federal task force announced for {{.City}}; DA {{.DA}} 'welcomes the help'",
   "Feds set up shop in {{.City}}: 'we know who we are looking for', says agent in charge",
@@ -205,6 +218,10 @@ CrewKilled = [
   "{{.Name}} shot dead on {{.Corner}}; {{.City}} police name a crew, and its boss",
   "Killing on {{.Corner}}: 'the {{.City}} war has a body count now', says the DA's office",
   "{{.Role}} gunned down on {{.Corner}}; {{.City}} council demands the boss's arrest",
+]
+CrewTrait = [
+  "{{.City}} {{.Role}} {{.Name}} a known face now; the word on the street is '{{.Trait}}'",
+  "Old hands on {{.City}}'s corners: {{.Name}}, {{.Trait}}, they say",
 ]
 CrewRetired = [
   "{{.Name}} 'done with the {{.City}} game' and leaving town",
@@ -318,6 +335,26 @@ WarEnded = [
 RivalAbsorbed = [
   "{{.Rival}}'s outfit folds; what is left runs with {{.Name}} now",
   "End of the line for {{.Rival}}'s crew: absorbed by {{.Name}}'s",
+]
+# Following the money (#341): a faction drawn to a city where you earn
+# and nobody else operates, in stages.
+RivalScouting = [
+  "Out-of-town faces asking about {{.City}}'s corners; word is {{.Rival}} sent them",
+  "{{.Rival}}'s people seen sizing up {{.City}}: 'somebody is making money here'",
+  "Strangers counting heads on {{.City}}'s blocks; {{.Rival}}'s crew, say regulars",
+]
+RivalRecruiting = [
+  "{{.Rival}}'s crew is hiring in {{.City}}, and paying over the odds",
+  "Corner boys in {{.City}} fielding offers from {{.Rival}}'s people",
+  "{{.Rival}} building a crew in {{.City}}; 'they are staying', says a bartender",
+]
+RivalWithdrew = [
+  "{{.Rival}}'s scouts pack up in {{.City}}: 'not worth it', says a source",
+  "The out-of-towners are gone from {{.City}}; {{.Rival}} looks elsewhere",
+]
+ScoutsHit = [
+  "Beating in {{.City}}: out-of-town men 'sent home', police say",
+  "{{.Rival}}'s scouts roughed up in {{.City}}; nobody saw anything",
 ]
 # The reign (#227): the morning the city became yours for good.
 ReignBegan = [

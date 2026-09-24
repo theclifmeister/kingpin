@@ -258,7 +258,7 @@ func nodeStep(w *World, tree content.UpgradesConfig, id string) AmbitionStep {
 }
 
 // twoCities is the milestone's steps: the cities where you hold the
-// share of the corners, those of them a lieutenant runs, and those of
+// share of the corners, those of them a lieutenant or a captain runs, and those of
 // them whose corners at the share have been yours days days.
 func twoCities(w *World, t content.TwoCitiesConfig) []AmbitionStep {
 	ground, run, held := 0, 0, 0
@@ -281,8 +281,8 @@ func twoCities(w *World, t content.TwoCitiesConfig) []AmbitionStep {
 			continue
 		}
 		ground++
-		if w.Crew.Lieutenant(cid) == nil {
-			continue
+		if w.Crew.Lieutenant(cid) == nil && w.Crew.Captain(cid) == nil {
+			continue // nobody runs it for you: a lieutenant or a captain (#346)
 		}
 		run++
 		if float64(old) >= line {

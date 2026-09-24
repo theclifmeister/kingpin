@@ -199,6 +199,9 @@ func (s *Sim) Step(w *game.World, t *game.Tick) {
 		}
 	}
 	s.killed(w, t)
+	// Following the money (#341): the window on your take away from
+	// home, the factions on their way, a city that draws one.
+	s.expand(w, t)
 	for i, r := range w.Rivals {
 		if r == nil {
 			continue
@@ -213,6 +216,7 @@ func (s *Sim) Step(w *game.World, t *game.Tick) {
 		}
 		s.step(w, t, r, rng)
 	}
+	s.landed(w, t)
 	s.table43(w, t)
 	// Intel (#45): what the night showed you of the factions, no dice,
 	// and what the ones that distrust you feed you, off the intel stream.

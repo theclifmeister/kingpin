@@ -131,6 +131,7 @@ type data struct {
 	Faction string // the rival's faction, `Big Sal's crew` (#44)
 	Asset   string // an asset by name (#48)
 	Title   string // what the paper calls you (#233): a dealer, a crew, the boss of Eastside
+	Trait   string // a veteran's trait (#346)
 }
 
 // Step writes headlines into the journal and assembles the morning report.
@@ -523,6 +524,33 @@ func lieutenantLines(w *game.World, ev events.LieutenantActed) []string {
 	return lines
 }
 
+// captainLines is the report's CREW line for a captain's night (#346):
+// what they did for the city (a line for each thing done), or that they
+// were in no state to, or have stopped caring; nothing for a quiet
+// night. What it cost is the MONEY section's.
+func captainLines(ev events.CaptainActed) []string {
+	switch {
+	case ev.Absent:
+		return []string{fmt.Sprintf("%s is in no state to look after %s's crew tonight.", ev.Name, ev.CityName)}
+	case ev.Careless:
+		return []string{fmt.Sprintf("%s has stopped caring about %s's crew. Nobody is looking after them.", ev.Name, ev.CityName)}
+	}
+	var did []string
+	if n := len(ev.Pulled); n > 0 {
+		did = append(did, fmt.Sprintf("pulled %s off the corner, skimming suspected", strings.Join(ev.Pulled, ", ")))
+	}
+	if n := len(ev.Posted); n > 0 {
+		did = append(did, fmt.Sprintf("posted %s on %s", count(n, "runner"), strings.Join(ev.Posted, ", ")))
+	}
+	if n := len(ev.Paid); n > 0 {
+		did = append(did, fmt.Sprintf("paid off %s for %s", strings.Join(ev.Paid, ", "), format.Money(ev.Spent)))
+	}
+	if len(did) == 0 {
+		return nil
+	}
+	return []string{fmt.Sprintf("%s looked after %s's crew: %s.", ev.Name, ev.CityName, strings.Join(did, "; "))}
+}
+
 // lieutenantWalkedLine is the report on a lieutenant who left with the
 // city.
 func lieutenantWalkedLine(ev events.LieutenantWalked) string {
@@ -718,6 +746,8 @@ func intelLine(w *game.World, ev events.IntelGained) string {
 		return fmt.Sprintf("%s: the next thing coming in %s is a %s (%s).", how, name, ev.Value, sure)
 	case game.FactRisk:
 		return fmt.Sprintf("%s: %s is seized %s in transit (%s).", how, name, ev.Value, sure)
+	case game.FactScout:
+		return fmt.Sprintf("%s: %s has scouts in %s (%s).", how, name, w.CityName(ev.Value), sure)
 	}
 	return fmt.Sprintf("%s: %s %s %s (%s).", how, name, ev.FactKind, ev.Value, sure)
 }

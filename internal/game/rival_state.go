@@ -108,7 +108,26 @@ type RivalState struct {
 	AbsorbedBy  string
 	Fragmented  int
 	Fragments   []string
+
+	// Following the money (#341): a faction drawn to a city where the
+	// player earns and nobody lives. ScoutingCity is the city it is
+	// moving on ("" none; Home is set to it the same day), ScoutDay the
+	// day its scouts came (a hit on them moves it on by setback_days),
+	// Recruited the day it began recruiting there (0 not yet: until then
+	// the scouts go home if the take falls back), ScoutsHit the day your
+	// enforcers hit the scouts (once), and Cell the faction it split off
+	// ("" a seat that was still in the wings). Zero values are the run
+	// before: every faction where the seed put it.
+	ScoutingCity string
+	ScoutDay     int
+	Recruited    int
+	ScoutsHit    int
+	Cell         string
 }
+
+// Scouting reports whether the faction is on its way to a city it has
+// not arrived in (#341).
+func (r RivalState) Scouting() bool { return r.ScoutingCity != "" && r.Arrived == 0 }
 
 // Gone reports whether the faction is out of the game: absorbed by
 // another or fragmented after its leader was taken (#43). A gone faction

@@ -460,6 +460,51 @@ func Crewed(cfg *content.Config, lieLowAt float64) Policy {
 	return Territory(cfg, lieLowAt, 0)
 }
 
+// Captained plays like Crewed and names a captain at home (#346): each
+// morning with nobody looking after home, the most loyal member the
+// crew sim would trust with it (CanCaptain; the first of them on a tie)
+// is named at the first budget in crew.toml [captain] budgets. It is
+// the baseline for "a player who hands crew care to a veteran", read
+// against crewed (TestCaptainedKeepsTheCrew).
+func Captained(cfg *content.Config, lieLowAt float64) Policy {
+	crewed := Crewed(cfg, lieLowAt)
+	cs := crew.New(cfg)
+	return func(w *game.World) {
+		crewed(w)
+		NameCaptain(cfg, cs, w, w.Home().ID)
+	}
+}
+
+// NameCaptain names the most loyal member the crew sim would trust as
+// captain of city, the first of them on a tie, at the first budget,
+// when nobody is captain there; it reports whether one is.
+func NameCaptain(cfg *content.Config, cs *crew.Sim, w *game.World, city string) bool {
+	if w.Crew.Captain(city) != nil {
+		return true
+	}
+	var best *game.CrewMember
+	for i := range w.Crew.Members {
+		m := &w.Crew.Members[i]
+		if m.Captain == "" && cs.CanCaptain(w, *m) && (best == nil || m.Loyalty > best.Loyalty) {
+			best = m
+		}
+	}
+	if best == nil {
+		return false
+	}
+	cp := cfg.Crew.Captain
+	return w.NameCaptain(best.ID, city, cp.Budgets[0], cp.Loyalty, cp.Days) == nil
+}
+
+// NoTraits returns a copy of cfg with crew.toml's [traits] boxed
+// (#346): nobody shows a trait and nothing lived is written, so a run
+// is byte-for-byte the run before the feature (TestNoTraitIsTheOldRun).
+func NoTraits(cfg *content.Config) *content.Config {
+	boxed := *cfg
+	boxed.Crew.Traits = content.TraitsTuning{}
+	return &boxed
+}
+
 // Territory plays like Crewed but works at most corners corners (0 means
 // as many as it can staff), counting the one you stand on, and spends the
 // crew slots it has left on enforcers for the corners most likely to be
@@ -638,6 +683,17 @@ func NoWar(cfg *content.Config) *content.Config {
 	return &boxed
 }
 
+// NoExpansion returns a copy of cfg with the table following the money
+// boxed (#341): the window on the take away from home is still kept
+// (bookkeeping, no dice) and nobody moves on a city. A run whose take
+// away from home never crosses take_min is byte-for-byte the same on
+// the file and under it (TestNoExpansionIsTheOldRun).
+func NoExpansion(cfg *content.Config) *content.Config {
+	boxed := *cfg
+	boxed.Rivals.Expansion.Enabled = false
+	return &boxed
+}
+
 // RivalBooks is the rival's day as the rivals sim keeps it: what its
 // corners earn it today (rivals.Sim.Income, a price war's squeeze off)
 // and what its muscle costs it (rivals.Sim.Wages, the wage in the
@@ -776,6 +832,19 @@ func Laundered(cfg *content.Config, lieLowAt float64) Policy {
 	ld := laundering.New(cfg)
 	return func(w *game.World) {
 		washUp(ld, w)
+		crewed(w)
+	}
+}
+
+// OneFront plays like Laundered with one kind of front (#344): it buys
+// the front id, and no other, when dirty cash is three times its price,
+// and runs the dial as Laundered does. TestNoFrontDominates reads the
+// kinds against each other.
+func OneFront(cfg *content.Config, lieLowAt float64, id string) Policy {
+	crewed := Crewed(cfg, lieLowAt)
+	ld := laundering.New(cfg)
+	return func(w *game.World) {
+		washOnly(ld, w, 3, id)
 		crewed(w)
 	}
 }
@@ -1246,8 +1315,15 @@ func Landlord(cfg *content.Config, policy Policy) Policy {
 // dirty cash is margin times its price. ld is the policy's laundering
 // sim, built once (#275): it keeps nothing between days.
 func washUpAt(ld *laundering.Sim, w *game.World, margin float64) {
+	washOnly(ld, w, margin, "")
+}
+
+// washOnly is washUpAt with the fronts it buys cut to the kind only
+// (#344), or any kind for "": the cheapest one lacking, the dial as
+// washUpAt keeps it.
+func washOnly(ld *laundering.Sim, w *game.World, margin float64, only string) {
 	for _, o := range ld.Offers() {
-		if w.Front(o.ID) != nil {
+		if w.Front(o.ID) != nil || only != "" && o.ID != only {
 			continue
 		}
 		if !o.Locked(w) && float64(w.Player.DirtyCash) >= margin*float64(o.Cost) {
@@ -1327,6 +1403,16 @@ func NoLife(cfg *content.Config) *content.Config {
 	return &boxed
 }
 
+// Investigations returns a copy of cfg with heat.toml's [investigation]
+// switched on or off (#343), the rest of the table as the file has it.
+// Off, the sting is the blind one and nothing is tallied: the run before
+// the feature, byte for byte (TestNoInvestigationIsTheOldRun).
+func Investigations(cfg *content.Config, on bool) *content.Config {
+	boxed := *cfg
+	boxed.Heat.Investigation.Enabled = on
+	return &boxed
+}
+
 // NoDeeds returns a copy of cfg with city.toml's [deed] table boxed
 // (#194): no block is on sale (BuyDeed refuses with ErrNoDeeds) and
 // nothing reads the table. A run that never bought a deed is
@@ -1334,6 +1420,15 @@ func NoLife(cfg *content.Config) *content.Config {
 func NoDeeds(cfg *content.Config) *content.Config {
 	boxed := *cfg
 	boxed.City.Deed = content.DeedTuning{}
+	return &boxed
+}
+
+// NoFrontRoles returns a copy of cfg with the fronts' roles boxed
+// (#344): no front carries an effect, so every front only washes, as
+// before the roles (TestNoFrontEffectIsTheOldRun).
+func NoFrontRoles(cfg *content.Config) *content.Config {
+	boxed := *cfg
+	boxed.Upgrades.Fronts = nil
 	return &boxed
 }
 

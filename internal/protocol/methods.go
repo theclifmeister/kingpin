@@ -37,18 +37,18 @@ var commands = []string{
 	"Buy", "Return", "ReturnCredit", "ReturnSupplied", "PlaceSell", "CancelSell", "PlaceStanding", "CancelStanding",
 	"SetSupply", "ClearSupply", "AcceptContract", "DeclineContract", "Deliver", "Cut", "Cook",
 	"Post", "Abandon", "SendEnforcers", "Boost", "Undercut", "CancelUndercut", "Tip", "BuyDeed", "BuyHouse", "Drop", "Guard", "Move",
-	"Hire", "Fire", "SetPay", "Investigate", "PayOff", "Bail", "Assign", "Unassign",
+	"Hire", "Fire", "SetPay", "Investigate", "PayOff", "Bail", "Assign", "Unassign", "NameCaptain", "DropCaptain",
 	"SetRoute", "SetRouteTarget", "SetRouteDays", "SetRouteDriver", "BuyCheckpoint",
 	"SetLaunderDial", "BuyFront", "Invest", "BuyAsset", "Reserve", "BuyUpgrade",
 	"Bribe", "Fund", "Back", "CallFavour", "PayCop",
-	"ScoutFaction", "PlantSpy", "BuyOffFrom", "ProposeTo", "Accept", "Decline", "CallOff", "DeclareWar", "CallOffWar", "Withdraw",
+	"ScoutFaction", "PlantSpy", "BuyOffFrom", "ProposeTo", "Accept", "Decline", "CallOff", "DeclareWar", "CallOffWar", "HitScouts", "Withdraw",
 	"Retire", "Vanish", "Crown",
 	"ApplyPreset",
 }
 
 // queries are the session's reads served as they are: they change
 // nothing.
-var queries = []string{"View", "Alerts", "GatesAhead", "NextGates", "FrontOffers", "AssetOffers", "HouseOffers", "FloatMatters", "ExportSave", "MaxBuy", "RestockPlan", "Presets", "PresetCommands", "PresetDiff"}
+var queries = []string{"View", "Alerts", "GatesAhead", "NextGates", "FrontOffers", "AssetOffers", "HouseOffers", "FloatMatters", "ExportSave", "MaxBuy", "RestockPlan", "Presets", "PresetCommands", "PresetDiff", "Preview"}
 
 // unserved are the session's methods the wire does not carry, and why:
 // TestEverySessionMethodIsClassed fails on one in no list, so a new
@@ -371,12 +371,12 @@ var paramNames = map[string][]string{
 	"Tip": {"corner"}, "BuyDeed": {"corner"}, "BuyHouse": {"house"}, "Drop": {"house"},
 	"Guard": {"house", "member"}, "Move": {"city", "from", "to", "product", "units"},
 	"Hire": {"candidate"}, "Fire": {"member"}, "SetPay": {"pay"}, "PayOff": {"member"}, "Bail": {"member"},
-	"Assign": {"member", "city"}, "Unassign": {"member"},
+	"Assign": {"member", "city"}, "Unassign": {"member"}, "NameCaptain": {"member", "city", "budget"}, "DropCaptain": {"member"},
 	"SetRoute": {"route", "dial"}, "SetRouteTarget": {"route", "product", "units"},
 	"SetRouteDays": {"route", "product", "days"}, "SetRouteDriver": {"route", "member"}, "BuyCheckpoint": {"route"},
 	"SetLaunderDial": {"dial"}, "BuyFront": {"front"}, "Invest": {"front", "levels"}, "BuyAsset": {"asset"},
 	"Reserve": {"amount"}, "BuyUpgrade": {"upgrade"},
 	"Bribe": {"target", "amount"}, "Fund": {"city", "amount"}, "Back": {"city", "ticket", "amount"}, "PayCop": {"amount"},
 	"ScoutFaction": {"faction"}, "PlantSpy": {"faction", "member"}, "BuyOffFrom": {"faction", "units"},
-	"ProposeTo": {"faction", "kind", "terms"}, "Accept": {"offer"}, "Decline": {"offer"}, "DeclareWar": {"faction"},
+	"ProposeTo": {"faction", "kind", "terms"}, "Accept": {"offer"}, "Decline": {"offer"}, "DeclareWar": {"faction"}, "HitScouts": {"faction"},
 }

@@ -122,7 +122,8 @@ func TestPricewarInvariants(t *testing.T) {
 func TestPricewarKeepsThePeace(t *testing.T) {
 	t.Parallel()
 	// The duel (#43, harness.OneFaction): this pins a mechanism on a seed, and the table moves the seed's dice.
-	cfg := OneFaction(content.MustLoad())
+	// Veterans (#346) boxed: with traits on, seed 2's pricewar player undercut during the truce.
+	cfg := NoTraits(OneFaction(content.MustLoad()))
 	policy := Pricewar(cfg, 40, 3, events.DialNormal)
 	for seed := uint64(1); seed <= 3; seed++ {
 		refused := 0

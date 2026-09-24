@@ -29,8 +29,13 @@ import (
 // 2 added the quotes, rules.<sim>.<method> (#325); 3 export_save and
 // import_save (#327); 4 max_buy, restock_plan and the no_room error
 // (#356); 5 the presets, presets, preset_commands, preset_diff and
-// apply_preset (#357); 7 pin_ambition (#347; 6 is queued ahead of it).
-const Version = 7
+// apply_preset (#357); 6 rules.territory.deed_rent takes the corner and
+// a price, so an offer's rent is quoted too (#344: a front's rent_mul
+// folds in the block's city); 7 preview, the day's preview (#353); 8
+// name_captain, drop_captain and the crew rules can_captain, captaincy,
+// trait and trait_days (#346); 9 hit_scouts (#341); 10
+// pin_ambition (#347).
+const Version = 10
 
 // The error codes: JSON-RPC 2.0's, and the game's own in its
 // server-error range.

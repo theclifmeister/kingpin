@@ -461,8 +461,14 @@ func (s *Sim) Crowd(w *game.World, r *game.RivalState) int {
 
 // ArriveDay is the first day a faction may move in: arrive_day for the
 // rival at home, arrive_gap days later for each seat after it, so the
-// table fills the way the duel did, one arrival at a time.
+// table fills the way the duel did, one arrival at a time. A faction on
+// its way to a city where you earn (#341) arrives scout_days and
+// arrive_days after its scouts came.
 func (s *Sim) ArriveDay(w *game.World, r *game.RivalState) int {
+	if r.Scouting() {
+		e := s.cfg.Expansion
+		return r.ScoutDay + e.ScoutDays + e.ArriveDays
+	}
 	i := max(0, w.FactionIndex(r.Faction()))
 	return s.cfg.Rivals.ArriveDay + i*s.cfg.Factions.ArriveGap
 }

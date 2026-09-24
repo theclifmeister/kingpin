@@ -52,6 +52,7 @@ const (
 	modeNewRun        // a new run from the start menu (#50): the character, the seed, the hard DA
 	modeRestock       // top the stash up to days of demand (#356): the days, the plan under them, then enter
 	modeAmbitions     // the ambitions panel (#347): the endings as plans, pin one
+	modeCaptain       // name a captain (#346): the city, the budget ←→, then enter
 	modePresets       // the operation presets (#357): the list, then the review of what one changes
 	modeCount
 )
@@ -161,6 +162,7 @@ func init() {
 		modeNewRun:        {name: "new run", view: (*Model).viewStart, key: (*Model).keyNewRun, pages: always, paged: nrState},
 		modeRestock:       {name: "restock", view: (*Model).viewRestock, key: (*Model).keyRestock, paged: amtState},
 		modeAmbitions:     {name: "ambitions", view: (*Model).viewAmbitions, key: byKey((*Model).keyAmbitions)},
+		modeCaptain:       {name: "captain", view: (*Model).viewCaptain, key: byKey((*Model).keyCaptain), paged: pickState},
 		modePresets:       {name: "presets", view: (*Model).viewPresets, key: byKey((*Model).keyPresets), pages: always, paged: preState},
 	}
 }

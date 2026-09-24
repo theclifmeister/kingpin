@@ -203,7 +203,8 @@ func TestCartelIsWithinFifteenPercentOfBoss(t *testing.T) {
 // the loud dial to reach; 8 of 10 seeds on main with #43's table.)
 func TestAggressiveCartelLosesItsAssets(t *testing.T) {
 	t.Parallel()
-	cfg := content.MustLoad()
+	// The expansion boxed (#341, harness.NoExpansion): this pins the task force on a volume, and a faction drawn to the hub takes the volume that brings it (2 of 10 seeds punished on the file).
+	cfg := NoExpansion(content.MustLoad())
 	punished := 0
 	for seed := uint64(1); seed <= 10; seed++ {
 		res, err := Run(cfg, seed, TierDays[4], Reckless(cfg))

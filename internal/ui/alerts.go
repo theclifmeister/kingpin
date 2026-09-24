@@ -31,9 +31,12 @@ type alert struct {
 
 // alerts is what needs you this morning, loudest first, in the engine's
 // order (engine.Alerts: somebody talking, a contract or a debt due, the
-// heat over the patrol line, a task force forming, the float, the
+// heat over the patrol line, a task force forming, an investigation
+// (#343), the float, the
 // wages, a member near a line, the skim, a member with no post, a
-// corner nobody works, a full stash, the gate within reach, a house the police know, the DA race,
+// corner nobody works, a full stash, a faction on its way to a city
+// where you earn (#341), the gate within reach, a house the police
+// know, the DA race,
 // retirement, the favour, the reign, the plan pinned). The dashboard's ALERTS carry them
 // and a fast-forward stops on one the morning before did not have.
 func (m *Model) alerts() []alert {
@@ -73,6 +76,8 @@ func (m *Model) alertOf(a engine.Alert) alert {
 		text = theme.Bad.Render(fmt.Sprintf("Heat %.0f in %s is over the patrol line (%.0f).", a.Heat, w.CityName(a.City), a.Line))
 	case engine.AlertTaskForce:
 		text = theme.Bad.Bold(true).Render("A task force formed this morning.") + theme.Bad.Render(" It comes tonight: lie low.")
+	case engine.AlertInvestigation:
+		text, why = m.investigationAlert(a)
 	case engine.AlertFloat:
 		text = theme.Warning.Render(fmt.Sprintf("Dirty cash %s is under the float (%s): the wash and the road wait.", cash(a.Have), cash(a.Amount)))
 	case engine.AlertWages:
@@ -90,6 +95,8 @@ func (m *Model) alertOf(a engine.Alert) alert {
 		name := w.CityName(a.City)
 		text = theme.Warning.Render(fmt.Sprintf("The stash in %s is full: %d of %d. Rent a house or move stock %s.", name, a.Count, a.Amount, screenPointer(screenLedger)))
 		why = "the stash in " + name + " is full"
+	case engine.AlertScouts:
+		text, why = m.scoutsAlert(a)
 	case engine.AlertGate:
 		text, why = theme.Gold.Render(gateText(w, *a.Gate)), gateThe(*a.Gate)+" within reach"
 	case engine.AlertHouseKnown:
@@ -113,6 +120,30 @@ func (m *Model) alertOf(a engine.Alert) alert {
 		text, why = m.planAlert(a)
 	}
 	return alert{kind: a.Kind, text: text, why: why, key: a.Key}
+}
+
+// scoutsAlert words a faction moving on a city where you earn (#341):
+// `Sal's crew has scouts in Bayport: in on day 59. See the rivals
+// screen (6).`, amber while it scouts, red once it recruits (the take
+// no longer sends it home).
+func (m *Model) scoutsAlert(a engine.Alert) (text, why string) {
+	who := "Somebody"
+	for _, r := range m.w.Rivals {
+		if r != nil && r.Scouting() && r.ScoutingCity == a.City {
+			who = m.rivalName(r)
+		}
+	}
+	city := m.w.CityName(a.City)
+	style, what := theme.Warning, "has scouts in "+city
+	if a.Level == "recruiting" {
+		style, what = theme.Bad, "is recruiting in "+city
+	}
+	why = who + " " + what
+	when := "in " + plural(a.Days, "day")
+	if a.Days <= 0 {
+		when = "due now"
+	}
+	return style.Render(fmt.Sprintf("%s %s: %s. Answer them %s.", who, what, when, screenPointer(screenRivals))), why
 }
 
 // crossWords are what crossing each of the crew's loyalty lines is
@@ -191,6 +222,34 @@ func (m *Model) unpostedAlert(a engine.Alert) (text, why string) {
 		text = fmt.Sprintf("%s has no post and no corner free: take one back %s.", name, screenPointer(screenMap))
 	}
 	return theme.Warning.Render(text), why
+}
+
+// investigationAlert words an open investigation (#343): what the police
+// named, where, the nights to the hit and the answer, `Police are
+// working Rail Yard: they hit in 3 days. Work another corner on the map
+// screen (5), or let them have it.`; red the night it lands.
+func (m *Model) investigationAlert(a engine.Alert) (text, why string) {
+	w := m.w
+	name, answer := "", ""
+	switch a.Target {
+	case game.LeadCorner:
+		name = w.LeadName(a.Target, a.Corner)
+		answer = "Work another corner " + screenPointer(screenMap) + ", or let them have it."
+	case game.LeadProduct:
+		name = "the " + w.ProductName(a.Product) + " trade"
+		answer = "Stop selling it there and move it out " + screenPointer(screenMarket) + ", or let them have it."
+	case game.LeadHouse:
+		name = w.LeadName(a.Target, a.House)
+		answer = "Move the stock out " + screenPointer(screenLedger) + ", or let them have it."
+	}
+	if a.City != w.Here().ID {
+		name += " in " + w.CityName(a.City)
+	}
+	when, style := "in "+plural(a.Days, "day"), theme.Warning
+	if a.Days <= 1 {
+		when, style = "tonight", theme.Bad
+	}
+	return style.Render(fmt.Sprintf("Police are working %s: they hit %s. %s", name, when, answer)), "police working " + name
 }
 
 // crewTrouble is the morning's crew trouble in a line (#345), `2 near

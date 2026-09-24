@@ -256,20 +256,41 @@ const (
 // high; the flow reconciling pile by pile is what found it). No number
 // moved: with World.Report set aside on both sides the digest is
 // main's on all sixty days (checked again on top of #358).
+// Again for #343 (HeatState.Trail and Investigation added to the walk;
+// the move is on day 1 by shape alone and no number moved: with the two
+// fields skipped the digest is the list before it on all sixty days,
+// investigations shipping off).
+// Again for #344 (Front.City added to the walk, stamped where a front
+// is bought, and the fronts' roles): the move is on day 16, the boss's
+// first front (the laundromat, which carries no effect), by shape
+// alone; under harness.NoFrontRoles the digest is the file's to day 53
+// and the roles first move a number on day 54, and cmd/balance -roles
+// off prints main's trace to the dollar.
+// Again for #346 (CrewMember.Trait, Lived, Captain and Budget added to
+// the walk): the move on day 1 is shape alone, and the first number
+// moves on day 46, the night the boss's first hire has served [traits]
+// days and shows a trait: with the four fields skipped while zero the
+// digest is f3dc3ee's on days 1 to 45, and under harness.NoTraits it
+// is f3dc3ee's on all sixty.
+// Again for #341 (RivalState.ScoutingCity, ScoutDay, Recruited,
+// ScoutsHit and Cell, World.Takes, Today.HitScouts and three Stats added
+// to the walk; the move is on day 1 by shape alone and no number moved:
+// with the fields skipped the digest is the one before on all sixty
+// days, the duel never expanding and never keeping the window).
 var seedDigest = []string{
-	"0a185cd20b737fe7", "e94ccd608b8fccc1", "7b19268dcb2f9ef7", "672ed40fbdb47bb3",
-	"3fa9635ce0d1148d", "a5fc52962f77a3b3", "5a497124e7f50439", "f2bc9b7bc2210541",
-	"25347760c509f803", "47db052b474da138", "827538b80358cbb5", "191f6b4bc58a611d",
-	"1e348279ace107ed", "71345b6a67d50e40", "9d2855f16b4da47c", "3b41a553fd04e3de",
-	"ced5ede6191db1be", "a289d77497244681", "956ea8ac6c753555", "fb8d16dcdfc7e67b",
-	"3f9145d08fdde991", "85a3251619fcde78", "943cbccd70422f75", "8f069c528dc0a8da",
-	"4da38dfb4a26f698", "0395c60b0e7595bc", "02126a3ca6ccbc4e", "08b828cddf15e737",
-	"3cb6a315ebfd6962", "d4f4117a086b864f", "876af881722aa542", "648a254623621f6e",
-	"f5ad32279e8880ed", "ea4c7ff1defabd10", "da6c7490f60f7f19", "633f8edec050c9c3",
-	"ae8f9bba79ffb77c", "27fdff2b907e4b51", "5b2cb75050840679", "974386703b7afdfb",
-	"a43587f4a5bc4098", "a9be8075c3e5394f", "86efe85b0172517b", "47762478a4f9f8d3",
-	"cca0e0e280cd5727", "753ee165fb6ac377", "ee0419667d18d660", "1d378d013074040e",
-	"4858a5b27fccd80d", "c6e70d4d4ab813f5", "150ce333a69602a0", "e48df8e87ed74665",
-	"a8311d6a519d03f1", "1d4042aa34121d69", "db7f676ab36c5603", "615cbdfa1c4046ce",
-	"147aac40c73d65d4", "7b43e61bba6f5a45", "95c88a6574df8e31", "981b71057d4142b9",
+	"4c5c004ab6223ff3", "7c4ab8e3d7d2a737", "eb58f118b02fdfad", "8900dad44f36c997",
+	"7576a1d38c0fbb4d", "6da8f920434ea4df", "af141b935a2af729", "3659278ce749044f",
+	"61d8f917a6f0b08b", "013cf8ca22041248", "4b9afb93e1b05b69", "c80543c13269f6a3",
+	"362657342a0fc2f7", "0d6adce450f8044a", "e653253bc1dd993c", "07250ce487fec119",
+	"0ce51b0b1affcb79", "bab4f47775a34b52", "c1fcf2ea77952a60", "14092b1dee33ed40",
+	"ad95d9dff6cce362", "475dbb41a9d37817", "2422290ddd6c7d1e", "ae739113be573883",
+	"834a954c7fa571f3", "a578623c9e1e9475", "baef261f0d9da50f", "3f789bf849ccc374",
+	"fff41707909845c4", "2f190a655090549b", "9ea8c8986c554d60", "db991e13da59ac84",
+	"0f023b596c4d1d25", "6ecee3dba43a6d10", "3d9a09ea1b3ee309", "d9f92ab95f5fb11b",
+	"8a6c124bd7ce0690", "18d9c189ea50a499", "0d5623108cd04bb3", "d5cd7829ea1a832b",
+	"e6ce61c708218c6c", "f7a04184a8012a47", "68061a21c55232dd", "f476d3c9d45be849",
+	"22652d9506d8cb21", "7e9a5233c6a06e9e", "426cf87abc1469d8", "24088a3028d84aca",
+	"d46c1f0383269366", "193b60b80aa950e8", "0f85708d48a08bb0", "6aff04274ac7fd03",
+	"de0b997787f2f5f2", "b847b7983f034675", "109284be4bbe8ad6", "6219cd1ee06e3e90",
+	"ddd32470fc8460ce", "663456113d952cf2", "572a2125d95d8292", "ceccaf988fe94d9b",
 }

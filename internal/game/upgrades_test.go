@@ -214,6 +214,7 @@ var foldRules = []struct {
 	{"UpkeepMul", lowest},
 	{"AuditFreezeCut", sum},
 	{"FloatMul", lowest},
+	{"OffshoreFeeMul", lowest},
 
 	{"RouteRiskMul", product},
 	{"RouteCapacityMul", product},
@@ -225,6 +226,10 @@ var foldRules = []struct {
 	{"RobberyMul", product},
 	{"GuardBonus", sum},
 	{"RivalPushMul", product},
+
+	{"DeedCostMul", lowest},
+	{"RentMul", product},
+	{"GoodwillDay", sum},
 }
 
 // Every name in the vocabulary folds by its rule: two owned nodes

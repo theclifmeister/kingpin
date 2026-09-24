@@ -40,6 +40,42 @@ fall_heat = 50              # the fall guy (#49, upgrades.toml fall_guys): the c
                             # and every city's heat drops to this ...
 fall_cash = 0.5             # ... and this share of the dirty cash and of the clean goes on making it stick
 
+# Targeted investigations (#343). With enabled on, the heat sim keeps a
+# tally of the heat it already computes, by source: street sales by the
+# corners they moved on, a buyer's handoff by its product, stock moved
+# by the house it went into. When a city's police would send the sting,
+# they open an investigation on the biggest source there instead (an
+# argmax, no dice) and say so. lead_days nights later the sting lands on
+# that target alone: the corner's runner and the street's stock, the
+# product's stock on the street there, or the house. It files pages only
+# if the target was in use that night (#27: only dealing builds a case),
+# and a hit that found its target takes closed_heat_drop off the city's
+# heat: feed the police one corner and keep the rest running. A target
+# suspended, moved or emptied in time is a sting that found nothing: it
+# takes nothing, files nothing and cools nothing. The sting's cooldown
+# runs from the night the investigation opened, so the police can open
+# the next the night after one lands. With nothing to name (heat off the
+# pile, the war) the sting is the blind one. Raid, task force and arrest
+# are untouched: heat saturates.
+#
+# The numbers are the issue's guard (TestSurgeonBeatsManaged): a player
+# who ignores every warning must do no better than under the blind sting,
+# so the hit comes two nights out, files two pages, and cools the city by
+# the sting's own four with each repeat cooling less; a drop of eight or a
+# third night's warning had the ignorer outlive the blind sting.
+#
+# It ships off (docs/corners.md): on, the money curve's bands hold, but
+# eight pinned behaviours read the blind sting (the cop's word, the DA's
+# ordering, the lawyer's cut, the lieutenant's temper, a handoff's sting,
+# the saboteur, the reckless cartel, the seed digest) and each wants its
+# own ruling. cmd/balance -investigation on plays it.
+[investigation]
+enabled = false
+window_days = 7          # the tally forgets a seventh of itself a day
+lead_days = 2            # opened tonight, the hit two nights later
+closed_heat_drop = 4     # a hit that found its target: the police got someone (1/n on each repeat, as every rung)
+evidence = 2             # pages a hit on a target in use files: a case built on a named corner is thicker than a buy-and-bust
+
 [[response]]
 level = "patrol"
 threshold = 40

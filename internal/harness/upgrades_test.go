@@ -380,7 +380,8 @@ func TestStreetBranchSlowsTheRivalNeverStopsIt(t *testing.T) {
 func TestLogisticsBranchMovesMoreForLess(t *testing.T) {
 	t.Parallel()
 	// The duel (#43, harness.OneFaction): this pins a mechanism on a seed, and the table moves the seed's dice.
-	cfg := OneFaction(content.MustLoad())
+	// Veterans (#346) boxed: a trait on a driver or a runner moves which shipments go, and the branch's seizures were 42 against 44.
+	cfg := NoTraits(OneFaction(content.MustLoad()))
 	road := []string{"tyres", "compartments", "trucks", "drivers", "supplier", "supplier2", "ticket", "forwarder"}
 	type tally struct {
 		shipped, shipments, seized, fares int

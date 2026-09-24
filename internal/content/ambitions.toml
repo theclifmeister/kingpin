@@ -52,14 +52,14 @@ identity = "a new identity"
 [[ambition]]
 id = "two_cities"
 name = "Two-city operation"
-blurb = "A real hold on two cities, a lieutenant running each, for a stretch. A milestone: it ends nothing."
+blurb = "A real hold on two cities, a lieutenant or a captain running each, for a stretch. A milestone: it ends nothing."
 [ambition.steps]
 ground = "cities held"
-lieutenants = "with a lieutenant"
+lieutenants = "run for you"
 held = "held the stretch"
 
 # The two-city milestone: a city counts once you hold share of its
-# corners, a lieutenant runs it, and those corners have been yours days
+# corners, a lieutenant or a captain runs it, and those corners have been yours days
 # days (Corner.Since); cities of them make it.
 [two_cities]
 share = 0.4

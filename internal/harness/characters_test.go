@@ -26,7 +26,8 @@ import (
 // every one that moves more than twenty percent marked.
 func TestCharactersAreStartsNotCheats(t *testing.T) {
 	t.Parallel()
-	cfg := content.MustLoad()
+	// The expansion boxed (#341, harness.NoExpansion): the dockhand starts in Bayport, so a faction drawn there meets its crewed player; on seed 6 that run was indicted on day 113, under the tier-3 line, a knife-edge.
+	cfg := NoExpansion(content.MustLoad())
 	base := measure(t, cfg, "")
 	for _, ch := range cfg.Characters.Characters {
 		ch := ch

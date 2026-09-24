@@ -37,6 +37,7 @@ const (
 	FactStash       = "stash"       // the corner whose till is fattest: Value the corner id
 	FactResponse    = "response"    // the police's next rung in a city: Value the level, Number the first day it can fire
 	FactRisk        = "risk"        // a route's risk a day in transit: Number
+	FactScout       = "scout"       // a faction moving on a city (#341): Value the city id, Number the day it arrives
 )
 
 // SubjectChief is the chief's subject: one chief at a time, the law

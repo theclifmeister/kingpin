@@ -36,6 +36,11 @@ export const WORDS = {
   debt_due: (v, a) => `${(byId(v.connects, a.supplier) || { name: "A connect" }).name}: ${money(n(a.amount))} due tomorrow, ${money(n(a.have))} in hand.`,
   heat: (v, a) => `Heat ${Math.round(n(a.heat))} in ${cityName(v, a.city)} is over the patrol line (${Math.round(n(a.line))}).`,
   task_force: () => "A task force formed this morning. It comes tonight: lie low.",
+  investigation: (v, a) => {
+    const name =
+      a.target === "corner" ? cornerName(v, a.corner) : a.target === "house" ? (byId(v.houses, a.house) || { name: "a house" }).name : `the ${a.product} trade`;
+    return `Police are working ${name}: they hit ${n(a.days) <= 1 ? "tonight" : `in ${plural(a.days, "day")}`}.`;
+  },
   float: (v, a) => `Dirty cash ${money(n(a.have))} is under the float (${money(n(a.amount))}).`,
   wages: (v, a) => `Wages ${money(n(a.amount))} due tonight, ${money(n(a.have))} dirty in hand.`,
   crew_line: (v, a) => {
@@ -47,6 +52,7 @@ export const WORDS = {
     a.corner ? `${memberName(v, a.member)} has no post: ${cornerName(v, a.corner)} is free for them.` : `${memberName(v, a.member)} has no post.`,
   idle_corner: (v, a) => `Nobody works ${cornerName(v, a.corner)}: back to the street ${n(a.days) <= 1 ? "tonight" : `in ${plural(a.days, "day")}`}.`,
   stash_full: (v, a) => `The stash in ${cityName(v, a.city)} is full: ${n(a.count)} of ${n(a.amount)}.`,
+  scouts: (v, a) => `A faction is ${a.level === "recruiting" ? "recruiting" : "scouting"} in ${cityName(v, a.city)}: ${n(a.days) <= 0 ? "due now" : `in ${plural(n(a.days), "day")}`}.`,
   gate: (v, a) => `${a.gate ? a.gate.name : "A door"} is within reach.`,
   house_known: (v, a) => `The police know about ${(byId(v.houses, a.house) || { name: "a house" }).name}.`,
   da_race: (v, a) => `The DA race is ${plural(n(a.days), "day")} off and the tickets are taking money.`,
