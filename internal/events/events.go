@@ -1169,18 +1169,22 @@ type ScoutsHit struct {
 func (ScoutsHit) Kind() string { return "ScoutsHit" }
 
 // RivalLeaderArrested is a faction's leader taken by the police (its
-// heat past leader_arrest_heat, your tips) or killed (the
-// rival_leader_killed incident, Killed): the faction fragments, its
+// heat past leader_arrest_heat, your tips): the faction fragments, its
 // Corners drift to the street over fragment_days, the city's prices
-// spike and Muscle heads turn up in your hiring pool at a discount.
+// spike and Muscle heads turn up in your hiring pool at a discount. Or
+// killed (the rival_leader_killed incident, Killed, #389): Successor
+// takes the faction over, it keeps its corners (Corners 0), the prices
+// spike all the same and the Muscle heads that walked turn up in your
+// pool.
 type RivalLeaderArrested struct {
-	Day     int
-	Rival   string
-	Faction string
-	City    string
-	Corners int
-	Muscle  int
-	Killed  bool
+	Day       int
+	Rival     string
+	Faction   string
+	City      string
+	Corners   int
+	Muscle    int
+	Killed    bool
+	Successor string
 }
 
 func (RivalLeaderArrested) Kind() string { return "RivalLeaderArrested" }

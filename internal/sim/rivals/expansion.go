@@ -378,9 +378,27 @@ func (s *Sim) forceIn(w *game.World, t *game.Tick, r *game.RivalState, rng game.
 	t.Emit(events.RivalPushed{Day: t.Day, Corner: c.ID, Name: c.Name, Rival: r.Leader, Faction: r.Faction()})
 }
 
-// late reports whether a faction on its way is arrive_grace days past
-// the day it was due (#341): a city whose free corners you have all
-// worked once is not a city it waits on for ever.
+// late reports whether a faction is arrive_grace days past the day it
+// could have set up (#341, #389): one not yet arrived, past the day it
+// was due, or one arrived and landless, past the day it lost its last
+// corner (Stranded). A city whose free corners you have all worked once
+// is not a city it waits on for ever: late, the grace no longer keeps
+// it off them.
 func (s *Sim) late(w *game.World, r *game.RivalState, day int) bool {
-	return r.Scouting() && day >= s.ArriveDay(w, r)+s.cfg.Pace.ArriveGrace
+	g := s.cfg.Pace.ArriveGrace
+	if r.Arrived == 0 {
+		return day >= s.ArriveDay(w, r)+g
+	}
+	since := s.Stranded(w, r)
+	return since > 0 && day >= since+g
+}
+
+// Stranded is the day a faction on the ground lost its last corner (the
+// later of Routed and RaidedOut), or 0 while it holds one: the landless
+// spell absorb and the grace count from (#384, #389).
+func (s *Sim) Stranded(w *game.World, r *game.RivalState) int {
+	if r.Arrived == 0 || w.RivalHeldBy(r.Faction()) > 0 {
+		return 0
+	}
+	return max(r.Routed, r.RaidedOut)
 }

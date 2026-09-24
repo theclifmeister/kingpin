@@ -25,7 +25,7 @@ func (s *Sim) arrive(w *game.World, t *game.Tick, r *game.RivalState, rng game.R
 		r.Arrived = t.Day
 		r.Claims++
 		t.Emit(events.RivalMovedIn{Day: t.Day, Rival: r.Leader, Faction: r.Faction(), Corner: c.ID, Name: c.Name})
-	} else if s.late(w, r, t.Day) {
+	} else if r.Scouting() && s.late(w, r, t.Day) {
 		s.forceIn(w, t, r, rng) // a city with no room left for it (#341): it pushes its way in
 	}
 	s.undercut(w, t, r)
@@ -128,7 +128,8 @@ func (s *Sim) EyeingBy(w *game.World, r *game.RivalState) *game.Corner {
 // if there is one, so it grows toward you. After that its personality
 // says: the biggest free corner anywhere, one next to its own, or any.
 // Arriving, and for arrive_grace days after, a corner you have ever
-// worked is not one it sets up on (#60).
+// worked is not one it sets up on (#60); a faction late to arrive or
+// landless past arrive_grace days (late, #389) takes what there is.
 func (s *Sim) pickFree(w *game.World, r *game.RivalState, rng game.Rand, day int, arriving bool) *game.Corner {
 	var free, quiet, adjacent []*game.Corner
 	ground := s.corners(w, r)
