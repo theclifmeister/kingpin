@@ -48,7 +48,7 @@ var commands = []string{
 
 // queries are the session's reads served as they are: they change
 // nothing.
-var queries = []string{"View", "Alerts", "GatesAhead", "NextGates", "FrontOffers", "AssetOffers", "TrophyOffers", "HouseOffers", "FloatMatters", "ExportSave", "MaxBuy", "RestockPlan", "Presets", "PresetCommands", "PresetDiff", "Preview"}
+var queries = []string{"View", "Alerts", "GatesAhead", "NextGates", "FrontOffers", "AssetOffers", "TrophyOffers", "HouseOffers", "FloatMatters", "ExportSave", "MaxBuy", "RestockPlan", "Presets", "PresetCommands", "PresetDiff", "Preview", "Forecast"}
 
 // unserved are the session's methods the wire does not carry, and why:
 // TestEverySessionMethodIsClassed fails on one in no list, so a new

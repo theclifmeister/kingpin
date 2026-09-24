@@ -2549,6 +2549,41 @@
       ],
       "type": "object"
     },
+    "engine.Forecast": {
+      "properties": {
+        "dirty": {
+          "type": "integer"
+        },
+        "heat": {
+          "type": "number"
+        },
+        "landings": {
+          "type": "integer"
+        },
+        "line": {
+          "type": "integer"
+        },
+        "loads": {
+          "type": "integer"
+        },
+        "pile": {
+          "type": "integer"
+        },
+        "wages": {
+          "type": "integer"
+        }
+      },
+      "required": [
+        "dirty",
+        "landings",
+        "loads",
+        "wages",
+        "pile",
+        "line",
+        "heat"
+      ],
+      "type": "object"
+    },
     "engine.FrontView": {
       "properties": {
         "frozen": {
@@ -10828,6 +10863,19 @@
         "type": "boolean"
       }
     },
+    "forecast": {
+      "changes": false,
+      "needsRun": true,
+      "params": {
+        "maxItems": 0,
+        "minItems": 0,
+        "prefixItems": [],
+        "type": "array"
+      },
+      "result": {
+        "$ref": "#/$defs/engine.Forecast"
+      }
+    },
     "front_offers": {
       "changes": false,
       "needsRun": true,
@@ -12283,6 +12331,24 @@
           },
           {
             "title": "units",
+            "type": "integer"
+          }
+        ],
+        "type": "array"
+      },
+      "result": {
+        "type": "number"
+      }
+    },
+    "rules.heat.pile_heat_of": {
+      "changes": false,
+      "needsRun": true,
+      "params": {
+        "maxItems": 1,
+        "minItems": 1,
+        "prefixItems": [
+          {
+            "title": "pile",
             "type": "integer"
           }
         ],
@@ -15162,7 +15228,7 @@
       "$ref": "#/$defs/engine.View"
     }
   },
-  "protocol": 14,
+  "protocol": 15,
   "title": "kingpind",
   "view_version": 11
 }

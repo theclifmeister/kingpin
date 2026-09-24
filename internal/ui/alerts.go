@@ -123,6 +123,9 @@ func (m *Model) alertOf(a engine.Alert) alert {
 			left := m.cfg.Rivals.Endings.ReignGrace - slip + 1
 			text = theme.Warning.Render(fmt.Sprintf("The reign is slipping under the share of the corners: it breaks in %s unless you take corners back.", plural(left, "morning")))
 		}
+	case engine.AlertExposure:
+		text = theme.Warning.Render(fmt.Sprintf("Tonight's %s land %s past your cover: +%.0f heat before the wash.", plural(a.Count, "load"), money(a.Amount), a.Heat))
+		why = "tonight's landings"
 	case engine.AlertStraight:
 		text = theme.Gold.Render(fmt.Sprintf("The fronts earn %s a day, more than the street: go straight (walk away) or play on.", money(a.Amount)))
 	case engine.AlertPlan:

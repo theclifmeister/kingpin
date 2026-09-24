@@ -140,6 +140,7 @@ type HeatRules interface {
 	BribeDecayMul() float64
 	ContractHeat(w *game.World, city string, product string, units int, mul float64) float64
 	Cover(w *game.World) int
+	PileHeatOf(w *game.World, pile int) float64
 	DirtyCashThreshold(w *game.World) int
 	Due(w *game.World) string
 	EvidenceArrest(w *game.World) int
