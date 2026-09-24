@@ -25,6 +25,8 @@ func (s *Sim) arrive(w *game.World, t *game.Tick, r *game.RivalState, rng game.R
 		r.Arrived = t.Day
 		r.Claims++
 		t.Emit(events.RivalMovedIn{Day: t.Day, Rival: r.Leader, Faction: r.Faction(), Corner: c.ID, Name: c.Name})
+	} else if s.late(w, r, t.Day) {
+		s.forceIn(w, t, r, rng) // a city with no room left for it (#341): it pushes its way in
 	}
 	s.undercut(w, t, r)
 }
@@ -131,7 +133,7 @@ func (s *Sim) pickFree(w *game.World, r *game.RivalState, rng game.Rand, day int
 	var free, quiet, adjacent []*game.Corner
 	ground := s.corners(w, r)
 	split := w.DealWith(r.Faction(), game.DealSplit)
-	grace := arriving || (r.Arrived > 0 && day-r.Arrived < s.cfg.Pace.ArriveGrace)
+	grace := (arriving && !s.late(w, r, day)) || (r.Arrived > 0 && day-r.Arrived < s.cfg.Pace.ArriveGrace)
 	for i := range ground {
 		c := &ground[i]
 		if c.Owner != game.OwnerNone || (split != nil && split.Covers(c.ID)) || (grace && c.Yours) {

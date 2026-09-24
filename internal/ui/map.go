@@ -244,6 +244,13 @@ func (m *Model) viewMap() string {
 	head := m.screenTitle("MAP") + "  " +
 		theme.Subtle.Render(fmt.Sprintf("%d/%d held · %d worked · ~%.0f/day free", held, len(cs), worked, free))
 	lines := []string{truncate(head, width)}
+	// A faction on its way here (#341): the map's mark, in its colour,
+	// under the title, while it scouts and recruits.
+	for _, r := range w.Rivals {
+		if r != nil && r.Scouting() && r.ScoutingCity == m.shown().ID {
+			lines = append(lines, truncate(m.factionStyle(r.Faction()).Render("» "+m.rivalName(r)+" "+m.scoutsWord(r)), width))
+		}
+	}
 
 	// The grid. Cells are laid out by their x, y; the body width decides
 	// how wide a cell can be. It gets the rows MAIN has left once the
@@ -253,7 +260,7 @@ func (m *Model) viewMap() string {
 	// clamp.
 	cols, rows := m.mapGrid()
 	routes := m.routeLines(width)
-	room := m.mainHeight() - 1
+	room := m.mainHeight() - len(lines)
 	if len(routes) > 0 {
 		room -= 2 + len(routes)
 	}

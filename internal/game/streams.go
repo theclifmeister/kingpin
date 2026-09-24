@@ -20,6 +20,7 @@ const (
 	StreamFactionOf   = "faction:"   // + faction: a seat past the first's own day (#43, rivals)
 	StreamHomage      = "homage"     // homage offered (#43, rivals)
 	StreamPoach       = "poach"      // a faction poaching another's muscle (#43, rivals)
+	StreamExpansion   = "expansion"  // a faction following the money: a cell's leader, the recruiters' poach (#341, rivals)
 	StreamFragment    = "fragment"   // a faction breaking up takes crew with it (#43, crew)
 	StreamLife        = "life"       // kin, arrests, bail, the shot (#46, crew)
 	StreamAges        = "ages"       // the pool's ages (#46, crew)

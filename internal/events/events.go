@@ -1111,6 +1111,63 @@ type RivalAbsorbed struct {
 
 func (RivalAbsorbed) Kind() string { return "RivalAbsorbed" }
 
+// RivalScouting is a faction's scouts in a city where the player earns
+// and no faction lives (#341): the first of the expansion's stages.
+// Cell names the faction it split off ("" a seat still in the wings);
+// Recruit is the day it begins recruiting there and Arrive the day it
+// moves in, all being well.
+type RivalScouting struct {
+	Day     int
+	City    string
+	Rival   string
+	Faction string
+	Cell    string
+	Recruit int
+	Arrive  int
+}
+
+func (RivalScouting) Kind() string { return "RivalScouting" }
+
+// RivalRecruiting is the expansion's second stage (#341): the faction
+// hiring in the city, Bite of the hiring pool's best faces taken (the
+// crew sim drops them) and the player's crew there poachable until it
+// arrives on Arrive. Past it the scouts no longer go home.
+type RivalRecruiting struct {
+	Day     int
+	City    string
+	Rival   string
+	Faction string
+	Bite    int
+	Arrive  int
+}
+
+func (RivalRecruiting) Kind() string { return "RivalRecruiting" }
+
+// RivalWithdrew is the scouts going home (#341): the take in the city
+// fell back under the line before they recruited.
+type RivalWithdrew struct {
+	Day     int
+	City    string
+	Rival   string
+	Faction string
+}
+
+func (RivalWithdrew) Kind() string { return "RivalWithdrew" }
+
+// ScoutsHit is the player's enforcers hitting a faction's scouts
+// (#341): it is set back Setback days, to arrive on Arrive, and holds a
+// grudge.
+type ScoutsHit struct {
+	Day     int
+	City    string
+	Rival   string
+	Faction string
+	Setback int
+	Arrive  int
+}
+
+func (ScoutsHit) Kind() string { return "ScoutsHit" }
+
 // RivalLeaderArrested is a faction's leader taken by the police (its
 // heat past leader_arrest_heat, your tips) or killed (the
 // rival_leader_killed incident, Killed): the faction fragments, its

@@ -33,8 +33,8 @@ import (
 // a price, so an offer's rent is quoted too (#344: a front's rent_mul
 // folds in the block's city); 7 preview, the day's preview (#353); 8
 // name_captain, drop_captain and the crew rules can_captain, captaincy,
-// trait and trait_days (#346).
-const Version = 8
+// trait and trait_days (#346); 9 hit_scouts (#341).
+const Version = 9
 
 // The error codes: JSON-RPC 2.0's, and the game's own in its
 // server-error range.

@@ -34,6 +34,7 @@ const (
 	AlertUnposted      AlertKind = "unposted"      // Member (a runner or an enforcer) has no post; Corner in City is one to put them on, or ""
 	AlertIdleCorner    AlertKind = "idle_corner"   // nobody works Corner in City: back to the street in Days
 	AlertStashFull     AlertKind = "stash_full"    // the stash in City holds Count of its Amount, at or over houses.toml's full_share
+	AlertScouts        AlertKind = "scouts"        // a faction moving on City (#341), at stage Level (scouting or recruiting), arriving in Days
 	AlertGate          AlertKind = "gate"          // Gate within reach
 	AlertHouseKnown    AlertKind = "house_known"   // the police know about House
 	AlertDARace        AlertKind = "da_race"       // the DA race is Days off and taking money
@@ -46,7 +47,7 @@ const (
 // in.
 func AlertKinds() []AlertKind {
 	return []AlertKind{AlertTalking, AlertContractDue, AlertDebtDue, AlertHeat, AlertTaskForce, AlertInvestigation, AlertFloat, AlertWages,
-		AlertCrewLine, AlertSkim, AlertUnposted, AlertIdleCorner, AlertStashFull, AlertGate, AlertHouseKnown,
+		AlertCrewLine, AlertSkim, AlertUnposted, AlertIdleCorner, AlertStashFull, AlertScouts, AlertGate, AlertHouseKnown,
 		AlertDARace, AlertRetire, AlertFavour, AlertReign}
 }
 
@@ -69,6 +70,7 @@ const (
 	ScreenCrew      = "crew"
 	ScreenMap       = "map"
 	ScreenLedger    = "ledger"
+	ScreenRivals    = "rivals"
 )
 
 // ModePost is the one dialog an act opens: the post picker on the
@@ -119,6 +121,7 @@ var alertActs = map[AlertKind][]Act{
 	AlertUnposted:      {actPost, actMember},
 	AlertIdleCorner:    {actCorner},
 	AlertStashFull:     {{Screen: ScreenLedger, Subject: SubjectCity}},
+	AlertScouts:        {{Screen: ScreenRivals}},
 	AlertGate:          {actMarket, actLedger},
 	AlertHouseKnown:    {{Screen: ScreenLedger, Subject: SubjectHouse}},
 	AlertDARace:        {actLedger},
@@ -233,6 +236,7 @@ func (s *Session) Alerts() []Alert {
 	out = append(out, s.unposted()...)
 	out = append(out, s.idleCorners()...)
 	out = append(out, s.stashesFull()...)
+	out = append(out, s.scouts()...)
 	for _, g := range s.NextGates() {
 		if g.Near(w) {
 			act := actMarket // a product or a connect
@@ -348,6 +352,26 @@ func (s *Session) stashesFull() []Alert {
 			continue
 		}
 		out = append(out, Alert{Kind: AlertStashFull, Key: "stash full in " + cid, City: cid, Count: held, Amount: room})
+	}
+	return out
+}
+
+// scouts are the factions moving on a city where you earn (#341), in
+// table order: one alert a faction, keyed by the faction, the city and
+// the stage, so a fast-forward stops once on the scouts and once more
+// on the recruiting; the arrival is the RivalMovedIn stop.
+func (s *Session) scouts() []Alert {
+	var out []Alert
+	for _, r := range s.w.Rivals {
+		if r == nil || !r.Scouting() || r.Gone() {
+			continue
+		}
+		stage := "scouting"
+		if r.Recruited > 0 {
+			stage = "recruiting"
+		}
+		days := max(0, s.set.Rivals.ArriveDay(s.w, r)-s.w.Day)
+		out = append(out, Alert{Kind: AlertScouts, Key: "scouts " + r.Faction() + " in " + r.ScoutingCity + " " + stage, City: r.ScoutingCity, Level: stage, Days: days})
 	}
 	return out
 }

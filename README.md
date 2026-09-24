@@ -494,6 +494,7 @@ The full table is below; `?` brings it up in the game.
 | `w` | declare war | enforcers on the faction every night, hit | rivals |
 | `w` | call off war | stand the enforcers down | rivals |
 | `$` | buy off | pay the rival's muscle to go home | rivals |
+| `h` | hit scouts | run a faction's scouts out of town, once | rivals |
 | `$` | pay cop | a cop's word on the chief and the police | intel |
 | `p` | plant spy | send a crew member under with a faction | intel |
 <!-- keys:end -->

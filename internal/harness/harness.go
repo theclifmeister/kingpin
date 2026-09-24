@@ -683,6 +683,17 @@ func NoWar(cfg *content.Config) *content.Config {
 	return &boxed
 }
 
+// NoExpansion returns a copy of cfg with the table following the money
+// boxed (#341): the window on the take away from home is still kept
+// (bookkeeping, no dice) and nobody moves on a city. A run whose take
+// away from home never crosses take_min is byte-for-byte the same on
+// the file and under it (TestNoExpansionIsTheOldRun).
+func NoExpansion(cfg *content.Config) *content.Config {
+	boxed := *cfg
+	boxed.Rivals.Expansion.Enabled = false
+	return &boxed
+}
+
 // RivalBooks is the rival's day as the rivals sim keeps it: what its
 // corners earn it today (rivals.Sim.Income, a price war's squeeze off)
 // and what its muscle costs it (rivals.Sim.Wages, the wage in the

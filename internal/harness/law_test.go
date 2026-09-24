@@ -410,7 +410,8 @@ func TestCampaignSurvivesSave(t *testing.T) {
 func TestCampaignSizing(t *testing.T) {
 	t.Parallel()
 	// Veterans (#346) boxed: the boss at tier 4 put $994,453 a city into an election with traits on, a knife-edge under the $1M line.
-	cfg := NoTraits(content.MustLoad())
+	// The expansion boxed too (#341, harness.NoExpansion): a faction drawn to the boss's hub takes a sixth off its clean cash ($0.85M a city an election with both on).
+	cfg := NoExpansion(NoTraits(content.MustLoad()))
 	var late []int
 	var goodwill []float64
 	for seed := uint64(1); seed <= 5; seed++ {

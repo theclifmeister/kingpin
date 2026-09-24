@@ -17,6 +17,7 @@ type RivalsConfig struct {
 	Tip         TipTuning                    `toml:"tip"`
 	Poach       PoachTuning                  `toml:"poach"`
 	Factions    FactionsTuning               `toml:"factions"`
+	Expansion   ExpansionTuning              `toml:"expansion"`
 	Endings     RivalEndingsTuning           `toml:"endings"`
 	War         WarTuning                    `toml:"war"`
 	Weight      WeightTuning                 `toml:"weight"`
@@ -194,6 +195,27 @@ type FactionsTuning struct {
 	HomageChance     float64 `toml:"homage_chance"`
 }
 
+// ExpansionTuning is the table following the money (#341, [expansion]):
+// the rivals sim keeps the player's take a city over the last
+// WindowDays days, and a city where no faction lives whose window
+// crosses TakeMin draws one: a seat still in the wings, or a cell of
+// the strongest faction at home when none is. It scouts (day 0),
+// recruits ScoutDays later (Bite of the hiring pool's best faces, the
+// city's crew poachable, a tribute offered), and arrives ArriveDays
+// after that. A hit on the scouts sets it back SetbackDays, once; a
+// window back under TakeMin before it recruits sends it home. Enabled
+// false boxes it: the window is still kept (bookkeeping, no dice) and
+// nothing is drawn.
+type ExpansionTuning struct {
+	Enabled     bool `toml:"enabled"`
+	TakeMin     int  `toml:"take_min"`     // the take in a city over window_days that draws a faction
+	WindowDays  int  `toml:"window_days"`  // the days the take is summed over
+	ScoutDays   int  `toml:"scout_days"`   // days from the scouts to the recruiting
+	ArriveDays  int  `toml:"arrive_days"`  // days from the recruiting to the arrival
+	SetbackDays int  `toml:"setback_days"` // days a hit on the scouts sets it back, once
+	Bite        int  `toml:"bite"`         // the hiring pool's best faces it takes the night it recruits
+}
+
 type PersonalityConfig struct {
 	Trust           float64 `toml:"trust"`        // trust in the player at the start of a run
 	DealBias        float64 `toml:"deal_bias"`    // added to the chance it accepts any proposal
@@ -348,6 +370,9 @@ func (r RivalsConfig) validate() error {
 	// The table (#43): a count, a line the police act at, a drift.
 	if f := r.Factions; f.Min < 1 || f.Max < f.Min {
 		return fmt.Errorf("[factions] min %d must be positive and max %d at least min", f.Min, f.Max)
+	}
+	if e := r.Expansion; e.Enabled && (e.TakeMin <= 0 || e.WindowDays < 1 || e.ScoutDays < 1 || e.ArriveDays < 1 || e.SetbackDays < 0 || e.Bite < 0) {
+		return fmt.Errorf("[expansion] take_min %d, window_days %d, scout_days %d and arrive_days %d must be positive, setback_days %d and bite %d not negative", e.TakeMin, e.WindowDays, e.ScoutDays, e.ArriveDays, e.SetbackDays, e.Bite)
 	}
 	if f := r.Factions; f.LeaderArrestHeat <= 0 || f.LeaderArrestHeat > 100 || f.FragmentDays < 1 || f.AbsorbDays < 1 {
 		return fmt.Errorf("[factions] leader_arrest_heat %.0f must be in 1..100, fragment_days %d and absorb_days %d positive", f.LeaderArrestHeat, f.FragmentDays, f.AbsorbDays)

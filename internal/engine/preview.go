@@ -238,6 +238,47 @@ func (s *Session) Preview() *DayPreview {
 		}
 	}
 
+	// The table: a tribute you pay and a homage paid you, as the rivals
+	// step moves them (#341: a faction on its way to a city pays its
+	// tribute from the night after it was sealed; one on the ground
+	// seals tonight's accepted offers first and pays while it holds a
+	// corner). A tribute the dirty cash cannot cover is a betrayal and
+	// moves nothing.
+	for _, r := range w.Rivals {
+		if r == nil || r.Gone() {
+			continue
+		}
+		id := r.Faction()
+		deal := func(kind string, sealed bool) *game.Deal {
+			if d := w.DealWith(id, kind); d != nil && (sealed || d.Since < p.Day) {
+				return d
+			}
+			if !sealed {
+				return nil
+			}
+			for _, o := range w.Today.Accepted {
+				if o.With() == id && o.Deal.Kind == kind {
+					d := o.Deal
+					return &d
+				}
+			}
+			return nil
+		}
+		switch {
+		case r.Scouting():
+			if d := deal(game.DealTribute, false); d != nil && at.Player.DirtyCash >= d.Terms.PerDay {
+				book(game.FlowInvestments, -d.Terms.PerDay, 0)
+			}
+		case r.Arrived > 0 && w.RivalHeldBy(id) > 0:
+			if d := deal(game.DealTribute, true); d != nil && at.Player.DirtyCash >= d.Terms.PerDay {
+				book(game.FlowInvestments, -d.Terms.PerDay, 0)
+			}
+			if d := deal(game.DealHomage, true); d != nil && r.Cash >= d.Terms.PerDay {
+				book(game.FlowInvestments, d.Terms.PerDay, 0)
+			}
+		}
+	}
+
 	// The crew: the lieutenants' cut of their cities' takings, then the
 	// wages at the dial, as far as the dirty cash goes.
 	for _, cid := range w.CityOrder {

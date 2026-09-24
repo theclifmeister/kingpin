@@ -88,7 +88,7 @@ func (s *Session) FastForward(days int, after func([]events.Event)) (int, Stop, 
 // StopsOn reports whether an event stops a fast-forward: the police past
 // a patrol, the task force, an investigation opened (#343), an asset seized or the tunnel found, a gate
 // crossed, the reign begun or broken, the rival moving in or eyeing a
-// corner, a strike (bar a war night that held, #229), the war over, a
+// corner, a faction scouting or recruiting where you earn (#341), a strike (bar a war night that held, #229), the war over, a
 // boost that failed (#70), the police raiding a rival corner, a corner
 // taken off you, a corner of yours nobody worked gone back to the street
 // (#345), a corner the rival gave up, the crew quitting,
@@ -125,7 +125,7 @@ func StopsOn(e events.Event) bool {
 		events.DealOffered, events.DealBroken, events.ContractOffered, events.ChiefReplaced,
 		events.DAElected, events.BribeBackfired, events.RaidFellThrough, events.LeadsFiled,
 		events.OfficialsCold, events.SupplyShort, events.StandingShort, events.HouseRobbed,
-		events.HouseRaided, events.HouseLost:
+		events.HouseRaided, events.HouseLost, events.RivalScouting, events.RivalRecruiting:
 		return true
 	}
 	return false

@@ -41,7 +41,7 @@ var commands = []string{
 	"SetRoute", "SetRouteTarget", "SetRouteDays", "SetRouteDriver", "BuyCheckpoint",
 	"SetLaunderDial", "BuyFront", "Invest", "BuyAsset", "Reserve", "BuyUpgrade",
 	"Bribe", "Fund", "Back", "CallFavour", "PayCop",
-	"ScoutFaction", "PlantSpy", "BuyOffFrom", "ProposeTo", "Accept", "Decline", "CallOff", "DeclareWar", "CallOffWar", "Withdraw",
+	"ScoutFaction", "PlantSpy", "BuyOffFrom", "ProposeTo", "Accept", "Decline", "CallOff", "DeclareWar", "CallOffWar", "HitScouts", "Withdraw",
 	"Retire", "Vanish", "Crown",
 	"ApplyPreset",
 }
@@ -375,5 +375,5 @@ var paramNames = map[string][]string{
 	"Reserve": {"amount"}, "BuyUpgrade": {"upgrade"},
 	"Bribe": {"target", "amount"}, "Fund": {"city", "amount"}, "Back": {"city", "ticket", "amount"}, "PayCop": {"amount"},
 	"ScoutFaction": {"faction"}, "PlantSpy": {"faction", "member"}, "BuyOffFrom": {"faction", "units"},
-	"ProposeTo": {"faction", "kind", "terms"}, "Accept": {"offer"}, "Decline": {"offer"}, "DeclareWar": {"faction"},
+	"ProposeTo": {"faction", "kind", "terms"}, "Accept": {"offer"}, "Decline": {"offer"}, "DeclareWar": {"faction"}, "HitScouts": {"faction"},
 }

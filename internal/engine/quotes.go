@@ -62,6 +62,7 @@ type TerritoryRules interface {
 }
 type RivalsRules interface {
 	Allies(w *game.World) []*game.RivalState
+	ArriveDay(w *game.World, r *game.RivalState) int
 	Books() content.BooksTuning
 	BoostHeat(c *game.Corner) float64
 	BoostTake(w *game.World, c game.Corner) int
@@ -72,6 +73,7 @@ type RivalsRules interface {
 	DefenceAt(w *game.World, r *game.RivalState, muscle int) float64
 	Diplomacy() content.DiplomacyTuning
 	Distrusted(r *game.RivalState, day int) bool
+	Expansion() content.ExpansionTuning
 	EyeingBy(w *game.World, r *game.RivalState) *game.Corner
 	Factions() content.FactionsTuning
 	MusclePrice(w *game.World, r *game.RivalState) int

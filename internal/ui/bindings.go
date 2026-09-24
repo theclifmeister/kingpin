@@ -169,6 +169,8 @@ var bindings = []binding{
 		do: func(m *Model, _ string) { m.askCallOffWar() }},
 	{key: "$", label: "buy off", help: "pay the rival's muscle to go home", screens: on(screenRivals),
 		do: func(m *Model, _ string) { m.askBuyOff() }},
+	{key: "h", label: "hit scouts", help: "run a faction's scouts out of town, once", screens: on(screenRivals), when: onScouts,
+		do: func(m *Model, _ string) { m.askHitScouts() }},
 	// Intel (#45).
 	{key: "$", label: "pay cop", help: "a cop's word on the chief and the police", screens: on(screenIntel),
 		do: func(m *Model, _ string) { m.askPayCop() }},
