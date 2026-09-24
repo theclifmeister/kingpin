@@ -357,6 +357,21 @@ func Eligible(w *World, c content.CardConfig) (CardSlots, bool) {
 	if t.Corners > 0 || t.Contested {
 		var mine *Corner
 		corners := w.Corners()
+		// better: the corner the card is about. The one the named crew
+		// member is posted to comes first, so the card never puts them
+		// on a corner someone else works (#421); then the busiest.
+		posted := func(c *Corner) bool {
+			return s.MemberID != 0 && (c.Runner == s.MemberID || c.Enforcer == s.MemberID)
+		}
+		better := func(c, than *Corner) bool {
+			if than == nil {
+				return true
+			}
+			if posted(c) != posted(than) {
+				return posted(c)
+			}
+			return c.Demand > than.Demand
+		}
 		for i := range corners {
 			c := &corners[i]
 			if !c.Worked() {
@@ -373,12 +388,12 @@ func Eligible(w *World, c content.CardConfig) (CardSlots, bool) {
 				if o == nil {
 					continue
 				}
-				if mine == nil || c.Demand > mine.Demand {
+				if better(c, mine) {
 					mine, theirs = c, o
 				}
 				continue
 			}
-			if mine == nil || c.Demand > mine.Demand {
+			if better(c, mine) {
 				mine = c
 			}
 		}
