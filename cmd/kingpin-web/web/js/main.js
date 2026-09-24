@@ -74,6 +74,10 @@ function newRun(seed) {
   session.newRun(seed);
   session.take();
   $("seed").textContent = `seed ${seed}`;
+  const sel = $("preset");
+  if (!sel.options.length) {
+    for (const p of session.presets()) sel.add(new Option(p.name, p.id));
+  }
   render();
 }
 
@@ -136,6 +140,7 @@ function wire() {
   $("week").onclick = () => endDays(7);
   $("auto").onclick = toggleAuto;
   $("restock").onclick = restock;
+  $("preset-apply").onclick = preset;
   $("new").onclick = () => newRun(1 + Math.floor(Math.random() * 1e9));
   $("again").onclick = () => newRun(1 + Math.floor(Math.random() * 1e9));
   $("save").onclick = () => {
@@ -345,6 +350,18 @@ function restock() {
   act(() => {
     for (const l of plan) session.buy(l.supplier, l.product, l.units);
   }, `restocked: ${lines.join(", ")}`);
+}
+
+// preset reviews the operation preset chosen (#357): what it would
+// change, one line a setting, in a confirmation, then applies it.
+function preset() {
+  const sel = $("preset");
+  const review = session.presetDiff(sel.value);
+  if (!review.changes.length) return toast(`${review.preset.name}: nothing would change`);
+  const lines = review.changes.map((c) => `${[c.setting, c.product, c.city, c.route].filter(Boolean).join(" ")}: ${c.from} → ${c.to}`);
+  if (review.refused.length) lines.push(`refused: ${review.refused.map((r) => r.why).join("; ")}`);
+  if (!confirm(`${review.preset.name}: ${review.preset.blurb}\n\n${lines.join("\n")}`)) return;
+  act(() => session.applyPreset(sel.value), `${review.preset.name}: ${review.changes.length} changed`);
 }
 
 function button(text, disabled, onclick) {
