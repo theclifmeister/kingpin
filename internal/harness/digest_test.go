@@ -306,20 +306,26 @@ const (
 // was $10M, the tunnel's line now), an Unlocked in the journal and a
 // key in Laundering.Offered, and the boss buys no asset (checked again
 // on top of #389).
+// Again for #392 (World.Trophies and TrophiesLost, Progression.Rich and
+// four Stats added to the walk): the move on day 1 is shape alone and
+// no number moved. With those set aside the world is main's to day 214
+// and its net worth main's on all 300: from day 215 the boss is over
+// the rich list's first line, a headline in the journal and the line
+// stamped; its pile never reaches the rot line.
 var seedDigest = []string{
-	"7bb799aab96e727b", "38bf1e41fa725b0e", "a2868b893c9aabe8", "00077c8fbbd83533",
-	"989160b611f29b09", "5166e9dc8b29e874", "a2b496c86a7244a7", "6bad701a3896be24",
-	"6fd086103e0725a3", "0556f5a5cc041613", "a28d91af75f1092d", "10820e356cfbd047",
-	"2e87a701a3361e30", "9498ab85942558aa", "3ef81c115bf3fd60", "662aa62c8c1d5f8b",
-	"7d9936e167d8dc9a", "af2be47fcd06bcaa", "7177bf9d2fb30e60", "c49ca2161e436c74",
-	"99247c3a3850a403", "6b3c88efe9f2343d", "a313fb9fceb473d1", "fe1f496e080ff3b0",
-	"1ac9f0964d330ef8", "6ca596dbd70b84ba", "96ff4f7d1303666a", "75607f8acae4dd42",
-	"613854c75424c022", "a1ff46d20a21024b", "fd2a46fbfb4d1c1f", "263472cf9c3c235b",
-	"bbbf348d4115fbbb", "aa4bd496be2cce24", "86a2bfe30d73f846", "36929434887ee209",
-	"56693cc864c883b0", "a0208650836d5313", "5c7b881299f02418", "25d2f34c5492ba15",
-	"ea729cd943bb639b", "e54b44b12ca6201a", "a7247e3453b8e675", "a740ef9f6f68670b",
-	"1a45e450fa6c8f0e", "c46133a050fbca10", "b3b50273c5aa7dcb", "181dc255d51ebad7",
-	"94658011d7415754", "da19c2d622ab1425", "5c269105e8f5b2bd", "024a7692d1b695b2",
-	"5a2973ea80a0a23f", "8c0e43d1c91cd456", "a0af61536e240788", "6bd9109a8e5b7b85",
-	"4cf8bd95508f1dfe", "facc463ce0565604", "945c4c215f2526d8", "4867e76d0009b2c7",
+	"312f53fc1c573678", "792761b01023d885", "ad7f5019824add09", "a01d4c320229336a",
+	"17352d84db97dbc4", "6b516b465f0d666d", "e1a449a35ce57d66", "73ad277c95e205cd",
+	"2c832a7c90db54d0", "c78c7337070d1e36", "ace846462e1325f6", "279636f23e5a7484",
+	"2ebf04e7a4f653a1", "f707f52cc578a973", "480458013921e0e9", "0c4574e3454467f2",
+	"e1d46c46251a0f47", "b6278faf352f3f57", "9fc45228d8dd1c6b", "a05d0c695167a9a1",
+	"d56fa208b2a1d582", "af52c828401c77c2", "0c33d18a88c398a0", "02101677d93083d1",
+	"652fd10d3007a89d", "686680d589e76d3b", "96c5e9857ffd8131", "53ec076d32aab287",
+	"2228d34b500a0ff5", "0d8704afc3c06874", "5c67e0f3c307de62", "ed13891e9610ad9a",
+	"cde6b4a7e86ff6e8", "92b28fc97e3185d7", "9281870ba2658a7f", "f4db299169f3310e",
+	"35fa9e085e3efc51", "b671a2c4f7f77462", "7ed3a672cca8f069", "09187f0d1e26a6ce",
+	"c7b2372ca3a40062", "8e609672964fc821", "73cc7e25ee95e2fe", "d5e8be0a90dd063e",
+	"00884b4dab20ca75", "74a98832de0fdc29", "4d0a5f8f14800ec2", "34c9e51c8f3e6d9a",
+	"5a6d5dc12d3dc7ab", "21153fc71a877fd4", "fb37b4433b245b62", "a31cc17ede4c132b",
+	"f42d3b406194c050", "8743cc21369b8991", "789996fee469fb09", "2a58f3579b57b0aa",
+	"3a012e64cf03abab", "88e2bd63df548c6d", "82cf7eb07301eabf", "ed01d3cc5ca3f7fa",
 }

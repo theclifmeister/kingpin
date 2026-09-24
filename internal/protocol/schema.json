@@ -825,6 +825,12 @@
         "Float": {
           "type": "integer"
         },
+        "Rot": {
+          "type": "number"
+        },
+        "RotLine": {
+          "type": "integer"
+        },
         "UpkeepFreezeDays": {
           "type": "integer"
         }
@@ -835,7 +841,9 @@
         "AuditSeize",
         "UpkeepFreezeDays",
         "AccountantThroughput",
-        "AccountantRiskCut"
+        "AccountantRiskCut",
+        "RotLine",
+        "Rot"
       ],
       "type": "object"
     },
@@ -3921,6 +3929,25 @@
         "Upkeep",
         "Fronts",
         "Earned"
+      ],
+      "type": "object"
+    },
+    "events.CashRotted": {
+      "properties": {
+        "Amount": {
+          "type": "integer"
+        },
+        "Day": {
+          "type": "integer"
+        },
+        "Pile": {
+          "type": "integer"
+        }
+      },
+      "required": [
+        "Day",
+        "Amount",
+        "Pile"
       ],
       "type": "object"
     },
@@ -7055,6 +7082,29 @@
       ],
       "type": "object"
     },
+    "events.RichListed": {
+      "properties": {
+        "Day": {
+          "type": "integer"
+        },
+        "Line": {
+          "type": "integer"
+        },
+        "NetWorth": {
+          "type": "integer"
+        },
+        "Rank": {
+          "type": "integer"
+        }
+      },
+      "required": [
+        "Day",
+        "Line",
+        "NetWorth",
+        "Rank"
+      ],
+      "type": "object"
+    },
     "events.RivalAbandoned": {
       "properties": {
         "Corner": {
@@ -8280,6 +8330,56 @@
       ],
       "type": "object"
     },
+    "events.TrophyBought": {
+      "properties": {
+        "Cost": {
+          "type": "integer"
+        },
+        "Day": {
+          "type": "integer"
+        },
+        "Name": {
+          "type": "string"
+        },
+        "Trophy": {
+          "type": "string"
+        }
+      },
+      "required": [
+        "Day",
+        "Trophy",
+        "Name",
+        "Cost"
+      ],
+      "type": "object"
+    },
+    "events.TrophySeized": {
+      "properties": {
+        "City": {
+          "type": "string"
+        },
+        "Cost": {
+          "type": "integer"
+        },
+        "Day": {
+          "type": "integer"
+        },
+        "Name": {
+          "type": "string"
+        },
+        "Trophy": {
+          "type": "string"
+        }
+      },
+      "required": [
+        "Day",
+        "City",
+        "Trophy",
+        "Name",
+        "Cost"
+      ],
+      "type": "object"
+    },
     "events.TrustSpread": {
       "properties": {
         "Day": {
@@ -9275,6 +9375,60 @@
       ],
       "type": "object"
     },
+    "game.Trophy": {
+      "properties": {
+        "Bought": {
+          "type": "integer"
+        },
+        "Cost": {
+          "type": "integer"
+        },
+        "ID": {
+          "type": "string"
+        },
+        "Lost": {
+          "type": "integer"
+        },
+        "Name": {
+          "type": "string"
+        },
+        "Why": {
+          "type": "string"
+        }
+      },
+      "required": [
+        "ID",
+        "Name",
+        "Cost",
+        "Bought",
+        "Lost",
+        "Why"
+      ],
+      "type": "object"
+    },
+    "game.TrophyOffer": {
+      "properties": {
+        "Cost": {
+          "type": "integer"
+        },
+        "ID": {
+          "type": "string"
+        },
+        "Name": {
+          "type": "string"
+        },
+        "UnlockCash": {
+          "type": "integer"
+        }
+      },
+      "required": [
+        "ID",
+        "Name",
+        "Cost",
+        "UnlockCash"
+      ],
+      "type": "object"
+    },
     "protocol.DayResult": {
       "properties": {
         "day": {
@@ -9401,6 +9555,9 @@
     },
     "CashLaundered": {
       "$ref": "#/$defs/events.CashLaundered"
+    },
+    "CashRotted": {
+      "$ref": "#/$defs/events.CashRotted"
     },
     "CheckpointBought": {
       "$ref": "#/$defs/events.CheckpointBought"
@@ -9684,6 +9841,9 @@
     "Reserved": {
       "$ref": "#/$defs/events.Reserved"
     },
+    "RichListed": {
+      "$ref": "#/$defs/events.RichListed"
+    },
     "RivalAbandoned": {
       "$ref": "#/$defs/events.RivalAbandoned"
     },
@@ -9788,6 +9948,12 @@
     },
     "TributePaid": {
       "$ref": "#/$defs/events.TributePaid"
+    },
+    "TrophyBought": {
+      "$ref": "#/$defs/events.TrophyBought"
+    },
+    "TrophySeized": {
+      "$ref": "#/$defs/events.TrophySeized"
     },
     "TrustSpread": {
       "$ref": "#/$defs/events.TrustSpread"
@@ -10172,6 +10338,24 @@
       },
       "result": {
         "type": "null"
+      }
+    },
+    "buy_trophy": {
+      "changes": true,
+      "needsRun": true,
+      "params": {
+        "maxItems": 1,
+        "minItems": 1,
+        "prefixItems": [
+          {
+            "title": "trophy",
+            "type": "string"
+          }
+        ],
+        "type": "array"
+      },
+      "result": {
+        "$ref": "#/$defs/game.Trophy"
       }
     },
     "buy_upgrade": {
@@ -12496,6 +12680,37 @@
         "$ref": "#/$defs/content.OffshoreConfig"
       }
     },
+    "rules.laundering.rot": {
+      "changes": false,
+      "needsRun": true,
+      "params": {
+        "maxItems": 1,
+        "minItems": 1,
+        "prefixItems": [
+          {
+            "title": "pile",
+            "type": "integer"
+          }
+        ],
+        "type": "array"
+      },
+      "result": {
+        "type": "integer"
+      }
+    },
+    "rules.laundering.rot_line": {
+      "changes": false,
+      "needsRun": true,
+      "params": {
+        "maxItems": 0,
+        "minItems": 0,
+        "prefixItems": [],
+        "type": "array"
+      },
+      "result": {
+        "type": "integer"
+      }
+    },
     "rules.laundering.throughput": {
       "changes": false,
       "needsRun": true,
@@ -12512,6 +12727,40 @@
       },
       "result": {
         "type": "integer"
+      }
+    },
+    "rules.laundering.trophy_offer": {
+      "changes": false,
+      "needsRun": true,
+      "params": {
+        "maxItems": 1,
+        "minItems": 1,
+        "prefixItems": [
+          {
+            "title": "trophy",
+            "type": "string"
+          }
+        ],
+        "type": "array"
+      },
+      "result": {
+        "$ref": "#/$defs/game.TrophyOffer"
+      }
+    },
+    "rules.laundering.trophy_offers": {
+      "changes": false,
+      "needsRun": true,
+      "params": {
+        "maxItems": 0,
+        "minItems": 0,
+        "prefixItems": [],
+        "type": "array"
+      },
+      "result": {
+        "items": {
+          "$ref": "#/$defs/game.TrophyOffer"
+        },
+        "type": "array"
       }
     },
     "rules.laundering.tuning": {
@@ -14527,6 +14776,22 @@
         "type": "null"
       }
     },
+    "trophy_offers": {
+      "changes": false,
+      "needsRun": true,
+      "params": {
+        "maxItems": 0,
+        "minItems": 0,
+        "prefixItems": [],
+        "type": "array"
+      },
+      "result": {
+        "items": {
+          "$ref": "#/$defs/game.TrophyOffer"
+        },
+        "type": "array"
+      }
+    },
     "unassign": {
       "changes": true,
       "needsRun": true,
@@ -14635,6 +14900,7 @@
             "CampaignLost",
             "CaptainActed",
             "CashLaundered",
+            "CashRotted",
             "CheckpointBought",
             "ChiefReplaced",
             "CityFunded",
@@ -14729,6 +14995,7 @@
             "RentPaid",
             "ReputationShifted",
             "Reserved",
+            "RichListed",
             "RivalAbandoned",
             "RivalAbsorbed",
             "RivalBoosted",
@@ -14764,6 +15031,8 @@
             "Taxed",
             "TierReached",
             "TributePaid",
+            "TrophyBought",
+            "TrophySeized",
             "TrustSpread",
             "TunnelFound",
             "Unlocked",
@@ -14789,7 +15058,7 @@
       "$ref": "#/$defs/engine.View"
     }
   },
-  "protocol": 11,
+  "protocol": 12,
   "title": "kingpind",
   "view_version": 11
 }

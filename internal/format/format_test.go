@@ -95,3 +95,15 @@ func TestPctAndTimes(t *testing.T) {
 		}
 	}
 }
+
+// CashWeight (#392): a hundred-dollar bill is a gram.
+func TestCashWeight(t *testing.T) {
+	for _, c := range []struct {
+		n    int
+		want string
+	}{{50_000, "under a kilo"}, {100_000, "1 kg"}, {45_000_000, "450 kg"}, {99_990_000, "1.0 tonnes"}, {150_000_000, "1.5 tonnes"}, {1_200_000_000, "12 tonnes"}} {
+		if got := CashWeight(c.n); got != c.want {
+			t.Errorf("CashWeight(%d) = %q, want %q", c.n, got, c.want)
+		}
+	}
+}

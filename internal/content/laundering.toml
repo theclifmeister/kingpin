@@ -9,6 +9,8 @@ audit_seize = 0.5           # of what the front washed today is seized in an aud
 upkeep_freeze_days = 7      # a front whose upkeep went unpaid is shut for this long
 accountant_throughput = 4000 # added to every front per accountant, at skill 100 (scales with skill)
 accountant_risk_cut = 0.5   # of every front's audit risk a skill-100 accountant removes (each one takes its cut of what is left)
+rot_line = 50000000         # a dirty pile over this rots (#392): nobody has room to keep that much dry
+rot = 0.001                 # of what is over the line, a night: rats, damp, a count that never adds up
 
 # The launder dial: mul scales every front's throughput, risk its audit
 # chance. Greedy washes more and gets looked at; careful is the reverse.

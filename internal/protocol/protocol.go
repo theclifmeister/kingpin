@@ -34,8 +34,9 @@ import (
 // folds in the block's city); 7 preview, the day's preview (#353); 8
 // name_captain, drop_captain and the crew rules can_captain, captaincy,
 // trait and trait_days (#346); 9 hit_scouts (#341); 10
-// pin_ambition (#347); 11 set_export (#391).
-const Version = 11
+// pin_ambition (#347); 11 set_export (#391); 12 buy_trophy and
+// trophy_offers (#392).
+const Version = 12
 
 // The error codes: JSON-RPC 2.0's, and the game's own in its
 // server-error range.

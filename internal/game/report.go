@@ -208,4 +208,10 @@ type Stats struct {
 	ExportCash    int // dirty cash they paid
 	ExportCost    int // dirty cash the loads cost off the book
 	ExportsSeized int // loads seized
+
+	// The filthy rich (#392).
+	Trophies     int // trophies bought
+	TrophyCash   int // clean cash they cost
+	TrophiesLost int // trophies the task force took
+	Rotted       int // dirty cash the rats and the damp took
 }

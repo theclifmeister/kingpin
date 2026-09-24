@@ -117,7 +117,7 @@ func StopsOn(e events.Event) bool {
 		return ev.To > ev.From
 	case events.ReputationShifted:
 		return ev.To > ev.From
-	case events.TaskForceFormed, events.InvestigationOpened, events.AssetSeized, events.TunnelFound, events.Unlocked,
+	case events.TaskForceFormed, events.InvestigationOpened, events.AssetSeized, events.TrophySeized, events.TunnelFound, events.Unlocked,
 		events.ReignBegan, events.ReignBroken, events.RivalMovedIn, events.RivalEyeing,
 		events.WarEnded, events.RivalRaided, events.RivalAbandoned, events.CrewQuit,
 		events.CrewDefected, events.CrewArrested, events.CrewRetired, events.SpyFound,

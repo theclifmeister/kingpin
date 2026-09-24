@@ -39,7 +39,7 @@ var commands = []string{
 	"Post", "Abandon", "SendEnforcers", "Boost", "Undercut", "CancelUndercut", "Tip", "BuyDeed", "BuyHouse", "Drop", "Guard", "Move",
 	"Hire", "Fire", "SetPay", "Investigate", "PayOff", "Bail", "Assign", "Unassign", "NameCaptain", "DropCaptain",
 	"SetRoute", "SetRouteTarget", "SetRouteDays", "SetRouteDriver", "BuyCheckpoint", "SetExport",
-	"SetLaunderDial", "BuyFront", "Invest", "BuyAsset", "Reserve", "BuyUpgrade",
+	"SetLaunderDial", "BuyFront", "Invest", "BuyAsset", "BuyTrophy", "Reserve", "BuyUpgrade",
 	"Bribe", "Fund", "Back", "CallFavour", "PayCop",
 	"ScoutFaction", "PlantSpy", "BuyOffFrom", "ProposeTo", "Accept", "Decline", "CallOff", "DeclareWar", "CallOffWar", "HitScouts", "Withdraw",
 	"Retire", "Vanish", "Crown",
@@ -48,7 +48,7 @@ var commands = []string{
 
 // queries are the session's reads served as they are: they change
 // nothing.
-var queries = []string{"View", "Alerts", "GatesAhead", "NextGates", "FrontOffers", "AssetOffers", "HouseOffers", "FloatMatters", "ExportSave", "MaxBuy", "RestockPlan", "Presets", "PresetCommands", "PresetDiff", "Preview"}
+var queries = []string{"View", "Alerts", "GatesAhead", "NextGates", "FrontOffers", "AssetOffers", "TrophyOffers", "HouseOffers", "FloatMatters", "ExportSave", "MaxBuy", "RestockPlan", "Presets", "PresetCommands", "PresetDiff", "Preview"}
 
 // unserved are the session's methods the wire does not carry, and why:
 // TestEverySessionMethodIsClassed fails on one in no list, so a new
@@ -375,7 +375,7 @@ var paramNames = map[string][]string{
 	"SetRoute": {"route", "dial"}, "SetRouteTarget": {"route", "product", "units"},
 	"SetRouteDays": {"route", "product", "days"}, "SetRouteDriver": {"route", "member"}, "BuyCheckpoint": {"route"},
 	"SetExport":      {"lane", "product", "units"},
-	"SetLaunderDial": {"dial"}, "BuyFront": {"front"}, "Invest": {"front", "levels"}, "BuyAsset": {"asset"},
+	"SetLaunderDial": {"dial"}, "BuyFront": {"front"}, "Invest": {"front", "levels"}, "BuyAsset": {"asset"}, "BuyTrophy": {"trophy"},
 	"Reserve": {"amount"}, "BuyUpgrade": {"upgrade"},
 	"Bribe": {"target", "amount"}, "Fund": {"city", "amount"}, "Back": {"city", "ticket", "amount"}, "PayCop": {"amount"},
 	"ScoutFaction": {"faction"}, "PlantSpy": {"faction", "member"}, "BuyOffFrom": {"faction", "units"},

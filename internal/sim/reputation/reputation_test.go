@@ -146,3 +146,29 @@ func TestBandCrossings(t *testing.T) {
 		t.Fatalf("up %d down %d quiet %d", up, down, quiet)
 	}
 }
+
+// A trophy owned (#392) talks every night: each axis gains what the
+// file gives it a day, before the fade, and nothing owned is nothing.
+func TestTrophiesTalk(t *testing.T) {
+	cfg := content.MustLoad()
+	s := reputation.New(cfg)
+	plain, owner := world(), world()
+	tc := cfg.Trophies.Trophy("zoo")
+	if tc == nil {
+		t.Fatal("no zoo in the file")
+	}
+	owner.Trophies = []game.Trophy{{ID: tc.ID, Name: tc.Name, Cost: tc.Cost}}
+	step(s, plain, 1)
+	step(s, owner, 1)
+	decay := 1 - cfg.Reputation.Reputation.Decay
+	a, b := plain.Player.Reputation, owner.Player.Reputation
+	for _, c := range []struct {
+		name      string
+		got, base float64
+		perDay    float64
+	}{{"fear", b.Fear, a.Fear, tc.Fear}, {"respect", b.Respect, a.Respect, tc.Respect}, {"notoriety", b.Notoriety, a.Notoriety, tc.Notoriety}} {
+		if want := c.base + c.perDay*decay; math.Abs(c.got-want) > 1e-9 {
+			t.Errorf("%s: %.4f with the zoo, %.4f without; want %.4f", c.name, c.got, c.base, want)
+		}
+	}
+}

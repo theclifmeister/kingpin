@@ -188,7 +188,11 @@ type LaunderingRules interface {
 	MaxLevel(f game.Front) int
 	Offers() []game.FrontOffer
 	Offshore() content.OffshoreConfig
+	Rot(pile int) int
+	RotLine() int
 	Throughput(w *game.World, f game.Front) int
+	TrophyOffer(trophy string) (game.TrophyOffer, bool)
+	TrophyOffers() []game.TrophyOffer
 	Tuning() content.LaunderingTuning
 	Upkeep(w *game.World) int
 }

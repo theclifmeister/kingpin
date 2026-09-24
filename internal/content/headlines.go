@@ -10,9 +10,28 @@ type HeadlinesConfig struct {
 	FlavourChance float64             `toml:"flavour_chance"`
 	Templates     map[string][]string `toml:"templates"`
 	Flavour       []string            `toml:"flavour"`
-	Swagger       []string            `toml:"swagger"` // the boss's headlines (#233): flavour that names you, while the city is yours
-	Flow          FlowConfig          `toml:"flow"`    // the report's cash flow (#351)
-	Digest        DigestConfig        `toml:"digest"`  // the morning's lead (#354)
+	Swagger       []string            `toml:"swagger"`  // the boss's headlines (#233): flavour that names you, while the city is yours
+	Flow          FlowConfig          `toml:"flow"`     // the report's cash flow (#351)
+	Digest        DigestConfig        `toml:"digest"`   // the morning's lead (#354)
+	RichList      RichListConfig      `toml:"richlist"` // the rich list's lines (#392)
+}
+
+// RichListConfig is the rich list (#392): the net worths whose crossing
+// makes the paper, lowest first, each once a run, and the scale the
+// list's rank is read off (RankScale over net worth, rounded, never
+// under one: $100M is #1,000 at 1e11). A report: no sim reads it and it
+// rolls no dice but its headline's template.
+type RichListConfig struct {
+	Lines     []int   `toml:"lines"`
+	RankScale float64 `toml:"rank_scale"`
+}
+
+// Rank is where the list puts a net worth.
+func (c RichListConfig) Rank(worth int) int {
+	if worth <= 0 {
+		return 0
+	}
+	return max(1, int(c.RankScale/float64(worth)+0.5))
 }
 
 // DigestConfig is the morning's lead (#354): how many lines it holds,
@@ -44,6 +63,14 @@ type FlowConfig struct {
 }
 
 func (c HeadlinesConfig) validate() error {
+	for i, l := range c.RichList.Lines {
+		if l <= 0 || i > 0 && l <= c.RichList.Lines[i-1] {
+			return fmt.Errorf("richlist: lines %v: want positive and rising", c.RichList.Lines)
+		}
+	}
+	if len(c.RichList.Lines) > 0 && c.RichList.RankScale <= 0 {
+		return fmt.Errorf("richlist: rank_scale %g: want positive", c.RichList.RankScale)
+	}
 	f := c.Flow
 	if f.Days < 1 || f.Shown < 1 || f.Shown > f.Days {
 		return fmt.Errorf("flow: days %d and shown %d: want 1 <= shown <= days", f.Days, f.Shown)

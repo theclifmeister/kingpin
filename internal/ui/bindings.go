@@ -152,6 +152,8 @@ var bindings = []binding{
 		do: func(m *Model, _ string) { m.askReserve() }},
 	{key: "t", label: "export order", help: "the selected export lane's nightly load", screens: on(screenLedger), when: ledgerOnLane,
 		do: func(m *Model, _ string) { m.askExport() }},
+	{key: "t", label: "buy trophy", help: "buy the selected trophy, after asking", screens: on(screenLedger), when: ledgerOnTrophyOffer,
+		do: func(m *Model, _ string) { m.askTrophy() }},
 	{key: "w", label: "walk away", help: "retire, vanish, or take the crown", screens: on(screenDashboard),
 		do: func(m *Model, _ string) { m.askExit() }},
 	{key: "o", label: "open alert", help: "go where the selected alert is answered", screens: on(screenDashboard), when: hasAlerts,

@@ -301,6 +301,16 @@ func (s *Session) BuyAsset(id string) (game.Asset, error) {
 	return s.w.BuyAsset(o)
 }
 
+// BuyTrophy buys the trophy offered under id with clean cash (#392,
+// World.BuyTrophy).
+func (s *Session) BuyTrophy(id string) (game.Trophy, error) {
+	o, ok := s.set.Laundering.TrophyOffer(id)
+	if !ok {
+		return game.Trophy{}, ErrNoOffer
+	}
+	return s.w.BuyTrophy(o)
+}
+
 // Reserve moves clean cash into the offshore account (World.Reserve).
 func (s *Session) Reserve(amount int) error { return s.w.Reserve(amount) }
 

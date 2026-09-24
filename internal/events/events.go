@@ -2090,6 +2090,54 @@ type ExportSeized struct {
 
 func (ExportSeized) Kind() string { return "ExportSeized" }
 
+// The filthy rich (#392).
+
+// TrophyBought is a trophy bought yesterday, reported this morning by
+// the laundering sim, which owns them.
+type TrophyBought struct {
+	Day    int
+	Trophy string
+	Name   string
+	Cost   int
+}
+
+func (TrophyBought) Kind() string { return "TrophyBought" }
+
+// TrophySeized is the task force taking a trophy, the costliest thing
+// owned when it came: the heat sim names it, the laundering sim takes
+// it off the books the same tick.
+type TrophySeized struct {
+	Day    int
+	City   string
+	Trophy string
+	Name   string
+	Cost   int
+}
+
+func (TrophySeized) Kind() string { return "TrophySeized" }
+
+// CashRotted is report-only: what the rats and the damp took of a
+// dirty pile over the rot line tonight, and the pile left.
+type CashRotted struct {
+	Day    int
+	Amount int
+	Pile   int
+}
+
+func (CashRotted) Kind() string { return "CashRotted" }
+
+// RichListed is the news sim's: net worth crossed one of the rich
+// list's lines this morning. Rank is where the list puts you, read off
+// the figure (no dice).
+type RichListed struct {
+	Day      int
+	Line     int
+	NetWorth int
+	Rank     int
+}
+
+func (RichListed) Kind() string { return "RichListed" }
+
 // Intel (#45): what you know against what is true.
 
 // IntelGained is report-only bookkeeping: a fact filed tonight, by

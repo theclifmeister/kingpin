@@ -1,0 +1,67 @@
+# Trophies (#392): what the cartel buys to be seen buying it. The lanes
+# abroad (#391, exports.toml) put the money in the billions; a trophy
+# is where it shows. Clean cash only, bought on the ledger (World.
+# BuyTrophy); nothing a sim needs, so a run that never buys one is the
+# run before the file. While it is yours it counts in net worth at cost
+# and it talks: `fear`, `respect` and `notoriety` are added to each axis
+# every day it is owned (the reputation sim, which fades every axis
+# toward its baseline, so a trophy holds the street's opinion up rather
+# than pinning it). The task force takes the costliest thing you own
+# when it comes, a trophy as readily as an asset (heat.Sim.seize).
+#
+# Each [[trophy]]:
+#   id, name      the trophy; name is what the ledger and the paper say
+#   blurb         one line for the ledger's pane
+#   unlock_cash   peak clean cash that puts it on offer
+#   cost          clean cash
+#   fear, respect, notoriety   added to each axis a day while owned
+
+[[trophy]]
+id = "penthouse"
+name = "The Penthouse"
+blurb = "Three floors over the river, paid in full, and a doorman who forgets faces."
+unlock_cash = 5000000
+cost = 10000000
+fear = 0
+respect = 0.15
+notoriety = 0.05
+
+[[trophy]]
+id = "yacht"
+name = "The Yacht"
+blurb = "Sixty metres, a helipad and a crew that signed things."
+unlock_cash = 15000000
+cost = 40000000
+fear = 0
+respect = 0.25
+notoriety = 0.15
+
+[[trophy]]
+id = "zoo"
+name = "The Private Zoo"
+blurb = "Hippos, a tiger and a pit nobody asks about. Everybody has heard of it."
+unlock_cash = 30000000
+cost = 80000000
+fear = 0.3
+respect = 0.1
+notoriety = 0.25
+
+[[trophy]]
+id = "club"
+name = "A Football Club"
+blurb = "Forty thousand people sing your name on a Saturday and do not ask where it came from."
+unlock_cash = 80000000
+cost = 200000000
+fear = 0
+respect = 0.5
+notoriety = 0.2
+
+[[trophy]]
+id = "senator"
+name = "A Senator"
+blurb = "Not bought: retained. He speaks for the port at committee, and he returns your calls."
+unlock_cash = 200000000
+cost = 500000000
+fear = 0.2
+respect = 0.3
+notoriety = 0

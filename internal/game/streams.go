@@ -54,6 +54,8 @@ const (
 	StreamOverdoseNews      = "overdose:news"      // an overdose's headline (#47)
 	StreamInvestigationNews = "investigation:news" // an investigation opened or gone nowhere (#343)
 	StreamExportsNews       = "exports:news"       // the export lanes' headlines (#391)
+	StreamRichNews          = "richlist:news"      // the rich list's headline (#392)
+	StreamTrophiesNews      = "trophies:news"      // the trophies' headlines (#392)
 )
 
 // Rand is the subset of *math/rand/v2.Rand the sims draw on (#275): the

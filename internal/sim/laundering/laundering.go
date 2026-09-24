@@ -26,6 +26,8 @@ type Sim struct {
 	inf    content.InformantTuning
 	tree   content.UpgradesConfig
 	assets content.AssetsConfig // #48: the assets' prices and upkeep, a clean-cash purchase this sim reports and bills
+
+	trophies content.TrophiesConfig // #392: the trophies' prices, clean cash this sim reports
 }
 
 // New builds a laundering sim from the config, copying what it reads
@@ -38,7 +40,7 @@ type Sim struct {
 // float_mul on the float, through World.Float, the one number the wash,
 // the road and a supply contract read.
 func New(cfg *content.Config) *Sim {
-	return &Sim{cfg: cfg.Laundering, inf: cfg.Crew.Informant, tree: cfg.Upgrades, assets: cfg.Assets}
+	return &Sim{cfg: cfg.Laundering, inf: cfg.Crew.Informant, tree: cfg.Upgrades, assets: cfg.Assets, trophies: cfg.Trophies}
 }
 
 // AssetOffers lists every asset the file knows (#48), cheapest first,
@@ -613,6 +615,8 @@ func (s *Sim) Step(w *game.World, t *game.Tick) {
 		t.Emit(events.CashLaundered{Day: t.Day, Amount: total, Upkeep: paid, Fronts: washing, Earned: earned})
 	}
 	s.assetsStep(w, t)
+	s.trophiesStep(w, t)
+	s.rot(w, t)
 	s.reserve(w, t)
 	s.quiet(w, t)
 	s.legit(w, t)

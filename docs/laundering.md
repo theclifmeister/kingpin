@@ -28,6 +28,8 @@ The roles (sized so every pinned band and pin holds, below):
 | casino | the cartel's wash (#391) | none: a pure wash |
 | bank | the cartel's wash (#391) | `offshore_fee_mul` 0.5 |
 
+**The rot** (#392, `docs/trophies.md`): `[laundering] rot_line` ($50M) and `rot` (0.001): every night, after the wash, `rot` of the dirty pile over the line comes off it (`CashRotted`, report-only, booked to losses; `Stats.Rotted`). Nothing at or under the line, and no policy below the cartel keeps a pile over it.
+
 **The cartel's wash** (#391, `docs/exports.md`): `[[front]]` gained `asset`, an asset that must stand before the front is on offer (`FrontOffer.Asset`, `AssetName`; `Locked` reads it beside peak cash; `BuyFront` refuses `nobody will sell you Casino until The Dutchman's Book stands`; `validateAssets` checks the id at load).
 The Casino ($30M, washes $1.5M a day, $60k upkeep, audit 0.01, line $20M peak cash) and the Private Bank ($120M, $6M a day, $200k upkeep, audit 0.015, line $100M) both wait on the book, so the lanes' landings have somewhere to go: each covers ten times its price of the pile (`dirty_cash_cover`), and each pays 1% a day in levels like every front (`income` $300k and $1.2M on `level_cost` $30M and $120M).
 Until the book stands the pair is on no list: not on offer (`Session.FrontOffers` skips them, so the ledger's ON OFFER and the picker read as before), no gate counted down to, no `Unlocked` (the laundering sim's `announce` waits for both lines), so a run that never owns the book is the run before them.

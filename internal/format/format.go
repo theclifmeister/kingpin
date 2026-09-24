@@ -70,6 +70,23 @@ func Cash(n int) string {
 	return fmt.Sprintf("%s$%.0f%s", sign, v, units[i])
 }
 
+// CashWeight is what a pile of dollars weighs in hundred-dollar bills
+// (#392), a bill being a gram: `under a kilo`, `450 kg`, `1.5 tonnes`,
+// `12 tonnes`. The ledger and the report say it once the pile is big
+// enough to be a problem of storage.
+func CashWeight(n int) string {
+	kg := float64(n) / 100 / 1000
+	switch {
+	case kg < 1:
+		return "under a kilo"
+	case math.Round(kg) < 1000:
+		return fmt.Sprintf("%.0f kg", kg)
+	case kg < 9950:
+		return fmt.Sprintf("%.1f tonnes", kg/1000)
+	}
+	return fmt.Sprintf("%.0f tonnes", kg/1000)
+}
+
 // Price formats a per-unit price: cents matter on a $20 bag, not on a
 // $2,500 one.
 func Price(v float64) string {
