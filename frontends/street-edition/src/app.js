@@ -45,7 +45,11 @@ let session,
   timer,
   selectedCity,
   confirmAction;
-const SAVE = "kingpin-ink-v1",
+// The save's key in this browser. Before #409 this frontend was "Ink &
+// Ambition" and kept it under OLD_SAVE: a save found only there is read
+// and moved over on the next save, so no run is lost to the rename.
+const SAVE = "kingpin-street-v1",
+  OLD_SAVE = "kingpin-ink-v1",
   tabs = [
     ["street", "map", "The streets"],
     ["market", "coin", "Market"],
@@ -92,6 +96,7 @@ function persist() {
       SAVE,
       JSON.stringify({ save: session.exportSave(), orders, history }),
     );
+    localStorage.removeItem(OLD_SAVE);
     mutedSave = false;
   } catch {
     mutedSave = true;
@@ -464,7 +469,7 @@ function exportFile() {
     ),
     a = document.createElement("a");
   a.href = url;
-  a.download = `kingpin-ink-seed${v.seed}-day${v.day}.gob`;
+  a.download = `kingpin-street-seed${v.seed}-day${v.day}.gob`;
   a.click();
   setTimeout(() => URL.revokeObjectURL(url), 1000);
   notify("Save exported");
@@ -884,7 +889,9 @@ async function boot() {
     session = new Session(window.kingpin);
     let loaded = false;
     try {
-      const saved = JSON.parse(localStorage.getItem(SAVE) || "null");
+      const saved = JSON.parse(
+        localStorage.getItem(SAVE) || localStorage.getItem(OLD_SAVE) || "null",
+      );
       if (saved?.save) {
         session.importSave(saved.save);
         orders = saved.orders || [];
