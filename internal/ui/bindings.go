@@ -311,6 +311,8 @@ var modeBindings = []binding{
 	{key: "D", label: "delete", modes: in(modeStart)},
 	{key: "y", label: "<verb>", modes: in(modeConfirm)}, // the payload's verb (#242): fire, buy, go, scout…
 	{key: "y enter", label: "end day", modes: in(modeConfirmEnd)},
+	{key: "[ ]", label: "alert", keys: []string{"[", "]"}, modes: in(modeConfirmEnd), when: previewHasAlerts}, // the day's preview (#353)
+	{key: "o", label: "open alert", modes: in(modeConfirmEnd), when: previewHasAlerts},
 	{key: "enter", label: "run", modes: in(modeConfirmFast)},
 	{key: "enter", label: "pay", modes: in(modeConfirmBuyOff)},
 	{key: "enter", label: "invest", modes: in(modeInvest)},

@@ -1959,6 +1959,25 @@
       ],
       "type": "object"
     },
+    "engine.CornerIdle": {
+      "properties": {
+        "city": {
+          "type": "string"
+        },
+        "corner": {
+          "type": "string"
+        },
+        "days": {
+          "type": "integer"
+        }
+      },
+      "required": [
+        "corner",
+        "city",
+        "days"
+      ],
+      "type": "object"
+    },
     "engine.CornerView": {
       "properties": {
         "deed": {
@@ -2063,6 +2082,82 @@
       "required": [
         "kind",
         "day"
+      ],
+      "type": "object"
+    },
+    "engine.DayPreview": {
+      "properties": {
+        "alerts": {
+          "items": {
+            "$ref": "#/$defs/engine.Alert"
+          },
+          "type": "array"
+        },
+        "bought": {
+          "type": "integer"
+        },
+        "corners": {
+          "items": {
+            "$ref": "#/$defs/engine.CornerIdle"
+          },
+          "type": "array"
+        },
+        "day": {
+          "type": "integer"
+        },
+        "flow": {
+          "$ref": "#/$defs/engine.FlowView"
+        },
+        "idle": {
+          "items": {
+            "$ref": "#/$defs/engine.IdleView"
+          },
+          "type": "array"
+        },
+        "lie_low": {
+          "type": "boolean"
+        },
+        "routes": {
+          "$ref": "#/$defs/engine.RoutesOutlay"
+        },
+        "sales": {
+          "items": {
+            "$ref": "#/$defs/engine.SaleView"
+          },
+          "type": "array"
+        },
+        "supply": {
+          "items": {
+            "$ref": "#/$defs/engine.SupplyView"
+          },
+          "type": "array"
+        },
+        "unknown": {
+          "items": {
+            "type": "string"
+          },
+          "type": "array"
+        },
+        "wages": {
+          "type": "integer"
+        },
+        "wash": {
+          "$ref": "#/$defs/engine.LaunderingDay"
+        }
+      },
+      "required": [
+        "day",
+        "flow",
+        "bought",
+        "sales",
+        "idle",
+        "corners",
+        "alerts",
+        "unknown",
+        "supply",
+        "routes",
+        "wages",
+        "wash"
       ],
       "type": "object"
     },
@@ -2289,6 +2384,48 @@
         "corner",
         "capacity",
         "stock"
+      ],
+      "type": "object"
+    },
+    "engine.IdleView": {
+      "properties": {
+        "member": {
+          "type": "integer"
+        },
+        "name": {
+          "type": "string"
+        },
+        "role": {
+          "type": "string"
+        }
+      },
+      "required": [
+        "member",
+        "name",
+        "role"
+      ],
+      "type": "object"
+    },
+    "engine.LaunderingDay": {
+      "properties": {
+        "assets": {
+          "type": "integer"
+        },
+        "income": {
+          "type": "integer"
+        },
+        "upkeep": {
+          "type": "integer"
+        },
+        "washed": {
+          "type": "integer"
+        }
+      },
+      "required": [
+        "washed",
+        "upkeep",
+        "income",
+        "assets"
       ],
       "type": "object"
     },
@@ -2721,6 +2858,21 @@
       ],
       "type": "object"
     },
+    "engine.RoutesOutlay": {
+      "properties": {
+        "fares": {
+          "type": "integer"
+        },
+        "lots": {
+          "type": "integer"
+        }
+      },
+      "required": [
+        "lots",
+        "fares"
+      ],
+      "type": "object"
+    },
     "engine.RungView": {
       "properties": {
         "cap": {
@@ -2748,6 +2900,32 @@
       "required": [
         "level",
         "line"
+      ],
+      "type": "object"
+    },
+    "engine.SaleView": {
+      "properties": {
+        "city": {
+          "type": "string"
+        },
+        "delivered": {
+          "type": "integer"
+        },
+        "heat": {
+          "type": "number"
+        },
+        "take": {
+          "type": "integer"
+        },
+        "units": {
+          "type": "integer"
+        }
+      },
+      "required": [
+        "city",
+        "units",
+        "take",
+        "heat"
       ],
       "type": "object"
     },
@@ -2787,6 +2965,29 @@
         "units",
         "sent",
         "arrives"
+      ],
+      "type": "object"
+    },
+    "engine.SupplyView": {
+      "properties": {
+        "city": {
+          "type": "string"
+        },
+        "cost": {
+          "type": "integer"
+        },
+        "product": {
+          "type": "string"
+        },
+        "units": {
+          "type": "integer"
+        }
+      },
+      "required": [
+        "city",
+        "product",
+        "units",
+        "cost"
       ],
       "type": "object"
     },
@@ -10174,6 +10375,19 @@
         "type": "array"
       }
     },
+    "preview": {
+      "changes": false,
+      "needsRun": true,
+      "params": {
+        "maxItems": 0,
+        "minItems": 0,
+        "prefixItems": [],
+        "type": "array"
+      },
+      "result": {
+        "$ref": "#/$defs/engine.DayPreview"
+      }
+    },
     "propose_to": {
       "changes": true,
       "needsRun": true,
@@ -13490,7 +13704,7 @@
       "$ref": "#/$defs/engine.View"
     }
   },
-  "protocol": 6,
+  "protocol": 7,
   "title": "kingpind",
   "view_version": 8
 }
