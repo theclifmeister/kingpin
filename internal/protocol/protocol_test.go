@@ -288,8 +288,8 @@ func TestEverySessionMethodIsClassed(t *testing.T) {
 			t.Errorf("%s is classed but engine.Session has no such method", n)
 		}
 	}
-	if len(commands) != 76 {
-		t.Errorf("%d commands on the wire, docs/engine.md says 76", len(commands))
+	if len(commands) != 77 {
+		t.Errorf("%d commands on the wire, docs/engine.md says 77", len(commands))
 	}
 }
 

@@ -83,7 +83,7 @@ func scenarios() []scenario {
 			}
 			w.Player.DirtyCash, w.Player.CleanCash = 1_000_000, 1_000_000
 			w.Home().Goodwill, w.Home().Pressure = 100, 0
-		}, func(*content.Config) Policy { return Idle }},
+		}, func(cfg *content.Config) Policy { return Straight(cfg, Idle) }},
 		{content.CauseKingpin, 60, func(cfg *content.Config) *content.Config { return NoLife(Factions(cfg, 3)) }, func(cfg *content.Config, w *game.World) {
 			// Every faction fallen on day 1 (#43's TestDominantScripted
 			// with the last leader taken too), and the city held: six
@@ -367,6 +367,20 @@ func Crowned(policy Policy) Policy {
 	return func(w *game.World) {
 		if w.CanCrown() {
 			_ = w.Crown()
+			return
+		}
+		policy(w)
+	}
+}
+
+// Straight is policy that goes straight the morning it can (#398), as
+// Crowned takes the crown: the run loop claims it the night it opens
+// already, and a loop of its own (playMornings) the morning after.
+func Straight(cfg *content.Config, policy Policy) Policy {
+	days := cfg.Laundering.Businessman.LegitDays
+	return func(w *game.World) {
+		if w.CanGoStraight(days) {
+			_ = w.GoStraight(days)
 			return
 		}
 		policy(w)

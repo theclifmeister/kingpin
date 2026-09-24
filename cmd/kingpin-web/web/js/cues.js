@@ -234,9 +234,10 @@ export const ANIMATIONS = {
     const at = place(L, c);
     return [shake(at, "skull", 1200), ring(at, "#b15bc7")];
   },
-  // The run turned: the reign began or broke, or it ended.
+  // The run turned: the reign began or broke, going straight opened or
+  // lapsed, or it ended.
   run(c, L) {
-    const text = { began: "THE REIGN BEGINS", broke: "THE REIGN IS BROKEN", ended: "THE END" }[c.phase] || "THE RUN TURNS";
-    return [banner(L, text, c.phase === "began" ? COLOURS.deed : "#e5484d")];
+    const text = { began: "THE REIGN BEGINS", broke: "THE REIGN IS BROKEN", straight: "YOU COULD GO STRAIGHT", lapsed: "THE BOOKS SLIPPED", ended: "THE END" }[c.phase] || "THE RUN TURNS";
+    return [banner(L, text, c.phase === "began" || c.phase === "straight" ? COLOURS.deed : "#e5484d")];
   },
 };

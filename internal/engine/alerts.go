@@ -41,6 +41,7 @@ const (
 	AlertRetire        AlertKind = "retire"        // Ready, or Days quiet and Amount short
 	AlertFavour        AlertKind = "favour"        // the chief owes you one and Level comes tonight
 	AlertReign         AlertKind = "reign"         // day Days of the reign, Count crews paying Amount
+	AlertStraight      AlertKind = "straight"      // going straight is open (#398): Amount the fronts' income a day
 	AlertPlan          AlertKind = "plan"          // the pinned plan (#347): Count of its Steps met, Ready once done
 )
 
@@ -49,7 +50,7 @@ const (
 func AlertKinds() []AlertKind {
 	return []AlertKind{AlertTalking, AlertContractDue, AlertDebtDue, AlertHeat, AlertTaskForce, AlertInvestigation, AlertFloat, AlertWages,
 		AlertCrewLine, AlertSkim, AlertUnposted, AlertIdleCorner, AlertStashFull, AlertScouts, AlertGate, AlertHouseKnown,
-		AlertDARace, AlertRetire, AlertFavour, AlertReign, AlertPlan}
+		AlertDARace, AlertRetire, AlertFavour, AlertReign, AlertStraight, AlertPlan}
 }
 
 // Act is what answers an alert (#352): the screen that fixes it, the
@@ -126,6 +127,7 @@ var alertActs = map[AlertKind][]Act{
 	AlertRetire:        {actLedger, actDashboard},
 	AlertFavour:        {actLedger},
 	AlertReign:         {actDashboard},
+	AlertStraight:      {actDashboard},
 	AlertPlan:          {actDashboard}, // the plan pinned (#347): the dashboard, where it is shown and the walk away is
 }
 
@@ -268,6 +270,9 @@ func (s *Session) Alerts() []Alert {
 	if w.Reign > 0 {
 		crews, homage := w.HomageDeals()
 		out = append(out, Alert{Kind: AlertReign, Key: "the city is yours", Days: w.ReignDay(), Count: crews, Amount: homage})
+	}
+	if s.set.Laundering.CanGoStraight(w) {
+		out = append(out, Alert{Kind: AlertStraight, Key: "going straight", Amount: s.set.Laundering.LegitIncome(w)})
 	}
 	out = append(out, s.planAlert()...)
 	for i := range out {

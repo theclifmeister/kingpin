@@ -2719,6 +2719,15 @@ func TestModalsFit(t *testing.T) {
 				t.Fatalf("the confirmation did not open on the crown: %q", m.status)
 			}
 		}},
+		{"walk away: straight?", modeExit, func(t *testing.T, m *Model) { // going straight (#398)
+			m.w.LegitDays = m.cfg.Laundering.Businessman.LegitDays
+			m.Update(key("1"))
+			m.Update(key("w"))
+			m.Update(key("4"))
+			if m.exit.step != 1 || m.exit.cursor != 3 {
+				t.Fatalf("the confirmation did not open on going straight: %q", m.status)
+			}
+		}},
 		{"confirm new", modeConfirm, func(t *testing.T, m *Model) { m.Update(key("N")) }},
 		{"confirm fire", modeConfirm, func(t *testing.T, m *Model) { m.Update(key("4")); m.Update(key("f")) }},
 		{"confirm end", modeConfirmEnd, func(t *testing.T, m *Model) { m.Update(key("enter")) }},

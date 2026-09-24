@@ -711,15 +711,28 @@ func (s *Sim) legit(w *game.World, t *game.Tick) {
 		}
 	}
 	home := w.Home()
-	if income := s.LegitIncome(w); income <= 0 || income <= street || home.Goodwill <= home.Pressure {
+	income := s.LegitIncome(w)
+	if income <= 0 || income <= street || home.Goodwill <= home.Pressure {
+		if w.LegitDays >= days {
+			t.Emit(events.StraightLapsed{Day: t.Day})
+		}
 		w.LegitDays = 0
 		return
 	}
 	w.LegitDays++
-	if w.LegitDays >= days {
-		w.Over = w.End(content.CauseBusinessman, t.Day, "")
-		t.Emit(events.GameOver{Day: t.Day, Cause: content.CauseBusinessman})
+	if w.LegitDays == days {
+		t.Emit(events.StraightOpened{Day: t.Day, Income: income, Street: street})
 	}
+}
+
+// CanGoStraight is World.CanGoStraight at the file's legit_days.
+func (s *Sim) CanGoStraight(w *game.World) bool {
+	return w.CanGoStraight(s.cfg.Businessman.LegitDays)
+}
+
+// GoStraight is World.GoStraight at the file's legit_days.
+func (s *Sim) GoStraight(w *game.World) error {
+	return w.GoStraight(s.cfg.Businessman.LegitDays)
 }
 
 // reportGrowth reports the levels bought at a front today (#192,

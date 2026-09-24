@@ -30,8 +30,9 @@ var reportOnly = map[string]bool{
 	"FrontInvested": true, "Reserved": true, "AssetUpkeepPaid": true, // #192, #195, #351
 	"CrewBailed": true, "CrewRecovered": true, "KinLooking": true, // #46
 	"RivalScouted": true, "PoliceTipped": true, // #70
-	"ReignBroken": true, // #227
-	"DealEnded":   true, "TributePaid": true,
+	"ReignBroken":    true,                         // #227
+	"StraightOpened": true, "StraightLapsed": true, // #398: the TIER section says it, the walk-away dialog takes it
+	"DealEnded": true, "TributePaid": true,
 	"CampaignBacked": true,                                                                    // #193
 	"BribeAccepted":  true, "BribeRefused": true, "LeadFound": true, "CheckpointBought": true, // #42
 	"ContractAccepted": true, "ContractExpired": true,

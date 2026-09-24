@@ -401,3 +401,7 @@ func (s *Session) Vanish() error { return s.w.Vanish(game.FoldEffects(s.w, s.cfg
 
 // Crown takes the city (World.Crown).
 func (s *Session) Crown() error { return s.w.Crown() }
+
+// GoStraight takes the legitimate life at the file's terms (#398,
+// World.GoStraight).
+func (s *Session) GoStraight() error { return s.set.Laundering.GoStraight(s.w) }

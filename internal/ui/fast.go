@@ -167,6 +167,10 @@ func (m *Model) stopEvent(e events.Event) string {
 		return "the city is yours" // the reign (#227)
 	case events.ReignBroken:
 		return "the reign is over: " + ev.Why
+	case events.StraightOpened:
+		return "you could go straight" // #398
+	case events.StraightLapsed:
+		return "going straight is off again"
 	case events.RivalMovedIn:
 		return ev.Rival + " moved in on " + ev.Name
 	case events.RivalEyeing:

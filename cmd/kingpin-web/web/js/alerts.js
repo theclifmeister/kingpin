@@ -65,6 +65,7 @@ export const WORDS = {
   },
   favour: (v, a) => `The chief owes you one and the ${a.level || "police"} comes tonight.`,
   reign: (v, a) => `The city is yours: day ${n(a.days)} of the reign.`,
+  straight: (v, a) => `The fronts earn ${money(a.amount)} a day, more than the street: you could go straight.`,
   plan: (v, a) => {
     const p = (v.ambitions || []).find((x) => x.id === a.ambition);
     const name = p ? p.name : "The plan";

@@ -42,7 +42,7 @@ var commands = []string{
 	"SetLaunderDial", "BuyFront", "Invest", "BuyAsset", "BuyTrophy", "Reserve", "CashOut", "BuyUpgrade",
 	"Bribe", "Fund", "Back", "CallFavour", "PayCop",
 	"ScoutFaction", "PlantSpy", "BuyOffFrom", "ProposeTo", "Accept", "Decline", "CallOff", "DeclareWar", "CallOffWar", "HitScouts", "Withdraw",
-	"Retire", "Vanish", "Crown",
+	"Retire", "Vanish", "Crown", "GoStraight",
 	"ApplyPreset",
 }
 

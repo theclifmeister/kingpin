@@ -17,11 +17,12 @@ type LaunderingConfig struct {
 	Fronts      []FrontConfig     `toml:"front"`
 }
 
-// BusinessmanConfig is the [businessman] table (#49): the run ends a
-// businessman once the fronts' own income net of their upkeep
-// (Sim.LegitIncome) has out-earned the street's revenue for LegitDays
-// days in a row with home's goodwill over its pressure (World.LegitDays
-// counts them, this sim's). Zero boxes it.
+// BusinessmanConfig is the [businessman] table (#49): going straight
+// opens (#398: the player ends the run a businessman from the walk-away
+// dialog, World.GoStraight) once the fronts' own income net of their
+// upkeep (Sim.LegitIncome) has out-earned the street's revenue for
+// LegitDays days in a row with home's goodwill over its pressure
+// (World.LegitDays counts them, this sim's). Zero boxes it.
 type BusinessmanConfig struct {
 	LegitDays int `toml:"legit_days"`
 }
