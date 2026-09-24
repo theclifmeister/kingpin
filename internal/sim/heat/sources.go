@@ -310,11 +310,26 @@ func (s *Sim) sloppy(d *day) {
 // (Cover). It runs after the envelopes' pages and before the audits', so
 // the reasons where you are read in that order.
 func (s *Sim) dirtyCash(d *day) {
-	w := d.w
-	if line := s.ExposureLine(w); line > 0 && w.Player.DirtyCash > line {
-		mult := float64(w.Player.DirtyCash-line) / float64(s.DirtyCashThreshold(w))
-		d.add(d.here, d.tun.DirtyCashHeat*mult, "dirty cash")
+	if v := s.PileHeat(d.w); v > 0 {
+		d.add(d.here, v, "dirty cash")
 	}
+}
+
+// PileHeat is what the dirty pile adds tonight where you stand:
+// dirty_cash_heat a threshold multiple past ExposureLine, bounded by
+// dirty_cash_heat_max (#396) so a pile far past its cover is a
+// countdown of nights and not one night's arrest. Zero at or under the
+// line.
+func (s *Sim) PileHeat(w *game.World) float64 {
+	line := s.ExposureLine(w)
+	if line <= 0 || w.Player.DirtyCash <= line {
+		return 0
+	}
+	v := s.cfg.Heat.DirtyCashHeat * float64(w.Player.DirtyCash-line) / float64(s.DirtyCashThreshold(w))
+	if hi := s.cfg.Heat.DirtyCashHeatMax; hi > 0 {
+		v = min(v, hi)
+	}
+	return v
 }
 
 // placeName names a place a move joined: the house, or the street.

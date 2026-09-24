@@ -7,6 +7,11 @@ sale_heat = 7.0             # heat for moving street_units heat-weighted units a
 street_units = 100          # units a day the street absorbs before it really notices
 dirty_cash_threshold = 100000 # holding more dirty cash than this attracts heat
 dirty_cash_heat = 0.5       # heat per threshold multiple above it, per day
+dirty_cash_heat_max = 35.0  # the most the pile adds in a night (#396): a pile $40M past its cover took 200 in
+                            # one night, an arrest with no warning. Bounded, it arrests in ~5 nights, ~11 lying
+                            # low: time to wash, buy cover or spend. Not lower: at 25 or under, lying low every
+                            # night holds a pile of any size under 100 while the export lanes pay, a pardon.
+                            # No harness policy meets it (their worst night is under 18); 0 is no bound
 dirty_cash_cover = 10.0     # a front covers this many times its price of the pile on top of the threshold:
                             # cash with a story draws nothing (#60: the wash ladder tops out near $400k a day
                             # and a tier-4 operation makes more, so the pile it carries is what its fronts

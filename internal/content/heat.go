@@ -32,7 +32,8 @@ type HeatTuning struct {
 	StreetUnits        float64 `toml:"street_units"`
 	DirtyCashThreshold int     `toml:"dirty_cash_threshold"`
 	DirtyCashHeat      float64 `toml:"dirty_cash_heat"`
-	DirtyCashCover     float64 `toml:"dirty_cash_cover"` // a front covers this many times its price of the pile
+	DirtyCashHeatMax   float64 `toml:"dirty_cash_heat_max"` // the most the pile adds in a night (#396); 0 is no bound
+	DirtyCashCover     float64 `toml:"dirty_cash_cover"`    // a front covers this many times its price of the pile
 	CooldownDays       int     `toml:"cooldown_days"`
 	EvidenceArrest     int     `toml:"evidence_arrest"`
 	CrewHeat           float64 `toml:"crew_heat"`
@@ -102,6 +103,9 @@ type ResponseConfig struct {
 // rung the code does not know, and the thresholds climbing in the
 // ladder's order.
 func (h HeatConfig) validate() error {
+	if h.Heat.DirtyCashHeatMax < 0 {
+		return fmt.Errorf("[heat] dirty_cash_heat_max %.1f must not be negative", h.Heat.DirtyCashHeatMax)
+	}
 	if t := h.Heat; t.BustDays < 1 || t.FallHeat < 0 || t.FallHeat > 100 || t.FallCash < 0 || t.FallCash > 1 {
 		return fmt.Errorf("[heat] bust_days %d must be positive, fall_heat %.0f in 0..100 and fall_cash %.2f in 0..1", t.BustDays, t.FallHeat, t.FallCash)
 	}
