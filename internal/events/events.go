@@ -1048,6 +1048,7 @@ type ReignBegan struct {
 	City   string
 	Crews  int
 	Homage int
+	Again  bool // a reign the run has begun before (#399): the report says it, the fast-forward runs past it
 }
 
 func (ReignBegan) Kind() string { return "ReignBegan" }

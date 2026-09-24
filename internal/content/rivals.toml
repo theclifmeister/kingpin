@@ -450,6 +450,12 @@ dial = "hit"
 [endings]
 dominant_days = 14
 kingpin_share = 0.5
+# The reign's grace (#399): a reign whose share of home's corners slips
+# rides it this many mornings before it breaks, so a holding that hovers
+# on the line does not break and begin the reign again every few days
+# (a playtest's churn). A crew setting up again breaks it at once; the
+# crown waits while it is slipping. 0 breaks it the first morning.
+reign_grace = 3
 taken_out_muscle = 2
 betray_war = 40
 

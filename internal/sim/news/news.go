@@ -173,7 +173,11 @@ func (s *Sim) Step(w *game.World, t *game.Tick) {
 		case events.ReignBegan:
 			d := r.at(ev.City)
 			r.add("rivals", "ReignBegan", d)
-			rep.Tier = append([]string{fmt.Sprintf("The city is yours: every crew in %s is gone or paying. Take the crown when you are ready (walk away on the dashboard), or reign.", d.City)}, rep.Tier...)
+			line := fmt.Sprintf("The city is yours: every crew in %s is gone or paying. Take the crown when you are ready (walk away on the dashboard), or reign.", d.City)
+			if ev.Again {
+				line = fmt.Sprintf("The city is yours again: every crew in %s is gone or paying, and the crown is open.", d.City)
+			}
+			rep.Tier = append([]string{line}, rep.Tier...)
 		case events.ReignBroken:
 			rep.Tier = append([]string{fmt.Sprintf("The reign is over for now: %s. Hold the city and the table and it begins again.", ev.Why)}, rep.Tier...)
 		case events.StraightOpened:

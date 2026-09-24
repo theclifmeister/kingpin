@@ -21,6 +21,9 @@ var (
 	ErrNoIdentity = errors.New("vanishing takes a new identity")
 	// ErrNoReign means the crown takes the city: the reign is not on.
 	ErrNoReign = errors.New("the city is not yours yet")
+	// ErrReignSlipping means the reign is riding under the share (#399):
+	// the crown waits until the city is held again.
+	ErrReignSlipping = errors.New("the city is slipping: hold more than the share again")
 	// ErrNotStraight means the fronts have not out-earned the street
 	// long enough to go straight.
 	ErrNotStraight = errors.New("the fronts do not out-earn the street yet")
@@ -103,13 +106,16 @@ func (w *World) Crown() error {
 	if w.Reign <= 0 {
 		return ErrNoReign
 	}
+	if w.ReignSlip > 0 {
+		return ErrReignSlipping
+	}
 	w.Over = w.End("kingpin", w.Day, "")
 	return nil
 }
 
-// CanCrown reports whether Crown would take: the reign on and the run
-// not over.
-func (w *World) CanCrown() bool { return w.Over == nil && w.Reign > 0 }
+// CanCrown reports whether Crown would take: the reign on, not slipping
+// (#399), and the run not over.
+func (w *World) CanCrown() bool { return w.Over == nil && w.Reign > 0 && w.ReignSlip == 0 }
 
 // GoStraight ends the run as "businessman" (#398): the player takes the
 // legitimate life once the fronts have out-earned the street days

@@ -6970,6 +6970,9 @@
     },
     "events.ReignBegan": {
       "properties": {
+        "Again": {
+          "type": "boolean"
+        },
         "City": {
           "type": "string"
         },
@@ -6987,7 +6990,8 @@
         "Day",
         "City",
         "Crews",
-        "Homage"
+        "Homage",
+        "Again"
       ],
       "type": "object"
     },

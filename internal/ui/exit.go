@@ -62,7 +62,7 @@ func (m *Model) exitRows() []exitRow {
 	if crown.open {
 		crown.terms = fmt.Sprintf("day %d of the reign", w.ReignDay())
 	} else {
-		crown.short = "the city is not yours"
+		crown.short = m.crownShort()
 	}
 	straight := exitRow{cause: content.CauseBusinessman, name: "Go straight", open: m.rules.Laundering.CanGoStraight(w)}
 	if days := m.cfg.Laundering.Businessman.LegitDays; straight.open {
@@ -72,6 +72,42 @@ func (m *Model) exitRows() []exitRow {
 		straight.short = fmt.Sprintf("%d of %s so far", w.LegitDays, plural(days, "night"))
 	}
 	return []exitRow{retire, vanish, crown, straight}
+}
+
+// crownShort is what the crown waits on (#399), in the kingpin plan's
+// own steps (the ambition reads the detector's terms): the corners
+// short of the share, the crews still standing, the days of the streak
+// to go; or that the reign is slipping under the share.
+func (m *Model) crownShort() string {
+	w := m.w
+	if w.Reign > 0 && w.ReignSlip > 0 {
+		return "the city is slipping under the share: hold more corners"
+	}
+	var parts []string
+	for _, a := range m.sess.Ambitions() {
+		if a.ID != content.AmbitionCity {
+			continue
+		}
+		for _, s := range a.Steps {
+			if s.Done {
+				continue
+			}
+			switch s.ID {
+			case "share":
+				parts = append(parts, fmt.Sprintf("%d of %d corners held", int(s.Have), int(s.Need)))
+			case "factions":
+				parts = append(parts, plural(int(s.Need-s.Have), "crew")+" still standing")
+			case "streak":
+				if s.Have > 0 || len(parts) == 0 {
+					parts = append(parts, fmt.Sprintf("day %d of %d", int(s.Have), int(s.Need)))
+				}
+			}
+		}
+	}
+	if len(parts) == 0 {
+		return "the city is not yours"
+	}
+	return strings.Join(parts, ", ")
 }
 
 // askExit opens the dialog on its first page.
