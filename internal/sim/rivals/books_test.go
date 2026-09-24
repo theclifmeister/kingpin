@@ -433,3 +433,42 @@ func TestScoutReadsASnapshot(t *testing.T) {
 		t.Fatalf("not stale after %d days: age %d", bk.StaleDays, k.Age(w.Day))
 	}
 }
+
+// A push that takes your corner says what beat you (#419): the odds it
+// landed at, the muscle behind it and the enforcer it got past, read
+// before the take sends your people home.
+func TestATakenCornerSaysWhatBeatYou(t *testing.T) {
+	cfg := duel()
+	w, s := warWorld(t, cfg, 13, "expansionist")
+	w.Rival().Muscle = 10
+	w.Crew.Members = append(w.Crew.Members, game.CrewMember{ID: 90, Name: "Bird", Role: game.RoleEnforcer, Skill: 40, Loyalty: 60})
+	for _, c := range w.Corners() {
+		if c.Owner == game.OwnerPlayer {
+			if err := w.Post(c.ID, 90); err != nil {
+				t.Fatal(err)
+			}
+			break
+		}
+	}
+	for i := 0; i < 80; i++ {
+		guards := map[string]string{}
+		for _, c := range w.Corners() {
+			if m := w.Crew.Member(c.Enforcer); c.Enforcer != 0 && m != nil {
+				guards[c.ID] = m.Name
+			}
+		}
+		for _, e := range step(w, s) {
+			ev, ok := e.(events.CornerTaken)
+			if !ok || ev.From != game.OwnerPlayer || ev.Handed != "" || ev.Pricewar {
+				continue
+			}
+			if ev.Odds <= 0 || ev.Odds > 1 || ev.Muscle <= 0 || ev.Guard != guards[ev.Corner] {
+				t.Fatalf("day %d: %+v, the guard was %q", w.Day, ev, guards[ev.Corner])
+			}
+			if ev.Guard != "" {
+				return
+			}
+		}
+	}
+	t.Fatal("no push took a guarded corner in 80 days")
+}

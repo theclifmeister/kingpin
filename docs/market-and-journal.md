@@ -68,7 +68,7 @@ The kinds and what they count:
 - `faction` (7): a faction moving into a city (`RivalMovedIn`). Act: the map on the corner.
 - `scouts` (6): a faction's scouts or recruiters in a city (#341, `RivalScouting`, `RivalRecruiting`), each one counted: `Sal's scouts are in Bayport.` Act: the rivals screen, as the scouts alert's.
 - `corner_won` (4): corners claimed or struck and taken. Act: the map on the first.
-- `idle_corner` (2) and `idle_runner` (1.5): the standing trouble of #345, the corners you hold that nobody works (act: the post picker on the first) and the runners fit to work with no post (act: the first one's crew row).
+- `idle_corner` (2) and `idle_runner` (1.5): the standing trouble of #345, the corners you hold that nobody works (act: the post picker on the first) and the runners and, since #419, the enforcers fit to work with no post (act: the first one's crew row): `A runner is idle: Cash.`, `An enforcer is idle: Bird.`, `2 of the crew are idle: Cash (runner), Bird (enforcer).` An enforcer sent home by a corner a push took used to sit unposted a week with the runner the only one named.
 
 The weights put losses over gains and the standing trouble last, so a quiet morning leads with the profit swing or the idle crew, and a bad night leads with what went.
 

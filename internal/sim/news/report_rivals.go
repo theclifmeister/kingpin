@@ -34,7 +34,7 @@ func (r *reporter) reportRivals(e events.Event) bool {
 			rep.Territory = append(rep.Territory, fmt.Sprintf("%s's crew TOOK %s from you: the price war's answer. Your people walked home.", ev.Rival, ev.Name))
 		case ev.From == game.OwnerPlayer:
 			r.add("rivals", "CornerTaken", d)
-			rep.Territory = append(rep.Territory, fmt.Sprintf("%s's crew TOOK %s from you. Your people walked home.", ev.Rival, ev.Name))
+			rep.Territory = append(rep.Territory, fmt.Sprintf("%s's crew TOOK %s from you%s. Your people walked home.", ev.Rival, ev.Name, pushWhy(ev)))
 		default:
 			r.add("rivals", "RivalClaimed", d)
 			rep.Territory = append(rep.Territory, fmt.Sprintf("%s's crew set up on %s.", ev.Rival, ev.Name))
@@ -300,4 +300,18 @@ func (r *reporter) reportRivals(e events.Event) bool {
 		return false
 	}
 	return true
+}
+
+// pushWhy is what beat you on a corner a push took (#419): the muscle
+// behind it, the enforcer it got past or nobody guarding, and the odds
+// it landed at. "" for a take that carries no odds.
+func pushWhy(ev events.CornerTaken) string {
+	if ev.Odds <= 0 {
+		return ""
+	}
+	who := "on nobody guarding it"
+	if ev.Guard != "" {
+		who = "past " + ev.Guard
+	}
+	return fmt.Sprintf(": %s pushed %s, a %s push", format.Plural(ev.Muscle, "head"), who, format.Pct(ev.Odds, 0))
 }

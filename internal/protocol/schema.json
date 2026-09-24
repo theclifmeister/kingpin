@@ -4668,11 +4668,20 @@
         "From": {
           "type": "string"
         },
+        "Guard": {
+          "type": "string"
+        },
         "Handed": {
           "type": "string"
         },
+        "Muscle": {
+          "type": "integer"
+        },
         "Name": {
           "type": "string"
+        },
+        "Odds": {
+          "type": "number"
         },
         "Pricewar": {
           "type": "boolean"
@@ -4689,7 +4698,10 @@
         "Faction",
         "From",
         "Handed",
-        "Pricewar"
+        "Pricewar",
+        "Odds",
+        "Muscle",
+        "Guard"
       ],
       "type": "object"
     },

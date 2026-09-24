@@ -111,6 +111,17 @@ func (s *Sim) Guard(w *game.World, c *game.Corner) float64 {
 	return g
 }
 
+// pushed is the CornerTaken a push that lands on your corner c tells
+// (#419), read before the take sends your people home: the odds it
+// landed at, the muscle behind it and the enforcer it got past.
+func (s *Sim) pushed(w *game.World, r *game.RivalState, c *game.Corner, odds float64) events.CornerTaken {
+	ev := events.CornerTaken{Corner: c.ID, Name: c.Name, Rival: r.Leader, Faction: r.Faction(), From: game.OwnerPlayer, Odds: odds, Muscle: r.Muscle}
+	if m := w.Crew.Member(c.Enforcer); c.Enforcer != 0 && m != nil {
+		ev.Guard = m.Name
+	}
+	return ev
+}
+
 // PushOdds is the chance one of a faction's pushes flips a player
 // corner: its muscle on the front line against whoever is standing
 // there.
@@ -207,12 +218,14 @@ func (s *Sim) push(w *game.World, t *game.Tick, r *game.RivalState, rng game.Ran
 		r.Observed = true
 		r.War += s.cfg.Rivals.PushWar
 		s.sideWith(w, r, game.FactionYou)
-		if rng.Float64() < s.PushOdds(w, r, c) {
+		if odds := s.PushOdds(w, r, c); rng.Float64() < odds {
+			ev := s.pushed(w, r, c, odds)
+			ev.Day = t.Day
 			s.take(w, r, c, t.Day)
 			r.Flips++
 			r.LastFlip = t.Day
 			w.Stats.CornersLost++
-			t.Emit(events.CornerTaken{Day: t.Day, Corner: c.ID, Name: c.Name, Rival: r.Leader, Faction: r.Faction(), From: game.OwnerPlayer})
+			t.Emit(ev)
 			continue
 		}
 		if c.Enforcer != 0 && rng.Float64() < 0.5 {

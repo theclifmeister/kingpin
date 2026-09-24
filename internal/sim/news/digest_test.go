@@ -1,6 +1,7 @@
 package news_test
 
 import (
+	"slices"
 	"strings"
 	"testing"
 
@@ -114,6 +115,20 @@ func TestLeadIsTheBiggestThree(t *testing.T) {
 		}, []want{
 			{"crew_lost", "Laid up: Cash (shot, 12 days).", game.Act{Screen: game.ScreenCrew}},
 		}},
+		{"an enforcer off a lost corner is idle too (#419)", func(w *game.World) []events.Event {
+			w.Crew.Members = append(w.Crew.Members, game.CrewMember{ID: 90, Name: "Bird", Role: game.RoleEnforcer, Loyalty: 60})
+			return nil
+		}, []want{
+			{"idle_runner", "An enforcer is idle: Bird.", game.Act{Screen: game.ScreenCrew, Subject: game.OnMember}},
+		}},
+		{"idle runners and enforcers in one line", func(w *game.World) []events.Event {
+			w.Crew.Members = append(w.Crew.Members,
+				game.CrewMember{ID: 90, Name: "Bird", Role: game.RoleEnforcer, Loyalty: 60},
+				game.CrewMember{ID: 91, Name: "Cash", Role: game.RoleRunner, Loyalty: 60})
+			return nil
+		}, []want{
+			{"idle_runner", "2 of the crew are idle: Cash (runner), Bird (enforcer).", game.Act{Screen: game.ScreenCrew, Subject: game.OnMember}},
+		}},
 		{"only three lead", func(w *game.World) []events.Event {
 			c := w.Home().Corners
 			return []events.Event{
@@ -161,5 +176,33 @@ func TestLeadIsTheBiggestThree(t *testing.T) {
 				}
 			}
 		})
+	}
+}
+
+// A corner a push took says what beat you (#419): the heads that
+// pushed, the enforcer they got past or nobody guarding, the odds.
+func TestTakenCornerSaysWhatBeatYou(t *testing.T) {
+	cfg := content.MustLoad()
+	for _, tc := range []struct {
+		ev   events.CornerTaken
+		want string
+	}{
+		{events.CornerTaken{Name: "The Projects", Rival: "Mona", From: game.OwnerPlayer, Odds: 0.38, Muscle: 4, Guard: "Bird"},
+			"Mona's crew TOOK The Projects from you: 4 heads pushed past Bird, a 38% push. Your people walked home."},
+		{events.CornerTaken{Name: "The Docks", Rival: "Mona", From: game.OwnerPlayer, Odds: 0.55, Muscle: 1},
+			"Mona's crew TOOK The Docks from you: 1 head pushed on nobody guarding it, a 55% push. Your people walked home."},
+		{events.CornerTaken{Name: "The Docks", Rival: "Mona", From: game.OwnerPlayer},
+			"Mona's crew TOOK The Docks from you. Your people walked home."},
+	} {
+		n, err := news.New(cfg)
+		if err != nil {
+			t.Fatal(err)
+		}
+		w := sim.NewWorld(cfg, 4)
+		w.Day = 20
+		n.Step(w, gametest.TickOn(w, 21, tc.ev))
+		if !slices.Contains(w.Report.Territory, tc.want) {
+			t.Errorf("territory %q, want %q", w.Report.Territory, tc.want)
+		}
 	}
 }

@@ -362,13 +362,15 @@ func (s *Sim) forceIn(w *game.World, t *game.Tick, r *game.RivalState, rng game.
 	}
 	r.Observed = true
 	r.War += s.cfg.Rivals.PushWar
-	if rng.Float64() < s.PushOdds(w, r, c) {
+	if odds := s.PushOdds(w, r, c); rng.Float64() < odds {
+		ev := s.pushed(w, r, c, odds)
 		s.take(w, r, c, t.Day)
 		r.Arrived = t.Day
 		r.Flips++
 		r.LastFlip = t.Day
 		w.Stats.CornersLost++
-		t.Emit(events.CornerTaken{Day: t.Day, Corner: c.ID, Name: c.Name, Rival: r.Leader, Faction: r.Faction(), From: game.OwnerPlayer})
+		ev.Day = t.Day
+		t.Emit(ev)
 		t.Emit(events.RivalMovedIn{Day: t.Day, Rival: r.Leader, Faction: r.Faction(), Corner: c.ID, Name: c.Name})
 		return
 	}
