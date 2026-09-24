@@ -1,5 +1,5 @@
 #!/usr/bin/env python3
-"""Build Ink & Ambition from this repository. Python 3.11+ and go.mod's Go required."""
+"""Build Street Edition from this repository. Python 3.11+ and go.mod's Go required."""
 import json
 import os
 from pathlib import Path
@@ -21,7 +21,7 @@ def build():
     actual = (int(re.search(r'const Version = (\d+)', protocol)[1]),
               int(re.search(r'const ViewVersion = (\d+)', view)[1]))
     if actual != (EXPECTED_PROTOCOL, EXPECTED_VIEW):
-        raise SystemExit(f'Review the Ink frontend for protocol/view {actual} before updating its supported versions.')
+        raise SystemExit(f'Review the Street Edition frontend for protocol/view {actual} before updating its supported versions.')
     revision = subprocess.check_output(['git', 'rev-parse', 'HEAD'], cwd=ROOT, text=True).strip()
     # Only clean this builder's generated output, never a caller-supplied path.
     if OUT.exists():

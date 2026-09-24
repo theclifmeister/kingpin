@@ -94,6 +94,6 @@ const restored = new Session(globalThis.kingpin);
 restored.importSave(session.exportSave());
 assert.deepEqual(restored.view, session.refresh());
 console.log(
-  `Ink engine integration passed at day ${session.view.day}: forecasts, dilemmas, cash flow, lanes, trophies, cash-out, the ways out and save round-trip.`,
+  `Street Edition engine integration passed at day ${session.view.day}: forecasts, dilemmas, cash flow, lanes, trophies, cash-out, the ways out and save round-trip.`,
 );
 process.exit(0);

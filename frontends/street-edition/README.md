@@ -1,22 +1,22 @@
-# Ink & Ambition
+# Street Edition
 
-An alternative illustrated browser frontend for Kingpin, tracked by #383. Paper, navy ink, coral, teal and gold surround a hand-drawn city. The original Go engine runs in WebAssembly; all actions go through the JSON-RPC session.
+An alternative illustrated browser frontend for Kingpin, tracked by #383 (named Ink & Ambition until #409, after its art style; renamed for the street the game is played on, and the paper it reads like). Paper, navy ink, coral, teal and gold surround a hand-drawn city. The original Go engine runs in WebAssembly; all actions go through the JSON-RPC session.
 
 ## Build and play
 
 Requirements: Python 3.11+, the Go version declared in the repository's `go.mod`, and Node 20+ for the smoke check. Run from the repository root:
 
 ```sh
-python3 frontends/ink-ambition/build.py
-node frontends/ink-ambition/smoke.mjs
-python3 -m http.server 8080 --bind 127.0.0.1 --directory frontends/ink-ambition/dist
+python3 frontends/street-edition/build.py
+node frontends/street-edition/smoke.mjs
+python3 -m http.server 8080 --bind 127.0.0.1 --directory frontends/street-edition/dist
 ```
 
 Open http://127.0.0.1:8080. `KINGPIN_GO=/path/to/go` selects a Go executable. The generated `dist/` folder can be served by any static host; there is no server-side game process. Generated WASM, shared JS, loader and derived content are not committed. The builder refuses a different protocol/view contract until this frontend is reviewed. It copies `session.js`, `alerts.js` and `police.js` from the reference web client, and reads front roles and trait descriptions from the same checkout's TOML.
 
 ## Play
 
-Start with $500 on seed 41. Buy stock in Market, queue sales, preview tonight and end the day. Your story offers new games, export and import. Saves stay in this browser under `kingpin-ink-v1`; exported `.gob` saves move between the browser and the other engine frontends. Loading failures retain the existing saved bytes. There are no cloud saves or multiplayer.
+Start with $500 on seed 41. Buy stock in Market, queue sales, preview tonight and end the day. Your story offers new games, export and import. Saves stay in this browser under `kingpin-street-v1` (a save still under the old `kingpin-ink-v1` is read and moved over); exported `.gob` saves move between the browser and the other engine frontends. Loading failures retain the existing saved bytes. There are no cloud saves or multiplayer.
 
 ## Controls
 
