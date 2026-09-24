@@ -160,17 +160,31 @@ func (s *Sim) plan(w *game.World, sh *shadow, cp game.CrewMember, city string, d
 			}
 		}
 	}
+	// So does whoever stands on a corner an investigation names (#343),
+	// as the lieutenant's crew do: a corner nobody works the night the
+	// hit lands is a miss that files nothing. It stays held.
+	for _, m := range members {
+		if sh.gone[m.ID] || pulled[m.ID] {
+			continue
+		}
+		if k := sh.postOf(w, m.ID); k != nil && k.City == city && namedCorner(w, k) {
+			pulled[m.ID] = true
+			p.pulled = append(p.pulled, m.ID)
+			sh.post[m.ID] = ""
+		}
+	}
 
 	// 2. The idle runners onto the held corners nobody works, biggest
-	// first; a suspect is nobody to post. A held corner in a city is
-	// always yours to post on, so nothing here is refused.
+	// first; a suspect is nobody to post, and a corner an investigation
+	// names waits for its crew until it closes. A held corner in a city
+	// is always yours to post on, so nothing here is refused.
 	for _, m := range members {
 		if sh.gone[m.ID] || m.Role != game.RoleRunner || !m.Fit(day) || pulled[m.ID] || sh.loyalty(m) < tun.SkimThreshold || sh.postOf(w, m.ID) != nil {
 			continue
 		}
 		var open []*game.Corner
 		for i := range c.Corners {
-			if k := &c.Corners[i]; k.Held() && sh.runnerOn(w, k) == 0 {
+			if k := &c.Corners[i]; k.Held() && sh.runnerOn(w, k) == 0 && !namedCorner(w, k) {
 				open = append(open, k)
 			}
 		}
