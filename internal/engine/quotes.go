@@ -176,6 +176,7 @@ type LaunderingRules interface {
 	AuditRisk(w *game.World, f game.Front) float64
 	CanRetire(w *game.World) bool
 	Capacity(w *game.World) int
+	CashOutFee(amount int) int
 	Dial(d events.Launder) content.LaunderConfig
 	Fee(w *game.World, amount int) int
 	FrontUpkeep(w *game.World, f game.Front) int

@@ -5,7 +5,7 @@ import (
 )
 
 // amountDialog is every one-field dialog (#275): invest (modeInvest),
-// reserve (modeReserve), pay a cop (modePayCop), buy off
+// reserve (modeReserve), cash out (modeCashOut, #395), pay a cop (modePayCop), buy off
 // (modeConfirmBuyOff), fast-forward (modeConfirmFast) and restock
 // (modeRestock, #356). Each is one
 // page with one number field and the error under it, and only one is

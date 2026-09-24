@@ -486,6 +486,7 @@ The full table is below; `?` brings it up in the game.
 | `f` | fund city | give a city clean cash for goodwill | ledger |
 | `u` | invest | clean cash into the selected front's levels | ledger |
 | `o` | reserve | clean cash into the offshore account | ledger |
+| `c` | cash out | clean cash into the dirty pile, at a fee | ledger |
 | `t` | export order | the selected export lane's nightly load | ledger |
 | `t` | buy trophy | buy the selected trophy, after asking | ledger |
 | `[ ]` | faction | the next faction at the table | rivals |

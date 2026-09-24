@@ -10477,6 +10477,24 @@
         "type": "null"
       }
     },
+    "cash_out": {
+      "changes": true,
+      "needsRun": true,
+      "params": {
+        "maxItems": 1,
+        "minItems": 1,
+        "prefixItems": [
+          {
+            "title": "amount",
+            "type": "integer"
+          }
+        ],
+        "type": "array"
+      },
+      "result": {
+        "type": "null"
+      }
+    },
     "choose": {
       "changes": true,
       "needsRun": true,
@@ -12462,6 +12480,24 @@
         "maxItems": 0,
         "minItems": 0,
         "prefixItems": [],
+        "type": "array"
+      },
+      "result": {
+        "type": "integer"
+      }
+    },
+    "rules.laundering.cash_out_fee": {
+      "changes": false,
+      "needsRun": true,
+      "params": {
+        "maxItems": 1,
+        "minItems": 1,
+        "prefixItems": [
+          {
+            "title": "amount",
+            "type": "integer"
+          }
+        ],
         "type": "array"
       },
       "result": {

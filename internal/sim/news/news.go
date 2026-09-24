@@ -281,6 +281,12 @@ func (s *Sim) Step(w *game.World, t *game.Tick) {
 		r.book(game.FlowRoutes, -o.Amount, 0)
 		rep.Money = append(rep.Money, fmt.Sprintf("A cop's word -%s", format.Money(o.Amount)))
 	}
+	// Clean cash drawn back into the dirty pile (#395): at once, so the
+	// flow reads the order, the laundering line both ways.
+	if o := w.Today.CashedOut; o.Amount > 0 {
+		r.book(game.FlowLaundering, o.Amount-o.Fee, -o.Amount)
+		rep.Money = append(rep.Money, fmt.Sprintf("Cashed out %s clean: +%s dirty, the banker kept -%s", format.Money(o.Amount), format.Money(o.Amount-o.Fee), format.Money(o.Fee)))
+	}
 	if o := w.Today.Scouting; o != nil {
 		r.book(game.FlowRoutes, -(o.Cost - o.Clean), -o.Clean)
 		if !r.scouted {

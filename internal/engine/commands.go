@@ -314,6 +314,10 @@ func (s *Session) BuyTrophy(id string) (game.Trophy, error) {
 // Reserve moves clean cash into the offshore account (World.Reserve).
 func (s *Session) Reserve(amount int) error { return s.w.Reserve(amount) }
 
+// CashOut draws clean cash back into the dirty pile, at once, at the
+// file's fee (#395, World.CashOut).
+func (s *Session) CashOut(amount int) error { return s.set.Laundering.CashOut(s.w, amount) }
+
 // BuyUpgrade buys a node of the tree (World.BuyUpgrade).
 func (s *Session) BuyUpgrade(id string) (content.UpgradeConfig, error) {
 	return s.w.BuyUpgrade(s.cfg.Upgrades, id)
