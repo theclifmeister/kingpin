@@ -14,6 +14,10 @@ python3 -m http.server 8080 --bind 127.0.0.1 --directory frontends/street-editio
 
 Open http://127.0.0.1:8080. `KINGPIN_GO=/path/to/go` selects a Go executable. The generated `dist/` folder can be served by any static host; there is no server-side game process. Generated WASM, shared JS, loader and derived content are not committed. The builder refuses a different protocol/view contract until this frontend is reviewed. It copies `session.js`, `alerts.js` and `police.js` from the reference web client, and reads front roles and trait descriptions from the same checkout's TOML.
 
+## Deploying on Vercel
+
+The site that plays is `dist/`, which the build makes; `src/` alone hangs on "Opening the city ledger…", because it has no engine or helpers. `vercel.json` has Vercel run `vercel-build.sh`, which fetches the Go version `go.mod` names (Vercel's build image has no Go), picks a Python 3.11+ and runs `build.py`, then serves `dist/`. The build stamps the commit from `VERCEL_GIT_COMMIT_SHA`, because the checkout has no `.git`. Set the project's root directory to `frontends/street-edition` and keep "Include files outside the root directory in the Build Step" on (Vercel's default), because the build compiles the engine from the whole repository (#411).
+
 ## Play
 
 Start with $500 on seed 41. Buy stock in Market, queue sales, preview tonight and end the day. Your story offers new games, export and import. Saves stay in this browser under `kingpin-street-v1` (a save still under the old `kingpin-ink-v1` is read and moved over); exported `.gob` saves move between the browser and the other engine frontends. Loading failures retain the existing saved bytes. There are no cloud saves or multiplayer.
