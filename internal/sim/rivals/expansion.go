@@ -231,7 +231,11 @@ func (s *Sim) scouting(w *game.World, t *game.Tick, r *game.RivalState) bool {
 			t.Emit(events.TributePaid{Day: t.Day, Rival: r.Leader, Faction: id, Amount: d.Terms.PerDay})
 		}
 	}
-	if w.Today.HitScouts == id && r.ScoutsHit == 0 {
+	// The hit is yours (World.HitScouts) or the lieutenant's who runs
+	// the city (World.DelegatedHit, #379: set last night by their
+	// temper), still there with an enforcer on the payroll to send.
+	byLieutenant := w.DelegatedHit == id && w.Crew.Lieutenant(city) != nil && w.Crew.OnPayroll(game.RoleEnforcer) > 0
+	if (w.Today.HitScouts == id || byLieutenant) && r.ScoutsHit == 0 {
 		r.ScoutsHit = t.Day
 		r.ScoutDay += e.SetbackDays
 		r.Grudge++

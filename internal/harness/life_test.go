@@ -225,21 +225,38 @@ func TestWarHasBodies(t *testing.T) {
 	t.Fatal("five hit wars and nobody died at home")
 }
 
-// The driver: on the same seeds the distributor with a driver on its
-// route is seized less than the one without, the driver rides every
-// shipment the route sends once assigned and fit, and a seized
-// shipment jails its driver the same night.
+// The driver: over sixteen seeds of the driven distributor, a shipment
+// with the driver aboard is seized at a lower rate than one without,
+// the driver rides every shipment the route sends once assigned and
+// fit, and a seized shipment jails its driver the same night. (It read
+// the driven run's seizures against the plain distributor's over eight
+// seeds until #379: a skill-60 driver rides about a third of the
+// shipments, so the two runs differ by a few seizures in fifty, under
+// the noise of two runs whose dice part on day one; the veterans (#346)
+// tied it at 50 against 50. Driven against undriven in the same runs is
+// the driver's cut and nothing else: 3.0% against 4.2% on the file.)
 func TestDriverCutsSeizures(t *testing.T) {
 	t.Parallel()
 	// The duel (#43, harness.OneFaction): this pins a mechanism on a seed, and the table moves the seed's dice.
-	// Veterans (#346) boxed: with traits and the front roles (#344) both on, eight seeds read 50 seizures with a driver and 50 without.
-	cfg := NoTraits(OneFaction(content.MustLoad()))
-	with, without, driven, jailed := 0, 0, 0, 0
-	for seed := uint64(1); seed <= 8; seed++ {
+	cfg := OneFaction(content.MustLoad())
+	driven, jailed := 0, 0
+	var sent, seized [2]int // [0] with the driver aboard, [1] without
+	aboard := func(driver int) int {
+		if driver != 0 {
+			return 0
+		}
+		return 1
+	}
+	for seed := uint64(1); seed <= 16; seed++ {
 		a, _ := Run(cfg, seed, 150, Driven(cfg, 40))
-		b, _ := Run(cfg, seed, 150, Distributor(cfg, 40))
-		with += a.World.Stats.Seizures
-		without += b.World.Stats.Seizures
+		for _, e := range a.Events {
+			switch ev := e.(type) {
+			case events.ShipmentSent:
+				sent[aboard(ev.Driver)]++
+			case events.ShipmentSeized:
+				seized[aboard(ev.Driver)]++
+			}
+		}
 		arrested := map[int]bool{}
 		until := map[int]int{} // driver -> the day their cell opens, off the arrests
 		for _, e := range a.Events {
@@ -269,13 +286,15 @@ func TestDriverCutsSeizures(t *testing.T) {
 		if len(arrested) > 0 {
 			t.Fatalf("seed %d: a driven shipment was seized on days %v and nobody went to a cell", seed, arrested)
 		}
-		t.Logf("seed %d: %d seizures with a driver, %d without; driven %d, jailed %d so far", seed, a.World.Stats.Seizures, b.World.Stats.Seizures, driven, jailed)
+		t.Logf("seed %d: driven %d, jailed %d so far", seed, driven, jailed)
 	}
-	if driven == 0 {
-		t.Fatal("the driven policy never put a driver on a shipment")
+	if driven == 0 || sent[1] == 0 {
+		t.Fatal("the driven policy never put a driver on a shipment, or always did")
 	}
+	with, without := float64(seized[0])/float64(sent[0]), float64(seized[1])/float64(sent[1])
+	t.Logf("sixteen seeds: %d of %d driven shipments seized (%.3f), %d of %d undriven (%.3f)", seized[0], sent[0], with, seized[1], sent[1], without)
 	if with >= without {
-		t.Fatalf("with a driver %d seizures over eight seeds, without %d: the driver cuts nothing", with, without)
+		t.Fatalf("a driven shipment is seized at %.3f, an undriven one at %.3f: the driver cuts nothing", with, without)
 	}
 	// The cut is what the map shows: a skill-60 driver on a route takes
 	// driver_cut x 0.6 off the day's risk, compounding with a bought

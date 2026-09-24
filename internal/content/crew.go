@@ -214,6 +214,7 @@ type LieutenantPersonality struct {
 	Skim      float64 `toml:"skim"`       // share of their city's takings they take on top of the cut, at any loyalty
 	Guard     bool    `toml:"guard"`      // they post idle enforcers on their corners
 	StockDays float64 `toml:"stock_days"` // days of the worked corners' demand they keep the stash at by supply contract (#174); 0 buys nothing
+	HitScouts bool    `toml:"hit_scouts"` // they send the enforcers after a faction's scouts moving on their city (#341, #379)
 }
 
 // LieutenantPersonalities are the temperaments a lieutenant can have, in

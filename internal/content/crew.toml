@@ -85,13 +85,20 @@ robbed_off = 2              # a corner stuck up this many times is not worth the
 # pushes up to two days a night and keeps three, the steady one sells
 # up to a day and a quarter and keeps two, the careful one moves half a
 # day and keeps one, and the greedy one keeps the least that covers the
-# night, a day and a half, and the money.
+# night, a day and a half, and the money. A faction moving on their
+# city (#341, #379): every temper that guards holds the ground it cannot
+# staff until it arrives (the free corners are where it lands), and
+# hit_scouts sends the enforcers after its scouts the next night, as
+# the player's h on the rivals screen does: the violent and the steady
+# one; the careful one will not start a fight and the greedy one will
+# not pay for it.
 [lieutenant.personality.violent]
 dial = "aggressive"
 heat = 1.25
 skim = 0
 guard = true
 stock_days = 3
+hit_scouts = true
 
 [lieutenant.personality.greedy]
 dial = "normal"
@@ -113,6 +120,7 @@ heat = 1.0
 skim = 0
 guard = true
 stock_days = 2
+hit_scouts = true
 
 # The pay dial: wage is a multiplier on each member's fair wage, loyalty the
 # daily drift it buys.

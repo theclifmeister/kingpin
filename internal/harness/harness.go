@@ -517,7 +517,24 @@ func Territory(cfg *content.Config, lieLowAt float64, corners int) Policy {
 	cs := crew.New(cfg)
 	return func(w *game.World) {
 		staff(cfg, cs, w, w.Player.Location, corners)
+		HitScoutsIn(w, w.Player.Location)
 		managed(w)
+	}
+}
+
+// HitScoutsIn is the scripted player's answer to a faction moving on a
+// city it works (#341, #379): the scouts of the first faction on its way
+// there are hit, once, with an enforcer on the payroll to send
+// (World.HitScouts). A city nobody scouts is left alone, so a run that
+// never draws a faction is the run before it.
+func HitScoutsIn(w *game.World, city string) {
+	if w.Today.HitScouts != "" {
+		return
+	}
+	for _, r := range w.Rivals {
+		if r != nil && !r.Gone() && r.Scouting() && r.ScoutingCity == city && r.ScoutsHit == 0 && w.HitScouts(r.Faction()) == nil {
+			return
+		}
 	}
 }
 

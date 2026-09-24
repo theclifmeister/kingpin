@@ -431,13 +431,91 @@ func TestLieutenantSurvivesSave(t *testing.T) {
 	}
 }
 
+// A lieutenant answers a faction moving on their city (#379, the
+// player's answers of #341 made for them): with its scouts in the hub,
+// a temper that guards holds the corners it cannot staff instead of
+// giving them up (a free corner is where the faction lands), and a
+// temper with hit_scouts sends the enforcers after the scouts the next
+// night (World.DelegatedHit, resolved by the rivals sim as the
+// player's h is): the violent and the steady one, never the careful or
+// the greedy one, and nobody with no enforcer on the payroll. With
+// nobody coming, the steady one gives the corners up as ever.
+func TestLieutenantAnswersTheScouts(t *testing.T) {
+	t.Parallel()
+	cfg := content.MustLoad()
+	_, hub, _ := twoCities(t, cfg)
+	_, sims, err := sim.Default(cfg)
+	if err != nil {
+		t.Fatal(err)
+	}
+	for _, tc := range []struct {
+		temper          string
+		coming, enforce bool
+		hold, hit       bool
+	}{
+		{"violent", true, true, true, true},
+		{"steady", true, true, true, true},
+		{"careful", true, true, true, false},
+		{"greedy", true, true, false, false},
+		{"steady", true, false, true, false},
+		{"steady", false, true, false, false},
+	} {
+		name := fmt.Sprintf("%s coming=%v enforcer=%v", tc.temper, tc.coming, tc.enforce)
+		w, _ := runCity(t, cfg, 1, tc.temper)
+		clock := game.NewClock(nil, sims...)
+		if tc.enforce {
+			w.Crew.Members = append(w.Crew.Members, game.CrewMember{ID: 150, Name: "Brick", Role: game.RoleEnforcer, Skill: 60, Loyalty: 90, Nerve: 60, Wage: 50})
+		}
+		// Every corner in the hub held, three runners to work six.
+		corners := w.Cities[hub].Corners
+		for i := range corners {
+			corners[i].Hand(game.OwnerPlayer, "", 0)
+		}
+		r := w.Rivals[len(w.Rivals)-1]
+		if tc.coming {
+			if r.Arrived > 0 || r == w.Rival() {
+				t.Fatalf("seed 1: the last seat %s is not in the wings", r.Faction())
+			}
+			e := cfg.Rivals.Expansion
+			r.Home, r.ScoutingCity, r.ScoutDay = hub, hub, w.Day
+			w.Takes = map[string][]int{hub: make([]int, e.WindowDays)}
+			for i := range w.Takes[hub] {
+				w.Takes[hub][i] = e.TakeMin
+			}
+		}
+		clock.EndDay(w)
+		if held := w.HeldIn(hub); (held == len(corners)) != tc.hold {
+			t.Errorf("%s: %d of %d hub corners held after the night, want held %v", name, held, len(corners), tc.hold)
+		}
+		if want := map[bool]string{true: r.Faction()}[tc.hit]; w.DelegatedHit != want {
+			t.Errorf("%s: the lieutenant's hit is %q, want %q", name, w.DelegatedHit, want)
+		}
+		hits := 0
+		for _, e := range clock.EndDay(w) {
+			if ev, ok := e.(events.ScoutsHit); ok && ev.Faction == r.Faction() {
+				hits++
+			}
+		}
+		if (hits == 1 && r.ScoutsHit > 0) != tc.hit || hits > 1 {
+			t.Errorf("%s: %d hits on the scouts the next night (ScoutsHit %d), want hit %v", name, hits, r.ScoutsHit, tc.hit)
+		}
+		if tc.hit && w.DelegatedHit != "" {
+			t.Errorf("%s: the lieutenant hits again the night after (%q): once a faction", name, w.DelegatedHit)
+		}
+	}
+}
+
 // Delegation costs the cut, not the city: with a steady lieutenant the
 // delegated player is within 20% of the distributor on median net worth
-// at the horizon, and is never indicted.
+// at the horizon, and is never indicted. Both answer a faction drawn to
+// the hub by hitting its scouts (HitScoutsIn, #379): the lieutenant
+// runs home, where no faction is drawn, so the hub is the player's to
+// answer; answering nothing, the delegated player's hub, worked by
+// HubCorners runners and guarded by none, was the one the faction took
+// ($24.0M against the distributor's $37.9M the day #341 landed).
 func TestDelegatedNearDistributor(t *testing.T) {
 	t.Parallel()
-	// The expansion boxed (#341, harness.NoExpansion): this prices the cut, and a lieutenant answers no faction drawn to the hub (delegated $24.0M against the distributor's $37.9M on the file, $49.4M against $45.0M boxed).
-	cfg := NoExpansion(content.MustLoad())
+	cfg := content.MustLoad()
 	var del, dist []int
 	for seed := uint64(1); seed <= 10; seed++ {
 		d, err := Run(cfg, seed, Horizon, Delegated(cfg, 40, "steady"))

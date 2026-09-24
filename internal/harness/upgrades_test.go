@@ -373,15 +373,17 @@ func TestStreetBranchSlowsTheRivalNeverStopsIt(t *testing.T) {
 
 // The Logistics branch (#119) moves more for less: with all six nodes
 // from day 0 the distributor's road carries more units a shipment, pays
-// less a unit in fares and is seized less over the horizon, summed over
-// the seeds (the road rolls on its own side stream, so the risk cut is a
-// count over five runs, never a promise on one), and the branch pays at
-// the horizon on median peak cash.
+// less a unit in fares and loses no larger a share of its shipments
+// over the horizon, summed over the seeds (the road rolls on its own
+// side stream, so the risk cut is a rate over five runs, never a promise
+// on one), and the branch pays at the horizon on median peak cash. The
+// share, not the count (#379): the branch sends more shipments (1,565
+// against 1,365 on the file), so its count of seizures read even with
+// the plain road's (45 against 45) at a lower rate.
 func TestLogisticsBranchMovesMoreForLess(t *testing.T) {
 	t.Parallel()
 	// The duel (#43, harness.OneFaction): this pins a mechanism on a seed, and the table moves the seed's dice.
-	// Veterans (#346) boxed: a trait on a driver or a runner moves which shipments go, and the branch's seizures were 42 against 44.
-	cfg := NoTraits(OneFaction(content.MustLoad()))
+	cfg := OneFaction(content.MustLoad())
 	road := []string{"tyres", "compartments", "trucks", "drivers", "supplier", "supplier2", "ticket", "forwarder"}
 	type tally struct {
 		shipped, shipments, seized, fares int
@@ -425,8 +427,8 @@ func TestLogisticsBranchMovesMoreForLess(t *testing.T) {
 	if plain.shipments == 0 || branch.shipments == 0 {
 		t.Fatal("the distributor never ran the road")
 	}
-	if bf >= pf || branch.seized > plain.seized {
-		t.Fatalf("the road with the branch pays $%.2f/u (was $%.2f) and lost %d shipments (was %d)", bf, pf, branch.seized, plain.seized)
+	if bf >= pf || branch.seized*plain.shipments > plain.seized*branch.shipments {
+		t.Fatalf("the road with the branch pays $%.2f/u (was $%.2f) and lost %d shipments of %d (was %d of %d)", bf, pf, branch.seized, branch.shipments, plain.seized, plain.shipments)
 	}
 	if branch.peaks[len(branch.peaks)/2] <= plain.peaks[len(plain.peaks)/2] {
 		t.Fatalf("the branch does not pay: median peak %d with it, %d without", branch.peaks[len(branch.peaks)/2], plain.peaks[len(plain.peaks)/2])
