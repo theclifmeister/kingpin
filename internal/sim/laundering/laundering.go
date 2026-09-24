@@ -201,15 +201,19 @@ func (s *Sim) Migrate(w *game.World) {
 func (s *Sim) announce(w *game.World, t *game.Tick) {
 	peak := max(w.Stats.PeakCash, w.Cash())
 	for _, o := range s.Offers() {
-		if w.Laundering.Offered[o.ID] || o.UnlockCash > peak {
-			continue
+		if w.Laundering.Offered[o.ID] || o.UnlockCash > peak || o.Asset != "" && !w.AssetLive(o.Asset) {
+			continue // a front that waits on an asset (#391) opens the morning both lines hold
 		}
 		if w.Laundering.Offered == nil {
 			w.Laundering.Offered = map[string]bool{}
 		}
 		w.Laundering.Offered[o.ID] = true
 		if o.UnlockCash > 0 && w.Front(o.ID) == nil {
-			t.Emit(events.Unlocked{Day: t.Day, Gate: "front", ID: o.ID, Name: o.Name, Why: "peak cash " + format.Cash(o.UnlockCash), Cost: o.Cost})
+			why := "peak cash " + format.Cash(o.UnlockCash)
+			if o.AssetName != "" {
+				why += " and " + o.AssetName
+			}
+			t.Emit(events.Unlocked{Day: t.Day, Gate: "front", ID: o.ID, Name: o.Name, Why: why, Cost: o.Cost})
 		}
 	}
 	// The assets (#48) open on peak CLEAN cash the same way, keyed
@@ -234,7 +238,7 @@ func (s *Sim) announce(w *game.World, t *game.Tick) {
 func (s *Sim) Offers() []game.FrontOffer {
 	out := make([]game.FrontOffer, 0, len(s.cfg.Fronts))
 	for _, f := range s.cfg.Fronts {
-		out = append(out, offer(f))
+		out = append(out, s.offer(f))
 	}
 	sort.SliceStable(out, func(i, j int) bool { return out[i].Cost < out[j].Cost })
 	return out
@@ -246,14 +250,18 @@ func (s *Sim) Offer(id string) (game.FrontOffer, bool) {
 	if f == nil {
 		return game.FrontOffer{}, false
 	}
-	return offer(*f), true
+	return s.offer(*f), true
 }
 
-func offer(f content.FrontConfig) game.FrontOffer {
-	return game.FrontOffer{
+func (s *Sim) offer(f content.FrontConfig) game.FrontOffer {
+	o := game.FrontOffer{
 		ID: f.ID, Name: f.Name, Cost: f.Cost, Throughput: f.Throughput,
-		Upkeep: f.Upkeep, AuditRisk: f.AuditRisk, UnlockCash: f.UnlockCash,
+		Upkeep: f.Upkeep, AuditRisk: f.AuditRisk, UnlockCash: f.UnlockCash, Asset: f.Asset,
 	}
+	if a := s.assets.Asset(f.Asset); a != nil {
+		o.AssetName = a.Name
+	}
+	return o
 }
 
 // Buy buys the front with id for the player: BuyFront with the config's

@@ -37,13 +37,23 @@ type MarketRules interface {
 	UndercutUnits(w *game.World, c game.Corner, dial events.Dial) float64
 }
 type LogisticsRules interface {
+	Budget(w *game.World) int
 	Capacity(w *game.World, r content.RouteConfig) int
 	Customs(r content.RouteConfig) bool
 	Days(w *game.World, r content.RouteConfig, d events.Ship) int
 	DaysTarget(w *game.World, r content.RouteConfig, product string, days int) int
 	DealCut(r content.RouteConfig) float64
 	DriverCut(skill int) float64
+	ExportCost(w *game.World, product string) float64
+	ExportPrice(w *game.World, l content.LaneConfig, product string) float64
 	Fare(w *game.World, r content.RouteConfig) float64
+	Lane(id string) *content.LaneConfig
+	LaneCapacity(w *game.World, l content.LaneConfig) int
+	LaneOpen(w *game.World, l content.LaneConfig) bool
+	LaneRisk(w *game.World, l content.LaneConfig, day int) float64
+	Lanes() []content.LaneConfig
+	LanesOpen(w *game.World) []content.LaneConfig
+	LoadTonight(w *game.World, l content.LaneConfig, budget int) (units int, cost int)
 	RiskFrom(w *game.World, r content.RouteConfig, d events.Ship, base float64) float64
 	Route(id string) *content.RouteConfig
 	RoutesOpen(w *game.World, city string) []content.RouteConfig

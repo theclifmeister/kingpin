@@ -74,6 +74,7 @@ var cueKinds = map[string]CueKind{
 	"Enforcement": CuePolice, "HouseRaided": CuePolice,
 	"TaskForceFormed": CueTaskForce, "AssetSeized": CueTaskForce, "TunnelFound": CueTaskForce,
 	"ShipmentSent": CueShipment, "ShipmentArrived": CueShipment, "ShipmentSeized": CueShipment,
+	"ExportShipped": CueShipment, "ExportLanded": CueShipment, "ExportSeized": CueShipment,
 	"CrewHired": CueCrewJoined,
 	"CrewQuit":  CueCrewLeft, "CrewFired": CueCrewLeft, "CrewDefected": CueCrewLeft, "CrewRetired": CueCrewLeft, "LieutenantWalked": CueCrewLeft,
 	"CrewArrested": CueCrewDown, "CrewShot": CueCrewDown,
@@ -155,6 +156,12 @@ func CueOf(e events.Event) (Cue, bool) {
 		return Cue{Kind: CueShipment, Day: ev.Day, Shipment: ev.ID, Route: ev.Route, From: ev.From, To: ev.To, Product: ev.Product, Units: ev.Units, Phase: "landed"}, true
 	case events.ShipmentSeized:
 		return Cue{Kind: CueShipment, Day: ev.Day, Shipment: ev.ID, Route: ev.Route, From: ev.From, To: ev.To, Product: ev.Product, Units: ev.Units, Member: ev.Driver, Phase: "seized"}, true
+	case events.ExportShipped:
+		return Cue{Kind: CueShipment, Day: ev.Day, Route: ev.Lane, From: ev.City, Product: ev.Product, Units: ev.Units, Phase: "sent"}, true
+	case events.ExportLanded:
+		return Cue{Kind: CueShipment, Day: ev.Day, Route: ev.Lane, From: ev.City, Product: ev.Product, Units: ev.Units, Phase: "landed"}, true
+	case events.ExportSeized:
+		return Cue{Kind: CueShipment, Day: ev.Day, Route: ev.Lane, From: ev.City, Product: ev.Product, Units: ev.Units, Phase: "seized"}, true
 	case events.CrewHired:
 		return Cue{Kind: CueCrewJoined, Day: ev.Day, Member: ev.ID}, true
 	case events.CrewQuit:

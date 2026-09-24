@@ -735,6 +735,64 @@
       ],
       "type": "object"
     },
+    "content.LaneConfig": {
+      "properties": {
+        "Asset": {
+          "type": "string"
+        },
+        "Capacity": {
+          "type": "integer"
+        },
+        "City": {
+          "type": "string"
+        },
+        "Days": {
+          "type": "integer"
+        },
+        "Glut": {
+          "type": "number"
+        },
+        "ID": {
+          "type": "string"
+        },
+        "Mode": {
+          "type": "string"
+        },
+        "Name": {
+          "type": "string"
+        },
+        "Price": {
+          "type": "number"
+        },
+        "Products": {
+          "items": {
+            "type": "string"
+          },
+          "type": "array"
+        },
+        "Recover": {
+          "type": "number"
+        },
+        "Risk": {
+          "type": "number"
+        }
+      },
+      "required": [
+        "ID",
+        "Name",
+        "City",
+        "Mode",
+        "Asset",
+        "Capacity",
+        "Days",
+        "Price",
+        "Risk",
+        "Glut",
+        "Recover",
+        "Products"
+      ],
+      "type": "object"
+    },
     "content.LaunderConfig": {
       "properties": {
         "Mul": {
@@ -5520,6 +5578,139 @@
       ],
       "type": "object"
     },
+    "events.ExportLanded": {
+      "properties": {
+        "City": {
+          "type": "string"
+        },
+        "Cost": {
+          "type": "integer"
+        },
+        "Day": {
+          "type": "integer"
+        },
+        "Lane": {
+          "type": "string"
+        },
+        "Mode": {
+          "type": "string"
+        },
+        "Name": {
+          "type": "string"
+        },
+        "Product": {
+          "type": "string"
+        },
+        "Revenue": {
+          "type": "integer"
+        },
+        "Units": {
+          "type": "integer"
+        }
+      },
+      "required": [
+        "Day",
+        "Lane",
+        "Name",
+        "Mode",
+        "City",
+        "Product",
+        "Units",
+        "Cost",
+        "Revenue"
+      ],
+      "type": "object"
+    },
+    "events.ExportSeized": {
+      "properties": {
+        "City": {
+          "type": "string"
+        },
+        "Cost": {
+          "type": "integer"
+        },
+        "Day": {
+          "type": "integer"
+        },
+        "Lane": {
+          "type": "string"
+        },
+        "Mode": {
+          "type": "string"
+        },
+        "Name": {
+          "type": "string"
+        },
+        "Product": {
+          "type": "string"
+        },
+        "Units": {
+          "type": "integer"
+        },
+        "Watched": {
+          "type": "boolean"
+        }
+      },
+      "required": [
+        "Day",
+        "Lane",
+        "Name",
+        "Mode",
+        "City",
+        "Product",
+        "Units",
+        "Cost",
+        "Watched"
+      ],
+      "type": "object"
+    },
+    "events.ExportShipped": {
+      "properties": {
+        "City": {
+          "type": "string"
+        },
+        "Cost": {
+          "type": "integer"
+        },
+        "Day": {
+          "type": "integer"
+        },
+        "Lands": {
+          "type": "integer"
+        },
+        "Lane": {
+          "type": "string"
+        },
+        "Mode": {
+          "type": "string"
+        },
+        "Name": {
+          "type": "string"
+        },
+        "Price": {
+          "type": "number"
+        },
+        "Product": {
+          "type": "string"
+        },
+        "Units": {
+          "type": "integer"
+        }
+      },
+      "required": [
+        "Day",
+        "Lane",
+        "Name",
+        "Mode",
+        "City",
+        "Product",
+        "Units",
+        "Cost",
+        "Price",
+        "Lands"
+      ],
+      "type": "object"
+    },
     "events.FactionPushed": {
       "properties": {
         "Against": {
@@ -8761,6 +8952,12 @@
     },
     "game.FrontOffer": {
       "properties": {
+        "Asset": {
+          "type": "string"
+        },
+        "AssetName": {
+          "type": "string"
+        },
         "AuditRisk": {
           "type": "number"
         },
@@ -8790,7 +8987,9 @@
         "Throughput",
         "Upkeep",
         "AuditRisk",
-        "UnlockCash"
+        "UnlockCash",
+        "Asset",
+        "AssetName"
       ],
       "type": "object"
     },
@@ -9349,6 +9548,15 @@
     },
     "Enforcement": {
       "$ref": "#/$defs/events.Enforcement"
+    },
+    "ExportLanded": {
+      "$ref": "#/$defs/events.ExportLanded"
+    },
+    "ExportSeized": {
+      "$ref": "#/$defs/events.ExportSeized"
+    },
+    "ExportShipped": {
+      "$ref": "#/$defs/events.ExportShipped"
     },
     "FactionPushed": {
       "$ref": "#/$defs/events.FactionPushed"
@@ -12472,6 +12680,19 @@
         "$ref": "#/$defs/content.LawTuning"
       }
     },
+    "rules.logistics.budget": {
+      "changes": false,
+      "needsRun": true,
+      "params": {
+        "maxItems": 0,
+        "minItems": 0,
+        "prefixItems": [],
+        "type": "array"
+      },
+      "result": {
+        "type": "integer"
+      }
+    },
     "rules.logistics.capacity": {
       "changes": false,
       "needsRun": true,
@@ -12597,6 +12818,46 @@
         "type": "number"
       }
     },
+    "rules.logistics.export_cost": {
+      "changes": false,
+      "needsRun": true,
+      "params": {
+        "maxItems": 1,
+        "minItems": 1,
+        "prefixItems": [
+          {
+            "title": "product",
+            "type": "string"
+          }
+        ],
+        "type": "array"
+      },
+      "result": {
+        "type": "number"
+      }
+    },
+    "rules.logistics.export_price": {
+      "changes": false,
+      "needsRun": true,
+      "params": {
+        "maxItems": 2,
+        "minItems": 2,
+        "prefixItems": [
+          {
+            "title": "lane",
+            "type": "string"
+          },
+          {
+            "title": "product",
+            "type": "string"
+          }
+        ],
+        "type": "array"
+      },
+      "result": {
+        "type": "number"
+      }
+    },
     "rules.logistics.fare": {
       "changes": false,
       "needsRun": true,
@@ -12613,6 +12874,148 @@
       },
       "result": {
         "type": "number"
+      }
+    },
+    "rules.logistics.lane": {
+      "changes": false,
+      "needsRun": true,
+      "params": {
+        "maxItems": 1,
+        "minItems": 1,
+        "prefixItems": [
+          {
+            "title": "id",
+            "type": "string"
+          }
+        ],
+        "type": "array"
+      },
+      "result": {
+        "$ref": "#/$defs/content.LaneConfig"
+      }
+    },
+    "rules.logistics.lane_capacity": {
+      "changes": false,
+      "needsRun": true,
+      "params": {
+        "maxItems": 1,
+        "minItems": 1,
+        "prefixItems": [
+          {
+            "title": "lane",
+            "type": "string"
+          }
+        ],
+        "type": "array"
+      },
+      "result": {
+        "type": "integer"
+      }
+    },
+    "rules.logistics.lane_open": {
+      "changes": false,
+      "needsRun": true,
+      "params": {
+        "maxItems": 1,
+        "minItems": 1,
+        "prefixItems": [
+          {
+            "title": "lane",
+            "type": "string"
+          }
+        ],
+        "type": "array"
+      },
+      "result": {
+        "type": "boolean"
+      }
+    },
+    "rules.logistics.lane_risk": {
+      "changes": false,
+      "needsRun": true,
+      "params": {
+        "maxItems": 2,
+        "minItems": 2,
+        "prefixItems": [
+          {
+            "title": "lane",
+            "type": "string"
+          },
+          {
+            "title": "day",
+            "type": "integer"
+          }
+        ],
+        "type": "array"
+      },
+      "result": {
+        "type": "number"
+      }
+    },
+    "rules.logistics.lanes": {
+      "changes": false,
+      "needsRun": true,
+      "params": {
+        "maxItems": 0,
+        "minItems": 0,
+        "prefixItems": [],
+        "type": "array"
+      },
+      "result": {
+        "items": {
+          "type": "string"
+        },
+        "type": "array"
+      }
+    },
+    "rules.logistics.lanes_open": {
+      "changes": false,
+      "needsRun": true,
+      "params": {
+        "maxItems": 0,
+        "minItems": 0,
+        "prefixItems": [],
+        "type": "array"
+      },
+      "result": {
+        "items": {
+          "type": "string"
+        },
+        "type": "array"
+      }
+    },
+    "rules.logistics.load_tonight": {
+      "changes": false,
+      "needsRun": true,
+      "params": {
+        "maxItems": 2,
+        "minItems": 2,
+        "prefixItems": [
+          {
+            "title": "lane",
+            "type": "string"
+          },
+          {
+            "title": "budget",
+            "type": "integer"
+          }
+        ],
+        "type": "array"
+      },
+      "result": {
+        "properties": {
+          "cost": {
+            "type": "integer"
+          },
+          "units": {
+            "type": "integer"
+          }
+        },
+        "required": [
+          "units",
+          "cost"
+        ],
+        "type": "object"
       }
     },
     "rules.logistics.risk_from": {
@@ -13870,6 +14273,32 @@
         "type": "null"
       }
     },
+    "set_export": {
+      "changes": true,
+      "needsRun": true,
+      "params": {
+        "maxItems": 3,
+        "minItems": 3,
+        "prefixItems": [
+          {
+            "title": "lane",
+            "type": "string"
+          },
+          {
+            "title": "product",
+            "type": "string"
+          },
+          {
+            "title": "units",
+            "type": "integer"
+          }
+        ],
+        "type": "array"
+      },
+      "result": {
+        "type": "null"
+      }
+    },
     "set_launder_dial": {
       "changes": true,
       "needsRun": true,
@@ -14255,6 +14684,9 @@
             "DilemmaAnswered",
             "DilemmaDrawn",
             "Enforcement",
+            "ExportLanded",
+            "ExportSeized",
+            "ExportShipped",
             "FactionPushed",
             "FallGuyBurned",
             "FrontAudited",
@@ -14357,7 +14789,7 @@
       "$ref": "#/$defs/engine.View"
     }
   },
-  "protocol": 10,
+  "protocol": 11,
   "title": "kingpind",
   "view_version": 11
 }

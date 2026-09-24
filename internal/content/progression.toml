@@ -120,7 +120,7 @@ blurb = "The supply side is yours to buy, and the feds know your name."
 checkpoint = 300
 opens = [
   "the assets: the connect, the port, the airstrip, the lab, a tunnel",
-  "the plane and the tunnel on the map",
+  "the lanes abroad off the Dutchman's book; a casino and a bank",
   "the task force, above the raid",
 ]
 next = "There is no next stage. Pick an ambition and chase it: retire, go legit, take the city or disappear."

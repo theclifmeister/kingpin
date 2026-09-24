@@ -34,6 +34,7 @@ const (
 	StreamSwagger     = "swagger"    // the boss's headline (#233, news)
 	StreamCharacter   = "character"  // a character's start on day 0 (#50)
 	StreamTraits      = "traits"     // a veteran's trait (#346, crew)
+	StreamExports     = "exports"    // a load abroad seized or landed (#391, logistics)
 
 	// Shared streams.
 	StreamBooks     = "books"     // shared: the rival's scout and poach (#70, rivals) and a tip's evidence (heat)
@@ -52,6 +53,7 @@ const (
 	StreamIntelNews         = "intel:news"         // the intel headlines (#45)
 	StreamOverdoseNews      = "overdose:news"      // an overdose's headline (#47)
 	StreamInvestigationNews = "investigation:news" // an investigation opened or gone nowhere (#343)
+	StreamExportsNews       = "exports:news"       // the export lanes' headlines (#391)
 )
 
 // Rand is the subset of *math/rand/v2.Rand the sims draw on (#275): the

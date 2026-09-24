@@ -298,20 +298,28 @@ const (
 // both sides the digest on is the digest off on all sixty days, the
 // boss peaking at 53.9 heat on this seed, under the sting line, so no
 // investigation opens (checked on top of #379).
+// Again for #391 (World.Exports and five Stats added to the walk): the
+// move on day 1 is shape alone and no number moved. With Exports and
+// the Stats.Export* fields set aside the world is main's on every day
+// of this seed's boss to day 197 and its net worth main's on all 300:
+// from day 198 the Dutchman's book is announced at $8M peak clean (it
+// was $10M, the tunnel's line now), an Unlocked in the journal and a
+// key in Laundering.Offered, and the boss buys no asset (checked again
+// on top of #389).
 var seedDigest = []string{
-	"3f5d5989deb905c6", "ec978669520a2f6b", "d00989f74d1bc471", "f415a41fbebaf446",
-	"b1662a161109b084", "57b64bf03da2c7ed", "94a6237e4b96869e", "549a6be1f73df7a1",
-	"e5bc4119cfb2302e", "1933f70b94a20e12", "972084233a230b4c", "fb6013602a1b18d2",
-	"6f7a499250aa08b1", "1bfd78b2b7fe09cf", "1d1fdd4e3e5835c1", "e72c2a4eca902c6e",
-	"37f09bb46da2c1df", "2ff248e66bb7652f", "db47e258ecf36c21", "868e5677abd3b12d",
-	"a06508fe579a7de6", "374535d55e8e0b50", "58538c5f421b08b8", "bf5cb40830fa0b5d",
-	"182708e8a78907f5", "991b0ad21bdd437b", "a45166c44b8b3157", "8d8fe7da32a8e94b",
-	"f5511de10172d323", "155e9ae90283f7ca", "8830c95e8826bc3e", "5daeda9acaaccd8e",
-	"940f9c08944c99c6", "5ed7e5d6f1f081fd", "2051eb00c8ef04e7", "a028bde100bbcedc",
-	"92f9b0cc246c534d", "dbeb6279a43f7ce6", "e6aaaaab67873e65", "bfc309637953e2a4",
-	"73529447966d4e6a", "d8efd28cc4da4d77", "9847d8e852a3daf4", "525beccebca276da",
-	"d79dd9b6ee4830db", "8651fbe8c24616fd", "000d3216eb5fdb1e", "a218fe65d49a3afa",
-	"5530110109d3b919", "e20809e665c15e20", "ea7852ef5e703fe0", "73b22a8389b74b57",
-	"46ac05b5fa25df36", "2d37f26407abd7df", "cc474f8e87b61975", "6685752eedc80c98",
-	"4b08158323e440a3", "857d95dbabf4f07d", "32bcc938ef0516cd", "c57739b238b60b36",
+	"7bb799aab96e727b", "38bf1e41fa725b0e", "a2868b893c9aabe8", "00077c8fbbd83533",
+	"989160b611f29b09", "5166e9dc8b29e874", "a2b496c86a7244a7", "6bad701a3896be24",
+	"6fd086103e0725a3", "0556f5a5cc041613", "a28d91af75f1092d", "10820e356cfbd047",
+	"2e87a701a3361e30", "9498ab85942558aa", "3ef81c115bf3fd60", "662aa62c8c1d5f8b",
+	"7d9936e167d8dc9a", "af2be47fcd06bcaa", "7177bf9d2fb30e60", "c49ca2161e436c74",
+	"99247c3a3850a403", "6b3c88efe9f2343d", "a313fb9fceb473d1", "fe1f496e080ff3b0",
+	"1ac9f0964d330ef8", "6ca596dbd70b84ba", "96ff4f7d1303666a", "75607f8acae4dd42",
+	"613854c75424c022", "a1ff46d20a21024b", "fd2a46fbfb4d1c1f", "263472cf9c3c235b",
+	"bbbf348d4115fbbb", "aa4bd496be2cce24", "86a2bfe30d73f846", "36929434887ee209",
+	"56693cc864c883b0", "a0208650836d5313", "5c7b881299f02418", "25d2f34c5492ba15",
+	"ea729cd943bb639b", "e54b44b12ca6201a", "a7247e3453b8e675", "a740ef9f6f68670b",
+	"1a45e450fa6c8f0e", "c46133a050fbca10", "b3b50273c5aa7dcb", "181dc255d51ebad7",
+	"94658011d7415754", "da19c2d622ab1425", "5c269105e8f5b2bd", "024a7692d1b695b2",
+	"5a2973ea80a0a23f", "8c0e43d1c91cd456", "a0af61536e240788", "6bd9109a8e5b7b85",
+	"4cf8bd95508f1dfe", "facc463ce0565604", "945c4c215f2526d8", "4867e76d0009b2c7",
 }

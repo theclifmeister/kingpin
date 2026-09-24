@@ -32,7 +32,7 @@ func TestBooksKeys(t *testing.T) {
 	}
 	m.Update(key("1"))
 	m.Update(key("t"))
-	if m.mode != modePlay || m.status != "Tip police on the map screen (5)." { // t is tip (#241): cut is %, assign l
+	if m.mode != modePlay || m.status != "Tip police on the map screen (5). Export order on the ledger screen (7)." { // t is tip (#241): cut is %, assign l; the ledger's export order (#391)
 		t.Fatalf("t on the dashboard: mode %v status %q", m.mode, m.status)
 	}
 	// The scout: the confirmation names the cost and the odds; y queues it,

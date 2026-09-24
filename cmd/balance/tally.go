@@ -79,6 +79,8 @@ type launderTally struct {
 	assetsBought, assetCash, assetsLost, taskForces int
 	tunnelsFound, assetRuns, assetUpkeep            int
 	assetsOwned                                     map[string]int
+	exportLoads, exportUnits, exportsSeized         int // the lanes abroad (#391)
+	exportCash, exportCost, exportRuns              int
 }
 
 // lawTally is the law: pressure and goodwill at the end, the elections
@@ -301,6 +303,14 @@ func (t *tally) add(res harness.Result, days int, trace bool) {
 	l.laundered += st.Laundered
 	l.clean += w.Player.CleanCash
 	l.offshore += w.Offshore
+	if st.ExportLoads > 0 {
+		l.exportRuns++
+		l.exportLoads += st.ExportLoads
+		l.exportUnits += st.ExportUnits
+		l.exportsSeized += st.ExportsSeized
+		l.exportCash += st.ExportCash
+		l.exportCost += st.ExportCost
+	}
 	if st.Assets > 0 || st.TaskForces > 0 {
 		l.assetRuns++
 		l.assetsBought += st.Assets
@@ -691,6 +701,10 @@ func (t *tally) print(s summary) {
 		}
 		fmt.Printf("assets:        %.1f bought per run for $%d, $%d upkeep per run, %.1f seized per run, %.1f task forces per run, %d tunnels found (over %d runs); owned at the end: %s\n",
 			float64(l.assetsBought)/float64(runs), l.assetCash/runs, l.assetUpkeep/runs, float64(l.assetsLost)/float64(runs), float64(l.taskForces)/float64(runs), l.tunnelsFound, runs, strings.Join(ids, ", "))
+	}
+	if l.exportRuns > 0 {
+		fmt.Printf("exports:       %.1f loads per run, %d units landed for $%d on $%d off the book per run, %.1f seized per run (%d of %d runs shipped)\n",
+			float64(l.exportLoads)/float64(runs), l.exportUnits/runs, l.exportCash/runs, l.exportCost/runs, float64(l.exportsSeized)/float64(runs), l.exportRuns, runs)
 	}
 	if tr.shipments > 0 {
 		fmt.Printf("logistics:     %.1f shipments per run carrying %d units, %.1f seized per run taking %d units (%.0f%% of shipments)\n",

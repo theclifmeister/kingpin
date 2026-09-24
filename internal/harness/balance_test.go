@@ -217,18 +217,15 @@ var moneyCurve = []struct {
 	// logs what each row would make with the rival kept out and heat off.
 	{3, "boss", func(cfg *content.Config) Policy { return Boss(cfg, 40, "") }, 5_000_000, 20_000_000, false},
 	{4, "boss", func(cfg *content.Config) Policy { return Boss(cfg, 40, "") }, 50_000_000, 200_000_000, false},
-	// Tier 5 (#48) is the cartel: the boss with the assets. The band is
-	// what the operation earns (#205): the tier-4 operation is demand- and
-	// wash-bound, not supply-bound (revenue ~$0.94M a day off two cities'
-	// corners, the wash and the levels ~$1.1M a day), so a supply-side
-	// asset cannot lift it and the issue's $500M-$5B was three times what
-	// any policy reads; #43's table lowered the day-300 figure rather than
-	// raising it (the factions hold corners). The row is enforced at
-	// $100M-$1B; the boss reads $172.7M and the cartel $167.1M on ten
-	// seeds at day 300 on the ruling's main (c2d12af), $163.7M on the
-	// test's twenty. A demand-side lever (assets that earn on their own,
-	// #223) is the way past it.
-	{5, "cartel", func(cfg *content.Config) Policy { return Cartel(cfg, 40) }, 100_000_000, 1_000_000_000, false},
+	// Tier 5 (#48) is the cartel: the boss with the assets. Before the
+	// lanes abroad the band was what the operation earned, $100M-$1B
+	// (#205): the tier-4 operation is demand- and wash-bound, so a
+	// supply-side asset could not lift it. The lanes (#391) are the
+	// demand-side lever: a load bought off the owned book and sold
+	// abroad, never through a corner, with the casino and the bank to
+	// wash what lands. The band is #48's ask, $1B-$5B; the cartel reads
+	// about $1.7B on twenty seeds at day 300 ($2.0B before #389).
+	{5, "cartel", func(cfg *content.Config) Policy { return Cartel(cfg, 40) }, 1_000_000_000, 5_000_000_000, false},
 }
 
 // tierDay is the day a money-curve row is read at: its tier's checkpoint.

@@ -38,7 +38,8 @@ var reportOnly = map[string]bool{
 	"SupplierBought": true, "CreditTaken": true, "DebtPaid": true, // #72
 	"HouseCompromised": true, "StockMoved": true, "RentPaid": true, // #73
 	"StockCut": true, "CookOrdered": true, "Cooked": true, // #47
-	"DeedBought": true, "DeedRent": true, // #194
+	"ExportShipped": true,                   // #391
+	"DeedBought":    true, "DeedRent": true, // #194
 	"Taxed":         true, // #231
 	"ClaimDeterred": true, // #233
 	"TrustSpread":   true, // #43

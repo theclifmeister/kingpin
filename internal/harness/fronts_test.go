@@ -75,6 +75,8 @@ func TestFrontsPullTheirWay(t *testing.T) {
 		"nightclub":    {"sale heat": +1, "robbery": +1, "buyer gaps": -1},
 		"construction": {"deed price": -1, "deed rent": +1},
 		"exchange":     {"offshore fee": -1},
+		"casino":       {}, // #391: the cartel's wash, a pure wash
+		"bank":         {"offshore fee": -1},
 	}
 	if len(want) != len(cfg.Laundering.Fronts) {
 		t.Fatalf("%d fronts in the file, %d in the table", len(cfg.Laundering.Fronts), len(want))

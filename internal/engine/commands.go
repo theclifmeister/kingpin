@@ -249,6 +249,12 @@ func (s *Session) SetRouteDays(id, product string, days int) error {
 // SetRouteDriver seats a driver on a route (World.SetRouteDriver).
 func (s *Session) SetRouteDriver(route string, id int) error { return s.w.SetRouteDriver(route, id) }
 
+// SetExport sets an export lane's standing order (#391,
+// World.SetExport): units of a product a night, zero for off.
+func (s *Session) SetExport(lane, product string, units int) error {
+	return s.w.SetExport(lane, product, units)
+}
+
 // BuyCheckpoint buys the deal on a route, a customs agent on a boat or
 // plane edge and a checkpoint on the road, at the law's price and term
 // (World.BuyCheckpoint).

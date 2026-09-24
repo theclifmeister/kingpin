@@ -16,11 +16,17 @@ type FrontOffer struct {
 	Throughput int // dirty cash washed per day at the normal dial
 	Upkeep     int // clean cash per day
 	AuditRisk  float64
-	UnlockCash int // peak cash that puts it on offer
+	UnlockCash int    // peak cash that puts it on offer
+	Asset      string // an asset that must stand as well (#391), "" none
+	AssetName  string // its name, for the ledger's locked line
 }
 
-// Locked reports whether the offer is still gated behind peak cash.
-func (o FrontOffer) Locked(w *World) bool { return w.Stats.PeakCash < o.UnlockCash }
+// Locked reports whether the offer is still gated: behind peak cash,
+// or behind an asset not standing (#391: the cartel's wash waits on the
+// Dutchman's book).
+func (o FrontOffer) Locked(w *World) bool {
+	return w.Stats.PeakCash < o.UnlockCash || o.Asset != "" && !w.AssetLive(o.Asset)
+}
 
 // BuyFront buys a front with dirty cash. It applies immediately: the place
 // opens tomorrow and the laundering sim reports the purchase at end of day.
@@ -35,6 +41,9 @@ func (w *World) BuyFront(o FrontOffer) (Front, error) {
 	}
 	if w.Front(o.ID) != nil {
 		return Front{}, ErrFrontOwned
+	}
+	if o.Asset != "" && !w.AssetLive(o.Asset) {
+		return Front{}, fmt.Errorf("nobody will sell you %s until %s stands", o.Name, o.AssetName)
 	}
 	if o.Locked(w) {
 		return Front{}, fmt.Errorf("nobody will sell you %s until you have moved %s", o.Name, format.Money(o.UnlockCash))

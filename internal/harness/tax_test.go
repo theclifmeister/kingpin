@@ -48,13 +48,12 @@ func TestNoTaxIsTheOldRun(t *testing.T) {
 	})
 }
 
-// TestTaxAtTierFive (#231): the tier-5 band ($100M-$1B, #205) re-read
-// with the tax in the file, the boss and the cartel on ten seeds at day
-// 300, the medians logged with what the tax paid; neither leaves the
-// band. The goal #223 set, cartel over boss on the median, is logged,
-// not pinned: the tax rewards holding the city, which the boss on a
-// seed in fifty does by day 211 with the weather on and the harness
-// boxes.
+// TestTaxAtTierFive (#231): the tier-5 bands re-read with the tax in
+// the file, the boss and the cartel on ten seeds at day 300, the
+// medians logged with what the tax paid: the boss in $100M-$1B (#205),
+// the cartel in $1B-$5B since its lanes abroad (#391). The tax rewards
+// holding the city, which the boss on a seed in fifty does by day 211
+// with the weather on and the harness boxes.
 func TestTaxAtTierFive(t *testing.T) {
 	t.Parallel()
 	cfg := content.MustLoad()
@@ -62,9 +61,11 @@ func TestTaxAtTierFive(t *testing.T) {
 	for _, row := range []struct {
 		name   string
 		policy func(*content.Config) Policy
+		lo, hi int
 	}{
-		{"boss", func(c *content.Config) Policy { return Boss(c, 40, "") }},
-		{"cartel", func(c *content.Config) Policy { return Cartel(c, 40) }},
+		{"boss", func(c *content.Config) Policy { return Boss(c, 40, "") }, 100_000_000, 1_000_000_000},
+		// The cartel's lanes abroad (#391) are its band: $1B-$5B.
+		{"cartel", func(c *content.Config) Policy { return Cartel(c, 40) }, 1_000_000_000, 5_000_000_000},
 	} {
 		var worths, taxed []int
 		for seed := uint64(1); seed <= 10; seed++ {
@@ -78,8 +79,8 @@ func TestTaxAtTierFive(t *testing.T) {
 		sort.Ints(worths)
 		sort.Ints(taxed)
 		t.Logf("tier 5: %s median net worth on day %d is %d (%d..%d), taxed %d (median) over ten seeds", row.name, day, worths[5], worths[0], worths[9], taxed[5])
-		if worths[5] < 100_000_000 || worths[5] > 1_000_000_000 {
-			t.Errorf("tier 5: %s median net worth on day %d is %d, want $100M..$1B", row.name, day, worths[5])
+		if worths[5] < row.lo || worths[5] > row.hi {
+			t.Errorf("tier 5: %s median net worth on day %d is %d, want %d..%d", row.name, day, worths[5], row.lo, row.hi)
 		}
 	}
 }

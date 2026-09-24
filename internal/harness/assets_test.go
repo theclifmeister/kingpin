@@ -152,16 +152,16 @@ func TestCartelBeatsCorruptAndDistributor(t *testing.T) {
 	}
 }
 
-// TestCartelIsWithinFifteenPercentOfBoss pins what the assets cost the
-// boss operation at the tier-5 checkpoint: the cartel is the boss that
-// puts clean cash into assets instead of levels, and a level pays 1% a
-// day by #192's design while a supply-side asset on a demand-bound
-// operation cannot, so the cartel reads under the boss (-3.0% on the
-// median of ten seeds with #43's table, -8.8% to 0% on each; -7.7%
-// and -3.5% to -11.8% on the duel before it) and never more than
-// fifteen percent under it. The ruling on #48: an ordering, not the
-// band; cartel > boss does not hold on any seed and is not pinned.
-func TestCartelIsWithinFifteenPercentOfBoss(t *testing.T) {
+// TestCartelDwarfsBoss pins what the export lanes (#391) make of the
+// cartel at the tier-5 checkpoint. Before them the cartel was the boss
+// that put clean cash into supply-side assets instead of levels, and it
+// read a few percent under the boss (#48's ruling: a demand-bound
+// operation gains nothing from cheaper supply). The lanes are demand the
+// corners do not bound, bought off the book the cartel owns, so the
+// cartel now reads several times the boss: on every seed where a lane
+// shipped it beats the boss, and its median is at least five times the
+// boss's (about nine on ten seeds).
+func TestCartelDwarfsBoss(t *testing.T) {
 	t.Parallel()
 	cfg := content.MustLoad()
 	day := TierDays[4]
@@ -177,17 +177,18 @@ func TestCartelIsWithinFifteenPercentOfBoss(t *testing.T) {
 		b, _ := Run(cfg, seed, day, Boss(cfg, 40, ""))
 		cartel = append(cartel, c.NetWorthAt(day))
 		boss = append(boss, b.NetWorthAt(day))
-		t.Logf("seed %d: cartel %d, boss %d (%+.1f%%), %d assets", seed, c.NetWorthAt(day), b.NetWorthAt(day), float64(c.NetWorthAt(day)-b.NetWorthAt(day))/float64(b.NetWorthAt(day))*100, len(c.World.Assets))
-		if float64(c.NetWorthAt(day)) < 0.85*float64(b.NetWorthAt(day)) {
-			t.Errorf("seed %d: cartel %d is more than 15%% under boss %d", seed, c.NetWorthAt(day), b.NetWorthAt(day))
+		st := c.World.Stats
+		t.Logf("seed %d: cartel %d, boss %d (x%.1f), %d assets, %d loads abroad for %d", seed, c.NetWorthAt(day), b.NetWorthAt(day), float64(c.NetWorthAt(day))/float64(b.NetWorthAt(day)), len(c.World.Assets), st.ExportLoads, st.ExportCash)
+		if st.ExportLoads > 0 && c.NetWorthAt(day) <= b.NetWorthAt(day) {
+			t.Errorf("seed %d: the cartel shipped %d loads abroad and reads %d, under the boss's %d", seed, st.ExportLoads, c.NetWorthAt(day), b.NetWorthAt(day))
 		}
 	}
 	sort.Ints(cartel)
 	sort.Ints(boss)
 	c, b := cartel[5], boss[5]
-	t.Logf("day %d median net worth: cartel %d, boss %d (%+.1f%%)", day, c, b, float64(c-b)/float64(b)*100)
-	if float64(c) < 0.85*float64(b) {
-		t.Fatalf("cartel median %d is more than 15%% under boss %d", c, b)
+	t.Logf("day %d median net worth: cartel %d, boss %d (x%.1f)", day, c, b, float64(c)/float64(b))
+	if c < 5*b {
+		t.Fatalf("cartel median %d is under five times the boss's %d", c, b)
 	}
 }
 
@@ -259,7 +260,9 @@ func TestAssetsSaveAndReplay(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	const seed, at, on = 1, 250, 30
+	// Day 270: the book is the first door since #391 and the tunnel the
+	// second, standing on this seed from about day 255.
+	const seed, at, on = 1, 270, 30
 	a, _ := Run(cfg, seed, at+on, Cartel(cfg, 40))
 	b, _ := Run(cfg, seed, at+on, Cartel(cfg, 40))
 	if digest(a.World) != digest(b.World) {

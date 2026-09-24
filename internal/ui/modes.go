@@ -54,6 +54,7 @@ const (
 	modeAmbitions     // the ambitions panel (#347): the endings as plans, pin one
 	modeCaptain       // name a captain (#346): the city, the budget ←→, then enter
 	modePresets       // the operation presets (#357): the list, then the review of what one changes
+	modeExport        // an export lane's order (#391): the product ←→, the units, then enter
 	modeCount
 )
 
@@ -163,6 +164,7 @@ func init() {
 		modeRestock:       {name: "restock", view: (*Model).viewRestock, key: (*Model).keyRestock, paged: amtState},
 		modeAmbitions:     {name: "ambitions", view: (*Model).viewAmbitions, key: byKey((*Model).keyAmbitions)},
 		modeCaptain:       {name: "captain", view: (*Model).viewCaptain, key: byKey((*Model).keyCaptain), paged: pickState},
+		modeExport:        {name: "export", view: (*Model).viewExport, key: (*Model).keyExport, paged: amtState},
 		modePresets:       {name: "presets", view: (*Model).viewPresets, key: byKey((*Model).keyPresets), pages: always, paged: preState},
 	}
 }
