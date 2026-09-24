@@ -28,6 +28,10 @@ reign_years = 12
 # and is left out.
 [summary]
 lines = 5
+# Headlines never in THE STORY (#424): a night lying low is a heat line
+# (it counts toward notoriety and pressure as one), and a run that lay
+# low to its end told its story in five "Nothing to report" nights.
+quiet = ["LaidLow"]
 [summary.weight]
 heat = 4
 crew = 3

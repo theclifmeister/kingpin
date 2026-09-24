@@ -32,6 +32,17 @@ type KingpinConfig struct {
 type SummaryConfig struct {
 	Lines  int                `toml:"lines"`
 	Weight map[string]float64 `toml:"weight"`
+	Quiet  []string           `toml:"quiet"` // headline templates (headlines.toml keys) never in THE STORY, whatever their source weighs (#424)
+}
+
+// validateQuiet checks every quiet key is a headline template.
+func (s SummaryConfig) validateQuiet(h HeadlinesConfig) error {
+	for _, k := range s.Quiet {
+		if len(h.Templates[k]) == 0 {
+			return fmt.Errorf("summary: quiet %q is no headline template", k)
+		}
+	}
+	return nil
 }
 
 // EndingConfig is one cause: the title the summary prints, whether the

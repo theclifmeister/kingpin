@@ -299,3 +299,27 @@ func TestFastForwardStopsOnTheReign(t *testing.T) {
 		t.Fatalf("the crown with no reign: mode %v step %d status %q", m.mode, m.exit.step, m.status)
 	}
 }
+
+// THE STORY is the run's weight, not its last quiet nights (#424): a
+// run that lay low to its end told its story in five "Nothing to
+// report" lines, heat lines the heaviest source; the summary's quiet
+// templates never push out a raid, a loss or a defection.
+func TestStoryIsNotTheQuietNights(t *testing.T) {
+	m := richModel(t, 120, 40)
+	w := m.w
+	w.Journal = append(w.Journal,
+		game.Headline{Day: 90, Source: "heat", Text: "Dawn raid in Eastside: cash and product seized"},
+		game.Headline{Day: 95, Source: "crew", Text: "Lost Bird (arrested)."},
+	)
+	for d := 100; d < 110; d++ {
+		city := w.Here().Name
+		w.Journal = append(w.Journal,
+			game.Headline{Day: d, Source: "heat", Text: "Nothing to report from " + city + " corners"},
+			game.Headline{Day: d, Source: "heat", Text: "Quiet night in " + city})
+	}
+	w.Over = w.End(content.CauseIndicted, 110, "")
+	lines := strings.Join(m.storyLines(), "\n")
+	if strings.Contains(lines, "Nothing to report") || strings.Contains(lines, "Quiet night") || !strings.Contains(lines, "Dawn raid") || !strings.Contains(lines, "Lost Bird") {
+		t.Fatalf("the story:\n%s", stripANSI(lines))
+	}
+}

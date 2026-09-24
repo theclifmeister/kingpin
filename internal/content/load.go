@@ -120,6 +120,7 @@ func Load() (*Config, error) {
 		{"laundering.toml", func() error { return c.Laundering.validateAssets(c.Assets) }},
 		{"trophies.toml", c.Trophies.validate},
 		{"endings.toml", c.Endings.validate},
+		{"endings.toml", func() error { return c.Endings.Summary.validateQuiet(c.Headlines) }},
 		{"headlines.toml", c.Headlines.validate},
 		{"characters.toml", func() error { return c.Characters.validate(c.Crew, c.Upgrades, c.Market, c.City, c.Progression) }},
 		{"ambitions.toml", func() error { return c.Ambitions.validate(c.Upgrades) }},
