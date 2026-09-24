@@ -42,10 +42,10 @@ func TestDeedsPullTheirWay(t *testing.T) {
 		t.Fatalf("price with the table boxed %d, want 0", got)
 	}
 	rent := int(math.Round(tun.Rent * float64(want)))
-	if got := s.DeedRent(&game.Deed{Price: want}); got != rent || got <= 0 {
+	if got := s.DeedRent(w, *start, want); got != rent || got <= 0 {
 		t.Fatalf("rent %d, want %d", got, rent)
 	}
-	if got := s.DeedRent(nil); got != 0 {
+	if got := s.DeedRent(w, *start, 0); got != 0 {
 		t.Fatalf("rent of no deed %d", got)
 	}
 
@@ -112,7 +112,7 @@ func TestDeedsPullTheirWay(t *testing.T) {
 				t.Fatalf("DeedsBought %+v", ev)
 			}
 		case events.DeedRent:
-			if ev.Deeds != 2 || ev.Amount != rent+s.DeedRent(docks.Deed) {
+			if ev.Deeds != 2 || ev.Amount != rent+s.DeedRent(w, *docks, docks.Deed.Price) {
 				t.Fatalf("DeedRent %+v", ev)
 			}
 		}

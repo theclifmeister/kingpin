@@ -97,6 +97,7 @@ func Load() (*Config, error) {
 		{"laundering.toml", c.Laundering.validate},
 		{"names.toml", func() error { return c.Names.validate(c.Crew, c.City) }},
 		{"upgrades.toml", c.Upgrades.validate},
+		{"upgrades.toml", func() error { return c.Upgrades.validateFronts(c.Laundering) }},
 		{"reputation.toml", c.Reputation.validate},
 		{"law.toml", c.Law.validate},
 		{"dilemmas.toml", c.Dilemmas.validate},

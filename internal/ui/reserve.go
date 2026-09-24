@@ -51,7 +51,7 @@ func (m *Model) confirmReserve() {
 	}
 	m.mode = modePlay
 	l := m.rules.Laundering
-	say := fmt.Sprintf("%s clean goes offshore tonight, fee %s.", money(amt), money(l.Fee(amt)))
+	say := fmt.Sprintf("%s clean goes offshore tonight, fee %s.", money(amt), money(l.Fee(m.w, amt)))
 	if lots := l.Lots(m.w.ReservedToday()); lots > 0 {
 		m.alarm(say + fmt.Sprintf(" Over the lot by %s: the DA will read it.", plural(lots, "lot")))
 		return
@@ -86,7 +86,7 @@ func (m *Model) viewReserve() string {
 		if amt > w.Player.CleanCash {
 			style = theme.Bad
 		}
-		body = append(body, row("moves", fmt.Sprintf("%s tonight, fee %s   %s", style.Render(money(amt)), money(l.Fee(amt)), pages)))
+		body = append(body, row("moves", fmt.Sprintf("%s tonight, fee %s   %s", style.Render(money(amt)), money(l.Fee(m.w, amt)), pages)))
 	}
 	body = append(body, "",
 		theme.Subtle.Render(fmt.Sprintf("Up to %s a day moves unnoticed; every lot over it is a page. The account keeps %s.", money(off.Lot), format.Pct(off.Fee, 0))),

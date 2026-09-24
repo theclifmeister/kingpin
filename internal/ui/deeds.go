@@ -61,7 +61,7 @@ func (m *Model) confirmDeed() {
 		m.refuse("Can't buy the block: " + err.Error() + ".")
 		return
 	}
-	line := fmt.Sprintf("The block %s is on is yours: %s clean. It pays %s/day.", c.Name, money(price), money(m.rules.Territory.DeedRent(c.Deed)))
+	line := fmt.Sprintf("The block %s is on is yours: %s clean. It pays %s/day.", c.Name, money(price), money(m.rules.Territory.DeedRent(m.w, *c, price)))
 	if m.rules.Law.Forfeits(m.w) {
 		m.alarm(line + " The DA will ask where the money came from.")
 		return
@@ -82,7 +82,7 @@ func (m *Model) deedConfirm() []string {
 	tr := m.rules.Territory
 	tun := tr.Deeds()
 	price := tr.DeedPrice(w, *c)
-	rent := tr.DeedRent(&game.Deed{Price: price})
+	rent := tr.DeedRent(w, *c, price)
 	body := m.wrapLines(fmt.Sprintf("Buy the block %s is on%s for %s, clean: %s of its street trade, at today's prices. It pays %s/day clean for as long as you hold it.", c.Name, m.inCity(c.City), money(price), plural(int(tun.Days), "day"), money(rent)))
 	body = append(body, "")
 	switch {
@@ -157,7 +157,7 @@ var deedCols = []col{{"block", kText, 0}, {"city", kText, 0}, {"corner", kText, 
 
 // deedRow is a deed's PROPERTY row.
 func (m *Model) deedRow(c game.Corner) []any {
-	return []any{c.Name, m.w.CityName(c.City), m.cornerWhose(c), c.Deed.Price, m.rules.Territory.DeedRent(c.Deed), fmt.Sprintf("day %d", c.Deed.Bought)}
+	return []any{c.Name, m.w.CityName(c.City), m.cornerWhose(c), c.Deed.Price, m.rules.Territory.DeedRent(m.w, c, c.Deed.Price), fmt.Sprintf("day %d", c.Deed.Bought)}
 }
 
 // cornerWhose is whose a corner is, for a table cell: yours, the
@@ -182,7 +182,7 @@ func (m *Model) deedNote() string {
 	}
 	rent := 0
 	for _, c := range deeds {
-		rent += m.rules.Territory.DeedRent(c.Deed)
+		rent += m.rules.Territory.DeedRent(w, c, c.Deed.Price)
 	}
 	note := fmt.Sprintf(" · %s · %s · %s/day", plural(len(deeds), "block"), cash(w.DeedValue()), cash(rent))
 	if m.rules.Law.Forfeits(w) {
@@ -202,7 +202,7 @@ func (m *Model) deedSection(c game.Corner) section {
 		m.cornerWhose(c).(styled).st.Render(whose),
 		row("city", w.CityName(c.City)),
 		row("since", fmt.Sprintf("day %d · %s", c.Deed.Bought, money(c.Deed.Price))),
-		row("rent", money(tr.DeedRent(c.Deed))+"/day clean"),
+		row("rent", money(tr.DeedRent(w, c, c.Deed.Price))+"/day clean"),
 	}
 	switch {
 	case c.Held():

@@ -1319,6 +1319,9 @@
         "Decay": {
           "type": "number"
         },
+        "DeedCostMul": {
+          "type": "number"
+        },
         "DemandMul": {
           "type": "number"
         },
@@ -1352,6 +1355,9 @@
         "GlutDecayMul": {
           "type": "number"
         },
+        "GoodwillDay": {
+          "type": "number"
+        },
         "GuardBonus": {
           "type": "integer"
         },
@@ -1370,6 +1376,9 @@
         "LoyaltyLossMul": {
           "type": "number"
         },
+        "OffshoreFeeMul": {
+          "type": "number"
+        },
         "PatrolCap": {
           "type": "number"
         },
@@ -1377,6 +1386,9 @@
           "type": "integer"
         },
         "RaidLossMul": {
+          "type": "number"
+        },
+        "RentMul": {
           "type": "number"
         },
         "RivalPushMul": {
@@ -1471,6 +1483,7 @@
         "UpkeepMul",
         "AuditFreezeCut",
         "FloatMul",
+        "OffshoreFeeMul",
         "RouteRiskMul",
         "RouteCapacityMul",
         "RouteDaysMul",
@@ -1479,7 +1492,10 @@
         "DriftDaysBonus",
         "RobberyMul",
         "GuardBonus",
-        "RivalPushMul"
+        "RivalPushMul",
+        "DeedCostMul",
+        "RentMul",
+        "GoodwillDay"
       ],
       "type": "object"
     },
@@ -8038,6 +8054,9 @@
         "Bought": {
           "type": "integer"
         },
+        "City": {
+          "type": "string"
+        },
         "Cost": {
           "type": "integer"
         },
@@ -8078,7 +8097,8 @@
         "AuditDial",
         "Level",
         "Invested",
-        "Grew"
+        "Grew",
+        "City"
       ],
       "type": "object"
     },
@@ -12785,12 +12805,16 @@
       "changes": false,
       "needsRun": true,
       "params": {
-        "maxItems": 1,
-        "minItems": 1,
+        "maxItems": 2,
+        "minItems": 2,
         "prefixItems": [
           {
             "title": "corner",
             "type": "string"
+          },
+          {
+            "title": "price",
+            "type": "integer"
           }
         ],
         "type": "array"
@@ -13466,7 +13490,7 @@
       "$ref": "#/$defs/engine.View"
     }
   },
-  "protocol": 5,
+  "protocol": 6,
   "title": "kingpind",
   "view_version": 8
 }

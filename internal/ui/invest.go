@@ -116,11 +116,14 @@ func (m *Model) viewInvest() string {
 	if cost > w.Player.CleanCash {
 		style = theme.Bad
 	}
-	body := []string{
+	var body []string
+	if r := m.cfg.Upgrades.Front(f.ID); r != nil && r.Role != "" {
+		body = append(m.wrapLines(r.Role), "") // what the place is for (#344)
+	}
+	body = append(body,
 		m.inHand(),
 		row("now", fmt.Sprintf("level %d of %d · earns %s/day · washes %s/day · upkeep %s/day", f.Level, l.MaxLevel(*f), money(l.Income(*f)), money(l.Throughput(w, *f)), money(l.FrontUpkeep(w, *f)))),
-		row("levels", levels.View()),
-	}
+		row("levels", levels.View()))
 	if f.Level+n <= l.MaxLevel(*f) {
 		body = append(body, row("buys", fmt.Sprintf("level %d for %s: earns %s/day, washes %s/day, upkeep %s/day, audit %s/day",
 			after.Level, style.Render(money(cost)), theme.Good.Render(money(l.Income(after))), money(l.Throughput(w, after)), money(l.FrontUpkeep(w, after)), format.Pct(l.AuditRisk(w, after), 1))))
