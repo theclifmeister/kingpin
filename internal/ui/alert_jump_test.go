@@ -1,6 +1,7 @@
 package ui
 
 import (
+	"fmt"
 	"strings"
 	"testing"
 
@@ -219,4 +220,24 @@ func paneKeyLines(m *Model) []string {
 		out = append(out, b.key+" "+b.label)
 	}
 	return out
+}
+
+// The file alert says how close the indictment is and where the pages
+// come off (#414).
+func TestFileAlertWords(t *testing.T) {
+	m := richModel(t, 120, 40)
+	limit := m.rules.Heat.EvidenceArrest(m.w)
+	if limit < 2 {
+		t.Skip("no file limit on the fixture")
+	}
+	m.w.Heat.Evidence = limit - 1
+	m.Update(key("1"))
+	view := stripANSI(m.View())
+	if want := fmt.Sprintf("File %d/%d: one more", limit-1, limit); !strings.Contains(view, want) {
+		t.Errorf("the dashboard's alerts lack %q:\n%s", want, view)
+	}
+	got := m.alertsOf(engine.AlertFile)
+	if len(got) != 1 || !strings.Contains(stripANSI(got[0].text), "one more bust indicts you") || !strings.Contains(stripANSI(got[0].text), "Legal upgrades on the upgrades screen (6)") {
+		t.Errorf("the file alert: %+v", got)
+	}
 }
