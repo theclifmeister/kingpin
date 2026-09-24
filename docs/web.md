@@ -90,7 +90,7 @@ The art is placeholder.
 
 ## Ink & Ambition alternative frontend (#383)
 
-`frontends/ink-ambition/` is a separate illustrated HTML/CSS/ES-module interface on the same WASM engine. It preserves this reference client and the TUI. Build with `python3 frontends/ink-ambition/build.py`; serve its generated `dist/` on a static host. Its README lists prerequisites, controls and current UI gaps.
+`frontends/ink-ambition/` is a separate illustrated HTML/CSS/ES-module interface on the same WASM engine. It preserves this reference client and the TUI. Build with `python3 frontends/ink-ambition/build.py`; serve its generated `dist/` on a static host. Its README lists prerequisites, controls and current UI gaps. It speaks protocol 15 and view 12 since #407: the export lanes and their orders, the trophies, the cash-out, the tonight forecast and what each closed ending still needs.
 
 The builder compiles `cmd/kingpin-wasm` from this checkout, copies the matching Go loader and the reference client's session/alert/police helpers, and derives role/trait descriptions from content TOML. A protocol/view guard requires an explicit frontend review when the contract moves. No compiled engine, duplicate simulation, hosted-project metadata or player saves are checked in.
 
