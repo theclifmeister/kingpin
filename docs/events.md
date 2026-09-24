@@ -18,6 +18,7 @@ The news picks their templates off `Tick.Sub("intel:news")`.
 `RivalScouted` carries the numbers read (`Cash`, `Income`, `Muscle`, `Wages`) since the snapshot moved into the file.
 
 **How the news sim writes an event** (#275): `news.Sim.Step` makes one `reporter` a tick (`sim/news/reporter.go`: the report, the headlines, the default `data` a line names, and the money the day's events moved, booked by category and pile into the night's cash flow, whose opening is CASH BEFORE, #351, `docs/market-and-journal.md`) and hands it every event in the order they were emitted.
+When the report and the cash flow are written, `Sim.lead` ranks the night and writes the three biggest changes as `DayReport.Lead` and into the journal under `digest` (#354, `sim/news/digest.go`, `docs/market-and-journal.md`). It reads the tick's events, the world and `World.Flows`, and draws no dice.
 `reporter.report` passes each one to the method of the sim that emits it, in the day loop's order, and the first to take it is the only one that would: `reportMarket`, `reportLogistics`, `reportTerritory`, `reportRivals`, `reportCrew`, `reportHeat`, `reportLaw`, `reportLaundering`, `reportReputation`, one file each (`report_<sim>.go`).
 An event two sims emit is written where the earlier of them steps.
 A new event kind's line goes in its emitter's file.

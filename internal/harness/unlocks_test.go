@@ -158,7 +158,9 @@ func TestEveryGateIsAnnounced(t *testing.T) {
 // IntelGained (#45) is left out the same way: it is report-only
 // bookkeeping the night writes off its own events with no dice (a push
 // on you files the muscle you met), so a run that never used the file
-// carries it and made the same draws and took the same turns.
+// carries it and made the same draws and took the same turns. The
+// morning's lead (#354) is left out of the journal for the same reason:
+// the news sim's reading of the night, no dice, and nothing reads it.
 func oldRunPrint(t *testing.T, cfg *content.Config, seed uint64, days int, policy Policy) (string, []events.Event) {
 	t.Helper()
 	w := sim.NewWorld(cfg, seed)
@@ -182,6 +184,9 @@ func oldRunPrint(t *testing.T, cfg *content.Config, seed uint64, days int, polic
 		fmt.Fprintf(h, "%d %s\n", day, e.Kind())
 	}
 	for _, l := range res.World.Journal {
+		if l.Source == "digest" {
+			continue
+		}
 		fmt.Fprintf(h, "%d %s %s\n", l.Day, l.Source, fold.Replace(l.Text))
 	}
 	return fmt.Sprintf("%x", h.Sum(nil))[:16], res.Events

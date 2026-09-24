@@ -210,11 +210,13 @@ func TestViewHoldsNothingOfTheWorld(t *testing.T) {
 			v.Houses[i].Stock[p] = -1
 		}
 	}
-	for i := range v.Report.News {
-		v.Report.News[i] = "changed"
+	for _, sec := range v.Report.Sections {
+		for i := range sec.Lines {
+			sec.Lines[i] = "changed"
+		}
 	}
-	for i := range v.Report.Sales {
-		v.Report.Sales[i] = "changed"
+	for i := range v.Report.Lead {
+		v.Report.Lead[i].Text = "changed"
 	}
 	after, _ := json.Marshal(w)
 	if string(before) != string(after) {

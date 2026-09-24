@@ -277,20 +277,27 @@ const (
 // to the walk; the move is on day 1 by shape alone and no number moved:
 // with the fields skipped the digest is the one before on all sixty
 // days, the duel never expanding and never keeping the window).
+// Again for #354 (the morning's lead, DayReport.Lead, and its lines in
+// the journal under the digest's source): every day from day 1 moves by
+// the report's and the journal's words alone, the first morning's lead
+// being the corner the boss claimed. No number moved: with World.Report
+// and World.Journal set aside the digest with the lead written is the
+// digest with it left out on every day, the duel and the table, seeds
+// 7, 1, 2 and 3, 150 days each; TestLeadDoesNotMoveTheRun holds it.
 var seedDigest = []string{
-	"4c5c004ab6223ff3", "7c4ab8e3d7d2a737", "eb58f118b02fdfad", "8900dad44f36c997",
-	"7576a1d38c0fbb4d", "6da8f920434ea4df", "af141b935a2af729", "3659278ce749044f",
-	"61d8f917a6f0b08b", "013cf8ca22041248", "4b9afb93e1b05b69", "c80543c13269f6a3",
-	"362657342a0fc2f7", "0d6adce450f8044a", "e653253bc1dd993c", "07250ce487fec119",
-	"0ce51b0b1affcb79", "bab4f47775a34b52", "c1fcf2ea77952a60", "14092b1dee33ed40",
-	"ad95d9dff6cce362", "475dbb41a9d37817", "2422290ddd6c7d1e", "ae739113be573883",
-	"834a954c7fa571f3", "a578623c9e1e9475", "baef261f0d9da50f", "3f789bf849ccc374",
-	"fff41707909845c4", "2f190a655090549b", "9ea8c8986c554d60", "db991e13da59ac84",
-	"0f023b596c4d1d25", "6ecee3dba43a6d10", "3d9a09ea1b3ee309", "d9f92ab95f5fb11b",
-	"8a6c124bd7ce0690", "18d9c189ea50a499", "0d5623108cd04bb3", "d5cd7829ea1a832b",
-	"e6ce61c708218c6c", "f7a04184a8012a47", "68061a21c55232dd", "f476d3c9d45be849",
-	"22652d9506d8cb21", "7e9a5233c6a06e9e", "426cf87abc1469d8", "24088a3028d84aca",
-	"d46c1f0383269366", "193b60b80aa950e8", "0f85708d48a08bb0", "6aff04274ac7fd03",
-	"de0b997787f2f5f2", "b847b7983f034675", "109284be4bbe8ad6", "6219cd1ee06e3e90",
-	"ddd32470fc8460ce", "663456113d952cf2", "572a2125d95d8292", "ceccaf988fe94d9b",
+	"654c85dfd72378a2", "471f6cf03028b4f1", "50bacf3483cc7a20", "fc47f795e2907358",
+	"6681bd16b1cde053", "4c0750dcc049da65", "f2939243c536f9b3", "e54f8ab7ab6d634b",
+	"94b825eeec4fb170", "ccec2e735b5aeb4b", "b273fe4be9a5100f", "a4e3ecbe7669c0e9",
+	"7a8cc2e9464d60f2", "3b1780319de409bb", "dd48c57ab1e2741d", "21e5f70afdae3ff6",
+	"4f0b00c30ac5c7df", "5f05affabd631bbf", "b2dee602840f3c4e", "724c59b93cda7fba",
+	"4cdf950861ab6513", "ac7889331405401c", "a0d89e314be23f63", "6024b824e62fc4ce",
+	"3e18087f29be2b90", "74e2dbcaf5e2ba70", "139c0a842b7382d6", "c8badbf28da3823b",
+	"5800b45570dd2a18", "0c09312bf7e15fe9", "ed3baead81ec7a8b", "c640220b83cd2191",
+	"12d27cc0de11c76a", "14b1fdccb02041b6", "b854c9aa040755de", "901be27b24da6702",
+	"58afab91e894588a", "f9969cb6efd72e89", "51690090fb2ddeb3", "7a5fc151e228bfee",
+	"8d72e48f3ed1ba95", "6e237aec49173a38", "5a398c18d23d7db4", "9729ac6f5e4a3696",
+	"683d2e189e10c53a", "d1864c993e02dc21", "9145fe0f48e13355", "c334d56468f2c2da",
+	"467ec39472ea452d", "d094a8d53c77ead5", "d9607572a11e26b4", "671312fe88dba59f",
+	"6a1f608be972c268", "623933dd43fa64d2", "1b6840e48c6b29c0", "2455bbfed17ccc61",
+	"3941920652b860b9", "9ae621d6bbed437f", "6148f9aa3197ee39", "e4ef0a0021692043",
 }

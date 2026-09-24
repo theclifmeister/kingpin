@@ -43,6 +43,38 @@ days = 14
 shown = 7
 big_share = 0.25
 
+# The morning's lead (#354): the report opens with the `lines` biggest
+# changes of the night under TODAY, and the journal keeps them (source
+# `digest`). Each kind of change scores its weight times its count: the
+# corners and the crew lost, the police's seizures (a raid, a seized
+# shipment, an audit's take), the pages the DA filed, the corners won,
+# the corners nobody works and the runners with no post, a faction
+# moving into a city, a faction's scouts or recruiters in one (#341),
+# an investigation the police opened (#343); the cash flow scores its weight times the swing
+# of the night's profit (the net less purchases and investments)
+# against the average of the `week` nights before (#351), from
+# `min_swing` of it (a smaller swing is no line) up to `swing_cap`.
+# The biggest score leads; a tie goes to the kind listed first below.
+# A report: no sim reads it and it rolls no dice.
+[digest]
+lines = 3
+week = 7
+min_swing = 0.5
+swing_cap = 1.5
+
+[digest.weights]
+corner_lost = 10.0
+crew_lost = 8.0
+seizure = 9.0
+investigation = 8.0
+pages = 3.0
+flow = 5.0
+faction = 7.0
+scouts = 6.0
+corner_won = 4.0
+idle_corner = 2.0
+idle_runner = 1.5
+
 [templates]
 PriceShock = [
   "{{.Product}} prices surge after bust upriver",

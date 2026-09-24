@@ -57,35 +57,32 @@ func AlertKinds() []AlertKind {
 // it opens on. The engine names it and each front end maps it onto its
 // own screens and dialogs; one that lacks the screen shows the alert's
 // words alone. An act opens nothing that spends: a dialog that takes
-// money stays a key on the screen it lands on.
-type Act struct {
-	Screen  string `json:"screen"`            // a Screen* name
-	Mode    string `json:"mode,omitempty"`    // a Mode* name, or "" for the screen alone
-	Subject string `json:"subject,omitempty"` // a Subject* name: the alert's field that holds the id, or "" for none
-}
+// money stays a key on the screen it lands on. It is game.Act, the
+// shape the morning's lead lines carry too (#354).
+type Act = game.Act
 
 // The screens an act lands on, by the TUI's names for its tabs.
 const (
-	ScreenDashboard = "dashboard"
-	ScreenMarket    = "market"
-	ScreenCrew      = "crew"
-	ScreenMap       = "map"
-	ScreenLedger    = "ledger"
-	ScreenRivals    = "rivals"
+	ScreenDashboard = game.ScreenDashboard
+	ScreenMarket    = game.ScreenMarket
+	ScreenCrew      = game.ScreenCrew
+	ScreenMap       = game.ScreenMap
+	ScreenLedger    = game.ScreenLedger
+	ScreenRivals    = game.ScreenRivals
 )
 
 // ModePost is the one dialog an act opens: the post picker on the
 // alert's Corner.
-const ModePost = "post"
+const ModePost = game.ModePost
 
 // The subjects an act opens on, each the alert's field of that name.
 const (
-	SubjectMember   = "member"
-	SubjectCorner   = "corner"
-	SubjectContract = "contract"
-	SubjectSupplier = "supplier"
-	SubjectHouse    = "house"
-	SubjectCity     = "city"
+	SubjectMember   = game.OnMember
+	SubjectCorner   = game.OnCorner
+	SubjectContract = game.OnContract
+	SubjectSupplier = game.OnSupplier
+	SubjectHouse    = game.OnHouse
+	SubjectCity     = game.OnCity
 )
 
 // The acts more than one kind carries.

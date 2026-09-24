@@ -252,7 +252,11 @@ func TestIncidentSceneOnTheWeather(t *testing.T) {
 		t.Fatalf("after F: kind %v scene %v", m.reportScene, m.scene)
 	}
 	body := m.reportLines()
-	if i := incidentRow(body, m.w.Report); i != 3 || !strings.HasPrefix(stripANSI(body[0]), "Stopped after") {
+	want := 3 // the stop line, a blank, the heading
+	if n := len(m.w.Report.Lead); n > 0 {
+		want += n + 2 // TODAY, its lines and a blank (#354)
+	}
+	if i := incidentRow(body, m.w.Report); i != want || !strings.HasPrefix(stripANSI(body[0]), "Stopped after") {
 		t.Errorf("the incident's row under the stop line is %d: %q", i, stripANSI(strings.Join(body[:4], "|")))
 	}
 	tickAt(m, now)

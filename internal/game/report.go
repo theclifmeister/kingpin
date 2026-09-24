@@ -27,7 +27,60 @@ type DayReport struct {
 	CashBefore int
 	CashAfter  int
 	Flow       CashFlow // the night's money by category, dirty and clean (#351); CashBefore and CashAfter are its opening and closing
+	Lead       []Line   // the night's biggest changes, biggest first (#354): the report opens with them under TODAY
 }
+
+// Line is one line of the morning's lead (#354): what changed, in
+// words, and what answers it. Kind is the headlines.toml [digest] key
+// that scored it; Member, Corner, City and House are the ids the act's
+// subject names, as an alert's are (engine.Alert), zero where it names
+// none.
+type Line struct {
+	Kind   string
+	Text   string
+	Act    Act
+	Member int
+	Corner string
+	City   string
+	House  string
+}
+
+// Act is what answers a line (#352): the screen that deals with it, the
+// dialog it opens there, and which of the line's own fields names what
+// it opens on. The engine's alerts carry it (engine.Act is this type)
+// and so does the morning's lead (#354); each front end maps it onto
+// its own screens and dialogs, and one that lacks the screen shows the
+// words alone. An act opens nothing that spends.
+type Act struct {
+	Screen  string `json:"screen"`            // a Screen* name
+	Mode    string `json:"mode,omitempty"`    // a Mode* name, or "" for the screen alone
+	Subject string `json:"subject,omitempty"` // an On* name: the field that holds the id, or "" for none
+}
+
+// The screens an act lands on, by the TUI's names for its tabs.
+const (
+	ScreenDashboard = "dashboard"
+	ScreenMarket    = "market"
+	ScreenCrew      = "crew"
+	ScreenMap       = "map"
+	ScreenLedger    = "ledger"
+	ScreenRivals    = "rivals"
+)
+
+// ModePost is the one dialog an act opens: the post picker on the
+// line's Corner.
+const ModePost = "post"
+
+// The subjects an act opens on, each the field of that name on the
+// alert or the line.
+const (
+	OnMember   = "member"
+	OnCorner   = "corner"
+	OnContract = "contract"
+	OnSupplier = "supplier"
+	OnHouse    = "house"
+	OnCity     = "city"
+)
 
 // Ending records how a run finished: the day, the cause (one of
 // content.Causes: indicted, arrested, broke, retired, businessman,
