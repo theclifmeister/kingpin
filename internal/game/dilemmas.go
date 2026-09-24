@@ -42,6 +42,7 @@ type Card struct {
 	Member  int    // crew id the card is about; 0 nobody
 	Corner  string // corner id the card is about; "" none
 	Amount  int    // the sum the card is about; 0 none
+	Faction string // the faction the card is about (#385); "" is the rival at home, a save from before
 	Hide    bool   // the card's drama is the unknown (#358): no preview, "costs you something"
 }
 
@@ -110,10 +111,27 @@ var effects = map[string]func(w *World, c *Card, v float64){
 			w.Crew.Members[i].Loyalty = clamp(w.Crew.Members[i].Loyalty + v)
 		}
 	},
-	"war":          func(w *World, _ *Card, v float64) { w.Rival().War = clamp(w.Rival().War + v) },
-	"grudge":       func(w *World, _ *Card, v float64) { w.Rival().Grudge = max(0, w.Rival().Grudge+int(v)) },
-	"rival_muscle": func(w *World, _ *Card, v float64) { w.Rival().Muscle = max(0, w.Rival().Muscle+int(v)) },
-	"rival_cash":   func(w *World, _ *Card, v float64) { w.Rival().Cash = max(0, w.Rival().Cash+int(v)) },
+	// The rival's four land on the faction the card is about (#385).
+	"war": func(w *World, c *Card, v float64) {
+		if r := w.Faction(c.Faction); r != nil {
+			r.War = clamp(r.War + v)
+		}
+	},
+	"grudge": func(w *World, c *Card, v float64) {
+		if r := w.Faction(c.Faction); r != nil {
+			r.Grudge = max(0, r.Grudge+int(v))
+		}
+	},
+	"rival_muscle": func(w *World, c *Card, v float64) {
+		if r := w.Faction(c.Faction); r != nil {
+			r.Muscle = max(0, r.Muscle+int(v))
+		}
+	},
+	"rival_cash": func(w *World, c *Card, v float64) {
+		if r := w.Faction(c.Faction); r != nil {
+			r.Cash = max(0, r.Cash+int(v))
+		}
+	},
 	"stock_share": func(w *World, _ *Card, v float64) {
 		for _, cid := range w.CityOrder {
 			free := w.Free(cid)
@@ -248,7 +266,8 @@ type CardSlots struct {
 	Role     string
 	Corner   string // a corner of yours
 	Theirs   string // the rival corner it borders, when contested
-	Rival    string // the rival's leader
+	Rival    string // the leader of the faction the card is about
+	Faction  string // that faction's id (#385); "" none standing, and the rival at home is named
 	City     string
 	Front    string
 	Product  string // the product you hold most of
@@ -334,8 +353,9 @@ func Eligible(w *World, c content.CardConfig) (CardSlots, bool) {
 		}
 		s.Name, s.Role, s.MemberID = pick.Name, pick.Role, pick.ID
 	}
+	var theirs *Corner // the rival corner a contested card borders
 	if t.Corners > 0 || t.Contested {
-		var mine, theirs *Corner
+		var mine *Corner
 		corners := w.Corners()
 		for i := range corners {
 			c := &corners[i]
@@ -346,7 +366,7 @@ func Eligible(w *World, c content.CardConfig) (CardSlots, bool) {
 				var o *Corner
 				for j := range corners {
 					r := &corners[j]
-					if r.Owner == OwnerRival && r.Borders(*c) && (o == nil || r.Demand > o.Demand) {
+					if r.Owner == OwnerRival && r.Borders(*c) && standing(w, r.FactionID()) && (o == nil || r.Demand > o.Demand) {
 						o = r
 					}
 				}
@@ -370,13 +390,26 @@ func Eligible(w *World, c content.CardConfig) (CardSlots, bool) {
 			s.Theirs = theirs.Name
 		}
 	}
-	if t.Rival && w.RivalHeld() == 0 {
+	// The faction the card is about (#385): the one on the corner it
+	// borders, else the one holding most where the card is, else most
+	// anywhere; never one that is gone. With none standing the card
+	// names the rival at home, as it did, and the rival triggers fail.
+	var r *RivalState
+	if theirs != nil {
+		r = w.Faction(theirs.FactionID())
+	} else {
+		r = cardFaction(w, s.CityID)
+	}
+	if r != nil {
+		s.Rival, s.Faction = r.Leader, r.Faction()
+	}
+	if t.Rival && r == nil {
 		return s, false
 	}
-	if t.Personality != "" && (w.RivalHeld() == 0 || w.Rival().Personality != t.Personality) {
+	if t.Personality != "" && (r == nil || r.Personality != t.Personality) {
 		return s, false
 	}
-	if t.WarMin > 0 && (w.RivalHeld() == 0 || w.Rival().War < t.WarMin) {
+	if t.WarMin > 0 && (r == nil || r.War < t.WarMin) {
 		return s, false
 	}
 	if t.Fronts {
@@ -423,6 +456,38 @@ func Eligible(w *World, c content.CardConfig) (CardSlots, bool) {
 	}
 	s.Amount = format.Money(s.Sum)
 	return s, true
+}
+
+// standing reports whether the faction id is one still at the table:
+// a gone faction's corners drift to the street and nobody on them is
+// anybody a card can be about (#385).
+func standing(w *World, id string) bool {
+	r := w.Faction(id)
+	return r != nil && !r.Gone()
+}
+
+// cardFaction is the faction a card with no corner of theirs is about
+// (#385): the standing faction holding most corners in the card's city
+// (where you are when the trigger names none), else most anywhere, the
+// first on a tie; nil when no standing faction holds a corner.
+func cardFaction(w *World, city string) *RivalState {
+	if city == "" {
+		city = w.Here().ID
+	}
+	if r := w.StrongestFaction(city); r != nil {
+		return r
+	}
+	var best *RivalState
+	most := 0
+	for _, r := range w.Rivals {
+		if r == nil || r.Gone() {
+			continue
+		}
+		if n := w.RivalHeldBy(r.Faction()); n > most {
+			best, most = r, n
+		}
+	}
+	return best
 }
 
 // payingPile is the pile a card's choice pays the card's whole sum from

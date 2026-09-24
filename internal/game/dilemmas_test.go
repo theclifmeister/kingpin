@@ -268,3 +268,63 @@ func TestCardSumIsWhatThePileCanPay(t *testing.T) {
 		t.Errorf("a gift: $%d %v", s.Sum, ok)
 	}
 }
+
+// A card is about a faction still at the table (#385): with the rival at
+// home fragmented, a rival card names the faction that holds the ground,
+// its effects and its preview land on that faction, a contested card
+// borders only a standing faction's corner, and with nobody standing on
+// a corner no rival card is drawn. A seed-41 replay dealt "Uncle Roy is
+// in hospital" thirteen days after he was killed.
+func TestCardIsAboutAStandingFaction(t *testing.T) {
+	w := testWorld()
+	w.Home().Corners = append(w.Home().Corners, Corner{ID: "far", City: "test", Name: "Far", Demand: 1, Heat: 1, Risk: 1, Owner: OwnerNone})
+	cs := w.Home().Corners
+	for i := range cs {
+		cs[i].X, cs[i].Y = i, 0
+	}
+	roy := &RivalState{ID: FactionRival, Leader: "Uncle Roy", Arrived: 1, Fragmented: 1, Muscle: 3}
+	lena := &RivalState{ID: "f2", Leader: "Lena", Arrived: 1, Muscle: 3, Personality: "defensive"}
+	w.Rivals = []*RivalState{roy, lena}
+	cs[1].Owner, cs[1].Faction = OwnerRival, FactionRival // Roy's, drifting to the street
+	cs[2].Owner, cs[2].Faction = OwnerRival, "f2"
+
+	push := []content.ChoiceConfig{{Effects: map[string]float64{"war": 12, "rival_muscle": -2}}, {}}
+	laidUp := content.CardConfig{ID: "rival_laid_up", Trigger: content.CardTrigger{Rival: true, Contested: true}, Choices: push}
+	sitDown := content.CardConfig{ID: "sit_down", Trigger: content.CardTrigger{Rival: true, Personality: "defensive"}, Choices: push}
+
+	if _, ok := Eligible(w, laidUp); ok {
+		t.Fatal("a contested card drawn on the corner of a fragmented faction")
+	}
+	s, ok := Eligible(w, sitDown)
+	if !ok || s.Rival != "Lena" || s.Faction != "f2" {
+		t.Fatalf("a rival card with Lena on the map: %+v %v", s, ok)
+	}
+
+	cs[1].Faction = "f2" // Lena takes the corner beside yours
+	s, ok = Eligible(w, laidUp)
+	if !ok || s.Rival != "Lena" || s.Theirs != "Docks" || s.Faction != "f2" {
+		t.Fatalf("the contested card: %+v %v", s, ok)
+	}
+	c := &Card{ID: "rival_laid_up", Faction: s.Faction, Choices: []Choice{{Label: "Push", Effects: push[0].Effects}, {Label: "Wait"}}}
+	pre, err := c.Preview(w, 0)
+	if err != nil {
+		t.Fatal(err)
+	}
+	w.Dilemmas.Pending = c
+	before := Reading(w, c)
+	if _, err := w.Choose(0); err != nil {
+		t.Fatal(err)
+	}
+	if lena.War != 12 || lena.Muscle != 1 || roy.War != 0 || roy.Muscle != 3 {
+		t.Fatalf("the push landed on Lena %+v and Roy %+v", *lena, *roy)
+	}
+	if got := Moved(before, w, c); len(pre) != 2 || len(got) != 2 || pre[0] != got[0] || pre[1] != got[1] {
+		t.Fatalf("preview %+v, moved %+v", pre, got)
+	}
+
+	cs[1].Owner, cs[1].Faction = OwnerNone, ""
+	cs[2].Owner, cs[2].Faction = OwnerNone, ""
+	if _, ok := Eligible(w, sitDown); ok {
+		t.Fatal("a rival card drawn with no standing faction on a corner")
+	}
+}

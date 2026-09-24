@@ -224,14 +224,15 @@ func (s *Sim) drawCard(w *game.World, t *game.Tick) {
 	}
 	c, sl := chosen.card, chosen.slots
 	pending := &game.Card{
-		ID:     c.cfg.ID,
-		Day:    t.Day,
-		Title:  renderSlots(c.title, sl),
-		Text:   renderSlots(c.text, sl),
-		Member: sl.MemberID,
-		Corner: sl.CornerID,
-		Amount: sl.Sum,
-		Hide:   c.cfg.Hide,
+		ID:      c.cfg.ID,
+		Day:     t.Day,
+		Title:   renderSlots(c.title, sl),
+		Text:    renderSlots(c.text, sl),
+		Member:  sl.MemberID,
+		Corner:  sl.CornerID,
+		Amount:  sl.Sum,
+		Faction: sl.Faction,
+		Hide:    c.cfg.Hide,
 	}
 	for i, ch := range c.choices {
 		pending.Choices = append(pending.Choices, game.Choice{
