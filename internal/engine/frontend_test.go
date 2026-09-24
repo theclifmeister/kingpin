@@ -23,7 +23,7 @@ var worldReads = []string{
 	"DealWith", "DeedValue", "Deeds", "DeedsIn", "DelegatedOrder", "DelegatedSupplied", "Deliverable", "Demand",
 	"Describe", "DrivenRoute", "Faction", "FactionIndex", "FactionName", "FallGuyLeft", "FavourCalled", "Free",
 	"Front", "FrontCity", "GuardOf", "Held", "Here", "HomageDeals", "Home", "House", "HousesIn",
-	"Lot", "MaxBuy", "Missing", "NextDoor", "Order", "Owed", "Owns", "PostOf", "Product",
+	"LeadName", "Lot", "MaxBuy", "Missing", "NextDoor", "Order", "Owed", "Owns", "PostOf", "Product",
 	"ProductName", "Quality", "QueuedDelivery", "Quote", "ReachedOn", "ReignDay", "ReservedToday", "Rival",
 	"RivalHeld", "RivalHeldBy", "Route", "RouteClosed", "Score", "Side", "SplitLinesWith", "Stage",
 	"StagePending", "Stance", "StashOf", "Stashed", "Stock", "StockIn", "Street", "StreetCapacity",

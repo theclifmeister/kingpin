@@ -47,6 +47,7 @@ func main() {
 	hardDA := flag.Bool("hardda", false, "start every run with a law-and-order DA and a zealous chief (#50, the hard DA toggle): set at NewWorld, never pinned; -chief and -da pin")
 	deeds := flag.String("deeds", "on", "on | off: off boxes city.toml's [deed] table (#194, harness.NoDeeds): no block is on sale, so boss buys none; a run with it off is the run before the feature")
 	roles := flag.String("roles", "on", "on | off: off boxes the fronts' roles (#344, harness.NoFrontRoles): every front only washes; a run with it off is the run before the feature")
+	investigation := flag.String("investigation", "", "on | off: switch heat.toml's [investigation] (#343, harness.Investigations): on, the police name an operation before the sting; off, the blind sting, the run before the feature (default the file's)")
 	flag.Parse()
 	if *runs < 1 {
 		fmt.Fprintf(os.Stderr, "-runs %d: at least one run\n", *runs)
@@ -71,6 +72,7 @@ func main() {
 	oneOf("life", *life, "on", "off")
 	oneOf("deeds", *deeds, "on", "off")
 	oneOf("roles", *roles, "on", "off")
+	oneOf("investigation", *investigation, "", "on", "off")
 	oneOf("incidents", *incidents, "on", "off")
 	oneOf("cards", *cards, "", "decline", "first")
 	oneOf("rival", *rival, append([]string{"", "none"}, content.Personalities...)...)
@@ -106,6 +108,9 @@ func main() {
 	}
 	if *roles == "off" {
 		cfg = harness.NoFrontRoles(cfg)
+	}
+	if *investigation != "" {
+		cfg = harness.Investigations(cfg, *investigation == "on")
 	}
 	p := entry.Make(cfg, harness.PolicyOpts{
 		LieLow:     *lieLow,

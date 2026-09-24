@@ -27,10 +27,6 @@ type oldRunCase struct {
 	// box is the file with the feature taken off: a copy, never the
 	// original (TestHarnessTestsShareNothing).
 	box func(*content.Config) *content.Config
-	// file, if set, is the file the case plays against the box in place
-	// of the file as it is: the feature on the ground at the identity
-	// (#344's roles at every multiplier 1), a copy, never the original.
-	file func(*content.Config) *content.Config
 	// policies are the players, each built on the config it plays.
 	policies map[string]func(*content.Config) Policy
 	// seeds are played 1..seeds, days deep (a run that ends sooner is
@@ -69,6 +65,12 @@ type oldRunCase struct {
 	// under. Unset, the raw file plays, the deck dealt and never
 	// answered and the weather on, as the eight copies before #276 did.
 	asRun bool
+	// file, if set, is what the file side plays instead of the file as
+	// it ships: a feature the file turns on (#343, investigations) is
+	// compared switched off against the table boxed; #344's roles at
+	// the identity (every multiplier 1) against the roles boxed. The box
+	// is taken of it.
+	file func(*content.Config) *content.Config
 }
 
 // assertOldRun plays c: one parallel subtest a policy and a seed, named
@@ -77,10 +79,10 @@ type oldRunCase struct {
 func assertOldRun(t *testing.T, c oldRunCase) {
 	t.Helper()
 	cfg := content.MustLoad()
-	off := c.box(cfg)
 	if c.file != nil {
 		cfg = c.file(cfg)
 	}
+	off := c.box(cfg)
 	if c.seeds == 0 || c.days == 0 {
 		t.Fatal("an old-run case plays no seed or no day")
 	}
