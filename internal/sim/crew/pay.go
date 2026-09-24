@@ -26,14 +26,14 @@ func (s *Sim) skim(n *night) {
 		wash += f.WashedToday
 	}
 	n.enforcers = c.Role(game.RoleEnforcer)
-	deter := math.Pow(1-s.cfg.Role[game.RoleEnforcer].Deterrence, float64(n.enforcers))
+	deter := math.Pow(1-s.cfg.Role[game.RoleEnforcer].Deterrence, s.deterrence(c, n.enforcers)) // a hothead counts (#346)
 	share, washShare := 0.0, 0.0
 	skimmers := 0
 	for _, m := range c.Members {
 		if m.Loyalty >= tun.SkimThreshold {
 			continue
 		}
-		if t.RNG.Float64() < tun.SkimChance*fx.SkimChanceMul*deter {
+		if t.RNG.Float64() < s.skimOdds(m, fx, deter) {
 			cut := tun.SkimShare * (0.5 + float64(m.Greed)/100)
 			if m.Role == game.RoleAccountant {
 				washShare += cut

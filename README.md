@@ -452,10 +452,12 @@ The full table is below; `?` brings it up in the game.
 | `o` | cook | the chemist cooks a batch where you stand | market |
 | `d` | deliver | hand the buyer what the stash here holds | market |
 | `R` | restock | buy days of your corners' demand, reviewed | market |
+| `P` | presets | the routine's dials in one bundle, reviewed | market |
 | `pgup pgdn` | page | page through the journal | journal |
 | `f` | filter | show one source's headlines, then all again | journal |
 | `h` | hire | hire the selected candidate | crew |
 | `f` | fire | fire the selected member, after asking | crew |
+| `c` | captain | make the selected veteran captain of a city | crew |
 | `l` | assign | give the selected lieutenant a city to run | crew |
 | `i` | investigate | ask who is talking to the police, for a fee | crew |
 | `$` | pay off | buy the selected member's loyalty | crew |
@@ -492,6 +494,7 @@ The full table is below; `?` brings it up in the game.
 | `w` | declare war | enforcers on the faction every night, hit | rivals |
 | `w` | call off war | stand the enforcers down | rivals |
 | `$` | buy off | pay the rival's muscle to go home | rivals |
+| `h` | hit scouts | run a faction's scouts out of town, once | rivals |
 | `$` | pay cop | a cop's word on the chief and the police | intel |
 | `p` | plant spy | send a crew member under with a faction | intel |
 <!-- keys:end -->

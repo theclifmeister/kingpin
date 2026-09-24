@@ -103,6 +103,7 @@ type paged interface {
 type picker struct {
 	cursor int
 	role   string // the post picker's: runner or enforcer
+	budget int    // the captain picker's (#346): the index of the budget in crew.toml [captain] budgets
 }
 
 func (p *picker) page() int           { return 0 }

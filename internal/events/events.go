@@ -1111,6 +1111,63 @@ type RivalAbsorbed struct {
 
 func (RivalAbsorbed) Kind() string { return "RivalAbsorbed" }
 
+// RivalScouting is a faction's scouts in a city where the player earns
+// and no faction lives (#341): the first of the expansion's stages.
+// Cell names the faction it split off ("" a seat still in the wings);
+// Recruit is the day it begins recruiting there and Arrive the day it
+// moves in, all being well.
+type RivalScouting struct {
+	Day     int
+	City    string
+	Rival   string
+	Faction string
+	Cell    string
+	Recruit int
+	Arrive  int
+}
+
+func (RivalScouting) Kind() string { return "RivalScouting" }
+
+// RivalRecruiting is the expansion's second stage (#341): the faction
+// hiring in the city, Bite of the hiring pool's best faces taken (the
+// crew sim drops them) and the player's crew there poachable until it
+// arrives on Arrive. Past it the scouts no longer go home.
+type RivalRecruiting struct {
+	Day     int
+	City    string
+	Rival   string
+	Faction string
+	Bite    int
+	Arrive  int
+}
+
+func (RivalRecruiting) Kind() string { return "RivalRecruiting" }
+
+// RivalWithdrew is the scouts going home (#341): the take in the city
+// fell back under the line before they recruited.
+type RivalWithdrew struct {
+	Day     int
+	City    string
+	Rival   string
+	Faction string
+}
+
+func (RivalWithdrew) Kind() string { return "RivalWithdrew" }
+
+// ScoutsHit is the player's enforcers hitting a faction's scouts
+// (#341): it is set back Setback days, to arrive on Arrive, and holds a
+// grudge.
+type ScoutsHit struct {
+	Day     int
+	City    string
+	Rival   string
+	Faction string
+	Setback int
+	Arrive  int
+}
+
+func (ScoutsHit) Kind() string { return "ScoutsHit" }
+
 // RivalLeaderArrested is a faction's leader taken by the police (its
 // heat past leader_arrest_heat, your tips) or killed (the
 // rival_leader_killed incident, Killed): the faction fragments, its
@@ -1917,6 +1974,40 @@ type TaskForceFormed struct {
 
 func (TaskForceFormed) Kind() string { return "TaskForceFormed" }
 
+// InvestigationOpened is the heat sim naming what the police are
+// looking at (#343): the night the sting would have come to City, they
+// open an investigation on the biggest source of its heat instead. Lead
+// is corner, product or house (game.LeadCorner..), Target its id and
+// Name its name; the hit comes on the night Due.
+type InvestigationOpened struct {
+	Day    int
+	City   string
+	Lead   string
+	Target string
+	Name   string
+	Due    int
+}
+
+func (InvestigationOpened) Kind() string { return "InvestigationOpened" }
+
+// InvestigationClosed is the night an investigation lands (#343). Hit
+// says it found its target in use or holding stock: an Enforcement of
+// level sting rides beside it with what it took and filed. A miss is
+// the target suspended, moved or emptied in time: nothing taken,
+// nothing filed. Fell says a favour called in (#228) stood it down.
+type InvestigationClosed struct {
+	Day      int
+	City     string
+	Lead     string
+	Target   string
+	Name     string
+	Hit      bool
+	Fell     bool
+	Evidence int
+}
+
+func (InvestigationClosed) Kind() string { return "InvestigationClosed" }
+
 // AssetSeized is the task force taking an asset (#48): gone, not
 // frozen. It rides beside the Enforcement of level taskforce.
 type AssetSeized struct {
@@ -2009,3 +2100,42 @@ type IntelFalse struct {
 }
 
 func (IntelFalse) Kind() string { return "IntelFalse" }
+
+// CrewTrait is a veteran showing what they are (#346): Trait, at Days
+// of service, Good when the crew screen reads it as a strength.
+type CrewTrait struct {
+	Day   int
+	ID    int
+	Name  string
+	Role  string
+	Trait string
+	Days  int
+	Good  bool
+}
+
+func (CrewTrait) Kind() string { return "CrewTrait" }
+
+// CaptainActed is report-only bookkeeping (#346): what a captain did
+// for their city tonight through the player's own actions (the runners
+// Posted, by corner name; the members Paid off and what that cost; the
+// suspected skimmers Pulled off a corner) and the Cut they kept of the
+// city's takings. Absent says they were in a cell, laid up or under;
+// Careless that their loyalty is under the care line and they did
+// nothing.
+type CaptainActed struct {
+	Day        int
+	ID         int
+	Name       string
+	City       string
+	CityName   string
+	Posted     []string
+	Paid       []string
+	Spent      int
+	SpentClean int // of Spent, what came out of the clean pile (#351), for the report's flow
+	Pulled     []string
+	Cut        int
+	Absent     bool
+	Careless   bool
+}
+
+func (CaptainActed) Kind() string { return "CaptainActed" }

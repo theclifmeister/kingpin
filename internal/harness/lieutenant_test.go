@@ -436,7 +436,8 @@ func TestLieutenantSurvivesSave(t *testing.T) {
 // at the horizon, and is never indicted.
 func TestDelegatedNearDistributor(t *testing.T) {
 	t.Parallel()
-	cfg := content.MustLoad()
+	// The expansion boxed (#341, harness.NoExpansion): this prices the cut, and a lieutenant answers no faction drawn to the hub (delegated $24.0M against the distributor's $37.9M on the file, $49.4M against $45.0M boxed).
+	cfg := NoExpansion(content.MustLoad())
 	var del, dist []int
 	for seed := uint64(1); seed <= 10; seed++ {
 		d, err := Run(cfg, seed, Horizon, Delegated(cfg, 40, "steady"))

@@ -63,6 +63,8 @@ var bindings = []binding{
 		do: func(m *Model, _ string) { m.deliverSelected() }},
 	{key: "R", label: "restock", help: "buy days of your corners' demand, reviewed", screens: on(screenMarket),
 		do: func(m *Model, _ string) { m.askRestock() }},
+	{key: "P", label: "presets", help: "the routine's dials in one bundle, reviewed", screens: on(screenMarket),
+		do: func(m *Model, _ string) { m.askPresets() }},
 	// The journal: one source at a time.
 	{key: "f", label: "filter", help: "show one source's headlines, then all again", screens: on(screenJournal),
 		do: func(m *Model, _ string) { m.cycleFilter() }},
@@ -71,6 +73,8 @@ var bindings = []binding{
 		do: func(m *Model, _ string) { m.hireSelected() }},
 	{key: "f", label: "fire", help: "fire the selected member, after asking", screens: on(screenCrew),
 		do: func(m *Model, _ string) { m.askFire() }},
+	{key: "c", label: "captain", help: "make the selected veteran captain of a city", screens: on(screenCrew),
+		do: func(m *Model, _ string) { m.askCaptain() }},
 	{key: "l", label: "assign", help: "give the selected lieutenant a city to run", screens: on(screenCrew),
 		do: func(m *Model, _ string) { m.askAssign() }},
 	{key: "i", label: "investigate", help: "ask who is talking to the police, for a fee", screens: on(screenCrew),
@@ -165,6 +169,8 @@ var bindings = []binding{
 		do: func(m *Model, _ string) { m.askCallOffWar() }},
 	{key: "$", label: "buy off", help: "pay the rival's muscle to go home", screens: on(screenRivals),
 		do: func(m *Model, _ string) { m.askBuyOff() }},
+	{key: "h", label: "hit scouts", help: "run a faction's scouts out of town, once", screens: on(screenRivals), when: onScouts,
+		do: func(m *Model, _ string) { m.askHitScouts() }},
 	// Intel (#45).
 	{key: "$", label: "pay cop", help: "a cop's word on the chief and the police", screens: on(screenIntel),
 		do: func(m *Model, _ string) { m.askPayCop() }},
@@ -234,9 +240,10 @@ var bindings = []binding{
 // alias). The keys themselves are handled by handleKey; the table is
 // what the footer and the status bar say.
 var modeBindings = []binding{
-	{key: "↑↓", label: "pick", modes: in(modeStart, modePost, modeStrike, modeFront, modeAssign, modePropose, modeGuard, modeDriver, modeSpy)},
+	{key: "↑↓", label: "pick", modes: in(modeStart, modePost, modeStrike, modeFront, modeAssign, modePropose, modeGuard, modeDriver, modeSpy, modeCaptain)},
 	// Every picker takes the digits as select-and-commit and says so (#241).
-	{key: "1-9", label: "choose", modes: in(modePost, modeStrike, modeFront, modeAssign, modePropose, modeGuard, modeDriver, modeSpy)},
+	{key: "1-9", label: "choose", modes: in(modePost, modeStrike, modeFront, modeAssign, modePropose, modeGuard, modeDriver, modeSpy, modeCaptain)},
+	{key: "←→", label: "budget", modes: in(modeCaptain)},
 	{key: "1-9", label: "choose", modes: in(modeExit), when: step(0)},
 	// The undercut is a dial like the sale's (#241): ←→ turns it, 1-3 pick a notch.
 	{key: "←→", label: "dial", modes: in(modeUndercut)},
@@ -297,6 +304,7 @@ var modeBindings = []binding{
 	{key: "enter", label: "send", modes: in(modeStrike)},
 	{key: "enter", label: "undercut", modes: in(modeUndercut)},
 	{key: "enter", label: "assign", modes: in(modeAssign)},
+	{key: "enter", label: "name", modes: in(modeCaptain)},
 	{key: "enter", label: "next", modes: in(modeFund), when: fundNext},
 	{key: "enter", label: "next", modes: in(modeBribe), when: step(0)},
 	{key: "enter", label: "pay", modes: in(modeBribe), when: step(1)},
@@ -309,11 +317,19 @@ var modeBindings = []binding{
 	{key: "D", label: "delete", modes: in(modeStart)},
 	{key: "y", label: "<verb>", modes: in(modeConfirm)}, // the payload's verb (#242): fire, buy, go, scout…
 	{key: "y enter", label: "end day", modes: in(modeConfirmEnd)},
+	{key: "[ ]", label: "alert", keys: []string{"[", "]"}, modes: in(modeConfirmEnd), when: previewHasAlerts}, // the day's preview (#353)
+	{key: "o", label: "open alert", modes: in(modeConfirmEnd), when: previewHasAlerts},
 	{key: "enter", label: "run", modes: in(modeConfirmFast)},
 	{key: "enter", label: "pay", modes: in(modeConfirmBuyOff)},
 	{key: "enter", label: "invest", modes: in(modeInvest)},
 	{key: "enter", label: "reserve", modes: in(modeReserve)},
 	{key: "enter", label: "buy", modes: in(modeRestock)},
+	{key: "↑↓", label: "pick", modes: in(modePresets), when: step(0)},
+	{key: "1-9", label: "choose", modes: in(modePresets), when: step(0)},
+	{key: "enter", label: "review", modes: in(modePresets), when: step(0)},
+	{key: "s", label: "save current", modes: in(modePresets), when: step(0)},
+	{key: "x", label: "delete", modes: in(modePresets), when: presetOnSaved},
+	{key: "enter", label: "apply", modes: in(modePresets), when: step(1)},
 	{key: "enter", label: "pay", modes: in(modePayCop)},
 	{key: "enter", label: "next", modes: in(modeSpy), when: spyOnFactions},
 	{key: "enter", label: "plant", modes: in(modeSpy), when: spyOnCrew},

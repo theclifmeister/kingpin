@@ -102,10 +102,21 @@ func (s *Sim) wants(w *game.World, b content.BuyerConfig) (cities []string, prod
 
 // Gaps is the pacing of the buyers' offers today: none for the first
 // gap of days after the last, one certain by the second, both
-// [buyers]'s scaled by the Operations branch (buyer_gap_mul), the first
-// never over the second.
+// [buyers]'s scaled by the Operations branch (buyer_gap_mul) and by the
+// best buyer_gap_mul of a veteran's trait at work (#346: a connected
+// one; the deck's pacing is one for every city, so theirs is too), the
+// first never over the second.
 func (s *Sim) Gaps(w *game.World) (minGap, maxGap int) {
-	mul := game.FoldEffects(w, s.tree).BuyerGapMul
+	mul := game.FoldEffectsAll(w, s.tree).BuyerGapMul // a nightclub anywhere brings the buyers (#344)
+	best := 1.0
+	for _, m := range w.Crew.Members {
+		if m.Trait != "" && m.Working() {
+			best = math.Min(best, s.traits[m.Trait].GapMul())
+		}
+	}
+	if best < 1 {
+		mul *= best
+	}
 	pace := s.bcfg.Buyers
 	minGap = max(0, int(math.Round(float64(pace.MinGap)*mul)))
 	maxGap = max(minGap, int(math.Round(float64(pace.MaxGap)*mul)))

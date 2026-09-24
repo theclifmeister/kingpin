@@ -55,7 +55,7 @@ The morning report opens with the night's three biggest changes, under TODAY, wi
 Each is one key from the screen that deals with it.
 
 **The news sim ranks the night** (`sim/news/digest.go`, `Sim.lead`).
-It scores every kind of change that happened, `headlines.toml [digest.weights]` times its count, and keeps the biggest `[digest] lines` (3) as `DayReport.Lead []game.Line{Kind, Text, Act, Member, Corner, City}`, biggest first.
+It scores every kind of change that happened, `headlines.toml [digest.weights]` times its count, and keeps the biggest `[digest] lines` (3) as `DayReport.Lead []game.Line{Kind, Text, Act, Member, Corner, City, House}`, biggest first.
 A tie goes to the kind `content.DigestKinds` lists first; decode wants a weight over zero for every kind and no other key.
 The kinds and what they count:
 - `corner_lost` (10): corners of yours gone back to the street (`CornerLost`, owner player), taken by a rival (`CornerTaken` from player) or walked off with a lieutenant (`LieutenantWalked`). Act: the map on the first corner.
@@ -63,12 +63,13 @@ The kinds and what they count:
 - `seizure` (9): the police's takes, a sting, raid or task force that took stock or cash, a seized shipment, an audit's take. The line sums the units and the cash. Act: the dashboard, where the police panel is.
 - `pages` (3 a page): what went in the DA's file from the night's events (`Enforcement`, `RaidFellThrough`, `BribeBackfired`, `LeadsFiled`). An informant's leak is never counted: the file's own growth would tell on them. Act: the dashboard.
 - `flow` (5 times the swing): the night's profit against the average of the `week` (7) nights before it in `World.Flows`, as a share of that average, from `min_swing` (0.5) and capped at `swing_cap` (1.5). Profit is the net less purchases and investments (#351's categories): stock bought is not money lost, and a buying day would read as a crash. It says nothing before there is a week. Words: `Profit fell 62% on the week`, `Profit ran ×3.1 the week's`, or `The night made -$486 against the week's +$26K a night` when it went negative. Act: the ledger, where FLOW is.
+- `investigation` (8): the police opening an investigation (#343, `InvestigationOpened`), one a night: `The police opened an investigation on The Docks: they come in 3 days.` Act: where the target is, as the investigation alert's, the corner on the map, the product's market, the house on the ledger (`Line.House`).
 - `faction` (7): a faction moving into a city (`RivalMovedIn`). Act: the map on the corner.
+- `scouts` (6): a faction's scouts or recruiters in a city (#341, `RivalScouting`, `RivalRecruiting`), each one counted: `Sal's scouts are in Bayport.` Act: the rivals screen, as the scouts alert's.
 - `corner_won` (4): corners claimed or struck and taken. Act: the map on the first.
 - `idle_corner` (2) and `idle_runner` (1.5): the standing trouble of #345, the corners you hold that nobody works (act: the post picker on the first) and the runners fit to work with no post (act: the first one's crew row).
 
 The weights put losses over gains and the standing trouble last, so a quiet morning leads with the profit swing or the idle crew, and a bad night leads with what went.
-Faction scouting (#341) and an investigation opening (#343) join the table when their events land.
 
 **It is a report.** The lead rolls no dice, and no sim reads it or the journal's `digest` lines (the sims that read the journal filter by source, and `digest` is in no source list).
 `TestLeadDoesNotMoveTheRun` plays the boss twice, once on the file's `[digest]` and once on a one-line digest with the weights turned round. The worlds are the same every day with the report and the digest lines set aside.

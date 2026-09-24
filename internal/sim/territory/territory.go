@@ -40,15 +40,18 @@ func (s *Sim) DeedPrice(w *game.World, c game.Corner) int {
 	if !s.cfg.Deed.On() {
 		return 0
 	}
-	return int(math.Round(s.cfg.Deed.Days * w.CornerTrade(c)))
+	return int(math.Round(s.cfg.Deed.Days * w.CornerTrade(c) * s.EffectsIn(w, c.City).DeedCostMul))
 }
 
-// DeedRent is what a deed pays back a day, clean: rent of its price.
-func (s *Sim) DeedRent(d *game.Deed) int {
-	if d == nil {
+// DeedRent is what a deed on the block c is on, bought at price, pays
+// back a day, clean: rent of its price, times rent_mul folded in c's
+// city (#344: the construction firm's). A held deed's rent is
+// DeedRent(w, c, c.Deed.Price); an offer's is the price it would cost.
+func (s *Sim) DeedRent(w *game.World, c game.Corner, price int) int {
+	if price <= 0 {
 		return 0
 	}
-	return int(math.Round(s.cfg.Deed.Rent * float64(d.Price)))
+	return int(math.Round(s.cfg.Deed.Rent * float64(price) * s.EffectsIn(w, c.City).RentMul))
 }
 
 // deedMul is what a deed does to the robbery chance on its block:
@@ -68,6 +71,14 @@ func (s *Sim) Tuning() content.TerritoryTuning { return s.cfg.Territory }
 // Effects is what the owned upgrades do to the street (#119), folded at
 // the top of the step and for every number the map shows.
 func (s *Sim) Effects(w *game.World) game.Effects { return game.FoldEffects(w, s.tree) }
+
+// EffectsIn is Effects with the fronts that stand in city folded in
+// (#344): what a corner, a house or a block there reads, the
+// restaurant's robbery_mul and the construction firm's deed_cost_mul
+// and rent_mul among them.
+func (s *Sim) EffectsIn(w *game.World, city string) game.Effects {
+	return game.FoldEffectsIn(w, s.tree, city)
+}
 
 // DriftDays is how many days a held corner nobody works lasts before it
 // goes back to the street: drift_days plus the tree's drift_days_bonus
@@ -134,7 +145,7 @@ func StartingCorners(cfg content.CityEntry) []game.Corner {
 // less what its enforcer takes off. A skill-100 enforcer removes the
 // full cut; a skill-0 one, half of it.
 func (s *Sim) RobberyChance(w *game.World, c *game.Corner) float64 {
-	return s.robberyChance(s.Effects(w), w, c)
+	return s.robberyChance(s.EffectsIn(w, c.City), w, c)
 }
 
 func (s *Sim) robberyChance(fx game.Effects, w *game.World, c *game.Corner) float64 {
@@ -159,7 +170,7 @@ func (s *Sim) guardCut(w *game.World, id int, p float64) float64 {
 // less what the guard inside takes off, exactly as an enforcer cuts a
 // corner's.
 func (s *Sim) HouseRobberyChance(w *game.World, h *game.House) float64 {
-	return s.houseRobberyChance(s.Effects(w), w, h)
+	return s.houseRobberyChance(s.EffectsIn(w, h.City), w, h)
 }
 
 func (s *Sim) houseRobberyChance(fx game.Effects, w *game.World, h *game.House) float64 {
@@ -180,7 +191,6 @@ func (s *Sim) RentDays() int { return s.houses.RentDays }
 // while, and rolls for robberies on the corners that are worked, city by
 // city.
 func (s *Sim) Step(w *game.World, t *game.Tick) {
-	fx := s.Effects(w)
 	s.deedStep(w, t)
 	// Today's takings per city and product, for the robbers.
 	revenue := map[string]int{}
@@ -195,10 +205,10 @@ func (s *Sim) Step(w *game.World, t *game.Tick) {
 		if cid != w.Home().ID {
 			rng = t.Sub(game.StreamTerritoryOf + cid)
 		}
-		s.step(w, t, rng, fx, w.Cities[cid], revenue)
+		s.step(w, t, rng, s.EffectsIn(w, cid), w.Cities[cid], revenue)
 	}
 	s.taxStep(w, t)
-	s.houseStep(w, t, fx)
+	s.houseStep(w, t)
 }
 
 // HoldsTheCity reports whether the tax holds in a city (#231): the city
@@ -285,14 +295,14 @@ func (s *Sim) deedStep(w *game.World, t *game.Tick) {
 			continue
 		}
 		n := w.DeedsIn(c.City)
-		t.Emit(events.DeedBought{Day: t.Day, Corner: c.ID, Name: c.Name, City: c.City, Price: c.Deed.Price, Rent: s.DeedRent(c.Deed), Count: n})
+		t.Emit(events.DeedBought{Day: t.Day, Corner: c.ID, Name: c.Name, City: c.City, Price: c.Deed.Price, Rent: s.DeedRent(w, *c, c.Deed.Price), Count: n})
 		if s.cfg.Deed.HeadlineDeeds > 0 && n >= s.cfg.Deed.HeadlineDeeds {
 			t.Emit(events.DeedsBought{Day: t.Day, Corner: c.ID, Name: c.Name, City: c.City, Count: n})
 		}
 	}
 	rent := events.DeedRent{Day: t.Day}
 	for _, c := range w.Deeds() {
-		if r := s.DeedRent(c.Deed); r > 0 {
+		if r := s.DeedRent(w, c, c.Deed.Price); r > 0 {
 			w.Player.CleanCash += r
 			w.Stats.DeedRent += r
 			rent.Amount += r
@@ -310,7 +320,7 @@ func (s *Sim) deedStep(w *game.World, t *game.Tick) {
 // draws nothing the old run did not), and then the rent, clean cash,
 // house by house in the order bought; a house whose rent has gone
 // unpaid rent_days running is lost with everything in it.
-func (s *Sim) houseStep(w *game.World, t *game.Tick, fx game.Effects) {
+func (s *Sim) houseStep(w *game.World, t *game.Tick) {
 	tun := s.cfg.Territory
 	for _, id := range w.Today.HousesBought {
 		if h := w.House(id); h != nil {
@@ -322,7 +332,7 @@ func (s *Sim) houseStep(w *game.World, t *game.Tick, fx game.Effects) {
 		if h.Guard != 0 && w.Crew.Member(h.Guard) == nil {
 			h.Guard = 0
 		}
-		if t.Sub(game.StreamHousesOf+h.City).Float64() >= s.houseRobberyChance(fx, w, h) {
+		if t.Sub(game.StreamHousesOf+h.City).Float64() >= s.houseRobberyChance(s.EffectsIn(w, h.City), w, h) {
 			continue
 		}
 		ev := events.HouseRobbed{Day: t.Day, House: h.ID, Name: h.Name, City: h.City, Guarded: h.Guarded(), StockLost: map[string]int{}}

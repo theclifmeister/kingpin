@@ -37,17 +37,18 @@ var commands = []string{
 	"Buy", "Return", "ReturnCredit", "ReturnSupplied", "PlaceSell", "CancelSell", "PlaceStanding", "CancelStanding",
 	"SetSupply", "ClearSupply", "AcceptContract", "DeclineContract", "Deliver", "Cut", "Cook",
 	"Post", "Abandon", "SendEnforcers", "Boost", "Undercut", "CancelUndercut", "Tip", "BuyDeed", "BuyHouse", "Drop", "Guard", "Move",
-	"Hire", "Fire", "SetPay", "Investigate", "PayOff", "Bail", "Assign", "Unassign",
+	"Hire", "Fire", "SetPay", "Investigate", "PayOff", "Bail", "Assign", "Unassign", "NameCaptain", "DropCaptain",
 	"SetRoute", "SetRouteTarget", "SetRouteDays", "SetRouteDriver", "BuyCheckpoint",
 	"SetLaunderDial", "BuyFront", "Invest", "BuyAsset", "Reserve", "BuyUpgrade",
 	"Bribe", "Fund", "Back", "CallFavour", "PayCop",
-	"ScoutFaction", "PlantSpy", "BuyOffFrom", "ProposeTo", "Accept", "Decline", "CallOff", "DeclareWar", "CallOffWar", "Withdraw",
+	"ScoutFaction", "PlantSpy", "BuyOffFrom", "ProposeTo", "Accept", "Decline", "CallOff", "DeclareWar", "CallOffWar", "HitScouts", "Withdraw",
 	"Retire", "Vanish", "Crown",
+	"ApplyPreset",
 }
 
 // queries are the session's reads served as they are: they change
 // nothing.
-var queries = []string{"View", "Alerts", "GatesAhead", "NextGates", "FrontOffers", "AssetOffers", "HouseOffers", "FloatMatters", "ExportSave", "MaxBuy", "RestockPlan"}
+var queries = []string{"View", "Alerts", "GatesAhead", "NextGates", "FrontOffers", "AssetOffers", "HouseOffers", "FloatMatters", "ExportSave", "MaxBuy", "RestockPlan", "Presets", "PresetCommands", "PresetDiff", "Preview"}
 
 // unserved are the session's methods the wire does not carry, and why:
 // TestEverySessionMethodIsClassed fails on one in no list, so a new
@@ -66,6 +67,9 @@ var unserved = map[string]string{
 	"ImportSave":  "import_save, by hand: the save as base64, like load",
 	"EndDay":      "end_day, by hand: the events go out as notifications",
 	"FastForward": "fast_forward, by hand: the days are weighed server side",
+	"Do":          "each op a preset issues is a command on the wire under its own name (#357)",
+	"Snapshot":    "a saved preset is the TUI's profile's; a client keeps its own (#357)",
+	"UsePresets":  "a saved preset is the TUI's profile's; a client keeps its own (#357)",
 }
 
 // methods is every method on the wire, by name.
@@ -351,7 +355,8 @@ func decode(ps []json.RawMessage, n int, ptrs ...any) error {
 // reflection cannot see them.
 var paramNames = map[string][]string{
 	"Travel": {"city"}, "SetLieLow": {"on"}, "SeeStage": {"stage"}, "Choose": {"choice"},
-	"Buy": {"supplier", "product", "qty", "credit"}, "MaxBuy": {"supplier", "product", "credit"}, "RestockPlan": {"city", "days"}, "Return": {"city", "product", "qty"},
+	"Buy": {"supplier", "product", "qty", "credit"}, "MaxBuy": {"supplier", "product", "credit"}, "RestockPlan": {"city", "days"},
+	"Presets": {}, "PresetCommands": {"preset"}, "PresetDiff": {"preset"}, "ApplyPreset": {"preset"}, "Return": {"city", "product", "qty"},
 	"ReturnCredit": {"city", "product", "qty"}, "ReturnSupplied": {"city", "product", "qty"},
 	"PlaceSell": {"city", "product", "qty", "dial"}, "CancelSell": {"city", "product"},
 	"PlaceStanding": {"city", "product", "qty", "dial"}, "CancelStanding": {"city", "product"},
@@ -363,12 +368,12 @@ var paramNames = map[string][]string{
 	"Tip": {"corner"}, "BuyDeed": {"corner"}, "BuyHouse": {"house"}, "Drop": {"house"},
 	"Guard": {"house", "member"}, "Move": {"city", "from", "to", "product", "units"},
 	"Hire": {"candidate"}, "Fire": {"member"}, "SetPay": {"pay"}, "PayOff": {"member"}, "Bail": {"member"},
-	"Assign": {"member", "city"}, "Unassign": {"member"},
+	"Assign": {"member", "city"}, "Unassign": {"member"}, "NameCaptain": {"member", "city", "budget"}, "DropCaptain": {"member"},
 	"SetRoute": {"route", "dial"}, "SetRouteTarget": {"route", "product", "units"},
 	"SetRouteDays": {"route", "product", "days"}, "SetRouteDriver": {"route", "member"}, "BuyCheckpoint": {"route"},
 	"SetLaunderDial": {"dial"}, "BuyFront": {"front"}, "Invest": {"front", "levels"}, "BuyAsset": {"asset"},
 	"Reserve": {"amount"}, "BuyUpgrade": {"upgrade"},
 	"Bribe": {"target", "amount"}, "Fund": {"city", "amount"}, "Back": {"city", "ticket", "amount"}, "PayCop": {"amount"},
 	"ScoutFaction": {"faction"}, "PlantSpy": {"faction", "member"}, "BuyOffFrom": {"faction", "units"},
-	"ProposeTo": {"faction", "kind", "terms"}, "Accept": {"offer"}, "Decline": {"offer"}, "DeclareWar": {"faction"},
+	"ProposeTo": {"faction", "kind", "terms"}, "Accept": {"offer"}, "Decline": {"offer"}, "DeclareWar": {"faction"}, "HitScouts": {"faction"},
 }

@@ -49,6 +49,8 @@ func (s *Sim) lead(w *game.World, t *game.Tick, flow game.CashFlow) []game.Line 
 		units, cash          int   // what they took
 		pages                int   // what went in the DA's file
 		lostCity, movedFirst string
+		scouts               named // a faction's scouts or recruiters in a city (#341)
+		probe                *game.Line
 	)
 	for _, e := range t.Events() {
 		switch ev := e.(type) {
@@ -117,6 +119,15 @@ func (s *Sim) lead(w *game.World, t *game.Tick, flow game.CashFlow) []game.Line 
 			pages += ev.Evidence
 		case events.LeadsFiled:
 			pages += ev.Evidence
+		case events.InvestigationOpened:
+			if probe == nil {
+				l := investigationLine(ev)
+				probe = &l
+			}
+		case events.RivalScouting:
+			scouts.add(fmt.Sprintf("%s's scouts are in %s", ev.Rival, w.CityName(ev.City)), ev.City)
+		case events.RivalRecruiting:
+			scouts.add(fmt.Sprintf("%s's crew is hiring in %s", ev.Rival, w.CityName(ev.City)), ev.City)
 		}
 	}
 
@@ -149,6 +160,12 @@ func (s *Sim) lead(w *game.World, t *game.Tick, flow game.CashFlow) []game.Line 
 			took = append(took, format.Cash(cash))
 		}
 		add("seizure", float64(seized), game.Line{Text: fmt.Sprintf("The police took %s.", strings.Join(took, " and ")), Act: game.Act{Screen: game.ScreenDashboard}})
+	}
+	if probe != nil {
+		add("investigation", 1, *probe)
+	}
+	if n := scouts.len(); n > 0 {
+		add("scouts", float64(n), game.Line{Text: capitalize(scouts.joined("; ")) + ".", Act: game.Act{Screen: game.ScreenRivals}, City: scouts.first()})
 	}
 	if pages > 0 {
 		add("pages", float64(pages), game.Line{Text: fmt.Sprintf("The DA filed %s on you.", format.Plural(pages, "page")), Act: game.Act{Screen: game.ScreenDashboard}})
@@ -278,6 +295,28 @@ func cornerLine(w *game.World, text, corner string) game.Line {
 	return l
 }
 
+// investigationLine is the police opening an investigation (#343),
+// its act where the target is, as the alert's: the corner on the map,
+// the product on the market, the house on the ledger.
+func investigationLine(ev events.InvestigationOpened) game.Line {
+	when := "tonight"
+	if d := ev.Due - ev.Day; d > 1 {
+		when = "in " + format.Plural(d, "day")
+	} else if d == 1 {
+		when = "tomorrow night"
+	}
+	l := game.Line{Text: fmt.Sprintf("The police opened an investigation on %s: they come %s.", ev.Name, when), City: ev.City}
+	switch ev.Lead {
+	case game.LeadCorner:
+		l.Act, l.Corner = game.Act{Screen: game.ScreenMap, Subject: game.OnCorner}, ev.Target
+	case game.LeadHouse:
+		l.Act, l.House = game.Act{Screen: game.ScreenLedger, Subject: game.OnHouse}, ev.Target
+	default:
+		l.Act = game.Act{Screen: game.ScreenMarket}
+	}
+	return l
+}
+
 // cornerCount is n corners in words: `a corner`, `3 corners`.
 func cornerCount(n int) string {
 	if n == 1 {
@@ -324,6 +363,9 @@ func (n named) first() string {
 	}
 	return ""
 }
+
+// joined is every name, joined by sep.
+func (n named) joined(sep string) string { return strings.Join(n.names, sep) }
 
 // words are the names, the first digestNames of them and a count of the
 // rest: `Oak St, 5th Ave and 2 more`.

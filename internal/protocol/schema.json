@@ -274,6 +274,40 @@
       ],
       "type": "object"
     },
+    "content.CaptainTuning": {
+      "properties": {
+        "Budgets": {
+          "items": {
+            "type": "integer"
+          },
+          "type": "array"
+        },
+        "Care": {
+          "type": "number"
+        },
+        "Cut": {
+          "type": "number"
+        },
+        "Days": {
+          "type": "integer"
+        },
+        "Loyalty": {
+          "type": "number"
+        },
+        "Margin": {
+          "type": "number"
+        }
+      },
+      "required": [
+        "Loyalty",
+        "Days",
+        "Care",
+        "Cut",
+        "Margin",
+        "Budgets"
+      ],
+      "type": "object"
+    },
     "content.CrewTuning": {
       "properties": {
         "AlertMargin": {
@@ -525,6 +559,41 @@
         "SplitFair",
         "SplitTrust",
         "SplitTerms"
+      ],
+      "type": "object"
+    },
+    "content.ExpansionTuning": {
+      "properties": {
+        "ArriveDays": {
+          "type": "integer"
+        },
+        "Bite": {
+          "type": "integer"
+        },
+        "Enabled": {
+          "type": "boolean"
+        },
+        "ScoutDays": {
+          "type": "integer"
+        },
+        "SetbackDays": {
+          "type": "integer"
+        },
+        "TakeMin": {
+          "type": "integer"
+        },
+        "WindowDays": {
+          "type": "integer"
+        }
+      },
+      "required": [
+        "Enabled",
+        "TakeMin",
+        "WindowDays",
+        "ScoutDays",
+        "ArriveDays",
+        "SetbackDays",
+        "Bite"
       ],
       "type": "object"
     },
@@ -1230,6 +1299,63 @@
       ],
       "type": "object"
     },
+    "content.Trait": {
+      "properties": {
+        "BuyerGapMul": {
+          "type": "number"
+        },
+        "Deterrence": {
+          "type": "number"
+        },
+        "Good": {
+          "type": "boolean"
+        },
+        "Heat": {
+          "type": "number"
+        },
+        "Lived": {
+          "additionalProperties": {
+            "type": "number"
+          },
+          "type": "object"
+        },
+        "LoyaltyLossMul": {
+          "type": "number"
+        },
+        "Role": {
+          "additionalProperties": {
+            "type": "number"
+          },
+          "type": "object"
+        },
+        "Says": {
+          "type": "string"
+        },
+        "Sharp": {
+          "type": "boolean"
+        },
+        "SkimChanceMul": {
+          "type": "number"
+        },
+        "Weight": {
+          "type": "number"
+        }
+      },
+      "required": [
+        "Weight",
+        "Role",
+        "Lived",
+        "Good",
+        "Says",
+        "LoyaltyLossMul",
+        "SkimChanceMul",
+        "Sharp",
+        "BuyerGapMul",
+        "Deterrence",
+        "Heat"
+      ],
+      "type": "object"
+    },
     "content.UpgradeConfig": {
       "properties": {
         "Branch": {
@@ -1319,6 +1445,9 @@
         "Decay": {
           "type": "number"
         },
+        "DeedCostMul": {
+          "type": "number"
+        },
         "DemandMul": {
           "type": "number"
         },
@@ -1352,6 +1481,9 @@
         "GlutDecayMul": {
           "type": "number"
         },
+        "GoodwillDay": {
+          "type": "number"
+        },
         "GuardBonus": {
           "type": "integer"
         },
@@ -1370,6 +1502,9 @@
         "LoyaltyLossMul": {
           "type": "number"
         },
+        "OffshoreFeeMul": {
+          "type": "number"
+        },
         "PatrolCap": {
           "type": "number"
         },
@@ -1377,6 +1512,9 @@
           "type": "integer"
         },
         "RaidLossMul": {
+          "type": "number"
+        },
+        "RentMul": {
           "type": "number"
         },
         "RivalPushMul": {
@@ -1471,6 +1609,7 @@
         "UpkeepMul",
         "AuditFreezeCut",
         "FloatMul",
+        "OffshoreFeeMul",
         "RouteRiskMul",
         "RouteCapacityMul",
         "RouteDaysMul",
@@ -1479,7 +1618,10 @@
         "DriftDaysBonus",
         "RobberyMul",
         "GuardBonus",
-        "RivalPushMul"
+        "RivalPushMul",
+        "DeedCostMul",
+        "RentMul",
+        "GoodwillDay"
       ],
       "type": "object"
     },
@@ -1545,10 +1687,16 @@
         "member": {
           "type": "integer"
         },
+        "product": {
+          "type": "string"
+        },
         "ready": {
           "type": "boolean"
         },
         "supplier": {
+          "type": "string"
+        },
+        "target": {
           "type": "string"
         }
       },
@@ -1628,6 +1776,49 @@
         "title",
         "text",
         "choices"
+      ],
+      "type": "object"
+    },
+    "engine.Change": {
+      "properties": {
+        "city": {
+          "type": "string"
+        },
+        "cost": {
+          "type": "integer"
+        },
+        "cost_to": {
+          "type": "integer"
+        },
+        "dropped": {
+          "type": "integer"
+        },
+        "from": {
+          "type": "string"
+        },
+        "now": {
+          "$ref": "#/$defs/game.SellOrder"
+        },
+        "product": {
+          "type": "string"
+        },
+        "route": {
+          "type": "string"
+        },
+        "setting": {
+          "type": "string"
+        },
+        "to": {
+          "type": "string"
+        },
+        "was": {
+          "$ref": "#/$defs/game.SellOrder"
+        }
+      },
+      "required": [
+        "setting",
+        "from",
+        "to"
       ],
       "type": "object"
     },
@@ -1718,6 +1909,35 @@
         "ladder",
         "products",
         "corners"
+      ],
+      "type": "object"
+    },
+    "engine.Command": {
+      "properties": {
+        "city": {
+          "type": "string"
+        },
+        "dial": {
+          "type": "string"
+        },
+        "n": {
+          "type": "integer"
+        },
+        "on": {
+          "type": "boolean"
+        },
+        "op": {
+          "type": "string"
+        },
+        "product": {
+          "type": "string"
+        },
+        "route": {
+          "type": "string"
+        }
+      },
+      "required": [
+        "op"
       ],
       "type": "object"
     },
@@ -1848,6 +2068,25 @@
       ],
       "type": "object"
     },
+    "engine.CornerIdle": {
+      "properties": {
+        "city": {
+          "type": "string"
+        },
+        "corner": {
+          "type": "string"
+        },
+        "days": {
+          "type": "integer"
+        }
+      },
+      "required": [
+        "corner",
+        "city",
+        "days"
+      ],
+      "type": "object"
+    },
     "engine.CornerView": {
       "properties": {
         "deed": {
@@ -1952,6 +2191,82 @@
       "required": [
         "kind",
         "day"
+      ],
+      "type": "object"
+    },
+    "engine.DayPreview": {
+      "properties": {
+        "alerts": {
+          "items": {
+            "$ref": "#/$defs/engine.Alert"
+          },
+          "type": "array"
+        },
+        "bought": {
+          "type": "integer"
+        },
+        "corners": {
+          "items": {
+            "$ref": "#/$defs/engine.CornerIdle"
+          },
+          "type": "array"
+        },
+        "day": {
+          "type": "integer"
+        },
+        "flow": {
+          "$ref": "#/$defs/engine.FlowView"
+        },
+        "idle": {
+          "items": {
+            "$ref": "#/$defs/engine.IdleView"
+          },
+          "type": "array"
+        },
+        "lie_low": {
+          "type": "boolean"
+        },
+        "routes": {
+          "$ref": "#/$defs/engine.RoutesOutlay"
+        },
+        "sales": {
+          "items": {
+            "$ref": "#/$defs/engine.SaleView"
+          },
+          "type": "array"
+        },
+        "supply": {
+          "items": {
+            "$ref": "#/$defs/engine.SupplyView"
+          },
+          "type": "array"
+        },
+        "unknown": {
+          "items": {
+            "type": "string"
+          },
+          "type": "array"
+        },
+        "wages": {
+          "type": "integer"
+        },
+        "wash": {
+          "$ref": "#/$defs/engine.LaunderingDay"
+        }
+      },
+      "required": [
+        "day",
+        "flow",
+        "bought",
+        "sales",
+        "idle",
+        "corners",
+        "alerts",
+        "unknown",
+        "supply",
+        "routes",
+        "wages",
+        "wash"
       ],
       "type": "object"
     },
@@ -2181,6 +2496,48 @@
       ],
       "type": "object"
     },
+    "engine.IdleView": {
+      "properties": {
+        "member": {
+          "type": "integer"
+        },
+        "name": {
+          "type": "string"
+        },
+        "role": {
+          "type": "string"
+        }
+      },
+      "required": [
+        "member",
+        "name",
+        "role"
+      ],
+      "type": "object"
+    },
+    "engine.LaunderingDay": {
+      "properties": {
+        "assets": {
+          "type": "integer"
+        },
+        "income": {
+          "type": "integer"
+        },
+        "upkeep": {
+          "type": "integer"
+        },
+        "washed": {
+          "type": "integer"
+        }
+      },
+      "required": [
+        "washed",
+        "upkeep",
+        "income",
+        "assets"
+      ],
+      "type": "object"
+    },
     "engine.LawView": {
       "properties": {
         "arrest_line": {
@@ -2230,6 +2587,9 @@
         "corner": {
           "type": "string"
         },
+        "house": {
+          "type": "string"
+        },
         "kind": {
           "type": "string"
         },
@@ -2251,6 +2611,12 @@
       "properties": {
         "age": {
           "type": "integer"
+        },
+        "budget": {
+          "type": "integer"
+        },
+        "captain": {
+          "type": "string"
         },
         "carry": {
           "type": "integer"
@@ -2287,6 +2653,9 @@
         },
         "skill": {
           "type": "integer"
+        },
+        "trait": {
+          "type": "string"
         },
         "wage": {
           "type": "integer"
@@ -2344,6 +2713,29 @@
       "required": [
         "dirty",
         "clean"
+      ],
+      "type": "object"
+    },
+    "engine.Preset": {
+      "properties": {
+        "blurb": {
+          "type": "string"
+        },
+        "id": {
+          "type": "string"
+        },
+        "name": {
+          "type": "string"
+        },
+        "saved": {
+          "type": "boolean"
+        }
+      },
+      "required": [
+        "id",
+        "name",
+        "blurb",
+        "saved"
       ],
       "type": "object"
     },
@@ -2421,6 +2813,21 @@
       ],
       "type": "object"
     },
+    "engine.Refusal": {
+      "properties": {
+        "command": {
+          "$ref": "#/$defs/engine.Command"
+        },
+        "why": {
+          "type": "string"
+        }
+      },
+      "required": [
+        "command",
+        "why"
+      ],
+      "type": "object"
+    },
     "engine.ReportSectionView": {
       "properties": {
         "id": {
@@ -2480,6 +2887,35 @@
       ],
       "type": "object"
     },
+    "engine.Review": {
+      "properties": {
+        "changes": {
+          "items": {
+            "$ref": "#/$defs/engine.Change"
+          },
+          "type": "array"
+        },
+        "preset": {
+          "$ref": "#/$defs/engine.Preset"
+        },
+        "refused": {
+          "items": {
+            "$ref": "#/$defs/engine.Refusal"
+          },
+          "type": "array"
+        },
+        "same": {
+          "type": "integer"
+        }
+      },
+      "required": [
+        "preset",
+        "changes",
+        "refused",
+        "same"
+      ],
+      "type": "object"
+    },
     "engine.RouteView": {
       "properties": {
         "closed": {
@@ -2523,6 +2959,21 @@
       ],
       "type": "object"
     },
+    "engine.RoutesOutlay": {
+      "properties": {
+        "fares": {
+          "type": "integer"
+        },
+        "lots": {
+          "type": "integer"
+        }
+      },
+      "required": [
+        "lots",
+        "fares"
+      ],
+      "type": "object"
+    },
     "engine.RungView": {
       "properties": {
         "cap": {
@@ -2550,6 +3001,32 @@
       "required": [
         "level",
         "line"
+      ],
+      "type": "object"
+    },
+    "engine.SaleView": {
+      "properties": {
+        "city": {
+          "type": "string"
+        },
+        "delivered": {
+          "type": "integer"
+        },
+        "heat": {
+          "type": "number"
+        },
+        "take": {
+          "type": "integer"
+        },
+        "units": {
+          "type": "integer"
+        }
+      },
+      "required": [
+        "city",
+        "units",
+        "take",
+        "heat"
       ],
       "type": "object"
     },
@@ -2589,6 +3066,29 @@
         "units",
         "sent",
         "arrives"
+      ],
+      "type": "object"
+    },
+    "engine.SupplyView": {
+      "properties": {
+        "city": {
+          "type": "string"
+        },
+        "cost": {
+          "type": "integer"
+        },
+        "product": {
+          "type": "string"
+        },
+        "units": {
+          "type": "integer"
+        }
+      },
+      "required": [
+        "city",
+        "product",
+        "units",
+        "cost"
       ],
       "type": "object"
     },
@@ -3176,6 +3676,74 @@
         "Winner",
         "Pressure",
         "Chief"
+      ],
+      "type": "object"
+    },
+    "events.CaptainActed": {
+      "properties": {
+        "Absent": {
+          "type": "boolean"
+        },
+        "Careless": {
+          "type": "boolean"
+        },
+        "City": {
+          "type": "string"
+        },
+        "CityName": {
+          "type": "string"
+        },
+        "Cut": {
+          "type": "integer"
+        },
+        "Day": {
+          "type": "integer"
+        },
+        "ID": {
+          "type": "integer"
+        },
+        "Name": {
+          "type": "string"
+        },
+        "Paid": {
+          "items": {
+            "type": "string"
+          },
+          "type": "array"
+        },
+        "Posted": {
+          "items": {
+            "type": "string"
+          },
+          "type": "array"
+        },
+        "Pulled": {
+          "items": {
+            "type": "string"
+          },
+          "type": "array"
+        },
+        "Spent": {
+          "type": "integer"
+        },
+        "SpentClean": {
+          "type": "integer"
+        }
+      },
+      "required": [
+        "Day",
+        "ID",
+        "Name",
+        "City",
+        "CityName",
+        "Posted",
+        "Paid",
+        "Spent",
+        "SpentClean",
+        "Pulled",
+        "Cut",
+        "Absent",
+        "Careless"
       ],
       "type": "object"
     },
@@ -4312,6 +4880,41 @@
       ],
       "type": "object"
     },
+    "events.CrewTrait": {
+      "properties": {
+        "Day": {
+          "type": "integer"
+        },
+        "Days": {
+          "type": "integer"
+        },
+        "Good": {
+          "type": "boolean"
+        },
+        "ID": {
+          "type": "integer"
+        },
+        "Name": {
+          "type": "string"
+        },
+        "Role": {
+          "type": "string"
+        },
+        "Trait": {
+          "type": "string"
+        }
+      },
+      "required": [
+        "Day",
+        "ID",
+        "Name",
+        "Role",
+        "Trait",
+        "Days",
+        "Good"
+      ],
+      "type": "object"
+    },
     "events.CrewTurnedInformant": {
       "properties": {
         "Day": {
@@ -5387,6 +5990,76 @@
       ],
       "type": "object"
     },
+    "events.InvestigationClosed": {
+      "properties": {
+        "City": {
+          "type": "string"
+        },
+        "Day": {
+          "type": "integer"
+        },
+        "Evidence": {
+          "type": "integer"
+        },
+        "Fell": {
+          "type": "boolean"
+        },
+        "Hit": {
+          "type": "boolean"
+        },
+        "Lead": {
+          "type": "string"
+        },
+        "Name": {
+          "type": "string"
+        },
+        "Target": {
+          "type": "string"
+        }
+      },
+      "required": [
+        "Day",
+        "City",
+        "Lead",
+        "Target",
+        "Name",
+        "Hit",
+        "Fell",
+        "Evidence"
+      ],
+      "type": "object"
+    },
+    "events.InvestigationOpened": {
+      "properties": {
+        "City": {
+          "type": "string"
+        },
+        "Day": {
+          "type": "integer"
+        },
+        "Due": {
+          "type": "integer"
+        },
+        "Lead": {
+          "type": "string"
+        },
+        "Name": {
+          "type": "string"
+        },
+        "Target": {
+          "type": "string"
+        }
+      },
+      "required": [
+        "Day",
+        "City",
+        "Lead",
+        "Target",
+        "Name",
+        "Due"
+      ],
+      "type": "object"
+    },
     "events.InvestigationRun": {
       "properties": {
         "Clean": {
@@ -6436,6 +7109,37 @@
       ],
       "type": "object"
     },
+    "events.RivalRecruiting": {
+      "properties": {
+        "Arrive": {
+          "type": "integer"
+        },
+        "Bite": {
+          "type": "integer"
+        },
+        "City": {
+          "type": "string"
+        },
+        "Day": {
+          "type": "integer"
+        },
+        "Faction": {
+          "type": "string"
+        },
+        "Rival": {
+          "type": "string"
+        }
+      },
+      "required": [
+        "Day",
+        "City",
+        "Rival",
+        "Faction",
+        "Bite",
+        "Arrive"
+      ],
+      "type": "object"
+    },
     "events.RivalScouted": {
       "properties": {
         "Cash": {
@@ -6480,6 +7184,41 @@
         "Income",
         "Muscle",
         "Wages"
+      ],
+      "type": "object"
+    },
+    "events.RivalScouting": {
+      "properties": {
+        "Arrive": {
+          "type": "integer"
+        },
+        "Cell": {
+          "type": "string"
+        },
+        "City": {
+          "type": "string"
+        },
+        "Day": {
+          "type": "integer"
+        },
+        "Faction": {
+          "type": "string"
+        },
+        "Recruit": {
+          "type": "integer"
+        },
+        "Rival": {
+          "type": "string"
+        }
+      },
+      "required": [
+        "Day",
+        "City",
+        "Rival",
+        "Faction",
+        "Cell",
+        "Recruit",
+        "Arrive"
       ],
       "type": "object"
     },
@@ -6533,6 +7272,60 @@
         "Faction",
         "Corners",
         "Share"
+      ],
+      "type": "object"
+    },
+    "events.RivalWithdrew": {
+      "properties": {
+        "City": {
+          "type": "string"
+        },
+        "Day": {
+          "type": "integer"
+        },
+        "Faction": {
+          "type": "string"
+        },
+        "Rival": {
+          "type": "string"
+        }
+      },
+      "required": [
+        "Day",
+        "City",
+        "Rival",
+        "Faction"
+      ],
+      "type": "object"
+    },
+    "events.ScoutsHit": {
+      "properties": {
+        "Arrive": {
+          "type": "integer"
+        },
+        "City": {
+          "type": "string"
+        },
+        "Day": {
+          "type": "integer"
+        },
+        "Faction": {
+          "type": "string"
+        },
+        "Rival": {
+          "type": "string"
+        },
+        "Setback": {
+          "type": "integer"
+        }
+      },
+      "required": [
+        "Day",
+        "City",
+        "Rival",
+        "Faction",
+        "Setback",
+        "Arrive"
       ],
       "type": "object"
     },
@@ -7616,6 +8409,12 @@
         "Bailed": {
           "type": "boolean"
         },
+        "Budget": {
+          "type": "integer"
+        },
+        "Captain": {
+          "type": "string"
+        },
         "City": {
           "type": "string"
         },
@@ -7649,6 +8448,12 @@
           },
           "type": "array"
         },
+        "Lived": {
+          "items": {
+            "type": "string"
+          },
+          "type": "array"
+        },
         "Loyalty": {
           "type": "number"
         },
@@ -7669,6 +8474,9 @@
         },
         "Skill": {
           "type": "integer"
+        },
+        "Trait": {
+          "type": "string"
         },
         "Undercover": {
           "type": "string"
@@ -7711,7 +8519,11 @@
         "WoundedUntil",
         "Bailed",
         "Undercover",
-        "UndercoverDay"
+        "UndercoverDay",
+        "Trait",
+        "Lived",
+        "Captain",
+        "Budget"
       ],
       "type": "object"
     },
@@ -7803,6 +8615,9 @@
         "Bought": {
           "type": "integer"
         },
+        "City": {
+          "type": "string"
+        },
         "Cost": {
           "type": "integer"
         },
@@ -7843,7 +8658,8 @@
         "AuditDial",
         "Level",
         "Invested",
-        "Grew"
+        "Grew",
+        "City"
       ],
       "type": "object"
     },
@@ -8134,6 +8950,36 @@
       ],
       "type": "object"
     },
+    "game.SellOrder": {
+      "properties": {
+        "City": {
+          "type": "string"
+        },
+        "Dial": {
+          "maximum": 2,
+          "minimum": 0,
+          "type": "integer",
+          "x-names": [
+            "quiet",
+            "normal",
+            "aggressive"
+          ]
+        },
+        "Product": {
+          "type": "string"
+        },
+        "Qty": {
+          "type": "integer"
+        }
+      },
+      "required": [
+        "City",
+        "Product",
+        "Qty",
+        "Dial"
+      ],
+      "type": "object"
+    },
     "protocol.DayResult": {
       "properties": {
         "day": {
@@ -8255,6 +9101,9 @@
     "CampaignLost": {
       "$ref": "#/$defs/events.CampaignLost"
     },
+    "CaptainActed": {
+      "$ref": "#/$defs/events.CaptainActed"
+    },
     "CashLaundered": {
       "$ref": "#/$defs/events.CashLaundered"
     },
@@ -8350,6 +9199,9 @@
     },
     "CrewSkimmed": {
       "$ref": "#/$defs/events.CrewSkimmed"
+    },
+    "CrewTrait": {
+      "$ref": "#/$defs/events.CrewTrait"
     },
     "CrewTurnedInformant": {
       "$ref": "#/$defs/events.CrewTurnedInformant"
@@ -8456,6 +9308,12 @@
     "IntelGained": {
       "$ref": "#/$defs/events.IntelGained"
     },
+    "InvestigationClosed": {
+      "$ref": "#/$defs/events.InvestigationClosed"
+    },
+    "InvestigationOpened": {
+      "$ref": "#/$defs/events.InvestigationOpened"
+    },
     "InvestigationRun": {
       "$ref": "#/$defs/events.InvestigationRun"
     },
@@ -8552,14 +9410,26 @@
     "RivalRaided": {
       "$ref": "#/$defs/events.RivalRaided"
     },
+    "RivalRecruiting": {
+      "$ref": "#/$defs/events.RivalRecruiting"
+    },
     "RivalScouted": {
       "$ref": "#/$defs/events.RivalScouted"
+    },
+    "RivalScouting": {
+      "$ref": "#/$defs/events.RivalScouting"
     },
     "RivalTippedPolice": {
       "$ref": "#/$defs/events.RivalTippedPolice"
     },
     "RivalUndercut": {
       "$ref": "#/$defs/events.RivalUndercut"
+    },
+    "RivalWithdrew": {
+      "$ref": "#/$defs/events.RivalWithdrew"
+    },
+    "ScoutsHit": {
+      "$ref": "#/$defs/events.ScoutsHit"
     },
     "ShipmentArrived": {
       "$ref": "#/$defs/events.ShipmentArrived"
@@ -8707,6 +9577,24 @@
           "$ref": "#/$defs/engine.Alert"
         },
         "type": "array"
+      }
+    },
+    "apply_preset": {
+      "changes": true,
+      "needsRun": true,
+      "params": {
+        "maxItems": 1,
+        "minItems": 1,
+        "prefixItems": [
+          {
+            "title": "preset",
+            "type": "string"
+          }
+        ],
+        "type": "array"
+      },
+      "result": {
+        "$ref": "#/$defs/engine.Review"
       }
     },
     "asset_offers": {
@@ -9300,6 +10188,24 @@
         "$ref": "#/$defs/game.House"
       }
     },
+    "drop_captain": {
+      "changes": true,
+      "needsRun": true,
+      "params": {
+        "maxItems": 1,
+        "minItems": 1,
+        "prefixItems": [
+          {
+            "title": "member",
+            "type": "integer"
+          }
+        ],
+        "type": "array"
+      },
+      "result": {
+        "type": "null"
+      }
+    },
     "end_day": {
       "changes": true,
       "needsRun": true,
@@ -9470,6 +10376,24 @@
         "$ref": "#/$defs/game.CrewMember"
       }
     },
+    "hit_scouts": {
+      "changes": true,
+      "needsRun": true,
+      "params": {
+        "maxItems": 1,
+        "minItems": 1,
+        "prefixItems": [
+          {
+            "title": "faction",
+            "type": "string"
+          }
+        ],
+        "type": "array"
+      },
+      "result": {
+        "type": "null"
+      }
+    },
     "house_offers": {
       "changes": false,
       "needsRun": true,
@@ -9616,6 +10540,32 @@
       },
       "result": {
         "type": "integer"
+      }
+    },
+    "name_captain": {
+      "changes": true,
+      "needsRun": true,
+      "params": {
+        "maxItems": 3,
+        "minItems": 3,
+        "prefixItems": [
+          {
+            "title": "member",
+            "type": "integer"
+          },
+          {
+            "title": "city",
+            "type": "string"
+          },
+          {
+            "title": "budget",
+            "type": "integer"
+          }
+        ],
+        "type": "array"
+      },
+      "result": {
+        "type": "null"
       }
     },
     "new_run": {
@@ -9808,6 +10758,74 @@
       },
       "result": {
         "type": "null"
+      }
+    },
+    "preset_commands": {
+      "changes": false,
+      "needsRun": true,
+      "params": {
+        "maxItems": 1,
+        "minItems": 1,
+        "prefixItems": [
+          {
+            "title": "preset",
+            "type": "string"
+          }
+        ],
+        "type": "array"
+      },
+      "result": {
+        "items": {
+          "$ref": "#/$defs/engine.Command"
+        },
+        "type": "array"
+      }
+    },
+    "preset_diff": {
+      "changes": false,
+      "needsRun": true,
+      "params": {
+        "maxItems": 1,
+        "minItems": 1,
+        "prefixItems": [
+          {
+            "title": "preset",
+            "type": "string"
+          }
+        ],
+        "type": "array"
+      },
+      "result": {
+        "$ref": "#/$defs/engine.Review"
+      }
+    },
+    "presets": {
+      "changes": false,
+      "needsRun": true,
+      "params": {
+        "maxItems": 0,
+        "minItems": 0,
+        "prefixItems": [],
+        "type": "array"
+      },
+      "result": {
+        "items": {
+          "$ref": "#/$defs/engine.Preset"
+        },
+        "type": "array"
+      }
+    },
+    "preview": {
+      "changes": false,
+      "needsRun": true,
+      "params": {
+        "maxItems": 0,
+        "minItems": 0,
+        "prefixItems": [],
+        "type": "array"
+      },
+      "result": {
+        "$ref": "#/$defs/engine.DayPreview"
       }
     },
     "propose_to": {
@@ -10057,6 +11075,37 @@
       },
       "result": {
         "type": "integer"
+      }
+    },
+    "rules.crew.can_captain": {
+      "changes": false,
+      "needsRun": true,
+      "params": {
+        "maxItems": 1,
+        "minItems": 1,
+        "prefixItems": [
+          {
+            "title": "member",
+            "type": "integer"
+          }
+        ],
+        "type": "array"
+      },
+      "result": {
+        "type": "boolean"
+      }
+    },
+    "rules.crew.captaincy": {
+      "changes": false,
+      "needsRun": true,
+      "params": {
+        "maxItems": 0,
+        "minItems": 0,
+        "prefixItems": [],
+        "type": "array"
+      },
+      "result": {
+        "$ref": "#/$defs/content.CaptainTuning"
       }
     },
     "rules.crew.chemist_name": {
@@ -10366,6 +11415,37 @@
       }
     },
     "rules.crew.reveal_days": {
+      "changes": false,
+      "needsRun": true,
+      "params": {
+        "maxItems": 0,
+        "minItems": 0,
+        "prefixItems": [],
+        "type": "array"
+      },
+      "result": {
+        "type": "integer"
+      }
+    },
+    "rules.crew.trait": {
+      "changes": false,
+      "needsRun": true,
+      "params": {
+        "maxItems": 1,
+        "minItems": 1,
+        "prefixItems": [
+          {
+            "title": "name",
+            "type": "string"
+          }
+        ],
+        "type": "array"
+      },
+      "result": {
+        "$ref": "#/$defs/content.Trait"
+      }
+    },
+    "rules.crew.trait_days": {
       "changes": false,
       "needsRun": true,
       "params": {
@@ -11951,6 +13031,24 @@
         "type": "array"
       }
     },
+    "rules.rivals.arrive_day": {
+      "changes": false,
+      "needsRun": true,
+      "params": {
+        "maxItems": 1,
+        "minItems": 1,
+        "prefixItems": [
+          {
+            "title": "faction",
+            "type": "string"
+          }
+        ],
+        "type": "array"
+      },
+      "result": {
+        "type": "integer"
+      }
+    },
     "rules.rivals.books": {
       "changes": false,
       "needsRun": true,
@@ -12130,6 +13228,19 @@
       },
       "result": {
         "type": "boolean"
+      }
+    },
+    "rules.rivals.expansion": {
+      "changes": false,
+      "needsRun": true,
+      "params": {
+        "maxItems": 0,
+        "minItems": 0,
+        "prefixItems": [],
+        "type": "array"
+      },
+      "result": {
+        "$ref": "#/$defs/content.ExpansionTuning"
       }
     },
     "rules.rivals.eyeing_by": {
@@ -12441,12 +13552,16 @@
       "changes": false,
       "needsRun": true,
       "params": {
-        "maxItems": 1,
-        "minItems": 1,
+        "maxItems": 2,
+        "minItems": 2,
         "prefixItems": [
           {
             "title": "corner",
             "type": "string"
+          },
+          {
+            "title": "price",
+            "type": "integer"
           }
         ],
         "type": "array"
@@ -12975,6 +14090,7 @@
             "CampaignBacked",
             "CampaignHedged",
             "CampaignLost",
+            "CaptainActed",
             "CashLaundered",
             "CheckpointBought",
             "ChiefReplaced",
@@ -13007,6 +14123,7 @@
             "CrewRetired",
             "CrewShot",
             "CrewSkimmed",
+            "CrewTrait",
             "CrewTurnedInformant",
             "DAElected",
             "DayEnded",
@@ -13042,6 +14159,8 @@
             "Incident",
             "IntelFalse",
             "IntelGained",
+            "InvestigationClosed",
+            "InvestigationOpened",
             "InvestigationRun",
             "KinLooking",
             "LaidLow",
@@ -13074,9 +14193,13 @@
             "RivalOutbid",
             "RivalPushed",
             "RivalRaided",
+            "RivalRecruiting",
             "RivalScouted",
+            "RivalScouting",
             "RivalTippedPolice",
             "RivalUndercut",
+            "RivalWithdrew",
+            "ScoutsHit",
             "ShipmentArrived",
             "ShipmentSeized",
             "ShipmentSent",
@@ -13120,7 +14243,7 @@
       "$ref": "#/$defs/engine.View"
     }
   },
-  "protocol": 4,
+  "protocol": 9,
   "title": "kingpind",
-  "view_version": 9
+  "view_version": 11
 }

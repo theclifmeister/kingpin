@@ -294,9 +294,10 @@ type night struct {
 // started above the threshold. The tree folds once at the top (#118)
 // and every number below is the tuning times it. It runs as phases in a
 // fixed order (#275): the day's hires and firings and the pool's
-// rotation, crew life (life.go) and the spies (spy.go), the skim, the
-// turning, the wages and the broke check (pay.go), the investigation,
-// the drift and the quitting (loyalty.go), the lieutenants' night
+// rotation, crew life (life.go), the traits (traits.go, #346) and the
+// spies (spy.go), the skim, the turning, the wages and the broke check
+// (pay.go), the investigation, the captains (captain.go, #346), the
+// drift and the quitting (loyalty.go), the lieutenants' night
 // (lieutenant.go) and the refill (pool.go). The order is the dice's: a
 // phase moved is a run that rolls differently.
 func (s *Sim) Step(w *game.World, t *game.Tick) {
@@ -310,6 +311,10 @@ func (s *Sim) Step(w *game.World, t *game.Tick) {
 	// shooting, the birthdays and the kin, all off the life stream.
 	s.life(w, t, n.fx)
 
+	// Veterans (#346): who shows a trait tonight, off the traits
+	// stream, before the skim reads it.
+	s.traits(n)
+
 	// The spies (#45): tonight's plant, the reports due and who was
 	// found, off the intel stream.
 	s.spies(w, t)
@@ -321,6 +326,7 @@ func (s *Sim) Step(w *game.World, t *game.Tick) {
 		return
 	}
 	s.investigate(n)
+	s.captains(n) // #346: crew care before the drift, no dice
 	s.drift(n)
 	s.quit(n)
 	s.lieutenants(n)

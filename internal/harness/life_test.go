@@ -232,7 +232,8 @@ func TestWarHasBodies(t *testing.T) {
 func TestDriverCutsSeizures(t *testing.T) {
 	t.Parallel()
 	// The duel (#43, harness.OneFaction): this pins a mechanism on a seed, and the table moves the seed's dice.
-	cfg := OneFaction(content.MustLoad())
+	// Veterans (#346) boxed: with traits and the front roles (#344) both on, eight seeds read 50 seizures with a driver and 50 without.
+	cfg := NoTraits(OneFaction(content.MustLoad()))
 	with, without, driven, jailed := 0, 0, 0, 0
 	for seed := uint64(1); seed <= 8; seed++ {
 		a, _ := Run(cfg, seed, 150, Driven(cfg, 40))

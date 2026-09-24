@@ -79,6 +79,18 @@ func TestLeadIsTheBiggestThree(t *testing.T) {
 			{"flow", "Profit fell 100% on the week: $0 against +$10K a night.", game.Act{Screen: game.ScreenLedger}},
 			{"idle_corner", "Nobody works a corner: ", game.Act{Screen: game.ScreenMap, Mode: game.ModePost, Subject: game.OnCorner}},
 		}},
+		{"an investigation and the scouts", func(w *game.World) []events.Event {
+			c := w.Home().Corners[2]
+			return []events.Event{
+				events.InvestigationOpened{Day: 21, City: c.City, Lead: game.LeadCorner, Target: c.ID, Name: c.Name, Due: 24},
+				events.RivalScouting{City: w.Home().ID, Rival: "Sal", Faction: "f2", Recruit: 25, Arrive: 30},
+				events.CornerClaimed{Corner: c.ID, Name: c.Name, Worker: "you"},
+			}
+		}, []want{
+			{"investigation", "The police opened an investigation on ", game.Act{Screen: game.ScreenMap, Subject: game.OnCorner}},
+			{"scouts", "Sal's scouts are in ", game.Act{Screen: game.ScreenRivals}},
+			{"corner_won", "Took a corner: ", game.Act{Screen: game.ScreenMap, Subject: game.OnCorner}},
+		}},
 		{"only three lead", func(w *game.World) []events.Event {
 			c := w.Home().Corners
 			return []events.Event{

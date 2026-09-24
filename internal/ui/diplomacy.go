@@ -347,6 +347,22 @@ func (m *Model) viewRivals() string {
 		ls = append(ls, table(factionCols, m.factionRows(), m.factionCursor, width)...)
 		ls = append(ls, "")
 	}
+	if r.Scouting() {
+		// On its way to a city where you earn (#341): the stages and the
+		// answers, then the offers (a tribute comes with the recruiting).
+		for i, l := range m.scoutsLines(r) {
+			if i == 0 {
+				line(l)
+				continue
+			}
+			for _, wl := range wrap(l, width) {
+				line(sub(wl))
+			}
+		}
+		ls = append(ls, "")
+		ls = append(ls, m.offerLines(width)...)
+		return strings.Join(ls, "\n")
+	}
 	if r.Arrived == 0 {
 		line(emptyState(m.rivalName(r) + " have not moved in yet."))
 		return strings.Join(ls, "\n")
@@ -394,27 +410,33 @@ func (m *Model) viewRivals() string {
 	}
 	ls = append(ls, "")
 
-	line(sectionTitle("OFFERS", m.accent()))
-	if len(w.Offers) == 0 {
-		line(emptyState("Nothing on the table."))
-	} else {
-		m.dealCursor = max(0, min(m.dealCursor, len(w.Offers)-1))
-		var rows [][]any
-		for _, o := range w.Offers {
-			from := "-"
-			if f := w.Faction(o.With()); f != nil {
-				from = m.factionStyle(f.Faction()).Render(truncate(f.Leader, 12))
-			}
-			rows = append(rows, []any{o.Deal.Kind, m.dealTerms(o.Deal), from, day(o.Expires)})
-		}
-		ls = append(ls, table(rivalOfferCols, rows, m.dealCursor, width)...)
-	}
+	ls = append(ls, m.offerLines(width)...)
 	ls = append(ls, "")
 
 	// The books (#70): what a scout last read, and the police's
 	// attention on them.
 	ls = append(ls, m.booksLines(r, width)...)
 	return strings.Join(ls, "\n")
+}
+
+// offerLines are the rivals screen's OFFERS: every faction's offer on
+// the table, the cursor on the one a or x answers.
+func (m *Model) offerLines(width int) []string {
+	w := m.w
+	ls := []string{truncate(sectionTitle("OFFERS", m.accent()), width)}
+	if len(w.Offers) == 0 {
+		return append(ls, truncate(emptyState("Nothing on the table."), width))
+	}
+	m.dealCursor = max(0, min(m.dealCursor, len(w.Offers)-1))
+	var rows [][]any
+	for _, o := range w.Offers {
+		from := "-"
+		if f := w.Faction(o.With()); f != nil {
+			from = m.factionStyle(f.Faction()).Render(truncate(f.Leader, 12))
+		}
+		rows = append(rows, []any{o.Deal.Kind, m.dealTerms(o.Deal), from, day(o.Expires)})
+	}
+	return append(ls, table(rivalOfferCols, rows, m.dealCursor, width)...)
 }
 
 func capitalize(s string) string {

@@ -4,6 +4,7 @@ import (
 	"errors"
 	"fmt"
 	"math"
+	"slices"
 	"strings"
 
 	"github.com/theclifmeister/kingpin/internal/content"
@@ -150,6 +151,7 @@ type Effects struct {
 	UpkeepMul      float64 // on every front's upkeep (lowest)
 	AuditFreezeCut int     // days off an audit's freeze, never under 1 (sum)
 	FloatMul       float64 // on the float the wash, the road and a supply contract leave in the till (lowest)
+	OffshoreFeeMul float64 // on the offshore fee (#344, lowest)
 
 	// The logistics sim (#119).
 	RouteRiskMul     float64 // on every route's risk of interception (product)
@@ -163,6 +165,11 @@ type Effects struct {
 	RobberyMul     float64 // on every corner's robbery chance (product)
 	GuardBonus     int     // an extra body on every contested corner (sum)
 	RivalPushMul   float64 // on the rival's push chance (product)
+
+	// The property, the territory sim, and the law sim (#344).
+	DeedCostMul float64 // on a deed's price (lowest)
+	RentMul     float64 // on a deed's rent (product)
+	GoodwillDay float64 // goodwill points added to a city a day (sum)
 }
 
 // identity is the fold of nothing owned: every multiplier 1, everything
@@ -171,9 +178,10 @@ var identity = Effects{
 	SupplierMul: 1, BuyPressureMul: 1, FillMul: 1, SaleImpactMul: 1, DemandMul: 1, GlutDecayMul: 1, BuyerGapMul: 1,
 	SaleHeatMul: 1, CrewHeatMul: 1, StingStockMul: 1, RaidLossMul: 1, DirtyCashThresholdMul: 1,
 	WageMul: 1, LoyaltyLossMul: 1, DangerLoyaltyMul: 1, SkimChanceMul: 1, InformantChanceMul: 1, HireFeeMul: 1,
-	WashMul: 1, AuditRiskMul: 1, AuditSeizeMul: 1, UpkeepMul: 1, FloatMul: 1,
+	WashMul: 1, AuditRiskMul: 1, AuditSeizeMul: 1, UpkeepMul: 1, FloatMul: 1, OffshoreFeeMul: 1,
 	RouteRiskMul: 1, RouteCapacityMul: 1, RouteDaysMul: 1, FareMul: 1, WholesaleMul: 1,
 	RobberyMul: 1, RivalPushMul: 1,
+	DeedCostMul: 1, RentMul: 1,
 }
 
 // FoldEffects folds the upgrades w owns into one Effects, using the
@@ -182,92 +190,136 @@ var identity = Effects{
 // order the nodes were bought in.
 func FoldEffects(w *World, tree content.UpgradesConfig) Effects {
 	fx := identity
-	// product: a multiplier stacks with every other owned node's.
-	product := func(acc *float64, v float64) {
-		if v > 0 {
-			*acc *= v
-		}
-	}
-	// lowest: the best discount owned is the one that counts; a value
-	// over the identity is ignored.
-	lowest := func(acc *float64, v float64) {
-		if v > 0 {
-			*acc = math.Min(*acc, v)
-		}
-	}
-	// highest: a replacement or a raise; the biggest owned wins.
-	highest := func(acc *float64, v float64) { *acc = math.Max(*acc, v) }
 	for _, n := range tree.Nodes {
-		if !w.Owns(n.ID) {
-			continue
+		if w.Owns(n.ID) {
+			fx.fold(n.Effects)
 		}
-		e := n.Effects
-
-		// The market.
-		lowest(&fx.SupplierMul, e.SupplierMul)
-		product(&fx.BuyPressureMul, e.BuyPressureMul)
-		product(&fx.FillMul, e.FillMul)
-		product(&fx.SaleImpactMul, e.SaleImpactMul)
-		product(&fx.DemandMul, e.DemandMul)
-		highest(&fx.GlutDecayMul, e.GlutDecayMul)
-		lowest(&fx.BuyerGapMul, e.BuyerGapMul)
-		fx.ContractPremiumBonus += e.ContractPremiumBonus
-
-		// Heat.
-		product(&fx.SaleHeatMul, e.SaleHeatMul)
-		product(&fx.CrewHeatMul, e.CrewHeatMul)
-		highest(&fx.PatrolCap, e.PatrolCap)
-		fx.CooldownBonus += e.CooldownBonus
-		product(&fx.StingStockMul, e.StingStockMul)
-		product(&fx.RaidLossMul, e.RaidLossMul)
-		highest(&fx.LieLowMultiplier, e.LieLowMultiplier)
-		highest(&fx.Decay, e.Decay)
-		highest(&fx.DirtyCashThresholdMul, e.DirtyCashThresholdMul)
-		fx.EvidenceCut += e.EvidenceCut
-		fx.AuditEvidenceCut += e.AuditEvidenceCut
-		if e.EvidenceDecayDays > 0 && (fx.EvidenceDecayDays == 0 || e.EvidenceDecayDays < fx.EvidenceDecayDays) {
-			fx.EvidenceDecayDays = e.EvidenceDecayDays
-		}
-		fx.EvidenceArrest = max(fx.EvidenceArrest, e.EvidenceArrest)
-		fx.FallGuys += e.FallGuys
-		fx.Identities += e.Identities
-
-		// The crew.
-		lowest(&fx.WageMul, e.WageMul)
-		product(&fx.LoyaltyLossMul, e.LoyaltyLossMul)
-		product(&fx.DangerLoyaltyMul, e.DangerLoyaltyMul)
-		product(&fx.SkimChanceMul, e.SkimChanceMul)
-		product(&fx.InformantChanceMul, e.InformantChanceMul)
-		fx.CrewSlots += e.CrewSlots
-		fx.CandidatesBonus += e.CandidatesBonus
-		fx.PoolDaysCut += e.PoolDaysCut
-		fx.SkillBonus += e.SkillBonus
-		lowest(&fx.HireFeeMul, e.HireFeeMul)
-		fx.StartLoyaltyBonus += e.StartLoyaltyBonus
-		fx.AutoBail = fx.AutoBail || e.AutoBail
-
-		// Laundering.
-		product(&fx.WashMul, e.WashMul)
-		product(&fx.AuditRiskMul, e.AuditRiskMul)
-		lowest(&fx.AuditSeizeMul, e.AuditSeizeMul)
-		lowest(&fx.UpkeepMul, e.UpkeepMul)
-		fx.AuditFreezeCut += e.AuditFreezeCut
-		lowest(&fx.FloatMul, e.FloatMul)
-
-		// Logistics.
-		product(&fx.RouteRiskMul, e.RouteRiskMul)
-		product(&fx.RouteCapacityMul, e.RouteCapacityMul)
-		lowest(&fx.RouteDaysMul, e.RouteDaysMul)
-		lowest(&fx.FareMul, e.FareMul)
-		lowest(&fx.WholesaleMul, e.WholesaleMul)
-
-		// The street.
-		fx.DriftDaysBonus += e.DriftDaysBonus
-		product(&fx.RobberyMul, e.RobberyMul)
-		fx.GuardBonus += e.GuardBonus
-		product(&fx.RivalPushMul, e.RivalPushMul)
 	}
 	return fx
+}
+
+// FoldEffectsIn is FoldEffects with the fronts that stand in any of
+// cities folded in after the nodes, by the same rules (#344): what a
+// sim reads for a number that belongs to a place (a route reads both its
+// ends, a corner, a sale or a block its city). A front with no role, or
+// none in those cities, folds nothing, so a run whose fronts carry no
+// effects reads exactly what FoldEffects does.
+func FoldEffectsIn(w *World, tree content.UpgradesConfig, cities ...string) Effects {
+	fx := FoldEffects(w, tree)
+	if len(tree.Fronts) == 0 {
+		return fx
+	}
+	for _, f := range w.Fronts {
+		if r := tree.Front(f.ID); r != nil && slices.Contains(cities, w.FrontCity(f)) {
+			fx.fold(r.Effects)
+		}
+	}
+	return fx
+}
+
+// FoldEffectsAll is FoldEffects with every owned front folded in,
+// wherever it stands (#344): what a sim reads for a number with no city,
+// the buyers' book and the offshore fee.
+func FoldEffectsAll(w *World, tree content.UpgradesConfig) Effects {
+	fx := FoldEffects(w, tree)
+	for _, f := range w.Fronts {
+		if r := tree.Front(f.ID); r != nil {
+			fx.fold(r.Effects)
+		}
+	}
+	return fx
+}
+
+// foldProduct: a multiplier stacks with every other owned node's.
+func foldProduct(acc *float64, v float64) {
+	if v > 0 {
+		*acc *= v
+	}
+}
+
+// foldLowest: the best discount owned is the one that counts; a value over
+// the identity is ignored.
+func foldLowest(acc *float64, v float64) {
+	if v > 0 {
+		*acc = math.Min(*acc, v)
+	}
+}
+
+// foldHighest: a replacement or a raise; the biggest owned wins.
+func foldHighest(acc *float64, v float64) { *acc = math.Max(*acc, v) }
+
+// fold adds one owned node's (or front's) effects to fx by each name's
+// rule.
+func (fx *Effects) fold(e content.UpgradeEffects) {
+	// The market.
+	foldLowest(&fx.SupplierMul, e.SupplierMul)
+	foldProduct(&fx.BuyPressureMul, e.BuyPressureMul)
+	foldProduct(&fx.FillMul, e.FillMul)
+	foldProduct(&fx.SaleImpactMul, e.SaleImpactMul)
+	foldProduct(&fx.DemandMul, e.DemandMul)
+	foldHighest(&fx.GlutDecayMul, e.GlutDecayMul)
+	foldLowest(&fx.BuyerGapMul, e.BuyerGapMul)
+	fx.ContractPremiumBonus += e.ContractPremiumBonus
+
+	// Heat.
+	foldProduct(&fx.SaleHeatMul, e.SaleHeatMul)
+	foldProduct(&fx.CrewHeatMul, e.CrewHeatMul)
+	foldHighest(&fx.PatrolCap, e.PatrolCap)
+	fx.CooldownBonus += e.CooldownBonus
+	foldProduct(&fx.StingStockMul, e.StingStockMul)
+	foldProduct(&fx.RaidLossMul, e.RaidLossMul)
+	foldHighest(&fx.LieLowMultiplier, e.LieLowMultiplier)
+	foldHighest(&fx.Decay, e.Decay)
+	foldHighest(&fx.DirtyCashThresholdMul, e.DirtyCashThresholdMul)
+	fx.EvidenceCut += e.EvidenceCut
+	fx.AuditEvidenceCut += e.AuditEvidenceCut
+	if e.EvidenceDecayDays > 0 && (fx.EvidenceDecayDays == 0 || e.EvidenceDecayDays < fx.EvidenceDecayDays) {
+		fx.EvidenceDecayDays = e.EvidenceDecayDays
+	}
+	fx.EvidenceArrest = max(fx.EvidenceArrest, e.EvidenceArrest)
+	fx.FallGuys += e.FallGuys
+	fx.Identities += e.Identities
+
+	// The crew.
+	foldLowest(&fx.WageMul, e.WageMul)
+	foldProduct(&fx.LoyaltyLossMul, e.LoyaltyLossMul)
+	foldProduct(&fx.DangerLoyaltyMul, e.DangerLoyaltyMul)
+	foldProduct(&fx.SkimChanceMul, e.SkimChanceMul)
+	foldProduct(&fx.InformantChanceMul, e.InformantChanceMul)
+	fx.CrewSlots += e.CrewSlots
+	fx.CandidatesBonus += e.CandidatesBonus
+	fx.PoolDaysCut += e.PoolDaysCut
+	fx.SkillBonus += e.SkillBonus
+	foldLowest(&fx.HireFeeMul, e.HireFeeMul)
+	fx.StartLoyaltyBonus += e.StartLoyaltyBonus
+	fx.AutoBail = fx.AutoBail || e.AutoBail
+
+	// Laundering.
+	foldProduct(&fx.WashMul, e.WashMul)
+	foldProduct(&fx.AuditRiskMul, e.AuditRiskMul)
+	foldLowest(&fx.AuditSeizeMul, e.AuditSeizeMul)
+	foldLowest(&fx.UpkeepMul, e.UpkeepMul)
+	fx.AuditFreezeCut += e.AuditFreezeCut
+	foldLowest(&fx.FloatMul, e.FloatMul)
+	foldLowest(&fx.OffshoreFeeMul, e.OffshoreFeeMul)
+
+	// Logistics.
+	foldProduct(&fx.RouteRiskMul, e.RouteRiskMul)
+	foldProduct(&fx.RouteCapacityMul, e.RouteCapacityMul)
+	foldLowest(&fx.RouteDaysMul, e.RouteDaysMul)
+	foldLowest(&fx.FareMul, e.FareMul)
+	foldLowest(&fx.WholesaleMul, e.WholesaleMul)
+
+	// The street.
+	fx.DriftDaysBonus += e.DriftDaysBonus
+	foldProduct(&fx.RobberyMul, e.RobberyMul)
+	fx.GuardBonus += e.GuardBonus
+	foldProduct(&fx.RivalPushMul, e.RivalPushMul)
+
+	// The property and the law (#344).
+	foldLowest(&fx.DeedCostMul, e.DeedCostMul)
+	foldProduct(&fx.RentMul, e.RentMul)
+	fx.GoodwillDay += e.GoodwillDay
 }
 
 // Float is the dirty cash the wash, the road and a supply contract

@@ -2708,6 +2708,8 @@ func TestModalsFit(t *testing.T) {
 		{"confirm new", modeConfirm, func(t *testing.T, m *Model) { m.Update(key("N")) }},
 		{"confirm fire", modeConfirm, func(t *testing.T, m *Model) { m.Update(key("4")); m.Update(key("f")) }},
 		{"confirm end", modeConfirmEnd, func(t *testing.T, m *Model) { m.Update(key("enter")) }},
+		// The day's preview (#353) with a full cart.
+		{"confirm end with cart", modeConfirmEnd, func(t *testing.T, m *Model) { fillCart(t, m); m.Update(key("enter")) }},
 		{"confirm fast", modeConfirmFast, func(t *testing.T, m *Model) { m.Update(key("F")) }},
 		{"help", modeHelp, func(t *testing.T, m *Model) { m.Update(key("?")) }},
 		{"post", modePost, func(t *testing.T, m *Model) { m.Update(key("5")); m.mapCursor = 1; m.Update(key("c")) }},
@@ -2780,6 +2782,18 @@ func TestModalsFit(t *testing.T) {
 			m.w.Player.DirtyCash = 10_000_000
 			m.Update(key("2"))
 			m.Update(key("R"))
+		}},
+		// The presets (#357): the list, and the review of the quiet one
+		// over a routine it moves in every column.
+		{"presets", modePresets, func(t *testing.T, m *Model) {
+			m.Update(key("2"))
+			m.Update(key("P"))
+		}},
+		{"preset review", modePresets, func(t *testing.T, m *Model) {
+			presetRoutine(t, m)
+			m.Update(key("2"))
+			m.Update(key("P"))
+			m.Update(key("enter"))
 		}},
 		{"buy past the room", modeBuy, func(t *testing.T, m *Model) {
 			m.w.Player.DirtyCash = 10_000_000
@@ -2900,6 +2914,13 @@ func TestModalsFit(t *testing.T) {
 		{"propose kinds", modePropose, func(t *testing.T, m *Model) { m.Update(key("8")); m.Update(key("d")) }},
 		{"propose terms", modePropose, func(t *testing.T, m *Model) { m.Update(key("8")); m.Update(key("d")); m.Update(key("2")) }},
 		{"assign", modeAssign, func(t *testing.T, m *Model) { m.Update(key("4")); m.crewCursor = 3; m.Update(key("l")) }},
+		// The captain (#346): a veteran trusted with a city's crew.
+		{"captain", modeCaptain, func(t *testing.T, m *Model) {
+			m.Update(key("4"))
+			m.w.Crew.Members[0].Hired = m.w.Day - 60
+			m.crewCursor = 0
+			m.Update(key("c"))
+		}},
 		{"fund", modeFund, func(t *testing.T, m *Model) { m.Update(key("7")); m.Update(key("f")) }},
 		{"details", modeDetails, func(t *testing.T, m *Model) { m.Update(key("5")); m.mode = modeDetails }},
 		// The cart (#103): the modal on its lines and on a quantity, and

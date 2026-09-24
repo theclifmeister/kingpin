@@ -322,6 +322,8 @@ func (q quoteRig) arg(t *testing.T, name string, typ reflect.Type) (any, reflect
 		v = w.Day + 1
 	case "city":
 		v = w.Player.Location
+	case "name": // a trait by name (#346)
+		v = "steady"
 	case "product":
 		v = w.Products[0]
 	case "id":

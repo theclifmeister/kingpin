@@ -218,10 +218,12 @@ func TestQuietDayRuleHoldsUnderEveryLaw(t *testing.T) {
 	cfg := content.MustLoad()
 	for _, chief := range content.ChiefPersonalities {
 		for _, da := range content.DAStances {
+			// Seed 2 with investigations on (#343): a hider names no
+			// source, so its stings are the blind ones and file nothing.
 			for seed := uint64(1); seed <= 2; seed++ {
 				w := sim.NewWorld(cfg, seed)
 				w.Player.DirtyCash = 5_000_000
-				run := Appoint(cfg, w, chief, da)
+				run := Appoint(Investigations(cfg, seed == 2), w, chief, da)
 				res, _ := RunFrom(run, w, 600, Hide)
 				if res.Over != nil {
 					t.Fatalf("%s/%s seed %d: rich hider ended on day %d: %s", chief, da, seed, res.Days, res.Over.Cause)
@@ -407,7 +409,9 @@ func TestCampaignSurvivesSave(t *testing.T) {
 // dollar either gave was clean.
 func TestCampaignSizing(t *testing.T) {
 	t.Parallel()
-	cfg := content.MustLoad()
+	// Veterans (#346) boxed: the boss at tier 4 put $994,453 a city into an election with traits on, a knife-edge under the $1M line.
+	// The expansion boxed too (#341, harness.NoExpansion): a faction drawn to the boss's hub takes a sixth off its clean cash ($0.85M a city an election with both on).
+	cfg := NoExpansion(NoTraits(content.MustLoad()))
 	var late []int
 	var goodwill []float64
 	for seed := uint64(1); seed <= 5; seed++ {

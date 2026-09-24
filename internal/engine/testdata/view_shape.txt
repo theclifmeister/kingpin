@@ -1,4 +1,4 @@
-version 9
+version 11
 .version int
 .seed uint64
 .day int
@@ -88,6 +88,9 @@ version 9
 .crew[].personality string
 .crew[].carry int
 .crew[].fee int
+.crew[].trait string
+.crew[].captain string
+.crew[].budget int
 .pool []
 .pool[].id int
 .pool[].name string
@@ -103,6 +106,9 @@ version 9
 .pool[].personality string
 .pool[].carry int
 .pool[].fee int
+.pool[].trait string
+.pool[].captain string
+.pool[].budget int
 .contracts []
 .contracts[].id int
 .contracts[].name string
@@ -238,6 +244,7 @@ version 9
 .report.lead[].member int
 .report.lead[].corner string
 .report.lead[].city string
+.report.lead[].house string
 .report.sections []
 .report.sections[].id string
 .report.sections[].title string
@@ -276,6 +283,8 @@ version 9
 .alerts[].cross string
 .alerts[].gap float64
 .alerts[].corner string
+.alerts[].target string
+.alerts[].product string
 .alerts[].day int
 .alerts[].gate.kind string
 .alerts[].gate.id string

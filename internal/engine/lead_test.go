@@ -25,7 +25,7 @@ func TestEveryLeadHasAnAct(t *testing.T) {
 	}
 	w := s.NewRun(7, game.Start{})
 	policy := harness.Boss(cfg, 40, "")
-	screens := []string{engine.ScreenDashboard, engine.ScreenMarket, engine.ScreenCrew, engine.ScreenMap, engine.ScreenLedger}
+	screens := []string{engine.ScreenDashboard, engine.ScreenMarket, engine.ScreenCrew, engine.ScreenMap, engine.ScreenLedger, engine.ScreenRivals}
 	kinds := map[string]bool{}
 	for d := 0; d < 120 && w.Over == nil; d++ {
 		policy(w)
@@ -50,6 +50,10 @@ func TestEveryLeadHasAnAct(t *testing.T) {
 			case engine.SubjectMember:
 				if w.Crew.Member(l.Member) == nil {
 					t.Errorf("day %d %s: member %d is not on the roster", w.Day, l.Kind, l.Member)
+				}
+			case engine.SubjectHouse:
+				if w.House(l.House) == nil {
+					t.Errorf("day %d %s: house %q is not on the books", w.Day, l.Kind, l.House)
 				}
 			case "":
 			default:

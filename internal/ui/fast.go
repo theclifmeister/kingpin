@@ -155,6 +155,8 @@ func (m *Model) stopEvent(e events.Event) string {
 		return format.A(ev.Level) + " in " + w.CityName(ev.City)
 	case events.TaskForceFormed:
 		return "a task force formed in " + w.CityName(ev.City)
+	case events.InvestigationOpened:
+		return "the police are working " + ev.Name
 	case events.AssetSeized:
 		return "the feds took " + ev.Name
 	case events.TunnelFound:
@@ -169,6 +171,10 @@ func (m *Model) stopEvent(e events.Event) string {
 		return ev.Rival + " moved in on " + ev.Name
 	case events.RivalEyeing:
 		return ev.Rival + " is eyeing " + ev.Name
+	case events.RivalScouting:
+		return ev.Rival + " has scouts in " + m.w.CityName(ev.City)
+	case events.RivalRecruiting:
+		return ev.Rival + " is recruiting in " + m.w.CityName(ev.City)
 	case events.CornerStruck:
 		return "the strike on " + ev.Name
 	case events.WarEnded:

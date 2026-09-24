@@ -288,8 +288,8 @@ func TestEverySessionMethodIsClassed(t *testing.T) {
 			t.Errorf("%s is classed but engine.Session has no such method", n)
 		}
 	}
-	if len(commands) != 68 {
-		t.Errorf("%d commands on the wire, docs/engine.md says 68", len(commands))
+	if len(commands) != 72 {
+		t.Errorf("%d commands on the wire, docs/engine.md says 72", len(commands))
 	}
 }
 
@@ -392,5 +392,81 @@ func TestNoRoomIsTyped(t *testing.T) {
 	var plan []game.RestockLine
 	if err := c.Call("restock_plan", []any{w.Player.Location, 2.0}, &plan); err != nil || plan == nil {
 		t.Fatalf("restock_plan on a full stash: %v %v", plan, err)
+	}
+}
+
+// The presets on the wire (#357): the list, a diff that changes
+// nothing, and apply_preset returning the same review; every op a
+// preset issues is a command the wire serves under that name, so a
+// client can issue a preset's commands itself.
+func TestPresetsOnTheWire(t *testing.T) {
+	t.Parallel()
+	for _, op := range engine.Ops() {
+		if m, ok := methods[op]; !ok || !m.changes {
+			t.Errorf("a preset's op %q is no command on the wire", op)
+		}
+	}
+	c, srv := loopClient(t)
+	if err := c.Call("new_run", []any{7, "", false}, nil); err != nil {
+		t.Fatal(err)
+	}
+	w := srv.sess.World()
+	var list []engine.Preset
+	if err := c.Call("presets", nil, &list); err != nil || len(list) == 0 || list[0].ID != "quiet" {
+		t.Fatalf("presets: %+v %v", list, err)
+	}
+	if err := c.Call("set_launder_dial", []any{"greedy"}, nil); err != nil {
+		t.Fatal(err)
+	}
+	var diff, applied engine.Review
+	if err := c.Call("preset_diff", []any{"quiet"}, &diff); err != nil || len(diff.Changes) != 1 || diff.Changes[0].To != "careful" {
+		t.Fatalf("preset_diff: %+v %v", diff, err)
+	}
+	if w.Laundering.Dial != events.LaunderGreedy {
+		t.Fatal("preset_diff turned the dial")
+	}
+	if err := c.Call("apply_preset", []any{"quiet"}, &applied); err != nil || !reflect.DeepEqual(diff, applied) {
+		t.Fatalf("apply_preset: %+v %v", applied, err)
+	}
+	if w.Laundering.Dial != events.LaunderCareful {
+		t.Fatal("apply_preset left the dial")
+	}
+	if err := c.Call("preset_diff", []any{"nothing"}, nil); !Refused(err) {
+		t.Errorf("an unknown preset: %v", err)
+	}
+}
+
+// preview (#353) is the session's day's preview over the wire, and a
+// query: nothing changes and no view follows it.
+func TestPreviewOverTheWire(t *testing.T) {
+	t.Parallel()
+	c, srv := loopClient(t)
+	if err := c.Call("new_run", []any{7, "", false}, nil); err != nil {
+		t.Fatal(err)
+	}
+	w := srv.sess.World()
+	sup := w.StreetSupplier(w.Player.Location)
+	product := w.Products[0]
+	if err := c.Call("buy", []any{sup.ID, product, 10, false}, nil); err != nil {
+		t.Fatal(err)
+	}
+	if err := c.Call("place_sell", []any{w.Player.Location, product, 10, "normal"}, nil); err != nil {
+		t.Fatal(err)
+	}
+	before := string(c.LastView())
+	var p engine.DayPreview
+	if err := c.Call("preview", nil, &p); err != nil {
+		t.Fatal(err)
+	}
+	want, _ := json.Marshal(srv.sess.Preview())
+	got, _ := json.Marshal(p)
+	if string(got) != string(want) {
+		t.Fatalf("preview over the wire:\n%s\nin the process:\n%s", got, want)
+	}
+	if string(c.LastView()) != before {
+		t.Error("a view followed the preview")
+	}
+	if p.Day != w.Day+1 || len(p.Sales) != 1 || p.Sales[0].Units == 0 || p.Flow.Lines[0].Dirty <= 0 {
+		t.Errorf("the preview of a night selling 10: %+v", p)
 	}
 }

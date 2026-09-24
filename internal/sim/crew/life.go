@@ -137,6 +137,9 @@ func (s *Sim) life(w *game.World, t *game.Tick, fx game.Effects) {
 	if sw := w.Heat.Sweep; sw.Day > 0 && sw.Day == t.Day-1 && life.ArrestChance > 0 {
 		for _, id := range sw.Crew {
 			m := c.Member(id)
+			if m != nil {
+				s.lived(m, content.LivedRaid) // stood there when the police came (#346)
+			}
 			if m == nil || m.Jailed(t.Day) {
 				continue
 			}
@@ -254,6 +257,7 @@ func (s *Sim) jail(w *game.World, t *game.Tick, m *game.CrewMember, city string,
 	}
 	w.Recall(m.ID)
 	m.JailedUntil = t.Day + life.JailDays
+	s.lived(m, content.LivedJail) // #346
 	m.Bailed = false
 	w.Stats.Arrests++
 	if fx.AutoBail {
@@ -293,6 +297,7 @@ func (s *Sim) shoot(w *game.World, t *game.Tick, rng game.Rand, id int, corner *
 		ev.Days = life.WoundDays
 		w.Recall(m.ID)
 		m.WoundedUntil = t.Day + life.WoundDays
+		s.lived(m, content.LivedShot) // #346
 		w.Stats.Wounded++
 	default:
 		return

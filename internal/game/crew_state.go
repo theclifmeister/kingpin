@@ -113,6 +113,42 @@ type CrewMember struct {
 	// off the roster's counts until they come back.
 	Undercover    string
 	UndercoverDay int
+
+	// Veterans (#346). Trait is what they showed at crew.toml [traits]
+	// days of service, "" before then or with the table boxed; Lived is
+	// what they lived through, each of raid, shot and jail once, the
+	// words the trait's draw weighs (written only while traits are on).
+	// Captain is the city they run crew care for ("" nobody's), and
+	// Budget the pay-off budget a night they have there. Zero values
+	// are the pre-#346 member.
+	Trait   string
+	Lived   []string
+	Captain string
+	Budget  int
+}
+
+// HasLived reports whether the member lived through word (#346).
+func (m CrewMember) HasLived(word string) bool {
+	for _, l := range m.Lived {
+		if l == word {
+			return true
+		}
+	}
+	return false
+}
+
+// Captain returns the member running crew care for a city (#346), or
+// nil.
+func (c *CrewState) Captain(city string) *CrewMember {
+	if city == "" {
+		return nil
+	}
+	for i := range c.Members {
+		if m := &c.Members[i]; m.Captain == city {
+			return m
+		}
+	}
+	return nil
 }
 
 // Jailed reports whether the member is in a cell on day.

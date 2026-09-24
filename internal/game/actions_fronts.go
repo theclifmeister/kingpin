@@ -43,6 +43,9 @@ func (w *World) BuyFront(o FrontOffer) (Front, error) {
 		return Front{}, err
 	}
 	f := Front{ID: o.ID, Name: o.Name, Cost: o.Cost, Bought: w.Day}
+	if here := w.Here(); here != nil {
+		f.City = here.ID // it stands where you bought it (#344)
+	}
 	w.Fronts = append(w.Fronts, f)
 	return f, nil
 }

@@ -83,6 +83,7 @@ type Model struct {
 	spy            spyDialog        // the spy dialog (#45)
 	exit           exitDialog       // the walk-away dialog (#49)
 	nr             newRunDialog     // the new-run dialog (#50)
+	pre            presetsDialog    // the presets dialog (#357)
 	intelCursor    int              // row on the intel screen (#45)
 	fastStop       string           // the report's first line after a fast-forward (`Stopped after 3 days: …`), until the next day ends
 	fastAlert      *engine.Alert    // the alert a fast-forward stopped on (#352), which the report's o opens; nil with the rest
@@ -450,13 +451,23 @@ func (m *Model) keyConfirm(key string) {
 	}
 }
 
-// keyConfirmEnd ends the day on y or enter; any other key goes back.
+// keyConfirmEnd ends the day on y or enter; [ ] pick an alert in the
+// day's preview (#353) and o goes where it is answered (#352); the
+// scroll keys move it; any other key goes back.
 func (m *Model) keyConfirmEnd(key string) {
 	switch key {
 	case "y", "Y", "enter":
 		m.endDay()
+	case "[", "]":
+		m.cycleAlert(dir(key))
+	case "o":
+		if as := m.sess.Alerts(); len(as) > 0 {
+			m.openAlert(as[clamp(&m.alertCursor, len(as))])
+		}
 	default:
-		m.mode = modePlay
+		if !m.scrollModal(key) {
+			m.mode = modePlay
+		}
 	}
 }
 
@@ -624,9 +635,11 @@ func (m *Model) View() string {
 // viewConfirm is the open confirmation, as its payload draws it (#242).
 func (m *Model) viewConfirm() string { return m.cfm.view(m) }
 
-// viewConfirmEnd is the cart in a sentence, then what the night does.
+// viewConfirmEnd is the day's preview (#353): what is left idle and
+// what needs you, the cart in a sentence, tonight's money estimated,
+// then what the night does.
 func (m *Model) viewConfirmEnd() string {
-	return m.modal("END THE DAY?", []string{m.endDayLine(), "The sims step and the run autosaves."}, m.modalFooter())
+	return m.modal("END THE DAY?", m.previewLines(), m.modalFooter())
 }
 
 // viewDetails is the details pane as an overlay, under paneMinWidth.

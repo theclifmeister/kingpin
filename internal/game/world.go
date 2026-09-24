@@ -118,6 +118,13 @@ type World struct {
 	// hold. One war at a time. Zero is the run before.
 	War string
 
+	// Takes (#341) is the rivals sim's window on the player's take in
+	// each city away from home: by city id, the revenue of the last
+	// window_days days, a day a slot (the day modulo the window). A city
+	// gets a row the first day anything sells there, so a run that never
+	// sells away from home keeps it nil, the run before.
+	Takes map[string][]int
+
 	// Today is the player's per-day scratch (#144): what the actions
 	// queued since the morning, for the sims to resolve tonight. The
 	// clock zeroes it as a unit after every EndDay (ClearToday), bar the
@@ -169,6 +176,7 @@ type Today struct {
 	Scouting      *ScoutOrder            // somebody reading the rival's books tonight (#70); the rivals sim resolves it
 	Tipoff        *TipOrder              // the rival corner you tipped the police on tonight (#70); the rivals sim resolves it
 	Poach         *PoachOrder            // the rival's muscle you are paying to go home tonight (#70); the rivals sim resolves it
+	HitScouts     string                 // the faction whose scouts your enforcers hit tonight (#341); the rivals sim resolves it
 	Invested      []Investment           // levels bought at the fronts today (#192), applied at once; the laundering sim reports them
 	Cuts          []CutRecord            // the cuts made today (#47), applied at once; the market sim reports them
 	Reserved      int                    // clean cash on its way offshore tonight (#195), out of the pile already; the laundering sim moves it and takes the fee
@@ -414,6 +422,11 @@ type HeatState struct {
 	LineMul      float64        // ... by this much; 0 reads as no change
 	Busts        []Bust         // stings and raids that took stock, kept a while: the market sim reads yesterday's for the connect there (#72)
 	Sweep        Sweep          // the last sting or raid and who stood where when it came (#46): the crew sim reads yesterday's for the arrests
+	// Trail is the heat by source the police can put a name to (#343,
+	// heat.toml [investigation]): LeadKey to a tally that forgets
+	// 1/window_days of itself a day. Nil with the feature off.
+	Trail         map[string]float64
+	Investigation Investigation // the one open investigation (#343); the zero value is none
 }
 
 // Sweep is a sting or raid as the crew remember it (#46): the city, the
@@ -474,6 +487,19 @@ type Front struct {
 	Level       int            // the levels bought (#192); 0 is the front as bought, washing and costing what the file says
 	Invested    int            // clean cash put into its levels, lifetime
 	Grew        int            // the day its growth made the paper (#192); 0 means it has not
+	City        string         // the city it stands in, where it was bought (#344); "" is home, a front from before
+}
+
+// FrontCity is the city a front stands in (#344): where it was bought,
+// home for a front from before the fronts had roles.
+func (w *World) FrontCity(f Front) string {
+	if f.City != "" {
+		return f.City
+	}
+	if h := w.Home(); h != nil {
+		return h.ID
+	}
+	return ""
 }
 
 // Frozen reports whether the front is shut on day.

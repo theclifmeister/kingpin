@@ -20,6 +20,7 @@ const (
 	StreamFactionOf   = "faction:"   // + faction: a seat past the first's own day (#43, rivals)
 	StreamHomage      = "homage"     // homage offered (#43, rivals)
 	StreamPoach       = "poach"      // a faction poaching another's muscle (#43, rivals)
+	StreamExpansion   = "expansion"  // a faction following the money: a cell's leader, the recruiters' poach (#341, rivals)
 	StreamFragment    = "fragment"   // a faction breaking up takes crew with it (#43, crew)
 	StreamLife        = "life"       // kin, arrests, bail, the shot (#46, crew)
 	StreamAges        = "ages"       // the pool's ages (#46, crew)
@@ -32,6 +33,7 @@ const (
 	StreamOverdose    = "overdose"   // an overdose on a cut product (#47, market)
 	StreamSwagger     = "swagger"    // the boss's headline (#233, news)
 	StreamCharacter   = "character"  // a character's start on day 0 (#50)
+	StreamTraits      = "traits"     // a veteran's trait (#346, crew)
 
 	// Shared streams.
 	StreamBooks     = "books"     // shared: the rival's scout and poach (#70, rivals) and a tip's evidence (heat)
@@ -41,14 +43,15 @@ const (
 
 	// The news sim's own template streams, so a feature's headlines
 	// never move the home stream.
-	StreamProgression   = "progression"    // the tier's headline (#147)
-	StreamUnlocks       = "unlocks"        // an unlock's headline
-	StreamAssetsNews    = "assets:news"    // the assets' headlines (#48)
-	StreamDeedsNews     = "deeds:news"     // the deeds' headlines (#194)
-	StreamHousesNews    = "houses:news"    // the houses' headlines (#73)
-	StreamIncidentsNews = "incidents:news" // an incident's headline (#44)
-	StreamIntelNews     = "intel:news"     // the intel headlines (#45)
-	StreamOverdoseNews  = "overdose:news"  // an overdose's headline (#47)
+	StreamProgression       = "progression"        // the tier's headline (#147)
+	StreamUnlocks           = "unlocks"            // an unlock's headline
+	StreamAssetsNews        = "assets:news"        // the assets' headlines (#48)
+	StreamDeedsNews         = "deeds:news"         // the deeds' headlines (#194)
+	StreamHousesNews        = "houses:news"        // the houses' headlines (#73)
+	StreamIncidentsNews     = "incidents:news"     // an incident's headline (#44)
+	StreamIntelNews         = "intel:news"         // the intel headlines (#45)
+	StreamOverdoseNews      = "overdose:news"      // an overdose's headline (#47)
+	StreamInvestigationNews = "investigation:news" // an investigation opened or gone nowhere (#343)
 )
 
 // Rand is the subset of *math/rand/v2.Rand the sims draw on (#275): the
