@@ -206,3 +206,38 @@ func TestTakenCornerSaysWhatBeatYou(t *testing.T) {
 		}
 	}
 }
+
+// A standing order of yours that sold out with as much again in the
+// stash says it is too small (#418); one the stash could not cover, or
+// the lieutenant's, does not.
+func TestSmallStandingOrderIsFlagged(t *testing.T) {
+	cfg := content.MustLoad()
+	for _, tc := range []struct {
+		name  string
+		stock int
+		ev    events.PlayerSold
+		flag  bool
+	}{
+		{"sold out, 25 left", 25, events.PlayerSold{Wanted: 5, Sold: 5, Standing: true}, true},
+		{"sold out, 3 left", 3, events.PlayerSold{Wanted: 5, Sold: 5, Standing: true}, false},
+		{"short of demand", 25, events.PlayerSold{Wanted: 5, Sold: 4, Standing: true}, false},
+		{"placed today", 25, events.PlayerSold{Wanted: 5, Sold: 5}, false},
+		{"the lieutenant's", 25, events.PlayerSold{Wanted: 5, Sold: 5, Standing: true, Delegated: true}, false},
+	} {
+		n, err := news.New(cfg)
+		if err != nil {
+			t.Fatal(err)
+		}
+		w := sim.NewWorld(cfg, 4)
+		w.Day = 20
+		city, product := w.Home().ID, w.Products[0]
+		w.SetStock(city, product, tc.stock)
+		ev := tc.ev
+		ev.Day, ev.City, ev.Product, ev.Dial, ev.AvgPrice, ev.Revenue = 21, city, product, events.DialNormal, 20, 20*ev.Sold
+		n.Step(w, gametest.TickOn(w, 21, ev))
+		got := strings.Join(w.Report.Sales, "\n")
+		if strings.Contains(got, "the standing order sold all") != tc.flag {
+			t.Errorf("%s: sales %q", tc.name, w.Report.Sales)
+		}
+	}
+}
