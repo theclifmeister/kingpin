@@ -1562,10 +1562,16 @@
         "member": {
           "type": "integer"
         },
+        "product": {
+          "type": "string"
+        },
         "ready": {
           "type": "boolean"
         },
         "supplier": {
+          "type": "string"
+        },
+        "target": {
           "type": "string"
         }
       },
@@ -5563,6 +5569,76 @@
       ],
       "type": "object"
     },
+    "events.InvestigationClosed": {
+      "properties": {
+        "City": {
+          "type": "string"
+        },
+        "Day": {
+          "type": "integer"
+        },
+        "Evidence": {
+          "type": "integer"
+        },
+        "Fell": {
+          "type": "boolean"
+        },
+        "Hit": {
+          "type": "boolean"
+        },
+        "Lead": {
+          "type": "string"
+        },
+        "Name": {
+          "type": "string"
+        },
+        "Target": {
+          "type": "string"
+        }
+      },
+      "required": [
+        "Day",
+        "City",
+        "Lead",
+        "Target",
+        "Name",
+        "Hit",
+        "Fell",
+        "Evidence"
+      ],
+      "type": "object"
+    },
+    "events.InvestigationOpened": {
+      "properties": {
+        "City": {
+          "type": "string"
+        },
+        "Day": {
+          "type": "integer"
+        },
+        "Due": {
+          "type": "integer"
+        },
+        "Lead": {
+          "type": "string"
+        },
+        "Name": {
+          "type": "string"
+        },
+        "Target": {
+          "type": "string"
+        }
+      },
+      "required": [
+        "Day",
+        "City",
+        "Lead",
+        "Target",
+        "Name",
+        "Due"
+      ],
+      "type": "object"
+    },
     "events.InvestigationRun": {
       "properties": {
         "Clean": {
@@ -8644,6 +8720,12 @@
     },
     "IntelGained": {
       "$ref": "#/$defs/events.IntelGained"
+    },
+    "InvestigationClosed": {
+      "$ref": "#/$defs/events.InvestigationClosed"
+    },
+    "InvestigationOpened": {
+      "$ref": "#/$defs/events.InvestigationOpened"
     },
     "InvestigationRun": {
       "$ref": "#/$defs/events.InvestigationRun"
@@ -13304,6 +13386,8 @@
             "Incident",
             "IntelFalse",
             "IntelGained",
+            "InvestigationClosed",
+            "InvestigationOpened",
             "InvestigationRun",
             "KinLooking",
             "LaidLow",
@@ -13384,5 +13468,5 @@
   },
   "protocol": 5,
   "title": "kingpind",
-  "view_version": 7
+  "view_version": 8
 }

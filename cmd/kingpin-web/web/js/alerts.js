@@ -36,6 +36,11 @@ export const WORDS = {
   debt_due: (v, a) => `${(byId(v.connects, a.supplier) || { name: "A connect" }).name}: ${money(n(a.amount))} due tomorrow, ${money(n(a.have))} in hand.`,
   heat: (v, a) => `Heat ${Math.round(n(a.heat))} in ${cityName(v, a.city)} is over the patrol line (${Math.round(n(a.line))}).`,
   task_force: () => "A task force formed this morning. It comes tonight: lie low.",
+  investigation: (v, a) => {
+    const name =
+      a.target === "corner" ? cornerName(v, a.corner) : a.target === "house" ? (byId(v.houses, a.house) || { name: "a house" }).name : `the ${a.product} trade`;
+    return `Police are working ${name}: they hit ${n(a.days) <= 1 ? "tonight" : `in ${plural(a.days, "day")}`}.`;
+  },
   float: (v, a) => `Dirty cash ${money(n(a.have))} is under the float (${money(n(a.amount))}).`,
   wages: (v, a) => `Wages ${money(n(a.amount))} due tonight, ${money(n(a.have))} dirty in hand.`,
   crew_line: (v, a) => {

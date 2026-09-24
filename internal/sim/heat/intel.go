@@ -42,6 +42,9 @@ func (s *Sim) Due(w *game.World) string {
 	if s.TaskForceForming(w) {
 		return content.TaskForce
 	}
+	if inv := w.Heat.Investigation; inv.Open() && w.Day+1 >= inv.Due {
+		return content.Sting // an investigation lands tonight (#343)
+	}
 	hot := s.hottest(w)
 	resp := s.Thresholds()
 	for i := len(resp) - 1; i >= 0; i-- {
@@ -53,6 +56,9 @@ func (s *Sim) Due(w *game.World) string {
 			continue
 		}
 		if last, ok := w.Heat.LastResponse[r.Level]; ok && w.Day+1-last < s.CooldownDays(w, r.Level) && r.Level != content.Arrest {
+			continue
+		}
+		if r.Level == content.Sting && s.Investigating() && w.Heat.Investigation.Open() {
 			continue
 		}
 		switch r.Level {

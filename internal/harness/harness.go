@@ -1327,6 +1327,16 @@ func NoLife(cfg *content.Config) *content.Config {
 	return &boxed
 }
 
+// Investigations returns a copy of cfg with heat.toml's [investigation]
+// switched on or off (#343), the rest of the table as the file has it.
+// Off, the sting is the blind one and nothing is tallied: the run before
+// the feature, byte for byte (TestNoInvestigationIsTheOldRun).
+func Investigations(cfg *content.Config, on bool) *content.Config {
+	boxed := *cfg
+	boxed.Heat.Investigation.Enabled = on
+	return &boxed
+}
+
 // NoDeeds returns a copy of cfg with city.toml's [deed] table boxed
 // (#194): no block is on sale (BuyDeed refuses with ErrNoDeeds) and
 // nothing reads the table. A run that never bought a deed is
