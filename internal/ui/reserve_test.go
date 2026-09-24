@@ -16,9 +16,10 @@ func TestReserveDialog(t *testing.T) {
 	w := m.w
 	l := m.rules.Laundering
 	off := l.Offshore()
+	m.Update(key("4")) // the dashboard's o opens an alert (#352)
 	m.Update(key("o"))
 	if m.mode != modePlay || !strings.Contains(m.status, "ledger") {
-		t.Fatalf("o on the dashboard: mode %v status %q", m.mode, m.status)
+		t.Fatalf("o on the crew screen: mode %v status %q", m.mode, m.status)
 	}
 	m.Update(key("7"))
 	w.Player.CleanCash = 0

@@ -259,7 +259,7 @@ const (
 // first front (the laundromat, which carries no effect), by shape
 // alone; under harness.NoFrontRoles the digest is the file's to day 53
 // and the roles first move a number on day 54, and cmd/balance -roles
-// off prints cb882df's trace to the dollar.
+// off prints main's trace to the dollar.
 var seedDigest = []string{
 	"0a185cd20b737fe7", "e94ccd608b8fccc1", "7b19268dcb2f9ef7", "672ed40fbdb47bb3",
 	"3fa9635ce0d1148d", "a5fc52962f77a3b3", "5a497124e7f50439", "f2bc9b7bc2210541",

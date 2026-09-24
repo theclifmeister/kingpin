@@ -1,4 +1,4 @@
-version 6
+version 7
 .version int
 .seed uint64
 .day int
@@ -297,3 +297,6 @@ version 6
 .alerts[].gate.line int
 .alerts[].gate.vouch string
 .alerts[].gate.clean bool
+.alerts[].act.screen string
+.alerts[].act.mode string
+.alerts[].act.subject string

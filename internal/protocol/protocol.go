@@ -28,10 +28,11 @@ import (
 // notifications. The view inside carries its own, engine.ViewVersion.
 // 2 added the quotes, rules.<sim>.<method> (#325); 3 export_save and
 // import_save (#327); 4 max_buy, restock_plan and the no_room error
-// (#356); 5 rules.territory.deed_rent takes the corner and a price,
-// so an offer's rent is quoted too (#344: a front's rent_mul folds in
-// the block's city).
-const Version = 5
+// (#356); 5 the presets, presets, preset_commands, preset_diff and
+// apply_preset (#357); 6 rules.territory.deed_rent takes the corner and
+// a price, so an offer's rent is quoted too (#344: a front's rent_mul
+// folds in the block's city).
+const Version = 6
 
 // The error codes: JSON-RPC 2.0's, and the game's own in its
 // server-error range.
