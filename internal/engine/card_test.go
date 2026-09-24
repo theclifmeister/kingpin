@@ -93,3 +93,27 @@ func TestChoiceChipsSayTheLines(t *testing.T) {
 		}
 	}
 }
+
+// A crew loyalty chip reads as its text does (#384): one member down 25
+// while the rest go up 2 says "down to −23" and is a cost, not a gain.
+func TestMixedCrewLoyaltyIsACost(t *testing.T) {
+	t.Parallel()
+	cfg := content.MustLoad()
+	s, err := engine.New(cfg)
+	if err != nil {
+		t.Fatal(err)
+	}
+	w := s.NewRun(7, game.Start{})
+	w.Crew.Members = []game.CrewMember{{ID: 901, Name: "Vee", Role: "runner", Loyalty: 90}, {ID: 902, Name: "Dre", Role: "runner", Loyalty: 90}}
+	c := &game.Card{ID: "a_say", Member: 901, Choices: []game.Choice{
+		{Label: "Remind", Effects: map[string]float64{"loyalty": -25, "crew_loyalty": 2}},
+		{Label: "Give", Effects: map[string]float64{"loyalty": 5, "crew_loyalty": 2}},
+	}}
+	got := engine.ChoiceChips(cfg, s.Rules(), w, c)
+	if ch := got[0][0]; ch.Text != "crew loyalty down to −23" || ch.Tone != engine.ToneCost {
+		t.Errorf("the mixed move reads %+v", ch)
+	}
+	if ch := got[1][0]; !strings.HasPrefix(ch.Text, "crew loyalty up to +") || ch.Tone != engine.ToneGain {
+		t.Errorf("the rise reads %+v", ch)
+	}
+}

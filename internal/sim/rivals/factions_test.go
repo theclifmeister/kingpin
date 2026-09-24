@@ -7,6 +7,7 @@ import (
 	"github.com/theclifmeister/kingpin/internal/events"
 	"github.com/theclifmeister/kingpin/internal/game"
 	"github.com/theclifmeister/kingpin/internal/gametest"
+	"github.com/theclifmeister/kingpin/internal/sim/rivals"
 )
 
 // table is the file with exactly n factions in the run (#43), all at
@@ -257,6 +258,64 @@ func TestBrokeRoutedFactionScatters(t *testing.T) {
 		step(w, s)
 		if r.Gone() {
 			t.Fatalf("a routed faction with the money to come back scattered on day %d: %+v", w.Day, *r)
+		}
+	}
+}
+
+// A faction the police raid off its last corner on your tips is not
+// routed (it sets up again at its own pace) but the raid is stamped
+// RaidedOut (#384): broke, it scatters at absorb_days as a routed one
+// does (#370), and the city stops waiting on it; with the money for a
+// claim it never does. The raid is the real one, off the tip path.
+func TestBrokeRaidedFactionScatters(t *testing.T) {
+	raidOut := func(t *testing.T, cash int) (*game.World, *rivals.Sim, *game.RivalState) {
+		t.Helper()
+		cfg := duel()
+		w, s := warWorld(t, cfg, 11, "defensive")
+		r := w.Rival()
+		r.Cash, r.Muscle = cash, 2
+		for night := 1; ; night++ {
+			if night > 10 {
+				t.Fatalf("ten tips and no raid: heat %.1f", r.Heat)
+			}
+			if err := w.Tip("docks"); err != nil {
+				t.Fatal(err)
+			}
+			evs := step(w, s)
+			w.Today.Tipoff = nil
+			if find[events.RivalRaided](evs) != nil {
+				break
+			}
+		}
+		if w.RivalHeldBy(r.Faction()) != 0 || r.Routed != 0 || r.RaidedOut != w.Day {
+			t.Fatalf("after the raid: held %d, routed %d, raided out %d on day %d", w.RivalHeldBy(r.Faction()), r.Routed, r.RaidedOut, w.Day)
+		}
+		return w, s, r
+	}
+
+	w, s, r := raidOut(t, 0)
+	out, days := w.Day, duel().Rivals.Factions.AbsorbDays
+	for w.Day < out+days-1 {
+		if evs := step(w, s); r.Gone() {
+			t.Fatalf("scattered on day %d, %d days after the raid: %v", w.Day, w.Day-out, kinds(evs))
+		}
+	}
+	if w.Dominant() {
+		t.Fatal("dominant with a faction still standing")
+	}
+	evs := step(w, s)
+	ab := find[events.RivalAbsorbed](evs)
+	if ab == nil || ab.By != "" || !r.Gone() || r.AbsorbedBy != "" || !w.Dominant() {
+		t.Fatalf("day %d, %d after the raid: %v %+v, rival %+v", w.Day, w.Day-out, kinds(evs), ab, *r)
+	}
+
+	// The money for a claim: it sets up again, and never scatters.
+	w, s, r = raidOut(t, 0)
+	for i := 0; i < 2*days; i++ {
+		r.Cash = max(r.Cash, 10*s.ClaimCost(w, r))
+		step(w, s)
+		if r.Gone() {
+			t.Fatalf("a raided faction with the money to come back scattered on day %d: %+v", w.Day, *r)
 		}
 	}
 }
