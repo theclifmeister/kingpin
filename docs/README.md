@@ -49,6 +49,7 @@ Each is the contract for the sim or screen it names: read it before touching tha
 - [Assets are the supply side bought with clean money](assets.md)
 - [Intel: what you know against what is true](intel.md)
 - [The endings, the exit plans and the run summary](endings.md)
+- [Ambitions are the endings shown early as plans](ambitions.md)
 - [The profile: characters, unlocks and the daily](profile.md)
 
 ## The map
@@ -72,6 +73,7 @@ A PR that changes a subsystem updates its row.
 | Logistics: routes, targets, shipments | `sim/logistics`, `ui/routes.go` | `routes.toml` | `docs/logistics.md` | `TestStockIsConservedAcrossShipments`, `TestDistributorBeatsLaundered` |
 | Laundering: fronts, the float, audits, the levels (#192), the offshore account (#195), the fronts' roles (#344) | `sim/laundering`, `ui/ledger.go`, `ui/invest.go`, `ui/reserve.go`; the roles in `content/upgrades.go` (`FrontRole`, `FrontWords`), `game/upgrades.go` (`FoldEffectsIn`, `FoldEffectsAll`), `Front.City`, read by `sim/logistics`, `sim/territory`, `sim/heat`, `sim/law`, `sim/market` | `laundering.toml`, `upgrades.toml [[front]]` | `docs/laundering.md` | `laundering_test.go`, `TestExposureLineIsOneNumber`, `TestLevelsPullTheirWay`, `TestNoInvestIsTheOldRun`, `TestStructuringFilesPages`, `TestFrontsPullTheirWay`, `TestNoFrontEffectIsTheOldRun`, `TestNoFrontDominates`, `TestFrontRoles`, `TestFoldEffectsIn` |
 | Endings: nine causes and their owners, the exit plans, the reign (#227), the score, the summary (#49) | `game/exit.go` (`End`, `Score`, `Retire`, `Vanish`, `Crown`), the owning sims, `ui/summary.go`, `ui/exit.go` | `endings.toml`; thresholds in the owners' | `docs/endings.md` | `TestEveryEndingIsReachable`, `TestExitPlansRunInOrder`, `TestEndingFrequencies`, `TestNoEndingIsTheOldRun` |
+| Ambitions: the endings as plans, the pin, the two-city milestone (#347) | `game/ambitions.go` (`Ambitions`, `PinAmbition`, `World.DominantSince`), `engine/ambitions.go`, `ui/ambitions.go` | `ambitions.toml`; thresholds in the owners' | `docs/ambitions.md` | `TestAmbitionsNeverWriteTheWorld`, `TestAmbitionProgressAgreesWithTheEnding`, `TestNoAmbitionIsTheOldRun`, `TestViewCarriesTheAmbitions` |
 | Stash houses | `game/houses.go`, `ui/houses.go`, raid in `sim/heat`, rent in `sim/territory` | `houses.toml` | `docs/houses.md` | `houses_test.go`, `TestDecoyHouseNeverShieldsTheStreet` |
 | Crew, pay, snitching, investigation, the crew trouble alerts (#345) | `sim/crew`, `ui/crew.go`, `engine/alerts.go` (`crewLines`, `idleCorners`), `ui/alerts.go` | `crew.toml` (`alert_margin`) | `docs/snitching.md`, `docs/crew-and-upgrades-screens.md` | `crew_test.go`, `TestCrewTroubleAlerts`, `TestFastForwardStopsOnIdleCorner`, `TestCrewTroubleWords` |
 | Property: deeds, rent, the forfeiture (#194) | `game/territory.go` (`BuyDeed`), `sim/territory`, `sim/rivals` (`OddsOn`), `sim/heat` (`RaidWeight`), `sim/law` (the forfeiture), `ui/deeds.go` | `city.toml [deed]` | `docs/property.md` | `TestDeedsPullTheirWay` ×4, `TestNoDeedIsTheOldRun`, `TestDeedSlowsTheRivalNeverStopsIt`, `TestForfeiture` |

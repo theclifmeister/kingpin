@@ -69,6 +69,7 @@ func (m *Model) reportLines() []string {
 	}
 	section("INCIDENT", r.Incident, theme.Fg(theme.World)) // the world's incident this morning (#44): first, the day is about it
 	section("TIER", r.Tier, theme.Warning)                 // the tier entered this morning (#147)
+	section("PLAN", m.planReport(), theme.Gold)            // the plan pinned (#347): its bar and next step
 	section("UNLOCKED", r.Unlocked, theme.Gold)            // a gate crossed (#148): next, it is what the morning is about
 	section("PRICES", r.Prices, theme.Good)
 	section("SALES", r.Sales, theme.Gold)

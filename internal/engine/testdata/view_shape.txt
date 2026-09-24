@@ -1,4 +1,4 @@
-version 9
+version 10
 .version int
 .seed uint64
 .day int
@@ -28,6 +28,7 @@ version 9
 .you.quiet_days int
 .you.character string
 .you.hard_da bool
+.you.ambition string
 .cities []
 .cities[].id string
 .cities[].name string
@@ -305,6 +306,23 @@ version 9
 .alerts[].gate.line int
 .alerts[].gate.vouch string
 .alerts[].gate.clean bool
+.alerts[].ambition string
+.alerts[].steps int
 .alerts[].act.screen string
 .alerts[].act.mode string
 .alerts[].act.subject string
+.ambitions []
+.ambitions[].id string
+.ambitions[].name string
+.ambitions[].ending string
+.ambitions[].pinned bool
+.ambitions[].progress float64
+.ambitions[].done bool
+.ambitions[].next string
+.ambitions[].steps []
+.ambitions[].steps[].id string
+.ambitions[].steps[].label string
+.ambitions[].steps[].have float64
+.ambitions[].steps[].need float64
+.ambitions[].steps[].unit string
+.ambitions[].steps[].done bool

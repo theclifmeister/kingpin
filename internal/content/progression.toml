@@ -123,13 +123,13 @@ opens = [
   "the plane and the tunnel on the map",
   "the task force, above the raid",
 ]
-next = "There is no next stage. Retire on the account, or see how long it lasts."
+next = "There is no next stage. Pick an ambition and chase it: retire, go legit, take the city or disappear."
 text = [
   "Clean money buys the Dutchman's book, the port, an airstrip, a lab.",
   "Each one is throughput, cheaper or faster; each is a reason for a task force.",
   "It is announced the morning before it comes, and it takes an asset with it.",
 ]
-closing = "No stage lies past this one. Retire on the account, or see how long it lasts."
+closing = "No stage lies past this one. Pick an ambition and chase it: retire clean, go legit, take the city or disappear."
 [tier.enter]
 crew_min = 1
 peak_clean_min = 8000000

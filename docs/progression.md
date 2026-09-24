@@ -16,3 +16,4 @@ The issue's $500M–$5B was three times what any policy reads: the tier-4 operat
 On c2d12af, ten seeds, incidents off, the cartel reads $167.1M and the boss $172.7M at day 300 ($163.7M on the test's twenty seeds).
 A demand-side lever, assets that earn on their own, is #223.
 The report's TIER line reads `tier N of 5` and the stage modal's last-tier `closing` is the cartel's.
+Since #347 the cartel's `next` and `closing` point at the ambitions (`Pick an ambition and chase it: …`, `docs/ambitions.md`): the ways the run can end well, shown as plans from any tier.

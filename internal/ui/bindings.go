@@ -240,9 +240,9 @@ var bindings = []binding{
 // alias). The keys themselves are handled by handleKey; the table is
 // what the footer and the status bar say.
 var modeBindings = []binding{
-	{key: "↑↓", label: "pick", modes: in(modeStart, modePost, modeStrike, modeFront, modeAssign, modePropose, modeGuard, modeDriver, modeSpy, modeCaptain)},
+	{key: "↑↓", label: "pick", modes: in(modeStart, modePost, modeStrike, modeFront, modeAssign, modePropose, modeGuard, modeDriver, modeSpy, modeCaptain, modeAmbitions)},
 	// Every picker takes the digits as select-and-commit and says so (#241).
-	{key: "1-9", label: "choose", modes: in(modePost, modeStrike, modeFront, modeAssign, modePropose, modeGuard, modeDriver, modeSpy, modeCaptain)},
+	{key: "1-9", label: "choose", modes: in(modePost, modeStrike, modeFront, modeAssign, modePropose, modeGuard, modeDriver, modeSpy, modeCaptain, modeAmbitions)},
 	{key: "←→", label: "budget", modes: in(modeCaptain)},
 	{key: "1-9", label: "choose", modes: in(modeExit), when: step(0)},
 	// The undercut is a dial like the sale's (#241): ←→ turns it, 1-3 pick a notch.
@@ -334,16 +334,20 @@ var modeBindings = []binding{
 	{key: "enter", label: "next", modes: in(modeSpy), when: spyOnFactions},
 	{key: "enter", label: "plant", modes: in(modeSpy), when: spyOnCrew},
 	{key: "enter", label: "next", modes: in(modeExit), when: step(0)},
+	{key: "a", label: "ambitions", modes: in(modeExit), when: step(0)}, // the plans toward the ways out (#347)
 	{key: "y", label: "retire", modes: in(modeExit), when: exitRetiring},
 	{key: "y", label: "vanish", modes: in(modeExit), when: exitVanishing},
 	{key: "y", label: "crown", modes: in(modeExit), when: exitCrowning},
+	{key: "enter", label: "pin", modes: in(modeAmbitions), when: ambitionUnpinned},
+	{key: "enter", label: "unpin", modes: in(modeAmbitions), when: ambitionPinned},
 	{key: "q", label: "quit", modes: in(modeStart, modeOver)},
 	// The trade's other side (#168): listed on the product step (and a
 	// buy's connect step) alone, where the toggle is live.
 	{key: "s", label: "sell", modes: in(modeBuy), when: buyList},
 	{key: "b", label: "buy", modes: in(modeSell), when: step(0)},
 	{key: "⇧tab", label: "back", keys: []string{"shift+tab"}, dialogs: true, when: pastFirstStep},
-	{key: "esc", label: "close", dialogs: true, modes: in(modeConfirm, modeConfirmEnd)},
+	{key: "esc", label: "close", dialogs: true, modes: in(modeConfirm, modeConfirmEnd, modeAmbitions)},
+	{key: "a", label: "ambitions", modes: in(modeStage)},
 	{key: "o", label: "open alert", modes: in(modeReport), when: stoppedOnAlert}, // the fast-forward's stop line (#352)
 	{key: "enter esc", label: "close", modes: in(modeReport, modeHelp, modeStage)},
 	{key: "enter esc", label: "close", modes: in(modeCard), when: step(1)},

@@ -41,6 +41,7 @@ const (
 	AlertRetire        AlertKind = "retire"        // Ready, or Days quiet and Amount short
 	AlertFavour        AlertKind = "favour"        // the chief owes you one and Level comes tonight
 	AlertReign         AlertKind = "reign"         // day Days of the reign, Count crews paying Amount
+	AlertPlan          AlertKind = "plan"          // the pinned plan (#347): Count of its Steps met, Ready once done
 )
 
 // AlertKinds is every kind, loudest first: the order Alerts returns them
@@ -48,7 +49,7 @@ const (
 func AlertKinds() []AlertKind {
 	return []AlertKind{AlertTalking, AlertContractDue, AlertDebtDue, AlertHeat, AlertTaskForce, AlertInvestigation, AlertFloat, AlertWages,
 		AlertCrewLine, AlertSkim, AlertUnposted, AlertIdleCorner, AlertStashFull, AlertScouts, AlertGate, AlertHouseKnown,
-		AlertDARace, AlertRetire, AlertFavour, AlertReign}
+		AlertDARace, AlertRetire, AlertFavour, AlertReign, AlertPlan}
 }
 
 // Act is what answers an alert (#352): the screen that fixes it, the
@@ -128,6 +129,7 @@ var alertActs = map[AlertKind][]Act{
 	AlertRetire:        {actLedger, actDashboard},
 	AlertFavour:        {actLedger},
 	AlertReign:         {actDashboard},
+	AlertPlan:          {actDashboard}, // the plan pinned (#347): the dashboard, where it is shown and the walk away is
 }
 
 // ActsOf is every act an alert of the kind can carry, the usual one
@@ -154,8 +156,8 @@ type Alert struct {
 	Heat     float64 `json:"heat,omitempty"`     // heat: the city's heat
 	Line     float64 `json:"line,omitempty"`     // heat: the patrol line; crew_line: the loyalty line
 	Days     int     `json:"days,omitempty"`     // da_race: days to the election; retire: quiet days short; reign: the reign's day; crew_line: days to the line at tonight's drift (0: not falling); idle_corner: days before it drifts; investigation: nights to the hit (1: tonight)
-	Count    int     `json:"count,omitempty"`    // reign: the crews paying homage; stash_full: the units held
-	Ready    bool    `json:"ready,omitempty"`    // retire: retiring is open now
+	Count    int     `json:"count,omitempty"`    // reign: the crews paying homage; stash_full: the units held; plan: the steps met
+	Ready    bool    `json:"ready,omitempty"`    // retire: retiring is open now; plan: the plan is done
 	Level    string  `json:"level,omitempty"`    // favour: the response due tonight
 	Member   int     `json:"member,omitempty"`   // crew_line, unposted: the member's id
 	Cross    string  `json:"cross,omitempty"`    // crew_line: the line ahead: skim, flip (a lieutenant's) or walk
@@ -165,6 +167,8 @@ type Alert struct {
 	Product  string  `json:"product,omitempty"`  // investigation: the product's id
 	Day      int     `json:"day,omitempty"`      // skim: the day money last went missing
 	Gate     *Gate   `json:"gate,omitempty"`     // gate: the door
+	Ambition string  `json:"ambition,omitempty"` // plan: the ambition pinned
+	Steps    int     `json:"steps,omitempty"`    // plan: how many steps it has
 
 	Act Act `json:"act"` // what answers it (#352), one of ActsOf(Kind)
 }
@@ -268,6 +272,7 @@ func (s *Session) Alerts() []Alert {
 		crews, homage := w.HomageDeals()
 		out = append(out, Alert{Kind: AlertReign, Key: "the city is yours", Days: w.ReignDay(), Count: crews, Amount: homage})
 	}
+	out = append(out, s.planAlert()...)
 	for i := range out {
 		if out[i].Act.Screen == "" {
 			out[i].Act = alertActs[out[i].Kind][0]
