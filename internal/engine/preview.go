@@ -33,9 +33,9 @@ type DayPreview struct {
 	Flow    FlowView      `json:"flow"`
 	Bought  int           `json:"bought"`  // the cash the day's buys by hand already cost
 	Sales   []SaleView    `json:"sales"`   // per city where anything sells or is handed over tonight
-	Idle    []IdleView    `json:"idle"`    // runners and enforcers on no corner and guarding no house
-	Corners []CornerIdle  `json:"corners"` // corners you hold that nobody works tonight
-	Alerts  []Alert       `json:"alerts"`  // what else needs you this morning (the idle corners are Corners)
+	Idle    []IdleView    `json:"idle"`    // runners and enforcers on no corner and guarding no house: the unposted alerts
+	Corners []CornerIdle  `json:"corners"` // corners you hold that nobody works tonight: the idle_corner alerts
+	Alerts  []Alert       `json:"alerts"`  // everything that needs you this morning, each with its act (#352)
 	Unknown []string      `json:"unknown"` // PreviewUnknown
 	Supply  []SupplyView  `json:"supply"`  // the supply contracts' buys due tonight
 	Routes  RoutesOutlay  `json:"routes"`  // the road's lots and fares
@@ -291,19 +291,19 @@ func (s *Session) Preview() *DayPreview {
 	f.Opening = opening // NewCashFlow works it back to the same piles
 	p.Flow = flowView(f, s.cfg.Headlines.Flow.BigShare)
 
-	// What is left idle, and what else needs you.
-	for _, m := range w.Crew.Members {
-		if (m.Role != game.RoleRunner && m.Role != game.RoleEnforcer) || !m.Fit(w.Day) || w.PostOf(m.ID) != nil || w.GuardOf(m.ID) != nil {
-			continue
-		}
-		p.Idle = append(p.Idle, IdleView{Member: m.ID, Name: m.Name, Role: m.Role})
-	}
-	for _, a := range s.Alerts() {
-		if a.Kind == AlertIdleCorner {
+	// What needs you: every alert this morning, each with the act that
+	// answers it (#352); the idle crew and the corners nobody works are
+	// the unposted and idle_corner ones among them, summed up.
+	p.Alerts = s.Alerts()
+	for _, a := range p.Alerts {
+		switch a.Kind {
+		case AlertUnposted:
+			if m := w.Crew.Member(a.Member); m != nil {
+				p.Idle = append(p.Idle, IdleView{Member: m.ID, Name: m.Name, Role: m.Role})
+			}
+		case AlertIdleCorner:
 			p.Corners = append(p.Corners, CornerIdle{Corner: a.Corner, City: a.City, Days: a.Days})
-			continue
 		}
-		p.Alerts = append(p.Alerts, a)
 	}
 	noNulls(reflect.ValueOf(p).Elem()) // a list is [] on the wire, never null (#333)
 	return p

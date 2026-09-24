@@ -139,24 +139,30 @@ function toast(text, ok = false) {
 // UNKNOWN words what a preview leaves out (engine.PreviewUnknown).
 const UNKNOWN = { robbery: "robberies", police: "the police", prices: "tomorrow's prices", audit: "audits", skim: "skims", rivals: "the rivals", crew: "the crew's nights" };
 
-// showPreview is the day's preview (#353) before the day ends: what is
-// left idle and what needs you, the sales by city, tonight's money as
-// the cash flow draws it, estimated, and what the estimate cannot know.
+// showPreview is the day's preview (#353) before the day ends: what
+// needs you (the morning's alerts, the idle crew and the corners nobody
+// works among them, each a button to the panel that answers it where
+// the page has one, #352), the sales by city, tonight's money as the
+// cash flow draws it, estimated, and what the estimate cannot know.
 // End day ends it; anything else goes back.
 function showPreview() {
   const v = session.view;
   const p = session.preview();
   if (!p) return endDays(1);
   const cityName = (id) => ((v.cities.find((c) => c.id === id) || {}).name || id);
-  const cornerName = (id) => {
-    for (const c of v.cities) for (const k of c.corners) if (k.id === id) return k.name || id;
-    return id;
-  };
   const line = (text, cls = "") => Object.assign(document.createElement("p"), { textContent: text, className: cls });
   const parts = [];
-  if (p.idle.length) parts.push(line(`Idle tonight: ${p.idle.map((m) => `${m.name} (${m.role})`).join(", ")}.`, "warn"));
-  for (const c of p.corners) parts.push(line(`Nobody works ${cornerName(c.corner)} in ${cityName(c.city)}: back to the street in ${c.days} day${c.days === 1 ? "" : "s"}.`, "warn"));
-  for (const a of p.alerts) parts.push(line(a.key, "warn"));
+  for (const a of p.alerts) {
+    const panel = alertPanel(a);
+    if (!panel) parts.push(line(alertText(v, a), "warn"));
+    else
+      parts.push(
+        button(alertText(v, a), false, () => {
+          closePreview();
+          showPanel(panel);
+        }),
+      );
+  }
   if (p.lie_low) parts.push(line("Lying low today: nothing sells."));
   for (const s of p.sales) parts.push(line(`${cityName(s.city)}: ~${s.units} sold${s.delivered ? `, ${s.delivered} handed over` : ""}, ~${money(s.take)}, +${s.heat.toFixed(1)} heat.`));
   parts.push(flowTable(p.flow, "Now", "~Closing"));

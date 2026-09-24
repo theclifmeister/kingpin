@@ -451,12 +451,19 @@ func (m *Model) keyConfirm(key string) {
 	}
 }
 
-// keyConfirmEnd ends the day on y or enter; the scroll keys move the
-// day's preview (#353); any other key goes back.
+// keyConfirmEnd ends the day on y or enter; [ ] pick an alert in the
+// day's preview (#353) and o goes where it is answered (#352); the
+// scroll keys move it; any other key goes back.
 func (m *Model) keyConfirmEnd(key string) {
 	switch key {
 	case "y", "Y", "enter":
 		m.endDay()
+	case "[", "]":
+		m.cycleAlert(dir(key))
+	case "o":
+		if as := m.sess.Alerts(); len(as) > 0 {
+			m.openAlert(as[clamp(&m.alertCursor, len(as))])
+		}
 	default:
 		if !m.scrollModal(key) {
 			m.mode = modePlay

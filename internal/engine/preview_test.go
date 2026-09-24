@@ -100,6 +100,18 @@ func TestPreviewNeverWritesTheWorld(t *testing.T) {
 			if p == nil || p.Day != w.Day+1 || len(p.Flow.Lines) != len(game.FlowCats) {
 				t.Fatalf("day %d: preview %+v", w.Day, p)
 			}
+			// The alerts are the morning's, each with the act that
+			// answers it (#352), so a front end jumps from the preview.
+			got, _ := json.Marshal(p.Alerts)
+			want, _ := json.Marshal(append([]engine.Alert{}, s.Alerts()...))
+			if string(got) != string(want) {
+				t.Fatalf("day %d: the preview's alerts %s, the morning's %s", w.Day, got, want)
+			}
+			for _, a := range p.Alerts {
+				if a.Act.Screen == "" {
+					t.Fatalf("day %d: %s has no act", w.Day, a.Key)
+				}
+			}
 			s.EndDay()
 		}
 	}

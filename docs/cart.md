@@ -19,7 +19,7 @@ Nothing is bought until `enter`, which buys the plan by hand, one `Session.Buy` 
 `enter` opens it, and `y` or `enter` there ends the day as before (`TestEnterDoesNotEndDay`); `n` still ends it at once, with no preview.
 The body is `previewLines`, in this order:
 
-- **What needs you.** The crew left idle tonight by name (`idleLine`, `Idle tonight: Ike and Dee (runners), Moss (enforcer). Post them on the map screen (5).`), then each corner you hold that nobody works (`idleCornerAlert`'s words), then the rest of the morning's alerts (`alertOf`).
+- **What needs you.** The morning's alerts in the engine's order, each worded by `alertOf`, so the idle crew (`unposted`) and the corners nobody works (`idle_corner`) are among them. The selected one is marked `▸`: it is the dashboard's ALERTS cursor (`Model.alertCursor`) over the same list. `[ ] alert` picks one and `o open alert` goes where it is answered (`openAlert`, the alert's `Act`, #352), leaving the day unended. A pointer to a screen is never broken across a wrapped line (`wrapWhole`).
 - **The cart.** The cart in a sentence (`endDayLine`), then each city's sales tonight (`Eastside: ~75 units sold, ~$3,006, +2.3 heat.`).
 - **Tonight's money.** It is drawn as the report's cash flow (`moneyLines`), in its categories (`previewTable`, `tonight ~ dirty clean total`): `Now` (the piles as they stand), a row for each category the night is expected to move, and `Closing`, the projected piles.
 - **What it cannot know.** `Estimates before the dice: robberies, the police, tomorrow's prices, audits, skims, the rivals and the crew's nights are not in them.` (`engine.PreviewUnknown`, worded by `unknownWords`).
@@ -27,5 +27,5 @@ The body is `previewLines`, in this order:
 The body scrolls (`scrollModal`); any key other than a scroll key goes back.
 The lines are tonight's, and what the day has already paid (the cart's buys) is in `Now`.
 So the morning's report and the preview meet at the closing: on a night the dice leave alone, they agree to the dollar (`TestPreviewAgreesWithAQuietNight`, `docs/engine.md`).
-`TestEndDayShowsThePreview` pins the order, the closing and the scroll, and `TestModalsFit` opens it with a full cart.
+`TestEndDayShowsThePreview` pins the order, the closing and the scroll, `TestPreviewJumpsToAnAlert` the jump, and `TestModalsFit` opens it with a full cart.
 Whether `n` should show the preview when something needs you is left open, as the issue left it.

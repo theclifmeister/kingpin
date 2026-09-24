@@ -38,18 +38,21 @@ func (m *Model) previewLines() []string {
 		return []string{m.endDayLine(), "The sims step and the run autosaves."}
 	}
 	var body []string
-	// What needs you: the idle crew, the corners nobody works, the
-	// alerts.
-	if line := m.idleLine(p.Idle); line != "" {
-		body = append(body, m.wrapWhole(line)...)
+	// What needs you: the morning's alerts (the idle crew and the
+	// corners nobody works among them), the selected one marked, the
+	// one o opens (#352: the dashboard's ALERTS cursor, over the same
+	// list).
+	if len(p.Alerts) > 0 {
+		clamp(&m.alertCursor, len(p.Alerts))
 	}
-	for _, c := range p.Corners {
-		text, _ := m.idleCornerAlert(engine.Alert{Kind: engine.AlertIdleCorner, Corner: c.Corner, City: c.City, Days: c.Days})
-		body = append(body, m.wrapWhole(text)...)
-	}
-	for _, a := range p.Alerts {
-		if text := m.alertOf(a).text; text != "" {
-			body = append(body, m.wrapWhole(text)...)
+	for i, a := range p.Alerts {
+		cur := "  "
+		if i == m.alertCursor {
+			cur = theme.Gold.Render("▸ ")
+		}
+		for _, l := range m.wrapWhole(m.alertOf(a).text, m.modalInner()-2) {
+			body = append(body, cur+l)
+			cur = "  "
 		}
 	}
 	if len(body) > 0 {
@@ -85,42 +88,20 @@ var screenPointerWords = regexp.MustCompile(`on the \w+ screen \(\d\)`)
 // wide and no space to the wrap, so the pointer moves down whole.
 const glue = "\ue000"
 
-// wrapWhole is wrapLines keeping each pointer to a screen on one line.
-func (m *Model) wrapWhole(s string) []string {
+// wrapWhole wraps prose to width cells keeping each pointer to a
+// screen on one line.
+func (m *Model) wrapWhole(s string, width int) []string {
 	s = screenPointerWords.ReplaceAllStringFunc(s, func(p string) string { return strings.ReplaceAll(p, " ", glue) })
-	out := m.wrapLines(s)
+	out := strings.Split(theme.Plain.Width(width).Render(s), "\n")
 	for i := range out {
 		out[i] = strings.ReplaceAll(out[i], glue, " ")
 	}
 	return out
 }
 
-// idleLine is the crew nobody posted, by name: `Idle tonight: Ray and
-// Dee (runners), Moss (enforcer). Post them on the map screen (5).`;
-// empty with nobody idle.
-func (m *Model) idleLine(idle []engine.IdleView) string {
-	if len(idle) == 0 {
-		return ""
-	}
-	byRole := map[string][]string{}
-	var roles []string
-	for _, v := range idle {
-		if byRole[v.Role] == nil {
-			roles = append(roles, v.Role)
-		}
-		byRole[v.Role] = append(byRole[v.Role], v.Name)
-	}
-	var parts []string
-	for _, r := range roles {
-		names := byRole[r]
-		role := r
-		if len(names) > 1 {
-			role += "s"
-		}
-		parts = append(parts, fmt.Sprintf("%s (%s)", andList(names), role))
-	}
-	return theme.Warning.Render(fmt.Sprintf("Idle tonight: %s. Post them %s.", strings.Join(parts, ", "), screenPointer(screenMap)))
-}
+// previewHasAlerts is the day's preview with an alert to pick and
+// open: its [ ] and o are listed and live.
+func previewHasAlerts(m *Model) bool { return len(m.sess.Alerts()) > 0 }
 
 // andList is names joined `a, b and c`.
 func andList(names []string) string {
