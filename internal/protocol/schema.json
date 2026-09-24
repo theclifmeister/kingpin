@@ -671,6 +671,12 @@
         "ShockMul": {
           "type": "number"
         },
+        "StrandDays": {
+          "type": "integer"
+        },
+        "SuccessionMuscle": {
+          "type": "number"
+        },
         "TableShare": {
           "type": "number"
         },
@@ -704,7 +710,9 @@
         "FragmentDiscount",
         "TributeCorners",
         "HomageCut",
-        "HomageChance"
+        "HomageChance",
+        "StrandDays",
+        "SuccessionMuscle"
       ],
       "type": "object"
     },
@@ -7216,6 +7224,9 @@
         },
         "Rival": {
           "type": "string"
+        },
+        "Successor": {
+          "type": "string"
         }
       },
       "required": [
@@ -7225,7 +7236,8 @@
         "City",
         "Corners",
         "Muscle",
-        "Killed"
+        "Killed",
+        "Successor"
       ],
       "type": "object"
     },

@@ -160,7 +160,7 @@ func TestCartelBeatsCorruptAndDistributor(t *testing.T) {
 // corners do not bound, bought off the book the cartel owns, so the
 // cartel now reads several times the boss: on every seed where a lane
 // shipped it beats the boss, and its median is at least five times the
-// boss's (about twelve on ten seeds when the lanes landed).
+// boss's (about nine on ten seeds).
 func TestCartelDwarfsBoss(t *testing.T) {
 	t.Parallel()
 	cfg := content.MustLoad()
@@ -260,7 +260,9 @@ func TestAssetsSaveAndReplay(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	const seed, at, on = 1, 250, 30
+	// Day 270: the book is the first door since #391 and the tunnel the
+	// second, standing on this seed from about day 255.
+	const seed, at, on = 1, 270, 30
 	a, _ := Run(cfg, seed, at+on, Cartel(cfg, 40))
 	b, _ := Run(cfg, seed, at+on, Cartel(cfg, 40))
 	if digest(a.World) != digest(b.World) {

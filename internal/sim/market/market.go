@@ -642,11 +642,12 @@ func (s *Sim) Estimate(w *game.World, city string, o game.SellOrder, stock int) 
 }
 
 // fragmented reports whether a faction living in the city lost its
-// leader last night (#43): the rivals sim steps after the market, so
-// the morning after is the first the street knows.
+// leader last night (#43), arrested or killed and succeeded (#389): the
+// rivals sim steps after the market, so the morning after is the first
+// the street knows.
 func (s *Sim) fragmented(w *game.World, t *game.Tick, city string) bool {
 	for _, r := range w.Rivals {
-		if r != nil && r.Fragmented > 0 && r.Fragmented == t.Day-1 && w.CityOf(r).ID == city {
+		if r != nil && t.Day > 1 && (r.Fragmented == t.Day-1 || r.Succeeded == t.Day-1) && w.CityOf(r).ID == city {
 			return true
 		}
 	}

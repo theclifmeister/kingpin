@@ -224,7 +224,7 @@ var moneyCurve = []struct {
 	// demand-side lever: a load bought off the owned book and sold
 	// abroad, never through a corner, with the casino and the bank to
 	// wash what lands. The band is #48's ask, $1B-$5B; the cartel reads
-	// about $2.0B on twenty seeds at day 300.
+	// about $1.7B on twenty seeds at day 300 ($2.0B before #389).
 	{5, "cartel", func(cfg *content.Config) Policy { return Cartel(cfg, 40) }, 1_000_000_000, 5_000_000_000, false},
 }
 
