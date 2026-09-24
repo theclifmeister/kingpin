@@ -32,6 +32,7 @@ func (w *World) Hire(id, maxCrew int) (CrewMember, error) {
 	c.Hired = w.Day
 	w.Crew.Candidates = append(w.Crew.Candidates[:idx], w.Crew.Candidates[idx+1:]...)
 	w.Crew.Members = append(w.Crew.Members, c)
+	w.Crew.Named = append(w.Crew.Named, c.Name)
 	w.Crew.HiredToday = append(w.Crew.HiredToday, c)
 	return c, nil
 }
