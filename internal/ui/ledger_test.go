@@ -133,13 +133,17 @@ func TestLedgerScrolls(t *testing.T) {
 			return m.assetRows()[r.i].Name
 		case ledgerLane:
 			return m.exportLanes()[r.i].Name
+		case ledgerTrophy:
+			return w.Trophies[r.i].Name
+		case ledgerTrophyOffer:
+			return m.trophyRows()[r.i].Name
 		case ledgerPayoff:
 			return m.payoffRows()[r.i].Who
 		}
 		return m.frontRows()[r.i].Name
 	}
 	heading := func(r ledgerRow) string {
-		return [...]string{"FRONTS", "STASH", "PROPERTY", "ASSETS", "ASSETS", "EXPORTS", "PAYOFFS", "ON OFFER"}[r.kind]
+		return [...]string{"FRONTS", "STASH", "PROPERTY", "ASSETS", "ASSETS", "EXPORTS", "TROPHIES", "TROPHIES", "PAYOFFS", "ON OFFER"}[r.kind]
 	}
 	for i, r := range rows {
 		assertFrame(t, m, "short ledger row "+name(r))

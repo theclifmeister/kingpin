@@ -331,6 +331,8 @@ func (q quoteRig) arg(t *testing.T, name string, typ reflect.Type) (any, reflect
 		v = w.Products[0]
 	case "id":
 		v = s.Rules().Laundering.AssetOffers()[0].ID
+	case "trophy":
+		v = s.Rules().Laundering.TrophyOffers()[0].ID
 	case "muscle", "skill", "n", "band":
 		v = 2
 	case "rel", "quality", "share", "mul", "base":

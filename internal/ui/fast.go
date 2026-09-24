@@ -214,6 +214,8 @@ func (m *Model) stopEvent(e events.Event) string {
 		return "a shipment seized"
 	case events.ExportSeized:
 		return "a load seized abroad"
+	case events.TrophySeized:
+		return "the feds took " + ev.Name
 	case events.DealOffered:
 		return ev.Rival + " offers " + format.A(ev.Deal)
 	case events.DealBroken:

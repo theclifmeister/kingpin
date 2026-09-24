@@ -157,11 +157,13 @@ func (m *Model) viewFront() string {
 const (
 	ledgerFront = iota
 	ledgerHouse
-	ledgerDeed       // the property (#194)
-	ledgerAsset      // an asset owned (#48)
-	ledgerAssetOffer // one on offer
-	ledgerLane       // an export lane (#391)
-	ledgerPayoff     // the bought law (#42)
+	ledgerDeed        // the property (#194)
+	ledgerAsset       // an asset owned (#48)
+	ledgerAssetOffer  // one on offer
+	ledgerLane        // an export lane (#391)
+	ledgerTrophy      // a trophy owned (#392)
+	ledgerTrophyOffer // one on offer
+	ledgerPayoff      // the bought law (#42)
 	ledgerOffer
 )
 
@@ -207,6 +209,14 @@ func (m *Model) ledgerRows() []ledgerRow {
 	if m.exportsShown() {
 		for i := range m.exportLanes() {
 			rows = append(rows, ledgerRow{ledgerLane, i})
+		}
+	}
+	if m.trophiesShown() {
+		for i := range m.w.Trophies {
+			rows = append(rows, ledgerRow{ledgerTrophy, i})
+		}
+		for i := range m.trophyRows() {
+			rows = append(rows, ledgerRow{ledgerTrophyOffer, i})
 		}
 	}
 	for i := range m.payoffRows() {
@@ -264,6 +274,9 @@ func (m *Model) viewLedger() string {
 	line(theme.PanelTitle.Render("LEDGER"))
 	line(theme.Gold.Render("dirty "+cash(w.Player.DirtyCash)) + sub(" · ") + theme.Good.Render("clean "+cash(w.Player.CleanCash)) + sub(" · ") + theme.Gold.Render("offshore "+cash(w.Offshore)) + sub(fmt.Sprintf(" · seized %s lifetime", cash(w.Stats.Seized))))
 	line(sub("launder  ") + launderRow(w.Laundering.Dial) + sub(fmt.Sprintf("   audit %s/day · up to %s/day · legit %s/day", format.Pct(l.AnyAuditRisk(w), 1), money(l.Capacity(w)), money(l.LegitIncome(w)))))
+	if pile := m.pileLine(); pile != "" {
+		line(theme.Gold.Render(pile))
+	}
 	if warn := m.exposureWarning(); warn != "" {
 		line(theme.Warning.Render("▲ " + warn))
 	}
@@ -431,6 +444,30 @@ func (m *Model) viewLedger() string {
 		tableLines(ledgerLane, cols, rows)
 	}
 
+	// The trophies (#392): owned, then on offer, once they are near.
+	if m.trophiesShown() {
+		heading("TROPHIES", m.trophyNote())
+		owned, offers := w.Trophies, m.trophyRows()
+		if len(owned)+len(offers) == 0 {
+			line(sub("You own every trophy there is."))
+		} else {
+			rows := m.trophyTable(owned, offers, true)
+			if tableWidth(trophyCols, rows) > width {
+				rows = m.trophyTable(owned, offers, false)
+			}
+			c := -1
+			if sel.kind == ledgerTrophy {
+				c = sel.i
+			} else if sel.kind == ledgerTrophyOffer {
+				c = len(owned) + sel.i
+			}
+			if c >= 0 {
+				top, at = len(ls)-1, len(ls)+1+c
+			}
+			ls = append(ls, table(trophyCols, rows, c, width)...)
+		}
+	}
+
 	// The road is the map's (#245): the ledger reads its money and
 	// points at the map for the dials, the targets and what is on it.
 	lost := 0
@@ -524,6 +561,15 @@ func (m *Model) ledgerDetails() []section {
 	case ledgerLane:
 		if l := m.ledgerLaneSelected(); l != nil {
 			secs = append(secs, m.laneSection(*l))
+		}
+	case ledgerTrophy:
+		if sel.i < len(m.w.Trophies) {
+			t := m.w.Trophies[sel.i]
+			secs = append(secs, m.trophySection(t.ID, t.Name, t.Cost, &t, nil))
+		}
+	case ledgerTrophyOffer:
+		if o := m.ledgerTrophyOfferSelected(); o != nil {
+			secs = append(secs, m.trophySection(o.ID, o.Name, o.Cost, nil, o))
 		}
 	case ledgerPayoff:
 		if rows := m.payoffRows(); sel.i < len(rows) {

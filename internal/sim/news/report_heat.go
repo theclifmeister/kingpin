@@ -82,6 +82,11 @@ func (r *reporter) reportHeat(e events.Event) bool {
 		d.Asset = ev.Name
 		r.addOff(game.StreamAssetsNews, "heat", "AssetSeized", d)
 		rep.Heat = append(rep.Heat, fmt.Sprintf("  they took %s: %s of yours, gone.", ev.Name, format.Money(ev.Cost)))
+	case events.TrophySeized:
+		d := r.at(ev.City)
+		d.Asset = ev.Name
+		r.addOff(game.StreamTrophiesNews, "heat", "TrophySeized", d)
+		rep.Heat = append(rep.Heat, fmt.Sprintf("  they took %s: %s of yours, gone, and on the evening news.", ev.Name, format.Money(ev.Cost)))
 	case events.InvestigationOpened:
 		// A named target (#343): the headline off its own stream, so a
 		// run with the feature off rolls what it always did.

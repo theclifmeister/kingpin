@@ -551,6 +551,18 @@ func (s *Session) FrontOffers() []game.FrontOffer {
 	return out
 }
 
+// TrophyOffers is the trophies on offer you do not own (#392), locked
+// or not, cheapest first; one the task force took is for sale again.
+func (s *Session) TrophyOffers() []game.TrophyOffer {
+	var out []game.TrophyOffer
+	for _, o := range s.set.Laundering.TrophyOffers() {
+		if s.w.Trophy(o.ID) == nil {
+			out = append(out, o)
+		}
+	}
+	return out
+}
+
 // AssetOffers is the assets on offer you do not own and the task force
 // has not found (#48), locked or not.
 func (s *Session) AssetOffers() []game.AssetOffer {

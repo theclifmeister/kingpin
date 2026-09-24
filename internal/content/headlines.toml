@@ -75,6 +75,13 @@ corner_won = 4.0
 idle_corner = 2.0
 idle_runner = 1.5
 
+# The rich list (#392): the net worths whose crossing makes the paper,
+# each once a run, one a morning; the rank is rank_scale over net worth
+# ($100M is #1,000, $1B #100, $10B #10).
+[richlist]
+lines = [100000000, 500000000, 1000000000, 10000000000]
+rank_scale = 100000000000
+
 [templates]
 PriceShock = [
   "{{.Product}} prices surge after bust upriver",
@@ -178,6 +185,21 @@ TunnelFound = [
   "Police find smugglers' tunnel under the county line; {{.Product}} recovered",
   "A tunnel, a torch and {{.Product}}: the county's strangest bust in years",
   "Chief {{.Chief}} shows reporters the tunnel: 'they will not dig another'",
+]
+TrophyBought = [
+  "{{.Asset}} sold to a buyer nobody will name; the city names them anyway",
+  "Who bought {{.Asset}}? Everyone in {{.City}} has a guess, and one name",
+  "{{.Asset}} changes hands for cash; the broker 'never asks'",
+]
+TrophySeized = [
+  "Federal agents seize {{.Asset}}; cameras there before the agents were",
+  "{{.Asset}} forfeited to the government in a dawn raid",
+  "The feds take {{.Asset}}: 'proceeds of crime', says the US Attorney",
+]
+RichListed = [
+  "Business magazine puts {{.Title}} at #{{.Qty}} on its rich list, worth {{.Name}}; 'sources of wealth unclear'",
+  "#{{.Qty}} on the rich list: {{.Name}}, and the magazine could not find a single tax return",
+  "The rich list names a newcomer at #{{.Qty}}: {{.Name}}, a fortune made in {{.City}}, 'in logistics'",
 ]
 ExportLanded = [
   "{{.Qty}} units of {{.Product}} land in Europe; police trace the shipment to {{.City}}",

@@ -301,6 +301,20 @@ func (s *Sim) seize(w *game.World, t *game.Tick, city *game.City) {
 			pick = i
 		}
 	}
+	// A trophy (#392) is taken when it cost more than the asset the feds
+	// would take, or when there is no asset: the costliest one owned,
+	// the first bought of equals. No trophy is the rule it always was.
+	trophy := -1
+	for i, tr := range w.Trophies {
+		if trophy < 0 || tr.Cost > w.Trophies[trophy].Cost {
+			trophy = i
+		}
+	}
+	if trophy >= 0 && (pick < 0 || w.Trophies[trophy].Cost > w.Assets[pick].Cost) {
+		tr := w.Trophies[trophy]
+		t.Emit(events.TrophySeized{Day: t.Day, City: city.ID, Trophy: tr.ID, Name: tr.Name, Cost: tr.Cost})
+		return
+	}
 	if pick < 0 {
 		return
 	}

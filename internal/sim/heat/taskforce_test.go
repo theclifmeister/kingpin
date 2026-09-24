@@ -214,3 +214,55 @@ func TestTaskForceLineAndTheFloor(t *testing.T) {
 		t.Fatalf("after a month of nothing the heat is %.2f, the floor %.2f", w.Here().Heat, top.HeatFloor)
 	}
 }
+
+// The task force takes the costliest thing owned (#392): a trophy that
+// cost more than the asset it would take is taken instead of it; a
+// cheaper trophy is left and the asset goes; with no asset the trophy
+// goes. Exactly one thing a firing.
+func TestTaskForceTakesATrophy(t *testing.T) {
+	cfg := content.MustLoad()
+	s := heat.New(cfg)
+	tf := rung(cfg, content.TaskForce)
+	fire := func(assets []game.Asset, trophies []game.Trophy) (asset, trophy string) {
+		w := world(t, cfg)
+		home := w.CityOrder[0]
+		for i := range assets {
+			assets[i].City = home
+		}
+		w.Assets, w.Trophies = assets, trophies
+		w.Here().Heat = over(w, s, tf, w.Here())
+		step(w, s, sale(w, home, 100))
+		for _, e := range step(w, s).Events() {
+			switch ev := e.(type) {
+			case events.AssetSeized:
+				asset += ev.Asset + " "
+			case events.TrophySeized:
+				trophy += ev.Trophy + " "
+			}
+		}
+		return asset, trophy
+	}
+	if a, tr := fire([]game.Asset{{ID: "lab", Name: "lab", Cost: 5}}, []game.Trophy{{ID: "penthouse", Name: "P", Cost: 3}, {ID: "yacht", Name: "Y", Cost: 9}}); a != "" || tr != "yacht " {
+		t.Fatalf("a yacht over a lab: took asset %q trophy %q", a, tr)
+	}
+	if a, tr := fire([]game.Asset{{ID: "lab", Name: "lab", Cost: 5}}, []game.Trophy{{ID: "penthouse", Name: "P", Cost: 3}}); a != "lab " || tr != "" {
+		t.Fatalf("a lab over a penthouse: took asset %q trophy %q", a, tr)
+	}
+	// With no asset the task force forms only on the pile; a trophy is
+	// what it takes then.
+	w := world(t, cfg)
+	w.Player.DirtyCash = cfg.Heat.Heat.TaskforceCash + 1
+	w.Fronts = []game.Front{{ID: "laundromat", Name: "Suds", Cost: int(float64(w.Player.DirtyCash)/cfg.Heat.Heat.DirtyCashCover) + 1}}
+	w.Trophies = []game.Trophy{{ID: "zoo", Name: "Z", Cost: 80}}
+	w.Here().Heat = over(w, s, tf, w.Here())
+	step(w, s, sale(w, w.CityOrder[0], 100))
+	took := ""
+	for _, e := range step(w, s).Events() {
+		if ev, ok := e.(events.TrophySeized); ok {
+			took += ev.Trophy
+		}
+	}
+	if took != "zoo" {
+		t.Fatalf("on the pile with a zoo: took %q", took)
+	}
+}

@@ -72,7 +72,7 @@ var cueKinds = map[string]CueKind{
 	"RivalMovedIn": CueRivalMove, "RivalEyeing": CueRivalMove, "RivalPushed": CueRivalMove, "RivalBoosted": CueRivalMove, "FactionPushed": CueRivalMove,
 	"CornerRobbed": CueRobbery, "HouseRobbed": CueRobbery,
 	"Enforcement": CuePolice, "HouseRaided": CuePolice,
-	"TaskForceFormed": CueTaskForce, "AssetSeized": CueTaskForce, "TunnelFound": CueTaskForce,
+	"TaskForceFormed": CueTaskForce, "AssetSeized": CueTaskForce, "TunnelFound": CueTaskForce, "TrophySeized": CueTaskForce,
 	"ShipmentSent": CueShipment, "ShipmentArrived": CueShipment, "ShipmentSeized": CueShipment,
 	"ExportShipped": CueShipment, "ExportLanded": CueShipment, "ExportSeized": CueShipment,
 	"CrewHired": CueCrewJoined,
@@ -148,6 +148,8 @@ func CueOf(e events.Event) (Cue, bool) {
 		return Cue{Kind: CueTaskForce, Day: ev.Day, City: ev.City, Phase: "formed"}, true
 	case events.AssetSeized:
 		return Cue{Kind: CueTaskForce, Day: ev.Day, City: ev.City, Asset: ev.Asset, Phase: "seized"}, true
+	case events.TrophySeized:
+		return Cue{Kind: CueTaskForce, Day: ev.Day, City: ev.City, Asset: ev.Trophy, Phase: "seized"}, true
 	case events.TunnelFound:
 		return Cue{Kind: CueTaskForce, Day: ev.Day, Route: ev.Route, Asset: ev.Asset, Product: ev.Product, Units: ev.Units, Phase: "found"}, true
 	case events.ShipmentSent:

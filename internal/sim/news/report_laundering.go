@@ -82,6 +82,19 @@ func (r *reporter) reportLaundering(e events.Event) bool {
 		// pile; the flow names it now.
 		r.book(game.FlowLaundering, 0, -ev.Amount)
 		rep.Money = append(rep.Money, fmt.Sprintf("Upkeep on %s -%s clean", format.Plural(ev.Assets, "asset"), format.Money(ev.Amount)))
+	case events.TrophyBought:
+		// The trophies (#392): bought to be seen buying them, and the
+		// paper sees; off their own stream, so no pinned run moves.
+		d := r.base
+		d.Asset = ev.Name
+		r.addOff(game.StreamTrophiesNews, "laundering", "TrophyBought", d)
+		r.book(game.FlowInvestments, 0, -ev.Cost)
+		rep.Money = append(rep.Money, fmt.Sprintf("Bought %s -%s clean. The whole city has heard.", ev.Name, format.Money(ev.Cost)))
+	case events.CashRotted:
+		// The rot (#392): what the rats and the damp took of a pile
+		// nobody can keep dry.
+		r.book(game.FlowLosses, -ev.Amount, 0)
+		rep.Money = append(rep.Money, fmt.Sprintf("Rats and damp took -%s of the pile: %s dirty, %s of it, and nowhere dry to keep it. Wash it.", format.Money(ev.Amount), format.Cash(ev.Pile), format.CashWeight(ev.Pile)))
 	case events.AssetFrozen:
 		rep.Money = append(rep.Money, fmt.Sprintf("%s stands idle for %s: %s upkeep unpaid. Wash something.", ev.Name, format.Plural(ev.Days, "day"), format.Money(ev.Upkeep)))
 	default:

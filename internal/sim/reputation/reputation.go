@@ -19,12 +19,13 @@ import (
 
 // Sim is the reputation simulation.
 type Sim struct {
-	cfg content.ReputationConfig
+	cfg      content.ReputationConfig
+	trophies content.TrophiesConfig // #392: what a trophy owned adds to each axis a day
 }
 
 // New builds a reputation sim from the config, copying what it reads
-// (#144): its own reputation.toml.
-func New(cfg *content.Config) *Sim { return &Sim{cfg: cfg.Reputation} }
+// (#144): its own reputation.toml, and the trophies' rows (#392).
+func New(cfg *content.Config) *Sim { return &Sim{cfg: cfg.Reputation, trophies: cfg.Trophies} }
 
 func (s *Sim) Name() string { return "reputation" }
 
@@ -88,6 +89,15 @@ func (s *Sim) Step(w *game.World, t *game.Tick) {
 			if ev.Dead {
 				notoriety += s.cfg.Notoriety.Body
 			}
+		}
+	}
+	// The trophies owned (#392) talk every night they are yours: what
+	// the file gives each a day, from this sim's own copy of the rows.
+	for _, tr := range w.Trophies {
+		if tc := s.trophies.Trophy(tr.ID); tc != nil {
+			fear += tc.Fear
+			respect += tc.Respect
+			notoriety += tc.Notoriety
 		}
 	}
 	if s.cfg.Notoriety.Units > 0 {

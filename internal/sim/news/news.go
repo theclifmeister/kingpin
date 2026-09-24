@@ -156,6 +156,14 @@ func (s *Sim) Step(w *game.World, t *game.Tick) {
 		rep.Tier = tierLines(n, len(s.pcfg.Tiers), *tier)
 		r.addOff(game.StreamProgression, "news", "TierReached", base)
 	}
+	// The rich list (#392): a line crossed is a headline off its own
+	// stream and a line under the tier.
+	if ev, ok := s.richList(w, t); ok {
+		d := base
+		d.Qty, d.Name = ev.Rank, format.Cash(ev.NetWorth)
+		r.addOff(game.StreamRichNews, "news", "RichListed", d)
+		rep.Tier = append(rep.Tier, fmt.Sprintf("THE RICH LIST puts you at #%d, worth %s. Nobody there can say where it came from.", ev.Rank, format.Cash(ev.NetWorth)))
+	}
 	// The reign (#227): while the city is yours the TIER section opens
 	// with where the reign stands, its homage counted off tonight's
 	// TributePaid; the morning it began carries the headline, and the
