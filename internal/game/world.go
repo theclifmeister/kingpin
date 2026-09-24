@@ -65,6 +65,14 @@ type World struct {
 	DelegatedSupply map[string]SupplyContract
 	Markup          float64
 
+	// DelegatedHit is a lieutenant's answer to a faction moving on their
+	// city (#379): the faction whose scouts they send the enforcers
+	// after tomorrow night, the player's World.HitScouts made for them.
+	// The crew step sets it nightly (a temper's hit_scouts) and the
+	// rivals sim resolves it as it does Today.HitScouts; "" is nobody,
+	// the run before it.
+	DelegatedHit string
+
 	// BaseQuality is the file's default quality (#47, market.toml
 	// [quality] default): what the connects sell at, what a lot with no
 	// figure reads, and where the price multiplier is 1. The market sim

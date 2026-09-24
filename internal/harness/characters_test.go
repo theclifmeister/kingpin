@@ -23,12 +23,16 @@ import (
 // runners where the default holds six, the rival takes the last
 // corner and the crewed policy never re-posts). The medians of the
 // managed, quiet and crewed peaks are logged against the default's,
-// every one that moves more than twenty percent marked.
+// every one that moves more than twenty percent marked. The dockhand
+// starts in Bayport, where no faction lives, so its take there draws
+// one (#341); the harness's players hit the scouts of a faction moving
+// on the city they work (HitScoutsIn, #379), and without that answer
+// the dockhand's crewed run on seed 6 was indicted on day 113, under
+// the tier-3 line.
 func TestCharactersAreStartsNotCheats(t *testing.T) {
 	t.Parallel()
-	// The expansion boxed (#341, harness.NoExpansion): the dockhand starts in Bayport, so a faction drawn there meets its crewed player; on seed 6 that run was indicted on day 113, under the tier-3 line, a knife-edge.
-	// Investigations boxed too (#343, the blind sting): this measures the starts against each other, and the police answer every start alike; with them on, a miss cools nothing, so the crewed player who lies low at 40 through two named hits on the bookkeeper's seed 1 peaks at $475k against the blind sting's $593k, under managed's $497k, a second per-seed flip beside seed 7's roster slot (the medians hold).
-	cfg := Investigations(NoExpansion(content.MustLoad()), false)
+	// Investigations boxed (#343, the blind sting): this measures the starts against each other, and the police answer every start alike; with them on, a miss cools nothing, so the crewed player who lies low at 40 through two named hits on the bookkeeper's seed 1 peaks at $475k against the blind sting's $593k, under managed's $497k, a second per-seed flip beside seed 7's roster slot (the medians hold).
+	cfg := Investigations(content.MustLoad(), false)
 	base := measure(t, cfg, "")
 	for _, ch := range cfg.Characters.Characters {
 		ch := ch

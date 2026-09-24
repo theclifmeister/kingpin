@@ -284,26 +284,34 @@ const (
 // and World.Journal set aside the digest with the lead written is the
 // digest with it left out on every day, the duel and the table, seeds
 // 7, 1, 2 and 3, 150 days each; TestLeadDoesNotMoveTheRun holds it.
+// Again for #379 (World.DelegatedHit added to the walk, the lieutenant's
+// hit on a faction's scouts; and the restaurant's sale_heat_mul 0.9 in
+// its city): the move on day 1 is shape alone, and the first number
+// moves on day 55, the boss's restaurant cutting a sale's heat at home.
+// With World.DelegatedHit skipped and the restaurant as it was the
+// digest is the list before it on all sixty days (the duel never
+// expands, so neither the lieutenant's hit nor harness.HitScoutsIn
+// ever acts on it).
 // Again for #343 switched on (heat.toml [investigation] enabled): the
 // move is on day 1, HeatState.Trail now tallied from the first sale,
 // and no other number moved: with Trail and Investigation skipped on
 // both sides the digest on is the digest off on all sixty days, the
 // boss peaking at 53.9 heat on this seed, under the sting line, so no
-// investigation opens.
+// investigation opens (checked on top of #379).
 var seedDigest = []string{
-	"8c2c68db45658430", "bba9ae4f49ced6e9", "2cffc83f68e1edef", "e44253a4256343cc",
-	"028952f6b4eac188", "6a01db1de554cd67", "19ac65e23393d38e", "900b6d69c6258b9f",
-	"5ce9cfcd79bed296", "6597fd7ac09d0042", "1f3128f3cc7b44c0", "9e0902ab18963cc4",
-	"d3dc4ed1f9e715e3", "2167c763031383d1", "7e8352e2e7f5009b", "0234dd5b63330eba",
-	"1e3cfced1c04def9", "7eb737f38dabca8f", "5808fde54015f581", "92800cecef79aa03",
-	"6df3cb827821e83e", "a7977fe237c1e10a", "25a7a785928b53ee", "dc20fd726e382595",
-	"85d2b7202d1a7dc9", "fe400675f620dc05", "90655b40bab790c3", "8549ef70790d3957",
-	"1302f4ac11182ffb", "3bb55c124522da70", "c5e7f24706ad88aa", "f8c879ef234bb7e8",
-	"adfb36decec12748", "61f5103552215f21", "c9d642890213153b", "c547641e91dc96a8",
-	"a17d3a0f92c8e665", "a1740b33d0660ff6", "4c80a1388c240543", "0f80b167cd2f2536",
-	"ab2528cf930b7e5c", "50274bb5baea5eb5", "2a6354e097c441c6", "d167f452e1fd7d58",
-	"d84697954c889a65", "771eae55a1698643", "d75c5f1ed8545f4e", "d81241f45d2d8090",
-	"ebca12eb79d173b3", "2caca3c413beb976", "62f6b38adc05b556", "b78fe94f0c129a47",
-	"9448cd3dfc6df336", "8bd3e007c82e2f0d", "4f6af428e1926ed4", "c3090a5229bdaab7",
-	"9364b272fc1c09ce", "7bd7cdcb12507942", "e3cf9e03b6c6d3e9", "3f9a6c1d3867f747",
+	"eef808013a74d782", "8f1e36efda448163", "da82deb764fd02a1", "9493cd5954ce2eee",
+	"7210aac8af976f6a", "11058aa02f076299", "580b35ecb50e4254", "df3cc7b435f16ea9",
+	"b2786001e5b4984c", "20f5dbc989f3f844", "e064cf8fbb095382", "02ae03f99e60ad86",
+	"93ff3c179761a9b5", "e5e0782948c813e3", "d97e46c5563d7355", "2caf891832d0f778",
+	"e618d01af3e04e3f", "d7714185adb8e489", "e4c581b30c2c902f", "6b9e0635d3797cd9",
+	"c00b1e8e73bb13d4", "9adeefe5ef0619c4", "a80472de6c017540", "125a2a0e178104ab",
+	"80821b87c5ed5d0b", "388142a5e43dd017", "484e8b8d567a1dcd", "31b33e283226aa09",
+	"78c62722f77911c1", "fb528ccf17443aa2", "3183934c363b776c", "a1f3c3f875e82d3a",
+	"7e8f7eb2461fae5a", "90407af5c505d14b", "1423c8baed11f0b1", "4452dac326f8298a",
+	"6b39fd5b15dc16cb", "5e808a6707904314", "08ffa1f7f31b9a25", "ea29a2d7d85ec764",
+	"0c8bb54806326e86", "5c885fba8822133f", "1eed22a7ccbdf8e4", "bc8e4bbcae5e8cee",
+	"735af918cdc26d97", "31508b50963a81cd", "9051c053bc85207c", "3c5657956c28795e",
+	"4a5bd342e79830d5", "a21cf743e729e4b8", "d41628e2c560f298", "6b87e56c39d9dffd",
+	"a39e8a2623412480", "0964fcc71c8305ab", "f6e7583f85529d9d", "521703c1ca20a8da",
+	"f1b731776d639c4f", "057b2810d8a9c13b", "94f131b51cf3efa5", "b4767ca041bdcd40",
 }

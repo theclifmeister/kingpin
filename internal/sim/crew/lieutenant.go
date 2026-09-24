@@ -143,8 +143,10 @@ func (s *Sim) walk(w *game.World, t *game.Tick, lt game.CrewMember) {
 // runners go on the best corners (a held one nobody works, else the
 // biggest free one), and neither goes back on it; idle enforcers guard the
 // worked ones if the temperament bothers, whatever they cannot staff is
-// given up, and every product in the stash gets a standing order at
-// their dial for tomorrow. Nothing here rolls dice.
+// given up (held instead while a faction is on its way, if the temper
+// guards, and its scouts hit tomorrow night if it hits: #379), and every
+// product in the stash gets a standing order at their dial for tomorrow.
+// Nothing here rolls dice.
 func (s *Sim) delegate(w *game.World, t *game.Tick, lt *game.CrewMember, ev *events.LieutenantActed) {
 	city := w.Cities[lt.City]
 	if city == nil {
@@ -242,15 +244,24 @@ func (s *Sim) delegate(w *game.World, t *game.Tick, lt *game.CrewMember, ev *eve
 	}
 
 	// 4. What they cannot staff they give up, rather than let it sit;
-	// the corner an investigation names waits for its crew.
-	for i := range city.Corners {
-		c := &city.Corners[i]
-		if !c.Held() || c.Runner != 0 || keep(c) || named(c) {
-			continue
+	// with a faction on its way to the city (#341, #379) a temper that
+	// guards holds it instead (a free corner is where it lands), and one
+	// that hits sends the enforcers after its scouts tomorrow night. The
+	// corner an investigation names waits for its crew (#343).
+	coming := comingTo(w, lt.City)
+	if coming == nil || !tp.Guard {
+		for i := range city.Corners {
+			c := &city.Corners[i]
+			if !c.Held() || c.Runner != 0 || keep(c) || named(c) {
+				continue
+			}
+			if w.Abandon(c.ID) == nil {
+				ev.Dropped = append(ev.Dropped, c.Name)
+			}
 		}
-		if w.Abandon(c.ID) == nil {
-			ev.Dropped = append(ev.Dropped, c.Name)
-		}
+	}
+	if coming != nil && tp.HitScouts && coming.ScoutsHit == 0 && w.Crew.OnPayroll(game.RoleEnforcer) > 0 {
+		w.DelegatedHit = coming.Faction()
 	}
 
 	// 5. Standing orders for tomorrow: everything in the stash, at
@@ -288,6 +299,17 @@ func (s *Sim) delegate(w *game.World, t *game.Tick, lt *game.CrewMember, ev *eve
 	// on what it brings (World.SupplyDue, cut to the room), as a sell
 	// order may. What this morning's contracts bought is the report's.
 	s.restock(w, t, lt, city, tp, ev)
+}
+
+// comingTo is the faction on its way to city (#341): its scouts there,
+// not yet arrived; nil when none is. The first in table order.
+func comingTo(w *game.World, city string) *game.RivalState {
+	for _, r := range w.Rivals {
+		if r != nil && !r.Gone() && r.Scouting() && r.ScoutingCity == city {
+			return r
+		}
+	}
+	return nil
 }
 
 // restock is the lieutenant's buy side (#174): see delegate, step 6.
@@ -376,7 +398,9 @@ func delegatedKeys(w *game.World, city string) []string {
 func (s *Sim) lieutenants(n *night) {
 	w, t, c := n.w, n.t, n.c
 	// The lieutenants' night: each runs their city with whoever is
-	// left, and reports in the morning.
+	// left, and reports in the morning. Last night's hit (#379) was the
+	// rivals sim's to resolve tonight; tomorrow's is decided afresh.
+	w.DelegatedHit = ""
 	for _, cid := range w.CityOrder {
 		lt := c.Lieutenant(cid)
 		if lt == nil {

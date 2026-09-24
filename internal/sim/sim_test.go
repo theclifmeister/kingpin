@@ -98,7 +98,7 @@ func TestSimsWriteOnlyTheirOwnState(t *testing.T) {
 		"logistics":  {"Shipments", "Logistics", "Routes"},
 		"territory":  {"Cities.Corners", "Houses"},
 		"rivals":     {"Rivals", "Rival", "Faction", "Offers", "Over", "Reign", "War", "Takes"},                      // the endings it owns (#49): kingpin (the reign's stamp since #227), taken_out, the table's betrayed; the war order it ends (#229)
-		"crew":       {"Crew", "Delegated", "DelegatedSupply", "Over"},                                               // broke, and the lieutenant's betrayed (#49)
+		"crew":       {"Crew", "Delegated", "DelegatedSupply", "DelegatedHit", "Over"},                               // broke, and the lieutenant's betrayed (#49)
 		"heat":       {"Heat", "Cities.Heat", "Houses", "FallsTaken", "Over"},                                        // indicted, arrested, and vanished through the exit plans (#49)
 		"law":        {"Law", "Cities.Pressure", "Cities.Goodwill", "Cities.Campaign", "Cities.Corners.Deed"},        // the forfeiture takes a deed through w.SeizeDeed (#194)
 		"laundering": {"Laundering", "Fronts", "Offshore", "QuietDays", "Assets", "AssetsLost", "LegitDays", "Over"}, // the assets are clean money (#48): the task force names what it takes, this sim books it; businessman (#49)

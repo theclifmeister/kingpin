@@ -166,12 +166,15 @@ func labRoom(cfg *content.Config, w *game.World, city string) {
 
 // Reckless is the cartel that stops caring (#48): Cartel that never
 // lies low and, from the morning it owns its first asset, sells every
-// unit it holds in every city at the aggressive dial. It is what the
-// task force is for: the managed cartel's heat sits under the sting
-// line and the boss's Security branch holds a loud one near the raid's,
-// so only the cartel that shouts reaches the feds' line, and it loses
-// an asset when it does (`-policy reckless`, TestAggressiveCartelLoses
-// ItsAssets).
+// unit it holds in every city at the aggressive dial and keeps a war
+// order (#229) on the first faction in the table it can declare one on,
+// the next once that war ends. It is what the task force is for: the
+// managed cartel's heat sits under the sting line and the boss's
+// Security branch holds a loud one near the raid's, so only the cartel
+// that shouts reaches the feds' line, and it loses an asset when it
+// does (`-policy reckless`, TestAggressiveCartelLosesItsAssets). The
+// war is #379's: since a faction is drawn to the hub (#341) it takes
+// the corners there, and with them the volume the loud dial needed.
 func Reckless(cfg *content.Config) Policy {
 	managed, loud := Cartel(cfg, 40), Cartel(cfg, 100)
 	return func(w *game.World) {
@@ -181,6 +184,13 @@ func Reckless(cfg *content.Config) Policy {
 		}
 		loud(w)
 		w.SetLieLow(false)
+		if w.War == "" {
+			for _, r := range w.Rivals {
+				if r != nil && r.Alive() && w.DeclareWar(r.Faction()) == nil {
+					break
+				}
+			}
+		}
 		for _, cid := range w.CityOrder {
 			for _, id := range w.Products {
 				if q := w.Stock(cid, id); q > 0 {

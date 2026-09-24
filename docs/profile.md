@@ -21,16 +21,16 @@ The character's own dice are `Tick{Day: 0}.Sub(game.StreamCharacter)`, never the
 `World.Start` (`game.Start{Character, HardDA, Daily, Practice}`) is stamped for the summary and the profile, read by neither sim nor harness; the default is stamped `""`.
 **No schema bump**: the zero value is every run before; `TestSeedDigest` moved on day 1 by shape alone (with the field skipped the digest is 1a51f43's on all sixty days).
 
-The table, with the four difficulty medians over ten seeds against the default's (`TestCharactersAreStartsNotCheats`'s log: the days the aggressive trader lasts, then the managed, quiet and crewed peaks):
+The table, with the four difficulty medians over ten seeds against the default's (`TestCharactersAreStartsNotCheats`'s log as of #379, the veterans and the table following the money on: the days the aggressive trader lasts, then the managed, quiet and crewed peaks):
 
 | Character | Unlock | Start | Aggressive lasts | Managed | Quiet | Crewed |
 |---|---|---|---|---|---|---|
-| `dealer` The Dealer | always | none: the run as it is | 15 days | $506,732 | $382,152 | $959,106 |
-| `cook` The Cook | always | a chemist on the payroll, meth on the ladder (the chemist's `unlock_product`) | 16 | −8% | −11% | +7% |
-| `bookkeeper` The Bookkeeper | ending `businessman` | an accountant on the payroll, respect 15 | 16 | −2% | −9% | +9% |
-| `excop` The Ex-Cop | ending `vanished` | `scanner` owned (`burners` with it), the chief's temper in the file | 20 | +5% | 0% | +19% |
-| `dockhand` The Dockhand | stage `distribution` | Bayport, the Fish Market; fear 15 | 21 | −31% | −38% | +137% |
-| `heir` The Heir | ending `kingpin` (the crown, #227) | the old man's enforcer guarding Riverside, `stash` owned; fear 25, notoriety 15 (#232) | 11 | −9% | −10% | +15% |
+| `dealer` The Dealer | always | none: the run as it is | 15 days | $506,732 | $382,152 | $1,155,461 |
+| `cook` The Cook | always | a chemist on the payroll, meth on the ladder (the chemist's `unlock_product`) | 16 | −8% | −11% | −17% |
+| `bookkeeper` The Bookkeeper | ending `businessman` | an accountant on the payroll, respect 15 | 16 | −2% | −9% | −10% |
+| `excop` The Ex-Cop | ending `vanished` | `scanner` owned (`burners` with it), the chief's temper in the file | 20 | +5% | 0% | +6% |
+| `dockhand` The Dockhand | stage `distribution` | Bayport, the Fish Market; fear 15 | 21 | −31% | −38% | +89% |
+| `heir` The Heir | ending `kingpin` (the crown, #227) | the old man's enforcer guarding Riverside, `stash` owned; fear 25, notoriety 15 (#232) | 11 | −9% | −10% | −20% |
 
 `[hard_da]` (`content.ToggleConfig`: `name`, `blurb`, `[hard_da.unlock]` ending `kingpin`) is the one toggle: `Start.HardDA` seats `w.Law.DA.Stance = "law_and_order"` and `w.Law.Chief.Personality = "zealous"` at `NewWorld` with the seed's names, **set and never pinned**: the elections and the chief's term run as they do (`harness.Appoint` is the pin; `TestHardDASeatsTheLaw`: the law alone moves on day 0 and a DA is elected on the term).
 
@@ -38,6 +38,9 @@ The table, with the four difficulty medians over ten seeds against the default's
 The Heir (#232) is New Game+, the kingpin ending's character beside the Hard DA toggle: the issue's start, an enforcer and a runner on two of home's corners, flipped the ordering the difficulty tests pin on 3 of 10 seeds (quiet over managed: a runner selling from day 0 is a second hand for the lone trader), so it shrank to one corner and no runner as the issue said to, and passes on ten (the aggressive trader lasts 11 days against 15: the notoriety is heat on every unit moved by hand, `notoriety_heat`, which is the character).
 The ex-cop owns the *scanner*, not the issue's *lawyer*: with one page less a sting the aggressive trader lasts 22–24 days instead of 14–17 and the quiet trader out-earns it over that span on 6 of 20 seeds, so the lawyer fails "greed pays short term" and is a cheat by the acceptance's own reading; the scanner (`sting_stock_mul` 0.7, `cooldown_bonus` 1, "You hear the call go out before the car pulls up", an ex-cop's node if any is) passes on twenty.
 The port start stands on the **Fish Market** (heat 0.9, demand 1.0, no taste) and not the wharf (heat 0.5 × the city's 0.85): on the wharf the aggressive trader lasted 74–157 days; on the boardwalk the crewed player was indicted on every seed.
+The dockhand starts in Bayport, where no faction lives, so since #341 its take there draws one (scouts, recruiters poaching its crew, an arrival onto a free corner): the start is harder than it was, and meant to be (the city you start in is the city you must hold).
+It stays a start, not a handicap, because the faction is answerable the way it is for anyone: the harness's crewed player hits the scouts (`harness.HitScoutsIn`, #379) and on seed 6 is indicted on day 146, as it was before #341; answering nothing it was indicted on day 113, under the tier-3 line `TestCharactersAreStartsNotCheats` holds, which is why that test ran boxed (`harness.NoExpansion`) until #379.
+No new start was given the dockhand: a head start or a grace window on the move would be a rule a sim reads, and a character is a start on day 0 and nothing a sim reads.
 The port start is the **rival-free city** (#43 seats every faction at home: `rivals.toml [factions] away` is 0, and turning that knob would change this number), so the crewed policy works six uncontested corners there and its median peak reads +137% (2.27M against 0.96M) while managed reads −31% and quiet −38% (Bayport halves the demand for coke and heroin): logged as the ruling asks, a reward for a player who has already reached Distribution, and not a number a band reads.
 A day-0 crew member **takes a roster slot** (`max_crew` 6): the crewed policy holds five runners where the default holds six, and on the cook's seed 5 and the bookkeeper's seed 7 the rival takes the last corner and the fixed policy never re-posts, so `TestCharactersAreStartsNotCheats` reads the two orderings (managed > quiet, crewed > managed) on the **medians** of ten seeds and fails on more than one flip, while arrest within forty days, the quiet trader free and earning and greed paying over the aggressive span stay per seed; every median that moves more than 20% is logged and marked.
 The default `sim.NewWorld` on a fresh install still starts a run in slot 1 (`ui.New`); `-slot N` on an empty slot opens the dialog for it.
@@ -57,5 +60,5 @@ The **summary** (`docs/endings.md`) says where the run ranks against your own hi
 
 **The harness** (`harness/characters.go`, `characters_test.go`).
 `harness.Character(cfg, id)` is the `game.Start` for a character (an unknown id panics; `""` the default), `harness.RunAs(cfg, id, seed, days, policy)` plays `Run` as one, and `cmd/balance -character C` (`-hardda` beside it) starts every run as it, printing `character: cook (The Cook), hard DA false` under the policy line.
-`TestCharactersAreStartsNotCheats` (parallel subtests, one a character, ~0.6 s each) runs the four difficulty tests as each on ten seeds as above and logs the aggressive trader's days and the medians of the managed, quiet and crewed peaks against the default's (the table above; the dockhand's three are the ones marked), with the expansion and targeted investigations boxed (#341, #343: the police answer every start alike, and with investigations on the bookkeeper's seed 1 was a second per-seed flip).
+`TestCharactersAreStartsNotCheats` (parallel subtests, one a character, ~0.6 s each) runs the four difficulty tests as each on ten seeds as above and logs the aggressive trader's days and the medians of the managed, quiet and crewed peaks against the default's (the table above; the dockhand's three are the ones marked), with targeted investigations boxed (#343: the police answer every start alike, and with investigations on the bookkeeper's seed 1 was a second per-seed flip).
 No band, ordering or `TestNo*IsTheOldRun` moved: the default character is the run as it is.

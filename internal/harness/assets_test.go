@@ -200,11 +200,13 @@ func TestCartelIsWithinFifteenPercentOfBoss(t *testing.T) {
 // lying low at this scale is not enough: its Security branch and its
 // lawyers hold a normal-dial operation at heat 50 and the file at
 // nothing, so the task force's line, 88 less the pressure's cut, takes
-// the loud dial to reach; 8 of 10 seeds on main with #43's table.)
+// the loud dial to reach; 8 of 10 seeds on main with #43's table. With
+// a faction drawn to the hub (#341) the loud dial alone reached it on
+// 2: the faction took the hub's corners and the volume with them, so
+// the reckless cartel now goes to war as well (#379), 9 of 10.)
 func TestAggressiveCartelLosesItsAssets(t *testing.T) {
 	t.Parallel()
-	// The expansion boxed (#341, harness.NoExpansion): this pins the task force on a volume, and a faction drawn to the hub takes the volume that brings it (2 of 10 seeds punished on the file).
-	cfg := NoExpansion(content.MustLoad())
+	cfg := content.MustLoad()
 	punished := 0
 	for seed := uint64(1); seed <= 10; seed++ {
 		res, err := Run(cfg, seed, TierDays[4], Reckless(cfg))

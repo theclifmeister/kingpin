@@ -35,7 +35,7 @@ The rulings on the eight tests written around the blind sting:
 - `TestHandoffHeat` plays the handoff's sting through the investigation that names its product: the hit on a night the product is handed over again files pages, and the lapsed offer names nothing, so its blind sting files none.
 - `TestChiefAndDATable`'s hot crewed player lies low at the sting line (`HotCrewedLine`, 55): at 50 its lie-low mornings fall on the nights the named hits land, it was indicted on 4 and 1 of 20 seeds, and both medians were the horizon; at 55 law and order indicts on day 31 against the reformer's 36 (45 against 54 with the blind sting).
 - `TestSaboteurDrainsTheMuscleQuietly` reads eleven seeds, not five: a push war that is never stung routs the rival within days on some seeds, so five seeds read 133 against 128, a coin toss, where eleven read 125 against 189 (116 against 207 with the blind sting).
-- `TestAggressiveCartelLosesItsAssets` needed nothing: 7 of 10 seeds punished against a floor of 6.
+- `TestAggressiveCartelLosesItsAssets` needed nothing: 9 of 10 seeds punished against a floor of 6 (on top of #379, which took its expansion box off).
 - `TestSeedDigest` moves on day 1 by `HeatState.Trail` alone: no investigation opens in seed 7's sixty days, the boss peaking at 53.9 heat.
 
 Four more tests moved with main since the feature merged, each a knife-edge the switch tipped:
