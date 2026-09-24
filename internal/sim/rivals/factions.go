@@ -123,18 +123,33 @@ func (s *Sim) table43(w *game.World, t *game.Tick) {
 // it only scatters broke. An arrived faction landless with neither day
 // stamped is a raid from a save before RaidedOut (nothing else leaves
 // one so) and is stamped today. No dice.
+//
+// Nobody stands landless for ever (#389): one with the money that has
+// found nowhere to stand in strand_days since it lost its last corner
+// scatters all the same, and a seat that has not arrived strand_days
+// after its day stands down the same way (never one on its way to a
+// city where you earn: that one pushes its way in, or you pay it to
+// stay out).
 func (s *Sim) absorb(w *game.World, t *game.Tick, r *game.RivalState) {
-	if r.Arrived == 0 || w.RivalHeldBy(r.Faction()) > 0 {
+	strand := s.cfg.Factions.StrandDays
+	if r.Arrived == 0 {
+		if strand > 0 && r.ScoutingCity == "" && t.Day >= s.ArriveDay(w, r)+strand {
+			s.scatter(w, t, r)
+		}
+		return
+	}
+	if w.RivalHeldBy(r.Faction()) > 0 {
 		return
 	}
 	if r.Routed == 0 && r.RaidedOut == 0 {
 		r.RaidedOut = t.Day
 	}
 	raided := r.RaidedOut > r.Routed
-	if t.Day-max(r.Routed, r.RaidedOut) < s.cfg.Factions.AbsorbDays {
+	since := t.Day - max(r.Routed, r.RaidedOut)
+	if since < s.cfg.Factions.AbsorbDays {
 		return
 	}
-	if (raided || r.LastTakenBy == "") && r.Cash >= s.ClaimCost(w, r) {
+	if (raided || r.LastTakenBy == "") && r.Cash >= s.ClaimCost(w, r) && (strand <= 0 || since < strand) {
 		return
 	}
 	var by *game.RivalState
@@ -147,6 +162,18 @@ func (s *Sim) absorb(w *game.World, t *game.Tick, r *game.RivalState) {
 		ev.By, ev.ByFaction = by.Leader, by.Faction()
 		r.AbsorbedBy = by.Faction()
 	}
+	r.Muscle = 0
+	r.Absorbed = t.Day
+	s.retire(w, t, r)
+	w.Stats.Absorbed++
+	t.Emit(ev)
+}
+
+// scatter is a seat at home that never found its feet standing down
+// (#389): absorbed by nobody, its muscle gone home, its deals ended,
+// the RivalScattered headline absorb's own scattering has. No dice.
+func (s *Sim) scatter(w *game.World, t *game.Tick, r *game.RivalState) {
+	ev := events.RivalAbsorbed{Day: t.Day, Rival: r.Leader, Faction: r.Faction(), Muscle: r.Muscle}
 	r.Muscle = 0
 	r.Absorbed = t.Day
 	s.retire(w, t, r)
@@ -174,7 +201,8 @@ func (s *Sim) retire(w *game.World, t *game.Tick, r *game.RivalState) {
 
 // killed honours the rival_leader_killed incident (#44, #43) the same
 // tick: the faction holding most of the incident's city loses its
-// leader and fragments as an arrest fragments it. No dice of its own.
+// leader, and a successor takes it over (succeed). The weather does not
+// finish a faction for you (#389): fragmenting one is your tips' work.
 func (s *Sim) killed(w *game.World, t *game.Tick) {
 	for _, e := range t.Events() {
 		ev, ok := e.(events.Incident)
@@ -182,19 +210,59 @@ func (s *Sim) killed(w *game.World, t *game.Tick) {
 			continue
 		}
 		if r := w.StrongestFaction(ev.City); r != nil {
-			s.fragment(w, t, r, true)
+			s.succeed(w, t, r)
 		}
 	}
 }
 
+// succeed is a faction whose leader the world killed carrying on under
+// a successor (#389), a name nobody at the table has off the factions
+// stream: succession_muscle of its heads walk (to your hiring pool, as
+// a fragmented faction's do, keeping at least one), its deals end and
+// its offers lapse (the new leader owes you nothing, homage included),
+// its heat, war and grudge start over and its trust in you is its
+// temper's again; it keeps its corners, and the street spikes the
+// morning after as for a fall (Succeeded).
+func (s *Sim) succeed(w *game.World, t *game.Tick, r *game.RivalState) {
+	if r.Gone() {
+		return
+	}
+	rng := t.Sub(game.StreamFactions)
+	var used, free []string
+	for _, o := range w.Rivals {
+		if o != nil {
+			used = append(used, o.Leader)
+		}
+	}
+	for _, name := range s.names {
+		if !slices.Contains(used, name) {
+			free = append(free, name)
+		}
+	}
+	successor := r.Leader + "'s number two"
+	if len(free) > 0 {
+		successor = free[rng.IntN(len(free))]
+	}
+	walked := min(int(math.Round(float64(r.Muscle)*s.cfg.Factions.SuccessionMuscle)), max(0, r.Muscle-1))
+	ev := events.RivalLeaderArrested{Day: t.Day, Rival: r.Leader, Faction: r.Faction(), City: s.city(w, r).ID, Muscle: walked, Killed: true, Successor: successor}
+	s.retire(w, t, r)
+	r.Leader = successor
+	r.Muscle -= walked
+	r.Heat, r.War, r.Grudge = 0, 0, 0
+	r.Trust = s.personality(r).Trust
+	r.Succeeded = t.Day
+	t.Emit(ev)
+}
+
 // fragment is a faction losing its leader (#43): arrested on your tips
-// (its heat past leader_arrest_heat) or killed by the world. It steps
+// (its heat past leader_arrest_heat; one the world kills is succeeded
+// instead, #389). It steps
 // no more; its corners drift to the street over fragment_days in an
 // order the factions stream draws (drift); the market spikes its city's
 // products the morning after (the market sim reads Fragmented); and its
 // muscle turn up in your hiring pool at a discount (the crew sim reads
 // the event's Muscle).
-func (s *Sim) fragment(w *game.World, t *game.Tick, r *game.RivalState, killed bool) {
+func (s *Sim) fragment(w *game.World, t *game.Tick, r *game.RivalState) {
 	if r.Gone() {
 		return
 	}
@@ -206,7 +274,7 @@ func (s *Sim) fragment(w *game.World, t *game.Tick, r *game.RivalState, killed b
 		}
 	}
 	rng.Shuffle(len(ids), func(i, j int) { ids[i], ids[j] = ids[j], ids[i] })
-	ev := events.RivalLeaderArrested{Day: t.Day, Rival: r.Leader, Faction: r.Faction(), City: s.city(w, r).ID, Corners: len(ids), Muscle: r.Muscle, Killed: killed}
+	ev := events.RivalLeaderArrested{Day: t.Day, Rival: r.Leader, Faction: r.Faction(), City: s.city(w, r).ID, Corners: len(ids), Muscle: r.Muscle}
 	r.Fragmented = t.Day
 	r.Fragments = ids
 	r.Muscle = 0

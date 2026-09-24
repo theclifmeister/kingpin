@@ -193,6 +193,8 @@ type FactionsTuning struct {
 	TributeCorners   int     `toml:"tribute_corners"`
 	HomageCut        float64 `toml:"homage_cut"`
 	HomageChance     float64 `toml:"homage_chance"`
+	StrandDays       int     `toml:"strand_days"`       // days a faction stands landless, whatever its chest, or a seat at home stays in the wings past its day, before it scatters (#389; 0: never)
+	SuccessionMuscle float64 `toml:"succession_muscle"` // the share of a faction's muscle that walks when the world kills its leader and a successor takes over (#389)
 }
 
 // ExpansionTuning is the table following the money (#341, [expansion]):
@@ -373,6 +375,9 @@ func (r RivalsConfig) validate() error {
 	}
 	if e := r.Expansion; e.Enabled && (e.TakeMin <= 0 || e.WindowDays < 1 || e.ScoutDays < 1 || e.ArriveDays < 1 || e.SetbackDays < 0 || e.Bite < 0) {
 		return fmt.Errorf("[expansion] take_min %d, window_days %d, scout_days %d and arrive_days %d must be positive, setback_days %d and bite %d not negative", e.TakeMin, e.WindowDays, e.ScoutDays, e.ArriveDays, e.SetbackDays, e.Bite)
+	}
+	if f := r.Factions; f.StrandDays < 0 || (f.StrandDays > 0 && f.StrandDays < f.AbsorbDays) || f.SuccessionMuscle < 0 || f.SuccessionMuscle > 1 {
+		return fmt.Errorf("[factions] strand_days %d must be 0 or at least absorb_days %d, succession_muscle %.2f in 0..1", f.StrandDays, f.AbsorbDays, f.SuccessionMuscle)
 	}
 	if f := r.Factions; f.LeaderArrestHeat <= 0 || f.LeaderArrestHeat > 100 || f.FragmentDays < 1 || f.AbsorbDays < 1 {
 		return fmt.Errorf("[factions] leader_arrest_heat %.0f must be in 1..100, fragment_days %d and absorb_days %d positive", f.LeaderArrestHeat, f.FragmentDays, f.AbsorbDays)

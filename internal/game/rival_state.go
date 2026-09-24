@@ -109,6 +109,7 @@ type RivalState struct {
 	AbsorbedBy  string
 	Fragmented  int
 	Fragments   []string
+	Succeeded   int // day the world killed its leader and a successor took over (#389); 0 never. The street spikes the morning after, as for a fall.
 
 	// Following the money (#341): a faction drawn to a city where the
 	// player earns and nobody lives. ScoutingCity is the city it is

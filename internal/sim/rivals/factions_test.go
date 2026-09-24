@@ -481,14 +481,28 @@ func TestTippingFragments(t *testing.T) {
 			t.Fatalf("a free corner still names a faction: %+v", c)
 		}
 	}
-	// The world's incident kills the biggest faction in its city the
-	// same tick (#44's rival_leader_killed).
+	// The world's incident kills the leader of the biggest faction in
+	// its city the same tick (#44's rival_leader_killed), and a
+	// successor takes it over (#389): it keeps its corners, loses
+	// succession_muscle of its heads to your pool and its deals, and is
+	// not gone (a chest that pays for heads hires them back at its
+	// pace: the walk is money, not a cap).
 	f2 := w.Rivals[1]
 	seat(w, f2, "docks", 4)
+	f2.Heat, f2.War, f2.Trust = 30, 20, 90
+	old := f2.Leader
 	tick := gametest.StepUnseeded(w, s, events.Incident{Day: w.Day + 1, ID: "rival_leader_killed", City: w.Home().ID, LeaderKilled: true})
 	killed := find[events.RivalLeaderArrested](tick.Events())
-	if killed == nil || !killed.Killed || killed.Faction != f2.Faction() || !f2.Gone() {
-		t.Fatalf("the incident did not kill the leader: %+v f2 %+v", killed, *f2)
+	if killed == nil || !killed.Killed || killed.Faction != f2.Faction() || killed.Rival != old || killed.Successor == "" || killed.Successor == old || killed.Muscle != 2 || killed.Corners != 0 {
+		t.Fatalf("the incident did not kill the leader: %+v", killed)
+	}
+	if f2.Gone() || f2.Leader != killed.Successor || f2.Succeeded != killed.Day || f2.Heat != 0 || f2.War != 0 || f2.Trust != cfg.Rivals.Personality[f2.Personality].Trust || w.RivalHeldBy(f2.Faction()) == 0 {
+		t.Fatalf("after the succession f2 %+v", *f2)
+	}
+	for _, o := range w.Rivals {
+		if o != f2 && o.Leader == f2.Leader {
+			t.Fatalf("the successor %s shares a name with %s", f2.Leader, o.Faction())
+		}
 	}
 }
 
@@ -538,11 +552,10 @@ func TestHomageAndDominant(t *testing.T) {
 	}
 	// Dominant once the others are gone.
 	f2.Absorbed, f2.Muscle = 1, 0
-	f3.Fragmented = 1
 	if w.Dominant() {
 		t.Fatal("dominant with a faction still in the wings")
 	}
-	f3.Arrived = 1
+	f3.Arrived, f3.Fragmented = 1, 1
 	if !w.Dominant() {
 		t.Fatal("not dominant with one paying and two gone")
 	}
@@ -939,5 +952,123 @@ func TestWarIsABetrayal(t *testing.T) {
 	}
 	if find[events.RivalTippedPolice](evs) == nil {
 		t.Fatalf("no phone call for the betrayal: %v", kinds(evs))
+	}
+}
+
+// worked is the home city with every corner once yours and none held
+// now (#389): the ground the playtest vacated for the table to come.
+func worked(w *game.World) {
+	for i := range w.Home().Corners {
+		c := &w.Home().Corners[i]
+		c.Yours = true
+		if c.Owner == game.OwnerPlayer {
+			c.Owner, c.Runner, c.Enforcer = game.OwnerNone, 0, 0
+		}
+	}
+}
+
+// A seat at home is late arrive_grace days past its day (#389): before,
+// late was only a faction on its way to a city where you earn, so a
+// seat whose city you had worked every corner of never arrived (seed
+// 97: two seats missing on day 240, the crown waiting on them). Late,
+// it sets up on a corner you once worked.
+func TestLateSeatSettlesOnWorkedGround(t *testing.T) {
+	cfg := table(2)
+	w, s := world(t, cfg, 97)
+	worked(w)
+	grace := cfg.Rivals.Pace.ArriveGrace
+	for _, r := range w.Rivals {
+		due := s.ArriveDay(w, r) + grace
+		for w.Day < due-1 {
+			step(w, s)
+			if r.Arrived != 0 {
+				t.Fatalf("%s set up on a corner you worked on day %d, inside its grace (due %d)", r.Faction(), r.Arrived, due)
+			}
+		}
+		evs := step(w, s)
+		if r.Arrived != due || find[events.RivalMovedIn](evs) == nil || w.RivalHeldBy(r.Faction()) != 1 {
+			t.Fatalf("%s late on day %d: arrived %d, held %d: %v", r.Faction(), w.Day, r.Arrived, w.RivalHeldBy(r.Faction()), kinds(evs))
+		}
+	}
+}
+
+// A seat at home with no room at the table (the table's share held)
+// stands down strand_days after its day (#389), absorbed by nobody:
+// the crown no longer waits on a faction that can never come. A table
+// still standing is not a crown.
+func TestSeatWithNoRoomStandsDown(t *testing.T) {
+	cfg := table(2)
+	w, s := world(t, cfg, 97)
+	f1, f2 := w.Rivals[0], w.Rivals[1]
+	seat(w, f1, "docks", 8)
+	for _, id := range []string{"oldmill", "railyard", "projects", "riverside", "heights"} {
+		c := w.Corner(id)
+		c.Owner, c.Faction, c.Runner, c.Enforcer = game.OwnerRival, f1.Faction(), 0, 0
+	}
+	if !s.TableFull(w, f2) {
+		t.Fatal("the table should hold its share")
+	}
+	gone := s.ArriveDay(w, f2) + cfg.Rivals.Factions.StrandDays
+	for w.Day < gone-1 {
+		step(w, s)
+		if f2.Gone() || f2.Arrived != 0 {
+			t.Fatalf("day %d: f2 arrived %d gone %v before strand_days (%d)", w.Day, f2.Arrived, f2.Gone(), gone)
+		}
+	}
+	evs := step(w, s)
+	ab := find[events.RivalAbsorbed](evs)
+	if ab == nil || ab.Faction != f2.Faction() || ab.By != "" || !f2.Gone() || f2.Absorbed != gone || f2.Muscle != 0 {
+		t.Fatalf("day %d: %+v f2 %+v", w.Day, ab, *f2)
+	}
+	if w.Dominant() {
+		t.Fatal("dominant with the rival at home on six corners")
+	}
+	f1.Fragmented = w.Day
+	if !w.Dominant() {
+		t.Fatal("not dominant with one fragmented and the other stood down")
+	}
+}
+
+// A landless faction with the money (#389): late arrive_grace days
+// after it lost its last corner, it sets up again on ground you once
+// worked; with nowhere at all to stand it scatters strand_days after,
+// whatever its chest (a rich one used to stand alive and landless for
+// good, and the playtest reopened corners it had never owned to let it
+// in).
+func TestRichLandlessFactionResolves(t *testing.T) {
+	landless := func(t *testing.T) (*game.World, *rivals.Sim, *game.RivalState) {
+		t.Helper()
+		w, s := world(t, duel(), 97)
+		r := w.Rival()
+		r.Arrived, r.Observed, r.Cash, r.Muscle, r.Routed = 1, true, 10_000_000, 4, 1
+		w.Day = 1
+		worked(w)
+		return w, s, r
+	}
+
+	w, s, r := landless(t)
+	strand := duel().Rivals.Factions.StrandDays
+	for w.Day < strand && w.RivalHeldBy(r.Faction()) == 0 {
+		step(w, s)
+	}
+	if w.RivalHeldBy(r.Faction()) == 0 || r.Gone() {
+		t.Fatalf("day %d: a rich faction on vacated ground never came back: %+v", w.Day, *r)
+	}
+
+	// Nowhere to stand: you hold every corner.
+	w, s, r = landless(t)
+	for i := range w.Home().Corners {
+		w.Home().Corners[i].Owner = game.OwnerPlayer
+	}
+	for w.Day < 1+strand-1 {
+		step(w, s)
+		if r.Gone() {
+			t.Fatalf("scattered on day %d, before strand_days (%d)", w.Day, strand)
+		}
+	}
+	evs := step(w, s)
+	ab := find[events.RivalAbsorbed](evs)
+	if ab == nil || ab.By != "" || !r.Gone() || r.Absorbed != 1+strand || r.Cash < 1_000_000 {
+		t.Fatalf("day %d: %+v rival %+v", w.Day, ab, *r)
 	}
 }

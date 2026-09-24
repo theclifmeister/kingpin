@@ -270,7 +270,7 @@ func (r *reporter) reportRivals(e events.Event) bool {
 		d = r.crew(d, ev.Rival)
 		if ev.Killed {
 			r.add("rivals", "RivalLeaderKilled", d)
-			rep.Territory = append(rep.Territory, fmt.Sprintf("%s is DEAD. Their crew is coming apart: %s go back to the street over the coming days, prices%s spike, and their people are looking for work%s.", ev.Rival, format.Plural(ev.Corners, "corner"), r.in(ev.City), pointer(ev.Muscle)))
+			rep.Territory = append(rep.Territory, fmt.Sprintf("%s is DEAD. %s runs their crew now: the corners stay theirs, the old deals are off, and prices%s spike%s.", ev.Rival, ev.Successor, r.in(ev.City), pointer(ev.Muscle)))
 		} else {
 			r.add("rivals", "RivalLeaderArrested", d)
 			rep.Territory = append(rep.Territory, fmt.Sprintf("The police took %s. Their crew is coming apart: %s go back to the street over the coming days, prices%s spike, and their people are looking for work%s.", ev.Rival, format.Plural(ev.Corners, "corner"), r.in(ev.City), pointer(ev.Muscle)))

@@ -405,7 +405,7 @@ RivalLeaderArrested = [
 ]
 RivalLeaderKilled = [
   "{{.Rival}} shot dead; {{.City}} braces for what comes next",
-  "{{.Rival}} killed: {{.Faction}} leaderless, corners up for grabs",
+  "{{.Rival}} killed: a new face takes over the crew, and the corners watch",
   "Gunfire ends {{.Rival}}'s run; police 'following several lines'",
 ]
 CrewPoached = [

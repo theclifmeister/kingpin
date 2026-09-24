@@ -195,7 +195,7 @@ func (s *Sim) tip(w *game.World, t *game.Tick, r *game.RivalState) bool {
 	// (#43): the faction fragments. Under it, past the notice line, a
 	// raid.
 	if r.Heat >= s.cfg.Factions.LeaderArrestHeat {
-		s.fragment(w, t, r, false)
+		s.fragment(w, t, r)
 		return ev.Betrayal
 	}
 	if r.Heat >= tp.PoliceNotice && s.RaidReady(r, t.Day) {
