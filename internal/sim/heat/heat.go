@@ -313,6 +313,13 @@ func (s *Sim) Floor(w *game.World) float64 {
 // Effects is what the player's upgrades do to heat today.
 func (s *Sim) Effects(w *game.World) game.Effects { return game.FoldEffects(w, s.tree) }
 
+// EffectsIn is Effects with the fronts that stand in city folded in
+// (#344): what a sale or a handoff there reads, the nightclub's
+// sale_heat_mul among them.
+func (s *Sim) EffectsIn(w *game.World, city string) game.Effects {
+	return game.FoldEffectsIn(w, s.tree, city)
+}
+
 func (s *Sim) Name() string { return "heat" }
 
 // Thresholds returns the response thresholds in ascending order, for the UI.
@@ -342,6 +349,10 @@ type day struct {
 	attempted map[string]bool
 	floor     float64
 	hot       *game.City
+	// With investigations on (#343): today's heat by source (LeadKey),
+	// and the city/product pairs sold or handed over today. Nil off.
+	leads map[string]float64
+	sold  map[string]bool
 }
 
 // Step applies today's heat sources to every city, decays each, then has
@@ -361,6 +372,9 @@ func (s *Sim) Step(w *game.World, t *game.Tick) {
 	for _, cid := range w.CityOrder {
 		d.from[cid] = w.Cities[cid].Heat
 	}
+	if s.Investigating() {
+		d.leads, d.sold = map[string]float64{}, map[string]bool{}
+	}
 
 	s.sales(d)
 	s.war(d)
@@ -373,6 +387,7 @@ func (s *Sim) Step(w *game.World, t *game.Tick) {
 	s.dirtyCash(d)
 	s.audits(d)
 	s.structuring(d)
+	s.trail(d)
 
 	s.cool(d)
 	s.sellCap(d)

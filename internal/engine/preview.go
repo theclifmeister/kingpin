@@ -225,7 +225,7 @@ func (s *Session) Preview() *DayPreview {
 
 	// The street: the blocks' rent in, the houses' rent out, the tax.
 	for _, c := range w.Deeds() {
-		book(game.FlowInvestments, 0, s.set.Territory.DeedRent(c.Deed))
+		book(game.FlowInvestments, 0, s.set.Territory.DeedRent(w, c, c.Deed.Price)) // rent_mul folded in the block's city, as the night reads it (#344)
 	}
 	for _, cid := range w.CityOrder {
 		if _, amount := s.set.Territory.TaxDue(w, cid); amount > 0 {

@@ -528,6 +528,7 @@ func (m *Model) frontSection(f game.Front) section {
 		lines = append(lines, row("upkeep", money(l.FrontUpkeep(w, f))+"/day clean"))
 	}
 	lines = append(lines, row("bought", fmt.Sprintf("day %d · %s", f.Bought, money(f.Cost))))
+	lines = append(lines, m.frontRole(f.ID, w.FrontCity(f))...)
 	// The levels (#192): where the front stands, what it earns on its
 	// own, and what the next level costs and adds.
 	if top := l.MaxLevel(f); top > 0 {
@@ -540,6 +541,25 @@ func (m *Model) frontSection(f game.Front) section {
 		}
 	}
 	return section{strings.ToUpper(f.Name), lines}
+}
+
+// frontRole is a front's role in the pane (#344): its line, then what
+// it does beyond the wash, in the city it stands in (or, on offer, the
+// city you would buy it in) and on the whole run. A front with no role
+// in the file adds nothing.
+func (m *Model) frontRole(id, city string) []string {
+	r := m.cfg.Upgrades.Front(id)
+	if r == nil {
+		return nil
+	}
+	lines := wrapped(theme.Subtle, r.Role)
+	if words := effectWords(r.Effects.Reaching("city")); len(words) > 0 {
+		lines = append(lines, wrapped(theme.Gold, "In "+m.w.CityName(city)+": "+strings.Join(words, ", ")+".")...)
+	}
+	if words := effectWords(r.Effects.Reaching("run")); len(words) > 0 {
+		lines = append(lines, wrapped(theme.Gold, "Everywhere: "+strings.Join(words, ", ")+".")...)
+	}
+	return lines
 }
 
 // accountantBonus is what the accountants add to a front's daily wash
@@ -562,6 +582,9 @@ func (m *Model) offerSection(o game.FrontOffer) section {
 		row("washes", money(o.Throughput)+"/day"),
 		row("upkeep", money(o.Upkeep)+"/day clean"),
 		row("audit", pctText(o.AuditRisk*100)+"/day"),
+	}
+	if here := w.Here(); here != nil {
+		lines = append(lines, m.frontRole(o.ID, here.ID)...)
 	}
 	switch {
 	case o.Locked(w):

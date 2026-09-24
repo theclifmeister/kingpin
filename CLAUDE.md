@@ -33,7 +33,7 @@ go test ./internal/ui -run TestReadmeCaptures -update      # README captures fro
 go run ./cmd/anim                                          # review every scene (-list, -scene, -seed)
 ```
 
-`cmd/balance -policy P` plays one of thirty-five scripted policies (`idle` to `informed`, `harness.Policies`; flags and output in `docs/harness.md`). Day counts (`harness.Horizon`, `TierDays`, `-days`) are where the tooling *looks*, never a run length: the game has no day cap and a run ends only through an ending (#27). Do not add mechanics that end a run for playing on.
+`cmd/balance -policy P` plays one of thirty-six scripted policies (`idle` to `surgeon`, `harness.Policies`; flags and output in `docs/harness.md`). Day counts (`harness.Horizon`, `TierDays`, `-days`) are where the tooling *looks*, never a run length: the game has no day cap and a run ends only through an ending (#27). Do not add mechanics that end a run for playing on.
 
 `KINGPIN_HOME` keeps saves and the profile out of your real config dir (tests use `t.TempDir()`). To drive the TUI headlessly, run it under `tmux` (`send-keys` / `capture-pane`); UI tests feed keys with `key()` (`internal/ui/helpers_test.go`) and take `KINGPIN_TEST_SEED=n|random`. `KINGPIN_NO_ANIM=1` turns the animation off; `KINGPIN_ANIM_EFFECT=name` pins the title effect.
 

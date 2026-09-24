@@ -20,6 +20,15 @@ func (s *Sim) fund(w *game.World, t *game.Tick) {
 		c.Goodwill = math.Min(100, c.Goodwill+g)
 		t.Emit(events.CityFunded{Day: t.Day, City: f.City, Amount: f.Amount, Goodwill: g})
 	}
+	// A front that stands in a city buys it goodwill a day (#344,
+	// goodwill_day: the restaurant the chief eats in), quietly, before
+	// the fade: no cash, no event. A run with no such front adds nothing.
+	for _, cid := range w.CityOrder {
+		if g := game.FoldEffectsIn(w, s.tree, cid).GoodwillDay; g > 0 {
+			c := w.Cities[cid]
+			c.Goodwill = math.Min(100, c.Goodwill+g)
+		}
+	}
 }
 
 // sources is each city's pressure gained today, from the day's events,

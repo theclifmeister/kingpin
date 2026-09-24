@@ -71,6 +71,86 @@ func TestPreviewAgreesWithAQuietNight(t *testing.T) {
 	t.Logf("%d quiet nights of %d agree", quiet, nights)
 }
 
+// TestPreviewReadsTheFrontRoles (#353, #344, #343): the distributor's
+// run with investigations on and, from day 20, every kind of front
+// owned where it stands and a deed bought whenever one is on offer, so
+// the construction firm's rent_mul, the car wash's route risk and the
+// exchange's fee are all in play. The preview reads the same folded
+// effects the sims do, through the sims' own reads: on every quiet
+// night its closing is the report's to the dollar, and its alerts are
+// the morning's, the investigations' among them, each with an act.
+func TestPreviewReadsTheFrontRoles(t *testing.T) {
+	t.Parallel()
+	cfg := harness.Investigations(content.MustLoad(), true)
+	policy := harness.Laundered(cfg, 100) // never lies low: the police come, and name a corner
+	s, err := engine.New(cfg)
+	if err != nil {
+		t.Fatal(err)
+	}
+	w := s.NewRun(3, game.Start{})
+	quiet, rented, probes := 0, 0, 0
+	for d := 0; d < 90 && w.Over == nil; d++ {
+		policy(w)
+		if w.Day >= 5 {
+			w.Heat.Evidence = 0 // the case is not what this test is about: the run goes on
+			// Every front on offer and a deed
+			// under every corner held, each paid for with the cash
+			// handed over for it (so the till the night reads is the
+			// policy's own), and upkeep enough to keep them open.
+			for _, o := range s.Rules().Laundering.Offers() {
+				if w.Front(o.ID) == nil {
+					w.Player.DirtyCash += o.Cost
+					if _, err := s.BuyFront(o.ID); err != nil {
+						w.Player.DirtyCash -= o.Cost
+					}
+					w.Player.CleanCash += 50 * o.Upkeep
+				}
+			}
+			for _, c := range w.Corners() {
+				if c.Held() && c.Deed == nil {
+					price := s.Rules().Territory.DeedPrice(w, c)
+					w.Player.CleanCash += price
+					if s.BuyDeed(c.ID) != nil {
+						w.Player.CleanCash -= price
+					}
+				}
+			}
+		}
+		p := s.Preview()
+		for _, a := range p.Alerts {
+			if a.Act.Screen == "" {
+				t.Fatalf("day %d: %s has no act", w.Day, a.Key)
+			}
+			if a.Kind == engine.AlertInvestigation {
+				probes++
+			}
+		}
+		construction := w.Front("construction") != nil && len(w.Deeds()) > 0
+		evs := s.EndDay()
+		if w.Over != nil {
+			break
+		}
+		rolled := false
+		for _, e := range evs {
+			rolled = rolled || dice[fmt.Sprintf("%T", e)[len("events."):]]
+		}
+		if rolled {
+			continue
+		}
+		quiet++
+		if construction {
+			rented++
+		}
+		if got := w.Report.Flow.Closing; p.Flow.Closing.Dirty != got.Dirty || p.Flow.Closing.Clean != got.Clean {
+			t.Errorf("day %d: projected %+v, the night closed on %+v", w.Day, p.Flow.Closing, got)
+		}
+	}
+	if rented < 5 || probes == 0 {
+		t.Fatalf("%d quiet nights with the construction firm and a deed (%d quiet in all), %d mornings under investigation: the check is thin", rented, quiet, probes)
+	}
+	t.Logf("%d quiet nights agree, %d with the construction firm's rent on a deed; %d mornings' investigation alerts carried their act", quiet, rented, probes)
+}
+
 // TestPreviewNeverWritesTheWorld (#353): the world's JSON is the same
 // before and after a preview, every morning of the boss's run and the
 // distributor's (the road, the fronts, the crew, the contracts).

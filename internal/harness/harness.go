@@ -780,6 +780,19 @@ func Laundered(cfg *content.Config, lieLowAt float64) Policy {
 	}
 }
 
+// OneFront plays like Laundered with one kind of front (#344): it buys
+// the front id, and no other, when dirty cash is three times its price,
+// and runs the dial as Laundered does. TestNoFrontDominates reads the
+// kinds against each other.
+func OneFront(cfg *content.Config, lieLowAt float64, id string) Policy {
+	crewed := Crewed(cfg, lieLowAt)
+	ld := laundering.New(cfg)
+	return func(w *game.World) {
+		washOnly(ld, w, 3, id)
+		crewed(w)
+	}
+}
+
 // LaunderCarefulDays is how long the laundered policy runs its fronts
 // careful after an audit.
 const LaunderCarefulDays = 30
@@ -1246,8 +1259,15 @@ func Landlord(cfg *content.Config, policy Policy) Policy {
 // dirty cash is margin times its price. ld is the policy's laundering
 // sim, built once (#275): it keeps nothing between days.
 func washUpAt(ld *laundering.Sim, w *game.World, margin float64) {
+	washOnly(ld, w, margin, "")
+}
+
+// washOnly is washUpAt with the fronts it buys cut to the kind only
+// (#344), or any kind for "": the cheapest one lacking, the dial as
+// washUpAt keeps it.
+func washOnly(ld *laundering.Sim, w *game.World, margin float64, only string) {
 	for _, o := range ld.Offers() {
-		if w.Front(o.ID) != nil {
+		if w.Front(o.ID) != nil || only != "" && o.ID != only {
 			continue
 		}
 		if !o.Locked(w) && float64(w.Player.DirtyCash) >= margin*float64(o.Cost) {
@@ -1327,6 +1347,16 @@ func NoLife(cfg *content.Config) *content.Config {
 	return &boxed
 }
 
+// Investigations returns a copy of cfg with heat.toml's [investigation]
+// switched on or off (#343), the rest of the table as the file has it.
+// Off, the sting is the blind one and nothing is tallied: the run before
+// the feature, byte for byte (TestNoInvestigationIsTheOldRun).
+func Investigations(cfg *content.Config, on bool) *content.Config {
+	boxed := *cfg
+	boxed.Heat.Investigation.Enabled = on
+	return &boxed
+}
+
 // NoDeeds returns a copy of cfg with city.toml's [deed] table boxed
 // (#194): no block is on sale (BuyDeed refuses with ErrNoDeeds) and
 // nothing reads the table. A run that never bought a deed is
@@ -1334,6 +1364,15 @@ func NoLife(cfg *content.Config) *content.Config {
 func NoDeeds(cfg *content.Config) *content.Config {
 	boxed := *cfg
 	boxed.City.Deed = content.DeedTuning{}
+	return &boxed
+}
+
+// NoFrontRoles returns a copy of cfg with the fronts' roles boxed
+// (#344): no front carries an effect, so every front only washes, as
+// before the roles (TestNoFrontEffectIsTheOldRun).
+func NoFrontRoles(cfg *content.Config) *content.Config {
+	boxed := *cfg
+	boxed.Upgrades.Fronts = nil
 	return &boxed
 }
 
