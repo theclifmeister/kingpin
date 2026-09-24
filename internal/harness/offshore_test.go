@@ -89,7 +89,7 @@ func TestStructuringFilesPages(t *testing.T) {
 	}
 	ld := laundering.New(cfg)
 	quiet := reservingHider(t, cfg, 1, 100, off.Lot*100, func(int) int { return off.Lot })
-	if quiet.World.Heat.Evidence != 0 || quiet.World.Offshore != 100*(off.Lot-ld.Fee(off.Lot)) || quiet.World.Stats.Fees != 100*ld.Fee(off.Lot) {
+	if quiet.World.Heat.Evidence != 0 || quiet.World.Offshore != 100*(off.Lot-ld.Fee(quiet.World, off.Lot)) || quiet.World.Stats.Fees != 100*ld.Fee(quiet.World, off.Lot) {
 		t.Fatalf("a lot a day for a hundred days: evidence %d, offshore %d, fees %d", quiet.World.Heat.Evidence, quiet.World.Offshore, quiet.World.Stats.Fees)
 	}
 	for _, e := range quiet.Events {
@@ -319,7 +319,7 @@ func TestRetireIsATierFourExit(t *testing.T) {
 				t.Fatal(err)
 			}
 			clean := res.World.Player.CleanCash
-			got = append(got, clean-ld.Fee(clean))
+			got = append(got, clean-ld.Fee(res.World, clean))
 		}
 		sort.Ints(got)
 		return got[len(got)/2]

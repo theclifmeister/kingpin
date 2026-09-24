@@ -285,3 +285,79 @@ expansionist = 0.6
 defensive = 0.4
 opportunist = 0.6
 chaotic = 1.0
+
+# Veterans (#346). At days of service, counted from the day they signed,
+# a member shows one trait, drawn off its own stream (the traits
+# stream, never the home city's) from the [trait.*] tables: each trait's
+# weight, times its role's entry (a trait with a role table is drawn
+# only by the roles it names) and times its lived entry for each of
+# raid (stood on a corner the police hit), shot (wounded and got up) and
+# jail (did time) the member has been through. A trait is a small fold
+# of an existing crew effect word for that member alone: loyalty_loss_mul
+# on their night's loss, skim_chance_mul on their roll under the skim
+# line, sharp (never counted sloppy, heat.toml sloppy_skill), buyer_gap_mul
+# on the buyers' gaps while they are at work, deterrence (enforcers'
+# worth against a skimmer) and heat (their corner counts this sloppy,
+# heat.toml sloppy_heat). Some are bad: a veteran is a known quantity,
+# not a pure upgrade. days = 0 boxes it: nobody shows one and a run is
+# the run before the feature (harness.NoTraits).
+[traits]
+days = 45
+
+[trait.steady]
+weight = 3
+good = true
+says = "takes a bad night at half the loss"
+loyalty_loss_mul = 0.5
+role = { runner = 1, enforcer = 1, accountant = 1, lieutenant = 2, chemist = 1, driver = 1.5, fixer = 1 }
+lived = { jail = 1.5 }      # did their time and kept their mouth shut
+
+[trait.sharp]
+weight = 2
+good = true
+says = "never sloppy on a corner, whatever the skill"
+sharp = true
+role = { runner = 1 }
+
+[trait.connected]
+weight = 1
+good = true
+says = "knows people: buyers come round a fifth sooner"
+buyer_gap_mul = 0.8
+role = { runner = 1, lieutenant = 1, fixer = 2 }
+
+[trait.hothead]
+weight = 1.5
+says = "scares a skimmer like another enforcer, and draws heat"
+deterrence = 1
+heat = 0.5
+role = { runner = 1, enforcer = 2 }
+lived = { shot = 2, raid = 1.5 }
+
+[trait.greedy]
+weight = 2
+says = "under the skim line, half as likely again to take"
+skim_chance_mul = 1.5
+role = { runner = 1, enforcer = 1, accountant = 1.5, chemist = 1, driver = 1 }
+lived = { raid = 1.5, jail = 1.5 }
+
+# The captain (#346): a member at loyalty or over, days on the payroll
+# or more, can be named captain of a city (one a city; a lieutenant runs
+# a city, so is never one). Every night, after the wages and before the
+# drift, the captain acts through your own actions (nothing new is
+# simulated, only who decides): they pull a suspected skimmer (under the
+# skim line while the crew screen warns of a skim) off a corner in the
+# city, post the idle runners there on the held corners nobody works,
+# biggest first, before they drift, and pay off a member there within
+# margin of the quit line (the pay-off's price and loyalty, [informant])
+# out of the nightly budget you picked from budgets (the first is the
+# default). They keep cut of the city's takings. In a cell, laid up or
+# under with a faction they do nothing that night; under care loyalty
+# they stop caring (they never flip: that is a lieutenant's drama).
+[captain]
+loyalty = 55
+days = 30
+care = 30
+cut = 0.02
+margin = 5
+budgets = [10000, 20000, 5000, 0]

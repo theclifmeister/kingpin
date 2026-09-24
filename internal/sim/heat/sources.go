@@ -32,7 +32,8 @@ func (s *Sim) dialFill(d events.Dial) float64 { return s.market.Dial.For(d).Fill
 // a product there at a dial. Heat follows volume: every unit is a
 // transaction somebody could see, weighted by how much the product itself
 // draws attention, how loud the dial is, which corners it moves on
-// (CornerWeight) and how closely the city's police look. The UI's dial
+// (CornerWeight), how closely the city's police look and what a front
+// standing there draws (EffectsIn, #344: the nightclub). The UI's dial
 // preview uses it too, so the estimate is always honest.
 func (s *Sim) SaleHeat(w *game.World, city, product string, wanted int, dial events.Dial) float64 {
 	tun := s.cfg.Heat
@@ -41,7 +42,7 @@ func (s *Sim) SaleHeat(w *game.World, city, product string, wanted int, dial eve
 	if pc == nil || c == nil || tun.StreetUnits <= 0 {
 		return 0
 	}
-	fx := s.Effects(w)
+	fx := s.EffectsIn(w, city)
 	attempted := math.Min(float64(wanted), math.Round(w.Demand(city, product)*fx.DemandMul*s.dialFill(dial)*fx.FillMul))
 	return tun.SaleHeat * fx.SaleHeatMul * attempted * s.CornerWeight(w, city, product) * c.HeatMul * pc.Heat / tun.StreetUnits * s.dialHeat(dial) * s.LieutenantHeat(w, city)
 }
@@ -70,7 +71,7 @@ func (s *Sim) ContractHeat(w *game.World, city, product string, units int, mul f
 	if pc == nil || c == nil || tun.StreetUnits <= 0 || units <= 0 {
 		return 0
 	}
-	fx := s.Effects(w)
+	fx := s.EffectsIn(w, city)
 	return tun.SaleHeat * fx.SaleHeatMul * float64(units) * c.HeatMul * pc.Heat / tun.StreetUnits * mul
 }
 
@@ -126,6 +127,8 @@ func (s *Sim) SloppyHeat(w *game.World, city string, units int) float64 {
 // counts how far they fall below the sloppy-skill line (a skill-0 runner
 // 1, a skilled one 0) times that corner's share of the corners you work
 // there. A runner without a corner is not on the street to be noticed.
+// A veteran's trait (#346) adds its heat for a hothead on the corner
+// and takes a sharp runner out of it; it is never over 1.
 func (s *Sim) Sloppiness(w *game.World, city string) float64 {
 	line := float64(s.cfg.Heat.SloppySkill)
 	c0 := w.City(city)
@@ -138,17 +141,29 @@ func (s *Sim) Sloppiness(w *game.World, city string) float64 {
 			continue
 		}
 		total += c.Demand
+		// A veteran's trait (#346): a hothead on the corner, running it
+		// or guarding it, counts its heat; a sharp runner is never
+		// sloppy, whatever the skill.
+		if c.Enforcer != 0 {
+			if m := w.Crew.Member(c.Enforcer); m != nil {
+				sloppy += c.Demand * s.traits[m.Trait].Heat
+			}
+		}
 		if c.Runner == game.You {
 			continue
 		}
-		if m := w.Crew.Member(c.Runner); m != nil && float64(m.Skill) < line {
-			sloppy += c.Demand * (line - float64(m.Skill)) / line
+		if m := w.Crew.Member(c.Runner); m != nil {
+			tr := s.traits[m.Trait]
+			sloppy += c.Demand * tr.Heat
+			if !tr.Sharp && float64(m.Skill) < line {
+				sloppy += c.Demand * (line - float64(m.Skill)) / line
+			}
 		}
 	}
 	if total <= 0 {
 		return 0
 	}
-	return sloppy / total
+	return min(1, sloppy/total)
 }
 
 // add puts v heat on a city and, with a why, a line in its report:

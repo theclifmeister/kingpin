@@ -488,7 +488,7 @@ func (m *Model) cornerSection(sel *game.Corner) section {
 	// The deed to the block (#194): yours since when and what it pays,
 	// or what it would cost.
 	if d := sel.Deed; d != nil {
-		lines = append(lines, row("DEED", theme.Gold.Render(fmt.Sprintf("yours since day %d · %s/day", d.Bought, money(m.rules.Territory.DeedRent(d))))))
+		lines = append(lines, row("DEED", theme.Gold.Render(fmt.Sprintf("yours since day %d · %s/day", d.Bought, money(m.rules.Territory.DeedRent(w, *sel, d.Price))))))
 	}
 	// The corner's repeat business (#47): the share of its customers
 	// still coming back, once bad product has cost it some; a row the
@@ -516,7 +516,7 @@ func (m *Model) cornerSection(sel *game.Corner) section {
 	// it did): the price today, and the rent.
 	if sel.Deed == nil && w.Player.CleanCash > 0 {
 		if price := m.rules.Territory.DeedPrice(w, *sel); price > 0 {
-			lines = append(lines, keyRow("d", fmt.Sprintf("buy the block: %s clean, +%s/day", cash(price), cash(m.rules.Territory.DeedRent(&game.Deed{Price: price})))))
+			lines = append(lines, keyRow("d", fmt.Sprintf("buy the block: %s clean, +%s/day", cash(price), cash(m.rules.Territory.DeedRent(w, *sel, price)))))
 		}
 	}
 	// Demand per product, biggest first, as many to a line as the value

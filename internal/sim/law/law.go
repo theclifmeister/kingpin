@@ -25,9 +25,10 @@ type Sim struct {
 	cfg    content.LawConfig
 	chiefs []string
 	das    []string
-	deed   content.DeedTuning   // #194: the pressure a deed adds in its city a day, and the forfeiture's line
-	assets content.AssetsConfig // #48: the pressure an owned asset adds in its city every day
-	intel  content.IntelTuning  // #45: what a cop's word on the chief is worth
+	deed   content.DeedTuning     // #194: the pressure a deed adds in its city a day, and the forfeiture's line
+	assets content.AssetsConfig   // #48: the pressure an owned asset adds in its city every day
+	intel  content.IntelTuning    // #45: what a cop's word on the chief is worth
+	tree   content.UpgradesConfig // #344: goodwill_day, a front's goodwill a day in its city
 }
 
 // New builds a law sim from the config, copying what it reads (#144):
@@ -36,9 +37,10 @@ type Sim struct {
 // city, and forfeit_ratio, the multiple of what the fronts have washed
 // the deeds held may cost before the DA takes one back, the assets
 // (#48) for the pressure each adds in its city while owned, and the
-// intel tuning (#45) for the chief's fact.
+// intel tuning (#45) for the chief's fact, and the upgrade tree (#344)
+// for goodwill_day, the goodwill a front buys its city a day.
 func New(cfg *content.Config) *Sim {
-	return &Sim{cfg: cfg.Law, chiefs: cfg.Names.Chiefs, das: cfg.Names.DAs, deed: cfg.City.Deed, assets: cfg.Assets, intel: cfg.Intel.Intel}
+	return &Sim{cfg: cfg.Law, chiefs: cfg.Names.Chiefs, das: cfg.Names.DAs, deed: cfg.City.Deed, assets: cfg.Assets, intel: cfg.Intel.Intel, tree: cfg.Upgrades}
 }
 
 // DeedLimit is what the deeds held may cost between them before the DA

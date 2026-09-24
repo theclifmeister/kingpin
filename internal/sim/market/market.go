@@ -8,6 +8,7 @@ package market
 
 import (
 	"fmt"
+	"maps"
 	"math"
 
 	"github.com/theclifmeister/kingpin/internal/content"
@@ -27,10 +28,11 @@ type Sim struct {
 	buyers []buyer
 	scfg   content.SuppliersConfig
 	war    content.PricewarTuning
-	assets content.AssetsConfig   // #48: the supplier asset, the one connect that is yours
-	fac    content.FactionsTuning // the table (#43): the price spike a fragmenting faction's city takes
-	ledger *warBook               // the price war's books for the step in hand (#68); nil outside Step
-	sold   *soldQuality           // what the city in hand's corners were sold tonight (#47); nil outside Step
+	assets content.AssetsConfig     // #48: the supplier asset, the one connect that is yours
+	fac    content.FactionsTuning   // the table (#43): the price spike a fragmenting faction's city takes
+	traits map[string]content.Trait // #346: a connected veteran's buyer_gap_mul
+	ledger *warBook                 // the price war's books for the step in hand (#68); nil outside Step
+	sold   *soldQuality             // what the city in hand's corners were sold tonight (#47); nil outside Step
 }
 
 // New builds a market sim from the config, copying what it reads (#144):
@@ -45,13 +47,14 @@ type Sim struct {
 // relationship moves. The price war (#68, rivals.toml [pricewar]) is
 // what an order at home takes off a rival corner next door and at what
 // price: the market resolves it, the rivals sim reads the squeeze it
-// leaves.
+// leaves. The crew's trait tables (#346) say what a connected
+// veteran does to the buyers' gaps.
 func New(cfg *content.Config) (*Sim, error) {
 	deck, err := parseBuyers(cfg.Buyers)
 	if err != nil {
 		return nil, fmt.Errorf("buyers: %w", err)
 	}
-	return &Sim{cfg: cfg.Market, cities: cfg.City, ship: cfg.Routes.Shipping, tree: cfg.Upgrades, rep: cfg.Reputation.Effects, bcfg: cfg.Buyers, buyers: deck, scfg: cfg.Suppliers, war: cfg.Rivals.Pricewar, assets: cfg.Assets, fac: cfg.Rivals.Factions}, nil
+	return &Sim{cfg: cfg.Market, cities: cfg.City, ship: cfg.Routes.Shipping, tree: cfg.Upgrades, rep: cfg.Reputation.Effects, bcfg: cfg.Buyers, buyers: deck, scfg: cfg.Suppliers, war: cfg.Rivals.Pricewar, assets: cfg.Assets, fac: cfg.Rivals.Factions, traits: maps.Clone(cfg.Crew.Trait)}, nil
 }
 
 // Markup is the supplier's price for a standing order as a multiple of
@@ -554,12 +557,7 @@ func (s *Sim) resolveAt(w *game.World, t *game.Tick, city string, m *game.Produc
 	// are volume pushed through your street over what it absorbs, and
 	// weigh glut each: a long price war crashes the product it is fought
 	// with.
-	impact := 0.0
-	if demand > 0 {
-		ratio := (float64(sold) + s.war.Glut*float64(undercut)) / demand
-		impact = s.cfg.Market.SaleImpact * game.FoldEffects(w, s.tree).SaleImpactMul * d.Impact * ratio * ratio
-	}
-	impact = math.Min(impact, 0.6)
+	impact := s.impact(w, d, demand, float64(sold)+s.war.Glut*float64(undercut))
 	// The lot's quality prices every unit (#47): the multiplier is 1
 	// at the default, so a stash that was never cut sells as it did.
 	quality := w.Quality(city, o.Product)
@@ -611,6 +609,36 @@ func (s *Sim) resolveAt(w *game.World, t *game.Tick, city string, m *game.Produc
 		s.sold.add(own, quality)
 		s.overdoses(w, t, city, o.Product, own, quality)
 	}
+}
+
+// impact is what a volume moved against the street's demand does to
+// the price: the square of volume over demand, times the tuning, the
+// tree's scales and the dial, at most 0.6. The night's sale and the
+// preview's (Estimate) share it.
+func (s *Sim) impact(w *game.World, d content.DialConfig, demand, volume float64) float64 {
+	impact := 0.0
+	if demand > 0 {
+		ratio := volume / demand
+		impact = s.cfg.Market.SaleImpact * game.FoldEffects(w, s.tree).SaleImpactMul * d.Impact * ratio * ratio
+	}
+	return math.Min(impact, 0.6)
+}
+
+// Estimate is what an order is expected to sell tonight out of stock
+// units and what it takes before any cut (#353, the day's preview): the
+// night's arithmetic (resolveAt) with no dice and no price war, at
+// today's price, the dial, the impact of the units on the street and
+// the lot's quality. A read: nothing moves.
+func (s *Sim) Estimate(w *game.World, city string, o game.SellOrder, stock int) (sold, revenue int) {
+	m := w.Product(city, o.Product)
+	if m == nil {
+		return 0, 0
+	}
+	d := s.Dial(o.Dial)
+	sold = max(0, min(o.Qty, s.Capacity(w, city, o.Product, o.Dial), stock))
+	impact := s.impact(w, d, s.Demand(w, city, o.Product), float64(sold))
+	avg := m.Price * d.Price * (1 - impact/2) * s.QualityMul(w.Quality(city, o.Product))
+	return sold, int(math.Round(avg * float64(sold)))
 }
 
 // fragmented reports whether a faction living in the city lost its

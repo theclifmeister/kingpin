@@ -69,7 +69,7 @@ func TestReserveDialog(t *testing.T) {
 	before := w.Heat.Evidence
 	endDay(t, m)
 	m.Update(key("enter"))
-	if w.Offshore != off.Lot*3-l.Fee(off.Lot*3) || w.Heat.Evidence != before {
+	if w.Offshore != off.Lot*3-l.Fee(w, off.Lot*3) || w.Heat.Evidence != before {
 		t.Fatalf("the morning after: offshore %d evidence %d (was %d); the pages come the morning after the move, not the same night", w.Offshore, w.Heat.Evidence, before)
 	}
 	m.Update(key("1"))

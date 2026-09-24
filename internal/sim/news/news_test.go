@@ -44,6 +44,7 @@ var reportOnly = map[string]bool{
 	"TrustSpread":   true, // #43
 	"AssetFrozen":   true, // #48
 	"IntelGained":   true, // #45
+	"CaptainActed":  true, // #346
 	// Found unlisted (#274): neither templated nor named report-only
 	// before events.All; the loop's own, never a line of news.
 	"DayEnded": true, "Headline": true, "GameOver": true,

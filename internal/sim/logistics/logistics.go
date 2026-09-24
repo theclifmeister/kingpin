@@ -102,6 +102,13 @@ func (s *Sim) Float() int { return s.float }
 // the ones the dice use.
 func (s *Sim) Effects(w *game.World) game.Effects { return game.FoldEffects(w, s.tree) }
 
+// routeEffects is Effects with the fronts that stand at either end of
+// r folded in (#344): what a route's risk reads, the car wash's
+// route_risk_mul on the roads out of its city.
+func (s *Sim) routeEffects(w *game.World, r content.RouteConfig) game.Effects {
+	return game.FoldEffectsIn(w, s.tree, r.From, r.To)
+}
+
 // Dial returns the tuning for a ship dial position.
 func (s *Sim) Dial(d events.Ship) content.ShipDialConfig { return s.cfg.DialFor(d) }
 
@@ -131,9 +138,10 @@ func (s *Sim) days(fx game.Effects, r content.RouteConfig, d events.Ship) int {
 
 // DayRisk is the chance a shipment on a route at a dial is intercepted on
 // any one day in transit: the route's risk times the dial's and the
-// tree's route_risk_mul (the tyres, the compartments).
+// tree's route_risk_mul (the tyres, the compartments; and a car wash at
+// either end, #344).
 func (s *Sim) DayRisk(w *game.World, r content.RouteConfig, d events.Ship) float64 {
-	return s.dayRisk(s.Effects(w), r, d, s.Cut(w, r, w.Day), Watched(w, w.Day+1))
+	return s.dayRisk(s.routeEffects(w, r), r, d, s.Cut(w, r, w.Day), Watched(w, w.Day+1))
 }
 
 // dayRisk is DayRisk with the fold, the cut and the watch given: a
@@ -209,7 +217,7 @@ func (s *Sim) Customs(r content.RouteConfig) bool { return Customs(r) }
 // before it lands: what the map shows against the dial, and what the dice
 // add up to over the days.
 func (s *Sim) Risk(w *game.World, r content.RouteConfig, d events.Ship) float64 {
-	return s.risk(s.Effects(w), r, d, s.Cut(w, r, w.Day), Watched(w, w.Day+1))
+	return s.risk(s.routeEffects(w, r), r, d, s.Cut(w, r, w.Day), Watched(w, w.Day+1))
 }
 
 func (s *Sim) risk(fx game.Effects, r content.RouteConfig, d events.Ship, cut float64, watched bool) float64 {
@@ -411,7 +419,7 @@ func (s *Sim) move(w *game.World, t *game.Tick, fx game.Effects) {
 		risk := 0.0
 		r := s.cfg.Route(sh.Route)
 		if r != nil {
-			risk = s.dayRisk(fx, *r, sh.Dial, s.cut(w, *r, t.Day, riding(w, sh, t.Day)), Watched(w, t.Day))
+			risk = s.dayRisk(s.routeEffects(w, *r), *r, sh.Dial, s.cut(w, *r, t.Day, riding(w, sh, t.Day)), Watched(w, t.Day))
 		}
 		// A road a faction fed you as quiet (#45) is a road it has the
 		// customs watching: the first shipment on it is taken, whatever
@@ -569,6 +577,87 @@ func (s *Sim) run(w *game.World, t *game.Tick, fx game.Effects) {
 			w.Logistics.Days = append(w.Logistics.Days, day)
 		}
 	}
+}
+
+// Outlay is what the routes are expected to spend tonight (#353, the
+// day's preview): run's arithmetic with nothing bought or sent, the lots
+// at today's wholesale price and the fares, out of the budget over the
+// float as the dirty cash in w stands. moved is what the night does to
+// the stashes before the road runs (the contracts' buys in, the sales
+// out), keyed game.OrderKey. What lands tonight, and what the police
+// take on the road, are left out: an estimate.
+func (s *Sim) Outlay(w *game.World, moved map[string]int) (lots, fares int) {
+	fx := s.Effects(w)
+	day := w.Day + 1
+	budget := s.Budget(w)
+	taken := map[string]int{} // units out of each stash (what came in is negative)
+	for k, n := range moved {
+		taken[k] = -n
+	}
+	sent := map[string]int{}   // units put on the road tonight to each stash
+	bought := map[string]int{} // units off each wholesaler tonight
+	for _, r := range s.cfg.Routes {
+		rs := w.Route(r.ID)
+		if !rs.Dial.On() || rs.Closed(day) || w.Cities[r.From] == nil || w.Cities[r.To] == nil || !s.Open(w, r) {
+			continue
+		}
+		for _, id := range w.Products {
+			if w.Product(r.From, id) == nil || w.Product(r.To, id) == nil {
+				continue
+			}
+			// Shortfall, on the stash as the night will have left it.
+			to := game.OrderKey(r.To, id)
+			short := 0
+			if target := s.Target(w, r, id); target > 0 {
+				short = max(0, target-(w.Stock(r.To, id)-taken[to])-w.Bound(r.To, id)-sent[to])
+			}
+			units := min(short, s.capacity(w, fx, r))
+			if units <= 0 {
+				continue
+			}
+			key := game.OrderKey(r.From, id)
+			have := max(0, w.Stock(r.From, id)-taken[key])
+			sup := w.WholesaleSupplier(r.From)
+			if need := units - have; need > 0 && sup != nil && sup.Open(w) && sup.Sells(id) && sup.Lot > 0 && sup.Price[id] > 0 {
+				// The connect's day starts again before the road buys
+				// (the market sim's credit), so the road sees its whole cap.
+				fresh := *sup
+				fresh.BoughtToday = 0
+				n := min((need+sup.Lot-1)/sup.Lot, (fresh.Left()-bought[sup.ID])/sup.Lot)
+				for n > 0 {
+					cost := int(math.Ceil(sup.Price[id] * float64(n*sup.Lot)))
+					if cost+fareFor(fx, r, min(units, have+n*sup.Lot)) <= budget {
+						break
+					}
+					n--
+				}
+				if n > 0 {
+					cost := int(math.Ceil(sup.Price[id] * float64(n*sup.Lot)))
+					budget -= cost
+					lots += cost
+					bought[sup.ID] += n * sup.Lot
+					taken[key] -= n * sup.Lot
+					have += n * sup.Lot
+				}
+			}
+			units = min(units, have)
+			if f := fare(fx, r); f > 0 {
+				units = min(units, int(float64(budget)/f))
+				for units > 0 && fareFor(fx, r, units) > budget {
+					units--
+				}
+			}
+			if units <= 0 {
+				continue
+			}
+			cost := fareFor(fx, r, units)
+			budget -= cost
+			fares += cost
+			taken[key] += units
+			sent[to] += units
+		}
+	}
+	return lots, fares
 }
 
 // learn files a route's risk a day (#45): a seizure is the one thing

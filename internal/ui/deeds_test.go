@@ -88,7 +88,7 @@ func TestDeedKeys(t *testing.T) {
 	if got := m.cellMark(c); got != deedGlyph {
 		t.Fatalf("the cell's mark is %q, want %q", got, deedGlyph)
 	}
-	if pane := paneText(m); !strings.Contains(pane, "DEED") || !strings.Contains(pane, money(tr.DeedRent(c.Deed))+"/day") || strings.Contains(pane, "buy the block") {
+	if pane := paneText(m); !strings.Contains(pane, "DEED") || !strings.Contains(pane, money(tr.DeedRent(m.w, *c, c.Deed.Price))+"/day") || strings.Contains(pane, "buy the block") {
 		t.Fatalf("the inspector after the buy:\n%s", pane)
 	}
 	assertFrame(t, m, "map with a deed")

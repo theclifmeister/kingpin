@@ -33,6 +33,7 @@ const (
 	StreamOverdose    = "overdose"   // an overdose on a cut product (#47, market)
 	StreamSwagger     = "swagger"    // the boss's headline (#233, news)
 	StreamCharacter   = "character"  // a character's start on day 0 (#50)
+	StreamTraits      = "traits"     // a veteran's trait (#346, crew)
 
 	// Shared streams.
 	StreamBooks     = "books"     // shared: the rival's scout and poach (#70, rivals) and a tip's evidence (heat)

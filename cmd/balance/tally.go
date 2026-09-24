@@ -380,7 +380,7 @@ func (t *tally) add(res harness.Result, days int, trace bool) {
 	tr.deedRent += st.DeedRent
 	tr.deedsSeized += st.DeedsSeized
 	for _, corner := range w.Deeds() {
-		tr.deedRentDay += t.tr.DeedRent(corner.Deed)
+		tr.deedRentDay += t.tr.DeedRent(w, corner, corner.Deed.Price)
 	}
 	tr.houseUnits += st.HouseUnits
 	tr.rent += st.Rent

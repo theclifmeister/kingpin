@@ -1,4 +1,4 @@
-version 8
+version 9
 .version int
 .seed uint64
 .day int
@@ -88,6 +88,9 @@ version 8
 .crew[].personality string
 .crew[].carry int
 .crew[].fee int
+.crew[].trait string
+.crew[].captain string
+.crew[].budget int
 .pool []
 .pool[].id int
 .pool[].name string
@@ -103,6 +106,9 @@ version 8
 .pool[].personality string
 .pool[].carry int
 .pool[].fee int
+.pool[].trait string
+.pool[].captain string
+.pool[].budget int
 .contracts []
 .contracts[].id int
 .contracts[].name string

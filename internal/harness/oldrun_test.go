@@ -67,7 +67,9 @@ type oldRunCase struct {
 	asRun bool
 	// file, if set, is what the file side plays instead of the file as
 	// it ships: a feature the file turns on (#343, investigations) is
-	// compared switched off against the table boxed.
+	// compared switched off against the table boxed; #344's roles at
+	// the identity (every multiplier 1) against the roles boxed. The box
+	// is taken of it.
 	file func(*content.Config) *content.Config
 }
 

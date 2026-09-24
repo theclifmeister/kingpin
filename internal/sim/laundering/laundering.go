@@ -156,9 +156,11 @@ func (s *Sim) Lots(amount int) int {
 	return (amount - lot + lot - 1) / lot
 }
 
-// Fee is what the account keeps of a move of amount.
-func (s *Sim) Fee(amount int) int {
-	return int(math.Round(float64(amount) * s.cfg.Offshore.Fee))
+// Fee is what the account keeps of a move of amount: [offshore] fee
+// times offshore_fee_mul, folded with every front owned wherever it
+// stands (#344: the exchange's; the account has no city).
+func (s *Sim) Fee(w *game.World, amount int) int {
+	return int(math.Round(float64(amount) * s.cfg.Offshore.Fee * game.FoldEffectsAll(w, s.tree).OffshoreFeeMul))
 }
 
 // Retire is World.Retire at the file's terms.
@@ -620,7 +622,7 @@ func (s *Sim) reserve(w *game.World, t *game.Tick) {
 	if amt <= 0 {
 		return
 	}
-	fee := s.Fee(amt)
+	fee := s.Fee(w, amt)
 	w.Offshore += amt - fee
 	w.Stats.Reserved += amt - fee
 	w.Stats.Fees += fee

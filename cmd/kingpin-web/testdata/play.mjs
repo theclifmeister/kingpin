@@ -202,6 +202,32 @@ function play(seed, days) {
   if (JSON.stringify(applied) !== JSON.stringify(review)) problem(`apply_preset did not do what preset_diff said: ${JSON.stringify(applied)}`);
 }
 
+// The day's preview (#353): a sale queued shows in tonight's money, the
+// flow's lines are every category, and the preview changes nothing.
+{
+  const s = new Session(kingpin);
+  const v = s.newRun(7);
+  const k = streetConnect(v, v.you.city);
+  const id = k && Object.keys(k.prices).sort((a, b) => k.prices[a] - k.prices[b])[0];
+  const qty = id ? Math.min(10, Math.floor(v.you.dirty_cash / (2 * k.prices[id]))) : 0;
+  if (qty > 0) {
+    s.buy(k.id, id, qty);
+    s.sell(v.you.city, id, qty, "normal");
+    const before = JSON.stringify(s.refresh());
+    const p = s.preview();
+    if (!p || p.day !== v.day + 1) problem(`preview on day ${v.day}: ${JSON.stringify(p)}`);
+    else {
+      if (p.flow.lines.length !== 9 || !(p.flow.lines[0].dirty > 0)) problem(`the preview's flow: ${JSON.stringify(p.flow)}`);
+      if (!p.sales.length || !Array.isArray(p.idle) || !Array.isArray(p.unknown) || !p.unknown.length) problem(`the preview's lists: ${JSON.stringify(p)}`);
+      if (JSON.stringify(p.alerts) !== JSON.stringify(s.view.alerts)) problem("the preview's alerts are not the morning's");
+      for (const a of p.alerts) if (!a.act || !a.act.screen) problem(`a preview alert with no act: ${JSON.stringify(a)}`);
+      const sum = p.flow.lines.reduce((n, l) => n + l.dirty + l.clean, 0);
+      if (p.flow.opening.dirty + p.flow.opening.clean + sum !== p.flow.closing.dirty + p.flow.closing.clean) problem("the preview's flow does not add up");
+    }
+    if (JSON.stringify(s.refresh()) !== before) problem("the preview changed the run");
+  } else problem("nothing affordable on day 0 to preview a sale of");
+}
+
 out.reference = play(7, 400);
 out.more = [11, 23, 42].map((seed) => play(seed, 150));
 if (cards === 0) problem("no card came up in four runs");
