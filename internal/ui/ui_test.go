@@ -2586,7 +2586,9 @@ func fillCart(t *testing.T, m *Model) {
 	w.SetStock(w.Player.Location, w.Products[1], 20)
 	m.Update(key("1"))
 	m.Update(key("b"))
-	for _, k := range []string{"enter", "5", "enter", "enter", "j", "enter", "3", "enter", "enter", "esc"} {
+	// The keep level is typed whole: the field opens on 30 and the first
+	// digit replaces it (#426).
+	for _, k := range []string{"enter", "5", "enter", "enter", "j", "enter", "3", "0", "3", "enter", "enter", "esc"} {
 		m.Update(key(k))
 	}
 	m.Update(key("s"))

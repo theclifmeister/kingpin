@@ -28,6 +28,7 @@ type numberField struct {
 	in    textinput.Model
 	max   int  // what the field can take; the shortcuts clamp to it
 	money bool // the field is dollars: max reads `$45,000`
+	fresh bool // the value was set, not typed: the first digit replaces it (#426)
 }
 
 // newNumberField is a field with its placeholder, what a blank means;
@@ -52,6 +53,7 @@ func (f numberField) Value() string { return f.in.Value() }
 func (f *numberField) SetValue(s string) {
 	f.in.SetValue(s)
 	f.in.CursorEnd()
+	f.fresh = s != ""
 }
 
 // Set writes a number into the field.
@@ -115,13 +117,22 @@ func (f *numberField) Update(k tea.KeyMsg) tea.Cmd {
 	case "pgdown":
 		f.Set(f.clamp(n - 10))
 	case "backspace", "delete", "left", "right":
+		f.fresh = false
 		var cmd tea.Cmd
 		f.in, cmd = f.in.Update(k)
 		return cmd
 	default:
-		if len(key) == 1 && key[0] >= '0' && key[0] <= '9' {
+		// Digits typed or pasted (#426: a paste is one message with
+		// every rune, and was dropped whole, leaving blank = max). A
+		// value the dialog or a shortcut set is replaced, not appended
+		// to: 472 then 250 is 250, not 472250.
+		if digits := string(k.Runes); k.Type == tea.KeyRunes && digits != "" && strings.Trim(digits, "0123456789") == "" {
+			if f.fresh {
+				f.in.SetValue("")
+				f.fresh = false
+			}
 			var cmd tea.Cmd
-			f.in, cmd = f.in.Update(k)
+			f.in, cmd = f.in.Update(tea.KeyMsg{Type: tea.KeyRunes, Runes: k.Runes})
 			return cmd
 		}
 	}

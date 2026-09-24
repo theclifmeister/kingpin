@@ -888,7 +888,7 @@ func (m *Model) afterRow(sup *game.Supplier, qty, cost, have int, credit bool) s
 		pile = theme.Bad.Render(cash(left) + pool)
 	}
 	held, room := w.StockIn(sup.City)+qty, w.Capacity(sup.City)
-	stash := fmt.Sprintf("room %d/%d in %s", held, room, w.CityName(sup.City))
+	stash := fmt.Sprintf("stash %d/%d in %s", held, room, w.CityName(sup.City))
 	if held > room {
 		stash = theme.Bad.Render(stash)
 	}

@@ -149,5 +149,5 @@ func (m *Model) viewRestock() string {
 // for the whole plan: never over, since the plan is cut to both.
 func (m *Model) restockAfter(city string, units, cost int) string {
 	w := m.w
-	return row("after", fmt.Sprintf("%s dirty · room %d/%d in %s", cash(w.Player.DirtyCash-cost), w.StockIn(city)+units, w.Capacity(city), w.CityName(city)))
+	return row("after", fmt.Sprintf("%s dirty · stash %d/%d in %s", cash(w.Player.DirtyCash-cost), w.StockIn(city)+units, w.Capacity(city), w.CityName(city)))
 }
