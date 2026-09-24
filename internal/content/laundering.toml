@@ -63,6 +63,15 @@ retire_cash = 750000
 retire_days = 14
 retire_heat = 40
 
+# Cashing out (#395): clean cash drawn back into the dirty pile (c on
+# the ledger), at once, so the connect and the payroll can be paid out
+# of money that sits on the books. fee is the share the banker keeps.
+# Nothing else: the dirty pile it lands in draws the pile's heat past
+# the exposure line like any other (heat.toml). A run that never cashes
+# out is the run before (no harness policy does).
+[cashout]
+fee = 0.10
+
 # The businessman ending (#49): the fronts' own income net of their
 # upkeep (LegitIncome, #192) out-earns what the street sold for, every
 # day for legit_days days in a row, with home's goodwill over its

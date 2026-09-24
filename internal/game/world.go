@@ -205,6 +205,7 @@ type Today struct {
 	Invested      []Investment           // levels bought at the fronts today (#192), applied at once; the laundering sim reports them
 	Cuts          []CutRecord            // the cuts made today (#47), applied at once; the market sim reports them
 	Reserved      int                    // clean cash on its way offshore tonight (#195), out of the pile already; the laundering sim moves it and takes the fee
+	CashedOut     CashOut                // clean cash drawn into the dirty pile today (#395), applied at once; the news sim books it
 	Cop           *CopOrder              // a cop paid today (#45); the heat sim and the law sim each write what they know off it
 	Spy           *SpyOrder              // a crew member going under tonight (#45); the crew sim sends them
 	DeedsBought   []string               // corner ids whose block was bought today (#194), paid at once; the territory sim reports them

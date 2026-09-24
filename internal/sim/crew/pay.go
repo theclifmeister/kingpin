@@ -139,8 +139,11 @@ func (s *Sim) broke(n *night) bool {
 	// Wages are the only way money leaves without something coming back.
 	// If they empty the till with nothing left to sell, anywhere or on
 	// the road, the run is over: there is no move that makes money from
-	// nothing.
-	if w.Over == nil && w.TotalStock() == 0 && float64(w.Player.DirtyCash) < cheapestUnit(w) {
+	// nothing. The till is both piles (#395): clean cash is drawn back
+	// into the dirty at a fee (World.CashOut), so a run with its money
+	// on the books is not broke. The offshore account is not in it:
+	// nothing comes back from the account.
+	if w.Over == nil && w.TotalStock() == 0 && float64(w.Cash()) < cheapestUnit(w) {
 		w.Over = w.End(content.CauseBroke, t.Day, "")
 		t.Emit(events.GameOver{Day: t.Day, Cause: content.CauseBroke})
 		return true

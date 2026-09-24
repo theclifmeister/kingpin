@@ -172,6 +172,8 @@ type Stats struct {
 	Overdoses      int // overdoses on your corners
 	Reserved       int // clean cash moved offshore, after the fee (#195)
 	Fees           int // what the account kept of it
+	CashedOut      int // clean cash drawn back into the dirty pile, before the fee (#395)
+	CashOutFees    int // what the banker kept of it
 	Bodies         int // the dead on your corners, both sides (#46): the score's divisor (#49); never decreases
 	Fallen         int // of those, yours
 	Arrests        int // crew put in a cell

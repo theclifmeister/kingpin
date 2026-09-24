@@ -13,6 +13,7 @@ type LaunderingConfig struct {
 	Growth      GrowthConfig      `toml:"growth"`
 	Offshore    OffshoreConfig    `toml:"offshore"`
 	Businessman BusinessmanConfig `toml:"businessman"`
+	CashOut     CashOutConfig     `toml:"cashout"`
 	Fronts      []FrontConfig     `toml:"front"`
 }
 
@@ -38,6 +39,14 @@ type OffshoreConfig struct {
 	RetireCash int     `toml:"retire_cash"`
 	RetireDays int     `toml:"retire_days"`
 	RetireHeat float64 `toml:"retire_heat"`
+}
+
+// CashOutConfig is the [cashout] table (#395): clean cash drawn back
+// into the dirty pile, at once, the way out of a run whose money is all
+// on the books when the street wants cash. Fee is the share of what is
+// drawn that the banker keeps. Zero is a free draw.
+type CashOutConfig struct {
+	Fee float64 `toml:"fee"`
 }
 
 type LaunderingTuning struct {
@@ -142,6 +151,9 @@ func (l LaunderingConfig) validate() error {
 	}
 	if o := l.Offshore; o.Lot < 0 || o.Fee < 0 || o.Fee >= 1 || o.RetireCash < 0 || o.RetireDays < 0 || o.RetireHeat < 0 {
 		return fmt.Errorf("bad [offshore] table %+v", o)
+	}
+	if c := l.CashOut; c.Fee < 0 || c.Fee >= 1 {
+		return fmt.Errorf("bad [cashout] table %+v", c)
 	}
 	return nil
 }

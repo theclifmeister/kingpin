@@ -67,6 +67,7 @@ var ruleNames = map[string]ruleSig{
 	"Laundering.AuditRisk":         {[]string{"w", "f"}, nil},
 	"Laundering.CanRetire":         {[]string{"w"}, nil},
 	"Laundering.Capacity":          {[]string{"w"}, nil},
+	"Laundering.CashOutFee":        {[]string{"amount"}, nil},
 	"Laundering.Dial":              {[]string{"d"}, nil},
 	"Laundering.Fee":               {[]string{"w", "amount"}, nil},
 	"Laundering.FrontUpkeep":       {[]string{"w", "f"}, nil},

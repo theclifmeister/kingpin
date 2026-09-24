@@ -11,7 +11,7 @@ Each ending is **detected by the sim that owns its condition, in its step, as a 
 |---|---|---|---|
 | `indicted` | heat | the DA's file at `evidence_arrest` after the fall guys, as before | `heat.toml` |
 | `arrested` | heat | the arrest rung after the fall guys, as before | `heat.toml [[response]] arrest` |
-| `broke` | crew | no stock anywhere and less dirty cash than the cheapest unit, as before | |
+| `broke` | crew | no stock anywhere and less cash, dirty and clean together (#395: clean is drawn back at a fee, `World.CashOut`), than the cheapest unit; the offshore account is not in it | `laundering.toml [cashout] fee` |
 | `retired` | the player: `World.Retire` (#195) | `Offshore >= retire_cash` and `QuietDays >= retire_days` | `laundering.toml [offshore]` |
 | `businessman` | laundering | `LegitIncome(w)` (the fronts' own income net of upkeep, #192) over zero and over the night's street revenue (the tick's `PlayerSold`) with home's goodwill over its pressure, `legit_days` days running (`World.LegitDays`, this sim's; a day that fails zeroes it) | `laundering.toml [businessman] legit_days` = 30 |
 | `kingpin` | rivals, then the player: `World.Crown` (#227) | `Dominant()` (#43) held `dominant_days` days (the day it began is the latest of the table's own stamps, `World.DominantSince` since #347, which `Sim.DominantSince` delegates to: `Absorbed`, `Fragmented`, the homage deal's `Since`, so no counter) while you hold more than `kingpin_share` of home's corners (`Sim.HoldsTheCity`) stamps the reign (`World.Reign`); the crown is taken from the walk-away dialog while it holds | `rivals.toml [endings]` `dominant_days` = 14, `kingpin_share` = 0.5 |

@@ -231,7 +231,7 @@ func TestCartListsAndEdits(t *testing.T) {
 	// at the screens that take it.
 	m.Update(key("3"))
 	m.Update(key("c"))
-	if m.status != "Cart on the dashboard screen (1) or the market screen (2). Captain on the crew screen (4). Post runner on the map screen (5)." {
+	if m.status != "Cart on the dashboard screen (1) or the market screen (2). Captain on the crew screen (4). Post runner on the map screen (5). Cash out on the ledger screen (7)." {
 		t.Errorf("c on the journal: %q", m.status)
 	}
 }

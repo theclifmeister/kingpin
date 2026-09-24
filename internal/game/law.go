@@ -395,6 +395,41 @@ func (w *World) Reserve(amount int) error {
 	return nil
 }
 
+// CashOut is what was drawn out of the clean pile today (#395): the
+// clean cash that left it and what the banker kept, the rest landing
+// in the dirty pile.
+type CashOut struct {
+	Amount int
+	Fee    int
+}
+
+// CashOut draws amount of clean cash back into the dirty pile (#395),
+// at once, less fee, which the caller works out at the file's rate
+// (engine.Session.CashOut): the way a run whose money all sits on the
+// books pays the connect and the payroll, who take cash. Nothing else
+// happens here; the pile it lands in draws the pile's heat like any
+// other. Only clean cash goes, as for Reserve.
+func (w *World) CashOut(amount, fee int) error {
+	if w.Over != nil {
+		return ErrGameOver
+	}
+	if amount <= 0 || fee < 0 || fee > amount {
+		return ErrBadQuantity
+	}
+	if amount > w.Player.CleanCash && w.Player.CleanCash <= 0 {
+		return ErrNoCleanCash
+	}
+	if err := w.payClean(amount); err != nil {
+		return err
+	}
+	w.Player.DirtyCash += amount - fee
+	w.Today.CashedOut.Amount += amount
+	w.Today.CashedOut.Fee += fee
+	w.Stats.CashedOut += amount
+	w.Stats.CashOutFees += fee
+	return nil
+}
+
 // ReservedToday is what the player has sent offshore today, before the
 // fee: out of the pile, not yet in the account.
 func (w *World) ReservedToday() int { return w.Today.Reserved }

@@ -82,6 +82,9 @@ func (m *Model) alertOf(a engine.Alert) alert {
 		text = theme.Warning.Render(fmt.Sprintf("Dirty cash %s is under the float (%s): the wash and the road wait.", cash(a.Have), cash(a.Amount)))
 	case engine.AlertWages:
 		text = theme.Warning.Render(fmt.Sprintf("Wages %s due tonight, %s dirty in hand.", money(a.Amount), money(a.Have)))
+		if m.w.Player.CleanCash > 0 {
+			text = theme.Warning.Render(fmt.Sprintf("Wages %s due tonight, %s dirty in hand: cash out clean %s.", money(a.Amount), money(a.Have), screenPointer(screenLedger)))
+		}
 	case engine.AlertCrewLine:
 		text, why = m.crewLineAlert(a)
 	case engine.AlertSkim:

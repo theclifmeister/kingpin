@@ -165,6 +165,18 @@ func (s *Sim) Fee(w *game.World, amount int) int {
 	return int(math.Round(float64(amount) * s.cfg.Offshore.Fee * game.FoldEffectsAll(w, s.tree).OffshoreFeeMul))
 }
 
+// CashOutFee is what the banker keeps of amount of clean cash drawn
+// back into the dirty pile (#395): [cashout] fee of it. No tree node
+// touches it.
+func (s *Sim) CashOutFee(amount int) int {
+	return int(math.Round(float64(amount) * s.cfg.CashOut.Fee))
+}
+
+// CashOut is World.CashOut at the file's fee.
+func (s *Sim) CashOut(w *game.World, amount int) error {
+	return w.CashOut(amount, s.CashOutFee(amount))
+}
+
 // Retire is World.Retire at the file's terms.
 func (s *Sim) Retire(w *game.World) error {
 	return w.Retire(s.cfg.Offshore.RetireCash, s.cfg.Offshore.RetireDays)
