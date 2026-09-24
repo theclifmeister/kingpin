@@ -200,6 +200,11 @@ func (s *Sim) Rungs(w *game.World, city *game.City) []content.ResponseConfig {
 	out := s.Ladder(w, city)
 	for i, r := range out {
 		out[i] = bite(r, fx)
+		if r.Level == content.Sting && s.Investigating() && s.cfg.Investigation.Evidence > 0 {
+			// With investigations on (#343) the sting a dealer meets is
+			// the named hit, and it files the investigation's pages.
+			out[i].Evidence = max(0, s.cfg.Investigation.Evidence-fx.EvidenceCut)
+		}
 		if r.Level == content.Patrol {
 			cap := math.Max(r.Cap, fx.PatrolCap)
 			if city != nil {

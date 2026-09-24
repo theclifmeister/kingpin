@@ -295,11 +295,17 @@ func TestRetainerLetsTheCaseGoCold(t *testing.T) {
 	}
 }
 
-// A lawyer on call thins the file: stings add nothing, raids one page, so
-// the aggressive trader lasts longer and is still indicted.
+// A lawyer on call thins the file: a blind sting adds nothing, a raid
+// one page, and a targeted investigation's hit (#343) one page under
+// its evidence, so the aggressive trader lasts longer and is still
+// indicted. The named hit is a thicker case than a buy-and-bust by
+// design (heat.toml [investigation] evidence), and the lawyer takes
+// the same one page off it as off every sting and raid.
 func TestLawyerThinsTheFile(t *testing.T) {
 	t.Parallel()
 	cfg := content.MustLoad()
+	named := max(0, cfg.Heat.Investigation.Evidence-1)
+	hits := 0
 	for seed := uint64(1); seed <= 5; seed++ {
 		plain, _ := Run(cfg, seed, Horizon, Trader(cfg, events.DialAggressive))
 		w := sim.NewWorld(cfg, seed)
@@ -308,11 +314,28 @@ func TestLawyerThinsTheFile(t *testing.T) {
 		if res.Over == nil || res.Days <= plain.Days {
 			t.Fatalf("seed %d: with a lawyer %d days (over=%v), without %d", seed, res.Days, res.Over, plain.Days)
 		}
+		hit := map[int]bool{}
 		for _, e := range res.Events {
-			if ev, ok := e.(events.Enforcement); ok && ev.Level == content.Sting && ev.Evidence != 0 {
-				t.Fatalf("seed %d day %d: a sting added %d evidence past the lawyer", seed, ev.Day, ev.Evidence)
+			if ev, ok := e.(events.InvestigationClosed); ok && ev.Hit {
+				hit[ev.Day] = true
 			}
 		}
+		for _, e := range res.Events {
+			ev, ok := e.(events.Enforcement)
+			if !ok || ev.Level != content.Sting {
+				continue
+			}
+			want := 0
+			if hit[ev.Day] {
+				want, hits = named, hits+1
+			}
+			if ev.Evidence > want {
+				t.Fatalf("seed %d day %d: a sting (named %v) added %d evidence past the lawyer, want at most %d", seed, ev.Day, hit[ev.Day], ev.Evidence, want)
+			}
+		}
+	}
+	if cfg.Heat.Investigation.On() && hits == 0 {
+		t.Fatal("no investigation landed on the lawyered trader in five seeds: the named hit went unmeasured")
 	}
 }
 

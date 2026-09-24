@@ -183,6 +183,12 @@ func TestIntelInvariants(t *testing.T) {
 		var fed []game.Fact
 		for day := 1; day <= 120 && w.Over == nil; day++ {
 			policy(w)
+			lures := map[string]game.Fact{}
+			for _, f := range w.Intel {
+				if f.Lure() && f.Alive(w.Day) {
+					lures[f.Subject+"/"+f.Kind] = f
+				}
+			}
 			evs := clock.EndDay(w)
 			for _, f := range w.Intel {
 				c := f.Now(w.Day)
@@ -217,7 +223,18 @@ func TestIntelInvariants(t *testing.T) {
 						}
 					}
 				case events.IntelFalse:
+					// The lie that bit is the one planted that morning.
+					// It bites on the night after the morning it was
+					// acted on, so one that bit on its last live day is
+					// forgotten by the time the night is over (seed 2
+					// day 28 once investigations shipped on, #343, moved
+					// the run): the file names the author while it holds
+					// the lie, and the plant always does.
 					f, ok := game.Known(w).Fact(ev.Subject, ev.FactKind)
+					if !ok {
+						f, ok = lures[ev.Subject+"/"+ev.FactKind], lures[ev.Subject+"/"+ev.FactKind].Planted != ""
+						f.Source = f.Planted
+					}
 					if !ok || f.Source != ev.Faction || w.Faction(ev.Faction) == nil {
 						t.Fatalf("seed %d day %d: a bite that names nobody: %+v %+v", seed, w.Day, ev, f)
 					}

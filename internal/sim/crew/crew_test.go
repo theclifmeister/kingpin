@@ -593,6 +593,51 @@ func TestWalkHandsTheRivalTheCornersTonight(t *testing.T) {
 	}
 }
 
+// A lieutenant answers an investigation in their city (#343): the crew
+// come off the corner it names and it stays held, unworked, while it
+// runs (not given up as a corner nobody staffs), and a product it names
+// gets no standing order there; once it closes the runner goes back on.
+func TestLieutenantAnswersAnInvestigation(t *testing.T) {
+	cfg := content.MustLoad()
+	w, s := factionWorld(t, cfg)
+	w.Crew.Members = []game.CrewMember{
+		{ID: 901, Name: "Vee", Role: "runner", Skill: 50, Loyalty: 95, Greed: 5, Nerve: 90, Units: 100, Wage: 50},
+		{ID: 902, Name: "Mo", Role: "lieutenant", Personality: "violent", Skill: 50, Loyalty: 95, Greed: 5, Nerve: 90, Wage: 50},
+	}
+	w.Crew.NextID = 902
+	if err := w.Post("oldmill", 901); err != nil {
+		t.Fatal(err)
+	}
+	if err := w.Assign(902, "test"); err != nil {
+		t.Fatal(err)
+	}
+	product := w.Products[0]
+	w.SetStock("test", product, 50)
+	w.Heat.Investigation = game.Investigation{City: "test", Kind: game.LeadCorner, Target: "oldmill", Opened: w.Day, Due: w.Day + 2}
+	step(w, s)
+	if c := w.Corner("oldmill"); c.Owner != game.OwnerPlayer || c.Runner != 0 || c.Enforcer != 0 {
+		t.Fatalf("the named corner the night after: %+v, want it held and nobody on it", c)
+	}
+	if _, ok := w.Delegated[game.OrderKey("test", product)]; !ok {
+		t.Fatalf("a corner named, and the lieutenant stopped selling %s too: %+v", product, w.Delegated)
+	}
+
+	w.Heat.Investigation = game.Investigation{City: "test", Kind: game.LeadProduct, Target: product, Opened: w.Day, Due: w.Day + 2}
+	step(w, s)
+	if o, ok := w.Delegated[game.OrderKey("test", product)]; ok {
+		t.Fatalf("the named product has a standing order: %+v", o)
+	}
+	if c := w.Corner("oldmill"); c.Runner != 901 {
+		t.Fatalf("the corner is no longer named, and nobody went back on it: %+v", c)
+	}
+
+	w.Heat.Investigation = game.Investigation{}
+	step(w, s)
+	if _, ok := w.Delegated[game.OrderKey("test", product)]; !ok {
+		t.Fatalf("the investigation closed, and %s is still off: %+v", product, w.Delegated)
+	}
+}
+
 // Fixers (#42) come looking for work only once an envelope, a
 // checkpoint or a customs agent has been paid, rolled on the fixer side
 // stream, so a run that pays nobody draws the pool it always did; a

@@ -149,9 +149,15 @@ func TestFactionsContestBeforeDay120(t *testing.T) {
 // it gains), one that does not leaves them on the payroll.
 func TestPoachingIsTheDefectionPath(t *testing.T) {
 	t.Parallel()
+	// Twenty seeds, not eight (#343): an offer lands only on a member
+	// under poach_line, and eight seeds held one landing (94 offers)
+	// with the blind sting and none with investigations on, the crewed
+	// player's crew never swept by a named hit it lies low through.
+	// Twenty read 5 landings of 266 offers on, 8 of 267 off.
+	const poachSeeds = 20
 	cfg := content.MustLoad()
 	offers, landed := 0, 0
-	for seed := uint64(1); seed <= 8; seed++ {
+	for seed := uint64(1); seed <= poachSeeds; seed++ {
 		w := sim.NewWorld(cfg, seed)
 		_, sims, err := sim.Default(cfg)
 		if err != nil {
@@ -187,9 +193,9 @@ func TestPoachingIsTheDefectionPath(t *testing.T) {
 			}
 		}
 	}
-	t.Logf("crewed, eight seeds: %d offers, %d took them", offers, landed)
+	t.Logf("crewed, %d seeds: %d offers, %d took them", poachSeeds, offers, landed)
 	if offers == 0 || landed == 0 {
-		t.Fatalf("%d offers and %d poached over eight crewed runs", offers, landed)
+		t.Fatalf("%d offers and %d poached over %d crewed runs", offers, landed, poachSeeds)
 	}
 }
 

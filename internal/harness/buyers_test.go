@@ -488,14 +488,23 @@ func TestHandoffHeat(t *testing.T) {
 	t.Logf("heat drawn a unit over 120 days: dealer %.5f, crewed %.5f", perUnit(Dealer(cfg, 40)), perUnit(Crewed(cfg, 40)))
 
 	// A sting on a delivery-only night files pages; on a night with only
-	// a lapsed offer it files none.
+	// a lapsed offer it files none. With investigations on (#343) the
+	// handoff is a lead: the night the sting would come the police name
+	// its product instead, and the hit lead_days later files the pages
+	// when the product is handed over again that night (a handoff is
+	// dealing, #27). The lapsed offer names nothing, so its sting is the
+	// blind one, as it always was.
 	sting := func(deliver bool) events.Enforcement {
 		w := sim.NewWorld(cfg, 2)
 		fixed := Appoint(cfg, w, "lazy", "moderate")
 		home := w.Home().ID
 		w.Home().Heat = 66 // over the sting line once the day has decayed it
-		c := contractOffer(w, home, 20, 1.5)
-		if deliver {
+		handoff := func() {
+			c := contractOffer(w, home, 20, 1.5)
+			if !deliver {
+				w.Contract(c.ID).Expires = w.Day // lapses tonight, unanswered
+				return
+			}
 			if err := w.AcceptContract(c.ID); err != nil {
 				t.Fatal(err)
 			}
@@ -503,19 +512,25 @@ func TestHandoffHeat(t *testing.T) {
 			if err := w.Deliver(c.ID, 20); err != nil {
 				t.Fatal(err)
 			}
-		} else {
-			w.Contract(c.ID).Expires = w.Day // lapses tonight, unanswered
 		}
-		r, err := RunFrom(fixed, w, 1, nil)
-		if err != nil {
-			t.Fatal(err)
-		}
-		for _, e := range r.Events {
-			if ev, ok := e.(events.Enforcement); ok && ev.Level == content.Sting {
-				return ev
+		for night := 0; night <= cfg.Heat.Investigation.LeadDays; night++ {
+			if night == 0 || w.Heat.Investigation.Open() {
+				handoff()
+			}
+			r, err := RunFrom(fixed, w, 1, nil)
+			if err != nil {
+				t.Fatal(err)
+			}
+			for _, e := range r.Events {
+				if ev, ok := e.(events.Enforcement); ok && ev.Level == content.Sting {
+					return ev
+				}
+			}
+			if night == 0 && !r.World.Heat.Investigation.Open() {
+				t.Fatalf("no sting fired and no investigation opened at heat 66 (deliver %v): %v", deliver, r.World.Report.Heat)
 			}
 		}
-		t.Fatalf("no sting fired at heat 66 (deliver %v): %v", deliver, r.World.Report.Heat)
+		t.Fatalf("the investigation opened at heat 66 never landed (deliver %v)", deliver)
 		return events.Enforcement{}
 	}
 	if ev := sting(true); ev.Evidence == 0 {

@@ -1000,6 +1000,13 @@ func TestRungsAreWhatTheyTake(t *testing.T) {
 			w.Player.DirtyCash = 100000
 			home.Heat = over(w, s, rung(cfg, level), home)
 			ev := enforcement(step(w, s, sale(w, home.ID, 10)))
+			// With investigations on (#343) the sting is the named hit:
+			// the night it lands on the corner, sold on again, is the
+			// firing Rungs describes.
+			for ev == nil && w.Heat.Investigation.Open() {
+				home.Heat = 30 // under every line: nothing else answers
+				ev = enforcement(step(w, s, sale(w, home.ID, 10)))
+			}
 			if ev == nil || ev.Level != level {
 				t.Fatalf("%v: over the %s line: %+v", nodes, level, ev)
 			}

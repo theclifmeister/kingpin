@@ -9,8 +9,8 @@ import (
 	"github.com/theclifmeister/kingpin/internal/game"
 )
 
-// Targeted investigations (#343, heat.toml [investigation], off in the
-// file, switched on here with Investigations): the police name an
+// Targeted investigations (#343, heat.toml [investigation], on in the
+// file, switched with Investigations): the police name an
 // operation before the sting, and the player suspends it, moves it or
 // lets them have it.
 

@@ -116,3 +116,39 @@ func TestNextRung(t *testing.T) {
 		t.Fatalf("the arrest has no cooldown: %s d%d", level, from)
 	}
 }
+
+// With investigations on (#343) the cop's truth is the night the hit
+// lands: a sting line met with a source to name is lead_days past the
+// night it opens (later again while one elsewhere holds the rung), and
+// an investigation open in the city is the sting on its Due whatever
+// the heat does meanwhile. With nothing to name it is the blind sting's
+// night, as TestNextRung reads it.
+func TestNextKnowsTheInvestigation(t *testing.T) {
+	cfg := investigating(content.MustLoad())
+	s := heat.New(cfg)
+	w := world(t, cfg)
+	here := w.Here()
+	lead := cfg.Heat.Investigation.LeadDays
+	w.Day = 10
+	here.Heat = s.Threshold(w, rung(cfg, content.Sting), here) + 1
+	if level, from := s.Next(w, here, w.Day); level != content.Sting || from != 11 {
+		t.Fatalf("over the line with nothing to name: %s d%d, want the blind sting on d11", level, from)
+	}
+	w.Heat.Trail = map[string]float64{game.LeadKey(here.ID, game.LeadCorner, here.Corners[0].ID): 5}
+	if level, from := s.Next(w, here, w.Day); level != content.Sting || from != 11+lead {
+		t.Fatalf("over the line with a corner to name: %s d%d, want d%d", level, from, 11+lead)
+	}
+	w.Heat.Investigation = game.Investigation{City: "elsewhere", Kind: game.LeadCorner, Target: "x", Opened: 10, Due: 12}
+	if level, from := s.Next(w, here, w.Day); level != content.Sting || from != 13+lead {
+		t.Fatalf("with the rung held elsewhere: %s d%d, want d%d", level, from, 13+lead)
+	}
+	w.Heat.Investigation = game.Investigation{City: here.ID, Kind: game.LeadCorner, Target: here.Corners[0].ID, Opened: 9, Due: 11}
+	here.Heat = 0
+	if level, from := s.Next(w, here, w.Day); level != content.Sting || from != 11 {
+		t.Fatalf("an investigation here, the city cooled: %s d%d, want the hit on d11", level, from)
+	}
+	here.Heat = 100
+	if level, _ := s.Next(w, here, w.Day); level != content.Arrest {
+		t.Fatalf("over the arrest line with an investigation open: %s, want the arrest", level)
+	}
+}

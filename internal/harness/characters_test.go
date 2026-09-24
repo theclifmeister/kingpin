@@ -27,7 +27,8 @@ import (
 func TestCharactersAreStartsNotCheats(t *testing.T) {
 	t.Parallel()
 	// The expansion boxed (#341, harness.NoExpansion): the dockhand starts in Bayport, so a faction drawn there meets its crewed player; on seed 6 that run was indicted on day 113, under the tier-3 line, a knife-edge.
-	cfg := NoExpansion(content.MustLoad())
+	// Investigations boxed too (#343, the blind sting): this measures the starts against each other, and the police answer every start alike; with them on, a miss cools nothing, so the crewed player who lies low at 40 through two named hits on the bookkeeper's seed 1 peaks at $475k against the blind sting's $593k, under managed's $497k, a second per-seed flip beside seed 7's roster slot (the medians hold).
+	cfg := Investigations(NoExpansion(content.MustLoad()), false)
 	base := measure(t, cfg, "")
 	for _, ch := range cfg.Characters.Characters {
 		ch := ch

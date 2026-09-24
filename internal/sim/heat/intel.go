@@ -9,8 +9,11 @@ import (
 // Next is the police's next move in a city as the ladder stands (#45):
 // the highest rung whose line the city's heat is at or over (the lowest
 // rung, the patrol, under every line) and the first day it can fire,
-// tomorrow or the day its cooldown lifts (the arrest has none). It is
-// the truth a cop's word is right about; the file never reads it.
+// tomorrow or the day its cooldown lifts (the arrest has none). With
+// investigations on (#343) the sting's day is the night the hit lands:
+// an investigation open in the city is the sting on its Due whatever
+// the heat, and a sting line met is lead_days past the night it opens.
+// It is the truth a cop's word is right about; the file never reads it.
 func (s *Sim) Next(w *game.World, city *game.City, day int) (level string, from int) {
 	resp := s.Thresholds()
 	if len(resp) == 0 {
@@ -25,6 +28,24 @@ func (s *Sim) Next(w *game.World, city *game.City, day int) (level string, from 
 	from = day + 1
 	if last, ok := w.Heat.LastResponse[level]; ok && level != content.Arrest {
 		from = max(from, last+s.CooldownDays(w, level))
+	}
+	if !s.Investigating() || content.Rank(level) > content.Rank(content.Sting) {
+		return level, from
+	}
+	// With investigations on (#343) the sting is a named hit: the day
+	// the cop gives is the night it lands, not the night it opens.
+	switch inv := w.Heat.Investigation; {
+	case inv.Open() && inv.City == city.ID:
+		// One open here lands on its night whatever the heat does.
+		return content.Sting, max(day+1, inv.Due)
+	case level == content.Sting && len(Leads(w, city.ID)) > 0:
+		// The line met with a source to name: opened the night the
+		// rung is free (one open elsewhere holds it until it lands),
+		// the hit lead_days after.
+		if inv.Open() {
+			from = max(from, inv.Due+1)
+		}
+		from += s.cfg.Investigation.LeadDays
 	}
 	return level, from
 }

@@ -206,7 +206,11 @@ func TestFastForwardStopsOnTheReign(t *testing.T) {
 			t.Fatal(err)
 		}
 	}
-	w.Player.DirtyCash = 5_000_000 // the wages for the month
+	// The wages for the month, and no pile the police read into: $5M
+	// drew 25 heat a night, and with targeted investigations on (#343)
+	// the named hit on the corner you stand on (day 11, then 14) cost
+	// the fixture its reign; the test is the reign's stop, not the law.
+	w.Player.DirtyCash = 200_000
 	if w.Reign != 0 || w.CanCrown() {
 		t.Fatalf("a reign before the tick: %d", w.Reign)
 	}

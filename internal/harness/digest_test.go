@@ -284,20 +284,26 @@ const (
 // and World.Journal set aside the digest with the lead written is the
 // digest with it left out on every day, the duel and the table, seeds
 // 7, 1, 2 and 3, 150 days each; TestLeadDoesNotMoveTheRun holds it.
+// Again for #343 switched on (heat.toml [investigation] enabled): the
+// move is on day 1, HeatState.Trail now tallied from the first sale,
+// and no other number moved: with Trail and Investigation skipped on
+// both sides the digest on is the digest off on all sixty days, the
+// boss peaking at 53.9 heat on this seed, under the sting line, so no
+// investigation opens.
 var seedDigest = []string{
-	"654c85dfd72378a2", "471f6cf03028b4f1", "50bacf3483cc7a20", "fc47f795e2907358",
-	"6681bd16b1cde053", "4c0750dcc049da65", "f2939243c536f9b3", "e54f8ab7ab6d634b",
-	"94b825eeec4fb170", "ccec2e735b5aeb4b", "b273fe4be9a5100f", "a4e3ecbe7669c0e9",
-	"7a8cc2e9464d60f2", "3b1780319de409bb", "dd48c57ab1e2741d", "21e5f70afdae3ff6",
-	"4f0b00c30ac5c7df", "5f05affabd631bbf", "b2dee602840f3c4e", "724c59b93cda7fba",
-	"4cdf950861ab6513", "ac7889331405401c", "a0d89e314be23f63", "6024b824e62fc4ce",
-	"3e18087f29be2b90", "74e2dbcaf5e2ba70", "139c0a842b7382d6", "c8badbf28da3823b",
-	"5800b45570dd2a18", "0c09312bf7e15fe9", "ed3baead81ec7a8b", "c640220b83cd2191",
-	"12d27cc0de11c76a", "14b1fdccb02041b6", "b854c9aa040755de", "901be27b24da6702",
-	"58afab91e894588a", "f9969cb6efd72e89", "51690090fb2ddeb3", "7a5fc151e228bfee",
-	"8d72e48f3ed1ba95", "6e237aec49173a38", "5a398c18d23d7db4", "9729ac6f5e4a3696",
-	"683d2e189e10c53a", "d1864c993e02dc21", "9145fe0f48e13355", "c334d56468f2c2da",
-	"467ec39472ea452d", "d094a8d53c77ead5", "d9607572a11e26b4", "671312fe88dba59f",
-	"6a1f608be972c268", "623933dd43fa64d2", "1b6840e48c6b29c0", "2455bbfed17ccc61",
-	"3941920652b860b9", "9ae621d6bbed437f", "6148f9aa3197ee39", "e4ef0a0021692043",
+	"8c2c68db45658430", "bba9ae4f49ced6e9", "2cffc83f68e1edef", "e44253a4256343cc",
+	"028952f6b4eac188", "6a01db1de554cd67", "19ac65e23393d38e", "900b6d69c6258b9f",
+	"5ce9cfcd79bed296", "6597fd7ac09d0042", "1f3128f3cc7b44c0", "9e0902ab18963cc4",
+	"d3dc4ed1f9e715e3", "2167c763031383d1", "7e8352e2e7f5009b", "0234dd5b63330eba",
+	"1e3cfced1c04def9", "7eb737f38dabca8f", "5808fde54015f581", "92800cecef79aa03",
+	"6df3cb827821e83e", "a7977fe237c1e10a", "25a7a785928b53ee", "dc20fd726e382595",
+	"85d2b7202d1a7dc9", "fe400675f620dc05", "90655b40bab790c3", "8549ef70790d3957",
+	"1302f4ac11182ffb", "3bb55c124522da70", "c5e7f24706ad88aa", "f8c879ef234bb7e8",
+	"adfb36decec12748", "61f5103552215f21", "c9d642890213153b", "c547641e91dc96a8",
+	"a17d3a0f92c8e665", "a1740b33d0660ff6", "4c80a1388c240543", "0f80b167cd2f2536",
+	"ab2528cf930b7e5c", "50274bb5baea5eb5", "2a6354e097c441c6", "d167f452e1fd7d58",
+	"d84697954c889a65", "771eae55a1698643", "d75c5f1ed8545f4e", "d81241f45d2d8090",
+	"ebca12eb79d173b3", "2caca3c413beb976", "62f6b38adc05b556", "b78fe94f0c129a47",
+	"9448cd3dfc6df336", "8bd3e007c82e2f0d", "4f6af428e1926ed4", "c3090a5229bdaab7",
+	"9364b272fc1c09ce", "7bd7cdcb12507942", "e3cf9e03b6c6d3e9", "3f9a6c1d3867f747",
 }
