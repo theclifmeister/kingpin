@@ -282,6 +282,7 @@ func effectWords(e content.UpgradeEffects) []string {
 		add(fmt.Sprintf("audits freeze %d days less", e.AuditFreezeCut))
 	}
 	mul(e.FloatMul, "float ×%s")
+	mul(e.OffshoreFeeMul, "offshore fee ×%s")
 	// The road.
 	mul(e.RouteRiskMul, "route risk ×%s")
 	mul(e.RouteCapacityMul, "route capacity ×%s")
@@ -295,6 +296,12 @@ func effectWords(e content.UpgradeEffects) []string {
 	mul(e.RobberyMul, "robberies ×%s")
 	bonus(e.GuardBonus, "guard on contested corners")
 	mul(e.RivalPushMul, "rival pushes ×%s")
+	// The property and the law (#344).
+	mul(e.DeedCostMul, "blocks cost ×%s")
+	mul(e.RentMul, "block rent ×%s")
+	if e.GoodwillDay > 0 {
+		add(fmt.Sprintf("goodwill +%s a day in its city", times(e.GoodwillDay)))
+	}
 	return out
 }
 

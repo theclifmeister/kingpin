@@ -2708,6 +2708,8 @@ func TestModalsFit(t *testing.T) {
 		{"confirm new", modeConfirm, func(t *testing.T, m *Model) { m.Update(key("N")) }},
 		{"confirm fire", modeConfirm, func(t *testing.T, m *Model) { m.Update(key("4")); m.Update(key("f")) }},
 		{"confirm end", modeConfirmEnd, func(t *testing.T, m *Model) { m.Update(key("enter")) }},
+		// The day's preview (#353) with a full cart.
+		{"confirm end with cart", modeConfirmEnd, func(t *testing.T, m *Model) { fillCart(t, m); m.Update(key("enter")) }},
 		{"confirm fast", modeConfirmFast, func(t *testing.T, m *Model) { m.Update(key("F")) }},
 		{"help", modeHelp, func(t *testing.T, m *Model) { m.Update(key("?")) }},
 		{"post", modePost, func(t *testing.T, m *Model) { m.Update(key("5")); m.mapCursor = 1; m.Update(key("c")) }},

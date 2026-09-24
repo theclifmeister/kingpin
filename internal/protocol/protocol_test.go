@@ -435,3 +435,38 @@ func TestPresetsOnTheWire(t *testing.T) {
 		t.Errorf("an unknown preset: %v", err)
 	}
 }
+
+// preview (#353) is the session's day's preview over the wire, and a
+// query: nothing changes and no view follows it.
+func TestPreviewOverTheWire(t *testing.T) {
+	t.Parallel()
+	c, srv := loopClient(t)
+	if err := c.Call("new_run", []any{7, "", false}, nil); err != nil {
+		t.Fatal(err)
+	}
+	w := srv.sess.World()
+	sup := w.StreetSupplier(w.Player.Location)
+	product := w.Products[0]
+	if err := c.Call("buy", []any{sup.ID, product, 10, false}, nil); err != nil {
+		t.Fatal(err)
+	}
+	if err := c.Call("place_sell", []any{w.Player.Location, product, 10, "normal"}, nil); err != nil {
+		t.Fatal(err)
+	}
+	before := string(c.LastView())
+	var p engine.DayPreview
+	if err := c.Call("preview", nil, &p); err != nil {
+		t.Fatal(err)
+	}
+	want, _ := json.Marshal(srv.sess.Preview())
+	got, _ := json.Marshal(p)
+	if string(got) != string(want) {
+		t.Fatalf("preview over the wire:\n%s\nin the process:\n%s", got, want)
+	}
+	if string(c.LastView()) != before {
+		t.Error("a view followed the preview")
+	}
+	if p.Day != w.Day+1 || len(p.Sales) != 1 || p.Sales[0].Units == 0 || p.Flow.Lines[0].Dirty <= 0 {
+		t.Errorf("the preview of a night selling 10: %+v", p)
+	}
+}

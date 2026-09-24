@@ -52,7 +52,7 @@ type LogisticsRules interface {
 }
 type TerritoryRules interface {
 	DeedPrice(w *game.World, c game.Corner) int
-	DeedRent(d *game.Deed) int
+	DeedRent(w *game.World, c game.Corner, price int) int
 	Deeds() content.DeedTuning
 	DriftDays(w *game.World) int
 	HouseRobberyChance(w *game.World, h *game.House) float64
@@ -165,7 +165,7 @@ type LaunderingRules interface {
 	CanRetire(w *game.World) bool
 	Capacity(w *game.World) int
 	Dial(d events.Launder) content.LaunderConfig
-	Fee(amount int) int
+	Fee(w *game.World, amount int) int
 	FrontUpkeep(w *game.World, f game.Front) int
 	Growth() content.GrowthConfig
 	Income(f game.Front) int

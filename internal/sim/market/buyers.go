@@ -107,7 +107,7 @@ func (s *Sim) wants(w *game.World, b content.BuyerConfig) (cities []string, prod
 // one; the deck's pacing is one for every city, so theirs is too), the
 // first never over the second.
 func (s *Sim) Gaps(w *game.World) (minGap, maxGap int) {
-	mul := game.FoldEffects(w, s.tree).BuyerGapMul
+	mul := game.FoldEffectsAll(w, s.tree).BuyerGapMul // a nightclub anywhere brings the buyers (#344)
 	best := 1.0
 	for _, m := range w.Crew.Members {
 		if m.Trait != "" && m.Working() {

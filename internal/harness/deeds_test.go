@@ -197,7 +197,7 @@ func TestDeedSizing(t *testing.T) {
 		w := res.World
 		rent := 0
 		for _, c := range w.Deeds() {
-			rent += tr.DeedRent(c.Deed)
+			rent += tr.DeedRent(w, c, c.Deed.Price)
 		}
 		clean = append(clean, w.Player.CleanCash)
 		rents = append(rents, rent)

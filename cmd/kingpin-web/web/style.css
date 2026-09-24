@@ -48,10 +48,12 @@ td button { padding: 1px 6px; }
 @keyframes flash { from { outline: 2px solid var(--gold); } to { outline: 2px solid transparent; } }
 #report p { margin: 2px 0; }
 #report h3 { font-size: 12px; color: var(--gold); margin: 8px 0 2px; font-weight: normal; }
-#report table.flow td { padding: 1px 4px; }
-#report table.flow tr.total td { color: var(--gold); }
-#report table.flow tr.big.good td { color: var(--good); }
-#report table.flow tr.big.bad td { color: var(--bad); }
+#report table.flow td, #preview table.flow td { padding: 1px 4px; }
+#report table.flow tr.total td, #preview table.flow tr.total td { color: var(--gold); }
+#report table.flow tr.big.good td, #preview table.flow tr.big.good td { color: var(--good); }
+#report table.flow tr.big.bad td, #preview table.flow tr.big.bad td { color: var(--bad); }
+#preview p { margin: 4px 0; }
+#preview .warn { color: var(--gold); }
 #toast { color: var(--bad); }
 #toast.ok { color: var(--good); }
 kbd { color: var(--dim); font-size: 11px; }

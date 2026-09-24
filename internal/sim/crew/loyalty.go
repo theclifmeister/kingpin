@@ -51,8 +51,7 @@ type tonight struct {
 }
 
 func (s *Sim) tonight(n *night) tonight {
-	w, t, c, tun, fx := n.w, n.t, n.c, n.tun, n.fx
-	inf := s.cfg.Informant
+	w, t, c, fx := n.w, n.t, n.c, n.fx
 	// Loyalty drift: pay, greed, danger, firings, unpaid wages, an
 	// investigation that named nobody, and for the enforcers, the strike
 	// they went on today: a toll from the rivals sim that the nervous feel
@@ -74,15 +73,28 @@ func (s *Sim) tonight(n *night) tonight {
 			d.hurt += ev.Hurt
 		}
 	}
-	d.danger = s.danger(w, t.Day)
-	d.shield = s.shield(n.enforcers)
+	q := s.quietNight(w, c.Pay, t.Day, n.fired, n.short > 0, n.asked, n.enforcers, fx)
+	d.base, d.danger, d.shield, d.loss = q.base, q.danger, q.shield, q.loss
+	return d
+}
+
+// quietNight is tonight's reading with no strike on it: the base the
+// pay dial, the firings, unpaid wages and an investigation that named
+// nobody leave everyone, the danger behind the enforcers' shield, and
+// the loss multiplier. The day's preview (#353) reads it through
+// CaptainNights, so the captain it projects is the one the night runs.
+func (s *Sim) quietNight(w *game.World, pay events.Pay, day, fired int, short, asked bool, enforcers int, fx game.Effects) tonight {
+	tun, inf := s.cfg.Crew, s.cfg.Informant
+	var d tonight
+	d.danger = s.danger(w, day)
+	d.shield = s.shield(enforcers)
 	d.loss = s.loyaltyLoss(w, fx)
-	d.base = s.cfg.PayFor(c.Pay).Loyalty
-	d.base -= tun.FireLoyalty * float64(n.fired)
-	if n.short > 0 {
+	d.base = s.cfg.PayFor(pay).Loyalty
+	d.base -= tun.FireLoyalty * float64(fired)
+	if short {
 		d.base -= tun.UnpaidLoyalty
 	}
-	if n.asked {
+	if asked {
 		d.base -= inf.InvestigateLoyalty
 	}
 	return d

@@ -611,10 +611,10 @@ func noNulls(v reflect.Value) {
 	}
 }
 
-// reportView is the morning report as the view carries it, its flow's
-// big lines picked out at bigShare of the opening.
-func reportView(r *game.DayReport, bigShare float64) ReportView {
-	f := r.Flow
+// flowView is a cash flow as the view carries it, the big lines picked
+// out at bigShare of the opening: the report's (#351) and the day's
+// preview's (#353).
+func flowView(f game.CashFlow, bigShare float64) FlowView {
 	fv := FlowView{
 		Opening: PoolsView{Dirty: f.Opening.Dirty, Clean: f.Opening.Clean},
 		Closing: PoolsView{Dirty: f.Closing.Dirty, Clean: f.Closing.Clean},
@@ -623,8 +623,14 @@ func reportView(r *game.DayReport, bigShare float64) ReportView {
 	for _, l := range f.Lines {
 		fv.Lines = append(fv.Lines, FlowLineView{Cat: l.Cat, Label: game.FlowLabel(l.Cat), Dirty: l.Dirty, Clean: l.Clean, Big: f.Big(l, bigShare)})
 	}
+	return fv
+}
+
+// reportView is the morning report as the view carries it, its flow's
+// big lines picked out at bigShare of the opening.
+func reportView(r *game.DayReport, bigShare float64) ReportView {
 	return ReportView{
-		Flow: fv,
+		Flow: flowView(r.Flow, bigShare),
 		Day:  r.Day, Incident: lines(r.Incident), Unlocked: lines(r.Unlocked), Tier: lines(r.Tier), Prices: lines(r.Prices),
 		Sales: lines(r.Sales), Heat: lines(r.Heat), Crew: lines(r.Crew), Territory: lines(r.Territory),
 		Shipments: lines(r.Shipments), Law: lines(r.Law), Intel: lines(r.Intel), Money: lines(r.Money),

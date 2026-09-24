@@ -258,26 +258,32 @@ const (
 // the move is on day 1 by shape alone and no number moved: with the two
 // fields skipped the digest is the list before it on all sixty days,
 // investigations shipping off).
+// Again for #344 (Front.City added to the walk, stamped where a front
+// is bought, and the fronts' roles): the move is on day 16, the boss's
+// first front (the laundromat, which carries no effect), by shape
+// alone; under harness.NoFrontRoles the digest is the file's to day 53
+// and the roles first move a number on day 54, and cmd/balance -roles
+// off prints main's trace to the dollar.
 // Again for #346 (CrewMember.Trait, Lived, Captain and Budget added to
 // the walk): the move on day 1 is shape alone, and the first number
 // moves on day 46, the night the boss's first hire has served [traits]
 // days and shows a trait: with the four fields skipped while zero the
-// digest is b72b10c's on days 1 to 45, and under harness.NoTraits it
-// is b72b10c's on all sixty.
+// digest is f3dc3ee's on days 1 to 45, and under harness.NoTraits it
+// is f3dc3ee's on all sixty.
 var seedDigest = []string{
 	"5a5cdeb5ca883370", "11ba5f8a88f83204", "3df9b730aa97de26", "26b51d90f1157fa4",
 	"5084400b0b8f0cd4", "c5dfad77d45a0a0e", "6634124a99396bdc", "22a2ba0ceccc8226",
 	"9cb94b0ceffdf858", "b808cbffb402bcf9", "91d41c00ab98e5a8", "f5d765f92b5e72f0",
-	"7d9d3c100582f324", "d10609f7ffacb533", "22b0e16a877bbd81", "33b17f19ba9b92c3",
-	"70e1483e7a0f93d3", "3fd342334b31a6e2", "0ab61fd6547fa04a", "6b2af8bf331aa732",
-	"db31ea804f93ac66", "ed263013482b1c4b", "a9ff3a61261e32c0", "c537632ee26bd739",
-	"b4252eb04f24edb9", "a8f734981ab5c6b3", "760189af8208d81b", "41aa8c77abfd12b4",
-	"b11b5123ff918965", "1b7d4604444d21b0", "0b4baa968286c5df", "18e6a2159f9cfb71",
-	"d356d4586efe8240", "6b26690f9778d03d", "d2a486021c3d3dfc", "19d2c732ca8f5280",
-	"931c650ac4bd4f0b", "fa9fe23da37a366a", "e3c0fe03c1248a2e", "8a10c1108cf43f9e",
-	"859e0c6131cbbb0d", "7b889516fa390d8a", "8d233ae361e218fc", "9224054f03537512",
-	"a318bb340173adbc", "6a6b493d2501e013", "99591c5c6b1bead9", "bb1dcf72a34e5879",
-	"fd91eb156a3e4b95", "83f74bebdff8f037", "e82ec0e41aca6483", "ac782749095ee324",
-	"4a450f8b44405759", "264aadc40b68b94d", "d22d8a956b83e135", "cde296a450090612",
-	"f910d10cef4467f3", "017a82b5b8a37a10", "2be53668bc1006a5", "67913066a2e0c430",
+	"7d9d3c100582f324", "d10609f7ffacb533", "22b0e16a877bbd81", "1b89aed780b605d8",
+	"47beed6ed8b8e78a", "066e03b322afa9b7", "72d6601cdf70f4a3", "77614090feac84c7",
+	"af3c331494093429", "277b87e4975d3d80", "c69a7b06fbc49283", "ea7cf4f70d8123b4",
+	"4d16738401201abe", "b518cde52765a54e", "7be1c9e5efb3bef6", "07e6fb78c998b06b",
+	"4728f09b29c9e01f", "8c356d17614614f8", "a24d76f4902e1893", "02e9ac3efb01d6a5",
+	"3939143b6b7bb158", "9fb0ca250ae9293d", "8333f7492a699cf0", "f1d85f0e566c4c94",
+	"868627ae5e8dc48b", "67dfd782ea44f3ba", "0a8e50dd338a3ca2", "70694bf43a8038aa",
+	"8977fa698e14a715", "997eeae868d820aa", "f40756ea3eaf7274", "e57c99530cc7fac2",
+	"858b463e4d05a758", "10d41cf0200a58e7", "ae0cc78518556c25", "b19657cc46b60835",
+	"a3e592b040fc57a5", "5c793debb71fae97", "e8e75f71cb0d6f33", "b623fc95a48e451c",
+	"c64006b9901de365", "357c448c205e4de0", "0a3a08201cffc375", "a55a31127121cf81",
+	"72393b6bed55170b", "20430850c900f965", "3016198159b80e77", "51dee8726ae38dfc",
 }

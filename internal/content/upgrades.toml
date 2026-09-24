@@ -59,6 +59,7 @@
 #   upkeep_mul               on every front's upkeep (lowest)
 #   audit_freeze_cut         days off an audit's freeze, never under 1 (sum)
 #   float_mul                on the float the wash, the road and a supply contract leave in the till (lowest)
+#   offshore_fee_mul         on [offshore] fee, the share of a move the account keeps (lowest; #344)
 #
 # The logistics sim (logistics.Sim, #119):
 #   route_risk_mul           on every route's risk of interception (product)
@@ -72,6 +73,13 @@
 #   robbery_mul              on every corner's robbery chance, before an enforcer's cut (product)
 #   guard_bonus              an extra body on every contested corner in rivals.Sim.Guard (sum)
 #   rival_push_mul           on the rival's push chance, rivals.Sim.PushPace (product)
+#
+# The property: the territory sim (#344):
+#   deed_cost_mul            on a deed's price, territory.Sim.DeedPrice (lowest)
+#   rent_mul                 on a deed's rent, territory.Sim.DeedRent (product)
+#
+# The law sim (#344):
+#   goodwill_day             goodwill points added to a city every day, before the fade (sum)
 #
 # Pricing follows the money curve (#24): tier 1 under $50k, tier 2 to
 # $500k, tier 3 to $2M, tier 4 above. Operations and Security open as
@@ -707,3 +715,51 @@ requires = ["frontline"]
 desc = "The street knows whose corners these are. They push less often."
 [upgrade.effects]
 rival_push_mul = 0.7
+
+# The fronts' roles (#344): what each kind of front does beyond the
+# wash, in the words above, folded beside the owned nodes by the same
+# rules (game.FoldEffectsIn). A front stands in the city it was bought
+# in (game.Front.City; a front from before stands at home), and a word
+# reaches that city alone: a route with an end there, its corners and
+# houses, its sales, its law, its blocks. buyer_gap_mul and
+# offshore_fee_mul reach the whole run (the buyers' book and the account
+# have no city). Only those eight words may appear here
+# (content.FrontWords); a front with no table does nothing but wash.
+# role is the line the ledger and the buy picker show.
+[[front]]
+id = "laundromat"
+role = "A laundromat: quarters, soap and no questions. The auditors hardly ever call."
+
+[[front]]
+id = "carwash"
+role = "A car wash: the drivers out of this city leave clean and nobody looks twice."
+[front.effects]
+route_risk_mul = 0.85
+
+[[front]]
+id = "restaurant"
+role = "A restaurant: the chief eats here, and the block is looked after."
+[front.effects]
+goodwill_day = 0.25
+robbery_mul = 0.9
+
+[[front]]
+id = "nightclub"
+role = "A nightclub: the buyers find you, and so does everybody else in this city."
+[front.effects]
+buyer_gap_mul = 0.85
+robbery_mul = 1.1
+sale_heat_mul = 1.02
+
+[[front]]
+id = "construction"
+role = "A construction firm: the blocks in this city come cheaper and pay more."
+[front.effects]
+deed_cost_mul = 0.9
+rent_mul = 1.2
+
+[[front]]
+id = "exchange"
+role = "A crypto exchange: the money leaves the country for less, and the auditors know the name."
+[front.effects]
+offshore_fee_mul = 0.7
