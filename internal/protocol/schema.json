@@ -1597,10 +1597,16 @@
         "member": {
           "type": "integer"
         },
+        "product": {
+          "type": "string"
+        },
         "ready": {
           "type": "boolean"
         },
         "supplier": {
+          "type": "string"
+        },
+        "target": {
           "type": "string"
         }
       },
@@ -1680,6 +1686,49 @@
         "title",
         "text",
         "choices"
+      ],
+      "type": "object"
+    },
+    "engine.Change": {
+      "properties": {
+        "city": {
+          "type": "string"
+        },
+        "cost": {
+          "type": "integer"
+        },
+        "cost_to": {
+          "type": "integer"
+        },
+        "dropped": {
+          "type": "integer"
+        },
+        "from": {
+          "type": "string"
+        },
+        "now": {
+          "$ref": "#/$defs/game.SellOrder"
+        },
+        "product": {
+          "type": "string"
+        },
+        "route": {
+          "type": "string"
+        },
+        "setting": {
+          "type": "string"
+        },
+        "to": {
+          "type": "string"
+        },
+        "was": {
+          "$ref": "#/$defs/game.SellOrder"
+        }
+      },
+      "required": [
+        "setting",
+        "from",
+        "to"
       ],
       "type": "object"
     },
@@ -1770,6 +1819,35 @@
         "ladder",
         "products",
         "corners"
+      ],
+      "type": "object"
+    },
+    "engine.Command": {
+      "properties": {
+        "city": {
+          "type": "string"
+        },
+        "dial": {
+          "type": "string"
+        },
+        "n": {
+          "type": "integer"
+        },
+        "on": {
+          "type": "boolean"
+        },
+        "op": {
+          "type": "string"
+        },
+        "product": {
+          "type": "string"
+        },
+        "route": {
+          "type": "string"
+        }
+      },
+      "required": [
+        "op"
       ],
       "type": "object"
     },
@@ -2371,6 +2449,29 @@
       ],
       "type": "object"
     },
+    "engine.Preset": {
+      "properties": {
+        "blurb": {
+          "type": "string"
+        },
+        "id": {
+          "type": "string"
+        },
+        "name": {
+          "type": "string"
+        },
+        "saved": {
+          "type": "boolean"
+        }
+      },
+      "required": [
+        "id",
+        "name",
+        "blurb",
+        "saved"
+      ],
+      "type": "object"
+    },
     "engine.PriceFacts": {
       "properties": {
         "delta": {
@@ -2442,6 +2543,21 @@
         "demand",
         "history",
         "facts"
+      ],
+      "type": "object"
+    },
+    "engine.Refusal": {
+      "properties": {
+        "command": {
+          "$ref": "#/$defs/engine.Command"
+        },
+        "why": {
+          "type": "string"
+        }
+      },
+      "required": [
+        "command",
+        "why"
       ],
       "type": "object"
     },
@@ -2549,6 +2665,35 @@
         "cash_before",
         "cash_after",
         "flow"
+      ],
+      "type": "object"
+    },
+    "engine.Review": {
+      "properties": {
+        "changes": {
+          "items": {
+            "$ref": "#/$defs/engine.Change"
+          },
+          "type": "array"
+        },
+        "preset": {
+          "$ref": "#/$defs/engine.Preset"
+        },
+        "refused": {
+          "items": {
+            "$ref": "#/$defs/engine.Refusal"
+          },
+          "type": "array"
+        },
+        "same": {
+          "type": "integer"
+        }
+      },
+      "required": [
+        "preset",
+        "changes",
+        "refused",
+        "same"
       ],
       "type": "object"
     },
@@ -5459,6 +5604,76 @@
       ],
       "type": "object"
     },
+    "events.InvestigationClosed": {
+      "properties": {
+        "City": {
+          "type": "string"
+        },
+        "Day": {
+          "type": "integer"
+        },
+        "Evidence": {
+          "type": "integer"
+        },
+        "Fell": {
+          "type": "boolean"
+        },
+        "Hit": {
+          "type": "boolean"
+        },
+        "Lead": {
+          "type": "string"
+        },
+        "Name": {
+          "type": "string"
+        },
+        "Target": {
+          "type": "string"
+        }
+      },
+      "required": [
+        "Day",
+        "City",
+        "Lead",
+        "Target",
+        "Name",
+        "Hit",
+        "Fell",
+        "Evidence"
+      ],
+      "type": "object"
+    },
+    "events.InvestigationOpened": {
+      "properties": {
+        "City": {
+          "type": "string"
+        },
+        "Day": {
+          "type": "integer"
+        },
+        "Due": {
+          "type": "integer"
+        },
+        "Lead": {
+          "type": "string"
+        },
+        "Name": {
+          "type": "string"
+        },
+        "Target": {
+          "type": "string"
+        }
+      },
+      "required": [
+        "Day",
+        "City",
+        "Lead",
+        "Target",
+        "Name",
+        "Due"
+      ],
+      "type": "object"
+    },
     "events.InvestigationRun": {
       "properties": {
         "Clean": {
@@ -8309,6 +8524,36 @@
       ],
       "type": "object"
     },
+    "game.SellOrder": {
+      "properties": {
+        "City": {
+          "type": "string"
+        },
+        "Dial": {
+          "maximum": 2,
+          "minimum": 0,
+          "type": "integer",
+          "x-names": [
+            "quiet",
+            "normal",
+            "aggressive"
+          ]
+        },
+        "Product": {
+          "type": "string"
+        },
+        "Qty": {
+          "type": "integer"
+        }
+      },
+      "required": [
+        "City",
+        "Product",
+        "Qty",
+        "Dial"
+      ],
+      "type": "object"
+    },
     "protocol.DayResult": {
       "properties": {
         "day": {
@@ -8631,6 +8876,12 @@
     "IntelGained": {
       "$ref": "#/$defs/events.IntelGained"
     },
+    "InvestigationClosed": {
+      "$ref": "#/$defs/events.InvestigationClosed"
+    },
+    "InvestigationOpened": {
+      "$ref": "#/$defs/events.InvestigationOpened"
+    },
     "InvestigationRun": {
       "$ref": "#/$defs/events.InvestigationRun"
     },
@@ -8894,6 +9145,24 @@
           "$ref": "#/$defs/engine.Alert"
         },
         "type": "array"
+      }
+    },
+    "apply_preset": {
+      "changes": true,
+      "needsRun": true,
+      "params": {
+        "maxItems": 1,
+        "minItems": 1,
+        "prefixItems": [
+          {
+            "title": "preset",
+            "type": "string"
+          }
+        ],
+        "type": "array"
+      },
+      "result": {
+        "$ref": "#/$defs/engine.Review"
       }
     },
     "asset_offers": {
@@ -10013,6 +10282,61 @@
       },
       "result": {
         "type": "null"
+      }
+    },
+    "preset_commands": {
+      "changes": false,
+      "needsRun": true,
+      "params": {
+        "maxItems": 1,
+        "minItems": 1,
+        "prefixItems": [
+          {
+            "title": "preset",
+            "type": "string"
+          }
+        ],
+        "type": "array"
+      },
+      "result": {
+        "items": {
+          "$ref": "#/$defs/engine.Command"
+        },
+        "type": "array"
+      }
+    },
+    "preset_diff": {
+      "changes": false,
+      "needsRun": true,
+      "params": {
+        "maxItems": 1,
+        "minItems": 1,
+        "prefixItems": [
+          {
+            "title": "preset",
+            "type": "string"
+          }
+        ],
+        "type": "array"
+      },
+      "result": {
+        "$ref": "#/$defs/engine.Review"
+      }
+    },
+    "presets": {
+      "changes": false,
+      "needsRun": true,
+      "params": {
+        "maxItems": 0,
+        "minItems": 0,
+        "prefixItems": [],
+        "type": "array"
+      },
+      "result": {
+        "items": {
+          "$ref": "#/$defs/engine.Preset"
+        },
+        "type": "array"
       }
     },
     "propose_to": {
@@ -13278,6 +13602,8 @@
             "Incident",
             "IntelFalse",
             "IntelGained",
+            "InvestigationClosed",
+            "InvestigationOpened",
             "InvestigationRun",
             "KinLooking",
             "LaidLow",
@@ -13360,7 +13686,7 @@
       "$ref": "#/$defs/engine.View"
     }
   },
-  "protocol": 5,
+  "protocol": 9,
   "title": "kingpind",
-  "view_version": 7
+  "view_version": 8
 }

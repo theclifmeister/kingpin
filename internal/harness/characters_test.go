@@ -130,6 +130,7 @@ func TestProfileNeverTouchesTheRun(t *testing.T) {
 	}
 	full.Unlocks[game.HardDAID] = true
 	full.Record(cfg.Characters, cfg.Progression, game.RunRecord{Seed: 3, Ending: content.CauseKingpin, Score: 1_000_000, Days: 300, Stage: "cartel", Date: "20260913", Daily: "20260913"})
+	full.SavePreset(game.Preset{Name: "Day 40", Day: 40, Launder: events.LaunderGreedy, Pay: events.PayGenerous}) // a saved preset (#357) is the profile's too
 	if err := game.SaveProfile(full); err != nil {
 		t.Fatal(err)
 	}

@@ -22,3 +22,5 @@ No other text names a key: not a title, a table cell, a status or a modal body, 
 **Hitting the scouts** (#341): `h` on the rivals screen is `hit scouts`, live and listed only while the faction under the cursor is on its way to a city (`when: onScouts`), asked once in `modeConfirm`; the crew screen's `h hire` is that screen's own; `docs/rival.md`.
 
 **The restock key** (#356): `R restock` names the market and nothing else (the map's `R route target` is that screen's own), opens `modeRestock` (`docs/cart.md`), whose footer is the number field's row, `enter buy` and `esc close`.
+
+**The presets key** (#357): `P presets` names the market and nothing else, opens `modePresets` (`docs/presets.md`), whose list page lists `↑↓ pick`, `1-9 choose`, `enter review`, `s save current`, `x delete` (on a preset of yours) and `esc close`, and whose review page `enter apply`, `⇧tab back` and `esc close`.

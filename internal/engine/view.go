@@ -12,7 +12,7 @@ import (
 // save's game.SchemaVersion: the world is free to change shape, the view
 // is the contract a front end in another process is written against.
 // TestViewShapeIsPinned fails on a shape change that keeps the number.
-const ViewVersion = 7
+const ViewVersion = 8
 
 // View is a snapshot of what the player can see: what a front end draws
 // (#299). It is built from the world the way the TUI reads it and holds
