@@ -2,6 +2,7 @@
 // session and plays it through the protocol alone. The map is the
 // scene's; the panel, the card and the ending are the DOM's. Every move
 // is a protocol call; a move the game refuses says why on the toast.
+import { alertPanel, alertText } from "./alerts.js";
 import { autoDay } from "./autoplay.js";
 import { fileWord, policeLines } from "./police.js";
 import { Scene } from "./scene.js";
@@ -73,6 +74,10 @@ function newRun(seed) {
   session.newRun(seed);
   session.take();
   $("seed").textContent = `seed ${seed}`;
+  const sel = $("preset");
+  if (!sel.options.length) {
+    for (const p of session.presets()) sel.add(new Option(p.name, p.id));
+  }
   render();
 }
 
@@ -95,7 +100,7 @@ function endDays(n) {
   if (n === 1) session.endDay();
   else {
     const r = session.fastForward(n);
-    if (r.stop && r.stop !== "cap") toast(`stopped after ${r.ran} days: ${r.alert ? r.alert.kind : r.event || r.stop}`, true);
+    if (r.stop && r.stop !== "cap") toast(`stopped after ${r.ran} days: ${r.alert ? alertText(session.view, r.alert) : r.event || r.stop}`, true);
   }
   afterNight();
 }
@@ -135,6 +140,7 @@ function wire() {
   $("week").onclick = () => endDays(7);
   $("auto").onclick = toggleAuto;
   $("restock").onclick = restock;
+  $("preset-apply").onclick = preset;
   $("new").onclick = () => newRun(1 + Math.floor(Math.random() * 1e9));
   $("again").onclick = () => newRun(1 + Math.floor(Math.random() * 1e9));
   $("save").onclick = () => {
@@ -242,6 +248,18 @@ function render() {
   }
   $("pool").tBodies[0].replaceChildren(...pool);
 
+  // What needs you (#352): each alert a button to the panel that
+  // answers it where the page has one, else its words alone.
+  const alerts = (v.alerts || []).map((a) => {
+    const li = document.createElement("li");
+    const panel = alertPanel(a);
+    if (panel) li.append(button(alertText(v, a), false, () => showPanel(panel)));
+    else li.textContent = alertText(v, a);
+    return li;
+  });
+  if (!alerts.length) alerts.push(Object.assign(document.createElement("li"), { className: "dim", textContent: "Nobody is looking at you. Yet." }));
+  $("alerts").replaceChildren(...alerts);
+
   const sections = ["incident", "unlocked", "tier", "prices", "sales", "heat", "crew", "territory", "shipments", "law", "intel", "money", "upgrades", "news"];
   const parts = [];
   for (const s of sections) {
@@ -278,6 +296,15 @@ function render() {
     }, 2400);
   for (const id of ["end", "week"]) $(id).disabled = over || !!v.card;
   $("auto").disabled = over;
+}
+
+// showPanel brings the panel an alert names into view and flashes it.
+function showPanel(id) {
+  const el = $(id);
+  el.scrollIntoView({ behavior: "smooth", block: "nearest" });
+  el.classList.remove("flash");
+  void el.offsetWidth; // restart the animation
+  el.classList.add("flash");
 }
 
 // choiceButton is a card's choice: its label, and under it what it does
@@ -323,6 +350,18 @@ function restock() {
   act(() => {
     for (const l of plan) session.buy(l.supplier, l.product, l.units);
   }, `restocked: ${lines.join(", ")}`);
+}
+
+// preset reviews the operation preset chosen (#357): what it would
+// change, one line a setting, in a confirmation, then applies it.
+function preset() {
+  const sel = $("preset");
+  const review = session.presetDiff(sel.value);
+  if (!review.changes.length) return toast(`${review.preset.name}: nothing would change`);
+  const lines = review.changes.map((c) => `${[c.setting, c.product, c.city, c.route].filter(Boolean).join(" ")}: ${c.from} → ${c.to}`);
+  if (review.refused.length) lines.push(`refused: ${review.refused.map((r) => r.why).join("; ")}`);
+  if (!confirm(`${review.preset.name}: ${review.preset.blurb}\n\n${lines.join("\n")}`)) return;
+  act(() => session.applyPreset(sel.value), `${review.preset.name}: ${review.changes.length} changed`);
 }
 
 function button(text, disabled, onclick) {

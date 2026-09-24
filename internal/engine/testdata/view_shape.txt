@@ -299,3 +299,6 @@ version 8
 .alerts[].gate.line int
 .alerts[].gate.vouch string
 .alerts[].gate.clean bool
+.alerts[].act.screen string
+.alerts[].act.mode string
+.alerts[].act.subject string
