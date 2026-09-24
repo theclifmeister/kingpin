@@ -229,7 +229,7 @@ function play(seed, days) {
     const p = s.preview();
     if (!p || p.day !== v.day + 1) problem(`preview on day ${v.day}: ${JSON.stringify(p)}`);
     else {
-      if (p.flow.lines.length !== 9 || !(p.flow.lines[0].dirty > 0)) problem(`the preview's flow: ${JSON.stringify(p.flow)}`);
+      if (p.flow.lines.length !== 10 || !(p.flow.lines[0].dirty > 0)) problem(`the preview's flow: ${JSON.stringify(p.flow)}`);
       if (!p.sales.length || !Array.isArray(p.idle) || !Array.isArray(p.unknown) || !p.unknown.length) problem(`the preview's lists: ${JSON.stringify(p)}`);
       if (JSON.stringify(p.alerts) !== JSON.stringify(s.view.alerts)) problem("the preview's alerts are not the morning's");
       for (const a of p.alerts) if (!a.act || !a.act.screen) problem(`a preview alert with no act: ${JSON.stringify(a)}`);
