@@ -15,6 +15,15 @@ GO = os.environ.get('KINGPIN_GO', 'go')
 # The frontend must be reviewed before accepting a changed contract.
 EXPECTED_PROTOCOL, EXPECTED_VIEW = 15, 12
 
+def commit():
+    """The commit the build stamps: git's, or where there is no .git (a
+    Vercel checkout, #411) the host's VERCEL_GIT_COMMIT_SHA, or unknown."""
+    try:
+        return subprocess.check_output(['git', 'rev-parse', 'HEAD'], cwd=ROOT, text=True,
+                                       stderr=subprocess.DEVNULL).strip()
+    except (OSError, subprocess.CalledProcessError):
+        return os.environ.get('VERCEL_GIT_COMMIT_SHA', 'unknown')
+
 def build():
     protocol = (ROOT / 'internal/protocol/protocol.go').read_text()
     view = (ROOT / 'internal/engine/view.go').read_text()
@@ -22,7 +31,7 @@ def build():
               int(re.search(r'const ViewVersion = (\d+)', view)[1]))
     if actual != (EXPECTED_PROTOCOL, EXPECTED_VIEW):
         raise SystemExit(f'Review the Street Edition frontend for protocol/view {actual} before updating its supported versions.')
-    revision = subprocess.check_output(['git', 'rev-parse', 'HEAD'], cwd=ROOT, text=True).strip()
+    revision = commit()
     # Only clean this builder's generated output, never a caller-supplied path.
     if OUT.exists():
         shutil.rmtree(OUT)
