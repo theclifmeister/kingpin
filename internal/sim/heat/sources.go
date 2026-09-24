@@ -320,12 +320,16 @@ func (s *Sim) dirtyCash(d *day) {
 // dirty_cash_heat_max (#396) so a pile far past its cover is a
 // countdown of nights and not one night's arrest. Zero at or under the
 // line.
-func (s *Sim) PileHeat(w *game.World) float64 {
+func (s *Sim) PileHeat(w *game.World) float64 { return s.PileHeatOf(w, w.Player.DirtyCash) }
+
+// PileHeatOf is PileHeat for a pile of dirty cash other than the one in
+// hand: the forecast's (#397), tonight's pile as the count will find it.
+func (s *Sim) PileHeatOf(w *game.World, pile int) float64 {
 	line := s.ExposureLine(w)
-	if line <= 0 || w.Player.DirtyCash <= line {
+	if line <= 0 || pile <= line {
 		return 0
 	}
-	v := s.cfg.Heat.DirtyCashHeat * float64(w.Player.DirtyCash-line) / float64(s.DirtyCashThreshold(w))
+	v := s.cfg.Heat.DirtyCashHeat * float64(pile-line) / float64(s.DirtyCashThreshold(w))
 	if hi := s.cfg.Heat.DirtyCashHeatMax; hi > 0 {
 		v = min(v, hi)
 	}

@@ -75,7 +75,7 @@ A run with no lane open draws nothing, so **a run that never owns the book is by
 
 The zero value is the run before, so there is **no schema bump**. `NetWorth` counts a load out at its cost. `Stats` gained `ExportLoads`, `ExportUnits`, `ExportCash`, `ExportCost` and `ExportsSeized`.
 
-**Heat and the law.** A load draws no street heat, files no page and builds no case: #27 holds. The risk is the load itself, and the task force already takes an asset. What reaches the police is the dirty cash that lands, which is what the cartel's wash is for: its cover is ten times what the fronts cost (`heat.toml dirty_cash_cover`).
+**Heat and the law.** A load draws no street heat, files no page and builds no case: #27 holds. The risk is the load itself, and the task force already takes an asset. What reaches the police is the dirty cash that lands, which is what the cartel's wash is for: its cover is ten times what the fronts cost (`heat.toml dirty_cash_cover`). Since #397 a landing is forecast the morning before: the logistics sim lands the loads before the heat sim counts the pile and the wash comes after the count, so `engine.Forecast` adds the loads due tonight (`Lands <= day + 1`, `ExportLoad.Revenue`, as if none is seized) to the pile in hand less tonight's wages, and the dashboard's `exposure` alert (`Tonight's 2 loads land $31M past your cover: +35 heat before the wash.`) and the ledger's `tonight` line say what the count will find (`docs/laundering.md`).
 
 **Events.**
 - `ExportShipped` is report-only: the SHIPMENTS line, plus the MONEY line `The X's load off the book -$Y`, booked to purchases.

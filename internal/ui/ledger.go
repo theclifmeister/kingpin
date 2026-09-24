@@ -280,6 +280,24 @@ func (m *Model) viewLedger() string {
 	if warn := m.exposureWarning(); warn != "" {
 		line(theme.Warning.Render("▲ " + warn))
 	}
+	// Tonight's pile as the count will find it (#397), where it says
+	// more than the pile line above: loads land tonight, or the wages
+	// come up short. The verdict first, so the ledger's width cuts the
+	// sum and not the heat; the wash comes after the count.
+	if fc := m.sess.Forecast(); fc.Loads > 0 || fc.Wages > fc.Dirty {
+		verdict := theme.Subtle.Render(fmt.Sprintf("%s at the count, under the cover", cash(fc.Pile)))
+		if fc.Heat > 0 {
+			verdict = theme.Warning.Render(fmt.Sprintf("+%.0f heat: %s at the count, %s past the cover", fc.Heat, cash(fc.Pile), cash(fc.Pile-fc.Line)))
+		}
+		sum := " · " + cash(fc.Dirty)
+		if fc.Loads > 0 {
+			sum += fmt.Sprintf(" + %s landing", cash(fc.Landings))
+		}
+		if fc.Wages > 0 {
+			sum += fmt.Sprintf(" − %s wages", cash(fc.Wages))
+		}
+		line(sub("tonight  ") + verdict + sub(sum+", before sales"))
+	}
 	// The tax (#231): what the free corners of a city you hold pay a
 	// night, city by city where it holds.
 	for _, cid := range w.CityOrder {

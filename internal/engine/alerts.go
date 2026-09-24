@@ -42,6 +42,7 @@ const (
 	AlertFavour        AlertKind = "favour"        // the chief owes you one and Level comes tonight
 	AlertReign         AlertKind = "reign"         // day Days of the reign, Count crews paying Amount
 	AlertStraight      AlertKind = "straight"      // going straight is open (#398): Amount the fronts' income a day
+	AlertExposure      AlertKind = "exposure"      // tonight's landings put the pile past the cover (#397): Amount over the line, Heat what it adds, Count the loads
 	AlertPlan          AlertKind = "plan"          // the pinned plan (#347): Count of its Steps met, Ready once done
 )
 
@@ -50,7 +51,7 @@ const (
 func AlertKinds() []AlertKind {
 	return []AlertKind{AlertTalking, AlertContractDue, AlertDebtDue, AlertHeat, AlertTaskForce, AlertInvestigation, AlertFloat, AlertWages,
 		AlertCrewLine, AlertSkim, AlertUnposted, AlertIdleCorner, AlertStashFull, AlertScouts, AlertGate, AlertHouseKnown,
-		AlertDARace, AlertRetire, AlertFavour, AlertReign, AlertStraight, AlertPlan}
+		AlertDARace, AlertRetire, AlertFavour, AlertReign, AlertStraight, AlertExposure, AlertPlan}
 }
 
 // Act is what answers an alert (#352): the screen that fixes it, the
@@ -128,6 +129,7 @@ var alertActs = map[AlertKind][]Act{
 	AlertFavour:        {actLedger},
 	AlertReign:         {actDashboard},
 	AlertStraight:      {actDashboard},
+	AlertExposure:      {actLedger},
 	AlertPlan:          {actDashboard}, // the plan pinned (#347): the dashboard, where it is shown and the walk away is
 }
 
@@ -150,12 +152,12 @@ type Alert struct {
 	Supplier string  `json:"supplier,omitempty"` // debt_due: the connect's id
 	House    string  `json:"house,omitempty"`    // house_known, investigation: the house's id
 	Due      int     `json:"due,omitempty"`      // contract_due, debt_due: the day it is due
-	Amount   int     `json:"amount,omitempty"`   // debt_due: the debt; float: the float; wages: the wages; retire: the cash short; reign: the homage a night; stash_full: the capacity
+	Amount   int     `json:"amount,omitempty"`   // debt_due: the debt; float: the float; wages: the wages; retire: the cash short; reign: the homage a night; stash_full: the capacity; exposure: the pile past the line tonight
 	Have     int     `json:"have,omitempty"`     // debt_due: the cash in hand; float, wages: the dirty cash
-	Heat     float64 `json:"heat,omitempty"`     // heat: the city's heat
+	Heat     float64 `json:"heat,omitempty"`     // heat: the city's heat; exposure: what the pile adds tonight
 	Line     float64 `json:"line,omitempty"`     // heat: the patrol line; crew_line: the loyalty line
 	Days     int     `json:"days,omitempty"`     // da_race: days to the election; retire: quiet days short; reign: the reign's day; crew_line: days to the line at tonight's drift (0: not falling); idle_corner: days before it drifts; investigation: nights to the hit (1: tonight)
-	Count    int     `json:"count,omitempty"`    // reign: the crews paying homage; stash_full: the units held; plan: the steps met
+	Count    int     `json:"count,omitempty"`    // reign: the crews paying homage; stash_full: the units held; plan: the steps met; exposure: the loads landing
 	Ready    bool    `json:"ready,omitempty"`    // retire: retiring is open now; plan: the plan is done
 	Level    string  `json:"level,omitempty"`    // favour: the response due tonight
 	Member   int     `json:"member,omitempty"`   // crew_line, unposted: the member's id
@@ -229,8 +231,15 @@ func (s *Session) Alerts() []Alert {
 	if fl := s.set.Laundering.Float(w); w.Player.DirtyCash < fl && s.FloatMatters() {
 		out = append(out, Alert{Kind: AlertFloat, Key: "dirty cash under the float", Amount: fl, Have: w.Player.DirtyCash})
 	}
-	if wages := s.set.Crew.Wages(w, w.Crew.Pay); wages > w.Player.DirtyCash {
-		out = append(out, Alert{Kind: AlertWages, Key: "wages short", Amount: wages, Have: w.Player.DirtyCash})
+	// Tonight's pile (#397): the wages come out after the loads due
+	// tonight land, so they are short only past both; and a landing that
+	// takes the pile past the cover is heat before the wash can touch it.
+	fc := forecast(w, s.Rules())
+	if fc.Wages > fc.Dirty+fc.Landings {
+		out = append(out, Alert{Kind: AlertWages, Key: "wages short", Amount: fc.Wages, Have: w.Player.DirtyCash})
+	}
+	if fc.Loads > 0 && fc.Heat > 0 {
+		out = append(out, Alert{Kind: AlertExposure, Key: "tonight's landings past the cover", Amount: fc.Pile - fc.Line, Heat: fc.Heat, Count: fc.Loads})
 	}
 	out = append(out, s.crewLines()...)
 	if tun := s.set.Crew.Tuning(); w.Crew.LastSkim > 0 && w.Day-w.Crew.LastSkim < tun.SuspectDays {
