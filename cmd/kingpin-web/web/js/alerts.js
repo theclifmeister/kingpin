@@ -47,7 +47,7 @@ export const WORDS = {
     a.corner ? `${memberName(v, a.member)} has no post: ${cornerName(v, a.corner)} is free for them.` : `${memberName(v, a.member)} has no post.`,
   idle_corner: (v, a) => `Nobody works ${cornerName(v, a.corner)}: back to the street ${n(a.days) <= 1 ? "tonight" : `in ${plural(a.days, "day")}`}.`,
   stash_full: (v, a) => `The stash in ${cityName(v, a.city)} is full: ${n(a.count)} of ${n(a.amount)}.`,
-  scouts: (v, a) => `A faction is ${a.level === "recruiting" ? "recruiting" : "scouting"} in ${cityName(v, a.city)}: in ${plural(a.days, "day")}.`,
+  scouts: (v, a) => `A faction is ${a.level === "recruiting" ? "recruiting" : "scouting"} in ${cityName(v, a.city)}: ${n(a.days) <= 0 ? "due now" : `in ${plural(n(a.days), "day")}`}.`,
   gate: (v, a) => `${a.gate ? a.gate.name : "A door"} is within reach.`,
   house_known: (v, a) => `The police know about ${(byId(v.houses, a.house) || { name: "a house" }).name}.`,
   da_race: (v, a) => `The DA race is ${plural(n(a.days), "day")} off and the tickets are taking money.`,

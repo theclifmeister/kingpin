@@ -134,7 +134,11 @@ func (m *Model) scoutsAlert(a engine.Alert) (text, why string) {
 		style, what = theme.Bad, "is recruiting in "+city
 	}
 	why = who + " " + what
-	return style.Render(fmt.Sprintf("%s %s: in %s. Answer them %s.", who, what, plural(a.Days, "day"), screenPointer(screenRivals))), why
+	when := "in " + plural(a.Days, "day")
+	if a.Days <= 0 {
+		when = "due now"
+	}
+	return style.Render(fmt.Sprintf("%s %s: %s. Answer them %s.", who, what, when, screenPointer(screenRivals))), why
 }
 
 // crossWords are what crossing each of the crew's loyalty lines is

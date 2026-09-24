@@ -46,7 +46,7 @@ const (
 // in.
 func AlertKinds() []AlertKind {
 	return []AlertKind{AlertTalking, AlertContractDue, AlertDebtDue, AlertHeat, AlertTaskForce, AlertFloat, AlertWages,
-		AlertCrewLine, AlertSkim, AlertUnposted, AlertIdleCorner, AlertStashFull, AlertGate, AlertHouseKnown,
+		AlertCrewLine, AlertSkim, AlertUnposted, AlertIdleCorner, AlertStashFull, AlertScouts, AlertGate, AlertHouseKnown,
 		AlertDARace, AlertRetire, AlertFavour, AlertReign}
 }
 
@@ -69,6 +69,7 @@ const (
 	ScreenCrew      = "crew"
 	ScreenMap       = "map"
 	ScreenLedger    = "ledger"
+	ScreenRivals    = "rivals"
 )
 
 // ModePost is the one dialog an act opens: the post picker on the
@@ -115,6 +116,7 @@ var alertActs = map[AlertKind][]Act{
 	AlertUnposted:    {actPost, actMember},
 	AlertIdleCorner:  {actCorner},
 	AlertStashFull:   {{Screen: ScreenLedger, Subject: SubjectCity}},
+	AlertScouts:      {{Screen: ScreenRivals}},
 	AlertGate:        {actMarket, actLedger},
 	AlertHouseKnown:  {{Screen: ScreenLedger, Subject: SubjectHouse}},
 	AlertDARace:      {actLedger},
