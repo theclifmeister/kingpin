@@ -1,0 +1,103 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width,initial-scale=1" />
+    <meta name="theme-color" content="#f4eddc" />
+    <title>Kingpin — Ink & Ambition</title>
+    <link rel="stylesheet" href="style.css?v=__BUILD_REVISION__" />
+    <link rel="icon" type="image/svg+xml" href="favicon.svg" />
+  </head>
+  <body>
+    <div class="masthead">
+      <div class="edition">
+        THE EASTSIDE EDITION <span>•</span> A CITY OF POSSIBILITIES
+      </div>
+      <div class="brand">
+        <span class="flourish">✦</span>
+        <h1>KINGPIN</h1>
+        <span class="flourish">✦</span>
+      </div>
+      <div class="strap"><span></span><em>Ink & Ambition</em><span></span></div>
+      <div class="top-actions">
+        <button id="save-menu" aria-label="Open save and new game menu">
+          Your story ↗</button
+        ><button id="help" aria-label="How to play">?</button>
+      </div>
+    </div>
+    <div id="loading" class="loading">
+      <div class="spinner"></div>
+      <h2>Opening the city ledger…</h2>
+      <p>Preparing your local game.</p>
+    </div>
+    <div id="app" hidden>
+      <header class="ledgerbar">
+        <div class="day-stamp">
+          <small>THE STORY SO FAR</small><strong id="day"></strong
+          ><span id="tier"></span>
+        </div>
+        <div class="money-cell">
+          <small>DIRTY CASH</small><strong id="dirty"></strong
+          ><span>Street money</span>
+        </div>
+        <div class="money-cell">
+          <small>CLEAN CASH</small><strong id="clean"></strong
+          ><span>Business money</span>
+        </div>
+        <div class="money-cell">
+          <small>OFFSHORE</small><strong id="offshore"></strong
+          ><span>Your way out</span>
+        </div>
+        <div class="money-cell worth">
+          <small>NET WORTH</small><strong id="worth"></strong
+          ><span>The whole operation</span>
+        </div>
+        <div class="day-actions">
+          <button id="end-day" class="button primary">
+            End the day <span>→</span></button
+          ><small id="save-status">Saved on this device</small>
+        </div>
+      </header>
+      <nav id="nav" aria-label="Game sections"></nav>
+      <main class="layout">
+        <section class="main-column">
+          <div id="section-heading" class="section-heading"></div>
+          <div id="main-content"></div>
+        </section>
+        <aside class="sidebar">
+          <section class="paper risk-card">
+            <div class="eyebrow">KEEP YOUR EYES OPEN</div>
+            <h2>The heat is on.</h2>
+            <div id="risk"></div>
+            <button class="button subtle full" id="lie-low">
+              Take a quiet day
+            </button>
+          </section>
+          <section class="paper notebook">
+            <div class="eyebrow">ON YOUR DESK</div>
+            <h2>Today's business</h2>
+            <div id="business"></div>
+          </section>
+          <section class="paper note-card">
+            <span class="star">✦</span>
+            <p id="tip-text"></p>
+            <small>A WORD TO THE WISE</small>
+          </section>
+        </aside>
+      </main>
+      <footer>
+        <span class="swatches"><i></i><i></i><i></i><i></i><i></i></span
+        ><span>A little ambition. A whole city of consequences.</span
+        ><button id="sound" class="quiet-link">Sound off</button>
+      </footer>
+    </div>
+    <div id="toast" role="status" aria-live="polite"></div>
+    <dialog id="sheet">
+      <button class="close" aria-label="Close dialog">×</button>
+      <div id="sheet-content"></div>
+    </dialog>
+    <input id="import-file" type="file" accept=".gob,.json" hidden />
+    <script src="assets/wasm_exec.js?v=__BUILD_REVISION__"></script>
+    <script type="module" src="app.js?v=__BUILD_REVISION__"></script>
+  </body>
+</html>
