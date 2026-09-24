@@ -481,14 +481,14 @@ func TestDecayAndTheFloor(t *testing.T) {
 	for _, cid := range w.CityOrder {
 		w.Cities[cid].Heat = 0
 	}
-	home.Heat = 40
-	w.Player.DirtyCash = 100_000_000 // a pile: heat where you are, past 100
+	home.Heat = 95
+	w.Player.DirtyCash = 100_000_000 // a pile: heat where you are, past 100 (bounded a night since #396, so from 95)
 	tk = step(w, s)
 	if home.Heat > 100 || w.Heat.Peak != 100 {
 		t.Fatalf("the cap: home %.1f peak %.1f", home.Heat, w.Heat.Peak)
 	}
 	for _, e := range tk.Events() {
-		if hc, ok := e.(events.HeatChanged); ok && hc.City == home.ID && (hc.From != 40 || hc.To != home.Heat) {
+		if hc, ok := e.(events.HeatChanged); ok && hc.City == home.ID && (hc.From != 95 || hc.To != home.Heat) {
 			t.Fatalf("the report: %+v", hc)
 		}
 	}
@@ -615,6 +615,58 @@ func TestCashPileLine(t *testing.T) {
 	}
 	if w.Heat.Evidence != 0 {
 		t.Fatalf("the pile filed %d pages", w.Heat.Evidence)
+	}
+}
+
+// TestPileHeatIsBounded (#396): the pile adds at most
+// dirty_cash_heat_max a night, however far past its cover it sits, and
+// what it adds under the bound is the linear rule untouched; a pile
+// that stays over still climbs every night, so the bound is a
+// countdown and not a pardon.
+func TestPileHeatIsBounded(t *testing.T) {
+	cfg := content.MustLoad()
+	s := heat.New(cfg)
+	tun := cfg.Heat.Heat
+	if tun.DirtyCashHeatMax <= 0 {
+		t.Fatal("the file bounds nothing")
+	}
+	w := world(t, cfg)
+	home := w.Home()
+	thr := s.DirtyCashThreshold(w)
+	w.Fronts = nil
+	w.Player.DirtyCash = thr * 3
+	if got, want := s.PileHeat(w), tun.DirtyCashHeat*2; !near(got, want) {
+		t.Fatalf("just over: %.3f, want the linear %.3f", got, want)
+	}
+	w.Player.DirtyCash = 40_000_000 + thr // $40M past the line: 200 heat unbounded
+	if got := s.PileHeat(w); got != tun.DirtyCashHeatMax {
+		t.Fatalf("$40M over: %.3f, want the bound %.1f", got, tun.DirtyCashHeatMax)
+	}
+	// Night by night, lying low, the pile kept where it is (a raid takes
+	// some of it): never more than the bound a night, and no arrest the
+	// first night, which is the cliff this closes.
+	home.Heat = 0
+	for night := 1; night <= 30 && home.Heat < 100; night++ {
+		w.Player.DirtyCash = 40_000_000 + thr
+		w.SetLieLow(true)
+		before := home.Heat
+		step(w, s)
+		if home.Heat-before > tun.DirtyCashHeatMax {
+			t.Fatalf("night %d: heat %.2f from %.2f, more than the bound", night, home.Heat, before)
+		}
+		if night == 1 && home.Heat >= 100 {
+			t.Fatal("arrested the first night")
+		}
+	}
+	// Lying low is no way out: the bound is over what the doubled decay
+	// takes, so the pile still reaches the arrest, later.
+	if home.Heat < 100 {
+		t.Fatalf("thirty nights lying low on $40M past the line and heat %.1f: the bound is a pardon", home.Heat)
+	}
+	unbounded := *cfg
+	unbounded.Heat.Heat.DirtyCashHeatMax = 0
+	if got := heat.New(&unbounded).PileHeat(w); !near(got, tun.DirtyCashHeat*40_000_000/float64(thr)) {
+		t.Fatalf("with no bound: %.3f", got)
 	}
 }
 
