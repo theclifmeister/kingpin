@@ -28,7 +28,8 @@ import (
 // notifications. The view inside carries its own, engine.ViewVersion.
 // 2 added the quotes, rules.<sim>.<method> (#325); 3 export_save and
 // import_save (#327); 4 max_buy, restock_plan and the no_room error
-// (#356); 7 pin_ambition (#347; 5 and 6 are queued ahead of it).
+// (#356); 5 the presets, presets, preset_commands, preset_diff and
+// apply_preset (#357); 7 pin_ambition (#347; 6 is queued ahead of it).
 const Version = 7
 
 // The error codes: JSON-RPC 2.0's, and the game's own in its

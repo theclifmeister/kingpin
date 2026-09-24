@@ -106,6 +106,19 @@ export class Session {
   restockPlan(city, days) {
     return this.call("restock_plan", city, days);
   }
+  // presets are the operation presets (#357): [{id, name, blurb,
+  // saved}]; presetDiff is what one would change, {preset, changes,
+  // refused, same}, the run untouched; applyPreset issues its commands
+  // and returns the same review.
+  presets() {
+    return this.call("presets");
+  }
+  presetDiff(id) {
+    return this.call("preset_diff", id);
+  }
+  applyPreset(id) {
+    return this.call("apply_preset", id);
+  }
   hire(candidate) {
     return this.call("hire", candidate);
   }

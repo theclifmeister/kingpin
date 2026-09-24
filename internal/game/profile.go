@@ -15,8 +15,10 @@ import (
 
 // The profile (#50, docs/profile.md): the game around the runs. A
 // second file under SaveDir, profile.json, its own schema, written by
-// the UI when a run ends and never read by a sim or the harness: what
-// it remembers (the runs, the unlocks, the dailies) only changes what a
+// the UI when a run ends (and when an operation preset is saved, #357)
+// and never read by a sim or the harness: what it remembers (the runs,
+// the unlocks, the dailies; a saved preset is only commands the player
+// could issue by hand) only changes what a
 // run starts as (Start), so a seed with the same start plays the same
 // under any profile (TestProfileNeverTouchesTheRun).
 
@@ -55,6 +57,7 @@ type Profile struct {
 	Unlocks       map[string]bool  // character and toggle ids opened
 	Best          map[string]Score // the daily's score by date: the first attempt's, never replaced
 	Attempts      map[string]int   // dailies started by date; the second and later are practice
+	Presets       []Preset         `json:",omitempty"` // the operation presets saved (#357), in the order saved; a profile from before has none
 }
 
 // RunRecord is one run that ended.

@@ -2789,6 +2789,18 @@ func TestModalsFit(t *testing.T) {
 			m.Update(key("2"))
 			m.Update(key("R"))
 		}},
+		// The presets (#357): the list, and the review of the quiet one
+		// over a routine it moves in every column.
+		{"presets", modePresets, func(t *testing.T, m *Model) {
+			m.Update(key("2"))
+			m.Update(key("P"))
+		}},
+		{"preset review", modePresets, func(t *testing.T, m *Model) {
+			presetRoutine(t, m)
+			m.Update(key("2"))
+			m.Update(key("P"))
+			m.Update(key("enter"))
+		}},
 		{"buy past the room", modeBuy, func(t *testing.T, m *Model) {
 			m.w.Player.DirtyCash = 10_000_000
 			m.Update(key("b"))

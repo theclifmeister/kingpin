@@ -32,6 +32,7 @@ type Session struct {
 	clock *game.Clock
 	bus   *events.Bus
 	w     *game.World
+	saved []game.Preset // the front end's saved presets (#357, UsePresets)
 
 	// street is what the street sold for on the night that ended on
 	// streetDay (the tick's PlayerSold revenue, the number the

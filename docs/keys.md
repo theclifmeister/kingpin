@@ -23,3 +23,5 @@ No other text names a key: not a title, a table cell, a status or a modal body, 
 **The ambitions key** (#347): `a ambitions` is a modal's key, never the dashboard's own (its KEYS has no row to spare at 100x30, `TestPoliceKeys`): the walk-away dialog's first page (`step(0)`) and the stage modal list it, and it opens `modeAmbitions` (`↑↓ pick`, `1-9 choose`, `enter pin` / `enter unpin` by the row, `esc close`); `docs/ambitions.md`.
 
 **The restock key** (#356): `R restock` names the market and nothing else (the map's `R route target` is that screen's own), opens `modeRestock` (`docs/cart.md`), whose footer is the number field's row, `enter buy` and `esc close`.
+
+**The presets key** (#357): `P presets` names the market and nothing else, opens `modePresets` (`docs/presets.md`), whose list page lists `↑↓ pick`, `1-9 choose`, `enter review`, `s save current`, `x delete` (on a preset of yours) and `esc close`, and whose review page `enter apply`, `⇧tab back` and `esc close`.
