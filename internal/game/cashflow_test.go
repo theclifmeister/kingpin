@@ -12,7 +12,7 @@ func TestNewCashFlowWorksTheOpeningBack(t *testing.T) {
 		FlowLaundering: {Dirty: -500, Clean: 450},
 		FlowLosses:     {Dirty: -100, Clean: -20},
 	}, Pools{Dirty: 1300, Clean: 430})
-	if len(f.Lines) != len(FlowCats) || f.Lines[0].Cat != FlowSales || f.Lines[len(f.Lines)-1].Cat != FlowOther {
+	if len(f.Lines) != len(FlowCats) || f.Lines[0].Cat != FlowSales || f.Lines[len(f.Lines)-1].Cat != FlowOffshore {
 		t.Fatalf("lines %+v, want one a category in FlowCats' order", f.Lines)
 	}
 	if f.Opening != (Pools{Dirty: 1000, Clean: 0}) || !f.Reconciles() {

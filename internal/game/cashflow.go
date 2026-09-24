@@ -24,16 +24,17 @@ const (
 	FlowPurchases   = "purchases"   // product: the connects, the contracts, the cuts, the cook, a debt paid down
 	FlowRoutes      = "routes"      // the road and the errands: lots and fares, checkpoints, signing fees, the rent on the houses, investigations, scouts, cops, bail
 	FlowWages       = "wages"       // the payroll, and the loyalty bought on top
-	FlowLaundering  = "laundering"  // the wash (dirty out, clean in), the upkeep, what the fronts earn, the offshore account
+	FlowLaundering  = "laundering"  // the wash (dirty out, clean in), the upkeep, what the fronts earn, the offshore account's fee
 	FlowInvestments = "investments" // upgrades, fronts, assets, levels, houses, deeds and their rent, the cities funded, campaigns, bribes, the rival paid or paying
 	FlowLosses      = "losses"      // robbed, skimmed, seized by the police or the auditors, a buyer collecting
 	FlowTax         = "tax"         // the free corners of a city you hold (#231)
 	FlowOther       = "other"       // a card's cash, the rival's takings your enforcers boosted
+	FlowOffshore    = "offshore"    // clean cash put in the offshore account (#422): still yours, so no night's profit counts it
 )
 
 // FlowCats is every category in order: CashFlow.Lines holds one line
 // each, zero or not.
-var FlowCats = []string{FlowSales, FlowPurchases, FlowRoutes, FlowWages, FlowLaundering, FlowInvestments, FlowLosses, FlowTax, FlowOther}
+var FlowCats = []string{FlowSales, FlowPurchases, FlowRoutes, FlowWages, FlowLaundering, FlowInvestments, FlowLosses, FlowTax, FlowOther, FlowOffshore}
 
 // FlowLine is one category of a night's flow, signed by pile.
 type FlowLine struct {
@@ -118,6 +119,8 @@ func FlowLabel(cat string) string {
 		return "Tax"
 	case FlowOther:
 		return "Cards and takings"
+	case FlowOffshore:
+		return "Offshore"
 	}
 	return cat
 }

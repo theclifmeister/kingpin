@@ -79,6 +79,16 @@ func TestLeadIsTheBiggestThree(t *testing.T) {
 			{"flow", "Profit fell 100% on the week: $0 against +$10K a night.", game.Act{Screen: game.ScreenLedger}},
 			{"idle_corner", "Nobody works a corner: ", game.Act{Screen: game.ScreenMap, Mode: game.ModePost, Subject: game.OnCorner}},
 		}},
+		{"money put offshore is not the night's loss (#422)", func(w *game.World) []events.Event {
+			for d := 1; d <= 7; d++ {
+				w.Flows = append(w.Flows, game.CashFlow{Day: d, Opening: game.Pools{Dirty: 1_000 * d}, Closing: game.Pools{Dirty: 1_000*d + 10_000},
+					Lines: []game.FlowLine{{Cat: game.FlowSales, Pools: game.Pools{Dirty: 10_000}}}})
+			}
+			return []events.Event{events.Reserved{Day: 21, Amount: 47_500, Fee: 2_500}}
+		}, []want{
+			// the fee is the night's; the $47,500 in the account is not ("-$50K" before)
+			{"flow", "The night made -$2,500 against the week's +$10K a night.", game.Act{Screen: game.ScreenLedger}},
+		}},
 		{"an investigation and the scouts", func(w *game.World) []events.Event {
 			c := w.Home().Corners[2]
 			return []events.Event{

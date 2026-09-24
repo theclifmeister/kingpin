@@ -238,8 +238,8 @@ func (s *Sim) lead(w *game.World, t *game.Tick, flow game.CashFlow) []game.Line 
 // the average of the [digest] week of nights before it, as a share of
 // that average, from min_swing and capped at swing_cap. Profit is the
 // night's net less what went into product and the operation
-// (purchases and investments): money turned into stock or a front is
-// not money lost, and a buying day would read as a crash. It says
+// (purchases and investments) and into the offshore account (#422):
+// money turned into stock, a front or the account is not money lost, and a buying day would read as a crash. It says
 // nothing before there is a week to read, or when the week made
 // nothing either way.
 func (s *Sim) flowLine(w *game.World, flow game.CashFlow) (game.Line, float64) {
@@ -281,9 +281,12 @@ func (s *Sim) flowLine(w *game.World, flow game.CashFlow) (game.Line, float64) {
 	return game.Line{Text: text, Act: game.Act{Screen: game.ScreenLedger}}, math.Min(math.Abs(swing), cfg.SwingCap)
 }
 
-// profit is a night's net less its purchases and investments.
+// profit is a night's net less its purchases and investments, and less
+// what went offshore (#422): money moved to your own account is not a
+// night's loss ("The night made -$34K" on a night the street made
+// +$23K and $51K went to the account).
 func profit(f game.CashFlow) int {
-	return f.Net() - f.Line(game.FlowPurchases).Total() - f.Line(game.FlowInvestments).Total()
+	return f.Net() - f.Line(game.FlowPurchases).Total() - f.Line(game.FlowInvestments).Total() - f.Line(game.FlowOffshore).Total()
 }
 
 // signedCash is a change of cash the way a headline writes it:
