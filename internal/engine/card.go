@@ -83,10 +83,10 @@ func chips(cfg *content.Config, r Rules, w *game.World, c *game.Card, changes []
 				loyalty = nil
 			}
 		case "war":
-			out = append(out, Chip{Text: "war with " + rivalName(w) + " " + signed(d), Tone: good(d < 0)})
+			out = append(out, Chip{Text: "war with " + rivalName(w, c) + " " + signed(d), Tone: good(d < 0)})
 		case "grudge":
 			if d > 0 {
-				out = append(out, Chip{Text: "grudge " + signed(d) + ": " + rivalName(w) + " remember", Tone: ToneLine})
+				out = append(out, Chip{Text: "grudge " + signed(d) + ": " + rivalName(w, c) + " remember", Tone: ToneLine})
 			} else {
 				out = append(out, Chip{Text: "grudge " + signed(d), Tone: ToneGain})
 			}
@@ -252,12 +252,13 @@ func rung(level string) string {
 	return level
 }
 
-// rivalName is the home rival's crew in words, read without making one.
-func rivalName(w *game.World) string {
+// rivalName is the crew of the faction the card is about (#385) in
+// words, read without making one.
+func rivalName(w *game.World, c *game.Card) string {
 	if len(w.Rivals) == 0 {
 		return "the rival"
 	}
-	return w.FactionName("")
+	return w.FactionName(c.Faction)
 }
 
 func memberName(w *game.World, id int) string {

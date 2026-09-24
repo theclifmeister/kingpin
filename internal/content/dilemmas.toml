@@ -31,7 +31,9 @@
 # weight_rich = 0.1.
 #
 # Slots: {{.Name}} {{.Role}} (the member), {{.Corner}} (yours), {{.Theirs}}
-# (the rival corner it borders, when contested), {{.Rival}} (the leader),
+# (the rival corner it borders, when contested), {{.Rival}} (the leader of
+# the standing faction the card is about, #385; war, grudge, rival_muscle
+# and rival_cash land on it),
 # {{.City}}, {{.Front}}, {{.Product}}, {{.Amount}}.
 # A slot is filled only by the trigger fields that name it: Name and Role
 # by role, loyalty_below or loyalty_above; Corner by corners or contested;
