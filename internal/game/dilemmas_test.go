@@ -328,3 +328,28 @@ func TestCardIsAboutAStandingFaction(t *testing.T) {
 		t.Fatal("a rival card drawn with no standing faction on a corner")
 	}
 }
+
+// A card about a crew member names the corner that member works, not
+// the busiest one (#421): "Pep took twenties on The Projects" was dealt
+// with Pep on The Docks and somebody else on The Projects.
+func TestCardNamesTheMembersCorner(t *testing.T) {
+	w := testWorld()
+	w.Crew.Members = []CrewMember{{ID: 1, Name: "Dre", Role: "runner", Loyalty: 50}}
+	if err := w.Post("docks", You); err != nil { // the busier corner is yours
+		t.Fatal(err)
+	}
+	if err := w.Post("home", 1); err != nil {
+		t.Fatal(err)
+	}
+	counterfeit := content.CardConfig{ID: "counterfeit", Trigger: content.CardTrigger{Role: "runner", Corners: 1},
+		Choices: []content.ChoiceConfig{{}, {}}}
+	s, ok := Eligible(w, counterfeit)
+	if !ok || s.Name != "Dre" || s.Corner != "Home" {
+		t.Fatalf("the card put %s on %q: %+v %v", s.Name, s.Corner, s, ok)
+	}
+	// A card with no member still names the busiest corner.
+	busiest := content.CardConfig{ID: "b", Trigger: content.CardTrigger{Corners: 1}, Choices: []content.ChoiceConfig{{}, {}}}
+	if s, ok := Eligible(w, busiest); !ok || s.Corner != "Docks" {
+		t.Fatalf("a card about no one: %+v %v", s, ok)
+	}
+}
