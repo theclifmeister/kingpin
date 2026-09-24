@@ -2698,6 +2698,70 @@
       ],
       "type": "object"
     },
+    "engine.LaneView": {
+      "properties": {
+        "capacity": {
+          "type": "integer"
+        },
+        "city": {
+          "type": "string"
+        },
+        "days": {
+          "type": "integer"
+        },
+        "id": {
+          "type": "string"
+        },
+        "lands": {
+          "type": "integer"
+        },
+        "mode": {
+          "type": "string"
+        },
+        "name": {
+          "type": "string"
+        },
+        "needs": {
+          "type": "string"
+        },
+        "open": {
+          "type": "boolean"
+        },
+        "out": {
+          "type": "integer"
+        },
+        "pays": {
+          "type": "integer"
+        },
+        "price": {
+          "type": "number"
+        },
+        "product": {
+          "type": "string"
+        },
+        "products": {
+          "items": {
+            "type": "string"
+          },
+          "type": "array"
+        },
+        "units": {
+          "type": "integer"
+        }
+      },
+      "required": [
+        "id",
+        "name",
+        "city",
+        "mode",
+        "days",
+        "products",
+        "open",
+        "capacity",
+        "out"
+      ],
+      "type": "object"
+    },
     "engine.LaunderingDay": {
       "properties": {
         "assets": {
@@ -3298,6 +3362,29 @@
       },
       "type": "object"
     },
+    "engine.TrophyView": {
+      "properties": {
+        "bought": {
+          "type": "integer"
+        },
+        "cost": {
+          "type": "integer"
+        },
+        "id": {
+          "type": "string"
+        },
+        "name": {
+          "type": "string"
+        }
+      },
+      "required": [
+        "id",
+        "name",
+        "cost",
+        "bought"
+      ],
+      "type": "object"
+    },
     "engine.UpgradeView": {
       "properties": {
         "branch": {
@@ -3383,6 +3470,12 @@
         "day": {
           "type": "integer"
         },
+        "exports": {
+          "items": {
+            "$ref": "#/$defs/engine.LaneView"
+          },
+          "type": "array"
+        },
         "factions": {
           "items": {
             "$ref": "#/$defs/engine.FactionView"
@@ -3437,6 +3530,12 @@
           },
           "type": "array"
         },
+        "trophies": {
+          "items": {
+            "$ref": "#/$defs/engine.TrophyView"
+          },
+          "type": "array"
+        },
         "upgrades": {
           "items": {
             "$ref": "#/$defs/engine.UpgradeView"
@@ -3466,6 +3565,8 @@
         "connects",
         "houses",
         "fronts",
+        "exports",
+        "trophies",
         "factions",
         "law",
         "report",
@@ -15230,5 +15331,5 @@
   },
   "protocol": 15,
   "title": "kingpind",
-  "view_version": 11
+  "view_version": 12
 }

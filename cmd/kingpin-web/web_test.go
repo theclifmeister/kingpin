@@ -1,6 +1,7 @@
 package main
 
 import (
+	"encoding/base64"
 	"encoding/json"
 	"os"
 	"os/exec"
@@ -51,7 +52,9 @@ func TestWebClient(t *testing.T) {
 	}
 	boss := filepath.Join(t.TempDir(), "boss.json")
 	bossNights(t, boss)
-	run := exec.Command(node, filepath.Join("testdata", "play.mjs"), site, string(kinds), boss, string(alertKinds))
+	exits := filepath.Join(t.TempDir(), "exits.json")
+	exitSaves(t, exits)
+	run := exec.Command(node, filepath.Join("testdata", "play.mjs"), site, string(kinds), boss, string(alertKinds), exits)
 	run.Env = append(os.Environ(), "KINGPIN_HOME="+t.TempDir())
 	raw, err := run.Output()
 	if err != nil {
@@ -82,6 +85,11 @@ func TestWebClient(t *testing.T) {
 		AlertsExtra  []string    `json:"alertsExtra"`
 		AlertsWorded int         `json:"alertsWorded"`
 		AlertsLinked int         `json:"alertsLinked"`
+		Exits        map[string]struct {
+			Open bool   `json:"open"`
+			Over string `json:"over"`
+		} `json:"exits"`
+		CashOut struct{ Dirty, Clean, Fee int } `json:"cashOut"`
 	}
 	if err := json.Unmarshal(raw, &got); err != nil {
 		t.Fatalf("node printed %s: %v", raw, err)
@@ -106,6 +114,16 @@ func TestWebClient(t *testing.T) {
 	}
 	if got.AlertsWorded == 0 || got.AlertsLinked == 0 {
 		t.Errorf("%d alerts worded and %d linked to a panel over every run: the page draws none", got.AlertsWorded, got.AlertsLinked)
+	}
+	// The ways out (#405): every ending the player claims, through the
+	// page's own exits.
+	for id, cause := range map[string]string{"retire": content.CauseRetired, "vanish": content.CauseVanished, "crown": content.CauseKingpin, "straight": content.CauseBusinessman} {
+		if e := got.Exits[id]; !e.Open || e.Over != cause {
+			t.Errorf("the %s save: the page read it open %v and the claim ended the run %q, want %s", id, e.Open, e.Over, cause)
+		}
+	}
+	if c := got.CashOut; c.Clean != 1000 || c.Fee <= 0 || c.Dirty != 1000-c.Fee {
+		t.Errorf("the cash-out: %+v, want 1,000 clean out and 1,000 less the fee dirty in", c)
 	}
 	if got.Reference.Over == "" {
 		t.Errorf("seed 7 with the autopilot: no ending by day %d", got.Reference.Day)
@@ -177,6 +195,48 @@ func bossNights(t *testing.T, path string) {
 		t.Fatal(err)
 	}
 	if err := os.WriteFile(path, b, 0o644); err != nil {
+		t.Fatal(err)
+	}
+}
+
+// exitSaves writes, to path, a save for each way out the player claims
+// (#405) with that one open, on seed 7's first morning: the account
+// and the quiet days (with clean cash for the cash-out), the new
+// identity, the reign, and the businessman's streak. The page imports
+// each and takes it.
+func exitSaves(t *testing.T, path string) {
+	t.Helper()
+	cfg := content.MustLoad()
+	saves := map[string]string{}
+	for id, open := range map[string]func(*game.World){
+		"retire": func(w *game.World) {
+			w.Offshore, w.QuietDays = cfg.Laundering.Offshore.RetireCash, cfg.Laundering.Offshore.RetireDays
+			w.Player.CleanCash = 50_000
+		},
+		"vanish":   func(w *game.World) { w.Upgrades["identity"] = true },
+		"crown":    func(w *game.World) { w.Reign = max(1, w.Day) },
+		"straight": func(w *game.World) { w.LegitDays = cfg.Laundering.Businessman.LegitDays },
+	} {
+		s, err := engine.New(cfg)
+		if err != nil {
+			t.Fatal(err)
+		}
+		w := s.NewRun(7, game.Start{})
+		if w.Upgrades == nil {
+			w.Upgrades = map[string]bool{}
+		}
+		open(w)
+		b, err := s.ExportSave()
+		if err != nil {
+			t.Fatal(err)
+		}
+		saves[id] = base64.StdEncoding.EncodeToString(b)
+	}
+	raw, err := json.Marshal(saves)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if err := os.WriteFile(path, raw, 0o644); err != nil {
 		t.Fatal(err)
 	}
 }

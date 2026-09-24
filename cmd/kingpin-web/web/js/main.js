@@ -4,6 +4,7 @@
 // is a protocol call; a move the game refuses says why on the toast.
 import { alertPanel, alertText } from "./alerts.js";
 import { autoDay } from "./autoplay.js";
+import { claim, exits, tonightText } from "./exits.js";
 import { fileWord, policeLines } from "./police.js";
 import { Scene } from "./scene.js";
 import { Session, streetConnect } from "./session.js";
@@ -197,6 +198,15 @@ function wire() {
       toast(e.message);
     }
   };
+  $("cashout-amount").oninput = () => render();
+  $("cashout").onclick = () => {
+    const n = Math.max(0, Number($("cashout-amount").value) || 0);
+    act(() => session.cashOut(n), `cashed out ${money(n)} clean, less the banker's fee`);
+  };
+  $("reserve").onclick = () => {
+    const n = Math.max(0, Number($("reserve-amount").value) || 0);
+    act(() => session.reserve(n), `${money(n)} clean goes offshore tonight`);
+  };
   $("load").onclick = () => {
     const b = localStorage.getItem(SAVE_KEY);
     if (!b) return toast("nothing saved in this browser");
@@ -279,6 +289,29 @@ function render() {
   // The law (#355): the police risk where you stand, each part explained.
   $("police").replaceChildren(
     ...policeLines(v, v.you.city).map((l) => Object.assign(document.createElement("p"), { textContent: l.text, className: l.warn ? "warn" : "" })),
+  );
+
+  // The money (#405): tonight's pile as the count will find it, the
+  // cash-out with its fee, and the offshore reserve.
+  const fc = v.over ? null : session.forecast();
+  $("tonight").textContent = fc ? tonightText(fc) : "";
+  $("tonight").className = fc && fc.heat > 0 ? "warn" : "dim";
+  const out = Math.max(0, Number($("cashout-amount").value) || 0);
+  $("cashout-fee").textContent = out ? `fee ${money(session.cashOutFee(out))}` : "";
+  $("cashout").disabled = !!v.over || !v.you.clean_cash;
+  $("reserve").disabled = !!v.over || !v.you.clean_cash;
+
+  // The ways out (#405): each open one asks before it ends the run; a
+  // closed one says what is short.
+  $("exits").replaceChildren(
+    ...exits(v).map((e) => {
+      const p = document.createElement("p");
+      const b = button(e.name, !e.open, () => {
+        if (confirm(`${e.name}? The run ends here.`)) act(() => claim(session, e.id), `${e.name}: the run is over`);
+      });
+      p.append(b, Object.assign(document.createElement("span"), { className: "dim", textContent: e.open ? " open" : ` ${e.why}` }));
+      return p;
+    }),
   );
 
   $("travel").replaceChildren(
