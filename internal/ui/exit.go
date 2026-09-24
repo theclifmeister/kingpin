@@ -14,16 +14,18 @@ import (
 // page is the three ways out with their terms and whether each is open:
 // retiring on the offshore account (#195: retire_cash in the account and
 // retire_days quiet in a row), vanishing on a new identity (the tree's
-// identity node) and taking the crown (#227: the reign on, World.Reign).
+// identity node), taking the crown (#227: the reign on, World.Reign) and
+// going straight (#398: the fronts out-earning the street legit_days
+// nights running, World.LegitDays).
 // enter on an open one turns to the second page, the confirmation, and
 // y ends the run there and then: the ending is written through
-// World.Retire, World.Vanish or World.Crown, the run saves, and modeOver
+// World.Retire, World.Vanish, World.Crown or World.GoStraight, the run saves, and modeOver
 // opens on the ending's scene as a morning would.
 
 // exitDialog is the walk-away dialog's state: the page and the row.
 type exitDialog struct {
 	stepper
-	cursor int // 0 retire, 1 vanish, 2 the crown
+	cursor int // 0 retire, 1 vanish, 2 the crown, 3 going straight (#398)
 }
 
 func (d *exitDialog) field() *numberField { return nil }
@@ -62,7 +64,14 @@ func (m *Model) exitRows() []exitRow {
 	} else {
 		crown.short = "the city is not yours"
 	}
-	return []exitRow{retire, vanish, crown}
+	straight := exitRow{cause: content.CauseBusinessman, name: "Go straight", open: m.rules.Laundering.CanGoStraight(w)}
+	if days := m.cfg.Laundering.Businessman.LegitDays; straight.open {
+		straight.terms = fmt.Sprintf("the fronts at %s a day", money(m.rules.Laundering.LegitIncome(w)))
+	} else {
+		straight.terms = fmt.Sprintf("the fronts out-earn the street %s", plural(days, "night"))
+		straight.short = fmt.Sprintf("%d of %s so far", w.LegitDays, plural(days, "night"))
+	}
+	return []exitRow{retire, vanish, crown, straight}
 }
 
 // askExit opens the dialog on its first page.
@@ -152,6 +161,8 @@ func (m *Model) confirmExit() {
 		err = m.sess.Retire()
 	case content.CauseKingpin:
 		err = m.sess.Crown()
+	case content.CauseBusinessman:
+		err = m.sess.GoStraight()
 	default:
 		err = m.sess.Vanish()
 	}

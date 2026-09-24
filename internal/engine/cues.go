@@ -37,7 +37,7 @@ const (
 	CueMarket        CueKind = "market"         // Product's price in City shocked (Phase shock or slump)
 	CueProperty      CueKind = "property"       // House or Corner's deed bought, lost or seized (Phase)
 	CueOverdose      CueKind = "overdose"       // a customer at Corner in City
-	CueRun           CueKind = "run"            // the run turned: the reign began or broke, or it ended (Phase)
+	CueRun           CueKind = "run"            // the run turned: the reign began or broke, going straight opened or lapsed, or it ended (Phase)
 )
 
 // Cue is one thing to animate. The fields are the kind's, as the
@@ -58,7 +58,7 @@ type Cue struct {
 	From     string  `json:"from,omitempty"` // corner_flip: the owner before; shipment: the city it left
 	To       string  `json:"to,omitempty"`   // corner_flip: the owner after; shipment: the city it goes to
 	Level    string  `json:"level,omitempty"`
-	Phase    string  `json:"phase,omitempty"` // the kind's step: sent | landed | seized, bought | lost | seized, shock | slump, began | broke | ended, quit | fired | defected | retired | walked, bailed | released | recovered
+	Phase    string  `json:"phase,omitempty"` // the kind's step: sent | landed | seized, bought | lost | seized, shock | slump, began | broke | straight | lapsed | ended, quit | fired | defected | retired | walked, bailed | released | recovered
 	Dead     bool    `json:"dead,omitempty"`
 }
 
@@ -83,7 +83,7 @@ var cueKinds = map[string]CueKind{
 	"PriceShock":  CueMarket,
 	"HouseBought": CueProperty, "HouseLost": CueProperty, "DeedBought": CueProperty, "DeedSeized": CueProperty,
 	"Overdose":   CueOverdose,
-	"ReignBegan": CueRun, "ReignBroken": CueRun, "GameOver": CueRun,
+	"ReignBegan": CueRun, "ReignBroken": CueRun, "StraightOpened": CueRun, "StraightLapsed": CueRun, "GameOver": CueRun,
 }
 
 // CueKindOf is the cue an event kind gives, or "" for one the report
@@ -208,6 +208,10 @@ func CueOf(e events.Event) (Cue, bool) {
 		return Cue{Kind: CueRun, Day: ev.Day, City: ev.City, Phase: "began"}, true
 	case events.ReignBroken:
 		return Cue{Kind: CueRun, Day: ev.Day, Phase: "broke"}, true
+	case events.StraightOpened:
+		return Cue{Kind: CueRun, Day: ev.Day, Phase: "straight"}, true
+	case events.StraightLapsed:
+		return Cue{Kind: CueRun, Day: ev.Day, Phase: "lapsed"}, true
 	case events.GameOver:
 		return Cue{Kind: CueRun, Day: ev.Day, Level: ev.Cause, Phase: "ended"}, true
 	}

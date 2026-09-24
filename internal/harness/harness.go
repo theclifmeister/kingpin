@@ -121,6 +121,12 @@ func run(cfg *content.Config, w *game.World, days int, policy Policy, pick Choos
 		}
 		all = append(all, sess.EndDay()...)
 		worth = append(worth, w.NetWorth())
+		// Going straight is claimed (#398), and every policy claims it
+		// the night it opens: the laundering sim ended the run there
+		// before, so every run is the run it was.
+		if sess.Rules().Laundering.CanGoStraight(w) {
+			_ = sess.GoStraight()
+		}
 	}
 	return Result{Days: w.Day, Over: w.Over, PeakCash: w.Stats.PeakCash, EndCash: w.Cash(), NetWorth: worth, Events: all, World: w}, nil
 }

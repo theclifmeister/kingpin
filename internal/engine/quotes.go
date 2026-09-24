@@ -174,6 +174,7 @@ type LaunderingRules interface {
 	AssetOffers() []game.AssetOffer
 	AssetUpkeep(w *game.World) int
 	AuditRisk(w *game.World, f game.Front) float64
+	CanGoStraight(w *game.World) bool
 	CanRetire(w *game.World) bool
 	Capacity(w *game.World) int
 	CashOutFee(amount int) int

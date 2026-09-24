@@ -8004,6 +8004,36 @@
       ],
       "type": "object"
     },
+    "events.StraightLapsed": {
+      "properties": {
+        "Day": {
+          "type": "integer"
+        }
+      },
+      "required": [
+        "Day"
+      ],
+      "type": "object"
+    },
+    "events.StraightOpened": {
+      "properties": {
+        "Day": {
+          "type": "integer"
+        },
+        "Income": {
+          "type": "integer"
+        },
+        "Street": {
+          "type": "integer"
+        }
+      },
+      "required": [
+        "Day",
+        "Income",
+        "Street"
+      ],
+      "type": "object"
+    },
     "events.SupplierBought": {
       "properties": {
         "City": {
@@ -9919,6 +9949,12 @@
     "StockMoved": {
       "$ref": "#/$defs/events.StockMoved"
     },
+    "StraightLapsed": {
+      "$ref": "#/$defs/events.StraightLapsed"
+    },
+    "StraightOpened": {
+      "$ref": "#/$defs/events.StraightOpened"
+    },
     "SupplierBought": {
       "$ref": "#/$defs/events.SupplierBought"
     },
@@ -10840,6 +10876,19 @@
           "$ref": "#/$defs/engine.Gate"
         },
         "type": "array"
+      }
+    },
+    "go_straight": {
+      "changes": true,
+      "needsRun": true,
+      "params": {
+        "maxItems": 0,
+        "minItems": 0,
+        "prefixItems": [],
+        "type": "array"
+      },
+      "result": {
+        "type": "null"
       }
     },
     "guard": {
@@ -12458,6 +12507,19 @@
       },
       "result": {
         "type": "number"
+      }
+    },
+    "rules.laundering.can_go_straight": {
+      "changes": false,
+      "needsRun": true,
+      "params": {
+        "maxItems": 0,
+        "minItems": 0,
+        "prefixItems": [],
+        "type": "array"
+      },
+      "result": {
+        "type": "boolean"
       }
     },
     "rules.laundering.can_retire": {
@@ -15057,6 +15119,8 @@
             "StandingShort",
             "StockCut",
             "StockMoved",
+            "StraightLapsed",
+            "StraightOpened",
             "SupplierBought",
             "SupplierCollected",
             "SupplierFrozen",
@@ -15094,7 +15158,7 @@
       "$ref": "#/$defs/engine.View"
     }
   },
-  "protocol": 12,
+  "protocol": 14,
   "title": "kingpind",
   "view_version": 11
 }

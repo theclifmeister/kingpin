@@ -1063,6 +1063,28 @@ type ReignBroken struct {
 
 func (ReignBroken) Kind() string { return "ReignBroken" }
 
+// StraightOpened is report-only (#398): the fronts have out-earned the
+// street for legit_days nights running with home's goodwill over its
+// pressure, and going straight is the player's to take from the
+// walk-away dialog (World.GoStraight). Income is the fronts' own income
+// a day, Street what the street sold for tonight.
+type StraightOpened struct {
+	Day    int
+	Income int
+	Street int
+}
+
+func (StraightOpened) Kind() string { return "StraightOpened" }
+
+// StraightLapsed is report-only (#398): a night failed the businessman's
+// terms after going straight had opened, the streak starts again from
+// nothing, and the walk-away dialog's row closes.
+type StraightLapsed struct {
+	Day int
+}
+
+func (StraightLapsed) Kind() string { return "StraightLapsed" }
+
 // TributePaid is report-only bookkeeping: the day's tribute handed over.
 type TributePaid struct {
 	Day     int

@@ -35,8 +35,9 @@ import (
 // name_captain, drop_captain and the crew rules can_captain, captaincy,
 // trait and trait_days (#346); 9 hit_scouts (#341); 10
 // pin_ambition (#347); 11 set_export (#391); 12 buy_trophy and
-// trophy_offers (#392).
-const Version = 12
+// trophy_offers (#392); 13 cash_out and rules.laundering.cash_out_fee
+// (#395); 14 go_straight and rules.laundering.can_go_straight (#398).
+const Version = 14
 
 // The error codes: JSON-RPC 2.0's, and the game's own in its
 // server-error range.

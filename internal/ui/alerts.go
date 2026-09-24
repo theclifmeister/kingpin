@@ -119,6 +119,8 @@ func (m *Model) alertOf(a engine.Alert) alert {
 			who = fmt.Sprintf("%s paying %s a night", plural(a.Count, "crew"), money(a.Amount))
 		}
 		text = theme.Gold.Render(fmt.Sprintf("The city is yours: day %d of the reign, %s. Take the crown or play on.", a.Days, who))
+	case engine.AlertStraight:
+		text = theme.Gold.Render(fmt.Sprintf("The fronts earn %s a day, more than the street: go straight (walk away) or play on.", money(a.Amount)))
 	case engine.AlertPlan:
 		text, why = m.planAlert(a)
 	}

@@ -21,6 +21,9 @@ var (
 	ErrNoIdentity = errors.New("vanishing takes a new identity")
 	// ErrNoReign means the crown takes the city: the reign is not on.
 	ErrNoReign = errors.New("the city is not yours yet")
+	// ErrNotStraight means the fronts have not out-earned the street
+	// long enough to go straight.
+	ErrNotStraight = errors.New("the fronts do not out-earn the street yet")
 )
 
 // End is the ending written for a cause on day: the day, the cause, the
@@ -107,6 +110,29 @@ func (w *World) Crown() error {
 // CanCrown reports whether Crown would take: the reign on and the run
 // not over.
 func (w *World) CanCrown() bool { return w.Over == nil && w.Reign > 0 }
+
+// GoStraight ends the run as "businessman" (#398): the player takes the
+// legitimate life once the fronts have out-earned the street days
+// nights running (LegitDays, the laundering sim's count, which a night
+// that fails zeroes), on any morning while the streak holds. It is the
+// businessman ending as it always read, on the player's say-so instead
+// of the sim's, as the crown is since #227. days is laundering.toml
+// [businessman] legit_days; zero means the ending is boxed.
+func (w *World) GoStraight(days int) error {
+	if w.Over != nil {
+		return ErrGameOver
+	}
+	if days <= 0 || w.LegitDays < days {
+		return ErrNotStraight
+	}
+	w.Over = w.End("businessman", w.Day, "")
+	return nil
+}
+
+// CanGoStraight reports whether GoStraight would take.
+func (w *World) CanGoStraight(days int) bool {
+	return w.Over == nil && days > 0 && w.LegitDays >= days
+}
 
 // ReignDay is which day of the reign this is, counting the morning it
 // began as day 1; 0 with no reign.

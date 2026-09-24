@@ -79,7 +79,9 @@ fee = 0.10
 # A player who never invests has a legit income at or under zero and
 # never counts a day; the boss earns ~$0.3M a day off its levels against
 # ~$0.9M of street, and runs the city at pressure 100, so it never ends
-# by accident (TestNobodyIsABusinessmanByAccident). 0 boxes it.
+# by accident (TestNobodyIsABusinessmanByAccident). Since #398 the
+# streak opens the ending and the player takes it (go straight, on the
+# walk-away dialog), as the crown is since #227. 0 boxes it.
 [businessman]
 legit_days = 30
 

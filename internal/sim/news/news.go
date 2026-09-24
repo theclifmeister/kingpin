@@ -176,6 +176,12 @@ func (s *Sim) Step(w *game.World, t *game.Tick) {
 			rep.Tier = append([]string{fmt.Sprintf("The city is yours: every crew in %s is gone or paying. Take the crown when you are ready (walk away on the dashboard), or reign.", d.City)}, rep.Tier...)
 		case events.ReignBroken:
 			rep.Tier = append([]string{fmt.Sprintf("The reign is over for now: %s. Hold the city and the table and it begins again.", ev.Why)}, rep.Tier...)
+		case events.StraightOpened:
+			// Going straight (#398): the businessman's streak is in, and
+			// the ending is the player's to take.
+			rep.Tier = append([]string{fmt.Sprintf("The fronts earn %s a day against %s off the street: you could go straight (walk away on the dashboard), or play on.", format.Money(ev.Income), format.Money(ev.Street))}, rep.Tier...)
+		case events.StraightLapsed:
+			rep.Tier = append([]string{"The street out-earned the fronts, or the city turned: going straight is off until the books carry you again."}, rep.Tier...)
 		}
 	}
 	if w.Reign > 0 {
