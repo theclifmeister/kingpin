@@ -85,6 +85,8 @@ type Model struct {
 	nr             newRunDialog     // the new-run dialog (#50)
 	intelCursor    int              // row on the intel screen (#45)
 	fastStop       string           // the report's first line after a fast-forward (`Stopped after 3 days: …`), until the next day ends
+	fastAlert      *engine.Alert    // the alert a fast-forward stopped on (#352), which the report's o opens; nil with the rest
+	alertCursor    int              // the alert selected in the dashboard's ALERTS (#352)
 	slot           int              // the save slot this run lives in: where ctrl+s, the end of the day and quitting save
 	profile        *game.Profile    // the game around the runs (#50): loaded with the model, written when a run ends and when a daily starts
 	profileErr     string           // what loading it said, for the start menu: a corrupt one set aside, a newer one left alone
@@ -206,7 +208,7 @@ func (m *Model) startRunWith(seed uint64, start game.Start) {
 	m.city = m.w.Player.Location
 	m.mapCursor = m.yourCorner()
 	m.flash = nil
-	m.fastStop = ""
+	m.fastStop, m.fastAlert = "", nil
 	m.mapScene = nil
 	who := ""
 	if ch := m.cfg.Characters.Character(m.w.Start.Character); ch != nil && m.w.Start.Character != "" {
@@ -303,7 +305,7 @@ func (m *Model) continueRun(slot int) error {
 	}
 	m.city = w.Player.Location
 	m.mapCursor = m.yourCorner()
-	m.fastStop = ""
+	m.fastStop, m.fastAlert = "", nil
 	m.mapScene = nil
 	m.say(fmt.Sprintf("Continued day %d.", w.Day))
 	m.journalFilter = ""
@@ -353,7 +355,7 @@ func (m *Model) dayEnded(evs []events.Event) {
 			m.flash = append(m.flash, ev)
 		}
 	}
-	m.fastStop = ""
+	m.fastStop, m.fastAlert = "", nil
 	m.save()
 	m.refreshJournal()
 }
@@ -482,6 +484,10 @@ func (m *Model) keyReport(key string) {
 	switch key {
 	case "enter", "esc", " ", "r", "q":
 		m.mode = modePlay
+	case "o":
+		if m.fastAlert != nil {
+			m.openAlert(*m.fastAlert) // the stop line's jump (#352)
+		}
 	default:
 		m.scrollModal(key)
 	}
