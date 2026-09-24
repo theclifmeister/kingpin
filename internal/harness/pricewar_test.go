@@ -118,12 +118,15 @@ func TestPricewarInvariants(t *testing.T) {
 
 // Under a truce nothing moves: the pricewar policy with a truce sealed
 // from day 20 for 30 days undercuts before and after it and never
-// during, and the action is refused on every morning of it.
+// during, and the action is refused on every morning of it. The truce
+// holds through the night before its Until (the rivals sim ends it the
+// night Day+1 reaches Until), so day 50 is the first day after it: the
+// window once counted day 50 as during, which the veterans (#346)
+// surfaced by moving seed 2's undercuts onto the even days (#379).
 func TestPricewarKeepsThePeace(t *testing.T) {
 	t.Parallel()
 	// The duel (#43, harness.OneFaction): this pins a mechanism on a seed, and the table moves the seed's dice.
-	// Veterans (#346) boxed: with traits on, seed 2's pricewar player undercut during the truce.
-	cfg := NoTraits(OneFaction(content.MustLoad()))
+	cfg := OneFaction(content.MustLoad())
 	policy := Pricewar(cfg, 40, 3, events.DialNormal)
 	for seed := uint64(1); seed <= 3; seed++ {
 		refused := 0
@@ -141,7 +144,7 @@ func TestPricewarKeepsThePeace(t *testing.T) {
 		})
 		during := 0
 		for _, e := range res.Events {
-			if u, ok := e.(events.PlayerUndercut); ok && u.Day > 20 && u.Day <= 50 {
+			if u, ok := e.(events.PlayerUndercut); ok && u.Day > 20 && u.Day < 50 {
 				during++
 			}
 		}

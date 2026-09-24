@@ -342,6 +342,7 @@ func (d *road) crew(w *game.World, rc roadCrew) bool {
 			}
 		}
 	}
+	HitScoutsIn(w, hub)
 	return delegated
 }
 

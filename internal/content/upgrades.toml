@@ -738,10 +738,11 @@ route_risk_mul = 0.85
 
 [[front]]
 id = "restaurant"
-role = "A restaurant: the chief eats here, and the block is looked after."
+role = "A restaurant: the chief eats here, looks the other way, and the block is looked after."
 [front.effects]
 goodwill_day = 0.25
 robbery_mul = 0.9
+sale_heat_mul = 0.9
 
 [[front]]
 id = "nightclub"
