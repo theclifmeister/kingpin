@@ -100,6 +100,51 @@ func TestCaptainIsTheHandsMoves(t *testing.T) {
 	}
 }
 
+// TestCaptainAnswersAnInvestigation (#343): a captain takes the crew off
+// a corner an investigation names in their city and posts nobody on it
+// while it runs (it stays held: a corner nobody works the night the hit
+// lands is a miss that files nothing); once it closes, an idle runner
+// goes back on. The captain has no standing orders and no contracts, so
+// a named product is nothing for them to answer.
+func TestCaptainAnswersAnInvestigation(t *testing.T) {
+	cfg := content.MustLoad()
+	w, s, _ := captainWorld(t, cfg)
+	w.Crew.LastSkim = 0 // no skim fresh: nobody is pulled for it
+	if err := w.NameCaptain(101, w.Home().ID, 10_000, 0, 0); err != nil {
+		t.Fatal(err)
+	}
+	w.Heat.Investigation = game.Investigation{City: w.Home().ID, Kind: game.LeadCorner, Target: "c", Opened: w.Day, Due: w.Day + 2}
+	// The day's preview reads the same plan (#353): the pay-offs it
+	// projects are the night's.
+	nights := s.CaptainNights(w, map[string]int{}, false)
+	var ev events.CaptainActed
+	for _, e := range gametest.StepUnseeded(w, s).Events() {
+		if a, ok := e.(events.CaptainActed); ok {
+			ev = a
+		}
+	}
+	if len(nights) != 1 || len(nights[0].Payoffs) != len(ev.Paid) {
+		t.Fatalf("the preview's pay-offs %+v, the night's %v", nights, ev.Paid)
+	}
+	c := w.Corner("c")
+	if !slices.Equal(ev.Pulled, []string{"Near"}) || c.Runner != 0 || c.Owner != game.OwnerPlayer {
+		t.Fatalf("the named corner the night after: %+v, the captain's night %+v", c, ev)
+	}
+	if w.Corner("a").Runner != 102 || w.Corner("b").Runner != 103 {
+		t.Fatalf("the idle runner should go on the open corner that is not named: a %d, b %d", w.Corner("a").Runner, w.Corner("b").Runner)
+	}
+	w.Crew.Member(104).Loyalty = 80 // a runner the captain would post
+	gametest.StepUnseeded(w, s)
+	if c.Runner != 0 {
+		t.Fatalf("the investigation is still open and the captain posted %d on its corner", c.Runner)
+	}
+	w.Heat.Investigation = game.Investigation{}
+	gametest.StepUnseeded(w, s)
+	if c.Runner != 104 {
+		t.Fatalf("the investigation closed and nobody went back on its corner: %+v", c)
+	}
+}
+
 // A captain in a cell does nothing that night, one under the care line
 // stops caring, and one named for nothing is refused: the stakes.
 func TestCaptainHasStakes(t *testing.T) {
