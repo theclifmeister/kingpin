@@ -77,11 +77,12 @@ type RivalState struct {
 	// counts the scouts that read nothing since the last that did (the
 	// books a scout read are facts in World.Intel since #45, game.Books
 	// the read as the file holds it). Zero values are the pre-#70 state.
-	Heat     float64
-	Scouted  int
-	LastRaid int // day the police last took a corner off it on your tip; 0 never
-	Away     int // heads bought off or arrested and not yet back: what it wants less, for a while
-	AwayDay  int // day the last of them came back, or was sent away; the next returns away_days later
+	Heat      float64
+	Scouted   int
+	LastRaid  int // day the police last took a corner off it on your tip; 0 never
+	RaidedOut int // day a raid took its last corner (#384), the landless spell absorb counts when it is later than Routed; 0 never
+	Away      int // heads bought off or arrested and not yet back: what it wants less, for a while
+	AwayDay   int // day the last of them came back, or was sent away; the next returns away_days later
 
 	// The table (#43): a faction among factions. Home is the city it
 	// lives in ("" reads as home, the one rival's city before #43);

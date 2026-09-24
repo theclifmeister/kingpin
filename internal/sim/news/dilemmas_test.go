@@ -301,7 +301,7 @@ func TestDrawPacing(t *testing.T) {
 func TestPersonalStakesAreCapped(t *testing.T) {
 	cfg := content.MustLoad()
 	w := sim.NewWorld(cfg, 1)
-	w.Player.DirtyCash = 100_000_000
+	w.Player.DirtyCash, w.Player.CleanCash = 100_000_000, 100_000_000 // clean too: a card paid in clean needs it (#384)
 	personal := 0
 	for _, c := range cfg.Dilemmas.Cards {
 		c.Trigger = content.CardTrigger{} // the sum, not the trigger, is under test
@@ -376,7 +376,7 @@ func TestRichDeckLeansToTheBand(t *testing.T) {
 			t.Fatal(err)
 		}
 		w := sim.NewWorld(cfg, 5)
-		w.Player.DirtyCash, w.Stats.PeakCash = 5_000_000, 5_000_000
+		w.Player.DirtyCash, w.Player.CleanCash, w.Stats.PeakCash = 5_000_000, 1_000_000, 5_000_000 // a rich player launders (#384)
 		w.Reach(cfg.Dilemmas.Dilemmas.RichTier, 1)
 		w.Home().Heat = 30
 		w.Fronts = []game.Front{{ID: "laundromat", Name: "Suds"}}

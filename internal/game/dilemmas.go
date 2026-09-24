@@ -410,8 +410,40 @@ func Eligible(w *World, c content.CardConfig) (CardSlots, bool) {
 		}
 	}
 	s.Sum = CardSum(c, w.Player.DirtyCash)
+	// A card a choice pays the whole of out of one pile names no more
+	// than the pile holds, and is not drawn when the pile cannot cover
+	// its floor (#384): the text, the preview, the outcome and the charge
+	// are then the one sum, where before the charge was clamped at the
+	// pile while the text named the rest.
+	if pile, ok := payingPile(w, c); ok {
+		if pile < c.Amount {
+			return s, false
+		}
+		s.Sum = min(s.Sum, max(niceDown(pile), c.Amount))
+	}
 	s.Amount = format.Money(s.Sum)
 	return s, true
+}
+
+// payingPile is the pile a card's choice pays the card's whole sum from
+// (a clean_amount or dirty_amount of -1 or less), and whether one does;
+// with both, the smaller.
+func payingPile(w *World, c content.CardConfig) (int, bool) {
+	pile, ok := 0, false
+	take := func(n int) {
+		if !ok || n < pile {
+			pile, ok = n, true
+		}
+	}
+	for _, ch := range c.Choices {
+		if ch.Effects["clean_amount"] <= -1 {
+			take(w.Player.CleanCash)
+		}
+		if ch.Effects["dirty_amount"] <= -1 {
+			take(w.Player.DirtyCash)
+		}
+	}
+	return pile, ok
 }
 
 // CardSum is the sum a card names against a bag of dirty cash: its
@@ -424,6 +456,16 @@ func CardSum(c content.CardConfig, dirty int) int {
 		n = min(n, c.AmountMax)
 	}
 	return n
+}
+
+// niceDown is nice rounding down, so the sum a pile can pay stays one
+// it can pay: $2,550 is "twenty-five hundred".
+func niceDown(n int) int {
+	if n < 100 {
+		return n
+	}
+	p := math.Pow(10, math.Floor(math.Log10(float64(n)))-1)
+	return int(math.Floor(float64(n)/p) * p)
 }
 
 // nice rounds a sum to two significant figures, the way somebody names a

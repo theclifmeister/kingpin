@@ -234,3 +234,37 @@ func TestCardSumIsCapped(t *testing.T) {
 		t.Errorf("an uncapped business card at $100M: $%d", got)
 	}
 }
+
+// A card paid in full out of one pile names no more than the pile holds,
+// rounded down to two figures, and is not drawn below its floor (#384):
+// a permit sized on $82,000 dirty and paid in $2,550 clean said $4,100
+// and charged $2,550.
+func TestCardSumIsWhatThePileCanPay(t *testing.T) {
+	permit := content.CardConfig{Amount: 400, AmountShare: 0.05, AmountMax: 50000,
+		Choices: []content.ChoiceConfig{{Effects: map[string]float64{"clean_amount": -1}}, {Effects: map[string]float64{"heat": 5}}}}
+	w := cardWorld()
+	for _, r := range []struct {
+		dirty, clean, want int
+		ok                 bool
+	}{{82_000, 2_550, 2_500, true}, {82_000, 100_000, 4_100, true}, {82_000, 450, 450, true}, {82_000, 399, 0, false}} {
+		w.Player.DirtyCash, w.Player.CleanCash = r.dirty, r.clean
+		s, ok := Eligible(w, permit)
+		if ok != r.ok || (ok && s.Sum != r.want) {
+			t.Errorf("$%d dirty, $%d clean: $%d %v, want $%d %v", r.dirty, r.clean, s.Sum, ok, r.want, r.ok)
+		}
+	}
+	// Paid out of the dirty pile, it is the dirty pile that caps it.
+	wash := content.CardConfig{Amount: 1000, AmountShare: 0.2,
+		Choices: []content.ChoiceConfig{{Effects: map[string]float64{"dirty_amount": -1, "clean_amount": 0.7}}}}
+	w.Player.DirtyCash, w.Player.CleanCash = 900, 50_000
+	if _, ok := Eligible(w, wash); ok {
+		t.Error("a $1,000 wash drawn on $900 dirty")
+	}
+	// A card that pays you is sized on the bag as before.
+	gift := content.CardConfig{Amount: 1000, AmountShare: 0.1,
+		Choices: []content.ChoiceConfig{{Effects: map[string]float64{"clean_amount": 1}}}}
+	w.Player.DirtyCash, w.Player.CleanCash = 50_000, 0
+	if s, ok := Eligible(w, gift); !ok || s.Sum != 5000 {
+		t.Errorf("a gift: $%d %v", s.Sum, ok)
+	}
+}

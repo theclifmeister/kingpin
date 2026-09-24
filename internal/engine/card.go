@@ -198,7 +198,7 @@ func loyaltyChips(r Rules, w *game.World, ls []game.Change) []Chip {
 			text = "crew loyalty down to " + signed(lo)
 		}
 	}
-	out := []Chip{{Text: text, Tone: good(hi > 0)}}
+	out := []Chip{{Text: text, Tone: good(lo >= 0 && hi > 0)}} // the tone reads as the text does: "down to" is a cost (#384)
 	for _, ch := range ls {
 		if chip, ok := crossed(ch); ok {
 			out = append(out, chip)
