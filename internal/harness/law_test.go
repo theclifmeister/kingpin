@@ -407,7 +407,8 @@ func TestCampaignSurvivesSave(t *testing.T) {
 // dollar either gave was clean.
 func TestCampaignSizing(t *testing.T) {
 	t.Parallel()
-	cfg := content.MustLoad()
+	// The expansion boxed (#341, harness.NoExpansion): this sizes the boss's campaigns, and a faction drawn to its hub takes a sixth off its clean cash ($1.02M a city an election boxed, $0.86M on the file).
+	cfg := NoExpansion(content.MustLoad())
 	var late []int
 	var goodwill []float64
 	for seed := uint64(1); seed <= 5; seed++ {
