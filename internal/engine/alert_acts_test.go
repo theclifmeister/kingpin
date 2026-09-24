@@ -150,3 +150,35 @@ func TestStashFullAlerts(t *testing.T) {
 		t.Errorf("the full stash stopped twice: %+v", st)
 	}
 }
+
+// TestFileAlert (#414): the DA's file two pages or fewer from the ones
+// that indict you is an alert on the dashboard, keyed by the pages, so
+// a fast-forward stops each time the file grows and not again until it
+// does; a thin file is none.
+func TestFileAlert(t *testing.T) {
+	t.Parallel()
+	s, w := crewRun(t)
+	w.Heat.Evidence = 0
+	if got := ofKind(s, engine.AlertFile); len(got) != 0 {
+		t.Fatalf("an empty file: %+v", got)
+	}
+	var got []engine.Alert
+	for w.Heat.Evidence = 1; w.Heat.Evidence < 50 && len(got) == 0; w.Heat.Evidence++ {
+		got = ofKind(s, engine.AlertFile)
+	}
+	if len(got) != 1 || got[0].Count != w.Heat.Evidence-1 || got[0].Amount-got[0].Count != 2 || got[0].Act != (engine.Act{Screen: engine.ScreenDashboard}) {
+		t.Fatalf("the file at %d: %+v", w.Heat.Evidence-1, got)
+	}
+	w.Heat.Evidence--
+	before := s.Alerts()
+	if st := s.Stop(nil, before); st.Kind == engine.StopAlert && st.Alert.Kind == engine.AlertFile {
+		t.Errorf("the same file stopped twice: %+v", st)
+	}
+	w.Heat.Evidence++
+	if got := ofKind(s, engine.AlertFile); len(got) != 1 || got[0].Amount-got[0].Count != 1 {
+		t.Fatalf("a page short: %+v", got)
+	}
+	if st := s.Stop(nil, before); st.Kind != engine.StopAlert || st.Alert.Kind != engine.AlertFile {
+		t.Errorf("a page more in the file stopped %+v", st)
+	}
+}

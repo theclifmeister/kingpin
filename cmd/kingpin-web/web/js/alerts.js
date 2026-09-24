@@ -36,6 +36,8 @@ export const WORDS = {
   debt_due: (v, a) => `${(byId(v.connects, a.supplier) || { name: "A connect" }).name}: ${money(n(a.amount))} due tomorrow, ${money(n(a.have))} in hand.`,
   heat: (v, a) => `Heat ${Math.round(n(a.heat))} in ${cityName(v, a.city)} is over the patrol line (${Math.round(n(a.line))}).`,
   task_force: () => "A task force formed this morning. It comes tonight: lie low.",
+  file: (v, a) =>
+    `File ${n(a.count)}/${n(a.amount)}: ${n(a.amount) - n(a.count) >= 2 ? "two busts from an indictment" : "one more bust indicts you"}. Stings, raids and working a corner yourself add pages; lie low, and the Legal upgrades take them off.`,
   investigation: (v, a) => {
     const name =
       a.target === "corner" ? cornerName(v, a.corner) : a.target === "house" ? (byId(v.houses, a.house) || { name: "a house" }).name : `the ${a.product} trade`;

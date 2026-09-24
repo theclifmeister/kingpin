@@ -26,6 +26,7 @@ const (
 	AlertDebtDue       AlertKind = "debt_due"      // Supplier owed Amount on Due, Have in hand
 	AlertHeat          AlertKind = "heat"          // Heat in City at or over the patrol Line
 	AlertTaskForce     AlertKind = "task_force"    // a task force formed this morning
+	AlertFile          AlertKind = "file"          // the DA's file is Count pages of the Amount that indict you, two or fewer short (#414)
 	AlertInvestigation AlertKind = "investigation" // the police in City are working Target (Corner, Product or House): the hit in Days
 	AlertFloat         AlertKind = "float"         // Have dirty under the float, Amount
 	AlertWages         AlertKind = "wages"         // Amount in wages tonight, Have dirty
@@ -49,7 +50,7 @@ const (
 // AlertKinds is every kind, loudest first: the order Alerts returns them
 // in.
 func AlertKinds() []AlertKind {
-	return []AlertKind{AlertTalking, AlertContractDue, AlertDebtDue, AlertHeat, AlertTaskForce, AlertInvestigation, AlertFloat, AlertWages,
+	return []AlertKind{AlertTalking, AlertContractDue, AlertDebtDue, AlertHeat, AlertTaskForce, AlertFile, AlertInvestigation, AlertFloat, AlertWages,
 		AlertCrewLine, AlertSkim, AlertUnposted, AlertIdleCorner, AlertStashFull, AlertScouts, AlertGate, AlertHouseKnown,
 		AlertDARace, AlertRetire, AlertFavour, AlertReign, AlertStraight, AlertExposure, AlertPlan}
 }
@@ -110,6 +111,7 @@ var alertActs = map[AlertKind][]Act{
 	AlertDebtDue:     {{Screen: ScreenMarket, Subject: SubjectSupplier}},
 	AlertHeat:        {actDashboard},
 	AlertTaskForce:   {actDashboard},
+	AlertFile:        {actDashboard},
 	// An investigation (#343) is answered where its target is: the
 	// corner on the map, the product on the market, the house on the
 	// ledger, each selected.
@@ -210,6 +212,12 @@ func (s *Session) Alerts() []Alert {
 	}
 	if s.set.Heat.TaskForceForming(w) {
 		out = append(out, Alert{Kind: AlertTaskForce, Key: "a task force formed"})
+	}
+	// The file close to an indictment (#414): two pages short or less,
+	// the dashboard's red. Keyed by the pages, so a fast-forward stops
+	// each time the file grows and not again until it does.
+	if limit := s.set.Heat.EvidenceArrest(w); limit > 0 && w.Heat.Evidence >= limit-2 {
+		out = append(out, Alert{Kind: AlertFile, Key: fmt.Sprintf("file %d of %d", w.Heat.Evidence, limit), Count: w.Heat.Evidence, Amount: limit})
 	}
 	if inv := w.Heat.Investigation; inv.Open() {
 		// Keyed by the investigation (#343): a fast-forward stops the

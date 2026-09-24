@@ -31,7 +31,8 @@ type alert struct {
 
 // alerts is what needs you this morning, loudest first, in the engine's
 // order (engine.Alerts: somebody talking, a contract or a debt due, the
-// heat over the patrol line, a task force forming, an investigation
+// heat over the patrol line, a task force forming, the DA's file near
+// an indictment (#414), an investigation
 // (#343), the float, the
 // wages, a member near a line, the skim, a member with no post, a
 // corner nobody works, a full stash, a faction on its way to a city
@@ -76,6 +77,17 @@ func (m *Model) alertOf(a engine.Alert) alert {
 		text = theme.Bad.Render(fmt.Sprintf("Heat %.0f in %s is over the patrol line (%.0f).", a.Heat, w.CityName(a.City), a.Line))
 	case engine.AlertTaskForce:
 		text = theme.Bad.Bold(true).Render("A task force formed this morning.") + theme.Bad.Render(" It comes tonight: lie low.")
+	case engine.AlertFile:
+		// #414: the file one or two busts from an indictment, and what
+		// takes pages off it.
+		// The count leads: the pane cuts an alert to one line.
+		busts := "one more bust indicts you"
+		if a.Amount-a.Count >= 2 {
+			busts = "two busts from an indictment"
+		}
+		text = theme.Bad.Bold(true).Render(fmt.Sprintf("File %d/%d: %s.", a.Count, a.Amount, busts)) +
+			theme.Bad.Render(" Stings, raids and working a corner yourself add pages; lie low, and the Legal upgrades "+screenPointer(screenUpgrades)+" take them off.")
+		why = "the DA's file"
 	case engine.AlertInvestigation:
 		text, why = m.investigationAlert(a)
 	case engine.AlertFloat:
