@@ -44,7 +44,8 @@ func (s *Sim) lead(w *game.World, t *game.Tick, flow game.CashFlow) []game.Line 
 
 	var (
 		lost, won, moved     named // corners
-		crew                 named // members, with what happened to them
+		crew                 named // members lost, with what happened to them
+		down                 named // members laid up, back in days (#423)
 		seized               int   // the police's takes tonight
 		units, cash          int   // what they took
 		pages                int   // what went in the DA's file
@@ -87,11 +88,11 @@ func (s *Sim) lead(w *game.World, t *game.Tick, flow game.CashFlow) []game.Line 
 			crew.addMember(ev.Name+" (arrested)", ev.ID)
 		case events.CrewShot:
 			if !ev.Theirs {
-				how := " (shot)"
 				if ev.Dead {
-					how = " (killed)"
+					crew.addMember(ev.Name+" (killed)", ev.ID)
+				} else { // laid up, back in days: not lost (#423)
+					down.addMember(fmt.Sprintf("%s (shot, %s)", ev.Name, format.Plural(ev.Days, "day")), ev.ID)
 				}
-				crew.addMember(ev.Name+how, ev.ID)
 			}
 		case events.CrewDefected:
 			crew.addMember(ev.Name+" (defected)", ev.ID)
@@ -138,12 +139,21 @@ func (s *Sim) lead(w *game.World, t *game.Tick, flow game.CashFlow) []game.Line 
 		}
 		add("corner_lost", float64(n), l)
 	}
-	if n := crew.len(); n > 0 {
-		l := game.Line{Text: fmt.Sprintf("Lost %d of the crew: %s.", n, crew.words()), Act: game.Act{Screen: game.ScreenCrew}}
-		if n == 1 {
-			l.Text = fmt.Sprintf("Lost %s.", crew.words())
+	if n := crew.len() + down.len(); n > 0 {
+		// Lost is gone for good or in a cell; a member shot and alive
+		// is laid up, and says so (#423).
+		var parts []string
+		switch k := crew.len(); {
+		case k == 1:
+			parts = append(parts, fmt.Sprintf("Lost %s.", crew.words()))
+		case k > 1:
+			parts = append(parts, fmt.Sprintf("Lost %d of the crew: %s.", k, crew.words()))
 		}
-		for _, id := range crew.members {
+		if down.len() > 0 {
+			parts = append(parts, fmt.Sprintf("Laid up: %s.", down.words()))
+		}
+		l := game.Line{Text: strings.Join(parts, " "), Act: game.Act{Screen: game.ScreenCrew}}
+		for _, id := range append(slices.Clone(crew.members), down.members...) {
 			if w.Crew.Member(id) != nil { // on the roster still: a cell, a bed
 				l.Act.Subject, l.Member = game.OnMember, id
 				break

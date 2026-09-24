@@ -91,6 +91,19 @@ func TestLeadIsTheBiggestThree(t *testing.T) {
 			{"scouts", "Sal's scouts are in ", game.Act{Screen: game.ScreenRivals}},
 			{"corner_won", "Took a corner: ", game.Act{Screen: game.ScreenMap, Subject: game.OnCorner}},
 		}},
+		{"shot and alive is laid up, not lost (#423)", func(w *game.World) []events.Event {
+			return []events.Event{
+				events.CrewShot{ID: 9, Name: "Cash", Role: game.RoleEnforcer, Days: 12},
+				events.CrewQuit{ID: 8, Name: "Ray", Role: game.RoleRunner},
+			}
+		}, []want{
+			{"crew_lost", "Lost Ray (quit). Laid up: Cash (shot, 12 days).", game.Act{Screen: game.ScreenCrew}},
+		}},
+		{"only shot and alive", func(w *game.World) []events.Event {
+			return []events.Event{events.CrewShot{ID: 9, Name: "Cash", Role: game.RoleEnforcer, Days: 12}}
+		}, []want{
+			{"crew_lost", "Laid up: Cash (shot, 12 days).", game.Act{Screen: game.ScreenCrew}},
+		}},
 		{"only three lead", func(w *game.World) []events.Event {
 			c := w.Home().Corners
 			return []events.Event{
