@@ -71,7 +71,7 @@ func TestEveryLeadHasAnAct(t *testing.T) {
 		for _, sec := range engine.ReportSections(w.Report) {
 			want = append(want, sec.ID)
 		}
-		if !slices.Equal(ids, want) || len(ids) != 14 {
+		if !slices.Equal(ids, want) || len(ids) != 15 {
 			t.Fatalf("day %d: the view's sections %v, want %v", w.Day, ids, want)
 		}
 	}

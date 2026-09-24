@@ -83,7 +83,8 @@ func (m *Model) askExit() {
 
 // keyExit is the dialog's keys: the cursor on the first page, enter to
 // the confirmation on an open way out (a closed one is refused with
-// what is short), shift+tab back, y on the confirmation, esc closes.
+// what is short), a to the ambitions panel (#347), shift+tab back, y on
+// the confirmation, esc closes.
 func (m *Model) keyExit(key string) {
 	rows := m.exitRows()
 	if closes(key) {
@@ -104,6 +105,12 @@ func (m *Model) keyExit(key string) {
 	case "enter", "tab":
 		if m.exit.step == 0 {
 			m.openExit(rows)
+		}
+	case "a":
+		if m.exit.step == 0 {
+			m.openAmbitions(false) // the plans toward the ways out (#347)
+		} else {
+			m.mode = modePlay // the confirmation declines on any other key (#241)
 		}
 	case "y", "Y":
 		if m.exit.step == 1 {

@@ -88,6 +88,6 @@ The stage (#149) is not changed. It always leads into the report, which opens wi
 The lines are not emitted as `events.Headline`, so the ticker and the bus do not repeat the report.
 They count toward the journal tab's unread number like any other entry.
 
-**The section order is one list** (`engine.ReportSections`): incident, tier, unlocked, prices, sales, shipments, heat, law, intel, crew, territory, money, upgrades, news.
-The TUI draws it, adding the crew trouble to CREW and the waterfall to MONEY, and `ReportView.Sections` carries it to the web.
+**The section order is one list** (`engine.ReportSections`): incident, tier, plan, unlocked, prices, sales, shipments, heat, law, intel, crew, territory, money, upgrades, news.
+The TUI draws it, filling PLAN with the plan pinned (#347, `planReport`), adding the crew trouble to CREW and the waterfall to MONEY, and `ReportView.Sections` carries it to the web. The report itself holds no PLAN lines: the plan is read off the world each morning, so the view's `plan` section is empty and a front end draws it from `ambitions`.
 

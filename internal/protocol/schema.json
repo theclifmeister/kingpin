@@ -1630,6 +1630,9 @@
         "act": {
           "$ref": "#/$defs/game.Act"
         },
+        "ambition": {
+          "type": "string"
+        },
         "amount": {
           "type": "integer"
         },
@@ -1693,6 +1696,9 @@
         "ready": {
           "type": "boolean"
         },
+        "steps": {
+          "type": "integer"
+        },
         "supplier": {
           "type": "string"
         },
@@ -1704,6 +1710,74 @@
         "kind",
         "key",
         "act"
+      ],
+      "type": "object"
+    },
+    "engine.AmbitionStepView": {
+      "properties": {
+        "done": {
+          "type": "boolean"
+        },
+        "have": {
+          "type": "number"
+        },
+        "id": {
+          "type": "string"
+        },
+        "label": {
+          "type": "string"
+        },
+        "need": {
+          "type": "number"
+        },
+        "unit": {
+          "type": "string"
+        }
+      },
+      "required": [
+        "id",
+        "label",
+        "have",
+        "need",
+        "unit"
+      ],
+      "type": "object"
+    },
+    "engine.AmbitionView": {
+      "properties": {
+        "done": {
+          "type": "boolean"
+        },
+        "ending": {
+          "type": "string"
+        },
+        "id": {
+          "type": "string"
+        },
+        "name": {
+          "type": "string"
+        },
+        "next": {
+          "type": "string"
+        },
+        "pinned": {
+          "type": "boolean"
+        },
+        "progress": {
+          "type": "number"
+        },
+        "steps": {
+          "items": {
+            "$ref": "#/$defs/engine.AmbitionStepView"
+          },
+          "type": "array"
+        }
+      },
+      "required": [
+        "id",
+        "name",
+        "progress",
+        "steps"
       ],
       "type": "object"
     },
@@ -3164,6 +3238,12 @@
           },
           "type": "array"
         },
+        "ambitions": {
+          "items": {
+            "$ref": "#/$defs/engine.AmbitionView"
+          },
+          "type": "array"
+        },
         "card": {
           "$ref": "#/$defs/engine.CardView"
         },
@@ -3280,12 +3360,16 @@
         "factions",
         "law",
         "report",
-        "alerts"
+        "alerts",
+        "ambitions"
       ],
       "type": "object"
     },
     "engine.YouView": {
       "properties": {
+        "ambition": {
+          "type": "string"
+        },
         "character": {
           "type": "string"
         },
@@ -10646,6 +10730,24 @@
         "$ref": "#/$defs/game.CrewMember"
       }
     },
+    "pin_ambition": {
+      "changes": true,
+      "needsRun": true,
+      "params": {
+        "maxItems": 1,
+        "minItems": 1,
+        "prefixItems": [
+          {
+            "title": "ambition",
+            "type": "string"
+          }
+        ],
+        "type": "array"
+      },
+      "result": {
+        "type": "null"
+      }
+    },
     "place_sell": {
       "changes": true,
       "needsRun": true,
@@ -14243,7 +14345,7 @@
       "$ref": "#/$defs/engine.View"
     }
   },
-  "protocol": 9,
+  "protocol": 10,
   "title": "kingpind",
   "view_version": 11
 }

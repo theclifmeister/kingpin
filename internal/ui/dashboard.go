@@ -43,6 +43,7 @@ const (
 	priTier = iota // the tier the run is in (#147): the first to go
 	priSupplier
 	priUpgrades
+	priPlan  // the plan pinned (#347): the player's own, so it outranks the counts below it
 	priStage // the tier while its stage is new (#149): news, so it outranks the counts
 	priStash
 	priSupply
@@ -141,6 +142,9 @@ func (m *Model) streetLines(innerW, maxLines int, narrow, withRoad bool) []strin
 		topic(append([]fact{corners, tier}, m.elsewhereFacts()...)...)
 	} else {
 		topic(corners, tier)
+	}
+	if line := m.planFact(); line != "" {
+		topic(fact{line, priPlan})
 	}
 	var crewFacts []fact
 	if n := len(w.Crew.Members); n > 0 {

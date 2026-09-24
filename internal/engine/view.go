@@ -43,6 +43,7 @@ type View struct {
 	Card      *CardView      `json:"card,omitempty"`
 	Report    ReportView     `json:"report"`
 	Alerts    []Alert        `json:"alerts"`
+	Ambitions []AmbitionView `json:"ambitions"` // the endings as plans with their progress (#347)
 }
 
 // EndingView is how the run ended.
@@ -74,6 +75,7 @@ type YouView struct {
 	QuietDays int                       `json:"quiet_days"`
 	Character string                    `json:"character,omitempty"`
 	HardDA    bool                      `json:"hard_da,omitempty"`
+	Ambition  string                    `json:"ambition,omitempty"` // the plan pinned (#347), an ambitions[] id
 }
 
 // CityView is a city: its heat, its law and its market and corners.
@@ -365,14 +367,14 @@ type ReportSectionView struct {
 
 // ReportSection is one section of the morning report.
 type ReportSection struct {
-	ID    string // incident, tier, unlocked, prices, sales, shipments, heat, law, intel, crew, territory, money, upgrades, news
+	ID    string // incident, tier, plan, unlocked, prices, sales, shipments, heat, law, intel, crew, territory, money, upgrades, news
 	Title string // the heading: INCIDENT, TIER, ...
 	Lines []string
 }
 
 // ReportSections is the report's sections in the one order every front
-// end draws them in (#354): the world's incident, the tier and the
-// doors that opened first, the day is about them; then the market, the
+// end draws them in (#354): the world's incident, the tier, the plan
+// pinned (#347) and the doors that opened first, the day is about them; then the market, the
 // road, the police and the law, what was learnt, the crew and the
 // ground; then the money, the upgrades and the paper. Every section is
 // there, empty or not: a front end skips an empty one, or adds lines of
@@ -381,6 +383,7 @@ func ReportSections(r *game.DayReport) []ReportSection {
 	return []ReportSection{
 		{"incident", "INCIDENT", r.Incident}, // the world's incident this morning (#44)
 		{"tier", "TIER", r.Tier},             // the tier entered this morning (#147)
+		{"plan", "PLAN", nil},                // the plan pinned (#347): the front end's, off the view's ambitions; the report holds none
 		{"unlocked", "UNLOCKED", r.Unlocked}, // a gate crossed (#148)
 		{"prices", "PRICES", r.Prices},
 		{"sales", "SALES", r.Sales},
@@ -465,6 +468,7 @@ func (s *Session) View() View {
 		QuietDays: w.QuietDays,
 		Character: w.Start.Character,
 		HardDA:    w.Start.HardDA,
+		Ambition:  w.Ambition,
 	}
 	for _, id := range sortedKeys(w.Upgrades) {
 		if w.Upgrades[id] {
@@ -619,6 +623,7 @@ func (s *Session) View() View {
 		v.Report = reportView(r, s.cfg.Headlines.Flow.BigShare)
 	}
 	v.Alerts = s.Alerts()
+	v.Ambitions = s.ambitionViews()
 	noNulls(reflect.ValueOf(&v).Elem())
 	return v
 }

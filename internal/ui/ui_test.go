@@ -2678,6 +2678,14 @@ func TestModalsFit(t *testing.T) {
 		// The exits (#49): the walk-away dialog's two pages, on a run
 		// that can retire and one that can vanish.
 		{"walk away", modeExit, func(t *testing.T, m *Model) { m.Update(key("1")); m.Update(key("w")) }},
+		{"ambitions", modeAmbitions, func(t *testing.T, m *Model) { m.Update(key("1")); m.Update(key("w")); m.Update(key("a")) }},
+		{"ambitions pinned", modeAmbitions, func(t *testing.T, m *Model) { // #347: the plan marked, the last row's steps
+			m.Update(key("1"))
+			m.Update(key("w"))
+			m.Update(key("a"))
+			m.Update(key("5"))
+			m.Update(key("up"))
+		}},
 		{"walk away: retire?", modeExit, func(t *testing.T, m *Model) {
 			m.w.Offshore, m.w.QuietDays = 2_000_000, 30
 			m.Update(key("1"))

@@ -125,6 +125,12 @@ type World struct {
 	// sells away from home keeps it nil, the run before.
 	Takes map[string][]int
 
+	// Ambition (#347, ambitions.go) is the plan the player pinned: one
+	// of content.AmbitionIDs, "" for none. The dashboard shows it with
+	// its next step and its milestones are alerts; no sim reads it, so a
+	// run is the same run pinned or not. Zero is no plan, the run before.
+	Ambition string
+
 	// Today is the player's per-day scratch (#144): what the actions
 	// queued since the morning, for the sims to resolve tonight. The
 	// clock zeroes it as a unit after every EndDay (ClearToday), bar the

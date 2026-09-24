@@ -33,6 +33,12 @@ type Session struct {
 	bus   *events.Bus
 	w     *game.World
 	saved []game.Preset // the front end's saved presets (#357, UsePresets)
+
+	// street is what the street sold for on the night that ended on
+	// streetDay (the tick's PlayerSold revenue, the number the
+	// businessman's count reads, #347): kept from the last EndDay so the
+	// legit plan can say it; a run loaded since reads the report's flow.
+	street, streetDay int
 }
 
 // New builds the sims from cfg in their step order, a clock over them
@@ -134,7 +140,17 @@ func (s *Session) EndDay() []events.Event {
 	if s.w == nil {
 		return nil
 	}
-	return s.clock.EndDay(s.w)
+	evs := s.clock.EndDay(s.w)
+	if len(evs) == 0 {
+		return evs
+	}
+	s.street, s.streetDay = 0, s.w.Day
+	for _, e := range evs {
+		if ev, ok := e.(events.PlayerSold); ok {
+			s.street += ev.Revenue
+		}
+	}
+	return evs
 }
 
 // Subscribe registers h for every event the session publishes, in the

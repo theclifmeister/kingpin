@@ -86,7 +86,7 @@ function word(v, where) {
     const panel = alertPanel(l);
     if (panel && !Object.values(PANELS).includes(panel)) problem(`${where}: lead ${l.kind} links to ${panel}`);
   }
-  if (v.day > 0 && (!Array.isArray(rep.sections) || rep.sections.length !== 14 || rep.sections[0].id !== "incident")) {
+  if (v.day > 0 && (!Array.isArray(rep.sections) || rep.sections.length !== 15 || rep.sections[0].id !== "incident")) {
     problem(`${where}: the report's sections ${JSON.stringify((rep.sections || []).map((s) => s.id))}`);
   }
 }

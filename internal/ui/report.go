@@ -78,6 +78,8 @@ func (m *Model) reportLines() []string {
 			}
 		case "money":
 			ls = m.moneyLines(r)
+		case "plan":
+			ls = m.planReport() // the plan pinned (#347): its bar and next step
 		}
 		if len(ls) == 0 {
 			continue
@@ -99,6 +101,7 @@ func (m *Model) reportLines() []string {
 var reportStyles = map[string]lipgloss.Style{
 	"incident":  theme.Fg(theme.World),
 	"tier":      theme.Warning,
+	"plan":      theme.Gold,
 	"unlocked":  theme.Gold,
 	"prices":    theme.Good,
 	"sales":     theme.Gold,

@@ -96,7 +96,9 @@ func list(ds []string) string {
 // the news sim's reading of the numbers the walk already hashes (the
 // piles, the report's lines and CASH BEFORE), no sim reads it, and a
 // change to its shape or its categories is a report's, never a number's.
-var unwalked = map[string]bool{"World.Flows": true, "DayReport.Flow": true}
+// The plan the player pinned (#347, World.Ambition) is the player's
+// alone: no sim reads it.
+var unwalked = map[string]bool{"World.Flows": true, "DayReport.Flow": true, "World.Ambition": true}
 
 // digest is the world's hash: FNV-1a over a walk of every exported
 // value in a fixed order, floats to six decimals.
