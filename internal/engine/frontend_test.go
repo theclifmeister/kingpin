@@ -21,7 +21,7 @@ var worldReads = []string{
 	"CanCrown", "CanUndercut", "CanVanish", "Capacity", "Cash", "Checkpoint", "City", "CityName",
 	"CityOf", "Cold", "Contested", "ContestedBy", "Contract", "ContractsDue", "ContractsIn", "Corner",
 	"DealWith", "DeedValue", "Deeds", "DeedsIn", "DelegatedOrder", "DelegatedSupplied", "Deliverable", "Demand",
-	"Describe", "DrivenRoute", "ExportOrder", "ExportsOut", "Faction", "FactionIndex", "FactionName", "FallGuyLeft", "FavourCalled", "Free",
+	"Describe", "DrivenRoute", "ExportOrder", "ExportsOut", "Faction", "FactionIndex", "FactionName", "FallGuyLeft", "FavourCalled", "Float", "Free",
 	"Front", "FrontCity", "Glut", "GuardOf", "Held", "Here", "HomageDeals", "Home", "House", "HousesIn",
 	"LeadName", "Lot", "MaxBuy", "Missing", "NextDoor", "Order", "Owed", "Owns", "PostOf", "Product",
 	"ProductName", "Quality", "QueuedDelivery", "Quote", "ReachedOn", "ReignDay", "ReservedToday", "Rival",

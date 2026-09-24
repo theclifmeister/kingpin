@@ -1,6 +1,7 @@
 package ui
 
 import (
+	"fmt"
 	"strings"
 	"testing"
 
@@ -241,5 +242,33 @@ func TestExposureLineIsOneNumber(t *testing.T) {
 	}
 	if pane := paneProse(m); !strings.Contains(pane, want) {
 		t.Fatalf("WASH lacks %q:\n%s", want, pane)
+	}
+}
+
+// A front with nothing to wash says why where it is seen (#417): a
+// laundromat read "open" and washed $0 a week, the till's line below
+// the fold at 100 columns.
+func TestIdleFrontSaysWhy(t *testing.T) {
+	for _, sz := range [][2]int{{80, 24}, {100, 30}, {120, 40}} {
+		m := richModel(t, sz[0], sz[1])
+		if len(m.w.Fronts) == 0 {
+			t.Fatal("the rich fixture owns no front")
+		}
+		m.w.Fronts[0].Bought = 0 // open, not opening tomorrow
+		m.w.Player.DirtyCash = m.till() - 1
+		m.Update(key("7"))
+		view := stripANSI(m.View())
+		till := m.till()
+		if want := fmt.Sprintf("idle: dirty %s is under the %s till", money(till-1), money(till)); !strings.Contains(view, want) {
+			t.Errorf("%dx%d: the ledger does not say the wash is idle:\n%s", sz[0], sz[1], view)
+		}
+		if sz[0] >= 100 && !strings.Contains(view, "idle: under the till") {
+			t.Errorf("%dx%d: the open front's status is not idle:\n%s", sz[0], sz[1], view)
+		}
+		m.w.Player.DirtyCash = m.till() + 10_000
+		m.Update(key("7"))
+		if view := stripANSI(m.View()); strings.Contains(view, "idle: dirty") || strings.Contains(view, "idle: under") {
+			t.Errorf("%dx%d: an idle wash over the till:\n%s", sz[0], sz[1], view)
+		}
 	}
 }
