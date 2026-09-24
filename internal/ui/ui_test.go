@@ -681,6 +681,12 @@ func TestSpaceOpensTheOverlayUnder100(t *testing.T) {
 			t.Errorf("the overlay lacks the section %q:\n%s", s.title, overlay)
 		}
 	}
+	// The map's pane is the corner and the police of the city (#355),
+	// more than 80x24 holds: KEYS is last, a scroll down.
+	for i := 0; i < 20 && !strings.Contains(overlay, "KEYS"); i++ {
+		m.Update(key("pgdown"))
+		overlay = stripANSI(m.View())
+	}
 	if !strings.Contains(overlay, "KEYS") {
 		t.Errorf("the overlay has no KEYS:\n%s", overlay)
 	}
@@ -2776,6 +2782,18 @@ func TestModalsFit(t *testing.T) {
 			m.w.Player.DirtyCash = 10_000_000
 			m.Update(key("2"))
 			m.Update(key("R"))
+		}},
+		// The presets (#357): the list, and the review of the quiet one
+		// over a routine it moves in every column.
+		{"presets", modePresets, func(t *testing.T, m *Model) {
+			m.Update(key("2"))
+			m.Update(key("P"))
+		}},
+		{"preset review", modePresets, func(t *testing.T, m *Model) {
+			presetRoutine(t, m)
+			m.Update(key("2"))
+			m.Update(key("P"))
+			m.Update(key("enter"))
 		}},
 		{"buy past the room", modeBuy, func(t *testing.T, m *Model) {
 			m.w.Player.DirtyCash = 10_000_000

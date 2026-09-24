@@ -45,9 +45,13 @@ func TestWebClient(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
+	alertKinds, err := json.Marshal(engine.AlertKinds())
+	if err != nil {
+		t.Fatal(err)
+	}
 	boss := filepath.Join(t.TempDir(), "boss.json")
 	bossNights(t, boss)
-	run := exec.Command(node, filepath.Join("testdata", "play.mjs"), site, string(kinds), boss)
+	run := exec.Command(node, filepath.Join("testdata", "play.mjs"), site, string(kinds), boss, string(alertKinds))
 	run.Env = append(os.Environ(), "KINGPIN_HOME="+t.TempDir())
 	raw, err := run.Output()
 	if err != nil {
@@ -74,6 +78,10 @@ func TestWebClient(t *testing.T) {
 		More         []runResult `json:"more"`
 		Boss         runResult   `json:"boss"`
 		Synthetic    []string    `json:"synthetic"`
+		AlertsMiss   []string    `json:"alertsMissing"`
+		AlertsExtra  []string    `json:"alertsExtra"`
+		AlertsWorded int         `json:"alertsWorded"`
+		AlertsLinked int         `json:"alertsLinked"`
 	}
 	if err := json.Unmarshal(raw, &got); err != nil {
 		t.Fatalf("node printed %s: %v", raw, err)
@@ -92,6 +100,12 @@ func TestWebClient(t *testing.T) {
 	}
 	for _, p := range got.Problems {
 		t.Error(p)
+	}
+	if len(got.AlertsMiss)+len(got.AlertsExtra) > 0 {
+		t.Errorf("the alerts' words: none for %v, words for no kind %v", got.AlertsMiss, got.AlertsExtra)
+	}
+	if got.AlertsWorded == 0 || got.AlertsLinked == 0 {
+		t.Errorf("%d alerts worded and %d linked to a panel over every run: the page draws none", got.AlertsWorded, got.AlertsLinked)
 	}
 	if got.Reference.Over == "" {
 		t.Errorf("seed 7 with the autopilot: no ending by day %d", got.Reference.Day)

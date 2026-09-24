@@ -43,6 +43,10 @@ var bindings = []binding{
 	// The rivals screen's own [ ] turns the faction, and says so (#239).
 	{key: "[ ]", label: "faction", help: "the next faction at the table", keys: []string{"[", "]"}, screens: on(screenRivals),
 		do: func(m *Model, key string) { m.cycleFaction(dir(key)) }},
+	// The dashboard's own [ ] picks an alert in ALERTS (#352), and o
+	// opens what answers it.
+	{key: "[ ]", label: "alert", help: "pick an alert in ALERTS", keys: []string{"[", "]"}, screens: on(screenDashboard), when: hasAlerts,
+		do: func(m *Model, key string) { m.cycleAlert(dir(key)) }},
 	// The dashboard and the market: the day's cart.
 	{key: "c", label: "cart", help: "the day's cart: edit its buys and orders", screens: on(screenDashboard, screenMarket),
 		do: func(m *Model, _ string) { m.openCart() }},
@@ -59,6 +63,8 @@ var bindings = []binding{
 		do: func(m *Model, _ string) { m.deliverSelected() }},
 	{key: "R", label: "restock", help: "buy days of your corners' demand, reviewed", screens: on(screenMarket),
 		do: func(m *Model, _ string) { m.askRestock() }},
+	{key: "P", label: "presets", help: "the routine's dials in one bundle, reviewed", screens: on(screenMarket),
+		do: func(m *Model, _ string) { m.askPresets() }},
 	// The journal: one source at a time.
 	{key: "f", label: "filter", help: "show one source's headlines, then all again", screens: on(screenJournal),
 		do: func(m *Model, _ string) { m.cycleFilter() }},
@@ -144,6 +150,8 @@ var bindings = []binding{
 		do: func(m *Model, _ string) { m.askReserve() }},
 	{key: "w", label: "walk away", help: "retire, vanish, or take the crown", screens: on(screenDashboard),
 		do: func(m *Model, _ string) { m.askExit() }},
+	{key: "o", label: "open alert", help: "go where the selected alert is answered", screens: on(screenDashboard), when: hasAlerts,
+		do: func(m *Model, _ string) { m.openSelectedAlert() }},
 	// The rivals.
 	{key: "d", label: "propose", help: "offer the rival a truce, tribute or a split", screens: on(screenRivals),
 		do: func(m *Model, _ string) { m.askPropose() }},
@@ -308,6 +316,12 @@ var modeBindings = []binding{
 	{key: "enter", label: "invest", modes: in(modeInvest)},
 	{key: "enter", label: "reserve", modes: in(modeReserve)},
 	{key: "enter", label: "buy", modes: in(modeRestock)},
+	{key: "↑↓", label: "pick", modes: in(modePresets), when: step(0)},
+	{key: "1-9", label: "choose", modes: in(modePresets), when: step(0)},
+	{key: "enter", label: "review", modes: in(modePresets), when: step(0)},
+	{key: "s", label: "save current", modes: in(modePresets), when: step(0)},
+	{key: "x", label: "delete", modes: in(modePresets), when: presetOnSaved},
+	{key: "enter", label: "apply", modes: in(modePresets), when: step(1)},
 	{key: "enter", label: "pay", modes: in(modePayCop)},
 	{key: "enter", label: "next", modes: in(modeSpy), when: spyOnFactions},
 	{key: "enter", label: "plant", modes: in(modeSpy), when: spyOnCrew},
@@ -322,6 +336,7 @@ var modeBindings = []binding{
 	{key: "b", label: "buy", modes: in(modeSell), when: step(0)},
 	{key: "⇧tab", label: "back", keys: []string{"shift+tab"}, dialogs: true, when: pastFirstStep},
 	{key: "esc", label: "close", dialogs: true, modes: in(modeConfirm, modeConfirmEnd)},
+	{key: "o", label: "open alert", modes: in(modeReport), when: stoppedOnAlert}, // the fast-forward's stop line (#352)
 	{key: "enter esc", label: "close", modes: in(modeReport, modeHelp, modeStage)},
 	{key: "enter esc", label: "close", modes: in(modeCard), when: step(1)},
 	{key: "␣ esc", label: "close", modes: in(modeDetails)},

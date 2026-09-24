@@ -1483,8 +1483,28 @@
       ],
       "type": "object"
     },
+    "engine.Act": {
+      "properties": {
+        "mode": {
+          "type": "string"
+        },
+        "screen": {
+          "type": "string"
+        },
+        "subject": {
+          "type": "string"
+        }
+      },
+      "required": [
+        "screen"
+      ],
+      "type": "object"
+    },
     "engine.Alert": {
       "properties": {
+        "act": {
+          "$ref": "#/$defs/engine.Act"
+        },
         "amount": {
           "type": "integer"
         },
@@ -1551,7 +1571,8 @@
       },
       "required": [
         "kind",
-        "key"
+        "key",
+        "act"
       ],
       "type": "object"
     },
@@ -1627,6 +1648,49 @@
       ],
       "type": "object"
     },
+    "engine.Change": {
+      "properties": {
+        "city": {
+          "type": "string"
+        },
+        "cost": {
+          "type": "integer"
+        },
+        "cost_to": {
+          "type": "integer"
+        },
+        "dropped": {
+          "type": "integer"
+        },
+        "from": {
+          "type": "string"
+        },
+        "now": {
+          "$ref": "#/$defs/game.SellOrder"
+        },
+        "product": {
+          "type": "string"
+        },
+        "route": {
+          "type": "string"
+        },
+        "setting": {
+          "type": "string"
+        },
+        "to": {
+          "type": "string"
+        },
+        "was": {
+          "$ref": "#/$defs/game.SellOrder"
+        }
+      },
+      "required": [
+        "setting",
+        "from",
+        "to"
+      ],
+      "type": "object"
+    },
     "engine.Chip": {
       "properties": {
         "text": {
@@ -1677,6 +1741,12 @@
         "id": {
           "type": "string"
         },
+        "ladder": {
+          "items": {
+            "$ref": "#/$defs/engine.RungView"
+          },
+          "type": "array"
+        },
         "name": {
           "type": "string"
         },
@@ -1694,6 +1764,9 @@
         },
         "response_day": {
           "type": "integer"
+        },
+        "response_sure": {
+          "type": "number"
         }
       },
       "required": [
@@ -1702,8 +1775,38 @@
         "heat",
         "pressure",
         "goodwill",
+        "ladder",
         "products",
         "corners"
+      ],
+      "type": "object"
+    },
+    "engine.Command": {
+      "properties": {
+        "city": {
+          "type": "string"
+        },
+        "dial": {
+          "type": "string"
+        },
+        "n": {
+          "type": "integer"
+        },
+        "on": {
+          "type": "boolean"
+        },
+        "op": {
+          "type": "string"
+        },
+        "product": {
+          "type": "string"
+        },
+        "route": {
+          "type": "string"
+        }
+      },
+      "required": [
+        "op"
       ],
       "type": "object"
     },
@@ -2306,17 +2409,26 @@
     },
     "engine.LawView": {
       "properties": {
+        "arrest_line": {
+          "type": "integer"
+        },
         "chief": {
           "type": "string"
         },
         "chief_temper": {
           "type": "string"
         },
+        "cover": {
+          "type": "integer"
+        },
         "da": {
           "type": "string"
         },
         "da_stance": {
           "type": "string"
+        },
+        "exposure_line": {
+          "type": "integer"
         },
         "next_election": {
           "type": "integer"
@@ -2326,7 +2438,10 @@
         "chief",
         "chief_temper",
         "da",
-        "da_stance"
+        "da_stance",
+        "arrest_line",
+        "exposure_line",
+        "cover"
       ],
       "type": "object"
     },
@@ -2430,6 +2545,29 @@
       ],
       "type": "object"
     },
+    "engine.Preset": {
+      "properties": {
+        "blurb": {
+          "type": "string"
+        },
+        "id": {
+          "type": "string"
+        },
+        "name": {
+          "type": "string"
+        },
+        "saved": {
+          "type": "boolean"
+        }
+      },
+      "required": [
+        "id",
+        "name",
+        "blurb",
+        "saved"
+      ],
+      "type": "object"
+    },
     "engine.PriceFacts": {
       "properties": {
         "delta": {
@@ -2501,6 +2639,21 @@
         "demand",
         "history",
         "facts"
+      ],
+      "type": "object"
+    },
+    "engine.Refusal": {
+      "properties": {
+        "command": {
+          "$ref": "#/$defs/engine.Command"
+        },
+        "why": {
+          "type": "string"
+        }
+      },
+      "required": [
+        "command",
+        "why"
       ],
       "type": "object"
     },
@@ -2611,6 +2764,35 @@
       ],
       "type": "object"
     },
+    "engine.Review": {
+      "properties": {
+        "changes": {
+          "items": {
+            "$ref": "#/$defs/engine.Change"
+          },
+          "type": "array"
+        },
+        "preset": {
+          "$ref": "#/$defs/engine.Preset"
+        },
+        "refused": {
+          "items": {
+            "$ref": "#/$defs/engine.Refusal"
+          },
+          "type": "array"
+        },
+        "same": {
+          "type": "integer"
+        }
+      },
+      "required": [
+        "preset",
+        "changes",
+        "refused",
+        "same"
+      ],
+      "type": "object"
+    },
     "engine.RouteView": {
       "properties": {
         "closed": {
@@ -2666,6 +2848,36 @@
       "required": [
         "lots",
         "fares"
+      ],
+      "type": "object"
+    },
+    "engine.RungView": {
+      "properties": {
+        "cap": {
+          "type": "number"
+        },
+        "cap_days": {
+          "type": "integer"
+        },
+        "cash_loss": {
+          "type": "number"
+        },
+        "level": {
+          "type": "string"
+        },
+        "line": {
+          "type": "number"
+        },
+        "pages": {
+          "type": "integer"
+        },
+        "stock_loss": {
+          "type": "number"
+        }
+      },
+      "required": [
+        "level",
+        "line"
       ],
       "type": "object"
     },
@@ -8282,6 +8494,36 @@
       ],
       "type": "object"
     },
+    "game.SellOrder": {
+      "properties": {
+        "City": {
+          "type": "string"
+        },
+        "Dial": {
+          "maximum": 2,
+          "minimum": 0,
+          "type": "integer",
+          "x-names": [
+            "quiet",
+            "normal",
+            "aggressive"
+          ]
+        },
+        "Product": {
+          "type": "string"
+        },
+        "Qty": {
+          "type": "integer"
+        }
+      },
+      "required": [
+        "City",
+        "Product",
+        "Qty",
+        "Dial"
+      ],
+      "type": "object"
+    },
     "protocol.DayResult": {
       "properties": {
         "day": {
@@ -8855,6 +9097,24 @@
           "$ref": "#/$defs/engine.Alert"
         },
         "type": "array"
+      }
+    },
+    "apply_preset": {
+      "changes": true,
+      "needsRun": true,
+      "params": {
+        "maxItems": 1,
+        "minItems": 1,
+        "prefixItems": [
+          {
+            "title": "preset",
+            "type": "string"
+          }
+        ],
+        "type": "array"
+      },
+      "result": {
+        "$ref": "#/$defs/engine.Review"
       }
     },
     "asset_offers": {
@@ -9958,6 +10218,61 @@
         "type": "null"
       }
     },
+    "preset_commands": {
+      "changes": false,
+      "needsRun": true,
+      "params": {
+        "maxItems": 1,
+        "minItems": 1,
+        "prefixItems": [
+          {
+            "title": "preset",
+            "type": "string"
+          }
+        ],
+        "type": "array"
+      },
+      "result": {
+        "items": {
+          "$ref": "#/$defs/engine.Command"
+        },
+        "type": "array"
+      }
+    },
+    "preset_diff": {
+      "changes": false,
+      "needsRun": true,
+      "params": {
+        "maxItems": 1,
+        "minItems": 1,
+        "prefixItems": [
+          {
+            "title": "preset",
+            "type": "string"
+          }
+        ],
+        "type": "array"
+      },
+      "result": {
+        "$ref": "#/$defs/engine.Review"
+      }
+    },
+    "presets": {
+      "changes": false,
+      "needsRun": true,
+      "params": {
+        "maxItems": 0,
+        "minItems": 0,
+        "prefixItems": [],
+        "type": "array"
+      },
+      "result": {
+        "items": {
+          "$ref": "#/$defs/engine.Preset"
+        },
+        "type": "array"
+      }
+    },
     "preview": {
       "changes": false,
       "needsRun": true,
@@ -10794,6 +11109,27 @@
       },
       "result": {
         "type": "number"
+      }
+    },
+    "rules.heat.rungs": {
+      "changes": false,
+      "needsRun": true,
+      "params": {
+        "maxItems": 1,
+        "minItems": 1,
+        "prefixItems": [
+          {
+            "title": "city",
+            "type": "string"
+          }
+        ],
+        "type": "array"
+      },
+      "result": {
+        "items": {
+          "$ref": "#/$defs/content.ResponseConfig"
+        },
+        "type": "array"
       }
     },
     "rules.heat.sale_heat": {
@@ -13260,7 +13596,7 @@
       "$ref": "#/$defs/engine.View"
     }
   },
-  "protocol": 6,
+  "protocol": 7,
   "title": "kingpind",
-  "view_version": 5
+  "view_version": 7
 }

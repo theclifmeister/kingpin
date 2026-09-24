@@ -275,12 +275,12 @@ ROUTES                                                                          
                                                                                     │ w  boost: the till, ~$24K        │
                                                                                     │ t  tip the police: at 0 of 60    │
                                                                                     │                                  │
-                                                                                    │                                  │
-                                                                                    │                                  │
-                                                                                    │                                  │
-                                                                                    │                                  │
-                                                                                    │                                  │
-                                                                                    │                                  │
+                                                                                    │ POLICE · EASTSIDE                │
+                                                                                    │ heat        12 · patrol in 28    │
+                                                                                    │ patrol 40   sales ~60% for 2d    │
+                                                                                    │ sting 58    10% stock, 5% cash   │
+                                                                                    │ raid 75     50% stock, 30% cash  │
+                                                                                    │ …                                │
                                                                                     │                                  │
                                                                                     │ KEYS                             │
                                                                                     │ n  end day      ↑↓←→ pick        │
@@ -440,8 +440,10 @@ The full table is below; `?` brings it up in the game.
 | `ctrl+s` | save | save now; the end of the day saves too | everywhere |
 | `N` | new run | start over, after a confirmation | everywhere |
 | `q` | quit | save and quit | everywhere |
+| `[ ]` | alert | pick an alert in ALERTS | dashboard |
 | `c` | cart | the day's cart: edit its buys and orders | dashboard, market |
 | `w` | walk away | retire, vanish, or take the crown | dashboard |
+| `o` | open alert | go where the selected alert is answered | dashboard |
 | `i` | intel | the file on the chief and the police here | dashboard |
 | `←→` | city | turn the market to the other city | market |
 | `a` | accept | take the buyer's offer | market |
@@ -450,6 +452,7 @@ The full table is below; `?` brings it up in the game.
 | `o` | cook | the chemist cooks a batch where you stand | market |
 | `d` | deliver | hand the buyer what the stash here holds | market |
 | `R` | restock | buy days of your corners' demand, reviewed | market |
+| `P` | presets | the routine's dials in one bundle, reviewed | market |
 | `pgup pgdn` | page | page through the journal | journal |
 | `f` | filter | show one source's headlines, then all again | journal |
 | `h` | hire | hire the selected candidate | crew |

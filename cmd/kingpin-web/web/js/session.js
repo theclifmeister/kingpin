@@ -7,7 +7,7 @@
 // The versions this client is written against. A module with another
 // protocol or view version is refused before a run starts: a field
 // renamed under the client would draw a wrong game, not fail.
-export const SUPPORTED = { protocol: [6], view: [5] };
+export const SUPPORTED = { protocol: [7], view: [7] };
 
 export class VersionError extends Error {}
 
@@ -111,6 +111,19 @@ export class Session {
   // flow's categories. It changes nothing.
   preview() {
     return this.call("preview");
+  }
+  // presets are the operation presets (#357): [{id, name, blurb,
+  // saved}]; presetDiff is what one would change, {preset, changes,
+  // refused, same}, the run untouched; applyPreset issues its commands
+  // and returns the same review.
+  presets() {
+    return this.call("presets");
+  }
+  presetDiff(id) {
+    return this.call("preset_diff", id);
+  }
+  applyPreset(id) {
+    return this.call("apply_preset", id);
   }
   hire(candidate) {
     return this.call("hire", candidate);

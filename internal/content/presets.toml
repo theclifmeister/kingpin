@@ -1,0 +1,43 @@
+# Operation presets (#357, docs/presets.md): named bundles of the
+# routine's dials. A preset is a list of the existing commands and no
+# mechanic of its own: applying one is the same as issuing its commands
+# by hand, and the player reviews exactly what it changes first.
+#
+# Each row names what it sets; a key left out leaves that setting alone.
+#   standing  a sell dial for every standing order of yours, or "cancel"
+#   supply    "clear" ends every supply contract of yours
+#   launder   the launder dial: careful, normal, greedy
+#   pay       the pay dial: stingy, fair, generous
+#   routes    a route dial for every route running: off, slow, normal, fast
+#   lie_low   lie low today (it drops tonight's orders)
+
+[[preset]]
+id = "quiet"
+name = "Quiet trading"
+blurb = "Every standing order at the quiet dial, the wash careful, the road slow."
+standing = "quiet"
+launder = "careful"
+routes = "slow"
+
+[[preset]]
+id = "preserve"
+name = "Preserve cash"
+blurb = "The supply contracts end, the standing orders stay, fair pay, a normal wash."
+supply = "clear"
+pay = "fair"
+launder = "normal"
+
+[[preset]]
+id = "push"
+name = "Push"
+blurb = "Every standing order aggressive and the wash greedy: money now, heat later."
+standing = "aggressive"
+launder = "greedy"
+
+[[preset]]
+id = "dark"
+name = "Go dark"
+blurb = "The standing orders and the contracts end, and you lie low today."
+standing = "cancel"
+supply = "clear"
+lie_low = true

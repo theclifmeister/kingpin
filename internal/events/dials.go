@@ -2,9 +2,9 @@ package events
 
 // The dials (#275). Every dial is an int in a fixed order, saved as that
 // int (a World field in JSON), and named by one table here that drives
-// its String, the notches the UI draws and, for the two a config file
-// names (the sell dial and the force), its Parse, so a dial's words are
-// written once. None of them implements encoding.TextUnmarshaler or
+// its String, the notches the UI draws and, for the ones a config file
+// names (the sell dial and the force; the pay, launder and route dials
+// in presets.toml, #357), its Parse, so a dial's words are written once. None of them implements encoding.TextUnmarshaler or
 // TextMarshaler: encoding/json would then refuse the ints every save
 // holds (and write strings in their place), so the config files that name
 // a dial keep a string field and read it through the Parse function.
@@ -68,6 +68,10 @@ func (p Pay) String() string { return named(payNames[:], p, int(PayFair)) }
 // PayNames are the pay dial's notches in order.
 func PayNames() []string { return append([]string(nil), payNames[:]...) }
 
+// ParsePay is the pay dial named s, and whether s names one (#357: a
+// preset names it).
+func ParsePay(s string) (Pay, bool) { return parse[Pay](payNames[:], s) }
+
 // Force is the dial on a strike against a rival corner: how hard the
 // enforcers go in. Harder flips corners faster and draws more heat.
 type Force int
@@ -105,6 +109,10 @@ func (l Launder) String() string { return named(launderNames[:], l, int(LaunderN
 // LaunderNames are the launder dial's notches in order.
 func LaunderNames() []string { return append([]string(nil), launderNames[:]...) }
 
+// ParseLaunder is the launder dial named s, and whether s names one
+// (#357).
+func ParseLaunder(s string) (Launder, bool) { return parse[Launder](launderNames[:], s) }
+
 // Ship is the shipping dial: how fast a shipment is pushed over its route,
 // trading days in transit against the chance of a seizure on each.
 type Ship int
@@ -135,6 +143,13 @@ const (
 var routeNames = [...]string{"off", "slow", "normal", "fast"}
 
 func (r RouteDial) String() string { return named(routeNames[:], r, int(RouteOff)) }
+
+// RouteDialNames are the route dial's notches in order, off first.
+func RouteDialNames() []string { return append([]string(nil), routeNames[:]...) }
+
+// ParseRouteDial is the route dial named s, and whether s names one
+// (#357).
+func ParseRouteDial(s string) (RouteDial, bool) { return parse[RouteDial](routeNames[:], s) }
 
 // On reports whether the route runs at all.
 func (r RouteDial) On() bool { return r > RouteOff && r <= RouteFast }

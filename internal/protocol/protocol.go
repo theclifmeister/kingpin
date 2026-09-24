@@ -28,8 +28,10 @@ import (
 // notifications. The view inside carries its own, engine.ViewVersion.
 // 2 added the quotes, rules.<sim>.<method> (#325); 3 export_save and
 // import_save (#327); 4 max_buy, restock_plan and the no_room error
-// (#356); 6 preview, the day's preview (#353; 5 is #369's).
-const Version = 6
+// (#356); 5 the presets, presets, preset_commands, preset_diff and
+// apply_preset (#357); 7 preview, the day's preview (#353; 6 is
+// #373's).
+const Version = 7
 
 // The error codes: JSON-RPC 2.0's, and the game's own in its
 // server-error range.
