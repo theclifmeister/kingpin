@@ -323,13 +323,19 @@ const (
 // on day 56 the pool deals a fresh name where main dealt one a member
 // who had left once wore. managed, boss and aggressive (20 runs, 200
 // days) print what main prints.
+// Again for #419 (a push's CornerTaken says the odds, the muscle and
+// the guard, and the digest names an idle enforcer): the move on day 23
+// is the report's and the journal's words alone. With World.Report and
+// World.Journal set aside the digest is main's on all sixty days, and
+// managed, boss, war and aggressive (20 runs, 200 days) print what main
+// prints.
 var seedDigest = []string{
 	"0a9d256ac4067b0b", "d733bc202d78a82d", "d4957c0996824e2f", "854723905af8046c",
 	"512fd46840037822", "6d2c090948bb7171", "aa02e7ea3955331a", "14f526cef234b2a7",
 	"a4a83c27f7dfe8c6", "d508573e8e6375b4", "fb972410bb305b00", "bad158def77769d0",
 	"879d09a4c37af2f1", "1d0a0e8c6300a8f3", "e2daadfcc794e8bb", "3cc33241ff16d133",
 	"c1711ea2ab8a9d65", "5afadc26b3deaac7", "26376d966b8c1d93", "572c922927ab5eed",
-	"41baf3fd2ea2bb0a", "ac565b3c19e08742", "5c7264a75eed3eb2", "716ef6508a17245d",
+	"41baf3fd2ea2bb0a", "ac565b3c19e08742", "e4fbf88281b1c887", "716ef6508a17245d",
 	"34e67524c0ef3c07", "7862b637fc0fc925", "d11ca2b69dd686b7", "b470293e739b0617",
 	"1dd18b9dabb5164d", "bc2b4f369dc096e2", "cf85c0bd7893dcd6", "696b1ddf9c9e3d3e",
 	"79eceb1dbc85d028", "4efd09b43534ecb1", "54173c0bbe82d32d", "bb6934052351ee38",
@@ -337,6 +343,6 @@ var seedDigest = []string{
 	"a6521f6697c0de42", "d1a17e73a5398d69", "a6a7fc9cc9d5d8c6", "d505926353315154",
 	"445630f8e5d3bc7d", "72bcd2145bb6d10b", "b061372f3ab39dfa", "5a6bf8f70930e876",
 	"8d7b8ca778a8cccf", "47504e322e5b08d2", "80ff3d78ea9d2da2", "728c4431a401f697",
-	"3ca28b57c5545244", "4cdcfc9324d95463", "cd5b176c7667f441", "db2eeaa226a3a302",
-	"e46f7c6860b029b1", "5e67b1445679f64f", "e8adbfa42cbb23b1", "aebaad94dcdec9de",
+	"3ca28b57c5545244", "4cdcfc9324d95463", "cd5b176c7667f441", "16a5fefdda8e888f",
+	"ab1d4285405c7336", "79b8f61e04bff586", "fad9a0e43767bfd4", "0bc37ec75219089e",
 }

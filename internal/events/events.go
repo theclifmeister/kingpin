@@ -320,6 +320,13 @@ type CornerTaken struct {
 	From     string // none, player
 	Handed   string
 	Pricewar bool // the push was its answer to a price war on a corner next door (#68)
+	// A push that took your corner (#419): the odds it landed at, the
+	// faction's muscle behind it and your enforcer it got past ("" for
+	// nobody guarding), so the report says what beat you. Zero on a
+	// claim and a hand-over.
+	Odds   float64
+	Muscle int
+	Guard  string
 }
 
 func (CornerTaken) Kind() string { return "CornerTaken" }

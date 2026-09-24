@@ -195,7 +195,7 @@ func (s *Sim) lead(w *game.World, t *game.Tick, flow game.CashFlow) []game.Line 
 	}
 
 	// The standing trouble (#345): the corners you hold that nobody
-	// works, and the runners fit to work with no post.
+	// works, and the runners and enforcers fit to work with no post.
 	var idle named
 	for _, c := range w.Corners() {
 		if c.Held() && !c.Worked() {
@@ -207,18 +207,43 @@ func (s *Sim) lead(w *game.World, t *game.Tick, flow game.CashFlow) []game.Line 
 		l.Act.Mode = game.ModePost
 		add("idle_corner", float64(n), l)
 	}
-	var runners named
+	// An enforcer with no post is idle too (#419): a corner lost from
+	// under one sends them home, and only the runner used to say so.
+	var runners, guards named
 	for _, m := range w.Crew.Members {
-		if m.Role == game.RoleRunner && m.Fit(w.Day) && w.PostOf(m.ID) == nil {
+		if !m.Fit(w.Day) || w.PostOf(m.ID) != nil {
+			continue
+		}
+		switch {
+		case m.Role == game.RoleRunner:
 			runners.addMember(m.Name, m.ID)
+		case m.Role == game.RoleEnforcer && w.GuardOf(m.ID) == nil:
+			guards.addMember(m.Name, m.ID)
 		}
 	}
-	if n := runners.len(); n > 0 {
-		text := fmt.Sprintf("%s are idle: %s.", capitalize(format.Plural(n, "runner")), runners.words())
-		if n == 1 {
-			text = fmt.Sprintf("A runner is idle: %s.", runners.words())
+	if n := runners.len() + guards.len(); n > 0 {
+		var text string
+		switch {
+		case guards.len() == 0:
+			text = fmt.Sprintf("%s are idle: %s.", capitalize(format.Plural(n, "runner")), runners.words())
+		case runners.len() == 0:
+			text = fmt.Sprintf("%s are idle: %s.", capitalize(format.Plural(n, "enforcer")), guards.words())
+		default:
+			noun := func(k int, s string) string {
+				if k == 1 {
+					return s
+				}
+				return format.Plurals(s)
+			}
+			text = fmt.Sprintf("%d of the crew are idle: %s (%s), %s (%s).", n, runners.words(), noun(runners.len(), "runner"), guards.words(), noun(guards.len(), "enforcer"))
 		}
-		add("idle_runner", float64(n), game.Line{Text: text, Act: game.Act{Screen: game.ScreenCrew, Subject: game.OnMember}, Member: runners.members[0]})
+		if n == 1 && guards.len() == 0 {
+			text = fmt.Sprintf("A runner is idle: %s.", runners.words())
+		} else if n == 1 {
+			text = fmt.Sprintf("An enforcer is idle: %s.", guards.words())
+		}
+		first := append(slices.Clone(runners.members), guards.members...)[0]
+		add("idle_runner", float64(n), game.Line{Text: text, Act: game.Act{Screen: game.ScreenCrew, Subject: game.OnMember}, Member: first})
 	}
 
 	sort.SliceStable(all, func(i, j int) bool {
