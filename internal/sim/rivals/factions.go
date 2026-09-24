@@ -117,16 +117,28 @@ func (s *Sim) table43(w *game.World, t *game.Tick) {
 // the duel is the duel, while its chest covers a claim at today's
 // prices; one that cannot has no take to save one out of and nothing to
 // sell for it, so it scatters (#370): absorbed by nobody, its muscle
-// gone home, and the city is no longer waiting on it. No dice.
+// gone home, and the city is no longer waiting on it. One the police
+// raided off its last corner (RaidedOut, #384) counts its spell from the
+// raid, later than any rout: nobody took it, so nobody absorbs it, and
+// it only scatters broke. An arrived faction landless with neither day
+// stamped is a raid from a save before RaidedOut (nothing else leaves
+// one so) and is stamped today. No dice.
 func (s *Sim) absorb(w *game.World, t *game.Tick, r *game.RivalState) {
-	if r.Arrived == 0 || r.Routed == 0 || w.RivalHeldBy(r.Faction()) > 0 || t.Day-r.Routed < s.cfg.Factions.AbsorbDays {
+	if r.Arrived == 0 || w.RivalHeldBy(r.Faction()) > 0 {
 		return
 	}
-	if r.LastTakenBy == "" && r.Cash >= s.ClaimCost(w, r) {
+	if r.Routed == 0 && r.RaidedOut == 0 {
+		r.RaidedOut = t.Day
+	}
+	raided := r.RaidedOut > r.Routed
+	if t.Day-max(r.Routed, r.RaidedOut) < s.cfg.Factions.AbsorbDays {
+		return
+	}
+	if (raided || r.LastTakenBy == "") && r.Cash >= s.ClaimCost(w, r) {
 		return
 	}
 	var by *game.RivalState
-	if r.LastTakenBy != "" { // "" is the rival at home's id too: nobody took it
+	if !raided && r.LastTakenBy != "" { // "" is the rival at home's id too: nobody took it
 		by = w.Faction(r.LastTakenBy)
 	}
 	ev := events.RivalAbsorbed{Day: t.Day, Rival: r.Leader, Faction: r.Faction(), Muscle: r.Muscle}

@@ -231,11 +231,11 @@ func TestPreviewIsTheOutcome(t *testing.T) {
 					t.Fatalf("world %d, %s choice %d: Preview wrote the world", n, cc.ID, i)
 				}
 				cp.Dilemmas.Pending = card()
-				reading := game.Reading(cp)
+				reading := game.Reading(cp, cp.Dilemmas.Pending)
 				if _, err := cp.Choose(i); err != nil {
 					t.Fatalf("world %d, %s choice %d: %v", n, cc.ID, i, err)
 				}
-				if want := game.Moved(reading, cp); !reflect.DeepEqual(got, want) {
+				if want := game.Moved(reading, cp, card()); !reflect.DeepEqual(got, want) {
 					t.Errorf("world %d, %s choice %d: preview %+v, Choose moved %+v", n, cc.ID, i, got, want)
 				}
 				if len(got) > 0 {

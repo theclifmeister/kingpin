@@ -30,15 +30,16 @@ func (c Change) Delta() float64 { return c.To - c.From }
 // Gauges are what a card's effects can move, in the order a preview
 // lists them: the two bags (dirty_cash and dirty_amount both land in
 // dirty), the heat where you stand, each member's loyalty, the four
-// numbers the home rival keeps, the units you hold, the corners you
+// numbers the faction the card is about keeps (#385), the units you hold, the corners you
 // hold (a card's corner given up, #342), the favours you owe, and the
 // three reputation axes. The heat's high-water mark moves with the heat and
 // is a stat, not a gauge.
 var Gauges = []string{"dirty_cash", "clean_cash", "heat", "loyalty", "war", "grudge", "rival_muscle", "rival_cash", "stock", "corners", "owes", "fear", "respect", "notoriety"}
 
-// gauges reads every gauge in w, in Gauges' order. It only reads: the
-// rival's are read off Rivals, not Rival(), which would make one.
-func gauges(w *World) []Change {
+// gauges reads every gauge in w, in Gauges' order, the rival's off the
+// faction the card is about (#385). It only reads: "" is read off
+// Rivals, not Rival(), which would make one.
+func gauges(w *World, c *Card) []Change {
 	out := []Change{
 		{Key: "dirty_cash", From: float64(w.Player.DirtyCash)},
 		{Key: "clean_cash", From: float64(w.Player.CleanCash)},
@@ -49,8 +50,7 @@ func gauges(w *World) []Change {
 	for _, m := range w.Crew.Members {
 		out = append(out, Change{Key: "loyalty", Member: m.ID, From: m.Loyalty})
 	}
-	if len(w.Rivals) > 0 && w.Rivals[0] != nil {
-		r := w.Rivals[0]
+	if r := cardRival(w, c); r != nil {
 		out = append(out,
 			Change{Key: "war", From: r.War},
 			Change{Key: "grudge", From: float64(r.Grudge)},
@@ -109,15 +109,27 @@ func (c *Card) Preview(w *World, i int) ([]Change, error) {
 	if err := c.apply(cp, i); err != nil {
 		return nil, err
 	}
-	return diff(gauges(w), gauges(cp)), nil
+	return diff(gauges(w, c), gauges(cp, c)), nil
 }
 
-// Moved is what moved in w since a reading of its gauges, for a test
-// that holds Preview to what Choose did.
-func Moved(before []Change, w *World) []Change { return diff(before, gauges(w)) }
+// Moved is what moved in w since a reading of its gauges for card c,
+// for a test that holds Preview to what Choose did.
+func Moved(before []Change, w *World, c *Card) []Change { return diff(before, gauges(w, c)) }
 
-// Reading is w's gauges now, the before half of Moved.
-func Reading(w *World) []Change { return gauges(w) }
+// Reading is w's gauges for card c now, the before half of Moved.
+func Reading(w *World, c *Card) []Change { return gauges(w, c) }
+
+// cardRival is the faction card c is about, read without making one:
+// "" (and a nil card) is the rival at home, nil while there is none.
+func cardRival(w *World, c *Card) *RivalState {
+	if c == nil || c.Faction == "" || c.Faction == FactionRival {
+		if len(w.Rivals) == 0 {
+			return nil
+		}
+		return w.Rivals[0]
+	}
+	return w.Faction(c.Faction)
+}
 
 // clone is a deep copy of w, through the save's own encoding: whatever
 // a save keeps, the copy has, and nothing it shares with w.

@@ -234,3 +234,97 @@ func TestCardSumIsCapped(t *testing.T) {
 		t.Errorf("an uncapped business card at $100M: $%d", got)
 	}
 }
+
+// A card paid in full out of one pile names no more than the pile holds,
+// rounded down to two figures, and is not drawn below its floor (#384):
+// a permit sized on $82,000 dirty and paid in $2,550 clean said $4,100
+// and charged $2,550.
+func TestCardSumIsWhatThePileCanPay(t *testing.T) {
+	permit := content.CardConfig{Amount: 400, AmountShare: 0.05, AmountMax: 50000,
+		Choices: []content.ChoiceConfig{{Effects: map[string]float64{"clean_amount": -1}}, {Effects: map[string]float64{"heat": 5}}}}
+	w := cardWorld()
+	for _, r := range []struct {
+		dirty, clean, want int
+		ok                 bool
+	}{{82_000, 2_550, 2_500, true}, {82_000, 100_000, 4_100, true}, {82_000, 450, 450, true}, {82_000, 399, 0, false}} {
+		w.Player.DirtyCash, w.Player.CleanCash = r.dirty, r.clean
+		s, ok := Eligible(w, permit)
+		if ok != r.ok || (ok && s.Sum != r.want) {
+			t.Errorf("$%d dirty, $%d clean: $%d %v, want $%d %v", r.dirty, r.clean, s.Sum, ok, r.want, r.ok)
+		}
+	}
+	// Paid out of the dirty pile, it is the dirty pile that caps it.
+	wash := content.CardConfig{Amount: 1000, AmountShare: 0.2,
+		Choices: []content.ChoiceConfig{{Effects: map[string]float64{"dirty_amount": -1, "clean_amount": 0.7}}}}
+	w.Player.DirtyCash, w.Player.CleanCash = 900, 50_000
+	if _, ok := Eligible(w, wash); ok {
+		t.Error("a $1,000 wash drawn on $900 dirty")
+	}
+	// A card that pays you is sized on the bag as before.
+	gift := content.CardConfig{Amount: 1000, AmountShare: 0.1,
+		Choices: []content.ChoiceConfig{{Effects: map[string]float64{"clean_amount": 1}}}}
+	w.Player.DirtyCash, w.Player.CleanCash = 50_000, 0
+	if s, ok := Eligible(w, gift); !ok || s.Sum != 5000 {
+		t.Errorf("a gift: $%d %v", s.Sum, ok)
+	}
+}
+
+// A card is about a faction still at the table (#385): with the rival at
+// home fragmented, a rival card names the faction that holds the ground,
+// its effects and its preview land on that faction, a contested card
+// borders only a standing faction's corner, and with nobody standing on
+// a corner no rival card is drawn. A seed-41 replay dealt "Uncle Roy is
+// in hospital" thirteen days after he was killed.
+func TestCardIsAboutAStandingFaction(t *testing.T) {
+	w := testWorld()
+	w.Home().Corners = append(w.Home().Corners, Corner{ID: "far", City: "test", Name: "Far", Demand: 1, Heat: 1, Risk: 1, Owner: OwnerNone})
+	cs := w.Home().Corners
+	for i := range cs {
+		cs[i].X, cs[i].Y = i, 0
+	}
+	roy := &RivalState{ID: FactionRival, Leader: "Uncle Roy", Arrived: 1, Fragmented: 1, Muscle: 3}
+	lena := &RivalState{ID: "f2", Leader: "Lena", Arrived: 1, Muscle: 3, Personality: "defensive"}
+	w.Rivals = []*RivalState{roy, lena}
+	cs[1].Owner, cs[1].Faction = OwnerRival, FactionRival // Roy's, drifting to the street
+	cs[2].Owner, cs[2].Faction = OwnerRival, "f2"
+
+	push := []content.ChoiceConfig{{Effects: map[string]float64{"war": 12, "rival_muscle": -2}}, {}}
+	laidUp := content.CardConfig{ID: "rival_laid_up", Trigger: content.CardTrigger{Rival: true, Contested: true}, Choices: push}
+	sitDown := content.CardConfig{ID: "sit_down", Trigger: content.CardTrigger{Rival: true, Personality: "defensive"}, Choices: push}
+
+	if _, ok := Eligible(w, laidUp); ok {
+		t.Fatal("a contested card drawn on the corner of a fragmented faction")
+	}
+	s, ok := Eligible(w, sitDown)
+	if !ok || s.Rival != "Lena" || s.Faction != "f2" {
+		t.Fatalf("a rival card with Lena on the map: %+v %v", s, ok)
+	}
+
+	cs[1].Faction = "f2" // Lena takes the corner beside yours
+	s, ok = Eligible(w, laidUp)
+	if !ok || s.Rival != "Lena" || s.Theirs != "Docks" || s.Faction != "f2" {
+		t.Fatalf("the contested card: %+v %v", s, ok)
+	}
+	c := &Card{ID: "rival_laid_up", Faction: s.Faction, Choices: []Choice{{Label: "Push", Effects: push[0].Effects}, {Label: "Wait"}}}
+	pre, err := c.Preview(w, 0)
+	if err != nil {
+		t.Fatal(err)
+	}
+	w.Dilemmas.Pending = c
+	before := Reading(w, c)
+	if _, err := w.Choose(0); err != nil {
+		t.Fatal(err)
+	}
+	if lena.War != 12 || lena.Muscle != 1 || roy.War != 0 || roy.Muscle != 3 {
+		t.Fatalf("the push landed on Lena %+v and Roy %+v", *lena, *roy)
+	}
+	if got := Moved(before, w, c); len(pre) != 2 || len(got) != 2 || pre[0] != got[0] || pre[1] != got[1] {
+		t.Fatalf("preview %+v, moved %+v", pre, got)
+	}
+
+	cs[1].Owner, cs[1].Faction = OwnerNone, ""
+	cs[2].Owner, cs[2].Faction = OwnerNone, ""
+	if _, ok := Eligible(w, sitDown); ok {
+		t.Fatal("a rival card drawn with no standing faction on a corner")
+	}
+}

@@ -211,7 +211,8 @@ func (s *Sim) tip(w *game.World, t *game.Tick, r *game.RivalState) bool {
 // a faction, so a rival raided off its last corner is not sent to
 // regroup and sets up again at its own pace (a raid that routed it had
 // the tipster holding every rival at zero corners from its arrival for
-// four tips a month). Not twice
+// four tips a month); the day is stamped RaidedOut, so a broke one
+// still scatters at absorb_days (#384). Not twice
 // within raid_days: the heat builds meanwhile and the raid comes when
 // the police are ready, so a tip a night is a corner every raid_days
 // at a page a tip in four, not a rival routed in a month for nothing.
@@ -227,6 +228,9 @@ func (s *Sim) raid(w *game.World, t *game.Tick, r *game.RivalState, c *game.Corn
 	r.LastRaid = t.Day
 	r.Grudge += tp.Grudge
 	c.Hand(game.OwnerNone, "", t.Day)
+	if w.RivalHeldBy(r.Faction()) == 0 {
+		r.RaidedOut = t.Day
+	}
 	w.Stats.RivalRaids++
 	t.Emit(events.RivalRaided{Day: t.Day, Corner: c.ID, Name: c.Name, Rival: r.Leader, Faction: r.Faction(), Muscle: lost})
 }
