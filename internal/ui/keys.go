@@ -109,6 +109,15 @@ func onProductsWithChemist(m *Model) bool { return onProducts(m) && hasChemist(m
 // step is the dialog open being on its nth page.
 func step(n int) func(*Model) bool { return func(m *Model) bool { return m.modalStep() == n } }
 
+// cardOf is a dilemma card open on its choices with n of them: the
+// footer's `1-2` or `1-3` is the card's own count (#426).
+func cardOf(n int) func(*Model) bool {
+	return func(m *Model) bool {
+		c := m.w.Dilemmas.Pending
+		return m.modalStep() == 0 && !m.cardDone && c != nil && len(c.Choices) == n
+	}
+}
+
 // pastFirstStep is the dialog open being on a page past its first: where
 // shift+tab has a page to go back to.
 func pastFirstStep(m *Model) bool { return m.modalStep() > 0 }

@@ -19,7 +19,7 @@ func TestBuyOffersWhatFits(t *testing.T) {
 		m.Update(key(string(k)))
 	}
 	view := stripANSI(m.View())
-	if !strings.Contains(view, "after") || !strings.Contains(view, "dirty · room ") || !strings.Contains(view, " in "+m.w.CityName(city)) {
+	if !strings.Contains(view, "after") || !strings.Contains(view, "dirty · stash ") || !strings.Contains(view, " in "+m.w.CityName(city)) {
 		t.Fatalf("no after row on the quantity step:\n%s", view)
 	}
 	id := m.w.Products[m.cursor]

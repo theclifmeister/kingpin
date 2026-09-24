@@ -278,7 +278,8 @@ var modeBindings = []binding{
 	{key: "c", label: "pay", modes: in(modeBuy), when: buyPay},
 	{key: "1-2", label: "repeat", modes: in(modeSell), when: step(3)},
 	{key: "1-3", label: "dial", modes: in(modeCart), when: cartOnSell},
-	{key: "1-3", label: "choose", modes: in(modeCard), when: step(0)},
+	{key: "1-2", label: "choose", modes: in(modeCard), when: cardOf(2)}, // the card's own count (#426)
+	{key: "1-3", label: "choose", modes: in(modeCard), when: cardOf(3)},
 	{key: "m", label: "max", dialogs: true, when: numberStep},
 	{key: "h", label: "half", dialogs: true, when: numberStep},
 	{key: "↑↓", label: "±1", dialogs: true, when: numberStep},

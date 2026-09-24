@@ -1,6 +1,7 @@
 package ui
 
 import (
+	"fmt"
 	"strings"
 	"testing"
 
@@ -73,5 +74,22 @@ func TestCardShowsWhatEachChoiceDoes(t *testing.T) {
 	view = stripANSI(m.View())
 	if strings.Count(view, "costs you something") != len(c.Choices) || strings.Contains(view, "$100") || strings.Contains(view, "heat +7") {
 		t.Errorf("a hidden card shows:\n%s", view)
+	}
+}
+
+// The card's footer counts its own choices (#426): a two-choice card
+// said `1-3 choose`.
+func TestCardFooterCountsTheChoices(t *testing.T) {
+	m := richModel(t, 100, 30)
+	for _, n := range []int{2, 3} {
+		c := testCard(m.w.Day)
+		c.Choices = c.Choices[:n]
+		m.w.Dilemmas.Pending = c
+		m.showCard()
+		view := stripANSI(m.View())
+		want, not := fmt.Sprintf("1-%d choose", n), fmt.Sprintf("1-%d choose", 5-n)
+		if !strings.Contains(view, want) || strings.Contains(view, not) {
+			t.Errorf("a %d-choice card's footer, want %q:\n%s", n, want, view)
+		}
 	}
 }

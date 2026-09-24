@@ -5,6 +5,8 @@ import (
 	"strconv"
 	"strings"
 	"testing"
+
+	tea "github.com/charmbracelet/bubbletea"
 )
 
 // Every number field takes the same shortcuts (#112): from an empty
@@ -179,5 +181,41 @@ func TestNumberField(t *testing.T) {
 	m.Update(key("s"))
 	if view := stripANSI(m.View()); strings.Contains(view, "m max") {
 		t.Errorf("the product step lists the field's keys:\n%s", view)
+	}
+}
+
+// A value the dialog or a shortcut set is replaced by the first digit
+// typed, and a pasted number lands whole (#426): 30 then 250 read
+// "30250", and a paste was dropped, leaving blank = max.
+func TestNumberFieldReplacesAndTakesAPaste(t *testing.T) {
+	f := newNumberField("blank = max")
+	f.max = 1000
+	f.Focus()
+	f.Set(30)
+	for _, k := range []string{"2", "5", "0"} {
+		f.Update(key(k))
+	}
+	if f.Value() != "250" {
+		t.Fatalf("typed over 30: %q", f.Value())
+	}
+	f.Update(key("backspace"))
+	f.Update(key("5"))
+	if f.Value() != "255" {
+		t.Fatalf("an edit is kept: %q", f.Value())
+	}
+	f.Update(key("m"))
+	f.Update(key("7"))
+	if f.Value() != "7" {
+		t.Fatalf("typed over max: %q", f.Value())
+	}
+	blank := newNumberField("blank = max")
+	blank.Focus()
+	blank.Update(tea.KeyMsg{Type: tea.KeyRunes, Runes: []rune("200"), Paste: true})
+	if blank.Value() != "200" {
+		t.Fatalf("a pasted 200: %q", blank.Value())
+	}
+	blank.Update(tea.KeyMsg{Type: tea.KeyRunes, Runes: []rune("1x"), Paste: true})
+	if blank.Value() != "200" {
+		t.Fatalf("a paste with a letter lands nothing: %q", blank.Value())
 	}
 }
