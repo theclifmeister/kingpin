@@ -226,7 +226,7 @@ function renderRisk() {
       )
       .join(
         "",
-      )}<p>Pressure ${Math.round(c.pressure)} · Goodwill ${Math.round(c.goodwill)}</p><p class="${v.you.dirty_cash > v.law.exposure_line ? "danger-text" : ""}">Dirty cash exposure: ${money(v.you.dirty_cash)} / ${money(v.law.exposure_line)}</p><details><summary>Understand the police risk</summary>${policeLines(
+      )}<p>Pressure ${Math.round(c.pressure)} · Goodwill ${Math.round(c.goodwill)}</p><p class="${v.you.dirty_cash > v.law.exposure_line ? "danger-text" : ""}">Dirty cash exposure: ${money(v.you.dirty_cash)} / ${money(v.law.exposure_line)}</p>${tonightHTML()}<details><summary>Understand the police risk</summary>${policeLines(
       v,
       c.id,
     )
@@ -309,7 +309,7 @@ function renderEmpire() {
     })
     .join(
       "",
-    )}</div><div class="row section-gap"><h3>Make your next investment</h3>${btn("Properties & assets", "properties", "", "small subtle")}</div><div class="filters">${["all", "operations", "security", "legal", "crew", "laundering", "street", "logistics"].map((b) => `<button data-branch="${b}" class="${branch === b ? "active" : ""}">${b}</button>`).join("")}</div><div class="cards">${v.upgrades
+    )}</div>${lanesHTML()}${trophiesHTML()}<div class="row section-gap"><h3>Make your next investment</h3>${btn("Properties & assets", "properties", "", "small subtle")}</div><div class="filters">${["all", "operations", "security", "legal", "crew", "laundering", "street", "logistics"].map((b) => `<button data-branch="${b}" class="${branch === b ? "active" : ""}">${b}</button>`).join("")}</div><div class="cards">${v.upgrades
     .filter((u) => branch === "all" || u.branch === branch)
     .map(
       (u) =>
@@ -334,7 +334,7 @@ function renderLedger() {
     canStraight = query("rules.laundering.can_go_straight"),
     canVanish = v.you.upgrades.includes("identity"),
     canCrown = v.ambitions.some((a) => a.ending === "kingpin" && a.done);
-  return `<div class="cards"><article class="card"><div class="eyebrow">WHAT YOU’VE BUILT</div><h3>Total net worth</h3><div class="cash-total">${money(v.you.net_worth)}</div><p>Cash, offshore funds, inventory and property. Not all of it is spendable.</p><div class="row"><span>Business income, net of upkeep</span><b>${money(query("rules.laundering.legit_income"))}/day</b></div></article><article class="card"><div class="eyebrow">A FUTURE SOMEWHERE ELSE</div><h3>The offshore account</h3><div class="cash-total">${money(v.you.offshore)}</div><p>Transfers cost ${Math.round(off.Fee * 100)}%. Moving more than ${money(off.Lot)} in a day adds evidence.</p><label class="row"><input id="reserve-amount" aria-label="Amount to transfer" type="number" min="1" step="100" value="${Math.min(off.Lot, v.you.clean_cash) || 1000}">${btn("Transfer", "reserve", "", "small", !v.you.clean_cash || !!v.over)}</label></article></div><div class="tip-box">Your final score is offshore money divided by one plus the run’s body count. A large empire and a high score are different goals.</div><h3 class="section-gap">Give something back</h3><div class="paper"><p class="subtle-text">Community funding builds goodwill using clean cash.</p><div class="card-actions"><input id="fund-amount" type="number" aria-label="Community funding amount" min="1" value="2000">${btn("Fund " + esc(city().name), "fund", city().id, "small", !v.you.clean_cash || !!v.over)}</div></div>${ambitionsHTML()}<h3 class="section-gap">Choose your ending</h3><div class="cards"><article class="card"><span class="tag">THE QUIET EXIT</span><h3>Retired Clean</h3><p>${money(off.RetireCash)} offshore and ${off.RetireDays} quiet days. You have ${v.you.quiet_days} quiet days.</p>${btn(canRetire ? "Retire now" : "Not ready yet", "retire", "", "small", !canRetire || !!v.over)}</article><article class="card"><span class="tag gold">THE CITY IS YOURS</span><h3>Kingpin</h3><p>Secure the majority and resolve every rival. Hold dominance long enough to begin your reign.</p>${btn(canCrown ? "Take the crown" : "No reign yet", "crown", "", "small", !canCrown || !!v.over)}</article><article class="card"><span class="tag">A NEW CHAPTER</span><h3>Vanished</h3><p>A new identity lets you leave the operation behind.</p>${btn(canVanish ? "Vanish now" : "An identity is required", "vanish", "", "small", !canVanish || !!v.over)}</article><article class="card"><span class="tag">A DIFFERENT KIND OF EMPIRE</span><h3>A Businessman</h3><p>Positive business income beats street revenue while home-city goodwill exceeds pressure for 30 consecutive days. Then it is yours to take.</p>${btn(canStraight ? "Go straight" : "Not yet", "go_straight", "", "small", !canStraight || !!v.over)}</article></div>`;
+  return `<div class="cards"><article class="card"><div class="eyebrow">WHAT YOU’VE BUILT</div><h3>Total net worth</h3><div class="cash-total">${money(v.you.net_worth)}</div><p>Cash, offshore funds, inventory and property. Not all of it is spendable.</p><div class="row"><span>Business income, net of upkeep</span><b>${money(query("rules.laundering.legit_income"))}/day</b></div></article><article class="card"><div class="eyebrow">A FUTURE SOMEWHERE ELSE</div><h3>The offshore account</h3><div class="cash-total">${money(v.you.offshore)}</div><p>Transfers cost ${Math.round(off.Fee * 100)}%. Moving more than ${money(off.Lot)} in a day adds evidence.</p><label class="row"><input id="reserve-amount" aria-label="Amount to transfer" type="number" min="1" step="100" value="${Math.min(off.Lot, v.you.clean_cash) || 1000}">${btn("Transfer", "reserve", "", "small", !v.you.clean_cash || !!v.over)}</label></article><article class="card"><div class="eyebrow">CASH FOR THE STREET</div><h3>Cash out</h3><div class="cash-total">${money(v.you.clean_cash)}</div><p>Stock and wages are paid in dirty cash. Drawing clean money back costs ${money(query("rules.laundering.cash_out_fee", 100000))} per $100,000, and a dirty pile past your cover draws heat.</p><label class="row"><input id="cashout-amount" aria-label="Clean cash to cash out" type="number" min="1" step="100" value="${Math.min(v.you.clean_cash, 10000) || 1000}">${btn("Cash out", "cash-out", "", "small", !v.you.clean_cash || !!v.over)}</label></article></div><div class="tip-box">Your final score is offshore money divided by one plus the run’s body count. A large empire and a high score are different goals.</div><h3 class="section-gap">Give something back</h3><div class="paper"><p class="subtle-text">Community funding builds goodwill using clean cash.</p><div class="card-actions"><input id="fund-amount" type="number" aria-label="Community funding amount" min="1" value="2000">${btn("Fund " + esc(city().name), "fund", city().id, "small", !v.you.clean_cash || !!v.over)}</div></div>${ambitionsHTML()}<h3 class="section-gap">Choose your ending</h3><div class="cards"><article class="card"><span class="tag">THE QUIET EXIT</span><h3>Retired Clean</h3><p>${money(off.RetireCash)} offshore and ${off.RetireDays} quiet days. You have ${v.you.quiet_days} quiet days.</p>${canRetire ? "" : `<p class="subtle-text">${esc(short("retired"))}</p>`}${btn(canRetire ? "Retire now" : "Not ready yet", "retire", "", "small", !canRetire || !!v.over)}</article><article class="card"><span class="tag gold">THE CITY IS YOURS</span><h3>Kingpin</h3><p>Secure the majority and resolve every rival. Hold dominance long enough to begin your reign.</p>${canCrown ? "" : `<p class="subtle-text">${esc(short("kingpin"))}</p>`}${btn(canCrown ? "Take the crown" : "No reign yet", "crown", "", "small", !canCrown || !!v.over)}</article><article class="card"><span class="tag">A NEW CHAPTER</span><h3>Vanished</h3><p>A new identity lets you leave the operation behind.</p>${canVanish ? "" : `<p class="subtle-text">${esc(short("vanished"))}</p>`}${btn(canVanish ? "Vanish now" : "An identity is required", "vanish", "", "small", !canVanish || !!v.over)}</article><article class="card"><span class="tag">A DIFFERENT KIND OF EMPIRE</span><h3>A Businessman</h3><p>Positive business income beats street revenue while home-city goodwill exceeds pressure for 30 consecutive days. Then it is yours to take.</p>${canStraight ? "" : `<p class="subtle-text">${esc(short("businessman"))}</p>`}${btn(canStraight ? "Go straight" : "Not yet", "go_straight", "", "small", !canStraight || !!v.over)}</article></div>`;
 }
 function reportHTML(r) {
   if (!r.sections)
@@ -660,6 +660,25 @@ async function action(a, id) {
       case "decline":
         act("decline", [Number(id)], "Offer declined");
         break;
+      case "cash-out": {
+        const n = integer("#cashout-amount");
+        act("cash_out", [n], `Cashed out ${money(n)} clean, less the banker's fee`);
+        break;
+      }
+      case "set-export": {
+        const units = nonnegative(`#lane-units-${CSS.escape(id)}`),
+          product = $(`#lane-product-${CSS.escape(id)}`).value;
+        act("set_export", [id, product, units], units ? "Lane order set: it loads tonight" : "Lane turned off", { close: false });
+        break;
+      }
+      case "buy-trophy": {
+        const o = (query("trophy_offers") || []).find((x) => x.ID === id);
+        if (o)
+          confirm(`Buy ${o.Name}?`, `${money(o.Cost)} of clean cash. The city will notice, and so may the task force.`, () =>
+            act("buy_trophy", [id], `${o.Name} is yours`),
+          );
+        break;
+      }
       case "reserve":
         act("reserve", [integer("#reserve-amount")], "Transfer queued", {
           order: { key: "reserve", text: "Offshore transfer" },
@@ -1010,6 +1029,60 @@ function ambitionsHTML() {
           )}${btn(a.pinned ? "Unpin plan" : "Follow this plan", "pin-plan", a.pinned ? "" : a.id, "small", !!v.over)}</article>`,
     )
     .join("")}</div>`;
+}
+// The export lanes (#391, view 12 since #405): every lane, shut on what
+// it waits for, or open with what it carries tonight, its standing order
+// and the loads out; an open lane takes an order (set_export: 0 units
+// turns it off).
+function lanesHTML() {
+  const lanes = v.exports || [];
+  if (!lanes.some((l) => l.open || l.out)) {
+    return lanes.length
+      ? `<h3 class="section-gap">Export lanes</h3><div class="tip-box">Ship by the ton abroad once you own ${esc(lanes[0].needs || "the book")}. What lands comes home dirty.</div>`
+      : "";
+  }
+  const productName = (id) =>
+    v.cities.flatMap((c) => c.products).find((p) => p.id === id)?.name || id;
+  return `<h3 class="section-gap">Export lanes</h3><div class="cards">${lanes
+    .map(
+      (l) =>
+        `<article class="card"><div class="card-top"><span class="tag ${l.open ? "" : "gold"}">${l.open ? esc(l.mode).toUpperCase() : "SHUT"}</span><small>${l.days} days out</small></div><h3>${esc(l.name)}</h3>${
+          l.open
+            ? `<p>Carries up to ${l.capacity.toLocaleString()} units a night.${l.product ? ` Ordered: ${l.units.toLocaleString()} ${esc(productName(l.product))} at ${money(l.price)} a unit abroad.` : " No order."}</p><p class="subtle-text">${l.out ? `${l.out} out · the next lands Day ${l.lands} for ${money(l.pays)}` : "Nothing out."}</p><div class="card-actions"><select id="lane-product-${esc(l.id)}" aria-label="Product for ${esc(l.name)}">${l.products.map((p) => `<option value="${esc(p)}" ${p === l.product ? "selected" : ""}>${esc(productName(p))}</option>`).join("")}</select><input id="lane-units-${esc(l.id)}" type="number" min="0" aria-label="Units a night" value="${l.units || l.capacity}">${btn("Set order", "set-export", l.id, "small", !!v.over)}</div>`
+            : `<p>Opens with ${esc(l.needs)}.</p>`
+        }</article>`,
+    )
+    .join("")}</div>`;
+}
+// The trophies (#392, view 12 since #405): the ones you own, and the
+// offers, bought with clean cash once your peak clean cash reaches the
+// line (the engine refuses one still locked, in its own words).
+function trophiesHTML() {
+  const offers = query("trophy_offers") || [],
+    owned = v.trophies || [];
+  if (!owned.length && !offers.some((o) => v.you.clean_cash >= o.Cost)) return "";
+  return `<h3 class="section-gap">Trophies</h3>${owned.length ? `<p>${owned.map((t) => `${esc(t.name)} (Day ${t.bought}, ${money(t.cost)})`).join(" · ")}</p>` : ""}<div class="cards">${offers
+    .map(
+      (o) =>
+        `<article class="card"><div class="card-top"><span class="tag gold">TROPHY</span><small>on offer at ${money(o.UnlockCash)} peak clean</small></div><h3>${esc(o.Name)}</h3><div class="row"><strong class="price">${money(o.Cost)}</strong>${btn("Buy", "buy-trophy", o.ID, "small", v.you.clean_cash < o.Cost || !!v.over)}</div></article>`,
+    )
+    .join("")}</div>`;
+}
+// short is what an ending's plan still needs, in its steps' own words
+// (the ambitions, #347: the endings' own terms), or "" when it is open.
+function short(ending) {
+  const a = v.ambitions.find((x) => x.ending === ending);
+  if (!a) return "";
+  const fmt = (s, n) => (["cash", "clean", "income"].includes(s.unit) ? money(n) : Math.round(n).toLocaleString());
+  return a.done ? "" : a.steps.filter((s) => !s.done).map((s) => `${s.label} ${fmt(s, s.have)} of ${fmt(s, s.need)}`).join("; ");
+}
+// tonightHTML is tonight's pile as the police will count it (#397): the
+// landings and the wages come in before the count, the wash after it.
+function tonightHTML() {
+  const f = query("forecast");
+  if (!f || v.over) return "";
+  const past = f.heat > 0;
+  return `<p class="${past ? "danger-text" : ""}">Tonight's count: ${money(f.pile)} dirty${f.loads ? ` (${money(f.landings)} landing)` : ""}${past ? ` · ${money(f.pile - f.line)} past your cover, +${Math.round(f.heat)} heat before the wash` : " · under your cover"}</p>`;
 }
 function marketTools() {
   return `<div class="paper operation-tools"><div><div class="eyebrow">PLAN YOUR OPERATION</div><label>Demand to cover <select id="restock-days"><option value="1">1 day</option><option value="2" selected>2 days</option><option value="3">3 days</option><option value="7">7 days</option></select></label>${btn("Review restock", "restock", "", "small", !!v.over)}</div><div><label>Routine <select id="preset-id">${session

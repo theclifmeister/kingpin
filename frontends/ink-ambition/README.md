@@ -23,11 +23,11 @@ Start with $500 on seed 41. Buy stock in Market, queue sales, preview tonight an
 - Streets: city travel, corner assignment/abandonment, enforcer strikes, police tips and undercutting.
 - Market: purchases, max-buy capacity, reviewed restocking, queued sales, private buyers, routes and reviewed built-in operation presets.
 - Crew: hire/dismiss, assignments, pay policies, bonuses, veteran traits and city captains with nightly budgets.
-- Empire: front roles, investment levels, upgrades, properties and assets.
+- Empire: front roles, investment levels, upgrades, properties and assets; export lanes (what each waits on, or its capacity, order, rate abroad and loads out, and an order form) and trophies (owned, and the offers to buy with clean cash).
 - Rivals: scout, negotiate, accept/decline offers, expansion warnings and confront scouts.
-- Ledger: offshore transfers, community funding, engine-calculated ambitions and ending actions.
+- Ledger: offshore transfers, cash out (clean back to dirty at the quoted fee), community funding, engine-calculated ambitions and the four ending actions, each closed one saying what its plan still needs.
 - Paper: engine-ordered reports, leading stories, cash-flow reconciliation and 90 report editions.
-- Persistent risk panel: heat ladder, evidence, cash exposure, investigation warnings and alert navigation.
+- Persistent risk panel: heat ladder, evidence, cash exposure, tonight's count (the pile the police will count after tonight's landings and wages, before the wash) and its heat, investigation warnings and alert navigation.
 
 Dilemmas display the engine's consequence chips. The day preview is explicitly an estimate and explains what it cannot predict. It requires a separate end-day action.
 

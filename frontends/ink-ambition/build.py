@@ -13,7 +13,7 @@ ROOT = HERE.parents[1]
 OUT = HERE / 'dist'
 GO = os.environ.get('KINGPIN_GO', 'go')
 # The frontend must be reviewed before accepting a changed contract.
-EXPECTED_PROTOCOL, EXPECTED_VIEW = 10, 11
+EXPECTED_PROTOCOL, EXPECTED_VIEW = 15, 12
 
 def build():
     protocol = (ROOT / 'internal/protocol/protocol.go').read_text()
