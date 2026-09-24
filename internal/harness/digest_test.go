@@ -254,20 +254,27 @@ const (
 // high; the flow reconciling pile by pile is what found it). No number
 // moved: with World.Report set aside on both sides the digest is
 // main's on all sixty days (checked again on top of #358).
+// Again for #354 (the morning's lead, DayReport.Lead, and its lines in
+// the journal under the digest's source): every day from day 1 moves by
+// the report's and the journal's words alone, the first morning's lead
+// being the corner the boss claimed. No number moved: with World.Report
+// and World.Journal set aside on both sides the digest is main's on
+// every day, the duel and the table, seeds 7, 1, 2 and 3, 150 days
+// each; TestLeadDoesNotMoveTheRun holds it.
 var seedDigest = []string{
-	"0a185cd20b737fe7", "e94ccd608b8fccc1", "7b19268dcb2f9ef7", "672ed40fbdb47bb3",
-	"3fa9635ce0d1148d", "a5fc52962f77a3b3", "5a497124e7f50439", "f2bc9b7bc2210541",
-	"25347760c509f803", "47db052b474da138", "827538b80358cbb5", "191f6b4bc58a611d",
-	"1e348279ace107ed", "71345b6a67d50e40", "9d2855f16b4da47c", "3b41a553fd04e3de",
-	"ced5ede6191db1be", "a289d77497244681", "956ea8ac6c753555", "fb8d16dcdfc7e67b",
-	"3f9145d08fdde991", "85a3251619fcde78", "943cbccd70422f75", "8f069c528dc0a8da",
-	"4da38dfb4a26f698", "0395c60b0e7595bc", "02126a3ca6ccbc4e", "08b828cddf15e737",
-	"3cb6a315ebfd6962", "d4f4117a086b864f", "876af881722aa542", "648a254623621f6e",
-	"f5ad32279e8880ed", "ea4c7ff1defabd10", "da6c7490f60f7f19", "633f8edec050c9c3",
-	"ae8f9bba79ffb77c", "27fdff2b907e4b51", "5b2cb75050840679", "974386703b7afdfb",
-	"a43587f4a5bc4098", "a9be8075c3e5394f", "86efe85b0172517b", "47762478a4f9f8d3",
-	"cca0e0e280cd5727", "753ee165fb6ac377", "ee0419667d18d660", "1d378d013074040e",
-	"4858a5b27fccd80d", "c6e70d4d4ab813f5", "150ce333a69602a0", "e48df8e87ed74665",
-	"a8311d6a519d03f1", "1d4042aa34121d69", "db7f676ab36c5603", "615cbdfa1c4046ce",
-	"147aac40c73d65d4", "7b43e61bba6f5a45", "95c88a6574df8e31", "981b71057d4142b9",
+	"bdf25a3678a6085a", "4715c3c576b1d701", "21c24c9325e319da", "8770427273b8c01a",
+	"08f394ee41bce41f", "6210c1036beac9e1", "136e889c8fd38bab", "bb963782d7fe9f49",
+	"71954c0d9c1b8416", "1970e2791b1dadb7", "bb2336fa882d2b13", "71f5ebeba891a2c3",
+	"c2fc41f4bb35a7d8", "81a305d817479823", "36de5556b6a0c281", "0b8aad3dc854a0b5",
+	"679209c05ebb1972", "55c958ac6a671da8", "1ac3cd51aee378e1", "c2cb815077fffd73",
+	"bf0abfbdca9e8592", "5b1e5efa64269d81", "5ff3b624b37abba2", "87e91e130c7cb537",
+	"d54dc15e3637b789", "4b5ae5aac6449167", "7557457961d6be1b", "63286616effb9a82",
+	"1292280c0e7bb716", "941174d3ac8d5623", "7963274a46622aed", "7264c45575110979",
+	"4bdd8234469e64fa", "f20a8784cff01b58", "2b55328d5fb2ce72", "d412ed977e4328a0",
+	"9cb6900a5b53f6ec", "2ded3fe01f6a0adb", "a0f112a51bdc264b", "e2fa2a97eddcc72c",
+	"a3a7d30cc1ce4db5", "c60e94b29cb4e730", "e80b386bae99b77e", "cd7ca5884941ec1c",
+	"43b9b48d842495e8", "c90a2fb1cccfc585", "c17cd6c9b4fd5bc7", "2cc76f08064e0957",
+	"acfd415b24905469", "bfbb5373c3c00171", "d2dd477c9e1d2d9b", "ca7eaa54550da45a",
+	"1cb1738c88b1c665", "146e66e1b8f2917d", "c37dcb28d601f02e", "1ea97c8b1cb70384",
+	"299b521437174b4b", "2b22ed03ce31152f", "1bd9902ca673a22c", "e95f4c9f2b3c4c49",
 }

@@ -12,7 +12,7 @@ import (
 // save's game.SchemaVersion: the world is free to change shape, the view
 // is the contract a front end in another process is written against.
 // TestViewShapeIsPinned fails on a shape change that keeps the number.
-const ViewVersion = 7
+const ViewVersion = 9
 
 // View is a snapshot of what the player can see: what a front end draws
 // (#299). It is built from the world the way the TUI reads it and holds
@@ -327,27 +327,76 @@ type ChoiceView struct {
 	Preview []Chip `json:"preview"`
 }
 
-// ReportView is the morning report, its sections in the order the TUI
-// shows them, each a list of lines in words.
+// ReportView is the morning report: the night's lead (#354), then its
+// sections in the one order every front end draws them in
+// (ReportSections), each a list of lines in words.
 type ReportView struct {
-	Day        int      `json:"day"`
-	Incident   []string `json:"incident,omitempty"`
-	Unlocked   []string `json:"unlocked,omitempty"`
-	Tier       []string `json:"tier,omitempty"`
-	Prices     []string `json:"prices,omitempty"`
-	Sales      []string `json:"sales,omitempty"`
-	Heat       []string `json:"heat,omitempty"`
-	Crew       []string `json:"crew,omitempty"`
-	Territory  []string `json:"territory,omitempty"`
-	Shipments  []string `json:"shipments,omitempty"`
-	Law        []string `json:"law,omitempty"`
-	Intel      []string `json:"intel,omitempty"`
-	Money      []string `json:"money,omitempty"`
-	Upgrades   []string `json:"upgrades,omitempty"`
-	News       []string `json:"news,omitempty"`
-	CashBefore int      `json:"cash_before"`
-	CashAfter  int      `json:"cash_after"`
-	Flow       FlowView `json:"flow"` // the night's cash flow (#351): drawn in place of the money lines
+	Day        int                 `json:"day"`
+	Lead       []LeadView          `json:"lead"`     // the night's biggest changes, biggest first (#354): the report opens with them under TODAY
+	Sections   []ReportSectionView `json:"sections"` // every section in ReportSections' order, empty ones too
+	CashBefore int                 `json:"cash_before"`
+	CashAfter  int                 `json:"cash_after"`
+	Flow       FlowView            `json:"flow"` // the night's cash flow (#351): drawn in place of the money lines
+}
+
+// LeadView is one line of the lead (#354): the headlines.toml [digest]
+// kind that scored it, the words, and what answers it, the act and the
+// ids its subject names, as an alert's are.
+type LeadView struct {
+	Kind   string `json:"kind"`
+	Text   string `json:"text"`
+	Act    Act    `json:"act"`
+	Member int    `json:"member,omitempty"`
+	Corner string `json:"corner,omitempty"`
+	City   string `json:"city,omitempty"`
+}
+
+// ReportSectionView is one section of the report: its id
+// (ReportSection's), its heading and its lines.
+type ReportSectionView struct {
+	ID    string   `json:"id"`
+	Title string   `json:"title"`
+	Lines []string `json:"lines"`
+}
+
+// ReportSection is one section of the morning report.
+type ReportSection struct {
+	ID    string // incident, tier, unlocked, prices, sales, shipments, heat, law, intel, crew, territory, money, upgrades, news
+	Title string // the heading: INCIDENT, TIER, ...
+	Lines []string
+}
+
+// ReportSections is the report's sections in the one order every front
+// end draws them in (#354): the world's incident, the tier and the
+// doors that opened first, the day is about them; then the market, the
+// road, the police and the law, what was learnt, the crew and the
+// ground; then the money, the upgrades and the paper. Every section is
+// there, empty or not: a front end skips an empty one, or adds lines of
+// its own (the TUI's crew trouble, the cash flow's waterfall).
+func ReportSections(r *game.DayReport) []ReportSection {
+	return []ReportSection{
+		{"incident", "INCIDENT", r.Incident}, // the world's incident this morning (#44)
+		{"tier", "TIER", r.Tier},             // the tier entered this morning (#147)
+		{"unlocked", "UNLOCKED", r.Unlocked}, // a gate crossed (#148)
+		{"prices", "PRICES", r.Prices},
+		{"sales", "SALES", r.Sales},
+		{"shipments", "SHIPMENTS", r.Shipments},
+		{"heat", "HEAT", r.Heat},
+		{"law", "LAW", r.Law},
+		{"intel", "INTEL", r.Intel}, // what was learnt tonight (#45)
+		{"crew", "CREW", r.Crew},
+		{"territory", "TERRITORY", r.Territory},
+		{"money", "MONEY", r.Money},
+		{"upgrades", "UPGRADES", r.Upgrades},
+		{"news", "NEWS", r.News},
+	}
+}
+
+// LeadAlert is a lead line as the alert its act opens (#354): the act
+// and the ids its subject names, so a front end jumps from the lead the
+// way it jumps from an alert.
+func LeadAlert(l game.Line) Alert {
+	return Alert{Act: l.Act, Member: l.Member, Corner: l.Corner, City: l.City}
 }
 
 // FlowView is the night's cash flow (#351): the piles the day opened
@@ -620,13 +669,14 @@ func reportView(r *game.DayReport, bigShare float64) ReportView {
 	for _, l := range f.Lines {
 		fv.Lines = append(fv.Lines, FlowLineView{Cat: l.Cat, Label: game.FlowLabel(l.Cat), Dirty: l.Dirty, Clean: l.Clean, Big: f.Big(l, bigShare)})
 	}
-	return ReportView{
-		Flow: fv,
-		Day:  r.Day, Incident: lines(r.Incident), Unlocked: lines(r.Unlocked), Tier: lines(r.Tier), Prices: lines(r.Prices),
-		Sales: lines(r.Sales), Heat: lines(r.Heat), Crew: lines(r.Crew), Territory: lines(r.Territory),
-		Shipments: lines(r.Shipments), Law: lines(r.Law), Intel: lines(r.Intel), Money: lines(r.Money),
-		Upgrades: lines(r.Upgrades), News: lines(r.News), CashBefore: r.CashBefore, CashAfter: r.CashAfter,
+	v := ReportView{Day: r.Day, Flow: fv, CashBefore: r.CashBefore, CashAfter: r.CashAfter}
+	for _, l := range r.Lead {
+		v.Lead = append(v.Lead, LeadView{Kind: l.Kind, Text: l.Text, Act: l.Act, Member: l.Member, Corner: l.Corner, City: l.City})
 	}
+	for _, sec := range ReportSections(r) {
+		v.Sections = append(v.Sections, ReportSectionView{ID: sec.ID, Title: sec.Title, Lines: lines(sec.Lines)})
+	}
+	return v
 }
 
 // lines copies a report section, so the view holds nothing of the

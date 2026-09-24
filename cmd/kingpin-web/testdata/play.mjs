@@ -78,6 +78,17 @@ function word(v, where) {
     out.alertsWorded++;
     if (panel) out.alertsLinked++;
   }
+  // The lead (#354): words and an act on a screen, a panel the page has
+  // or none; the sections one ordered list, every one of them.
+  const rep = v.report || {};
+  for (const l of rep.lead || []) {
+    if (!l.text || !l.act || !l.act.screen) problem(`${where}: lead ${JSON.stringify(l)}`);
+    const panel = alertPanel(l);
+    if (panel && !Object.values(PANELS).includes(panel)) problem(`${where}: lead ${l.kind} links to ${panel}`);
+  }
+  if (v.day > 0 && (!Array.isArray(rep.sections) || rep.sections.length !== 14 || rep.sections[0].id !== "incident")) {
+    problem(`${where}: the report's sections ${JSON.stringify((rep.sections || []).map((s) => s.id))}`);
+  }
 }
 
 for (const [name, rows] of Object.entries(SPRITES)) {

@@ -342,6 +342,14 @@ func (s *Sim) Step(w *game.World, t *game.Tick) {
 	rep.Flow = game.NewCashFlow(t.Day, r.flow, game.Pools{Dirty: w.Player.DirtyCash, Clean: w.Player.CleanCash})
 	rep.CashBefore = rep.Flow.Opening.Total()
 	rep.CashAfter = w.Cash()
+	// The lead (#354): the night's biggest changes, read before the
+	// history takes tonight's flow, and kept in the journal under the
+	// digest's own source so its filter reads them day by day. They are
+	// no headline the bus carries: the report is where they are read.
+	rep.Lead = s.lead(w, t, rep.Flow)
+	for _, l := range rep.Lead {
+		w.Journal = append(w.Journal, game.Headline{Day: t.Day, Source: "digest", Text: l.Text})
+	}
 	w.Report = rep
 	w.Flows = append(w.Flows, rep.Flow)
 	if n := len(w.Flows) - s.cfg.Flow.Days; n > 0 {

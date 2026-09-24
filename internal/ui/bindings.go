@@ -328,6 +328,7 @@ var modeBindings = []binding{
 	{key: "b", label: "buy", modes: in(modeSell), when: step(0)},
 	{key: "⇧tab", label: "back", keys: []string{"shift+tab"}, dialogs: true, when: pastFirstStep},
 	{key: "esc", label: "close", dialogs: true, modes: in(modeConfirm, modeConfirmEnd)},
+	{key: "1-3", label: "open", modes: in(modeReport), when: hasLead},            // the lead's lines (#354)
 	{key: "o", label: "open alert", modes: in(modeReport), when: stoppedOnAlert}, // the fast-forward's stop line (#352)
 	{key: "enter esc", label: "close", modes: in(modeReport, modeHelp, modeStage)},
 	{key: "enter esc", label: "close", modes: in(modeCard), when: step(1)},

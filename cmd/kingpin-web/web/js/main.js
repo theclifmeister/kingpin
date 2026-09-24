@@ -255,21 +255,35 @@ function render() {
   if (!alerts.length) alerts.push(Object.assign(document.createElement("li"), { className: "dim", textContent: "Nobody is looking at you. Yet." }));
   $("alerts").replaceChildren(...alerts);
 
-  const sections = ["incident", "unlocked", "tier", "prices", "sales", "heat", "crew", "territory", "shipments", "law", "intel", "money", "upgrades", "news"];
+  // The report (#354): TODAY, the night's lead, each line a button to
+  // the panel that answers it where the page has one; then the sections
+  // in the engine's one order (report.sections), the TUI's.
   const parts = [];
-  for (const s of sections) {
-    if (s === "money" && v.report && v.report.flow && v.report.flow.lines.some((l) => l.dirty || l.clean)) {
+  const rep = v.report || {};
+  if ((rep.lead || []).length) {
+    const h = document.createElement("h3");
+    h.textContent = "today";
+    parts.push(h);
+    for (const l of rep.lead) {
+      const p = document.createElement("p");
+      const panel = alertPanel(l);
+      if (panel) p.append(button(l.text, false, () => showPanel(panel)));
+      else p.textContent = l.text;
+      parts.push(p);
+    }
+  }
+  for (const s of rep.sections || []) {
+    if (s.id === "money" && rep.flow && rep.flow.lines.some((l) => l.dirty || l.clean)) {
       // The cash flow (#351) in place of the flat money lines.
       const h = document.createElement("h3");
       h.textContent = "money";
-      parts.push(h, flowTable(v.report.flow));
+      parts.push(h, flowTable(rep.flow));
       continue;
     }
-    const lines = (v.report && v.report[s]) || [];
-    if (!lines.length) continue;
+    if (!(s.lines || []).length) continue;
     const h = document.createElement("h3");
-    h.textContent = s;
-    parts.push(h, ...lines.map((l) => Object.assign(document.createElement("p"), { textContent: l })));
+    h.textContent = s.title.toLowerCase();
+    parts.push(h, ...s.lines.map((l) => Object.assign(document.createElement("p"), { textContent: l })));
   }
   if (!parts.length) parts.push(Object.assign(document.createElement("p"), { className: "dim", textContent: "A quiet morning." }));
   $("report").replaceChildren(...parts);

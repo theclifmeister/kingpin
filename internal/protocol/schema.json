@@ -1483,27 +1483,10 @@
       ],
       "type": "object"
     },
-    "engine.Act": {
-      "properties": {
-        "mode": {
-          "type": "string"
-        },
-        "screen": {
-          "type": "string"
-        },
-        "subject": {
-          "type": "string"
-        }
-      },
-      "required": [
-        "screen"
-      ],
-      "type": "object"
-    },
     "engine.Alert": {
       "properties": {
         "act": {
-          "$ref": "#/$defs/engine.Act"
+          "$ref": "#/$defs/game.Act"
         },
         "amount": {
           "type": "integer"
@@ -2236,6 +2219,34 @@
       ],
       "type": "object"
     },
+    "engine.LeadView": {
+      "properties": {
+        "act": {
+          "$ref": "#/$defs/game.Act"
+        },
+        "city": {
+          "type": "string"
+        },
+        "corner": {
+          "type": "string"
+        },
+        "kind": {
+          "type": "string"
+        },
+        "member": {
+          "type": "integer"
+        },
+        "text": {
+          "type": "string"
+        }
+      },
+      "required": [
+        "kind",
+        "text",
+        "act"
+      ],
+      "type": "object"
+    },
     "engine.MemberView": {
       "properties": {
         "age": {
@@ -2410,6 +2421,28 @@
       ],
       "type": "object"
     },
+    "engine.ReportSectionView": {
+      "properties": {
+        "id": {
+          "type": "string"
+        },
+        "lines": {
+          "items": {
+            "type": "string"
+          },
+          "type": "array"
+        },
+        "title": {
+          "type": "string"
+        }
+      },
+      "required": [
+        "id",
+        "title",
+        "lines"
+      ],
+      "type": "object"
+    },
     "engine.ReportView": {
       "properties": {
         "cash_after": {
@@ -2418,99 +2451,29 @@
         "cash_before": {
           "type": "integer"
         },
-        "crew": {
-          "items": {
-            "type": "string"
-          },
-          "type": "array"
-        },
         "day": {
           "type": "integer"
         },
         "flow": {
           "$ref": "#/$defs/engine.FlowView"
         },
-        "heat": {
+        "lead": {
           "items": {
-            "type": "string"
+            "$ref": "#/$defs/engine.LeadView"
           },
           "type": "array"
         },
-        "incident": {
+        "sections": {
           "items": {
-            "type": "string"
-          },
-          "type": "array"
-        },
-        "intel": {
-          "items": {
-            "type": "string"
-          },
-          "type": "array"
-        },
-        "law": {
-          "items": {
-            "type": "string"
-          },
-          "type": "array"
-        },
-        "money": {
-          "items": {
-            "type": "string"
-          },
-          "type": "array"
-        },
-        "news": {
-          "items": {
-            "type": "string"
-          },
-          "type": "array"
-        },
-        "prices": {
-          "items": {
-            "type": "string"
-          },
-          "type": "array"
-        },
-        "sales": {
-          "items": {
-            "type": "string"
-          },
-          "type": "array"
-        },
-        "shipments": {
-          "items": {
-            "type": "string"
-          },
-          "type": "array"
-        },
-        "territory": {
-          "items": {
-            "type": "string"
-          },
-          "type": "array"
-        },
-        "tier": {
-          "items": {
-            "type": "string"
-          },
-          "type": "array"
-        },
-        "unlocked": {
-          "items": {
-            "type": "string"
-          },
-          "type": "array"
-        },
-        "upgrades": {
-          "items": {
-            "type": "string"
+            "$ref": "#/$defs/engine.ReportSectionView"
           },
           "type": "array"
         }
       },
       "required": [
         "day",
+        "lead",
+        "sections",
         "cash_before",
         "cash_after",
         "flow"
@@ -7458,6 +7421,23 @@
         "Units",
         "Cost",
         "Supplier"
+      ],
+      "type": "object"
+    },
+    "game.Act": {
+      "properties": {
+        "mode": {
+          "type": "string"
+        },
+        "screen": {
+          "type": "string"
+        },
+        "subject": {
+          "type": "string"
+        }
+      },
+      "required": [
+        "screen"
       ],
       "type": "object"
     },
@@ -13142,5 +13122,5 @@
   },
   "protocol": 4,
   "title": "kingpind",
-  "view_version": 7
+  "view_version": 9
 }

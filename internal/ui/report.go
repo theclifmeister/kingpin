@@ -8,6 +8,7 @@ import (
 
 	"github.com/charmbracelet/lipgloss"
 
+	"github.com/theclifmeister/kingpin/internal/engine"
 	"github.com/theclifmeister/kingpin/internal/format"
 	"github.com/theclifmeister/kingpin/internal/game"
 	"github.com/theclifmeister/kingpin/internal/ui/theme"
@@ -48,7 +49,8 @@ func (m *Model) reportTitle() string {
 }
 
 // reportLines is the report's body: a fast-forward's stop line first
-// (#116), then the day's sections, each a heading in its sim's colour
+// (#116), then TODAY, the night's lead (#354), then the day's sections
+// in engine.ReportSections' order, each a heading in its sim's colour
 // over its lines.
 func (m *Model) reportLines() []string {
 	r := m.w.Report
@@ -57,39 +59,74 @@ func (m *Model) reportLines() []string {
 		// A fast-forward's report opens with why it stopped (#116).
 		body = append(body, theme.Warning.Render(stop), "")
 	}
-	section := func(title string, ls []string, style lipgloss.Style) {
-		if len(ls) == 0 {
-			return
+	if len(r.Lead) > 0 {
+		// The biggest changes of the night (#354), each one key from
+		// what answers it: 1, 2, 3.
+		body = append(body, theme.Title.Render("TODAY"))
+		for i, l := range r.Lead {
+			body = append(body, "  "+theme.Key.Render(fmt.Sprint(i+1))+" "+theme.Bold.Render(l.Text))
 		}
-		body = append(body, style.Bold(true).Render(title))
+		body = append(body, "")
+	}
+	for _, sec := range engine.ReportSections(r) {
+		ls := sec.Lines
+		switch sec.ID {
+		case "crew":
+			if line := m.crewTrouble(); line != "" {
+				// The crew trouble this morning (#345), the alerts' counts.
+				ls = append(append([]string(nil), ls...), theme.Warning.Render(line))
+			}
+		case "money":
+			ls = m.moneyLines(r)
+		}
+		if len(ls) == 0 {
+			continue
+		}
+		body = append(body, reportStyles[sec.ID].Bold(true).Render(sec.Title))
 		for _, l := range ls {
 			body = append(body, "  "+l)
 		}
 		body = append(body, "")
 	}
-	section("INCIDENT", r.Incident, theme.Fg(theme.World)) // the world's incident this morning (#44): first, the day is about it
-	section("TIER", r.Tier, theme.Warning)                 // the tier entered this morning (#147)
-	section("UNLOCKED", r.Unlocked, theme.Gold)            // a gate crossed (#148): next, it is what the morning is about
-	section("PRICES", r.Prices, theme.Good)
-	section("SALES", r.Sales, theme.Gold)
-	section("SHIPMENTS", r.Shipments, theme.RoadText)
-	section("HEAT", r.Heat, theme.Bad)
-	section("LAW", r.Law, lawReportStyle)
-	section("INTEL", r.Intel, theme.IntelText) // what was learnt tonight (#45)
-	crew := r.Crew
-	if line := m.crewTrouble(); line != "" {
-		// The crew trouble this morning (#345), the alerts' counts.
-		crew = append(append([]string(nil), crew...), theme.Warning.Render(line))
-	}
-	section("CREW", crew, theme.CrewText)
-	section("TERRITORY", r.Territory, theme.RivalText)
-	section("MONEY", m.moneyLines(r), theme.Gold)
-	section("UPGRADES", r.Upgrades, theme.Gold)
-	section("NEWS", r.News, theme.Subtle)
 	for len(body) > 0 && body[len(body)-1] == "" {
 		body = body[:len(body)-1]
 	}
 	return body
+}
+
+// reportStyles are the report's sections' colours, by
+// engine.ReportSection id: each its sim's.
+var reportStyles = map[string]lipgloss.Style{
+	"incident":  theme.Fg(theme.World),
+	"tier":      theme.Warning,
+	"unlocked":  theme.Gold,
+	"prices":    theme.Good,
+	"sales":     theme.Gold,
+	"shipments": theme.RoadText,
+	"heat":      theme.Bad,
+	"law":       lawReportStyle,
+	"intel":     theme.IntelText,
+	"crew":      theme.CrewText,
+	"territory": theme.RivalText,
+	"money":     theme.Gold,
+	"upgrades":  theme.Gold,
+	"news":      theme.Subtle,
+}
+
+// hasLead is the report open on a night with a lead: its 1, 2 and 3
+// open the lines (#354).
+func hasLead(m *Model) bool { return m.w != nil && m.w.Report != nil && len(m.w.Report.Lead) > 0 }
+
+// openLead is the report's 1, 2 or 3: the lead line's act, the way the
+// dashboard's o opens an alert's (#352).
+func (m *Model) openLead(key string) {
+	if !hasLead(m) {
+		return
+	}
+	i := int(key[0] - '1')
+	if lead := m.w.Report.Lead; i >= 0 && i < len(lead) {
+		m.openAlert(engine.LeadAlert(lead[i]))
+	}
 }
 
 // flowCols are the waterfall's columns (#351): the category, then the

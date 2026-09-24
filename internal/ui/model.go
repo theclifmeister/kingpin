@@ -479,7 +479,8 @@ func (m *Model) keyDetails(key string) {
 }
 
 // keyReport scrolls the morning report; enter, esc, space, r and q
-// close it.
+// close it, o opens the stop line's alert and 1, 2 and 3 the lead's
+// lines.
 func (m *Model) keyReport(key string) {
 	switch key {
 	case "enter", "esc", " ", "r", "q":
@@ -488,6 +489,8 @@ func (m *Model) keyReport(key string) {
 		if m.fastAlert != nil {
 			m.openAlert(*m.fastAlert) // the stop line's jump (#352)
 		}
+	case "1", "2", "3":
+		m.openLead(key) // the lead's jumps (#354)
 	default:
 		m.scrollModal(key)
 	}
