@@ -241,3 +241,53 @@ func TestFileAlertWords(t *testing.T) {
 		t.Errorf("the file alert: %+v", got)
 	}
 }
+
+// TestNoCornerAlertWords (#471): the last corner in a city gone is a
+// red alert with the ways back, the free corner named, the map's keys
+// and the other city, and its o opens the post picker on that corner.
+func TestNoCornerAlertWords(t *testing.T) {
+	m := newTestModel(t, 120, 40)
+	w := m.w
+	home := w.Home()
+	for i := range home.Corners {
+		if home.Corners[i].Held() {
+			home.Corners[i].Yours = true
+			home.Corners[i].Hand(game.OwnerRival, "", w.Day)
+		}
+	}
+	got := m.alertsOf(engine.AlertNoCorner)
+	if len(got) != 1 {
+		t.Fatalf("no_corner alerts %+v", got)
+	}
+	text := stripANSI(got[0].text)
+	for _, want := range []string{"You hold no corner in " + home.Name + ": nothing sells there.", "Post on ", "(w)", "buy a block (d) on the map screen (5)", ", or sell in "} {
+		if !strings.Contains(text, want) {
+			t.Errorf("the alert %q lacks %q", text, want)
+		}
+	}
+	m.Update(key("1"))
+	for _, a := range m.sess.Alerts() {
+		if a.Kind == engine.AlertNoCorner {
+			m.openAlert(a)
+		}
+	}
+	if m.screen != screenMap || m.mode != modePost {
+		t.Fatalf("the jump landed on screen %v mode %v", m.screen, m.mode)
+	}
+}
+
+// TestWagesAlertSaysTheAccountIsOut (#471): with money offshore, the
+// wages the till cannot pay say the account does not count toward
+// them and nothing comes back from it: two runs ended broke with
+// $226K and $510K there.
+func TestWagesAlertSaysTheAccountIsOut(t *testing.T) {
+	m := richModel(t, 120, 40)
+	m.w.Player.DirtyCash, m.w.Player.CleanCash, m.w.Offshore = 0, 0, 226_000
+	got := m.alertsOf(engine.AlertWages)
+	if len(got) != 1 {
+		t.Fatalf("no wages alert with an empty till: %+v", got)
+	}
+	if text := stripANSI(got[0].text); !strings.Contains(text, "The $226,000 offshore does not count: nothing comes back from it.") {
+		t.Errorf("the wages alert: %q", text)
+	}
+}

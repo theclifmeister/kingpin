@@ -24,8 +24,29 @@ const (
 	restockDaysMax = 30 // the field's max
 )
 
-// restockCols is the plan's table.
-var restockCols = []col{{"product", kText, 0}, {"level", kInt, 0}, {"have", kInt, 0}, {"buy", kInt, 0}, {"cost", kMoney, 0}}
+// restockCols is the plan's table; `sells` is the order that sells the
+// product there tonight, the day's, yours standing or the lieutenant's
+// (#470), `none` in Warning where no order does: the restock sizes to
+// what the corners could sell, not to what an order will.
+var restockCols = []col{{"product", kText, 0}, {"level", kInt, 0}, {"have", kInt, 0}, {"buy", kInt, 0}, {"cost", kMoney, 0}, {"sells", kDial, 0}}
+
+// restockSells is a restock line's `sells` cell, the market table's
+// order cell, and whether an order sells the product there tonight.
+func (m *Model) restockSells(city, product string) (any, bool) {
+	w := m.w
+	if o, ok := w.Order(city, product); ok {
+		return order{qty: o.Qty, dial: dialShort(o.Dial)}, true
+	}
+	if !w.Today.LieLow {
+		if o, ok := w.YourStanding(city, product); ok {
+			return order{qty: o.Qty, dial: dialShort(o.Dial), standing: true}, true
+		}
+		if o, ok := w.DelegatedOrder(city, product); ok {
+			return order{qty: o.Qty, dial: dialShort(o.Dial), lt: true}, true
+		}
+	}
+	return styled{theme.Warning, "none"}, false
+}
 
 // askRestock opens the restock dialog on the city a buy on the market
 // would be in (buyCity: where you stand, or the shown city a lieutenant
@@ -129,15 +150,29 @@ func (m *Model) viewRestock() string {
 		body = append(body, theme.Subtle.Render("Nothing to buy: "+m.restockNothing(city)+"."))
 	} else {
 		var rows [][]any
+		var unsold []string
 		units, cost := 0, 0
 		for _, l := range plan {
-			rows = append(rows, []any{w.ProductName(l.Product), l.Level, l.Have, l.Units, styled{theme.Bad, -l.Cost}})
+			sells, ok := m.restockSells(city, l.Product)
+			if !ok {
+				unsold = append(unsold, w.ProductName(l.Product))
+			}
+			rows = append(rows, []any{w.ProductName(l.Product), l.Level, l.Have, l.Units, styled{theme.Bad, -l.Cost}, sells})
 			units += l.Units
 			cost += l.Cost
 		}
 		body = append(body, table(restockCols, rows, -1, m.modalInner())...)
 		body = append(body, "", row("total", theme.Gold.Render(money(cost))+" for "+plural(units, "unit")))
 		body = append(body, m.restockAfter(city, units, cost))
+		// It buys every product your corners could sell, an order or
+		// not (#470): say which no order sells, so the lines are no
+		// surprise in the stash.
+		if len(unsold) > 0 {
+			body = append(body, "")
+			for _, t := range wrap(fmt.Sprintf("No order sells %s here tonight; it buys them anyway, for what your corners could sell. x drops a line in the cart.", andList(unsold)), m.modalInner()) {
+				body = append(body, theme.Warning.Render(t))
+			}
+		}
 	}
 	if m.amt.err != "" {
 		body = append(body, "", theme.Bad.Render(m.amt.err))

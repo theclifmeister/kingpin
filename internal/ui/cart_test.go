@@ -264,8 +264,82 @@ func TestCartContractLineNamesTheLevel(t *testing.T) {
 		for _, k := range []string{"1", "5", "0", "enter"} {
 			m.Update(key(k))
 		}
-		if !strings.Contains(m.crt.err, "raise its level on the buy dialog") {
+		if !strings.Contains(m.crt.err, "raise its level on its keep line") {
 			t.Fatalf("%dx%d: raising a contract's line: err %q", sz[0], sz[1], m.crt.err)
+		}
+	}
+}
+
+// Lying low says what keeps running (#470): no sales, but the wages
+// and your supply contracts do, in the key's help and the status.
+func TestLieLowSaysWhatStillRuns(t *testing.T) {
+	m := newTestModel(t, 80, 24)
+	m.Update(key("l"))
+	if !m.w.Today.LieLow || !strings.Contains(m.status, "wages and contracts still run") {
+		t.Fatalf("l: lie low %v, status %q", m.w.Today.LieLow, m.status)
+	}
+	for _, b := range bindings {
+		if b.key == "l" && b.label == "lie low" && !strings.Contains(b.help, "wages, contracts run") {
+			t.Fatalf("the lie-low help does not say the wages and contracts run: %q", b.help)
+		}
+	}
+}
+
+// A contract in a city you are not in is edited from the cart (#470):
+// every contract of yours is a keep line in the cart modal, its level
+// the quantity and x clearing it; the cart flags a level over what the
+// product is expected to sell tonight (nothing, where no corner is
+// worked); and the lines are the modal's, never the day's shopping.
+func TestCartEditsContractsInEveryCity(t *testing.T) {
+	for _, sz := range [][2]int{{80, 24}, {120, 40}} {
+		m := newTestModel(t, sz[0], sz[1])
+		w := m.w
+		weed := w.Products[0]
+		other := ""
+		for _, cid := range w.CityOrder {
+			if p := w.Product(cid, weed); cid != w.Player.Location && p != nil && !p.NoSupply {
+				other = cid
+				break
+			}
+		}
+		if other == "" {
+			t.Fatal("no other city supplies weed")
+		}
+		if err := w.SetSupply(other, weed, 500); err != nil {
+			t.Fatal(err)
+		}
+		if m.cartSummary() != "" || m.endDayLine() != "No sales queued." {
+			t.Fatalf("a contract counted as the day's shopping: %q / %q", m.cartSummary(), m.endDayLine())
+		}
+		m.Update(key("c"))
+		if m.mode != modeCart {
+			t.Fatalf("c: mode %v, status %q", m.mode, m.status)
+		}
+		view := m.View()
+		assertFits(t, view, sz[0], sz[1], "cart on a keep line")
+		plain := strings.Join(strings.Fields(stripANSI(view)), " ")
+		if !strings.Contains(plain, "keep "+w.ProductName(weed)) || !strings.Contains(plain, w.CityName(other)) {
+			t.Fatalf("%dx%d: no keep line for the contract in %s: %q", sz[0], sz[1], other, plain)
+		}
+		if !strings.Contains(plain, "Contracts exceed tonight's expected sales: "+w.ProductName(weed)+" keeps 500 against ~0 in") {
+			t.Fatalf("%dx%d: no flag for a level over tonight's sales: %q", sz[0], sz[1], plain)
+		}
+		m.Update(key("enter"))
+		for range 4 {
+			m.Update(key("backspace"))
+		}
+		for _, k := range []string{"4", "0", "enter"} {
+			m.Update(key(k))
+		}
+		if c, ok := w.Supplied(other, weed); !ok || c.Units != 40 || m.crt.err != "" {
+			t.Fatalf("%dx%d: the level from the cart: %+v %v, err %q", sz[0], sz[1], c, ok, m.crt.err)
+		}
+		m.Update(key("x"))
+		if _, ok := w.Supplied(other, weed); ok {
+			t.Fatalf("%dx%d: x on the keep line left the contract", sz[0], sz[1])
+		}
+		if plain := stripANSI(m.View()); !strings.Contains(plain, "Nothing in the cart.") {
+			t.Fatalf("%dx%d: after clearing: %s", sz[0], sz[1], plain)
 		}
 	}
 }

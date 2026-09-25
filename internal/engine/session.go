@@ -39,6 +39,10 @@ type Session struct {
 	// businessman's count reads, #347): kept from the last EndDay so the
 	// legit plan can say it; a run loaded since reads the report's flow.
 	street, streetDay int
+
+	// memo is what the session remembers of the nights it ended, for
+	// the fast-forward's stops (#469, stops.go).
+	memo memo
 }
 
 // New builds the sims from cfg in their step order, a clock over them
@@ -84,13 +88,14 @@ func (s *Session) World() *game.World { return s.w }
 // character, the hard DA, the daily, sim.NewWorldWith's.
 func (s *Session) NewRun(seed uint64, start game.Start) *game.World {
 	s.w = sim.NewWorldWith(s.cfg, seed, start)
+	s.forget()
 	return s.w
 }
 
 // Attach drives a world the caller built: the harness's and the
 // tests', which start theirs from sim.NewWorld and a config of their
 // own.
-func (s *Session) Attach(w *game.World) { s.w = w }
+func (s *Session) Attach(w *game.World) { s.w = w; s.forget() }
 
 // Load continues the run saved in the slot, migrated to the current
 // schema through the sims' chain (docs/saves.md). A slot that does not
@@ -101,6 +106,7 @@ func (s *Session) Load(slot int) (*game.World, error) {
 		return nil, err
 	}
 	s.w = w
+	s.forget()
 	return w, nil
 }
 
@@ -130,6 +136,7 @@ func (s *Session) ImportSave(b []byte) (*game.World, error) {
 		return nil, err
 	}
 	s.w = w
+	s.forget()
 	return w, nil
 }
 
@@ -144,6 +151,7 @@ func (s *Session) EndDay() []events.Event {
 	if len(evs) == 0 {
 		return evs
 	}
+	s.remember(evs)
 	s.street, s.streetDay = 0, s.w.Day
 	for _, e := range evs {
 		if ev, ok := e.(events.PlayerSold); ok {

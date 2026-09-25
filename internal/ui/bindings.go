@@ -45,7 +45,7 @@ var bindings = []binding{
 		do: func(m *Model, key string) { m.cycleFaction(dir(key)) }},
 	// The dashboard's own [ ] picks an alert in ALERTS (#352), and o
 	// opens what answers it.
-	{key: "[ ]", label: "alert", help: "pick an alert in ALERTS", keys: []string{"[", "]"}, screens: on(screenDashboard), when: hasAlerts,
+	{key: "[ ]", label: "alert", help: "pick an alert in ALERTS", keys: []string{"[", "]"}, screens: on(screenDashboard), when: hasAlerts, off: offAlerts,
 		do: func(m *Model, key string) { m.cycleAlert(dir(key)) }},
 	// The dashboard and the market: the day's cart.
 	{key: "c", label: "cart", help: "the day's cart: edit its buys and orders", screens: on(screenDashboard, screenMarket),
@@ -138,7 +138,7 @@ var bindings = []binding{
 		do: func(m *Model, _ string) { m.askMove() }},
 	{key: "e", label: "guard house", help: "post an enforcer inside the selected house", screens: on(screenLedger), when: ledgerOnHouse,
 		do: func(m *Model, _ string) { m.askGuard() }},
-	{key: "x", label: "drop house", help: "drop the selected house, after asking", screens: on(screenLedger), when: ledgerOnHouse,
+	{key: "x", label: "drop house", help: "drop the selected house, after asking", screens: on(screenLedger), when: ledgerOnHouse, off: offHouse,
 		do: func(m *Model, _ string) { m.askDrop() }},
 	{key: "$", label: "bribe", help: "an envelope for the chief or the DA", screens: on(screenLedger),
 		do: func(m *Model, _ string) { m.askBribe() }},
@@ -191,7 +191,7 @@ var bindings = []binding{
 		do: func(m *Model, _ string) { m.openDialog(modeSell) }},
 	{key: "x", label: "cancel order", help: "cancel order, else standing, else contract", screens: on(screenDashboard, screenMarket), global: true,
 		do: func(m *Model, _ string) { m.cancelSelected() }},
-	{key: "l", label: "lie low", help: "lie low today: no sales, heat fades faster", screens: on(screenDashboard), global: true,
+	{key: "l", label: "lie low", help: "no sales, heat fades; wages, contracts run", screens: on(screenDashboard), global: true,
 		do: func(m *Model, _ string) { m.toggleLieLow() }},
 	{key: "p", label: "pay dial", help: "the pay dial: stingy, fair, generous", screens: on(screenCrew), global: true,
 		do: func(m *Model, _ string) { m.cyclePay() }},

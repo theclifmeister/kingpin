@@ -4,6 +4,8 @@ import (
 	"strconv"
 	"strings"
 	"testing"
+
+	"github.com/theclifmeister/kingpin/internal/events"
 )
 
 // The buy's quantity step shows the cash and the room after the buy
@@ -90,5 +92,40 @@ func TestRestockFillsTheCart(t *testing.T) {
 	m.Update(key("enter"))
 	if m.mode != modeRestock || !strings.HasPrefix(m.amt.err, "Nothing to buy") {
 		t.Errorf("a restock of a stocked stash: mode %v, err %q", m.mode, m.amt.err)
+	}
+}
+
+// The restock says what it buys (#470): it sizes to what the corners
+// could sell, an order or not, so its `sells` column names the order
+// that sells each line tonight, `none` where no order does, and a line
+// under the plan names those products.
+func TestRestockSaysWhatNoOrderSells(t *testing.T) {
+	m := richModel(t, 120, 40)
+	m.w.Player.DirtyCash = 10_000_000
+	city := m.w.Player.Location
+	plan := m.sess.RestockPlan(city, restockDays)
+	if len(plan) < 2 {
+		t.Fatalf("the rich fixture restocks %d lines", len(plan))
+	}
+	for _, l := range plan {
+		m.sess.CancelSell(city, l.Product)
+		m.sess.CancelStanding(city, l.Product)
+	}
+	sold := plan[0].Product
+	if err := m.sess.PlaceStanding(city, sold, 7, events.DialNormal); err != nil {
+		t.Fatal(err)
+	}
+	m.Update(key("2"))
+	m.Update(key("R"))
+	plain := strings.Join(strings.Fields(stripANSI(m.View())), " ")
+	if !strings.Contains(plain, "sells") || !strings.Contains(plain, "7 normal ↻") || !strings.Contains(plain, "none") {
+		t.Fatalf("no sells column:\n%s", plain)
+	}
+	note := strings.Index(plain, "No order sells")
+	if note < 0 || !strings.Contains(plain[note:], m.w.ProductName(plan[1].Product)) {
+		t.Fatalf("no line naming what no order sells:\n%s", plain)
+	}
+	if strings.Contains(plain[note:strings.Index(plain[note:], "tonight")+note], m.w.ProductName(sold)) {
+		t.Fatalf("the line names %s, which a standing order sells:\n%s", sold, plain)
 	}
 }

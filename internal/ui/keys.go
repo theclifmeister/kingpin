@@ -137,6 +137,26 @@ func offProducts(verb string) func(*Model) string {
 	}
 }
 
+// offHouse is the ledger's x off a house row (#469, after #460): what
+// to pick, where x fell through to the global cancel order and acted on
+// the market's cursor, which the ledger does not show.
+func offHouse(m *Model) string {
+	if len(m.w.Houses) == 0 {
+		return "No house to drop: you rent none."
+	}
+	return "Pick a house to drop: x on the ledger drops the house under the cursor."
+}
+
+// offAlerts is the dashboard's [ ] with no alert to pick (#469, after
+// #460): it said nothing and turned the market's and the map's city,
+// which the dashboard does not show.
+func offAlerts(m *Model) string {
+	if m.onPolice && len(m.sess.Alerts()) > 0 {
+		return "Pick an alert from the product table: the arrows are on the police panels."
+	}
+	return "No alert to pick: ALERTS is empty. [ ] turns the city on the market and the map."
+}
+
 // step is the dialog open being on its nth page.
 func step(n int) func(*Model) bool { return func(m *Model) bool { return m.modalStep() == n } }
 

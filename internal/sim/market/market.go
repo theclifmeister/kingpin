@@ -118,80 +118,109 @@ type SupplyPlan struct {
 // the player's contracts and, where they set none for a product in a
 // city a lieutenant runs, the lieutenant's (World.StandingSupply,
 // #174), which buys nothing on a lie-low day (everyone's day off).
+//
+// The contracts fill in city and ladder order while the cash and the
+// room go round. Where they do not (a contract short of "cash" or
+// "room"), the morning is laid out again in the order World.ByMargin
+// puts them (#470): by what a dollar brings back where the cash ran
+// short, by what a unit earns where only the room did, so what goes
+// short is the product that earns least, not the one the ladder puts
+// last. A morning with enough of both is the plan it always was.
 func (s *Sim) Plan(w *game.World) []SupplyPlan {
 	if len(w.Supply) == 0 && len(w.DelegatedSupply) == 0 {
 		return nil
 	}
+	var order []game.SupplyContract
+	for _, cid := range w.CityOrder {
+		for _, id := range w.Products {
+			if c, ok := w.StandingSupply(cid, id); ok {
+				order = append(order, c)
+			}
+		}
+	}
+	plan := s.plan(w, order)
+	cash, room := false, false
+	for _, p := range plan {
+		cash = cash || p.Why == "cash"
+		room = room || p.Why == "room"
+	}
+	if !cash && !room {
+		return plan
+	}
+	return s.plan(w, w.ByMargin(order, cash))
+}
+
+// plan lays out the contracts in the order given, each the shortfall
+// cut to the stash's room and the cash over the float after the
+// contracts before it have had theirs.
+func (s *Sim) plan(w *game.World, order []game.SupplyContract) []SupplyPlan {
 	var plan []SupplyPlan
 	budget := s.Budget(w)
 	room := map[string]int{}
 	bought := map[string]int{} // what the plan has already put on each connect's day
-	for _, cid := range w.CityOrder {
-		room[cid] = w.Free(cid)
-		for _, id := range w.Products {
-			c, ok := w.StandingSupply(cid, id)
-			if !ok {
-				continue
-			}
-			lieutenant := ""
-			if _, own := w.Supplied(cid, id); !own {
-				if w.Today.LieLow {
-					continue
-				}
-				lieutenant = w.Crew.Lieutenant(cid).Name
-			}
-			m := w.Product(cid, id)
-			if m == nil || m.NoSupply {
-				continue
-			}
-			short := s.Shortfall(w, c)
-			if short <= 0 {
-				continue
-			}
-			// The connect: the cheapest in the city that sells the
-			// product today for the shortfall, their small-lot premium
-			// counted where the shortfall is under their lot, for cash,
-			// never on credit, and only as far as their day goes (#72);
-			// with none, nothing.
-			sup := s.cheapest(w, cid, id, short, bought)
-			if sup == nil {
-				plan = append(plan, SupplyPlan{Contract: c, Short: short, Why: "supplier", Lieutenant: lieutenant})
-				continue
-			}
-			unit := s.unitFor(sup, id, short) * s.Markup()
-			affords := func(unit float64) int {
-				n := short
-				if unit > 0 {
-					n = int(float64(budget) / unit)
-					for n > 0 && int(math.Ceil(unit*float64(n))) > budget {
-						n-- // a cent of rounding never takes the till under the float
-					}
-				}
-				return n
-			}
-			afford := affords(unit)
-			qty := max(0, min(short, room[cid], afford, sup.Left()-bought[sup.ID]))
-			if qty < sup.Lot && short >= sup.Lot && sup.SmallLot > 1 {
-				// Cut under the lot, the premium is on it after all.
-				unit = sup.Price[id] * sup.SmallLot * s.Markup()
-				afford = affords(unit)
-				qty = max(0, min(qty, afford))
-			}
-			p := SupplyPlan{Contract: c, Supplier: sup.ID, Short: short, Units: qty, Cost: int(math.Ceil(unit * float64(qty))), Lieutenant: lieutenant}
-			if qty < short {
-				p.Why = "cash"
-				if room[cid] < short && room[cid] <= afford {
-					p.Why = "room"
-				}
-				if left := sup.Left() - bought[sup.ID]; left < short && left <= afford && left <= room[cid] {
-					p.Why = "supplier"
-				}
-			}
-			budget -= p.Cost
-			room[cid] -= qty
-			bought[sup.ID] += qty
-			plan = append(plan, p)
+	for _, c := range order {
+		cid, id := c.City, c.Product
+		if _, ok := room[cid]; !ok {
+			room[cid] = w.Free(cid)
 		}
+		lieutenant := ""
+		if _, own := w.Supplied(cid, id); !own {
+			if w.Today.LieLow {
+				continue
+			}
+			lieutenant = w.Crew.Lieutenant(cid).Name
+		}
+		m := w.Product(cid, id)
+		if m == nil || m.NoSupply {
+			continue
+		}
+		short := s.Shortfall(w, c)
+		if short <= 0 {
+			continue
+		}
+		// The connect: the cheapest in the city that sells the
+		// product today for the shortfall, their small-lot premium
+		// counted where the shortfall is under their lot, for cash,
+		// never on credit, and only as far as their day goes (#72);
+		// with none, nothing.
+		sup := s.cheapest(w, cid, id, short, bought)
+		if sup == nil {
+			plan = append(plan, SupplyPlan{Contract: c, Short: short, Why: "supplier", Lieutenant: lieutenant})
+			continue
+		}
+		unit := s.unitFor(sup, id, short) * s.Markup()
+		affords := func(unit float64) int {
+			n := short
+			if unit > 0 {
+				n = int(float64(budget) / unit)
+				for n > 0 && int(math.Ceil(unit*float64(n))) > budget {
+					n-- // a cent of rounding never takes the till under the float
+				}
+			}
+			return n
+		}
+		afford := affords(unit)
+		qty := max(0, min(short, room[cid], afford, sup.Left()-bought[sup.ID]))
+		if qty < sup.Lot && short >= sup.Lot && sup.SmallLot > 1 {
+			// Cut under the lot, the premium is on it after all.
+			unit = sup.Price[id] * sup.SmallLot * s.Markup()
+			afford = affords(unit)
+			qty = max(0, min(qty, afford))
+		}
+		p := SupplyPlan{Contract: c, Supplier: sup.ID, Short: short, Units: qty, Cost: int(math.Ceil(unit * float64(qty))), Lieutenant: lieutenant}
+		if qty < short {
+			p.Why = "cash"
+			if room[cid] < short && room[cid] <= afford {
+				p.Why = "room"
+			}
+			if left := sup.Left() - bought[sup.ID]; left < short && left <= afford && left <= room[cid] {
+				p.Why = "supplier"
+			}
+		}
+		budget -= p.Cost
+		room[cid] -= qty
+		bought[sup.ID] += qty
+		plan = append(plan, p)
 	}
 	return plan
 }

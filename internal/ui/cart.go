@@ -32,6 +32,7 @@ import (
 type cartLine struct {
 	buy      bool
 	contract bool // a buy the supply contract made this morning
+	keep     bool // a supply contract of yours (#470): qty is its level, edited in any city
 	credit   bool // a buy on a connect's book (#72), kept apart from the cash ones
 	standing bool // a standing order of yours, selling tonight
 	city     string
@@ -144,6 +145,9 @@ type cartTotals struct {
 func totals(lines []cartLine) cartTotals {
 	var t cartTotals
 	for _, l := range lines {
+		if l.keep {
+			continue // a level, not the day's shopping (#470)
+		}
 		if l.buy {
 			t.buys++
 			switch {
@@ -222,6 +226,8 @@ func (m *Model) cartRows(lines []cartLine) [][]any {
 	for _, l := range lines {
 		name, city := m.w.ProductName(l.product), m.w.CityName(l.city)
 		switch {
+		case l.keep:
+			rows = append(rows, []any{"keep", name, city, l.qty, nil, nil, nil, nil, nil})
 		case l.contract:
 			rows = append(rows, []any{"contract", name, city, l.qty, l.unit, nil, nil, styled{theme.Bad, -l.cost}, nil})
 		case l.credit:
@@ -331,10 +337,67 @@ func (m *Model) openCart() {
 	m.mode = modeCart
 }
 
+// cartModalLines are the cart modal's lines: the cart's, then every
+// supply contract of yours as a keep line, in city and ladder order
+// (#470), so a contract in a city you are not in is edited here (its
+// level the quantity, x clearing it) rather than only on the buy dialog
+// where it is. They are the modal's alone: the cart's totals, its
+// sentence and the pane count the day's buys and orders, not the
+// levels.
+func (m *Model) cartModalLines() []cartLine {
+	lines := m.cartLines()
+	w := m.w
+	for _, cid := range w.CityOrder {
+		for _, pid := range w.Products {
+			if c, ok := w.Supplied(cid, pid); ok {
+				lines = append(lines, cartLine{keep: true, city: cid, product: pid, qty: c.Units})
+			}
+		}
+	}
+	return lines
+}
+
+// keepExpected is what a contract's product is expected to sell in its
+// city tonight (#470): the street's capacity at the dial of the order
+// standing there, normal with none, the number an order is estimated
+// against (orderEstimate); zero with no corner worked there.
+func (m *Model) keepExpected(l cartLine) int {
+	dial := events.DialNormal
+	if o, ok := m.w.Order(l.city, l.product); ok {
+		dial = o.Dial
+	} else if o, ok := m.w.YourStanding(l.city, l.product); ok {
+		dial = o.Dial
+	} else if o, ok := m.w.DelegatedOrder(l.city, l.product); ok {
+		dial = o.Dial
+	}
+	return m.rules.Market.Capacity(m.w, l.city, l.product, dial)
+}
+
+// keepOver is the cart's flag (#470): the contracts that keep more than
+// their product is expected to sell tonight, in a sentence, or empty. A
+// contract buys back only what left the stash, so the cost is a stash
+// held over, the room and the cash in it, not a daily overbuy; a corner
+// lost is how a level set for more comes to read this way.
+func (m *Model) keepOver(lines []cartLine) string {
+	var over []string
+	for _, l := range lines {
+		if !l.keep {
+			continue
+		}
+		if exp := m.keepExpected(l); l.qty > exp {
+			over = append(over, fmt.Sprintf("%s keeps %d against ~%d in %s", m.w.ProductName(l.product), l.qty, exp, m.w.CityName(l.city)))
+		}
+	}
+	if len(over) == 0 {
+		return ""
+	}
+	return "Contracts exceed tonight's expected sales: " + andList(over) + ". A contract buys back only what leaves the stash; the rest sits there. Lower a level on its keep line."
+}
+
 // cartSelected is the line under the cart's cursor, clamped to the
 // lines there are; nil for an empty cart.
 func (m *Model) cartSelected() *cartLine {
-	lines := m.cartLines()
+	lines := m.cartModalLines()
 	if len(lines) == 0 {
 		return nil
 	}
@@ -348,7 +411,7 @@ func cartHasLines(m *Model) bool { return m.modalStep() == 0 && m.cartSelected()
 
 func cartOnSell(m *Model) bool {
 	l := m.cartSelected()
-	return m.modalStep() == 0 && l != nil && !l.buy
+	return m.modalStep() == 0 && l != nil && !l.buy && !l.keep
 }
 
 func (m *Model) keyCart(k tea.KeyMsg) (tea.Model, tea.Cmd) {
@@ -382,10 +445,10 @@ func (m *Model) keyCart(k tea.KeyMsg) (tea.Model, tea.Cmd) {
 	l := m.cartSelected()
 	switch key {
 	case "up", "k":
-		stepCursor(&d.cursor, -1, len(m.cartLines()))
+		stepCursor(&d.cursor, -1, len(m.cartModalLines()))
 	case "down", "j":
 		if l != nil {
-			stepCursor(&d.cursor, 1, len(m.cartLines()))
+			stepCursor(&d.cursor, 1, len(m.cartModalLines()))
 		}
 	case "enter", "tab":
 		if l == nil {
@@ -399,7 +462,7 @@ func (m *Model) keyCart(k tea.KeyMsg) (tea.Model, tea.Cmd) {
 			m.removeCartLine(*l)
 		}
 	case "left", "h", "right", "l", "1", "2", "3":
-		if l == nil || l.buy {
+		if l == nil || l.buy || l.keep {
 			return m, nil
 		}
 		dial := l.dial
@@ -443,6 +506,10 @@ func (m *Model) cartMax() int {
 	switch {
 	case l == nil:
 		return 0
+	case l.keep:
+		// A level: what the stash there holds, or the level where it is
+		// already over that.
+		return max(l.qty, m.w.Capacity(l.city))
 	case !l.buy:
 		return m.sellable(l.city, l.product)
 	case m.w.CanBuyIn(l.city) && !l.contract:
@@ -484,6 +551,21 @@ func (m *Model) setCartQty() {
 		d.step = 0
 		return
 	}
+	if l.keep {
+		qty, err := readQty(d.qty, m.cartMax())
+		if err != nil {
+			d.err = dialogError(err)
+			return
+		}
+		if err := m.sess.SetSupply(l.city, l.product, qty); err != nil {
+			d.err = dialogError(err)
+			return
+		}
+		m.say(fmt.Sprintf("Contract: %s in %s kept at %d from tomorrow morning.", m.w.ProductName(l.product), m.w.CityName(l.city), qty))
+		d.step = 0
+		d.qty.Blur()
+		return
+	}
 	if l.buy {
 		here := m.w.CanBuyIn(l.city) // where you stand, or through a lieutenant (#174)
 		qty, err := readQty(d.qty, m.cartMax())
@@ -501,7 +583,7 @@ func (m *Model) setCartQty() {
 			}
 			m.say(m.returned(*l, l.qty-qty, refund))
 		case qty > l.qty && l.contract:
-			d.err = "A contract's line only goes back: raise its level on the buy dialog."
+			d.err = "A contract's line only goes back: raise its level on its keep line."
 			return
 		case qty > l.qty && l.credit:
 			d.err = "A credit line only goes back: more on the book is a new buy."
@@ -552,6 +634,11 @@ func (m *Model) setCartQty() {
 // for good, #114), a buy returned whole. A buy whose units have left
 // the stash stays, with the refusal in the modal and the status bar.
 func (m *Model) removeCartLine(l cartLine) {
+	if l.keep {
+		m.sess.ClearSupply(l.city, l.product)
+		m.say(fmt.Sprintf("Contract cleared: %s in %s is no longer kept at %d.", m.w.ProductName(l.product), m.w.CityName(l.city), l.qty))
+		return
+	}
 	if l.standing {
 		m.sess.CancelStanding(l.city, l.product)
 		m.say("Standing order cancelled.")
@@ -576,7 +663,7 @@ func (m *Model) removeCartLine(l cartLine) {
 // step the quantity for it.
 func (m *Model) viewCart() string {
 	d := m.crt
-	lines := m.cartLines()
+	lines := m.cartModalLines()
 	var body []string
 	if len(lines) == 0 {
 		body = append(body, emptyState("Nothing in the cart."))
@@ -586,10 +673,19 @@ func (m *Model) viewCart() string {
 	m.modalFollow(1 + cursor) // under the header
 	body = append(body, m.cartTable(lines, cursor)...)
 	body = append(body, "", m.cartTotalLine(totals(lines)), "")
+	if over := m.keepOver(lines); over != "" {
+		for _, t := range wrap(over, m.modalInner()) {
+			body = append(body, theme.Warning.Render(t))
+		}
+		body = append(body, "")
+	}
 	l := lines[cursor]
 	if d.step == 1 {
 		d.qty.max = m.cartMax()
 		line := "quantity   " + d.qty.View()
+		if l.keep {
+			line = "keep at    " + d.qty.View() + "   " + theme.Subtle.Render(fmt.Sprintf("~%d sell tonight", m.keepExpected(l)))
+		}
 		if l.buy {
 			note := fmt.Sprintf("bought %d", l.qty)
 			if l.contract {
@@ -625,7 +721,7 @@ func (m *Model) contractLevelNote(l cartLine) string {
 	if !ok {
 		return fmt.Sprintf("Bought this morning by a contract since cleared: %d %s.", l.qty, m.w.ProductName(l.product))
 	}
-	return fmt.Sprintf("The contract keeps %d; it brought %d this morning. Its level is set on the buy dialog, at keep at.", c.Units, l.qty)
+	return fmt.Sprintf("The contract keeps %d; it brought %d this morning. Its level is its keep line below.", c.Units, l.qty)
 }
 
 // endDayLine is the END THE DAY? modal's first sentence: lying low, the
