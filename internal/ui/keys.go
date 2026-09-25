@@ -44,6 +44,7 @@ type binding struct {
 	quiet   bool                 // in help and the README only: the frame's keys, which the title bar and help carry
 	when    func(*Model) bool    // live only while this holds; nil is always
 	listed  func(*Model) bool    // listed in the pane only while this holds, live or not; nil lists it wherever it is live
+	off     func(*Model) string  // the refusal while the key is the screen's own but not live (#460): said, never silent, never a global's
 	do      func(*Model, string) // what it does in play mode, given the key pressed
 }
 
@@ -94,18 +95,47 @@ var everywhere = on(screenDashboard, screenMarket, screenJournal, screenCrew, sc
 var listScreens = on(screenDashboard, screenMarket, screenJournal, screenCrew, screenUpgrades, screenLedger, screenRivals, screenIntel)
 
 // hasChemist is a chemist being on the payroll (#47): the cook is
-// listed, and live, only then.
+// listed only then, and live on the product table either way, where it
+// says to hire one (#460).
 func hasChemist(m *Model) bool { return m.w.Crew.Chemist() != nil }
 
 // onBuyers is the market's cursor being on the buyers under the table.
 func onBuyers(m *Model) bool { return m.screen == screenMarket && m.onBuyers }
 
 // onProducts is the market's cursor being on the product table (#239):
-// where the cut and the cook act, and are listed. onProductsWithChemist
-// is the cook's: a chemist on the payroll too.
+// where the cut and the cook act, and are listed (the cook with a
+// chemist on the payroll, hasChemist).
 func onProducts(m *Model) bool { return m.screen == screenMarket && !m.onBuyers && !m.onSuppliers }
 
-func onProductsWithChemist(m *Model) bool { return onProducts(m) && hasChemist(m) }
+// marketRegion is where the market's cursor is, in prose: the product
+// table, the buyers or the connects.
+func (m *Model) marketRegion() string {
+	switch {
+	case m.onBuyers:
+		return "the buyers"
+	case m.onSuppliers:
+		return "the connects"
+	}
+	return "the product table"
+}
+
+// offBuyers and offProducts are the market's refusals for a region's
+// key pressed on another region (#460): what to pick, and where the
+// cursor is, rather than nothing.
+func offBuyers(verb string) func(*Model) string {
+	return func(m *Model) string {
+		if len(m.buyerRows()) == 0 {
+			return fmt.Sprintf("Nobody to %s in %s: no buyer is asking.", verb, m.shown().Name)
+		}
+		return fmt.Sprintf("Pick a buyer to %s: the cursor is on %s.", verb, m.marketRegion())
+	}
+}
+
+func offProducts(verb string) func(*Model) string {
+	return func(m *Model) string {
+		return fmt.Sprintf("Pick a product to %s: the cursor is on %s.", verb, m.marketRegion())
+	}
+}
 
 // step is the dialog open being on its nth page.
 func step(n int) func(*Model) bool { return func(m *Model) bool { return m.modalStep() == n } }
@@ -304,16 +334,27 @@ func (m *Model) labelOf(b binding) string {
 // screen's own first, then a global one. It also reports whether the
 // screen has a binding for the key at all: one of its own that is not
 // live now (the market's buyer keys with the cursor on the table) takes
-// the key and does nothing, so it is neither pointed elsewhere nor let
-// through to a global that means something else.
+// the key, so it is not pointed elsewhere; one with an off refusal says
+// it (#460) and is never let through to a global that means something
+// else (the market's d and the launder dial); one without falls to a
+// global that takes the key, or to nothing.
 func (m *Model) lookup(key string) (b binding, found, own bool) {
+	refusal := ""
 	for _, x := range bindings {
 		if x.accepts(key) && x.names(m.screen) {
 			own = true
 			if x.live(m) {
 				return x, true, true
 			}
+			if x.off != nil && refusal == "" {
+				refusal = x.off(m)
+			}
 		}
+	}
+	// A key with a refusal is the screen's whatever the cursor is on
+	// (#460): the market's d never turns the launder dial off a buyer.
+	if refusal != "" {
+		return binding{do: func(m *Model, _ string) { m.refuse(refusal) }}, true, true
 	}
 	for _, x := range bindings {
 		if x.accepts(key) && x.global && x.live(m) {

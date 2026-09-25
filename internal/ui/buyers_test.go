@@ -64,7 +64,8 @@ func TestMarketBuyersKeys(t *testing.T) {
 		t.Fatalf("x did not decline: %v (%s)", got, m.status)
 	}
 	m.Update(key("left"))
-	// Back on the product table, x cancels the order and d turns the dial.
+	// Back on the product table, x cancels the order; d and a say to
+	// pick a buyer and never turn the launder dial (#460).
 	if err := w.PlaceSell(here, w.Products[0], 10, events.DialNormal); err != nil {
 		t.Fatal(err)
 	}
@@ -75,8 +76,12 @@ func TestMarketBuyersKeys(t *testing.T) {
 	}
 	dial := w.Laundering.Dial
 	m.Update(key("d"))
-	if w.Laundering.Dial == dial {
-		t.Fatal("d on the product table did not turn the launder dial")
+	if w.Laundering.Dial != dial || !strings.Contains(m.status, "Pick a buyer to deliver to") {
+		t.Fatalf("d on the product table: dial %v (was %v), status %q", w.Laundering.Dial, dial, m.status)
+	}
+	m.Update(key("a"))
+	if m.mode != modePlay || !strings.Contains(m.status, "Pick a buyer to accept") {
+		t.Fatalf("a on the product table: mode %v, status %q", m.mode, m.status)
 	}
 	// Up off the first buyer lands back on the table.
 	toBuyers(t, m)
@@ -174,5 +179,55 @@ func TestOfferElsewhereNamesItsCity(t *testing.T) {
 		if got := stripANSI(m.contractsLine()); got != "2 offers (1 in "+name+") on the market screen (2)" {
 			t.Errorf("%dx%d: with one here, the dashboard's line is %q", sz[0], sz[1], got)
 		}
+	}
+}
+
+// TestMarketKeysNeverTurnTheLaunderDial (#460): the market's d is
+// deliver wherever its cursor is: off the buyers it says to pick one
+// and leaves the launder dial alone, as a and o say what to pick
+// rather than nothing; on the ledger d is still the dial.
+func TestMarketKeysNeverTurnTheLaunderDial(t *testing.T) {
+	m := newTestModel(t, 120, 40)
+	w := m.w
+	here := w.Player.Location
+	m.Update(key("2"))
+	dial := w.Laundering.Dial
+	checkDial := func(what string) {
+		t.Helper()
+		if w.Laundering.Dial != dial || m.mode != modePlay || strings.Contains(m.status, "aunder") {
+			t.Fatalf("%s: dial %v (was %v), mode %v, status %q", what, w.Laundering.Dial, dial, m.mode, m.status)
+		}
+	}
+	m.Update(key("d"))
+	checkDial("d with no buyer")
+	if !strings.Contains(m.status, "Nobody to deliver to in "+w.CityName(here)) {
+		t.Fatalf("d with no buyer: %q", m.status)
+	}
+	offer(m, 10, here)
+	regions := []struct {
+		name              string
+		buyers, suppliers bool
+	}{{"the product table", false, false}, {"the connects", false, true}}
+	for _, r := range regions {
+		m.onBuyers, m.onSuppliers = r.buyers, r.suppliers
+		for _, k := range []string{"d", "a"} {
+			m.Update(key(k))
+			checkDial(k + " on " + r.name)
+			if !strings.Contains(m.status, "Pick a buyer to ") || !strings.Contains(m.status, "the cursor is on "+r.name) {
+				t.Fatalf("%s on %s: %q", k, r.name, m.status)
+			}
+		}
+	}
+	m.onBuyers, m.onSuppliers = true, false
+	for _, k := range []string{"o", "%"} {
+		m.Update(key(k))
+		if m.mode != modePlay || !strings.Contains(m.status, "Pick a product to ") || !strings.Contains(m.status, "the cursor is on the buyers") {
+			t.Fatalf("%s on the buyers: mode %v status %q", k, m.mode, m.status)
+		}
+	}
+	m.Update(key("7"))
+	m.Update(key("d"))
+	if w.Laundering.Dial == dial {
+		t.Fatalf("d on the ledger did not turn the dial (%q)", m.status)
 	}
 }
