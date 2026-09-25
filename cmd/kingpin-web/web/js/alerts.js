@@ -65,6 +65,15 @@ export const WORDS = {
   stash_full: (v, a) => `The stash in ${cityName(v, a.city)} is full: ${n(a.count)} of ${n(a.amount)}.`,
   scouts: (v, a) => `A faction is ${a.level === "recruiting" ? "recruiting" : "scouting"} in ${cityName(v, a.city)}: ${n(a.days) <= 0 ? "due now" : `in ${plural(n(a.days), "day")}`}.`,
   gate: (v, a) => `${a.gate ? a.gate.name : "A door"} is within reach.`,
+  port: (v, a) => {
+    const facts = [plural(n(a.count), "free corner")];
+    const city = byId(v.cities, a.city);
+    const p = city && byId(city.products, a.product);
+    if (p && a.amount) facts.push(`${p.name} ${money(a.amount)} there`);
+    const sup = byId(v.connects, a.supplier);
+    if (sup && a.share) facts.push(`${sup.name} sells at ${Math.round(a.share * 100)}% of street`);
+    return `${cityName(v, a.city)} is untouched: ${facts.join(", ")}. The road is on the map.`;
+  },
   house_known: (v, a) => `The police know about ${(byId(v.houses, a.house) || { name: "a house" }).name}.`,
   da_race: (v, a) => `The DA race is ${plural(n(a.days), "day")} off and the tickets are taking money.`,
   retire: (v, a) => {

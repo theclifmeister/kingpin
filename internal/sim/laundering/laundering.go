@@ -204,8 +204,10 @@ func (s *Sim) Migrate(w *game.World) {
 // announce reports a front whose offer opens this morning (#148): an
 // offer is stamped in Offered the tick its line is crossed and an
 // Unlocked{Gate: "front"} goes out, once. The line is read against the
-// peak the clock is about to stamp, max(Stats.PeakCash, Cash()), and
-// announce runs last in the step, after the wash and the upkeep, because
+// peak the clock is about to stamp, max(Stats.PeakCash, Holdings()): the
+// pile and the offshore account (#477), tonight's reserve landed in it
+// already. announce runs last in the step, after the wash, the upkeep
+// and the reserve, because
 // nothing after the laundering sim moves cash: so the report line, the
 // headline and the ledger's `open to you` are the same morning, and a
 // front bought that morning was announced (TestFrontOpensTheMorningThe
@@ -213,7 +215,7 @@ func (s *Sim) Migrate(w *game.World) {
 // stamped silently (a save from before the field catches up the first
 // morning it is stepped), as is one with no line at all. No dice.
 func (s *Sim) announce(w *game.World, t *game.Tick) {
-	peak := max(w.Stats.PeakCash, w.Cash())
+	peak := max(w.Stats.PeakCash, w.Holdings())
 	for _, o := range s.Offers() {
 		if w.Laundering.Offered[o.ID] || o.UnlockCash > peak || o.Asset != "" && !w.AssetLive(o.Asset) {
 			continue // a front that waits on an asset (#391) opens the morning both lines hold

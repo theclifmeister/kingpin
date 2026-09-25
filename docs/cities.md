@@ -9,3 +9,17 @@ Sell orders are per city (`OrderKey(city, product)`, `w.Order`), resolved by the
 `Corner.City` says which city a corner is in; ids are unique across cities (content refuses otherwise) so `w.Corner(id)`, `w.PostOf(id)`, `Held()`, `Worked()` and `RivalHeld()` search every city, `WorkedIn`, `HeldShare` and `Demand` take a city, and `Borders` never crosses one.
 `PriceMove`, `PriceShock`, `PlayerSold`, `HeatChanged` and `Enforcement` carry the `City`.
 `SchemaVersion` is 13 (7 was the cities, 8 the rival's trust, 9 the chief and the DA, 10 the fall guys' count, 11 the connects, 12 the stash houses, 13 the lots' quality, #47: `docs/quality.md`): `Load` reads a pre-7 save's single-city fields (`Market`, `Territory.Corners`, `Player.Stock`, `Heat.Value`) off the stream a second time into an unexported `v6` record and `World.MigrateCities` wraps them into the home city (`logistics.Sim.Migrate` then lays out every other city in the config with every product the run has unlocked, and `territory.Sim.Migrate` runs again to seed corners for cities that have none), so an old save is a two-city world whose home city plays on identically (`TestSaveMigratesTheOneCity`, `TestOldSaveIsMigrated`).
+
+**Bayport is the Distribution tier's city** (#476, ruled with `cmd/balance`, twenty seeds, 300 days, no TOML change).
+It is meant to be richer than Eastside: designer is the port's product (#60), the Dutchman is the wholesaler behind the $500K door, and the factions only follow your take there (#341). A blind playtest played Eastside alone for 519 days and found, on the first visit, six free corners, designer near $1,900 and the Dutchman selling at +182%. The size of the step:
+
+| Player | Net worth, day 300 |
+|---|---|
+| `crewed`, home only | $1.10M |
+| `crewed` moving to Bayport at the wholesaler's line (median day 65) | $1.98M (3–4 of 20 indicted after the move) |
+| ... and buying the Dutchman's lots by hand | $2.24M |
+| `distributor` (the road) | $63.8M |
+| `boss` | $131M |
+
+About 2× for the move, not the 16× of one bankrolled night; the 30–60× gap is the road, which the tier-4 `TestMoneyCurve` band pins, so cutting Bayport would move tiers 3 to 5 to fix what is a readability problem.
+**The game points at it instead**: the engine's `port` alert (`engine.AlertPort`, `Session.port`, `docs/engine.md`) fires while the wholesaler's city is untouched (no corner there ever held, nothing ever bought from a connect there, no route on, nothing on the road, no stock there, you not standing there) once the wholesaler's door is open or the lead has said the corners have a ceiling (#446's road hint, stamped the first night in `World.Progression.Ceiling` by the news sim). It names the free corners there, the dearest product listed there at its street price (designer from the door's line), the Dutchman and his price as a share of street, and opens the map turned to the port: `Bayport is untouched: 6 free corners, Designer $1,301 there, The Dutchman sells at 38% of street. The road is on the map screen (5).` Both lines are sticky, so a fast-forward stops on it once a run (ten seeds: once each for `crewed`, `laundered` and `retiree`, on days 20–52; `managed`, a lone trader, at its door about day 200; never for the players already on the road). Nothing reads it but the front ends: no number moved (`TestPortAlert`, `TestPortAlertWords`).

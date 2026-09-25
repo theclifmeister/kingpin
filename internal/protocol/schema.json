@@ -1862,6 +1862,9 @@
         "ready": {
           "type": "boolean"
         },
+        "share": {
+          "type": "number"
+        },
         "steps": {
           "type": "integer"
         },
@@ -15648,5 +15651,5 @@
   },
   "protocol": 19,
   "title": "kingpind",
-  "view_version": 13
+  "view_version": 14
 }

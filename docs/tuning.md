@@ -35,3 +35,17 @@ Each is checked in its file's `validate()`: the ranges in 0..100, the shares in 
 **The export lanes** (#391, `exports.toml`, `docs/exports.md`) moved one row: t5 `cartel` $150.2M → $2.0B (twenty seeds, day 300; $1.7B on top of #389), re-banded to $1B–$5B. The book became the tier's first door ($8M peak clean, the tunnel's line now $10M), the lanes' capacities (16,000, 20,000 and 5,000 units a night) were set with `cmd/balance -policy cartel -runs 20` to land the median near $2B before #389, and the casino and the bank (`laundering.toml`, waiting on the book) wash and cover what lands. Tiers 1 to 4 stand to the dollar: no policy below the cartel owns the book (`TestNoBookIsTheOldRun`).
 
 **The rot** (#392, `laundering.toml rot_line`/`rot`, `docs/trophies.md`) moved one row: t5 `cartel` $1,690,058,864 → $1,678,631,465 (twenty seeds, day 300), still in $1B–$5B; tiers 1 to 4 stand to the dollar (no policy below the cartel keeps a pile over $50M). The trophies and the rich list move no number: no policy buys a trophy, and the rich list is the journal's.
+
+**Why the curves are 100× apart** (#477, ruled with `cmd/balance`, twenty seeds, 300 days). A playtest read the policies as two money curves about 100× apart with nothing between $1M and $13M. That is the tiers, which `TestMoneyCurve` pins an order of magnitude apart (#60), and #446 ruled on the street's plateau:
+
+| Policy | Net worth, day 300 |
+|---|---|
+| `crewed` | $1.10M |
+| `cook` | $5.4M |
+| `distributor` | $63.8M |
+| `boss` | $131M |
+| `cartel` | $1.47B |
+
+The street crew flattens (about +15% from day 200 to 300); the road's lots, the fronts and the assets compound. The road's near-certain survival is left to the owner: any lever there moves tiers 4 and 5. The step between is Bayport (`docs/cities.md`), which the `port` alert now points at.
+**Heat is per unit, so the ladder is cooler per dollar** (#60, confirmed by #477): `heat` a unit moved is weed 0.6, pills 1, coke 1.5, heroin 1.8, meth 2.2, designer 2.5, which at the base prices is 30, 22, 12.5, 4.5, 2.75 and 1 heat per $1,000 sold. Climbing the ladder is what buys quiet; meth's price is paid in its small demand, the pressure (`hard_products`) and the overdoses (`docs/quality.md`), not in heat.
+**The peak counts the offshore account** (#477, `World.Holdings`, `docs/progression.md`): `TestMoneyCurve` stands to the dollar (t1 $84,930, t2 $545,450, t3 $12,885,142, t4 $67,841,816, t5 $1,678,631,465), since only the retiree and the boss send money offshore and the boss is past every cash gate by then. Under `cmd/balance` with incidents on (an incident's `peak_cash_min` reads the peak, so the weather comes on other days) the boss moves by noise ($131.23M → $131.20M at day 300, Cartel entered day 235 → 233) and the cartel $1.36B → $1.47B, the median seed moving with the weather; `crewed`, `managed`, `laundered` and `distributor` do not move a dollar, and the retiree enters Distribution on day 81 (was never), its peak $380K → $917K, 14 of 20 retired (was 13).

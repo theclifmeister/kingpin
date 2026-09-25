@@ -754,6 +754,15 @@ func RNGFor(seed uint64, day int) *rand.Rand {
 // Cash is the player's total cash, dirty plus clean.
 func (w *World) Cash() int { return w.Player.DirtyCash + w.Player.CleanCash }
 
+// Holdings is what the peak counts (#477): the cash in hand, dirty and
+// clean, and the offshore account. Money sent offshore never comes
+// back, so a peak that left it out held a player saving to retire under
+// gates their money had passed (a playtest's retiree stuck at $118K).
+// Stock and fronts are not in it: the peak is money. What is on its way
+// offshore tonight is not either: it lands in the account the same
+// night, before the clock stamps.
+func (w *World) Holdings() int { return w.Cash() + w.Offshore }
+
 // NetWorth is cash, dirty and clean, the offshore account and what is
 // on its way there (#195), plus stock and fronts valued at what they
 // cost to replace: every stash at its city's supplier price, what is on

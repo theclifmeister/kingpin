@@ -17,6 +17,7 @@ type Progression struct {
 	Reached map[int]int
 	Seen    map[int]bool
 	Rich    int // the rich list's lines crossed (#392), lowest first; zero the run before
+	Ceiling int // the day the lead first said the one city's corners have a ceiling (#446's road hint), which the port alert reads (#476); 0 never, the run before
 }
 
 // Tier is the highest tier reached, 1 while none is stamped: the first

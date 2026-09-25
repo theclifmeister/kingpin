@@ -116,12 +116,13 @@ func (c *Clock) EndDay(w *World) []events.Event {
 	return t.events
 }
 
-// stampPeaks raises the high-water marks to the cash in hand: PeakCash,
-// which the unlock gates read, and PeakClean, the assets' line (#48).
-// The clock stamps them every night; Choose stamps them too, so a card
-// that pays out in the morning counts on the day it lands (#439).
+// stampPeaks raises the high-water marks: PeakCash to the cash in hand
+// and the offshore account (World.Holdings, #477), which the unlock
+// gates read, and PeakClean to the clean pile alone, the assets' line
+// (#48). The clock stamps them every night; Choose stamps them too, so
+// a card that pays out in the morning counts on the day it lands (#439).
 func (w *World) stampPeaks() {
-	w.Stats.PeakCash = max(w.Stats.PeakCash, w.Cash())
+	w.Stats.PeakCash = max(w.Stats.PeakCash, w.Holdings())
 	w.Stats.PeakClean = max(w.Stats.PeakClean, w.Player.CleanCash)
 }
 

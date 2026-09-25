@@ -369,3 +369,31 @@ func TestChooseStampsThePeaks(t *testing.T) {
 		t.Fatalf("peak %d clean %d, want %d and %d", w.Stats.PeakCash, w.Stats.PeakClean, w.Cash(), w.Player.CleanCash)
 	}
 }
+
+// TestPeakCountsTheAccount (#477): the peak the unlock gates read is
+// the cash in hand and the offshore account, since money sent there
+// never comes back; a playtest's retiree held $118K of peak with its
+// savings in the account and never saw the restaurant. PeakClean, the
+// assets' line, stays the clean pile alone. A save from before, its
+// peak under what it holds, catches up on its first night: the peak
+// only rises, so no migration.
+func TestPeakCountsTheAccount(t *testing.T) {
+	w := cardWorld()
+	w.Stats.PeakCash, w.Stats.PeakClean = w.Cash(), w.Player.CleanCash
+	w.Offshore = 900_000
+	NewClock(nil, &counter{}).EndDay(w)
+	if want := w.Cash() + w.Offshore; w.Stats.PeakCash != want || w.Holdings() != want {
+		t.Fatalf("peak %d, holdings %d, want %d with the account", w.Stats.PeakCash, w.Holdings(), want)
+	}
+	if w.Stats.PeakClean != w.Player.CleanCash {
+		t.Fatalf("peak clean %d counts the account, want %d", w.Stats.PeakClean, w.Player.CleanCash)
+	}
+	// Money moved into the account is not a new high: the peak holds.
+	w.Player.CleanCash -= 400
+	w.Offshore += 400
+	peak := w.Stats.PeakCash
+	NewClock(nil, &counter{}).EndDay(w)
+	if w.Stats.PeakCash != peak {
+		t.Fatalf("moving clean offshore moved the peak %d -> %d", peak, w.Stats.PeakCash)
+	}
+}

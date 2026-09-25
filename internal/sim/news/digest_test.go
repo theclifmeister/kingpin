@@ -258,7 +258,8 @@ func TestSmallStandingOrderIsFlagged(t *testing.T) {
 // The falling profit line points at the road (#446) when the run is at
 // Territory, no route is on and the last week made no more than the one
 // before it: the one city's ceiling. A route on, an earlier tier or a
-// rising fortnight keeps the line as it was.
+// rising fortnight keeps the line as it was. The first night it points
+// is World.Progression.Ceiling (#476), the port alert's line.
 func TestFallingProfitPointsAtTheRoad(t *testing.T) {
 	cfg := content.MustLoad()
 	territory := 0
@@ -323,6 +324,22 @@ func TestFallingProfitPointsAtTheRoad(t *testing.T) {
 			hinted := strings.Contains(flow.Text, "the road to ")
 			if hinted != tc.road || (hinted && flow.Act.Screen != game.ScreenMap) || (!hinted && flow.Act.Screen != game.ScreenLedger) {
 				t.Fatalf("hint %v, want %v: %+v", hinted, tc.road, *flow)
+			}
+			// The first night the hint is said is stamped for the port
+			// alert (#476), and never again.
+			want := 0
+			if tc.road {
+				want = 31
+			}
+			if w.Progression.Ceiling != want {
+				t.Fatalf("ceiling stamped %d, want %d", w.Progression.Ceiling, want)
+			}
+			if tc.road {
+				w.Flows = append(w.Flows[1:], night(31, 0))
+				n.Step(w, gametest.TickOn(w, 32))
+				if w.Progression.Ceiling != 31 {
+					t.Fatalf("the ceiling moved to %d", w.Progression.Ceiling)
+				}
 			}
 		})
 	}

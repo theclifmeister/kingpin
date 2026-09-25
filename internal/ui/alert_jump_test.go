@@ -199,7 +199,14 @@ func TestEveryActLands(t *testing.T) {
 				ok = m.selectedContract() != nil && m.selectedContract().ID == con.ID
 			case engine.SubjectSupplier:
 				ok = m.selectedSupplier() != nil && m.selectedSupplier().ID == w.Suppliers[0].ID
-			case engine.SubjectHouse, engine.SubjectCity:
+			case engine.SubjectCity:
+				if m.screen == screenMap { // the port (#476): the map turned to the city
+					ok = m.shown().ID == a.City
+					break
+				}
+				r := m.ledgerSelected()
+				ok = r.kind == ledgerHouse && w.Houses[r.i].ID == w.Houses[0].ID
+			case engine.SubjectHouse:
 				r := m.ledgerSelected()
 				ok = r.kind == ledgerHouse && w.Houses[r.i].ID == w.Houses[0].ID
 			}
