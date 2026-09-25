@@ -44,8 +44,9 @@ streak = "days it holds"
 [[ambition]]
 id = "vanish"
 name = "Disappear"
-blurb = "A lawyer on retainer, then papers good enough to walk out of any indictment."
+blurb = "A lawyer on call, then on retainer, then papers good enough to walk out of any indictment."
 [ambition.steps]
+lawyer = "lawyer on call"
 retainer = "lawyer on retainer"
 identity = "a new identity"
 

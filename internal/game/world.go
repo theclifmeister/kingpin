@@ -492,6 +492,19 @@ type LaunderingState struct {
 	Dial       events.Launder
 	Offered    map[string]bool // fronts whose offer has opened and been announced (#148); nil is none
 	Structured Structuring     // the last move offshore (#195): what the heat sim reads the morning after
+	Sweep      OffshoreSweep   // the nightly sweep offshore (#478), the player's; zero is off, the run before
+}
+
+// OffshoreSweep is the player's standing order on the offshore account (#478):
+// while On, the laundering sim moves the clean cash over Keep into the
+// account every night, at the end of its step, up to what is left of
+// the day's lot after anything reserved by hand (so it never files a
+// page) and never into the night's upkeep (the fronts' and the assets'
+// kept back). Set by World.SetSweep, ended by World.StopSweep; no sim
+// writes it. Zero is off, the run before.
+type OffshoreSweep struct {
+	On   bool
+	Keep int // the clean cash left in hand, the upkeep kept back over it where that is more
 }
 
 // Structuring is a day's move offshore as the laundering sim records

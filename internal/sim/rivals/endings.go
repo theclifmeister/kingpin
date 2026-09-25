@@ -15,7 +15,10 @@ import (
 
 // endings runs the two read at the end of the step: kingpin and taken
 // out. The betrayal is read where the deal breaks (betrayed).
-func (s *Sim) endings(w *game.World, t *game.Tick) {
+//
+// declared is the faction the war order stood against as the night
+// began (#478), "" for none: a war you declared is open for taken out.
+func (s *Sim) endings(w *game.World, t *game.Tick, declared string) {
 	if w.Over != nil {
 		return
 	}
@@ -61,10 +64,14 @@ func (s *Sim) endings(w *game.World, t *game.Tick) {
 	// Taken out: a faction's push took the last corner you held
 	// anywhere tonight, its war with you is open, and the enforcers on
 	// the payroll, at work or laid up, are under taken_out_muscle:
-	// nothing to hold and nobody to hold it with.
+	// nothing to hold and nobody to hold it with. Open is the war over
+	// war_threshold, or (#478) the war you declared on that faction,
+	// open by your own word whatever its noise: before, a declared war
+	// under the line lost to the last corner ended nothing, and the
+	// ending was out of reach.
 	if tun.TakenOutMuscle > 0 && w.Held() == 0 && w.Crew.OnPayroll(game.RoleEnforcer) < tun.TakenOutMuscle {
 		for _, r := range w.Rivals {
-			if r != nil && r.Alive() && r.LastFlip == t.Day && r.War >= s.cfg.Rivals.WarThreshold {
+			if r != nil && r.Alive() && r.LastFlip == t.Day && (r.War >= s.cfg.Rivals.WarThreshold || (declared != "" && r.Faction() == declared)) {
 				w.Over = w.End(content.CauseTakenOut, t.Day, r.Leader)
 				t.Emit(events.GameOver{Day: t.Day, Cause: content.CauseTakenOut})
 				return

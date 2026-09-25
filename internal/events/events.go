@@ -552,6 +552,7 @@ type Reserved struct {
 	Amount int // into the account
 	Fee    int
 	Lots   int // lots over the line; zero is a quiet move
+	Swept  int // of what moved (before the fee), what the nightly sweep sent (#478); zero with the sweep off
 }
 
 func (Reserved) Kind() string { return "Reserved" }

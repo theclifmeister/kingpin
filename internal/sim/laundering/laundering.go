@@ -648,7 +648,9 @@ func (s *Sim) Step(w *game.World, t *game.Tick) {
 // reaches tomorrow's file. Nothing moved records nothing, so a run
 // that never reserves is the run before. No dice.
 func (s *Sim) reserve(w *game.World, t *game.Tick) {
-	amt := w.Today.Reserved
+	swept := s.Sweepable(w)
+	w.Player.CleanCash -= swept
+	amt := w.Today.Reserved + swept
 	if amt <= 0 {
 		return
 	}
@@ -658,7 +660,22 @@ func (s *Sim) reserve(w *game.World, t *game.Tick) {
 	w.Stats.Fees += fee
 	lots := s.Lots(amt)
 	w.Laundering.Structured = game.Structuring{Day: t.Day, Amount: amt, Lots: lots}
-	t.Emit(events.Reserved{Day: t.Day, Amount: amt - fee, Fee: fee, Lots: lots})
+	t.Emit(events.Reserved{Day: t.Day, Amount: amt - fee, Fee: fee, Lots: lots, Swept: swept})
+}
+
+// Sweepable is what the nightly sweep (#478, World.Laundering.Sweep)
+// moves tonight: the clean cash over the line the player keeps, or over
+// the night's upkeep (the fronts' and the assets') where that is more,
+// up to what is left of the day's lot after anything reserved by hand,
+// so the sweep never files a page. Zero with the sweep off, which is
+// the run before. A read, no dice.
+func (s *Sim) Sweepable(w *game.World) int {
+	sw := w.Laundering.Sweep
+	if !sw.On {
+		return 0
+	}
+	keep := max(sw.Keep, s.Upkeep(w)+s.AssetUpkeep(w))
+	return max(0, min(s.cfg.Offshore.Lot-w.Today.Reserved, w.Player.CleanCash-keep))
 }
 
 // quiet counts the quiet days retiring needs (#195): a day is quiet

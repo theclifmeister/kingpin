@@ -96,7 +96,21 @@ func (m *Model) crownShort() string {
 			case "share":
 				parts = append(parts, fmt.Sprintf("%d of %d corners held", int(s.Have), int(s.Need)))
 			case "factions":
-				parts = append(parts, plural(int(s.Need-s.Have), "crew")+" still standing")
+				// The crews still to arrive apart (#478): a seat in the
+				// wings blocks the crown as a crew on the street does,
+				// and read as one it looked like a crew you could fight.
+				coming := 0
+				for _, r := range w.Rivals {
+					if r != nil && r.Arrived == 0 && !m.rules.Rivals.Down(w, r).Counts {
+						coming++
+					}
+				}
+				if standing := int(s.Need-s.Have) - coming; standing > 0 {
+					parts = append(parts, plural(standing, "crew")+" still standing")
+				}
+				if coming > 0 {
+					parts = append(parts, plural(coming, "crew")+" yet to arrive")
+				}
 			case "streak":
 				if s.Have > 0 || len(parts) == 0 {
 					parts = append(parts, fmt.Sprintf("day %d of %d", int(s.Have), int(s.Need)))
@@ -222,6 +236,13 @@ func (m *Model) viewExit() string {
 		// Each way out is its row, then its terms and what is short on
 		// lines of their own, wrapped rather than cut (#463): a column
 		// of terms beside a column of shortfalls was cut at 80 columns.
+		// Every way out scores the same (#478): the account over one
+		// plus the bodies, whatever the ending; the row says so, so no
+		// exit reads as worth more than another.
+		score := "the account: " + theme.Gold.Render(money(w.Score()))
+		if w.Stats.Bodies > 0 {
+			score = fmt.Sprintf("the account over 1 + %s: %s", plural(w.Stats.Bodies, "body"), theme.Gold.Render(money(w.Score())))
+		}
 		var cells [][]any
 		for _, r := range rows {
 			var open any = styled{theme.Good, "open"}
@@ -238,6 +259,7 @@ func (m *Model) viewExit() string {
 			if !r.open {
 				body = append(body, "    "+row("short", theme.Warning.Render(r.short)))
 			}
+			body = append(body, "    "+row("scores", score))
 			if i == m.exit.cursor {
 				// The cursor's way out in view, its terms under it.
 				m.modalFollow(len(body) - 1)

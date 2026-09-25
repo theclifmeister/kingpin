@@ -26,6 +26,7 @@ var ErrNoAmbition = errors.New("no such ambition")
 const (
 	UnitCash    = "cash"    // dirty or clean money: the account
 	UnitClean   = "clean"   // a node of the tree, its cost in clean cash against the clean pile; Have is the cost once owned
+	UnitDirty   = "dirty"   // a node of the tree paid in dirty cash, against the dirty pile (#478)
 	UnitDays    = "days"    // a streak
 	UnitPoints  = "points"  // goodwill against pressure
 	UnitIncome  = "income"  // a day's legit income against the street's night
@@ -192,11 +193,14 @@ func ambition(w *World, id string, t AmbitionTerms) (Ambition, bool) {
 		}
 	case content.AmbitionVanish:
 		fx := FoldEffects(w, t.Tree)
+		// The tree's own chain (#478: the lawyer on call was missing,
+		// and the plan read half done with the first node unbought).
 		ids := content.AmbitionSteps[content.AmbitionVanish]
-		retainer, identity := nodeStep(w, t.Tree, ids[0]), nodeStep(w, t.Tree, ids[1])
+		lawyer, retainer, identity := nodeStep(w, t.Tree, ids[0]), nodeStep(w, t.Tree, ids[1]), nodeStep(w, t.Tree, ids[2])
 		identity.Done = fx.Identities > 0 // the identity's own read (World.CanVanish)
 		retainer.Done = retainer.Done || identity.Done
-		a.Steps = []AmbitionStep{retainer, identity}
+		lawyer.Done = lawyer.Done || retainer.Done
+		a.Steps = []AmbitionStep{lawyer, retainer, identity}
 		a.Done = identity.Done
 	case content.AmbitionTwoCities:
 		if t.TwoCities.Cities <= 0 {
@@ -244,18 +248,23 @@ func cityTaken(w *World, t AmbitionTerms) []AmbitionStep {
 	return []AmbitionStep{share, factions, streak}
 }
 
-// nodeStep is a node of the tree as a step: owned, or its cost in clean
-// cash against the clean pile.
+// nodeStep is a node of the tree as a step: owned, or its cost against
+// the pile it is paid from, clean (UnitClean) or dirty (UnitDirty, the
+// lawyer on call, #478).
 func nodeStep(w *World, tree content.UpgradesConfig, id string) AmbitionStep {
 	s := AmbitionStep{ID: id, Unit: UnitClean}
+	pile := w.Player.CleanCash
 	if u := tree.Upgrade(id); u != nil {
 		s.Need = float64(u.Cost)
+		if !u.Clean {
+			s.Unit, pile = UnitDirty, w.Player.DirtyCash
+		}
 	}
 	if w.Owns(id) {
 		s.Have, s.Done = s.Need, true
 		return s
 	}
-	s.Have = float64(min(w.Player.CleanCash, int(s.Need)))
+	s.Have = float64(min(pile, int(s.Need)))
 	return s
 }
 

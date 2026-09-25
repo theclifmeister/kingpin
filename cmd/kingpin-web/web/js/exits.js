@@ -20,7 +20,7 @@ export const EXITS = [
 
 // amount is a step's have or need in its unit's words.
 function amount(unit, x) {
-  return unit === "cash" || unit === "clean" || unit === "income" ? money(n(x)) : String(Math.round(n(x)));
+  return unit === "cash" || unit === "clean" || unit === "dirty" || unit === "income" ? money(n(x)) : String(Math.round(n(x)));
 }
 
 // exits is every way out as it stands: {id, name, method, open, why},

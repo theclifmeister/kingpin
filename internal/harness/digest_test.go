@@ -367,20 +367,23 @@ const (
 // field's shape alone. The boss never meets the arrest line in sixty
 // days and never tips; with HeatState.WarrantDay set aside the digest
 // is main's on all sixty days.
+// Again for #478 (the nightly sweep offshore, LaunderingState.Sweep):
+// day 1 by shape alone; with the field left out of the walk every day
+// is main's digest, and no number moved.
 var seedDigest = []string{
-	"2cb6a6b194ddfddc", "6f437119acba2264", "a148dc8411bbc0ca", "c9acafbfdd350e6b",
-	"8d4e6e74f1b8fabf", "fefa8a461f582b82", "8308eb16f47afe3d", "d5e8973ee16f71c5",
-	"137859296b28d941", "c8a6ecea8f965867", "206c1d6d17b0c9a4", "4e08c01caf8ad505",
-	"2cfb9f204cbb0cf7", "7194dec7fd32c901", "9f4023815d9e4d67", "460cb9db29c909c2",
-	"334dc808f37c7fd8", "606c49d0d5016a0b", "52eb6b83df54e9bc", "7204dd510816c4ee",
-	"b6b1645aa24d4bb3", "b9a3d040fafefb61", "b87c55a7ff117f22", "160edd68efb4a64b",
-	"ec48ef9cf576c807", "77ee3ba9db67b927", "b3575a0008073f7e", "351736fa902e0809",
-	"31b2e02f77b0f849", "14294d4ade4489c4", "43bfbd3842652c66", "482db50ee189ea78",
-	"b74a2dde46f8d9f7", "db7edbf2a5a53adf", "23c558bd272c09af", "10b513c09feb6db5",
-	"8a1d1d2132affccb", "796bc7c4f86c9d3b", "912688c56884ab88", "0688340b8e6acffd",
-	"54e4541b809d9900", "fc7f7fdbbd550a8c", "9a6e26f70a501ae9", "f52d9d14ca52baa2",
-	"6dda8cce42493b40", "90a28e4e42f7218c", "333d123a855144ef", "de3b5840d2abfb5f",
-	"ba2e1c251049752a", "b16efc44aec1bfd9", "d5158256df474b64", "0fd1c846a58c8796",
-	"5f488dd1192e8619", "cb27a1bd2ec92bbd", "a41d585847a6e021", "f3fa872183a0df69",
-	"4c291fbda8ab5b20", "0b789d5256795cf9", "62b23434c764f496", "f406a5381723b6b9",
+	"a5335a1bbe0bcfb5", "db61d0de44a5e89d", "dba808f0fb9c5ded", "fa1278c5dd147d1e",
+	"af042da9d1be3bde", "5b64b927c2c6c58d", "8b8253a08a10ed5e", "2e6a2b03c09377f8",
+	"1a3312e2d836ae96", "0e58dc001933abf8", "9937f48bb85a88e7", "7d3c258aec619138",
+	"97fde3c683ab6ac0", "93d4de6e37e992d4", "e18bace1c8fae0cc", "1d2589956f0017cf",
+	"1a84fbdcf116da4b", "f2bf25096ba23482", "3d0b880f42368d0b", "18c3ac7437dbecab",
+	"8eb3e603947de386", "7cb6312c85c97b24", "ea11b70006f56e4b", "47c8820b806f7908",
+	"37846f45afce9c10", "4c5a8b33984293cc", "14b6d79749c5c3f3", "14d8600eb9ce869e",
+	"9cd9b1d977f68f86", "1d32d54c89261929", "f61909c32a398fe7", "e55a1b850869147b",
+	"46cd28add0c77ace", "f09129c8d6f73670", "4c18fff1e8b3296e", "13a1acb9945d0b38",
+	"c7d6d98585cf807a", "02141453ce9dbe66", "69ee432282ede7c1", "7483df15e5ce4c4e",
+	"166e2144f6671d37", "0f76935900f1b8cf", "c7b9eef6626ce38e", "b4f8ec34c04177f3",
+	"d3b78115977b6e95", "1272dafacaee2909", "85455fd03d8c0db6", "dca393e5273d17f0",
+	"6d25ae277988f31d", "b973567e523b7e8e", "88449b164e22b703", "a8da0b5b896f0ff3",
+	"3471b67dade67e92", "5053f14a2df1a36e", "860841288777d014", "aa55f0c39e637c54",
+	"4003c4bb27f663e5", "46148899c74c5bce", "ad9fde260e57a775", "6c1a99d5ffa4d6fe",
 }

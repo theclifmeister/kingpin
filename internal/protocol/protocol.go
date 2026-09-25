@@ -43,8 +43,9 @@ import (
 // character that is not one, and withdraw refusing with no proposal
 // made, where it answered null and did nothing (#474).
 // 18 rules.logistics.idle, why a route on its dial sends nothing (#459);
-// 19 rules.rivals.down, what keeps a faction off the crown's count (#472).
-const Version = 19
+// 19 rules.rivals.down, what keeps a faction off the crown's count (#472);
+// 20 set_sweep and stop_sweep, the nightly sweep offshore (#478).
+const Version = 20
 
 // The error codes: JSON-RPC 2.0's, and the game's own in its
 // server-error range.

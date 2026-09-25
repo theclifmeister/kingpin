@@ -434,6 +434,37 @@ func (w *World) CashOut(amount, fee int) error {
 	return nil
 }
 
+// ErrNoSweep is the refusal to stop a sweep that is not on (#478).
+var ErrNoSweep = errors.New("no sweep is on")
+
+// SetSweep turns the nightly sweep offshore on (#478), keeping keep
+// clean in hand: every night the laundering sim moves what is over it,
+// up to the day's lot less anything reserved by hand, into the account,
+// the night's upkeep kept back. It moves nothing now; a sweep already on
+// takes the new line.
+func (w *World) SetSweep(keep int) error {
+	if w.Over != nil {
+		return ErrGameOver
+	}
+	if keep < 0 {
+		return ErrBadAmount
+	}
+	w.Laundering.Sweep = OffshoreSweep{On: true, Keep: keep}
+	return nil
+}
+
+// StopSweep turns the nightly sweep off (#478).
+func (w *World) StopSweep() error {
+	if w.Over != nil {
+		return ErrGameOver
+	}
+	if !w.Laundering.Sweep.On {
+		return ErrNoSweep
+	}
+	w.Laundering.Sweep = OffshoreSweep{}
+	return nil
+}
+
 // ReservedToday is what the player has sent offshore today, before the
 // fee: out of the pile, not yet in the account.
 func (w *World) ReservedToday() int { return w.Today.Reserved }

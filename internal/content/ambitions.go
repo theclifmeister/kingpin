@@ -53,7 +53,7 @@ var AmbitionSteps = map[string][]string{
 	AmbitionRetire:    {"offshore", "quiet"},
 	AmbitionLegit:     {"income", "goodwill", "streak"},
 	AmbitionCity:      {"share", "factions", "streak"},
-	AmbitionVanish:    {"retainer", "identity"},
+	AmbitionVanish:    {"lawyer", "retainer", "identity"},
 	AmbitionTwoCities: {"ground", "lieutenants", "held"},
 }
 
