@@ -99,7 +99,7 @@ func (r *reporter) reportMarket(e events.Event) bool {
 		d.Name = ev.Name
 		r.addBuyers("ContractOffered", d)
 	case events.ContractAccepted:
-		line := fmt.Sprintf("You took %s's order: %d %s by day %d%s. Deliver it there (2, d).", ev.Name, ev.Units, w.ProductName(ev.Product), ev.Due, r.in(ev.City))
+		line := fmt.Sprintf("You took the order from %s: %d %s by day %d%s. Deliver it there (2, d).", ev.Name, ev.Units, w.ProductName(ev.Product), ev.Due, r.in(ev.City))
 		// The market hands a lot over before it settles yesterday's
 		// acceptances, so an order taken and delivered on one day would
 		// read handed before it was taken (#465): the acceptance goes in
@@ -252,7 +252,7 @@ func (r *reporter) reportMarket(e events.Event) bool {
 		d.Name = ev.Name
 		r.addBuyers("ContractFailed", d)
 	case events.ContractExpired:
-		rep.Sales = append(rep.Sales, fmt.Sprintf("%s's offer lapsed: %d %s nobody answered for%s.", capitalize(ev.Name), ev.Units, w.ProductName(ev.Product), r.in(ev.City)))
+		rep.Sales = append(rep.Sales, fmt.Sprintf("The offer from %s lapsed: %d %s nobody answered for%s.", ev.Name, ev.Units, w.ProductName(ev.Product), r.in(ev.City)))
 	case events.PlayerUndercut:
 		// The price war (#68): one line per corner and product, in
 		// SALES, since the units are part of the night's sale.

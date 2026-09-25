@@ -721,6 +721,10 @@ func unlockLine(w *game.World, ev events.Unlocked) string {
 		}
 		return fmt.Sprintf("%s will deal with you now%s: %s.", ev.Name, where, ev.Why)
 	case "role":
+		if w.Crew.OnPayroll(ev.ID) > 0 {
+			// The character started with one (the Cook's chemist, #473).
+			return fmt.Sprintf("More %s want work on the crew screen (4): %s.", strings.ToLower(ev.Name), ev.Why)
+		}
 		return fmt.Sprintf("%s want work on the crew screen (4): %s.", ev.Name, ev.Why)
 	case "asset":
 		return fmt.Sprintf("%s is for sale on the ledger screen (7), clean cash: %s.", ev.Name, format.Cash(ev.Cost))

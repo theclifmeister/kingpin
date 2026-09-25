@@ -158,6 +158,7 @@ var ruleNames = map[string]ruleSig{
 	"Rivals.DefenceAt":             {[]string{"w", "r", "muscle"}, nil},
 	"Rivals.Diplomacy":             {nil, nil},
 	"Rivals.Distrusted":            {[]string{"r", "day"}, nil},
+	"Rivals.Down":                  {[]string{"w", "r"}, nil},
 	"Rivals.Expansion":             {nil, nil},
 	"Rivals.EyeingBy":              {[]string{"w", "r"}, nil},
 	"Rivals.Factions":              {nil, nil},

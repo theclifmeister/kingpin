@@ -118,10 +118,10 @@ func TestMixedCrewLoyaltyIsACost(t *testing.T) {
 		{Label: "Give", Effects: map[string]float64{"loyalty": 5, "crew_loyalty": 2}},
 	}}
 	got := engine.ChoiceChips(cfg, s.Rules(), w, c)
-	if ch := got[0][0]; ch.Text != "crew loyalty down to −23" || ch.Tone != engine.ToneCost {
+	if ch := got[0][0]; ch.Text != "crew loyalty down as much as 23" || ch.Tone != engine.ToneCost {
 		t.Errorf("the mixed move reads %+v", ch)
 	}
-	if ch := got[1][0]; !strings.HasPrefix(ch.Text, "crew loyalty up to +") || ch.Tone != engine.ToneGain {
+	if ch := got[1][0]; !strings.HasPrefix(ch.Text, "crew loyalty up as much as ") || ch.Tone != engine.ToneGain {
 		t.Errorf("the rise reads %+v", ch)
 	}
 }

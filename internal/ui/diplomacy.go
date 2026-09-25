@@ -389,6 +389,12 @@ func (m *Model) viewRivals() string {
 		leader += sub(" · ") + eye
 	}
 	line(leader)
+	if down := m.downWords(r); down != "" {
+		// What keeps it off the crown's count, and for how long (#472).
+		for _, wl := range wrap("for the crown: "+down, width) {
+			line(sub(wl))
+		}
+	}
 	barW := max(6, min(12, width/6))
 	line(sub("trust ") + m.trustBar(r, barW) + "   " + sub("war ") + m.warBar(r, barW))
 	if name := m.nameLine(); name != "" {

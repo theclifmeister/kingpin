@@ -2,6 +2,7 @@ package ui
 
 import (
 	"fmt"
+	"regexp"
 	"strings"
 	"testing"
 
@@ -91,7 +92,9 @@ func TestMarketHasOneCursor(t *testing.T) {
 		t.Fatalf("↓ off the last product: onBuyers %v onSuppliers %v", m.onBuyers, m.onSuppliers)
 	}
 	one("on the buyers")
-	if !strings.Contains(mainOf(m), unfocusedMark+" "+w.ProductName(w.Products[last])) {
+	// The mark gutter may pad the mark (#473 keeps the tree's glyphs
+	// beside it), so the product follows the mark after spaces.
+	if !regexp.MustCompile(regexp.QuoteMeta(unfocusedMark) + ` +` + regexp.QuoteMeta(w.ProductName(w.Products[last]))).MatchString(mainOf(m)) {
 		t.Errorf("the product lost its row's mark on the buyers:\n%s", mainOf(m))
 	}
 	for i := 1; i < len(m.buyerRows()); i++ {

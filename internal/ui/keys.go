@@ -178,7 +178,7 @@ func pastFirstStep(m *Model) bool { return m.modalStep() > 0 }
 // there and nowhere else.
 func numberStep(m *Model) bool {
 	d := m.openPaged()
-	return d != nil && d.field() != nil
+	return d != nil && d.field() != nil && m.mode != modeNewRun // the seed is no quantity: no max, no half (#473)
 }
 
 // newRunNext is the new-run dialog (#50) having a page after this one:
@@ -263,6 +263,12 @@ func sellStanding(m *Model) bool { return m.modalStep() == 3 && m.dlg.repeat == 
 // stripShown is the terminal being too narrow for the pane beside MAIN,
 // so the strip stands in for it and ␣ opens it whole (#111).
 func stripShown(m *Model) bool { return m.width < paneMinWidth }
+
+// offPolice is the dashboard's arrows being off the police (#355): the
+// ambitions' key is listed then, and gives its line to POLICE, which
+// the pane holds whole at 100x30, while they are on it (it works
+// either way).
+func offPolice(m *Model) bool { return !m.onPolice }
 
 // modalStep is the page the open dialog is on, as its state says
 // (#243); the card's outcome is its second page.
@@ -510,6 +516,11 @@ var words = [][2]string{
 	{"spy", "a crew member under with a faction: reports, sells nothing"},
 	{"ending", "how a run ends: nine ways, each a summary and a score"},
 	{"score", "the offshore account over one plus the bodies; days shown"},
+	{"quiet day", "all heat under {retire_heat}; no strike, push, bust or buyer's order"},
+	{"run out", "a faction with no corner left: the rivals screen counts it"},
+	{"absorbed", "run out long enough: it joins the faction that took its last"},
+	{"scattered", "run out too long, or broke: it stands down, nobody's"},
+	{"gone", "absorbed, scattered or leaderless: a crew down for the crown"},
 	{"walk away", "retire on the account, vanish, or take the crown: asked twice"},
 	{"reign", "the city yours: every crew gone or bowing, most of home held"},
 	{"favour", "a bought chief owes you one; call it in, no raid"},
@@ -534,11 +545,14 @@ func (m *Model) helpLines() []string {
 		}
 	}
 	body = append(body, "", theme.PanelTitle.Render("WORDS"))
+	// A word that names a line the file sets reads it (#472: the quiet
+	// day's heat is laundering.toml's retire_heat).
+	lines := strings.NewReplacer("{retire_heat}", fmt.Sprintf("%.0f", m.cfg.Laundering.Offshore.RetireHeat))
 	for _, w := range words {
 		// The word takes the key column and one of the two spaces after
 		// it, so `lieutenant`, ten, is never cut (#463) and no line
 		// grows.
-		body = append(body, theme.Key.Render(fit(w[0], helpKeyW+1))+" "+w[1])
+		body = append(body, theme.Key.Render(fit(w[0], helpKeyW+1))+" "+lines.Replace(w[1]))
 	}
 	return body
 }

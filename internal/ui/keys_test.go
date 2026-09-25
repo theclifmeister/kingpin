@@ -20,7 +20,7 @@ import (
 var handledKeys = []string{
 	"q", " ", "ctrl+s", "?", "1", "2", "3", "4", "5", "6", "7", "8", "9", "tab", "shift+tab",
 	"n", "F", "enter", "u", "r", "R", "b", "s", "t", "g", "[", "]", "x", "l", "N",
-	"h", "f", "p", "d", "i", "$", "c", "e", "a", "w", "m", "o", "v", "%", "P",
+	"h", "f", "p", "d", "D", "i", "$", "c", "e", "a", "w", "m", "o", "v", "%", "P",
 	"up", "k", "down", "j", "left", "right", "pgup", "pgdown",
 }
 
@@ -181,7 +181,7 @@ func TestGlobalsAreListedWhereUsed(t *testing.T) {
 		"x":   on(screenDashboard, screenMarket),
 		"l":   on(screenDashboard),
 		"p":   on(screenCrew),
-		"d":   on(screenLedger),
+		"d D": on(screenLedger), // D turns the dial back (#473)
 		"g":   on(screenDashboard, screenMap),
 		"r":   on(screenDashboard, screenJournal),
 		"␣":   everywhere,

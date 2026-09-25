@@ -132,6 +132,12 @@ func (m *Model) keyNewRun(k tea.KeyMsg) (tea.Model, tea.Cmd) {
 			}
 		}
 	case 1:
+		// Digits and editing only: the number field's shortcuts clamp to
+		// a max, and a seed has none (#473).
+		switch key {
+		case "m", "h", "up", "down", "pgup", "pgdown":
+			return m, nil
+		}
 		return m, d.seed.Update(k)
 	case 2:
 		switch key {

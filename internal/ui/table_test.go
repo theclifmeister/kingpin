@@ -29,9 +29,25 @@ var kindPatterns = map[colKind]*regexp.Regexp{
 
 // cells splits one rendered table line into its cells by the widths
 // the table was drawn at: the gutter, then each column two apart.
-func cells(cols []col, line string) []string {
+func cells(cols []col, line string) []string { return cellsAt(cols, line, 2) }
+
+// gutterOf is the gutter a table was drawn with, read off its header:
+// two cells, or three where it carries marks beside the cursor (#473).
+func gutterOf(cols []col, header string) int {
+	w := 2 * (len(cols) - 1)
+	for _, c := range cols {
+		w += c.width
+	}
+	if g := len([]rune(stripANSI(header))) - w; g == 3 {
+		return g
+	}
+	return 2
+}
+
+// cellsAt is cells after a gutter of g cells.
+func cellsAt(cols []col, line string, g int) []string {
 	rs := []rune(stripANSI(line))
-	at := 2
+	at := g
 	var out []string
 	for i, c := range cols {
 		if i > 0 {
@@ -60,7 +76,8 @@ func checkTable(t *testing.T, cols []col, lines []string) {
 	if len(cols) == 0 {
 		t.Fatal("table has no columns")
 	}
-	head := cells(cols, lines[0])
+	g := gutterOf(cols, lines[0])
+	head := cellsAt(cols, lines[0], g)
 	for i, c := range cols {
 		if c.title == "" {
 			t.Errorf("column %d has no title (%q)", i, stripANSI(lines[0]))
@@ -70,7 +87,7 @@ func checkTable(t *testing.T, cols []col, lines []string) {
 		}
 	}
 	for r, line := range lines[1:] {
-		got := cells(cols, line)
+		got := cellsAt(cols, line, g)
 		for i, c := range cols {
 			cell := got[i]
 			switch c.kind {
@@ -116,7 +133,7 @@ func TestTableFormatsByKind(t *testing.T) {
 	want := []string{
 		"  name       n    total      fee   price  share  left  loyalty  order            note     ",
 		"  Vasquez   12    $1.2M  $25,000  $19.50   0.8%    3d  ██░░ 58  40 aggr.         runs Bay…",
-		"▸ Books     -3        -     $150  $2,500   +15%    d0  ▁▄█ ▲    240 normal (lt)           ",
+		"▸ Books     -3        -     $150  $2,500   +15%    d0  ▁▅█ ▲    240 normal (lt)           ",
 		"           ~40  -$1,500        -       -    12%     -  -        -                a very l…",
 	}
 	for i, w := range want {
@@ -135,10 +152,15 @@ func TestTableFormatsByKind(t *testing.T) {
 	if got, _ := cellText(kMoney, 0, "$65"); got != "?$65" || kindPatterns[kMoney].MatchString(got) {
 		t.Errorf("a string in a money column: %q", got)
 	}
-	// A mark in the gutter shows where the cursor is not.
-	got := stripANSI(table([]col{{"node", kText, 0}, {"cost", kCash, 0}}, [][]any{{mark("✓"), "Stash spot", 5000}, {mark("○"), "Lookouts", 12_000}}, 1, 0)[1])
-	if got != "✓ Stash spot  $5,000" {
+	// A mark in the gutter shows on every row, the cursor's ▸ beside it
+	// on the cursor's (#473: the ▸ used to take its place, so the
+	// selected node's state was its colour alone).
+	marked := table([]col{{"node", kText, 0}, {"cost", kCash, 0}}, [][]any{{mark("✓"), "Stash spot", 5000}, {mark("○"), "Lookouts", 12_000}}, 1, 0)
+	if got := stripANSI(marked[1]); got != "✓  Stash spot  $5,000" {
 		t.Errorf("marked row: %q", got)
+	}
+	if got := stripANSI(marked[2]); got != "○▸ Lookouts      $12K" {
+		t.Errorf("the cursor's marked row: %q", got)
 	}
 }
 

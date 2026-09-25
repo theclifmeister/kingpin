@@ -172,14 +172,19 @@ Number fields take digits and `backspace`. Use `m` for the maximum, `h`
 for half, `↑`/`↓` for one at a time, or `pgup`/`pgdn` for ten. These
 shortcuts stay within the limit shown after the number. A blank means
 what the field's placeholder says: the maximum on a buy or a sale, the
-price on an envelope, none on a route target. In a picker, `↑`/`↓` move
-and `1`–`9` choose.
+price on an envelope, none on a route target. The new run's seed takes
+digits and `backspace` only. In a picker, `↑`/`↓` move and `1`–`9`
+choose.
 
 Keys are listed on the screens where they belong. Global actions work
 across screens unless a local action takes that key: `b` buys stock on
 the dashboard and a front, a house or an asset on the ledger; `i` is
 always information (investigate, intel, scout); `$` is always a payment.
-A misplaced key points you back: `Hire on the crew screen (4).`
+A key that belongs to other screens and does nothing on this one names
+where it works on the status bar, `h` off the crew screen for one:
+`Hire on the crew screen (4). Hit scouts on the rivals screen (8).` A
+global key (`b`, `s`, `x`, `l`, `g`, `r`, the `p` and `d`/`D` dials)
+simply works wherever you are.
 
 ## Screens
 
@@ -187,13 +192,14 @@ A misplaced key points you back: `Hire on the crew screen (4).`
    the law and the rivals below. Start here each morning. Details carries
    the alerts, the selected product's sale estimate and, under YOUR
    NAME, what your reputation is doing in words. `l` lies low, `F`
-   fast-forwards, `w` walks away from the run, `i` opens the file on
+   fast-forwards, `w` walks away from the run, `a` opens the ambitions
+   (the endings as plans, how far along each is), `i` opens the file on
    the chief.
 2. **Market** — prices, quality, connects, demand, orders and buyers with
    deadlines. `←`/`→` shows the other city. Looking there does not move
    you there. With a chemist on the payroll, `%` cuts a lot and `o` cooks.
-3. **Journal** — every headline, newest first, coloured by its source.
-   `f` filters by source; details shows the selected headline in full.
+3. **Journal** — every headline, newest first, tagged (`mkt`, `hot`,
+   `riv`…) and coloured by its source. `f` filters by source; details shows the selected headline in full.
 4. **Crew** — who's on the payroll, with age and skill, and who's looking
    for work. `h` hires, `f` fires, `l` gives a lieutenant a city, `i`
    asks who is talking, `$` buys loyalty, `b` bails somebody out.
@@ -210,9 +216,13 @@ A misplaced key points you back: `Hire on the crew screen (4).`
    houses, the blocks you own, the assets, the road's totals, the
    envelopes out and what is for sale. This is where you put the money
    through the wash, and where you invest it, reserve it, bribe with it,
-   give it away and call in the favour a bought chief owes you.
+   give it away and call in the favour a bought chief owes you. `d`
+   turns the launder dial up a notch (careful, normal, greedy) and `D`
+   back one.
 8. **Rivals** — the leader, trust, war, the table of factions (`[`/`]`
-   turns it), deals and offers. `i` buys a look at their books, `$` pays
+   turns it), deals and offers, and what keeps each crew off the
+   crown's count (`run out 3d ago; gone in 27d unless it claims
+   again`). `i` buys a look at their books, `$` pays
    their muscle to go home, `w` declares war on one of them. Sometimes the
    table costs less than the street.
 9. **Intel** — what you know against what is true: every fact in your
@@ -224,19 +234,16 @@ The dashboard at 80x24, with the details strip above the status bar:
 <!-- capture:dashboard-80x24 -->
 ```text
  KINGPIN  1  2  3  4  5  6  7  8  9               Day 4 · dirty $452K · heat 12
-╭─ STREET · Eastside ──────────────────────────────────────────────────────────╮
+╭─ STREET · Eastside · tier Distribution ──────────────────────────────────────╮
 │   product     price     Δ  5d       stash  order                             │
-│ ▸ Weed       $19.23   -6%  ▄▇▁█▁       40  -                                 │
-│   Pills      $44.21  -14%  ▁▂▆█▁       30  30 normal ↻                       │
-│   Coke      $153.32   -1%  ▁▂▂█▇ ▲      0  -                                 │
-│   Heroin    $375.84   -5%  █▁           0  -                                 │
+│ ▸ Weed       $19.23   -6%  ▄▆▃▇▂       40  -                                 │
+│   Pills      $44.21  -14%  ▁▃▆█▁       30  30 normal ↻                       │
+│   Coke      $153.32   -1%  ▁▂▂██ ▲      0  -                                 │
+│   Heroin    $375.84   -5%  ▆▃           0  -                                 │
 │   Meth      $701.73  -12%  █▁           0  -                                 │
 │   Designer   $2,740  +11%  ▁█           0  -                                 │
-│ carrying 46/410 · 24 in 1 house · corners 3 worked, 3 held of 10, 1 theirs   │
-│ 240 units in Bayport · 60 units on the road, next in 2d                      │
-│ crew 6 · fair pay $495/day · skimming suspected                              │
-│ supply 1 contract · $895 this morning                                        │
-│ 1 offer in Bayport on the market screen (2)                                  │
+│ corners 3 worked, 3 held of 10, 1 theirs · crew 6 · fair pay $495/day        │
+│ skimming suspected · 1 offer in Bayport on the market screen (2)             │
 │ Standing orders sell tonight; the crew keep 5%.                              │
 ╰──────────────────────────────────────────────────────────────────────────────╯
 ╭─ HEAT ───────────────────╮╭─ CASH ──────────────╮╭─ LAW ─────────────────────╮
@@ -245,6 +252,9 @@ The dashboard at 80x24, with the details strip above the status bar:
 │ patrol 40 · sting 58     ││ peak   $700K        ││ pressure ░░░░░░░░ 2       │
 │ raid 75 · arrest 95      ││ Bayport heat 0      ││ Mona · 1 corner           │
 ╰──────────────────────────╯╰─────────────────────╯╰───────────────────────────╯
+╭─ ALERTS ─────────────────────────────────────────────────────────────────────╮
+│ ▸ Skimming suspected: money went missing on day 3. Watch the loyalty on the… │
+╰──────────────────────────────────────────────────────────────────────────────╯
 ▸ CART · buying 1 line, $895 · 1 by contract · selling 1 line, ~$1,260 …  ␣ more
                                                                          ? help
 ```
@@ -430,7 +440,7 @@ The full table is below; `?` brings it up in the game.
 | `x` | cancel order | cancel order, else standing, else contract | everywhere |
 | `l` | lie low | no sales, heat fades; wages, contracts run | everywhere |
 | `p` | pay dial | the pay dial: stingy, fair, generous | everywhere |
-| `d` | launder dial | the launder dial: careful, normal, greedy | everywhere |
+| `d D` | launder dial | the launder dial up a notch; D down one | everywhere |
 | `g` | go to \<city\> | go to the other city; the stock stays put | everywhere |
 | `r` | report | reopen the morning report | everywhere |
 | `␣` | more | open the details whole, uncut | everywhere |
@@ -444,6 +454,7 @@ The full table is below; `?` brings it up in the game.
 | `[ ]` | alert | pick an alert in ALERTS | dashboard |
 | `c` | cart | the day's cart: edit its buys and orders | dashboard, market |
 | `w` | walk away | retire, vanish, or take the crown | dashboard |
+| `a` | ambitions | the endings as plans and how far each is | dashboard |
 | `o` | open alert | go where the selected alert is answered | dashboard |
 | `i` | intel | the file on the chief and the police here | dashboard |
 | `←→` | city | turn the market to the other city | market |

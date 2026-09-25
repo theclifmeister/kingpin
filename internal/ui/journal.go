@@ -9,7 +9,8 @@ import (
 )
 
 // The journal (#84) is the headline list, newest first, with a cursor:
-// MAIN is the list with the day in front of each headline, cut to the
+// MAIN is the list with the day and the source's tag (#473: `mkt`, so
+// no line is told apart by colour alone) in front of each headline, cut to the
 // width with an ellipsis; the pane is the headline under the cursor
 // (its day and source, the text whole), the legend of the sources'
 // colours, and the keys. `f` filters it by source (#122): the list, the
@@ -19,6 +20,18 @@ import (
 // journalSources are the sources a headline can have, in the order the
 // journal's legend lists them.
 var journalSources = []string{"world", "digest", "market", "buyers", "heat", "law", "crew", "territory", "rivals", "laundering", "logistics", "reputation", "dilemma", "unlock", "flavour"}
+
+// sourceTags are each source's tag in the list, three letters before
+// the headline, so a line says its source in text and not by colour
+// alone (#473); the legend pairs each tag with the name.
+var sourceTags = map[string]string{
+	"world": "wld", "digest": "dig", "market": "mkt", "buyers": "buy", "heat": "hot",
+	"law": "law", "crew": "crw", "territory": "ter", "rivals": "riv", "laundering": "wsh",
+	"logistics": "log", "reputation": "rep", "dilemma": "dil", "unlock": "unl", "flavour": "fla",
+}
+
+// sourceTag is a headline's tag for its source, fit to three cells.
+func sourceTag(source string) string { return fit(sourceTags[sourceName(source)], 3) }
 
 // sourceName is a headline's source as the legend names it: the news
 // sim's own colour is the flavour of the city.
@@ -186,24 +199,25 @@ func (m *Model) viewJournal() string {
 	for _, h := range hs {
 		dayW = max(dayW, len(fmt.Sprintf("d%d", h.Day)))
 	}
-	textW := max(3, width-2-dayW-2)
+	textW := max(3, width-2-dayW-2-3-2)
 	end := min(len(hs), m.journalTop+m.journalRows())
 	for i := m.journalTop; i < end; i++ {
 		h := hs[i]
 		day := fit(fmt.Sprintf("d%d", h.Day), dayW)
+		tag := sourceTag(h.Source)
 		text := truncate(h.Text, textW)
 		if i == m.journalCursor {
-			b.WriteString(theme.Gold.Render("▸ ") + theme.Selected.Render(day+"  "+text) + "\n")
+			b.WriteString(theme.Gold.Render("▸ ") + theme.Selected.Render(day+"  "+tag+"  "+text) + "\n")
 			continue
 		}
-		b.WriteString("  " + theme.Subtle.Render(day) + "  " + theme.SourceText(h.Source).Render(text) + "\n")
+		b.WriteString("  " + theme.Subtle.Render(day) + "  " + theme.SourceText(h.Source).Render(tag+"  "+text) + "\n")
 	}
 	return b.String()
 }
 
 // journalDetails is the journal's pane: the headline under the cursor
 // (its day and source in the title, the text whole) and the LEGEND of
-// what the colours mean, one source a line, the source the filter shows
+// what the tags and the colours mean, `mkt market` a line (#473), the source the filter shows
 // marked Selected. Both are laid out for
 // where they are drawn: the pane beside MAIN, or else the overlay,
 // which is wider and shorter, so the text wraps to its width and the
@@ -233,7 +247,7 @@ func (m *Model) journalDetails() []section {
 			if s == m.journalFilter {
 				style = theme.Selected
 			}
-			line += fit(style.Render(s), keyCellW)
+			line += fit(style.Render(sourceTag(s)+" "+s), keyCellW)
 		}
 		legend = append(legend, strings.TrimRight(line, " "))
 	}

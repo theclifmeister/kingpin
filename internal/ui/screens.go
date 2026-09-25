@@ -31,6 +31,7 @@ const (
 type screenSpec struct {
 	name  string // the title bar's tab
 	short string // the tab when the title bar is tight (Mkt since the ninth tab, #45: nine short names and the news count fit 120 columns)
+	tiny  string // three letters after the digit, `2Mkt`, where the short names do not fit (#473: at 100 columns the bar was digits alone)
 	word  string // the screen in prose: `on the crew screen (4)`, the help's and the README's group
 
 	view    func(*Model) string    // MAIN
@@ -51,23 +52,23 @@ var screens [screenCount]screenSpec
 
 func init() {
 	screens = [screenCount]screenSpec{
-		screenDashboard: {name: "Dashboard", short: "Dash", word: "dashboard", view: (*Model).viewDashboard, details: (*Model).dashboardDetails, accent: theme.Money,
+		screenDashboard: {name: "Dashboard", short: "Dash", tiny: "Dsh", word: "dashboard", view: (*Model).viewDashboard, details: (*Model).dashboardDetails, accent: theme.Money,
 			move: func(m *Model, _, dy int) { m.dashboardMove(dy) }},
-		screenMarket: {name: "Market", short: "Mkt", word: "market", view: (*Model).viewMarket, details: (*Model).marketDetails, accent: theme.Market,
+		screenMarket: {name: "Market", short: "Mkt", tiny: "Mkt", word: "market", view: (*Model).viewMarket, details: (*Model).marketDetails, accent: theme.Market,
 			move: (*Model).marketMove},
-		screenJournal: {name: "Journal", short: "Journal", word: "journal", view: (*Model).viewJournal, details: (*Model).journalDetails, accent: theme.News,
+		screenJournal: {name: "Journal", short: "Journal", tiny: "Jnl", word: "journal", view: (*Model).viewJournal, details: (*Model).journalDetails, accent: theme.News,
 			move: func(m *Model, _, dy int) { m.journalMove(dy) }},
-		screenCrew: {name: "Crew", short: "Crew", word: "crew", view: (*Model).viewCrew, details: (*Model).crewDetails, accent: theme.Crew,
+		screenCrew: {name: "Crew", short: "Crew", tiny: "Crw", word: "crew", view: (*Model).viewCrew, details: (*Model).crewDetails, accent: theme.Crew,
 			move: func(m *Model, _, dy int) { m.crewMove(dy) }},
-		screenMap: {name: "Map", short: "Map", word: "map", view: (*Model).viewMap, details: (*Model).mapDetails, accent: theme.Rivals,
+		screenMap: {name: "Map", short: "Map", tiny: "Map", word: "map", view: (*Model).viewMap, details: (*Model).mapDetails, accent: theme.Rivals,
 			move: (*Model).mapMove},
-		screenUpgrades: {name: "Upgrades", short: "Upgr", word: "upgrades", view: (*Model).viewUpgrades, details: (*Model).upgradesDetails, accent: theme.Money,
+		screenUpgrades: {name: "Upgrades", short: "Upgr", tiny: "Upg", word: "upgrades", view: (*Model).viewUpgrades, details: (*Model).upgradesDetails, accent: theme.Money,
 			move: (*Model).upgradeMove},
-		screenLedger: {name: "Ledger", short: "Ledger", word: "ledger", view: (*Model).viewLedger, details: (*Model).ledgerDetails, accent: theme.Money,
+		screenLedger: {name: "Ledger", short: "Ledger", tiny: "Ldg", word: "ledger", view: (*Model).viewLedger, details: (*Model).ledgerDetails, accent: theme.Money,
 			move: func(m *Model, _, dy int) { m.ledgerMove(dy) }},
-		screenRivals: {name: "Rivals", short: "Rivals", word: "rivals", view: (*Model).viewRivals, details: (*Model).rivalsDetails, accent: theme.Rivals,
+		screenRivals: {name: "Rivals", short: "Rivals", tiny: "Riv", word: "rivals", view: (*Model).viewRivals, details: (*Model).rivalsDetails, accent: theme.Rivals,
 			move: (*Model).rivalsMove},
-		screenIntel: {name: "Intel", short: "Intel", word: "intel", view: (*Model).viewIntel, details: (*Model).intelDetails, accent: theme.Intel,
+		screenIntel: {name: "Intel", short: "Intel", tiny: "Int", word: "intel", view: (*Model).viewIntel, details: (*Model).intelDetails, accent: theme.Intel,
 			move: func(m *Model, _, dy int) { m.intelMove(dy) }},
 	}
 }
