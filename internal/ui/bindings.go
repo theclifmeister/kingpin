@@ -191,7 +191,7 @@ var bindings = []binding{
 		do: func(m *Model, _ string) { m.openDialog(modeSell) }},
 	{key: "x", label: "cancel order", help: "cancel order, else standing, else contract", screens: on(screenDashboard, screenMarket), global: true,
 		do: func(m *Model, _ string) { m.cancelSelected() }},
-	{key: "l", label: "lie low", help: "lie low today: no sales, heat fades faster", screens: on(screenDashboard), global: true,
+	{key: "l", label: "lie low", help: "no sales, heat fades; wages, contracts run", screens: on(screenDashboard), global: true,
 		do: func(m *Model, _ string) { m.toggleLieLow() }},
 	{key: "p", label: "pay dial", help: "the pay dial: stingy, fair, generous", screens: on(screenCrew), global: true,
 		do: func(m *Model, _ string) { m.cyclePay() }},

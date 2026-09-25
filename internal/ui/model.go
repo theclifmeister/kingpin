@@ -592,7 +592,7 @@ func (m *Model) cancelSelected() {
 func (m *Model) toggleLieLow() {
 	m.sess.SetLieLow(!m.w.Today.LieLow)
 	if m.w.Today.LieLow {
-		m.say("Lying low today: no sales, heat fades faster.")
+		m.say("Lying low today: no sales, heat fades faster; wages and contracts still run.")
 	} else {
 		m.say("Back on the corner.")
 	}

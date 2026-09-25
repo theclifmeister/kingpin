@@ -90,10 +90,12 @@ func TestSupplyMatchesTheHand(t *testing.T) {
 	}
 }
 
-// The plan (#113): with cash and room the shortfall; short of cash what
-// the budget over the float leaves, the products before it in the
-// ladder served first; short of room Free(city); nothing for a stash at
-// its level or one on the road to it, and nothing with no contract.
+// The plan (#113): with cash and room the shortfall, in ladder order;
+// short of room Free(city), the product that earns most a unit served
+// first; short of cash what the budget over the float leaves, the one
+// that brings most back a dollar served first (#470, World.ByMargin);
+// nothing for a stash at its level or one on the road to it, and
+// nothing with no contract.
 func TestSupplyPlan(t *testing.T) {
 	cfg := content.MustLoad()
 	w, mk, _ := marketOnly(t, cfg, 3)
@@ -115,18 +117,29 @@ func TestSupplyPlan(t *testing.T) {
 	if mk.Due(w, home, pills) != 50 || mk.Due(w, home, weed) != 100 {
 		t.Fatalf("due: weed %d pills %d", mk.Due(w, home, weed), mk.Due(w, home, pills))
 	}
-	// Room: the weed takes it first, the pills get what is left.
+	// Room: the pills earn more a unit than the weed (the fixture's
+	// street), so they take it first, not the ladder's weed, and the
+	// weed gets what is left (#470).
+	if w.Margin(home, pills, false) <= w.Margin(home, weed, false) {
+		t.Fatalf("the fixture wants pills to earn more a unit than weed: %v against %v", w.Margin(home, pills, false), w.Margin(home, weed, false))
+	}
 	w.Player.CarryLimit = 120
 	plan = mk.Plan(w)
-	if plan[0].Units != 100 || plan[1].Units != 20 || plan[1].Why != "room" || plan[1].Short != 50 {
+	if plan[0].Contract.Product != pills || plan[0].Units != 50 || plan[1].Units != 70 || plan[1].Why != "room" || plan[1].Short != 100 {
 		t.Fatalf("short of room: %+v", plan)
 	}
-	// Cash: what is over the float, the weed first, never under it.
+	// Cash: what is over the float, never under it, the product that
+	// brings most back a dollar first.
 	w.Player.CarryLimit = 500
-	unit := w.Product(home, weed).SupplierPrice * mk.Markup()
-	w.Player.DirtyCash = mk.Float(w) + int(unit*60)
+	first, second := weed, pills
+	if w.Margin(home, pills, true) > w.Margin(home, weed, true) {
+		first, second = pills, weed
+	}
+	unit := w.Product(home, first).SupplierPrice * mk.Markup()
+	w.Player.DirtyCash = mk.Float(w) + int(unit*30)
 	plan = mk.Plan(w)
-	if plan[0].Units > 60 || plan[0].Units < 59 || plan[0].Why != "cash" || plan[1].Units != 0 || plan[1].Why != "cash" || plan[0].Cost > mk.Budget(w) {
+	if plan[0].Contract.Product != first || plan[0].Units > 30 || plan[0].Units < 29 || plan[0].Why != "cash" ||
+		plan[1].Contract.Product != second || plan[1].Units != 0 || plan[1].Why != "cash" || plan[0].Cost > mk.Budget(w) {
 		t.Fatalf("short of cash (budget %d, unit %v): %+v", mk.Budget(w), unit, plan)
 	}
 	// A float from the file holds the line: with [supply] float set the

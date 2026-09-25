@@ -350,6 +350,12 @@ const (
 // (2)`, the spelling every pointer has, where it said `on the market
 // (2)`): the days a buyer's offer is reported move by the report's
 // words alone; no sim, roll or number changed.
+// Again for #470 (supply contracts short of cash or room fill by
+// margin, World.ByMargin): the move on day 59 is the first morning the
+// boss's lieutenant's contracts in Eastside, short of cash, put the
+// pills before the weed (a dollar brought back more on the pills that
+// morning); on days 57 and 58 they were short too and the weed still
+// ranked first, so the fifty-eight days before it are main's.
 var seedDigest = []string{
 	"399f263821f84b75", "d96e9fe5b119cc4b", "118c6624a7893c85", "4e786a8c609b2cea",
 	"1b253356002d8cb8", "86cca3860f76a803", "309a8aa012bb8488", "4082b7c4511b76d9",
@@ -365,5 +371,5 @@ var seedDigest = []string{
 	"48dbba682781d52d", "d5449ed1a177a033", "d2feee2d19301d08", "4ffc168dd563408e",
 	"ffe5b9122922df0f", "aff2b314f0b5b238", "fd0dda412ed3c732", "6cdd4ec7d33be589",
 	"48d058d72f645cfe", "00cbafaa374f873c", "94b2fc025c7de000", "dba228954dcd5ea3",
-	"3ae9dfc08d80e787", "f4429c5ba79c51aa", "52374a0c1920b202", "9f7ee62be5f4de4a",
+	"3ae9dfc08d80e787", "f4429c5ba79c51aa", "42512a73d16126f1", "15189c3c7fca2090",
 }

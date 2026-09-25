@@ -4,6 +4,7 @@ import (
 	"errors"
 	"fmt"
 	"math"
+	"sort"
 )
 
 // ErrNoRoom is the stash refusing more than it holds (#356): a buy, a
@@ -120,24 +121,44 @@ type RestockLine struct {
 }
 
 // RestockPlan is what topping a city's stash up to days of demand would
-// buy by hand right now (#356): one line per product, in ladder order,
-// sized to the StockLevels level less what is stashed there and on the
-// road to it (a supply contract's shortfall), from the cheapest connect
-// with units left after the lines before it, cut to the room and the
-// dirty cash over keep after the lines before it have had theirs. A
-// product nobody sells today, or with nothing to buy, has no line. It
-// changes nothing: the front end reviews it and buys the lines.
+// buy by hand right now (#356): one line per product, sized to the
+// StockLevels level less what is stashed there and on the road to it
+// (a supply contract's shortfall), from the cheapest connect with units
+// left after the lines before it, cut to the room and the dirty cash
+// over keep after the lines before it have had theirs. The lines go in
+// ladder order where the cash and the room go round, and by margin
+// where they do not (ByMargin, #470: the order the supply contracts
+// fill in, so the plan is still the stocked player's). A product nobody
+// sells today, or with nothing to buy, has no line. It changes nothing:
+// the front end reviews it and buys the lines.
 func (w *World) RestockPlan(city string, days float64, keep int) []RestockLine {
 	if !w.CanBuyIn(city) {
 		return nil
 	}
 	levels := w.StockLevels(city, days)
+	order := make([]SupplyContract, 0, len(w.Products))
+	for _, id := range w.Products {
+		order = append(order, SupplyContract{City: city, Product: id, Units: levels[id]})
+	}
+	plan, cash, room := w.restock(order, keep)
+	if cash || room {
+		plan, _, _ = w.restock(w.ByMargin(order, cash), keep)
+	}
+	return plan
+}
+
+// restock lays out a restock's lines in the order given, and says
+// whether a line was cut short of the cash or the room.
+func (w *World) restock(order []SupplyContract, keep int) (plan []RestockLine, cashShort, roomShort bool) {
+	if len(order) == 0 {
+		return nil, false, false
+	}
+	city := order[0].City
 	budget := max(0, w.Player.DirtyCash-keep)
 	room := max(0, w.Free(city))
 	taken := map[string]int{}
-	var plan []RestockLine
-	for _, id := range w.Products {
-		level := levels[id]
+	for _, c := range order {
+		id, level := c.Product, c.Units
 		have := w.Stock(city, id) + w.Bound(city, id)
 		short := level - have
 		if short <= 0 {
@@ -155,7 +176,12 @@ func (w *World) RestockPlan(city string, days float64, keep int) []RestockLine {
 		if sup == nil {
 			continue
 		}
-		units := max(0, min(short, room, w.Affords(sup, id, false, budget), sup.Left()-taken[sup.ID]))
+		afford := w.Affords(sup, id, false, budget)
+		units := max(0, min(short, room, afford, sup.Left()-taken[sup.ID]))
+		if units < short {
+			cashShort = cashShort || afford < short
+			roomShort = roomShort || room < short
+		}
 		if units == 0 {
 			continue
 		}
@@ -165,5 +191,49 @@ func (w *World) RestockPlan(city string, days float64, keep int) []RestockLine {
 		room -= units
 		taken[sup.ID] += units
 	}
-	return plan
+	return plan, cashShort, roomShort
+}
+
+// Margin is what a unit of a product bought in a city today is expected
+// to earn on the street there (#470): the street price less the
+// supplier price (World.SupplierPrice) or, perDollar, the street price
+// over it, what a dollar spent there brings back. The contract markup
+// scales the supplier price alike for every product, so the order it
+// puts products in is the hand's and the contract's alike. Zero where
+// the city does not trade the product or nobody sells it.
+func (w *World) Margin(city, product string, perDollar bool) float64 {
+	m := w.Product(city, product)
+	if m == nil {
+		return 0
+	}
+	cost := w.SupplierPrice(city, product)
+	if cost <= 0 {
+		return 0
+	}
+	if perDollar {
+		return m.Price / cost
+	}
+	return m.Price - cost
+}
+
+// ByMargin is the contracts (or a restock's products) in the order the
+// cash or the room is best spent on when it runs short (#470): short of
+// cash (perDollar), by what a dollar brings back, since a dollar is what
+// runs out; short of room alone, by what a unit earns, since a unit of
+// the stash is. Ties keep the order given, the city and ladder order.
+func (w *World) ByMargin(order []SupplyContract, perDollar bool) []SupplyContract {
+	rank := make([]float64, len(order))
+	for i, c := range order {
+		rank[i] = w.Margin(c.City, c.Product, perDollar)
+	}
+	idx := make([]int, len(order))
+	for i := range idx {
+		idx[i] = i
+	}
+	sort.SliceStable(idx, func(a, b int) bool { return rank[idx[a]] > rank[idx[b]] })
+	out := make([]SupplyContract, len(order))
+	for i, j := range idx {
+		out[i] = order[j]
+	}
+	return out
 }
