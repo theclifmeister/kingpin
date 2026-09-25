@@ -344,3 +344,37 @@ func TestFrontShutMoneyLine(t *testing.T) {
 		t.Fatalf("money lines %q, want one opening %q", w.Report.Money, want)
 	}
 }
+
+// TestLastCornerSaysTheWaysBack (#471): the night that takes your last
+// corner in a city says so in the lead, with the ways back; a corner
+// lost with another still held there says nothing more.
+func TestLastCornerSaysTheWaysBack(t *testing.T) {
+	cfg := content.MustLoad()
+	for _, keep := range []bool{false, true} {
+		n, err := news.New(cfg)
+		if err != nil {
+			t.Fatal(err)
+		}
+		w := sim.NewWorld(cfg, 4)
+		w.Day = 20
+		home := w.Home()
+		for i := range home.Corners {
+			if home.Corners[i].Held() {
+				home.Corners[i].Hand(game.OwnerNone, "", 20)
+			}
+		}
+		if keep {
+			home.Corners[4].Hand(game.OwnerPlayer, "", 20)
+		}
+		c := home.Corners[0]
+		n.Step(w, gametest.TickOn(w, 21, events.CornerTaken{Corner: c.ID, Name: c.Name, Rival: "Sal", From: game.OwnerPlayer}))
+		if len(w.Report.Lead) == 0 || w.Report.Lead[0].Kind != "corner_lost" {
+			t.Fatalf("keep %v: the lead %+v does not open on the corner", keep, w.Report.Lead)
+		}
+		text := w.Report.Lead[0].Text
+		last := "That was your last corner in " + home.Name + ": nothing sells there. Post on a free corner, push a rival's or buy a block on the map, or sell in "
+		if got := strings.Contains(text, last); got == keep {
+			t.Errorf("keep %v: the lead says %q", keep, text)
+		}
+	}
+}

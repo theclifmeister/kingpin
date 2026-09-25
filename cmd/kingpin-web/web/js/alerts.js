@@ -43,18 +43,24 @@ export const WORDS = {
       a.target === "corner" ? cornerName(v, a.corner) : a.target === "house" ? (byId(v.houses, a.house) || { name: "a house" }).name : `the ${a.product} trade`;
     return `Police are working ${name}: they hit ${n(a.days) <= 1 ? "tonight" : `in ${plural(a.days, "day")}`}.`;
   },
+  no_corner: (v, a) =>
+    `You hold no corner in ${cityName(v, a.city)}: nothing sells there. ${a.corner ? `Post on ${cornerName(v, a.corner)}, send` : "Send"} the enforcers at a rival's, buy a block, or sell in another city.`,
   front_shut: (v, a) =>
     `${(byId(v.fronts, a.front) || { name: "A front" }).name} shut ${plural(n(a.days), "day")}: upkeep unpaid, ${money(n(a.amount))} clean short. It is ${money(n(a.have))}/day clean: keep that back.`,
   float: (v, a) => `Dirty cash ${money(n(a.have))} is under the float (${money(n(a.amount))}).`,
   till: (v, a) => `Dirty cash held at the ${money(n(a.amount))} till ${plural(n(a.days), "night")} running: turn the launder dial careful to save.`,
-  wages: (v, a) => `Wages ${money(n(a.amount))} due tonight, ${money(n(a.have))} dirty in hand.`,
+  wages: (v, a) =>
+    `Wages ${money(n(a.amount))} due tonight, ${money(n(a.have))} dirty in hand.${
+      v.you && v.you.offshore ? ` The ${money(v.you.offshore)} offshore does not count: nothing comes back from it.` : ""
+    }`,
   crew_line: (v, a) => {
     const cross = { skim: "skimming", flip: "turning", walk: "walking" }[a.cross] || a.cross;
     return `${memberName(v, a.member)} is ${Math.max(1, Math.ceil(n(a.gap)))} from ${cross}${a.days ? ` (${plural(a.days, "day")})` : ""}.`;
   },
   skim: (v, a) => `Skimming suspected: money went missing on day ${n(a.day)}.`,
   unposted: (v, a) =>
-    a.corner ? `${memberName(v, a.member)} has no post: ${cornerName(v, a.corner)} is free for them.` : `${memberName(v, a.member)} has no post.`,
+    a.corner ? `${memberName(v, a.member)} has no post: ${cornerName(v, a.corner)} is free for them.` 
+      : `${memberName(v, a.member)} has no post and no corner is free here: send the enforcers at a rival's, buy a block, or post them in another city.`,
   idle_corner: (v, a) => `Nobody works ${cornerName(v, a.corner)}: back to the street ${n(a.days) <= 1 ? "tonight" : `in ${plural(a.days, "day")}`}.`,
   stash_full: (v, a) => `The stash in ${cityName(v, a.city)} is full: ${n(a.count)} of ${n(a.amount)}.`,
   scouts: (v, a) => `A faction is ${a.level === "recruiting" ? "recruiting" : "scouting"} in ${cityName(v, a.city)}: ${n(a.days) <= 0 ? "due now" : `in ${plural(n(a.days), "day")}`}.`,

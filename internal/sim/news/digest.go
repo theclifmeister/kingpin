@@ -143,6 +143,7 @@ func (s *Sim) lead(w *game.World, t *game.Tick, flow game.CashFlow) []game.Line 
 		if l.City == "" {
 			l.City = lostCity
 		}
+		l.Text += lastCorner(w, lost.ids, lostCity)
 		add("corner_lost", float64(n), l)
 	}
 	if n := crew.len() + down.len(); n > 0 {
@@ -379,6 +380,41 @@ func signedCash(n int) string {
 		return "+" + format.Cash(n)
 	}
 	return format.Cash(n)
+}
+
+// lastCorner is what the lead adds when the night took your last corner
+// in a city (#471): ` That was your last corner in Eastside: nothing
+// sells there. Post on a free corner, push a rival's or buy a block on
+// the map, or sell in Bayport.`, one sentence a city, or "". corners
+// are the night's lost corners' ids, walked the city a lieutenant
+// walked with; both read against the world as the night left it.
+func lastCorner(w *game.World, corners []string, walked string) string {
+	var cities []string
+	for _, id := range corners {
+		if c := w.Corner(id); c != nil && !slices.Contains(cities, c.City) {
+			cities = append(cities, c.City)
+		}
+	}
+	if walked != "" && !slices.Contains(cities, walked) {
+		cities = append(cities, walked)
+	}
+	var out string
+	for _, city := range cities {
+		if w.HeldIn(city) > 0 {
+			continue
+		}
+		out += fmt.Sprintf(" That was your last corner in %s: nothing sells there. Post on a free corner, push a rival's or buy a block on the map", w.CityName(city))
+		for _, id := range w.CityOrder {
+			if id != city && len(w.CityOrder) == 2 {
+				out += ", or sell in " + w.CityName(id)
+			}
+		}
+		if len(w.CityOrder) > 2 {
+			out += ", or sell in another city"
+		}
+		out += "."
+	}
+	return out
 }
 
 // cornerLine is a line whose act is the map on the corner (the first a

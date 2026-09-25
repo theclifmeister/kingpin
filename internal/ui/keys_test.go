@@ -345,3 +345,37 @@ func TestQuitKeySaves(t *testing.T) {
 		t.Fatalf("q did not save: %v %+v", err, w)
 	}
 }
+
+// TestOffKeysNeverFallThrough (#460's rule, #469): the ledger's x off a
+// house row says what to pick and never falls through to the global
+// cancel order, which acts on the market's cursor the ledger does not
+// show (it cancelled a standing order); the dashboard's [ with no alert
+// to pick says so and leaves the market's city alone.
+func TestOffKeysNeverFallThrough(t *testing.T) {
+	m := newTestModel(t, 120, 40)
+	w := m.w
+	city, product := w.Player.Location, w.Products[m.cursor]
+	w.Standing = map[string]game.SellOrder{game.OrderKey(city, product): {City: city, Product: product, Qty: 5}}
+	m.Update(key("7"))
+	if m.ledgerSelected().kind == ledgerHouse {
+		t.Fatal("the ledger opened on a house")
+	}
+	m.Update(key("x"))
+	if _, ok := w.YourStanding(city, product); !ok {
+		t.Fatalf("x on the ledger cancelled the standing order: %q", m.status)
+	}
+	if !strings.Contains(m.status, "house to drop") {
+		t.Fatalf("x off a house: %q", m.status)
+	}
+
+	m.Update(key("1"))
+	m.onPolice = true // the arrows on the police panels: no alert to pick
+	shown := m.city
+	m.Update(key("["))
+	if m.city != shown {
+		t.Fatalf("[ on the dashboard turned the city to %q", m.city)
+	}
+	if !strings.Contains(m.status, "alert") {
+		t.Fatalf("[ with no alert to pick: %q", m.status)
+	}
+}

@@ -28,6 +28,7 @@ const (
 	AlertTaskForce     AlertKind = "task_force"    // a task force formed this morning
 	AlertFile          AlertKind = "file"          // the DA's file is Count pages of the Amount that indict you, two or fewer short (#414)
 	AlertInvestigation AlertKind = "investigation" // the police in City are working Target (Corner, Product or House): the hit in Days
+	AlertNoCorner      AlertKind = "no_corner"     // you held corners in City and hold none now (#471); Corner is a free one to post on, or ""
 	AlertFrontShut     AlertKind = "front_shut"    // Front shut for unpaid upkeep (#458): Amount the clean it was short, Have its upkeep, Days until it reopens
 	AlertFloat         AlertKind = "float"         // Have dirty under the float, Amount
 	AlertTill          AlertKind = "till"          // the wash has left the pile at the till, Amount, Days nights running; Have dirty (#459)
@@ -52,7 +53,7 @@ const (
 // AlertKinds is every kind, loudest first: the order Alerts returns them
 // in.
 func AlertKinds() []AlertKind {
-	return []AlertKind{AlertTalking, AlertContractDue, AlertDebtDue, AlertHeat, AlertTaskForce, AlertFile, AlertInvestigation, AlertFrontShut, AlertFloat, AlertTill, AlertWages,
+	return []AlertKind{AlertTalking, AlertContractDue, AlertDebtDue, AlertHeat, AlertTaskForce, AlertFile, AlertInvestigation, AlertNoCorner, AlertFrontShut, AlertFloat, AlertTill, AlertWages,
 		AlertCrewLine, AlertSkim, AlertUnposted, AlertIdleCorner, AlertStashFull, AlertScouts, AlertGate, AlertHouseKnown,
 		AlertDARace, AlertRetire, AlertFavour, AlertReign, AlertStraight, AlertExposure, AlertPlan}
 }
@@ -118,25 +119,28 @@ var alertActs = map[AlertKind][]Act{
 	// corner on the map, the product on the market, the house on the
 	// ledger, each selected.
 	AlertInvestigation: {{Screen: ScreenMap, Subject: SubjectCorner}, actMarket, {Screen: ScreenLedger, Subject: SubjectHouse}},
-	AlertFrontShut:     {actLedger},
-	AlertFloat:         {actLedger},
-	AlertTill:          {actLedger},
-	AlertWages:         {actCrew},
-	AlertCrewLine:      {actMember},
-	AlertSkim:          {actCrew},
-	AlertUnposted:      {actPost, actMember},
-	AlertIdleCorner:    {actCorner},
-	AlertStashFull:     {{Screen: ScreenLedger, Subject: SubjectCity}},
-	AlertScouts:        {{Screen: ScreenRivals}},
-	AlertGate:          {actMarket, actLedger},
-	AlertHouseKnown:    {{Screen: ScreenLedger, Subject: SubjectHouse}},
-	AlertDARace:        {actLedger},
-	AlertRetire:        {actLedger, actDashboard},
-	AlertFavour:        {actLedger},
-	AlertReign:         {actDashboard},
-	AlertStraight:      {actDashboard},
-	AlertExposure:      {actLedger},
-	AlertPlan:          {actDashboard}, // the plan pinned (#347): the dashboard, where it is shown and the walk away is
+	// The last corner in a city gone (#471): the post picker on a free
+	// corner there, else the map, where the push and the deeds are.
+	AlertNoCorner:   {actCorner, {Screen: ScreenMap}},
+	AlertFrontShut:  {actLedger},
+	AlertFloat:      {actLedger},
+	AlertTill:       {actLedger},
+	AlertWages:      {actCrew},
+	AlertCrewLine:   {actMember},
+	AlertSkim:       {actCrew},
+	AlertUnposted:   {actPost, actMember},
+	AlertIdleCorner: {actCorner},
+	AlertStashFull:  {{Screen: ScreenLedger, Subject: SubjectCity}},
+	AlertScouts:     {{Screen: ScreenRivals}},
+	AlertGate:       {actMarket, actLedger},
+	AlertHouseKnown: {{Screen: ScreenLedger, Subject: SubjectHouse}},
+	AlertDARace:     {actLedger},
+	AlertRetire:     {actLedger, actDashboard},
+	AlertFavour:     {actLedger},
+	AlertReign:      {actDashboard},
+	AlertStraight:   {actDashboard},
+	AlertExposure:   {actLedger},
+	AlertPlan:       {actDashboard}, // the plan pinned (#347): the dashboard, where it is shown and the walk away is
 }
 
 // ActsOf is every act an alert of the kind can carry, the usual one
@@ -153,7 +157,7 @@ type Alert struct {
 	Kind AlertKind `json:"kind"`
 	Key  string    `json:"key"`
 
-	City     string  `json:"city,omitempty"`     // heat, da_race, idle_corner, unposted, stash_full, investigation: the city's id (heat: where you are; unposted: the corner's)
+	City     string  `json:"city,omitempty"`     // heat, da_race, idle_corner, unposted, stash_full, investigation, no_corner: the city's id (heat: where you are; unposted: the corner's)
 	Contract int     `json:"contract,omitempty"` // contract_due: the contract's id
 	Supplier string  `json:"supplier,omitempty"` // debt_due: the connect's id
 	House    string  `json:"house,omitempty"`    // house_known, investigation: the house's id
@@ -170,7 +174,7 @@ type Alert struct {
 	Member   int     `json:"member,omitempty"`   // crew_line, unposted: the member's id
 	Cross    string  `json:"cross,omitempty"`    // crew_line: the line ahead: skim, flip (a lieutenant's) or walk
 	Gap      float64 `json:"gap,omitempty"`      // crew_line: the loyalty over the line
-	Corner   string  `json:"corner,omitempty"`   // idle_corner, investigation: the corner's id; unposted: a corner to post them on, or ""
+	Corner   string  `json:"corner,omitempty"`   // idle_corner, investigation: the corner's id; unposted: a corner to post them on, no_corner: a free one to post on, or ""
 	Target   string  `json:"target,omitempty"`   // investigation: what is named, corner | product | house (#343)
 	Product  string  `json:"product,omitempty"`  // investigation: the product's id
 	Day      int     `json:"day,omitempty"`      // skim: the day money last went missing
@@ -241,6 +245,7 @@ func (s *Session) Alerts() []Alert {
 		}
 		out = append(out, a)
 	}
+	out = append(out, s.noCorners()...)
 	// A front shut for its upkeep (#458): the laundering sim keeps what
 	// the clean pile lacked on the front while it is shut. Keyed by the
 	// front and the day it reopens, so a fast-forward stops once a shut.
@@ -370,6 +375,62 @@ func (s *Session) unposted() []Alert {
 		out = append(out, a)
 	}
 	return out
+}
+
+// noCorners are the cities where you have held corners and hold none
+// now (#471), in city order, while something of yours is there to sell:
+// you stand there, its stash holds stock, or a standing order or a
+// supply contract of yours runs there. A quiet dealer lost every corner
+// on four seeds in twenty and nothing said so but the market's capacity
+// gone to nothing. Each names a free corner there to post on (the act
+// the post picker on it), or none (the act the map: push a rival's,
+// buy the block, or work the other city). Keyed by the city, so a
+// fast-forward stops the morning the last one goes and not again until
+// you hold one there and lose it. Read off the corners (Corner.Yours,
+// held once) with no dice.
+func (s *Session) noCorners() []Alert {
+	w := s.w
+	var out []Alert
+	for _, cid := range w.CityOrder {
+		held, yours, free := false, false, ""
+		for _, c := range w.Cities[cid].Corners {
+			held = held || c.Held()
+			yours = yours || c.Yours
+			if free == "" && c.Owner == game.OwnerNone {
+				free = c.ID
+			}
+		}
+		if held || !yours || !s.selling(cid) {
+			continue
+		}
+		a := Alert{Kind: AlertNoCorner, Key: "no corner in " + cid, City: cid, Corner: free, Act: alertActs[AlertNoCorner][1]}
+		if free != "" {
+			a.Act = alertActs[AlertNoCorner][0]
+		}
+		out = append(out, a)
+	}
+	return out
+}
+
+// selling reports whether you have anything to sell in a city: you
+// stand there, its stash holds stock, or a standing order or a supply
+// contract of yours runs there.
+func (s *Session) selling(city string) bool {
+	w := s.w
+	if city == w.Player.Location || w.StockIn(city) > 0 {
+		return true
+	}
+	for _, o := range w.Standing {
+		if o.City == city {
+			return true
+		}
+	}
+	for _, c := range w.Supply {
+		if c.City == city {
+			return true
+		}
+	}
+	return false
 }
 
 // postFor is the corner an unposted member of the role would go to, or

@@ -190,6 +190,9 @@ func (m *Model) stopEvent(e events.Event) string {
 	case events.CornerTaken:
 		return ev.Rival + " took " + ev.Name
 	case events.CornerLost:
+		if ev.Reason == "crackdown" {
+			return "the police cleared " + ev.Name // the war's crackdown (#469)
+		}
 		return ev.Name + " went back to the street" // nobody worked it (#345)
 	case events.RivalAbandoned:
 		return ev.Rival + " gave up " + ev.Name

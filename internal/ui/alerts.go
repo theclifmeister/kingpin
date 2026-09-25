@@ -90,6 +90,8 @@ func (m *Model) alertOf(a engine.Alert) alert {
 		why = "the DA's file"
 	case engine.AlertInvestigation:
 		text, why = m.investigationAlert(a)
+	case engine.AlertNoCorner:
+		text, why = m.noCornerAlert(a)
 	case engine.AlertFrontShut:
 		// #458: the reason and the amount, where the paper said "dark".
 		// The shortfall leads: the pane cuts an alert to one line.
@@ -111,6 +113,11 @@ func (m *Model) alertOf(a engine.Alert) alert {
 		text = theme.Warning.Render(fmt.Sprintf("Wages %s due tonight, %s dirty in hand.", money(a.Amount), money(a.Have)))
 		if m.w.Player.CleanCash > 0 {
 			text = theme.Warning.Render(fmt.Sprintf("Wages %s due tonight, %s dirty in hand: cash out clean %s.", money(a.Amount), money(a.Have), screenPointer(screenLedger)))
+		}
+		if m.w.Offshore > 0 {
+			// #471: the run ends broke on the till and the stash; the
+			// account is in neither and nothing comes back from it.
+			text += theme.Warning.Render(fmt.Sprintf(" The %s offshore does not count: nothing comes back from it.", money(m.w.Offshore)))
 		}
 	case engine.AlertCrewLine:
 		text, why = m.crewLineAlert(a)
@@ -245,6 +252,45 @@ func (m *Model) idleCornerAlert(a engine.Alert) (text, why string) {
 	return style.Render(fmt.Sprintf("Nobody works %s: back to the street %s. %s", name, when, post)), "nobody works " + name
 }
 
+// noCornerAlert words the last corner in a city gone (#471), with the
+// ways back: `You hold no corner in Eastside: nothing sells there. Post
+// on Rail Yard (c), send the enforcers at a rival's (w) or buy a block
+// (d) on the map screen (5), or sell in Bayport.`; red. The count
+// leads: the pane cuts an alert to one line.
+func (m *Model) noCornerAlert(a engine.Alert) (text, why string) {
+	w := m.w
+	city := w.CityName(a.City)
+	why = "no corner left in " + city
+	var ways []string
+	if c := w.Corner(a.Corner); c != nil {
+		ways = append(ways, "post on "+c.Name+" (c)")
+	}
+	ways = append(ways, "send the enforcers at a rival's (w)", "buy a block (d)")
+	last := len(ways) - 1
+	ways[last] = "or " + ways[last]
+	text = fmt.Sprintf("You hold no corner in %s: nothing sells there. %s %s", city, capitalize(strings.Join(ways, ", ")), screenPointer(screenMap))
+	if other := otherCity(w, a.City); other != "" {
+		text += ", or sell in " + other
+	}
+	return theme.Bad.Render(text + "."), why
+}
+
+// otherCity is the name of the city that is not this one when there are
+// two, "another city" when there are more, "" when there is one.
+func otherCity(w *game.World, city string) string {
+	switch len(w.CityOrder) {
+	case 0, 1:
+		return ""
+	case 2:
+		for _, id := range w.CityOrder {
+			if id != city {
+				return w.CityName(id)
+			}
+		}
+	}
+	return "another city"
+}
+
 // unpostedAlert words a runner or an enforcer with no post (#352):
 // `Vee has no post: put them on Rail Yard on the map screen (5).`,
 // the corner the engine names (its city named when it is not where you
@@ -271,7 +317,12 @@ func (m *Model) unpostedAlert(a engine.Alert) (text, why string) {
 	case role == game.RoleEnforcer:
 		text = fmt.Sprintf("%s has no post: an enforcer needs a corner of yours to guard.", name)
 	default:
-		text = fmt.Sprintf("%s has no post and no corner free: take one back %s.", name, screenPointer(screenMap))
+		// #471: the ways to a corner, where "take one back" named none.
+		text = fmt.Sprintf("%s has no post and no corner is free here: send the enforcers at a rival's (w) or buy a block (d) %s", name, screenPointer(screenMap))
+		if other := otherCity(w, w.Here().ID); other != "" {
+			text += ", or post them in " + other
+		}
+		text += "."
 	}
 	return theme.Warning.Render(text), why
 }
