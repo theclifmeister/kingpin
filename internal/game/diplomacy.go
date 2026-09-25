@@ -23,6 +23,7 @@ var (
 	ErrNoRival     = errors.New("nobody to deal with yet")
 	ErrDealLive    = errors.New("you already have that deal")
 	ErrOfferLive   = errors.New("they have already offered that; answer it first")
+	ErrNoProposal  = errors.New("no proposal on the table today") // #474: Withdraw with nothing to take back
 	ErrDistrusted  = errors.New("they are not taking your calls")
 	ErrNoOffer     = errors.New("no such offer")
 	ErrOfferLapsed = errors.New("that offer has lapsed")
@@ -241,8 +242,18 @@ func (w *World) ProposeTo(faction, kind string, terms Terms) error {
 	return nil
 }
 
-// Withdraw takes back today's proposal.
-func (w *World) Withdraw() { w.Today.Proposal = nil }
+// Withdraw takes back today's proposal; with none made it refuses
+// (ErrNoProposal, #474) rather than doing nothing.
+func (w *World) Withdraw() error {
+	if w.Over != nil {
+		return ErrGameOver
+	}
+	if w.Today.Proposal == nil {
+		return ErrNoProposal
+	}
+	w.Today.Proposal = nil
+	return nil
+}
 
 // Accept takes the rival's offer with id. The deal is sealed at end of
 // day by the rival sim, on exactly the terms offered, and runs from

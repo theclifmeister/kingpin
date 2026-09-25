@@ -96,8 +96,21 @@ func init() {
 			if err := decode(ps, 3, &seed, &start.Character, &start.HardDA); err != nil {
 				return nil, err
 			}
+			if err := s.character(start.Character); err != nil {
+				return nil, err
+			}
 			s.sess.NewRun(seed, start)
 			return s.sess.View(), nil
+		},
+	})
+	register(method{
+		name:   "characters",
+		result: reflect.TypeFor[[]Character](),
+		call: func(s *Server, ps []json.RawMessage) (any, error) {
+			if err := decode(ps, 0); err != nil {
+				return nil, err
+			}
+			return s.characters(), nil
 		},
 	})
 	register(method{
@@ -180,6 +193,49 @@ func init() {
 			return r, nil
 		},
 	})
+}
+
+// paramNotes describe a parameter in the schema whose values are the
+// run's data rather than a Go type's (method.param): the characters are
+// characters.toml's, so the schema points at the query instead of
+// listing them.
+var paramNotes = map[string]string{
+	"new_run.character": "a character's id, one the characters query lists; \"\" is the default. Any other is refused (-32602).",
+}
+
+// Character is one start new_run takes (#474): its id, what the picker
+// calls it and says of it, and whether it is the default, the run as it
+// is (an empty id means it too). The profile's unlocks are the TUI's:
+// the wire offers every character.
+type Character struct {
+	ID      string `json:"id"`
+	Name    string `json:"name"`
+	Blurb   string `json:"blurb"`
+	Default bool   `json:"default"`
+}
+
+// characters is the characters query: characters.toml's rows in order.
+func (s *Server) characters() []Character {
+	cs := s.sess.Config().Characters.Characters
+	out := make([]Character, 0, len(cs))
+	for i, c := range cs {
+		out = append(out, Character{ID: c.ID, Name: c.Name, Blurb: c.Blurb, Default: i == 0})
+	}
+	return out
+}
+
+// character refuses a new_run character that is not a row of
+// characters.toml, naming the ones there are (#474): before it, a typo
+// started the default run under the typo's name. Empty is the default.
+func (s *Server) character(id string) error {
+	if id == "" || s.sess.Config().Characters.Character(id) != nil {
+		return nil
+	}
+	var ids []string
+	for _, c := range s.characters() {
+		ids = append(ids, c.ID)
+	}
+	return &Error{Code: CodeInvalidParams, Message: fmt.Sprintf("new_run: character: no character named %q: one of %s, or \"\" for the default", id, strings.Join(ids, ", "))}
 }
 
 // DayResult is end_day's answer: the day it is now and how many events

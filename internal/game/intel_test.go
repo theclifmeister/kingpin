@@ -104,7 +104,7 @@ func TestPayCopAndPlantSpy(t *testing.T) {
 	if err := w.PayCop(5000); err != ErrNoDirtyCash {
 		t.Fatalf("a cop on clean cash: %v", err)
 	}
-	if err := w.PayCop(0); err != ErrBadUnits {
+	if err := w.PayCop(0); err != ErrBadAmount {
 		t.Fatalf("nothing: %v", err)
 	}
 	if err := w.PayCop(3000); err != nil || w.Player.DirtyCash != 1000 || w.Today.Cop == nil || w.Today.Cop.Amount != 3000 || w.Stats.CopsPaid != 1 || w.Stats.CopCash != 3000 {

@@ -9696,6 +9696,29 @@
       ],
       "type": "object"
     },
+    "protocol.Character": {
+      "properties": {
+        "blurb": {
+          "type": "string"
+        },
+        "default": {
+          "type": "boolean"
+        },
+        "id": {
+          "type": "string"
+        },
+        "name": {
+          "type": "string"
+        }
+      },
+      "required": [
+        "id",
+        "name",
+        "blurb",
+        "default"
+      ],
+      "type": "object"
+    },
     "protocol.DayResult": {
       "properties": {
         "day": {
@@ -10768,6 +10791,22 @@
         "type": "null"
       }
     },
+    "characters": {
+      "changes": false,
+      "needsRun": false,
+      "params": {
+        "maxItems": 0,
+        "minItems": 0,
+        "prefixItems": [],
+        "type": "array"
+      },
+      "result": {
+        "items": {
+          "$ref": "#/$defs/protocol.Character"
+        },
+        "type": "array"
+      }
+    },
     "choose": {
       "changes": true,
       "needsRun": true,
@@ -11385,6 +11424,7 @@
             "type": "integer"
           },
           {
+            "description": "a character's id, one the characters query lists; \"\" is the default. Any other is refused (-32602).",
             "title": "character",
             "type": "string"
           },
@@ -15439,7 +15479,7 @@
       "$ref": "#/$defs/engine.View"
     }
   },
-  "protocol": 16,
+  "protocol": 17,
   "title": "kingpind",
   "view_version": 12
 }

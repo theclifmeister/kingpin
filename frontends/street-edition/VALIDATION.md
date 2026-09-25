@@ -1,3 +1,7 @@
+# Engine alignment validation: protocol 17 / view 12 (#474)
+
+The builder accepts protocol 17 and view 12. Protocol 17 added the `characters` query, and made `new_run` refuse a character that is not one, `withdraw` refuse with no proposal made and `travel` refuse the city you stand in. Reviewed against `src/app.js`: it starts the default character, never calls `withdraw`, and draws the travel button only for a city you are not in, so none of the new refusals can reach it. The money refusals it can meet (`reserve`, `cash_out` and `fund` of nothing) now read `amount must be positive` and `clean cash only, and the clean pile is empty`, shown as the engine words them.
+
 # Engine alignment validation: protocol 16 / view 12 (#455)
 
 The builder accepts protocol 16 and view 12. Protocol 16 added `rules.crew.lieutenancy`, the lieutenant's terms. The crew tab now words them through the shared `lieutenants.js`: a lieutenant's card says the city they run and their temper once it shows, `Run a city` / `Change city` opens a picker with the role in four sentences (the night's work, the cut and the crew slots, the tempers, the loyalty risk) and calls `assign` / `unassign`, a lieutenant in the pool says what they would be, and the tab says how lieutenants come while fewer than two cities are held.

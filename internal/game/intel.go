@@ -363,7 +363,7 @@ func (w *World) PayCop(amount int) error {
 		return ErrGameOver
 	}
 	if amount <= 0 {
-		return ErrBadUnits
+		return ErrBadAmount
 	}
 	if w.Today.Cop != nil {
 		return ErrCopPaid

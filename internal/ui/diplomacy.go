@@ -94,7 +94,10 @@ func (m *Model) proposeRows() int {
 func (m *Model) pickPropose() {
 	if m.prop.step == 0 {
 		if m.prop.cursor >= len(proposeKinds) {
-			m.sess.Withdraw()
+			if err := m.sess.Withdraw(); err != nil {
+				m.refuse("Can't withdraw: " + err.Error())
+				return
+			}
 			m.mode = modePlay
 			m.say("Proposal withdrawn.")
 			return

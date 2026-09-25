@@ -154,8 +154,8 @@ func TestTravelAndBuyWhereYouAre(t *testing.T) {
 	if err := w.Post("wharf", You); err != nil || w.Corner("wharf").Runner != You {
 		t.Fatalf("stand on the wharf: %v", err)
 	}
-	if err := w.Travel("port"); err != nil || w.Corner("wharf").Runner != You {
-		t.Fatal("travelling to where you are moved you")
+	if err := w.Travel("port"); err != ErrAlreadyThere || w.Corner("wharf").Runner != You {
+		t.Fatalf("travelling to where you are: %v, or it moved you", err)
 	}
 	// A runner counts where they are posted; an idle one, where you are.
 	w.Crew.Members = []CrewMember{{ID: 1, Name: "Dre", Role: "runner", Units: 30}}

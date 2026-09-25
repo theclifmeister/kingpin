@@ -10,6 +10,8 @@ var (
 	ErrGameOver       = errors.New("the run is over")
 	ErrUnknownProduct = errors.New("unknown product")
 	ErrBadQuantity    = errors.New("quantity must be positive")
+	ErrBadAmount      = errors.New("amount must be positive")                // #474: a sum of money, where ErrBadQuantity is units
+	ErrAlreadyThere   = errors.New("you are already there")                  // #474: a trip to the city you stand in
 	ErrBadRatio       = errors.New("the cut is more than the product takes") // #47: a ratio out of 0..cut_max, or one that adds nothing
 	ErrNothingToCut   = errors.New("nothing here to cut")                    // #47: the stash here holds none of it
 	ErrNoChemist      = errors.New("nobody on the payroll can cook")         // #47: a cook needs a chemist
@@ -39,7 +41,8 @@ var (
 
 // Travel moves the player to another city at once. Product stays where it
 // is: only the road moves it. Whatever corner you stood on is left with
-// nobody on it and drifts unless a runner takes it.
+// nobody on it and drifts unless a runner takes it. A trip to where you
+// stand is refused (ErrAlreadyThere, #474), and changes nothing.
 func (w *World) Travel(city string) error {
 	if w.Over != nil {
 		return ErrGameOver
@@ -48,7 +51,7 @@ func (w *World) Travel(city string) error {
 		return ErrNoCity
 	}
 	if city == w.Player.Location {
-		return nil
+		return ErrAlreadyThere
 	}
 	w.Recall(You)
 	w.Player.Location = city
