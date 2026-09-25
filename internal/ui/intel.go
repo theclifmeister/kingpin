@@ -585,31 +585,16 @@ func (m *Model) muscleAge(r *game.RivalState) string {
 // oddsWord is a strike's odds at a force on a corner (nil: any of the
 // faction's; a deed on the block cuts their defence, #194) as the file
 // lets you read them: `~40%` at a count, `~30–45%` over a band, `?`
-// unknown.
+// unknown. The strike picker's `lands` column, the map's inspector and
+// the status line after a send all print it, so the three read alike
+// (#464).
 func (m *Model) oddsWord(r *game.RivalState, c *game.Corner, force events.Force) string {
 	lo, hi, _, ok := m.known().Muscle(r.Faction())
 	if !ok {
 		return game.Unknown
 	}
 	rv := m.rules.Rivals
-	a, b := rv.OddsOnAt(m.w, r, c, force, hi)*100, rv.OddsOnAt(m.w, r, c, force, lo)*100
-	if lo == hi || fmt.Sprintf("%.0f", a) == fmt.Sprintf("%.0f", b) {
-		return fmt.Sprintf("~%.0f%%", a)
-	}
-	return fmt.Sprintf("~%.0f–%.0f%%", a, b)
-}
-
-// oddsCell is oddsWord for a table's percent column: the odds at a
-// count, the band's word over a band, nil unknown.
-func (m *Model) oddsCell(r *game.RivalState, c *game.Corner, force events.Force) any {
-	lo, hi, _, ok := m.known().Muscle(r.Faction())
-	if !ok {
-		return nil
-	}
-	if lo == hi {
-		return approx{m.rules.Rivals.OddsOnAt(m.w, r, c, force, lo) * 100}
-	}
-	return m.oddsWord(r, c, force)
+	return "~" + format.PctBand(rv.OddsOnAt(m.w, r, c, force, hi), rv.OddsOnAt(m.w, r, c, force, lo), 0)
 }
 
 // pushWord is a push's odds on a corner as the file lets you read them.
@@ -619,11 +604,7 @@ func (m *Model) pushWord(r *game.RivalState, c *game.Corner) string {
 		return game.Unknown
 	}
 	rv := m.rules.Rivals
-	a, b := rv.PushOddsAt(m.w, r, c, lo)*100, rv.PushOddsAt(m.w, r, c, hi)*100
-	if lo == hi || fmt.Sprintf("%.0f", a) == fmt.Sprintf("%.0f", b) {
-		return fmt.Sprintf("~%.0f%%", a)
-	}
-	return fmt.Sprintf("~%.0f–%.0f%%", a, b)
+	return "~" + format.PctBand(rv.PushOddsAt(m.w, r, c, lo), rv.PushOddsAt(m.w, r, c, hi), 0)
 }
 
 // defenceWord is what a faction puts on a struck corner as the file

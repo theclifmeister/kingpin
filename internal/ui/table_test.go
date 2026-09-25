@@ -11,6 +11,9 @@ import (
 	"github.com/theclifmeister/kingpin/internal/ui/theme"
 )
 
+// rawFloat is a float written by %v: four or more decimals.
+var rawFloat = regexp.MustCompile(`\d\.\d{4,}`)
+
 // kindPatterns is what a cell of each kind reads as once rendered: a
 // number column may also hold `-` for none.
 var kindPatterns = map[colKind]*regexp.Regexp{
@@ -74,6 +77,11 @@ func checkTable(t *testing.T, cols []col, lines []string) {
 			case kText:
 				if cell == "-" {
 					t.Errorf("row %d, %s: a text column holds - (%q)", r, c.title, stripANSI(line))
+				}
+				// A float64 in a text column prints raw (#464:
+				// `~7.248520710059172`); a number goes through format.
+				if rawFloat.MatchString(cell) {
+					t.Errorf("row %d, %s: a text cell prints a raw float: %q (%q)", r, c.title, cell, stripANSI(line))
 				}
 			default:
 				if strings.HasSuffix(cell, "…") {

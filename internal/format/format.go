@@ -101,6 +101,18 @@ func Price(v float64) string {
 // fraction times a hundred, so a site that wrote that reads the same.
 func Pct(frac float64, prec int) string { return fmt.Sprintf("%.*f%%", prec, frac*100) }
 
+// PctBand is a band of fractions as percents to prec decimals (#464):
+// PctBand(0.3, 0.45, 0) is `30–45%`, and one percent where the two ends
+// write the same, PctBand(0.3, 0.301, 0) `30%`. The odds the file lets
+// you read go through it, the strike picker's and the map's alike.
+func PctBand(lo, hi float64, prec int) string {
+	a, b := Pct(lo, prec), Pct(hi, prec)
+	if a == b {
+		return a
+	}
+	return strings.TrimSuffix(a, "%") + "–" + b
+}
+
 // Times is a multiplier to prec decimals (#275): Times(1.25, 2) is
 // `×1.25`, Times(1.5, 1) `×1.5`.
 func Times(x float64, prec int) string { return fmt.Sprintf("×%.*f", prec, x) }
