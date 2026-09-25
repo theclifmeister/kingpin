@@ -205,7 +205,7 @@ var bindings = []binding{
 				m.mode = modeReport
 			}
 		}},
-	{key: "␣", label: "more", help: "open the details whole (under 100 columns)", keys: []string{" "}, screens: everywhere, global: true, when: stripShown,
+	{key: "␣", label: "more", help: "open the details whole, uncut", keys: []string{" "}, screens: everywhere, global: true, listed: stripShown,
 		do: func(m *Model, _ string) { m.openDetails() }},
 	{key: "?", label: "help", help: "this list", screens: everywhere, global: true,
 		do: func(m *Model, _ string) { m.mode = modeHelp }},

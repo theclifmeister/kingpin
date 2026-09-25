@@ -432,7 +432,7 @@ The full table is below; `?` brings it up in the game.
 | `d` | launder dial | the launder dial: careful, normal, greedy | everywhere |
 | `g` | go to \<city\> | go to the other city; the stock stays put | everywhere |
 | `r` | report | reopen the morning report | everywhere |
-| `␣` | more | open the details whole (under 100 columns) | everywhere |
+| `␣` | more | open the details whole, uncut | everywhere |
 | `?` | help | this list | everywhere |
 | `enter` | end day | end the day, after a confirmation | everywhere |
 | `1-9` | switch screen | the screens in the title bar's order | everywhere |
