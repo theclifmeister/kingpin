@@ -33,6 +33,7 @@ const { drawMap } = await mod("scene.js");
 const { SPRITES } = await mod("sprites.js");
 const { WORDS, PANELS, alertText, alertPanel } = await mod("alerts.js");
 const { fileWord, policeLines } = await mod("police.js");
+const { howTheyCome, roleLines, temperLine, tempers } = await mod("lieutenants.js");
 const { EXITS, exits, claim, tonightText } = await mod("exits.js");
 
 const go = new Go();
@@ -155,6 +156,30 @@ function play(seed, days) {
     }
   }
   return { seed, day: v.day, over: v.over ? v.over.cause : "", seen };
+}
+
+// The lieutenants (#455): the role in words off rules.crew.lieutenancy,
+// every temper in a line, the terms' cut and slots in the words, and the
+// hint on a run with one city held; assign and unassign by the page's
+// own calls reach the engine (refused here: nobody to assign, the
+// game's words, not a protocol error).
+{
+  const s = new Session(kingpin);
+  const v = s.newRun(7);
+  const t = s.lieutenancy();
+  const lines = roleLines(t);
+  if (!(t.Cut > 0) || !(t.Crew > 0) || (t.Tempers || []).length !== 4) problem(`lieutenancy terms: ${JSON.stringify(t)}`);
+  if (lines.some((l) => /undefined|NaN/.test(l))) problem(`lieutenant lines: ${lines}`);
+  if (!lines[1].includes(`${Math.round(t.Cut * 100)}%`) || !lines[1].includes(`${t.Crew} crew slots`)) problem(`the cut line: ${lines[1]}`);
+  if (tempers(t) !== "violent, greedy, careful or steady") problem(`the tempers: ${tempers(t)}`);
+  for (const tt of t.Tempers || []) if (/undefined|NaN/.test(temperLine(tt)) || !temperLine(tt).startsWith(`sells ${tt.Dial}`)) problem(`temper ${tt.Name}: ${temperLine(tt)}`);
+  if (!howTheyCome(v).includes("two cities")) problem(`the hint on day 0: ${howTheyCome(v)}`);
+  try {
+    s.assign(999, v.cities[1].id);
+    problem("assign of nobody went through");
+  } catch (e) {
+    if (e.code !== -32000) problem(`assign refused with ${e.code}: ${e.message}`);
+  }
 }
 
 // Hiring (#332): the pool's first id, by the page's own call, lands on

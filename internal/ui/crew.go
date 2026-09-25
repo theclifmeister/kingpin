@@ -7,6 +7,7 @@ import (
 
 	"github.com/charmbracelet/lipgloss"
 
+	"github.com/theclifmeister/kingpin/internal/content"
 	"github.com/theclifmeister/kingpin/internal/events"
 	"github.com/theclifmeister/kingpin/internal/format"
 	"github.com/theclifmeister/kingpin/internal/game"
@@ -474,6 +475,7 @@ func (m *Model) personLines(c game.CrewMember, onPayroll bool) []string {
 			lines = append(lines, sub("  asked to work for you")) // your name is in the paper (#233)
 		}
 		lines = append(lines, row("would", hireBlurb(c.Role)))
+		lines = append(lines, m.lieutenantLines(c)...)
 		if c.Role == game.RoleChemist {
 			// What their hand would be worth (#47).
 			lines = append(lines, row("cooks", fmt.Sprintf("q %.0f · %d a batch", m.rules.Crew.QualityOf(c.Skill), m.rules.Crew.BatchOf(c.Skill))))
@@ -526,6 +528,7 @@ func (m *Model) personLines(c game.CrewMember, onPayroll bool) []string {
 	if t := m.temper(c); t != "" {
 		lines = append(lines, row("temper", t))
 	}
+	lines = append(lines, m.lieutenantLines(c)...)
 	if c.ID == w.Crew.Exposed {
 		lines = append(lines, theme.Bad.Bold(true).Render("SNITCH")+theme.Bad.Render(": talking to the police"))
 	}
@@ -586,6 +589,55 @@ func (m *Model) temper(c game.CrewMember) string {
 	return theme.Subtle.Render("shows in " + plural(left, "day"))
 }
 
+// lieutenantLines are what running a city means (#455), under a
+// lieutenant's `would` or `runs`: the night's work, the cut and the
+// slots, the four tempers while theirs is hidden and what theirs does
+// once it shows. Every number is the crew sim's (Lieutenancy); nothing
+// for anyone else.
+func (m *Model) lieutenantLines(c game.CrewMember) []string {
+	if c.Role != game.RoleLieutenant {
+		return nil
+	}
+	t := m.rules.Crew.Lieutenancy()
+	sub := theme.Subtle.Render
+	lines := []string{
+		sub("  sells and stocks the city"),
+		row("cut", format.Pct(t.Cut, 0)+" of its takings"),
+		row("brings", "+"+plural(t.Crew, "crew slot")),
+	}
+	if c.Observed {
+		for _, tt := range t.Tempers {
+			if tt.Name == c.Personality {
+				lines = append(lines, wrapped(theme.Subtle, lieutenantTemper(tt))...)
+			}
+		}
+		return lines
+	}
+	var names []string
+	for _, tt := range t.Tempers {
+		names = append(names, tt.Name)
+	}
+	return append(lines, wrapped(theme.Subtle, "One of "+strings.Join(names[:len(names)-1], ", ")+" or "+names[len(names)-1]+"; theirs shows on the job.")...)
+}
+
+// lieutenantTemper is a lieutenant's temper in a line (#455): the dial they sell at, the
+// heat against a normal hand's, the days of stock they keep, a skim and
+// whether they go after a faction's scouts.
+func lieutenantTemper(t content.TemperTerms) string {
+	parts := []string{"sells " + t.Dial}
+	if t.Heat != 1 {
+		parts = append(parts, "heat "+format.TimesSig(t.Heat, 3))
+	}
+	parts = append(parts, fmt.Sprintf("%gd stock", t.StockDays))
+	if t.Skim > 0 {
+		parts = append(parts, "skims "+format.Pct(t.Skim, 0))
+	}
+	if t.HitScouts {
+		parts = append(parts, "hits scouts")
+	}
+	return strings.Join(parts, " · ")
+}
+
 // hireBlurb is what a candidate would do on the payroll, for the pane.
 func hireBlurb(role string) string {
 	switch role {
@@ -614,6 +666,9 @@ func (m *Model) crewSection() section {
 	var lines []string
 	if warn := m.crewWarning(); warn != "" {
 		lines = append(lines, wrapped(theme.Bad, warn)...)
+	}
+	if hint := m.lieutenantHint(); hint != "" {
+		lines = append(lines, wrapped(theme.Subtle, hint)...)
 	}
 	lines = append(lines,
 		row("capacity", fmt.Sprintf("%d in %s", w.Capacity(here.ID), here.Name)),

@@ -90,10 +90,20 @@ for (let i = 0; i < 45 && !session.view.over; i++) {
     assert.ok(session.view.ambitions.some((a) => a.ending === ending), `an ambition plans ${ending}`);
   assert.throws(() => session.call("go_straight"), "going straight before the streak is refused");
 }
+{
+  // The lieutenants (#455): the terms the crew tab and the city picker
+  // word, in the shared module's words, and the picker's calls.
+  const { roleLines, temperLine, temperOf } = await import(pathToFileURL(path.join(dist, "lieutenants.js")));
+  const lt = session.call("rules.crew.lieutenancy");
+  assert.ok(lt.Cut > 0 && lt.Crew > 0 && lt.Tempers.length === 4, "the lieutenancy terms");
+  for (const l of roleLines(lt)) assert.doesNotMatch(l, /undefined|NaN/, "a lieutenant line");
+  assert.match(temperLine(temperOf(lt, "violent")), /^sells aggressive/, "the violent temper's line");
+  assert.throws(() => session.call("assign", 999, session.view.cities[0].id), "assigning nobody is refused");
+}
 const restored = new Session(globalThis.kingpin);
 restored.importSave(session.exportSave());
 assert.deepEqual(restored.view, session.refresh());
 console.log(
-  `Street Edition engine integration passed at day ${session.view.day}: forecasts, dilemmas, cash flow, lanes, trophies, cash-out, the ways out and save round-trip.`,
+  `Street Edition engine integration passed at day ${session.view.day}: forecasts, dilemmas, cash flow, lanes, trophies, cash-out, the ways out, the lieutenants and save round-trip.`,
 );
 process.exit(0);

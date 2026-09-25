@@ -440,6 +440,8 @@ var words = [][2]string{
 	{"driver", "rides a route's shipments and cuts the risk; seized, jailed"},
 	{"trait", "what a veteran showed after their days of service; some bad"},
 	{"captain", "a trusted veteran who looks after a city's crew each night"},
+	{"lieutenant", "runs a city for a cut: sells it, stocks it; l on the crew"},
+	{"temper", "a lieutenant's way: violent, greedy, careful or steady"},
 	{"asset", "the supply side bought clean: a connect, port, plane, lab"},
 	{"feds", "the task force above the raid: a day's notice, takes an asset"},
 	{"intel", "what you know, with how sure: seen, bought, sent out, or fed"},

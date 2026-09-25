@@ -902,6 +902,56 @@
       ],
       "type": "object"
     },
+    "content.LieutenantTerms": {
+      "properties": {
+        "BetrayCorners": {
+          "type": "integer"
+        },
+        "BetrayShare": {
+          "type": "number"
+        },
+        "Chance": {
+          "type": "number"
+        },
+        "Crew": {
+          "type": "integer"
+        },
+        "Cut": {
+          "type": "number"
+        },
+        "Evidence": {
+          "type": "integer"
+        },
+        "Flip": {
+          "type": "number"
+        },
+        "Quit": {
+          "type": "number"
+        },
+        "RevealDays": {
+          "type": "integer"
+        },
+        "Tempers": {
+          "items": {
+            "$ref": "#/$defs/content.TemperTerms"
+          },
+          "type": "array"
+        }
+      },
+      "required": [
+        "Cut",
+        "Crew",
+        "Chance",
+        "RevealDays",
+        "Flip",
+        "Evidence",
+        "Quit",
+        "BetrayShare",
+        "BetrayCorners",
+        "Tempers"
+      ],
+      "type": "object"
+    },
     "content.LifeTuning": {
       "properties": {
         "AgeMax": {
@@ -1331,6 +1381,41 @@
         "CollectHurt",
         "Capacity",
         "Credit"
+      ],
+      "type": "object"
+    },
+    "content.TemperTerms": {
+      "properties": {
+        "Dial": {
+          "type": "string"
+        },
+        "Guard": {
+          "type": "boolean"
+        },
+        "Heat": {
+          "type": "number"
+        },
+        "HitScouts": {
+          "type": "boolean"
+        },
+        "Name": {
+          "type": "string"
+        },
+        "Skim": {
+          "type": "number"
+        },
+        "StockDays": {
+          "type": "number"
+        }
+      },
+      "required": [
+        "Name",
+        "Dial",
+        "Heat",
+        "Skim",
+        "StockDays",
+        "Guard",
+        "HitScouts"
       ],
       "type": "object"
     },
@@ -12015,6 +12100,19 @@
         "$ref": "#/$defs/content.AssetConfig"
       }
     },
+    "rules.crew.lieutenancy": {
+      "changes": false,
+      "needsRun": true,
+      "params": {
+        "maxItems": 0,
+        "minItems": 0,
+        "prefixItems": [],
+        "type": "array"
+      },
+      "result": {
+        "$ref": "#/$defs/content.LieutenantTerms"
+      }
+    },
     "rules.crew.lieutenants_wanted": {
       "changes": false,
       "needsRun": true,
@@ -15341,7 +15439,7 @@
       "$ref": "#/$defs/engine.View"
     }
   },
-  "protocol": 15,
+  "protocol": 16,
   "title": "kingpind",
   "view_version": 12
 }

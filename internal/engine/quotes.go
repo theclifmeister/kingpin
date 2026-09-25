@@ -119,6 +119,7 @@ type CrewRules interface {
 	InvestigateCost() int
 	InvestigateOdds(w *game.World) float64
 	Lab(w *game.World, city string) *content.AssetConfig
+	Lieutenancy() content.LieutenantTerms
 	LieutenantsWanted(w *game.World) bool
 	Life() content.LifeTuning
 	MaxCrew(w *game.World) int

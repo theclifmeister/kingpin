@@ -47,6 +47,21 @@ func (s *Sim) FlipLine() float64 { return s.cfg.Lieutenant.Flip }
 // Cut is the share of their city's takings a lieutenant keeps.
 func (s *Sim) Cut() float64 { return s.cfg.Role[game.RoleLieutenant].Cut }
 
+// Lieutenancy is everything a lieutenant is, off the tuning (#455): the
+// screens explain the role with it, the way Captaincy explains a captain.
+func (s *Sim) Lieutenancy() content.LieutenantTerms {
+	l := s.cfg.Lieutenant
+	role := s.cfg.Role[game.RoleLieutenant]
+	t := content.LieutenantTerms{Cut: role.Cut, Crew: role.Crew, Chance: l.Chance, RevealDays: l.RevealDays, Flip: l.Flip,
+		Evidence: l.Evidence, Quit: s.cfg.Crew.QuitThreshold, BetrayShare: l.BetrayShare, BetrayCorners: l.BetrayCorners}
+	for _, name := range content.LieutenantPersonalities {
+		p := l.Temper(name)
+		t.Tempers = append(t.Tempers, content.TemperTerms{Name: name, Dial: p.Dial, Heat: p.Heat, Skim: p.Skim,
+			StockDays: p.StockDays, Guard: p.Guard, HitScouts: p.HitScouts})
+	}
+	return t
+}
+
 // Dial is the sell dial a lieutenant's temperament favours.
 func (s *Sim) Dial(m game.CrewMember) events.Dial {
 	return s.cfg.Lieutenant.Temper(m.Personality).SellDial()

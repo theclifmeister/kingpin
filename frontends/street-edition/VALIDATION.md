@@ -1,3 +1,10 @@
+# Engine alignment validation: protocol 16 / view 12 (#455)
+
+The builder accepts protocol 16 and view 12. Protocol 16 added `rules.crew.lieutenancy`, the lieutenant's terms. The crew tab now words them through the shared `lieutenants.js`: a lieutenant's card says the city they run and their temper once it shows, `Run a city` / `Change city` opens a picker with the role in four sentences (the night's work, the cut and the crew slots, the tempers, the loyalty risk) and calls `assign` / `unassign`, a lieutenant in the pool says what they would be, and the tab says how lieutenants come while fewer than two cities are held.
+
+- **`smoke.mjs`** reads `rules.crew.lieutenancy` off the actual WASM build and checks the four tempers, the cut and the slots, that the words carry no `undefined`, and that assigning nobody is refused.
+- **Headless Chromium** loaded a crafted save with a violent lieutenant running Bayport, an unassigned one and one in the pool: the cards read `Runs Bayport` with `sells aggressive · heat ×1.25 · 3d stock · hits scouts`, `No city yet` with the reveal days, and the pool card the role; the picker showed the four sentences, and `Run this city` set the city through the engine. No page errors.
+
 # Engine alignment validation: protocol 15 / view 12 (#407)
 
 Reviewed against `main` after #405. The builder now accepts protocol 15 and view 12.

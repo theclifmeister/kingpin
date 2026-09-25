@@ -7,7 +7,7 @@
 // The versions this client is written against. A module with another
 // protocol or view version is refused before a run starts: a field
 // renamed under the client would draw a wrong game, not fail.
-export const SUPPORTED = { protocol: [15], view: [12] };
+export const SUPPORTED = { protocol: [16], view: [12] };
 
 export class VersionError extends Error {}
 
@@ -127,6 +127,17 @@ export class Session {
   }
   hire(candidate) {
     return this.call("hire", candidate);
+  }
+  // A lieutenant (#455): a city to run, none, and the role's terms
+  // (rules.crew.lieutenancy: the cut, the slots, the tempers, the lines).
+  assign(member, city) {
+    return this.call("assign", member, city);
+  }
+  unassign(member) {
+    return this.call("unassign", member);
+  }
+  lieutenancy() {
+    return this.call("rules.crew.lieutenancy");
   }
   sell(city, product, qty, dial) {
     return this.call("place_sell", city, product, qty, dial);

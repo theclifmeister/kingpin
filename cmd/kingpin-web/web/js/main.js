@@ -5,6 +5,7 @@
 import { alertPanel, alertText } from "./alerts.js";
 import { autoDay } from "./autoplay.js";
 import { claim, exits, tonightText } from "./exits.js";
+import { howTheyCome, roleLines, temperLine, temperOf } from "./lieutenants.js";
 import { fileWord, policeLines } from "./police.js";
 import { Scene } from "./scene.js";
 import { Session, streetConnect } from "./session.js";
@@ -334,6 +335,27 @@ function render() {
     pool.push(tr);
   }
   $("pool").tBodies[0].replaceChildren(...pool);
+
+  // The lieutenants (#455): how they come, what the role is, and each
+  // one on the payroll with a city to run, their temper once it shows.
+  const terms = session.lieutenancy();
+  const para = (text, className = "") => Object.assign(document.createElement("p"), { textContent: text, className });
+  const lts = [];
+  const hint = howTheyCome(v);
+  if (hint) lts.push(para(hint, "dim"));
+  if (hint || v.crew.some((m) => m.role === "lieutenant") || (v.pool || []).some((m) => m.role === "lieutenant")) {
+    lts.push(...roleLines(terms).map((l) => para(l, "dim")));
+  }
+  for (const m of v.crew.filter((m) => m.role === "lieutenant")) {
+    const tt = m.personality && temperOf(terms, m.personality);
+    const p = para(`${m.name} runs ${m.city ? v.cities.find((c) => c.id === m.city).name : "nothing yet"}${tt ? `: ${m.personality}, ${temperLine(tt)}` : ""}. `);
+    for (const c of v.cities) {
+      p.append(button(c.name, !!v.over || c.id === m.city, () => act(() => session.assign(m.id, c.id), `${m.name} runs ${c.name} from tonight`)));
+    }
+    if (m.city) p.append(button("Stand down", !!v.over, () => act(() => session.unassign(m.id), `${m.name} runs nothing now`)));
+    lts.push(p);
+  }
+  $("lieutenants").replaceChildren(...lts);
 
   // What needs you (#352): each alert a button to the panel that
   // answers it where the page has one, else its words alone.

@@ -8,6 +8,7 @@ import (
 	"github.com/charmbracelet/lipgloss"
 
 	"github.com/theclifmeister/kingpin/internal/events"
+	"github.com/theclifmeister/kingpin/internal/format"
 	"github.com/theclifmeister/kingpin/internal/game"
 )
 
@@ -180,12 +181,21 @@ func TestAssignLieutenantKeys(t *testing.T) {
 		t.Fatalf("t on a runner: mode %v status %q", m.mode, m.status)
 	}
 	view := stripANSI(m.View())
-	if !strings.Contains(view, "no city") || strings.Contains(view, "violent") {
+	// The four tempers are listed (#455); which one is theirs is not.
+	if !strings.Contains(view, "no city") || strings.Contains(view, "temper      violent") {
 		t.Fatalf("crew screen before assigning:\n%s", view)
 	}
 	m.crewCursor = 1
-	if pane := paneText(m); strings.Contains(pane, "violent") || !strings.Contains(pane, "temper      shows on the job") || !strings.Contains(pane, "l  give them a city") {
+	if pane := paneText(m); strings.Contains(pane, "temper      violent") || !strings.Contains(pane, "temper      shows on the job") || !strings.Contains(pane, "l  give them a city") {
 		t.Fatalf("pane before assigning:\n%s", pane)
+	}
+	// What running a city means (#455), off the crew sim's terms.
+	terms := m.rules.Crew.Lieutenancy()
+	flat := strings.Join(strings.Fields(paneText(m)), " ")
+	for _, want := range []string{"sells and stocks the city", "cut " + format.Pct(terms.Cut, 0) + " of its takings", fmt.Sprintf("brings +%d crew slots", terms.Crew), "One of violent, greedy, careful or steady"} {
+		if !strings.Contains(flat, want) {
+			t.Errorf("the lieutenant's pane lacks %q:\n%s", want, paneText(m))
+		}
 	}
 	m.Update(key("l"))
 	if m.mode != modeAssign {
@@ -203,7 +213,7 @@ func TestAssignLieutenantKeys(t *testing.T) {
 	if !strings.Contains(view, "runs "+w.CityName(other)) || strings.Contains(view, "Bayport ?") {
 		t.Fatalf("crew screen after assigning:\n%s", view)
 	}
-	if pane := paneText(m); !strings.Contains(pane, "temper      shows in 10 days") || strings.Contains(pane, "violent") || !strings.Contains(pane, w.CityName(other)+"     Marcus") {
+	if pane := paneText(m); !strings.Contains(pane, "temper      shows in 10 days") || strings.Contains(pane, "temper      violent") || !strings.Contains(pane, w.CityName(other)+"     Marcus") {
 		t.Fatalf("pane after assigning:\n%s", pane)
 	}
 	assertFits(t, m.View(), 80, 24, "crew screen with a lieutenant")
@@ -229,6 +239,10 @@ func TestAssignLieutenantKeys(t *testing.T) {
 	m.Update(key("4"))
 	if pane := paneText(m); !strings.Contains(pane, "temper      violent") || strings.Contains(pane, "shows in") || !strings.Contains(pane, "Marcus · violent") {
 		t.Fatalf("pane with the temper observed:\n%s", pane)
+	}
+	// ... and what the temper does (#455): the violent one's dial.
+	if flat := strings.Join(strings.Fields(paneText(m)), " "); !strings.Contains(flat, "sells aggressive") || strings.Contains(flat, "One of violent") {
+		t.Fatalf("pane with the temper observed does not say what it does:\n%s", paneText(m))
 	}
 	// And back off the city: the last row of the picker.
 	m.crewCursor = 1
@@ -489,5 +503,41 @@ func TestHireKeepsTheCursorOnTheCandidates(t *testing.T) {
 	}
 	if m.crewCursor != n-1 {
 		t.Fatalf("with nobody left looking the cursor is on row %d, not the last hire %d", m.crewCursor, n-1)
+	}
+}
+
+// How the lieutenants come (#455): from Distribution, until corners are
+// held in two cities, the crew pane says so and names the city to post a
+// runner in; before the tier and once two cities are held, it is quiet.
+func TestLieutenantHintSaysHowTheyCome(t *testing.T) {
+	m := newTestModel(t, 120, 40)
+	w := m.w
+	m.Update(key("4"))
+	hint := func() string { return strings.Join(strings.Fields(paneText(m)), " ") }
+	if strings.Contains(hint(), "Lieutenants come looking") {
+		t.Fatal("the hint shows before Distribution")
+	}
+	dist := 0
+	for i, tier := range m.cfg.Progression.Tiers {
+		if tier.ID == "distribution" {
+			dist = i + 1
+		}
+	}
+	if dist == 0 {
+		t.Fatal("no distribution tier")
+	}
+	w.Progression.Reached = map[int]int{}
+	for n := 2; n <= dist; n++ {
+		w.Progression.Reached[n] = n
+	}
+	other := w.CityOrder[1]
+	want := "Lieutenants come looking once you hold corners in two cities: post a runner on a corner in " + w.CityName(other) + " on the map screen (5)."
+	if !strings.Contains(hint(), want) {
+		t.Fatalf("the hint at Distribution:\n%s", paneText(m))
+	}
+	c := &w.Cities[other].Corners[0]
+	c.Owner, c.Runner = game.OwnerPlayer, game.You
+	if strings.Contains(hint(), "Lieutenants come looking") {
+		t.Fatal("the hint stays with corners held in two cities")
 	}
 }
