@@ -683,7 +683,7 @@ func TestFund(t *testing.T) {
 	if err := w.Fund("nowhere", 100); err != ErrNoCity {
 		t.Fatalf("funded a city that does not exist: %v", err)
 	}
-	if err := w.Fund("test", 0); err != ErrBadQuantity {
+	if err := w.Fund("test", 0); err != ErrBadAmount {
 		t.Fatalf("funded nothing: %v", err)
 	}
 	if err := w.Fund("test", 300); err != nil {
@@ -718,7 +718,7 @@ func TestBack(t *testing.T) {
 	if err := w.Back("nowhere", "reform", 100); err != ErrNoCity {
 		t.Fatalf("backed in a city that does not exist: %v", err)
 	}
-	if err := w.Back("test", "reform", 0); err != ErrBadQuantity {
+	if err := w.Back("test", "reform", 0); err != ErrBadAmount {
 		t.Fatalf("backed nothing: %v", err)
 	}
 	if err := w.Back("test", "reform", 600); err == nil || err == ErrNoCleanCash {

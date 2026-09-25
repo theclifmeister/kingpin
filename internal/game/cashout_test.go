@@ -16,7 +16,7 @@ func TestCashOut(t *testing.T) {
 		t.Fatalf("no clean cash: %v", err)
 	}
 	w.Player.CleanCash = 50_000
-	if err := w.CashOut(0, 0); !errors.Is(err, ErrBadQuantity) {
+	if err := w.CashOut(0, 0); !errors.Is(err, ErrBadAmount) {
 		t.Fatalf("nothing: %v", err)
 	}
 	if err := w.CashOut(100, 200); !errors.Is(err, ErrBadQuantity) {
@@ -41,5 +41,32 @@ func TestCashOut(t *testing.T) {
 	w.Over = &Ending{}
 	if err := w.CashOut(100, 10); !errors.Is(err, ErrGameOver) {
 		t.Fatalf("a run that is over: %v", err)
+	}
+}
+
+// TestMoneyRefusalsSayWhat (#474): a sum of money at or below zero is
+// refused as an amount, never as units or a quantity, by every command
+// that takes one; and an empty clean pile is refused as the pile's,
+// never as the fronts' ("washed none"), since what they washed may
+// simply have been spent.
+func TestMoneyRefusalsSayWhat(t *testing.T) {
+	w := testWorld()
+	w.Player.DirtyCash, w.Player.CleanCash = 10_000, 10_000
+	w.Law.CampaignOpen = true
+	for name, err := range map[string]error{
+		"reserve":  w.Reserve(-100),
+		"cash_out": w.CashOut(-100, 0),
+		"fund":     w.Fund("test", -100),
+		"back":     w.Back("test", "reform", -100),
+		"bribe":    w.Bribe(BribeDA, -100),
+		"pay_cop":  w.PayCop(-100),
+	} {
+		if !errors.Is(err, ErrBadAmount) {
+			t.Errorf("%s -100: %v, want %v", name, err, ErrBadAmount)
+		}
+	}
+	w.Player.CleanCash = 0
+	if err := w.Reserve(100); !errors.Is(err, ErrNoCleanCash) || err.Error() != "clean cash only, and the clean pile is empty" {
+		t.Fatalf("an empty clean pile: %v", err)
 	}
 }

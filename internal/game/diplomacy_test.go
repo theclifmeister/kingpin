@@ -37,9 +37,11 @@ func TestPropose(t *testing.T) {
 	if err := w.Propose(DealTribute, Terms{PerDay: 500}); err != nil || w.Today.Proposal.Kind != DealTribute {
 		t.Fatalf("proposing again should replace: %v %+v", err, w.Today.Proposal)
 	}
-	w.Withdraw()
-	if w.Today.Proposal != nil {
-		t.Fatal("withdraw left the proposal")
+	if err := w.Withdraw(); err != nil || w.Today.Proposal != nil {
+		t.Fatalf("withdraw left the proposal: %v", err)
+	}
+	if err := w.Withdraw(); !errors.Is(err, ErrNoProposal) {
+		t.Fatalf("a withdraw with nothing proposed: %v", err) // #474: refused, not a silent no-op
 	}
 	w.Rival().Deals = []Deal{{Kind: DealTruce, Terms: Terms{Days: 15}, Since: 10, Until: 25}}
 	if err := w.Propose(DealTruce, Terms{Days: 15}); !errors.Is(err, ErrDealLive) {

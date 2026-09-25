@@ -34,6 +34,9 @@ func Schema() ([]byte, error) {
 				s = map[string]any{"type": "string", "enum": names} // a dial goes in by name
 			}
 			s["title"] = p.name
+			if d := paramNotes[name+"."+p.name]; d != "" {
+				s["description"] = d
+			}
 			ps = append(ps, s)
 		}
 		entry := map[string]any{

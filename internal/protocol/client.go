@@ -100,7 +100,8 @@ func (c *RPCClient) Call(method string, params []any, result any) error {
 
 // Play is the reference client's game (#300): it starts a run on the
 // seed and plays it the way a greedy dealer does, through the protocol
-// alone, until the run ends or days run out. Each morning it reads the
+// alone, until the run ends or its day reaches days (the view's day, not
+// the loop's turns: a card answered is no day, #474). Each morning it reads the
 // view, answers a card with its first choice, buys what the street
 // connect where it stands sells with a share of the dirty cash, puts
 // everything it holds on the street at the aggressive dial, and ends
@@ -112,11 +113,11 @@ func Play(c Client, seed uint64, days int) (engine.View, error) {
 	if err != nil {
 		return v, err
 	}
-	for d := 0; d < days; d++ {
+	for {
 		if v, err = view(c); err != nil {
 			return v, err
 		}
-		if v.Over != nil {
+		if v.Over != nil || v.Day >= days {
 			return v, nil
 		}
 		if v.Card != nil {
@@ -168,7 +169,6 @@ func Play(c Client, seed uint64, days int) (engine.View, error) {
 			return v, err
 		}
 	}
-	return view(c)
 }
 
 // view is this morning's view, decoded into a fresh value: decoded over

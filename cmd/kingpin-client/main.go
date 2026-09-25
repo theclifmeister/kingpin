@@ -30,7 +30,7 @@ import (
 func main() {
 	server := flag.String("server", "kingpind", "the kingpind binary to start")
 	seed := flag.Uint64("seed", 7, "the run's seed")
-	days := flag.Int("days", 400, "the most days to play; the run usually ends first")
+	days := flag.Int("days", 400, "the day to stop on if the run has not ended; it usually ends first")
 	quiet := flag.Bool("q", false, "print only how the run ended")
 	wsURL := flag.String("ws", "", "play over WebSocket against a kingpind listening at this URL (ws://host:port/) instead of starting one")
 	flag.Parse()
@@ -65,7 +65,7 @@ func main() {
 	}
 	hangUp()
 	if v.Over == nil {
-		fmt.Printf("still playing on day %d with %d events: no ending in %d days\n", v.Day, len(c.Events()), *days)
+		fmt.Printf("still playing on day %d with %d events: no ending by day %d\n", v.Day, len(c.Events()), *days)
 		os.Exit(2)
 	}
 	fmt.Printf("the run ended on day %d: %s (%d events, net worth $%d)\n", v.Over.Day, v.Over.Cause, len(c.Events()), v.You.NetWorth)

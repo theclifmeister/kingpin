@@ -386,8 +386,10 @@ func (s *Session) CallOffWar() error { return s.w.CallOffWar() }
 // (World.HitScouts, #341).
 func (s *Session) HitScouts(faction string) error { return s.w.HitScouts(faction) }
 
-// Withdraw pulls the muscle back (World.Withdraw).
-func (s *Session) Withdraw() { s.w.Withdraw() }
+// Withdraw takes back today's proposal to a faction (World.Withdraw):
+// refused with none on the table (#474). It is the diplomacy's, not the
+// offshore account's, which pays out only through an ending.
+func (s *Session) Withdraw() error { return s.w.Withdraw() }
 
 // ---- the endings
 

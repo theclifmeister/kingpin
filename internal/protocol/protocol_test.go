@@ -233,8 +233,35 @@ func TestErrors(t *testing.T) {
 	if err := c.Call("new_run", []any{7}, nil); code(err) != CodeInvalidParams {
 		t.Errorf("new_run with one param: %v", err)
 	}
-	if err := c.Call("new_run", []any{7, "", false}, nil); err != nil {
+	// #474: the characters are a query that needs no run, and new_run
+	// refuses one that is not among them, naming those that are.
+	var chars []Character
+	if err := c.Call("characters", nil, &chars); err != nil || len(chars) < 2 || !chars[0].Default || chars[1].Default || chars[0].Name == "" {
+		t.Fatalf("characters: %v %+v", err, chars)
+	}
+	if err := c.Call("new_run", []any{7, "bogus", false}, nil); code(err) != CodeInvalidParams || !strings.Contains(err.Error(), chars[1].ID) {
+		t.Errorf("new_run as a character there is not: %v", err)
+	}
+	if err := c.Call("view", nil, nil); code(err) != CodeNoRun {
+		t.Errorf("a refused new_run started a run: %v", err)
+	}
+	var v engine.View
+	if err := c.Call("new_run", []any{7, chars[1].ID, false}, &v); err != nil || v.You.Character != chars[1].ID {
+		t.Fatalf("new_run as %s: %v, character %q", chars[1].ID, err, v.You.Character)
+	}
+	v = engine.View{}
+	if err := c.Call("new_run", []any{7, "", false}, &v); err != nil {
 		t.Fatal(err)
+	}
+	// #474: a command that would change nothing is refused with why.
+	if err := c.Call("withdraw", nil, nil); code(err) != CodeRefused || !strings.Contains(err.Error(), game.ErrNoProposal.Error()) {
+		t.Errorf("withdraw with nothing proposed: %v", err)
+	}
+	if err := c.Call("travel", []any{v.You.City}, nil); code(err) != CodeRefused || !strings.Contains(err.Error(), game.ErrAlreadyThere.Error()) {
+		t.Errorf("travel to where you stand: %v", err)
+	}
+	if err := c.Call("reserve", []any{-100}, nil); code(err) != CodeRefused || !strings.Contains(err.Error(), game.ErrBadAmount.Error()) {
+		t.Errorf("reserve -100: %v", err)
 	}
 	if err := c.Call("place_sell", []any{"eastside", "weed", 1, "loud"}, nil); code(err) != CodeInvalidParams || !strings.Contains(err.Error(), "aggressive") {
 		t.Errorf("a dial by a name it does not have: %v", err)

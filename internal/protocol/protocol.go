@@ -39,8 +39,10 @@ import (
 // (#395); 14 go_straight and rules.laundering.can_go_straight (#398);
 // 15 forecast and rules.heat.pile_heat_of (#397); 16
 // rules.crew.lieutenancy, the lieutenant's terms the screens explain the
-// role with (#455).
-const Version = 16
+// role with (#455); 17 the characters query and new_run refusing a
+// character that is not one, and withdraw refusing with no proposal
+// made, where it answered null and did nothing (#474).
+const Version = 17
 
 // The error codes: JSON-RPC 2.0's, and the game's own in its
 // server-error range.

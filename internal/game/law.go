@@ -136,9 +136,10 @@ type Funding struct {
 
 var (
 	// ErrNoCleanCash means the player tried to pay for something clean
-	// money buys (goodwill, a campaign, a front's level) with money the
-	// fronts have not washed yet: it is only ever bought clean.
-	ErrNoCleanCash = errors.New("clean cash only, and the fronts have washed none")
+	// money buys (goodwill, a campaign, a front's level) with an empty
+	// clean pile: it is only ever bought clean. The pile, not the fronts:
+	// what they washed may have been spent already (#474).
+	ErrNoCleanCash = errors.New("clean cash only, and the clean pile is empty")
 	// ErrCampaignClosed means the next election is too far off for a
 	// ticket to take money (#193): campaigns open open_days before it.
 	ErrCampaignClosed = errors.New("no campaign is taking money yet")
@@ -220,7 +221,7 @@ func (w *World) Bribe(target string, amount int) error {
 		return ErrNoTarget
 	}
 	if amount <= 0 {
-		return ErrBadQuantity
+		return ErrBadAmount
 	}
 	if target == BribeChief && w.Cold() {
 		return ErrOfficialsCold
@@ -327,7 +328,7 @@ func (w *World) Fund(city string, amount int) error {
 		return ErrNoCity
 	}
 	if amount <= 0 {
-		return ErrBadQuantity
+		return ErrBadAmount
 	}
 	if amount > w.Player.CleanCash && w.Player.CleanCash <= 0 {
 		return ErrNoCleanCash
@@ -359,7 +360,7 @@ func (w *World) Back(city, ticket string, amount int) error {
 		return ErrCampaignClosed
 	}
 	if amount <= 0 {
-		return ErrBadQuantity
+		return ErrBadAmount
 	}
 	if amount > w.Player.CleanCash && w.Player.CleanCash <= 0 {
 		return ErrNoCleanCash
@@ -383,7 +384,7 @@ func (w *World) Reserve(amount int) error {
 		return ErrGameOver
 	}
 	if amount <= 0 {
-		return ErrBadQuantity
+		return ErrBadAmount
 	}
 	if amount > w.Player.CleanCash && w.Player.CleanCash <= 0 {
 		return ErrNoCleanCash
@@ -413,7 +414,10 @@ func (w *World) CashOut(amount, fee int) error {
 	if w.Over != nil {
 		return ErrGameOver
 	}
-	if amount <= 0 || fee < 0 || fee > amount {
+	if amount <= 0 {
+		return ErrBadAmount
+	}
+	if fee < 0 || fee > amount {
 		return ErrBadQuantity
 	}
 	if amount > w.Player.CleanCash && w.Player.CleanCash <= 0 {
