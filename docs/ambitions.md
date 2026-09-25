@@ -55,8 +55,10 @@ No sim reads it, and `TestSeedDigest`'s walk leaves it out (`unwalked`), so no p
   The panel is a table with a row for each plan: the name, the bar (`done %`), the next step's label (or `ready`, or `made` for the milestone) and `plan` in gold on the one pinned.
   Under the table are the selected plan's blurb and its steps, each `✓` or `·` with its reading (`the account: $412,000 of $750,000`, `quiet days: 3 of 14 days`).
   `↑↓ pick`, `1-9 choose` (select and pin), `enter pin` / `enter unpin`, `esc close`; enter never ends the day.
-- **The dashboard**: while a plan is pinned, STREET carries `plan Retire clean 42% · next quiet days: 3 of 14 days` in gold (`plan … ready` in green once done), worth `priPlan` (over the counts, under the stage).
-- **The report**: a `PLAN` section after `TIER`, one line: `Retire clean: 42%. Next, quiet days: 3 of 14 days.`
+- **The dashboard**: while a plan is pinned, STREET carries `plan Retire clean · the account 0% · quiet days 3/14` in gold (`plan … ready` in green once done), worth `priPlan` (over the counts, under the stage).
+  **The line shows the parts** (#465, `planParts`, `stepPart`: a count as `3/14`, anything else as how far along it is): the one bar was the mean of the steps, and `Retire clean 50%` with $0 of $750,000 (the quiet days full) read as half the money, `Disappear 53%` at $261K of $4M as more than half the papers.
+  When the quiet days go back to zero the line names what reset them, `· reset by a sting in Eastside on day 41` (`quietReset`, off the laundering sim's report-only `events.QuietBroken`, `docs/laundering.md`, kept on the model as `Model.quietBroke` and never saved), while the plan is Retire clean and its quiet days are short.
+- **The report**: a `PLAN` section after `TIER`, one line: `Retire clean: the account 0% · quiet days 3/14. Next, the account: $0 of $750,000.`, with `, the quiet days reset by …` before the next step when the dashboard's line has it (`TestPlanShowsItsParts`).
 - **The alert**: `engine.AlertPlan` (`plan`, the quietest, its act the dashboard) appears while the pinned plan has at least one step met, keyed `plan <id>: <Reached> of <steps>`.
   A fast-forward stops once as each step is met in order and once when the plan is done.
   It stops again only if a step is lost and met again.

@@ -16,7 +16,7 @@ var bindings = []binding{
 	// The cursor keys. The map is walked in two dimensions, the market's
 	// arrows turn it to the other city, the tree's turn it to the next
 	// branch, the journal pages.
-	{key: "↑↓", label: "pick", help: "move the cursor (j and k move it too)", keys: upDown, screens: listScreens, global: true,
+	{key: "↑↓", label: "pick", help: "move the cursor (j and k move it too)", keys: upDown, screens: listScreens, global: true, listed: arrowsListed,
 		do: func(m *Model, key string) { m.moveCursor(0, dir(key)) }},
 	{key: "↑↓←→", label: "pick", help: "walk the map's grid", keys: arrows, screens: on(screenMap),
 		do: func(m *Model, key string) {

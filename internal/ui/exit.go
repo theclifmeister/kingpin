@@ -132,6 +132,7 @@ func (m *Model) askExit() {
 // the confirmation, esc closes.
 func (m *Model) keyExit(key string) {
 	rows := m.exitRows()
+	m.exit.err = ""
 	if closes(key) {
 		m.mode = modePlay
 		return
@@ -175,11 +176,13 @@ func (m *Model) keyExit(key string) {
 }
 
 // openExit turns to the confirmation for the way out under the cursor,
-// or refuses a closed one.
+// or refuses a closed one with what is short, on the dialog's error
+// line (#468: the status bar is under the modal, so a refusal there
+// read as enter doing nothing).
 func (m *Model) openExit(rows []exitRow) {
 	r := rows[max(0, min(m.exit.cursor, len(rows)-1))]
 	if !r.open {
-		m.refuse(fmt.Sprintf("%s is not open: %s.", r.name, r.short))
+		m.exit.err = fmt.Sprintf("%s is not open: %s.", r.name, r.short)
 		return
 	}
 	m.exit.step = 1
@@ -225,6 +228,12 @@ func (m *Model) viewExit() string {
 			cells = append(cells, []any{r.name, r.terms, open})
 		}
 		body := table([]col{{"way out", kText, 0}, {"terms", kText, 0}, {"", kText, 0}}, cells, m.exit.cursor, m.modalInner())
+		if m.exit.err != "" {
+			body = append(body, "")
+			for _, l := range wrap(m.exit.err, m.modalInner()) {
+				body = append(body, theme.Bad.Render(l))
+			}
+		}
 		body = append(body, "")
 		body = append(body, m.subtle(fmt.Sprintf("The account holds %s and %s quiet. Whatever you leave with, the run ends this morning: the pile, the stock, the crew and the fronts stay behind, and the account over one plus the bodies is the score.", money(w.Offshore), plural(w.QuietDays, "day")))...)
 		return m.modal("WALK AWAY", body, m.modalFooter())

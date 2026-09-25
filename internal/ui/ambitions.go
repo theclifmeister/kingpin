@@ -2,9 +2,11 @@ package ui
 
 import (
 	"fmt"
+	"strings"
 
 	"github.com/theclifmeister/kingpin/internal/content"
 	"github.com/theclifmeister/kingpin/internal/engine"
+	"github.com/theclifmeister/kingpin/internal/events"
 	"github.com/theclifmeister/kingpin/internal/format"
 	"github.com/theclifmeister/kingpin/internal/game"
 	"github.com/theclifmeister/kingpin/internal/ui/theme"
@@ -189,8 +191,30 @@ func stepWords(st engine.AmbitionStepView) string {
 	return fmt.Sprintf("%d of %d", have, need)
 }
 
+// stepPart is a step as one part of the plan's line (#465): a count
+// as `14/14`, anything else as how far along it is, `0%`.
+func stepPart(st engine.AmbitionStepView) string {
+	switch st.Unit {
+	case game.UnitDays, game.UnitCorners, game.UnitCount:
+		return fmt.Sprintf("%s %d/%d", st.Label, int(st.Have), int(st.Need))
+	}
+	frac := game.AmbitionStep{Have: st.Have, Need: st.Need, Done: st.Done}.Frac()
+	return st.Label + " " + format.Pct(frac, 0)
+}
+
+// planParts is the plan's steps, each its part, joined: `the account
+// 0% · quiet days 14/14`. The one bar was their mean, and "Retire clean
+// 50%" with nothing offshore read as half the money (#465).
+func planParts(a engine.AmbitionView) string {
+	var parts []string
+	for _, st := range a.Steps {
+		parts = append(parts, stepPart(st))
+	}
+	return strings.Join(parts, " · ")
+}
+
 // planFact is the dashboard's line on the pinned plan: `plan Retire
-// clean 42% · next quiet days: 3 of 14 days`, or `plan Retire clean
+// clean · the account 0% · quiet days 3/14`, or `plan Retire clean
 // ready`; "" with none pinned.
 func (m *Model) planFact() string {
 	a, ok := m.plan()
@@ -200,17 +224,63 @@ func (m *Model) planFact() string {
 	if a.Done {
 		return theme.Good.Render("plan " + a.Name + " " + doneWord(a))
 	}
-	line := fmt.Sprintf("plan %s %s", a.Name, format.Pct(a.Progress, 0))
-	for _, st := range a.Steps {
-		if st.ID == a.Next {
-			line += " · next " + st.Label + ": " + stepWords(st)
-		}
+	line := "plan " + a.Name + " · " + planParts(a)
+	if why := m.quietReset(a); why != "" {
+		line += " · reset by " + why
 	}
 	return theme.Gold.Render(line)
 }
 
-// planReport is the report's PLAN section: the pinned plan's bar and
-// its next step, one line; nil with none pinned, the report before it.
+// quietReset is what last broke the quiet streak retiring counts
+// (#465), in words, while the plan pinned is Retire clean and its
+// quiet days are short: `a sting in Eastside on day 41`; "" otherwise.
+// A save loaded forgets it, as the status bar does.
+func (m *Model) quietReset(a engine.AmbitionView) string {
+	ev := m.quietBroke
+	if ev == nil || a.ID != content.AmbitionRetire {
+		return ""
+	}
+	for _, st := range a.Steps {
+		if st.ID == "quiet" && st.Done {
+			return ""
+		}
+	}
+	where := ""
+	if c := m.w.Cities[ev.City]; c != nil {
+		where = " in " + c.Name
+	}
+	var what string
+	switch ev.Cause {
+	case events.QuietHeat:
+		what = "heat at the retire line" + where
+	case events.QuietPolice:
+		what = "a " + bustLevelWord(ev.Level) + where
+	case events.QuietStrike:
+		what = "your strike on a corner"
+	case events.QuietPush:
+		what = "a push on your corners"
+	case events.QuietWar:
+		what = "the war getting loud"
+	case events.QuietContract:
+		what = "a buyer's contract still open" + where
+	default:
+		return ""
+	}
+	return fmt.Sprintf("%s on day %d", what, ev.Day)
+}
+
+// bustLevelWord is a police level as a line names it: `sting`, `task
+// force`.
+func bustLevelWord(level string) string {
+	if level == content.TaskForce {
+		return "task force"
+	}
+	return level
+}
+
+// planReport is the report's PLAN section: the pinned plan's steps and
+// its next one in words, one line; nil with none pinned, the report
+// before it.
 func (m *Model) planReport() []string {
 	a, ok := m.plan()
 	if !ok {
@@ -219,7 +289,10 @@ func (m *Model) planReport() []string {
 	if a.Done {
 		return []string{fmt.Sprintf("%s: %s.", a.Name, doneWord(a))}
 	}
-	line := fmt.Sprintf("%s: %s", a.Name, format.Pct(a.Progress, 0))
+	line := fmt.Sprintf("%s: %s", a.Name, planParts(a))
+	if why := m.quietReset(a); why != "" {
+		line += ", the quiet days reset by " + why
+	}
 	for _, st := range a.Steps {
 		if st.ID == a.Next {
 			line += fmt.Sprintf(". Next, %s: %s", st.Label, stepWords(st))

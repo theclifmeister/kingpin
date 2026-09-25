@@ -121,7 +121,7 @@ PriceSlump = [
 ]
 PlayerSoldBig = [
   "Someone is moving a lot of {{.Product}} in {{.City}}",
-  "{{.City}} awash in cheap {{.Product}}",
+  "{{.Product}} is everywhere in {{.City}} tonight, whatever it costs",
   "Cops note spike in {{.Product}} activity around {{.City}}",
 ]
 PlayerSoldZero = [

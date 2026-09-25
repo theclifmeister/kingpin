@@ -314,6 +314,11 @@ func (m *Model) viewMarket() string {
 	cols, rows = dropCols(cols, rows, width, "qual")
 	cols, rows = dropCols(cols, rows, width-3, "keep", "supplier")
 	sparkCol(cols, rows, max(3, min(30, width-tableWidth(cols, rows))))
+	if m.onBuyers || m.onSuppliers {
+		// The arrows are on the buyers or the connects (#462): the
+		// product keeps its row, marked, and the one ▸ is theirs.
+		rows, cursor = unfocused(rows, cursor), -1
+	}
 	for _, l := range table(cols, rows, cursor, width) {
 		b.WriteString(l + "\n")
 	}

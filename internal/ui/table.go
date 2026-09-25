@@ -91,6 +91,23 @@ type day int
 // (the tree's ✓, ○ and ·); it goes first in the row and is not a cell.
 type mark string
 
+// unfocusedMark is the gutter sign of a selection whose region the
+// cursor has left (#462): one ▸ a screen, on the rows ↑↓ walk, and ▹ on
+// the other region's selection (the market's product while the cursor
+// is on the buyers or the connects, the rivals' faction while it is on
+// the offers, the map's corner or route while it is on the other).
+const unfocusedMark = "▹"
+
+// unfocused is rows with the cursor's row given the unfocused mark in
+// place of the cursor: pass it with a cursor of -1 to table. It goes
+// last, after anything that drops or sizes a column.
+func unfocused(rows [][]any, cursor int) [][]any {
+	if cursor >= 0 && cursor < len(rows) {
+		rows[cursor] = append([]any{mark(unfocusedMark)}, rows[cursor]...)
+	}
+	return rows
+}
+
 // tableHook, when set, sees every table rendered: the columns with the
 // widths they were drawn at and the lines. Tests use it to check that
 // every cell reads as its column's kind.

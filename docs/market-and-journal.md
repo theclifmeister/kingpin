@@ -13,7 +13,7 @@ The journal (`journal.go`) is a list with a cursor, newest first: MAIN is `JOURN
 Every night's change in cash is explained, opening to closing, by cause.
 
 - **`game.CashFlow`** (`game/cashflow.go`) is on `DayReport.Flow`: the piles the day opened on (`Opening`, a `game.Pools` of `Dirty` and `Clean`), one `FlowLine` a category in `game.FlowCats`' order, signed by pile (money in positive), and the piles it closed on (`Closing`).
-- **The categories** run in the order money moves through a night, and `game.FlowLabel` is the words for each:
+- **The categories** run in the order money moves through a night, and `game.FlowLabel` is the words for each (`Road, hires, fees` for `routes` and `Investments, tribute` for `investments` since #465: a night's signing fee with no route run read as the road's, and homage received as a return on an investment; the categories and their sums did not move):
   - `sales`: the street and the buyers, net of the cut the crew and the lieutenants keep;
   - `purchases`: the connects, the contracts, the cuts, the cook, a debt paid down;
   - `routes`: lots and fares, checkpoints, signing fees, the rent on the houses, investigations, scouts, cops, bail;
@@ -36,6 +36,7 @@ Every night's change in cash is explained, opening to closing, by cause.
 - **The piles** of a cost taken dirty first and clean for the rest are kept where it is paid. `World.spend` returns the clean part for `InvestigationOrder.Clean`, `Payoff.Clean` and `ScoutOrder.Clean`, and `World.TakeCash` returns a `Pools`. `InvestigationRun`, `CrewPaidOff`, `RivalScouted`, `DebtPaid`, `DebtLate`, `ContractFailed` and `FallGuyBurned` carry `Clean`.
 - **The history.** `World.Flows` keeps the last `headlines.toml [flow] days` (14) nights, oldest first. It is the news sim's (`TestSimsWriteOnlyTheirOwnState`) and zero on a save from before it, so there is no schema bump.
 - **It is a report.** No sim reads it and it adds no dice. `TestSeedDigest` leaves `World.Flows` and `DayReport.Flow` out of its walk (`unwalked`). The report's own words moved on eight days of the pinned run (days 9, 24, 26 and 47, a robbery's line naming its corner; days 57 to 60, the lieutenant's skim no longer counted twice), and no world number moved.
+- **An order taken and handed over on one day reads taken first** (#465): the market hands a lot over (`ContractDelivered`) before it settles yesterday's acceptances (`ContractAccepted`), so SALES read `Handed 27 Pills to Marco` above `You took Marco's order`; the reporter keeps each contract's first handoff line (`reporter.handed`) and puts the acceptance before it. A sting that took cash and no stock reads `STING: lost $1,486`, never `lost and $1,486` (`enforcementLine`; `TestReportWordsMatchTheNight`).
 - `TestFlowIsTheReportersTotals` holds the lines to the night's events read on their own: the sales, the losses, the tax and the wash's dirty side.
 
 **The TUI.**

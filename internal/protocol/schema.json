@@ -7189,6 +7189,33 @@
       ],
       "type": "object"
     },
+    "events.QuietBroken": {
+      "properties": {
+        "Cause": {
+          "type": "string"
+        },
+        "City": {
+          "type": "string"
+        },
+        "Day": {
+          "type": "integer"
+        },
+        "Days": {
+          "type": "integer"
+        },
+        "Level": {
+          "type": "string"
+        }
+      },
+      "required": [
+        "Day",
+        "Days",
+        "Cause",
+        "City",
+        "Level"
+      ],
+      "type": "object"
+    },
     "events.RaidFellThrough": {
       "properties": {
         "City": {
@@ -10173,6 +10200,9 @@
     },
     "PriceShock": {
       "$ref": "#/$defs/events.PriceShock"
+    },
+    "QuietBroken": {
+      "$ref": "#/$defs/events.QuietBroken"
     },
     "RaidFellThrough": {
       "$ref": "#/$defs/events.RaidFellThrough"
@@ -15490,6 +15520,7 @@
             "PressureShifted",
             "PriceMove",
             "PriceShock",
+            "QuietBroken",
             "RaidFellThrough",
             "ReignBegan",
             "ReignBroken",

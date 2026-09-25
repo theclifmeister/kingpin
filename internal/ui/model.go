@@ -79,23 +79,24 @@ type Model struct {
 	crt            cartDialog
 	fnd            fundDialog
 	br             bribeDialog
-	amt            amountDialog     // the one-field dialog open (#275): invest, reserve, pay a cop, buy off, fast-forward
-	expProduct     int              // the export dialog's product (#391), an index into the lane's products on the market
-	spy            spyDialog        // the spy dialog (#45)
-	exit           exitDialog       // the walk-away dialog (#49)
-	amb            ambitionsDialog  // the ambitions panel (#347)
-	nr             newRunDialog     // the new-run dialog (#50)
-	pre            presetsDialog    // the presets dialog (#357)
-	intelCursor    int              // row on the intel screen (#45)
-	fastStop       string           // the report's first line after a fast-forward (`Stopped after 3 days: …`), until the next day ends
-	fastAlert      *engine.Alert    // the alert a fast-forward stopped on (#352), which the report's o opens; nil with the rest
-	alertCursor    int              // the alert selected in the dashboard's ALERTS (#352)
-	slot           int              // the save slot this run lives in: where ctrl+s, the end of the day and quitting save
-	profile        *game.Profile    // the game around the runs (#50): loaded with the model, written when a run ends and when a daily starts
-	profileErr     string           // what loading it said, for the start menu: a corrupt one set aside, a newer one left alone
-	unlocked       []string         // what the run that just ended unlocked, for the summary
-	now            func() time.Time // the wall clock, read here alone (#50): the daily's date, the profile's; a test sets it
-	startChoice    int              // row on the start menu: the slots, then Quit
+	amt            amountDialog        // the one-field dialog open (#275): invest, reserve, pay a cop, buy off, fast-forward
+	expProduct     int                 // the export dialog's product (#391), an index into the lane's products on the market
+	spy            spyDialog           // the spy dialog (#45)
+	exit           exitDialog          // the walk-away dialog (#49)
+	amb            ambitionsDialog     // the ambitions panel (#347)
+	nr             newRunDialog        // the new-run dialog (#50)
+	pre            presetsDialog       // the presets dialog (#357)
+	intelCursor    int                 // row on the intel screen (#45)
+	fastStop       string              // the report's first line after a fast-forward (`Stopped after 3 days: …`), until the next day ends
+	fastAlert      *engine.Alert       // the alert a fast-forward stopped on (#352), which the report's o opens; nil with the rest
+	quietBroke     *events.QuietBroken // the last night that broke a quiet streak (#465), which the plan's line names; not saved
+	alertCursor    int                 // the alert selected in the dashboard's ALERTS (#352)
+	slot           int                 // the save slot this run lives in: where ctrl+s, the end of the day and quitting save
+	profile        *game.Profile       // the game around the runs (#50): loaded with the model, written when a run ends and when a daily starts
+	profileErr     string              // what loading it said, for the start menu: a corrupt one set aside, a newer one left alone
+	unlocked       []string            // what the run that just ended unlocked, for the summary
+	now            func() time.Time    // the wall clock, read here alone (#50): the daily's date, the profile's; a test sets it
+	startChoice    int                 // row on the start menu: the slots, then Quit
 	status         string
 	statusKind     statusKind           // how the status bar colours the message; set where the status is
 	flash          []events.Enforcement // the enforcements of the last tick, via the bus: the bust's scene reads the level (#155)
@@ -354,8 +355,11 @@ func (m *Model) stepDay() []events.Event {
 func (m *Model) dayEnded(evs []events.Event) {
 	m.flash = nil
 	for _, e := range evs {
-		if ev, ok := e.(events.Enforcement); ok {
+		switch ev := e.(type) {
+		case events.Enforcement:
 			m.flash = append(m.flash, ev)
+		case events.QuietBroken:
+			m.quietBroke = &ev
 		}
 	}
 	m.fastStop, m.fastAlert = "", nil

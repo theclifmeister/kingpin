@@ -15,7 +15,7 @@ var All = []Event{
 	RivalMovedIn{}, CornerTaken{}, RivalEyeing{}, RivalOutbid{}, RivalPushed{},
 	CornerStruck{}, WarEnded{}, RivalTippedPolice{}, RivalUndercut{}, WarEscalated{},
 	UpgradeBought{}, FallGuyBurned{}, ReputationShifted{}, FrontBought{}, FrontAudited{},
-	FrontFrozen{}, FrontInvested{}, FrontGrew{}, Reserved{}, CashLaundered{}, Incident{},
+	FrontFrozen{}, FrontInvested{}, FrontGrew{}, Reserved{}, QuietBroken{}, CashLaundered{}, Incident{},
 	DilemmaDrawn{}, DilemmaAnswered{}, WholesaleBought{}, SupplyBought{}, SupplierBought{},
 	CreditTaken{}, DebtPaid{}, DebtLate{}, SupplierFrozen{}, SupplierWarned{},
 	SupplierCollected{}, SupplyShort{}, ShipmentSent{}, RouteIdle{}, ShipmentArrived{}, ShipmentSeized{},

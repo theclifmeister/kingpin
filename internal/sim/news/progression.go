@@ -91,12 +91,13 @@ func (s *Sim) boss(w *game.World) bool {
 	return s.rcfg.KingpinShare > 0 && w.Dominant() && float64(w.HeldIn(home.ID)) > s.rcfg.KingpinShare*float64(len(home.Corners))
 }
 
-// swaggerLines are the report's opening under TIER (#233): what your
-// name did last night, one line a thing, nothing on a night with
-// nothing to say. The homage is on the reign's line while the reign
-// holds, so it is said here only before it.
-func swaggerLines(w *game.World, t *game.Tick) []string {
-	var out []string
+// swaggerLines are what your name did last night (#233), one line a
+// thing, nothing on a night with nothing to say: the homage opens the
+// report under TIER (it is on the reign's line while the reign holds,
+// so it is said here only before it); the pushes held off and the
+// claims your name turned away open TERRITORY (#465: a rival's push
+// under TIER read as a tier).
+func swaggerLines(w *game.World, t *game.Tick) (out, ground []string) {
 	homage, crews := 0, map[string]bool{}
 	pushes, lost := map[string]int{}, map[string]int{}
 	var order []string
@@ -133,14 +134,14 @@ func swaggerLines(w *game.World, t *game.Tick) []string {
 		if n := lost[rival]; n > 0 {
 			line += fmt.Sprintf(", losing %s", format.Plural(n, "head"))
 		}
-		out = append(out, line+".")
+		ground = append(ground, line+".")
 	}
 	for _, cid := range w.CityOrder {
 		if deterred[cid] {
-			out = append(out, fmt.Sprintf("Nobody set up on a free corner in %s: your name kept them out.", w.CityName(cid)))
+			ground = append(ground, fmt.Sprintf("Nobody set up on a free corner in %s: your name kept them out.", w.CityName(cid)))
 		}
 	}
-	return out
+	return out, ground
 }
 
 // times is a count in words for a line: once, twice, 3 times.

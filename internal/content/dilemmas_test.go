@@ -56,3 +56,36 @@ func TestEveryCardDeclaresItsStakes(t *testing.T) {
 		t.Fatalf("a personal card with no sum: %v", err)
 	}
 }
+
+// A once_per card is once per a subject its trigger names (#466): the
+// shipped one-off cards say so, and a once_per of another kind or one
+// its trigger never fills is refused by name.
+func TestOncePerNamesASubject(t *testing.T) {
+	cfg := MustLoad()
+	for id, per := range map[string]string{"funeral": OncePerMember, "permit": OncePerFront, "church_roof": OncePerCorner, "a_say": OncePerMember} {
+		if c := cfg.Dilemmas.Card(id); c == nil || c.OncePer != per {
+			t.Errorf("card %s: once_per %v, want %q", id, c, per)
+		}
+	}
+	// The card game's outcome is the effect it applies (#466: it paid
+	// half the stake and said "walked out up {{.Amount}}").
+	if c := cfg.Dilemmas.Card("card_game"); c == nil || c.Choices[0].Effects["dirty_amount"] != 0.5 || !strings.Contains(c.Choices[0].Outcome, "up half of it") {
+		t.Errorf("the card game's sit-in: %+v", c)
+	}
+	base := cfg.Dilemmas.Cards[0]
+	base.Trigger = CardTrigger{CashMin: 1}
+	for _, r := range []struct{ per, want string }{
+		{"brother", `once_per "brother"`},
+		{OncePerMember, "names no member"},
+		{OncePerCorner, "names no corner"},
+		{OncePerFront, "names no front"},
+	} {
+		d := cfg.Dilemmas
+		c := base
+		c.OncePer = r.per
+		d.Cards = []CardConfig{c}
+		if err := d.validate(); err == nil || !strings.Contains(err.Error(), r.want) {
+			t.Errorf("once_per %q: err = %v, want %q", r.per, err, r.want)
+		}
+	}
+}

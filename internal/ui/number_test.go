@@ -13,7 +13,7 @@ import (
 // field m is max and h half of it (rounded down), ↑ past max stays at
 // max, pgdn past zero stays at zero, the field shows `/ N max`
 // after the number and its footer lists the shortcuts; and a typed
-// number over max is refused where it always was, by the game, the
+// number over max is refused on the buy and sell quantity steps (#467), the
 // route target excepted, which is set as it always was (a target is
 // stock to keep, and the wholesaler sells into the stash whatever its
 // room). The five fields: the buy and sell quantities, the cart's (a buy
@@ -145,15 +145,14 @@ func TestNumberField(t *testing.T) {
 			m.Update(key(k))
 		}
 		want("typing 1 x 2 ⌫ 3", "13")
-		// A typed number over max: refused by the game as it always was,
-		// or, for a target, set as it always was.
+		// A typed number over max: refused, or, for a target, set as it
+		// always was. The buy and the sell dialogs refuse it on the
+		// quantity step itself (#467), setting the field to what fits,
+		// rather than a step or two later.
 		fld.SetValue(strconv.Itoa(mx + 1))
 		m.Update(key("enter"))
-		if f.name == "sell" || f.name == "buy" {
-			m.Update(key("enter")) // the dial step, or the buy's once, commits
-		}
-		if f.name == "sell" {
-			m.Update(key("enter")) // the sale's once (#114) commits
+		if (f.name == "sell" || f.name == "buy") && (m.dlg.step != 1 || fld.Value() != strconv.Itoa(mx)) {
+			t.Errorf("%s: %d over a max of %d left the quantity step (%d) or kept the number %q", f.name, mx+1, mx, m.dlg.step, fld.Value())
 		}
 		switch {
 		case f.refused && (m.mode != mode || f.err(m) == ""):

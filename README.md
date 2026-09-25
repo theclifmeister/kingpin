@@ -257,7 +257,7 @@ what your enforcers' chances look like:
 ```text
  KINGPIN  1 Dash  2 Mkt  3 Journal  4 Crew  5 Map  6 Upgr  7 Ledger  8 Rivals  9 Intel    Day 4 · dirty $452K · heat 12
 MAP · Eastside   [ ◉ Eastside ]  Bayport  3/10 held · 3 worked · ~1828/day free     ╭─ DETAILS ────────────────────────╮
- ▴ THE DOCKS         ▪ RAIL YARD         ▪ OLD MILL                                 │ THE DOCKS                        │
+▸▴ THE DOCKS         ▪ RAIL YARD         ▪ OLD MILL                                 │ THE DOCKS                        │
    theirs              Dre                 Gato ⚔ Moose                             │ Mona's since day 0               │
    ~231/day quiet      ~130/day quiet      ~109/day quiet                           │ corners     1                    │
  ▪ FOURTH & MAIN     · BUS DEPOT         · THE PROJECTS      · PRECINCT ROW         │ size        ×1.2                 │
@@ -268,7 +268,7 @@ MAP · Eastside   [ ◉ Eastside ]  Bayport  3/10 held · 3 worked · ~1828/day 
                        ~357/day warm       ~249/day average    ~254/day warm        │             Designer ~52         │
                                                                                     │             Pills ~44            │
 ROUTES                                                                              │             Heroin ~37           │
-▸ Coast Road   Bayport  ──car──▪────▶ Eastside  normal  2d · 60 units · $8/u · ?    │             Coke ~17 · Meth ~5   │
+▹ Coast Road   Bayport  ──car──▪────▶ Eastside  normal  2d · 60 units · $8/u · ?    │             Coke ~17 · Meth ~5   │
   Interstate   Bayport  ─truck──────▶ Eastside  off     3d · 400 units · $3/u · ~3% │ runner      nobody               │
   The Channel  Bayport  ─boat───────▶ Eastside  off     5d · 2000 units · $1/u · ?  │ enforcer    nobody               │
                                                                                     │ w  push takes it ~6–10%, hit ~1… │
@@ -379,7 +379,8 @@ crown is yours whenever you want it. The account is the score.
 ### Let the routine run
 
 A buy's `keep at` option sets a **supply contract**: refill that city's
-stash to a level each morning, at a small markup. A sale's `standing`
+stash to a level at the end of each day, before the night's sales, at a
+small markup; one set today counts for tonight. A sale's `standing`
 option repeats the same quantity and dial each night. The crew keeps 5%
 of those sales. A hand-placed order wins that night; the standing order
 returns the next. `x` cancels the day's order first, then the standing

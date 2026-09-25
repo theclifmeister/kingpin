@@ -253,7 +253,12 @@ func (m *Model) post(c game.CrewMember) any {
 		}
 		return styled{theme.Warning, "no front"}
 	case c.Role == game.RoleChemist:
-		// The chemist (#47): the lab, or the batch on the way.
+		// The chemist (#47): the lab, or the batch on the way. Only the
+		// best cooks and cuts; another is paid and waits, and says so
+		// (#468) rather than reading as the one cooking.
+		if best := w.Crew.Chemist(); best == nil || best.ID != c.ID {
+			return styled{theme.Warning, "second chemist"}
+		}
 		if n := len(w.Crew.Cooks); n > 0 {
 			return styled{theme.CrewText, "cooking"}
 		}
@@ -514,7 +519,8 @@ func (m *Model) personLines(c game.CrewMember, onPayroll bool) []string {
 			lines = append(lines, row("cooks", fmt.Sprintf("q %.0f · %d a batch", m.rules.Crew.ChemistQuality(w), m.rules.Crew.Batch(w))))
 			lines = append(lines, row("cuts", fmt.Sprintf("keep %.0f points", m.rules.Crew.CutBonus(w))))
 		} else {
-			lines = append(lines, row("post", theme.Subtle.Render("second to the best chemist")))
+			lines = append(lines, row("post", theme.Warning.Render("second to the best chemist")))
+			lines = append(lines, wrapped(theme.Subtle, "Only the best chemist cooks and cuts; this one is paid and waits for the job.")...)
 		}
 	default:
 		if p := w.PostOf(c.ID); p != nil {

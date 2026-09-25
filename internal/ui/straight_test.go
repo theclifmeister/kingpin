@@ -25,8 +25,8 @@ func TestGoStraightFromTheDialog(t *testing.T) {
 		t.Fatalf("the dialog lacks going straight:\n%s", view)
 	}
 	m.Update(key("4"))
-	if m.exit.step != 0 || !strings.Contains(m.status, "3 of") {
-		t.Fatalf("closed: step %d status %q", m.exit.step, m.status)
+	if m.exit.step != 0 || !strings.Contains(m.exit.err, "3 of") {
+		t.Fatalf("closed: step %d err %q", m.exit.step, m.exit.err)
 	}
 	m.Update(key("esc"))
 	w.LegitDays = days

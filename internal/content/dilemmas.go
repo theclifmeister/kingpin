@@ -45,6 +45,7 @@ type CardConfig struct {
 	Weight      float64        `toml:"weight"`      // relative draw weight; 0 means 1
 	WeightRich  float64        `toml:"weight_rich"` // the weight from the deck's rich_tier on; 0 means Weight
 	Once        bool           `toml:"once"`        // at most once per run
+	OncePer     string         `toml:"once_per"`    // at most once per run for each OncePer* subject the trigger names (#466): a member's brother is buried once
 	Hide        bool           `toml:"hide"`        // the drama is the unknown (#358): the choices show no preview
 	Amount      int            `toml:"amount"`
 	AmountShare float64        `toml:"amount_share"`
@@ -52,6 +53,17 @@ type CardConfig struct {
 	Trigger     CardTrigger    `toml:"trigger"`
 	Choices     []ChoiceConfig `toml:"choice"`
 }
+
+// The subjects a card can be once per (CardConfig.OncePer, #466): the
+// member, the corner of yours or the front its trigger names. Such a
+// card never names the same one twice in a run; the trigger passes over
+// one it has named for the next in line, and the card is not drawn when
+// none is left.
+const (
+	OncePerMember = "member"
+	OncePerCorner = "corner"
+	OncePerFront  = "front"
+)
 
 // CardTrigger is when a card is eligible: every field set must hold. A
 // zero value means the field is not checked, so a card needs at least one
@@ -127,6 +139,9 @@ func (d DilemmasConfig) validate() error {
 		if err := c.validateStakes(); err != nil {
 			return err
 		}
+		if err := c.validateOncePer(); err != nil {
+			return err
+		}
 		if n := len(c.Choices); n < 2 || n > 3 {
 			return fmt.Errorf("card %q has %d choices; want 2 or 3", c.ID, n)
 		}
@@ -135,6 +150,29 @@ func (d DilemmasConfig) validate() error {
 				return fmt.Errorf("card %q choice %d needs a label and an outcome", c.ID, i)
 			}
 		}
+	}
+	return nil
+}
+
+// validateOncePer checks a card's once_per (#466) names a subject its
+// trigger fills: a member for member, a corner for corner, a front for
+// front.
+func (c CardConfig) validateOncePer() error {
+	t := c.Trigger
+	ok := true
+	switch c.OncePer {
+	case "":
+	case OncePerMember:
+		ok = t.Role != "" || t.LoyaltyBelow > 0 || t.LoyaltyAbove > 0
+	case OncePerCorner:
+		ok = t.Corners > 0 || t.Contested
+	case OncePerFront:
+		ok = t.Fronts
+	default:
+		return fmt.Errorf("card %q: once_per %q; want %q, %q or %q", c.ID, c.OncePer, OncePerMember, OncePerCorner, OncePerFront)
+	}
+	if !ok {
+		return fmt.Errorf("card %q: once_per %q, but its trigger names no %s", c.ID, c.OncePer, c.OncePer)
 	}
 	return nil
 }

@@ -388,10 +388,11 @@ func dialStyle(d events.RouteDial) lipgloss.Style {
 // days in transit; the track goes last, where even the bare line would
 // not fit, and the pane keeps the marker whatever the width); the
 // routes cursor's row is marked ▸ and drawn Selected across while the
-// cursor is on the routes. A route on its dial that would send nothing
-// says why after the dial (#459, routeIdle: `idle: no dirty cash over
-// the $50K till`, shortened to `idle: till` before the track
-// goes). The selected route's targets are the pane's (routeSection).
+// cursor is on the routes, and ▹ while it is on the grid (#462). A route
+// on its dial that would send nothing says why after the dial (#459,
+// routeIdle: `idle: no dirty cash over the $50K till`, shortened to
+// `idle: till` before the track goes). The selected route's targets
+// are the pane's (routeSection).
 func (m *Model) routeLines(width int) []string {
 	w := m.w
 	lg := m.rules.Logistics
@@ -438,9 +439,11 @@ func (m *Model) routeLines(width int) []string {
 			widest = max(widest, 2+lipgloss.Width(plain))
 			mark := "  "
 			if i == m.routeCursor {
-				mark = theme.Gold.Render("▸ ")
+				// One ▸ on the screen (#462): the route's while the
+				// arrows are on the routes, ▹ while they walk the grid.
+				mark = theme.Subtle.Render(unfocusedMark + " ")
 				if m.onRoutes {
-					lines = append(lines, mark+theme.Selected.Render(plain))
+					lines = append(lines, theme.Gold.Render("▸ ")+theme.Selected.Render(plain))
 					continue
 				}
 			}

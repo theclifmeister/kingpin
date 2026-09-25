@@ -29,6 +29,8 @@ type reporter struct {
 
 	routeCost  map[string]int // what each route cost today, lots and fares, by name
 	routeOrder []string       // the routes in the order they first spent
+
+	handed map[int]int // a contract's first handoff line in SALES, by id: its acceptance goes before it (#465)
 }
 
 // report writes one event into the morning, in the method of the sim

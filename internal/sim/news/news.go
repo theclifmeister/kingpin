@@ -193,7 +193,9 @@ func (s *Sim) Step(w *game.World, t *game.Tick) {
 	}
 	// The morning opens on you (#233): what your name did last night,
 	// when there is something to say, under the reign's line.
-	rep.Tier = append(swaggerLines(w, t), rep.Tier...)
+	swagger, ground := swaggerLines(w, t)
+	rep.Tier = append(swagger, rep.Tier...)
+	rep.Territory = append(ground, rep.Territory...)
 
 	// The world's incident (#44), dealt first thing this tick: a
 	// headline under the world source, its template picked off the
@@ -678,7 +680,10 @@ func enforcementLine(w *game.World, ev events.Enforcement) string {
 		s += " " + strings.Join(parts, ", ")
 	}
 	if ev.CashLost > 0 {
-		s += " and " + format.Money(ev.CashLost)
+		if len(parts) > 0 {
+			s += " and"
+		}
+		s += " " + format.Money(ev.CashLost) // #465: `STING: lost $1,486`, never `lost and $1,486`
 	}
 	if len(parts) == 0 && ev.CashLost == 0 {
 		s += " nothing; they found an empty stash"

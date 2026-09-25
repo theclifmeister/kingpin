@@ -24,10 +24,19 @@ func TestWalkAwayAsksTwice(t *testing.T) {
 	if m.mode != modeExit || m.exit.step != 0 {
 		t.Fatalf("w on the dashboard: mode %v step %d", m.mode, m.exit.step)
 	}
-	// Neither is open on the fixture: enter refuses and stays.
+	// Neither is open on the fixture: enter refuses and stays, saying
+	// what is short on the dialog itself (#468: the status bar is under
+	// the modal).
 	m.Update(key("enter"))
-	if m.mode != modeExit || m.exit.step != 0 || !strings.Contains(m.status, "not open") {
-		t.Fatalf("enter on a closed way out: mode %v step %d status %q", m.mode, m.exit.step, m.status)
+	if m.mode != modeExit || m.exit.step != 0 || !strings.Contains(m.exit.err, "not open") || !strings.Contains(m.exit.err, "short") {
+		t.Fatalf("enter on a closed way out: mode %v step %d err %q", m.mode, m.exit.step, m.exit.err)
+	}
+	if v := stripANSI(m.View()); !strings.Contains(v, "Retire is not open") {
+		t.Fatalf("the refusal is not on the dialog:\n%s", v)
+	}
+	m.Update(key("down"))
+	if m.exit.err != "" {
+		t.Fatalf("the refusal outlived the next key: %q", m.exit.err)
 	}
 	m.Update(key("esc"))
 	if m.mode != modePlay || m.w.Over != nil {
@@ -295,8 +304,8 @@ func TestFastForwardStopsOnTheReign(t *testing.T) {
 	m.Update(key("1"))
 	m.Update(key("w"))
 	m.Update(key("3"))
-	if m.mode != modeExit || m.exit.step != 0 || !strings.Contains(m.status, "corners held") || !strings.Contains(m.status, "still standing") {
-		t.Fatalf("the crown with no reign: mode %v step %d status %q", m.mode, m.exit.step, m.status)
+	if m.mode != modeExit || m.exit.step != 0 || !strings.Contains(m.exit.err, "corners held") || !strings.Contains(m.exit.err, "still standing") {
+		t.Fatalf("the crown with no reign: mode %v step %d err %q", m.mode, m.exit.step, m.exit.err)
 	}
 }
 

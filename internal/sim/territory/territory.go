@@ -426,6 +426,7 @@ func (s *Sim) step(w *game.World, t *game.Tick, rng game.Rand, fx game.Effects, 
 			c.Idle++
 			if drift > 0 && c.Idle >= drift {
 				c.Hand(game.OwnerNone, "", t.Day)
+				w.Stats.CornersLost++ // the summary's ground counts every corner that left you (#465)
 				t.Emit(events.CornerLost{Day: t.Day, Corner: c.ID, Name: c.Name, Reason: "idle", Owner: game.OwnerPlayer})
 			}
 			continue

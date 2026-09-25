@@ -556,6 +556,31 @@ type Reserved struct {
 
 func (Reserved) Kind() string { return "Reserved" }
 
+// QuietBroken is a run of quiet days retiring counts (#195) broken by a
+// loud one (#465): Days is the streak lost, Cause the first thing that
+// made the day loud, one of the Quiet* causes, with the City it was in
+// and, for the police, the Level. Report-only: the plan's line says
+// what reset it, and the paper never hears of it.
+type QuietBroken struct {
+	Day   int
+	Days  int
+	Cause string
+	City  string
+	Level string
+}
+
+func (QuietBroken) Kind() string { return "QuietBroken" }
+
+// What broke a quiet streak (QuietBroken.Cause).
+const (
+	QuietHeat     = "heat"     // a city's heat at the retire line or over
+	QuietPolice   = "police"   // the police answered somewhere (Level)
+	QuietStrike   = "strike"   // your enforcers hit a corner
+	QuietPush     = "push"     // a faction pushed on a corner of yours
+	QuietWar      = "war"      // the war got loud, or the crackdown came
+	QuietContract = "contract" // a buyer's contract is live
+)
+
 // CashLaundered is the day's wash: dirty cash turned clean across every
 // open front, and the upkeep paid for it. Report-only bookkeeping.
 type CashLaundered struct {

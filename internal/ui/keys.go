@@ -519,3 +519,8 @@ func (m *Model) helpLines() []string {
 	}
 	return body
 }
+
+// arrowsListed is whether `↑↓ pick` is listed on the screen (#462): on
+// the rivals screen the arrows walk the offers alone ([ ] turn the
+// faction), so they are listed only where there are offers to walk.
+func arrowsListed(m *Model) bool { return m.screen != screenRivals || len(m.w.Offers) > 1 }

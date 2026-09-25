@@ -245,6 +245,11 @@ func (s *Sim) drawCard(w *game.World, t *game.Tick) {
 	w.Dilemmas.Pending = pending
 	w.Dilemmas.LastCard = t.Day
 	w.Dilemmas.Drawn[c.cfg.ID]++
+	if per := c.cfg.OncePer; per != "" {
+		if id := sl.Subject(per); id != "" {
+			w.Dilemmas.Drawn[game.CardSubject(c.cfg.ID, per, id)]++ // #466: never this subject again
+		}
+	}
 	t.Emit(events.DilemmaDrawn{Day: t.Day, Card: c.cfg.ID, Title: pending.Title})
 }
 

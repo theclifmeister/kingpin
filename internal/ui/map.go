@@ -149,6 +149,15 @@ func (m *Model) askPost(role string) {
 	}
 	m.pick.role = role
 	m.pick.cursor = 0
+	// The picker opens on the first who can work (#468): one in a cell,
+	// laid up or under is listed with why, never the row enter takes
+	// by default.
+	for i, r := range m.postRows(role) {
+		if r.ID == game.You || r.Fit(m.w.Day) {
+			m.pick.cursor = i
+			break
+		}
+	}
 	m.mode = modePost
 }
 
@@ -199,7 +208,11 @@ func (m *Model) viewPost() string {
 	var cells [][]any
 	for _, r := range rows {
 		var where any = styled{theme.Subtle, "idle"}
-		if p := m.w.PostOf(r.ID); p != nil {
+		if tag := m.crewTag(r); r.ID != game.You && tag != "" && tag != "retiring" {
+			where = styled{theme.Bad, tag} // in a cell or laid up (#468): not idle, and posting them is refused
+		} else if r.ID != game.You && r.Undercover != "" {
+			where = styled{theme.Bad, "under"}
+		} else if p := m.w.PostOf(r.ID); p != nil {
 			if p.ID == c.ID {
 				where = styled{theme.Good, "already here"}
 			} else {
@@ -277,6 +290,7 @@ func (m *Model) viewMap() string {
 	}
 	for y := m.mapTop; y < min(rows, m.mapTop+visible); y++ {
 		var l1, l2, l3 []string
+		selX := -1 // the chosen corner's column on this row
 		for x := 0; x < cols; x++ {
 			c := grid[[2]int{x, y}]
 			if c == nil {
@@ -302,6 +316,7 @@ func (m *Model) viewMap() string {
 				name = fit(burning[c.ID], cellW-1)
 			case sel != nil && c.ID == sel.ID:
 				name = theme.Selected.Render(name)
+				selX = x
 			case eyed:
 				name = m.factionStyle(m.eyedBy(c)).Render(mark) + st.Render(name[len(mark):])
 			case undercut:
@@ -341,7 +356,23 @@ func (m *Model) viewMap() string {
 			l2 = append(l2, who+" ")
 			l3 = append(l3, theme.Subtle.Render(fit(facts, cellW-1))+" ")
 		}
-		lines = append(lines, " "+strings.Join(l1, ""), " "+strings.Join(l2, ""), " "+strings.Join(l3, ""))
+		// The chosen corner carries a text mark as well as the colour
+		// (#462): ▸ in the gutter before its cell while the arrows walk
+		// the grid, ▹ while they are on the routes, so the cells keep
+		// their columns and their marks.
+		gutter := " "
+		if selX >= 0 {
+			cur := theme.Gold.Render("▸")
+			if m.onRoutes {
+				cur = theme.Subtle.Render(unfocusedMark)
+			}
+			if selX == 0 {
+				gutter = cur
+			} else {
+				l1[selX-1] = strings.TrimSuffix(l1[selX-1], " ") + cur
+			}
+		}
+		lines = append(lines, gutter+strings.Join(l1, ""), " "+strings.Join(l2, ""), " "+strings.Join(l3, ""))
 	}
 
 	// The routes out of here, each an edge between the cities with its

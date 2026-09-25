@@ -319,10 +319,16 @@ func (m *Model) rivalLines(innerW int) []string {
 	leader := theme.RivalText.Render(r.Leader)
 	who := leader + sep + theme.Subtle.Render(plural(w.RivalHeldBy(r.Faction()), "corner"))
 	temper := who + sep + theme.Subtle.Render(m.personalityWord(r))
+	if r.Gone() {
+		// A faction that is gone is its word (#465): "Ivory · 0 corners ·
+		// opportunist" read as a crew still at the table.
+		who = leader + sep + theme.Subtle.Render(w.Stance(r, tun.WarThreshold))
+		temper = who
+	}
 	// The books (#70): the muscle as last read, where the line has room
 	// for it after the rest.
 	books := temper
-	if word := m.muscleWord(r); word != game.Unknown {
+	if word := m.muscleWord(r); word != game.Unknown && !r.Gone() {
 		books = temper + sep + theme.Subtle.Render("muscle "+word+" "+m.muscleAge(r))
 	}
 	if eye := m.eyeingWord(r); eye != "" {

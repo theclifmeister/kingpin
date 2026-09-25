@@ -241,7 +241,7 @@ func TestBrokeRoutedFactionScatters(t *testing.T) {
 		if !r.Gone() || r.Absorbed != w.Day || r.AbsorbedBy != "" || w.Stats.Absorbed != 1 {
 			t.Fatalf("%d factions: after: %+v", n, *r)
 		}
-		if !w.Dominant() || w.Stance(r, 0) != "absorbed" {
+		if !w.Dominant() || w.Stance(r, 0) != "scattered" { // the report's word, the table's since #465
 			t.Fatalf("%d factions: the city still waits on a scattered faction (%s)", n, w.Stance(r, 0))
 		}
 	}

@@ -5,6 +5,7 @@ import (
 	"fmt"
 	"math"
 	"sort"
+	"strconv"
 
 	"github.com/theclifmeister/kingpin/internal/content"
 	"github.com/theclifmeister/kingpin/internal/format"
@@ -25,7 +26,7 @@ var (
 type DilemmaState struct {
 	Pending  *Card          // drawn overnight; shown before the morning report
 	LastCard int            // day the last card was drawn; paces the next
-	Drawn    map[string]int // card id -> times drawn this run
+	Drawn    map[string]int // card id -> times drawn this run; and CardSubject -> 1 for a once_per card's subject (#466)
 	Answered *Answer
 	Owes     int
 }
@@ -276,7 +277,31 @@ type CardSlots struct {
 	MemberID int    // crew id the card is about; 0 nobody
 	CornerID string // corner id the card is about; "" none
 	CityID   string // the city the trigger named (#44); "" is where you are
+	FrontID  string // the front the card is about (#466); "" none
 	Sum      int    // the sum the card is about, unformatted; 0 none
+}
+
+// Subject is the id of the slot a once_per card is once per (#466): the
+// member, the corner or the front; "" for any other.
+func (s CardSlots) Subject(per string) string {
+	switch per {
+	case content.OncePerMember:
+		if s.MemberID != 0 {
+			return strconv.Itoa(s.MemberID)
+		}
+	case content.OncePerCorner:
+		return s.CornerID
+	case content.OncePerFront:
+		return s.FrontID
+	}
+	return ""
+}
+
+// CardSubject is the key a once_per card's subject is counted under in
+// DilemmaState.Drawn (#466), beside the card's own count: `funeral@member:12`.
+// A card id has no @, so the two never meet.
+func CardSubject(card, per, subject string) string {
+	return card + "@" + per + ":" + subject
 }
 
 // Eligible reports whether a card's trigger holds in w and, if so, the
@@ -291,6 +316,21 @@ type CardSlots struct {
 func Eligible(w *World, c content.CardConfig) (CardSlots, bool) {
 	t := c.Trigger
 	s := CardSlots{City: w.Here().Name, Rival: w.Rival().Leader}
+	// A once_per card passes over a subject it has named (#466).
+	named := func(per, subject string) bool {
+		return c.OncePer == per && w.Dilemmas.Drawn[CardSubject(c.ID, per, subject)] > 0
+	}
+	// A card that names a member and a corner is about one of them on
+	// that corner (#466): the member posted on a worked corner comes
+	// before one who is not, so "Yaya took twenties on The Wharf" is not
+	// dealt with Yaya idle and Tee on The Wharf.
+	onCorner := func(m *CrewMember) bool {
+		if t.Corners == 0 && !t.Contested {
+			return false
+		}
+		p := w.PostOf(m.ID)
+		return p != nil && p.Worked()
+	}
 	// A card or an incident about a city (#44): it must exist, and it
 	// is the city the slot names.
 	if t.City != "" {
@@ -340,9 +380,16 @@ func Eligible(w *World, c content.CardConfig) (CardSlots, bool) {
 			if t.LoyaltyAbove > 0 && m.Loyalty <= t.LoyaltyAbove {
 				continue
 			}
+			if named(content.OncePerMember, strconv.Itoa(m.ID)) {
+				continue
+			}
 			switch {
 			case pick == nil:
 				pick = m
+			case onCorner(m) != onCorner(pick):
+				if onCorner(m) {
+					pick = m
+				}
 			case t.LoyaltyBelow > 0 && m.Loyalty < pick.Loyalty:
 				pick = m
 			case t.LoyaltyBelow == 0 && m.Loyalty > pick.Loyalty:
@@ -375,7 +422,7 @@ func Eligible(w *World, c content.CardConfig) (CardSlots, bool) {
 		}
 		for i := range corners {
 			c := &corners[i]
-			if !c.Worked() {
+			if !c.Worked() || named(content.OncePerCorner, c.ID) {
 				continue
 			}
 			if t.Contested {
@@ -402,6 +449,12 @@ func Eligible(w *World, c content.CardConfig) (CardSlots, bool) {
 			return s, false
 		}
 		s.Corner, s.CornerID = mine.Name, mine.ID
+		// The card's place is its corner's city (#466: "hanging around
+		// Shipyard ... every outfit in Eastside" with Shipyard in
+		// Bayport), unless the trigger named one.
+		if city := w.Cities[mine.City]; city != nil && t.City == "" {
+			s.City = city.Name
+		}
 		if theirs != nil {
 			s.Theirs = theirs.Name
 		}
@@ -429,10 +482,15 @@ func Eligible(w *World, c content.CardConfig) (CardSlots, bool) {
 		return s, false
 	}
 	if t.Fronts {
-		if len(w.Fronts) == 0 {
+		for _, f := range w.Fronts {
+			if !named(content.OncePerFront, f.ID) {
+				s.Front, s.FrontID = f.Name, f.ID
+				break
+			}
+		}
+		if s.FrontID == "" {
 			return s, false
 		}
-		s.Front = w.Fronts[0].Name
 	}
 	// The progression's two (#147): the high-water mark every unlock
 	// reads, and the lieutenant gate's count of cities with a held corner.

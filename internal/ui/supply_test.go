@@ -72,7 +72,7 @@ func TestSupplyContractInTheGrammar(t *testing.T) {
 	if m.mode != modeSell || m.dlg.step != 1 || m.qtyMax() != 30 {
 		t.Fatalf("selling what the contract brings: mode %v step %d max %d status %q", m.mode, m.dlg.step, m.qtyMax(), m.status)
 	}
-	if !strings.Contains(stripANSI(m.View()), "0 stashed and 30 the contract brings") {
+	if !strings.Contains(stripANSI(m.View()), "0 stashed and 30 the contract buys before tonight") {
 		t.Fatalf("the sell dialog does not say what the contract brings:\n%s", stripANSI(m.View()))
 	}
 	m.Update(key("enter"))
