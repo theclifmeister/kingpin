@@ -233,10 +233,10 @@ The dashboard at 80x24, with the details strip above the status bar:
 │   Meth      $701.73  -12%  █▁           0  -                                 │
 │   Designer   $2,740  +11%  ▁█           0  -                                 │
 │ carrying 46/410 · 24 in 1 house · corners 3 worked, 3 held of 10, 1 theirs   │
-│ tier Distribution · 240 units in Bayport · 60 units on the road, next in 2d  │
+│ 240 units in Bayport · 60 units on the road, next in 2d                      │
 │ crew 6 · fair pay $495/day · skimming suspected                              │
-│ supply 1 contract · $895 this morning · 1 offer on the market screen (2)     │
-│ no upgrades yet: buy on the upgrades screen (6)                              │
+│ supply 1 contract · $895 this morning                                        │
+│ 1 offer in Bayport on the market screen (2)                                  │
 │ Standing orders sell tonight; the crew keep 5%.                              │
 ╰──────────────────────────────────────────────────────────────────────────────╯
 ╭─ HEAT ───────────────────╮╭─ CASH ──────────────╮╭─ LAW ─────────────────────╮
