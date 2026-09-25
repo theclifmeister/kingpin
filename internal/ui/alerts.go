@@ -13,6 +13,7 @@ import (
 	"github.com/charmbracelet/lipgloss"
 
 	"github.com/theclifmeister/kingpin/internal/engine"
+	"github.com/theclifmeister/kingpin/internal/format"
 	"github.com/theclifmeister/kingpin/internal/game"
 	"github.com/theclifmeister/kingpin/internal/ui/theme"
 )
@@ -36,7 +37,8 @@ type alert struct {
 // (#343), a front shut for its upkeep (#458), the float, the
 // wages, a member near a line, the skim, a member with no post, a
 // corner nobody works, a full stash, a faction on its way to a city
-// where you earn (#341), the gate within reach, a house the police
+// where you earn (#341), the gate within reach, the port untouched and
+// worth the road (#476), a house the police
 // know, the DA race,
 // retirement, the favour, the reign, the plan pinned). The dashboard's ALERTS carry them
 // and a fast-forward stops on one the morning before did not have.
@@ -136,6 +138,8 @@ func (m *Model) alertOf(a engine.Alert) alert {
 		text, why = m.scoutsAlert(a)
 	case engine.AlertGate:
 		text, why = theme.Gold.Render(gateText(w, *a.Gate)), gateThe(*a.Gate)+" within reach"
+	case engine.AlertPort:
+		text, why = portAlert(w, a), w.CityName(a.City)+" is worth the road"
 	case engine.AlertHouseKnown:
 		if h := w.House(a.House); h != nil {
 			text = theme.Bad.Render(fmt.Sprintf("The police know about %s: move the stock out and drop it %s.", h.Name, screenPointer(screenLedger)))
@@ -196,6 +200,22 @@ func (m *Model) scoutsAlert(a engine.Alert) (text, why string) {
 		when = "due now"
 	}
 	return style.Render(fmt.Sprintf("%s %s: %s. Answer them %s.", who, what, when, screenPointer(screenRivals))), why
+}
+
+// portAlert words the port worth the road (#476): `Bayport is untouched:
+// 6 free corners, Designer $1,900 there, The Dutchman sells at 35% of
+// street. The road is on the map screen (5).`, the facts first because
+// the pane cuts an alert to one line. A fact the alert left out (no
+// free corner, nothing priced) is left out of the words.
+func portAlert(w *game.World, a engine.Alert) string {
+	facts := []string{plural(a.Count, "free corner")}
+	if a.Product != "" && a.Amount > 0 {
+		facts = append(facts, fmt.Sprintf("%s %s there", w.ProductName(a.Product), money(a.Amount)))
+	}
+	if sup := w.Supplier(a.Supplier); sup != nil && a.Share > 0 {
+		facts = append(facts, fmt.Sprintf("%s sells at %s of street", sup.Name, format.Pct(a.Share, 0)))
+	}
+	return theme.Gold.Render(fmt.Sprintf("%s is untouched: %s. The road is %s.", w.CityName(a.City), strings.Join(facts, ", "), screenPointer(screenMap)))
 }
 
 // crossWords are what crossing each of the crew's loyalty lines is
@@ -484,14 +504,31 @@ func alertScreen(name string) (screen, bool) {
 
 // alertSubjects put the cursor of the screen landed on on the alert's
 // subject (engine.Act.Subject): the member's row, the corner on its
-// city's map, the buyer, the connect, the house, a city's first house.
+// city's map, the buyer, the connect, the house, a city: its first house
+// on the ledger, the map turned to it (#476, the port).
 var alertSubjects = map[string]func(*Model, engine.Alert){
 	engine.SubjectMember:   func(m *Model, a engine.Alert) { m.selectMember(a.Member) },
 	engine.SubjectCorner:   func(m *Model, a engine.Alert) { m.selectCorner(a.Corner) },
 	engine.SubjectContract: func(m *Model, a engine.Alert) { m.selectContract(a.Contract) },
 	engine.SubjectSupplier: func(m *Model, a engine.Alert) { m.selectSupplier(a.Supplier) },
 	engine.SubjectHouse:    func(m *Model, a engine.Alert) { m.selectHouse(func(h game.House) bool { return h.ID == a.House }) },
-	engine.SubjectCity:     func(m *Model, a engine.Alert) { m.selectHouse(func(h game.House) bool { return h.City == a.City }) },
+	engine.SubjectCity:     (*Model).selectCity,
+}
+
+// selectCity puts a city under the screen landed on: the map turned to
+// it, the cursor on its first corner (#476), or its first house on the
+// ledger.
+func (m *Model) selectCity(a engine.Alert) {
+	if m.screen != screenMap {
+		m.selectHouse(func(h game.House) bool { return h.City == a.City })
+		return
+	}
+	if m.w.City(a.City) == nil {
+		return
+	}
+	m.city = a.City
+	m.mapCursor = m.yourCorner()
+	m.routeCursor, m.onRoutes = 0, false
 }
 
 // alertModes open the dialog an act names (engine.Act.Mode) once the

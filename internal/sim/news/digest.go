@@ -324,6 +324,12 @@ func (s *Sim) flowLine(w *game.World, flow game.CashFlow) (game.Line, float64) {
 		if road := s.roadHint(w); road != "" {
 			text += " " + road
 			act = game.Act{Screen: game.ScreenMap}
+			if w.Progression.Ceiling == 0 {
+				// The first night the ceiling is said (#476): the port
+				// alert reads it, so it stops a fast-forward once and
+				// not on every fortnight the plateau flickers back.
+				w.Progression.Ceiling = flow.Day
+			}
 		}
 	}
 	return game.Line{Text: text, Act: act}, math.Min(math.Abs(swing), cfg.SwingCap)
@@ -343,19 +349,7 @@ func (s *Sim) roadHint(w *game.World) string {
 			return ""
 		}
 	}
-	week := s.cfg.Digest.Week
-	if len(w.Flows) < 2*week {
-		return ""
-	}
-	last, before := 0, 0
-	for i, f := range w.Flows[len(w.Flows)-2*week:] {
-		if i < week {
-			before += profit(f)
-		} else {
-			last += profit(f)
-		}
-	}
-	if last > before {
+	if !game.Plateau(w.Flows, s.cfg.Digest.Week) {
 		return ""
 	}
 	far := w.CityOrder[1]
@@ -365,13 +359,8 @@ func (s *Sim) roadHint(w *game.World) string {
 	return fmt.Sprintf("The corners here have a ceiling: the road to %s is on the map (5).", w.CityName(far))
 }
 
-// profit is a night's net less its purchases and investments, and less
-// what went offshore (#422): money moved to your own account is not a
-// night's loss ("The night made -$34K" on a night the street made
-// +$23K and $51K went to the account).
-func profit(f game.CashFlow) int {
-	return f.Net() - f.Line(game.FlowPurchases).Total() - f.Line(game.FlowInvestments).Total() - f.Line(game.FlowOffshore).Total()
-}
+// profit is game.CashFlow.Profit (#422), the lead's reading of a night.
+func profit(f game.CashFlow) int { return f.Profit() }
 
 // signedCash is a change of cash the way a headline writes it:
 // `+$4,200`, `-$45K`.

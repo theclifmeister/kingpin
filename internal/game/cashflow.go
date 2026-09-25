@@ -79,6 +79,34 @@ func (f CashFlow) Sum() Pools {
 // Net is what the night moved, both piles: closing less opening.
 func (f CashFlow) Net() int { return f.Closing.Total() - f.Opening.Total() }
 
+// Profit is a night's net less its purchases and investments, and less
+// what went offshore (#422): money turned into stock, a front or your
+// own account is not a night's loss ("The night made -$34K" on a night
+// the street made +$23K and $51K went to the account). The lead's flow
+// line reads it (#354), and Plateau.
+func (f CashFlow) Profit() int {
+	return f.Net() - f.Line(FlowPurchases).Total() - f.Line(FlowInvestments).Total() - f.Line(FlowOffshore).Total()
+}
+
+// Plateau reports whether the last week of the nights' flows made no
+// more profit than the week before it (#446): the one city's ceiling,
+// which the lead's road hint and the port alert (#476) read. False with
+// under two weeks of nights.
+func Plateau(flows []CashFlow, week int) bool {
+	if week <= 0 || len(flows) < 2*week {
+		return false
+	}
+	last, before := 0, 0
+	for i, f := range flows[len(flows)-2*week:] {
+		if i < week {
+			before += f.Profit()
+		} else {
+			last += f.Profit()
+		}
+	}
+	return last <= before
+}
+
 // Reconciles says the opening and the lines make the closing, dirty and
 // clean each.
 func (f CashFlow) Reconciles() bool {

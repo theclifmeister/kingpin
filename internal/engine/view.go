@@ -15,8 +15,8 @@ import (
 // TestViewShapeIsPinned fails on a shape change that keeps the number.
 // 12 added exports and trophies (#405): the lanes and the trophies the
 // wire could order and buy since #391 and #392 but not show. 13 added
-// the front_shut alert's front (#458).
-const ViewVersion = 13
+// the front_shut alert's front (#458), 14 the port alert's share (#476).
+const ViewVersion = 14
 
 // View is a snapshot of what the player can see: what a front end draws
 // (#299). It is built from the world the way the TUI reads it and holds

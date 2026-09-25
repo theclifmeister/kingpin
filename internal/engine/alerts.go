@@ -40,6 +40,7 @@ const (
 	AlertStashFull     AlertKind = "stash_full"    // the stash in City holds Count of its Amount, at or over houses.toml's full_share
 	AlertScouts        AlertKind = "scouts"        // a faction moving on City (#341), at stage Level (scouting or recruiting), arriving in Days
 	AlertGate          AlertKind = "gate"          // Gate within reach
+	AlertPort          AlertKind = "port"          // the port untouched and worth the road (#476): City, Count free corners, Product at Amount, Supplier the wholesaler at Share of street
 	AlertHouseKnown    AlertKind = "house_known"   // the police know about House
 	AlertDARace        AlertKind = "da_race"       // the DA race is Days off and taking money
 	AlertRetire        AlertKind = "retire"        // Ready, or Days quiet and Amount short
@@ -54,7 +55,7 @@ const (
 // in.
 func AlertKinds() []AlertKind {
 	return []AlertKind{AlertTalking, AlertContractDue, AlertDebtDue, AlertHeat, AlertTaskForce, AlertFile, AlertInvestigation, AlertNoCorner, AlertFrontShut, AlertFloat, AlertTill, AlertWages,
-		AlertCrewLine, AlertSkim, AlertUnposted, AlertIdleCorner, AlertStashFull, AlertScouts, AlertGate, AlertHouseKnown,
+		AlertCrewLine, AlertSkim, AlertUnposted, AlertIdleCorner, AlertStashFull, AlertScouts, AlertGate, AlertPort, AlertHouseKnown,
 		AlertDARace, AlertRetire, AlertFavour, AlertReign, AlertStraight, AlertExposure, AlertPlan}
 }
 
@@ -133,6 +134,7 @@ var alertActs = map[AlertKind][]Act{
 	AlertStashFull:  {{Screen: ScreenLedger, Subject: SubjectCity}},
 	AlertScouts:     {{Screen: ScreenRivals}},
 	AlertGate:       {actMarket, actLedger},
+	AlertPort:       {{Screen: ScreenMap, Subject: SubjectCity}}, // the map turned to the port, where the road is (#476)
 	AlertHouseKnown: {{Screen: ScreenLedger, Subject: SubjectHouse}},
 	AlertDARace:     {actLedger},
 	AlertRetire:     {actLedger, actDashboard},
@@ -159,7 +161,7 @@ type Alert struct {
 
 	City     string  `json:"city,omitempty"`     // heat, da_race, idle_corner, unposted, stash_full, investigation, no_corner: the city's id (heat: where you are; unposted: the corner's)
 	Contract int     `json:"contract,omitempty"` // contract_due: the contract's id
-	Supplier string  `json:"supplier,omitempty"` // debt_due: the connect's id
+	Supplier string  `json:"supplier,omitempty"` // debt_due: the connect's id; port: the wholesaler's
 	House    string  `json:"house,omitempty"`    // house_known, investigation: the house's id
 	Front    string  `json:"front,omitempty"`    // front_shut: the front's id
 	Due      int     `json:"due,omitempty"`      // contract_due, debt_due: the day it is due
@@ -174,9 +176,10 @@ type Alert struct {
 	Member   int     `json:"member,omitempty"`   // crew_line, unposted: the member's id
 	Cross    string  `json:"cross,omitempty"`    // crew_line: the line ahead: skim, flip (a lieutenant's) or walk
 	Gap      float64 `json:"gap,omitempty"`      // crew_line: the loyalty over the line
+	Share    float64 `json:"share,omitempty"`    // port: the wholesaler's price as a share of the street's there (#476)
 	Corner   string  `json:"corner,omitempty"`   // idle_corner, investigation: the corner's id; unposted: a corner to post them on, no_corner: a free one to post on, or ""
 	Target   string  `json:"target,omitempty"`   // investigation: what is named, corner | product | house (#343)
-	Product  string  `json:"product,omitempty"`  // investigation: the product's id
+	Product  string  `json:"product,omitempty"`  // investigation: the product's id; port: the dearest listed there
 	Day      int     `json:"day,omitempty"`      // skim: the day money last went missing
 	Gate     *Gate   `json:"gate,omitempty"`     // gate: the door
 	Ambition string  `json:"ambition,omitempty"` // plan: the ambition pinned
@@ -290,6 +293,7 @@ func (s *Session) Alerts() []Alert {
 			out = append(out, Alert{Kind: AlertGate, Key: "unlock:" + g.Kind + ":" + g.ID, Gate: &g, Act: act})
 		}
 	}
+	out = append(out, s.port()...)
 	for _, h := range w.Houses {
 		if h.Known {
 			out = append(out, Alert{Kind: AlertHouseKnown, Key: "known " + h.ID, House: h.ID})
@@ -350,6 +354,88 @@ func (s *Session) tillNights() int {
 		return 0
 	}
 	return n
+}
+
+// port points at the second city (#476): the wholesaler's city, Bayport
+// in the file, which a playtest never visited in 519 days and found
+// with six free corners, designer at $1,900 and the Dutchman selling at
+// +182%. It fires when the wholesaler's door is open (the Distribution
+// line, $500K peak) or once the lead has said the one city's corners
+// have a ceiling (#446's road hint at Territory, stamped by the news sim
+// the first night in World.Progression.Ceiling: the plateau itself
+// flickers week to week and would stop a fast-forward a dozen times a
+// run), and only while the port is untouched: no corner there ever
+// held, nothing ever bought from a connect there (the road buys from
+// the wholesaler), no route on, nothing on the road, no stock there and
+// you not standing in it. City is the port, Count its free corners,
+// Product and Amount the dearest thing listed there (designer from the
+// door's line, the port's product) and its street price, Supplier the
+// wholesaler and Share his price as a share of the street's there (0
+// when he prices nothing listed). Keyed by the city, so a fast-forward
+// stops once, both lines being sticky. No dice.
+func (s *Session) port() []Alert {
+	w := s.w
+	home := w.Home().ID
+	var far string
+	for _, cid := range w.CityOrder {
+		if cid != home && w.WholesaleSupplier(cid) != nil {
+			far = cid
+			break
+		}
+	}
+	if far == "" || w.Player.Location == far || w.StockIn(far) > 0 {
+		return nil
+	}
+	for _, c := range w.Cities[far].Corners {
+		if c.Yours || c.Owner == game.OwnerPlayer {
+			return nil
+		}
+	}
+	for _, sup := range w.SuppliersIn(far) {
+		if sup.Bought > 0 {
+			return nil
+		}
+	}
+	for _, sh := range w.Shipments {
+		if sh.From == far || sh.To == far {
+			return nil
+		}
+	}
+	on := false
+	for _, rs := range w.Routes {
+		on = on || rs.Dial.On()
+	}
+	if on {
+		return nil
+	}
+	whole := w.WholesaleSupplier(far)
+	if whole.Locked(w) && w.Progression.Ceiling == 0 {
+		return nil
+	}
+	a := Alert{Kind: AlertPort, Key: "the port: " + far, City: far, Supplier: whole.ID}
+	for _, c := range w.Cities[far].Corners {
+		if c.Owner == game.OwnerNone {
+			a.Count++
+		}
+	}
+	shares, n := 0.0, 0
+	for _, id := range w.Products {
+		m := w.Product(far, id)
+		if m == nil || m.Price <= 0 {
+			continue
+		}
+		if int(math.Round(m.Price)) > a.Amount {
+			a.Product, a.Amount = id, int(math.Round(m.Price))
+		}
+		if p := whole.Price[id]; p > 0 && whole.Sells(id) {
+			shares += p / m.Price
+			n++
+		}
+	}
+	if n > 0 {
+		a.Share = shares / float64(n)
+	}
+	return []Alert{a}
 }
 
 // unposted are the runners and enforcers on the payroll with no post

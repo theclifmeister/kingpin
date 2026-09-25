@@ -97,8 +97,10 @@ func list(ds []string) string {
 // piles, the report's lines and CASH BEFORE), no sim reads it, and a
 // change to its shape or its categories is a report's, never a number's.
 // The plan the player pinned (#347, World.Ambition) is the player's
-// alone: no sim reads it.
-var unwalked = map[string]bool{"World.Flows": true, "DayReport.Flow": true, "World.Ambition": true}
+// alone: no sim reads it. The night the lead first said the corners
+// have a ceiling (#476, Progression.Ceiling) is the port alert's: the
+// news sim stamps it off the flows' history, and no sim reads it.
+var unwalked = map[string]bool{"World.Flows": true, "DayReport.Flow": true, "World.Ambition": true, "Progression.Ceiling": true}
 
 // digest is the world's hash: FNV-1a over a walk of every exported
 // value in a fixed order, floats to six decimals.
