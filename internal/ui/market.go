@@ -125,29 +125,6 @@ func (m *Model) productRows(city string, selected int, market bool) (cols []col,
 	return cols, rows, cursor
 }
 
-// dropCol takes the named column out of a table's columns and rows.
-func dropCol(cols []col, rows [][]any, title string) ([]col, [][]any) {
-	at := -1
-	for i, c := range cols {
-		if c.title == title {
-			at = i
-		}
-	}
-	if at < 0 {
-		return cols, rows
-	}
-	cols = append(append([]col(nil), cols[:at]...), cols[at+1:]...)
-	out := make([][]any, len(rows))
-	for r, row := range rows {
-		if at < len(row) {
-			out[r] = append(append([]any(nil), row[:at]...), row[at+1:]...)
-		} else {
-			out[r] = row
-		}
-	}
-	return cols, out
-}
-
 // priceFacts is what a product's price is doing in a city, the numbers
 // the market table, the dashboard's and the market's pane, the buy and
 // sell dialogs and the cart all read (#138), so the decision made in a
@@ -330,10 +307,12 @@ func (m *Model) viewMarket() string {
 	b.WriteString(truncate(m.screenTitle("MARKET"), width) + "\n\n")
 	cols, rows, cursor := m.productRows(city.ID, m.cursor, true)
 	// The quality column (#47) goes where MAIN is too narrow for the
-	// table whole: the pane beside it carries the lot's quality then.
-	if tableWidth(cols, rows) > width {
-		cols, rows = dropCol(cols, rows, "qual")
-	}
+	// table whole, then the keep level and the supplier's price (#420:
+	// at 100x30 the table cut its names to "pr…" and "We…"): the pane
+	// beside it carries all three for the product under the cursor. The
+	// sparkline takes three columns at least.
+	cols, rows = dropCols(cols, rows, width, "qual")
+	cols, rows = dropCols(cols, rows, width-3, "keep", "supplier")
 	sparkCol(cols, rows, max(3, min(30, width-tableWidth(cols, rows))))
 	for _, l := range table(cols, rows, cursor, width) {
 		b.WriteString(l + "\n")

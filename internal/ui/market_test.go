@@ -152,3 +152,40 @@ func TestMarketArrowsTurnTheCity(t *testing.T) {
 	}
 	_ = game.You
 }
+
+// The market table fits MAIN at 100x30 (#420): it cut its names to
+// "pr…", "We…" and "ke…" there. The columns the pane carries for the
+// product under the cursor (quality, the keep level, the supplier's
+// price) go first; the product, the price and the stash stay whole.
+func TestMarketTableFitsAt100(t *testing.T) {
+	for _, sz := range [][2]int{{80, 24}, {100, 30}, {120, 40}} {
+		m := richModel(t, sz[0], sz[1])
+		m.Update(key("2"))
+		view := stripANSI(m.View())
+		lines := strings.Split(view, "\n")
+		header := -1
+		for i, l := range lines {
+			if strings.Contains(l, "product") && strings.Contains(l, "price") {
+				header = i
+				break
+			}
+		}
+		if header < 0 {
+			t.Fatalf("%dx%d: no product table header:\n%s", sz[0], sz[1], view)
+		}
+		main := func(l string) string { // MAIN's cells, the pane's cut off
+			r := []rune(l)
+			return string(r[:min(len(r), m.mainWidth())])
+		}
+		for i := header; i < header+1+len(m.w.Products) && i < len(lines); i++ {
+			if strings.Contains(main(lines[i]), "…") {
+				t.Errorf("%dx%d: a cut table row: %q", sz[0], sz[1], main(lines[i]))
+			}
+		}
+		for _, want := range []string{"product", "price", "stash", "order"} {
+			if !strings.Contains(main(lines[header]), want) {
+				t.Errorf("%dx%d: the header lacks %q: %q", sz[0], sz[1], want, main(lines[header]))
+			}
+		}
+	}
+}

@@ -258,18 +258,15 @@ func richFixture(t *testing.T, sz [2]int, check func(m *Model, view, what string
 	for _, s := range []string{"1", "2", "3", "4", "5", "6", "7", "8", "9"} {
 		m.Update(key(s))
 		see(m, "screen "+s)
-		// Space: the overlay where the strip is; nothing where the pane
-		// sits beside MAIN (#111: the pane has no toggle).
+		// Space: the overlay, where the strip is and, since #420, where
+		// the pane sits beside MAIN and cuts its lines (#111: the pane
+		// itself has no toggle).
 		m.Update(key(" "))
-		if sz[0] < paneMinWidth {
-			if m.mode != modeDetails {
-				t.Fatalf("%dx%d: space on screen %s: mode %v", sz[0], sz[1], s, m.mode)
-			}
-			see(m, "details overlay "+s)
-			m.Update(key("esc"))
-		} else if m.mode != modePlay || !m.paneShown() {
-			t.Fatalf("%dx%d: space on screen %s: mode %v pane shown %v", sz[0], sz[1], s, m.mode, m.paneShown())
+		if m.mode != modeDetails {
+			t.Fatalf("%dx%d: space on screen %s: mode %v", sz[0], sz[1], s, m.mode)
 		}
+		see(m, "details overlay "+s)
+		m.Update(key("esc"))
 		if m.mode != modePlay {
 			t.Fatalf("%dx%d: after space on screen %s: mode %v", sz[0], sz[1], s, m.mode)
 		}
@@ -720,9 +717,15 @@ func TestSpaceOpensTheOverlayUnder100(t *testing.T) {
 		if m.mainWidth() != 120-paneWidth {
 			t.Errorf("%s: MAIN is %d wide beside the pane, want %d", screens[s].word, m.mainWidth(), 120-paneWidth)
 		}
+		// Space opens the details whole beside the pane too (#420), and
+		// closes them again; it is not listed there.
 		m.Update(key(" "))
-		if m.mode != modePlay || !m.paneShown() || m.status != "" {
-			t.Errorf("%s: space at 120: mode %v pane shown %v status %q", screens[s].word, m.mode, m.paneShown(), m.status)
+		if m.mode != modeDetails || !m.paneShown() {
+			t.Errorf("%s: space at 120: mode %v pane shown %v", screens[s].word, m.mode, m.paneShown())
+		}
+		m.Update(key(" "))
+		if m.mode != modePlay {
+			t.Errorf("%s: space on the overlay at 120: mode %v", screens[s].word, m.mode)
 		}
 		for _, b := range m.keysFor(s) {
 			if b.key == "␣" {

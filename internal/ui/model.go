@@ -593,15 +593,14 @@ func (m *Model) toggleLieLow() {
 	}
 }
 
-// openDetails is space under paneMinWidth: the pane's sections open
-// whole as an overlay where the strip is, the one place they can be read
-// at 80 columns (#87). Beside MAIN the pane is always open and space
-// does nothing (#111).
-func (m *Model) openDetails() {
-	if m.width < paneMinWidth {
-		m.mode = modeDetails
-	}
-}
+// openDetails is space: the pane's sections open whole as an overlay,
+// the one place they can be read at 80 columns (#87) where the strip
+// is. Beside MAIN the pane is always open (#111), and space opens the
+// same overlay since #420: at 100 columns the pane cuts a line to its
+// 32 cells ("the till keeps $50K…"), and the overlay is twice as wide.
+// It is listed only where the strip is, so the pane's KEYS are as they
+// were.
+func (m *Model) openDetails() { m.mode = modeDetails }
 
 func (m *Model) quit() (tea.Model, tea.Cmd) {
 	if m.w != nil {

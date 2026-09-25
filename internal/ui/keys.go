@@ -43,6 +43,7 @@ type binding struct {
 	dialogs bool                 // listed for whatever dialog is open (#243: openPaged), so no mode list
 	quiet   bool                 // in help and the README only: the frame's keys, which the title bar and help carry
 	when    func(*Model) bool    // live only while this holds; nil is always
+	listed  func(*Model) bool    // listed in the pane only while this holds, live or not; nil lists it wherever it is live
 	do      func(*Model, string) // what it does in play mode, given the key pressed
 }
 
@@ -245,7 +246,7 @@ func dir(key string) int {
 func (m *Model) keysFor(s screen) []binding {
 	var out []binding
 	for _, b := range bindings {
-		if b.quiet || !b.names(s) || !b.live(m) {
+		if b.quiet || !b.names(s) || !b.live(m) || (b.listed != nil && !b.listed(m)) {
 			continue
 		}
 		shadowed := false
