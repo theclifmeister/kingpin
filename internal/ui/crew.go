@@ -43,7 +43,15 @@ func (m *Model) hireSelected() {
 		return
 	}
 	m.say(fmt.Sprintf("%s hired for %s.", got.Name, money(got.Fee)))
-	m.crewCursor = len(m.w.Crew.Members) - 1
+	// The cursor stays in LOOKING FOR WORK, on the face after the one
+	// hired (#445), so h again hires the next; with nobody left looking,
+	// it lands on the hire.
+	k := m.crewCursor - (len(m.w.Crew.Members) - 1) // the hire's index among the candidates
+	if n := len(m.w.Crew.Candidates); n > 0 {
+		m.crewCursor = len(m.w.Crew.Members) + min(k, n-1)
+	} else {
+		m.crewCursor = len(m.w.Crew.Members) - 1
+	}
 }
 
 func (m *Model) askFire() {

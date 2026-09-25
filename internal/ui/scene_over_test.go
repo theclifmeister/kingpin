@@ -138,16 +138,20 @@ func TestEndingSceneIsSkippable(t *testing.T) {
 	if m.View() == want {
 		t.Fatal("mid-scene the view is already the summary")
 	}
-	// n would start a new run on the summary; on the scene it is
-	// consumed.
+	// n on the scene is consumed, as any key is.
 	if _, cmd := m.Update(key("n")); cmd != nil || m.scene != nil || m.mode != modeOver || m.w.Over == nil {
 		t.Fatalf("n on the scene: cmd %v scene %v mode %v over %v", cmd, m.scene, m.mode, m.w.Over)
 	}
 	if got := m.View(); got != want {
 		t.Errorf("the summary after the skip is not today's:\n%s\n%s", stripANSI(got), stripANSI(want))
 	}
-	if _, cmd := m.Update(key("n")); cmd != nil || m.w.Over != nil || m.mode != modePlay {
-		t.Fatalf("n on the summary: cmd %v over %v mode %v", cmd, m.w.Over, m.mode)
+	// n ends a day everywhere else, so on the summary it does nothing;
+	// a new run is N, as it is in play (#445).
+	if m.Update(key("n")); m.w.Over == nil || m.mode != modeOver {
+		t.Fatalf("n on the summary started a run: over %v mode %v", m.w.Over, m.mode)
+	}
+	if _, cmd := m.Update(key("N")); cmd != nil || m.w.Over != nil || m.mode != modePlay {
+		t.Fatalf("N on the summary: cmd %v over %v mode %v", cmd, m.w.Over, m.mode)
 	}
 }
 

@@ -513,7 +513,7 @@ func (m *Model) keyReport(key string) {
 // slot, esc goes to the start menu, q quits.
 func (m *Model) keyOver(key string) (tea.Model, tea.Cmd) {
 	switch key {
-	case "n":
+	case "N": // N, as a new run is everywhere (#445): n ends the day, and a day ended by habit here started a run
 		_ = game.DeleteSave(m.slot)
 		m.restart()
 	case "esc":

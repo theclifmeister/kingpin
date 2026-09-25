@@ -181,7 +181,7 @@ func TestDailyIsTheDate(t *testing.T) {
 	if p.Best["20260913"].Score != 900 || len(p.Runs) != 2 || !p.Runs[1].Practice || p.Attempts["20260913"] != 2 {
 		t.Fatalf("the practice run took Best: %+v", p)
 	}
-	m.Update(key("n"))
+	m.Update(key("N"))
 	if m.mode != modePlay || m.w.Start.Daily != "" || m.w.Start.Character != "" || m.w.Seed == game.DailySeed(sept13) {
 		t.Fatalf("n on the daily's summary: %+v seed %d", m.w.Start, m.w.Seed)
 	}
@@ -231,7 +231,7 @@ func TestRunEndRecordsAndUnlocks(t *testing.T) {
 	if view := stripANSI(strings.Join(again.summaryLines(), "\n")); !strings.Contains(view, "1st of 1 run") {
 		t.Errorf("the summary does not rank the run:\n%s", view)
 	}
-	again.Update(key("n"))
+	again.Update(key("N"))
 	if again.mode != modePlay || again.w.Start.Character != "excop" || again.w.Over != nil {
 		t.Fatalf("n: mode %v start %+v", again.mode, again.w.Start)
 	}
