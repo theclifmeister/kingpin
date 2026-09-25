@@ -1,4 +1,4 @@
-version 12
+version 13
 .version int
 .seed uint64
 .day int
@@ -293,6 +293,7 @@ version 12
 .alerts[].contract int
 .alerts[].supplier string
 .alerts[].house string
+.alerts[].front string
 .alerts[].due int
 .alerts[].amount int
 .alerts[].have int

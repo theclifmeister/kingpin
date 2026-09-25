@@ -2,6 +2,7 @@ package news
 
 import (
 	"fmt"
+	"strings"
 
 	"github.com/theclifmeister/kingpin/internal/events"
 	"github.com/theclifmeister/kingpin/internal/format"
@@ -23,6 +24,29 @@ func (r *reporter) reportLogistics(e events.Event) bool {
 		r.book(game.FlowRoutes, -ev.Cost, 0)
 		r.charge(ev.Name, ev.Cost)
 		rep.Shipments = append(rep.Shipments, fmt.Sprintf("%d %s left %s for %s by %s, %s: %s, fare -%s", ev.Units, w.ProductName(ev.Product), w.CityName(ev.From), w.CityName(ev.To), ev.Mode, ev.Dial, format.Plural(ev.Days, "day"), format.Money(ev.Cost)))
+	case events.RouteIdle:
+		// Short and nothing sent (#459): a playtest's routes read
+		// "shipped 0" for days and the report said nothing. Each line
+		// fits the report at 80 columns: the modal cuts, never wraps.
+		switch ev.Why {
+		case events.IdleTill:
+			if over := ev.Dirty - ev.Till; over > 0 {
+				// Over the till, but not by a lot and its fare.
+				rep.Shipments = append(rep.Shipments, fmt.Sprintf("%s idle: only %s over the %s till, short of a lot", ev.Name, format.Money(over), format.Money(ev.Till)))
+			} else {
+				rep.Shipments = append(rep.Shipments, fmt.Sprintf("%s idle: %s dirty, none over the %s till", ev.Name, format.Money(ev.Dirty), format.Money(ev.Till)))
+			}
+		case events.IdleStock:
+			what := "nothing it is short of"
+			if len(ev.Products) <= 2 {
+				var names []string
+				for _, p := range ev.Products {
+					names = append(names, w.ProductName(p))
+				}
+				what = "no " + strings.Join(names, " or ")
+			}
+			rep.Shipments = append(rep.Shipments, fmt.Sprintf("%s idle: %s in the %s stash", ev.Name, what, w.CityName(ev.From)))
+		}
 	case events.ShipmentArrived:
 		rep.Shipments = append(rep.Shipments, fmt.Sprintf("%d %s landed in %s from %s by %s", ev.Units, w.ProductName(ev.Product), w.CityName(ev.To), w.CityName(ev.From), ev.Mode))
 	case events.ShipmentSeized:

@@ -24,6 +24,7 @@ var reportOnly = map[string]bool{
 	"RivalUndercut": true, "CashLaundered": true, "CrewPaidOff": true,
 	"WholesaleBought": true, "SupplyBought": true, "SupplyShort": true, "StandingShort": true,
 	"ShipmentSent": true, "ShipmentArrived": true, "CityFunded": true,
+	"RouteIdle":           true, // #459
 	"PlayerUndercut":      true,
 	"CrewTurnedInformant": true, "LieutenantFlipped": true, // deliberately silent: the informant is hidden
 	"DilemmaDrawn": true, "DilemmaAnswered": true, // they carry their own text, the card's

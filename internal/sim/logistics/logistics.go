@@ -315,6 +315,71 @@ func (s *Sim) Shortfall(w *game.World, r content.RouteConfig, product string) in
 // float, folded by the tree the way the wash folds it (World.Float, #118).
 func (s *Sim) Budget(w *game.World) int { return max(0, w.Player.DirtyCash-w.Float(s.tree, s.float)) }
 
+// Idle is why a route on its dial would send nothing on the world as it
+// stands (#459), one of the events.Idle* reasons, or "" when it would
+// send something, or its dial is off, or it is not there to run: the
+// map's row and pane, and the ledger, say it. A playtest's routes read
+// "shipped 0" for days with no word: the till had the cash. It reads
+// the dirty cash in hand, so the night's sales, which come before the
+// road, can still fund a route it calls idle on the till; the morning
+// report's RouteIdle is what the night did. No dice.
+func (s *Sim) Idle(w *game.World, r content.RouteConfig) string {
+	rs := w.Route(r.ID)
+	switch {
+	case !rs.Dial.On() || w.Cities[r.From] == nil || w.Cities[r.To] == nil || !s.Open(w, r):
+		return ""
+	case w.RouteClosed(r.ID):
+		return events.IdleClosed
+	case !rs.HasTargets():
+		return events.IdleNoTarget
+	}
+	why, _ := s.idle(w, r, s.Effects(w))
+	return why
+}
+
+// idle is Idle's arithmetic on a route that is on, open and not shut,
+// with the products short of the target: run's, with nothing bought or
+// sent. A route that could send one unit of one product is not idle;
+// the till outranks an empty stash, since cash is what the player can
+// move.
+func (s *Sim) idle(w *game.World, r content.RouteConfig, fx game.Effects) (string, []string) {
+	var short []string
+	till, stock := false, false
+	budget := s.Budget(w)
+	for _, id := range w.Products {
+		if w.Product(r.From, id) == nil || w.Product(r.To, id) == nil {
+			continue
+		}
+		units := min(s.Shortfall(w, r, id), s.capacity(w, fx, r))
+		if units <= 0 {
+			continue
+		}
+		short = append(short, id)
+		have := w.Stock(r.From, id)
+		sup := w.WholesaleSupplier(r.From)
+		lot := sup != nil && sup.Open(w) && sup.Sells(id) && sup.Lot > 0 && sup.Price[id] > 0 && sup.Left() >= sup.Lot
+		switch {
+		case have > 0 && fareFor(fx, r, 1) <= budget:
+			return "", nil
+		case have > 0:
+			till = true
+		case !lot:
+			stock = true
+		case int(math.Ceil(sup.Price[id]*float64(sup.Lot)))+fareFor(fx, r, min(units, sup.Lot)) <= budget:
+			return "", nil
+		default:
+			till = true
+		}
+	}
+	switch {
+	case till:
+		return events.IdleTill, short
+	case stock:
+		return events.IdleStock, short
+	}
+	return events.IdleMet, nil
+}
+
 // StartingCities converts config into the cities a new world starts with:
 // every city, home first, its ladder priced for it.
 func StartingCities(cities content.CityConfig, market content.MarketConfig) []game.StartingCity {
@@ -520,6 +585,7 @@ func (s *Sim) run(w *game.World, t *game.Tick, fx game.Effects) {
 		}
 		dial := rs.Dial.Ship()
 		var day game.RouteDay
+		sent := false
 		for _, id := range w.Products {
 			if w.Product(r.From, id) == nil || w.Product(r.To, id) == nil {
 				continue
@@ -570,6 +636,7 @@ func (s *Sim) run(w *game.World, t *game.Tick, fx game.Effects) {
 				Dial: dial, Sent: t.Day, Arrives: t.Day + days, Cost: fareFor(fx, r, units), Driver: driver,
 			})
 			day.Fares += sh.Cost
+			sent = true
 			t.Emit(events.ShipmentSent{
 				Day: t.Day, ID: sh.ID, Route: sh.Route, Name: r.Name, Mode: sh.Mode, From: sh.From, To: sh.To,
 				Product: sh.Product, Units: sh.Units, Cost: sh.Cost, Dial: sh.Dial, Days: days, Driver: sh.Driver,
@@ -578,6 +645,13 @@ func (s *Sim) run(w *game.World, t *game.Tick, fx game.Effects) {
 		if day.Wholesale+day.Fares > 0 {
 			day.Day, day.Route = t.Day, r.ID
 			w.Logistics.Days = append(w.Logistics.Days, day)
+		}
+		if !sent {
+			// Short and nothing sent says why (#459): the report's
+			// line. A route at its target is not news.
+			if why, short := s.idle(w, r, fx); why == events.IdleTill || why == events.IdleStock {
+				t.Emit(events.RouteIdle{Day: t.Day, Route: r.ID, Name: r.Name, From: r.From, To: r.To, Why: why, Products: short, Till: w.Float(s.tree, s.float), Dirty: w.Player.DirtyCash})
+			}
 		}
 	}
 }

@@ -174,6 +174,41 @@ func TestUnpaidUpkeepFreezes(t *testing.T) {
 	}
 }
 
+// A front shut for its upkeep keeps what the clean pile lacked (#458),
+// the event says it, and the first night it pays again clears it.
+func TestUnpaidUpkeepIsNamed(t *testing.T) {
+	cfg := content.MustLoad()
+	s := laundering.New(cfg)
+	tun := cfg.Laundering.Laundering
+	fc := cfg.Laundering.Fronts[0]
+	w := world(fc.Cost + tun.Float) // nothing over the float to wash
+	if _, err := s.Buy(w, fc.ID); err != nil {
+		t.Fatal(err)
+	}
+	w.Player.CleanCash = fc.Upkeep / 3
+	short := fc.Upkeep - fc.Upkeep/3
+	var frozen *events.FrontFrozen
+	for _, e := range step(w, s) {
+		if ev, ok := e.(events.FrontFrozen); ok {
+			frozen = &ev
+		}
+	}
+	if frozen == nil || frozen.Upkeep != fc.Upkeep || frozen.Short != short || frozen.Days != tun.UpkeepFreezeDays {
+		t.Fatalf("FrontFrozen %+v, want upkeep %d short %d", frozen, fc.Upkeep, short)
+	}
+	if f := w.Fronts[0]; f.Unpaid != short || w.Player.CleanCash != fc.Upkeep/3 {
+		t.Fatalf("after unpaid upkeep: %+v clean %d, want unpaid %d and the pile untouched", f, w.Player.CleanCash, short)
+	}
+	w.Player.CleanCash = 10 * fc.Upkeep
+	for w.Fronts[0].Frozen(w.Day + 1) {
+		step(w, s)
+	}
+	step(w, s)
+	if f := w.Fronts[0]; f.Unpaid != 0 || f.Frozen(w.Day) {
+		t.Fatalf("open again and paid: %+v", f)
+	}
+}
+
 // An audit freezes the front, seizes part of today's wash, records the
 // dial it hit at, and is emitted; the dial scales throughput and risk.
 func TestAuditAndDial(t *testing.T) {

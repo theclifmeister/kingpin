@@ -51,6 +51,8 @@ func (s *Sim) lead(w *game.World, t *game.Tick, flow game.CashFlow) []game.Line 
 		pages                int   // what went in the DA's file
 		lostCity, movedFirst string
 		scouts               named // a faction's scouts or recruiters in a city (#341)
+		shut                 named // fronts shut for their upkeep (#458)
+		short, shutDays      int   // what the clean pile lacked of it, and for how long
 		probe                *game.Line
 	)
 	for _, e := range t.Events() {
@@ -114,6 +116,10 @@ func (s *Sim) lead(w *game.World, t *game.Tick, flow game.CashFlow) []game.Line 
 				seized++
 				cash += ev.Seized
 			}
+		case events.FrontFrozen:
+			shut.add(ev.Name, ev.Front)
+			short += ev.Short
+			shutDays = ev.Days
 		case events.RaidFellThrough:
 			pages += ev.Evidence
 		case events.BribeBackfired:
@@ -173,6 +179,15 @@ func (s *Sim) lead(w *game.World, t *game.Tick, flow game.CashFlow) []game.Line 
 	}
 	if probe != nil {
 		add("investigation", 1, *probe)
+	}
+	if n := shut.len(); n > 0 {
+		// Upkeep is paid in clean cash after the wash (#458): say so, and
+		// what the pile lacked, where a flavour headline said "dark".
+		text := fmt.Sprintf("%s shut %s: its upkeep is paid in clean cash, and the clean pile was %s short.", shut.words(), format.Plural(shutDays, "day"), format.Cash(short))
+		if n > 1 {
+			text = fmt.Sprintf("%d fronts shut %s: upkeep is paid in clean cash, and the clean pile was %s short (%s).", n, format.Plural(shutDays, "day"), format.Cash(short), shut.words())
+		}
+		add("front_shut", float64(n), game.Line{Text: text, Act: game.Act{Screen: game.ScreenLedger}})
 	}
 	if n := scouts.len(); n > 0 {
 		add("scouts", float64(n), game.Line{Text: capitalize(scouts.joined("; ")) + ".", Act: game.Act{Screen: game.ScreenRivals}, City: scouts.first()})

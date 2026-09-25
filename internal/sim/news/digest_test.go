@@ -129,6 +129,19 @@ func TestLeadIsTheBiggestThree(t *testing.T) {
 		}, []want{
 			{"idle_runner", "2 of the crew are idle: Cash (runner), Bird (enforcer).", game.Act{Screen: game.ScreenCrew, Subject: game.OnMember}},
 		}},
+		{"a front shut for its upkeep says why (#458)", func(w *game.World) []events.Event {
+			return []events.Event{events.FrontFrozen{Day: 21, Front: "laundromat", Name: "Laundromat", Upkeep: 150, Short: 150, Days: 7}}
+		}, []want{
+			{"front_shut", "Laundromat shut 7 days: its upkeep is paid in clean cash, and the clean pile was $150 short.", game.Act{Screen: game.ScreenLedger}},
+		}},
+		{"fronts shut together are one line", func(w *game.World) []events.Event {
+			return []events.Event{
+				events.FrontFrozen{Day: 21, Front: "laundromat", Name: "Laundromat", Upkeep: 150, Short: 150, Days: 7},
+				events.FrontFrozen{Day: 21, Front: "carwash", Name: "Car Wash", Upkeep: 400, Short: 400, Days: 7},
+			}
+		}, []want{
+			{"front_shut", "2 fronts shut 7 days: upkeep is paid in clean cash, and the clean pile was $550 short (Laundromat, Car Wash).", game.Act{Screen: game.ScreenLedger}},
+		}},
 		{"only three lead", func(w *game.World) []events.Event {
 			c := w.Home().Corners
 			return []events.Event{
@@ -312,5 +325,22 @@ func TestFallingProfitPointsAtTheRoad(t *testing.T) {
 				t.Fatalf("hint %v, want %v: %+v", hinted, tc.road, *flow)
 			}
 		})
+	}
+}
+
+// The MONEY line of a front shut for its upkeep names what was due, in
+// clean cash, and what the pile lacked (#458).
+func TestFrontShutMoneyLine(t *testing.T) {
+	cfg := content.MustLoad()
+	n, err := news.New(cfg)
+	if err != nil {
+		t.Fatal(err)
+	}
+	w := sim.NewWorld(cfg, 4)
+	w.Day = 20
+	n.Step(w, gametest.TickOn(w, 21, events.FrontFrozen{Day: 21, Front: "laundromat", Name: "Laundromat", Upkeep: 150, Short: 100, Days: 7}))
+	want := "Laundromat shut for 7 days: $150 clean upkeep unpaid, $100 short."
+	if !slices.ContainsFunc(w.Report.Money, func(l string) bool { return strings.HasPrefix(l, want) }) {
+		t.Fatalf("money lines %q, want one opening %q", w.Report.Money, want)
 	}
 }

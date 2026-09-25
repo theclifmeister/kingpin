@@ -583,12 +583,16 @@ func (s *Sim) Step(w *game.World, t *game.Tick) {
 		// 2. Upkeep, in clean cash, out of the pile as it stands: the
 		// wash just in and whatever was kept back. Unpaid, the place
 		// shuts, and earns nothing while it is shut.
+		// The shortfall is kept on the front while it is shut (#458), so
+		// the ledger and the alerts can say why.
 		due := upkeep(*fc, f.Level, fx)
 		if due > w.Player.CleanCash {
 			f.FrozenUntil = t.Day + tun.UpkeepFreezeDays
-			t.Emit(events.FrontFrozen{Day: t.Day, Front: f.ID, Name: f.Name, Upkeep: due, Days: tun.UpkeepFreezeDays})
+			f.Unpaid = due - w.Player.CleanCash
+			t.Emit(events.FrontFrozen{Day: t.Day, Front: f.ID, Name: f.Name, Upkeep: due, Short: f.Unpaid, Days: tun.UpkeepFreezeDays})
 			continue
 		}
+		f.Unpaid = 0
 		w.Player.CleanCash -= due
 		paid += due
 

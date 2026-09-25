@@ -329,20 +329,29 @@ const (
 // World.Journal set aside the digest is main's on all sixty days, and
 // managed, boss, war and aggressive (20 runs, 200 days) print what main
 // prints.
+// Again for #458 (Front.Unpaid added to the walk): the move on day 16,
+// the boss's first front, is shape alone. With Unpaid set aside the
+// digest is main's on all sixty days; the boss's fronts never go short.
+// Again for #459 (a route short of its target and sending nothing says
+// why, RouteIdle, and a supply contract out of cash says what the wash
+// took): the move on day 1 is the report's words alone, the boss's
+// Channel on with nothing in the Bayport stash to send. With
+// World.Report and World.Journal set aside the digest is main's on all
+// sixty days.
 var seedDigest = []string{
-	"0a9d256ac4067b0b", "d733bc202d78a82d", "d4957c0996824e2f", "854723905af8046c",
-	"512fd46840037822", "6d2c090948bb7171", "aa02e7ea3955331a", "14f526cef234b2a7",
-	"a4a83c27f7dfe8c6", "d508573e8e6375b4", "fb972410bb305b00", "bad158def77769d0",
-	"879d09a4c37af2f1", "1d0a0e8c6300a8f3", "e2daadfcc794e8bb", "3cc33241ff16d133",
-	"c1711ea2ab8a9d65", "5afadc26b3deaac7", "26376d966b8c1d93", "572c922927ab5eed",
-	"41baf3fd2ea2bb0a", "ac565b3c19e08742", "e4fbf88281b1c887", "716ef6508a17245d",
-	"34e67524c0ef3c07", "7862b637fc0fc925", "d11ca2b69dd686b7", "b470293e739b0617",
-	"1dd18b9dabb5164d", "bc2b4f369dc096e2", "cf85c0bd7893dcd6", "696b1ddf9c9e3d3e",
-	"79eceb1dbc85d028", "4efd09b43534ecb1", "54173c0bbe82d32d", "bb6934052351ee38",
-	"809b1b89c2d0b6e9", "630dd1cd4f6430c0", "6ac6720f96416f93", "c2353c29d1d8a550",
-	"a6521f6697c0de42", "d1a17e73a5398d69", "a6a7fc9cc9d5d8c6", "d505926353315154",
-	"445630f8e5d3bc7d", "72bcd2145bb6d10b", "b061372f3ab39dfa", "5a6bf8f70930e876",
-	"8d7b8ca778a8cccf", "47504e322e5b08d2", "80ff3d78ea9d2da2", "728c4431a401f697",
-	"3ca28b57c5545244", "4cdcfc9324d95463", "cd5b176c7667f441", "16a5fefdda8e888f",
-	"ab1d4285405c7336", "79b8f61e04bff586", "fad9a0e43767bfd4", "0bc37ec75219089e",
+	"399f263821f84b75", "d96e9fe5b119cc4b", "118c6624a7893c85", "4e786a8c609b2cea",
+	"ada47897cb50b840", "86cca3860f76a803", "309a8aa012bb8488", "4082b7c4511b76d9",
+	"46fb4a6e3c151030", "3b1e03e717440222", "fde0d6c9bfa20fba", "f1c6d720450a0022",
+	"265821f09db22d3b", "6da6fc7e95b35321", "467abbdcfe3284f5", "a575efe636775008",
+	"7212ecedb6663778", "6b7e5f44710b7cf0", "be8b00a05dba66dc", "05aacefd0f3a8b9a",
+	"95733b68b02b9c11", "b170420853ab8f0d", "d5ae1d8b57be1c54", "79e8410f9a011e10",
+	"328950995157e354", "79d8eb544da702da", "6ba171fd41a86bfe", "8403621e656b97ee",
+	"b21b797fa20aacaf", "19f6c66a37729a32", "49a0adf3447afe00", "234c5825f7acb5d8",
+	"575ce6e62fedc26c", "58b11a657ac05501", "a0b4b3bde5815097", "a0d0a7336ae13c7a",
+	"c591e3b1d4cc8d99", "a9bf66fcf066a754", "877e00b94ff4699d", "95840acd505cacae",
+	"5881cdf7a68782ae", "0eaaea8c08381dd7", "f1c459ed92a860d4", "433bf140210a0616",
+	"4ca07e0b15054fa1", "2e88c4a99f169bf7", "db8d9e27863f39a4", "e9a6c98bcd51ee36",
+	"022b1a07f7ef7bb3", "db845f8eb71297e4", "484c31c0277c90be", "073adde6517d9805",
+	"559616174e2b9e06", "71737fe1e6beb400", "16a20904dfcf6912", "6fd9d016f3c818c8",
+	"e1a29d40b92a1894", "e61334277f6727cd", "9703d93b0b691469", "e52e2f7bcdfefb0f",
 }

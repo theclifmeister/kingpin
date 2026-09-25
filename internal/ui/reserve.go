@@ -2,6 +2,7 @@ package ui
 
 import (
 	"fmt"
+	"strings"
 
 	tea "github.com/charmbracelet/bubbletea"
 
@@ -12,8 +13,10 @@ import (
 // The reserve dialog (#195): clean cash into the offshore account, the
 // one place nothing takes it from and the one it never comes back
 // from. One page, a number field in dollars (blank is a lot: what
-// moves unnoticed), the fee and the pages the DA files over the lot, in
-// red past it. It is an amountDialog (#275).
+// moves unnoticed, less tonight's clean upkeep, #458), the fee and the
+// pages the DA files over the lot, in red past it, and a warning when
+// the move leaves the clean pile under tonight's upkeep. It is an
+// amountDialog (#275).
 
 // askReserve opens the reserve dialog.
 func (m *Model) askReserve() {
@@ -24,14 +27,27 @@ func (m *Model) askReserve() {
 		m.refuse("Can't reserve: the account takes clean cash, and you have none.")
 		return
 	}
-	m.openAmount(modeReserve, "blank = a lot", m.w.Player.CleanCash, true, "")
+	hint := "blank = a lot"
+	if m.upkeepTonight() > 0 {
+		hint = "blank = a lot, less upkeep"
+	}
+	m.openAmount(modeReserve, hint, m.w.Player.CleanCash, true, "")
 }
 
-// reserveAmount is the amount the field reads: blank is a lot, or the
-// clean cash where that is less.
+// reserveBlank is what a blank amount moves: a lot, or the clean cash
+// less tonight's upkeep where that is less (#458: a blank reserve used
+// to move every clean dollar, and the next morning every front shut).
+func (m *Model) reserveBlank() int {
+	return max(0, min(m.rules.Laundering.Offshore().Lot, m.w.Player.CleanCash-m.upkeepTonight()))
+}
+
+// reserveAmount is the amount the field reads: blank is reserveBlank,
+// and says so when that is nothing.
 func (m *Model) reserveAmount() (int, error) {
-	lot := min(m.rules.Laundering.Offshore().Lot, m.w.Player.CleanCash)
-	return readQty(m.amt.numberField, lot)
+	if blank := m.reserveBlank(); blank <= 0 && strings.TrimSpace(m.amt.Value()) == "" {
+		return 0, fmt.Errorf("blank keeps %s clean back for tonight's upkeep, and that is all of it: type an amount to move it anyway", money(m.upkeepTonight()))
+	}
+	return readQty(m.amt.numberField, m.reserveBlank())
 }
 
 func (m *Model) keyReserve(k tea.KeyMsg) (tea.Model, tea.Cmd) {
@@ -87,6 +103,10 @@ func (m *Model) viewReserve() string {
 			style = theme.Bad
 		}
 		body = append(body, row("moves", fmt.Sprintf("%s tonight, fee %s   %s", style.Render(money(amt)), money(l.Fee(m.w, amt)), pages)))
+		body = append(body, m.upkeepWarning(w.Player.CleanCash-amt, w.Player.DirtyCash, m.upkeepTonight())...)
+	}
+	if due := m.upkeepTonight(); due > 0 {
+		body = append(body, row("upkeep", fmt.Sprintf("%s clean tonight %s", money(due), theme.Subtle.Render("(blank keeps it back)"))))
 	}
 	body = append(body, "",
 		theme.Subtle.Render(fmt.Sprintf("Up to %s a day moves unnoticed; every lot over it is a page. The account keeps %s.", money(off.Lot), format.Pct(off.Fee, 0))),

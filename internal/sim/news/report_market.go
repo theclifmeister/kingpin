@@ -121,9 +121,27 @@ func (r *reporter) reportMarket(e events.Event) bool {
 		if ev.Why == "supplier" {
 			why = "nobody there sells it today"
 		}
-		if ev.Lieutenant != "" {
+		// Short of cash, yours reads short enough for the report at 80
+		// columns, and a line under it says what took the cash (#459):
+		// a playtest's contracts ran short every morning, the why cut
+		// off, on what the night before had washed.
+		var took string
+		if n := len(w.Flows); ev.Why == "cash" && n > 0 && w.Flows[n-1].Line(game.FlowLaundering).Dirty < 0 {
+			last := w.Flows[n-1]
+			took = fmt.Sprintf("  the wash took %s last night and left the till %s", format.Money(-last.Line(game.FlowLaundering).Dirty), format.Money(last.Closing.Dirty))
+		}
+		switch {
+		case ev.Lieutenant != "":
 			rep.Crew = append(rep.Crew, fmt.Sprintf("%s could not keep %s stocked%s: %d under the level, %s.", ev.Lieutenant, w.ProductName(ev.Product), r.in(ev.City), ev.Short, why))
-		} else {
+			if took != "" {
+				rep.Crew = append(rep.Crew, took)
+			}
+		case ev.Why == "cash":
+			rep.Sales = append(rep.Sales, fmt.Sprintf("Supply contract out of cash: %d %s short%s.", ev.Short, w.ProductName(ev.Product), r.in(ev.City)))
+			if took != "" {
+				rep.Sales = append(rep.Sales, took)
+			}
+		default:
 			rep.Sales = append(rep.Sales, fmt.Sprintf("Supply contract short: %d %s under the level%s, %s.", ev.Short, w.ProductName(ev.Product), r.in(ev.City), why))
 		}
 	case events.CreditTaken:

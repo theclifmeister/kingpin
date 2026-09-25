@@ -73,9 +73,9 @@ func (m *Model) fundTicket() string {
 }
 
 // fundAmount is what the first page gives for goodwill: the typed
-// amount, or blank's most; an error if it does not read.
+// amount, or blank's (fundBlank); an error if it does not read.
 func (m *Model) fundAmount(c *game.City) (int, error) {
-	return readQty(m.fnd.amt, m.maxFund(c))
+	return readQty(m.fnd.amt, m.fundBlank(c))
 }
 
 // maxBack is what the campaign field's m fills in (#193): the clean cash
@@ -109,13 +109,19 @@ func (m *Model) fundCity() *game.City {
 	return m.w.Cities[m.w.CityOrder[m.fnd.city]]
 }
 
-// maxFund is what a blank amount means and what the field's m fills in
-// (#112): enough clean cash to take the city's goodwill to 100, or all
-// of it if that is less. Goodwill stops at 100, so more would be given
-// for nothing.
+// maxFund is what the field's m fills in (#112): enough clean cash to
+// take the city's goodwill to 100, or all of it if that is less.
+// Goodwill stops at 100, so more would be given for nothing.
 func (m *Model) maxFund(c *game.City) int {
 	need := int((100 - c.Goodwill) * float64(m.rules.Law.Tuning().GoodwillCash))
 	return max(0, min(need, m.w.Player.CleanCash))
+}
+
+// fundBlank is what a blank amount gives: maxFund less what it would
+// take of tonight's upkeep (#458: the fronts' upkeep is clean too, and a
+// front it cannot pay shuts).
+func (m *Model) fundBlank(c *game.City) int {
+	return max(0, min(m.maxFund(c), m.w.Player.CleanCash-m.upkeepTonight()))
 }
 
 // keyFund is the fund dialog's keys: left and right turn the city on
@@ -198,6 +204,9 @@ func (m *Model) confirmFund() (tea.Model, tea.Cmd) {
 	}
 	if amt <= 0 && back <= 0 {
 		m.fnd.err = "Nothing to give."
+		if strings.TrimSpace(m.fnd.amt.Value()) == "" && c.Goodwill < 100 && m.upkeepTonight() > 0 {
+			m.fnd.err = fmt.Sprintf("Blank keeps %s clean back for tonight's upkeep, and that is all of it: type an amount to give it anyway.", money(m.upkeepTonight()))
+		}
 		return m, nil
 	}
 	if amt > 0 {
@@ -255,6 +264,10 @@ func (m *Model) viewFund() string {
 			style = theme.Bad
 		}
 		body = append(body, row("buys", fmt.Sprintf("%s goodwill for %s   %s", theme.Good.Render(fmt.Sprintf("+%.0f", g)), style.Render(money(amt)), theme.Subtle.Render(fmt.Sprintf("(%s a point, 100 at most)", money(tun.GoodwillCash))))))
+		body = append(body, m.upkeepWarning(w.Player.CleanCash-amt, w.Player.DirtyCash, m.upkeepTonight())...)
+	}
+	if due := m.upkeepTonight(); due > 0 {
+		body = append(body, row("upkeep", fmt.Sprintf("%s clean tonight %s", money(due), theme.Subtle.Render("(blank keeps it back)"))))
 	}
 	body = append(body, "",
 		theme.Subtle.Render(fmt.Sprintf("Full goodwill takes %.1f pressure off the city a day; it fades %s a day.", tun.GoodwillCut, format.Pct(tun.GoodwillDecay, 0))),
@@ -306,6 +319,7 @@ func (m *Model) viewCampaign(c *game.City) string {
 		}
 		total := camp.Cash + back
 		body = append(body, row("buys", fmt.Sprintf("%s of %s's vote for %s   %s", theme.Good.Render(swingWord(cmp.Swing(total))), c.Name, style.Render(money(back)), theme.Subtle.Render(fmt.Sprintf("(%s a point, %.0f at most)", money(cmp.Cash), cmp.SwingMax*100)))))
+		body = append(body, m.upkeepWarning(w.Player.CleanCash-given-back, w.Player.DirtyCash, m.upkeepTonight())...)
 	}
 	body = append(body, "",
 		theme.Subtle.Render("A winner you backed owes you: the sting line sits higher. A loser's rival knows who paid."),

@@ -340,6 +340,32 @@ func (m *Model) targetLine(route string) string {
 	return strings.Join(parts, " · ")
 }
 
+// routeIdle is why a route on its dial would send nothing (#459,
+// logistics.Sim.Idle), as the map's row words it where it fits
+// (long), as it words it where it does not (short), and its colour:
+// a warning where the route is short of its target, subtle where it
+// is simply at it. All "" for a route that would send, or is off.
+func (m *Model) routeIdle(r content.RouteConfig) (long, short string, style lipgloss.Style) {
+	style = theme.Warning
+	switch m.rules.Logistics.Idle(m.w, r) {
+	case events.IdleTill:
+		if m.rules.Logistics.Budget(m.w) > 0 {
+			// Over the till, but not by a lot and its fare.
+			return "idle: too little over the " + cash(m.till()) + " till for a lot", "idle: till", style
+		}
+		return "idle: no dirty cash over the " + cash(m.till()) + " till", "idle: till", style
+	case events.IdleStock:
+		return "idle: nothing in the " + m.w.CityName(r.From) + " stash", "idle: empty", style
+	case events.IdleNoTarget:
+		return "idle: no target", "no target", style
+	case events.IdleClosed:
+		return "idle: shut", "shut", style
+	case events.IdleMet:
+		return "idle: target met", "idle: met", theme.Subtle
+	}
+	return "", "", style
+}
+
 // dialStyle is the colour a route dial is drawn in: the dial's accent
 // when it is on, red at fast (the risk is the road's danger), Subtle
 // off. The pane's row is one bracketed notch, `[slow]`, because four
@@ -362,8 +388,10 @@ func dialStyle(d events.RouteDial) lipgloss.Style {
 // days in transit; the track goes last, where even the bare line would
 // not fit, and the pane keeps the marker whatever the width); the
 // routes cursor's row is marked ▸ and drawn Selected across while the
-// cursor is on the routes. The selected route's targets are the pane's
-// (routeSection).
+// cursor is on the routes. A route on its dial that would send nothing
+// says why after the dial (#459, routeIdle: `idle: no dirty cash over
+// the $50K till`, shortened to `idle: till` before the track
+// goes). The selected route's targets are the pane's (routeSection).
 func (m *Model) routeLines(width int) []string {
 	w := m.w
 	lg := m.rules.Logistics
@@ -374,7 +402,17 @@ func (m *Model) routeLines(width int) []string {
 		cityW = max(cityW, lipgloss.Width(w.CityName(r.From)), lipgloss.Width(w.CityName(r.To)))
 		modeW = max(modeW, lipgloss.Width(r.Mode))
 	}
-	draw := func(units string, track bool) (lines []string, widest int) {
+	// Why a route sends nothing (#459), once a route: the long words
+	// where they fit, the short where they do not.
+	type why struct {
+		long, short string
+		style       lipgloss.Style
+	}
+	idle := make([]why, len(routes))
+	for i, r := range routes {
+		idle[i].long, idle[i].short, idle[i].style = m.routeIdle(r)
+	}
+	draw := func(units string, track, long bool) (lines []string, widest int) {
 		for i, r := range routes {
 			d := w.Route(r.ID).Dial
 			name := fit(r.Name, nameW)
@@ -389,7 +427,14 @@ func (m *Model) routeLines(width int) []string {
 			if units != "" {
 				terms = fmt.Sprintf("  %dd · %d%s · %s/u · %s", lg.Days(w, r, d.Ship()), lg.Capacity(w, r), units, fare(lg.Fare(w, r)), m.seizedWord(r, d.Ship()))
 			}
-			plain := name + "  " + from + road + to + "  " + dial + terms
+			why := idle[i].short
+			if long {
+				why = idle[i].long
+			}
+			if why != "" {
+				why = "  " + why // before the terms, which go first where the row is narrow
+			}
+			plain := name + "  " + from + road + to + "  " + dial + why + terms
 			widest = max(widest, 2+lipgloss.Width(plain))
 			mark := "  "
 			if i == m.routeCursor {
@@ -399,19 +444,22 @@ func (m *Model) routeLines(width int) []string {
 					continue
 				}
 			}
-			lines = append(lines, mark+name+"  "+theme.Subtle.Render(from)+markTrack(road)+theme.Subtle.Render(to)+"  "+dialStyle(d).Render(dial)+theme.Subtle.Render(terms))
+			lines = append(lines, mark+name+"  "+theme.Subtle.Render(from)+markTrack(road)+theme.Subtle.Render(to)+"  "+dialStyle(d).Render(dial)+idle[i].style.Render(why)+theme.Subtle.Render(terms))
 		}
 		return lines, widest
 	}
-	lines, widest := draw(" units", true)
+	lines, widest := draw(" units", true, true)
 	if widest > width {
-		lines, widest = draw("u", true)
+		lines, widest = draw("u", true, true)
 	}
 	if widest > width {
-		lines, widest = draw("", true)
+		lines, widest = draw("", true, true)
 	}
 	if widest > width {
-		lines, _ = draw("", false)
+		lines, widest = draw("", true, false)
+	}
+	if widest > width {
+		lines, _ = draw("", false, false)
 	}
 	for i, l := range lines {
 		lines[i] = truncate(l, width)
@@ -533,6 +581,14 @@ func (m *Model) routeFacts(r content.RouteConfig) (string, []string) {
 	if rs := w.Route(r.ID); w.RouteClosed(r.ID) {
 		// Shut by an incident (#44): tonight and the nights after it before it reopens.
 		lines = append(lines, row("closed", theme.Warning.Render(plural(rs.ClosedUntil-w.Day-1, "night")+" to go")))
+	}
+	if long, _, st := m.routeIdle(r); long != "" && !w.RouteClosed(r.ID) && w.Route(r.ID).HasTargets() {
+		// Why it sends nothing (#459), wrapped: the closed row above says a shut one's, the target row one with none.
+		label := "idle"
+		for _, l := range wrap(strings.TrimPrefix(long, "idle: "), paneTextW-paneLabelW-1) {
+			lines = append(lines, row(label, st.Render(l)))
+			label = ""
+		}
 	}
 	if r.Mode == "plane" {
 		// The plane's risk is the task force's alone (#48): the file's

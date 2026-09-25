@@ -57,8 +57,9 @@ type LaunderingTuning struct {
 	UpkeepFreezeDays     int     `toml:"upkeep_freeze_days"`
 	AccountantThroughput float64 `toml:"accountant_throughput"`
 	AccountantRiskCut    float64 `toml:"accountant_risk_cut"`
-	RotLine              int     `toml:"rot_line"` // a dirty pile over this rots (#392); 0 is no rot
-	Rot                  float64 `toml:"rot"`      // of what is over the line, a night
+	RotLine              int     `toml:"rot_line"`    // a dirty pile over this rots (#392); 0 is no rot
+	Rot                  float64 `toml:"rot"`         // of what is over the line, a night
+	TillNights           int     `toml:"till_nights"` // nights the wash has left the pile at the till before the engine's till alert (#459; no sim reads it), 0 for none
 }
 
 type LaunderTable struct {
@@ -131,6 +132,9 @@ func (l LaunderingConfig) validateAssets(assets AssetsConfig) error {
 }
 
 func (l LaunderingConfig) validate() error {
+	if t := l.Laundering; t.TillNights < 0 {
+		return fmt.Errorf("bad till_nights %d", t.TillNights)
+	}
 	if t := l.Laundering; t.RotLine < 0 || t.Rot < 0 || t.Rot >= 1 {
 		return fmt.Errorf("bad rot_line %d or rot %v", t.RotLine, t.Rot)
 	}

@@ -33,7 +33,7 @@ type alert struct {
 // order (engine.Alerts: somebody talking, a contract or a debt due, the
 // heat over the patrol line, a task force forming, the DA's file near
 // an indictment (#414), an investigation
-// (#343), the float, the
+// (#343), a front shut for its upkeep (#458), the float, the
 // wages, a member near a line, the skim, a member with no post, a
 // corner nobody works, a full stash, a faction on its way to a city
 // where you earn (#341), the gate within reach, a house the police
@@ -90,8 +90,23 @@ func (m *Model) alertOf(a engine.Alert) alert {
 		why = "the DA's file"
 	case engine.AlertInvestigation:
 		text, why = m.investigationAlert(a)
+	case engine.AlertFrontShut:
+		// #458: the reason and the amount, where the paper said "dark".
+		// The shortfall leads: the pane cuts an alert to one line.
+		name := "A front"
+		if f := w.Front(a.Front); f != nil {
+			name = f.Name
+		}
+		text = theme.Bad.Render(fmt.Sprintf("%s shut %s: upkeep unpaid, %s clean short. It is %s/day clean: keep that back %s.", name, plural(a.Days, "day"), money(a.Amount), money(a.Have), screenPointer(screenLedger)))
+		why = name + " shut"
 	case engine.AlertFloat:
 		text = theme.Warning.Render(fmt.Sprintf("Dirty cash %s is under the float (%s): the wash and the road wait.", cash(a.Have), cash(a.Amount)))
+	case engine.AlertTill:
+		// #459: the wash taking everything over the till every night,
+		// so nothing dirty is ever saved. The count leads: the pane
+		// cuts an alert to one line.
+		text = theme.Warning.Render(fmt.Sprintf("Dirty cash held at the %s till %s running: the wash takes the rest. Turn the launder dial careful %s to save.", cash(a.Amount), plural(a.Days, "night"), screenPointer(screenLedger)))
+		why = "dirty cash held at the till"
 	case engine.AlertWages:
 		text = theme.Warning.Render(fmt.Sprintf("Wages %s due tonight, %s dirty in hand.", money(a.Amount), money(a.Have)))
 		if m.w.Player.CleanCash > 0 {

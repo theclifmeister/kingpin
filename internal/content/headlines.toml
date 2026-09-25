@@ -50,7 +50,8 @@ big_share = 0.25
 # shipment, an audit's take), the pages the DA filed, the corners won,
 # the corners nobody works and the runners with no post, a faction
 # moving into a city, a faction's scouts or recruiters in one (#341),
-# an investigation the police opened (#343); the cash flow scores its weight times the swing
+# an investigation the police opened (#343), the fronts shut for
+# upkeep the clean pile could not pay (#458); the cash flow scores its weight times the swing
 # of the night's profit (the net less purchases and investments)
 # against the average of the `week` nights before (#351), from
 # `min_swing` of it (a smaller swing is no line) up to `swing_cap`.
@@ -67,6 +68,7 @@ corner_lost = 10.0
 crew_lost = 8.0
 seizure = 9.0
 investigation = 8.0
+front_shut = 8.0
 pages = 3.0
 flow = 5.0
 faction = 7.0

@@ -521,6 +521,7 @@ type Front struct {
 	Invested    int            // clean cash put into its levels, lifetime
 	Grew        int            // the day its growth made the paper (#192); 0 means it has not
 	City        string         // the city it stands in, where it was bought (#344); "" is home, a front from before
+	Unpaid      int            // the clean cash its upkeep was short the night it last shut for it (#458); 0 once it pays again, and for an audit's shut
 }
 
 // FrontCity is the city a front stands in (#344): where it was bought,

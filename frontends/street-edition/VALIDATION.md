@@ -1,6 +1,14 @@
+# Engine alignment validation: protocol 18 / view 13 (#458, #459)
+
+The builder accepts protocol 18 and view 13. View 13 (#458) gives alerts a `front`, for the new `front_shut` alert (a front shut for upkeep the clean pile could not pay); protocol 18 (#459) adds `rules.logistics.idle`, why a route on its dial sends nothing, which this edition does not call, and the engine's new `till` alert. The build copies the reference client's `session.js` and `alerts.js`, which word both alerts.
+
 # Engine alignment validation: protocol 17 / view 12 (#474)
 
 The builder accepts protocol 17 and view 12. Protocol 17 added the `characters` query, and made `new_run` refuse a character that is not one, `withdraw` refuse with no proposal made and `travel` refuse the city you stand in. Reviewed against `src/app.js`: it starts the default character, never calls `withdraw`, and draws the travel button only for a city you are not in, so none of the new refusals can reach it. The money refusals it can meet (`reserve`, `cash_out` and `fund` of nothing) now read `amount must be positive` and `clean cash only, and the clean pile is empty`, shown as the engine words them.
+
+# Engine alignment validation: rules.logistics.idle (#459, shipped as protocol 18)
+
+The builder accepts protocol 17 and view 12. Protocol 17 added `rules.logistics.idle`, why a route on its dial sends nothing, which this edition does not call; the view's shape is unchanged. The engine's new `till` alert (the wash has held dirty cash at the till for nights running) is worded by the shared `alerts.js` the builder copies.
 
 # Engine alignment validation: protocol 16 / view 12 (#455)
 

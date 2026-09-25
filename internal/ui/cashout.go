@@ -14,7 +14,9 @@ import (
 // the books when the connect and the payroll want cash. One page, a
 // number field in dollars (blank is what tonight's wages are short,
 // the fee on top), what lands and the pile against the exposure line,
-// in red past it. It is an amountDialog (#275).
+// in red past it, and a warning when the draw leaves the clean pile
+// under tonight's upkeep (#458: the blank does not keep it back, the
+// wages being as due). It is an amountDialog (#275).
 
 // askCashOut opens the cash-out dialog.
 func (m *Model) askCashOut() {
@@ -103,6 +105,7 @@ func (m *Model) viewCashOut() string {
 			where = theme.Bad.Render(fmt.Sprintf("%s over the exposure line: it draws heat", money(pile-line)))
 		}
 		body = append(body, row("lands", fmt.Sprintf("%s dirty, fee %s   %s", style.Render(money(amt-fee)), money(fee), where)))
+		body = append(body, m.upkeepWarning(w.Player.CleanCash-amt, pile, m.upkeepTonight())...)
 	}
 	body = append(body, "",
 		theme.Subtle.Render(fmt.Sprintf("Stock and wages are paid dirty. The banker keeps %s of the draw.", format.Pct(float64(l.CashOutFee(1_000_000))/1e6, 0))),
