@@ -492,7 +492,7 @@ func (m *Model) setCartQty() {
 			}
 			m.say(m.returned(*l, l.qty-qty, refund))
 		case qty > l.qty && l.contract:
-			d.err = "A contract's line only goes back: the supplier sells you more by hand."
+			d.err = "A contract's line only goes back: raise its level on the buy dialog."
 			return
 		case qty > l.qty && l.credit:
 			d.err = "A credit line only goes back: more on the book is a new buy."
@@ -584,13 +584,21 @@ func (m *Model) viewCart() string {
 		if l.buy {
 			note := fmt.Sprintf("bought %d", l.qty)
 			if l.contract {
-				note += " by contract"
+				note += " by contract this morning"
 			} else if l.city == m.w.Player.Location {
 				note += fmt.Sprintf(", up to %d more", m.maxBuy(l.product))
 			}
 			line += "   " + theme.Subtle.Render(note)
 		}
 		body = append(body, line)
+	}
+	// A contract's line is the morning's buy, not the contract (#444):
+	// its units are what the level brought today, so say the level and
+	// where it is set, or 120 reads as a contract that failed to rise.
+	if l.contract {
+		for _, t := range wrap(m.contractLevelNote(l), m.modalInner()) {
+			body = append(body, theme.Subtle.Render(t))
+		}
 	}
 	// The selected line's price sentence, the dialog's (#138): the
 	// number the line was decided on, under the eye while it is edited.
@@ -599,6 +607,16 @@ func (m *Model) viewCart() string {
 		body = append(body, "", theme.Bad.Render(d.err))
 	}
 	return m.modal("CART", body, m.modalFooter())
+}
+
+// contractLevelNote is the cart's sentence under a contract's line
+// (#444): what the contract keeps against what it brought this morning.
+func (m *Model) contractLevelNote(l cartLine) string {
+	c, ok := m.w.Supplied(l.city, l.product)
+	if !ok {
+		return fmt.Sprintf("Bought this morning by a contract since cleared: %d %s.", l.qty, m.w.ProductName(l.product))
+	}
+	return fmt.Sprintf("The contract keeps %d; it brought %d this morning. Its level is set on the buy dialog, at keep at.", c.Units, l.qty)
 }
 
 // endDayLine is the END THE DAY? modal's first sentence: lying low, the

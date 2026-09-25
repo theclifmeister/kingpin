@@ -235,3 +235,37 @@ func TestCartListsAndEdits(t *testing.T) {
 		t.Errorf("c on the journal: %q", m.status)
 	}
 }
+
+// A contract's line in the cart is the morning's buy, not the contract
+// (#444): with the level at 200 and 120 brought this morning, the cart
+// says both and where the level is set, and asking for more refuses
+// with the same pointer, at 80x24 and 120x40.
+func TestCartContractLineNamesTheLevel(t *testing.T) {
+	for _, sz := range [][2]int{{80, 24}, {120, 40}} {
+		m := newTestModel(t, sz[0], sz[1])
+		w := m.w
+		home, weed := w.Player.Location, w.Products[0]
+		if err := w.SetSupply(home, weed, 200); err != nil {
+			t.Fatal(err)
+		}
+		w.Today.Buys = append(w.Today.Buys, game.Purchase{City: home, Product: weed, Qty: 120, UnitPrice: 9, Cost: 1080, Contract: true, Day: w.Day})
+		w.SetStock(home, weed, 120)
+		m.Update(key("c"))
+		view := m.View()
+		assertFits(t, view, sz[0], sz[1], "cart on a contract line")
+		plain := strings.Join(strings.Fields(stripANSI(view)), " ")
+		if !strings.Contains(plain, "The contract keeps 200; it brought 120 this morning.") {
+			t.Fatalf("%dx%d: the cart does not name the level: %q", sz[0], sz[1], plain)
+		}
+		m.Update(key("enter"))
+		m.Update(key("backspace"))
+		m.Update(key("backspace"))
+		m.Update(key("backspace"))
+		for _, k := range []string{"1", "5", "0", "enter"} {
+			m.Update(key(k))
+		}
+		if !strings.Contains(m.crt.err, "raise its level on the buy dialog") {
+			t.Fatalf("%dx%d: raising a contract's line: err %q", sz[0], sz[1], m.crt.err)
+		}
+	}
+}
