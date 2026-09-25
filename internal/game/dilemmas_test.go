@@ -353,3 +353,19 @@ func TestCardNamesTheMembersCorner(t *testing.T) {
 		t.Fatalf("a card about no one: %+v %v", s, ok)
 	}
 }
+
+// A card that pays out in the morning raises the peaks at once (#439):
+// the CASH panel's peak never reads below the pile, and the gates that
+// read PeakCash see the money the day it lands, not the next night.
+func TestChooseStampsThePeaks(t *testing.T) {
+	w := cardWorld()
+	w.Stats.PeakCash, w.Stats.PeakClean = w.Cash(), w.Player.CleanCash
+	w.Dilemmas.Pending = &Card{ID: "t", Day: 1, Title: "T",
+		Choices: []Choice{{Label: "take", Outcome: "paid", Effects: map[string]float64{"dirty_cash": 3100, "clean_cash": 200}}}}
+	if _, err := w.Choose(0); err != nil {
+		t.Fatal(err)
+	}
+	if w.Stats.PeakCash != w.Cash() || w.Stats.PeakClean != w.Player.CleanCash {
+		t.Fatalf("peak %d clean %d, want %d and %d", w.Stats.PeakCash, w.Stats.PeakClean, w.Cash(), w.Player.CleanCash)
+	}
+}

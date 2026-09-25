@@ -207,6 +207,7 @@ func (w *World) Choose(i int) (Answer, error) {
 	if err := c.apply(w, i); err != nil {
 		return Answer{}, err
 	}
+	w.stampPeaks()
 	ch := c.Choices[i]
 	a := Answer{Day: w.Day, Card: c.ID, Title: c.Title, Choice: ch.Label, Outcome: ch.Outcome, Headline: ch.Headline,
 		Cash: Pools{Dirty: w.Player.DirtyCash - before.Dirty, Clean: w.Player.CleanCash - before.Clean}}
