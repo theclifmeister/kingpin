@@ -21,7 +21,7 @@ func TestReportOpensWithTheLead(t *testing.T) {
 		w.Report.Lead = []game.Line{
 			{Kind: "crew_lost", Text: "Lost " + member.Name + " (arrested).", Act: game.Act{Screen: game.ScreenCrew, Subject: game.OnMember}, Member: member.ID},
 			{Kind: "corner_lost", Text: "Lost a corner: " + corner.Name + ".", Act: game.Act{Screen: game.ScreenMap, Subject: game.OnCorner}, Corner: corner.ID, City: corner.City},
-			{Kind: "flow", Text: "Profit fell 40% on the week: +$6,000 against +$10K a night.", Act: game.Act{Screen: game.ScreenLedger}},
+			{Kind: "flow", Text: "Profit fell 40% on the week: +$6,000 against +$10K a night. The corners here have a ceiling: the road to Bayport is on the map (5).", Act: game.Act{Screen: game.ScreenLedger}},
 		}
 		m.mode, m.fastStop, m.fastAlert = modeReport, "", nil
 		view := stripANSI(m.View())
@@ -40,6 +40,11 @@ func TestReportOpensWithTheLead(t *testing.T) {
 				t.Errorf("%dx%d: line %d is not on the report:\n%s", size[0], size[1], i+1, view)
 			}
 		}
+		// A long line wraps under itself, its end kept (#446).
+		if flat := strings.Join(strings.Fields(view), " "); !strings.Contains(flat, "the road to Bayport is on the map (5).") {
+			t.Errorf("%dx%d: the long lead line lost its end:\n%s", size[0], size[1], view)
+		}
+		assertFits(t, m.View(), size[0], size[1], "report with a long lead")
 		if !strings.Contains(view, "1-3 open") {
 			t.Errorf("%dx%d: the footer does not offer the lead:\n%s", size[0], size[1], view)
 		}

@@ -303,7 +303,50 @@ func (s *Sim) flowLine(w *game.World, flow game.CashFlow) (game.Line, float64) {
 	default:
 		text = fmt.Sprintf("The night made %s against the week's %s a night.", signedCash(net), week)
 	}
-	return game.Line{Text: text, Act: game.Act{Screen: game.ScreenLedger}}, math.Min(math.Abs(swing), cfg.SwingCap)
+	act := game.Act{Screen: game.ScreenLedger}
+	if swing < 0 {
+		if road := s.roadHint(w); road != "" {
+			text += " " + road
+			act = game.Act{Screen: game.ScreenMap}
+		}
+	}
+	return game.Line{Text: text, Act: act}, math.Min(math.Abs(swing), cfg.SwingCap)
+}
+
+// roadHint is the falling profit line's pointer to the road (#446): a
+// run at Territory with no route on and a week no better than the one
+// before it has met the one city's ceiling (every policy that stays home
+// flattens after day 70; the ones that run the road to the second city
+// do not), so the line says where the next step is. Empty otherwise.
+func (s *Sim) roadHint(w *game.World) string {
+	if t := s.pcfg.Tier(w.Tier()); t == nil || t.ID != "territory" || len(w.CityOrder) < 2 {
+		return ""
+	}
+	for _, rs := range w.Routes {
+		if rs.Dial.On() {
+			return ""
+		}
+	}
+	week := s.cfg.Digest.Week
+	if len(w.Flows) < 2*week {
+		return ""
+	}
+	last, before := 0, 0
+	for i, f := range w.Flows[len(w.Flows)-2*week:] {
+		if i < week {
+			before += profit(f)
+		} else {
+			last += profit(f)
+		}
+	}
+	if last > before {
+		return ""
+	}
+	far := w.CityOrder[1]
+	if far == w.Home().ID {
+		far = w.CityOrder[0]
+	}
+	return fmt.Sprintf("The corners here have a ceiling: the road to %s is on the map (5).", w.CityName(far))
 }
 
 // profit is a night's net less its purchases and investments, and less

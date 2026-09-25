@@ -63,8 +63,16 @@ func (m *Model) reportLines() []string {
 		// The biggest changes of the night (#354), each one key from
 		// what answers it: 1, 2, 3.
 		body = append(body, theme.Title.Render("TODAY"))
+		// A lead line wraps under itself (#446): cut, the end of a line
+		// is lost, and the road's pointer rides the end of the profit's.
 		for i, l := range r.Lead {
-			body = append(body, "  "+theme.Key.Render(fmt.Sprint(i+1))+" "+theme.Bold.Render(l.Text))
+			for j, part := range wrap(l.Text, max(20, m.modalInner()-4)) {
+				lead := "    "
+				if j == 0 {
+					lead = "  " + theme.Key.Render(fmt.Sprint(i+1)) + " "
+				}
+				body = append(body, lead+theme.Bold.Render(part))
+			}
 		}
 		body = append(body, "")
 	}

@@ -241,3 +241,76 @@ func TestSmallStandingOrderIsFlagged(t *testing.T) {
 		}
 	}
 }
+
+// The falling profit line points at the road (#446) when the run is at
+// Territory, no route is on and the last week made no more than the one
+// before it: the one city's ceiling. A route on, an earlier tier or a
+// rising fortnight keeps the line as it was.
+func TestFallingProfitPointsAtTheRoad(t *testing.T) {
+	cfg := content.MustLoad()
+	territory := 0
+	for i, tier := range cfg.Progression.Tiers {
+		if tier.ID == "territory" {
+			territory = i + 1
+		}
+	}
+	if territory == 0 {
+		t.Fatal("no territory tier in progression.toml")
+	}
+	night := func(d, made int) game.CashFlow {
+		return game.CashFlow{Day: d, Opening: game.Pools{Dirty: 100_000}, Closing: game.Pools{Dirty: 100_000 + made},
+			Lines: []game.FlowLine{{Cat: game.FlowSales, Pools: game.Pools{Dirty: made}}}}
+	}
+	for _, tc := range []struct {
+		name   string
+		tier   int
+		route  bool
+		rising bool
+		road   bool
+	}{
+		{"territory, no road, a flat fortnight", territory, false, false, true},
+		{"a route on", territory, true, false, false},
+		{"an earlier tier", territory - 1, false, false, false},
+		{"a rising fortnight", territory, false, true, false},
+	} {
+		t.Run(tc.name, func(t *testing.T) {
+			n, err := news.New(cfg)
+			if err != nil {
+				t.Fatal(err)
+			}
+			w := sim.NewWorld(cfg, 4)
+			w.Day = 30
+			w.Progression.Reached = map[int]int{}
+			for i := 2; i <= tc.tier; i++ {
+				w.Progression.Reached[i] = i
+			}
+			if tc.route {
+				if err := w.SetRoute(cfg.Routes.Routes[0].ID, events.RouteNormal); err != nil {
+					t.Fatal(err)
+				}
+			}
+			for d := 1; d <= 14; d++ {
+				made := 10_000
+				if tc.rising && d > 7 {
+					made = 12_000
+				}
+				w.Flows = append(w.Flows, night(d, made))
+			}
+			// Tonight makes nothing (the sim's own flow, not in Flows): a fall.
+			n.Step(w, gametest.TickOn(w, 31))
+			var flow *game.Line
+			for i := range w.Report.Lead {
+				if w.Report.Lead[i].Kind == "flow" {
+					flow = &w.Report.Lead[i]
+				}
+			}
+			if flow == nil {
+				t.Fatalf("no flow line: %+v", w.Report.Lead)
+			}
+			hinted := strings.Contains(flow.Text, "the road to ")
+			if hinted != tc.road || (hinted && flow.Act.Screen != game.ScreenMap) || (!hinted && flow.Act.Screen != game.ScreenLedger) {
+				t.Fatalf("hint %v, want %v: %+v", hinted, tc.road, *flow)
+			}
+		})
+	}
+}
