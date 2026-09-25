@@ -13,7 +13,7 @@ ROOT = HERE.parents[1]
 OUT = HERE / 'dist'
 GO = os.environ.get('KINGPIN_GO', 'go')
 # The frontend must be reviewed before accepting a changed contract.
-EXPECTED_PROTOCOL, EXPECTED_VIEW = 15, 12
+EXPECTED_PROTOCOL, EXPECTED_VIEW = 16, 12
 
 def commit():
     """The commit the build stamps: git's, or where there is no .git (a
@@ -36,7 +36,7 @@ def build():
     if OUT.exists():
         shutil.rmtree(OUT)
     shutil.copytree(HERE / 'src', OUT)
-    for name in ['session.js', 'police.js', 'alerts.js']:
+    for name in ['session.js', 'police.js', 'alerts.js', 'lieutenants.js']:
         shutil.copyfile(ROOT / 'cmd/kingpin-web/web/js' / name, OUT / name)
     upgrades = tomllib.loads((ROOT / 'internal/content/upgrades.toml').read_text())
     crew = tomllib.loads((ROOT / 'internal/content/crew.toml').read_text())

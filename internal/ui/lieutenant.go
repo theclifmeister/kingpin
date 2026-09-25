@@ -67,6 +67,7 @@ func (m *Model) viewAssign() string {
 	}
 	rows := m.assignRows()
 	clamp(&m.pick.cursor, len(rows))
+	t := m.rules.Crew.Lieutenancy() // the terms the dialog explains the role with (#455)
 	var cells [][]any
 	for _, cid := range rows {
 		if cid == "" {
@@ -85,8 +86,38 @@ func (m *Model) viewAssign() string {
 	// Two lines that fit the modal's width.
 	return m.pickerModal("ASSIGN "+lt.Name, nil, []col{{"city", kText, 0}, {"corners", kInt, 0}, {"units", kInt, 0}, {"runs", kText, 0}}, cells, m.pick.cursor,
 		theme.Subtle.Render("Each night they post the idle crew, drop a corner robbed twice and sell"),
-		theme.Subtle.Render(fmt.Sprintf("the stash at their dial; your own order wins. Cut %s, +%d crew slots.", format.Pct(m.rules.Crew.Cut(), 0), m.cfg.Crew.Role[game.RoleLieutenant].Crew)),
+		theme.Subtle.Render(fmt.Sprintf("the stash at their dial; your own order wins. Cut %s, +%d crew slots.", format.Pct(t.Cut, 0), t.Crew)),
+		theme.Subtle.Render(fmt.Sprintf("Their temper shows after %s running it: it sets the dial and the heat.", plural(t.RevealDays, "day"))),
+		theme.Warning.Render(fmt.Sprintf("Under %.0f loyalty they talk to the police; at %.0f they walk with the city.", t.Flip, t.Quit)),
 		"", theme.Subtle.Render(fmt.Sprintf("Which city should %s run?", lt.Name)))
+}
+
+// lieutenantHint says how the lieutenants come (#455), once the run has
+// reached the tier whose card promises them and until they do: they wait
+// on corners held in two cities, and the way to one in a city where you
+// hold none, from where you stand, is a runner posted from the map.
+// Empty before that tier and once two cities are held.
+func (m *Model) lieutenantHint() string {
+	w := m.w
+	if m.rules.Crew.LieutenantsWanted(w) || !m.reached("distribution") {
+		return ""
+	}
+	for _, cid := range w.CityOrder {
+		if heldIn(w, cid) == 0 {
+			return fmt.Sprintf("Lieutenants come looking once you hold corners in two cities: post a runner on a corner in %s %s.", w.CityName(cid), screenPointer(screenMap))
+		}
+	}
+	return ""
+}
+
+// reached is whether the run has entered the tier with this id.
+func (m *Model) reached(id string) bool {
+	for n := 1; n <= m.w.Tier(); n++ {
+		if t := m.cfg.Progression.Tier(n); t != nil && t.ID == id {
+			return true
+		}
+	}
+	return false
 }
 
 // heldIn counts the corners the player holds in a city.

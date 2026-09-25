@@ -26,6 +26,7 @@ var ruleNames = map[string]ruleSig{
 	"Crew.InvestigateCost":         {nil, nil},
 	"Crew.InvestigateOdds":         {[]string{"w"}, nil},
 	"Crew.Lab":                     {[]string{"w", "city"}, nil},
+	"Crew.Lieutenancy":             {nil, nil},
 	"Crew.LieutenantsWanted":       {[]string{"w"}, nil},
 	"Crew.Life":                    {nil, nil},
 	"Crew.MaxCrew":                 {[]string{"w"}, nil},

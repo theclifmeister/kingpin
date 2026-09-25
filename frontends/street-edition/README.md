@@ -12,7 +12,7 @@ node frontends/street-edition/smoke.mjs
 python3 -m http.server 8080 --bind 127.0.0.1 --directory frontends/street-edition/dist
 ```
 
-Open http://127.0.0.1:8080. `KINGPIN_GO=/path/to/go` selects a Go executable. The generated `dist/` folder can be served by any static host; there is no server-side game process. Generated WASM, shared JS, loader and derived content are not committed. The builder refuses a different protocol/view contract until this frontend is reviewed. It copies `session.js`, `alerts.js` and `police.js` from the reference web client, and reads front roles and trait descriptions from the same checkout's TOML.
+Open http://127.0.0.1:8080. `KINGPIN_GO=/path/to/go` selects a Go executable. The generated `dist/` folder can be served by any static host; there is no server-side game process. Generated WASM, shared JS, loader and derived content are not committed. The builder refuses a different protocol/view contract until this frontend is reviewed. It copies `session.js`, `alerts.js`, `police.js` and `lieutenants.js` from the reference web client, and reads front roles and trait descriptions from the same checkout's TOML.
 
 ## Deploying on Vercel
 
@@ -26,7 +26,7 @@ Start with $500 on seed 41. Buy stock in Market, queue sales, preview tonight an
 
 - Streets: city travel, corner assignment/abandonment, enforcer strikes, police tips and undercutting.
 - Market: purchases, max-buy capacity, reviewed restocking, queued sales, private buyers, routes and reviewed built-in operation presets.
-- Crew: hire/dismiss, assignments, pay policies, bonuses, veteran traits and city captains with nightly budgets.
+- Crew: hire/dismiss, assignments, pay policies, bonuses, veteran traits, city captains with nightly budgets, and lieutenants: a city to run, their temper once it shows, and the role's terms (cut, crew slots, tempers, the loyalty risk) where you hire and assign them (#455).
 - Empire: front roles, investment levels, upgrades, properties and assets; export lanes (what each waits on, or its capacity, order, rate abroad and loads out, and an order form) and trophies (owned, and the offers to buy with clean cash).
 - Rivals: scout, negotiate, accept/decline offers, expansion warnings and confront scouts.
 - Ledger: offshore transfers, cash out (clean back to dirty at the quoted fee), community funding, engine-calculated ambitions and the four ending actions, each closed one saying what its plan still needs.

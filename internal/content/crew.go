@@ -207,6 +207,37 @@ type LieutenantTuning struct {
 	Personality   map[string]LieutenantPersonality `toml:"personality"`
 }
 
+// LieutenantTerms is everything a lieutenant is, in one reading for the
+// screens (#455): what running a city costs (the cut, and the roster
+// slots it adds), how long the temper stays hidden, the loyalty lines
+// where they talk and where they walk with the city, when a flip ends
+// the run, and each temper in LieutenantPersonalities' order. The crew
+// sim builds it off the tuning (crew.Sim.Lieutenancy); the TUI and the
+// web clients word it, so no front end holds a number of its own.
+type LieutenantTerms struct {
+	Cut           float64       // share of their city's takings they keep, every night
+	Crew          int           // roster slots an assigned lieutenant adds
+	Chance        float64       // the share of the pool that is a lieutenant, once two cities are held
+	RevealDays    int           // days running a city before the temper shows
+	Flip          float64       // under this loyalty they turn informant
+	Evidence      int           // pages a flipped one feeds the DA a leak
+	Quit          float64       // at this loyalty they walk, and take the city with them
+	BetrayShare   float64       // a flip running this share of your corners ...
+	BetrayCorners int           // ... and at least this many ends the run betrayed; 0 share never
+	Tempers       []TemperTerms // violent, greedy, careful, steady
+}
+
+// TemperTerms is one temper as the screens say it.
+type TemperTerms struct {
+	Name      string
+	Dial      string  // the sell dial they run the city's standing orders at
+	Heat      float64 // times the sale heat of their city
+	Skim      float64 // share of the takings on top of the cut, at any loyalty
+	StockDays float64 // days of the worked corners' demand they keep in stock
+	Guard     bool    // they post idle enforcers and hold ground a faction is coming for
+	HitScouts bool    // they send the enforcers after a faction's scouts
+}
+
 // LieutenantPersonality is what a temperament does to the city it runs.
 type LieutenantPersonality struct {
 	Dial      string  `toml:"dial"`       // the sell dial they favour: quiet, normal, aggressive
