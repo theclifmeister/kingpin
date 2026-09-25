@@ -91,7 +91,7 @@ func (m *Model) viewStart() string {
 			}
 		}
 		if h := m.historyLine(); h != "" {
-			body = append(body, "", theme.Subtle.Render(truncate(h, m.modalInner())))
+			body = append(body, "", theme.Subtle.Render(h))
 		}
 		if m.profileErr != "" {
 			body = append(body, "")

@@ -36,7 +36,10 @@ func (m *Model) viewReport() string {
 	if frame := m.incidentFrame(); frame != nil {
 		body := m.reportLines()
 		if i := incidentRow(body, m.w.Report); i >= 0 {
-			body[i] = frame[0]
+			// The scene is the line's first row; the rest wraps under
+			// it as the report draws it (#463).
+			rest := wrapLine(body[i], m.modalInner())[1:]
+			body = append(append(append(body[:i:i], frame[0]), rest...), body[i+1:]...)
 		}
 		return m.modal(m.reportTitle(), body, m.modalFooter())
 	}
@@ -54,7 +57,7 @@ func (m *Model) reportTitle() string {
 // over its lines.
 func (m *Model) reportLines() []string {
 	r := m.w.Report
-	var body []string // the modal cuts a long line to its width, never wraps it
+	var body []string // the modal wraps a long line under itself (#463)
 	if stop := m.stopLine(); stop != "" {
 		// A fast-forward's report opens with why it stopped (#116).
 		body = append(body, theme.Warning.Render(stop), "")

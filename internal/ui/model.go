@@ -69,6 +69,7 @@ type Model struct {
 	dealCursor     int             // offer selected on the rivals screen
 	factionCursor  int             // faction the rivals screen is turned to (#43): an index into World.Rivals
 	modalScroll    int             // first body line the open modal shows
+	follow         []int           // the body lines the next modal keeps in view (modalFollow, #463)
 	outcome        string          // what the last answer did, while it shows
 	journalCursor  int             // headline selected on the journal screen, newest first
 	journalTop     int             // first headline the journal screen shows

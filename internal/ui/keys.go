@@ -515,7 +515,10 @@ func (m *Model) helpLines() []string {
 	}
 	body = append(body, "", theme.PanelTitle.Render("WORDS"))
 	for _, w := range words {
-		body = append(body, theme.Key.Render(fit(w[0], helpKeyW))+"  "+w[1])
+		// The word takes the key column and one of the two spaces after
+		// it, so `lieutenant`, ten, is never cut (#463) and no line
+		// grows.
+		body = append(body, theme.Key.Render(fit(w[0], helpKeyW+1))+" "+w[1])
 	}
 	return body
 }

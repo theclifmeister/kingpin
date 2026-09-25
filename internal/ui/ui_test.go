@@ -2719,13 +2719,18 @@ func testCard(day int) *game.Card {
 // rich fixture, the dialogs on each of their steps.
 var capRow = regexp.MustCompile(`^[A-Z][a-z]+ {2,}\S`)
 
-func TestModalsFit(t *testing.T) {
-	type open struct {
-		name string
-		mode mode
-		open func(t *testing.T, m *Model)
-	}
-	cases := []open{
+// modalCase opens one modal from richModel: TestModalsFit's table, and
+// TestModalsNeverCutProse's (#463).
+type modalCase struct {
+	name string
+	mode mode
+	open func(t *testing.T, m *Model)
+}
+
+// modalCases is every mode of the enum opened from richModel, some in
+// more than one state.
+func modalCases() []modalCase {
+	return []modalCase{
 		{"start", modeStart, func(t *testing.T, m *Model) { m.mode = modeStart }},
 		{"start with three slots", modeStart, func(t *testing.T, m *Model) { fillSlots(t, m); m.mode = modeStart }},
 		{"confirm delete", modeConfirm, func(t *testing.T, m *Model) {
@@ -3077,6 +3082,10 @@ func TestModalsFit(t *testing.T) {
 		{"buy with cart", modeBuy, func(t *testing.T, m *Model) { fillCart(t, m); m.Update(key("b")) }},
 		{"sell with cart", modeSell, func(t *testing.T, m *Model) { fillCart(t, m); m.Update(key("s")) }},
 	}
+}
+
+func TestModalsFit(t *testing.T) {
+	cases := modalCases()
 	covered := map[mode]bool{}
 	for _, c := range cases {
 		covered[c.mode] = true

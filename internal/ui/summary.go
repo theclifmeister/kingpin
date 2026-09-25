@@ -40,7 +40,7 @@ func (m *Model) summaryLines() []string {
 		style = theme.Good
 	}
 	var out []string
-	out = append(out, truncate(style.Bold(true).Render(m.cfg.Endings.Title(e.Cause))+theme.Subtle.Render(fmt.Sprintf("  day %d · reached %s", e.Day, m.reachedLine())+m.unlockedLine()), m.modalInner()))
+	out = append(out, style.Bold(true).Render(m.cfg.Endings.Title(e.Cause))+theme.Subtle.Render(fmt.Sprintf("  day %d · reached %s", e.Day, m.reachedLine())+m.unlockedLine()))
 	if epilogue := m.epilogue(); epilogue != "" {
 		out = append(out, m.wrapLines(epilogue)...)
 	}
@@ -103,12 +103,13 @@ func (m *Model) summaryLines() []string {
 	// history (#50, rankLine); the daily's date and what the run
 	// unlocked are on the first line (unlockedLine). A line, not a
 	// table.
-	out = append(out, "", truncate(theme.Gold.Bold(true).Render("SCORE  "+cash(w.Stats.Score))+theme.Subtle.Render(fmt.Sprintf("  %s over 1 + %s · %s · %s", cash(w.Offshore), plural(w.Stats.Bodies, "body"), plural(e.Day, "day"), m.rankLine())), m.modalInner()))
+	out = append(out, "", theme.Gold.Bold(true).Render("SCORE  "+cash(w.Stats.Score))+theme.Subtle.Render(fmt.Sprintf("  %s over 1 + %s · %s · %s", cash(w.Offshore), plural(w.Stats.Bodies, "body"), plural(e.Day, "day"), m.rankLine())))
 	return out
 }
 
 // factLines is a block of facts, one a row: the label in Subtle padded
-// to the widest, the value after it cut to the modal's width.
+// to the widest, the value after it, wrapped under itself by the modal
+// (#463).
 func (m *Model) factLines(facts [][2]string) []string {
 	width := 0
 	for _, f := range facts {
@@ -116,7 +117,7 @@ func (m *Model) factLines(facts [][2]string) []string {
 	}
 	var out []string
 	for _, f := range facts {
-		out = append(out, truncate(theme.Subtle.Render(fit(f[0], width))+"  "+f[1], m.modalInner()))
+		out = append(out, theme.Subtle.Render(fit(f[0], width))+"  "+f[1])
 	}
 	return out
 }
@@ -231,7 +232,7 @@ func (m *Model) storyLines() []string {
 	var out []string
 	for _, p := range picked {
 		day := theme.Subtle.Render(fmt.Sprintf("day %-3d", p.h.Day))
-		out = append(out, day+" "+truncate(p.h.Text, m.modalInner()-8))
+		out = append(out, day+" "+p.h.Text) // day %-3d leaves the text two spaces in: a long one hangs under itself (#463)
 	}
 	return out
 }
@@ -267,14 +268,14 @@ func (m *Model) bodiesLine() string {
 	return fmt.Sprintf("%d, %d of them yours", s.Bodies, s.Fallen)
 }
 
-// fallenLine names the fallen (#46) as `Name (role · day N)`, cut to
-// the row.
+// fallenLine names the fallen (#46) as `Name (role · day N)`, the
+// modal wrapping the row (#463).
 func (m *Model) fallenLine() string {
 	var names []string
 	for _, f := range m.w.Crew.Fallen {
 		names = append(names, fmt.Sprintf("%s (%s · day %d)", f.Name, f.Role, f.Day)) // `(role, dN)` would read as a key hint to TestNoKeyHintsOutsideTheLegend
 	}
-	return truncate(strings.Join(names, ", "), m.modalInner()-14)
+	return strings.Join(names, ", ")
 }
 
 // betrayalsLine counts who turned on you: the informants, the crew who

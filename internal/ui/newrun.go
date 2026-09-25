@@ -212,6 +212,9 @@ func (m *Model) viewNewRun() string {
 			}
 			body = append(body, m.pickRow(i == d.cursor, name, blurb, open)...)
 		}
+		// The cursor's row and its blurb, however far it wraps, in view.
+		m.modalFollow(2*d.cursor + 1)
+		m.modalFollow(2 * d.cursor)
 		date := m.dailyDate()
 		daily := "the default character on the date's seed, one scored attempt"
 		if m.profile.Attempts[game.DailyKey(m.now())] > 0 {
@@ -221,7 +224,7 @@ func (m *Model) viewNewRun() string {
 		return m.modal("NEW RUN", body, m.modalFooter())
 	case 1:
 		ch := m.cfg.Characters.Characters[max(0, min(d.cursor, len(m.cfg.Characters.Characters)-1))]
-		body = append(body, theme.Bold.Render(ch.Name)+"  "+theme.Subtle.Render(truncate(ch.Blurb, m.modalInner()-len(ch.Name)-2)))
+		body = append(body, theme.Bold.Render(ch.Name)+"  "+theme.Subtle.Render(ch.Blurb))
 		body = append(body, "", row("seed", d.seed.View()))
 		body = append(body, m.subtle("A seed replays a run: the same seed and the same start play the same day for day. Blank takes a random one.")...)
 		if !m.hardDAOpen() {
@@ -244,7 +247,8 @@ func (m *Model) viewNewRun() string {
 }
 
 // pickRow is a picker row of two lines: the name, selected or not, and
-// its blurb or rule under it, greyed where the row is locked.
+// its blurb or rule under it, greyed where the row is locked; the
+// modal wraps a long blurb under itself (#463).
 func (m *Model) pickRow(selected bool, name, under string, open bool) []string {
 	style := theme.Body
 	if !open {
@@ -254,7 +258,7 @@ func (m *Model) pickRow(selected bool, name, under string, open bool) []string {
 	if selected {
 		head = theme.Gold.Render("▸ ") + theme.Selected.Render(" "+name+" ")
 	}
-	return []string{truncate(head, m.modalInner()), truncate("     "+theme.Subtle.Render(truncate(under, m.modalInner()-5)), m.modalInner())}
+	return []string{truncate(head, m.modalInner()), "     " + theme.Subtle.Render(under)}
 }
 
 // The profile (#50): loaded once with the model, written when a run

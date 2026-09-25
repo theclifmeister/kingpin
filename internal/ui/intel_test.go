@@ -141,7 +141,7 @@ func TestIntelKeys(t *testing.T) {
 		}
 	}
 	m.Update(key("r"))
-	if view := stripANSI(m.View()); m.mode != modeReport || !strings.Contains(view, "INTEL") || !strings.Contains(view, "The cop says") {
+	if view := scrolledProse(t, m); m.mode != modeReport || !strings.Contains(view, "INTEL") || !strings.Contains(view, "The cop says") {
 		t.Errorf("the report modal lacks the INTEL section (mode %v):\n%s", m.mode, view)
 	}
 	m.Update(key("esc"))

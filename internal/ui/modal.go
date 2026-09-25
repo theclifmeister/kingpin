@@ -1,6 +1,7 @@
 package ui
 
 import (
+	"regexp"
 	"strings"
 
 	tea "github.com/charmbracelet/bubbletea"
@@ -17,9 +18,10 @@ import (
 // whichever step of a dialog it is on, so the title never moves; it sits
 // on body row 2 (one blank row under the title bar), centred; a double
 // border in gold; the title in caps, a blank, the body, a blank and a
-// footer line of k() pairs. Body lines are cut to the width, never
-// wrapped (the card wraps its prose before it gets here). A body taller
-// than the room scrolls, and the footer says so.
+// footer line of k() pairs. A body line wider than the box wraps under
+// itself (#463, wrapLine), never cut, so a report's line, a dialog's
+// terms and a note are read to their end. A body taller than the room
+// scrolls, and the footer says so.
 
 // A modal's rows are the pane's rows (#236): every labelled line in a
 // dialog body is row(label, value), lowercase, the label at paneLabelW,
@@ -172,6 +174,29 @@ func (m *Model) modal(title string, body []string, footer []binding) string {
 func (m *Model) modalTitled(title string, body []string, footer []binding) string {
 	inner := m.modalInner()
 	room := m.modalRoom()
+	// Every line wider than the box wraps under itself (#463); the
+	// lines a picker asked to keep in view (modalFollow) are found in
+	// the wrapped body.
+	at := make([]int, len(body)+1) // body line i's first wrapped line
+	var lines []string
+	for i, l := range body {
+		at[i] = len(lines)
+		lines = append(lines, wrapLine(l, inner)...)
+	}
+	at[len(body)] = len(lines)
+	for _, f := range m.follow {
+		if f < 0 || f >= len(body) {
+			continue
+		}
+		if at[f] < m.modalScroll {
+			m.modalScroll = at[f]
+		}
+		if end := at[f+1] - 1; end >= m.modalScroll+room {
+			m.modalScroll = end - room + 1
+		}
+	}
+	m.follow = nil
+	body = lines
 	last := max(0, len(body)-room)
 	m.modalScroll = max(0, min(m.modalScroll, last))
 	var b strings.Builder
@@ -206,15 +231,82 @@ func legend(bs []binding) string {
 	return b.String()
 }
 
-// modalFollow scrolls the body so the line a picker's cursor is on shows.
-func (m *Model) modalFollow(line int) {
-	room := m.modalRoom()
-	if line < m.modalScroll {
-		m.modalScroll = line
+// modalFollow scrolls the body so the line a picker's cursor is on
+// shows, all of it where it wraps: the line is the body's, the index
+// the view passes, and the next modal drawn finds it among the wrapped
+// lines (#463), in the order asked.
+func (m *Model) modalFollow(line int) { m.follow = append(m.follow, line) }
+
+// gluedPointer is a pointer to a screen, `on the market screen (2)`, which
+// wrapLine keeps on one row.
+var gluedPointer = regexp.MustCompile(`on the \w+ screen \(\d\)`)
+
+// wrapLine is a body line cut into lines of at most width cells at its
+// spaces (#463), the one wrap of the modal: a word longer than the
+// width is cut through, the styles carry over, and the lines after the
+// first hang under the value (the end of the first run of two spaces,
+// a row's label or a table's first cell) or two cells in from the
+// line's own indent. A line that fits is itself.
+func wrapLine(l string, width int) []string {
+	if width <= 0 || lipgloss.Width(l) <= width {
+		return []string{l}
 	}
-	if line >= m.modalScroll+room {
-		m.modalScroll = line - room + 1
+	plain := []rune(ansi.Strip(l))
+	cols := make([]int, len(plain)+1) // the cell each rune starts on
+	for i, r := range plain {
+		cols[i+1] = cols[i] + ansi.StringWidth(string(r))
 	}
+	lead := 0
+	for lead < len(plain) && plain[lead] == ' ' {
+		lead++
+	}
+	hang := cols[lead] + 2
+	if i := strings.Index(string(plain[lead:]), "  "); i >= 0 {
+		j := lead + len([]rune(string(plain[lead:])[:i]))
+		for j < len(plain) && plain[j] == ' ' {
+			j++
+		}
+		if cols[j] <= width/2 {
+			hang = cols[j]
+		}
+	}
+	hang = min(hang, width/2)
+	glued := map[int]bool{} // a pointer to a screen is never broken (#463)
+	for _, g := range gluedPointer.FindAllStringIndex(string(plain), -1) {
+		for j := len([]rune(string(plain)[:g[0]])); j < len([]rune(string(plain)[:g[1]])); j++ {
+			glued[j] = true
+		}
+	}
+	var out []string
+	start, lim := 0, width
+	for start < len(plain) {
+		end := len(plain)
+		if cols[end]-cols[start] > lim {
+			end = -1
+			hard := start + 1
+			for j := start + 1; j < len(plain) && cols[j]-cols[start] <= lim; j++ {
+				hard = j
+				if plain[j] == ' ' && j > lead && plain[j-1] != ' ' && !glued[j] {
+					end = j
+				}
+			}
+			if end < 0 {
+				end = hard
+			}
+		}
+		piece := ansi.Cut(l, cols[start], cols[end])
+		if len(out) > 0 {
+			piece = strings.Repeat(" ", hang) + piece
+		}
+		if strings.Contains(piece, "\x1b") {
+			piece += "\x1b[0m"
+		}
+		out = append(out, piece)
+		for start = end; start < len(plain) && plain[start] == ' '; start++ {
+		}
+		lim = width - hang
+	}
+	return out
 }
 
 // scrollModal moves a modal that has no cursor of its own; it reports
@@ -236,7 +328,9 @@ func (m *Model) scrollModal(key string) bool {
 	return true
 }
 
-// wrapLines wraps prose to the modal's width, the one thing that wraps.
+// wrapLines wraps prose to the modal's width ahead of the box, for a
+// caller that counts the rows (the card's scene); the box wraps any
+// line still wider itself (wrapLine, #463).
 func (m *Model) wrapLines(s string) []string {
 	return strings.Split(theme.Plain.Width(m.modalInner()).Render(s), "\n")
 }

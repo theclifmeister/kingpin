@@ -219,15 +219,31 @@ func (m *Model) viewExit() string {
 	rows := m.exitRows()
 	m.exit.cursor = max(0, min(m.exit.cursor, len(rows)-1))
 	if m.exit.step == 0 {
+		// Each way out is its row, then its terms and what is short on
+		// lines of their own, wrapped rather than cut (#463): a column
+		// of terms beside a column of shortfalls was cut at 80 columns.
 		var cells [][]any
 		for _, r := range rows {
 			var open any = styled{theme.Good, "open"}
 			if !r.open {
-				open = styled{theme.Subtle, r.short}
+				open = styled{theme.Subtle, "not yet"}
 			}
-			cells = append(cells, []any{r.name, r.terms, open})
+			cells = append(cells, []any{r.name, open})
 		}
-		body := table([]col{{"way out", kText, 0}, {"terms", kText, 0}, {"", kText, 0}}, cells, m.exit.cursor, m.modalInner())
+		lines := table([]col{{"way out", kText, 0}, {"", kText, 0}}, cells, m.exit.cursor, m.modalInner())
+		body := lines[:1:1]
+		for i, r := range rows {
+			at := len(body)
+			body = append(body, lines[1+i], "    "+row("terms", r.terms))
+			if !r.open {
+				body = append(body, "    "+row("short", theme.Warning.Render(r.short)))
+			}
+			if i == m.exit.cursor {
+				// The cursor's way out in view, its terms under it.
+				m.modalFollow(len(body) - 1)
+				m.modalFollow(at)
+			}
+		}
 		if m.exit.err != "" {
 			body = append(body, "")
 			for _, l := range wrap(m.exit.err, m.modalInner()) {
