@@ -46,6 +46,11 @@ func (m *Model) buyersLines() []string {
 	rows := m.buyerRows()
 	title := sectionTitle("BUYERS", m.accent()) + theme.Subtle.Render(" · "+m.shown().Name)
 	if len(rows) == 0 {
+		// An offer in the other city is one ←→ away (#440): say so, or
+		// the market reads as empty while an offer runs out elsewhere.
+		if n, cities := m.offersAway(m.shown().ID); n > 0 {
+			return []string{title, emptyState(fmt.Sprintf("Nobody is asking here. %s in %s: ←→ turns the market to it.", plural(n, "offer"), cities))}
+		}
 		return []string{title, emptyState("Nobody is asking. Offers come here and lapse in a few days.")}
 	}
 	out := []string{title}
@@ -233,7 +238,41 @@ func (m *Model) contractsLine() string {
 		parts = append(parts, s)
 	}
 	if offers > 0 {
-		parts = append(parts, theme.Gold.Render(plural(offers, "offer")+" "+screenPointer(screenMarket)))
+		s := plural(offers, "offer")
+		// The market opens on the city you stand in; an offer elsewhere
+		// names its city, or the screen it points at says nobody is
+		// asking (#440).
+		if away, cities := m.offersAway(w.Player.Location); away == offers {
+			s += " in " + cities
+		} else if away > 0 {
+			s += fmt.Sprintf(" (%d in %s)", away, cities)
+		}
+		parts = append(parts, theme.Gold.Render(s+" "+screenPointer(screenMarket)))
 	}
 	return strings.Join(parts, " · ")
+}
+
+// offersAway counts the open offers outside city and names the cities
+// they are in, in the world's order: the dashboard's pointer and the
+// market's empty state both say where an offer is (#440).
+func (m *Model) offersAway(city string) (int, string) {
+	w := m.w
+	n := 0
+	var names []string
+	for _, cid := range w.CityOrder {
+		if cid == city {
+			continue
+		}
+		k := 0
+		for _, c := range w.Contracts {
+			if c.City == cid && c.Open(w.Day) {
+				k++
+			}
+		}
+		if k > 0 {
+			n += k
+			names = append(names, w.CityName(cid))
+		}
+	}
+	return n, strings.Join(names, ", ")
 }

@@ -149,3 +149,30 @@ func TestDeliverElsewhereIsRefused(t *testing.T) {
 		t.Fatalf("queued %d with status %q", q, m.status)
 	}
 }
+
+// An offer only in the other city (#440): the dashboard's pointer names
+// the city, and the market, which opens on the city you stand in, says
+// where the offer is instead of that nobody is asking.
+func TestOfferElsewhereNamesItsCity(t *testing.T) {
+	for _, sz := range [][2]int{{80, 24}, {120, 40}} {
+		m := newTestModel(t, sz[0], sz[1])
+		w := m.w
+		other := w.CityOrder[1]
+		offer(m, 40, other)
+		name := w.CityName(other)
+		if got := stripANSI(m.contractsLine()); got != "1 offer in "+name+" on the market screen (2)" {
+			t.Errorf("%dx%d: the dashboard's line is %q", sz[0], sz[1], got)
+		}
+		m.Update(key("2"))
+		view := m.View()
+		assertFits(t, view, sz[0], sz[1], "market with an offer elsewhere")
+		if plain := stripANSI(view); !strings.Contains(plain, "Nobody is asking here. 1 offer in "+name) {
+			t.Errorf("%dx%d: the market does not point at the offer in %s: %q", sz[0], sz[1], name, plain)
+		}
+		// One here as well: the line counts both and names the one away.
+		offer(m, 10, w.Player.Location)
+		if got := stripANSI(m.contractsLine()); got != "2 offers (1 in "+name+") on the market screen (2)" {
+			t.Errorf("%dx%d: with one here, the dashboard's line is %q", sz[0], sz[1], got)
+		}
+	}
+}
