@@ -138,6 +138,12 @@ func (m *Model) alertOf(a engine.Alert) alert {
 		text = theme.Warning.Render(fmt.Sprintf("The DA race is %s off and the tickets are taking money %s.", plural(a.Days, "day"), screenPointer(screenLedger)))
 	case engine.AlertRetire:
 		text = m.retireLine()
+		// The alert comes with the first money offshore: "Stopped after
+		// 1 day: retirement." read as the run over (#465).
+		why = "the offshore account opened, and the dashboard counts what retiring needs"
+		if a.Ready {
+			why = "you could retire"
+		}
 	case engine.AlertFavour:
 		text = theme.Warning.Render(fmt.Sprintf("Chief %s owes you one and the %s comes tonight: call it in %s.", w.Law.Chief.Name, favourWord(a.Level), screenPointer(screenLedger)))
 	case engine.AlertReign:

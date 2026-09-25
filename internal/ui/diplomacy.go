@@ -179,7 +179,7 @@ func (m *Model) viewPropose() string {
 		}
 		switch kind {
 		case game.DealTribute:
-			body = append(body, "", theme.Subtle.Render(m.tributeBaseLine(r)))
+			body = append(append(body, ""), m.subtle(m.tributeBaseLine(r))...)
 		case game.DealSplit:
 			body = append(body, "", theme.Subtle.Render("Your side: "+w.Side(deals[m.prop.cursor])))
 		}
@@ -266,9 +266,12 @@ func (m *Model) rivalCorners(r *game.RivalState) string {
 
 // tributeBaseLine is what a tribute is a cut of today, the number the
 // dice use (#162): the street value the corners you work at home move
-// in the products the rival deals in, the port's product left out.
+// in the products the rival deals in, the port's product left out. It
+// is the demand at today's prices, not the night's sales, and says so
+// (#465: "$48K a day" on a street that sold $10K a night read as the
+// takings).
 func (m *Model) tributeBaseLine(r *game.RivalState) string {
-	return fmt.Sprintf("Your street: %s a day on your corners %s in what they sell.", cash(int(math.Round(m.rules.Rivals.TributeBase(m.w, r)))), m.cityWord(r))
+	return fmt.Sprintf("Your street: %s a day, what your corners %s could move at today's prices, not what they sold.", cash(int(math.Round(m.rules.Rivals.TributeBase(m.w, r)))), m.cityWord(r))
 }
 
 // cityWord is where a faction's street is, for a line: `here` for the
@@ -289,7 +292,7 @@ func (m *Model) tributeRows(r *game.RivalState, d game.Deal) []string {
 		cut = fmt.Sprintf("~%.0f%% of your street", 100*float64(d.Terms.PerDay)/base)
 	}
 	lines := []string{row("cut", cut)}
-	return append(lines, wrapped(theme.Subtle, fmt.Sprintf("Your street is %s a day: what your corners %s move in what they sell.", cash(int(math.Round(base))), m.cityWord(r)))...)
+	return append(lines, wrapped(theme.Subtle, fmt.Sprintf("Your street is %s a day: what your corners %s could move at today's prices, not what they sold.", cash(int(math.Round(base))), m.cityWord(r)))...)
 }
 
 // dealTerms is a deal's terms for a table cell: the description less

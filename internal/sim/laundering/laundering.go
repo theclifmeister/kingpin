@@ -670,24 +670,40 @@ func (s *Sim) quiet(w *game.World, t *game.Tick) {
 	if s.cfg.Offshore.RetireDays <= 0 {
 		return
 	}
-	loud := false
+	// The first thing that made the day loud, for the streak's end
+	// (#465): the plan's line says what reset it.
+	var why *events.QuietBroken
+	loud := func(cause, city, level string) {
+		if why == nil {
+			why = &events.QuietBroken{Day: t.Day, Days: w.QuietDays, Cause: cause, City: city, Level: level}
+		}
+	}
 	for _, cid := range w.CityOrder {
 		if w.Cities[cid].Heat >= s.cfg.Offshore.RetireHeat {
-			loud = true
+			loud(events.QuietHeat, cid, "")
 		}
 	}
 	for _, e := range t.Events() {
-		switch e.(type) {
-		case events.Enforcement, events.CornerStruck, events.RivalPushed, events.WarEscalated:
-			loud = true
+		switch ev := e.(type) {
+		case events.Enforcement:
+			loud(events.QuietPolice, ev.City, ev.Level)
+		case events.CornerStruck:
+			loud(events.QuietStrike, "", "")
+		case events.RivalPushed:
+			loud(events.QuietPush, "", "")
+		case events.WarEscalated:
+			loud(events.QuietWar, "", "")
 		}
 	}
 	for _, c := range w.Contracts {
 		if c.Live(t.Day) {
-			loud = true
+			loud(events.QuietContract, c.City, "")
 		}
 	}
-	if loud {
+	if why != nil {
+		if w.QuietDays > 0 {
+			t.Emit(*why)
+		}
 		w.QuietDays = 0
 		return
 	}

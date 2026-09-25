@@ -164,9 +164,14 @@ func (m *Model) epilogue() string {
 	return text
 }
 
-// storyLines is the summary's timeline: the top [summary] lines
-// headlines of the run by the weight of their source, the latest first
-// among equals, shown in the order they happened as `day 42  text`.
+// storyLines is the summary's timeline: [summary] lines headlines of
+// the run by the weight of their source, shown in the order they
+// happened as `day 42  text`. A text is told once, at its latest (#465:
+// five identical patrol lines were the story), and the run is cut into
+// as many spans as there are lines, each span giving its heaviest
+// headline, the latest among equals, so a 563-day run is not told from
+// its last month alone; a span with nothing to tell leaves its line to
+// the heaviest of the rest.
 func (m *Model) storyLines() []string {
 	cfg := m.cfg.Endings.Summary
 	type entry struct {
@@ -175,23 +180,52 @@ func (m *Model) storyLines() []string {
 		i      int
 	}
 	quiet := m.quietLines()
-	var picked []entry
+	last := map[string]int{} // a text's latest entry in the journal
 	for i, h := range m.w.Journal {
-		if quiet[h.Text] {
+		last[h.Text] = i
+	}
+	var cands []entry
+	for i, h := range m.w.Journal {
+		if quiet[h.Text] || last[h.Text] != i {
 			continue
 		}
 		if wt := cfg.Weight[h.Source]; wt > 0 {
-			picked = append(picked, entry{h, wt, i})
+			cands = append(cands, entry{h, wt, i})
 		}
 	}
-	sort.SliceStable(picked, func(a, b int) bool {
-		if picked[a].weight != picked[b].weight {
-			return picked[a].weight > picked[b].weight
+	heavier := func(a, b entry) bool {
+		if a.weight != b.weight {
+			return a.weight > b.weight
 		}
-		return picked[a].i > picked[b].i
-	})
-	if len(picked) > cfg.Lines {
-		picked = picked[:cfg.Lines]
+		return a.i > b.i
+	}
+	sort.SliceStable(cands, func(a, b int) bool { return heavier(cands[a], cands[b]) })
+	days := 1
+	if m.w.Over != nil {
+		days = max(days, m.w.Over.Day)
+	}
+	for _, c := range cands {
+		days = max(days, c.h.Day)
+	}
+	var picked []entry
+	taken := map[int]bool{}
+	if n := cfg.Lines; n > 0 {
+		for span := 0; span < n; span++ {
+			for _, c := range cands {
+				if s := min(n-1, (c.h.Day-1)*n/days); s == span && !taken[c.i] {
+					picked, taken[c.i] = append(picked, c), true
+					break
+				}
+			}
+		}
+		for _, c := range cands {
+			if len(picked) >= n {
+				break
+			}
+			if !taken[c.i] {
+				picked, taken[c.i] = append(picked, c), true
+			}
+		}
 	}
 	sort.Slice(picked, func(a, b int) bool { return picked[a].i < picked[b].i })
 	var out []string
@@ -244,8 +278,9 @@ func (m *Model) fallenLine() string {
 }
 
 // betrayalsLine counts who turned on you: the informants, the crew who
-// went over, the lieutenants who walked, and the deals the factions
-// broke; `none` with nobody.
+// went over (a defector, or a member who took a faction's offer, #465),
+// the lieutenants who walked, and the deals the factions broke; `none`
+// with nobody.
 func (m *Model) betrayalsLine() string {
 	s := m.w.Stats
 	var parts []string
@@ -254,6 +289,9 @@ func (m *Model) betrayalsLine() string {
 	}
 	if s.Defections > 0 {
 		parts = append(parts, plural(s.Defections, "defector"))
+	}
+	if s.CrewPoached > 0 {
+		parts = append(parts, fmt.Sprintf("%s poached", plural(s.CrewPoached, "member"))) // #465: a runner who took a faction's offer went over all the same
 	}
 	if s.Walked > 0 {
 		parts = append(parts, fmt.Sprintf("%s walked", plural(s.Walked, "lieutenant")))

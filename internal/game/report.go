@@ -114,7 +114,7 @@ type Stats struct {
 	RivalRaids     int // rival corners the police took on your tips
 	Poached        int // heads of the rival's muscle you paid to go home
 	CornersWon     int // rival corners taken by force
-	CornersLost    int // corners the rival took from you
+	CornersLost    int // corners that left you against your will: a faction took them, the crackdown cleared them, nobody worked them, a lieutenant walked with them (#465); never one you gave up
 	Laundered      int // dirty cash washed clean
 	Seized         int // clean cash lost to audits
 	Informants     int // crew who turned on you

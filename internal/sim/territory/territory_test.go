@@ -84,7 +84,8 @@ func TestSeedAndClaims(t *testing.T) {
 }
 
 // A held corner nobody works drifts back to the street after drift_days,
-// and a post pointing at someone who is gone counts as nobody.
+// counted lost for the summary's ground (#465), and a post pointing at
+// someone who is gone counts as nobody.
 func TestIdleCornersDrift(t *testing.T) {
 	cfg := content.MustLoad()
 	w, s := world(t, cfg)
@@ -108,6 +109,9 @@ func TestIdleCornersDrift(t *testing.T) {
 	evs := step(w, s)
 	if k := kinds(evs); k["CornerLost"] != 1 {
 		t.Fatalf("no CornerLost on day %d: %v", w.Day, k)
+	}
+	if w.Stats.CornersLost != 1 {
+		t.Fatalf("the summary's ground counts %d corners lost, want the one that drifted (#465)", w.Stats.CornersLost)
 	}
 	if d := w.Corner("docks"); d.Held() || d.Enforcer != 0 || w.PostOf(2) != nil {
 		t.Fatalf("after drifting: %+v", *d)

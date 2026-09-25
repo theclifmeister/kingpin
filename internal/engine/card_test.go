@@ -86,6 +86,14 @@ func TestChoiceChipsSayTheLines(t *testing.T) {
 		t.Errorf("the corner and the favour read %q", got)
 	}
 
+	// A move too small to print is no chip (#465: a war at 0.03 clamped
+	// to zero read `war with Slick Eddie's crew −0.0`).
+	w.Rival().War = 0.03
+	calm := &game.Card{ID: "calm", Choices: []game.Choice{{Label: "Calm", Effects: map[string]float64{"war": -10, "respect": 2}}}}
+	if got := texts(engine.ChoiceChips(cfg, s.Rules(), w, calm)[0]); got != "respect +2" {
+		t.Errorf("a war already at zero reads %q", got)
+	}
+
 	c.Hide = true
 	for i, cs := range engine.ChoiceChips(cfg, s.Rules(), w, c) {
 		if len(cs) != 1 || cs[0].Text != engine.Hidden {

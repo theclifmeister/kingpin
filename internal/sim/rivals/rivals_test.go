@@ -302,6 +302,9 @@ func TestTipsAndCrackdown(t *testing.T) {
 	if lost["fourth"] != game.OwnerPlayer || lost["projects"] != game.OwnerPlayer || lost["depot"] != game.OwnerRival {
 		t.Fatalf("lost %v", lost)
 	}
+	if n := w.Stats.CornersLost; n != cfg.Rivals.Rivals.CrackdownCorners {
+		t.Fatalf("the summary's ground counts %d corners lost to the crackdown, want yours alone, %d (#465)", n, cfg.Rivals.Rivals.CrackdownCorners)
+	}
 	for id := range lost {
 		if c := w.Corner(id); c.Owner != game.OwnerNone || c.Runner != 0 || c.Enforcer != 0 {
 			t.Fatalf("%s after the crackdown: %+v", id, *c)

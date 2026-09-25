@@ -338,20 +338,28 @@ const (
 // Channel on with nothing in the Bayport stash to send. With
 // World.Report and World.Journal set aside the digest is main's on all
 // sixty days.
+// Again for #465 (the words match what happened): the move on day 10 is
+// the journal's and the report's words alone (a big night's headline no
+// longer says "awash in cheap", days 10, 24, 26, 35 and 55; the push
+// held off opens TERRITORY, not TIER, day 56) and one count: from day
+// 56 Stats.CornersLost counts the two corners that went back to the
+// street that night unworked (1 -> 3), the summary's ground. With
+// World.Report, World.Journal and Stats.CornersLost set aside the
+// digest is main's on all sixty days.
 var seedDigest = []string{
 	"399f263821f84b75", "d96e9fe5b119cc4b", "118c6624a7893c85", "4e786a8c609b2cea",
 	"ada47897cb50b840", "86cca3860f76a803", "309a8aa012bb8488", "4082b7c4511b76d9",
-	"46fb4a6e3c151030", "3b1e03e717440222", "fde0d6c9bfa20fba", "f1c6d720450a0022",
-	"265821f09db22d3b", "6da6fc7e95b35321", "467abbdcfe3284f5", "a575efe636775008",
-	"7212ecedb6663778", "6b7e5f44710b7cf0", "be8b00a05dba66dc", "05aacefd0f3a8b9a",
-	"95733b68b02b9c11", "b170420853ab8f0d", "d5ae1d8b57be1c54", "79e8410f9a011e10",
-	"328950995157e354", "79d8eb544da702da", "6ba171fd41a86bfe", "8403621e656b97ee",
-	"b21b797fa20aacaf", "19f6c66a37729a32", "49a0adf3447afe00", "234c5825f7acb5d8",
-	"575ce6e62fedc26c", "58b11a657ac05501", "a0b4b3bde5815097", "a0d0a7336ae13c7a",
-	"c591e3b1d4cc8d99", "a9bf66fcf066a754", "877e00b94ff4699d", "95840acd505cacae",
-	"5881cdf7a68782ae", "0eaaea8c08381dd7", "f1c459ed92a860d4", "433bf140210a0616",
-	"4ca07e0b15054fa1", "2e88c4a99f169bf7", "db8d9e27863f39a4", "e9a6c98bcd51ee36",
-	"022b1a07f7ef7bb3", "db845f8eb71297e4", "484c31c0277c90be", "073adde6517d9805",
-	"559616174e2b9e06", "71737fe1e6beb400", "16a20904dfcf6912", "6fd9d016f3c818c8",
-	"e1a29d40b92a1894", "e61334277f6727cd", "9703d93b0b691469", "e52e2f7bcdfefb0f",
+	"46fb4a6e3c151030", "b4f48083c1519670", "0bba17feb161a58f", "05abdc4b8b8ab60b",
+	"1f149a0d45484874", "9bfc3c35fb809bfe", "eb21b6f25ed27158", "2d60da8729914f4b",
+	"64b4057b9d9b8e47", "c0f9c84f5fd437ad", "f49cb96f9fd94a73", "a315438d98b66a15",
+	"b409ae44cb831c86", "617134015563a09a", "d177bd36f27bc383", "14f7fa2c2c925e1d",
+	"9ab7d8d2247726ce", "3c5d28f7d7079d86", "b46348a5a4b4a653", "c6041684d16bce07",
+	"864e9aaf61dedeea", "83f822b10c7117e3", "2dd8396503c86c8b", "3118d62d18dde5c9",
+	"115bd55e1670d8b7", "ce5133531670464a", "50ea4529461f46c0", "7ef64afff1d61f36",
+	"6b9dbd61597eafbd", "37af376b8e7d5e80", "8e32cc55106943d1", "47f79cbdcc1fb652",
+	"7715b0603c2e1fe2", "1652df60f4c53f73", "6d0ee1279db383a0", "3da1c70c38ecd24a",
+	"48dbba682781d52d", "d5449ed1a177a033", "d2feee2d19301d08", "db76416164ce3bb2",
+	"ffe5b9122922df0f", "aff2b314f0b5b238", "fd0dda412ed3c732", "6cdd4ec7d33be589",
+	"58fb51cffe659dfa", "00cbafaa374f873c", "94b2fc025c7de000", "dba228954dcd5ea3",
+	"3ae9dfc08d80e787", "f4429c5ba79c51aa", "ab6231a489d23dd8", "9f7ee62be5f4de4a",
 }

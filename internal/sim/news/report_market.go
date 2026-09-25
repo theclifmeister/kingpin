@@ -99,7 +99,22 @@ func (r *reporter) reportMarket(e events.Event) bool {
 		d.Name = ev.Name
 		r.addBuyers("ContractOffered", d)
 	case events.ContractAccepted:
-		rep.Sales = append(rep.Sales, fmt.Sprintf("You took %s's order: %d %s by day %d%s. Deliver it there (2, d).", ev.Name, ev.Units, w.ProductName(ev.Product), ev.Due, r.in(ev.City)))
+		line := fmt.Sprintf("You took %s's order: %d %s by day %d%s. Deliver it there (2, d).", ev.Name, ev.Units, w.ProductName(ev.Product), ev.Due, r.in(ev.City))
+		// The market hands a lot over before it settles yesterday's
+		// acceptances, so an order taken and delivered on one day would
+		// read handed before it was taken (#465): the acceptance goes in
+		// ahead of the order's first handoff.
+		i, ok := r.handed[ev.ID]
+		if !ok {
+			rep.Sales = append(rep.Sales, line)
+			break
+		}
+		rep.Sales = append(rep.Sales[:i], append([]string{line}, rep.Sales[i:]...)...)
+		for id, j := range r.handed {
+			if j >= i {
+				r.handed[id] = j + 1
+			}
+		}
 	case events.SupplyBought:
 		// The contract's buy this morning (#113): the money line is
 		// the receipt's, below, and this is the sales section's. A
@@ -207,6 +222,12 @@ func (r *reporter) reportMarket(e events.Event) bool {
 		}
 		if ev.Price < ev.Signed {
 			line += fmt.Sprintf(" The street was %s the day they asked.", format.Price(ev.Signed))
+		}
+		if r.handed == nil {
+			r.handed = map[int]int{}
+		}
+		if _, ok := r.handed[ev.ID]; !ok {
+			r.handed[ev.ID] = len(rep.Sales)
 		}
 		rep.Sales = append(rep.Sales, line)
 		rep.Money = append(rep.Money, fmt.Sprintf("%s paid +%s", ev.Name, format.Money(ev.Revenue)))

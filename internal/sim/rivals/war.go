@@ -133,6 +133,9 @@ func (s *Sim) crackdown(w *game.World, t *game.Tick, r *game.RivalState) {
 	for _, c := range cleared {
 		owner, faction := c.Owner, c.Faction
 		c.Hand(game.OwnerNone, "", t.Day)
+		if owner == game.OwnerPlayer {
+			w.Stats.CornersLost++ // the summary's ground counts every corner that left you (#465)
+		}
 		ev.Lost = append(ev.Lost, c.Name)
 		t.Emit(events.CornerLost{Day: t.Day, Corner: c.ID, Name: c.Name, Reason: "crackdown", Owner: owner, Faction: faction})
 	}

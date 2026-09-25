@@ -196,10 +196,13 @@ func (w *World) Dominant() bool {
 }
 
 // Stance is a faction's stance toward you in a word for a table:
-// absorbed, fragmented, homage, truce, tribute, split, war (a war worth
-// the name), or quiet.
+// absorbed (into another faction), scattered (absorbed by nobody, the
+// report's word for it, #465), fragmented, homage, truce, tribute,
+// split, war (a war worth the name), or quiet.
 func (w *World) Stance(r *RivalState, warLine float64) string {
 	switch {
+	case r.Absorbed > 0 && r.AbsorbedBy == "":
+		return "scattered"
 	case r.Absorbed > 0:
 		return "absorbed"
 	case r.Fragmented > 0:

@@ -28,7 +28,7 @@ var reportOnly = map[string]bool{
 	"PlayerUndercut":      true,
 	"CrewTurnedInformant": true, "LieutenantFlipped": true, // deliberately silent: the informant is hidden
 	"DilemmaDrawn": true, "DilemmaAnswered": true, // they carry their own text, the card's
-	"FrontInvested": true, "Reserved": true, "AssetUpkeepPaid": true, // #192, #195, #351
+	"FrontInvested": true, "Reserved": true, "AssetUpkeepPaid": true, "QuietBroken": true, // #192, #195, #351, #465
 	"CrewBailed": true, "CrewRecovered": true, "KinLooking": true, // #46
 	"RivalScouted": true, "PoliceTipped": true, // #70
 	"ReignBroken":    true,                         // #227
@@ -166,8 +166,9 @@ func capital(s string) string {
 // boss of home while the city is yours in the kingpin's sense; the
 // swagger headlines name the boss off their own stream and never the
 // dealer; the TIER section opens with the night's homage (before the
-// reign's line has it), the pushes held off and the claims your name
-// turned, and says nothing on a night with nothing to say.
+// reign's line has it) and TERRITORY with the pushes held off and the
+// claims your name turned (#465), and TIER says nothing on a night with
+// nothing to say.
 func TestThePaperNamesYou(t *testing.T) {
 	cfg := content.MustLoad()
 	n, err := news.New(cfg)
@@ -222,9 +223,14 @@ func TestThePaperNamesYou(t *testing.T) {
 	}
 	n.Step(w, tk(41, evs...))
 	got := strings.Join(w.Report.Tier, "\n")
-	for _, want := range []string{"2 crews paid homage last night: $5,000.", "Vasquez's crew pushed on your front line twice and were held off, losing 1 head.", "Nobody set up on a free corner in " + home.Name + ": your name kept them out."} {
-		if !strings.Contains(got, want) {
-			t.Errorf("the opening lacks %q:\n%s", want, got)
+	if want := "2 crews paid homage last night: $5,000."; !strings.Contains(got, want) {
+		t.Errorf("the opening lacks %q:\n%s", want, got)
+	}
+	// The ground opens TERRITORY, never TIER (#465).
+	ground := strings.Join(w.Report.Territory, "\n")
+	for _, want := range []string{"Vasquez's crew pushed on your front line twice and were held off, losing 1 head.", "Nobody set up on a free corner in " + home.Name + ": your name kept them out."} {
+		if !strings.Contains(ground, want) || strings.Contains(got, want) {
+			t.Errorf("TERRITORY lacks %q, or TIER has it:\nTIER\n%s\nTERRITORY\n%s", want, got, ground)
 		}
 	}
 	// Under the reign the homage is the reign's line, said once.

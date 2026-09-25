@@ -292,6 +292,30 @@ func TestDrawPacing(t *testing.T) {
 	if drawn != 1 {
 		t.Fatalf("once card drawn %d times", drawn)
 	}
+
+	// A once_per card comes up once a subject (#466): the funeral buries
+	// each member's brother once, then the deck is empty.
+	per := *cfg
+	per.Dilemmas.Cards = []content.CardConfig{{ID: "funeral", Title: "Funeral", Text: "{{.Name}}'s brother.", OncePer: content.OncePerMember, Trigger: content.CardTrigger{LoyaltyAbove: 1},
+		Choices: []content.ChoiceConfig{{Label: "a", Outcome: "a"}, {Label: "b", Outcome: "b"}}}}
+	s2, err := news.New(&per)
+	if err != nil {
+		t.Fatal(err)
+	}
+	w = sim.NewWorld(cfg, 5)
+	w.Crew.Members = []game.CrewMember{{ID: 1, Name: "Dre", Role: "runner", Loyalty: 50}, {ID: 2, Name: "Yaya", Role: "runner", Loyalty: 70}}
+	var named []string
+	for d := 1; d <= 100; d++ {
+		s2.Step(w, &game.Tick{Day: d, RNG: game.RNGFor(w.Seed, d)})
+		w.Day = d
+		if p := w.Dilemmas.Pending; p != nil {
+			named = append(named, p.Text)
+			_, _ = w.Choose(0)
+		}
+	}
+	if len(named) != 2 || named[0] != "Yaya's brother." || named[1] != "Dre's brother." {
+		t.Fatalf("the funerals: %q", named)
+	}
 }
 
 // A personal card is the size of the thing it is about (#342): every one

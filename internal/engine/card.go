@@ -61,7 +61,15 @@ func ChoiceChips(cfg *content.Config, r Rules, w *game.World, c *game.Card) [][]
 }
 
 // chips is one choice's changes in words.
-func chips(cfg *content.Config, r Rules, w *game.World, c *game.Card, changes []game.Change) []Chip {
+func chips(cfg *content.Config, r Rules, w *game.World, c *game.Card, all []game.Change) []Chip {
+	// A move too small to print is no chip (#465: a war at 0.03 clamped
+	// to zero read `war with Slick Eddie's crew −0.0`).
+	var changes []game.Change
+	for _, ch := range all {
+		if math.Abs(ch.Delta()) >= 0.05 {
+			changes = append(changes, ch)
+		}
+	}
 	var out []Chip
 	var loyalty []game.Change
 	for _, ch := range changes {

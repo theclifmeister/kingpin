@@ -106,13 +106,13 @@ func FlowLabel(cat string) string {
 	case FlowPurchases:
 		return "Purchases"
 	case FlowRoutes:
-		return "Routes and fees"
+		return "Road, hires, fees" // #465: a signing fee on a night no route ran read as the road's
 	case FlowWages:
 		return "Wages"
 	case FlowLaundering:
 		return "Laundering"
 	case FlowInvestments:
-		return "Investments"
+		return "Investments, tribute" // #465: homage in read as a return on an investment
 	case FlowLosses:
 		return "Losses"
 	case FlowTax:

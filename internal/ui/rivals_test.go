@@ -162,7 +162,7 @@ func TestTributeReadsTheRivalsStreet(t *testing.T) {
 		t.Fatalf("the tribute page: mode %v step %d", m.mode, m.prop.step)
 	}
 	body := stripANSI(m.View())
-	for _, want := range []string{"of your street", "Your street: " + base + " a day on your corners here in what they sell."} {
+	for _, want := range []string{"of your street", "Your street: " + base + " a day, what your corners here could move", "not what they sold."} {
 		if !strings.Contains(body, want) {
 			t.Errorf("the tribute page lacks %q:\n%s", want, body)
 		}

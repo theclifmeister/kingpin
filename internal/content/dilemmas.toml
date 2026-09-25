@@ -44,6 +44,10 @@
 # choice instead of what it does: for a card whose drama is the unknown.
 # Use it sparingly; the turncoat is the one.
 #
+# once_per = "member", "corner" or "front" (#466): the card never names
+# the same subject twice in a run (a funeral, a permit paid, a church's
+# roof); its trigger passes over one it has named for the next in line.
+#
 # Convention: the LAST choice is what happens if you do nothing; the
 # harness takes it for any card a policy does not answer. Text reads at 80
 # columns: keep it under ~280 characters and outcomes under 70.
@@ -197,6 +201,7 @@ respect = -2
 [[card]]
 id = "funeral"
 title = "A funeral"
+once_per = "member" # a brother is buried once (#466)
 text = "{{.Name}}'s brother was shot outside a bar on the south side. Nothing to do with you. The family cannot afford to bury him properly, and the crew are waiting to see what a boss does."
 stakes = "personal"
 amount = 300
@@ -622,8 +627,8 @@ war = 2
 
 [[card]]
 id = "lose_a_file"
-title = "A file goes missing"
-text = "A detective you have never met sits down across from you in a diner. There is a file with your name on it. For {{.Amount}} it could get lost in the move to the new building. He orders pie."
+title = "A precinct file"
+text = "A detective you have never met sits down across from you in a diner. The precinct has a file with your name on it; the DA's office keeps its own. For {{.Amount}} his could get lost in the move to the new building. He orders pie."
 stakes = "business"
 amount = 600
 amount_share = 0.15
@@ -632,7 +637,7 @@ amount_max = 100000
 heat_min = 40
 [[card.choice]]
 label = "Pay him"
-outcome = "The file is gone. So is {{.Amount}}. He tipped the waitress with yours."
+outcome = "The precinct's file is gone. So is {{.Amount}}. The DA's is not."
 [card.choice.effects]
 dirty_amount = -1
 heat = -15
@@ -771,6 +776,7 @@ crew_loyalty = -3
 [[card]]
 id = "church_roof"
 title = "The church roof"
+once_per = "corner" # one church a corner, one roof (#466)
 text = "The pastor from the church on {{.Corner}} comes by, hat in hand. The roof leaks and the collection does not cover it. He knows what you do. He also knows who fixes roofs in this neighbourhood."
 stakes = "personal"
 amount = 300
@@ -895,7 +901,7 @@ weight_rich = 0.1
 cash_min = 20000
 [[card.choice]]
 label = "Sit in"
-outcome = "You sat in and walked out up {{.Amount}}. The councilman knows your name."
+outcome = "You sat in for {{.Amount}} and walked out up half of it. The councilman knows your name."
 [card.choice.effects]
 dirty_amount = 0.5
 heat = 3
@@ -909,6 +915,7 @@ notoriety = -1
 [[card]]
 id = "permit"
 title = "A man from the city"
+once_per = "front" # a front's permit is asked for once (#466); the next front is fair game
 text = "A man from the city with a clipboard says {{.Front}} is operating without the right permit. {{.Amount}}, in clean money, and the paperwork appears. Otherwise there will be an inspection, and inspectors look at books."
 stakes = "business"
 amount = 400
@@ -1120,6 +1127,7 @@ fear = 3
 [[card]]
 id = "a_say"
 title = "A say"
+once_per = "member" # a member asks for a say once (#466)
 text = "{{.Name}} has been with you since the first corner and says so, at the table, in front of everyone. They want a say now: who gets hired, who gets cut, whose name gets said. It is not really a question."
 stakes = "personal"
 weight_rich = 4

@@ -138,6 +138,7 @@ func (s *Sim) walk(w *game.World, t *game.Tick, lt game.CrewMember) {
 				w.Stats.CornersLost++
 			} else {
 				c.Hand(game.OwnerNone, "", t.Day)
+				w.Stats.CornersLost++ // the summary's ground counts every corner that left you (#465)
 			}
 		}
 		if to != nil {
