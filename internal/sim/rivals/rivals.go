@@ -188,6 +188,10 @@ func owns(c game.Corner, r *game.RivalState) bool { return c.FactionID() == r.Fa
 // homage, on streams of their own. A run with one faction makes the
 // rolls the duel made and no other.
 func (s *Sim) Step(w *game.World, t *game.Tick) {
+	// The war the player declared as the night began (#478): the war
+	// order ends tonight when the last corner goes (war), and a war you
+	// declared counts as open for taken out whatever its noise.
+	declared := w.War
 	// The squeeze on the player's corners is written afresh every step,
 	// once, before any faction writes its own (undercut).
 	for _, cid := range w.CityOrder {
@@ -227,7 +231,7 @@ func (s *Sim) Step(w *game.World, t *game.Tick) {
 		}
 	}
 	s.war(w, t)
-	s.endings(w, t)
+	s.endings(w, t, declared)
 }
 
 // step runs one faction's day: arrival, money, the table (offers taken,

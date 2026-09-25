@@ -7350,13 +7350,17 @@
         },
         "Lots": {
           "type": "integer"
+        },
+        "Swept": {
+          "type": "integer"
         }
       },
       "required": [
         "Day",
         "Amount",
         "Fee",
-        "Lots"
+        "Lots",
+        "Swept"
       ],
       "type": "object"
     },
@@ -15387,6 +15391,37 @@
         "type": "null"
       }
     },
+    "set_sweep": {
+      "changes": true,
+      "needsRun": true,
+      "params": {
+        "maxItems": 1,
+        "minItems": 1,
+        "prefixItems": [
+          {
+            "title": "keep",
+            "type": "integer"
+          }
+        ],
+        "type": "array"
+      },
+      "result": {
+        "type": "null"
+      }
+    },
+    "stop_sweep": {
+      "changes": true,
+      "needsRun": true,
+      "params": {
+        "maxItems": 0,
+        "minItems": 0,
+        "prefixItems": [],
+        "type": "array"
+      },
+      "result": {
+        "type": "null"
+      }
+    },
     "tip": {
       "changes": true,
       "needsRun": true,
@@ -15711,7 +15746,7 @@
       "$ref": "#/$defs/engine.View"
     }
   },
-  "protocol": 19,
+  "protocol": 20,
   "title": "kingpind",
   "view_version": 14
 }

@@ -40,6 +40,13 @@ func (r *reporter) reportLaundering(e events.Event) bool {
 		r.book(game.FlowOffshore, 0, -ev.Amount) // still yours: its own line, out of the night's profit (#422)
 		r.book(game.FlowLaundering, 0, -ev.Fee)
 		line := fmt.Sprintf("Moved %s clean offshore, fee -%s; the account holds %s", format.Money(ev.Amount), format.Money(ev.Fee), format.Money(w.Offshore))
+		if ev.Swept > 0 {
+			line = fmt.Sprintf("The sweep moved %s clean offshore", format.Money(ev.Swept))
+			if ev.Swept < ev.Amount+ev.Fee {
+				line += fmt.Sprintf(" on top of your %s", format.Money(ev.Amount+ev.Fee-ev.Swept))
+			}
+			line += fmt.Sprintf(", fee -%s; the account holds %s", format.Money(ev.Fee), format.Money(w.Offshore))
+		}
 		if ev.Lots > 0 {
 			line += fmt.Sprintf(". Over the lot by %s: the DA will read it.", format.Plural(ev.Lots, "lot"))
 		}

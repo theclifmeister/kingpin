@@ -208,11 +208,11 @@ func stepWords(st engine.AmbitionStepView) string {
 	switch st.Unit {
 	case game.UnitCash:
 		return money(have) + " of " + money(need)
-	case game.UnitClean:
+	case game.UnitClean, game.UnitDirty:
 		if st.Done {
 			return "owned"
 		}
-		return fmt.Sprintf("%s clean, %s in hand", money(need), money(have))
+		return fmt.Sprintf("%s %s, %s in hand", money(need), st.Unit, money(have))
 	case game.UnitDays:
 		return fmt.Sprintf("%d of %s", have, plural(need, "day"))
 	case game.UnitPoints:

@@ -2910,6 +2910,12 @@ func modalCases() []modalCase {
 		{"invest", modeInvest, func(t *testing.T, m *Model) { m.w.Player.CleanCash = 200_000; m.Update(key("7")); m.Update(key("u")) }},
 		{"reserve", modeReserve, func(t *testing.T, m *Model) { m.w.Player.CleanCash = 200_000; m.Update(key("7")); m.Update(key("o")) }},
 		{"cash out", modeCashOut, func(t *testing.T, m *Model) { m.w.Player.CleanCash = 200_000; m.Update(key("7")); m.Update(key("c")) }},
+		{"sweep", modeSweep, func(t *testing.T, m *Model) {
+			m.w.Player.CleanCash = 200_000
+			_ = m.w.SetSweep(25_000) // on: the footer's x sweep off
+			m.Update(key("7"))
+			m.Update(key("S"))
+		}},
 		// The restock (#356): its plan's table under the days, with the
 		// cash to buy it all, and the buy's after row over the room.
 		{"restock", modeRestock, func(t *testing.T, m *Model) {

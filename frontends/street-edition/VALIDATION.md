@@ -1,3 +1,7 @@
+# Engine alignment validation: protocol 20 / view 14 (#478)
+
+The builder accepts protocol 20 and view 14. Protocol 20 added `set_sweep` and `stop_sweep`, the nightly sweep offshore, which this edition does not call; the view's shape is unchanged. The ambitions now carry a `dirty` unit (the vanish plan's lawyer on call, paid in dirty cash), which `src/app.js` formats as money beside `cash`, `clean` and `income`.
+
 # Engine alignment validation: the arrest alert (#475, still protocol 19 / view 14)
 
 The engine's new `arrest` alert (a warrant is out: sell nothing and lie low, or you are arrested tonight) uses fields alerts already had (`city`, `heat`, `line`, `due`, `days`), and the `heat` alert now carries `level`, the highest rung met; the view's shape is unchanged. Both are worded by the shared `alerts.js` the builder copies, and the law panel's arrest rung by the shared `police.js`. Reviewed against `src/app.js`: `openAlert` takes the arrest alert to the street tab with its city selected, as it does the heat alert (its act is the dashboard). The new events `WarrantSigned` and `WarrantLapsed` are in the schema.

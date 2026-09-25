@@ -27,6 +27,8 @@ No other text names a key: not a title, a table cell, a status or a modal body, 
 
 **The restock key** (#356): `R restock` names the market and nothing else (the map's `R route target` is that screen's own), opens `modeRestock` (`docs/cart.md`), whose footer is the number field's row, `enter buy` and `esc close`.
 
+**The sweep key** (#478): `S sweep` names the ledger and nothing else, beside `o reserve` and `c cash out`, and opens `modeSweep` (`docs/laundering.md`), whose footer is the number field's row, `enter sweep`, `x off` while a sweep is on (`sweepOn`) and `esc close`.
+
 **The presets key** (#357): `P presets` names the market and nothing else, opens `modePresets` (`docs/presets.md`), whose list page lists `↑↓ pick`, `1-9 choose`, `enter review`, `s save current`, `x delete` (on a preset of yours) and `esc close`, and whose review page `enter apply`, `⇧tab back` and `esc close`.
 
 **The dashboard's `a` and the seed page's keys** (#472, #473): `a ambitions` is the dashboard's own (the market's, the map's and the rivals' `a` are theirs), listed while the arrows are off the police (`offPolice`). The new run's seed page lists `0-9 type a seed` and not the number field's `m max  h half  ↑↓ ±1  pgup pgdn ±10` (`numberStep` is false in `modeNewRun`, and `keyNewRun` drops those keys: a seed has no max, so they set it to 0). The README's line on a key pressed where it does nothing now quotes the pointer as it reads (`Hire on the crew screen (4). Hit scouts on the rivals screen (8).`) and says a global key simply works (`TestNothingRidesOnColourAlone` pins the seed page and `D`).

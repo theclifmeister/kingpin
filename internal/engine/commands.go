@@ -314,6 +314,13 @@ func (s *Session) BuyTrophy(id string) (game.Trophy, error) {
 // Reserve moves clean cash into the offshore account (World.Reserve).
 func (s *Session) Reserve(amount int) error { return s.w.Reserve(amount) }
 
+// SetSweep turns the nightly sweep offshore on, keeping keep clean in
+// hand (#478, World.SetSweep); StopSweep turns it off.
+func (s *Session) SetSweep(keep int) error { return s.w.SetSweep(keep) }
+
+// StopSweep turns the nightly sweep offshore off (#478).
+func (s *Session) StopSweep() error { return s.w.StopSweep() }
+
 // CashOut draws clean cash back into the dirty pile, at once, at the
 // file's fee (#395, World.CashOut).
 func (s *Session) CashOut(amount int) error { return s.set.Laundering.CashOut(s.w, amount) }

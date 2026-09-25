@@ -433,3 +433,62 @@ func TestCrownIsTheScoreAsItStands(t *testing.T) {
 		t.Logf("k=%d: crowned on day %d, day %d of the reign, score %d", k, res.Over.Day, res.World.ReignDay(), res.World.Stats.Score)
 	}
 }
+
+// TestADeclaredWarIsOpen (#478): a war you declared counts as open for
+// taken out whatever its noise. The taken-out scenario's street with
+// the war order on warn and the war held quiet (a quarter of
+// war_threshold every morning, under it every night) and one
+// enforcer on the payroll: declared, the push that takes the last
+// corner ends the run taken out; undeclared, the same quiet war never
+// does. The war condition stays: a faction whose war with you is under
+// the line, and that you never declared on, takes your last corner and
+// the run goes on.
+func TestADeclaredWarIsOpen(t *testing.T) {
+	t.Parallel()
+	cfg := NoLife(OneFaction(content.MustLoad()))
+	cfg.Rivals.War.Dial = "warn" // the war order at its quietest: a hit a night is loud by the second
+	play := func(declare bool) Result {
+		w := sim.NewWorld(cfg, 1)
+		r := w.Rival()
+		r.Arrived, r.Muscle, r.Cash, r.Personality, r.Observed = 1, 12, 500_000, "expansionist", true
+		you := &w.Home().Corners[0]
+		for i := range w.Home().Corners {
+			if c := &w.Home().Corners[i]; c.Runner == game.You {
+				you = c
+			}
+		}
+		for i := range w.Home().Corners {
+			if c := &w.Home().Corners[i]; c.ID != you.ID && c.Borders(*you) {
+				c.Owner, c.Faction, c.Since = game.OwnerRival, r.Faction(), 1
+				break
+			}
+		}
+		w.Crew.Members = append(w.Crew.Members, game.CrewMember{ID: 950, Name: "Brick", Role: game.RoleEnforcer, Skill: 20, Loyalty: 90, Nerve: 20, Wage: 50})
+		w.Crew.NextID = 951
+		w.Player.DirtyCash = 100_000
+		res, err := RunFrom(cfg, w, 120, func(w *game.World) {
+			w.Rival().War = min(w.Rival().War, cfg.Rivals.Rivals.WarThreshold/4) // the war stays quiet
+			if declare && w.War == "" {
+				_ = w.DeclareWar(w.Rival().Faction())
+			}
+		})
+		if err != nil {
+			t.Fatal(err)
+		}
+		return res
+	}
+	declared := play(true)
+	if declared.Over == nil || declared.Over.Cause != content.CauseTakenOut {
+		t.Fatalf("declared: the run ended %+v, want taken out", declared.Over)
+	}
+	t.Logf("declared: taken out on day %d by %s", declared.Over.Day, declared.Over.Who)
+	quiet := play(false)
+	if quiet.Over != nil && quiet.Over.Cause == content.CauseTakenOut {
+		t.Errorf("undeclared: taken out on day %d by a war under the line", quiet.Over.Day)
+	}
+	if quiet.World.Held() > 0 {
+		t.Logf("undeclared: still holding %d corners on day %d", quiet.World.Held(), quiet.Days)
+	} else {
+		t.Logf("undeclared: the last corner gone, the run going on (%+v)", quiet.Over)
+	}
+}

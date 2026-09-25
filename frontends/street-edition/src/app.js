@@ -1029,10 +1029,10 @@ function ambitionsHTML() {
         `<article class="card"><div class="row"><h3>${esc(a.name)}</h3><span class="tag">${a.done ? "READY" : Math.floor(a.progress * 100) + "%"}</span></div><div class="meter teal"><span style="width:${a.progress * 100}%"></span></div>${a.steps
           .map((step) => {
             const fmt = (n) =>
-              ["cash", "clean", "income"].includes(step.unit)
+              ["cash", "clean", "dirty", "income"].includes(step.unit)
                 ? money(n)
                 : Math.round(n).toLocaleString();
-            return `<p class="plan-step ${step.done ? "met" : ""}">${step.done ? "✓" : "○"} ${esc(step.label)}<small>${fmt(step.have)} / ${fmt(step.need)} ${["cash", "clean", "income"].includes(step.unit) ? "" : esc(step.unit)}</small></p>`;
+            return `<p class="plan-step ${step.done ? "met" : ""}">${step.done ? "✓" : "○"} ${esc(step.label)}<small>${fmt(step.have)} / ${fmt(step.need)} ${["cash", "clean", "dirty", "income"].includes(step.unit) ? "" : esc(step.unit)}</small></p>`;
           })
           .join(
             "",
@@ -1083,7 +1083,7 @@ function trophiesHTML() {
 function short(ending) {
   const a = v.ambitions.find((x) => x.ending === ending);
   if (!a) return "";
-  const fmt = (s, n) => (["cash", "clean", "income"].includes(s.unit) ? money(n) : Math.round(n).toLocaleString());
+  const fmt = (s, n) => (["cash", "clean", "dirty", "income"].includes(s.unit) ? money(n) : Math.round(n).toLocaleString());
   return a.done ? "" : a.steps.filter((s) => !s.done).map((s) => `${s.label} ${fmt(s, s.have)} of ${fmt(s, s.need)}`).join("; ");
 }
 // tonightHTML is tonight's pile as the police will count it (#397): the

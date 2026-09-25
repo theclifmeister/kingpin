@@ -429,6 +429,11 @@ func (m *Model) rivalsDetails() []section {
 		}
 		sel.lines = append(sel.lines, row("allies", strings.Join(names, ", ")))
 	}
+	// The war you declared on them, short of the muscle to lose it
+	// (#478): the last corner gone ends the run.
+	if line := m.warMuscleLine(); line != "" && w.War == r.Faction() {
+		sel.lines = append(sel.lines, wrapped(theme.Bad, line)...)
+	}
 	// A betrayal's clock is worth a line whatever is selected.
 	if bad && len(w.Offers)+len(r.Deals) > 0 {
 		sel.lines = append(sel.lines, wrapped(moodStyle, mood)...)
@@ -499,8 +504,26 @@ func (m *Model) warConfirm() string {
 	if w.AtPeaceWith(r.Faction()) {
 		body = append(body, "", theme.Bad.Render("You have a deal with them: the first night breaks it, and the table remembers."))
 	}
+	if line := m.warMuscleLine(); line != "" {
+		body = append(body, "")
+		for _, l := range m.wrapLines(line) {
+			body = append(body, theme.Bad.Render(l))
+		}
+	}
 	body = append(body, "", theme.Subtle.Render("The war ends on its own when there is nothing left to take, or when you call it off here."))
 	return m.modal("WAR ON "+strings.ToUpper(m.rivalName(r))+"?", body, m.modalFooter())
+}
+
+// warMuscleLine is the taken-out warning (#478): a war you declare is
+// open whatever its noise, and with fewer enforcers on the payroll than
+// rivals.toml [endings] taken_out_muscle the push that takes your last
+// corner ends the run. "" with muscle enough or the ending boxed.
+func (m *Model) warMuscleLine() string {
+	need := m.cfg.Rivals.Endings.TakenOutMuscle
+	if need <= 0 || m.w.Crew.OnPayroll(game.RoleEnforcer) >= need {
+		return ""
+	}
+	return fmt.Sprintf("With fewer than %s a war you lose ends the run.", plural(need, "enforcer"))
 }
 
 // confirmWar declares it.
