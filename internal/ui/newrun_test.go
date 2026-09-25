@@ -238,7 +238,7 @@ func TestRunEndRecordsAndUnlocks(t *testing.T) {
 	// The menu's history line, and the toggle's page now open.
 	again.Update(key("esc"))
 	again.mode = modeStart
-	if view := stripANSI(again.View()); !strings.Contains(view, "History · 1 run · best $0 · 1 of 9 endings") {
+	if view := stripANSI(again.View()); !strings.Contains(view, "History · 1 run · best score $0 · 1 of 9 endings") {
 		t.Errorf("the menu has no history line:\n%s", view)
 	}
 	again.startChoice = 2

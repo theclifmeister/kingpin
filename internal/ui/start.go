@@ -118,18 +118,25 @@ func (m *Model) viewStart() string {
 func (m *Model) startRows() []string {
 	rows := make([]string, 0, game.SlotCount+1)
 	for _, s := range game.Slots() {
-		rows = append(rows, slotLine(s, m.now()))
+		rows = append(rows, slotLine(s, m.now(), m.cfg.Endings.Title))
 	}
 	return append(rows, "Quit")
 }
 
 // slotLine is what the start menu says of a slot: `Slot 1 · day 42 ·
-// $1.2M · Eastside · saved 2h ago`, or `Slot 2 · empty`.
-func slotLine(s game.SlotInfo, now time.Time) string {
+// $1.2M · Eastside · saved 2h ago`, or `Slot 2 · empty`. A run that is
+// over carries its ending's title, the one its summary opens with
+// (`Slot 1 · INDICTED · day 21 · …`), so it does not read as a run to go
+// back to (#441); title is the endings' Title.
+func slotLine(s game.SlotInfo, now time.Time, title func(string) string) string {
 	if s.Empty {
 		return fmt.Sprintf("Slot %d · empty", s.Slot)
 	}
-	parts := []string{fmt.Sprintf("Slot %d", s.Slot), fmt.Sprintf("day %d", s.Day), cash(s.Cash)}
+	parts := []string{fmt.Sprintf("Slot %d", s.Slot)}
+	if s.Ended != "" {
+		parts = append(parts, title(s.Ended))
+	}
+	parts = append(parts, fmt.Sprintf("day %d", s.Day), cash(s.Cash))
 	if s.City != "" {
 		parts = append(parts, s.City)
 	}
@@ -145,7 +152,7 @@ func (m *Model) newConfirm() string {
 // deleteConfirm asks before a slot is emptied, naming the run in it.
 func (m *Model) deleteConfirm() string {
 	s := game.Slots()[m.startChoice]
-	line := slotLine(s, m.now())
+	line := slotLine(s, m.now(), m.cfg.Endings.Title)
 	if i := strings.Index(line, " · "); i >= 0 {
 		line = line[i+len(" · "):]
 	}

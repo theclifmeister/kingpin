@@ -333,14 +333,16 @@ func (m *Model) unlockNames() []string {
 }
 
 // historyLine is the start menu's line on the profile: the runs, the
-// best score and the endings reached; nothing with no run recorded.
+// best score and the endings reached; nothing with no run recorded. The
+// score is named as one (#441): it is the offshore account, not the pile,
+// so a bare "best $0" after a $12K run read as broken.
 func (m *Model) historyLine() string {
 	p := m.profile
 	if p == nil || len(p.Runs) == 0 {
 		return ""
 	}
 	best := p.BestRun()
-	return fmt.Sprintf("History · %s · best %s · %d of %d endings", plural(len(p.Runs), "run"), cash(best.Score), p.Endings(), len(content.Causes))
+	return fmt.Sprintf("History · %s · best score %s · %d of %d endings", plural(len(p.Runs), "run"), cash(best.Score), p.Endings(), len(content.Causes))
 }
 
 // rankLine is the summary's clause on where the run stands against

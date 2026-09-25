@@ -1184,8 +1184,24 @@ func TestStartMenuLists(t *testing.T) {
 		t.Fatalf("up from the top: row %d, not Quit", m.startChoice)
 	}
 	s := game.Slots()[0]
-	if got := slotLine(s, s.Saved.Add(2*time.Hour+5*time.Minute)); got != fmt.Sprintf("Slot 1 · day 42 · $1.2M · %s · saved 2h ago", w.Here().Name) {
+	if got := slotLine(s, s.Saved.Add(2*time.Hour+5*time.Minute), m.cfg.Endings.Title); got != fmt.Sprintf("Slot 1 · day 42 · $1.2M · %s · saved 2h ago", w.Here().Name) {
 		t.Fatalf("slot line: %q", got)
+	}
+	// A run that is over says how it ended, in its summary's title, so it
+	// does not read as a run to go back to (#441).
+	ended := *w
+	ended.Over = ended.End(content.CauseIndicted, 21, "")
+	if err := game.Save(2, &ended); err != nil {
+		t.Fatal(err)
+	}
+	if got := game.Slots()[1]; got.Ended != content.CauseIndicted {
+		t.Fatalf("the slot does not carry its ending: %+v", got)
+	}
+	if got := menu("an ended run")[1]; got != fmt.Sprintf("Slot 2 · INDICTED · day 200 · $63M · %s · saved just now", w.Here().Name) {
+		t.Fatalf("ended slot: %q", got)
+	}
+	if err := game.Save(2, w); err != nil {
+		t.Fatal(err)
 	}
 	// Enter on a full slot continues it in that slot; on an empty one a
 	// run starts there.
