@@ -9335,6 +9335,41 @@
       ],
       "type": "object"
     },
+    "game.FactionDown": {
+      "properties": {
+        "Corners": {
+          "type": "integer"
+        },
+        "Counts": {
+          "type": "boolean"
+        },
+        "Due": {
+          "type": "integer"
+        },
+        "GoneOn": {
+          "type": "integer"
+        },
+        "Rich": {
+          "type": "boolean"
+        },
+        "Scouting": {
+          "type": "boolean"
+        },
+        "Since": {
+          "type": "integer"
+        }
+      },
+      "required": [
+        "Counts",
+        "Due",
+        "Scouting",
+        "Corners",
+        "Since",
+        "GoneOn",
+        "Rich"
+      ],
+      "type": "object"
+    },
     "game.Front": {
       "properties": {
         "AuditDial": {
@@ -14527,6 +14562,24 @@
         "type": "boolean"
       }
     },
+    "rules.rivals.down": {
+      "changes": false,
+      "needsRun": true,
+      "params": {
+        "maxItems": 1,
+        "minItems": 1,
+        "prefixItems": [
+          {
+            "title": "faction",
+            "type": "string"
+          }
+        ],
+        "type": "array"
+      },
+      "result": {
+        "$ref": "#/$defs/game.FactionDown"
+      }
+    },
     "rules.rivals.expansion": {
       "changes": false,
       "needsRun": true,
@@ -15593,7 +15646,7 @@
       "$ref": "#/$defs/engine.View"
     }
   },
-  "protocol": 18,
+  "protocol": 19,
   "title": "kingpind",
   "view_version": 13
 }

@@ -1,3 +1,7 @@
+# Engine alignment validation: protocol 19 / view 13 (#472)
+
+The builder accepts protocol 19 and view 13. Protocol 19 added `rules.rivals.down`, what keeps a faction off the crown's count and for how long, which this edition does not call; the view's shape is unchanged.
+
 # Engine alignment validation: protocol 18 / view 13 (#458, #459)
 
 The builder accepts protocol 18 and view 13. View 13 (#458) gives alerts a `front`, for the new `front_shut` alert (a front shut for upkeep the clean pile could not pay); protocol 18 (#459) adds `rules.logistics.idle`, why a route on its dial sends nothing, which this edition does not call, and the engine's new `till` alert. The build copies the reference client's `session.js` and `alerts.js`, which word both alerts.

@@ -666,6 +666,8 @@ func (m *Model) viewTitle() string {
 				label = fmt.Sprintf("%d %s", i+1, sc.name)
 			case 1:
 				label = fmt.Sprintf("%d %s", i+1, sc.short)
+			case 2:
+				label = fmt.Sprintf("%d%s", i+1, sc.tiny)
 			default:
 				label = fmt.Sprintf("%d", i+1)
 			}
@@ -701,10 +703,11 @@ func (m *Model) viewTitle() string {
 	}
 	// Try the roomy layout first, then progressively shorter ones: the
 	// tabs shorten before the right side loses anything, and the short
-	// names drop the unread badge before they give way to digits (#235:
-	// nine short names fit 120 columns with nothing to spare, so the
-	// badge alone pushed every screen to digits exactly when there was
-	// news to point at).
+	// names drop the unread badge before they give way to three letters
+	// and then to digits (#235: nine short names fit 120 columns with
+	// nothing to spare, so the badge alone pushed every screen to digits
+	// exactly when there was news to point at; #473: at 100 columns the
+	// bar read `1 2 3 … 9`, and `2Mkt` fits).
 	for _, try := range []struct {
 		short       int
 		badge       bool
@@ -713,14 +716,15 @@ func (m *Model) viewTitle() string {
 		{0, true, true, true},
 		{1, true, true, true}, {1, true, true, false}, {1, true, false, false},
 		{1, false, true, true}, {1, false, true, false}, {1, false, false, false},
-		{2, false, false, false},
+		{2, false, false, false}, // #473: `2Mkt` before the digits alone
+		{3, false, false, false},
 	} {
 		left, right := tabsFor(try.short, try.badge), rightFor(try.city, try.clean)
 		if gap := m.width - lipgloss.Width(left) - lipgloss.Width(right); gap >= 1 {
 			return left + strings.Repeat(" ", gap) + right
 		}
 	}
-	return fit(tabsFor(2, false)+" "+rightFor(false, false), m.width)
+	return fit(tabsFor(3, false)+" "+rightFor(false, false), m.width)
 }
 
 // paneKeys is the pane's KEYS section in play mode: the key table's

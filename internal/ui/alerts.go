@@ -460,6 +460,11 @@ func (m *Model) alertsPanel(width, room int) string {
 		return ""
 	}
 	alerts := m.alertLines(width-4, room-2)
+	if n := room - 2; len(alerts) > n {
+		// More alerts than rows: the window keeps the cursor's in view.
+		top := max(0, min(m.alertCursor-n+1, len(alerts)-n))
+		alerts = alerts[top : top+n]
+	}
 	return panel("ALERTS", strings.Join(alerts, "\n"), width, len(alerts)+2, theme.Heat)
 }
 

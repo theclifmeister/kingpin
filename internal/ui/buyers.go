@@ -180,7 +180,7 @@ func (m *Model) answerContract(accept bool) {
 	if accept {
 		m.say(fmt.Sprintf("Taken: %d %s to %s by day %d. Deliver from the stash in %s.", c.Units, m.w.ProductName(c.Product), c.Name, c.Due, m.w.CityName(c.City)))
 	} else {
-		m.say(fmt.Sprintf("Declined %s's offer.", c.Name))
+		m.say(fmt.Sprintf("Declined the offer from %s.", c.Name)) // a buyer is a phrase: no possessive (#473)
 	}
 }
 

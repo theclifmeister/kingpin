@@ -351,9 +351,15 @@ func TestUpgradesScreenInTheGrammar(t *testing.T) {
 				v := stripANSI(m.View())
 				var line string
 				for _, l := range strings.Split(stripANSI(m.viewScreen()), "\n") {
-					if strings.HasPrefix(l, "▸") {
+					if r := []rune(l); len(r) > 1 && r[1] == '▸' {
 						line = l
 					}
+				}
+				// The cursor's ▸ sits beside the node's state, never in
+				// its place (#473): the row says owned, available or
+				// locked in a glyph as well as in colour.
+				if want := map[string]string{"owned": "✓", "available": "○"}[m.upgradeState(u)]; !strings.HasPrefix(line, want) || (want == "" && !strings.HasPrefix(line, "·")) {
+					t.Errorf("%dx%d %s: the cursor's row %q does not lead with its state's glyph", sz[0], sz[1], u.ID, line)
 				}
 				if !strings.Contains(line, u.Name) || !strings.Contains(line, money(u.Cost)) {
 					t.Errorf("%dx%d %s: the cursor's row %q lacks the name or %s", sz[0], sz[1], u.ID, line, money(u.Cost))

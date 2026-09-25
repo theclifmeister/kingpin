@@ -356,20 +356,24 @@ const (
 // pills before the weed (a dollar brought back more on the pills that
 // morning); on days 57 and 58 they were short too and the weed still
 // ranked first, so the fifty-eight days before it are main's.
+// Again for #473 (a buyer is a phrase: `You took the order from …`,
+// `The offer from … lapsed`): the move on day 8 and the days after it
+// that take or lose a buyer's order is the report's words alone; the
+// days between keep main's digest, and no number moved.
 var seedDigest = []string{
 	"399f263821f84b75", "d96e9fe5b119cc4b", "118c6624a7893c85", "4e786a8c609b2cea",
-	"1b253356002d8cb8", "86cca3860f76a803", "309a8aa012bb8488", "4082b7c4511b76d9",
-	"fff722155c13928c", "b4f48083c1519670", "0bba17feb161a58f", "05abdc4b8b8ab60b",
+	"1b253356002d8cb8", "86cca3860f76a803", "309a8aa012bb8488", "44e718fb7660aaa6",
+	"fff722155c13928c", "b4f48083c1519670", "0bba17feb161a58f", "70d03be04e31f33a",
 	"1f149a0d45484874", "9bfc3c35fb809bfe", "f540b75cb532cac0", "2d60da8729914f4b",
-	"64b4057b9d9b8e47", "c0f9c84f5fd437ad", "f49cb96f9fd94a73", "a315438d98b66a15",
-	"8638d6efbabbc8fe", "617134015563a09a", "d177bd36f27bc383", "14f7fa2c2c925e1d",
-	"a0339cae2990a800", "3c5d28f7d7079d86", "b46348a5a4b4a653", "c6041684d16bce07",
+	"64b4057b9d9b8e47", "f992ea3d973c39ec", "f49cb96f9fd94a73", "a315438d98b66a15",
+	"8638d6efbabbc8fe", "617134015563a09a", "d177bd36f27bc383", "9ed9e732f60f9354",
+	"a0339cae2990a800", "3c5d28f7d7079d86", "b46348a5a4b4a653", "d39a7abbbd3a17a4",
 	"864e9aaf61dedeea", "5949d4514a6ee279", "2dd8396503c86c8b", "3118d62d18dde5c9",
-	"115bd55e1670d8b7", "3ff31cfc63d18932", "50ea4529461f46c0", "7ef64afff1d61f36",
-	"6b9dbd61597eafbd", "4b9f2a6c5b0dac24", "8e32cc55106943d1", "47f79cbdcc1fb652",
-	"1adf59af70697cc8", "1652df60f4c53f73", "6d0ee1279db383a0", "3da1c70c38ecd24a",
+	"163633fa8dafed76", "3ff31cfc63d18932", "50ea4529461f46c0", "7ef64afff1d61f36",
+	"ca8b862dd4884e36", "4b9f2a6c5b0dac24", "8e32cc55106943d1", "47f79cbdcc1fb652",
+	"d7ed0a7ea1d85343", "1652df60f4c53f73", "6d0ee1279db383a0", "1f1ef7cd472fc445",
 	"48dbba682781d52d", "d5449ed1a177a033", "d2feee2d19301d08", "4ffc168dd563408e",
-	"ffe5b9122922df0f", "aff2b314f0b5b238", "fd0dda412ed3c732", "6cdd4ec7d33be589",
-	"48d058d72f645cfe", "00cbafaa374f873c", "94b2fc025c7de000", "dba228954dcd5ea3",
+	"ffe5b9122922df0f", "aff2b314f0b5b238", "8963a391e829b55d", "6cdd4ec7d33be589",
+	"48d058d72f645cfe", "00cbafaa374f873c", "94b2fc025c7de000", "8f23c7b5c5bc3ac0",
 	"3ae9dfc08d80e787", "f4429c5ba79c51aa", "42512a73d16126f1", "15189c3c7fca2090",
 }

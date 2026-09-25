@@ -158,6 +158,8 @@ var bindings = []binding{
 		do: func(m *Model, _ string) { m.askTrophy() }},
 	{key: "w", label: "walk away", help: "retire, vanish, or take the crown", screens: on(screenDashboard),
 		do: func(m *Model, _ string) { m.askExit() }},
+	{key: "a", label: "ambitions", help: "the endings as plans and how far each is", screens: on(screenDashboard), listed: offPolice,
+		do: func(m *Model, _ string) { m.openAmbitions(false) }}, // #472: not only from the stage and the walk-away dialog
 	{key: "o", label: "open alert", help: "go where the selected alert is answered", screens: on(screenDashboard), when: hasAlerts,
 		do: func(m *Model, _ string) { m.openSelectedAlert() }},
 	// The rivals.
@@ -195,8 +197,8 @@ var bindings = []binding{
 		do: func(m *Model, _ string) { m.toggleLieLow() }},
 	{key: "p", label: "pay dial", help: "the pay dial: stingy, fair, generous", screens: on(screenCrew), global: true,
 		do: func(m *Model, _ string) { m.cyclePay() }},
-	{key: "d", label: "launder dial", help: "the launder dial: careful, normal, greedy", screens: on(screenLedger), global: true,
-		do: func(m *Model, _ string) { m.cycleLaunder() }},
+	{key: "d D", label: "launder dial", help: "the launder dial up a notch; D down one", keys: []string{"d", "D"}, screens: on(screenLedger), global: true,
+		do: func(m *Model, key string) { m.cycleLaunder(key == "D") }},
 	{key: "g", label: "go to <city>", help: "go to the other city; the stock stays put", screens: on(screenDashboard, screenMap), global: true,
 		do: func(m *Model, _ string) { m.askTravel() }},
 	{key: "r", label: "report", help: "reopen the morning report", screens: on(screenDashboard, screenJournal), global: true,
@@ -257,6 +259,7 @@ var modeBindings = []binding{
 	{key: "1-3", label: "dial", modes: in(modeUndercut)},
 	{key: "↑↓", label: "pick", modes: in(modeExit, modeNewRun), when: step(0)},
 	{key: "1-6", label: "choose", modes: in(modeNewRun), when: step(0)},
+	{key: "0-9", label: "type a seed", modes: in(modeNewRun), when: step(1)}, // digits and backspace only: m, h and the steps mean nothing to a seed (#473)
 	{key: "←→", label: "toggle", modes: in(modeNewRun), when: step(2)},
 	{key: "↑↓", label: "pick", modes: in(modeMove), when: moveList},
 	{key: "↑↓", label: "pick", modes: in(modeCut, modeCook), when: step(0)},

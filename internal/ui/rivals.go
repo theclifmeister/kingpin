@@ -42,6 +42,51 @@ func (m *Model) eyeingWord(r *game.RivalState) string {
 	return m.factionStyle(r.Faction()).Render("eyeing " + c.Name)
 }
 
+// downWords is what keeps a faction from counting toward the crown's
+// "crews down" and for how long, in the rule's own terms (#472,
+// rivals.Sim.Down): `run out 3d ago; gone in 27d unless it claims
+// again`, `holds 2 corners; no clock while it holds one`; "" for one
+// that counts (gone, or paying you homage). It describes and pushes
+// nothing (#413).
+func (m *Model) downWords(r *game.RivalState) string {
+	d := m.rules.Rivals.Down(m.w, r)
+	day := m.w.Day
+	in := func(on int) string {
+		if on <= day+1 {
+			return "tonight"
+		}
+		return fmt.Sprintf("in %dd", on-day)
+	}
+	ago := func(since int) string {
+		if since > day {
+			return "run out"
+		}
+		if since == day {
+			return "run out today"
+		}
+		return fmt.Sprintf("run out %dd ago", day-since)
+	}
+	switch {
+	case d.Counts:
+		return ""
+	case d.Scouting:
+		return "on its way; it counts once it is here and down"
+	case d.Due > day+1:
+		return fmt.Sprintf("not here yet: may move in from day %d", d.Due)
+	case d.Due > 0 && d.GoneOn > 0:
+		return "waiting for room to move in; stands down " + in(d.GoneOn) + " if it finds none"
+	case d.Due > 0:
+		return "waiting for room to move in"
+	case d.Corners > 0:
+		return "holds " + plural(d.Corners, "corner") + "; no clock while it holds one"
+	case d.Rich && d.GoneOn > 0:
+		return ago(d.Since) + ", can afford a claim; gone " + in(d.GoneOn) + " unless it claims again, sooner if broke"
+	case d.Rich:
+		return ago(d.Since) + ", can afford a claim; gone once it cannot"
+	}
+	return ago(d.Since) + "; gone " + in(d.GoneOn) + " unless it claims again"
+}
+
 // factionCols are the rivals screen's FACTIONS table: who, where, what
 // they hold, their muscle and where you stand.
 var factionCols = []col{{"faction", kText, 0}, {"city", kText, 0}, {"corners", kInt, 0}, {"muscle", kText, 0}, {"stance", kText, 0}, {"trust", kBar, 6}}

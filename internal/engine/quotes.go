@@ -84,6 +84,7 @@ type RivalsRules interface {
 	DefenceAt(w *game.World, r *game.RivalState, muscle int) float64
 	Diplomacy() content.DiplomacyTuning
 	Distrusted(r *game.RivalState, day int) bool
+	Down(w *game.World, r *game.RivalState) game.FactionDown
 	Expansion() content.ExpansionTuning
 	EyeingBy(w *game.World, r *game.RivalState) *game.Corner
 	Factions() content.FactionsTuning

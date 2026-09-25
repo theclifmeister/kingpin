@@ -324,7 +324,7 @@ func (m *Model) cartSection(city string) []section {
 			ls = append(ls, row("", theme.Subtle.Render("in "+m.w.CityName(l.city))))
 		}
 	}
-	ls = append(ls, keyRow("c", "edit: quantity, dial, remove"))
+	ls = append(ls, keyRow("c", "edit: qty, ←→ dial, x remove")) // the keys inside it by name (#473: the dial turns with ←→ on its row)
 	return []section{{"CART", ls}}
 }
 

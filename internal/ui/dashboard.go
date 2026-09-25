@@ -24,6 +24,7 @@ import (
 const (
 	streetMaxH = 15 // STREET's most rows at the wide layout, border included
 	dashPanelH = 6  // HEAT, CASH, LAW and RIVALS: four lines and the border
+	alertsMinH = 3  // ALERTS at its least under 100 columns: a line and the border (#473)
 	dashBarW   = 8  // the war, trust and pressure bars
 )
 
@@ -43,7 +44,6 @@ const (
 	priTier = iota // the tier the run is in (#147): the first to go
 	priSupplier
 	priUpgrades
-	priPlan  // the plan pinned (#347): the player's own, so it outranks the counts below it
 	priStage // the tier while its stage is new (#149): news, so it outranks the counts
 	priStash
 	priSupply
@@ -52,6 +52,7 @@ const (
 	priContracts
 	priDebt
 	priCrew
+	priPlan // the plan pinned (#347): the player's own, so it outranks the counts, the crew's too since ALERTS keeps its line at 80x24 (#473) and carries the crew's trouble
 	priStrike
 	priPatrol
 	priTalking
@@ -137,6 +138,9 @@ func (m *Model) streetLines(innerW, maxLines int, narrow, withRoad bool) []strin
 		// counts the unread, and the fact is worth a line while it is.
 		tier.s += theme.NewsText.Render(" · new")
 		tier.pri = priStage
+	}
+	if narrow {
+		tier.s = "" // under 100 columns the tier is STREET's title (dashboardNarrow), so ALERTS keeps its line (#473)
 	}
 	if withRoad {
 		topic(append([]fact{corners, tier}, m.elsewhereFacts()...)...)
@@ -298,14 +302,22 @@ func (m *Model) dashboardNarrow(width, h int) string {
 	heatW := width * 28 / 80
 	cashW := width * 23 / 80
 	lawW := width - heatW - cashW
-	street := m.streetLines(width-4, h-dashPanelH-2, true, true)
-	streetH := min(len(street)+2, h-dashPanelH)
+	// ALERTS keeps a line whatever the street lists (#473: at 80x24 five
+	// products took its room and it went while STREET had rows blank):
+	// the street gives up its least facts first.
+	room := h - dashPanelH - alertsMinH
+	street := m.streetLines(width-4, room-2, true, true)
+	streetH := min(len(street)+2, room)
 	alerts := m.alertsPanel(width, h-dashPanelH-streetH)
 	if alerts == "" {
 		streetH = h - dashPanelH
 	}
+	title := "STREET · " + here.Name + " · tier " + m.w.TierName(m.cfg.Progression)
+	if m.w.StagePending() > 0 {
+		title += " · new" // the stage not yet seen (#149), in words where the title has no colour of its own
+	}
 	rows := []string{
-		panel("STREET · "+here.Name, strings.Join(street, "\n"), width, streetH, theme.Market),
+		panel(title, strings.Join(street, "\n"), width, streetH, theme.Market),
 		lipgloss.JoinHorizontal(lipgloss.Top,
 			panel(m.policeTitle("HEAT"), strings.Join(m.heatLines(heatW-4, true), "\n"), heatW, dashPanelH, theme.Heat),
 			panel(m.policeTitle("CASH"), strings.Join(m.cashLines(cashW-4, true), "\n"), cashW, dashPanelH, theme.Money),

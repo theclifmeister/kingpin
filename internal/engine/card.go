@@ -201,12 +201,12 @@ func loyaltyChips(r Rules, w *game.World, ls []game.Change) []Chip {
 		text = "crew loyalty " + signed(lo)
 	}
 	if lo != hi {
-		text = "crew loyalty up to " + signed(hi)
+		text = fmt.Sprintf("crew loyalty up as much as %.0f", hi)
 		if lo < 0 {
-			text = "crew loyalty down to " + signed(lo)
+			text = fmt.Sprintf("crew loyalty down as much as %.0f", -lo)
 		}
 	}
-	out := []Chip{{Text: text, Tone: good(lo >= 0 && hi > 0)}} // the tone reads as the text does: "down to" is a cost (#384)
+	out := []Chip{{Text: text, Tone: good(lo >= 0 && hi > 0)}} // the tone reads as the text does: "down" is a cost (#384)
 	for _, ch := range ls {
 		if chip, ok := crossed(ch); ok {
 			out = append(out, chip)

@@ -195,6 +195,34 @@ func (w *World) Dominant() bool {
 	return fought
 }
 
+// FactionDown is how a faction stands against the crown's "crews down" (#472):
+// whether it counts (gone, or paying you homage) and, where it does
+// not, what keeps it from counting and for how long, as the rivals sim
+// reads it (rivals.Sim.Down).
+type FactionDown struct {
+	Counts bool // absorbed, scattered or leaderless, or paying you homage
+	// Due is the first day a faction still in the wings may move in (0
+	// once it has arrived or while it is on its way to a city where you
+	// earn, which pushes its way in: Scouting).
+	Due      int
+	Scouting bool
+	// Corners is what it holds: no clock runs while it holds one, and a
+	// claim stops one that was running.
+	Corners int
+	// Since is the day its landless spell began (the rout or the raid
+	// off its last corner); 0 while it holds a corner or has not arrived.
+	Since int
+	// GoneOn is the day it goes if nothing changes (no claim, the chest
+	// as it is): absorbed or scattered for a landless faction, stood down
+	// for a seat that never found room; 0 for never.
+	GoneOn int
+	// Rich is a landless faction whose chest covers a claim, routed by
+	// you or raided by the police: it may walk back onto a free corner,
+	// and it goes only at strand_days (GoneOn) or once the chest cannot
+	// cover a claim, whichever comes first.
+	Rich bool
+}
+
 // Stance is a faction's stance toward you in a word for a table:
 // absorbed (into another faction), scattered (absorbed by nobody, the
 // report's word for it, #465), fragmented, homage, truce, tribute,

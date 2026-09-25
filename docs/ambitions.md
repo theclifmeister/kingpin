@@ -51,9 +51,11 @@ No sim reads it, and `TestSeedDigest`'s walk leaves it out (`unwalked`), so no p
 
 ## Where it shows
 
-- **The panel** (`modeAmbitions`, `ui/ambitions.go`): `a ambitions` on the walk-away dialog's first page (`w` on the dashboard) and on the stage modal, where it marks the stage seen and closing the panel goes on to the card and the report.
+- **The panel** (`modeAmbitions`, `ui/ambitions.go`): `a ambitions` on the dashboard (#472: the dashboard's own key, in help and the README), on the walk-away dialog's first page (`w` on the dashboard) and on the stage modal, where it marks the stage seen and closing the panel goes on to the card and the report.
   The panel is a table with a row for each plan: the name, the bar (`done %`), the next step's label (or `ready`, or `made` for the milestone) and `plan` in gold on the one pinned.
   Under the table are the selected plan's blurb and its steps, each `✓` or `·` with its reading (`the account: $412,000 of $750,000`, `quiet days: 3 of 14 days`).
+  The crown's `crews down` step, until it is met, is followed by a line a faction that does not count, with what keeps it off and for how long (`Preacher: run out 3d ago; gone in 27d unless it claims again`, `Model.downLines`, the rivals sim's own rule, `docs/rival.md`, #472).
+  The step counts a seat that stood down before it arrived as gone, as `Dominant` does (it read `3 of 4` for good).
   `↑↓ pick`, `1-9 choose` (select and pin), `enter pin` / `enter unpin`, `esc close`; enter never ends the day.
 - **The dashboard**: while a plan is pinned, STREET carries `plan Retire clean · the account 0% · quiet days 3/14` in gold (`plan … ready` in green once done), worth `priPlan` (over the counts, under the stage).
   **The line shows the parts** (#465, `planParts`, `stepPart`: a count as `3/14`, anything else as how far along it is): the one bar was the mean of the steps, and `Retire clean 50%` with $0 of $750,000 (the quiet days full) read as half the money, `Disappear 53%` at $261K of $4M as more than half the papers.
@@ -87,7 +89,6 @@ The Cartel tier's `next` and `closing` (`progression.toml`) now point at the pan
   A reward paid once needs a stamp on the world saying it was paid, and the only new field this change allows is the pin.
   So it is a plan with a bar and an alert, and the reward is left for a follow-up.
 - **A lieutenant or a captain** (#346) runs a city for the milestone: `CrewState.Lieutenant` or `CrewState.Captain`, as the issue has it.
-- **The panel is reached from the walk-away dialog, not a key of the dashboard's own.**
-  One more key on the dashboard's KEYS takes the row POLICE needs whole in the 100x30 pane (`TestPoliceKeys`).
-  The walk-away dialog is on the dashboard (`w`) and lists the ways out that the plans lead to.
+- **The panel is a key of the dashboard's own since #472**, `a ambitions`: a playtest found it only from a stage card or the walk-away dialog, and help never named it.
+  One more key on the dashboard's KEYS took the row POLICE needs whole in the 100x30 pane (`TestPoliceKeys`), so `a` is listed while the arrows are off the police (`listed: offPolice`) and works either way.
 - **The milestone alert keys on the steps met in order**, so a later step met out of turn is not a milestone until the steps before it are met.

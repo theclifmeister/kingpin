@@ -12,6 +12,14 @@ func TestRender(t *testing.T) {
 	if got := Render([]float64{1, 2, 3, 4}, 2); got != "▁█" {
 		t.Fatalf("window: %q", got)
 	}
+	// A move under MinSpan reads flat about the middle, not as a crash
+	// (#473: a -0% move drew `█▁`); one over it uses the whole height.
+	if got := Render([]float64{100, 99.6}, 2); got != "▅▄" {
+		t.Fatalf("a small move: %q", got)
+	}
+	if got := Render([]float64{100, 80}, 2); got != "█▁" {
+		t.Fatalf("a real fall: %q", got)
+	}
 	if Render(nil, 5) != "" || Render([]float64{1}, 0) != "" {
 		t.Fatal("empty cases")
 	}

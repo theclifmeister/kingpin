@@ -54,8 +54,15 @@ func (m *Model) confirmFront() {
 	m.say(fmt.Sprintf("Bought %s for %s. It opens tomorrow, washing up to %s/day.", f.Name, money(o.Cost), money(m.rules.Laundering.Throughput(m.w, f))))
 }
 
-func (m *Model) cycleLaunder() {
-	d := (m.w.Laundering.Dial + 1) % 3
+// cycleLaunder turns the launder dial a notch, careful to normal to
+// greedy and round, or back a notch with D (#473: normal to careful
+// went by way of greedy, and said so).
+func (m *Model) cycleLaunder(back bool) {
+	step := events.Launder(1)
+	if back {
+		step = 2
+	}
+	d := (m.w.Laundering.Dial + step) % 3
 	if err := m.sess.SetLaunderDial(d); err != nil {
 		m.refuse("Can't set the dial: " + err.Error())
 		return

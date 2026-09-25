@@ -30,13 +30,13 @@ func TestJournalTruncatesWithEllipsis(t *testing.T) {
 		t.Errorf("the title is %q", main[0])
 	}
 	first := strings.TrimRight(main[1], " ")
-	if !strings.HasPrefix(first, "▸ d8  Somebody") || !strings.HasSuffix(first, "…") || lipgloss.Width(first) > 80 {
+	if !strings.HasPrefix(first, "▸ d8  hot  Somebody") || !strings.HasSuffix(first, "…") || lipgloss.Width(first) > 80 {
 		t.Errorf("the newest headline is not one line ending in …: %q", first)
 	}
 	if n := strings.Count(strings.Join(main, "\n"), "Somebody"); n != 1 {
 		t.Errorf("the long headline is on %d lines", n)
 	}
-	if !strings.HasPrefix(strings.TrimRight(main[2], " "), "  d3  Eastside crews hiring") {
+	if !strings.HasPrefix(strings.TrimRight(main[2], " "), "  d3  crw  Eastside crews hiring") {
 		t.Errorf("the older headline is not second: %q", main[2])
 	}
 	// The strip names the day and source; the overlay carries the text
@@ -186,7 +186,7 @@ func TestJournalFilterCycles(t *testing.T) {
 	if !strings.Contains(main[0], "JOURNAL · 1 of 5 headlines · law") {
 		t.Errorf("the filtered title is %q", main[0])
 	}
-	if !strings.HasPrefix(strings.TrimRight(main[1], " "), "▸ d3  The DA names a new chief") || strings.TrimSpace(main[2]) != "" {
+	if !strings.HasPrefix(strings.TrimRight(main[1], " "), "▸ d3  law  The DA names a new chief") || strings.TrimSpace(main[2]) != "" {
 		t.Errorf("the law's list is not the one headline:\n%s", strings.Join(main[:3], "\n"))
 	}
 	paneText := strings.Join(pane, "\n")
@@ -201,11 +201,11 @@ func TestJournalFilterCycles(t *testing.T) {
 	}
 	marked := 0
 	for _, l := range legend.lines {
-		if strings.Contains(l, theme.Selected.Render("law")) {
+		if strings.Contains(l, theme.Selected.Render(sourceTag("law")+" law")) {
 			marked++
 		}
 		for _, s := range journalSources {
-			if s != "law" && strings.Contains(l, theme.Selected.Render(s)) {
+			if s != "law" && strings.Contains(l, theme.Selected.Render(sourceTag(s)+" "+s)) {
 				t.Errorf("the legend marks %q selected", s)
 			}
 		}

@@ -48,7 +48,7 @@ func TestReportWordsMatchTheNight(t *testing.T) {
 	took, handed := -1, -1
 	for i, l := range w.Report.Sales {
 		switch {
-		case strings.HasPrefix(l, "You took Marco's order"):
+		case strings.HasPrefix(l, "You took the order from Marco"):
 			took = i
 		case strings.HasPrefix(l, "Handed 27 Weed to Marco"):
 			handed = i

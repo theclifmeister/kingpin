@@ -145,8 +145,40 @@ func (m *Model) viewAmbitions() string {
 			mark, style = "✓", theme.Good
 		}
 		body = append(body, style.Render(fmt.Sprintf("  %s %s: %s", mark, st.Label, stepWords(st))))
+		if sel.ID == content.AmbitionCity && st.ID == "factions" && !st.Done {
+			body = append(body, m.downLines()...)
+		}
 	}
 	return m.modal("AMBITIONS", body, m.modalFooter())
+}
+
+// downLines are the crown's "crews down" step spelled out (#472): a
+// line a faction that does not count yet, with what keeps it off the
+// count and for how long (downWords).
+func (m *Model) downLines() []string {
+	var out []string
+	for _, r := range m.w.Rivals {
+		if r == nil {
+			continue
+		}
+		words := m.downWords(r)
+		if words == "" {
+			continue
+		}
+		name := r.Leader
+		if name == "" {
+			name = "a crew to come"
+		}
+		for i, l := range wrap(name+": "+words, m.modalInner()-6) {
+			if i == 0 {
+				l = m.factionStyle(r.Faction()).Render(name) + theme.Subtle.Render(strings.TrimPrefix(l, name))
+			} else {
+				l = theme.Subtle.Render(l)
+			}
+			out = append(out, "      "+l)
+		}
+	}
+	return out
 }
 
 // nextLabel is the plan's next step as the table's cell: the label

@@ -1,12 +1,22 @@
 // Package sparkline renders a series of values as Unicode block characters.
 package sparkline
 
-import "strings"
+import (
+	"math"
+	"strings"
+)
 
 var blocks = []rune("▁▂▃▄▅▆▇█")
 
-// Render draws the last width values of vs, scaled between their min and max.
-// A flat series renders as a mid-height line.
+// MinSpan is the least range Render scales a series over, as a share of
+// its largest magnitude (#473): a move smaller than it is drawn about
+// the middle, so a price that moved 1% reads flat and not as `█▁`, a
+// crash.
+const MinSpan = 0.10
+
+// Render draws the last width values of vs, scaled between their min and max,
+// or over MinSpan of the largest value about their middle where they span
+// less. A flat series renders as a mid-height line.
 func Render(vs []float64, width int) string {
 	if width <= 0 || len(vs) == 0 {
 		return ""
@@ -23,11 +33,15 @@ func Render(vs []float64, width int) string {
 			hi = v
 		}
 	}
+	if span := MinSpan * math.Max(math.Abs(lo), math.Abs(hi)); hi > lo && hi-lo < span {
+		mid := (hi + lo) / 2
+		lo, hi = mid-span/2, mid+span/2
+	}
 	var b strings.Builder
 	for _, v := range vs {
 		idx := len(blocks) / 2
 		if hi > lo {
-			idx = int((v - lo) / (hi - lo) * float64(len(blocks)-1))
+			idx = int(math.Round((v - lo) / (hi - lo) * float64(len(blocks)-1)))
 		}
 		b.WriteRune(blocks[idx])
 	}

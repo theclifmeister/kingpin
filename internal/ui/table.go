@@ -87,8 +87,9 @@ type order struct {
 // day is a day of the run in a days column: d0.
 type day int
 
-// mark is a row's own sign in the gutter when the cursor is not on it
-// (the tree's ✓, ○ and ·); it goes first in the row and is not a cell.
+// mark is a row's own sign in the gutter (the tree's ✓, ○ and ·),
+// beside the cursor's ▸ on its row (#473); it goes first in the row and
+// is not a cell.
 type mark string
 
 // unfocusedMark is the gutter sign of a selection whose region the
@@ -302,8 +303,17 @@ func table(cols []col, rows [][]any, cursor, width int) []string {
 			widths[i] = max(widths[i], lipgloss.Width(s))
 		}
 	}
+	// A table with marks (the tree's ✓ ○ ·) has a gutter a cell wider,
+	// the mark first and the cursor's ▸ after it, never in its place
+	// (#473: the selected row's status was told by colour alone).
+	gutter := 2
+	for _, mk := range marks {
+		if mk != "" {
+			gutter = 3
+		}
+	}
 	// The last text column absorbs an overflow.
-	total := 2 + 2*(len(cols)-1)
+	total := gutter + 2*(len(cols)-1)
 	for _, w := range widths {
 		total += w
 	}
@@ -333,7 +343,7 @@ func table(cols []col, rows [][]any, cursor, width int) []string {
 	for i, c := range cols {
 		h = append(h, place(c.kind, c.title, widths[i]))
 	}
-	out = append(out, theme.Subtle.Render("  "+strings.Join(h, "  ")))
+	out = append(out, theme.Subtle.Render(strings.Repeat(" ", gutter)+strings.Join(h, "  ")))
 	for r := range rows {
 		var parts []string
 		var plain []string
@@ -346,10 +356,12 @@ func table(cols []col, rows [][]any, cursor, width int) []string {
 			parts = append(parts, s)
 		}
 		switch {
+		case r == cursor && gutter == 3:
+			out = append(out, fit(marks[r], 1)+theme.Gold.Render("▸ ")+theme.Selected.Render(strings.Join(plain, "  ")))
 		case r == cursor:
 			out = append(out, theme.Gold.Render("▸ ")+theme.Selected.Render(strings.Join(plain, "  ")))
-		case marks[r] != "":
-			out = append(out, fit(marks[r], 2)+strings.Join(parts, "  "))
+		case gutter == 3:
+			out = append(out, fit(marks[r], 3)+strings.Join(parts, "  "))
 		default:
 			out = append(out, "  "+strings.Join(parts, "  "))
 		}

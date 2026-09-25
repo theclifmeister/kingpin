@@ -226,7 +226,9 @@ func cityTaken(w *World, t AmbitionTerms) []AmbitionStep {
 	share := AmbitionStep{ID: "share", Have: float64(held), Need: float64(int(line) + 1), Unit: UnitCorners, Done: corners > 0 && float64(held) > line}
 	down := 0
 	for _, r := range w.Rivals {
-		if r != nil && r.Arrived > 0 && (r.Gone() || w.DealWith(r.Faction(), DealHomage) != nil) {
+		// A seat that stood down before it arrived counts as gone, as
+		// Dominant reads it (#472: it read 3 of 4 for good).
+		if r != nil && (r.Gone() || (r.Arrived > 0 && w.DealWith(r.Faction(), DealHomage) != nil)) {
 			down++
 		}
 	}
