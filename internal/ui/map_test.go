@@ -193,6 +193,12 @@ func TestMapRouteInPane(t *testing.T) {
 	if !selected(strings.ToUpper(sel.Name)) {
 		t.Errorf("the corner's name cell is not Selected while the cursor is on the routes:\n%s", view)
 	}
+	// One ▸ on the screen (#462): the corner keeps the unfocused mark
+	// while the cursor is on the routes, and takes the ▸ back off them,
+	// the route keeping the unfocused one.
+	if plain := stripANSI(view); strings.Count(plain, "▸") != 1 || !strings.Contains(plain, unfocusedMark) {
+		t.Errorf("on the routes: %d ▸, unfocused mark %v:\n%s", strings.Count(plain, "▸"), strings.Contains(plain, unfocusedMark), plain)
+	}
 	m.Update(key("k"))
 	for m.onRoutes {
 		m.Update(key("k"))
@@ -201,8 +207,11 @@ func TestMapRouteInPane(t *testing.T) {
 	if !selected(strings.ToUpper(sel.Name)) {
 		t.Errorf("the corner's name cell is not Selected:\n%s", view)
 	}
-	if selected(r.Name) || !strings.Contains(stripANSI(view), "▸ "+r.Name) {
-		t.Errorf("off the routes the route row is Selected, or lost its ▸:\n%s", view)
+	if selected(r.Name) || !strings.Contains(stripANSI(view), unfocusedMark+" "+r.Name) {
+		t.Errorf("off the routes the route row is Selected, or lost its unfocused mark:\n%s", view)
+	}
+	if plain := stripANSI(view); strings.Count(plain, "▸") != 1 {
+		t.Errorf("on the grid: %d ▸, want the corner's alone:\n%s", strings.Count(plain, "▸"), plain)
 	}
 	if underlined.MatchString(view) {
 		t.Errorf("an underlined cell on the map:\n%s", view)

@@ -235,7 +235,14 @@ func (m *Model) idleCornerAlert(a engine.Alert) (text, why string) {
 	if a.Days <= 1 {
 		when, style = "tonight", theme.Bad
 	}
-	return style.Render(fmt.Sprintf("Nobody works %s: back to the street %s. Post a runner %s.", name, when, screenPointer(screenMap))), "nobody works " + name
+	post := "Post a runner " + screenPointer(screenMap) + "."
+	if a.City == w.Here().ID && w.PostOf(game.You) == nil {
+		// You stand in its city working nothing, as after a trip back
+		// (#468: travel takes you off your corner): working it yourself
+		// is the runner picker's first row.
+		post = "Work it yourself: c " + screenPointer(screenMap) + ", then You."
+	}
+	return style.Render(fmt.Sprintf("Nobody works %s: back to the street %s. %s", name, when, post)), "nobody works " + name
 }
 
 // unpostedAlert words a runner or an enforcer with no post (#352):

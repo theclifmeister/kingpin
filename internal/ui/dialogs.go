@@ -182,6 +182,11 @@ func (m *Model) openDialog(mode mode) {
 		return
 	}
 	m.dlg = dialog{qty: newNumberField("blank = max"), dial: events.DialNormal}
+	if !m.productInView() {
+		// Opened from a screen with no product table (#462): the first
+		// row, never a product another screen left selected.
+		m.cursor = 0
+	}
 	if mode == modeBuy {
 		m.seedBuy()
 	}
@@ -200,6 +205,15 @@ func (m *Model) openDialog(mode mode) {
 		m.seedSell()
 	}
 	m.mode = mode
+}
+
+// productInView is the screen b or s is pressed on showing the product
+// selection the dialog opens on (#462): the dashboard's and the
+// market's product tables share the cursor, and the dialog's title
+// names the product; from any other screen the dialog opens on its
+// first row.
+func (m *Model) productInView() bool {
+	return m.screen == screenDashboard || m.screen == screenMarket
 }
 
 // cannotOpen is why the buy or sell dialog cannot open on its side
@@ -384,6 +398,11 @@ func (m *Model) keyDialog(k tea.KeyMsg) (tea.Model, tea.Cmd) {
 	case 1:
 		switch key {
 		case "enter":
+			// The quantity is checked here, where it is typed (#467),
+			// not a step or two later.
+			if !m.checkQuantity(true) {
+				return m, nil
+			}
 			d.step = 2
 			d.qty.Blur()
 			return m, nil
@@ -478,6 +497,9 @@ func (m *Model) sellableIn(city string) int {
 func (m *Model) productErr() string {
 	id := m.w.Products[m.cursor]
 	if m.mode == modeSell && m.sellable(m.dialogCity(), id) == 0 {
+		if why := m.contractBringsNone(m.dialogCity(), id); why != "" {
+			return "You have none of that here, and the contract brings none tonight: " + why + "."
+		}
 		return "You have none of that here."
 	}
 	if m.mode == modeBuy && m.maxBuy(id) == 0 && m.maxBuyBy(id, true) == 0 {
@@ -493,6 +515,136 @@ func (m *Model) productErr() string {
 		return "Can't afford or hold any."
 	}
 	return ""
+}
+
+// contractBringsNone is why the supply contract standing for a product
+// in a city brings nothing before tonight's sales (#467), as the market
+// sim's plan finds it: the stash full, nobody there with any left, or
+// the cash short; blank with no contract, or one that brings some or
+// has nothing to bring. A contract set today counts as an old one does:
+// it fills before the orders resolve.
+func (m *Model) contractBringsNone(city, id string) string {
+	w := m.w
+	c, ok := w.StandingSupply(city, id)
+	if !ok || m.rules.Market.Due(w, city, id) > 0 || c.Units <= w.Stock(city, id)+w.Bound(city, id) {
+		return ""
+	}
+	switch sup := w.BestSupplier(city, id); {
+	case w.Free(city) <= 0:
+		return "the stash there is full"
+	case sup == nil || sup.Left() <= 0:
+		return "nobody there has any left today"
+	}
+	return fmt.Sprintf("it buys for cash, and %s dirty does not cover one", cash(w.Player.DirtyCash))
+}
+
+// checkQuantity is the quantity step's check (#467): whether the number
+// typed can go on to the next step. A sale may be for what sellable
+// allows; a buy at once for what the connect sells you for cash, or on
+// their book where it covers it (the pay step says so); a buy at keep
+// at for any level, a contract filling as far as the day allows
+// (confirmKeep). With offer (enter), a number past what fits is set to
+// what fits and the reason is the error line, as the last step offered
+// it before; tab is silent.
+func (m *Model) checkQuantity(offer bool) bool {
+	d := &m.dlg
+	w := m.w
+	id := w.Products[m.cursor]
+	fail := func(err error) bool {
+		if offer {
+			d.err = dialogError(err)
+		}
+		return false
+	}
+	if m.mode == modeSell {
+		city := m.dialogCity()
+		most := m.sellable(city, id)
+		qty, err := m.parseQty(most)
+		switch {
+		case err != nil:
+			return fail(err)
+		case qty <= most:
+			return true
+		}
+		if offer {
+			d.qty.Set(most)
+		}
+		return fail(fmt.Errorf("only %d %s in %s; the quantity is now %d, what there is", most, w.ProductName(id), w.CityName(city), most))
+	}
+	if d.repeat == repeatKeep {
+		_, err := m.parseQty(m.maxBuy(id))
+		return err == nil || fail(err)
+	}
+	sup := m.buySupplier(id)
+	if sup == nil {
+		return fail(fmt.Errorf("nobody sells %s here today", w.ProductName(id)))
+	}
+	fits := m.maxBuyBy(id, d.credit)
+	book := 0
+	if !d.credit {
+		book = m.maxBuyBy(id, true) // what the pay step's credit would take
+	}
+	qty := 1
+	if strings.TrimSpace(d.qty.Value()) != "" {
+		n, err := d.qty.Read(fits)
+		if err != nil {
+			return fail(err)
+		}
+		qty = n
+	}
+	if qty <= fits || qty <= book {
+		return true
+	}
+	why := m.buyShort(sup, id, qty, d.credit)
+	if fits > 0 {
+		if offer {
+			d.qty.Set(fits)
+		}
+		why = fmt.Errorf("%w; the quantity is now %d, what fits", why, fits)
+	}
+	return fail(why)
+}
+
+// buyShort is why a buy of qty from a connect cannot go through today
+// (#467), in the game's words: what they have left, the room
+// (game.RoomError), the cash (game.ShortError) or their book.
+func (m *Model) buyShort(sup *game.Supplier, id string, qty int, credit bool) error {
+	w := m.w
+	switch free := w.Free(sup.City); {
+	case qty > sup.Left():
+		return fmt.Errorf("%s has %d left today", sup.Name, sup.Left())
+	case qty > free:
+		return &game.RoomError{Free: max(0, free), City: w.CityName(sup.City)}
+	}
+	cost := w.Quote(sup, id, qty, credit)
+	what := fmt.Sprintf("%d %s", qty, w.ProductName(id))
+	if qty == 1 {
+		what = "one " + w.ProductName(id)
+	}
+	if credit {
+		return fmt.Errorf("%s costs %s and %s's book has %s left", what, money(cost), sup.Name, money(sup.Credit()))
+	}
+	return fmt.Errorf("can't afford %s: %w", what, &game.ShortError{Need: cost, Have: w.Player.DirtyCash, Pool: "dirty"})
+}
+
+// cashShortRows is the pay step's warning while a buy at once is on
+// cash, the cash does not cover it and the connect's book does (#467):
+// what the cash covers, and that c puts it on their book.
+func (m *Model) cashShortRows(d dialog, id string, sup *game.Supplier) []string {
+	if d.credit || d.repeat != repeatOnce || sup == nil || !m.creditOffered() {
+		return nil
+	}
+	fits := m.maxBuyBy(id, false)
+	qty := fits
+	if strings.TrimSpace(d.qty.Value()) != "" {
+		qty, _ = d.qty.Number()
+	} else if fits == 0 {
+		qty = 1
+	}
+	if qty <= fits || qty > m.maxBuyBy(id, true) {
+		return nil
+	}
+	return []string{theme.Warning.Render(fmt.Sprintf("Cash covers %d of %d: c puts it on %s's book.", fits, qty, sup.Name))}
 }
 
 // dialogForward is tab on the buy or sell dialog: the next step once
@@ -550,7 +702,7 @@ func (m *Model) dialogForward() (tea.Model, tea.Cmd) {
 		}
 		return m, d.qty.Focus()
 	case 1:
-		if _, err := m.parseQty(m.qtyMax()); err != nil {
+		if !m.checkQuantity(false) {
 			return m, nil
 		}
 		d.step = 2
@@ -614,13 +766,28 @@ func (m *Model) maxBuyBy(id string, credit bool) int {
 // dialog back on the quantity step with the reason.
 func (m *Model) confirmBuy() (tea.Model, tea.Cmd) {
 	id := m.w.Products[m.cursor]
-	qty, err := m.parseQty(m.maxBuyBy(id, m.dlg.credit))
-	if err != nil {
-		return m.quantityAgain(err)
-	}
 	sup := m.buySupplier(id)
 	if sup == nil {
 		return m.quantityAgain(fmt.Errorf("nobody sells %s here today", m.w.ProductName(id)))
+	}
+	if m.cashShortRows(m.dlg, id, sup) != nil {
+		// The cash does not cover it and their book does (#467): the
+		// reason, on this step, where c turns the pay.
+		want := 1
+		if n, ok := m.dlg.qty.Number(); ok && n > 0 {
+			want = n
+		}
+		m.dlg.err = dialogError(fmt.Errorf("%w; c puts it on %s's book", m.buyShort(sup, id, want, false), sup.Name))
+		return m, nil
+	}
+	fits := m.maxBuyBy(id, m.dlg.credit)
+	if strings.TrimSpace(m.dlg.qty.Value()) == "" && fits == 0 {
+		// Nothing affordable at all: why, never "Nothing to do." (#467).
+		return m.quantityAgain(m.buyShort(sup, id, 1, m.dlg.credit))
+	}
+	qty, err := m.parseQty(fits)
+	if err != nil {
+		return m.quantityAgain(err)
 	}
 	p, err := m.sess.Buy(sup.ID, id, qty, m.dlg.credit)
 	if err != nil {
@@ -663,7 +830,7 @@ func (m *Model) confirmKeep() (tea.Model, tea.Cmd) {
 	if err := m.sess.SetSupply(city, id, qty); err != nil {
 		return m.quantityAgain(err)
 	}
-	m.say(fmt.Sprintf("Keeping %d %s in %s: bought each morning at %s the supplier's price.", qty, m.w.ProductName(id), m.w.CityName(city), format.Times(m.rules.Market.Markup(), 2)))
+	m.say(fmt.Sprintf("Keeping %d %s in %s: topped up at the end of each day, before the night's sales, at %s the supplier's price.", qty, m.w.ProductName(id), m.w.CityName(city), format.Times(m.rules.Market.Markup(), 2)))
 	m.nextLine()
 	return m, nil
 }
@@ -758,6 +925,9 @@ func (m *Model) viewDialog() string {
 		if lt := m.buyThrough(); lt != nil {
 			title += " · through " + lt.Name // the buy goes through the lieutenant who runs the city (#174)
 		}
+	}
+	if !d.pick {
+		title += " · " + w.ProductName(id) // the product the dialog is on, named (#462)
 	}
 
 	// The dialog turned to this side from the other city (#168): the
@@ -866,7 +1036,7 @@ func (m *Model) quantityRows(d dialog, city, id string, buy bool, sup *game.Supp
 			}
 			body = append(body, theme.Subtle.Render(note+"."))
 		} else if due := m.rules.Market.Due(w, city, id); due > 0 {
-			body = append(body, theme.Subtle.Render(fmt.Sprintf("%d stashed and %d the contract brings in the morning.", w.Stock(city, id), due)))
+			body = append(body, theme.Subtle.Render(fmt.Sprintf("%d stashed and %d the contract buys before tonight's sales.", w.Stock(city, id), due)))
 		}
 	} else if len(w.Today.Buys)+len(w.Today.Orders) == 0 {
 		body = append(body, theme.Subtle.Render("Pick a product."))
@@ -931,7 +1101,7 @@ func (m *Model) buyTermsRows(d dialog, city, id string, sup *game.Supplier) []st
 	body = append(body, row("pay", pay))
 	switch {
 	case d.repeat == repeatKeep:
-		body = append(body, row("contract", fmt.Sprintf("keep %d here, the shortfall bought each morning at %s (%s)", qty, price(m.rules.Market.SupplyPrice(w, city, id)), format.Times(m.rules.Market.Markup(), 2))))
+		body = append(body, row("contract", fmt.Sprintf("keep %d here, topped up nightly before the sales at %s (%s)", qty, price(m.rules.Market.SupplyPrice(w, city, id)), format.Times(m.rules.Market.Markup(), 2))))
 		if c, ok := w.Supplied(city, id); ok {
 			body = append(body, theme.Warning.Render(fmt.Sprintf("Kept at %d since day %d; this replaces it.", c.Units, c.Since)))
 		} else {
@@ -949,7 +1119,11 @@ func (m *Model) buyTermsRows(d dialog, city, id string, sup *game.Supplier) []st
 			body = append(body, theme.Subtle.Render("Miss the day and "+temperWords(sup.Temper)+"."))
 		}
 	default:
-		body = append(body, theme.Subtle.Render("Bought now, once. Keep at is a supply contract: the same each morning."))
+		if rows := m.cashShortRows(d, id, sup); rows != nil {
+			body = append(body, rows...)
+		} else {
+			body = append(body, theme.Subtle.Render("Bought now, once. Keep at tops it up every night, before the sales."))
+		}
 	}
 	return body
 }

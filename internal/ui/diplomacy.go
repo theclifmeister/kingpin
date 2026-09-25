@@ -350,7 +350,14 @@ func (m *Model) viewRivals() string {
 	}
 	// The table (#43): every faction, the cursor on the one shown.
 	if len(w.Rivals) > 1 {
-		ls = append(ls, table(factionCols, m.factionRows(), m.factionCursor, width)...)
+		// [ ] turn the faction and ↑↓ walk the offers (#462): with
+		// offers on the table the ▸ is theirs and the faction shown
+		// keeps the unfocused mark, like a tab.
+		rows, cursor := m.factionRows(), m.factionCursor
+		if len(w.Offers) > 0 {
+			rows, cursor = unfocused(rows, cursor), -1
+		}
+		ls = append(ls, table(factionCols, rows, cursor, width)...)
 		ls = append(ls, "")
 	}
 	if r.Scouting() {

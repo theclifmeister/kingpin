@@ -14,7 +14,7 @@ import (
 
 // crewTag is the one-word state a member is in for the roster's where
 // column, "" for one at work: jailed with the days to go (out tomorrow
-// once bail is down), wounded with the days, retiring for one whose
+// once bail is down), laid up with the days, retiring for one whose
 // next birthday is the farewell. Lowercase, as every status in a table
 // is (#238: `jailed` is the word in tables and summary rows, `a cell`
 // prose only).
@@ -26,7 +26,7 @@ func (m *Model) crewTag(c game.CrewMember) string {
 	case c.Jailed(day):
 		return fmt.Sprintf("jailed %dd", c.JailedUntil-day)
 	case c.Wounded(day):
-		return fmt.Sprintf("wounded %dd", c.WoundedUntil-day)
+		return fmt.Sprintf("laid up %dd", c.WoundedUntil-day) // the words of the refusal and the pane (#468)
 	case m.rules.Crew.Retiring(c):
 		return "retiring"
 	}

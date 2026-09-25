@@ -7,8 +7,9 @@ import (
 )
 
 // The buy's quantity step shows the cash and the room after the buy
-// (#356), and a quantity past what fits is refused with an offer: the
-// field is set to what fits, and the next enter buys it.
+// (#356), and a quantity past what fits is refused with an offer on the
+// quantity step (#467): the field is set to what fits, and the next
+// enters buy it.
 func TestBuyOffersWhatFits(t *testing.T) {
 	m := richModel(t, 120, 40)
 	m.w.Player.DirtyCash = 10_000_000
@@ -28,8 +29,7 @@ func TestBuyOffersWhatFits(t *testing.T) {
 		t.Fatalf("nothing fits: %d", fits)
 	}
 	before := m.w.Stock(city, id)
-	m.Update(key("enter"))
-	m.Update(key("enter"))
+	m.Update(key("enter")) // refused on the quantity step itself (#467)
 	if m.mode != modeBuy || m.dlg.step != 1 || m.dlg.qty.Value() != strconv.Itoa(fits) || !strings.Contains(m.dlg.err, "what fits") {
 		t.Fatalf("the refusal: mode %v step %d qty %q err %q, want %d", m.mode, m.dlg.step, m.dlg.qty.Value(), m.dlg.err, fits)
 	}
