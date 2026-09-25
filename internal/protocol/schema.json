@@ -1819,6 +1819,9 @@
         "due": {
           "type": "integer"
         },
+        "front": {
+          "type": "string"
+        },
         "gap": {
           "type": "number"
         },
@@ -6112,6 +6115,9 @@
         "Name": {
           "type": "string"
         },
+        "Short": {
+          "type": "integer"
+        },
         "Upkeep": {
           "type": "integer"
         }
@@ -6121,6 +6127,7 @@
         "Front",
         "Name",
         "Upkeep",
+        "Short",
         "Days"
       ],
       "type": "object"
@@ -9293,6 +9300,9 @@
         "Name": {
           "type": "string"
         },
+        "Unpaid": {
+          "type": "integer"
+        },
         "Washed": {
           "type": "integer"
         },
@@ -9313,7 +9323,8 @@
         "Level",
         "Invested",
         "Grew",
-        "City"
+        "City",
+        "Unpaid"
       ],
       "type": "object"
     },
@@ -15481,5 +15492,5 @@
   },
   "protocol": 17,
   "title": "kingpind",
-  "view_version": 12
+  "view_version": 13
 }

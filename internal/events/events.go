@@ -502,12 +502,15 @@ type FrontAudited struct {
 
 func (FrontAudited) Kind() string { return "FrontAudited" }
 
-// FrontFrozen is a front shut because its upkeep went unpaid.
+// FrontFrozen is a front shut because its upkeep went unpaid: Upkeep
+// is what was due in clean cash, Short what the clean pile lacked of it
+// (#458).
 type FrontFrozen struct {
 	Day    int
 	Front  string
 	Name   string
 	Upkeep int
+	Short  int
 	Days   int
 }
 

@@ -82,11 +82,45 @@ func launderBlurb(d events.Launder) string {
 // file's float folded through the tree, laundering.Sim.Float's number.
 func (m *Model) till() int { return m.w.Float(m.cfg.Upgrades, m.cfg.Laundering.Laundering.Float) }
 
+// upkeepTonight is tonight's clean bill (#458): the open fronts' upkeep
+// and the assets', which the laundering sim takes out of the clean pile
+// after the wash. A front whose share the pile cannot pay shuts.
+func (m *Model) upkeepTonight() int {
+	l := m.rules.Laundering
+	return l.Upkeep(m.w) + l.AssetUpkeep(m.w)
+}
+
+// upkeepWarning is the lines a dialog shows when clean cash after it
+// (clean, with dirty the dirty pile) is under due, tonight's upkeep
+// (#458): nil when it covers it. Upkeep comes out after the wash, so
+// with dirty over the till the wash may yet cover the rest; with none
+// a front shuts for the file's upkeep_freeze_days.
+func (m *Model) upkeepWarning(clean, dirty, due int) []string {
+	if due <= 0 || clean >= due {
+		return nil
+	}
+	shuts := plural(m.rules.Laundering.Tuning().UpkeepFreezeDays, "day")
+	text := fmt.Sprintf("Leaves %s clean for %s of upkeep tonight, and nothing over the till to wash: a front shuts %s.", money(max(0, clean)), money(due), shuts)
+	style := theme.Bad
+	if dirty > m.till() {
+		text = fmt.Sprintf("Leaves %s clean for %s of upkeep tonight: a front the wash does not cover shuts %s.", money(max(0, clean)), money(due), shuts)
+		style = theme.Warning
+	}
+	var out []string
+	for _, l := range wrap(text, m.modalInner()) {
+		out = append(out, style.Render(l))
+	}
+	return out
+}
+
 // frontStatus is a front's state for the ledger's status column, in
 // the one lowercase vocabulary: open, opens tomorrow, audit, back in
-// 14d, shut, back in 2d.
+// 14d, shut, back in 2d, and for a front whose upkeep went unpaid
+// (#458) why and what it costs: shut 7d: upkeep unpaid ($150 clean).
 func (m *Model) frontStatus(f game.Front) any {
 	switch {
+	case f.Frozen(m.w.Day+1) && f.Unpaid > 0:
+		return styled{theme.Warning, fmt.Sprintf("shut %dd: upkeep unpaid (%s clean)", f.FrozenUntil-m.w.Day, money(m.rules.Laundering.FrontUpkeep(m.w, f)))}
 	case f.Frozen(m.w.Day+1) && f.Audited > 0 && f.FrozenUntil == f.Audited+m.rules.Laundering.Tuning().AuditFreezeDays:
 		return styled{theme.Bad, fmt.Sprintf("audit, back in %dd", f.FrozenUntil-m.w.Day)}
 	case f.Frozen(m.w.Day + 1):
@@ -150,8 +184,16 @@ func (m *Model) viewFront() string {
 	if len(rows) == 0 {
 		return m.modal("BUY A FRONT", []string{"Nothing for sale."}, m.modalFooter())
 	}
-	clamp(&m.front.cursor, len(rows))
-	return m.pickerModal("BUY A FRONT", nil, offerCols, m.offerRows(rows, m.modalInner()), m.front.cursor, m.inHand(), theme.Subtle.Render("It opens tomorrow."))
+	o := rows[clamp(&m.front.cursor, len(rows))]
+	// Upkeep is clean cash, every night from tonight (#458): the offer
+	// says so, and warns when the clean pile will not cover the first.
+	up := m.rules.Laundering.FrontUpkeep(m.w, game.Front{ID: o.ID})
+	notes := []string{m.inHand()}
+	notes = append(notes, m.subtle(fmt.Sprintf("It opens tomorrow. Its %s/day upkeep is paid in clean cash, from tonight; unpaid, it shuts %s.", money(up), plural(m.rules.Laundering.Tuning().UpkeepFreezeDays, "day")))...)
+	if !o.Locked(m.w) && o.Cost <= m.w.Player.DirtyCash {
+		notes = append(notes, m.upkeepWarning(m.w.Player.CleanCash, m.w.Player.DirtyCash-o.Cost, m.upkeepTonight()+up)...)
+	}
+	return m.pickerModal("BUY A FRONT", nil, offerCols, m.offerRows(rows, m.modalInner()), m.front.cursor, notes...)
 }
 
 // The ledger (#87) is the till, the fronts, the houses (#73), the road

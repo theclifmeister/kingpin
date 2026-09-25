@@ -51,7 +51,7 @@ type DigestConfig struct {
 // DigestKinds are the lead's kinds of change, in the order a tie is
 // broken: every one has a weight in [digest.weights] and no other key
 // does.
-var DigestKinds = []string{"corner_lost", "crew_lost", "seizure", "investigation", "pages", "flow", "faction", "scouts", "corner_won", "idle_corner", "idle_runner"}
+var DigestKinds = []string{"corner_lost", "crew_lost", "seizure", "investigation", "front_shut", "pages", "flow", "faction", "scouts", "corner_won", "idle_corner", "idle_runner"}
 
 // FlowConfig is the report's cash flow (#351): how many nights of it
 // World.Flows keeps, the ledger's FLOW section's window, and the share of

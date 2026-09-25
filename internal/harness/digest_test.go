@@ -329,20 +329,23 @@ const (
 // World.Journal set aside the digest is main's on all sixty days, and
 // managed, boss, war and aggressive (20 runs, 200 days) print what main
 // prints.
+// Again for #458 (Front.Unpaid added to the walk): the move on day 16,
+// the boss's first front, is shape alone. With Unpaid set aside the
+// digest is main's on all sixty days; the boss's fronts never go short.
 var seedDigest = []string{
 	"0a9d256ac4067b0b", "d733bc202d78a82d", "d4957c0996824e2f", "854723905af8046c",
 	"512fd46840037822", "6d2c090948bb7171", "aa02e7ea3955331a", "14f526cef234b2a7",
 	"a4a83c27f7dfe8c6", "d508573e8e6375b4", "fb972410bb305b00", "bad158def77769d0",
-	"879d09a4c37af2f1", "1d0a0e8c6300a8f3", "e2daadfcc794e8bb", "3cc33241ff16d133",
-	"c1711ea2ab8a9d65", "5afadc26b3deaac7", "26376d966b8c1d93", "572c922927ab5eed",
-	"41baf3fd2ea2bb0a", "ac565b3c19e08742", "e4fbf88281b1c887", "716ef6508a17245d",
-	"34e67524c0ef3c07", "7862b637fc0fc925", "d11ca2b69dd686b7", "b470293e739b0617",
-	"1dd18b9dabb5164d", "bc2b4f369dc096e2", "cf85c0bd7893dcd6", "696b1ddf9c9e3d3e",
-	"79eceb1dbc85d028", "4efd09b43534ecb1", "54173c0bbe82d32d", "bb6934052351ee38",
-	"809b1b89c2d0b6e9", "630dd1cd4f6430c0", "6ac6720f96416f93", "c2353c29d1d8a550",
-	"a6521f6697c0de42", "d1a17e73a5398d69", "a6a7fc9cc9d5d8c6", "d505926353315154",
-	"445630f8e5d3bc7d", "72bcd2145bb6d10b", "b061372f3ab39dfa", "5a6bf8f70930e876",
-	"8d7b8ca778a8cccf", "47504e322e5b08d2", "80ff3d78ea9d2da2", "728c4431a401f697",
-	"3ca28b57c5545244", "4cdcfc9324d95463", "cd5b176c7667f441", "16a5fefdda8e888f",
-	"ab1d4285405c7336", "79b8f61e04bff586", "fad9a0e43767bfd4", "0bc37ec75219089e",
+	"879d09a4c37af2f1", "1d0a0e8c6300a8f3", "e2daadfcc794e8bb", "61c20396dc1e8c16",
+	"4654988cf3207572", "9afb8e753e22e196", "7adfc07bb6373716", "bc7656d76d388984",
+	"35292ca023d24857", "13f3c29be6bfe4db", "0f092f1fb6561bfa", "0d585e1477876f56",
+	"ee8c002e32d8c57a", "5f78b8b47e23b088", "eec2a1e5bfd54fa4", "b8aae10b93d91214",
+	"3df61cc25279ada9", "9510045a174ba640", "586b95c945f5a4e6", "072f4c4e3896ecde",
+	"9b02836bdafb799e", "e3a7e59795b2cca3", "a6a352723a8d6aed", "07960160f2bb747c",
+	"446a1f936c4e59bf", "3ca0201a51bcdeda", "9246d68b130fd8fb", "f1512a8a69d46a08",
+	"3d128e06236e4e8c", "bcb672d2ded09f61", "268e2633cd6a5308", "6616afc180ba82e8",
+	"62cc94e4d6c92df1", "ac45b427aaeb4ed5", "3a833349cd2bec2a", "e15fd01cdca15f4c",
+	"cd578d0d57072105", "60e37fe3e4fe1dd2", "1be549698c605620", "d32f1499eefca4cb",
+	"f61c225d5ea9e100", "71737fe1e6beb400", "16a20904dfcf6912", "6fd9d016f3c818c8",
+	"316558fda8f747cd", "22e76539f625e66d", "49b386ced99deba1", "e52e2f7bcdfefb0f",
 }

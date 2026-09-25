@@ -12,7 +12,7 @@ One voice: terse, second person, present tense, sentence case, real plurals (eve
 
 | word | means | where |
 |---|---|---|
-| `open` / `opens tomorrow` / `audit, back in 14d` / `shut, back in 2d` / `standing` | a front washing, bought today, shut by the auditors, shut for its upkeep (an asset idle for its upkeep reads `shut, back in 2d` too: every frozen thing the same word), an asset at work | FRONTS and ASSETS status (`frontStatus`, `assetStatus`) |
+| `open` / `opens tomorrow` / `audit, back in 14d` / `shut 7d: upkeep unpaid ($150 clean)` / `shut, back in 2d` / `standing` | a front washing, bought today, shut by the auditors, shut for its upkeep with what it costs a day (#458: a front from before `Front.Unpaid` reads `shut, back in 2d`, and so does an asset idle for its upkeep), an asset at work | FRONTS and ASSETS status (`frontStatus`, `assetStatus`) |
 | `known` / `rent unpaid 2d` / `unknown` | a house the police have, one behind on its rent, one nobody knows about | STASH status (`houseStatus`) |
 | `idle` / `unposted` / `no city` / `no front` / `no route` / `<corner>` / `runs <city>` / `1 front` / `3 fronts` / `drives <route>` | a runner off a corner, an enforcer off one, a lieutenant without a city, an accountant without a front, a driver without a route, and where the rest are | the roster's where column (`post`) and the CREW summary rows |
 | `jailed 4d` / `out tomorrow` / `wounded 3d` / `retiring` | the crew tags (`crewTag`): in a cell with the days to go, bail down, laid up with the days, the next birthday the farewell | the roster's where column; the pane's post row reads `jailed · 4d to go` and `laid up · 3d to go`, the summary rows `jailed` and `laid up` |

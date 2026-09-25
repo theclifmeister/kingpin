@@ -43,6 +43,8 @@ export const WORDS = {
       a.target === "corner" ? cornerName(v, a.corner) : a.target === "house" ? (byId(v.houses, a.house) || { name: "a house" }).name : `the ${a.product} trade`;
     return `Police are working ${name}: they hit ${n(a.days) <= 1 ? "tonight" : `in ${plural(a.days, "day")}`}.`;
   },
+  front_shut: (v, a) =>
+    `${(byId(v.fronts, a.front) || { name: "A front" }).name} shut ${plural(n(a.days), "day")}: upkeep unpaid, ${money(n(a.amount))} clean short. It is ${money(n(a.have))}/day clean: keep that back.`,
   float: (v, a) => `Dirty cash ${money(n(a.have))} is under the float (${money(n(a.amount))}).`,
   wages: (v, a) => `Wages ${money(n(a.amount))} due tonight, ${money(n(a.have))} dirty in hand.`,
   crew_line: (v, a) => {

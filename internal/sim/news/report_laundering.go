@@ -69,7 +69,7 @@ func (r *reporter) reportLaundering(e events.Event) bool {
 		d := base
 		d.Front = ev.Name
 		r.add("laundering", "FrontFrozen", d)
-		rep.Money = append(rep.Money, fmt.Sprintf("%s shut for %s: %s upkeep unpaid. Wash something.", ev.Name, format.Plural(ev.Days, "day"), format.Money(ev.Upkeep)))
+		rep.Money = append(rep.Money, fmt.Sprintf("%s shut for %s: %s clean upkeep unpaid, %s short. Upkeep comes out of the clean pile after the wash: keep it back.", ev.Name, format.Plural(ev.Days, "day"), format.Money(ev.Upkeep), format.Money(ev.Short)))
 	case events.AssetBought:
 		// The assets (#48): a clean-cash purchase the paper notices,
 		// off the assets' own stream, so no pinned run moves.

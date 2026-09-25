@@ -28,6 +28,7 @@ const (
 	AlertTaskForce     AlertKind = "task_force"    // a task force formed this morning
 	AlertFile          AlertKind = "file"          // the DA's file is Count pages of the Amount that indict you, two or fewer short (#414)
 	AlertInvestigation AlertKind = "investigation" // the police in City are working Target (Corner, Product or House): the hit in Days
+	AlertFrontShut     AlertKind = "front_shut"    // Front shut for unpaid upkeep (#458): Amount the clean it was short, Have its upkeep, Days until it reopens
 	AlertFloat         AlertKind = "float"         // Have dirty under the float, Amount
 	AlertWages         AlertKind = "wages"         // Amount in wages tonight, Have dirty
 	AlertCrewLine      AlertKind = "crew_line"     // Member is Gap over the Cross line (Line), Days at tonight's drift
@@ -50,7 +51,7 @@ const (
 // AlertKinds is every kind, loudest first: the order Alerts returns them
 // in.
 func AlertKinds() []AlertKind {
-	return []AlertKind{AlertTalking, AlertContractDue, AlertDebtDue, AlertHeat, AlertTaskForce, AlertFile, AlertInvestigation, AlertFloat, AlertWages,
+	return []AlertKind{AlertTalking, AlertContractDue, AlertDebtDue, AlertHeat, AlertTaskForce, AlertFile, AlertInvestigation, AlertFrontShut, AlertFloat, AlertWages,
 		AlertCrewLine, AlertSkim, AlertUnposted, AlertIdleCorner, AlertStashFull, AlertScouts, AlertGate, AlertHouseKnown,
 		AlertDARace, AlertRetire, AlertFavour, AlertReign, AlertStraight, AlertExposure, AlertPlan}
 }
@@ -116,6 +117,7 @@ var alertActs = map[AlertKind][]Act{
 	// corner on the map, the product on the market, the house on the
 	// ledger, each selected.
 	AlertInvestigation: {{Screen: ScreenMap, Subject: SubjectCorner}, actMarket, {Screen: ScreenLedger, Subject: SubjectHouse}},
+	AlertFrontShut:     {actLedger},
 	AlertFloat:         {actLedger},
 	AlertWages:         {actCrew},
 	AlertCrewLine:      {actMember},
@@ -153,12 +155,13 @@ type Alert struct {
 	Contract int     `json:"contract,omitempty"` // contract_due: the contract's id
 	Supplier string  `json:"supplier,omitempty"` // debt_due: the connect's id
 	House    string  `json:"house,omitempty"`    // house_known, investigation: the house's id
+	Front    string  `json:"front,omitempty"`    // front_shut: the front's id
 	Due      int     `json:"due,omitempty"`      // contract_due, debt_due: the day it is due
-	Amount   int     `json:"amount,omitempty"`   // debt_due: the debt; float: the float; wages: the wages; retire: the cash short; reign: the homage a night; stash_full: the capacity; exposure: the pile past the line tonight
-	Have     int     `json:"have,omitempty"`     // debt_due: the cash in hand; float, wages: the dirty cash
+	Amount   int     `json:"amount,omitempty"`   // debt_due: the debt; front_shut: the clean it was short; float: the float; wages: the wages; retire: the cash short; reign: the homage a night; stash_full: the capacity; exposure: the pile past the line tonight
+	Have     int     `json:"have,omitempty"`     // debt_due: the cash in hand; float, wages: the dirty cash; front_shut: its upkeep a day, clean
 	Heat     float64 `json:"heat,omitempty"`     // heat: the city's heat; exposure: what the pile adds tonight
 	Line     float64 `json:"line,omitempty"`     // heat: the patrol line; crew_line: the loyalty line
-	Days     int     `json:"days,omitempty"`     // da_race: days to the election; retire: quiet days short; reign: the reign's day; crew_line: days to the line at tonight's drift (0: not falling); idle_corner: days before it drifts; investigation: nights to the hit (1: tonight)
+	Days     int     `json:"days,omitempty"`     // front_shut: days until it reopens; da_race: days to the election; retire: quiet days short; reign: the reign's day; crew_line: days to the line at tonight's drift (0: not falling); idle_corner: days before it drifts; investigation: nights to the hit (1: tonight)
 	Count    int     `json:"count,omitempty"`    // reign: the crews paying homage; stash_full: the units held; plan: the steps met; exposure: the loads landing
 	Ready    bool    `json:"ready,omitempty"`    // retire: retiring is open now; plan: the plan is done
 	Level    string  `json:"level,omitempty"`    // favour: the response due tonight
@@ -235,6 +238,15 @@ func (s *Session) Alerts() []Alert {
 			a.House, a.Act = inv.Target, acts[2]
 		}
 		out = append(out, a)
+	}
+	// A front shut for its upkeep (#458): the laundering sim keeps what
+	// the clean pile lacked on the front while it is shut. Keyed by the
+	// front and the day it reopens, so a fast-forward stops once a shut.
+	for _, f := range w.Fronts {
+		if f.Unpaid > 0 && f.Frozen(w.Day+1) {
+			out = append(out, Alert{Kind: AlertFrontShut, Key: fmt.Sprintf("front %s shut until %d", f.ID, f.FrozenUntil), Front: f.ID,
+				Amount: f.Unpaid, Have: s.set.Laundering.FrontUpkeep(w, f), Days: f.FrozenUntil - w.Day})
+		}
 	}
 	if fl := s.set.Laundering.Float(w); w.Player.DirtyCash < fl && s.FloatMatters() {
 		out = append(out, Alert{Kind: AlertFloat, Key: "dirty cash under the float", Amount: fl, Have: w.Player.DirtyCash})
