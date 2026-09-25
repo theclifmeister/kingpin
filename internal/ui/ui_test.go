@@ -1674,8 +1674,9 @@ func TestLedgerScreenKeys(t *testing.T) {
 }
 
 // A dilemma card dealt overnight is shown before the morning report:
-// enter inside it decides, shows the outcome and then opens the report,
-// and never ends the day; 1-3 pick a choice directly; the effects land
+// enter inside it decides the choice picked, shows the outcome and then
+// opens the report, and never ends the day; 1-3 pick a choice, enter
+// takes it (#461); the effects land
 // at once and the outcome goes in the journal. A save on a card brings
 // the same card back.
 func TestCardBeforeReport(t *testing.T) {
@@ -1723,11 +1724,15 @@ func TestCardBeforeReport(t *testing.T) {
 		t.Fatalf("after the report: mode %v day %d", m.mode, m.w.Day)
 	}
 
-	// Digits pick directly; the outcome's heat shows up.
+	// A digit picks, enter takes it; the outcome's heat shows up.
 	deal()
 	heat := m.w.Here().Heat
 	m.Update(key("n"))
 	m.Update(key("2"))
+	if m.cardDone || m.cardCursor != 1 {
+		t.Fatalf("2 decided the card: done %v cursor %d", m.cardDone, m.cardCursor)
+	}
+	m.Update(key("enter"))
 	if !m.cardDone || m.w.Here().Heat != heat+7 || m.w.Day != day+2 {
 		t.Fatalf("digit pick: done %v heat %v -> %v day %d", m.cardDone, heat, m.w.Here().Heat, m.w.Day)
 	}
@@ -1750,6 +1755,7 @@ func TestCardBeforeReport(t *testing.T) {
 		t.Fatalf("continue: mode %v pending %+v", m2.mode, m2.w.Dilemmas.Pending)
 	}
 	m2.Update(key("3"))
+	m2.Update(key("enter"))
 	if !m2.cardDone || m2.w.Dilemmas.Pending != nil || m2.w.Day != day+3 {
 		t.Fatalf("after continuing and deciding: done %v pending %v day %d", m2.cardDone, m2.w.Dilemmas.Pending, m2.w.Day)
 	}
@@ -2918,6 +2924,7 @@ func TestModalsFit(t *testing.T) {
 		{"card outcome", modeCard, func(t *testing.T, m *Model) {
 			m.w.Dilemmas.Pending = testCard(m.w.Day)
 			m.showCard()
+			m.Update(key("1"))
 			m.Update(key("enter"))
 			if !m.cardDone {
 				t.Fatal("the card was not answered")

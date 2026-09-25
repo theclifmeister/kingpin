@@ -16,40 +16,12 @@ import (
 // on, whatever else it stopped for on the way, and the report after
 // the card names the card.
 func TestFastForwardStopsOnACard(t *testing.T) {
-	const seed = 4
-	byHand := richModelSeeded(t, 80, 24, seed)
-	cardDay := 0
-	for byHand.w.Day < 40 {
-		byHand.Update(key("n"))
-		if byHand.mode == modeCard {
-			cardDay = byHand.w.Day
-			break
-		}
-		closeMorning(t, byHand)
-	}
-	if cardDay == 0 {
-		t.Fatalf("seed %d dealt no card by day 40", seed)
-	}
-	m := richModelSeeded(t, 80, 24, seed)
-	for m.w.Day < cardDay {
-		fast(t, m, 30)
-		if m.w.Day > cardDay {
-			t.Fatalf("F ran past the card: day %d, the card was dealt on day %d", m.w.Day, cardDay)
-		}
-		if m.w.Day < cardDay {
-			if m.mode == modeCard {
-				t.Fatalf("a card on day %d that the n walk did not deal", m.w.Day)
-			}
-			closeMorning(t, m)
-		}
-	}
-	if m.mode != modeCard || m.w.Dilemmas.Pending == nil {
-		t.Fatalf("on the card's day: mode %v pending %v stop %q", m.mode, m.w.Dilemmas.Pending, m.fastStop)
-	}
+	m := fastToCard(t, 4)
 	if !strings.HasSuffix(m.fastStop, ": a card to answer.") {
 		t.Fatalf("stop line %q", m.fastStop)
 	}
 	assertFits(t, m.View(), 80, 24, "card after F")
+	m.Update(key("1"))     // pick
 	m.Update(key("enter")) // decide
 	m.Update(key("enter")) // the outcome, then the report
 	if got := reportLine(t, m); got != m.fastStop {
@@ -238,5 +210,70 @@ func TestFastForwardIsTheSameDays(t *testing.T) {
 	}
 	if !reflect.DeepEqual(saved, gobCopy(t, byHand.w)) {
 		t.Fatal("the save after F differs from the run by hand")
+	}
+}
+
+// fastToCard walks seed's rich fixture with n to the day it deals its
+// first card, then fast-forwards a second fixture there: the model F
+// stopped on that card.
+func fastToCard(t *testing.T, seed uint64) *Model {
+	t.Helper()
+	byHand := richModelSeeded(t, 80, 24, seed)
+	cardDay := 0
+	for byHand.w.Day < 40 {
+		byHand.Update(key("n"))
+		if byHand.mode == modeCard {
+			cardDay = byHand.w.Day
+			break
+		}
+		closeMorning(t, byHand)
+	}
+	if cardDay == 0 {
+		t.Fatalf("seed %d dealt no card by day 40", seed)
+	}
+	m := richModelSeeded(t, 80, 24, seed)
+	for m.w.Day < cardDay {
+		fast(t, m, 30)
+		if m.w.Day > cardDay {
+			t.Fatalf("F ran past the card: day %d, the card was dealt on day %d", m.w.Day, cardDay)
+		}
+		if m.w.Day < cardDay {
+			if m.mode == modeCard {
+				t.Fatalf("a card on day %d that the n walk did not deal", m.w.Day)
+			}
+			closeMorning(t, m)
+		}
+	}
+	if m.mode != modeCard || m.w.Dilemmas.Pending == nil {
+		t.Fatalf("on the card's day: mode %v pending %v stop %q", m.mode, m.w.Dilemmas.Pending, m.fastStop)
+	}
+	return m
+}
+
+// TestFastForwardCardIsNotAnsweredByAccident (#461): a card opened by a
+// fast-forward's stop opens with no choice picked, so the enter typed
+// ahead of it (the one that ran the fast-forward) answers nothing, and
+// a digit meant for a screen only picks, twice over; the card waits
+// for a pick and an enter.
+func TestFastForwardCardIsNotAnsweredByAccident(t *testing.T) {
+	m := fastToCard(t, 4)
+	dirty, clean := m.w.Player.DirtyCash, m.w.Player.CleanCash
+	if strings.Contains(stripANSI(m.View()), "enter decide") {
+		t.Errorf("the footer offers enter before a choice is picked:\n%s", stripANSI(m.View()))
+	}
+	m.Update(key("enter")) // typed ahead of the stop
+	m.Update(key("esc"))
+	m.Update(key("1")) // the dashboard, twice
+	m.Update(key("1"))
+	if m.mode != modeCard || m.cardDone || m.w.Dilemmas.Pending == nil || m.w.Player.DirtyCash != dirty || m.w.Player.CleanCash != clean {
+		t.Fatalf("answered by accident: mode %v done %v pending %v dirty %d → %d clean %d → %d",
+			m.mode, m.cardDone, m.w.Dilemmas.Pending, dirty, m.w.Player.DirtyCash, clean, m.w.Player.CleanCash)
+	}
+	if m.cardCursor != 0 || !strings.Contains(stripANSI(m.View()), "enter decide") {
+		t.Errorf("1 did not pick the first choice (cursor %d), or the footer does not offer enter:\n%s", m.cardCursor, stripANSI(m.View()))
+	}
+	m.Update(key("enter"))
+	if !m.cardDone || m.w.Dilemmas.Pending != nil {
+		t.Fatalf("a pick and an enter did not decide: done %v pending %v", m.cardDone, m.w.Dilemmas.Pending)
 	}
 }

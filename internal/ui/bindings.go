@@ -278,8 +278,8 @@ var modeBindings = []binding{
 	{key: "c", label: "pay", modes: in(modeBuy), when: buyPay},
 	{key: "1-2", label: "repeat", modes: in(modeSell), when: step(3)},
 	{key: "1-3", label: "dial", modes: in(modeCart), when: cartOnSell},
-	{key: "1-2", label: "choose", modes: in(modeCard), when: cardOf(2)}, // the card's own count (#426)
-	{key: "1-3", label: "choose", modes: in(modeCard), when: cardOf(3)},
+	{key: "1-2", label: "pick", modes: in(modeCard), when: cardOf(2)}, // the card's own count (#426); a digit picks, enter decides (#461)
+	{key: "1-3", label: "pick", modes: in(modeCard), when: cardOf(3)},
 	{key: "m", label: "max", dialogs: true, when: numberStep},
 	{key: "h", label: "half", dialogs: true, when: numberStep},
 	{key: "↑↓", label: "±1", dialogs: true, when: numberStep},
@@ -318,7 +318,7 @@ var modeBindings = []binding{
 	{key: "enter", label: "next", modes: in(modeBribe), when: step(0)},
 	{key: "enter", label: "pay", modes: in(modeBribe), when: step(1)},
 	{key: "enter", label: "give", modes: in(modeFund), when: fundLast},
-	{key: "enter", label: "decide", modes: in(modeCard), when: step(0)},
+	{key: "enter", label: "decide", modes: in(modeCard), when: cardPicked}, // once a choice is picked (#461)
 	{key: "N", label: "new run", modes: in(modeOver)},
 	{key: "esc", label: "close", modes: in(modeOver)},
 	{key: "enter", label: "next", modes: in(modeNewRun), when: newRunNext},

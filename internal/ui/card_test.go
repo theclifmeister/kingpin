@@ -78,7 +78,7 @@ func TestCardShowsWhatEachChoiceDoes(t *testing.T) {
 }
 
 // The card's footer counts its own choices (#426): a two-choice card
-// said `1-3 choose`.
+// said `1-3 choose`. A digit picks (#461), so it reads `1-2 pick`.
 func TestCardFooterCountsTheChoices(t *testing.T) {
 	m := richModel(t, 100, 30)
 	for _, n := range []int{2, 3} {
@@ -87,7 +87,7 @@ func TestCardFooterCountsTheChoices(t *testing.T) {
 		m.w.Dilemmas.Pending = c
 		m.showCard()
 		view := stripANSI(m.View())
-		want, not := fmt.Sprintf("1-%d choose", n), fmt.Sprintf("1-%d choose", 5-n)
+		want, not := fmt.Sprintf("1-%d pick", n), fmt.Sprintf("1-%d pick", 5-n)
 		if !strings.Contains(view, want) || strings.Contains(view, not) {
 			t.Errorf("a %d-choice card's footer, want %q:\n%s", n, want, view)
 		}

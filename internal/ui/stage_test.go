@@ -41,6 +41,7 @@ func TestStageBeforeCard(t *testing.T) {
 	if m.mode != modeCard || m.w.Day != day+1 || m.w.Dilemmas.Pending == nil {
 		t.Fatalf("after the stage: mode %v day %d pending %v", m.mode, m.w.Day, m.w.Dilemmas.Pending)
 	}
+	m.Update(key("1"))     // pick
 	m.Update(key("enter")) // decide
 	m.Update(key("enter")) // the outcome
 	if m.mode != modeReport || m.w.Day != day+1 {

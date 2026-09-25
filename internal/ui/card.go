@@ -12,13 +12,18 @@ import (
 )
 
 // The dilemma card (#15) is the modal shown before the morning report when
-// the news sim dealt one overnight. Up/down or 1-3 pick a choice, enter
-// takes it and shows the outcome, a second enter opens the report. Enter
-// never ends the day here.
+// the news sim dealt one overnight. It opens with no choice highlighted
+// (#461): up/down or 1-3 pick one, enter takes the one picked and shows
+// the outcome, a second enter opens the report. Enter never ends the
+// day here, and a key typed ahead of the card (the enter that ran the
+// fast-forward it stopped, a digit meant for a screen) never answers it.
+
+// noChoice is the card's cursor before a choice is picked.
+const noChoice = -1
 
 // showCard opens the pending card, if there is one, else the report.
 func (m *Model) showCard() {
-	m.cardCursor = 0
+	m.cardCursor = noChoice
 	m.cardDone = false
 	if c := m.w.Dilemmas.Pending; c != nil {
 		if m.mode != modeCard {
@@ -77,18 +82,35 @@ func (m *Model) keyCard(key string) (tea.Model, tea.Cmd) {
 	}
 	switch key {
 	case "up", "k":
+		if m.cardCursor == noChoice {
+			m.cardCursor = len(c.Choices)
+		}
 		stepCursor(&m.cardCursor, -1, len(c.Choices))
 	case "down", "j":
 		stepCursor(&m.cardCursor, 1, len(c.Choices))
 	case "enter":
+		if m.cardCursor == noChoice {
+			m.say("Pick a choice first: ↑↓ or " + cardDigits(len(c.Choices)) + ", then enter.")
+			return m, nil
+		}
 		m.answerCard()
 	default:
+		// A digit picks, never decides (#461): the same digits switch
+		// screens everywhere else.
 		if i, ok := digit(key); ok && i < len(c.Choices) {
 			m.cardCursor = i
-			m.answerCard()
 		}
 	}
 	return m, nil
+}
+
+// cardDigits is the digits a card of n choices takes: 1-2 or 1-3.
+func cardDigits(n int) string { return "1-" + string(rune('0'+n)) }
+
+// cardPicked is a card open on its choices with one picked: where
+// enter decides (#461).
+func cardPicked(m *Model) bool {
+	return m.modalStep() == 0 && !m.cardDone && m.w.Dilemmas.Pending != nil && m.cardCursor != noChoice
 }
 
 // answerCard takes the highlighted choice: the effects land at once, the
@@ -122,15 +144,17 @@ func (m *Model) viewCard() string {
 	if m.cardOnScene() {
 		return m.viewCardScene(c)
 	}
-	m.cardCursor = max(0, min(m.cardCursor, len(c.Choices)-1))
+	m.cardCursor = max(noChoice, min(m.cardCursor, len(c.Choices)-1))
 	body := append(m.wrapLines(c.Text), "")
 	choices, at := m.cardChoices(c)
-	end := len(choices)
-	if m.cardCursor+1 < len(at) {
-		end = at[m.cardCursor+1]
+	if m.cardCursor != noChoice {
+		end := len(choices)
+		if m.cardCursor+1 < len(at) {
+			end = at[m.cardCursor+1]
+		}
+		m.modalFollow(len(body) + end - 1)
+		m.modalFollow(len(body) + at[m.cardCursor])
 	}
-	m.modalFollow(len(body) + end - 1)
-	m.modalFollow(len(body) + at[m.cardCursor])
 	return m.modal(c.Title, append(body, choices...), m.modalFooter())
 }
 

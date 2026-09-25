@@ -66,8 +66,9 @@ func TestCardSceneIsSkippable(t *testing.T) {
 	if got, want := m.View(), off.View(); got != want {
 		t.Fatalf("the finished card is not the card with animation off:\n%s\n---\n%s", stripANSI(got), stripANSI(want))
 	}
-	if _, cmd := m.Update(key("1")); cmd != nil || !m.cardDone || m.w.Player.DirtyCash != cash-100 || m.scene != nil {
-		t.Fatalf("1 after the skip: cmd %v done %v cash %d → %d scene %v", cmd, m.cardDone, cash, m.w.Player.DirtyCash, m.scene)
+	m.Update(key("1")) // a digit picks, enter decides (#461)
+	if _, cmd := m.Update(key("enter")); cmd != nil || !m.cardDone || m.w.Player.DirtyCash != cash-100 || m.scene != nil {
+		t.Fatalf("1 enter after the skip: cmd %v done %v cash %d → %d scene %v", cmd, m.cardDone, cash, m.w.Player.DirtyCash, m.scene)
 	}
 	// The outcome is not animated, and a straggling tick starts nothing.
 	if cmd := tickAt(m, now.Add(time.Second)); cmd != nil || m.scene != nil {
@@ -106,8 +107,9 @@ func TestCardSceneEndsItself(t *testing.T) {
 	if got, want := m.View(), skipped.View(); got != want {
 		t.Fatalf("Done is not the skip:\n%s\n---\n%s", stripANSI(got), stripANSI(want))
 	}
-	if _, cmd := m.Update(key("2")); cmd != nil || !m.cardDone {
-		t.Fatalf("2 after Done: cmd %v done %v", cmd, m.cardDone)
+	m.Update(key("2"))
+	if _, cmd := m.Update(key("enter")); cmd != nil || !m.cardDone {
+		t.Fatalf("2 enter after Done: cmd %v done %v", cmd, m.cardDone)
 	}
 }
 

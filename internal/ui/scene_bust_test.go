@@ -243,6 +243,7 @@ func TestBustSceneYieldsToTheEnding(t *testing.T) {
 	}
 	skipScene(m)
 	m.Update(key("1"))
+	m.Update(key("enter")) // decide
 	if _, cmd := m.Update(key("enter")); cmd != nil || m.mode != modeReport || m.scene != nil {
 		t.Fatalf("the report after the card: cmd %v mode %v scene %v", cmd, m.mode, m.scene)
 	}

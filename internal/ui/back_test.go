@@ -196,7 +196,12 @@ func TestTabIsSilentWhereThereIsNoPage(t *testing.T) {
 		{"cash out", modeCashOut, func(m *Model) { m.w.Player.CleanCash = 200_000; m.Update(key("7")); m.Update(key("c")) }},
 		{"report", modeReport, func(m *Model) { m.mode = modeReport }},
 		{"help", modeHelp, func(m *Model) { m.Update(key("?")) }},
-		{"card outcome", modeCard, func(m *Model) { m.w.Dilemmas.Pending = testCard(m.w.Day); m.showCard(); m.Update(key("enter")) }},
+		{"card outcome", modeCard, func(m *Model) {
+			m.w.Dilemmas.Pending = testCard(m.w.Day)
+			m.showCard()
+			m.Update(key("1"))
+			m.Update(key("enter"))
+		}},
 		{"details", modeDetails, func(m *Model) { m.Update(key("5")); m.mode = modeDetails }},
 	}
 	for _, c := range cases {
