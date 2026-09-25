@@ -78,6 +78,10 @@ func launderBlurb(d events.Launder) string {
 	}
 }
 
+// till is the dirty cash the wash leaves for the street (#417): the
+// file's float folded through the tree, laundering.Sim.Float's number.
+func (m *Model) till() int { return m.w.Float(m.cfg.Upgrades, m.cfg.Laundering.Laundering.Float) }
+
 // frontStatus is a front's state for the ledger's status column, in
 // the one lowercase vocabulary: open, opens tomorrow, audit, back in
 // 14d, shut, back in 2d.
@@ -89,6 +93,10 @@ func (m *Model) frontStatus(f game.Front) any {
 		return styled{theme.Warning, fmt.Sprintf("shut, back in %dd", f.FrozenUntil-m.w.Day)}
 	case f.Bought == m.w.Day:
 		return styled{theme.Subtle, "opens tomorrow"}
+	case m.w.Player.DirtyCash <= m.till():
+		// Open with nothing to wash (#417): the pile is under the till,
+		// and "open" read as a front that works and washes $0.
+		return styled{theme.Warning, "idle: under the till"}
 	default:
 		return styled{theme.Good, "open"}
 	}
@@ -276,6 +284,12 @@ func (m *Model) viewLedger() string {
 	line(sub("launder  ") + launderRow(w.Laundering.Dial) + sub(fmt.Sprintf("   audit %s/day · up to %s/day · legit %s/day", format.Pct(l.AnyAuditRisk(w), 1), money(l.Capacity(w)), money(l.LegitIncome(w)))))
 	if pile := m.pileLine(); pile != "" {
 		line(theme.Gold.Render(pile))
+	}
+	// Fronts with nothing to wash (#417): a laundromat washed $0 for a
+	// week, the reason below the fold at 100 columns. The verdict leads,
+	// so a narrow ledger cuts the explanation and not the news.
+	if till := m.till(); len(w.Fronts) > 0 && w.Player.DirtyCash <= till {
+		line(sub("wash     ") + theme.Warning.Render(fmt.Sprintf("idle: dirty %s is under the %s till", money(w.Player.DirtyCash), money(till))) + sub("; the wash takes only what is over it"))
 	}
 	if warn := m.exposureWarning(); warn != "" {
 		line(theme.Warning.Render("▲ " + warn))
