@@ -319,7 +319,7 @@ var modeBindings = []binding{
 	{key: "enter", label: "pay", modes: in(modeBribe), when: step(1)},
 	{key: "enter", label: "give", modes: in(modeFund), when: fundLast},
 	{key: "enter", label: "decide", modes: in(modeCard), when: step(0)},
-	{key: "n", label: "new run", modes: in(modeOver)},
+	{key: "N", label: "new run", modes: in(modeOver)},
 	{key: "esc", label: "close", modes: in(modeOver)},
 	{key: "enter", label: "next", modes: in(modeNewRun), when: newRunNext},
 	{key: "enter", label: "start", modes: in(modeNewRun), when: newRunStart},

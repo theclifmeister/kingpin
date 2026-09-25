@@ -41,7 +41,9 @@ func TestCrewScreenKeys(t *testing.T) {
 	if m.w.Crew.Pay != events.PayFair {
 		t.Fatalf("pay after three p = %v", m.w.Crew.Pay)
 	}
-	// Cursor is on the new hire; f asks, anything but y backs out.
+	// The cursor stays on the faces looking for work (#445); up is the
+	// new hire, and f asks, anything but y backs out.
+	m.Update(key("up"))
 	m.Update(key("f"))
 	if m.mode != modeConfirm {
 		t.Fatalf("f did not ask: mode %v status %q", m.mode, m.status)
@@ -84,6 +86,7 @@ func TestInvestigateAndPayOffKeys(t *testing.T) {
 	if len(m.w.Crew.Members) != 1 {
 		t.Fatalf("hire failed: %q", m.status)
 	}
+	m.Update(key("up")) // onto the hire (#445)
 	hired := m.w.Crew.Members[0]
 	cash := m.w.Player.DirtyCash
 	m.Update(key("i"))
@@ -341,6 +344,7 @@ func TestCrewPaneNamesTheCosts(t *testing.T) {
 		t.Fatalf("the candidate's pane does not name the fee %s:\n%s", money(cand.Fee), pane)
 	}
 	m.Update(key("h"))
+	m.Update(key("up")) // onto the hire (#445)
 	hired := m.w.Crew.Members[0]
 	if m.w.Player.DirtyCash != 20_000-cand.Fee || hired.Fee != cand.Fee {
 		t.Fatalf("hire charged %d, the pane said %d", 20_000-m.w.Player.DirtyCash, cand.Fee)
@@ -453,5 +457,37 @@ func TestCrewScreenInTheGrammar(t *testing.T) {
 	rows := viewLines(m)
 	if strip := rows[m.mainHeight()+1]; !strings.HasPrefix(strip, "▸ "+strings.ToUpper(c.Name)+" · "+c.Role+" · skill ") || !strings.HasSuffix(strings.TrimRight(strip, " "), "␣ more") {
 		t.Errorf("strip: %q", strip)
+	}
+}
+
+// Hiring leaves the cursor on the faces looking for work (#445): h, h,
+// h hires three down the list, and with nobody left looking the cursor
+// lands on the last hire.
+func TestHireKeepsTheCursorOnTheCandidates(t *testing.T) {
+	m := newTestModel(t, 120, 40)
+	m.w.Player.DirtyCash = 1_000_000
+	m.w.Crew.Members = nil
+	m.Update(key("4"))
+	n := len(m.w.Crew.Candidates)
+	if n < 2 {
+		t.Skipf("only %d candidates", n)
+	}
+	want := make([]int, n)
+	for i, c := range m.w.Crew.Candidates {
+		want[i] = c.ID
+	}
+	for i := 0; i < n; i++ {
+		m.Update(key("h"))
+		if len(m.w.Crew.Members) != i+1 {
+			t.Fatalf("hire %d: %d on the payroll, status %q", i+1, len(m.w.Crew.Members), m.status)
+		}
+	}
+	for i, mem := range m.w.Crew.Members {
+		if mem.ID != want[i] {
+			t.Fatalf("hired %d as #%d, want %d in list order", mem.ID, i+1, want[i])
+		}
+	}
+	if m.crewCursor != n-1 {
+		t.Fatalf("with nobody left looking the cursor is on row %d, not the last hire %d", m.crewCursor, n-1)
 	}
 }
