@@ -837,6 +837,7 @@ func (m *Model) quantityRows(d dialog, city, id string, buy bool, sup *game.Supp
 			body = append(body, m.inHand())
 		}
 		body = append(body, row("quantity", d.qty.View()))
+		body = append(body, m.editingRows(d, city, id, buy)...)
 		body = append(body, m.priceRows(city, id, buy)...)
 		if buy && sup != nil {
 			if qty, err := m.parseQty(m.maxBuyBy(id, d.credit)); err == nil {
@@ -871,6 +872,25 @@ func (m *Model) quantityRows(d dialog, city, id string, buy bool, sup *game.Supp
 		body = append(body, theme.Subtle.Render("Pick a product."))
 	}
 	return body
+}
+
+// editingRows is the quantity step's warning when the dialog opened on
+// an order that stands (#443): a product kept by contract opens at keep
+// at and one with a standing order at standing (#113, #114), so what is
+// typed replaces that order unless the repeat step is turned to once.
+// Said here, where the number goes in, and not only a step later.
+func (m *Model) editingRows(d dialog, city, id string, buy bool) []string {
+	w := m.w
+	if buy {
+		if c, ok := w.Supplied(city, id); ok && d.repeat == repeatKeep {
+			return []string{theme.Warning.Render(fmt.Sprintf("Editing the contract (keep %d); pick once to buy just once.", c.Units))}
+		}
+		return nil
+	}
+	if o, ok := w.YourStanding(city, id); ok && d.repeat == repeatStanding {
+		return []string{theme.Warning.Render(fmt.Sprintf("Editing the standing order (%d %s); pick once to sell tonight only.", o.Qty, o.Dial))}
+	}
+	return nil
 }
 
 // afterRow is the buy's quantity step's `after` row (#356): the cash,
@@ -913,7 +933,7 @@ func (m *Model) buyTermsRows(d dialog, city, id string, sup *game.Supplier) []st
 	case d.repeat == repeatKeep:
 		body = append(body, row("contract", fmt.Sprintf("keep %d here, the shortfall bought each morning at %s (%s)", qty, price(m.rules.Market.SupplyPrice(w, city, id)), format.Times(m.rules.Market.Markup(), 2))))
 		if c, ok := w.Supplied(city, id); ok {
-			body = append(body, theme.Subtle.Render(fmt.Sprintf("Kept at %d since day %d; this replaces it.", c.Units, c.Since)))
+			body = append(body, theme.Warning.Render(fmt.Sprintf("Kept at %d since day %d; this replaces it.", c.Units, c.Since)))
 		} else {
 			body = append(body, theme.Subtle.Render("A contract buys for cash from the cheapest connect here."))
 		}
@@ -962,7 +982,7 @@ func (m *Model) sellRepeatRows(d dialog, city, id string) []string {
 	if d.repeat == repeatStanding {
 		body = append(body, row("standing", fmt.Sprintf("%d at %s nightly until cancelled; the crew keep %s", qty, d.dial, format.Pct(m.rules.Market.Cut(), 0))))
 		if o, ok := w.YourStanding(city, id); ok {
-			body = append(body, theme.Subtle.Render(fmt.Sprintf("Standing at %d %s now; this replaces it.", o.Qty, o.Dial)))
+			body = append(body, theme.Warning.Render(fmt.Sprintf("Standing at %d %s now; this replaces it.", o.Qty, o.Dial)))
 		} else {
 			body = append(body, theme.Subtle.Render("An order by hand wins its day; the standing one is back the next."))
 		}

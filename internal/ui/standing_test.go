@@ -182,3 +182,34 @@ func TestStandingOrderReissued(t *testing.T) {
 		t.Fatalf("re-issued: %+v %v, err %q", o, ok, m.dlg.err)
 	}
 }
+
+// The dialog that opens on a standing order says so where the number
+// goes in (#443), and turning the repeat step to once queues a sale for
+// tonight and leaves the standing order as it was.
+func TestSellOverAStandingOrderSaysItEdits(t *testing.T) {
+	for _, sz := range [][2]int{{80, 24}, {120, 40}} {
+		m := newTestModel(t, sz[0], sz[1])
+		w := m.w
+		home, weed := w.Player.Location, w.Products[0]
+		w.SetStock(home, weed, 50)
+		if err := w.PlaceStanding(home, weed, 5, events.DialNormal); err != nil {
+			t.Fatal(err)
+		}
+		m.Update(key("s"))
+		m.Update(key("enter"))
+		view := m.View()
+		assertFits(t, view, sz[0], sz[1], "sell over a standing order")
+		if !strings.Contains(stripANSI(view), "Editing the standing order (5 normal); pick once to sell tonight only.") {
+			t.Fatalf("%dx%d: the quantity step does not say it edits the standing order: %q", sz[0], sz[1], stripANSI(view))
+		}
+		for _, k := range []string{"2", "0", "enter", "enter", "1", "enter"} {
+			m.Update(key(k))
+		}
+		if o, ok := w.YourStanding(home, weed); !ok || o.Qty != 5 {
+			t.Fatalf("%dx%d: the standing order moved: %+v %v", sz[0], sz[1], o, ok)
+		}
+		if o, ok := w.Order(home, weed); !ok || o.Qty != 20 {
+			t.Fatalf("%dx%d: once did not queue 20 for tonight: %+v %v, err %q", sz[0], sz[1], o, ok, m.dlg.err)
+		}
+	}
+}
