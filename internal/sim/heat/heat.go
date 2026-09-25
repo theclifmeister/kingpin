@@ -255,6 +255,25 @@ func (s *Sim) TaskForceForming(w *game.World) bool {
 	return w.Heat.TaskForceDay > 0 && w.Heat.TaskForceDay == w.Day
 }
 
+// WarrantDue is the night an arrest warrant out this morning is served
+// (#475): signed when the arrest line was met, served that night on any
+// sale or on the heat still at the line. 0 is none out.
+func (s *Sim) WarrantDue(w *game.World) int {
+	if w.Heat.WarrantDay <= 0 || s.cfg.Heat.WarrantDays <= 0 {
+		return 0
+	}
+	return w.Heat.WarrantDay + s.cfg.Heat.WarrantDays
+}
+
+// ArrestLine is the arrest rung's line in a city today, as the ladder
+// reads it; 0 with no rung.
+func (s *Sim) ArrestLine(w *game.World, city *game.City) float64 {
+	if r := s.rung(content.Arrest); r != nil {
+		return s.Threshold(w, *r, city)
+	}
+	return 0
+}
+
 // rung is the file's row for a level, or nil.
 func (s *Sim) rung(level string) *content.ResponseConfig {
 	for i := range s.cfg.Responses {

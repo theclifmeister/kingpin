@@ -211,6 +211,11 @@ func TestFavourKeys(t *testing.T) {
 	if view := stripANSI(m.View()); !strings.Contains(view, "CALL IN THE FAVOUR?") || !strings.Contains(view, "raid due") || !strings.Contains(view, "call favour") {
 		t.Fatalf("the confirmation:\n%s", view)
 	}
+	// What the rung would take (#479), off the ladder the POLICE
+	// section reads.
+	if view := stripANSI(m.View()); !strings.Contains(view, "What it saves: the raid would take") || !strings.Contains(view, "of the stock") {
+		t.Fatalf("the confirmation does not say what the raid would take:\n%s", view)
+	}
 	m.Update(key("y"))
 	if m.mode != modePlay || w.Law.Favours != 0 || !w.FavourCalled() || w.Stats.Favours != 1 {
 		t.Fatalf("y: mode %v law %+v", m.mode, w.Law)

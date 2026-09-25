@@ -377,9 +377,43 @@ func (m *Model) favourConfirm() string {
 	w := m.w
 	due := m.favourDue()
 	body := m.wrapLines(fmt.Sprintf("Chief %s's people stand down tonight and the %s due%s does not come. Nothing taken, nothing cooled: the heat stays where it is and the rung stands when its cooldown lifts.", w.Law.Chief.Name, favourWord(due), m.favourWhere()))
+	if take := m.favourSaves(due); take != "" {
+		body = append(body, "")
+		body = append(body, m.wrapLines(take)...)
+	}
 	body = append(body, "")
 	body = append(body, m.subtle(fmt.Sprintf("The price: the chief's name is in your ledger, and the DA's file grows by %d tomorrow. Favours left after this: %d.", m.rules.Law.Bribes().FavourEvidence, max(0, w.Law.Favours-1)))...)
 	return m.modal("CALL IN THE FAVOUR?", body, m.modalFooter())
+}
+
+// favourSaves is what the rung due tonight would take (#479), off the
+// ladder the POLICE section reads (heat.Sim.Rungs, as fire folds it):
+// a raid's `50% of the stock and 30% of the dirty cash`, the feds' asset
+// with it, and the pages on a day you sold. A named hit (#343) takes
+// from its target alone, so it says so and no share. "" with no rung.
+func (m *Model) favourSaves(due string) string {
+	w := m.w
+	hot := m.rules.Heat.Hottest(w)
+	if hot == nil {
+		return ""
+	}
+	if inv := w.Heat.Investigation; due == content.Sting && inv.Open() {
+		return fmt.Sprintf("What it saves: the hit on %s, and the pages it files if it is in use tonight.", w.LeadName(inv.Kind, inv.Target))
+	}
+	for _, r := range m.rules.Heat.Rungs(w, hot) {
+		if r.Level != due {
+			continue
+		}
+		take := fmt.Sprintf("%s of the stock and %s of the dirty cash there", format.Pct(r.StockLoss, 0), format.Pct(r.CashLoss, 0))
+		if r.Level == content.TaskForce {
+			take = "an asset, " + take
+		}
+		if r.Evidence > 0 {
+			take += fmt.Sprintf(", and %s in the file if you sold", plural(r.Evidence, "page"))
+		}
+		return fmt.Sprintf("What it saves: the %s would take %s.", favourWord(due), take)
+	}
+	return ""
 }
 
 // favourWhere names the city whose police answer tonight when it is

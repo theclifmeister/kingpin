@@ -57,7 +57,7 @@ func rungWords(r content.ResponseConfig) []string {
 	case content.Patrol:
 		return []string{fmt.Sprintf("sales ~%s for %dd", format.Pct(r.Cap, 0), r.CapDays)}
 	case content.Arrest:
-		return []string{"the run ends"}
+		return []string{"a warrant, then a cell"} // #475: served the next night on a sale or the heat held
 	case content.TaskForce:
 		return []string{"an asset, and", take}
 	}

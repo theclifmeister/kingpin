@@ -1,3 +1,7 @@
+# Engine alignment validation: the arrest alert (#475, still protocol 19 / view 14)
+
+The engine's new `arrest` alert (a warrant is out: sell nothing and lie low, or you are arrested tonight) uses fields alerts already had (`city`, `heat`, `line`, `due`, `days`), and the `heat` alert now carries `level`, the highest rung met; the view's shape is unchanged. Both are worded by the shared `alerts.js` the builder copies, and the law panel's arrest rung by the shared `police.js`. Reviewed against `src/app.js`: `openAlert` takes the arrest alert to the street tab with its city selected, as it does the heat alert (its act is the dashboard). The new events `WarrantSigned` and `WarrantLapsed` are in the schema.
+
 # Engine alignment validation: protocol 19 / view 14 (#476)
 
 The builder accepts protocol 19 and view 14. View 14 (#476) gives alerts a `share`, for the new `port` alert (the wholesaler's city untouched once its door is open or the corners at home have a ceiling: its free corners, the dearest product there, the wholesaler's share of street). The build copies the reference client's `alerts.js`, which words it; the protocol's methods are unchanged.

@@ -12,6 +12,7 @@ import (
 
 	"github.com/charmbracelet/lipgloss"
 
+	"github.com/theclifmeister/kingpin/internal/content"
 	"github.com/theclifmeister/kingpin/internal/engine"
 	"github.com/theclifmeister/kingpin/internal/format"
 	"github.com/theclifmeister/kingpin/internal/game"
@@ -31,8 +32,8 @@ type alert struct {
 }
 
 // alerts is what needs you this morning, loudest first, in the engine's
-// order (engine.Alerts: somebody talking, a contract or a debt due, the
-// heat over the patrol line, a task force forming, the DA's file near
+// order (engine.Alerts: a warrant out (#475), somebody talking, a contract or a debt due, the
+// heat over a rung's line, a task force forming, the DA's file near
 // an indictment (#414), an investigation
 // (#343), a front shut for its upkeep (#458), the float, the
 // wages, a member near a line, the skim, a member with no post, a
@@ -75,8 +76,22 @@ func (m *Model) alertOf(a engine.Alert) alert {
 		if sup := w.Supplier(a.Supplier); sup != nil {
 			text = style.Render(fmt.Sprintf("%s: %s due tomorrow, %s in hand.", sup.Name, money(a.Amount), cash(a.Have)))
 		}
+	case engine.AlertArrest:
+		// #475: the arrest's night of warning. The order leads: the
+		// pane cuts an alert to one line.
+		when := "tonight"
+		if a.Days > 1 {
+			when = "in " + plural(a.Days, "night")
+		}
+		text = theme.Bad.Bold(true).Render("Warrant signed: sell nothing and lie low, or you are arrested "+when+".") +
+			theme.Bad.Render(fmt.Sprintf(" Heat %.0f in %s met the arrest line (%.0f); it is served on any sale, or if the heat still holds at the line.", a.Heat, w.CityName(a.City), a.Line))
+		why = "a warrant for your arrest"
 	case engine.AlertHeat:
-		text = theme.Bad.Render(fmt.Sprintf("Heat %.0f in %s is over the patrol line (%.0f).", a.Heat, w.CityName(a.City), a.Line))
+		line := a.Level
+		if line == "" {
+			line = content.Patrol
+		}
+		text = theme.Bad.Render(fmt.Sprintf("Heat %.0f in %s is over the %s line (%.0f).", a.Heat, w.CityName(a.City), strings.ReplaceAll(line, content.TaskForce, "task force"), a.Line))
 	case engine.AlertTaskForce:
 		text = theme.Bad.Bold(true).Render("A task force formed this morning.") + theme.Bad.Render(" It comes tonight: lie low.")
 	case engine.AlertFile:

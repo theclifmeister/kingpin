@@ -31,7 +31,9 @@ On the dashboard, buy a little Weed. Pick the product, enter a quantity
 `once`. Close the buy dialog with `esc`, then sell: pick the product,
 quantity, `normal` dial and `once`. Close the dialog. The sale is queued
 for tonight. Press `n` and read the morning report. You now know what
-sold, what you made, and how much attention it bought you.
+sold, what you made, and how much attention it bought you. The normal
+dial every day is fatal inside two months: it needs lie-low days (`l`)
+whenever heat climbs toward the sting line.
 
 Watch **cash, stock and heat** on the dashboard. The details beside the
 selected product show demand and the expected sale; below 100 columns,
@@ -829,7 +831,9 @@ extra. It decays slowly, faster if you lie low (`l`), down to a floor
 your fear or an asset you own sets.
 
 The hottest city's police answer at the thresholds: patrols, stings,
-raids and finally arrest, one response a day, and what they take comes
+raids and finally arrest, one response a day. The arrest line met signs a
+**warrant**: sell anything the next night, or leave the heat at the line,
+and you are arrested; lie low and it lapses. What they take comes
 out of one place in that city: a house they know, else one rolled by the
 heat of its block, else the street. Every sting and raid on a day you
 dealt there goes in the DA's file, which is yours wherever you are; a

@@ -13,7 +13,7 @@ export function rungWord(r) {
     case "patrol":
       return `sales capped near ${pct(r.cap || 0)} of demand for ${plural(r.cap_days || 0, "day")}`;
     case "arrest":
-      return "you are arrested: the run ends";
+      return "a warrant is signed; sell the next night, or stay at the line, and you are arrested: the run ends";
     case "taskforce":
       return `the feds seize an asset and take ${pct(r.stock_loss || 0)} of the stock and ${pct(r.cash_loss || 0)} of the dirty cash`;
     default:

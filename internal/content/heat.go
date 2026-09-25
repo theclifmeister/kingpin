@@ -50,6 +50,7 @@ type HeatTuning struct {
 	BustDays           int     `toml:"bust_days"`          // days a bust that took product stays on the record the connects read (#72)
 	FallHeat           float64 `toml:"fall_heat"`          // the fall guy (#49): every city's heat is capped here once he takes the case ...
 	FallCash           float64 `toml:"fall_cash"`          // ... and this share of the dirty cash and of the clean goes on making it stick
+	WarrantDays        int     `toml:"warrant_days"`       // the arrest line met signs a warrant served this many nights later (#475); 0 is the arrest the night the line is met
 }
 
 // The response ladder's levels (#144): the names heat.toml's
@@ -108,6 +109,9 @@ func (h HeatConfig) validate() error {
 	}
 	if t := h.Heat; t.BustDays < 1 || t.FallHeat < 0 || t.FallHeat > 100 || t.FallCash < 0 || t.FallCash > 1 {
 		return fmt.Errorf("[heat] bust_days %d must be positive, fall_heat %.0f in 0..100 and fall_cash %.2f in 0..1", t.BustDays, t.FallHeat, t.FallCash)
+	}
+	if h.Heat.WarrantDays < 0 {
+		return fmt.Errorf("[heat] warrant_days %d must not be negative", h.Heat.WarrantDays)
 	}
 	if i := h.Investigation; i.Enabled && (i.WindowDays < 1 || i.LeadDays < 1 || i.ClosedHeatDrop < 0 || i.Evidence < 0) {
 		return fmt.Errorf("[investigation] window_days %d and lead_days %d must be positive, closed_heat_drop %.1f and evidence %d not negative", i.WindowDays, i.LeadDays, i.ClosedHeatDrop, i.Evidence)

@@ -28,13 +28,15 @@ const memberName = (v, id) => (byId(v.crew, id) || { name: "Somebody" }).name;
 // WORDS is one sentence a kind, off the alert's own fields and the
 // view: engine.AlertKinds, no more and no less (TestWebClient).
 export const WORDS = {
+  arrest: (v, a) =>
+    `Warrant signed: sell nothing and lie low, or you are arrested ${n(a.days) <= 1 ? "tonight" : `in ${plural(n(a.days), "night")}`}. Heat ${Math.round(n(a.heat))} in ${cityName(v, a.city)} met the arrest line (${Math.round(n(a.line))}); it is served on any sale, or if the heat still holds at the line.`,
   talking: () => "Somebody on the payroll is talking.",
   contract_due: (v, a) => {
     const c = byId(v.contracts, a.contract);
     return `${c ? c.name : "A buyer"}: due ${a.due <= v.day ? "today" : "tomorrow"}.`;
   },
   debt_due: (v, a) => `${(byId(v.connects, a.supplier) || { name: "A connect" }).name}: ${money(n(a.amount))} due tomorrow, ${money(n(a.have))} in hand.`,
-  heat: (v, a) => `Heat ${Math.round(n(a.heat))} in ${cityName(v, a.city)} is over the patrol line (${Math.round(n(a.line))}).`,
+  heat: (v, a) => `Heat ${Math.round(n(a.heat))} in ${cityName(v, a.city)} is over the ${a.level === "taskforce" ? "task force" : a.level || "patrol"} line (${Math.round(n(a.line))}).`,
   task_force: () => "A task force formed this morning. It comes tonight: lie low.",
   file: (v, a) =>
     `File ${n(a.count)}/${n(a.amount)}: ${n(a.amount) - n(a.count) >= 2 ? "two busts from an indictment" : "one more bust indicts you"}. Stings, raids and working a corner yourself add pages; lie low, and the Legal upgrades take them off.`,

@@ -4,6 +4,7 @@ import (
 	"fmt"
 	"math"
 	"sort"
+	"strings"
 
 	"github.com/theclifmeister/kingpin/internal/content"
 	"github.com/theclifmeister/kingpin/internal/events"
@@ -21,10 +22,11 @@ type AlertKind string
 
 // The alerts, loudest first: the order Alerts returns them in.
 const (
+	AlertArrest        AlertKind = "arrest"        // a warrant is out (#475): served on the night Due (Days, 1 tonight) on any sale, or on the heat in City (Heat) still at the arrest Line
 	AlertTalking       AlertKind = "talking"       // somebody on the payroll is talking
 	AlertContractDue   AlertKind = "contract_due"  // Contract due Due (today or tomorrow)
 	AlertDebtDue       AlertKind = "debt_due"      // Supplier owed Amount on Due, Have in hand
-	AlertHeat          AlertKind = "heat"          // Heat in City at or over the patrol Line
+	AlertHeat          AlertKind = "heat"          // Heat in City at or over the Level rung's Line: the highest met under the arrest (#475), the patrol's at the least
 	AlertTaskForce     AlertKind = "task_force"    // a task force formed this morning
 	AlertFile          AlertKind = "file"          // the DA's file is Count pages of the Amount that indict you, two or fewer short (#414)
 	AlertInvestigation AlertKind = "investigation" // the police in City are working Target (Corner, Product or House): the hit in Days
@@ -54,7 +56,7 @@ const (
 // AlertKinds is every kind, loudest first: the order Alerts returns them
 // in.
 func AlertKinds() []AlertKind {
-	return []AlertKind{AlertTalking, AlertContractDue, AlertDebtDue, AlertHeat, AlertTaskForce, AlertFile, AlertInvestigation, AlertNoCorner, AlertFrontShut, AlertFloat, AlertTill, AlertWages,
+	return []AlertKind{AlertArrest, AlertTalking, AlertContractDue, AlertDebtDue, AlertHeat, AlertTaskForce, AlertFile, AlertInvestigation, AlertNoCorner, AlertFrontShut, AlertFloat, AlertTill, AlertWages,
 		AlertCrewLine, AlertSkim, AlertUnposted, AlertIdleCorner, AlertStashFull, AlertScouts, AlertGate, AlertPort, AlertHouseKnown,
 		AlertDARace, AlertRetire, AlertFavour, AlertReign, AlertStraight, AlertExposure, AlertPlan}
 }
@@ -110,6 +112,7 @@ var (
 // row, and retirement's the ledger's account until the walk away is
 // open on the dashboard.
 var alertActs = map[AlertKind][]Act{
+	AlertArrest:      {actDashboard},
 	AlertTalking:     {actCrew},
 	AlertContractDue: {{Screen: ScreenMarket, Subject: SubjectContract}},
 	AlertDebtDue:     {{Screen: ScreenMarket, Subject: SubjectSupplier}},
@@ -167,12 +170,12 @@ type Alert struct {
 	Due      int     `json:"due,omitempty"`      // contract_due, debt_due: the day it is due
 	Amount   int     `json:"amount,omitempty"`   // debt_due: the debt; front_shut: the clean it was short; float: the float; wages: the wages; retire: the cash short; reign: the homage a night; stash_full: the capacity; exposure: the pile past the line tonight
 	Have     int     `json:"have,omitempty"`     // debt_due: the cash in hand; float, wages: the dirty cash; front_shut: its upkeep a day, clean
-	Heat     float64 `json:"heat,omitempty"`     // heat: the city's heat; exposure: what the pile adds tonight
-	Line     float64 `json:"line,omitempty"`     // heat: the patrol line; crew_line: the loyalty line
+	Heat     float64 `json:"heat,omitempty"`     // heat, arrest: the city's heat; exposure: what the pile adds tonight
+	Line     float64 `json:"line,omitempty"`     // heat: the Level rung's line; arrest: the arrest line; crew_line: the loyalty line
 	Days     int     `json:"days,omitempty"`     // front_shut: days until it reopens; da_race: days to the election; retire: quiet days short; reign: the reign's day; crew_line: days to the line at tonight's drift (0: not falling); idle_corner: days before it drifts; investigation: nights to the hit (1: tonight)
 	Count    int     `json:"count,omitempty"`    // reign: the crews paying homage; stash_full: the units held; plan: the steps met; exposure: the loads landing
 	Ready    bool    `json:"ready,omitempty"`    // retire: retiring is open now; plan: the plan is done
-	Level    string  `json:"level,omitempty"`    // favour: the response due tonight
+	Level    string  `json:"level,omitempty"`    // favour: the response due tonight; heat: the highest rung met
 	Member   int     `json:"member,omitempty"`   // crew_line, unposted: the member's id
 	Cross    string  `json:"cross,omitempty"`    // crew_line: the line ahead: skim, flip (a lieutenant's) or walk
 	Gap      float64 `json:"gap,omitempty"`      // crew_line: the loyalty over the line
@@ -198,6 +201,14 @@ func (s *Session) Alerts() []Alert {
 	}
 	here := w.Here()
 	var out []Alert
+	if due := s.set.Heat.WarrantDue(w); due > 0 {
+		// The warrant (#475): the loudest thing a morning can say.
+		// Keyed by the night it was signed, so a fast-forward stops
+		// once a warrant.
+		c := s.set.Heat.Hottest(w)
+		out = append(out, Alert{Kind: AlertArrest, Key: fmt.Sprintf("warrant signed %d", w.Heat.WarrantDay), City: c.ID, Heat: c.Heat,
+			Line: s.set.Heat.ArrestLine(w, c), Due: due, Days: max(1, due-w.Day)})
+	}
 	if w.Heat.Leaks >= 2 {
 		out = append(out, Alert{Kind: AlertTalking, Key: "somebody is talking"})
 	}
@@ -217,10 +228,17 @@ func (s *Session) Alerts() []Alert {
 		}
 		out = append(out, Alert{Kind: AlertDebtDue, Key: fmt.Sprintf("debt %s due %d", sup.ID, sup.DebtDue), Supplier: sup.ID, Due: sup.DebtDue, Amount: sup.Debt, Have: w.Cash()})
 	}
-	for _, r := range s.set.Heat.ThresholdsIn(w, here) {
-		if r.Level == content.Patrol && here.Heat >= r.Threshold {
-			out = append(out, Alert{Kind: AlertHeat, Key: "heat in " + here.Name + " over the patrol line", City: here.ID, Heat: here.Heat, Line: r.Threshold})
+	// Keyed by the highest rung met under the arrest (#475), so a
+	// fast-forward stops once as the heat crosses each line, not only
+	// the patrol's; the arrest line is the warrant's.
+	var met *content.ResponseConfig
+	for _, r := range s.set.Heat.Ladder(w, here) {
+		if r.Level != content.Arrest && here.Heat >= r.Threshold {
+			met = &r
 		}
+	}
+	if met != nil {
+		out = append(out, Alert{Kind: AlertHeat, Key: "heat in " + here.Name + " over the " + strings.ReplaceAll(met.Level, content.TaskForce, "task force") + " line", City: here.ID, Heat: here.Heat, Line: met.Threshold, Level: met.Level})
 	}
 	if s.set.Heat.TaskForceForming(w) {
 		out = append(out, Alert{Kind: AlertTaskForce, Key: "a task force formed"})

@@ -8915,6 +8915,60 @@
       ],
       "type": "object"
     },
+    "events.WarrantLapsed": {
+      "properties": {
+        "City": {
+          "type": "string"
+        },
+        "Day": {
+          "type": "integer"
+        },
+        "Heat": {
+          "type": "number"
+        },
+        "Line": {
+          "type": "number"
+        },
+        "Signed": {
+          "type": "integer"
+        }
+      },
+      "required": [
+        "Day",
+        "City",
+        "Signed",
+        "Heat",
+        "Line"
+      ],
+      "type": "object"
+    },
+    "events.WarrantSigned": {
+      "properties": {
+        "City": {
+          "type": "string"
+        },
+        "Day": {
+          "type": "integer"
+        },
+        "Due": {
+          "type": "integer"
+        },
+        "Heat": {
+          "type": "number"
+        },
+        "Line": {
+          "type": "number"
+        }
+      },
+      "required": [
+        "Day",
+        "City",
+        "Heat",
+        "Line",
+        "Due"
+      ],
+      "type": "object"
+    },
     "events.WholesaleBought": {
       "properties": {
         "City": {
@@ -10400,6 +10454,12 @@
     },
     "WarEscalated": {
       "$ref": "#/$defs/events.WarEscalated"
+    },
+    "WarrantLapsed": {
+      "$ref": "#/$defs/events.WarrantLapsed"
+    },
+    "WarrantSigned": {
+      "$ref": "#/$defs/events.WarrantSigned"
     },
     "WholesaleBought": {
       "$ref": "#/$defs/events.WholesaleBought"
@@ -15630,6 +15690,8 @@
             "UpgradeBought",
             "WarEnded",
             "WarEscalated",
+            "WarrantLapsed",
+            "WarrantSigned",
             "WholesaleBought"
           ],
           "type": "string"
