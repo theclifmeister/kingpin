@@ -982,8 +982,9 @@ News turns everything into headlines and writes the morning report,
 and every five to eight days deals a **dilemma card**: an enforcer who
 wants to hit the rival's stash, a detective with a file to lose, a
 reporter on your corner, your mother on the phone. The card is shown
-before the report, `1`–`3` or `enter` decide, the effects land at once
-and the outcome goes in the journal. Quit on a card and it is waiting
+before the report with no choice picked: `1`–`3` or `↑↓` pick one and
+`enter` decides it, so a key typed ahead never answers a card. The
+effects land at once and the outcome goes in the journal. Quit on a card and it is waiting
 when you come back. The deck is `internal/content/dilemmas.toml`.
 
 ### World incidents

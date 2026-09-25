@@ -419,7 +419,7 @@ func TestRichDeckLeansToTheBand(t *testing.T) {
 }
 
 // corner gives up the corner a trigger names, and only gives it up, and
-// never on the first choice, the one enter takes: a card that names no
+// never on the first choice, the one a stray 1 or ↓ picks: a card that names no
 // corner, would gain one or puts it first fails at start-up.
 func TestDeckRefusesAStrayCorner(t *testing.T) {
 	cfg := content.MustLoad()

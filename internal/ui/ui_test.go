@@ -1573,6 +1573,84 @@ func TestStrikeKeys(t *testing.T) {
 	}
 }
 
+// The strike's odds read alike wherever they are printed (#464): the
+// map's inspector, the picker's `lands` column and the status line after
+// a send all say `~7%` at a known count, `~5–12%` over a band and `?`
+// unknown, whole percents through format.PctBand, never the raw float
+// the picker's column once printed (`~7.248520710059172`).
+func TestStrikeOddsReadAlike(t *testing.T) {
+	odds := regexp.MustCompile(`^(~\d+(–\d+)?%|\?)$`)
+	raw := regexp.MustCompile(`\d\.\d{3,}`)
+	for _, muscle := range []string{"count", "band", "unknown"} {
+		m := richModel(t, 120, 40)
+		w := m.w
+		fac := w.Rival().Faction()
+		switch muscle {
+		case "count": // a scout's read
+			w.LearnBooks(fac, game.Books{Day: w.Day, Muscle: 5, Cash: 1000, Income: 100, Wages: 50}, m.cfg.Intel.Intel.StaleRate, m.cfg.Intel.Intel.Forget)
+		case "unknown":
+			w.Unlearn(fac, game.FactMuscle)
+		}
+		m.Update(key("5"))
+		c := -1
+		for i, k := range m.shown().Corners {
+			if k.Owner == game.OwnerRival && m.factionOf(&k) == w.Rival() {
+				c = i
+				break
+			}
+		}
+		if c < 0 {
+			t.Fatal("fixture: no rival corner at home")
+		}
+		m.mapCursor = c
+		corner := m.mapSelected()
+		push, hit := m.oddsWord(w.Rival(), corner, events.ForcePush), m.oddsWord(w.Rival(), corner, events.ForceHit)
+		for _, s := range []string{push, hit} {
+			if !odds.MatchString(s) {
+				t.Errorf("%s: the odds read %q", muscle, s)
+			}
+		}
+		if muscle == "unknown" && push != game.Unknown {
+			t.Errorf("unknown muscle: the push reads %q", push)
+		}
+		if muscle == "count" && strings.Contains(push, "–") {
+			t.Errorf("a count reads a band: %q", push)
+		}
+		if pane := paneText(m); !strings.Contains(pane, fmt.Sprintf("push takes it %s, hit %s", push, hit)) {
+			t.Errorf("%s: the pane does not read push %s, hit %s:\n%s", muscle, push, hit, pane)
+		}
+		m.Update(key("w"))
+		if m.mode != modeStrike {
+			t.Fatalf("%s: w on their corner: mode %v status %q", muscle, m.mode, m.status)
+		}
+		view := stripANSI(m.View())
+		if raw.MatchString(view) {
+			t.Errorf("%s: the picker prints a raw float:\n%s", muscle, view)
+		}
+		seen := map[string]bool{}
+		for _, l := range strings.Split(view, "\n") {
+			l = strings.TrimSpace(strings.Trim(strings.TrimSpace(l), "║"))
+			l = strings.TrimSpace(strings.TrimPrefix(l, "▸"))
+			f := strings.Fields(l)
+			if len(f) < 2 || (f[0] != "push" && f[0] != "hit") || seen[f[0]] {
+				continue
+			}
+			seen[f[0]] = true
+			want := map[string]string{"push": push, "hit": hit}[f[0]]
+			if f[1] != want {
+				t.Errorf("%s: the picker's %s lands %q, the pane %q:\n%s", muscle, f[0], f[1], want, view)
+			}
+		}
+		if !seen["push"] || !seen["hit"] {
+			t.Errorf("%s: no push or hit row:\n%s", muscle, view)
+		}
+		m.Update(key("enter")) // the picker opens on push
+		if !strings.Contains(m.status, "Odds "+push+",") {
+			t.Errorf("%s: the status does not read the odds %s: %q", muscle, push, m.status)
+		}
+	}
+}
+
 // The ledger: b buys a front through the picker (elsewhere it still buys
 // from the supplier), d cycles the launder dial from anywhere, the
 // dashboard and report say what the fronts did, and a locked or
@@ -1674,8 +1752,9 @@ func TestLedgerScreenKeys(t *testing.T) {
 }
 
 // A dilemma card dealt overnight is shown before the morning report:
-// enter inside it decides, shows the outcome and then opens the report,
-// and never ends the day; 1-3 pick a choice directly; the effects land
+// enter inside it decides the choice picked, shows the outcome and then
+// opens the report, and never ends the day; 1-3 pick a choice, enter
+// takes it (#461); the effects land
 // at once and the outcome goes in the journal. A save on a card brings
 // the same card back.
 func TestCardBeforeReport(t *testing.T) {
@@ -1723,11 +1802,15 @@ func TestCardBeforeReport(t *testing.T) {
 		t.Fatalf("after the report: mode %v day %d", m.mode, m.w.Day)
 	}
 
-	// Digits pick directly; the outcome's heat shows up.
+	// A digit picks, enter takes it; the outcome's heat shows up.
 	deal()
 	heat := m.w.Here().Heat
 	m.Update(key("n"))
 	m.Update(key("2"))
+	if m.cardDone || m.cardCursor != 1 {
+		t.Fatalf("2 decided the card: done %v cursor %d", m.cardDone, m.cardCursor)
+	}
+	m.Update(key("enter"))
 	if !m.cardDone || m.w.Here().Heat != heat+7 || m.w.Day != day+2 {
 		t.Fatalf("digit pick: done %v heat %v -> %v day %d", m.cardDone, heat, m.w.Here().Heat, m.w.Day)
 	}
@@ -1750,6 +1833,7 @@ func TestCardBeforeReport(t *testing.T) {
 		t.Fatalf("continue: mode %v pending %+v", m2.mode, m2.w.Dilemmas.Pending)
 	}
 	m2.Update(key("3"))
+	m2.Update(key("enter"))
 	if !m2.cardDone || m2.w.Dilemmas.Pending != nil || m2.w.Day != day+3 {
 		t.Fatalf("after continuing and deciding: done %v pending %v day %d", m2.cardDone, m2.w.Dilemmas.Pending, m2.w.Day)
 	}
@@ -2918,6 +3002,7 @@ func TestModalsFit(t *testing.T) {
 		{"card outcome", modeCard, func(t *testing.T, m *Model) {
 			m.w.Dilemmas.Pending = testCard(m.w.Day)
 			m.showCard()
+			m.Update(key("1"))
 			m.Update(key("enter"))
 			if !m.cardDone {
 				t.Fatal("the card was not answered")

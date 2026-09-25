@@ -186,6 +186,7 @@ func endDay(t *testing.T, m *Model) {
 	}
 	if m.mode == modeCard {
 		assertFits(t, m.View(), m.width, m.height, "dilemma card")
+		m.Update(key("1")) // a digit picks, enter decides (#461)
 		m.Update(key("enter"))
 		if m.mode != modeCard || !m.cardDone {
 			t.Fatalf("answering the card: mode %v done %v", m.mode, m.cardDone)
@@ -225,6 +226,7 @@ func closeMorning(t *testing.T, m *Model) {
 		m.Update(key("enter"))
 	}
 	if m.mode == modeCard {
+		m.Update(key("1"))
 		m.Update(key("enter"))
 		m.Update(key("enter"))
 	}

@@ -75,8 +75,8 @@ func TestCutDialog(t *testing.T) {
 	}
 }
 
-// TestCookDialog (#47): o on the market is silent with no chemist and
-// opens the cook with one; the product page lists what a chemist
+// TestCookDialog (#47): o on the market says to hire a chemist with
+// none (#460: it was silent) and opens the cook with one; the product page lists what a chemist
 // cooks, the units go through numberField (blank is a batch), enter
 // queues the order and pays the precursors, and the lot lands after
 // cook_days at the chemist's quality with a report line each end.
@@ -90,8 +90,11 @@ func TestCookDialog(t *testing.T) {
 	w.Player.DirtyCash = 1000000
 	m.Update(key("2"))
 	m.Update(key("o"))
-	if m.mode != modePlay {
-		t.Fatalf("o with no chemist: mode %v", m.mode)
+	if m.mode != modePlay || !strings.Contains(m.status, "Hire a chemist") {
+		t.Fatalf("o with no chemist: mode %v status %q", m.mode, m.status)
+	}
+	if keys := m.paneKeys(); hasKey(keys, "o") {
+		t.Fatalf("o cook is listed with no chemist: %v", keyNames(keys))
 	}
 	withChemist(m)
 	m.Update(key("o"))

@@ -56,7 +56,7 @@ func parseDeck(cfg content.DilemmasConfig) ([]card, error) {
 				return nil, fmt.Errorf("card %s choice %d: loyalty needs a trigger that names a member", c.ID, i)
 			}
 			// Ground is given up on purpose: never by the first choice,
-			// the one enter takes, and only the corner the trigger names.
+			// the one a stray 1 or ↓ picks, and only the corner the trigger names.
 			if v := ch.Effects["corner"]; v != 0 && (v > 0 || i == 0 || c.Trigger.Corners == 0 && !c.Trigger.Contested) {
 				return nil, fmt.Errorf("card %s choice %d: corner gives up the corner a trigger names, and only gives it up, never on the first choice", c.ID, i)
 			}

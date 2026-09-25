@@ -133,11 +133,11 @@ func (m *Model) viewStrike() string {
 		switch {
 		case i < len(forces):
 			f := forces[i]
-			cells = append(cells, []any{r, m.oddsCell(fac, c, f), fmt.Sprintf("%+.0f", m.rules.Rivals.StrikeHeat(c, f)), signed{m.cfg.Rivals.ForceFor(f).War}, "the corner"})
+			cells = append(cells, []any{r, m.oddsWord(fac, c, f), fmt.Sprintf("%+.0f", m.rules.Rivals.StrikeHeat(c, f)), signed{m.cfg.Rivals.ForceFor(f).War}, "the corner"})
 		case i < 2*len(forces):
 			// A boost (#70): the same odds at the force, for the till.
 			f := forces[i-len(forces)]
-			cells = append(cells, []any{r, m.oddsCell(fac, c, f), fmt.Sprintf("%+.0f", m.rules.Rivals.BoostHeat(c)), signed{b.War}, "~" + cash(m.rules.Rivals.BoostTake(m.w, *c))})
+			cells = append(cells, []any{r, m.oddsWord(fac, c, f), fmt.Sprintf("%+.0f", m.rules.Rivals.BoostHeat(c)), signed{b.War}, "~" + cash(m.rules.Rivals.BoostTake(m.w, *c))})
 		default:
 			cells = append(cells, []any{r, nil, nil, nil, nil})
 		}
