@@ -161,3 +161,24 @@ func TestStandingOrderInTheGrammar(t *testing.T) {
 		t.Fatal("lying low cancelled the standing order")
 	}
 }
+
+// Re-issuing a standing order through the sell dialog changes its
+// quantity (#418): the dialog reopens on the order's 5 at standing,
+// and what is typed replaces the 5 (#426) instead of reading 520.
+func TestStandingOrderReissued(t *testing.T) {
+	m := newTestModel(t, 120, 40)
+	w := m.w
+	home, weed := w.Player.Location, w.Products[0]
+	w.SetStock(home, weed, 50)
+	if err := w.PlaceStanding(home, weed, 5, events.DialNormal); err != nil {
+		t.Fatal(err)
+	}
+	m.Update(key("s"))
+	m.Update(key("enter"))
+	for _, k := range []string{"2", "0", "enter", "enter", "enter"} {
+		m.Update(key(k))
+	}
+	if o, ok := w.YourStanding(home, weed); !ok || o.Qty != 20 {
+		t.Fatalf("re-issued: %+v %v, err %q", o, ok, m.dlg.err)
+	}
+}

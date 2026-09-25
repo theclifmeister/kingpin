@@ -77,6 +77,12 @@ func (r *reporter) reportMarket(e events.Event) bool {
 		r.standingCut += ev.Cut
 		r.book(game.FlowSales, ev.Revenue-ev.Cut, 0)
 		rep.Sales = append(rep.Sales, saleLine(w, ev)+r.in(ev.City))
+		// A standing order of yours that sold out with as much again left
+		// in the stash is too small (#418): a playtest's 5 Heroin a night
+		// stood seventy days beside a stash of 25 and a contract keeping 30.
+		if left := w.Stock(ev.City, ev.Product); ev.Standing && !ev.Delegated && ev.Sold > 0 && ev.Sold >= ev.Wanted && left >= ev.Wanted {
+			rep.Sales = append(rep.Sales, fmt.Sprintf("  the standing order sold all %d with %d more in the stash: raise it on the sell dialog or the cart", ev.Wanted, left))
+		}
 		d := r.at(ev.City)
 		d.Product = w.ProductName(ev.Product)
 		d.Qty = ev.Sold
