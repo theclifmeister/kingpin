@@ -52,11 +52,25 @@ func (s *Session) Stop(evs []events.Event, before []Alert) Stop {
 		}
 	}
 	for _, e := range evs {
-		if StopsOn(e) {
+		if StopsOn(e) && s.serves(e) {
 			return Stop{Kind: StopEvent, Event: e}
 		}
 	}
 	return Stop{}
+}
+
+// serves filters StopsOn by the world (#442): a buyer's offer stops the
+// fast-forward only in a city you could answer it from, where you stand,
+// work a corner or hold stock; one anywhere else is in the report and on
+// the market (#440) and runs past. A playtest's fast-forward stopped on
+// four Bayport offers in twelve mornings with nothing and nobody there.
+func (s *Session) serves(e events.Event) bool {
+	c, ok := e.(events.ContractOffered)
+	if !ok {
+		return true
+	}
+	w := s.w
+	return c.City == w.Player.Location || w.WorkedIn(c.City) > 0 || w.StockIn(c.City) > 0
 }
 
 // FastForward ends up to days days and stops on the first that needs
@@ -94,7 +108,8 @@ func (s *Session) FastForward(days int, after func([]events.Event)) (int, Stop, 
 // (#345), a corner the rival gave up, the crew quitting,
 // defecting, arrested (#46), shot dead or retiring, a spy found or a lie
 // that bit (#45), a lieutenant walking, an audit, a seizure, a deal
-// offered or broken, a buyer asking, pressure or a reputation axis up a
+// offered or broken, a buyer asking (where you could answer it: Stop's
+// serves, #442), pressure or a reputation axis up a
 // band, a new chief or an election, an envelope back, a raid that fell
 // through (#228), the DA's file on the envelopes, the officials cold, a
 // contract or a standing order short, and a stash house robbed, hit or
