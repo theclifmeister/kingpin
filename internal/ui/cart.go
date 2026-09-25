@@ -207,6 +207,15 @@ func (m *Model) cartSummary() string {
 // expected take) and an order's heat.
 var cartCols = []col{{"line", kText, 0}, {"product", kText, 0}, {"city", kText, 0}, {"units", kInt, 0}, {"price", kPrice, 0}, {"Δ", kPct, 0}, {"dial", kDial, 0}, {"cash", kMoney, 0}, {"heat", kText, 0}}
 
+// cartTable is the CART table at the modal's width: where the columns
+// would not fit, Δ and then the price go (the selected line's price
+// sentence carries both) before the heat, the last column, is cut to
+// `he…` (#463).
+func (m *Model) cartTable(lines []cartLine, cursor int) []string {
+	cols, rows := dropCols(cartCols, m.cartRows(lines), m.modalInner(), "Δ", "price")
+	return table(cols, rows, cursor, m.modalInner())
+}
+
 // cartRows are the cart's lines as CART table rows.
 func (m *Model) cartRows(lines []cartLine) [][]any {
 	var rows [][]any
@@ -264,7 +273,7 @@ func (m *Model) cartBlock() []string {
 		return nil
 	}
 	body := []string{theme.Gold.Bold(true).Render("CART")}
-	body = append(body, table(cartCols, m.cartRows(lines), -1, m.modalInner())...)
+	body = append(body, m.cartTable(lines, -1)...)
 	return append(body, m.cartTotalLine(totals(lines)))
 }
 
@@ -575,7 +584,7 @@ func (m *Model) viewCart() string {
 	}
 	cursor := max(0, min(d.cursor, len(lines)-1))
 	m.modalFollow(1 + cursor) // under the header
-	body = append(body, table(cartCols, m.cartRows(lines), cursor, m.modalInner())...)
+	body = append(body, m.cartTable(lines, cursor)...)
 	body = append(body, "", m.cartTotalLine(totals(lines)), "")
 	l := lines[cursor]
 	if d.step == 1 {

@@ -163,7 +163,8 @@ func (m *Model) assetOfferSection(o game.AssetOffer) section {
 	}
 	switch {
 	case o.Locked(w):
-		lines = append(lines, theme.Subtle.Render("locked until peak clean cash "+cash(o.UnlockCash)), theme.Subtle.Render(cash(o.UnlockCash-w.Stats.PeakClean)+" to go"))
+		lines = append(lines, wrapped(theme.Subtle, "locked until peak clean cash "+cash(o.UnlockCash))...) // whole: the table's cell is cut (#463)
+		lines = append(lines, theme.Subtle.Render(cash(o.UnlockCash-w.Stats.PeakClean)+" to go"))
 	case o.Cost > w.Player.CleanCash:
 		lines = append(lines, theme.Bad.Render("short "+money(o.Cost-w.Player.CleanCash)+" clean"))
 	default:

@@ -346,20 +346,24 @@ const (
 // street that night unworked (1 -> 3), the summary's ground. With
 // World.Report, World.Journal and Stats.CornersLost set aside the
 // digest is main's on all sixty days.
+// Again for #463 (a buyer's report line points `on the market screen
+// (2)`, the spelling every pointer has, where it said `on the market
+// (2)`): the days a buyer's offer is reported move by the report's
+// words alone; no sim, roll or number changed.
 var seedDigest = []string{
 	"399f263821f84b75", "d96e9fe5b119cc4b", "118c6624a7893c85", "4e786a8c609b2cea",
-	"ada47897cb50b840", "86cca3860f76a803", "309a8aa012bb8488", "4082b7c4511b76d9",
-	"46fb4a6e3c151030", "b4f48083c1519670", "0bba17feb161a58f", "05abdc4b8b8ab60b",
-	"1f149a0d45484874", "9bfc3c35fb809bfe", "eb21b6f25ed27158", "2d60da8729914f4b",
+	"1b253356002d8cb8", "86cca3860f76a803", "309a8aa012bb8488", "4082b7c4511b76d9",
+	"fff722155c13928c", "b4f48083c1519670", "0bba17feb161a58f", "05abdc4b8b8ab60b",
+	"1f149a0d45484874", "9bfc3c35fb809bfe", "f540b75cb532cac0", "2d60da8729914f4b",
 	"64b4057b9d9b8e47", "c0f9c84f5fd437ad", "f49cb96f9fd94a73", "a315438d98b66a15",
-	"b409ae44cb831c86", "617134015563a09a", "d177bd36f27bc383", "14f7fa2c2c925e1d",
-	"9ab7d8d2247726ce", "3c5d28f7d7079d86", "b46348a5a4b4a653", "c6041684d16bce07",
-	"864e9aaf61dedeea", "83f822b10c7117e3", "2dd8396503c86c8b", "3118d62d18dde5c9",
-	"115bd55e1670d8b7", "ce5133531670464a", "50ea4529461f46c0", "7ef64afff1d61f36",
-	"6b9dbd61597eafbd", "37af376b8e7d5e80", "8e32cc55106943d1", "47f79cbdcc1fb652",
-	"7715b0603c2e1fe2", "1652df60f4c53f73", "6d0ee1279db383a0", "3da1c70c38ecd24a",
-	"48dbba682781d52d", "d5449ed1a177a033", "d2feee2d19301d08", "db76416164ce3bb2",
+	"8638d6efbabbc8fe", "617134015563a09a", "d177bd36f27bc383", "14f7fa2c2c925e1d",
+	"a0339cae2990a800", "3c5d28f7d7079d86", "b46348a5a4b4a653", "c6041684d16bce07",
+	"864e9aaf61dedeea", "5949d4514a6ee279", "2dd8396503c86c8b", "3118d62d18dde5c9",
+	"115bd55e1670d8b7", "3ff31cfc63d18932", "50ea4529461f46c0", "7ef64afff1d61f36",
+	"6b9dbd61597eafbd", "4b9f2a6c5b0dac24", "8e32cc55106943d1", "47f79cbdcc1fb652",
+	"1adf59af70697cc8", "1652df60f4c53f73", "6d0ee1279db383a0", "3da1c70c38ecd24a",
+	"48dbba682781d52d", "d5449ed1a177a033", "d2feee2d19301d08", "4ffc168dd563408e",
 	"ffe5b9122922df0f", "aff2b314f0b5b238", "fd0dda412ed3c732", "6cdd4ec7d33be589",
-	"58fb51cffe659dfa", "00cbafaa374f873c", "94b2fc025c7de000", "dba228954dcd5ea3",
-	"3ae9dfc08d80e787", "f4429c5ba79c51aa", "ab6231a489d23dd8", "9f7ee62be5f4de4a",
+	"48d058d72f645cfe", "00cbafaa374f873c", "94b2fc025c7de000", "dba228954dcd5ea3",
+	"3ae9dfc08d80e787", "f4429c5ba79c51aa", "52374a0c1920b202", "9f7ee62be5f4de4a",
 }

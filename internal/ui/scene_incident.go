@@ -1,7 +1,7 @@
 package ui
 
 import (
-	"github.com/charmbracelet/x/ansi"
+	"strings"
 
 	"github.com/theclifmeister/kingpin/internal/game"
 	"github.com/theclifmeister/kingpin/internal/ui/anim"
@@ -24,13 +24,13 @@ import (
 // incidentScene starts the scene for the morning's incident: animation
 // on, the terminal at least 80x24, a line to print, on
 // anim.Seed(seed, day, "incident"), held until the report closes. The
-// line is cut to the modal's row as the report cuts it, so the scene
-// resolves to the row it replaces.
+// line is the first row the modal wraps it to (#463), so the scene
+// resolves to the row it replaces and the rest reads under it.
 func (m *Model) incidentScene() {
 	if !m.opts.Anim || !m.titleFits() || m.w.Report == nil || len(m.w.Report.Incident) == 0 {
 		return
 	}
-	line := ansi.Truncate(m.w.Report.Incident[0], m.modalInner()-2, "…")
+	line := strings.TrimPrefix(wrapLine("  "+m.w.Report.Incident[0], m.modalInner())[0], "  ")
 	m.reportScene = reportIncident
 	m.play(&anim.Player{
 		Scene:  anim.Incident(line, anim.Seed(m.w.Seed, m.w.Day, "incident")),

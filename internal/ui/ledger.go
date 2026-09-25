@@ -746,9 +746,10 @@ func (m *Model) offerSection(o game.FrontOffer) section {
 	}
 	switch {
 	case o.Asset != "" && !w.AssetLive(o.Asset):
-		lines = append(lines, theme.Subtle.Render("locked until "+o.AssetName+" stands"))
+		lines = append(lines, wrapped(theme.Subtle, "locked until "+o.AssetName+" stands")...) // whole: the table's cell is cut (#463)
 	case o.Locked(w):
-		lines = append(lines, theme.Subtle.Render("locked until peak cash "+cash(o.UnlockCash)), theme.Subtle.Render(cash(o.UnlockCash-w.Stats.PeakCash)+" to go"))
+		lines = append(lines, wrapped(theme.Subtle, "locked until peak cash "+cash(o.UnlockCash))...)
+		lines = append(lines, theme.Subtle.Render(cash(o.UnlockCash-w.Stats.PeakCash)+" to go"))
 	case o.Cost > w.Player.DirtyCash:
 		lines = append(lines, theme.Bad.Render("short "+money(o.Cost-w.Player.DirtyCash)))
 	default:

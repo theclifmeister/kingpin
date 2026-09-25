@@ -377,6 +377,53 @@ func modalBox(t *testing.T, view string) (top, width int, box []string) {
 	return
 }
 
+// modalProse is the open modal's inside as one line of prose: each row
+// between the borders trimmed of the border and its padding, joined
+// with a space, so a sentence the modal wrapped (#463) reads whole.
+func modalProse(t *testing.T, view string) string {
+	t.Helper()
+	_, _, box := modalBox(t, view)
+	var rows []string
+	for _, l := range box[1 : len(box)-1] {
+		if r := strings.TrimSpace(strings.Trim(strings.TrimSpace(stripANSI(l)), "║")); r != "" {
+			rows = append(rows, r)
+		}
+	}
+	return strings.Join(rows, " ")
+}
+
+// scrolledProse is the open modal's whole body as one line of prose,
+// as modalProse reads a page: the body scrolled a room at a time from
+// the top to its end, each row once in its place, the title and the
+// footer left out, the scroll left where it was.
+func scrolledProse(t *testing.T, m *Model) string {
+	t.Helper()
+	was := m.modalScroll
+	defer func() { m.modalScroll = was }()
+	rows := map[int]string{}
+	end, seen := 0, -1
+	for m.modalScroll = 0; ; m.modalScroll += m.modalRoom() {
+		_, _, box := modalBox(t, m.View()) // the view clamps the scroll to the last page
+		if m.modalScroll == seen {
+			break
+		}
+		seen = m.modalScroll
+		// The top border, the title and a blank; a blank, the footer
+		// and the bottom border.
+		for j, l := range box[3 : len(box)-3] {
+			rows[seen+j] = strings.TrimSpace(strings.Trim(strings.TrimSpace(stripANSI(l)), "║"))
+			end = max(end, seen+j+1)
+		}
+	}
+	var out []string
+	for i := 0; i < end; i++ {
+		if rows[i] != "" {
+			out = append(out, rows[i])
+		}
+	}
+	return strings.Join(out, " ")
+}
+
 // reportLine is the first line of the report modal's body.
 func reportLine(t *testing.T, m *Model) string {
 	t.Helper()

@@ -93,7 +93,7 @@ func (r *reporter) reportMarket(e events.Event) bool {
 			r.add("market", "PlayerSoldBig", d)
 		}
 	case events.ContractOffered:
-		rep.Sales = append(rep.Sales, fmt.Sprintf("%s Answer it on the market (2)%s: it stands %s.", ev.Pitch, r.in(ev.City), format.Plural(ev.Expires-t.Day+1, "day")))
+		rep.Sales = append(rep.Sales, fmt.Sprintf("%s Answer it on the market screen (2)%s: it stands %s.", ev.Pitch, r.in(ev.City), format.Plural(ev.Expires-t.Day+1, "day")))
 		d := r.at(ev.City)
 		d.Product = w.ProductName(ev.Product)
 		d.Name = ev.Name

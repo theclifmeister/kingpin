@@ -445,7 +445,13 @@ func (m *Model) dashboardDetails() []section {
 }
 
 // dashboardAfter is the dashboard pane past its selection: the alerts
-// and what your name buys (#233), after what needs you.
+// and what your name buys (#233), after what needs you. Opened whole
+// (space, modeDetails) the alerts are whole too, the modal wrapping
+// them (#463).
 func (m *Model) dashboardAfter() []section {
-	return append([]section{{"ALERTS", m.alertLines(paneTextW, 8)}}, m.nameSection()...)
+	width := paneTextW
+	if m.mode == modeDetails {
+		width = 0
+	}
+	return append([]section{{"ALERTS", m.alertLines(width, 8)}}, m.nameSection()...)
 }

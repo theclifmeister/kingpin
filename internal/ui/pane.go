@@ -172,7 +172,9 @@ func trimSections(secs []section, room int) []section {
 }
 
 // sectionLines renders sections as text lines textW cells wide, a blank
-// between sections, cut to room lines; a room under zero cuts nothing.
+// between sections, cut to room lines; a room under zero cuts nothing,
+// and a textW of zero cuts no line (the overlay, whose modal wraps them,
+// #463).
 func sectionLines(secs []section, textW, room int, accent lipgloss.Color) []string {
 	if room >= 0 {
 		secs = trimSections(secs, room)
@@ -184,7 +186,10 @@ func sectionLines(secs []section, textW, room int, accent lipgloss.Color) []stri
 		}
 		ls = append(ls, sectionTitle(s.title, accent))
 		for _, l := range s.lines {
-			ls = append(ls, truncate(l, textW))
+			if textW > 0 {
+				l = truncate(l, textW)
+			}
+			ls = append(ls, l)
 		}
 	}
 	return ls
@@ -240,7 +245,7 @@ func strip(sections []section, w int, accent lipgloss.Color) string {
 // scrolls, as every modal's does, and the footer says so.
 func (m *Model) overlay(sections []section, keys []binding, accent lipgloss.Color) string {
 	kl := m.keyLines(keys, m.modalInner(), accent)
-	ls := sectionLines(sections, m.modalInner(), -1, accent)
+	ls := sectionLines(sections, 0, -1, accent) // whole: the modal wraps a long line (#463)
 	ls = append(ls, "")
 	ls = append(ls, kl...)
 	return m.modal("DETAILS", ls, m.modalFooter())

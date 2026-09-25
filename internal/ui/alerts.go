@@ -364,7 +364,8 @@ func (m *Model) retireLine() string {
 // alertLines are the ALERTS: what needs you this morning (alerts), the
 // selected one marked (#352: the one the dashboard's o opens), then the
 // recent heat, rival and law headlines, at most n lines width cells
-// wide.
+// wide; a width of 0 cuts none (the details overlay, whose modal wraps
+// them, #463).
 func (m *Model) alertLines(width, n int) []string {
 	w := m.w
 	var out []string
@@ -377,14 +378,22 @@ func (m *Model) alertLines(width, n int) []string {
 		if i == m.alertCursor {
 			cur = theme.Gold.Render("▸ ")
 		}
-		out = append(out, cur+truncate(a.text, max(10, width-2)))
+		text := a.text
+		if width > 0 {
+			text = truncate(text, max(10, width-2))
+		}
+		out = append(out, cur+text)
 	}
 	for i := len(w.Journal) - 1; i >= 0 && len(out) < max(1, n); i-- {
 		if src := w.Journal[i].Source; src != "heat" && src != "rivals" && src != "law" {
 			continue
 		}
 		day := fmt.Sprintf("d%-2d ", w.Journal[i].Day)
-		out = append(out, theme.Subtle.Render(day)+truncate(w.Journal[i].Text, max(10, width-lipgloss.Width(day))))
+		text := w.Journal[i].Text
+		if width > 0 {
+			text = truncate(text, max(10, width-lipgloss.Width(day)))
+		}
+		out = append(out, theme.Subtle.Render(day)+text)
 	}
 	if len(out) == 0 {
 		out = append(out, emptyState("Nobody is looking at you. Yet."))
