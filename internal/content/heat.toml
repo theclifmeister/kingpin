@@ -27,8 +27,10 @@ crew_heat = 0.2             # heat a unit a runner moves on their corner draws, 
 informant_days = 5          # an informant on the payroll (crew.toml [informant]) feeds the DA a page every this many days,
 informant_evidence = 1      # this many pages, whatever you sold and whatever your lawyer says: a witness is not a bust;
 informant_heat = 3          # and this much heat the report cannot explain. While one is on the payroll a raid takes the whole stash.
-tip_evidence = 0.2          # chance a tip you give the police on a rival corner (#70) puts a page in the DA's file
-                            # anyway: talking to police is talking to police, and #27 bends only because you did something
+tip_evidence = 0.1          # chance a tip you give the police on a rival corner (#70) puts a page in the DA's file
+                            # anyway: talking to police is talking to police, and #27 bends only because you did something.
+                            # 0.2 until #479: the tipster was indicted 19/20 and the saboteur, who tips only
+                            # what it can take, 13/20; at 0.1 16/20 and 4/20 (tipping every night stays mostly fatal)
 sloppy_skill = 40           # runners below this skill are sloppy
 sloppy_heat = 0.03          # heat per unit sold through a fully sloppy (skill 0) runner's corner
 audit_heat = 6.0            # heat an audited front adds the morning after
@@ -44,6 +46,9 @@ bust_days = 30              # a bust that took product stays on the record this 
 fall_heat = 50              # the fall guy (#49, upgrades.toml fall_guys): the case closes on him, the file is wiped
                             # and every city's heat drops to this ...
 fall_cash = 0.5             # ... and this share of the dirty cash and of the clean goes on making it stick
+warrant_days = 1            # the arrest line met signs a warrant (#475, WarrantSigned), served this many nights later
+                            # on any sale anywhere or on heat still at the line, else it lapses (WarrantLapsed): a
+                            # night's warning, one lie-low day. 0 is the arrest the night the line is met, as before
 
 # Targeted investigations (#343). With enabled on, the heat sim keeps a
 # tally of the heat it already computes, by source: street sales by the

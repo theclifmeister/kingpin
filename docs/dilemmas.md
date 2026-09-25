@@ -52,6 +52,11 @@ A playtest dealt `A FUNERAL: Yaya's brother was shot` on day 18 and again on day
 - **The words agree with the effect**: `card_game`'s sit-in pays half the stake (`dirty_amount = 0.5`) and now says `walked out up half of it` (it said up the whole stake); `lose_a_file` is `A precinct file`, the precinct's and not the DA's (it lowers heat and never takes pages off the DA's file), and says so.
 - **The paper's big night** no longer says `Eastside awash in cheap Weed` on the night another headline says Weed is scarce: the `PlayerSoldBig` line is `Weed is everywhere in Eastside tonight, whatever it costs` (the template count is the same, so the pick's dice are).
 
+## For a card audit (#479)
+
+Confirmed, not tuned: always taking the first choice halves a lone trader (`managed -cards first` $323K at day 200 against $666K with no cards, `quiet` $325K against $532K). That is the temptation working as designed.
+Noted for a future card audit: always declining costs `crewed` 13% (`-cards decline` $959K at day 300 against $1.10M with no cards, 20 seeds x 300 days), so doing nothing is not free either. A card audit would read that number and weigh whether any single card's last choice costs more than it should.
+
 ## Showing and testing
 
 The UI shows the card in `modeCard` before the report (`showCard`): the card is dealt, its title decrypting and its prose wiping in, any key skipping to the finished card (#154, `docs/animation.md`); the card opens with no choice picked (`noChoice`), `↑↓` and `1-3` pick one and `enter` decides the one picked (the footer lists `enter decide` only then, `cardPicked`; an `enter` with nothing picked says `Pick a choice first` and answers nothing), the outcome shows, a second `enter` opens the report, and `enter` never ends the day; `continueRun` reopens a pending card, dealt again.

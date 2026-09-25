@@ -148,6 +148,9 @@ func TestBooksKeys(t *testing.T) {
 	if m.mode != modePlay || w.Today.Tipoff == nil || w.Today.Tipoff.Corner != w.Home().Corners[0].ID {
 		t.Fatalf("y on the tip: mode %v tip %+v status %q", m.mode, w.Today.Tipoff, m.status)
 	}
+	if !strings.Contains(m.status, "the DA's file on you gains a page") { // #479: the page risk repeated
+		t.Errorf("the status after a tip does not say the page risk: %q", m.status)
+	}
 	m.Update(key("t"))
 	if m.mode != modePlay || !strings.HasPrefix(m.status, "Can't tip twice") {
 		t.Fatalf("a second t: mode %v status %q", m.mode, m.status)

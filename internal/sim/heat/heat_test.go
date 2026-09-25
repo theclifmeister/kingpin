@@ -364,9 +364,15 @@ func TestTheLadderFires(t *testing.T) {
 
 	// The arrest, with a fall guy: he takes it, the file is wiped, heat
 	// drops to 50 and half the cash goes; without one, the run ends.
+	// Each is the warrant's (#475): signed the night the line is met,
+	// served the next on the heat still at the line.
 	w.Upgrades["fallguy"] = true
 	w.Player.DirtyCash, w.Player.CleanCash = 1000, 500
 	w.Heat.Evidence = 3
+	home.Heat = over(w, s, rung(cfg, content.Arrest), home)
+	if ev := enforcement(step(w, s)); ev != nil || w.Heat.WarrantDay != w.Day {
+		t.Fatalf("the arrest line met: enforcement %+v warrant %d on day %d", ev, w.Heat.WarrantDay, w.Day)
+	}
 	home.Heat = over(w, s, rung(cfg, content.Arrest), home)
 	tk = step(w, s)
 	if ev := enforcement(tk); ev != nil || w.Over != nil || w.FallsTaken != 1 || w.Heat.Evidence != 0 || home.Heat > 50 || w.Player.DirtyCash != 500 || w.Player.CleanCash != 250 {
@@ -382,6 +388,8 @@ func TestTheLadderFires(t *testing.T) {
 	if !burned {
 		t.Fatal("the fall guy's fall was not reported")
 	}
+	home.Heat = over(w, s, rung(cfg, content.Arrest), home)
+	step(w, s)
 	home.Heat = over(w, s, rung(cfg, content.Arrest), home)
 	tk = step(w, s)
 	if ev := enforcement(tk); ev == nil || ev.Level != content.Arrest || w.Over == nil || w.Over.Cause != "arrested" {

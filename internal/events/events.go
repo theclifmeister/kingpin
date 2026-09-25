@@ -2064,6 +2064,33 @@ type TaskForceFormed struct {
 
 func (TaskForceFormed) Kind() string { return "TaskForceFormed" }
 
+// WarrantSigned is the heat sim's night of warning before an arrest
+// (#475): the heat in City met the arrest line tonight (Heat of Line)
+// and the DA signed a warrant, served on the night Due on any sale
+// anywhere or on heat still at the line; else it lapses.
+type WarrantSigned struct {
+	Day  int
+	City string
+	Heat float64
+	Line float64
+	Due  int
+}
+
+func (WarrantSigned) Kind() string { return "WarrantSigned" }
+
+// WarrantLapsed is the warrant signed on the night Signed not served
+// (#475): nothing was sold and the heat in City (Heat) was under the
+// arrest line (Line) the night it was due.
+type WarrantLapsed struct {
+	Day    int
+	City   string
+	Signed int
+	Heat   float64
+	Line   float64
+}
+
+func (WarrantLapsed) Kind() string { return "WarrantLapsed" }
+
 // InvestigationOpened is the heat sim naming what the police are
 // looking at (#343): the night the sting would have come to City, they
 // open an investigation on the biggest source of its heat instead. Lead

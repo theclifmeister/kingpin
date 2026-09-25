@@ -228,7 +228,8 @@ func (m *Model) confirmTip() {
 	}
 	tp := m.rules.Rivals.TipTuning()
 	r := m.factionOf(c)
-	m.say(fmt.Sprintf("The police hear about %s tonight. Their attention on %s: %.0f → %.0f of %.0f.", c.Name, r.Leader, r.Heat, min(100, r.Heat+tp.Heat), tp.PoliceNotice))
+	// The page risk repeated (#479): the attention alone read as free.
+	m.say(fmt.Sprintf("The police hear about %s tonight. Their attention on %s: %.0f → %.0f of %.0f. ~%s the DA's file on you gains a page.", c.Name, r.Leader, r.Heat, min(100, r.Heat+tp.Heat), tp.PoliceNotice, format.Pct(m.cfg.Heat.Heat.TipEvidence, 0)))
 }
 
 // tipConfirm is the confirmation's body: where the police's attention

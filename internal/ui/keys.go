@@ -475,7 +475,7 @@ var words = [][2]string{
 	{"patrol", "the first rung: caps what sells for a few days, files nothing"},
 	{"sting", "a rung: takes some stock and cash, a page if you sold"},
 	{"raid", "a big rung: much of the stock and cash, two pages if you sold"},
-	{"arrest", "the top rung: the run ends in a cell"},
+	{"arrest", "the top rung: a warrant, served if you sell the next night"},
 	{"file", "the DA's pages: a bust on a day you sold adds; enough indicts"},
 	{"pressure", "a city's mood, 0-100: lowers police lines, tightens patrols"},
 	{"goodwill", "bought with clean cash (f on the ledger): wears pressure down"},

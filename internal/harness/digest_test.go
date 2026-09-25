@@ -362,20 +362,25 @@ const (
 // `The offer from … lapsed`): the move on day 8 and the days after it
 // that take or lose a buyer's order is the report's words alone; the
 // days between keep main's digest, and no number moved.
+// Again for #475 (the arrest line signs a warrant, HeatState.WarrantDay)
+// and #479 (tip_evidence 0.2 -> 0.1): the move on day 1 is the new
+// field's shape alone. The boss never meets the arrest line in sixty
+// days and never tips; with HeatState.WarrantDay set aside the digest
+// is main's on all sixty days.
 var seedDigest = []string{
-	"399f263821f84b75", "d96e9fe5b119cc4b", "118c6624a7893c85", "4e786a8c609b2cea",
-	"1b253356002d8cb8", "86cca3860f76a803", "309a8aa012bb8488", "44e718fb7660aaa6",
-	"fff722155c13928c", "b4f48083c1519670", "0bba17feb161a58f", "70d03be04e31f33a",
-	"1f149a0d45484874", "9bfc3c35fb809bfe", "f540b75cb532cac0", "2d60da8729914f4b",
-	"64b4057b9d9b8e47", "f992ea3d973c39ec", "f49cb96f9fd94a73", "a315438d98b66a15",
-	"8638d6efbabbc8fe", "617134015563a09a", "d177bd36f27bc383", "9ed9e732f60f9354",
-	"a0339cae2990a800", "3c5d28f7d7079d86", "b46348a5a4b4a653", "d39a7abbbd3a17a4",
-	"864e9aaf61dedeea", "5949d4514a6ee279", "2dd8396503c86c8b", "3118d62d18dde5c9",
-	"163633fa8dafed76", "3ff31cfc63d18932", "50ea4529461f46c0", "7ef64afff1d61f36",
-	"ca8b862dd4884e36", "4b9f2a6c5b0dac24", "8e32cc55106943d1", "47f79cbdcc1fb652",
-	"d7ed0a7ea1d85343", "1652df60f4c53f73", "6d0ee1279db383a0", "1f1ef7cd472fc445",
-	"48dbba682781d52d", "d5449ed1a177a033", "d2feee2d19301d08", "4ffc168dd563408e",
-	"ffe5b9122922df0f", "aff2b314f0b5b238", "8963a391e829b55d", "6cdd4ec7d33be589",
-	"48d058d72f645cfe", "00cbafaa374f873c", "94b2fc025c7de000", "8f23c7b5c5bc3ac0",
-	"3ae9dfc08d80e787", "f4429c5ba79c51aa", "42512a73d16126f1", "15189c3c7fca2090",
+	"2cb6a6b194ddfddc", "6f437119acba2264", "a148dc8411bbc0ca", "c9acafbfdd350e6b",
+	"8d4e6e74f1b8fabf", "fefa8a461f582b82", "8308eb16f47afe3d", "d5e8973ee16f71c5",
+	"137859296b28d941", "c8a6ecea8f965867", "206c1d6d17b0c9a4", "4e08c01caf8ad505",
+	"2cfb9f204cbb0cf7", "7194dec7fd32c901", "9f4023815d9e4d67", "460cb9db29c909c2",
+	"334dc808f37c7fd8", "606c49d0d5016a0b", "52eb6b83df54e9bc", "7204dd510816c4ee",
+	"b6b1645aa24d4bb3", "b9a3d040fafefb61", "b87c55a7ff117f22", "160edd68efb4a64b",
+	"ec48ef9cf576c807", "77ee3ba9db67b927", "b3575a0008073f7e", "351736fa902e0809",
+	"31b2e02f77b0f849", "14294d4ade4489c4", "43bfbd3842652c66", "482db50ee189ea78",
+	"b74a2dde46f8d9f7", "db7edbf2a5a53adf", "23c558bd272c09af", "10b513c09feb6db5",
+	"8a1d1d2132affccb", "796bc7c4f86c9d3b", "912688c56884ab88", "0688340b8e6acffd",
+	"54e4541b809d9900", "fc7f7fdbbd550a8c", "9a6e26f70a501ae9", "f52d9d14ca52baa2",
+	"6dda8cce42493b40", "90a28e4e42f7218c", "333d123a855144ef", "de3b5840d2abfb5f",
+	"ba2e1c251049752a", "b16efc44aec1bfd9", "d5158256df474b64", "0fd1c846a58c8796",
+	"5f488dd1192e8619", "cb27a1bd2ec92bbd", "a41d585847a6e021", "f3fa872183a0df69",
+	"4c291fbda8ab5b20", "0b789d5256795cf9", "62b23434c764f496", "f406a5381723b6b9",
 }

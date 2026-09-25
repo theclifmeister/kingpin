@@ -69,6 +69,16 @@ func (s *Sim) respond(d *day) {
 	// arrest is the DA's and no chief stops it. fire rolls nothing on
 	// the home stream, so a run without a favour is the run before.
 	favour := w.Law.FavourOwed == t.Day
+	// The warrant (#475) is read before the task force and the
+	// investigation, so no night they land on hides the arrest: a
+	// warrant due tonight is served or lapses, and the arrest line met
+	// with none out signs one. Signed, it is the night's one response
+	// on an ordinary night; a task force or a hit already announced
+	// still comes.
+	served, signed := s.warrant(d, hot)
+	if served {
+		return
+	}
 	// A task force announced yesterday comes tonight (#48), whatever the
 	// heat: it formed, and it acts. The day's one response is its.
 	if h.TaskForceDay > 0 && h.TaskForceDay < t.Day {
@@ -104,10 +114,16 @@ func (s *Sim) respond(d *day) {
 		}
 		resp = nil
 	}
+	if signed {
+		resp = nil
+	}
 	for i := len(resp) - 1; i >= 0; i-- {
 		r := resp[i]
 		if hot.Heat < s.Threshold(w, r, hot) {
 			continue
+		}
+		if r.Level == content.Arrest && s.cfg.Heat.WarrantDays > 0 {
+			continue // the warrant's (#475): out and not yet due, the rung under it answers
 		}
 		if r.Level == content.TaskForce && !s.TaskForceEligible(w) {
 			continue // nobody without an asset or the pile meets the feds (#48): the ladder is the four rungs it was
@@ -142,6 +158,52 @@ func (s *Sim) respond(d *day) {
 		h.LastResponse[r.Level] = t.Day
 		break
 	}
+}
+
+// warrant is the arrest's night of warning (#475). With heat.toml
+// warrant_days on, the arrest line met in the city whose police answer
+// signs a warrant (WarrantSigned, HeatState.WarrantDay) rather than
+// arresting: a player at heat 50 one morning met the line that night
+// and was arrested at dawn, and nothing had said so. Due warrant_days
+// nights later it is served, the arrest rung fired as it always was
+// (the fall guy still takes it), on any sale anywhere or on the heat
+// still at the line; otherwise it lapses (WarrantLapsed) and the line
+// met again signs another. It reports whether a warrant was served
+// tonight and whether one was signed. No dice: a run that never meets
+// the line never reads a byte of it. Off (warrant_days 0) it does
+// nothing and the ladder arrests on the night as before.
+func (s *Sim) warrant(d *day, hot *game.City) (served, signed bool) {
+	w, t, h := d.w, d.t, d.h
+	days := s.cfg.Heat.WarrantDays
+	r := s.rung(content.Arrest)
+	if days <= 0 || r == nil {
+		return false, false
+	}
+	line := s.Threshold(w, *r, hot)
+	if h.WarrantDay > 0 {
+		if t.Day < h.WarrantDay+days {
+			return false, false // out, not yet due
+		}
+		sold := false
+		for _, a := range d.attempted {
+			sold = sold || a
+		}
+		if sold || hot.Heat >= line {
+			h.WarrantDay = 0
+			h.Responses[r.Level]++
+			s.fire(w, t, hot, *r, d.attempted[hot.ID], d.fx)
+			h.LastResponse[r.Level] = t.Day
+			return true, false
+		}
+		t.Emit(events.WarrantLapsed{Day: t.Day, City: hot.ID, Signed: h.WarrantDay, Heat: hot.Heat, Line: line})
+		h.WarrantDay = 0
+	}
+	if hot.Heat < line {
+		return false, false
+	}
+	h.WarrantDay = t.Day
+	t.Emit(events.WarrantSigned{Day: t.Day, City: hot.ID, Heat: hot.Heat, Line: line, Due: t.Day + days})
+	return false, true
 }
 
 // Hottest is the city whose police answer tonight, for the favour's

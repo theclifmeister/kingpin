@@ -77,6 +77,16 @@ func (r *reporter) reportHeat(e events.Event) bool {
 			line += " and it will take an asset with it"
 		}
 		rep.Heat = append(rep.Heat, line+". Lie low: what they find on a quiet night is not a case.")
+	case events.WarrantSigned:
+		// The warrant (#475): the arrest's night of warning, the
+		// report's alone (the paper does not hear of one).
+		when := "tonight"
+		if n := ev.Due - ev.Day; n > 1 {
+			when = fmt.Sprintf("in %d nights", n)
+		}
+		rep.Heat = append(rep.Heat, fmt.Sprintf("A WARRANT is signed for your arrest: heat %.0f%s met the arrest line (%.0f). It is served %s if you sell anything anywhere, or if the heat still holds at the line. Sell nothing and lie low.", ev.Heat, r.in(ev.City), ev.Line, when))
+	case events.WarrantLapsed:
+		rep.Heat = append(rep.Heat, fmt.Sprintf("The warrant lapsed: nothing sold and heat %.0f%s under the arrest line (%.0f). Meet the line again and another is signed.", ev.Heat, r.in(ev.City), ev.Line))
 	case events.AssetSeized:
 		d := r.at(ev.City)
 		d.Asset = ev.Name
