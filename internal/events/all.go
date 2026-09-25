@@ -18,7 +18,7 @@ var All = []Event{
 	FrontFrozen{}, FrontInvested{}, FrontGrew{}, Reserved{}, CashLaundered{}, Incident{},
 	DilemmaDrawn{}, DilemmaAnswered{}, WholesaleBought{}, SupplyBought{}, SupplierBought{},
 	CreditTaken{}, DebtPaid{}, DebtLate{}, SupplierFrozen{}, SupplierWarned{},
-	SupplierCollected{}, SupplyShort{}, ShipmentSent{}, ShipmentArrived{}, ShipmentSeized{},
+	SupplierCollected{}, SupplyShort{}, ShipmentSent{}, RouteIdle{}, ShipmentArrived{}, ShipmentSeized{},
 	CrewArrested{}, CrewBailed{}, CrewReleased{}, CrewShot{}, CrewRecovered{}, CrewRetired{},
 	KinLooking{}, DealOffered{}, DealAccepted{}, DealRefused{}, DealBroken{}, DealEnded{},
 	ClaimDeterred{}, Taxed{}, ReignBegan{}, ReignBroken{}, StraightOpened{}, StraightLapsed{}, TributePaid{}, FactionPushed{},

@@ -550,6 +550,15 @@ func (m *Model) viewLedger() string {
 	}
 	heading("LOGISTICS", fmt.Sprintf(" · shipped %s in %s · seized %d", plural(w.Stats.Shipped, "unit"), plural(w.Stats.Shipments, "run"), lost))
 	line(theme.Subtle.Render(fmt.Sprintf("%s open; the road is %s.", plural(len(m.ledgerRoutes()), "route"), screenPointer(screenMap))))
+	// A route short of its target and sending nothing says why here too
+	// (#459): a playtest read "shipped 0 units in 0 runs" for days. The
+	// verdict leads, so a narrow ledger cuts the name last.
+	for _, r := range m.ledgerRoutes() {
+		if why := m.rules.Logistics.Idle(w, r); why == events.IdleTill || why == events.IdleStock {
+			long, _, st := m.routeIdle(r)
+			line(st.Render(long) + sub(" · the "+r.Name))
+		}
+	}
 
 	// The bought law (#42): every live deal, and what the DA has heard
 	// if somebody on the payroll knows.

@@ -808,6 +808,34 @@ type ShipmentSent struct {
 
 func (ShipmentSent) Kind() string { return "ShipmentSent" }
 
+// Why a route on its dial sent nothing (#459): RouteIdle.Why and
+// logistics.Sim.Idle, the map's and the report's one vocabulary.
+const (
+	IdleTill     = "till"   // short of its target, with no dirty cash over the till for the fare or the lot
+	IdleStock    = "stock"  // short of its target, with nothing at the source to send and nobody there selling it
+	IdleMet      = "met"    // the far end is at its target, counting what is on the road
+	IdleNoTarget = "target" // no target set: it keeps nothing anywhere
+	IdleClosed   = "closed" // shut by an incident (#44)
+)
+
+// RouteIdle is report-only bookkeeping (#459): a route on its dial,
+// short of its target, that sent nothing this morning, and why
+// (IdleTill or IdleStock). A playtest's routes read "shipped 0" for
+// days with no word.
+type RouteIdle struct {
+	Day      int
+	Route    string
+	Name     string // the route's name, for the report
+	From     string // city ids
+	To       string
+	Why      string   // IdleTill or IdleStock
+	Products []string // the products short of the target, ladder order
+	Till     int      // the dirty cash the road leaves in hand (World.Float), for IdleTill
+	Dirty    int      // the dirty cash in hand when the route ran
+}
+
+func (RouteIdle) Kind() string { return "RouteIdle" }
+
 // ShipmentArrived is report-only bookkeeping: a shipment landing in the
 // destination's stash.
 type ShipmentArrived struct {

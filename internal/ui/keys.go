@@ -443,6 +443,7 @@ func helpRow(key, label, help string) string {
 var words = [][2]string{
 	{"dial", "quiet, normal or aggressive: a sale's volume against its heat"},
 	{"float", "the dirty cash the wash and the road leave for the street"},
+	{"till", "the float in hand: the wash and the road spend only over it"},
 	{"target", "what a route keeps the far end at: units or days of demand"},
 	{"heat", "a city's police eye, 0-100: sales raise it, days fade it"},
 	{"patrol", "the first rung: caps what sells for a few days, files nothing"},

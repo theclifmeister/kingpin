@@ -110,6 +110,7 @@ var ruleNames = map[string]ruleSig{
 	"Logistics.ExportCost":         {[]string{"w", "product"}, nil},
 	"Logistics.ExportPrice":        {[]string{"w", "l", "product"}, nil},
 	"Logistics.Fare":               {[]string{"w", "r"}, nil},
+	"Logistics.Idle":               {[]string{"w", "r"}, nil},
 	"Logistics.Lane":               {[]string{"id"}, nil},
 	"Logistics.LaneCapacity":       {[]string{"w", "l"}, nil},
 	"Logistics.LaneOpen":           {[]string{"w", "l"}, nil},

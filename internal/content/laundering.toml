@@ -11,6 +11,7 @@ accountant_throughput = 4000 # added to every front per accountant, at skill 100
 accountant_risk_cut = 0.5   # of every front's audit risk a skill-100 accountant removes (each one takes its cut of what is left)
 rot_line = 50000000         # a dirty pile over this rots (#392): nobody has room to keep that much dry
 rot = 0.001                 # of what is over the line, a night: rats, damp, a count that never adds up
+till_nights = 3             # nights the wash has left the pile at the float before the dashboard says to turn it careful (#459); read by no sim
 
 # The launder dial: mul scales every front's throughput, risk its audit
 # chance. Greedy washes more and gets looked at; careful is the reverse.

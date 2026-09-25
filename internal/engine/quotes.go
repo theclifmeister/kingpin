@@ -47,6 +47,7 @@ type LogisticsRules interface {
 	ExportCost(w *game.World, product string) float64
 	ExportPrice(w *game.World, l content.LaneConfig, product string) float64
 	Fare(w *game.World, r content.RouteConfig) float64
+	Idle(w *game.World, r content.RouteConfig) string
 	Lane(id string) *content.LaneConfig
 	LaneCapacity(w *game.World, l content.LaneConfig) int
 	LaneOpen(w *game.World, l content.LaneConfig) bool

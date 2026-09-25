@@ -831,6 +831,9 @@
         "RotLine": {
           "type": "integer"
         },
+        "TillNights": {
+          "type": "integer"
+        },
         "UpkeepFreezeDays": {
           "type": "integer"
         }
@@ -843,7 +846,8 @@
         "AccountantThroughput",
         "AccountantRiskCut",
         "RotLine",
-        "Rot"
+        "Rot",
+        "TillNights"
       ],
       "type": "object"
     },
@@ -7879,6 +7883,52 @@
       ],
       "type": "object"
     },
+    "events.RouteIdle": {
+      "properties": {
+        "Day": {
+          "type": "integer"
+        },
+        "Dirty": {
+          "type": "integer"
+        },
+        "From": {
+          "type": "string"
+        },
+        "Name": {
+          "type": "string"
+        },
+        "Products": {
+          "items": {
+            "type": "string"
+          },
+          "type": "array"
+        },
+        "Route": {
+          "type": "string"
+        },
+        "Till": {
+          "type": "integer"
+        },
+        "To": {
+          "type": "string"
+        },
+        "Why": {
+          "type": "string"
+        }
+      },
+      "required": [
+        "Day",
+        "Route",
+        "Name",
+        "From",
+        "To",
+        "Why",
+        "Products",
+        "Till",
+        "Dirty"
+      ],
+      "type": "object"
+    },
     "events.ScoutsHit": {
       "properties": {
         "Arrive": {
@@ -10192,6 +10242,9 @@
     },
     "RivalWithdrew": {
       "$ref": "#/$defs/events.RivalWithdrew"
+    },
+    "RouteIdle": {
+      "$ref": "#/$defs/events.RouteIdle"
     },
     "ScoutsHit": {
       "$ref": "#/$defs/events.ScoutsHit"
@@ -13555,6 +13608,24 @@
         "type": "number"
       }
     },
+    "rules.logistics.idle": {
+      "changes": false,
+      "needsRun": true,
+      "params": {
+        "maxItems": 1,
+        "minItems": 1,
+        "prefixItems": [
+          {
+            "title": "route",
+            "type": "string"
+          }
+        ],
+        "type": "array"
+      },
+      "result": {
+        "type": "string"
+      }
+    },
     "rules.logistics.lane": {
       "changes": false,
       "needsRun": true,
@@ -15442,6 +15513,7 @@
             "RivalTippedPolice",
             "RivalUndercut",
             "RivalWithdrew",
+            "RouteIdle",
             "ScoutsHit",
             "ShipmentArrived",
             "ShipmentSeized",
@@ -15490,7 +15562,7 @@
       "$ref": "#/$defs/engine.View"
     }
   },
-  "protocol": 17,
+  "protocol": 18,
   "title": "kingpind",
   "view_version": 13
 }

@@ -101,6 +101,12 @@ func (m *Model) alertOf(a engine.Alert) alert {
 		why = name + " shut"
 	case engine.AlertFloat:
 		text = theme.Warning.Render(fmt.Sprintf("Dirty cash %s is under the float (%s): the wash and the road wait.", cash(a.Have), cash(a.Amount)))
+	case engine.AlertTill:
+		// #459: the wash taking everything over the till every night,
+		// so nothing dirty is ever saved. The count leads: the pane
+		// cuts an alert to one line.
+		text = theme.Warning.Render(fmt.Sprintf("Dirty cash held at the %s till %s running: the wash takes the rest. Turn the launder dial careful %s to save.", cash(a.Amount), plural(a.Days, "night"), screenPointer(screenLedger)))
+		why = "dirty cash held at the till"
 	case engine.AlertWages:
 		text = theme.Warning.Render(fmt.Sprintf("Wages %s due tonight, %s dirty in hand.", money(a.Amount), money(a.Have)))
 		if m.w.Player.CleanCash > 0 {

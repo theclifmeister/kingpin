@@ -30,6 +30,7 @@ const (
 	AlertInvestigation AlertKind = "investigation" // the police in City are working Target (Corner, Product or House): the hit in Days
 	AlertFrontShut     AlertKind = "front_shut"    // Front shut for unpaid upkeep (#458): Amount the clean it was short, Have its upkeep, Days until it reopens
 	AlertFloat         AlertKind = "float"         // Have dirty under the float, Amount
+	AlertTill          AlertKind = "till"          // the wash has left the pile at the till, Amount, Days nights running; Have dirty (#459)
 	AlertWages         AlertKind = "wages"         // Amount in wages tonight, Have dirty
 	AlertCrewLine      AlertKind = "crew_line"     // Member is Gap over the Cross line (Line), Days at tonight's drift
 	AlertSkim          AlertKind = "skim"          // skimming suspected: money went missing on Day
@@ -51,7 +52,7 @@ const (
 // AlertKinds is every kind, loudest first: the order Alerts returns them
 // in.
 func AlertKinds() []AlertKind {
-	return []AlertKind{AlertTalking, AlertContractDue, AlertDebtDue, AlertHeat, AlertTaskForce, AlertFile, AlertInvestigation, AlertFrontShut, AlertFloat, AlertWages,
+	return []AlertKind{AlertTalking, AlertContractDue, AlertDebtDue, AlertHeat, AlertTaskForce, AlertFile, AlertInvestigation, AlertFrontShut, AlertFloat, AlertTill, AlertWages,
 		AlertCrewLine, AlertSkim, AlertUnposted, AlertIdleCorner, AlertStashFull, AlertScouts, AlertGate, AlertHouseKnown,
 		AlertDARace, AlertRetire, AlertFavour, AlertReign, AlertStraight, AlertExposure, AlertPlan}
 }
@@ -119,6 +120,7 @@ var alertActs = map[AlertKind][]Act{
 	AlertInvestigation: {{Screen: ScreenMap, Subject: SubjectCorner}, actMarket, {Screen: ScreenLedger, Subject: SubjectHouse}},
 	AlertFrontShut:     {actLedger},
 	AlertFloat:         {actLedger},
+	AlertTill:          {actLedger},
 	AlertWages:         {actCrew},
 	AlertCrewLine:      {actMember},
 	AlertSkim:          {actCrew},
@@ -251,6 +253,11 @@ func (s *Session) Alerts() []Alert {
 	if fl := s.set.Laundering.Float(w); w.Player.DirtyCash < fl && s.FloatMatters() {
 		out = append(out, Alert{Kind: AlertFloat, Key: "dirty cash under the float", Amount: fl, Have: w.Player.DirtyCash})
 	}
+	if n := s.tillNights(); n > 0 {
+		// Keyed once (#459): a fast-forward stops the morning the pile
+		// has sat at the till long enough, and not again while it does.
+		out = append(out, Alert{Kind: AlertTill, Key: "dirty cash held at the till", Days: n, Amount: s.set.Laundering.Float(w), Have: w.Player.DirtyCash})
+	}
 	// Tonight's pile (#397): the wages come out after the loads due
 	// tonight land, so they are short only past both; and a landing that
 	// takes the pile past the cover is heat before the wash can touch it.
@@ -310,6 +317,34 @@ func (s *Session) Alerts() []Alert {
 		}
 	}
 	return out
+}
+
+// tillNights is how many nights running the wash has left the dirty
+// pile at the till (#459), once that is laundering.toml's till_nights
+// or more and the launder dial is not already careful, else 0: a
+// playtest sat at exactly $50,000 dirty for forty nights, the wash
+// taking everything over it, and could never save for the next front,
+// upgrade or contract. Read off the nights' cash flows (World.Flows,
+// the news sim's report): a night the wash took dirty cash and closed
+// at or under the till. No dice, and no sim reads it.
+func (s *Session) tillNights() int {
+	w := s.w
+	need := s.set.Laundering.Tuning().TillNights
+	if need <= 0 || len(w.Fronts) == 0 || w.Laundering.Dial == events.LaunderCareful {
+		return 0
+	}
+	till, n := s.set.Laundering.Float(w), 0
+	for i := len(w.Flows) - 1; i >= 0; i-- {
+		f := w.Flows[i]
+		if f.Line(game.FlowLaundering).Dirty >= 0 || f.Closing.Dirty > till {
+			break
+		}
+		n++
+	}
+	if n < need {
+		return 0
+	}
+	return n
 }
 
 // unposted are the runners and enforcers on the payroll with no post

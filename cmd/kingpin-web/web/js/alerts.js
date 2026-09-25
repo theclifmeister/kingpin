@@ -46,6 +46,7 @@ export const WORDS = {
   front_shut: (v, a) =>
     `${(byId(v.fronts, a.front) || { name: "A front" }).name} shut ${plural(n(a.days), "day")}: upkeep unpaid, ${money(n(a.amount))} clean short. It is ${money(n(a.have))}/day clean: keep that back.`,
   float: (v, a) => `Dirty cash ${money(n(a.have))} is under the float (${money(n(a.amount))}).`,
+  till: (v, a) => `Dirty cash held at the ${money(n(a.amount))} till ${plural(n(a.days), "night")} running: turn the launder dial careful to save.`,
   wages: (v, a) => `Wages ${money(n(a.amount))} due tonight, ${money(n(a.have))} dirty in hand.`,
   crew_line: (v, a) => {
     const cross = { skim: "skimming", flip: "turning", walk: "walking" }[a.cross] || a.cross;
