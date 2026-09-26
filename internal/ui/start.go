@@ -124,7 +124,8 @@ func (m *Model) startRows() []string {
 }
 
 // slotLine is what the start menu says of a slot: `Slot 1 · day 42 ·
-// $1.2M · Eastside · saved 2h ago`, or `Slot 2 · empty`. A run that is
+// cash $1.2M · offshore $287K · Eastside · saved 2h ago`, or `Slot 2 ·
+// empty`. A run that is
 // over carries its ending's title, the one its summary opens with
 // (`Slot 1 · INDICTED · day 21 · …`), so it does not read as a run to go
 // back to (#441), and its score where a run going on has its cash
@@ -142,7 +143,12 @@ func slotLine(s game.SlotInfo, now time.Time, title func(string) string) string 
 	if s.Ended != "" {
 		parts = append(parts, "score "+cash(s.Score)) // #498: the cash left behind read as what the run was worth
 	} else {
-		parts = append(parts, cash(s.Cash))
+		// Labelled, and the account beside it (#537: `$76K` read as
+		// what the run held, with $287K offshore left out).
+		parts = append(parts, "cash "+cash(s.Cash))
+		if s.Offshore > 0 {
+			parts = append(parts, "offshore "+cash(s.Offshore))
+		}
 	}
 	if s.City != "" {
 		parts = append(parts, s.City)

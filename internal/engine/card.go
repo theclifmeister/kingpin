@@ -27,9 +27,14 @@ const (
 	ToneNote = "note"
 )
 
-// Hidden is the one chip a card with hide = true shows under every
-// choice: its drama is the unknown.
-const Hidden = "costs you something"
+// Hidden is the one chip a card with hide = true shows under a choice
+// that costs something: its drama is the unknown. A choice on it that
+// costs nothing says Free instead (#537: a turncoat's "turn them away"
+// read "costs you something" beside the two that did).
+const (
+	Hidden = "costs you something"
+	Free   = "costs you nothing"
+)
 
 // ChoiceChips is what each choice on c does, a list of chips a choice,
 // in game.Gauges' order: the figures are game.Card.Preview's, so what
@@ -40,24 +45,36 @@ const Hidden = "costs you something"
 // loyalty over or under the skim line, a grudge the rival will act on.
 // A choice that moves the reputation axes past the street's total gets
 // a note that the reputation sim evens it out tonight. A card with Hide
-// shows Hidden under every choice; a choice that moves nothing says so.
+// shows Hidden under every choice that costs, Free under the rest; a
+// choice that moves nothing says so.
 func ChoiceChips(cfg *content.Config, r Rules, w *game.World, c *game.Card) [][]Chip {
 	out := make([][]Chip, len(c.Choices))
 	for i := range c.Choices {
-		if c.Hide {
-			out[i] = []Chip{{Text: Hidden, Tone: ToneNote}}
-			continue
-		}
 		ch, err := c.Preview(w, i)
 		if err != nil {
 			continue // a key the world does not know: Choose refuses it too
 		}
 		out[i] = chips(cfg, r, w, c, ch)
+		if c.Hide {
+			out[i] = []Chip{{Text: hidden(out[i]), Tone: ToneNote}}
+			continue
+		}
 		if len(out[i]) == 0 {
 			out[i] = []Chip{{Text: "changes nothing", Tone: ToneNote}}
 		}
 	}
 	return out
+}
+
+// hidden is a hidden card's one chip for a choice: Hidden where any of
+// its moves costs you or crosses a line, Free where none does.
+func hidden(all []Chip) string {
+	for _, ch := range all {
+		if ch.Tone == ToneCost || ch.Tone == ToneLine {
+			return Hidden
+		}
+	}
+	return Free
 }
 
 // minChip is the smallest move a chip shows (#501): under it the move

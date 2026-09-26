@@ -436,7 +436,11 @@ func (s *Session) settled() error {
 		return nil // the exit's own ErrGameOver says it
 	}
 	if n := s.PagesDue(); n > 0 {
-		return fmt.Errorf("%w: %s go in the DA's file first, so end the day", game.ErrPagesDue, format.Plural(n, "page"))
+		verb := "go"
+		if n == 1 {
+			verb = "goes" // #537: "1 page ... go in"
+		}
+		return fmt.Errorf("%w: %s %s in the DA's file first, so end the day", game.ErrPagesDue, format.Plural(n, "page"), verb)
 	}
 	// The night of the move (#525): a playtest could vanish the night
 	// of an over-the-lot transfer with a warning and was refused the

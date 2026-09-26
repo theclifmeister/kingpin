@@ -373,7 +373,7 @@ func (m *Model) bestCrew() string {
 	if best == nil {
 		return ""
 	}
-	return fmt.Sprintf("%s, %s, %s on the payroll at loyalty %.0f", best.Name, best.Role, plural(w.Day-best.Hired+1, "day"), best.Loyalty)
+	return fmt.Sprintf("%s, %s, %s on the payroll at loyalty %.0f", best.Name, best.Role, plural(max(1, w.Day-best.Hired), "day"), best.Loyalty) // the days served (#537: a day-1 run read 2)
 }
 
 // reachedLine is the summary's tier row (#147): the highest tier

@@ -109,9 +109,10 @@ func (m *Model) viewCashOut() string {
 	}
 	body = append(body, "",
 		theme.Subtle.Render(fmt.Sprintf("Stock and wages are paid dirty. The banker keeps %s of the draw.", format.Pct(float64(l.CashOutFee(1_000_000))/1e6, 0))),
-		theme.Subtle.Render("It lands at once; a pile past what your fronts cover draws heat."))
+		theme.Subtle.Render("It lands at once; a pile past what your fronts cover draws heat."),
+		theme.Subtle.Render("Nothing here goes offshore: the reserve and the sweep beside it on the ledger do that."))
 	if m.amt.err != "" {
 		body = append(body, "", theme.Bad.Render(m.amt.err))
 	}
-	return m.modal("CASH OUT", body, m.modalFooter())
+	return m.modal("CASH OUT: CLEAN TO DIRTY", body, m.modalFooter())
 }

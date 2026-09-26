@@ -294,9 +294,13 @@ func richFixture(t *testing.T, sz [2]int, check func(m *Model, view, what string
 	// and the buy confirmation; every branch, every node.
 	m.Update(key("6"))
 	m.w.Player.DirtyCash += 20_000
-	m.Update(key("enter"))
+	m.Update(key("u"))
 	see(m, "upgrade confirm")
-	m.Update(key("y"))
+	m.Update(key("esc"))
+	// The walk below ran behind the night's report until #536 (enter
+	// on this screen was the end of the day, and y ended it): the day
+	// still ends here, so the fixture's state is the one it was.
+	m.Update(key("n"))
 	for range content.Branches {
 		for range m.upgradeRows() {
 			see(m, "upgrades")
@@ -1181,7 +1185,7 @@ func TestUnreadableSaveIsRefused(t *testing.T) {
 	if m.mode != modeConfirm {
 		t.Fatalf("D: mode %v", m.mode)
 	}
-	if got := stripANSI(m.View()); !strings.Contains(got, "DELETE SLOT 2?") || !strings.Contains(got, "Day 0 · $") {
+	if got := stripANSI(m.View()); !strings.Contains(got, "DELETE SLOT 2?") || !strings.Contains(got, "Day 0 · cash $") {
 		t.Fatalf("the confirmation names the slot and the run:\n%s", got)
 	}
 	m.Update(key("esc"))
@@ -1246,7 +1250,7 @@ func TestStartMenuLists(t *testing.T) {
 	if err := game.Save(1, w); err != nil {
 		t.Fatal(err)
 	}
-	want[0] = fmt.Sprintf("Slot 1 · day 42 · $1.2M · %s · saved just now", w.Here().Name)
+	want[0] = fmt.Sprintf("Slot 1 · day 42 · cash $1.2M · %s · saved just now", w.Here().Name)
 	if got := menu("one slot"); !reflect.DeepEqual(got, want) {
 		t.Fatalf("one slot:\n%q\nwant\n%q", got, want)
 	}
@@ -1258,8 +1262,8 @@ func TestStartMenuLists(t *testing.T) {
 	if err := game.Save(3, w); err != nil {
 		t.Fatal(err)
 	}
-	want[1] = fmt.Sprintf("Slot 2 · day 3 · $4,000 · %s · saved just now", w.Here().Name)
-	want[2] = fmt.Sprintf("Slot 3 · day 200 · $63M · %s · saved just now", w.Here().Name)
+	want[1] = fmt.Sprintf("Slot 2 · day 3 · cash $4,000 · %s · saved just now", w.Here().Name)
+	want[2] = fmt.Sprintf("Slot 3 · day 200 · cash $63M · %s · saved just now", w.Here().Name)
 	if got := menu("three slots"); !reflect.DeepEqual(got, want) {
 		t.Fatalf("three slots:\n%q\nwant\n%q", got, want)
 	}
@@ -1275,8 +1279,17 @@ func TestStartMenuLists(t *testing.T) {
 		t.Fatalf("up from the top: row %d, not Quit", m.startChoice)
 	}
 	s := game.Slots()[0]
-	if got := slotLine(s, s.Saved.Add(2*time.Hour+5*time.Minute), m.cfg.Endings.Title); got != fmt.Sprintf("Slot 1 · day 42 · $1.2M · %s · saved 2h ago", w.Here().Name) {
+	if got := slotLine(s, s.Saved.Add(2*time.Hour+5*time.Minute), m.cfg.Endings.Title); got != fmt.Sprintf("Slot 1 · day 42 · cash $1.2M · %s · saved 2h ago", w.Here().Name) {
 		t.Fatalf("slot line: %q", got)
+	}
+	// The account beside the cash (#537: $76K on the menu, $287K
+	// offshore left out).
+	s.Offshore = 287_000
+	if got := slotLine(s, s.Saved, m.cfg.Endings.Title); got != fmt.Sprintf("Slot 1 · day 42 · cash $1.2M · offshore $287K · %s · saved just now", w.Here().Name) {
+		t.Fatalf("slot line with an account: %q", got)
+	}
+	if info := slotInfoOf(t, w, 287_000); info.Offshore != 287_000 {
+		t.Fatalf("the slot's account: %+v", info)
 	}
 	// A run that is over says how it ended, in its summary's title, so it
 	// does not read as a run to go back to (#441), and its score where a
@@ -3419,4 +3432,17 @@ func TestQuitKeepsAFailedSave(t *testing.T) {
 	if m.QuitErr() == nil || !strings.Contains(m.QuitErr().Error(), "not saved") {
 		t.Fatalf("a failed save on quit: %v", m.QuitErr())
 	}
+}
+
+// slotInfoOf saves w with offshore in the account to slot 3 and reads
+// the slot back as the menu does.
+func slotInfoOf(t *testing.T, w *game.World, offshore int) game.SlotInfo {
+	t.Helper()
+	was := w.Offshore
+	w.Offshore = offshore
+	defer func() { w.Offshore = was }()
+	if err := game.Save(3, w); err != nil {
+		t.Fatal(err)
+	}
+	return game.Slots()[2]
 }

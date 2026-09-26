@@ -84,7 +84,7 @@ func (m *Model) exitRows() []exitRow {
 		for i := range rows {
 			if rows[i].open {
 				rows[i].open = false
-				rows[i].short = fmt.Sprintf("%s from last night's transfer go in the DA's file tonight: end the day first", plural(pages, "page"))
+				rows[i].short = fmt.Sprintf("%s from last night's transfer %s in the DA's file tonight: end the day first", plural(pages, "page"), goes(pages))
 			}
 		}
 	}
@@ -143,7 +143,12 @@ func (m *Model) crownShort() string {
 			}
 			switch s.ID {
 			case "share":
-				parts = append(parts, fmt.Sprintf("%d of %d corners held", int(s.Have), int(s.Need)))
+				// The home city's count, named, in the dashboard's words
+				// (#537: `3 of 6 corners held` beside the dashboard's
+				// `3 held of 10` read as another city's six).
+				if home := w.Home(); home != nil {
+					parts = append(parts, fmt.Sprintf("%d held of %d in %s, %d needed", int(s.Have), len(home.Corners), home.Name, int(s.Need)))
+				}
 			case "factions":
 				// The crews still to arrive apart (#478): a seat in the
 				// wings blocks the crown as a crew on the street does,
@@ -337,8 +342,7 @@ func (m *Model) viewExit() string {
 	case content.CauseRetired:
 		body = m.wrapLines(fmt.Sprintf("Retire on %s offshore, %s quiet. Nobody comes looking. The run ends now, on day %d.", money(w.Offshore), plural(w.QuietDays, "day"), w.Day))
 	case content.CauseKingpin:
-		crews, homage := w.HomageDeals()
-		body = m.wrapLines(fmt.Sprintf("Take the crown on day %d of the reign: %s paying homage, %s a night, %s offshore. The city stays yours in the epilogue; the run ends now, on day %d.", w.ReignDay(), plural(crews, "crew"), money(homage), money(w.Offshore), w.Day))
+		body = m.wrapLines(fmt.Sprintf("Take the crown on day %d of the reign: %s, %s offshore. The city stays yours in the epilogue; the run ends now, on day %d.", w.ReignDay(), m.reignIncome(), money(w.Offshore), w.Day))
 	case content.CauseBusinessman:
 		// Its own copy (#498): it read as the vanish's.
 		body = m.wrapLines(fmt.Sprintf("Go straight on %s: the fronts at %s a day, the street given up, %s offshore. The DA's file goes to the archive; the run ends now, on day %d.", plural(len(w.Fronts), "front"), money(m.rules.Laundering.LegitIncome(w)), money(w.Offshore), w.Day))
@@ -351,6 +355,33 @@ func (m *Model) viewExit() string {
 	body = append(body, "", theme.Gold.Render(fmt.Sprintf("Score %s: %s over 1 + %s.", cash(w.Score()), cash(w.Offshore), plural(w.Stats.Bodies, "body"))))
 	body = append(body, theme.Subtle.Render(fmt.Sprintf("Left behind: %s dirty, %s clean, %s in stock, %s.", cash(w.Player.DirtyCash), cash(w.Player.CleanCash), plural(w.TotalStock(), "unit"), plural(len(w.Crew.Members), "member"))))
 	return m.modal(strings.ToUpper(r.name)+"?", body, m.modalFooter())
+}
+
+// reignIncome is what the reign pays a night, as the crown's
+// confirmation says it (#537: it read `$0 a night`, the homage alone,
+// on a reign whose tax paid $30K): the homage the crews pay and the
+// tax the free corners of the cities you hold pay (Territory.TaxDue,
+// the ledger's `tax` row), with the total first.
+func (m *Model) reignIncome() string {
+	w := m.w
+	crews, homage := w.HomageDeals()
+	tax, corners := 0, 0
+	for _, cid := range w.CityOrder {
+		n, amount := m.rules.Territory.TaxDue(w, cid)
+		corners += n
+		tax += amount
+	}
+	var parts []string
+	if crews > 0 {
+		parts = append(parts, fmt.Sprintf("%s homage from %s", money(homage), plural(crews, "crew")))
+	}
+	if corners > 0 {
+		parts = append(parts, fmt.Sprintf("~%s tax off %s", money(tax), plural(corners, "free corner")))
+	}
+	if len(parts) == 0 {
+		return "every crew gone and nothing paid a night"
+	}
+	return fmt.Sprintf("~%s a night (%s)", money(homage+tax), strings.Join(parts, ", "))
 }
 
 // exitConfirming is the dialog being on its confirmation page.

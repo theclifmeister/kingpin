@@ -171,8 +171,10 @@ keys in the footer. Longer pages scroll. `esc` or `q` closes the whole
 box from any step; `shift+tab` goes back a step in a dialog, and `tab`
 goes forward when the step is complete. Inside a dialog, `enter` advances
 or confirms. It never ends the day. A confirmation takes `y` and nothing
-else; any other key declines. On a play screen, `enter` asks before
-ending the day; `n` does not.
+else; any other key declines. On the dashboard, `enter` shows the
+night's preview and asks before ending the day; `n` ends it on any
+screen without asking. On the other screens `enter` does nothing to the
+row under the cursor and says where it works.
 
 Number fields take digits and `backspace`. Use `m` for the maximum, `h`
 for half, `↑`/`↓` for one at a time, or `pgup`/`pgdn` for ten. These
@@ -452,13 +454,12 @@ The full table is below; `?` brings it up in the game.
 | `s` | sell | queue a street sale in the city shown | everywhere |
 | `x` | cancel order | cancel order, else standing, else contract | everywhere |
 | `l` | lie low | lieutenants stop too; wages, contracts run | everywhere |
-| `p` | pay dial | the pay dial: stingy, fair, generous | everywhere |
+| `p P` | pay dial | the pay dial up a notch; P down one | everywhere |
 | `d D` | launder dial | the launder dial up a notch; D down one | everywhere |
 | `g` | go to \<city\> | go to the other city; the stock stays put | everywhere |
 | `r` | report | reopen the morning report | everywhere |
 | `␣` | more | open the details whole, uncut | everywhere |
 | `?` | help | this list | everywhere |
-| `enter` | end day | end the day, after a confirmation | everywhere |
 | `1-9` | switch screen | the screens in the title bar's order | everywhere |
 | `tab` | next screen | next screen; shift+tab back, in dialogs too | everywhere |
 | `ctrl+s` | save | save now; the end of the day saves too | everywhere |
@@ -470,6 +471,7 @@ The full table is below; `?` brings it up in the game.
 | `a` | ambitions | the endings as plans and how far each is | dashboard |
 | `o` | open alert | go where the selected alert is answered | dashboard |
 | `i` | intel | the file on the chief and the police here | dashboard |
+| `enter` | day preview | the night's preview, then end the day | dashboard |
 | `←→` | city | turn the market to the other city | market |
 | `a` | accept | take the buyer's offer | market |
 | `x` | decline | turn the buyer's offer down | market |
@@ -501,7 +503,7 @@ The full table is below; `?` brings it up in the game.
 | `v` | driver | put a driver on the selected route | map |
 | `i` | intel | the file on the faction holding the corner | map |
 | `←→` | branch | turn the tree to the next branch | upgrades |
-| `u` | buy upgrade | buy the node under the cursor (enter too) | upgrades |
+| `u` | buy upgrade | buy the node under the cursor, after asking | upgrades |
 | `b` | buy | buy a front, a house or an asset | ledger |
 | `m` | move stock | move stock between the street and the houses | ledger |
 | `e` | guard house | post an enforcer inside the selected house | ledger |
@@ -511,9 +513,9 @@ The full table is below; `?` brings it up in the game.
 | `f` | fund city | give a city clean cash for goodwill | ledger |
 | `u` | invest | clean cash into the selected front's levels | ledger |
 | `o` | reserve | clean cash into the offshore account | ledger |
+| `c` | clean to dirty | clean cash into the dirty pile, at a fee | ledger |
 | `S` | sweep | clean over a line offshore every night | ledger |
 | `T` | till | the dirty cash the wash leaves in hand | ledger |
-| `c` | cash out | clean cash into the dirty pile, at a fee | ledger |
 | `t` | export order | the selected export lane's nightly load | ledger |
 | `t` | buy trophy | buy the selected trophy, after asking | ledger |
 | `[ ]` | faction | the next faction at the table | rivals |

@@ -175,7 +175,9 @@ func (m *Model) veteranLines(c game.CrewMember) []string {
 			lines = append(lines, theme.Subtle.Render("  "+tr.Says))
 		}
 	case days > 0:
-		lines = append(lines, row("trait", theme.Subtle.Render("known in "+plural(max(1, days-served), "day"))))
+		// Its own clock in its own words (#537): days on the payroll,
+		// where a lieutenant's temper counts days running a city.
+		lines = append(lines, row("trait", theme.Subtle.Render(fmt.Sprintf("after %dd of service", max(1, days-served)))))
 	}
 	if c.Captain != "" {
 		lines = append(lines, row("captain", fmt.Sprintf("%s · %s a night", m.w.CityName(c.Captain), money(c.Budget))))

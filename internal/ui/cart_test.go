@@ -149,9 +149,9 @@ func TestCartListsAndEdits(t *testing.T) {
 	if o, _ := w.Order(home, pills); o.Dial != events.DialNormal || o.Qty != 4 {
 		t.Fatalf("right on the pills order: %+v (%s)", o, m.crt.err)
 	}
-	m.Update(key("1"))
+	m.Update(key("left"))
 	if o, _ := w.Order(home, pills); o.Dial != events.DialQuiet {
-		t.Fatalf("1 on the pills order: %+v", o)
+		t.Fatalf("left on the pills order: %+v", o)
 	}
 	// The quantity of an order: enter, the number, enter.
 	m.Update(key("enter"))
@@ -231,7 +231,7 @@ func TestCartListsAndEdits(t *testing.T) {
 	// at the screens that take it.
 	m.Update(key("3"))
 	m.Update(key("c"))
-	if m.status != "Cart on the dashboard screen (1) or the market screen (2). Captain on the crew screen (4). Post runner on the map screen (5). Cash out on the ledger screen (7)." {
+	if m.status != "Cart on the dashboard screen (1) or the market screen (2). Captain on the crew screen (4). Post runner on the map screen (5). Clean to dirty on the ledger screen (7)." {
 		t.Errorf("c on the journal: %q", m.status)
 	}
 }

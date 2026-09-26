@@ -67,11 +67,18 @@ func TestIdleRouteSaysWhy(t *testing.T) {
 		if main := stripANSI(mainText(m)); strings.Contains(main, "idle:") {
 			t.Errorf("%dx%d: a route with its stock stashed reads idle at the till:\n%s", sz[0], sz[1], main)
 		}
-		// Nothing at the source and nobody there selling: the stash.
+		// Nothing of it at the source and nobody there selling: what it
+		// is short of, never the stash as a whole (#537: `nothing in the
+		// Bayport stash` over 321 units of the rest).
 		w.SetStock(r.From, "coke", 0)
+		w.SetStock(r.From, "weed", 321)
 		w.Stats.PeakCash = min(w.Stats.PeakCash, sup.UnlockCash-1)
-		if main := stripANSI(mainText(m)); !strings.Contains(main, "idle: nothing in the "+w.CityName(r.From)+" stash") && !strings.Contains(main, "idle: empty") {
+		main = stripANSI(mainText(m))
+		if !strings.Contains(main, "idle: no Coke in the "+w.CityName(r.From)+" stash") && !strings.Contains(main, "idle: none") {
 			t.Errorf("%dx%d: an empty source does not say so:\n%s", sz[0], sz[1], main)
+		}
+		if strings.Contains(main, "idle: nothing in the") {
+			t.Errorf("%dx%d: a stash of 321 Weed reads as nothing:\n%s", sz[0], sz[1], main)
 		}
 	}
 }

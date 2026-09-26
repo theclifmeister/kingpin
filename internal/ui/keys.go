@@ -210,6 +210,16 @@ func mapOnRoutes(m *Model) bool {
 	return m.screen == screenMap && m.onRoutes && m.selectedRoute() != nil
 }
 
+// mapOnCorner is the map's corner keys' condition (#536): the cursor is
+// on the grid, not the routes under it. offRoutes is their refusal
+// there, said rather than acting on the corner the grid's cursor last
+// sat on: a playtest's e on COAST ROAD asked who should guard The Strip.
+func mapOnCorner(m *Model) bool { return m.screen == screenMap && !m.onRoutes }
+
+func offRoutes(m *Model) string {
+	return "Pick a corner: the cursor is on the routes under the grid, not a corner."
+}
+
 // spyOnFactions and spyOnCrew are the spy dialog's two pages (#45).
 func spyOnFactions(m *Model) bool { return m.spy.step == 0 }
 func spyOnCrew(m *Model) bool     { return m.spy.step == 1 }
@@ -524,7 +534,8 @@ var words = [][2]string{
 	{"score", "the offshore account over one plus the bodies; days shown"},
 	{"taken out", strings.TrimSuffix(takenOutWords, ",")},
 	{"betrayed", "a lieutenant turns on {betray_share} of your corners, {betray_corners}+: that night"},
-	{"quiet day", "all heat under {retire_heat}; no strike, push, bust or buyer's order"},
+	{"quiet day", "heat under {retire_heat}; no strike, push, war, bust, buyer's order owed"}, // the rule as laundering.Sim.quiet has it (#537)
+	{"the street", "your corners and their trade; a corner back to it is nobody's"},
 	{"run out", "no corner left: a claim it loses soon keeps the clock running"},
 	{"absorbed", "run out long enough: it joins the faction that took its last"},
 	{"scattered", "run out too long, or broke: it stands down, nobody's"},

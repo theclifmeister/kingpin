@@ -119,10 +119,9 @@ func TestDeedKeys(t *testing.T) {
 		t.Fatalf("the deed's section:\n%s", pane)
 	}
 	m.Update(key("enter"))
-	if m.mode != modeConfirmEnd {
-		t.Fatalf("enter on a deed row: mode %v (the frame's enter should ask to end the day)", m.mode)
+	if m.mode != modePlay {
+		t.Fatalf("enter on a deed row: mode %v (#536: enter is the dashboard's, it points there)", m.mode)
 	}
-	m.Update(key("esc"))
 	// d on the ledger is still the launder dial: the map's d is the
 	// map's alone.
 	dial := w.Laundering.Dial

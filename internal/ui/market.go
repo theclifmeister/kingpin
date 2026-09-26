@@ -534,10 +534,8 @@ func (m *Model) marketMove(dx, dy int) {
 		m.suppliersMove(dy)
 	case m.onBuyers:
 		m.buyersMove(dy)
-	case dy < 0 && m.cursor > 0:
-		m.cursor--
-	case dy > 0 && m.cursor < len(m.w.Products)-1:
-		m.cursor++
+	case m.stepProduct(dy, m.shown().ID):
+		// Over the rows the table shows (#536), not the ladder.
 	case dy > 0 && len(m.buyerRows()) > 0:
 		// Off the bottom of the table the arrows reach the buyers,
 		// the way the map's reach the routes, and off the bottom of

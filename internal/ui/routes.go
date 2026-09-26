@@ -103,6 +103,7 @@ func (m *Model) openTarget() {
 		return
 	}
 	m.tgt = targetDialog{route: r.ID, units: newNumberField("blank = none")}
+	m.cursor = 0 // the first row, as every product picker opens with no row named (#536)
 	m.mode = modeTarget
 }
 
@@ -160,8 +161,10 @@ func (m *Model) keyTarget(k tea.KeyMsg) (tea.Model, tea.Cmd) {
 		}
 	case 1:
 		switch key {
-		case "left", "right", "h", "l":
-			d.days = !d.days
+		case "left", "h":
+			d.days = false // ←→ stop at the ends (#536): → from days wrapped to units
+		case "right", "l":
+			d.days = true
 		case "enter", "tab":
 			d.step = 2
 			d.units.SetValue("")
@@ -377,7 +380,9 @@ func (m *Model) routeIdle(r content.RouteConfig) (long, short string, style lipg
 		}
 		return "idle: no dirty cash over the " + cash(m.till()) + " till", "idle: till", style
 	case events.IdleStock:
-		return "idle: nothing in the " + m.w.CityName(r.From) + " stash", "idle: empty", style
+		// What it is short of, not the stash (#537: `idle: nothing in
+		// the Bayport stash` over a stash of 321 units of the rest).
+		return "idle: " + m.routeShortOf(r) + " in the " + m.w.CityName(r.From) + " stash", "idle: none", style
 	case events.IdleNoTarget:
 		return "idle: no target", "no target", style
 	case events.IdleClosed:
@@ -386,6 +391,26 @@ func (m *Model) routeIdle(r content.RouteConfig) (long, short string, style lipg
 		return "idle: target met", "idle: met", theme.Subtle
 	}
 	return "", "", style
+}
+
+// routeShortOf is what a route idle on an empty stash has none of at
+// its source, as the report's line says it: `no Weed or Coke` for one
+// or two products, `nothing it is short of` for more.
+func (m *Model) routeShortOf(r content.RouteConfig) string {
+	w := m.w
+	var names []string
+	for _, id := range w.Products {
+		if w.Product(r.From, id) == nil || w.Product(r.To, id) == nil || w.Stock(r.From, id) > 0 {
+			continue
+		}
+		if m.targetToday(r, id) > w.Stock(r.To, id)+w.Bound(r.To, id) {
+			names = append(names, w.ProductName(id))
+		}
+	}
+	if len(names) == 0 || len(names) > 2 {
+		return "nothing it is short of"
+	}
+	return "no " + strings.Join(names, " or ")
 }
 
 // dialStyle is the colour a route dial is drawn in: the dial's accent

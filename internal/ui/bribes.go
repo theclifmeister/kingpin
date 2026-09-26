@@ -7,6 +7,7 @@ import (
 	tea "github.com/charmbracelet/bubbletea"
 
 	"github.com/theclifmeister/kingpin/internal/content"
+	"github.com/theclifmeister/kingpin/internal/events"
 	"github.com/theclifmeister/kingpin/internal/format"
 	"github.com/theclifmeister/kingpin/internal/game"
 	"github.com/theclifmeister/kingpin/internal/ui/theme"
@@ -332,8 +333,17 @@ func (m *Model) checkpointConfirm() []string {
 	if until, live := w.Checkpoint(r.ID); live {
 		body = append(body, theme.Subtle.Render(fmt.Sprintf("Yours until day %d already; this adds to it.", until)))
 	}
-	if d.On() {
-		body = append(body, "", row("seized now", fmt.Sprintf("%s a run at %s", m.seizedWord(*r, d.Ship()), d)))
+	// The rate as the file knows it (#537: `seized ?` beside a rate the
+	// intel screen held): the run's odds at the dial and the fact they
+	// fold, a day in transit, or that nothing is known of this road.
+	ship := d.Ship()
+	if !d.On() {
+		ship = events.ShipNormal
+	}
+	if base, ok := m.known().Risk(r.ID); ok {
+		body = append(body, "", row("seized now", fmt.Sprintf("%s a run at %s · %s a day known", m.seizedWord(*r, ship), ship, "~"+format.Pct(base, 0))))
+	} else {
+		body = append(body, "", row("seized now", theme.Subtle.Render("not known: no seizure or intel on this road yet")))
 	}
 	body = append(body, "")
 	for _, l := range m.wrapLines(fmt.Sprintf("A law-and-order DA taking office ends it within %s, and nothing is for sale while they sit.", plural(tun.CallsStopDays, "day"))) {

@@ -81,7 +81,7 @@ func TestCrownSaysWhatKeepsACrew(t *testing.T) {
 	if strings.Contains(help, "{") {
 		t.Errorf("a WORDS line kept its placeholder:\n%s", help)
 	}
-	if line := "all heat under " + strconv.Itoa(int(m.cfg.Laundering.Offshore.RetireHeat)); !strings.Contains(help, line) {
+	if line := "heat under " + strconv.Itoa(int(m.cfg.Laundering.Offshore.RetireHeat)); !strings.Contains(help, line) {
 		t.Errorf("the quiet day does not read the file's line %q", line)
 	}
 }

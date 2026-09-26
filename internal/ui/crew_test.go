@@ -37,11 +37,22 @@ func TestCrewScreenKeys(t *testing.T) {
 	if m.w.Crew.Pay != events.PayGenerous {
 		t.Fatalf("pay after one p = %v", m.w.Crew.Pay)
 	}
+	// The dial stops at its ends (#536): a second p stays generous and
+	// says so, where it went round to stingy; P turns it back down.
 	m.Update(key("p"))
-	m.Update(key("p"))
-	if m.w.Crew.Pay != events.PayFair {
-		t.Fatalf("pay after three p = %v", m.w.Crew.Pay)
+	if m.w.Crew.Pay != events.PayGenerous || m.statusKind != statusWarning {
+		t.Fatalf("pay after two p = %v (status %q)", m.w.Crew.Pay, m.status)
 	}
+	m.Update(key("P"))
+	if m.w.Crew.Pay != events.PayFair {
+		t.Fatalf("pay after P = %v", m.w.Crew.Pay)
+	}
+	m.Update(key("P"))
+	m.Update(key("P"))
+	if m.w.Crew.Pay != events.PayStingy {
+		t.Fatalf("pay after three P = %v", m.w.Crew.Pay)
+	}
+	m.Update(key("p"))
 	// The cursor stays on the faces looking for work (#445); up is the
 	// new hire, and f asks, anything but y backs out.
 	m.Update(key("up"))
@@ -214,7 +225,7 @@ func TestAssignLieutenantKeys(t *testing.T) {
 	if !strings.Contains(view, "runs "+w.CityName(other)) || strings.Contains(view, "Bayport ?") {
 		t.Fatalf("crew screen after assigning:\n%s", view)
 	}
-	if pane := paneText(m); !strings.Contains(pane, "temper      shows in 10 days") || strings.Contains(pane, "temper      violent") || !strings.Contains(pane, w.CityName(other)+"     Marcus") {
+	if pane := paneText(m); !strings.Contains(pane, "temper      after 10d running it") || strings.Contains(pane, "temper      violent") || !strings.Contains(pane, w.CityName(other)+"     Marcus") {
 		t.Fatalf("pane after assigning:\n%s", pane)
 	}
 	assertFits(t, m.View(), 80, 24, "crew screen with a lieutenant")
@@ -238,7 +249,7 @@ func TestAssignLieutenantKeys(t *testing.T) {
 	m.Update(key("enter"))
 	w.Crew.Member(2).Observed = true
 	m.Update(key("4"))
-	if pane := paneText(m); !strings.Contains(pane, "temper      violent") || strings.Contains(pane, "shows in") || !strings.Contains(pane, "Marcus · violent") {
+	if pane := paneText(m); !strings.Contains(pane, "temper      violent") || strings.Contains(pane, "running it") || !strings.Contains(pane, "Marcus · violent") {
 		t.Fatalf("pane with the temper observed:\n%s", pane)
 	}
 	// ... and what the temper does (#455): the violent one's dial.

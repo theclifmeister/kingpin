@@ -56,7 +56,6 @@ blurb = "Runners on the corners and a rival on the way."
 checkpoint = 70
 opens = [
   "runners on corners, enforcers on guard",
-  "the rival, from day 10",
   "a second connect at $25K moved, if the street connect vouches",
 ]
 next = "Move $25K: the laundromat opens, and the fronts begin."
@@ -64,7 +63,7 @@ text = [
   "Somebody else stands on the corner now and you count the take.",
   "A runner sells what you hand them and draws heat of their own; an enforcer keeps the stick-ups off and makes a rival's push harder, never impossible.",
   "Pay them or they skim, and a skimmer under enough pressure talks.",
-  "The rival is on the way and does not ask.",
+  "The rival comes on day 10 whether you hire or not, and does not ask.",
 ]
 [tier.enter]
 crew_min = 1

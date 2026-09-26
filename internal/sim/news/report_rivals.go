@@ -178,7 +178,13 @@ func (r *reporter) reportRivals(e events.Event) bool {
 		d.Rival, d.Deal = ev.Rival, ev.Deal
 		d = r.crew(d, ev.Rival)
 		r.add("rivals", "DealOffered", d)
-		rep.Territory = append(rep.Territory, fmt.Sprintf("%s offers %s. It stands %s: answer it on the rivals screen (8).", ev.Rival, ev.Terms, format.Plural(ev.Expires-t.Day+1, "day")))
+		// A tribute they offer is one they want paid (#537): a demand,
+		// worded apart from the homage they offer to pay you.
+		verb := "offers"
+		if ev.Deal == game.DealTribute {
+			verb = "demands"
+		}
+		rep.Territory = append(rep.Territory, fmt.Sprintf("%s %s %s. It stands %s: answer it on the rivals screen (8).", ev.Rival, verb, ev.Terms, format.Plural(ev.Expires-t.Day+1, "day")))
 	case events.DealAccepted:
 		d := base
 		d.Rival, d.Deal = ev.Rival, ev.Deal

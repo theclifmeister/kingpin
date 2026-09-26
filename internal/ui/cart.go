@@ -498,11 +498,19 @@ func (m *Model) keyCart(k tea.KeyMsg) (tea.Model, tea.Cmd) {
 		d.step = 1
 		d.qty.Set(l.qty)
 		return m, d.qty.Focus()
+	case "1", "2", "3", "4", "5", "6", "7", "8", "9":
+		// The digit rule (#500, #536): a digit is the row, never the
+		// dial and never an act; the dial is ←→ on its row.
+		if i, _ := digit(key); i < len(m.cartModalLines()) {
+			d.cursor = i
+		}
 	case "x":
 		if l != nil {
+			before := m.cartModalLines()
 			m.removeCartLine(*l)
+			m.cartCursorAfter(before, *l)
 		}
-	case "left", "h", "right", "l", "1", "2", "3":
+	case "left", "h", "right", "l":
 		if l == nil || l.buy || l.keep {
 			return m, nil
 		}
@@ -516,8 +524,6 @@ func (m *Model) keyCart(k tea.KeyMsg) (tea.Model, tea.Cmd) {
 			if dial < events.DialAggressive {
 				dial++
 			}
-		default:
-			dial = events.Dial(key[0] - '1')
 		}
 		if dial != l.dial {
 			if err := m.placeLine(*l, l.qty, dial); err != nil {
@@ -526,6 +532,46 @@ func (m *Model) keyCart(k tea.KeyMsg) (tea.Model, tea.Cmd) {
 		}
 	}
 	return m, nil
+}
+
+// cartCursorAfter puts the cart's cursor on the line that was under
+// the one x just removed (#536): the next line down, found by what it
+// is rather than the row, so a second x removes the next line and not
+// one that slid or appeared into the row (an order of the day cancelled
+// shows the standing order under it in its place). Where x removed
+// nothing the cursor stays on the line; with no line after it, the
+// last line.
+func (m *Model) cartCursorAfter(was []cartLine, gone cartLine) {
+	lines := m.cartModalLines()
+	if len(lines) == 0 {
+		m.crt.cursor = 0
+		return
+	}
+	same := func(a, b cartLine) bool {
+		return a.buy == b.buy && a.keep == b.keep && a.standing == b.standing && a.contract == b.contract && a.credit == b.credit && a.city == b.city && a.product == b.product
+	}
+	for i, l := range lines {
+		if same(l, gone) && l.qty == gone.qty {
+			m.crt.cursor = i // nothing removed: the line stays under the cursor
+			return
+		}
+	}
+	// The line that followed it before, where it is now.
+	for i, l := range was {
+		if !same(l, gone) {
+			continue
+		}
+		for _, next := range was[i+1:] {
+			for j, now := range lines {
+				if same(now, next) {
+					m.crt.cursor = j
+					return
+				}
+			}
+		}
+		break
+	}
+	m.crt.cursor = min(m.crt.cursor, len(lines)-1)
 }
 
 // placeLine places an order line again at a quantity and a dial: a

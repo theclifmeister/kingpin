@@ -236,7 +236,16 @@ func TestProposalSaysWhatItReplaces(t *testing.T) {
 		t.Fatalf("d: mode %v, status %q", m.mode, m.status)
 	}
 	m.Update(key("enter")) // truce
-	m.Update(key("enter")) // its first term
+	m.Update(key("enter")) // its first term: replacing tonight's asks first (#536)
+	if view := stripANSI(m.View()); m.mode != modeConfirm || !strings.Contains(view, "REPLACE TONIGHT'S PROPOSAL?") || !strings.Contains(view, alive[0].Leader) {
+		t.Fatalf("the second proposal did not ask: mode %v\n%s", m.mode, view)
+	}
+	m.Update(key("esc")) // no: back on the dialog, the first proposal standing
+	if p := w.Today.Proposal; m.mode != modePropose || p == nil || w.Faction(p.Faction) != alive[0] {
+		t.Fatalf("no to the replacement: mode %v, proposal %+v", m.mode, p)
+	}
+	m.Update(key("enter"))
+	m.Update(key("y"))
 	if p := w.Today.Proposal; p == nil || w.Faction(p.Faction) != alive[1] || !strings.Contains(m.status, "It replaces a 5-day truce to "+alive[0].Leader+"'s crew") {
 		t.Fatalf("the second proposal: %+v, status %q", p, m.status)
 	}

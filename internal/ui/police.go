@@ -21,12 +21,13 @@ import (
 // section then leads the pane; up from there is the table again.
 func (m *Model) dashboardMove(dy int) {
 	switch {
-	case m.onPolice && dy < 0:
-		m.onPolice = false
-	case !m.onPolice && dy > 0 && m.cursor >= len(m.w.Products)-1:
+	case m.onPolice:
+		if dy < 0 {
+			m.onPolice = false
+		}
+	case !m.stepProduct(dy, m.w.Here().ID) && dy > 0:
+		// Off the table's last row (#536: the rows it shows).
 		m.onPolice = true
-	case !m.onPolice:
-		m.productMove(dy)
 	}
 }
 

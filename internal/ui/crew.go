@@ -3,6 +3,7 @@ package ui
 import (
 	"fmt"
 	"math"
+	"slices"
 	"strings"
 
 	"github.com/charmbracelet/lipgloss"
@@ -29,7 +30,50 @@ func (m *Model) crewSelected() (game.CrewMember, bool, bool) {
 	if len(rows) == 0 {
 		return game.CrewMember{}, false, false
 	}
-	return rows[clamp(&m.crewCursor, len(rows))], m.crewCursor < len(m.w.Crew.Members), true
+	i := m.syncCrew()
+	return rows[i], i < len(m.w.Crew.Members), true
+}
+
+// syncCrew keeps the crew cursor on a person, not a row (#536), and
+// returns its row. Overnight the pool turns over and members leave, so
+// the row the cursor sat on held somebody else (a playtest's first
+// press of h on the crew screen, the ▸ nowhere in sight, hired the
+// third face): where the rows have changed since the cursor was last
+// read, the person it was on is found again, and where they are gone
+// the row stays, held to the rows there are. With the rows as they
+// were, or a cursor set since (a hire, a fire, an alert's jump), the
+// cursor is taken as it is.
+func (m *Model) syncCrew() int {
+	rows := m.crewRows()
+	if len(rows) == 0 {
+		m.crewCursor, m.crewID, m.crewIDs = 0, 0, nil
+		return 0
+	}
+	// A person is their list and their id: a face in the pool may share
+	// an id with a member where a save or a fixture built them apart.
+	ids := make([]int, len(rows))
+	members := len(m.w.Crew.Members)
+	for i, c := range rows {
+		ids[i] = 2 * c.ID
+		if i >= members {
+			ids[i]++
+		}
+	}
+	if m.crewID != 0 && m.crewCursor == m.crewAt && !slices.Equal(ids, m.crewIDs) {
+		if i := slices.Index(ids, m.crewID); i >= 0 {
+			m.crewCursor = i
+		}
+	}
+	i := clamp(&m.crewCursor, len(rows))
+	m.crewID, m.crewIDs, m.crewAt = ids[i], ids, i
+	return i
+}
+
+// pinCrew takes the crew cursor where a hire or a fire just set it:
+// the rows changed under it on purpose, so nobody is followed.
+func (m *Model) pinCrew() {
+	m.crewID = 0
+	m.syncCrew()
 }
 
 func (m *Model) hireSelected() {
@@ -53,6 +97,7 @@ func (m *Model) hireSelected() {
 	} else {
 		m.crewCursor = len(m.w.Crew.Members) - 1
 	}
+	m.pinCrew() // the row just set, whoever sat there before (#536)
 }
 
 func (m *Model) askFire() {
@@ -137,6 +182,7 @@ func (m *Model) confirmFire() {
 	if n := len(m.w.Crew.Members); at >= 0 && n > 0 {
 		m.crewCursor = min(at, n-1)
 	}
+	m.pinCrew() // the next one down in ON THE PAYROLL, never a face in the pool (#536)
 	m.say(fmt.Sprintf("%s is gone. The rest noticed.", got.Name) + m.overCapWords())
 }
 
@@ -226,8 +272,23 @@ func (m *Model) payOffConfirm() string {
 	return m.modal("PAY OFF "+c.Name+"?", body, m.modalFooter())
 }
 
-func (m *Model) cyclePay() {
-	p := (m.w.Crew.Pay + 1) % 3
+// cyclePay is p and P, the pay dial a notch up and a notch down (#536):
+// it stops at either end, where it went round (fair, generous, stingy,
+// so two presses by accident cut the pay to stingy), and says so there.
+func (m *Model) cyclePay(down bool) {
+	p := m.w.Crew.Pay
+	switch {
+	case down && p == events.PayStingy:
+		m.refuse("Can't cut the pay: it is stingy, the bottom notch.")
+		return
+	case !down && p == events.PayGenerous:
+		m.refuse("Can't raise the pay: it is generous, the top notch.")
+		return
+	case down:
+		p--
+	default:
+		p++
+	}
 	if err := m.sess.SetPay(p); err != nil {
 		m.refuse("Can't set the pay: " + err.Error())
 		return
@@ -360,6 +421,7 @@ func (m *Model) viewCrew() string {
 		b.WriteString(truncate(theme.Bad.Render(warn), width) + "\n")
 	}
 
+	m.syncCrew() // the ▸ on the person it was on (#536)
 	marks := []float64{tun.SkimThreshold / 100}
 	kin := false // a name carries the kin mark, and the tables a legend
 	// row is the cells every member and candidate shares: the loyalty
@@ -656,7 +718,7 @@ func (m *Model) temper(c game.CrewMember) string {
 		return theme.Subtle.Render("shows on the job")
 	}
 	left := max(1, m.rules.Crew.RevealDays()-(m.w.Day-c.Assigned))
-	return theme.Subtle.Render("shows in " + plural(left, "day"))
+	return theme.Subtle.Render(fmt.Sprintf("after %dd running it", left)) // named apart from the trait's clock (#537)
 }
 
 // lieutenantLines are what running a city means (#455), under a
@@ -864,6 +926,8 @@ func (m *Model) wounded() int {
 // crewMove walks the crew screen's rows: the roster, then the
 // candidates.
 func (m *Model) crewMove(dy int) {
+	m.syncCrew()
+	defer m.syncCrew()
 	if dy < 0 && m.crewCursor > 0 {
 		m.crewCursor--
 	} else if dy > 0 && m.crewCursor < len(m.crewRows())-1 {

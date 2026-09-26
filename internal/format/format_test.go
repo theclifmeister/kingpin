@@ -47,9 +47,15 @@ func TestPlural(t *testing.T) {
 	for _, c := range []struct {
 		n    int
 		want string
-	}{{0, "0 corners"}, {1, "1 corner"}, {2, "2 corners"}} {
+	}{{0, "0 corners"}, {1, "1 corner"}, {2, "2 corners"}, {16_007, "16,007 corners"}, {-1_200, "-1,200 corners"}} {
 		if got := Plural(c.n, "corner"); got != c.want {
 			t.Errorf("Plural(%d) = %q, want %q", c.n, got, c.want)
+		}
+	}
+	// A count has the dollars' separators (#537: "off 16007 units").
+	for n, want := range map[int]string{0: "0", 940: "940", 1_000: "1,000", 16_007: "16,007", 1_234_567: "1,234,567", -1_200: "-1,200"} {
+		if got := Int(n); got != want {
+			t.Errorf("Int(%d) = %q, want %q", n, got, want)
 		}
 	}
 	// The irregulars the game counts, and a two-word noun on its last.

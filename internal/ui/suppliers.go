@@ -160,7 +160,7 @@ func (m *Model) supplierSections(sup *game.Supplier) []section {
 	if sup.SmallLot > 1 {
 		sel = append(sel, row("", theme.Subtle.Render("under it "+format.TimesSig(sup.SmallLot, 2)+" a unit")))
 	}
-	sel = append(sel, row("today", fmt.Sprintf("%d of %d left", sup.Left(), sup.Cap)))
+	sel = append(sel, row("today", fmt.Sprintf("%s of %s left", format.Int(sup.Left()), format.Int(sup.Cap))))
 	// What they sell is as good as the file says (#47): named where it
 	// is not the default for a product they deal in.
 	var graded []string

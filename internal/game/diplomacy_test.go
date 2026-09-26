@@ -113,7 +113,7 @@ func TestDealLifetime(t *testing.T) {
 		want string
 	}{
 		{d, "a 15-day truce"},
-		{Deal{Kind: DealTribute, Terms: Terms{PerDay: 1200}}, "tribute of $1,200 a day"},
+		{Deal{Kind: DealTribute, Terms: Terms{PerDay: 1200}}, "tribute: you pay them $1,200 a day"},
 		{split, "a split: 2 corners your side of the line"},
 	} {
 		if got := tc.d.String(); got != tc.want {

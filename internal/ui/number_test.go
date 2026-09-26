@@ -13,7 +13,8 @@ import (
 // field m is max and h half of it (rounded down), ↑ past max stays at
 // max, pgdn past zero stays at zero, the field shows `/ N max`
 // after the number and its footer lists the shortcuts; and a typed
-// number over max is refused on the buy and sell quantity steps (#467), the
+// number over max is held to it on the buy and sell quantity steps (#467,
+// #536: and the dialog goes on, saying so), the
 // route target excepted, which is set as it always was (a target is
 // stock to keep, and the wholesaler sells into the stash whatever its
 // room). The five fields: the buy and sell quantities, the cart's (a buy
@@ -34,12 +35,12 @@ func TestNumberField(t *testing.T) {
 			m.Update(key("s"))
 			m.Update(key("enter"))
 		}, func(m *Model) *numberField { return &m.dlg.qty }, func(m *Model) int { return m.w.Stock(m.w.Player.Location, m.w.Products[0]) },
-			func(m *Model) string { return m.dlg.err }, false, true},
+			func(m *Model) string { return m.dlg.note + m.dlg.err }, false, true},
 		{"buy", func(m *Model) {
 			m.Update(key("b"))
 			m.Update(key("enter"))
 		}, func(m *Model) *numberField { return &m.dlg.qty }, func(m *Model) int { return m.maxBuy(m.w.Products[0]) },
-			func(m *Model) string { return m.dlg.err }, false, true},
+			func(m *Model) string { return m.dlg.note + m.dlg.err }, false, true},
 		{"cart buy", func(m *Model) {
 			fillCart(t, m)
 			m.Update(key("c"))
@@ -146,13 +147,13 @@ func TestNumberField(t *testing.T) {
 		}
 		want("typing 1 x 2 ⌫ 3", "13")
 		// A typed number over max: refused, or, for a target, set as it
-		// always was. The buy and the sell dialogs refuse it on the
-		// quantity step itself (#467), setting the field to what fits,
-		// rather than a step or two later.
+		// always was. The buy and the sell dialogs hold it to the max on
+		// the quantity step itself (#467) and go on to the next step
+		// saying so (#536: the clamp ate the enter).
 		fld.SetValue(strconv.Itoa(mx + 1))
 		m.Update(key("enter"))
-		if (f.name == "sell" || f.name == "buy") && (m.dlg.step != 1 || fld.Value() != strconv.Itoa(mx)) {
-			t.Errorf("%s: %d over a max of %d left the quantity step (%d) or kept the number %q", f.name, mx+1, mx, m.dlg.step, fld.Value())
+		if (f.name == "sell" || f.name == "buy") && (m.dlg.step != 2 || fld.Value() != strconv.Itoa(mx) || m.dlg.note == "") {
+			t.Errorf("%s: %d over a max of %d: step %d, the number %q, the note %q", f.name, mx+1, mx, m.dlg.step, fld.Value(), m.dlg.note)
 		}
 		switch {
 		case f.refused && (m.mode != mode || f.err(m) == ""):
