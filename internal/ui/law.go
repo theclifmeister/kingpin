@@ -310,6 +310,9 @@ func (m *Model) viewCampaign(c *game.City) string {
 		inHand(w.Player.DirtyCash, w.Player.CleanCash-given), // the clean cash left after the first page's goodwill
 		row("ticket", dialCells(tickets, m.fnd.ticket)),
 		row("campaign", holds),
+		// The price before the amount (#506): a playtest put $15K in for
+		// a tenth of a point before the dialog said what a point cost.
+		row("price", fmt.Sprintf("%s a point of the vote, %.0f at most", theme.Gold.Render(money(cmp.Cash)), cmp.SwingMax*100)),
 		row("amount", field.View()),
 	}
 	if back, err := m.backAmount(); err == nil && back > 0 {
@@ -318,7 +321,7 @@ func (m *Model) viewCampaign(c *game.City) string {
 			style = theme.Bad
 		}
 		total := camp.Cash + back
-		body = append(body, row("buys", fmt.Sprintf("%s of %s's vote for %s   %s", theme.Good.Render(swingWord(cmp.Swing(total))), c.Name, style.Render(money(back)), theme.Subtle.Render(fmt.Sprintf("(%s a point, %.0f at most)", money(cmp.Cash), cmp.SwingMax*100)))))
+		body = append(body, row("buys", fmt.Sprintf("%s of %s's vote for %s", theme.Good.Render(swingWord(cmp.Swing(total))), c.Name, style.Render(money(back)))))
 		body = append(body, m.upkeepWarning(w.Player.CleanCash-given-back, w.Player.DirtyCash, m.upkeepTonight())...)
 	}
 	body = append(body, "",

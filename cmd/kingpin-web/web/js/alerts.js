@@ -56,6 +56,7 @@ export const WORDS = {
       v.you && v.you.offshore ? ` The ${money(v.you.offshore)} offshore does not count: nothing comes back from it.` : ""
     }`,
   crew_line: (v, a) => {
+    if (a.cross === "under") return `${memberName(v, a.member)} is under ${Math.round(n(a.line))} loyalty: a lieutenant that low talks to the police.`;
     const cross = { skim: "skimming", flip: "turning", walk: "walking" }[a.cross] || a.cross;
     return `${memberName(v, a.member)} is ${Math.max(1, Math.ceil(n(a.gap)))} from ${cross}${a.days ? ` (${plural(a.days, "day")})` : ""}.`;
   },

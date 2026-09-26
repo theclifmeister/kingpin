@@ -442,7 +442,7 @@ The full table is below; `?` brings it up in the game.
 | `b` | buy | buy where you stand or a lieutenant runs | everywhere |
 | `s` | sell | queue a street sale in the city shown | everywhere |
 | `x` | cancel order | cancel order, else standing, else contract | everywhere |
-| `l` | lie low | no sales, heat fades; wages, contracts run | everywhere |
+| `l` | lie low | lieutenants stop too; wages, contracts run | everywhere |
 | `p` | pay dial | the pay dial: stingy, fair, generous | everywhere |
 | `d D` | launder dial | the launder dial up a notch; D down one | everywhere |
 | `g` | go to \<city\> | go to the other city; the stock stays put | everywhere |

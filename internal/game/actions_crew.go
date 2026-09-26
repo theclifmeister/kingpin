@@ -174,6 +174,16 @@ func (w *World) Assign(id int, city string) error {
 	w.DropStanding(m.City)
 	m.City = city
 	m.Assigned = w.Day
+	// The stick-ups before they came are not theirs to count (#497).
+	m.Stickups = nil
+	for _, c := range w.Cities[city].Corners {
+		if c.Robbed > 0 {
+			if m.Stickups == nil {
+				m.Stickups = map[string]int{}
+			}
+			m.Stickups[c.ID] = c.Robbed
+		}
+	}
 	return nil
 }
 
@@ -255,5 +265,6 @@ func (w *World) Unassign(id int) error {
 	}
 	w.DropStanding(m.City)
 	m.City = ""
+	m.Stickups = nil
 	return nil
 }

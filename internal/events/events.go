@@ -1063,6 +1063,7 @@ type DealRefused struct {
 	Faction string // faction id (#144)
 	Deal    string
 	Terms   string
+	Why     string // #506: why nobody answered (not moved in yet, gone); "" for a refusal on the dice, the only one with a headline
 }
 
 func (DealRefused) Kind() string { return "DealRefused" }
@@ -1090,6 +1091,20 @@ type DealEnded struct {
 }
 
 func (DealEnded) Kind() string { return "DealEnded" }
+
+// DealEnding is a truce's last night ahead (#506), report-only: the
+// rivals sim's word the morning before the night it runs out, so its
+// end is never news the morning after only. Until is the tick it no
+// longer holds on.
+type DealEnding struct {
+	Day     int
+	Rival   string
+	Faction string
+	Deal    string
+	Until   int
+}
+
+func (DealEnding) Kind() string { return "DealEnding" }
 
 // ClaimDeterred is report-only (#233): a faction rolled to set up on a
 // free corner in City tonight and your fear turned the roll (the roll
@@ -1269,6 +1284,20 @@ type ScoutsHit struct {
 
 func (ScoutsHit) Kind() string { return "ScoutsHit" }
 
+// ScoutsMissed is a hit on a faction's scouts that found nobody to hit
+// (#506), report-only: the enforcers went out on your order and the
+// faction was gone, had moved in, or had gone home first. Why says
+// which.
+type ScoutsMissed struct {
+	Day     int
+	Rival   string
+	Faction string
+	City    string
+	Why     string
+}
+
+func (ScoutsMissed) Kind() string { return "ScoutsMissed" }
+
 // RivalLeaderArrested is a faction's leader taken by the police (its
 // heat past leader_arrest_heat, your tips): the faction fragments, its
 // Corners drift to the street over fragment_days, the city's prices
@@ -1373,6 +1402,26 @@ type LieutenantActed struct {
 	Skimmed     int      // what a greedy one took on top; the report never says so
 	Bought      []Bought // what their supply contracts bought this morning (#174), in ladder order
 	Contracts   int      // supply contracts kept for tomorrow (#174)
+	Held        []Held   // stock kept back from their orders for a route or a contract (#497), in product order
+	Took        []Took   // idle crew they put to work in their city tonight (#497), in roster order
+}
+
+// Held is stock a lieutenant kept back from the night's orders (#497):
+// earmarked by a route running out of their city (For its name) or a
+// contract you took there (For "a contract").
+type Held struct {
+	Product string
+	Units   int
+	For     string
+}
+
+// Took is an idle member a lieutenant put on a corner in their city
+// (#497): posted from wherever you left them, which is the report's to
+// say, since nobody but you ordered it.
+type Took struct {
+	Name   string
+	Role   string
+	Corner string
 }
 
 func (LieutenantActed) Kind() string { return "LieutenantActed" }

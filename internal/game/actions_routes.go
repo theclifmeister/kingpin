@@ -1,6 +1,11 @@
 package game
 
-import "github.com/theclifmeister/kingpin/internal/events"
+import (
+	"math"
+
+	"github.com/theclifmeister/kingpin/internal/content"
+	"github.com/theclifmeister/kingpin/internal/events"
+)
 
 // RouteSetting is the player's standing instruction for one route (#61):
 // the dial it runs at and the stock the far city is kept at, per product,
@@ -206,4 +211,40 @@ func (w *World) DrivenRoute(id int) string {
 		}
 	}
 	return ""
+}
+
+// RouteTarget is the units a route keeps its destination at for a
+// product today: the units target as set, or a days target (#115) read
+// as days times World.Demand at the far end this morning, rounded up
+// (DaysTarget); no dice. Zero for a route with no target for the
+// product. The logistics sim ships to it, and a lieutenant in the
+// route's source city keeps back what it owes (#497).
+func (w *World) RouteTarget(r content.RouteConfig, product string) int {
+	rs := w.Route(r.ID)
+	if d := rs.Days[product]; d > 0 {
+		return w.DaysTarget(r.To, product, d)
+	}
+	return max(0, rs.Target[product])
+}
+
+// DaysTarget is the units that many days of a city's demand for a
+// product are this morning, rounded up.
+func (w *World) DaysTarget(city, product string, days int) int {
+	if days <= 0 {
+		return 0
+	}
+	// A hair under the product, so a share that multiplies to a whole
+	// number is that number and not the one over it.
+	return int(math.Ceil(float64(days)*w.Demand(city, product) - 1e-9))
+}
+
+// RouteShortfall is how many units of a product a route owes its
+// destination today: the target less what is stashed there and what is
+// already on the road to it.
+func (w *World) RouteShortfall(r content.RouteConfig, product string) int {
+	target := w.RouteTarget(r, product)
+	if target <= 0 {
+		return 0
+	}
+	return max(0, target-w.Stock(r.To, product)-w.Bound(r.To, product))
 }

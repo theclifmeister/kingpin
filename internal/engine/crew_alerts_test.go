@@ -59,6 +59,7 @@ func TestCrewTroubleAlerts(t *testing.T) {
 		{"near the walk", game.RoleEnforcer, tun.QuitThreshold + 4, "walk", tun.QuitThreshold},
 		{"a lieutenant near the flip", game.RoleLieutenant, flip + 2, "flip", flip},
 		{"a lieutenant past the flip, near the walk", game.RoleLieutenant, tun.QuitThreshold + 1, "walk", tun.QuitThreshold},
+		{"a lieutenant under the flip, far from the walk (#497)", game.RoleLieutenant, flip - 1, "under", flip},
 	} {
 		s, w := crewRun(t)
 		w.Crew.Members = []game.CrewMember{{ID: 7, Name: "Deshawn", Role: c.role, Skill: 50, Loyalty: c.loyalty, Nerve: 50}}

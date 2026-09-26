@@ -50,7 +50,7 @@ func (m *Model) confirmAssign() {
 			m.refuse("Can't take the city back: " + err.Error())
 			return
 		}
-		m.say(fmt.Sprintf("%s runs nothing now. The crew they posted stay where they are.", lt.Name))
+		m.say(fmt.Sprintf("%s runs nothing now. The crew they posted stay where they are.", lt.Name) + m.overCapWords())
 		return
 	}
 	if err := m.sess.Assign(lt.ID, city); err != nil {
@@ -84,12 +84,43 @@ func (m *Model) viewAssign() string {
 		cells = append(cells, []any{m.w.CityName(cid), heldIn(m.w, cid), m.w.StockIn(cid), runs})
 	}
 	// Two lines that fit the modal's width.
-	return m.pickerModal("ASSIGN "+lt.Name, nil, []col{{"city", kText, 0}, {"corners", kInt, 0}, {"units", kInt, 0}, {"runs", kText, 0}}, cells, m.pick.cursor,
+	notes := []string{
 		theme.Subtle.Render("Each night they post the idle crew, drop a corner robbed twice and sell"),
 		theme.Subtle.Render(fmt.Sprintf("the stash at their dial; your own order wins. Cut %s, +%d crew slots.", format.Pct(t.Cut, 0), t.Crew)),
 		theme.Subtle.Render(fmt.Sprintf("Their temper shows after %s running it: it sets the dial and the heat.", plural(t.RevealDays, "day"))),
 		theme.Warning.Render(fmt.Sprintf("Under %.0f loyalty they talk to the police; at %.0f they walk with the city.", t.Flip, t.Quit)),
-		"", theme.Subtle.Render(fmt.Sprintf("Which city should %s run?", lt.Name)))
+	}
+	if line := m.unassignCapLine(lt, t.Crew); line != "" {
+		notes = append(notes, line)
+	}
+	notes = append(notes, "", theme.Subtle.Render(fmt.Sprintf("Which city should %s run?", lt.Name)))
+	return m.pickerModal("ASSIGN "+lt.Name, nil, []col{{"city", kText, 0}, {"corners", kInt, 0}, {"units", kInt, 0}, {"runs", kText, 0}}, cells, m.pick.cursor, notes...)
+}
+
+// unassignCapLine is the picker's word on the crew past the cap should
+// the lieutenant come off their city (#497), in Warning; "" when they
+// run none or the roster fits without their slots.
+func (m *Model) unassignCapLine(lt *game.CrewMember, slots int) string {
+	if lt.City == "" {
+		return ""
+	}
+	n, most := len(m.w.Crew.Members), m.rules.Crew.MaxCrew(m.w)-slots
+	if n <= most {
+		return ""
+	}
+	return theme.Warning.Render(fmt.Sprintf("Off the city, the roster is %d of %d: nobody is let go; you hire under %d.", n, most, most))
+}
+
+// overCapWords is what happens to the crew past the cap once a
+// lieutenant's slots are gone (#497): " The roster is 20 of 12: nobody
+// is let go, and nobody is hired until it is under 12." with a leading
+// space, or "" with the roster within it.
+func (m *Model) overCapWords() string {
+	n, most := len(m.w.Crew.Members), m.rules.Crew.MaxCrew(m.w)
+	if n <= most {
+		return ""
+	}
+	return fmt.Sprintf(" The roster is %d of %d: nobody is let go, and nobody is hired until it is under %d.", n, most, most)
 }
 
 // lieutenantHint says how the lieutenants come (#455), once the run has

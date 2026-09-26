@@ -430,9 +430,15 @@ func (m *Model) rivalsDetails() []section {
 		sel.lines = append(sel.lines, row("allies", strings.Join(names, ", ")))
 	}
 	// The war you declared on them, short of the muscle to lose it
-	// (#478): the last corner gone ends the run.
-	if line := m.warMuscleLine(); line != "" && w.War == r.Faction() {
-		sel.lines = append(sel.lines, wrapped(theme.Bad, line)...)
+	// (#478): the last corner gone ends the run; with nobody to send it
+	// sends nobody (#506).
+	if w.War == r.Faction() {
+		if line := m.warNobodyWords(); line != "" {
+			sel.lines = append(sel.lines, wrapped(theme.Warning, "War: "+line)...)
+		}
+		if line := m.warMuscleLine(); line != "" {
+			sel.lines = append(sel.lines, wrapped(theme.Bad, line)...)
+		}
 	}
 	// A betrayal's clock is worth a line whatever is selected.
 	if bad && len(w.Offers)+len(r.Deals) > 0 {
@@ -512,6 +518,17 @@ func (m *Model) warConfirm() string {
 	}
 	body = append(body, "", theme.Subtle.Render("The war ends on its own when there is nothing left to take, or when you call it off here."))
 	return m.modal("WAR ON "+strings.ToUpper(m.rivalName(r))+"?", body, m.modalFooter())
+}
+
+// warNobodyWords is what a war does with no enforcer at work to send
+// (#506): the war order sends nobody (rivals.Sim's warOrder takes no
+// enforcer, no order), so tonight takes nothing, and the faction's own
+// pushes go on. "" with an enforcer at work or no war on.
+func (m *Model) warNobodyWords() string {
+	if m.w.War == "" || m.w.Crew.Role(game.RoleEnforcer) > 0 {
+		return ""
+	}
+	return "no enforcer at work, so nobody goes in tonight and nothing is taken; they can still push you. Hire one " + screenPointer(screenCrew) + "."
 }
 
 // warMuscleLine is the taken-out warning (#478): a war you declare is
@@ -630,6 +647,17 @@ func (m *Model) scoutsLines(r *game.RivalState) []string {
 		lines = append(lines, fmt.Sprintf("They are hiring in %s and asking your people there. They move in on day %d whatever the money does now.", city, arrive))
 	}
 	return append(lines, "Take the free corners there first, pay them, or hit the scouts.")
+}
+
+// offScouts is h's refusal with the cursor on a faction not on its way
+// (#506): said, never silent, and pointing at one that is.
+func offScouts(m *Model) string {
+	for _, r := range m.w.Rivals {
+		if r != nil && r.Scouting() && !r.Gone() {
+			return fmt.Sprintf("Nobody to hit here: %s is not moving on a city. %s's scouts are: [ ] turns to them.", m.rivalName(m.faction()), m.rivalName(r))
+		}
+	}
+	return "Nobody to hit: no faction is moving on a city."
 }
 
 // askHitScouts opens the hit, or refuses with why.

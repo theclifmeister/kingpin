@@ -82,16 +82,17 @@ type CrewMember struct {
 	Loyalty     float64
 	Greed       int
 	Nerve       int
-	Units       int    // sell capacity this member adds
-	Wage        int    // daily wage at fair pay
-	Fee         int    // signing fee
-	Hired       int    // day hired
-	Informant   bool   // talking to the police; only firing them stops it
-	Personality string // a lieutenant's: violent, greedy, careful, steady
-	City        string // the city a lieutenant runs; empty when unassigned
-	Assigned    int    // day the lieutenant was last given a city
-	Observed    bool   // the lieutenant has been on the job long enough for the report to name their personality
-	Former      string // the faction a candidate in the pool used to run with (#43): a fragmented faction's muscle, at a discount; "" for anyone else
+	Units       int            // sell capacity this member adds
+	Wage        int            // daily wage at fair pay
+	Fee         int            // signing fee
+	Hired       int            // day hired
+	Informant   bool           // talking to the police; only firing them stops it
+	Personality string         // a lieutenant's: violent, greedy, careful, steady
+	City        string         // the city a lieutenant runs; empty when unassigned
+	Assigned    int            // day the lieutenant was last given a city
+	Stickups    map[string]int // a lieutenant's: each corner's Robbed in their city the day they took it (#497), so robbed_off counts only theirs; nil is none (the pre-#497 member)
+	Observed    bool           // the lieutenant has been on the job long enough for the report to name their personality
+	Former      string         // the faction a candidate in the pool used to run with (#43): a fragmented faction's muscle, at a discount; "" for anyone else
 
 	// Crew life (#46). Age is years, seeded at generation (MigrateAges
 	// for a save from before it); Growth is the skill on its way, the
@@ -126,6 +127,16 @@ type CrewMember struct {
 	Lived   []string
 	Captain string
 	Budget  int
+}
+
+// StickupsSince is a corner's stick-ups since the lieutenant took its
+// city (#497): its Robbed less the count it had then, or all of it
+// once the territory sim has forgotten the old ones.
+func (m CrewMember) StickupsSince(c Corner) int {
+	if b := m.Stickups[c.ID]; b <= c.Robbed {
+		return c.Robbed - b
+	}
+	return c.Robbed
 }
 
 // HasLived reports whether the member lived through word (#346).

@@ -565,6 +565,26 @@ func lieutenantLines(w *game.World, ev events.LieutenantActed) []string {
 		line += ": " + strings.Join(did, ", ")
 	}
 	lines := []string{line + "."}
+	// What they kept back and whom they took (#497): the owner's intent
+	// kept, and the crew moved without an order said.
+	if len(ev.Held) > 0 {
+		var kept []string
+		for _, h := range ev.Held {
+			kept = append(kept, fmt.Sprintf("%d %s for %s", h.Units, w.ProductName(h.Product), h.For))
+		}
+		lines = append(lines, fmt.Sprintf("  %s kept back %s: not theirs to sell.", ev.Name, strings.Join(kept, ", ")))
+	}
+	if len(ev.Took) > 0 {
+		var took []string
+		for _, k := range ev.Took {
+			if k.Role == game.RoleEnforcer {
+				took = append(took, fmt.Sprintf("%s guarding %s", k.Name, k.Corner))
+			} else {
+				took = append(took, fmt.Sprintf("%s on %s", k.Name, k.Corner))
+			}
+		}
+		lines = append(lines, fmt.Sprintf("  %s put idle crew to work in %s: %s. Nobody ordered it; post them yourself on the map screen (5) to keep them elsewhere.", ev.Name, ev.CityName, strings.Join(took, ", ")))
+	}
 	if ev.Revenue > 0 {
 		lines = append(lines, fmt.Sprintf("  %s took %s; %s kept %s of it.", ev.CityName, format.Money(ev.Revenue), ev.Name, format.Money(ev.Cut)))
 	}

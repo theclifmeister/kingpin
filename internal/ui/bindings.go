@@ -181,7 +181,7 @@ var bindings = []binding{
 		do: func(m *Model, _ string) { m.askCallOffWar() }},
 	{key: "$", label: "buy off", help: "pay the rival's muscle to go home", screens: on(screenRivals),
 		do: func(m *Model, _ string) { m.askBuyOff() }},
-	{key: "h", label: "hit scouts", help: "run a faction's scouts out of town, once", screens: on(screenRivals), when: onScouts,
+	{key: "h", label: "hit scouts", help: "run a faction's scouts out of town, once", screens: on(screenRivals), when: onScouts, off: offScouts,
 		do: func(m *Model, _ string) { m.askHitScouts() }},
 	// Intel (#45).
 	{key: "$", label: "pay cop", help: "a cop's word on the chief and the police", screens: on(screenIntel),
@@ -197,7 +197,7 @@ var bindings = []binding{
 		do: func(m *Model, _ string) { m.openDialog(modeSell) }},
 	{key: "x", label: "cancel order", help: "cancel order, else standing, else contract", screens: on(screenDashboard, screenMarket), global: true,
 		do: func(m *Model, _ string) { m.cancelSelected() }},
-	{key: "l", label: "lie low", help: "no sales, heat fades; wages, contracts run", screens: on(screenDashboard), global: true,
+	{key: "l", label: "lie low", help: "lieutenants stop too; wages, contracts run", screens: on(screenDashboard), global: true,
 		do: func(m *Model, _ string) { m.toggleLieLow() }},
 	{key: "p", label: "pay dial", help: "the pay dial: stingy, fair, generous", screens: on(screenCrew), global: true,
 		do: func(m *Model, _ string) { m.cyclePay() }},

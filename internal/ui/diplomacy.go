@@ -122,11 +122,22 @@ func (m *Model) pickPropose() {
 	d := deals[max(0, min(m.prop.cursor, len(deals)-1))]
 	r := m.faction()
 	m.mode = modePlay
+	var before *game.Deal
+	if p := m.w.Today.Proposal; p != nil {
+		prev := *p
+		before = &prev
+	}
 	if err := m.sess.ProposeTo(r.Faction(), d.Kind, d.Terms); err != nil {
 		m.refuse("Can't propose: " + err.Error())
 		return
 	}
-	m.say(fmt.Sprintf("Proposed %s to %s. They answer in the morning; odds ~%s.", m.w.Describe(d), m.rivalName(r), format.Pct(m.rules.Rivals.Chance(m.w, r, d), 0)))
+	said := fmt.Sprintf("Proposed %s to %s. They answer in the morning; odds ~%s.", m.w.Describe(d), m.rivalName(r), format.Pct(m.rules.Rivals.Chance(m.w, r, d), 0))
+	if before != nil {
+		// One proposal a night (#506): the one it replaces is said, so
+		// it never vanishes unanswered.
+		said += fmt.Sprintf(" It replaces %s to %s: one a night.", m.w.Describe(*before), m.rivalName(m.w.Faction(before.Faction)))
+	}
+	m.say(said)
 }
 
 func (m *Model) viewPropose() string {

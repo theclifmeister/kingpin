@@ -385,20 +385,27 @@ const (
 // The boss's cash, clean, offshore, wash, stock and road read main's on
 // all sixty days: its first route fare paid out of the float, and its
 // contracts' morning over the till, come later than day 60.
+// Again for #497 (a lieutenant counts only the stick-ups since they took
+// the city, CrewMember.Stickups) and #506 (a truce's end said a day
+// ahead, DealEnding): day 1 by the field's shape; with it left out of
+// the walk every day is main's digest bar day 52, the morning the
+// boss's truce with Dutch holds one more night and the report's
+// TERRITORY says so: the report's words, and no number moved
+// (walked on top of #501, #502, #496 and #503).
 var seedDigest = []string{
-	"5cb98708141f8afe", "4babfb472ce4e4c6", "cc6271e602212e1c", "e94fe815eecfa461",
-	"59ac4f999001670f", "9a99657ee018c27e", "ba5e9c158867d9ad", "f476e7b49af1ed23",
-	"effb5cd1ab664154", "065832f56a80749d", "c2601ac4d7569a65", "dbcc5f6f3b784f12",
-	"ea579cc1882c5d9c", "24f27522268e57b6", "2f4c5aa3c7745893", "5779fc2fee9a8c74",
-	"83798d95e6e78ec0", "80c23a9907576254", "a457ef1fce7585a4", "5e6dfb6a2dbe3939",
-	"73b68b302d58402f", "c652ab4e5f9df4ee", "4a568df5e3fc30a2", "33962fbcf41788fc",
-	"c069b3cc30aee347", "6e28290807584b9c", "31e0bcd0a3982075", "f2c4529cb4473e2d",
-	"bedc59bf76aae2a4", "32a329a0b11807f0", "63a28713fcdabd90", "bb4023f2596782eb",
-	"359d412ce316ad49", "e769833137a02cc3", "183836dbbbfad0d6", "8cac1b8beebd2d92",
-	"ebbacea6c33498cd", "34b5b50df07e9197", "b1ef0b1c6d0c6409", "f9b7fbd35d8e74d5",
-	"9652c0f51dd4c335", "6984cbe79533d1ae", "3eee66b5fbdd3259", "57f4d8383c3d9a79",
-	"6685e206a8c2cede", "76c68f939c98c39d", "edd0ec4420f94b83", "c20c85438c34e523",
-	"3536bb3035fc6e85", "408bd7270984ea21", "cf16a8217c0279a7", "d2c8dd4ebf702cbd",
-	"7b040a1b00dca6a3", "8b28d823febeb4e3", "de807eb889b21792", "0f07a002bfd12d65",
-	"712a72c46daf658c", "21285b5a6ba179f5", "a05bd0510f6eeb08", "ece2ff0469e7025a",
+	"27d53ecb5ef284d6", "70e6ad0e878812ce", "abc3940b35b60b3c", "7554e68d843fe5b9",
+	"3d72ab675f9c4a97", "c33aec642d2281a6", "8f7e777f698d270d", "5f1f045c608b531b",
+	"f1e590eb3fc650dc", "c596eda151996c4d", "047c2a45bdb24fcd", "de9ec6f6dcdca872",
+	"8c2e16136ef2b28c", "5b460091f0019736", "0c1dbce9c79928fb", "7f76cdc7cef63b9c",
+	"ab9602235958cc58", "6e6a59be419c741c", "45ed6009a2623b24", "245c95f0e8b5f441",
+	"f30088dd2a7573bf", "04633e11222961d6", "8146712bfabdf7d2", "c9238e09682eb154",
+	"bc39520d84dc887f", "9771e8c66fcb442c", "ec623f501c675e35", "ff2556c0255ce805",
+	"e96dc712dcddc464", "3e7be16871edfc20", "003317276bfbfe98", "8c06cc87d5b9bb13",
+	"815ee195657baa01", "36ba1c8c0133a20b", "684d73e9f9c49416", "a2fc0cc0f022444a",
+	"2e84d76a4c062775", "15c61f977b1dac1f", "bd9d837cef2b9241", "a03295dd9506eecd",
+	"3e35233b543f8a25", "00945e4a296fb9ee", "7ca6d63fce86b231", "b1a2d5b63e2dfd21",
+	"a833fd24a72fd9fe", "85e22a24fc47fd05", "7cd23bc76e94cf7b", "0b079a650be5772b",
+	"2a809f3ddaa8b70d", "f513c375b3ca5869", "6e53ff283194c087", "1f1fd74bdd1ce468",
+	"92d10c0e9c6172a3", "e48f6fed6d3d7203", "096169700c2cf632", "4bf29b76ae22874e",
+	"6cd32496793136fd", "f4a891db2b16b3ce", "a072ac04b3b8b887", "556517244cb87bcf",
 }
