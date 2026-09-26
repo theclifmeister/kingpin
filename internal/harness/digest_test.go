@@ -392,20 +392,24 @@ const (
 // boss's truce with Dutch holds one more night and the report's
 // TERRITORY says so: the report's words, and no number moved
 // (walked on top of #501, #502, #496 and #503).
+// Again for #493 and #495 (a run-out faction's paused landless spell,
+// RivalState.Spell): day 1 by the field's shape; with it left out of
+// the walk every one of the sixty days is main's digest: no number
+// moved.
 var seedDigest = []string{
-	"27d53ecb5ef284d6", "70e6ad0e878812ce", "abc3940b35b60b3c", "7554e68d843fe5b9",
-	"3d72ab675f9c4a97", "c33aec642d2281a6", "8f7e777f698d270d", "5f1f045c608b531b",
-	"f1e590eb3fc650dc", "c596eda151996c4d", "047c2a45bdb24fcd", "de9ec6f6dcdca872",
-	"8c2e16136ef2b28c", "5b460091f0019736", "0c1dbce9c79928fb", "7f76cdc7cef63b9c",
-	"ab9602235958cc58", "6e6a59be419c741c", "45ed6009a2623b24", "245c95f0e8b5f441",
-	"f30088dd2a7573bf", "04633e11222961d6", "8146712bfabdf7d2", "c9238e09682eb154",
-	"bc39520d84dc887f", "9771e8c66fcb442c", "ec623f501c675e35", "ff2556c0255ce805",
-	"e96dc712dcddc464", "3e7be16871edfc20", "003317276bfbfe98", "8c06cc87d5b9bb13",
-	"815ee195657baa01", "36ba1c8c0133a20b", "684d73e9f9c49416", "a2fc0cc0f022444a",
-	"2e84d76a4c062775", "15c61f977b1dac1f", "bd9d837cef2b9241", "a03295dd9506eecd",
-	"3e35233b543f8a25", "00945e4a296fb9ee", "7ca6d63fce86b231", "b1a2d5b63e2dfd21",
-	"a833fd24a72fd9fe", "85e22a24fc47fd05", "7cd23bc76e94cf7b", "0b079a650be5772b",
-	"2a809f3ddaa8b70d", "f513c375b3ca5869", "6e53ff283194c087", "1f1fd74bdd1ce468",
-	"92d10c0e9c6172a3", "e48f6fed6d3d7203", "096169700c2cf632", "4bf29b76ae22874e",
-	"6cd32496793136fd", "f4a891db2b16b3ce", "a072ac04b3b8b887", "556517244cb87bcf",
+	"d0d63512569a8638", "57a0a62996f9298c", "d9d6695e4790edee", "a4528fa4659c82bb",
+	"77c18521191d9165", "188aa2000cb704d4", "9edefaf83c39e9d7", "99baf85f2bf2d105",
+	"d7dc75ba07b8ba1a", "c2b5ad5afc85744b", "8d338d5b68a30477", "b70701843f92fb00",
+	"aaebf6b42d6816b6", "c030212cf9b67748", "d695a36e482624b9", "942d9bdbe1237262",
+	"56815a9cfab62cfe", "9b84d1a70cef2582", "26516c56acfd4c26", "29bd83c71d1bde17",
+	"f532df5435cc3141", "b780013f6e06a380", "743e1583249ee6f8", "e86cc4aaa487100e",
+	"55698c4d32265771", "698a19162f7326c6", "c744fe3a23703a63", "1567c023b1d7caeb",
+	"6bdc07a0e59584de", "763756d7c1e4f226", "40c843b6d5b6f3b6", "f929a0b899d552ad",
+	"bb0f50da031abea7", "2cacff5cc1e7a249", "88a5adf657d39740", "ac486a10b4b539b0",
+	"d24c8dffaf226a37", "0681da194e7cacc9", "d28db547011b9593", "579b4fcc6613389f",
+	"4a03b566402162eb", "f4e72cd4f3a359c0", "35e2082df48f1acf", "81c8db7d341874bf",
+	"7a028a0e6e024f60", "ecd393f5f4b75f93", "6bc424f6dc7993ad", "556573539f987471",
+	"5bcd5fa94a50224f", "76915f16df408d07", "a70eeb0c26f87375", "a59cf27fb7345372",
+	"a240779404643c79", "9a0ebe4216a54bd1", "19e2c4b5afb1a284", "b45d31743e9affbc",
+	"5ffbcaffe045c8df", "b761efbffaf49a2c", "c4c6e5430d0893ed", "a053f24eee80e9e9",
 }

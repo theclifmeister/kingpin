@@ -253,3 +253,49 @@ func TestTheDuelNeverExpands(t *testing.T) {
 		t.Fatalf("the duel kept a window %v or grew a table of %d", w.Takes, len(w.Rivals))
 	}
 }
+
+// While the crown waits only on clocks the money draws no new faction
+// (#495): you hold the share at home, the rest of the table is gone bar
+// one faction run out and back on a claim it has not yet kept
+// settle_days, and a take over the line in the hub sends no scouts; the
+// same faction settled on its corner splits a cell off to it.
+func TestNoNewFactionWhileTheCrownWaits(t *testing.T) {
+	for _, clock := range []bool{true, false} {
+		w, s, cfg := expansionWorld(t, 3, 3)
+		e := cfg.Rivals.Expansion
+		for i, r := range w.Rivals {
+			landless(w, r)
+			r.Arrived = 1
+			if i > 0 {
+				r.Absorbed = 1
+			}
+		}
+		home := w.Home()
+		f := w.Rivals[0]
+		seat(w, f, home.Corners[0].ID, 10)
+		if clock {
+			f.Routed, f.Spell = 1, 1
+		}
+		n := int(cfg.Rivals.Endings.KingpinShare*float64(len(home.Corners))) + 1
+		daily := e.TakeMin/e.WindowDays + 1
+		scouted := false
+		for range e.WindowDays + 3 {
+			// The ground as it stands, whatever the night moved: the
+			// faction on its one corner, the share yours.
+			landless(w, f)
+			home.Corners[0].Owner, home.Corners[0].Faction = game.OwnerRival, f.Faction()
+			for i := 1; i <= n; i++ {
+				home.Corners[i].Owner, home.Corners[i].Faction = game.OwnerPlayer, ""
+			}
+			if s.CrownClock(w) != clock {
+				t.Fatalf("clock %v: the crown's clock reads %v on day %d", clock, !clock, w.Day)
+			}
+			if _, ok := first[events.RivalScouting](night(w, s, daily)); ok {
+				scouted = true
+			}
+		}
+		if scouted == clock {
+			t.Fatalf("clock %v: scouts sent %v, %d factions", clock, scouted, len(w.Rivals))
+		}
+	}
+}

@@ -74,8 +74,9 @@ retire_heat = 40
 fee = 0.10
 
 # The businessman ending (#49): the fronts' own income net of their
-# upkeep (LegitIncome, #192) out-earns what the street sold for, every
-# day for legit_days days in a row, with home's goodwill over its
+# upkeep (LegitIncome, #192) out-earns the street, the more of what it
+# sold for that night and its average night over the run (#493: a night
+# laid low is not a $0 street), every day for legit_days days in a row, with home's goodwill over its
 # pressure (World.LegitDays counts them, zeroed by a day that fails).
 # A player who never invests has a legit income at or under zero and
 # never counts a day; the boss earns ~$0.3M a day off its levels against

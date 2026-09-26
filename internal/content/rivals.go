@@ -196,6 +196,7 @@ type FactionsTuning struct {
 	HomageChance     float64 `toml:"homage_chance"`
 	StrandDays       int     `toml:"strand_days"`       // days a faction stands landless, whatever its chest, or a seat at home stays in the wings past its day, before it scatters (#389; 0: never)
 	SuccessionMuscle float64 `toml:"succession_muscle"` // the share of a faction's muscle that walks when the world kills its leader and a successor takes over (#389)
+	SettleDays       int     `toml:"settle_days"`       // days a claim must stand before it ends a run-out faction's landless spell: one retaken sooner leaves its clock running from the first rout (#495; 0: any claim restarts it)
 }
 
 // ExpansionTuning is the table following the money (#341, [expansion]):
@@ -376,6 +377,9 @@ func (r RivalsConfig) validate() error {
 	}
 	if e := r.Expansion; e.Enabled && (e.TakeMin <= 0 || e.WindowDays < 1 || e.ScoutDays < 1 || e.ArriveDays < 1 || e.SetbackDays < 0 || e.Bite < 0) {
 		return fmt.Errorf("[expansion] take_min %d, window_days %d, scout_days %d and arrive_days %d must be positive, setback_days %d and bite %d not negative", e.TakeMin, e.WindowDays, e.ScoutDays, e.ArriveDays, e.SetbackDays, e.Bite)
+	}
+	if f := r.Factions; f.SettleDays < 0 {
+		return fmt.Errorf("[factions] settle_days %d must be 0 or more", f.SettleDays)
 	}
 	if f := r.Factions; f.StrandDays < 0 || (f.StrandDays > 0 && f.StrandDays < f.AbsorbDays) || f.SuccessionMuscle < 0 || f.SuccessionMuscle > 1 {
 		return fmt.Errorf("[factions] strand_days %d must be 0 or at least absorb_days %d, succession_muscle %.2f in 0..1", f.StrandDays, f.AbsorbDays, f.SuccessionMuscle)

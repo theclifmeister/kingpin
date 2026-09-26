@@ -334,3 +334,49 @@ func TestStoryIsNotTheQuietNights(t *testing.T) {
 		t.Fatalf("the story:\n%s", stripANSI(lines))
 	}
 }
+
+// The reign has one day on every screen (#495): the ambitions screen's
+// streak read `days it holds: 48 of 14` (days since the table fell)
+// while the crown's row read `day 36 of the reign`; once the reign has
+// begun the step reads the reign's own day, as the row and the plan do.
+func TestTheReignReadsOneDay(t *testing.T) {
+	m := richModel(t, 120, 40)
+	w := m.w
+	w.Day = max(w.Day, 100)
+	for _, r := range w.Rivals {
+		r.Arrived, r.Fragmented = 1, w.Day-48
+	}
+	home := w.Home()
+	n := int(m.cfg.Rivals.Endings.KingpinShare*float64(len(home.Corners))) + 1
+	for i := range n {
+		home.Corners[i].Owner, home.Corners[i].Faction = game.OwnerPlayer, ""
+	}
+	w.Reign, w.ReignSlip = w.Day-35, 0
+	want := fmt.Sprintf("day %d of the reign", w.ReignDay())
+	if w.ReignDay() != 36 {
+		t.Fatalf("reign day %d", w.ReignDay())
+	}
+
+	m.Update(key("1"))
+	m.Update(key("a"))
+	for i, a := range m.ambitions() {
+		if a.ID == content.AmbitionCity {
+			m.amb.cursor = i
+			for _, st := range a.Steps {
+				if st.ID == "streak" && stepWords(st) != want {
+					t.Errorf("the crown's streak reads %q, want %q", stepWords(st), want)
+				}
+			}
+		}
+	}
+	if view := stripANSI(m.View()); !strings.Contains(view, want) || strings.Contains(view, "of 14 days") {
+		t.Errorf("the ambitions screen does not read %q:\n%s", want, view)
+	}
+	m.Update(key("esc"))
+
+	m.Update(key("1"))
+	m.Update(key("w"))
+	if view := stripANSI(m.View()); m.mode != modeExit || !strings.Contains(view, want) {
+		t.Errorf("the walk-away dialog does not read %q:\n%s", want, view)
+	}
+}

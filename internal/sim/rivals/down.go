@@ -26,9 +26,15 @@ func (s *Sim) Down(w *game.World, r *game.RivalState) game.FactionDown {
 		return d
 	}
 	if n := w.RivalHeldBy(r.Faction()); n > 0 {
-		return game.FactionDown{Corners: n}
+		d := game.FactionDown{Corners: n}
+		// A run-out faction's claim not yet settled (#495): the spell it
+		// paused runs on from its day if the claim is lost before then.
+		if sd := f.SettleDays; sd > 0 && r.Spell > 0 && tonight-s.Claimed(w, r) < sd {
+			d.Since, d.Settles = r.Spell, s.Claimed(w, r)+sd
+		}
+		return d
 	}
-	since := max(r.Routed, r.RaidedOut)
+	since := r.RunOut()
 	if since == 0 {
 		since = tonight // absorb stamps the raid tonight (a save from before RaidedOut)
 	}

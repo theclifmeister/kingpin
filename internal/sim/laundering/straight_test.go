@@ -62,3 +62,37 @@ func TestGoingStraightIsClaimed(t *testing.T) {
 		t.Fatalf("twice: %v", err)
 	}
 }
+
+// TestLyingLowIsNotGoingStraight (#493): a playtest went straight on
+// one Laundromat level ($420 a day), a goodwill purchase and thirty
+// nights laid low, since a night that sold nothing is a street any
+// income beats. The street is the more of the night's and its average
+// night over the run, so the same thirty nights after $1.1M of street
+// never count one; the same fronts in a run that never sold open it.
+func TestLyingLowIsNotGoingStraight(t *testing.T) {
+	cfg := content.MustLoad()
+	s := laundering.New(cfg)
+	days := cfg.Laundering.Businessman.LegitDays
+	if days <= 0 {
+		t.Skip("going straight is boxed")
+	}
+	for _, sold := range []int{1_100_000, 0} {
+		w := world(1_000_000)
+		fc := cfg.Laundering.Fronts[0]
+		w.Fronts = append(w.Fronts, game.Front{ID: fc.ID, Name: fc.Name, Cost: fc.Cost, Bought: 1, Level: 1})
+		w.Day, w.Stats.TotalRevenue = 45, sold
+		home := w.Home()
+		home.Goodwill, home.Pressure = 83, 60
+		if s.LegitIncome(w) <= 0 {
+			t.Fatalf("one level earns %d a day", s.LegitIncome(w))
+		}
+		for night := 1; night <= days; night++ {
+			w.Player.CleanCash = 1_000_000 // the upkeep never shuts it
+			step(w, s)                     // nothing sold: a night laid low
+		}
+		if open := s.CanGoStraight(w); open != (sold == 0) {
+			t.Errorf("after $%d of street and %d nights laid low: open %v, %d legit days (the street's average night $%d, the fronts $%d)",
+				sold, days, open, w.LegitDays, w.StreetAverage(w.Day), s.LegitIncome(w))
+		}
+	}
+}

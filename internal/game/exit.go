@@ -161,6 +161,20 @@ func (w *World) CanGoStraight(days int) bool {
 	return w.Over == nil && days > 0 && w.LegitDays >= days
 }
 
+// StreetAverage is the street's average night over the run to day
+// (#493): every dollar dealing made, the street, the buyers and the
+// exports (Stats.TotalRevenue), over the nights played. Going straight
+// reads the fronts against the more of it and the night's street, so a
+// night that sold nothing (lying low) is not a street the fronts beat
+// on any income: the fronts have to earn what the street did. 0 before
+// the first night.
+func (w *World) StreetAverage(day int) int {
+	if day <= 0 {
+		return 0
+	}
+	return w.Stats.TotalRevenue / day
+}
+
 // ReignDay is which day of the reign this is, counting the morning it
 // began as day 1; 0 with no reign.
 func (w *World) ReignDay() int { return w.ReignDayOn(w.Day) }

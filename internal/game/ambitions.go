@@ -28,6 +28,7 @@ const (
 	UnitClean   = "clean"   // a node of the tree, its cost in clean cash against the clean pile; Have is the cost once owned
 	UnitDirty   = "dirty"   // a node of the tree paid in dirty cash, against the dirty pile (#478)
 	UnitDays    = "days"    // a streak
+	UnitReign   = "reign"   // the reign's day once it has begun (World.ReignDay, #495): Have the day, Need dominant_days
 	UnitPoints  = "points"  // goodwill against pressure
 	UnitIncome  = "income"  // a day's legit income against the street's night
 	UnitCorners = "corners" // corners held against the share's line
@@ -118,13 +119,14 @@ func (a Ambition) Reached() int {
 // AmbitionTerms is what the plans are read against: the owners'
 // thresholds, which the caller passes from the sims' tuning as Retire
 // takes its terms, and the two numbers only a sim can work out (the
-// fronts' own income, laundering.Sim.LegitIncome, and what the street
-// sold for last night, the tick's PlayerSold). A zero threshold is an
+// fronts' own income, laundering.Sim.LegitIncome, and the street they
+// are read against, the more of last night's PlayerSold and the run's
+// average night, #493). A zero threshold is an
 // ending boxed in the file, and its plan is left out.
 type AmbitionTerms struct {
 	RetireCash, RetireDays int     // laundering.toml [offshore]
 	LegitDays              int     // laundering.toml [businessman]
-	LegitIncome, Street    int     // the fronts' own income a day; the street's revenue last night
+	LegitIncome, Street    int     // the fronts' own income a day; the street, the more of last night's revenue and its average night (World.StreetAverage, #493)
 	DominantDays           int     // rivals.toml [endings]
 	KingpinShare           float64 // ... more than this share of home's corners
 	Tree                   content.UpgradesConfig
@@ -176,10 +178,11 @@ func ambition(w *World, id string, t AmbitionTerms) (Ambition, bool) {
 			{ID: "goodwill", Have: goodwill, Need: pressure, Unit: UnitPoints, Done: goodwill > pressure},
 			{ID: "streak", Have: float64(w.LegitDays), Need: float64(t.LegitDays), Unit: UnitDays, Done: w.LegitDays >= t.LegitDays},
 		}
-		// Nothing sold (or no pressure) needs nothing over it: the step is
-		// done on any income (goodwill), and its Need stays the zero it
-		// is, so it reads `against $0 last night` on a lie-low night, not
-		// the $1 it was bumped to (#502). Frac reads a done step as 1.
+		// Nothing sold in the run (or no pressure) needs nothing over it:
+		// the step is done on any income (goodwill), and its Need stays
+		// the zero it is, not the $1 it was bumped to (#502); a night
+		// laid low still reads against the run's average night (#493).
+		// Frac reads a done step as 1.
 		// The laundering sim's own count at its own line.
 		a.Done = w.LegitDays >= t.LegitDays
 	case content.AmbitionCity:
@@ -240,11 +243,15 @@ func cityTaken(w *World, t AmbitionTerms) []AmbitionStep {
 	dominant := w.Dominant()
 	factions := AmbitionStep{ID: "factions", Have: float64(down), Need: float64(len(w.Rivals)), Unit: UnitCount, Done: dominant}
 	streak := AmbitionStep{ID: "streak", Need: float64(t.DominantDays), Unit: UnitDays}
-	if dominant && share.Done {
+	switch {
+	case w.Reign > 0:
+		// Once it has begun the streak reads the reign's own day, the
+		// number the crown's row and the dashboard give (#495: it read
+		// `48 of 14`, days since the table fell, against `day 36 of the
+		// reign`).
+		streak.Unit, streak.Have = UnitReign, float64(w.ReignDay())
+	case dominant && share.Done:
 		streak.Have = float64(min(w.Day-w.DominantSince(), t.DominantDays-1))
-		if w.Reign > 0 {
-			streak.Have = float64(max(w.Day-w.DominantSince(), t.DominantDays))
-		}
 	}
 	return []AmbitionStep{share, factions, streak}
 }

@@ -29,7 +29,7 @@ func TestCrownSaysWhatKeepsACrew(t *testing.T) {
 	}
 	r.Routed, r.LastTakenBy = m.w.Day-3, "somebody"
 	absorb := m.cfg.Rivals.Factions.AbsorbDays
-	want := "run out 3d ago; gone in " + strconv.Itoa(absorb-3) + "d unless it claims again"
+	want := "run out 3d ago; gone in " + strconv.Itoa(absorb-3) + "d unless it keeps a claim " + strconv.Itoa(m.cfg.Rivals.Factions.SettleDays) + "d"
 
 	m.Update(key("8"))
 	if view := stripANSI(m.View()); !strings.Contains(view, "for the crown: "+want) {
@@ -56,6 +56,20 @@ func TestCrownSaysWhatKeepsACrew(t *testing.T) {
 	m.w.Home().Corners[0].Owner, m.w.Home().Corners[0].Faction = game.OwnerRival, r.Faction()
 	if got := m.downWords(r); got != "holds 1 corner; no clock while it holds one" {
 		t.Errorf("a faction on a corner reads %q", got)
+	}
+	// A run-out faction's claim not yet settled only pauses its clock
+	// (#495): it says from when, and how long the claim has to stand.
+	settle := m.cfg.Rivals.Factions.SettleDays
+	m.w.Day = max(m.w.Day, 100)
+	r.Routed, r.Spell = m.w.Day-40, m.w.Day-40
+	m.w.Home().Corners[0].Since = m.w.Day - 2
+	want = "holds 1 corner; run out 40d ago, the clock runs on unless it holds one " + strconv.Itoa(settle-2) + "d more"
+	if got := m.downWords(r); got != want {
+		t.Errorf("a claim not yet settled reads %q, want %q", got, want)
+	}
+	m.w.Home().Corners[0].Since = m.w.Day - settle
+	if got := m.downWords(r); got != "holds 1 corner; no clock while it holds one" {
+		t.Errorf("a settled claim reads %q", got)
 	}
 
 	help := stripANSI(strings.Join(m.helpLines(), "\n"))

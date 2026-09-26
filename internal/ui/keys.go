@@ -520,7 +520,7 @@ var words = [][2]string{
 	{"ending", "how a run ends: nine ways, each a summary and a score"},
 	{"score", "the offshore account over one plus the bodies; days shown"},
 	{"quiet day", "all heat under {retire_heat}; no strike, push, bust or buyer's order"},
-	{"run out", "a faction with no corner left: the rivals screen counts it"},
+	{"run out", "no corner left: a claim it loses soon keeps the clock running"},
 	{"absorbed", "run out long enough: it joins the faction that took its last"},
 	{"scattered", "run out too long, or broke: it stands down, nobody's"},
 	{"gone", "absorbed, scattered or leaderless: a crew down for the crown"},

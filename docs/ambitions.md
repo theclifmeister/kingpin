@@ -14,7 +14,7 @@ The thresholds belong to the files that own them, never to `ambitions.toml`.
 | Id | Name | Steps | Done exactly when | Thresholds |
 |---|---|---|---|---|
 | `retire` | Retire clean | `offshore` (the account toward `retire_cash`), `quiet` (`QuietDays` toward `retire_days`) | `Offshore >= retire_cash` and `QuietDays >= retire_days`: `World.CanRetire`'s terms | `laundering.toml [offshore]` |
-| `legit` | Go legitimate | `income` (the fronts' own income, `laundering.Sim.LegitIncome`, against what the street sold for last night), `goodwill` (home's goodwill against its pressure), `streak` (`World.LegitDays` toward `legit_days`) | `LegitDays >= legit_days`: the laundering sim's own count at its own line | `laundering.toml [businessman]` |
+| `legit` | Go legitimate | `income` (the fronts' own income, `laundering.Sim.LegitIncome`, against the street: the more of what it sold for last night and its average night over the run, `World.StreetAverage`, #493), `goodwill` (home's goodwill against its pressure), `streak` (`World.LegitDays` toward `legit_days`) | `LegitDays >= legit_days`: the laundering sim's own count at its own line | `laundering.toml [businessman]` |
 | `city` | Take the city | `share` (home's corners held against more than `kingpin_share`), `factions` (factions arrived and gone or paying homage, against the table), `streak` (days since `World.DominantSince` while both hold, toward `dominant_days`) | `World.Reign > 0`: the rivals sim's stamp, the crown open | `rivals.toml [endings]` |
 | `vanish` | Disappear | `lawyer`, `retainer`, `identity` (the tree's chain, #478 adding the lawyer on call it was missing: owned, or their cost against the pile they are paid from, `UnitDirty` for the lawyer's $15,000 dirty, `UnitClean` for the others) | an identity from the tree (`fx.Identities > 0`, `World.CanVanish`) | `upgrades.toml` |
 | `two_cities` | Two-city operation | `ground` (cities where you hold `share` of the corners), `lieutenants` (those a lieutenant or a captain runs, #346), `held` (those whose corners at the share have been yours `days` days, `Corner.Since`) | `cities` of them held | `ambitions.toml [two_cities]`: 0.4, 14 days, 2 cities |
@@ -25,16 +25,16 @@ The two-city plan is a milestone, not an ending (`content.AmbitionEnding` has no
 **The bar reads 100% exactly when the ending's own condition holds.**
 `Ambition.Progress` is 1 when the plan is `Done`, and `Done` is the ending's own predicate from the table above.
 Otherwise the bar is the least-done step's fraction, each `Have / Need` capped at 0.99 (#502): a plan is done when every step is, so the step furthest off is how far along it is. It was the mean, and the ambitions screen read `Retire clean 94%` the morning the plan's line said `the account 88%`; the plan's line and the report's PLAN now lead with the same figure (`plan Retire clean 88% · the account 88% · quiet days 14/14`, `TestOneNumberOnEveryScreen`).
-A step whose `Need` is zero (going straight on a night the street sold nothing, the goodwill against no pressure) keeps the zero and is done on anything over it: it read `against $1 last night` on a lie-low night, the `Need` bumped to 1 so the fraction was defined (#502, `TestLieLowStreetIsZero`).
+A step whose `Need` is zero (going straight in a run the street never sold in, the goodwill against no pressure) keeps the zero and is done on anything over it: it read `against $1 last night` on a lie-low night, the `Need` bumped to 1 so the fraction was defined (#502, `TestLieLowStreetIsZero`); since #493 a night laid low reads against the run's average night instead, `$420/day against the street's $14,286 a night`.
 So a full bar is never a promise the ending does not keep.
-The city's streak reads one short of `dominant_days` until the reign is stamped.
+The city's streak reads one short of `dominant_days` until the reign is stamped, and from then the reign's own day (`game.UnitReign`, `World.ReignDay`: `days it holds: day 36 of the reign`, the number the crown's row and the dashboard give; it read `48 of 14`, the days since the table fell, #495, `TestTheReignReadsOneDay`).
 The rivals sim reads the city after the territory has stepped, and a later sim can still move a corner that night (a lieutenant's walk), so only the stamp counts.
 `Ambition.Next` is the first step not yet met, and nil once the plan is done.
 `Ambition.Reached` counts the steps met in order, stopping at the first one that is not.
 
-**What the street sold for last night** is the tick's `PlayerSold` revenue, the number the businessman's count reads.
+**The street the fronts are read against** is the more of what it sold for last night, the tick's `PlayerSold` revenue, and its average night over the run (`World.StreetAverage`: `Stats.TotalRevenue` over the days, #493), the number the businessman's count reads.
 `Session.EndDay` keeps it.
-For a run loaded or attached since that night, the engine reads the report's `sales` flow line instead: the street and the buyers net of the crew's cut, the closest number the world keeps.
+For a run loaded or attached since that night, the engine reads the report's `sales` flow line for last night's instead: the street and the buyers net of the crew's cut, the closest number the world keeps.
 Only the `income` step reads it, and that step never decides whether the plan is done.
 
 ## Read-only

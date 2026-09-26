@@ -400,6 +400,14 @@ homage_chance = 0.25
 # something you do (your tips).
 strand_days = 60
 succession_muscle = 0.5
+# A claim it did not keep is not somewhere to stand (#495): a run-out
+# faction that claims a corner and loses it again inside settle_days
+# picks its landless clock up where it left it, from the first rout,
+# where every claim used to restart it (a playtest's faction reset its
+# "gone in 59d" three times and the crown slid by months). One that
+# keeps a corner settle_days has settled, and its next rout starts a
+# new clock. 0: any claim restarts it, the run before.
+settle_days = 30
 
 # The table follows the money (#341, rivals.Sim.expand): the rivals sim
 # keeps your take in each city away from home over the last window_days
