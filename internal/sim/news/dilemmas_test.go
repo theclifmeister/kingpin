@@ -1,6 +1,7 @@
 package news_test
 
 import (
+	"regexp"
 	"strings"
 	"testing"
 
@@ -9,6 +10,29 @@ import (
 	"github.com/theclifmeister/kingpin/internal/sim"
 	"github.com/theclifmeister/kingpin/internal/sim/news"
 )
+
+// A card that speaks of your crew is dealt only with a crew (#523: a
+// reporter "asking the runners for their names" with nobody on the
+// payroll): its trigger asks for one, or names a member.
+func TestCrewCardsNeedACrew(t *testing.T) {
+	cfg := content.MustLoad()
+	yours := regexp.MustCompile(`(?i)\b(the|your) (crew|runners)\b`)
+	for _, c := range cfg.Dilemmas.Cards {
+		tr := c.Trigger
+		if tr.CrewMin > 0 || tr.Role != "" || tr.LoyaltyBelow > 0 || tr.LoyaltyAbove > 0 {
+			continue
+		}
+		words := []string{c.Title, c.Text}
+		for _, ch := range c.Choices {
+			words = append(words, ch.Label, ch.Outcome)
+		}
+		for _, s := range words {
+			if yours.MatchString(s) {
+				t.Errorf("card %s speaks of your crew with no crew in its trigger: %q", c.ID, s)
+			}
+		}
+	}
+}
 
 // The deck as shipped: 20+ cards, every one with a trigger and two or
 // three choices whose effect keys the world applies, covering crew, rival,
@@ -326,6 +350,9 @@ func TestPersonalStakesAreCapped(t *testing.T) {
 	cfg := content.MustLoad()
 	w := sim.NewWorld(cfg, 1)
 	w.Player.DirtyCash, w.Player.CleanCash = 100_000_000, 100_000_000 // clean too: a card paid in clean needs it (#384)
+	// A faction at the table: a card about one is dealt only with one
+	// standing (#523).
+	w.Home().Corners[len(w.Home().Corners)-1].Hand(game.OwnerRival, w.Rival().Faction(), 0)
 	personal := 0
 	for _, c := range cfg.Dilemmas.Cards {
 		c.Trigger = content.CardTrigger{} // the sum, not the trigger, is under test

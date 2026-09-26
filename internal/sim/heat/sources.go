@@ -3,6 +3,7 @@ package heat
 import (
 	"fmt"
 	"math"
+	"strings"
 
 	"github.com/theclifmeister/kingpin/internal/content"
 	"github.com/theclifmeister/kingpin/internal/events"
@@ -166,6 +167,41 @@ func (s *Sim) Sloppiness(w *game.World, city string) float64 {
 	return min(1, sloppy/total)
 }
 
+// sloppyWho is who Sloppiness counts in a city (#522: "sloppy crew
+// (+1.4)" with every runner at skill 61, the heat a hothead's): each
+// runner under the sloppy-skill line by skill, and each member whose
+// trait draws heat on a corner by the trait, in corner order.
+func (s *Sim) sloppyWho(w *game.World, city string) []string {
+	line := float64(s.cfg.Heat.SloppySkill)
+	c0 := w.City(city)
+	if line <= 0 || c0 == nil {
+		return nil
+	}
+	var out []string
+	for _, c := range c0.Corners {
+		if !c.Worked() {
+			continue
+		}
+		for _, id := range []int{c.Runner, c.Enforcer} {
+			if id == game.You || id == 0 {
+				continue
+			}
+			m := w.Crew.Member(id)
+			if m == nil {
+				continue
+			}
+			tr := s.traits[m.Trait]
+			switch {
+			case tr.Heat > 0:
+				out = append(out, fmt.Sprintf("%s (%s)", m.Name, m.Trait))
+			case id == c.Runner && !tr.Sharp && float64(m.Skill) < line:
+				out = append(out, fmt.Sprintf("%s (skill %d)", m.Name, m.Skill))
+			}
+		}
+	}
+	return out
+}
+
 // add puts v heat on a city and, with a why, a line in its report:
 // "why (+v)". A city not on the map takes nothing.
 func (d *day) add(city string, v float64, why string) {
@@ -300,7 +336,11 @@ func (s *Sim) moves(d *day) {
 func (s *Sim) sloppy(d *day) {
 	for _, cid := range d.w.CityOrder {
 		if v := s.SloppyHeat(d.w, cid, d.units[cid]); v > 0 {
-			d.add(cid, v, "sloppy crew")
+			why := "sloppy crew"
+			if who := s.sloppyWho(d.w, cid); len(who) > 0 {
+				why += ": " + strings.Join(who, ", ") // who it counts (#522)
+			}
+			d.add(cid, v, why)
 		}
 	}
 }

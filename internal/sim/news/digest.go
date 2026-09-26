@@ -48,7 +48,7 @@ func (s *Sim) lead(w *game.World, t *game.Tick, flow game.CashFlow) []game.Line 
 		down                 named // members laid up, back in days (#423)
 		seized               int   // the police's takes tonight
 		units, cash          int   // what they took
-		pages                int   // what went in the DA's file
+		pages, file, arrest  int   // what went in the DA's file tonight, whatever filed it (#522), the file after and the indictment's line
 		lostCity, movedFirst string
 		scouts               named // a faction's scouts or recruiters in a city (#341)
 		shut                 named // fronts shut for their upkeep (#458)
@@ -119,8 +119,9 @@ func (s *Sim) lead(w *game.World, t *game.Tick, flow game.CashFlow) []game.Line 
 			}
 		case events.CrewDefected:
 			crew.addMember(ev.Name+" (defected)", ev.ID)
+		case events.FileChanged:
+			pages, file, arrest = ev.To-ev.From, ev.To, ev.Arrest
 		case events.Enforcement:
-			pages += ev.Evidence
 			if ev.Level == content.Patrol || ev.Level == content.Arrest {
 				continue
 			}
@@ -141,12 +142,6 @@ func (s *Sim) lead(w *game.World, t *game.Tick, flow game.CashFlow) []game.Line 
 			shut.add(ev.Name, ev.Front)
 			short += ev.Short
 			shutDays = ev.Days
-		case events.RaidFellThrough:
-			pages += ev.Evidence
-		case events.BribeBackfired:
-			pages += ev.Evidence
-		case events.LeadsFiled:
-			pages += ev.Evidence
 		case events.InvestigationOpened:
 			if probe == nil {
 				l := investigationLine(ev)
@@ -215,9 +210,16 @@ func (s *Sim) lead(w *game.World, t *game.Tick, flow game.CashFlow) []game.Line 
 		add("scouts", float64(n), game.Line{Text: capitalize(scouts.joined("; ")) + ".", Act: game.Act{Screen: game.ScreenRivals}, City: scouts.first()})
 	}
 	if pages > 0 {
-		add("pages", float64(pages), game.Line{Text: fmt.Sprintf("The DA filed %s on you.", format.Plural(pages, "page")), Act: game.Act{Screen: game.ScreenDashboard}})
+		// The file's move over the night (#522): every page, whatever
+		// filed it, where the police's pages alone once left out the
+		// offshore lumps' ("The DA filed 2 pages" as the file went 2 to 5).
+		text := fmt.Sprintf("The DA filed %s on you.", format.Plural(pages, "page"))
+		if arrest > 0 {
+			text = fmt.Sprintf("The DA filed %s on you: the file is %d of the %d an indictment takes.", format.Plural(pages, "page"), file, arrest)
+		}
+		add("pages", float64(pages), game.Line{Text: text, Act: game.Act{Screen: game.ScreenDashboard}})
 	}
-	if l, n := s.flowLine(w, flow); n > 0 {
+	if l, n := s.flowLine(w, flow, laidLow(t)); n > 0 {
 		add("flow", n, l)
 	}
 	if n := moved.len(); n > 0 {
@@ -315,7 +317,7 @@ func (s *Sim) lead(w *game.World, t *game.Tick, flow game.CashFlow) []game.Line 
 // money turned into stock, a front or the account is not money lost, and a buying day would read as a crash. It says
 // nothing before there is a week to read, or when the week made
 // nothing either way.
-func (s *Sim) flowLine(w *game.World, flow game.CashFlow) (game.Line, float64) {
+func (s *Sim) flowLine(w *game.World, flow game.CashFlow, low bool) (game.Line, float64) {
 	cfg := s.cfg.Digest
 	if len(w.Flows) < cfg.Week {
 		return game.Line{}, 0
@@ -341,7 +343,7 @@ func (s *Sim) flowLine(w *game.World, flow game.CashFlow) (game.Line, float64) {
 		if ratio >= 10 {
 			prec = 0
 		}
-		text = fmt.Sprintf("Profit ran %s the week's nightly average: %s last night against %s.", format.Times(ratio, prec), signedCash(net), week)
+		text = fmt.Sprintf("Sales less costs ran %s the week's nightly average: %s last night against %s.", format.Times(ratio, prec), signedCash(net), week)
 	case avg > 0 && net >= 0:
 		dir := "rose"
 		if swing < 0 {
@@ -349,12 +351,17 @@ func (s *Sim) flowLine(w *game.World, flow game.CashFlow) (game.Line, float64) {
 		}
 		// A night against a night (#502: "on the week: +$4,656 against
 		// +$2,716 a night" read as a week's profit against a night's).
-		text = fmt.Sprintf("Profit %s %s from the week's nightly average: %s last night against %s.", dir, format.Pct(math.Abs(swing), 0), signedCash(net), week)
+		text = fmt.Sprintf("Sales less costs %s %s from the week's nightly average: %s last night against %s.", dir, format.Pct(math.Abs(swing), 0), signedCash(net), week)
 	default:
-		text = fmt.Sprintf("Last night made %s against the week's %s a night.", signedCash(net), week)
+		text = fmt.Sprintf("Last night's sales less costs came to %s against the week's %s a night.", signedCash(net), week)
 	}
 	act := game.Act{Screen: game.ScreenLedger}
-	if swing < 0 {
+	if low && swing < 0 {
+		// A night you lay low sold nothing on purpose (#522: "Last
+		// night made -$100 … the corners here have a ceiling" after a
+		// lie-low night): the lie-low is the cause, never the ceiling.
+		text = fmt.Sprintf("You lay low last night: sales less costs came to %s against the week's %s a night.", signedCash(net), week)
+	} else if swing < 0 {
 		if road := s.roadHint(w); road != "" {
 			text += " " + road
 			act = game.Act{Screen: game.ScreenMap}
@@ -391,6 +398,16 @@ func (s *Sim) roadHint(w *game.World) string {
 		far = w.CityOrder[0]
 	}
 	return fmt.Sprintf("The corners here have a ceiling: the road to %s is on the map (5).", w.CityName(far))
+}
+
+// laidLow reports whether the player lay low tonight (#522).
+func laidLow(t *game.Tick) bool {
+	for _, e := range t.Events() {
+		if _, ok := e.(events.LaidLow); ok {
+			return true
+		}
+	}
+	return false
 }
 
 // profit is game.CashFlow.Profit (#422), the lead's reading of a night.

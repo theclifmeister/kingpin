@@ -524,7 +524,7 @@ func (s *Sim) poachCrew(w *game.World, t *game.Tick) {
 		return
 	}
 	m := w.Crew.Members[pick]
-	ev := events.CrewPoached{Day: t.Day, ID: m.ID, Name: m.Name, Role: m.Role, Rival: r.Leader, Faction: r.Faction(), Wages: s.PoachOffer(m)}
+	ev := events.CrewPoached{Day: t.Day, ID: m.ID, Name: m.Name, Role: m.Role, Rival: r.Leader, Faction: r.Faction(), Wages: s.PoachOffer(m), City: w.WorkCity(m)}
 	if m.Loyalty >= f.PoachLine {
 		ev.Stayed, ev.Dip = true, f.PoachDip
 	} else {

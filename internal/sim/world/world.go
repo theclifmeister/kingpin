@@ -83,6 +83,9 @@ func (s *Sim) Step(w *game.World, t *game.Tick) {
 		if !listed(w, city, inc.Effects.MarketShock) || !listed(w, city, inc.Effects.DemandShift) {
 			continue
 		}
+		if inc.Names != "" && len(s.people(w, inc)) == 0 {
+			continue // everybody it could name it already has (#523)
+		}
 		wt := inc.Weight
 		if wt <= 0 {
 			wt = 1
@@ -113,7 +116,7 @@ func (s *Sim) Step(w *game.World, t *game.Tick) {
 		}
 	}
 	person := ""
-	if pool := s.names.Pool(inc.Names); len(pool) > 0 {
+	if pool := s.people(w, inc); len(pool) > 0 {
 		person = pool[rng.IntN(len(pool))]
 	}
 	product := inc.Effects.MarketShock.Product
@@ -127,6 +130,26 @@ func (s *Sim) Step(w *game.World, t *game.Tick) {
 		Day: t.Day, ID: inc.ID, Name: inc.Name, City: at.City, Route: at.Route, Product: product, Person: person, Days: rec.Days,
 		Chief: w.Law.Chief.Name, DA: w.Law.DA.Name, NewChief: inc.Effects.ChiefReplaced, Election: inc.Effects.ElectionCalled, LeaderKilled: inc.Effects.LeaderKilled,
 	})
+}
+
+// people is who an incident can name (names.toml, its row's names):
+// the pool less everybody the same row already named this run (#523: a
+// star who died of an overdose on day 57 died of one again on day 142).
+// A person an incident names happens to them once.
+func (s *Sim) people(w *game.World, inc *content.IncidentConfig) []string {
+	named := map[string]bool{}
+	for _, f := range w.Incidents.Fired {
+		if f.ID == inc.ID && f.Person != "" {
+			named[f.Person] = true
+		}
+	}
+	var out []string
+	for _, p := range s.names.Pool(inc.Names) {
+		if !named[p] {
+			out = append(out, p)
+		}
+	}
+	return out
 }
 
 // city is where an incident lands: the city its trigger named, else

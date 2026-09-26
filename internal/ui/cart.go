@@ -190,9 +190,9 @@ func (m *Model) cartSummary() string {
 		line := fmt.Sprintf("buying %s for %s", plural(t.buys, "line"), cash(t.spent+t.booked))
 		switch {
 		case t.contracts > 0 && t.credits > 0:
-			line += fmt.Sprintf(" (%d by contract, %d on credit)", t.contracts, t.credits)
+			line += fmt.Sprintf(" (%d by contract this morning, %d on credit)", t.contracts, t.credits)
 		case t.contracts > 0:
-			line += fmt.Sprintf(" (%d by contract)", t.contracts)
+			line += fmt.Sprintf(" (%d by contract this morning)", t.contracts)
 		case t.credits > 0:
 			line += fmt.Sprintf(" (%d on credit)", t.credits)
 		}
@@ -236,7 +236,10 @@ func (m *Model) cartRows(lines []cartLine) [][]any {
 		case l.keep:
 			rows = append(rows, []any{"keep", name, city, l.qty, nil, nil, nil, nil, nil})
 		case l.contract:
-			rows = append(rows, []any{"contract", name, city, l.qty, l.unit, nil, nil, styled{theme.Bad, -l.cost}, nil})
+			// This morning's buy, paid (#522: "contract Heroin 5" read as
+			// the contract after it was raised to 8; the keep line is the
+			// contract as it stands).
+			rows = append(rows, []any{"morning", name, city, l.qty, l.unit, nil, nil, styled{theme.Bad, -l.cost}, nil})
 		case l.credit:
 			rows = append(rows, []any{"credit", name, city, l.qty, l.unit, nil, nil, styled{theme.Warning, -l.cost}, nil})
 		case l.buy:
@@ -265,7 +268,7 @@ func (m *Model) cartTotalLine(t cartTotals) string {
 		parts = append(parts, sub("spent ")+money(t.spent))
 	}
 	if t.contracts > 0 {
-		parts = append(parts, sub("by contract ")+money(t.supplied))
+		parts = append(parts, sub("by contract this morning ")+money(t.supplied))
 	}
 	if t.credits > 0 {
 		parts = append(parts, sub("on credit ")+money(t.booked))
@@ -281,7 +284,7 @@ func (m *Model) cartTotalLine(t cartTotals) string {
 // heading, the table with no cursor and the totals; nothing for an
 // empty cart.
 func (m *Model) cartBlock() []string {
-	lines := m.cartLines()
+	lines := m.cartModalLines() // the contracts as they stand (#522)
 	if len(lines) == 0 {
 		return nil
 	}
@@ -295,7 +298,7 @@ func (m *Model) cartBlock() []string {
 // cart line, the city named where it is not the one the screen is
 // about, and what c does; nil for an empty cart.
 func (m *Model) cartSection(city string) []section {
-	lines := m.cartLines()
+	lines := m.cartModalLines() // the contracts as they stand, tonight's buy with them (#522)
 	if len(lines) == 0 {
 		return nil
 	}
@@ -304,7 +307,7 @@ func (m *Model) cartSection(city string) []section {
 	if t.buys > 0 {
 		line := fmt.Sprintf("%s, %s", plural(t.buys, "line"), cash(t.spent))
 		if t.contracts > 0 {
-			line += sep + fmt.Sprintf("%d by contract", t.contracts)
+			line += sep + fmt.Sprintf("%d by contract this morning", t.contracts)
 		}
 		ls = append(ls, row("buying", line))
 	}
@@ -318,8 +321,11 @@ func (m *Model) cartSection(city string) []section {
 	for _, l := range lines {
 		what := fmt.Sprintf("%d %s", l.qty, m.w.ProductName(l.product))
 		switch {
+		case l.keep:
+			// The contract as it stands now (#522), and what it buys tonight.
+			ls = append(ls, row("keep", fmt.Sprintf("%s · ~%d tonight", what, m.w.SupplyDue(l.city, l.product))))
 		case l.contract:
-			ls = append(ls, row("contract", what+" "+money(l.cost)))
+			ls = append(ls, row("morning", what+" "+money(l.cost)))
 		case l.buy:
 			ls = append(ls, row("buy", what+" "+money(l.cost)))
 		case l.standing:
@@ -348,9 +354,11 @@ func (m *Model) openCart() {
 // supply contract of yours as a keep line, in city and ladder order
 // (#470), so a contract in a city you are not in is edited here (its
 // level the quantity, x clearing it) rather than only on the buy dialog
-// where it is. They are the modal's alone: the cart's totals, its
-// sentence and the pane count the day's buys and orders, not the
-// levels.
+// where it is. The dialogs' CART block and the pane show them too
+// (#522): the contract as it stands now, a level raised today at once,
+// where the morning's buy (a line marked `morning`) is what the level
+// bought before it. The cart's totals and its sentence count the day's
+// buys and orders, not the levels.
 func (m *Model) cartModalLines() []cartLine {
 	lines := m.cartLines()
 	w := m.w

@@ -525,7 +525,7 @@ personality = "expansionist"
 contested = true
 [[card.choice]]
 label = "Fortify {{.Corner}}"
-outcome = "You spent {{.Amount}} making {{.Corner}} hard to take. The crew felt it."
+outcome = "You spent {{.Amount}} making {{.Corner}} hard to take. Everybody on it felt it."
 [card.choice.effects]
 dirty_amount = -1
 war = 5
@@ -669,6 +669,7 @@ amount_max = 2000
 [card.trigger]
 heat_min = 25
 corners = 1
+crew_min = 1 # she asks the runners, and the crew scare her off (#523): no crew, no card
 [[card.choice]]
 label = "Buy her a drink and a better story"
 outcome = "You bought her a drink and a story about the docks. She ran that instead."
@@ -963,7 +964,7 @@ outcome = "You sent half. The furnace works most days."
 dirty_amount = -0.5
 [[card.choice]]
 label = "Not this month"
-outcome = "You did not send anything. The crew heard the call."
+outcome = "You did not send anything. Whoever was in the room heard the call."
 [card.choice.effects]
 crew_loyalty = -2
 

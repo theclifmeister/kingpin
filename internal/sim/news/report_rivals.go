@@ -305,7 +305,7 @@ func (r *reporter) reportRivals(e events.Event) bool {
 			rep.Territory = append(rep.Territory, fmt.Sprintf("The police took %s. Their crew is coming apart: %s go back to the street over the coming days, prices%s spike, and their people are looking for work%s.", ev.Rival, format.Plural(ev.Corners, "corner"), r.in(ev.City), pointer(ev.Muscle)))
 		}
 	case events.CrewPoached:
-		d := base
+		d := r.member(base, ev.ID, ev.City)
 		d.Name, d.Role, d.Rival = ev.Name, ev.Role, ev.Rival
 		d = r.crew(d, ev.Rival)
 		if ev.Stayed {
@@ -323,7 +323,7 @@ func (r *reporter) reportRivals(e events.Event) bool {
 			rep.Territory = append(rep.Territory, fmt.Sprintf("CRACKDOWN. The police cleared %s. Both sides lost ground.", strings.Join(ev.Lost, ", ")))
 		} else {
 			r.add("rivals", "WarOpen", d)
-			rep.Territory = append(rep.Territory, fmt.Sprintf("The war is loud (%.0f/100). Keep it up and the police clear both sides.", ev.War))
+			rep.Territory = append(rep.Territory, warLine(ev))
 		}
 	default:
 		return false
@@ -351,4 +351,14 @@ func rivalOr(name string) string {
 		return "a crew"
 	}
 	return name
+}
+
+// warLine is the war turning loud (#522): on the rivals panel's scale,
+// the war against the crackdown line (`loud (52/80)`), where it read
+// out of 100 beside the panel's 80.
+func warLine(ev events.WarEscalated) string {
+	if ev.Crackdown <= 0 {
+		return fmt.Sprintf("The war is loud (%.0f). Keep it up and the police clear both sides.", ev.War)
+	}
+	return fmt.Sprintf("The war is loud (%.0f/%.0f): at %.0f the police clear both sides.", ev.War, ev.Crackdown, ev.Crackdown)
 }

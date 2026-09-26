@@ -46,6 +46,13 @@ func TestIdleRouteSaysWhy(t *testing.T) {
 		if view := stripANSI(m.View()); !strings.Contains(view, "idle: no dirty cash") {
 			t.Errorf("%dx%d: the ledger does not say the route is idle:\n%s", sz[0], sz[1], view)
 		}
+		// A route whose name has its article is not given a second
+		// (#523: "idle: … · the The Channel").
+		for _, name := range []string{"The Channel", "Coast Road"} {
+			if got := ledgerRouteName(name); strings.Contains(got, "the The") || !strings.HasSuffix(got, name) {
+				t.Errorf("the ledger names %s as %q", name, got)
+			}
+		}
 		// Cash over the till for a lot: it sends, and nothing says idle.
 		w.Player.DirtyCash = m.till() + 10_000_000
 		m.Update(key("5"))

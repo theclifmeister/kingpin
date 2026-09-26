@@ -264,6 +264,7 @@ func (s *Sim) strike(d *day, sting content.ResponseConfig) {
 			h.EvidenceDay = t.Day
 		}
 	}
+	ev.File, ev.Arrest = h.Evidence, s.EvidenceArrest(w) // "+2 (now 5/6)" (#522)
 	closed.Evidence = ev.Evidence
 	// Each repeat cools less, as every rung's does (fire): the first
 	// corner fed to them buys the most.

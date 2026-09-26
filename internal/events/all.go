@@ -9,7 +9,7 @@ package events
 // the game reads it.
 var All = []Event{
 	DayEnded{}, Headline{}, PriceShock{}, Unlocked{}, PriceMove{}, PlayerSold{},
-	StandingShort{}, HeatChanged{}, Enforcement{}, LaidLow{}, GameOver{}, CrewHired{},
+	StandingShort{}, HeatChanged{}, Enforcement{}, FileChanged{}, LaidLow{}, GameOver{}, CrewHired{},
 	CrewFired{}, CrewQuit{}, CrewTurnedInformant{}, CrewDefected{}, InvestigationRun{},
 	CrewSkimmed{}, CrewPaidOff{}, CrewPaid{}, CornerClaimed{}, CornerLost{}, CornerRobbed{},
 	RivalMovedIn{}, CornerTaken{}, RivalEyeing{}, RivalOutbid{}, RivalPushed{},

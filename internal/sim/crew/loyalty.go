@@ -220,10 +220,10 @@ func (s *Sim) quit(n *night) {
 			to = w.StrongestFaction(w.Home().ID)
 		}
 		if to == nil {
-			t.Emit(events.CrewQuit{Day: t.Day, ID: m.ID, Name: m.Name, Role: m.Role})
+			t.Emit(events.CrewQuit{Day: t.Day, ID: m.ID, Name: m.Name, Role: m.Role, City: postCity(post)})
 			continue
 		}
-		ev := events.CrewDefected{Day: t.Day, ID: m.ID, Name: m.Name, Role: m.Role, Rival: to.Leader, Faction: to.Faction()}
+		ev := events.CrewDefected{Day: t.Day, ID: m.ID, Name: m.Name, Role: m.Role, Rival: to.Leader, Faction: to.Faction(), City: postCity(post)}
 		lead := game.Lead{Name: m.Name, Faction: to.Faction()}
 		if post != nil && post.City == w.CityOf(to).ID {
 			ev.Corner, ev.CornerName = post.ID, post.Name
@@ -237,4 +237,12 @@ func (s *Sim) quit(n *night) {
 	for _, m := range gone {
 		s.kinLoyalty(w, m, -s.cfg.Life.KinLoyalty)
 	}
+}
+
+// postCity is the city of a post, or "" for none (#523).
+func postCity(c *game.Corner) string {
+	if c == nil {
+		return ""
+	}
+	return c.City
 }

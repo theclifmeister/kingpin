@@ -24,10 +24,10 @@ func TestCrewTroubleWords(t *testing.T) {
 	if len(lines) != 1 {
 		t.Fatalf("crew line alerts %+v", lines)
 	}
-	if got := stripANSI(lines[0].text); !strings.HasPrefix(got, "Deshawn is 4 from walking") || !strings.Contains(got, screenPointer(screenCrew)) {
+	if got := stripANSI(lines[0].text); !strings.HasPrefix(got, "Deshawn is 4 loyalty from walking") || !strings.Contains(got, screenPointer(screenCrew)) {
 		t.Errorf("the crew line alert reads %q", got)
 	}
-	if lines[0].why != "Deshawn 4 from walking" {
+	if lines[0].why != "Deshawn is 4 loyalty from walking" { // a sentence (#522)
 		t.Errorf("the stop reads %q", lines[0].why)
 	}
 	idle := m.alertsOf(engine.AlertIdleCorner)
@@ -38,10 +38,10 @@ func TestCrewTroubleWords(t *testing.T) {
 	if got := stripANSI(idle[0].text); !strings.HasPrefix(got, "Nobody works "+c.Name+": back to the street in "+plural(drift, "day")) || !strings.Contains(got, screenPointer(screenMap)) {
 		t.Errorf("the idle corner alert reads %q", got)
 	}
-	if got, want := m.crewTrouble(), "1 near the line, 1 corner unworked"; got != want {
+	if got, want := m.crewTrouble(), "1 near or under the line, 1 corner unworked"; got != want {
 		t.Errorf("the crew trouble reads %q, want %q", got, want)
 	}
-	if v := stripANSI(m.View()); !strings.Contains(v, "1 near the line, 1 corner unworked") {
+	if v := stripANSI(m.View()); !strings.Contains(v, "1 near or under the line, 1 corner unworked") {
 		t.Errorf("the dashboard does not carry the crew trouble:\n%s", v)
 	}
 	c.Idle = drift - 1

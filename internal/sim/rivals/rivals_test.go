@@ -296,7 +296,7 @@ func TestTipsAndCrackdown(t *testing.T) {
 			lost[ev.Corner] = ev.Owner
 		}
 	}
-	if we == nil || we.Stage != "crackdown" || we.Heat != cfg.Rivals.Rivals.CrackdownHeat || len(we.Lost) != 2*cfg.Rivals.Rivals.CrackdownCorners {
+	if we == nil || we.Stage != "crackdown" || we.Heat != cfg.Rivals.Rivals.CrackdownHeat || len(we.Lost) != 2*cfg.Rivals.Rivals.CrackdownCorners || we.Crackdown != cfg.Rivals.Rivals.CrackdownThreshold { // the scale the panel shows (#522)
 		t.Fatalf("crackdown %+v", we)
 	}
 	if lost["fourth"] != game.OwnerPlayer || lost["projects"] != game.OwnerPlayer || lost["depot"] != game.OwnerRival {

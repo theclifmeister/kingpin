@@ -1,6 +1,7 @@
 package ui
 
 import (
+	"fmt"
 	"strings"
 	"testing"
 
@@ -230,4 +231,33 @@ func TestMarketKeysNeverTurnTheLaunderDial(t *testing.T) {
 	if w.Laundering.Dial == dial {
 		t.Fatalf("d on the ledger did not turn the dial (%q)", m.status)
 	}
+}
+
+// A buyer order's days left agree between its row and its details, and
+// do not change on acceptance (#522: "3d left" became "4d left" on
+// accepting, and "by day 12 (4 days)" sat beside "5d left").
+func TestBuyerDaysAgree(t *testing.T) {
+	m := newTestModel(t, 120, 40)
+	w := m.w
+	here := w.Player.Location
+	c := offer(m, 40, here)
+	m.Update(key("2"))
+	toBuyers(t, m)
+	want := "4d left"
+	details := fmt.Sprintf("day %d (4 days)", c.Due)
+	check := func(when string) {
+		t.Helper()
+		if main := stripANSI(mainText(m)); !strings.Contains(main, want) {
+			t.Errorf("%s: the row lacks %q:\n%s", when, want, main)
+		}
+		if pane := paneProse(m); !strings.Contains(pane, details) {
+			t.Errorf("%s: the details lack %q:\n%s", when, details, pane)
+		}
+	}
+	check("offered")
+	m.Update(key("a"))
+	if w.Contract(c.ID).Status != game.ContractAccepted {
+		t.Fatalf("a did not accept (%s)", m.status)
+	}
+	check("taken")
 }

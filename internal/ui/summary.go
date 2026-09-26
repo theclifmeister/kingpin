@@ -72,7 +72,7 @@ func (m *Model) summaryLines() []string {
 		money = append(money, [2]string{"owed", owed}) // #518: the debt a broke run left
 	}
 	if s := w.Stats; s.Cuts > 0 {
-		money = append(money, [2]string{"cuts", cash(s.Cuts) + " kept by the crew who ran it for you, apart from the skim"}) // #502
+		money = append(money, [2]string{"cuts", cash(s.Cuts) + " kept by the crew who ran it for you, a greedy lieutenant's take with it, apart from the skim"}) // #502, #521
 	}
 	if s := w.Stats; s.Earned+s.Invested > 0 {
 		money = append(money, [2]string{"the fronts", fmt.Sprintf("%s in levels, %s earned", cash(s.Invested), cash(s.Earned))})

@@ -177,17 +177,23 @@ func heatChip(r Rules, w *game.World, ch game.Change) Chip {
 // made them differ), and a chip for every member the move takes over or
 // under the skim line.
 func loyaltyChips(r Rules, w *game.World, ls []game.Change) []Chip {
-	line := 0.0
-	if r.Crew != nil {
-		line = r.Crew.Tuning().SkimThreshold
-	}
 	crossed := func(ch game.Change) (Chip, bool) {
 		name := memberName(w, ch.Member)
+		// A member's own line (#522): the skim line, a lieutenant's the
+		// turn line ("Yaya's loyalty 28 → 34: over the skim line" was a
+		// lieutenant's).
+		line, word := 0.0, "skim"
+		if r.Crew != nil {
+			line = r.Crew.Tuning().SkimThreshold
+			if m := w.Crew.Member(ch.Member); m != nil && m.Lieutenant() {
+				line, word = r.Crew.FlipLine(), "turn"
+			}
+		}
 		switch {
 		case line > 0 && ch.From >= line && ch.To < line:
-			return Chip{Text: fmt.Sprintf("%s's loyalty %.0f %s %.0f: under the skim line", name, ch.From, format.Arrow, ch.To), Tone: ToneLine}, true
+			return Chip{Text: fmt.Sprintf("%s's loyalty %.0f %s %.0f: under the %s line", name, ch.From, format.Arrow, ch.To, word), Tone: ToneLine}, true
 		case line > 0 && ch.From < line && ch.To >= line:
-			return Chip{Text: fmt.Sprintf("%s's loyalty %.0f %s %.0f: over the skim line", name, ch.From, format.Arrow, ch.To), Tone: ToneGain}, true
+			return Chip{Text: fmt.Sprintf("%s's loyalty %.0f %s %.0f: over the %s line", name, ch.From, format.Arrow, ch.To, word), Tone: ToneGain}, true
 		}
 		return Chip{}, false
 	}

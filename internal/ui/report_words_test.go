@@ -143,7 +143,7 @@ func TestSummaryKeepsTheCutApart(t *testing.T) {
 	m.w.Over = m.w.End(content.CauseIndicted, m.w.Day, "")
 	m.mode = modeOver
 	lines := stripANSI(strings.Join(m.summaryLines(), "\n"))
-	if !strings.Contains(lines, "$4,000 skimmed") || !strings.Contains(lines, "$31K kept by the crew who ran it for you, apart from the skim") {
+	if !strings.Contains(lines, "$4,000 skimmed") || !strings.Contains(lines, "$31K kept by the crew who ran it for you, a greedy lieutenant's take with it, apart from the skim") {
 		t.Errorf("the summary's money:\n%s", lines)
 	}
 }

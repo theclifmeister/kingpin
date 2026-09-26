@@ -397,6 +397,11 @@ type day struct {
 	// and the city/product pairs sold or handed over today. Nil off.
 	leads map[string]float64
 	sold  map[string]bool
+	// The DA's file at dusk and the pages an indictment takes (#522):
+	// every page filed tonight says "+N (now M/T)", and the night's
+	// FileChanged is the move from file0.
+	file0  int
+	arrest int
 }
 
 // Step applies today's heat sources to every city, decays each, then has
@@ -412,6 +417,7 @@ func (s *Sim) Step(w *game.World, t *game.Tick) {
 		here: w.Player.Location, home: w.Home().ID,
 		from: map[string]float64{}, reasons: map[string][]string{},
 		units: map[string]int{}, attempted: map[string]bool{},
+		file0: w.Heat.Evidence, arrest: s.EvidenceArrest(w),
 	}
 	for _, cid := range w.CityOrder {
 		d.from[cid] = w.Cities[cid].Heat
@@ -457,5 +463,8 @@ func (s *Sim) settle(d *day) {
 			d.h.Peak = c.Heat
 		}
 		d.t.Emit(events.HeatChanged{Day: d.t.Day, City: cid, From: d.from[cid], To: c.Heat, Reasons: d.reasons[cid]})
+	}
+	if d.h.Evidence != d.file0 {
+		d.t.Emit(events.FileChanged{Day: d.t.Day, From: d.file0, To: d.h.Evidence, Arrest: d.arrest})
 	}
 }

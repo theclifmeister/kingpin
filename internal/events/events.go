@@ -139,9 +139,25 @@ type Enforcement struct {
 	House     string // the house the stock came out of (#73), "" for the street
 	HouseName string
 	Corners   []string // the corners in the city your crew stood on when the police came (#46): the ones the crew sim rolls arrests over the next morning
+	File      int      // the DA's file after these pages (#522), for "+2 (now 5/6)"
+	Arrest    int      // the pages an indictment takes, as the heat sim reads it tonight (#522)
 }
 
 func (Enforcement) Kind() string { return "Enforcement" }
+
+// FileChanged is the DA's file over the night (#522): From at dusk, To
+// by morning, every page filed tonight counted whatever filed it, and
+// Arrest the pages an indictment takes. The heat sim sends it once, at
+// the end of its step, when the file moved; the morning's lead counts
+// the pages off it. Report-only bookkeeping.
+type FileChanged struct {
+	Day    int
+	From   int
+	To     int
+	Arrest int
+}
+
+func (FileChanged) Kind() string { return "FileChanged" }
 
 // LaidLow records that the player skipped trading to let heat decay.
 type LaidLow struct{ Day int }
@@ -186,6 +202,7 @@ type CrewQuit struct {
 	ID   int // the member (#301): a front end animates them by it
 	Name string
 	Role string
+	City string // the city they worked (#523, World.WorkCity), "" for none: the headline names it, not where you stand
 }
 
 func (CrewQuit) Kind() string { return "CrewQuit" }
@@ -214,6 +231,7 @@ type CrewDefected struct {
 	Faction    string // faction id (#144); Rival is its leader's name, for the headline
 	Corner     string
 	CornerName string
+	City       string // the city they worked (#523, World.WorkCity), "" for none: the headline names it, not where you stand
 }
 
 func (CrewDefected) Kind() string { return "CrewDefected" }
@@ -234,7 +252,8 @@ func (InvestigationRun) Kind() string { return "InvestigationRun" }
 // CrewSkimmed reports takings that went missing. It never names names.
 // FromWash is the part of Amount an accountant took out of the wash, in
 // clean cash. Cuts is what the lieutenants kept as their cut tonight,
-// which the skim is on top of and never part of (#502).
+// a greedy one's take on top included (#521), which the skim is on top
+// of and never part of (#502).
 type CrewSkimmed struct {
 	Day      int
 	Amount   int
@@ -437,11 +456,12 @@ func (RivalUndercut) Kind() string { return "RivalUndercut" }
 // crushing both sides (Stage crackdown), when Lost names the corners
 // cleared and Heat is what the player draws for it.
 type WarEscalated struct {
-	Day   int
-	Stage string // StageOpen or StageCrackdown
-	War   float64
-	Lost  []string // corner names cleared, both sides
-	Heat  float64
+	Day       int
+	Stage     string // StageOpen or StageCrackdown
+	War       float64
+	Lost      []string // corner names cleared, both sides
+	Heat      float64
+	Crackdown float64 // the war the police clear both sides at (#522): the scale the report and the panel share
 }
 
 func (WarEscalated) Kind() string { return "WarEscalated" }
@@ -1016,6 +1036,7 @@ type CrewRetired struct {
 	Age  int
 	Kin  string
 	Sour bool
+	City string // the city they worked (#523, World.WorkCity), "" for none: the headline names it, not where you stand
 }
 
 func (CrewRetired) Kind() string { return "CrewRetired" }
@@ -1354,6 +1375,7 @@ type CrewPoached struct {
 	Wages   int
 	Stayed  bool
 	Dip     float64
+	City    string // the city they worked (#523, World.WorkCity), "" for none: the headline names it, not where you stand
 }
 
 func (CrewPoached) Kind() string { return "CrewPoached" }
@@ -1419,7 +1441,7 @@ type LieutenantActed struct {
 	Orders      int      // standing orders placed for tomorrow
 	Revenue     int      // what their city took today
 	Cut         int      // what they kept of it
-	Skimmed     int      // what a greedy one took on top; the report never says so
+	Extra       int      // what a greedy one took on top of the cut (#521): theirs, on their line, never a skim
 	Bought      []Bought // what their supply contracts bought this morning (#174), in ladder order
 	Contracts   int      // supply contracts kept for tomorrow (#174)
 	Held        []Held   // stock kept back from their orders for a route or a contract (#497), in product order

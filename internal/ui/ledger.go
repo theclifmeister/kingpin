@@ -708,7 +708,7 @@ func (m *Model) viewLedger() string {
 	for _, r := range m.ledgerRoutes() {
 		if why := m.rules.Logistics.Idle(w, r); why == events.IdleTill || why == events.IdleStock {
 			long, _, st := m.routeIdle(r)
-			line(st.Render(long) + sub(" · the "+r.Name))
+			line(st.Render(long) + sub(ledgerRouteName(r.Name)))
 		}
 	}
 
@@ -1007,3 +1007,8 @@ func signedCash(n int) string {
 	}
 	return cash(n)
 }
+
+// ledgerRouteName is an idle route's name after its verdict on the
+// ledger, ` · the Coast Road`: a name with its own article gets no
+// second (#523: "the The Channel").
+func ledgerRouteName(name string) string { return " · " + format.The(name) }

@@ -29,7 +29,7 @@ func (r *reporter) reportCrew(e events.Event) bool {
 			rep.Crew = append(rep.Crew, fmt.Sprintf("You let %s go. The others noticed.", ev.Name))
 		}
 	case events.CrewDefected:
-		d := base
+		d := r.member(base, ev.ID, ev.City)
 		d.Name, d.Role, d.Rival, d.Corner = ev.Name, ev.Role, ev.Rival, ev.CornerName
 		d = r.crew(d, ev.Rival)
 		r.add("crew", "CrewDefected", d)
@@ -84,7 +84,7 @@ func (r *reporter) reportCrew(e events.Event) bool {
 			rep.Crew = append(rep.Crew, fmt.Sprintf("The raid found the lab: %s taken, %s", ev.Name, tail))
 		}
 	case events.CrewReleased:
-		d := base
+		d := r.member(base, ev.ID, "")
 		d.Name, d.Role = ev.Name, ev.Role
 		if ev.Bailed {
 			rep.Crew = append(rep.Crew, fmt.Sprintf("%s is out on your bail and knows who paid it.", ev.Name))
@@ -113,7 +113,7 @@ func (r *reporter) reportCrew(e events.Event) bool {
 	case events.CrewRecovered:
 		rep.Crew = append(rep.Crew, fmt.Sprintf("%s is back on their feet.", ev.Name))
 	case events.CrewRetired:
-		d := base
+		d := r.member(base, ev.ID, ev.City)
 		d.Name, d.Role = ev.Name, ev.Role
 		r.add("crew", "CrewRetired", d)
 		switch {
@@ -127,7 +127,7 @@ func (r *reporter) reportCrew(e events.Event) bool {
 	case events.KinLooking:
 		rep.Crew = append(rep.Crew, fmt.Sprintf("%s's %s %s is looking for work, and would sign for %s.", ev.Of, ev.Role, ev.Name, format.Money(ev.Fee)))
 	case events.CrewQuit:
-		d := base
+		d := r.member(base, ev.ID, ev.City)
 		d.Name, d.Role = ev.Name, ev.Role
 		r.add("crew", "CrewQuit", d)
 		rep.Crew = append(rep.Crew, fmt.Sprintf("%s walked. Nobody was surprised.", ev.Name))
@@ -142,16 +142,19 @@ func (r *reporter) reportCrew(e events.Event) bool {
 		}
 		rep.Crew = append(rep.Crew, lieutenantWalkedLine(ev))
 	case events.LieutenantActed:
-		// The cut is the sales' net; a greedy one's skim on top is in
-		// the night's CrewSkimmed with everybody else's.
-		r.book(game.FlowSales, -ev.Cut, 0)
+		// The cut is the sales' net, and so is what a greedy one takes
+		// on top (#521): theirs, by name on their line, never a skim.
+		r.book(game.FlowSales, -(ev.Cut + ev.Extra), 0)
 		rep.Crew = append(rep.Crew, lieutenantLines(w, ev)...)
 		if ev.Cut > 0 {
 			rep.Money = append(rep.Money, fmt.Sprintf("%s's cut of %s -%s", ev.Name, ev.CityName, format.Money(ev.Cut)))
 		}
+		if ev.Extra > 0 {
+			rep.Money = append(rep.Money, fmt.Sprintf("%s's take on top in %s -%s", ev.Name, ev.CityName, format.Money(ev.Extra)))
+		}
 	case events.CrewTrait:
-		// Veterans (#346): a known quantity now.
-		d := base
+		// Veterans (#346): a known quantity now, in the city they work.
+		d := r.member(base, ev.ID, "")
 		d.Name, d.Role, d.Trait = ev.Name, ev.Role, ev.Trait
 		r.add("crew", "CrewTrait", d)
 		if ev.Good {

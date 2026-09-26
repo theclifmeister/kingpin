@@ -1,6 +1,7 @@
 package heat_test
 
 import (
+	"fmt"
 	"math"
 	"strings"
 	"testing"
@@ -480,9 +481,15 @@ func TestDecayAndTheFloor(t *testing.T) {
 		t.Fatalf("over the floor: %.3f, want %.3f", home.Heat, floor+10*(1-tun.Decay))
 	}
 	home.Heat = floor / 2
-	step(w, s)
+	tk = step(w, s)
 	if !near(home.Heat, floor) {
 		t.Fatalf("under the floor: %.3f, the floor is %.3f", home.Heat, floor)
+	}
+	// The floor lifting a city is a cause the report shows (#522).
+	for _, e := range tk.Events() {
+		if hc, ok := e.(events.HeatChanged); ok && hc.To > hc.From && (len(hc.Reasons) == 0 || !strings.Contains(strings.Join(hc.Reasons, " "), "floor")) {
+			t.Fatalf("%s heat %.1f to %.1f with no cause: %v", hc.City, hc.From, hc.To, hc.Reasons)
+		}
 	}
 	w.Player.Reputation.Fear = 0
 	home.Heat = 40
@@ -549,9 +556,26 @@ func TestInformantClock(t *testing.T) {
 		if !ok || hc.City != home.ID {
 			continue
 		}
-		if len(hc.Reasons) != 1 {
-			t.Fatalf("the report on the leak: %v (want the file's line alone: the heat is the tell)", hc.Reasons)
+		// Every heat line has a cause (#522): the leak's heat is loose
+		// talk, naming nobody, and the page after it.
+		if len(hc.Reasons) != 2 || !strings.HasPrefix(hc.Reasons[0], "loose talk (+") {
+			t.Fatalf("the report on the leak: %v (want the loose talk and the file's line)", hc.Reasons)
 		}
+		// The page says what it added and where the file stands (#522).
+		want := fmt.Sprintf("+%d (now %d/%d)", tun.InformantEvidence, w.Heat.Evidence, s.EvidenceArrest(w))
+		if !strings.HasSuffix(hc.Reasons[1], want) {
+			t.Fatalf("the leak's page reads %q, want it to end %q", hc.Reasons[1], want)
+		}
+	}
+	// The night's move of the file is one event, whatever filed it (#522).
+	var fc *events.FileChanged
+	for _, e := range tk.Events() {
+		if ev, ok := e.(events.FileChanged); ok {
+			fc = &ev
+		}
+	}
+	if fc == nil || fc.From != 0 || fc.To != w.Heat.Evidence || fc.Arrest != s.EvidenceArrest(w) {
+		t.Fatalf("the night's FileChanged: %+v, want 0 to %d of %d", fc, w.Heat.Evidence, s.EvidenceArrest(w))
 	}
 	for i := 0; i < tun.InformantDays; i++ {
 		step(w, s)
@@ -1121,4 +1145,33 @@ func TestRungsAreWhatTheyTake(t *testing.T) {
 			}
 		}
 	}
+}
+
+// "Sloppy crew" names who it counts (#522: "sloppy crew (+1.4)" with
+// every runner at skill 61, the heat a hothead's): a runner under the
+// sloppy-skill line by skill.
+func TestSloppyCrewIsNamed(t *testing.T) {
+	cfg := content.MustLoad()
+	s := heat.New(cfg)
+	w := world(t, cfg)
+	home := w.Home()
+	c := &home.Corners[1]
+	c.Hand(game.OwnerPlayer, "", w.Day)
+	w.Crew.Members = []game.CrewMember{{ID: 1, Name: "Rudy", Role: game.RoleRunner, Skill: 10, Loyalty: 80, Units: 40, Wage: 50}}
+	c.Runner = 1
+	tk := step(w, s, sale(w, home.ID, 40))
+	for _, e := range tk.Events() {
+		if hc, ok := e.(events.HeatChanged); ok && hc.City == home.ID {
+			for _, r := range hc.Reasons {
+				if strings.HasPrefix(r, "sloppy crew") {
+					if !strings.HasPrefix(r, "sloppy crew: Rudy (skill 10) (+") {
+						t.Fatalf("the sloppy line reads %q", r)
+					}
+					return
+				}
+			}
+			t.Fatalf("no sloppy line: %v", hc.Reasons)
+		}
+	}
+	t.Fatal("no heat line for home")
 }

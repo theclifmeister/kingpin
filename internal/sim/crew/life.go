@@ -353,7 +353,7 @@ func (s *Sim) fall(w *game.World, t *game.Tick, m game.CrewMember, corner *game.
 // page (the informant exception applied once).
 func (s *Sim) retire(w *game.World, t *game.Tick, rng game.Rand, m game.CrewMember, fx game.Effects) {
 	life := s.cfg.Life
-	ev := events.CrewRetired{Day: t.Day, ID: m.ID, Name: m.Name, Role: m.Role, Age: m.Age}
+	ev := events.CrewRetired{Day: t.Day, ID: m.ID, Name: m.Name, Role: m.Role, Age: m.Age, City: w.WorkCity(m)}
 	w.Recall(m.ID)
 	if m.Runs() {
 		w.DropStanding(m.City)

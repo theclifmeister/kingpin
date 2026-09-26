@@ -65,18 +65,33 @@ func (m *Model) askFire() {
 	m.ask("fire", (*Model).fireConfirm, (*Model).confirmFire)
 }
 
-// fireConfirm is the confirmation's modal, naming who goes.
+// fireConfirm is the confirmation's modal, naming who goes and what
+// it costs the rest (#522: firing a named informant said the rest lose
+// loyalty, and nobody's moved): the crew sim takes fire_loyalty off
+// everyone for each firing tonight, bar an informant's.
 func (m *Model) fireConfirm() string {
 	name := "them"
-	if c := m.w.Crew.Member(m.subjectID); c != nil {
+	c := m.w.Crew.Member(m.subjectID)
+	if c != nil {
 		name = c.Name
 	}
-	body := []string{"No severance in this business. The rest of the crew", "will take it personally."}
+	body := m.wrapLines(m.fireCost(c))
 	if line := m.fireWarLine(); line != "" {
 		body = append(body, "")
 		body = append(body, m.wrapLines(theme.Bad.Render(line))...)
 	}
 	return m.modal("FIRE "+name+"?", body, m.modalFooter())
+}
+
+// fireCost is what a firing costs the rest, in a sentence (#522): the
+// modal's and the pane's key row's number: nothing for the snitch the
+// investigation named, and a hidden one's firing is said to cost
+// nothing either, without saying who.
+func (m *Model) fireCost(c *game.CrewMember) string {
+	if c != nil && c.ID == m.w.Crew.Exposed {
+		return "They were talking to the police. Nobody will miss them: the rest lose no loyalty, and the file stops growing."
+	}
+	return fmt.Sprintf("No severance in this business. The rest lose %.0f loyalty tonight, unless the one you fire was talking to the police.", m.rules.Crew.Tuning().FireLoyalty)
 }
 
 // fireWarLine is the taken-out warning on the fire confirmation (#520):
@@ -253,11 +268,9 @@ func (m *Model) crewWarning() string {
 	case m.talking():
 		return "▲ Somebody is talking. The file grew without a bust. Ask around or fire your suspect."
 	case w.Crew.LastSkim > 0 && w.Day-w.Crew.LastSkim < tun.SuspectDays:
-		who := fmt.Sprintf("Somebody's loyalty is under %.0f.", tun.SkimThreshold)
-		if w.Crew.Role(game.RoleLieutenant) > 0 {
-			who = fmt.Sprintf("Somebody's loyalty is under %.0f, or a lieutenant is greedy.", tun.SkimThreshold)
-		}
-		return fmt.Sprintf("▲ Skimming suspected. Money went missing on day %d. %s", w.Crew.LastSkim, who)
+		// A greedy lieutenant's take is theirs and never a skim (#521):
+		// only a loyalty under the line sets LastSkim.
+		return fmt.Sprintf("▲ Skimming suspected. Money went missing on day %d. Somebody's loyalty is under %.0f.", w.Crew.LastSkim, tun.SkimThreshold)
 	}
 	return ""
 }
@@ -592,9 +605,9 @@ func (m *Model) personLines(c game.CrewMember, onPayroll bool) []string {
 	// What the keys would do to them, with the numbers the
 	// confirmations use.
 	if c.ID == w.Crew.Exposed {
-		lines = append(lines, keyRow("f", "fire: the file stops growing"))
+		lines = append(lines, keyRow("f", "fire: the file stops growing"), row("", theme.Subtle.Render("nobody minds"))) // #522
 	} else {
-		lines = append(lines, keyRow("f", fmt.Sprintf("fire: the rest lose %.0f loyalty", tun.FireLoyalty)))
+		lines = append(lines, keyRow("f", fmt.Sprintf("fire: the rest lose %.0f loyalty", tun.FireLoyalty)), row("", theme.Subtle.Render("not for a snitch"))) // what happens (#522)
 	}
 	if c.Lieutenant() && c.City == "" {
 		lines = append(lines, keyRow("l", "give them a city"))
@@ -672,6 +685,10 @@ func (m *Model) lieutenantLines(c game.CrewMember) []string {
 		for _, tt := range t.Tempers {
 			if tt.Name == c.Personality {
 				lines = append(lines, m.wrapped(theme.Subtle, lieutenantTemper(tt))...)
+				if tt.Skim > 0 && c.City != "" && c.Extra > 0 {
+					// What the greedy temper cost last night (#521), on top of the cut.
+					lines = append(lines, row("costs", money(c.Extra)+" last night on top of the cut"))
+				}
 			}
 		}
 		return lines
@@ -704,7 +721,8 @@ func (m *Model) lieutenantKeeps(city string) string {
 }
 
 // lieutenantTemper is a lieutenant's temper in a line (#455): the dial they sell at, the
-// heat against a normal hand's, the days of stock they keep, a skim and
+// heat against a normal hand's, the days of stock they keep, a greedy one's take on
+// top of the cut (#521) and
 // whether they go after a faction's scouts.
 func lieutenantTemper(t content.TemperTerms) string {
 	parts := []string{"sells " + t.Dial}
@@ -713,7 +731,7 @@ func lieutenantTemper(t content.TemperTerms) string {
 	}
 	parts = append(parts, fmt.Sprintf("%gd stock", t.StockDays))
 	if t.Skim > 0 {
-		parts = append(parts, "skims "+format.Pct(t.Skim, 0))
+		parts = append(parts, "takes "+format.Pct(t.Skim, 0)+" more")
 	}
 	if t.HitScouts {
 		parts = append(parts, "hits scouts")
@@ -817,7 +835,7 @@ func (m *Model) crewSection() section {
 	}
 	if sl := m.rules.Heat.Sloppiness(w, here.ID); sl > 0 {
 		per := sl * m.cfg.Heat.Heat.SloppyHeat * 100
-		lines = append(lines, row("sloppy", theme.Warning.Render(fmt.Sprintf("+%.1f heat/100 units", per))), row("", sub(fmt.Sprintf("runners under skill %d", m.cfg.Heat.Heat.SloppySkill))))
+		lines = append(lines, row("sloppy", theme.Warning.Render(fmt.Sprintf("+%.1f heat/100 units", per))), row("", sub(fmt.Sprintf("runners under skill %d, and a hothead on a corner", m.cfg.Heat.Heat.SloppySkill)))) // who the report names (#522)
 	}
 	return section{"CREW", lines}
 }

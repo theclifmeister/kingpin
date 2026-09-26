@@ -263,7 +263,7 @@ The dashboard at 80x24, with the details strip above the status bar:
 ╭─ ALERTS ─────────────────────────────────────────────────────────────────────╮
 │ ▸ War on Mona's crew with 1 of 2 enforcers on the payroll: if the crew you … │
 ╰──────────────────────────────────────────────────────────────────────────────╯
-▸ CART · buying 1 line, $895 · 1 by contract · selling 1 line, ~$1,260 …  ␣ more
+▸ CART · buying 1 line, $895 · 1 by contract this morning · selling 1 l…  ␣ more
                                                                          ? help
 ```
 <!-- capture:end -->
@@ -753,7 +753,7 @@ on its best corners, give up a corner after its second stick-up, keep
 the stash there topped up on a supply contract of their own and
 sell everything stashed there at the dial their temper favours: a
 **violent** one sells aggressive and runs the city hot, a **greedy**
-one skims on top of the cut, a **careful** one sells quiet and earns
+one takes a second cut on top of the first, a **careful** one sells quiet and earns
 less, a **steady** one just runs it. You learn which after ten days on
 the job.
 

@@ -42,6 +42,7 @@ func TestLeadIsTheBiggestThree(t *testing.T) {
 				events.CornerTaken{Corner: c[1].ID, Name: c[1].Name, Rival: "Sal", From: game.OwnerPlayer},
 				events.CrewQuit{ID: 9, Name: "Ray", Role: game.RoleRunner},
 				events.LeadsFiled{Leads: 1, Evidence: 2},
+				events.FileChanged{From: 1, To: 3}, // the night's pages are the file's move (#522)
 				events.CornerClaimed{Corner: c[2].ID, Name: c[2].Name, Worker: "you"},
 			}
 		}, []want{
@@ -55,6 +56,7 @@ func TestLeadIsTheBiggestThree(t *testing.T) {
 				events.CornerLost{Corner: c[0].ID, Name: c[0].Name, Reason: "idle", Owner: game.OwnerPlayer},
 				events.CrewQuit{ID: 9, Name: "Ray", Role: game.RoleRunner},
 				events.LeadsFiled{Leads: 1, Evidence: 2},
+				events.FileChanged{From: 1, To: 3}, // the night's pages are the file's move (#522)
 				events.DebtLate{Day: 21, City: w.Home().ID, Name: "Cass", Owed: 2_484, Paid: 967, Left: 1_517, Due: 26},
 				events.CrewPaid{Day: 21, Wages: 0, Short: 442},
 				events.WarrantSigned{Day: 21, City: w.Home().ID, Heat: 100, Line: 93, Due: 22},
@@ -70,9 +72,12 @@ func TestLeadIsTheBiggestThree(t *testing.T) {
 		{"a raid thick with pages", func(w *game.World) []events.Event {
 			return []events.Event{
 				events.Enforcement{City: w.Home().ID, Level: content.Raid, StockLost: map[string]int{"weed": 40}, CashLost: 2_000, Evidence: 5},
+				// The offshore lumps' page filed before the raid's five
+				// (#522): the file went 2 to 8, and the lead counts both.
+				events.FileChanged{From: 2, To: 8, Arrest: 10},
 			}
 		}, []want{
-			{"pages", "The DA filed 5 pages on you.", game.Act{Screen: game.ScreenDashboard}},
+			{"pages", "The DA filed 6 pages on you: the file is 8 of the 10 an indictment takes.", game.Act{Screen: game.ScreenDashboard}},
 			{"seizure", "The police took 40 units and $2,000.", game.Act{Screen: game.ScreenDashboard}},
 		}},
 		{"a tie goes to the kind listed first", func(w *game.World) []events.Event {
@@ -95,7 +100,7 @@ func TestLeadIsTheBiggestThree(t *testing.T) {
 			}
 			return nil
 		}, []want{
-			{"flow", "Profit fell 100% from the week's nightly average: $0 last night against +$10K.", game.Act{Screen: game.ScreenLedger}},
+			{"flow", "Sales less costs fell 100% from the week's nightly average: $0 last night against +$10K.", game.Act{Screen: game.ScreenLedger}},
 			{"idle_corner", "Nobody works a corner: ", game.Act{Screen: game.ScreenMap, Mode: game.ModePost, Subject: game.OnCorner}},
 		}},
 		{"money put offshore is not the night's loss (#422)", func(w *game.World) []events.Event {
@@ -106,7 +111,7 @@ func TestLeadIsTheBiggestThree(t *testing.T) {
 			return []events.Event{events.Reserved{Day: 21, Amount: 47_500, Fee: 2_500}}
 		}, []want{
 			// the fee is the night's; the $47,500 in the account is not ("-$50K" before)
-			{"flow", "Last night made -$2,500 against the week's +$10K a night.", game.Act{Screen: game.ScreenLedger}},
+			{"flow", "Last night's sales less costs came to -$2,500 against the week's +$10K a night.", game.Act{Screen: game.ScreenLedger}},
 		}},
 		{"an investigation and the scouts", func(w *game.World) []events.Event {
 			c := w.Home().Corners[2]

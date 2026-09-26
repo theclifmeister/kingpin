@@ -30,26 +30,39 @@ func (r *reporter) reportHeat(e events.Event) bool {
 		for _, r := range ev.Reasons {
 			rep.Heat = append(rep.Heat, "  "+r)
 		}
+		// The police's night comes after the day's heat (#522): its pages
+		// landed after the reasons' pages, so it reads under them.
+		rep.Heat = append(rep.Heat, r.police[ev.City]...)
+		delete(r.police, ev.City)
 		if ev.To >= 25 && ev.From < 25 {
 			r.add("heat", "HeatWarning", r.at(ev.City))
 		}
 	case events.Enforcement:
 		d := r.at(ev.City)
 		d.Level = ev.Level
+		if ev.House != "" {
+			d.House = ev.HouseName // a raid names a house only when it hit one (#523)
+		}
 		r.add("heat", "Enforcement"+capitalize(ev.Level), d)
-		rep.Heat = append(rep.Heat, enforcementLine(w, ev)+r.in(ev.City))
+		// Held for the city's heat line (#522): the police come after
+		// the day's heat, and their pages after the day's pages.
+		lines := []string{enforcementLine(w, ev) + r.in(ev.City)}
 		if ev.Stash && ev.House != "" {
-			rep.Heat = append(rep.Heat, fmt.Sprintf("  they went straight to %s and emptied it. Somebody told them where.", ev.HouseName))
+			lines = append(lines, fmt.Sprintf("  they went straight to %s and emptied it. Somebody told them where.", ev.HouseName))
 		} else if ev.Stash {
-			rep.Heat = append(rep.Heat, "  they went straight to the stash. Somebody told them where.")
+			lines = append(lines, "  they went straight to the stash. Somebody told them where.")
 		}
 		if ev.Level == content.Sting || ev.Level == content.Raid || ev.Level == content.TaskForce {
 			if ev.Evidence > 0 {
-				rep.Heat = append(rep.Heat, fmt.Sprintf("  the DA's file on you grows (%d)", w.Heat.Evidence))
+				lines = append(lines, "  "+fileWords("the DA's file on you grows", ev.Evidence, ev.File, ev.Arrest))
 			} else {
-				rep.Heat = append(rep.Heat, "  they found nothing to hang on you")
+				lines = append(lines, "  they found nothing to hang on you")
 			}
 		}
+		if r.police == nil {
+			r.police = map[string][]string{}
+		}
+		r.police[ev.City] = append(r.police[ev.City], lines...)
 		r.book(game.FlowLosses, -ev.CashLost, 0)
 		if ev.CashLost > 0 {
 			rep.Money = append(rep.Money, seizedLine(w, ev))
@@ -150,4 +163,17 @@ func leadAdvice(lead string) string {
 		return "empty it, or let them have it."
 	}
 	return "work another corner, or let them have this one."
+}
+
+// fileWords is a page's line (#522), as the heat sim words the reasons'
+// pages: the pages and the file after, `+2 (now 5/6)`; a file of 0 is
+// an event from before the field, which names the pages alone.
+func fileWords(why string, pages, now, arrest int) string {
+	switch {
+	case now <= 0:
+		return fmt.Sprintf("%s +%d", why, pages)
+	case arrest <= 0:
+		return fmt.Sprintf("%s +%d (now %d)", why, pages, now)
+	}
+	return fmt.Sprintf("%s +%d (now %d/%d)", why, pages, now, arrest)
 }

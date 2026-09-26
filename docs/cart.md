@@ -33,3 +33,5 @@ The lines are tonight's, and what the day has already paid (the cart's buys) is 
 So the morning's report and the preview meet at the closing: on a night the dice leave alone, they agree to the dollar (`TestPreviewAgreesWithAQuietNight`, `docs/engine.md`).
 `TestEndDayShowsThePreview` pins the order, the closing and the scroll, `TestPreviewJumpsToAnAlert` the jump, and `TestModalsFit` opens it with a full cart.
 Whether `n` should show the preview when something needs you is left open, as the issue left it.
+
+**The cart shows a contract as it stands now** (#522): the dialogs' CART block and the pane's CART section carry the modal's `keep` lines (`cartModalLines`), so a level raised today reads at once, the pane's `keep  8 Heroin · ~3 tonight` (what it buys tonight, `World.SupplyDue`); the morning's buy by contract is a line marked `morning` (`morning Heroin Eastside 5 $236.80 -$1,184`), and the totals and the sentence say `by contract this morning`: the `contract` line read as the contract after it was raised, and the keep line was the modal's alone (`TestCartShowsTheContractAsItStands`).
