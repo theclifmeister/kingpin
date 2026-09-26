@@ -82,6 +82,7 @@ type order struct {
 	dial     string
 	lt       bool
 	standing bool
+	all      bool // a standing order for the whole stash (#503): "all"
 }
 
 // day is a day of the run in a days column: d0.
@@ -215,6 +216,9 @@ func cellText(k colKind, width int, v any) (string, *lipgloss.Style) {
 		switch x := v.(type) {
 		case order:
 			s = fmt.Sprintf("%d %s", x.qty, x.dial)
+			if x.all {
+				s = "all " + x.dial
+			}
 			switch {
 			case x.lt:
 				s += " (lt)"

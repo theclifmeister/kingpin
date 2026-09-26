@@ -39,6 +39,7 @@ var reportOnly = map[string]bool{
 	"CampaignBacked": true,                                                                    // #193
 	"BribeAccepted":  true, "BribeRefused": true, "LeadFound": true, "CheckpointBought": true, // #42
 	"ContractAccepted": true, "ContractExpired": true,
+	"HandoffHeld":    true,                                        // #503
 	"SupplierBought": true, "CreditTaken": true, "DebtPaid": true, // #72
 	"HouseCompromised": true, "StockMoved": true, "RentPaid": true, // #73
 	"StockCut": true, "CookOrdered": true, "Cooked": true, // #47

@@ -73,7 +73,9 @@ func (m *Model) buyersLines() []string {
 			state = theme.Gold.Render("offer")
 		default:
 			state = fmt.Sprintf("%d/%d delivered", c.Delivered, c.Units)
-			if q := w.QueuedDelivery(c.ID); q > 0 {
+			if q := w.QueuedDelivery(c.ID); q > 0 && w.Today.LieLow {
+				state += theme.Warning.Render(fmt.Sprintf(", %d held", q)) // lying low (#503): kept, not gone
+			} else if q > 0 {
 				state += theme.Gold.Render(fmt.Sprintf(", %d tonight", q))
 			}
 		}

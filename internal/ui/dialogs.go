@@ -3,6 +3,7 @@ package ui
 import (
 	"errors"
 	"fmt"
+	"strconv"
 	"strings"
 
 	tea "github.com/charmbracelet/bubbletea"
@@ -488,6 +489,23 @@ func (m *Model) sellable(city, id string) int {
 	return m.w.Stock(city, id) + m.rules.Market.Due(m.w, city, id)
 }
 
+// standable is what a standing order may be for (#503): sellable and
+// what lands in the city tonight after the sales (World.Landing, the
+// road's shipments and the chemist's batches), which it sells from the
+// night after. The game's check is PlaceStanding's.
+func (m *Model) standable(city, id string) int {
+	return m.sellable(city, id) + m.w.Landing(city, id)
+}
+
+// standingQty is a standing order's units as a line says them: "all"
+// for one kept at the whole stash (#503).
+func standingQty(o game.SellOrder) string {
+	if o.All {
+		return "all"
+	}
+	return strconv.Itoa(o.Qty)
+}
+
 // sellableIn is sellable over every product in a city: whether the sell
 // dialog has anything to open on there.
 func (m *Model) sellableIn(city string) int {
@@ -572,7 +590,12 @@ func (m *Model) checkQuantity(offer bool) bool {
 			return fail(err)
 		case qty <= most:
 			return true
+		case qty <= m.standable(city, id):
+			// Over the stash for what lands tonight (#503): a standing
+			// order's, which the repeat step says; once is refused there.
+			return true
 		}
+		most = m.standable(city, id)
 		if offer {
 			d.qty.Set(most)
 		}
@@ -702,7 +725,9 @@ func (m *Model) dialogForward() (tea.Model, tea.Cmd) {
 		// standing (#114).
 		if m.mode == modeSell {
 			if o, ok := m.w.YourStanding(m.dialogCity(), m.w.Products[m.cursor]); ok {
-				d.qty.Set(o.Qty)
+				if !o.All {
+					d.qty.Set(o.Qty) // one kept at all of it stays blank, the most (#503)
+				}
 				d.repeat = repeatStanding
 			}
 		}
@@ -865,9 +890,15 @@ func (m *Model) nextLine() {
 func (m *Model) confirmSell() (tea.Model, tea.Cmd) {
 	id := m.w.Products[m.cursor]
 	city := m.dialogCity()
-	qty, err := m.parseQty(m.sellable(city, id))
+	most := m.sellable(city, id)
+	qty, err := m.parseQty(most)
 	if err != nil {
 		return m.quantityAgain(err)
+	}
+	if land := m.w.Landing(city, id); qty > most && land > 0 {
+		// Sized for what lands tonight (#503): that comes after the
+		// sales, so only a standing order counts on it.
+		return m.quantityAgain(fmt.Errorf("only %d sell tonight: the %d landing come after the sales; pick standing to count them from tomorrow night", most, land))
 	}
 	if err := m.sess.PlaceSell(city, id, qty, m.dlg.dial); err != nil {
 		return m.quantityAgain(err)
@@ -884,7 +915,17 @@ func (m *Model) confirmSell() (tea.Model, tea.Cmd) {
 func (m *Model) confirmStanding() (tea.Model, tea.Cmd) {
 	id := m.w.Products[m.cursor]
 	city := m.dialogCity()
-	qty, err := m.parseQty(m.sellable(city, id))
+	if strings.TrimSpace(m.dlg.qty.Value()) == "" && m.standable(city, id) > 0 {
+		// Blank is the most, kept as the most (#503): the whole stash
+		// every night, not the number it is today.
+		if err := m.sess.PlaceStanding(city, id, game.AllUnits, m.dlg.dial); err != nil {
+			return m.quantityAgain(err)
+		}
+		m.say(fmt.Sprintf("Standing: all the %s in %s, %s, every night until you cancel it; the crew keep %s.", m.w.ProductName(id), m.w.CityName(city), m.dlg.dial, format.Pct(m.rules.Market.Cut(), 0)))
+		m.nextLine()
+		return m, nil
+	}
+	qty, err := m.parseQty(m.standable(city, id))
 	if err != nil {
 		return m.quantityAgain(err)
 	}
@@ -1071,6 +1112,10 @@ func (m *Model) quantityRows(d dialog, city, id string, buy bool, sup *game.Supp
 		} else if due := m.rules.Market.Due(w, city, id); due > 0 {
 			body = append(body, theme.Subtle.Render(fmt.Sprintf("%d stashed and %d the contract buys before tonight's sales.", w.Stock(city, id), due)))
 		}
+		if land := w.Landing(city, id); !buy && land > 0 {
+			// #503: goods on the road or the chemist's, after the sales.
+			body = append(body, m.subtle(fmt.Sprintf("%d land tonight after the sales: a standing order may be sized for them (up to %d).", land, m.standable(city, id)))...)
+		}
 	} else if len(w.Today.Buys)+len(w.Today.Orders) == 0 {
 		body = append(body, theme.Subtle.Render("Pick a product."))
 	}
@@ -1099,7 +1144,7 @@ func (m *Model) editingRows(d dialog, city, id string, buy bool) []string {
 		return nil
 	}
 	if o, ok := w.YourStanding(city, id); ok && d.repeat == repeatStanding {
-		return []string{theme.Warning.Render(fmt.Sprintf("Editing the standing order (%d %s); pick once to sell tonight only.", o.Qty, o.Dial))}
+		return []string{theme.Warning.Render(fmt.Sprintf("Editing the standing order (%s %s); pick once to sell tonight only.", standingQty(o), o.Dial))}
 	}
 	return nil
 }
@@ -1207,14 +1252,21 @@ func (m *Model) sellRepeatRows(d dialog, city, id string) []string {
 	qty, _ := m.parseQty(m.sellable(city, id))
 	body = append(body, "", row("repeat", dialCells(sellRepeatNames, int(d.repeat))))
 	if d.repeat == repeatStanding {
-		body = append(body, row("standing", fmt.Sprintf("%d at %s nightly until cancelled; the crew keep %s", qty, d.dial, format.Pct(m.rules.Market.Cut(), 0))))
+		units := strconv.Itoa(qty)
+		if strings.TrimSpace(d.qty.Value()) == "" {
+			units = "all of the stash" // blank is the most, kept as the most (#503)
+		}
+		body = append(body, row("standing", fmt.Sprintf("%s at %s nightly until cancelled; the crew keep %s", units, d.dial, format.Pct(m.rules.Market.Cut(), 0))))
 		if o, ok := w.YourStanding(city, id); ok {
-			body = append(body, theme.Warning.Render(fmt.Sprintf("Standing at %d %s now; this replaces it.", o.Qty, o.Dial)))
+			body = append(body, theme.Warning.Render(fmt.Sprintf("Standing at %s %s now; this replaces it.", standingQty(o), o.Dial)))
 		} else {
 			body = append(body, theme.Subtle.Render("An order by hand wins its day; the standing one is back the next."))
 		}
 	} else {
 		body = append(body, theme.Subtle.Render("Tonight, once. Standing is the same order every night, at a cut."))
+		if qty > m.sellable(city, id) {
+			body = append(body, theme.Warning.Render(fmt.Sprintf("Over the %d that sell tonight: only standing counts what lands.", m.sellable(city, id))))
+		}
 	}
 	return body
 }

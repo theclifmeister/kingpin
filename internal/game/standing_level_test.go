@@ -26,3 +26,48 @@ func TestStandingReachesTheContractLevel(t *testing.T) {
 		t.Fatal("a standing order past the contract's level and the stash")
 	}
 }
+
+// A standing order can be sized over the stash for what lands in the
+// city tonight (#503): goods on the road due by tomorrow's day on a
+// route not shut, and a chemist's batch ready by then (Landing), sold
+// from the night after. A shipment due later, or on a shut route, is
+// not counted; AllUnits keeps the order at the whole stash (All), and
+// with nothing at all to sell it is refused.
+func TestStandingSizedForWhatLands(t *testing.T) {
+	w := testWorld()
+	w.SetStock("test", "a", 10)
+	w.Shipments = []Shipment{
+		{ID: 1, Route: "r", To: "test", Product: "a", Units: 50, Arrives: w.Day + 1},
+		{ID: 2, Route: "r", To: "test", Product: "a", Units: 70, Arrives: w.Day + 2}, // lands later
+	}
+	w.Crew.Cooks = []Cook{{City: "test", Product: "a", Units: 5, Ready: w.Day + 1}}
+	if n := w.Landing("test", "a"); n != 55 {
+		t.Fatalf("Landing %d, want the shipment's 50 and the batch's 5", n)
+	}
+	if err := w.PlaceStanding("test", "a", 65, events.DialNormal); err != nil {
+		t.Fatalf("a standing order for the stash and what lands tonight: %v", err)
+	}
+	if err := w.PlaceStanding("test", "a", 66, events.DialNormal); err == nil {
+		t.Fatal("a standing order past what lands tonight")
+	}
+	if err := w.PlaceSell("test", "a", 11, events.DialNormal); err == nil {
+		t.Fatal("tonight's order counted what lands after the sales")
+	}
+	rs := w.Route("r")
+	rs.ClosedUntil = w.Day + 3
+	w.Routes = map[string]RouteSetting{"r": rs}
+	if n := w.Landing("test", "a"); n != 5 {
+		t.Fatalf("Landing %d on a shut road, want the batch's 5", n)
+	}
+	if err := w.PlaceStanding("test", "a", AllUnits, events.DialNormal); err != nil {
+		t.Fatal(err)
+	}
+	if o, _ := w.YourStanding("test", "a"); !o.All || o.Qty != 15 {
+		t.Fatalf("all of it: %+v, want All at the 15 there is", o)
+	}
+	w.SetStock("test", "a", 0)
+	w.Shipments, w.Crew.Cooks = nil, nil
+	if err := w.PlaceStanding("test", "a", AllUnits, events.DialNormal); err == nil {
+		t.Fatal("all of nothing stood")
+	}
+}

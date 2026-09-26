@@ -40,8 +40,9 @@ const (
 // kind, 1 the offers), the kind and the offer under the cursor.
 type frontPicker struct {
 	stepper
-	kind   int // an index into pickNames: a front, a house or an asset
-	cursor int // the offer selected on the second page
+	kind    int    // an index into pickNames: a front, a house or an asset
+	cursor  int    // the offer selected on the second page
+	pending string // the front a y buys over the shut warning (#496)
 }
 
 func (p *frontPicker) field() *numberField { return nil }

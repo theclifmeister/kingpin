@@ -465,6 +465,25 @@ func (w *World) StopSweep() error {
 	return nil
 }
 
+// SetTill sets the till (#496): the dirty cash the wash leaves in hand
+// every night, the player's own line over the file's float. A playtest
+// with two big fronts sat at exactly $50,000 dirty every morning, the
+// wash taking everything over it, and could not save for a contract's
+// morning, a chemist's lot or the next front. Zero is the file's float,
+// the run before; a line under the float is the float (the street's
+// restock money is not the player's to wash). It moves nothing now; the
+// laundering sim reads it at night.
+func (w *World) SetTill(amount int) error {
+	if w.Over != nil {
+		return ErrGameOver
+	}
+	if amount < 0 {
+		return ErrBadAmount
+	}
+	w.Laundering.Till = amount
+	return nil
+}
+
 // ReservedToday is what the player has sent offshore today, before the
 // fee: out of the pile, not yet in the account.
 func (w *World) ReservedToday() int { return w.Today.Reserved }

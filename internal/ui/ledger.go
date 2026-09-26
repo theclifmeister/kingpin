@@ -46,6 +46,46 @@ func (m *Model) confirmFront() {
 		return
 	}
 	o := rows[max(0, min(m.front.cursor, len(rows)-1))]
+	if short := m.frontShort(o); short > 0 {
+		// Bought into a shut (#496): three playtesters' first fronts
+		// shut on their first night, the warning shown and enter buying
+		// with no pause. Only a y buys one the night is expected to shut.
+		m.front.pending = o.ID
+		m.ask("buy", (*Model).frontShutConfirm, (*Model).buyPendingFront)
+		return
+	}
+	m.buyFront(o)
+}
+
+// buyPendingFront is y on the shut warning: the front the picker was on.
+func (m *Model) buyPendingFront() {
+	m.mode = modePlay
+	for _, o := range m.frontRows() {
+		if o.ID == m.front.pending {
+			m.buyFront(o)
+			return
+		}
+	}
+}
+
+// frontShutConfirm is the confirmation over a front the night is
+// expected to shut: the warning and what y does.
+func (m *Model) frontShutConfirm() string {
+	var o game.FrontOffer
+	for _, x := range m.frontRows() {
+		if x.ID == m.front.pending {
+			o = x
+		}
+	}
+	body := []string{m.inHand()}
+	body = append(body, m.frontShutWarning(o)...)
+	body = append(body, "")
+	body = append(body, m.subtle("y buys it anyway; any other key goes back.")...)
+	return m.modal("BUY "+strings.ToUpper(o.Name)+"?", body, m.modalFooter())
+}
+
+// buyFront buys a front on offer and says what it does.
+func (m *Model) buyFront(o game.FrontOffer) {
 	f, err := m.sess.BuyFront(o.ID)
 	if err != nil {
 		m.refuse("Can't buy: " + err.Error())
@@ -86,8 +126,9 @@ func launderBlurb(d events.Launder) string {
 }
 
 // till is the dirty cash the wash leaves for the street (#417): the
-// file's float folded through the tree, laundering.Sim.Float's number.
-func (m *Model) till() int { return m.w.Float(m.cfg.Upgrades, m.cfg.Laundering.Laundering.Float) }
+// file's float folded through the tree, or the till the player set over
+// it (#496), laundering.Sim.Till's number.
+func (m *Model) till() int { return m.rules.Laundering.Till(m.w) }
 
 // upkeepTonight is tonight's clean bill (#458): the open fronts' upkeep
 // and the assets', which the laundering sim takes out of the clean pile
@@ -116,6 +157,53 @@ func (m *Model) upkeepWarning(clean, dirty, due int) []string {
 	var out []string
 	for _, l := range wrap(text, m.modalInner()) {
 		out = append(out, style.Render(l))
+	}
+	return out
+}
+
+// frontShort is the clean cash tonight's upkeep is expected to come up
+// short by with the offer bought (#496), or 0: the day's preview
+// (Session.Preview, the sales, the wages, the contracts and the road
+// estimated) gives the dirty and the clean the wash will find; the
+// price comes off the dirty, the new front's throughput joins the open
+// fronts' and its upkeep the night's, and the wash takes what is over
+// the line (laundering.Sim.Line) before the upkeep comes out of the
+// clean. A playtest was warned of a shut that never came (the night's
+// sales washed it through), so the warning reads the night, not the
+// cash in hand. An estimate: the police, a robbery and an audit are
+// the night's own.
+func (m *Model) frontShort(o game.FrontOffer) int {
+	w := m.w
+	if o.Locked(w) || o.Cost > w.Player.DirtyCash {
+		return 0
+	}
+	l := m.rules.Laundering
+	f := game.Front{ID: o.ID}
+	due := m.upkeepTonight() + l.FrontUpkeep(w, f)
+	p := m.sess.Preview()
+	if p == nil {
+		return 0
+	}
+	// The piles at the wash: the night's closing, the wash taken back.
+	dirty := p.Flow.Closing.Dirty + p.Wash.Washed - o.Cost
+	clean := p.Flow.Closing.Clean - p.Wash.Washed + p.Wash.Upkeep - p.Wash.Income + p.Wash.Assets
+	washed := min(l.Capacity(w)+l.Throughput(w, f), max(0, dirty-l.Line(w)))
+	return max(0, due-clean-washed)
+}
+
+// frontShutWarning is the buy picker's line on an offer the night is
+// expected to shut (frontShort), in red, or nil: nothing is said about a
+// front that will pay.
+func (m *Model) frontShutWarning(o game.FrontOffer) []string {
+	short := m.frontShort(o)
+	if short <= 0 {
+		return nil
+	}
+	due := m.upkeepTonight() + m.rules.Laundering.FrontUpkeep(m.w, game.Front{ID: o.ID})
+	text := fmt.Sprintf("Tonight's %s of upkeep is expected to come up %s clean short: the wash takes only the dirty over the %s till, after the sales. A front shuts %s; y buys it anyway.", money(due), money(short), money(m.till()), plural(m.rules.Laundering.Tuning().UpkeepFreezeDays, "day"))
+	var out []string
+	for _, l := range wrap(text, m.modalInner()) {
+		out = append(out, theme.Bad.Render(l))
 	}
 	return out
 }
@@ -197,9 +285,7 @@ func (m *Model) viewFront() string {
 	up := m.rules.Laundering.FrontUpkeep(m.w, game.Front{ID: o.ID})
 	notes := []string{m.inHand()}
 	notes = append(notes, m.subtle(fmt.Sprintf("It opens tomorrow. Its %s/day upkeep is paid in clean cash, from tonight; unpaid, it shuts %s.", money(up), plural(m.rules.Laundering.Tuning().UpkeepFreezeDays, "day")))...)
-	if !o.Locked(m.w) && o.Cost <= m.w.Player.DirtyCash {
-		notes = append(notes, m.upkeepWarning(m.w.Player.CleanCash, m.w.Player.DirtyCash-o.Cost, m.upkeepTonight()+up)...)
-	}
+	notes = append(notes, m.frontShutWarning(o)...)
 	return m.pickerModal("BUY A FRONT", nil, offerCols, m.offerRows(rows, m.modalInner()), m.front.cursor, notes...)
 }
 

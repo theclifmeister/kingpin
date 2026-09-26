@@ -274,6 +274,28 @@ func fareFor(fx game.Effects, r content.RouteConfig, units int) int {
 	return int(math.Ceil(fare(fx, r) * float64(units)))
 }
 
+// sendable is how many of units a route can pay the fare for (#496):
+// out of the budget over the float, or, for the stashed units (stock
+// already paid for, in the source stash before tonight's lots), out of
+// the dirty cash in hand, float and all. The fare is the last of what
+// that stock costs: a playtest's route idled under the till with its
+// Coke bought and stashed. The lots still keep to the float. A cent of
+// rounding never takes the road past either.
+func sendable(fx game.Effects, r content.RouteConfig, units, stashed, budget, dirty int) int {
+	f := fare(fx, r)
+	if f <= 0 || units <= 0 {
+		return max(0, units)
+	}
+	fit := func(n, cash int) int {
+		n = min(n, int(float64(max(0, cash))/f))
+		for n > 0 && fareFor(fx, r, n) > cash {
+			n--
+		}
+		return max(0, n)
+	}
+	return max(fit(units, budget), fit(min(units, stashed), dirty))
+}
+
 // Target is the units a route keeps its destination at for a product
 // today: the units target as set, or a days target (#115) read as days
 // times World.Demand at the far end this morning, the number the market
@@ -359,8 +381,8 @@ func (s *Sim) idle(w *game.World, r content.RouteConfig, fx game.Effects) (strin
 		sup := w.WholesaleSupplier(r.From)
 		lot := sup != nil && sup.Open(w) && sup.Sells(id) && sup.Lot > 0 && sup.Price[id] > 0 && sup.Left() >= sup.Lot
 		switch {
-		case have > 0 && fareFor(fx, r, 1) <= budget:
-			return "", nil
+		case have > 0 && fareFor(fx, r, 1) <= w.Player.DirtyCash:
+			return "", nil // stashed stock's fare is committed (#496): the float pays it
 		case have > 0:
 			till = true
 		case !lot:
@@ -563,9 +585,11 @@ func (s *Sim) move(w *game.World, t *game.Tick, fx game.Effects) {
 // on, and every product in ladder order with a target, the shortfall
 // against the target is what goes today, up to the route's capacity: the
 // source stash first, then whole lots bought from the wholesaler there if
-// it deals and the door is open, then the fare. Nothing is bought or sent
-// out of the float: the road spends only what is over it, lots before
-// fares, and a lot it cannot then afford to send waits in the stash. The
+// it deals and the door is open, then the fare. Nothing is bought out of
+// the float: the road spends only what is over it, lots before fares,
+// and a lot it cannot then afford to send waits in the stash; the fare
+// of stock already stashed is committed and may come out of the float
+// (#496, sendable). The
 // shipment leaves this morning (the tick's day) with the lots bought for
 // it, rolls from tomorrow and is in the morning report today. No dice.
 // The tree (#119) scales the capacity, the days and the fare the road
@@ -595,6 +619,7 @@ func (s *Sim) run(w *game.World, t *game.Tick, fx game.Effects) {
 				continue
 			}
 			have := w.Stock(r.From, id)
+			stashed := have // paid for already: its fare is committed (#496)
 			sup := w.WholesaleSupplier(r.From)
 			if need := units - have; need > 0 && sup != nil && sup.Open(w) && sup.Sells(id) && sup.Lot > 0 && sup.Price[id] > 0 {
 				lots := min((need+sup.Lot-1)/sup.Lot, sup.Left()/sup.Lot)
@@ -616,13 +641,7 @@ func (s *Sim) run(w *game.World, t *game.Tick, fx game.Effects) {
 				}
 				have = w.Stock(r.From, id)
 			}
-			units = min(units, have)
-			if f := fare(fx, r); f > 0 {
-				units = min(units, int(float64(s.Budget(w))/f))
-				for units > 0 && fareFor(fx, r, units) > s.Budget(w) {
-					units-- // a cent of rounding never takes the road under the float
-				}
-			}
+			units = sendable(fx, r, min(units, have), stashed, s.Budget(w), w.Player.DirtyCash)
 			if units <= 0 {
 				continue
 			}
@@ -666,7 +685,7 @@ func (s *Sim) run(w *game.World, t *game.Tick, fx game.Effects) {
 func (s *Sim) Outlay(w *game.World, moved map[string]int) (lots, fares int) {
 	fx := s.Effects(w)
 	day := w.Day + 1
-	budget := s.Budget(w)
+	budget, dirty := s.Budget(w), w.Player.DirtyCash
 	taken := map[string]int{} // units out of each stash (what came in is negative)
 	for k, n := range moved {
 		taken[k] = -n
@@ -694,6 +713,7 @@ func (s *Sim) Outlay(w *game.World, moved map[string]int) (lots, fares int) {
 			}
 			key := game.OrderKey(r.From, id)
 			have := max(0, w.Stock(r.From, id)-taken[key])
+			stashed := have
 			sup := w.WholesaleSupplier(r.From)
 			if need := units - have; need > 0 && sup != nil && sup.Open(w) && sup.Sells(id) && sup.Lot > 0 && sup.Price[id] > 0 {
 				// The connect's day starts again before the road buys
@@ -711,24 +731,20 @@ func (s *Sim) Outlay(w *game.World, moved map[string]int) (lots, fares int) {
 				if n > 0 {
 					cost := int(math.Ceil(sup.Price[id] * float64(n*sup.Lot)))
 					budget -= cost
+					dirty -= cost
 					lots += cost
 					bought[sup.ID] += n * sup.Lot
 					taken[key] -= n * sup.Lot
 					have += n * sup.Lot
 				}
 			}
-			units = min(units, have)
-			if f := fare(fx, r); f > 0 {
-				units = min(units, int(float64(budget)/f))
-				for units > 0 && fareFor(fx, r, units) > budget {
-					units--
-				}
-			}
+			units = sendable(fx, r, min(units, have), stashed, budget, dirty)
 			if units <= 0 {
 				continue
 			}
 			cost := fareFor(fx, r, units)
-			budget -= cost
+			budget = max(0, budget-cost)
+			dirty -= cost
 			fares += cost
 			taken[key] += units
 			sent[to] += units

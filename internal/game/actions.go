@@ -58,14 +58,15 @@ func (w *World) Travel(city string) error {
 	return nil
 }
 
-// SetLieLow toggles lying low for the day. Lying low cancels all orders,
-// and the handoffs queued against the buyers' contracts (#71): it is
-// everyone's day off.
+// SetLieLow toggles lying low for the day. Lying low cancels all orders;
+// the handoffs queued against the buyers' contracts (#71) stay queued
+// but do not go while it is on (everyone's day off), so turning it off
+// again keeps them, and the report names a handoff held (#503: a
+// playtest's queued handoff was gone the next morning with no word).
 func (w *World) SetLieLow(on bool) {
 	w.Today.LieLow = on
 	if on {
 		w.Today.Orders = map[string]SellOrder{}
-		w.Today.Deliveries = nil
 	}
 }
 

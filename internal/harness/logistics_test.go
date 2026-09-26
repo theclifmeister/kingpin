@@ -643,9 +643,12 @@ func TestRouteDialKeepsTheTarget(t *testing.T) {
 		w.Player.CleanCash = 0
 		switch {
 		case w.Day == 20:
-			// Drained and broke: the road must not touch the float.
+			// Drained and broke: the road must not buy out of the float.
+			// The dock is emptied too: stock already stashed is paid
+			// for, and its fare may come out of the float (#496).
 			phase = "broke"
 			w.SetStock(home, product, 0)
+			w.SetStock(hub, product, 0)
 			w.Player.DirtyCash = lg.Float() - 1
 		case w.Day == 30:
 			// Rich again, but off.

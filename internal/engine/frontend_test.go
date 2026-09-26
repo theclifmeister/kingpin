@@ -27,7 +27,7 @@ var worldReads = []string{
 	"ProductName", "Quality", "QueuedDelivery", "Quote", "ReachedOn", "ReignDay", "ReservedToday", "Rival",
 	"RivalHeld", "RivalHeldBy", "Route", "RouteClosed", "Score", "Side", "SplitLinesWith", "Stage",
 	"StagePending", "Stance", "StashOf", "Stashed", "Stock", "StockIn", "Street", "StreetCapacity",
-	"StandingSupply", "StreetQuality", "StreetSupplier", "Supplied", "SuppliedToday", "Supplier", "SuppliersIn", "Tier", "TierName",
+	"StandingSupply", "StreetQuality", "StreetSupplier", "Supplied", "SuppliedToday", "Supplier", "SuppliersIn", "SupplyOutlay", "Road", "Landing", "Tier", "TierName",
 	"TotalStock", "Undercutting", "WarHasGround", "WholesaleSupplier", "Worked", "WorkedIn", "YourStanding",
 }
 

@@ -33,6 +33,7 @@ func TestTillAlert(t *testing.T) {
 		{"at the till", func(w *game.World, till int) {}, need + 1},
 		{"a night short", func(w *game.World, till int) { w.Flows = w.Flows[2:] }, 0},
 		{"careful already", func(w *game.World, till int) { w.Laundering.Dial = events.LaunderCareful }, 0},
+		{"the till raised", func(w *game.World, till int) { w.Laundering.Till = till + 1 }, 0}, // held on purpose (#496)
 		{"no front", func(w *game.World, till int) { w.Fronts = nil }, 0},
 		{"last night over the till", func(w *game.World, till int) { w.Flows[len(w.Flows)-1] = night(till + 1) }, 0},
 		{"no wash last night", func(w *game.World, till int) {

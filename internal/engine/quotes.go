@@ -190,6 +190,7 @@ type LaunderingRules interface {
 	LegitIncome(w *game.World) int
 	LevelCost(f game.Front, n int) int
 	Levels(f game.Front, n int) game.LevelOffer
+	Line(w *game.World) int
 	Lots(amount int) int
 	MaxLevel(f game.Front) int
 	Offers() []game.FrontOffer
@@ -197,6 +198,7 @@ type LaunderingRules interface {
 	Rot(pile int) int
 	RotLine() int
 	Throughput(w *game.World, f game.Front) int
+	Till(w *game.World) int
 	TrophyOffer(trophy string) (game.TrophyOffer, bool)
 	TrophyOffers() []game.TrophyOffer
 	Tuning() content.LaunderingTuning

@@ -30,6 +30,7 @@ No other text names a key: not a title, a table cell, a status or a modal body, 
 **The restock key** (#356): `R restock` names the market and nothing else (the map's `R route target` is that screen's own), opens `modeRestock` (`docs/cart.md`), whose footer is the number field's row, `enter buy` and `esc close`.
 
 **The sweep key** (#478): `S sweep` names the ledger and nothing else, beside `o reserve` and `c cash out`, and opens `modeSweep` (`docs/laundering.md`), whose footer is the number field's row, `enter sweep`, `x off` while a sweep is on (`sweepOn`) and `esc close`.
+**The till key** (#496): `T till` names the ledger and nothing else, beside `S sweep`, and opens `modeTill` (`docs/laundering.md`), an amount dialog whose footer is the number field's row, `enter set` and `esc close`.
 
 **The presets key** (#357): `P presets` names the market and nothing else, opens `modePresets` (`docs/presets.md`), whose list page lists `↑↓ pick`, `1-9 pick`, `enter review`, `s save current`, `x delete` (on a preset of yours) and `esc close`, and whose review page `enter apply`, `⇧tab back` and `esc close`.
 

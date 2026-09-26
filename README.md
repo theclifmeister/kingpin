@@ -503,6 +503,7 @@ The full table is below; `?` brings it up in the game.
 | `u` | invest | clean cash into the selected front's levels | ledger |
 | `o` | reserve | clean cash into the offshore account | ledger |
 | `S` | sweep | clean over a line offshore every night | ledger |
+| `T` | till | the dirty cash the wash leaves in hand | ledger |
 | `c` | cash out | clean cash into the dirty pile, at a fee | ledger |
 | `t` | export order | the selected export lane's nightly load | ledger |
 | `t` | buy trophy | buy the selected trophy, after asking | ledger |

@@ -320,6 +320,10 @@ func (s *Session) Reserve(amount int) error { return s.w.Reserve(amount) }
 // hand (#478, World.SetSweep); StopSweep turns it off.
 func (s *Session) SetSweep(keep int) error { return s.w.SetSweep(keep) }
 
+// SetTill sets the dirty cash the wash leaves in hand every night
+// (#496, World.SetTill); 0 is the file's float.
+func (s *Session) SetTill(amount int) error { return s.w.SetTill(amount) }
+
 // StopSweep turns the nightly sweep offshore off (#478).
 func (s *Session) StopSweep() error { return s.w.StopSweep() }
 

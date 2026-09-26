@@ -123,12 +123,22 @@ func (r *reporter) reportMarket(e events.Event) bool {
 			rep.Sales = append(rep.Sales, fmt.Sprintf("Supply contract bought %d %s at %s to keep %d%s = -%s", ev.Units, w.ProductName(ev.Product), format.Price(ev.Price), ev.Level, r.in(ev.City), format.Money(ev.Cost)))
 		}
 	case events.StandingShort:
+		if ev.All {
+			rep.Sales = append(rep.Sales, fmt.Sprintf("Standing order for all the %s%s: nothing stashed, nothing sold.", w.ProductName(ev.Product), r.in(ev.City)))
+			break
+		}
 		if ev.Stock == 0 {
 			rep.Sales = append(rep.Sales, fmt.Sprintf("Standing order for %d %s%s: nothing stashed, nothing sold. Restock, or cancel it.", ev.Units, w.ProductName(ev.Product), r.in(ev.City)))
 		} else {
 			rep.Sales = append(rep.Sales, fmt.Sprintf("Standing order for %d %s%s: only %d stashed.", ev.Units, w.ProductName(ev.Product), r.in(ev.City), ev.Stock))
 		}
 	case events.SupplyShort:
+		if ev.Why == events.SupplyRoad {
+			// Held by the road (#503): the level counts what is on the
+			// way, so the contract waits for it to land.
+			rep.Sales = append(rep.Sales, fmt.Sprintf("Supply contract holding: %d %s on the road to %s.", ev.Short, w.ProductName(ev.Product), w.CityName(ev.City)))
+			break
+		}
 		why := "there was no cash over the float for the rest"
 		if ev.Why == "room" {
 			why = "the stash there has no room for the rest"
@@ -208,6 +218,10 @@ func (r *reporter) reportMarket(e events.Event) bool {
 		default:
 			rep.Money = append(rep.Money, fmt.Sprintf("%s's people came for the %s you owe and found nothing to take. They will be back.", ev.Name, format.Money(ev.Owed)))
 		}
+	case events.HandoffHeld:
+		// Lying low held it (#503): said, never dropped silently.
+		rep.Sales = append(rep.Sales, fmt.Sprintf("Handoff held, lying low: %d %s for %s%s.", ev.Units, w.ProductName(ev.Product), ev.Name, r.in(ev.City)),
+			fmt.Sprintf("  %d still owed by day %d: queue it again", ev.Owed, ev.Due))
 	case events.ContractDelivered:
 		r.book(game.FlowSales, ev.Revenue, 0)
 		line := fmt.Sprintf("Handed %d %s to %s at %s (%s street) = +%s%s", ev.Units, w.ProductName(ev.Product), ev.Name, format.Price(ev.Price), format.TimesSig(ev.Price/math.Max(ev.Street, 1e-9), 3), format.Money(ev.Revenue), r.in(ev.City))

@@ -40,6 +40,7 @@ const (
 	AlertUnposted      AlertKind = "unposted"      // Member (a runner or an enforcer) has no post; Corner in City is one to put them on, or ""
 	AlertIdleCorner    AlertKind = "idle_corner"   // nobody works Corner in City: back to the street in Days
 	AlertStashFull     AlertKind = "stash_full"    // the stash in City holds Count of its Amount, at or over houses.toml's full_share
+	AlertLanded        AlertKind = "landed"        // a route keeps Product in City and Count of it sits in the stash there with no order selling it (#503)
 	AlertScouts        AlertKind = "scouts"        // a faction moving on City (#341), at stage Level (scouting or recruiting), arriving in Days
 	AlertGate          AlertKind = "gate"          // Gate within reach
 	AlertPort          AlertKind = "port"          // the port untouched and worth the road (#476): City, Count free corners, Product at Amount, Supplier the wholesaler at Share of street
@@ -58,7 +59,7 @@ const (
 // in.
 func AlertKinds() []AlertKind {
 	return []AlertKind{AlertArrest, AlertTalking, AlertContractDue, AlertDebtDue, AlertHeat, AlertTaskForce, AlertFile, AlertInvestigation, AlertNoCorner, AlertFrontShut, AlertFloat, AlertTill, AlertWages,
-		AlertCrewLine, AlertSkim, AlertUnposted, AlertIdleCorner, AlertStashFull, AlertScouts, AlertGate, AlertPort, AlertHouseKnown,
+		AlertCrewLine, AlertSkim, AlertUnposted, AlertIdleCorner, AlertStashFull, AlertLanded, AlertScouts, AlertGate, AlertPort, AlertHouseKnown,
 		AlertDARace, AlertRetire, AlertFavour, AlertReign, AlertStraight, AlertVanish, AlertExposure, AlertPlan}
 }
 
@@ -136,6 +137,7 @@ var alertActs = map[AlertKind][]Act{
 	AlertUnposted:   {actPost, actMember},
 	AlertIdleCorner: {actCorner},
 	AlertStashFull:  {{Screen: ScreenLedger, Subject: SubjectCity}},
+	AlertLanded:     {{Screen: ScreenMarket, Subject: SubjectCity}}, // the market turned to the city, the product under the cursor: s sells it (#503)
 	AlertScouts:     {{Screen: ScreenRivals}},
 	AlertGate:       {actMarket, actLedger},
 	AlertPort:       {{Screen: ScreenMap, Subject: SubjectCity}}, // the map turned to the port, where the road is (#476)
@@ -164,7 +166,7 @@ type Alert struct {
 	Kind AlertKind `json:"kind"`
 	Key  string    `json:"key"`
 
-	City     string  `json:"city,omitempty"`     // heat, da_race, idle_corner, unposted, stash_full, investigation, no_corner: the city's id (heat: where you are; unposted: the corner's)
+	City     string  `json:"city,omitempty"`     // heat, da_race, idle_corner, unposted, stash_full, investigation, no_corner, landed: the city's id (heat: where you are; unposted: the corner's)
 	Contract int     `json:"contract,omitempty"` // contract_due: the contract's id
 	Supplier string  `json:"supplier,omitempty"` // debt_due: the connect's id; port: the wholesaler's
 	House    string  `json:"house,omitempty"`    // house_known, investigation: the house's id
@@ -175,7 +177,7 @@ type Alert struct {
 	Heat     float64 `json:"heat,omitempty"`     // heat, arrest: the city's heat; exposure: what the pile adds tonight
 	Line     float64 `json:"line,omitempty"`     // heat: the Level rung's line; arrest: the arrest line; crew_line: the loyalty line
 	Days     int     `json:"days,omitempty"`     // front_shut: days until it reopens; da_race: days to the election; retire: quiet days short; reign: the reign's day; crew_line: days to the line at tonight's drift (0: not falling); idle_corner: days before it drifts; investigation: nights to the hit (1: tonight)
-	Count    int     `json:"count,omitempty"`    // reign: the crews paying homage; stash_full: the units held; plan: the steps met; exposure: the loads landing
+	Count    int     `json:"count,omitempty"`    // reign: the crews paying homage; stash_full: the units held; plan: the steps met; exposure: the loads landing; landed: the units stashed
 	Ready    bool    `json:"ready,omitempty"`    // retire: retiring is open now; plan: the plan is done
 	Level    string  `json:"level,omitempty"`    // favour: the response due tonight; heat: the highest rung met
 	Member   int     `json:"member,omitempty"`   // crew_line, unposted: the member's id
@@ -184,7 +186,7 @@ type Alert struct {
 	Share    float64 `json:"share,omitempty"`    // port: the wholesaler's price as a share of the street's there (#476)
 	Corner   string  `json:"corner,omitempty"`   // idle_corner, investigation: the corner's id; unposted: a corner to post them on, no_corner: a free one to post on, or ""
 	Target   string  `json:"target,omitempty"`   // investigation: what is named, corner | product | house (#343)
-	Product  string  `json:"product,omitempty"`  // investigation: the product's id; port: the dearest listed there
+	Product  string  `json:"product,omitempty"`  // investigation: the product's id; port: the dearest listed there; landed: the product the route keeps
 	Day      int     `json:"day,omitempty"`      // skim: the day money last went missing
 	Gate     *Gate   `json:"gate,omitempty"`     // gate: the door
 	Ambition string  `json:"ambition,omitempty"` // plan: the ambition pinned
@@ -284,7 +286,7 @@ func (s *Session) Alerts() []Alert {
 	if n := s.tillNights(); n > 0 {
 		// Keyed once (#459): a fast-forward stops the morning the pile
 		// has sat at the till long enough, and not again while it does.
-		out = append(out, Alert{Kind: AlertTill, Key: "dirty cash held at the till", Days: n, Amount: s.set.Laundering.Float(w), Have: w.Player.DirtyCash})
+		out = append(out, Alert{Kind: AlertTill, Key: "dirty cash held at the till", Days: n, Amount: s.set.Laundering.Till(w), Have: w.Player.DirtyCash})
 	}
 	// Tonight's pile (#397): the wages come out after the loads due
 	// tonight land, so they are short only past both; and a landing that
@@ -303,6 +305,7 @@ func (s *Session) Alerts() []Alert {
 	out = append(out, s.unposted()...)
 	out = append(out, s.idleCorners()...)
 	out = append(out, s.stashesFull()...)
+	out = append(out, s.landed()...)
 	out = append(out, s.scouts()...)
 	for _, g := range s.NextGates() {
 		if g.Near(w) {
@@ -356,7 +359,8 @@ func (s *Session) Alerts() []Alert {
 
 // tillNights is how many nights running the wash has left the dirty
 // pile at the till (#459), once that is laundering.toml's till_nights
-// or more and the launder dial is not already careful, else 0: a
+// or more, the launder dial not already careful and the till not
+// raised by the player (#496), else 0: a
 // playtest sat at exactly $50,000 dirty for forty nights, the wash
 // taking everything over it, and could never save for the next front,
 // upgrade or contract. Read off the nights' cash flows (World.Flows,
@@ -365,10 +369,10 @@ func (s *Session) Alerts() []Alert {
 func (s *Session) tillNights() int {
 	w := s.w
 	need := s.set.Laundering.Tuning().TillNights
-	if need <= 0 || len(w.Fronts) == 0 || w.Laundering.Dial == events.LaunderCareful {
-		return 0
+	till, n := s.set.Laundering.Till(w), 0
+	if need <= 0 || len(w.Fronts) == 0 || w.Laundering.Dial == events.LaunderCareful || till > s.set.Laundering.Float(w) {
+		return 0 // a till the player raised (#496) is a pile held on purpose
 	}
-	till, n := s.set.Laundering.Float(w), 0
 	for i := len(w.Flows) - 1; i >= 0; i-- {
 		f := w.Flows[i]
 		if f.Line(game.FlowLaundering).Dirty >= 0 || f.Closing.Dirty > till {
@@ -380,6 +384,46 @@ func (s *Session) tillNights() int {
 		return 0
 	}
 	return n
+}
+
+// landed is the stock a route keeps in a city with nothing selling it
+// (#503): a playtest's 917 designer, shipped to Eastside by the road,
+// sat in the stash with no standing order, and nothing said so. One per
+// route-kept product in the city it lands in, while the stash there
+// holds some and no order stands for it (yours today, your standing
+// one, or the lieutenant's); keyed by the city and the product, so a
+// fast-forward stops once while it sits. No dice.
+func (s *Session) landed() []Alert {
+	w := s.w
+	var out []Alert
+	seen := map[string]bool{}
+	for _, cid := range w.CityOrder {
+		for _, r := range s.set.Logistics.RoutesOpen(w, cid) {
+			rs := w.Route(r.ID)
+			if r.To != cid || !rs.Dial.On() {
+				continue
+			}
+			for _, id := range w.Products {
+				key := game.OrderKey(cid, id)
+				if seen[key] || (rs.Target[id] <= 0 && rs.Days[id] <= 0) {
+					continue
+				}
+				n := w.Stock(cid, id)
+				if n <= 0 {
+					continue
+				}
+				if _, ok := w.Order(cid, id); ok {
+					continue
+				}
+				if _, ok := w.StandingOrder(cid, id); ok {
+					continue
+				}
+				seen[key] = true
+				out = append(out, Alert{Kind: AlertLanded, Key: "landed " + key, City: cid, Product: id, Count: n})
+			}
+		}
+	}
+	return out
 }
 
 // port points at the second city (#476): the wholesaler's city, Bayport

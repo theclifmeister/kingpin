@@ -285,6 +285,21 @@ func (s *Sim) supply(w *game.World, t *game.Tick, fx game.Effects) {
 			t.Emit(events.SupplyShort{Day: t.Day, City: c.City, Product: c.Product, Units: p.Units, Short: p.Short - p.Units, Why: p.Why, Lieutenant: p.Lieutenant, Till: w.Player.DirtyCash})
 		}
 	}
+	// A contract of yours held under its level by stock on the road to
+	// it says so (#503): the shortfall counts what is Bound there, so a
+	// route feeding the city stops the contract until the shipment
+	// lands, and a playtest's stash sat empty for two weeks with nothing
+	// saying why. Report-only; no dice, nothing bought.
+	for _, cid := range w.CityOrder {
+		for _, id := range w.Products {
+			if _, own := w.Supplied(cid, id); !own {
+				continue
+			}
+			if road := w.Road(cid, id); road > 0 {
+				t.Emit(events.SupplyShort{Day: t.Day, City: cid, Product: id, Short: road, Why: events.SupplyRoad})
+			}
+		}
+	}
 }
 
 // cityProduct is a city's multipliers on a product, 1 and 1 for a city
@@ -545,6 +560,13 @@ func (s *Sim) Cut() float64 { return s.cfg.Standing.Cut }
 // nothing stashed nothing is attempted, as no order could be placed.
 func (s *Sim) standing(w *game.World, t *game.Tick, city string, m *game.ProductMarket, o game.SellOrder) {
 	stock := w.Stock(city, o.Product)
+	if o.All {
+		// The whole stash (#503): short only of nothing at all.
+		if stock <= 0 {
+			t.Emit(events.StandingShort{Day: t.Day, City: city, Product: o.Product, Stock: 0, All: true})
+		}
+		o.Qty = stock
+	}
 	if stock < o.Qty {
 		t.Emit(events.StandingShort{Day: t.Day, City: city, Product: o.Product, Units: o.Qty, Stock: stock})
 		o.Qty = stock

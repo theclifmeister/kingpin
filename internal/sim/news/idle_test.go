@@ -47,6 +47,14 @@ func TestStarvedRoutineSaysWhy(t *testing.T) {
 			[]string{"Supply contract out of cash: 140 Pills short in Bayport.", "  the till was down to $18,000 when it bought"}},
 		{"a contract with no wash", events.SupplyShort{City: "bayport", Product: "coke", Units: 3, Short: 40, Why: "cash"},
 			nil, []string{"Supply contract out of cash: 40 Coke short in Bayport."}},
+		// #503: the road holding a contract, a handoff held by lying low
+		// and a standing order for all of an empty stash, each said.
+		{"a contract held by the road", events.SupplyShort{City: "bayport", Product: "coke", Short: 60, Why: events.SupplyRoad},
+			nil, []string{"Supply contract holding: 60 Coke on the road to Bayport."}},
+		{"a handoff held", events.HandoffHeld{ID: 3, Name: "Vera", City: "bayport", Product: "weed", Units: 25, Owed: 30, Due: 24},
+			nil, []string{"Handoff held, lying low: 25 Weed for Vera in Bayport.", "  30 still owed by day 24: queue it again"}},
+		{"all of an empty stash", events.StandingShort{City: "eastside", Product: "weed", All: true},
+			nil, []string{"Standing order for all the Weed: nothing stashed, nothing sold."}},
 	} {
 		n, err := news.New(cfg)
 		if err != nil {
