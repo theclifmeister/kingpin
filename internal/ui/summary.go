@@ -68,6 +68,9 @@ func (m *Model) summaryLines() []string {
 		{"peak wealth", fmt.Sprintf("%s · revenue %s off %s", cash(w.Stats.PeakCash), cash(w.Stats.TotalRevenue), plural(w.Stats.UnitsSold, "unit"))},
 		{"washed", fmt.Sprintf("%s, %s seized · lost %s wages · %s skimmed · %s robbed", cash(w.Stats.Laundered), cash(w.Stats.Seized), cash(w.Stats.Wages), cash(w.Stats.Skimmed), cash(w.Stats.Robbed))},
 	}
+	if owed := m.owedLine(); owed != "" {
+		money = append(money, [2]string{"owed", owed}) // #518: the debt a broke run left
+	}
 	if s := w.Stats; s.Cuts > 0 {
 		money = append(money, [2]string{"cuts", cash(s.Cuts) + " kept by the crew who ran it for you, apart from the skim"}) // #502
 	}
@@ -114,6 +117,19 @@ func (m *Model) summaryLines() []string {
 	// table.
 	out = append(out, "", theme.Gold.Bold(true).Render("SCORE  "+cash(w.Stats.Score))+theme.Subtle.Render("  "+m.scoreWords()+fmt.Sprintf(" · %s · %s", plural(e.Day, "day"), m.rankLine())))
 	return out
+}
+
+// owedLine is the debt still on the connects' books when the run ended
+// (#518): `$1,517 to Cass, due day 13`, the connects joined, or "" with
+// none. A playtest's broke summary left out the $1,517 still owed.
+func (m *Model) owedLine() string {
+	var parts []string
+	for _, sup := range m.w.Suppliers {
+		if sup.Debt > 0 {
+			parts = append(parts, fmt.Sprintf("%s to %s, due day %d", cash(sup.Debt), sup.Name, sup.DebtDue))
+		}
+	}
+	return strings.Join(parts, " · ")
 }
 
 // scoreWords is how the score was reached, spelled for a beginner

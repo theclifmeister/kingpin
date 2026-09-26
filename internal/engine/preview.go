@@ -133,7 +133,7 @@ func (s *Session) Preview() *DayPreview {
 	// handoffs and the sales, the contracts that fall short.
 	for _, sup := range w.Suppliers {
 		if sup.Debt > 0 && sup.DebtDue <= p.Day {
-			take(game.FlowPurchases, sup.Debt)
+			take(game.FlowDebt, sup.Debt)
 		}
 	}
 	due := map[string]int{}

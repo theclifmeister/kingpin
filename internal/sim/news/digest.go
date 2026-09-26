@@ -57,6 +57,27 @@ func (s *Sim) lead(w *game.World, t *game.Tick, flow game.CashFlow) []game.Line 
 	)
 	for _, e := range t.Events() {
 		switch ev := e.(type) {
+		case events.WarrantSigned:
+			// The warrant (#519): the arrest the next night, first in
+			// the lead whatever else happened.
+			when := "tonight"
+			if n := ev.Due - ev.Day; n > 1 {
+				when = "in " + format.Plural(n, "night")
+			}
+			add("warrant", 1, game.Line{Text: fmt.Sprintf("A WARRANT is signed for your arrest (heat %.0f in %s met the line, %.0f): it is served %s on any sale, or if the heat still holds. Sell nothing and lie low.", ev.Heat, w.CityName(ev.City), ev.Line, when),
+				Act: game.Act{Screen: game.ScreenDashboard}, City: ev.City})
+		case events.CrewPaid:
+			if ev.Short > 0 {
+				// A missed payroll (#518): loyalty falls on every member,
+				// and the report said so only under CREW and MONEY.
+				add("payroll", 1, game.Line{Text: fmt.Sprintf("Missed payroll: the wages came %s short. The whole crew noticed.", format.Cash(ev.Short)),
+					Act: game.Act{Screen: game.ScreenCrew}})
+			}
+		case events.DebtLate:
+			// A late debt (#518): the connect's temper answers, and
+			// it is due again.
+			add("debt_late", 1, game.Line{Text: fmt.Sprintf("Late on a debt: you owed %s %s and paid %s; %s is due again on day %d.", ev.Name, format.Cash(ev.Owed), format.Cash(ev.Paid), format.Cash(ev.Left), ev.Due),
+				Act: game.Act{Screen: game.ScreenMarket}, City: ev.City})
 		case events.CornerLost:
 			if ev.Owner == game.OwnerPlayer {
 				lost.add(ev.Name, ev.Corner)
@@ -268,9 +289,20 @@ func (s *Sim) lead(w *game.World, t *game.Tick, flow game.CashFlow) []game.Line 
 		}
 		return all[i].rank < all[j].rank
 	})
+	// The kinds always in the lead (content.DigestAlways, #518, #519)
+	// come first and past the cap; the rest fill it.
 	var out []game.Line
-	for _, sc := range all[:min(len(all), cfg.Lines)] {
-		out = append(out, sc.line)
+	for _, sc := range all {
+		if slices.Contains(content.DigestAlways, sc.line.Kind) {
+			out = append(out, sc.line)
+		}
+	}
+	n := 0
+	for _, sc := range all {
+		if n < cfg.Lines && !slices.Contains(content.DigestAlways, sc.line.Kind) {
+			out = append(out, sc.line)
+			n++
+		}
 	}
 	return out
 }

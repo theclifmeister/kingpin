@@ -4,6 +4,7 @@ import (
 	"fmt"
 	"strings"
 
+	"github.com/theclifmeister/kingpin/internal/content"
 	"github.com/theclifmeister/kingpin/internal/format"
 	"github.com/theclifmeister/kingpin/internal/game"
 	"github.com/theclifmeister/kingpin/internal/ui/theme"
@@ -90,11 +91,28 @@ func (m *Model) viewAssign() string {
 		theme.Subtle.Render(fmt.Sprintf("Their temper shows after %s running it: it sets the dial and the heat.", plural(t.RevealDays, "day"))),
 		theme.Warning.Render(fmt.Sprintf("Under %.0f loyalty they talk to the police; at %.0f they walk with the city.", t.Flip, t.Quit)),
 	}
+	if line := betrayWords(t); line != "" {
+		notes = append(notes, theme.Warning.Render(line))
+	}
 	if line := m.unassignCapLine(lt, t.Crew); line != "" {
 		notes = append(notes, line)
 	}
 	notes = append(notes, "", theme.Subtle.Render(fmt.Sprintf("Which city should %s run?", lt.Name)))
 	return m.pickerModal("ASSIGN "+lt.Name, nil, []col{{"city", kText, 0}, {"corners", kInt, 0}, {"units", kInt, 0}, {"runs", kText, 0}}, cells, m.pick.cursor, notes...)
+}
+
+// betrayWords is when a turned lieutenant ends the run (#520), off the
+// crew sim's terms (crew.toml [lieutenant] betray_share, betray_corners):
+// `Turning while their city holds 50% of your corners, 3 at least, ends
+// the run betrayed; checked only the night they turn.` The rule is read
+// once, the night the lieutenant flips (crew.Sim.turn): a playtest's
+// Yaya turned running none of the corners and went on to run three of
+// five for eleven days with no ending. "" with the ending boxed.
+func betrayWords(t content.LieutenantTerms) string {
+	if t.BetrayShare <= 0 {
+		return ""
+	}
+	return fmt.Sprintf("Turning while their city holds %s of your corners, %s at least, ends the run betrayed; checked only the night they turn.", format.Pct(t.BetrayShare, 0), plural(max(1, t.BetrayCorners), "corner"))
 }
 
 // unassignCapLine is the picker's word on the crew past the cap should

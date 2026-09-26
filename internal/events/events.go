@@ -395,14 +395,18 @@ type CornerStruck struct {
 
 func (CornerStruck) Kind() string { return "CornerStruck" }
 
-// WarEnded is the war order ending on its own (#229): the faction is
-// gone, pays homage, or holds no corner left in a city you hold. Why
-// says which.
+// WarEnded is the war order ending (#229): the faction is gone, pays
+// homage, or holds no corner left in a city you hold; Lost when you hold
+// no corner left anywhere, the war lost (#520); Called when you called
+// it off yourself that day (#520: report-only, no headline). Why says
+// which.
 type WarEnded struct {
 	Day     int
 	Rival   string
 	Faction string
 	Why     string
+	Lost    bool
+	Called  bool
 }
 
 func (WarEnded) Kind() string { return "WarEnded" }

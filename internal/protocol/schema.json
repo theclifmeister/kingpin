@@ -9111,11 +9111,17 @@
     },
     "events.WarEnded": {
       "properties": {
+        "Called": {
+          "type": "boolean"
+        },
         "Day": {
           "type": "integer"
         },
         "Faction": {
           "type": "string"
+        },
+        "Lost": {
+          "type": "boolean"
         },
         "Rival": {
           "type": "string"
@@ -9128,7 +9134,9 @@
         "Day",
         "Rival",
         "Faction",
-        "Why"
+        "Why",
+        "Lost",
+        "Called"
       ],
       "type": "object"
     },
@@ -11721,6 +11729,19 @@
       },
       "result": {
         "type": "null"
+      }
+    },
+    "holds": {
+      "changes": false,
+      "needsRun": true,
+      "params": {
+        "maxItems": 0,
+        "minItems": 0,
+        "prefixItems": [],
+        "type": "array"
+      },
+      "result": {
+        "$ref": "#/$defs/engine.Alert"
       }
     },
     "house_offers": {
@@ -16124,7 +16145,7 @@
       "$ref": "#/$defs/engine.View"
     }
   },
-  "protocol": 21,
+  "protocol": 22,
   "title": "kingpind",
   "view_version": 14
 }

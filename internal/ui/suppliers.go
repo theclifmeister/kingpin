@@ -125,6 +125,19 @@ func (m *Model) supplierNote(sup *game.Supplier) string {
 	return theme.Subtle.Render("cash only")
 }
 
+// creditDue is when credit taken today is due, as the connect's book
+// works it (game.Supplier.Buy, #518): `7d to pay` on a clean book, and
+// on one that owes already `due d12 with the debt`, since what is put on
+// an open book is due with it (a playtest's credit bought on day 11 was
+// due on day 12 while the pane said "7d to pay"). The buy dialog's due
+// day reads the same rule.
+func creditDue(sup *game.Supplier) string {
+	if sup.Debt > 0 {
+		return fmt.Sprintf("due d%d with the debt", sup.DebtDue)
+	}
+	return fmt.Sprintf("%dd to pay", sup.CreditDays)
+}
+
 // supplierSections is the market's pane while the cursor is on a
 // connect: who they are and where they stand with you, what they sell
 // you today, their credit and your debt, what the relationship buys,
@@ -171,7 +184,7 @@ func (m *Model) supplierSections(sup *game.Supplier) []section {
 		sel = append(sel, row("credit", theme.Subtle.Render("none")))
 	default:
 		sel = append(sel, row("credit", fmt.Sprintf("%s of %s", cash(sup.Credit()), cash(sup.Limit))),
-			row("", theme.Subtle.Render(fmt.Sprintf("%s/u, %dd to pay", format.Times(sup.CreditRatio, 2), sup.CreditDays))))
+			row("", theme.Subtle.Render(fmt.Sprintf("%s/u, %s", format.Times(sup.CreditRatio, 2), creditDue(sup)))))
 	}
 	if sup.Debt > 0 {
 		style := theme.Warning

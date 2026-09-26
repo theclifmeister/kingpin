@@ -216,6 +216,22 @@ func (s *Sim) Rungs(w *game.World, city *game.City) []content.ResponseConfig {
 	return out
 }
 
+// MostPages is the most pages one bust can file tonight (#519): the
+// thickest rung of the ladder the player faces where they stand, as
+// Rungs folds it (a raid's, the task force's, or the named hit's with
+// investigations on). A file that many pages short of the indictment is
+// one bust from it, and the file alert says so: a playtest's raid took
+// the file from 4/6 to 6/6 and "one more page" was never shown.
+func (s *Sim) MostPages(w *game.World) int {
+	most := 0
+	for _, r := range s.Rungs(w, w.Here()) {
+		if r.Level != content.Arrest {
+			most = max(most, r.Evidence)
+		}
+	}
+	return most
+}
+
 // bite is what a rung takes once the upgrades have had their say: a
 // raid's shares by raid_loss_mul, a sting's stock by sting_stock_mul,
 // the task force's as the file prints them (the feds take the file's

@@ -4,6 +4,8 @@ import (
 	"fmt"
 	"strings"
 
+	"github.com/theclifmeister/kingpin/internal/content"
+	"github.com/theclifmeister/kingpin/internal/format"
 	"github.com/theclifmeister/kingpin/internal/game"
 	"github.com/theclifmeister/kingpin/internal/ui/theme"
 )
@@ -476,8 +478,8 @@ var words = [][2]string{
 	{"target", "what a route keeps the far end at: units or days of demand"},
 	{"heat", "a city's police eye, 0-100: sales raise it, days fade it"},
 	{"patrol", "the first rung: caps what sells for a few days, files nothing"},
-	{"sting", "a rung: takes some stock and cash, a page if you sold"},
-	{"raid", "a big rung: much of the stock and cash, two pages if you sold"},
+	{"sting", "a rung: stock and cash; {sting_pages} if you sold, {hit_pages} on a named hit"},
+	{"raid", "a big rung: much of the stock and cash; {raid_pages} if you sold"},
 	{"arrest", "the top rung: a warrant, served if you sell the next night"},
 	{"file", "the DA's pages: a bust on a day you sold adds; enough indicts"},
 	{"pressure", "a city's mood, 0-100: lowers police lines, tightens patrols"},
@@ -519,6 +521,8 @@ var words = [][2]string{
 	{"spy", "a crew member under with a faction: reports, sells nothing"},
 	{"ending", "how a run ends: nine ways, each a summary and a score"},
 	{"score", "the offshore account over one plus the bodies; days shown"},
+	{"taken out", strings.TrimSuffix(takenOutWords, ",")},
+	{"betrayed", "a lieutenant turns on {betray_share} of your corners, {betray_corners}+: that night"},
 	{"quiet day", "all heat under {retire_heat}; no strike, push, bust or buyer's order"},
 	{"run out", "no corner left: a claim it loses soon keeps the clock running"},
 	{"absorbed", "run out long enough: it joins the faction that took its last"},
@@ -550,7 +554,17 @@ func (m *Model) helpLines() []string {
 	body = append(body, "", theme.PanelTitle.Render("WORDS"))
 	// A word that names a line the file sets reads it (#472: the quiet
 	// day's heat is laundering.toml's retire_heat).
-	lines := strings.NewReplacer("{retire_heat}", fmt.Sprintf("%.0f", m.cfg.Laundering.Offshore.RetireHeat))
+	// The rungs' pages (#519) are the file's, before the upgrades; the
+	// endings' lines (#520) are the sims' own.
+	pages := map[string]int{}
+	for _, r := range m.cfg.Heat.Responses {
+		pages[r.Level] = r.Evidence
+	}
+	lt := m.cfg.Crew.Lieutenant
+	lines := strings.NewReplacer("{retire_heat}", fmt.Sprintf("%.0f", m.cfg.Laundering.Offshore.RetireHeat),
+		"{sting_pages}", plural(pages[content.Sting], "page"), "{raid_pages}", plural(pages[content.Raid], "page"),
+		"{hit_pages}", fmt.Sprint(m.cfg.Heat.Investigation.Evidence),
+		"{betray_share}", format.Pct(lt.BetrayShare, 0), "{betray_corners}", fmt.Sprint(lt.BetrayCorners))
 	for _, w := range words {
 		// The word takes the key column and one of the two spaces after
 		// it, so `lieutenant`, ten, is never cut (#463) and no line

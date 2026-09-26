@@ -64,6 +64,11 @@ min_swing = 0.5
 swing_cap = 1.5
 
 [digest.weights]
+# Always in the lead, first, past the cap (content.DigestAlways, #518,
+# #519): their weights order them among themselves.
+warrant = 100.0
+payroll = 20.0
+debt_late = 20.0
 corner_lost = 10.0
 crew_lost = 8.0
 seizure = 9.0
@@ -397,6 +402,13 @@ WarEnded = [
   "{{.City}}'s turf war ends: {{.Rival}}'s crew 'has nothing left to hold'",
   "Quiet on the corners at last; police say {{.Rival}}'s people 'are done'",
   "The war for {{.City}}'s blocks is over, and everyone knows who won",
+]
+# A declared war lost with the last corner (#520): as many lines as
+# WarEnded, so the draw is the same.
+WarLost = [
+  "{{.City}}'s turf war ends with the challenger holding nothing",
+  "Police say the {{.City}} war is over: 'one side ran out of street'",
+  "The war for {{.City}}'s blocks is over, and it was not close",
 ]
 RivalAbsorbed = [
   "{{.Rival}}'s outfit folds; what is left runs with {{.Name}} now",

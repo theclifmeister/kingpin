@@ -217,6 +217,7 @@ type Today struct {
 	Spy           *SpyOrder              // a crew member going under tonight (#45); the crew sim sends them
 	DeedsBought   []string               // corner ids whose block was bought today (#194), paid at once; the territory sim reports them
 	AssetsBought  []string               // asset ids bought today (#48), applied at once; the laundering sim reports them
+	CalledOff     string                 // the faction whose war you called off today (#520), applied at once; the rivals sim reports it
 }
 
 // Investment is clean cash put into a front's levels today (#192):

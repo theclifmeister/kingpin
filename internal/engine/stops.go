@@ -57,13 +57,21 @@ func (st Stop) Danger() bool {
 // the morning it starts, an offer not repeated, #469). before
 // is Alerts as they stood the morning the day began; evs the day's
 // events.
+//
+// When several land on one morning the stop is the most severe (#519):
+// the first danger among the new alerts and the events, loudest first,
+// before a stage, a card or anything lesser, so a danger is never shown
+// as a lesser stop (a playtest's investigation at file 5/6 stopped as
+// "a card to answer" and the next F ran into the indictment). The card
+// and the stage are still there to answer that morning.
 func (s *Session) Stop(evs []events.Event, before []Alert) Stop {
 	w := s.w
+	var all []Stop
 	if w.StagePending() > 0 {
-		return Stop{Kind: StopStage}
+		all = append(all, Stop{Kind: StopStage})
 	}
 	if w.Dilemmas.Pending != nil {
-		return Stop{Kind: StopCard}
+		all = append(all, Stop{Kind: StopCard})
 	}
 	was := map[string]bool{}
 	for _, a := range before {
@@ -71,13 +79,21 @@ func (s *Session) Stop(evs []events.Event, before []Alert) Stop {
 	}
 	for _, a := range s.Alerts() {
 		if !was[a.Key] && !a.Notice() {
-			return Stop{Kind: StopAlert, Alert: a}
+			all = append(all, Stop{Kind: StopAlert, Alert: a})
 		}
 	}
 	for _, e := range evs {
 		if StopsOn(e) && s.serves(e) && s.news(e) {
-			return Stop{Kind: StopEvent, Event: e}
+			all = append(all, Stop{Kind: StopEvent, Event: e})
 		}
+	}
+	for _, st := range all {
+		if st.Danger() {
+			return st
+		}
+	}
+	if len(all) > 0 {
+		return all[0]
 	}
 	return Stop{}
 }
@@ -87,13 +103,18 @@ func (s *Session) Stop(evs []events.Event, before []Alert) Stop {
 // work a corner or hold stock; one anywhere else is in the report and on
 // the market (#440) and runs past. A playtest's fast-forward stopped on
 // four Bayport offers in twelve mornings with nothing and nobody there.
+// A quiet streak lost (#519) stops only while retiring is the plan or
+// the offshore account is open: for a player saving to retire it is the
+// run's most important night, and to anyone else it is nothing.
 func (s *Session) serves(e events.Event) bool {
-	c, ok := e.(events.ContractOffered)
-	if !ok {
-		return true
-	}
 	w := s.w
-	return c.City == w.Player.Location || w.WorkedIn(c.City) > 0 || w.StockIn(c.City) > 0
+	switch ev := e.(type) {
+	case events.ContractOffered:
+		return ev.City == w.Player.Location || w.WorkedIn(ev.City) > 0 || w.StockIn(ev.City) > 0
+	case events.QuietBroken:
+		return w.Ambition == content.AmbitionRetire || w.Offshore > 0
+	}
+	return true
 }
 
 // OfferQuiet is how many days a faction's offer of a kind of deal
@@ -254,10 +275,17 @@ func (s *Session) news(e events.Event) bool {
 // you (Stop), the run's end or the cap. after is called with each day's
 // events as it ends, before the day is weighed: the TUI saves there.
 // It returns the days run, why it stopped and the stopping day's
-// events. A run already over runs nothing and stops StopOver.
+// events. A run already over runs nothing and stops StopOver; one with
+// a night standing that ends it (Holds: a warrant out, the run broke
+// tonight, #518, #519) runs nothing either and stops on that alert, so
+// F never walks into the arrest or the empty till: the day is ended by
+// hand, with the end-day confirmation saying why.
 func (s *Session) FastForward(days int, after func([]events.Event)) (int, Stop, []events.Event) {
 	if s.w == nil || s.w.Over != nil {
 		return 0, Stop{Kind: StopOver}, nil
+	}
+	if a := s.Holds(); a != nil {
+		return 0, Stop{Kind: StopAlert, Alert: *a}, nil
 	}
 	var evs []events.Event
 	for ran := 1; ran <= days; ran++ {
@@ -278,9 +306,12 @@ func (s *Session) FastForward(days int, after func([]events.Event)) (int, Stop, 
 
 // StopsOn reports whether an event stops a fast-forward: a warrant signed
 // (#475), the police past
-// a patrol, the task force, an investigation opened (#343), an asset seized or the tunnel found, a gate
-// crossed, the reign begun or broken, the rival moving in or eyeing a
-// corner, a faction scouting or recruiting where you earn (#341), a strike (bar a war night that held, #229), the war over, a
+// a patrol, the task force, an investigation opened (#343), an asset seized or the tunnel found,
+// the reign begun or broken, the rival moving in or eyeing a
+// corner, a faction scouting or recruiting where you earn (#341), a strike (bar a war night that held, #229), the war over
+// (bar one you called off, #520), a missed payroll (#518), a quiet
+// streak lost (while retiring is the plan or the account open: Stop's
+// serves, #519), a
 // boost that failed (#70), the police raiding a rival corner, a corner
 // taken off you, a corner of yours lost to the street, nobody working it
 // (#345) or the police clearing it (#469), a corner the rival gave up,
@@ -288,13 +319,15 @@ func (s *Session) FastForward(days int, after func([]events.Event)) (int, Stop, 
 // a spy found or a lie that bit (#45), a lieutenant walking, an audit, a
 // seizure, a deal offered or broken (an offer the faction repeated runs
 // past: Stop's news, #469), a buyer asking (where you could answer it:
-// Stop's serves, #442), pressure up a band, a new chief or an election,
+// Stop's serves, #442), a new chief or an election,
 // an envelope back, a raid that fell through (#228), the DA's file on
 // the envelopes, the officials cold, a contract or a standing order
 // short (the morning it starts and not again within OfferQuiet: news,
 // #469, #504), and a stash house robbed, hit or lost (#73). A
 // reputation axis up a band needs no action and runs past (#504: the
-// dashboard's bars say it).
+// dashboard's bars say it), and so do pressure up a band (the report
+// could show it unchanged at its rounding) and a gate crossed (#519:
+// notices never stop; the report's UNLOCKED says it).
 func StopsOn(e events.Event) bool {
 	switch ev := e.(type) {
 	case events.Enforcement:
@@ -309,13 +342,15 @@ func StopsOn(e events.Event) bool {
 		return ev.Owner == game.OwnerPlayer // nobody worked it (#345), or the police cleared it (#469)
 	case events.CrewShot:
 		return ev.Dead && !ev.Theirs
-	case events.PressureShifted:
-		return ev.To > ev.From
 	case events.ReignBegan:
 		return !ev.Again // the first reign of the run (#399); one begun again runs past
-	case events.WarrantSigned, events.TaskForceFormed, events.InvestigationOpened, events.AssetSeized, events.TrophySeized, events.TunnelFound, events.Unlocked,
+	case events.CrewPaid:
+		return ev.Short > 0 // a missed payroll (#518)
+	case events.WarEnded:
+		return !ev.Called // one you called off yourself is in the report and runs past (#520)
+	case events.WarrantSigned, events.TaskForceFormed, events.InvestigationOpened, events.AssetSeized, events.TrophySeized, events.TunnelFound,
 		events.ReignBroken, events.StraightOpened, events.StraightLapsed, events.RivalMovedIn, events.RivalEyeing,
-		events.WarEnded, events.RivalRaided, events.RivalAbandoned, events.CrewQuit,
+		events.QuietBroken, events.RivalRaided, events.RivalAbandoned, events.CrewQuit,
 		events.CrewDefected, events.CrewArrested, events.CrewRetired, events.SpyFound,
 		events.IntelFalse, events.LieutenantWalked, events.FrontAudited, events.ShipmentSeized, events.ExportSeized,
 		events.DealOffered, events.DealBroken, events.ContractOffered, events.ChiefReplaced,

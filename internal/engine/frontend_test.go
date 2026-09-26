@@ -17,7 +17,7 @@ import (
 // and none changes it. An action is a session command (commands.go),
 // never a World method a front end calls itself.
 var worldReads = []string{
-	"AssetLive", "AssetLost", "AtPeaceWith", "Available", "BestSupplier", "Bound", "BuyMarkup", "Campaigning", "CanBuyIn",
+	"AssetLive", "AssetLost", "AtPeaceWith", "AtWarWith", "Available", "BestSupplier", "Bound", "BuyMarkup", "Campaigning", "CanBuyIn",
 	"CanCrown", "CanUndercut", "CanVanish", "Capacity", "CapacityAway", "Cash", "Checkpoint", "City", "CityName",
 	"CityOf", "Cold", "Contested", "ContestedBy", "Contract", "ContractsDue", "ContractsIn", "Corner",
 	"DealWith", "DeedValue", "Deeds", "DeedsIn", "DelegatedOrder", "DelegatedSupplied", "Deliverable", "Demand",

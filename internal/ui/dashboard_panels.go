@@ -11,6 +11,7 @@ import (
 	"github.com/charmbracelet/lipgloss"
 
 	"github.com/theclifmeister/kingpin/internal/content"
+	"github.com/theclifmeister/kingpin/internal/engine"
 	"github.com/theclifmeister/kingpin/internal/game"
 	"github.com/theclifmeister/kingpin/internal/ui/sparkline"
 	"github.com/theclifmeister/kingpin/internal/ui/theme"
@@ -103,6 +104,19 @@ func (m *Model) heatLines(innerW int, narrow bool) []string {
 		}
 		line := fmt.Sprintf("police on %s · %s", name, plural(max(1, inv.DaysLeft(w.Day)), "day"))
 		lines[len(lines)-1] = style.Render(truncate(line, innerW))
+	}
+	// A warrant out (#519) takes that line before anything: the arrest
+	// on the next sale, which a playtest read only under the report's
+	// HEAT below the sales.
+	for _, a := range m.sess.Alerts() {
+		if a.Kind != engine.AlertArrest {
+			continue
+		}
+		when := "tonight"
+		if a.Days > 1 {
+			when = "in " + plural(a.Days, "night")
+		}
+		lines[len(lines)-1] = theme.Bad.Bold(true).Render(truncate("WARRANT: served "+when+" on a sale", innerW))
 	}
 	if !narrow {
 		lines = append(lines, m.reputationLine(innerW))

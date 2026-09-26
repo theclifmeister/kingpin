@@ -89,7 +89,13 @@ func TestStopsOnTheReadings(t *testing.T) {
 		{events.CrewShot{Dead: true}, true},
 		{events.CrewShot{Dead: true, Theirs: true}, false},
 		{events.CrewShot{}, false},
-		{events.PressureShifted{From: 1, To: 2}, true},
+		{events.PressureShifted{From: 1, To: 2}, false}, // a notice (#519): the report could show it unchanged
+		{events.CrewPaid{Short: 1}, true},               // a missed payroll (#518)
+		{events.CrewPaid{}, false},
+		{events.WarEnded{}, true},
+		{events.WarEnded{Called: true}, false}, // your own word (#520)
+		{events.QuietBroken{}, true},           // where it serves (#519)
+		{events.Unlocked{}, false},             // a notice (#519)
 		{events.PressureShifted{From: 2, To: 1}, false},
 		{events.ReputationShifted{From: 1, To: 2}, false}, // needs no action (#504)
 		{events.ReputationShifted{From: 2, To: 1}, false},
