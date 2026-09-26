@@ -120,13 +120,14 @@ blurb = "The supply side is yours to buy, and the feds know your name."
 checkpoint = 300
 opens = [
   "the assets: the connect, the port, the airstrip, the lab, a tunnel",
-  "the lanes abroad off the Dutchman's book; a casino and a bank",
+  "the lanes abroad: buy the Dutchman's book, ship by the ton",
+  "a casino and a bank, each covering ten times its price of the pile",
   "the task force, above the raid",
 ]
 next = "There is no next stage. Pick an ambition and chase it: retire, go legit, take the city or disappear."
 text = [
-  "Clean money buys the Dutchman's book, the port, an airstrip, a lab.",
-  "Each one is throughput, cheaper or faster; each is a reason for a task force.",
+  "Clean money buys the Dutchman's book, and the lanes abroad ship off it by the ton: no corner caps them.",
+  "The port, an airstrip and a lab follow: throughput, each a reason for a task force.",
   "It is announced the morning before it comes, and it takes an asset with it.",
 ]
 closing = "No stage lies past this one. Pick an ambition and chase it: retire clean, go legit, take the city or disappear."

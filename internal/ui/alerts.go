@@ -39,7 +39,7 @@ type alert struct {
 // wages, a member near a line, the skim, a member with no post, a
 // corner nobody works, a full stash, a faction on its way to a city
 // where you earn (#341), the gate within reach, the port untouched and
-// worth the road (#476), a house the police
+// worth the road (#476), the lanes abroad (#505), a house the police
 // know, the DA race,
 // retirement, the favour, the reign, the plan pinned). The dashboard's ALERTS carry them
 // and a fast-forward stops on one the morning before did not have.
@@ -161,6 +161,8 @@ func (m *Model) alertOf(a engine.Alert) alert {
 		text, why = theme.Gold.Render(gateText(w, *a.Gate)), gateThe(*a.Gate)+" within reach"
 	case engine.AlertPort:
 		text, why = portAlert(w, a), w.CityName(a.City)+" is worth the road"
+	case engine.AlertExports:
+		text, why = m.exportsAlert(a), "the lanes abroad"
 	case engine.AlertHouseKnown:
 		if h := w.House(a.House); h != nil {
 			text = theme.Bad.Render(fmt.Sprintf("The police know about %s: move the stock out and drop it %s.", h.Name, screenPointer(screenLedger)))
@@ -240,6 +242,33 @@ func portAlert(w *game.World, a engine.Alert) string {
 		facts = append(facts, fmt.Sprintf("%s sells at %s of street", sup.Name, format.Pct(a.Share, 0)))
 	}
 	return theme.Gold.Render(fmt.Sprintf("%s is untouched: %s. The road is %s.", w.CityName(a.City), strings.Join(facts, ", "), screenPointer(screenMap)))
+}
+
+// exportsAlert words the lanes abroad at the Cartel stage (#505): `The
+// lanes abroad: Designer pays $3,100 a unit out of Bayport on $450 off
+// the book, 16000 units a night. Buy The Dutchman's Book, then t on a lane on
+// the ledger screen (7).`, the facts first because the pane cuts an
+// alert to one line; once the book is owned the lanes are open and t
+// alone is left to do.
+func (m *Model) exportsAlert(a engine.Alert) string {
+	w := m.w
+	facts := plural(a.Count, "unit") + " a night out of " + w.CityName(a.City)
+	if a.Product != "" && a.Amount > 0 {
+		facts = fmt.Sprintf("%s pays %s a unit out of %s on %s off the book, %s a night", w.ProductName(a.Product), money(a.Amount), w.CityName(a.City), money(a.Have), plural(a.Count, "unit"))
+	}
+	do := "t on a lane sets a nightly load " + screenPointer(screenLedger)
+	if !a.Ready {
+		book := "the book"
+		if b := m.cfg.Assets.ByEffect(content.AssetSupplier); b != nil {
+			book = b.Name
+		}
+		do = "Buy " + book + ", then t on a lane " + screenPointer(screenLedger)
+	}
+	lead := "The lanes abroad: "
+	if a.Ready {
+		lead = "The lanes abroad are open: "
+	}
+	return theme.Gold.Render(lead + facts + ". " + do + ".")
 }
 
 // crossWords are what crossing each of the crew's loyalty lines is
