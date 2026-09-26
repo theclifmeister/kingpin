@@ -38,6 +38,7 @@ type dialog struct {
 	dial     events.Dial
 	repeat   repeat
 	turned   bool // the dialog was turned to this side from a city other than this one (#168)
+	newStep  bool // the connect step is new to the player: its first showing says so (#500)
 }
 
 // page is the dialog's page for the key table (#243): the connect
@@ -182,9 +183,9 @@ func (m *Model) openDialog(mode mode) {
 		return
 	}
 	m.dlg = dialog{qty: newNumberField("blank = max"), dial: events.DialNormal}
-	if !m.productInView() {
-		// Opened from a screen with no product table (#462): the first
-		// row, never a product another screen left selected.
+	if !m.productNamed() {
+		// The first row (#462, #500), never a product another screen,
+		// or the dashboard's table, left selected.
 		m.cursor = 0
 	}
 	if mode == modeBuy {
@@ -207,13 +208,14 @@ func (m *Model) openDialog(mode mode) {
 	m.mode = mode
 }
 
-// productInView is the screen b or s is pressed on showing the product
-// selection the dialog opens on (#462): the dashboard's and the
-// market's product tables share the cursor, and the dialog's title
-// names the product; from any other screen the dialog opens on its
-// first row.
-func (m *Model) productInView() bool {
-	return m.screen == screenDashboard || m.screen == screenMarket
+// productNamed is b or s pressed with a product named (#500): the
+// market with its ▸ on the product table, the row picked on the screen
+// the key is pressed on. Everywhere else, the dashboard included (its
+// table shares the market's cursor, so its selection is often one the
+// market left: a playtester bought 60 Meth meaning the Heroin
+// contract), the dialog opens on its first row.
+func (m *Model) productNamed() bool {
+	return m.screen == screenMarket && !m.onBuyers && !m.onSuppliers
 }
 
 // cannotOpen is why the buy or sell dialog cannot open on its side
@@ -274,6 +276,11 @@ func (m *Model) seedBuy() {
 		m.dlg.supplier = open[0]
 	default:
 		m.dlg.paged, m.dlg.pick, m.dlg.supplier = true, true, land
+		// The flow grew a step (#500): the first time it shows, it
+		// says so, rather than a habit's enter taking a connect.
+		if !m.connectSeen {
+			m.connectSeen, m.dlg.newStep = true, true
+		}
 	}
 }
 
@@ -670,7 +677,7 @@ func (m *Model) dialogForward() (tea.Model, tea.Cmd) {
 			}
 			return m, nil
 		}
-		d.pick = false
+		d.pick, d.newStep = false, false
 		// Land on something they sell you.
 		if m.productErr() != "" {
 			for i, id := range m.w.Products {
@@ -688,17 +695,16 @@ func (m *Model) dialogForward() (tea.Model, tea.Cmd) {
 			return m, nil
 		}
 		d.step = 1
-		// A product kept by contract opens on its level, at keep at,
-		// the way the target dialog opens on the target (#113); one
-		// with a standing order opens on its units, at standing (#114).
-		if m.mode == modeBuy {
-			if c, ok := m.w.Supplied(m.dialogCity(), m.w.Products[m.cursor]); ok {
-				d.qty.Set(c.Units)
-				d.repeat = repeatKeep
+		// A buy opens at once whatever stands (#500: a buy at 22 for a
+		// buyer replaced a contract at 30); the quantity step names the
+		// contract and the repeat step edits it at keep at. A product
+		// with a standing order opens the sale on its units, at
+		// standing (#114).
+		if m.mode == modeSell {
+			if o, ok := m.w.YourStanding(m.dialogCity(), m.w.Products[m.cursor]); ok {
+				d.qty.Set(o.Qty)
+				d.repeat = repeatStanding
 			}
-		} else if o, ok := m.w.YourStanding(m.dialogCity(), m.w.Products[m.cursor]); ok {
-			d.qty.Set(o.Qty)
-			d.repeat = repeatStanding
 		}
 		return m, d.qty.Focus()
 	case 1:
@@ -946,6 +952,12 @@ func (m *Model) viewDialog() string {
 	// street's and the margin over it; a sale the street price and the
 	// demand your corners there serve.
 	cols, rows, cursor := m.dialogRows(city, buy)
+	if d.step >= 1 && cursor >= 0 {
+		// Past the product step the table is the product picked (#499):
+		// with every product unlocked and a shock line, the whole table
+		// pushed the repeat and pay rows under the fold at 80x24.
+		rows, cursor = rows[cursor:cursor+1], 0
+	}
 	if cursor >= 0 {
 		m.modalFollow(len(body) + 1 + cursor) // under the header
 	}
@@ -953,17 +965,28 @@ func (m *Model) viewDialog() string {
 	body = append(body, "")
 
 	body = append(body, m.quantityRows(d, city, id, buy, sup)...)
-	if buy && d.step >= 2 && sup != nil {
-		body = append(body, m.buyTermsRows(d, city, id, sup)...)
+	// The step's own rows are kept in view (#499), after the product's
+	// row: the arrows and pgdn are the field's and the dial's there, so
+	// the body cannot be scrolled to them.
+	follow := func(rows []string) []string {
+		for i := range rows {
+			m.modalFollow(len(body) + i)
+		}
+		return rows
 	}
-	if !buy && d.step >= 2 {
-		body = append(body, m.sellDialRows(d, city, id, p)...)
+	if buy && d.step >= 2 && sup != nil {
+		body = append(body, follow(m.buyTermsRows(d, city, id, sup))...)
+	}
+	if !buy && d.step == 2 {
+		body = append(body, follow(m.sellDialRows(d, city, id, p))...)
 	}
 	if !buy && d.step >= 3 {
-		body = append(body, m.sellRepeatRows(d, city, id)...)
+		body = append(body, m.sellDialRows(d, city, id, p)...)
+		body = append(body, follow(m.sellRepeatRows(d, city, id))...)
 	}
 
 	if d.err != "" {
+		m.modalFollow(len(body) + 1) // the refusal, where the eye is
 		body = append(body, "", theme.Bad.Render(d.err))
 	}
 	if cb := m.cartBlock(); cb != nil {
@@ -975,11 +998,21 @@ func (m *Model) viewDialog() string {
 	return m.modal(title, body, m.modalFooter())
 }
 
+// dealingHere is how many connects where you stand deal today: the
+// count the connect step's first showing names (#500).
+func (m *Model) dealingHere() int {
+	open, _ := m.openConnects()
+	return len(open)
+}
+
 // connectStepRows is the connect step of a buy (#72): the connects where
 // you stand, the price of the product under the cursor, the lot, what
 // they have left today, the relationship and the credit they give.
 func (m *Model) connectStepRows(d dialog, id string) []string {
 	var body []string
+	if d.newStep {
+		body = append(body, theme.Warning.Render(fmt.Sprintf("New: %d connects deal here now, so a buy starts by picking one. The product is the next step.", m.dealingHere())), "")
+	}
 	body = append(body, m.connectTable(id, d.supplier)...)
 	body = append(body, "")
 	if cs := m.connectsHere(); d.supplier >= 0 && d.supplier < len(cs) {
@@ -1045,15 +1078,23 @@ func (m *Model) quantityRows(d dialog, city, id string, buy bool, sup *game.Supp
 }
 
 // editingRows is the quantity step's warning when the dialog opened on
-// an order that stands (#443): a product kept by contract opens at keep
-// at and one with a standing order at standing (#113, #114), so what is
-// typed replaces that order unless the repeat step is turned to once.
-// Said here, where the number goes in, and not only a step later.
+// an order that stands (#443): a product with a standing order opens at
+// standing (#114), so what is typed replaces that order unless the
+// repeat step is turned to once. A product kept by contract opens the
+// buy at once since #500, and the line names the contract it leaves
+// alone (or, turned back to keep at, the one it edits). Said here,
+// where the number goes in, and not only a step later.
 func (m *Model) editingRows(d dialog, city, id string, buy bool) []string {
 	w := m.w
 	if buy {
-		if c, ok := w.Supplied(city, id); ok && d.repeat == repeatKeep {
+		c, ok := w.Supplied(city, id)
+		switch {
+		case ok && d.repeat == repeatKeep:
 			return []string{theme.Warning.Render(fmt.Sprintf("Editing the contract (keep %d); pick once to buy just once.", c.Units))}
+		case ok:
+			// The buy opens at once (#500): the contract is named, and
+			// left as it is unless keep at is picked a step on.
+			return []string{theme.Subtle.Render(fmt.Sprintf("Kept at %d by contract; this buys once and leaves it.", c.Units))}
 		}
 		return nil
 	}

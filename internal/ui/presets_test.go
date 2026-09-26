@@ -55,6 +55,7 @@ func TestPresetsInTheGrammar(t *testing.T) {
 		t.Fatalf("P on the market: mode %v, %d presets, status %q", m.mode, len(m.pre.list), m.status)
 	}
 	m.Update(key("1"))
+	m.Update(key("enter")) // a digit moves, enter reviews (#500)
 	view := stripANSI(m.View())
 	for _, want := range []string{"PRESET · QUIET TRADING", "launder dial", "normal", "careful", "standing ", "~take ", "other setting"} {
 		if !strings.Contains(view, want) {
@@ -129,7 +130,8 @@ func TestPresetWithNothingToChange(t *testing.T) {
 	}
 	m.Update(key("2"))
 	m.Update(key("P"))
-	m.Update(key("3")) // push: no standing order, and the wash greedy already
+	m.Update(key("3"))     // push: no standing order, and the wash greedy already
+	m.Update(key("enter")) // a digit moves, enter reviews (#500)
 	if m.pre.step != 1 || len(m.pre.review.Changes) != 0 {
 		t.Fatalf("push over nothing it moves: step %d, %+v", m.pre.step, m.pre.review.Changes)
 	}

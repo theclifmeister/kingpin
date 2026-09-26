@@ -599,8 +599,8 @@ func (m *Model) cycleAlert(d int) {
 func hasAlerts(m *Model) bool { return !m.onPolice && len(m.sess.Alerts()) > 0 }
 
 // stoppedOnAlert is the report open on a fast-forward that stopped on
-// an alert: its o opens it.
-func stoppedOnAlert(m *Model) bool { return m.fastAlert != nil }
+// an alert: its o opens it, unless a card set aside waits behind it.
+func stoppedOnAlert(m *Model) bool { return m.fastAlert != nil && !m.cardWaits() }
 
 // selectMember puts the crew cursor on the member.
 func (m *Model) selectMember(id int) {

@@ -81,7 +81,8 @@ func TestLedgerCursor(t *testing.T) {
 	if m.mode != modeFront || m.front.step != 0 {
 		t.Fatalf("b on an offer: mode %v step %d", m.mode, m.front.step)
 	}
-	m.Update(key("1")) // a front: the kind page's first row
+	m.Update(key("1"))     // a front: the kind page's first row (#500: a digit moves)
+	m.Update(key("enter")) // the offers
 	assertFits(t, m.View(), 120, 40, "front confirmation from the ledger")
 	m.Update(key("enter"))
 	if m.mode != modePlay || len(w.Fronts) != 4 || w.Fronts[3].ID != o.ID {

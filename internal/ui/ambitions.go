@@ -62,7 +62,7 @@ func (m *Model) openAmbitions(fromStage bool) {
 }
 
 // keyAmbitions is the panel's keys: the cursor, enter to pin or unpin
-// the plan under it, a digit to pick and pin, esc to close.
+// the plan under it, a digit to move to a row (#500), esc to close.
 func (m *Model) keyAmbitions(key string) {
 	rows := m.ambitions()
 	if closes(key) {
@@ -78,8 +78,7 @@ func (m *Model) keyAmbitions(key string) {
 		m.pinAmbition(rows)
 	default:
 		if i, ok := digit(key); ok && i < len(rows) {
-			m.amb.cursor = i
-			m.pinAmbition(rows) // a digit selects and commits, as in every picker (#241)
+			m.amb.cursor = i // a digit moves, enter pins, as in every picker (#500)
 		}
 	}
 }

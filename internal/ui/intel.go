@@ -491,13 +491,12 @@ func (m *Model) keySpy(key string) {
 		}
 		m.confirmSpy()
 	default:
-		// A digit selects and commits, as in every picker (#241).
+		// A digit moves, enter acts, as in every picker (#500).
 		if i, ok := digit(key); ok {
 			if m.spy.step == 0 && i < len(m.spyFactions()) {
-				m.spy.faction, m.spy.step = i, 1
+				m.spy.faction = i
 			} else if m.spy.step == 1 && i < len(m.spyCandidates()) {
 				m.spy.member = i
-				m.confirmSpy()
 			}
 		}
 	}

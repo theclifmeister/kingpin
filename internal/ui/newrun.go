@@ -1,11 +1,15 @@
 package ui
 
 import (
+	"errors"
 	"fmt"
+	"math"
+	"strconv"
 	"strings"
 	"time"
 
 	tea "github.com/charmbracelet/bubbletea"
+	"github.com/charmbracelet/lipgloss"
 
 	"github.com/theclifmeister/kingpin/internal/content"
 	"github.com/theclifmeister/kingpin/internal/game"
@@ -17,9 +21,12 @@ import (
 // the character picker: every row of characters.toml, a locked one
 // greyed with its rule, and the daily under them (the date's seed, the
 // default character, one scored attempt a date); the second the seed,
-// a number field (blank is random); the third, once the profile has
-// earned it, the hard DA toggle. enter on the daily starts at once;
-// enter on the last page starts the run in the slot. Nothing here
+// a field of digits (blank is random, any uint64 the game prints,
+// #491); the third, once the profile has earned it, the hard DA
+// toggle. enter on the daily turns to its confirmation (#500), the
+// daily's one page after the picker; enter on the last page starts the
+// run in the slot. A refusal (a locked character, a seed that does not
+// read) is the dialog's error line, where the eye is. Nothing here
 // touches a sim: what a character changes is on the world on day 0
 // (sim.NewWorldWith).
 
@@ -28,23 +35,60 @@ type newRunDialog struct {
 	stepper
 	slot   int         // the slot the run starts in
 	cursor int         // the row on the first page: the characters, then the daily
+	daily  int         // the daily's row, whose second page is its confirmation, not the seed
 	seed   numberField // the typed seed; blank is random
 	hard   bool        // the hard DA toggle
 }
 
 // field is the seed on its page (#243); back keeps it, a seed being
-// nobody's step's.
+// nobody's step's. The daily's second page has none.
 func (d *newRunDialog) field() *numberField {
-	if d.step == 1 {
+	if d.step == 1 && d.cursor != d.daily {
 		return &d.seed
 	}
 	return nil
 }
 
+// onDaily is the dialog turned to the daily's confirmation (#500).
+func (d *newRunDialog) onDaily() bool { return d.step == 1 && d.cursor == d.daily }
+
+// seedDigits is the most digits the seed field takes: a uint64 prints
+// in up to 20 (#491), and a few more are let in so a number past the
+// top is refused with a reason rather than cut by the field.
+const seedDigits = 24
+
+// newSeedField is the seed's field (#491): the number field's, taking
+// every digit a printed seed has and as wide as that, so a 20-digit
+// seed shows whole at 80 columns.
+func newSeedField() numberField {
+	f := newNumberField("random")
+	f.in.CharLimit = seedDigits
+	f.in.Width = lipgloss.Width(f.in.Prompt) + seedDigits + 1 // the prompt, the digits and the cursor cell (#234)
+	return f
+}
+
+// readSeed is the seed typed (#491): blank is none (a random one), a
+// whole number up to the uint64 top is the run's, and anything else is
+// refused with why.
+func readSeed(s string) (seed uint64, typed bool, err error) {
+	s = strings.TrimSpace(s)
+	if s == "" {
+		return 0, false, nil
+	}
+	n, perr := strconv.ParseUint(s, 10, 64)
+	switch {
+	case errors.Is(perr, strconv.ErrRange):
+		return 0, false, fmt.Errorf("that is past the top: a seed is at most %d", uint64(math.MaxUint64))
+	case perr != nil:
+		return 0, false, errors.New("a seed is a whole number, or blank for a random one")
+	}
+	return n, true, nil
+}
+
 // openNewRun opens the dialog for the slot on its first page, the
 // cursor on the default character.
 func (m *Model) openNewRun(slot int) {
-	m.nr = newRunDialog{slot: slot, seed: newNumberField("random")}
+	m.nr = newRunDialog{slot: slot, daily: m.dailyRow(), seed: newSeedField()}
 	m.nr.seed.Focus()
 	m.mode = modeNewRun
 }
@@ -61,9 +105,13 @@ func (m *Model) hardDAOpen() bool {
 	return m.profile.Unlocked(m.cfg.Characters.HardDA.Unlock, game.HardDAID)
 }
 
-// lastStep is the dialog's last page: the toggle's where it is open,
-// the seed's otherwise.
+// lastStep is the dialog's last page: the daily's confirmation with
+// the cursor on the daily, the toggle's where it is open, the seed's
+// otherwise.
 func (m *Model) lastStep() int {
+	if m.nr.cursor == m.dailyRow() {
+		return 1
+	}
 	if m.hardDAOpen() {
 		return 2
 	}
@@ -94,12 +142,14 @@ func (m *Model) characterOpen(ch content.CharacterConfig) bool {
 }
 
 // keyNewRun is the dialog's keys: the cursor on the first page (a
-// locked row is refused with its rule), the number field on the
-// second, left and right on the toggle, enter forward and on the last
-// page the start, shift+tab back, esc closes to the menu.
+// digit moves it, #500; a locked row is refused with its rule), the
+// number field on the second, left and right on the toggle, enter
+// forward and on the last page the start, shift+tab back, esc closes
+// to the menu.
 func (m *Model) keyNewRun(k tea.KeyMsg) (tea.Model, tea.Cmd) {
 	key := k.String()
 	d := &m.nr
+	d.err = ""
 	if closes(key) {
 		m.mode = modeStart
 		return m, nil
@@ -109,7 +159,7 @@ func (m *Model) keyNewRun(k tea.KeyMsg) (tea.Model, tea.Cmd) {
 		d.back(noField) // the seed stays: it is nobody's step's
 		return m, nil
 	case "tab":
-		if d.step < m.lastStep() && (d.step > 0 || d.cursor != m.dailyRow()) {
+		if d.step < m.lastStep() {
 			m.nextNewRun()
 		}
 		return m, nil
@@ -127,11 +177,13 @@ func (m *Model) keyNewRun(k tea.KeyMsg) (tea.Model, tea.Cmd) {
 			wrapCursor(&d.cursor, 1, rows)
 		default:
 			if i, ok := digit(key); ok && i < rows {
-				d.cursor = i
-				m.nextNewRun() // a digit selects and commits, as in every picker (#241)
+				d.cursor = i // a digit moves, enter is next, as in every picker (#500)
 			}
 		}
 	case 1:
+		if d.onDaily() {
+			return m, nil
+		}
 		// Digits and editing only: the number field's shortcuts clamp to
 		// a max, and a seed has none (#473).
 		switch key {
@@ -148,24 +200,25 @@ func (m *Model) keyNewRun(k tea.KeyMsg) (tea.Model, tea.Cmd) {
 	return m, nil
 }
 
-// nextNewRun takes enter: the first page's row (the daily starts at
-// once, a locked character is refused), the seed page's number, and
-// the last page starts the run.
+// nextNewRun takes enter: the first page's row (the daily turns to
+// its confirmation, a locked character is refused with its unlock on
+// the error line), the seed page's number, and the last page starts
+// the run (the daily's confirmation, the daily).
 func (m *Model) nextNewRun() {
 	d := &m.nr
 	switch {
-	case d.step == 0 && d.cursor == m.dailyRow():
+	case d.onDaily():
 		m.startDaily()
 		return
-	case d.step == 0:
+	case d.step == 0 && d.cursor != m.dailyRow():
 		ch := m.cfg.Characters.Characters[d.cursor]
 		if !m.characterOpen(ch) {
-			m.refuse(fmt.Sprintf("%s is locked: %s.", ch.Name, m.unlockRule(ch.Unlock)))
+			d.err = fmt.Sprintf("%s is locked: %s to play them.", ch.Name, m.unlockRule(ch.Unlock))
 			return
 		}
 	case d.step == 1:
-		if _, ok := d.seed.Number(); !ok {
-			m.refuse("A seed is a whole number, or blank for a random one.")
+		if _, _, err := readSeed(d.seed.Value()); err != nil {
+			d.err = dialogError(err)
 			return
 		}
 	}
@@ -174,8 +227,8 @@ func (m *Model) nextNewRun() {
 		return
 	}
 	seed := m.freshSeed()
-	if n, ok := d.seed.Number(); ok && strings.TrimSpace(d.seed.Value()) != "" {
-		seed = uint64(n)
+	if n, typed, _ := readSeed(d.seed.Value()); typed {
+		seed = n
 	}
 	ch := m.cfg.Characters.Characters[d.cursor]
 	m.slot = d.slot
@@ -227,8 +280,15 @@ func (m *Model) viewNewRun() string {
 			daily = "the date's seed again: a practice run, your first is the one scored"
 		}
 		body = append(body, m.pickRow(d.cursor == m.dailyRow(), "Daily · "+date, daily, true)...)
+		if d.err != "" {
+			m.modalFollow(len(body) + 1) // the refusal under the rows, in view
+		}
+		body = append(body, m.newRunErr()...)
 		return m.modal("NEW RUN", body, m.modalFooter())
 	case 1:
+		if d.onDaily() {
+			return m.viewDaily()
+		}
 		ch := m.cfg.Characters.Characters[max(0, min(d.cursor, len(m.cfg.Characters.Characters)-1))]
 		body = append(body, theme.Bold.Render(ch.Name)+"  "+theme.Subtle.Render(ch.Blurb))
 		body = append(body, "", row("seed", d.seed.View()))
@@ -237,6 +297,7 @@ func (m *Model) viewNewRun() string {
 			hd := m.cfg.Characters.HardDA
 			body = append(body, "", theme.Subtle.Render(fmt.Sprintf("%s · locked: %s", hd.Name, m.unlockRule(hd.Unlock))))
 		}
+		body = append(body, m.newRunErr()...)
 		return m.modal("NEW RUN · SEED", body, m.modalFooter())
 	}
 	hd := m.cfg.Characters.HardDA
@@ -250,6 +311,39 @@ func (m *Model) viewNewRun() string {
 	body = append(body, "")
 	body = append(body, m.wrapLines(hd.Blurb+" The stance and the temper are set the morning you start and never pinned: the elections and the chief's term run as they always do.")...)
 	return m.modal("NEW RUN · HARD DA", body, m.modalFooter())
+}
+
+// newRunErr is the dialog's error line under a blank; none without one.
+func (m *Model) newRunErr() []string {
+	if m.nr.err == "" {
+		return nil
+	}
+	return []string{"", theme.Bad.Render(m.nr.err)}
+}
+
+// viewDaily is the daily's confirmation (#500): who starts, on what
+// seed, and whether the attempt is the scored one, before enter starts
+// it.
+func (m *Model) viewDaily() string {
+	scored := "yes, today's first attempt, against your history"
+	if m.profile.Attempts[game.DailyKey(m.now())] > 0 {
+		scored = "no: a practice run, today's first was the one scored"
+	}
+	name := ""
+	if ch := m.cfg.Characters.Default(); ch != nil {
+		name = ch.Name
+	}
+	body := []string{
+		theme.Bold.Render("Daily · " + m.dailyDate()),
+		"",
+		row("character", name),
+		row("seed", fmt.Sprintf("%d, the date's", game.DailySeed(m.now()))),
+		row("scored", scored),
+		"",
+	}
+	body = append(body, m.subtle("Every daily of a date is the same run: the same seed, the default character, the hard DA off.")...)
+	body = append(body, m.newRunErr()...)
+	return m.modal("NEW RUN · DAILY", body, m.modalFooter())
 }
 
 // pickRow is a picker row of two lines: the name, selected or not, and

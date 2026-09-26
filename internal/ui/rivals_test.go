@@ -158,6 +158,7 @@ func TestTributeReadsTheRivalsStreet(t *testing.T) {
 	m.Update(key("8"))
 	m.Update(key("d"))
 	m.Update(key("2"))
+	m.Update(key("enter")) // a digit moves, enter turns the page (#500)
 	if m.mode != modePropose || m.prop.step != 1 {
 		t.Fatalf("the tribute page: mode %v step %d", m.mode, m.prop.step)
 	}

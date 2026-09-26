@@ -261,9 +261,8 @@ func TestFastForwardCardIsNotAnsweredByAccident(t *testing.T) {
 	if strings.Contains(stripANSI(m.View()), "enter decide") {
 		t.Errorf("the footer offers enter before a choice is picked:\n%s", stripANSI(m.View()))
 	}
-	m.Update(key("enter")) // typed ahead of the stop
-	m.Update(key("esc"))
-	m.Update(key("1")) // the dashboard, twice
+	m.Update(key("enter")) // typed ahead of the stop (esc sets the card aside since #500: TestEscSetsTheCardAside)
+	m.Update(key("1"))     // the dashboard, twice
 	m.Update(key("1"))
 	if m.mode != modeCard || m.cardDone || m.w.Dilemmas.Pending == nil || m.w.Player.DirtyCash != dirty || m.w.Player.CleanCash != clean {
 		t.Fatalf("answered by accident: mode %v done %v pending %v dirty %d → %d clean %d → %d",

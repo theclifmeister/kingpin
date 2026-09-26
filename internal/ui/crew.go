@@ -76,10 +76,23 @@ func (m *Model) fireConfirm() string {
 
 func (m *Model) confirmFire() {
 	m.mode = modePlay
+	at := -1 // the row the one fired sat on
+	for i, c := range m.w.Crew.Members {
+		if c.ID == m.subjectID {
+			at = i
+		}
+	}
 	got, err := m.sess.Fire(m.subjectID)
 	if err != nil {
 		m.refuse("Can't fire: " + err.Error())
 		return
+	}
+	// The cursor stays on the same row of ON THE PAYROLL (#500), the
+	// next member up into it, or the last member where the fired one
+	// was last: before, firing the last member left it on the first
+	// face LOOKING FOR WORK, and h hired somebody nobody meant to.
+	if n := len(m.w.Crew.Members); at >= 0 && n > 0 {
+		m.crewCursor = min(at, n-1)
 	}
 	m.say(fmt.Sprintf("%s is gone. The rest noticed.", got.Name))
 }

@@ -61,7 +61,8 @@ func TestUndercutKeys(t *testing.T) {
 			t.Errorf("the picker does not show %q:\n%s", s, view)
 		}
 	}
-	m.Update(key("3")) // aggressive
+	m.Update(key("3"))     // aggressive
+	m.Update(key("enter")) // a digit turns the dial, enter undercuts (#500)
 	if d, ok := m.w.Undercutting("docks"); m.mode != modePlay || !ok || d != events.DialAggressive {
 		t.Fatalf("after picking aggressive: mode %v undercuts %v status %q", m.mode, m.w.Today.Undercuts, m.status)
 	}
@@ -81,6 +82,7 @@ func TestUndercutKeys(t *testing.T) {
 		t.Fatalf("picker with an undercut queued: rows %v cursor %d", rows, m.pick.cursor)
 	}
 	m.Update(key("4")) // stop
+	m.Update(key("enter"))
 	if _, ok := m.w.Undercutting("docks"); ok || !strings.Contains(m.status, "Called off") {
 		t.Fatalf("stop did not call it off: %v %q", m.w.Today.Undercuts, m.status)
 	}
@@ -95,6 +97,7 @@ func TestUndercutKeys(t *testing.T) {
 	// and the rival corner wakes up squeezed.
 	m.Update(key("u"))
 	m.Update(key("2"))
+	m.Update(key("enter"))
 	m.w.SetStock(m.w.Player.Location, m.w.Products[0], 200)
 	m.Update(key("1"))
 	m.Update(key("s"))

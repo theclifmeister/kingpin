@@ -25,6 +25,7 @@ func TestGoStraightFromTheDialog(t *testing.T) {
 		t.Fatalf("the dialog lacks going straight:\n%s", view)
 	}
 	m.Update(key("4"))
+	m.Update(key("enter")) // a digit moves, enter turns the page (#500)
 	if m.exit.step != 0 || !strings.Contains(m.exit.err, "3 of") {
 		t.Fatalf("closed: step %d err %q", m.exit.step, m.exit.err)
 	}
@@ -35,6 +36,7 @@ func TestGoStraightFromTheDialog(t *testing.T) {
 	}
 	m.Update(key("w"))
 	m.Update(key("4"))
+	m.Update(key("enter"))
 	if m.exit.step != 1 {
 		t.Fatalf("open: step %d status %q", m.exit.step, m.status)
 	}

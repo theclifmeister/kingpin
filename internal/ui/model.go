@@ -64,6 +64,8 @@ type Model struct {
 	stage          int             // the tier whose stage is showing (#149)
 	cardCursor     int             // choice highlighted on the dilemma card
 	cardDone       bool            // the card is answered; the outcome is showing
+	cardLater      bool            // esc set the pending card aside for the report; it comes back when the report closes (#500)
+	connectSeen    bool            // the buy's connect step has shown once this session, its first showing saying it is new (#500)
 	chipsFor       *game.Card      // the card chips was worked out for (#358)
 	chips          [][]engine.Chip // what each choice on chipsFor does
 	dealCursor     int             // offer selected on the rivals screen
@@ -503,9 +505,13 @@ func (m *Model) keyDetails(key string) {
 func (m *Model) keyReport(key string) {
 	switch key {
 	case "enter", "esc", " ", "r", "q":
+		if m.cardWaits() {
+			m.cardBack() // the card esc set aside, still to answer (#500)
+			return
+		}
 		m.mode = modePlay
 	case "o":
-		if m.fastAlert != nil {
+		if stoppedOnAlert(m) {
 			m.openAlert(*m.fastAlert) // the stop line's jump (#352)
 		}
 	case "1", "2", "3":
@@ -561,6 +567,12 @@ func (m *Model) keyPlay(key string) (tea.Model, tea.Cmd) {
 
 // switchScreen shows a screen.
 func (m *Model) switchScreen(s screen) {
+	if s == screenUpgrades && m.screen != screenUpgrades {
+		// The tree opens on its first branch's first node (#500): a
+		// branch remembered from a visit before turned `→ u y` into a
+		// node the player never looked at.
+		m.branch, m.upgradeCursor = 0, nil
+	}
 	m.screen = s
 	if s == screenJournal {
 		m.refreshJournal()

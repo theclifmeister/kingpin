@@ -279,7 +279,8 @@ func richFixture(t *testing.T, sz [2]int, check func(m *Model, view, what string
 	see(m, "rivals screen")
 	m.Update(key("d"))
 	see(m, "propose kinds")
-	m.Update(key("2"))
+	m.Update(key("2")) // a digit moves, enter turns the page (#500)
+	m.Update(key("enter"))
 	see(m, "propose terms")
 	m.Update(key("enter"))
 	if m.w.Today.Proposal == nil || m.w.Today.Proposal.Kind != game.DealTribute {
@@ -1539,7 +1540,8 @@ func TestStrikeKeys(t *testing.T) {
 	if m.mode != modeStrike || len(m.strikeRows()) != 6 {
 		t.Fatalf("w with an enforcer: mode %v rows %v", m.mode, m.strikeRows())
 	}
-	m.Update(key("3")) // hit
+	m.Update(key("3")) // hit: a digit moves, enter sends (#500)
+	m.Update(key("enter"))
 	if m.mode != modePlay || m.w.Today.Strike == nil || m.w.Today.Strike.Corner != "docks" || m.w.Today.Strike.Force != events.ForceHit {
 		t.Fatalf("after picking hit: mode %v strike %+v status %q", m.mode, m.w.Today.Strike, m.status)
 	}
@@ -1557,6 +1559,7 @@ func TestStrikeKeys(t *testing.T) {
 		t.Fatalf("picker with a strike queued: %v", rows)
 	}
 	m.Update(key("7")) // stop
+	m.Update(key("enter"))
 	if m.w.Today.Strike != nil {
 		t.Fatalf("stop did not call it off: %+v", m.w.Today.Strike)
 	}
@@ -2239,11 +2242,13 @@ func TestRivalsScreenKeys(t *testing.T) {
 	if m.mode != modePropose || m.prop.step != 0 {
 		t.Fatalf("d on the rivals screen: mode %v step %d", m.mode, m.prop.step)
 	}
-	m.Update(key("4")) // shipment: listed, locked
+	m.Update(key("4")) // shipment: listed, locked; a digit moves (#500)
+	m.Update(key("enter"))
 	if m.mode != modePropose || !strings.Contains(m.status, "routes") {
 		t.Fatalf("shipment: mode %v status %q", m.mode, m.status)
 	}
-	m.Update(key("1")) // truce -> terms page
+	m.Update(key("1"))     // truce: a digit moves (#500)
+	m.Update(key("enter")) // the terms page
 	if m.prop.step != 1 || proposeKinds[m.prop.kind] != game.DealTruce {
 		t.Fatalf("after picking truce: step %d kind %d", m.prop.step, m.prop.kind)
 	}
@@ -2264,12 +2269,15 @@ func TestRivalsScreenKeys(t *testing.T) {
 		t.Fatalf("no withdraw row with a proposal queued: %d rows", rows)
 	}
 	m.Update(key("5")) // withdraw
+	m.Update(key("enter"))
 	if w.Today.Proposal != nil || m.mode != modePlay {
 		t.Fatalf("withdraw: %+v mode %v", w.Today.Proposal, m.mode)
 	}
 	m.Update(key("d"))
 	m.Update(key("1"))
+	m.Update(key("enter"))
 	m.Update(key("1")) // the short truce
+	m.Update(key("enter"))
 	if w.Today.Proposal == nil || m.rules.Rivals.Chance(w, w.Rival(), *w.Today.Proposal) < 1 {
 		t.Fatalf("propose: %+v status %q", w.Today.Proposal, m.status)
 	}
@@ -2691,9 +2699,9 @@ func fillCart(t *testing.T, m *Model) {
 	w.SetStock(w.Player.Location, w.Products[1], 20)
 	m.Update(key("1"))
 	m.Update(key("b"))
-	// The keep level is typed whole: the field opens on 30 and the first
-	// digit replaces it (#426).
-	for _, k := range []string{"enter", "5", "enter", "enter", "j", "enter", "3", "0", "3", "enter", "enter", "esc"} {
+	// The keep level is typed whole and the repeat turned to keep at:
+	// the buy opens at once whatever the contract (#500).
+	for _, k := range []string{"enter", "5", "enter", "enter", "j", "enter", "3", "0", "3", "enter", "right", "enter", "esc"} {
 		m.Update(key(k))
 	}
 	m.Update(key("s"))
@@ -2748,6 +2756,16 @@ func modalCases() []modalCase {
 			m.Update(key("enter"))
 			m.Update(key("enter"))
 		}},
+		// The daily's confirmation (#500): 7 reaches the daily, enter confirms.
+		{"new run: daily", modeNewRun, func(t *testing.T, m *Model) {
+			m.mode, m.startChoice = modeStart, 1
+			m.Update(key("enter"))
+			m.Update(key("7"))
+			m.Update(key("enter"))
+			if !m.nr.onDaily() {
+				t.Fatalf("the daily's confirmation did not open: step %d cursor %d", m.nr.step, m.nr.cursor)
+			}
+		}},
 		{"new run: hard DA", modeNewRun, func(t *testing.T, m *Model) {
 			m.profile.Unlocks[game.HardDAID] = true
 			m.mode, m.startChoice = modeStart, 1
@@ -2801,7 +2819,8 @@ func modalCases() []modalCase {
 			m.Update(key("1"))
 			m.Update(key("w"))
 			m.Update(key("a"))
-			m.Update(key("5"))
+			m.Update(key("5")) // a digit moves, enter pins (#500)
+			m.Update(key("enter"))
 			m.Update(key("up"))
 		}},
 		{"walk away: retire?", modeExit, func(t *testing.T, m *Model) {
@@ -2817,7 +2836,8 @@ func modalCases() []modalCase {
 			m.w.Upgrades["lawyer"], m.w.Upgrades["retainer"], m.w.Upgrades["identity"] = true, true, true
 			m.Update(key("1"))
 			m.Update(key("w"))
-			m.Update(key("2")) // the digit selects and commits (#241); j would walk on to the crown's row (#227)
+			m.Update(key("2")) // the digit moves (#500); j would walk on to the crown's row (#227)
+			m.Update(key("enter"))
 			if m.exit.step != 1 || m.exit.cursor != 1 {
 				t.Fatalf("the confirmation did not open on vanish: %q", m.status)
 			}
@@ -2827,6 +2847,7 @@ func modalCases() []modalCase {
 			m.Update(key("1"))
 			m.Update(key("w"))
 			m.Update(key("3"))
+			m.Update(key("enter"))
 			if m.exit.step != 1 || m.exit.cursor != 2 {
 				t.Fatalf("the confirmation did not open on the crown: %q", m.status)
 			}
@@ -2836,6 +2857,7 @@ func modalCases() []modalCase {
 			m.Update(key("1"))
 			m.Update(key("w"))
 			m.Update(key("4"))
+			m.Update(key("enter"))
 			if m.exit.step != 1 || m.exit.cursor != 3 {
 				t.Fatalf("the confirmation did not open on going straight: %q", m.status)
 			}
@@ -2972,6 +2994,7 @@ func modalCases() []modalCase {
 			m.mapCursor = 0
 			m.Update(key("w"))
 			m.Update(key("4"))
+			m.Update(key("enter")) // a digit moves, enter acts (#500)
 		}},
 		{"confirm tip", modeConfirm, func(t *testing.T, m *Model) { m.Update(key("5")); m.mapCursor = 0; m.Update(key("t")) }},
 		{"confirm pay off", modeConfirm, func(t *testing.T, m *Model) { m.Update(key("4")); m.Update(key("$")) }},
@@ -3067,7 +3090,12 @@ func modalCases() []modalCase {
 		}},
 		{"confirm travel", modeConfirm, func(t *testing.T, m *Model) { m.Update(key("g")) }},
 		{"propose kinds", modePropose, func(t *testing.T, m *Model) { m.Update(key("8")); m.Update(key("d")) }},
-		{"propose terms", modePropose, func(t *testing.T, m *Model) { m.Update(key("8")); m.Update(key("d")); m.Update(key("2")) }},
+		{"propose terms", modePropose, func(t *testing.T, m *Model) {
+			m.Update(key("8"))
+			m.Update(key("d"))
+			m.Update(key("2"))
+			m.Update(key("enter"))
+		}},
 		{"assign", modeAssign, func(t *testing.T, m *Model) { m.Update(key("4")); m.crewCursor = 3; m.Update(key("l")) }},
 		// The captain (#346): a veteran trusted with a city's crew.
 		{"captain", modeCaptain, func(t *testing.T, m *Model) {

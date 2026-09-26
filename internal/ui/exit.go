@@ -221,8 +221,7 @@ func (m *Model) keyExit(key string) {
 			m.mode = modePlay // the confirmation declines on any other key, as every confirmation does (#241)
 		case m.exit.step == 0:
 			if i, ok := digit(key); ok && i < len(rows) {
-				m.exit.cursor = i
-				m.openExit(rows) // a digit selects and commits, as in every picker (#241)
+				m.exit.cursor = i // a digit moves, enter turns the page, as in every picker (#500)
 			}
 		}
 	}

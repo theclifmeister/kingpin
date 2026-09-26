@@ -112,8 +112,7 @@ func (m *Model) keyPresets(key string) {
 		m.deletePreset()
 	default:
 		if i, ok := digit(key); ok && i < len(d.list) {
-			d.cursor = i
-			m.reviewPreset()
+			d.cursor = i // a digit moves, enter reviews (#500)
 		}
 	}
 }

@@ -17,6 +17,8 @@ import (
 // the outcome, a second enter opens the report. Enter never ends the
 // day here, and a key typed ahead of the card (the enter that ran the
 // fast-forward it stopped, a digit meant for a screen) never answers it.
+// esc closes it unanswered (#500): the report opens, and the card is
+// back when the report closes, still wanting an answer.
 
 // noChoice is the card's cursor before a choice is picked.
 const noChoice = -1
@@ -25,6 +27,7 @@ const noChoice = -1
 func (m *Model) showCard() {
 	m.cardCursor = noChoice
 	m.cardDone = false
+	m.cardLater = false
 	if c := m.w.Dilemmas.Pending; c != nil {
 		if m.mode != modeCard {
 			m.cardScene(c) // #154: the card is dealt (once: a refused answer reopens it still)
@@ -88,6 +91,14 @@ func (m *Model) keyCard(key string) (tea.Model, tea.Cmd) {
 		stepCursor(&m.cardCursor, -1, len(c.Choices))
 	case "down", "j":
 		stepCursor(&m.cardCursor, 1, len(c.Choices))
+	case "esc":
+		// Closed without an answer (#500): esc took no choice and
+		// said nothing, and read as the do-nothing one. The card
+		// steps aside for the report and is back when it closes.
+		if cardCloses(m) {
+			m.cardLater = true
+			m.openReport()
+		}
 	case "enter":
 		if m.cardCursor == noChoice {
 			m.say("Pick a choice first: ↑↓ or " + cardDigits(len(c.Choices)) + ", then enter.")
@@ -102,6 +113,26 @@ func (m *Model) keyCard(key string) (tea.Model, tea.Cmd) {
 		}
 	}
 	return m, nil
+}
+
+// cardCloses is a card open on its choices with a report behind it:
+// where esc sets it aside, unanswered, until the report closes (#500).
+func cardCloses(m *Model) bool {
+	return m.modalStep() == 0 && !m.cardDone && m.w.Dilemmas.Pending != nil && m.w.Report != nil
+}
+
+// cardWaits is a card esc set aside, still pending: the report's close
+// brings it back, and its jumps wait for the answer.
+func (m *Model) cardWaits() bool {
+	return m.cardLater && m.w != nil && m.w.Dilemmas.Pending != nil
+}
+
+// cardBack reopens the card esc set aside, as it was dealt, with no
+// choice picked and no second scene.
+func (m *Model) cardBack() {
+	m.cardLater = false
+	m.mode = modeCard // showCard deals the scene only to a card not already up
+	m.showCard()
 }
 
 // cardDigits is the digits a card of n choices takes: 1-2 or 1-3.

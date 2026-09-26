@@ -182,8 +182,9 @@ func numberStep(m *Model) bool {
 }
 
 // newRunNext is the new-run dialog (#50) having a page after this one:
-// enter goes forward. newRunStart is its last page, or the daily's row
-// on the first: enter starts the run.
+// enter goes forward. newRunStart is its last page, the daily's
+// confirmation included (#500): enter starts the run. newRunSeed is the
+// seed's page, never the daily's.
 func newRunNext(m *Model) bool {
 	return m.mode == modeNewRun && !newRunStart(m)
 }
@@ -192,8 +193,10 @@ func newRunStart(m *Model) bool {
 	if m.mode != modeNewRun {
 		return false
 	}
-	return m.nr.step == m.lastStep() || (m.nr.step == 0 && m.nr.cursor == m.dailyRow())
+	return m.nr.step == m.lastStep()
 }
+
+func newRunSeed(m *Model) bool { return m.mode == modeNewRun && m.nr.field() != nil }
 
 // moveList is the move dialog (#73) being on a list page: from, to or
 // the product; its fourth page is the quantity.

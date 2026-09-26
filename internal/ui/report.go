@@ -128,8 +128,10 @@ var reportStyles = map[string]lipgloss.Style{
 }
 
 // hasLead is the report open on a night with a lead: its 1, 2 and 3
-// open the lines (#354).
-func hasLead(m *Model) bool { return m.w != nil && m.w.Report != nil && len(m.w.Report.Lead) > 0 }
+// open the lines (#354), unless a card set aside waits behind it.
+func hasLead(m *Model) bool {
+	return m.w != nil && m.w.Report != nil && len(m.w.Report.Lead) > 0 && !m.cardWaits() // a card set aside comes back first (#500)
+}
 
 // openLead is the report's 1, 2 or 3: the lead line's act, the way the
 // dashboard's o opens an alert's (#352).

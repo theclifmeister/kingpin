@@ -35,7 +35,7 @@ A command the rules refuse is skipped and listed in `Refused{Command, Why}` with
 
 **UI** (`ui/presets.go`, `modePresets`, `presetsDialog{stepper, cursor, list, review}`).
 `P presets` on the market opens a modal with two pages.
-The first is the list, `preset  what it sets`, the built-ins then yours (a saved one's line says the day and what it holds); `↑↓ pick`, `1-9 choose`, `enter review`, `s save current` (the routine saved as `Day N`, a second save that day replacing the first, the profile written at once), `x delete` on one of yours, `esc close`.
+The first is the list, `preset  what it sets`, the built-ins then yours (a saved one's line says the day and what it holds); `↑↓ pick`, `1-9 pick`, `enter review`, `s save current` (the routine saved as `Day N`, a second save that day replacing the first, the profile written at once), `x delete` on one of yours, `esc close`.
 The second is the review: the blurb, a `setting  now  after  estimate` table, one row a change, the estimates labelled `~` (a standing order's take and heat a night by `orderEstimate`, as a share where it stands both sides, `~take -5.1%, heat -40%`, in money and heat where it comes or goes; a contract's morning buy; the orders lying low drops), then `N other settings of the routine stay as they are.` and a `Refused, left as it is:` line a refusal.
 `enter apply` applies it and closes on `Quiet trading: 4 settings changed.` (the first refusal in `alarm` after it); with nothing to change it says so and stays; `⇧tab back`, `esc close`; `enter` never ends the day.
 `preset` is a help WORD.

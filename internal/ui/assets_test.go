@@ -61,7 +61,8 @@ func TestAssetsInTheGrammar(t *testing.T) {
 	}
 	w.Player.CleanCash = first.Cost
 	m.Update(key("b"))
-	m.Update(key("3"))
+	m.Update(key("3"))     // the asset row: a digit moves (#500)
+	m.Update(key("enter")) // the offers
 	m.Update(key("enter"))
 	if m.mode != modePlay || len(w.Assets) != 1 || w.Assets[0].ID != first.ID || w.Player.CleanCash != 0 || w.Player.DirtyCash != first.Cost*10 {
 		t.Fatalf("the buy: assets %v clean %d dirty %d status %q", w.Assets, w.Player.CleanCash, w.Player.DirtyCash, m.status)
