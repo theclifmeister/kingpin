@@ -43,6 +43,7 @@ func (s *Sim) sellCap(d *day) {
 		h.SellCapDays--
 		if h.SellCapDays == 0 {
 			h.SellCap = 0
+			h.SellCapCity = ""
 		}
 	}
 }
@@ -239,6 +240,7 @@ func (s *Sim) fire(w *game.World, t *game.Tick, city *game.City, r content.Respo
 	case content.Patrol:
 		w.Heat.SellCapDays = r.CapDays
 		w.Heat.SellCap = s.PatrolCap(w, r, city)
+		w.Heat.SellCapCity = city.ID
 	case content.Arrest:
 		if s.takeFall(w, t, fx) {
 			return

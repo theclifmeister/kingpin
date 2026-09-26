@@ -232,8 +232,8 @@ var bindings = []binding{
 		do: func(m *Model, _ string) { m.save() }},
 	{key: "N", label: "new run", help: "start over, after a confirmation", global: true, quiet: true,
 		do: func(m *Model, _ string) { m.ask("new run", (*Model).newConfirm, (*Model).restart) }},
-	{key: "q", label: "quit", help: "save and quit", global: true, quiet: true,
-		do: func(m *Model, _ string) { m.quit() }}, // saves and sets quitting; keyPlay returns tea.Quit
+	{key: "q", label: "menu", help: "save and go back to the start menu", global: true, quiet: true,
+		do: func(m *Model, _ string) { m.toMenu() }}, // #507: it quit the program; q on the menu does
 }
 
 // modeBindings are the modals' footers: what each mode lists, in its

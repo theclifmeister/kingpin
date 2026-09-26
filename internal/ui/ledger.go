@@ -4,6 +4,8 @@ import (
 	"fmt"
 	"strings"
 
+	"github.com/charmbracelet/lipgloss"
+
 	"github.com/theclifmeister/kingpin/internal/content"
 	"github.com/theclifmeister/kingpin/internal/events"
 	"github.com/theclifmeister/kingpin/internal/format"
@@ -416,23 +418,40 @@ func (m *Model) viewLedger() string {
 
 	line(theme.PanelTitle.Render("LEDGER"))
 	line(theme.Gold.Render("dirty "+cash(w.Player.DirtyCash)) + sub(" · ") + theme.Good.Render("clean "+cash(w.Player.CleanCash)) + sub(" · ") + theme.Gold.Render("offshore "+cash(w.Offshore)) + sub(fmt.Sprintf(" · seized %s lifetime", cash(w.Stats.Seized))))
-	line(sub("launder  ") + launderRow(w.Laundering.Dial) + sub(fmt.Sprintf("   audit %s/day · up to %s/day · legit %s/day", format.Pct(l.AnyAuditRisk(w), 1), money(l.Capacity(w)), money(l.LegitIncome(w)))))
+	// A labelled line is whole (#507): where MAIN is too narrow it wraps
+	// under its value rather than cutting "legit…". The launder dial
+	// keeps its row and its three numbers go under it, as many to a row
+	// as fit.
+	whole := func(s string) { ls = append(ls, wrapLine(s, width)...) }
+	odds := []fact{
+		{sub("audit " + format.Pct(l.AnyAuditRisk(w), 1) + "/day"), 0},
+		{sub("up to " + money(l.Capacity(w)) + "/day"), 0},
+		{sub("legit " + money(l.LegitIncome(w)) + "/day"), 0},
+	}
+	if dial, all := sub("launder  ")+launderRow(w.Laundering.Dial), pack(odds, 1<<20)[0]; lipgloss.Width(dial)+3+lipgloss.Width(all) <= width {
+		line(dial + "   " + all)
+	} else {
+		line(dial)
+		for _, ln := range pack(odds, width-9) {
+			line(strings.Repeat(" ", 9) + ln)
+		}
+	}
 	if pile := m.pileLine(); pile != "" {
 		line(theme.Gold.Render(pile))
 	}
 	// Fronts with nothing to wash (#417): a laundromat washed $0 for a
 	// week, the reason below the fold at 100 columns. The verdict leads,
-	// so a narrow ledger cuts the explanation and not the news.
+	// and the explanation wraps under it (#507).
 	if till := m.till(); len(w.Fronts) > 0 && w.Player.DirtyCash <= till {
-		line(sub("wash     ") + theme.Warning.Render(fmt.Sprintf("idle: dirty %s is under the %s till", money(w.Player.DirtyCash), money(till))) + sub("; the wash takes only what is over it"))
+		whole(sub("wash     ") + theme.Warning.Render(fmt.Sprintf("idle: dirty %s is under the %s till", money(w.Player.DirtyCash), money(till))) + sub("; the wash takes only what is over it"))
 	}
 	if warn := m.exposureWarning(); warn != "" {
 		line(theme.Warning.Render("▲ " + warn))
 	}
 	// Tonight's pile as the count will find it (#397), where it says
 	// more than the pile line above: loads land tonight, or the wages
-	// come up short. The verdict first, so the ledger's width cuts the
-	// sum and not the heat; the wash comes after the count.
+	// come up short. The verdict first, the sum wrapped under it where
+	// the ledger is narrow (#507); the wash comes after the count.
 	if fc := m.sess.Forecast(); fc.Loads > 0 || fc.Wages > fc.Dirty {
 		verdict := theme.Subtle.Render(fmt.Sprintf("%s at the count, under the cover", cash(fc.Pile)))
 		if fc.Heat > 0 {
@@ -445,13 +464,13 @@ func (m *Model) viewLedger() string {
 		if fc.Wages > 0 {
 			sum += fmt.Sprintf(" − %s wages", cash(fc.Wages))
 		}
-		line(sub("tonight  ") + verdict + sub(sum+", before sales"))
+		whole(sub("tonight  ") + verdict + sub(sum+", before sales"))
 	}
 	// The tax (#231): what the free corners of a city you hold pay a
 	// night, city by city where it holds.
 	for _, cid := range w.CityOrder {
 		if corners, amount := m.rules.Territory.TaxDue(w, cid); corners > 0 {
-			line(sub("tax      ") + theme.Gold.Render(fmt.Sprintf("%s in %s pay ~%s/night", plural(corners, "free corner"), w.CityName(cid), money(amount))) + sub(fmt.Sprintf(" · %s so far", cash(w.Stats.Taxed))))
+			whole(sub("tax      ") + theme.Gold.Render(fmt.Sprintf("%s in %s pay ~%s/night", plural(corners, "free corner"), w.CityName(cid), money(amount))) + sub(fmt.Sprintf(" · %s so far", cash(w.Stats.Taxed))))
 		}
 	}
 
@@ -487,16 +506,11 @@ func (m *Model) viewLedger() string {
 		for _, f := range w.Fronts {
 			rows = append(rows, []any{f.Name, f.Level, l.Income(f), l.Throughput(w, f), f.WashedToday, f.Washed, l.AuditRisk(w, f) * 100, m.frontStatus(f)})
 		}
-		cols := append([]col(nil), frontCols...)
-		for _, drop := range []int{5, 4} {
-			if tableWidth(cols, rows) <= width {
-				break
-			}
-			cols = append(cols[:drop:drop], cols[drop+1:]...)
-			for i := range rows {
-				rows[i] = append(rows[i][:drop:drop], rows[i][drop+1:]...)
-			}
-		}
+		// Where MAIN is too narrow for the row whole the lifetime wash
+		// goes, then today's, then what the front earns and its level
+		// (#507: beside the pane the names read "Laundr…"); the pane
+		// carries all four for the front under the cursor.
+		cols, rows := dropCols(append([]col(nil), frontCols...), rows, width, "lifetime", "today", "earns/day", "lvl")
 		tableLines(ledgerFront, cols, rows)
 	}
 
@@ -667,7 +681,12 @@ func (m *Model) viewLedger() string {
 	if len(offers) == 0 {
 		line(sub("You own every front there is."))
 	} else {
-		tableLines(ledgerOffer, offerCols, m.offerRows(offers, width))
+		// The upkeep and the audit go before the status is cut (#507:
+		// "open to…"); the pane carries both for the offer under the
+		// cursor.
+		rows := m.offerRows(offers, width)
+		cols, rows := dropCols(append([]col(nil), offerCols...), rows, width, "upkeep/day", "audit")
+		tableLines(ledgerOffer, cols, rows)
 	}
 
 	// The cash flow (#351): the last nights by category, so a category
@@ -803,12 +822,12 @@ func (m *Model) frontRole(id, city string) []string {
 	if r == nil {
 		return nil
 	}
-	lines := wrapped(theme.Subtle, r.Role)
+	lines := m.wrapped(theme.Subtle, r.Role)
 	if words := effectWords(r.Effects.Reaching("city")); len(words) > 0 {
-		lines = append(lines, wrapped(theme.Gold, "In "+m.w.CityName(city)+": "+strings.Join(words, ", ")+".")...)
+		lines = append(lines, m.wrapped(theme.Gold, "In "+m.w.CityName(city)+": "+strings.Join(words, ", ")+".")...)
 	}
 	if words := effectWords(r.Effects.Reaching("run")); len(words) > 0 {
-		lines = append(lines, wrapped(theme.Gold, "Everywhere: "+strings.Join(words, ", ")+".")...)
+		lines = append(lines, m.wrapped(theme.Gold, "Everywhere: "+strings.Join(words, ", ")+".")...)
 	}
 	return lines
 }
@@ -839,9 +858,9 @@ func (m *Model) offerSection(o game.FrontOffer) section {
 	}
 	switch {
 	case o.Asset != "" && !w.AssetLive(o.Asset):
-		lines = append(lines, wrapped(theme.Subtle, "locked until "+o.AssetName+" stands")...) // whole: the table's cell is cut (#463)
+		lines = append(lines, m.wrapped(theme.Subtle, "locked until "+o.AssetName+" stands")...) // whole: the table's cell is cut (#463)
 	case o.Locked(w):
-		lines = append(lines, wrapped(theme.Subtle, "locked until peak cash "+cash(o.UnlockCash))...)
+		lines = append(lines, m.wrapped(theme.Subtle, "locked until peak cash "+cash(o.UnlockCash))...)
 		lines = append(lines, theme.Subtle.Render(cash(o.UnlockCash-w.Stats.PeakCash)+" to go"))
 	case o.Cost > w.Player.DirtyCash:
 		lines = append(lines, theme.Bad.Render("short "+money(o.Cost-w.Player.DirtyCash)))
@@ -866,17 +885,17 @@ func (m *Model) washSection() section {
 		row("legit", fmt.Sprintf("%s/day net of upkeep", money(l.LegitIncome(w)))),
 		row("fronts", fmt.Sprintf("%d · washed %s", len(w.Fronts), cash(w.Stats.Laundered))),
 	}
-	lines = append(lines, wrapped(theme.Subtle, fmt.Sprintf("The till keeps %s dirty for the street; the wash and the road spend only what is over it.", cash(tun.Float)))...)
+	lines = append(lines, m.wrapped(theme.Subtle, fmt.Sprintf("The till keeps %s dirty for the street; the wash and the road spend only what is over it.", cash(tun.Float)))...)
 	if n := w.Crew.Role(game.RoleAccountant); n > 0 {
-		lines = append(lines, wrapped(theme.Subtle, fmt.Sprintf("%s on the payroll: more through every front, fewer audits.", plural(n, "accountant")))...)
+		lines = append(lines, m.wrapped(theme.Subtle, fmt.Sprintf("%s on the payroll: more through every front, fewer audits.", plural(n, "accountant")))...)
 	} else if len(w.Fronts) > 0 {
 		// The pointer on a line of its own: wrapped mid-phrase it read
 		// `screen (4)` at a line's start, a key hint to the grammar's eye.
-		lines = append(lines, wrapped(theme.Subtle, "An accountant adds to every front and cuts audit risk. Keep them loyal: they skim the wash.")...)
+		lines = append(lines, m.wrapped(theme.Subtle, "An accountant adds to every front and cuts audit risk. Keep them loyal: they skim the wash.")...)
 		lines = append(lines, theme.Subtle.Render("Hire one "+screenPointer(screenCrew)+"."))
 	}
 	if warn := m.exposureWarning(); warn != "" {
-		lines = append(lines, wrapped(theme.Warning, warn)...)
+		lines = append(lines, m.wrapped(theme.Warning, warn)...)
 	}
 	return section{"WASH", lines}
 }

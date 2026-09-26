@@ -477,26 +477,26 @@ func (m *Model) upgradesDetails() []section {
 			names = append(names, m.cfg.Upgrades.Upgrade(id).Name)
 		}
 		needs := "needs " + strings.Join(names, " and ")
-		if lipgloss.Width(costLine(sel)+" · "+needs) <= paneTextW {
+		if lipgloss.Width(costLine(sel)+" · "+needs) <= m.textW() {
 			lines = append(lines, cost+theme.Subtle.Render(" · "+needs))
 		} else {
 			lines = append(lines, cost)
 			label := "needs"
-			for _, l := range wrap(strings.Join(names, " and "), paneTextW-paneLabelW-1) {
+			for _, l := range wrap(strings.Join(names, " and "), m.valueW()) {
 				lines = append(lines, row(label, theme.Subtle.Render(l)))
 				label = ""
 			}
 		}
 	}
-	lines = append(lines, wrapped(theme.Subtle, sel.Desc)...)
+	lines = append(lines, m.wrapped(theme.Subtle, sel.Desc)...)
 	for _, e := range effectWords(sel.Effects) {
 		lines = append(lines, "  "+e)
 	}
 	if sel.Clean && w.Player.CleanCash == 0 {
-		lines = append(lines, wrapped(theme.Subtle, "Clean cash only. Nothing you do yet makes any; that comes with the fronts.")...)
+		lines = append(lines, m.wrapped(theme.Subtle, "Clean cash only. Nothing you do yet makes any; that comes with the fronts.")...)
 	}
 	if sel.Effects.FallGuys > 0 && w.Owns(sel.ID) && !w.FallGuyLeft(game.FoldEffects(w, m.cfg.Upgrades)) {
-		lines = append(lines, wrapped(theme.Warning, "He already took his fall. There is no second one.")...)
+		lines = append(lines, m.wrapped(theme.Warning, "He already took his fall. There is no second one.")...)
 	}
 	if m.upgradeState(sel) == "available" && m.canAfford(sel) {
 		lines = append(lines, keyRow("u", "buy it for "+costLine(sel)))
@@ -509,7 +509,7 @@ func (m *Model) upgradesDetails() []section {
 func (m *Model) branchSection() section {
 	branch := m.shownBranch()
 	owned, total := m.ownedCount(branch)
-	lines := wrapped(theme.Subtle, branchFor[branch])
+	lines := m.wrapped(theme.Subtle, branchFor[branch])
 	lines = append(lines, row("owned", fmt.Sprintf("%d of %d", owned, total)))
 	return section{strings.ToUpper(branch), lines}
 }

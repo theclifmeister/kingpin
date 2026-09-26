@@ -320,6 +320,7 @@ func (m *Model) viewCrew() string {
 	}
 
 	marks := []float64{tun.SkimThreshold / 100}
+	kin := false // a name carries the kin mark, and the tables a legend
 	// row is the cells every member and candidate shares: the loyalty
 	// bar is coloured against the line they skim (or, for a lieutenant,
 	// turn) under, and carry is what a runner adds to the stash.
@@ -331,6 +332,7 @@ func (m *Model) viewCrew() string {
 		text := c.Name
 		if len(c.Kin) > 0 {
 			text += " " + kinGlyph // kin on the payroll or in the pool (#46)
+			kin = true
 		}
 		var name any = text
 		if c.ID == w.Crew.Exposed {
@@ -406,6 +408,10 @@ func (m *Model) viewCrew() string {
 			b.WriteString(l + "\n")
 		}
 	}
+	if kin {
+		// The mark says what it is (#507), as the tree's legend does.
+		b.WriteString("\n" + truncate(theme.Subtle.Render(kinGlyph+" has kin on the payroll or looking for work"), width) + "\n")
+	}
 	return b.String()
 }
 
@@ -436,7 +442,7 @@ func (m *Model) accountants() (add int, cut float64) {
 func (m *Model) crewDetails() []section {
 	c, onPayroll, ok := m.crewSelected()
 	if !ok {
-		return []section{{"NOBODY", wrapped(theme.Subtle, "Nobody on the payroll and nobody looking for work. New faces come by every few days.")}, m.crewSection()}
+		return []section{{"NOBODY", m.wrapped(theme.Subtle, "Nobody on the payroll and nobody looking for work. New faces come by every few days.")}, m.crewSection()}
 	}
 	return []section{{strings.ToUpper(c.Name), m.personLines(c, onPayroll)}, m.crewSection()}
 }
@@ -455,7 +461,7 @@ func (m *Model) personLines(c game.CrewMember, onPayroll bool) []string {
 	first := fmt.Sprintf("%s · skill %d · fee %s", c.Role, c.Skill, money(c.Fee))
 	if onPayroll {
 		first = fmt.Sprintf("%s · skill %d · hired d%d", c.Role, c.Skill, c.Hired)
-		if lipgloss.Width(first) > paneTextW {
+		if lipgloss.Width(first) > m.textW() {
 			first = fmt.Sprintf("%s · skill %d · d%d", c.Role, c.Skill, c.Hired)
 		}
 	}
@@ -537,7 +543,7 @@ func (m *Model) personLines(c game.CrewMember, onPayroll bool) []string {
 			lines = append(lines, row("cuts", fmt.Sprintf("keep %.0f points", m.rules.Crew.CutBonus(w))))
 		} else {
 			lines = append(lines, row("post", theme.Warning.Render("second to the best chemist")))
-			lines = append(lines, wrapped(theme.Subtle, "Only the best chemist cooks and cuts; this one is paid and waits for the job.")...)
+			lines = append(lines, m.wrapped(theme.Subtle, "Only the best chemist cooks and cuts; this one is paid and waits for the job.")...)
 		}
 	default:
 		if p := w.PostOf(c.ID); p != nil {
@@ -631,7 +637,7 @@ func (m *Model) lieutenantLines(c game.CrewMember) []string {
 	if c.Observed {
 		for _, tt := range t.Tempers {
 			if tt.Name == c.Personality {
-				lines = append(lines, wrapped(theme.Subtle, lieutenantTemper(tt))...)
+				lines = append(lines, m.wrapped(theme.Subtle, lieutenantTemper(tt))...)
 			}
 		}
 		return lines
@@ -640,7 +646,7 @@ func (m *Model) lieutenantLines(c game.CrewMember) []string {
 	for _, tt := range t.Tempers {
 		names = append(names, tt.Name)
 	}
-	return append(lines, wrapped(theme.Subtle, "One of "+strings.Join(names[:len(names)-1], ", ")+" or "+names[len(names)-1]+"; theirs shows on the job.")...)
+	return append(lines, m.wrapped(theme.Subtle, "One of "+strings.Join(names[:len(names)-1], ", ")+" or "+names[len(names)-1]+"; theirs shows on the job.")...)
 }
 
 // lieutenantTemper is a lieutenant's temper in a line (#455): the dial they sell at, the
@@ -688,10 +694,10 @@ func (m *Model) crewSection() section {
 	sub := theme.Subtle.Render
 	var lines []string
 	if warn := m.crewWarning(); warn != "" {
-		lines = append(lines, wrapped(theme.Bad, warn)...)
+		lines = append(lines, m.wrapped(theme.Bad, warn)...)
 	}
 	if hint := m.lieutenantHint(); hint != "" {
-		lines = append(lines, wrapped(theme.Subtle, hint)...)
+		lines = append(lines, m.wrapped(theme.Subtle, hint)...)
 	}
 	lines = append(lines,
 		row("capacity", fmt.Sprintf("%d in %s", w.Capacity(here.ID), here.Name)),
@@ -724,13 +730,13 @@ func (m *Model) crewSection() section {
 	}
 	if idle+unposted > 0 {
 		// The pointer is wrapped on its own so it never breaks.
-		lines = append(lines, wrapped(theme.Warning, "A runner earns nothing and an enforcer guards nothing off a corner.")...)
-		lines = append(lines, wrapped(theme.Warning, "Post them "+screenPointer(screenMap)+".")...)
+		lines = append(lines, m.wrapped(theme.Warning, "A runner earns nothing and an enforcer guards nothing off a corner.")...)
+		lines = append(lines, m.wrapped(theme.Warning, "Post them "+screenPointer(screenMap)+".")...)
 	}
 	if n := w.Crew.Role(game.RoleAccountant); n > 0 {
 		if len(w.Fronts) == 0 {
-			lines = append(lines, wrapped(theme.Warning, "An accountant with no front is a wage.")...)
-			lines = append(lines, wrapped(theme.Warning, "Buy "+screenPointer(screenLedger)+".")...)
+			lines = append(lines, m.wrapped(theme.Warning, "An accountant with no front is a wage.")...)
+			lines = append(lines, m.wrapped(theme.Warning, "Buy "+screenPointer(screenLedger)+".")...)
 		} else {
 			add, cut := m.accountants()
 			lines = append(lines, row("accountant", fmt.Sprintf("+%s/day a front", money(add))), row("", sub("audit risk cut "+format.Pct(cut, 0))))

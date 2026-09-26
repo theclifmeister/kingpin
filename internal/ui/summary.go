@@ -251,10 +251,17 @@ func (m *Model) storyLines() []string {
 		}
 	}
 	sort.Slice(picked, func(a, b int) bool { return picked[a].i < picked[b].i })
+	// Every day is padded to the widest and two spaces more, so a long
+	// line hangs under its text (#463) at one cell down the story: `day
+	// %-3d ` left day 100 one space and no run of two, and its wrap hung
+	// two cells in (#507).
+	dayW := 6
+	for _, p := range picked {
+		dayW = max(dayW, len(fmt.Sprintf("day %d", p.h.Day)))
+	}
 	var out []string
 	for _, p := range picked {
-		day := theme.Subtle.Render(fmt.Sprintf("day %-3d", p.h.Day))
-		out = append(out, day+" "+p.h.Text) // day %-3d leaves the text two spaces in: a long one hangs under itself (#463)
+		out = append(out, theme.Subtle.Render(fmt.Sprintf("day %-*d", dayW-4, p.h.Day))+"  "+p.h.Text)
 	}
 	return out
 }

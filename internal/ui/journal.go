@@ -223,9 +223,8 @@ func (m *Model) viewJournal() string {
 // which is wider and shorter, so the text wraps to its width and the
 // legend packs its sources in cells the way KEYS does.
 func (m *Model) journalDetails() []section {
-	textW, cols := paneTextW, 1
-	if !m.paneShown() {
-		textW = m.modalInner()
+	textW, cols := m.textW(), 1
+	if textW > paneTextW {
 		cols = max(1, textW/keyCellW)
 	}
 	var secs []section

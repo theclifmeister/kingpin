@@ -8,6 +8,7 @@ import (
 	"path/filepath"
 	"reflect"
 	"regexp"
+	"slices"
 	"strings"
 	"testing"
 	"time"
@@ -486,7 +487,11 @@ func richFixture(t *testing.T, sz [2]int, check func(m *Model, view, what string
 
 func TestRendersAtCommonSizes(t *testing.T) {
 	for _, sz := range [][2]int{{80, 24}, {120, 40}, {100, 30}} {
-		richFixture(t, sz, func(m *Model, view, what string) {
+		// #507: every table drawn is readable, its headers whole and
+		// only its name cut, on the rich fixture and on the late one.
+		var cut []string
+		tableHook = func(cols []col, lines []string) { cut = append(cut, unreadable(cols, lines)...) }
+		check := func(m *Model, view, what string) {
 			assertFits(t, view, sz[0], sz[1], what)
 			if m.mode == modePlay {
 				// #111: from paneMinWidth the pane is beside MAIN on every
@@ -498,8 +503,66 @@ func TestRendersAtCommonSizes(t *testing.T) {
 				assertFrame(t, m, what)
 			}
 			checkMap(t, m, view, what)
-		})
+			for _, c := range cut {
+				t.Errorf("%dx%d %s: %s", sz[0], sz[1], what, c)
+			}
+			cut = nil
+		}
+		richFixture(t, sz, check)
+		lateFixture(t, sz, check)
+		tableHook = nil
 	}
+}
+
+// unreadable is what a rendered table cuts that it may not (#507): a
+// header, any cell but the first text column's, and that one's under
+// nameMin cells. The pane names the row in full; a status, a number or
+// a column's title has nowhere else to be read.
+func unreadable(cols []col, lines []string) []string {
+	if len(lines) == 0 {
+		return nil
+	}
+	first := slices.IndexFunc(cols, func(c col) bool { return c.kind == kText })
+	g := gutterOf(cols, lines[0])
+	var out []string
+	for i, h := range cellsAt(cols, lines[0], g) {
+		if h != cols[i].title {
+			out = append(out, fmt.Sprintf("the header %q reads %q", cols[i].title, h))
+		}
+	}
+	for _, l := range lines[1:] {
+		for i, c := range cellsAt(cols, l, g) {
+			if !strings.HasSuffix(c, "…") {
+				continue
+			}
+			if i != first || lipgloss.Width(c) < nameMin {
+				out = append(out, fmt.Sprintf("the %s column cuts %q: %q", cols[i].title, c, stripANSI(l)))
+			}
+		}
+	}
+	return out
+}
+
+// lateFixture is richFixture's pass over the late fixture (#507): every
+// screen with the cursor walked down it, the details overlay on each,
+// and the morning after, at the cartel's numbers.
+func lateFixture(t *testing.T, sz [2]int, check func(m *Model, view, what string)) {
+	t.Helper()
+	m := lateModel(t, sz[0], sz[1])
+	for _, s := range []string{"1", "2", "3", "4", "5", "6", "7", "8", "9"} {
+		m.Update(key(s))
+		check(m, m.View(), "late screen "+s)
+		for i := 0; i < 40; i++ {
+			m.Update(key("down"))
+			check(m, m.View(), fmt.Sprintf("late screen %s, down %d", s, i+1))
+		}
+		m.Update(key(" "))
+		check(m, m.View(), "late details overlay "+s)
+		m.Update(key("esc"))
+	}
+	m.Update(key("1"))
+	endDay(t, m)
+	check(m, m.View(), "late report")
 }
 
 func TestCashFormatting(t *testing.T) {

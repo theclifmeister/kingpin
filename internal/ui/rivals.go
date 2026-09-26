@@ -385,14 +385,14 @@ func (m *Model) rivalsDetails() []section {
 	r := m.faction()
 	if r.Scouting() {
 		e := m.rules.Rivals.Expansion()
-		lines := wrapped(theme.Subtle, fmt.Sprintf("Your take in %s drew %s. Taking the free corners there leaves them less room; a tribute keeps them off yours; a take under %s over %s before they recruit sends them home; once they recruit they come anyway.", w.CityName(r.ScoutingCity), m.rivalName(r), money(e.TakeMin), plural(e.WindowDays, "day")))
+		lines := m.wrapped(theme.Subtle, fmt.Sprintf("Your take in %s drew %s. Taking the free corners there leaves them less room; a tribute keeps them off yours; a take under %s over %s before they recruit sends them home; once they recruit they come anyway.", w.CityName(r.ScoutingCity), m.rivalName(r), money(e.TakeMin), plural(e.WindowDays, "day")))
 		if r.ScoutsHit == 0 {
 			lines = append(lines, keyRow("h", fmt.Sprintf("hit the scouts: +%s, a grudge", plural(e.SetbackDays, "day"))))
 		}
 		return []section{{"ON THE WAY", lines}}
 	}
 	if r.Arrived == 0 {
-		return []section{{"NO RIVAL", wrapped(theme.Subtle, "Nobody is contesting the city yet. When somebody does, this is where you talk to them.")}}
+		return []section{{"NO RIVAL", m.wrapped(theme.Subtle, "Nobody is contesting the city yet. When somebody does, this is where you talk to them.")}}
 	}
 	mood, bad := m.moodLine(r)
 	moodStyle := theme.Subtle
@@ -411,8 +411,8 @@ func (m *Model) rivalsDetails() []section {
 		if o.Deal.Kind == game.DealTribute {
 			lines = append(lines, m.tributeRows(w.Faction(o.With()), o.Deal)...)
 		}
-		lines = append(lines, wrapped(theme.Body, dealDoes(o.Deal.Kind))...)
-		lines = append(lines, wrapped(theme.Subtle, dealBreaks(o.Deal.Kind))...)
+		lines = append(lines, m.wrapped(theme.Body, dealDoes(o.Deal.Kind))...)
+		lines = append(lines, m.wrapped(theme.Subtle, dealBreaks(o.Deal.Kind))...)
 		lines = append(lines, keyRow("a", "accept it"), keyRow("x", "turn it down"))
 		sel = section{m.dealTitle(o.Deal), lines}
 	case len(r.Deals) > 0:
@@ -428,11 +428,11 @@ func (m *Model) rivalsDetails() []section {
 		if d.Kind == game.DealTribute {
 			lines = append(lines, m.tributeRows(r, d)...)
 		}
-		lines = append(lines, wrapped(theme.Body, dealDoes(d.Kind))...)
-		lines = append(lines, wrapped(theme.Subtle, dealBreaks(d.Kind))...)
+		lines = append(lines, m.wrapped(theme.Body, dealDoes(d.Kind))...)
+		lines = append(lines, m.wrapped(theme.Subtle, dealBreaks(d.Kind))...)
 		sel = section{m.dealTitle(d), lines}
 	default:
-		sel = section{strings.ToUpper(m.rivalName(r)), wrapped(moodStyle, mood)}
+		sel = section{strings.ToUpper(m.rivalName(r)), m.wrapped(moodStyle, mood)}
 	}
 	// Who stands with you (#43): the defensive factions the expansionist
 	// pushed toward you.
@@ -448,19 +448,19 @@ func (m *Model) rivalsDetails() []section {
 	// sends nobody (#506).
 	if w.War == r.Faction() {
 		if line := m.warNobodyWords(); line != "" {
-			sel.lines = append(sel.lines, wrapped(theme.Warning, "War: "+line)...)
+			sel.lines = append(sel.lines, m.wrapped(theme.Warning, "War: "+line)...)
 		}
 		if line := m.warMuscleLine(); line != "" {
-			sel.lines = append(sel.lines, wrapped(theme.Bad, line)...)
+			sel.lines = append(sel.lines, m.wrapped(theme.Bad, line)...)
 		}
 	}
 	// A betrayal's clock is worth a line whatever is selected.
 	if bad && len(w.Offers)+len(r.Deals) > 0 {
-		sel.lines = append(sel.lines, wrapped(moodStyle, mood)...)
+		sel.lines = append(sel.lines, m.wrapped(moodStyle, mood)...)
 	}
 	var rules []string
 	for _, l := range dealRules {
-		rules = append(rules, wrapped(theme.Subtle, l)...)
+		rules = append(rules, m.wrapped(theme.Subtle, l)...)
 	}
 	s := w.Stats
 	life := []string{

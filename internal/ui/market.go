@@ -308,13 +308,21 @@ func (m *Model) viewMarket() string {
 	cols, rows, cursor := m.productRows(city.ID, m.cursor, true)
 	// The quality column (#47) goes where MAIN is too narrow for the
 	// table whole, then the keep level and the supplier's price (#420:
-	// at 100x30 the table cut its names to "pr…" and "We…"): the pane
-	// beside it carries all three for the product under the cursor. The
+	// at 100x30 the table cut its names to "pr…" and "We…"), then the
+	// day's change (#507: a cartel's table cut "Design…"): the pane
+	// beside it carries them all for the product under the cursor. The
 	// sparkline takes three columns at least.
-	cols, rows = dropCols(cols, rows, width, "qual")
-	cols, rows = dropCols(cols, rows, width-3, "keep", "supplier")
-	sparkCol(cols, rows, max(3, min(30, width-tableWidth(cols, rows))))
-	if m.onBuyers || m.onSuppliers {
+	// The unfocused mark takes a cell of the gutter (#507: at 80 it cut
+	// "Design…" once the cursor went down to the buyers).
+	room := width
+	unfocus := m.onBuyers || m.onSuppliers
+	if unfocus {
+		room--
+	}
+	cols, rows = dropCols(cols, rows, room, "qual")
+	cols, rows = dropCols(cols, rows, room-3, "keep", "supplier", "Δ")
+	sparkCol(cols, rows, max(3, min(30, room-tableWidth(cols, rows))))
+	if unfocus {
 		// The arrows are on the buyers or the connects (#462): the
 		// product keeps its row, marked, and the one ▸ is theirs.
 		rows, cursor = unfocused(rows, cursor), -1
@@ -424,24 +432,24 @@ func (m *Model) marketDetails() []section {
 	}
 	var notes []string
 	if p.NoSupply {
-		notes = append(notes, wrapped(theme.Warning, "Not sold here: it comes in by the road (the map's routes) or in your pockets.")...)
+		notes = append(notes, m.wrapped(theme.Warning, "Not sold here: it comes in by the road (the map's routes) or in your pockets.")...)
 	}
 	if lt := w.Crew.Lieutenant(city.ID); !here && lt != nil {
-		notes = append(notes, wrapped(theme.Subtle, fmt.Sprintf("You are in %s: %s buys here for you at %s the connect's price, and keeps the stash stocked where you set no contract. Runners sell what is stashed here.", w.Here().Name, lt.Name, format.Times(m.rules.Market.Markup(), 2)))...)
+		notes = append(notes, m.wrapped(theme.Subtle, fmt.Sprintf("You are in %s: %s buys here for you at %s the connect's price, and keeps the stash stocked where you set no contract. Runners sell what is stashed here.", w.Here().Name, lt.Name, format.Times(m.rules.Market.Markup(), 2)))...)
 	} else if !here {
-		notes = append(notes, wrapped(theme.Subtle, fmt.Sprintf("You are in %s: the supplier here sells to you there, not here. Runners sell what is stashed here.", w.Here().Name))...)
+		notes = append(notes, m.wrapped(theme.Subtle, fmt.Sprintf("You are in %s: the supplier here sells to you there, not here. Runners sell what is stashed here.", w.Here().Name))...)
 	}
 	if o := w.WholesaleSupplier(city.ID); o != nil {
 		if o.Locked(w) {
-			notes = append(notes, wrapped(theme.Subtle, fmt.Sprintf("%s sells lots of %d to the routes once you have moved %s.", o.Name, o.Lot, cash(o.UnlockCash)))...)
+			notes = append(notes, m.wrapped(theme.Subtle, fmt.Sprintf("%s sells lots of %d to the routes once you have moved %s.", o.Name, o.Lot, cash(o.UnlockCash)))...)
 		} else {
-			notes = append(notes, wrapped(theme.Good, fmt.Sprintf("Wholesale: %s's lots of %d feed the routes out of here, run %s.", o.Name, o.Lot, screenPointer(screenMap)))...)
+			notes = append(notes, m.wrapped(theme.Good, fmt.Sprintf("Wholesale: %s's lots of %d feed the routes out of here, run %s.", o.Name, o.Lot, screenPointer(screenMap)))...)
 		}
 	}
 	// The next product on the ladder and what it takes (#148): the
 	// line named before it fires.
 	if next := m.nextProductNote(city.ID); next != "" {
-		notes = append(notes, wrapped(theme.Subtle, next)...)
+		notes = append(notes, m.wrapped(theme.Subtle, next)...)
 	}
 	if len(notes) > 0 {
 		secs = append(secs, section{"NOTES", notes})

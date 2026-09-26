@@ -33,9 +33,15 @@ func (m *Model) mapMove(dx, dy int) {
 	if m.onRoutes {
 		switch {
 		case dx != 0:
-			m.cycleCity(dx) // ←→ on the routes turns the city, as the market's does (#239)
+			// ←→ stay on the routes (#507): they turned the city, as the
+			// market's do (#239), which dropped the cursor on a corner
+			// of the other city's grid; the city is [ ].
 		case dy < 0 && m.routeCursor == 0:
+			// Up off the routes is the grid's bottom row, the corner
+			// drawn nearest the one the cursor left (#507: it went back
+			// to wherever the grid's cursor last sat).
 			m.onRoutes = false
+			m.mapCursor = m.bottomCorner()
 		case dy < 0:
 			m.routeCursor--
 		case dy > 0:
@@ -76,6 +82,29 @@ func (m *Model) mapMove(dx, dy int) {
 	} else if dy > 0 && len(m.mapRoutes()) > 0 {
 		m.onRoutes, m.routeCursor = true, 0
 	}
+}
+
+// bottomCorner is the corner ↑ from the routes lands on: in the grid's
+// bottom row, nearest the column of the corner last under the cursor.
+func (m *Model) bottomCorner() int {
+	cs := m.shown().Corners
+	x := 0
+	if sel := m.mapSelected(); sel != nil {
+		x = sel.X
+	}
+	best := -1
+	for i := range cs {
+		if best < 0 {
+			best = i
+			continue
+		}
+		b := cs[best]
+		d, bd := max(cs[i].X-x, x-cs[i].X), max(b.X-x, x-b.X)
+		if cs[i].Y > b.Y || (cs[i].Y == b.Y && d < bd) {
+			best = i
+		}
+	}
+	return max(best, 0)
 }
 
 // ownerStyle is the colour a corner is drawn in: crew blue for yours,
@@ -569,7 +598,7 @@ func (m *Model) cornerSection(sel *game.Corner) section {
 		switch {
 		case line == "":
 			line = item
-		case lipgloss.Width(line)+3+lipgloss.Width(item) <= paneTextW-paneLabelW-1:
+		case lipgloss.Width(line)+3+lipgloss.Width(item) <= m.valueW():
 			line += " · " + item
 		default:
 			lines = append(lines, row(label, line))
@@ -607,7 +636,7 @@ func (m *Model) cornerSection(sel *game.Corner) section {
 		} else {
 			// The pointer on a line of its own: wrapped mid-phrase it read
 			// `screen (4)` at a line's start, a key hint to the grammar's eye.
-			lines = append(lines, wrapped(theme.Subtle, "Taking it is a matter for the enforcers.")...)
+			lines = append(lines, m.wrapped(theme.Subtle, "Taking it is a matter for the enforcers.")...)
 			lines = append(lines, theme.Subtle.Render("Hire one "+screenPointer(screenCrew)+"."))
 		}
 		// The books (#70): the police, tipped off, take the corner.
@@ -622,7 +651,7 @@ func (m *Model) cornerSection(sel *game.Corner) section {
 		case err == nil:
 			lines = append(lines, keyRow("u", "undercut: takes ~"+format.Pct(m.rules.Market.Steal(w, *sel, events.DialNormal), 0)+" at normal, no heat"))
 		case err == game.ErrNotNextDoor:
-			lines = append(lines, wrapped(theme.Subtle, "Work a corner next door and you can undercut it.")...)
+			lines = append(lines, m.wrapped(theme.Subtle, "Work a corner next door and you can undercut it.")...)
 		}
 	default:
 		if m.eyed(sel) {

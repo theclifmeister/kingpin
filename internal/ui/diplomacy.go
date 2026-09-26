@@ -303,7 +303,7 @@ func (m *Model) tributeRows(r *game.RivalState, d game.Deal) []string {
 		cut = fmt.Sprintf("~%.0f%% of your street", 100*float64(d.Terms.PerDay)/base)
 	}
 	lines := []string{row("cut", cut)}
-	return append(lines, wrapped(theme.Subtle, fmt.Sprintf("Your street is %s a day: what your corners %s could move at today's prices, not what they sold.", cash(int(math.Round(base))), m.cityWord(r)))...)
+	return append(lines, m.wrapped(theme.Subtle, fmt.Sprintf("Your street is %s a day: what your corners %s could move at today's prices, not what they sold.", cash(int(math.Round(base))), m.cityWord(r)))...)
 }
 
 // dealTerms is a deal's terms for a table cell: the description less

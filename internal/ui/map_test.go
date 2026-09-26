@@ -234,13 +234,18 @@ func checkMap(t *testing.T, m *Model, view, what string) {
 	plain := stripANSI(view)
 	rows := strings.Split(plain, "\n")
 	tracked := 0
+	// The list's edges are as wide as its widest mode (the tunnel's).
+	ew := edgeW
+	for _, r := range m.mapRoutes() {
+		ew = max(ew, lipgloss.Width(r.Mode))
+	}
 	for _, r := range m.mapRoutes() {
 		if !strings.Contains(plain, r.Name) {
 			t.Errorf("%dx%d %s: the route %s is not listed:\n%s", m.width, m.height, what, r.Name, plain)
 		}
-		if strings.Contains(plain, modeEdge(r.Mode)+m.track(r.ID)+"▶") {
+		if strings.Contains(plain, modeEdgeW(r.Mode, ew)+m.track(r.ID)+"▶") {
 			tracked++
-		} else if !strings.Contains(plain, edge(r.Mode)) {
+		} else if !strings.Contains(plain, modeEdgeW(r.Mode, ew)+"▶") {
 			t.Errorf("%dx%d %s: the route %s has neither its track nor its bare edge:\n%s", m.width, m.height, what, r.Name, plain)
 		}
 	}
@@ -430,10 +435,16 @@ func TestMapKeysActOnTheShownCursor(t *testing.T) {
 		t.Fatalf("R on a route: mode %v status %q", m.mode, m.status)
 	}
 	m.Update(key("esc"))
+	// ←→ on the routes stay there (#507: they turned the city and left
+	// the cursor on a corner of the other city's grid); ] turns it.
 	city := m.city
 	m.Update(key("right"))
+	if m.city != city || !m.onRoutes {
+		t.Fatalf("→ on the routes left them: city %s, on the routes %v", m.city, m.onRoutes)
+	}
+	m.Update(key("]"))
 	if m.city == city {
-		t.Fatalf("→ on the routes did not turn the city: %s", m.city)
+		t.Fatalf("] on the routes did not turn the city: %s", m.city)
 	}
 	// The market's cut and cook are the products' alone.
 	m.Update(key("2"))

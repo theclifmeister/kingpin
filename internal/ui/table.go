@@ -110,6 +110,10 @@ func unfocused(rows [][]any, cursor int) [][]any {
 	return rows
 }
 
+// nameMin is the fewest cells a table cuts its name column to before it
+// cuts another (#507: "Laun…" named no front).
+const nameMin = 10
+
 // tableHook, when set, sees every table rendered: the columns with the
 // widths they were drawn at and the lines. Tests use it to check that
 // every cell reads as its column's kind.
@@ -316,18 +320,32 @@ func table(cols []col, rows [][]any, cursor, width int) []string {
 			gutter = 3
 		}
 	}
-	// The last text column absorbs an overflow.
+	// The first text column, the row's name, absorbs an overflow down to
+	// nameMin cells, then the other text columns from the last, then the
+	// name again, none under its title (#507: the last text column used
+	// to take it all, so a status read "open to…" or "audit, back in…"
+	// while the pane named the row in full, and a column cut under its
+	// title read "produ…"). A caller drops what it can spare first
+	// (dropCols), so the name is all that is cut.
 	total := gutter + 2*(len(cols)-1)
 	for _, w := range widths {
 		total += w
 	}
-	if width > 0 && total > width {
-		for i := len(cols) - 1; i >= 0; i-- {
+	name := slices.IndexFunc(cols, func(c col) bool { return c.kind == kText })
+	absorb := func(i, floor int) {
+		if cut := min(total-width, widths[i]-max(3, lipgloss.Width(cols[i].title), floor)); cut > 0 {
+			widths[i] -= cut
+			total -= cut
+		}
+	}
+	if width > 0 && total > width && name >= 0 {
+		absorb(name, nameMin)
+		for i := len(cols) - 1; i > name && total > width; i-- {
 			if cols[i].kind == kText {
-				widths[i] = max(3, widths[i]-(total-width))
-				break
+				absorb(i, 0)
 			}
 		}
+		absorb(name, 0)
 	}
 	drawn := make([]col, len(cols))
 	for i, c := range cols {

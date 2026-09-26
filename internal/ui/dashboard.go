@@ -8,6 +8,7 @@ import (
 
 	"github.com/theclifmeister/kingpin/internal/events"
 	"github.com/theclifmeister/kingpin/internal/format"
+	"github.com/theclifmeister/kingpin/internal/game"
 	"github.com/theclifmeister/kingpin/internal/ui/theme"
 )
 
@@ -80,6 +81,21 @@ func pack(facts []fact, width int) []string {
 		out = append(out, line)
 	}
 	return out
+}
+
+// patrolCapLine is the street's fact on a patrol's cap, naming the city
+// whose patrol set it (#507: in the other city "Patrols: sales capped"
+// read as that city's), or "" with no cap on. The cap holds on every
+// sale, wherever it is.
+func patrolCapLine(w *game.World) string {
+	if w.Heat.SellCapDays <= 0 {
+		return ""
+	}
+	who := "Patrols"
+	if c := w.Heat.SellCapCity; c != "" {
+		who = "Patrols in " + w.CityName(c)
+	}
+	return fmt.Sprintf("%s: sales capped at %s of demand for %s more.", who, format.Pct(w.Heat.SellCap, 0), plural(w.Heat.SellCapDays, "day"))
 }
 
 // firstFit is the first of the candidates that fits width cells, or
@@ -179,8 +195,8 @@ func (m *Model) streetLines(innerW, maxLines int, narrow, withRoad bool) []strin
 	if m.talking() {
 		topic(fact{theme.Bad.Render("Somebody is talking. Investigate " + screenPointer(screenCrew) + "."), priTalking})
 	}
-	if w.Heat.SellCapDays > 0 {
-		topic(fact{theme.Bad.Render(fmt.Sprintf("Patrols: sales capped at %s of demand for %s more.", format.Pct(w.Heat.SellCap, 0), plural(w.Heat.SellCapDays, "day"))), priPatrol})
+	if line := patrolCapLine(w); line != "" {
+		topic(fact{theme.Bad.Render(line), priPatrol})
 	}
 	if s := w.Today.Strike; s != nil {
 		if c := w.Corner(s.Corner); c != nil {
@@ -412,7 +428,7 @@ func (m *Model) dashboardDetails() []section {
 				}
 			}
 			// One row where the cities fit on it, one a city where not.
-			if one := strings.Join(stock, sep); lipgloss.Width(one) <= paneTextW-paneLabelW-1 {
+			if one := strings.Join(stock, sep); lipgloss.Width(one) <= m.valueW() {
 				lines = append(lines, row("stock", one))
 			} else {
 				label := "stock"

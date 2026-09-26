@@ -136,7 +136,7 @@ func (m *Model) assetSection(a game.Asset) section {
 	status, _ := cellText(kText, 0, m.assetStatus(a))
 	st := m.assetStatus(a).(styled).st
 	lines := []string{st.Render(status)}
-	lines = append(lines, wrapped(theme.Subtle, m.assetBlurb(a.ID))...)
+	lines = append(lines, m.wrapped(theme.Subtle, m.assetBlurb(a.ID))...)
 	lines = append(lines,
 		row("city", w.CityName(a.City)),
 		row("upkeep", money(a.Upkeep)+"/day clean"),
@@ -152,7 +152,7 @@ func (m *Model) assetSection(a game.Asset) section {
 // assetOfferSection is an asset on offer in the pane.
 func (m *Model) assetOfferSection(o game.AssetOffer) section {
 	w := m.w
-	lines := wrapped(theme.Subtle, m.assetBlurb(o.ID))
+	lines := m.wrapped(theme.Subtle, m.assetBlurb(o.ID))
 	lines = append(lines,
 		row("cost", money(o.Cost)+" clean"),
 		row("upkeep", money(o.Upkeep)+"/day clean"),
@@ -163,7 +163,7 @@ func (m *Model) assetOfferSection(o game.AssetOffer) section {
 	}
 	switch {
 	case o.Locked(w):
-		lines = append(lines, wrapped(theme.Subtle, "locked until peak clean cash "+cash(o.UnlockCash))...) // whole: the table's cell is cut (#463)
+		lines = append(lines, m.wrapped(theme.Subtle, "locked until peak clean cash "+cash(o.UnlockCash))...) // whole: the table's cell is cut (#463)
 		lines = append(lines, theme.Subtle.Render(cash(o.UnlockCash-w.Stats.PeakClean)+" to go"))
 	case o.Cost > w.Player.CleanCash:
 		lines = append(lines, theme.Bad.Render("short "+money(o.Cost-w.Player.CleanCash)+" clean"))
@@ -171,7 +171,7 @@ func (m *Model) assetOfferSection(o game.AssetOffer) section {
 		lines = append(lines, keyRow("b", "buy it through the picker"))
 	}
 	if lost := w.AssetLost(o.ID); lost != nil {
-		lines = append(lines, wrapped(theme.Warning, fmt.Sprintf("The feds took it on day %d. It is for sale again at the price.", lost.Lost))...)
+		lines = append(lines, m.wrapped(theme.Warning, fmt.Sprintf("The feds took it on day %d. It is for sale again at the price.", lost.Lost))...)
 	}
 	return section{strings.ToUpper(o.Name), lines}
 }
@@ -182,7 +182,7 @@ func (m *Model) taskForceLines() []string {
 	w := m.w
 	h := m.rules.Heat
 	if h.TaskForceForming(w) {
-		return wrapped(theme.Bad, "A task force formed this morning and comes tonight: it takes an asset with it. Lie low.")
+		return m.wrapped(theme.Bad, "A task force formed this morning and comes tonight: it takes an asset with it. Lie low.")
 	}
 	var lines []string
 	if last, ok := w.Heat.LastResponse[content.TaskForce]; ok && last > 0 {

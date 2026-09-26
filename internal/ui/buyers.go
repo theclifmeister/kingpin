@@ -119,15 +119,15 @@ func (m *Model) contractSections(c game.Contract) []section {
 	}
 	secs := []section{{strings.ToUpper(c.Name), sel}}
 	var notes []string
-	notes = append(notes, wrapped(theme.Subtle, c.Pitch)...)
+	notes = append(notes, m.wrapped(theme.Subtle, c.Pitch)...)
 	if c.Status == game.ContractOffered {
-		notes = append(notes, wrapped(theme.Warning, fmt.Sprintf("If you fail: respect -%.0f, notoriety +%.0f, and they collect %s of what is short; they stay away %s.",
+		notes = append(notes, m.wrapped(theme.Warning, fmt.Sprintf("If you fail: respect -%.0f, notoriety +%.0f, and they collect %s of what is short; they stay away %s.",
 			c.Penalty, m.rules.Market.BuyersTuning().NotorietyPenalty, format.Pct(c.PenaltyCash, 0), plural(m.rules.Market.BuyersTuning().BlacklistDays, "day")))...)
 	} else {
-		notes = append(notes, wrapped(theme.Subtle, "A handoff needs no corner and no dial.")...)
+		notes = append(notes, m.wrapped(theme.Subtle, "A handoff needs no corner and no dial.")...)
 	}
 	if c.City != w.Player.Location {
-		notes = append(notes, wrapped(theme.Subtle, fmt.Sprintf("The handoff is in %s: you have to be there, with the stock in the stash there.", w.CityName(c.City)))...)
+		notes = append(notes, m.wrapped(theme.Subtle, fmt.Sprintf("The handoff is in %s: you have to be there, with the stock in the stash there.", w.CityName(c.City)))...)
 	}
 	return append(secs, section{"NOTES", notes})
 }
@@ -180,7 +180,13 @@ func (m *Model) answerContract(accept bool) {
 		return
 	}
 	if accept {
-		m.say(fmt.Sprintf("Taken: %d %s to %s by day %d. Deliver from the stash in %s.", c.Units, m.w.ProductName(c.Product), c.Name, c.Due, m.w.CityName(c.City)))
+		// The status bar is one row (#507: at 80 columns a long buyer cut
+		// "Deliver from the stash …"): the buyer goes before the words
+		// on what to do, the table naming them.
+		units, product, city := c.Units, m.w.ProductName(c.Product), m.w.CityName(c.City)
+		m.say(firstFit(m.width-1,
+			fmt.Sprintf("Taken: %d %s to %s by day %d. Deliver from the stash in %s.", units, product, c.Name, c.Due, city),
+			fmt.Sprintf("Taken: %d %s by day %d. Deliver from the stash in %s.", units, product, c.Due, city)))
 	} else {
 		m.say(fmt.Sprintf("Declined the offer from %s.", c.Name)) // a buyer is a phrase: no possessive (#473)
 	}

@@ -112,7 +112,7 @@ func (m *Model) laneSection(l content.LaneConfig) section {
 	lines := []string{}
 	status, _ := cellText(kText, 0, m.laneStatus(l))
 	lines = append(lines, m.laneStatus(l).(styled).st.Render(status))
-	lines = append(lines, wrapped(theme.Subtle, fmt.Sprintf("Bought off the Dutchman's book and sent out of %s by %s: it never touches a stash or a corner, and lands paid in dirty cash.", w.CityName(l.City), l.Mode))...)
+	lines = append(lines, m.wrapped(theme.Subtle, fmt.Sprintf("Bought off the Dutchman's book and sent out of %s by %s: it never touches a stash or a corner, and lands paid in dirty cash.", w.CityName(l.City), l.Mode))...)
 	lines = append(lines,
 		row("carries", fmt.Sprintf("up to %s a night", plural(lg.LaneCapacity(w, l), "unit"))),
 		row("out", plural(l.Days, "day")+" at sea"),

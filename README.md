@@ -18,7 +18,9 @@ cd kingpin
 go run ./cmd/kingpin
 ```
 
-Choose a save slot with `enter`. An empty slot opens the new-run dialog:
+The first launch opens the new-run dialog for slot 1; `esc` shows the
+menu behind it. Choose a save slot with `enter`. An empty slot opens the
+new-run dialog:
 pick a character (a start and nothing more; a locked one shows the run
 that opens it), type a seed or leave it blank, and go. Any seed the game
 prints (up to 20 digits) replays that run. `Daily` at the foot of the
@@ -44,10 +46,10 @@ no order is a quiet night for everyone but your wallet.
 
 ### Saves
 
-The game saves at the end of every day; `q` saves and quits, and `ctrl+s`
-saves now. There are three slots in `$KINGPIN_HOME`, or your platform
-config directory under `kingpin/`: `save1.gob` to `save3.gob`. An old
-`save.gob` counts as slot 1. The menu shows each run's day, cash, city
+The game saves at the end of every day; `q` saves and goes back to the
+menu (`q` there quits), and `ctrl+s` saves now. There are three slots in
+`$KINGPIN_HOME`, or your platform config directory under `kingpin/`:
+`save1.gob` to `save3.gob`. An old `save.gob` counts as slot 1. The menu shows each run's day, cash, city
 and save age. `D` empties a slot after asking; `N` starts over in the
 current slot, as the same character, after asking.
 
@@ -200,8 +202,9 @@ simply works wherever you are.
    (the endings as plans, how far along each is), `i` opens the file on
    the chief.
 2. **Market** — prices, quality, connects, demand, orders and buyers with
-   deadlines. `←`/`→` shows the other city. Looking there does not move
-   you there. With a chemist on the payroll, `%` cuts a lot and `o` cooks.
+   deadlines. `←`/`→` or `[`/`]` shows the other city. Looking there does
+   not move you there. With a chemist on the payroll, `%` cuts a lot and
+   `o` cooks.
 3. **Journal** — every headline, newest first, tagged (`mkt`, `hot`,
    `riv`…) and coloured by its source. `f` filters by source; details shows the selected headline in full.
 4. **Crew** — who's on the payroll, with age and skill, and who's looking
@@ -213,7 +216,8 @@ simply works wherever you are.
    its road for every shipment in flight, placed by the days it has been
    out (`▪2` where two share a day). Post, strike, undercut, tip and buy
    the block on a corner; set the dial, the target, a checkpoint and a
-   driver on a route. Details gives the corner or route its numbers.
+   driver on a route. `[`/`]` shows the other city. Details gives the
+   corner or route its numbers.
 6. **Upgrades** — seven branches; `←`/`→` changes branch. Each node sits
    under the one it needs. Details tells you the cost and what you get.
 7. **Ledger** — dirty, clean and offshore cash, the fronts, the stash
@@ -454,7 +458,7 @@ The full table is below; `?` brings it up in the game.
 | `tab` | next screen | next screen; shift+tab back, in dialogs too | everywhere |
 | `ctrl+s` | save | save now; the end of the day saves too | everywhere |
 | `N` | new run | start over, after a confirmation | everywhere |
-| `q` | quit | save and quit | everywhere |
+| `q` | menu | save and go back to the start menu | everywhere |
 | `[ ]` | alert | pick an alert in ALERTS | dashboard |
 | `c` | cart | the day's cart: edit its buys and orders | dashboard, market |
 | `w` | walk away | retire, vanish, or take the crown | dashboard |
