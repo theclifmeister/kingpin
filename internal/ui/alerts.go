@@ -32,7 +32,8 @@ type alert struct {
 }
 
 // alerts is what needs you this morning, loudest first, in the engine's
-// order (engine.Alerts: a warrant out (#475), somebody talking, a contract or a debt due, the
+// order (engine.Alerts: a warrant out (#475), somebody talking, the DA's file grown with no
+// bust (#492), a contract or a debt due, the
 // heat over a rung's line, a task force forming, the DA's file near
 // an indictment (#414), an investigation
 // (#343), a front shut for its upkeep (#458), the float, the
@@ -85,7 +86,7 @@ func (m *Model) alertOf(a engine.Alert) alert {
 		}
 		text = theme.Bad.Bold(true).Render("Warrant signed: sell nothing and lie low, or you are arrested "+when+".") +
 			theme.Bad.Render(fmt.Sprintf(" Heat %.0f in %s met the arrest line (%.0f); it is served on any sale, or if the heat still holds at the line.", a.Heat, w.CityName(a.City), a.Line))
-		why = "a warrant for your arrest"
+		why = fmt.Sprintf("a warrant for your arrest, served %s on any sale (heat %.0f in %s, the line %.0f)", when, a.Heat, w.CityName(a.City), a.Line) // a danger with its numbers (#504)
 	case engine.AlertHeat:
 		line := a.Level
 		if line == "" {
@@ -94,17 +95,17 @@ func (m *Model) alertOf(a engine.Alert) alert {
 		text = theme.Bad.Render(fmt.Sprintf("Heat %.0f in %s is over the %s line (%.0f).", a.Heat, w.CityName(a.City), strings.ReplaceAll(line, content.TaskForce, "task force"), a.Line))
 	case engine.AlertTaskForce:
 		text = theme.Bad.Bold(true).Render("A task force formed this morning.") + theme.Bad.Render(" It comes tonight: lie low.")
+		why = "a task force formed: it comes tonight"
 	case engine.AlertFile:
-		// #414: the file one or two busts from an indictment, and what
-		// takes pages off it.
-		// The count leads: the pane cuts an alert to one line.
-		busts := "one more bust indicts you"
-		if a.Amount-a.Count >= 2 {
-			busts = "two busts from an indictment"
-		}
-		text = theme.Bad.Bold(true).Render(fmt.Sprintf("File %d/%d: %s.", a.Count, a.Amount, busts)) +
-			theme.Bad.Render(" Stings, raids and working a corner yourself add pages; lie low, and the Legal upgrades "+screenPointer(screenUpgrades)+" take them off.")
-		why = "the DA's file"
+		// #414: the file one or two pages from an indictment, and what
+		// takes pages off it; #492: how close, in the stop too, and that
+		// it is one file for every city. The count leads: the pane cuts
+		// an alert to one line.
+		why = fileClose(a.Count, a.Amount)
+		text = theme.Bad.Bold(true).Render(capitalize(why)+".") +
+			theme.Bad.Render(fileEvery(w)+" Stings, raids, working a corner yourself and anyone talking add pages; lie low, and the Legal upgrades "+screenPointer(screenUpgrades)+" take them off.")
+	case engine.AlertPages:
+		text, why = pagesAlert(a)
 	case engine.AlertInvestigation:
 		text, why = m.investigationAlert(a)
 	case engine.AlertNoCorner:
@@ -271,6 +272,59 @@ func (m *Model) exportsAlert(a engine.Alert) string {
 	return theme.Gold.Render(lead + facts + ". " + do + ".")
 }
 
+// fileClose is how close the DA's file is (#492): `file 5/6: one more
+// page is an indictment`, `file 3/6: 3 pages from an indictment`; the
+// count leads, as the pane cuts an alert to one line.
+func fileClose(pages, limit int) string {
+	left := limit - pages
+	switch {
+	case limit <= 0:
+		return fmt.Sprintf("file %d", pages)
+	case left <= 1:
+		return fmt.Sprintf("file %d/%d: one more page is an indictment", pages, limit)
+	}
+	return fmt.Sprintf("file %d/%d: %s from an indictment", pages, limit, plural(left, "page"))
+}
+
+// fileEvery is the sentence that says the file is every city's (#492),
+// with two cities in play, or "": the DA keeps one file whichever city
+// filed the pages, and a playtest read the report's city line as that
+// city's own.
+func fileEvery(w *game.World) string {
+	if len(w.CityOrder) > 1 {
+		return " It is one file for every city."
+	}
+	return ""
+}
+
+// pagesWho are the pages' causes (#492) as the alert names them.
+var pagesWho = map[string]string{
+	engine.PagesInformant: "somebody on the payroll is talking",
+	engine.PagesRetiree:   "a sour retiree talked on the way out",
+	engine.PagesTip:       "your tip on a rival came back on you",
+}
+
+// pagesAlert words the DA's file grown with no bust (#492): `No bust,
+// and the DA's file grew 1 page: somebody on the payroll is talking.
+// File 3/6: 3 pages from an indictment. Investigate (i) on the crew
+// screen (4), and fire whoever it names.`; red and bold, a danger. The
+// stop names the cause and the file.
+func pagesAlert(a engine.Alert) (text, why string) {
+	who := pagesWho[a.Level]
+	near := fileClose(a.Count, a.Amount)
+	why = who + "; " + near
+	what := " Investigate (i) " + screenPointer(screenCrew) + ", and fire whoever it names."
+	switch a.Level {
+	case engine.PagesRetiree:
+		what = " They are gone: nobody to fire."
+	case engine.PagesTip:
+		what = " Every tip to the police can file a page."
+	}
+	text = theme.Bad.Bold(true).Render(fmt.Sprintf("No bust, and the DA's file grew %s: %s.", plural(a.Have, "page"), who)) +
+		theme.Bad.Render(" "+capitalize(near)+"."+what)
+	return text, why
+}
+
 // crossWords are what crossing each of the crew's loyalty lines is
 // called in an alert: the skim, a lieutenant's flip, the walk.
 var crossWords = map[string]string{"skim": "skimming", "flip": "turning", "walk": "walking"}
@@ -285,8 +339,14 @@ func (m *Model) crewLineAlert(a engine.Alert) (text, why string) {
 		name = c.Name
 	}
 	if a.Cross == "under" {
-		// A lieutenant under the flip line (#497): talking, or about to.
 		why = fmt.Sprintf("%s under the %.0f line", name, a.Line)
+		if c := m.w.Crew.Member(a.Member); c != nil && !c.Lieutenant() {
+			// Anyone else under the informant line (#492): at little
+			// nerve they may be talking already.
+			why = fmt.Sprintf("%s at %.0f loyalty, under the informant line (%.0f)", name, c.Loyalty, a.Line)
+			return theme.Bad.Render(fmt.Sprintf("%s is under %.0f loyalty: that low, a member with little nerve talks to the police. Pay them off, or investigate (i) %s.", name, a.Line, screenPointer(screenCrew))), why
+		}
+		// A lieutenant under the flip line (#497): talking, or about to.
 		return theme.Bad.Render(fmt.Sprintf("%s is under %.0f loyalty: a lieutenant that low talks to the police, and one running enough of your corners takes the city with them. Fire them %s.", name, a.Line, screenPointer(screenCrew))), why
 	}
 	gap := max(1, int(math.Ceil(a.Gap)))

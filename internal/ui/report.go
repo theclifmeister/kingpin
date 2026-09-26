@@ -60,7 +60,11 @@ func (m *Model) reportLines() []string {
 	var body []string // the modal wraps a long line under itself (#463)
 	if stop := m.stopLine(); stop != "" {
 		// A fast-forward's report opens with why it stopped (#116).
-		body = append(body, theme.Warning.Render(stop), "")
+		style := theme.Warning
+		if m.fastDanger {
+			style = theme.Bad.Bold(true) // a danger stop, apart from the notices (#504)
+		}
+		body = append(body, style.Render(stop), "")
 	}
 	if len(r.Lead) > 0 {
 		// The biggest changes of the night (#354), each one key from

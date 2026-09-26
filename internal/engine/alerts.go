@@ -24,6 +24,7 @@ type AlertKind string
 const (
 	AlertArrest        AlertKind = "arrest"        // a warrant is out (#475): served on the night Due (Days, 1 tonight) on any sale, or on the heat in City (Heat) still at the arrest Line
 	AlertTalking       AlertKind = "talking"       // somebody on the payroll is talking
+	AlertPages         AlertKind = "pages"         // last night the DA's file grew Have pages with no sting, raid or investigation (#492): Level the cause (informant, retiree or tip), Count the file of Amount that indict you
 	AlertContractDue   AlertKind = "contract_due"  // Contract due Due (today or tomorrow)
 	AlertDebtDue       AlertKind = "debt_due"      // Supplier owed Amount on Due, Have in hand
 	AlertHeat          AlertKind = "heat"          // Heat in City at or over the Level rung's Line: the highest met under the arrest (#475), the patrol's at the least
@@ -59,7 +60,7 @@ const (
 // AlertKinds is every kind, loudest first: the order Alerts returns them
 // in.
 func AlertKinds() []AlertKind {
-	return []AlertKind{AlertArrest, AlertTalking, AlertContractDue, AlertDebtDue, AlertHeat, AlertTaskForce, AlertFile, AlertInvestigation, AlertNoCorner, AlertFrontShut, AlertFloat, AlertTill, AlertWages,
+	return []AlertKind{AlertArrest, AlertTalking, AlertPages, AlertContractDue, AlertDebtDue, AlertHeat, AlertTaskForce, AlertFile, AlertInvestigation, AlertNoCorner, AlertFrontShut, AlertFloat, AlertTill, AlertWages,
 		AlertCrewLine, AlertSkim, AlertUnposted, AlertIdleCorner, AlertStashFull, AlertLanded, AlertScouts, AlertGate, AlertPort, AlertExports, AlertHouseKnown,
 		AlertDARace, AlertRetire, AlertFavour, AlertReign, AlertStraight, AlertVanish, AlertExposure, AlertPlan}
 }
@@ -117,6 +118,7 @@ var (
 var alertActs = map[AlertKind][]Act{
 	AlertArrest:      {actDashboard},
 	AlertTalking:     {actCrew},
+	AlertPages:       {actCrew}, // the crew screen, where i investigates (#492)
 	AlertContractDue: {{Screen: ScreenMarket, Subject: SubjectContract}},
 	AlertDebtDue:     {{Screen: ScreenMarket, Subject: SubjectSupplier}},
 	AlertHeat:        {actDashboard},
@@ -175,15 +177,15 @@ type Alert struct {
 	Front    string  `json:"front,omitempty"`    // front_shut: the front's id
 	Due      int     `json:"due,omitempty"`      // contract_due, debt_due: the day it is due
 	Amount   int     `json:"amount,omitempty"`   // exports: the price abroad a unit; debt_due: the debt; front_shut: the clean it was short; float: the float; wages: the wages; retire: the cash short; reign: the homage a night; stash_full: the capacity; exposure: the pile past the line tonight
-	Have     int     `json:"have,omitempty"`     // exports: a unit off the book; debt_due: the cash in hand; float, wages: the dirty cash; front_shut: its upkeep a day, clean
+	Have     int     `json:"have,omitempty"`     // exports: a unit off the book; debt_due: the cash in hand; float, wages: the dirty cash; front_shut: its upkeep a day, clean; pages: the pages filed last night with no bust
 	Heat     float64 `json:"heat,omitempty"`     // heat, arrest: the city's heat; exposure: what the pile adds tonight
 	Line     float64 `json:"line,omitempty"`     // heat: the Level rung's line; arrest: the arrest line; crew_line: the loyalty line
 	Days     int     `json:"days,omitempty"`     // front_shut: days until it reopens; da_race: days to the election; retire: quiet days short; reign: the reign's day; crew_line: days to the line at tonight's drift (0: not falling); idle_corner: days before it drifts; investigation: nights to the hit (1: tonight)
-	Count    int     `json:"count,omitempty"`    // exports: the units a night carries; reign: the crews paying homage; stash_full: the units held; plan: the steps met; exposure: the loads landing; landed: the units stashed
+	Count    int     `json:"count,omitempty"`    // exports: the units a night carries; file, pages: the file's pages; reign: the crews paying homage; stash_full: the units held; plan: the steps met; exposure: the loads landing; landed: the units stashed
 	Ready    bool    `json:"ready,omitempty"`    // exports: the book owned; retire: retiring is open now; plan: the plan is done
-	Level    string  `json:"level,omitempty"`    // favour: the response due tonight; heat: the highest rung met
+	Level    string  `json:"level,omitempty"`    // favour: the response due tonight; heat: the highest rung met; pages: the cause, informant | retiree | tip
 	Member   int     `json:"member,omitempty"`   // crew_line, unposted: the member's id
-	Cross    string  `json:"cross,omitempty"`    // crew_line: the line ahead: skim, flip (a lieutenant's) or walk; under for a lieutenant under the flip line (#497)
+	Cross    string  `json:"cross,omitempty"`    // crew_line: the line ahead: skim, flip (a lieutenant's) or walk; under for a lieutenant under the flip line (#497) or anyone else under the informant line (#492)
 	Gap      float64 `json:"gap,omitempty"`      // crew_line: the loyalty over the line
 	Share    float64 `json:"share,omitempty"`    // port: the wholesaler's price as a share of the street's there (#476)
 	Corner   string  `json:"corner,omitempty"`   // idle_corner, investigation: the corner's id; unposted: a corner to post them on, no_corner: a free one to post on, or ""
@@ -218,6 +220,7 @@ func (s *Session) Alerts() []Alert {
 	if w.Heat.Leaks >= 2 {
 		out = append(out, Alert{Kind: AlertTalking, Key: "somebody is talking"})
 	}
+	out = append(out, s.pages()...)
 	for _, c := range w.Contracts {
 		if c.Status != game.ContractAccepted || c.Due > w.Day+1 {
 			continue
@@ -358,6 +361,58 @@ func (s *Session) Alerts() []Alert {
 		}
 	}
 	return out
+}
+
+// pages is the DA's file grown last night with no bust to show for it
+// (#492): a playtest lay low every night and watched the file go from
+// 0/7 to 7/7 in eighteen days with nothing on the dashboard but the
+// number. Read off the session's memo of the night (pagesNight: the
+// file's growth less every sting's, raid's and investigation's pages,
+// and the cause), so it stands the morning after and a fast-forward
+// stops on each such night, danger (Danger); an envelope, a favour, a
+// forfeiture, lumps offshore, a load sent fast and a greedy audit are
+// pages for something you did with their own lines, and no alert.
+func (s *Session) pages() []Alert {
+	p := s.memo.pages
+	if p.day != s.w.Day || p.pages <= 0 || p.cause == "" {
+		return nil
+	}
+	return []Alert{{Kind: AlertPages, Key: fmt.Sprintf("pages with no bust on day %d", p.day), Level: p.cause, Have: p.pages,
+		Count: s.w.Heat.Evidence, Amount: s.set.Heat.EvidenceArrest(s.w)}}
+}
+
+// The pages' causes (#492), the most telling first.
+const (
+	PagesInformant = "informant" // somebody on the payroll is talking
+	PagesRetiree   = "retiree"   // a sour retiree talked on the way out
+	PagesTip       = "tip"       // your tip to the police came back as a page
+)
+
+// noticeKinds are the alerts that need no action (#504): the till
+// holding, the float, a gate within reach and a full stash, which loses
+// nothing (a buy over the room is refused, a supply contract short of
+// room runs past, a landing waits). They stand on the dashboard and
+// never stop a fast-forward: a playtest's F stopped about every 1.3
+// days mid-game on them, and a danger stop looked like one.
+var noticeKinds = map[AlertKind]bool{AlertTill: true, AlertFloat: true, AlertGate: true, AlertStashFull: true}
+
+// Notice reports whether the alert needs no action and so never stops
+// a fast-forward (#504, docs/engine.md).
+func (a Alert) Notice() bool { return noticeKinds[a.Kind] }
+
+// Danger reports whether the alert is one the run can end on soon
+// (#504): a warrant, somebody talking, pages with no bust, a task
+// force, the file near an indictment, an investigation, a member under
+// the informant line. A front end words and styles a danger stop apart
+// from the rest, with its numbers.
+func (a Alert) Danger() bool {
+	switch a.Kind {
+	case AlertArrest, AlertTalking, AlertPages, AlertTaskForce, AlertFile, AlertInvestigation:
+		return true
+	case AlertCrewLine:
+		return a.Cross == "under"
+	}
+	return false
 }
 
 // tillNights is how many nights running the wash has left the dirty
@@ -721,10 +776,13 @@ func (s *Session) scouts() []Alert {
 // has one line ahead, so one alert, keyed by the member and the line:
 // a fast-forward stops once as they near the skim line and once more
 // as they near the walk. Informants stay silent (docs/snitching.md):
-// the informant line is nobody's alert, bar a lieutenant's (#497): their
-// flip is no dice on a number the crew screen shows, so a lieutenant
-// under it is an alert (Cross "under", Gap below zero) until they near
-// the walk, keyed apart so a fast-forward stops on it once.
+// the hidden flag is nobody's alert, but the loyalty under which one
+// turns is on the crew screen, so a member under it is an alert (Cross
+// "under", Line that line, Gap below zero) until they near the walk,
+// keyed apart so a fast-forward stops on it once: a lieutenant under
+// the flip line (#497), whose turn takes no dice, and anyone else
+// under the informant line (#492, crew.toml [informant] loyalty),
+// whose turn rolls on a nerve the screen does not show.
 func (s *Session) crewLines() []Alert {
 	w := s.w
 	tun := s.set.Crew.Tuning()
@@ -734,10 +792,12 @@ func (s *Session) crewLines() []Alert {
 	var out []Alert
 	for _, m := range w.Crew.Members {
 		cross, line := "skim", tun.SkimThreshold
+		talk, name := s.set.Crew.InformantLine(), "informant"
 		if m.Lieutenant() {
 			cross, line = "flip", s.set.Crew.FlipLine()
+			talk, name = line, "flip"
 		}
-		under := m.Lieutenant() && m.Loyalty < line
+		under := talk > 0 && m.Loyalty < talk
 		if m.Loyalty < line {
 			cross, line = "walk", tun.QuitThreshold
 		}
@@ -748,9 +808,8 @@ func (s *Session) crewLines() []Alert {
 		}
 		if gap > tun.AlertMargin && days != 1 {
 			if under {
-				flip := s.set.Crew.FlipLine()
-				out = append(out, Alert{Kind: AlertCrewLine, Key: fmt.Sprintf("crew %d under the flip line", m.ID),
-					Member: m.ID, Cross: "under", Line: flip, Gap: m.Loyalty - flip})
+				out = append(out, Alert{Kind: AlertCrewLine, Key: fmt.Sprintf("crew %d under the %s line", m.ID, name),
+					Member: m.ID, Cross: "under", Line: talk, Gap: m.Loyalty - talk})
 			}
 			continue
 		}

@@ -44,6 +44,11 @@ func (s *Sim) RevealDays() int { return s.cfg.Lieutenant.RevealDays }
 // FlipLine is the loyalty under which a lieutenant turns informant.
 func (s *Sim) FlipLine() float64 { return s.cfg.Lieutenant.Flip }
 
+// InformantLine is the loyalty under which anyone else on the payroll
+// may turn informant (crew.toml [informant] loyalty; the nerve line is
+// the other half, and the dice): the alerts' line (#492).
+func (s *Sim) InformantLine() float64 { return s.cfg.Informant.Loyalty }
+
 // Cut is the share of their city's takings a lieutenant keeps.
 func (s *Sim) Cut() float64 { return s.cfg.Role[game.RoleLieutenant].Cut }
 

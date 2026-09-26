@@ -2,6 +2,8 @@
 
 The builder accepts protocol 21 and view 14. Protocol 21 added `set_till`, the dirty cash the wash leaves in hand, and the rules `laundering.till` and `laundering.line`, which this edition does not call, and `place_standing` takes -1 for a standing order on the whole stash, which it does not send; the view's shape is unchanged. The engine's new `landed` alert (a route's stock with no order selling it) uses fields alerts already had (`city`, `product`, `count`) and is worded by the shared `alerts.js` the builder copies; its act is the market on the city. The new event `HandoffHeld` and the `All` fields on `SellOrder` and `StandingShort` are in the schema.
 
+The engine's new `pages` alert (#492: the DA's file grown last night with no sting, raid or investigation; `level` the cause, `informant`, `retiree` or `tip`, `have` the pages, `count` and `amount` the file) uses fields alerts already had and is worded by the shared `alerts.js` the builder copies; its act is the crew screen. A member other than a lieutenant under the informant line is now a `crew_line` alert with `cross` `under`, as a lieutenant under the flip line was (#497). The view's shape and the protocol are unchanged.
+
 # Engine alignment validation: protocol 20 / view 14 (#478)
 
 The builder accepts protocol 20 and view 14. Protocol 20 added `set_sweep` and `stop_sweep`, the nightly sweep offshore, which this edition does not call; the view's shape is unchanged. The ambitions now carry a `dirty` unit (the vanish plan's lawyer on call, paid in dirty cash), which `src/app.js` formats as money beside `cash`, `clean` and `income`.

@@ -230,7 +230,8 @@ func paneKeyLines(m *Model) []string {
 }
 
 // The file alert says how close the indictment is and where the pages
-// come off (#414).
+// come off (#414), that the file is every city's, and its stop says so
+// too, a danger apart from the notices (#492, #504).
 func TestFileAlertWords(t *testing.T) {
 	m := richModel(t, 120, 40)
 	limit := m.rules.Heat.EvidenceArrest(m.w)
@@ -240,12 +241,71 @@ func TestFileAlertWords(t *testing.T) {
 	m.w.Heat.Evidence = limit - 1
 	m.Update(key("1"))
 	view := stripANSI(m.View())
-	if want := fmt.Sprintf("File %d/%d: one more", limit-1, limit); !strings.Contains(view, want) {
+	near := fmt.Sprintf("file %d/%d: one more page is an indictment", limit-1, limit)
+	if want := fmt.Sprintf("File %d/%d: one more", limit-1, limit); !strings.Contains(view, want) { // the pane cuts it to a line
 		t.Errorf("the dashboard's alerts lack %q:\n%s", want, view)
 	}
 	got := m.alertsOf(engine.AlertFile)
-	if len(got) != 1 || !strings.Contains(stripANSI(got[0].text), "one more bust indicts you") || !strings.Contains(stripANSI(got[0].text), "Legal upgrades on the upgrades screen (6)") {
+	if len(got) != 1 || got[0].why != near || !strings.Contains(stripANSI(got[0].text), "It is one file for every city.") || !strings.Contains(stripANSI(got[0].text), "Legal upgrades on the upgrades screen (6)") {
 		t.Errorf("the file alert: %+v", got)
+	}
+	var st engine.Stop
+	for _, a := range m.sess.Alerts() {
+		if a.Kind == engine.AlertFile {
+			st = engine.Stop{Kind: engine.StopAlert, Alert: a}
+		}
+	}
+	if !st.Danger() || m.stopWhy(st) != near {
+		t.Errorf("the file's stop: danger %v, %q", st.Danger(), m.stopWhy(st))
+	}
+}
+
+// TestOtherCityFileLine (#492): the DA keeps one file whichever city
+// filed its pages, and the dashboard's HEAT says so wherever you stand:
+// a playtest stood in Bayport reading 2/6 while Eastside's pages filled
+// the file.
+func TestOtherCityFileLine(t *testing.T) {
+	for _, sz := range [][2]int{{80, 24}, {100, 30}, {120, 40}} {
+		m := richModel(t, sz[0], sz[1])
+		limit := m.rules.Heat.EvidenceArrest(m.w)
+		for _, id := range m.w.CityOrder {
+			if id != m.w.Player.Location {
+				m.w.Player.Location = id // stand in the other city
+				break
+			}
+		}
+		m.w.Heat.Evidence = limit - 3 // filed away, under the red
+		m.Update(key("1"))
+		view := stripANSI(m.View())
+		file := fmt.Sprintf("file %d/%d", limit-3, limit)
+		if !strings.Contains(view, file+" all cities") && !strings.Contains(view, "all-city "+file) && !strings.Contains(view, file+" (all)") {
+			t.Errorf("%dx%d: the HEAT box does not say the file is every city's:\n%s", sz[0], sz[1], view)
+		}
+		assertFits(t, m.View(), sz[0], sz[1], "the file line")
+	}
+}
+
+// TestPagesAlertWords (#492): pages with no bust are a red alert naming
+// the cause, the file and i on the crew screen; its stop is a danger
+// that says the cause and how close the file is, and the report draws
+// it red.
+func TestPagesAlertWords(t *testing.T) {
+	m := richModel(t, 120, 40)
+	limit := m.rules.Heat.EvidenceArrest(m.w)
+	a := engine.Alert{Kind: engine.AlertPages, Key: "pages", Level: engine.PagesInformant, Have: 1, Count: limit - 2, Amount: limit}
+	got := m.alertOf(a)
+	text := stripANSI(got.text)
+	for _, want := range []string{"No bust, and the DA's file grew 1 page: somebody on the payroll is talking.",
+		fmt.Sprintf("File %d/%d: 2 pages from an indictment.", limit-2, limit), "Investigate (i) on the crew screen (4)"} {
+		if !strings.Contains(text, want) {
+			t.Errorf("the alert %q lacks %q", text, want)
+		}
+	}
+	if want := fmt.Sprintf("somebody on the payroll is talking; file %d/%d: 2 pages from an indictment", limit-2, limit); got.why != want {
+		t.Errorf("the stop reads %q, want %q", got.why, want)
+	}
+	if !a.Danger() {
+		t.Error("pages with no bust are no danger")
 	}
 }
 

@@ -50,19 +50,44 @@ func (m *Model) heatLines(innerW int, narrow bool) []string {
 		thr = append(thr, fmt.Sprintf("%s %.0f", name, r.Threshold))
 	}
 	lines := []string{heatStyle(here.Heat).Render(sparkline.Bar(here.Heat/100, innerW, marks))}
-	numbers := []string{heatStyle(here.Heat).Render(fmt.Sprintf("%.0f", here.Heat)) + theme.Subtle.Render("/100"), theme.Subtle.Render(fmt.Sprintf("peak %.0f", w.Heat.Peak))}
+	heat := heatStyle(here.Heat).Render(fmt.Sprintf("%.0f", here.Heat)) + theme.Subtle.Render("/100")
+	peak := theme.Subtle.Render(fmt.Sprintf("peak %.0f", w.Heat.Peak))
+	// The candidates for the numbers line, the first that fits taken.
+	tries := [][]string{{heat, peak}}
 	if ev := m.rules.Heat.EvidenceArrest(w); ev > 0 {
 		style := theme.Subtle
 		if w.Heat.Evidence >= ev-2 {
 			style = theme.Bad
 		}
-		numbers = append(numbers, style.Render(fmt.Sprintf("file %d/%d", w.Heat.Evidence, ev)))
+		// The DA keeps one file on you whichever city filed the pages
+		// (#492): a playtest stood in Bayport reading 2/6 as Bayport's
+		// while pages from Eastside filled it. With two cities in play
+		// the line says so, the peak giving way where it does not fit
+		// (80x24) and the words shortening before it goes.
+		file := fmt.Sprintf("file %d/%d", w.Heat.Evidence, ev)
+		tries = [][]string{{heat, peak, style.Render(file)}}
+		if len(w.CityOrder) > 1 {
+			tries = [][]string{
+				{heat, peak, style.Render(file + " all cities")},
+				{heat, style.Render(file + " all cities")},
+				{heat, style.Render("all-city " + file)},
+				{heat, style.Render(file + " (all)")},
+				tries[0],
+			}
+		}
 	}
-	if line := strings.Join(numbers, sep); lipgloss.Width(line) <= innerW {
-		lines = append(lines, line)
-	} else {
-		lines = append(lines, strings.Join(numbers, " "))
+	line := strings.Join(tries[len(tries)-1], " ")
+	for _, t := range tries {
+		if l := strings.Join(t, sep); lipgloss.Width(l) <= innerW {
+			line = l
+			break
+		}
+		if l := strings.Join(t, " "); lipgloss.Width(l) <= innerW {
+			line = l
+			break
+		}
 	}
+	lines = append(lines, line)
 	lines = append(lines, thresholdLines(thr, innerW)...)
 	// An open investigation (#343) takes the last line of the ladder's:
 	// what the police are working and the nights to the hit. The gauge

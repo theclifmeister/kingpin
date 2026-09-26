@@ -92,6 +92,7 @@ type Model struct {
 	intelCursor    int                 // row on the intel screen (#45)
 	fastStop       string              // the report's first line after a fast-forward (`Stopped after 3 days: …`), until the next day ends
 	fastAlert      *engine.Alert       // the alert a fast-forward stopped on (#352), which the report's o opens; nil with the rest
+	fastDanger     bool                // the stop was a danger (#504, engine.Stop.Danger): the report draws its line red
 	quietBroke     *events.QuietBroken // the last night that broke a quiet streak (#465), which the plan's line names; not saved
 	alertCursor    int                 // the alert selected in the dashboard's ALERTS (#352)
 	slot           int                 // the save slot this run lives in: where ctrl+s, the end of the day and quitting save
@@ -216,7 +217,7 @@ func (m *Model) startRunWith(seed uint64, start game.Start) {
 	m.city = m.w.Player.Location
 	m.mapCursor = m.yourCorner()
 	m.flash = nil
-	m.fastStop, m.fastAlert = "", nil
+	m.fastStop, m.fastAlert, m.fastDanger = "", nil, false
 	m.mapScene = nil
 	who := ""
 	if ch := m.cfg.Characters.Character(m.w.Start.Character); ch != nil && m.w.Start.Character != "" {
@@ -318,7 +319,7 @@ func (m *Model) continueRun(slot int) error {
 	}
 	m.city = w.Player.Location
 	m.mapCursor = m.yourCorner()
-	m.fastStop, m.fastAlert = "", nil
+	m.fastStop, m.fastAlert, m.fastDanger = "", nil, false
 	m.mapScene = nil
 	m.say(fmt.Sprintf("Continued day %d.", w.Day))
 	m.journalFilter = ""
@@ -371,7 +372,7 @@ func (m *Model) dayEnded(evs []events.Event) {
 			m.quietBroke = &ev
 		}
 	}
-	m.fastStop, m.fastAlert = "", nil
+	m.fastStop, m.fastAlert, m.fastDanger = "", nil, false
 	m.save()
 	m.refreshJournal()
 }
