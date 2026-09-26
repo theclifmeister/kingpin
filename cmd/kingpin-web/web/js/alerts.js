@@ -83,7 +83,7 @@ export const WORDS = {
       return `${memberName(v, a.member)} is under ${Math.round(n(a.line))} loyalty: ${who} to the police.`;
     }
     const cross = { skim: "skimming", flip: "turning", walk: "walking" }[a.cross] || a.cross;
-    return `${memberName(v, a.member)} is ${Math.max(1, Math.ceil(n(a.gap)))} from ${cross}${a.days ? ` (${plural(a.days, "day")})` : ""}.`;
+    return `${memberName(v, a.member)} is ${Math.max(1, Math.ceil(n(a.gap)))} loyalty from ${cross}${a.days ? ` (${plural(a.days, "day")})` : ""}.`;
   },
   skim: (v, a) => `Skimming suspected: money went missing on day ${n(a.day)}.`,
   unposted: (v, a) =>

@@ -90,6 +90,13 @@ func (c Contract) DaysLeft(day int) int {
 	return c.Due - day + 1
 }
 
+// DueIn is the days after day until the order is due, offered or taken
+// alike (#522): the one count its row, its details and its pitch read
+// ("4 days" in the pitch, "5d left" on the row and "3d left" turning
+// "4d left" on acceptance, the row having read the answer's window);
+// 0 is the last day.
+func (c Contract) DueIn(day int) int { return max(0, c.Due-day) }
+
 // Done reports whether the contract is off the table for good.
 func (c Contract) Done() bool { return c.Status >= ContractDelivered }
 

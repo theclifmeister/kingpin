@@ -61,10 +61,12 @@ func (m *Model) buyersLines() []string {
 			cur = theme.Gold.Render("▸ ")
 			name = theme.Selected.Render(name)
 		}
-		left := c.DaysLeft(w.Day)
-		days := urgency(left).Render(fmt.Sprintf("%dd left", left))
-		if left <= 1 {
-			days = urgency(left).Render("last day")
+		// Days to the due day, offer or taken (#522): the details' and
+		// the pitch's count, unchanged by accepting.
+		left := c.DueIn(w.Day)
+		days := urgency(left + 1).Render(fmt.Sprintf("%dd left", left))
+		if left <= 0 {
+			days = urgency(left + 1).Render("last day")
 		}
 		pays := fmt.Sprintf("%s (%s)", price(m.rules.Market.ContractPrice(w, c)), format.TimesSig(c.Premium, 3))
 		var state string
@@ -100,11 +102,12 @@ func (m *Model) contractSections(c game.Contract) []section {
 	switch c.Status {
 	case game.ContractOffered:
 		sel = append(sel,
-			row("by", fmt.Sprintf("day %d (%s)", c.Due, plural(c.Due-w.Day, "day"))),
+			row("by", dueWords(c, w.Day)),
 			row("lapses", fmt.Sprintf("after day %d", c.Expires)))
 	default:
 		sel = append(sel,
-			row("owed", fmt.Sprintf("%d of %d by day %d", c.Owed(), c.Units, c.Due)),
+			row("owed", fmt.Sprintf("%d of %d", c.Owed(), c.Units)),
+			row("by", dueWords(c, w.Day)),
 			row("stash", fmt.Sprintf("%d %s here", w.Stock(c.City, c.Product), w.ProductName(c.Product))))
 		n := w.Deliverable(c)
 		if q := w.QueuedDelivery(c.ID); q > 0 {
@@ -283,4 +286,13 @@ func (m *Model) offersAway(city string) (int, string) {
 		}
 	}
 	return n, strings.Join(names, ", ")
+}
+
+// dueWords is a buyer order's due day and the days to it, the row's
+// count (#522): `day 12 (4 days)`, `day 12 (the last day)`.
+func dueWords(c game.Contract, day int) string {
+	if n := c.DueIn(day); n > 0 {
+		return fmt.Sprintf("day %d (%s)", c.Due, plural(n, "day"))
+	}
+	return fmt.Sprintf("day %d (the last day)", c.Due)
 }

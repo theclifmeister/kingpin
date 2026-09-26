@@ -415,8 +415,10 @@ func (m *Model) crewLineAlert(a engine.Alert) (text, why string) {
 		return theme.Bad.Render(fmt.Sprintf("%s is under %.0f loyalty: a lieutenant that low talks to the police, and one running enough of your corners takes the city with them. Fire them %s.", name, a.Line, screenPointer(screenCrew))), why
 	}
 	gap := max(1, int(math.Ceil(a.Gap)))
-	why = fmt.Sprintf("%s %d from %s", name, gap, crossWords[a.Cross])
-	line := fmt.Sprintf("%s is %d from %s", name, gap, crossWords[a.Cross])
+	// A sentence, the stop's as the alert's (#522: "Fish 5 from
+	// skimming" read as a count).
+	why = fmt.Sprintf("%s is %d loyalty from %s", name, gap, crossWords[a.Cross])
+	line := fmt.Sprintf("%s is %d loyalty from %s", name, gap, crossWords[a.Cross])
 	if a.Days > 0 {
 		line += " (" + plural(a.Days, "day") + ")"
 	}
@@ -559,21 +561,32 @@ func (m *Model) investigationAlert(a engine.Alert) (text, why string) {
 }
 
 // crewTrouble is the morning's crew trouble in a line (#345), `2 near
-// the line, 1 corner unworked`, or "" when there is none: the report's
-// CREW section and the dashboard's crew fact, counted off the alerts.
+// or under the line, 1 corner unworked`, or "" when there is none: the
+// report's CREW section and the dashboard's crew fact, counted off the
+// alerts and the roster. Every member in the band counts once (#522:
+// "1 near the line" with all four under 30): one an alert names, and
+// one under their skim line (a lieutenant's turn line) however far
+// from the walk.
 func (m *Model) crewTrouble() string {
-	near, idle := 0, 0
+	idle := 0
+	band := map[int]bool{}
 	for _, a := range m.sess.Alerts() {
 		switch a.Kind {
 		case engine.AlertCrewLine:
-			near++
+			band[a.Member] = true
 		case engine.AlertIdleCorner:
 			idle++
 		}
 	}
+	for _, c := range m.w.Crew.Members {
+		if c.Loyalty < m.crewLine(c) {
+			band[c.ID] = true
+		}
+	}
+	near := len(band)
 	var parts []string
 	if near > 0 {
-		parts = append(parts, fmt.Sprintf("%d near the line", near))
+		parts = append(parts, fmt.Sprintf("%d near or under the line", near))
 	}
 	if idle > 0 {
 		parts = append(parts, plural(idle, "corner")+" unworked")

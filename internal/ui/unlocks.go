@@ -4,6 +4,7 @@ import (
 	"fmt"
 
 	"github.com/theclifmeister/kingpin/internal/engine"
+	"github.com/theclifmeister/kingpin/internal/format"
 	"github.com/theclifmeister/kingpin/internal/game"
 )
 
@@ -23,7 +24,7 @@ func gateToGo(w *game.World, g engine.Gate) string { return cash(g.ToGo(w)) + " 
 // article, a product and a connect their name.
 func gateThe(g engine.Gate) string {
 	if g.Kind == "front" {
-		return "the " + g.Name
+		return format.The(g.Name)
 	}
 	return g.Name
 }

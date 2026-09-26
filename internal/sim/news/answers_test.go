@@ -81,3 +81,27 @@ func TestLieutenantSaysWhatTheyKeptAndWhomTheyTook(t *testing.T) {
 		}
 	}
 }
+
+// A greedy lieutenant's take is theirs (#521): named beside their cut on
+// their own line and in MONEY, never "Somebody is skimming".
+func TestGreedyTakeIsNamed(t *testing.T) {
+	cfg := content.MustLoad()
+	n, err := news.New(cfg)
+	if err != nil {
+		t.Fatal(err)
+	}
+	w := sim.NewWorld(cfg, 4)
+	w.Day = 4
+	n.Step(w, gametest.TickOn(w, 5, events.LieutenantActed{Day: 5, ID: 9, Name: "Otis", City: "bayport", CityName: "Bayport",
+		Revenue: 9_438, Cut: 755, Extra: 755}))
+	crew, money := strings.Join(w.Report.Crew, "\n"), strings.Join(w.Report.Money, "\n")
+	if !strings.Contains(crew, "Bayport took $9,438; Otis kept $755 of it and took $755 more.") {
+		t.Errorf("the take is not named beside the cut:\n%s", crew)
+	}
+	if strings.Contains(crew, "skimming") || strings.Contains(money, "Missing from the count") {
+		t.Errorf("the greedy take read as a skim:\n%s\n%s", crew, money)
+	}
+	if !strings.Contains(money, "Otis's take on top in Bayport -$755") {
+		t.Errorf("MONEY lacks the take:\n%s", money)
+	}
+}

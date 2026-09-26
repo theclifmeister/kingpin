@@ -17,8 +17,17 @@ func (r *reporter) reportLaundering(e events.Event) bool {
 	case events.FrontBought:
 		d := base
 		d.Front = ev.Name
-		r.add("laundering", "FrontBought", d)
 		r.book(game.FlowInvestments, -ev.Cost, 0)
+		// A front shut the night it was bought (#523: "Laundromat
+		// reopens with cash to spare" the day it shut) is news for the
+		// shutting alone: the dice for the purchase are drawn all the
+		// same, so the stream is what it was.
+		if r.shutTonight(ev.Front) {
+			r.drop("FrontBought")
+			rep.Money = append(rep.Money, fmt.Sprintf("Bought %s -%s. It opened today and shut tonight.", ev.Name, format.Money(ev.Cost)))
+			break
+		}
+		r.add("laundering", "FrontBought", d)
 		rep.Money = append(rep.Money, fmt.Sprintf("Bought %s -%s. It opens today.", ev.Name, format.Money(ev.Cost)))
 	case events.CashLaundered:
 		r.book(game.FlowLaundering, -ev.Amount, ev.Amount-ev.Upkeep+ev.Earned)
@@ -124,4 +133,22 @@ func washLine(ev events.CashLaundered) string {
 		parts[0] = "Nothing washed: " + parts[0]
 	}
 	return strings.Join(parts, ", ")
+}
+
+// shutTonight reports whether the front was frozen or audited tonight
+// (#523): the paper does not have it open and shut on one morning.
+func (r *reporter) shutTonight(front string) bool {
+	for _, e := range r.t.Events() {
+		switch ev := e.(type) {
+		case events.FrontFrozen:
+			if ev.Front == front {
+				return true
+			}
+		case events.FrontAudited:
+			if ev.Front == front {
+				return true
+			}
+		}
+	}
+	return false
 }

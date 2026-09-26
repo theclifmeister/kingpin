@@ -4948,6 +4948,9 @@
     },
     "events.CrewDefected": {
       "properties": {
+        "City": {
+          "type": "string"
+        },
         "Corner": {
           "type": "string"
         },
@@ -4981,7 +4984,8 @@
         "Rival",
         "Faction",
         "Corner",
-        "CornerName"
+        "CornerName",
+        "City"
       ],
       "type": "object"
     },
@@ -5094,6 +5098,9 @@
     },
     "events.CrewPoached": {
       "properties": {
+        "City": {
+          "type": "string"
+        },
         "Day": {
           "type": "integer"
         },
@@ -5131,12 +5138,16 @@
         "Faction",
         "Wages",
         "Stayed",
-        "Dip"
+        "Dip",
+        "City"
       ],
       "type": "object"
     },
     "events.CrewQuit": {
       "properties": {
+        "City": {
+          "type": "string"
+        },
         "Day": {
           "type": "integer"
         },
@@ -5154,7 +5165,8 @@
         "Day",
         "ID",
         "Name",
-        "Role"
+        "Role",
+        "City"
       ],
       "type": "object"
     },
@@ -5213,6 +5225,9 @@
         "Age": {
           "type": "integer"
         },
+        "City": {
+          "type": "string"
+        },
         "Day": {
           "type": "integer"
         },
@@ -5239,7 +5254,8 @@
         "Role",
         "Age",
         "Kin",
-        "Sour"
+        "Sour",
+        "City"
       ],
       "type": "object"
     },
@@ -5857,6 +5873,9 @@
     },
     "events.Enforcement": {
       "properties": {
+        "Arrest": {
+          "type": "integer"
+        },
         "CashLost": {
           "type": "integer"
         },
@@ -5873,6 +5892,9 @@
           "type": "integer"
         },
         "Evidence": {
+          "type": "integer"
+        },
+        "File": {
           "type": "integer"
         },
         "House": {
@@ -5904,7 +5926,9 @@
         "Stash",
         "House",
         "HouseName",
-        "Corners"
+        "Corners",
+        "File",
+        "Arrest"
       ],
       "type": "object"
     },
@@ -6104,6 +6128,29 @@
         "Day",
         "CashLost",
         "Clean"
+      ],
+      "type": "object"
+    },
+    "events.FileChanged": {
+      "properties": {
+        "Arrest": {
+          "type": "integer"
+        },
+        "Day": {
+          "type": "integer"
+        },
+        "From": {
+          "type": "integer"
+        },
+        "To": {
+          "type": "integer"
+        }
+      },
+      "required": [
+        "Day",
+        "From",
+        "To",
+        "Arrest"
       ],
       "type": "object"
     },
@@ -6903,6 +6950,9 @@
           },
           "type": "array"
         },
+        "Extra": {
+          "type": "integer"
+        },
         "Guarded": {
           "items": {
             "type": "string"
@@ -6939,9 +6989,6 @@
         "Revenue": {
           "type": "integer"
         },
-        "Skimmed": {
-          "type": "integer"
-        },
         "Took": {
           "items": {
             "$ref": "#/$defs/events.Took"
@@ -6964,7 +7011,7 @@
         "Orders",
         "Revenue",
         "Cut",
-        "Skimmed",
+        "Extra",
         "Bought",
         "Contracts",
         "Held",
@@ -9142,6 +9189,9 @@
     },
     "events.WarEscalated": {
       "properties": {
+        "Crackdown": {
+          "type": "number"
+        },
         "Day": {
           "type": "integer"
         },
@@ -9166,7 +9216,8 @@
         "Stage",
         "War",
         "Lost",
-        "Heat"
+        "Heat",
+        "Crackdown"
       ],
       "type": "object"
     },
@@ -9468,6 +9519,9 @@
         "City": {
           "type": "string"
         },
+        "Extra": {
+          "type": "integer"
+        },
         "Fee": {
           "type": "integer"
         },
@@ -9568,6 +9622,7 @@
         "Assigned",
         "Stickups",
         "Observed",
+        "Extra",
         "Former",
         "Age",
         "Growth",
@@ -10463,6 +10518,9 @@
     },
     "FallGuyBurned": {
       "$ref": "#/$defs/events.FallGuyBurned"
+    },
+    "FileChanged": {
+      "$ref": "#/$defs/events.FileChanged"
     },
     "FrontAudited": {
       "$ref": "#/$defs/events.FrontAudited"
@@ -16032,6 +16090,7 @@
             "ExportShipped",
             "FactionPushed",
             "FallGuyBurned",
+            "FileChanged",
             "FrontAudited",
             "FrontBought",
             "FrontFrozen",

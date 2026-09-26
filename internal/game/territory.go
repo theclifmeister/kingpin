@@ -288,6 +288,19 @@ func (w *World) Demand(city, product string) float64 {
 
 // PostOf returns the corner a crew member (or You) is posted on, in any
 // city, or nil.
+// WorkCity is the city a member works (#523): the one a lieutenant
+// runs, else the city of their post, else "" (idle, in a cell, laid
+// up). The paper names a member's city with it, not where you stand.
+func (w *World) WorkCity(m CrewMember) string {
+	if m.Lieutenant() && m.City != "" {
+		return m.City
+	}
+	if c := w.PostOf(m.ID); c != nil {
+		return c.City
+	}
+	return ""
+}
+
 func (w *World) PostOf(id int) *Corner {
 	if id == 0 {
 		return nil

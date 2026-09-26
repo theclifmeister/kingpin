@@ -17,3 +17,5 @@ There is no `-contracts` flag: the deck is on in the harness as it is in the gam
 `harness/buyers_test.go` pins the acceptance; `TestDealerBeatsCrewed` reads day 120 over five seeds and the tier rows of `TestMoneyCurve` were left alone for #60 to re-measure.
 
 **A buyer is a phrase** (#473): `a foreman at the docks` takes no possessive, so the report reads `You took the order from a foreman at the docks: …` and `The offer from … lapsed: …`, and the status bar `Declined the offer from …` (`TestReportLinesReadAsSentences`).
+
+**Days left are one count** (#522, `Contract.DueIn`): a buyer order's row (`4d left`, `last day` on the due day), its details (`by  day 12 (4 days)`) and its pitch count the days after today to the due day, offered or taken alike; the row read the answer's window while offered (`Expires`) and the due day once taken, so `3d left` turned `4d left` on accepting, and it counted today where the details did not. How long the offer stands is the details' `lapses after day N` and the report's `it stands N days` (`TestBuyerDaysAgree`).

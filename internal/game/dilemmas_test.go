@@ -329,6 +329,33 @@ func TestCardIsAboutAStandingFaction(t *testing.T) {
 	}
 }
 
+// A card names only a faction at the table and a member free on the day
+// (#523): a card whose choice moves a war is not dealt with no standing
+// faction on a corner (it read "war with Big Sal's crew +15" with no Big
+// Sal at the table), however its trigger reads, and a card about a
+// member passes over one in a cell, laid up or under with a faction.
+func TestCardNamesOnlyWhoIsThere(t *testing.T) {
+	w := testWorld()
+	w.Crew.Members = []CrewMember{{ID: 1, Name: "Shifty", Role: "runner", Loyalty: 10, JailedUntil: 9}, {ID: 2, Name: "Dre", Role: "runner", Loyalty: 20}}
+	war := content.CardConfig{ID: "w", Trigger: content.CardTrigger{CrewMin: 1}, Choices: []content.ChoiceConfig{{Effects: map[string]float64{"war": 15}}, {}}}
+	if s, ok := Eligible(w, war); ok {
+		t.Fatalf("a card moving a war dealt with no faction at the table: %+v", s)
+	}
+	w.Home().Corners[1].Hand(OwnerRival, FactionRival, 0)
+	w.Rival().Leader, w.Rival().Arrived = "Ghost", 1
+	if s, ok := Eligible(w, war); !ok || s.Rival != "Ghost" {
+		t.Fatalf("with Ghost on a corner: %+v %v", s, ok)
+	}
+	hand := content.CardConfig{ID: "h", Trigger: content.CardTrigger{LoyaltyBelow: 30}, Choices: []content.ChoiceConfig{{}, {}}}
+	if s, ok := Eligible(w, hand); !ok || s.Name != "Dre" {
+		t.Fatalf("the card named %q, want Dre: Shifty is in a cell (%+v %v)", s.Name, s, ok)
+	}
+	w.Crew.Members[1].WoundedUntil = 9
+	if s, ok := Eligible(w, hand); ok {
+		t.Fatalf("the card named %q with nobody free", s.Name)
+	}
+}
+
 // A card about a crew member names the corner that member works, not
 // the busiest one (#421): "Pep took twenties on The Projects" was dealt
 // with Pep on The Docks and somebody else on The Projects.

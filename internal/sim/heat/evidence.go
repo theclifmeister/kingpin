@@ -35,8 +35,10 @@ func (s *Sim) EvidenceArrest(w *game.World) int {
 }
 
 // file puts pages in the DA's file and stamps the day it last grew (the
-// retainer's clock, cold); with a why it writes "why (n)" in a city's
-// report, n the file's thickness after (#275: the one shape every page
+// retainer's clock, cold); with a why it writes "why +p (now n/t)" in a
+// city's report, p the pages, n the file's thickness after and t the
+// pages an indictment takes (#522; before it "why (n)", which read as
+// the pages filed) (#275: the one shape every page
 // Step files takes). An audit's pages pass no why: its line rides the
 // audit's heat instead. The case going cold is not this shape (a page
 // off, its own line) and stays by hand in cold, as a response's pages
@@ -45,7 +47,7 @@ func (d *day) file(city string, pages int, why string) {
 	d.h.Evidence += pages
 	d.h.EvidenceDay = d.t.Day
 	if why != "" {
-		d.reasons[city] = append(d.reasons[city], fmt.Sprintf("%s (%d)", why, d.h.Evidence))
+		d.reasons[city] = append(d.reasons[city], fileWords(why, pages, d.h.Evidence, d.arrest))
 	}
 }
 
@@ -82,7 +84,7 @@ func (s *Sim) informants(d *day) {
 	} else if tun.InformantDays > 0 && t.Day-h.LeakDay >= tun.InformantDays {
 		h.LeakDay = t.Day
 		h.Leaks++
-		d.add(d.here, tun.InformantHeat, "")
+		d.add(d.here, tun.InformantHeat, "loose talk") // a cause on every line (#522), naming nobody: the file growing without a bust is still the tell
 		pages := tun.InformantEvidence
 		for _, m := range w.Crew.Members {
 			if m.Informant && m.Lieutenant() {
@@ -176,4 +178,14 @@ func (s *Sim) cold(d *day) {
 		h.EvidenceDay = t.Day
 		d.reasons[d.here] = append(d.reasons[d.here], fmt.Sprintf("the case goes cold (file %d)", h.Evidence))
 	}
+}
+
+// fileWords is a page's line in the report (#522): what filed it, the
+// pages and the file after, `sent fast: the DA's file on you grows +1
+// (now 4/6)`; with no indictment line, the file alone.
+func fileWords(why string, pages, now, arrest int) string {
+	if arrest <= 0 {
+		return fmt.Sprintf("%s +%d (now %d)", why, pages, now)
+	}
+	return fmt.Sprintf("%s +%d (now %d/%d)", why, pages, now, arrest)
 }

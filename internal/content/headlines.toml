@@ -144,7 +144,7 @@ EnforcementSting = [
 ]
 EnforcementRaid = [
   "Dawn raid in {{.City}}: cash and product seized",
-  "SWAT storms {{.City}} stash house",
+  "SWAT storms the {{.House}} in {{.City}}",
   "Chief {{.Chief}} hails 'major blow' to {{.City}} drug trade as DA {{.DA}} promises a crackdown",
 ]
 # The task force (#48): announced the morning before it comes, and it

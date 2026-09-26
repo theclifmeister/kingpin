@@ -64,6 +64,15 @@ func TestChoiceChipsSayTheLines(t *testing.T) {
 		}
 	}
 
+	// A lieutenant's line is the turn line (#522: "Yaya's loyalty 28 →
+	// 34: over the skim line" was a lieutenant's).
+	flip := s.Rules().Crew.FlipLine()
+	w.Crew.Members = append(w.Crew.Members, game.CrewMember{ID: 902, Name: "Yaya", Role: game.RoleLieutenant, Loyalty: flip - 2})
+	lc := &game.Card{ID: "test", Member: 902, Choices: []game.Choice{{Label: "Pay", Effects: map[string]float64{"loyalty": 6}}, {Label: "Walk"}}}
+	if got, want := texts(engine.ChoiceChips(cfg, s.Rules(), w, lc)[0]), "Yaya's loyalty "+n(flip-2)+" → "+n(flip+4)+": over the turn line"; got != want {
+		t.Errorf("a lieutenant's chip: %q, want %q", got, want)
+	}
+
 	w.Dilemmas.Pending = c
 	v := s.View()
 	if len(v.Card.Choices) != 3 || v.Card.Choices[1].Label != "Push" || texts(v.Card.Choices[1].Preview) != texts(got[1]) {

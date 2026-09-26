@@ -1,6 +1,7 @@
 package ui
 
 import (
+	"fmt"
 	"strings"
 	"testing"
 )
@@ -124,11 +125,12 @@ func TestSupplyContractInTheGrammar(t *testing.T) {
 	if !strings.Contains(view, "supply 1 contract · ") || !strings.Contains(view, "this morning") {
 		t.Fatalf("the street's facts:\n%s", view)
 	}
-	// The cart modal shows the line marked contract; x returns it whole
+	// The cart modal shows the line marked morning, this morning's buy, and
+	// under it the contract as it stands (#522); x returns the buy whole
 	// at the price paid.
 	cash := w.Player.DirtyCash
 	m.Update(key("c"))
-	if !strings.Contains(stripANSI(m.View()), "contract  Weed") {
+	if v := stripANSI(m.View()); !strings.Contains(v, "morning  Weed") || !strings.Contains(v, "keep     Weed") {
 		t.Fatalf("the cart modal:\n%s", stripANSI(m.View()))
 	}
 	m.Update(key("x"))
@@ -150,4 +152,34 @@ func TestSupplyContractInTheGrammar(t *testing.T) {
 		t.Fatalf("1 on the repeat step: %v", m.dlg.repeat)
 	}
 	m.Update(key("esc"))
+}
+
+// The CART shows a contract as it stands now (#522: "contract Heroin 5"
+// after the keep was raised to 8, and no keep line until the next day):
+// a level set today is a keep line in the pane and the dialogs' block at
+// once, with what it buys tonight, and the morning's buy is marked as
+// the morning's.
+func TestCartShowsTheContractAsItStands(t *testing.T) {
+	m := newTestModel(t, 120, 40)
+	w := m.w
+	home, weed := w.Player.Location, w.Products[0]
+	w.Player.DirtyCash = 100_000
+	if err := w.SetSupply(home, weed, 5); err != nil {
+		t.Fatal(err)
+	}
+	if err := w.SetSupply(home, weed, 8); err != nil {
+		t.Fatal(err)
+	}
+	secs := m.cartSection(home)
+	if len(secs) != 1 {
+		t.Fatalf("the pane has %d cart sections with a contract standing", len(secs))
+	}
+	pane := strings.Join(sectionText(secs[0]), "\n")
+	want := fmt.Sprintf("8 %s · ~%d tonight", w.ProductName(weed), w.SupplyDue(home, weed))
+	if !strings.Contains(pane, want) {
+		t.Fatalf("the pane's cart lacks %q:\n%s", want, pane)
+	}
+	if block := stripANSI(strings.Join(m.cartBlock(), "\n")); !strings.Contains(block, "keep") || !strings.Contains(block, " 8 ") {
+		t.Fatalf("the dialogs' CART block lacks the keep line at 8:\n%s", block)
+	}
 }

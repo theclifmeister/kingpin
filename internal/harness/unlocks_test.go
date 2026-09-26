@@ -210,7 +210,7 @@ func TestNoUnlockIsTheOldRun(t *testing.T) {
 	cfg := OneFaction(content.MustLoad())
 	want := map[string]string{
 		"idle 1": "29f15946d5ae8dc7", "hide 1": "e485af09c510d56d",
-		"idle 2": "cc4f521c8aaa00ca", "hide 2": "245df41e7fafad0c",
+		"idle 2": "9819603ba3fb2ac8", "hide 2": "119e486642190b26", // #523: day 98's "Supply of Pills dries up" printed once, not twice
 		"idle 3": "c2058ba1af5086e7", "hide 3": "e26be7adf66d9b54",
 	}
 	for _, seed := range []uint64{1, 2, 3} {

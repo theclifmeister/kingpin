@@ -7,10 +7,12 @@ import (
 	"bytes"
 	"fmt"
 	"math"
+	"reflect"
 	"regexp"
 	"sort"
 	"strings"
 	"text/template"
+	"text/template/parse"
 
 	"github.com/theclifmeister/kingpin/internal/content"
 	"github.com/theclifmeister/kingpin/internal/events"
@@ -143,6 +145,7 @@ type data struct {
 	Asset   string // an asset by name (#48)
 	Title   string // what the paper calls you (#233): a dealer, a crew, the boss of Eastside
 	Trait   string // a veteran's trait (#346)
+	House   string // the stash house a raid hit (#523), "" for the street: a line naming it is only written when one was
 }
 
 // Step writes headlines into the journal and assembles the morning report.
@@ -253,12 +256,18 @@ func (s *Sim) Step(w *game.World, t *game.Tick) {
 	for _, e := range t.Events() {
 		r.report(e)
 	}
+	// Police lines whose city sent no heat line (none would, as the
+	// heat sim sends every city's; a test's tick might not).
+	for _, cid := range w.CityOrder {
+		rep.Heat = append(rep.Heat, r.police[cid]...)
+	}
 
 	// What each route cost today, lots and fares together: the money
 	// section carries the one line, the shipments section the total.
 	for _, name := range r.routeOrder {
-		rep.Shipments = append(rep.Shipments, fmt.Sprintf("The %s cost %s today, lots and fares.", name, format.Money(r.routeCost[name])))
-		rep.Money = append(rep.Money, fmt.Sprintf("The %s: lots and fares -%s", name, format.Money(r.routeCost[name])))
+		the := capitalize(format.The(name)) // "The Channel", never "The The Channel" (#523)
+		rep.Shipments = append(rep.Shipments, fmt.Sprintf("%s cost %s today, lots and fares.", the, format.Money(r.routeCost[name])))
+		rep.Money = append(rep.Money, fmt.Sprintf("%s: lots and fares -%s", the, format.Money(r.routeCost[name])))
 	}
 
 	// Purchases and signings made during the day. Cash "before" is what the
@@ -346,10 +355,14 @@ func (s *Sim) Step(w *game.World, t *game.Tick) {
 		rep.Money = append(rep.Money, fmt.Sprintf("Seized by the auditors -%s", format.Money(r.seized)))
 	}
 
-	// Flavour keeps the ticker alive on quiet days.
+	// Flavour keeps the ticker alive on quiet days, and a day the
+	// world's weather made the paper is not one (#523: "Weather:
+	// unseasonably warm" beside "Whiteout: Coast Road impassable"). The
+	// dice are drawn either way, so the home stream is what it was.
 	if len(s.flav) > 0 && t.RNG.Float64() < s.cfg.FlavourChance {
-		txt := render(s.flav[t.RNG.IntN(len(s.flav))], base)
-		r.lines = append(r.lines, game.Headline{Day: t.Day, Source: "news", Text: txt})
+		if tm := fits(s.flav, t.RNG.IntN(len(s.flav)), base); tm != nil && quiet(t) {
+			r.lines = append(r.lines, game.Headline{Day: t.Day, Source: "news", Text: render(tm, base)})
+		}
 	}
 	// The paper names the boss (#233): while the city is yours in the
 	// kingpin's sense, a swagger headline at the flavour's chance off
@@ -357,8 +370,9 @@ func (s *Sim) Step(w *game.World, t *game.Tick) {
 	// the city are what they were.
 	if len(s.swag) > 0 && s.boss(w) {
 		if rng := t.Sub(game.StreamSwagger); rng.Float64() < s.cfg.FlavourChance {
-			txt := render(s.swag[rng.IntN(len(s.swag))], base)
-			r.lines = append(r.lines, game.Headline{Day: t.Day, Source: "news", Text: txt})
+			if tm := fits(s.swag, rng.IntN(len(s.swag)), base); tm != nil {
+				r.lines = append(r.lines, game.Headline{Day: t.Day, Source: "news", Text: render(tm, base)})
+			}
 		}
 	}
 
@@ -373,7 +387,15 @@ func (s *Sim) Step(w *game.World, t *game.Tick) {
 	}
 	s.drawCard(w, t)
 
+	// One of each (#523: "Heroin demand craters after overdose scare"
+	// twice on one day): a headline the day already printed is not
+	// printed again.
+	printed := map[string]bool{}
 	for _, h := range r.lines {
+		if printed[h.Text] {
+			continue
+		}
+		printed[h.Text] = true
 		w.Journal = append(w.Journal, h)
 		rep.News = append(rep.News, h.Text)
 		t.Emit(events.Headline{Day: h.Day, Source: h.Source, Text: h.Text})
@@ -398,6 +420,17 @@ func (s *Sim) Step(w *game.World, t *game.Tick) {
 	if n := len(w.Flows) - s.cfg.Flow.Days; n > 0 {
 		w.Flows = append([]game.CashFlow(nil), w.Flows[n:]...)
 	}
+}
+
+// quiet reports whether no incident landed tonight (#523): the
+// flavour's weather and the world's cannot disagree on one day.
+func quiet(t *game.Tick) bool {
+	for _, e := range t.Events() {
+		if _, ok := e.(events.Incident); ok {
+			return false
+		}
+	}
+	return true
 }
 
 // stanceWords is a DA's ticket as the paper prints it.
@@ -452,11 +485,93 @@ func chiefLine(ev events.ChiefReplaced) string {
 }
 
 func render(t *template.Template, d data) string {
+	if t == nil {
+		return ""
+	}
 	var b bytes.Buffer
 	if err := t.Execute(&b, d); err != nil {
 		return t.Name()
 	}
 	return b.String()
+}
+
+// fits picks the template a line is written with (#523): the one the
+// dice picked, list[i], when every text field it names is filled, else
+// the first in the list that has all of its own, else nil, and the line
+// is not written. The dice are drawn before it either way, so a line
+// that falls back or is dropped moves no stream (`Arrest on {{.Corner}}`
+// once read `Arrest on :` for a lab raid, which names no corner).
+func fits(list []*template.Template, i int, d data) *template.Template {
+	if filled(list[i], d) {
+		return list[i]
+	}
+	for _, t := range list {
+		if filled(t, d) {
+			return t
+		}
+	}
+	return nil
+}
+
+// filled reports whether every text field t names is set in d.
+func filled(t *template.Template, d data) bool {
+	v := reflect.ValueOf(d)
+	for _, name := range fieldsOf(t) {
+		if f := v.FieldByName(name); f.IsValid() && f.Kind() == reflect.String && f.String() == "" {
+			return false
+		}
+	}
+	return true
+}
+
+// fieldsOf is the data fields a template names, `{{.Corner}}` or
+// `{{the .Route}}`, in the order they appear.
+func fieldsOf(t *template.Template) []string {
+	if t == nil || t.Tree == nil {
+		return nil
+	}
+	var out []string
+	var walk func(n parse.Node)
+	walk = func(n parse.Node) {
+		switch n := n.(type) {
+		case *parse.ListNode:
+			if n == nil {
+				return
+			}
+			for _, c := range n.Nodes {
+				walk(c)
+			}
+		case *parse.ActionNode:
+			walk(n.Pipe)
+		case *parse.PipeNode:
+			if n == nil {
+				return
+			}
+			for _, c := range n.Cmds {
+				walk(c)
+			}
+		case *parse.CommandNode:
+			for _, a := range n.Args {
+				walk(a)
+			}
+		case *parse.FieldNode:
+			out = append(out, n.Ident[0])
+		case *parse.IfNode:
+			walk(n.Pipe)
+			walk(n.List)
+			walk(n.ElseList)
+		case *parse.RangeNode:
+			walk(n.Pipe)
+			walk(n.List)
+			walk(n.ElseList)
+		case *parse.WithNode:
+			walk(n.Pipe)
+			walk(n.List)
+			walk(n.ElseList)
+		}
+	}
+	walk(t.Tree.Root)
+	return out
 }
 
 // pastTense is what the enforcers did, for the report.
@@ -541,8 +656,9 @@ func saleLine(w *game.World, ev events.PlayerSold) string {
 // lieutenantLines is what a lieutenant's night reads like in the report:
 // what they did with the crew and the corners, what their contracts
 // bought this morning (#174, `bought 120 Weed for $2,500`), and, once
-// you know them, what they are like. A greedy one's skim is missing
-// money like anyone else's; the line never says so.
+// you know them, what they are like. A greedy one's take on top of the
+// cut is theirs, by name beside it (#521: `Otis kept $755 of it and took
+// $755 more.`), never a skim.
 func lieutenantLines(w *game.World, ev events.LieutenantActed) []string {
 	var did []string
 	for _, b := range ev.Bought {
@@ -585,7 +701,10 @@ func lieutenantLines(w *game.World, ev events.LieutenantActed) []string {
 		}
 		lines = append(lines, fmt.Sprintf("  %s put idle crew to work in %s: %s. Nobody ordered it; post them yourself on the map screen (5) to keep them elsewhere.", ev.Name, ev.CityName, strings.Join(took, ", ")))
 	}
-	if ev.Revenue > 0 {
+	switch {
+	case ev.Extra > 0: // a greedy one's take (#521): theirs, by name, beside the cut
+		lines = append(lines, fmt.Sprintf("  %s took %s; %s kept %s of it and took %s more.", ev.CityName, format.Money(ev.Revenue), ev.Name, format.Money(ev.Cut), format.Money(ev.Extra)))
+	case ev.Revenue > 0:
 		lines = append(lines, fmt.Sprintf("  %s took %s; %s kept %s of it.", ev.CityName, format.Money(ev.Revenue), ev.Name, format.Money(ev.Cut)))
 	}
 	if ev.Revealed {

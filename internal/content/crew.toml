@@ -73,8 +73,8 @@ robbed_off = 2              # a corner stuck up this many times is not worth the
                             # never post a runner or an enforcer there again
 
 # What each temperament does with the city: the sell dial it favours, a
-# multiplier on the city's sale heat, what it skims on top of the cut at
-# any loyalty, whether it bothers posting enforcers on its corners, and
+# multiplier on the city's sale heat, what it takes on top of the cut at
+# any loyalty (`skim`: a second cut, theirs and never skimming, #521), whether it bothers posting enforcers on its corners, and
 # how many days of the demand its worked corners serve it keeps the
 # stash at (#174: a supply contract per product the connects there
 # sell, bought each morning at market.toml's [supply] markup where you

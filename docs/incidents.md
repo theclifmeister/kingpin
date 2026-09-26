@@ -37,3 +37,5 @@ The dice are fixed for the seed and only a row's trigger reads the player (as th
 An effect that needs another sim's dice or tuning rides the event, as the two law effects do.
 The two tier-5 rows are #48's.
 Incidents the player can cause or buy off and anything that ends a run are out of scope (no day cap, no scripted death, #27); the two tier-5 rows are #48's.
+
+**A person an incident names happens to them once** (#523, `world.Sim.people`): a row with `names` draws from the pool less everybody the same row already named this run (`IncidentState.Fired`), and with the pool spent the row is not eligible; a star who died of an overdose on day 57 died of one again on day 142 (`TestIncidentNamesSomebodyOnce`). The draw is on the incidents' own stream, so no pinned run moves. On a night an incident lands the paper prints no flavour line (`docs/market-and-journal.md`).

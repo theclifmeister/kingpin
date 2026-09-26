@@ -12,7 +12,7 @@ import (
 // Lieutenants run a city for the player (Phase 3.3). Everything here is
 // a policy over the actions the player has, run inside the crew step for
 // each city that has one: nothing new is simulated, only who decides.
-// The cut and the greedy skim come off the day's takings before wages;
+// The cut and the greedy take come off the day's takings before wages;
 // a flip is the turning rule with a higher line and no dice; a walk is
 // the quit rule taking the city with it; and delegation, after the
 // roster has settled, is the posting, the abandoning and the standing
@@ -73,11 +73,12 @@ func (s *Sim) Dial(m game.CrewMember) events.Dial {
 }
 
 // take is the lieutenants' cut of today's takings in their cities, off
-// dirty cash now, and what a greedy one skims on top, whatever their
-// loyalty. It returns the skim, capped by what is left, for the caller to
-// take with the day's other missing money, and starts the report entry
-// for each lieutenant.
-func (s *Sim) take(w *game.World, t *game.Tick, acted map[int]*events.LieutenantActed) int {
+// dirty cash now, and what a greedy one takes on top, whatever their
+// loyalty (#521): a second cut the temper takes, not skimming, so it is
+// the lieutenant's own, reported on their line, counted with the cuts
+// and never a skim the alerts or the captains read. It starts the report
+// entry for each lieutenant.
+func (s *Sim) take(w *game.World, t *game.Tick, acted map[int]*events.LieutenantActed) {
 	cut := s.Cut()
 	revenue := map[int]int{}
 	for _, e := range t.Events() {
@@ -85,7 +86,6 @@ func (s *Sim) take(w *game.World, t *game.Tick, acted map[int]*events.Lieutenant
 			revenue[ps.Lieutenant] += ps.Revenue
 		}
 	}
-	skimmed := 0
 	for _, cid := range w.CityOrder {
 		lt := w.Crew.Lieutenant(cid)
 		if lt == nil {
@@ -98,11 +98,12 @@ func (s *Sim) take(w *game.World, t *game.Tick, acted map[int]*events.Lieutenant
 		w.Player.DirtyCash -= ev.Cut
 		w.Stats.Cuts += ev.Cut
 		if share := s.cfg.Lieutenant.Temper(lt.Personality).Skim; share > 0 {
-			ev.Skimmed = min(int(math.Round(float64(ev.Revenue)*share)), w.Player.DirtyCash-skimmed)
-			skimmed += ev.Skimmed
+			ev.Extra = min(int(math.Round(float64(ev.Revenue)*share)), w.Player.DirtyCash)
+			w.Player.DirtyCash -= ev.Extra
+			w.Stats.Cuts += ev.Extra
 		}
+		lt.Extra = ev.Extra
 	}
-	return skimmed
 }
 
 // walk is a lieutenant leaving with the city they ran: every corner the

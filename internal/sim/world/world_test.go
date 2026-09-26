@@ -116,6 +116,38 @@ func TestIncidentDiceAndGaps(t *testing.T) {
 	}
 }
 
+// A person an incident names happens to them once (#523: Rex Aldana died
+// of an overdose on day 57 and again on day 142): the row draws from the
+// pool less everybody it named, and with the pool spent it is not dealt.
+func TestIncidentNamesSomebodyOnce(t *testing.T) {
+	cfg := content.MustLoad()
+	one := *cfg
+	one.Incidents.Incidents = content.IncidentsTuning{MinGap: 1, MaxGap: 1}
+	one.Incidents.Table = []content.IncidentConfig{
+		{ID: "star", Name: "Star", Names: "celebrities", Report: "{{.Name}}.", Effects: content.IncidentEffects{Pressure: 1}},
+	}
+	pool := cfg.Names.Pool("celebrities")
+	s := world.New(&one)
+	w := sim.NewWorld(&one, 9)
+	seen := map[string]int{}
+	fired := 0
+	for d := 1; d <= len(pool)+10; d++ {
+		if ev, _ := step(s, w, d); ev != nil {
+			fired++
+			if ev.Person == "" {
+				t.Fatalf("day %d: the star is nobody", d)
+			}
+			if day, ok := seen[ev.Person]; ok {
+				t.Fatalf("day %d: %s named again, first on day %d", d, ev.Person, day)
+			}
+			seen[ev.Person] = d
+		}
+	}
+	if fired != len(pool) {
+		t.Fatalf("%d fired, want one for each of the %d names and no more", fired, len(pool))
+	}
+}
+
 // What an incident does lands where it says: the city it names, the
 // routes of its mode, the market's own shock state, the federal window;
 // and the event carries the slots the paper prints.

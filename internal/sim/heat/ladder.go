@@ -1,6 +1,7 @@
 package heat
 
 import (
+	"fmt"
 	"math"
 
 	"github.com/theclifmeister/kingpin/internal/content"
@@ -31,6 +32,11 @@ func (s *Sim) cool(d *day) {
 		c := w.Cities[cid]
 		if c.Heat > d.floor {
 			c.Heat -= (c.Heat - d.floor) * decay
+		}
+		if c.Heat < d.floor {
+			// The floor lifts a city nothing happened in (#522: "Bayport
+			// heat 1" for a city never visited): say why.
+			d.reasons[cid] = append(d.reasons[cid], fmt.Sprintf("your name keeps the police looking (floor %.0f)", d.floor))
 		}
 		c.Heat = max(d.floor, min(100, c.Heat))
 	}
@@ -338,6 +344,7 @@ func (s *Sim) fire(w *game.World, t *game.Tick, city *game.City, r content.Respo
 			w.Heat.EvidenceDay = t.Day
 		}
 	}
+	ev.File, ev.Arrest = w.Heat.Evidence, s.EvidenceArrest(w) // "+2 (now 5/6)" (#522)
 	// The first raid convinces them they got you. The second one does not.
 	// Each repeat of the same response cools things down less.
 	n := float64(max(1, w.Heat.Responses[r.Level]))

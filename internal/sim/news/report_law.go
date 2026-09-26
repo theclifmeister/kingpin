@@ -2,6 +2,7 @@ package news
 
 import (
 	"fmt"
+	"math"
 	"strings"
 
 	"github.com/theclifmeister/kingpin/internal/events"
@@ -127,7 +128,7 @@ func (r *reporter) reportLaw(e events.Event) bool {
 			key = "PressureShiftedUp"
 		}
 		r.add("law", key, r.at(ev.City))
-		rep.Law = append(rep.Law, fmt.Sprintf("%s pressure %.0f %s %.0f", w.CityName(ev.City), ev.From, format.Arrow, ev.To))
+		rep.Law = append(rep.Law, pressureLine(w.CityName(ev.City), ev.From, ev.To))
 	case events.CityFunded:
 		r.book(game.FlowInvestments, 0, -ev.Amount)
 		rep.Law = append(rep.Law, fmt.Sprintf("Gave %s %s clean: goodwill +%.0f (now %.0f)", w.CityName(ev.City), format.Money(ev.Amount), ev.Goodwill, w.Cities[ev.City].Goodwill))
@@ -141,4 +142,15 @@ func (r *reporter) reportLaw(e events.Event) bool {
 		return false
 	}
 	return true
+}
+
+// pressureLine is a band crossed (#522): whole numbers, or a decimal
+// where rounding would hide the move, so the line a stop points at
+// shows the change ("Eastside pressure 25 → 25" read beside "pressure
+// up in Eastside" for 24.8 to 25.2).
+func pressureLine(city string, from, to float64) string {
+	if math.Round(from) == math.Round(to) {
+		return fmt.Sprintf("%s pressure %.1f %s %.1f", city, from, format.Arrow, to)
+	}
+	return fmt.Sprintf("%s pressure %.0f %s %.0f", city, from, format.Arrow, to)
 }

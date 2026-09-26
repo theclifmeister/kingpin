@@ -741,3 +741,56 @@ func TestAFiredNameIsNotDealtAgain(t *testing.T) {
 		}
 	}
 }
+
+// A greedy lieutenant's take on top of the cut is theirs, not skimming
+// (#521): with loyal crew and nobody else under the skim line it comes
+// off dirty cash with the cut, is counted with the cuts and named on the
+// lieutenant's own event, and sets no LastSkim (so no "skimming
+// suspected" alert, dashboard fact, crew warning or captain's plan) and
+// sends no CrewSkimmed.
+func TestGreedyTakeIsNoSkim(t *testing.T) {
+	cfg := content.MustLoad()
+	w, s := factionWorld(t, cfg)
+	w.Crew.Members = []game.CrewMember{
+		{ID: 901, Name: "Vee", Role: "runner", Skill: 50, Loyalty: 95, Greed: 5, Nerve: 90, Units: 100, Wage: 50},
+		{ID: 902, Name: "Otis", Role: "lieutenant", Personality: "greedy", Skill: 50, Loyalty: 60, Greed: 5, Nerve: 90, Wage: 50},
+	}
+	w.Crew.NextID = 902
+	if err := w.Assign(902, "test"); err != nil {
+		t.Fatal(err)
+	}
+	share, cut := cfg.Crew.Lieutenant.Temper("greedy").Skim, s.Cut()
+	if share <= 0 {
+		t.Fatal("the greedy temper takes nothing on top; the test has nothing to hold")
+	}
+	before := w.Player.DirtyCash
+	evs := step(w, s, events.PlayerSold{Day: w.Day + 1, Product: w.Products[0], Sold: 100, Revenue: 10_000, Lieutenant: 902, Standing: true})
+	if n := kinds(evs)["CrewSkimmed"]; n != 0 {
+		t.Fatalf("%d CrewSkimmed from a greedy lieutenant and loyal crew, want none", n)
+	}
+	if w.Crew.LastSkim != 0 || w.Stats.Skimmed != 0 {
+		t.Fatalf("LastSkim %d, Stats.Skimmed %d: the greedy take read as a skim", w.Crew.LastSkim, w.Stats.Skimmed)
+	}
+	var la *events.LieutenantActed
+	for _, e := range evs {
+		if a, ok := e.(events.LieutenantActed); ok {
+			la = &a
+		}
+	}
+	if la == nil {
+		t.Fatal("no LieutenantActed")
+	}
+	wantCut, wantExtra := int(10_000*cut+0.5), int(10_000*share+0.5)
+	if la.Cut != wantCut || la.Extra != wantExtra {
+		t.Fatalf("cut %d and extra %d, want %d and %d", la.Cut, la.Extra, wantCut, wantExtra)
+	}
+	if w.Stats.Cuts != wantCut+wantExtra {
+		t.Fatalf("Stats.Cuts %d, want the cut and the take, %d", w.Stats.Cuts, wantCut+wantExtra)
+	}
+	if lt := w.Crew.Member(902); lt == nil || lt.Extra != wantExtra {
+		t.Fatalf("the lieutenant does not remember last night's take: %+v", lt)
+	}
+	if spent := before - w.Player.DirtyCash; spent < wantCut+wantExtra {
+		t.Fatalf("dirty cash down %d, want at least the cut and the take, %d", spent, wantCut+wantExtra)
+	}
+}

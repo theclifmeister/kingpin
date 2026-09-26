@@ -26,13 +26,14 @@ export function roleLines(t) {
 }
 
 // temperLine is one temper in a line: the dial they sell at, the heat
-// against a normal hand's, the days of stock they keep, a skim and
+// against a normal hand's, the days of stock they keep, a greedy one's
+// take on top of the cut (#521) and
 // whether they go after a faction's scouts.
 export function temperLine(tt) {
   const parts = [`sells ${tt.Dial}`];
   if (tt.Heat !== 1) parts.push(`heat ×${Number(tt.Heat.toPrecision(3))}`);
   parts.push(`${Number(tt.StockDays.toPrecision(3))}d stock`);
-  if (tt.Skim > 0) parts.push(`skims ${pct(tt.Skim)}`);
+  if (tt.Skim > 0) parts.push(`takes ${pct(tt.Skim)} more`);
   if (tt.HitScouts) parts.push("hits scouts");
   return parts.join(" · ");
 }

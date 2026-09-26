@@ -108,13 +108,19 @@ func (s *Sim) warOrder(w *game.World, r *game.RivalState) *game.StrikeOrder {
 // the police clear both sides (crackdown); otherwise it fades a little.
 func (s *Sim) escalate(w *game.World, t *game.Tick, r *game.RivalState, warBefore float64) {
 	tun := s.cfg.Rivals
-	if warBefore < tun.WarThreshold && r.War >= tun.WarThreshold {
-		t.Emit(events.WarEscalated{Day: t.Day, Stage: events.StageOpen, War: r.War})
-	}
+	open := warBefore < tun.WarThreshold && r.War >= tun.WarThreshold
 	if r.War >= tun.CrackdownThreshold {
+		if open {
+			t.Emit(events.WarEscalated{Day: t.Day, Stage: events.StageOpen, War: r.War, Crackdown: tun.CrackdownThreshold})
+		}
 		s.crackdown(w, t, r)
-	} else {
-		r.War -= r.War * tun.WarDecay
+		return
+	}
+	r.War -= r.War * tun.WarDecay
+	if open {
+		// The war as the morning finds it, faded, on the panel's scale
+		// (#522: "loud (58/100)" beside the panel's 52/80).
+		t.Emit(events.WarEscalated{Day: t.Day, Stage: events.StageOpen, War: r.War, Crackdown: tun.CrackdownThreshold})
 	}
 }
 
@@ -124,7 +130,7 @@ func (s *Sim) escalate(w *game.World, t *game.Tick, r *game.RivalState, warBefor
 // draws heat.
 func (s *Sim) crackdown(w *game.World, t *game.Tick, r *game.RivalState) {
 	tun := s.cfg.Rivals
-	ev := events.WarEscalated{Day: t.Day, Stage: events.StageCrackdown, War: r.War, Heat: tun.CrackdownHeat}
+	ev := events.WarEscalated{Day: t.Day, Stage: events.StageCrackdown, War: r.War, Heat: tun.CrackdownHeat, Crackdown: tun.CrackdownThreshold}
 	var cleared []*game.Corner
 	ground := s.corners(w, r)
 	for _, owner := range []string{game.OwnerPlayer, game.OwnerRival} {

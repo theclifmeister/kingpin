@@ -25,6 +25,7 @@ var reportOnly = map[string]bool{
 	"WholesaleBought": true, "SupplyBought": true, "SupplyShort": true, "StandingShort": true,
 	"ShipmentSent": true, "ShipmentArrived": true, "CityFunded": true,
 	"RouteIdle":           true, // #459
+	"FileChanged":         true, // #522: the lead's page count; the pages' own lines are the report's
 	"WarrantSigned":       true, // #475: the report's HEAT and the arrest alert say it; the paper does not hear of a warrant
 	"WarrantLapsed":       true,
 	"PlayerUndercut":      true,

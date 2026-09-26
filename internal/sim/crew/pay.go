@@ -44,14 +44,12 @@ func (s *Sim) skim(n *night) {
 		}
 	}
 	// The lieutenants' cut of their cities' takings, and what a greedy
-	// one skims on top, at any loyalty: nobody deters the boss of a city.
+	// one takes on top (#521), at any loyalty: nobody deters the boss of
+	// a city. Theirs, named on their line, and not skimming.
 	n.acted = map[int]*events.LieutenantActed{}
-	extra := s.take(w, t, n.acted)
-	if extra > 0 {
-		skimmers++
-	}
+	s.take(w, t, n.acted)
 	if skimmers > 0 {
-		amount := min(int(math.Round(float64(revenue)*math.Min(share, tun.SkimCap))), w.Player.DirtyCash-extra) + extra
+		amount := min(int(math.Round(float64(revenue)*math.Min(share, tun.SkimCap))), w.Player.DirtyCash)
 		fromWash := min(int(math.Round(float64(wash)*math.Min(washShare, tun.SkimCap))), w.Player.CleanCash)
 		if amount+fromWash > 0 {
 			w.Player.DirtyCash -= amount
@@ -60,7 +58,7 @@ func (s *Sim) skim(n *night) {
 			c.LastSkim = t.Day
 			cuts := 0
 			for _, a := range n.acted {
-				cuts += a.Cut
+				cuts += a.Cut + a.Extra
 			}
 			t.Emit(events.CrewSkimmed{Day: t.Day, Amount: amount + fromWash, Skimmers: skimmers, FromWash: fromWash, Cuts: cuts})
 		}

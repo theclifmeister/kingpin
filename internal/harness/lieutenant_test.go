@@ -6,6 +6,7 @@ import (
 	"testing"
 
 	"github.com/theclifmeister/kingpin/internal/content"
+	"github.com/theclifmeister/kingpin/internal/engine"
 	"github.com/theclifmeister/kingpin/internal/events"
 	"github.com/theclifmeister/kingpin/internal/game"
 	"github.com/theclifmeister/kingpin/internal/sim"
@@ -42,6 +43,46 @@ func runCity(t *testing.T, cfg *content.Config, seed uint64, personality string)
 		if w.MaxHeat() >= 50 {
 			w.SetLieLow(true)
 		}
+	}
+}
+
+// A greedy lieutenant with loyal crew and no other skimmer raises no
+// skim alert (#521): their take on top of the cut is theirs, said on
+// their line, and never "skimming suspected".
+func TestGreedyTakeRaisesNoSkimAlert(t *testing.T) {
+	t.Parallel()
+	cfg := NoLife(content.MustLoad())
+	w, pol := runCity(t, cfg, 1, "greedy")
+	sess, err := engine.New(cfg)
+	if err != nil {
+		t.Fatal(err)
+	}
+	sess.Attach(w)
+	line := cfg.Crew.Crew.SkimThreshold
+	took := 0
+	for day := 1; day <= 20 && w.Over == nil; day++ {
+		pol(w)
+		for _, e := range sess.EndDay() {
+			if la, ok := e.(events.LieutenantActed); ok {
+				took += la.Extra
+			}
+			if _, ok := e.(events.CrewSkimmed); ok {
+				t.Fatalf("day %d: a CrewSkimmed with a greedy lieutenant and loyal crew", w.Day)
+			}
+		}
+		for _, m := range w.Crew.Members {
+			if m.Loyalty < line {
+				t.Fatalf("day %d: %s under the skim line at %.0f; the fixture is not loyal", w.Day, m.Name, m.Loyalty)
+			}
+		}
+		for _, a := range sess.Alerts() {
+			if a.Kind == engine.AlertSkim {
+				t.Fatalf("day %d: %+v with a greedy lieutenant and loyal crew", w.Day, a)
+			}
+		}
+	}
+	if took == 0 {
+		t.Fatal("the greedy lieutenant took nothing on top in 20 days; the test holds nothing")
 	}
 }
 
@@ -153,7 +194,7 @@ func TestLieutenantPersonalities(t *testing.T) {
 				o.revenue += ps.Revenue
 			}
 			if la, ok := e.(events.LieutenantActed); ok {
-				o.skimmed += la.Skimmed
+				o.skimmed += la.Extra
 			}
 		}
 		if o.revenue == 0 {

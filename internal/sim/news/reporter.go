@@ -31,6 +31,8 @@ type reporter struct {
 	routeOrder []string       // the routes in the order they first spent
 
 	handed map[int]int // a contract's first handoff line in SALES, by id: its acceptance goes before it (#465)
+
+	police map[string][]string // a city's police lines, held for its heat line (#522): the pages in the order they landed
 }
 
 // report writes one event into the morning, in the method of the sim
@@ -48,8 +50,18 @@ func (r *reporter) add(source, key string, d data) {
 	if len(list) == 0 {
 		return
 	}
-	txt := render(list[r.t.RNG.IntN(len(list))], d)
-	r.lines = append(r.lines, game.Headline{Day: r.t.Day, Source: source, Text: txt})
+	if tm := fits(list, r.t.RNG.IntN(len(list)), d); tm != nil { // a field it names is empty: another, or no line (#523)
+		r.lines = append(r.lines, game.Headline{Day: r.t.Day, Source: source, Text: render(tm, d)})
+	}
+}
+
+// drop draws the dice add would for key and writes nothing (#523): a
+// line the day's other news contradicts is left out without moving the
+// home stream.
+func (r *reporter) drop(key string) {
+	if list := r.s.tmpl[key]; len(list) > 0 {
+		r.t.RNG.IntN(len(list))
+	}
 }
 
 // addOff is add with the template picked off a side stream. The buyers'
@@ -63,8 +75,9 @@ func (r *reporter) addOff(stream, source, key string, d data) {
 	if len(list) == 0 {
 		return
 	}
-	txt := render(list[r.t.Sub(stream).IntN(len(list))], d)
-	r.lines = append(r.lines, game.Headline{Day: r.t.Day, Source: source, Text: txt})
+	if tm := fits(list, r.t.Sub(stream).IntN(len(list)), d); tm != nil {
+		r.lines = append(r.lines, game.Headline{Day: r.t.Day, Source: source, Text: render(tm, d)})
+	}
 }
 
 func (r *reporter) addBuyers(key string, d data)    { r.addOff(game.StreamBuyers, "buyers", key, d) }
@@ -88,6 +101,27 @@ func (r *reporter) addIntel(source, key string, d data) {
 func (r *reporter) crew(d data, leader string) data {
 	if leader != "" {
 		d.Leader, d.Faction = leader, leader+"'s crew"
+	}
+	return d
+}
+
+// member is d for a line about a member of the crew (#523): the city
+// they work in the City slot (city, the event's, else World.WorkCity
+// off the roster, else home), not where you stand: "Bayport runner
+// Shorty" read for a runner on an Eastside corner.
+func (r *reporter) member(d data, id int, city string) data {
+	if city == "" {
+		if m := r.w.Crew.Member(id); m != nil {
+			city = r.w.WorkCity(*m)
+		}
+	}
+	if city == "" {
+		if h := r.w.Home(); h != nil {
+			city = h.ID
+		}
+	}
+	if c := r.w.Cities[city]; c != nil {
+		d.City = c.Name
 	}
 	return d
 }

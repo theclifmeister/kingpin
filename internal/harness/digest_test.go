@@ -404,20 +404,27 @@ const (
 // Today.CalledOff): day 1 by the field's shape; with it left out of the
 // walk every one of the sixty days is main's digest, the report's lead
 // and lines with it: no number moved.
+// Again for #521, #522 and #523: day 1 by CrewMember.Extra's shape (a
+// greedy lieutenant's take last night) and the report's words (a page
+// reads "+N (now M/T)", a heat line names its cause, the flow line says
+// "sales less costs"); with Extra, the journal and the report left out
+// of the walk the piles and stock are main's on all sixty days, and the
+// one number that moved is Stats: from day 57 the greedy lieutenant's
+// take is counted in Stats.Cuts, not Stats.Skimmed (Crew.LastSkim unset).
 var seedDigest = []string{
-	"9cddbb0eb924552d", "84c479c7655e418b", "de2442fb06f141bf", "f7871bd8f125311a",
-	"50ceaa27da0eff24", "f02c8218c59190d9", "a74f3de90473ca8a", "78b8849fd0c94384",
-	"a5972920b219af1f", "3fa670fcc8abd9d0", "5be822883ace23a6", "dbd4f8ea3d7dce45",
-	"1a9e3b62ca645af1", "d6f9b00fc86f6ca1", "965febba35e999ba", "12b6c9b862b03991",
-	"369b4a247dc8ba9b", "ae096d9cefa66457", "931dbe5bfbe6b87b", "e0ce0a04b0ff39d8",
-	"f1356f2999516a4a", "af9ee61172b99bc7", "b429fd6492de49d1", "0352a928849f992f",
-	"c44f0394592e326e", "16281d8c26ba1bff", "7f51ea5f5e6a631e", "419df80818566a62",
-	"f402b03193b2a793", "f2caafeda6038323", "30c6209ebb504939", "11963a8c288227d0",
-	"b667fa450a2b8990", "acea22d476933266", "28d3a04ce9488359", "565c5fc50dbb6061",
-	"86a3cd55b076d74e", "0629d609fdcc18ea", "7c20f1024af7dc24", "f8af51d7a6647430",
-	"8ac5c1aecaa38d72", "a804ff9f8c691437", "6dfd0385e3c7ddd6", "d60ce76bde0d8eb2",
-	"4e8f07e9c5699501", "0e42246f73b8ef10", "25bce46c62293d00", "11f01e16dd8a953a",
-	"c59814fb202137f4", "03ed626d8c00c786", "1090089254dae62e", "b8bba898af9fd8c5",
-	"bd6edbcf66ad5dea", "6247d546ec88bdc8", "59352e32cf8bd5e7", "bfe53455fe61b30d",
-	"192e479f4a48ff42", "19078927db85a30b", "cc05b386eb5b9362", "e55e2cdfb604cd1e",
+	"17210005dcada09f", "ab6c8ae8adb9b93c", "3a563f128352326e", "01b7aa1e1800be31",
+	"d4dd4683c5b8b575", "8741e36967ac546c", "3d9f072eeb2c3a03", "633d47c03bd98dbb",
+	"ec75d45c0a631b03", "6fdccbb5c72b0e8d", "4204e35c584c0499", "86a217956ad1e274",
+	"e470c343e873312e", "2ff24bc8c251c112", "5255cdc2da7b37fd", "77d74eee4ac7a4f5",
+	"2cf2047e36ed7a8d", "076cadb49b664e6c", "3e183e738e38b0c0", "7781ec1a4a59d69c",
+	"752ec2b64570e812", "199fdde20085f671", "2171eb0b89308f9c", "deb50ffd0fd223e8",
+	"0203c3b161c3ba7a", "b49b0e87da81e67e", "877e01f947843cff", "ada4a620b8254000",
+	"6f6449985c821ae1", "e3aa71538ced44a6", "0c2215a586df1daf", "f95015121dc4f7d7",
+	"76740ac5dbeb3b31", "ac9b8b60604e9a83", "d2d7124fef9b4724", "03c87f86d706a031",
+	"6e7f8da1f62c759d", "11e30e771a9d3176", "a54f0b346f3ae99b", "bc4510b359fe45d7",
+	"8a41e674b74015cb", "6e855c10ce7226d3", "1adf56b468de76e1", "4c1fd10b455a6a73",
+	"f38c77357ad43772", "0d091cc3ed2fff84", "b186aa3c33bd6e4d", "f1780e76eb5c1e23",
+	"888f1b98d4be4c36", "a01fdde2bc739c74", "4691aca19d3018b6", "2bcd79541fed3dea",
+	"c53bd4d166891505", "4f725bd9d1580514", "7f8b1867c4d29cdb", "b1a4679594ecae73",
+	"337bbb312c0ccd61", "5f24492d9e4e560a", "d0fabf0feb73fe4b", "678e6d9866d623b3",
 }

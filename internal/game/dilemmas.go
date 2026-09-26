@@ -6,6 +6,7 @@ import (
 	"math"
 	"sort"
 	"strconv"
+	"strings"
 
 	"github.com/theclifmeister/kingpin/internal/content"
 	"github.com/theclifmeister/kingpin/internal/format"
@@ -389,8 +390,8 @@ func Eligible(w *World, c content.CardConfig) (CardSlots, bool) {
 			if t.LoyaltyAbove > 0 && m.Loyalty <= t.LoyaltyAbove {
 				continue
 			}
-			if named(content.OncePerMember, strconv.Itoa(m.ID)) {
-				continue
+			if named(content.OncePerMember, strconv.Itoa(m.ID)) || !m.Working() {
+				continue // a member in a cell, laid up or under with a faction is nobody a card is about (#523)
 			}
 			switch {
 			case pick == nil:
@@ -481,8 +482,8 @@ func Eligible(w *World, c content.CardConfig) (CardSlots, bool) {
 	if r != nil {
 		s.Rival, s.Faction = r.Leader, r.Faction()
 	}
-	if t.Rival && r == nil {
-		return s, false
+	if (t.Rival || namesFaction(c)) && r == nil {
+		return s, false // a card about a faction is dealt only with one at the table (#523: "war with Big Sal's crew" with no Big Sal)
 	}
 	if t.Personality != "" && (r == nil || r.Personality != t.Personality) {
 		return s, false
@@ -539,6 +540,31 @@ func Eligible(w *World, c content.CardConfig) (CardSlots, bool) {
 	}
 	s.Amount = format.Money(s.Sum)
 	return s, true
+}
+
+// factionKeys are the effects that land on the faction a card is about.
+var factionKeys = []string{"war", "grudge", "rival_muscle", "rival_cash"}
+
+// namesFaction reports whether a card is about a faction (#523): a
+// choice moves one, or its words name one. Such a card is dealt only
+// while a standing faction holds a corner for it to be about; the rival
+// at home, gone or never arrived, is nobody to name.
+func namesFaction(c content.CardConfig) bool {
+	words := func(s string) bool { return strings.Contains(s, "{{.Rival}}") || strings.Contains(s, "{{.Theirs}}") }
+	if words(c.Title) || words(c.Text) {
+		return true
+	}
+	for _, ch := range c.Choices {
+		if words(ch.Label) || words(ch.Outcome) || words(ch.Headline) {
+			return true
+		}
+		for _, k := range factionKeys {
+			if _, ok := ch.Effects[k]; ok {
+				return true
+			}
+		}
+	}
+	return false
 }
 
 // standing reports whether the faction id is one still at the table:

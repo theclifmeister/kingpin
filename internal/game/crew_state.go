@@ -92,6 +92,7 @@ type CrewMember struct {
 	Assigned    int            // day the lieutenant was last given a city
 	Stickups    map[string]int // a lieutenant's: each corner's Robbed in their city the day they took it (#497), so robbed_off counts only theirs; nil is none (the pre-#497 member)
 	Observed    bool           // the lieutenant has been on the job long enough for the report to name their personality
+	Extra       int            // a greedy lieutenant's take on top of the cut last night (#521), what the temper costs a night; 0 is none (the pre-#521 member)
 	Former      string         // the faction a candidate in the pool used to run with (#43): a fragmented faction's muscle, at a discount; "" for anyone else
 
 	// Crew life (#46). Age is years, seeded at generation (MigrateAges
