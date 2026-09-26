@@ -18,7 +18,7 @@ func (r *reporter) reportLogistics(e events.Event) bool {
 		// The route's lots, bought this morning for what it sends.
 		r.book(game.FlowRoutes, -ev.Cost, 0)
 		r.charge(ev.Name, ev.Cost)
-		rep.Shipments = append(rep.Shipments, fmt.Sprintf("Bought %d %s (%s) in %s for the %s -%s", ev.Units, w.ProductName(ev.Product), format.Plural(ev.Lots, "lot"), w.CityName(ev.City), ev.Name, format.Money(ev.Cost)))
+		rep.Shipments = append(rep.Shipments, fmt.Sprintf("Bought %d %s (%s) in %s for %s -%s", ev.Units, w.ProductName(ev.Product), format.Plural(ev.Lots, "lot"), w.CityName(ev.City), format.The(ev.Name), format.Money(ev.Cost)))
 	case events.ShipmentSent:
 		// Paid this morning, when the route put it on the road.
 		r.book(game.FlowRoutes, -ev.Cost, 0)
@@ -70,8 +70,8 @@ func (r *reporter) reportLogistics(e events.Event) bool {
 		if ev.Mode == "boat" || ev.Mode == "plane" {
 			what = "customs agent"
 		}
-		rep.Shipments = append(rep.Shipments, fmt.Sprintf("The %s on the %s is yours until day %d: the risk on that edge is cut while it holds.", what, ev.Name, ev.Until))
-		rep.Money = append(rep.Money, fmt.Sprintf("The %s on the %s -%s", what, ev.Name, format.Money(ev.Cost)))
+		rep.Shipments = append(rep.Shipments, fmt.Sprintf("The %s on %s is yours until day %d: the risk on that edge is cut while it holds.", what, format.The(ev.Name), ev.Until))
+		rep.Money = append(rep.Money, fmt.Sprintf("The %s on %s -%s", what, format.The(ev.Name), format.Money(ev.Cost)))
 	case events.TunnelFound:
 		d := base
 		d.Asset, d.Route, d.Product = ev.Name, ev.Name, w.ProductName(ev.Product)
@@ -81,7 +81,7 @@ func (r *reporter) reportLogistics(e events.Event) bool {
 	// night it leaves and pays on landing; a seizure loses what it cost.
 	case events.ExportShipped:
 		r.book(game.FlowPurchases, -ev.Cost, 0)
-		rep.Shipments = append(rep.Shipments, fmt.Sprintf("%d %s left %s on the %s, bought off the book for -%s: %s a unit abroad, landing day %d", ev.Units, w.ProductName(ev.Product), w.CityName(ev.City), ev.Name, format.Money(ev.Cost), format.Price(ev.Price), ev.Lands))
+		rep.Shipments = append(rep.Shipments, fmt.Sprintf("%d %s left %s on %s, bought off the book for -%s: %s a unit abroad, landing day %d", ev.Units, w.ProductName(ev.Product), w.CityName(ev.City), format.The(ev.Name), format.Money(ev.Cost), format.Price(ev.Price), ev.Lands))
 		rep.Money = append(rep.Money, fmt.Sprintf("The %s's load off the book -%s", ev.Name, format.Money(ev.Cost)))
 	case events.ExportLanded:
 		r.book(game.FlowSales, ev.Revenue, 0)

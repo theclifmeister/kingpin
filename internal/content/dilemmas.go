@@ -13,12 +13,15 @@ type DilemmasConfig struct {
 // RichTier on (a progression tier's number; 0 never) a card is drawn at
 // its WeightRich, or at RichRest times its weight if it sets none, so a
 // rich player's deck leans to the cards that cost standing, ground or a
-// favour (#342).
+// favour (#342). A card is not dealt again for RepeatGap days after it
+// was last dealt (#501; 0 never holds one back), so the same text does
+// not come back while the player still remembers it.
 type DilemmasTuning struct {
-	MinGap   int     `toml:"min_gap"`
-	MaxGap   int     `toml:"max_gap"`
-	RichTier int     `toml:"rich_tier"`
-	RichRest float64 `toml:"rich_rest"`
+	MinGap    int     `toml:"min_gap"`
+	MaxGap    int     `toml:"max_gap"`
+	RichTier  int     `toml:"rich_tier"`
+	RichRest  float64 `toml:"rich_rest"`
+	RepeatGap int     `toml:"repeat_gap"`
 }
 
 // The two kinds of stake a card declares (#342). A personal sum is a
@@ -123,6 +126,9 @@ func (d DilemmasConfig) validate() error {
 	}
 	if d.Dilemmas.RichTier < 0 || d.Dilemmas.RichTier > 0 && (d.Dilemmas.RichRest <= 0 || d.Dilemmas.RichRest > 1) {
 		return fmt.Errorf("rich_tier %d and rich_rest %v must be 0, or a tier and 0 < rest <= 1", d.Dilemmas.RichTier, d.Dilemmas.RichRest)
+	}
+	if d.Dilemmas.RepeatGap < 0 {
+		return fmt.Errorf("repeat_gap %d must be 0 or more", d.Dilemmas.RepeatGap)
 	}
 	seen := map[string]bool{}
 	for _, c := range d.Cards {

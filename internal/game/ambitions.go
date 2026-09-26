@@ -70,8 +70,11 @@ type Ambition struct {
 	Done   bool
 }
 
-// Progress is the plan's bar: 1 exactly when it is done, else the mean
-// of its steps short of 1.
+// Progress is the plan's bar: 1 exactly when it is done, else its
+// least-done step short of 1. A plan is done when every step is, so
+// the step furthest off is how far along it is; the mean read `Retire
+// clean 94%` on the ambitions screen the morning the plan's line said
+// `the account 88%` (#502), and `50%` with nothing offshore (#465).
 func (a Ambition) Progress() float64 {
 	if a.Done {
 		return 1
@@ -79,11 +82,11 @@ func (a Ambition) Progress() float64 {
 	if len(a.Steps) == 0 {
 		return 0
 	}
-	sum := 0.0
+	least := 1.0
 	for _, s := range a.Steps {
-		sum += s.Frac()
+		least = min(least, s.Frac())
 	}
-	return min(almost, sum/float64(len(a.Steps)))
+	return min(almost, least)
 }
 
 // Next is the first step not met, nil once the plan is done.
@@ -173,12 +176,10 @@ func ambition(w *World, id string, t AmbitionTerms) (Ambition, bool) {
 			{ID: "goodwill", Have: goodwill, Need: pressure, Unit: UnitPoints, Done: goodwill > pressure},
 			{ID: "streak", Have: float64(w.LegitDays), Need: float64(t.LegitDays), Unit: UnitDays, Done: w.LegitDays >= t.LegitDays},
 		}
-		if s := &a.Steps[0]; s.Need <= 0 && t.LegitIncome > 0 {
-			s.Need = 1 // nothing sold: any income out-earns it
-		}
-		if s := &a.Steps[1]; s.Need <= 0 && goodwill > 0 {
-			s.Need = goodwill
-		}
+		// Nothing sold (or no pressure) needs nothing over it: the step is
+		// done on any income (goodwill), and its Need stays the zero it
+		// is, so it reads `against $0 last night` on a lie-low night, not
+		// the $1 it was bumped to (#502). Frac reads a done step as 1.
 		// The laundering sim's own count at its own line.
 		a.Done = w.LegitDays >= t.LegitDays
 	case content.AmbitionCity:

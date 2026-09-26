@@ -71,3 +71,16 @@ func TestCardIsWhereItsCornerIs(t *testing.T) {
 		t.Fatalf("a card about no corner: %+v %v", s, ok)
 	}
 }
+
+// A share of the card's sum reads as the *_amount keys pay it (#501), so
+// the card game's label names the stake and the net its chip shows.
+func TestShareIsWhatTheAmountKeyPays(t *testing.T) {
+	s := CardSlots{Sum: 10_001}
+	w := &World{}
+	if err := w.applyEffect(&Card{Amount: s.Sum}, "dirty_amount", 0.5); err != nil {
+		t.Fatal(err)
+	}
+	if got, want := s.Share(0.5), "$5,001"; got != want || w.Player.DirtyCash != 5_001 {
+		t.Errorf("half of $10,001 reads %s and pays %d, want %s", got, w.Player.DirtyCash, want)
+	}
+}

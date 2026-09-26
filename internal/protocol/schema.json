@@ -4663,6 +4663,9 @@
     },
     "events.CornerRobbed": {
       "properties": {
+        "Bare": {
+          "type": "number"
+        },
         "Cash": {
           "type": "integer"
         },
@@ -4672,8 +4675,14 @@
         "Day": {
           "type": "integer"
         },
+        "Enforcer": {
+          "type": "string"
+        },
         "Name": {
           "type": "string"
+        },
+        "Odds": {
+          "type": "number"
         },
         "StockLost": {
           "additionalProperties": {
@@ -4687,7 +4696,10 @@
         "Corner",
         "Name",
         "Cash",
-        "StockLost"
+        "StockLost",
+        "Enforcer",
+        "Odds",
+        "Bare"
       ],
       "type": "object"
     },
@@ -5282,6 +5294,9 @@
         "Amount": {
           "type": "integer"
         },
+        "Cuts": {
+          "type": "integer"
+        },
         "Day": {
           "type": "integer"
         },
@@ -5296,7 +5311,8 @@
         "Day",
         "Amount",
         "Skimmers",
-        "FromWash"
+        "FromWash",
+        "Cuts"
       ],
       "type": "object"
     },
@@ -8582,6 +8598,9 @@
         "Short": {
           "type": "integer"
         },
+        "Till": {
+          "type": "integer"
+        },
         "Units": {
           "type": "integer"
         },
@@ -8596,7 +8615,8 @@
         "Units",
         "Short",
         "Why",
-        "Lieutenant"
+        "Lieutenant",
+        "Till"
       ],
       "type": "object"
     },

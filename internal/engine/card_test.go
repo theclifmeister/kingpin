@@ -93,6 +93,13 @@ func TestChoiceChipsSayTheLines(t *testing.T) {
 	if got := texts(engine.ChoiceChips(cfg, s.Rules(), w, calm)[0]); got != "respect +2" {
 		t.Errorf("a war already at zero reads %q", got)
 	}
+	// A move that rounds to nothing is dropped too (#501: `respect −0.1`,
+	// `war −0.1` late in a run), and what is left prints whole.
+	w.Rival().War, w.Player.Reputation.Respect = 0.4, 99.6
+	tiny := &game.Card{ID: "tiny", Choices: []game.Choice{{Label: "Tiny", Effects: map[string]float64{"war": -10, "respect": 5, "heat": 0.7}}}}
+	if got := texts(engine.ChoiceChips(cfg, s.Rules(), w, tiny)[0]); strings.Contains(got, "war") || strings.Contains(got, "respect") || strings.Contains(got, ".") {
+		t.Errorf("moves that round to nothing read %q", got)
+	}
 
 	c.Hide = true
 	for i, cs := range engine.ChoiceChips(cfg, s.Rules(), w, c) {

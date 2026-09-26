@@ -144,6 +144,16 @@ func A(noun string) string {
 	return "a " + noun
 }
 
+// The is a name with the definite article, unless it has its own
+// (#502: `Buy the customs agent on the The Channel`): `the Interstate`,
+// `The Channel`.
+func The(name string) string {
+	if strings.HasPrefix(name, "The ") {
+		return name
+	}
+	return "the " + name
+}
+
 // Plural is n of a thing: `1 corner`, `3 corners`, `0 corners`. It
 // knows the irregulars the game counts (`city` to `cities`, `person` to
 // `people`, `box` to `boxes`); a noun of two words is pluralised on its

@@ -34,7 +34,9 @@
 # (the rival corner it borders, when contested), {{.Rival}} (the leader of
 # the standing faction the card is about, #385; war, grudge, rival_muscle
 # and rival_cash land on it),
-# {{.City}}, {{.Front}}, {{.Product}}, {{.Amount}}.
+# {{.City}}, {{.Front}}, {{.Product}}, {{.Amount}}; {{.Share 0.5}} is a
+# part of the Amount as the *_amount keys pay it (#501), so a label can
+# name a stake and its net on one line.
 # A slot is filled only by the trigger fields that name it: Name and Role
 # by role, loyalty_below or loyalty_above; Corner by corners or contested;
 # Theirs by contested; Front by fronts. A card that uses one its trigger
@@ -57,6 +59,7 @@ min_gap = 5
 max_gap = 8
 rich_tier = 4   # Distribution: $500K moved
 rich_rest = 0.2 # the weight past rich_tier of a card with no weight_rich, times its own
+repeat_gap = 21 # a card is not dealt again for three weeks after it was (#501); longer thins the rich band under half a rich year's cards
 
 # ---------------------------------------------------------------- crew
 
@@ -891,7 +894,7 @@ outcome = "You passed on the car wash. The pile stays dirty."
 [[card]]
 id = "card_game"
 title = "A game upstairs"
-text = "There is a card game above the club tonight, the kind with a doctor, a councilman and a man nobody introduces. Your name came up. Sitting down costs {{.Amount}}; sitting down means being seen."
+text = "There is a card game above the club tonight, the kind with a doctor, a councilman and a man nobody introduces. Your name came up. The stake is {{.Amount}} and the table is soft; sitting down means being seen."
 stakes = "personal"
 amount = 10000
 amount_share = 0.1
@@ -900,7 +903,7 @@ weight_rich = 0.1
 [card.trigger]
 cash_min = 20000
 [[card.choice]]
-label = "Sit in"
+label = "Sit in: stake {{.Amount}}, net +{{.Share 0.5}}"
 outcome = "You sat in for {{.Amount}} and walked out up half of it. The councilman knows your name."
 [card.choice.effects]
 dirty_amount = 0.5
@@ -1003,6 +1006,7 @@ weight_rich = 4
 rival = true
 contested = true
 peak_cash_min = 500000
+war_min = 20 # "the shooting stops": dealt only while there is shooting (#501)
 [[card.choice]]
 label = "Double the guard on {{.Corner}}"
 outcome = "You put more people on {{.Corner}}. {{.Rival}} took it as an answer."

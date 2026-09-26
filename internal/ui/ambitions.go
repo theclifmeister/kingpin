@@ -251,8 +251,9 @@ func planParts(a engine.AmbitionView) string {
 }
 
 // planFact is the dashboard's line on the pinned plan: `plan Retire
-// clean · the account 0% · quiet days 3/14`, or `plan Retire clean
-// ready`; "" with none pinned.
+// clean 0% · the account 0% · quiet days 3/14`, or `plan Retire clean
+// ready`; "" with none pinned. The plan's percentage is the one the
+// ambitions screen's bar gives (#502), its least-done step.
 func (m *Model) planFact() string {
 	a, ok := m.plan()
 	if !ok {
@@ -261,7 +262,7 @@ func (m *Model) planFact() string {
 	if a.Done {
 		return theme.Good.Render("plan " + a.Name + " " + doneWord(a))
 	}
-	line := "plan " + a.Name + " · " + planParts(a)
+	line := "plan " + a.Name + " " + format.Pct(a.Progress, 0) + " · " + planParts(a)
 	if why := m.quietReset(a); why != "" {
 		line += " · reset by " + why
 	}
@@ -329,7 +330,7 @@ func (m *Model) planReport() []string {
 		}
 		return []string{fmt.Sprintf("%s: %s.", a.Name, doneWord(a))}
 	}
-	line := fmt.Sprintf("%s: %s", a.Name, planParts(a))
+	line := fmt.Sprintf("%s %s: %s", a.Name, format.Pct(a.Progress, 0), planParts(a))
 	if why := m.quietReset(a); why != "" {
 		line += ", the quiet days reset by " + why
 	}

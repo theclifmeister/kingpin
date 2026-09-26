@@ -72,6 +72,11 @@ func TestOncePerNamesASubject(t *testing.T) {
 	if c := cfg.Dilemmas.Card("card_game"); c == nil || c.Choices[0].Effects["dirty_amount"] != 0.5 || !strings.Contains(c.Choices[0].Outcome, "up half of it") {
 		t.Errorf("the card game's sit-in: %+v", c)
 	}
+	// Its stake and its net on the one line (#501: the text said "costs
+	// $10,000" over a chip that said dirty +$5,000).
+	if c := cfg.Dilemmas.Card("card_game"); c == nil || !strings.Contains(c.Choices[0].Label, "{{.Amount}}") || !strings.Contains(c.Choices[0].Label, "{{.Share 0.5}}") {
+		t.Errorf("the card game's sit-in label: %+v", c)
+	}
 	base := cfg.Dilemmas.Cards[0]
 	base.Trigger = CardTrigger{CashMin: 1}
 	for _, r := range []struct{ per, want string }{

@@ -265,6 +265,13 @@ func (s Supplier) Quote(product string, qty int, credit bool) int {
 // QuoteAt is Quote at a markup on the connect's price: the contract's
 // (#113) or a buy through a lieutenant's (#174), the premiums on top.
 func (s Supplier) QuoteAt(product string, qty int, credit bool, markup float64) int {
+	return int(math.Ceil(s.UnitAt(product, qty, credit, markup) * float64(qty)))
+}
+
+// UnitAt is the price a unit of QuoteAt's: the connect's, at the markup,
+// the small-lot premium under the lot and the credit premium on the book
+// (#502: the dialog quoted a credit total and never the unit it came to).
+func (s Supplier) UnitAt(product string, qty int, credit bool, markup float64) float64 {
 	unit := s.Price[product] * max(markup, 1)
 	if qty < s.Lot && s.SmallLot > 1 {
 		unit *= s.SmallLot
@@ -272,7 +279,7 @@ func (s Supplier) QuoteAt(product string, qty int, credit bool, markup float64) 
 	if credit && s.CreditRatio > 0 {
 		unit *= s.CreditRatio
 	}
-	return int(math.Ceil(unit * float64(qty)))
+	return unit
 }
 
 // Quote is what Buy would charge for qty units of a product from a

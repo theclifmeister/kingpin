@@ -37,9 +37,14 @@ func TestStarvedRoutineSaysWhy(t *testing.T) {
 			nil, []string{"Interstate idle: no Weed or Coke in the Bayport stash"}},
 		{"a route short of three", events.RouteIdle{Route: "coast", Name: "Coast Road", From: "bayport", To: "eastside", Why: events.IdleStock, Products: []string{"weed", "coke", "meth"}},
 			nil, []string{"Coast Road idle: nothing it is short of in the Bayport stash"}},
-		{"a contract after a wash", events.SupplyShort{City: "bayport", Product: "pills", Units: 3, Short: 140, Why: "cash"},
+		{"a contract after a wash", events.SupplyShort{City: "bayport", Product: "pills", Units: 3, Short: 140, Why: "cash", Till: 50_000},
 			[]game.CashFlow{game.NewCashFlow(20, map[string]game.Pools{game.FlowLaundering: {Dirty: -120_000, Clean: 120_000}}, game.Pools{Dirty: 50_000})},
 			[]string{"Supply contract out of cash: 140 Pills short in Bayport.", "  the wash took $120,000 last night and left the till $50,000"}},
+		// The day spent the till down after the wash (#502): the till
+		// it bought on is named, not the one the wash left.
+		{"a contract after a day's spending", events.SupplyShort{City: "bayport", Product: "pills", Units: 3, Short: 140, Why: "cash", Till: 18_000},
+			[]game.CashFlow{game.NewCashFlow(20, map[string]game.Pools{game.FlowLaundering: {Dirty: -2_000, Clean: 2_000}}, game.Pools{Dirty: 168_479})},
+			[]string{"Supply contract out of cash: 140 Pills short in Bayport.", "  the till was down to $18,000 when it bought"}},
 		{"a contract with no wash", events.SupplyShort{City: "bayport", Product: "coke", Units: 3, Short: 40, Why: "cash"},
 			nil, []string{"Supply contract out of cash: 40 Coke short in Bayport."}},
 	} {

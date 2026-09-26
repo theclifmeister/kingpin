@@ -24,7 +24,8 @@ The two-city plan is a milestone, not an ending (`content.AmbitionEnding` has no
 
 **The bar reads 100% exactly when the ending's own condition holds.**
 `Ambition.Progress` is 1 when the plan is `Done`, and `Done` is the ending's own predicate from the table above.
-Otherwise the bar is the mean of the steps' fractions, each `Have / Need` capped at 0.99, and the total is capped at 0.99 too.
+Otherwise the bar is the least-done step's fraction, each `Have / Need` capped at 0.99 (#502): a plan is done when every step is, so the step furthest off is how far along it is. It was the mean, and the ambitions screen read `Retire clean 94%` the morning the plan's line said `the account 88%`; the plan's line and the report's PLAN now lead with the same figure (`plan Retire clean 88% · the account 88% · quiet days 14/14`, `TestOneNumberOnEveryScreen`).
+A step whose `Need` is zero (going straight on a night the street sold nothing, the goodwill against no pressure) keeps the zero and is done on anything over it: it read `against $1 last night` on a lie-low night, the `Need` bumped to 1 so the fraction was defined (#502, `TestLieLowStreetIsZero`).
 So a full bar is never a promise the ending does not keep.
 The city's streak reads one short of `dominant_days` until the reign is stamped.
 The rivals sim reads the city after the territory has stepped, and a later sim can still move a corner that night (a lieutenant's walk), so only the stamp counts.
@@ -59,10 +60,10 @@ No sim reads it, and `TestSeedDigest`'s walk leaves it out (`unwalked`), so no p
   The step counts a seat that stood down before it arrived as gone, as `Dominant` does (it read `3 of 4` for good).
   `↑↓ pick`, `1-9 choose` (select and pin), `enter pin` / `enter unpin`, `esc close`; enter never ends the day.
   A plan whose ending is open says where it is taken under its steps, `Ready to take: w on the dashboard walks away on it.`, its key drawn the pane's way (#498: the retiree read `ready` with the footer offering `enter unpin` and never found the walk away; the one key this body names, as the tutorial line is the dashboard's).
-- **The dashboard**: while a plan is pinned, STREET carries `plan Retire clean · the account 0% · quiet days 3/14` in gold (`plan … ready` in green once done), worth `priPlan` (over the counts, under the stage).
+- **The dashboard**: while a plan is pinned, STREET carries `plan Retire clean 0% · the account 0% · quiet days 3/14` in gold (`plan … ready` in green once done), worth `priPlan` (over the counts, under the stage).
   **The line shows the parts** (#465, `planParts`, `stepPart`: a count as `3/14`, anything else as how far along it is): the one bar was the mean of the steps, and `Retire clean 50%` with $0 of $750,000 (the quiet days full) read as half the money, `Disappear 53%` at $261K of $4M as more than half the papers.
   When the quiet days go back to zero the line names what reset them, `· reset by a sting in Eastside on day 41` (`quietReset`, off the laundering sim's report-only `events.QuietBroken`, `docs/laundering.md`, kept on the model as `Model.quietBroke` and never saved), while the plan is Retire clean and its quiet days are short.
-- **The report**: a `PLAN` section after `TIER`, one line: `Retire clean: the account 0% · quiet days 3/14. Next, the account: $0 of $750,000.` (`Retire clean: ready. Walk away on the dashboard to take it, or play on.` once its ending is open, #498), with `, the quiet days reset by …` before the next step when the dashboard's line has it (`TestPlanShowsItsParts`).
+- **The report**: a `PLAN` section after `TIER`, one line: `Retire clean 0%: the account 0% · quiet days 3/14. Next, the account: $0 of $750,000.` (`Retire clean: ready. Walk away on the dashboard to take it, or play on.` once its ending is open, #498), with `, the quiet days reset by …` before the next step when the dashboard's line has it (`TestPlanShowsItsParts`).
 - **The alert**: `engine.AlertPlan` (`plan`, the quietest, its act the dashboard) appears while the pinned plan has at least one step met, keyed `plan <id>: <Reached> of <steps>`.
   A fast-forward stops once as each step is met in order and once when the plan is done.
   It stops again only if a step is lost and met again.

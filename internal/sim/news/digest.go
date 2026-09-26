@@ -309,15 +309,17 @@ func (s *Sim) flowLine(w *game.World, flow game.CashFlow) (game.Line, float64) {
 		if ratio >= 10 {
 			prec = 0
 		}
-		text = fmt.Sprintf("Profit ran %s the week's: %s against %s a night.", format.Times(ratio, prec), signedCash(net), week)
+		text = fmt.Sprintf("Profit ran %s the week's nightly average: %s last night against %s.", format.Times(ratio, prec), signedCash(net), week)
 	case avg > 0 && net >= 0:
 		dir := "rose"
 		if swing < 0 {
 			dir = "fell"
 		}
-		text = fmt.Sprintf("Profit %s %s on the week: %s against %s a night.", dir, format.Pct(math.Abs(swing), 0), signedCash(net), week)
+		// A night against a night (#502: "on the week: +$4,656 against
+		// +$2,716 a night" read as a week's profit against a night's).
+		text = fmt.Sprintf("Profit %s %s from the week's nightly average: %s last night against %s.", dir, format.Pct(math.Abs(swing), 0), signedCash(net), week)
 	default:
-		text = fmt.Sprintf("The night made %s against the week's %s a night.", signedCash(net), week)
+		text = fmt.Sprintf("Last night made %s against the week's %s a night.", signedCash(net), week)
 	}
 	act := game.Act{Screen: game.ScreenLedger}
 	if swing < 0 {

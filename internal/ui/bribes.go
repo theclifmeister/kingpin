@@ -315,7 +315,7 @@ func (m *Model) confirmCheckpoint() {
 	}
 	m.mode = modePlay
 	until, _ := m.w.Checkpoint(r.ID)
-	m.say(fmt.Sprintf("The %s on the %s is yours until day %d: %s. Risk on that edge cut %s while it holds.", m.dealWord(*r), r.Name, until, money(price), format.Pct(m.rules.Logistics.DealCut(*r), 0)))
+	m.say(fmt.Sprintf("The %s on %s is yours until day %d: %s. Risk on that edge cut %s while it holds.", m.dealWord(*r), format.The(r.Name), until, money(price), format.Pct(m.rules.Logistics.DealCut(*r), 0)))
 }
 
 // checkpointConfirm is the confirmation's body.
@@ -328,7 +328,7 @@ func (m *Model) checkpointConfirm() []string {
 	lg := m.rules.Logistics
 	tun := m.rules.Law.Bribes()
 	d := w.Route(r.ID).Dial
-	body := m.wrapLines(fmt.Sprintf("Buy the %s on the %s (%s %s %s) for %s, dirty: %s of the risk off every day on that edge for %s.", m.dealWord(*r), r.Name, w.CityName(r.From), edge(r.Mode), w.CityName(r.To), money(m.dealPrice(*r)), format.Pct(lg.DealCut(*r), 0), plural(tun.CheckpointDays, "day")))
+	body := m.wrapLines(fmt.Sprintf("Buy the %s on %s (%s %s %s) for %s, dirty: %s of the risk off every day on that edge for %s.", m.dealWord(*r), format.The(r.Name), w.CityName(r.From), edge(r.Mode), w.CityName(r.To), money(m.dealPrice(*r)), format.Pct(lg.DealCut(*r), 0), plural(tun.CheckpointDays, "day")))
 	if until, live := w.Checkpoint(r.ID); live {
 		body = append(body, theme.Subtle.Render(fmt.Sprintf("Yours until day %d already; this adds to it.", until)))
 	}

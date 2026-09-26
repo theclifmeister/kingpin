@@ -73,10 +73,10 @@ func TestReserveDialog(t *testing.T) {
 		t.Fatalf("the morning after: offshore %d evidence %d (was %d); the pages come the morning after the move, not the same night", w.Offshore, w.Heat.Evidence, before)
 	}
 	m.Update(key("1"))
-	if line := stripANSI(m.retireLine()); !strings.Contains(line, "retire in") || !strings.Contains(line, "short") {
+	if line := stripANSI(m.retireLine()); !strings.Contains(line, "retiring: ") || !strings.Contains(line, "short") {
 		t.Fatalf("the alert does not say how far off retiring is: %q", line)
 	}
-	if alerts := stripANSI(strings.Join(m.alertLines(60, 9), "\n")); !strings.Contains(alerts, "retire in") {
+	if alerts := stripANSI(strings.Join(m.alertLines(60, 9), "\n")); !strings.Contains(alerts, "retiring: ") {
 		t.Fatalf("the alerts lack the retirement line:\n%s", alerts)
 	}
 	w.SetLieLow(true)

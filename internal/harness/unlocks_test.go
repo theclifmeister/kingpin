@@ -201,14 +201,17 @@ func oldRunPrint(t *testing.T, cfg *content.Config, seed uint64, days int, polic
 // hide: a $500 bag never reaches heroin's $3K) is byte for byte the run
 // main played before #148, with the deck dealt: the prints are main's
 // (4df71be) over three seeds and 120 days, and no Unlocked fires.
+// Seeds 2 and 3 moved with #501 (a card is not dealt again within
+// repeat_gap days): each run dealt a card again inside three weeks, and
+// the gap deals another; with repeat_gap = 0 the prints are main's.
 func TestNoUnlockIsTheOldRun(t *testing.T) {
 	t.Parallel()
 	// The duel (#43, harness.OneFaction): this pins a mechanism on a seed, and the table moves the seed's dice.
 	cfg := OneFaction(content.MustLoad())
 	want := map[string]string{
 		"idle 1": "29f15946d5ae8dc7", "hide 1": "e485af09c510d56d",
-		"idle 2": "9b41221ee6bf183b", "hide 2": "253636dfba497f39",
-		"idle 3": "ebb031cf0e7ddfe4", "hide 3": "3e414a42849e0458",
+		"idle 2": "cc4f521c8aaa00ca", "hide 2": "245df41e7fafad0c",
+		"idle 3": "c2058ba1af5086e7", "hide 3": "e26be7adf66d9b54",
 	}
 	for _, seed := range []uint64{1, 2, 3} {
 		for _, pol := range []struct {

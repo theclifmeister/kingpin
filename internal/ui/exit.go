@@ -52,8 +52,8 @@ func (m *Model) exitRows() []exitRow {
 	if s := off.RetireCash - w.Offshore; s > 0 {
 		parts = append(parts, money(s)+" short")
 	}
-	if d := off.RetireDays - w.QuietDays; d > 0 {
-		parts = append(parts, plural(d, "more quiet day"))
+	if off.RetireDays > w.QuietDays {
+		parts = append(parts, m.quietCount())
 	}
 	retire.short = strings.Join(parts, ", ")
 	// The terms are the plans' own (#498, docs/ambitions.md): the

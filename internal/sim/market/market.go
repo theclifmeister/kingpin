@@ -282,7 +282,7 @@ func (s *Sim) supply(w *game.World, t *game.Tick, fx game.Effects) {
 			t.Emit(events.SupplyBought{Day: t.Day, City: c.City, Product: c.Product, Units: b.Qty, Level: c.Units, Price: b.UnitPrice, Cost: b.Cost, Supplier: b.Supplier, Lieutenant: p.Lieutenant})
 		}
 		if p.Units < p.Short {
-			t.Emit(events.SupplyShort{Day: t.Day, City: c.City, Product: c.Product, Units: p.Units, Short: p.Short - p.Units, Why: p.Why, Lieutenant: p.Lieutenant})
+			t.Emit(events.SupplyShort{Day: t.Day, City: c.City, Product: c.Product, Units: p.Units, Short: p.Short - p.Units, Why: p.Why, Lieutenant: p.Lieutenant, Till: w.Player.DirtyCash})
 		}
 	}
 }

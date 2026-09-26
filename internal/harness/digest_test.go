@@ -370,20 +370,28 @@ const (
 // Again for #478 (the nightly sweep offshore, LaunderingState.Sweep):
 // day 1 by shape alone; with the field left out of the walk every day
 // is main's digest, and no number moved.
+// Again for #501 (a card is not dealt again within repeat_gap days,
+// DilemmaState.Dealt) and #502 (the report's lines say what happened):
+// day 1 by the new field's shape, day 8 by the lead's flow line (`Profit
+// ran ×5.1 the week's nightly average: +$27K last night against
+// +$5,339`, a night against a night) and the report's words after it.
+// With Dealt, the report and the journal left out of the walk, every
+// one of the sixty days is main's digest (so walked on 92db052 too):
+// the boss's one card is dealt on day 5 as before, and no number moved.
 var seedDigest = []string{
-	"a5335a1bbe0bcfb5", "db61d0de44a5e89d", "dba808f0fb9c5ded", "fa1278c5dd147d1e",
-	"af042da9d1be3bde", "5b64b927c2c6c58d", "8b8253a08a10ed5e", "2e6a2b03c09377f8",
-	"1a3312e2d836ae96", "0e58dc001933abf8", "9937f48bb85a88e7", "7d3c258aec619138",
-	"97fde3c683ab6ac0", "93d4de6e37e992d4", "e18bace1c8fae0cc", "1d2589956f0017cf",
-	"1a84fbdcf116da4b", "f2bf25096ba23482", "3d0b880f42368d0b", "18c3ac7437dbecab",
-	"8eb3e603947de386", "7cb6312c85c97b24", "ea11b70006f56e4b", "47c8820b806f7908",
-	"37846f45afce9c10", "4c5a8b33984293cc", "14b6d79749c5c3f3", "14d8600eb9ce869e",
-	"9cd9b1d977f68f86", "1d32d54c89261929", "f61909c32a398fe7", "e55a1b850869147b",
-	"46cd28add0c77ace", "f09129c8d6f73670", "4c18fff1e8b3296e", "13a1acb9945d0b38",
-	"c7d6d98585cf807a", "02141453ce9dbe66", "69ee432282ede7c1", "7483df15e5ce4c4e",
-	"166e2144f6671d37", "0f76935900f1b8cf", "c7b9eef6626ce38e", "b4f8ec34c04177f3",
-	"d3b78115977b6e95", "1272dafacaee2909", "85455fd03d8c0db6", "dca393e5273d17f0",
-	"6d25ae277988f31d", "b973567e523b7e8e", "88449b164e22b703", "a8da0b5b896f0ff3",
-	"3471b67dade67e92", "5053f14a2df1a36e", "860841288777d014", "aa55f0c39e637c54",
-	"4003c4bb27f663e5", "46148899c74c5bce", "ad9fde260e57a775", "6c1a99d5ffa4d6fe",
+	"2518d9c83a763111", "a2b1742ab91fec2b", "67b6b53c3feb8b69", "666f68d8f9bf95e0",
+	"673d6f2ac28e0bfa", "2d719ef8f54e510b", "1dcdd9b831e243f2", "54f20eb08c035340",
+	"288823bb723ba671", "02a2174f54055aaa", "b5bb8993f463964c", "6d8daced39949cb3",
+	"ae64610c235c502b", "d7568fee74c03577", "88196cf8b7a735fe", "62f6b69af10fc181",
+	"72cdd3089b450a2d", "72369db10af91bdb", "f3d9d3ee2ddda8df", "142f3e6e393dd534",
+	"96ffcafd37a177be", "6f9d27d5f6af881b", "2f5ba68ad66f6139", "ce03bcf5b3ee0825",
+	"d6370a2ec0f94be4", "2c9f3081926a2fcf", "ce93b028e4375d48", "fe73b39302c68204",
+	"8b3e9b1da1a87efd", "ed19620205f395f3", "80d9751465eaf105", "3ae81f63f60d63ac",
+	"9cb067cc10951416", "531042690fec4908", "a5abb982ce9fed29", "964742725c84967f",
+	"bccc05c3a2daf7ce", "81830ed84a69efbc", "d07576e14d94e122", "87c03c2443318ffa",
+	"42feb3f4b4cf8d60", "e96922e539904cd1", "d5f7f1b6eccdb1d0", "8ac629c39a55ad1c",
+	"4eca2df082850b39", "de1a829bf7e60ca8", "9574c01131230dbc", "b367c8d58d1a0c5c",
+	"551b3c9981bfc6a4", "9922b0c5d24d8976", "0dd1ee4990e08f96", "625f84572bc2d36e",
+	"7b9cc50b597ae364", "a8d272f97acfa70e", "0ef02d771b21fbaf", "17c70a406fc3a50a",
+	"1b5c16073d3ff651", "6daed785492d21d0", "901be4377e1ffb91", "0c960ca09d29f40d",
 }

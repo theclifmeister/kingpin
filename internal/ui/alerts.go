@@ -427,8 +427,16 @@ func (m *Model) alertsOf(kind engine.AlertKind) []alert {
 	return out
 }
 
+// quietCount is the quiet streak retiring counts against what it needs,
+// the one count every screen gives (#502: the reserve dialog said `9 quiet
+// days` so far and the walk-away `18 more`, two numbers for one streak):
+// `9 of 14 quiet days`, as the plan's step reads `quiet days 9/14`.
+func (m *Model) quietCount() string {
+	return fmt.Sprintf("%d of %s", m.w.QuietDays, plural(m.rules.Laundering.Offshore().RetireDays, "quiet day"))
+}
+
 // retireLine is how far off retiring is (#195), once the account has
-// something in it: `retire in 12 quiet days · $2.4M short`, or that
+// something in it: `retiring: 2 of 14 quiet days · $2.4M short`, or that
 // it is open. Blank before the first dollar goes offshore, and with no
 // exit in the file.
 func (m *Model) retireLine() string {
@@ -441,8 +449,8 @@ func (m *Model) retireLine() string {
 		return theme.Good.Render(fmt.Sprintf("You could retire: %s offshore, %s quiet.", cash(w.Offshore), plural(w.QuietDays, "day")))
 	}
 	var parts []string
-	if d := off.RetireDays - w.QuietDays; d > 0 {
-		parts = append(parts, fmt.Sprintf("retire in %s", plural(d, "quiet day")))
+	if off.RetireDays > w.QuietDays {
+		parts = append(parts, "retiring: "+m.quietCount())
 	}
 	if s := off.RetireCash - w.Offshore; s > 0 {
 		parts = append(parts, cash(s)+" short")
