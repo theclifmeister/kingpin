@@ -30,6 +30,12 @@ func (m *Model) viewOver() string {
 	return m.modal(fmt.Sprintf("%s · DAY %d", m.cfg.Endings.Title(e.Cause), e.Day), m.summaryLines(), m.modalFooter())
 }
 
+// overFresh is the summary showing the morning the run ended (#498):
+// its footer lists M menu, and esc does not leave it; overSeen is any
+// later showing, a save of an ended run continued, where esc closes.
+func overFresh(m *Model) bool { return m.overFresh }
+func overSeen(m *Model) bool  { return !m.overFresh }
+
 // summaryLines is the summary's body.
 func (m *Model) summaryLines() []string {
 	w := m.w
@@ -103,8 +109,21 @@ func (m *Model) summaryLines() []string {
 	// history (#50, rankLine); the daily's date and what the run
 	// unlocked are on the first line (unlockedLine). A line, not a
 	// table.
-	out = append(out, "", theme.Gold.Bold(true).Render("SCORE  "+cash(w.Stats.Score))+theme.Subtle.Render(fmt.Sprintf("  %s over 1 + %s · %s · %s", cash(w.Offshore), plural(w.Stats.Bodies, "body"), plural(e.Day, "day"), m.rankLine())))
+	out = append(out, "", theme.Gold.Bold(true).Render("SCORE  "+cash(w.Stats.Score))+theme.Subtle.Render("  "+m.scoreWords()+fmt.Sprintf(" · %s · %s", plural(e.Day, "day"), m.rankLine())))
 	return out
+}
+
+// scoreWords is how the score was reached, spelled for a beginner
+// (#498: `$0 over 1 + 0 bodies` was opaque): `the offshore account
+// $756,000 ÷ (1 + 0 bodies)`, and with nothing offshore that only the
+// account scores.
+func (m *Model) scoreWords() string {
+	w := m.w
+	s := fmt.Sprintf("the offshore account %s ÷ (1 + %s)", cash(w.Offshore), plural(w.Stats.Bodies, "body"))
+	if w.Offshore <= 0 {
+		s += ": nothing was moved offshore, and only the account scores"
+	}
+	return s
 }
 
 // factLines is a block of facts, one a row: the label in Subtle padded

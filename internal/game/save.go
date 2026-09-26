@@ -99,6 +99,7 @@ type SlotInfo struct {
 	Saved time.Time
 	Empty bool
 	Ended string // the ending's cause when the run in the slot is over, else "" (#441)
+	Score int    // the ended run's score (Stats.Score, #498): what the menu shows for it in place of the cash left behind
 }
 
 // Slots describes every slot in order, 1 to SlotCount.
@@ -134,6 +135,7 @@ func slotInfo(slot int) SlotInfo {
 	info.Cash = w.Cash()
 	if w.Over != nil {
 		info.Ended = w.Over.Cause
+		info.Score = w.Stats.Score
 	}
 	if c := w.City(w.Player.Location); c != nil {
 		info.City = c.Name

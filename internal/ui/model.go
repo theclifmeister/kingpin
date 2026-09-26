@@ -96,6 +96,7 @@ type Model struct {
 	profile        *game.Profile       // the game around the runs (#50): loaded with the model, written when a run ends and when a daily starts
 	profileErr     string              // what loading it said, for the start menu: a corrupt one set aside, a newer one left alone
 	unlocked       []string            // what the run that just ended unlocked, for the summary
+	overFresh      bool                // the summary is showing the first time, the morning the run ended (#498): esc does not leave it, M does
 	now            func() time.Time    // the wall clock, read here alone (#50): the daily's date, the profile's; a test sets it
 	startChoice    int                 // row on the start menu: the slots, then Quit
 	status         string
@@ -514,18 +515,21 @@ func (m *Model) keyReport(key string) {
 	}
 }
 
-// keyOver is the summary of a run that ended: n starts a new one in the
-// slot, esc goes to the start menu, q quits.
+// keyOver is the summary of a run that ended: N starts a new one in the
+// slot, M goes to the start menu, as esc does once the summary has been
+// shown (#498: the morning the run ends, esc mashed through the reports
+// went past the ending unread, so there it does nothing), q quits.
 func (m *Model) keyOver(key string) (tea.Model, tea.Cmd) {
-	switch key {
-	case "N": // N, as a new run is everywhere (#445): n ends the day, and a day ended by habit here started a run
+	switch {
+	case key == "N": // N, as a new run is everywhere (#445): n ends the day, and a day ended by habit here started a run
 		_ = game.DeleteSave(m.slot)
 		m.restart()
-	case "esc":
+	case key == "M" || key == "esc" && !m.overFresh:
+		m.overFresh = false
 		m.mode = modeStart
 		m.startChoice = m.slot - 1
 		m.status = ""
-	case "q":
+	case key == "q":
 		return m.quit()
 	default:
 		m.scrollModal(key)

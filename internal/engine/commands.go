@@ -2,9 +2,11 @@ package engine
 
 import (
 	"errors"
+	"fmt"
 
 	"github.com/theclifmeister/kingpin/internal/content"
 	"github.com/theclifmeister/kingpin/internal/events"
+	"github.com/theclifmeister/kingpin/internal/format"
 	"github.com/theclifmeister/kingpin/internal/game"
 )
 
@@ -400,17 +402,58 @@ func (s *Session) Withdraw() error { return s.w.Withdraw() }
 
 // ---- the endings
 
+// PagesDue is the pages last night's move offshore files in the DA's
+// file tonight (#494, World.PagesDue at heat.toml structure_evidence);
+// every walk away waits on them.
+func (s *Session) PagesDue() int { return s.w.PagesDue(s.set.Heat.StructureEvidence()) }
+
+// settled refuses a walk away while last night's lump offshore is
+// still to be read (#494): a lump moved one night and a walk away the
+// next morning scored the whole of it free of its pages. With the day
+// ended the heat sim files them (and the file may indict), and the
+// walk away is open again the morning after.
+func (s *Session) settled() error {
+	if s.w.Over != nil {
+		return nil // the exit's own ErrGameOver says it
+	}
+	if n := s.PagesDue(); n > 0 {
+		return fmt.Errorf("%w: %s go in the DA's file first, so end the day", game.ErrPagesDue, format.Plural(n, "page"))
+	}
+	return nil
+}
+
 // Retire walks away on the account at the laundering's terms
-// (World.Retire).
-func (s *Session) Retire() error { return s.set.Laundering.Retire(s.w) }
+// (World.Retire), once last night's pages are filed (settled).
+func (s *Session) Retire() error {
+	if err := s.settled(); err != nil {
+		return err
+	}
+	return s.set.Laundering.Retire(s.w)
+}
 
 // Vanish walks away on a new identity, at what the tree owned does for
-// it (World.Vanish).
-func (s *Session) Vanish() error { return s.w.Vanish(game.FoldEffects(s.w, s.cfg.Upgrades)) }
+// it (World.Vanish), once last night's pages are filed.
+func (s *Session) Vanish() error {
+	if err := s.settled(); err != nil {
+		return err
+	}
+	return s.w.Vanish(game.FoldEffects(s.w, s.cfg.Upgrades))
+}
 
-// Crown takes the city (World.Crown).
-func (s *Session) Crown() error { return s.w.Crown() }
+// Crown takes the city (World.Crown), once last night's pages are
+// filed.
+func (s *Session) Crown() error {
+	if err := s.settled(); err != nil {
+		return err
+	}
+	return s.w.Crown()
+}
 
 // GoStraight takes the legitimate life at the file's terms (#398,
-// World.GoStraight).
-func (s *Session) GoStraight() error { return s.set.Laundering.GoStraight(s.w) }
+// World.GoStraight), once last night's pages are filed.
+func (s *Session) GoStraight() error {
+	if err := s.settled(); err != nil {
+		return err
+	}
+	return s.set.Laundering.GoStraight(s.w)
+}

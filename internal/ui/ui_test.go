@@ -1188,16 +1188,18 @@ func TestStartMenuLists(t *testing.T) {
 		t.Fatalf("slot line: %q", got)
 	}
 	// A run that is over says how it ended, in its summary's title, so it
-	// does not read as a run to go back to (#441).
+	// does not read as a run to go back to (#441), and its score where a
+	// run going on has its cash (#498): the account, not the pile left.
 	ended := *w
+	ended.Offshore = 756_000
 	ended.Over = ended.End(content.CauseIndicted, 21, "")
 	if err := game.Save(2, &ended); err != nil {
 		t.Fatal(err)
 	}
-	if got := game.Slots()[1]; got.Ended != content.CauseIndicted {
+	if got := game.Slots()[1]; got.Ended != content.CauseIndicted || got.Score != 756_000 {
 		t.Fatalf("the slot does not carry its ending: %+v", got)
 	}
-	if got := menu("an ended run")[1]; got != fmt.Sprintf("Slot 2 · INDICTED · day 200 · $63M · %s · saved just now", w.Here().Name) {
+	if got := menu("an ended run")[1]; got != fmt.Sprintf("Slot 2 · INDICTED · day 200 · score %s · %s · saved just now", cash(756_000), w.Here().Name) {
 		t.Fatalf("ended slot: %q", got)
 	}
 	if err := game.Save(2, w); err != nil {
@@ -2836,6 +2838,18 @@ func modalCases() []modalCase {
 			m.Update(key("4"))
 			if m.exit.step != 1 || m.exit.cursor != 3 {
 				t.Fatalf("the confirmation did not open on going straight: %q", m.status)
+			}
+		}},
+		{"walk away: pending", modeExit, func(t *testing.T, m *Model) { // #494: last night's lump and this morning's reserve, refused
+			lot := m.rules.Laundering.Offshore().Lot
+			m.w.Offshore, m.w.QuietDays = 2_000_000, 30
+			m.w.Laundering.Structured = game.Structuring{Day: m.w.Day, Amount: 20 * lot, Lots: m.rules.Laundering.Lots(20 * lot)}
+			m.w.Today.Reserved = 3_780
+			m.Update(key("1"))
+			m.Update(key("w"))
+			m.Update(key("enter"))
+			if m.exit.step != 0 || m.exit.err == "" {
+				t.Fatalf("the pages due did not refuse: step %d err %q", m.exit.step, m.exit.err)
 			}
 		}},
 		{"confirm new", modeConfirm, func(t *testing.T, m *Model) { m.Update(key("N")) }},

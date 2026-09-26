@@ -300,10 +300,12 @@ func (m *Model) saveProfile() {
 // finish opens the summary on a run that has ended: modeOver, the run
 // filed in the profile once (a save of an ended run opened again is
 // not filed twice: game.Profile.Record), and the ending's scene where
-// the morning plays one (#156).
+// the morning plays one (#156). The morning the run ends (scene) the
+// summary is fresh: it takes a deliberate key to leave (#498).
 func (m *Model) finish(scene bool) {
 	m.mode = modeOver
 	m.modalScroll = 0
+	m.overFresh = scene
 	m.recordRun()
 	if scene {
 		m.playOver()
@@ -363,6 +365,17 @@ func (m *Model) rankLine() string {
 	rank, of := m.profile.Rank(m.w.Stats.Score)
 	if of == 0 {
 		return "not on the record"
+	}
+	// A tie says so (#498: two runs at $0 read `1st of 2 runs`); the run
+	// itself is filed by now, so a tie is another run at its score.
+	same := 0
+	for _, r := range m.profile.Runs {
+		if r.Score == m.w.Stats.Score {
+			same++
+		}
+	}
+	if same > 1 {
+		return fmt.Sprintf("tied %s of %s", ordinal(rank), plural(of, "run"))
 	}
 	return fmt.Sprintf("%s of %s", ordinal(rank), plural(of, "run"))
 }

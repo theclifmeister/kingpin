@@ -127,7 +127,9 @@ func (m *Model) startRows() []string {
 // $1.2M · Eastside · saved 2h ago`, or `Slot 2 · empty`. A run that is
 // over carries its ending's title, the one its summary opens with
 // (`Slot 1 · INDICTED · day 21 · …`), so it does not read as a run to go
-// back to (#441); title is the endings' Title.
+// back to (#441), and its score where a run going on has its cash
+// (#498: `score $756K`, not the $45K left behind); title is the
+// endings' Title.
 func slotLine(s game.SlotInfo, now time.Time, title func(string) string) string {
 	if s.Empty {
 		return fmt.Sprintf("Slot %d · empty", s.Slot)
@@ -136,7 +138,12 @@ func slotLine(s game.SlotInfo, now time.Time, title func(string) string) string 
 	if s.Ended != "" {
 		parts = append(parts, title(s.Ended))
 	}
-	parts = append(parts, fmt.Sprintf("day %d", s.Day), cash(s.Cash))
+	parts = append(parts, fmt.Sprintf("day %d", s.Day))
+	if s.Ended != "" {
+		parts = append(parts, "score "+cash(s.Score)) // #498: the cash left behind read as what the run was worth
+	} else {
+		parts = append(parts, cash(s.Cash))
+	}
 	if s.City != "" {
 		parts = append(parts, s.City)
 	}

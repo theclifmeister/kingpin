@@ -143,7 +143,7 @@ func TestSummaryReadsTheRun(t *testing.T) {
 	for _, want := range []string{
 		"KINGPIN · DAY", "the crown lasted", "THE STORY", "day 1", "THE MONEY", "$600K · the score", "left behind",
 		"THE PEOPLE", "2, 1 of them yours", "Ziggy (runner · day 3)", "1 deal broken by them", "best of them", "Ziggy, runner, fell on day 3",
-		"THE CITY", "fear", "respect", "notoriety", "SCORE  $200K", "$600K over 1 + 2 bodies",
+		"THE CITY", "fear", "respect", "notoriety", "SCORE  $200K", "the offshore account $600K ÷ (1 + 2 bodies)",
 	} {
 		if !strings.Contains(view, want) {
 			t.Errorf("the summary lacks %q:\n%s", want, view)

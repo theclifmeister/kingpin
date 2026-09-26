@@ -325,7 +325,8 @@ var modeBindings = []binding{
 	{key: "enter", label: "give", modes: in(modeFund), when: fundLast},
 	{key: "enter", label: "decide", modes: in(modeCard), when: cardPicked}, // once a choice is picked (#461)
 	{key: "N", label: "new run", modes: in(modeOver)},
-	{key: "esc", label: "close", modes: in(modeOver)},
+	{key: "M", label: "menu", modes: in(modeOver), when: overFresh}, // #498: the ending the morning it comes is not closed by a mashed esc
+	{key: "esc", label: "close", modes: in(modeOver), when: overSeen},
 	{key: "enter", label: "next", modes: in(modeNewRun), when: newRunNext},
 	{key: "enter", label: "start", modes: in(modeNewRun), when: newRunStart},
 	{key: "D", label: "delete", modes: in(modeStart)},
@@ -355,6 +356,7 @@ var modeBindings = []binding{
 	{key: "y", label: "retire", modes: in(modeExit), when: exitRetiring},
 	{key: "y", label: "vanish", modes: in(modeExit), when: exitVanishing},
 	{key: "y", label: "crown", modes: in(modeExit), when: exitCrowning},
+	{key: "y", label: "go straight", modes: in(modeExit), when: exitStraight}, // #498: it was the one confirmation with no y listed
 	{key: "enter", label: "pin", modes: in(modeAmbitions), when: ambitionUnpinned},
 	{key: "enter", label: "unpin", modes: in(modeAmbitions), when: ambitionPinned},
 	{key: "q", label: "quit", modes: in(modeStart, modeOver)},

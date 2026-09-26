@@ -187,6 +187,9 @@ func (m *Model) alertOf(a engine.Alert) alert {
 		why = "tonight's landings"
 	case engine.AlertStraight:
 		text = theme.Gold.Render(fmt.Sprintf("The fronts earn %s a day, more than the street: go straight (walk away) or play on.", money(a.Amount)))
+	case engine.AlertVanish:
+		text = theme.Gold.Render(fmt.Sprintf("The papers are good: vanish on the new identity with %s offshore (walk away) or play on.", money(w.Offshore)))
+		why = "you could vanish"
 	case engine.AlertPlan:
 		text, why = m.planAlert(a)
 	}

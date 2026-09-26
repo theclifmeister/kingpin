@@ -5,6 +5,7 @@ import (
 	"strings"
 
 	"github.com/theclifmeister/kingpin/internal/content"
+	"github.com/theclifmeister/kingpin/internal/format"
 	"github.com/theclifmeister/kingpin/internal/game"
 	"github.com/theclifmeister/kingpin/internal/ui/theme"
 )
@@ -39,7 +40,8 @@ type exitRow struct {
 	short string // what is short, for the refusal
 }
 
-// exitRows lists the two ways out with their terms as they stand.
+// exitRows lists the four ways out with their terms as they stand,
+// every one closed while last night's lump is still to be read (#494).
 func (m *Model) exitRows() []exitRow {
 	w := m.w
 	off := m.rules.Laundering.Offshore()
@@ -54,11 +56,15 @@ func (m *Model) exitRows() []exitRow {
 		parts = append(parts, plural(d, "more quiet day"))
 	}
 	retire.short = strings.Join(parts, ", ")
-	vanish := exitRow{cause: content.CauseVanished, name: "Vanish", terms: "a new identity from the tree", open: w.CanVanish(fx)}
+	// The terms are the plans' own (#498, docs/ambitions.md): the
+	// ambitions panel and the walk away name the same conditions.
+	vanish := exitRow{cause: content.CauseVanished, name: "Vanish", terms: "a new identity from the tree, after the lawyer on call and on retainer", open: w.CanVanish(fx)}
 	if !vanish.open {
 		vanish.short = "no new identity"
 	}
-	crown := exitRow{cause: content.CauseKingpin, name: "Take the crown", terms: "the city yours: every crew gone or paying", open: w.CanCrown()}
+	end := m.cfg.Rivals.Endings
+	crown := exitRow{cause: content.CauseKingpin, name: "Take the crown", open: w.CanCrown()}
+	crown.terms = fmt.Sprintf("more than %s of home's corners and every crew gone or paying, %s running", format.Pct(end.KingpinShare, 0), plural(end.DominantDays, "day"))
 	if crown.open {
 		crown.terms = fmt.Sprintf("day %d of the reign", w.ReignDay())
 	} else {
@@ -68,10 +74,43 @@ func (m *Model) exitRows() []exitRow {
 	if days := m.cfg.Laundering.Businessman.LegitDays; straight.open {
 		straight.terms = fmt.Sprintf("the fronts at %s a day", money(m.rules.Laundering.LegitIncome(w)))
 	} else {
-		straight.terms = fmt.Sprintf("the fronts out-earn the street %s", plural(days, "night"))
-		straight.short = fmt.Sprintf("%d of %s so far", w.LegitDays, plural(days, "night"))
+		straight.terms = fmt.Sprintf("the fronts out-earn the street and goodwill tops pressure at home, %s running", plural(days, "night"))
+		straight.short = m.straightShort(days)
 	}
-	return []exitRow{retire, vanish, crown, straight}
+	rows := []exitRow{retire, vanish, crown, straight}
+	// Last night's lump offshore is read tonight (#494): every way out
+	// waits on its pages, which the session refuses too.
+	if pages := m.sess.PagesDue(); pages > 0 {
+		for i := range rows {
+			if rows[i].open {
+				rows[i].open = false
+				rows[i].short = fmt.Sprintf("%s from last night's transfer go in the DA's file tonight: end the day first", plural(pages, "page"))
+			}
+		}
+	}
+	return rows
+}
+
+// straightShort is what going straight waits on, in the legit plan's
+// own steps (#498): the nights so far and whichever of the fronts over
+// the street and goodwill over pressure fails this morning.
+func (m *Model) straightShort(days int) string {
+	parts := []string{fmt.Sprintf("%d of %s so far", m.w.LegitDays, plural(days, "night"))}
+	for _, a := range m.sess.Ambitions() {
+		if a.ID != content.AmbitionLegit {
+			continue
+		}
+		for _, s := range a.Steps {
+			switch {
+			case s.Done:
+			case s.ID == "income":
+				parts = append(parts, "the fronts under the street")
+			case s.ID == "goodwill":
+				parts = append(parts, "goodwill under pressure")
+			}
+		}
+	}
+	return strings.Join(parts, ", ")
 }
 
 // crownShort is what the crown waits on (#399), in the kingpin plan's
@@ -252,7 +291,13 @@ func (m *Model) viewExit() string {
 			cells = append(cells, []any{r.name, open})
 		}
 		lines := table([]col{{"way out", kText, 0}, {"", kText, 0}}, cells, m.exit.cursor, m.modalInner())
-		body := lines[:1:1]
+		// What this morning would leave unsettled leads the page (#494):
+		// the pages due tonight close every way out.
+		body := m.pendingLines()
+		if len(body) > 0 {
+			body = append(body, "")
+		}
+		body = append(body, lines[0])
 		for i, r := range rows {
 			at := len(body)
 			body = append(body, lines[1+i], "    "+row("terms", r.terms))
@@ -261,15 +306,16 @@ func (m *Model) viewExit() string {
 			}
 			body = append(body, "    "+row("scores", score))
 			if i == m.exit.cursor {
+				// A refusal under the row it refuses (#468), in view
+				// with the row.
+				if m.exit.err != "" {
+					for _, l := range wrap(m.exit.err, m.modalInner()-4) {
+						body = append(body, "    "+theme.Bad.Render(l))
+					}
+				}
 				// The cursor's way out in view, its terms under it.
 				m.modalFollow(len(body) - 1)
 				m.modalFollow(at)
-			}
-		}
-		if m.exit.err != "" {
-			body = append(body, "")
-			for _, l := range wrap(m.exit.err, m.modalInner()) {
-				body = append(body, theme.Bad.Render(l))
 			}
 		}
 		body = append(body, "")
@@ -284,8 +330,14 @@ func (m *Model) viewExit() string {
 	case content.CauseKingpin:
 		crews, homage := w.HomageDeals()
 		body = m.wrapLines(fmt.Sprintf("Take the crown on day %d of the reign: %s paying homage, %s a night, %s offshore. The city stays yours in the epilogue; the run ends now, on day %d.", w.ReignDay(), plural(crews, "crew"), money(homage), money(w.Offshore), w.Day))
+	case content.CauseBusinessman:
+		// Its own copy (#498): it read as the vanish's.
+		body = m.wrapLines(fmt.Sprintf("Go straight on %s: the fronts at %s a day, the street given up, %s offshore. The DA's file goes to the archive; the run ends now, on day %d.", plural(len(w.Fronts), "front"), money(m.rules.Laundering.LegitIncome(w)), money(w.Offshore), w.Day))
 	default:
 		body = m.wrapLines(fmt.Sprintf("Vanish on the new identity with %s offshore. The DA keeps looking; the papers are good. The run ends now, on day %d.", money(w.Offshore), w.Day))
+	}
+	if pending := m.pendingLines(); len(pending) > 0 {
+		body = append(append(body, ""), pending...)
 	}
 	body = append(body, "", theme.Gold.Render(fmt.Sprintf("Score %s: %s over 1 + %s.", cash(w.Score()), cash(w.Offshore), plural(w.Stats.Bodies, "body"))))
 	body = append(body, theme.Subtle.Render(fmt.Sprintf("Left behind: %s dirty, %s clean, %s in stock, %s.", cash(w.Player.DirtyCash), cash(w.Player.CleanCash), plural(w.TotalStock(), "unit"), plural(len(w.Crew.Members), "member"))))
@@ -300,3 +352,24 @@ func exitConfirming(m *Model) bool { return m.mode == modeExit && m.exit.step ==
 func exitRetiring(m *Model) bool  { return exitConfirming(m) && m.exit.cursor == 0 }
 func exitVanishing(m *Model) bool { return exitConfirming(m) && m.exit.cursor == 1 }
 func exitCrowning(m *Model) bool  { return exitConfirming(m) && m.exit.cursor == 2 }
+func exitStraight(m *Model) bool  { return exitConfirming(m) && m.exit.cursor == 3 }
+
+// pendingLines are what the walk away would leave unsettled this
+// morning (#494): the pages last night's lump files tonight, which
+// close every way out until the day is ended, and a reserve made today,
+// out of the pile already and not in the account until tonight, so a
+// walk away this morning neither scores it nor leaves it behind.
+func (m *Model) pendingLines() []string {
+	var out []string
+	if pages := m.sess.PagesDue(); pages > 0 {
+		for _, l := range wrap(fmt.Sprintf("Last night's transfer offshore puts %s in the DA's file tonight: end the day first.", plural(pages, "page")), m.modalInner()) {
+			out = append(out, theme.Bad.Render(l))
+		}
+	}
+	if r := m.w.ReservedToday(); r > 0 {
+		for _, l := range wrap(fmt.Sprintf("%s lands offshore tonight: end the day first, or it is neither scored nor left behind.", money(r)), m.modalInner()) {
+			out = append(out, theme.Warning.Render(l))
+		}
+	}
+	return out
+}
