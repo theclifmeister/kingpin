@@ -81,8 +81,13 @@ type RivalState struct {
 	Scouted   int
 	LastRaid  int // day the police last took a corner off it on your tip; 0 never
 	RaidedOut int // day a raid took its last corner (#384), the landless spell absorb counts when it is later than Routed; 0 never
-	Away      int // heads bought off or arrested and not yet back: what it wants less, for a while
-	AwayDay   int // day the last of them came back, or was sent away; the next returns away_days later
+	// Spell is the day the landless spell began that a claim it holds
+	// under settle_days has not yet ended (#495): lose that claim and
+	// the clock runs on from here (RunOut), not from the new rout; 0
+	// while it has none, or has settled, the run before.
+	Spell   int
+	Away    int // heads bought off or arrested and not yet back: what it wants less, for a while
+	AwayDay int // day the last of them came back, or was sent away; the next returns away_days later
 
 	// The table (#43): a faction among factions. Home is the city it
 	// lives in ("" reads as home, the one rival's city before #43);
@@ -130,6 +135,18 @@ type RivalState struct {
 // Scouting reports whether the faction is on its way to a city it has
 // not arrived in (#341).
 func (r RivalState) Scouting() bool { return r.ScoutingCity != "" && r.Arrived == 0 }
+
+// RunOut is the day its landless spell began, the clock absorb and
+// strand_days count from (#384, #389): the later of Routed and
+// RaidedOut, or, where a claim it held under settle_days came between,
+// the day the spell before it began (Spell, #495). 0: never run out.
+func (r RivalState) RunOut() int {
+	last := max(r.Routed, r.RaidedOut)
+	if r.Spell > 0 && r.Spell < last {
+		return r.Spell
+	}
+	return last
+}
 
 // Gone reports whether the faction is out of the game: absorbed by
 // another or fragmented after its leader was taken (#43). A gone faction

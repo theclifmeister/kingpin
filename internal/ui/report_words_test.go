@@ -69,11 +69,13 @@ func TestOneNumberOnEveryScreen(t *testing.T) {
 	}
 }
 
-// Going straight against a street that sold nothing (#502): a lie-low
-// night reads `against $0 last night`, not the $1 the step was bumped to.
+// Going straight against a street that sold nothing (#502): a run that
+// never sold reads `against the street's $0 a night`, not the $1 the
+// step was bumped to (#493 reads the street as the run's average night
+// too, so a night laid low is no longer a $0 street).
 func TestLieLowStreetIsZero(t *testing.T) {
 	st := engine.AmbitionStepView{Unit: game.UnitIncome, Have: 500, Need: 0, Done: true}
-	if got := stepWords(st); got != "$500/day against $0 last night" {
+	if got := stepWords(st); got != "$500/day against the street's $0 a night" {
 		t.Errorf("a lie-low night's street: %q", got)
 	}
 	m := richModel(t, 120, 40)

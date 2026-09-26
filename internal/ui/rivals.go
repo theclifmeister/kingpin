@@ -44,8 +44,10 @@ func (m *Model) eyeingWord(r *game.RivalState) string {
 
 // downWords is what keeps a faction from counting toward the crown's
 // "crews down" and for how long, in the rule's own terms (#472,
-// rivals.Sim.Down): `run out 3d ago; gone in 27d unless it claims
-// again`, `holds 2 corners; no clock while it holds one`; "" for one
+// rivals.Sim.Down): `run out 3d ago; gone in 27d unless it keeps a
+// claim 30d`, `holds 2 corners; no clock while it holds one`, `holds 1
+// corner; run out 40d ago, the clock runs on unless it holds one 12d
+// more` (a claim not yet settled, #495); "" for one
 // that counts (gone, or paying you homage). It describes and pushes
 // nothing (#413).
 func (m *Model) downWords(r *game.RivalState) string {
@@ -77,14 +79,26 @@ func (m *Model) downWords(r *game.RivalState) string {
 		return "waiting for room to move in; stands down " + in(d.GoneOn) + " if it finds none"
 	case d.Due > 0:
 		return "waiting for room to move in"
+	case d.Corners > 0 && d.Settles > 0:
+		// A claim not yet settled only pauses the clock (#495).
+		return "holds " + plural(d.Corners, "corner") + "; " + ago(d.Since) + ", the clock runs on unless it holds one " + strings.TrimPrefix(in(d.Settles), "in ") + " more"
 	case d.Corners > 0:
 		return "holds " + plural(d.Corners, "corner") + "; no clock while it holds one"
 	case d.Rich && d.GoneOn > 0:
-		return ago(d.Since) + ", can afford a claim; gone " + in(d.GoneOn) + " unless it claims again, sooner if broke"
+		return ago(d.Since) + ", can afford a claim; gone " + in(d.GoneOn) + " unless it " + m.claimWords() + ", sooner if broke"
 	case d.Rich:
 		return ago(d.Since) + ", can afford a claim; gone once it cannot"
 	}
-	return ago(d.Since) + "; gone " + in(d.GoneOn) + " unless it claims again"
+	return ago(d.Since) + "; gone " + in(d.GoneOn) + " unless it " + m.claimWords()
+}
+
+// claimWords is what stops a run-out faction's clock: a claim, or since
+// #495 a claim it keeps settle_days.
+func (m *Model) claimWords() string {
+	if n := m.rules.Rivals.Factions().SettleDays; n > 0 {
+		return fmt.Sprintf("keeps a claim %dd", n)
+	}
+	return "claims again"
 }
 
 // factionCols are the rivals screen's FACTIONS table: who, where, what

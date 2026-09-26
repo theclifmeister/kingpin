@@ -139,13 +139,17 @@ func (s *Sim) absorb(w *game.World, t *game.Tick, r *game.RivalState) {
 		return
 	}
 	if w.RivalHeldBy(r.Faction()) > 0 {
+		s.settled(w, t, r)
 		return
 	}
 	if r.Routed == 0 && r.RaidedOut == 0 {
 		r.RaidedOut = t.Day
 	}
+	if s.cfg.Factions.SettleDays > 0 {
+		r.Spell = r.RunOut() // the spell tonight's clock runs from, kept through a claim it does not keep (#495)
+	}
 	raided := r.RaidedOut > r.Routed
-	since := t.Day - max(r.Routed, r.RaidedOut)
+	since := t.Day - r.RunOut()
 	if since < s.cfg.Factions.AbsorbDays {
 		return
 	}
@@ -167,6 +171,36 @@ func (s *Sim) absorb(w *game.World, t *game.Tick, r *game.RivalState) {
 	s.retire(w, t, r)
 	w.Stats.Absorbed++
 	t.Emit(ev)
+}
+
+// settled is a run-out faction on a corner again (#495): until it has
+// held one settle_days its landless spell is only paused (Spell, which
+// absorb stamps every night it stands landless, keeps the day the spell
+// began, and a rout picks the clock up from there, RunOut), and once it
+// has, it has settled and the spell is over. Before, every claim
+// restarted the clock, so a faction that claimed a corner and lost it
+// every regroup never stood down and the crown waited on it. With no
+// settle_days nothing is kept, the run before. A read of the corners'
+// Since, no dice.
+func (s *Sim) settled(w *game.World, t *game.Tick, r *game.RivalState) {
+	if n := s.cfg.Factions.SettleDays; n > 0 && r.Spell > 0 && t.Day-s.Claimed(w, r) >= n {
+		r.Spell = 0
+	}
+}
+
+// Claimed is the day a faction took the longest-held of its corners
+// (Corner.Since), anywhere: how long it has stood somewhere; 0 with
+// none.
+func (s *Sim) Claimed(w *game.World, r *game.RivalState) int {
+	day, found := 0, false
+	for _, cid := range w.CityOrder {
+		for _, c := range w.Cities[cid].Corners {
+			if owns(c, r) && (!found || c.Since < day) {
+				day, found = c.Since, true
+			}
+		}
+	}
+	return day
 }
 
 // scatter is a seat at home that never found its feet standing down

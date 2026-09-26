@@ -743,11 +743,14 @@ func (s *Sim) quiet(w *game.World, t *game.Tick) {
 
 // legit counts the days the fronts out-earn the street (#49, the
 // businessman ending): a day counts when LegitIncome, every front's own
-// income net of its upkeep, is over zero and over what the street sold
-// for tonight (the tick's PlayerSold revenue, the market sim's, which
-// steps before this one) and home's goodwill is over its pressure (the
-// law's, which steps before this one too); a day that fails zeroes the
-// count, and at [businessman] legit_days the run ends a businessman.
+// income net of its upkeep, is over zero and over the street, the more
+// of what it sold for tonight (the tick's PlayerSold revenue, the
+// market sim's, which steps before this one) and its average night over
+// the run (World.StreetAverage, #493: a night laid low sold ~$0, and
+// one front level out-earned it), and home's goodwill is over its
+// pressure (the law's, which steps before this one too); a day that
+// fails zeroes the count, and at [businessman] legit_days the ending
+// opens.
 // With no legit_days in the file nothing is counted, so a run on the
 // file before the table is the run it was. A read, no dice.
 func (s *Sim) legit(w *game.World, t *game.Tick) {
@@ -761,6 +764,7 @@ func (s *Sim) legit(w *game.World, t *game.Tick) {
 			street += ev.Revenue
 		}
 	}
+	street = max(street, w.StreetAverage(t.Day))
 	home := w.Home()
 	income := s.LegitIncome(w)
 	if income <= 0 || income <= street || home.Goodwill <= home.Pressure {

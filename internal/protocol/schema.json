@@ -662,6 +662,9 @@
         "PushHeat": {
           "type": "number"
         },
+        "SettleDays": {
+          "type": "integer"
+        },
         "SharedPace": {
           "type": "boolean"
         },
@@ -712,7 +715,8 @@
         "HomageCut",
         "HomageChance",
         "StrandDays",
-        "SuccessionMuscle"
+        "SuccessionMuscle",
+        "SettleDays"
       ],
       "type": "object"
     },
@@ -9596,6 +9600,9 @@
         "Scouting": {
           "type": "boolean"
         },
+        "Settles": {
+          "type": "integer"
+        },
         "Since": {
           "type": "integer"
         }
@@ -9606,6 +9613,7 @@
         "Scouting",
         "Corners",
         "Since",
+        "Settles",
         "GoneOn",
         "Rich"
       ],

@@ -112,12 +112,46 @@ func (s *Sim) expand(w *game.World, t *game.Tick) {
 			return slices.Contains(home, r) && r.Cell != ""
 		})
 	}
+	if s.CrownClock(w) {
+		return // the city is yours but for the clocks: no new faction is drawn (#495)
+	}
 	for _, cid := range w.CityOrder {
 		if cid == w.Home().ID || s.Take(w, cid) < e.TakeMin || s.lived(w, cid) {
 			continue
 		}
 		s.sendScouts(w, t, cid)
 	}
+}
+
+// CrownClock reports whether the crown waits only on clocks (#495): you
+// hold more than kingpin_share of home's corners, a faction has been on
+// the ground, and none still standing holds a corner anywhere, bar a
+// run-out one on a claim it has not yet kept settle_days (its clock is
+// only paused, Spell): every one is gone, paying you homage, run out on
+// its clock, on its way or yet to arrive. While it holds the money
+// draws no new faction (expand sends no scouts): a playtest held all
+// ten corners at home and watched a sixth and a seventh faction drawn
+// to Bayport push the reign from day 263 to past 391. A faction already
+// on its way still comes, and a seat in the wings still moves in on its
+// day; the rivals screen lists each with its day. A read, no dice.
+func (s *Sim) CrownClock(w *game.World) bool {
+	if s.cfg.Endings.DominantDays <= 0 || !s.HoldsTheCity(w) {
+		return false
+	}
+	fought := false
+	for _, r := range w.Rivals {
+		if r == nil {
+			continue
+		}
+		fought = fought || r.Arrived > 0
+		if r.Gone() || w.DealWith(r.Faction(), game.DealHomage) != nil {
+			continue
+		}
+		if r.Spell == 0 && w.RivalHeldBy(r.Faction()) > 0 {
+			return false
+		}
+	}
+	return fought
 }
 
 // lived reports whether a faction lives in a city, or is on its way
@@ -396,11 +430,12 @@ func (s *Sim) late(w *game.World, r *game.RivalState, day int) bool {
 }
 
 // Stranded is the day a faction on the ground lost its last corner (the
-// later of Routed and RaidedOut), or 0 while it holds one: the landless
+// later of Routed and RaidedOut, or the spell a claim it did not keep
+// only paused, RunOut, #495), or 0 while it holds one: the landless
 // spell absorb and the grace count from (#384, #389).
 func (s *Sim) Stranded(w *game.World, r *game.RivalState) int {
 	if r.Arrived == 0 || w.RivalHeldBy(r.Faction()) > 0 {
 		return 0
 	}
-	return max(r.Routed, r.RaidedOut)
+	return r.RunOut()
 }

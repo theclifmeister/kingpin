@@ -207,11 +207,17 @@ type FactionDown struct {
 	Due      int
 	Scouting bool
 	// Corners is what it holds: no clock runs while it holds one, and a
-	// claim stops one that was running.
+	// claim it keeps settle_days stops one that was running (#495).
 	Corners int
 	// Since is the day its landless spell began (the rout or the raid
-	// off its last corner); 0 while it holds a corner or has not arrived.
+	// off its last corner, or the spell a claim it did not keep only
+	// paused, RivalState.RunOut); while it holds a corner, the spell its
+	// claim has paused until Settles, 0 with none; 0 before it arrives.
 	Since int
+	// Settles is the day a run-out faction's claim has stood settle_days
+	// and ends its spell (#495); 0 with none: lose the corner before
+	// then and the clock runs on from Since.
+	Settles int
 	// GoneOn is the day it goes if nothing changes (no claim, the chest
 	// as it is): absorbed or scattered for a landless faction, stood down
 	// for a seat that never found room; 0 for never.

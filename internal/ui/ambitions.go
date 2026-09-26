@@ -220,10 +220,12 @@ func stepWords(st engine.AmbitionStepView) string {
 		return fmt.Sprintf("%s %s, %s in hand", money(need), st.Unit, money(have))
 	case game.UnitDays:
 		return fmt.Sprintf("%d of %s", have, plural(need, "day"))
+	case game.UnitReign:
+		return fmt.Sprintf("day %d of the reign", have)
 	case game.UnitPoints:
 		return fmt.Sprintf("%.0f against %.0f", st.Have, st.Need)
 	case game.UnitIncome:
-		return fmt.Sprintf("%s/day against %s last night", money(have), money(need))
+		return fmt.Sprintf("%s/day against the street's %s a night", money(have), money(need))
 	}
 	return fmt.Sprintf("%d of %d", have, need)
 }
@@ -234,6 +236,8 @@ func stepPart(st engine.AmbitionStepView) string {
 	switch st.Unit {
 	case game.UnitDays, game.UnitCorners, game.UnitCount:
 		return fmt.Sprintf("%s %d/%d", st.Label, int(st.Have), int(st.Need))
+	case game.UnitReign:
+		return st.Label + " " + stepWords(st)
 	}
 	frac := game.AmbitionStep{Have: st.Have, Need: st.Need, Done: st.Done}.Frac()
 	return st.Label + " " + format.Pct(frac, 0)

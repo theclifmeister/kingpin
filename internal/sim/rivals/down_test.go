@@ -91,3 +91,67 @@ func landless(w *game.World, r *game.RivalState) {
 		}
 	}
 }
+
+// A claim it did not keep does not restart a run-out faction's clock
+// (#495): routed broke, it claims a corner and loses it again inside
+// settle_days, and it scatters absorb_days after the first rout, as the
+// read says the morning it loses it; one that keeps its claim
+// settle_days has settled, and its next rout starts a new clock.
+func TestAClaimNotKeptKeepsTheClock(t *testing.T) {
+	cfg := table(3)
+	settle, absorb := cfg.Rivals.Factions.SettleDays, cfg.Rivals.Factions.AbsorbDays
+	if settle <= 0 {
+		t.Skip("settle_days is boxed")
+	}
+	for _, hold := range []int{5, settle + 1} {
+		w, s := world(t, cfg, 4)
+		f := w.Rivals[2]
+		for _, o := range w.Rivals[:2] { // nobody else to push it off its claim
+			landless(w, o)
+			o.Arrived, o.Absorbed = 1, 1
+		}
+		landless(w, f)
+		f.Arrived, f.Observed, f.Muscle, f.Cash = 1, true, 0, 0
+		w.Day = 40
+		f.Routed, f.LastTakenBy = w.Day, ""
+		first := w.Day
+		for range 5 {
+			f.Cash = 0
+			step(w, s)
+		}
+		if f.Gone() || f.RunOut() != first {
+			t.Fatalf("hold %d: landless 5 nights, gone %v, run out day %d, want %d", hold, f.Gone(), f.RunOut(), first)
+		}
+		c := w.Corner("oldmill")
+		c.Owner, c.Faction, c.Runner, c.Enforcer, c.Since = game.OwnerRival, f.Faction(), 0, 0, w.Day
+		for range hold {
+			step(w, s)
+			if c.FactionID() != f.Faction() {
+				t.Fatalf("hold %d: the corner changed hands on day %d", hold, w.Day)
+			}
+		}
+		if d := s.Down(w, f); d.Corners != 1 || (hold < settle) != (d.Settles > 0) {
+			t.Fatalf("hold %d: on its claim %+v", hold, d)
+		}
+		landless(w, f)
+		f.Routed, f.Cash = w.Day, 0
+		want := first
+		if hold >= settle {
+			want = w.Day
+		}
+		d := s.Down(w, f)
+		if d.Since != want || d.GoneOn != max(w.Day+1, want+absorb) {
+			t.Fatalf("hold %d: routed again on day %d: %+v, want the clock from day %d", hold, w.Day, d, want)
+		}
+		for !f.Gone() {
+			if w.Day > d.GoneOn+5 {
+				t.Fatalf("hold %d: never scattered; the read said day %d", hold, d.GoneOn)
+			}
+			f.Cash = 0
+			step(w, s)
+		}
+		if f.Absorbed != d.GoneOn {
+			t.Fatalf("hold %d: scattered on day %d, the read said day %d", hold, f.Absorbed, d.GoneOn)
+		}
+	}
+}
