@@ -80,7 +80,12 @@ func (s *Sim) Name() string { return "news" }
 // articles are the template functions the article rewrite calls: `a`
 // is format.A, `A` the same at the head of a sentence.
 var articles = template.FuncMap{
-	"a": format.A,
+	"a":   format.A,
+	"the": format.The,
+	"The": func(name string) string {
+		s := format.The(name)
+		return strings.ToUpper(s[:1]) + s[1:]
+	},
 	"A": func(noun string) string {
 		s := format.A(noun)
 		return strings.ToUpper(s[:1]) + s[1:]
@@ -91,14 +96,20 @@ var articles = template.FuncMap{
 // template source: `a {{.City}}`, `An {{.Product}}`.
 var articleRE = regexp.MustCompile(`\b([Aa])n? \{\{(\.\w+)\}\}`)
 
-// article rewrites every `a {{.X}}` in a template source to `{{a .X}}`,
+// article rewrites every `a {{.X}}` in a template source to `{{a .X}}`
+// and every `the {{.X}}` to `{{the .X}}`,
 // so the article agrees with the value (`an Eastside outfit`, `a
 // Bayport outfit`; #148: the file wrote `a {{.City}}` and Eastside
 // read `a Eastside`). The value alone is what decides it, so a
 // template's own words are left as written.
 func article(src string) string {
-	return articleRE.ReplaceAllString(src, "{{$1 $2}}")
+	return theRE.ReplaceAllString(articleRE.ReplaceAllString(src, "{{$1 $2}}"), "{{${1}he $2}}")
 }
+
+// theRE is a definite article written before a field: `the {{.Route}}`,
+// rewritten to `{{the .Route}}` so a name with its own (`The Channel`)
+// is not given a second (#502).
+var theRE = regexp.MustCompile(`\b([Tt])he \{\{(\.\w+)\}\}`)
 
 // HasTemplate reports whether a template key exists; tests use it to make
 // sure every event kind the sims emit can be reported.
@@ -269,7 +280,12 @@ func (s *Sim) Step(w *game.World, t *game.Tick) {
 		switch {
 		case b.Credit:
 			// On the book, not out of the till (#72).
-			line = fmt.Sprintf("Bought %d %s at %s%s on credit = %s on the book", b.Qty, w.ProductName(b.Product), format.Price(b.UnitPrice), from, format.Money(b.Cost))
+			// The unit is the credit price; its markup is said (#502).
+			markup := ""
+			if sup := w.Supplier(b.Supplier); sup != nil && sup.CreditRatio > 1 {
+				markup = " (" + format.Times(sup.CreditRatio, 2) + " on credit)"
+			}
+			line = fmt.Sprintf("Bought %d %s at %s%s%s = %s on the book", b.Qty, w.ProductName(b.Product), format.Price(b.UnitPrice), markup, from, format.Money(b.Cost))
 		case b.Contract && b.Lieutenant != "":
 			r.book(game.FlowPurchases, -b.Cost, 0)
 			line = fmt.Sprintf("%s's restock: %d %s at %s%s = -%s", b.Lieutenant, b.Qty, w.ProductName(b.Product), format.Price(b.UnitPrice), from, format.Money(b.Cost))
@@ -624,6 +640,10 @@ func robberyLine(w *game.World, ev events.CornerRobbed) string {
 			s += " and"
 		}
 		s += " " + format.Money(ev.Cash)
+	}
+	if ev.Enforcer != "" {
+		// The guard was there (#502): name them and what they bought.
+		return s + fmt.Sprintf(". %s was on the corner and cut the odds from %s to %s a night; it happened anyway.", ev.Enforcer, format.Pct(ev.Bare, 1), format.Pct(ev.Odds, 1))
 	}
 	return s + ". An enforcer on the corner would have helped."
 }

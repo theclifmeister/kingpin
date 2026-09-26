@@ -435,10 +435,17 @@ func (s *Sim) step(w *game.World, t *game.Tick, rng game.Rand, fx game.Effects, 
 
 		// 2. Robbery. The stick-up takes a slice of today's takings and of
 		// the stock, sized by this corner's share of what you work.
-		if rng.Float64() >= s.robberyChance(fx, w, c) {
+		odds := s.robberyChance(fx, w, c)
+		if rng.Float64() >= odds {
 			continue
 		}
-		ev := events.CornerRobbed{Day: t.Day, Corner: c.ID, Name: c.Name, StockLost: map[string]int{}}
+		ev := events.CornerRobbed{Day: t.Day, Corner: c.ID, Name: c.Name, StockLost: map[string]int{}, Odds: odds}
+		// Who stood guard, so the report never asks for an enforcer who
+		// was there (#502).
+		if m := w.Crew.Member(c.Enforcer); m != nil && c.Enforcer != 0 {
+			ev.Enforcer = m.Name
+			ev.Bare = max(0, min(1, s.cfg.Territory.RobberyChance*c.Risk*fx.RobberyMul*s.deedMul(c)))
+		}
 		ids := w.SortedProducts()
 		for _, id := range ids {
 			frac := 0.0

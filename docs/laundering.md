@@ -32,6 +32,8 @@ The roles (sized so every pinned band and pin holds, below):
 | casino | the cartel's wash (#391) | none: a pure wash |
 | bank | the cartel's wash (#391) | `offshore_fee_mul` 0.5 |
 
+**The wash's MONEY line** says what went through the fronts (`washLine`, #502): a night nothing was washed reads `Nothing washed: upkeep -$150, the businesses earned +$400 clean`, never `Washed $0 clean through 0 fronts` (a playtest read that beside a cash-out's +$10,800 on the laundering flow). A supply contract's short of cash says what took it (`tookLine`, #459): the wash last night and the till it left, or, where the day spent the till down after the wash, `the till was down to $18,000 when it bought` (`SupplyShort.Till`; it read `left the till $168,479` on a morning the player had spent down to $18K; `TestStarvedRoutineSaysWhy`).
+
 **The rot** (#392, `docs/trophies.md`): `[laundering] rot_line` ($50M) and `rot` (0.001): every night, after the wash, `rot` of the dirty pile over the line comes off it (`CashRotted`, report-only, booked to losses; `Stats.Rotted`). Nothing at or under the line, and no policy below the cartel keeps a pile over it.
 
 **The cartel's wash** (#391, `docs/exports.md`): `[[front]]` gained `asset`, an asset that must stand before the front is on offer (`FrontOffer.Asset`, `AssetName`; `Locked` reads it beside peak cash; `BuyFront` refuses `nobody will sell you Casino until The Dutchman's Book stands`; `validateAssets` checks the id at load).

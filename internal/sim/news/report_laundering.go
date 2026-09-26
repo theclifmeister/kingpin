@@ -2,6 +2,7 @@ package news
 
 import (
 	"fmt"
+	"strings"
 
 	"github.com/theclifmeister/kingpin/internal/events"
 	"github.com/theclifmeister/kingpin/internal/format"
@@ -20,15 +21,8 @@ func (r *reporter) reportLaundering(e events.Event) bool {
 		r.book(game.FlowInvestments, -ev.Cost, 0)
 		rep.Money = append(rep.Money, fmt.Sprintf("Bought %s -%s. It opens today.", ev.Name, format.Money(ev.Cost)))
 	case events.CashLaundered:
-		line := fmt.Sprintf("Washed %s clean through %s", format.Money(ev.Amount), format.Plural(ev.Fronts, "front"))
-		if ev.Upkeep > 0 {
-			line += fmt.Sprintf(", upkeep -%s", format.Money(ev.Upkeep))
-		}
-		if ev.Earned > 0 {
-			line += fmt.Sprintf(", the businesses earned +%s clean", format.Money(ev.Earned))
-		}
 		r.book(game.FlowLaundering, -ev.Amount, ev.Amount-ev.Upkeep+ev.Earned)
-		rep.Money = append(rep.Money, line)
+		rep.Money = append(rep.Money, washLine(ev))
 	case events.FrontInvested:
 		// Levels bought at a front (#192): bookkeeping, and the
 		// growth is news only when it crosses the line (FrontGrew).
@@ -109,4 +103,25 @@ func (r *reporter) reportLaundering(e events.Event) bool {
 		return false
 	}
 	return true
+}
+
+// washLine is the night's wash for the MONEY section. A night nothing
+// went through the fronts says so by its upkeep and earnings alone
+// (#502: "Washed $0 clean through 0 fronts" on a night a cash-out put
+// +$10,800 on the laundering line).
+func washLine(ev events.CashLaundered) string {
+	var parts []string
+	if ev.Amount > 0 {
+		parts = append(parts, fmt.Sprintf("Washed %s clean through %s", format.Money(ev.Amount), format.Plural(ev.Fronts, "front")))
+	}
+	if ev.Upkeep > 0 {
+		parts = append(parts, fmt.Sprintf("upkeep -%s", format.Money(ev.Upkeep)))
+	}
+	if ev.Earned > 0 {
+		parts = append(parts, fmt.Sprintf("the businesses earned +%s clean", format.Money(ev.Earned)))
+	}
+	if ev.Amount == 0 && len(parts) > 0 {
+		parts[0] = "Nothing washed: " + parts[0]
+	}
+	return strings.Join(parts, ", ")
 }

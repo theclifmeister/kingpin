@@ -140,11 +140,7 @@ func (r *reporter) reportMarket(e events.Event) bool {
 		// columns, and a line under it says what took the cash (#459):
 		// a playtest's contracts ran short every morning, the why cut
 		// off, on what the night before had washed.
-		var took string
-		if n := len(w.Flows); ev.Why == "cash" && n > 0 && w.Flows[n-1].Line(game.FlowLaundering).Dirty < 0 {
-			last := w.Flows[n-1]
-			took = fmt.Sprintf("  the wash took %s last night and left the till %s", format.Money(-last.Line(game.FlowLaundering).Dirty), format.Money(last.Closing.Dirty))
-		}
+		took := tookLine(w, ev)
 		switch {
 		case ev.Lieutenant != "":
 			rep.Crew = append(rep.Crew, fmt.Sprintf("%s could not keep %s stocked%s: %d under the level, %s.", ev.Lieutenant, w.ProductName(ev.Product), r.in(ev.City), ev.Short, why))
@@ -285,4 +281,22 @@ func (r *reporter) reportMarket(e events.Event) bool {
 		return false
 	}
 	return true
+}
+
+// tookLine is what took a contract's cash (#459), the line under its
+// short: the wash last night and the till it left, or, where the day
+// spent the till down after the wash, the till the contract bought on
+// (#502: "the wash took $2,000 last night and left the till $168,479" on
+// a morning the player had spent down to $18K). "" when the wash took
+// nothing or the short was not cash.
+func tookLine(w *game.World, ev events.SupplyShort) string {
+	n := len(w.Flows)
+	if ev.Why != "cash" || n == 0 || w.Flows[n-1].Line(game.FlowLaundering).Dirty >= 0 {
+		return ""
+	}
+	last := w.Flows[n-1]
+	if ev.Till < last.Closing.Dirty {
+		return fmt.Sprintf("  the till was down to %s when it bought", format.Money(ev.Till))
+	}
+	return fmt.Sprintf("  the wash took %s last night and left the till %s", format.Money(-last.Line(game.FlowLaundering).Dirty), format.Money(last.Closing.Dirty))
 }

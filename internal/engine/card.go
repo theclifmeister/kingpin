@@ -60,13 +60,19 @@ func ChoiceChips(cfg *content.Config, r Rules, w *game.World, c *game.Card) [][]
 	return out
 }
 
+// minChip is the smallest move a chip shows (#501): under it the move
+// rounds to nothing, so it is no chip.
+const minChip = 0.5
+
 // chips is one choice's changes in words.
 func chips(cfg *content.Config, r Rules, w *game.World, c *game.Card, all []game.Change) []Chip {
 	// A move too small to print is no chip (#465: a war at 0.03 clamped
-	// to zero read `war with Slick Eddie's crew −0.0`).
+	// to zero read `war with Slick Eddie's crew −0.0`), and a move that
+	// rounds to nothing is too small to mean anything (#501: `respect
+	// −0.1` and `war −0.1` late in a run): every chip is a whole number.
 	var changes []game.Change
 	for _, ch := range all {
-		if math.Abs(ch.Delta()) >= 0.05 {
+		if math.Abs(ch.Delta()) >= minChip {
 			changes = append(changes, ch)
 		}
 	}
@@ -226,10 +232,7 @@ func good(ok bool) string {
 // signed is a gauge's move with its sign, `+8` or `−8`: whole numbers,
 // a tenth when the move is under one.
 func signed(v float64) string {
-	s := fmt.Sprintf("%.0f", math.Abs(v))
-	if math.Abs(v) < 1 {
-		s = fmt.Sprintf("%.1f", math.Abs(v))
-	}
+	s := fmt.Sprintf("%.0f", math.Round(math.Abs(v)))
 	if v < 0 {
 		return "−" + s
 	}

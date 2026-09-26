@@ -1126,6 +1126,17 @@ func (m *Model) afterRow(sup *game.Supplier, qty, cost, have int, credit bool) s
 	return row("after", pile+" · "+stash)
 }
 
+// creditTerms is a buy on the book as the debt will read (#502: the
+// dialog quoted `$2,985 at ×1.15` over a connect's $216.27 and never
+// said what a unit came to): the total, the unit it is, and the markup
+// over the cash price a unit, `$2,985: $248.71 a unit, ×1.15 the cash
+// $216.27`. The total is the quote Buy charges and the debt it adds.
+func (m *Model) creditTerms(sup *game.Supplier, id string, qty int) string {
+	w := m.w
+	mk := w.BuyMarkup(sup.City)
+	return fmt.Sprintf("%s: %s a unit, %s the cash %s", money(w.Quote(sup, id, qty, true)), price(sup.UnitAt(id, qty, true, mk)), format.Times(sup.CreditRatio, 2), price(sup.UnitAt(id, qty, false, mk)))
+}
+
 // buyTermsRows is step 2 of a buy: once or keep at (#113) and cash or
 // credit (#72), in the dial convention, and what the notches mean.
 func (m *Model) buyTermsRows(d dialog, city, id string, sup *game.Supplier) []string {
@@ -1153,7 +1164,8 @@ func (m *Model) buyTermsRows(d dialog, city, id string, sup *game.Supplier) []st
 		if sup.Debt > 0 {
 			due = sup.DebtDue
 		}
-		body = append(body, row("credit", fmt.Sprintf("%s at %s · due day %d · %s of the book left", money(w.Quote(sup, id, qty, true)), format.Times(sup.CreditRatio, 2), due, cash(sup.Credit()))))
+		body = append(body, row("credit", m.creditTerms(sup, id, qty)))
+		body = append(body, row("", fmt.Sprintf("due day %d · %s of the book left", due, cash(sup.Credit()))))
 		if sup.Debt > 0 {
 			body = append(body, theme.Warning.Render(fmt.Sprintf("You owe them %s already, due day %d.", money(sup.Debt), sup.DebtDue)))
 		} else {

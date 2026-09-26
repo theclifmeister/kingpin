@@ -232,12 +232,14 @@ func (InvestigationRun) Kind() string { return "InvestigationRun" }
 
 // CrewSkimmed reports takings that went missing. It never names names.
 // FromWash is the part of Amount an accountant took out of the wash, in
-// clean cash.
+// clean cash. Cuts is what the lieutenants kept as their cut tonight,
+// which the skim is on top of and never part of (#502).
 type CrewSkimmed struct {
 	Day      int
 	Amount   int
 	Skimmers int
 	FromWash int
+	Cuts     int
 }
 
 func (CrewSkimmed) Kind() string { return "CrewSkimmed" }
@@ -287,12 +289,17 @@ type CornerLost struct {
 func (CornerLost) Kind() string { return "CornerLost" }
 
 // CornerRobbed is a stick-up on a worked corner: cash and product gone.
+// Enforcer names the enforcer posted there, "" for none (#502), and Odds
+// and Bare are the night's chance of a stick-up with them and without.
 type CornerRobbed struct {
 	Day       int
 	Corner    string
 	Name      string
 	Cash      int
 	StockLost map[string]int
+	Enforcer  string
+	Odds      float64
+	Bare      float64
 }
 
 func (CornerRobbed) Kind() string { return "CornerRobbed" }
@@ -810,6 +817,7 @@ type SupplyShort struct {
 	Short      int    // still under the level
 	Why        string // "cash", "room", or "supplier" when no connect there sells it today (#72)
 	Lieutenant string // the lieutenant whose contract it was (#174); empty for yours
+	Till       int    // the dirty cash when it came up short (#502), so the report says what took it
 }
 
 func (SupplyShort) Kind() string { return "SupplyShort" }

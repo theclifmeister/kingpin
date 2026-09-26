@@ -192,6 +192,10 @@ func (s *Sim) drawCard(w *game.World, t *game.Tick) {
 		if c.cfg.Once && n > 0 {
 			continue
 		}
+		// The same text does not come back within repeat_gap days (#501).
+		if last, ok := w.Dilemmas.Dealt[c.cfg.ID]; ok && pace.RepeatGap > 0 && t.Day-last < pace.RepeatGap {
+			continue
+		}
 		sl, ok := game.Eligible(w, c.cfg)
 		if !ok {
 			continue
@@ -245,6 +249,10 @@ func (s *Sim) drawCard(w *game.World, t *game.Tick) {
 	w.Dilemmas.Pending = pending
 	w.Dilemmas.LastCard = t.Day
 	w.Dilemmas.Drawn[c.cfg.ID]++
+	if w.Dilemmas.Dealt == nil {
+		w.Dilemmas.Dealt = map[string]int{}
+	}
+	w.Dilemmas.Dealt[c.cfg.ID] = t.Day
 	if per := c.cfg.OncePer; per != "" {
 		if id := sl.Subject(per); id != "" {
 			w.Dilemmas.Drawn[game.CardSubject(c.cfg.ID, per, id)]++ // #466: never this subject again

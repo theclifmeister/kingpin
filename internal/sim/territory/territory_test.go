@@ -155,6 +155,16 @@ func TestRobberies(t *testing.T) {
 				if w.Player.DirtyCash != 10_000-r.Cash || w.Stock(w.Home().ID, "weed") != 100-r.StockLost["weed"] {
 					t.Fatalf("robbery not applied: cash %d stock %d for %+v", w.Player.DirtyCash, w.Stock(w.Home().ID, "weed"), r)
 				}
+				// Who stood guard and what they bought, so the report
+				// never asks for an enforcer who was there (#502).
+				d := w.Corner("docks")
+				if guard {
+					if m := w.Crew.Member(2); r.Enforcer != m.Name || r.Odds != s.RobberyChance(w, d) || r.Bare != cfg.City.Territory.RobberyChance*d.Risk || r.Odds >= r.Bare {
+						t.Fatalf("a guarded robbery reads %+v", r)
+					}
+				} else if r.Enforcer != "" || r.Odds != s.RobberyChance(w, d) {
+					t.Fatalf("an unguarded robbery reads %+v", r)
+				}
 			}
 		}
 		return

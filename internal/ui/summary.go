@@ -68,6 +68,9 @@ func (m *Model) summaryLines() []string {
 		{"peak wealth", fmt.Sprintf("%s · revenue %s off %s", cash(w.Stats.PeakCash), cash(w.Stats.TotalRevenue), plural(w.Stats.UnitsSold, "unit"))},
 		{"washed", fmt.Sprintf("%s, %s seized · lost %s wages · %s skimmed · %s robbed", cash(w.Stats.Laundered), cash(w.Stats.Seized), cash(w.Stats.Wages), cash(w.Stats.Skimmed), cash(w.Stats.Robbed))},
 	}
+	if s := w.Stats; s.Cuts > 0 {
+		money = append(money, [2]string{"cuts", cash(s.Cuts) + " kept by the crew who ran it for you, apart from the skim"}) // #502
+	}
 	if s := w.Stats; s.Earned+s.Invested > 0 {
 		money = append(money, [2]string{"the fronts", fmt.Sprintf("%s in levels, %s earned", cash(s.Invested), cash(s.Earned))})
 	}

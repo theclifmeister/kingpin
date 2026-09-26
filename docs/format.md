@@ -22,3 +22,5 @@ The same header is the same kind on every screen and in every modal, and a quant
 | days | `answer by` `days` `hired` `learnt` `read` `under` | `3d` or `d12` from `kDays`, never prose (`days` is a term's days left; `learnt` and `read` a fact's and the books' age, `age` being years) |
 | bar | `loyalty` `rel` `trust` `Nd` | a gauge with its number, or the spark: `trust` is a bar on the FACTIONS table as it is in the pane |
 | dial | `dial` `order` | an order at a dial, or a dial's name |
+
+**A name with its own article** (#502): `format.The(name)` is `the Interstate` and `The Channel`, never `the The Channel` (`Buy the customs agent on the The Channel`); the bribe dialog, the report's road lines and the paper use it, the news templates' `the {{.X}}` rewritten to `{{the .X}}` as `a {{.X}}` is to `{{a .X}}` (#148, `TestReportLinesAgreeWithWhatHappened`, `TestTheChannelHasOneThe`).

@@ -175,14 +175,7 @@ func (r *reporter) reportCrew(e events.Event) bool {
 		r.add("crew", "CrewSkimmed", base)
 		r.skimmed += ev.Amount
 		r.book(game.FlowLosses, -(ev.Amount - ev.FromWash), -ev.FromWash)
-		switch {
-		case ev.FromWash == ev.Amount:
-			rep.Crew = append(rep.Crew, fmt.Sprintf("%s of the wash never came out clean. Somebody is cooking the books.", format.Money(ev.Amount)))
-		case ev.FromWash > 0:
-			rep.Crew = append(rep.Crew, fmt.Sprintf("%s of the takings never made it back, %s of it from the wash. Somebody is skimming.", format.Money(ev.Amount), format.Money(ev.FromWash)))
-		default:
-			rep.Crew = append(rep.Crew, fmt.Sprintf("%s of the takings never made it back. Somebody is skimming.", format.Money(ev.Amount)))
-		}
+		rep.Crew = append(rep.Crew, skimLine(ev))
 	case events.CrewPaid:
 		r.book(game.FlowWages, -ev.Wages, 0)
 		line := fmt.Sprintf("Wages (%s) -%s", ev.Pay, format.Money(ev.Wages))
@@ -221,4 +214,23 @@ func (r *reporter) reportCrew(e events.Event) bool {
 		return false
 	}
 	return true
+}
+
+// skimLine is the night's missing money for the CREW section. A
+// lieutenant's cut is not skimming and is never in it: where one was
+// kept tonight the line says the skim is on top of it (#502: "$850 of
+// the takings never made it back" beside "Gato kept $850 of it" read as
+// the cut counted twice).
+func skimLine(ev events.CrewSkimmed) string {
+	if ev.FromWash == ev.Amount {
+		return fmt.Sprintf("%s of the wash never came out clean. Somebody is cooking the books.", format.Money(ev.Amount))
+	}
+	s := fmt.Sprintf("%s of the takings never made it back", format.Money(ev.Amount))
+	if ev.FromWash > 0 {
+		s += fmt.Sprintf(", %s of it from the wash", format.Money(ev.FromWash))
+	}
+	if ev.Cuts > 0 {
+		s += fmt.Sprintf(", on top of the %s the lieutenants kept as their cut", format.Money(ev.Cuts))
+	}
+	return s + ". Somebody is skimming."
 }

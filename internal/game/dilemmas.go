@@ -29,6 +29,7 @@ type DilemmaState struct {
 	Drawn    map[string]int // card id -> times drawn this run; and CardSubject -> 1 for a once_per card's subject (#466)
 	Answered *Answer
 	Owes     int
+	Dealt    map[string]int // card id -> the day it was last dealt (#501), for repeat_gap; nil is a save from before, nothing held back
 }
 
 // Card is a dilemma as drawn: its text already rendered with the world's
@@ -295,6 +296,14 @@ func (s CardSlots) Subject(per string) string {
 		return s.FrontID
 	}
 	return ""
+}
+
+// Share is a part of the card's sum, formatted as {{.Amount}} is and
+// rounded as the *_amount keys take it (#501): `{{.Share 0.5}}` is what
+// `dirty_amount = 0.5` pays, so a label can name the stake and the net
+// on one line.
+func (s CardSlots) Share(f float64) string {
+	return format.Money(int(math.Round(f * float64(s.Sum))))
 }
 
 // CardSubject is the key a once_per card's subject is counted under in

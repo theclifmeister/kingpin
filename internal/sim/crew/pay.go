@@ -58,7 +58,11 @@ func (s *Sim) skim(n *night) {
 			w.Player.CleanCash -= fromWash
 			w.Stats.Skimmed += amount + fromWash
 			c.LastSkim = t.Day
-			t.Emit(events.CrewSkimmed{Day: t.Day, Amount: amount + fromWash, Skimmers: skimmers, FromWash: fromWash})
+			cuts := 0
+			for _, a := range n.acted {
+				cuts += a.Cut
+			}
+			t.Emit(events.CrewSkimmed{Day: t.Day, Amount: amount + fromWash, Skimmers: skimmers, FromWash: fromWash, Cuts: cuts})
 		}
 	}
 }

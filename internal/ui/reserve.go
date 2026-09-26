@@ -112,7 +112,7 @@ func (m *Model) viewReserve() string {
 		theme.Subtle.Render(fmt.Sprintf("Up to %s a day moves unnoticed; every lot over it is a page. The account keeps %s.", money(off.Lot), format.Pct(off.Fee, 0))),
 		theme.Subtle.Render("Nothing takes from the account and nothing comes back: it is the exit, and the score."))
 	if off.RetireCash > 0 {
-		body = append(body, theme.Subtle.Render(fmt.Sprintf("Retiring takes %s offshore and %s quiet in a row; %s so far.", money(off.RetireCash), plural(off.RetireDays, "day"), plural(w.QuietDays, "quiet day"))))
+		body = append(body, theme.Subtle.Render(fmt.Sprintf("Retiring takes %s offshore and %s quiet in a row: %s so far.", money(off.RetireCash), plural(off.RetireDays, "day"), m.quietCount())))
 	}
 	if m.amt.err != "" {
 		body = append(body, "", theme.Bad.Render(m.amt.err))
