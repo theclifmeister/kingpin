@@ -42,7 +42,8 @@ func TestEachEndingConfirmsInItsOwnWords(t *testing.T) {
 			t.Fatalf("%s is not open: %s", r.name, r.short)
 		}
 		m.Update(key("w"))
-		m.Update(key(string(rune('1' + i))))
+		m.Update(key(string(rune('1' + i)))) // a digit moves, enter turns the page (#500)
+		m.Update(key("enter"))
 		if m.mode != modeExit || m.exit.step != 1 {
 			t.Fatalf("%s: mode %v step %d err %q", r.name, m.mode, m.exit.step, m.exit.err)
 		}

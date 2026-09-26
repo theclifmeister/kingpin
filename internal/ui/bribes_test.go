@@ -47,9 +47,13 @@ func TestBribeKeys(t *testing.T) {
 	if m.bribeTarget() != game.BribeDA {
 		t.Fatalf("j did not pick the DA: %s", m.bribeTarget())
 	}
-	m.Update(key("1")) // a digit selects and commits (#241): the chief, and the amount page
+	m.Update(key("1")) // a digit moves (#500): the chief, still on the first page
+	if m.bribeTarget() != game.BribeChief || m.modalStep() != 0 {
+		t.Fatalf("1 did not move to the chief and stay: %s, step %d", m.bribeTarget(), m.modalStep())
+	}
+	m.Update(key("enter"))
 	if m.bribeTarget() != game.BribeChief || m.modalStep() != 1 {
-		t.Fatalf("1 did not pick the chief and turn to the amount: %s, step %d", m.bribeTarget(), m.modalStep())
+		t.Fatalf("enter did not turn to the chief's amount: %s, step %d", m.bribeTarget(), m.modalStep())
 	}
 	assertFits(t, m.View(), 80, 24, "bribe amount")
 	if view := stripANSI(m.View()); !strings.Contains(view, "enter pay") || !strings.Contains(view, "⇧tab back") {

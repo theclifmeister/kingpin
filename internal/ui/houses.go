@@ -113,14 +113,13 @@ func (m *Model) keyFront(key string) {
 		}
 	default:
 		if i, ok := digit(key); ok {
+			// A digit moves, enter acts (#500).
 			if m.front.step == 0 {
 				if i < len(pickNames) {
 					m.front.kind = i
-					m.openOffers()
 				}
 			} else if i < len(m.offerCount()) {
 				m.front.cursor = i
-				m.confirmFront()
 			}
 		}
 	}
@@ -465,8 +464,7 @@ func (m *Model) keyMove(k tea.KeyMsg) (tea.Model, tea.Cmd) {
 			stepCursor(&d.cursor, 1, m.moveRows())
 		default:
 			if i, ok := digit(key); ok && i < m.moveRows() {
-				d.cursor = i
-				m.moveNext()
+				d.cursor = i // a digit moves, enter is next (#500)
 			}
 		}
 		return m, nil

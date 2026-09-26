@@ -188,8 +188,7 @@ func (m *Model) keyLab(k tea.KeyMsg) (tea.Model, tea.Cmd) {
 			stepCursor(&d.cursor, 1, len(ids))
 		default:
 			if i, ok := digit(key); ok && i < len(ids) {
-				d.cursor = i
-				m.labNext()
+				d.cursor = i // a digit moves, enter is next (#500)
 			}
 		}
 		return m, nil

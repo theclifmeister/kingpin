@@ -132,6 +132,7 @@ func TestNothingRidesOnColourAlone(t *testing.T) {
 	m = pickerModel(t)
 	m.Update(key("enter"))
 	m.Update(key("1"))
+	m.Update(key("enter")) // a digit moves, enter turns the page (#500)
 	if m.nr.step != 1 {
 		t.Fatalf("not on the seed page: step %d", m.nr.step)
 	}

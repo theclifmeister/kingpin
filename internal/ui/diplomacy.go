@@ -493,8 +493,7 @@ func (m *Model) keyPropose(key string) {
 		m.pickPropose()
 	default:
 		if i, ok := digit(key); ok && i < m.proposeRows() {
-			m.prop.cursor = i
-			m.pickPropose()
+			m.prop.cursor = i // a digit moves, enter acts (#500)
 		}
 	}
 }

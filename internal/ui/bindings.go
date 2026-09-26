@@ -251,17 +251,18 @@ var bindings = []binding{
 // what the footer and the status bar say.
 var modeBindings = []binding{
 	{key: "↑↓", label: "pick", modes: in(modeStart, modePost, modeStrike, modeFront, modeAssign, modePropose, modeGuard, modeDriver, modeSpy, modeCaptain, modeAmbitions)},
-	// Every picker takes the digits as select-and-commit and says so (#241).
-	{key: "1-9", label: "choose", modes: in(modePost, modeStrike, modeFront, modeAssign, modePropose, modeGuard, modeDriver, modeSpy, modeCaptain, modeAmbitions)},
+	// One digit rule in every picker (#500, docs/keys.md): a digit moves
+	// the cursor to its row and never acts; enter acts.
+	{key: "1-9", label: "pick", modes: in(modePost, modeStrike, modeFront, modeAssign, modePropose, modeGuard, modeDriver, modeSpy, modeCaptain, modeAmbitions)},
 	{key: "←→", label: "budget", modes: in(modeCaptain)},
 	{key: "←→", label: "product", modes: in(modeExport)},
-	{key: "1-9", label: "choose", modes: in(modeExit), when: step(0)},
+	{key: "1-9", label: "pick", modes: in(modeExit), when: step(0)},
 	// The undercut is a dial like the sale's (#241): ←→ turns it, 1-3 pick a notch.
 	{key: "←→", label: "dial", modes: in(modeUndercut)},
 	{key: "1-3", label: "dial", modes: in(modeUndercut)},
 	{key: "↑↓", label: "pick", modes: in(modeExit, modeNewRun), when: step(0)},
-	{key: "1-6", label: "choose", modes: in(modeNewRun), when: step(0)},
-	{key: "0-9", label: "type a seed", modes: in(modeNewRun), when: step(1)}, // digits and backspace only: m, h and the steps mean nothing to a seed (#473)
+	{key: "1-7", label: "pick", modes: in(modeNewRun), when: step(0)},           // the six characters and the daily (#500, TestDailyIsTheDate)
+	{key: "0-9", label: "type a seed", modes: in(modeNewRun), when: newRunSeed}, // digits and backspace only: m, h and the steps mean nothing to a seed (#473)
 	{key: "←→", label: "toggle", modes: in(modeNewRun), when: step(2)},
 	{key: "↑↓", label: "pick", modes: in(modeMove), when: moveList},
 	{key: "↑↓", label: "pick", modes: in(modeCut, modeCook), when: step(0)},
@@ -270,7 +271,7 @@ var modeBindings = []binding{
 	{key: "↑↓", label: "pick", modes: in(modeCart), when: cartHasLines},
 	{key: "↑↓", label: "pick", modes: in(modeCard), when: step(0)},
 	{key: "↑↓", label: "pick", modes: in(modeBribe), when: step(0)},
-	{key: "1-2", label: "choose", modes: in(modeBribe), when: step(0)},
+	{key: "1-2", label: "pick", modes: in(modeBribe), when: step(0)},
 	{key: "←→", label: "dial", modes: in(modeSell), when: step(2)},
 	{key: "←→", label: "repeat", modes: in(modeBuy), when: buyAt(2)},
 	{key: "←→", label: "repeat", modes: in(modeSell), when: step(3)},
@@ -343,7 +344,7 @@ var modeBindings = []binding{
 	{key: "x", label: "off", modes: in(modeSweep), when: sweepOn},
 	{key: "enter", label: "buy", modes: in(modeRestock)},
 	{key: "↑↓", label: "pick", modes: in(modePresets), when: step(0)},
-	{key: "1-9", label: "choose", modes: in(modePresets), when: step(0)},
+	{key: "1-9", label: "pick", modes: in(modePresets), when: step(0)},
 	{key: "enter", label: "review", modes: in(modePresets), when: step(0)},
 	{key: "s", label: "save current", modes: in(modePresets), when: step(0)},
 	{key: "x", label: "delete", modes: in(modePresets), when: presetOnSaved},
@@ -371,5 +372,6 @@ var modeBindings = []binding{
 	{key: "o", label: "open alert", modes: in(modeReport), when: stoppedOnAlert}, // the fast-forward's stop line (#352)
 	{key: "enter esc", label: "close", modes: in(modeReport, modeHelp, modeStage)},
 	{key: "enter esc", label: "close", modes: in(modeCard), when: step(1)},
+	{key: "esc", label: "close", modes: in(modeCard), when: cardCloses}, // unanswered: set aside for the report, back when it closes (#500)
 	{key: "␣ esc", label: "close", modes: in(modeDetails)},
 }

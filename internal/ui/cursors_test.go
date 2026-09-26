@@ -23,10 +23,11 @@ func mainOf(m *Model) string {
 	return stripANSI(strings.Join(main, "\n"))
 }
 
-// The buy and sell dialogs open on the product the dashboard and the
-// market show selected, and name it in the title; from a screen with no
-// product table they open on the first row, never on a selection
-// another screen left behind (#462).
+// The buy and sell dialogs open on the product the market names under
+// its ▸, and name it in the title; from anywhere else, the dashboard
+// included, they open on the first row, never on a selection another
+// screen left behind (#462, #500: the dashboard's table shares the
+// market's cursor, and a buy there took the product the market left).
 func TestDialogOpensWhereItSays(t *testing.T) {
 	m := richModel(t, 120, 40)
 	w := m.w
@@ -34,16 +35,30 @@ func TestDialogOpensWhereItSays(t *testing.T) {
 	for _, id := range w.Products[:3] {
 		w.SetStock(loc, id, 20)
 	}
-	m.Update(key("1"))
+	m.Update(key("2"))
 	m.cursor = 2
 	m.Update(key("s"))
 	if m.mode != modeSell || m.cursor != 2 {
-		t.Fatalf("s on the dashboard: mode %v cursor %d", m.mode, m.cursor)
+		t.Fatalf("s on the market: mode %v cursor %d", m.mode, m.cursor)
 	}
 	if v := stripANSI(m.View()); !strings.Contains(v, "SELL · "+strings.ToUpper(w.CityName(loc))+" · "+strings.ToUpper(w.ProductName(w.Products[2]))) {
 		t.Fatalf("the title does not name the product:\n%s", v)
 	}
 	m.Update(key("esc"))
+	// The dashboard: the first row, whatever the market left selected.
+	m.Update(key("1"))
+	m.cursor = 2
+	for _, k := range []string{"s", "b"} {
+		m.Update(key(k))
+		if m.dlg.pick {
+			m.Update(key("enter"))
+		}
+		if m.cursor != 0 {
+			t.Fatalf("%s on the dashboard: mode %v cursor %d, want the first row", k, m.mode, m.cursor)
+		}
+		m.Update(key("esc"))
+		m.cursor = 2
+	}
 	// The journal has no product table: the dialog opens on the first
 	// row, whatever the dashboard left selected.
 	m.Update(key("3"))
@@ -163,7 +178,7 @@ func TestSellQuantityRefusedWhereTyped(t *testing.T) {
 	id := w.Products[3]
 	w.ClearSupply(loc, id)
 	w.SetStock(loc, id, 13)
-	m.Update(key("1"))
+	m.Update(key("2")) // the market names the product under its cursor (#500)
 	m.cursor = 3
 	m.Update(key("s"))
 	m.Update(key("enter"))
@@ -205,7 +220,7 @@ func TestSameDayContractSells(t *testing.T) {
 	if err := m.sess.SetSupply(loc, id, 20); err != nil {
 		t.Fatal(err)
 	}
-	m.Update(key("1"))
+	m.Update(key("2")) // the market names the product under its cursor (#500)
 	m.cursor = 2
 	m.Update(key("s"))
 	m.Update(key("enter"))

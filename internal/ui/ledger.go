@@ -25,7 +25,7 @@ func (m *Model) askFront() {
 		m.refuse("Nothing to buy: you own every front, every house and every asset there is.")
 		return
 	}
-	m.front.cursor, m.front.step = 0, 0 // the kind page first, wherever the cursor sits (#241: enter's shortcut onto an offer row went with enter)
+	m.front.cursor, m.front.step, m.front.kind = 0, 0, pickFront // the kind page first, on its first row, wherever the cursor sits and whatever kind was bought last (#241, #500: enter enter leased a house meant for a front)
 	m.mode = modeFront
 }
 

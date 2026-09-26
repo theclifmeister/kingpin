@@ -3,6 +3,7 @@ package ui
 import (
 	"errors"
 	"os"
+	"strconv"
 	"strings"
 	"testing"
 	"time"
@@ -55,8 +56,14 @@ func TestPickerListsEveryCharacter(t *testing.T) {
 		}
 		m.nr.cursor = i
 		m.Update(key("enter"))
-		if m.nr.step != 0 || !strings.Contains(m.status, ch.Name+" is locked: ") {
-			t.Fatalf("%s: step %d status %q", ch.ID, m.nr.step, m.status)
+		// Refused on the dialog, with the unlock (#500): the status bar
+		// is under the modal, so enter read as doing nothing.
+		rule := m.unlockRule(ch.Unlock)
+		if m.nr.step != 0 || m.nr.err != ch.Name+" is locked: "+rule+" to play them." {
+			t.Fatalf("%s: step %d err %q", ch.ID, m.nr.step, m.nr.err)
+		}
+		if view := stripANSI(m.View()); !strings.Contains(view, ch.Name+" is locked: "+rule) {
+			t.Fatalf("%s: the refusal is not on the dialog:\n%s", ch.ID, view)
 		}
 		m.profile.Unlocks[ch.ID] = true
 		m.Update(key("enter"))
@@ -96,7 +103,11 @@ func TestNewRunStartsTheCharacter(t *testing.T) {
 		t.Fatalf("esc: mode %v, slot 2 empty %v", m.mode, game.Slots()[1].Empty)
 	}
 	m.Update(key("enter"))
-	m.Update(key("2")) // a digit selects and commits (#241): the cook, and the seed page
+	m.Update(key("2")) // a digit moves (#500): the cook
+	if m.nr.step != 0 || m.nr.cursor != 1 {
+		t.Fatalf("2 acted: step %d cursor %d", m.nr.step, m.nr.cursor)
+	}
+	m.Update(key("enter")) // the seed page
 	for _, k := range []string{"4", "2"} {
 		m.Update(key(k))
 	}
@@ -136,7 +147,33 @@ func TestNewRunStartsTheCharacter(t *testing.T) {
 func TestDailyIsTheDate(t *testing.T) {
 	m := pickerModel(t)
 	m.Update(key("enter"))
-	m.Update(key("7")) // the daily, the row after the six characters: a digit selects and commits (#241), so it starts at once
+	// The daily is the row after the six characters: 7 reaches it, and
+	// enter turns to its confirmation (#500), which a second enter
+	// starts.
+	m.Update(key("7"))
+	if m.nr.cursor != m.dailyRow() || m.nr.step != 0 {
+		t.Fatalf("7: cursor %d step %d, not on the daily", m.nr.cursor, m.nr.step)
+	}
+	if foot := stripANSI(legend(m.modalFooter())); !strings.Contains(foot, fmtDigits(m.newRunRows())+" pick") {
+		t.Fatalf("the footer's digits do not reach the daily: %q", foot)
+	}
+	m.Update(key("enter"))
+	view := stripANSI(m.View())
+	assertFits(t, m.View(), 80, 24, "daily confirmation")
+	for _, want := range []string{"NEW RUN · DAILY", "Daily · 13 Sep 2026", "yes, today's first attempt", "enter start", "⇧tab back"} {
+		if !strings.Contains(view, want) {
+			t.Fatalf("the confirmation lacks %q:\n%s", want, view)
+		}
+	}
+	if m.mode != modeNewRun || m.w.Start.Daily != "" {
+		t.Fatalf("the daily started without its confirm: mode %v", m.mode)
+	}
+	m.Update(key("shift+tab"))
+	if m.nr.step != 0 || m.nr.cursor != m.dailyRow() {
+		t.Fatalf("back from the confirmation: step %d cursor %d", m.nr.step, m.nr.cursor)
+	}
+	m.Update(key("enter"))
+	m.Update(key("enter"))
 	w := m.w
 	if m.mode != modePlay || w.Seed != game.DailySeed(sept13) || w.Start.Character != "" || w.Start.Daily != "20260913" || w.Start.Practice {
 		t.Fatalf("mode %v seed %d start %+v", m.mode, w.Seed, w.Start)
@@ -152,7 +189,7 @@ func TestDailyIsTheDate(t *testing.T) {
 	w.Offshore = 900
 	w.Over = w.End(content.CauseRetired, w.Day, "")
 	m.finish(false)
-	view := stripANSI(strings.Join(m.summaryLines(), "\n"))
+	view = stripANSI(strings.Join(m.summaryLines(), "\n"))
 	if !strings.Contains(view, "daily 13 Sep 2026") || !strings.Contains(view, "1st of 1 run") {
 		t.Errorf("the summary does not name the daily:\n%s", view)
 	}
@@ -167,7 +204,12 @@ func TestDailyIsTheDate(t *testing.T) {
 	if view := stripANSI(m.View()); !strings.Contains(view, "a practice run") {
 		t.Errorf("the picker does not say practice:\n%s", view)
 	}
-	m.Update(key("7")) // the daily row, after the six characters: starts at once (#241)
+	m.Update(key("7")) // the daily row, after the six characters
+	m.Update(key("enter"))
+	if view := stripANSI(m.View()); !strings.Contains(view, "no: a practice run") {
+		t.Errorf("the confirmation does not say practice:\n%s", view)
+	}
+	m.Update(key("enter"))
 	if !m.w.Start.Practice || m.w.Seed != game.DailySeed(sept13) || !strings.Contains(m.status, "practice") {
 		t.Fatalf("second attempt: start %+v status %q", m.w.Start, m.status)
 	}
@@ -271,5 +313,47 @@ func TestCorruptProfileIsSetAside(t *testing.T) {
 	}
 	if _, err := game.LoadProfile(sept13); !errors.Is(err, nil) {
 		t.Fatalf("the fresh profile does not read: %v", err)
+	}
+}
+
+// fmtDigits is a footer's digit key over n rows: `1-7`.
+func fmtDigits(n int) string { return "1-" + strconv.Itoa(n) }
+
+// TestSeedTakesEveryPrintedSeed (#491): the seed field takes every seed
+// the game prints (a uint64, up to 20 digits), shows all of it at 80
+// columns, and a printed seed typed a key at a time replays that run; a
+// number past the uint64 top is refused with the reason, never cut.
+func TestSeedTakesEveryPrintedSeed(t *testing.T) {
+	for _, seed := range []string{"1790406073553998979", "18446744073709551615"} {
+		m := pickerModel(t)
+		m.Update(key("enter"))
+		m.Update(key("enter")) // the default character: the seed page
+		for _, r := range seed {
+			m.Update(key(string(r)))
+		}
+		view := stripANSI(m.View())
+		assertFits(t, m.View(), 80, 24, "seed page")
+		if !strings.Contains(view, "> "+seed) {
+			t.Fatalf("%s is not shown whole at 80 columns:\n%s", seed, view)
+		}
+		m.Update(key("enter"))
+		want, _ := strconv.ParseUint(seed, 10, 64)
+		if m.mode != modePlay || m.w.Seed != want || !strings.Contains(m.status, "Seed "+seed) {
+			t.Fatalf("typed %s: mode %v seed %d status %q err %q", seed, m.mode, m.w.Seed, m.status, m.nr.err)
+		}
+	}
+	// Past the top: refused on the page, with why.
+	m := pickerModel(t)
+	m.Update(key("enter"))
+	m.Update(key("enter"))
+	for _, r := range "18446744073709551616" {
+		m.Update(key(string(r)))
+	}
+	m.Update(key("enter"))
+	if m.mode != modeNewRun || m.nr.step != 1 || !strings.Contains(m.nr.err, "at most 18446744073709551615") {
+		t.Fatalf("over the top: mode %v step %d err %q", m.mode, m.nr.step, m.nr.err)
+	}
+	if view := stripANSI(m.View()); !strings.Contains(view, "That is past the top: a seed is at most 18446744073709551615.") {
+		t.Fatalf("the refusal is not on the page:\n%s", view)
 	}
 }

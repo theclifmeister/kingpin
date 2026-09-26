@@ -284,7 +284,8 @@ func TestFastForwardStopsOnTheReign(t *testing.T) {
 	w.Offshore, w.Stats.Bodies = 900_000, 2
 	m.Update(key("1"))
 	m.Update(key("w"))
-	m.Update(key("3"))
+	m.Update(key("3")) // a digit moves, enter turns the page (#500)
+	m.Update(key("enter"))
 	if m.mode != modeExit || m.exit.step != 1 || m.exit.cursor != 2 || !strings.Contains(stripANSI(m.View()), "TAKE THE CROWN?") {
 		t.Fatalf("3 on the dialog: mode %v step %d cursor %d\n%s", m.mode, m.exit.step, m.exit.cursor, stripANSI(m.View()))
 	}
@@ -304,6 +305,7 @@ func TestFastForwardStopsOnTheReign(t *testing.T) {
 	m.Update(key("1"))
 	m.Update(key("w"))
 	m.Update(key("3"))
+	m.Update(key("enter"))
 	if m.mode != modeExit || m.exit.step != 0 || !strings.Contains(m.exit.err, "corners held") || !strings.Contains(m.exit.err, "still standing") {
 		t.Fatalf("the crown with no reign: mode %v step %d err %q", m.mode, m.exit.step, m.exit.err)
 	}

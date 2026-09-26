@@ -112,8 +112,8 @@ func (p *picker) page() int           { return 0 }
 func (p *picker) field() *numberField { return nil }
 
 // pickerKey is every one-page picker's keys (#243): ↑↓ and j k move the
-// cursor within rows, 1-9 select and commit, enter commits, esc and q
-// close.
+// cursor within rows, 1-9 move it to that row (#500: a digit never
+// acts), enter commits, esc and q close.
 func (m *Model) pickerKey(key string, rows int, pick func()) {
 	switch key {
 	case "esc", "q":
@@ -126,8 +126,7 @@ func (m *Model) pickerKey(key string, rows int, pick func()) {
 		pick()
 	default:
 		if i, ok := digit(key); ok && i < rows {
-			m.pick.cursor = i
-			pick()
+			m.pick.cursor = i // the row; enter acts (#500)
 		}
 	}
 }

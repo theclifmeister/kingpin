@@ -202,7 +202,8 @@ func TestAssignLieutenantKeys(t *testing.T) {
 		t.Fatalf("mode after l on a lieutenant = %v (%s)", m.mode, m.status)
 	}
 	assertFits(t, m.View(), 80, 24, "assign picker")
-	m.Update(key("2")) // the second city
+	m.Update(key("2")) // the second city: a digit moves, enter acts (#500)
+	m.Update(key("enter"))
 	if m.mode != modePlay {
 		t.Fatalf("mode after picking = %v", m.mode)
 	}

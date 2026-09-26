@@ -53,10 +53,14 @@ func TestSupplyContractInTheGrammar(t *testing.T) {
 	if !strings.HasPrefix(m.status, "Keeping 30 Weed in Eastside") {
 		t.Fatalf("status %q", m.status)
 	}
-	// Opening the same product again lands on the level at keep at.
+	// Opening the same product again lands at once, the contract named
+	// and left alone (#500, TestBuyNeverDefaultsToTheContract).
 	m.Update(key("enter"))
-	if m.dlg.step != 1 || m.dlg.qty.Value() != "30" || m.dlg.repeat != repeatKeep {
+	if m.dlg.step != 1 || m.dlg.qty.Value() != "" || m.dlg.repeat != repeatOnce {
 		t.Fatalf("reopening a kept product: step %d quantity %q repeat %v", m.dlg.step, m.dlg.qty.Value(), m.dlg.repeat)
+	}
+	if view := stripANSI(m.View()); !strings.Contains(view, "Kept at 30 by contract; this buys once and leaves it.") {
+		t.Fatalf("the quantity step does not name the contract:\n%s", view)
 	}
 	m.Update(key("esc"))
 	// The market's keep column and the pane's contract row.

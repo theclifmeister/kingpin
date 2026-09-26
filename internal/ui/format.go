@@ -123,7 +123,7 @@ func wrapCursor(cur *int, d, n int) {
 }
 
 // digit is a key 1-9 as the row it picks, 0-8 (#275): every picker's
-// select-and-commit.
+// cursor. A digit moves the cursor and never acts; enter acts (#500).
 func digit(key string) (int, bool) {
 	if len(key) == 1 && key[0] >= '1' && key[0] <= '9' {
 		return int(key[0] - '1'), true

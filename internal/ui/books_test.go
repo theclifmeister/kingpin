@@ -115,7 +115,8 @@ func TestBooksKeys(t *testing.T) {
 	m.Update(key("5"))
 	m.mapCursor = 0
 	m.Update(key("w"))
-	m.Update(key("4"))
+	m.Update(key("4")) // the row: a digit moves, enter acts (#500)
+	m.Update(key("enter"))
 	if m.mode != modeConfirm {
 		t.Fatalf("the fourth picker row: mode %v status %q", m.mode, m.status)
 	}

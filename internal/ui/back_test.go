@@ -230,11 +230,16 @@ func TestTabIsSilentWhereThereIsNoPage(t *testing.T) {
 	m := richModel(t, 80, 24)
 	m.w.Dilemmas.Pending = testCard(m.w.Day)
 	m.showCard()
-	for _, k := range []string{"tab", "shift+tab", "esc"} {
+	for _, k := range []string{"tab", "shift+tab"} {
 		m.Update(key(k))
 		if m.mode != modeCard || m.cardDone {
 			t.Fatalf("card: %s: mode %v answered %v", k, m.mode, m.cardDone)
 		}
+	}
+	// esc closes the card unanswered (#500, TestEscSetsTheCardAside).
+	m.Update(key("esc"))
+	if m.cardDone || m.w.Dilemmas.Pending == nil {
+		t.Fatalf("card: esc answered it: mode %v", m.mode)
 	}
 	// Nothing in the footers says back but ⇧tab, and every mode that
 	// closes on esc says close.
@@ -248,57 +253,91 @@ func TestTabIsSilentWhereThereIsNoPage(t *testing.T) {
 	}
 }
 
-// Every picker takes the digits as select-and-commit (#241): 1 on a
-// one-page picker commits its first row, on a paged one turns the page
-// (or refuses, where the row is closed), and the footer says `1-9
-// choose` where the rows are the picker's.
+// One digit rule in every picker (#500, docs/keys.md): a digit moves
+// the cursor to its row and never acts, and enter acts. Before, the
+// product and connect pickers moved while the runner, enforcer, front
+// and house pickers acted at once: `9`, meant for a screen, posted
+// runner #9 to Bayport. The walk: each picker opens with its cursor
+// moved off the first row where it can be, `1` puts it back on the
+// first row with the mode and the page unchanged and nothing done, and
+// enter then acts. The footer says `1-9 pick` where the rows are the
+// picker's.
 func TestPickersTakeDigits(t *testing.T) {
 	type picker struct {
 		name string
 		open func(m *Model)
+		cur  func(m *Model) int // the cursor the digit moves
 		done func(m *Model) bool
 	}
+	pick := func(m *Model) int { return m.pick.cursor }
 	pickers := []picker{
-		{"post", func(m *Model) { m.Update(key("5")); m.mapCursor = 1; m.Update(key("c")) }, func(m *Model) bool { return m.mode == modePlay }},
-		{"strike", func(m *Model) { m.Update(key("5")); m.mapCursor = 0; m.Update(key("w")) }, func(m *Model) bool { return m.mode == modePlay }},
-		{"undercut", func(m *Model) { m.w.Rival().Deals = nil; m.Update(key("5")); m.mapCursor = 0; m.Update(key("u")) }, func(m *Model) bool { return m.mode == modePlay }},
-		{"assign", func(m *Model) { m.Update(key("4")); m.crewCursor = 3; m.Update(key("l")) }, func(m *Model) bool { return m.mode == modePlay }},
-		{"guard", func(m *Model) { onHouse(t, m); m.Update(key("e")) }, func(m *Model) bool { return m.mode == modePlay }},
+		{"post", func(m *Model) { m.Update(key("5")); m.mapCursor = 1; m.Update(key("c")) }, pick, func(m *Model) bool { return m.mode == modePlay }},
+		{"strike", func(m *Model) { m.Update(key("5")); m.mapCursor = 0; m.Update(key("w")) }, pick, func(m *Model) bool { return m.mode == modePlay }},
+		{"undercut", func(m *Model) { m.w.Rival().Deals = nil; m.Update(key("5")); m.mapCursor = 0; m.Update(key("u")) }, pick, func(m *Model) bool { return m.mode == modePlay }},
+		{"assign", func(m *Model) { m.Update(key("4")); m.crewCursor = 3; m.Update(key("l")) }, pick, func(m *Model) bool { return m.mode == modePlay }},
+		{"guard", func(m *Model) { onHouse(t, m); m.Update(key("e")) }, pick, func(m *Model) bool { return m.mode == modePlay }},
 		{"driver", func(m *Model) {
 			withDriver(m)
 			m.Update(key("5"))
 			m.Update(key("]"))
 			m.onRoutes = true
 			m.Update(key("v"))
-		}, func(m *Model) bool { return m.mode == modePlay }},
-		{"front", func(m *Model) { m.Update(key("7")); m.Update(key("b")) }, func(m *Model) bool { return m.mode == modeFront && m.front.step == 1 }},
-		{"propose", func(m *Model) { m.Update(key("8")); m.Update(key("d")) }, func(m *Model) bool { return m.mode == modePropose && m.prop.step == 1 }},
-		{"bribe", func(m *Model) { m.Update(key("7")); m.Update(key("$")) }, func(m *Model) bool { return m.mode == modeBribe && m.modalStep() == 1 }},
-		{"spy", func(m *Model) { m.Update(key("9")); m.Update(key("p")) }, func(m *Model) bool { return m.mode == modePlay || m.spy.step == 1 }},
-		{"exit", func(m *Model) { m.Update(key("1")); m.Update(key("w")) }, func(m *Model) bool { return m.exit.step == 1 || strings.Contains(m.exit.err, "not open") }},
+		}, pick, func(m *Model) bool { return m.mode == modePlay }},
+		{"front", func(m *Model) { m.Update(key("7")); m.Update(key("b")) }, func(m *Model) int { return m.front.kind }, func(m *Model) bool { return m.mode == modeFront && m.front.step == 1 }},
+		{"front offers", func(m *Model) { m.Update(key("7")); m.Update(key("b")); m.Update(key("enter")) }, func(m *Model) int { return m.front.cursor }, func(m *Model) bool { return m.mode != modeFront || m.front.step != 1 }},
+		{"propose", func(m *Model) { m.Update(key("8")); m.Update(key("d")) }, func(m *Model) int { return m.prop.cursor }, func(m *Model) bool { return m.mode == modePropose && m.prop.step == 1 }},
+		{"bribe", func(m *Model) { m.Update(key("7")); m.Update(key("$")) }, func(m *Model) int { return m.br.cursor }, func(m *Model) bool { return m.mode == modeBribe && m.modalStep() == 1 }},
+		{"spy", func(m *Model) { m.Update(key("9")); m.Update(key("p")) }, func(m *Model) int {
+			if m.spy.step == 0 {
+				return m.spy.faction
+			}
+			return m.spy.member
+		}, func(m *Model) bool { return m.mode == modePlay || m.spy.step == 1 }},
+		{"exit", func(m *Model) { m.Update(key("1")); m.Update(key("w")) }, func(m *Model) int { return m.exit.cursor }, func(m *Model) bool { return m.exit.step == 1 || strings.Contains(m.exit.err, "not open") }},
+		{"ambitions", func(m *Model) { m.Update(key("1")); m.Update(key("w")); m.Update(key("a")) }, func(m *Model) int { return m.amb.cursor }, func(m *Model) bool { return strings.Contains(m.status, "plan") }},
+		{"presets", func(m *Model) { m.Update(key("2")); m.Update(key("P")) }, func(m *Model) int { return m.pre.cursor }, func(m *Model) bool { return m.pre.step == 1 || m.pre.err != "" }},
+		{"buy product", func(m *Model) { m.Update(key("b")) }, func(m *Model) int { return m.cursor }, func(m *Model) bool { return m.dlg.step == 1 || m.dlg.err != "" }},
+		{"sell product", func(m *Model) { m.Update(key("s")) }, func(m *Model) int { return m.cursor }, func(m *Model) bool { return m.dlg.step == 1 || m.dlg.err != "" }},
+		{"cut product", func(m *Model) { m.Update(key("2")); m.Update(key("%")) }, func(m *Model) int { return m.lab.cursor }, func(m *Model) bool { return m.lab.step == 1 }},
+		{"move from", func(m *Model) { onHouse(t, m); m.Update(key("m")) }, func(m *Model) int { return m.mv.cursor }, func(m *Model) bool { return m.mv.step == 1 }},
+		{"target product", func(m *Model) {
+			m.Update(key("5"))
+			m.Update(key("]"))
+			m.onRoutes = true
+			m.Update(key("R"))
+		}, func(m *Model) int { return m.cursor }, func(m *Model) bool { return m.tgt.step == 1 }},
 	}
 	for _, p := range pickers {
 		m := richModel(t, 120, 40)
 		p.open(m)
-		mode := m.mode
+		mode, step := m.mode, m.modalStep()
 		if mode == modePlay {
 			t.Fatalf("%s: the picker did not open: %q", p.name, m.status)
 		}
-		listed := "1-9 choose"
+		listed := "1-9 pick"
 		switch p.name {
 		case "bribe":
-			listed = "1-2 choose"
+			listed = "1-2 pick"
 		case "undercut":
 			listed = "1-3 dial" // the notches, as the sale's (#241)
-		case "exit":
-			listed = "1-9 choose"
+		case "buy product", "sell product", "cut product", "move from", "target product", "front offers":
+			listed = "" // the digits work and the footer has no room for them
 		}
-		if !strings.Contains(stripANSI(m.View()), listed) {
+		if listed != "" && !strings.Contains(stripANSI(m.View()), listed) {
 			t.Errorf("%s: the footer does not list %s:\n%s", p.name, listed, stripANSI(m.View()))
 		}
+		m.Update(key("down"))
 		m.Update(key("1"))
+		if m.mode != mode || m.modalStep() != step {
+			t.Errorf("%s: 1 acted: mode %v → %v, step %d → %d, status %q", p.name, mode, m.mode, step, m.modalStep(), m.status)
+			continue
+		}
+		if p.cur(m) != 0 {
+			t.Errorf("%s: 1 put the cursor on row %d, not the first", p.name, p.cur(m))
+		}
+		m.Update(key("enter"))
 		if !p.done(m) {
-			t.Errorf("%s: 1 did not select and commit: mode %v step %d status %q", p.name, m.mode, m.modalStep(), m.status)
+			t.Errorf("%s: enter did not act after 1: mode %v step %d status %q", p.name, m.mode, m.modalStep(), m.status)
 		}
 	}
 }

@@ -20,9 +20,11 @@ go run ./cmd/kingpin
 
 Choose a save slot with `enter`. An empty slot opens the new-run dialog:
 pick a character (a start and nothing more; a locked one shows the run
-that opens it), type a seed or leave it blank, and go. `Daily` at the foot
-of the list plays today's date as a seed: the first attempt of a day is
-scored against your own history, a second is practice. An occupied slot
+that opens it), type a seed or leave it blank, and go. Any seed the game
+prints (up to 20 digits) replays that run. `Daily` at the foot of the
+list plays today's date as a seed, after a page that says so: the first
+attempt of a day is scored against your own history, a second is
+practice. An occupied slot
 takes you back to work.
 
 Your first day needs four keys: **`b` buy, `s` sell, `n` end day, `?` help**.
@@ -175,8 +177,8 @@ for half, `↑`/`↓` for one at a time, or `pgup`/`pgdn` for ten. These
 shortcuts stay within the limit shown after the number. A blank means
 what the field's placeholder says: the maximum on a buy or a sale, the
 price on an envelope, none on a route target. The new run's seed takes
-digits and `backspace` only. In a picker, `↑`/`↓` move and `1`–`9`
-choose.
+digits and `backspace` only. In every picker, `↑`/`↓` and `1`–`9` move
+the cursor and `enter` acts: a digit never acts on its own.
 
 Keys are listed on the screens where they belong. Global actions work
 across screens unless a local action takes that key: `b` buys stock on
@@ -1000,8 +1002,9 @@ and every five to eight days deals a **dilemma card**: an enforcer who
 wants to hit the rival's stash, a detective with a file to lose, a
 reporter on your corner, your mother on the phone. The card is shown
 before the report with no choice picked: `1`–`3` or `↑↓` pick one and
-`enter` decides it, so a key typed ahead never answers a card. The
-effects land at once and the outcome goes in the journal. Quit on a card and it is waiting
+`enter` decides it, so a key typed ahead never answers a card. `esc`
+sets it aside unanswered while you read the report; it is back when the
+report closes. The effects land at once and the outcome goes in the journal. Quit on a card and it is waiting
 when you come back. The deck is `internal/content/dilemmas.toml`.
 
 ### World incidents
