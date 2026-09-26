@@ -261,7 +261,7 @@ It returns a `Cue` whose `Kind` is one of 17, with the ids that kind needs (`cit
 
 - `corner_flip` carries the owners before and after. A strike that took the corner is a flip from `rival` to `player`; one that held is a `strike`. A corner lost carries its old owner and why (`idle` or `crackdown`).
 - `shipment` carries the route, both cities, the shipment's id and the phase (`sent`, `landed`, `seized`).
-- The crew cues (`crew_joined`, `crew_left`, `crew_down`, `crew_back`) carry the member's id.
+- The crew cues (`crew_joined`, `crew_left`, `crew_down`, `crew_back`) carry the member's id. A `CrewShot` on the rival's side (`Theirs`) is no member of yours and gives no cue (`TestTheirBodyIsNoCrewCue`).
 
 The protocol sends the cue with each event it applies to (`event.params.cue`).
 `cmd/kingpin-client` prints a `cue` line for every animated event, which is the check that the events are enough to animate.

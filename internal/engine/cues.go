@@ -179,6 +179,12 @@ func CueOf(e events.Event) (Cue, bool) {
 	case events.CrewArrested:
 		return Cue{Kind: CueCrewDown, Day: ev.Day, Member: ev.ID, City: ev.City, Corner: ev.Corner, Route: ev.Route, Phase: "arrested"}, true
 	case events.CrewShot:
+		if ev.Theirs {
+			// A body on the rival's side is no member of yours: the
+			// report and the paper carry it, and a crew cue would
+			// name nobody.
+			return Cue{}, false
+		}
 		return Cue{Kind: CueCrewDown, Day: ev.Day, Member: ev.ID, City: ev.City, Corner: ev.Corner, Faction: ev.Faction, Dead: ev.Dead, Phase: "shot"}, true
 	case events.CrewBailed:
 		return Cue{Kind: CueCrewBack, Day: ev.Day, Member: ev.ID, Phase: "bailed"}, true
