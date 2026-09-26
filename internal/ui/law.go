@@ -134,7 +134,11 @@ func (m *Model) keyFund(k tea.KeyMsg) (tea.Model, tea.Cmd) {
 	d.err = ""
 	last := !m.campaignOpen() || d.step == 1
 	if closes(key) {
+		// Nothing is given until enter on the last page (#526): a
+		// playtest turned to the campaign, closed it and believed the
+		// goodwill paid, so the close says so.
 		m.mode = modePlay
+		m.say("Nothing given: the fund dialog closed.")
 		return m, nil
 	}
 	switch key {
@@ -307,14 +311,19 @@ func (m *Model) viewCampaign(c *game.City) string {
 	field := m.fnd.camp
 	field.max = m.maxBack(c)
 	body := []string{
-		inHand(w.Player.DirtyCash, w.Player.CleanCash-given), // the clean cash left after the first page's goodwill
+		m.inHand(), // the clean cash as it stands (#526): nothing is spent until enter
+	}
+	if given > 0 {
+		body = append(body, row("if you give", fmt.Sprintf("%s goodwill from the first page too: %s clean left", money(given), money(w.Player.CleanCash-given))))
+	}
+	body = append(body,
 		row("ticket", dialCells(tickets, m.fnd.ticket)),
 		row("campaign", holds),
 		// The price before the amount (#506): a playtest put $15K in for
 		// a tenth of a point before the dialog said what a point cost.
 		row("price", fmt.Sprintf("%s a point of the vote, %.0f at most", theme.Gold.Render(money(cmp.Cash)), cmp.SwingMax*100)),
 		row("amount", field.View()),
-	}
+	)
 	if back, err := m.backAmount(); err == nil && back > 0 {
 		style := theme.Gold
 		if back > w.Player.CleanCash-given {

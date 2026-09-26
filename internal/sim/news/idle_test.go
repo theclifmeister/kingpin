@@ -51,8 +51,17 @@ func TestStarvedRoutineSaysWhy(t *testing.T) {
 		// and a standing order for all of an empty stash, each said.
 		{"a contract held by the road", events.SupplyShort{City: "bayport", Product: "coke", Short: 60, Why: events.SupplyRoad},
 			nil, []string{"Supply contract holding: 60 Coke on the road to Bayport."}},
+		// #524: the road landing after the sales says the corner sold
+		// none; a strike nobody resolved and what a lost asset closes
+		// have their word.
+		{"a contract held dry by the road", events.SupplyShort{City: "bayport", Product: "coke", Short: 65, Why: events.SupplyRoad, Dry: true},
+			nil, []string{"Supply contract holding: 65 Coke on the road to Bayport.", "  it lands after the sales: none there to sell last night"}},
+		{"a strike called off", events.StrikeCalledOff{Corner: "riverside", Name: "Riverside", Boost: true, Why: "no target: nobody runs that crew"},
+			nil, []string{"The boost on Riverside was called off.", "  no target: nobody runs that crew; nothing moved"}},
+		{"the book lost", events.FrontsClosed{Asset: "supplier", Name: "The Dutchman's Book", Fronts: []string{"Private Bank"}},
+			nil, []string{"  Private Bank is off sale until The Dutchman's Book stands again"}},
 		{"a handoff held", events.HandoffHeld{ID: 3, Name: "Vera", City: "bayport", Product: "weed", Units: 25, Owed: 30, Due: 24},
-			nil, []string{"Handoff held, lying low: 25 Weed for Vera in Bayport.", "  30 still owed by day 24: queue it again"}},
+			nil, []string{"Handoff held, lying low: 25 Weed for Vera in Bayport.", "  30 owed by day 24: still queued, it goes the night you deal"}},
 		{"all of an empty stash", events.StandingShort{City: "eastside", Product: "weed", All: true},
 			nil, []string{"Standing order for all the Weed: nothing stashed, nothing sold."}},
 	} {
@@ -64,7 +73,7 @@ func TestStarvedRoutineSaysWhy(t *testing.T) {
 		w.Day = 20
 		w.Flows = tc.flows
 		n.Step(w, gametest.TickOn(w, 21, tc.ev))
-		got := append(append([]string(nil), w.Report.Sales...), w.Report.Shipments...)
+		got := append(append(append(append([]string(nil), w.Report.Sales...), w.Report.Shipments...), w.Report.Territory...), w.Report.Heat...)
 		for _, want := range tc.want {
 			found := false
 			for _, l := range got {

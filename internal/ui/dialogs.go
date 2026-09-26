@@ -554,10 +554,15 @@ func (m *Model) contractBringsNone(city, id string) string {
 	if !ok || m.rules.Market.Due(w, city, id) > 0 || c.Units <= w.Stock(city, id)+w.Bound(city, id) {
 		return ""
 	}
-	switch sup := w.BestSupplier(city, id); {
-	case w.Free(city) <= 0:
-		return "the stash there is full"
-	case sup == nil || sup.Left() <= 0:
+	// The plan's own reason (#524): a playtest read "$123K dirty does
+	// not cover one" where the contracts before it had taken the room.
+	switch why, sup := m.rules.Market.DueShort(w, city, id), w.BestSupplier(city, id); {
+	case why == "room" || why == "" && w.Free(city) <= 0:
+		if w.Free(city) <= 0 {
+			return "the stash there is full"
+		}
+		return "the stash there has no room left once the contracts before it have bought"
+	case why == "supplier" || why == "" && (sup == nil || sup.Left() <= 0):
 		return "nobody there has any left today"
 	}
 	return fmt.Sprintf("it buys for cash, and %s dirty does not cover one", cash(w.Player.DirtyCash))
@@ -861,9 +866,51 @@ func (m *Model) confirmKeep() (tea.Model, tea.Cmd) {
 	if err := m.sess.SetSupply(city, id, qty); err != nil {
 		return m.quantityAgain(err)
 	}
-	m.say(fmt.Sprintf("Keeping %d %s in %s: topped up at the end of each day, before the night's sales, at %s the supplier's price.", qty, m.w.ProductName(id), m.w.CityName(city), format.Times(m.rules.Market.Markup(), 2)))
+	m.say(joinSentences(fmt.Sprintf("Keeping %d %s in %s: topped up at the end of each day, before the night's sales, at %s the supplier's price.", qty, m.w.ProductName(id), m.w.CityName(city), format.Times(m.rules.Market.Markup(), 2)), m.contractRoom(city, id, qty)))
 	m.nextLine()
 	return m, nil
+}
+
+// contractRoom is the warning a contract set at level in a city gets
+// when the city cannot hold it (#524), "" when it can: a playtest's
+// Bayport contract had room only in the player's own carry, which left
+// with them, and it came up short every morning with nothing said when
+// it was set. Where you stand it is the room without you (CapacityAway,
+// less the other products stashed there); elsewhere, the room as it is.
+func (m *Model) contractRoom(city, id string, level int) string {
+	w := m.w
+	if level <= 0 {
+		return ""
+	}
+	other := w.StockIn(city) - w.Stock(city, id)
+	if city == w.Player.Location {
+		if room := max(0, w.CapacityAway(city)-other); room < level {
+			return fmt.Sprintf("%s holds %d of it without you: your carry leaves with you, and the contract fills only that far once you go.", w.CityName(city), room)
+		}
+		return ""
+	}
+	if room := w.Free(city) + w.Stock(city, id); room < level {
+		return fmt.Sprintf("The stash in %s has room for %d of it: the contract fills only that far.", w.CityName(city), max(0, room))
+	}
+	return ""
+}
+
+// contractsLeft is what leaving a city says of your contracts there
+// (#524): each whose level the city cannot hold once you go, or nil.
+func (m *Model) contractsLeft(city string) []string {
+	w := m.w
+	var out []string
+	for _, id := range w.Products {
+		c, ok := w.Supplied(city, id)
+		if !ok {
+			continue
+		}
+		other := w.StockIn(city) - w.Stock(city, id)
+		if room := max(0, w.CapacityAway(city)-other); room < c.Units {
+			out = append(out, fmt.Sprintf("The %s contract (keep %d) has room for %d once you go: your carry leaves with you.", w.ProductName(id), c.Units, room))
+		}
+	}
+	return out
 }
 
 // quantityAgain is a buy or sell dialog refused on its last step: back

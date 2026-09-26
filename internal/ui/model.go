@@ -659,7 +659,7 @@ func (m *Model) lieLowConfirm() string {
 		body = append(body, fmt.Sprintf("%d %s to %s, %d owed by day %d.", m.w.QueuedDelivery(c.ID), m.w.ProductName(c.Product), c.Name, c.Owed(), c.Due))
 	}
 	body = append(body, "")
-	body = append(body, m.subtle("Lying low, nothing is handed over tonight: the handoff stays queued, and goes if you turn lying low off again today. y lies low; any other key keeps dealing.")...)
+	body = append(body, m.subtle("Lying low, nothing is handed over tonight: the handoff stays queued through the night, and goes the first night you deal. y lies low; any other key keeps dealing.")...)
 	return m.modal("LIE LOW? A HANDOFF IS QUEUED", body, m.modalFooter())
 }
 

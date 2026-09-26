@@ -1042,13 +1042,30 @@ func (s *Session) NextGates() []Gate {
 	return out
 }
 
+// FrontsWaiting is the fronts you do not own that are not on offer
+// (FrontOffers) because the asset they wait on has never stood (#525),
+// for the ledger's line in place of "You own every front there is.".
+func (s *Session) FrontsWaiting() []game.FrontOffer {
+	var out []game.FrontOffer
+	for _, o := range s.set.Laundering.Offers() {
+		if s.w.Front(o.ID) == nil && o.Asset != "" && !s.w.HasAsset(o.Asset) && s.w.AssetLost(o.Asset) == nil {
+			out = append(out, o)
+		}
+	}
+	return out
+}
+
 // FrontOffers is the fronts on offer you do not own, locked or not.
 func (s *Session) FrontOffers() []game.FrontOffer {
 	var out []game.FrontOffer
 	for _, o := range s.set.Laundering.Offers() {
 		// A front that waits on an asset (#391: the cartel's wash) is not
-		// on offer, and no door to count down to, until the asset stands.
-		if s.w.Front(o.ID) == nil && (o.Asset == "" || s.w.AssetLive(o.Asset)) {
+		// on offer, and no door to count down to, until the asset first
+		// stands. Once it has, the front stays listed, locked (`needs the
+		// Dutchman's Book`) while the asset is idle or lost (#525: a
+		// playtest's task force took the Book and the bank left the list
+		// with "You own every front there is.").
+		if s.w.Front(o.ID) == nil && (o.Asset == "" || s.w.HasAsset(o.Asset) || s.w.AssetLost(o.Asset) != nil) {
 			out = append(out, o)
 		}
 	}

@@ -88,6 +88,16 @@ func (m *Model) exitRows() []exitRow {
 			}
 		}
 	}
+	// And the night of the transfer itself (#525), which the session
+	// refuses too: retire and vanish alike.
+	if pages := m.sess.PagesPending(); pages > 0 {
+		for i := range rows {
+			if rows[i].open {
+				rows[i].open = false
+				rows[i].short = fmt.Sprintf("today's transfer puts %s in the DA's file: end the day first, and walk away once it is read", plural(pages, "page"))
+			}
+		}
+	}
 	return rows
 }
 

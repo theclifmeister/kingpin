@@ -30,6 +30,19 @@ func TestALumpIsReadBeforeTheWalkAway(t *testing.T) {
 		if n := s.PagesDue(); n != 0 {
 			t.Fatalf("pages due before the night: %d", n)
 		}
+		// The night of the move (#525): the pages it will file close
+		// retire and vanish alike, before the day ends.
+		pending := s.Rules().Laundering.Lots(off.Lot*lots) * s.Rules().Heat.StructureEvidence()
+		if s.PagesPending() != pending {
+			t.Fatalf("the night of the move: pages pending %d, want %d", s.PagesPending(), pending)
+		}
+		if pending > 0 {
+			for name, exit := range map[string]func() error{"retire": s.Retire, "vanish": s.Vanish} {
+				if err := exit(); !errors.Is(err, game.ErrPagesDue) || w.Over != nil {
+					t.Fatalf("%s the night of the move: %v, over %+v", name, err, w.Over)
+				}
+			}
+		}
 		s.EndDay()
 		if w.Over != nil {
 			t.Fatalf("the move ended the run: %+v", w.Over)

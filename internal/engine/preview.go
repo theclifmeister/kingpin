@@ -88,10 +88,12 @@ type RoutesOutlay struct {
 // LaunderingDay is the night's wash: what goes through the fronts, their
 // upkeep and income, and the assets' upkeep.
 type LaunderingDay struct {
-	Washed int `json:"washed"`
-	Upkeep int `json:"upkeep"`
-	Income int `json:"income"`
-	Assets int `json:"assets"`
+	Washed int      `json:"washed"`
+	Upkeep int      `json:"upkeep"`
+	Income int      `json:"income"`
+	Assets int      `json:"assets"`
+	Shuts  []string `json:"shuts,omitempty"` // the fronts whose upkeep the clean is expected not to cover tonight (#524): each shuts
+	Short  int      `json:"short,omitempty"` // what their upkeep comes up short by, clean
 }
 
 // Preview is tonight, estimated (#353): nil before a run and once it is
@@ -341,6 +343,8 @@ func (s *Session) Preview() *DayPreview {
 		}
 		due := lw.FrontUpkeep(w, f)
 		if due > at.Player.CleanCash {
+			p.Wash.Shuts = append(p.Wash.Shuts, f.Name)
+			p.Wash.Short += due - at.Player.CleanCash
 			continue
 		}
 		inc := lw.Income(f)

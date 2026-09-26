@@ -18,7 +18,7 @@ import (
 // never a World method a front end calls itself.
 var worldReads = []string{
 	"AssetLive", "AssetLost", "AtPeaceWith", "AtWarWith", "Available", "BestSupplier", "Bound", "BuyMarkup", "Campaigning", "CanBuyIn",
-	"CanCrown", "CanUndercut", "CanVanish", "Capacity", "Cash", "Checkpoint", "City", "CityName",
+	"CanCrown", "CanUndercut", "CanVanish", "Capacity", "CapacityAway", "Cash", "Checkpoint", "City", "CityName",
 	"CityOf", "Cold", "Contested", "ContestedBy", "Contract", "ContractsDue", "ContractsIn", "Corner",
 	"DealWith", "DeedValue", "Deeds", "DeedsIn", "DelegatedOrder", "DelegatedSupplied", "Deliverable", "Demand",
 	"Describe", "DrivenRoute", "ExportOrder", "ExportsOut", "Faction", "FactionIndex", "FactionName", "FallGuyLeft", "FavourCalled", "Float", "Free",
@@ -27,7 +27,7 @@ var worldReads = []string{
 	"ProductName", "Quality", "QueuedDelivery", "Quote", "ReachedOn", "ReignDay", "ReservedToday", "Rival",
 	"RivalHeld", "RivalHeldBy", "Route", "RouteClosed", "Score", "Side", "SplitLinesWith", "Stage",
 	"StagePending", "Stance", "StashOf", "Stashed", "Stock", "StockIn", "Street", "StreetCapacity",
-	"StandingSupply", "StreetQuality", "StreetSupplier", "Supplied", "SuppliedToday", "Supplier", "SuppliersIn", "SupplyOutlay", "Road", "Landing", "Tier", "TierName",
+	"StandingSupply", "StreetQuality", "StreetSupplier", "Supplied", "SuppliedToday", "Supplier", "SuppliersIn", "SupplyOutlay", "SupplyDue", "Road", "Landing", "Tier", "TierName",
 	"TotalStock", "Undercutting", "WarHasGround", "WholesaleSupplier", "Worked", "WorkedIn", "YourStanding",
 }
 

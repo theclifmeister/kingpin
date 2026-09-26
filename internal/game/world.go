@@ -833,6 +833,24 @@ func (w *World) Capacity(city string) int {
 	return n
 }
 
+// CapacityAway is what a city holds with you elsewhere (#524): its
+// houses and the runners posted on its corners, without your carry and
+// the crew on nobody's corner, who go where you go. A playtest's supply
+// contract in Bayport had room only in the player's own carry, and
+// could never fill once they left.
+func (w *World) CapacityAway(city string) int {
+	n := w.Capacity(city)
+	if city == w.Player.Location {
+		n -= w.Player.CarryLimit
+		for _, m := range w.Crew.Members {
+			if m.Units > 0 && w.PostOf(m.ID) == nil {
+				n -= m.Units
+			}
+		}
+	}
+	return max(0, n)
+}
+
 // StreetCapacity is what a city's street holds: the player's own carry
 // limit if they are there, plus the runners posted on corners there,
 // plus the ones on nobody's corner wherever the player is.

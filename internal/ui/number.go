@@ -27,6 +27,7 @@ import (
 type numberField struct {
 	in    textinput.Model
 	max   int  // what the field can take; the shortcuts clamp to it
+	min   int  // the least a number typed may be (#526: the till's float); 0 for most fields, where blank means what it means
 	money bool // the field is dollars: max reads `$45,000`
 	fresh bool // the value was set, not typed: the first digit replaces it (#426)
 }
@@ -105,9 +106,9 @@ func (f *numberField) Update(k tea.KeyMsg) tea.Cmd {
 	}
 	switch key {
 	case "m":
-		f.Set(f.max)
+		f.Set(f.top())
 	case "h":
-		f.Set(f.max / 2)
+		f.Set(f.clamp(f.top() / 2))
 	case "up":
 		f.Set(f.clamp(n + 1))
 	case "down":
@@ -139,19 +140,45 @@ func (f *numberField) Update(k tea.KeyMsg) tea.Cmd {
 	return nil
 }
 
-// clamp holds a shortcut's result to [0, max].
-func (f numberField) clamp(n int) int { return max(0, min(n, f.max)) }
+// top is the field's max, never under its min (#526: the till's max
+// read the dirty cash in hand, under the float it stated).
+func (f numberField) top() int { return max(f.max, f.min) }
+
+// clamp holds a shortcut's result to [min, max].
+func (f numberField) clamp(n int) int { return max(f.min, min(n, f.top())) }
+
+// Outside is a typed number outside the field's range (#526): -1 under
+// its min, 1 over its max, 0 inside it or blank. The dialog refuses or
+// clamps it, as a buy's quantity over the stash is set to what fits.
+func (f numberField) Outside() int {
+	n, ok := f.Number()
+	switch {
+	case !ok || strings.TrimSpace(f.in.Value()) == "":
+		return 0
+	case n < f.min:
+		return -1
+	case n > f.top():
+		return 1
+	}
+	return 0
+}
 
 // View is the field followed by ` / 340 max` in Subtle; the suffix is
-// left off when the field can take nothing.
+// left off when the field can take nothing. A field with a min reads
+// its range, `$50,000 … $50,000,000` (#526), never a max under the min.
 func (f numberField) View() string {
 	v := f.in.View()
-	if f.max <= 0 {
+	if f.top() <= 0 {
 		return v
 	}
-	mx := strconv.Itoa(f.max)
-	if f.money {
-		mx = money(f.max)
+	num := func(n int) string {
+		if f.money {
+			return money(n)
+		}
+		return strconv.Itoa(n)
 	}
-	return v + "  " + theme.Subtle.Render("/ "+mx+" max")
+	if f.min > 0 {
+		return v + "  " + theme.Subtle.Render(num(f.min)+" … "+num(f.top()))
+	}
+	return v + "  " + theme.Subtle.Render("/ "+num(f.max)+" max")
 }

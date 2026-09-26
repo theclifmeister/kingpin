@@ -137,6 +137,11 @@ func (r *reporter) reportMarket(e events.Event) bool {
 			// Held by the road (#503): the level counts what is on the
 			// way, so the contract waits for it to land.
 			rep.Sales = append(rep.Sales, fmt.Sprintf("Supply contract holding: %d %s on the road to %s.", ev.Short, w.ProductName(ev.Product), w.CityName(ev.City)))
+			if ev.Dry {
+				// The road lands after the sales (#524): the corner sold
+				// none of it last night, and this is why.
+				rep.Sales = append(rep.Sales, "  it lands after the sales: none there to sell last night")
+			}
 			break
 		}
 		why := "there was no cash over the float for the rest"
@@ -221,7 +226,7 @@ func (r *reporter) reportMarket(e events.Event) bool {
 	case events.HandoffHeld:
 		// Lying low held it (#503): said, never dropped silently.
 		rep.Sales = append(rep.Sales, fmt.Sprintf("Handoff held, lying low: %d %s for %s%s.", ev.Units, w.ProductName(ev.Product), ev.Name, r.in(ev.City)),
-			fmt.Sprintf("  %d still owed by day %d: queue it again", ev.Owed, ev.Due))
+			fmt.Sprintf("  %d owed by day %d: still queued, it goes the night you deal", ev.Owed, ev.Due))
 	case events.ContractDelivered:
 		r.book(game.FlowSales, ev.Revenue, 0)
 		line := fmt.Sprintf("Handed %d %s to %s at %s (%s street) = +%s%s", ev.Units, w.ProductName(ev.Product), ev.Name, format.Price(ev.Price), format.TimesSig(ev.Price/math.Max(ev.Street, 1e-9), 3), format.Money(ev.Revenue), r.in(ev.City))

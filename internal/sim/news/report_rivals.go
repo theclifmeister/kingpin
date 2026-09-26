@@ -213,6 +213,12 @@ func (r *reporter) reportRivals(e events.Event) bool {
 		}
 	case events.DealEnding:
 		rep.Territory = append(rep.Territory, fmt.Sprintf("The %s with %s holds one more night: from tomorrow they are free to push your corners.", ev.Deal, ev.Rival))
+	case events.StrikeCalledOff:
+		what := "strike"
+		if ev.Boost {
+			what = "boost"
+		}
+		rep.Territory = append(rep.Territory, fmt.Sprintf("The %s on %s was called off.", what, ev.Name), "  "+ev.Why+"; nothing moved")
 	case events.ScoutsMissed:
 		rep.Territory = append(rep.Territory, fmt.Sprintf("Your enforcers went after %s's scouts and found nobody: %s.", rivalOr(ev.Rival), ev.Why))
 	case events.DealEnded:

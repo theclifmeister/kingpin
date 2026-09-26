@@ -594,7 +594,7 @@ func (m *Model) setCartQty() {
 			d.err = dialogError(err)
 			return
 		}
-		m.say(fmt.Sprintf("Contract: %s in %s kept at %d from tomorrow morning.", m.w.ProductName(l.product), m.w.CityName(l.city), qty))
+		m.say(joinSentences(fmt.Sprintf("Contract: %s in %s kept at %d from tomorrow morning.", m.w.ProductName(l.product), m.w.CityName(l.city), qty), m.contractRoom(l.city, l.product, qty)))
 		d.step = 0
 		d.qty.Blur()
 		return

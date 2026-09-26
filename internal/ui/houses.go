@@ -149,7 +149,7 @@ func (m *Model) openOffers() {
 		case pickAsset:
 			m.refuse("Nothing to buy: you own every asset there is.")
 		default:
-			m.refuse("Nothing to buy: you own every front there is.")
+			m.refuse("Nothing to buy. " + m.noFrontsOnOffer())
 		}
 		return
 	}

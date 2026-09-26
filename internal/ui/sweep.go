@@ -24,7 +24,7 @@ func (m *Model) askSweep() {
 	if m.w.Over != nil {
 		return
 	}
-	m.openAmount(modeSweep, "blank = the upkeep", max(m.w.Player.CleanCash, m.w.Laundering.Sweep.Keep), true, "")
+	m.openAmount(modeSweep, "blank = the upkeep", m.sweepMax(), true, "")
 	if sw := m.w.Laundering.Sweep; sw.On && sw.Keep > 0 {
 		m.amt.Set(sw.Keep)
 	}
@@ -44,8 +44,13 @@ func (m *Model) keySweep(k tea.KeyMsg) (tea.Model, tea.Cmd) {
 		m.say("The sweep is off: the clean stays in hand.")
 		return m, nil
 	}
-	return m.keyAmount(k, func() int { return max(m.w.Player.CleanCash, m.w.Laundering.Sweep.Keep) }, m.confirmSweep)
+	return m.keyAmount(k, m.sweepMax, m.confirmSweep)
 }
+
+// sweepMax is the most the sweep's line can be (#526): the clean cash in
+// hand, or the line already set where that is more. A playtest's field
+// read `/ $2,100 max` and took 5000; a line over it is set to it, said.
+func (m *Model) sweepMax() int { return max(m.w.Player.CleanCash, m.w.Laundering.Sweep.Keep) }
 
 // sweepKeep is the line the field reads: blank is 0, the upkeep alone.
 func (m *Model) sweepKeep() (int, error) {
@@ -57,6 +62,12 @@ func (m *Model) confirmSweep() {
 	keep, err := m.sweepKeep()
 	if err != nil {
 		m.amt.err = dialogError(err)
+		return
+	}
+	m.amt.max = m.sweepMax()
+	if m.amt.Outside() > 0 {
+		m.amt.Set(m.sweepMax())
+		m.amt.err = fmt.Sprintf("The sweep keeps at most %s, the clean in hand. The line is now %s; enter sets it.", money(m.sweepMax()), money(m.sweepMax()))
 		return
 	}
 	if err := m.sess.SetSweep(keep); err != nil {
@@ -88,7 +99,7 @@ func (m *Model) viewSweep() string {
 	if sw := w.Laundering.Sweep; sw.On {
 		state = theme.Good.Render("on") + ", keeping " + money(max(sw.Keep, m.upkeepTonight()))
 	}
-	field := m.amountField(max(w.Player.CleanCash, w.Laundering.Sweep.Keep))
+	field := m.amountField(m.sweepMax())
 	body := []string{
 		m.inHand(),
 		row("account", theme.Good.Render(cash(w.Offshore))+" offshore"),
