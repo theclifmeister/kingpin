@@ -149,3 +149,37 @@ func TestLieutenantSaysWhomTheyTook(t *testing.T) {
 		t.Fatalf("nobody idle, and they took %+v", ev.Took)
 	}
 }
+
+// The stick-ups before a lieutenant came still move the crew when
+// ground you hold waits for them (#497's regression, seed 8 of
+// TestLevelsDrawTheAuditors: a boss fired the runner on its one
+// unrobbed corner the day its lieutenant came, and the lieutenant kept
+// the crew on a corner robbed three times and gave the empty one up):
+// with a held corner nobody works, the crew come off the robbed one
+// and go to it, and the robbed one is given up, as before #497.
+func TestLieutenantMovesTheCrewToGroundThatWaits(t *testing.T) {
+	cfg := content.MustLoad()
+	w, s := factionWorld(t, cfg)
+	off := cfg.Crew.Lieutenant.RobbedOff
+	w.Home().Corners = append(w.Home().Corners, game.Corner{ID: "strip", City: "test", Name: "The Strip", X: 3, Demand: 1, Heat: 1, Risk: 1, Owner: game.OwnerPlayer, Since: 1})
+	w.Crew.Members = []game.CrewMember{
+		{ID: 901, Name: "Vee", Role: "runner", Skill: 50, Loyalty: 95, Greed: 5, Nerve: 90, Units: 100, Wage: 50},
+		{ID: 902, Name: "Eli", Role: "lieutenant", Personality: "steady", Skill: 50, Loyalty: 95, Greed: 5, Nerve: 90, Wage: 50},
+	}
+	w.Crew.NextID = 902
+	if err := w.Post("oldmill", 901); err != nil {
+		t.Fatal(err)
+	}
+	w.Corner("oldmill").Robbed = off + 1 // before Eli came
+	w.Day = 3
+	if err := w.Assign(902, "test"); err != nil {
+		t.Fatal(err)
+	}
+	ev := acted(t, step(w, s))
+	if c := w.Corner("strip"); c.Runner != 901 {
+		t.Fatalf("the waiting corner the night Eli came: %+v, posted %v; want Vee on it", *c, ev.Posted)
+	}
+	if c := w.Corner("oldmill"); c.Held() || len(ev.Dropped) != 1 || ev.Dropped[0] != "Old Mill" {
+		t.Fatalf("the robbed corner: %+v, dropped %v; want it given up", *c, ev.Dropped)
+	}
+}

@@ -175,12 +175,26 @@ func (s *Sim) delegate(w *game.World, t *game.Tick, lt *game.CrewMember, ev *eve
 		return c.Runner == game.You || (split != nil && c.City == w.Home().ID && split.Covers(c.ID))
 	}
 	named := func(c *game.Corner) bool { return namedCorner(w, c) }
-	// worn is a corner robbed robbed_off times since the lieutenant took
-	// the city (CrewMember.Stickups, the count each corner had then): the
-	// stick-ups before they came are yours, and the crew you posted stay
-	// where they are (#497: a whole city's runners came off the night
-	// Wally took it over, on stick-ups counted before he came).
-	worn := func(c *game.Corner) bool { return lt.StickupsSince(*c) >= off }
+	// worn is a corner robbed robbed_off times: since the lieutenant took
+	// the city (CrewMember.Stickups, the count each corner had then), or
+	// in all while ground you hold waits for a runner (a held corner nobody
+	// works, not itself robbed off), where the crew go instead. With none
+	// waiting, the stick-ups before they came are yours and the crew you
+	// posted stay where they are (#497: a whole city's runners came off
+	// the night Wally took it over, on stick-ups counted before he came,
+	// and sat idle). Counting the stamp alone even with a corner waiting
+	// kept a boss's runners on a corner robbed three times and gave the
+	// empty one up (seed 8, TestLevelsDrawTheAuditors).
+	waiting := false
+	for i := range city.Corners {
+		if c := &city.Corners[i]; c.Held() && c.Runner == 0 && c.Robbed < off && !keep(c) && !named(c) {
+			waiting = true
+			break
+		}
+	}
+	worn := func(c *game.Corner) bool {
+		return lt.StickupsSince(*c) >= off || (waiting && c.Robbed >= off)
+	}
 
 	// 1. A corner robbed robbed_off times is not worth the stock: the crew
 	// come off. So do they off a corner an investigation names (#343):
