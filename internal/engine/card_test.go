@@ -110,11 +110,22 @@ func TestChoiceChipsSayTheLines(t *testing.T) {
 		t.Errorf("moves that round to nothing read %q", got)
 	}
 
+	// A hidden card keeps its drama on the choices that cost, and says a
+	// choice costs nothing where none of its moves does (#537: a
+	// turncoat's "turn them away" read "costs you something").
 	c.Hide = true
 	for i, cs := range engine.ChoiceChips(cfg, s.Rules(), w, c) {
-		if len(cs) != 1 || cs[0].Text != engine.Hidden {
-			t.Errorf("hidden choice %d shows %+v", i, cs)
+		want := engine.Hidden
+		if c.Choices[i].Label == "Walk" {
+			want = engine.Free
 		}
+		if len(cs) != 1 || cs[0].Text != want {
+			t.Errorf("hidden choice %d (%s) shows %+v, want %q", i, c.Choices[i].Label, cs, want)
+		}
+	}
+	gain := &game.Card{ID: "gain", Hide: true, Choices: []game.Choice{{Label: "Turn them away", Effects: map[string]float64{"respect": 2}}}}
+	if cs := engine.ChoiceChips(cfg, s.Rules(), w, gain)[0]; len(cs) != 1 || cs[0].Text != engine.Free {
+		t.Errorf("a hidden choice that only gains shows %+v", cs)
 	}
 }
 

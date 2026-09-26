@@ -29,21 +29,20 @@ func TestLedgerCursor(t *testing.T) {
 	if got, want := first(), strings.ToUpper(w.Fronts[0].Name); got != want || m.ledgerCursor != 0 {
 		t.Fatalf("at the top: %q (cursor %d), want %q", got, m.ledgerCursor, want)
 	}
-	// On a front enter is the frame's: it asks to end the day, and esc
-	// declines.
+	// On a front enter acts on nothing and ends nothing (#536): it is
+	// the dashboard's day preview, and the status bar points there.
 	day := w.Day
 	m.Update(key("enter"))
-	if m.mode != modeConfirmEnd || w.Day != day {
-		t.Fatalf("enter on a front: mode %v day %d -> %d", m.mode, day, w.Day)
+	if m.mode != modePlay || w.Day != day || !strings.Contains(m.status, "dashboard screen (1)") {
+		t.Fatalf("enter on a front: mode %v day %d -> %d status %q", m.mode, day, w.Day, m.status)
 	}
-	m.Update(key("esc"))
 	for i := 1; i < 3; i++ {
 		m.Update(key("down"))
 		if got, want := first(), strings.ToUpper(w.Fronts[i].Name); got != want {
 			t.Fatalf("front %d: %q, want %q", i, got, want)
 		}
 	}
-	// Onto the houses (#73): enter is the frame's there too.
+	// Onto the houses (#73): enter ends nothing there either.
 	for i := range w.Houses {
 		m.Update(key("down"))
 		if got, want := first(), strings.ToUpper(w.Houses[i].Name); got != want {
@@ -51,10 +50,9 @@ func TestLedgerCursor(t *testing.T) {
 		}
 	}
 	m.Update(key("enter"))
-	if m.mode != modeConfirmEnd || w.Day != day {
+	if m.mode != modePlay || w.Day != day {
 		t.Fatalf("enter on a house: mode %v day %d -> %d", m.mode, day, w.Day)
 	}
-	m.Update(key("esc"))
 	// The routes are the map's (#245): the ledger lists none.
 	// Onto the offers: b opens the buy picker on that offer.
 	for i := range offers {

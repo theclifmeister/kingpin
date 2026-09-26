@@ -245,7 +245,7 @@ func TestWarKeys(t *testing.T) {
 	}
 	m.Update(key("8"))
 	m.Update(key("w"))
-	if m.mode != modeConfirm || !strings.Contains(stripANSI(m.View()), "CALL OFF THE WAR?") {
+	if m.mode != modeConfirm || !strings.Contains(stripANSI(m.View()), "CALL OFF THE WAR ON "+strings.ToUpper(m.rivalName(r))+"?") {
 		t.Fatalf("w at war: mode %v\n%s", m.mode, stripANSI(m.View()))
 	}
 	m.Update(key("y"))

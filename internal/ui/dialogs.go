@@ -40,6 +40,14 @@ type dialog struct {
 	repeat   repeat
 	turned   bool // the dialog was turned to this side from a city other than this one (#168)
 	newStep  bool // the connect step is new to the player: its first showing says so (#500)
+	// asked is the number typed on the quantity step before it was held
+	// to the max (#536): the max follows the pay and the repeat, so
+	// turning a buy to credit or keep at on the next step sets the
+	// quantity to as much of it as the new max takes. 0 for a blank.
+	asked int
+	// note is what the quantity step did to a number over the max, said
+	// on the step it moved on to (#536: the clamp no longer eats enter).
+	note string
 }
 
 // page is the dialog's page for the key table (#243): the connect
@@ -184,26 +192,24 @@ func (m *Model) openDialog(mode mode) {
 		return
 	}
 	m.dlg = dialog{qty: newNumberField("blank = max"), dial: events.DialNormal}
-	if !m.productNamed() {
-		// The first row (#462, #500), never a product another screen,
-		// or the dashboard's table, left selected.
-		m.cursor = 0
+	city := m.actionCity()
+	if mode == modeBuy {
+		city = m.buyCity()
+	}
+	// One rule for buy and sell (#536): the row under the market's
+	// cursor where the key is pressed on its product table, else the
+	// table's first row. Never a product another screen, the dashboard's
+	// table or the last dialog left selected (#462, #500), and no longer
+	// a jump to the first thing held on a sale (a playtest's s and b
+	// opened on different products, and a habit's keys set the wrong
+	// standing order); the product step says what cannot be sold.
+	if !m.productNamed() || m.w.Product(city, m.w.Products[m.cursor]) == nil {
+		m.cursor = m.firstProduct(city)
 	}
 	if mode == modeBuy {
 		m.seedBuy()
 	}
 	if mode == modeSell {
-		city := m.actionCity()
-		// Land on something you actually hold there, or that the
-		// contract brings.
-		if m.sellable(city, m.w.Products[m.cursor]) == 0 {
-			for i, id := range m.w.Products {
-				if m.sellable(city, id) > 0 {
-					m.cursor = i
-					break
-				}
-			}
-		}
 		m.seedSell()
 	}
 	m.mode = mode
@@ -322,6 +328,7 @@ func (m *Model) switchSide() {
 	d.qty.Blur()
 	d.repeat = repeatOnce
 	d.dial = events.DialNormal
+	d.asked, d.note = 0, ""
 	d.turned = m.dialogCity() != from
 	if to == modeBuy {
 		m.seedBuy()
@@ -347,7 +354,7 @@ func (m *Model) switchSide() {
 func (m *Model) keyDialog(k tea.KeyMsg) (tea.Model, tea.Cmd) {
 	key := k.String()
 	d := &m.dlg
-	d.err = ""
+	d.err, d.note = "", ""
 	if closes(key) {
 		m.mode = modePlay
 		return m, nil
@@ -387,14 +394,8 @@ func (m *Model) keyDialog(k tea.KeyMsg) (tea.Model, tea.Cmd) {
 			if (key == "b") == (m.mode == modeSell) {
 				m.switchSide()
 			}
-		case "up", "k":
-			stepCursor(&m.cursor, -1, len(m.w.Products))
-		case "down", "j":
-			stepCursor(&m.cursor, 1, len(m.w.Products))
-		case "1", "2", "3", "4", "5", "6", "7", "8", "9":
-			if i := int(key[0] - '1'); i < len(m.w.Products) {
-				m.cursor = i
-			}
+		case "up", "k", "down", "j", "1", "2", "3", "4", "5", "6", "7", "8", "9":
+			m.productKey(key, m.dialogCity())
 		case "enter", "right", "l":
 			if err := m.productErr(); err != "" {
 				d.err = err
@@ -430,12 +431,15 @@ func (m *Model) keyDialog(k tea.KeyMsg) (tea.Model, tea.Cmd) {
 				// it and a contract is not what is being set.
 				if d.repeat == repeatOnce && m.creditOffered() {
 					d.credit = !d.credit
+					m.followMax()
 				}
 				return m, nil
 			}
-			stepRepeat(key, &d.repeat, len(repeatNames))
-			if d.repeat == repeatKeep {
-				d.credit = false
+			if stepRepeat(key, &d.repeat, len(repeatNames)) {
+				if d.repeat == repeatKeep {
+					d.credit = false
+				}
+				m.followMax()
 			}
 			return m, nil
 		}
@@ -477,9 +481,37 @@ func (m *Model) keyDialog(k tea.KeyMsg) (tea.Model, tea.Cmd) {
 func (m *Model) qtyMax() int {
 	id := m.w.Products[m.cursor]
 	if m.mode == modeBuy {
-		return m.maxBuy(id)
+		if m.dlg.repeat == repeatKeep {
+			return m.keepMax(m.dialogCity(), id)
+		}
+		return m.maxBuyBy(id, m.dlg.credit)
 	}
 	return m.sellable(m.dialogCity(), id)
+}
+
+// keepMax is the most a supply contract's level may be set to on the
+// buy dialog (#536): what the stash there can hold of the product, the
+// other products left where they are. A level is stock to keep, not a
+// buy, so today's cash is not its line: `> 50 / 50 max` held a keep at
+// level to what the cash bought today.
+func (m *Model) keepMax(city, id string) int {
+	w := m.w
+	return max(1, w.Capacity(city)-(w.StockIn(city)-w.Stock(city, id)))
+}
+
+// followMax is the quantity after the pay or the repeat turns on the
+// buy's last step (#536): the max follows them (the cash, the
+// connect's book, the stash's room at keep at), and a number typed
+// over the old max becomes as much of it as the new one takes. A blank
+// stays blank: it is the max whatever the max is.
+func (m *Model) followMax() {
+	d := &m.dlg
+	if d.asked <= 0 {
+		return
+	}
+	if mx := m.qtyMax(); mx > 0 {
+		d.qty.Set(min(d.asked, mx))
+	}
 }
 
 // sellable is what an order for a product in a city may be for: the
@@ -570,12 +602,16 @@ func (m *Model) contractBringsNone(city, id string) string {
 
 // checkQuantity is the quantity step's check (#467): whether the number
 // typed can go on to the next step. A sale may be for what sellable
-// allows; a buy at once for what the connect sells you for cash, or on
-// their book where it covers it (the pay step says so); a buy at keep
-// at for any level, a contract filling as far as the day allows
-// (confirmKeep). With offer (enter), a number past what fits is set to
-// what fits and the reason is the error line, as the last step offered
-// it before; tab is silent.
+// allows, or what lands tonight for a standing order; a buy at once
+// for what the pay takes (the cash, or the connect's book on credit),
+// a buy at keep at for what the stash holds (keepMax). With offer
+// (enter), a number past the max is held to it and the dialog goes on
+// (#536: the clamp ate the enter, and a buy clamped to the cash before
+// the pay step could turn it to credit), the reason on the next step's
+// note and the number typed kept (dialog.asked) for the pay and the
+// repeat to follow; tab is silent and goes nowhere past the max. A
+// buy on cash the cash covers none of and the connect's book does goes
+// on unheld to the pay step, which says so (cashShortRows).
 func (m *Model) checkQuantity(offer bool) bool {
 	d := &m.dlg
 	w := m.w
@@ -585,6 +621,20 @@ func (m *Model) checkQuantity(offer bool) bool {
 			d.err = dialogError(err)
 		}
 		return false
+	}
+	// held sets the field to most and says why, where enter is what was
+	// pressed; tab stays.
+	held := func(most int, why error) bool {
+		if !offer {
+			return false
+		}
+		d.qty.Set(most)
+		d.note = dialogError(why)
+		return true
+	}
+	d.asked = 0
+	if n, ok := d.qty.Number(); ok && n > 0 {
+		d.asked = n
 	}
 	if m.mode == modeSell {
 		city := m.dialogCity()
@@ -601,14 +651,18 @@ func (m *Model) checkQuantity(offer bool) bool {
 			return true
 		}
 		most = m.standable(city, id)
-		if offer {
-			d.qty.Set(most)
-		}
-		return fail(fmt.Errorf("only %d %s in %s; the quantity is now %d, what there is", most, w.ProductName(id), w.CityName(city), most))
+		return held(most, fmt.Errorf("only %d %s in %s; the quantity is now %d, what there is", most, w.ProductName(id), w.CityName(city), most))
 	}
 	if d.repeat == repeatKeep {
-		_, err := m.parseQty(m.maxBuy(id))
-		return err == nil || fail(err)
+		most := m.keepMax(m.dialogCity(), id)
+		qty, err := m.parseQty(most)
+		switch {
+		case err != nil:
+			return fail(err)
+		case qty <= most:
+			return true
+		}
+		return held(most, fmt.Errorf("the stash in %s holds %d of it; the level is now %d", w.CityName(m.dialogCity()), most, most))
 	}
 	sup := m.buySupplier(id)
 	if sup == nil {
@@ -616,28 +670,32 @@ func (m *Model) checkQuantity(offer bool) bool {
 	}
 	fits := m.maxBuyBy(id, d.credit)
 	book := 0
-	if !d.credit {
+	if !d.credit && m.creditOffered() {
 		book = m.maxBuyBy(id, true) // what the pay step's credit would take
 	}
 	qty := 1
 	if strings.TrimSpace(d.qty.Value()) != "" {
-		n, err := d.qty.Read(fits)
+		n, err := d.qty.Read(max(fits, book))
 		if err != nil {
 			return fail(err)
 		}
 		qty = n
 	}
-	if qty <= fits || qty <= book {
+	switch {
+	case qty <= fits:
 		return true
+	case fits == 0 && qty <= book:
+		// Nothing on cash, all of it on their book: the pay step says
+		// so and c turns it (#467).
+		return true
+	case fits == 0:
+		return fail(m.buyShort(sup, id, qty, d.credit))
 	}
-	why := m.buyShort(sup, id, qty, d.credit)
-	if fits > 0 {
-		if offer {
-			d.qty.Set(fits)
-		}
-		why = fmt.Errorf("%w; the quantity is now %d, what fits", why, fits)
+	why := fmt.Errorf("%w; the quantity is now %d, what fits", m.buyShort(sup, id, qty, d.credit), fits)
+	if book > fits {
+		why = fmt.Errorf("%w; c puts %d on %s's book", why, min(qty, book), sup.Name)
 	}
-	return fail(why)
+	return held(fits, why)
 }
 
 // buyShort is why a buy of qty from a connect cannot go through today
@@ -647,7 +705,7 @@ func (m *Model) buyShort(sup *game.Supplier, id string, qty int, credit bool) er
 	w := m.w
 	switch free := w.Free(sup.City); {
 	case qty > sup.Left():
-		return fmt.Errorf("%s has %d left today", sup.Name, sup.Left())
+		return fmt.Errorf("%s has %s left today", sup.Name, format.Int(sup.Left()))
 	case qty > free:
 		return &game.RoomError{Free: max(0, free), City: w.CityName(sup.City)}
 	}
@@ -706,15 +764,6 @@ func (m *Model) dialogForward() (tea.Model, tea.Cmd) {
 			return m, nil
 		}
 		d.pick, d.newStep = false, false
-		// Land on something they sell you.
-		if m.productErr() != "" {
-			for i, id := range m.w.Products {
-				if m.maxBuy(id) > 0 || m.maxBuyBy(id, true) > 0 {
-					m.cursor = i
-					break
-				}
-			}
-		}
 		return m, nil
 	}
 	switch d.step {
@@ -859,7 +908,7 @@ func (m *Model) confirmBuy() (tea.Model, tea.Cmd) {
 func (m *Model) confirmKeep() (tea.Model, tea.Cmd) {
 	id := m.w.Products[m.cursor]
 	city := m.dialogCity()
-	qty, err := m.parseQty(m.maxBuy(id))
+	qty, err := m.parseQty(m.qtyMax())
 	if err != nil {
 		return m.quantityAgain(err)
 	}
@@ -930,6 +979,7 @@ func (m *Model) nextLine() {
 	m.dlg.qty.Blur()
 	m.dlg.repeat = repeatOnce
 	m.dlg.credit = false
+	m.dlg.asked, m.dlg.note = 0, ""
 }
 
 // confirmSell is enter on the sell dialog's last step at once: the
@@ -1073,6 +1123,10 @@ func (m *Model) viewDialog() string {
 		body = append(body, follow(m.sellRepeatRows(d, city, id))...)
 	}
 
+	if d.note != "" {
+		m.modalFollow(len(body) + 1) // what the quantity step did to the number (#536)
+		body = append(body, "", theme.Warning.Render(d.note))
+	}
 	if d.err != "" {
 		m.modalFollow(len(body) + 1) // the refusal, where the eye is
 		body = append(body, "", theme.Bad.Render(d.err))
@@ -1151,7 +1205,7 @@ func (m *Model) quantityRows(d dialog, city, id string, buy bool, sup *game.Supp
 					body = append(body, theme.Warning.Render(fmt.Sprintf("Under %s's lot of %d: %s a unit.", sup.Name, sup.Lot, format.TimesSig(sup.SmallLot, 2))))
 				}
 			}
-			note := fmt.Sprintf("%s has %d left today", sup.Name, sup.Left())
+			note := fmt.Sprintf("%s has %s left today", sup.Name, format.Int(sup.Left()))
 			if n := m.maxBuyBy(id, true); n > 0 {
 				note += fmt.Sprintf("; their book covers %d", n)
 			}
@@ -1234,7 +1288,7 @@ func (m *Model) creditTerms(sup *game.Supplier, id string, qty int) string {
 func (m *Model) buyTermsRows(d dialog, city, id string, sup *game.Supplier) []string {
 	w := m.w
 	var body []string
-	qty, _ := m.parseQty(m.maxBuyBy(id, d.credit))
+	qty, _ := m.parseQty(m.qtyMax())
 	body = append(body, "", row("repeat", dialCells(repeatNames, int(d.repeat))))
 	pay := dialCells(payNames, 0)
 	if d.credit {

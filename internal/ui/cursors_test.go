@@ -168,9 +168,10 @@ func TestRivalsHaveOneCursor(t *testing.T) {
 	}
 }
 
-// A quantity past what the sale can take is refused on the quantity
-// step, the field set to what there is (#467), a standing order edited
-// the same as a new one.
+// A quantity past what the sale can take is held to what there is on
+// the quantity step (#467), and the dialog goes on with the reason
+// (#536: the clamp no longer eats enter), a standing order edited the
+// same as a new one.
 func TestSellQuantityRefusedWhereTyped(t *testing.T) {
 	m := richModel(t, 120, 40)
 	w := m.w
@@ -185,8 +186,11 @@ func TestSellQuantityRefusedWhereTyped(t *testing.T) {
 	m.Update(key("4"))
 	m.Update(key("0"))
 	m.Update(key("enter"))
-	if m.dlg.step != 1 || m.dlg.qty.Value() != "13" || !strings.Contains(m.dlg.err, "Only 13 "+w.ProductName(id)) {
-		t.Fatalf("40 against 13: step %d qty %q err %q", m.dlg.step, m.dlg.qty.Value(), m.dlg.err)
+	if m.dlg.step != 2 || m.dlg.qty.Value() != "13" || !strings.Contains(m.dlg.note, "Only 13 "+w.ProductName(id)) {
+		t.Fatalf("40 against 13: step %d qty %q note %q err %q", m.dlg.step, m.dlg.qty.Value(), m.dlg.note, m.dlg.err)
+	}
+	if view := stripANSI(m.View()); !strings.Contains(view, "Only 13 ") {
+		t.Fatalf("the note is not on the next step:\n%s", view)
 	}
 	// A standing order edited over the stash: refused on the same step.
 	if err := w.PlaceStanding(loc, id, 5, events.DialNormal); err != nil {
@@ -202,8 +206,8 @@ func TestSellQuantityRefusedWhereTyped(t *testing.T) {
 	m.Update(key("2"))
 	m.Update(key("0"))
 	m.Update(key("enter"))
-	if m.dlg.step != 1 || !strings.Contains(m.dlg.err, "Only 3 ") {
-		t.Fatalf("a standing order edited to 20 over 3: step %d err %q", m.dlg.step, m.dlg.err)
+	if m.dlg.step != 2 || m.dlg.qty.Value() != "3" || !strings.Contains(m.dlg.note, "Only 3 ") {
+		t.Fatalf("a standing order edited to 20 over 3: step %d qty %q note %q", m.dlg.step, m.dlg.qty.Value(), m.dlg.note)
 	}
 }
 

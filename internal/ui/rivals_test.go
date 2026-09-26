@@ -58,7 +58,7 @@ func TestRivalsPane(t *testing.T) {
 	if err := w.Propose(game.DealTribute, game.Terms{PerDay: 500}); err != nil {
 		t.Fatal(err)
 	}
-	if main := mainText(m); !strings.Contains(main, "Tonight  you propose tribute of $500 a day") {
+	if main := mainText(m); !strings.Contains(main, "Tonight  you propose tribute: you pay them $500 a day") {
 		t.Errorf("MAIN lacks the proposal:\n%s", main)
 	}
 	w.Today.Proposal = nil

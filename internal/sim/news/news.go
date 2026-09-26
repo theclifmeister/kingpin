@@ -766,9 +766,9 @@ func lieutenantWalkedLine(ev events.LieutenantWalked) string {
 // count is n things, pluralised.
 func count(n int, what string) string {
 	if n == 1 {
-		return "a " + what
+		return format.A(what) // an enforcer (#537: "put a enforcer")
 	}
-	return fmt.Sprintf("%d %ss", n, what)
+	return format.Plural(n, what)
 }
 
 func robberyLine(w *game.World, ev events.CornerRobbed) string {

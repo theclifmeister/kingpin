@@ -84,19 +84,19 @@ var bindings = []binding{
 	{key: "b", label: "bail", help: "clean cash to walk the selected member out", screens: on(screenCrew),
 		do: func(m *Model, _ string) { m.askBail() }},
 	// The map.
-	{key: "c", label: "post runner", help: "post a runner on the selected corner", screens: on(screenMap),
+	{key: "c", label: "post runner", help: "post a runner on the selected corner", screens: on(screenMap), when: mapOnCorner, off: offRoutes,
 		do: func(m *Model, _ string) { m.askPost(game.RoleRunner) }},
-	{key: "e", label: "post enforcer", help: "post an enforcer on the selected corner", screens: on(screenMap),
+	{key: "e", label: "post enforcer", help: "post an enforcer on the selected corner", screens: on(screenMap), when: mapOnCorner, off: offRoutes,
 		do: func(m *Model, _ string) { m.askPost(game.RoleEnforcer) }},
-	{key: "a", label: "abandon", help: "give the selected corner up", screens: on(screenMap),
+	{key: "a", label: "abandon", help: "give the selected corner up", screens: on(screenMap), when: mapOnCorner, off: offRoutes,
 		do: func(m *Model, _ string) { m.abandonSelected() }},
-	{key: "w", label: "send enforcers", help: "send the enforcers at the selected corner", screens: on(screenMap),
+	{key: "w", label: "send enforcers", help: "send the enforcers at the selected corner", screens: on(screenMap), when: mapOnCorner, off: offRoutes,
 		do: func(m *Model, _ string) { m.askStrike() }},
-	{key: "u", label: "undercut", help: "sell cheap on the rival's corner next door", screens: on(screenMap),
+	{key: "u", label: "undercut", help: "sell cheap on the rival's corner next door", screens: on(screenMap), when: mapOnCorner, off: offRoutes,
 		do: func(m *Model, _ string) { m.askUndercut() }},
-	{key: "t", label: "tip police", help: "tip the police on the selected rival corner", screens: on(screenMap),
+	{key: "t", label: "tip police", help: "tip the police on the selected rival corner", screens: on(screenMap), when: mapOnCorner, off: offRoutes,
 		do: func(m *Model, _ string) { m.askTip() }},
-	{key: "d", label: "buy block", help: "buy the block the selected corner is on", screens: on(screenMap),
+	{key: "d", label: "buy block", help: "buy the block the selected corner is on", screens: on(screenMap), when: mapOnCorner, off: offRoutes,
 		do: func(m *Model, _ string) { m.askDeed() }},
 	// The route keys act on the shown cursor (#239): on a corner they
 	// refuse and point at the routes, so the hidden routes cursor is
@@ -129,7 +129,7 @@ var bindings = []binding{
 			m.jumpIntel(r.Faction(), m.rivalName(r))
 		}},
 	// The tree.
-	{key: "u", label: "buy upgrade", help: "buy the node under the cursor (enter too)", screens: on(screenUpgrades),
+	{key: "u", label: "buy upgrade", help: "buy the node under the cursor, after asking", screens: on(screenUpgrades),
 		do: func(m *Model, _ string) { m.askUpgrade() }},
 	// The ledger.
 	{key: "b", label: "buy", help: "buy a front, a house or an asset", screens: on(screenLedger),
@@ -150,12 +150,14 @@ var bindings = []binding{
 		do: func(m *Model, _ string) { m.askInvest() }},
 	{key: "o", label: "reserve", help: "clean cash into the offshore account", screens: on(screenLedger),
 		do: func(m *Model, _ string) { m.askReserve() }},
+	// Cash out says where the money goes, beside the key that sends it
+	// offshore (#537: a beginner read `c cash out` as the way offshore).
+	{key: "c", label: "clean to dirty", help: "clean cash into the dirty pile, at a fee", screens: on(screenLedger),
+		do: func(m *Model, _ string) { m.askCashOut() }},
 	{key: "S", label: "sweep", help: "clean over a line offshore every night", screens: on(screenLedger),
 		do: func(m *Model, _ string) { m.askSweep() }},
 	{key: "T", label: "till", help: "the dirty cash the wash leaves in hand", screens: on(screenLedger),
 		do: func(m *Model, _ string) { m.askTill() }},
-	{key: "c", label: "cash out", help: "clean cash into the dirty pile, at a fee", screens: on(screenLedger),
-		do: func(m *Model, _ string) { m.askCashOut() }},
 	{key: "t", label: "export order", help: "the selected export lane's nightly load", screens: on(screenLedger), when: ledgerOnLane,
 		do: func(m *Model, _ string) { m.askExport() }},
 	{key: "t", label: "buy trophy", help: "buy the selected trophy, after asking", screens: on(screenLedger), when: ledgerOnTrophyOffer,
@@ -199,8 +201,8 @@ var bindings = []binding{
 		do: func(m *Model, _ string) { m.cancelSelected() }},
 	{key: "l", label: "lie low", help: "lieutenants stop too; wages, contracts run", screens: on(screenDashboard), global: true,
 		do: func(m *Model, _ string) { m.toggleLieLow() }},
-	{key: "p", label: "pay dial", help: "the pay dial: stingy, fair, generous", screens: on(screenCrew), global: true,
-		do: func(m *Model, _ string) { m.cyclePay() }},
+	{key: "p P", label: "pay dial", help: "the pay dial up a notch; P down one", keys: []string{"p", "P"}, screens: on(screenCrew), global: true,
+		do: func(m *Model, key string) { m.cyclePay(key == "P") }},
 	{key: "d D", label: "launder dial", help: "the launder dial up a notch; D down one", keys: []string{"d", "D"}, screens: on(screenLedger), global: true,
 		do: func(m *Model, key string) { m.cycleLaunder(key == "D") }},
 	{key: "g", label: "go to <city>", help: "go to the other city; the stock stays put", screens: on(screenDashboard, screenMap), global: true,
@@ -216,7 +218,10 @@ var bindings = []binding{
 	{key: "?", label: "help", help: "this list", screens: everywhere, global: true,
 		do: func(m *Model, _ string) { m.mode = modeHelp }},
 	// The frame's keys: the title bar carries the screens, help the rest.
-	{key: "enter", label: "end day", help: "end the day, after a confirmation", global: true, quiet: true,
+	// enter is the dashboard's alone (#536): on a screen with a row under
+	// the cursor it read as acting on the row and opened END THE DAY?
+	// instead; there it points here, as any key off its screen does.
+	{key: "enter", label: "day preview", help: "the night's preview, then end the day", screens: on(screenDashboard), quiet: true,
 		do: func(m *Model, _ string) { m.mode = modeConfirmEnd }},
 	{key: "1-9", label: "switch screen", help: "the screens in the title bar's order", keys: []string{"1", "2", "3", "4", "5", "6", "7", "8", "9"}, global: true, quiet: true,
 		do: func(m *Model, key string) { m.switchScreen(screen(key[0] - '1')) }},
@@ -271,6 +276,7 @@ var modeBindings = []binding{
 	{key: "↑↓", label: "pick", modes: in(modeSell, modeTarget), when: step(0)},
 	{key: "↑↓", label: "pick", modes: in(modeBuy), when: buyList},
 	{key: "↑↓", label: "pick", modes: in(modeCart), when: cartHasLines},
+	{key: "1-9", label: "pick", modes: in(modeCart), when: cartHasLines}, // the digit rule in the cart too (#536): the row, never the dial
 	{key: "↑↓", label: "pick", modes: in(modeCard), when: step(0)},
 	{key: "↑↓", label: "pick", modes: in(modeBribe), when: step(0)},
 	{key: "1-2", label: "pick", modes: in(modeBribe), when: step(0)},
@@ -285,7 +291,6 @@ var modeBindings = []binding{
 	{key: "1-2", label: "repeat", modes: in(modeBuy), when: buyAt(2)},
 	{key: "c", label: "pay", modes: in(modeBuy), when: buyPay},
 	{key: "1-2", label: "repeat", modes: in(modeSell), when: step(3)},
-	{key: "1-3", label: "dial", modes: in(modeCart), when: cartOnSell},
 	{key: "1-2", label: "pick", modes: in(modeCard), when: cardOf(2)}, // the card's own count (#426); a digit picks, enter decides (#461)
 	{key: "1-3", label: "pick", modes: in(modeCard), when: cardOf(3)},
 	{key: "m", label: "max", dialogs: true, when: numberStep},

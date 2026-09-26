@@ -269,6 +269,15 @@ func TestSmallStandingOrderIsFlagged(t *testing.T) {
 		city, product := w.Home().ID, w.Products[0]
 		w.SetStock(city, product, tc.stock)
 		ev := tc.ev
+		if ev.Standing && !ev.Delegated {
+			// The order stands at what it sold out at (#537: the advice
+			// reads it as it stands).
+			w.SetStock(city, product, max(tc.stock, ev.Wanted))
+			if err := w.PlaceStanding(city, product, ev.Wanted, events.DialNormal); err != nil {
+				t.Fatal(err)
+			}
+			w.SetStock(city, product, tc.stock)
+		}
 		ev.Day, ev.City, ev.Product, ev.Dial, ev.AvgPrice, ev.Revenue = 21, city, product, events.DialNormal, 20, 20*ev.Sold
 		n.Step(w, gametest.TickOn(w, 21, ev))
 		got := strings.Join(w.Report.Sales, "\n")

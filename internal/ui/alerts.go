@@ -855,6 +855,7 @@ func (m *Model) selectMember(id int) {
 	for i, c := range m.w.Crew.Members {
 		if c.ID == id {
 			m.crewCursor = i
+			m.pinCrew()
 		}
 	}
 }

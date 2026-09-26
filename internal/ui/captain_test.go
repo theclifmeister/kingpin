@@ -24,7 +24,7 @@ func TestVeteranReadsDifferently(t *testing.T) {
 		t.Fatalf("the veteran's pane:\n%s", pane)
 	}
 	m.crewCursor = 1
-	if pane := paneText(m); !strings.Contains(pane, "known in") || strings.Contains(pane, "served") || strings.Contains(pane, "make them captain") {
+	if pane := paneText(m); !strings.Contains(pane, "d of service") || strings.Contains(pane, "served") || strings.Contains(pane, "make them captain") {
 		t.Fatalf("the new hire's pane:\n%s", pane)
 	}
 	m.Update(key("c"))

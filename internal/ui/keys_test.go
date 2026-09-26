@@ -53,8 +53,10 @@ func TestEveryKeyIsInTheTable(t *testing.T) {
 		if !b.quiet && len(b.screens) == 0 {
 			t.Errorf("%s %s is listed nowhere", b.key, b.label)
 		}
-		if b.quiet && (b.screens != nil || !b.global) {
-			t.Errorf("%s %s is quiet and named for screens, or not global", b.key, b.label)
+		// A quiet key is the frame's, global and listed nowhere, or a
+		// screen's own the pane leaves out: the dashboard's enter (#536).
+		if b.quiet && b.global == (b.screens != nil) {
+			t.Errorf("%s %s is quiet and global and named for screens, or neither", b.key, b.label)
 		}
 		if words := strings.Fields(b.label); len(words) == 0 || len(words) > 3 || b.label != strings.ToLower(b.label) {
 			t.Errorf("%s: the label %q is not one or two lowercase words", b.key, b.label)
@@ -93,7 +95,7 @@ func TestEveryKeyIsInTheTable(t *testing.T) {
 				m.mode = modePlay
 			}
 			switch {
-			case found, ownHere, len(k) != 1:
+			case found, ownHere, len(k) != 1 && k != "enter": // enter off the dashboard points there (#536)
 				if m.status != "" && pointerRE.MatchString(m.status) {
 					t.Errorf("%s: %q is taken here and was pointed away: %q", screens[s].word, k, m.status)
 				}
@@ -181,7 +183,7 @@ func TestGlobalsAreListedWhereUsed(t *testing.T) {
 		"s":   on(screenDashboard, screenMarket),
 		"x":   on(screenDashboard, screenMarket),
 		"l":   on(screenDashboard),
-		"p":   on(screenCrew),
+		"p P": on(screenCrew),   // P turns the pay back down (#536)
 		"d D": on(screenLedger), // D turns the dial back (#473)
 		"g":   on(screenDashboard, screenMap),
 		"r":   on(screenDashboard, screenJournal),

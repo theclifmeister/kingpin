@@ -80,7 +80,10 @@ func (r *reporter) reportMarket(e events.Event) bool {
 		// A standing order of yours that sold out with as much again left
 		// in the stash is too small (#418): a playtest's 5 Heroin a night
 		// stood seventy days beside a stash of 25 and a contract keeping 30.
-		if left := w.Stock(ev.City, ev.Product); ev.Standing && !ev.Delegated && ev.Sold > 0 && ev.Sold >= ev.Wanted && left >= ev.Wanted {
+		// The advice reads the order as it stands (#537: "raise it" on
+		// an order already kept at the whole stash, or raised since):
+		// only one still set at the number it sold out at is told to.
+		if left := w.Stock(ev.City, ev.Product); ev.Standing && !ev.Delegated && ev.Sold > 0 && ev.Sold >= ev.Wanted && left >= ev.Wanted && standingAt(w, ev.City, ev.Product, ev.Wanted) {
 			rep.Sales = append(rep.Sales, fmt.Sprintf("  the standing order sold all %d with %d more in the stash: raise it on the sell dialog or the cart", ev.Wanted, left))
 		}
 		d := r.at(ev.City)
@@ -318,4 +321,12 @@ func tookLine(w *game.World, ev events.SupplyShort) string {
 		return fmt.Sprintf("  the till was down to %s when it bought", format.Money(ev.Till))
 	}
 	return fmt.Sprintf("  the wash took %s last night and left the till %s", format.Money(-last.Line(game.FlowLaundering).Dirty), format.Money(last.Closing.Dirty))
+}
+
+// standingAt is whether your standing order for a product in a city is
+// set at qty units now: not kept at all the stash (All, which sells
+// what there is), not raised or cancelled since.
+func standingAt(w *game.World, city, product string, qty int) bool {
+	o, ok := w.YourStanding(city, product)
+	return ok && !o.All && o.Qty <= qty
 }

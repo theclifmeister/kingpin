@@ -125,3 +125,21 @@ func inWords(n int) string {
 	}
 	return tens[n/10] + "-" + ones[n%10]
 }
+
+// The -character help names every character of the file (#537: the
+// help and docs/harness.md listed five; heir worked unlisted).
+func TestCharacterHelpListsTheFile(t *testing.T) {
+	cfg := content.MustLoad()
+	doc, err := os.ReadFile("../../docs/harness.md")
+	if err != nil {
+		t.Fatal(err)
+	}
+	for _, c := range cfg.Characters.Characters {
+		if !strings.Contains(characterHelp, " "+c.ID+" ") {
+			t.Errorf("-character's help lacks %q: %s", c.ID, characterHelp)
+		}
+		if !strings.Contains(string(doc), " "+c.ID+" |") && !strings.Contains(string(doc), "| "+c.ID+"`") {
+			t.Errorf("docs/harness.md's -character lacks %q", c.ID)
+		}
+	}
+}

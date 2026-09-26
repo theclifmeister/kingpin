@@ -482,9 +482,16 @@ func (m *Model) rivalsDetails() []section {
 // the night the faction folds, bows or has nothing left where you hold
 // ground.
 
-// atWar and notAtWar are the key's two labels.
-func atWar(m *Model) bool    { return m.w.War != "" }
-func notAtWar(m *Model) bool { return m.w.War == "" }
+// atWar and notAtWar are the key's two labels, read off the faction
+// under the cursor (#536: with Lena's crew selected, w called off the
+// war on the Reverend's): call off war on the one you are at war with,
+// declare war on any other, which askWar refuses while a war is on,
+// naming it.
+func atWar(m *Model) bool {
+	r := m.faction()
+	return m.w.War != "" && r != nil && r.Faction() == m.w.War
+}
+func notAtWar(m *Model) bool { return !atWar(m) }
 
 // warWord is the faction the war stands against, for a line: `Big Sal's
 // crew`.
@@ -499,7 +506,7 @@ func (m *Model) askWar() {
 	}
 	switch {
 	case w.War != "":
-		m.refuse(fmt.Sprintf("One war at a time: the enforcers are on %s. Call it off first.", m.warWord()))
+		m.refuse(fmt.Sprintf("Can't declare war on %s: one war at a time, and the enforcers are on %s. Turn to them to call it off.", m.rivalName(r), m.warWord()))
 	case r.Arrived == 0:
 		m.refuse("Nothing to fight: nobody is contesting the city yet.")
 	case r.Gone():
@@ -586,13 +593,17 @@ func (m *Model) askCallOffWar() {
 		m.refuse("There is no war on.")
 		return
 	}
+	if !atWar(m) {
+		m.refuse(fmt.Sprintf("No war on %s: the war is on %s.", m.rivalName(m.faction()), m.warWord()))
+		return
+	}
 	m.ask("call off war", (*Model).callOffWarConfirm, (*Model).confirmCallOffWar)
 }
 
 // callOffWarConfirm is the stand-down's body.
 func (m *Model) callOffWarConfirm() string {
 	body := m.wrapLines(fmt.Sprintf("Call off the war on %s: the enforcers stand down from tonight. What was taken stays taken; the grudge stays too.", m.warWord()))
-	return m.modal("CALL OFF THE WAR?", body, m.modalFooter())
+	return m.modal("CALL OFF THE WAR ON "+strings.ToUpper(m.warWord())+"?", body, m.modalFooter())
 }
 
 // confirmCallOffWar ends it.

@@ -43,7 +43,7 @@ func main() {
 	incidents := flag.String("incidents", "on", "on | off: off boxes the world's incident table (#44); the harness tests run with it boxed, so a pinned number reads with off")
 	cut := flag.Float64("cut", 0, "cut everything the policy buys by this ratio (#47, harness.Cutter): 0.5 adds half again at nothing")
 	life := flag.String("life", "on", "on | off: off boxes crew.toml's [life] table (#46, harness.NoLife): nobody ages, is arrested, wounded or killed; a run with it off is the run before the feature")
-	character := flag.String("character", "", "start every run as this character of characters.toml (#50, harness.Character): dealer | cook | bookkeeper | excop | dockhand (default the dealer, the run as it is); a start is on the world on day 0 and no sim reads it")
+	character := flag.String("character", "", characterHelp)
 	hardDA := flag.Bool("hardda", false, "start every run with a law-and-order DA and a zealous chief (#50, the hard DA toggle): set at NewWorld, never pinned; -chief and -da pin")
 	deeds := flag.String("deeds", "on", "on | off: off boxes city.toml's [deed] table (#194, harness.NoDeeds): no block is on sale, so boss buys none; a run with it off is the run before the feature")
 	roles := flag.String("roles", "on", "on | off: off boxes the fronts' roles (#344, harness.NoFrontRoles): every front only washes; a run with it off is the run before the feature")
@@ -229,3 +229,7 @@ func traceDay(w *game.World) {
 	}
 	fmt.Println()
 }
+
+// characterHelp is -character's usage: every character of the file by
+// id (#537: heir worked and was not listed; TestCharacterHelpListsTheFile).
+const characterHelp = "start every run as this character of characters.toml (#50, harness.Character): dealer | cook | bookkeeper | excop | dockhand | heir (default the dealer, the run as it is); a start is on the world on day 0 and no sim reads it"

@@ -105,11 +105,13 @@ func (d Deal) String() string {
 	case DealTruce:
 		return fmt.Sprintf("a %d-day truce", d.Terms.Days)
 	case DealTribute:
-		return "tribute of " + format.Money(d.Terms.PerDay) + " a day"
+		// Who pays whom, in the words (#537: "Reverend offers tribute
+		// of $3,000 a day" read as Reverend paying you).
+		return "tribute: you pay them " + format.Money(d.Terms.PerDay) + " a day"
 	case DealSplit:
 		return fmt.Sprintf("a split: %s your side of the line", format.Plural(len(d.Terms.Corners), "corner"))
 	case DealHomage:
-		return "homage of " + format.Money(d.Terms.PerDay) + " a day to you"
+		return "homage: they pay you " + format.Money(d.Terms.PerDay) + " a day"
 	case DealShipment:
 		return fmt.Sprintf("a joint shipment of %d units", d.Terms.Units)
 	}

@@ -114,14 +114,53 @@ func (m *Model) pickPropose() {
 		m.prop.kind, m.prop.step, m.prop.cursor = m.prop.cursor, 1, 1
 		return
 	}
-	deals, _ := m.termRows(proposeKinds[m.prop.kind])
-	if len(deals) == 0 {
+	if _, ok := m.proposalPicked(); !ok {
 		m.mode = modePlay
 		return
 	}
-	d := deals[max(0, min(m.prop.cursor, len(deals)-1))]
-	r := m.faction()
+	if m.w.Today.Proposal != nil {
+		// One proposal a night (#506), and replacing it asks first
+		// (#536: a playtest's second proposal silently took the first's
+		// place, the line saying so cut at the status bar's end).
+		m.ask("replace", (*Model).replaceProposalConfirm, (*Model).sendProposal)
+		m.cfm.back = modePropose
+		return
+	}
+	m.sendProposal()
+}
+
+// proposalPicked is the deal under the propose dialog's cursor on its
+// terms page.
+func (m *Model) proposalPicked() (game.Deal, bool) {
+	deals, _ := m.termRows(proposeKinds[m.prop.kind])
+	if len(deals) == 0 {
+		return game.Deal{}, false
+	}
+	return deals[max(0, min(m.prop.cursor, len(deals)-1))], true
+}
+
+// replaceProposalConfirm is the question before tonight's proposal is
+// replaced (#536): what stands, to whom, and what takes its place.
+func (m *Model) replaceProposalConfirm() string {
+	w := m.w
+	var body []string
+	if p := w.Today.Proposal; p != nil {
+		if d, ok := m.proposalPicked(); ok {
+			body = m.wrapLines(fmt.Sprintf("Tonight you have proposed %s to %s. One proposal goes a night: %s to %s takes its place, and the first is never answered.", w.Describe(*p), m.rivalName(w.Faction(p.Faction)), w.Describe(d), m.rivalName(m.faction())))
+		}
+	}
+	return m.modal("REPLACE TONIGHT'S PROPOSAL?", body, m.modalFooter())
+}
+
+// sendProposal proposes the deal under the terms page's cursor to the
+// faction the rivals screen is turned to.
+func (m *Model) sendProposal() {
+	d, ok := m.proposalPicked()
 	m.mode = modePlay
+	if !ok {
+		return
+	}
+	r := m.faction()
 	var before *game.Deal
 	if p := m.w.Today.Proposal; p != nil {
 		prev := *p
@@ -198,7 +237,7 @@ func (m *Model) viewPropose() string {
 			body = append(body, "", theme.Bad.Render("They are not taking your calls. You broke a deal."))
 		}
 	}
-	return m.modal("PROPOSE A DEAL", body, m.modalFooter())
+	return m.modal("PROPOSE TO "+strings.ToUpper(m.rivalName(r)), body, m.modalFooter()) // who it goes to, in the title (#536)
 }
 
 // proposeLine appends a row of the propose dialog; the modal cuts it to
@@ -313,7 +352,7 @@ func (m *Model) dealTerms(d game.Deal) string {
 	case game.DealTruce:
 		return plural(d.Terms.Days, "day")
 	case game.DealTribute:
-		return money(d.Terms.PerDay) + " a day"
+		return money(d.Terms.PerDay) + " a day from you" // who pays whom (#537)
 	case game.DealHomage:
 		return money(d.Terms.PerDay) + " a day to you"
 	case game.DealSplit:

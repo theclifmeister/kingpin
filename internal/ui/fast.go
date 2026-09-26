@@ -295,7 +295,7 @@ func (m *Model) stopEvent(e events.Event) string {
 	case events.OfficialsCold:
 		return "the officials going cold"
 	case events.SupplyShort:
-		return fmt.Sprintf("the %s contract in %s short of %s", w.ProductName(ev.Product), w.CityName(ev.City), ev.Why)
+		return fmt.Sprintf("the %s contract in %s %s", w.ProductName(ev.Product), w.CityName(ev.City), supplyShortWords(ev.Why))
 	case events.StandingShort:
 		return fmt.Sprintf("the standing order for %s in %s short of stock", w.ProductName(ev.Product), w.CityName(ev.City))
 	// The stash houses (#73).
@@ -320,4 +320,19 @@ func (m *Model) quietStop(ev events.QuietBroken) string {
 		s += " by " + why
 	}
 	return s
+}
+
+// supplyShortWords is why a supply contract came up short, as the stop
+// line says it after the product and the city (#537: `short of road`
+// was the event's Why read out as it is).
+func supplyShortWords(why string) string {
+	switch why {
+	case events.SupplyRoad:
+		return "waiting on what is on the road"
+	case "room":
+		return "short of room"
+	case "supplier":
+		return "short: nobody there sells it today"
+	}
+	return "short of cash"
 }

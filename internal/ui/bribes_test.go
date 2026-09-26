@@ -117,10 +117,9 @@ func TestBribeKeys(t *testing.T) {
 		t.Fatalf("the strip does not name the payoff: %q", got)
 	}
 	m.Update(key("enter"))
-	if m.mode != modeConfirmEnd {
-		t.Fatalf("enter on a payoff row: mode %v (the frame's enter should ask to end the day)", m.mode)
+	if m.mode != modePlay {
+		t.Fatalf("enter on a payoff row: mode %v (#536: enter is the dashboard's, it points there)", m.mode)
 	}
-	m.Update(key("esc"))
 
 	// The checkpoint, from the map's routes cursor.
 	m.Update(key("5"))

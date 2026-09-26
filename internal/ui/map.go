@@ -177,17 +177,36 @@ func (m *Model) askPost(role string) {
 		return
 	}
 	m.pick.role = role
-	m.pick.cursor = 0
-	// The picker opens on the first who can work (#468): one in a cell,
-	// laid up or under is listed with why, never the row enter takes
-	// by default.
+	m.pick.cursor = m.postOpensOn(role)
+	m.mode = modePost
+}
+
+// postOpensOn is the row the post picker opens on (#468, #536): the
+// first who can work and is free (you, or a member posted nowhere, not
+// guarding a house, not under), else the first who can work; one in a
+// cell, laid up or under is listed with why, never the row enter takes
+// by default. A playtest's enforcer picker opened on Tee, posted on
+// another corner, and enter moved him.
+func (m *Model) postOpensOn(role string) int {
+	fit := -1
 	for i, r := range m.postRows(role) {
-		if r.ID == game.You || r.Fit(m.w.Day) {
-			m.pick.cursor = i
-			break
+		if r.ID != game.You && !r.Fit(m.w.Day) {
+			continue
+		}
+		if fit < 0 {
+			fit = i
+		}
+		if r.ID == game.You {
+			if m.w.PostOf(game.You) == nil {
+				return i
+			}
+			continue
+		}
+		if m.w.PostOf(r.ID) == nil && m.w.GuardOf(r.ID) == nil && r.Undercover == "" {
+			return i
 		}
 	}
-	m.mode = modePost
+	return max(0, fit)
 }
 
 func (m *Model) confirmPost() {

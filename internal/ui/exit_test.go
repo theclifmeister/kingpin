@@ -306,8 +306,19 @@ func TestFastForwardStopsOnTheReign(t *testing.T) {
 	m.Update(key("w"))
 	m.Update(key("3"))
 	m.Update(key("enter"))
-	if m.mode != modeExit || m.exit.step != 0 || !strings.Contains(m.exit.err, "corners held") || !strings.Contains(m.exit.err, "still standing") {
+	if m.mode != modeExit || m.exit.step != 0 || !strings.Contains(m.exit.err, "still standing") {
 		t.Fatalf("the crown with no reign: mode %v step %d err %q", m.mode, m.exit.step, m.exit.err)
+	}
+	// The share counts the home city's corners and names it, the
+	// dashboard's `held of N` (#537: `3 of 6 corners held` read as a
+	// city of six beside the dashboard's ten).
+	home = m.w.Home()
+	share := fmt.Sprintf("%d held of %d in %s", m.w.HeldIn(home.ID), len(home.Corners), home.Name)
+	if !strings.Contains(m.exit.err, share) {
+		t.Fatalf("the crown's share: %q, want %q", m.exit.err, share)
+	}
+	if line := m.cornersLine(home.ID); !strings.Contains(line, fmt.Sprintf("%d held of %d", m.w.HeldIn(home.ID), len(home.Corners))) {
+		t.Fatalf("the dashboard's count %q is not the crown's %q", line, share)
 	}
 }
 

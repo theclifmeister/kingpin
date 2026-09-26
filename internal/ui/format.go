@@ -33,6 +33,15 @@ func fare(v float64) string {
 // plural is n of a thing: `1 corner`, `3 corners`.
 func plural(n int, noun string) string { return format.Plural(n, noun) }
 
+// goes is the verb for a count of things that go somewhere: `1 page
+// goes`, `2 pages go` (#537: "1 page from last night's transfer go").
+func goes(n int) string {
+	if n == 1 {
+		return "goes"
+	}
+	return "go"
+}
+
 // fit pads or truncates s to exactly width visible cells.
 func fit(s string, width int) string {
 	if width <= 0 {

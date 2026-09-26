@@ -72,7 +72,8 @@ func TestCardShowsWhatEachChoiceDoes(t *testing.T) {
 	m.w.Dilemmas.Pending = c
 	m.showCard()
 	view = stripANSI(m.View())
-	if strings.Count(view, "costs you something") != len(c.Choices) || strings.Contains(view, "$100") || strings.Contains(view, "heat +7") {
+	// The choice that moves nothing costs nothing, and says so (#537).
+	if strings.Count(view, "costs you something") != len(c.Choices)-1 || strings.Count(view, "costs you nothing") != 1 || strings.Contains(view, "$100") || strings.Contains(view, "heat +7") {
 		t.Errorf("a hidden card shows:\n%s", view)
 	}
 }

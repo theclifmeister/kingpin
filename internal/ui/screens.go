@@ -86,12 +86,67 @@ func (m *Model) accent() lipgloss.Color { return screens[m.screen].accent }
 // (the digits and tab do that).
 func (m *Model) moveCursor(dx, dy int) { screens[m.screen].move(m, dx, dy) }
 
-// productMove is the product cursor the dashboard shares with the
-// market and the dialogs.
-func (m *Model) productMove(dy int) {
-	if dy < 0 && m.cursor > 0 {
-		m.cursor--
-	} else if dy > 0 && m.cursor < len(m.w.Products)-1 {
-		m.cursor++
+// productsIn is the products a city's table lists, as indexes into the
+// ladder: the ones its market deals in. The tables skip the rest, so
+// the cursor does too (#536: the market's ↓ stepped onto a product the
+// table does not show, so the buyers under it took a press more than
+// the rows said and read as skipped).
+func (m *Model) productsIn(city string) []int {
+	var out []int
+	for i, id := range m.w.Products {
+		if m.w.Product(city, id) != nil {
+			out = append(out, i)
+		}
 	}
+	return out
+}
+
+// stepProduct moves the product cursor to the next row a city's table
+// shows, dy one way or the other, and says whether it moved: at the
+// last row it stays (the market hands the arrows to the buyers there).
+func (m *Model) stepProduct(dy int, city string) bool {
+	rows := m.productsIn(city)
+	if dy > 0 {
+		for _, i := range rows {
+			if i > m.cursor {
+				m.cursor = i
+				return true
+			}
+		}
+		return false
+	}
+	for j := len(rows) - 1; j >= 0; j-- {
+		if rows[j] < m.cursor {
+			m.cursor = rows[j]
+			return true
+		}
+	}
+	return false
+}
+
+// productKey is a list key on a dialog's product step, over the rows
+// its table shows in city: ↑↓ and j k step, a digit is that row (#500:
+// never an act). The digit counts the rows shown, not the ladder.
+func (m *Model) productKey(key, city string) {
+	switch key {
+	case "up", "k":
+		m.stepProduct(-1, city)
+	case "down", "j":
+		m.stepProduct(1, city)
+	default:
+		if i, ok := digit(key); ok {
+			if rows := m.productsIn(city); i < len(rows) {
+				m.cursor = rows[i]
+			}
+		}
+	}
+}
+
+// firstProduct is the first row a city's table shows, the row a
+// product picker opens on where no row is named (#536).
+func (m *Model) firstProduct(city string) int {
+	if rows := m.productsIn(city); len(rows) > 0 {
+		return rows[0]
+	}
+	return 0
 }

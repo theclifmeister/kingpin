@@ -9,9 +9,9 @@ import (
 )
 
 // The buy's quantity step shows the cash and the room after the buy
-// (#356), and a quantity past what fits is refused with an offer on the
-// quantity step (#467): the field is set to what fits, and the next
-// enters buy it.
+// (#356), and a quantity past what fits is held to it on the quantity
+// step (#467) without eating the enter (#536): the field is set to what
+// fits, the pay step says why, and its enter buys it.
 func TestBuyOffersWhatFits(t *testing.T) {
 	m := richModel(t, 120, 40)
 	m.w.Player.DirtyCash = 10_000_000
@@ -31,14 +31,13 @@ func TestBuyOffersWhatFits(t *testing.T) {
 		t.Fatalf("nothing fits: %d", fits)
 	}
 	before := m.w.Stock(city, id)
-	m.Update(key("enter")) // refused on the quantity step itself (#467)
-	if m.mode != modeBuy || m.dlg.step != 1 || m.dlg.qty.Value() != strconv.Itoa(fits) || !strings.Contains(m.dlg.err, "what fits") {
-		t.Fatalf("the refusal: mode %v step %d qty %q err %q, want %d", m.mode, m.dlg.step, m.dlg.qty.Value(), m.dlg.err, fits)
+	m.Update(key("enter")) // held on the quantity step itself (#467), and on to the pay (#536)
+	if m.mode != modeBuy || m.dlg.step != 2 || m.dlg.qty.Value() != strconv.Itoa(fits) || !strings.Contains(m.dlg.note, "what fits") {
+		t.Fatalf("the clamp: mode %v step %d qty %q note %q err %q, want %d", m.mode, m.dlg.step, m.dlg.qty.Value(), m.dlg.note, m.dlg.err, fits)
 	}
 	if m.w.Stock(city, id) != before {
-		t.Fatal("the refused buy bought something")
+		t.Fatal("the clamp bought something")
 	}
-	m.Update(key("enter"))
 	m.Update(key("enter"))
 	if got := m.w.Stock(city, id); got != before+fits {
 		t.Fatalf("the offer: stock %d, want %d (%q)", got, before+fits, m.dlg.err)

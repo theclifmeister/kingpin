@@ -100,6 +100,9 @@ type SlotInfo struct {
 	Empty bool
 	Ended string // the ending's cause when the run in the slot is over, else "" (#441)
 	Score int    // the ended run's score (Stats.Score, #498): what the menu shows for it in place of the cash left behind
+	// Offshore is the account (#537): the menu's cash beside it, so a
+	// run with $287K offshore does not read as $76K.
+	Offshore int
 }
 
 // Slots describes every slot in order, 1 to SlotCount.
@@ -133,6 +136,7 @@ func slotInfo(slot int) SlotInfo {
 	}
 	info.Day = w.Day
 	info.Cash = w.Cash()
+	info.Offshore = w.Offshore
 	if w.Over != nil {
 		info.Ended = w.Over.Cause
 		info.Score = w.Stats.Score

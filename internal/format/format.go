@@ -162,8 +162,12 @@ func Plural(n int, noun string) string {
 	if n == 1 {
 		return "1 " + noun
 	}
-	return fmt.Sprintf("%d %s", n, Plurals(noun))
+	return Int(n) + " " + Plurals(noun)
 }
+
+// Int is a count with thousands separators, the way Money writes the
+// dollars: `16,007`, `-1,200`, `940` (#537: "off 16007 units").
+func Int(n int) string { return strings.Replace(Money(n), "$", "", 1) }
 
 // Plurals is the plural of a noun on its own: `corners`, `cities`,
 // `people`.

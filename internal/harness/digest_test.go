@@ -411,8 +411,12 @@ const (
 // of the walk the piles and stock are main's on all sixty days, and the
 // one number that moved is Stats: from day 57 the greedy lieutenant's
 // take is counted in Stats.Cuts, not Stats.Skimmed (Crew.LastSkim unset).
+// Again for #537, on day 2 by the report's words alone (the TIER
+// section's Crew stage no longer lists "the rival, from day 10" as
+// something it opens): with World.Report and World.Journal left out of
+// the walk all sixty days are main's.
 var seedDigest = []string{
-	"17210005dcada09f", "ab6c8ae8adb9b93c", "3a563f128352326e", "01b7aa1e1800be31",
+	"17210005dcada09f", "606166f4392be887", "3a563f128352326e", "01b7aa1e1800be31",
 	"d4dd4683c5b8b575", "8741e36967ac546c", "3d9f072eeb2c3a03", "633d47c03bd98dbb",
 	"ec75d45c0a631b03", "6fdccbb5c72b0e8d", "4204e35c584c0499", "86a217956ad1e274",
 	"e470c343e873312e", "2ff24bc8c251c112", "5255cdc2da7b37fd", "77d74eee4ac7a4f5",

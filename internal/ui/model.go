@@ -41,6 +41,9 @@ type Model struct {
 	city           string        // city the market and map screens show; follows you when you travel
 	cursor         int           // product cursor shared by market screen and dialogs
 	crewCursor     int           // row on the crew screen: roster first, then candidates
+	crewID         int           // the person on crewCursor when it was last read, by list and id (#536): the cursor follows them, not the row
+	crewIDs        []int         // the crew screen's rows then, by id: where they have changed, crewID is found again
+	crewAt         int           // crewID's row then; a crewCursor set since is taken as it is
 	subjectID      int           // the member a fire, pay-off, bail or assignment is about (#243)
 	pick           picker        // the one-page picker open: post, strike, undercut, assign, guard or driver (#243)
 	front          frontPicker   // the buy picker (#73): the kind, then the offers
@@ -216,7 +219,7 @@ func (m *Model) startRunWith(seed uint64, start game.Start) {
 	m.mode = modePlay
 	m.screen = screenDashboard
 	m.cursor = 0
-	m.crewCursor = 0
+	m.crewCursor, m.crewID = 0, 0
 	m.branch = 0
 	m.upgradeCursor = nil
 	m.city = m.w.Player.Location
@@ -574,7 +577,7 @@ func (m *Model) keyPlay(key string) (tea.Model, tea.Cmd) {
 		if m.quitting {
 			return m, tea.Quit
 		}
-	case !own && len(key) == 1:
+	case !own && (len(key) == 1 || key == "enter"): // enter off the dashboard says where it is (#536)
 		if p := pointer(key); p != "" {
 			m.refuse(p)
 		}
