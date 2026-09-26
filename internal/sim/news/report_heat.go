@@ -2,6 +2,7 @@ package news
 
 import (
 	"fmt"
+	"strings"
 
 	"github.com/theclifmeister/kingpin/internal/content"
 	"github.com/theclifmeister/kingpin/internal/events"
@@ -92,6 +93,12 @@ func (r *reporter) reportHeat(e events.Event) bool {
 		d.Asset = ev.Name
 		r.addOff(game.StreamAssetsNews, "heat", "AssetSeized", d)
 		rep.Heat = append(rep.Heat, fmt.Sprintf("  they took %s: %s of yours, gone.", ev.Name, format.Money(ev.Cost)))
+	case events.FrontsClosed:
+		verb := "is"
+		if len(ev.Fronts) > 1 {
+			verb = "are"
+		}
+		rep.Heat = append(rep.Heat, fmt.Sprintf("  %s %s off sale until %s stands again", strings.Join(ev.Fronts, " and "), verb, ev.Name))
 	case events.TrophySeized:
 		d := r.at(ev.City)
 		d.Asset = ev.Name

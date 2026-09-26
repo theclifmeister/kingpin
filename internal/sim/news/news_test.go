@@ -37,8 +37,10 @@ var reportOnly = map[string]bool{
 	"StraightOpened": true, "StraightLapsed": true, // #398: the TIER section says it, the walk-away dialog takes it
 	"DealEnded": true, "TributePaid": true,
 	"DealEnding": true, "ScoutsMissed": true, // #506: the report's word the morning before, and on a hit that found nobody
-	"CampaignBacked": true,                                                                    // #193
-	"BribeAccepted":  true, "BribeRefused": true, "LeadFound": true, "CheckpointBought": true, // #42
+	"FrontsClosed":    true,                                                                    // #525: what a lost asset closes, beside the seizure's own headline
+	"StrikeCalledOff": true,                                                                    // #524: a queued strike no crew resolved, said in the morning
+	"CampaignBacked":  true,                                                                    // #193
+	"BribeAccepted":   true, "BribeRefused": true, "LeadFound": true, "CheckpointBought": true, // #42
 	"ContractAccepted": true, "ContractExpired": true,
 	"HandoffHeld":    true,                                        // #503
 	"SupplierBought": true, "CreditTaken": true, "DebtPaid": true, // #72

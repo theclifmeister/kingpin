@@ -25,6 +25,7 @@ type MarketRules interface {
 	CutMax(product string) float64
 	Dial(d events.Dial) content.DialConfig
 	Due(w *game.World, city string, product string) int
+	DueShort(w *game.World, city string, product string) string
 	Markup() float64
 	PriceCut() float64
 	QualityMul(quality float64) float64
@@ -59,6 +60,7 @@ type LogisticsRules interface {
 	Route(id string) *content.RouteConfig
 	RoutesOpen(w *game.World, city string) []content.RouteConfig
 	Target(w *game.World, r content.RouteConfig, product string) int
+	Waits(w *game.World, r content.RouteConfig) int
 	Watched(w *game.World, day int) bool
 }
 type TerritoryRules interface {

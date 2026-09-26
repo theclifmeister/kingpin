@@ -634,6 +634,12 @@ func (m *Model) lieutenantLines(c game.CrewMember) []string {
 		row("cut", format.Pct(t.Cut, 0)+" of its takings"),
 		row("brings", "+"+plural(t.Crew, "crew slot")),
 	}
+	// Their own stock levels (#524): what their contracts keep the city
+	// at, so a level of 678 Designer is on the screen before the cash
+	// goes on it. Yours wins where you set one.
+	if keeps := m.lieutenantKeeps(c.City); keeps != "" {
+		lines = append(lines, row("keeps", keeps))
+	}
 	if c.Observed {
 		for _, tt := range t.Tempers {
 			if tt.Name == c.Personality {
@@ -647,6 +653,26 @@ func (m *Model) lieutenantLines(c game.CrewMember) []string {
 		names = append(names, tt.Name)
 	}
 	return append(lines, m.wrapped(theme.Subtle, "One of "+strings.Join(names[:len(names)-1], ", ")+" or "+names[len(names)-1]+"; theirs shows on the job.")...)
+}
+
+// lieutenantKeeps is a lieutenant's stock levels in their city (#524):
+// each contract of theirs standing (World.StandingSupply's, yours
+// winning) in ladder order, `678 Designer · 40 Weed`; "" with none.
+func (m *Model) lieutenantKeeps(city string) string {
+	w := m.w
+	if city == "" {
+		return ""
+	}
+	var parts []string
+	for _, id := range w.Products {
+		if _, own := w.Supplied(city, id); own {
+			continue
+		}
+		if c, ok := w.DelegatedSupply[game.SupplyKey(city, id)]; ok && c.Units > 0 {
+			parts = append(parts, fmt.Sprintf("%d %s", c.Units, w.ProductName(id)))
+		}
+	}
+	return strings.Join(parts, " · ")
 }
 
 // lieutenantTemper is a lieutenant's temper in a line (#455): the dial they sell at, the

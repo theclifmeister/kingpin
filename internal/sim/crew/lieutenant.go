@@ -354,8 +354,8 @@ func (s *Sim) delegate(w *game.World, t *game.Tick, lt *game.CrewMember, ev *eve
 
 // earmarked is what a lieutenant keeps back out of their city's stash
 // (#497), by product: what every route running from the city on its
-// dial owes the far end (World.RouteShortfall, the units the road
-// ships tomorrow and after), and what a contract you took here still
+// dial holds for the far end (its target there less what is on the
+// road, #524: a refill whole, whatever the far end's stash), and what a contract you took here still
 // owes its buyer while it can still be handed over (day, the tick's).
 // For names the first route, else "a contract". The
 // stock is the owner's intent, not the street's. No dice.
@@ -377,7 +377,12 @@ func (s *Sim) earmarked(w *game.World, city string, day int) map[string]events.H
 			continue
 		}
 		for _, id := range w.Products {
-			add(id, w.RouteShortfall(r, id), r.Name)
+			// A refill of the far end whole (#524): its target less what
+			// is on the road, not less its stash as well. With the far end
+			// full the shortfall was nothing, and a playtest's lieutenant
+			// sold the route's whole stock here the night before the far
+			// end sold down and the road wanted it.
+			add(id, max(0, w.RouteTarget(r, id)-w.Bound(r.To, id)), r.Name)
 		}
 	}
 	for _, c := range w.Contracts {

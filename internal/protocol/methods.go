@@ -48,7 +48,7 @@ var commands = []string{
 
 // queries are the session's reads served as they are: they change
 // nothing.
-var queries = []string{"View", "Alerts", "GatesAhead", "NextGates", "FrontOffers", "AssetOffers", "TrophyOffers", "HouseOffers", "FloatMatters", "ExportSave", "MaxBuy", "RestockPlan", "Presets", "PresetCommands", "PresetDiff", "Preview", "Forecast"}
+var queries = []string{"View", "Alerts", "GatesAhead", "NextGates", "FrontOffers", "FrontsWaiting", "AssetOffers", "TrophyOffers", "HouseOffers", "FloatMatters", "ExportSave", "MaxBuy", "RestockPlan", "Presets", "PresetCommands", "PresetDiff", "Preview", "Forecast"}
 
 // unserved are the session's methods the wire does not carry, and why:
 // TestEverySessionMethodIsClassed fails on one in no list, so a new
@@ -74,6 +74,7 @@ var unserved = map[string]string{
 	"Plan":          "the view carries it, view.you.ambition and view.ambitions",
 	"AmbitionTerms": "the owners' thresholds the view's ambitions are read against",
 	"PagesDue":      "the walk away's refusal names the pages (game.ErrPagesDue, #494); the report's reserve line warned of them the morning before",
+	"PagesPending":  "the walk away's refusal names them too (game.ErrPagesDue, #525): today's transfer's pages, filed tomorrow night",
 }
 
 // methods is every method on the wire, by name.

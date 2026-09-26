@@ -369,6 +369,52 @@ func (s *Sim) missed(w *game.World, t *game.Tick) {
 	t.Emit(ev)
 }
 
+// calledOff is a strike or a boost queued tonight that no crew
+// resolved (#524): the corner was nobody's by nightfall, its crew was
+// gone or had not moved in, or no enforcer was left to send. Every
+// queued strike has its word in the morning. No dice.
+func (s *Sim) calledOff(w *game.World, t *game.Tick) {
+	o := w.Today.Strike
+	if o == nil {
+		return
+	}
+	for _, e := range t.Events() {
+		switch ev := e.(type) {
+		case events.CornerStruck:
+			if ev.Corner == o.Corner {
+				return
+			}
+		case events.RivalBoosted:
+			if ev.Corner == o.Corner {
+				return
+			}
+		}
+	}
+	ev := events.StrikeCalledOff{Day: t.Day, Corner: o.Corner, Name: o.Corner, Boost: o.Boost, Why: "no target: the corner is gone"}
+	c := w.Corner(o.Corner)
+	if c != nil {
+		ev.Name = c.Name
+	}
+	r := (*game.RivalState)(nil)
+	if c != nil {
+		r = w.Faction(c.FactionID())
+	}
+	switch {
+	case c == nil:
+	case c.Owner != game.OwnerRival:
+		ev.Why = "no target: the corner was no crew's by nightfall"
+	case r == nil || r.Gone() || r.Leader == "":
+		ev.Why = "no target: nobody runs that crew"
+	case r.Arrived == 0:
+		ev.Why = "no target: that crew has not moved in"
+	case w.Crew.Role(game.RoleEnforcer) == 0:
+		ev.Why = "no enforcers left on the payroll to send"
+	default:
+		ev.Why = "no target: nobody was there to hit"
+	}
+	t.Emit(ev)
+}
+
 // whim is the faction breaking a deal of its own accord: a chaotic one
 // does, by personality; the others never.
 func (s *Sim) whim(w *game.World, t *game.Tick, r *game.RivalState, rng game.Rand) {

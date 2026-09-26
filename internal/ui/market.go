@@ -492,6 +492,11 @@ func (m *Model) contractRows(city, id string) []string {
 	if road := w.Road(city, id); road > 0 {
 		// Held by the road (#503): the level counts what is on the way.
 		rows = append(rows, row("", theme.Warning.Render(fmt.Sprintf("holding: %d on the road", road))))
+		if w.Stock(city, id)+w.SupplyDue(city, id) == 0 {
+			// It lands after the night's sales (#524): nothing sells here
+			// tonight until it does.
+			rows = append(rows, row("", theme.Warning.Render("it lands after the sales: none to sell tonight")))
+		}
 	}
 	if _, ok := w.Order(city, id); ok || !own {
 		return rows

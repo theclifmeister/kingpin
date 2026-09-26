@@ -130,7 +130,7 @@ text = [
   "The port, an airstrip and a lab follow: throughput, each a reason for a task force.",
   "It is announced the morning before it comes, and it takes an asset with it.",
 ]
-closing = "No stage lies past this one. Pick an ambition and chase it: retire clean, go legit, take the city or disappear."
+closing = "No stage lies past this one: retire, go legit, take the city or vanish."
 [tier.enter]
 crew_min = 1
 peak_clean_min = 8000000

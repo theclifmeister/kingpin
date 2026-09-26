@@ -819,6 +819,7 @@ type SupplyShort struct {
 	Why        string // "cash", "room", or "supplier" when no connect there sells it today (#72); SupplyRoad when Short is stock on the road counted against the level (#503)
 	Lieutenant string // the lieutenant whose contract it was (#174); empty for yours
 	Till       int    // the dirty cash when it came up short (#502), so the report says what took it
+	Dry        bool   // SupplyRoad only (#524): the stash there holds none of it at the sales, the road landing after them
 }
 
 // SupplyRoad is SupplyShort's Why for a contract held under its level
@@ -1297,6 +1298,21 @@ type ScoutsMissed struct {
 }
 
 func (ScoutsMissed) Kind() string { return "ScoutsMissed" }
+
+// StrikeCalledOff is a strike or a boost queued for tonight that no
+// crew resolved (#524), report-only: a playtest's status line said the
+// enforcers went for a till on a leaderless crew's corner, and the
+// morning said nothing of it. Why says what stopped it ("no target:
+// …" or "no enforcers …").
+type StrikeCalledOff struct {
+	Day    int
+	Corner string
+	Name   string
+	Boost  bool
+	Why    string
+}
+
+func (StrikeCalledOff) Kind() string { return "StrikeCalledOff" }
 
 // RivalLeaderArrested is a faction's leader taken by the police (its
 // heat past leader_arrest_heat, your tips): the faction fragments, its
@@ -2217,6 +2233,21 @@ type AssetSeized struct {
 }
 
 func (AssetSeized) Kind() string { return "AssetSeized" }
+
+// FrontsClosed is an asset lost tonight (seized or found) closing the
+// fronts that wait on it (#525: the task force took the Dutchman's Book
+// and the Private Bank left the offer list with no word). Report-only:
+// the laundering sim, which owns the fronts, emits it beside the loss;
+// Fronts are the names of the ones not owned, now off sale until the
+// asset stands again.
+type FrontsClosed struct {
+	Day    int
+	Asset  string
+	Name   string
+	Fronts []string
+}
+
+func (FrontsClosed) Kind() string { return "FrontsClosed" }
 
 // TunnelFound is the police finding the tunnel (#48): a shipment on it
 // was taken, the route is shut for good and the asset is gone with it.

@@ -25,7 +25,9 @@ func acted(t *testing.T, evs []events.Event) events.LieutenantActed {
 // A lieutenant does not sell what the owner earmarked for elsewhere
 // (#497: Flaco sold the route's designer in Bayport at $927 when it was
 // meant for Eastside at $3,200): a route running out of their city on
-// its dial keeps back its shortfall at the far end, a contract you took
+// its dial keeps back a refill of the far end whole, its target less what
+// is on the road (#524: the far end full, the shortfall was nothing and a
+// playtest's lieutenant sold the route's stock), a contract you took
 // there keeps back what it still owes, and the report says so. Off its
 // dial the route earmarks nothing, and the whole stash is theirs.
 func TestLieutenantKeepsWhatIsEarmarked(t *testing.T) {
@@ -63,20 +65,27 @@ func TestLieutenantKeepsWhatIsEarmarked(t *testing.T) {
 		t.Fatalf("the route off: order %d, held %+v, want 100 and none", order(), ev.Held)
 	}
 
-	// On: the far end's 60 short stays back.
+	// On: the far end's target of 70 stays back, the 10 there or not.
 	if err := w.SetRoute("coast", events.RouteNormal); err != nil {
 		t.Fatal(err)
 	}
 	ev := acted(t, step(w, s))
-	if order() != 40 || len(ev.Held) != 1 || ev.Held[0] != (events.Held{Product: weed, Units: 60, For: "Coast Road"}) {
-		t.Fatalf("the route on: order %d, held %+v, want 40 and 60 for Coast Road", order(), ev.Held)
+	if order() != 30 || len(ev.Held) != 1 || ev.Held[0] != (events.Held{Product: weed, Units: 70, For: "Coast Road"}) {
+		t.Fatalf("the route on: order %d, held %+v, want 30 and 70 for Coast Road", order(), ev.Held)
 	}
+	// The far end full (#524): the route's stock is still the route's.
+	w.SetStock("far", weed, 70)
+	ev = acted(t, step(w, s))
+	if order() != 30 || len(ev.Held) != 1 || ev.Held[0].Units != 70 {
+		t.Fatalf("the far end full: order %d, held %+v, want 30 and 70", order(), ev.Held)
+	}
+	w.SetStock("far", weed, 10)
 
 	// A contract here owes 25 more: kept back beside the route's.
 	w.Contracts = append(w.Contracts, game.Contract{ID: 1, Name: "Marco", City: "test", Product: weed, Units: 30, Delivered: 5, Status: game.ContractAccepted, Due: w.Day + 5})
 	ev = acted(t, step(w, s))
-	if order() != 15 || len(ev.Held) != 1 || ev.Held[0].Units != 85 {
-		t.Fatalf("the route and a contract: order %d, held %+v, want 15 and 85", order(), ev.Held)
+	if order() != 5 || len(ev.Held) != 1 || ev.Held[0].Units != 95 {
+		t.Fatalf("the route and a contract: order %d, held %+v, want 5 and 95", order(), ev.Held)
 	}
 
 	// Everything earmarked: no order at all, and all 100 said.

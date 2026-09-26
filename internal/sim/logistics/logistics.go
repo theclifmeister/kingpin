@@ -343,19 +343,41 @@ func (s *Sim) Idle(w *game.World, r content.RouteConfig) string {
 	case !rs.HasTargets():
 		return events.IdleNoTarget
 	}
-	why, _ := s.idle(w, r, s.Effects(w))
+	why, _, _ := s.idle(w, r, s.Effects(w))
 	return why
+}
+
+// Waits is the dirty cash over the float a route idle on the till waits
+// on (#524): its cheapest lot with the fare for it, or the fare for
+// stock stashed already; zero for a route that is not idle on the till.
+// The ledger's till line shows the choice with it: the wash takes what
+// is over the till, so a lot over a night's sales is saved for only by
+// raising the till. No dice.
+func (s *Sim) Waits(w *game.World, r content.RouteConfig) int {
+	if s.Idle(w, r) != events.IdleTill {
+		return 0
+	}
+	_, _, need := s.idle(w, r, s.Effects(w))
+	return need
 }
 
 // idle is Idle's arithmetic on a route that is on, open and not shut,
 // with the products short of the target: run's, with nothing bought or
 // sent. A route that could send one unit of one product is not idle;
 // the till outranks an empty stash, since cash is what the player can
-// move.
-func (s *Sim) idle(w *game.World, r content.RouteConfig, fx game.Effects) (string, []string) {
+// move. need is, idle on the till, the least dirty cash over the float
+// that would move it (#524): its cheapest lot with the fare for it, or
+// the fare for stock stashed already.
+func (s *Sim) idle(w *game.World, r content.RouteConfig, fx game.Effects) (string, []string, int) {
 	var short []string
 	till, stock := false, false
 	budget := s.Budget(w)
+	need := 0
+	wants := func(n int) {
+		if n > 0 && (need == 0 || n < need) {
+			need = n
+		}
+	}
 	for _, id := range w.Products {
 		if w.Product(r.From, id) == nil || w.Product(r.To, id) == nil {
 			continue
@@ -368,26 +390,32 @@ func (s *Sim) idle(w *game.World, r content.RouteConfig, fx game.Effects) (strin
 		have := w.Stock(r.From, id)
 		sup := w.WholesaleSupplier(r.From)
 		lot := sup != nil && sup.Open(w) && sup.Sells(id) && sup.Lot > 0 && sup.Price[id] > 0 && sup.Left() >= sup.Lot
+		cost := 0 // a lot and the fare for it
+		if lot {
+			cost = int(math.Ceil(sup.Price[id]*float64(sup.Lot))) + fareFor(fx, r, min(units, sup.Lot))
+		}
 		switch {
 		case have > 0 && fareFor(fx, r, 1) <= w.Player.DirtyCash:
-			return "", nil // stashed stock's fare is committed (#496): the float pays it
+			return "", nil, 0 // stashed stock's fare is committed (#496): the float pays it
 		case have > 0:
 			till = true
+			wants(fareFor(fx, r, min(units, have)))
 		case !lot:
 			stock = true
-		case int(math.Ceil(sup.Price[id]*float64(sup.Lot)))+fareFor(fx, r, min(units, sup.Lot)) <= budget:
-			return "", nil
+		case cost <= budget:
+			return "", nil, 0
 		default:
 			till = true
+			wants(cost)
 		}
 	}
 	switch {
 	case till:
-		return events.IdleTill, short
+		return events.IdleTill, short, need
 	case stock:
-		return events.IdleStock, short
+		return events.IdleStock, short, 0
 	}
-	return events.IdleMet, nil
+	return events.IdleMet, nil, 0
 }
 
 // StartingCities converts config into the cities a new world starts with:
@@ -656,7 +684,7 @@ func (s *Sim) run(w *game.World, t *game.Tick, fx game.Effects) {
 		if !sent {
 			// Short and nothing sent says why (#459): the report's
 			// line. A route at its target is not news.
-			if why, short := s.idle(w, r, fx); why == events.IdleTill || why == events.IdleStock {
+			if why, short, _ := s.idle(w, r, fx); why == events.IdleTill || why == events.IdleStock {
 				t.Emit(events.RouteIdle{Day: t.Day, Route: r.ID, Name: r.Name, From: r.From, To: r.To, Why: why, Products: short, Till: w.Float(s.tree, s.float), Dirty: w.Player.DirtyCash})
 			}
 		}

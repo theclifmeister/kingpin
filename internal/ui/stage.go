@@ -6,6 +6,7 @@ import (
 
 	tea "github.com/charmbracelet/bubbletea"
 
+	"github.com/theclifmeister/kingpin/internal/engine"
 	"github.com/theclifmeister/kingpin/internal/ui/theme"
 )
 
@@ -93,6 +94,12 @@ func (m *Model) stageLines(n int) []string {
 	for _, o := range tier.Opens {
 		body = append(body, "  "+o)
 	}
+	// The lanes abroad (#525): the stage that opens them points at them
+	// while the exports alert stands, before any load is ordered; a
+	// playtest reached the Cartel and never saw the alert.
+	if m.stageExports(n) {
+		body = append(body, theme.Gold.Render("  the lanes are "+screenPointer(screenLedger)+"; the alert says what they pay"))
+	}
 	next := tier.Next
 	if n == len(m.cfg.Progression.Tiers) && tier.Closing != "" {
 		next = tier.Closing
@@ -100,4 +107,19 @@ func (m *Model) stageLines(n int) []string {
 	body = append(body, "", theme.PanelTitle.Render("NEXT"))
 	body = append(body, m.wrapLines(next)...)
 	return body
+}
+
+// stageExports is whether tier n's modal points at the lanes abroad
+// (#525): the tier is the one the exports alert fires from (the
+// engine's, the Cartel) and the alert stands this morning.
+func (m *Model) stageExports(n int) bool {
+	if n != m.w.Tier() {
+		return false
+	}
+	for _, a := range m.sess.Alerts() {
+		if a.Kind == engine.AlertExports {
+			return true
+		}
+	}
+	return false
 }
