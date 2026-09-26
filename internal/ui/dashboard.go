@@ -189,7 +189,9 @@ func (m *Model) streetLines(innerW, maxLines int, narrow, withRoad bool) []strin
 	} else if r := w.Faction(w.War); w.War != "" && r != nil {
 		// The war order (#229): where the enforcers go tonight on it.
 		line := fmt.Sprintf("War on %s: nowhere to go tonight.", m.rivalName(r))
-		if c := m.rules.Rivals.WarTarget(w, r); c != nil {
+		if nobody := m.warNobodyWords(); nobody != "" {
+			line = fmt.Sprintf("War on %s: %s", m.rivalName(r), nobody)
+		} else if c := m.rules.Rivals.WarTarget(w, r); c != nil {
 			force, _ := m.cfg.Rivals.War.Force()
 			line = fmt.Sprintf("War on %s: enforcers go to %s tonight, %s.", m.rivalName(r), c.Name, force)
 		}
@@ -199,7 +201,7 @@ func (m *Model) streetLines(innerW, maxLines int, narrow, withRoad bool) []strin
 	var last string
 	switch {
 	case w.Today.LieLow:
-		last = theme.Warning.Render("Lying low today. No sales, heat fades faster.")
+		last = theme.Warning.Render("Lying low today. " + capitalize(m.lieLowWords()) + ", heat fades faster.")
 	case len(w.Today.Orders) > 0:
 		last = theme.Gold.Render("Orders queued for tonight.")
 	case len(w.Standing) > 0:

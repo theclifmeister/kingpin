@@ -36,6 +36,7 @@ var reportOnly = map[string]bool{
 	"ReignBroken":    true,                         // #227
 	"StraightOpened": true, "StraightLapsed": true, // #398: the TIER section says it, the walk-away dialog takes it
 	"DealEnded": true, "TributePaid": true,
+	"DealEnding": true, "ScoutsMissed": true, // #506: the report's word the morning before, and on a hit that found nobody
 	"CampaignBacked": true,                                                                    // #193
 	"BribeAccepted":  true, "BribeRefused": true, "LeadFound": true, "CheckpointBought": true, // #42
 	"ContractAccepted": true, "ContractExpired": true,

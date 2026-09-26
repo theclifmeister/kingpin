@@ -181,7 +181,7 @@ type Alert struct {
 	Ready    bool    `json:"ready,omitempty"`    // retire: retiring is open now; plan: the plan is done
 	Level    string  `json:"level,omitempty"`    // favour: the response due tonight; heat: the highest rung met
 	Member   int     `json:"member,omitempty"`   // crew_line, unposted: the member's id
-	Cross    string  `json:"cross,omitempty"`    // crew_line: the line ahead: skim, flip (a lieutenant's) or walk
+	Cross    string  `json:"cross,omitempty"`    // crew_line: the line ahead: skim, flip (a lieutenant's) or walk; under for a lieutenant under the flip line (#497)
 	Gap      float64 `json:"gap,omitempty"`      // crew_line: the loyalty over the line
 	Share    float64 `json:"share,omitempty"`    // port: the wholesaler's price as a share of the street's there (#476)
 	Corner   string  `json:"corner,omitempty"`   // idle_corner, investigation: the corner's id; unposted: a corner to post them on, no_corner: a free one to post on, or ""
@@ -671,7 +671,10 @@ func (s *Session) scouts() []Alert {
 // has one line ahead, so one alert, keyed by the member and the line:
 // a fast-forward stops once as they near the skim line and once more
 // as they near the walk. Informants stay silent (docs/snitching.md):
-// the informant line is nobody's alert.
+// the informant line is nobody's alert, bar a lieutenant's (#497): their
+// flip is no dice on a number the crew screen shows, so a lieutenant
+// under it is an alert (Cross "under", Gap below zero) until they near
+// the walk, keyed apart so a fast-forward stops on it once.
 func (s *Session) crewLines() []Alert {
 	w := s.w
 	tun := s.set.Crew.Tuning()
@@ -684,6 +687,7 @@ func (s *Session) crewLines() []Alert {
 		if m.Lieutenant() {
 			cross, line = "flip", s.set.Crew.FlipLine()
 		}
+		under := m.Lieutenant() && m.Loyalty < line
 		if m.Loyalty < line {
 			cross, line = "walk", tun.QuitThreshold
 		}
@@ -693,6 +697,11 @@ func (s *Session) crewLines() []Alert {
 			days = max(1, int(math.Ceil(gap/-d)))
 		}
 		if gap > tun.AlertMargin && days != 1 {
+			if under {
+				flip := s.set.Crew.FlipLine()
+				out = append(out, Alert{Kind: AlertCrewLine, Key: fmt.Sprintf("crew %d under the flip line", m.ID),
+					Member: m.ID, Cross: "under", Line: flip, Gap: m.Loyalty - flip})
+			}
 			continue
 		}
 		out = append(out, Alert{Kind: AlertCrewLine, Key: fmt.Sprintf("crew %d near the %s line", m.ID, cross),

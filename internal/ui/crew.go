@@ -94,7 +94,7 @@ func (m *Model) confirmFire() {
 	if n := len(m.w.Crew.Members); at >= 0 && n > 0 {
 		m.crewCursor = min(at, n-1)
 	}
-	m.say(fmt.Sprintf("%s is gone. The rest noticed.", got.Name))
+	m.say(fmt.Sprintf("%s is gone. The rest noticed.", got.Name) + m.overCapWords())
 }
 
 // talking reports whether the report's tell has shown enough for the
@@ -309,7 +309,11 @@ func (m *Model) viewCrew() string {
 	width := m.mainWidth()
 	var b strings.Builder
 
-	b.WriteString(truncate(theme.PanelTitle.Render("CREW")+theme.Subtle.Render(fmt.Sprintf(" · %d of %d on the payroll", len(w.Crew.Members), m.rules.Crew.MaxCrew(w))), width) + "\n")
+	head := theme.Subtle.Render(fmt.Sprintf(" · %d of %d on the payroll", len(w.Crew.Members), m.rules.Crew.MaxCrew(w)))
+	if len(w.Crew.Members) > m.rules.Crew.MaxCrew(w) {
+		head += theme.Warning.Render(" · over: nobody hired until under") // a lieutenant's slots gone (#497)
+	}
+	b.WriteString(truncate(theme.PanelTitle.Render("CREW")+head, width) + "\n")
 	b.WriteString(truncate(theme.Subtle.Render("pay  ")+payRow(pay)+theme.Gold.Render(fmt.Sprintf("   %s/day", money(m.rules.Crew.Wages(w, pay)))), width) + "\n")
 	if warn := m.crewWarning(); warn != "" {
 		b.WriteString(truncate(theme.Bad.Render(warn), width) + "\n")

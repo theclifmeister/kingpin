@@ -609,6 +609,16 @@ func (m *Model) cancelSelected() {
 	}
 }
 
+// lieLowWords is who sells nothing on a lie-low day (#497): with a
+// lieutenant running a city, they are named, since the market skips
+// their orders too.
+func (m *Model) lieLowWords() string {
+	if m.w.Crew.Lieutenants() > 0 {
+		return "no sales, your lieutenants' included"
+	}
+	return "no sales"
+}
+
 // toggleLieLow turns lying low on and off for today.
 func (m *Model) toggleLieLow() {
 	if !m.w.Today.LieLow && len(m.queuedHandoffs()) > 0 {
@@ -649,7 +659,7 @@ func (m *Model) lieLow() {
 	m.mode = modePlay
 	m.sess.SetLieLow(!m.w.Today.LieLow)
 	if m.w.Today.LieLow {
-		m.say("Lying low today: no sales, heat fades faster; wages and contracts still run.")
+		m.say("Lying low today: " + m.lieLowWords() + ", heat fades faster; wages and contracts still run.")
 	} else {
 		m.say("Back on the corner.")
 	}

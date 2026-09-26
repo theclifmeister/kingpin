@@ -221,6 +221,10 @@ func (s *Sim) Step(w *game.World, t *game.Tick) {
 		s.step(w, t, r, rng)
 	}
 	s.landed(w, t)
+	// Every proposal and every hit on the scouts has a word in the
+	// morning (#506): one nobody answered, one that found nobody.
+	s.unanswered(w, t)
+	s.missed(w, t)
 	s.table43(w, t)
 	// Intel (#45): what the night showed you of the factions, no dice,
 	// and what the ones that distrust you feed you, off the intel stream.

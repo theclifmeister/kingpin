@@ -175,6 +175,12 @@ func (s *Sim) delegate(w *game.World, t *game.Tick, lt *game.CrewMember, ev *eve
 		return c.Runner == game.You || (split != nil && c.City == w.Home().ID && split.Covers(c.ID))
 	}
 	named := func(c *game.Corner) bool { return namedCorner(w, c) }
+	// worn is a corner robbed robbed_off times since the lieutenant took
+	// the city (CrewMember.Stickups, the count each corner had then): the
+	// stick-ups before they came are yours, and the crew you posted stay
+	// where they are (#497: a whole city's runners came off the night
+	// Wally took it over, on stick-ups counted before he came).
+	worn := func(c *game.Corner) bool { return lt.StickupsSince(*c) >= off }
 
 	// 1. A corner robbed robbed_off times is not worth the stock: the crew
 	// come off. So do they off a corner an investigation names (#343):
@@ -183,7 +189,7 @@ func (s *Sim) delegate(w *game.World, t *game.Tick, lt *game.CrewMember, ev *eve
 	// held, and the crew go back on it once the investigation closes.
 	for i := range city.Corners {
 		c := &city.Corners[i]
-		if !c.Held() || (c.Robbed < off && !named(c)) || keep(c) {
+		if !c.Held() || (!worn(c) && !named(c)) || keep(c) {
 			continue
 		}
 		w.Recall(c.Runner)
@@ -195,7 +201,7 @@ func (s *Sim) delegate(w *game.World, t *game.Tick, lt *game.CrewMember, ev *eve
 	byDemand := func(ok func(c *game.Corner) bool) []*game.Corner {
 		var out []*game.Corner
 		for i := range city.Corners {
-			if c := &city.Corners[i]; c.Robbed < off && !named(c) && ok(c) {
+			if c := &city.Corners[i]; !worn(c) && !named(c) && ok(c) {
 				out = append(out, c)
 			}
 		}
@@ -226,6 +232,7 @@ func (s *Sim) delegate(w *game.World, t *game.Tick, lt *game.CrewMember, ev *eve
 		}
 		if c != nil {
 			ev.Posted = append(ev.Posted, c.Name)
+			ev.Took = append(ev.Took, events.Took{Name: m.Name, Role: m.Role, Corner: c.Name})
 		}
 	}
 
@@ -246,7 +253,7 @@ func (s *Sim) delegate(w *game.World, t *game.Tick, lt *game.CrewMember, ev *eve
 			}
 			for j := range city.Corners {
 				c := &city.Corners[j]
-				if c.Worked() && c.Enforcer == 0 && c.Robbed < off && !named(c) && (best == nil || score(c) > score(best)) {
+				if c.Worked() && c.Enforcer == 0 && !worn(c) && !named(c) && (best == nil || score(c) > score(best)) {
 					best = c
 				}
 			}
@@ -255,6 +262,7 @@ func (s *Sim) delegate(w *game.World, t *game.Tick, lt *game.CrewMember, ev *eve
 			}
 			if w.Post(best.ID, m.ID) == nil {
 				ev.Guarded = append(ev.Guarded, best.Name)
+				ev.Took = append(ev.Took, events.Took{Name: m.Name, Role: m.Role, Corner: best.Name})
 			}
 		}
 	}
@@ -286,11 +294,19 @@ func (s *Sim) delegate(w *game.World, t *game.Tick, lt *game.CrewMember, ev *eve
 	for _, key := range delegatedKeys(w, lt.City) {
 		delete(w.Delegated, key)
 	}
+	// What a route or a contract has earmarked is not theirs to sell
+	// (#497): the route's shortfall at the far end, the contract's
+	// units owed here, kept back out of the stash.
+	held := s.earmarked(w, lt.City, t.Day)
 	for _, id := range w.Products {
 		if namedProduct(w, lt.City, id) {
 			continue
 		}
-		if q := w.Stock(lt.City, id); q > 0 {
+		q := w.Stock(lt.City, id)
+		if h := min(q, held[id].Units); h > 0 {
+			ev.Held = append(ev.Held, events.Held{Product: id, Units: h, For: held[id].For})
+		}
+		if q -= held[id].Units; q > 0 {
 			w.Delegate(lt.City, id, q, ev.Dial)
 			ev.Orders++
 		}
@@ -314,7 +330,43 @@ func (s *Sim) delegate(w *game.World, t *game.Tick, lt *game.CrewMember, ev *eve
 	// of their own and never on a lie-low day; the standing orders count
 	// on what it brings (World.SupplyDue, cut to the room), as a sell
 	// order may. What this morning's contracts bought is the report's.
-	s.restock(w, t, lt, city, tp, ev)
+	s.restock(w, t, lt, city, tp, held, ev)
+}
+
+// earmarked is what a lieutenant keeps back out of their city's stash
+// (#497), by product: what every route running from the city on its
+// dial owes the far end (World.RouteShortfall, the units the road
+// ships tomorrow and after), and what a contract you took here still
+// owes its buyer while it can still be handed over (day, the tick's).
+// For names the first route, else "a contract". The
+// stock is the owner's intent, not the street's. No dice.
+func (s *Sim) earmarked(w *game.World, city string, day int) map[string]events.Held {
+	held := map[string]events.Held{}
+	add := func(id string, units int, why string) {
+		if units <= 0 {
+			return
+		}
+		h := held[id]
+		if h.For == "" {
+			h.For = why
+		}
+		h.Product, h.Units = id, h.Units+units
+		held[id] = h
+	}
+	for _, r := range s.routes {
+		if r.From != city || !w.Route(r.ID).Dial.On() || w.Cities[r.To] == nil || (r.Asset != "" && !w.AssetLive(r.Asset)) {
+			continue
+		}
+		for _, id := range w.Products {
+			add(id, w.RouteShortfall(r, id), r.Name)
+		}
+	}
+	for _, c := range w.Contracts {
+		if c.City == city && c.Live(day) { // one you can still hand over tomorrow
+			add(c.Product, c.Owed(), "a contract")
+		}
+	}
+	return held
 }
 
 // comingTo is the faction on its way to city (#341): its scouts there,
@@ -329,7 +381,7 @@ func comingTo(w *game.World, city string) *game.RivalState {
 }
 
 // restock is the lieutenant's buy side (#174): see delegate, step 6.
-func (s *Sim) restock(w *game.World, t *game.Tick, lt *game.CrewMember, city *game.City, tp content.LieutenantPersonality, ev *events.LieutenantActed) {
+func (s *Sim) restock(w *game.World, t *game.Tick, lt *game.CrewMember, city *game.City, tp content.LieutenantPersonality, held map[string]events.Held, ev *events.LieutenantActed) {
 	for _, key := range delegatedSupplyKeys(w, lt.City) {
 		delete(w.DelegatedSupply, key)
 	}
@@ -372,10 +424,14 @@ func (s *Sim) restock(w *game.World, t *game.Tick, lt *game.CrewMember, city *ga
 		if due <= 0 || namedProduct(w, lt.City, id) {
 			continue
 		}
-		if q := w.Stock(lt.City, id); q == 0 {
-			ev.Orders++ // nothing stashed tonight, so step 5 placed none
+		q := w.Stock(lt.City, id) + due - held[id].Units // the earmarked units stay kept back (#497)
+		if q <= 0 {
+			continue
 		}
-		w.Delegate(lt.City, id, w.Stock(lt.City, id)+due, ev.Dial)
+		if _, ok := w.DelegatedOrder(lt.City, id); !ok {
+			ev.Orders++ // nothing to sell tonight, so step 5 placed none
+		}
+		w.Delegate(lt.City, id, q, ev.Dial)
 	}
 	for _, e := range t.Events() {
 		if sb, ok := e.(events.SupplyBought); ok && sb.City == lt.City && sb.Lieutenant == lt.Name {

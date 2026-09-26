@@ -5505,6 +5505,33 @@
       ],
       "type": "object"
     },
+    "events.DealEnding": {
+      "properties": {
+        "Day": {
+          "type": "integer"
+        },
+        "Deal": {
+          "type": "string"
+        },
+        "Faction": {
+          "type": "string"
+        },
+        "Rival": {
+          "type": "string"
+        },
+        "Until": {
+          "type": "integer"
+        }
+      },
+      "required": [
+        "Day",
+        "Rival",
+        "Faction",
+        "Deal",
+        "Until"
+      ],
+      "type": "object"
+    },
     "events.DealOffered": {
       "properties": {
         "Day": {
@@ -5556,6 +5583,9 @@
         },
         "Terms": {
           "type": "string"
+        },
+        "Why": {
+          "type": "string"
         }
       },
       "required": [
@@ -5563,7 +5593,8 @@
         "Rival",
         "Faction",
         "Deal",
-        "Terms"
+        "Terms",
+        "Why"
       ],
       "type": "object"
     },
@@ -6316,6 +6347,25 @@
       ],
       "type": "object"
     },
+    "events.Held": {
+      "properties": {
+        "For": {
+          "type": "string"
+        },
+        "Product": {
+          "type": "string"
+        },
+        "Units": {
+          "type": "integer"
+        }
+      },
+      "required": [
+        "Product",
+        "Units",
+        "For"
+      ],
+      "type": "object"
+    },
     "events.HouseBought": {
       "properties": {
         "City": {
@@ -6820,6 +6870,12 @@
           },
           "type": "array"
         },
+        "Held": {
+          "items": {
+            "$ref": "#/$defs/events.Held"
+          },
+          "type": "array"
+        },
         "ID": {
           "type": "integer"
         },
@@ -6846,6 +6902,12 @@
         },
         "Skimmed": {
           "type": "integer"
+        },
+        "Took": {
+          "items": {
+            "$ref": "#/$defs/events.Took"
+          },
+          "type": "array"
         }
       },
       "required": [
@@ -6865,7 +6927,9 @@
         "Cut",
         "Skimmed",
         "Bought",
-        "Contracts"
+        "Contracts",
+        "Held",
+        "Took"
       ],
       "type": "object"
     },
@@ -8049,6 +8113,33 @@
       ],
       "type": "object"
     },
+    "events.ScoutsMissed": {
+      "properties": {
+        "City": {
+          "type": "string"
+        },
+        "Day": {
+          "type": "integer"
+        },
+        "Faction": {
+          "type": "string"
+        },
+        "Rival": {
+          "type": "string"
+        },
+        "Why": {
+          "type": "string"
+        }
+      },
+      "required": [
+        "Day",
+        "Rival",
+        "Faction",
+        "City",
+        "Why"
+      ],
+      "type": "object"
+    },
     "events.ShipmentArrived": {
       "properties": {
         "Day": {
@@ -8724,6 +8815,25 @@
       ],
       "type": "object"
     },
+    "events.Took": {
+      "properties": {
+        "Corner": {
+          "type": "string"
+        },
+        "Name": {
+          "type": "string"
+        },
+        "Role": {
+          "type": "string"
+        }
+      },
+      "required": [
+        "Name",
+        "Role",
+        "Corner"
+      ],
+      "type": "object"
+    },
     "events.TributePaid": {
       "properties": {
         "Amount": {
@@ -9337,6 +9447,12 @@
         "Skill": {
           "type": "integer"
         },
+        "Stickups": {
+          "additionalProperties": {
+            "type": "integer"
+          },
+          "type": "object"
+        },
         "Trait": {
           "type": "string"
         },
@@ -9372,6 +9488,7 @@
         "Personality",
         "City",
         "Assigned",
+        "Stickups",
         "Observed",
         "Former",
         "Age",
@@ -10214,6 +10331,9 @@
     "DealEnded": {
       "$ref": "#/$defs/events.DealEnded"
     },
+    "DealEnding": {
+      "$ref": "#/$defs/events.DealEnding"
+    },
     "DealOffered": {
       "$ref": "#/$defs/events.DealOffered"
     },
@@ -10444,6 +10564,9 @@
     },
     "ScoutsHit": {
       "$ref": "#/$defs/events.ScoutsHit"
+    },
+    "ScoutsMissed": {
+      "$ref": "#/$defs/events.ScoutsMissed"
     },
     "ShipmentArrived": {
       "$ref": "#/$defs/events.ShipmentArrived"
@@ -15735,6 +15858,7 @@
             "DealAccepted",
             "DealBroken",
             "DealEnded",
+            "DealEnding",
             "DealOffered",
             "DealRefused",
             "DebtLate",
@@ -15812,6 +15936,7 @@
             "RivalWithdrew",
             "RouteIdle",
             "ScoutsHit",
+            "ScoutsMissed",
             "ShipmentArrived",
             "ShipmentSeized",
             "ShipmentSent",

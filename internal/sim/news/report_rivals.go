@@ -182,6 +182,12 @@ func (r *reporter) reportRivals(e events.Event) bool {
 			rep.Territory = append(rep.Territory, fmt.Sprintf("%s ACCEPTED %s. It holds from tonight.", ev.Rival, ev.Terms))
 		}
 	case events.DealRefused:
+		if ev.Why != "" {
+			// Nobody answered (#506): the proposal never reached the
+			// dice, and says so rather than vanish. No headline.
+			rep.Territory = append(rep.Territory, fmt.Sprintf("Your proposal of %s to %s went unanswered: %s.", ev.Terms, rivalOr(ev.Rival), ev.Why))
+			break
+		}
 		d := base
 		d.Rival, d.Deal = ev.Rival, ev.Deal
 		d = r.crew(d, ev.Rival)
@@ -197,6 +203,10 @@ func (r *reporter) reportRivals(e events.Event) bool {
 		} else {
 			rep.Territory = append(rep.Territory, fmt.Sprintf("You BROKE the %s with %s: %s. Trust is gone, and they made a call.", ev.Deal, ev.Rival, ev.Why))
 		}
+	case events.DealEnding:
+		rep.Territory = append(rep.Territory, fmt.Sprintf("The %s with %s holds one more night: from tomorrow they are free to push your corners.", ev.Deal, ev.Rival))
+	case events.ScoutsMissed:
+		rep.Territory = append(rep.Territory, fmt.Sprintf("Your enforcers went after %s's scouts and found nobody: %s.", rivalOr(ev.Rival), ev.Why))
 	case events.DealEnded:
 		if ev.Deal == game.DealHomage {
 			rep.Territory = append(rep.Territory, fmt.Sprintf("%s can no longer pay you homage. The money stops; they are nobody's now.", ev.Rival))
@@ -245,6 +255,11 @@ func (r *reporter) reportRivals(e events.Event) bool {
 		d.Rival = ev.Rival
 		d = r.crew(d, ev.Rival)
 		r.add("rivals", "RivalScouting", d)
+		if p := w.Faction(ev.Cell); ev.Cell != "" && p != nil && p.Leader != ev.Rival {
+			// A cell under a leader of its own (#506): the crew you knew
+			// by one name comes on by another, and the report says so.
+			rep.Territory = append(rep.Territory, fmt.Sprintf("%s's crew split: a cell of it goes its own way under %s.", p.Leader, ev.Rival))
+		}
 		rep.Territory = append(rep.Territory, fmt.Sprintf("%s's scouts are in %s: your take there drew them. They recruit on day %d and move in on day %d unless the money dries up first. Take the corners there, or hit the scouts from the rivals screen.", ev.Rival, w.CityName(ev.City), ev.Recruit, ev.Arrive))
 	case events.RivalRecruiting:
 		d := r.at(ev.City)
@@ -314,4 +329,12 @@ func pushWhy(ev events.CornerTaken) string {
 		who = "past " + ev.Guard
 	}
 	return fmt.Sprintf(": %s pushed %s, a %s push", format.Plural(ev.Muscle, "head"), who, format.Pct(ev.Odds, 0))
+}
+
+// rivalOr is a faction's leader for a line, or "a crew" with none named.
+func rivalOr(name string) string {
+	if name == "" {
+		return "a crew"
+	}
+	return name
 }

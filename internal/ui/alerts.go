@@ -255,6 +255,11 @@ func (m *Model) crewLineAlert(a engine.Alert) (text, why string) {
 	if c := m.w.Crew.Member(a.Member); c != nil {
 		name = c.Name
 	}
+	if a.Cross == "under" {
+		// A lieutenant under the flip line (#497): talking, or about to.
+		why = fmt.Sprintf("%s under the %.0f line", name, a.Line)
+		return theme.Bad.Render(fmt.Sprintf("%s is under %.0f loyalty: a lieutenant that low talks to the police, and one running enough of your corners takes the city with them. Fire them %s.", name, a.Line, screenPointer(screenCrew))), why
+	}
 	gap := max(1, int(math.Ceil(a.Gap)))
 	why = fmt.Sprintf("%s %d from %s", name, gap, crossWords[a.Cross])
 	line := fmt.Sprintf("%s is %d from %s", name, gap, crossWords[a.Cross])

@@ -300,6 +300,75 @@ func (s *Sim) answer(w *game.World, t *game.Tick, r *game.RivalState, rng game.R
 	t.Emit(events.DealRefused{Day: t.Day, Rival: r.Leader, Faction: r.Faction(), Deal: d.Kind, Terms: w.Describe(d)})
 }
 
+// unanswered is the proposal nobody answered tonight (#506): put to a
+// faction that has not moved in yet, or one gone before its answer, it
+// never reached the dice, and the report says so rather than let it
+// vanish. A refusal with a Why: no headline, no count, no dice.
+func (s *Sim) unanswered(w *game.World, t *game.Tick) {
+	p := w.Today.Proposal
+	if p == nil {
+		return
+	}
+	r := w.Faction(p.Faction)
+	for _, e := range t.Events() {
+		switch ev := e.(type) {
+		case events.DealAccepted:
+			if r != nil && ev.Faction == r.Faction() && ev.Deal == p.Kind && !ev.Offered {
+				return
+			}
+		case events.DealRefused:
+			if r != nil && ev.Faction == r.Faction() && ev.Deal == p.Kind {
+				return
+			}
+		}
+	}
+	why := "they are gone"
+	switch {
+	case r == nil:
+	case r.Gone():
+		why = "their crew is finished: nobody was left to answer"
+	case r.Arrived == 0:
+		why = "their crew have not moved in yet: nobody answers until they do"
+	default:
+		why = "they had nothing to say to it"
+	}
+	ev := events.DealRefused{Day: t.Day, Deal: p.Kind, Terms: w.Describe(*p), Why: why}
+	if r != nil {
+		ev.Rival, ev.Faction = r.Leader, r.Faction()
+	}
+	t.Emit(ev)
+}
+
+// missed is a hit on the scouts that found nobody to hit (#506): the
+// order stood tonight and no ScoutsHit came of it, because the faction
+// was gone, had moved in or had gone home first. No dice.
+func (s *Sim) missed(w *game.World, t *game.Tick) {
+	id := w.Today.HitScouts
+	if id == "" {
+		return
+	}
+	r := w.Faction(id)
+	for _, e := range t.Events() {
+		if ev, ok := e.(events.ScoutsHit); ok && r != nil && ev.Faction == r.Faction() {
+			return
+		}
+	}
+	ev := events.ScoutsMissed{Day: t.Day, Faction: id, Why: "they are gone"}
+	if r != nil {
+		ev.Rival, ev.Faction, ev.City = r.Leader, r.Faction(), r.ScoutingCity
+		switch {
+		case r.Gone():
+		case r.ScoutsHit > 0 && r.ScoutsHit < t.Day:
+			ev.Why = "their scouts were hit once already"
+		case r.Arrived > 0:
+			ev.Why = "they moved in before the enforcers got there"
+		default:
+			ev.Why = "their scouts had gone home"
+		}
+	}
+	t.Emit(ev)
+}
+
 // whim is the faction breaking a deal of its own accord: a chaotic one
 // does, by personality; the others never.
 func (s *Sim) whim(w *game.World, t *game.Tick, r *game.RivalState, rng game.Rand) {
@@ -346,6 +415,11 @@ func (s *Sim) keep(w *game.World, t *game.Tick, r *game.RivalState) {
 			i--
 			t.Emit(events.DealEnded{Day: t.Day, Rival: r.Leader, Faction: r.Faction(), Deal: d.Kind})
 			continue
+		}
+		if d.Until > 0 && t.Day+2 == d.Until {
+			// Its last night is the next (#506): the morning says so, the
+			// day before the report that it has run out.
+			t.Emit(events.DealEnding{Day: t.Day, Rival: r.Leader, Faction: r.Faction(), Deal: d.Kind, Until: d.Until})
 		}
 		r.Trust = math.Min(100, r.Trust+earn)
 	}
