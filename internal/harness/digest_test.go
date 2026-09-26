@@ -378,20 +378,27 @@ const (
 // With Dealt, the report and the journal left out of the walk, every
 // one of the sixty days is main's digest (so walked on 92db052 too):
 // the boss's one card is dealt on day 5 as before, and no number moved.
+// Again for #496 and #503 (the player's till, LaunderingState.Till;
+// the wash keeping the contracts' morning; a stashed shipment's fare
+// out of the float; SellOrder.All): day 1 by the till's shape alone,
+// on top of #501's and #502's moves above (walked with both).
+// The boss's cash, clean, offshore, wash, stock and road read main's on
+// all sixty days: its first route fare paid out of the float, and its
+// contracts' morning over the till, come later than day 60.
 var seedDigest = []string{
-	"2518d9c83a763111", "a2b1742ab91fec2b", "67b6b53c3feb8b69", "666f68d8f9bf95e0",
-	"673d6f2ac28e0bfa", "2d719ef8f54e510b", "1dcdd9b831e243f2", "54f20eb08c035340",
-	"288823bb723ba671", "02a2174f54055aaa", "b5bb8993f463964c", "6d8daced39949cb3",
-	"ae64610c235c502b", "d7568fee74c03577", "88196cf8b7a735fe", "62f6b69af10fc181",
-	"72cdd3089b450a2d", "72369db10af91bdb", "f3d9d3ee2ddda8df", "142f3e6e393dd534",
-	"96ffcafd37a177be", "6f9d27d5f6af881b", "2f5ba68ad66f6139", "ce03bcf5b3ee0825",
-	"d6370a2ec0f94be4", "2c9f3081926a2fcf", "ce93b028e4375d48", "fe73b39302c68204",
-	"8b3e9b1da1a87efd", "ed19620205f395f3", "80d9751465eaf105", "3ae81f63f60d63ac",
-	"9cb067cc10951416", "531042690fec4908", "a5abb982ce9fed29", "964742725c84967f",
-	"bccc05c3a2daf7ce", "81830ed84a69efbc", "d07576e14d94e122", "87c03c2443318ffa",
-	"42feb3f4b4cf8d60", "e96922e539904cd1", "d5f7f1b6eccdb1d0", "8ac629c39a55ad1c",
-	"4eca2df082850b39", "de1a829bf7e60ca8", "9574c01131230dbc", "b367c8d58d1a0c5c",
-	"551b3c9981bfc6a4", "9922b0c5d24d8976", "0dd1ee4990e08f96", "625f84572bc2d36e",
-	"7b9cc50b597ae364", "a8d272f97acfa70e", "0ef02d771b21fbaf", "17c70a406fc3a50a",
-	"1b5c16073d3ff651", "6daed785492d21d0", "901be4377e1ffb91", "0c960ca09d29f40d",
+	"5cb98708141f8afe", "4babfb472ce4e4c6", "cc6271e602212e1c", "e94fe815eecfa461",
+	"59ac4f999001670f", "9a99657ee018c27e", "ba5e9c158867d9ad", "f476e7b49af1ed23",
+	"effb5cd1ab664154", "065832f56a80749d", "c2601ac4d7569a65", "dbcc5f6f3b784f12",
+	"ea579cc1882c5d9c", "24f27522268e57b6", "2f4c5aa3c7745893", "5779fc2fee9a8c74",
+	"83798d95e6e78ec0", "80c23a9907576254", "a457ef1fce7585a4", "5e6dfb6a2dbe3939",
+	"73b68b302d58402f", "c652ab4e5f9df4ee", "4a568df5e3fc30a2", "33962fbcf41788fc",
+	"c069b3cc30aee347", "6e28290807584b9c", "31e0bcd0a3982075", "f2c4529cb4473e2d",
+	"bedc59bf76aae2a4", "32a329a0b11807f0", "63a28713fcdabd90", "bb4023f2596782eb",
+	"359d412ce316ad49", "e769833137a02cc3", "183836dbbbfad0d6", "8cac1b8beebd2d92",
+	"ebbacea6c33498cd", "34b5b50df07e9197", "b1ef0b1c6d0c6409", "f9b7fbd35d8e74d5",
+	"9652c0f51dd4c335", "6984cbe79533d1ae", "3eee66b5fbdd3259", "57f4d8383c3d9a79",
+	"6685e206a8c2cede", "76c68f939c98c39d", "edd0ec4420f94b83", "c20c85438c34e523",
+	"3536bb3035fc6e85", "408bd7270984ea21", "cf16a8217c0279a7", "d2c8dd4ebf702cbd",
+	"7b040a1b00dca6a3", "8b28d823febeb4e3", "de807eb889b21792", "0f07a002bfd12d65",
+	"712a72c46daf658c", "21285b5a6ba179f5", "a05bd0510f6eeb08", "ece2ff0469e7025a",
 }

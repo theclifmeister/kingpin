@@ -287,7 +287,12 @@ func (m *Model) cycleCity(d int) {
 			i = j
 		}
 	}
-	m.city = order[(i+d+len(order))%len(order)]
+	m.cycleTo(order[(i+d+len(order))%len(order)])
+}
+
+// cycleTo turns the market and map screens to a city, as ←→ would.
+func (m *Model) cycleTo(city string) {
+	m.city = city
 	m.mapCursor = m.yourCorner()
 	m.routeCursor, m.onRoutes = 0, false
 	m.buyerCursor, m.onBuyers = 0, false
@@ -594,7 +599,7 @@ func (m *Model) cancelSelected() {
 			m.say("Order cancelled.")
 		} else if o, ok := m.w.YourStanding(city, id); ok {
 			m.sess.CancelStanding(city, id)
-			m.say(fmt.Sprintf("Standing order cancelled: %d %s in %s no longer sells nightly.", o.Qty, m.w.ProductName(id), m.w.CityName(city)))
+			m.say(fmt.Sprintf("Standing order cancelled: %s %s in %s no longer sells nightly.", standingQty(o), m.w.ProductName(id), m.w.CityName(city)))
 		} else if c, ok := m.w.Supplied(city, id); ok {
 			// With no order to cancel, x clears the supply contract
 			// (#113): the stash is no longer kept there.
@@ -606,6 +611,42 @@ func (m *Model) cancelSelected() {
 
 // toggleLieLow turns lying low on and off for today.
 func (m *Model) toggleLieLow() {
+	if !m.w.Today.LieLow && len(m.queuedHandoffs()) > 0 {
+		// A handoff queued (#503): lying low holds it tonight, so ask.
+		m.ask("lie low", (*Model).lieLowConfirm, (*Model).lieLow)
+		return
+	}
+	m.lieLow()
+}
+
+// queuedHandoffs is the buyers' contracts with a handoff queued tonight,
+// in the book's order.
+func (m *Model) queuedHandoffs() []game.Contract {
+	var out []game.Contract
+	for _, c := range m.w.Contracts {
+		if m.w.QueuedDelivery(c.ID) > 0 {
+			out = append(out, c)
+		}
+	}
+	return out
+}
+
+// lieLowConfirm is the confirmation over lying low with a handoff
+// queued (#503): a playtest's handoff was gone the next morning with no
+// word. It names what does not go tonight.
+func (m *Model) lieLowConfirm() string {
+	var body []string
+	for _, c := range m.queuedHandoffs() {
+		body = append(body, fmt.Sprintf("%d %s to %s, %d owed by day %d.", m.w.QueuedDelivery(c.ID), m.w.ProductName(c.Product), c.Name, c.Owed(), c.Due))
+	}
+	body = append(body, "")
+	body = append(body, m.subtle("Lying low, nothing is handed over tonight: the handoff stays queued, and goes if you turn lying low off again today. y lies low; any other key keeps dealing.")...)
+	return m.modal("LIE LOW? A HANDOFF IS QUEUED", body, m.modalFooter())
+}
+
+// lieLow turns lying low on or off.
+func (m *Model) lieLow() {
+	m.mode = modePlay
 	m.sess.SetLieLow(!m.w.Today.LieLow)
 	if m.w.Today.LieLow {
 		m.say("Lying low today: no sales, heat fades faster; wages and contracts still run.")

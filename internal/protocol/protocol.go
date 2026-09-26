@@ -44,8 +44,10 @@ import (
 // made, where it answered null and did nothing (#474).
 // 18 rules.logistics.idle, why a route on its dial sends nothing (#459);
 // 19 rules.rivals.down, what keeps a faction off the crown's count (#472);
-// 20 set_sweep and stop_sweep, the nightly sweep offshore (#478).
-const Version = 20
+// 20 set_sweep and stop_sweep, the nightly sweep offshore (#478);
+// 21 set_till and rules.laundering.till and line, the wash's line
+// (#496); place_standing's -1, the whole stash (#503).
+const Version = 21
 
 // The error codes: JSON-RPC 2.0's, and the game's own in its
 // server-error range.

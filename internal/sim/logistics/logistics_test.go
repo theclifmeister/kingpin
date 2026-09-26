@@ -451,10 +451,10 @@ func TestRunReadsTheTree(t *testing.T) {
 	if got, want := fwd.Arrives-fwd.Sent, max(1, int(math.Round(float64(r.Days)*0.75))); got != want {
 		t.Fatalf("drivers: %d days, want %d", got, want)
 	}
-	// The float: on the dollar-a-unit boat with the forwarder, fifty
-	// cents a unit, three dollars over the float send six units and the
-	// till stays at the float; two dollars and fifty cents' worth never
-	// goes a cent under it.
+	// The fare: on the dollar-a-unit boat with the forwarder, fifty
+	// cents a unit, three dollars send six units and never a cent more.
+	// The stock is stashed, paid for, so its fare is committed and comes
+	// out of the float (#496): the till does not hold it.
 	w, s, _ := world(t, cfg, 0)
 	var boat *content.RouteConfig
 	for _, r := range cfg.Routes.Routes {
@@ -471,10 +471,10 @@ func TestRunReadsTheTree(t *testing.T) {
 	w.SetStock(boat.From, product, 400)
 	_ = w.SetRouteTarget(boat.ID, product, 400)
 	_ = w.SetRoute(boat.ID, events.RouteNormal)
-	w.Player.DirtyCash = s.Float() + 3
+	w.Player.DirtyCash = 3
 	step(w, s)
-	if len(w.Shipments) != 1 || w.Shipments[0].Units != 6 || w.Shipments[0].Cost != 3 || w.Player.DirtyCash != s.Float() {
-		t.Fatalf("three dollars over the float: %+v, cash %d (float %d)", w.Shipments, w.Player.DirtyCash, s.Float())
+	if len(w.Shipments) != 1 || w.Shipments[0].Units != 6 || w.Shipments[0].Cost != 3 || w.Player.DirtyCash != 0 {
+		t.Fatalf("three dollars for a stashed fare: %+v, cash %d (float %d)", w.Shipments, w.Player.DirtyCash, s.Float())
 	}
 }
 

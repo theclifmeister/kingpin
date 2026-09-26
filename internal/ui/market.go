@@ -91,7 +91,7 @@ func (m *Model) productRows(city string, selected int, market bool) (cols []col,
 		if o, ok := w.Order(city, id); ok {
 			ord = styled{theme.Gold, order{qty: o.Qty, dial: dialShort(o.Dial)}}
 		} else if o, ok := w.YourStanding(city, id); ok {
-			ord = styled{theme.Gold, order{qty: o.Qty, dial: dialShort(o.Dial), standing: true}}
+			ord = styled{theme.Gold, order{qty: o.Qty, dial: dialShort(o.Dial), standing: true, all: o.All}}
 		} else if o, ok := w.DelegatedOrder(city, id); ok {
 			ord = styled{theme.CrewText, order{qty: o.Qty, dial: dialShort(o.Dial), lt: true}}
 		}
@@ -481,6 +481,10 @@ func (m *Model) contractRows(city, id string) []string {
 	if due := m.rules.Market.Due(w, city, id); due > 0 {
 		rows = append(rows, row("", theme.Subtle.Render(fmt.Sprintf("brings %d in the morning at %s", due, price(m.rules.Market.SupplyPrice(w, city, id))))))
 	}
+	if road := w.Road(city, id); road > 0 {
+		// Held by the road (#503): the level counts what is on the way.
+		rows = append(rows, row("", theme.Warning.Render(fmt.Sprintf("holding: %d on the road", road))))
+	}
 	if _, ok := w.Order(city, id); ok || !own {
 		return rows
 	}
@@ -500,7 +504,7 @@ func (m *Model) standingRows(city, id string) []string {
 	if !ok {
 		return nil
 	}
-	rows := []string{row("standing", theme.Gold.Render(fmt.Sprintf("%d %s", o.Qty, dialShort(o.Dial)))+sep+"cut "+format.Pct(m.rules.Market.Cut(), 0))}
+	rows := []string{row("standing", theme.Gold.Render(fmt.Sprintf("%s %s", standingQty(o), dialShort(o.Dial)))+sep+"cut "+format.Pct(m.rules.Market.Cut(), 0))}
 	if _, ok := w.Order(city, id); !ok {
 		rows = append(rows, keyRow("x", "cancel the standing order"))
 	}

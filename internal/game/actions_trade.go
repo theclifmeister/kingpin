@@ -74,6 +74,48 @@ func (w *World) SupplyDue(city, product string) int {
 	return max(0, c.Units-w.Stock(city, product)-w.Bound(city, product))
 }
 
+// SupplyOutlay is what the supply contracts standing (yours, and the
+// lieutenant's where you set none) are expected to spend in the
+// morning, estimated on the stash as it stands (#496): each one's
+// SupplyDue, the room in its city shared in city and ladder order, at
+// the best connect's price there and the contract markup the market
+// stamps (Markup). It is dirty cash already committed: the laundering
+// sim keeps it back from the wash, so a big front cannot wash the
+// contracts' morning away. It reads no tuning and rolls no dice; zero
+// with no contract, so a run without one keeps the till it had.
+func (w *World) SupplyOutlay() int {
+	if len(w.Supply) == 0 && len(w.DelegatedSupply) == 0 {
+		return 0
+	}
+	markup := max(w.Markup, 1)
+	total := 0.0
+	for _, cid := range w.CityOrder {
+		room := w.Free(cid)
+		for _, id := range w.Products {
+			due := min(w.SupplyDue(cid, id), max(0, room))
+			if due <= 0 {
+				continue
+			}
+			room -= due
+			total += w.SupplierPrice(cid, id) * markup * float64(due)
+		}
+	}
+	return int(math.Ceil(total))
+}
+
+// Road is how many units of a product are on the road to a city that a
+// supply contract standing there counts against its level (#503): a
+// contract buys the level less the stash less what is Bound for it, so
+// a route feeding the city holds the contract back until the shipment
+// lands. Zero with no contract or nothing on the road.
+func (w *World) Road(city, product string) int {
+	c, ok := w.StandingSupply(city, product)
+	if !ok {
+		return 0
+	}
+	return min(w.Bound(city, product), max(0, c.Units-w.Stock(city, product)))
+}
+
 // StandingSupply returns the supply contract standing for a product in
 // a city: yours first (Supplied, #113), then the one the lieutenant
 // who runs the city keeps (DelegatedSupply, #174). A contract you set
@@ -282,14 +324,44 @@ func (w *World) Order(city, product string) (SellOrder, bool) {
 // CancelSell removes a pending order.
 func (w *World) CancelSell(city, product string) { delete(w.Today.Orders, OrderKey(city, product)) }
 
+// AllUnits is PlaceStanding's quantity for a standing order that sells
+// the whole stash every night (#503): the sell dialog's blank, "the
+// most", kept as the most rather than as the number it was the day it
+// was set (a playtest's froze at 16, and the report said "only 15
+// stashed" every night after).
+const AllUnits = -1
+
+// Landing is how many units of a product land in a city tonight, after
+// the sales (#503): the shipments on the road to it due by tomorrow's
+// day on a route not shut, none seized, and the chemist's batches ready
+// there by then. A standing order may be sized for them: it sells them
+// from the night after.
+func (w *World) Landing(city, product string) int {
+	day, n := w.Day+1, 0
+	for _, s := range w.Shipments {
+		if s.To == city && s.Product == product && s.Arrives <= day && !w.Route(s.Route).Closed(day) {
+			n += s.Units
+		}
+	}
+	for _, k := range w.Crew.Cooks {
+		if k.City == city && k.Product == product && k.Ready <= day {
+			n += k.Units
+		}
+	}
+	return n
+}
+
 // PlaceStanding sets a standing sell order (#114): the same units at
 // the same dial every night until it is cancelled, resolved by the
 // market sim exactly as a fresh order would be, at the crew's cut,
 // wherever you placed no order of your own that day. It is checked as
 // PlaceSell checks an order (a city, a product, a quantity the stash
-// and the contract can cover) and is a persistent setting like a supply
-// contract: the clock never clears it. One per product per city;
-// placing again replaces the previous one.
+// and the contract can cover), and may be sized over the stash for
+// what lands there tonight (#503, Landing: goods arriving by the road
+// or the chemist, sold from the night after); qty AllUnits stands for
+// the whole stash every night (SellOrder.All). It is a persistent
+// setting like a supply contract: the clock never clears it. One per
+// product per city; placing again replaces the previous one.
 func (w *World) PlaceStanding(city, product string, qty int, dial events.Dial) error {
 	if w.Over != nil {
 		return ErrGameOver
@@ -300,16 +372,24 @@ func (w *World) PlaceStanding(city, product string, qty int, dial events.Dial) e
 	if w.Product(city, product) == nil {
 		return ErrUnknownProduct
 	}
+	have := w.Stock(city, product) + w.SupplyDue(city, product) + w.Landing(city, product)
+	all := qty == AllUnits
+	if all {
+		qty = have
+	}
 	if qty <= 0 {
+		if all {
+			return fmt.Errorf("only %d %s in %s", have, w.ProductName(product), w.CityName(city))
+		}
 		return ErrBadQuantity
 	}
-	if have := w.Stock(city, product) + w.SupplyDue(city, product); qty > have {
+	if qty > have {
 		return fmt.Errorf("only %d %s in %s", have, w.ProductName(product), w.CityName(city))
 	}
 	if w.Standing == nil {
 		w.Standing = map[string]SellOrder{}
 	}
-	w.Standing[OrderKey(city, product)] = SellOrder{City: city, Product: product, Qty: qty, Dial: dial}
+	w.Standing[OrderKey(city, product)] = SellOrder{City: city, Product: product, Qty: qty, Dial: dial, All: all}
 	return nil
 }
 

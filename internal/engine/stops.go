@@ -145,7 +145,7 @@ func (s *Session) covered(e events.Event) bool {
 	w := s.w
 	switch ev := e.(type) {
 	case events.StandingShort:
-		return w.Stock(ev.City, ev.Product) >= ev.Units
+		return w.Stock(ev.City, ev.Product) >= max(ev.Units, 1) // an order for all of it (#503) is short only of nothing
 	case events.SupplyShort:
 		c, ok := w.StandingSupply(ev.City, ev.Product)
 		return !ok || s.set.Market.Shortfall(w, c) <= 0

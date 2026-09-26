@@ -27,7 +27,7 @@ var All = []Event{
 	PressureShifted{}, CityFunded{}, CampaignBacked{}, CampaignLost{}, CampaignHedged{},
 	BribeAccepted{}, RaidFellThrough{}, BribeRefused{}, BribeBackfired{}, LeadFound{},
 	LeadsFiled{}, OfficialsCold{}, CheckpointBought{}, ContractOffered{}, ContractAccepted{},
-	ContractDelivered{}, ContractFailed{}, ContractExpired{}, PlayerUndercut{},
+	ContractDelivered{}, HandoffHeld{}, ContractFailed{}, ContractExpired{}, PlayerUndercut{},
 	RivalAbandoned{}, RivalScouted{}, RivalBoosted{}, PoliceTipped{}, RivalRaided{},
 	RivalMusclePoached{}, TierReached{}, HouseBought{}, HouseRobbed{}, HouseRaided{},
 	HouseLost{}, HouseCompromised{}, StockMoved{}, RentPaid{}, Overdose{}, StockCut{},

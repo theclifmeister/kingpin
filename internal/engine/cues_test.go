@@ -43,6 +43,17 @@ func TestEveryKindIsCuedOrNot(t *testing.T) {
 // about in ids a front end finds in the view: a corner flip its corner
 // and both owners, a shipment its route and both ends, a crew cue its
 // member.
+// TestTheirBodyIsNoCrewCue: a death on the rival's side of a strike
+// is no member of yours, so it gives no crew_down naming nobody.
+func TestTheirBodyIsNoCrewCue(t *testing.T) {
+	if c, ok := engine.CueOf(events.CrewShot{Day: 9, Dead: true, Theirs: true, Faction: "f2"}); ok {
+		t.Fatalf("their body cued: %+v", c)
+	}
+	if c, ok := engine.CueOf(events.CrewShot{Day: 9, ID: 4, Dead: true}); !ok || c.Member != 4 {
+		t.Fatalf("your member's death: %+v, %v", c, ok)
+	}
+}
+
 func TestCuesCarryIDs(t *testing.T) {
 	t.Parallel()
 	cfg := content.MustLoad()

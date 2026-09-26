@@ -37,7 +37,7 @@ type Command struct {
 	City    string `json:"city,omitempty"`
 	Product string `json:"product,omitempty"`
 	Route   string `json:"route,omitempty"`
-	N       int    `json:"n,omitempty"`    // the quantity, the units or the days
+	N       int    `json:"n,omitempty"`    // the quantity, the units or the days; place_standing's game.AllUnits (-1) is the whole stash (#503)
 	Dial    string `json:"dial,omitempty"` // the dial by name
 	On      bool   `json:"on,omitempty"`   // set_lie_low's
 }
@@ -56,6 +56,16 @@ const (
 	OpSetRouteDays   = "set_route_days"
 	OpSetLieLow      = "set_lie_low"
 )
+
+// standingN is the quantity a preset re-places a standing order at: its
+// units, or game.AllUnits for one kept at the whole stash (#503), so a
+// preset never freezes "all" at the number it read.
+func standingN(o game.SellOrder) int {
+	if o.All {
+		return game.AllUnits
+	}
+	return o.Qty
+}
 
 // Ops is every op a preset issues, in the order a preset issues them.
 func Ops() []string {
@@ -220,7 +230,7 @@ func (s *Session) builtinCommands(p content.PresetConfig) []Command {
 		d, _ := events.ParseDial(p.Standing)
 		each(func(cid, pid string) {
 			if o, ok := w.YourStanding(cid, pid); ok && o.Dial != d {
-				cmds = append(cmds, Command{Op: OpPlaceStanding, City: cid, Product: pid, N: o.Qty, Dial: p.Standing})
+				cmds = append(cmds, Command{Op: OpPlaceStanding, City: cid, Product: pid, N: standingN(o), Dial: p.Standing})
 			}
 		})
 	}
@@ -320,10 +330,10 @@ func (s *Session) savedCommands(p game.Preset) []Command {
 		if w.Product(o.City, o.Product) == nil {
 			continue
 		}
-		if cur, ok := w.YourStanding(o.City, o.Product); ok && cur.Qty == o.Qty && cur.Dial == o.Dial {
+		if cur, ok := w.YourStanding(o.City, o.Product); ok && cur.Qty == o.Qty && cur.Dial == o.Dial && cur.All == o.All {
 			continue
 		}
-		cmds = append(cmds, Command{Op: OpPlaceStanding, City: o.City, Product: o.Product, N: o.Qty, Dial: o.Dial.String()})
+		cmds = append(cmds, Command{Op: OpPlaceStanding, City: o.City, Product: o.Product, N: standingN(o), Dial: o.Dial.String()})
 	}
 	if p.Launder != w.Laundering.Dial {
 		cmds = append(cmds, Command{Op: OpSetLaunderDial, Dial: p.Launder.String()})

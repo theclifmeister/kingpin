@@ -124,7 +124,7 @@ func (m *Model) alertOf(a engine.Alert) alert {
 		// #459: the wash taking everything over the till every night,
 		// so nothing dirty is ever saved. The count leads: the pane
 		// cuts an alert to one line.
-		text = theme.Warning.Render(fmt.Sprintf("Dirty cash held at the %s till %s running: the wash takes the rest. Turn the launder dial careful %s to save.", cash(a.Amount), plural(a.Days, "night"), screenPointer(screenLedger)))
+		text = theme.Warning.Render(fmt.Sprintf("Dirty cash held at the %s till %s running: the wash takes the rest. Raise the till (T) or turn the launder dial careful %s to save.", cash(a.Amount), plural(a.Days, "night"), screenPointer(screenLedger)))
 		why = "dirty cash held at the till"
 	case engine.AlertWages:
 		text = theme.Warning.Render(fmt.Sprintf("Wages %s due tonight, %s dirty in hand.", money(a.Amount), money(a.Have)))
@@ -149,6 +149,12 @@ func (m *Model) alertOf(a engine.Alert) alert {
 		name := w.CityName(a.City)
 		text = theme.Warning.Render(fmt.Sprintf("The stash in %s is full: %d of %d. Rent a house or move stock %s.", name, a.Count, a.Amount, screenPointer(screenLedger)))
 		why = "the stash in " + name + " is full"
+	case engine.AlertLanded:
+		// #503: route-shipped stock with nothing selling it. The count
+		// leads: the pane cuts an alert to one line.
+		name := w.ProductName(a.Product)
+		text = theme.Warning.Render(fmt.Sprintf("%d %s landed in %s by the road, and no order sells it: s sells it, standing if it should go nightly %s.", a.Count, name, w.CityName(a.City), screenPointer(screenMarket)))
+		why = name + " in " + w.CityName(a.City) + " with no order"
 	case engine.AlertScouts:
 		text, why = m.scoutsAlert(a)
 	case engine.AlertGate:
@@ -545,6 +551,19 @@ var alertSubjects = map[string]func(*Model, engine.Alert){
 // it, the cursor on its first corner (#476), or its first house on the
 // ledger.
 func (m *Model) selectCity(a engine.Alert) {
+	if m.screen == screenMarket {
+		// The market turned to the city, the product under the cursor
+		// (#503's landed stock).
+		if m.w.City(a.City) != nil {
+			m.cycleTo(a.City)
+		}
+		for i, id := range m.w.Products {
+			if id == a.Product {
+				m.cursor = i
+			}
+		}
+		return
+	}
 	if m.screen != screenMap {
 		m.selectHouse(func(h game.House) bool { return h.City == a.City })
 		return

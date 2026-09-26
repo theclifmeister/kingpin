@@ -243,7 +243,11 @@ func (s *Sim) deal(w *game.World, t *game.Tick) {
 // everyone's day off. It runs before the street sales so a contract has
 // first call on the stash.
 func (s *Sim) deliver(w *game.World, t *game.Tick, city string) {
-	if w.Today.LieLow || len(w.Today.Deliveries) == 0 {
+	if len(w.Today.Deliveries) == 0 {
+		return
+	}
+	if w.Today.LieLow {
+		s.held(w, t, city)
 		return
 	}
 	for i := range w.Contracts {
@@ -281,6 +285,20 @@ func (s *Sim) deliver(w *game.World, t *game.Tick, city string) {
 			ev.Respect = s.bcfg.Buyers.Respect
 		}
 		t.Emit(ev)
+	}
+}
+
+// held reports every handoff queued in a city on a lie-low day (#503):
+// it did not go, and the report says so rather than dropping it. No
+// dice, nothing moves.
+func (s *Sim) held(w *game.World, t *game.Tick, city string) {
+	for _, c := range w.Contracts {
+		if c.City != city || !c.Live(t.Day-1) {
+			continue
+		}
+		if units := min(w.Today.Deliveries[c.ID], c.Owed()); units > 0 {
+			t.Emit(events.HandoffHeld{Day: t.Day, ID: c.ID, Name: c.Name, City: city, Product: c.Product, Units: units, Owed: c.Owed(), Due: c.Due})
+		}
 	}
 }
 

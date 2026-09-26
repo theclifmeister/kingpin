@@ -180,6 +180,9 @@ func (s *Session) Preview() *DayPreview {
 				key := game.OrderKey(cid, id)
 				have := stock(cid, id) - taken[key]
 				if standing {
+					if o.All {
+						o.Qty = have // all of the stash (#503)
+					}
 					o.Qty = min(o.Qty, have)
 					if o.Qty <= 0 {
 						continue
@@ -206,7 +209,10 @@ func (s *Session) Preview() *DayPreview {
 		if c.Status != game.ContractAccepted || c.Due >= p.Day {
 			continue
 		}
-		owed := c.Owed() - min(w.Today.Deliveries[c.ID], c.Owed())
+		owed := c.Owed()
+		if !w.Today.LieLow {
+			owed -= min(w.Today.Deliveries[c.ID], c.Owed()) // a handoff held by lying low goes nowhere (#503)
+		}
 		if m := w.Product(c.City, c.Product); m != nil && owed > 0 {
 			take(game.FlowLosses, int(math.Round(c.PenaltyCash*float64(owed)*m.Price)))
 		}
@@ -320,7 +326,7 @@ func (s *Session) Preview() *DayPreview {
 		}
 	}
 
-	// The wash: front by front, what is over the float goes through,
+	// The wash: front by front, what is over the line goes through,
 	// the upkeep comes out of the clean pile as it stands and the levels
 	// earn; then the assets' upkeep.
 	lw := s.set.Laundering

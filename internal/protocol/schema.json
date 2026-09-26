@@ -6228,6 +6228,45 @@
       ],
       "type": "object"
     },
+    "events.HandoffHeld": {
+      "properties": {
+        "City": {
+          "type": "string"
+        },
+        "Day": {
+          "type": "integer"
+        },
+        "Due": {
+          "type": "integer"
+        },
+        "ID": {
+          "type": "integer"
+        },
+        "Name": {
+          "type": "string"
+        },
+        "Owed": {
+          "type": "integer"
+        },
+        "Product": {
+          "type": "string"
+        },
+        "Units": {
+          "type": "integer"
+        }
+      },
+      "required": [
+        "Day",
+        "ID",
+        "Name",
+        "City",
+        "Product",
+        "Units",
+        "Owed",
+        "Due"
+      ],
+      "type": "object"
+    },
     "events.Headline": {
       "properties": {
         "Day": {
@@ -8249,6 +8288,9 @@
     },
     "events.StandingShort": {
       "properties": {
+        "All": {
+          "type": "boolean"
+        },
         "City": {
           "type": "string"
         },
@@ -8270,7 +8312,8 @@
         "City",
         "Product",
         "Units",
-        "Stock"
+        "Stock",
+        "All"
       ],
       "type": "object"
     },
@@ -9818,6 +9861,9 @@
     },
     "game.SellOrder": {
       "properties": {
+        "All": {
+          "type": "boolean"
+        },
         "City": {
           "type": "string"
         },
@@ -9842,7 +9888,8 @@
         "City",
         "Product",
         "Qty",
-        "Dial"
+        "Dial",
+        "All"
       ],
       "type": "object"
     },
@@ -10232,6 +10279,9 @@
     },
     "GameOver": {
       "$ref": "#/$defs/events.GameOver"
+    },
+    "HandoffHeld": {
+      "$ref": "#/$defs/events.HandoffHeld"
     },
     "Headline": {
       "$ref": "#/$defs/events.Headline"
@@ -13250,6 +13300,19 @@
         "$ref": "#/$defs/game.LevelOffer"
       }
     },
+    "rules.laundering.line": {
+      "changes": false,
+      "needsRun": true,
+      "params": {
+        "maxItems": 0,
+        "minItems": 0,
+        "prefixItems": [],
+        "type": "array"
+      },
+      "result": {
+        "type": "integer"
+      }
+    },
     "rules.laundering.lots": {
       "changes": false,
       "needsRun": true,
@@ -13358,6 +13421,19 @@
             "type": "string"
           }
         ],
+        "type": "array"
+      },
+      "result": {
+        "type": "integer"
+      }
+    },
+    "rules.laundering.till": {
+      "changes": false,
+      "needsRun": true,
+      "params": {
+        "maxItems": 0,
+        "minItems": 0,
+        "prefixItems": [],
         "type": "array"
       },
       "result": {
@@ -15429,6 +15505,24 @@
         "type": "null"
       }
     },
+    "set_till": {
+      "changes": true,
+      "needsRun": true,
+      "params": {
+        "maxItems": 1,
+        "minItems": 1,
+        "prefixItems": [
+          {
+            "title": "amount",
+            "type": "integer"
+          }
+        ],
+        "type": "array"
+      },
+      "result": {
+        "type": "null"
+      }
+    },
     "stop_sweep": {
       "changes": true,
       "needsRun": true,
@@ -15663,6 +15757,7 @@
             "FrontGrew",
             "FrontInvested",
             "GameOver",
+            "HandoffHeld",
             "Headline",
             "HeatChanged",
             "HouseBought",
@@ -15766,7 +15861,7 @@
       "$ref": "#/$defs/engine.View"
     }
   },
-  "protocol": 20,
+  "protocol": 21,
   "title": "kingpind",
   "view_version": 14
 }

@@ -109,8 +109,9 @@ type StandingShort struct {
 	Day     int
 	City    string
 	Product string
-	Units   int // the order
-	Stock   int // what the stash held
+	Units   int  // the order
+	Stock   int  // what the stash held
+	All     bool // the order is for the whole stash (#503), short only when it held nothing; Units 0
 }
 
 func (StandingShort) Kind() string { return "StandingShort" }
@@ -815,10 +816,15 @@ type SupplyShort struct {
 	Product    string
 	Units      int    // bought
 	Short      int    // still under the level
-	Why        string // "cash", "room", or "supplier" when no connect there sells it today (#72)
+	Why        string // "cash", "room", or "supplier" when no connect there sells it today (#72); SupplyRoad when Short is stock on the road counted against the level (#503)
 	Lieutenant string // the lieutenant whose contract it was (#174); empty for yours
 	Till       int    // the dirty cash when it came up short (#502), so the report says what took it
 }
+
+// SupplyRoad is SupplyShort's Why for a contract held under its level
+// by stock on the road to its city (#503): Short is the units on the
+// road it counts, Units zero. The contract buys the rest once they land.
+const SupplyRoad = "road"
 
 func (SupplyShort) Kind() string { return "SupplyShort" }
 
@@ -1643,6 +1649,23 @@ type ContractDelivered struct {
 }
 
 func (ContractDelivered) Kind() string { return "ContractDelivered" }
+
+// HandoffHeld is report-only bookkeeping (#503): a handoff queued against
+// a buyer's contract that did not go because you lay low, Units of what
+// the contract still Owes by Due. Lying low is everyone's day off; the
+// report says the handoff was held rather than dropping it silently.
+type HandoffHeld struct {
+	Day     int
+	ID      int
+	Name    string
+	City    string
+	Product string
+	Units   int
+	Owed    int
+	Due     int
+}
+
+func (HandoffHeld) Kind() string { return "HandoffHeld" }
 
 // ContractFailed is a contract short at its due day: Delivered of Units
 // went over, Cash was taken for the rest, Respect is lost and Notoriety

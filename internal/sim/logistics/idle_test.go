@@ -10,7 +10,8 @@ import (
 
 // TestRouteSaysWhyItIsIdle (#459): a playtest's routes read "shipped 0"
 // for days with no word. A route on its dial that sends nothing says
-// why: no dirty cash over the till, nothing at the source to send,
+// why: no dirty cash for the fare (over the till for a lot, any at all
+// for stock already stashed, #496), nothing at the source to send,
 // the target met, no target, shut; the morning's RouteIdle carries the
 // first two, the ones where it is short, and Idle, the map's, reads the
 // same reason off the world before the step. A route that would send
@@ -27,10 +28,14 @@ func TestRouteSaysWhyItIsIdle(t *testing.T) {
 	}{
 		{"off", func(w *game.World, r content.RouteConfig) { _ = w.SetRoute(r.ID, events.RouteOff) }, "", false, false},
 		{"sends", func(w *game.World, r content.RouteConfig) {}, "", false, true},
-		{"the till", func(w *game.World, r content.RouteConfig) {
+		// Stock already stashed is paid for (#496): its fare comes out
+		// of the float, so a route at or under the till still sends it,
+		// and only a pile that cannot pay one unit's fare is idle.
+		{"the float pays a stashed fare", func(w *game.World, r content.RouteConfig) {
 			w.Player.DirtyCash = w.Float(cfg.Upgrades, cfg.Laundering.Laundering.Float)
-		}, events.IdleTill, true, false},
-		{"under the till", func(w *game.World, r content.RouteConfig) { w.Player.DirtyCash = 20_000 }, events.IdleTill, true, false},
+		}, "", false, true},
+		{"under the till", func(w *game.World, r content.RouteConfig) { w.Player.DirtyCash = 20_000 }, "", false, true},
+		{"no dirty cash", func(w *game.World, r content.RouteConfig) { w.Player.DirtyCash = 0 }, events.IdleTill, true, false},
 		{"an empty stash", func(w *game.World, r content.RouteConfig) { w.SetStock(r.From, coke, 0) }, events.IdleStock, true, false},
 		{"the target met", func(w *game.World, r content.RouteConfig) { w.SetStock(r.To, coke, 60) }, events.IdleMet, false, false},
 		{"no target", func(w *game.World, r content.RouteConfig) { _ = w.SetRouteTarget(r.ID, coke, 0) }, events.IdleNoTarget, false, false},

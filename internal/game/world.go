@@ -493,6 +493,7 @@ type LaunderingState struct {
 	Offered    map[string]bool // fronts whose offer has opened and been announced (#148); nil is none
 	Structured Structuring     // the last move offshore (#195): what the heat sim reads the morning after
 	Sweep      OffshoreSweep   // the nightly sweep offshore (#478), the player's; zero is off, the run before
+	Till       int             // the dirty cash the wash leaves in hand (#496), the player's (SetTill); zero or under the float is the float, the run before
 }
 
 // OffshoreSweep is the player's standing order on the offshore account (#478):
@@ -565,6 +566,7 @@ type SellOrder struct {
 	Product string
 	Qty     int
 	Dial    events.Dial
+	All     bool // a standing order for the whole stash every night (#503: "blank = max" kept as max, PlaceStanding's AllUnits); Qty is the stash it was set on. Zero is a number, the order before
 }
 
 // OrderKey is how Orders is keyed: one order per product per city.

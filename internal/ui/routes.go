@@ -252,11 +252,12 @@ func (m *Model) viewTarget() string {
 		return m.modal("TARGET", []string{"No route."}, m.modalFooter())
 	}
 	rs := w.Route(r.ID)
-	body := []string{
-		theme.Subtle.Render(fmt.Sprintf("%s keeps %s stocked: every day it sends what is short of", r.Name, w.CityName(r.To))),
-		theme.Subtle.Render(fmt.Sprintf("the target, up to %d units, buying by the lot in %s.", m.rules.Logistics.Capacity(w, *r), w.CityName(r.From))),
-		"",
-	}
+	// What the route does (#496): it ships out of the stash at the
+	// source, and buys only whole lots off the wholesaler there, only
+	// while their door is open; a playtest read "buying by the lot" as
+	// a route that buys and saw it idle on an empty stash.
+	body := m.subtle(fmt.Sprintf("%s keeps %s stocked: every day it ships what is short of the target, up to %d units, out of the %s stash, fares in dirty cash. %s", r.Name, w.CityName(r.To), m.rules.Logistics.Capacity(w, *r), w.CityName(r.From), m.routeBuys(*r)))
+	body = append(body, "")
 	var rows [][]any
 	for _, pid := range w.Products {
 		var target any
@@ -304,14 +305,17 @@ func (m *Model) viewTarget() string {
 					body = append(body, row("today", theme.Subtle.Render(fmt.Sprintf("%sd ≈ %s: ~%.0f/day on your corners in %s", s, plural(n, "unit"), w.Demand(r.To, id), w.CityName(r.To)))))
 				}
 				if src := w.Product(r.From, id); src != nil {
-					unit := src.SupplierPrice
-					how := "at retail in " + w.CityName(r.From)
-					if sup := w.WholesaleSupplier(r.From); sup != nil && sup.Open(w) && sup.Price[id] > 0 {
-						unit = sup.Price[id]
-						how = "by the lot from " + sup.Name
-					}
 					short := max(0, n-w.Stock(r.To, id)-w.Bound(r.To, id))
-					body = append(body, row("short", theme.Subtle.Render(fmt.Sprintf("%d: ~%s %s + %s fares", short, money(int(float64(short)*unit)), how, money(int(math.Ceil(float64(short)*m.rules.Logistics.Fare(w, *r))))))))
+					stashed := min(short, w.Stock(r.From, id))
+					how := fmt.Sprintf("%d from the %s stash", stashed, w.CityName(r.From))
+					if rest := short - stashed; rest > 0 {
+						if sup := w.WholesaleSupplier(r.From); sup != nil && sup.Open(w) && sup.Price[id] > 0 {
+							how += fmt.Sprintf(", %d by the lot from %s ~%s", rest, sup.Name, money(int(float64(rest)*sup.Price[id])))
+						} else {
+							how += fmt.Sprintf(", %d with nothing to ship", rest)
+						}
+					}
+					body = append(body, row("short", theme.Subtle.Render(fmt.Sprintf("%d: %s + %s fares", short, how, money(int(math.Ceil(float64(short)*m.rules.Logistics.Fare(w, *r))))))))
 				}
 			}
 		}
@@ -320,6 +324,24 @@ func (m *Model) viewTarget() string {
 		body = append(body, "", theme.Bad.Render(d.err))
 	}
 	return m.modal("TARGET · "+r.Name, body, m.modalFooter())
+}
+
+// routeBuys is the target dialog's word on what a route buys (#496): whole
+// lots off the wholesaler at the source while their door is open, out of
+// the dirty cash over the till, or nothing, the stash being yours to
+// stock.
+func (m *Model) routeBuys(r content.RouteConfig) string {
+	w := m.w
+	sup := w.WholesaleSupplier(r.From)
+	switch {
+	case sup == nil:
+		return fmt.Sprintf("It buys nothing: stock the %s stash yourself.", w.CityName(r.From))
+	case sup.Open(w):
+		return fmt.Sprintf("What the stash lacks it buys by the lot from %s, out of the dirty cash over the %s till.", sup.Name, money(m.till()))
+	case sup.Locked(w):
+		return fmt.Sprintf("It buys nothing until %s deals with you (%s moved): stock the %s stash yourself.", sup.Name, money(sup.UnlockCash), w.CityName(r.From))
+	}
+	return fmt.Sprintf("It buys by the lot from %s while they deal; today they do not: stock the %s stash yourself.", sup.Name, w.CityName(r.From))
 }
 
 // targetLine is a route's targets in one line, `3d (≈180) Weed · 400

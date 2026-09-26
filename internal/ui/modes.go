@@ -47,6 +47,7 @@ const (
 	modeReserve       // clean cash into the offshore account (#195): the amount, then enter
 	modeCashOut       // clean cash back into the dirty pile (#395): the amount, then enter
 	modeSweep         // the nightly sweep offshore (#478): the line kept, then enter; x turns it off
+	modeTill          // the till (#496): the dirty cash the wash leaves in hand, then enter
 	modeDriver        // pick the driver who rides the selected route (#46)
 	modePayCop        // pay a cop for a word on the police (#45): the amount, then enter
 	modeSpy           // plant a spy (#45): the faction, then who goes under
@@ -160,6 +161,7 @@ func init() {
 		modeReserve:       {name: "reserve", view: (*Model).viewReserve, key: (*Model).keyReserve, paged: amtState},
 		modeCashOut:       {name: "cash out", view: (*Model).viewCashOut, key: (*Model).keyCashOut, paged: amtState},
 		modeSweep:         {name: "sweep", view: (*Model).viewSweep, key: (*Model).keySweep, paged: amtState},
+		modeTill:          {name: "till", view: (*Model).viewTill, key: (*Model).keyTill, paged: amtState},
 		modeDriver:        {name: "driver", view: (*Model).viewDriver, key: byKey((*Model).keyDriver), paged: pickState},
 		modePayCop:        {name: "pay cop", view: (*Model).viewPayCop, key: (*Model).keyPayCop, paged: amtState},
 		modeSpy:           {name: "spy", view: (*Model).viewSpy, key: byKey((*Model).keySpy), pages: func(m *Model) bool { return !m.spy.single }, paged: spyState},

@@ -32,13 +32,30 @@ func TestUpkeepIsSaid(t *testing.T) {
 		t.Fatalf("the picker: mode %v on %+v", m.mode, m.frontRows())
 	}
 	view := stripANSI(m.View())
-	for _, want := range []string{"upkeep is paid in clean cash", "Leaves $0 clean for " + money(upkeep) + " of upkeep tonight", "nothing over the till"} {
+	for _, want := range []string{"upkeep is paid in clean cash", "Tonight's " + money(upkeep) + " of upkeep is expected to come up " + money(upkeep) + " clean short", "the dirty over the " + money(m.till()) + " till", "y buys it anyway"} {
 		if !strings.Contains(squash(view), want) {
 			t.Errorf("the buy picker lacks %q:\n%s", want, view)
 		}
 	}
 	assertFits(t, m.View(), 120, 40, "buy picker")
+	// Bought into a shut (#496): enter asks, any other key goes back,
+	// and only y buys it.
 	m.Update(key("enter"))
+	if m.mode != modeConfirm || len(w.Fronts) != 0 {
+		t.Fatalf("enter over a shut: mode %v, %d fronts; want the confirmation", m.mode, len(w.Fronts))
+	}
+	if view := squash(stripANSI(m.View())); !strings.Contains(view, "BUY LAUNDROMAT?") || !strings.Contains(view, "clean short") {
+		t.Errorf("the confirmation does not say the shut:\n%s", view)
+	}
+	assertFits(t, m.View(), 120, 40, "buy confirmation")
+	m.Update(key("n"))
+	if m.mode == modeConfirm || len(w.Fronts) != 0 {
+		t.Fatalf("n bought it: mode %v, %d fronts", m.mode, len(w.Fronts))
+	}
+	m.Update(key("b"))
+	m.Update(key("enter"))
+	m.Update(key("enter"))
+	m.Update(key("y"))
 	if len(w.Fronts) != 1 {
 		t.Fatalf("bought %d fronts: %q", len(w.Fronts), m.status)
 	}
@@ -65,6 +82,26 @@ func TestUpkeepIsSaid(t *testing.T) {
 	status, _ := cellText(kText, 0, m.frontStatus(f))
 	if want := "shut 7d: upkeep unpaid (" + money(upkeep) + " clean)"; days != 7 || status != want {
 		t.Errorf("the ledger's status %q, want %q", status, want)
+	}
+
+	// A front the night's wash pays for is bought on enter, and nothing
+	// warns (#496: a playtest was warned of a shut that never came).
+	{
+		m2 := newTestModel(t, 120, 40)
+		m2.startRun(testSeed(t))
+		m2.w.Player.DirtyCash = laundromat.Cost + m2.till() + 10*upkeep
+		m2.w.Player.CleanCash = 0
+		m2.w.Stats.PeakCash = laundromat.UnlockCash
+		m2.Update(key("7"))
+		m2.Update(key("b"))
+		m2.Update(key("enter"))
+		if view := squash(stripANSI(m2.View())); strings.Contains(view, "clean short") {
+			t.Errorf("a front the wash pays for is warned of:\n%s", view)
+		}
+		m2.Update(key("enter"))
+		if len(m2.w.Fronts) != 1 || m2.mode == modeConfirm {
+			t.Fatalf("enter on a front that pays: %d fronts, mode %v", len(m2.w.Fronts), m2.mode)
+		}
 	}
 
 	// Open again: a blank reserve keeps tonight's upkeep back.

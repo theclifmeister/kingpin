@@ -103,7 +103,11 @@ func (m *Model) cartLines() []cartLine {
 				continue
 			}
 			_, take, heat := m.orderEstimate(o, standing)
-			lines = append(lines, cartLine{standing: standing, city: cid, product: pid, qty: o.Qty, dial: o.Dial, take: take, heat: heat})
+			qty := o.Qty
+			if standing && o.All {
+				qty = m.sellable(cid, pid) // all of the stash: what it sells tonight (#503)
+			}
+			lines = append(lines, cartLine{standing: standing, city: cid, product: pid, qty: qty, dial: o.Dial, take: take, heat: heat})
 		}
 	}
 	return lines
@@ -121,6 +125,9 @@ func (m *Model) orderEstimate(o game.SellOrder, standing bool) (units, take int,
 	qty := o.Qty
 	cut := 0.0
 	if standing {
+		if o.All {
+			qty = m.sellable(o.City, o.Product) // all of the stash (#503)
+		}
 		qty = min(qty, m.sellable(o.City, o.Product))
 		cut = m.rules.Market.Cut()
 	}
@@ -373,8 +380,29 @@ func (m *Model) keepExpected(l cartLine) int {
 	return m.rules.Market.Capacity(m.w, l.city, l.product, dial)
 }
 
+// keepShipped is what the routes out of a contract's city are expected
+// to take of its product tonight (#503): each open route on its dial
+// sends its shortfall at the far end up to its capacity, out of this
+// stash. A playtest's "Coke keeps 40 against ~5 in Bayport" was a
+// contract feeding a route, not one over what leaves.
+func (m *Model) keepShipped(l cartLine) int {
+	n := 0
+	lg := m.rules.Logistics
+	for _, r := range lg.RoutesOpen(m.w, l.city) {
+		if r.From != l.city || !m.w.Route(r.ID).Dial.On() || m.w.RouteClosed(r.ID) {
+			continue
+		}
+		if target := lg.Target(m.w, r, l.product); target > 0 {
+			short := max(0, target-m.w.Stock(r.To, l.product)-m.w.Bound(r.To, l.product))
+			n += min(short, lg.Capacity(m.w, r))
+		}
+	}
+	return n
+}
+
 // keepOver is the cart's flag (#470): the contracts that keep more than
-// their product is expected to sell tonight, in a sentence, or empty. A
+// their product is expected to sell or ship tonight (the road's, #503),
+// in a sentence, or empty. A
 // contract buys back only what left the stash, so the cost is a stash
 // held over, the room and the cash in it, not a daily overbuy; a corner
 // lost is how a level set for more comes to read this way.
@@ -384,8 +412,13 @@ func (m *Model) keepOver(lines []cartLine) string {
 		if !l.keep {
 			continue
 		}
-		if exp := m.keepExpected(l); l.qty > exp {
-			over = append(over, fmt.Sprintf("%s keeps %d against ~%d in %s", m.w.ProductName(l.product), l.qty, exp, m.w.CityName(l.city)))
+		if exp, road := m.keepExpected(l), m.keepShipped(l); l.qty > exp+road {
+			// What the road ships counts as leaving (#503).
+			what := fmt.Sprintf("%s keeps %d against ~%d in %s", m.w.ProductName(l.product), l.qty, exp+road, m.w.CityName(l.city))
+			if road > 0 {
+				what += fmt.Sprintf(" (%d by the road)", road)
+			}
+			over = append(over, what)
 		}
 	}
 	if len(over) == 0 {
@@ -684,7 +717,11 @@ func (m *Model) viewCart() string {
 		d.qty.max = m.cartMax()
 		line := "quantity   " + d.qty.View()
 		if l.keep {
-			line = "keep at    " + d.qty.View() + "   " + theme.Subtle.Render(fmt.Sprintf("~%d sell tonight", m.keepExpected(l)))
+			leave := fmt.Sprintf("~%d sell tonight", m.keepExpected(l))
+			if road := m.keepShipped(l); road > 0 {
+				leave += fmt.Sprintf(", ~%d ship", road) // #503
+			}
+			line = "keep at    " + d.qty.View() + "   " + theme.Subtle.Render(leave)
 		}
 		if l.buy {
 			note := fmt.Sprintf("bought %d", l.qty)

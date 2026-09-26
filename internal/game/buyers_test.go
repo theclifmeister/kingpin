@@ -68,9 +68,11 @@ func TestContractActions(t *testing.T) {
 	if n := w.Deliverable(*w.Contract(c.ID)); n != 30 {
 		t.Fatalf("deliverable %d, want 30", n)
 	}
+	// Lying low keeps the handoff queued (#503): it does not go while
+	// the day is off, and the report says so; turned off, it stands.
 	w.SetLieLow(true)
-	if q := w.QueuedDelivery(c.ID); q != 0 {
-		t.Fatalf("lying low kept %d queued", q)
+	if q := w.QueuedDelivery(c.ID); q != 25 {
+		t.Fatalf("lying low dropped the handoff: %d queued, want 25", q)
 	}
 	if err := w.Deliver(c.ID, 10); err != ErrLyingLow {
 		t.Fatalf("delivered while lying low: %v", err)

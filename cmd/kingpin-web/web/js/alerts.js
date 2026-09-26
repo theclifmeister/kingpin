@@ -50,7 +50,7 @@ export const WORDS = {
   front_shut: (v, a) =>
     `${(byId(v.fronts, a.front) || { name: "A front" }).name} shut ${plural(n(a.days), "day")}: upkeep unpaid, ${money(n(a.amount))} clean short. It is ${money(n(a.have))}/day clean: keep that back.`,
   float: (v, a) => `Dirty cash ${money(n(a.have))} is under the float (${money(n(a.amount))}).`,
-  till: (v, a) => `Dirty cash held at the ${money(n(a.amount))} till ${plural(n(a.days), "night")} running: turn the launder dial careful to save.`,
+  till: (v, a) => `Dirty cash held at the ${money(n(a.amount))} till ${plural(n(a.days), "night")} running: raise the till or turn the launder dial careful to save.`,
   wages: (v, a) =>
     `Wages ${money(n(a.amount))} due tonight, ${money(n(a.have))} dirty in hand.${
       v.you && v.you.offshore ? ` The ${money(v.you.offshore)} offshore does not count: nothing comes back from it.` : ""
@@ -65,6 +65,7 @@ export const WORDS = {
       : `${memberName(v, a.member)} has no post and no corner is free here: send the enforcers at a rival's, buy a block, or post them in another city.`,
   idle_corner: (v, a) => `Nobody works ${cornerName(v, a.corner)}: back to the street ${n(a.days) <= 1 ? "tonight" : `in ${plural(a.days, "day")}`}.`,
   stash_full: (v, a) => `The stash in ${cityName(v, a.city)} is full: ${n(a.count)} of ${n(a.amount)}.`,
+  landed: (v, a) => `${n(a.count)} ${a.product} landed in ${cityName(v, a.city)} by the road, and no order sells it.`,
   scouts: (v, a) => `A faction is ${a.level === "recruiting" ? "recruiting" : "scouting"} in ${cityName(v, a.city)}: ${n(a.days) <= 0 ? "due now" : `in ${plural(n(a.days), "day")}`}.`,
   gate: (v, a) => `${a.gate ? a.gate.name : "A door"} is within reach.`,
   port: (v, a) => {

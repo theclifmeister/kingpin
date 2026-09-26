@@ -469,10 +469,22 @@ func upkeep(fc content.FrontConfig, level int, fx game.Effects) int {
 // the road and a supply contract keep to as well.
 func (s *Sim) Float(w *game.World) int { return w.Float(s.tree, s.cfg.Laundering.Float) }
 
+// Till is the dirty cash the wash leaves in hand on the player's line
+// (#496, World.SetTill): the float, or the player's till where that is
+// more. A till never set is the float, the run before.
+func (s *Sim) Till(w *game.World) int { return max(s.Float(w), w.Laundering.Till) }
+
+// Line is where tonight's wash stops (#496): the till, or the dirty cash
+// the supply contracts are committed to spend in the morning
+// (World.SupplyOutlay) where that is more, so a big front never washes
+// the contracts' morning away. A run with no contract washes to the
+// till.
+func (s *Sim) Line(w *game.World) int { return max(s.Till(w), w.SupplyOutlay()) }
+
 // Washable is the dirty cash the fronts may take today: what is over the
-// float.
+// line.
 func (s *Sim) Washable(w *game.World) int {
-	return max(0, w.Player.DirtyCash-s.Float(w))
+	return max(0, w.Player.DirtyCash-s.Line(w))
 }
 
 // AuditFreezeDays is how long an audit shuts a front, after the tree's

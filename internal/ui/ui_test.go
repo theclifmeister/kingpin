@@ -2946,6 +2946,12 @@ func modalCases() []modalCase {
 		{"invest", modeInvest, func(t *testing.T, m *Model) { m.w.Player.CleanCash = 200_000; m.Update(key("7")); m.Update(key("u")) }},
 		{"reserve", modeReserve, func(t *testing.T, m *Model) { m.w.Player.CleanCash = 200_000; m.Update(key("7")); m.Update(key("o")) }},
 		{"cash out", modeCashOut, func(t *testing.T, m *Model) { m.w.Player.CleanCash = 200_000; m.Update(key("7")); m.Update(key("c")) }},
+		{"till", modeTill, func(t *testing.T, m *Model) {
+			m.w.Player.DirtyCash = 200_000
+			m.w.Fronts = append(m.w.Fronts, game.Front{ID: "laundromat", Name: "Laundromat"})
+			m.Update(key("7"))
+			m.Update(key("T"))
+		}},
 		{"sweep", modeSweep, func(t *testing.T, m *Model) {
 			m.w.Player.CleanCash = 200_000
 			_ = m.w.SetSweep(25_000) // on: the footer's x sweep off
