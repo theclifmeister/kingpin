@@ -49,6 +49,7 @@ const (
 	AlertFavour        AlertKind = "favour"        // the chief owes you one and Level comes tonight
 	AlertReign         AlertKind = "reign"         // day Days of the reign, Count crews paying Amount
 	AlertStraight      AlertKind = "straight"      // going straight is open (#398): Amount the fronts' income a day
+	AlertVanish        AlertKind = "vanish"        // vanishing is open (#498): a new identity owned
 	AlertExposure      AlertKind = "exposure"      // tonight's landings put the pile past the cover (#397): Amount over the line, Heat what it adds, Count the loads
 	AlertPlan          AlertKind = "plan"          // the pinned plan (#347): Count of its Steps met, Ready once done
 )
@@ -58,7 +59,7 @@ const (
 func AlertKinds() []AlertKind {
 	return []AlertKind{AlertArrest, AlertTalking, AlertContractDue, AlertDebtDue, AlertHeat, AlertTaskForce, AlertFile, AlertInvestigation, AlertNoCorner, AlertFrontShut, AlertFloat, AlertTill, AlertWages,
 		AlertCrewLine, AlertSkim, AlertUnposted, AlertIdleCorner, AlertStashFull, AlertScouts, AlertGate, AlertPort, AlertHouseKnown,
-		AlertDARace, AlertRetire, AlertFavour, AlertReign, AlertStraight, AlertExposure, AlertPlan}
+		AlertDARace, AlertRetire, AlertFavour, AlertReign, AlertStraight, AlertVanish, AlertExposure, AlertPlan}
 }
 
 // Act is what answers an alert (#352): the screen that fixes it, the
@@ -144,6 +145,7 @@ var alertActs = map[AlertKind][]Act{
 	AlertFavour:     {actLedger},
 	AlertReign:      {actDashboard},
 	AlertStraight:   {actDashboard},
+	AlertVanish:     {actDashboard},
 	AlertExposure:   {actLedger},
 	AlertPlan:       {actDashboard}, // the plan pinned (#347): the dashboard, where it is shown and the walk away is
 }
@@ -323,6 +325,9 @@ func (s *Session) Alerts() []Alert {
 	if off := s.set.Laundering.Offshore(); w.Offshore > 0 && off.RetireCash > 0 {
 		a := Alert{Kind: AlertRetire, Key: "retirement", Ready: s.set.Laundering.CanRetire(w), Days: max(0, off.RetireDays-w.QuietDays), Amount: max(0, off.RetireCash-w.Offshore)}
 		if a.Ready {
+			// Its own key once open (#498): the retiree's plan read
+			// ready with no stop, the alert keyed the same either way.
+			a.Key = "retirement open"
 			a.Act = actDashboard // the walk away
 		}
 		out = append(out, a)
@@ -336,6 +341,9 @@ func (s *Session) Alerts() []Alert {
 	}
 	if s.set.Laundering.CanGoStraight(w) {
 		out = append(out, Alert{Kind: AlertStraight, Key: "going straight", Amount: s.set.Laundering.LegitIncome(w)})
+	}
+	if w.CanVanish(game.FoldEffects(w, s.cfg.Upgrades)) {
+		out = append(out, Alert{Kind: AlertVanish, Key: "vanishing"}) // the one way out with no alert of its own (#498)
 	}
 	out = append(out, s.planAlert()...)
 	for i := range out {

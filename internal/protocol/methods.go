@@ -73,6 +73,7 @@ var unserved = map[string]string{
 	"Ambitions":     "the view carries them, view.ambitions (#347)",
 	"Plan":          "the view carries it, view.you.ambition and view.ambitions",
 	"AmbitionTerms": "the owners' thresholds the view's ambitions are read against",
+	"PagesDue":      "the walk away's refusal names the pages (game.ErrPagesDue, #494); the report's reserve line warned of them the morning before",
 }
 
 // methods is every method on the wire, by name.

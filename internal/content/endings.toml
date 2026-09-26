@@ -75,7 +75,7 @@ scene = "the account clears. nobody comes looking."
 cause = "businessman"
 title = "A BUSINESSMAN"
 won = true
-epilogue = "The mayor cut the ribbon. {{.Fronts}} in {{.City}} with your name over the door, earning more than the street ever did, and a city that would rather have you than not. The DA's file went to the archive."
+epilogue = "The mayor cut the ribbon. {{.Fronts}} in {{.City}} with your name over the door, out-earning the street by the end, and a city that would rather have you than not. The DA's file went to the archive."
 scene = "the mayor cuts the ribbon"
 
 [[ending]]

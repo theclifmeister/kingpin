@@ -149,6 +149,12 @@ func (m *Model) viewAmbitions() string {
 			body = append(body, m.downLines()...)
 		}
 	}
+	if sel.Done && sel.Ending != "" {
+		// Where a ready ending is taken (#498): the panel said ready and
+		// the retiree never found the walk away. The one key this body
+		// names, drawn the pane's way as the tutorial line's are.
+		body = append(body, "", emptyState("Ready to take: ", "w", " on the dashboard walks away on it."))
+	}
 	return m.modal("AMBITIONS", body, m.modalFooter())
 }
 
@@ -319,6 +325,9 @@ func (m *Model) planReport() []string {
 		return nil
 	}
 	if a.Done {
+		if a.Ending != "" {
+			return []string{fmt.Sprintf("%s: ready. Walk away on the dashboard to take it, or play on.", a.Name)} // #498: "ready." alone was a quiet change
+		}
 		return []string{fmt.Sprintf("%s: %s.", a.Name, doneWord(a))}
 	}
 	line := fmt.Sprintf("%s: %s", a.Name, planParts(a))

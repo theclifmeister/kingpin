@@ -27,7 +27,28 @@ var (
 	// ErrNotStraight means the fronts have not out-earned the street
 	// long enough to go straight.
 	ErrNotStraight = errors.New("the fronts do not out-earn the street yet")
+	// ErrPagesDue means last night's lump offshore is still to be read
+	// (#494): the DA files its pages in tonight's step, and a walk away
+	// this morning would score the lump free of them.
+	ErrPagesDue = errors.New("the DA reads last night's transfer offshore tonight")
 )
+
+// PagesDue is the pages last night's move offshore files tonight
+// (#494): its lots over the line times perLot (heat.toml
+// structure_evidence), which the heat sim files in tonight's step off
+// Laundering.Structured, the record the laundering sim wrote last
+// night (stamped with the tick's day, which is this morning's, so the
+// heat sim reads it on the tick after); 0 when the last move was not
+// last night or fit the lot. A
+// read, no dice: the walk away waits on it, so the pages are settled
+// before the lump is scored.
+func (w *World) PagesDue(perLot int) int {
+	st := w.Laundering.Structured
+	if perLot <= 0 || st.Day == 0 || st.Day != w.Day || st.Lots <= 0 {
+		return 0
+	}
+	return st.Lots * perLot
+}
 
 // End is the ending written for a cause on day: the day, the cause, the
 // peak cash as it stands and who, and the score stamped on Stats as it
