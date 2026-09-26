@@ -27,8 +27,29 @@ type Stop struct {
 	Event events.Event // StopEvent
 }
 
+// Danger reports whether the stop is one the run can end on soon (#504):
+// a danger alert (Alert.Danger), or a warrant signed, a task force
+// formed, an investigation opened or the police past a patrol. A front
+// end words and styles it apart from the rest, with its numbers.
+func (st Stop) Danger() bool {
+	switch st.Kind {
+	case StopAlert:
+		return st.Alert.Danger()
+	case StopEvent:
+		switch ev := st.Event.(type) {
+		case events.WarrantSigned, events.TaskForceFormed, events.InvestigationOpened:
+			return true
+		case events.Enforcement:
+			return ev.Level != content.Patrol
+		}
+	}
+	return false
+}
+
 // Stop weighs the day that just ended: a new stage first, then a card
-// dealt, then an alert the morning before did not have (by its key, so
+// dealt, then an alert the morning before did not have and that is no
+// notice (Alert.Notice, #504: the till, the float, a gate within reach
+// and a full stash stand on the dashboard and never stop) (by its key, so
 // a contract due tomorrow stops once and again when it is due today,
 // and heat over the patrol line once until it drops under and comes
 // back), then the first of the day's events that StopsOn names, the
@@ -49,7 +70,7 @@ func (s *Session) Stop(evs []events.Event, before []Alert) Stop {
 		was[a.Key] = true
 	}
 	for _, a := range s.Alerts() {
-		if !was[a.Key] {
+		if !was[a.Key] && !a.Notice() {
 			return Stop{Kind: StopAlert, Alert: a}
 		}
 	}
@@ -89,27 +110,79 @@ const OfferQuiet = 30
 // never read by a sim, and it draws nothing: a load, a new run and an
 // attach start it over, so the worst a reload costs is one stop more.
 type memo struct {
-	short, shortBefore map[string]bool // the shortfalls left uncovered by the last night and by the night before it (shortKey)
-	offered            map[string]int  // the day each faction last offered each kind of deal (offerKey)
-	again              map[string]bool // the last night's offers that repeat one within OfferQuiet
+	shortDay   map[string]int  // the last night each shortfall was left uncovered (shortKey)
+	shortAgain map[string]bool // the last night's shortfalls left uncovered within OfferQuiet of the one before (#504)
+	offered    map[string]int  // the day each faction last offered each kind of deal (offerKey)
+	again      map[string]bool // the last night's offers that repeat one within OfferQuiet
+	pages      pagesNight      // the pages the last night filed with no bust (#492)
+}
+
+// pagesNight is the DA's file grown in a night past every bust's pages
+// (#492): the morning it stands on (day), the pages and their cause
+// (PagesInformant, PagesRetiree, PagesTip; "" for pages the player's own
+// move filed under a line of its own).
+type pagesNight struct {
+	day, pages int
+	cause      string
 }
 
 // forget starts the memo over: a new run, a load, an attach.
 func (s *Session) forget() { s.memo = memo{} }
 
+// filed reads a night's pages into the memo (#492): the file's growth
+// over the night (file and leaks are the file and Heat.Leaks before
+// it) less the pages every sting, raid and investigation filed, and
+// whose they were: an informant's (the leak count grew), a sour
+// retiree's, or a tip's. It reads the world after the night and draws
+// nothing.
+func (s *Session) filed(evs []events.Event, file, leaks int) {
+	w := s.w
+	n := w.Heat.Evidence - file
+	cause := ""
+	for _, e := range evs {
+		switch ev := e.(type) {
+		case events.Enforcement:
+			n -= ev.Evidence
+		case events.CrewRetired:
+			if ev.Sour && cause == "" {
+				cause = PagesRetiree
+			}
+		case events.PoliceTipped:
+			if cause == "" {
+				cause = PagesTip
+			}
+		}
+	}
+	if w.Heat.Leaks > leaks {
+		cause = PagesInformant
+	}
+	s.memo.pages = pagesNight{day: w.Day, pages: max(0, n), cause: cause}
+}
+
 // remember reads a night's events into the memo, after the night: the
 // shortfalls it left uncovered and the offers it repeated.
 func (s *Session) remember(evs []events.Event) {
 	m := &s.memo
-	m.shortBefore, m.short, m.again = m.short, map[string]bool{}, map[string]bool{}
+	m.shortAgain, m.again = map[string]bool{}, map[string]bool{}
 	if m.offered == nil {
 		m.offered = map[string]int{}
+	}
+	if m.shortDay == nil {
+		m.shortDay = map[string]int{}
+	}
+	day := 0
+	if s.w != nil {
+		day = s.w.Day
 	}
 	for _, e := range evs {
 		switch ev := e.(type) {
 		case events.StandingShort, events.SupplyShort:
 			if !s.covered(e) {
-				m.short[shortKey(e)] = true
+				k := shortKey(e)
+				if last, ok := m.shortDay[k]; ok && last < day && day-last <= OfferQuiet {
+					m.shortAgain[k] = true
+				}
+				m.shortDay[k] = day
 			}
 		case events.DealOffered:
 			k := offerKey(ev)
@@ -154,8 +227,10 @@ func (s *Session) covered(e events.Event) bool {
 }
 
 // news filters StopsOn by what the session remembers (#469): a
-// shortfall stops the morning it starts, not every morning it goes on,
-// and not at all when a landing covered it the same night; a supply
+// shortfall stops the morning it starts, not every morning it goes on
+// nor again within OfferQuiet of the last night it was short (#504: a
+// standing order a route covers every other night stopped every other
+// morning), and not at all when a landing covered it the same night; a supply
 // contract short of room never stops (the stash is full of stock, held
 // for a buyer or not, and stash_full says so once); an offer stops
 // unless the same faction offered the same kind of deal within
@@ -166,9 +241,9 @@ func (s *Session) news(e events.Event) bool {
 		if ev.Why == "room" {
 			return false
 		}
-		return !s.covered(e) && !s.memo.shortBefore[shortKey(e)]
+		return !s.covered(e) && !s.memo.shortAgain[shortKey(e)]
 	case events.StandingShort:
-		return !s.covered(e) && !s.memo.shortBefore[shortKey(e)]
+		return !s.covered(e) && !s.memo.shortAgain[shortKey(e)]
 	case events.DealOffered:
 		return !s.memo.again[offerKey(ev)]
 	}
@@ -213,11 +288,13 @@ func (s *Session) FastForward(days int, after func([]events.Event)) (int, Stop, 
 // a spy found or a lie that bit (#45), a lieutenant walking, an audit, a
 // seizure, a deal offered or broken (an offer the faction repeated runs
 // past: Stop's news, #469), a buyer asking (where you could answer it:
-// Stop's serves, #442), pressure or a reputation axis up a band, a new
-// chief or an election, an envelope back, a raid that fell through
-// (#228), the DA's file on the envelopes, the officials cold, a contract
-// or a standing order short (the morning it starts: news, #469), and a
-// stash house robbed, hit or lost (#73).
+// Stop's serves, #442), pressure up a band, a new chief or an election,
+// an envelope back, a raid that fell through (#228), the DA's file on
+// the envelopes, the officials cold, a contract or a standing order
+// short (the morning it starts and not again within OfferQuiet: news,
+// #469, #504), and a stash house robbed, hit or lost (#73). A
+// reputation axis up a band needs no action and runs past (#504: the
+// dashboard's bars say it).
 func StopsOn(e events.Event) bool {
 	switch ev := e.(type) {
 	case events.Enforcement:
@@ -236,8 +313,6 @@ func StopsOn(e events.Event) bool {
 		return ev.To > ev.From
 	case events.ReignBegan:
 		return !ev.Again // the first reign of the run (#399); one begun again runs past
-	case events.ReputationShifted:
-		return ev.To > ev.From
 	case events.WarrantSigned, events.TaskForceFormed, events.InvestigationOpened, events.AssetSeized, events.TrophySeized, events.TunnelFound, events.Unlocked,
 		events.ReignBroken, events.StraightOpened, events.StraightLapsed, events.RivalMovedIn, events.RivalEyeing,
 		events.WarEnded, events.RivalRaided, events.RivalAbandoned, events.CrewQuit,

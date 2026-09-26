@@ -91,7 +91,7 @@ func TestStopsOnTheReadings(t *testing.T) {
 		{events.CrewShot{}, false},
 		{events.PressureShifted{From: 1, To: 2}, true},
 		{events.PressureShifted{From: 2, To: 1}, false},
-		{events.ReputationShifted{From: 1, To: 2}, true},
+		{events.ReputationShifted{From: 1, To: 2}, false}, // needs no action (#504)
 		{events.ReputationShifted{From: 2, To: 1}, false},
 		{events.PriceMove{}, false},
 		{events.DayEnded{}, false},

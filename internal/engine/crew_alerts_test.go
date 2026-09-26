@@ -40,7 +40,8 @@ func ofKind(s *engine.Session, kind engine.AlertKind) []engine.Alert {
 // the skim line, a lieutenant over the flip line, a member over the
 // walk; nobody where the line is further off and the drift is not
 // falling; the skim while it is suspected; a corner held and unworked
-// with the days before it drifts.
+// with the days before it drifts. A member under the informant line
+// (#492) is one too, as a lieutenant under the flip line is (#497).
 func TestCrewTroubleAlerts(t *testing.T) {
 	t.Parallel()
 	cfg := content.MustLoad()
@@ -60,6 +61,7 @@ func TestCrewTroubleAlerts(t *testing.T) {
 		{"a lieutenant near the flip", game.RoleLieutenant, flip + 2, "flip", flip},
 		{"a lieutenant past the flip, near the walk", game.RoleLieutenant, tun.QuitThreshold + 1, "walk", tun.QuitThreshold},
 		{"a lieutenant under the flip, far from the walk (#497)", game.RoleLieutenant, flip - 1, "under", flip},
+		{"under the informant line, far from the walk (#492)", game.RoleRunner, cfg.Crew.Informant.Loyalty - 1, "under", cfg.Crew.Informant.Loyalty},
 	} {
 		s, w := crewRun(t)
 		w.Crew.Members = []game.CrewMember{{ID: 7, Name: "Deshawn", Role: c.role, Skill: 50, Loyalty: c.loyalty, Nerve: 50}}

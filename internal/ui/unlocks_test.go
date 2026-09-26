@@ -101,8 +101,9 @@ func TestFastForwardStopsOnAnUnlock(t *testing.T) {
 
 // The nearest gate ahead is an alert while it is within reach, under
 // engine.GateNear of its line to go: it appears the morning the peak crosses
-// half the line, stops F once (keyed per gate), and goes the morning
-// the gate fires, when the Unlocked stops F instead.
+// half the line, never stops F (#504: a notice; it stopped F once a
+// gate before), and goes the morning the gate fires, when the Unlocked
+// stops F instead.
 func TestUnlockAlerts(t *testing.T) {
 	m := newTestModel(t, 80, 24)
 	m.startRun(5)
@@ -115,10 +116,11 @@ func TestUnlockAlerts(t *testing.T) {
 		t.Fatalf("an alert at %s to go: %+v", cash(o.UnlockCash-m.w.Stats.PeakCash), a)
 	}
 	m.w.Player.DirtyCash = half + 500 // within reach once the clock stamps it
-	day := m.w.Day
+	// A notice (#504): the gate within reach stands on the dashboard and
+	// never stops F.
 	fast(t, m, 30)
-	if m.w.Day != day+1 || m.fastStop != "Stopped after 1 day: the Laundromat within reach." {
-		t.Fatalf("day %d -> %d: %q", day, m.w.Day, m.fastStop)
+	if strings.Contains(m.fastStop, "within reach") {
+		t.Fatalf("a gate within reach stopped F: %q", m.fastStop)
 	}
 	a := unlockAlert(m, key)
 	if a == nil {

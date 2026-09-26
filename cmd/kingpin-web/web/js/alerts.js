@@ -25,12 +25,31 @@ function cornerName(v, id) {
 
 const memberName = (v, id) => (byId(v.crew, id) || { name: "Somebody" }).name;
 
+// fileClose is how close the DA's file is (#492), the TUI's words.
+function fileClose(a) {
+  const left = n(a.amount) - n(a.count);
+  return `File ${n(a.count)}/${n(a.amount)}: ${left <= 1 ? "one more page is an indictment" : `${plural(left, "page")} from an indictment`}`;
+}
+
+// fileEvery says the file is every city's (#492): the DA keeps one,
+// whichever city filed the pages.
+const fileEvery = (v) => ((v.cities || []).length > 1 ? " It is one file for every city." : "");
+
+// PAGES are the causes of pages filed with no bust (#492).
+const PAGES = {
+  informant: "somebody on the payroll is talking: investigate on the crew screen",
+  retiree: "a sour retiree talked on the way out",
+  tip: "your tip on a rival came back on you",
+};
+
 // WORDS is one sentence a kind, off the alert's own fields and the
 // view: engine.AlertKinds, no more and no less (TestWebClient).
 export const WORDS = {
   arrest: (v, a) =>
     `Warrant signed: sell nothing and lie low, or you are arrested ${n(a.days) <= 1 ? "tonight" : `in ${plural(n(a.days), "night")}`}. Heat ${Math.round(n(a.heat))} in ${cityName(v, a.city)} met the arrest line (${Math.round(n(a.line))}); it is served on any sale, or if the heat still holds at the line.`,
   talking: () => "Somebody on the payroll is talking.",
+  pages: (v, a) =>
+    `No bust, and the DA's file grew ${plural(n(a.have), "page")}: ${PAGES[a.level] || "somebody talked"}. ${fileClose(a)}.`,
   contract_due: (v, a) => {
     const c = byId(v.contracts, a.contract);
     return `${c ? c.name : "A buyer"}: due ${a.due <= v.day ? "today" : "tomorrow"}.`;
@@ -38,8 +57,7 @@ export const WORDS = {
   debt_due: (v, a) => `${(byId(v.connects, a.supplier) || { name: "A connect" }).name}: ${money(n(a.amount))} due tomorrow, ${money(n(a.have))} in hand.`,
   heat: (v, a) => `Heat ${Math.round(n(a.heat))} in ${cityName(v, a.city)} is over the ${a.level === "taskforce" ? "task force" : a.level || "patrol"} line (${Math.round(n(a.line))}).`,
   task_force: () => "A task force formed this morning. It comes tonight: lie low.",
-  file: (v, a) =>
-    `File ${n(a.count)}/${n(a.amount)}: ${n(a.amount) - n(a.count) >= 2 ? "two busts from an indictment" : "one more bust indicts you"}. Stings, raids and working a corner yourself add pages; lie low, and the Legal upgrades take them off.`,
+  file: (v, a) => `${fileClose(a)}.${fileEvery(v)} Stings, raids, working a corner yourself and anyone talking add pages; lie low, and the Legal upgrades take them off.`,
   investigation: (v, a) => {
     const name =
       a.target === "corner" ? cornerName(v, a.corner) : a.target === "house" ? (byId(v.houses, a.house) || { name: "a house" }).name : `the ${a.product} trade`;
@@ -56,7 +74,10 @@ export const WORDS = {
       v.you && v.you.offshore ? ` The ${money(v.you.offshore)} offshore does not count: nothing comes back from it.` : ""
     }`,
   crew_line: (v, a) => {
-    if (a.cross === "under") return `${memberName(v, a.member)} is under ${Math.round(n(a.line))} loyalty: a lieutenant that low talks to the police.`;
+    if (a.cross === "under") {
+      const who = (byId(v.crew, a.member) || {}).role === "lieutenant" ? "a lieutenant that low talks" : "that low, a member with little nerve talks";
+      return `${memberName(v, a.member)} is under ${Math.round(n(a.line))} loyalty: ${who} to the police.`;
+    }
     const cross = { skim: "skimming", flip: "turning", walk: "walking" }[a.cross] || a.cross;
     return `${memberName(v, a.member)} is ${Math.max(1, Math.ceil(n(a.gap)))} from ${cross}${a.days ? ` (${plural(a.days, "day")})` : ""}.`;
   },

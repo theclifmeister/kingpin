@@ -252,7 +252,7 @@ The dashboard at 80x24, with the details strip above the status bar:
 ╰──────────────────────────────────────────────────────────────────────────────╯
 ╭─ HEAT ───────────────────╮╭─ CASH ──────────────╮╭─ LAW ─────────────────────╮
 │ ███░░░░░░┆░░░┆░░░┆░░░░┆░ ││ dirty  $452K        ││ Chief Whitfield · new     │
-│ 12/100 peak 12 file 0/7  ││ clean  $50K +$19K   ││ DA Bell · reform          │
+│ 12/100 all-city file 0/7 ││ clean  $50K +$19K   ││ DA Bell · reform          │
 │ patrol 40 · sting 58     ││ peak   $700K        ││ pressure ░░░░░░░░ 2       │
 │ raid 75 · arrest 95      ││ Bayport heat 0      ││ Mona · 1 corner           │
 ╰──────────────────────────╯╰─────────────────────╯╰───────────────────────────╯

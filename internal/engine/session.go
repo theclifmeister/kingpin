@@ -147,11 +147,13 @@ func (s *Session) EndDay() []events.Event {
 	if s.w == nil {
 		return nil
 	}
+	file, leaks := s.w.Heat.Evidence, s.w.Heat.Leaks
 	evs := s.clock.EndDay(s.w)
 	if len(evs) == 0 {
 		return evs
 	}
 	s.remember(evs)
+	s.filed(evs, file, leaks)
 	s.street, s.streetDay = 0, s.w.Day
 	for _, e := range evs {
 		if ev, ok := e.(events.PlayerSold); ok {

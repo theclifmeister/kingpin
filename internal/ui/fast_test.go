@@ -276,3 +276,19 @@ func TestFastForwardCardIsNotAnsweredByAccident(t *testing.T) {
 		t.Fatalf("a pick and an enter did not decide: done %v pending %v", m.cardDone, m.w.Dilemmas.Pending)
 	}
 }
+
+// TestFastForwardDangerStop (#504): a danger stop (here the heat at the
+// arrest line) is worded apart from a notice's, `Stopped after 1 day on
+// a danger: a warrant …`, carries its numbers (the heat and the line),
+// and the report draws its line red.
+func TestFastForwardDangerStop(t *testing.T) {
+	m := richModelSeeded(t, 80, 24, 1)
+	m.w.Here().Heat = 100
+	fast(t, m, 30)
+	if !m.fastDanger || !strings.HasPrefix(m.fastStop, "Stopped after 1 day on a danger: ") || !strings.Contains(m.fastStop, "(heat ") {
+		t.Fatalf("the stop line: %q (danger %v)", m.fastStop, m.fastDanger)
+	}
+	if got := reportLine(t, m); !strings.HasPrefix(m.fastStop, got) || got == "" { // the modal wraps the line under itself
+		t.Fatalf("the report opens with %q", got)
+	}
+}

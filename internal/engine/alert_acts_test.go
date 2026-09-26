@@ -121,7 +121,8 @@ func TestUnpostedAlerts(t *testing.T) {
 
 // TestStashFullAlerts (#352): a city whose stash holds full_share of
 // its capacity is an alert, once, on the ledger with the city; under it,
-// or with nothing to hold anything, it is not.
+// or with nothing to hold anything, it is not. A notice since #504: it
+// never stops a fast-forward.
 func TestStashFullAlerts(t *testing.T) {
 	t.Parallel()
 	s, w := crewRun(t)
@@ -143,11 +144,13 @@ func TestStashFullAlerts(t *testing.T) {
 		got[0].Act != (engine.Act{Screen: engine.ScreenLedger, Subject: engine.SubjectCity}) {
 		t.Fatalf("full: %+v", got)
 	}
-	if st := s.Stop(nil, before); st.Kind != engine.StopAlert || st.Alert.Kind != engine.AlertStashFull {
-		t.Errorf("a stash gone full stopped %+v", st)
+	// A notice (#504): a full stash loses nothing, so it stands on the
+	// dashboard and never stops a fast-forward.
+	if !got[0].Notice() || got[0].Danger() {
+		t.Errorf("the full stash is not a notice: %+v", got[0])
 	}
-	if st := s.Stop(nil, s.Alerts()); st.Kind == engine.StopAlert && st.Alert.Kind == engine.AlertStashFull {
-		t.Errorf("the full stash stopped twice: %+v", st)
+	if st := s.Stop(nil, before); st.Kind == engine.StopAlert && st.Alert.Kind == engine.AlertStashFull {
+		t.Errorf("a stash gone full stopped: %+v", st)
 	}
 }
 

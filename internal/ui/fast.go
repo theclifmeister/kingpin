@@ -111,6 +111,11 @@ func (m *Model) fastForward(days int) {
 	ran, stop, evs := m.sess.FastForward(days, m.dayEnded)
 	if m.w.Over == nil {
 		m.fastStop = fmt.Sprintf("Stopped after %s: %s.", plural(ran, "day"), m.stopWhy(stop))
+		if m.fastDanger = stop.Danger(); m.fastDanger {
+			// A danger stop (#504) is worded apart from a notice and
+			// carries its numbers: the report draws it red.
+			m.fastStop = fmt.Sprintf("Stopped after %s on a danger: %s.", plural(ran, "day"), m.stopWhy(stop))
+		}
 		if stop.Kind == engine.StopAlert {
 			a := stop.Alert
 			m.fastAlert = &a // the report offers the jump (#352)
@@ -130,11 +135,26 @@ func (m *Model) stopWhy(st engine.Stop) string {
 	case engine.StopCard:
 		return "a card to answer"
 	case engine.StopAlert:
-		return m.alertOf(st.Alert).why
+		why := m.alertOf(st.Alert).why
+		switch st.Alert.Kind {
+		case engine.AlertFile, engine.AlertPages, engine.AlertArrest:
+			return why // their own numbers
+		}
+		return why + m.fileNumbers(st)
 	case engine.StopEvent:
-		return m.stopEvent(st.Event)
+		return m.stopEvent(st.Event) + m.fileNumbers(st)
 	}
 	return "the cap"
+}
+
+// fileNumbers is what a danger stop carries (#504): `, file 3/6: 3
+// pages from an indictment`, or "" for a stop that is no danger or a
+// run with no file.
+func (m *Model) fileNumbers(st engine.Stop) string {
+	if limit := m.rules.Heat.EvidenceArrest(m.w); st.Danger() && limit > 0 {
+		return ", " + fileClose(m.w.Heat.Evidence, limit)
+	}
+	return ""
 }
 
 // stopEvent is the reason an event stops a fast-forward, as the report
@@ -236,8 +256,6 @@ func (m *Model) stopEvent(e events.Event) string {
 		return ev.Name + " is asking"
 	case events.PressureShifted:
 		return "pressure up in " + w.CityName(ev.City)
-	case events.ReputationShifted:
-		return ev.Axis + " up"
 	case events.ChiefReplaced:
 		return "a new chief"
 	case events.DAElected:
