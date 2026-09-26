@@ -49,6 +49,24 @@ func TestLeadIsTheBiggestThree(t *testing.T) {
 			{"crew_lost", "Lost Ray (quit).", game.Act{Screen: game.ScreenCrew}},
 			{"pages", "The DA filed 2 pages on you.", game.Act{Screen: game.ScreenDashboard}},
 		}},
+		{"a warrant, a payroll missed and a debt late lead, past the cap (#518, #519)", func(w *game.World) []events.Event {
+			c := w.Home().Corners
+			return []events.Event{
+				events.CornerLost{Corner: c[0].ID, Name: c[0].Name, Reason: "idle", Owner: game.OwnerPlayer},
+				events.CrewQuit{ID: 9, Name: "Ray", Role: game.RoleRunner},
+				events.LeadsFiled{Leads: 1, Evidence: 2},
+				events.DebtLate{Day: 21, City: w.Home().ID, Name: "Cass", Owed: 2_484, Paid: 967, Left: 1_517, Due: 26},
+				events.CrewPaid{Day: 21, Wages: 0, Short: 442},
+				events.WarrantSigned{Day: 21, City: w.Home().ID, Heat: 100, Line: 93, Due: 22},
+			}
+		}, []want{
+			{"warrant", "A WARRANT is signed for your arrest (heat 100 in ", game.Act{Screen: game.ScreenDashboard}},
+			{"payroll", "Missed payroll: the wages came $442 short.", game.Act{Screen: game.ScreenCrew}},
+			{"debt_late", "Late on a debt: you owed Cass $2,484 and paid $967; $1,517 is due again on day 26.", game.Act{Screen: game.ScreenMarket}},
+			{"corner_lost", "Lost a corner: ", game.Act{Screen: game.ScreenMap, Subject: game.OnCorner}},
+			{"crew_lost", "Lost Ray (quit).", game.Act{Screen: game.ScreenCrew}},
+			{"pages", "The DA filed 2 pages on you.", game.Act{Screen: game.ScreenDashboard}},
+		}},
 		{"a raid thick with pages", func(w *game.World) []events.Event {
 			return []events.Event{
 				events.Enforcement{City: w.Home().ID, Level: content.Raid, StockLost: map[string]int{"weed": 40}, CashLost: 2_000, Evidence: 5},

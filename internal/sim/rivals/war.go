@@ -45,25 +45,38 @@ func (s *Sim) WarTarget(w *game.World, r *game.RivalState) *game.Corner {
 
 // war ends the war order the night it has nothing left to fight (#229):
 // the faction gone, paying homage, or holding no corner in a city you
-// hold ground in. A read, no dice; the run never ends here.
+// hold ground in; and (#520) says it lost when you hold no corner left
+// anywhere, and reports a war you called off today. A read, no dice;
+// the run never ends here.
 func (s *Sim) war(w *game.World, t *game.Tick) {
+	if off := w.Today.CalledOff; off != "" && w.War == "" {
+		// Called off by your word today (#520): report-only, no
+		// headline, so a run that calls a war off draws what it drew.
+		ev := events.WarEnded{Day: t.Day, Faction: off, Why: "you called it off", Called: true}
+		if r := w.Faction(off); r != nil {
+			ev.Rival = r.Leader
+		}
+		t.Emit(ev)
+	}
 	if w.War == "" {
 		return
 	}
 	r := w.Faction(w.War)
-	why := ""
+	why, lost := "", false
 	switch {
 	case r == nil || r.Gone():
 		why = "they are no more"
 	case w.DealWith(r.Faction(), game.DealHomage) != nil:
 		why = "they pay you homage now"
+	case w.Held() == 0:
+		why, lost = "you hold no corner left to fight from: the war is lost", true
 	case s.WarTarget(w, r) == nil:
-		why = "they hold no corner left in a city you hold ground in"
+		why = "their last corner in a city you hold ground in went"
 	}
 	if why == "" {
 		return
 	}
-	ev := events.WarEnded{Day: t.Day, Faction: w.War, Why: why}
+	ev := events.WarEnded{Day: t.Day, Faction: w.War, Why: why, Lost: lost}
 	w.War = ""
 	if r != nil {
 		ev.Rival, ev.Faction = r.Leader, r.Faction()

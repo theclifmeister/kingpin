@@ -287,6 +287,12 @@ func (m *Model) quietReset(a engine.AmbitionView) string {
 			return ""
 		}
 	}
+	return m.quietCause(*ev)
+}
+
+// quietCause is what broke a quiet streak, in words (#465, #519): `a
+// sting in Eastside on day 41`; "" for a cause it does not know.
+func (m *Model) quietCause(ev events.QuietBroken) string {
 	where := ""
 	if c := m.w.Cities[ev.City]; c != nil {
 		where = " in " + c.Name

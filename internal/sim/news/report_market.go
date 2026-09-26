@@ -168,10 +168,10 @@ func (r *reporter) reportMarket(e events.Event) bool {
 	case events.CreditTaken:
 		rep.Money = append(rep.Money, fmt.Sprintf("%s put %s on your book%s: you owe them %s, due day %d.", ev.Name, format.Money(ev.Amount), r.in(ev.City), format.Money(ev.Debt), ev.Due))
 	case events.DebtPaid:
-		r.book(game.FlowPurchases, -(ev.Amount - ev.Clean), -ev.Clean)
+		r.book(game.FlowDebt, -(ev.Amount - ev.Clean), -ev.Clean)
 		rep.Money = append(rep.Money, fmt.Sprintf("Paid %s the %s you owed, on the day. -%s", ev.Name, format.Money(ev.Amount), format.Money(ev.Amount)))
 	case events.DebtLate:
-		r.book(game.FlowPurchases, -(ev.Paid - ev.Clean), -ev.Clean)
+		r.book(game.FlowDebt, -(ev.Paid - ev.Clean), -ev.Clean)
 		d := r.at(ev.City)
 		d.Name = ev.Name
 		r.addSuppliers("DebtLate", d)

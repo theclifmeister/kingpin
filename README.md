@@ -261,7 +261,7 @@ The dashboard at 80x24, with the details strip above the status bar:
 │ raid 75 · arrest 95      ││ Bayport heat 0      ││ Mona · 1 corner           │
 ╰──────────────────────────╯╰─────────────────────╯╰───────────────────────────╯
 ╭─ ALERTS ─────────────────────────────────────────────────────────────────────╮
-│ ▸ Skimming suspected: money went missing on day 3. Watch the loyalty on the… │
+│ ▸ War on Mona's crew with 1 of 2 enforcers on the payroll: if the crew you … │
 ╰──────────────────────────────────────────────────────────────────────────────╯
 ▸ CART · buying 1 line, $895 · 1 by contract · selling 1 line, ~$1,260 …  ␣ more
                                                                          ? help
@@ -762,8 +762,9 @@ of their own, and your own order for a product there wins the day.
 Through them you can buy in a city you are not standing in, at the
 contract markup. Watch their loyalty more than anyone's: under the line
 they turn informant with no dice and feed the DA thick pages, and a
-lieutenant who turns while running half your corners ends the run
-**betrayed**; at the floor they walk with the city, every corner they
+lieutenant who turns while their city holds half your corners, three
+at least, ends the run **betrayed** (read the night they turn, and
+only then); at the floor they walk with the city, every corner they
 ran and the stash there.
 
 ### Rivals
@@ -990,8 +991,9 @@ homage for two weeks while you hold more than half of home; the reign
 is announced, can be played on as long as it holds, and breaks the
 morning a crew sets up again or the share falls), **betrayed** by a lieutenant who knew where
 everything was or an ally who broke a deal while you were at war,
-**taken out** when the last corner falls at war with fewer than two
-enforcers on the payroll, or **vanished** on a new identity from the
+**taken out** by your last corner, taken by the crew you are at war
+with (the one you declared on, or one whose war is open), while fewer
+than two enforcers are on the payroll, or **vanished** on a new identity from the
 tree, which also turns the indictment the fall guys do not take into an
 exit. The **exit plans** run in order: the fall guys take the first
 case each, then the identity turns the next into an exit, then the run

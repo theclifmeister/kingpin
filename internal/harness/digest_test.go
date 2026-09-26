@@ -400,20 +400,24 @@ const (
 // HeatState.SellCapCity): day 1 by the field's shape; with it left out
 // of the walk every day is main's digest, and no number moved.
 // (walked on top of #493/#495's RivalState.Spell.)
+// Again for #518, #519 and #520 (the war you called off today,
+// Today.CalledOff): day 1 by the field's shape; with it left out of the
+// walk every one of the sixty days is main's digest, the report's lead
+// and lines with it: no number moved.
 var seedDigest = []string{
-	"f6e3745bdbb75dab", "6744e88f9e037c39", "1ac2059a2ac8038d", "a340758ab57aa0b2",
-	"01c68789f8823b2e", "5063f167ac75c7b1", "53abdeb56cde16a4", "a6018cbb96f793bc",
-	"7b9125addfce6ebb", "7413e44c3015e24e", "74947816f3a71190", "54f85da98fc0a03d",
-	"c4400e55d74333e3", "3b1b181a79cb96c5", "ff925f82cf945780", "dbe3aeb890c67333",
-	"84185c89f5ed0bed", "a718f61a085ef88b", "25521dd71d608e93", "a99f9a9eed2e87f4",
-	"935d4fd83db59b6c", "c8aa177dfa11f019", "054c2ba3665b2aeb", "ba3e34b65e3cd4a7",
-	"d8f2983a6e4bb1fc", "b9b4921d41040667", "6f4af92b157f9c6a", "409db28dc030637a",
-	"6520062fd5d29fb9", "6000fa485d229b67", "9995cd38992b04af", "24058eb96d88ef08",
-	"4b99d3b4cd9deb58", "2b13dbc9fe6ba1a4", "22703c3be764bfa7", "83757dd0dfd98c03",
-	"9af8c95a968a684c", "e613419f08f36572", "18b083a45093158a", "5e5e2fa357d580c6",
-	"3c503e20d2c07ef0", "0930007a230ab0db", "428ce23ebb0351ce", "cc7ce5ece0d17056",
-	"cacbabb509716749", "65d5ddad4728a6a8", "6b9a8a9ed1536f9a", "6194d38644cfda62",
-	"5ea89ac10080cd1c", "000bc3a27f296642", "f7fb271b97f87ba6", "90288effe454c019",
-	"11f4f9a76b736cd6", "0ce54f005d1d745c", "0d1792ca06eb77d3", "f6deef2f37b99cbb",
-	"b6e3f44bc6d240e8", "d16ce8a6e211df99", "3f0120cd4ba367ae", "ee628f2e790e8144",
+	"9cddbb0eb924552d", "84c479c7655e418b", "de2442fb06f141bf", "f7871bd8f125311a",
+	"50ceaa27da0eff24", "f02c8218c59190d9", "a74f3de90473ca8a", "78b8849fd0c94384",
+	"a5972920b219af1f", "3fa670fcc8abd9d0", "5be822883ace23a6", "dbd4f8ea3d7dce45",
+	"1a9e3b62ca645af1", "d6f9b00fc86f6ca1", "965febba35e999ba", "12b6c9b862b03991",
+	"369b4a247dc8ba9b", "ae096d9cefa66457", "931dbe5bfbe6b87b", "e0ce0a04b0ff39d8",
+	"f1356f2999516a4a", "af9ee61172b99bc7", "b429fd6492de49d1", "0352a928849f992f",
+	"c44f0394592e326e", "16281d8c26ba1bff", "7f51ea5f5e6a631e", "419df80818566a62",
+	"f402b03193b2a793", "f2caafeda6038323", "30c6209ebb504939", "11963a8c288227d0",
+	"b667fa450a2b8990", "acea22d476933266", "28d3a04ce9488359", "565c5fc50dbb6061",
+	"86a3cd55b076d74e", "0629d609fdcc18ea", "7c20f1024af7dc24", "f8af51d7a6647430",
+	"8ac5c1aecaa38d72", "a804ff9f8c691437", "6dfd0385e3c7ddd6", "d60ce76bde0d8eb2",
+	"4e8f07e9c5699501", "0e42246f73b8ef10", "25bce46c62293d00", "11f01e16dd8a953a",
+	"c59814fb202137f4", "03ed626d8c00c786", "1090089254dae62e", "b8bba898af9fd8c5",
+	"bd6edbcf66ad5dea", "6247d546ec88bdc8", "59352e32cf8bd5e7", "bfe53455fe61b30d",
+	"192e479f4a48ff42", "19078927db85a30b", "cc05b386eb5b9362", "e55e2cdfb604cd1e",
 }

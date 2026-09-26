@@ -21,7 +21,7 @@ func (p Pools) Add(q Pools) Pools { return Pools{Dirty: p.Dirty + q.Dirty, Clean
 // a new one is appended and reads as zero on an old flow.
 const (
 	FlowSales       = "sales"       // the street and the buyers, net of the cut the crew and the lieutenants keep
-	FlowPurchases   = "purchases"   // product: the connects, the contracts, the cuts, the cook, a debt paid down
+	FlowPurchases   = "purchases"   // product: the connects, the contracts, the cuts, the cook
 	FlowRoutes      = "routes"      // the road and the errands: lots and fares, checkpoints, signing fees, the rent on the houses, investigations, scouts, cops, bail
 	FlowWages       = "wages"       // the payroll, and the loyalty bought on top
 	FlowLaundering  = "laundering"  // the wash (dirty out, clean in), the upkeep, what the fronts earn, the offshore account's fee
@@ -30,11 +30,12 @@ const (
 	FlowTax         = "tax"         // the free corners of a city you hold (#231)
 	FlowOther       = "other"       // a card's cash, the rival's takings your enforcers boosted
 	FlowOffshore    = "offshore"    // clean cash put in the offshore account (#422): still yours, so no night's profit counts it
+	FlowDebt        = "debt"        // a connect's debt paid down on its day (#518): product bought on credit, so no night's profit counts it either
 )
 
 // FlowCats is every category in order: CashFlow.Lines holds one line
 // each, zero or not.
-var FlowCats = []string{FlowSales, FlowPurchases, FlowRoutes, FlowWages, FlowLaundering, FlowInvestments, FlowLosses, FlowTax, FlowOther, FlowOffshore}
+var FlowCats = []string{FlowSales, FlowPurchases, FlowRoutes, FlowWages, FlowLaundering, FlowInvestments, FlowLosses, FlowTax, FlowOther, FlowOffshore, FlowDebt}
 
 // FlowLine is one category of a night's flow, signed by pile.
 type FlowLine struct {
@@ -83,9 +84,11 @@ func (f CashFlow) Net() int { return f.Closing.Total() - f.Opening.Total() }
 // what went offshore (#422): money turned into stock, a front or your
 // own account is not a night's loss ("The night made -$34K" on a night
 // the street made +$23K and $51K went to the account). The lead's flow
-// line reads it (#354), and Plateau.
+// line reads it (#354), and Plateau. A debt paid down (#518) is product
+// bought on credit, apart from the purchases since and out of the
+// profit as they are.
 func (f CashFlow) Profit() int {
-	return f.Net() - f.Line(FlowPurchases).Total() - f.Line(FlowInvestments).Total() - f.Line(FlowOffshore).Total()
+	return f.Net() - f.Line(FlowPurchases).Total() - f.Line(FlowInvestments).Total() - f.Line(FlowOffshore).Total() - f.Line(FlowDebt).Total()
 }
 
 // Plateau reports whether the last week of the nights' flows made no
@@ -149,6 +152,8 @@ func FlowLabel(cat string) string {
 		return "Cards and takings"
 	case FlowOffshore:
 		return "Offshore"
+	case FlowDebt:
+		return "Debt paid" // #518: a connect's debt, apart from the night's purchases
 	}
 	return cat
 }

@@ -23,6 +23,7 @@ type AlertKind string
 // The alerts, loudest first: the order Alerts returns them in.
 const (
 	AlertArrest        AlertKind = "arrest"        // a warrant is out (#475): served on the night Due (Days, 1 tonight) on any sale, or on the heat in City (Heat) still at the arrest Line
+	AlertBroke         AlertKind = "broke"         // the run ends broke tonight (#518): nothing in stock or on the road, and Have in hand less Amount in wages and Count in debt due tonight leaves Gap, under the cheapest unit where you stand (Line)
 	AlertTalking       AlertKind = "talking"       // somebody on the payroll is talking
 	AlertPages         AlertKind = "pages"         // last night the DA's file grew Have pages with no sting, raid or investigation (#492): Level the cause (informant, retiree or tip), Count the file of Amount that indict you
 	AlertContractDue   AlertKind = "contract_due"  // Contract due Due (today or tomorrow)
@@ -31,6 +32,7 @@ const (
 	AlertTaskForce     AlertKind = "task_force"    // a task force formed this morning
 	AlertFile          AlertKind = "file"          // the DA's file is Count pages of the Amount that indict you, two or fewer short (#414)
 	AlertInvestigation AlertKind = "investigation" // the police in City are working Target (Corner, Product or House): the hit in Days
+	AlertWarMuscle     AlertKind = "war_muscle"    // an open war with Level (a faction's id) and Have enforcers on the payroll, under Amount (taken_out_muscle), with Count corners held (#520): a danger at one
 	AlertNoCorner      AlertKind = "no_corner"     // you held corners in City and hold none now (#471); Corner is a free one to post on, or ""
 	AlertFrontShut     AlertKind = "front_shut"    // Front shut for unpaid upkeep (#458): Amount the clean it was short, Have its upkeep, Days until it reopens
 	AlertFloat         AlertKind = "float"         // Have dirty under the float, Amount
@@ -60,7 +62,7 @@ const (
 // AlertKinds is every kind, loudest first: the order Alerts returns them
 // in.
 func AlertKinds() []AlertKind {
-	return []AlertKind{AlertArrest, AlertTalking, AlertPages, AlertContractDue, AlertDebtDue, AlertHeat, AlertTaskForce, AlertFile, AlertInvestigation, AlertNoCorner, AlertFrontShut, AlertFloat, AlertTill, AlertWages,
+	return []AlertKind{AlertArrest, AlertBroke, AlertTalking, AlertPages, AlertContractDue, AlertDebtDue, AlertHeat, AlertTaskForce, AlertFile, AlertInvestigation, AlertWarMuscle, AlertNoCorner, AlertFrontShut, AlertFloat, AlertTill, AlertWages,
 		AlertCrewLine, AlertSkim, AlertUnposted, AlertIdleCorner, AlertStashFull, AlertLanded, AlertScouts, AlertGate, AlertPort, AlertExports, AlertHouseKnown,
 		AlertDARace, AlertRetire, AlertFavour, AlertReign, AlertStraight, AlertVanish, AlertExposure, AlertPlan}
 }
@@ -117,6 +119,7 @@ var (
 // open on the dashboard.
 var alertActs = map[AlertKind][]Act{
 	AlertArrest:      {actDashboard},
+	AlertBroke:       {actMarket}, // the market, where a buy puts something in the stash (#518)
 	AlertTalking:     {actCrew},
 	AlertPages:       {actCrew}, // the crew screen, where i investigates (#492)
 	AlertContractDue: {{Screen: ScreenMarket, Subject: SubjectContract}},
@@ -128,6 +131,9 @@ var alertActs = map[AlertKind][]Act{
 	// corner on the map, the product on the market, the house on the
 	// ledger, each selected.
 	AlertInvestigation: {{Screen: ScreenMap, Subject: SubjectCorner}, actMarket, {Screen: ScreenLedger, Subject: SubjectHouse}},
+	// A war short of muscle (#520): the crew screen, where an enforcer
+	// is hired.
+	AlertWarMuscle: {actCrew},
 	// The last corner in a city gone (#471): the post picker on a free
 	// corner there, else the map, where the push and the deeds are.
 	AlertNoCorner:   {actCorner, {Screen: ScreenMap}},
@@ -176,17 +182,17 @@ type Alert struct {
 	House    string  `json:"house,omitempty"`    // house_known, investigation: the house's id
 	Front    string  `json:"front,omitempty"`    // front_shut: the front's id
 	Due      int     `json:"due,omitempty"`      // contract_due, debt_due: the day it is due
-	Amount   int     `json:"amount,omitempty"`   // exports: the price abroad a unit; debt_due: the debt; front_shut: the clean it was short; float: the float; wages: the wages; retire: the cash short; reign: the homage a night; stash_full: the capacity; exposure: the pile past the line tonight
-	Have     int     `json:"have,omitempty"`     // exports: a unit off the book; debt_due: the cash in hand; float, wages: the dirty cash; front_shut: its upkeep a day, clean; pages: the pages filed last night with no bust
+	Amount   int     `json:"amount,omitempty"`   // broke: tonight's wages; war_muscle: taken_out_muscle; exports: the price abroad a unit; debt_due: the debt; front_shut: the clean it was short; float: the float; wages: the wages; retire: the cash short; reign: the homage a night; stash_full: the capacity; exposure: the pile past the line tonight
+	Have     int     `json:"have,omitempty"`     // broke: the cash in hand, both piles; war_muscle: the enforcers on the payroll; file: the most pages one bust files (#519); exports: a unit off the book; debt_due: the cash in hand; float, wages: the dirty cash; front_shut: its upkeep a day, clean; pages: the pages filed last night with no bust
 	Heat     float64 `json:"heat,omitempty"`     // heat, arrest: the city's heat; exposure: what the pile adds tonight
-	Line     float64 `json:"line,omitempty"`     // heat: the Level rung's line; arrest: the arrest line; crew_line: the loyalty line
+	Line     float64 `json:"line,omitempty"`     // broke: the cheapest unit where you stand; heat: the Level rung's line; arrest: the arrest line; crew_line: the loyalty line
 	Days     int     `json:"days,omitempty"`     // front_shut: days until it reopens; da_race: days to the election; retire: quiet days short; reign: the reign's day; crew_line: days to the line at tonight's drift (0: not falling); idle_corner: days before it drifts; investigation: nights to the hit (1: tonight)
-	Count    int     `json:"count,omitempty"`    // exports: the units a night carries; file, pages: the file's pages; reign: the crews paying homage; stash_full: the units held; plan: the steps met; exposure: the loads landing; landed: the units stashed
+	Count    int     `json:"count,omitempty"`    // broke: the debt due tonight; war_muscle: the corners you hold; exports: the units a night carries; file, pages: the file's pages; reign: the crews paying homage; stash_full: the units held; plan: the steps met; exposure: the loads landing; landed: the units stashed
 	Ready    bool    `json:"ready,omitempty"`    // exports: the book owned; retire: retiring is open now; plan: the plan is done
-	Level    string  `json:"level,omitempty"`    // favour: the response due tonight; heat: the highest rung met; pages: the cause, informant | retiree | tip
+	Level    string  `json:"level,omitempty"`    // war_muscle: the faction's id; favour: the response due tonight; heat: the highest rung met; pages: the cause, informant | retiree | tip
 	Member   int     `json:"member,omitempty"`   // crew_line, unposted: the member's id
 	Cross    string  `json:"cross,omitempty"`    // crew_line: the line ahead: skim, flip (a lieutenant's) or walk; under for a lieutenant under the flip line (#497) or anyone else under the informant line (#492)
-	Gap      float64 `json:"gap,omitempty"`      // crew_line: the loyalty over the line
+	Gap      float64 `json:"gap,omitempty"`      // crew_line: the loyalty over the line; broke: the till left after tonight's debts and wages
 	Share    float64 `json:"share,omitempty"`    // port: the wholesaler's price as a share of the street's there (#476)
 	Corner   string  `json:"corner,omitempty"`   // idle_corner, investigation: the corner's id; unposted: a corner to post them on, no_corner: a free one to post on, or ""
 	Target   string  `json:"target,omitempty"`   // investigation: what is named, corner | product | house (#343)
@@ -217,6 +223,7 @@ func (s *Session) Alerts() []Alert {
 		out = append(out, Alert{Kind: AlertArrest, Key: fmt.Sprintf("warrant signed %d", w.Heat.WarrantDay), City: c.ID, Heat: c.Heat,
 			Line: s.set.Heat.ArrestLine(w, c), Due: due, Days: max(1, due-w.Day)})
 	}
+	out = append(out, s.broke()...)
 	if w.Heat.Leaks >= 2 {
 		out = append(out, Alert{Kind: AlertTalking, Key: "somebody is talking"})
 	}
@@ -254,9 +261,15 @@ func (s *Session) Alerts() []Alert {
 	}
 	// The file close to an indictment (#414): two pages short or less,
 	// the dashboard's red. Keyed by the pages, so a fast-forward stops
-	// each time the file grows and not again until it does.
-	if limit := s.set.Heat.EvidenceArrest(w); limit > 0 && w.Heat.Evidence >= limit-2 {
-		out = append(out, Alert{Kind: AlertFile, Key: fmt.Sprintf("file %d of %d", w.Heat.Evidence, limit), Count: w.Heat.Evidence, Amount: limit})
+	// each time the file grows and not again until it does. Have is the
+	// most pages one bust files (#519): a raid files two, so at two
+	// short the next bust can be the indictment with no "one more page"
+	// between, and the alert says so.
+	if limit := s.set.Heat.EvidenceArrest(w); limit > 0 {
+		most := s.set.Heat.MostPages(w)
+		if w.Heat.Evidence >= limit-max(2, most) {
+			out = append(out, Alert{Kind: AlertFile, Key: fmt.Sprintf("file %d of %d", w.Heat.Evidence, limit), Count: w.Heat.Evidence, Amount: limit, Have: most})
+		}
 	}
 	if inv := w.Heat.Investigation; inv.Open() {
 		// Keyed by the investigation (#343): a fast-forward stops the
@@ -275,6 +288,7 @@ func (s *Session) Alerts() []Alert {
 		}
 		out = append(out, a)
 	}
+	out = append(out, s.warMuscle()...)
 	out = append(out, s.noCorners()...)
 	// A front shut for its upkeep (#458): the laundering sim keeps what
 	// the clean pile lacked on the front while it is shut. Keyed by the
@@ -381,6 +395,87 @@ func (s *Session) pages() []Alert {
 		Count: s.w.Heat.Evidence, Amount: s.set.Heat.EvidenceArrest(s.w)}}
 }
 
+// broke is the run ending broke tonight (#518): the crew sim ends it
+// the night the wages leave nothing in stock or on the road and the
+// till, both piles, under the cheapest unit where you stand
+// (crew.Sim.BrokeLine). Three runs in a playtest ended so on days 1, 10
+// and 12 with nothing said the night before but the wages alert, which
+// fires only when the dirty cash is short of them. It reads the night
+// as the sims step it: the debts due tonight come first (the market
+// collects them, dirty then clean), then the loads landing, then the
+// wages out of what dirty is left. Keyed once, so a fast-forward stops
+// on it the morning it first reads so, and FastForward will not start a
+// night with it standing (Holds). No dice.
+func (s *Session) broke() []Alert {
+	w := s.w
+	if w.Over != nil || w.TotalStock() > 0 {
+		return nil
+	}
+	line := s.set.Crew.BrokeLine(w)
+	if line <= 0 {
+		return nil
+	}
+	fc := forecast(w, s.Rules())
+	debt := 0
+	for _, sup := range w.Suppliers {
+		if sup.Debt > 0 && sup.DebtDue <= w.Day+1 {
+			debt += sup.Debt
+		}
+	}
+	dirty, clean := w.Player.DirtyCash, w.Player.CleanCash
+	fromDirty := min(debt, dirty)
+	dirty -= fromDirty
+	clean -= min(debt-fromDirty, clean)
+	dirty += fc.Landings
+	dirty -= min(fc.Wages, dirty)
+	if float64(dirty+clean) >= line {
+		return nil
+	}
+	return []Alert{{Kind: AlertBroke, Key: "broke tonight", Amount: fc.Wages, Have: w.Cash(), Count: debt, Line: line, Gap: float64(dirty + clean)}}
+}
+
+// warMuscle is an open war with fewer enforcers on the payroll than
+// rivals.toml [endings] taken_out_muscle (#520): a war you declared, or
+// one over war_threshold, whose push on your last corner ends the run
+// taken out (rivals.Sim.endings). One a faction while it lasts, keyed
+// by the faction, and keyed again, a danger, the morning your held
+// corners are down to one: a playtest fought six wars with no enforcer
+// and nothing said so but the declaration dialog. No dice.
+func (s *Session) warMuscle() []Alert {
+	w := s.w
+	need := s.cfg.Rivals.Endings.TakenOutMuscle
+	have := w.Crew.OnPayroll(game.RoleEnforcer)
+	held := w.Held()
+	if need <= 0 || have >= need || held == 0 {
+		return nil
+	}
+	var out []Alert
+	for _, r := range w.Rivals {
+		if r == nil || !r.Alive() || (r.War < s.cfg.Rivals.Rivals.WarThreshold && !w.AtWarWith(r)) {
+			continue
+		}
+		key := "war short of muscle on " + r.Faction()
+		if held <= 1 {
+			key += " at the last corner"
+		}
+		out = append(out, Alert{Kind: AlertWarMuscle, Key: key, Level: r.Faction(), Have: have, Amount: need, Count: held})
+	}
+	return out
+}
+
+// Holds is the alert that keeps a fast-forward from starting a night
+// (#518, #519), or nil: a warrant out, or the run ending broke tonight.
+// Each ends the run on a night the player could have spent otherwise,
+// so F waits for a day ended by hand.
+func (s *Session) Holds() *Alert {
+	for _, a := range s.Alerts() {
+		if a.Kind == AlertArrest || a.Kind == AlertBroke {
+			return &a
+		}
+	}
+	return nil
+}
+
 // The pages' causes (#492), the most telling first.
 const (
 	PagesInformant = "informant" // somebody on the payroll is talking
@@ -393,24 +488,29 @@ const (
 // nothing (a buy over the room is refused, a supply contract short of
 // room runs past, a landing waits). They stand on the dashboard and
 // never stop a fast-forward: a playtest's F stopped about every 1.3
-// days mid-game on them, and a danger stop looked like one.
-var noticeKinds = map[AlertKind]bool{AlertTill: true, AlertFloat: true, AlertGate: true, AlertStashFull: true}
+// days mid-game on them, and a danger stop looked like one. The DA
+// race taking money is one too (#519): the ledger says so every
+// morning of the campaign.
+var noticeKinds = map[AlertKind]bool{AlertTill: true, AlertFloat: true, AlertGate: true, AlertStashFull: true, AlertDARace: true}
 
 // Notice reports whether the alert needs no action and so never stops
 // a fast-forward (#504, docs/engine.md).
 func (a Alert) Notice() bool { return noticeKinds[a.Kind] }
 
 // Danger reports whether the alert is one the run can end on soon
-// (#504): a warrant, somebody talking, pages with no bust, a task
-// force, the file near an indictment, an investigation, a member under
-// the informant line. A front end words and styles a danger stop apart
-// from the rest, with its numbers.
+// (#504): a warrant, the run broke tonight (#518), somebody talking,
+// pages with no bust, a task force, the file near an indictment, an
+// investigation, a member under the informant line, a war short of
+// muscle on your last corner (#520). A front end words and styles a
+// danger stop apart from the rest, with its numbers.
 func (a Alert) Danger() bool {
 	switch a.Kind {
-	case AlertArrest, AlertTalking, AlertPages, AlertTaskForce, AlertFile, AlertInvestigation:
+	case AlertArrest, AlertBroke, AlertTalking, AlertPages, AlertTaskForce, AlertFile, AlertInvestigation:
 		return true
 	case AlertCrewLine:
 		return a.Cross == "under"
+	case AlertWarMuscle:
+		return a.Count <= 1
 	}
 	return false
 }

@@ -66,7 +66,7 @@ func TestWarWarnsShortOfMuscle(t *testing.T) {
 		m.w.Crew.NextID = id
 		m.w.Crew.Members = append(m.w.Crew.Members, game.CrewMember{ID: id, Name: "Muscle", Role: game.RoleEnforcer, Skill: 50, Loyalty: 80, Nerve: 50, Wage: 50})
 	}
-	const warn = "a war you lose ends the run"
+	const warn = takenOutWords + " ends the run"
 	if line := m.warMuscleLine(); line != "" {
 		t.Fatalf("with %d enforcers: %q", enforcers(), line)
 	}
@@ -88,7 +88,7 @@ func TestWarWarnsShortOfMuscle(t *testing.T) {
 		t.Fatalf("short of muscle: %q", line)
 	}
 	m.Update(key("8"))
-	if !strings.Contains(stripANSI(m.warConfirm()), warn) {
+	if !strings.Contains(collapse(strings.ReplaceAll(stripANSI(m.warConfirm()), "║", "")), warn) {
 		t.Fatalf("the declaration does not warn:\n%s", stripANSI(m.warConfirm()))
 	}
 	m.w.War = m.faction().Faction()

@@ -155,6 +155,12 @@ func (s *Sim) broke(n *night) bool {
 	return false
 }
 
+// BrokeLine is the till under which, with nothing in stock or on the
+// road, the night's broke check ends the run (#518): the cheapest unit
+// where the player stands, 0 with nothing listed. The engine's broke
+// alert reads it the morning before.
+func (s *Sim) BrokeLine(w *game.World) float64 { return cheapestUnit(w) }
+
 // cheapestUnit is the lowest supplier price where the player is.
 func cheapestUnit(w *game.World) float64 {
 	price := math.Inf(1)

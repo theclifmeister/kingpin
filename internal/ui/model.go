@@ -395,6 +395,11 @@ func (m *Model) morning(evs []events.Event) {
 	if m.talking() {
 		m.alarm("Somebody is talking. Investigate " + screenPointer(screenCrew) + ".")
 	}
+	if as := m.sess.Alerts(); len(as) > 0 && as[0].Danger() {
+		// The loudest danger (#519: a warrant) is the one the ALERTS
+		// cursor sits on, not the line the last morning left it on.
+		m.alertCursor = 0
+	}
 	m.showStage()
 }
 

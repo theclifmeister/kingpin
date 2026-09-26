@@ -75,6 +75,7 @@ func templateKeys(cfg *content.Config) map[string][]string {
 		"CornerTaken":         {"CornerTaken", "CornerHanded", "RivalClaimed"},
 		"CornerStruck":        {"CornerStruckTaken", "CornerStruckHeld", "RivalRouted"}, // the war order (#229)
 		"WarEscalated":        {"WarOpen", "WarCrackdown"},
+		"WarEnded":            {"WarEnded", "WarLost"},              // a war lost with the last corner (#520)
 		"RivalBoosted":        {"RivalBoosted", "RivalBoostedHeld"}, // #70
 		"FactionPushed":       {"FactionPushed", "FactionTook"},     // #43
 		"RivalAbsorbed":       {"RivalAbsorbed", "RivalScattered"},

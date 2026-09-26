@@ -175,7 +175,7 @@ func (w *World) CallOffWar() error {
 	if w.War == "" {
 		return ErrNoWar
 	}
-	w.War = ""
+	w.Today.CalledOff, w.War = w.War, ""
 	return nil
 }
 

@@ -87,6 +87,10 @@ func (m *Model) alertOf(a engine.Alert) alert {
 		text = theme.Bad.Bold(true).Render("Warrant signed: sell nothing and lie low, or you are arrested "+when+".") +
 			theme.Bad.Render(fmt.Sprintf(" Heat %.0f in %s met the arrest line (%.0f); it is served on any sale, or if the heat still holds at the line.", a.Heat, w.CityName(a.City), a.Line))
 		why = fmt.Sprintf("a warrant for your arrest, served %s on any sale (heat %.0f in %s, the line %.0f)", when, a.Heat, w.CityName(a.City), a.Line) // a danger with its numbers (#504)
+	case engine.AlertBroke:
+		text, why = brokeAlert(a)
+	case engine.AlertWarMuscle:
+		text, why = m.warMuscleAlert(a)
 	case engine.AlertHeat:
 		line := a.Level
 		if line == "" {
@@ -101,7 +105,7 @@ func (m *Model) alertOf(a engine.Alert) alert {
 		// takes pages off it; #492: how close, in the stop too, and that
 		// it is one file for every city. The count leads: the pane cuts
 		// an alert to one line.
-		why = fileClose(a.Count, a.Amount)
+		why = fileClose(a.Count, a.Amount) + fileBust(a.Count, a.Amount, a.Have)
 		text = theme.Bad.Bold(true).Render(capitalize(why)+".") +
 			theme.Bad.Render(fileEvery(w)+" Stings, raids, working a corner yourself and anyone talking add pages; lie low, and the Legal upgrades "+screenPointer(screenUpgrades)+" take them off.")
 	case engine.AlertPages:
@@ -272,6 +276,55 @@ func (m *Model) exportsAlert(a engine.Alert) string {
 	return theme.Gold.Render(lead + facts + ". " + do + ".")
 }
 
+// fileBust is what the next bust can do to a file close to the end
+// (#519): `, and one bust can file 2`, when the most pages one bust
+// files (engine.Alert.Have on the file alert) would take the file past
+// the line from where it stands with more than one page to go, since a
+// raid took a playtest's file from 4/6 to 6/6 with no "one more page"
+// between; "" otherwise.
+func fileBust(pages, limit, most int) string {
+	if left := limit - pages; limit > 0 && left > 1 && most >= left {
+		return fmt.Sprintf(", and one bust can file %d", most)
+	}
+	return ""
+}
+
+// brokeAlert words the run ending broke tonight (#518): `Broke tonight:
+// $224 in hand, $221 in wages, $3 left, under the cheapest unit ($40),
+// with nothing in stock or on the road. Buy something, or cut the pay
+// on the crew screen (4).`, the figures first because the pane cuts an
+// alert to one line.
+func brokeAlert(a engine.Alert) (text, why string) {
+	left := max(0, int(a.Gap))
+	debt := ""
+	if a.Count > 0 {
+		debt = fmt.Sprintf(", %s in debt due", money(a.Count))
+	}
+	figures := fmt.Sprintf("%s in hand, %s in wages%s: %s left, under the cheapest unit here (%s), with nothing in stock or on the road", money(a.Have), money(a.Amount), debt, money(left), money(int(math.Ceil(a.Line))))
+	text = theme.Bad.Bold(true).Render("The run ends broke tonight: ") + theme.Bad.Render(figures+". Buy something "+screenPointer(screenMarket)+", or cut the pay or the crew "+screenPointer(screenCrew)+".")
+	why = "the run ends broke tonight: " + figures
+	return text, why
+}
+
+// warMuscleAlert words a war short of muscle (#520): `War on Lena's
+// crew with 0 of 2 enforcers: if they take your last corner the run
+// ends taken out. Hire muscle on the crew screen (4).`, red once one
+// corner is left.
+func (m *Model) warMuscleAlert(a engine.Alert) (text, why string) {
+	who := "a faction"
+	if r := m.w.Faction(a.Level); r != nil {
+		who = m.rivalName(r)
+	}
+	facts := fmt.Sprintf("war on %s with %d of %s on the payroll", who, a.Have, plural(a.Amount, "enforcer"))
+	style := theme.Warning
+	if a.Count <= 1 {
+		style = theme.Bad
+		facts += ", one corner left"
+	}
+	text = style.Render(capitalize(facts) + ": if the crew you are at war with takes your last corner, the run ends taken out. Hire muscle " + screenPointer(screenCrew) + ".")
+	return text, facts
+}
+
 // fileClose is how close the DA's file is (#492): `file 5/6: one more
 // page is an indictment`, `file 3/6: 3 pages from an indictment`; the
 // count leads, as the pane cuts an alert to one line.
@@ -325,6 +378,13 @@ func pagesAlert(a engine.Alert) (text, why string) {
 	return text, why
 }
 
+// loyaltyShown is a member's loyalty as every screen prints it (#520):
+// rounded down, so a member the crew sim reads under a line (Loyalty <
+// line) never shows at it. A playtest's roster showed Yaya at 30,
+// "turns under 30", while the stop said she was under the 30 line: she
+// was at 29.6.
+func loyaltyShown(v float64) float64 { return math.Floor(v) }
+
 // crossWords are what crossing each of the crew's loyalty lines is
 // called in an alert: the skim, a lieutenant's flip, the walk.
 var crossWords = map[string]string{"skim": "skimming", "flip": "turning", "walk": "walking"}
@@ -340,10 +400,15 @@ func (m *Model) crewLineAlert(a engine.Alert) (text, why string) {
 	}
 	if a.Cross == "under" {
 		why = fmt.Sprintf("%s under the %.0f line", name, a.Line)
+		if c := m.w.Crew.Member(a.Member); c != nil {
+			// The loyalty as the roster shows it (#520: loyaltyShown),
+			// so a lieutenant at 29.6 reads 29 in both places.
+			why = fmt.Sprintf("%s at %.0f loyalty, under the %.0f line", name, loyaltyShown(c.Loyalty), a.Line)
+		}
 		if c := m.w.Crew.Member(a.Member); c != nil && !c.Lieutenant() {
 			// Anyone else under the informant line (#492): at little
 			// nerve they may be talking already.
-			why = fmt.Sprintf("%s at %.0f loyalty, under the informant line (%.0f)", name, c.Loyalty, a.Line)
+			why = fmt.Sprintf("%s at %.0f loyalty, under the informant line (%.0f)", name, loyaltyShown(c.Loyalty), a.Line)
 			return theme.Bad.Render(fmt.Sprintf("%s is under %.0f loyalty: that low, a member with little nerve talks to the police. Pay them off, or investigate (i) %s.", name, a.Line, screenPointer(screenCrew))), why
 		}
 		// A lieutenant under the flip line (#497): talking, or about to.

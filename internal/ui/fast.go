@@ -2,7 +2,6 @@ package ui
 
 import (
 	"fmt"
-	"strings"
 
 	tea "github.com/charmbracelet/bubbletea"
 
@@ -42,7 +41,25 @@ func (m *Model) askFast() {
 	if m.w.Over != nil {
 		return
 	}
+	if m.fastHeld() {
+		return
+	}
 	m.openAmount(modeConfirmFast, fmt.Sprintf("blank = %d", fastDays), fastDaysMax, false, "")
+}
+
+// fastHeld refuses F, in red and with the alert's own numbers, while a
+// night stands that ends the run (engine.Session.Holds, #518, #519: a
+// warrant out, the run broke tonight), and reports whether it did: a
+// playtest's F offered "Run up to 7 days" on the warrant's morning and
+// the first night was the arrest. The day is ended by hand, where the
+// END THE DAY? modal lists the alert first.
+func (m *Model) fastHeld() bool {
+	a := m.sess.Holds()
+	if a == nil {
+		return false
+	}
+	m.alarm("F will not run tonight: " + m.alertOf(*a).why + ". Deal with it, or end the day with enter.")
+	return true
 }
 
 // fastCap is the cap the field reads: fastDays for a blank, an error for
@@ -106,6 +123,9 @@ func (m *Model) fastForward(days int) {
 	m.mode = modePlay
 	if m.w.Over != nil {
 		m.finish(false)
+		return
+	}
+	if m.fastHeld() {
 		return
 	}
 	ran, stop, evs := m.sess.FastForward(days, m.dayEnded)
@@ -183,8 +203,10 @@ func (m *Model) stopEvent(e events.Event) string {
 		return "the feds took " + ev.Name
 	case events.TunnelFound:
 		return "the tunnel was found"
-	case events.Unlocked:
-		return unlockStop(ev)
+	case events.CrewPaid:
+		return fmt.Sprintf("payroll missed, %s short: the crew's loyalty falls", money(ev.Short)) // #518
+	case events.QuietBroken:
+		return m.quietStop(ev)
 	case events.ReignBegan:
 		return "the city is yours" // the reign (#227)
 	case events.ReignBroken:
@@ -204,7 +226,11 @@ func (m *Model) stopEvent(e events.Event) string {
 	case events.CornerStruck:
 		return "the strike on " + ev.Name
 	case events.WarEnded:
-		return "the war on " + ev.Rival + "'s crew is over"
+		s := "the war on " + ev.Rival + "'s crew is over"
+		if ev.Why != "" {
+			s += ": " + ev.Why // #520: the reason
+		}
+		return s
 	case events.RivalBoosted:
 		return "the boost on " + ev.Name + " failed"
 	case events.RivalRaided:
@@ -254,8 +280,6 @@ func (m *Model) stopEvent(e events.Event) string {
 		return ev.Rival + " broke " + format.A(ev.Deal)
 	case events.ContractOffered:
 		return ev.Name + " is asking"
-	case events.PressureShifted:
-		return "pressure up in " + w.CityName(ev.City)
 	case events.ChiefReplaced:
 		return "a new chief"
 	case events.DAElected:
@@ -288,21 +312,12 @@ func (m *Model) stopEvent(e events.Event) string {
 // stopLine is the report's first line after a fast-forward, or "".
 func (m *Model) stopLine() string { return m.fastStop }
 
-// unlockStop is why a gate crossed stops a fast-forward, by its gate:
-// `the Laundromat is open to you`, `Heroin is on offer`, `the Dutchman
-// deals with you`, `lieutenants want work`.
-func unlockStop(ev events.Unlocked) string {
-	switch ev.Gate {
-	case "front":
-		return "the " + ev.Name + " is open to you"
-	case "product":
-		return ev.Name + " is on offer"
-	case "connect":
-		return ev.Name + " deals with you"
-	case "role":
-		return strings.ToLower(ev.Name) + " want work"
-	case "asset":
-		return ev.Name + " is for sale"
+// quietStop is why a quiet streak lost stops a fast-forward (#519):
+// `the quiet streak (9 days) was reset by a sting in Eastside`.
+func (m *Model) quietStop(ev events.QuietBroken) string {
+	s := fmt.Sprintf("the quiet streak (%s) was reset", plural(ev.Days, "day"))
+	if why := m.quietCause(ev); why != "" {
+		s += " by " + why
 	}
-	return ev.Name + " is open to you"
+	return s
 }

@@ -46,8 +46,9 @@ import (
 // 19 rules.rivals.down, what keeps a faction off the crown's count (#472);
 // 20 set_sweep and stop_sweep, the nightly sweep offshore (#478);
 // 21 set_till and rules.laundering.till and line, the wash's line
-// (#496); place_standing's -1, the whole stash (#503).
-const Version = 21
+// (#496); place_standing's -1, the whole stash (#503); 22 holds, the
+// night F will not run (a warrant out, the run broke tonight, #518, #519).
+const Version = 22
 
 // The error codes: JSON-RPC 2.0's, and the game's own in its
 // server-error range.

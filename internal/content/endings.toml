@@ -61,7 +61,7 @@ scene = "the car door shuts"
 cause = "broke"
 title = "BROKE"
 won = false
-epilogue = "The till is empty and the stash is bare. Nobody in {{.City}} will front you a lot, and the crew has heard. You walk out with the clothes you stand in."
+epilogue = "The till is empty and the stash is bare: the wages took the last of it, with nothing in stock or on the road to sell. Whatever a connect would still have fronted you, the crew has heard. You walk out with the clothes you stand in."
 scene = "the till is empty"
 
 [[ending]]

@@ -36,9 +36,10 @@ func unlockAlert(m *Model, key string) *alert {
 	return nil
 }
 
-// F stops on the morning the laundromat opens, with the report opening
-// on `the Laundromat is open to you`, and on the rival moving in.
-func TestFastForwardStopsOnAnUnlock(t *testing.T) {
+// F runs past the morning the laundromat opens (#519: a gate crossed is
+// a notice, and notices never stop), the report's UNLOCKED section
+// saying it that morning; and it stops on the rival moving in.
+func TestFastForwardRunsPastAnUnlock(t *testing.T) {
 	m := newTestModel(t, 80, 24)
 	m.startRun(5) // a seed whose first week is quiet
 	o := laundromat(t, m)
@@ -52,12 +53,8 @@ func TestFastForwardStopsOnAnUnlock(t *testing.T) {
 		t.Fatalf("the laundromat is open at peak %d: %+v", m.w.Stats.PeakCash, m.w.Laundering)
 	}
 	m.w.Player.DirtyCash = o.UnlockCash + 1_000 // the clock stamps the peak tonight
-	day := m.w.Day
-	fast(t, m, 30)
-	if m.w.Day != day+1 {
-		t.Fatalf("F ran from day %d to %d: %q", day, m.w.Day, m.fastStop)
-	}
-	if got := reportLine(t, m); got != "Stopped after 1 day: the Laundromat is open to you." {
+	fast(t, m, 1)
+	if got := reportLine(t, m); got != "Stopped after 1 day: the cap." {
 		t.Fatalf("the report opens with %q", got)
 	}
 	if !m.w.Laundering.Offered["laundromat"] || o.Locked(m.w) {
@@ -139,11 +136,12 @@ func TestUnlockAlerts(t *testing.T) {
 		t.Fatalf("stopped again for the alert: %q", m.fastStop)
 	}
 	closeMorning(t, m)
-	// The gate fires: the alert goes and the unlock stops F.
+	// The gate fires: the alert goes, and the unlock is a notice that
+	// does not stop F (#519).
 	m.w.Player.DirtyCash = o.UnlockCash + 1
-	fast(t, m, 30)
-	if m.fastStop != "Stopped after 1 day: the Laundromat is open to you." {
-		t.Fatalf("on the morning it opened: %q", m.fastStop)
+	fast(t, m, 1)
+	if strings.Contains(m.fastStop, "Laundromat") || !m.w.Laundering.Offered["laundromat"] {
+		t.Fatalf("on the morning it opened: %q, offered %v", m.fastStop, m.w.Laundering.Offered)
 	}
 	if a := unlockAlert(m, key); a != nil {
 		t.Fatalf("the alert is still up after the gate fired: %+v", a)

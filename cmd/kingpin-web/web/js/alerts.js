@@ -47,6 +47,10 @@ const PAGES = {
 export const WORDS = {
   arrest: (v, a) =>
     `Warrant signed: sell nothing and lie low, or you are arrested ${n(a.days) <= 1 ? "tonight" : `in ${plural(n(a.days), "night")}`}. Heat ${Math.round(n(a.heat))} in ${cityName(v, a.city)} met the arrest line (${Math.round(n(a.line))}); it is served on any sale, or if the heat still holds at the line.`,
+  broke: (v, a) =>
+    `The run ends broke tonight: ${money(n(a.have))} in hand, ${money(n(a.amount))} in wages${n(a.count) ? `, ${money(n(a.count))} in debt due` : ""}: ${money(Math.max(0, n(a.gap)))} left, under the cheapest unit here (${money(Math.ceil(n(a.line)))}), with nothing in stock or on the road. Buy something, or cut the pay or the crew.`,
+  war_muscle: (v, a) =>
+    `War on ${(byId(v.factions, a.level) || { leader: "a faction" }).leader}'s crew with ${n(a.have)} of ${plural(n(a.amount), "enforcer")} on the payroll${n(a.count) <= 1 ? ", one corner left" : ""}: if the crew you are at war with takes your last corner, the run ends taken out.`,
   talking: () => "Somebody on the payroll is talking.",
   pages: (v, a) =>
     `No bust, and the DA's file grew ${plural(n(a.have), "page")}: ${PAGES[a.level] || "somebody talked"}. ${fileClose(a)}.`,

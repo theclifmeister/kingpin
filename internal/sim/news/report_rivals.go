@@ -84,7 +84,15 @@ func (r *reporter) reportRivals(e events.Event) bool {
 		d := base
 		d.Rival = ev.Rival
 		d = r.crew(d, ev.Rival)
-		r.add("rivals", "WarEnded", d)
+		switch {
+		case ev.Called:
+			// Your own word (#520): the report says it, the paper does
+			// not, and no template is drawn.
+		case ev.Lost:
+			r.add("rivals", "WarLost", d) // #520: the same number of templates, so the same draw
+		default:
+			r.add("rivals", "WarEnded", d)
+		}
 		rep.Territory = append(rep.Territory, fmt.Sprintf("The war on %s's crew is over: %s. The enforcers stand down.", ev.Rival, ev.Why))
 	case events.RivalTippedPolice:
 		d := base

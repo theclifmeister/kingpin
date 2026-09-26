@@ -107,7 +107,7 @@ func TestLieutenantUnderTheFlipLineWords(t *testing.T) {
 	if !strings.HasPrefix(got, "Wally is under 30 loyalty: a lieutenant that low talks to the police") || !strings.Contains(got, screenPointer(screenCrew)) {
 		t.Errorf("the alert reads %q", got)
 	}
-	if lines[0].why != "Wally under the 30 line" {
+	if lines[0].why != "Wally at 29 loyalty, under the 30 line" { // the loyalty as the roster shows it (#520)
 		t.Errorf("the stop reads %q", lines[0].why)
 	}
 }

@@ -71,7 +71,35 @@ func (m *Model) fireConfirm() string {
 	if c := m.w.Crew.Member(m.subjectID); c != nil {
 		name = c.Name
 	}
-	return m.modal("FIRE "+name+"?", []string{"No severance in this business. The rest of the crew", "will take it personally."}, m.modalFooter())
+	body := []string{"No severance in this business. The rest of the crew", "will take it personally."}
+	if line := m.fireWarLine(); line != "" {
+		body = append(body, "")
+		body = append(body, m.wrapLines(theme.Bad.Render(line))...)
+	}
+	return m.modal("FIRE "+name+"?", body, m.modalFooter())
+}
+
+// fireWarLine is the taken-out warning on the fire confirmation (#520):
+// an enforcer let go while a war is open, taking the payroll under
+// rivals.toml [endings] taken_out_muscle, is the crew you are at war
+// with taking your last corner ending the run; "" otherwise. A playtest
+// fired the only enforcer mid-war on "No severance in this business".
+func (m *Model) fireWarLine() string {
+	c := m.w.Crew.Member(m.subjectID)
+	need := m.cfg.Rivals.Endings.TakenOutMuscle
+	if c == nil || c.Role != game.RoleEnforcer || need <= 0 {
+		return ""
+	}
+	left := m.w.Crew.OnPayroll(game.RoleEnforcer) - 1
+	if left >= need {
+		return ""
+	}
+	for _, r := range m.w.Rivals {
+		if r != nil && r.Alive() && (m.w.AtWarWith(r) || r.War >= m.cfg.Rivals.Rivals.WarThreshold) {
+			return fmt.Sprintf("At war with %s, this leaves %d of %s: if they take your last corner, the run ends taken out.", m.rivalName(r), left, plural(need, "enforcer"))
+		}
+	}
+	return ""
 }
 
 func (m *Model) confirmFire() {
@@ -342,7 +370,7 @@ func (m *Model) viewCrew() string {
 		if c.Age > 0 {
 			age = c.Age
 		}
-		return []any{name, c.Role, c.Skill, age, styled{loyaltyStyle(c.Loyalty, m.crewLine(c)), gauge{c.Loyalty / 100, marks, c.Loyalty}}, m.rules.Crew.WageAt(w, c, pay), carry}
+		return []any{name, c.Role, c.Skill, age, styled{loyaltyStyle(c.Loyalty, m.crewLine(c)), gauge{c.Loyalty / 100, marks, loyaltyShown(c.Loyalty)}}, m.rules.Crew.WageAt(w, c, pay), carry}
 	}
 	shared := []col{{"name", kText, 0}, {"role", kText, 0}, {"skill", kInt, 0}, {"age", kInt, 0}, {"loyalty", kBar, 10}, {"wage", kMoney, 0}, {"carry", kInt, 0}}
 
@@ -468,7 +496,7 @@ func (m *Model) personLines(c game.CrewMember, onPayroll bool) []string {
 	line := m.crewLine(c)
 	lines := []string{
 		first,
-		row("loyalty", barText(c.Loyalty/100, 10, []float64{line / 100}, fmt.Sprintf(" %.0f", c.Loyalty), loyaltyStyle(c.Loyalty, line))),
+		row("loyalty", barText(c.Loyalty/100, 10, []float64{line / 100}, fmt.Sprintf(" %.0f", loyaltyShown(c.Loyalty)), loyaltyStyle(c.Loyalty, line))),
 	}
 	if c.Lieutenant() {
 		lines = append(lines, sub(fmt.Sprintf("  turns under %.0f · walks at %.0f", line, tun.QuitThreshold)))

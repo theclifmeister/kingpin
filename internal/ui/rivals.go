@@ -554,8 +554,17 @@ func (m *Model) warMuscleLine() string {
 	if need <= 0 || m.w.Crew.OnPayroll(game.RoleEnforcer) >= need {
 		return ""
 	}
-	return fmt.Sprintf("With fewer than %s a war you lose ends the run.", plural(need, "enforcer"))
+	return fmt.Sprintf("With fewer than %s on the payroll, %s ends the run.", plural(need, "enforcer"), takenOutWords)
 }
+
+// takenOutWords is which corner loss ends the run taken out (#520), as
+// the declaration, the WORDS entry and the README say it: rivals.Sim's
+// endings end it only on the last corner you hold anywhere, taken that
+// night by a faction whose war with you is open (the one you declared
+// on, or one over war_threshold), with the enforcers under
+// taken_out_muscle. A playtest lost its last corner to a third crew
+// mid-war and played on, where the dialog had said "a war you lose".
+const takenOutWords = "your last corner, taken by the crew you are at war with,"
 
 // confirmWar declares it.
 func (m *Model) confirmWar() {
