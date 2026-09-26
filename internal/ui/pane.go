@@ -28,6 +28,13 @@ const (
 type section struct {
 	title string
 	lines []string
+	// keep is the lines trimSections leaves the section however short
+	// the room (#534: the dashboard's ALERTS went under the CART at
+	// 100x30), and fit, where set, is the section redrawn in n lines,
+	// saying itself what it left out (ALERTS: `+3 more (space)` in its
+	// title), in place of the cut's `…`.
+	keep int
+	fit  func(n int) section
 }
 
 // row is a section line with the label left and the value after it.
@@ -150,12 +157,16 @@ func (m *Model) keyLines(keys []binding, textW int, accent lipgloss.Color) []str
 
 // trimSections cuts the sections to room lines (a title, its lines, and
 // a blank between sections each count one): from the bottom of the
-// lowest section first, each cut section ending in `…`, a section with
-// nothing left but its title going whole.
+// lowest section first, each cut section ending in `…` (or redrawn to
+// fit, where it says what it left out itself), a section with nothing
+// left but its title going whole. A section at its keep is passed over
+// and the one above it cut instead (#534), so the dashboard's ALERTS
+// keeps its loudest line under a long CART.
 func trimSections(secs []section, room int) []section {
 	out := make([]section, len(secs))
 	for i, s := range secs {
-		out[i] = section{s.title, append([]string(nil), s.lines...)}
+		out[i] = s
+		out[i].lines = append([]string(nil), s.lines...)
 	}
 	height := func() int {
 		n := 0
@@ -170,15 +181,25 @@ func trimSections(secs []section, room int) []section {
 	cut := map[int]bool{}
 	for len(out) > 0 && height() > room {
 		i := len(out) - 1
+		for i > 0 && out[i].keep > 0 && len(out[i].lines) <= out[i].keep {
+			i--
+		}
 		s := &out[i]
 		switch {
-		case !cut[i] && len(s.lines) > 0:
+		case s.keep > 0 && len(s.lines) <= s.keep:
+			return out // every section at its keep: the room is too small for them
+		case s.fit != nil && len(s.lines) > max(1, s.keep):
+			f := s.fit(len(s.lines) - 1)
+			f.keep, f.fit = s.keep, s.fit
+			*s = f
+		case !cut[i] && len(s.lines) > 0 && s.keep == 0:
 			cut[i] = true
 			s.lines[len(s.lines)-1] = theme.Subtle.Render("…")
-		case len(s.lines) > 1:
+		case len(s.lines) > max(1, s.keep):
 			s.lines = append(s.lines[:len(s.lines)-2], theme.Subtle.Render("…"))
 		default:
-			out = out[:i]
+			out = append(out[:i], out[i+1:]...)
+			delete(cut, i)
 		}
 	}
 	return out

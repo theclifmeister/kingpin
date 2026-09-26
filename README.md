@@ -195,9 +195,12 @@ simply works wherever you are.
 ## Screens
 
 1. **Dashboard** — your stock, orders, corners and crew, with cash, heat,
-   the law and the rivals below. Start here each morning. Details carries
-   the alerts, the selected product's sale estimate and, under YOUR
-   NAME, what your reputation is doing in words. `l` lies low, `F`
+   the law and the rivals below. Start here each morning. ALERTS lists
+   what needs you, the dangers first; where they do not all fit, its
+   title counts the rest (`ALERTS · +3 more (space)`) and `space` opens
+   every one whole. `[`/`]` picks one and `o` goes where it is answered.
+   Details carries the alerts, the selected product's sale estimate and,
+   under YOUR NAME, what your reputation is doing in words. `l` lies low, `F`
    fast-forwards, `w` walks away from the run, `a` opens the ambitions
    (the endings as plans, how far along each is), `i` opens the file on
    the chief.
@@ -226,7 +229,9 @@ simply works wherever you are.
    through the wash, and where you invest it, reserve it, bribe with it,
    give it away and call in the favour a bought chief owes you. `d`
    turns the launder dial up a notch (careful, normal, greedy) and `D`
-   back one.
+   back one. In the weeks before the DA's vote a DA RACE block names the
+   day, who sits, the odds and what your clean cash behind a ticket buys
+   (`f`, the fund dialog's second page).
 8. **Rivals** — the leader, trust, war, the table of factions (`[`/`]`
    turns it), deals and offers, and what keeps each crew off the
    crown's count (`run out 3d ago; gone in 27d unless it claims
@@ -260,7 +265,7 @@ The dashboard at 80x24, with the details strip above the status bar:
 │ patrol 40 · sting 58     ││ peak   $700K        ││ pressure ░░░░░░░░ 2       │
 │ raid 75 · arrest 95      ││ Bayport heat 0      ││ Mona · 1 corner           │
 ╰──────────────────────────╯╰─────────────────────╯╰───────────────────────────╯
-╭─ ALERTS ─────────────────────────────────────────────────────────────────────╮
+╭─ ALERTS · +3 more (space) ───────────────────────────────────────────────────╮
 │ ▸ War on Mona's crew with 1 of 2 enforcers on the payroll: if the crew you … │
 ╰──────────────────────────────────────────────────────────────────────────────╯
 ▸ CART · buying 1 line, $895 · 1 by contract this morning · selling 1 l…  ␣ more
@@ -459,7 +464,7 @@ The full table is below; `?` brings it up in the game.
 | `ctrl+s` | save | save now; the end of the day saves too | everywhere |
 | `N` | new run | start over, after a confirmation | everywhere |
 | `q` | menu | save and go back to the start menu | everywhere |
-| `[ ]` | alert | pick an alert in ALERTS | dashboard |
+| `[ ]` | alert | pick an alert; space shows every one whole | dashboard |
 | `c` | cart | the day's cart: edit its buys and orders | dashboard, market |
 | `w` | walk away | retire, vanish, or take the crown | dashboard |
 | `a` | ambitions | the endings as plans and how far each is | dashboard |

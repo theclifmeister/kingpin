@@ -448,8 +448,15 @@ func swingWords(swing float64) string {
 	return fmt.Sprintf("%.1f points", swing*100)
 }
 
-// electionLine is the report's line on a DA election.
+// electionLine is the report's line on a DA election, named as the
+// dashboard's alert and the ledger's block name it (#534: a playtest
+// watched "the DA race" for weeks and never read how it came out).
 func electionLine(ev events.DAElected) string {
+	return "The DA race is decided: " + electionResult(ev)
+}
+
+// electionResult is who won the DA race and what it changes.
+func electionResult(ev events.DAElected) string {
 	if ev.Backed {
 		// #193: the ticket you paid for won.
 		if ev.Incumbent {

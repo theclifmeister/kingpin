@@ -39,8 +39,8 @@ func TestHelpScrollsToTheLastRow(t *testing.T) {
 			t.Errorf("a help line is %d wide, over the modal's %d: %q", w, m.modalInner(), stripANSI(l))
 		}
 	}
-	if len(words) != 64 {
-		t.Errorf("WORDS has %d terms, want the dial, the float, the till (#459), the target, heat, the rungs (patrol, sting, raid, arrest), the file, pressure, goodwill, cover, estimate (#355), drift, undercut, keep at, through, standing, connect, credit, unlock, house, deed, the pane, the strip, the tier, scout, boost, scene, world, quality, cut, cook, repeat, overdose, jailed, kin, driver, trait, captain (#346), lieutenant, temper (#455), asset, the feds, intel, spy, ending, score, quiet day, run out, absorbed, scattered, gone (#472), walk away, reign, favour, war, character, daily, profile, preset, taken out and betrayed (#520)", len(words))
+	if len(words) != 65 {
+		t.Errorf("WORDS has %d terms, want the dial, the float, the till (#459), the target, heat, the rungs (patrol, sting, raid, arrest), the file, pressure, goodwill, the DA race (#534), cover, estimate (#355), drift, undercut, keep at, through, standing, connect, credit, unlock, house, deed, the pane, the strip, the tier, scout, boost, scene, world, quality, cut, cook, repeat, overdose, jailed, kin, driver, trait, captain (#346), lieutenant, temper (#455), asset, the feds, intel, spy, ending, score, quiet day, run out, absorbed, scattered, gone (#472), walk away, reign, favour, war, character, daily, profile, preset, taken out and betrayed (#520)", len(words))
 	}
 	m.Update(key("?"))
 	if m.mode != modeHelp {

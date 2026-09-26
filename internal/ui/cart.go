@@ -338,7 +338,7 @@ func (m *Model) cartSection(city string) []section {
 		}
 	}
 	ls = append(ls, keyRow("c", "edit: qty, ←→ dial, x remove")) // the keys inside it by name (#473: the dial turns with ←→ on its row)
-	return []section{{"CART", ls}}
+	return []section{{title: "CART", lines: ls}}
 }
 
 // openCart opens the cart modal on its first line.

@@ -389,10 +389,10 @@ func (m *Model) rivalsDetails() []section {
 		if r.ScoutsHit == 0 {
 			lines = append(lines, keyRow("h", fmt.Sprintf("hit the scouts: +%s, a grudge", plural(e.SetbackDays, "day"))))
 		}
-		return []section{{"ON THE WAY", lines}}
+		return []section{{title: "ON THE WAY", lines: lines}}
 	}
 	if r.Arrived == 0 {
-		return []section{{"NO RIVAL", m.wrapped(theme.Subtle, "Nobody is contesting the city yet. When somebody does, this is where you talk to them.")}}
+		return []section{{title: "NO RIVAL", lines: m.wrapped(theme.Subtle, "Nobody is contesting the city yet. When somebody does, this is where you talk to them.")}}
 	}
 	mood, bad := m.moodLine(r)
 	moodStyle := theme.Subtle
@@ -414,7 +414,7 @@ func (m *Model) rivalsDetails() []section {
 		lines = append(lines, m.wrapped(theme.Body, dealDoes(o.Deal.Kind))...)
 		lines = append(lines, m.wrapped(theme.Subtle, dealBreaks(o.Deal.Kind))...)
 		lines = append(lines, keyRow("a", "accept it"), keyRow("x", "turn it down"))
-		sel = section{m.dealTitle(o.Deal), lines}
+		sel = section{title: m.dealTitle(o.Deal), lines: lines}
 	case len(r.Deals) > 0:
 		d := r.Deals[0]
 		who, term := "yours", "until broken"
@@ -430,9 +430,9 @@ func (m *Model) rivalsDetails() []section {
 		}
 		lines = append(lines, m.wrapped(theme.Body, dealDoes(d.Kind))...)
 		lines = append(lines, m.wrapped(theme.Subtle, dealBreaks(d.Kind))...)
-		sel = section{m.dealTitle(d), lines}
+		sel = section{title: m.dealTitle(d), lines: lines}
 	default:
-		sel = section{strings.ToUpper(m.rivalName(r)), m.wrapped(moodStyle, mood)}
+		sel = section{title: strings.ToUpper(m.rivalName(r)), lines: m.wrapped(moodStyle, mood)}
 	}
 	// Who stands with you (#43): the defensive factions the expansionist
 	// pushed toward you.
@@ -471,7 +471,7 @@ func (m *Model) rivalsDetails() []section {
 	if s.Homage > 0 {
 		life = append(life, row("homage", cash(s.Homage)+" to you"))
 	}
-	return []section{sel, {"RULES", rules}, m.booksSection(), {"LIFETIME", life}}
+	return []section{sel, {title: "RULES", lines: rules}, m.booksSection(), {title: "LIFETIME", lines: life}}
 }
 
 // The war order (#229, docs/rival.md): w on the rivals screen declares

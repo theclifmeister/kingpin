@@ -46,9 +46,7 @@ func (s *Sim) elect(w *game.World, t *game.Tick, replaced bool) {
 	if next := s.NextElection(w); next > 0 && t.Day >= next {
 		mean := w.MeanPressure()
 		swing := s.Swing(w)
-		share := max(0, min(1, s.LawAndOrderShare(mean)+swing))
-		law := share * (1 - tun.Moderate)
-		reform := (1 - share) * (1 - tun.Moderate)
+		law, reform, _ := s.Odds(w) // the ledger's DA RACE reads the same (#534)
 		rng := t.Sub(game.StreamLaw)
 		r := rng.Float64()
 		stance := "moderate"

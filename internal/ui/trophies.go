@@ -128,7 +128,7 @@ func (m *Model) trophySection(id, name string, cost int, owned *game.Trophy, off
 			lines = append(lines, m.wrapped(theme.Warning, fmt.Sprintf("The feds took it on day %d.", l.Lost))...)
 		}
 	}
-	return section{strings.ToUpper(name), lines}
+	return section{title: strings.ToUpper(name), lines: lines}
 }
 
 // ledgerTrophyOfferSelected is the trophy offer under the cursor, or nil.

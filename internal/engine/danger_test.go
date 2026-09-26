@@ -182,3 +182,37 @@ const (
 	quietStops = 12
 	quietOther = 1
 )
+
+// TestDangersLead (#534): a heat line and the file near an indictment
+// on one morning, the file first, and every danger ahead of every
+// other alert: a playtest at 80x24 read "Heat 52 … over the patrol
+// line" above "File 5/6: one more page is an indictment", with room
+// for one line.
+func TestDangersLead(t *testing.T) {
+	t.Parallel()
+	s, w := crewRun(t)
+	limit := s.Rules().Heat.EvidenceArrest(w)
+	w.Heat.Evidence = limit - 1
+	w.Here().Heat = 60
+	as := s.Alerts()
+	file, heat := -1, -1
+	for i, a := range as {
+		switch a.Kind {
+		case engine.AlertFile:
+			file = i
+		case engine.AlertHeat:
+			heat = i
+		}
+	}
+	if file < 0 || heat < 0 || file > heat {
+		t.Fatalf("the file at %d, the heat at %d: %+v", file, heat, as)
+	}
+	seen := false
+	for _, a := range as {
+		if !a.Danger() {
+			seen = true
+		} else if seen {
+			t.Errorf("a danger after a non-danger: %+v in %+v", a, as)
+		}
+	}
+}

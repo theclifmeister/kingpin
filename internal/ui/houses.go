@@ -216,6 +216,9 @@ func (m *Model) viewHouses() string {
 		block = c.Name
 	}
 	body = append(body, "")
+	if name := wholeName(cols, cells, m.front.cursor, body[:len(body)-1]); name != "" {
+		body = append(body, name) // #535
+	}
 	body = append(body, m.inHand())
 	body = append(body, m.subtle(fmt.Sprintf("%s is on %s in %s; the rent is clean cash, and unpaid %d days running the landlord throws you out.", o.Name, block, m.w.CityName(o.City), m.rules.Territory.RentDays()))...)
 	return m.modal("RENT A HOUSE", body, m.modalFooter())
@@ -290,7 +293,7 @@ func (m *Model) houseSection(h game.House) section {
 		lines = append(lines, keyRow("m", "move stock"))
 	}
 	lines = append(lines, keyRow("e", "post a guard inside"), keyRow("x", "drop the lease"))
-	return section{strings.ToUpper(h.Name), lines}
+	return section{title: strings.ToUpper(h.Name), lines: lines}
 }
 
 // ledgerOnHouse is the ledger's cursor being on a house: where m, e and

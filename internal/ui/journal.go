@@ -234,9 +234,9 @@ func (m *Model) journalDetails() []section {
 		for _, l := range wrap(h.Text, textW) {
 			lines = append(lines, style.Render(l))
 		}
-		secs = append(secs, section{fmt.Sprintf("D%d · %s", h.Day, strings.ToUpper(sourceName(h.Source))), lines})
+		secs = append(secs, section{title: fmt.Sprintf("D%d · %s", h.Day, strings.ToUpper(sourceName(h.Source))), lines: lines})
 	} else {
-		secs = append(secs, section{"JOURNAL", []string{emptyState("Nothing yet.")}})
+		secs = append(secs, section{title: "JOURNAL", lines: []string{emptyState("Nothing yet.")}})
 	}
 	var legend []string
 	for i := 0; i < len(journalSources); i += cols {
@@ -250,5 +250,5 @@ func (m *Model) journalDetails() []section {
 		}
 		legend = append(legend, strings.TrimRight(line, " "))
 	}
-	return append(secs, section{"LEGEND", legend})
+	return append(secs, section{title: "LEGEND", lines: legend})
 }

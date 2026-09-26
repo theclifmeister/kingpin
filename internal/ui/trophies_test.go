@@ -33,10 +33,16 @@ func TestTrophiesInTheGrammar(t *testing.T) {
 		if cursor < 0 {
 			t.Fatalf("%dx%d: no row for %s", sz[0], sz[1], first.Name)
 		}
+		// The pile's weight is at the top, whole (#535: it wraps, so at
+		// 80x24 the window on a trophy row starts under it).
+		m.ledgerCursor = 0
+		if view := stripANSI(m.View()); !strings.Contains(view, "tonnes") {
+			t.Fatalf("%dx%d: the ledger lacks the pile's weight:\n%s", sz[0], sz[1], view)
+		}
 		m.ledgerCursor = cursor
 		assertFrame(t, m, "ledger on a trophy")
 		view := stripANSI(m.View())
-		for _, want := range []string{"TROPHIES", first.Name, "tonnes"} {
+		for _, want := range []string{"TROPHIES", first.Name} {
 			if !strings.Contains(view, want) {
 				t.Fatalf("%dx%d: the ledger lacks %q:\n%s", sz[0], sz[1], want, view)
 			}

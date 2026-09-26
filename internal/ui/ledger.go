@@ -335,6 +335,7 @@ const (
 	ledgerTrophy      // a trophy owned (#392)
 	ledgerTrophyOffer // one on offer
 	ledgerPayoff      // the bought law (#42)
+	ledgerRace        // the DA race, a city a row, while the tickets take money (#534)
 	ledgerOffer
 )
 
@@ -393,6 +394,9 @@ func (m *Model) ledgerRows() []ledgerRow {
 	for i := range m.payoffRows() {
 		rows = append(rows, ledgerRow{ledgerPayoff, i})
 	}
+	for i := range m.raceRows() {
+		rows = append(rows, ledgerRow{ledgerRace, i})
+	}
 	for i := range m.frontRows() {
 		rows = append(rows, ledgerRow{ledgerOffer, i})
 	}
@@ -440,15 +444,16 @@ func (m *Model) viewLedger() string {
 	sel := m.ledgerSelected()
 	var ls []string
 	line := func(s string) { ls = append(ls, truncate(s, width)) }
+	// A labelled line is whole (#507): where MAIN is too narrow it wraps
+	// under its value rather than cutting "legit…"; since #535 the
+	// money line, the pile, the road and the offers' words too. The
+	// launder dial keeps its row and its three numbers go under it, as
+	// many to a row as fit.
+	whole := func(s string) { ls = append(ls, wrapLine(s, width)...) }
 	sub := theme.Subtle.Render
 
 	line(theme.PanelTitle.Render("LEDGER"))
-	line(theme.Gold.Render("dirty "+cash(w.Player.DirtyCash)) + sub(" · ") + theme.Good.Render("clean "+cash(w.Player.CleanCash)) + sub(" · ") + theme.Gold.Render("offshore "+cash(w.Offshore)) + sub(fmt.Sprintf(" · seized %s lifetime", cash(w.Stats.Seized))))
-	// A labelled line is whole (#507): where MAIN is too narrow it wraps
-	// under its value rather than cutting "legit…". The launder dial
-	// keeps its row and its three numbers go under it, as many to a row
-	// as fit.
-	whole := func(s string) { ls = append(ls, wrapLine(s, width)...) }
+	whole(theme.Gold.Render("dirty "+cash(w.Player.DirtyCash)) + sub(" · ") + theme.Good.Render("clean "+cash(w.Player.CleanCash)) + sub(" · ") + theme.Gold.Render("offshore "+cash(w.Offshore)) + sub(fmt.Sprintf(" · seized %s lifetime", cash(w.Stats.Seized))))
 	odds := []fact{
 		{sub("audit " + format.Pct(l.AnyAuditRisk(w), 1) + "/day"), 0},
 		{sub("up to " + money(l.Capacity(w)) + "/day"), 0},
@@ -463,7 +468,7 @@ func (m *Model) viewLedger() string {
 		}
 	}
 	if pile := m.pileLine(); pile != "" {
-		line(theme.Gold.Render(pile))
+		whole(theme.Gold.Render(pile)) // the pile's heat, whole (#535: "rats and damp take ~$98…")
 	}
 	// Fronts with nothing to wash (#417): a laundromat washed $0 for a
 	// week, the reason below the fold at 100 columns. The verdict leads,
@@ -491,7 +496,7 @@ func (m *Model) viewLedger() string {
 		whole(sub("upkeep   ") + theme.Bad.Render(fmt.Sprintf("%s expected to shut tonight: upkeep %s clean short", strings.Join(p.Wash.Shuts, ", "), money(p.Wash.Short))) + sub(fmt.Sprintf("; the wash leaves %s dirty in hand", money(l.Line(w)))))
 	}
 	if warn := m.exposureWarning(); warn != "" {
-		line(theme.Warning.Render("▲ " + warn))
+		whole(theme.Warning.Render("▲ " + warn))
 	}
 	// Tonight's pile as the count will find it (#397), where it says
 	// more than the pile line above: loads land tonight, or the wages
@@ -701,14 +706,14 @@ func (m *Model) viewLedger() string {
 		lost += n
 	}
 	heading("LOGISTICS", fmt.Sprintf(" · shipped %s in %s · seized %d", plural(w.Stats.Shipped, "unit"), plural(w.Stats.Shipments, "run"), lost))
-	line(theme.Subtle.Render(fmt.Sprintf("%s open; the road is %s.", plural(len(m.ledgerRoutes()), "route"), screenPointer(screenMap))))
+	whole(theme.Subtle.Render(fmt.Sprintf("%s open; the road is %s.", plural(len(m.ledgerRoutes()), "route"), screenPointer(screenMap))))
 	// A route short of its target and sending nothing says why here too
 	// (#459): a playtest read "shipped 0 units in 0 runs" for days. The
 	// verdict leads, so a narrow ledger cuts the name last.
 	for _, r := range m.ledgerRoutes() {
 		if why := m.rules.Logistics.Idle(w, r); why == events.IdleTill || why == events.IdleStock {
 			long, _, st := m.routeIdle(r)
-			line(st.Render(long) + sub(ledgerRouteName(r.Name)))
+			whole(st.Render(long) + sub(ledgerRouteName(r.Name)))
 		}
 	}
 
@@ -716,15 +721,21 @@ func (m *Model) viewLedger() string {
 	// if somebody on the payroll knows.
 	heading("PAYOFFS", m.payoffNote())
 	if payoffs := m.payoffRows(); len(payoffs) == 0 {
-		line(emptyState("Nobody at city hall is on the payroll; checkpoints are on the map."))
+		whole(emptyState("Nobody at city hall is on the payroll; checkpoints are on the map."))
 	} else {
 		tableLines(ledgerPayoff, payoffCols, m.payoffTable(payoffs))
+	}
+	// The DA race (#534): its alert opens here, the city under the
+	// cursor.
+	if m.raceShown() {
+		heading("DA RACE", m.raceNote())
+		tableLines(ledgerRace, raceCols, m.raceTable())
 	}
 
 	offers := m.frontRows()
 	heading("ON OFFER", "")
 	if len(offers) == 0 {
-		line(sub(m.noFrontsOnOffer()))
+		whole(sub(m.noFrontsOnOffer()))
 	} else {
 		// The upkeep and the audit go before the status is cut (#507:
 		// "open to…"); the pane carries both for the offer under the
@@ -815,6 +826,8 @@ func (m *Model) ledgerDetails() []section {
 		if rows := m.payoffRows(); sel.i < len(rows) {
 			secs = append(secs, m.payoffSection(rows[sel.i]))
 		}
+	case ledgerRace:
+		secs = append(secs, m.raceSection(m.raceCity(sel.i)))
 	case ledgerOffer:
 		secs = append(secs, m.offerSection(m.frontRows()[sel.i]))
 	}
@@ -855,7 +868,7 @@ func (m *Model) frontSection(f game.Front) section {
 			lines = append(lines, keyRow("u", "invest"))
 		}
 	}
-	return section{strings.ToUpper(f.Name), lines}
+	return section{title: strings.ToUpper(f.Name), lines: lines}
 }
 
 // frontRole is a front's role in the pane (#344): its line, then what
@@ -912,7 +925,7 @@ func (m *Model) offerSection(o game.FrontOffer) section {
 	default:
 		lines = append(lines, keyRow("b", "buy it through the picker"))
 	}
-	return section{strings.ToUpper(o.Name), lines}
+	return section{title: strings.ToUpper(o.Name), lines: lines}
 }
 
 // washSection is the wash as it stands: the dial, what the fronts wash
@@ -946,7 +959,7 @@ func (m *Model) washSection() section {
 	if warn := m.exposureWarning(); warn != "" {
 		lines = append(lines, m.wrapped(theme.Warning, warn)...)
 	}
-	return section{"WASH", lines}
+	return section{title: "WASH", lines: lines}
 }
 
 // flowTable is the ledger's FLOW (#351): the last headlines.toml [flow]

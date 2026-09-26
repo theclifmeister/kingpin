@@ -417,5 +417,5 @@ func (m *Model) payoffSection(p payoff) section {
 	if w.Cold() {
 		lines = append(lines, theme.Bad.Render("A law-and-order DA sits: it ends within the week."))
 	}
-	return section{strings.ToUpper(p.Who), lines}
+	return section{title: strings.ToUpper(p.Who), lines: lines}
 }

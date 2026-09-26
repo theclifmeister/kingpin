@@ -146,7 +146,7 @@ func (m *Model) assetSection(a game.Asset) section {
 	}
 	lines = append(lines, row("bought", fmt.Sprintf("day %d · %s clean", a.Bought, money(a.Cost))))
 	lines = append(lines, m.taskForceLines()...)
-	return section{strings.ToUpper(a.Name), lines}
+	return section{title: strings.ToUpper(a.Name), lines: lines}
 }
 
 // assetOfferSection is an asset on offer in the pane.
@@ -173,7 +173,7 @@ func (m *Model) assetOfferSection(o game.AssetOffer) section {
 	if lost := w.AssetLost(o.ID); lost != nil {
 		lines = append(lines, m.wrapped(theme.Warning, fmt.Sprintf("The feds took it on day %d. It is for sale again at the price.", lost.Lost))...)
 	}
-	return section{strings.ToUpper(o.Name), lines}
+	return section{title: strings.ToUpper(o.Name), lines: lines}
 }
 
 // taskForceLines is the pane's word on the task force: forming this
@@ -242,6 +242,9 @@ func (m *Model) viewAssets() string {
 	body := table(cols, cells, m.front.cursor, m.modalInner())
 	o := rows[m.front.cursor]
 	body = append(body, "")
+	if name := wholeName(cols, cells, m.front.cursor, body[:len(body)-1]); name != "" {
+		body = append(body, name) // #535
+	}
 	body = append(body, m.inHand())
 	body = append(body, m.subtle(fmt.Sprintf("%s The upkeep is clean cash, and a task force can take it.", m.assetBlurb(o.ID)))...)
 	return m.modal("BUY AN ASSET", body, m.modalFooter())

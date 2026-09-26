@@ -20,20 +20,23 @@ import (
 // AlertKind is what an alert is about.
 type AlertKind string
 
-// The alerts, loudest first: the order Alerts returns them in.
+// The alerts, loudest first: the order Alerts returns them in, save
+// that every danger (Alert.Danger) goes before every other alert
+// (#534): the dangers the run can end on, then the war and the corners,
+// then what is due, then the heat's line and the notices.
 const (
 	AlertArrest        AlertKind = "arrest"        // a warrant is out (#475): served on the night Due (Days, 1 tonight) on any sale, or on the heat in City (Heat) still at the arrest Line
 	AlertBroke         AlertKind = "broke"         // the run ends broke tonight (#518): nothing in stock or on the road, and Have in hand less Amount in wages and Count in debt due tonight leaves Gap, under the cheapest unit where you stand (Line)
 	AlertTalking       AlertKind = "talking"       // somebody on the payroll is talking
 	AlertPages         AlertKind = "pages"         // last night the DA's file grew Have pages with no sting, raid or investigation (#492): Level the cause (informant, retiree or tip), Count the file of Amount that indict you
-	AlertContractDue   AlertKind = "contract_due"  // Contract due Due (today or tomorrow)
-	AlertDebtDue       AlertKind = "debt_due"      // Supplier owed Amount on Due, Have in hand
-	AlertHeat          AlertKind = "heat"          // Heat in City at or over the Level rung's Line: the highest met under the arrest (#475), the patrol's at the least
 	AlertTaskForce     AlertKind = "task_force"    // a task force formed this morning
 	AlertFile          AlertKind = "file"          // the DA's file is Count pages of the Amount that indict you, two or fewer short (#414)
 	AlertInvestigation AlertKind = "investigation" // the police in City are working Target (Corner, Product or House): the hit in Days
 	AlertWarMuscle     AlertKind = "war_muscle"    // an open war with Level (a faction's id) and Have enforcers on the payroll, under Amount (taken_out_muscle), with Count corners held (#520): a danger at one
 	AlertNoCorner      AlertKind = "no_corner"     // you held corners in City and hold none now (#471); Corner is a free one to post on, or ""
+	AlertContractDue   AlertKind = "contract_due"  // Contract due Due (today or tomorrow)
+	AlertDebtDue       AlertKind = "debt_due"      // Supplier owed Amount on Due, Have in hand
+	AlertHeat          AlertKind = "heat"          // Heat in City at or over the Level rung's Line: the highest met under the arrest (#475), the patrol's at the least
 	AlertFrontShut     AlertKind = "front_shut"    // Front shut for unpaid upkeep (#458): Amount the clean it was short, Have its upkeep, Days until it reopens
 	AlertFloat         AlertKind = "float"         // Have dirty under the float, Amount
 	AlertTill          AlertKind = "till"          // the wash has left the pile at the till, Amount, Days nights running; Have dirty (#459)
@@ -62,7 +65,7 @@ const (
 // AlertKinds is every kind, loudest first: the order Alerts returns them
 // in.
 func AlertKinds() []AlertKind {
-	return []AlertKind{AlertArrest, AlertBroke, AlertTalking, AlertPages, AlertContractDue, AlertDebtDue, AlertHeat, AlertTaskForce, AlertFile, AlertInvestigation, AlertWarMuscle, AlertNoCorner, AlertFrontShut, AlertFloat, AlertTill, AlertWages,
+	return []AlertKind{AlertArrest, AlertBroke, AlertTalking, AlertPages, AlertTaskForce, AlertFile, AlertInvestigation, AlertWarMuscle, AlertNoCorner, AlertContractDue, AlertDebtDue, AlertHeat, AlertFrontShut, AlertFloat, AlertTill, AlertWages,
 		AlertCrewLine, AlertSkim, AlertUnposted, AlertIdleCorner, AlertStashFull, AlertLanded, AlertScouts, AlertGate, AlertPort, AlertExports, AlertHouseKnown,
 		AlertDARace, AlertRetire, AlertFavour, AlertReign, AlertStraight, AlertVanish, AlertExposure, AlertPlan}
 }
@@ -152,7 +155,7 @@ var alertActs = map[AlertKind][]Act{
 	AlertPort:       {{Screen: ScreenMap, Subject: SubjectCity}}, // the map turned to the port, where the road is (#476)
 	AlertExports:    {actLedger},                                 // the ledger, where the book is bought and the lanes take their orders (#505)
 	AlertHouseKnown: {{Screen: ScreenLedger, Subject: SubjectHouse}},
-	AlertDARace:     {actLedger},
+	AlertDARace:     {{Screen: ScreenLedger, Subject: SubjectCity}}, // the city's row in the ledger's DA RACE (#534)
 	AlertRetire:     {actLedger, actDashboard},
 	AlertFavour:     {actLedger},
 	AlertReign:      {actDashboard},
@@ -206,8 +209,10 @@ type Alert struct {
 }
 
 // Alerts is what needs you this morning, loudest first, in the order
-// the AlertKind constants list: the dashboard's and a fast-forward's one
-// source. Nil before a run.
+// the AlertKind constants list with every danger (Alert.Danger) moved
+// ahead of the rest (#534: a heat line sorted over "File 5/6: one more
+// page is an indictment", and at 80x24 only the first shows): the
+// dashboard's and a fast-forward's one source. Nil before a run.
 func (s *Session) Alerts() []Alert {
 	w := s.w
 	if w == nil {
@@ -228,34 +233,6 @@ func (s *Session) Alerts() []Alert {
 		out = append(out, Alert{Kind: AlertTalking, Key: "somebody is talking"})
 	}
 	out = append(out, s.pages()...)
-	for _, c := range w.Contracts {
-		if c.Status != game.ContractAccepted || c.Due > w.Day+1 {
-			continue
-		}
-		when := "tomorrow"
-		if c.Due <= w.Day {
-			when = "today"
-		}
-		out = append(out, Alert{Kind: AlertContractDue, Key: fmt.Sprintf("contract %d due %s", c.ID, when), Contract: c.ID, Due: c.Due})
-	}
-	for _, sup := range w.Suppliers {
-		if sup.Debt <= 0 || sup.DebtDue > w.Day+1 {
-			continue
-		}
-		out = append(out, Alert{Kind: AlertDebtDue, Key: fmt.Sprintf("debt %s due %d", sup.ID, sup.DebtDue), Supplier: sup.ID, Due: sup.DebtDue, Amount: sup.Debt, Have: w.Cash()})
-	}
-	// Keyed by the highest rung met under the arrest (#475), so a
-	// fast-forward stops once as the heat crosses each line, not only
-	// the patrol's; the arrest line is the warrant's.
-	var met *content.ResponseConfig
-	for _, r := range s.set.Heat.Ladder(w, here) {
-		if r.Level != content.Arrest && here.Heat >= r.Threshold {
-			met = &r
-		}
-	}
-	if met != nil {
-		out = append(out, Alert{Kind: AlertHeat, Key: "heat in " + here.Name + " over the " + strings.ReplaceAll(met.Level, content.TaskForce, "task force") + " line", City: here.ID, Heat: here.Heat, Line: met.Threshold, Level: met.Level})
-	}
 	if s.set.Heat.TaskForceForming(w) {
 		out = append(out, Alert{Kind: AlertTaskForce, Key: "a task force formed"})
 	}
@@ -290,6 +267,34 @@ func (s *Session) Alerts() []Alert {
 	}
 	out = append(out, s.warMuscle()...)
 	out = append(out, s.noCorners()...)
+	for _, c := range w.Contracts {
+		if c.Status != game.ContractAccepted || c.Due > w.Day+1 {
+			continue
+		}
+		when := "tomorrow"
+		if c.Due <= w.Day {
+			when = "today"
+		}
+		out = append(out, Alert{Kind: AlertContractDue, Key: fmt.Sprintf("contract %d due %s", c.ID, when), Contract: c.ID, Due: c.Due})
+	}
+	for _, sup := range w.Suppliers {
+		if sup.Debt <= 0 || sup.DebtDue > w.Day+1 {
+			continue
+		}
+		out = append(out, Alert{Kind: AlertDebtDue, Key: fmt.Sprintf("debt %s due %d", sup.ID, sup.DebtDue), Supplier: sup.ID, Due: sup.DebtDue, Amount: sup.Debt, Have: w.Cash()})
+	}
+	// Keyed by the highest rung met under the arrest (#475), so a
+	// fast-forward stops once as the heat crosses each line, not only
+	// the patrol's; the arrest line is the warrant's.
+	var met *content.ResponseConfig
+	for _, r := range s.set.Heat.Ladder(w, here) {
+		if r.Level != content.Arrest && here.Heat >= r.Threshold {
+			met = &r
+		}
+	}
+	if met != nil {
+		out = append(out, Alert{Kind: AlertHeat, Key: "heat in " + here.Name + " over the " + strings.ReplaceAll(met.Level, content.TaskForce, "task force") + " line", City: here.ID, Heat: here.Heat, Line: met.Threshold, Level: met.Level})
+	}
 	// A front shut for its upkeep (#458): the laundering sim keeps what
 	// the clean pile lacked on the front while it is shut. Keyed by the
 	// front and the day it reopens, so a fast-forward stops once a shut.
@@ -374,6 +379,9 @@ func (s *Session) Alerts() []Alert {
 			out[i].Act = alertActs[out[i].Kind][0]
 		}
 	}
+	// The dangers first, each kind's order kept (#534): a member under
+	// the informant line or a war on the last corner outranks the heat.
+	sort.SliceStable(out, func(i, j int) bool { return out[i].Danger() && !out[j].Danger() })
 	return out
 }
 

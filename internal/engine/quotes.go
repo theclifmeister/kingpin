@@ -172,6 +172,7 @@ type LawRules interface {
 	Forfeits(w *game.World) bool
 	Goodwill(amount int) float64
 	NextElection(w *game.World) int
+	Odds(w *game.World) (lawAndOrder float64, reform float64, moderate float64)
 	Tuning() content.LawTuning
 }
 type LaunderingRules interface {

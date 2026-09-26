@@ -213,10 +213,11 @@ func TestModalsFitCard(t *testing.T) {
 			if title := inner(1); title != strings.ToUpper(title) {
 				t.Errorf("%s: the title is %q", what, title)
 			}
-			if inner(2) != "" || inner(len(box)-3) != "" {
+			nf := footRows(box)
+			if inner(2) != "" || inner(len(box)-2-nf) != "" {
 				t.Errorf("%s: no blank around the body:\n%s", what, stripANSI(strings.Join(box, "\n")))
 			}
-			for _, l := range box[3 : len(box)-3] {
+			for _, l := range box[3 : len(box)-2-nf] {
 				for _, hint := range []string{"enter ", "esc ", "any other key", "any key"} {
 					if strings.Contains(stripANSI(l), hint) {
 						t.Errorf("%s: a key hint in the body: %q", what, strings.TrimSpace(stripANSI(l)))

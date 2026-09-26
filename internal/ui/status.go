@@ -54,8 +54,12 @@ func sentence(s string) string {
 // statusStyle is the colour of the status message by its kind: a
 // confirmation in the body colour, a refusal in the warning colour, a
 // danger in red. Every site sets the kind (say, refuse, alarm).
-func (m *Model) statusStyle() lipgloss.Style {
-	switch m.statusKind {
+func (m *Model) statusStyle() lipgloss.Style { return kindStyle(m.statusKind) }
+
+// kindStyle is a status kind's colour: the bar's and the overlay's
+// STATUS (#535).
+func kindStyle(k statusKind) lipgloss.Style {
+	switch k {
 	case statusWarning:
 		return theme.Warning
 	case statusBad:
@@ -82,5 +86,39 @@ func (m *Model) viewFooter() string {
 	if gap := m.width - lipgloss.Width(msg) - lipgloss.Width(help); gap >= 0 {
 		return msg + strings.Repeat(" ", gap) + help
 	}
-	return truncate(msg, m.width)
+	if !m.statusCut() {
+		return fit(msg, m.width)
+	}
+	// Too long for the bar alone (#535: "… P…" hid a campaign's
+	// confirmation): cut, and space opens it whole, as the strip's
+	// `␣ more` says.
+	more := theme.Key.Render("␣") + theme.Subtle.Render(" more")
+	room := max(1, m.width-lipgloss.Width(more)-2)
+	return fit(truncate(msg, room), room) + "  " + more
+}
+
+// statusCut is whether the status message is too long for the bar even
+// alone.
+func (m *Model) statusCut() bool {
+	return m.status != "" && 1+lipgloss.Width(m.status) > m.width
+}
+
+// keepSaid keeps the message the bar cut for the key pressed on it, so
+// space there shows it whole (#535); any other message, or none, keeps
+// nothing. Every key in play mode calls it before the bar is cleared.
+func (m *Model) keepSaid() {
+	m.said, m.saidKind = "", statusBody
+	if m.statusCut() {
+		m.said, m.saidKind = m.status, m.statusKind
+	}
+}
+
+// saidSection is the overlay's first section while it holds a message
+// the bar cut (#535): STATUS, the message whole in its colour, which the
+// modal wraps.
+func (m *Model) saidSection() []section {
+	if m.said == "" {
+		return nil
+	}
+	return []section{{title: "STATUS", lines: []string{kindStyle(m.saidKind).Render(m.said)}}}
 }

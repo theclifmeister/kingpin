@@ -59,7 +59,7 @@ func TestInvestDialog(t *testing.T) {
 	}
 	// The pane names the level, the next one and the key.
 	m.Update(key(" "))
-	pane := stripANSI(m.View())
+	pane := scrolledProse(t, m) // led by the status the bar cut (#535)
 	for _, want := range []string{"level", "2 of", "earns", "next", "i", "invest"} {
 		if !strings.Contains(pane, want) {
 			t.Fatalf("the pane lacks %q:\n%s", want, pane)

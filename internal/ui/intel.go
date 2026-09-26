@@ -308,9 +308,9 @@ func (m *Model) intelDetails() []section {
 			lines = append(lines, row("fades", fmt.Sprintf("−%s/day · gone at %s", format.Pct(f.Stale, 0), format.Pct(f.Forget, 0))))
 		}
 		lines = append(lines, m.wrapped(theme.Subtle, m.story(*f))...)
-		sel = section{strings.ToUpper(title), lines}
+		sel = section{title: strings.ToUpper(title), lines: lines}
 	} else {
-		sel = section{"THE FILE", m.wrapped(theme.Subtle, "Nothing known yet. A push shows you their muscle, a raid the chief, a seizure the road; the rest is bought or sent out from under.")}
+		sel = section{title: "THE FILE", lines: m.wrapped(theme.Subtle, "Nothing known yet. A push shows you their muscle, a raid the chief, a seizure the road; the rest is bought or sent out from under.")}
 	}
 	sel.lines = append(sel.lines,
 		keyRow("$", fmt.Sprintf("pay a cop: %s, ~%s straight", money(tun.CopPrice), format.Pct(tun.CopAccuracy, 0))),
@@ -323,7 +323,7 @@ func (m *Model) intelDetails() []section {
 	if len(spies) == 0 {
 		spies = m.wrapped(theme.Subtle, fmt.Sprintf("Nobody under. A spy stops selling and reports every %s; found, %s come home talking and the rest are shot.", plural(tun.SpyDays, "day"), format.Pct(tun.TurnShare, 0)))
 	}
-	return []section{sel, {"SPIES", spies}}
+	return []section{sel, {title: "SPIES", lines: spies}}
 }
 
 // The cop dialog (modePayCop): one page, a money field whose blank is

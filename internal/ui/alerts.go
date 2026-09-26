@@ -676,20 +676,65 @@ func (m *Model) alertLines(width, n int) []string {
 	return out
 }
 
+// alertWindow is the ALERTS in at most n lines width cells wide
+// (#534): every alert where they fit, the heat, rival and law headlines
+// under them where there is room; where they do not, the n alerts
+// around the cursor (the loudest first, the dangers leading, until the
+// cursor moves), and the title counts the rest, `ALERTS · +3 more
+// (space)`, since space opens every one of them whole. The pane and
+// the 80-column panel both draw it.
+func (m *Model) alertWindow(width, n int) (string, []string) {
+	n = max(1, n)
+	lines := m.alertLines(width, n)
+	count := len(m.sess.Alerts())
+	if count <= n {
+		return "ALERTS", lines[:min(n, len(lines))]
+	}
+	top := max(0, min(m.alertCursor-n+1, count-n))
+	return alertsTitle(count - n), lines[top : top+n]
+}
+
+// alertsTitle is the ALERTS title with the alerts it leaves out
+// counted: `ALERTS · +3 more (space)`.
+func alertsTitle(hidden int) string {
+	if hidden <= 0 {
+		return "ALERTS"
+	}
+	return fmt.Sprintf("ALERTS · +%d more (space)", hidden)
+}
+
 // alertsPanel is the ALERTS panel for a layout with room rows left and
 // no pane beside MAIN, sized to its lines, or "" where there is no
-// room for one (a border with nothing inside is not a panel).
+// room for one (a border with nothing inside is not a panel). Where
+// the alerts outnumber its rows the title counts the rest (#534).
 func (m *Model) alertsPanel(width, room int) string {
 	if room < 3 || m.paneShown() {
 		return ""
 	}
-	alerts := m.alertLines(width-4, room-2)
-	if n := room - 2; len(alerts) > n {
-		// More alerts than rows: the window keeps the cursor's in view.
-		top := max(0, min(m.alertCursor-n+1, len(alerts)-n))
-		alerts = alerts[top : top+n]
+	title, alerts := m.alertWindow(width-4, room-2)
+	return panel(title, strings.Join(alerts, "\n"), width, len(alerts)+2, theme.Heat)
+}
+
+// alertsSection is the pane's ALERTS (#534): up to eight lines, never
+// fewer than one however long the CART above it runs, redrawn to the
+// room it is left with the rest counted in its title; the overlay's is
+// every alert whole. With the arrows on the police (#355) the pane is
+// POLICE's, whole at 100x30, and the alerts give way under it as
+// before: the alert keys are not live there either (hasAlerts).
+func (m *Model) alertsSection() section {
+	if m.mode == modeDetails {
+		return section{title: "ALERTS", lines: m.alertLines(0, 8)}
 	}
-	return panel("ALERTS", strings.Join(alerts, "\n"), width, len(alerts)+2, theme.Heat)
+	fit := func(n int) section {
+		title, lines := m.alertWindow(paneTextW, n)
+		return section{title: title, lines: lines}
+	}
+	s := fit(8)
+	s.fit = fit
+	if !m.onPolice {
+		s.keep = 1
+	}
+	return s
 }
 
 // ---- the jump (#352): every alert is one key from what answers it
@@ -721,7 +766,7 @@ var alertSubjects = map[string]func(*Model, engine.Alert){
 
 // selectCity puts a city under the screen landed on: the map turned to
 // it, the cursor on its first corner (#476), or its first house on the
-// ledger.
+// ledger, or its row in the ledger's DA RACE for the race (#534).
 func (m *Model) selectCity(a engine.Alert) {
 	if m.screen == screenMarket {
 		// The market turned to the city, the product under the cursor
@@ -734,6 +779,10 @@ func (m *Model) selectCity(a engine.Alert) {
 				m.cursor = i
 			}
 		}
+		return
+	}
+	if m.screen == screenLedger && a.Kind == engine.AlertDARace {
+		m.selectRace(a.City) // the city's row in DA RACE (#534)
 		return
 	}
 	if m.screen != screenMap {
