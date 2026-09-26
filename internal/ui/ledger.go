@@ -17,6 +17,32 @@ import (
 // cheapest first, locked ones included so the ladder is visible.
 func (m *Model) frontRows() []game.FrontOffer { return m.sess.FrontOffers() }
 
+// roadWaits is the first route on the ledger idle on the till and what
+// it waits on over the float (#524, logistics.Sim.Waits), or "" and 0.
+func (m *Model) roadWaits() (string, int) {
+	for _, r := range m.ledgerRoutes() {
+		if need := m.rules.Logistics.Waits(m.w, r); need > 0 {
+			return r.Name, need
+		}
+	}
+	return "", 0
+}
+
+// noFrontsOnOffer is what the ledger and the picker say with no front
+// on offer (#525): "You own every front there is." only when you do;
+// else the fronts that wait on an asset never bought, by name.
+func (m *Model) noFrontsOnOffer() string {
+	waiting := m.sess.FrontsWaiting()
+	if len(waiting) == 0 {
+		return "You own every front there is."
+	}
+	var parts []string
+	for _, o := range waiting {
+		parts = append(parts, fmt.Sprintf("%s waits on %s", o.Name, o.AssetName))
+	}
+	return "No front on offer: " + strings.Join(parts, "; ") + "."
+}
+
 // askFront opens the buy picker on its first page, the kind (#73: a
 // front or a house).
 func (m *Model) askFront() {
@@ -445,6 +471,25 @@ func (m *Model) viewLedger() string {
 	if till := m.till(); len(w.Fronts) > 0 && w.Player.DirtyCash <= till {
 		whole(sub("wash     ") + theme.Warning.Render(fmt.Sprintf("idle: dirty %s is under the %s till", money(w.Player.DirtyCash), money(till))) + sub("; the wash takes only what is over it"))
 	}
+	// The road against the wash (#524), the choice on the till line: a
+	// playtest's wash took all the dirty over the till every night, the
+	// road buys only over the float and a lot cost more than a night's
+	// sales, so the routes sat idle until every front shut, with no
+	// word. A route waiting on a lot says what it waits on and the till
+	// that would save for it; and a front the night is expected to shut
+	// on its upkeep is said before it shuts.
+	if name, need := m.roadWaits(); need > 0 {
+		save := w.SupplyOutlay() + m.floatLine() + need
+		verdict := fmt.Sprintf("%s waits on %s over the float; the wash takes it first", name, money(need))
+		if save > m.till() {
+			whole(sub("road     ") + theme.Warning.Render(verdict) + sub(fmt.Sprintf(": raise the till to %s to save for it", money(save))))
+		} else {
+			whole(sub("road     ") + theme.Warning.Render(fmt.Sprintf("%s waits on %s over the float", name, money(need))) + sub("; the till saves for it"))
+		}
+	}
+	if p := m.sess.Preview(); p != nil && len(p.Wash.Shuts) > 0 {
+		whole(sub("upkeep   ") + theme.Bad.Render(fmt.Sprintf("%s expected to shut tonight: upkeep %s clean short", strings.Join(p.Wash.Shuts, ", "), money(p.Wash.Short))) + sub(fmt.Sprintf("; the wash leaves %s dirty in hand", money(l.Line(w)))))
+	}
 	if warn := m.exposureWarning(); warn != "" {
 		line(theme.Warning.Render("▲ " + warn))
 	}
@@ -679,7 +724,7 @@ func (m *Model) viewLedger() string {
 	offers := m.frontRows()
 	heading("ON OFFER", "")
 	if len(offers) == 0 {
-		line(sub("You own every front there is."))
+		line(sub(m.noFrontsOnOffer()))
 	} else {
 		// The upkeep and the audit go before the status is cut (#507:
 		// "open to…"); the pane carries both for the offer under the
@@ -876,7 +921,6 @@ func (m *Model) offerSection(o game.FrontOffer) section {
 func (m *Model) washSection() section {
 	w := m.w
 	l := m.rules.Laundering
-	tun := l.Tuning()
 	lines := []string{
 		row("dial", w.Laundering.Dial.String()),
 		row("washing", fmt.Sprintf("up to %s/day", money(l.Capacity(w)))),
@@ -885,7 +929,12 @@ func (m *Model) washSection() section {
 		row("legit", fmt.Sprintf("%s/day net of upkeep", money(l.LegitIncome(w)))),
 		row("fronts", fmt.Sprintf("%d · washed %s", len(w.Fronts), cash(w.Stats.Laundered))),
 	}
-	lines = append(lines, m.wrapped(theme.Subtle, fmt.Sprintf("The till keeps %s dirty for the street; the wash and the road spend only what is over it.", cash(tun.Float)))...)
+	// The till as set (#526: it read the file's float with $150K set).
+	tillWords := fmt.Sprintf("The till keeps %s dirty for the street (the float)", cash(m.till()))
+	if m.till() > m.floatLine() {
+		tillWords = fmt.Sprintf("The till keeps %s dirty, the line you set", cash(m.till()))
+	}
+	lines = append(lines, m.wrapped(theme.Subtle, tillWords+"; the wash takes only what is over it.")...)
 	if n := w.Crew.Role(game.RoleAccountant); n > 0 {
 		lines = append(lines, m.wrapped(theme.Subtle, fmt.Sprintf("%s on the payroll: more through every front, fewer audits.", plural(n, "accountant")))...)
 	} else if len(w.Fronts) > 0 {

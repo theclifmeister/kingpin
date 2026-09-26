@@ -265,6 +265,20 @@ func (s *Sim) Due(w *game.World, city, product string) int {
 	return 0
 }
 
+// DueShort is why the supply contract standing for a product in a city
+// buys under its shortfall this morning by the plan (#524): "cash",
+// "room" or "supplier", the plan's own reason; "" with no contract or
+// one that buys all it owes. The sell dialog names it, the room the
+// contracts before it took included, rather than guess it off the cash.
+func (s *Sim) DueShort(w *game.World, city, product string) string {
+	for _, p := range s.Plan(w) {
+		if p.Contract.City == city && p.Contract.Product == product {
+			return p.Why
+		}
+	}
+	return ""
+}
+
 // supply fills the supply contracts (#113), yours and the lieutenants'
 // (#174): the plan, bought in its order and with no dice, through the
 // same path as a buy by hand (World.FillSupply: the price pressure and
@@ -296,7 +310,10 @@ func (s *Sim) supply(w *game.World, t *game.Tick, fx game.Effects) {
 				continue
 			}
 			if road := w.Road(cid, id); road > 0 {
-				t.Emit(events.SupplyShort{Day: t.Day, City: cid, Product: id, Short: road, Why: events.SupplyRoad})
+				// The road lands after the night's sales (#524): with
+				// nothing stashed the corner sells none of it tonight,
+				// and the report says that is why.
+				t.Emit(events.SupplyShort{Day: t.Day, City: cid, Product: id, Short: road, Why: events.SupplyRoad, Dry: w.Stock(cid, id) == 0})
 			}
 		}
 	}

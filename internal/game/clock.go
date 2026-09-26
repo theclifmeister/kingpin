@@ -136,8 +136,18 @@ func (w *World) stampPeaks() {
 // sims' own tallies (Dilemmas.Answered, Crew.HiredToday, FiredToday,
 // PaidOffToday and BailedToday, a market's BoughtToday) stay on their sims' state and
 // the clock clears them beside it.
+//
+// The second exception is a lie-low night's handoffs (#524): nothing is
+// handed over while lying low, and a handoff queued before it stays
+// queued through the night and goes the first night you deal, whatever
+// key ended the day (a playtest's buyer row lost its queued marker the
+// morning after). A night you deal clears them as it always did.
 func (w *World) ClearToday(day int) {
-	w.Today = Today{Orders: map[string]SellOrder{}, Buys: supplied(w.Today.Buys, day)}
+	t := Today{Orders: map[string]SellOrder{}, Buys: supplied(w.Today.Buys, day)}
+	if w.Today.LieLow && len(w.Today.Deliveries) > 0 {
+		t.Deliveries = w.Today.Deliveries
+	}
+	w.Today = t
 }
 
 // supplied is the receipts the clock keeps into the morning of day: the

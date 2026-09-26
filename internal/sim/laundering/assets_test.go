@@ -127,3 +127,33 @@ func TestAssetDoorsOpenOnce(t *testing.T) {
 		t.Fatal("announced twice")
 	}
 }
+
+// TestLosingTheBookSaysWhatItCloses (#525): the task force taking the
+// Dutchman's Book says what it closes, the fronts that wait on it and
+// are not owned, by name; a front owned is not named.
+func TestLosingTheBookSaysWhatItCloses(t *testing.T) {
+	cfg := content.MustLoad()
+	s := laundering.New(cfg)
+	book := cfg.Assets.ByEffect(content.AssetSupplier)
+	var waiting []string
+	for _, f := range cfg.Laundering.Fronts {
+		if f.Asset == book.ID {
+			waiting = append(waiting, f.Name)
+		}
+	}
+	if len(waiting) == 0 {
+		t.Fatal("no front waits on the book in the file")
+	}
+	w := world(1_000_000)
+	w.Assets = append(w.Assets, game.Asset{ID: book.ID, Name: book.Name, Effect: book.Effect, City: book.City})
+	tk := gametest.StepUnseeded(w, s, events.AssetSeized{Day: w.Day + 1, Asset: book.ID, Name: book.Name})
+	var got *events.FrontsClosed
+	for _, e := range tk.Events() {
+		if ev, ok := e.(events.FrontsClosed); ok {
+			got = &ev
+		}
+	}
+	if got == nil || got.Name != book.Name || len(got.Fronts) != len(waiting) || got.Fronts[0] != waiting[0] {
+		t.Fatalf("losing the book closed %+v, want %v", got, waiting)
+	}
+}

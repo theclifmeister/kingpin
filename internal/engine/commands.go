@@ -321,8 +321,15 @@ func (s *Session) Reserve(amount int) error { return s.w.Reserve(amount) }
 func (s *Session) SetSweep(keep int) error { return s.w.SetSweep(keep) }
 
 // SetTill sets the dirty cash the wash leaves in hand every night
-// (#496, World.SetTill); 0 is the file's float.
-func (s *Session) SetTill(amount int) error { return s.w.SetTill(amount) }
+// (#496, World.SetTill); 0 is the file's float. A till over the rot line
+// (laundering.toml rot_line) is refused (#526): the pile rots over it,
+// so it saves nothing, and the TUI's field tops out there.
+func (s *Session) SetTill(amount int) error {
+	if l := s.cfg.Laundering.Laundering.RotLine; l > 0 && amount > max(l, s.set.Laundering.Float(s.w)) {
+		return fmt.Errorf("%w: the till tops out at %s, the rot line", game.ErrBadAmount, format.Money(l))
+	}
+	return s.w.SetTill(amount)
+}
 
 // StopSweep turns the nightly sweep offshore off (#478).
 func (s *Session) StopSweep() error { return s.w.StopSweep() }
@@ -411,6 +418,14 @@ func (s *Session) Withdraw() error { return s.w.Withdraw() }
 // every walk away waits on them.
 func (s *Session) PagesDue() int { return s.w.PagesDue(s.set.Heat.StructureEvidence()) }
 
+// PagesPending is the pages today's move offshore will file (#525): the
+// lots over the line in what was reserved today, at heat.toml
+// structure_evidence a lot. A walk away tonight would score the move
+// before its pages, so it waits on them as it waits on PagesDue.
+func (s *Session) PagesPending() int {
+	return s.set.Laundering.Lots(s.w.ReservedToday()) * s.set.Heat.StructureEvidence()
+}
+
 // settled refuses a walk away while last night's lump offshore is
 // still to be read (#494): a lump moved one night and a walk away the
 // next morning scored the whole of it free of its pages. With the day
@@ -422,6 +437,13 @@ func (s *Session) settled() error {
 	}
 	if n := s.PagesDue(); n > 0 {
 		return fmt.Errorf("%w: %s go in the DA's file first, so end the day", game.ErrPagesDue, format.Plural(n, "page"))
+	}
+	// The night of the move (#525): a playtest could vanish the night
+	// of an over-the-lot transfer with a warning and was refused the
+	// morning after; the night itself is refused now, retire and vanish
+	// alike, until the pages are filed.
+	if n := s.PagesPending(); n > 0 {
+		return fmt.Errorf("%w: today's transfer puts %s in the DA's file, so end the day and let it be read", game.ErrPagesDue, format.Plural(n, "page"))
 	}
 	return nil
 }

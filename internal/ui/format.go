@@ -130,3 +130,15 @@ func digit(key string) (int, bool) {
 	}
 	return 0, false
 }
+
+// joinSentences is sentences joined by a space, the empty ones dropped:
+// a status with a warning that may not be there.
+func joinSentences(ss ...string) string {
+	var out []string
+	for _, s := range ss {
+		if s != "" {
+			out = append(out, s)
+		}
+	}
+	return strings.Join(out, " ")
+}

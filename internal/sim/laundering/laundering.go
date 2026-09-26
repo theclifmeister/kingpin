@@ -88,6 +88,25 @@ func (s *Sim) AssetUpkeep(w *game.World) int {
 	return n
 }
 
+// closed says what an asset lost tonight closes (#525): the fronts not
+// owned that wait on it, off sale until it stands again. Nothing with
+// none. No dice.
+func (s *Sim) closed(w *game.World, t *game.Tick, asset string) {
+	name := asset
+	if a := s.assets.Asset(asset); a != nil {
+		name = a.Name
+	}
+	var fronts []string
+	for _, f := range s.cfg.Fronts {
+		if f.Asset == asset && w.Front(f.ID) == nil {
+			fronts = append(fronts, f.Name)
+		}
+	}
+	if len(fronts) > 0 {
+		t.Emit(events.FrontsClosed{Day: t.Day, Asset: asset, Name: name, Fronts: fronts})
+	}
+}
+
 // assetsStep is the assets' books (#48): what the task force seized
 // tonight (the heat sim's AssetSeized, earlier in this tick) and the
 // tunnel the police found (the logistics sim's TunnelFound) come off
@@ -102,8 +121,10 @@ func (s *Sim) assetsStep(w *game.World, t *game.Tick) {
 		switch ev := e.(type) {
 		case events.AssetSeized:
 			w.LoseAsset(ev.Asset, t.Day, "seized")
+			s.closed(w, t, ev.Asset)
 		case events.TunnelFound:
 			w.LoseAsset(ev.Asset, t.Day, "found")
+			s.closed(w, t, ev.Asset)
 		}
 	}
 	upkeep, paying := 0, 0
@@ -478,7 +499,9 @@ func (s *Sim) Till(w *game.World) int { return max(s.Float(w), w.Laundering.Till
 // the supply contracts are committed to spend in the morning
 // (World.SupplyOutlay) where that is more, so a big front never washes
 // the contracts' morning away. A run with no contract washes to the
-// till.
+// till. The road's lot is not kept back (#524): the ledger shows the
+// choice on its till line, a route waiting on a lot and the till that
+// would save for it, and the player raises the till (T).
 func (s *Sim) Line(w *game.World) int { return max(s.Till(w), w.SupplyOutlay()) }
 
 // Washable is the dirty cash the fronts may take today: what is over the

@@ -726,6 +726,10 @@ func (m *Model) travelConfirm() string {
 	} else {
 		body = append(body, theme.Subtle.Render("You stand on no corner here to leave."))
 	}
+	// A contract here with room only in your carry (#524) says so.
+	for _, l := range m.contractsLeft(m.w.Player.Location) {
+		body = append(body, theme.Warning.Render(l))
+	}
 	for _, l := range []string{
 		"Stock stays where it is; the routes " + screenPointer(screenMap) + " move it.",
 		"The supplier sells to you where you stand. Go for what",

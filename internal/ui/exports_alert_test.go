@@ -53,3 +53,52 @@ func TestExportsAlertWords(t *testing.T) {
 		t.Fatalf("o landed on screen %v, not the ledger", m.screen)
 	}
 }
+
+// TestCartelMorningPointsAtTheLanes (#525): the morning the Cartel is
+// reached, before any load is ordered, the exports alert is in the
+// alerts list and on the dashboard, and the stage's modal points at the
+// lanes on the ledger, once: the stage is shown once.
+func TestCartelMorningPointsAtTheLanes(t *testing.T) {
+	m := newTestModel(t, 120, 40)
+	w := m.w
+	cartel := 0
+	for i, tr := range m.cfg.Progression.Tiers {
+		if tr.ID == "cartel" {
+			cartel = i + 1
+		}
+	}
+	for k := 2; k <= cartel; k++ {
+		w.Reach(k, w.Day)
+		if k < cartel {
+			w.SeeStage(k)
+		}
+	}
+	m.sess.EndDay()
+	if len(w.Exports.Orders) != 0 {
+		t.Fatal("an export order stands before the test sets one")
+	}
+	listed := false
+	for _, a := range m.sess.Alerts() {
+		listed = listed || a.Kind == engine.AlertExports
+	}
+	if !listed {
+		t.Fatal("the exports alert is not in the alerts list on the Cartel's morning")
+	}
+	m.showStage()
+	if m.mode != modeStage || m.stage != cartel {
+		t.Fatalf("the Cartel's stage is not shown: mode %v stage %d", m.mode, m.stage)
+	}
+	if view := squash(stripANSI(m.View())); !strings.Contains(view, "the lanes are "+screenPointer(screenLedger)) {
+		t.Errorf("the Cartel's stage does not point at the lanes:\n%s", view)
+	}
+	for m.mode != modePlay {
+		m.Update(key("esc"))
+	}
+	m.Update(key("1"))
+	if view := squash(stripANSI(m.View())); !strings.Contains(view, "The lanes abroad") {
+		t.Errorf("the dashboard does not carry the exports alert:\n%s", view)
+	}
+	if m.w.StagePending() != 0 {
+		t.Error("the stage is still pending after it was shown")
+	}
+}

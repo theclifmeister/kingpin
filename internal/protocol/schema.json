@@ -2869,6 +2869,15 @@
         "income": {
           "type": "integer"
         },
+        "short": {
+          "type": "integer"
+        },
+        "shuts": {
+          "items": {
+            "type": "string"
+          },
+          "type": "array"
+        },
         "upkeep": {
           "type": "integer"
         },
@@ -6248,6 +6257,32 @@
       ],
       "type": "object"
     },
+    "events.FrontsClosed": {
+      "properties": {
+        "Asset": {
+          "type": "string"
+        },
+        "Day": {
+          "type": "integer"
+        },
+        "Fronts": {
+          "items": {
+            "type": "string"
+          },
+          "type": "array"
+        },
+        "Name": {
+          "type": "string"
+        }
+      },
+      "required": [
+        "Day",
+        "Asset",
+        "Name",
+        "Fronts"
+      ],
+      "type": "object"
+    },
     "events.GameOver": {
       "properties": {
         "Cause": {
@@ -8516,6 +8551,33 @@
       ],
       "type": "object"
     },
+    "events.StrikeCalledOff": {
+      "properties": {
+        "Boost": {
+          "type": "boolean"
+        },
+        "Corner": {
+          "type": "string"
+        },
+        "Day": {
+          "type": "integer"
+        },
+        "Name": {
+          "type": "string"
+        },
+        "Why": {
+          "type": "string"
+        }
+      },
+      "required": [
+        "Day",
+        "Corner",
+        "Name",
+        "Boost",
+        "Why"
+      ],
+      "type": "object"
+    },
     "events.SupplierBought": {
       "properties": {
         "City": {
@@ -8727,6 +8789,9 @@
         "Day": {
           "type": "integer"
         },
+        "Dry": {
+          "type": "boolean"
+        },
         "Lieutenant": {
           "type": "string"
         },
@@ -8754,7 +8819,8 @@
         "Short",
         "Why",
         "Lieutenant",
-        "Till"
+        "Till",
+        "Dry"
       ],
       "type": "object"
     },
@@ -10405,6 +10471,9 @@
     "FrontInvested": {
       "$ref": "#/$defs/events.FrontInvested"
     },
+    "FrontsClosed": {
+      "$ref": "#/$defs/events.FrontsClosed"
+    },
     "GameOver": {
       "$ref": "#/$defs/events.GameOver"
     },
@@ -10605,6 +10674,9 @@
     },
     "StraightOpened": {
       "$ref": "#/$defs/events.StraightOpened"
+    },
+    "StrikeCalledOff": {
+      "$ref": "#/$defs/events.StrikeCalledOff"
     },
     "SupplierBought": {
       "$ref": "#/$defs/events.SupplierBought"
@@ -11511,6 +11583,22 @@
       }
     },
     "front_offers": {
+      "changes": false,
+      "needsRun": true,
+      "params": {
+        "maxItems": 0,
+        "minItems": 0,
+        "prefixItems": [],
+        "type": "array"
+      },
+      "result": {
+        "items": {
+          "$ref": "#/$defs/game.FrontOffer"
+        },
+        "type": "array"
+      }
+    },
+    "fronts_waiting": {
       "changes": false,
       "needsRun": true,
       "params": {
@@ -14201,6 +14289,24 @@
         "type": "integer"
       }
     },
+    "rules.logistics.waits": {
+      "changes": false,
+      "needsRun": true,
+      "params": {
+        "maxItems": 1,
+        "minItems": 1,
+        "prefixItems": [
+          {
+            "title": "route",
+            "type": "string"
+          }
+        ],
+        "type": "array"
+      },
+      "result": {
+        "type": "integer"
+      }
+    },
     "rules.logistics.watched": {
       "changes": false,
       "needsRun": true,
@@ -14453,6 +14559,28 @@
       },
       "result": {
         "type": "integer"
+      }
+    },
+    "rules.market.due_short": {
+      "changes": false,
+      "needsRun": true,
+      "params": {
+        "maxItems": 2,
+        "minItems": 2,
+        "prefixItems": [
+          {
+            "title": "city",
+            "type": "string"
+          },
+          {
+            "title": "product",
+            "type": "string"
+          }
+        ],
+        "type": "array"
+      },
+      "result": {
+        "type": "string"
       }
     },
     "rules.market.markup": {
@@ -15888,6 +16016,7 @@
             "FrontFrozen",
             "FrontGrew",
             "FrontInvested",
+            "FrontsClosed",
             "GameOver",
             "HandoffHeld",
             "Headline",
@@ -15955,6 +16084,7 @@
             "StockMoved",
             "StraightLapsed",
             "StraightOpened",
+            "StrikeCalledOff",
             "SupplierBought",
             "SupplierCollected",
             "SupplierFrozen",
