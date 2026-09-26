@@ -89,6 +89,11 @@ func sizedModel(t *testing.T, cfg *content.Config, opts Options, w, h int) *Mode
 	if err != nil {
 		t.Fatal(err)
 	}
+	// A fresh install opens the new-run dialog (#507); a test model
+	// starts its run in slot 1 at once, as a fresh install did before.
+	if m.w == nil && m.mode == modeNewRun {
+		m.newRun(1)
+	}
 	m.Update(tea.WindowSizeMsg{Width: w, Height: h})
 	return m
 }

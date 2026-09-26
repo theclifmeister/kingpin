@@ -1,6 +1,7 @@
 package ui
 
 import (
+	"fmt"
 	"os"
 	"regexp"
 	"strings"
@@ -332,17 +333,34 @@ func TestNoKeyHintsOutsideTheLegend(t *testing.T) {
 	}
 }
 
-// q in play mode saves and quits, as it did when the switch handled it.
+// q in play mode saves and goes back to the start menu, the cursor on
+// the run's slot (#507: it quit the program, and a player after another
+// character had to launch it again); q on the menu quits, and enter
+// there continues the run where it stood.
 func TestQuitKeySaves(t *testing.T) {
 	m := newTestModel(t, 80, 24)
 	m.w.Player.DirtyCash = 4321
-	_, cmd := m.Update(key("q"))
-	if cmd == nil || !m.quitting {
-		t.Fatalf("q: cmd %v quitting %v", cmd, m.quitting)
+	day := m.w.Day
+	if _, cmd := m.Update(key("q")); cmd != nil || m.quitting || m.mode != modeStart || m.startChoice != m.slot-1 {
+		t.Fatalf("q: cmd %v quitting %v mode %v choice %d", cmd, m.quitting, m.mode, m.startChoice)
 	}
 	w, err := game.Load(1)
 	if err != nil || w.Player.DirtyCash != 4321 {
 		t.Fatalf("q did not save: %v %+v", err, w)
+	}
+	view := stripANSI(m.View())
+	for _, want := range []string{"Slot 1 · day", fmt.Sprintf("Day %d saved in slot 1. q quits.", day)} {
+		if !strings.Contains(view, want) {
+			t.Errorf("the menu after q lacks %q:\n%s", want, view)
+		}
+	}
+	m.Update(key("enter"))
+	if m.mode != modePlay || m.w.Player.DirtyCash != 4321 {
+		t.Fatalf("enter on the slot: mode %v dirty %d", m.mode, m.w.Player.DirtyCash)
+	}
+	m.Update(key("q"))
+	if _, cmd := m.Update(key("q")); cmd == nil || !m.quitting {
+		t.Fatalf("q on the menu: cmd %v quitting %v", cmd, m.quitting)
 	}
 }
 

@@ -215,7 +215,7 @@ func (m *Model) deedSection(c game.Corner) section {
 	}
 	held, limit := w.DeedValue(), m.rules.Law.DeedLimit(w)
 	if m.rules.Law.Forfeits(w) {
-		lines = append(lines, wrapped(theme.Bad, fmt.Sprintf("Over the DA's line: %s in deeds against %s allowed. The newest goes tonight.", money(held), money(limit)))...)
+		lines = append(lines, m.wrapped(theme.Bad, fmt.Sprintf("Over the DA's line: %s in deeds against %s allowed. The newest goes tonight.", money(held), money(limit)))...)
 	} else {
 		lines = append(lines, row("DA's line", fmt.Sprintf("%s of %s", money(held), money(limit))))
 	}

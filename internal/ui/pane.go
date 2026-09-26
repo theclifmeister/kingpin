@@ -68,10 +68,23 @@ func wrap(s string, w int) []string {
 	return out
 }
 
-// wrapped is a section's lines for a note, wrapped and styled.
-func wrapped(style lipgloss.Style, s string) []string {
+// textW is the width the details are written for: the pane's text, or
+// the overlay's inner width while space has it open (#507: the overlay
+// drew the pane's 32-cell wrap inside its 76-cell box).
+func (m *Model) textW() int {
+	if m.mode == modeDetails {
+		return m.modalInner()
+	}
+	return paneTextW
+}
+
+// valueW is the cells a row's value has after its label at textW.
+func (m *Model) valueW() int { return m.textW() - paneLabelW - 1 }
+
+// wrapped is a section's lines for a note, wrapped to textW and styled.
+func (m *Model) wrapped(style lipgloss.Style, s string) []string {
 	var out []string
-	for _, l := range wrap(s, paneTextW) {
+	for _, l := range wrap(s, m.textW()) {
 		out = append(out, style.Render(l))
 	}
 	return out

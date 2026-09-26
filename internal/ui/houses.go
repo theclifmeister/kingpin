@@ -284,7 +284,7 @@ func (m *Model) houseSection(h game.House) section {
 	lines = append(lines, row("robbery", pctText(m.rules.Territory.HouseRobberyChance(w, &h)*100)+"/day"))
 	lines = append(lines, row("since", fmt.Sprintf("day %d · %s", h.Bought, money(h.Price))))
 	if h.Known {
-		lines = append(lines, wrapped(theme.Bad, "The police know this house: it is the one the raid finds. Move the stock out and drop it.")...)
+		lines = append(lines, m.wrapped(theme.Bad, "The police know this house: it is the one the raid finds. Move the stock out and drop it.")...)
 	}
 	if h.Units() > 0 {
 		lines = append(lines, keyRow("m", "move stock"))

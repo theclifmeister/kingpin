@@ -610,7 +610,7 @@ func (m *Model) routeFacts(r content.RouteConfig) (string, []string) {
 	if long, _, st := m.routeIdle(r); long != "" && !w.RouteClosed(r.ID) && w.Route(r.ID).HasTargets() {
 		// Why it sends nothing (#459), wrapped: the closed row above says a shut one's, the target row one with none.
 		label := "idle"
-		for _, l := range wrap(strings.TrimPrefix(long, "idle: "), paneTextW-paneLabelW-1) {
+		for _, l := range wrap(strings.TrimPrefix(long, "idle: "), m.valueW()) {
 			lines = append(lines, row(label, st.Render(l)))
 			label = ""
 		}
@@ -635,7 +635,7 @@ func (m *Model) routeFacts(r content.RouteConfig) (string, []string) {
 		lines = append(lines, row("target", theme.Subtle.Render("none")))
 	default:
 		label := "target"
-		for _, l := range wrap(t, paneTextW-paneLabelW-1) {
+		for _, l := range wrap(t, m.valueW()) {
 			lines = append(lines, row(label, l))
 			label = ""
 		}
@@ -645,7 +645,7 @@ func (m *Model) routeFacts(r content.RouteConfig) (string, []string) {
 		// One row a shipment where the value column holds it, else the
 		// day on one row and the units under it.
 		rows := []string{strings.Join(sh, " · ")}
-		if lipgloss.Width(rows[0]) > paneTextW-paneLabelW-1 {
+		if lipgloss.Width(rows[0]) > m.valueW() {
 			rows = sh
 		}
 		for _, l := range rows {

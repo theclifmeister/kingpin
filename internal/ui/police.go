@@ -126,7 +126,7 @@ func (m *Model) policeSection(city *game.City) section {
 		if len(pages) > 0 {
 			note = strings.Join(pages, ", ") + " pages, if you sold; a quiet day files nothing."
 		}
-		lines = append(lines, wrapped(theme.Subtle, note)...)
+		lines = append(lines, m.wrapped(theme.Subtle, note)...)
 	} else {
 		lines = append(lines, row("file", theme.Subtle.Render("no case can be made")))
 	}
@@ -144,7 +144,7 @@ func (m *Model) policeSection(city *game.City) section {
 	if city.Goodwill > 0 {
 		note += fmt.Sprintf(" Goodwill takes %.1f a day.", lt.GoodwillCut*city.Goodwill/100)
 	}
-	lines = append(lines, wrapped(theme.Subtle, note)...)
+	lines = append(lines, m.wrapped(theme.Subtle, note)...)
 
 	// The dirty pile against the line: the threshold and the cover.
 	if line := m.rules.Heat.ExposureLine(w); line > 0 {

@@ -440,6 +440,7 @@ type ProductMarket struct {
 type HeatState struct {
 	SellCapDays  int            // days the patrol cap is still in force
 	SellCap      float64        // fraction of demand you can sell while capped
+	SellCapCity  string         // the city whose patrol set the cap (#507: the line named none); "" on a save from before
 	LastResponse map[string]int // level -> last day it fired
 	Responses    map[string]int // level -> how many times it has fired this run
 	Evidence     int            // what the DA has on you; enough of it is an indictment

@@ -236,9 +236,10 @@ func legend(bs []binding) string {
 // lines (#463), in the order asked.
 func (m *Model) modalFollow(line int) { m.follow = append(m.follow, line) }
 
-// gluedPointer is a pointer to a screen, `on the market screen (2)`, which
-// wrapLine keeps on one row.
-var gluedPointer = regexp.MustCompile(`on the \w+ screen \(\d\)`)
+// gluedPointer is what wrapLine keeps on one row: a pointer to a screen,
+// `on the market screen (2)`, and a short aside in brackets, `(normal,
+// standing, cut $269)`, which broke with "$269)" alone on a row (#507).
+var gluedPointer = regexp.MustCompile(`on the \w+ screen \(\d\)|\([^()]{1,40}\)`)
 
 // wrapLine is a body line cut into lines of at most width cells at its
 // spaces (#463), the one wrap of the modal: a word longer than the
@@ -270,7 +271,7 @@ func wrapLine(l string, width int) []string {
 		}
 	}
 	hang = min(hang, width/2)
-	glued := map[int]bool{} // a pointer to a screen is never broken (#463)
+	glued := map[int]bool{} // a pointer to a screen is never broken (#463), nor an aside (#507)
 	for _, g := range gluedPointer.FindAllStringIndex(string(plain), -1) {
 		for j := len([]rune(string(plain)[:g[0]])); j < len([]rune(string(plain)[:g[1]])); j++ {
 			glued[j] = true

@@ -91,7 +91,7 @@ func TestRivalsOverlayScrolls(t *testing.T) {
 	if m.mode != modeDetails {
 		t.Fatalf("space: mode %v", m.mode)
 	}
-	last := "others hear of it."
+	last := "of it." // the RULES wrap to the overlay's width (#507)
 	seen := strings.Contains(stripANSI(m.View()), last)
 	for i := 0; i < 40 && !seen; i++ {
 		assertFits(t, m.View(), 80, 24, "rivals overlay")

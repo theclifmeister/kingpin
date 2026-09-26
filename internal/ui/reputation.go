@@ -66,7 +66,7 @@ func (m *Model) nameSection() []section {
 	for _, e := range effects {
 		lines = append(lines, theme.Bold.Render(fmt.Sprintf("%s %.0f", e.axis, e.value)))
 		for _, l := range e.lines {
-			lines = append(lines, wrapWidth(l, paneTextW-2, "  ")...)
+			lines = append(lines, wrapWidth(l, m.textW()-2, "  ")...)
 		}
 	}
 	return []section{{"YOUR NAME", lines}}

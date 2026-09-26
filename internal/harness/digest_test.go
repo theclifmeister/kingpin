@@ -396,20 +396,24 @@ const (
 // RivalState.Spell): day 1 by the field's shape; with it left out of
 // the walk every one of the sixty days is main's digest: no number
 // moved.
+// Again for #507 (the city whose patrol set the cap,
+// HeatState.SellCapCity): day 1 by the field's shape; with it left out
+// of the walk every day is main's digest, and no number moved.
+// (walked on top of #493/#495's RivalState.Spell.)
 var seedDigest = []string{
-	"d0d63512569a8638", "57a0a62996f9298c", "d9d6695e4790edee", "a4528fa4659c82bb",
-	"77c18521191d9165", "188aa2000cb704d4", "9edefaf83c39e9d7", "99baf85f2bf2d105",
-	"d7dc75ba07b8ba1a", "c2b5ad5afc85744b", "8d338d5b68a30477", "b70701843f92fb00",
-	"aaebf6b42d6816b6", "c030212cf9b67748", "d695a36e482624b9", "942d9bdbe1237262",
-	"56815a9cfab62cfe", "9b84d1a70cef2582", "26516c56acfd4c26", "29bd83c71d1bde17",
-	"f532df5435cc3141", "b780013f6e06a380", "743e1583249ee6f8", "e86cc4aaa487100e",
-	"55698c4d32265771", "698a19162f7326c6", "c744fe3a23703a63", "1567c023b1d7caeb",
-	"6bdc07a0e59584de", "763756d7c1e4f226", "40c843b6d5b6f3b6", "f929a0b899d552ad",
-	"bb0f50da031abea7", "2cacff5cc1e7a249", "88a5adf657d39740", "ac486a10b4b539b0",
-	"d24c8dffaf226a37", "0681da194e7cacc9", "d28db547011b9593", "579b4fcc6613389f",
-	"4a03b566402162eb", "f4e72cd4f3a359c0", "35e2082df48f1acf", "81c8db7d341874bf",
-	"7a028a0e6e024f60", "ecd393f5f4b75f93", "6bc424f6dc7993ad", "556573539f987471",
-	"5bcd5fa94a50224f", "76915f16df408d07", "a70eeb0c26f87375", "a59cf27fb7345372",
-	"a240779404643c79", "9a0ebe4216a54bd1", "19e2c4b5afb1a284", "b45d31743e9affbc",
-	"5ffbcaffe045c8df", "b761efbffaf49a2c", "c4c6e5430d0893ed", "a053f24eee80e9e9",
+	"f6e3745bdbb75dab", "6744e88f9e037c39", "1ac2059a2ac8038d", "a340758ab57aa0b2",
+	"01c68789f8823b2e", "5063f167ac75c7b1", "53abdeb56cde16a4", "a6018cbb96f793bc",
+	"7b9125addfce6ebb", "7413e44c3015e24e", "74947816f3a71190", "54f85da98fc0a03d",
+	"c4400e55d74333e3", "3b1b181a79cb96c5", "ff925f82cf945780", "dbe3aeb890c67333",
+	"84185c89f5ed0bed", "a718f61a085ef88b", "25521dd71d608e93", "a99f9a9eed2e87f4",
+	"935d4fd83db59b6c", "c8aa177dfa11f019", "054c2ba3665b2aeb", "ba3e34b65e3cd4a7",
+	"d8f2983a6e4bb1fc", "b9b4921d41040667", "6f4af92b157f9c6a", "409db28dc030637a",
+	"6520062fd5d29fb9", "6000fa485d229b67", "9995cd38992b04af", "24058eb96d88ef08",
+	"4b99d3b4cd9deb58", "2b13dbc9fe6ba1a4", "22703c3be764bfa7", "83757dd0dfd98c03",
+	"9af8c95a968a684c", "e613419f08f36572", "18b083a45093158a", "5e5e2fa357d580c6",
+	"3c503e20d2c07ef0", "0930007a230ab0db", "428ce23ebb0351ce", "cc7ce5ece0d17056",
+	"cacbabb509716749", "65d5ddad4728a6a8", "6b9a8a9ed1536f9a", "6194d38644cfda62",
+	"5ea89ac10080cd1c", "000bc3a27f296642", "f7fb271b97f87ba6", "90288effe454c019",
+	"11f4f9a76b736cd6", "0ce54f005d1d745c", "0d1792ca06eb77d3", "f6deef2f37b99cbb",
+	"b6e3f44bc6d240e8", "d16ce8a6e211df99", "3f0120cd4ba367ae", "ee628f2e790e8144",
 }

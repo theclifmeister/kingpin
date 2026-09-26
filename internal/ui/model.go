@@ -111,20 +111,23 @@ type Model struct {
 }
 
 // New wires config, simulations, clock and bus together. With a run in
-// any slot the start menu offers the slots; on a fresh install a run
-// starts in slot 1.
+// any slot the start menu offers the slots; on a fresh install the
+// new-run dialog opens for slot 1 over it (#507).
 func New(cfg *content.Config, opts Options) (*Model, error) {
 	m, err := wire(cfg, opts)
 	if err != nil {
 		return nil, err
 	}
+	m.mode = modeStart
 	for _, s := range game.Slots() {
 		if !s.Empty {
-			m.mode = modeStart
 			return m, nil
 		}
 	}
-	m.newRun(1)
+	// A fresh install opens on the menu with the new-run dialog up for
+	// slot 1 (#507): it started a Dealer run on a random seed, so the
+	// characters and the menu the README describes were never seen.
+	m.openNewRun(1)
 	return m, nil
 }
 
@@ -675,8 +678,26 @@ func (m *Model) lieLow() {
 // were.
 func (m *Model) openDetails() { m.mode = modeDetails }
 
+// toMenu saves the run and goes back to the start menu, the cursor on
+// the run's slot (#507: q quit the program, so a player who wanted
+// another character or slot had to launch the game again); q on the
+// menu quits.
+func (m *Model) toMenu() {
+	if err := m.sess.Save(m.slot); err != nil {
+		m.alarm("Save failed: " + err.Error())
+		return
+	}
+	m.mode, m.startChoice = modeStart, m.slot-1
+	m.say(fmt.Sprintf("Day %d saved in slot %d. q quits.", m.w.Day, m.slot))
+	m.titleLoop()
+}
+
 func (m *Model) quit() (tea.Model, tea.Cmd) {
-	if m.w != nil {
+	// The menu's run was saved on the way to it (q, the ending, the
+	// summary's esc), so quitting there writes nothing (#507: it wrote
+	// the run behind the menu again, and a save an hour old read "saved
+	// just now", in whichever slot that run was).
+	if m.w != nil && !m.onStart() {
 		if err := m.sess.Save(m.slot); err != nil {
 			m.quitErr = fmt.Errorf("the run was not saved: %w", err)
 		}

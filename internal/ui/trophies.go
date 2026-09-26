@@ -107,7 +107,7 @@ func (m *Model) trophySection(id, name string, cost int, owned *game.Trophy, off
 	w := m.w
 	var lines []string
 	if tc := m.cfg.Trophies.Trophy(id); tc != nil {
-		lines = append(lines, wrapped(theme.Subtle, tc.Blurb)...)
+		lines = append(lines, m.wrapped(theme.Subtle, tc.Blurb)...)
 	}
 	lines = append(lines, row("cost", money(cost)+" clean"))
 	if talk := m.trophyTalk(id); talk != "" {
@@ -125,7 +125,7 @@ func (m *Model) trophySection(id, name string, cost int, owned *game.Trophy, off
 	}
 	for _, l := range w.TrophiesLost {
 		if l.ID == id {
-			lines = append(lines, wrapped(theme.Warning, fmt.Sprintf("The feds took it on day %d.", l.Lost))...)
+			lines = append(lines, m.wrapped(theme.Warning, fmt.Sprintf("The feds took it on day %d.", l.Lost))...)
 		}
 	}
 	return section{strings.ToUpper(name), lines}

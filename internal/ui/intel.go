@@ -236,7 +236,10 @@ func (m *Model) viewIntel() string {
 	if len(facts) == 0 {
 		line(emptyState("Nothing known yet. Pay a cop with ", "$", ", or plant a spy with ", "p", "; what happens to you is written here."))
 	} else {
-		ls = append(ls, table(intelCols, m.intelRows(), clamp(&m.intelCursor, len(facts)), width)...)
+		// When it was learnt and who said so go before a subject is cut
+		// (#507: "Chief P…" beside the pane); the pane carries both.
+		cols, rows := dropCols(append([]col(nil), intelCols...), m.intelRows(), width, "learnt", "source")
+		ls = append(ls, table(cols, rows, clamp(&m.intelCursor, len(facts)), width)...)
 	}
 	ls = append(ls, "")
 	line(sectionTitle("SPIES", m.accent()))
@@ -304,10 +307,10 @@ func (m *Model) intelDetails() []section {
 		if f.Stale > 0 {
 			lines = append(lines, row("fades", fmt.Sprintf("−%s/day · gone at %s", format.Pct(f.Stale, 0), format.Pct(f.Forget, 0))))
 		}
-		lines = append(lines, wrapped(theme.Subtle, m.story(*f))...)
+		lines = append(lines, m.wrapped(theme.Subtle, m.story(*f))...)
 		sel = section{strings.ToUpper(title), lines}
 	} else {
-		sel = section{"THE FILE", wrapped(theme.Subtle, "Nothing known yet. A push shows you their muscle, a raid the chief, a seizure the road; the rest is bought or sent out from under.")}
+		sel = section{"THE FILE", m.wrapped(theme.Subtle, "Nothing known yet. A push shows you their muscle, a raid the chief, a seizure the road; the rest is bought or sent out from under.")}
 	}
 	sel.lines = append(sel.lines,
 		keyRow("$", fmt.Sprintf("pay a cop: %s, ~%s straight", money(tun.CopPrice), format.Pct(tun.CopAccuracy, 0))),
@@ -318,7 +321,7 @@ func (m *Model) intelDetails() []section {
 		spies = append(spies, row(truncate(s.Name, paneLabelW), fmt.Sprintf("with %s · %s", m.rivalName(r), m.nextReport(s))))
 	}
 	if len(spies) == 0 {
-		spies = wrapped(theme.Subtle, fmt.Sprintf("Nobody under. A spy stops selling and reports every %s; found, %s come home talking and the rest are shot.", plural(tun.SpyDays, "day"), format.Pct(tun.TurnShare, 0)))
+		spies = m.wrapped(theme.Subtle, fmt.Sprintf("Nobody under. A spy stops selling and reports every %s; found, %s come home talking and the rest are shot.", plural(tun.SpyDays, "day"), format.Pct(tun.TurnShare, 0)))
 	}
 	return []section{sel, {"SPIES", spies}}
 }
