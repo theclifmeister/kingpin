@@ -220,11 +220,11 @@ func (m *Model) supplierSections(sup *game.Supplier) []section {
 	case !here:
 		sel = append(sel, keyRow("g", "go to "+w.CityName(sup.City)+" to buy"))
 	}
-	secs := []section{{strings.ToUpper(sup.Name) + " · " + strings.ToUpper(w.CityName(sup.City)), sel}}
+	secs := []section{{title: strings.ToUpper(sup.Name) + " · " + strings.ToUpper(w.CityName(sup.City)), lines: sel}}
 	tun := mk.SuppliersTuning()
 	rules := m.wrapped(theme.Subtle, fmt.Sprintf("Every lot bought is +%.2g rel; a debt cleared on its day +%.0f; a late one -%.0f, and %s. A bust that takes their product costs rel; under %.0f they stop taking calls. Left alone %s, they forget you.",
 		tun.RelPerLot, tun.RelPaid, tun.RelLate, temperWords(sup.Temper), tun.FreezeRel, plural(tun.QuietDays, "day")))
-	return append(secs, section{"RULES", rules})
+	return append(secs, section{title: "RULES", lines: rules})
 }
 
 // temperShort is a temper in three or four words, for the pane.

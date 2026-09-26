@@ -145,7 +145,7 @@ func (m *Model) laneSection(l content.LaneConfig) section {
 	for _, ld := range w.ExportsOut(l.ID) {
 		lines = append(lines, row(fmt.Sprintf("d%d", ld.Lands), fmt.Sprintf("%d %s · %s due", ld.Units, w.ProductName(ld.Product), money(ld.Revenue()))))
 	}
-	return section{strings.ToUpper(l.Name), lines}
+	return section{title: strings.ToUpper(l.Name), lines: lines}
 }
 
 // askExport opens the order dialog on the lane under the cursor.

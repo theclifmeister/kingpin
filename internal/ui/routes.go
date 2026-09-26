@@ -588,7 +588,7 @@ func (m *Model) shipmentLines(route string) [][]string {
 // (routeFacts) and what r, R and v do to it.
 func (m *Model) routeSection(r content.RouteConfig) section {
 	title, lines := m.routeFacts(r)
-	return section{title, append(lines, keyRow("r", "turn the dial"), keyRow("R", "set a target"), keyRow("v", "put a driver on it"))}
+	return section{title: title, lines: append(lines, keyRow("r", "turn the dial"), keyRow("R", "set a target"), keyRow("v", "put a driver on it"))}
 }
 
 // routeFacts is the route's detail without its keys (#240: the ledger

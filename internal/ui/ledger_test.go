@@ -141,11 +141,19 @@ func TestLedgerScrolls(t *testing.T) {
 			return m.trophyRows()[r.i].Name
 		case ledgerPayoff:
 			return m.payoffRows()[r.i].Who
+		case ledgerRace:
+			return w.CityName(m.raceRows()[r.i])
 		}
 		return m.frontRows()[r.i].Name
 	}
 	heading := func(r ledgerRow) string {
-		return [...]string{"FRONTS", "STASH", "PROPERTY", "ASSETS", "ASSETS", "EXPORTS", "TROPHIES", "TROPHIES", "PAYOFFS", "ON OFFER"}[r.kind]
+		return [...]string{"FRONTS", "STASH", "PROPERTY", "ASSETS", "ASSETS", "EXPORTS", "TROPHIES", "TROPHIES", "PAYOFFS", "DA RACE", "ON OFFER"}[r.kind]
+	}
+	title := func(r ledgerRow) string {
+		if r.kind == ledgerRace {
+			return "DA RACE · " + strings.ToUpper(name(r)) // the race's section names the city (#534)
+		}
+		return strings.ToUpper(name(r))
 	}
 	for i, r := range rows {
 		assertFrame(t, m, "short ledger row "+name(r))
@@ -157,7 +165,7 @@ func TestLedgerScrolls(t *testing.T) {
 		if !strings.Contains(main, heading(r)) {
 			t.Fatalf("row %d (%s): its table's heading %s is out of view:\n%s", i, name(r), heading(r), view)
 		}
-		if got := stripLine(m); !strings.HasPrefix(got, "▸ "+strings.ToUpper(name(r))) {
+		if got := stripLine(m); !strings.HasPrefix(got, "▸ "+title(r)) {
 			t.Fatalf("the strip does not name %s: %q", name(r), got)
 		}
 		m.Update(key("down"))

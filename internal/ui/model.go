@@ -103,7 +103,9 @@ type Model struct {
 	now            func() time.Time    // the wall clock, read here alone (#50): the daily's date, the profile's; a test sets it
 	startChoice    int                 // row on the start menu: the slots, then Quit
 	status         string
-	statusKind     statusKind           // how the status bar colours the message; set where the status is
+	statusKind     statusKind // how the status bar colours the message; set where the status is
+	said           string     // the message the bar cut, kept for the key after it: space shows it whole (#535)
+	saidKind       statusKind
 	flash          []events.Enforcement // the enforcements of the last tick, via the bus: the bust's scene reads the level (#155)
 	reportScene    reportSceneKind      // which scene the report opened on (#159), while m.scene is up in modeReport
 	quitting       bool
@@ -563,6 +565,7 @@ func (m *Model) keyOver(key string) (tea.Model, tea.Cmd) {
 // something there; a key the screen lists but that is not live now, the
 // arrows and the paging keys are silent where they do nothing.
 func (m *Model) keyPlay(key string) (tea.Model, tea.Cmd) {
+	m.keepSaid()
 	m.status, m.statusKind = "", statusBody
 	b, found, own := m.lookup(key)
 	switch {
@@ -742,8 +745,12 @@ func (m *Model) viewConfirmEnd() string {
 	return m.modal("END THE DAY?", m.previewLines(), m.modalFooter())
 }
 
-// viewDetails is the details pane as an overlay, under paneMinWidth.
-func (m *Model) viewDetails() string { return m.overlay(m.details(), m.paneKeys(), m.accent()) }
+// viewDetails is the details pane as an overlay, under paneMinWidth,
+// led by the status message the bar cut when space was pressed on it
+// (#535, saidSection).
+func (m *Model) viewDetails() string {
+	return m.overlay(append(m.saidSection(), m.details()...), m.paneKeys(), m.accent())
+}
 
 func (m *Model) viewTitle() string {
 	w := m.w

@@ -219,5 +219,5 @@ func (m *Model) deedSection(c game.Corner) section {
 	} else {
 		lines = append(lines, row("DA's line", fmt.Sprintf("%s of %s", money(held), money(limit))))
 	}
-	return section{strings.ToUpper(c.Name), lines}
+	return section{title: strings.ToUpper(c.Name), lines: lines}
 }

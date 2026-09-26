@@ -483,9 +483,9 @@ func (m *Model) accountants() (add int, cut float64) {
 func (m *Model) crewDetails() []section {
 	c, onPayroll, ok := m.crewSelected()
 	if !ok {
-		return []section{{"NOBODY", m.wrapped(theme.Subtle, "Nobody on the payroll and nobody looking for work. New faces come by every few days.")}, m.crewSection()}
+		return []section{{title: "NOBODY", lines: m.wrapped(theme.Subtle, "Nobody on the payroll and nobody looking for work. New faces come by every few days.")}, m.crewSection()}
 	}
-	return []section{{strings.ToUpper(c.Name), m.personLines(c, onPayroll)}, m.crewSection()}
+	return []section{{title: strings.ToUpper(c.Name), lines: m.personLines(c, onPayroll)}, m.crewSection()}
 }
 
 // personLines is the selection section's body for one member or
@@ -837,7 +837,7 @@ func (m *Model) crewSection() section {
 		per := sl * m.cfg.Heat.Heat.SloppyHeat * 100
 		lines = append(lines, row("sloppy", theme.Warning.Render(fmt.Sprintf("+%.1f heat/100 units", per))), row("", sub(fmt.Sprintf("runners under skill %d, and a hothead on a corner", m.cfg.Heat.Heat.SloppySkill)))) // who the report names (#522)
 	}
-	return section{"CREW", lines}
+	return section{title: "CREW", lines: lines}
 }
 
 // jailed and wounded count the crew in a cell and laid up (#46).

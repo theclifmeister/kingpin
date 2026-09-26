@@ -484,6 +484,7 @@ var words = [][2]string{
 	{"file", "the DA's pages: a bust on a day you sold adds; enough indicts"},
 	{"pressure", "a city's mood, 0-100: lowers police lines, tightens patrols"},
 	{"goodwill", "bought with clean cash (f on the ledger): wears pressure down"},
+	{"DA race", "the DA's vote each term: clean cash on a ticket moves it"},
 	{"cover", "what your fronts explain of the dirty pile: it draws no heat"},
 	{"estimate", "a forecast, such as a cop's word: shown with how sure it is"},
 	{"drift", "a held corner nobody works goes back to the street in days"},

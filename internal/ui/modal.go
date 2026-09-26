@@ -2,6 +2,7 @@ package ui
 
 import (
 	"regexp"
+	"slices"
 	"strings"
 
 	tea "github.com/charmbracelet/bubbletea"
@@ -136,11 +137,32 @@ func (m *Model) pickerKey(key string, rows int, pick func()) {
 // there are any.
 func (m *Model) pickerModal(title string, head []string, cols []col, cells [][]any, cursor int, notes ...string) string {
 	m.modalFollow(len(head) + 1 + cursor) // under the header
-	body := append(append([]string{}, head...), table(cols, cells, cursor, m.modalInner())...)
+	lines := table(cols, cells, cursor, m.modalInner())
+	body := append(append([]string{}, head...), lines...)
+	if name := wholeName(cols, cells, cursor, lines); name != "" {
+		notes = append([]string{name}, notes...)
+	}
 	if len(notes) > 0 {
 		body = append(append(body, ""), notes...)
 	}
 	return m.modal(title, body, m.modalFooter())
+}
+
+// wholeName is the row under a picker's cursor named in full where its
+// table cut the name (#535: `Construction …` and `Crypto Exchan…` in BUY
+// A FRONT at 80x24), as a row under the table the way the pane names the
+// selection; "" where the name is whole. lines are the table's, its
+// header first.
+func wholeName(cols []col, cells [][]any, cursor int, lines []string) string {
+	i := slices.IndexFunc(cols, func(c col) bool { return c.kind == kText })
+	if i < 0 || cursor < 0 || cursor >= len(cells) || cursor+1 >= len(lines) || i >= len(cells[cursor]) {
+		return ""
+	}
+	name, _ := cellText(kText, 0, cells[cursor][i])
+	if name == "" || strings.Contains(ansi.Strip(lines[cursor+1]), name) {
+		return ""
+	}
+	return row(cols[i].title, theme.Gold.Render(name))
 }
 
 // modalMax is the widest a modal gets. Under it the modal is the terminal
@@ -172,7 +194,16 @@ func (m *Model) modal(title string, body []string, footer []binding) string {
 // the caps in theme.Title. Everything else is modal's.
 func (m *Model) modalTitled(title string, body []string, footer []binding) string {
 	inner := m.modalInner()
-	room := m.modalRoom()
+	// A number field's line is kept in view like a picker's cursor: a
+	// footer on two rows takes a body row (#535).
+	if p := m.openPaged(); p != nil && p.field() != nil {
+		v := p.field().View()
+		for i, l := range body {
+			if strings.Contains(l, v) {
+				m.modalFollow(i)
+			}
+		}
+	}
 	// Every line wider than the box wraps under itself (#463); the
 	// lines a picker asked to keep in view (modalFollow) are found in
 	// the wrapped body.
@@ -183,6 +214,15 @@ func (m *Model) modalTitled(title string, body []string, footer []binding) strin
 		lines = append(lines, wrapLine(l, inner)...)
 	}
 	at[len(body)] = len(lines)
+	// The footer is every key whole (#535: `esc cl… ↑ more ↓ more`), on
+	// a second row where one is not enough, the body a row shorter; a
+	// body that scrolls leaves the scroll marks their room on it.
+	foot := footerRows(footer, inner)
+	room := max(1, m.modalRoom()-len(foot)+1)
+	if m.modalScroll > 0 || len(lines) > room {
+		foot = footerRows(footer, inner-lipgloss.Width(k("↑", "more")+k("↓", "more")))
+		room = max(1, m.modalRoom()-len(foot)+1)
+	}
 	for _, f := range m.follow {
 		if f < 0 || f >= len(body) {
 			continue
@@ -203,7 +243,6 @@ func (m *Model) modalTitled(title string, body []string, footer []binding) strin
 	for _, l := range body[m.modalScroll:min(len(body), m.modalScroll+room)] {
 		b.WriteString(ansi.Truncate(l, inner, "…") + "\n")
 	}
-	foot := strings.TrimPrefix(legend(footer), " ") // flush with the body
 	more := ""
 	if m.modalScroll > 0 {
 		more += k("↑", "more")
@@ -211,14 +250,33 @@ func (m *Model) modalTitled(title string, body []string, footer []binding) strin
 	if m.modalScroll < last {
 		more += k("↓", "more")
 	}
-	// The scroll marks are never cut: a long footer (a number field's)
-	// gives way to them, as the status bar carries the footer whole.
-	if more != "" && lipgloss.Width(foot)+lipgloss.Width(more) > inner {
-		foot = ansi.Truncate(foot, inner-lipgloss.Width(more), "…")
-	}
-	b.WriteString("\n" + ansi.Truncate(foot+more, inner, "…"))
+	// The scroll marks follow the last row of keys, which left them
+	// their room (footerRows): no key and no mark is cut.
+	foot[len(foot)-1] += more
+	b.WriteString("\n" + strings.Join(foot, "\n"))
 	box := theme.Modal.Width(m.modalWidth() - 2).Render(b.String())
 	return strings.Repeat("\n", modalTop) + lipgloss.PlaceHorizontal(m.width, lipgloss.Center, box)
+}
+
+// footerRows is a modal's footer, the keys flush with the body, as many
+// rows of at most width cells as it takes for none to be cut, the
+// caller leaving the scroll marks their room (#535). A footer that fits
+// is one row, as it always was.
+func footerRows(bs []binding, width int) []string {
+	rows := []string{""}
+	for _, x := range bs {
+		pair := k(x.key, x.label)
+		at := len(rows) - 1
+		if rows[at] != "" && lipgloss.Width(strings.TrimPrefix(rows[at]+pair, " ")) > width {
+			rows = append(rows, "")
+			at++
+		}
+		rows[at] += pair
+	}
+	for i, r := range rows {
+		rows[i] = strings.TrimPrefix(r, " ")
+	}
+	return rows
 }
 
 // legend renders bindings the way the status bar does.

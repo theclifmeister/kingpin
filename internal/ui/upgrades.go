@@ -458,7 +458,7 @@ func (m *Model) upgradesDetails() []section {
 	w := m.w
 	sel, ok := m.upgradeSelected()
 	if !ok {
-		return []section{{"NO NODE", []string{emptyState("Nothing under the cursor.")}}}
+		return []section{{title: "NO NODE", lines: []string{emptyState("Nothing under the cursor.")}}}
 	}
 	cost := theme.Gold.Render(costLine(sel))
 	var lines []string
@@ -501,7 +501,7 @@ func (m *Model) upgradesDetails() []section {
 	if m.upgradeState(sel) == "available" && m.canAfford(sel) {
 		lines = append(lines, keyRow("u", "buy it for "+costLine(sel)))
 	}
-	return []section{{strings.ToUpper(sel.Name), lines}, m.branchSection()}
+	return []section{{title: strings.ToUpper(sel.Name), lines: lines}, m.branchSection()}
 }
 
 // branchSection is the pane's BRANCH section (#120): what the shown
@@ -511,7 +511,7 @@ func (m *Model) branchSection() section {
 	owned, total := m.ownedCount(branch)
 	lines := m.wrapped(theme.Subtle, branchFor[branch])
 	lines = append(lines, row("owned", fmt.Sprintf("%d of %d", owned, total)))
-	return section{strings.ToUpper(branch), lines}
+	return section{title: strings.ToUpper(branch), lines: lines}
 }
 
 // upgradeConfirm is the modal body for buying the node awaiting yes.

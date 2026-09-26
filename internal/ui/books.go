@@ -93,10 +93,11 @@ func (m *Model) booksLines(r *game.RivalState, width int) []string {
 func (m *Model) booksSection() section {
 	w := m.w
 	r := m.faction()
-	return section{"BOOKS", []string{
+	return section{title: "BOOKS", lines: []string{
 		keyRow("i", fmt.Sprintf("scout for %s, ~%s", money(m.rules.Rivals.ScoutCost()), format.Pct(m.rules.Rivals.ScoutOdds(w, r), 0))),
 		keyRow("$", fmt.Sprintf("buy off a head, %s", cash(m.rules.Rivals.MusclePrice(w, r)))),
 	}}
+
 }
 
 // askScout opens the scout confirmation, or says why there is nothing to

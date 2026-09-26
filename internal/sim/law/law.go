@@ -153,6 +153,17 @@ func (s *Sim) Swing(w *game.World) float64 {
 	return sum / float64(len(w.CityOrder))
 }
 
+// Odds are the next election's chances as the count would read them
+// this morning (#534: the DA race's section on the ledger): the
+// law-and-order share at the cities' mean pressure moved by the
+// campaigns (Swing), clamped, and the moderate's cut off both tickets,
+// whatever the mood. The count draws once against them (elect).
+func (s *Sim) Odds(w *game.World) (lawAndOrder, reform, moderate float64) {
+	share := max(0, min(1, s.LawAndOrderShare(w.MeanPressure())+s.Swing(w)))
+	moderate = s.cfg.Law.Moderate
+	return share * (1 - moderate), (1 - share) * (1 - moderate), moderate
+}
+
 // CampaignOpen says whether the next election is within open_days of
 // day, so the tickets take money (#193). It is what the sim stamps on
 // w.Law.CampaignOpen for the day to come.

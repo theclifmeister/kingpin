@@ -206,7 +206,15 @@ func (m *Model) streetLines(innerW, maxLines int, narrow, withRoad bool) []strin
 		// The war order (#229): where the enforcers go tonight on it.
 		line := fmt.Sprintf("War on %s: nowhere to go tonight.", m.rivalName(r))
 		if nobody := m.warNobodyWords(); nobody != "" {
-			line = fmt.Sprintf("War on %s: %s", m.rivalName(r), nobody)
+			// The warning is the line's point (#535: at 100x30 it read
+			// "no enforcer at work, so nobody goes in …"): the shortest
+			// form that fits keeps it.
+			who := m.rivalName(r)
+			line = firstFit(innerW,
+				fmt.Sprintf("War on %s: %s", who, nobody),
+				fmt.Sprintf("War on %s: no enforcer at work, so nobody goes in tonight.", who),
+				fmt.Sprintf("War on %s: no enforcer, nobody goes in tonight.", who),
+				"War: no enforcer at work, nobody goes in tonight.")
 		} else if c := m.rules.Rivals.WarTarget(w, r); c != nil {
 			force, _ := m.cfg.Rivals.War.Force()
 			line = fmt.Sprintf("War on %s: enforcers go to %s tonight, %s.", m.rivalName(r), c.Name, force)
@@ -468,7 +476,7 @@ func (m *Model) dashboardDetails() []section {
 			}
 			lines = append(lines, m.standingRows(here.ID, id)...)
 			lines = append(lines, m.contractRows(here.ID, id)...)
-			secs = append(secs, section{strings.ToUpper(p.Name) + " · " + strings.ToUpper(here.Name), lines})
+			secs = append(secs, section{title: strings.ToUpper(p.Name) + " · " + strings.ToUpper(here.Name), lines: lines})
 		}
 	}
 	return append(secs, m.dashboardAfter()...)
@@ -477,11 +485,8 @@ func (m *Model) dashboardDetails() []section {
 // dashboardAfter is the dashboard pane past its selection: the alerts
 // and what your name buys (#233), after what needs you. Opened whole
 // (space, modeDetails) the alerts are whole too, the modal wrapping
-// them (#463).
+// them (#463); in the pane they keep a line whatever the CART takes
+// (#534, alertsSection).
 func (m *Model) dashboardAfter() []section {
-	width := paneTextW
-	if m.mode == modeDetails {
-		width = 0
-	}
-	return append([]section{{"ALERTS", m.alertLines(width, 8)}}, m.nameSection()...)
+	return append([]section{m.alertsSection()}, m.nameSection()...)
 }

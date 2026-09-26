@@ -402,8 +402,12 @@ func TestEveryQuoteIsTheRules(t *testing.T) {
 		switch {
 		case len(out) == 2 && out[1].Kind() == reflect.Bool:
 			want = wireResult(out[0])
-		case len(out) == 2:
-			want = map[string]any{snake(sig.results[0]): out[0].Interface(), snake(sig.results[1]): out[1].Interface()}
+		case len(out) >= 2: // named results, every one (#534: Law.Odds has three)
+			named := map[string]any{}
+			for i, o := range out {
+				named[snake(sig.results[i])] = o.Interface()
+			}
+			want = named
 		case len(out) == 1:
 			want = wireResult(out[0])
 		}

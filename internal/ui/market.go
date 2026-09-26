@@ -364,7 +364,7 @@ func (m *Model) marketDetails() []section {
 		return m.supplierSections(sup)
 	}
 	if m.cursor >= len(w.Products) || city.Market[w.Products[m.cursor]] == nil {
-		return append(m.cartSection(city.ID), section{"NO PRODUCT", []string{emptyState("Nothing under the cursor.")}})
+		return append(m.cartSection(city.ID), section{title: "NO PRODUCT", lines: []string{emptyState("Nothing under the cursor.")}})
 	}
 	id := w.Products[m.cursor]
 	p := city.Market[id]
@@ -408,7 +408,7 @@ func (m *Model) marketDetails() []section {
 	case len(m.supplierRows()) > 0:
 		sel = append(sel, keyRow("↓", "past the table reaches the connects"))
 	}
-	secs := append(m.cartSection(city.ID), section{strings.ToUpper(p.Name) + " · " + strings.ToUpper(city.Name), sel}) // the cart first, so the strip carries its totals (#103)
+	secs := append(m.cartSection(city.ID), section{title: strings.ToUpper(p.Name) + " · " + strings.ToUpper(city.Name), lines: sel}) // the cart first, so the strip carries its totals (#103)
 	// The other city's price is what a route is worth.
 	var elsewhere []string
 	for _, cid := range w.CityOrder {
@@ -428,7 +428,7 @@ func (m *Model) marketDetails() []section {
 		}
 	}
 	if len(elsewhere) > 0 {
-		secs = append(secs, section{"ELSEWHERE", elsewhere})
+		secs = append(secs, section{title: "ELSEWHERE", lines: elsewhere})
 	}
 	var notes []string
 	if p.NoSupply {
@@ -452,7 +452,7 @@ func (m *Model) marketDetails() []section {
 		notes = append(notes, m.wrapped(theme.Subtle, next)...)
 	}
 	if len(notes) > 0 {
-		secs = append(secs, section{"NOTES", notes})
+		secs = append(secs, section{title: "NOTES", lines: notes})
 	}
 	return secs
 }

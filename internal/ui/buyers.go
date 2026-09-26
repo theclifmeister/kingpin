@@ -120,7 +120,7 @@ func (m *Model) contractSections(c game.Contract) []section {
 				row("heat", fmt.Sprintf("+%.1f in %s", heat, w.CityName(c.City))))
 		}
 	}
-	secs := []section{{strings.ToUpper(c.Name), sel}}
+	secs := []section{{title: strings.ToUpper(c.Name), lines: sel}}
 	var notes []string
 	notes = append(notes, m.wrapped(theme.Subtle, c.Pitch)...)
 	if c.Status == game.ContractOffered {
@@ -132,7 +132,7 @@ func (m *Model) contractSections(c game.Contract) []section {
 	if c.City != w.Player.Location {
 		notes = append(notes, m.wrapped(theme.Subtle, fmt.Sprintf("The handoff is in %s: you have to be there, with the stock in the stash there.", w.CityName(c.City)))...)
 	}
-	return append(secs, section{"NOTES", notes})
+	return append(secs, section{title: "NOTES", lines: notes})
 }
 
 // buyersMove moves the buyers cursor by d, or hands the arrows back to

@@ -499,7 +499,7 @@ func (m *Model) mapDetails() []section {
 	}
 	sel := m.mapSelected()
 	if sel == nil {
-		return []section{{"NO CORNER", []string{emptyState("Nothing under the cursor.")}}}
+		return []section{{title: "NO CORNER", lines: []string{emptyState("Nothing under the cursor.")}}}
 	}
 	sec := m.cornerSection(sel)
 	if head, ok := m.mapHead(sel); ok {
@@ -663,7 +663,7 @@ func (m *Model) cornerSection(sel *game.Corner) section {
 			lines = append(lines, keyRow("g", "go there to stand on it"))
 		}
 	}
-	return section{strings.ToUpper(sel.Name), lines}
+	return section{title: strings.ToUpper(sel.Name), lines: lines}
 }
 
 func heatWord(h float64) string {

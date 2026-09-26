@@ -382,6 +382,18 @@ func modalBox(t *testing.T, view string) (top, width int, box []string) {
 	return
 }
 
+// footRows is how many rows a modal box's footer takes (#535: a footer
+// too long for one row wraps to a second rather than cut a key): the
+// rows under the last blank one, the bottom border left out.
+func footRows(box []string) int {
+	for i := len(box) - 2; i > 0; i-- {
+		if strings.TrimSpace(strings.Trim(strings.TrimSpace(stripANSI(box[i])), "║")) == "" {
+			return len(box) - 2 - i
+		}
+	}
+	return 1
+}
+
 // modalProse is the open modal's inside as one line of prose: each row
 // between the borders trimmed of the border and its padding, joined
 // with a space, so a sentence the modal wrapped (#463) reads whole.
@@ -407,15 +419,18 @@ func scrolledProse(t *testing.T, m *Model) string {
 	defer func() { m.modalScroll = was }()
 	rows := map[int]string{}
 	end, seen := 0, -1
-	for m.modalScroll = 0; ; m.modalScroll += m.modalRoom() {
+	m.modalScroll = 0
+	for step := 0; ; m.modalScroll += step {
 		_, _, box := modalBox(t, m.View()) // the view clamps the scroll to the last page
 		if m.modalScroll == seen {
 			break
 		}
 		seen = m.modalScroll
 		// The top border, the title and a blank; a blank, the footer
-		// and the bottom border.
-		for j, l := range box[3 : len(box)-3] {
+		// (a row or two, #535) and the bottom border.
+		body := box[3 : len(box)-2-footRows(box)]
+		step = max(1, len(body))
+		for j, l := range body {
 			rows[seen+j] = strings.TrimSpace(strings.Trim(strings.TrimSpace(stripANSI(l)), "║"))
 			end = max(end, seen+j+1)
 		}

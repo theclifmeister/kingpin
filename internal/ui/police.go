@@ -176,5 +176,5 @@ func (m *Model) policeSection(city *game.City) section {
 	} else {
 		lines = append(lines, row("estimate", theme.Subtle.Render("no word from inside")))
 	}
-	return section{"POLICE · " + strings.ToUpper(city.Name), lines}
+	return section{title: "POLICE · " + strings.ToUpper(city.Name), lines: lines}
 }

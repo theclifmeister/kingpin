@@ -101,6 +101,7 @@ var ruleNames = map[string]ruleSig{
 	"Law.Forfeits":                 {[]string{"w"}, nil},
 	"Law.Goodwill":                 {[]string{"amount"}, nil},
 	"Law.NextElection":             {[]string{"w"}, nil},
+	"Law.Odds":                     {[]string{"w"}, []string{"lawAndOrder", "reform", "moderate"}},
 	"Law.Tuning":                   {nil, nil},
 	"Logistics.Budget":             {[]string{"w"}, nil},
 	"Logistics.Capacity":           {[]string{"w", "r"}, nil},

@@ -69,7 +69,7 @@ func (m *Model) nameSection() []section {
 			lines = append(lines, wrapWidth(l, m.textW()-2, "  ")...)
 		}
 	}
-	return []section{{"YOUR NAME", lines}}
+	return []section{{title: "YOUR NAME", lines: lines}}
 }
 
 // nameLine is the rivals screen's one line of it: `your name: fear 62,

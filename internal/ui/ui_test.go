@@ -15,7 +15,6 @@ import (
 
 	tea "github.com/charmbracelet/bubbletea"
 	"github.com/charmbracelet/lipgloss"
-	"github.com/charmbracelet/x/ansi"
 
 	"github.com/theclifmeister/kingpin/internal/content"
 	"github.com/theclifmeister/kingpin/internal/events"
@@ -503,6 +502,14 @@ func TestRendersAtCommonSizes(t *testing.T) {
 				assertFrame(t, m, what)
 			}
 			checkMap(t, m, view, what)
+			// #535: no KEYS box drops a bound key, in the pane beside
+			// MAIN or in the space overlay.
+			switch {
+			case m.mode == modePlay && m.paneShown():
+				assertKeysShown(t, m, paneRender(m), fmt.Sprintf("%dx%d %s", sz[0], sz[1], what))
+			case m.mode == modeDetails:
+				assertKeysShown(t, m, scrolledProse(t, m), fmt.Sprintf("%dx%d %s", sz[0], sz[1], what))
+			}
 			for _, c := range cut {
 				t.Errorf("%dx%d %s: %s", sz[0], sz[1], what, c)
 			}
@@ -511,6 +518,19 @@ func TestRendersAtCommonSizes(t *testing.T) {
 		richFixture(t, sz, check)
 		lateFixture(t, sz, check)
 		tableHook = nil
+	}
+}
+
+// assertKeysShown fails for every key the screen lists (paneKeys) that
+// text, a render of its KEYS, lacks whole as `key label` (#535: the
+// market's KEYS at 100x30 ended before `d deliver`).
+func assertKeysShown(t *testing.T, m *Model, text, what string) {
+	t.Helper()
+	plain := spaces.ReplaceAllString(strings.ReplaceAll(text, "\n", "  "), " ")
+	for _, b := range m.paneKeys() {
+		if want := spaces.ReplaceAllString(b.key+" "+m.labelOf(b), " "); !strings.Contains(plain, want) {
+			t.Errorf("%s: KEYS drops %q:\n%s", what, want, text)
+		}
 	}
 }
 
@@ -549,6 +569,7 @@ func unreadable(cols []col, lines []string) []string {
 func lateFixture(t *testing.T, sz [2]int, check func(m *Model, view, what string)) {
 	t.Helper()
 	m := lateModel(t, sz[0], sz[1])
+	m.w.Law.CampaignOpen = true // the ledger's DA RACE drawn and walked (#534)
 	for _, s := range []string{"1", "2", "3", "4", "5", "6", "7", "8", "9"} {
 		m.Update(key(s))
 		check(m, m.View(), "late screen "+s)
@@ -672,8 +693,14 @@ func statusBarShape(t *testing.T, m *Model, what string) {
 		if want := " " + m.status + strings.Repeat(" ", w-1-len([]rune(m.status))-len(help)) + help; got != want {
 			t.Errorf("%s: the bar is %q, want %q", what, got, want)
 		}
+	case 1+len([]rune(m.status)) <= w:
+		if want := fit(" "+m.status, w); got != want {
+			t.Errorf("%s: the message alone is %q, want %q", what, got, want)
+		}
 	default:
-		if want := truncate(" "+m.status, w); got != want {
+		// Cut, with space to read it whole (#535).
+		room := w - len([]rune("␣ more")) - 2
+		if want := fit(truncate(" "+m.status, room), room) + "  ␣ more"; got != want {
 			t.Errorf("%s: the long message is %q, want %q", what, got, want)
 		}
 		if strings.Contains(got, "? help") {
@@ -3245,14 +3272,15 @@ func TestModalsFit(t *testing.T) {
 			if title := inner(1); title == "" || title != strings.ToUpper(title) {
 				t.Errorf("%s: the title is %q", what, title)
 			}
-			if inner(2) != "" || inner(len(box)-3) != "" {
+			nf := footRows(box)
+			if inner(2) != "" || inner(len(box)-2-nf) != "" {
 				t.Errorf("%s: no blank around the body:\n%s", what, stripANSI(strings.Join(box, "\n")))
 			}
 			// A modal's rows are the pane's (#236): lowercase labels
 			// through row(); no body line opens, at the margin, with a
 			// capitalised word padded to a value (a table's rows sit
 			// behind their gutter, so they are not looked at).
-			for i := 3; i < len(box)-3; i++ {
+			for i := 3; i < len(box)-2-nf; i++ {
 				l := strings.TrimSpace(stripANSI(box[i]))
 				l = strings.TrimSuffix(strings.TrimPrefix(l, "║ "), "║")
 				if capRow.MatchString(l) {
@@ -3260,14 +3288,18 @@ func TestModalsFit(t *testing.T) {
 				}
 			}
 			foot := strings.TrimSpace(stripANSI(legend(m.modalFooter())))
-			got := inner(len(box) - 2)
-			// A footer too long for the scroll mark gives way to it.
-			cut := strings.TrimSpace(ansi.Truncate(foot, m.modalInner()-lipgloss.Width("  ↓ more"), "…"))
-			if got != foot && got != foot+"  ↓ more" && got != cut+" ↓ more" {
+			// Every key whole (#535): a footer too long for one row
+			// takes two, the scroll marks after the last.
+			var rows []string
+			for i := len(box) - 1 - nf; i < len(box)-1; i++ {
+				rows = append(rows, inner(i))
+			}
+			got := strings.Join(rows, "  ")
+			if got != foot && got != foot+"  ↓ more" && got != foot+"  ↑ more" && got != foot+"  ↑ more  ↓ more" {
 				t.Errorf("%s: the footer is %q, not %q", what, got, foot)
 			}
 			if c.mode != modeHelp && c.mode != modeReport && c.mode != modeDetails { // the overlay's KEYS section lists keys on purpose
-				for _, l := range box[3 : len(box)-3] {
+				for _, l := range box[3 : len(box)-2-nf] {
 					p := stripANSI(l)
 					for _, hint := range []string{"enter ", "esc ", "any other key", "any key"} {
 						if strings.Contains(p, hint) {

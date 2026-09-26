@@ -13925,6 +13925,35 @@
         "type": "integer"
       }
     },
+    "rules.law.odds": {
+      "changes": false,
+      "needsRun": true,
+      "params": {
+        "maxItems": 0,
+        "minItems": 0,
+        "prefixItems": [],
+        "type": "array"
+      },
+      "result": {
+        "properties": {
+          "law_and_order": {
+            "type": "number"
+          },
+          "moderate": {
+            "type": "number"
+          },
+          "reform": {
+            "type": "number"
+          }
+        },
+        "required": [
+          "law_and_order",
+          "reform",
+          "moderate"
+        ],
+        "type": "object"
+      }
+    },
     "rules.law.tuning": {
       "changes": false,
       "needsRun": true,
@@ -16204,7 +16233,7 @@
       "$ref": "#/$defs/engine.View"
     }
   },
-  "protocol": 22,
+  "protocol": 23,
   "title": "kingpind",
   "view_version": 14
 }
