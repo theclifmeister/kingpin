@@ -4,6 +4,7 @@ import (
 	"testing"
 
 	"github.com/theclifmeister/kingpin/internal/content"
+	"github.com/theclifmeister/kingpin/internal/engine"
 	"github.com/theclifmeister/kingpin/internal/game"
 	"github.com/theclifmeister/kingpin/internal/sim"
 )
@@ -65,5 +66,61 @@ func TestNoBookIsTheOldRun(t *testing.T) {
 		if a.World.Stats.ExportLoads != 0 || len(a.World.Exports.Orders) != 0 {
 			t.Fatalf("seed %d: the boss shipped abroad", seed)
 		}
+	}
+}
+
+// TestExportsAlertOnce (#505): played morning by morning, a run is
+// pointed at the lanes abroad once, at the Cartel stage and never
+// before it. The boss, which never owns the book, is told the morning
+// it reaches the stage and the alert stands, one key, so a fast-forward
+// stops on it once. The cartel buys the book the night the door opens
+// and orders the next morning, before the stage is stamped, so it is
+// told at most once and nothing stands once the lanes are in use.
+func TestExportsAlertOnce(t *testing.T) {
+	t.Parallel()
+	cfg := content.MustLoad()
+	cartel := -1
+	for i, tr := range cfg.Progression.Tiers {
+		if tr.ID == "cartel" {
+			cartel = i + 1
+		}
+	}
+	for _, c := range []struct {
+		name   string
+		policy Policy
+	}{{"cartel", Cartel(cfg, 40)}, {"boss", Boss(cfg, 40, "")}} {
+		t.Run(c.name, func(t *testing.T) {
+			t.Parallel()
+			w := sim.NewWorld(cfg, 1)
+			was, fresh, first := false, 0, -1
+			playMornings(t, cfg, w, 300, c.policy, func(s *engine.Session, w *game.World) {
+				now := false
+				for _, a := range s.Alerts() {
+					if a.Kind == engine.AlertExports {
+						now = true
+						if w.ReachedOn(cartel) < 0 {
+							t.Fatalf("day %d: the lanes pointed at before the Cartel stage", w.Day)
+						}
+					}
+				}
+				if now && !was {
+					fresh++
+					if first < 0 {
+						first = w.Day
+					}
+				}
+				was = now
+			})
+			if w.ReachedOn(cartel) < 0 {
+				t.Skipf("the %s never reached the Cartel stage by day 300", c.name)
+			}
+			if want := c.name == "boss"; fresh > 1 || want && fresh != 1 {
+				t.Fatalf("the exports alert came new on %d mornings (first day %d)", fresh, first)
+			}
+			if c.name == "cartel" && (w.Stats.ExportLoads == 0 || was) {
+				t.Fatalf("the cartel shipped %d loads and the alert still stands: %v", w.Stats.ExportLoads, was)
+			}
+			t.Logf("%s: Cartel stage day %d, pointed at the lanes from day %d, %d loads", c.name, w.ReachedOn(cartel), first, w.Stats.ExportLoads)
+		})
 	}
 }

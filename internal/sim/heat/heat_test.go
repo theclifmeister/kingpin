@@ -678,6 +678,46 @@ func TestPileHeatIsBounded(t *testing.T) {
 	}
 }
 
+// TestTheBankCoversABillion (#505): the ruling on the pile's ceiling.
+// A playtest's pile stopped growing near $0.5B dirty: past its cover it
+// adds the bound every night, and the raids and the task force it draws
+// take tens of millions. The lever is the fronts: with every one of the
+// file's fronts but the bank, the cover runs out under $0.5B and a
+// $590M pile draws the bound; the Private Bank, the last of them, takes
+// the line past $1B, so a skilled player holds a billion dirty with no
+// heat off the pile at all. What is past every front's cover is meant
+// to be washed, spent or sent offshore.
+func TestTheBankCoversABillion(t *testing.T) {
+	cfg := content.MustLoad()
+	s := heat.New(cfg)
+	w := world(t, cfg)
+	w.Fronts = nil
+	for _, f := range cfg.Laundering.Fronts {
+		if f.ID != "bank" {
+			w.Fronts = append(w.Fronts, game.Front{ID: f.ID, Name: f.Name, Cost: f.Cost})
+		}
+	}
+	if line := s.ExposureLine(w); line >= 500_000_000 {
+		t.Fatalf("every front but the bank covers %d: the ceiling moved", line)
+	}
+	w.Player.DirtyCash = 590_000_000
+	if got := s.PileHeat(w); got != cfg.Heat.Heat.DirtyCashHeatMax {
+		t.Fatalf("$590M without the bank: %.2f heat, want the bound", got)
+	}
+	bank := cfg.Laundering.Front("bank")
+	if bank == nil {
+		t.Fatal("no bank in the file")
+	}
+	w.Fronts = append(w.Fronts, game.Front{ID: bank.ID, Name: bank.Name, Cost: bank.Cost})
+	w.Player.DirtyCash = 1_000_000_000
+	if line := s.ExposureLine(w); line < 1_000_000_000 {
+		t.Fatalf("every front covers %d, under a billion", line)
+	}
+	if got := s.PileHeat(w); got != 0 {
+		t.Fatalf("$1B with every front: %.2f heat", got)
+	}
+}
+
 // The raid's place (#73): a sting or a raid hits the street when there
 // is no house holding anything, no roll; a house the police know; with
 // an informant on the payroll the fullest house, which becomes known,

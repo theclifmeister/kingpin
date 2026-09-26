@@ -78,6 +78,16 @@ export const WORDS = {
     if (sup && a.share) facts.push(`${sup.name} sells at ${Math.round(a.share * 100)}% of street`);
     return `${cityName(v, a.city)} is untouched: ${facts.join(", ")}. The road is on the map.`;
   },
+  exports: (v, a) => {
+    const city = byId(v.cities, a.city);
+    const p = city && byId(city.products, a.product);
+    const facts = p && a.amount
+      ? `${p.name} pays ${money(a.amount)} a unit out of ${cityName(v, a.city)} on ${money(n(a.have))} off the book, ${plural(n(a.count), "unit")} a night`
+      : `${plural(n(a.count), "unit")} a night out of ${cityName(v, a.city)}`;
+    return a.ready
+      ? `The lanes abroad are open: ${facts}. Set a nightly load on a lane on the ledger.`
+      : `The lanes abroad: ${facts}. Buy the Dutchman's book, then set a load on a lane on the ledger.`;
+  },
   house_known: (v, a) => `The police know about ${(byId(v.houses, a.house) || { name: "a house" }).name}.`,
   da_race: (v, a) => `The DA race is ${plural(n(a.days), "day")} off and the tickets are taking money.`,
   retire: (v, a) => {

@@ -44,6 +44,7 @@ const (
 	AlertScouts        AlertKind = "scouts"        // a faction moving on City (#341), at stage Level (scouting or recruiting), arriving in Days
 	AlertGate          AlertKind = "gate"          // Gate within reach
 	AlertPort          AlertKind = "port"          // the port untouched and worth the road (#476): City, Count free corners, Product at Amount, Supplier the wholesaler at Share of street
+	AlertExports       AlertKind = "exports"       // the Cartel stage and no load ever sent (#505): the lane out of City carries Count a night, Product paid Amount a unit abroad on Have off the book; Ready once the book is owned
 	AlertHouseKnown    AlertKind = "house_known"   // the police know about House
 	AlertDARace        AlertKind = "da_race"       // the DA race is Days off and taking money
 	AlertRetire        AlertKind = "retire"        // Ready, or Days quiet and Amount short
@@ -59,7 +60,7 @@ const (
 // in.
 func AlertKinds() []AlertKind {
 	return []AlertKind{AlertArrest, AlertTalking, AlertContractDue, AlertDebtDue, AlertHeat, AlertTaskForce, AlertFile, AlertInvestigation, AlertNoCorner, AlertFrontShut, AlertFloat, AlertTill, AlertWages,
-		AlertCrewLine, AlertSkim, AlertUnposted, AlertIdleCorner, AlertStashFull, AlertLanded, AlertScouts, AlertGate, AlertPort, AlertHouseKnown,
+		AlertCrewLine, AlertSkim, AlertUnposted, AlertIdleCorner, AlertStashFull, AlertLanded, AlertScouts, AlertGate, AlertPort, AlertExports, AlertHouseKnown,
 		AlertDARace, AlertRetire, AlertFavour, AlertReign, AlertStraight, AlertVanish, AlertExposure, AlertPlan}
 }
 
@@ -141,6 +142,7 @@ var alertActs = map[AlertKind][]Act{
 	AlertScouts:     {{Screen: ScreenRivals}},
 	AlertGate:       {actMarket, actLedger},
 	AlertPort:       {{Screen: ScreenMap, Subject: SubjectCity}}, // the map turned to the port, where the road is (#476)
+	AlertExports:    {actLedger},                                 // the ledger, where the book is bought and the lanes take their orders (#505)
 	AlertHouseKnown: {{Screen: ScreenLedger, Subject: SubjectHouse}},
 	AlertDARace:     {actLedger},
 	AlertRetire:     {actLedger, actDashboard},
@@ -166,19 +168,19 @@ type Alert struct {
 	Kind AlertKind `json:"kind"`
 	Key  string    `json:"key"`
 
-	City     string  `json:"city,omitempty"`     // heat, da_race, idle_corner, unposted, stash_full, investigation, no_corner, landed: the city's id (heat: where you are; unposted: the corner's)
+	City     string  `json:"city,omitempty"`     // heat, da_race, idle_corner, unposted, stash_full, investigation, no_corner, landed, exports: the city's id (exports: where the lane leaves from; heat: where you are; unposted: the corner's)
 	Contract int     `json:"contract,omitempty"` // contract_due: the contract's id
 	Supplier string  `json:"supplier,omitempty"` // debt_due: the connect's id; port: the wholesaler's
 	House    string  `json:"house,omitempty"`    // house_known, investigation: the house's id
 	Front    string  `json:"front,omitempty"`    // front_shut: the front's id
 	Due      int     `json:"due,omitempty"`      // contract_due, debt_due: the day it is due
-	Amount   int     `json:"amount,omitempty"`   // debt_due: the debt; front_shut: the clean it was short; float: the float; wages: the wages; retire: the cash short; reign: the homage a night; stash_full: the capacity; exposure: the pile past the line tonight
-	Have     int     `json:"have,omitempty"`     // debt_due: the cash in hand; float, wages: the dirty cash; front_shut: its upkeep a day, clean
+	Amount   int     `json:"amount,omitempty"`   // exports: the price abroad a unit; debt_due: the debt; front_shut: the clean it was short; float: the float; wages: the wages; retire: the cash short; reign: the homage a night; stash_full: the capacity; exposure: the pile past the line tonight
+	Have     int     `json:"have,omitempty"`     // exports: a unit off the book; debt_due: the cash in hand; float, wages: the dirty cash; front_shut: its upkeep a day, clean
 	Heat     float64 `json:"heat,omitempty"`     // heat, arrest: the city's heat; exposure: what the pile adds tonight
 	Line     float64 `json:"line,omitempty"`     // heat: the Level rung's line; arrest: the arrest line; crew_line: the loyalty line
 	Days     int     `json:"days,omitempty"`     // front_shut: days until it reopens; da_race: days to the election; retire: quiet days short; reign: the reign's day; crew_line: days to the line at tonight's drift (0: not falling); idle_corner: days before it drifts; investigation: nights to the hit (1: tonight)
-	Count    int     `json:"count,omitempty"`    // reign: the crews paying homage; stash_full: the units held; plan: the steps met; exposure: the loads landing; landed: the units stashed
-	Ready    bool    `json:"ready,omitempty"`    // retire: retiring is open now; plan: the plan is done
+	Count    int     `json:"count,omitempty"`    // exports: the units a night carries; reign: the crews paying homage; stash_full: the units held; plan: the steps met; exposure: the loads landing; landed: the units stashed
+	Ready    bool    `json:"ready,omitempty"`    // exports: the book owned; retire: retiring is open now; plan: the plan is done
 	Level    string  `json:"level,omitempty"`    // favour: the response due tonight; heat: the highest rung met
 	Member   int     `json:"member,omitempty"`   // crew_line, unposted: the member's id
 	Cross    string  `json:"cross,omitempty"`    // crew_line: the line ahead: skim, flip (a lieutenant's) or walk; under for a lieutenant under the flip line (#497)
@@ -186,7 +188,7 @@ type Alert struct {
 	Share    float64 `json:"share,omitempty"`    // port: the wholesaler's price as a share of the street's there (#476)
 	Corner   string  `json:"corner,omitempty"`   // idle_corner, investigation: the corner's id; unposted: a corner to post them on, no_corner: a free one to post on, or ""
 	Target   string  `json:"target,omitempty"`   // investigation: what is named, corner | product | house (#343)
-	Product  string  `json:"product,omitempty"`  // investigation: the product's id; port: the dearest listed there; landed: the product the route keeps
+	Product  string  `json:"product,omitempty"`  // exports: the best margin abroad; investigation: the product's id; port: the dearest listed there; landed: the product the route keeps
 	Day      int     `json:"day,omitempty"`      // skim: the day money last went missing
 	Gate     *Gate   `json:"gate,omitempty"`     // gate: the door
 	Ambition string  `json:"ambition,omitempty"` // plan: the ambition pinned
@@ -317,6 +319,7 @@ func (s *Session) Alerts() []Alert {
 		}
 	}
 	out = append(out, s.port()...)
+	out = append(out, s.exports()...)
 	for _, h := range w.Houses {
 		if h.Known {
 			out = append(out, Alert{Kind: AlertHouseKnown, Key: "known " + h.ID, House: h.ID})
@@ -506,6 +509,53 @@ func (s *Session) port() []Alert {
 		a.Share = shares / float64(n)
 	}
 	return []Alert{a}
+}
+
+// exports points at the lanes abroad (#505): the late game's money (a
+// playtest went from $0.5M a day to $10-20M the week it found them)
+// that no tester found before the Cartel stage, and the one that did
+// only by reading the ledger line by line. It fires from the morning the
+// run is at the Cartel stage (the tier whose opens name the lanes; the
+// book is its first door) until a load is ordered or has ever gone out.
+// City is the lane's, Count what a night carries, Product the one with
+// the best margin tonight at Amount a unit abroad and Have a unit off
+// the book (the harness's pick, glut and all), Ready once the book is
+// owned. The lane is the first in the file with no asset of its own you
+// lack, so before the book it is one the book alone opens. Keyed once,
+// so a fast-forward stops on it once a run. No dice.
+func (s *Session) exports() []Alert {
+	w := s.w
+	tier := -1
+	for i, t := range s.cfg.Progression.Tiers {
+		if t.ID == "cartel" {
+			tier = i + 1
+		}
+	}
+	if tier < 0 || w.ReachedOn(tier) < 0 || w.Stats.ExportLoads > 0 || len(w.Exports.Loads) > 0 {
+		return nil
+	}
+	for _, o := range w.Exports.Orders {
+		if o.On() {
+			return nil
+		}
+	}
+	lg := s.set.Logistics
+	for _, l := range lg.Lanes() {
+		if l.Asset != "" && !w.AssetLive(l.Asset) {
+			continue
+		}
+		a := Alert{Kind: AlertExports, Key: "the lanes abroad", City: l.City, Count: lg.LaneCapacity(w, l), Ready: lg.LaneOpen(w, l)}
+		best := 0.0
+		for _, id := range l.Products {
+			price, cost := lg.ExportPrice(w, l, id), lg.ExportCost(w, id)
+			if price <= 0 || cost <= 0 || price-cost <= best {
+				continue
+			}
+			best, a.Product, a.Amount, a.Have = price-cost, id, int(math.Round(price)), int(math.Round(cost))
+		}
+		return []Alert{a}
+	}
+	return nil
 }
 
 // unposted are the runners and enforcers on the payroll with no post
