@@ -24,12 +24,13 @@ import (
 // runners where the default holds six, the rival takes the last
 // corner and the crewed policy never re-posts). The medians of the
 // managed, quiet and crewed peaks are logged against the default's,
-// every one that moves more than twenty percent marked. The dockhand
-// starts in Bayport, where no faction lives, so its take there draws
-// one (#341); the harness's players hit the scouts of a faction moving
-// on the city they work (HitScoutsIn, #379), and without that answer
-// the dockhand's crewed run on seed 6 was indicted on day 113, under
-// the tier-3 line.
+// every one that moves more than twenty percent marked (the band on
+// the crewed player's net worth is TestCharactersAreBanded's). The
+// dockhand stands on the Docks at home since #533 (Bayport's Fish
+// Market before: the port's wholesaler and designer at $500K doubled
+// the crewed player who never left it); on the Docks the lone trader
+// reads over the default (a coke-and-heroin corner with little heat),
+// marked, as the port's under it was.
 func TestCharactersAreStartsNotCheats(t *testing.T) {
 	t.Parallel()
 	cfg := content.MustLoad()
@@ -138,6 +139,56 @@ func measure(t *testing.T, cfg *content.Config, id string) medians {
 		t.Fatalf("%q: a careful run (quiet, managed or crewed) ended early on %d of %d seeds, more than %d; a start is not a handicap", id, misses, characterSeeds, maxMisses)
 	}
 	return m
+}
+
+// bandSeeds, bandDay and bandWidth are the characters' band (#533): on
+// bandSeeds seeds each, the crewed player's median net worth on bandDay
+// as every character sits within bandWidth of the Dealer's, the run as
+// it is. The owner's reading is cmd/balance -policy crewed -character C
+// -runs 30 -days 200 (incidents dealt); the test reads the harness's
+// boxed runs on twenty seeds, which is what CI can afford (~3 s a
+// character, in parallel). The dockhand read +117% on the port's start.
+const (
+	bandSeeds = 20
+	bandDay   = 200
+	bandWidth = 0.20
+)
+
+// TestCharactersAreBanded (#533): a character is a start, not an
+// advantage, so no start moves the crewed player's day-200 net worth
+// more than a fifth off the Dealer's either way.
+func TestCharactersAreBanded(t *testing.T) {
+	t.Parallel()
+	cfg := content.MustLoad()
+	median := func(id string) int {
+		var worths []int
+		for seed := uint64(1); seed <= bandSeeds; seed++ {
+			res, err := RunAs(cfg, id, seed, bandDay, Crewed(cfg, 40))
+			if err != nil {
+				t.Error(err)
+				return 0
+			}
+			worths = append(worths, res.NetWorthAt(bandDay))
+		}
+		sort.Ints(worths)
+		return worths[len(worths)/2]
+	}
+	base := median("")
+	if base <= 0 {
+		t.Fatalf("the Dealer's crewed median on day %d is %d", bandDay, base)
+	}
+	for _, ch := range cfg.Characters.Characters {
+		ch := ch
+		t.Run(ch.ID, func(t *testing.T) {
+			t.Parallel()
+			got := median(ch.ID)
+			delta := float64(got-base) / float64(base)
+			t.Logf("%s: crewed median net worth on day %d is %d against the Dealer's %d (%+.0f%%)", ch.ID, bandDay, got, base, delta*100)
+			if delta > bandWidth || delta < -bandWidth {
+				t.Errorf("%s: crewed median net worth on day %d is %d, %+.0f%% off the Dealer's %d: outside the ±%.0f%% band", ch.ID, bandDay, got, delta*100, base, bandWidth*100)
+			}
+		})
+	}
 }
 
 // TestProfileNeverTouchesTheRun (#50): the default character on a seed

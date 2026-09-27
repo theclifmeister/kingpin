@@ -532,12 +532,13 @@ func (s *Sim) Capacity(w *game.World) int {
 	return n
 }
 
-// Upkeep is what the open fronts cost in clean cash today between them.
+// Upkeep is what the open fronts cost in clean cash today between them:
+// a front in its first covered nights (#528) costs nothing yet.
 func (s *Sim) Upkeep(w *game.World) int {
 	fx := game.FoldEffects(w, s.tree)
 	n := 0
 	for _, f := range w.Fronts {
-		if fc := s.cfg.Front(f.ID); fc != nil && !f.Frozen(w.Day+1) {
+		if fc := s.cfg.Front(f.ID); fc != nil && !f.Frozen(w.Day+1) && !f.Covered(w.Day+1, s.cfg.Laundering.UpkeepGraceDays) {
 			n += upkeep(*fc, f.Level, fx)
 		}
 	}
@@ -622,7 +623,13 @@ func (s *Sim) Step(w *game.World, t *game.Tick) {
 		// shuts, and earns nothing while it is shut.
 		// The shortfall is kept on the front while it is shut (#458), so
 		// the ledger and the alerts can say why.
+		// A new front's first nights are covered (#528): nothing is
+		// due, so the first front, bought before there is a clean
+		// dollar, does not shut on its first night.
 		due := upkeep(*fc, f.Level, fx)
+		if f.Covered(t.Day, tun.UpkeepGraceDays) {
+			due = 0
+		}
 		if due > w.Player.CleanCash {
 			f.FrozenUntil = t.Day + tun.UpkeepFreezeDays
 			f.Unpaid = due - w.Player.CleanCash

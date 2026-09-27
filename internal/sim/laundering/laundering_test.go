@@ -108,7 +108,7 @@ func TestBuyFrontRefusals(t *testing.T) {
 // the float, pays upkeep in clean cash, and is reported the day after the
 // purchase; a frozen front washes nothing.
 func TestWashAndFloat(t *testing.T) {
-	cfg := content.MustLoad()
+	cfg := noGrace(content.MustLoad())
 	cfg.Laundering.Fronts[0].AuditRisk = 0
 	s := laundering.New(cfg)
 	tun := cfg.Laundering.Laundering
@@ -157,7 +157,7 @@ func TestWashAndFloat(t *testing.T) {
 
 // Upkeep the clean cash cannot cover shuts the front for a while.
 func TestUnpaidUpkeepFreezes(t *testing.T) {
-	cfg := content.MustLoad()
+	cfg := noGrace(content.MustLoad())
 	s := laundering.New(cfg)
 	tun := cfg.Laundering.Laundering
 	fc := cfg.Laundering.Fronts[0]
@@ -177,7 +177,7 @@ func TestUnpaidUpkeepFreezes(t *testing.T) {
 // A front shut for its upkeep keeps what the clean pile lacked (#458),
 // the event says it, and the first night it pays again clears it.
 func TestUnpaidUpkeepIsNamed(t *testing.T) {
-	cfg := content.MustLoad()
+	cfg := noGrace(content.MustLoad())
 	s := laundering.New(cfg)
 	tun := cfg.Laundering.Laundering
 	fc := cfg.Laundering.Fronts[0]
@@ -209,10 +209,73 @@ func TestUnpaidUpkeepIsNamed(t *testing.T) {
 	}
 }
 
+// noGrace is cfg with laundering.toml's upkeep_grace_days at 0 (#528):
+// the front pays its upkeep from its first night, as it did before, for
+// the tests that read the upkeep's mechanics on that first night.
+func noGrace(cfg *content.Config) *content.Config {
+	cfg.Laundering.Laundering.UpkeepGraceDays = 0
+	return cfg
+}
+
+// A new front's first nights of upkeep are covered (#528): bought with
+// nothing clean and nothing over the float, it pays nothing and stays
+// open for upkeep_grace_days nights, Upkeep (the ledger's and the
+// forecast's tonight) reading 0 on each; the night after, the upkeep is
+// due, and unpaid it shuts for upkeep_freeze_days, not a week.
+func TestFirstWeekIsCovered(t *testing.T) {
+	cfg := content.MustLoad()
+	s := laundering.New(cfg)
+	tun := cfg.Laundering.Laundering
+	if tun.UpkeepGraceDays < 1 || tun.UpkeepFreezeDays < 2 || tun.UpkeepFreezeDays >= 7 {
+		t.Fatalf("grace %d, freeze %d: the file's #528 numbers moved", tun.UpkeepGraceDays, tun.UpkeepFreezeDays)
+	}
+	fc := cfg.Laundering.Fronts[0]
+	w := world(fc.Cost + tun.Float)
+	w.Day = 20
+	if _, err := s.Buy(w, fc.ID); err != nil {
+		t.Fatal(err)
+	}
+	for night := 1; night <= tun.UpkeepGraceDays; night++ {
+		if s.Upkeep(w) != 0 {
+			t.Fatalf("night %d: tonight's upkeep reads %d, want 0 (covered)", night, s.Upkeep(w))
+		}
+		if k := kinds(step(w, s)); k["FrontFrozen"] != 0 {
+			t.Fatalf("night %d of the grace: %v", night, k)
+		}
+		if w.Fronts[0].Frozen(w.Day+1) || w.Player.CleanCash != 0 {
+			t.Fatalf("night %d of the grace: %+v clean %d", night, w.Fronts[0], w.Player.CleanCash)
+		}
+	}
+	if s.Upkeep(w) != fc.Upkeep {
+		t.Fatalf("the night after the grace: tonight's upkeep reads %d, want %d", s.Upkeep(w), fc.Upkeep)
+	}
+	var frozen *events.FrontFrozen
+	for _, e := range step(w, s) {
+		if ev, ok := e.(events.FrontFrozen); ok {
+			frozen = &ev
+		}
+	}
+	if frozen == nil || frozen.Days != tun.UpkeepFreezeDays || w.Fronts[0].FrozenUntil != w.Day+tun.UpkeepFreezeDays {
+		t.Fatalf("the first night due, unpaid: %+v, front %+v", frozen, w.Fronts[0])
+	}
+	// About a day a missed night: the next night is lost, the one after
+	// it tries again.
+	for i := 1; i < tun.UpkeepFreezeDays; i++ {
+		if k := kinds(step(w, s)); k["FrontFrozen"] != 0 || k["CashLaundered"] != 0 {
+			t.Fatalf("shut night %d: %v", i, k)
+		}
+	}
+	w.Player.CleanCash = fc.Upkeep
+	step(w, s)
+	if f := w.Fronts[0]; f.Frozen(w.Day+1) || f.Unpaid != 0 || w.Player.CleanCash != 0 {
+		t.Fatalf("back after %d days and paid: %+v clean %d", tun.UpkeepFreezeDays, f, w.Player.CleanCash)
+	}
+}
+
 // An audit freezes the front, seizes part of today's wash, records the
 // dial it hit at, and is emitted; the dial scales throughput and risk.
 func TestAuditAndDial(t *testing.T) {
-	cfg := content.MustLoad()
+	cfg := noGrace(content.MustLoad())
 	fc := cfg.Laundering.Fronts[0]
 	cfg.Laundering.Fronts[0].AuditRisk = 1 // certain, at every dial
 	cfg.Laundering.Dial.Careful.Risk = 1

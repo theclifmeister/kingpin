@@ -276,9 +276,17 @@ func (s *Sim) war(d *day) {
 				d.add(home, ev.Heat, "the crackdown")
 			}
 		case events.ShipmentSeized:
+			// What it carried weighs (#531): the load's heat-weighted
+			// units at the street's rate, floored and capped, in both
+			// cities, so four meth is not a hundred and fifty coke.
 			why := fmt.Sprintf("%d %s seized on the %s", ev.Units, w.ProductName(ev.Product), ev.Mode)
-			d.add(ev.From, s.ship.SeizureHeat, why)
-			d.add(ev.To, s.ship.SeizureHeat, why)
+			ph := 1.0
+			if pc := s.market.Product(ev.Product); pc != nil {
+				ph = pc.Heat
+			}
+			v := s.ship.SeizureHeat(ev.Units, ph)
+			d.add(ev.From, v, why)
+			d.add(ev.To, v, why)
 			// Sent fast, it was asking to be looked at: a page in the
 			// file (#27: a case is built from what you did). A seizure
 			// is not a bust and never a reason to search the stash.

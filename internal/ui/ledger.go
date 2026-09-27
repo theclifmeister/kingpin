@@ -189,6 +189,28 @@ func (m *Model) upkeepWarning(clean, dirty, due int) []string {
 	return out
 }
 
+// newFrontUpkeep is what an offer bought today adds to tonight's clean
+// bill: nothing while its first nights are covered (#528,
+// upkeep_grace_days), its upkeep where the file covers none.
+func (m *Model) newFrontUpkeep(o game.FrontOffer) int {
+	f := game.Front{ID: o.ID, Bought: m.w.Day}
+	if f.Covered(m.w.Day+1, m.rules.Laundering.Tuning().UpkeepGraceDays) {
+		return 0
+	}
+	return m.rules.Laundering.FrontUpkeep(m.w, f)
+}
+
+// coveredNights is how many nights from tonight a front's upkeep is still
+// covered (#528): its first upkeep_grace_days after the day it was
+// bought, 0 once they are gone.
+func (m *Model) coveredNights(f game.Front) int {
+	grace := m.rules.Laundering.Tuning().UpkeepGraceDays
+	if !f.Covered(m.w.Day+1, grace) {
+		return 0
+	}
+	return f.Bought + grace - m.w.Day
+}
+
 // frontShort is the clean cash tonight's upkeep is expected to come up
 // short by with the offer bought (#496), or 0: the day's preview
 // (Session.Preview, the sales, the wages, the contracts and the road
@@ -207,7 +229,7 @@ func (m *Model) frontShort(o game.FrontOffer) int {
 	}
 	l := m.rules.Laundering
 	f := game.Front{ID: o.ID}
-	due := m.upkeepTonight() + l.FrontUpkeep(w, f)
+	due := m.upkeepTonight() + m.newFrontUpkeep(o)
 	p := m.sess.Preview()
 	if p == nil {
 		return 0
@@ -219,6 +241,22 @@ func (m *Model) frontShort(o game.FrontOffer) int {
 	return max(0, due-clean-washed)
 }
 
+// frontTerms is the buy picker's line on what a front does once bought
+// (#458, #528): it washes from tomorrow night, only the dirty over the
+// till; its upkeep is clean cash, covered for its first nights, and a
+// night unpaid shuts it for the file's upkeep_freeze_days.
+func (m *Model) frontTerms(o game.FrontOffer) string {
+	tun := m.rules.Laundering.Tuning()
+	up := m.rules.Laundering.FrontUpkeep(m.w, game.Front{ID: o.ID})
+	s := fmt.Sprintf("It opens tomorrow and washes the dirty over the %s till. ", money(m.till()))
+	if tun.UpkeepGraceDays > 0 {
+		s += fmt.Sprintf("Its first %s of upkeep are covered; then %s/day, paid in clean cash", plural(tun.UpkeepGraceDays, "night"), money(up))
+	} else {
+		s += fmt.Sprintf("Its %s/day upkeep is paid in clean cash, from tonight", money(up))
+	}
+	return s + fmt.Sprintf("; a night unpaid shuts it %s.", plural(tun.UpkeepFreezeDays, "day"))
+}
+
 // frontShutWarning is the buy picker's line on an offer the night is
 // expected to shut (frontShort), in red, or nil: nothing is said about a
 // front that will pay.
@@ -227,7 +265,7 @@ func (m *Model) frontShutWarning(o game.FrontOffer) []string {
 	if short <= 0 {
 		return nil
 	}
-	due := m.upkeepTonight() + m.rules.Laundering.FrontUpkeep(m.w, game.Front{ID: o.ID})
+	due := m.upkeepTonight() + m.newFrontUpkeep(o)
 	text := fmt.Sprintf("Tonight's %s of upkeep is expected to come up %s clean short: the wash takes only the dirty over the %s till, after the sales. A front shuts %s; y buys it anyway.", money(due), money(short), money(m.till()), plural(m.rules.Laundering.Tuning().UpkeepFreezeDays, "day"))
 	var out []string
 	for _, l := range wrap(text, m.modalInner()) {
@@ -308,11 +346,12 @@ func (m *Model) viewFront() string {
 		return m.modal("BUY A FRONT", []string{"Nothing for sale."}, m.modalFooter())
 	}
 	o := rows[clamp(&m.front.cursor, len(rows))]
-	// Upkeep is clean cash, every night from tonight (#458): the offer
-	// says so, and warns when the clean pile will not cover the first.
-	up := m.rules.Laundering.FrontUpkeep(m.w, game.Front{ID: o.ID})
+	// Upkeep is clean cash (#458), its first nights covered (#528): the
+	// offer says when the wash starts (on the dirty over the till, the
+	// same line the unlock and the stage card give) and when the upkeep
+	// does, and warns when the clean pile will not cover a night.
 	notes := []string{m.inHand()}
-	notes = append(notes, m.subtle(fmt.Sprintf("It opens tomorrow. Its %s/day upkeep is paid in clean cash, from tonight; unpaid, it shuts %s.", money(up), plural(m.rules.Laundering.Tuning().UpkeepFreezeDays, "day")))...)
+	notes = append(notes, m.subtle(m.frontTerms(o))...)
 	notes = append(notes, m.frontShutWarning(o)...)
 	return m.pickerModal("BUY A FRONT", nil, offerCols, m.offerRows(rows, m.modalInner()), m.front.cursor, notes...)
 }
@@ -853,7 +892,11 @@ func (m *Model) frontSection(f game.Front) section {
 		row("audit", pctText(l.AuditRisk(w, f)*100)+"/day at "+w.Laundering.Dial.String()),
 	}
 	if m.cfg.Laundering.Front(f.ID) != nil {
-		lines = append(lines, row("upkeep", money(l.FrontUpkeep(w, f))+"/day clean"))
+		up := money(l.FrontUpkeep(w, f)) + "/day clean"
+		if n := m.coveredNights(f); n > 0 {
+			up += ", covered " + plural(n, "more night") // its first nights (#528)
+		}
+		lines = append(lines, row("upkeep", up))
 	}
 	lines = append(lines, row("bought", fmt.Sprintf("day %d · %s", f.Bought, money(f.Cost))))
 	lines = append(lines, m.frontRole(f.ID, w.FrontCity(f))...)

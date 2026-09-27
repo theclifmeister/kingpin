@@ -8,7 +8,12 @@
 # shortfall by the lot at `from` where the wholesaler deals.
 
 [shipping]
-seizure_heat = 15           # heat a seizure adds in both cities on the route
+seizure_heat_unit = 0.07    # heat a seizure adds in both cities on the route, a heat-weighted unit it carried (units x
+                            # the product's heat, market.toml): the street's own rate (heat.toml sale_heat / street_units),
+                            # so the police weigh a load the way they weigh the corner (#531: a flat +15 took 4 meth as 150 coke)
+seizure_heat_min = 3        # ... never under this: a car stopped on the road is a car the police remember
+seizure_heat_max = 15       # ... never over this in a city, the old flat +15 (about 140 coke): a boat or a truck costs what
+                            # it did, so the roads' own numbers hold (at 30 the delegated player fell 25% under the distributor)
 seizure_evidence = 1        # pages in the DA's file, only if the shipment was sent fast (#27: a case is built from what you did)
 shock_factor = 1.8          # price multiplier on the product in the city the shipment was bound for ...
 shock_days = 5              # ... for this many days: the street was counting on it

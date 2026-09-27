@@ -840,6 +840,9 @@
         },
         "UpkeepFreezeDays": {
           "type": "integer"
+        },
+        "UpkeepGraceDays": {
+          "type": "integer"
         }
       },
       "required": [
@@ -847,6 +850,7 @@
         "AuditFreezeDays",
         "AuditSeize",
         "UpkeepFreezeDays",
+        "UpkeepGraceDays",
         "AccountantThroughput",
         "AccountantRiskCut",
         "RotLine",

@@ -177,10 +177,14 @@ func TestQuietFastForwardStopsLittle(t *testing.T) {
 // quietStops is the most stops thirty quiet mid-game days may make
 // (#504), and quietOther the most of them neither a card dealt nor a
 // buyer asking, each of which wants an answer: the rest about one a
-// fortnight, where a playtest stopped every 1.3 days on notices.
+// fortnight, where a playtest stopped every 1.3 days on notices. 12 and
+// 1 until #528 and #531 moved the fixture's run (a front's first week
+// covered, a light seizure lighter): seed 7 stops 13 times, every one a
+// card or a buyer, and seed 11 twice on neither, a landed load and a
+// runner near the skim line, both answers and neither a notice.
 const (
-	quietStops = 12
-	quietOther = 1
+	quietStops = 13
+	quietOther = 2
 )
 
 // TestDangersLead (#534): a heat line and the file near an indictment

@@ -342,6 +342,9 @@ func (s *Session) Preview() *DayPreview {
 			p.Wash.Washed += amt
 		}
 		due := lw.FrontUpkeep(w, f)
+		if f.Covered(p.Day, lw.Tuning().UpkeepGraceDays) {
+			due = 0 // its first nights are covered (#528)
+		}
 		if due > at.Player.CleanCash {
 			p.Wash.Shuts = append(p.Wash.Shuts, f.Name)
 			p.Wash.Short += due - at.Player.CleanCash

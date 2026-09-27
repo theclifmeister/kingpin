@@ -1,68 +1,97 @@
 package ui
 
 import (
+	"fmt"
 	"strings"
 	"testing"
 )
 
 // TestUpkeepIsSaid (#458, a playtest): a front's upkeep is clean cash,
-// and nothing said so. The buy picker names it and warns when the clean
-// pile will not cover the first night; the morning a front shuts for it,
-// TODAY, the ALERTS and the ledger's status say why and by how much; a
-// blank reserve keeps tonight's upkeep back, the reserve, cash-out and
-// fund dialogs warn when a move leaves less.
+// and nothing said so. The buy picker names it, says when the wash and
+// the upkeep start (#528: the dirty over the till, the first nights
+// covered) and warns when the clean pile will not cover tonight's; the
+// morning a front shuts for it, TODAY, the ALERTS and the ledger's
+// status say why, by how much and for how long (upkeep_freeze_days,
+// not a week); a blank reserve keeps tonight's upkeep back, the
+// reserve, cash-out and fund dialogs warn when a move leaves less.
 func TestUpkeepIsSaid(t *testing.T) {
 	m := newTestModel(t, 120, 40)
 	m.startRun(testSeed(t))
 	w := m.w
 	l := m.rules.Laundering
-	laundromat := m.cfg.Laundering.Front("laundromat")
-	if laundromat == nil {
-		t.Fatal("no laundromat in the file")
+	laundromat, carwash := m.cfg.Laundering.Front("laundromat"), m.cfg.Laundering.Front("carwash")
+	if laundromat == nil || carwash == nil {
+		t.Fatal("no laundromat or car wash in the file")
 	}
-	upkeep, days := laundromat.Upkeep, l.Tuning().UpkeepFreezeDays
-	// Nothing over the till once it is paid for, and no clean cash.
-	w.Player.DirtyCash = laundromat.Cost + m.till()
+	upkeep, days, grace := laundromat.Upkeep, l.Tuning().UpkeepFreezeDays, l.Tuning().UpkeepGraceDays
+	// Nothing over the till once both are paid for, and no clean cash.
+	w.Player.DirtyCash = laundromat.Cost + carwash.Cost + m.till()
 	w.Player.CleanCash = 0
-	w.Stats.PeakCash = laundromat.UnlockCash
+	w.Stats.PeakCash = carwash.UnlockCash
 	m.Update(key("7"))
 	m.Update(key("b"))
 	m.Update(key("enter")) // the kind: a front
 	if m.mode != modeFront || m.frontRows()[m.front.cursor].ID != "laundromat" {
 		t.Fatalf("the picker: mode %v on %+v", m.mode, m.frontRows())
 	}
+	// The first front (#528): its first nights are covered, so nothing
+	// is short tonight and enter buys it.
 	view := stripANSI(m.View())
-	for _, want := range []string{"upkeep is paid in clean cash", "Tonight's " + money(upkeep) + " of upkeep is expected to come up " + money(upkeep) + " clean short", "the dirty over the " + money(m.till()) + " till", "y buys it anyway"} {
+	for _, want := range []string{"washes the dirty over the " + money(m.till()) + " till", "Its first " + plural(grace, "night") + " of upkeep are covered; then " + money(upkeep) + "/day, paid in clean cash", "a night unpaid shuts it " + plural(days, "day")} {
 		if !strings.Contains(squash(view), want) {
 			t.Errorf("the buy picker lacks %q:\n%s", want, view)
 		}
 	}
+	if strings.Contains(squash(view), "clean short") {
+		t.Errorf("a covered first night is warned of:\n%s", view)
+	}
 	assertFits(t, m.View(), 120, 40, "buy picker")
+	m.Update(key("enter"))
+	if m.mode == modeConfirm || len(w.Fronts) != 1 {
+		t.Fatalf("enter on a covered front: mode %v, %d fronts", m.mode, len(w.Fronts))
+	}
+	// Its grace run out, its upkeep is tonight's: a second front bought
+	// now (covered itself) is bought into the first's shut.
+	w.Fronts[0].Bought = w.Day - grace
+	m.Update(key("b"))
+	m.Update(key("enter"))
+	if m.mode != modeFront || m.frontRows()[m.front.cursor].ID != "carwash" {
+		t.Fatalf("the picker: mode %v on %+v", m.mode, m.frontRows())
+	}
+	view = stripANSI(m.View())
+	for _, want := range []string{"Tonight's " + money(upkeep) + " of upkeep is expected to come up " + money(upkeep) + " clean short", "the dirty over the " + money(m.till()) + " till", "y buys it anyway"} {
+		if !strings.Contains(squash(view), want) {
+			t.Errorf("the buy picker lacks %q:\n%s", want, view)
+		}
+	}
 	// Bought into a shut (#496): enter asks, any other key goes back,
 	// and only y buys it.
 	m.Update(key("enter"))
-	if m.mode != modeConfirm || len(w.Fronts) != 0 {
+	if m.mode != modeConfirm || len(w.Fronts) != 1 {
 		t.Fatalf("enter over a shut: mode %v, %d fronts; want the confirmation", m.mode, len(w.Fronts))
 	}
-	if view := squash(stripANSI(m.View())); !strings.Contains(view, "BUY LAUNDROMAT?") || !strings.Contains(view, "clean short") {
+	if view := squash(stripANSI(m.View())); !strings.Contains(view, "BUY CAR WASH?") || !strings.Contains(view, "clean short") {
 		t.Errorf("the confirmation does not say the shut:\n%s", view)
 	}
 	assertFits(t, m.View(), 120, 40, "buy confirmation")
 	m.Update(key("n"))
-	if m.mode == modeConfirm || len(w.Fronts) != 0 {
+	if m.mode == modeConfirm || len(w.Fronts) != 1 {
 		t.Fatalf("n bought it: mode %v, %d fronts", m.mode, len(w.Fronts))
 	}
 	m.Update(key("b"))
 	m.Update(key("enter"))
 	m.Update(key("enter"))
 	m.Update(key("y"))
-	if len(w.Fronts) != 1 {
+	if len(w.Fronts) != 2 {
 		t.Fatalf("bought %d fronts: %q", len(w.Fronts), m.status)
 	}
 	endDay(t, m)
 	f := w.Fronts[0]
 	if f.Unpaid != upkeep || !f.Frozen(w.Day+1) {
 		t.Fatalf("the morning after: %+v, want shut %d short", f, upkeep)
+	}
+	if cw := w.Fronts[1]; cw.Frozen(w.Day+1) || m.coveredNights(cw) != grace-1 {
+		t.Fatalf("the car wash the morning after: %+v, covered %d more nights, want open and %d", cw, m.coveredNights(cw), grace-1)
 	}
 	var lead []string
 	for _, ln := range w.Report.Lead {
@@ -80,7 +109,7 @@ func TestUpkeepIsSaid(t *testing.T) {
 		t.Errorf("the alerts lack %q:\n%s", want, alerts)
 	}
 	status, _ := cellText(kText, 0, m.frontStatus(f))
-	if want := "shut 7d: upkeep unpaid (" + money(upkeep) + " clean)"; days != 7 || status != want {
+	if want := fmt.Sprintf("shut %dd: upkeep unpaid (%s clean)", days, money(upkeep)); status != want {
 		t.Errorf("the ledger's status %q, want %q", status, want)
 	}
 

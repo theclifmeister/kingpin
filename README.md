@@ -69,10 +69,10 @@ dailies. A character is a start: the Dealer is the run as it always was,
 the Cook begins with a chemist and meth on the ladder, the Bookkeeper
 (unlocked by ending as a businessman) with an accountant, the Ex-Cop
 (unlocked by vanishing) with a police scanner and the chief's temper
-known, the Dockhand (unlocked by reaching Distribution) on Bayport's Fish
-Market, the Heir (unlocked by taking the crown) with the old man's
-enforcer on Riverside, a stash spot, and a name the street already
-fears. Taking the crown also unlocks the Hard DA toggle: a
+known, the Dockhand (unlocked by reaching Distribution) on the Docks,
+where the Bayport boats tie up, the Heir (unlocked by taking the crown)
+with the old man's enforcer on Riverside, a stash spot, and a name the
+street already fears. Taking the crown also unlocks the Hard DA toggle: a
 law-and-order DA and a zealous chief on the first morning, never pinned.
 No simulation reads the profile or the character: the same seed and the
 same start play the same run whatever the profile says. A corrupt
