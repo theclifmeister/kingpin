@@ -292,7 +292,11 @@ func TestEndingFrequencies(t *testing.T) {
 // TestStoppingDealingGoesStraight (#529): the fronts are measured
 // against the street's last street_window nights, so a player who
 // built a front business and gives the street up goes straight: the
-// boss to day stopAt, then StopDealing, over ten seeds. Every run whose
+// boss to day stopAt, then StopDealing, over stopSeeds seeds (twenty,
+// ten until #528 and #531 moved the boss's runs: on ten, seed 1 was
+// betrayed and seed 10's fronts were short of their levels at day 150,
+// which each change alone flips, and four earning seeds read too few;
+// a seed a lieutenant betrays is another story). Every run whose
 // fronts earn at the stop and that nothing else ends goes straight
 // within the band: no sooner than legit_days nights after the stop
 // (the streak), no later than the window plus the streak plus slack
@@ -309,12 +313,13 @@ func TestStoppingDealingGoesStraight(t *testing.T) {
 	}
 	ld := laundering.New(cfg)
 	const (
-		stopAt = 150
-		slack  = 15
+		stopAt    = 150
+		slack     = 15
+		stopSeeds = 20
 	)
 	lo, hi := stopAt+b.LegitDays, stopAt+b.StreetWindow+b.LegitDays+slack
 	earning, straight := 0, 0
-	for seed := uint64(1); seed <= 10; seed++ {
+	for seed := uint64(1); seed <= stopSeeds; seed++ {
 		boss := Boss(cfg, 40, "")
 		earns := false
 		policy := StopDealing(cfg, func(w *game.World) {
@@ -344,7 +349,7 @@ func TestStoppingDealingGoesStraight(t *testing.T) {
 		}
 	}
 	if earning < 5 {
-		t.Errorf("%d of 10 seeds had fronts earning at day %d; the test reads too few", earning, stopAt)
+		t.Errorf("%d of %d seeds had fronts earning at day %d; the test reads too few", earning, stopSeeds, stopAt)
 	}
 	t.Logf("%d of %d earning runs went straight between day %d and %d", straight, earning, lo, hi)
 }

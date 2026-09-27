@@ -573,6 +573,14 @@ func (w *World) FrontCity(f Front) string {
 // Frozen reports whether the front is shut on day.
 func (f Front) Frozen(day int) bool { return f.FrozenUntil > day }
 
+// Covered reports whether the front's upkeep is covered on night day
+// (#528): its first grace nights after the day it was bought, so a first
+// front bought before there is a clean dollar does not shut on its first
+// night: bought on day B, nights B+1 to B+grace.
+func (f Front) Covered(day, grace int) bool {
+	return day > f.Bought && day-f.Bought <= grace
+}
+
 // Front returns the owned front with id, or nil.
 func (w *World) Front(id string) *Front {
 	return find(w.Fronts, func(e *Front) bool { return e.ID == id })

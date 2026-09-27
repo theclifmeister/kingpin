@@ -16,10 +16,15 @@ type RoutesConfig struct {
 }
 
 // ShippingTuning is what a seizure does to the world: heat in both cities
-// on the route, a page in the DA's file if the shipment was sent fast, and
-// a supply shock on the product in the city it was bound for.
+// on the route, scaled by what it carried (#531: SeizureHeatUnit a
+// heat-weighted unit, never under SeizureHeatMin nor over
+// SeizureHeatMax; SeizureHeat is that sum), a page in the DA's file if
+// the shipment was sent fast, and a supply shock on the product in the
+// city it was bound for.
 type ShippingTuning struct {
-	SeizureHeat     float64 `toml:"seizure_heat"`
+	SeizureHeatUnit float64 `toml:"seizure_heat_unit"`
+	SeizureHeatMin  float64 `toml:"seizure_heat_min"`
+	SeizureHeatMax  float64 `toml:"seizure_heat_max"`
 	SeizureEvidence int     `toml:"seizure_evidence"`
 	ShockFactor     float64 `toml:"shock_factor"`
 	ShockDays       int     `toml:"shock_days"`
@@ -54,6 +59,13 @@ type RouteConfig struct {
 	Cost     int     `toml:"cost"`
 	Risk     float64 `toml:"risk"`
 	Asset    string  `toml:"asset"` // the asset that opens the route (#48: the airstrip's plane, the tunnel); "" is a route that is always there
+}
+
+// SeizureHeat is the heat a seizure of units of a product whose heat per
+// unit is heat adds in each city on the route (#531): the load weighed at
+// SeizureHeatUnit, between SeizureHeatMin and SeizureHeatMax.
+func (s ShippingTuning) SeizureHeat(units int, heat float64) float64 {
+	return min(s.SeizureHeatMax, max(s.SeizureHeatMin, float64(units)*heat*s.SeizureHeatUnit))
 }
 
 // Connects reports whether the route joins the two cities, either way.
@@ -103,7 +115,7 @@ func (r RoutesConfig) validate(cities CityConfig) error {
 			return fmt.Errorf("bad ship dial %+v", d)
 		}
 	}
-	if r.Shipping.ShockDays < 0 || r.Shipping.ShockFactor < 0 {
+	if sh := r.Shipping; sh.ShockDays < 0 || sh.ShockFactor < 0 || sh.SeizureHeatUnit < 0 || sh.SeizureHeatMin < 0 || sh.SeizureHeatMax < sh.SeizureHeatMin {
 		return fmt.Errorf("bad [shipping] table %+v", r.Shipping)
 	}
 	return nil

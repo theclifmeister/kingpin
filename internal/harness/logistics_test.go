@@ -367,9 +367,12 @@ func TestSeizureIsShockNotEvidence(t *testing.T) {
 		if seized != 1 {
 			t.Fatalf("%s: %d seizures", d, seized)
 		}
+		// What it carried weighs (#531): fifty units at the product's
+		// heat, on the floor or over it.
+		rose := cfg.Routes.Shipping.SeizureHeat(50, cfg.Market.Products[0].Heat)
 		for _, h := range heat {
-			if h.To-h.From < cfg.Routes.Shipping.SeizureHeat/2 {
-				t.Fatalf("%s: %s heat rose %.1f on the seizure, want about %.0f", d, h.City, h.To-h.From, cfg.Routes.Shipping.SeizureHeat)
+			if h.To-h.From < rose/2 {
+				t.Fatalf("%s: %s heat rose %.1f on the seizure, want about %.1f", d, h.City, h.To-h.From, rose)
 			}
 		}
 		if len(heat) != 2 {

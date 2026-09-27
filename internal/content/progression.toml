@@ -58,7 +58,7 @@ opens = [
   "runners on corners, enforcers on guard",
   "a second connect at $25K moved, if the street connect vouches",
 ]
-next = "Move $25K: the laundromat opens, and the fronts begin."
+next = "Move $25K: the laundromat opens; it washes the dirty over the $50K till."
 text = [
   "Somebody else stands on the corner now and you count the take.",
   "A runner sells what you hand them and draws heat of their own; an enforcer keeps the stick-ups off and makes a rival's push harder, never impossible.",

@@ -124,7 +124,7 @@ func TestLevelsPullTheirWay(t *testing.T) {
 // and earns nothing that day, so a levelled front pays its own way only
 // out of yesterday's income, kept; a frozen front earns nothing.
 func TestLevelIncomeLandsAfterUpkeep(t *testing.T) {
-	cfg := content.MustLoad()
+	cfg := noGrace(content.MustLoad())
 	cfg.Laundering.Fronts[0].AuditRisk = 0
 	s := laundering.New(cfg)
 	fc := cfg.Laundering.Fronts[0]

@@ -1175,3 +1175,40 @@ func TestSloppyCrewIsNamed(t *testing.T) {
 	}
 	t.Fatal("no heat line for home")
 }
+
+// A road seizure weighs what it carried (#531): the load's heat-weighted
+// units at routes.toml's seizure_heat_unit, in both cities on the route,
+// never under seizure_heat_min (one unit costs what four do) and never
+// over seizure_heat_max (a boat's load is capped); four meth is no
+// longer a hundred and fifty coke.
+func TestSeizureHeatWeighsTheLoad(t *testing.T) {
+	cfg := content.MustLoad()
+	sh := cfg.Routes.Shipping
+	heatOf := func(product string, units int) (float64, float64) {
+		w := world(t, cfg)
+		w.Day = 40
+		for _, cid := range w.CityOrder {
+			w.Cities[cid].Heat = 0
+		}
+		step(w, heat.New(cfg), events.ShipmentSeized{Day: 41, Route: "coast", Mode: "car", From: "bayport", To: w.Home().ID, Product: product, Units: units})
+		return w.Cities["bayport"].Heat, w.Cities[w.Home().ID].Heat
+	}
+	meth, coke := cfg.Market.Product("meth").Heat, cfg.Market.Product("coke").Heat
+	if got := sh.SeizureHeat(4, meth); !near(got, sh.SeizureHeatMin) || !near(sh.SeizureHeat(1, meth), got) {
+		t.Fatalf("four meth weigh %.2f, one %.2f: want the floor %.2f", got, sh.SeizureHeat(1, meth), sh.SeizureHeatMin)
+	}
+	if got, want := sh.SeizureHeat(100, coke), 100*coke*sh.SeizureHeatUnit; !near(got, want) || got <= sh.SeizureHeatMin || got >= sh.SeizureHeatMax {
+		t.Fatalf("100 coke weigh %.2f, want %.2f between the floor and the cap", got, want)
+	}
+	if got := sh.SeizureHeat(150, coke); !near(got, sh.SeizureHeatMax) {
+		t.Fatalf("150 coke weigh %.2f, want the cap %.2f (the old flat)", got, sh.SeizureHeatMax)
+	}
+	if got := sh.SeizureHeat(2000, cfg.Market.Product("designer").Heat); !near(got, sh.SeizureHeatMax) {
+		t.Fatalf("a boat of designer weighs %.2f, want the cap %.2f", got, sh.SeizureHeatMax)
+	}
+	smallFrom, smallTo := heatOf("meth", 4)
+	bigFrom, bigTo := heatOf("coke", 150)
+	if smallFrom <= 0 || smallTo <= 0 || bigFrom <= smallFrom || bigTo <= smallTo {
+		t.Fatalf("heat after four meth %.2f / %.2f, after 150 coke %.2f / %.2f: the load should weigh, in both cities", smallFrom, smallTo, bigFrom, bigTo)
+	}
+}

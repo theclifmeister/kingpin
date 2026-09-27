@@ -61,7 +61,7 @@ func TestFastForwardRunsPastAnUnlock(t *testing.T) {
 		t.Fatalf("the laundromat after the stop: locked %v offered %v", o.Locked(m.w), m.w.Laundering.Offered)
 	}
 	view := stripANSI(m.View())
-	if !strings.Contains(view, "UNLOCKED") || !strings.Contains(view, "The Laundromat is open to you on the ledger screen (7): $25K.") {
+	if !strings.Contains(view, "UNLOCKED") || !strings.Contains(view, "The Laundromat is on the ledger screen (7): it washes over the till.") {
 		t.Fatalf("the report has no UNLOCKED section for it:\n%s", view)
 	}
 	if i, j := strings.Index(view, "UNLOCKED"), strings.Index(view, "PRICES"); j > 0 && i > j {

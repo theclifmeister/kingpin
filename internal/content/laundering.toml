@@ -6,7 +6,10 @@
 float = 50000               # the wash never takes dirty cash below this: the street needs a float to restock
 audit_freeze_days = 14      # an audited front washes nothing for this long
 audit_seize = 0.5           # of what the front washed today is seized in an audit
-upkeep_freeze_days = 7      # a front whose upkeep went unpaid is shut for this long
+upkeep_freeze_days = 2      # a front whose upkeep went unpaid is shut for this long (#528: the next night lost, back the
+                            # one after; short again, it shuts again, about a day a missed night. 7 took a week for $150)
+upkeep_grace_days = 7       # a new front's first this many nights of upkeep are covered (#528): the first front, bought
+                            # before there is a clean dollar, no longer shuts on its first night
 accountant_throughput = 4000 # added to every front per accountant, at skill 100 (scales with skill)
 accountant_risk_cut = 0.5   # of every front's audit risk a skill-100 accountant removes (each one takes its cut of what is left)
 rot_line = 50000000         # a dirty pile over this rots (#392): nobody has room to keep that much dry

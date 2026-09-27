@@ -120,7 +120,7 @@ func TestLedgerSaysTheRoadAndTheShut(t *testing.T) {
 		}
 	}
 	fc := m.cfg.Laundering.Fronts[0]
-	w.Fronts = append(w.Fronts, game.Front{ID: fc.ID, Name: fc.Name})
+	w.Fronts = append(w.Fronts, game.Front{ID: fc.ID, Name: fc.Name, Bought: w.Day - m.rules.Laundering.Tuning().UpkeepGraceDays}) // its covered nights over (#528)
 	w.Player.CleanCash = 0
 	w.Player.DirtyCash = 0
 	if view := squash(stripANSI(m.View())); !strings.Contains(view, fc.Name+" expected to shut tonight") {

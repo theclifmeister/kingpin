@@ -1524,7 +1524,7 @@ func NoHeat(cfg *content.Config) *content.Config {
 		f.Heat = 0
 		boxed.Rivals.Force[k] = f
 	}
-	boxed.Routes.Shipping.SeizureHeat = 0
+	boxed.Routes.Shipping.SeizureHeatUnit, boxed.Routes.Shipping.SeizureHeatMin, boxed.Routes.Shipping.SeizureHeatMax = 0, 0, 0
 	boxed.Reputation.Effects.FearHeatFloor = 0
 	return &boxed
 }

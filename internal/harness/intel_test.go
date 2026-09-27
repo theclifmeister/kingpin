@@ -270,8 +270,8 @@ func TestIntelIsDeterministicAndSaves(t *testing.T) {
 	cfg.Intel.Intel.FeedChance = 1
 	policy := func() Policy { return spymaster(cfg) }
 	play := func(days int) Result {
-		w := sim.NewWorld(cfg, 6)
-		w.Rival().Trust = 0 // it distrusts you from the start: a lie a night
+		w := sim.NewWorld(cfg, 7) // seed 7 since #531: on seed 6 the lured road now carries a light load, its seizure +3 and no longer +15, and the heat never reached the cop line (InformedHeat)
+		w.Rival().Trust = 0       // it distrusts you from the start: a lie a night
 		w.Player.DirtyCash = 200_000
 		res, err := RunFrom(cfg, w, days, policy())
 		if err != nil {
@@ -298,10 +298,10 @@ func TestIntelIsDeterministicAndSaves(t *testing.T) {
 		}
 	}
 	if used["SpyPlanted"] == 0 || used[game.SourceContact] == 0 || used[game.SourceSpy] == 0 || used["IntelFalse"] == 0 {
-		t.Fatalf("the spymaster did not use the file on seed 6: %v", used)
+		t.Fatalf("the spymaster did not use the file on seed 7: %v", used)
 	}
 	if a.World.Stats.CopsPaid == 0 || a.World.Stats.Reports == 0 {
-		t.Fatalf("the spymaster paid %d cops and got %d reports on seed 6", a.World.Stats.CopsPaid, a.World.Stats.Reports)
+		t.Fatalf("the spymaster paid %d cops and got %d reports on seed 7", a.World.Stats.CopsPaid, a.World.Stats.Reports)
 	}
 	// Save on a morning with a spy under and a lie live in the file (the
 	// cop's word, bought at heat over InformedHeat, is in the file or
@@ -313,7 +313,7 @@ func TestIntelIsDeterministicAndSaves(t *testing.T) {
 		policy()(c.World)
 	}
 	if len(c.World.Crew.Spies()) == 0 || len(lures(c.World)) == 0 {
-		t.Fatalf("between day 20 and 110 of seed 6 there was never a morning with a spy under and a lie live: spies %d lies %d", len(c.World.Crew.Spies()), len(lures(c.World)))
+		t.Fatalf("between day 20 and 110 of seed 7 there was never a morning with a spy under and a lie live: spies %d lies %d", len(c.World.Crew.Spies()), len(lures(c.World)))
 	}
 	if err := game.Save(1, c.World); err != nil {
 		t.Fatal(err)

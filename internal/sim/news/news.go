@@ -887,6 +887,12 @@ func unlockLine(w *game.World, ev events.Unlocked) string {
 		}
 		return fmt.Sprintf("%s is on offer, around %s a unit: %s.", ev.Name, format.Price(ev.Price), ev.Why)
 	case "front":
+		// Open is not washing (#528): the first front washes only the
+		// dirty over the till, the line the stage card and the buy
+		// dialog give; its price is on the ledger beside it.
+		if len(w.Fronts) == 0 {
+			return fmt.Sprintf("The %s is on the ledger screen (7): it washes over the till.", ev.Name)
+		}
 		return fmt.Sprintf("The %s is open to you on the ledger screen (7): %s.", ev.Name, format.Cash(ev.Cost))
 	case "connect":
 		where := ""
