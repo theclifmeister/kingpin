@@ -54,26 +54,15 @@ ending = "vanished"
 upgrades = ["scanner"]
 know_chief = true
 
-# The Dockhand (#533): the Docks at home, where the Bayport boats tie up.
-# It started on Bayport's Fish Market until #533, and a player who stays
-# where they start (the harness's crewed) met the port's own late game
-# there: at $500K peak the Dutchman sells wholesale and designer sells
-# on its corners, so its crewed net worth at day 200 read $2.25M against
-# the Dealer's $1.03M (+117%), $422K on day 70 and $1.79M on day 120;
-# with designer boxed it read $1.01M. No day-0 state in Bayport trims
-# that (a driver and a chemist on the payroll, two roster slots, still
-# read $2.0M) and designer is left as it is, so the start moved: the
-# crewed player reads within 20% of the Dealer (TestCharactersAreBanded),
-# and Bayport is a trip away, as it is for anyone.
 [[character]]
 id = "dockhand"
 name = "The Dockhand"
-blurb = "You start on the Docks, where the Bayport boats tie up, with a name on the waterfront."
+blurb = "You start on the Fish Market in Bayport, where the coke is cheap, with a name on the docks."
 [character.unlock]
 stage = "distribution"
 [character.start]
-city = "eastside"
-corner = "docks"
+city = "bayport"
+corner = "fishmarket"
 [character.start.reputation]
 fear = 15
 

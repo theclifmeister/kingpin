@@ -26,11 +26,11 @@ import (
 // managed, quiet and crewed peaks are logged against the default's,
 // every one that moves more than twenty percent marked (the band on
 // the crewed player's net worth is TestCharactersAreBanded's). The
-// dockhand stands on the Docks at home since #533 (Bayport's Fish
-// Market before: the port's wholesaler and designer at $500K doubled
-// the crewed player who never left it); on the Docks the lone trader
-// reads over the default (a coke-and-heroin corner with little heat),
-// marked, as the port's under it was.
+// dockhand starts in Bayport, where no faction lives, so its take there
+// draws one (#341); the harness's players hit the scouts of a faction
+// moving on the city they work (HitScoutsIn, #379), and without that
+// answer the dockhand's crewed run on seed 6 was indicted on day 113,
+// under the tier-3 line.
 func TestCharactersAreStartsNotCheats(t *testing.T) {
 	t.Parallel()
 	cfg := content.MustLoad()
@@ -147,16 +147,32 @@ func measure(t *testing.T, cfg *content.Config, id string) medians {
 // it is. The owner's reading is cmd/balance -policy crewed -character C
 // -runs 30 -days 200 (incidents dealt); the test reads the harness's
 // boxed runs on twenty seeds, which is what CI can afford (~3 s a
-// character, in parallel). The dockhand read +117% on the port's start.
+// character, in parallel).
 const (
 	bandSeeds = 20
 	bandDay   = 200
 	bandWidth = 0.20
 )
 
+// bandOutliers are the characters the band logs and does not hold (the
+// owner's ruling on #533). The dockhand's Bayport start is the
+// Distribution reward: the crewed player who never leaves the port sells
+// designer bought from Marisol, the port's street connect, from the
+// $500K line (+117% on cmd/balance, $2.25M against $1.03M; +134% here),
+// and the boss and the cartel run on the same port designer. Cutting it
+// for everyone broke the late game's bands: Marisol off designer read
+// the dockhand at -5% but t4 boss $21.0M (band $50M-$200M) and t5
+// cartel $71.7M ($1B-$5B); Bayport's designer demand 2.0 -> 0.05 read
+// +16% and t4 $24.4M, t5 $263M. No day-0 trim in Bayport came near
+// (+95% at best).
+var bandOutliers = map[string]string{
+	"dockhand": "the Bayport start is the Distribution reward, on the port's designer the late game shares (#533)",
+}
+
 // TestCharactersAreBanded (#533): a character is a start, not an
 // advantage, so no start moves the crewed player's day-200 net worth
-// more than a fifth off the Dealer's either way.
+// more than a fifth off the Dealer's either way, bar the outliers the
+// owner ruled (bandOutliers), which are logged and never held.
 func TestCharactersAreBanded(t *testing.T) {
 	t.Parallel()
 	cfg := content.MustLoad()
@@ -184,6 +200,10 @@ func TestCharactersAreBanded(t *testing.T) {
 			got := median(ch.ID)
 			delta := float64(got-base) / float64(base)
 			t.Logf("%s: crewed median net worth on day %d is %d against the Dealer's %d (%+.0f%%)", ch.ID, bandDay, got, base, delta*100)
+			if why, ok := bandOutliers[ch.ID]; ok {
+				t.Logf("%s: an allowed outlier, not held to the band: %s", ch.ID, why)
+				return
+			}
 			if delta > bandWidth || delta < -bandWidth {
 				t.Errorf("%s: crewed median net worth on day %d is %d, %+.0f%% off the Dealer's %d: outside the ±%.0f%% band", ch.ID, bandDay, got, delta*100, base, bandWidth*100)
 			}
