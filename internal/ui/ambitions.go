@@ -183,6 +183,13 @@ func (m *Model) downLines() []string {
 			out = append(out, "      "+l)
 		}
 	}
+	// The crown's countdown (#530): the day the last of those clocks
+	// runs out, when every one has a clock.
+	if last := m.lastClockWords(); last != "" && len(out) > 0 {
+		for _, l := range wrap(strings.ToUpper(last[:1])+last[1:]+".", m.modalInner()-6) {
+			out = append(out, "      "+theme.Subtle.Render(l))
+		}
+	}
 	return out
 }
 

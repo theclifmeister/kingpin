@@ -74,7 +74,7 @@ func (m *Model) exitRows() []exitRow {
 	if days := m.cfg.Laundering.Businessman.LegitDays; straight.open {
 		straight.terms = fmt.Sprintf("the fronts at %s a day", money(m.rules.Laundering.LegitIncome(w)))
 	} else {
-		straight.terms = fmt.Sprintf("the fronts out-earn the street and goodwill tops pressure at home, %s running", plural(days, "night"))
+		straight.terms = fmt.Sprintf("the fronts out-earn %s and goodwill tops pressure at home, %s running", m.streetWords(), plural(days, "night"))
 		straight.short = m.straightShort(days)
 	}
 	rows := []exitRow{retire, vanish, crown, straight}
@@ -114,13 +114,25 @@ func (m *Model) straightShort(days int) string {
 			switch {
 			case s.Done:
 			case s.ID == "income":
-				parts = append(parts, "the fronts under the street")
+				// What the fronts are measured against, said (#529).
+				parts = append(parts, fmt.Sprintf("the fronts' %s/day under the street's %s a night", money(int(s.Have)), money(int(s.Need))))
 			case s.ID == "goodwill":
 				parts = append(parts, "goodwill under pressure")
 			}
 		}
 	}
 	return strings.Join(parts, ", ")
+}
+
+// streetWords is what going straight measures the fronts against
+// (#529): the street's average night over the file's window, which
+// falls a night laid low at a window's share; the whole run's with no
+// window (#493).
+func (m *Model) streetWords() string {
+	if n := m.cfg.Laundering.Businessman.StreetWindow; n > 0 {
+		return fmt.Sprintf("the street's average night over the last %d", n)
+	}
+	return "the street's average night over the run"
 }
 
 // crownShort is what the crown waits on (#399), in the kingpin plan's
@@ -164,6 +176,9 @@ func (m *Model) crownShort() string {
 				}
 				if coming > 0 {
 					parts = append(parts, plural(coming, "crew")+" yet to arrive")
+				}
+				if last := m.lastClockWords(); last != "" {
+					parts = append(parts, last) // the day the crown stops waiting on the clocks (#530)
 				}
 			case "streak":
 				if s.Have > 0 || len(parts) == 0 {

@@ -55,6 +55,9 @@ func (m *Model) cardOnScene() bool {
 func (m *Model) viewCardScene(c *game.Card) string {
 	frame := m.scene.Frame(m.modalInner(), 2+len(m.wrapLines(c.Text)))
 	choices, _ := m.cardChoices(c)
-	body := append(frame[2:], make([]string, 1+len(choices))...)
+	// A footer on two rows (#527: esc says where it goes) holds its
+	// second row blank too.
+	extra := max(0, len(footerRows(m.modalFooter(), m.modalInner()))-1)
+	body := append(frame[2:], make([]string, 1+len(choices)+extra)...)
 	return m.modal(ansi.Strip(frame[0]), body, nil)
 }

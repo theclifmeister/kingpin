@@ -243,7 +243,8 @@ func TestLevelsSurviveASave(t *testing.T) {
 // TestInvestingEverything (#192, the greed curve across the margin): the
 // boss investing every clean dollar (-margin 1) against the boss at
 // BossMargin, ten seeds on the same dice. What holds, and is pinned:
-// margin 1 holds less clean in hand at day 200 on most seeds. What the
+// margin 1 holds less clean in hand at day 200 on most seeds (6 of ten,
+// #532). What the
 // issue asked for, audited more often and ending lower, is not a
 // property of the sim: a front's own wash lands before its upkeep, so
 // the reserve matters only on a morning with nothing over the float to
@@ -289,7 +290,11 @@ func TestInvestingEverything(t *testing.T) {
 			less++
 		}
 	}
-	if less < 7 {
+	// 7 of 10 on main before #532; its offer_quiet (a truce the rival
+	// no longer puts again within the days) moved seed 1 alone, and seed
+	// 6 is a tie (both runs frozen from the first morning, the same
+	// clean), so 6 of the 9 seeds that differ (docs/tuning.md).
+	if less < 6 {
 		t.Errorf("investing everything left more clean in hand than BossMargin on %d of ten seeds", 10-less)
 	}
 }

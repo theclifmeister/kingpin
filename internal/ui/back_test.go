@@ -247,7 +247,7 @@ func TestTabIsSilentWhereThereIsNoPage(t *testing.T) {
 		if b.label == "back" && b.key != "⇧tab" {
 			t.Errorf("%s %s: back is ⇧tab alone", b.key, b.label)
 		}
-		if strings.Contains(b.key, "esc") && b.label != "close" {
+		if strings.Contains(b.key, "esc") && b.label != "close" && !strings.HasPrefix(b.label, "close: ") { // #527: a close that says where it goes
 			t.Errorf("%s %s: esc closes", b.key, b.label)
 		}
 	}

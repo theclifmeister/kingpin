@@ -95,6 +95,8 @@ func TestStopsOnTheReadings(t *testing.T) {
 		{events.WarEnded{}, true},
 		{events.WarEnded{Called: true}, false}, // your own word (#520)
 		{events.QuietBroken{}, true},           // where it serves (#519)
+		{events.RivalAbsorbed{}, true},         // a faction scattered or finished (#530)
+		{events.HoldBegan{}, true},             // the crown's hold begun (#530)
 		{events.Unlocked{}, false},             // a notice (#519)
 		{events.PressureShifted{From: 2, To: 1}, false},
 		{events.ReputationShifted{From: 1, To: 2}, false}, // needs no action (#504)
@@ -104,6 +106,12 @@ func TestStopsOnTheReadings(t *testing.T) {
 	} {
 		if got := engine.StopsOn(c.e); got != c.want {
 			t.Errorf("StopsOn(%#v) = %v, want %v", c.e, got, c.want)
+		}
+	}
+	// The crown's count moving is no danger (#530).
+	for _, e := range []events.Event{events.RivalAbsorbed{}, events.HoldBegan{}} {
+		if (engine.Stop{Kind: engine.StopEvent, Event: e}).Danger() {
+			t.Errorf("%s stops as a danger", e.Kind())
 		}
 	}
 }

@@ -672,6 +672,7 @@ func (s *Sim) Step(w *game.World, t *game.Tick) {
 	s.rot(w, t)
 	s.reserve(w, t)
 	s.quiet(w, t)
+	s.recordStreet(w, t)
 	s.legit(w, t)
 	s.announce(w, t)
 }
@@ -764,13 +765,53 @@ func (s *Sim) quiet(w *game.World, t *game.Tick) {
 	w.QuietDays++
 }
 
+// recordStreet keeps the street's last nights (#529,
+// LaunderingState.Street): tonight's rise in Stats.TotalRevenue, what
+// the street, the buyers and the exports made (the market and logistics
+// sims step before this one), kept to [businessman] street_window
+// nights, from the first night anything sold (a run that never deals
+// keeps none, the run before). A save from before, with none recorded,
+// reads tonight as the tick's street sales, since its total was never
+// marked, and so does the first night a run sold. With no window in the
+// file nothing is kept. No dice.
+func (s *Sim) recordStreet(w *game.World, t *game.Tick) {
+	window := s.cfg.Businessman.StreetWindow
+	if window <= 0 || w.Stats.TotalRevenue == 0 {
+		return
+	}
+	st := &w.Laundering
+	night := w.Stats.TotalRevenue - st.StreetMark
+	if len(st.Street) == 0 && st.StreetMark == 0 && t.Day > 1 {
+		night = 0
+		for _, e := range t.Events() {
+			if ev, ok := e.(events.PlayerSold); ok {
+				night += ev.Revenue
+			}
+		}
+		night = min(night, w.Stats.TotalRevenue)
+	}
+	st.Street = append(st.Street, max(0, night))
+	if n := len(st.Street); n > window {
+		st.Street = append([]int(nil), st.Street[n-window:]...)
+	}
+	st.StreetMark = w.Stats.TotalRevenue
+}
+
+// Street is what going straight measures the fronts against on day
+// (#529): the street's average night over the file's window
+// (World.StreetOver; the whole run's with no window).
+func (s *Sim) Street(w *game.World, day int) int {
+	return w.StreetOver(day, s.cfg.Businessman.StreetWindow)
+}
+
 // legit counts the days the fronts out-earn the street (#49, the
 // businessman ending): a day counts when LegitIncome, every front's own
 // income net of its upkeep, is over zero and over the street, the more
 // of what it sold for tonight (the tick's PlayerSold revenue, the
 // market sim's, which steps before this one) and its average night over
-// the run (World.StreetAverage, #493: a night laid low sold ~$0, and
-// one front level out-earned it), and home's goodwill is over its
+// the last street_window nights (Street, #529; the run's before it,
+// #493: a night laid low sold ~$0, and one front level out-earned it),
+// and home's goodwill is over its
 // pressure (the law's, which steps before this one too); a day that
 // fails zeroes the count, and at [businessman] legit_days the ending
 // opens.
@@ -787,7 +828,7 @@ func (s *Sim) legit(w *game.World, t *game.Tick) {
 			street += ev.Revenue
 		}
 	}
-	street = max(street, w.StreetAverage(t.Day))
+	street = max(street, s.Street(w, t.Day))
 	home := w.Home()
 	income := s.LegitIncome(w)
 	if income <= 0 || income <= street || home.Goodwill <= home.Pressure {

@@ -23,8 +23,15 @@ type LaunderingConfig struct {
 // upkeep (Sim.LegitIncome) has out-earned the street's revenue for
 // LegitDays days in a row with home's goodwill over its pressure
 // (World.LegitDays counts them, this sim's). Zero boxes it.
+//
+// StreetWindow (#529) is the nights the street is read over: the
+// fronts are measured against the average night's dealing over the
+// last StreetWindow nights (World.StreetOver), so stopping dealing
+// counts; zero reads the whole run's average night (World.StreetAverage),
+// the rule of #493.
 type BusinessmanConfig struct {
-	LegitDays int `toml:"legit_days"`
+	LegitDays    int `toml:"legit_days"`
+	StreetWindow int `toml:"street_window"`
 }
 
 // OffshoreConfig is the [offshore] table (#195): the account clean cash
@@ -156,6 +163,9 @@ func (l LaunderingConfig) validate() error {
 	}
 	if o := l.Offshore; o.Lot < 0 || o.Fee < 0 || o.Fee >= 1 || o.RetireCash < 0 || o.RetireDays < 0 || o.RetireHeat < 0 {
 		return fmt.Errorf("bad [offshore] table %+v", o)
+	}
+	if b := l.Businessman; b.LegitDays < 0 || b.StreetWindow < 0 {
+		return fmt.Errorf("bad [businessman] table %+v", b)
 	}
 	if c := l.CashOut; c.Fee < 0 || c.Fee >= 1 {
 		return fmt.Errorf("bad [cashout] table %+v", c)

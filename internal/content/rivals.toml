@@ -113,6 +113,17 @@ joint_trust = 70            # trust a joint shipment needs (#30 wires it)
 truce_days = [15, 30, 60]   # the three lengths a truce can be proposed at: the short one is the easy ask
 tribute_cuts = [0.05, 0.10, 0.20] # the three cuts of your daily street value in what the rival sells (rivals.Sim.TributeBase, #162) a tribute can be: the big one is the easy ask
 tribute_min = 200           # a tribute is never under this a day
+# A tribute is priced off what you took (#532): your corners' sales in
+# the faction's city a night over the last tribute_days nights
+# (World.Takings), not what they could move at today's prices, which a
+# playtest paid $1,500-$3,000 a day of on a take of $800-$1,700. A city
+# with none recorded yet (a save from before) prices off the potential.
+tribute_days = 7
+# A deal you let go is not asked again at once (#532): a faction that
+# put a kind of deal on the table does not put that kind again for
+# offer_quiet days, unless you took it (a playtest's truce came back on
+# days 83, 91, 125 and 149 of one war).
+offer_quiet = 20
 low_cash_days = 3           # an expansionist that cannot pay its muscle this many days offers a truce
 upper_hand = 1.5            # an opportunist with this many times the guard on your front line demands tribute
 split_fair = 0.45           # share of the city's demand it lets your side of a split have at trust 0 ...
@@ -408,6 +419,18 @@ succession_muscle = 0.5
 # keeps a corner settle_days has settled, and its next rout starts a
 # new clock. 0: any claim restarts it, the run before.
 settle_days = 30
+# A run-out faction lives off its chest (#530): with no corner and no
+# take it spends landless_burn of the chest a night, and landless_floor
+# corner-days at least, keeping its people fed and hidden. Before, one
+# routed with its muscle gone paid nothing and never went broke, so the
+# absorb_days "sooner if broke" never came and the crown waited out
+# strand_days on a crew with no street (a playtest's hard-DA conqueror
+# waited 48 days on a $96K chest). A chest of ~32 corner-days now runs
+# under a claim in ~26 nights and scatters at absorb_days; start_cash's
+# 80 in ~35. A claim it can still pay is a regroup, as before, and the
+# 60- and 30-day clocks stand. 0 and 0: nothing spent, the run before.
+landless_burn = 0.10
+landless_floor = 0.5
 
 # The table follows the money (#341, rivals.Sim.expand): the rivals sim
 # keeps your take in each city away from home over the last window_days

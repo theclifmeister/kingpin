@@ -41,6 +41,11 @@ func (s *Sim) endings(w *game.World, t *game.Tick, declared string) {
 	// crew setting up again breaks it at once.
 	if tun.DominantDays > 0 {
 		held, dominant := s.HoldsTheCity(w), w.Dominant()
+		// The hold begins (#530): the night the last crew went down or
+		// bowed, the crown's clock starts, and the morning says so.
+		if dominant && w.Reign == 0 && s.DominantSince(w) == t.Day {
+			t.Emit(events.HoldBegan{Day: t.Day, City: w.Home().ID, Reign: t.Day + tun.DominantDays, Held: held})
+		}
 		switch {
 		case held && dominant && t.Day-s.DominantSince(w) >= tun.DominantDays:
 			w.ReignSlip = 0

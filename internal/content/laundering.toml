@@ -75,9 +75,18 @@ fee = 0.10
 
 # The businessman ending (#49): the fronts' own income net of their
 # upkeep (LegitIncome, #192) out-earns the street, the more of what it
-# sold for that night and its average night over the run (#493: a night
-# laid low is not a $0 street), every day for legit_days days in a row, with home's goodwill over its
-# pressure (World.LegitDays counts them, zeroed by a day that fails).
+# sold for that night and its average night over the last street_window
+# nights (#493: a night laid low is not a $0 street; #529: the window,
+# not the whole run, so a player who stops dealing gets there: the run's
+# average fell ~0.7% a night laid low, and a front business at $2K a
+# day faced ~280 nights before its first counted), every day for
+# legit_days days in a row, with home's goodwill over its pressure
+# (World.LegitDays counts them, zeroed by a day that fails). The window
+# is twice the streak, so thirty nights laid low leave at least half of
+# the street's nights in it and lying low alone never counts
+# (TestLyingLowIsNotGoingStraight); a player who stops dealing waits
+# out the window, less the share the fronts already earn, then the
+# streak (TestStoppingDealingGoesStraight). 0 reads the whole run.
 # A player who never invests has a legit income at or under zero and
 # never counts a day; the boss earns ~$0.3M a day off its levels against
 # ~$0.9M of street, and runs the city at pressure 100, so it never ends
@@ -86,6 +95,7 @@ fee = 0.10
 # walk-away dialog), as the crown is since #227. 0 boxes it.
 [businessman]
 legit_days = 30
+street_window = 60
 
 # The fronts. cost is paid in dirty cash, once. throughput is dirty cash
 # washed per day at the normal dial. upkeep is clean cash per day; unpaid,

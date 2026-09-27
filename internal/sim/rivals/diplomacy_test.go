@@ -8,6 +8,7 @@ import (
 	"github.com/theclifmeister/kingpin/internal/content"
 	"github.com/theclifmeister/kingpin/internal/events"
 	"github.com/theclifmeister/kingpin/internal/game"
+	"github.com/theclifmeister/kingpin/internal/gametest"
 	"github.com/theclifmeister/kingpin/internal/sim/rivals"
 )
 
@@ -287,6 +288,74 @@ func TestMigrateDiplomacy(t *testing.T) {
 
 // A rival run out of town has nothing to deal about: its deals end, its
 // offers lapse, and no tribute is paid to nobody.
+// A deal you let go is not asked again at once (#532): an expansionist
+// that cannot pay its muscle offers a truce, the offer is turned down
+// every morning, and the next truce comes offer_quiet days on at the
+// soonest (a playtest's came back on days 83, 91, 125 and 149); one you
+// take is not held against the next ask.
+func TestDeclinedOfferIsNotRepeatedAtOnce(t *testing.T) {
+	cfg := duel()
+	q := cfg.Rivals.Diplomacy.OfferQuiet
+	if q <= 0 {
+		t.Skip("offer_quiet is boxed")
+	}
+	w, s := arrived(t, cfg, 4, "expansionist")
+	var days []int
+	for night := 0; night < 3*q; night++ {
+		w.Rival().Cash = 0 // it cannot pay its muscle: it asks for a truce
+		for _, o := range append([]game.Offer(nil), w.Offers...) {
+			if _, err := w.Decline(o.ID); err != nil {
+				t.Fatal(err)
+			}
+		}
+		for _, e := range step(w, s) {
+			if ev, ok := e.(events.DealOffered); ok && ev.Deal == game.DealTruce {
+				days = append(days, ev.Day)
+			}
+		}
+	}
+	if len(days) < 2 {
+		t.Fatalf("offered a truce on %v over %d nights; the test reads too few", days, 3*q)
+	}
+	for i := 1; i < len(days); i++ {
+		if days[i]-days[i-1] < q {
+			t.Fatalf("the truce came back on day %d, %d days after the last (offer_quiet %d): %v", days[i], days[i]-days[i-1], q, days)
+		}
+	}
+	if _, ok := w.Rival().LastOffered[game.DealTruce]; !ok {
+		t.Fatal("the offer's day is not kept")
+	}
+}
+
+// A tribute is priced off what you took (#532): TributeBase is your
+// sales in the faction's city a night over the nights recorded
+// (World.Takings), so the middle cut is a tenth of what you sold, not of
+// what your corners could move; with none recorded, the potential.
+func TestTributeIsPricedOffTheTakings(t *testing.T) {
+	cfg := duel()
+	w, s := arrived(t, cfg, 4, "opportunist")
+	r := w.Rival()
+	potential := s.TributeBase(w, r)
+	w.Takings = map[string][]int{w.Home().ID: {1_000, 2_000, 3_000}}
+	if got := s.TributeBase(w, r); got != 2_000 {
+		t.Fatalf("the base is %.0f on $2,000 a night sold (potential %.0f)", got, potential)
+	}
+	if got := s.Cut(w, r, cfg.Rivals.Diplomacy.TributeCuts[1]); got != max(cfg.Rivals.Diplomacy.TributeMin, 200) {
+		t.Fatalf("the middle cut of $2,000 a night is %d", got)
+	}
+	w.Takings = nil
+	if got := s.TributeBase(w, r); got != potential {
+		t.Fatalf("with no night recorded the base is %.0f, not the potential %.0f", got, potential)
+	}
+	// The night's sales are recorded, kept to tribute_days nights.
+	for range cfg.Rivals.Diplomacy.TributeDays + 3 {
+		gametest.StepUnseeded(w, s, events.PlayerSold{City: w.Home().ID, Product: gametest.Weed.ID, Revenue: 700})
+	}
+	if row := w.Takings[w.Home().ID]; len(row) != cfg.Rivals.Diplomacy.TributeDays || row[0] != 700 {
+		t.Fatalf("the takings kept: %v", row)
+	}
+}
+
 func TestRoutedRivalHasNoTable(t *testing.T) {
 	cfg := duel()
 	w, s := arrived(t, cfg, 4, "defensive")

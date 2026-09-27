@@ -97,7 +97,7 @@ func TestEscSetsTheCardAside(t *testing.T) {
 	}
 	w.Dilemmas.Pending = testCard(w.Day)
 	m.showCard()
-	if foot := stripANSI(legend(m.modalFooter())); !strings.Contains(foot, "esc close") {
+	if foot := stripANSI(legend(m.modalFooter())); !strings.Contains(foot, "esc close: read the report first") {
 		t.Fatalf("the card's footer does not list esc: %q", foot)
 	}
 	dirty, heat := w.Player.DirtyCash, w.Here().Heat
@@ -122,6 +122,45 @@ func TestEscSetsTheCardAside(t *testing.T) {
 	m.Update(key("enter"))
 	if m.mode != modePlay {
 		t.Fatalf("after the answer: mode %v", m.mode)
+	}
+}
+
+// The card's key row says what esc does, and the report behind it says
+// what closing it does (#527): three testers read esc, report, esc,
+// card as a loop with no way out. On every common size the card's row
+// names the report and the card's coming back, the report's row names
+// the way back to the card, and closing it lands there.
+func TestEscOnACardSaysWhatComesNext(t *testing.T) {
+	for _, sz := range [][2]int{{80, 24}, {100, 30}, {120, 40}} {
+		m := richModel(t, sz[0], sz[1])
+		w := m.w
+		w.Dilemmas.Pending = testCard(w.Day)
+		m.showCard()
+		if view := stripANSI(m.View()); !strings.Contains(view, "esc close: read the report first; the card comes back") {
+			t.Fatalf("%dx%d: the card's key row does not say what esc does:\n%s", sz[0], sz[1], view)
+		}
+		m.Update(key("esc"))
+		if m.mode != modeReport {
+			t.Fatalf("%dx%d: esc on the card: mode %v", sz[0], sz[1], m.mode)
+		}
+		view := stripANSI(m.View())
+		if !strings.Contains(view, "enter esc close: back to the card") {
+			t.Fatalf("%dx%d: the report does not say its close goes back to the card:\n%s", sz[0], sz[1], view)
+		}
+		m.Update(key("esc"))
+		if m.mode != modeCard || w.Dilemmas.Pending == nil {
+			t.Fatalf("%dx%d: esc on the report: mode %v", sz[0], sz[1], m.mode)
+		}
+		if view := stripANSI(m.View()); !strings.Contains(view, "the card comes back") {
+			t.Fatalf("%dx%d: the card is back without its key row:\n%s", sz[0], sz[1], view)
+		}
+		// With no card waiting the report's close is a close.
+		w.Dilemmas.Pending = nil
+		m.cardLater = false
+		m.openReport()
+		if foot := stripANSI(legend(m.modalFooter())); !strings.Contains(foot, "enter esc close") || strings.Contains(foot, "back to the card") {
+			t.Fatalf("%dx%d: the report alone: %q", sz[0], sz[1], foot)
+		}
 	}
 }
 

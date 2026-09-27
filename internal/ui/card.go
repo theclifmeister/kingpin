@@ -127,6 +127,14 @@ func (m *Model) cardWaits() bool {
 	return m.cardLater && m.w != nil && m.w.Dilemmas.Pending != nil
 }
 
+// reportBeforeCard is the report open while a card esc set aside
+// waits: its close is the way back to the card, and its key row says
+// so (#527: three testers read esc, report, esc, card as a loop).
+func reportBeforeCard(m *Model) bool { return m.cardWaits() }
+
+// reportCloses is the report with no card waiting behind it.
+func reportCloses(m *Model) bool { return !m.cardWaits() }
+
 // cardBack reopens the card esc set aside, as it was dealt, with no
 // choice picked and no second scene.
 func (m *Model) cardBack() {
