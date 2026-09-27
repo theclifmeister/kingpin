@@ -178,11 +178,15 @@ func TestPricewarStarvesTheMuscle(t *testing.T) {
 	}
 }
 
-// The tribute at the middle cut (tribute_cuts[1] of rivals.Sim.TributeBase,
-// the player's daily street value in the products the rival deals in,
-// #162) as a share of the rival's take under territory at day 120: the
-// median over five seeds lands between 0.3x and 1x. At equal ground the
-// ratio is the cut over the rival's margin, 0.10 / 0.30; before #162 the
+// The tribute at the middle cut (tribute_cuts[1] of rivals.Sim.TributeBase)
+// as a share of the rival's take under territory at day 120: the median
+// over five seeds lands between 0.04x and 0.3x. Since #532 the base is
+// what the player took, the sales at home a night over the last
+// tribute_days nights (World.Taking), and the cut is tribute_cuts[1] of
+// it to the dollar the rounding keeps; the player's takings run ~0.7x
+// the rival's take here, so the middle cut reads ~0.07x (0.3x to 1x
+// before, off the potential: the cut over the rival's margin, 0.10 /
+// 0.30, which a playtest paid on a take half the quote). Before #162 the
 // base was World.StreetValue, which counted the port's product on the
 // player's corners once the wholesaler's line was crossed while the take
 // did not, and the middle cut read 6.1x the take (2.9x to 13.5x by seed).
@@ -202,12 +206,16 @@ func TestTributeShareOfTheTake(t *testing.T) {
 		fw := res.World
 		income, _ := RivalBooks(cfg, fw)
 		cut := rv.Cut(fw, fw.Rival(), cfg.Rivals.Diplomacy.TributeCuts[1])
+		took, nights, ok := fw.Taking(fw.Home().ID)
+		if want := cfg.Rivals.Diplomacy.TributeCuts[1] * float64(took); !ok || nights != cfg.Rivals.Diplomacy.TributeDays || float64(cut) < 0.9*want || float64(cut) > 1.1*want+float64(cfg.Rivals.Diplomacy.TributeMin) {
+			t.Errorf("seed %d: the middle cut is %d a day, not %.0f%% of the %d a night taken over %d nights", seed, cut, 100*cfg.Rivals.Diplomacy.TributeCuts[1], took, nights)
+		}
 		shares = append(shares, float64(cut)/float64(max(1, income)))
 		t.Logf("seed %d: a tribute at the middle cut is %d a day against a take of %d (%.2fx)", seed, cut, income, float64(cut)/float64(max(1, income)))
 	}
 	sort.Float64s(shares)
 	t.Logf("median: the middle cut is %.2fx the rival's take at day 120", shares[2])
-	if shares[2] < 0.3 || shares[2] > 1 {
-		t.Fatalf("the middle cut is %.2fx the rival's take at day 120, want 0.3x to 1x", shares[2])
+	if shares[2] < 0.04 || shares[2] > 0.3 {
+		t.Fatalf("the middle cut is %.2fx the rival's take at day 120, want 0.04x to 0.3x", shares[2])
 	}
 }

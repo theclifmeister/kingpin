@@ -204,6 +204,8 @@ func oldRunPrint(t *testing.T, cfg *content.Config, seed uint64, days int, polic
 // Seeds 2 and 3 moved with #501 (a card is not dealt again within
 // repeat_gap days): each run dealt a card again inside three weeks, and
 // the gap deals another; with repeat_gap = 0 the prints are main's.
+// Seed 3 moved with #532: the rival's offer is not put on the table
+// again within offer_quiet days, and seed 3's rival asked twice.
 func TestNoUnlockIsTheOldRun(t *testing.T) {
 	t.Parallel()
 	// The duel (#43, harness.OneFaction): this pins a mechanism on a seed, and the table moves the seed's dice.
@@ -211,7 +213,7 @@ func TestNoUnlockIsTheOldRun(t *testing.T) {
 	want := map[string]string{
 		"idle 1": "29f15946d5ae8dc7", "hide 1": "e485af09c510d56d",
 		"idle 2": "9819603ba3fb2ac8", "hide 2": "119e486642190b26", // #523: day 98's "Supply of Pills dries up" printed once, not twice
-		"idle 3": "c2058ba1af5086e7", "hide 3": "e26be7adf66d9b54",
+		"idle 3": "aa76de0a57794654", "hide 3": "7ab0e6861d6954cf", // #532: the rival's offer is not put again within offer_quiet days; with offer_quiet = 0 the prints are c2058ba1af5086e7 and e26be7adf66d9b54
 	}
 	for _, seed := range []uint64{1, 2, 3} {
 		for _, pol := range []struct {

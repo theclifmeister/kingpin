@@ -197,6 +197,8 @@ type FactionsTuning struct {
 	StrandDays       int     `toml:"strand_days"`       // days a faction stands landless, whatever its chest, or a seat at home stays in the wings past its day, before it scatters (#389; 0: never)
 	SuccessionMuscle float64 `toml:"succession_muscle"` // the share of a faction's muscle that walks when the world kills its leader and a successor takes over (#389)
 	SettleDays       int     `toml:"settle_days"`       // days a claim must stand before it ends a run-out faction's landless spell: one retaken sooner leaves its clock running from the first rout (#495; 0: any claim restarts it)
+	LandlessBurn     float64 `toml:"landless_burn"`     // share of a run-out faction's chest it spends a night with no corner and no take (#530; 0: nothing, the run before)
+	LandlessFloor    float64 `toml:"landless_floor"`    // corner-days it spends a night at least while landless (#530), so a small chest runs dry
 }
 
 // ExpansionTuning is the table following the money (#341, [expansion]):
@@ -261,6 +263,8 @@ type DiplomacyTuning struct {
 	TruceDays      []int     `toml:"truce_days"`      // the three lengths a truce can be proposed at
 	TributeCuts    []float64 `toml:"tribute_cuts"`    // the three cuts of the player's daily street value in what the rival sells (rivals.Sim.TributeBase) a tribute can be
 	TributeMin     int       `toml:"tribute_min"`     // a tribute is never under this a day
+	TributeDays    int       `toml:"tribute_days"`    // nights of your takings in its city a tribute is priced off (#532; 0: what your corners could move, the run before)
+	OfferQuiet     int       `toml:"offer_quiet"`     // days a faction does not put the same kind of deal on the table again after you let one go (#532; 0: it may, the run before)
 	LowCashDays    int       `toml:"low_cash_days"`   // an expansionist that cannot pay its muscle this long offers a truce
 	UpperHand      float64   `toml:"upper_hand"`      // an opportunist with this many times the muscle on the front line demands tribute
 	SplitFair      float64   `toml:"split_fair"`      // share of the city's demand the rival lets the player's side of a split have at trust 0 ...
@@ -338,6 +342,9 @@ func (r RivalsConfig) validate() error {
 	if len(d.TruceDays) != 3 || len(d.TributeCuts) != 3 {
 		return fmt.Errorf("truce_days and tribute_cuts need three options each, got %d and %d", len(d.TruceDays), len(d.TributeCuts))
 	}
+	if d.TributeDays < 0 || d.OfferQuiet < 0 {
+		return fmt.Errorf("tribute_days %d and offer_quiet %d must be 0 or more", d.TributeDays, d.OfferQuiet)
+	}
 	if d.OfferDays < 1 || d.DistrustDays < 1 {
 		return fmt.Errorf("offer_days %d and distrust_days %d must be positive", d.OfferDays, d.DistrustDays)
 	}
@@ -377,6 +384,9 @@ func (r RivalsConfig) validate() error {
 	}
 	if e := r.Expansion; e.Enabled && (e.TakeMin <= 0 || e.WindowDays < 1 || e.ScoutDays < 1 || e.ArriveDays < 1 || e.SetbackDays < 0 || e.Bite < 0) {
 		return fmt.Errorf("[expansion] take_min %d, window_days %d, scout_days %d and arrive_days %d must be positive, setback_days %d and bite %d not negative", e.TakeMin, e.WindowDays, e.ScoutDays, e.ArriveDays, e.SetbackDays, e.Bite)
+	}
+	if f := r.Factions; f.LandlessBurn < 0 || f.LandlessBurn >= 1 || f.LandlessFloor < 0 {
+		return fmt.Errorf("[factions] landless_burn %.2f must be in 0..1, landless_floor %.2f 0 or more", f.LandlessBurn, f.LandlessFloor)
 	}
 	if f := r.Factions; f.SettleDays < 0 {
 		return fmt.Errorf("[factions] settle_days %d must be 0 or more", f.SettleDays)

@@ -35,6 +35,7 @@ var reportOnly = map[string]bool{
 	"CrewBailed": true, "CrewRecovered": true, "KinLooking": true, // #46
 	"RivalScouted": true, "PoliceTipped": true, // #70
 	"ReignBroken":    true,                         // #227
+	"HoldBegan":      true,                         // #530: the TIER section says the crown's clock
 	"StraightOpened": true, "StraightLapsed": true, // #398: the TIER section says it, the walk-away dialog takes it
 	"DealEnded": true, "TributePaid": true,
 	"DealEnding": true, "ScoutsMissed": true, // #506: the report's word the morning before, and on a hit that found nobody

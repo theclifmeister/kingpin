@@ -86,6 +86,55 @@ func TestCrownSaysWhatKeepsACrew(t *testing.T) {
 	}
 }
 
+// The crown's line counts down to the last clock (#530): with every
+// crew left run out, the walk-away row and the crown's steps end with
+// the day the last clock runs out and the hold after it; one living off
+// a chest says so, and the day is the broke one; a crew on a corner has
+// no clock, and there is no countdown.
+func TestCrownCountsDownToTheLastClock(t *testing.T) {
+	m := richModel(t, 120, 40)
+	w := m.w
+	r := w.Rival()
+	for _, o := range w.Rivals {
+		if o != nil && o != r {
+			o.Arrived, o.Absorbed = 1, max(1, w.Day-1)
+		}
+	}
+	for _, cid := range w.CityOrder {
+		cs := w.Cities[cid].Corners
+		for i := range cs {
+			if cs[i].FactionID() == r.Faction() {
+				cs[i].Owner, cs[i].Faction = game.OwnerNone, ""
+			}
+		}
+	}
+	r.Arrived, r.Routed, r.LastTakenBy = 1, w.Day-3, "somebody"
+	gone := m.rules.Rivals.Down(w, r).GoneOn
+	want := "the last clock runs out on day " + strconv.Itoa(gone)
+	if got := m.lastClockWords(); !strings.Contains(got, want) || !strings.Contains(got, strconv.Itoa(m.cfg.Rivals.Endings.DominantDays)+" days held") {
+		t.Fatalf("the countdown reads %q, want %q and the hold", got, want)
+	}
+	if got := m.crownShort(); !strings.Contains(got, want) {
+		t.Errorf("the walk-away row reads %q, want %q", got, want)
+	}
+	if got := stripANSI(strings.Join(m.downLines(), " ")); !strings.Contains(got, "The last clock runs out on day "+strconv.Itoa(gone)) {
+		t.Errorf("the crown's steps read %q", got)
+	}
+	// Routed by you with a chest for a few claims: it lives off it.
+	r.LastTakenBy, r.Muscle = "", 0
+	for r.Cash = 100; !m.rules.Rivals.Down(w, r).Rich; r.Cash *= 2 {
+	}
+	r.Cash *= 4 // a few claims' worth
+	if got := m.downWords(r); !strings.Contains(got, "living off its chest; broke and gone") {
+		t.Errorf("a routed faction on a small chest reads %q", got)
+	}
+	// On a corner: no clock, no countdown.
+	w.Home().Corners[0].Owner, w.Home().Corners[0].Faction = game.OwnerRival, r.Faction()
+	if got := m.lastClockWords(); got != "" {
+		t.Errorf("a crew on a corner, and the countdown reads %q", got)
+	}
+}
+
 // Meaning never rides on colour alone, and the small nits are fixed
 // (#473): each journal line carries its source's tag, which the legend
 // pairs with the name; the tree's cursor row keeps its state's glyph

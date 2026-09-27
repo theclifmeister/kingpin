@@ -164,15 +164,44 @@ func (w *World) CanGoStraight(days int) bool {
 // StreetAverage is the street's average night over the run to day
 // (#493): every dollar dealing made, the street, the buyers and the
 // exports (Stats.TotalRevenue), over the nights played. Going straight
-// reads the fronts against the more of it and the night's street, so a
-// night that sold nothing (lying low) is not a street the fronts beat
-// on any income: the fronts have to earn what the street did. 0 before
-// the first night.
+// read the fronts against the more of it and the night's street until
+// #529 read a window of it (StreetOver, which is this with no window).
+// 0 before the first night.
 func (w *World) StreetAverage(day int) int {
 	if day <= 0 {
 		return 0
 	}
 	return w.Stats.TotalRevenue / day
+}
+
+// StreetOver is the street's average night over the last window nights
+// to day (#529): the nights the laundering sim recorded
+// (LaunderingState.Street), and any of the window it has not, the
+// nights before them at their average (the run's revenue not in the
+// record over the days not in it; none before the run began, so a young
+// run's window counts its first nights as the street's nothing). Going
+// straight reads the fronts against the more of it and the night's
+// street: a player who stops dealing sees it fall a window's share a
+// night, and thirty nights laid low still leave the street's nights in
+// a window twice as long (#493's guard). window <= 0 is StreetAverage,
+// the whole run's.
+func (w *World) StreetOver(day, window int) int {
+	if window <= 0 {
+		return w.StreetAverage(day)
+	}
+	nights := w.Laundering.Street
+	if len(nights) > window {
+		nights = nights[len(nights)-window:]
+	}
+	sum := 0
+	for _, n := range nights {
+		sum += n
+	}
+	pre := 0
+	if before := day - len(nights); before > 0 {
+		pre = max(0, w.Stats.TotalRevenue-sum) / before
+	}
+	return (sum + (window-len(nights))*pre) / window
 }
 
 // ReignDay is which day of the reign this is, counting the morning it

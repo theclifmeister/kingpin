@@ -211,6 +211,13 @@ func (m *Model) stopEvent(e events.Event) string {
 		return "the city is yours" // the reign (#227)
 	case events.ReignBroken:
 		return "the reign is over: " + ev.Why
+	case events.HoldBegan:
+		return fmt.Sprintf("the crown's hold began: the reign on day %d if it holds", ev.Reign) // #530
+	case events.RivalAbsorbed:
+		if ev.By != "" {
+			return ev.Rival + "'s crew is finished, gone over to " + ev.By // #530
+		}
+		return ev.Rival + "'s crew scattered" // #530
 	case events.StraightOpened:
 		return "you could go straight" // #398
 	case events.StraightLapsed:

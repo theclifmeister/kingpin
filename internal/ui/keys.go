@@ -536,6 +536,7 @@ var words = [][2]string{
 	{"betrayed", "a lieutenant turns on {betray_share} of your corners, {betray_corners}+: that night"},
 	{"quiet day", "heat under {retire_heat}; no strike, push, war, bust, buyer's order owed"}, // the rule as laundering.Sim.quiet has it (#537)
 	{"the street", "your corners and their trade; a corner back to it is nobody's"},
+	{"street night", "a night's dealing; going straight: fronts over its last {street_window}"}, // the average night the fronts are read against (#529)
 	{"run out", "no corner left: a claim it loses soon keeps the clock running"},
 	{"absorbed", "run out long enough: it joins the faction that took its last"},
 	{"scattered", "run out too long, or broke: it stands down, nobody's"},
@@ -576,7 +577,8 @@ func (m *Model) helpLines() []string {
 	lines := strings.NewReplacer("{retire_heat}", fmt.Sprintf("%.0f", m.cfg.Laundering.Offshore.RetireHeat),
 		"{sting_pages}", plural(pages[content.Sting], "page"), "{raid_pages}", plural(pages[content.Raid], "page"),
 		"{hit_pages}", fmt.Sprint(m.cfg.Heat.Investigation.Evidence),
-		"{betray_share}", format.Pct(lt.BetrayShare, 0), "{betray_corners}", fmt.Sprint(lt.BetrayCorners))
+		"{betray_share}", format.Pct(lt.BetrayShare, 0), "{betray_corners}", fmt.Sprint(lt.BetrayCorners),
+		"{street_window}", fmt.Sprint(m.cfg.Laundering.Businessman.StreetWindow))
 	for _, w := range words {
 		// The word takes the key column and one of the two spaces after
 		// it, so `lieutenant`, ten, is never cut (#463) and no line

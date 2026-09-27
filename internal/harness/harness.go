@@ -921,6 +921,26 @@ func Retiree(cfg *content.Config, lieLowAt float64) Policy {
 	}
 }
 
+// StopDealing plays policy until day stop, then gives the street up
+// (#529): every member recalled, lying low every night, and home's
+// goodwill bought with clean cash while its pressure is over
+// FundPressure (payTown), the fronts left to earn. It is the player who
+// built a front business and walks off the street to go straight; the
+// run loop claims going straight the night it opens.
+func StopDealing(cfg *content.Config, policy Policy, stop int) Policy {
+	return func(w *game.World) {
+		if w.Day < stop {
+			policy(w)
+			return
+		}
+		for _, m := range w.Crew.Members {
+			w.Recall(m.ID)
+		}
+		w.SetLieLow(true)
+		payTown(cfg, w, w.Home())
+	}
+}
+
 // RetireAfter is the day from which the retiree retires as soon as it
 // can: tier 3's checkpoint, so the exit is measured as a tier-4 one.
 var RetireAfter = TierDays[2]

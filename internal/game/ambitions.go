@@ -120,13 +120,13 @@ func (a Ambition) Reached() int {
 // thresholds, which the caller passes from the sims' tuning as Retire
 // takes its terms, and the two numbers only a sim can work out (the
 // fronts' own income, laundering.Sim.LegitIncome, and the street they
-// are read against, the more of last night's PlayerSold and the run's
-// average night, #493). A zero threshold is an
+// are read against, the more of last night's PlayerSold and the
+// street's average night over the file's window, #493, #529). A zero threshold is an
 // ending boxed in the file, and its plan is left out.
 type AmbitionTerms struct {
 	RetireCash, RetireDays int     // laundering.toml [offshore]
 	LegitDays              int     // laundering.toml [businessman]
-	LegitIncome, Street    int     // the fronts' own income a day; the street, the more of last night's revenue and its average night (World.StreetAverage, #493)
+	LegitIncome, Street    int     // the fronts' own income a day; the street, the more of last night's revenue and its average night over the window (World.StreetOver, #493, #529)
 	DominantDays           int     // rivals.toml [endings]
 	KingpinShare           float64 // ... more than this share of home's corners
 	Tree                   content.UpgradesConfig

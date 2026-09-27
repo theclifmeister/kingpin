@@ -415,20 +415,26 @@ const (
 // section's Crew stage no longer lists "the rival, from day 10" as
 // something it opens): with World.Report and World.Journal left out of
 // the walk all sixty days are main's.
+// Again for #529, #530 and #532: day 1 by the new fields (the street's
+// last nights, LaunderingState.Street and StreetMark; your takings a
+// city, World.Takings; the day a faction last offered each kind of deal,
+// RivalState.LastOffered); with them left out of the walk every one of
+// the sixty days is main's digest: no number moved on this seed in
+// sixty days.
 var seedDigest = []string{
-	"17210005dcada09f", "606166f4392be887", "3a563f128352326e", "01b7aa1e1800be31",
-	"d4dd4683c5b8b575", "8741e36967ac546c", "3d9f072eeb2c3a03", "633d47c03bd98dbb",
-	"ec75d45c0a631b03", "6fdccbb5c72b0e8d", "4204e35c584c0499", "86a217956ad1e274",
-	"e470c343e873312e", "2ff24bc8c251c112", "5255cdc2da7b37fd", "77d74eee4ac7a4f5",
-	"2cf2047e36ed7a8d", "076cadb49b664e6c", "3e183e738e38b0c0", "7781ec1a4a59d69c",
-	"752ec2b64570e812", "199fdde20085f671", "2171eb0b89308f9c", "deb50ffd0fd223e8",
-	"0203c3b161c3ba7a", "b49b0e87da81e67e", "877e01f947843cff", "ada4a620b8254000",
-	"6f6449985c821ae1", "e3aa71538ced44a6", "0c2215a586df1daf", "f95015121dc4f7d7",
-	"76740ac5dbeb3b31", "ac9b8b60604e9a83", "d2d7124fef9b4724", "03c87f86d706a031",
-	"6e7f8da1f62c759d", "11e30e771a9d3176", "a54f0b346f3ae99b", "bc4510b359fe45d7",
-	"8a41e674b74015cb", "6e855c10ce7226d3", "1adf56b468de76e1", "4c1fd10b455a6a73",
-	"f38c77357ad43772", "0d091cc3ed2fff84", "b186aa3c33bd6e4d", "f1780e76eb5c1e23",
-	"888f1b98d4be4c36", "a01fdde2bc739c74", "4691aca19d3018b6", "2bcd79541fed3dea",
-	"c53bd4d166891505", "4f725bd9d1580514", "7f8b1867c4d29cdb", "b1a4679594ecae73",
-	"337bbb312c0ccd61", "5f24492d9e4e560a", "d0fabf0feb73fe4b", "678e6d9866d623b3",
+	"7f642922c9dd0df2", "b81ed7a6e2269bc8", "3876b3fa61cbeeb9", "3006862332e392a6",
+	"ddb35a99a1a6322e", "ad2791be0e9c6ce3", "fa0e0e18f9b77f4d", "6d84e5278b200a0c",
+	"21a11989067d9049", "c04c11fedb6dd922", "b97b9836dfcfa025", "7a1124804d9dc109",
+	"108b5c72e8c24458", "7d7e7c83bae62926", "3f70a70c2c706104", "71105dd9aa6de880",
+	"0e13fc3d8863d076", "044f6a12dbb12d76", "2b2a7dab76958cea", "eabf5bcff59d2964",
+	"dd295b90580ccf97", "327d6666a6a0e000", "cc11021b6ffaf4bd", "484915098832db84",
+	"30a99c3c3a673d6b", "19a78ded689f2820", "189469e50f987279", "36ae48450f8e3611",
+	"65e690c308b8a4be", "d140483f23cee4bc", "bd2d1d7fcecfac81", "3aae1aeb48359676",
+	"a8db03e028cb6f93", "fee7acb0a19e6014", "fe70e576fdf7fd96", "077d02348cf2dff2",
+	"52499c2f1d8aaa77", "ae01d5fb6b52864b", "bc16f011508b815f", "13cb4b9e2459b0c4",
+	"36bea2a1e31f14fb", "94a9abd056e7955f", "9639855a61708b08", "3cb62d3431d0de7d",
+	"778e22eab47a5490", "0534a0e8698b385c", "94dfa90b814b13c8", "6211e4d036fd90f3",
+	"80b542ba9025a6bb", "fd973447858d49cd", "b82e9b5fd7a3629b", "60a3085eddac98c5",
+	"8a8d20f516091620", "e72246a3ec351a50", "4e8f3762c46f698f", "bc6459e2991345a0",
+	"50f68ba0460133c2", "8be0357c2a08af6e", "d6d8c294dd73bbdd", "9536ecb0b645c23f",
 }

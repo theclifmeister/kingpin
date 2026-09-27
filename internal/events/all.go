@@ -21,7 +21,7 @@ var All = []Event{
 	SupplierCollected{}, SupplyShort{}, ShipmentSent{}, RouteIdle{}, ShipmentArrived{}, ShipmentSeized{},
 	CrewArrested{}, CrewBailed{}, CrewReleased{}, CrewShot{}, CrewRecovered{}, CrewRetired{},
 	KinLooking{}, DealOffered{}, DealAccepted{}, DealRefused{}, DealBroken{}, DealEnded{}, DealEnding{},
-	ClaimDeterred{}, Taxed{}, ReignBegan{}, ReignBroken{}, StraightOpened{}, StraightLapsed{}, TributePaid{}, FactionPushed{},
+	ClaimDeterred{}, Taxed{}, ReignBegan{}, HoldBegan{}, ReignBroken{}, StraightOpened{}, StraightLapsed{}, TributePaid{}, FactionPushed{},
 	RivalAbsorbed{}, RivalScouting{}, RivalRecruiting{}, RivalWithdrew{}, ScoutsHit{}, ScoutsMissed{}, StrikeCalledOff{}, RivalLeaderArrested{}, CrewPoached{}, TrustSpread{},
 	LieutenantFlipped{}, LieutenantWalked{}, LieutenantActed{}, DAElected{}, ChiefReplaced{},
 	PressureShifted{}, CityFunded{}, CampaignBacked{}, CampaignLost{}, CampaignHedged{},

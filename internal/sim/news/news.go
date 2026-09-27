@@ -194,6 +194,14 @@ func (s *Sim) Step(w *game.World, t *game.Tick) {
 			rep.Tier = append([]string{line}, rep.Tier...)
 		case events.ReignBroken:
 			rep.Tier = append([]string{fmt.Sprintf("The reign is over for now: %s. Hold the city and the table and it begins again.", ev.Why)}, rep.Tier...)
+		case events.HoldBegan:
+			// The crown's hold (#530): the last crew went down or bowed
+			// tonight, and the crown's own clock starts.
+			line := fmt.Sprintf("Every crew is gone or paying: the crown's hold begins. Hold the table and more than your share of %s and the reign begins on day %d.", w.CityName(ev.City), ev.Reign)
+			if !ev.Held {
+				line = fmt.Sprintf("Every crew is gone or paying: the crown's hold begins, but you hold too few of %s's corners. Take more, keep the table, and the reign begins on day %d at the soonest.", w.CityName(ev.City), ev.Reign)
+			}
+			rep.Tier = append([]string{line}, rep.Tier...)
 		case events.StraightOpened:
 			// Going straight (#398): the businessman's streak is in, and
 			// the ending is the player's to take.

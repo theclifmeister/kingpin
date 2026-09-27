@@ -84,12 +84,54 @@ func (m *Model) downWords(r *game.RivalState) string {
 		return "holds " + plural(d.Corners, "corner") + "; " + ago(d.Since) + ", the clock runs on unless it holds one " + strings.TrimPrefix(in(d.Settles), "in ") + " more"
 	case d.Corners > 0:
 		return "holds " + plural(d.Corners, "corner") + "; no clock while it holds one"
+	case d.Rich && d.GoneOn > 0 && (m.rules.Rivals.Factions().StrandDays <= 0 || d.GoneOn < d.Since+m.rules.Rivals.Factions().StrandDays):
+		// Its chest runs dry before strand_days (#530): the day is the broke one.
+		return ago(d.Since) + ", living off its chest; broke and gone " + in(d.GoneOn) + " unless it " + m.claimWords()
 	case d.Rich && d.GoneOn > 0:
 		return ago(d.Since) + ", can afford a claim; gone " + in(d.GoneOn) + " unless it " + m.claimWords() + ", sooner if broke"
 	case d.Rich:
 		return ago(d.Since) + ", can afford a claim; gone once it cannot"
 	}
 	return ago(d.Since) + "; gone " + in(d.GoneOn) + " unless it " + m.claimWords()
+}
+
+// lastClock is the day the last faction's clock runs out (#530): the
+// latest GoneOn of every faction not yet down for the crown, if every
+// one has a clock (none holds a corner or waits to move in with no day
+// to stand down); false when one has none, or none is left.
+func (m *Model) lastClock() (int, bool) {
+	last := 0
+	for _, r := range m.w.Rivals {
+		if r == nil {
+			continue
+		}
+		d := m.rules.Rivals.Down(m.w, r)
+		if d.Counts {
+			continue
+		}
+		if d.GoneOn <= 0 {
+			return 0, false
+		}
+		last = max(last, d.GoneOn)
+	}
+	return last, last > 0
+}
+
+// lastClockWords is the crown line's countdown (#530): `the last clock
+// runs out on day 114 (in 12d), then 14 days held`, or "".
+func (m *Model) lastClockWords() string {
+	day, ok := m.lastClock()
+	if !ok {
+		return ""
+	}
+	s := fmt.Sprintf("the last clock runs out on day %d", day)
+	if n := day - m.w.Day; n > 1 {
+		s += fmt.Sprintf(" (in %dd)", n)
+	}
+	if hold := m.cfg.Rivals.Endings.DominantDays; hold > 0 {
+		s += fmt.Sprintf(", then %s held", plural(hold, "day"))
+	}
+	return s
 }
 
 // claimWords is what stops a run-out faction's clock: a claim, or since

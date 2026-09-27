@@ -1068,7 +1068,7 @@ func TestRichLandlessFactionResolves(t *testing.T) {
 		t.Helper()
 		w, s := world(t, duel(), 97)
 		r := w.Rival()
-		r.Arrived, r.Observed, r.Cash, r.Muscle, r.Routed = 1, true, 10_000_000, 4, 1
+		r.Arrived, r.Observed, r.Cash, r.Muscle, r.Routed = 1, true, 1_000_000_000, 4, 1 // a chest landless_burn cannot run dry in strand_days (#530)
 		w.Day = 1
 		worked(w)
 		return w, s, r

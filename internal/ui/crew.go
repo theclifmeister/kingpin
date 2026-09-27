@@ -121,6 +121,10 @@ func (m *Model) fireConfirm() string {
 		name = c.Name
 	}
 	body := m.wrapLines(m.fireCost(c))
+	if line := m.fireWalkLine(c); line != "" {
+		body = append(body, "")
+		body = append(body, m.wrapLines(theme.Bad.Render(line))...)
+	}
 	if line := m.fireWarLine(); line != "" {
 		body = append(body, "")
 		body = append(body, m.wrapLines(theme.Bad.Render(line))...)
@@ -137,6 +141,43 @@ func (m *Model) fireCost(c *game.CrewMember) string {
 		return "They were talking to the police. Nobody will miss them: the rest lose no loyalty, and the file stops growing."
 	}
 	return fmt.Sprintf("No severance in this business. The rest lose %.0f loyalty tonight, unless the one you fire was talking to the police.", m.rules.Crew.Tuning().FireLoyalty)
+}
+
+// fireWalkLine names who the firing would put at the walk line (#532):
+// every other member within fire_loyalty of crew.toml's quit_threshold,
+// their loyalty as the roster shows it, since the crew sim takes
+// fire_loyalty off each of them tonight and at the line they walk, or
+// defect to a crew with corners; "" when nobody is that close, or the
+// one fired is the snitch the investigation named (who costs nothing).
+// A playtest fired a cheap hand and lost two runners to The Preacher
+// with no word first.
+func (m *Model) fireWalkLine(c *game.CrewMember) string {
+	w := m.w
+	tun := m.rules.Crew.Tuning()
+	if c == nil || c.ID == w.Crew.Exposed || tun.FireLoyalty <= 0 {
+		return ""
+	}
+	var near []string
+	for _, o := range w.Crew.Members {
+		if o.ID == c.ID {
+			continue
+		}
+		if l := loyaltyShown(o.Loyalty); l-tun.FireLoyalty <= tun.QuitThreshold {
+			near = append(near, fmt.Sprintf("%s (%.0f)", o.Name, l))
+		}
+	}
+	if len(near) == 0 {
+		return ""
+	}
+	who := strings.Join(near, ", ")
+	if i := strings.LastIndex(who, ", "); i >= 0 {
+		who = who[:i] + " and " + who[i+2:]
+	}
+	verb := "is"
+	if len(near) > 1 {
+		verb = "are"
+	}
+	return fmt.Sprintf("%s %s within %.0f of the walk line (%.0f): this firing takes them to it, and tonight they walk, or defect to a crew with corners.", who, verb, tun.FireLoyalty, tun.QuitThreshold)
 }
 
 // fireWarLine is the taken-out warning on the fire confirmation (#520):
