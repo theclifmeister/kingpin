@@ -289,6 +289,71 @@ func TestEndingFrequencies(t *testing.T) {
 	}
 }
 
+// TestStoppingDealingGoesStraight (#529): the fronts are measured
+// against the street's last street_window nights, so a player who
+// built a front business and gives the street up goes straight: the
+// boss to day stopAt, then StopDealing, over stopSeeds seeds (twenty,
+// ten until #528 and #531 moved the boss's runs: on ten, seed 1 was
+// betrayed and seed 10's fronts were short of their levels at day 150,
+// which each change alone flips, and four earning seeds read too few;
+// a seed a lieutenant betrays is another story). Every run whose
+// fronts earn at the stop and that nothing else ends goes straight
+// within the band: no sooner than legit_days nights after the stop
+// (the streak), no later than the window plus the streak plus slack
+// (the window emptied of the street, then the streak). While the boss
+// deals, going straight never opens (its fronts earn ~$0.05M a day
+// against ~$1M of street); lying low alone is
+// TestLyingLowIsNotGoingStraight's.
+func TestStoppingDealingGoesStraight(t *testing.T) {
+	t.Parallel()
+	cfg := content.MustLoad()
+	b := cfg.Laundering.Businessman
+	if b.LegitDays <= 0 || b.StreetWindow <= 0 {
+		t.Skip("going straight is boxed, or reads the whole run")
+	}
+	ld := laundering.New(cfg)
+	const (
+		stopAt    = 150
+		slack     = 15
+		stopSeeds = 20
+	)
+	lo, hi := stopAt+b.LegitDays, stopAt+b.StreetWindow+b.LegitDays+slack
+	earning, straight := 0, 0
+	for seed := uint64(1); seed <= stopSeeds; seed++ {
+		boss := Boss(cfg, 40, "")
+		earns := false
+		policy := StopDealing(cfg, func(w *game.World) {
+			boss(w)
+			earns = ld.LegitIncome(w) > 0
+		}, stopAt)
+		res, err := Run(cfg, seed, hi+1, policy)
+		if err != nil {
+			t.Fatal(err)
+		}
+		cause := "still free"
+		if res.Over != nil {
+			cause = res.Over.Cause
+		}
+		t.Logf("seed %d: fronts earning at the stop %v, day %d %s", seed, earns, res.Days, cause)
+		if res.Over != nil && res.Over.Cause == content.CauseBusinessman && (res.Over.Day < lo || !earns) {
+			t.Errorf("seed %d went straight on day %d, before day %d or with fronts earning nothing", seed, res.Over.Day, lo)
+		}
+		if !earns || (res.Over != nil && res.Over.Cause != content.CauseBusinessman) {
+			continue // fronts that lose money never go straight; another ending is another story
+		}
+		earning++
+		if res.Over != nil && res.Over.Day <= hi {
+			straight++
+		} else {
+			t.Errorf("seed %d: fronts earning and off the street from day %d, not straight by day %d", seed, stopAt, hi)
+		}
+	}
+	if earning < 5 {
+		t.Errorf("%d of %d seeds had fronts earning at day %d; the test reads too few", earning, stopSeeds, stopAt)
+	}
+	t.Logf("%d of %d earning runs went straight between day %d and %d", straight, earning, lo, hi)
+}
+
 // TestNoEndingIsTheOldRun (#49): a run that reaches none of the new
 // endings is byte-for-byte the run before they existed. The boss, the
 // laundered and the distributor players are hashed daily on the file
@@ -324,7 +389,15 @@ func TestNoEndingIsTheOldRun(t *testing.T) {
 				t.Logf("day %d: legit days %d of %d", w.Day, legit, content.MustLoad().Laundering.Businessman.LegitDays)
 			}
 			w.LegitDays = 0
-			return func() { w.LegitDays = legit }
+			// The street's last nights (#529) are the businessman's
+			// record too, kept only with the table's window: set aside
+			// the same way, never kept boxed.
+			street, mark := w.Laundering.Street, w.Laundering.StreetMark
+			if boxed && (street != nil || mark != 0) {
+				t.Fatalf("day %d: the street's nights were kept with the table boxed", w.Day)
+			}
+			w.Laundering.Street, w.Laundering.StreetMark = nil, 0
+			return func() { w.LegitDays, w.Laundering.Street, w.Laundering.StreetMark = legit, street, mark }
 		},
 		after: func(t *testing.T, w *game.World, _ bool) {
 			if w.Over != nil {

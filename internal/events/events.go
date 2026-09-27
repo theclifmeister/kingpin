@@ -1172,6 +1172,21 @@ type ReignBegan struct {
 
 func (ReignBegan) Kind() string { return "ReignBegan" }
 
+// HoldBegan is report-only (#530): tonight every faction at the table
+// is gone or paying homage, and the crown's hold, dominant_days of it,
+// begins. Reign is the day the reign begins if the city holds that
+// long, and Held whether more than kingpin_share of home's corners are
+// yours tonight (the reign waits on the share too). It stops a
+// fast-forward: the crown's clock is the last one running.
+type HoldBegan struct {
+	Day   int
+	City  string
+	Reign int
+	Held  bool
+}
+
+func (HoldBegan) Kind() string { return "HoldBegan" }
+
 // ReignBroken is report-only (#227): the reign stopped holding this
 // morning, Why says how (a faction set up again, or the share fell),
 // and it can begin again.

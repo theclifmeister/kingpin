@@ -65,6 +65,10 @@ type RivalState struct {
 	Betrayed  int     // day the player last broke a deal; 0 never. It takes nothing for a while after.
 	LastFlip  int     // day it last took a corner from the player; 0 never
 	NextOffer int     // id of the next offer it makes
+	// LastOffered (#532) is the day it last put each kind of deal on the
+	// table, dropped when you take one: it asks that kind again only
+	// [diplomacy] offer_quiet days on. Nil is none, the run before.
+	LastOffered map[string]int
 
 	// The books (#139): wages the day's take did not cover, carried
 	// forward; a surplus day pays them down and at a full wage a head

@@ -167,14 +167,29 @@ func TestPoachingIsTheDefectionPath(t *testing.T) {
 		policy := Crewed(cfg, 40)
 		for day := 1; day <= Horizon && w.Over == nil; day++ {
 			policy(w)
-			for _, e := range clock.EndDay(w) {
+			evs := clock.EndDay(w)
+			// Who walked or defected by the loyalty rule tonight: one who
+			// turned the offer down can still cross the walk line the
+			// same night (a firing's fire_loyalty and the offer's dip),
+			// and that is the walk, not the poach (#532 moved seed 3 onto
+			// one).
+			walked := map[int]bool{}
+			for _, e := range evs {
+				switch ev := e.(type) {
+				case events.CrewDefected:
+					walked[ev.ID] = true
+				case events.CrewQuit:
+					walked[ev.ID] = true
+				}
+			}
+			for _, e := range evs {
 				p, ok := e.(events.CrewPoached)
 				if !ok {
 					continue
 				}
 				offers++
 				if p.Stayed {
-					if m := w.Crew.Member(p.ID); m == nil {
+					if m := w.Crew.Member(p.ID); m == nil && !walked[p.ID] {
 						t.Fatalf("seed %d day %d: %s stayed and is gone", seed, w.Day, p.Name)
 					}
 					continue

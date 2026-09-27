@@ -151,6 +151,14 @@ type World struct {
 	// sells away from home keeps it nil, the run before.
 	Takes map[string][]int
 
+	// Takings (#532) is the rivals sim's record of your sales in each
+	// city a night, the products a faction deals in (the port's
+	// no_supply product left out), the last [diplomacy] tribute_days
+	// nights, oldest first: what a tribute is priced off (TributeBase).
+	// A city gets a row the first night anything sells there; nil is
+	// none recorded, and a tribute prices off the potential as before.
+	Takings map[string][]int
+
 	// Ambition (#347, ambitions.go) is the plan the player pinned: one
 	// of content.AmbitionIDs, "" for none. The dashboard shows it with
 	// its next step and its milestones are alerts; no sim reads it, so a
@@ -496,6 +504,15 @@ type LaunderingState struct {
 	Structured Structuring     // the last move offshore (#195): what the heat sim reads the morning after
 	Sweep      OffshoreSweep   // the nightly sweep offshore (#478), the player's; zero is off, the run before
 	Till       int             // the dirty cash the wash leaves in hand (#496), the player's (SetTill); zero or under the float is the float, the run before
+	// Street is the street's last nights (#529): what dealing made each
+	// night (Stats.TotalRevenue's rise), the oldest first, as many as
+	// [businessman] street_window keeps, and StreetMark the total it was
+	// read against last. What going straight measures the fronts
+	// against (World.StreetOver). Nil is none recorded yet: a save from
+	// before reads the missing nights at the run's average, the rule of
+	// #493, so it goes on as it was.
+	Street     []int
+	StreetMark int
 }
 
 // OffshoreSweep is the player's standing order on the offshore account (#478):

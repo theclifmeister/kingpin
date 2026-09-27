@@ -12,7 +12,7 @@ import (
 // owners' thresholds. The session supplies the two numbers only a sim
 // can work out, the fronts' own income and the street they are read
 // against (the more of last night's and its average night over the
-// run, #493), so a front end reads the plans and never works them out.
+// last street_window nights, #493, #529), so a front end reads the plans and never works them out.
 
 // AmbitionTerms is what the plans are read against this morning.
 func (s *Session) AmbitionTerms() game.AmbitionTerms {
@@ -23,7 +23,7 @@ func (s *Session) AmbitionTerms() game.AmbitionTerms {
 		RetireDays:   off.RetireDays,
 		LegitDays:    s.cfg.Laundering.Businessman.LegitDays,
 		LegitIncome:  s.set.Laundering.LegitIncome(s.w),
-		Street:       max(s.lastStreet(), s.w.StreetAverage(s.w.Day)),
+		Street:       max(s.lastStreet(), s.set.Laundering.Street(s.w, s.w.Day)),
 		DominantDays: end.DominantDays,
 		KingpinShare: end.KingpinShare,
 		Tree:         s.cfg.Upgrades,

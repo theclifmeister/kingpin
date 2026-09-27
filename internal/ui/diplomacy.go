@@ -321,7 +321,21 @@ func (m *Model) rivalCorners(r *game.RivalState) string {
 // (#465: "$48K a day" on a street that sold $10K a night read as the
 // takings).
 func (m *Model) tributeBaseLine(r *game.RivalState) string {
-	return fmt.Sprintf("Your street: %s a day, what your corners %s could move at today's prices, not what they sold.", cash(int(math.Round(m.rules.Rivals.TributeBase(m.w, r)))), m.cityWord(r))
+	return "Your street: " + m.tributeBasis(r)
+}
+
+// tributeBasis is what a tribute is a cut of, in words, with its
+// number (#532): what your corners sold for a night over the last
+// tribute_days nights, the takings the report counts before the crew's
+// cut; or, with none recorded, what they could move at today's prices.
+func (m *Model) tributeBasis(r *game.RivalState) string {
+	base := cash(int(math.Round(m.rules.Rivals.TributeBase(m.w, r))))
+	if c := m.w.CityOf(r); c != nil && m.cfg.Rivals.Diplomacy.TributeDays > 0 {
+		if _, n, ok := m.w.Taking(c.ID); ok {
+			return fmt.Sprintf("%s a day, what your corners %s sold for a night over the last %s, before the crew's cut.", base, m.cityWord(r), plural(n, "night"))
+		}
+	}
+	return fmt.Sprintf("%s a day, what your corners %s could move at today's prices, not what they sold.", base, m.cityWord(r))
 }
 
 // cityWord is where a faction's street is, for a line: `here` for the
@@ -342,7 +356,7 @@ func (m *Model) tributeRows(r *game.RivalState, d game.Deal) []string {
 		cut = fmt.Sprintf("~%.0f%% of your street", 100*float64(d.Terms.PerDay)/base)
 	}
 	lines := []string{row("cut", cut)}
-	return append(lines, m.wrapped(theme.Subtle, fmt.Sprintf("Your street is %s a day: what your corners %s could move at today's prices, not what they sold.", cash(int(math.Round(base))), m.cityWord(r)))...)
+	return append(lines, m.wrapped(theme.Subtle, "Your street is "+m.tributeBasis(r))...)
 }
 
 // dealTerms is a deal's terms for a table cell: the description less

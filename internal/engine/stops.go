@@ -307,7 +307,8 @@ func (s *Session) FastForward(days int, after func([]events.Event)) (int, Stop, 
 // StopsOn reports whether an event stops a fast-forward: a warrant signed
 // (#475), the police past
 // a patrol, the task force, an investigation opened (#343), an asset seized or the tunnel found,
-// the reign begun or broken, the rival moving in or eyeing a
+// the reign begun or broken, a faction scattered or absorbed and the
+// crown's hold begun (#530: none of them a danger), the rival moving in or eyeing a
 // corner, a faction scouting or recruiting where you earn (#341), a strike (bar a war night that held, #229), the war over
 // (bar one you called off, #520), a missed payroll (#518), a quiet
 // streak lost (while retiring is the plan or the account open: Stop's
@@ -344,6 +345,8 @@ func StopsOn(e events.Event) bool {
 		return ev.Dead && !ev.Theirs
 	case events.ReignBegan:
 		return !ev.Again // the first reign of the run (#399); one begun again runs past
+	case events.RivalAbsorbed, events.HoldBegan:
+		return true // a crew scattered or finished, and the crown's hold begun (#530): the crown's count moved
 	case events.CrewPaid:
 		return ev.Short > 0 // a missed payroll (#518)
 	case events.WarEnded:

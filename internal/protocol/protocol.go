@@ -49,8 +49,11 @@ import (
 // (#496); place_standing's -1, the whole stash (#503); 22 holds, the
 // night F will not run (a warrant out, the run broke tonight, #518, #519);
 // 23 rules.law.odds, the DA race's chances as the count would read them
-// this morning (#534).
-const Version = 23
+// this morning (#534); 24 the HoldBegan event, the crown's hold begun
+// (#530), and the rules' new tuning fields: the factions' landless_burn
+// and landless_floor (#530), the diplomacy's tribute_days and
+// offer_quiet (#532).
+const Version = 24
 
 // The error codes: JSON-RPC 2.0's, and the game's own in its
 // server-error range.

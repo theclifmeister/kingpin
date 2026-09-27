@@ -46,6 +46,19 @@ func (s *Sim) Down(w *game.World, r *game.RivalState) game.FactionDown {
 		if f.StrandDays > 0 {
 			d.GoneOn = max(tonight, since+f.StrandDays)
 		}
+		// Sooner if broke (#530): a landless chest runs down a night
+		// (landless), and the night it cannot cover a claim it goes at
+		// absorb_days, or that night if absorb_days is past.
+		limit := f.StrandDays
+		if limit <= 0 {
+			limit = 10 * max(1, f.AbsorbDays)
+		}
+		if broke := s.Broke(w, r, limit); broke > 0 {
+			on := max(tonight, since+f.AbsorbDays, broke)
+			if d.GoneOn == 0 || on < d.GoneOn {
+				d.GoneOn = on
+			}
+		}
 	}
 	return d
 }

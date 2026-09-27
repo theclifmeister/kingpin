@@ -197,6 +197,7 @@ func (s *Sim) table(w *game.World, t *game.Tick, r *game.RivalState) bool {
 		}
 		d := o.Deal
 		d.Offered = true
+		delete(r.LastOffered, d.Kind) // taken up: it may ask again when this one is over (#532)
 		s.seal(w, t, r, d)
 	}
 	betrayed := false
@@ -517,10 +518,19 @@ func (s *Sim) offer(w *game.World, t *game.Tick, r *game.RivalState, rng game.Ra
 	default:
 		return
 	}
-	if w.DealWith(id, d.Kind) != nil || (w.Today.Proposal != nil && w.Today.Proposal.Kind == d.Kind && w.Faction(w.Today.Proposal.Faction) == r) || rng.Float64() >= pc.OfferChance {
+	if w.DealWith(id, d.Kind) != nil || (w.Today.Proposal != nil && w.Today.Proposal.Kind == d.Kind && w.Faction(w.Today.Proposal.Faction) == r) || rng.Float64() >= pc.OfferChance || s.askedLately(r, d.Kind, t.Day) {
 		return
 	}
 	s.putOffer(w, t, r, d)
+}
+
+// askedLately is a faction that put this kind of deal on the table
+// within offer_quiet days and was not taken up (#532): it does not ask
+// again yet. Read after the offer's roll, so the dice are the run's.
+func (s *Sim) askedLately(r *game.RivalState, kind string, day int) bool {
+	q := s.cfg.Diplomacy.OfferQuiet
+	last, ok := r.LastOffered[kind]
+	return q > 0 && ok && day-last < q
 }
 
 // offering reports whether a faction has an offer on the table.
@@ -538,6 +548,12 @@ func (s *Sim) putOffer(w *game.World, t *game.Tick, r *game.RivalState, d game.D
 	dip := s.cfg.Diplomacy
 	d.Offered = true
 	r.NextOffer++
+	if s.cfg.Diplomacy.OfferQuiet > 0 {
+		if r.LastOffered == nil {
+			r.LastOffered = map[string]int{}
+		}
+		r.LastOffered[d.Kind] = t.Day
+	}
 	o := game.Offer{ID: r.NextOffer, Deal: d, Expires: t.Day + dip.OfferDays - 1}
 	if r != w.Rival() {
 		d.Faction = r.Faction() // the rival at home's offers read as they always did

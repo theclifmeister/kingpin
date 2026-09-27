@@ -280,6 +280,20 @@ func (w *World) Accept(id int) (Offer, error) {
 	return taken, nil
 }
 
+// Taking is your sales a night in a city over the nights recorded
+// (Takings, #532): their mean, and how many nights; false with none.
+func (w *World) Taking(city string) (perNight, nights int, ok bool) {
+	row, ok := w.Takings[city]
+	if !ok || len(row) == 0 {
+		return 0, 0, false
+	}
+	sum := 0
+	for _, v := range row {
+		sum += v
+	}
+	return sum / len(row), len(row), true
+}
+
 // Decline turns the rival's offer with id down. Nothing is said about it.
 func (w *World) Decline(id int) (Offer, error) {
 	if w.Over != nil {

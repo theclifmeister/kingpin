@@ -181,10 +181,12 @@ func TestQuietFastForwardStopsLittle(t *testing.T) {
 // 1 until #528 and #531 moved the fixture's run (a front's first week
 // covered, a light seizure lighter): seed 7 stops 13 times, every one a
 // card or a buyer, and seed 11 twice on neither, a landed load and a
-// runner near the skim line, both answers and neither a notice.
+// runner near the skim line, both answers and neither a notice. 3 with
+// #530 on top: seed 11's day 120 is a faction absorbed, a stop #530 asks
+// for (the table's clock that holds the crown moved) and not a notice.
 const (
 	quietStops = 13
-	quietOther = 2
+	quietOther = 3
 )
 
 // TestDangersLead (#534): a heat line and the file near an indictment

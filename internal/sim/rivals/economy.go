@@ -7,6 +7,7 @@ package rivals
 import (
 	"math"
 
+	"github.com/theclifmeister/kingpin/internal/events"
 	"github.com/theclifmeister/kingpin/internal/game"
 )
 
@@ -65,10 +66,20 @@ func (s *Sim) Standard(w *game.World, r *game.RivalState) float64 {
 // home) left out as Income leaves it out of the rival's own take, so a
 // cut of it and the take are in one unit. Favour, the opportunist's
 // demand, the propose dialog and the rivals pane all read it.
+//
+// Since #532 it is what you took there, not what you could: your sales
+// in the city a night over the last tribute_days nights (World.Taking,
+// in the same products), where a night is recorded; the potential below
+// only where none is (a save from before, or tribute_days 0).
 func (s *Sim) TributeBase(w *game.World, r *game.RivalState) float64 {
 	h := s.city(w, r)
 	if h == nil {
 		return 0
+	}
+	if s.cfg.Diplomacy.TributeDays > 0 {
+		if v, _, ok := w.Taking(h.ID); ok {
+			return float64(v)
+		}
 	}
 	v := 0.0
 	for _, id := range w.Products {
@@ -77,6 +88,42 @@ func (s *Sim) TributeBase(w *game.World, r *game.RivalState) float64 {
 		}
 	}
 	return v
+}
+
+// takings records tonight's sales in every city (#532, World.Takings):
+// the tick's PlayerSold revenue in the products a faction deals in
+// there (the port's no_supply product left out, as TributeBase and
+// Income leave it), kept to tribute_days nights. A city gets a row the
+// first night anything sells there. No dice.
+func (s *Sim) takings(w *game.World, t *game.Tick) {
+	n := s.cfg.Diplomacy.TributeDays
+	if n <= 0 {
+		return
+	}
+	sold := map[string]int{}
+	for _, e := range t.Events() {
+		ev, ok := e.(events.PlayerSold)
+		if !ok || ev.Revenue <= 0 {
+			continue
+		}
+		if m := w.Product(ev.City, ev.Product); m != nil && !m.NoSupply {
+			sold[ev.City] += ev.Revenue
+		}
+	}
+	for _, cid := range w.CityOrder {
+		row, ok := w.Takings[cid]
+		if !ok && sold[cid] == 0 {
+			continue
+		}
+		row = append(row, sold[cid])
+		if len(row) > n {
+			row = append([]int(nil), row[len(row)-n:]...)
+		}
+		if w.Takings == nil {
+			w.Takings = map[string][]int{}
+		}
+		w.Takings[cid] = row
+	}
 }
 
 // CornerDay is the unit a faction's money is priced in (#139): what a
@@ -126,6 +173,50 @@ func (s *Sim) Want(w *game.World, r *game.RivalState) int {
 	return max(0, int(math.Round(s.personality(r).MusclePerCorner*float64(w.RivalHeldBy(r.Faction())+1)))-r.Away)
 }
 
+// landless is what a run-out faction spends off its chest tonight
+// (#530): with no corner anywhere and no take, landless_burn of the
+// chest and at least landless_floor corner-days, never more than it
+// holds, so the absorb_days "sooner if broke" comes (absorb reads the
+// chest against a claim). A faction on the street, or not yet on it,
+// spends nothing; with neither number in the file nothing is spent,
+// the run before. No dice.
+func (s *Sim) landless(w *game.World, r *game.RivalState, income int) int {
+	f := s.cfg.Factions
+	if (f.LandlessBurn <= 0 && f.LandlessFloor <= 0) || r.Arrived == 0 || income > 0 || r.Cash <= 0 {
+		return 0
+	}
+	if w.RivalHeldBy(r.Faction()) > 0 || (r.Routed == 0 && r.RaidedOut == 0) {
+		return 0
+	}
+	return s.burn(w, r, r.Cash)
+}
+
+// burn is a night's landless spend off a chest of cash (#530).
+func (s *Sim) burn(w *game.World, r *game.RivalState, cash int) int {
+	f := s.cfg.Factions
+	return min(cash, max(int(math.Round(float64(cash)*f.LandlessBurn)), s.cost(w, r, f.LandlessFloor)))
+}
+
+// Broke is the night a landless faction's chest falls under a claim,
+// spending tonight's wages and what landless spends from tonight at
+// today's prices (#530): what the crown's count reads for "sooner if
+// broke". 0 when it does not within limit nights, or nothing is spent.
+func (s *Sim) Broke(w *game.World, r *game.RivalState, limit int) int {
+	f := s.cfg.Factions
+	if f.LandlessBurn <= 0 && f.LandlessFloor <= 0 {
+		return 0
+	}
+	cash, claim, wages := r.Cash, s.ClaimCost(w, r), s.Wages(w, r)
+	for n := 1; n <= limit; n++ {
+		cash -= min(cash, wages)
+		cash -= s.burn(w, r, cash)
+		if cash < claim {
+			return w.Day + n
+		}
+	}
+	return 0
+}
+
 // payroll is the faction's money for the day (step 2, #139): the take,
 // and the muscle it pays for. The wages come out of the chest; what the
 // day's take did not cover of them is owed (Arrears), a surplus day pays
@@ -150,6 +241,7 @@ func (s *Sim) payroll(w *game.World, r *game.RivalState) {
 		r.Muscle--
 		r.Arrears -= float64(wage)
 	}
+	r.Cash -= s.landless(w, r, income)
 	fee, claim := s.Fee(w, r), s.ClaimCost(w, r)
 	for r.Muscle < min(s.Want(w, r), s.Afford(w, r)) && r.Cash >= fee+claim {
 		r.Cash -= fee

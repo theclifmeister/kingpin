@@ -415,27 +415,34 @@ const (
 // section's Crew stage no longer lists "the rival, from day 10" as
 // something it opens): with World.Report and World.Journal left out of
 // the walk all sixty days are main's.
-// Again for #528, #531 and #533: day 2 by the stage card's words (the
-// Crew stage's NEXT: the laundromat washes the dirty over the $50K till)
-// and day 8 by the report's (the first front's UNLOCKED line: it washes
-// over the till); with World.Report and World.Journal left out of the
+// Again for #529, #530 and #532: day 1 by the new fields (the street's
+// last nights, LaunderingState.Street and StreetMark; your takings a
+// city, World.Takings; the day a faction last offered each kind of deal,
+// RivalState.LastOffered); with them left out of the walk every one of
+// the sixty days is main's digest: no number moved on this seed in
+// sixty days.
+// Again for #528, #531 and #533, pinned on main after #529, #530 and
+// #532: day 2 by the stage card's words (the Crew stage's NEXT: the
+// laundromat washes the dirty over the $50K till) and days 8 and 12 by
+// the report's (the first front's UNLOCKED line: it washes over the
+// till, and the second's); with World.Report and World.Journal left out of the
 // walk the first number moves on day 16, the boss's laundromat paying no
 // upkeep in its first covered week (upkeep_grace_days). No seizure falls
 // in the sixty days, so #531's weighed seizure moves nothing here.
 var seedDigest = []string{
-	"17210005dcada09f", "a884b552defb848a", "3a563f128352326e", "01b7aa1e1800be31",
-	"d4dd4683c5b8b575", "8741e36967ac546c", "3d9f072eeb2c3a03", "6514ee6afc7f609b",
-	"ec75d45c0a631b03", "6fdccbb5c72b0e8d", "4204e35c584c0499", "9d75b78c6cb16b3b",
-	"e470c343e873312e", "2ff24bc8c251c112", "5255cdc2da7b37fd", "e3cbf3e9ba87eae3",
-	"bfc8f152a2df7a22", "0f2ea25c86fb42e2", "8c9974bd9449c5b8", "e1014aaff7467082",
-	"3ecee0ad2264e2fa", "d917665deb391c51", "7017b8d5dea5cfa2", "917eaf7f3763d8b4",
-	"4f066472649f05b4", "e4f43dcc965b692a", "c6bc49eb86b3b0d7", "006ffeec0df4bdf2",
-	"2841d1659bbbecdd", "ea8903774a2c2022", "6495a492074f1bf3", "3e4119e0e4250fa4",
-	"b55b5260c9bca9d1", "f2e9cc740aae25c3", "fc3e29236b970101", "93c0db17576e96a9",
-	"2e01766fa51040d5", "4a61083208c38ed6", "0def51afa447a1c5", "3fb9db179bb8224e",
-	"a60b513362c681f2", "4cdaebf912ccd6b6", "0896a2dffbf7ee63", "a0ef73a8211883e1",
-	"baa70375976dba0c", "0a186ecab5e167bf", "8da20ce66822c298", "b5f7729635e2d698",
-	"7c8e51a0b296323d", "50b89b861571080b", "9f68c3de0099730b", "22baf415df975165",
-	"4d9981a88d6a4026", "6292dc6e30ac8126", "104f4c140f78c682", "b1d0f389a5a5b20b",
-	"1a677e9aa1322e3f", "d0c17924a235ade2", "bf51b3c916b260c7", "267a6f6f81fda5d3",
+	"7f642922c9dd0df2", "4c2d825d6e6697d1", "3876b3fa61cbeeb9", "3006862332e392a6",
+	"ddb35a99a1a6322e", "ad2791be0e9c6ce3", "fa0e0e18f9b77f4d", "39ed6d2ffc182c56",
+	"21a11989067d9049", "c04c11fedb6dd922", "b97b9836dfcfa025", "d8a822b4fcb29af0",
+	"108b5c72e8c24458", "7d7e7c83bae62926", "3f70a70c2c706104", "e79ba93b7c5416b6",
+	"c7beecbcfa332995", "619584bec3c8896c", "e856205cea592e6a", "aaa1a1b5497209ae",
+	"f8a73469015bdc2b", "df9ba09c722f9578", "c259608851e39e53", "5e030cc9605f8bc0",
+	"ed4e06460adb2b71", "f315f645ab4dcad8", "59be395beb024829", "64b178d023862937",
+	"e59ca1b83ba5919e", "63ef8d42373109a0", "a1ffa0434751757d", "56b7de5973ca181d",
+	"cf521e42015c5d7b", "ae10c2315a9830c8", "36d4cf870b67630b", "ec041420c61a0382",
+	"f2b04d39723e54ff", "2824c1f9959b5ac7", "7ab32d0b801363f9", "f1e228e06300733d",
+	"becd647c08b81272", "fb56fa1049a5798c", "7aaee7f59833186e", "c0f072ce6715d9b9",
+	"f0a2e82e53c6a542", "6db10bc762afb0f9", "97d708bbc1d6c097", "c95e05b067cf5712",
+	"39dd12480150f06e", "7086c96c84ba9d5c", "1c6fba202c81fb42", "632c8cb3826e3c92",
+	"769d1a38f0198aa7", "3c539e51976cf162", "695f239f836bc7c2", "83571a01843c639a",
+	"f3ed2d8e0dae1090", "186c017778fbf1ee", "b6dbe9b6660b0db9", "942b2883433bfb59",
 }

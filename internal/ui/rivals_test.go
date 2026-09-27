@@ -150,11 +150,21 @@ func TestRivalsEmptyStates(t *testing.T) {
 // that holds, read the base the dice use, rivals.Sim.TributeBase, as
 // your street a day in what they sell, and the pane says what cut of it
 // the terms are. Designer on your corners at home, which the rival does
-// not deal in, moves none of it.
+// not deal in, moves none of it. Since #532 the base is what your
+// corners sold for a night over the last tribute_days nights, and the
+// words say so; with no night recorded, what they could move.
 func TestTributeReadsTheRivalsStreet(t *testing.T) {
 	m := richModel(t, 120, 40)
 	w := m.w
+	n := m.cfg.Rivals.Diplomacy.TributeDays
+	w.Takings = map[string][]int{w.Home().ID: {}}
+	for range n {
+		w.Takings[w.Home().ID] = append(w.Takings[w.Home().ID], 30_000)
+	}
 	base := cash(int(math.Round(m.rules.Rivals.TributeBase(w, w.Rival()))))
+	if base != cash(30_000) {
+		t.Fatalf("the tribute's base is %s, not the $30,000 a night sold", base)
+	}
 	m.Update(key("8"))
 	m.Update(key("d"))
 	m.Update(key("2"))
@@ -163,7 +173,7 @@ func TestTributeReadsTheRivalsStreet(t *testing.T) {
 		t.Fatalf("the tribute page: mode %v step %d", m.mode, m.prop.step)
 	}
 	body := stripANSI(m.View())
-	for _, want := range []string{"of your street", "Your street: " + base + " a day, what your corners here could move", "not what they sold."} {
+	for _, want := range []string{"of your street", "Your street: " + base + " a day, what your corners here sold for a night over", "the last " + plural(n, "night"), "before the crew's cut."} {
 		if !strings.Contains(body, want) {
 			t.Errorf("the tribute page lacks %q:\n%s", want, body)
 		}
@@ -171,6 +181,15 @@ func TestTributeReadsTheRivalsStreet(t *testing.T) {
 	if strings.Contains(body, "of your take") {
 		t.Errorf("the tribute page still reads `of your take`:\n%s", body)
 	}
+	if got := m.tributeBaseLine(w.Rival()); strings.Contains(got, "could move") {
+		t.Errorf("with nights recorded the base reads the potential: %q", got)
+	}
+	saved := w.Takings
+	w.Takings = nil
+	if got := m.tributeBaseLine(w.Rival()); !strings.Contains(got, "could move at today's prices, not what they sold") {
+		t.Errorf("with no night recorded the base reads %q", got)
+	}
+	w.Takings = saved
 	m.Update(key("esc"))
 	mid := m.rules.Rivals.Cut(w, w.Rival(), m.rules.Rivals.Diplomacy().TributeCuts[1])
 	w.Rival().Deals = nil

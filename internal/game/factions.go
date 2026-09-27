@@ -224,8 +224,9 @@ type FactionDown struct {
 	GoneOn int
 	// Rich is a landless faction whose chest covers a claim, routed by
 	// you or raided by the police: it may walk back onto a free corner,
-	// and it goes only at strand_days (GoneOn) or once the chest cannot
-	// cover a claim, whichever comes first.
+	// and it goes only at strand_days or once the chest cannot cover a
+	// claim, whichever comes first (GoneOn, which since #530 reads the
+	// night its landless chest runs under a claim).
 	Rich bool
 }
 

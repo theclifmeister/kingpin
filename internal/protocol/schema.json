@@ -511,6 +511,9 @@
         "OfferDays": {
           "type": "integer"
         },
+        "OfferQuiet": {
+          "type": "integer"
+        },
         "SplitFair": {
           "type": "number"
         },
@@ -525,6 +528,9 @@
             "type": "number"
           },
           "type": "array"
+        },
+        "TributeDays": {
+          "type": "integer"
         },
         "TributeMin": {
           "type": "integer"
@@ -554,6 +560,8 @@
         "TruceDays",
         "TributeCuts",
         "TributeMin",
+        "TributeDays",
+        "OfferQuiet",
         "LowCashDays",
         "UpperHand",
         "SplitFair",
@@ -633,6 +641,12 @@
           "type": "number"
         },
         "HomageCut": {
+          "type": "number"
+        },
+        "LandlessBurn": {
+          "type": "number"
+        },
+        "LandlessFloor": {
           "type": "number"
         },
         "LeaderArrestHeat": {
@@ -716,7 +730,9 @@
         "HomageChance",
         "StrandDays",
         "SuccessionMuscle",
-        "SettleDays"
+        "SettleDays",
+        "LandlessBurn",
+        "LandlessFloor"
       ],
       "type": "object"
     },
@@ -6456,6 +6472,29 @@
       ],
       "type": "object"
     },
+    "events.HoldBegan": {
+      "properties": {
+        "City": {
+          "type": "string"
+        },
+        "Day": {
+          "type": "integer"
+        },
+        "Held": {
+          "type": "boolean"
+        },
+        "Reign": {
+          "type": "integer"
+        }
+      },
+      "required": [
+        "Day",
+        "City",
+        "Reign",
+        "Held"
+      ],
+      "type": "object"
+    },
     "events.HouseBought": {
       "properties": {
         "City": {
@@ -10555,6 +10594,9 @@
     },
     "HeatChanged": {
       "$ref": "#/$defs/events.HeatChanged"
+    },
+    "HoldBegan": {
+      "$ref": "#/$defs/events.HoldBegan"
     },
     "HouseBought": {
       "$ref": "#/$defs/events.HouseBought"
@@ -16134,6 +16176,7 @@
             "HandoffHeld",
             "Headline",
             "HeatChanged",
+            "HoldBegan",
             "HouseBought",
             "HouseCompromised",
             "HouseLost",
@@ -16237,7 +16280,7 @@
       "$ref": "#/$defs/engine.View"
     }
   },
-  "protocol": 23,
+  "protocol": 24,
   "title": "kingpind",
   "view_version": 14
 }

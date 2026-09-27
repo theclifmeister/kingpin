@@ -203,6 +203,7 @@ func (s *Sim) Step(w *game.World, t *game.Tick) {
 		}
 	}
 	s.killed(w, t)
+	s.takings(w, t) // what a tribute is priced off (#532)
 	// Following the money (#341): the window on your take away from
 	// home, the factions on their way, a city that draws one.
 	s.expand(w, t)

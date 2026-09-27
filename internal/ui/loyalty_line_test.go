@@ -69,6 +69,44 @@ func TestFireDialogSaysTheCost(t *testing.T) {
 	}
 }
 
+// The fire dialog names who the firing would take to the walk line
+// (#532): every other member within fire_loyalty of quit_threshold, by
+// name and loyalty; nobody further off, and nobody when the one fired is
+// the named snitch, who costs nothing. A playtest fired a cheap hand and
+// two runners under the line defected with no word first.
+func TestFireNamesWhoWouldWalk(t *testing.T) {
+	m := newTestModel(t, 120, 40)
+	w := m.w
+	tun := m.rules.Crew.Tuning()
+	w.Crew.Members = []game.CrewMember{
+		{ID: 1, Name: "Cheap", Role: game.RoleRunner, Skill: 20, Loyalty: 60, Nerve: 50, Wage: 20},
+		{ID: 2, Name: "Dre", Role: game.RoleRunner, Skill: 50, Loyalty: tun.QuitThreshold + tun.FireLoyalty, Nerve: 50, Wage: 50},
+		{ID: 3, Name: "Kit", Role: game.RoleRunner, Skill: 50, Loyalty: tun.QuitThreshold + 2.5, Nerve: 50, Wage: 50},
+		{ID: 4, Name: "Ace", Role: game.RoleRunner, Skill: 50, Loyalty: tun.QuitThreshold + tun.FireLoyalty + 1, Nerve: 50, Wage: 50},
+	}
+	got := m.fireWalkLine(w.Crew.Member(1))
+	for _, want := range []string{fmt.Sprintf("Dre (%.0f)", tun.QuitThreshold+tun.FireLoyalty), fmt.Sprintf("Kit (%.0f)", tun.QuitThreshold+2), fmt.Sprintf("walk line (%.0f)", tun.QuitThreshold)} {
+		if !strings.Contains(got, want) {
+			t.Errorf("firing Cheap reads %q, want %q", got, want)
+		}
+	}
+	if strings.Contains(got, "Ace") || strings.Contains(got, "Cheap") {
+		t.Errorf("firing Cheap names Ace, clear of the line, or Cheap: %q", got)
+	}
+	m.subjectID = 1
+	if box := stripANSI(m.fireConfirm()); !strings.Contains(box, "Dre") || !strings.Contains(box, "walk") {
+		t.Errorf("the fire confirmation does not name who would walk:\n%s", box)
+	}
+	w.Crew.Exposed = 1
+	if got := m.fireWalkLine(w.Crew.Member(1)); got != "" {
+		t.Errorf("firing the named snitch warns %q", got)
+	}
+	w.Crew.Exposed = 0
+	if got := m.fireWalkLine(w.Crew.Member(4)); strings.Contains(got, "Ace") || !strings.Contains(got, "Dre") {
+		t.Errorf("firing Ace reads %q", got)
+	}
+}
+
 // A greedy lieutenant's take is said as theirs (#521): their details say
 // what the temper cost last night once it shows, and the crew screen's
 // warning never blames loyalty for it.

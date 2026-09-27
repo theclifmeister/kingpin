@@ -92,7 +92,45 @@ func TestLyingLowIsNotGoingStraight(t *testing.T) {
 		}
 		if open := s.CanGoStraight(w); open != (sold == 0) {
 			t.Errorf("after $%d of street and %d nights laid low: open %v, %d legit days (the street's average night $%d, the fronts $%d)",
-				sold, days, open, w.LegitDays, w.StreetAverage(w.Day), s.LegitIncome(w))
+				sold, days, open, w.LegitDays, s.Street(w, w.Day), s.LegitIncome(w))
 		}
+	}
+}
+
+// TestStreetIsTheLastNights (#529): going straight reads the street's
+// average night over the last street_window nights, not the run's. A
+// street that made $10,000 a night reads $10,000; each night given up
+// takes a window's share off it, and a window of nights given up reads
+// nothing. A save from before, with no nights recorded, reads the run's
+// average night (#493's number) and falls from there.
+func TestStreetIsTheLastNights(t *testing.T) {
+	cfg := content.MustLoad()
+	s := laundering.New(cfg)
+	n := cfg.Laundering.Businessman.StreetWindow
+	if n <= 0 {
+		t.Skip("the street reads the whole run")
+	}
+	w := world(1_000_000)
+	for night := 1; night <= n+10; night++ {
+		w.Stats.TotalRevenue += 10_000
+		step(w, s)
+	}
+	if got := s.Street(w, w.Day); got != 10_000 || len(w.Laundering.Street) != n {
+		t.Fatalf("after %d nights at $10,000: the street reads $%d over %d nights", n+10, got, len(w.Laundering.Street))
+	}
+	for k := 1; k <= n; k++ {
+		step(w, s) // nothing sold
+		if got, want := s.Street(w, w.Day), 10_000*(n-k)/n; got != want {
+			t.Fatalf("%d nights given up: the street reads $%d, want $%d", k, got, want)
+		}
+	}
+	old := world(1_000_000)
+	old.Day, old.Stats.TotalRevenue = 100, 1_000_000
+	if got := s.Street(old, old.Day); got != old.StreetAverage(old.Day) {
+		t.Fatalf("a save from before reads $%d, not the run's average $%d", got, old.StreetAverage(old.Day))
+	}
+	step(old, s)
+	if got, want := s.Street(old, old.Day), 1_000_000/100*(n-1)/n; got != want {
+		t.Fatalf("a save from before, a night given up: $%d, want $%d", got, want)
 	}
 }
