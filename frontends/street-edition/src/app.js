@@ -17,7 +17,8 @@ const $ = (s) => document.querySelector(s),
         })[c],
     );
 const money = (n) => "$" + Math.round(n || 0).toLocaleString("en-US"),
-  pct = (n) => Math.max(0, Math.min(100, n || 0));
+  pct = (n) => Math.max(0, Math.min(100, n || 0)),
+  plural = (n, w) => `${(n || 0).toLocaleString("en-US")} ${w}${n === 1 ? "" : "s"}`;
 const paths = {
   map: "M3 5l6-2 6 2 6-2v16l-6 2-6-2-6 2V5zm6-2v16m6-14v16",
   crew: "M16 21v-2a4 4 0 0 0-4-4H6a4 4 0 0 0-4 4v2m16-13a4 4 0 0 1 0 8m4 5v-2a4 4 0 0 0-3-3M13 7a4 4 0 1 1-8 0 4 4 0 0 1 8 0",
@@ -45,7 +46,8 @@ let session,
   mutedSave = false,
   timer,
   selectedCity,
-  confirmAction;
+  confirmAction,
+  saleDial = "quiet"; // the sales approach picked, kept across redraws
 // The save's key in this browser. Before #409 this frontend was "Ink &
 // Ambition" and kept it under OLD_SAVE: a save found only there is read
 // and moved over on the next save, so no run is lost to the rename.
@@ -300,12 +302,12 @@ function renderMarket() {
     })
     .join(
       "",
-    )}</tbody></table></div><div class="row" style="margin-top:14px"><label class="subtle-text">Sales approach <select id="sale-dial" class="inline-select"><option value="quiet">Quiet · lower profile</option value="normal">Normal · balanced</option><option value="aggressive">Aggressive · more heat</option></select></label>${btn("Sell all held stock", "sell-all", "", "small", !!v.over)}</div>${orders.length ? `<h3 class="section-gap">Tonight’s orders</h3>${orders.map((o) => `<div class="order-item">${esc(o.text)}${o.product ? ` <button class="quiet-link" data-action="cancel-sale" data-id="${o.product}">Cancel</button>` : ""}</div>`).join("")}` : ""}<h3 class="section-gap">Private buyers</h3>${v.contracts.length ? `<div class="cards">${v.contracts.map((c) => `<article class="card"><span class="tag">${esc(c.status)}</span><h3>${esc(c.name)}</h3><p>${esc(c.pitch)}</p><div class="stat-row"><span><b>${c.units}</b>units</span><span><b>${c.delivered}</b>delivered</span><span><b>${c.due}</b>due day</span></div>${c.status === "offered" ? btn("Accept contract", "contract", c.id, "small") : btn("Deliver stock", "deliver", c.id, "small")}</article>`).join("")}</div>` : '<div class="empty">No private offers today. Check back tomorrow.</div>'}`;
+    )}</tbody></table></div><div class="row" style="margin-top:14px"><label class="subtle-text">Sales approach <select id="sale-dial" class="inline-select" data-change="sale-dial">${[["quiet", "Quiet · lower profile"], ["normal", "Normal · balanced"], ["aggressive", "Aggressive · more heat"]].map(([d, label]) => `<option value="${d}" ${d === saleDial ? "selected" : ""}>${label}</option>`).join("")}</select></label>${btn("Sell all held stock", "sell-all", "", "small", !!v.over)}</div>${orders.length ? `<h3 class="section-gap">Tonight’s orders</h3>${orders.map((o) => `<div class="order-item">${esc(o.text)}${o.product ? ` <button class="quiet-link" data-action="cancel-sale" data-id="${o.product}">Cancel</button>` : ""}</div>`).join("")}` : ""}<h3 class="section-gap">Private buyers</h3>${v.contracts.length ? `<div class="cards">${v.contracts.map((c) => `<article class="card"><span class="tag">${esc(c.status)}</span><h3>${esc(c.name)}</h3><p>${esc(c.pitch)}</p><div class="stat-row"><span><b>${c.units}</b>units</span><span><b>${c.delivered}</b>delivered</span><span><b>${c.due}</b>due day</span></div>${c.status === "offered" ? btn("Accept contract", "contract", c.id, "small") : btn("Deliver stock", "deliver", c.id, "small")}</article>`).join("")}</div>` : '<div class="empty">No private offers today. Check back tomorrow.</div>'}`;
 }
 function renderCrew() {
   const lt = query("rules.crew.lieutenancy"),
     hint = howTheyCome(v);
-  return `${hint ? `<div class="tip-box" style="margin-bottom:16px">${esc(hint)}</div>` : ""}<div class="row" style="margin-bottom:16px"><span class="subtle-text">${v.crew.length} on payroll · daily wages depend on your pay policy</span><label>Pay <select id="pay-dial" data-change="pay">${["stingy", "fair", "generous"].map((x) => `<option ${v.you.pay === x ? "selected" : ""}>${x}</option>`).join("")}</select></label></div><div class="cards">${v.crew.map((m) => `<article class="card"><div class="crew-header"><div class="portrait ${m.role === "runner" ? "teal" : ""}">${esc(m.name.slice(0, 1))}</div><div><span class="tag">${esc(m.role)}</span><h3>${esc(m.name)}</h3></div></div><div class="stat-row"><span><b>${m.skill}</b>skill</span><span><b>${Math.round(m.loyalty)}%</b>loyalty</span><span><b>${money(m.wage)}</b>base wage</span></div><div class="meter teal"><span style="width:${pct(m.loyalty)}%"></span></div><p>${m.trait ? `<span class="tag">${esc(m.trait)}</span><small> ${esc(engineInfo.traits[m.trait] || "")}</small> ` : ""}${m.captain ? `<b>Captain of ${esc(m.captain)}</b> · Budget ${money(m.budget)}<br>` : ""}${m.role === "lieutenant" ? lieutenantStatus(m, lt) : m.post ? "Working " + esc(m.post) : "No corner assigned"}${m.jailed ? " · In custody" : ""}${m.wounded ? " · Recovering" : ""}</p><div class="card-actions">${["runner", "enforcer"].includes(m.role) ? btn("Assign corner", "assign-person", m.id, "small") : ""}${m.role === "lieutenant" ? btn(m.city ? "Change city" : "Run a city", "lieutenant-city", m.id, "small") : ""}${btn("Pay a bonus", "bonus", m.id, "small")}${btn("Captaincy", "captain", m.id, "small subtle")}${btn("Details", "crew-detail", m.id, "small subtle")}</div></article>`).join("") || '<div class="empty">For now, it’s just you. Find someone you can count on below.</div>'}</div><h3 class="section-gap">New faces in town</h3><div class="cards">${v.pool.map((m) => `<article class="card"><div class="card-top"><span class="tag">${esc(m.role)}</span><span class="price">${money(m.fee)}</span></div><h3>${esc(m.name)}</h3><p>Age ${m.age} · Skill ${m.skill} · Loyalty ${Math.round(m.loyalty)}%<br>Base wage ${money(m.wage)} / day</p>${m.role === "lieutenant" ? `<p class="front-role">${roleLines(lt).slice(0, 2).map(esc).join(" ")}</p>` : ""}${btn("Hire " + esc(m.name), "hire", m.id, "small", v.you.dirty_cash < m.fee || !!v.over)}</article>`).join("")}</div>`;
+  return `${hint ? `<div class="tip-box" style="margin-bottom:16px">${esc(hint)}</div>` : ""}<div class="row" style="margin-bottom:16px"><span class="subtle-text">${v.crew.length} on payroll · daily wages depend on your pay policy</span><label>Pay <select id="pay-dial" data-change="pay">${["stingy", "fair", "generous"].map((x) => `<option ${v.you.pay === x ? "selected" : ""}>${x}</option>`).join("")}</select></label></div><div class="cards">${v.crew.map((m) => `<article class="card"><div class="crew-header"><div class="portrait ${m.role === "runner" ? "teal" : ""}">${esc(m.name.slice(0, 1))}</div><div><span class="tag">${esc(m.role)}</span><h3>${esc(m.name)}</h3></div></div><div class="stat-row"><span><b>${m.skill}</b>skill</span><span><b>${Math.round(m.loyalty)}%</b>loyalty</span><span><b>${money(m.wage)}</b>base wage</span></div><div class="meter teal"><span style="width:${pct(m.loyalty)}%"></span></div><p>${m.trait ? `<span class="tag">${esc(m.trait)}</span><small> ${esc(engineInfo.traits[m.trait] || "")}</small> ` : ""}${m.captain ? `<b>Captain of ${esc(m.captain)}</b> · Budget ${money(m.budget)}<br>` : ""}${m.role === "lieutenant" ? lieutenantStatus(m, lt) : m.post ? "Working " + esc(m.post) : "No corner assigned"}${m.jailed ? " · In custody" : ""}</p><div class="card-actions">${["runner", "enforcer"].includes(m.role) ? btn("Assign corner", "assign-person", m.id, "small") : ""}${m.role === "lieutenant" ? btn(m.city ? "Change city" : "Run a city", "lieutenant-city", m.id, "small") : ""}${btn("Pay a bonus", "bonus", m.id, "small")}${btn("Captaincy", "captain", m.id, "small subtle")}${btn("Details", "crew-detail", m.id, "small subtle")}</div></article>`).join("") || '<div class="empty">For now, it’s just you. Find someone you can count on below.</div>'}</div><h3 class="section-gap">New faces in town</h3><div class="cards">${v.pool.map((m) => `<article class="card"><div class="card-top"><span class="tag">${esc(m.role)}</span><span class="price">${money(m.fee)}</span></div><h3>${esc(m.name)}</h3><p>Age ${m.age} · Skill ${m.skill} · Loyalty ${Math.round(m.loyalty)}%<br>Base wage ${money(m.wage)} / day</p>${m.role === "lieutenant" ? `<p class="front-role">${roleLines(lt).slice(0, 2).map(esc).join(" ")}</p>` : ""}${btn("Hire " + esc(m.name), "hire", m.id, "small", v.you.dirty_cash < m.fee || !!v.over)}</article>`).join("")}</div>`;
 }
 function renderEmpire() {
   const offers = query("rules.laundering.offers");
@@ -334,15 +336,37 @@ function renderRivals() {
     )
     .join(
       "",
-    )}<div class="tip-box">Follow your Kingpin plan in the Ledger for the current requirements. Routed, insolvent factions can now scatter. Profitable cities can attract new factions.</div><div class="cards">${v.factions.map((f) => `<article class="card"><div class="card-top">${icon("rival")}<span class="tag ${f.alive ? "coral" : ""}">${f.alive ? "ACTIVE" : f.arrived ? "GONE" : "NOT YET ARRIVED"}</span></div><h3>${esc(f.leader)}</h3><p>${f.personality === "?" ? "Personality unknown" : esc(f.personality)}${f.deals?.length ? " · " + f.deals.map(esc).join(", ") : ""}</p><div class="stat-row"><span><b>${f.corners}</b>corners</span><span><b>${Math.round(f.trust)}</b>trust</span><span><b>${Math.round(f.war)}</b>war</span></div>${f.books ? `<p>Last scouted on Day ${f.books.day}<br>${money(f.books.cash)} cash · ${f.books.muscle} muscle</p>` : ""}<div class="card-actions">${btn("Scout", "scout", f.id, "small", !f.alive || !!v.over)}${btn("Talk terms", "diplomacy", f.id, "small", !f.alive || !!v.over)}</div></article>`).join("")}</div><h3 class="section-gap">Offers on the table</h3>${v.offers.length ? v.offers.map((o) => `<div class="paper row"><div><h3>${esc(o.kind)} · ${esc(v.factions.find((f) => f.id === o.faction)?.leader || o.faction)}</h3><p class="subtle-text">Expires Day ${o.expires}${o.terms.per_day ? " · " + money(o.terms.per_day) + "/day" : ""}${o.terms.days ? " · " + o.terms.days + " days" : ""}</p></div><div>${btn("Accept", "accept", o.id, "small")}${btn("Decline", "decline", o.id, "small subtle")}</div></div>`).join("") : '<div class="empty">No offers today. The table is quiet.</div>'}`;
+    )}<div class="tip-box">Follow your Kingpin plan in the Ledger for the current requirements. Routed, insolvent factions can now scatter. Profitable cities can attract new factions.</div><div class="cards">${v.factions.map((f) => `<article class="card"><div class="card-top">${icon("rival")}<span class="tag ${f.alive ? "coral" : ""}">${f.alive ? "ACTIVE" : f.arrived ? "GONE" : "NOT YET ARRIVED"}</span></div><h3>${esc(f.leader)}</h3><p>${f.personality === "?" ? "Personality unknown" : esc(f.personality)}${f.deals?.length ? " · " + f.deals.map(esc).join(", ") : ""}</p><div class="stat-row"><span><b>${f.corners}</b>corners</span><span><b>${Math.round(f.trust)}</b>trust</span><span><b>${Math.round(f.war)}</b>war</span></div>${f.books ? `<p>Last scouted on Day ${f.books.day}<br>${money(f.books.cash)} cash · ${f.books.muscle} muscle</p>` : ""}<div class="card-actions">${btn("Scout", "scout", f.id, "small", !f.alive || !!v.over)}${btn("Talk terms", "diplomacy", f.id, "small", !f.alive || !!v.over)}</div></article>`).join("")}</div><h3 class="section-gap">Offers on the table</h3>${v.offers.length ? v.offers.map((o) => `<div class="paper row"><div><h3>${esc(v.factions.find((f) => f.id === o.faction)?.leader || o.faction)} offers ${esc(dealWords(o.kind, o.terms))}</h3><p class="subtle-text">Expires Day ${o.expires}</p></div><div>${btn("Accept", "accept", o.id, "small")}${btn("Decline", "decline", o.id, "small subtle")}</div></div>`).join("") : '<div class="empty">No offers today. The table is quiet.</div>'}`;
+}
+// dealWords is a deal in words, who pays whom said (game.Deal.String
+// and World.Describe, #537): a tribute is paid by you, a homage to you,
+// and a split names the corners it leaves your side of the line.
+function dealWords(kind, t = {}) {
+  switch (kind) {
+    case "truce":
+      return `a ${t.days}-day truce`;
+    case "tribute":
+      return `tribute: you pay them ${money(t.per_day)} a day`;
+    case "homage":
+      return `homage: they pay you ${money(t.per_day)} a day`;
+    case "split": {
+      const corners = v.cities.flatMap((c) => c.corners),
+        names = (t.corners || []).map((id) => corners.find((c) => c.id === id)?.name || id);
+      return `a split: ${plural(names.length, "corner")} your side of the line (${names.join(", ")})`;
+    }
+    case "shipment":
+      return `a joint shipment of ${(t.units || 0).toLocaleString("en-US")} units`;
+  }
+  return kind;
 }
 function renderLedger() {
   const off = query("rules.laundering.offshore"),
     canRetire = query("rules.laundering.can_retire"),
     canStraight = query("rules.laundering.can_go_straight"),
     canVanish = v.you.upgrades.includes("identity"),
-    canCrown = v.ambitions.some((a) => a.ending === "kingpin" && a.done);
-  return `<div class="cards"><article class="card"><div class="eyebrow">WHAT YOU’VE BUILT</div><h3>Total net worth</h3><div class="cash-total">${money(v.you.net_worth)}</div><p>Cash, offshore funds, inventory and property. Not all of it is spendable.</p><div class="row"><span>Business income, net of upkeep</span><b>${money(query("rules.laundering.legit_income"))}/day</b></div></article><article class="card"><div class="eyebrow">A FUTURE SOMEWHERE ELSE</div><h3>The offshore account</h3><div class="cash-total">${money(v.you.offshore)}</div><p>Transfers cost ${Math.round(off.Fee * 100)}%. Moving more than ${money(off.Lot)} in a day adds evidence.</p><label class="row"><input id="reserve-amount" aria-label="Amount to transfer" type="number" min="1" step="100" value="${Math.min(off.Lot, v.you.clean_cash) || 1000}">${btn("Transfer", "reserve", "", "small", !v.you.clean_cash || !!v.over)}</label></article><article class="card"><div class="eyebrow">CASH FOR THE STREET</div><h3>Cash out</h3><div class="cash-total">${money(v.you.clean_cash)}</div><p>Stock and wages are paid in dirty cash. Drawing clean money back costs ${money(query("rules.laundering.cash_out_fee", 100000))} per $100,000, and a dirty pile past your cover draws heat.</p><label class="row"><input id="cashout-amount" aria-label="Clean cash to cash out" type="number" min="1" step="100" value="${Math.min(v.you.clean_cash, 10000) || 1000}">${btn("Cash out", "cash-out", "", "small", !v.you.clean_cash || !!v.over)}</label></article></div><div class="tip-box">Your final score is offshore money divided by one plus the run’s body count. A large empire and a high score are different goals.</div><h3 class="section-gap">Give something back</h3><div class="paper"><p class="subtle-text">Community funding builds goodwill using clean cash.</p><div class="card-actions"><input id="fund-amount" type="number" aria-label="Community funding amount" min="1" value="2000">${btn("Fund " + esc(city().name), "fund", city().id, "small", !v.you.clean_cash || !!v.over)}</div></div>${ambitionsHTML()}<h3 class="section-gap">Choose your ending</h3><div class="cards"><article class="card"><span class="tag">THE QUIET EXIT</span><h3>Retired Clean</h3><p>${money(off.RetireCash)} offshore and ${off.RetireDays} quiet days. You have ${v.you.quiet_days} quiet days.</p>${canRetire ? "" : `<p class="subtle-text">${esc(short("retired"))}</p>`}${btn(canRetire ? "Retire now" : "Not ready yet", "retire", "", "small", !canRetire || !!v.over)}</article><article class="card"><span class="tag gold">THE CITY IS YOURS</span><h3>Kingpin</h3><p>Secure the majority and resolve every rival. Hold dominance long enough to begin your reign.</p>${canCrown ? "" : `<p class="subtle-text">${esc(short("kingpin"))}</p>`}${btn(canCrown ? "Take the crown" : "No reign yet", "crown", "", "small", !canCrown || !!v.over)}</article><article class="card"><span class="tag">A NEW CHAPTER</span><h3>Vanished</h3><p>A new identity lets you leave the operation behind.</p>${canVanish ? "" : `<p class="subtle-text">${esc(short("vanished"))}</p>`}${btn(canVanish ? "Vanish now" : "An identity is required", "vanish", "", "small", !canVanish || !!v.over)}</article><article class="card"><span class="tag">A DIFFERENT KIND OF EMPIRE</span><h3>A Businessman</h3><p>Positive business income beats street revenue while home-city goodwill exceeds pressure for 30 consecutive days. Then it is yours to take.</p>${canStraight ? "" : `<p class="subtle-text">${esc(short("businessman"))}</p>`}${btn(canStraight ? "Go straight" : "Not yet", "go_straight", "", "small", !canStraight || !!v.over)}</article></div>`;
+    canCrown = v.ambitions.some((a) => a.ending === "kingpin" && a.done),
+    terms = endingTerms(canStraight);
+  return `<div class="cards"><article class="card"><div class="eyebrow">WHAT YOU’VE BUILT</div><h3>Total net worth</h3><div class="cash-total">${money(v.you.net_worth)}</div><p>Cash, offshore funds, inventory and property. Not all of it is spendable.</p><div class="row"><span>Business income, net of upkeep</span><b>${money(query("rules.laundering.legit_income"))}/day</b></div></article><article class="card"><div class="eyebrow">A FUTURE SOMEWHERE ELSE</div><h3>The offshore account</h3><div class="cash-total">${money(v.you.offshore)}</div><p>Transfers cost ${Math.round(off.Fee * 100)}%. Moving more than ${money(off.Lot)} in a day adds evidence.</p><label class="row"><input id="reserve-amount" aria-label="Amount to transfer" type="number" min="1" step="100" value="${Math.min(off.Lot, v.you.clean_cash) || 1000}">${btn("Transfer", "reserve", "", "small", !v.you.clean_cash || !!v.over)}</label></article><article class="card"><div class="eyebrow">CASH FOR THE STREET</div><h3>Cash out</h3><div class="cash-total">${money(v.you.clean_cash)}</div><p>Stock and wages are paid in dirty cash. Drawing clean money back costs ${money(query("rules.laundering.cash_out_fee", 100000))} per $100,000, and a dirty pile past your cover draws heat.</p><label class="row"><input id="cashout-amount" aria-label="Clean cash to cash out" type="number" min="1" step="100" value="${Math.min(v.you.clean_cash, 10000) || 1000}">${btn("Cash out", "cash-out", "", "small", !v.you.clean_cash || !!v.over)}</label></article></div><div class="tip-box">Your final score is offshore money divided by one plus the run’s body count. A large empire and a high score are different goals.</div><h3 class="section-gap">Give something back</h3><div class="paper"><p class="subtle-text">Community funding builds goodwill using clean cash.</p><div class="card-actions"><input id="fund-amount" type="number" aria-label="Community funding amount" min="1" value="2000">${btn("Fund " + esc(city().name), "fund", city().id, "small", !v.you.clean_cash || !!v.over)}</div></div>${ambitionsHTML()}<h3 class="section-gap">Choose your ending</h3><div class="cards"><article class="card"><span class="tag">THE QUIET EXIT</span><h3>Retired Clean</h3><p>${money(off.RetireCash)} offshore and ${plural(off.RetireDays, "day")} quiet. You have ${plural(v.you.quiet_days, "quiet day")}.</p>${canRetire ? "" : `<p class="subtle-text">${esc(short("retired"))}</p>`}${btn(canRetire ? "Retire now" : "Not ready yet", "retire", "", "small", !canRetire || !!v.over)}</article><article class="card"><span class="tag gold">THE CITY IS YOURS</span><h3>Kingpin</h3><p>${esc(terms.kingpin)}</p>${canCrown ? "" : `<p class="subtle-text">${esc(short("kingpin"))}</p>`}${btn(canCrown ? "Take the crown" : "No reign yet", "crown", "", "small", !canCrown || !!v.over)}</article><article class="card"><span class="tag">A NEW CHAPTER</span><h3>Vanished</h3><p>${esc(terms.vanished)}</p>${canVanish ? "" : `<p class="subtle-text">${esc(short("vanished"))}</p>`}${btn(canVanish ? "Vanish now" : "An identity is required", "vanish", "", "small", !canVanish || !!v.over)}</article><article class="card"><span class="tag">A DIFFERENT KIND OF EMPIRE</span><h3>A Businessman</h3><p>${esc(terms.businessman)}</p>${canStraight ? "" : `<p class="subtle-text">${esc(short("businessman"))}</p>`}${btn(canStraight ? "Go straight" : "Not yet", "go_straight", "", "small", !canStraight || !!v.over)}</article></div>`;
 }
 function reportHTML(r) {
   if (!r.sections)
@@ -359,7 +383,15 @@ function reportHTML(r) {
       (sec) =>
         `<div class="report-section"><div class="eyebrow">${esc(sec.title)}</div>${sec.lines.map((t) => `<p>${esc(t)}</p>`).join("")}</div>`,
     )
-    .join("")}${r.day ? flowHTML(r.flow) : ""}`;
+    .join("")}${r.day ? flowHTML(r.flow) + moneyHTML(r) : ""}`;
+}
+// moneyHTML is the rest of the report's MONEY section, under the flow
+// table as the TUI draws it (ui/report.go moneyLines, #351, #522): the
+// itemised lines naming each cause (a cut, bail, a skim, a seizure, the
+// cash-out's fee), then the cash before and after.
+function moneyHTML(r) {
+  const lines = r.sections.find((sec) => sec.id === "money")?.lines || [];
+  return `<div class="report-section"><div class="eyebrow">MONEY</div>${lines.map((t) => `<p>${esc(t)}</p>`).join("")}<p>Cash ${money(r.cash_before)} → ${money(r.cash_after)}</p></div>`;
 }
 function renderJournal() {
   return `<div class="paper"><div class="row"><h2>The morning edition</h2><span class="tag">Day ${v.report.day}</span></div>${reportHTML(v.report) || '<div class="empty">A blank page. Your first report arrives tomorrow.</div>'}</div>${
@@ -702,8 +734,8 @@ async function action(a, id) {
       case "go_straight":
       case "vanish":
         confirm(
-          "End this story?",
-          "This action ends the run. You can export the completed save afterward.",
+          { retire: "Retire?", crown: "Take the crown?", go_straight: "Go straight?", vanish: "Vanish?" }[a],
+          exitConfirm(a),
           () => act(a, [], "Your story is complete"),
         );
         break;
@@ -713,9 +745,21 @@ async function action(a, id) {
       case "dilemma":
         dilemma();
         break;
-      case "choose":
-        act("choose", [Number(id)], "Decision made");
+      case "choose": {
+        // The outcome in the card's place, as the TUI's WHAT HAPPENED
+        // (ui/card.go): the effects have landed, the words stay up
+        // until the player moves on.
+        const a = act("choose", [Number(id)], "", { close: false });
+        if (a && !v.over)
+          modal(
+            `<div class="eyebrow">WHAT HAPPENED</div><h2>${esc(a.Title)}</h2>${String(a.Outcome || "")
+              .split("\n")
+              .filter(Boolean)
+              .map((t) => `<p>${esc(t)}</p>`)
+              .join("")}<div class="card-actions">${btn("Carry on", "close", "", "primary")}</div>`,
+          );
         break;
+      }
       case "export":
         exportFile();
         break;
@@ -724,12 +768,17 @@ async function action(a, id) {
         break;
       case "new":
         modal(
-          `<div class="eyebrow">A BLANK PAGE</div><h2>A new name in town.</h2><p>Start with $500 and a corner. Export your current story first if you want to keep it.</p><label>World seed<input id="new-seed" type="number" min="1" max="2147483647" value="${Math.floor(Math.random() * 99999) + 1}"></label><label>Starting character<select id="new-character"><option value="">The Dealer</option><option value="cook">The Cook</option></select></label><label><span><input id="hard-da" type="checkbox"> Hard district attorney</span></label>${btn("Begin a new story", "new-submit", "", "primary")}`,
+          `<div class="eyebrow">A BLANK PAGE</div><h2>A new name in town.</h2><p>Export your current story first if you want to keep it.</p><label>World seed<input id="new-seed" type="number" min="1" max="2147483647" value="${Math.floor(Math.random() * 99999) + 1}"></label><h3>Who you start as</h3>${query("characters")
+            .map(
+              (ch) =>
+                `<label class="choice"><span><input type="radio" name="new-character" value="${esc(ch.id)}" ${ch.default ? "checked" : ""}> <b>${esc(ch.name)}</b></span><br><small class="subtle-text">${esc(ch.blurb)}</small></label>`,
+            )
+            .join("")}<label><span><input id="hard-da" type="checkbox"> Hard district attorney</span></label>${btn("Begin a new story", "new-submit", "", "primary")}`,
         );
         break;
       case "new-submit": {
         const seed = integer("#new-seed"),
-          character = $("#new-character").value,
+          character = $('input[name="new-character"]:checked')?.value || "",
           hard = $("#hard-da").checked;
         confirm(
           "Replace your current story?",
@@ -799,6 +848,7 @@ document.addEventListener("click", (e) => {
   } else action(t.dataset.action, t.dataset.id);
 });
 document.addEventListener("change", (e) => {
+  if (e.target.dataset.change === "sale-dial") saleDial = e.target.value;
   if (e.target.dataset.change === "pay")
     act("set_pay", [e.target.value], "Pay policy updated");
   if (e.target.dataset.change === "launder")
@@ -1077,6 +1127,44 @@ function trophiesHTML() {
         `<article class="card"><div class="card-top"><span class="tag gold">TROPHY</span><small>on offer at ${money(o.UnlockCash)} peak clean</small></div><h3>${esc(o.Name)}</h3><div class="row"><strong class="price">${money(o.Cost)}</strong>${btn("Buy", "buy-trophy", o.ID, "small", v.you.clean_cash < o.Cost || !!v.over)}</div></article>`,
     )
     .join("")}</div>`;
+}
+// step is an ending's plan's step by id, for the terms it reads
+// against (the ambitions, #347: the endings' own thresholds).
+function step(ending, id) {
+  return v.ambitions.find((a) => a.ending === ending)?.steps.find((s) => s.id === id);
+}
+// endingTerms are the ending cards' terms in the walk-away's words
+// (ui/exit.go exitRows, #493, #498, #529), every number read off the
+// engine: the crown's share and days and the businessman's nights off
+// their plans' steps, the vanish's chain off its plan's costs.
+function endingTerms(canStraight) {
+  const need = (e, id) => step(e, id)?.need || 0,
+    cost = (e, id) => {
+      const s = step(e, id);
+      return s ? `${money(s.need)} ${s.unit === "dirty" ? "dirty" : "clean"}` : "";
+    };
+  return {
+    kingpin: `${need("kingpin", "share")} of home's corners held and every crew gone or paying, ${plural(need("kingpin", "streak"), "day")} running.`,
+    vanished: `A new identity from the tree (${cost("vanished", "identity")}), after the lawyer on call (${cost("vanished", "lawyer")}) and on retainer (${cost("vanished", "retainer")}).`,
+    businessman: canStraight
+      ? `The fronts at ${money(query("rules.laundering.legit_income"))} a day.`
+      : `The fronts out-earn the street's average night and goodwill tops pressure at home, ${plural(need("businessman", "streak"), "night")} running.`,
+  };
+}
+// exitConfirm is a way out's confirmation in its own words (ui/exit.go
+// viewExit, #498), then what the run leaves behind.
+function exitConfirm(a) {
+  const off = money(v.you.offshore),
+    ends = `the run ends now, on day ${v.day}.`,
+    stock = Object.values(v.you.stock || {}).reduce((n, c) => n + Object.values(c).reduce((m, x) => m + x, 0), 0),
+    left = `Left behind: ${money(v.you.dirty_cash)} dirty, ${money(v.you.clean_cash)} clean, ${plural(stock, "unit")} in stock, ${plural(v.crew.length, "member")}.`;
+  const words = {
+    retire: `Retire on ${off} offshore, ${plural(v.you.quiet_days, "day")} quiet. Nobody comes looking. The run ends now, on day ${v.day}.`,
+    crown: `Take the crown with ${off} offshore. The city stays yours in the epilogue; ${ends}`,
+    go_straight: `Go straight on ${plural(v.fronts.length, "front")}: the fronts at ${money(query("rules.laundering.legit_income"))} a day, the street given up, ${off} offshore. The DA's file goes to the archive; ${ends}`,
+    vanish: `Vanish on the new identity with ${off} offshore. The DA keeps looking; the papers are good. The run ends now, on day ${v.day}.`,
+  };
+  return `${words[a]} ${left}`;
 }
 // short is what an ending's plan still needs, in its steps' own words
 // (the ambitions, #347: the endings' own terms), or "" when it is open.
