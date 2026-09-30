@@ -55,8 +55,9 @@ import (
 // offer_quiet (#532); 25 view 15 (#550), fast_forward's danger and
 // rules.heat.tip_evidence, the chance a tip files a page on you.
 // 26 the alerts' danger, notice, slip and faction, in holds and
-// preview as in the view (#549).
-const Version = 26
+// preview as in the view (#549); 27 rules.laundering.float and
+// outlay, the float and the contracts' morning the till keeps (#553).
+const Version = 27
 
 // The error codes: JSON-RPC 2.0's, and the game's own in its
 // server-error range.

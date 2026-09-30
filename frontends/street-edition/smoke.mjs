@@ -194,9 +194,9 @@ for (let i = 0; i < 45 && !session.view.over; i++) {
     [{ kind: "contract_due", contract: 4, act: act("market", "contract") }, "market", "", "", "contract-4"],
     [{ kind: "debt_due", supplier: "cass", act: act("market", "supplier") }, "market", "", "", "connect-cass"],
     [{ kind: "heat", act: act("dashboard") }, "street", "", "", "risk"],
-    [{ kind: "front_shut", front: "laundromat", act: act("ledger") }, "empire", "", "", ""],
-    [{ kind: "float", act: act("ledger") }, "empire", "", "", ""],
-    [{ kind: "till", act: act("ledger") }, "empire", "", "", ""],
+    [{ kind: "front_shut", front: "laundromat", act: act("ledger") }, "empire", "", "", "front-laundromat"],
+    [{ kind: "float", act: act("ledger") }, "empire", "", "", "till"],
+    [{ kind: "till", act: act("ledger") }, "empire", "", "", "till"],
     [{ kind: "wages", act: act("crew") }, "crew", "", "", ""],
     [{ kind: "crew_line", member: 3, act: act("crew", "member") }, "crew", "member", 3, ""],
     [{ kind: "skim", act: act("crew") }, "crew", "", "", ""],
@@ -229,6 +229,7 @@ for (let i = 0; i < 45 && !session.view.over; i++) {
     const l = landing(a);
     assert.deepEqual([l.tab, l.open, l.id, l.select], [tab, open, id, select], `${a.kind} ${JSON.stringify(a)} lands`);
   }
+  assert.equal(landing({ kind: "till", act: act("ledger") }).focus, "till-amount", "the till alert lands on the till's field");
   assert.match(alertClass({ kind: "arrest", danger: true }), /\bdanger\b/);
   assert.match(alertClass({ kind: "broke", danger: true }), /\bdanger\b/);
   assert.doesNotMatch(alertClass({ kind: "plan", danger: false, notice: false }), /danger/);
@@ -244,10 +245,62 @@ for (let i = 0; i < 45 && !session.view.over; i++) {
   assert.match(unknownLine(p.unknown), /^An estimate before the dice: robberies, .* are not in it\.$/, "every unknown worded");
   assert.ok(p.wash && typeof p.wash.washed === "number", "the preview carries the wash");
 }
+{
+  // The till, the wash and the road (#553): wash.js's words on the live
+  // run, the till set and read back through set_till, and the reserve's
+  // default kept off tonight's upkeep.
+  const wash = await import(pathToFileURL(path.join(dist, "wash.js")));
+  const q = (m, ...p) => session.call(m, ...p);
+  const clean = (s, what) => assert.doesNotMatch(String(s), /undefined|NaN|\[object/, what);
+  let v = session.refresh();
+  const t = wash.till(q);
+  assert.equal(t.till, t.float, "a till never set is the float");
+  assert.ok(t.float > 0 && t.max >= t.float && t.line >= t.till, "the till's range and line");
+  assert.equal(typeof t.outlay, "number", "rules.laundering.outlay");
+  for (const s of [wash.tillWords(q), wash.tonight(v, q), wash.tillRules(q), wash.noFrontsOnOffer(q)]) clean(s, "a wash line");
+  assert.equal(wash.setTill(q, "").send, 0, "blank is the float");
+  assert.equal(wash.setTill(q, "1").send, 0, "under the float is the float");
+  const over = wash.setTill(q, String(t.max + 1));
+  assert.ok(over.refuse && over.field === t.max && over.send === undefined, "over the rot line is set to the top, not sent");
+  const raise = wash.setTill(q, String(t.float + 25000));
+  assert.equal(raise.send, t.float + 25000);
+  session.call("set_till", raise.send);
+  assert.equal(session.refresh().you.till, t.float + 25000, "set_till stores the till");
+  assert.ok(wash.till(q).set && /the line you set/.test(wash.tillWords(q)), "a till set says so");
+  session.call("set_till", 0);
+  assert.equal(wash.till(q).till, t.float, "0 is the float again");
+  v = session.refresh();
+  for (const l of wash.washLines(v, q, session.preview())) clean(l.text + l.more, `the ${l.label} line`);
+  // The reserve at its default never leaves the clean pile under
+  // tonight's upkeep (#458).
+  const due = wash.upkeepTonight(q),
+    blank = wash.reserveBlank(v, q);
+  assert.ok(blank >= 0 && blank <= v.you.clean_cash, "the reserve's default is in the pile");
+  assert.ok(v.you.clean_cash - blank >= Math.min(due, v.you.clean_cash), "the reserve's default keeps the upkeep back");
+  assert.ok(v.you.clean_cash - wash.cashOutBlank(v, q) >= Math.min(due, v.you.clean_cash), "the cash-out's default keeps the upkeep back");
+  assert.equal(wash.upkeepWarning(q, 0, 0) === null, due <= 0, "an empty clean pile is warned whenever upkeep is due");
+  // A front's status and why, on made-up fronts at today's day.
+  const offer = session.call("rules.laundering.offers")[0];
+  const at = (f) => wash.frontStatus(v, q, { id: offer.ID, bought: 0, ...f }).text;
+  assert.match(at({ frozen_until: v.day + 3, unpaid: 150 }), /^Shut 3 days: upkeep unpaid \(\$[\d,]+ clean a night\)$/);
+  assert.match(at({ frozen_until: v.day + 3 }), /^Shut: back in 3 days$/);
+  assert.equal(at({ bought: v.day }), "Opens tomorrow");
+  clean(wash.frontTerms(q, offer), "a front's terms");
+  assert.match(wash.frontTerms(q, offer), /opens tomorrow .* a night unpaid shuts it \d+ days?\.$/i);
+  for (const o of session.call("front_offers")) {
+    clean(wash.offerLock(v, o) + wash.frontShutWarning(v, q, o, session.preview()), `${o.ID}'s lock and shut`);
+    if (v.you.peak_cash < o.UnlockCash && !o.Asset) assert.match(wash.offerLock(v, o), /to go$/, `${o.ID} says how far to go`);
+  }
+  for (const r of v.routes) {
+    const idle = wash.routeIdle(v, q, r);
+    if (idle) clean(idle.text, `${r.id}'s idle reason`);
+  }
+  for (const a of session.call("asset_offers")) clean(wash.assetTerms(a), `${a.ID}'s terms`);
+}
 const restored = new Session(globalThis.kingpin);
 restored.importSave(session.exportSave());
 assert.deepEqual(restored.view, session.refresh());
 console.log(
-  `Street Edition engine integration passed at day ${session.view.day}: forecasts, dilemmas and their outcomes, the three sales approaches, cash flow and the cash line, the six characters, lanes, trophies, cash-out, the ways out, the lieutenants, the crew's answers, where every alert lands and save round-trip.`,
+  `Street Edition engine integration passed at day ${session.view.day}: forecasts, dilemmas and their outcomes, the three sales approaches, cash flow and the cash line, the six characters, lanes, trophies, cash-out, the ways out, the lieutenants, the crew's answers, where every alert lands, the till, the wash and the road, and save round-trip.`,
 );
 process.exit(0);

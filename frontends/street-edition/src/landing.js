@@ -30,10 +30,11 @@ const KINDS = {
 // landing is where the alert is answered: `tab`, the `city` to turn
 // to, `open` what to open once there (a corner's dialog, a member's,
 // Properties, the police's risk or the investigation's confirm) on
-// `id`, and `select`, the page element to pick out, or "".
+// `id`, `select`, the page element to pick out, or "", and `focus`,
+// the field to put the cursor in (the till's, #553), or "".
 export function landing(a) {
   const act = a.act || {};
-  const out = { tab: KINDS[a.kind] || SCREENS[act.screen] || "street", city: a.city || "", open: "", id: "", select: "" };
+  const out = { tab: KINDS[a.kind] || SCREENS[act.screen] || "street", city: a.city || "", open: "", id: "", select: "", focus: "" };
   const post = act.mode === "post" || act.subject === "corner";
   switch (a.kind) {
     case "arrest":
@@ -44,6 +45,14 @@ export function landing(a) {
       break;
     case "favour":
       out.open = "police";
+      break;
+    case "till":
+    case "float":
+      // The wash panel's till control (#553): raise the till there.
+      Object.assign(out, { select: "till", focus: "till-amount" });
+      break;
+    case "front_shut":
+      if (a.front) out.select = "front-" + a.front;
       break;
     case "gate":
       // A front's or an asset's door on The empire (an asset's in
