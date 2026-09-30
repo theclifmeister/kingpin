@@ -24,6 +24,18 @@ def commit():
     except (OSError, subprocess.CalledProcessError):
         return os.environ.get('VERCEL_GIT_COMMIT_SHA', 'unknown')
 
+def go_license(goroot):
+    """Go's LICENSE: at GOROOT in the official tarball and a downloaded
+    toolchain, one level up in Homebrew's (GOROOT is its libexec)."""
+    paths = [goroot / 'LICENSE']
+    if goroot.name == 'libexec':
+        paths.append(goroot.parent / 'LICENSE')
+    for path in paths:
+        if path.is_file():
+            return path
+    raise SystemExit(f'Go\'s LICENSE is not at {" or ".join(map(str, paths))}; '
+                     'set KINGPIN_GO to a Go whose install ships it.')
+
 def build():
     protocol = (ROOT / 'internal/protocol/protocol.go').read_text()
     view = (ROOT / 'internal/engine/view.go').read_text()
@@ -48,7 +60,7 @@ def build():
                    cwd=ROOT, env={**os.environ, 'GOOS': 'js', 'GOARCH': 'wasm'}, check=True)
     goroot = Path(subprocess.check_output([GO, 'env', 'GOROOT'], text=True).strip())
     shutil.copyfile(goroot / 'lib/wasm/wasm_exec.js', OUT / 'assets/wasm_exec.js')
-    shutil.copyfile(goroot / 'LICENSE', OUT / 'assets/GO-LICENSE.txt')
+    shutil.copyfile(go_license(goroot), OUT / 'assets/GO-LICENSE.txt')
     for name in ['app.js', 'index.html']:
         path = OUT / name
         path.write_text(path.read_text().replace('__BUILD_REVISION__', revision))
