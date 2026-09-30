@@ -188,6 +188,7 @@ type LaunderingRules interface {
 	CashOutFee(amount int) int
 	Dial(d events.Launder) content.LaunderConfig
 	Fee(w *game.World, amount int) int
+	Float(w *game.World) int
 	FrontUpkeep(w *game.World, f game.Front) int
 	Growth() content.GrowthConfig
 	Income(f game.Front) int
@@ -199,6 +200,7 @@ type LaunderingRules interface {
 	MaxLevel(f game.Front) int
 	Offers() []game.FrontOffer
 	Offshore() content.OffshoreConfig
+	Outlay(w *game.World) int
 	Rot(pile int) int
 	RotLine() int
 	Throughput(w *game.World, f game.Front) int

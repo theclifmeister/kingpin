@@ -1470,3 +1470,37 @@ button.alert-item.notice {
   outline-offset: 3px;
   transition: outline-color 0.6s;
 }
+/* The wash and the till (#553): a warning in the gold's ink, the wash
+   panel's labelled lines and the till's field. */
+.warn-text {
+  color: #9a6a12;
+}
+.wash-panel {
+  margin-top: 15px;
+}
+.wash-panel p {
+  margin: 8px 0;
+}
+.wash-panel .row + p,
+.wash-panel .till-set {
+  margin-top: 12px;
+}
+.wash-panel .wash-line small {
+  display: inline-block;
+  min-width: 64px;
+  color: var(--muted);
+  letter-spacing: 0.06em;
+}
+.till-set input {
+  flex: 1;
+  min-width: 0;
+}
+.front-status {
+  margin: 6px 0 2px;
+}
+.card .warn-text {
+  color: #9a6a12;
+}
+.card .danger-text {
+  color: var(--coral);
+}

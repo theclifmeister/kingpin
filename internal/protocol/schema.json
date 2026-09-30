@@ -14078,6 +14078,19 @@
         "type": "integer"
       }
     },
+    "rules.laundering.float": {
+      "changes": false,
+      "needsRun": true,
+      "params": {
+        "maxItems": 0,
+        "minItems": 0,
+        "prefixItems": [],
+        "type": "array"
+      },
+      "result": {
+        "type": "integer"
+      }
+    },
     "rules.laundering.front_upkeep": {
       "changes": false,
       "needsRun": true,
@@ -14260,6 +14273,19 @@
       },
       "result": {
         "$ref": "#/$defs/content.OffshoreConfig"
+      }
+    },
+    "rules.laundering.outlay": {
+      "changes": false,
+      "needsRun": true,
+      "params": {
+        "maxItems": 0,
+        "minItems": 0,
+        "prefixItems": [],
+        "type": "array"
+      },
+      "result": {
+        "type": "integer"
       }
     },
     "rules.laundering.rot": {
@@ -16820,7 +16846,7 @@
       "$ref": "#/$defs/engine.View"
     }
   },
-  "protocol": 26,
+  "protocol": 27,
   "title": "kingpind",
   "view_version": 16
 }

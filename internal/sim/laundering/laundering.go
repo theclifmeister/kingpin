@@ -502,7 +502,13 @@ func (s *Sim) Till(w *game.World) int { return max(s.Float(w), w.Laundering.Till
 // till. The road's lot is not kept back (#524): the ledger shows the
 // choice on its till line, a route waiting on a lot and the till that
 // would save for it, and the player raises the till (T).
-func (s *Sim) Line(w *game.World) int { return max(s.Till(w), w.SupplyOutlay()) }
+func (s *Sim) Line(w *game.World) int { return max(s.Till(w), s.Outlay(w)) }
+
+// Outlay is the dirty cash the supply contracts are committed to spend in
+// the morning (World.SupplyOutlay), which Line keeps back from the wash
+// whatever the till: served on the wire (#553) so a front end can say
+// what the till must be to save for the road over it, as the ledger does.
+func (s *Sim) Outlay(w *game.World) int { return w.SupplyOutlay() }
 
 // Washable is the dirty cash the fronts may take today: what is over the
 // line.

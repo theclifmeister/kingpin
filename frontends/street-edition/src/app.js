@@ -5,6 +5,7 @@ import { alertClass, landing, unknownLine } from "./landing.js?v=__BUILD_REVISIO
 import { howTheyCome, roleLines, temperLine, temperOf } from "./lieutenants.js?v=__BUILD_REVISION__";
 import * as crew from "./crew.js?v=__BUILD_REVISION__";
 import { engineInfo } from "./engine-info.js?v=__BUILD_REVISION__";
+import * as wash from "./wash.js?v=__BUILD_REVISION__";
 const $ = (s) => document.querySelector(s),
   esc = (s) =>
     String(s ?? "").replace(
@@ -372,22 +373,51 @@ function memberSheet(id) {
   );
 }
 function renderEmpire() {
-  const offers = query("rules.laundering.offers");
-  return `<div class="row"><h3>Your businesses</h3><select aria-label="Laundering approach" data-change="launder">${["careful", "normal", "greedy"].map((x) => `<option ${x === v.you.launder ? "selected" : ""}>${x}</option>`).join("")}</select></div><div class="cards" style="margin-top:15px">${offers
+  const p = session.preview(),
+    onOffer = query("front_offers") || [],
+    offers = query("rules.laundering.offers").filter((f) => v.fronts.some((x) => x.id === f.ID) || onOffer.some((o) => o.ID === f.ID));
+  return `<div class="row"><h3>Your businesses</h3><select aria-label="Laundering approach" data-change="launder">${["careful", "normal", "greedy"].map((x) => `<option ${x === v.you.launder ? "selected" : ""}>${x}</option>`).join("")}</select></div>${washPanelHTML(p)}<div class="cards" style="margin-top:15px">${offers
     .map((f) => {
       const own = v.fronts.find((x) => x.id === f.ID),
         level = own ? query("rules.laundering.levels", own.id, 1) : null;
-      return `<article class="card"><div class="card-top">${icon("shop")}<span class="tag ${own ? "" : "gold"}">${own ? "LEVEL " + own.level : "BUSINESS OPPORTUNITY"}</span></div><h3>${esc(f.Name)}</h3><p class="front-role">${esc(engineInfo.frontRoles[f.ID] || "")}</p><p>Base capacity ${money(f.Throughput)} / day<br>Base upkeep ${money(f.Upkeep)} clean / day</p>${own ? `<span class="subtle-text">${own.frozen ? "Temporarily frozen" : "Open for business"} · ${money(own.washed)} washed</span><div class="card-actions">${btn(level.Levels > 0 ? "Invest " + money(level.Cost) : "Maximum level", "invest", own.id, "small", level.Levels === 0 || v.you.clean_cash < level.Cost || !!v.over)}</div>` : `<div class="row"><strong class="price">${money(f.Cost)}</strong>${btn("Buy business", "buy-front", f.ID, "small", v.you.dirty_cash < f.Cost || v.you.peak_cash < f.UnlockCash || !!v.over)}</div>`}</article>`;
+      return `<article class="card" id="front-${esc(f.ID)}"><div class="card-top">${icon("shop")}<span class="tag ${own ? "" : "gold"}">${own ? "LEVEL " + own.level : "BUSINESS OPPORTUNITY"}</span></div><h3>${esc(f.Name)}</h3><p class="front-role">${esc(engineInfo.frontRoles[f.ID] || "")}</p><p>Base capacity ${money(f.Throughput)} / day<br>Base upkeep ${money(f.Upkeep)} clean / day</p>${own ? `${frontStatusHTML(own)}<span class="subtle-text">${money(own.washed)} washed</span><div class="card-actions">${btn(level.Levels > 0 ? "Invest " + money(level.Cost) : "Maximum level", "invest", own.id, "small", level.Levels === 0 || v.you.clean_cash < level.Cost || !!v.over)}</div>` : `${frontOfferHTML(f, p)}<div class="row"><strong class="price">${money(f.Cost)}</strong>${btn("Buy business", "buy-front", f.ID, "small", v.you.dirty_cash < f.Cost || !!wash.offerLock(v, f) || !!v.over)}</div>`}</article>`;
     })
     .join(
       "",
-    )}</div>${lanesHTML()}${trophiesHTML()}<div class="row section-gap"><h3>Make your next investment</h3>${btn("Properties & assets", "properties", "", "small subtle")}</div><div class="filters">${["all", "operations", "security", "legal", "crew", "laundering", "street", "logistics"].map((b) => `<button data-branch="${b}" class="${branch === b ? "active" : ""}">${b}</button>`).join("")}</div><div class="cards">${v.upgrades
+    )}</div>${onOffer.length ? "" : `<p class="subtle-text">${esc(wash.noFrontsOnOffer(query))}</p>`}${lanesHTML()}${trophiesHTML()}<div class="row section-gap"><h3>Make your next investment</h3>${btn("Properties & assets", "properties", "", "small subtle")}</div><div class="filters">${["all", "operations", "security", "legal", "crew", "laundering", "street", "logistics"].map((b) => `<button data-branch="${b}" class="${branch === b ? "active" : ""}">${b}</button>`).join("")}</div><div class="cards">${v.upgrades
     .filter((u) => branch === "all" || u.branch === branch)
     .map(
       (u) =>
         `<article class="card"><div class="card-top"><span class="tag ${u.state === "owned" ? "" : "gold"}">${esc(u.branch)}</span><small>${esc(u.state)}</small></div><h3>${esc(u.name)}</h3><p>${esc(u.desc)}</p>${u.requires.length ? `<p>Requires: ${u.requires.map(esc).join(", ")}</p>` : ""}<div class="row"><span><strong>${money(u.cost)}</strong> <small>${u.clean ? "clean" : "dirty"}</small></span>${btn(u.state === "owned" ? "Owned ✓" : "Buy upgrade", "upgrade", u.id, "small", u.state !== "available" || v.you[u.clean ? "clean_cash" : "dirty_cash"] < u.cost || !!v.over)}</div></article>`,
     )
     .join("")}</div>`;
+}
+// The wash, the till and the road (#553), as the TUI's ledger words
+// them (wash.js): the till and its control, the wash idle under it, a
+// route waiting on a lot, the fronts the night is expected to shut; a
+// front's status and why; an offer's terms, its lock and its shut.
+const tone = (t) => ({ warn: "warn-text", danger: "danger-text", subtle: "subtle-text" })[t] || "";
+function washPanelHTML(p) {
+  const t = wash.till(query),
+    lines = wash.washLines(v, query, p);
+  return `<section class="paper wash-panel" id="till"><div class="eyebrow">THE WASH AND THE TILL</div><div class="row"><span>The till${t.set ? "" : ' <small class="subtle-text">(the float)</small>'}</span><b>${money(t.till)} dirty kept</b></div>${t.line > t.till ? `<div class="row"><span>The contracts' morning</span><b>${money(t.outlay)} kept back</b></div>` : ""}<p class="subtle-text">${esc(wash.tillWords(query))}</p>${lines.map((l) => `<p class="wash-line"><small>${esc(l.label.toUpperCase())}</small> <span class="${tone(l.tone)}">${esc(l.text)}</span><span class="subtle-text">${esc(l.more)}</span></p>`).join("")}<p>${esc(wash.tonight(v, query))}</p><label class="row till-set"><input id="till-amount" aria-label="The till, in dirty dollars" type="number" min="0" step="1000" placeholder="blank = the float"${lines.find((l) => l.raise) ? ` value="${lines.find((l) => l.raise).raise}"` : ""}>${btn("Set the till", "set-till", "", "small", !!v.over)}</label><p class="subtle-text">${esc(wash.tillRules(query))}</p></section>`;
+}
+function frontStatusHTML(f) {
+  const st = wash.frontStatus(v, query, f),
+    covered = wash.coveredNights(v, query, f);
+  return `<p class="front-status ${tone(st.tone)}"><b>${esc(st.text)}</b>${covered ? `<br><small class="subtle-text">Upkeep covered ${plural(covered, "more night")}</small>` : ""}</p>`;
+}
+function frontOfferHTML(o, p) {
+  const lock = wash.offerLock(v, o);
+  if (lock) return `<p class="subtle-text">${esc(lock)}</p>`;
+  const shut = wash.frontShutWarning(v, query, o, p);
+  return `<p class="subtle-text">${esc(wash.frontTerms(query, o))}</p>${shut ? `<p class="danger-text">${esc(shut)}</p>` : ""}`;
+}
+// upkeepHTML is the money cards' line on tonight's clean bill (#458):
+// the defaults keep it back.
+function upkeepHTML() {
+  const due = wash.upkeepTonight(query);
+  return due > 0 ? `<p class="subtle-text">Upkeep tonight: ${money(due)} clean. The amount filled in keeps it back.</p>` : "";
 }
 function renderRivals() {
   return `${v.alerts
@@ -428,7 +458,7 @@ function renderLedger() {
     canVanish = v.you.upgrades.includes("identity"),
     canCrown = v.ambitions.some((a) => a.ending === "kingpin" && a.done),
     terms = endingTerms(canStraight);
-  return `<div class="cards"><article class="card"><div class="eyebrow">WHAT YOU’VE BUILT</div><h3>Total net worth</h3><div class="cash-total">${money(v.you.net_worth)}</div><p>Cash, offshore funds, inventory and property. Not all of it is spendable.</p><div class="row"><span>Business income, net of upkeep</span><b>${money(query("rules.laundering.legit_income"))}/day</b></div></article><article class="card"><div class="eyebrow">A FUTURE SOMEWHERE ELSE</div><h3>The offshore account</h3><div class="cash-total">${money(v.you.offshore)}</div><p>Transfers cost ${Math.round(off.Fee * 100)}%. Moving more than ${money(off.Lot)} in a day adds evidence.</p><label class="row"><input id="reserve-amount" aria-label="Amount to transfer" type="number" min="1" step="100" value="${Math.min(off.Lot, v.you.clean_cash) || 1000}">${btn("Transfer", "reserve", "", "small", !v.you.clean_cash || !!v.over)}</label></article><article class="card"><div class="eyebrow">CASH FOR THE STREET</div><h3>Cash out</h3><div class="cash-total">${money(v.you.clean_cash)}</div><p>Stock and wages are paid in dirty cash. Drawing clean money back costs ${money(query("rules.laundering.cash_out_fee", 100000))} per $100,000, and a dirty pile past your cover draws heat.</p><label class="row"><input id="cashout-amount" aria-label="Clean cash to cash out" type="number" min="1" step="100" value="${Math.min(v.you.clean_cash, 10000) || 1000}">${btn("Cash out", "cash-out", "", "small", !v.you.clean_cash || !!v.over)}</label></article></div><div class="tip-box">Your final score is offshore money divided by one plus the run’s body count. A large empire and a high score are different goals.</div><h3 class="section-gap">Give something back</h3><div class="paper" id="race"><p class="subtle-text">Community funding builds goodwill using clean cash.</p><div class="card-actions"><input id="fund-amount" type="number" aria-label="Community funding amount" min="1" value="2000">${btn("Fund " + esc(city().name), "fund", city().id, "small", !v.you.clean_cash || !!v.over)}</div></div>${ambitionsHTML()}<h3 class="section-gap">Choose your ending</h3><div class="cards"><article class="card"><span class="tag">THE QUIET EXIT</span><h3>Retired Clean</h3><p>${money(off.RetireCash)} offshore and ${plural(off.RetireDays, "day")} quiet. You have ${plural(v.you.quiet_days, "quiet day")}.</p>${canRetire ? "" : `<p class="subtle-text">${esc(short("retired"))}</p>`}${btn(canRetire ? "Retire now" : "Not ready yet", "retire", "", "small", !canRetire || !!v.over)}</article><article class="card"><span class="tag gold">THE CITY IS YOURS</span><h3>Kingpin</h3><p>${esc(terms.kingpin)}</p>${canCrown ? "" : `<p class="subtle-text">${esc(short("kingpin"))}</p>`}${btn(canCrown ? "Take the crown" : "No reign yet", "crown", "", "small", !canCrown || !!v.over)}</article><article class="card"><span class="tag">A NEW CHAPTER</span><h3>Vanished</h3><p>${esc(terms.vanished)}</p>${canVanish ? "" : `<p class="subtle-text">${esc(short("vanished"))}</p>`}${btn(canVanish ? "Vanish now" : "An identity is required", "vanish", "", "small", !canVanish || !!v.over)}</article><article class="card"><span class="tag">A DIFFERENT KIND OF EMPIRE</span><h3>A Businessman</h3><p>${esc(terms.businessman)}</p>${canStraight ? "" : `<p class="subtle-text">${esc(short("businessman"))}</p>`}${btn(canStraight ? "Go straight" : "Not yet", "go_straight", "", "small", !canStraight || !!v.over)}</article></div>`;
+  return `<div class="cards"><article class="card"><div class="eyebrow">WHAT YOU’VE BUILT</div><h3>Total net worth</h3><div class="cash-total">${money(v.you.net_worth)}</div><p>Cash, offshore funds, inventory and property. Not all of it is spendable.</p><div class="row"><span>Business income, net of upkeep</span><b>${money(query("rules.laundering.legit_income"))}/day</b></div></article><article class="card"><div class="eyebrow">A FUTURE SOMEWHERE ELSE</div><h3>The offshore account</h3><div class="cash-total">${money(v.you.offshore)}</div><p>Transfers cost ${Math.round(off.Fee * 100)}%. Moving more than ${money(off.Lot)} in a day adds evidence.</p><label class="row"><input id="reserve-amount" aria-label="Amount to transfer" type="number" min="1" step="100" value="${wash.reserveBlank(v, query) || ""}">${btn("Transfer", "reserve", "", "small", !v.you.clean_cash || !!v.over)}</label>${upkeepHTML()}</article><article class="card"><div class="eyebrow">CASH FOR THE STREET</div><h3>Cash out</h3><div class="cash-total">${money(v.you.clean_cash)}</div><p>Stock and wages are paid in dirty cash. Drawing clean money back costs ${money(query("rules.laundering.cash_out_fee", 100000))} per $100,000, and a dirty pile past your cover draws heat.</p><label class="row"><input id="cashout-amount" aria-label="Clean cash to cash out" type="number" min="1" step="100" value="${wash.cashOutBlank(v, query) || ""}">${btn("Cash out", "cash-out", "", "small", !v.you.clean_cash || !!v.over)}</label>${upkeepHTML()}</article></div><div class="tip-box">Your final score is offshore money divided by one plus the run’s body count. A large empire and a high score are different goals.</div><h3 class="section-gap">Give something back</h3><div class="paper" id="race"><p class="subtle-text">Community funding builds goodwill using clean cash.</p><div class="card-actions"><input id="fund-amount" type="number" aria-label="Community funding amount" min="1" value="2000">${btn("Fund " + esc(city().name), "fund", city().id, "small", !v.you.clean_cash || !!v.over)}</div></div>${ambitionsHTML()}<h3 class="section-gap">Choose your ending</h3><div class="cards"><article class="card"><span class="tag">THE QUIET EXIT</span><h3>Retired Clean</h3><p>${money(off.RetireCash)} offshore and ${plural(off.RetireDays, "day")} quiet. You have ${plural(v.you.quiet_days, "quiet day")}.</p>${canRetire ? "" : `<p class="subtle-text">${esc(short("retired"))}</p>`}${btn(canRetire ? "Retire now" : "Not ready yet", "retire", "", "small", !canRetire || !!v.over)}</article><article class="card"><span class="tag gold">THE CITY IS YOURS</span><h3>Kingpin</h3><p>${esc(terms.kingpin)}</p>${canCrown ? "" : `<p class="subtle-text">${esc(short("kingpin"))}</p>`}${btn(canCrown ? "Take the crown" : "No reign yet", "crown", "", "small", !canCrown || !!v.over)}</article><article class="card"><span class="tag">A NEW CHAPTER</span><h3>Vanished</h3><p>${esc(terms.vanished)}</p>${canVanish ? "" : `<p class="subtle-text">${esc(short("vanished"))}</p>`}${btn(canVanish ? "Vanish now" : "An identity is required", "vanish", "", "small", !canVanish || !!v.over)}</article><article class="card"><span class="tag">A DIFFERENT KIND OF EMPIRE</span><h3>A Businessman</h3><p>${esc(terms.businessman)}</p>${canStraight ? "" : `<p class="subtle-text">${esc(short("businessman"))}</p>`}${btn(canStraight ? "Go straight" : "Not yet", "go_straight", "", "small", !canStraight || !!v.over)}</article></div>`;
 }
 function reportHTML(r) {
   if (!r.sections)
@@ -519,7 +549,7 @@ function routes() {
     `<div class="eyebrow">ACROSS THE WATER</div><h2>Transport & supply</h2>${v.routes
       .map(
         (r) =>
-          `<div class="report-section"><div class="row"><h3>${esc(r.name)}</h3><span class="tag">${esc(r.mode)}</span></div><p>${esc(r.from)} → ${esc(r.to)} · ${r.risk_known ? "Risk " + Math.round(r.risk * 100) + "%" : "Risk unknown"}</p><select id="route-${r.id}">${["off", "slow", "normal", "fast"].map((x) => `<option ${x === r.dial ? "selected" : ""}>${x}</option>`).join("")}</select>${btn("Set pace", "route", r.id, "small")}<div class="card-actions"><select id="product-${r.id}">${city()
+          `<div class="report-section"><div class="row"><h3>${esc(r.name)}</h3><span class="tag">${esc(r.mode)}</span></div><p>${esc(r.from)} → ${esc(r.to)} · ${r.risk_known ? "Risk " + Math.round(r.risk * 100) + "%" : "Risk unknown"}</p>${routeIdleHTML(r)}<select id="route-${r.id}">${["off", "slow", "normal", "fast"].map((x) => `<option ${x === r.dial ? "selected" : ""}>${x}</option>`).join("")}</select>${btn("Set pace", "route", r.id, "small")}<div class="card-actions"><select id="product-${r.id}">${city()
             .products.map(
               (p) => `<option value="${p.id}">${esc(p.name)}</option>`,
             )
@@ -531,6 +561,11 @@ function routes() {
         "",
       )}<h3>In transit</h3>${v.shipments.length ? v.shipments.map((x) => `<p>${esc(x.product)} · ${x.units} units</p>`).join("") : "<p>No shipments on the road.</p>"}`,
   );
+}
+// routeIdleHTML is why a route on its dial sends nothing (#459, #537).
+function routeIdleHTML(r) {
+  const idle = wash.routeIdle(v, query, r);
+  return idle ? `<p class="${tone(idle.tone)}">${esc(idle.text)}</p>` : "";
 }
 function properties() {
   const houses = query("house_offers"),
@@ -549,7 +584,7 @@ function properties() {
       )
       .join(
         "",
-      )}<h3>Assets</h3>${assets.map((a) => `<div class="report-section"><b>${esc(a.Name)}</b><p>${money(a.Cost)} clean · ${esc(a.City)}</p>${btn("Purchase", "asset", a.ID, "small")}</div>`).join("")}`,
+      )}<h3>Assets</h3>${assets.map((a) => `<div class="report-section"><b>${esc(a.Name)}</b><p>${money(a.Cost)} clean · ${esc(a.City)}<br><small class="subtle-text">${esc(wash.assetTerms(a))}</small></p>${btn("Purchase", "asset", a.ID, "small")}</div>`).join("")}`,
   );
 }
 function integer(id) {
@@ -739,9 +774,16 @@ async function action(a, id) {
         });
         break;
       }
-      case "buy-front":
-        act("buy_front", [id], "Business purchased");
+      case "buy-front": {
+        // Bought into a shut (#496): only a confirm buys a front the
+        // night is expected to shut.
+        const o = (query("front_offers") || []).find((x) => x.ID === id),
+          shut = o ? wash.frontShutWarning(v, query, o, session.preview()) : "",
+          go = () => act("buy_front", [id], o ? `Bought ${o.Name} for ${money(o.Cost)}. It opens tomorrow, washing up to ${money(query("rules.laundering.throughput", id))} a day.` : "Business purchased");
+        if (shut) confirm(`Buy ${o.Name}?`, [[shut, "danger-text"]], go);
+        else go();
         break;
+      }
       case "invest":
         act("invest", [id, 1], "Business expanded");
         break;
@@ -785,8 +827,11 @@ async function action(a, id) {
         act("decline", [Number(id)], "Offer declined");
         break;
       case "cash-out": {
-        const n = integer("#cashout-amount");
-        act("cash_out", [n], `Cashed out ${money(n)} clean, less the banker's fee`);
+        const n = integer("#cashout-amount"),
+          warn = wash.upkeepWarning(query, v.you.clean_cash - n, v.you.dirty_cash + n - query("rules.laundering.cash_out_fee", n)),
+          go = () => act("cash_out", [n], `Cashed out ${money(n)} clean, less the banker's fee`);
+        if (warn) confirm(`Cash out ${money(n)}?`, [[warn.text, tone(warn.tone)]], go);
+        else go();
         break;
       }
       case "set-export": {
@@ -803,11 +848,26 @@ async function action(a, id) {
           );
         break;
       }
-      case "reserve":
-        act("reserve", [integer("#reserve-amount")], "Transfer queued", {
-          order: { key: "reserve", text: "Offshore transfer" },
-        });
+      case "reserve": {
+        if (!$("#reserve-amount").value.trim() && !wash.reserveBlank(v, query))
+          throw Error(`The account would take the ${money(wash.upkeepTonight(query))} clean kept back for tonight's upkeep, and that is all of it: type an amount to move it anyway.`);
+        const n = integer("#reserve-amount"),
+          warn = wash.upkeepWarning(query, v.you.clean_cash - n, v.you.dirty_cash),
+          go = () =>
+            act("reserve", [n], "Transfer queued", {
+              order: { key: "reserve", text: "Offshore transfer" },
+            });
+        if (warn) confirm(`Send ${money(n)} offshore?`, [[warn.text, tone(warn.tone)]], go);
+        else go();
         break;
+      }
+      case "set-till": {
+        const r = wash.setTill(query, $("#till-amount").value);
+        if (r.field !== undefined) $("#till-amount").value = r.field;
+        if (r.refuse) notify(r.refuse, true);
+        else act("set_till", [r.send], r.say, { close: false });
+        break;
+      }
       case "fund":
         act("fund", [id, integer("#fund-amount")], "Funding queued", {
           order: { key: "fund-" + id, text: "Community funding" },
@@ -1309,6 +1369,7 @@ function openAlert(a) {
     picked.classList.add("picked");
     setTimeout(() => picked.classList.remove("picked"), 2600);
     picked.scrollIntoView({ behavior: "smooth", block: "center" });
+    if (l.focus) document.getElementById(l.focus)?.focus({ preventScroll: true });
   } else $("#section-heading").scrollIntoView({ behavior: "smooth", block: "start" });
 }
 // morning is the alarm on a morning that opens on a danger (#549, the
