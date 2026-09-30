@@ -31,7 +31,7 @@ Start on seed 41 as the default character; a new story picks any of the six char
 - Rivals: scout, negotiate, accept/decline offers (each worded by who pays whom, a split with its corners), expansion warnings and confront scouts.
 - Ledger: offshore transfers, cash out (clean back to dirty at the quoted fee), community funding, engine-calculated ambitions and the four ending actions: their terms read off the rules and the plans' steps, each closed one saying what its plan still needs, each confirm in its own words.
 - Paper: engine-ordered reports, leading stories, cash-flow reconciliation with the MONEY section's itemised lines and cash before→after, and 90 report editions.
-- Persistent risk panel: heat ladder, evidence, cash exposure, tonight's count (the pile the police will count after tonight's landings and wages, before the wash) and its heat, investigation warnings and alert navigation.
+- Persistent risk panel: a warrant marked, heat ladder with the other cities' heat, evidence (one file for every city), cash exposure, tonight's count (the pile the police will count after tonight's landings and wages, before the wash) and its heat, every danger alert in red and alert navigation; each alert lands on the tab that answers it (`src/landing.js`, #549) and a morning that opens on a danger rings a red toast.
 
 Dilemmas display the engine's consequence chips, and a choice shows what happened. The day preview is explicitly an estimate and explains what it cannot predict. It requires a separate end-day action.
 

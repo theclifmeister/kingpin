@@ -1838,6 +1838,9 @@
         "cross": {
           "type": "string"
         },
+        "danger": {
+          "type": "boolean"
+        },
         "day": {
           "type": "integer"
         },
@@ -1846,6 +1849,9 @@
         },
         "due": {
           "type": "integer"
+        },
+        "faction": {
+          "type": "string"
         },
         "front": {
           "type": "string"
@@ -1880,6 +1886,9 @@
         "member": {
           "type": "integer"
         },
+        "notice": {
+          "type": "boolean"
+        },
         "product": {
           "type": "string"
         },
@@ -1888,6 +1897,9 @@
         },
         "share": {
           "type": "number"
+        },
+        "slip": {
+          "type": "integer"
         },
         "steps": {
           "type": "integer"
@@ -1902,7 +1914,9 @@
       "required": [
         "kind",
         "key",
-        "act"
+        "act",
+        "danger",
+        "notice"
       ],
       "type": "object"
     },
@@ -16806,7 +16820,7 @@
       "$ref": "#/$defs/engine.View"
     }
   },
-  "protocol": 25,
+  "protocol": 26,
   "title": "kingpind",
-  "view_version": 15
+  "view_version": 16
 }

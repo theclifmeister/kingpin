@@ -119,10 +119,84 @@ for (let i = 0; i < 45 && !session.view.over; i++) {
     assert.equal(other.newRun(41, c.id).day, 0, `${c.id} starts`);
   }
 }
+{
+  // The alerts (#549): every kind lands on the tab that shows what it
+  // names, with that thing opened or picked out; a danger is drawn as
+  // one and a plan is not; the preview words what it cannot know.
+  const { landing, alertClass, unknownLine } = await import(pathToFileURL(path.join(dist, "landing.js")));
+  const { WORDS } = await import(pathToFileURL(path.join(dist, "alerts.js")));
+  const act = (screen, subject = "", mode = "") => ({ screen, subject, mode });
+  // [alert, tab, open, id, select]: the table the page is held to.
+  const LANDS = [
+    [{ kind: "arrest", act: act("dashboard") }, "street", "", "", "risk"],
+    [{ kind: "broke", act: act("market") }, "market", "", "", ""],
+    [{ kind: "talking", act: act("crew") }, "crew", "", "", ""],
+    [{ kind: "pages", act: act("crew") }, "crew", "", "", ""],
+    [{ kind: "task_force", act: act("dashboard") }, "street", "", "", "risk"],
+    [{ kind: "file", act: act("dashboard") }, "street", "", "", "risk"],
+    [{ kind: "investigation", target: "corner", corner: "k1", act: act("map", "corner") }, "street", "corner", "k1", ""],
+    [{ kind: "investigation", target: "product", product: "weed", act: act("market") }, "market", "", "", "product-weed"],
+    [{ kind: "investigation", target: "house", house: "h1", act: act("ledger", "house") }, "empire", "properties", "h1", ""],
+    [{ kind: "war_muscle", act: act("crew") }, "crew", "", "", ""],
+    [{ kind: "no_corner", corner: "k1", act: act("map", "corner", "post") }, "street", "corner", "k1", ""],
+    [{ kind: "no_corner", act: act("map") }, "street", "", "", ""],
+    [{ kind: "contract_due", contract: 4, act: act("market", "contract") }, "market", "", "", "contract-4"],
+    [{ kind: "debt_due", supplier: "cass", act: act("market", "supplier") }, "market", "", "", "connect-cass"],
+    [{ kind: "heat", act: act("dashboard") }, "street", "", "", "risk"],
+    [{ kind: "front_shut", front: "laundromat", act: act("ledger") }, "empire", "", "", ""],
+    [{ kind: "float", act: act("ledger") }, "empire", "", "", ""],
+    [{ kind: "till", act: act("ledger") }, "empire", "", "", ""],
+    [{ kind: "wages", act: act("crew") }, "crew", "", "", ""],
+    [{ kind: "crew_line", member: 3, act: act("crew", "member") }, "crew", "member", 3, ""],
+    [{ kind: "skim", act: act("crew") }, "crew", "", "", ""],
+    [{ kind: "unposted", member: 3, corner: "k1", act: act("map", "member", "post") }, "street", "corner", "k1", ""],
+    [{ kind: "unposted", member: 3, act: act("crew", "member") }, "crew", "member", 3, ""],
+    [{ kind: "idle_corner", corner: "k1", act: act("map", "corner", "post") }, "street", "corner", "k1", ""],
+    [{ kind: "stash_full", city: "eastside", act: act("ledger", "city") }, "empire", "properties", "", ""],
+    [{ kind: "landed", product: "weed", city: "eastside", act: act("market", "city") }, "market", "", "", "product-weed"],
+    [{ kind: "scouts", faction: "f1", act: act("rivals") }, "rivals", "", "", "faction-f1"],
+    [{ kind: "gate", gate: { kind: "product" }, act: act("market") }, "market", "", "", ""],
+    [{ kind: "gate", gate: { kind: "connect" }, act: act("market") }, "market", "", "", ""],
+    [{ kind: "gate", gate: { kind: "front" }, act: act("ledger") }, "empire", "", "", ""],
+    [{ kind: "gate", gate: { kind: "asset" }, act: act("ledger") }, "empire", "properties", "", ""],
+    [{ kind: "port", city: "bayport", act: act("map", "city") }, "street", "", "", ""],
+    [{ kind: "exports", act: act("ledger") }, "empire", "", "", ""],
+    [{ kind: "house_known", house: "h1", act: act("ledger", "house") }, "empire", "properties", "h1", ""],
+    [{ kind: "da_race", city: "eastside", act: act("ledger", "city") }, "ledger", "", "", "race"],
+    [{ kind: "retire", act: act("ledger") }, "ledger", "", "", ""],
+    [{ kind: "retire", ready: true, act: act("dashboard") }, "ledger", "", "", ""],
+    [{ kind: "favour", act: act("ledger") }, "street", "police", "", ""],
+    [{ kind: "reign", act: act("dashboard") }, "ledger", "", "", ""],
+    [{ kind: "straight", act: act("dashboard") }, "ledger", "", "", ""],
+    [{ kind: "vanish", act: act("dashboard") }, "ledger", "", "", ""],
+    [{ kind: "exposure", act: act("ledger") }, "empire", "", "", ""],
+    [{ kind: "plan", act: act("dashboard") }, "ledger", "", "", ""],
+  ];
+  for (const kind of Object.keys(WORDS))
+    assert.ok(LANDS.some(([a]) => a.kind === kind), `${kind} has a row in the landing table`);
+  for (const [a, tab, open, id, select] of LANDS) {
+    const l = landing(a);
+    assert.deepEqual([l.tab, l.open, l.id, l.select], [tab, open, id, select], `${a.kind} ${JSON.stringify(a)} lands`);
+  }
+  assert.match(alertClass({ kind: "arrest", danger: true }), /\bdanger\b/);
+  assert.match(alertClass({ kind: "broke", danger: true }), /\bdanger\b/);
+  assert.doesNotMatch(alertClass({ kind: "plan", danger: false, notice: false }), /danger/);
+  assert.match(alertClass({ kind: "till", danger: false, notice: true }), /\bnotice\b/);
+  // The engine's own: every alert the run above raised is classed off
+  // its danger and notice, which it always carries.
+  for (const a of session.refresh().alerts) {
+    assert.equal(typeof a.danger, "boolean", `${a.kind} carries danger`);
+    assert.equal(/\bdanger\b/.test(alertClass(a)), a.danger, `${a.kind} is drawn by its danger`);
+  }
+  const p = session.preview();
+  assert.ok(p && Array.isArray(p.unknown) && p.unknown.length, "the preview says what it cannot know");
+  assert.match(unknownLine(p.unknown), /^An estimate before the dice: robberies, .* are not in it\.$/, "every unknown worded");
+  assert.ok(p.wash && typeof p.wash.washed === "number", "the preview carries the wash");
+}
 const restored = new Session(globalThis.kingpin);
 restored.importSave(session.exportSave());
 assert.deepEqual(restored.view, session.refresh());
 console.log(
-  `Street Edition engine integration passed at day ${session.view.day}: forecasts, dilemmas and their outcomes, the three sales approaches, cash flow and the cash line, the six characters, lanes, trophies, cash-out, the ways out, the lieutenants and save round-trip.`,
+  `Street Edition engine integration passed at day ${session.view.day}: forecasts, dilemmas and their outcomes, the three sales approaches, cash flow and the cash line, the six characters, lanes, trophies, cash-out, the ways out, the lieutenants, where every alert lands and save round-trip.`,
 );
 process.exit(0);

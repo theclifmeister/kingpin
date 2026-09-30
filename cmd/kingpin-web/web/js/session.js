@@ -7,7 +7,7 @@
 // The versions this client is written against. A module with another
 // protocol or view version is refused before a run starts: a field
 // renamed under the client would draw a wrong game, not fail.
-export const SUPPORTED = { protocol: [25], view: [15] };
+export const SUPPORTED = { protocol: [26], view: [16] };
 
 export class VersionError extends Error {}
 

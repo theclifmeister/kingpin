@@ -13,7 +13,7 @@ ROOT = HERE.parents[1]
 OUT = HERE / 'dist'
 GO = os.environ.get('KINGPIN_GO', 'go')
 # The frontend must be reviewed before accepting a changed contract.
-EXPECTED_PROTOCOL, EXPECTED_VIEW = 25, 15
+EXPECTED_PROTOCOL, EXPECTED_VIEW = 26, 16
 
 def commit():
     """The commit the build stamps: git's, or where there is no .git (a

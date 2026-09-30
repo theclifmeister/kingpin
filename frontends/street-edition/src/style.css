@@ -1437,3 +1437,36 @@ button.alert-item {
 .headline-link:hover {
   background: #d9ab4612;
 }
+/* The alerts by class (#549): a danger in red, a notice quiet; the
+   warrant on the risk panel; the thing an alert lands on, picked out. */
+.alert-item.danger,
+button.alert-item.danger {
+  color: var(--coral);
+  font-weight: 700;
+  border-left: 4px solid var(--coral);
+  padding-left: 9px;
+}
+.alert-item.notice,
+button.alert-item.notice {
+  color: var(--muted);
+}
+.warrant {
+  margin: 0 0 10px;
+  padding: 7px 9px;
+  background: var(--coral);
+  color: #fff;
+  font-weight: 700;
+  letter-spacing: 0.04em;
+}
+.other-heat {
+  display: block;
+  margin-top: 4px;
+}
+.debt {
+  margin: 8px 0 0;
+}
+.picked {
+  outline: 3px solid var(--coral);
+  outline-offset: 3px;
+  transition: outline-color 0.6s;
+}
