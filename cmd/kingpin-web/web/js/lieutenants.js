@@ -15,14 +15,27 @@ export function tempers(t) {
 }
 
 // roleLines is the role in four sentences: the night's work, the cut and
-// the slots, the temper, and where they talk and where they walk.
+// the slots, the temper, and where they talk and where they walk; then,
+// with the ending on, when their turning ends the run (betrayLine).
 export function roleLines(t) {
-  return [
+  const lines = [
     "Runs a city for you: sells it every night and keeps it stocked; your own orders there win.",
     `Takes ${pct(t.Cut)} of the city's takings and brings ${plural(t.Crew, "crew slot")} of their own.`,
     `Their temper is ${tempers(t)}; it shows after ${plural(t.RevealDays, "day")} running a city.`,
     `Under ${Math.round(t.Flip)} loyalty they talk to the police; at ${Math.round(t.Quit)} they walk and take the city with them.`,
   ];
+  const betray = betrayLine(t);
+  return betray ? [...lines, betray] : lines;
+}
+
+// betrayLine is when a turned lieutenant ends the run (the TUI's
+// betrayWords, #520), off the terms' BetrayShare and BetrayCorners:
+// "Turning while their city holds 50% of your corners, 3 at least, ends
+// the run betrayed; checked only the night they turn." Empty with the
+// ending boxed (a share of 0).
+export function betrayLine(t) {
+  if (!(t.BetrayShare > 0)) return "";
+  return `Turning while their city holds ${pct(t.BetrayShare)} of your corners, ${plural(Math.max(1, t.BetrayCorners || 0), "corner")} at least, ends the run betrayed; checked only the night they turn.`;
 }
 
 // temperLine is one temper in a line: the dial they sell at, the heat

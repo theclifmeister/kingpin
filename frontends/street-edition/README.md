@@ -12,7 +12,7 @@ node frontends/street-edition/smoke.mjs
 python3 -m http.server 8080 --bind 127.0.0.1 --directory frontends/street-edition/dist
 ```
 
-Open http://127.0.0.1:8080. `KINGPIN_GO=/path/to/go` selects a Go executable. The generated `dist/` folder can be served by any static host; there is no server-side game process. Generated WASM, shared JS, loader and derived content are not committed. The builder refuses a different protocol/view contract until this frontend is reviewed. It copies `session.js`, `alerts.js`, `police.js` and `lieutenants.js` from the reference web client, and reads front roles and trait descriptions from the same checkout's TOML.
+Open http://127.0.0.1:8080. `KINGPIN_GO=/path/to/go` selects a Go executable. The generated `dist/` folder can be served by any static host; there is no server-side game process. Generated WASM, shared JS, loader and derived content are not committed. The builder refuses a different protocol/view contract until this frontend is reviewed. It copies `session.js`, `alerts.js`, `police.js` and `lieutenants.js` from the reference web client, and reads front roles, trait descriptions and three crew numbers no rule serves (a blank investigation's loyalty, a war's enforcers, the sloppy skill) from the same checkout's TOML.
 
 ## Deploying on Vercel
 
@@ -26,7 +26,7 @@ Start on seed 41 as the default character; a new story picks any of the six char
 
 - Streets: city travel, corner assignment/abandonment, enforcer strikes, police tips and undercutting.
 - Market: purchases, max-buy capacity, reviewed restocking, queued sales, private buyers, routes and reviewed built-in operation presets.
-- Crew: hire/dismiss, assignments, pay policies, bonuses, veteran traits, city captains with nightly budgets, and lieutenants: a city to run, their temper once it shows, and the role's terms (cut, crew slots, tempers, the loyalty risk) where you hire and assign them (#455).
+- Crew: hire and fire (the fire confirm names what it costs the rest, who it takes to the walk line and a war it can lose, #551), ask around (price and odds, the `talking` alert lands on it), pay-offs and bail with their costs, the pay dial's wages a day, `N of M` on the payroll, each member's post, lines, SNITCH mark and days laid up or jailed, a crew summary, assignments, veteran traits, city captains with nightly budgets, and lieutenants: a city to run, their temper once it shows, and the role's terms (cut, crew slots, tempers, the loyalty risk) where you hire and assign them (#455).
 - Empire: front roles, investment levels, upgrades, properties and assets; export lanes (what each waits on, or its capacity, order, rate abroad and loads out, and an order form) and trophies (owned, and the offers to buy with clean cash).
 - Rivals: scout, negotiate, accept/decline offers (each worded by who pays whom, a split with its corners), expansion warnings and confront scouts.
 - Ledger: offshore transfers, cash out (clean back to dirty at the quoted fee), community funding, engine-calculated ambitions and the four ending actions: their terms read off the rules and the plans' steps, each closed one saying what its plan still needs, each confirm in its own words.

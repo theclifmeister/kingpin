@@ -3,6 +3,7 @@ import { policeLines } from "./police.js?v=__BUILD_REVISION__";
 import { alertText } from "./alerts.js?v=__BUILD_REVISION__";
 import { alertClass, landing, unknownLine } from "./landing.js?v=__BUILD_REVISION__";
 import { howTheyCome, roleLines, temperLine, temperOf } from "./lieutenants.js?v=__BUILD_REVISION__";
+import * as crew from "./crew.js?v=__BUILD_REVISION__";
 import { engineInfo } from "./engine-info.js?v=__BUILD_REVISION__";
 const $ = (s) => document.querySelector(s),
   esc = (s) =>
@@ -149,10 +150,13 @@ function modal(html) {
   $("#sheet-content").innerHTML = html;
   if (!$("#sheet").open) $("#sheet").showModal();
 }
+// confirm asks before an act: text is a paragraph, or a list of them,
+// each a string or [text, class] (a warning in "danger-text").
 function confirm(title, text, callback) {
   confirmAction = callback;
+  const paras = [].concat(text).map((l) => (Array.isArray(l) ? `<p class="${l[1]}">${esc(l[0])}</p>` : `<p>${esc(l)}</p>`));
   modal(
-    `<div class="eyebrow">A DECISION TO MAKE</div><h2>${esc(title)}</h2><p>${esc(text)}</p><div class="card-actions">${btn("Confirm", "confirm", "", "primary")}${btn("Keep playing", "close", "", "subtle")}</div>`,
+    `<div class="eyebrow">A DECISION TO MAKE</div><h2>${esc(title)}</h2>${paras.join("")}<div class="card-actions">${btn("Confirm", "confirm", "", "primary")}${btn("Keep playing", "close", "", "subtle")}</div>`,
   );
 }
 function render() {
@@ -321,8 +325,51 @@ function renderMarket() {
 }
 function renderCrew() {
   const lt = query("rules.crew.lieutenancy"),
-    hint = howTheyCome(v);
-  return `${hint ? `<div class="tip-box" style="margin-bottom:16px">${esc(hint)}</div>` : ""}<div class="row" style="margin-bottom:16px"><span class="subtle-text">${v.crew.length} on payroll · daily wages depend on your pay policy</span><label>Pay <select id="pay-dial" data-change="pay">${["stingy", "fair", "generous"].map((x) => `<option ${v.you.pay === x ? "selected" : ""}>${x}</option>`).join("")}</select></label></div><div class="cards">${v.crew.map((m) => `<article class="card"><div class="crew-header"><div class="portrait ${m.role === "runner" ? "teal" : ""}">${esc(m.name.slice(0, 1))}</div><div><span class="tag">${esc(m.role)}</span><h3>${esc(m.name)}</h3></div></div><div class="stat-row"><span><b>${m.skill}</b>skill</span><span><b>${Math.round(m.loyalty)}%</b>loyalty</span><span><b>${money(m.wage)}</b>base wage</span></div><div class="meter teal"><span style="width:${pct(m.loyalty)}%"></span></div><p>${m.trait ? `<span class="tag">${esc(m.trait)}</span><small> ${esc(engineInfo.traits[m.trait] || "")}</small> ` : ""}${m.captain ? `<b>Captain of ${esc(m.captain)}</b> · Budget ${money(m.budget)}<br>` : ""}${m.role === "lieutenant" ? lieutenantStatus(m, lt) : m.post ? "Working " + esc(m.post) : "No corner assigned"}${m.jailed ? " · In custody" : ""}</p><div class="card-actions">${["runner", "enforcer"].includes(m.role) ? btn("Assign corner", "assign-person", m.id, "small") : ""}${m.role === "lieutenant" ? btn(m.city ? "Change city" : "Run a city", "lieutenant-city", m.id, "small") : ""}${btn("Pay a bonus", "bonus", m.id, "small")}${btn("Captaincy", "captain", m.id, "small subtle")}${btn("Details", "crew-detail", m.id, "small subtle")}</div></article>`).join("") || '<div class="empty">For now, it’s just you. Find someone you can count on below.</div>'}</div><h3 class="section-gap">New faces in town</h3><div class="cards">${v.pool.map((m) => `<article class="card"><div class="card-top"><span class="tag">${esc(m.role)}</span><span class="price">${money(m.fee)}</span></div><h3>${esc(m.name)}</h3><p>Age ${m.age} · Skill ${m.skill} · Loyalty ${Math.round(m.loyalty)}%<br>Base wage ${money(m.wage)} / day</p>${m.role === "lieutenant" ? `<p class="front-role">${roleLines(lt).slice(0, 2).map(esc).join(" ")}</p>` : ""}${btn("Hire " + esc(m.name), "hire", m.id, "small", v.you.dirty_cash < m.fee || !!v.over)}</article>`).join("")}</div>`;
+    tun = query("rules.crew.tuning"),
+    flip = query("rules.crew.flip_line"),
+    most = query("rules.crew.max_crew"),
+    hint = howTheyCome(v),
+    warn = crew.crewWarning(v, tun);
+  return `${hint ? `<div class="tip-box" style="margin-bottom:16px">${esc(hint)}</div>` : ""}${warn ? `<div class="tip-box danger-text" style="margin-bottom:16px">${esc(warn)}</div>` : ""}<div class="row" style="margin-bottom:16px"><span class="subtle-text">${esc(crew.countLine(v, most))}</span><label>Pay <select id="pay-dial" data-change="pay">${crew.PAY.map((x) => `<option value="${x}" ${v.you.pay === x ? "selected" : ""}>${x} · ${money(query("rules.crew.wages", x))}/day</option>`).join("")}</select></label>${askAroundButton()}</div><p class="subtle-text">${esc(crew.payBlurb(v.you.pay))}</p><div class="cards">${v.crew.map((m) => memberCard(m, lt, tun, flip)).join("") || '<div class="empty">For now, it’s just you. Find someone you can count on below.</div>'}</div>${crewSummary()}<h3 class="section-gap">New faces in town</h3><div class="cards">${v.pool.map((m) => `<article class="card"><div class="card-top"><span class="tag">${esc(m.role)}</span><span class="price">${money(m.fee)}</span></div><h3>${esc(m.name)}</h3><p>Age ${m.age} · Skill ${m.skill} · Loyalty ${Math.round(m.loyalty)}%<br>Base wage ${money(m.wage)} / day</p>${m.role === "lieutenant" ? `<p class="front-role">${roleLines(lt).slice(0, 2).map(esc).join(" ")}</p>` : ""}${btn("Hire " + esc(m.name), "hire", m.id, "small", v.you.dirty_cash < m.fee || !!v.over)}</article>`).join("")}</div>`;
+}
+// The crew tab's answers (#551, the TUI's crew screen): each member's
+// card with where they are, the SNITCH mark, the lines they cross and
+// the acts with their prices; the ask around; the CREW summary.
+function askAroundButton() {
+  const label = v.crew.length ? `Ask around · ${money(query("rules.crew.investigate_cost"))}, names ~${Math.round(query("rules.crew.investigate_odds") * 100)}%` : "Ask around · nobody to ask";
+  return `<button id="investigate" class="button small" data-action="investigate" ${!v.crew.length || v.over ? "disabled" : ""}>${label}</button>`;
+}
+function memberCard(m, lt, tun, flip) {
+  const tag = crew.crewTag(v, m, query("rules.crew.retiring", m.id)),
+    where = crew.post(v, m),
+    status = m.role === "lieutenant" && !m.jailed && !m.wounded ? lieutenantStatus(m, lt) : `<span class="${where.warn ? "danger-text" : ""}">${esc(where.text[0].toUpperCase() + where.text.slice(1))}</span>`;
+  return `<article class="card" id="member-${m.id}"><div class="crew-header"><div class="portrait ${m.role === "runner" ? "teal" : ""}">${esc(m.name.slice(0, 1))}</div><div><span class="tag">${esc(m.role)}</span>${m.exposed ? ' <span class="tag coral">SNITCH</span>' : ""}${tag ? ` <span class="tag ${tag === "retiring" ? "gold" : "coral"}">${esc(tag)}</span>` : ""}<h3>${esc(m.name)}</h3></div></div><div class="stat-row"><span><b>${m.skill}</b>skill</span><span><b>${Math.floor(m.loyalty)}</b>loyalty</span><span><b>${money(query("rules.crew.wage_at", m.id, v.you.pay))}</b>a day, ${esc(v.you.pay)}</span></div><div class="meter teal"><span style="width:${pct(m.loyalty)}%"></span></div><p><small class="${m.loyalty < crew.lineOf(m, tun, flip) ? "danger-text" : "subtle-text"}">${esc(crew.linesLine(m, tun, flip))}</small><br>${m.trait ? `<span class="tag">${esc(m.trait)}</span><small> ${esc(engineInfo.traits[m.trait] || "")}</small> ` : ""}${m.captain ? `<b>Captain of ${esc(m.captain)}</b> · Budget ${money(m.budget)}<br>` : ""}${status}${m.exposed ? '<br><span class="danger-text">Talking to the police.</span>' : ""}</p><div class="card-actions">${["runner", "enforcer"].includes(m.role) ? btn("Assign corner", "assign-person", m.id, "small") : ""}${m.role === "lieutenant" ? btn(m.city ? "Change city" : "Run a city", "lieutenant-city", m.id, "small") : ""}${m.jailed && !m.bailed ? btn(`Bail · ${money(query("rules.crew.bail_cost", m.id))} clean`, "bail", m.id, "small", !!v.over) : ""}${btn(`Pay off · ${money(query("rules.crew.payoff_cost", m.id))}`, "bonus", m.id, "small", !!v.over)}${btn("Captaincy", "captain", m.id, "small subtle")}${btn("Details", "crew-detail", m.id, "small subtle")}</div></article>`;
+}
+// crewSummary is the CREW block under the cards (the TUI pane's CREW).
+function crewSummary() {
+  if (!v.crew.length) return "";
+  const rows = crew.summary(v, query("rules.heat.sloppy_heat", v.you.city, 100), engineInfo.sloppySkill);
+  return `<h3 class="section-gap">The crew</h3><div class="paper">${rows.map(([k, t, bad]) => `<p>${k ? `<b>${esc(k)}</b> · ` : ""}<span class="${bad ? "danger-text" : ""}">${esc(t)}</span></p>`).join("")}</div>`;
+}
+// memberSheet is a member's details (the TUI pane's person): the role,
+// the age and when they retire, the loyalty and its lines, the wage at
+// every notch, where they are, the temper, and the acts with what each
+// would do.
+function memberSheet(id) {
+  const m = v.crew.find((x) => x.id === Number(id)),
+    tun = query("rules.crew.tuning"),
+    flip = query("rules.crew.flip_line"),
+    life = query("rules.crew.life"),
+    retiring = query("rules.crew.retiring", m.id),
+    where = crew.post(v, m),
+    lt = query("rules.crew.lieutenancy");
+  const age = m.age ? `Age ${m.age}${life.YearDays > 0 ? (retiring ? ` · retires Day ${query("rules.crew.birthday", m.id, v.day)}` : ` · retires at ${life.RetireAge}`) : ""}` : "";
+  const wages = crew.PAY.map((p) => `${p} ${money(query("rules.crew.wage_at", m.id, p))}`).join(" · ");
+  const temper = m.role !== "lieutenant" ? "" : m.personality ? `Temper: ${m.personality} · ${temperLine(temperOf(lt, m.personality) || {})}` : m.city ? `Temper shows after ${Math.max(1, lt.RevealDays - (v.day - m.assigned))} more days running it` : "Temper shows on the job";
+  const fire = m.exposed ? "Fire: the file stops growing; nobody minds." : `Fire: the rest lose ${Math.round(tun.FireLoyalty)} loyalty, not for a snitch.`;
+  modal(
+    `<span class="tag">${esc(m.role)}</span>${m.exposed ? ' <span class="tag coral">SNITCH</span>' : ""}<h2>${esc(m.name)}</h2><p>Skill ${m.skill} · Hired Day ${m.hired}${age ? "<br>" + esc(age) : ""}<br>Loyalty ${Math.floor(m.loyalty)} · <span class="subtle-text">${esc(crew.linesLine(m, tun, flip))}</span><br>Wage ${money(query("rules.crew.wage_at", m.id, v.you.pay))}/day ${esc(v.you.pay)} · <span class="subtle-text">${esc(wages)}</span><br>Carry capacity ${m.carry}<br><span class="${where.warn ? "danger-text" : ""}">${esc(where.text[0].toUpperCase() + where.text.slice(1))}</span>${temper ? "<br>" + esc(temper) : ""}</p>${m.exposed ? '<p class="danger-text"><b>SNITCH</b>: talking to the police.</p>' : ""}<p class="subtle-text">${esc(fire)}</p><div class="card-actions">${m.jailed && !m.bailed ? btn(`Bail · ${money(query("rules.crew.bail_cost", m.id))} clean`, "bail", id, "small", !!v.over) : ""}${btn(`Pay off · ${money(query("rules.crew.payoff_cost", m.id))}`, "bonus", id, "small", !!v.over)}${btn("Fire", "fire", id, "subtle", !!v.over)}</div>`,
+  );
 }
 function renderEmpire() {
   const offers = query("rules.laundering.offers");
@@ -634,9 +681,27 @@ async function action(a, id) {
       case "hire":
         act("hire", [Number(id)], "Welcome to the crew");
         break;
-      case "bonus":
-        act("pay_off", [Number(id)], "Bonus paid");
+      case "bonus": {
+        const m = v.crew.find((x) => x.id === Number(id));
+        confirm(`Pay off ${m.name}?`, crew.payOffLines(m, query("rules.crew.payoff_cost", m.id), query("rules.crew.payoff_loyalty")), () => {
+          const got = act("pay_off", [m.id], null);
+          if (got) notify(`${got.Name} pocketed it. Loyalty ${Math.round(got.Loyalty)}.`);
+        });
         break;
+      }
+      case "bail": {
+        const m = v.crew.find((x) => x.id === Number(id)),
+          cost = query("rules.crew.bail_cost", m.id),
+          lines = crew.bailLines(v, m, cost, query("rules.crew.life").BailLoyalty);
+        confirm(`Bail ${m.name}?`, lines.map((l, i) => (i === 2 ? [l, "danger-text"] : l)), () => act("bail", [m.id], `Bail is down for ${m.name}: they walk tomorrow, and they know who paid.`));
+        break;
+      }
+      case "investigate": {
+        const odds = query("rules.crew.investigate_odds"),
+          lines = crew.investigateLines(v, query("rules.crew.investigate_cost"), odds, engineInfo.investigateLoyalty);
+        confirm("Investigate?", lines.map((l, i) => (i === 3 ? [l, "danger-text"] : l)), () => act("investigate", [], `Questions get asked tonight. Odds of a name ~${Math.round(odds * 100)}%.`));
+        break;
+      }
       case "assign-person": {
         const m = v.crew.find((m) => m.id === Number(id));
         modal(
@@ -656,20 +721,24 @@ async function action(a, id) {
           "Assignment updated",
         );
         break;
-      case "crew-detail": {
-        const m = v.crew.find((m) => m.id === Number(id));
-        modal(
-          `<span class="tag">${esc(m.role)}</span><h2>${esc(m.name)}</h2><p>Age ${m.age} · Hired Day ${m.hired}<br>Skill ${m.skill} · Loyalty ${Math.round(m.loyalty)}%<br>Carry capacity ${m.carry}</p>${btn("Dismiss from crew", "fire", id, "subtle")}`,
-        );
+      case "crew-detail":
+        memberSheet(id);
+        break;
+      case "fire": {
+        // The fire confirm (#551, ui fireConfirm): what it costs the
+        // rest, who it puts at the walk line, and the war it can lose.
+        const m = v.crew.find((x) => x.id === Number(id)),
+          tun = query("rules.crew.tuning"),
+          walk = crew.fireWalkLine(v, m, tun),
+          war = crew.fireWarLine(v, m, engineInfo.takenOutMuscle, query("rules.rivals.tuning").WarThreshold);
+        confirm(`Fire ${m.name}?`, [crew.fireCost(m, tun), ...[walk, war].filter(Boolean).map((l) => [l, "danger-text"])], () => {
+          if (!act("fire", [m.id], null)) return;
+          const n = v.crew.length,
+            most = query("rules.crew.max_crew");
+          notify(`${m.name} is gone. The rest noticed.${n > most ? ` The roster is ${n} of ${most}: nobody is let go, and nobody is hired until it is under ${most}.` : ""}`);
+        });
         break;
       }
-      case "fire":
-        confirm(
-          "Dismiss this person?",
-          "This removes them from your payroll and their assignment.",
-          () => act("fire", [Number(id)], "Crew member dismissed"),
-        );
-        break;
       case "buy-front":
         act("buy_front", [id], "Business purchased");
         break;
@@ -865,7 +934,7 @@ document.addEventListener("click", (e) => {
 document.addEventListener("change", (e) => {
   if (e.target.dataset.change === "sale-dial") saleDial = e.target.value;
   if (e.target.dataset.change === "pay")
-    act("set_pay", [e.target.value], "Pay policy updated");
+    act("set_pay", [e.target.value], `Pay ${e.target.value}, ${money(query("rules.crew.wages", e.target.value))}/day. ${crew.payBlurb(e.target.value)}`);
   if (e.target.dataset.change === "launder")
     act("set_launder_dial", [e.target.value], "Laundering policy updated");
 });
@@ -1234,6 +1303,7 @@ function openAlert(a) {
   } else if (l.open === "member" && v.crew.some((m) => m.id === l.id)) action("crew-detail", l.id);
   else if (l.open === "properties") properties();
   else if (l.open === "police") $("#police-risk").open = true;
+  else if (l.open === "investigate" && v.crew.length && !v.over) action("investigate");
   const picked = l.select && document.getElementById(l.select);
   if (picked) {
     picked.classList.add("picked");
