@@ -43,6 +43,7 @@ td button { padding: 1px 6px; }
 #alerts { list-style: none; margin: 0; padding: 0; }
 #alerts li { margin: 2px 0; color: var(--gold); }
 #alerts li.dim { color: var(--dim); }
+#alerts li.danger, #alerts li.danger button { color: var(--bad); font-weight: bold; }
 #alerts button { width: 100%; text-align: left; color: var(--gold); }
 .flash { animation: flash 1s ease-out; }
 @keyframes flash { from { outline: 2px solid var(--gold); } to { outline: 2px solid transparent; } }

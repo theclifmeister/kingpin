@@ -47,7 +47,7 @@ const (
 	AlertIdleCorner    AlertKind = "idle_corner"   // nobody works Corner in City: back to the street in Days
 	AlertStashFull     AlertKind = "stash_full"    // the stash in City holds Count of its Amount, at or over houses.toml's full_share
 	AlertLanded        AlertKind = "landed"        // a route keeps Product in City and Count of it sits in the stash there with no order selling it (#503)
-	AlertScouts        AlertKind = "scouts"        // a faction moving on City (#341), at stage Level (scouting or recruiting), arriving in Days
+	AlertScouts        AlertKind = "scouts"        // Faction moving on City (#341), at stage Level (scouting or recruiting), arriving in Days
 	AlertGate          AlertKind = "gate"          // Gate within reach
 	AlertPort          AlertKind = "port"          // the port untouched and worth the road (#476): City, Count free corners, Product at Amount, Supplier the wholesaler at Share of street
 	AlertExports       AlertKind = "exports"       // the Cartel stage and no load ever sent (#505): the lane out of City carries Count a night, Product paid Amount a unit abroad on Have off the book; Ready once the book is owned
@@ -55,7 +55,7 @@ const (
 	AlertDARace        AlertKind = "da_race"       // the DA race is Days off and taking money
 	AlertRetire        AlertKind = "retire"        // Ready, or Days quiet and Amount short
 	AlertFavour        AlertKind = "favour"        // the chief owes you one and Level comes tonight
-	AlertReign         AlertKind = "reign"         // day Days of the reign, Count crews paying Amount
+	AlertReign         AlertKind = "reign"         // day Days of the reign, Count crews paying Amount; Slip the mornings left once it slips under the share (#399, #549)
 	AlertStraight      AlertKind = "straight"      // going straight is open (#398): Amount the fronts' income a day
 	AlertVanish        AlertKind = "vanish"        // vanishing is open (#498): a new identity owned
 	AlertExposure      AlertKind = "exposure"      // tonight's landings put the pile past the cover (#397): Amount over the line, Heat what it adds, Count the loads
@@ -204,8 +204,15 @@ type Alert struct {
 	Gate     *Gate   `json:"gate,omitempty"`     // gate: the door
 	Ambition string  `json:"ambition,omitempty"` // plan: the ambition pinned
 	Steps    int     `json:"steps,omitempty"`    // plan: how many steps it has
+	Slip     int     `json:"slip,omitempty"`     // reign: the mornings left before a reign under the share breaks (1: this one is the last), 0 while it holds (#549)
+	Faction  string  `json:"faction,omitempty"`  // scouts: the faction's id (#549)
 
 	Act Act `json:"act"` // what answers it (#352), one of ActsOf(Kind)
+
+	// Danger() and Notice() as the wire carries them (#549), set by
+	// Alerts, so no front end outside Go works the rule out again.
+	IsDanger bool `json:"danger"`
+	IsNotice bool `json:"notice"`
 }
 
 // Alerts is what needs you this morning, loudest first, in the order
@@ -365,7 +372,14 @@ func (s *Session) Alerts() []Alert {
 	}
 	if w.Reign > 0 {
 		crews, homage := w.HomageDeals()
-		out = append(out, Alert{Kind: AlertReign, Key: "the city is yours", Days: w.ReignDay(), Count: crews, Amount: homage})
+		a := Alert{Kind: AlertReign, Key: "the city is yours", Days: w.ReignDay(), Count: crews, Amount: homage}
+		if w.ReignSlip > 0 {
+			// The mornings a reign under the share has left (#549, the
+			// rivals sim's reign_grace): the TUI's "it breaks in N
+			// mornings", which a web player could not read.
+			a.Slip = max(1, s.cfg.Rivals.Endings.ReignGrace-w.ReignSlip+1)
+		}
+		out = append(out, a)
 	}
 	if s.set.Laundering.CanGoStraight(w) {
 		out = append(out, Alert{Kind: AlertStraight, Key: "going straight", Amount: s.set.Laundering.LegitIncome(w)})
@@ -378,6 +392,7 @@ func (s *Session) Alerts() []Alert {
 		if out[i].Act.Screen == "" {
 			out[i].Act = alertActs[out[i].Kind][0]
 		}
+		out[i].IsDanger, out[i].IsNotice = out[i].Danger(), out[i].Notice()
 	}
 	// The dangers first, each kind's order kept (#534): a member under
 	// the informant line or a war on the last corner outranks the heat.
@@ -872,7 +887,7 @@ func (s *Session) scouts() []Alert {
 			stage = "recruiting"
 		}
 		days := max(0, s.set.Rivals.ArriveDay(s.w, r)-s.w.Day)
-		out = append(out, Alert{Kind: AlertScouts, Key: "scouts " + r.Faction() + " in " + r.ScoutingCity + " " + stage, City: r.ScoutingCity, Level: stage, Days: days})
+		out = append(out, Alert{Kind: AlertScouts, Key: "scouts " + r.Faction() + " in " + r.ScoutingCity + " " + stage, City: r.ScoutingCity, Level: stage, Days: days, Faction: r.Faction()})
 	}
 	return out
 }

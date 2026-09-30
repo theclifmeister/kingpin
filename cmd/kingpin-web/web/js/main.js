@@ -361,6 +361,7 @@ function render() {
   // answers it where the page has one, else its words alone.
   const alerts = (v.alerts || []).map((a) => {
     const li = document.createElement("li");
+    if (a.danger) li.className = "danger"; // the engine's class (#549)
     const panel = alertPanel(a);
     if (panel) li.append(button(alertText(v, a), false, () => showPanel(panel)));
     else li.textContent = alertText(v, a);

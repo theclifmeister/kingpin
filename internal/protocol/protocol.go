@@ -54,7 +54,9 @@ import (
 // and landless_floor (#530), the diplomacy's tribute_days and
 // offer_quiet (#532); 25 view 15 (#550), fast_forward's danger and
 // rules.heat.tip_evidence, the chance a tip files a page on you.
-const Version = 25
+// 26 the alerts' danger, notice, slip and faction, in holds and
+// preview as in the view (#549).
+const Version = 26
 
 // The error codes: JSON-RPC 2.0's, and the game's own in its
 // server-error range.

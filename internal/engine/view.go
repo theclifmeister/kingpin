@@ -26,7 +26,9 @@ import (
 // deals' terms, the proposal, a faction's police and tribute nights; the
 // score, the bodies, the summary's stats, the walk away's pending pages
 // and the stage waiting to be seen. Nothing in it is new state.
-const ViewVersion = 15
+// 16 every alert's danger and notice, the reign alert's slip and the
+// scouts alert's faction (#549).
+const ViewVersion = 16
 
 // View is a snapshot of what the player can see: what a front end draws
 // (#299). It is built from the world the way the TUI reads it and holds

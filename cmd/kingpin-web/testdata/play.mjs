@@ -75,6 +75,7 @@ function word(v, where) {
     const text = alertText(v, a);
     if (typeof text !== "string" || !text || /undefined|NaN|null/.test(text)) problem(`${where}: ${a.kind} reads ${JSON.stringify(text)}`);
     if (!a.act || !a.act.screen) problem(`${where}: ${a.kind} has no act`);
+    if (typeof a.danger !== "boolean" || typeof a.notice !== "boolean") problem(`${where}: ${a.kind} carries no danger or notice (#549)`);
     const panel = alertPanel(a);
     if (panel && !Object.values(PANELS).includes(panel)) problem(`${where}: ${a.kind} links to ${panel}`);
     out.alertsWorded++;
@@ -180,6 +181,35 @@ function play(seed, days) {
   } catch (e) {
     if (e.code !== -32000) problem(`assign refused with ${e.code}: ${e.message}`);
   }
+}
+
+// The alerts' words keep pace with the TUI's (#549): the file says
+// what one bust can file, an investigation names the product and the
+// answer, a contract its units, product and city, the scouts their
+// leader, a slipping reign its mornings, a member under the line the
+// remedy and a lieutenant's betrayal.
+{
+  const s = new Session(kingpin);
+  const v = s.newRun(7);
+  const here = v.cities.find((c) => c.id === v.you.city);
+  const p = here.products.find((x) => x.name !== x.id) || here.products[0];
+  const check = (a, want, not, view = v) => {
+    const text = alertText(view, { act: {}, ...a });
+    for (const w of want) if (!text.includes(w)) problem(`${a.kind} ${JSON.stringify(a)} reads ${JSON.stringify(text)}: no ${JSON.stringify(w)}`);
+    for (const w of not || []) if (text.includes(w)) problem(`${a.kind} ${JSON.stringify(a)} reads ${JSON.stringify(text)}: ${JSON.stringify(w)}`);
+  };
+  check({ kind: "file", count: 4, amount: 7, have: 3 }, ["File 4/7", "one bust can file 3"]);
+  check({ kind: "file", count: 4, amount: 7, have: 1 }, ["File 4/7"], ["one bust"]);
+  check({ kind: "investigation", target: "product", product: p.id, city: here.id, days: 3 }, [`the ${p.name} trade`, "or let them have it"], p.name === p.id ? [] : [`the ${p.id} trade`]);
+  const buyer = { id: 99, name: "Ray", units: 10, delivered: 4, product: p.id, city: here.id };
+  check({ kind: "contract_due", contract: 99, due: v.day + 1 }, [`Ray: 6 ${p.name} due tomorrow in ${here.name}`], [], { ...v, contracts: [buyer] });
+  const f = v.factions[0];
+  check({ kind: "scouts", faction: f.id, city: here.id, level: "scouting", days: 4 }, [`${f.leader}'s crew has scouts in ${here.name}`]);
+  check({ kind: "reign", days: 9, slip: 2 }, ["breaks in 2 mornings"]);
+  check({ kind: "reign", days: 9 }, ["day 9 of the reign", "every crew gone"], ["slipping"]);
+  const crew = [{ id: 1, name: "Vee", role: "runner" }, { id: 2, name: "Lu", role: "lieutenant" }];
+  check({ kind: "crew_line", cross: "under", member: 1, line: 20 }, ["Vee is under 20 loyalty", "Pay them off, or investigate"], [], { ...v, crew });
+  check({ kind: "crew_line", cross: "under", member: 2, line: 30 }, ["Lu is under 30 loyalty", "takes the city with them. Fire them"], [], { ...v, crew });
 }
 
 // Hiring (#332): the pool's first id, by the page's own call, lands on

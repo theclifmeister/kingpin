@@ -191,9 +191,8 @@ func (m *Model) alertOf(a engine.Alert) alert {
 			who = fmt.Sprintf("%s paying %s a night", plural(a.Count, "crew"), money(a.Amount))
 		}
 		text = theme.Gold.Render(fmt.Sprintf("The city is yours: day %d of the reign, %s. Take the crown or play on.", a.Days, who))
-		if slip := w.ReignSlip; slip > 0 {
-			left := m.cfg.Rivals.Endings.ReignGrace - slip + 1
-			text = theme.Warning.Render(fmt.Sprintf("The reign is slipping under the share of the corners: it breaks in %s unless you take corners back.", plural(left, "morning")))
+		if a.Slip > 0 {
+			text = theme.Warning.Render(fmt.Sprintf("The reign is slipping under the share of the corners: it breaks in %s unless you take corners back.", plural(a.Slip, "morning")))
 		}
 	case engine.AlertExposure:
 		text = theme.Warning.Render(fmt.Sprintf("Tonight's %s land %s past your cover: +%.0f heat before the wash.", plural(a.Count, "load"), money(a.Amount), a.Heat))
@@ -215,10 +214,8 @@ func (m *Model) alertOf(a engine.Alert) alert {
 // no longer sends it home).
 func (m *Model) scoutsAlert(a engine.Alert) (text, why string) {
 	who := "Somebody"
-	for _, r := range m.w.Rivals {
-		if r != nil && r.Scouting() && r.ScoutingCity == a.City {
-			who = m.rivalName(r)
-		}
+	if r := m.w.Faction(a.Faction); r != nil {
+		who = m.rivalName(r)
 	}
 	city := m.w.CityName(a.City)
 	style, what := theme.Warning, "has scouts in "+city

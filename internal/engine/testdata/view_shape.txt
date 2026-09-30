@@ -1,4 +1,4 @@
-version 15
+version 16
 .version int
 .seed uint64
 .day int
@@ -380,9 +380,13 @@ version 15
 .alerts[].gate.clean bool
 .alerts[].ambition string
 .alerts[].steps int
+.alerts[].slip int
+.alerts[].faction string
 .alerts[].act.screen string
 .alerts[].act.mode string
 .alerts[].act.subject string
+.alerts[].danger bool
+.alerts[].notice bool
 .ambitions []
 .ambitions[].id string
 .ambitions[].name string
