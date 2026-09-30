@@ -6,9 +6,7 @@ import (
 
 	tea "github.com/charmbracelet/bubbletea"
 
-	"github.com/theclifmeister/kingpin/internal/content"
 	"github.com/theclifmeister/kingpin/internal/engine"
-	"github.com/theclifmeister/kingpin/internal/game"
 	"github.com/theclifmeister/kingpin/internal/ui/theme"
 )
 
@@ -108,27 +106,9 @@ func (m *Model) stageLines(n int) []string {
 	return body
 }
 
-// stageNext is the NEXT line of tier n's modal: the file's line on what
-// the next stage takes, the closing line at the top of the ladder, or,
-// where the next stage's line is crossed already, that it opens in the
-// morning (#537: STAGE 2 shown on day 31 said `Move $25K: the
-// laundromat opens` of a laundromat open since day 26). The news sim
-// enters one stage a morning, the first whose trigger holds
-// (game.Eligible over its enter), so that is the check.
-func (m *Model) stageNext(n int) string {
-	tier := m.cfg.Progression.Tier(n)
-	if n == len(m.cfg.Progression.Tiers) && tier.Closing != "" {
-		return tier.Closing
-	}
-	next := m.cfg.Progression.Tier(n + 1)
-	if next == nil {
-		return tier.Next
-	}
-	if _, ok := game.Eligible(m.w, content.CardConfig{Trigger: next.Enter}); ok {
-		return fmt.Sprintf("You have crossed the line to %s already: it opens in the morning.", next.Name)
-	}
-	return tier.Next
-}
+// stageNext is the NEXT line of tier n's modal: the engine's
+// (Session.StageNext, #550), which the view's stage carries too.
+func (m *Model) stageNext(n int) string { return m.sess.StageNext(n) }
 
 // stageExports is whether tier n's modal points at the lanes abroad
 // (#525): the tier is the one the exports alert fires from (the

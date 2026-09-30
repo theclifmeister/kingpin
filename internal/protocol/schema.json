@@ -1974,6 +1974,44 @@
       ],
       "type": "object"
     },
+    "engine.AssetView": {
+      "properties": {
+        "bought": {
+          "type": "integer"
+        },
+        "city": {
+          "type": "string"
+        },
+        "cost": {
+          "type": "integer"
+        },
+        "effect": {
+          "type": "string"
+        },
+        "frozen_until": {
+          "type": "integer"
+        },
+        "id": {
+          "type": "string"
+        },
+        "name": {
+          "type": "string"
+        },
+        "upkeep": {
+          "type": "integer"
+        }
+      },
+      "required": [
+        "id",
+        "name",
+        "effect",
+        "city",
+        "cost",
+        "upkeep",
+        "bought"
+      ],
+      "type": "object"
+    },
     "engine.BooksView": {
       "properties": {
         "cash": {
@@ -2017,6 +2055,24 @@
         "max",
         "held",
         "capacity"
+      ],
+      "type": "object"
+    },
+    "engine.CampaignView": {
+      "properties": {
+        "cash": {
+          "type": "integer"
+        },
+        "hedged": {
+          "type": "boolean"
+        },
+        "ticket": {
+          "type": "string"
+        }
+      },
+      "required": [
+        "ticket",
+        "cash"
       ],
       "type": "object"
     },
@@ -2124,6 +2180,9 @@
     },
     "engine.CityView": {
       "properties": {
+        "campaign": {
+          "$ref": "#/$defs/engine.CampaignView"
+        },
         "corners": {
           "items": {
             "$ref": "#/$defs/engine.CornerView"
@@ -2335,6 +2394,45 @@
       ],
       "type": "object"
     },
+    "engine.CookView": {
+      "properties": {
+        "chemist": {
+          "type": "string"
+        },
+        "city": {
+          "type": "string"
+        },
+        "id": {
+          "type": "integer"
+        },
+        "ordered": {
+          "type": "integer"
+        },
+        "product": {
+          "type": "string"
+        },
+        "quality": {
+          "type": "number"
+        },
+        "ready": {
+          "type": "integer"
+        },
+        "units": {
+          "type": "integer"
+        }
+      },
+      "required": [
+        "id",
+        "city",
+        "product",
+        "units",
+        "quality",
+        "ordered",
+        "ready",
+        "chemist"
+      ],
+      "type": "object"
+    },
     "engine.CornerIdle": {
       "properties": {
         "city": {
@@ -2537,6 +2635,34 @@
       ],
       "type": "object"
     },
+    "engine.DealView": {
+      "properties": {
+        "kind": {
+          "type": "string"
+        },
+        "left": {
+          "type": "integer"
+        },
+        "since": {
+          "type": "integer"
+        },
+        "terms": {
+          "$ref": "#/$defs/engine.TermsView"
+        },
+        "theirs": {
+          "type": "boolean"
+        },
+        "until": {
+          "type": "integer"
+        }
+      },
+      "required": [
+        "kind",
+        "terms",
+        "since"
+      ],
+      "type": "object"
+    },
     "engine.EndingView": {
       "properties": {
         "cause": {
@@ -2569,6 +2695,12 @@
         "corners": {
           "type": "integer"
         },
+        "deal_terms": {
+          "items": {
+            "$ref": "#/$defs/engine.DealView"
+          },
+          "type": "array"
+        },
         "deals": {
           "items": {
             "type": "string"
@@ -2577,6 +2709,9 @@
         },
         "id": {
           "type": "string"
+        },
+        "last_raid": {
+          "type": "integer"
         },
         "leader": {
           "type": "string"
@@ -2596,6 +2731,12 @@
         "personality": {
           "type": "string"
         },
+        "police": {
+          "type": "number"
+        },
+        "tribute_nights": {
+          "type": "integer"
+        },
         "trust": {
           "type": "number"
         },
@@ -2611,7 +2752,9 @@
         "corners",
         "trust",
         "war",
-        "personality"
+        "personality",
+        "deal_terms",
+        "police"
       ],
       "type": "object"
     },
@@ -2705,8 +2848,20 @@
     },
     "engine.FrontView": {
       "properties": {
+        "audited": {
+          "type": "integer"
+        },
+        "bought": {
+          "type": "integer"
+        },
+        "city": {
+          "type": "string"
+        },
         "frozen": {
           "type": "boolean"
+        },
+        "frozen_until": {
+          "type": "integer"
         },
         "id": {
           "type": "string"
@@ -2717,6 +2872,9 @@
         "name": {
           "type": "string"
         },
+        "unpaid": {
+          "type": "integer"
+        },
         "washed": {
           "type": "integer"
         }
@@ -2725,7 +2883,9 @@
         "id",
         "name",
         "level",
-        "washed"
+        "washed",
+        "city",
+        "bought"
       ],
       "type": "object"
     },
@@ -2918,11 +3078,20 @@
         "arrest_line": {
           "type": "integer"
         },
+        "campaign_open": {
+          "type": "boolean"
+        },
         "chief": {
           "type": "string"
         },
+        "chief_bought": {
+          "type": "integer"
+        },
         "chief_temper": {
           "type": "string"
+        },
+        "chief_term_ends": {
+          "type": "integer"
         },
         "cover": {
           "type": "integer"
@@ -2930,13 +3099,31 @@
         "da": {
           "type": "string"
         },
+        "da_bought": {
+          "type": "integer"
+        },
         "da_stance": {
           "type": "string"
         },
         "exposure_line": {
           "type": "integer"
         },
+        "favours": {
+          "type": "integer"
+        },
+        "leads": {
+          "type": "integer"
+        },
         "next_election": {
+          "type": "integer"
+        },
+        "sell_cap": {
+          "type": "number"
+        },
+        "sell_cap_city": {
+          "type": "string"
+        },
+        "sell_cap_days": {
           "type": "integer"
         }
       },
@@ -2987,6 +3174,12 @@
         "age": {
           "type": "integer"
         },
+        "assigned": {
+          "type": "integer"
+        },
+        "bailed": {
+          "type": "boolean"
+        },
         "budget": {
           "type": "integer"
         },
@@ -2999,6 +3192,9 @@
         "city": {
           "type": "string"
         },
+        "exposed": {
+          "type": "boolean"
+        },
         "fee": {
           "type": "integer"
         },
@@ -3009,6 +3205,12 @@
           "type": "integer"
         },
         "jailed": {
+          "type": "boolean"
+        },
+        "jailed_until": {
+          "type": "integer"
+        },
+        "lab": {
           "type": "boolean"
         },
         "loyalty": {
@@ -3026,6 +3228,9 @@
         "role": {
           "type": "string"
         },
+        "route": {
+          "type": "string"
+        },
         "skill": {
           "type": "integer"
         },
@@ -3033,6 +3238,9 @@
           "type": "string"
         },
         "wage": {
+          "type": "integer"
+        },
+        "wounded": {
           "type": "integer"
         }
       },
@@ -3073,6 +3281,32 @@
         "kind",
         "terms",
         "expires"
+      ],
+      "type": "object"
+    },
+    "engine.OrderView": {
+      "properties": {
+        "all": {
+          "type": "boolean"
+        },
+        "city": {
+          "type": "string"
+        },
+        "dial": {
+          "type": "string"
+        },
+        "product": {
+          "type": "string"
+        },
+        "qty": {
+          "type": "integer"
+        }
+      },
+      "required": [
+        "city",
+        "product",
+        "qty",
+        "dial"
       ],
       "type": "object"
     },
@@ -3188,6 +3422,25 @@
       ],
       "type": "object"
     },
+    "engine.ProposalView": {
+      "properties": {
+        "faction": {
+          "type": "string"
+        },
+        "kind": {
+          "type": "string"
+        },
+        "terms": {
+          "$ref": "#/$defs/engine.TermsView"
+        }
+      },
+      "required": [
+        "faction",
+        "kind",
+        "terms"
+      ],
+      "type": "object"
+    },
     "engine.Refusal": {
       "properties": {
         "command": {
@@ -3293,8 +3546,20 @@
     },
     "engine.RouteView": {
       "properties": {
+        "checkpoint_until": {
+          "type": "integer"
+        },
         "closed": {
           "type": "boolean"
+        },
+        "closed_until": {
+          "type": "integer"
+        },
+        "days_target": {
+          "additionalProperties": {
+            "type": "integer"
+          },
+          "type": "object"
         },
         "dial": {
           "type": "string"
@@ -3320,6 +3585,12 @@
         "risk_known": {
           "type": "boolean"
         },
+        "target": {
+          "additionalProperties": {
+            "type": "integer"
+          },
+          "type": "object"
+        },
         "to": {
           "type": "string"
         }
@@ -3330,7 +3601,9 @@
         "mode",
         "from",
         "to",
-        "dial"
+        "dial",
+        "target",
+        "days_target"
       ],
       "type": "object"
     },
@@ -3441,6 +3714,168 @@
         "units",
         "sent",
         "arrives"
+      ],
+      "type": "object"
+    },
+    "engine.StageView": {
+      "properties": {
+        "blurb": {
+          "type": "string"
+        },
+        "name": {
+          "type": "string"
+        },
+        "next": {
+          "type": "string"
+        },
+        "opened": {
+          "items": {
+            "type": "string"
+          },
+          "type": "array"
+        },
+        "pending": {
+          "type": "integer"
+        },
+        "text": {
+          "items": {
+            "type": "string"
+          },
+          "type": "array"
+        }
+      },
+      "required": [
+        "pending",
+        "name",
+        "blurb",
+        "text",
+        "opened",
+        "next"
+      ],
+      "type": "object"
+    },
+    "engine.StatsView": {
+      "properties": {
+        "betrayals": {
+          "type": "integer"
+        },
+        "betrayed_by": {
+          "type": "integer"
+        },
+        "corners_lost": {
+          "type": "integer"
+        },
+        "corners_won": {
+          "type": "integer"
+        },
+        "cuts": {
+          "type": "integer"
+        },
+        "defections": {
+          "type": "integer"
+        },
+        "earned": {
+          "type": "integer"
+        },
+        "fallen": {
+          "type": "integer"
+        },
+        "fees": {
+          "type": "integer"
+        },
+        "invested": {
+          "type": "integer"
+        },
+        "laundered": {
+          "type": "integer"
+        },
+        "peak_heat": {
+          "type": "number"
+        },
+        "raids": {
+          "type": "integer"
+        },
+        "reserved": {
+          "type": "integer"
+        },
+        "revenue": {
+          "type": "integer"
+        },
+        "robbed": {
+          "type": "integer"
+        },
+        "seized": {
+          "type": "integer"
+        },
+        "skimmed": {
+          "type": "integer"
+        },
+        "stings": {
+          "type": "integer"
+        },
+        "taxed": {
+          "type": "integer"
+        },
+        "units_sold": {
+          "type": "integer"
+        },
+        "wages": {
+          "type": "integer"
+        },
+        "walked": {
+          "type": "integer"
+        }
+      },
+      "required": [
+        "revenue",
+        "units_sold",
+        "laundered",
+        "seized",
+        "wages",
+        "skimmed",
+        "robbed",
+        "cuts",
+        "invested",
+        "earned",
+        "taxed",
+        "reserved",
+        "fees",
+        "fallen",
+        "corners_won",
+        "corners_lost",
+        "stings",
+        "raids",
+        "betrayals",
+        "betrayed_by",
+        "defections",
+        "walked",
+        "peak_heat"
+      ],
+      "type": "object"
+    },
+    "engine.SupplyContractView": {
+      "properties": {
+        "city": {
+          "type": "string"
+        },
+        "lieutenant": {
+          "type": "integer"
+        },
+        "product": {
+          "type": "string"
+        },
+        "since": {
+          "type": "integer"
+        },
+        "units": {
+          "type": "integer"
+        }
+      },
+      "required": [
+        "city",
+        "product",
+        "units",
+        "since"
       ],
       "type": "object"
     },
@@ -3568,6 +4003,12 @@
           },
           "type": "array"
         },
+        "assets": {
+          "items": {
+            "$ref": "#/$defs/engine.AssetView"
+          },
+          "type": "array"
+        },
         "card": {
           "$ref": "#/$defs/engine.CardView"
         },
@@ -3586,6 +4027,12 @@
         "contracts": {
           "items": {
             "$ref": "#/$defs/engine.ContractView"
+          },
+          "type": "array"
+        },
+        "cooks": {
+          "items": {
+            "$ref": "#/$defs/engine.CookView"
           },
           "type": "array"
         },
@@ -3631,6 +4078,12 @@
           },
           "type": "array"
         },
+        "orders": {
+          "items": {
+            "$ref": "#/$defs/engine.OrderView"
+          },
+          "type": "array"
+        },
         "over": {
           "$ref": "#/$defs/engine.EndingView"
         },
@@ -3639,6 +4092,9 @@
             "$ref": "#/$defs/engine.MemberView"
           },
           "type": "array"
+        },
+        "proposal": {
+          "$ref": "#/$defs/engine.ProposalView"
         },
         "report": {
           "$ref": "#/$defs/engine.ReportView"
@@ -3655,6 +4111,24 @@
         "shipments": {
           "items": {
             "$ref": "#/$defs/engine.ShipmentView"
+          },
+          "type": "array"
+        },
+        "stage": {
+          "$ref": "#/$defs/engine.StageView"
+        },
+        "standing": {
+          "items": {
+            "$ref": "#/$defs/engine.OrderView"
+          },
+          "type": "array"
+        },
+        "stats": {
+          "$ref": "#/$defs/engine.StatsView"
+        },
+        "supply": {
+          "items": {
+            "$ref": "#/$defs/engine.SupplyContractView"
           },
           "type": "array"
         },
@@ -3699,7 +4173,13 @@
         "law",
         "report",
         "alerts",
-        "ambitions"
+        "ambitions",
+        "assets",
+        "cooks",
+        "orders",
+        "standing",
+        "supply",
+        "stats"
       ],
       "type": "object"
     },
@@ -3707,6 +4187,9 @@
       "properties": {
         "ambition": {
           "type": "string"
+        },
+        "bodies": {
+          "type": "integer"
         },
         "character": {
           "type": "string"
@@ -3744,6 +4227,12 @@
         "offshore": {
           "type": "integer"
         },
+        "pages_due": {
+          "type": "integer"
+        },
+        "pages_pending": {
+          "type": "integer"
+        },
         "pay": {
           "type": "string"
         },
@@ -3753,8 +4242,14 @@
         "quiet_days": {
           "type": "integer"
         },
+        "reserved_today": {
+          "type": "integer"
+        },
         "respect": {
           "type": "number"
+        },
+        "score": {
+          "type": "integer"
         },
         "stock": {
           "additionalProperties": {
@@ -3765,17 +4260,29 @@
           },
           "type": "object"
         },
+        "sweep_keep": {
+          "type": "integer"
+        },
+        "sweep_on": {
+          "type": "boolean"
+        },
         "tier": {
           "type": "integer"
         },
         "tier_name": {
           "type": "string"
         },
+        "till": {
+          "type": "integer"
+        },
         "upgrades": {
           "items": {
             "type": "string"
           },
           "type": "array"
+        },
+        "war": {
+          "type": "string"
         }
       },
       "required": [
@@ -3796,7 +4303,10 @@
         "notoriety",
         "stock",
         "upgrades",
-        "quiet_days"
+        "quiet_days",
+        "till",
+        "score",
+        "bodies"
       ],
       "type": "object"
     },
@@ -10302,6 +10812,9 @@
         "alert": {
           "$ref": "#/$defs/engine.Alert"
         },
+        "danger": {
+          "type": "boolean"
+        },
         "day": {
           "type": "integer"
         },
@@ -13362,6 +13875,19 @@
         "type": "array"
       }
     },
+    "rules.heat.tip_evidence": {
+      "changes": false,
+      "needsRun": true,
+      "params": {
+        "maxItems": 0,
+        "minItems": 0,
+        "prefixItems": [],
+        "type": "array"
+      },
+      "result": {
+        "type": "number"
+      }
+    },
     "rules.laundering.any_audit_risk": {
       "changes": false,
       "needsRun": true,
@@ -16280,7 +16806,7 @@
       "$ref": "#/$defs/engine.View"
     }
   },
-  "protocol": 24,
+  "protocol": 25,
   "title": "kingpind",
-  "view_version": 14
+  "view_version": 15
 }

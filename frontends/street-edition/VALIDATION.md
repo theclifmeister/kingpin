@@ -1,3 +1,12 @@
+# Engine alignment validation: protocol 25 / view 15 (#550)
+
+The builder accepts protocol 25 and view 15. View 15 exposes state the engine already kept and the view did not carry; it adds no alert kind, report line or method. Every field was added beside the old ones, and none was renamed, retyped or dropped, so nothing `src/app.js` reads has moved. `factions[].deals` is still the kinds, and the terms are in the new `deal_terms`. The new fields are listed in `docs/engine.md` (View 15): a member's `wounded`, `jailed_until`, `bailed`, `exposed` (a named informant only), `assigned`, `route` and `lab`; the law's `favours`, `campaign_open`, `chief_term_ends`, `chief_bought`, `da_bought`, `leads` and the patrol cap (`sell_cap`, `sell_cap_days`, `sell_cap_city`) and each city's `campaign`; a front's `city`, `bought`, `frozen_until`, `unpaid` and `audited`; `you.till`, `sweep_on`, `sweep_keep`, `war`, `score`, `bodies`, `pages_due`, `pages_pending` and `reserved_today`; the top-level `assets`, `cooks`, `orders`, `standing`, `supply`, `stats`, `stage` and `proposal`; a route's `target`, `days_target`, `checkpoint_until` and `closed_until`; and a faction's `deal_terms`, `police`, `last_raid` and `tribute_nights`. Protocol 25 adds `danger` to `fast_forward`'s answer and the rule `heat.tip_evidence`. This edition calls neither yet: they are for #551 to #556.
+
+The crew card's `m.wounded` read was dropped by #548 until the view carried it. The view now carries `wounded`, the days still laid up, and #551 shows it.
+
+- **`smoke.mjs`** passed on the view-15 build (day 45: forecasts, dilemmas, cash flow, lanes, trophies, cash-out, the ways out, the lieutenants and the save round-trip).
+- **Not browser-checked**: no page was changed.
+
 # Fixes against the TUI (#548, still protocol 24 / view 14)
 
 The builder still accepts protocol 24 and view 14; nothing on the engine moved. A review against the TUI (#455–#547) found the edition wrong in places where the data was already on the wire, and `src/app.js` now reads it:

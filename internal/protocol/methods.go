@@ -61,6 +61,7 @@ var unserved = map[string]string{
 	"World":         "a pointer into the run; the view is its wire form",
 	"Subscribe":     "events are notifications",
 	"Stop":          "fast_forward weighs the days itself",
+	"StageNext":     "the view's stage.next (#550)",
 	"NewRun":        "new_run, by hand: the start as three positions",
 	"Load":          "load, by hand",
 	"Save":          "save, by hand",
@@ -184,7 +185,7 @@ func init() {
 				return nil, err
 			}
 			ran, st, _ := s.sess.FastForward(days, nil)
-			r := FastResult{Ran: ran, Day: s.sess.World().Day, Stop: string(st.Kind)}
+			r := FastResult{Ran: ran, Day: s.sess.World().Day, Stop: string(st.Kind), Danger: st.Danger()}
 			if st.Kind == engine.StopAlert {
 				a := st.Alert
 				r.Alert = &a
@@ -249,13 +250,17 @@ type DayResult struct {
 
 // FastResult is fast_forward's answer: the days run, the day it is now
 // and why it stopped (stage, card, alert, event, over, cap), with the
-// alert or the event's kind that stopped it.
+// alert or the event's kind that stopped it, and whether the stop is a
+// danger (engine.Stop.Danger, #504, #550): a warrant signed, a task force
+// formed or an investigation opened stops as an event with no alert to
+// read it off.
 type FastResult struct {
-	Ran   int           `json:"ran"`
-	Day   int           `json:"day"`
-	Stop  string        `json:"stop"`
-	Alert *engine.Alert `json:"alert,omitempty"`
-	Event string        `json:"event,omitempty"`
+	Ran    int           `json:"ran"`
+	Day    int           `json:"day"`
+	Stop   string        `json:"stop"`
+	Alert  *engine.Alert `json:"alert,omitempty"`
+	Event  string        `json:"event,omitempty"`
+	Danger bool          `json:"danger,omitempty"`
 }
 
 // TermsParams is game.Terms as the wire spells it.

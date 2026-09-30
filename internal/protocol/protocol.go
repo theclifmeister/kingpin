@@ -52,8 +52,9 @@ import (
 // this morning (#534); 24 the HoldBegan event, the crown's hold begun
 // (#530), and the rules' new tuning fields: the factions' landless_burn
 // and landless_floor (#530), the diplomacy's tribute_days and
-// offer_quiet (#532).
-const Version = 24
+// offer_quiet (#532); 25 view 15 (#550), fast_forward's danger and
+// rules.heat.tip_evidence, the chance a tip files a page on you.
+const Version = 25
 
 // The error codes: JSON-RPC 2.0's, and the game's own in its
 // server-error range.

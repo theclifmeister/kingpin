@@ -161,6 +161,7 @@ type HeatRules interface {
 	StructureEvidence() int
 	TaskForceForming(w *game.World) bool
 	ThresholdsIn(w *game.World, city *game.City) []content.ResponseConfig
+	TipEvidence() float64
 }
 type LawRules interface {
 	Bribes() content.BribeTuning
