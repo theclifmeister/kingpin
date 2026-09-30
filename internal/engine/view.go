@@ -1,6 +1,7 @@
 package engine
 
 import (
+	"fmt"
 	"reflect"
 	"sort"
 
@@ -16,7 +17,16 @@ import (
 // 12 added exports and trophies (#405): the lanes and the trophies the
 // wire could order and buy since #391 and #392 but not show. 13 added
 // the front_shut alert's front (#458), 14 the port alert's share (#476).
-const ViewVersion = 14
+// 15 (#550) exposes the state the TUI reads and the view did not carry:
+// a member's wounds, jail, bail, a named informant, a lieutenant's day
+// in the city, a driver's route and the chemist at the lab; the law's
+// favours, campaign, bought days, leads and patrol cap; a front's
+// days and debts, the till, the sweep, the assets; the orders, the
+// supply contracts, the routes' targets and checkpoints; the war, the
+// deals' terms, the proposal, a faction's police and tribute nights; the
+// score, the bodies, the summary's stats, the walk away's pending pages
+// and the stage waiting to be seen. Nothing in it is new state.
+const ViewVersion = 15
 
 // View is a snapshot of what the player can see: what a front end draws
 // (#299). It is built from the world the way the TUI reads it and holds
@@ -50,6 +60,129 @@ type View struct {
 	Report    ReportView     `json:"report"`
 	Alerts    []Alert        `json:"alerts"`
 	Ambitions []AmbitionView `json:"ambitions"` // the endings as plans with their progress (#347)
+
+	// View 15 (#550): what the screens read that the view did not carry.
+	Assets   []AssetView          `json:"assets"`             // the assets you own (#48), in the order bought
+	Cooks    []CookView           `json:"cooks"`              // the chemist's lots on their way (#47)
+	Orders   []OrderView          `json:"orders"`             // today's sell orders, resolved tonight
+	Standing []OrderView          `json:"standing"`           // your standing sell orders (#114, #503), every night at a cut
+	Supply   []SupplyContractView `json:"supply"`             // the supply contracts (#113), yours and the lieutenants' (#174)
+	Stats    StatsView            `json:"stats"`              // the run summary's counters (#49)
+	Stage    *StageView           `json:"stage,omitempty"`    // a stage entered and not yet seen (#149): see_stage marks it
+	Proposal *ProposalView        `json:"proposal,omitempty"` // the deal put to a faction today; it answers in the morning
+}
+
+// AssetView is an asset you own (#48): what it is, where, what it cost
+// and costs a day, and the day it stands idle until, its upkeep unpaid.
+type AssetView struct {
+	ID          string `json:"id"`
+	Name        string `json:"name"`
+	Effect      string `json:"effect"`
+	City        string `json:"city"`
+	Cost        int    `json:"cost"`
+	Upkeep      int    `json:"upkeep"`
+	Bought      int    `json:"bought"`
+	FrozenUntil int    `json:"frozen_until,omitempty"` // idle on every day before it; 0 or past is standing
+}
+
+// CookView is a chemist's lot on its way (#47): landing in city's stash
+// on ready at quality.
+type CookView struct {
+	ID      int     `json:"id"`
+	City    string  `json:"city"`
+	Product string  `json:"product"`
+	Units   int     `json:"units"`
+	Quality float64 `json:"quality"`
+	Ordered int     `json:"ordered"`
+	Ready   int     `json:"ready"`
+	Chemist string  `json:"chemist"`
+}
+
+// OrderView is a sell order: today's, or a standing one (All: the whole
+// stash every night, #503, Qty the stash it was set on).
+type OrderView struct {
+	City    string `json:"city"`
+	Product string `json:"product"`
+	Qty     int    `json:"qty"`
+	Dial    string `json:"dial"`
+	All     bool   `json:"all,omitempty"`
+}
+
+// SupplyContractView is a supply contract (#113): the units a city's stash of
+// a product is kept to every morning, since the day it was set; a
+// lieutenant's (#174) names them, and fills only where you set none.
+type SupplyContractView struct {
+	City       string `json:"city"`
+	Product    string `json:"product"`
+	Units      int    `json:"units"`
+	Since      int    `json:"since"`
+	Lieutenant int    `json:"lieutenant,omitempty"` // crew id of the lieutenant whose contract it is; 0 yours
+}
+
+// StatsView is the run summary's counters (#49, the TUI's summary):
+// the money, the people and the ground, lifetime.
+type StatsView struct {
+	Revenue     int     `json:"revenue"`
+	UnitsSold   int     `json:"units_sold"`
+	Laundered   int     `json:"laundered"`
+	Seized      int     `json:"seized"` // clean cash lost to audits
+	Wages       int     `json:"wages"`
+	Skimmed     int     `json:"skimmed"`
+	Robbed      int     `json:"robbed"`
+	Cuts        int     `json:"cuts"`
+	Invested    int     `json:"invested"`
+	Earned      int     `json:"earned"`
+	Taxed       int     `json:"taxed"`
+	Reserved    int     `json:"reserved"` // moved offshore, after the fee
+	Fees        int     `json:"fees"`
+	Fallen      int     `json:"fallen"` // of the bodies, yours
+	CornersWon  int     `json:"corners_won"`
+	CornersLost int     `json:"corners_lost"`
+	Stings      int     `json:"stings"`
+	Raids       int     `json:"raids"`
+	Betrayals   int     `json:"betrayals"`   // deals you broke
+	BetrayedBy  int     `json:"betrayed_by"` // deals a faction broke
+	Defections  int     `json:"defections"`
+	Walked      int     `json:"walked"` // lieutenants who walked with their city
+	PeakHeat    float64 `json:"peak_heat"`
+}
+
+// StageView is the stage entered and not yet seen (#149): the tier,
+// the file's words for it, what it opened and what the next takes
+// (StageNext). see_stage with Pending marks it seen.
+type StageView struct {
+	Pending int      `json:"pending"`
+	Name    string   `json:"name"`
+	Blurb   string   `json:"blurb"`
+	Text    []string `json:"text"`
+	Opened  []string `json:"opened"`
+	Next    string   `json:"next"`
+}
+
+// ProposalView is the deal put to a faction today.
+type ProposalView struct {
+	Faction string    `json:"faction"`
+	Kind    string    `json:"kind"`
+	Terms   TermsView `json:"terms"`
+}
+
+// DealView is a live deal with a faction (#32): its kind and terms, the
+// day it was struck, the first day it no longer holds (0 none) and the
+// days it has left, and whether the faction put it on the table.
+type DealView struct {
+	Kind   string    `json:"kind"`
+	Terms  TermsView `json:"terms"`
+	Since  int       `json:"since"`
+	Until  int       `json:"until,omitempty"`
+	Left   int       `json:"left,omitempty"`
+	Theirs bool      `json:"theirs,omitempty"`
+}
+
+// CampaignView is the money behind a DA ticket in a city (#193).
+type CampaignView struct {
+	Ticket string `json:"ticket"`
+	Cash   int    `json:"cash"`
+	Hedged bool   `json:"hedged,omitempty"`
 }
 
 // EndingView is how the run ended.
@@ -82,6 +215,17 @@ type YouView struct {
 	Character string                    `json:"character,omitempty"`
 	HardDA    bool                      `json:"hard_da,omitempty"`
 	Ambition  string                    `json:"ambition,omitempty"` // the plan pinned (#347), an ambitions[] id
+
+	// View 15 (#550).
+	Till         int    `json:"till"`                     // the dirty cash the wash leaves in hand as you set it (#496); 0 is the float
+	SweepOn      bool   `json:"sweep_on,omitempty"`       // the nightly sweep offshore is on (#478) ...
+	SweepKeep    int    `json:"sweep_keep,omitempty"`     // ... leaving this much clean in hand
+	War          string `json:"war,omitempty"`            // the faction the war order stands against (#229)
+	Score        int    `json:"score"`                    // the account over one plus the bodies (#49)
+	Bodies       int    `json:"bodies"`                   // the dead on your corners, both sides (#46)
+	PagesDue     int    `json:"pages_due,omitempty"`      // pages last night's lump offshore files tonight (#494): the walk away waits
+	PagesPending int    `json:"pages_pending,omitempty"`  // ... and today's reserve's, filed tomorrow night (#525)
+	Reserved     int    `json:"reserved_today,omitempty"` // clean cash on its way offshore tonight (#195)
 }
 
 // CityView is a city: its heat, its law and its market and corners.
@@ -97,6 +241,7 @@ type CityView struct {
 	Ladder   []RungView    `json:"ladder"`                  // the police's lines here and what each takes (#355, heat.Sim.Rungs)
 	Products []ProductView `json:"products"`
 	Corners  []CornerView  `json:"corners"`
+	Campaign *CampaignView `json:"campaign,omitempty"` // the money behind a DA ticket here (#193, #550)
 }
 
 // RungView is one rung of a city's police ladder (#355): the heat it
@@ -161,6 +306,15 @@ type MemberView struct {
 	Trait       string  `json:"trait,omitempty"`   // what a veteran showed at the traits' days of service (#346)
 	Captain     string  `json:"captain,omitempty"` // the city they are captain of (#346)
 	Budget      int     `json:"budget,omitempty"`  // ... and their pay-off budget a night there
+
+	// View 15 (#550).
+	Wounded     int    `json:"wounded,omitempty"`      // days still laid up (#46)
+	JailedUntil int    `json:"jailed_until,omitempty"` // the day they are out of the cell (#46)
+	Bailed      bool   `json:"bailed,omitempty"`       // ... on bail you put down
+	Exposed     bool   `json:"exposed,omitempty"`      // an investigation named them the informant; the unnamed are never marked
+	Assigned    int    `json:"assigned,omitempty"`     // the day a lieutenant took their city
+	Route       string `json:"route,omitempty"`        // the route a driver rides
+	Lab         bool   `json:"lab,omitempty"`          // the chemist who cooks and cuts, the best on the payroll (#47); another waits
 }
 
 // ContractView is a buyer's contract still somebody's business (#71,
@@ -226,6 +380,12 @@ type RouteView struct {
 	Driver    int     `json:"driver,omitempty"`
 	Risk      float64 `json:"risk,omitempty"` // a day in transit, as the file knows it
 	RiskKnown bool    `json:"risk_known,omitempty"`
+
+	// View 15 (#550).
+	Target          map[string]int `json:"target"`                     // product id -> units the destination is kept stocked to
+	DaysTarget      map[string]int `json:"days_target"`                // product id -> days of the destination's demand it is kept to
+	CheckpointUntil int            `json:"checkpoint_until,omitempty"` // the day a live checkpoint or customs deal runs out (#42)
+	ClosedUntil     int            `json:"closed_until,omitempty"`     // the day it opens again while Closed (#44)
 }
 
 // ShipmentView is product on the road.
@@ -279,6 +439,13 @@ type FrontView struct {
 	Level  int    `json:"level"`
 	Frozen bool   `json:"frozen,omitempty"`
 	Washed int    `json:"washed"`
+
+	// View 15 (#550): why it is shut, and since when it is yours.
+	City        string `json:"city"`
+	Bought      int    `json:"bought"`
+	FrozenUntil int    `json:"frozen_until,omitempty"` // the day it opens again while Frozen
+	Unpaid      int    `json:"unpaid,omitempty"`       // the upkeep the clean pile was short the night it shut (#458); 0 an audit's shut
+	Audited     int    `json:"audited,omitempty"`      // the day of the last audit
 }
 
 // LaneView is an export lane (#391) as the ledger shows it (#405): open
@@ -330,6 +497,12 @@ type FactionView struct {
 	Books       *BooksView `json:"books,omitempty"` // the last read of its books
 	Move        string     `json:"move,omitempty"`  // the corner the file says it moves on next
 	Deals       []string   `json:"deals,omitempty"` // the kinds of the deals live with it
+
+	// View 15 (#550).
+	DealTerms     []DealView `json:"deal_terms"`               // the deals live with it, whole, in the order of Deals
+	Police        float64    `json:"police"`                   // the police's attention on it, 0..100: your tips (#70)
+	LastRaid      int        `json:"last_raid,omitempty"`      // the day the police last took a corner off it on your tip
+	TributeNights int        `json:"tribute_nights,omitempty"` // the nights of your takings a tribute is priced off (#532); 0 prices off the potential
 }
 
 // BooksView is a read of a faction's books (#70, #45).
@@ -351,6 +524,17 @@ type LawView struct {
 	ArrestLine   int    `json:"arrest_line"`   // the pages an indictment needs (#355, heat.Sim.EvidenceArrest); 0 with no file
 	ExposureLine int    `json:"exposure_line"` // the dirty cash past which the pile draws heat (heat.Sim.ExposureLine)
 	Cover        int    `json:"cover"`         // ... of which the fronts cover this much (heat.Sim.Cover)
+
+	// View 15 (#550).
+	Favours       int     `json:"favours,omitempty"`         // what the bought chief owes you (#228)
+	CampaignOpen  bool    `json:"campaign_open,omitempty"`   // the tickets take money (#193)
+	ChiefTermEnds int     `json:"chief_term_ends,omitempty"` // 0 a chief for life
+	ChiefBought   int     `json:"chief_bought,omitempty"`    // the day a live bribe on the chief runs out (#42)
+	DABought      int     `json:"da_bought,omitempty"`       // ... and on the DA
+	Leads         int     `json:"leads,omitempty"`           // what the DA's office has heard about your envelopes
+	SellCap       float64 `json:"sell_cap,omitempty"`        // a patrol's cap: the share of demand any sale moves, wherever ...
+	SellCapDays   int     `json:"sell_cap_days,omitempty"`   // ... for this many days more ...
+	SellCapCity   string  `json:"sell_cap_city,omitempty"`   // ... set by the patrol in this city
 }
 
 // CardView is the dilemma card waiting for an answer.
@@ -505,6 +689,16 @@ func (s *Session) View() View {
 		Character: w.Start.Character,
 		HardDA:    w.Start.HardDA,
 		Ambition:  w.Ambition,
+
+		Till:         w.Laundering.Till,
+		SweepOn:      w.Laundering.Sweep.On,
+		SweepKeep:    w.Laundering.Sweep.Keep,
+		War:          w.War,
+		Score:        w.Score(),
+		Bodies:       w.Stats.Bodies,
+		PagesDue:     s.PagesDue(),
+		PagesPending: s.PagesPending(),
+		Reserved:     w.ReservedToday(),
 	}
 	for _, id := range sortedKeys(w.Upgrades) {
 		if w.Upgrades[id] {
@@ -522,6 +716,9 @@ func (s *Session) View() View {
 		}
 		street[cid] = stock
 		cv := CityView{ID: c.ID, Name: c.Name, Heat: c.Heat, Pressure: c.Pressure, Goodwill: c.Goodwill}
+		if cp := c.Campaign; cp.Ticket != "" || cp.Cash > 0 {
+			cv.Campaign = &CampaignView{Ticket: cp.Ticket, Cash: cp.Cash, Hedged: cp.Hedged}
+		}
 		if level, day, ok := known.Response(cid); ok {
 			cv.Response, cv.Due = level, day
 			if f, ok := known.Fact(cid, game.FactResponse); ok {
@@ -565,8 +762,7 @@ func (s *Session) View() View {
 	}
 	for _, o := range w.Offers {
 		t := o.Deal.Terms
-		v.Offers = append(v.Offers, OfferView{ID: o.ID, Faction: o.With(), Kind: o.Deal.Kind, Expires: o.Expires,
-			Terms: TermsView{Days: t.Days, PerDay: t.PerDay, Corners: append([]string(nil), t.Corners...), Route: t.Route, Units: t.Units}})
+		v.Offers = append(v.Offers, OfferView{ID: o.ID, Faction: o.With(), Kind: o.Deal.Kind, Expires: o.Expires, Terms: termsView(t)})
 	}
 	for _, u := range s.cfg.Upgrades.Nodes {
 		state := "locked"
@@ -583,6 +779,25 @@ func (s *Session) View() View {
 		if c := w.PostOf(m.ID); c != nil {
 			mv.Post = c.ID
 		}
+		if m.Wounded(w.Day) {
+			mv.Wounded = m.WoundedUntil - w.Day
+		}
+		if m.Jailed(w.Day) {
+			mv.JailedUntil, mv.Bailed = m.JailedUntil, m.Bailed
+		}
+		// Named, never flagged (#550): the mark is the investigation's
+		// answer, Crew.Exposed, so the unnamed informant reads as anyone.
+		mv.Exposed = w.Crew.Exposed != 0 && w.Crew.Exposed == m.ID
+		if m.Runs() {
+			mv.Assigned = m.Assigned
+		}
+		if m.Role == game.RoleDriver {
+			mv.Route = w.DrivenRoute(m.ID)
+		}
+		if m.Role == game.RoleChemist {
+			best := w.Crew.Chemist()
+			mv.Lab = best != nil && best.ID == m.ID
+		}
 		if m.Observed {
 			mv.Personality = m.Personality
 		}
@@ -596,7 +811,14 @@ func (s *Session) View() View {
 			}
 			seen[r.ID] = true
 			rs := w.Route(r.ID)
-			rv := RouteView{ID: r.ID, Name: r.Name, Mode: r.Mode, From: r.From, To: r.To, Dial: rs.Dial.String(), Closed: rs.Closed(w.Day), Driver: rs.Driver}
+			rv := RouteView{ID: r.ID, Name: r.Name, Mode: r.Mode, From: r.From, To: r.To, Dial: rs.Dial.String(), Closed: rs.Closed(w.Day), Driver: rs.Driver,
+				Target: copyInts(rs.Target), DaysTarget: copyInts(rs.Days)}
+			if until, live := w.Checkpoint(r.ID); live {
+				rv.CheckpointUntil = until
+			}
+			if rv.Closed {
+				rv.ClosedUntil = rs.ClosedUntil
+			}
 			if risk, ok := known.Risk(r.ID); ok {
 				rv.Risk, rv.RiskKnown = risk, true
 			}
@@ -626,8 +848,26 @@ func (s *Session) View() View {
 		v.Houses = append(v.Houses, HouseView{ID: h.ID, Name: h.Name, City: h.City, Corner: h.Corner, Capacity: h.Capacity, Stock: stock, Guard: h.Guard, Known: h.Known})
 	}
 	for _, f := range w.Fronts {
-		v.Fronts = append(v.Fronts, FrontView{ID: f.ID, Name: f.Name, Level: f.Level, Frozen: f.FrozenUntil > w.Day, Washed: f.Washed})
+		fv := FrontView{ID: f.ID, Name: f.Name, Level: f.Level, Frozen: f.Frozen(w.Day), Washed: f.Washed,
+			City: w.FrontCity(f), Bought: f.Bought, Unpaid: f.Unpaid, Audited: f.Audited}
+		if fv.Frozen {
+			fv.FrozenUntil = f.FrozenUntil
+		}
+		v.Fronts = append(v.Fronts, fv)
 	}
+	for _, a := range w.Assets {
+		av := AssetView{ID: a.ID, Name: a.Name, Effect: a.Effect, City: a.City, Cost: a.Cost, Upkeep: a.Upkeep, Bought: a.Bought}
+		if a.Frozen(w.Day) {
+			av.FrozenUntil = a.FrozenUntil
+		}
+		v.Assets = append(v.Assets, av)
+	}
+	for _, k := range w.Crew.Cooks {
+		v.Cooks = append(v.Cooks, CookView{ID: k.ID, City: k.City, Product: k.Product, Units: k.Units, Quality: k.Quality, Ordered: k.Ordered, Ready: k.Ready, Chemist: k.Chemist})
+	}
+	v.Orders = orderViews(w.Today.Orders)
+	v.Standing = orderViews(w.Standing)
+	v.Supply = s.supplyViews()
 	v.Exports = s.laneViews()
 	for _, t := range w.Trophies {
 		v.Trophies = append(v.Trophies, TrophyView{ID: t.ID, Name: t.Name, Cost: t.Cost, Bought: t.Bought})
@@ -646,11 +886,33 @@ func (s *Session) View() View {
 		}
 		for _, d := range r.Deals {
 			fv.Deals = append(fv.Deals, d.Kind)
+			fv.DealTerms = append(fv.DealTerms, DealView{Kind: d.Kind, Terms: termsView(d.Terms), Since: d.Since, Until: d.Until, Left: d.Left(w.Day), Theirs: d.Offered})
+		}
+		fv.Police, fv.LastRaid = r.Heat, r.LastRaid
+		if c := w.CityOf(r); c != nil && s.cfg.Rivals.Diplomacy.TributeDays > 0 {
+			if _, n, ok := w.Taking(c.ID); ok {
+				fv.TributeNights = n
+			}
 		}
 		v.Factions = append(v.Factions, fv)
 	}
 	v.Law = LawView{Chief: w.Law.Chief.Name, ChiefTemper: known.Chief(), DA: w.Law.DA.Name, DAStance: w.Law.DA.Stance, NextElection: s.set.Law.NextElection(w),
-		ArrestLine: s.set.Heat.EvidenceArrest(w), ExposureLine: s.set.Heat.ExposureLine(w), Cover: s.set.Heat.Cover(w)}
+		ArrestLine: s.set.Heat.EvidenceArrest(w), ExposureLine: s.set.Heat.ExposureLine(w), Cover: s.set.Heat.Cover(w),
+		Favours: w.Law.Favours, CampaignOpen: w.Law.CampaignOpen, ChiefTermEnds: s.set.Law.ChiefTermEnds(w), Leads: w.Law.Leads}
+	if w.Law.ChiefBoughtOn(w.Day) {
+		v.Law.ChiefBought = w.Law.ChiefBought
+	}
+	if w.Law.DABoughtOn(w.Day) {
+		v.Law.DABought = w.Law.DABought
+	}
+	if h := w.Heat; h.SellCapDays > 0 && h.SellCap > 0 {
+		v.Law.SellCap, v.Law.SellCapDays, v.Law.SellCapCity = h.SellCap, h.SellCapDays, h.SellCapCity
+	}
+	if p := w.Today.Proposal; p != nil {
+		v.Proposal = &ProposalView{Faction: p.With(), Kind: p.Kind, Terms: termsView(p.Terms)}
+	}
+	v.Stats = statsView(w)
+	v.Stage = s.stageView()
 	if c := w.Dilemmas.Pending; c != nil {
 		cv := &CardView{ID: c.ID, Title: c.Title, Text: c.Text}
 		chips := ChoiceChips(s.cfg, s.Rules(), w, c)
@@ -787,4 +1049,108 @@ func (s *Session) laneNeeds(l content.LaneConfig) string {
 		return a.Name
 	}
 	return ""
+}
+
+// termsView is a deal's terms as the view carries them.
+func termsView(t game.Terms) TermsView {
+	return TermsView{Days: t.Days, PerDay: t.PerDay, Corners: append([]string(nil), t.Corners...), Route: t.Route, Units: t.Units}
+}
+
+// copyInts copies a map, so the view shares none with the world.
+func copyInts(m map[string]int) map[string]int {
+	out := make(map[string]int, len(m))
+	for k, n := range m {
+		out[k] = n
+	}
+	return out
+}
+
+// orderViews is a map of sell orders as the view carries them, in key
+// order (city, then product).
+func orderViews(orders map[string]game.SellOrder) []OrderView {
+	var out []OrderView
+	for _, k := range sortedKeys(orders) {
+		o := orders[k]
+		out = append(out, OrderView{City: o.City, Product: o.Product, Qty: o.Qty, Dial: o.Dial.String(), All: o.All})
+	}
+	return out
+}
+
+// supplyViews is the supply contracts (#113), yours then the
+// lieutenants' (#174), each in key order; a lieutenant's names the one
+// running its city.
+func (s *Session) supplyViews() []SupplyContractView {
+	w := s.w
+	var out []SupplyContractView
+	for _, k := range sortedKeys(w.Supply) {
+		c := w.Supply[k]
+		out = append(out, SupplyContractView{City: c.City, Product: c.Product, Units: c.Units, Since: c.Since})
+	}
+	for _, k := range sortedKeys(w.DelegatedSupply) {
+		c := w.DelegatedSupply[k]
+		sv := SupplyContractView{City: c.City, Product: c.Product, Units: c.Units, Since: c.Since}
+		for _, m := range w.Crew.Members {
+			if m.Runs() && m.City == c.City {
+				sv.Lieutenant = m.ID
+				break
+			}
+		}
+		out = append(out, sv)
+	}
+	return out
+}
+
+// statsView is the summary's counters.
+func statsView(w *game.World) StatsView {
+	st := w.Stats
+	return StatsView{
+		Revenue: st.TotalRevenue, UnitsSold: st.UnitsSold, Laundered: st.Laundered, Seized: st.Seized,
+		Wages: st.Wages, Skimmed: st.Skimmed, Robbed: st.Robbed, Cuts: st.Cuts, Invested: st.Invested,
+		Earned: st.Earned, Taxed: st.Taxed, Reserved: st.Reserved, Fees: st.Fees, Fallen: st.Fallen,
+		CornersWon: st.CornersWon, CornersLost: st.CornersLost, Stings: st.Stings, Raids: st.Raids,
+		Betrayals: st.Betrayals, BetrayedBy: st.BetrayedBy, Defections: st.Defections, Walked: st.Walked,
+		PeakHeat: w.Heat.Peak,
+	}
+}
+
+// stageView is the stage waiting to be seen (#149), or nil.
+func (s *Session) stageView() *StageView {
+	n := s.w.StagePending()
+	if n <= 0 {
+		return nil
+	}
+	sv := &StageView{Pending: n, Next: s.StageNext(n)}
+	if tier := s.cfg.Progression.Tier(n); tier != nil {
+		sv.Name, sv.Blurb = tier.Name, tier.Blurb
+		sv.Text = append([]string(nil), tier.Text...)
+		sv.Opened = append([]string(nil), tier.Opens...)
+	}
+	return sv
+}
+
+// StageNext is the NEXT line of tier n's stage (#149): the file's line
+// on what the next stage takes, the closing line at the top of the
+// ladder, or, where the next stage's line is crossed already, that it
+// opens in the morning (#537: STAGE 2 shown on day 31 said `Move $25K:
+// the laundromat opens` of a laundromat open since day 26). The news
+// sim enters one stage a morning, the first whose trigger holds
+// (game.Eligible over its enter), so that is the check. The TUI's stage
+// modal and the view's stage read it.
+func (s *Session) StageNext(n int) string {
+	prog := s.cfg.Progression
+	tier := prog.Tier(n)
+	if tier == nil {
+		return ""
+	}
+	if n == len(prog.Tiers) && tier.Closing != "" {
+		return tier.Closing
+	}
+	next := prog.Tier(n + 1)
+	if next == nil {
+		return tier.Next
+	}
+	if _, ok := game.Eligible(s.w, content.CardConfig{Trigger: next.Enter}); ok {
+		return fmt.Sprintf("You have crossed the line to %s already: it opens in the morning.", next.Name)
+	}
+	return tier.Next
 }

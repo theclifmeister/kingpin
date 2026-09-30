@@ -17,6 +17,11 @@ func (s *Sim) ForfeitEvidence() int { return s.deed.ForfeitEvidence }
 // warns with.
 func (s *Sim) StructureEvidence() int { return s.cfg.Heat.StructureEvidence }
 
+// TipEvidence is the chance a tip on a rival corner (#70) files a page
+// on you anyway (heat.toml tip_evidence, #479): what a front end's tip
+// confirm warns of.
+func (s *Sim) TipEvidence() float64 { return s.cfg.Heat.TipEvidence }
+
 // EvidenceArrest is how thick the DA's file has to be for an indictment,
 // after a retained lawyer has had his say and for the DA in office: a
 // law-and-order DA needs fewer pages, a reformer more, a bought one

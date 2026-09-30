@@ -62,6 +62,7 @@ var ruleNames = map[string]ruleSig{
 	"Heat.StructureEvidence":       {nil, nil},
 	"Heat.TaskForceForming":        {[]string{"w"}, nil},
 	"Heat.ThresholdsIn":            {[]string{"w", "city"}, nil},
+	"Heat.TipEvidence":             {nil, nil},
 	"Laundering.AnyAuditRisk":      {[]string{"w"}, nil},
 	"Laundering.AssetOffer":        {[]string{"id"}, []string{"", ""}},
 	"Laundering.AssetOffers":       {nil, nil},
