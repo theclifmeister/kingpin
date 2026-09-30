@@ -31,7 +31,9 @@ for (let i = 0; i < 45 && !session.view.over; i++) {
   if (session.view.card) {
     assert.equal(typeof session.view.card.choices[0].label, "string");
     assert.ok(Array.isArray(session.view.card.choices[0].preview));
-    session.choose(0);
+    // The card's outcome is what the modal shows in its place (#548).
+    const answer = session.choose(0);
+    assert.ok(typeof answer.Outcome === "string" && answer.Outcome, "a card's outcome");
   }
   const v = session.view;
   const supplier = v.connects.find(
@@ -41,12 +43,18 @@ for (let i = 0; i < 45 && !session.view.over; i++) {
     const n = Math.min(10, session.maxBuy(supplier.id, "weed").max);
     if (n) {
       session.buy(supplier.id, "weed", n);
-      session.sell(v.you.city, "weed", n, "quiet");
+      // Every approach the sales dial offers reaches the engine (#548:
+      // Normal could not be picked).
+      session.sell(v.you.city, "weed", n, ["quiet", "normal", "aggressive"][i % 3]);
     }
   }
   session.endDay();
   const report = session.view.report;
   assert.ok(Array.isArray(report.sections));
+  // The MONEY section's cash line (#548): before and after are the
+  // flow's opening and closing.
+  assert.equal(report.cash_before, report.flow.opening.dirty + report.flow.opening.clean);
+  assert.equal(report.cash_after, report.flow.closing.dirty + report.flow.closing.clean);
   for (const pile of ["dirty", "clean"]) {
     assert.equal(
       report.flow.opening[pile] +
@@ -100,10 +108,21 @@ for (let i = 0; i < 45 && !session.view.over; i++) {
   assert.match(temperLine(temperOf(lt, "violent")), /^sells aggressive/, "the violent temper's line");
   assert.throws(() => session.call("assign", 999, session.view.cities[0].id), "assigning nobody is refused");
 }
+{
+  // The new-run list (#548): every character the query lists starts.
+  const chars = session.call("characters");
+  assert.equal(chars.length, 6, "six characters");
+  assert.equal(chars.filter((c) => c.default).length, 1, "one default");
+  const other = new Session(globalThis.kingpin);
+  for (const c of chars) {
+    assert.ok(c.name && c.blurb, `${c.id} has a name and a blurb`);
+    assert.equal(other.newRun(41, c.id).day, 0, `${c.id} starts`);
+  }
+}
 const restored = new Session(globalThis.kingpin);
 restored.importSave(session.exportSave());
 assert.deepEqual(restored.view, session.refresh());
 console.log(
-  `Street Edition engine integration passed at day ${session.view.day}: forecasts, dilemmas, cash flow, lanes, trophies, cash-out, the ways out, the lieutenants and save round-trip.`,
+  `Street Edition engine integration passed at day ${session.view.day}: forecasts, dilemmas and their outcomes, the three sales approaches, cash flow and the cash line, the six characters, lanes, trophies, cash-out, the ways out, the lieutenants and save round-trip.`,
 );
 process.exit(0);

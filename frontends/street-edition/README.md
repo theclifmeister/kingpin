@@ -20,7 +20,7 @@ The site that plays is `dist/`, which the build makes; `src/` alone hangs on "Op
 
 ## Play
 
-Start with $500 on seed 41. Buy stock in Market, queue sales, preview tonight and end the day. Your story offers new games, export and import. Saves stay in this browser under `kingpin-street-v1` (a save still under the old `kingpin-ink-v1` is read and moved over); exported `.gob` saves move between the browser and the other engine frontends. Loading failures retain the existing saved bytes. There are no cloud saves or multiplayer.
+Start on seed 41 as the default character; a new story picks any of the six characters the engine lists, each with its start. Buy stock in Market, queue sales, preview tonight and end the day. Your story offers new games, export and import. Saves stay in this browser under `kingpin-street-v1` (a save still under the old `kingpin-ink-v1` is read and moved over); exported `.gob` saves move between the browser and the other engine frontends. Loading failures retain the existing saved bytes. There are no cloud saves or multiplayer.
 
 ## Controls
 
@@ -28,12 +28,12 @@ Start with $500 on seed 41. Buy stock in Market, queue sales, preview tonight an
 - Market: purchases, max-buy capacity, reviewed restocking, queued sales, private buyers, routes and reviewed built-in operation presets.
 - Crew: hire/dismiss, assignments, pay policies, bonuses, veteran traits, city captains with nightly budgets, and lieutenants: a city to run, their temper once it shows, and the role's terms (cut, crew slots, tempers, the loyalty risk) where you hire and assign them (#455).
 - Empire: front roles, investment levels, upgrades, properties and assets; export lanes (what each waits on, or its capacity, order, rate abroad and loads out, and an order form) and trophies (owned, and the offers to buy with clean cash).
-- Rivals: scout, negotiate, accept/decline offers, expansion warnings and confront scouts.
-- Ledger: offshore transfers, cash out (clean back to dirty at the quoted fee), community funding, engine-calculated ambitions and the four ending actions, each closed one saying what its plan still needs.
-- Paper: engine-ordered reports, leading stories, cash-flow reconciliation and 90 report editions.
+- Rivals: scout, negotiate, accept/decline offers (each worded by who pays whom, a split with its corners), expansion warnings and confront scouts.
+- Ledger: offshore transfers, cash out (clean back to dirty at the quoted fee), community funding, engine-calculated ambitions and the four ending actions: their terms read off the rules and the plans' steps, each closed one saying what its plan still needs, each confirm in its own words.
+- Paper: engine-ordered reports, leading stories, cash-flow reconciliation with the MONEY section's itemised lines and cash before→after, and 90 report editions.
 - Persistent risk panel: heat ladder, evidence, cash exposure, tonight's count (the pile the police will count after tonight's landings and wages, before the wash) and its heat, investigation warnings and alert navigation.
 
-Dilemmas display the engine's consequence chips. The day preview is explicitly an estimate and explains what it cannot predict. It requires a separate end-day action.
+Dilemmas display the engine's consequence chips, and a choice shows what happened. The day preview is explicitly an estimate and explains what it cannot predict. It requires a separate end-day action.
 
 ## Boundaries and artwork
 

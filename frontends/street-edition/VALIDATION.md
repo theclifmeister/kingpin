@@ -1,3 +1,30 @@
+# Fixes against the TUI (#548, still protocol 24 / view 14)
+
+The builder still accepts protocol 24 and view 14; nothing on the engine moved. A review against the TUI (#455–#547) found the edition wrong in places where the data was already on the wire, and `src/app.js` now reads it:
+
+- **The sales approach.** The `#sale-dial` markup was broken (`</option value="normal">`), so Normal could not be picked and a sale went quiet. The three options are now built from one list, and the dial keeps its choice across redraws.
+- **A laid-up member.** The crew card read `m.wounded`, which `MemberView` does not carry, so the read is dropped until the view has it (#550 adds it, #551 shows it).
+- **The paper's MONEY section.** The section was filtered out. Its itemised lines (a lieutenant's cut, bail, a skim, a seizure, a cash-out fee) and `Cash $before → $after` now follow the flow table, as in the TUI's `moneyLines` (`ui/report.go`).
+- **A card's outcome.** The `choose` result's `Outcome` now replaces the card under WHAT HAPPENED (`ui/card.go`), where before a toast read "Decision made".
+- **The new-run list.** Built from the `characters` query: the six characters, each with its blurb (which names its start), the default picked. It used to hard-code two characters and "Start with $500 and a corner".
+- **The offers.** Worded by kind as `game.Deal.String` and `World.Describe` word them (#537): `tribute: you pay them $X a day`, `homage: they pay you $X a day`, `a split: N corners your side of the line (names)`, `a joint shipment of N units`, `a N-day truce`. Note that #548's own text has tribute and homage the other way round; the engine's definitions (`game/diplomacy.go`) are followed here.
+- **The ending cards.** The terms follow `ui/exit.go`'s `exitRows`, and every number is read from the engine: retire off `rules.laundering.offshore`; the crown's corners and days off the `city` plan's `share` and `streak` steps; the vanish chain's three costs off the `vanish` plan's steps; the businessman's nights off the `legit` plan's `streak`, or the fronts' income off `rules.laundering.legit_income` once the way is open. The old cards said "30 consecutive days" and "beats street revenue".
+- **The confirms.** Each way out now has its own title and words, taken from `viewExit` (#498), followed by the TUI's `Left behind:` line. All four used to share one generic sentence.
+
+Not ported, because the view does not carry the data (#550): the street window's night count (`street_window`) on the businessman card, the reign's day and the reign's income (homage and tax) on the crown's confirm, the score line and bodies, and the pending-transfer lines.
+
+Checks:
+
+- **`smoke.mjs`** (actual WASM) now also checks that each card's `choose` returns an `Outcome`, that the day's sales use quiet, normal and aggressive in turn and are accepted, that each report's `cash_before` and `cash_after` equal the flow's opening and closing, and that all six characters from `characters` have a name and a blurb and each starts a run.
+- **Headless Chromium** (Playwright 1.61, `?test=1`), no page errors:
+  - Picking Normal in the Market and selling sent `place_sell ["eastside","weed",2,"normal"]`, which the engine accepted, and the dial still read Normal after the redraw.
+  - Ending days to the first card ("A line on the map") and picking a choice replaced the card with WHAT HAPPENED and the engine's outcome.
+  - A save taken from the harness's `captained` policy (seed 1, the moves of day 48 made) was ended in the page. The paper's MONEY section read `Cece's cut of Eastside -$518` among its lines, then `Cash $513,300 → $521,857`.
+  - Every number on the four ending cards was one the engine gave (the rules, the steps' have and need, the quiet days, the fronts' income). With each button forced open, the four confirms read in their own words.
+  - The new-run dialog listed six characters, and each started as itself: the Cook with a chemist, the Bookkeeper with an accountant, the Ex-Cop with the scanner, the Dockhand in Bayport, the Heir with an enforcer.
+  - A real tribute offer (the `crewed` policy, seed 4, day 45) read `Mother offers tribute: you pay them $1,000 a day`. The same offer re-kinded in the page's view read `homage: they pay you $1,000 a day`, and as a split `a split: 2 corners your side of the line (The Docks, Rail Yard)`. No harness policy draws a homage or a split offer.
+  - At 390 px and 1280 px, the Market, Rivals, Ledger and Paper tabs and the new-run dialog had no horizontal overflow.
+
 # Engine alignment validation: protocol 24 / view 14 (#530, #532)
 
 The builder accepts protocol 24 and view 14. Protocol 24 added the event `HoldBegan` (the crown's hold begun, #530), which this edition shows through the report and the journal as it shows every event, and tuning fields on the rules the edition reads whole (`landless_burn`, `landless_floor`, `tribute_days`, `offer_quiet`); no method and no view field moved. Protocol 23 added the rule `law.odds` (the DA race's chances), which this edition does not call, and the engine now lists every danger alert before the rest, an order it shows as it comes. Protocol 22 added the `holds` query (the alert that keeps a fast-forward from starting a night), which this edition does not call; the engine's new `broke` and `war_muscle` alerts use fields alerts already had and are worded by the shared `alerts.js` the builder copies, and the flow gained a `debt` line (a connect's debt paid, apart from the purchases). Protocol 21 added `set_till`, the dirty cash the wash leaves in hand, and the rules `laundering.till` and `laundering.line`, which this edition does not call, and `place_standing` takes -1 for a standing order on the whole stash, which it does not send; the view's shape is unchanged. The engine's new `landed` alert (a route's stock with no order selling it) uses fields alerts already had (`city`, `product`, `count`) and is worded by the shared `alerts.js` the builder copies; its act is the market on the city. The new event `HandoffHeld` and the `All` fields on `SellOrder` and `StandingShort` are in the schema.
