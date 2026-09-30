@@ -173,6 +173,9 @@ function play(seed, days) {
   if (lines.some((l) => /undefined|NaN/.test(l))) problem(`lieutenant lines: ${lines}`);
   if (!lines[1].includes(`${Math.round(t.Cut * 100)}%`) || !lines[1].includes(`${t.Crew} crew slots`)) problem(`the cut line: ${lines[1]}`);
   if (tempers(t) !== "violent, greedy, careful or steady") problem(`the tempers: ${tempers(t)}`);
+  // The betrayal (#520, #551): the fifth sentence carries the terms' share and corners.
+  const betray = lines[4] || "";
+  if (!(t.BetrayShare > 0) || !betray.includes(`${Math.round(t.BetrayShare * 100)}% of your corners`) || !betray.includes(`${t.BetrayCorners} corners at least`) || !betray.includes("ends the run betrayed")) problem(`the betrayal line: ${betray}`);
   for (const tt of t.Tempers || []) if (/undefined|NaN/.test(temperLine(tt)) || !temperLine(tt).startsWith(`sells ${tt.Dial}`)) problem(`temper ${tt.Name}: ${temperLine(tt)}`);
   if (!howTheyCome(v).includes("two cities")) problem(`the hint on day 0: ${howTheyCome(v)}`);
   try {

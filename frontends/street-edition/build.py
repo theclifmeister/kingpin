@@ -52,9 +52,17 @@ def build():
         shutil.copyfile(ROOT / 'cmd/kingpin-web/web/js' / name, OUT / name)
     upgrades = tomllib.loads((ROOT / 'internal/content/upgrades.toml').read_text())
     crew = tomllib.loads((ROOT / 'internal/content/crew.toml').read_text())
+    rivals = tomllib.loads((ROOT / 'internal/content/rivals.toml').read_text())
+    heat = tomllib.loads((ROOT / 'internal/content/heat.toml').read_text())
+    # The crew's confirms (#551) read three numbers no rule serves: a
+    # blank investigation's loyalty, the enforcers a war needs, and the
+    # skill under which a runner is sloppy.
     info = {'commit': revision, 'protocol': EXPECTED_PROTOCOL, 'view': EXPECTED_VIEW,
             'frontRoles': {f['id']: f['role'] for f in upgrades['front']},
-            'traits': {k: v['says'] for k, v in crew['trait'].items()}}
+            'traits': {k: v['says'] for k, v in crew['trait'].items()},
+            'investigateLoyalty': crew['informant']['investigate_loyalty'],
+            'takenOutMuscle': rivals['endings']['taken_out_muscle'],
+            'sloppySkill': heat['heat']['sloppy_skill']}
     (OUT / 'engine-info.js').write_text('export const engineInfo = ' + json.dumps(info) + ';\n')
     subprocess.run([GO, 'build', '-buildvcs=false', '-o', str(OUT / 'assets/kingpin.wasm'), './cmd/kingpin-wasm'],
                    cwd=ROOT, env={**os.environ, 'GOOS': 'js', 'GOARCH': 'wasm'}, check=True)

@@ -1,3 +1,21 @@
+# The crew's answers (#551, still protocol 26 / view 16)
+
+The builder still accepts protocol 26 and view 16; nothing on the engine moved. The crew tab now answers as the TUI's crew screen (`ui/crew.go`, `ui/life.go`, `ui/lieutenant.go`), its words in the new pure module `src/crew.js`:
+
+- **Ask around.** A button on the tab with the price and odds (`rules.crew.investigate_cost`, `_odds`); its confirm says who asks, the odds of a name and what a blank costs. `landing.js` opens it from the `talking` alert and from `pages` an informant filed; `pages` from a tip or a retiree picks the button out.
+- **Firing.** The confirm says what it costs the rest (nothing for a named snitch), who it puts at the walk line (`fireWalkLine`, #532) and, for an enforcer in a war that leaves fewer than `taken_out_muscle`, that the run ends taken out (`fireWarLine`, #520).
+- **The member.** Tags for SNITCH (`exposed`), `laid up Nd`, `jailed Nd`, `out tomorrow` and `retiring`; the post by role (a driver's route, a lieutenant's city, an accountant's fronts, the chemist's lab, a corner, a guarded house, or idle / unposted); the lines they skim or turn under and walk at; the wage at the dial. Details adds the age and retirement, the wage at every notch, the temper and what firing does.
+- **Money.** Pay-off and bail confirms with the cost and the loyalty they buy (bail warns when the clean cash is short); the pay dial lists each notch's wages a day and says what it does.
+- **The roster.** `N of M on the payroll`, over the cap said; the crew warning (talking, a skim); a CREW summary: corners worked, idle runners, unposted enforcers, jailed, laid up, an accountant with no front, who runs each city, a lieutenant with no city, the snitch, the sloppy runners' heat (`rules.heat.sloppy_heat`).
+- **Betrayal.** The shared `lieutenants.js` `roleLines` adds the betrayal sentence (`betrayLine`), so the reference client says it too; `play.mjs` checks it carries `BetrayShare` and `BetrayCorners`.
+- **Three numbers from the TOML.** No rule serves crew.toml's `investigate_loyalty`, rivals.toml's `taken_out_muscle` or heat.toml's `sloppy_skill`, so `build.py` puts them in `engine-info.js`, as it does the traits, rather than bump the protocol.
+
+Checks:
+
+- **`smoke.mjs`** checks the confirms' words against the engine's numbers, the war line on a war order and on a war over the threshold, the tags and the laid-up post, `N of M`, every notch's wages, the landing table's new rows, and that `investigate` (once a night), `pay_off` and `fire` reach the engine.
+- **`go test ./cmd/kingpin-web`** (`play.mjs`): the betrayal line; made to fail by changing the expected words.
+- **Chromium** (Playwright, `?test=1`) on a save crafted from the harness's `boss` policy (seed 4, day 60) with the war order on Mother, one enforcer, `Heat.Leaks` 2, a runner laid up 3 days, one jailed 4 days and one named the informant: the `talking` alert opened `Investigate?` ($2,500, skill 23, ~31%, 2 loyalty) and confirming it asked (a second ask was refused); the cards read `LAID UP 3D`, `JAILED 4D` and `SNITCH`, `5 of 6 on the payroll`, and the summary; `Fire Tone?` on the last enforcer said `At war with Mother's crew, this leaves 0 of 2 enforcers: if they take your last corner, the run ends taken out.`; bail took Vee to `out tomorrow`; pay-off and the pay dial toasted in the TUI's words. At 390px no horizontal scroll. No page errors.
+
 # The alerts: dangers apart, words caught up, land where answered (#549, protocol 26 / view 16)
 
 The builder accepts protocol 26 and view 16. View 16 gives every alert `danger` and `notice` (the engine's `Alert.Danger()` and `Notice()`, always sent), the `reign` alert `slip` (the mornings a reign under the share has left) and the `scouts` alert `faction`; protocol 26 carries them in `holds` and `preview` too. No field this edition read moved. Reviewed against `src/app.js`:

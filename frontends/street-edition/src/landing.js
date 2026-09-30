@@ -29,8 +29,8 @@ const KINDS = {
 
 // landing is where the alert is answered: `tab`, the `city` to turn
 // to, `open` what to open once there (a corner's dialog, a member's,
-// Properties or the police's risk) on `id`, and `select`, the page
-// element to pick out, or "".
+// Properties, the police's risk or the investigation's confirm) on
+// `id`, and `select`, the page element to pick out, or "".
 export function landing(a) {
   const act = a.act || {};
   const out = { tab: KINDS[a.kind] || SCREENS[act.screen] || "street", city: a.city || "", open: "", id: "", select: "" };
@@ -74,6 +74,16 @@ export function landing(a) {
       break;
     case "da_race":
       out.select = "race";
+      break;
+    case "talking":
+      // Somebody talking is answered by asking around (#551): the
+      // investigation's confirm; pages with no bust by the same button,
+      // opened when the cause is an informant.
+      out.open = "investigate";
+      break;
+    case "pages":
+      if (a.level === "informant") out.open = "investigate";
+      else out.select = "investigate";
       break;
     default:
       if (post && a.corner) Object.assign(out, { tab: "street", open: "corner", id: a.corner });

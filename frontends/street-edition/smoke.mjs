@@ -109,6 +109,56 @@ for (let i = 0; i < 45 && !session.view.over; i++) {
   assert.throws(() => session.call("assign", 999, session.view.cities[0].id), "assigning nobody is refused");
 }
 {
+  // The crew's answers (#551): the confirms and the tab in the TUI's
+  // words, off the engine's numbers, and the acts they ask for.
+  const crew = await import(pathToFileURL(path.join(dist, "crew.js")));
+  const { engineInfo } = await import(pathToFileURL(path.join(dist, "engine-info.js")));
+  assert.ok(engineInfo.takenOutMuscle > 0 && engineInfo.investigateLoyalty > 0 && engineInfo.sloppySkill > 0, "the crew's numbers from the TOML");
+  const s = new Session(globalThis.kingpin);
+  let v = s.newRun(41);
+  const tun = s.call("rules.crew.tuning");
+  for (const m of [...v.pool].sort((a, b) => a.fee - b.fee)) if (m.fee <= s.refresh().you.dirty_cash) s.call("hire", m.id);
+  v = s.refresh();
+  assert.ok(v.crew.length >= 1, "somebody hired");
+  const m = v.crew[0];
+  assert.match(crew.fireCost(m, tun), new RegExp(`lose ${Math.round(tun.FireLoyalty)} loyalty`), "the fire's cost");
+  assert.match(crew.fireCost({ ...m, exposed: true }, tun), /stops growing/, "the snitch costs nothing");
+  const low = { ...v, crew: v.crew.map((o, i) => (i ? { ...o, loyalty: tun.QuitThreshold + 1 } : o)) };
+  if (v.crew.length > 1) assert.match(crew.fireWalkLine(low, low.crew[0], tun), /within .* of the walk line/, "the walk line names the near");
+  assert.equal(crew.fireWalkLine({ ...v, crew: [m] }, m, tun), "", "nobody near, no walk line");
+  // The war line: the last enforcer, a war on, the run can end taken out.
+  const need = engineInfo.takenOutMuscle,
+    enf = { id: 90, name: "Ace", role: "enforcer", loyalty: 60 },
+    war = { ...v, crew: [enf], factions: [{ id: "f1", leader: "Preacher", alive: true, war: 0 }], you: { ...v.you, war: "f1" } };
+  assert.match(crew.fireWarLine(war, enf, need, 50), /^At war with Preacher's crew, this leaves 0 of .*the run ends taken out\.$/, "the war line");
+  assert.equal(crew.fireWarLine({ ...war, you: { ...v.you, war: "" } }, enf, need, 50), "", "no war, no war line");
+  assert.match(crew.fireWarLine({ ...war, you: { ...v.you, war: "" }, factions: [{ ...war.factions[0], war: 50 }] }, enf, need, 50), /taken out/, "a war over the threshold");
+  const cost = s.call("rules.crew.investigate_cost"),
+    odds = s.call("rules.crew.investigate_odds"),
+    lines = crew.investigateLines(v, cost, odds, engineInfo.investigateLoyalty);
+  assert.ok(lines[0].includes("$" + cost.toLocaleString("en-US")) && lines[2].includes(`~${Math.round(odds * 100)}%`), "the investigation's price and odds");
+  assert.match(crew.payOffLines(m, s.call("rules.crew.payoff_cost", m.id), s.call("rules.crew.payoff_loyalty"))[0], /^\$[\d,]+ for .*: loyalty \d+ → \d+\.$/, "the pay-off line");
+  assert.equal(crew.crewTag(v, { wounded: 3 }), "laid up 3d", "laid up with the days");
+  assert.equal(crew.crewTag({ day: 10 }, { jailed: true, jailed_until: 14 }), "jailed 4d", "jailed with the days");
+  assert.equal(crew.crewTag(v, { jailed: true, bailed: true }), "out tomorrow", "bailed");
+  assert.deepEqual(crew.post(v, { ...m, wounded: 2 }), { text: "laid up 2d", warn: true }, "a laid-up member's post");
+  assert.match(crew.countLine(v, s.call("rules.crew.max_crew")), /^\d+ of \d+ on the payroll$/, "N of M");
+  for (const p of crew.PAY) assert.ok(s.call("rules.crew.wages", p) >= 0 && crew.payBlurb(p), `the ${p} notch`);
+  assert.ok(crew.summary(v, 0, engineInfo.sloppySkill)[0][1].endsWith("worked"), "the summary");
+  // The acts the confirms ask for reach the engine: each at its quoted
+  // price, or refused for the cash.
+  const dirty = () => s.refresh().you.dirty_cash;
+  if (cost <= dirty()) {
+    s.call("investigate");
+    assert.throws(() => s.call("investigate"), "asking twice is refused");
+  } else assert.throws(() => s.call("investigate"), /need/, "an investigation past the cash is refused");
+  if (s.call("rules.crew.payoff_cost", m.id) <= dirty()) assert.equal(s.call("pay_off", m.id).Name, m.name, "the pay-off answers with the member");
+  else assert.throws(() => s.call("pay_off", m.id), /need/, "a pay-off past the cash is refused");
+  s.call("fire", m.id);
+  assert.ok(!s.refresh().crew.some((x) => x.id === m.id), "fired");
+  assert.throws(() => s.call("bail", v.crew[1]?.id ?? 999), "bail of somebody not in a cell is refused");
+}
+{
   // The new-run list (#548): every character the query lists starts.
   const chars = session.call("characters");
   assert.equal(chars.length, 6, "six characters");
@@ -130,8 +180,9 @@ for (let i = 0; i < 45 && !session.view.over; i++) {
   const LANDS = [
     [{ kind: "arrest", act: act("dashboard") }, "street", "", "", "risk"],
     [{ kind: "broke", act: act("market") }, "market", "", "", ""],
-    [{ kind: "talking", act: act("crew") }, "crew", "", "", ""],
-    [{ kind: "pages", act: act("crew") }, "crew", "", "", ""],
+    [{ kind: "talking", act: act("crew") }, "crew", "investigate", "", ""],
+    [{ kind: "pages", level: "informant", act: act("crew") }, "crew", "investigate", "", ""],
+    [{ kind: "pages", level: "tip", act: act("crew") }, "crew", "", "", "investigate"],
     [{ kind: "task_force", act: act("dashboard") }, "street", "", "", "risk"],
     [{ kind: "file", act: act("dashboard") }, "street", "", "", "risk"],
     [{ kind: "investigation", target: "corner", corner: "k1", act: act("map", "corner") }, "street", "corner", "k1", ""],
@@ -197,6 +248,6 @@ const restored = new Session(globalThis.kingpin);
 restored.importSave(session.exportSave());
 assert.deepEqual(restored.view, session.refresh());
 console.log(
-  `Street Edition engine integration passed at day ${session.view.day}: forecasts, dilemmas and their outcomes, the three sales approaches, cash flow and the cash line, the six characters, lanes, trophies, cash-out, the ways out, the lieutenants, where every alert lands and save round-trip.`,
+  `Street Edition engine integration passed at day ${session.view.day}: forecasts, dilemmas and their outcomes, the three sales approaches, cash flow and the cash line, the six characters, lanes, trophies, cash-out, the ways out, the lieutenants, the crew's answers, where every alert lands and save round-trip.`,
 );
 process.exit(0);
