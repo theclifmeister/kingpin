@@ -214,14 +214,14 @@ for (let i = 0; i < 45 && !session.view.over; i++) {
     [{ kind: "exports", act: act("ledger") }, "empire", "", "", ""],
     [{ kind: "house_known", house: "h1", act: act("ledger", "house") }, "empire", "properties", "h1", ""],
     [{ kind: "da_race", city: "eastside", act: act("ledger", "city") }, "ledger", "", "", "race"],
-    [{ kind: "retire", act: act("ledger") }, "ledger", "", "", ""],
-    [{ kind: "retire", ready: true, act: act("dashboard") }, "ledger", "", "", ""],
+    [{ kind: "retire", act: act("ledger") }, "ledger", "", "", "exit-retire"],
+    [{ kind: "retire", ready: true, act: act("dashboard") }, "ledger", "", "", "exit-retire"],
     [{ kind: "favour", act: act("ledger") }, "ledger", "favour", "", "law"],
-    [{ kind: "reign", act: act("dashboard") }, "ledger", "", "", ""],
-    [{ kind: "straight", act: act("dashboard") }, "ledger", "", "", ""],
-    [{ kind: "vanish", act: act("dashboard") }, "ledger", "", "", ""],
+    [{ kind: "reign", act: act("dashboard") }, "ledger", "", "", "exit-crown"],
+    [{ kind: "straight", act: act("dashboard") }, "ledger", "", "", "exit-go_straight"],
+    [{ kind: "vanish", act: act("dashboard") }, "ledger", "", "", "exit-vanish"],
     [{ kind: "exposure", act: act("ledger") }, "empire", "", "", ""],
-    [{ kind: "plan", act: act("dashboard") }, "ledger", "", "", ""],
+    [{ kind: "plan", act: act("dashboard") }, "ledger", "", "", "plan-line"],
   ];
   for (const kind of Object.keys(WORDS))
     assert.ok(LANDS.some(([a]) => a.kind === kind), `${kind} has a row in the landing table`);
@@ -462,10 +462,130 @@ for (let i = 0; i < 45 && !session.view.over; i++) {
     assert.throws(() => q("pay_cop", 1000), "one cop a day");
   }
 }
+{
+  // The endings, the crown and the rivals' table (#554): endings.js and
+  // rivals.js on the live run and on made-up views, and the acts the
+  // table sends.
+  const endings = await import(pathToFileURL(path.join(dist, "endings.js")));
+  const table = await import(pathToFileURL(path.join(dist, "rivals.js")));
+  const { engineInfo } = await import(pathToFileURL(path.join(dist, "engine-info.js")));
+  const q = (m, ...p) => session.call(m, ...p);
+  const clean = (s, what) => assert.doesNotMatch(String(s), /undefined|NaN|\[object/, what);
+  // An enforcer on the payroll, so the war can be declared.
+  const hand = session.refresh().pool.find((m) => m.role === "enforcer");
+  if (hand && !session.view.crew.some((m) => m.role === "enforcer")) q("hire", hand.id);
+  const v = session.refresh();
+  assert.ok(engineInfo.streetWindow >= 0 && engineInfo.kingpinShare > 0 && engineInfo.warForce, "the walk away's and the war's terms from the TOML");
+  // Every way out says what it scores, the same for all four (#478).
+  const rows = endings.exitRows(v, q, engineInfo);
+  assert.deepEqual(rows.map((r) => r.action), ["retire", "vanish", "crown", "go_straight"]);
+  assert.equal(rows[0].open, !!q("rules.laundering.can_retire") && !v.you.pages_due && !v.you.pages_pending, "retire open as the rule says");
+  for (const r of rows) {
+    clean(r.terms, r.action + "'s terms");
+    if (!r.open) assert.ok(r.short, r.action + " says what is short"), clean(r.short, r.action + "'s short");
+  }
+  assert.ok(endings.scoreRow(v).endsWith("$" + v.you.score.toLocaleString("en-US")), "the score row is the engine's");
+  const bloody = { ...v, you: { ...v.you, offshore: 600_000, score: 200_000, bodies: 2 } };
+  assert.equal(endings.scoreRow(bloody), "the account over 1 + 2 bodies: $200,000");
+  assert.equal(endings.scoreLine(bloody), "Score $200,000: $600,000 over 1 + 2 bodies.");
+  assert.equal(endings.scoreWords(bloody), "the offshore account $600,000 ÷ (1 + 2 bodies)");
+  for (const a of ["retire", "crown", "go_straight", "vanish"]) {
+    const lines = endings.exitConfirm(v, q, a);
+    for (const [t] of lines) clean(t, a + "'s confirm");
+    assert.ok(lines.some(([t, k]) => k === "gold" && t.startsWith(`Score $${v.you.score.toLocaleString("en-US")}:`)), a + "'s confirm scores");
+  }
+  // The pages close every way out (#494, #525), and the pending lines say why.
+  const owed = { ...v, you: { ...v.you, pages_due: 2, reserved_today: 50_000, upgrades: [...v.you.upgrades, "identity"] } };
+  assert.ok(endings.exitRows(owed, q, engineInfo).every((r) => !r.open), "the pages close every way out");
+  assert.match(endings.exitRows(owed, q, engineInfo)[1].short, /^2 pages from last night's transfer go in the DA's file tonight/);
+  assert.deepEqual(endings.pendingLines(owed).map(([, k]) => k), ["danger", "warn"]);
+  assert.match(endings.pendingLines(owed)[1][0], /^\$50,000 lands offshore tonight/);
+  assert.match(endings.streetWords(engineInfo), /^the street's average night over the (last \d+|run)$/);
+  // The crown: each faction off the count with why, the last clock.
+  clean(endings.crownShort(v, q), "the crown's short");
+  clean(endings.reignIncome(v, q), "the reign's income");
+  const down = endings.downRows(v, q);
+  for (const f of v.factions) {
+    const words = endings.downWords(v, q, f);
+    assert.equal(!words, !!q("rules.rivals.down", f.id).Counts, f.id + " is off the count with a reason, or counts");
+    clean(words, f.id + "'s down words");
+  }
+  assert.equal(down.length, v.factions.filter((f) => !q("rules.rivals.down", f.id).Counts).length);
+  clean(endings.lastClockWords(v, q), "the last clock");
+  assert.equal(endings.crownShort({ ...v, you: { ...v.you, reign: 3, reign_slip: 1 } }, q), "the city is slipping under the share: hold more corners");
+  assert.equal(endings.reignDay({ ...v, you: { ...v.you, reign: v.day - 4 } }), 5);
+  // The plans by unit, the PLAN line and what reset the quiet.
+  assert.equal(endings.stepWords({ unit: "reign", have: 5, need: 14 }), "day 5 of the reign");
+  assert.equal(endings.stepWords({ unit: "days", have: 3, need: 14 }), "3 of 14 days");
+  assert.equal(endings.stepWords({ unit: "cash", have: 412000, need: 750000 }), "$412,000 of $750,000");
+  assert.equal(endings.stepPart({ label: "quiet days", unit: "days", have: 14, need: 14 }), "quiet days 14/14");
+  for (const a of v.ambitions) for (const st of a.steps) clean(endings.stepWords(st), `${a.id}'s ${st.id}`);
+  const retire = v.ambitions.find((a) => a.id === "retire"),
+    pinned = { ...v, ambitions: v.ambitions.map((a) => ({ ...a, pinned: a.id === "retire", done: false, steps: a.steps.map((st) => ({ ...st, done: false })) })) },
+    ev = { Day: 41, Cause: "police", City: v.cities[0].id, Level: "sting" };
+  assert.equal(endings.planLine(v, null), v.ambitions.some((a) => a.pinned) ? endings.planLine(v, null) : "", "no plan, no line");
+  if (retire) {
+    const line = endings.planLine(pinned, ev);
+    assert.ok(line.startsWith(retire.name + " "), "the PLAN line names the plan");
+    assert.ok(line.includes(`the quiet days reset by a sting in ${v.cities[0].name} on day 41`), "the quiet reset: " + line);
+    clean(line, "the PLAN line");
+  }
+  assert.equal(endings.quietCause(v, { Day: 9, Cause: "police", Level: "taskforce" }), "a task force on day 9");
+  // The summary: the facts, the fallen, the betrayals.
+  const over = {
+    ...v,
+    over: { day: v.day, cause: "kingpin", title: "Kingpin", won: true, epilogue: "x", story: [], reached: 30 },
+    you: { ...v.you, reign: 30, bodies: 2 },
+    stats: { ...v.stats, fallen: 1, betrayed_by: 1, crew_poached: 2 },
+    fallen: [{ name: "Ziggy", role: "runner", day: 3 }],
+  };
+  assert.equal(endings.reachedLine(over), "Kingpin on day 30");
+  const facts = endings.summarySections(over).flatMap((sec) => sec.rows);
+  assert.ok(facts.some(([k, t]) => k === "fallen" && t === "Ziggy (runner · day 3)"), "the fallen");
+  assert.ok(facts.some(([k, t]) => k === "bodies" && t === "2, 1 of them yours"), "the bodies");
+  assert.ok(facts.some(([k, t]) => k === "betrayals" && t === "2 members poached · 1 deal broken by them"), "the betrayals");
+  for (const [, t] of facts) clean(t, "a summary fact");
+  // The table: the standard asks with the dice's odds, the war's
+  // confirm, declare and call off, a proposal and its withdrawal.
+  for (const f of v.factions) {
+    clean(table.factionLine(v, q, f), f.id + "'s line");
+    clean(table.moodLine(v, q, f)[0], f.id + "'s mood");
+    for (const d of table.dealRows(v, f)) clean(d.terms, f.id + "'s deal");
+    if (!f.alive) continue;
+    const dip = q("rules.rivals.diplomacy");
+    for (const kind of ["truce", "tribute", "split"]) {
+      const asks = table.termRows(v, q, f, kind);
+      assert.equal(asks.length, kind === "split" ? f.split_lines.length : kind === "truce" ? dip.TruceDays.length : dip.TributeCuts.length, `${f.id}'s ${kind} asks`);
+      for (const r of asks) assert.ok(r.odds >= 0 && r.odds <= 1, `${kind} odds`), clean(r.label + r.words, `${kind} ask`);
+    }
+    clean(table.tributeBasis(v, q, f), "the tribute basis");
+    const truce = table.termRows(v, q, f, "truce")[1].deal;
+    if (!table.liveDeal(v, f, "truce") && !table.distrusted(v, q, f)) {
+      q("propose_to", f.id, truce.kind, truce.terms);
+      const pv = session.refresh();
+      assert.equal(pv.proposal?.faction, f.id, "the proposal is on the table");
+      clean(table.proposalLine(pv, q), "tonight's proposal");
+      q("withdraw");
+      assert.ok(!session.refresh().proposal, "withdrawn");
+    }
+    const why = table.warRefusal(v, f);
+    if (!why && !v.over) {
+      const lines = table.warConfirm(v, q, engineInfo, f);
+      assert.match(lines[0][0], new RegExp(`${engineInfo.warForce} ${f.leader}'s crew's nearest corner: .+ tonight, odds (~\\d|\\?)`), "the confirm names the target and the odds");
+      for (const [t] of lines) clean(t, "the war's confirm");
+      q("declare_war", f.id);
+      assert.equal(session.refresh().you.war, f.id, "war declared");
+      q("call_off_war");
+      assert.ok(!session.refresh().you.war, "war called off");
+    } else clean(why, "the war's refusal");
+  }
+  assert.match(table.warRefusal({ ...v, you: { ...v.you, war: v.factions[0].id } }, v.factions[0]), /^Can't declare war on .+: one war at a time/);
+  for (const [, t] of table.lifetimeRows(v)) clean(t, "a lifetime row");
+}
 const restored = new Session(globalThis.kingpin);
 restored.importSave(session.exportSave());
 assert.deepEqual(restored.view, session.refresh());
 console.log(
-  `Street Edition engine integration passed at day ${session.view.day}: forecasts, dilemmas and their outcomes, the three sales approaches, cash flow and the cash line, the six characters, lanes, trophies, cash-out, the ways out, the lieutenants, the crew's answers, where every alert lands, the till, the wash and the road, a Cook's batch and cut, the law and its answers, and save round-trip.`,
+  `Street Edition engine integration passed at day ${session.view.day}: forecasts, dilemmas and their outcomes, the three sales approaches, cash flow and the cash line, the six characters, lanes, trophies, cash-out, the ways out, the lieutenants, the crew's answers, where every alert lands, the till, the wash and the road, a Cook's batch and cut, the law and its answers, the endings, the crown and the rivals' table, and save round-trip.`,
 );
 process.exit(0);

@@ -75,6 +75,8 @@ var unserved = map[string]string{
 	"Plan":          "the view carries it, view.you.ambition and view.ambitions",
 	"AmbitionTerms": "the owners' thresholds the view's ambitions are read against",
 	"PagesDue":      "the walk away's refusal names the pages (game.ErrPagesDue, #494); the report's reserve line warned of them the morning before",
+	"Epilogue":      "the view carries it, view.over.epilogue (#554)",
+	"Story":         "the view carries it, view.over.story (#554)",
 	"PagesPending":  "the walk away's refusal names them too (game.ErrPagesDue, #525): today's transfer's pages, filed tomorrow night",
 }
 
